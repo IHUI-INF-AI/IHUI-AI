@@ -32,6 +32,12 @@
  * 不压低。`--source` 已显式指到别的面 ⇒ 不重复问远端;`--check` 不发号 ⇒ 不问远端,其 stdout
  * 与退出码契约逐字不变。
  *
+ * 第四条(2026-10-14,池式硬上限):建议号不再 = max+1,而是**池内最小空闲号** ——
+ * 每族号池 = 1..999(三位数拍板),池内占用 = 条目标题号 ∪ 登记行号 ∪ 远端避让段;
+ * "最小空闲"这一把尺只住在 `scripts/lib/plan-id-lease.mjs`(与第一发号出口共用,不抄第二份)。
+ * 池满 ⇒ **拒绝发号**(exit 1)—— 绝不发 1000+;>999 的归档大号不占池(存量债不挡新号)。
+ * `--check` 的重号对账与退出码逐字不变。
+ *
  * 用法:
  *   node scripts/next-plan-id.mjs                # 打印下一个可用号 + 现有号分布
  *   node scripts/next-plan-id.mjs --next-only     # 只打印一个号(供脚本串用)
@@ -50,6 +56,8 @@ import { collectIdFace } from './lib/plan-id-face.mjs'
 // 远端那一维与 live-doc-edit.mjs(第一发号出口)**同一把尺**:transport(含有界自补救 fetch)、
 // 基准读取与硬闸门都只住在那一份实现里 —— 这里只做出口接线,不抄任何判据。
 import { readRemoteIdBasis, idBasisGate } from './live-doc-edit.mjs'
+// 池式取号(2026-10-14):"池内最小空闲"的尺与 live-doc-edit 同住 lib/plan-id-lease.mjs 一份。
+import { smallestFreeId, poolFreeList, poolBlocked, LEASE_POOL_MAX } from './lib/plan-id-lease.mjs'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const PLAN_PATH = 'PROJECT_PLAN.md'
@@ -150,18 +158,32 @@ if (!flags.has('--check') && SOURCE === 'HEAD') {
   }
 }
 const remoteWide = Number.isFinite(remote?.max?.[FAMILY]) ? remote.max[FAMILY] : null
-const next = Math.max(maxWide, remoteWide ?? Number.NEGATIVE_INFINITY) + 1
-const used = new Set(nums)
-const gaps = []
-for (let k = 1; k < next; k += 1) if (!used.has(k)) gaps.push(`O${k}`)
+// ── 池式取号(2026-10-14):建议号 = 池内最小空闲;池满 ⇒ 拒绝发号,绝不给 1000+ ──────────
+// 池内占用 = 条目标题号 ∪ 登记行号(两口径并);>999 的归档大号不占池(存量债不挡新号)。
+// "最小空闲"的尺只有 lib/plan-id-lease.mjs 那一份(与第一发号出口共用)。
+const rowNums = (rowUsedWide?.ids ?? [])
+  .map((l) => Number(/(\d+)$/.exec(String(l))?.[1] ?? Number.NaN))
+  .filter(Number.isFinite)
+const poolUsed = [...new Set([...nums, ...rowNums])]
+const { lowMax: poolLowMax } = poolBlocked({ usedNumbers: poolUsed, baseMax: remoteWide })
+const next = smallestFreeId({ usedNumbers: poolUsed, baseMax: remoteWide })
+if (next === null) {
+  console.error(
+    `❌ ${FAMILY} 族号池 1..${LEASE_POOL_MAX} 已满(池式硬上限,2026-10-14 立)⇒ 拒绝发号。` +
+      `出路:先归档已完成条目腾号(号随归档自动回收),或经人拍板扩池;绝不发 1000+。`,
+  )
+  process.exit(1)
+}
+const freeList = poolFreeList({ usedNumbers: poolUsed, baseMax: remoteWide })
 
 // 两面(标题口径 + 登记行口径)与两文件(台账 + 归档件)都读不到任何 O 记录 ⇒ maxWide = -Infinity。
-// 这是**改动前就有的**算术(Math.max(...[]) = -Infinity),本器刻意不改退出码与 stdout 契约,
-// 但必须喊出来:"O-Infinity"被当成一个号登记进台账,比停在这里难查得多。
+// 池式下这不影响发号(真空池 ⇒ 从 O1 起),但必须喊出来:整族在用却"面全空"通常意味着
+// 族名写错或面读窄了 —— 把可疑当正常,比停在这里难查得多。
 if (!Number.isFinite(maxWide))
   console.error(
     `⚠️ ${SOURCE} 的占用面(台账 ⊕ ${face.archiveFiles.length} 份归档件)里一条 O 记录都没有 ⇒ ` +
-      `下面给的不是可用号,请人工确认这个族是否已被整族归档(是 ⇒ 先补面,不要按它登记)。`,
+      `池式口径将按真空池从 O1 起发;若该族实际在用,先查这份面为什么是空的(整族归档/族名写错),` +
+      `不要按它登记。`,
   )
 
 if (flags.has('--next-only')) {
@@ -174,7 +196,10 @@ console.log(
   `权威口径 = git show ${SOURCE}:${PLAN_PATH} ⊕ ${face.archiveFiles.length} 份归档件(台账条目标题 ${seen.length} 行 / 去重 ${count.size} 个号)`,
 )
 console.log(
-  `已占用的最大号 = ${fmt(maxWide)}   下一个号 = O${next}`,
+  `已占用的最大号 = ${fmt(maxWide)}   下一个号 = O${next}(池内最小空闲)`,
+)
+console.log(
+  `  取号口径:池式 1..${LEASE_POOL_MAX}(2026-10-14 硬上限)⇒ 池内空闲 ${freeList.length} 号,池满 ⇒ 拒绝发号(绝不发 1000+;>999 的归档大号不占池)`,
 )
 console.log(
   `  两面对账:仅台账 max=${fmt(maxLedger)} / 台账⊕归档件 max=${fmt(maxWide)} ⇒ 差 ${Number.isFinite(maxWide) && Number.isFinite(maxLedger) ? maxWide - maxLedger : '?'} 档(只看台账会少让这么多)`,
@@ -183,12 +208,17 @@ if (remote) {
   const rel =
     remoteWide === null
       ? '远端未参与(原因见上方 stderr)⇒ 未与远端对齐'
-      : remoteWide > maxWide
-        ? `⇒ 取较大,新号跳过远端那段(远端只抬高、不压低)`
-        : '⇒ 与本地宽面同值'
+      : remoteWide > LEASE_POOL_MAX
+        ? `⇒ 池外大号(>999),池式取号不参考(硬上限 ${LEASE_POOL_MAX})`
+        : remoteWide > poolLowMax
+          ? `⇒ 池内避让远端已占号(${poolLowMax + 1}..${remoteWide} 不发)`
+          : '⇒ 与本地池内占用同值'
   console.log(`  号段基准(含远端):${remote.remote} ${remote.ref} 该族 max=${remoteWide === null ? '未判到' : fmt(remoteWide)} ${rel}`)
 }
-if (gaps.length) console.log(`(空洞 ${gaps.length} 个,不回收,只如实报:${gaps.slice(0, 12).join(', ')}${gaps.length > 12 ? ' …' : ''})`)
+if (freeList.length)
+  console.log(
+    `(池内空闲 ${freeList.length} 个,如实报:${freeList.slice(0, 12).map((n) => `O${n}`).join(', ')}${freeList.length > 12 ? ' …' : ''})`,
+  )
 const addenda = dups.filter(([id]) => text.includes(`${id} 追加`))
 const real = dups.filter(([id]) => !text.includes(`${id} 追加`))
 if (addenda.length) {

@@ -7499,7 +7499,7 @@
         },
         "discount": {
           "active": "Off-peak discount in progress",
-          "upcoming": "Off-peak discount starts in {{time}}"
+          "upcoming": "Off-peak discount starts in {time}"
         },
         "duration": {
           "hour": "h",
@@ -10042,7 +10042,7 @@
     }
   },
   "bestOfCompare": {
-    "empty": "No Best-of-N runs yet. Type /bestof <task> [#N] to start",
+    "empty": "No Best-of-N runs yet. Type /bestof '<task>' [#N] to start",
     "meta": "Best-of-N (N={n}, {evaluator}, total cost ${cost})",
     "evaluatorFallback": "fallback evaluator",
     "diffToggle": "Diff",
@@ -10064,7 +10064,7 @@
     "expand": "Expand",
     "achievedInTime": "Goal achieved in {totalTime}",
     "empty": "No conversation goal set yet",
-    "emptyHint": "Type /goal <goal> in the input box, or let the AI drive it",
+    "emptyHint": "Type /goal '<goal>' in the input box, or let the AI drive it",
     "progress": "Progress",
     "statusActive": "Active",
     "statusPaused": "Paused",
@@ -10656,12 +10656,12 @@
     "issueUnbindFailed": "Failed to unbind issue",
     "selectionAnnotations": {
       "hoverHint": "Hover to view annotations",
-      "selectedText": "{{index}}. Selected text",
+      "selectedText": "{index}. Selected text",
       "noComment": "No comment yet",
       "commentPlaceholder": "Add an optional comment…",
       "commentAriaLabel": "Selection annotation comment",
       "addComment": "Add comment",
-      "removeOne": "Remove annotation {{index}}",
+      "removeOne": "Remove annotation {index}",
       "removeAll": "Remove all selection annotations",
       "add": "Annotate"
     },
@@ -11321,14 +11321,14 @@
     "goalSet": "Goal set",
     "goalDone": "Goal marked as done",
     "goalCleared": "Goal cleared",
-    "goalNone": "No goal set yet. Usage: /goal <goal>",
+    "goalNone": "No goal set yet. Usage: /goal '<goal>'",
     "goalCurrent": "Current goal: {goal} ({progress}%)",
-    "btwUsage": "Temporary side chat, not written to the main history. Usage: /btw <question>",
+    "btwUsage": "Temporary side chat, not written to the main history. Usage: /btw '<question>'",
     "btwBadge": "Side chat",
     "btwNoAnswer": "(no answer content)",
     "btwNotSaved": "Side chat answers are excluded from the main history",
     "btwFailed": "Side chat failed: {error}",
-    "sideUsage": "Quick side question, not written to the main history. Usage: /side <question>",
+    "sideUsage": "Quick side question, not written to the main history. Usage: /side '<question>'",
     "sideBadge": "Side Q&A",
     "sideEnqueued": "AI is generating; your side question is queued and will be answered when the current reply finishes",
     "sideNoConversation": "Conversation not persisted yet; cannot queue a side question. Send a message first",
@@ -11520,10 +11520,10 @@
       "summary": "Summarize current conversation",
       "translate": "Translate selected text",
       "wechat-article": "Write WeChat article",
-      "bestof": "Run N parallel copies of the same task, LLM judge picks the best (/bestof <task> #N, N=1-5, default 3)",
+      "bestof": "Run N parallel copies of the same task, LLM judge picks the best (/bestof '<task>' #N, N=1-5, default 3)",
       "commit": "AI-generated commit message with automatic git add+commit (Smart Commit, usage: /commit [hint])",
       "commitArgTitle": "Extra hint (optional)",
-      "side": "Quick side question, not written to the main history; auto-queued while generating, answered when the reply finishes (usage: /side <question>)"
+      "side": "Quick side question, not written to the main history; auto-queued while generating, answered when the reply finishes (usage: /side '<question>')"
     },
     "slashCommand": "Invoke command/skill (/)",
     "stepAnswer": "Answer",
@@ -11693,7 +11693,7 @@
       "errorNode": "Failed message"
     },
     "sampling": {
-      "clearParam": "Reset {{name}}",
+      "clearParam": "Reset {name}",
       "useModelDefault": "Use model default",
       "title": "Sampling parameters",
       "desc": "Adjust temperature, top_p and other inference parameters. Applies to the current conversation only.",
@@ -11715,7 +11715,7 @@
       "systemPromptHint": "Applies to this session only; not saved as default.",
       "resetAll": "Reset all",
       "done": "Done",
-      "triggerActive": "Sampling · {{count}} overrides",
+      "triggerActive": "Sampling · {count} overrides",
       "trigger": "Sampling parameters",
       "triggerAria": "Open sampling parameters",
       "personalityCustom": "Custom"
@@ -12070,151 +12070,273 @@
       "slashDiff": {
         "label": "Session changes",
         "description": "Review files the AI changed in this conversation",
-        "keywords": ["diff", "changes", "review"]
+        "keywords": [
+          "diff",
+          "changes",
+          "review"
+        ]
       },
       "slashStatus": {
         "label": "Session status",
         "description": "Show model, context usage, permission mode and spend",
-        "keywords": ["status", "context", "usage"]
+        "keywords": [
+          "status",
+          "context",
+          "usage"
+        ]
       },
       "slashModel": {
         "label": "Switch model",
         "description": "Open the model selector",
-        "keywords": ["model", "switch"]
+        "keywords": [
+          "model",
+          "switch"
+        ]
       },
       "slashMcp": {
         "label": "MCP marketplace",
         "description": "Open the MCP server marketplace",
-        "keywords": ["mcp", "marketplace"]
+        "keywords": [
+          "mcp",
+          "marketplace"
+        ]
       },
       "slashCompact": {
         "label": "Compact context",
         "description": "Compact this conversation's history to free context window",
-        "keywords": ["compact", "context"]
+        "keywords": [
+          "compact",
+          "context"
+        ]
       },
       "steerPrompt": {
         "label": "Steer prompt",
         "description": "Inject the current input as guidance into the running answer",
-        "keywords": ["steer", "guide", "redirect"]
+        "keywords": [
+          "steer",
+          "guide",
+          "redirect"
+        ]
       },
       "queuePrompt": {
         "label": "Queue prompt",
         "description": "Queue the current input; it sends automatically after the current answer finishes",
-        "keywords": ["queue", "pending", "send later"]
+        "keywords": [
+          "queue",
+          "pending",
+          "send later"
+        ]
       },
       "agent": {
         "description": "Manage and dispatch AI agents",
-        "keywords": ["agent", "bot", "dispatch"],
+        "keywords": [
+          "agent",
+          "bot",
+          "dispatch"
+        ],
         "label": "AI Agents"
       },
       "browser": {
         "description": "Browse the web inside the workspace",
-        "keywords": ["browser", "web", "preview"],
+        "keywords": [
+          "browser",
+          "web",
+          "preview"
+        ],
         "label": "Built-in Browser"
       },
       "capabilityMarket": {
         "description": "Discover and install capability packs",
-        "keywords": ["capability", "market", "pack", "install"],
+        "keywords": [
+          "capability",
+          "market",
+          "pack",
+          "install"
+        ],
         "label": "Capability Market"
       },
       "codeChanges": {
         "description": "Review workspace code changes",
-        "keywords": ["changes", "diff", "git", "code"],
+        "keywords": [
+          "changes",
+          "diff",
+          "git",
+          "code"
+        ],
         "label": "Code Changes"
       },
       "connectors": {
         "description": "Manage external service connections",
-        "keywords": ["connector", "integration", "service"],
+        "keywords": [
+          "connector",
+          "integration",
+          "service"
+        ],
         "label": "Connectors"
       },
       "document": {
         "description": "Edit workspace documents",
-        "keywords": ["document", "docs", "edit"],
+        "keywords": [
+          "document",
+          "docs",
+          "edit"
+        ],
         "label": "Documents"
       },
       "editor": {
         "description": "Open the code editor",
-        "keywords": ["editor", "code", "monaco"],
+        "keywords": [
+          "editor",
+          "code",
+          "monaco"
+        ],
         "label": "Editor"
       },
       "mcp": {
         "description": "Manage MCP servers and tools",
-        "keywords": ["mcp", "server", "tools"],
+        "keywords": [
+          "mcp",
+          "server",
+          "tools"
+        ],
         "label": "MCP Manager"
       },
       "mcpStore": {
         "description": "Browse and install MCP services",
-        "keywords": ["mcp", "store", "market", "install"],
+        "keywords": [
+          "mcp",
+          "store",
+          "market",
+          "install"
+        ],
         "label": "MCP Store"
       },
       "modeAsk": {
         "description": "Switch to Ask mode with tools disabled",
-        "keywords": ["ask", "question", "mode"],
+        "keywords": [
+          "ask",
+          "question",
+          "mode"
+        ],
         "label": "Ask mode"
       },
       "modeBuild": {
         "description": "Let the AI build and modify directly",
-        "keywords": ["build", "mode", "generate"],
+        "keywords": [
+          "build",
+          "mode",
+          "generate"
+        ],
         "label": "Build Mode"
       },
       "modePlan": {
         "description": "Plan first, then execute",
-        "keywords": ["plan", "mode", "todo"],
+        "keywords": [
+          "plan",
+          "mode",
+          "todo"
+        ],
         "label": "Plan Mode"
       },
       "modeReview": {
         "description": "Review and assess existing code",
-        "keywords": ["review", "mode", "audit"],
+        "keywords": [
+          "review",
+          "mode",
+          "audit"
+        ],
         "label": "Review Mode"
       },
       "modeSpec": {
         "description": "Generate implementations from specs",
-        "keywords": ["spec", "mode", "generate"],
+        "keywords": [
+          "spec",
+          "mode",
+          "generate"
+        ],
         "label": "Spec Mode"
       },
       "skill": {
         "description": "Manage and invoke AI skills",
-        "keywords": ["skill", "ability", "plugin"],
+        "keywords": [
+          "skill",
+          "ability",
+          "plugin"
+        ],
         "label": "Skills"
       },
       "terminal": {
         "description": "Open the integrated terminal",
-        "keywords": ["terminal", "shell", "console"],
+        "keywords": [
+          "terminal",
+          "shell",
+          "console"
+        ],
         "label": "Terminal"
       },
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ],
         "label": "Settings"
       },
       "skillsMarket": {
         "description": "Browse and install self-evolving skills",
-        "keywords": ["skill", "market", "plugin"],
+        "keywords": [
+          "skill",
+          "market",
+          "plugin"
+        ],
         "label": "Skill Market"
       }
     },
@@ -13246,8 +13368,8 @@
     "cardDesc": "Model prices & billing rules",
     "cardLabel": "API Pricing",
     "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '''{'\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      '{' \"role\": \"user\", \"content\": \"Hello, please introduce yourself\" '}'\n    ],\n    \"temperature\": 0.7\n  '}'''",
-    "codeNode": "import OpenAI from 'openai'\n\nconst client = new OpenAI({\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: 'https://api.ihui-ai.com/v1',\n})\n\nconst completion = await client.chat.completions.create({\n  model: 'gpt-4o',\n  messages: [\n    { role: 'user', content: 'Hello, please introduce yourself' },\n  ],\n  temperature: 0.7,\n})\n\nconsole.log(completion.choices[0].message.content)\n\n// Track cost\nconst usage = completion.usage\nconsole.log(`Used ${usage.total_tokens} tokens`)",
-    "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        {\"role\": \"user\", \"content\": \"Hello, please introduce yourself\"},\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# Track cost\nusage = response.usage\nprint(f\"Used {usage.total_tokens} tokens\")",
+    "codeNode": "import OpenAI from ''openai''\n\nconst client = new OpenAI('{'\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: ''https://api.ihui-ai.com/v1'',\n'}')\n\nconst completion = await client.chat.completions.create('{'\n  model: ''gpt-4o'',\n  messages: [\n    '{' role: ''user'', content: ''Hello, please introduce yourself'' '}',\n  ],\n  temperature: 0.7,\n'}')\n\nconsole.log(completion.choices[0].message.content)\n\n// Track cost\nconst usage = completion.usage\nconsole.log(`Used $'{'usage.total_tokens'}' tokens`)",
+    "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        '{'\"role\": \"user\", \"content\": \"Hello, please introduce yourself\"'}',\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# Track cost\nusage = response.usage\nprint(f\"Used '{'usage.total_tokens'}' tokens\")",
     "colCurrency": "Currency",
     "colInput": "Input (CNY/1M tokens)",
     "colModel": "Model ID",
@@ -14628,25 +14750,37 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -14780,19 +14914,31 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -15643,7 +15789,7 @@
     "descriptionPlaceholder": "Optional, a short note on what this hook does",
     "fieldEvent": "Trigger event",
     "fieldCondition": "Condition expression (JSONLogic, optional)",
-    "conditionHint": "Example: {\"==\":[\"tool\",\"write_file\"]} matches when the tool field equals write_file",
+    "conditionHint": "Example: '{'\"==\":[\"tool\",\"write_file\"]'}' matches when the tool field equals write_file",
     "fieldActionType": "Action type",
     "testResultTitle": "Test result",
     "testTriggered": "Triggered",
@@ -15668,16 +15814,16 @@
     "fieldHttpMethod": "HTTP method",
     "fieldHeaders": "Request headers (JSON)",
     "fieldBodyTemplate": "Request body template",
-    "bodyTemplateHint": "Supports the {{event}} {{tool}} {{args}} {{result}} variables",
+    "bodyTemplateHint": "Supports the {event} {tool} {args} {result} variables",
     "fieldShellCommand": "Shell command",
     "shellCommandHint": "Runs inside the sandbox with a 10s timeout; the HOOK_EVENT / HOOK_CONTEXT environment variables are available",
     "fieldNotifyChannel": "Notification channel",
     "fieldNotifyMessage": "Message template",
-    "notifyMessageHint": "Supports the {{event}} {{tool}} {{args}} variables",
+    "notifyMessageHint": "Supports the {event} {tool} {args} variables",
     "notifyWebhookUrlHint": "The webhook channel POSTs the notification to this URL (same sender as the webhook action)",
-    "notifyMessagePlaceholder": "{{event}} triggered",
+    "notifyMessagePlaceholder": "{event} triggered",
     "fieldLogMessage": "Log message template",
-    "logMessageHint": "Supports the {{event}} {{tool}} {{args}} variables; written to logs/hooks.log",
+    "logMessageHint": "Supports the {event} {tool} {args} variables; written to logs/hooks.log",
     "channel": {
       "toast": "Toast (inline notice)",
       "notification": "System notification",
@@ -17688,7 +17834,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "relay": {
@@ -18968,30 +19122,30 @@
     "wizardIpFailMany": "⚠️ Exit IP unchanged or fetch failed several times. If you truly can't change networks, tap \"Finish anyway\" above to skip verification.",
     "wizardResidualReclean": "After quitting Qoder, force a re-run of the one-click reset (it ends Qoder first, then clears residue)",
     "wizardStart": "One-click full reset (about 1 minute)",
-    "wizardResetDone": "✅ Reset complete: {{ok}}/{{total}} layers succeeded",
-    "wizardIpBefore": "Exit IP before reset: {{ip}} ({{location}})",
+    "wizardResetDone": "✅ Reset complete: {ok}/{total} layers succeeded",
+    "wizardIpBefore": "Exit IP before reset: {ip} ({location})",
     "wizardGuide": "Pick either way to change your network: ① Unplug the modem power, wait 1 minute, plug back in; ② Turn on phone hotspot and connect your PC. Then click the button below to verify.",
     "wizardVerify": "I changed my network — detect new IP",
     "wizardIpUnchanged": "❌ Exit IP unchanged — the modem may not have redialed yet. Wait 30 seconds and unplug again (at least 1 minute of downtime).",
-    "wizardIpChanged": "✅ New exit IP: {{ip}} — old IP fully detached!",
+    "wizardIpChanged": "✅ New exit IP: {ip} — old IP fully detached!",
     "wizardCooldown": "Step 3 (automatic): device + network are both fully renewed. ⚠️ Do NOT log into Qoder within 24 hours — every login attempt restarts the risk-control timer! Just log in normally tomorrow at this time.",
     "wizardOptionalNote": "A few layers showing incomplete are optional (e.g. cookie cleanup skipped because the browser is open); they do not affect the main result.",
     "wizardNoLoc": "(IP location unavailable this time; it does not affect the network-change verification)",
     "wizardIpFetchFail": "⚠️ Failed to fetch exit IP (network hiccup). You can retry via the button below later.",
-    "wizardRefetch": "Baseline exit IP recorded: {{ip}} (the reset itself does not touch the network, so this is the pre-reset exit)",
+    "wizardRefetch": "Baseline exit IP recorded: {ip} (the reset itself does not touch the network, so this is the pre-reset exit)",
     "wizardRefetchHint": "Baseline IP not yet captured: click the button below to record the current exit IP as baseline, then change your network.",
-    "wizardIpBeforeNoLoc": "Exit IP before reset: {{ip}}",
-    "wizardCooldownActive": "⏳ Less than 24 hours since the last one-click reset — about {{hours}}h of cooldown left. Do not log into Qoder during this period.",
+    "wizardIpBeforeNoLoc": "Exit IP before reset: {ip}",
+    "wizardCooldownActive": "⏳ Less than 24 hours since the last one-click reset — about {hours}h of cooldown left. Do not log into Qoder during this period.",
     "wizardRestart": "Restart wizard",
     "wizardAuditTitle": "🔍 Verify the reset was thorough (residual fingerprint audit)",
     "wizardAuditClean": "✅ No old identity left: current Qoder sites no longer contain any pre-reset device/identity values.",
-    "wizardAuditResidual": "⚠️ {{n}} old identity values still present: the files listed below still carry pre-reset identity values. Quit Qoder completely and run the one-click reset again.",
+    "wizardAuditResidual": "⚠️ {n} old identity values still present: the files listed below still carry pre-reset identity values. Quit Qoder completely and run the one-click reset again.",
     "wizardAuditRerun": "Re-scan for residue",
     "wizardAuditScanning": "Scanning Qoder sites for residue…",
     "wizardAuditFail": "⚠️ Residual scan failed (the reset itself is unaffected). Retry later with \"Re-scan for residue\".",
     "wizardSubtitle": "Reset your device identity in three steps: one-click reset → network-change verification → 24-hour cooldown.",
     "wizardAuditEntries": "View full scan details",
-    "wizardAuditScope": "Scan scope: {{cn}} and {{roaming}}, {{files}} files in total."
+    "wizardAuditScope": "Scan scope: {cn} and {roaming}, {files} files in total."
   },
   "checkin": {
     "title": "Check-in Assistant",
@@ -19021,7 +19175,7 @@
     "deleteDescription": "This will delete account \"{name}\" and all of its check-in records. This cannot be undone.",
     "deviceMap": "Device Fingerprint",
     "deviceMapInvalid": "Device fingerprint is not a valid JSON object",
-    "deviceMapPlaceholder": "{\"ua\": \"...\", \"av\": \"...\"} (optional, auto-generated if empty)",
+    "deviceMapPlaceholder": "'{'\"ua\": \"...\", \"av\": \"...\"'}' (optional, auto-generated if empty)",
     "emptyAccounts": "No check-in accounts yet. Click Add to create one.",
     "emptyCredits": "No credit history yet",
     "emptyRecords": "No check-in records yet",
@@ -19132,31 +19286,31 @@
     "wizardIpFailMany": "⚠️ Exit IP unchanged or fetch failed several times. If you truly can't change networks, tap \"Finish anyway\" above to skip verification.",
     "wizardResidualReclean": "After quitting TRAE, force a re-run of the one-click reset (it ends TRAE first, then clears residue)",
     "wizardStart": "One-click full reset (about 1 minute)",
-    "wizardResetDone": "✅ Reset complete: {{ok}}/{{total}} layers succeeded",
-    "wizardIpBefore": "Exit IP before reset: {{ip}} ({{location}})",
+    "wizardResetDone": "✅ Reset complete: {ok}/{total} layers succeeded",
+    "wizardIpBefore": "Exit IP before reset: {ip} ({location})",
     "wizardGuide": "Pick either way to change your network: ① Unplug the modem power, wait 1 minute, plug back in; ② Turn on phone hotspot and connect your PC. Then click the button below to verify.",
     "wizardVerify": "I changed my network — detect new IP",
     "wizardIpUnchanged": "❌ Exit IP unchanged — the modem may not have redialed yet. Wait 30 seconds and unplug again (at least 1 minute of downtime).",
-    "wizardIpChanged": "✅ New exit IP: {{ip}} — old IP fully detached!",
+    "wizardIpChanged": "✅ New exit IP: {ip} — old IP fully detached!",
     "wizardCooldown": "Step 3 (automatic): device + network are both fully renewed. ⚠️ Do NOT log into TRAE within 24 hours — every login attempt restarts the risk-control timer! Just log in normally tomorrow at this time.",
     "wizardOptionalNote": "A few layers showing incomplete are optional (e.g. cookie cleanup skipped because the browser is open); they do not affect the main result.",
     "wizardNoLoc": "(IP location unavailable this time; it does not affect the network-change verification)",
     "wizardIpFetchFail": "⚠️ Failed to fetch exit IP (network hiccup). You can retry via the button below later.",
-    "wizardRefetch": "Baseline exit IP recorded: {{ip}} (the reset itself does not touch the network, so this is the pre-reset exit)",
+    "wizardRefetch": "Baseline exit IP recorded: {ip} (the reset itself does not touch the network, so this is the pre-reset exit)",
     "wizardRefetchHint": "Baseline IP not yet captured: click the button below to record the current exit IP as baseline, then change your network.",
-    "wizardIpBeforeNoLoc": "Exit IP before reset: {{ip}}",
-    "wizardCooldownActive": "⏳ Less than 24 hours since the last one-click reset — about {{hours}}h of cooldown left. Do not log into TRAE during this period.",
+    "wizardIpBeforeNoLoc": "Exit IP before reset: {ip}",
+    "wizardCooldownActive": "⏳ Less than 24 hours since the last one-click reset — about {hours}h of cooldown left. Do not log into TRAE during this period.",
     "wizardRestart": "Restart wizard",
     "wizardAuditTitle": "🔍 Verify the reset was thorough (residual fingerprint audit)",
     "wizardAuditClean": "✅ No old identity left: current TRAE sites no longer contain any pre-reset device/identity values.",
-    "wizardAuditResidual": "⚠️ {{n}} old identity values still present: the files listed below still carry pre-reset identity values. Quit TRAE completely and run the one-click reset again.",
+    "wizardAuditResidual": "⚠️ {n} old identity values still present: the files listed below still carry pre-reset identity values. Quit TRAE completely and run the one-click reset again.",
     "wizardAuditRerun": "Re-scan for residue",
     "wizardAuditScanning": "Scanning TRAE sites for residue…",
     "wizardAuditFail": "⚠️ Residual scan failed (the reset itself is unaffected). Retry later with \"Re-scan for residue\".",
-    "wizardAuditScope": "Scope: {{files}} files / {{mb}} MB / {{sites}} TRAE site directories",
+    "wizardAuditScope": "Scope: {files} files / {mb} MB / {sites} TRAE site directories",
     "wizardAuditRegistry": "Registry entries",
     "wizardAuditHardware": "Hardware fingerprints",
-    "wizardAuditSuspect": "Plus {{n}} suspect hits (may be unrelated values sharing the same name — kept for manual review).",
+    "wizardAuditSuspect": "Plus {n} suspect hits (may be unrelated values sharing the same name — kept for manual review).",
     "wizardAuditNoHistory": "No pre-reset identity record for this run (blacklist is empty), so there is nothing to compare against. Run a one-click reset first, then scan again.",
     "maintBackup": "Back up snapshot",
     "maintBackupDone": "Backed up {count} files ({missing} missing)",
@@ -19182,7 +19336,7 @@
     "deviceMapUpdated": "Device fingerprint updated",
     "editDeviceMap": "Edit device fingerprint",
     "editDeviceMapTitle": "Edit device fingerprint",
-    "editDeviceMapDescription": "Edit the device fingerprint for the {{platform}} account (JSON object; leave empty to auto-generate on save)."
+    "editDeviceMapDescription": "Edit the device fingerprint for the {platform} account (JSON object; leave empty to auto-generate on save)."
   },
   "nav": {
     "checkin": "Check-in",
@@ -23767,7 +23921,7 @@
       "computer": "This PC",
       "description": "Click to select, double-click to enter; use ↑↓ to navigate, Enter to open, Backspace to go up",
       "filterPlaceholder": "Filter folders...",
-      "itemCount": "{count, plural, =0 {No folders} =1 {1 folder} other {{count} folders}}",
+      "itemCount": "{count, plural, =0 {No folders} =1 {1 folder} other {# folders}}",
       "itemCountFiltered": "Showing {filtered} / {total}",
       "loading": "Loading directory...",
       "manualPathPlaceholder": "e.g. G:\\Projects\\my-app or /home/user/projects",

@@ -59,7 +59,7 @@ import {
   planDupPointerTargets,
   pickDupTerminal,
   touchedFamilyTerminalProblems,
-  // G-341:读数出口与判定面点名一起进镜像测试 —— 测试不得自己再算一遍(§22c)
+  // G-184:读数出口与判定面点名一起进镜像测试 —— 测试不得自己再算一遍(§22c)
   verifyMerge,
   setRunFace,
   runFaceLabel,
@@ -148,7 +148,7 @@ test('T1 独立仓 A 臂:有分叉 ⇒ 产出恰好一枚只含计划文档的�
     if (!/自愈落地/.test(r.out)) throw new Error(`输出未点名落地:${r.out.trim()}`)
     const after = gitQ(env.dir, ['show', 'HEAD:PROJECT_PLAN.md'])
     if (!after.includes('[归并]')) throw new Error('HEAD 里副本行未翻勾(注记缺失)')
-    // G-307(a):落地后的那一行必须仍是"正文逐字保留"的翻勾 —— 用与生产侧同一份剥取实现核对,
+    // G-218(a):落地后的那一行必须仍是"正文逐字保留"的翻勾 —— 用与生产侧同一份剥取实现核对,
     // 不在测试里抄第二份判据(§22c);它红 = 归并层产出了守门 71 会回捞的形态 = 循环复活。
     const turned = after
       .split('\n')
@@ -218,12 +218,12 @@ test('T5 停手判据必须能认出"偷偷改了一行没登记的东西"', () 
  */
 test('T6 翻勾必须摘牌:产出行不得同时含 [x] 与（进行中）(守门 109 CL3 的互咬面)', () => {
   for (const marker of ['（进行中@2026-09-26/某票）', '（进行中）']) {
-    const src = `- [ ] ${marker} D99 复合主键正例:某件已做完的事。`
-    const out = __test__.rewriteFork(src, 'D99#复合主键正例', '2026-09-26')
+    const src = `- [ ] ${marker} D6 复合主键正例:某件已做完的事。`
+    const out = __test__.rewriteFork(src, 'D6#复合主键正例', '2026-09-26')
     if (!/^- \[x\]/.test(out)) throw new Error(`未翻勾:${out}`)
     if (out.includes('进行中')) throw new Error(`标记未摘除 ⇒ 产出行自相矛盾:${out}`)
     // 摘牌不等于删账:正文本体必须逐字保住
-    if (!out.includes('D99 复合主键正例:某件已做完的事。')) throw new Error(`正文被吞:${out}`)
+    if (!out.includes('D6 复合主键正例:某件已做完的事。')) throw new Error(`正文被吞:${out}`)
   }
   // 反向对照:已经是 [x] 的行必须原样返回(本工具不得二次改写已完成登记)
   const done = '- [x] ✅(2026-09-25) D98 早就完成的事。'
@@ -231,7 +231,7 @@ test('T6 翻勾必须摘牌:产出行不得同时含 [x] 与（进行中）(守�
     throw new Error('[x] 行被二次改写')
   }
   // 有牙证明:若"摘牌"那步被去掉,本条必须红 —— 用变异夹具自证判据不是恒真式
-  const leaky = `- [x] ✅(2026-09-26) **[归并]** 注记。 ${'- [ ] （进行中@2026-09-26/x） D99 事'.replace(/^- \[ \]\s*/, '')}`
+  const leaky = `- [x] ✅(2026-09-26) **[归并]** 注记。 ${'- [ ] （进行中@2026-09-26/x） D6 事'.replace(/^- \[ \]\s*/, '')}`
   if (!leaky.includes('进行中')) throw new Error('变异夹具本身不含标记 ⇒ T6 无牙,须重造')
 })
 
@@ -325,7 +325,7 @@ test('T8 块级收口行为:逐字相同的第 2..N 份删得对,唯一份与漂
 
 test('T9 F4b 归并出口:无主键的逐字孪生行只加指针、不动勾选、不删行,措辞不得谎称"同主键"', () => {
   const twin = '- [ ] **真机走查**:深色顶栏已修(commit 84583fdf6),剩观察期。'
-  const keyed = '- [ ] **D99 复合主键正例**:说明。'
+  const keyed = '- [ ] **D6 复合主键正例**:说明。'
   const src = ['# 计划', twin, twin, keyed, keyed].join('\n')
   const m = buildMerge(src, '2026-09-27')
   const lines = m.text.split('\n')
@@ -335,7 +335,7 @@ test('T9 F4b 归并出口:无主键的逐字孪生行只加指针、不动勾选
   if (marked.length !== 2) throw new Error(`两族孪生各标一条,实测 ${marked.length}`)
   for (const l of marked) {
     if (!/^- \[ \]/.test(l)) throw new Error(`副本行动了勾选状态:${l.slice(0, 40)}`)
-    if (l.includes('同主键的另一条登记') && !l.includes('D99'))
+    if (l.includes('同主键的另一条登记') && !l.includes('D6'))
       throw new Error(`无主键行被写成"同主键"= 一句无法核验的假话:${l.slice(0, 60)}`)
   }
   if (!marked.some((l) => /逐字相同的另一条登记/.test(l)))
@@ -368,7 +368,7 @@ test('T10 落地调度锁:早退判据必须看见 F4b,结论数字必须回读�
 })
 
 /**
- * G-307(a) 成对判据的镜像臂:两代注记形态都必须剥回同一份正文;而"整行替换/截断"的
+ * G-218(a) 成对判据的镜像臂:两代注记形态都必须剥回同一份正文;而"整行替换/截断"的
  * 产物必须被抓住。正向与反向各两条 —— 只有正向的判据等于没有判据(§22c)。
  */
 test('T11 正文逐字保留:两代形态各一对正反例,判据与被测实现共用 lib 的同一份剥取', () => {
@@ -541,7 +541,7 @@ test('T13 --write-to 合法路径:真写出、内容就是归并后的候选文�
     const written = readFileSync(target, 'utf8')
     // 「翻勾注记长什么样」两侧各写了一份,按「同一想法只留一份」保留较新的一侧:
     //   · 对侧这一行判的是**前置式** `**[归并]** …`(注记在正文之前);
-    //   · 本侧 G-307 已把注记迁到**行尾全角括号式** `（[归并] …）`、正文留在行首,并由上面那条
+    //   · 本侧 G-218 已把注记迁到**行尾全角括号式** `（[归并] …）`、正文留在行首,并由上面那条
     //     T11 加了反向锁禁止前置模板再生产新行(前置式正是守门 71 回捞循环那 24 枚恢复型提交的成因)。
     // 判据的**意图**一字未松,反而更严:现在要求「已翻勾 + 当日日期 + 正文回到行首 + 归并注记成套」,
     // 缺任一项即红。真待办未被吞、内容与输入不同、文档本体未被碰这三条断言逐字未动。
@@ -663,10 +663,10 @@ test('A2 端到端:从未实现的出口 ⇒ rc=2、原样点名,且绝不打出
 // 这一档的风险全在"折完之后两把尺子各怎么读它",所以**成对**断言不可省:
 // 正向证"折得对",反向证"判据有牙",再加一条端到端证"会自己提交的东西只推进 HEAD"。
 
-/** 逐字取自 HEAD 面 PROJECT_PLAN.md 的一族(并发取号把同一件事登成 G-300 / G-317 两行,L11783/L12147)。 */
+/** 逐字取自 HEAD 面 PROJECT_PLAN.md 的一族(并发取号把同一件事登成 G-3 / G-149 两行,L11783/L12147)。 */
 const TWIN_REAL = [
-  '- [ ]G-300 `USDT_TRC20_ADDRESS` 仍空（**等机主给值**——它是平台自己的 USDT-TRC20 收款地址,不是第三方凭据,本机 7 份 env 备份里从未有过非空值;同族 `USDT_ERC20_ADDRESS` 早有值,说明这是机主掌握的信息)。不填的后果已定位:TRC20 那条下单路径拿不到地址即 fail,与 webhook 无关(webhook 的 secret 本批已填回)。',
-  '- [ ]G-317 `USDT_TRC20_ADDRESS` 仍空（**等机主给值**——它是平台自己的 USDT-TRC20 收款地址,不是第三方凭据,本机 7 份 env 备份里从未有过非空值;同族 `USDT_ERC20_ADDRESS` 早有值,说明这是机主掌握的信息)。不填的后果已定位:TRC20 那条下单路径拿不到地址即 fail,与 webhook 无关(webhook 的 secret 本批已填回)。',
+  '- [ ]G-3 `USDT_TRC20_ADDRESS` 仍空（**等机主给值**——它是平台自己的 USDT-TRC20 收款地址,不是第三方凭据,本机 7 份 env 备份里从未有过非空值;同族 `USDT_ERC20_ADDRESS` 早有值,说明这是机主掌握的信息)。不填的后果已定位:TRC20 那条下单路径拿不到地址即 fail,与 webhook 无关(webhook 的 secret 本批已填回)。',
+  '- [ ]G-149 `USDT_TRC20_ADDRESS` 仍空（**等机主给值**——它是平台自己的 USDT-TRC20 收款地址,不是第三方凭据,本机 7 份 env 备份里从未有过非空值;同族 `USDT_ERC20_ADDRESS` 早有值,说明这是机主掌握的信息)。不填的后果已定位:TRC20 那条下单路径拿不到地址即 fail,与 webhook 无关(webhook 的 secret 本批已填回)。',
   '- [ ] G-301 **与上面两行不相干的另一件事**:一行都不许被顺手改动。',
 ].join('\n')
 
@@ -743,7 +743,7 @@ test('T18 摘号一律喂真尺子,并配"把编号写进指针"的正对照;守
     throw new Error(`拒折判据必须点名"折完仍有主键",实得:${twinFoldRejectReason(f.edits[0].before, poisoned)}`)
   // ③ 守门 71 侧:注记包在全角括号里 ⇒ `checkboxBody` 剥得掉 ⇒ "行首名额"与"标记"都不受任何影响。
   //    这条不对称是本档的落点:换成 `〔〕`(F4 与旧一次性折叠用的那对)就会与回捞层互咬 ——
-  //    防丢层把合法折叠读成"整行消失"⇒ post-commit 塞回未折叠原件 ⇒ 折叠被原地复活(G-307 同型)。
+  //    防丢层把合法折叠读成"整行消失"⇒ post-commit 塞回未折叠原件 ⇒ 折叠被原地复活(G-218 同型)。
   if (headIdOf(f.edits[0].before) !== headIdOf(after))
     throw new Error(`门 71 的"行首名额"被折叠改变了:${headIdOf(f.edits[0].before)}→${headIdOf(after)} ⇒ 会与回捞层互咬`)
   if (markerOf(f.edits[0].before) !== markerOf(after))
@@ -824,7 +824,7 @@ function applyTwinFoldsSafe(x) {
 
 test('T20 端到端(独立仓)--fold-twins --commit:产出一枚只含台账的提交,再跑一遍零提交且不改工作树', () => {
   const plan = ['# 计划', '', ...TWIN_REAL.split('\n'), ''].join('\n')
-  const env = fixtureRepo(plan, 'fixture: 同一件事被并发取号登成两行(G-300/G-317)')
+  const env = fixtureRepo(plan, 'fixture: 同一件事被并发取号登成两行(G-3/G-149)')
   try {
     const report = runCli(env, ['--fold-twins'])
     if (report.code !== 0) throw new Error(`报告档应 exit 0,实得 ${report.code}:${report.out}`)
@@ -836,9 +836,9 @@ test('T20 端到端(独立仓)--fold-twins --commit:产出一枚只含台账的�
     if (!/折叠档落地/.test(r.out)) throw new Error(`输出未点名落地:${r.out.trim()}`)
     const head = gitQ(env.dir, ['show', 'HEAD:PROJECT_PLAN.md'])
     const lines = head.split(/\r?\n/)
-    const kept = lines.find((l) => l.includes('G-300 `USDT_TRC20_ADDRESS`'))
+    const kept = lines.find((l) => l.includes('G-3 `USDT_TRC20_ADDRESS`'))
     const folded = lines.find((l) => isTwinFolded(l))
-    if (!kept || keyOfRow(kept) !== 'G-300') throw new Error(`持有行必须还是带号的 G-300:${JSON.stringify(kept && kept.slice(0, 60))}`)
+    if (!kept || keyOfRow(kept) !== 'G-3') throw new Error(`持有行必须还是带号的 G-3:${JSON.stringify(kept && kept.slice(0, 60))}`)
     if (!folded) throw new Error('HEAD 里找不到折叠档 ⇒ 落地没生效(而输出却说成功了)')
     if (keyOfRow(folded) !== headIdOf(folded))
       throw new Error(
@@ -846,7 +846,7 @@ test('T20 端到端(独立仓)--fold-twins --commit:产出一枚只含台账的�
       )
     if (!DUP_POINTER_RE.test(folded)) throw new Error('落地面折叠行缺【归并】重复登记副本指针 ⇒ 派单口径不会逐出它')
     if (!/^- \[ \]/.test(folded)) throw new Error(`折叠行勾被翻了:${folded.slice(0, 20)}`)
-    if (!/\(原编号 G-317;持有行题面「.*」\)$/.test(folded))
+    if (!/\(原编号 G-149;持有行题面「.*」\)$/.test(folded))
       throw new Error('折叠行必须在**行尾**留原编号沿革(否则日后无人查得到它原来是谁,而沿革写进窗口就会被取成自己的主键)')
     if (stripTwinFold(folded) !== TWIN_REAL.split('\n')[1]) throw new Error('HEAD 面上的折叠档剥回注记后不等于原件')
     if (lostMarkers(plan, head).length !== 0) throw new Error(`落地后被门 71 判为消失的登记行 ${lostMarkers(plan, head).length} 处 ⇒ 会与回捞层互咬`)
@@ -864,7 +864,7 @@ test('T20 端到端(独立仓)--fold-twins --commit:产出一枚只含台账的�
   }
 })
 
-test('T21 端到端 --heal --commit 现在也执行这一维,且与翻勾那一维互不打架(向后兼容)', () => {
+test('T21 端到端 --heal --commit:翻勾那一维照常落地,F10 孪生只报数不折叠(2026-10-14 自动档收口)', () => {
   const plan = [
     '# 计划',
     '',
@@ -878,7 +878,9 @@ test('T21 端到端 --heal --commit 现在也执行这一维,且与翻勾那一�
   /**
    * 夹具自证(本条连踩两次):① 编号必须被**真尺子**认得出,② 题面必须过 `compositeKeyOf`
    * 那道 ≥4 字的闸 —— 两条任一不满足,foldTwins 都会把整族当"看不见"跳过,于是这条端到端
-   * 断言恒真地"通过",而 --heal 那一维其实一行都没折(判据失效的表现永远是安静)。
+   * 断言恒真地"通过",而折叠维其实一行都没动(判据失效的表现永远是安静)。
+   * 2026-10-14 起 F10 在自动档是**刻意不动**(折叠注记与 F4 指针同字面,旁路落地拦不到
+   * 门 13d ⇒ 生产侧掐断),本条反向钉的就是"掐断不许漏掐、也不许把翻勾那一维误伤"。
    */
   const twinPair = plan.split('\n').filter((l) => /孪生登记/.test(l))
   if (twinPair.length !== 2) throw new Error('夹具的孪生对没成对')
@@ -891,19 +893,21 @@ test('T21 端到端 --heal --commit 现在也执行这一维,且与翻勾那一�
     if (r.code !== 0) throw new Error(`自愈应 exit 0,实得 ${r.code}:${r.out}`)
     if (!/自愈落地/.test(r.out)) throw new Error(`输出未点名落地:${r.out.trim()}`)
     const head = gitQ(env.dir, ['show', 'HEAD:PROJECT_PLAN.md'])
-    // 两维同一枚提交:F1 翻了勾,F10 折了副本 —— 只应有一枚提交
-    if (countCommits(env.dir) !== 2) throw new Error(`两维应合到一枚提交里,实测提交数 ${countCommits(env.dir)}`)
-    if (!/\[归并\]/.test(head)) throw new Error('F1 那一维没做(向后兼容破了)')
-    const folded = head.split(/\r?\n/).find((l) => isTwinFolded(l))
-    if (!folded) throw new Error('F10 这一维没随 --heal 一起执行 ⇒ 早退判据或调度漏了它')
-    if (keyOfRow(folded) !== 'G-42')
-      throw new Error(`F10 落地面折叠行的主键不再是它自己那个号:实得 ${String(keyOfRow(folded))}`)
-    if (!DUP_POINTER_RE.test(folded)) throw new Error('F10 落地面折叠行缺副本指针 ⇒ --open 仍会把它算一条活')
-    if (!/^- \[ \]/.test(folded)) throw new Error('两维打架:折叠行动了勾选')
+    // 只剩翻勾那一维:恰好一枚自愈提交,F10 不再随 --heal 落地
+    if (countCommits(env.dir) !== 2) throw new Error(`应只产出一枚自愈提交,实测提交数 ${countCommits(env.dir)}`)
+    if (!/\[归并\]/.test(head)) throw new Error('F1 那一维没做(自动档的翻勾能力被误伤)')
+    // F10 孪生对逐字原样:不折叠、不注记、不动勾选 —— 自动档对这一维只报数
+    const twinRows = head.split(/\r?\n/).filter((l) => /孪生登记/.test(l))
+    if (twinRows.length !== 2) throw new Error(`F10 孪生对行数变了(${twinRows.length})—— 自动档只许报数,不许折叠更不许删行`)
+    if (twinRows.some((l) => isTwinFolded(l)))
+      throw new Error('自动档产出了折叠注记 ⇒ 注记从旁路落地绕过门 13d 回流(2026-10-14 已掐断,不许接回)')
+    if (!twinRows.every((l, i) => l === twinPair[i])) throw new Error('F10 孪生对被改动(逐字不变被破)')
+    if (!/刻意不注记、不折叠/.test(r.out)) throw new Error(`落地输出未点名 F10 只报数:${r.out.trim().slice(-400)}`)
     if (!head.includes('- [ ] **D8 真待办**:还没人做。')) throw new Error('真待办被误动')
-    if (head.split(/\r?\n/).length !== plan.split('\n').length) throw new Error('行数变了(两维都只许改行内内容)')
+    if (head.split(/\r?\n/).length !== plan.split('\n').length) throw new Error('行数变了(只许改行内内容)')
     const second = runHeal(env)
-    if (second.code !== 0 || !/无状态分叉/.test(second.out)) throw new Error(`第二遍应判"无需自愈":${second.out.trim()}`)
+    if (second.code !== 0 || !/只报数、不注记、不折叠/.test(second.out))
+      throw new Error(`第二遍应判"刻意不修、只报数":${second.out.trim()}`)
     if (countCommits(env.dir) !== 2) throw new Error('幂等失败:第二遍又产出提交')
   } finally {
     rmScratch(env.dir)
@@ -938,11 +942,21 @@ test('T22 源级反向锁:指针构造里没有行号也没有编号,没有豁�
     if (!land.includes(need)) throw new Error(`落地档没引 ${need} —— 自己拼 git 命令读内容会被守门 118 判面不符,也不满足"每次 CAS 前重读 HEAD"`)
   if (/git[^\n]*(checkout|reset\s+--hard|reset HEAD)/.test(land)) throw new Error('落地档动了共享工作树/全局 reset —— 越权')
   if (/writeFileSync\([^)]*PROJECT_PLAN/.test(land)) throw new Error('落地档直接写台账文件 —— 必须走对象空间')
-  // ④ 调度必须真的在:CLI 开关 + --heal 那一路真的调了这一维 + 闭合断言挂在停手判据里
+  // ④ 调度必须真的在:CLI 开关 + --fold-twins --commit 真的调落地函数 + 闭合断言挂在停手判据里。
+  // 2026-10-14 契约反转:自动档(--heal --commit)**不再**接折叠维 —— F10 折叠注记与 F4 指针
+  // 同字面(都含【归并】重复登记副本),而自动档走 commit-tree 旁路落地,门 13d 结构性拦不到
+  // ⇒ 生产侧掐断(用户指令「重复登记副本一条也不许再产生」)。锁随之反转成两臂:
+  //   a. 折叠能力必须原样活在人工档 twinFoldAndLand(不许跟着自动档一起被掐掉);
+  //   b. healAndLand 的**代码**(剥掉注释)不得再调 applyTwinFolds(不许从旁路把注记接回来)。
+  //    两臂各自失守都会让这一维无声消失或无声复活,所以必须成对钉住。
   if (!/has\('--fold-twins'\)/.test(src)) throw new Error("CLI 没解析 --fold-twins —— 函数在而入口不在")
   if (!/return twinFoldAndLand\(\)/.test(src)) throw new Error('--fold-twins --commit 没真的调落地函数')
-  const heal = seg('export function healAndLand', 'export function dedupeAndLand')
-  if (!heal.includes('applyTwinFolds') || !heal.includes('verifyTwinFold')) throw new Error('--heal 那一路没接折叠维(只接了一半就是账面全绿而活还在)')
+  const foldLand = seg('export function twinFoldAndLand', 'export function healAndLand')
+  if (!foldLand.includes('applyTwinFolds') || !foldLand.includes('verifyTwinFold'))
+    throw new Error('--fold-twins --commit 那一路丢了折叠维(能力必须活在人工档)')
+  const healCode = decomment(seg('export function healAndLand', 'export function dedupeAndLand'))
+  if (/applyTwinFolds\(/.test(healCode))
+    throw new Error('--heal(自动档)又调了折叠维 ⇒ 注记从旁路落地绕过门 13d 回流(2026-10-14 已掐断,不许接回)')
   if (!seg('export function healStopReasons').includes('折叠维未闭合')) throw new Error('闭合断言没挂进 healStopReasons —— 谁忘记调 verifyTwinFold 就无声变绿')
 })
 
@@ -1091,7 +1105,7 @@ test('T25 stripMergeNotes:嵌套同种括号配平、尾随作者正文逐字保
 })
 
 /**
- * T26 G-341 —— 同一次运行里,抬头读数与交付校验读数必须是**同一个数**,且结论行点名判定面。
+ * T26 G-184 —— 同一次运行里,抬头读数与交付校验读数必须是**同一个数**,且结论行点名判定面。
  *
  * 立因(票面原文):`--heal`(纯报告档)曾在同一次运行、同一个判定面(HEAD blob)上喊出两个
  * "可自动收口"—— 抬头 `F3 220 处(其中可自动收口 2 …)`,末行交付校验拒绝落地时
@@ -1110,7 +1124,7 @@ test('T25 stripMergeNotes:嵌套同种括号配平、尾随作者正文逐字保
  *  ④ 判定面必须随读数一起喊出来:点了面 ⇒ 逐字带那个名字;没点面 ⇒ 老实说"未判定",
  *     绝不冒充某个面(与本仓其它台账器同一条口径)。
  */
-test('T26 G-341 抬头读数与交付校验读数必须相等,且结论行点名判定面', () => {
+test('T26 G-184 抬头读数与交付校验读数必须相等,且结论行点名判定面', () => {
   // 夹具逐字取自本文件 T11 那条已验牙的形态:指针行与它指向的行**同复合主键**(可自动收口那一型),
   // 另带一条"无出口"的 ref 族行(不得被自动改),使归并后 auto 归零而 noExit 仍在。
   const dupLine =
@@ -1141,7 +1155,7 @@ test('T26 G-341 抬头读数与交付校验读数必须相等,且结论行点名
       )
     if (Number(m[1]) !== v.f3.auto)
       throw new Error(
-        `同一次运行给出两个"可自动收口":抬头 ${m[1]} 处 / 交付校验 ${v.f3.auto} 处 —— 正是 G-341 的病根,读数必须出自 f3Reading() 的同一份结果`,
+        `同一次运行给出两个"可自动收口":抬头 ${m[1]} 处 / 交付校验 ${v.f3.auto} 处 —— 正是 G-184 的病根,读数必须出自 f3Reading() 的同一份结果`,
       )
     // ②b 反方向:归并已把可收口那一族修完 ⇒ 那道红**不得**响。它响了就等于闸读回了输入面
     // (与②同一条不变量的另一侧 —— 只测一侧,把读数换成 before 也能"看起来相等"地糊过去)。
@@ -1181,12 +1195,12 @@ test('T26 G-341 抬头读数与交付校验读数必须相等,且结论行点名
 })
 
 /**
- * T27 G-341 端到端(独立仓)—— 把 ② 从"两个函数返回值"提到"同一次运行的 stdout 上那两个数"。
+ * T27 G-184 端到端(独立仓)—— 把 ② 从"两个函数返回值"提到"同一次运行的 stdout 上那两个数"。
  * 为什么必须再跑一次 CLI:报告侧的抬头行住在 `main()`,交付校验行住在 `verifyMerge()`,
  * 只测出口函数会漏掉"有人在 main 里自己再算一遍"这一型(那正是立项时发生的形态)。
  * 夹具与 T26 同一份(归并前 1 处 / 归并后 0 处),所以改动前那两行必然给出 1 与 0。
  */
-test('T27 G-341 端到端:同一次 --heal 的抬头行与结论行必须报同一个"可自动收口"', () => {
+test('T27 G-184 端到端:同一次 --heal 的抬头行与结论行必须报同一个"可自动收口"', () => {
   const dupLine =
     '- [ ] **D7 甲事**:还没人做。 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L4,派单以那条为准。〕'
   const plan = [
@@ -1212,7 +1226,7 @@ test('T27 G-341 端到端:同一次 --heal 的抬头行与结论行必须报同�
       )
     if (head[1] !== concl[1])
       throw new Error(
-        `同一次运行给出两个"可自动收口":抬头 ${head[1]} 处 / 交付校验 ${concl[1]} 处(G-341 复发)`,
+        `同一次运行给出两个"可自动收口":抬头 ${head[1]} 处 / 交付校验 ${concl[1]} 处(G-184 复发)`,
       )
     // 发散前提:这一轮归并前确实有 1 处 —— 否则"相等"可以由"两个 0"冒充
     if (!/归并前可收 1 处/.test(cli.out))
@@ -1245,7 +1259,7 @@ test('T27 G-341 端到端:同一次 --heal 的抬头行与结论行必须报同�
  *    幸存那行按设计保持未勾且不进派单口径(claimable=0)⇒ 它不再顶住收敛门;
  *  C 天然成对的**短行**(整行 <40 字符)两档一份都不许吃(阈值不得为变绿而放宽)。
  * 顶回来的机制住在守门 71:翻勾若把正文挤举行首,防丢层就把合法翻勾读成"整行消失"并回捞旧行,
- * F1 重新起红(G-307 那两小时 24 枚"恢复型"提交就是这么来的)。所以链的每一环都用 `lostMarkers`
+ * F1 重新起红(G-218 那两小时 24 枚"恢复型"提交就是这么来的)。所以链的每一环都用 `lostMarkers`
  * 复验,而不是只在折叠档那一档验。T29 的三把变异就按 A/B/C 三环各配一把。
  */
 const XID = 'G-99000071'
@@ -1350,7 +1364,7 @@ test('T29 变异自证:三把变异各打断链上一环(证明 T28 那三条不
   const SCRIPTS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
   const variants = [
     {
-      name: '翻勾形态退回"注记前置"(G-307 那一型)',
+      name: '翻勾形态退回"注记前置"(G-218 那一型)',
       // 生产侧 rewriteFork 只是 lib 那一份的薄调用点;换成旧形态后正文不再在行首 ⇒
       // forkPreserved 拒绝翻勾 ⇒ 副本停在未勾态、F1 不归零。红的是 A 臂,不是"少改一点"。
       apply: (t) =>
@@ -1558,7 +1572,7 @@ function familyProblems(mod, src) {
   return bad
 }
 
-test('T30 端到端:F4 归并每个主键族必须留下一行终端代表,该族仍出现在 --open(报告档零副作用 + 落地档幂等)', () => {
+test('T30 F4 出口:终端代表不变量(人工能力保持)+ 自动档对 F4-only 面"刻意不修、只报数"端到端(2026-10-14 收口)', () => {
   const bad = familyProblems(
     { buildMerge, verifyMerge, healStopReasons, auditPointerTerminals },
     F4FACE,
@@ -1627,50 +1641,42 @@ test('T30 端到端:F4 归并每个主键族必须留下一行终端代表,该�
     if (readFileSync(path.join(env.dir, 'PROJECT_PLAN.md'), 'utf8') !== F4FACE)
       throw new Error('报告档改写了工作树副本')
 
+    // 2026-10-14 自动档收口:F4 不再由 --heal --commit 注记(旁路落地拦不到门 13d ⇒ 生产侧
+    // 掐断)。落地档的正确行为 = **不动任何东西**、退出码 0、数字照报、出路照给 —— 族保持
+    // 全行可见(--open 一条不少),绝不许"自动档把整族折成互指指针"那一型悄悄回来。
     const land = runCli(env, ['--heal', '--commit'])
-    if (land.code !== 0 || !/自愈落地/.test(land.out))
+    if (land.code !== 0 || !/只报数、不注记、不折叠/.test(land.out))
       throw new Error(
-        `落地档没产出提交(自动档自我拒绝的那一型):code=${land.code}\n${land.out.slice(0, 600)}`,
+        `落地档应"刻意不修、只报数"退出 0:code=${land.code}\n${land.out.slice(0, 600)}`,
       )
-    if (countCommits(env.dir) !== 2) throw new Error(`落地后提交数应为 2,实得 ${countCommits(env.dir)}`)
+    if (countCommits(env.dir) !== 1)
+      throw new Error(`落地档对 F4-only 面产出了提交(自动档不得再注记):\n${land.out.slice(0, 600)}`)
+    if (readFileSync(path.join(env.dir, 'PROJECT_PLAN.md'), 'utf8') !== F4FACE)
+      throw new Error('落地档改写了工作树副本')
     const landed = gitQ(env.dir, ['show', 'HEAD:PROJECT_PLAN.md']).replace(/\r\n/g, '\n')
-    if (landed.split('\n').length !== F4FACE.split('\n').length)
-      throw new Error('落地面上行数变了(归并禁止删行/加行)')
-    const openL = auditPlan(landed).counts.open
-    if (openL !== auditPlan(F4FACE).counts.open)
-      throw new Error(`落地面未勾选总数 ${auditPlan(F4FACE).counts.open} → ${openL}(动了勾选或删了行)`)
-    const fam = famRowsOf(landed)
-    if (fam.length !== F4GROUP)
-      throw new Error(`落地面上该族有 ${fam.length} 行(应仍为 ${F4GROUP}),行不见了`)
-    const unpointed = fam.filter((x) => !DUP_POINTER_RE.test(x.raw))
-    if (unpointed.length !== 1)
-      throw new Error(
-        `落地面该族的终端代表数 = ${unpointed.length}(必须恰为 1),实得 ${JSON.stringify(unpointed.map((u) => u.line))}`,
-      )
-    if (unpointed[0].raw !== R_LONG)
-      throw new Error(
-        `留下的那一行不是"正文最长"那一行 ⇒ 选代表规则在落地面上不成立:${unpointed[0].raw.slice(0, 60)}`,
-      )
-    // 核心断言:用**派单出口本身**(--open)复验,不在测试里重算口径
+    if (landed !== F4FACE.replace(/\r\n/g, '\n'))
+      throw new Error('HEAD 面被改动 —— F4-only 面上自动档必须一行不动')
+    // 核心断言:用**派单出口本身**(--open)复验 —— 派单口径按同题副本判据把整族收敛成
+    // 一条代表(台账 F2 的设计行为),绝不许"族一条都不剩"或"冒出两条"那两种坏形态;
+    // 面上行的完整性已由上面 `landed === F4FACE` 逐字断言钉住。
     const { face, reps } = openRepsOf(env.dir)
     if (reps.length !== 1)
       throw new Error(
-        `--open 里该族代表数 = ${reps.length}(应为 1)⇒ 归并把这件活藏进了互指指针里。open=${JSON.stringify(face.open)}`,
+        `--open 里该族代表数 = ${reps.length}(应为 1:同题副本由派单口径收敛)⇒ 族被藏起来或被拆散。open=${JSON.stringify(face.open)}`,
       )
     if (!reps[0].text.includes(F4TITLE))
       throw new Error(`--open 里那一行不是该族的代表:${JSON.stringify(reps[0])}`)
-    if (face.counts.dupOpenCopies !== 0)
-      throw new Error(`落地面 F4=${face.counts.dupOpenCopies} 未归零 ⇒ 归并没有做到位`)
-
-    const rep2 = runCli(env, ['--heal'])
-    if (!/拟改写 0 行/.test(rep2.out))
-      throw new Error(`第二次报告档不再幂等:${rep2.out.trim().slice(0, 400)}`)
-    const land2 = runCli(env, ['--heal', '--commit'])
-    if (land2.code !== 0 || !/无状态分叉/.test(land2.out))
+    if (face.counts.dupOpenCopies !== F4GROUP - 1)
       throw new Error(
-        `第二次落地档应"不动任何东西":code=${land2.code}\n${land2.out.slice(0, 600)}`,
+        `落地面 F4=${face.counts.dupOpenCopies}(应为 ${F4GROUP - 1})—— 数字被藏起来 = 报数失真`,
       )
-    if (countCommits(env.dir) !== 2) throw new Error('第二次落地又产出了提交(幂等失败)')
+
+    const land2 = runCli(env, ['--heal', '--commit'])
+    if (land2.code !== 0 || !/只报数、不注记、不折叠/.test(land2.out))
+      throw new Error(
+        `第二次落地档应同样"只报数":code=${land2.code}\n${land2.out.slice(0, 600)}`,
+      )
+    if (countCommits(env.dir) !== 1) throw new Error('第二次落地又产出了提交(幂等失败)')
   } finally {
     rmScratch(env.dir)
   }
