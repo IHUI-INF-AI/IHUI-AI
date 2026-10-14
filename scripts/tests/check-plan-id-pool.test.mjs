@@ -10,7 +10,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ as G, overPoolDeclarations, poolRatchetVerdict, allocPathHits } from '../check-plan-id-pool.mjs'
@@ -37,13 +37,16 @@ test('P2 占位注释里的历史号不参与(判据过宽就是把自己变成�
   assert.equal(overPoolDeclarations(face).length, 0)
 })
 
-test('P3 差值棘轮方向(有牙):存量原样带着不红,新带一条长号必红', () => {
+test('P3 差值棘轮方向(有牙):存量原样带着不红,新带一条长号必红;同键再抄也要按重数拦', () => {
   const head = `${row('G-1038426')}\n${row('O23')}`
   const same = poolRatchetVerdict(head, head)
   assert.equal(same.added.length, 0, '存量不担责被破坏')
   const worse = poolRatchetVerdict(head, head + '\n' + row('G-1099001'))
   assert.equal(worse.added.length, 1)
   assert.equal(worse.added[0].key, 'G-1099001')
+  // 评审抓到的形状:HEAD 有 1 条同键、索引面抄成 3 条 ⇒ 键集合差为空,按重数必须算出 +2
+  const dupKey = poolRatchetVerdict(row('G-1038426'), [row('G-1038426', 1), row('G-1038426', 2), row('G-1038426', 3)].join('\n'))
+  assert.equal(dupKey.added.length, 2, `同键多抄的两条必须各算一次新增,实得 ${dupKey.added.length}`)
   // 变少永远放行(让号方向)
   const better = poolRatchetVerdict(head + '\n' + row('G-1099002'), head)
   assert.equal(better.added.length, 0)
@@ -61,7 +64,12 @@ test('P5 单源锁:池上限 / 编号头形状 / 声明位判据都只许有一�
   const masked = maskComments(code)
   assert.match(code, /from '\.\/lib\/plan-id-lease\.mjs'/, '池上限与编号头形状必须来自 plan-id-lease')
   assert.match(code, /LEASE_POOL_MAX/, '池上限不得写死第二个数')
-  assert.match(code, /ID_HEAD_RE/, '编号头形状必须复用 plan-id-lease 那一份(抄窄了就漏判 O13b / 无分隔符形态)')
+  assert.match(code, /ID_HEAD_RE/, '编号头形状必须复用 plan-id-lease 那一份,不得在门里再抄一份正则')
+  // 诚实边界(2026-10-15 评审):"哪些形态算声明位"由 keyOfRow 一家说了算,本门不扩口。
+  // `G1038426` / `G_1038426` 这类 keyOfRow 认不出的写法**结构上不进本门射程** —— 那是声明位判据的
+  // 口径,不是本门的漏判;要收那一型得改 keyOfRow,并让所有共用它的门一起复核。
+  assert.equal(overPoolDeclarations('- [ ] G1038426 无分隔符形态').length, 0)
+  assert.equal(overPoolDeclarations(row('G-1038426')).length, 1)
   assert.match(code, /idx\.keyOfRow\(/, '声明位判据必须用 plan-task-index 的 keyOfRow')
   assert.ok(!masked.includes('^([A-Za-z]+)'), '门内不得再抄一份编号头正则(第二份实现必漂开)')
   // 上限只许有一个来源:不得出现 `poolMax = 999` / `> 999` 这类把上限写死的形状
@@ -70,14 +78,25 @@ test('P5 单源锁:池上限 / 编号头形状 / 声明位判据都只许有一�
   assert.equal(hardcoded.length, 0, `门体把池上限写死了:${hardcoded.join(' ;; ').slice(0, 160)}`)
 })
 
-test('P6 豁免不扩的反向锁:sanctioned 名单只收取号生态与本门自己,且判据本体没跟着放宽', () => {
+test('P6 豁免不扩的反向锁:名单封闭、每项必须真实存在、测试目录不得进名单,且判据本体没跟着放宽', () => {
   const list = [...G.SANCTIONED_ALLOC]
-  assert.ok(list.length <= 7, `豁免名单已扩到 ${list.length} 项: ${list.join(', ')}`)
-  for (const f of list) assert.ok(/\.mjs$/.test(f), `名单项形状不对:${f}`)
-  assert.ok(!list.some((f) => /\.test\.mjs$/.test(f)), '测试文件不得进豁免名单')
+  assert.equal(list.length, 6, `豁免名单项数变了(${list.length}): ${list.join(', ')} —— 新增必须连同理由与本断言一起改`)
+  for (const f of list) {
+    assert.ok(/\.mjs$/.test(f), `名单项形状不对:${f}`)
+    assert.ok(!f.includes('/'), `名单按 basename 匹配,不得写路径(写路径就是在藏作用域):${f}`)
+    assert.ok(!/\.test\.mjs$/.test(f), '测试文件不得进豁免名单')
+    // 空豁免自检:名单里放一个不存在的名字 = "看着有豁免其实空转",必须当场被这条钉住
+    // (HERE 已经在 scripts/tests 下 ⇒ 基准是仓库根,不能再拼一层 scripts/)
+    const repoRoot = resolve(HERE, '..', '..')
+    const found = ['scripts', 'scripts/lib'].some((d) => existsSync(resolve(repoRoot, d, f)))
+    assert.ok(found, `豁免名单里的 ${f} 在 scripts/ 与 scripts/lib/ 都不存在 ⇒ 空豁免`)
+  }
   assert.ok(!list.includes('plan-tasks.mjs'), 'plan-tasks.mjs 是统计用途,不该进名单(它靠构造级判据不被误伤,不是靠豁免)')
-  // 名单只作用于"扫文件"这一层:换个非豁免文件名,同一构造照样被认出
+  // 递归扫描必须真覆盖 scripts/lib:把 offender 形状放进 lib 下的文件名也报得出来(第一版只扫一层)
   assert.equal(allocPathHits("const u = usedIdsOfPrefix(x, 'G')\nconst i = u.template.replace('%d', String(u.max + 1))").length, 1)
+  const src = readFileSync(resolve(HERE, '..', 'check-plan-id-pool.mjs'), 'utf8')
+  assert.match(src, /walk\(full, depth \+ 1\)/, '扫描必须递归,否则 scripts/lib 整个是盲区')
+  assert.match(src, /e\.name === 'tests'/, '测试目录必须被排除(夹具不是发号通道)')
 })
 
 test('P7 未判定不冒充通过(§0.3):面取不到 ⇒ main 返 2,不是 0 也不是 1', () => {
