@@ -331,7 +331,7 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **横向口径(适用于绝大多数内容门,勿逐门重抄)**:全量判 HEAD blob / `--staged` 判索引 blob / `--worktree` 仅人工;两面旗同给 exit 2;取不到判「无法判定」不回落;枚举到 0 判死;棘轮锚点 = 该文件 HEAD 自身违规数;行内豁免须带原因且多数登记守门 108 存活期表;取证 = `--self-test` + §22c 镜像测试,例数以命令末行现读为准;遮罩统一引 `scripts/lib/code-mask.mjs`,方向分两档(判字面量的门"只遮注释保留字符串",判代码结构的门"注释与字符串都遮")。
 
 - **门名点名索引**(按主题归堆;blocking/warn 以 runner 现值为准):
-- 计划文档: `check-plan-dup-pointer-ratchet.mjs` `check-plan-sha-resolvable.mjs` `check-plan-sha-form.mjs` `check-baseline-freshness.mjs`
+- 计划文档: `check-plan-dup-pointer-ratchet.mjs` `check-plan-sha-resolvable.mjs` `check-plan-sha-form.mjs` `check-baseline-freshness.mjs` `check-agents-doc-size.mjs`
 - git/提交链: `check-commit-scope.mjs` `check-push-sync.mjs` `check-head-typecheck.mjs` `check-typecheck.mjs` `check-git-read-timeout.mjs` `check-spawn-stdio.mjs` `check-registry-worktree-superset.mjs`
 - 接线/守门自身: `check-gate-face-discipline.mjs` `check-skip-env-promise.mjs` `check-selftest-registrant-evaluates.mjs` `check-list-predicate-has-positive-proof.mjs` `check-baseline-freshness.mjs` `check-ops-patrol.mjs`
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs`
