@@ -7,6 +7,8 @@
 import type { PlanStep } from '@ihui/types'
 // 权限档读侧归一(G-161/G-165):历史行拼写可能是 kebab/camel/别名
 import { permissionModeWire } from '@ihui/types/permission-mode'
+// D64⑤ 元素包历史回放(2026-10-14):metadata.elementPack.frames → SubAgentActivity[]
+import { readSubagentActivitiesFromMetadata } from '@/lib/element-pack-history'
 // D33 过程性信息读回(2026-09-23):fallback 交代与 SSE 帧同一类型;memory/usage seed 走真 store
 import {
   useChatStore,
@@ -341,6 +343,11 @@ export function hydrateHistoryMessage(row: HistoryMessageRecord): ChatMessage {
       typeof meta?.interrupt_reason === 'string' && meta.interrupt_reason
         ? meta.interrupt_reason
         : undefined,
+    // D64⑤(2026-10-14 立):元素包历史回放 —— subagent 帧族(spawn/progress/end)
+    // 折叠成与流式侧 store 终态等价的 SubAgentActivity[],MessageItem 既有
+    // SubAgentActivityFeed 渲染位直接消费(回放 = 流式的同组件同形状)。
+    // 无元素包/全部帧判不过 → undefined,不挂字段不渲染空态。
+    subagentActivities: readSubagentActivitiesFromMetadata(meta),
   }
 }
 
