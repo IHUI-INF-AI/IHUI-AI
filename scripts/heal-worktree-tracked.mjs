@@ -69,6 +69,8 @@ import { analyze, ancestorWindow, windowFor } from './check-stale-revert.mjs'
 // ②′ 通道要读两面内容(索引 blob 与 HEAD blob)—— 一律走 face-reader 那一份取材层,
 // 不在本器里自拼 `git show`(守门 118:引了层却自己读内容 = 半接线)。
 import { catBatch, catBatchOids, catBatchSizes, gitRaw } from './lib/face-reader.mjs'
+// 第五层「落地欠回写」要问"这份陈旧是哪一枚旁路落地造成的",留痕台账是唯一出处
+import { BYPASS_KIND, ledgerPath, readLedgerRecords } from './lib/commit-attestation.mjs'
 // §26:新增临时夹具唯一落点(mkScratch 不落 os.tmpdir、不落仓库树内)。第四层取证用。
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
@@ -1013,9 +1015,18 @@ export function subsetRefreshable(repoRoot, candidates, idxBlob, headBlob, loss 
   // 超护栏的一族是**刻意不动**(活文档走人工归并),但它必须被点名 —— 否则"没判"与"判过"同形
   const oversized = sized.filter((p) => !readable.includes(p) && !keep.includes(p))
   const tooBig = keep.filter((p) => !readable.includes(p))
-  if (loss && (oversized.length || tooBig.length))
+  // 两族必须分桶点名(2026-10-14):`oversized` 这名把它误标成"超尺寸护栏"——实测一枚 63 KB
+  // 的水印文件走的是"索引侧字节大于 HEAD 侧"这一格,报成"超过 2097152 B"会把人引去查护栏
+  // 阈值与文件体积,而真因是这一维判据结构上不适用(加行不是子集)。
+  if (loss && oversized.length)
     loss.push({
-      paths: [...oversized, ...tooBig],
+      paths: oversized,
+      reason: '索引侧字节**大于** HEAD 侧 ⇒ "行级子集"这一维结构上不成立(加行/扩写不是子集),本层不动',
+      bucket: 'index-larger-than-head',
+    })
+  if (loss && tooBig.length)
+    loss.push({
+      paths: tooBig,
       reason: `超尺寸护栏(${SUBSET_MAX_BYTES} B)⇒ 本层刻意不判,交人工归并`,
       bucket: 'oversized',
     })
@@ -1056,6 +1067,119 @@ function linesAreSubMultiset(a, b) {
 }
 
 /**
+ * 第五层:旁路落地欠回写(2026-10-14 立)—— 只服务被 `ALIGN_EXEMPT_PATHS` 整体绕行的活文档,
+ * 且**只写索引、绝不写工作树**(工作树那一半正是 2026-10-12 那次 19339 行台账事故的成因)。
+ *
+ * 为什么必须单独有一层:`ALIGN_EXEMPT_PATHS`(:130)防的是"把别人正在写的台账写回旧版",
+ * 代价是落地器(commit-tree + CAS)推进 HEAD 之后,这一格**没人负责**。2026-10-14 实测:
+ * 22:45:55 那枚 `union-converge --apply`(留痕 landed=25d1b148c1 / headBefore=b9b41997a6 /
+ * declaredFiles 含 PROJECT_PLAN.md)落地后,索引里长期挂着 b9b41997a6 那份旧基线 ——
+ * 一次不带 pathspec 的普通提交会把合并成果写回旧态(守门 84 判红),而 `git merge --ff-only`
+ * 会被这条脏索引直接挡下 ⇒ 停部署。机主看到的那句"怎么还有暂存更改没提交"就是它。
+ *
+ * 四条判据同时成立才动,任一不成立一律只报数:
+ *   ① 该路径在 `ALIGN_EXEMPT_PATHS` 里(非豁免路径已由 `refreshStaleIndex` 判,不在此重复);
+ *   ② 索引 blob 存在 ∧ != HEAD blob ∧ **逐字节等于某一枚"自己声明过该路径"的旁路落地的前像**
+ *      (`rec.headBefore` 面该路径的 blob)⇒ 这份陈旧是那次落地换掉的,不是谁有意暂存的;
+ *      且 `rec.landedSha` 必须是 HEAD 的祖先(含 HEAD 本身)⇒ 那一枚确在当前线上;
+ *   ③ 工作区 blob == 索引 blob(无人在其上继续写);
+ *   ④ 无 MERGE_HEAD(由 `alignDrifts` 入口把关)∧ 索引锁未被他人持有(由 `writeIndexCacheInfos` 把关)。
+ * 台账读不到 / 前像对不上 / 取不到 blob ⇒ 逐条点名 `undetermined` 或 `held`,不记绿也不冒红(§0.3)。
+ */
+export function alignLandingDebtIndex(repoRoot, { dryRun = false } = {}) {
+  const g = makeGit(repoRoot)
+  const out = {
+    aligned: 0,
+    paths: [],
+    held: [],
+    undetermined: [],
+    deferred: [],
+    candidates: [],
+    lockSkip: null,
+  }
+  const targets = [...ALIGN_EXEMPT_PATHS]
+  if (!targets.length) return out
+  const ledger = readLedgerRecords(repoRoot)
+  if (!ledger.ok) {
+    out.undetermined.push({
+      path: targets.join(', '),
+      reason: `旁路落地台账${ledger.state === 'missing' ? '不存在' : '读不到'}(${String(ledger.why ?? '').slice(0, 120)})⇒ 无法证明这份陈旧由哪一次落地造成,本层不动`,
+    })
+    return out
+  }
+  const landings = (ledger.records || []).filter(
+    (r) => r?.kind === BYPASS_KIND && r.landedSha && Array.isArray(r.declaredFiles),
+  )
+  const entries = []
+  for (const p of targets) {
+    let ib = ''
+    let hb = ''
+    try {
+      ib = g(['rev-parse', `:${p}`]).trim()
+      hb = g(['rev-parse', `HEAD:${p}`]).trim()
+    } catch (e) {
+      out.undetermined.push({
+        path: p,
+        reason: `索引面或 HEAD 面取不到 blob:${String(e?.message ?? e).slice(0, 120)}⇒ 不回落另一个面`,
+      })
+      continue
+    }
+    if (ib === hb) continue // 本就一致 ⇒ 不是悬留
+    let wt = ''
+    try {
+      wt = hashObjectsChunked(g, [resolve(repoRoot, p)])[0] ?? ''
+    } catch {
+      wt = ''
+    }
+    if (!wt) {
+      out.undetermined.push({ path: p, reason: '工作区 blob 取不到 ⇒ 看不到现场,不动索引' })
+      continue
+    }
+    if (wt !== ib) {
+      out.held.push({ path: p, reason: '工作区 != 索引 ⇒ 有人正在这份台账上继续写,不代裁' })
+      continue
+    }
+    let proven = null
+    for (let i = landings.length - 1; i >= 0 && !proven; i--) {
+      const r = landings[i]
+      if (!r.declaredFiles.map((f) => normRepoPath(f)).includes(p)) continue
+      let pre = ''
+      try {
+        pre = g(['rev-parse', `${r.headBefore}:${p}`]).trim()
+      } catch {
+        continue // 前像取不到 ⇒ 这一枚不能作证
+      }
+      if (pre !== ib) continue // 索引形态不是这一枚换掉的 ⇒ 不是落地欠账
+      try {
+        g(['merge-base', '--is-ancestor', r.landedSha, 'HEAD'])
+      } catch {
+        continue // 那一枚不在当前线上
+      }
+      proven = r
+    }
+    if (!proven) {
+      out.held.push({
+        path: p,
+        reason: '索引 blob 对不上任何一枚旁路落地的前像 ⇒ 不是落地欠账(可能是有意暂存),不代裁',
+      })
+      continue
+    }
+    out.candidates.push({ path: p, landingSha: proven.landedSha, headBefore: proven.headBefore })
+    entries.push([p, hb])
+  }
+  if (!entries.length) return out
+  if (dryRun) return { ...out, dryRun: true }
+  const w = writeIndexCacheInfos(g, repoRoot, entries)
+  return {
+    ...out,
+    aligned: w.done.length,
+    paths: w.done,
+    deferred: w.deferred,
+    lockSkip: w.lockSkip,
+  }
+}
+
+/**
  * 幻影漂移对齐(比缺失恢复更严的判据,供 `--align-drift` 与 git-sync-converge 调用):
  * 只对齐**同时满足**三条的路径 —— ① 索引 blob == HEAD blob(该路径上无人暂存过任何东西);
  * ② 工作区内容 != HEAD;③ 内容属"回潮",两条通道任一成立即算:
@@ -1090,7 +1214,13 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
       refreshExempt: [],
       ancestryUndetermined: [],
       subsetUndetermined: [],
-      layerSkips: [mergeSkipEntry(mh, '对齐层整轮(索引刷新/旁路孤儿/漂移对齐)')],
+      landingAligned: 0,
+      landingPaths: [],
+      landingHeld: [],
+      landingUndetermined: [],
+      landingDeferred: [],
+      landingCandidates: [],
+      layerSkips: [mergeSkipEntry(mh, '对齐层整轮(索引刷新/旁路孤儿/漂移对齐/落地欠回写)')],
       bypassRestored: 0,
       bypassPaths: [],
       bypassHeldOnDisk: 0,
@@ -1160,6 +1290,22 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   // 写循环内部已把撞锁折成 lockSkip(不抛穿)⇒ 这里把它并进本层的点名清单,
   // 否则"让了路"这件事只剩一个 refreshed:0,与"本来无事"同形(G-794 的正身)。
   if (refreshed.lockSkip) layerSkips.push({ layer: '陈旧索引刷新', ...refreshed.lockSkip })
+  // 第五层:旁路落地欠回写(只补 refreshStaleIndex 刻意绕行掉的那一格:活文档 + 仅索引)。
+  let landing = {
+    aligned: 0,
+    paths: [],
+    held: [],
+    undetermined: [],
+    deferred: [],
+    candidates: [],
+    lockSkip: null,
+  }
+  try {
+    landing = alignLandingDebtIndex(repoRoot, { dryRun })
+  } catch (e) {
+    noteSkip('落地欠回写对齐', e)
+  }
+  if (landing.lockSkip) layerSkips.push({ layer: '落地欠回写对齐', ...landing.lockSkip })
   // 第四层:旁路提交孤儿路径(HEAD 有 / 索引无 / 盘无)。跑在 dirty 计算之前 —— 恢复完的
   // 路径已不再是"工作区 vs HEAD"的差集;若排在后面,它们会以"缺失"混进漂移判定并被
   // skippedStaged 错计。判据与恢复动作见 restoreBypassOrphans 头注(四判据全成立才动手)。
@@ -1184,6 +1330,15 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     refreshExempt: refreshed.exempt || [],
     ancestryUndetermined: refreshed.ancestryUndetermined || [],
     subsetUndetermined: refreshed.subsetUndetermined || [],
+    landingAligned: landing.aligned,
+    landingPaths: landing.paths,
+    landingHeld: landing.held,
+    landingUndetermined: landing.undetermined,
+    landingDeferred: landing.deferred,
+    landingCandidates: landing.candidates,
+    // 常态也必须带这一键(镜像 T17 撞到的源码事实):只在"合并让路"那个字面量里写 true、其余出口
+    // 整个键缺失,读侧就只能靠 `undefined` 与 `false` 的差别判 —— 那是把形状不一致推给消费者。
+    mergeInProgress: false,
     layerSkips,
   })
   let dirty = []
@@ -2353,6 +2508,143 @@ function selfTestRun() {
     }
 
     /* ------------------------------------------------------------------ *
+     * ㊺ 落地欠回写层(2026-10-14 立)—— 活文档的索引停在"旁路落地前像"时,机器必须自己认领。
+     *   立因实测:22:45:55 那枚 `union-converge --apply` 落地后,PROJECT_PLAN.md 的索引与工作区
+     *   停在 HEAD^1 的逐字节版本(留痕 landed=25d1b148c1 / headBefore=b9b41997a6 / declaredFiles
+     *   含该路径),而 `ALIGN_EXEMPT_PATHS` 把这一格从 `refreshStaleIndex` 整体摘除 ⇒ 悬留没人负责,
+     *   直到机主亲自问出"怎么还有暂存更改没提交"。一次不带 pathspec 的普通提交会把合并成果写回
+     *   旧态(守门 84 判红),而 `git merge --ff-only` 会被这条脏索引挡下 ⇒ 停部署。
+     *   五组断律:①正控必须经 alignDrifts 装车命中 ②**本层绝不写工作树**(19339 行事故的成因)
+     *   ③工作区有现场必须不碰 ④前像对不上必须不碰 ⑤无留痕必须判"未判定"而非 0(§0.3)。
+     *   ㊺-D 是变异对照:同一形态只跑既有那一层 ⇒ 读数必须归零,证明起作用的是新层而不是老代码。
+     * ------------------------------------------------------------------ */
+      const buildDebtRepo = (tag) => {
+        const t = mkScratch(tag)
+        const q = makeGit(t)
+        q(['init', '-q', '--initial-branch=main'])
+        q(['config', 'user.email', 't@t'])
+        q(['config', 'user.name', 't'])
+        q(['config', 'core.autocrlf', 'false'])
+        writeFileSync(join(t, 'PROJECT_PLAN.md'), 'line-old\n')
+        q(['add', '-A'])
+        q(['commit', '-qm', 'c0 落地前像'])
+        const headBefore = q(['rev-parse', 'HEAD']).trim()
+        writeFileSync(join(t, 'PROJECT_PLAN.md'), 'line-old\nline-merged\n')
+        q(['commit', '-qam', 'c1 合并成果(HEAD)'])
+        const landed = q(['rev-parse', 'HEAD']).trim()
+        // 悬留形态:索引 + 工作树双双退回 c0(与 commit-tree+update-ref 只推进 HEAD 同形)
+        q(['checkout', '-q', 'HEAD~1', '--', 'PROJECT_PLAN.md'])
+        return { t, q, headBefore, landed }
+      }
+      const writeLandingRecord = (t, rec) => {
+        writeFileSync(
+          ledgerPath(t),
+          `${JSON.stringify({
+            ts: new Date().toISOString(),
+            kind: BYPASS_KIND,
+            landedSha: rec.landed,
+            headBefore: rec.headBefore,
+            declaredFiles: rec.declared,
+            source: 'unit-fixture union-converge --apply',
+          })}\n`,
+          { flag: 'a' },
+        )
+      }
+      const idxBlobOf = (q) => q(['ls-files', '-s', 'PROJECT_PLAN.md']).trim().split(/\s+/)[1]
+    {
+      const a = buildDebtRepo('wt-heal-debt-a-')
+      try {
+        mkdirSync(join(a.t, '.workbuddy'), { recursive: true })
+        writeLandingRecord(a.t, { landed: a.landed, headBefore: a.headBefore, declared: ['PROJECT_PLAN.md'] })
+        const headBlob = a.q(['rev-parse', 'HEAD:PROJECT_PLAN.md']).trim()
+        const oldBlob = a.q(['rev-parse', 'HEAD~1:PROJECT_PLAN.md']).trim()
+        check('㊺ 前提:索引确停在落地前像(且 != HEAD)', idxBlobOf(a.q) === oldBlob && oldBlob !== headBlob)
+        const r = alignDrifts(a.t)
+        check(
+          '㊺-A 正控(装车):落地前像形态被 alignDrifts 对齐回 HEAD —— 只算索引',
+          r.landingAligned === 1 && r.landingPaths.includes('PROJECT_PLAN.md') && idxBlobOf(a.q) === headBlob,
+        )
+        check(
+          '㊺-A 反向断律:本层绝不写工作树(19339 行事故那一半),工作区仍是落地前像',
+          readFileSync(join(a.t, 'PROJECT_PLAN.md'), 'utf8') === 'line-old\n',
+        )
+      } finally {
+        rmScratch(a.t)
+      }
+    }
+    {
+      const b = buildDebtRepo('wt-heal-debt-b-')
+      try {
+        mkdirSync(join(b.t, '.workbuddy'), { recursive: true })
+        writeLandingRecord(b.t, { landed: b.landed, headBefore: b.headBefore, declared: ['PROJECT_PLAN.md'] })
+        const idxBefore = idxBlobOf(b.q)
+        // 有人正在这份台账上继续写(工作区 != 索引)⇒ 判据③不成立
+        writeFileSync(join(b.t, 'PROJECT_PLAN.md'), 'line-old\n某会话正在写的一行\n')
+        const r = alignLandingDebtIndex(b.t)
+        check(
+          '㊺-B 反控:工作区有现场 ⇒ 零写,且 held 逐条点名原因(不静默)',
+          r.aligned === 0 && r.held.some((h) => h.path === 'PROJECT_PLAN.md') && idxBlobOf(b.q) === idxBefore,
+        )
+      } finally {
+        rmScratch(b.t)
+      }
+    }
+    {
+      const c = buildDebtRepo('wt-heal-debt-c-')
+      try {
+        const idxBefore = idxBlobOf(c.q)
+        // §0.3 反控:没有任何落地留痕 ⇒ 证明不了"这份陈旧由哪次落地造成",只能判未判定
+        const r = alignLandingDebtIndex(c.t)
+        check(
+          '㊺-C §0.3:台账缺失 ⇒ 判"未判定"并点名原因,不得记绿也不得动索引',
+          r.aligned === 0 &&
+            r.undetermined.length === 1 &&
+            /未判定|无法证明/.test(String(r.undetermined[0]?.reason ?? '')) &&
+            idxBlobOf(c.q) === idxBefore,
+        )
+      } finally {
+        rmScratch(c.t)
+      }
+    }
+    {
+      const e = buildDebtRepo('wt-heal-debt-e-')
+      try {
+        mkdirSync(join(e.t, '.workbuddy'), { recursive: true })
+        // 有留痕,但那一枚声明的路径不含本文件 ⇒ 前像对不上 ⇒ 不是落地欠账(可能是有意暂存)
+        writeLandingRecord(e.t, { landed: e.landed, headBefore: e.headBefore, declared: ['other.md'] })
+        const idxBefore = idxBlobOf(e.q)
+        const r = alignLandingDebtIndex(e.t)
+        check(
+          '㊺-E 反控:留痕前像对不上 ⇒ held,零写(不许把别人的暂存当成落地欠账)',
+          r.aligned === 0 && r.held.length === 1 && idxBlobOf(e.q) === idxBefore,
+        )
+      } finally {
+        rmScratch(e.t)
+      }
+    }
+    {
+      const d = buildDebtRepo('wt-heal-debt-d-')
+      try {
+        mkdirSync(join(d.t, '.workbuddy'), { recursive: true })
+        writeLandingRecord(d.t, { landed: d.landed, headBefore: d.headBefore, declared: ['PROJECT_PLAN.md'] })
+        const oldBlob = d.q(['rev-parse', 'HEAD~1:PROJECT_PLAN.md']).trim()
+        // 变异对照:既有那一层(refreshStaleIndex)对本形态必须读数归零 —— 豁免是刻意的
+        const only = refreshStaleIndex(d.t)
+        check(
+          '㊺-D 变异对照:同一形态只跑 refreshStaleIndex ⇒ refreshed=0 且该路径在 exempt 里',
+          only.refreshed === 0 && only.exempt.includes('PROJECT_PLAN.md') && idxBlobOf(d.q) === oldBlob,
+        )
+        const r2 = alignLandingDebtIndex(d.t)
+        check(
+          '㊺-D 正控面:同一形态只有本层能对齐 ⇒ aligned=1(证明新层不是永远不刷)',
+          r2.aligned === 1 && r2.paths.includes('PROJECT_PLAN.md'),
+        )
+      } finally {
+        rmScratch(d.t)
+      }
+    }
+
+    /* ------------------------------------------------------------------ *
      * G-794 ㉚/㉛ —— 锁被他人持有时的正确结论是"本层跳过 + 一行原因",不是把异常冒到 main()。
      * 造**真** index.lock(不是模拟抛错):模拟只能证明"不崩",证明不了"三层照跑、一条都没写成"。
      * 实测崩点(2026-09-29 05:2x/05:4x,exit 2)就是 refreshStaleIndex 末尾那条裸奔的
@@ -2745,6 +3037,29 @@ async function main() {
           `⚠️ ${d.bypassDeferred.length} 个旁路孤儿本轮未恢复(已延后,原因见下面 [旁路孤儿恢复] 那一行的锁状态归因):` +
             (d.bypassDeferred || []).slice(0, 10).join(', '),
         )
+      if (d.landingAligned) {
+        console.log(
+          `✅ 落地欠回写已对齐 ${d.landingAligned} 个路径的**索引**回到 HEAD(工作树未动;判据=索引 blob 逐字节等于某枚旁路落地声明过该路径的前像,故零独有)`,
+        )
+        for (const p of (d.landingPaths || []).slice(0, 10)) console.log('   - 已对齐(仅索引) ' + p)
+      }
+      if (dryRun && d.landingCandidates?.length)
+        console.log(
+          `[check] ${d.landingCandidates.length} 个路径的索引停在旁路落地前像,可对齐(未执行):` +
+            d.landingCandidates
+              .slice(0, 6)
+              .map((c) => `${c.path}←落地 ${String(c.landedSha).slice(0, 10)}`)
+              .join(', '),
+        )
+      for (const h of (d.landingHeld || []).slice(0, 6))
+        console.log(`ℹ️ ${h.path} 未按落地欠账对齐:${String(h.reason).slice(0, 150)}`)
+      for (const u of (d.landingUndetermined || []).slice(0, 6))
+        console.log(`⚠️ 未判定 ${u.path}:${String(u.reason).slice(0, 150)}`)
+      if (d.landingDeferred?.length)
+        console.log(
+          `⚠️ ${d.landingDeferred.length} 个落地欠回写路径本轮未对齐(撞锁延后):` +
+            d.landingDeferred.slice(0, 10).join(', '),
+        )
       // G-794 / G-742:跳过与判不出必须在人类档点名(守护 --json 档由字段带,converge 读末行)
       printSkipsAndLoss(d)
       if (d.aligned)
@@ -2770,6 +3085,10 @@ async function main() {
         if (d.ancestryUndetermined?.length)
           caveats.push(`${d.ancestryUndetermined.length} 处索引祖先判不出`)
         if (d.refreshDeferred?.length) caveats.push(`${d.refreshDeferred.length} 个索引刷新延后`)
+        if (d.landingHeld?.length)
+          caveats.push(`${d.landingHeld.length} 格活文档索引停在旧版但证明不了是落地欠账(只报数)`)
+        if (d.landingUndetermined?.length)
+          caveats.push(`${d.landingUndetermined.length} 格落地欠回写未判定(台账读不到/取不到 blob)`)
         console.log(
           `✅ 无需对齐(可判定 ${d.paths ? d.paths.length : 0} 个,已跳过有暂存的 ${d.skippedStaged || 0} 个)` +
             (caveats.length ? ` —— ⚠️ 这句不等于"全部判过且干净":${caveats.join(';')}` : ''),
@@ -2892,6 +3211,8 @@ export const __test__ = {
   writeIndexCacheInfos,
   // G-742 的四态祖先判定
   blobInAncestry,
+  // ㊺ 第五层:旁路落地欠回写(镜像测按行为断言,不在测试里重抄判据 —— §22c)
+  alignLandingDebtIndex,
   INDEX_LOCK_LIVE_MS,
   SKIP_ENV,
 }
