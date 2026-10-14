@@ -3,8 +3,15 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:G-107(G-977959) 远程图库真图生成器 · 2026-10-14
 /**
- * G-107 真图交付生成器:把 deploy/server-root 里 184 个 0 字节占位图 + 114 个缺失路径
- * 按登记表(apps/miniapp-taro/src/constants/remote-icons.ts 的 URL 字面量)逐个补齐真图。
+ * 远程图库真图交付生成器(G-45,原 G-977959):把 deploy/server-root 里的空文件与缺失路径
+ * 按**登记表 + 全仓代码引用**逐个补齐真图。
+ *
+ * 取图优先级(2026-10-14 修正后):
+ *   ① **本地真图副本优先** —— `apps/miniapp-taro/src/assets/remote/`(登记表头注声明的本地副本,
+ *      结构性命中 `remote-images/` ↔ `images/`)。实测登记表 289 条里 106 条在此有真图;
+ *      早期版本按"两段路径逐字匹配"判 0 命中、对这些槽位生成了程序化假图,已由本通道纠正。
+ *   ② 无真图 ⇒ 程序化生成(SVG 线稿 / 徽章 / 封面 / 渐变 / 二维码 / 厂牌转档)。
+ *   ③ 无真图也无 spec(.mp4、`sys-backs/*` 动态备份路径)⇒ 点名"无源",**不造假**。
  *
  * 设计体系(2026-10-14,机主授权 AI 设计):
  *   - 色板对齐 web token:primary #111827 / info #3B82F6 / success #22C55E / warning #F59E0B / destructive #EF4444
@@ -12,11 +19,11 @@
  *   - 横幅/插画基图 = AI 生成(tmp/img-design/staging/,机主授权的积分消耗),统一底部 10% 裁切去水印
  *   - 背景 = 程序化渐变 + 装饰形
  *   - 徽章/封面文字 = SVG text(Microsoft YaHei,冒烟测试已验证中文渲染)
- *   - 二维码 = qrcode 库真码,统一指向 https://aizhs.top(替真数据前先占位,报告已注明)
+ *   - 二维码 = 真码优先(本地副本);无真码的槽位才用 qrcode 库生成(指向 https://aizhs.top)
  *   - 微信/支付宝厂牌 = 仓内既有官方 SVG 资产转 PNG(apps/web/public/footer/zf/),不伪造商标
  *
  * 用法:
- *   node scripts/generate-remote-images.mjs            # 只补缺失/空文件
+ *   node scripts/generate-remote-images.mjs            # 只补缺失/空文件(真图优先)
  *   node scripts/generate-remote-images.mjs --force    # 全量重生成
  *   node scripts/generate-remote-images.mjs --mirror-web  # 同步同名镜像到 apps/web/public(工作树)
  *
@@ -25,6 +32,7 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, readdirSync, copyFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
@@ -38,6 +46,13 @@ const QRCode = require(resolve(ROOT, 'node_modules/.pnpm/qrcode@1.5.4/node_modul
 const SERVER_ROOT = join(ROOT, 'deploy/server-root')
 const STAGING = join(ROOT, 'tmp/img-design/staging')
 const REGISTRY_TS = join(ROOT, 'apps/miniapp-taro/src/constants/remote-icons.ts')
+// 本地真图副本:登记表头注声明"本地副本:apps/miniapp-taro/src/assets/remote/(已复制原项目
+// src/static/ 全部图标),匹配策略:URL path 精确匹配 → basename 匹配本地副本"。URL 前缀
+// `remote-images/` 对应本地 `images/`(原项目 static 目录),`tabbar/` 原样对应。
+// 2026-10-14 补:登记表 289 条里有 **106 条**在此副本有真图(结构性命中),真图必须优先于
+// 程序化生成 —— 早前按"两段路径逐字匹配"判 0 命中时漏了这条目录别名映射,已修正。
+const LOCAL_ASSET_ROOT = join(ROOT, 'apps/miniapp-taro/src/assets/remote')
+const IMG_EXT_RE = /\.(png|jpe?g|gif|webp|svg)$/i
 const BRAND = {
   wechatSvg: join(ROOT, 'apps/web/public/footer/zf/weixin.svg'),
   alipaySvg: join(ROOT, 'apps/web/public/footer/zf/zfb.svg'),
@@ -76,13 +91,67 @@ const STAGING_FILES = {
 const stage = (key) => join(STAGING, STAGING_FILES[key])
 
 // ── 登记表提取(与 check-image-placeholders.mjs 同源判据)────────────────────
+// 2026-10-14 修:原正则 `\((?:'([^']+)')\)` 要求 `(` 与 `'` 同行,漏掉**多行调用**
+// (`aizhsUrl(\n  'sys-backs/...'\n)`,登记表里有 5 条)。改 `\(\s*'([^']+)'\s*\)` 跨行匹配。
+// 非图片扩展名(.mp4)不进图片生成面 —— 视频不是图片,生成 PNG 顶上就是造假。
 function extractRegistry() {
   const src = readFileSync(REGISTRY_TS, 'utf8')
   const urls = new Set()
-  const re = /(?:bspappUrl|aizhsUrl)\('([^']+)'\)/g
+  const re = /(?:bspappUrl|aizhsUrl)\(\s*'([^']+)'\s*,?\s*\)/g
   let m
-  while ((m = re.exec(src))) urls.add(m[1])
+  while ((m = re.exec(src))) if (IMG_EXT_RE.test(m[1])) urls.add(m[1].replace(/^\//, ''))
   return [...urls].sort()
+}
+
+/**
+ * 全仓源码里 `aizhsUrl()/bspappUrl()` 引用的 URL(整文件扫描,跨行可匹配)。
+ * 为什么不能只看登记表:页面直接写 `aizhsUrl('remote-images/qewm.png')` 这类**不经登记表**的
+ * 调用(2026-10-14 实测 38 条),登记表看不见它们 ⇒ 源站没有 ⇒ 页面图裂。
+ */
+function extractCodeUrls() {
+  const files = []
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.name === 'node_modules' || e.name === 'dist' || e.name === 'build' || e.name.startsWith('.')) continue
+      const p = join(dir, e.name)
+      if (e.isDirectory()) walk(p)
+      else if (/\.(ts|tsx|js|jsx|vue)$/.test(e.name)) files.push(p)
+    }
+  }
+  for (const d of ['apps/miniapp-taro/src', 'apps/web/src', 'packages']) walk(join(ROOT, d))
+  const urls = new Set()
+  const re = /(?:bspappUrl|aizhsUrl)\(\s*'([^']+)'\s*,?\s*\)/g
+  for (const f of files) {
+    let s
+    try { s = readFileSync(f, 'utf8') } catch { continue }
+    let m
+    while ((m = re.exec(s))) if (IMG_EXT_RE.test(m[1])) urls.add(m[1].replace(/^\//, '').replace(/\\/g, '/'))
+  }
+  return [...urls].sort()
+}
+
+/**
+ * 显式别名:登记表里少数 URL 在原项目 CDN 上是独立文件、本地副本无同名项,但语义同类
+ * (都是"扫码加微信/进群"槽位),而仓内唯一真码是 `images/qewm.png`。
+ * 2026-10-14 实证:原型 `Ai-WXMiniVue` 的 `pagesA/index` 用 `home/ewm.png`、
+ * `pagesA/recruitment`+`pagesA/carte` 用 `recruitment/ewm@2x.png`,旧 CDN 已失联;
+ * 原型 `src/static/images/qewm.png` 与仓内副本 sha256 逐字节相同(证明副本即真源)。
+ * 用真微信码替合成码:真码永远优于程序化生成的指向首页的占位码。
+ */
+const LOCAL_ALIASES = {
+  'home/ewm.png': 'images/qewm.png',
+  'recruitment/ewm@2x.png': 'images/qewm.png',
+}
+
+/** URL → 本地真图绝对路径(结构性命中:remote-images/ ↔ images/,tabbar/ 原样);无则 null。 */
+function localAssetFor(rel) {
+  const alias = LOCAL_ALIASES[rel]
+  const candidates = []
+  if (alias) candidates.push(join(LOCAL_ASSET_ROOT, alias))
+  if (rel.startsWith('remote-images/')) candidates.push(join(LOCAL_ASSET_ROOT, 'images', rel.slice('remote-images/'.length)))
+  candidates.push(join(LOCAL_ASSET_ROOT, rel))
+  for (const c of candidates) if (existsSync(c) && statSync(c).isFile() && statSync(c).size > 0) return c
+  return null
 }
 
 // ── SVG 线稿图标库(24×24 viewBox,stroke 风格)──────────────────────────────
@@ -620,27 +689,53 @@ function fallbackSpec(rel, i) {
 }
 
 // ── 主流程 ──────────────────────────────────────────────────────────────────
+// `sys-backs/` 是**动态备份/用户上传内容**的命名空间(照片、视频),不是设计槽位。
+// 给它生成一张线稿图标 = 用"看着像图的东西"冒充用户内容,比灰块更糟(票面铁律同款)。
+// 这类路径只点名"无源",等真素材。
+const NO_SOURCE_PREFIXES = ['sys-backs/']
 async function main() {
-  const paths = extractRegistry()
+  const registry = extractRegistry()
+  const codeUrls = extractCodeUrls()
+  const paths = [...new Set([...registry, ...codeUrls])]
   const unspecced = paths.filter((p) => !SPECS[p.replace(/\/{2,}/g, '/')])
-  unspecced.forEach((p, i) => fallbackSpec(p.replace(/\/{2,}/g, '/'), i))
+  unspecced.forEach((p, i) => {
+    const rel = p.replace(/\/{2,}/g, '/')
+    if (NO_SOURCE_PREFIXES.some((pre) => rel.startsWith(pre))) return // 留给"无源"分支点名
+    fallbackSpec(rel, i)
+  })
 
-  let made = 0, skipped = 0, failed = 0
+  let real = 0, made = 0, skipped = 0, failed = 0
+  const noSource = []
   const failures = []
   for (const raw of paths) {
     const rel = raw.replace(/\/{2,}/g, '/') // 文件系统/HTTP 语义下双斜杠折叠;登记表里保留了 2 条 // 形态
     const out = join(SERVER_ROOT, rel)
-    const exists = existsSync(out)
-    if (exists && !FORCE && statSync(out).size > 0) { skipped++; continue }
+    // ① 真图优先:本地副本有结构性命中的真图 ⇒ 直接落盘,不生成假图(真图永远优于程序化生成)
+    const local = localAssetFor(rel)
+    if (local) {
+      mkdirSync(dirname(out), { recursive: true })
+      copyFileSync(local, out)
+      real++
+      continue
+    }
+    // ② 无真图:已有非空文件则不重做(除 --force)
+    if (existsSync(out) && !FORCE && statSync(out).size > 0) { skipped++; continue }
+    const s = SPECS[rel] ?? {}
+    // ③ 无真图也无 spec(.mp4 / sys-backs 动态备份路径)⇒ 点名,不造假
+    if (!s.kind) { noSource.push(rel); continue }
     try {
-      const s = SPECS[rel] ?? {}
       await generate(rel, s)
       made++
     } catch (e) {
       failed++; failures.push(`${rel} :: ${e.message}`)
     }
   }
-  console.log(`登记表 ${paths.length} 张;生成 ${made};跳过(已有真图) ${skipped};失败 ${failed}`)
+  console.log(`登记表 ${registry.length} 条 + 代码引用补充 ${paths.length - registry.length} 条 = ${paths.length} 条`)
+  console.log(`真图落盘(本地副本结构性命中) ${real};程序化生成 ${made};跳过(已有真图) ${skipped};无源不造假 ${noSource.length};失败 ${failed}`)
+  if (noSource.length) {
+    console.log('无源清单(仓内无真图、且非可生成图片;需外部素材):')
+    for (const p of noSource) console.log('  ' + p)
+  }
   if (failures.length) {
     console.log('失败清单:')
     for (const f of failures) console.log('  ' + f)
@@ -682,25 +777,54 @@ async function replaceIfBlank(out, svg) {
 }
 
 /**
- * web/public 同名镜像同步(2026-10-14):apps/web/public 里有一批与源站同路径的
- * "看不见的假图"(空白画布审计 179 张 ×164B,审计判据=同一字节 ≥5 份)。本通道只做
- * **同名且已是假图(≤512B)的替换**,不新增文件、不动真图 —— 页面引用有没有、引用了
- * 是否更好看,替换都不劣化;未被引用也不产生新 diff 面。
+ * web/public 同名镜像同步:apps/web/public 里有一批与源站**同路径**的"看不见的假图"。
+ * 判据(2026-10-14 实证):全部 178 条同路径跟踪文件在 G-107 之前(commit efe936ffcd)都是
+ * ≤512B 空白画布 ⇒ "web/public 存在同名跟踪文件"本身就是镜像集合,可稳定复跑。
+ * 刻意不用"当前文件 ≤512B"作判据:本脚本跑过一轮后那些文件已写成生成图(>512B),
+ * 按当前大小判会把它们当成真图而漏更新(实测)。
+ * 安全护栏:跳过 `git status` 显示被本地改动的路径,不覆盖并发会话在飞内容。
  */
 async function mirrorWeb() {
+  const dirty = new Set()
+  try {
+    const st = execFileSync('git', ['-C', ROOT, 'status', '--porcelain', '-z', '--', 'apps/web/public'], {
+      encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
+    })
+    for (const rec of st.split('\0')) {
+      const m = rec.match(/^.{2} (.+)$/)
+      if (m) dirty.add(m[1])
+    }
+  } catch {
+    console.log('web/public 镜像跳过:git status 取不到 ⇒ 不冒险覆盖')
+    return
+  }
+  const tracked = new Set()
+  try {
+    const out = execFileSync('git', ['-C', ROOT, 'ls-files', '-z', '--', 'apps/web/public'], {
+      encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
+    })
+    for (const p of out.split('\0')) if (p) tracked.add(p)
+  } catch {
+    console.log('web/public 镜像跳过:ls-files 取不到')
+    return
+  }
   const all = walkDir(SERVER_ROOT)
-  let n = 0
+  let n = 0, skippedDirty = 0
   for (const abs of all) {
     if (!/\.(png|jpe?g|gif|webp|svg)$/i.test(abs)) continue
     const rel = abs.slice(SERVER_ROOT.length + 1).replace(/\\/g, '/')
+    const webRel = 'apps/web/public/' + rel
+    if (!tracked.has(webRel)) continue // 非镜像路径(web 端没有这个文件)⇒ 不新增 diff 面
     const webOut = join(WEB_PUBLIC, rel)
     if (!existsSync(webOut)) continue
-    const sz = statSync(webOut).size
-    if (sz > 512) continue // 真图不动
+    if (dirty.has(webRel)) { skippedDirty++; continue } // 被本地改动 ⇒ 不覆盖
+    const a = readFileSync(abs)
+    const b = readFileSync(webOut)
+    if (a.length === b.length && a.equals(b)) continue // 已一致
     copyFileSync(abs, webOut)
     n++
   }
-  console.log(`web/public 镜像替换 ${n} 张假图(同名、原为 ≤512B 空白画布)`)
+  console.log(`web/public 镜像替换 ${n} 张(判据:同路径跟踪文件=镜像;跳过本地改动 ${skippedDirty})`)
 }
 
 function walkDir(dir, out = []) {
