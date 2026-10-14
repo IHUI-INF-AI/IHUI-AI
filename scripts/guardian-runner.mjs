@@ -4956,6 +4956,28 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 号池对账(G-313 续,2026-10-15 立):机主裁定任务号池 1..999,该硬上限原先只写在发号器里,活面无门拦"声明位号 >999"⇒ 绕开发号器用 usedIdsOfPrefix max+1 发出过两条七位号(已让号)。升 blocking 前置 = HEAD 面存量归零(§12e);2026-10-15 复注:原 209 号注册块被 80bfe30520 覆盖掉,现由正牌插入器重新占号(1 项,warn)---
+  {
+    id: '211',
+    label:
+      '🧮 PROJECT_PLAN 号池对账(声明位号 >999 按重数差值棘轮;R2 发号路径点名,warn)',
+    script: 'check-plan-id-pool.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_PLAN_ID_POOL',
+    stagedTriggers: ['PROJECT_PLAN.md'],
+    onFailHint: [
+      '',
+      '  现值以门体与 runner 双向一致为准(门 89 R10/R12 会核对);',
+      '  单独复验:node scripts/check-plan-id-pool.mjs [--staged|--json];',
+      '  自检:node scripts/check-plan-id-pool.mjs --self-test(4 组判据 · 阳性对照 5 条);',
+      '  取证长号是谁的:node scripts/check-plan-id-pool.mjs --json 看 stock 列表;',
+      '  修法:用正牌取号器换池内空闲号并留改号尾注(node scripts/next-plan-id.mjs 报池内空闲清单);',
+      '  紧急跳过(不推荐):HUSKY_SKIP_PLAN_ID_POOL=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
