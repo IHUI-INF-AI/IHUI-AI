@@ -289,6 +289,31 @@ tools: [tool-b, tool-c]
     expect(getAllowedTools(def.frontmatter)).toEqual([]);
   });
 
+  it('G-428 三值之四:allowed-tools 写成标量 ⇒ 判非法 null(标量不再与缺席同形)', () => {
+    // 票面"残余一格"的收尾:`key: all` 既不是内联表也不是块状表,此前落到 undefined,
+    // 于是"声明过约束但写法非法"在消费面读起来与"什么都没说"完全同形 —— 正是上游
+    // profile-frontmatter 防的那一型(非法声明被吞后扩大 scope)。
+    const content = `---
+name: scalar-g428
+allowed-tools: all
+---
+正文`;
+    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'scalar-g428', content);
+    const skills = loadSkills({ cwd: tmpDir });
+    expect(skills).toHaveLength(1);
+    expect(skills[0]!.frontmatter!.allowedTools).toBeNull();
+    expect(getAllowedTools(skills[0]!.frontmatter)).toBeNull();
+    // 成对正向对照:其余两态逐字不变(合法写法仍是数组、未写仍是 undefined)
+    expect(
+      parseSkillDefinition('---\nname: ok-g428\nallowed-tools: [Read]\n---\nbody', '/abs/ok.md')
+        .frontmatter!.allowedTools,
+    ).toEqual(['Read']);
+    expect(
+      parseSkillDefinition('---\nname: absent-g428\n---\nbody', '/abs/absent.md').frontmatter!
+        .allowedTools,
+    ).toBeUndefined();
+  });
+
   it('G-428 三值之三:allowed-tools 块状 mapping ⇒ 判非法 null(绝不吞成空表或缺席)', () => {
     // 上游 subagent/profile-frontmatter.ts:76-80 原注:块状 mapping 不是名字列表,
     // 不能被空数组吞掉后扩大 child MCP scope —— 折叠成 [] 或 undefined 都会让
