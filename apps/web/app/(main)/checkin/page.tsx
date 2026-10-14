@@ -75,7 +75,9 @@ import {
 } from '@ihui/api-client'
 import { EChart } from '@/components/charts/EChart'
 import { TruncatedText } from '@/components/common/TruncatedText'
+import { AuthGatePrompt } from '@/components/common'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   checkinAuditTraeResidual,
   checkinCaptureJwts,
@@ -127,6 +129,12 @@ async function updateCheckinDeviceMap(
 
 export default function CheckinPage() {
   const t = useTranslations('checkin')
+  // 2026-10-14 登录态门(与 /chat/favorites、/business-card/favorites 同型):
+  // 冷启动时 bootstrap 的静默刷新与本页挂载请求赛跑,未拿到 access token 就发 GET
+  // ⇒ 注定 401 ⇒ 整页被「加载失败」块替换。门先把挂载请求压到登录态确定之后。
+  const { allow } = useAuthGate()
+  // 复用已接线的通用文案(chatHistory.loginRequired =「请先登录」),不为本页另开一组五语言键
+  const tGate = useTranslations('chatHistory')
 
   const [accounts, setAccounts] = React.useState<CheckinAccount[]>([])
   const [records, setRecords] = React.useState<CheckinRecord[]>([])
@@ -546,9 +554,7 @@ export default function CheckinPage() {
     for (const item of picked) {
       const token = item.access_token || (wbTokenDrafts[wbKey(item)] || '').trim()
       if (!token) {
-        failures.push(
-          `${item.nickname || item.uid}: ${t('captureWbTokenRequired')}`,
-        )
+        failures.push(`${item.nickname || item.uid}: ${t('captureWbTokenRequired')}`)
         continue
       }
       try {
@@ -866,8 +872,9 @@ export default function CheckinPage() {
   }
 
   React.useEffect(() => {
+    if (!allow) return
     void loadAll()
-  }, [loadAll])
+  }, [loadAll, allow])
 
   // 调度状态:失败静默,不阻塞页面
   React.useEffect(() => {
@@ -1053,7 +1060,12 @@ export default function CheckinPage() {
                 : undefined
             return {
               ...prev,
-              [id]: { remaining: res.ok ? res.remaining : null, error: res.ok ? undefined : res.error || '', delta, ts: Date.now() },
+              [id]: {
+                remaining: res.ok ? res.remaining : null,
+                error: res.ok ? undefined : res.error || '',
+                delta,
+                ts: Date.now(),
+              },
             }
           })
         } catch (e) {
@@ -1583,7 +1595,9 @@ export default function CheckinPage() {
         </div>
       )}
 
-      {loading ? (
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : loading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
@@ -2074,7 +2088,10 @@ export default function CheckinPage() {
           <div className="space-y-4">
             {/* 智能导入(2026-10-13):打开即自动检测本机全部平台登录态,勾选一键导入,零 token 零平台选择 */}
             {desktop ? (
-              <div data-testid="smart-scan-block" className="space-y-2 rounded-sm border bg-muted/40 p-3">
+              <div
+                data-testid="smart-scan-block"
+                className="space-y-2 rounded-sm border bg-muted/40 p-3"
+              >
                 <div>
                   <p className="text-sm font-medium">{t('addSmartTitle')}</p>
                   <p className="text-xs text-muted-foreground">{t('addSmartHint')}</p>
@@ -2123,7 +2140,9 @@ export default function CheckinPage() {
                                 type="checkbox"
                                 aria-label={`smartScanQoder:${key}`}
                                 checked={scanQoderSel.has(key)}
-                                onChange={(e) => toggleSmartSel(setScanQoderSel, key, e.target.checked)}
+                                onChange={(e) =>
+                                  toggleSmartSel(setScanQoderSel, key, e.target.checked)
+                                }
                               />
                               <span className="font-mono">Qoder-{item.uid || '本机'}</span>
                             </label>
@@ -2544,11 +2563,7 @@ export default function CheckinPage() {
                 </div>
                 {wbWebLoginState === 'waiting' ? (
                   // 白屏/改主意时的取消出口(2026-10-13):停轮询 + 关闭登录窗口 + 复位
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void cancelWbWebLogin()}
-                  >
+                  <Button size="sm" variant="outline" onClick={() => void cancelWbWebLogin()}>
                     {t('captureWbWebCancel')}
                   </Button>
                 ) : (
