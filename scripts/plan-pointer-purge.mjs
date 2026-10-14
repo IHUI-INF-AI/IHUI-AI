@@ -425,7 +425,7 @@ export function verifyPurge(oldLines, newLines, plan) {
   // **两侧输入必须先剥注记归一化**(2026-10-14 实测修正):foldTwins 把带指针注记的行整个排除在
   // 候选之外(plan-tasks-merge.mjs:2639),而本轮 L4 恰恰在做"剥注记保留" —— 不归一化就会把
   // "本来就存在的重复第一次被看见"读成"本轮造出了重复":全量档实测 8→18 整批拒落,而新增的 13
-  // 条逐条归因到 stripSet 的行与其同题兄弟(诊断见 .ihui-agent/tmp/purge-a5-diag)。
+  // 条逐条归因到 stripSet 的行与其同题兄弟(归因尺 = 注记内日期分布 + 行级归属,可复算,不留临时件)。
   // 归一化后这个维度量的才是"重复压力"本身:剥注记不改行数、删副本只让它变小、真造重复必涨。
   // 判据没有放宽:同一条 foldTwins/findDupOpenCopies 实现,只是两侧同基准(§0.3 的"同轮同面")。
   const bareFace = (ls) => ls.map((l) => (isRowLine(l) && !isProse(l) ? stripMergeNotes(l) : l))
