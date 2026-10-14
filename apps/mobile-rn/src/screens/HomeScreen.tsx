@@ -724,6 +724,8 @@ export function HomeScreen() {
   // ── toodown 返回顶部(对齐 Uniapp onPageScroll > 阈值显示,RN 端 >600 显示) ──
   const [showBackTop, setShowBackTop] = useState(false)
   const scrollRef = useRef<ScrollView>(null)
+  /** G-1121552: 最近一次滚动 offset;onContentSizeChange 重测时原位 scrollTo 用(见该回调注释) */
+  const scrollOffsetRef = useRef(0)
 
   // ── Drawer 回调(对齐 Uniapp gopage / gotocompany / lingqu / addNewChat) ──
   const closeDrawer = (): void => setDrawerVisible(false)
@@ -1469,10 +1471,22 @@ export function HomeScreen() {
 
   // ── toodown 返回顶部(对齐 Uniapp handleToodownVisibility/backToTop,RN 端阈值 600) ──
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>): void => {
+    scrollOffsetRef.current = e.nativeEvent.contentOffset.y
     setShowBackTop(e.nativeEvent.contentOffset.y > 600)
   }, [])
   const backToTop = useCallback((): void => {
     scrollRef.current?.scrollTo({ y: 0, animated: true })
+  }, [])
+  /** G-1121552 RN Android 首页滑不动: 父 ScrollView 的 contentSize 不随异步内容更新
+   *  (「AI 应用商店」= MoreTitles + 嵌套 AgentShopList,其 scrollEnabled={false} 的 FlatList
+   *   数据到位后父级不重新测量 ⇒ 连滑位移恒为 0;旋屏强制重测后恢复,坐实该判据)。
+   *  修法(a): onContentSizeChange 后于 requestAnimationFrame 内做一次 scrollTo 逼 Android 重测。
+   *  onContentSizeChange 在 iOS 上本就会触发,故 scrollTo 目标钉**当前 offset**而非 y:0 ——
+   *  两平台均为零位移空操作,只重测;钉 y:0 会把正在下滑的用户拽回顶(iOS 交互回归)。 */
+  const handleContentSizeChange = useCallback((): void => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: scrollOffsetRef.current, animated: false })
+    })
   }, [])
 
   const carouselItems = useMemo<CourseCarouselItem[]>(
@@ -1509,6 +1523,7 @@ export function HomeScreen() {
         style={shellStyles.scroll}
         contentContainerStyle={shellStyles.scrollContent}
         onScroll={handleScroll}
+        onContentSizeChange={handleContentSizeChange}
         scrollEventThrottle={16}
       >
         {/* Carousel banner 轮播(对齐 Uniapp 首页轮播图) */}

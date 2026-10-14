@@ -46,6 +46,19 @@ const VOICE_BAR_COUNT = 30
  * 平台特定(语音录制/文件选择/图片选择/键盘适配)由 wrapper 通过 props 注入。
  *
  * 对标 D 盘 Ai-WXMiniVue 项目 InputArea.vue 全量能力(2026-07-29 提取)。
+ *
+ * 【聚焦通道形态 = 输入井 WRAP(G-1113923 迁移评估结论:不可迁 TextField)】:
+ * 聚焦描边画在外层 inputRow 上(`isFocused && styles.inputRowFocused` ⇒
+ * `inputRowFocused: { borderColor: primary }`,primary = tk.brand.DEFAULT),内层 TextInput
+ * 自身零描边(styles.input 只有 flex/padding/fontSize/color/minHeight/maxHeight)——
+ * 与三端基准同型:packages/ui-react 的 search-input.tsx(输入井 focus-within:border-primary
+ * + 内层 input border-0)、小程序 SearchBar.tsx(useFieldFocus 用法②:focusStyle 铺容器)。
+ * 且 isFocused 是**外部 prop**(ChatScreen 的 isInputFocused,默认 false),同时驱动右侧
+ * 按钮"聚焦即展开"(聚焦出全屏钮、附件钮 Plus→Paperclip),TextField 自有内部聚焦态,
+ * 结构上接不上;语音态输入槽位是 Pressable 语音条而非 TextInput。硬迁要么多内描边、
+ * 要么须抑制 TextField 描边,均改变可见行为 ⇒ 判不可迁移(逐字保留各自聚焦语义,任务
+ * 前提即"不得改变任何可见行为");check-input-focus-feedback 门对本文件现读零命中
+ * (WRAP 形态是其头注登记的"射程外 ②")。聚焦反馈由父层 isInputFocused 供给,本组件不欠账。
  */
 export function MessageInput({
   t,

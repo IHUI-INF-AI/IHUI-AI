@@ -19,6 +19,17 @@
  *   2026-09-29 本端此前写的是 lg(8),即"两端各自收口"留下的第三档,已随角色表收为 control)
  * - 聚焦态:borderColor brand.DEFAULT 高亮
  *
+ * 【聚焦通道形态 = 输入井 WRAP(G-1113923 迁移评估结论:不可迁 TextField)】:
+ * 聚焦描边画在外层容器 View 上(`focused ? { borderColor: tokens.brand.DEFAULT } : null`),
+ * 内层 TextInput 自身零描边(styles.input 只有 flex/fontSize/padding/margin)—— 与三端基准
+ * 同型:packages/ui-react 的 search-input.tsx(输入井 focus-within:border-primary + 内层
+ * input border-0)、小程序 SearchBar.tsx(useFieldFocus 用法②:focusStyle 铺容器、handlers
+ * 铺 Input)。TextField 的唯一实现契约是"描边与聚焦态在输入件自身",硬迁要么在内层多出
+ * 一条描边(double border)、要么须 borderWidth:0 把 TextField 的描边抑制掉,二者都改变
+ * 可见行为 ⇒ 判不可迁移(逐字保留各自聚焦语义,任务前提即"不得改变任何可见行为");
+ * check-input-focus-feedback 门对本文件现读零命中(WRAP 形态是其头注登记的"射程外 ②")。
+ * 聚焦反馈本身已接好(内部 focused state + onFocus/onBlur 透传),不欠账。
+ *
  * Props(保留现有契约,语音能力全部可选,不破坏调用方):
  * - value:受控值
  * - onChangeText:输入变化回调

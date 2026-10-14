@@ -5182,6 +5182,43 @@ const checks = [
     mode: 'blocking',
     // 2026-10-13 立(用户指令"彻底根治"):存量指针注记已由 scripts/plan-pointer-purge.mjs --apply 一次性清偿并对象空间落地(715d495a9b5)。差值棘轮(同门 130 F7/F8):只拦"本次提交让登记行注记变多",存量不担责 —— 与提交内容无关的恒红门只会逼人 --no-verify 连带废掉全部守门(§12e)。
   },
+
+  // --- 输入控件聚焦反馈三端对账(G-1113923,1 项,blocking;差值棘轮同 77/83/98/102/113/131)---
+  {
+    id: '207',
+    label:
+      '⌨️ 输入控件聚焦反馈对账(blocking,写了描边的输入/选择控件必须对聚焦有反应 —— 三端各判各的书写语言,差值棘轮只拦新增)',
+    script: 'check-input-focus-feedback.mjs',
+    args: [],
+    mode: 'blocking',
+    // 定级依据(2026-10-14 接线时现读,数字勿照抄):本门是**差值棘轮** —— 判 red 面时逐文件与
+    // "该文件 HEAD 自身命中数"比较,超出才红;存量按设计只报数。接线前现读全量 HEAD 面 exit 0、
+    // red 为空(命中 81 处 / 54 文件,全部在 apps/web,packages/app 零命中)、单遍约 32s(守门
+    // 300s 超时上限内),与同族 77/83/98/102/113/131 同判法 ⇒ blocking 不会造恒红门(§12e)。
+    // 刻意**不加** stagedTriggers:门体 --staged 面内部已按 `git diff --cached --name-only
+    // --diff-filter=ACMR` 收窄到暂存文件,每提交成本随暂存面大小走,不需要触发器再筛;且
+    // triggers 是 startsWith 前缀匹配,glob 写法(如 apps/**/*.tsx)实际永不命中(102 门踩过)。
+    skipEnv: 'HUSKY_SKIP_INPUT_FOCUS_FEEDBACK',
+    onFailHint: [
+      '',
+      '  💡 三端"有描边输入/选择控件对聚焦无反应"对账(票 G-1113923):',
+      '     R(mobile-rn/packages/app)style 对象里的 borderColor/borderBottomColor 没有聚焦条件',
+      '       (`focused ? {…}` / 聚焦档样式键 / onFocus)⇒ 红;',
+      '     M(miniapp-taro)className 工具类与内联 style 没有 focus:/focus-visible: 变体、',
+      '       也没引用唯一实现(useFieldFocus/FocusField/TextField)⇒ 红;',
+      '     W(web)className 工具类与 CSS 规则没有 focus:/focus-visible:/:focus 或唯一实现 ⇒ 红。',
+      '     证据窗 = 该元素自己的属性区(开标签起、到该开标签自己的 > 止);跨行闭合不了判"未判定"',
+      '     不判红;`--strict` 且未判定 > 0 ⇒ exit 2(拒绝发合格证)。差值棘轮:逐文件与 HEAD 自身',
+      '     命中数比,存量只报数、本次新增才红。',
+      '  🛠 修法:RN 接 TextField 或 `focused ? { borderColor: … } : null`;描边在容器(WRAP 形态)时',
+      '     走 useFieldFocus 用法②(handlers 在 Input 上、focusStyle 铺容器);web 补 focus-* 变体。',
+      '     行内出口:`input-focus-exempt: <一句话原因>`(必须带原因,裸标记不生效)。',
+      '  📖 单复验:node scripts/check-input-focus-feedback.mjs(全量档,判 HEAD blob)/ --staged',
+      '     (提交链档,判索引 blob,内部只扫暂存文件)/ --worktree(仅人工)/ --strict / --self-test',
+      '  ⚠️ 应急跳过:HUSKY_SKIP_INPUT_FOCUS_FEEDBACK=1(须在提交信息写明理由与清偿票)',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
