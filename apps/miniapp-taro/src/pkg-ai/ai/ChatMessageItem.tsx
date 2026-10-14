@@ -13,6 +13,8 @@ import { taroPreviewChatImages, taroSaveChatImageToAlbum } from '@/lib/image-pre
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import type { ChatMessage } from '@/api'
+import { rateChatMessage, sendToolApprovalResponse } from '@/api'
+import { APPROVAL_ACTIONS } from './permission-tier-text'
 import { rnRadius } from '@ihui/design-tokens'
 const sikaoIcon = aizhsUrl('remote-images/sikao_icon.png')
 const downloadIcon = aizhsUrl('remote-images/download.png')
@@ -230,6 +232,24 @@ export default function ChatMessageItem({
 
   function handleLongPress() {
     if (onLongPress) onLongPress()
+  }
+
+  /** D49① 消息评价(点赞/点踩):经 @ihui/api-client 共享端点 rateChatMessage,不另起传输层(§3 共享层优先) */
+  async function handleRate(next: 'like' | 'dislike') {
+    const messageId = msg.id
+    if (!messageId) return
+    await rateChatMessage({ messageId, rating: next })
+  }
+
+  /** D111 审批三键回传:经 @ihui/api-client 共享端点 sendToolApprovalResponse,不另起传输层(§3 共享层优先) */
+  async function handleApproval(actionId: string) {
+    const action = APPROVAL_ACTIONS.find((a) => a.id === actionId)
+    if (!action || !msg.id) return
+    await sendToolApprovalResponse({
+      approvalId: msg.id,
+      decision: action.decision,
+      ...(action.scope !== undefined ? { scope: action.scope } : {}),
+    })
   }
 
   function handleEdit() {
@@ -757,6 +777,32 @@ export default function ChatMessageItem({
                   />
                 </View>
               ) : null}
+              {/* D49① + D111:评价(点赞/点踩)+ 审批三键接线(经 @ihui/api-client 共享端点,不另起传输层) */}
+              <LineIcon
+                className="action-btn"
+                name="check-success"
+                size={40}
+                color="var(--color-muted-foreground)"
+                onClick={() => void handleRate('like')}
+              />
+              <LineIcon
+                className="action-btn"
+                name="x-error"
+                size={40}
+                color="var(--color-muted-foreground)"
+                onClick={() => void handleRate('dislike')}
+              />
+              {APPROVAL_ACTIONS.map((action) => (
+                <View
+                  key={action.id}
+                  className="action-btn"
+                  onClick={() => void handleApproval(action.id)}
+                >
+                  <Text style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}>
+                    {t(action.key) || action.fallback}
+                  </Text>
+                </View>
+              ))}
             </View>
           </View>
         </View>
