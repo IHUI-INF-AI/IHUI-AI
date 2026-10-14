@@ -2807,20 +2807,7 @@ const checks = [
     ].join('\n'),
   },
 
-  // prod-bundle 影子副本对账 —— 门 2026-09-24 就立了,但唯一挂点是根 package.json 的 check:all,
-  // 从未进提交链(实测 `grep -c check-prod-bundle-shadow guardian-runner.mjs` = 0)。这正是本仓
-  // 最高频的那一型:"造好没装车" —— 判据正确、跑得通,而没有任何调度器跑它,于是漂移永远静默。
-  // 接进来时必须按「机器态 vs 内容态」分流,而不是简单二选 blocking/warn:
-  //   deploy/prod-bundle/ 整目录被 .gitignore 忽略 ⇒ 运行副本**只存在于部署机上**。若按现状把
-  //   "对账对象不在"判红,别的机器 / 干净 clone / CI 上每一次提交都会被拦,而恒红门的唯一结局是
-  //   逼人 --no-verify,连带把全部 130+ 道守门一起作废(AGENTS §4 / §12e / 守门 77·78 同型)。
-  //   所以:运行副本缺失 ⇒ 未判定 + exit 0(输出里必须喊出来,不许静默绿);
-  //         入库源缺失 / 摘线 / 登记过期 / 逐字节漂移 ⇒ blocking 判红并点名(内容态,在哪台机都该红)。
-  // 刻意**不挂 stagedTriggers**:会漂移的那一侧是被忽略的运行副本,它在结构上永远不会出现在暂存区,
-  //   按 staged 收窄等于把本门立门的那一型(生产侧被单独改过)整个放过。runner 统一追加的
-  //   --staged 本门不解释 ⇒ 恒全量判定(实测单次 ~0.4s,每轮跑得起)。
-  // id 取号:注册前 `grep -oE "^    id: '[^']*'" | sort | uniq -d` 零输出(无重复号),
-  //   纯数字最大 103 ⇒ 本门顺延取 104,并由镜像测试钉"104 在 runner 中恰好出现一次"。
+  // 104 check-prod-bundle-shadow.mjs 的立门因由/事故史/定级史逐字归档:.ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md#b2(§1 两步归档;C1 上限腾行,判据字段一字未动)
   {
     id: '104',
     label: '🧬 prod-bundle 影子副本对账(blocking,入库源 ↔ 生产实际执行的那份逐字节等值)',
@@ -2852,18 +2839,7 @@ const checks = [
 
   {
     id: '105',
-    // 定级史(升档已完成 —— 别把它再读成"永久 warn"):
-    //  · 立项时 warn 是**有意**的:全量面当时就红 —— 8 处 G1/R1「源里有而产物面上查无」(qzdy/szdy/sqb/
-    //    qqb/default-avatar/erweima/… 这批图在「图片全外置 CDN」那轮被清走而引用还留着)+ 9 处孤儿默认只
-    //    报数。挂 blocking 等于每一次提交都红 ⇒ 逼人 --no-verify ⇒ 全部守门作废(本仓记过最多次的反面
-    //    教训)。当时写下的前置条件:**G1/R1 存量清零**(或改成以"该文件 HEAD 自身违规数"为锚点的棘轮)。
-    //  · 2026-09-25 前置实测达成 ⇒ 升 blocking:全量面 `未发现漏生成`、exit 0;R2 孤儿与 G3 图标按设计
-    //    **不是** blocking 判据(默认只报数,--strict 才判红),所以升档不新增任何恒红面。
-    //  · 升档的直接起因是本会话自己踩的坑:改了 i18n 键名却没重生成离线包,门判出 4 处 B2 —— 但因为它只是
-    //    warn,提交链没有拦住,于是静默上线了一版"小程序取不到这个词"的产物。**warn 的代价不是"少一道闸",
-    //    而是"门判对了也没人被打断"**。
-    //  · 修法单命令、不需要人工裁:pnpm --filter @ihui/miniapp-taro gen:i18n(应急跳过
-    //    HUSKY_SKIP_MINIAPP_GENERATED=1)。取不到判据输入仍是 exit 2「无法判定」,不冒红也不记绿。
+  // 105 check-miniapp-generated.mjs 的立门因由/事故史/定级史逐字归档:.ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md#b3(§1 两步归档;C1 上限腾行,判据字段一字未动)
     label:
       '🧩 小程序+四端派生产物对账(blocking;离线语言包/图标/位图/四端 AI 可导航路由是否落后于源;孤儿与动态路径只报数不判红)',
     script: 'check-miniapp-generated.mjs',
@@ -4947,6 +4923,29 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 工作区嵌套 git 仓零容忍(2026-10-14 幻影仓事故)(1 项,blocking)---
+  {
+    id: '208',
+    label:
+      '🪆 工作区嵌套 git 仓零容忍(blocking,0 存量棘轮;演练/夹具仓被 IDE 源代码管理扫成「暂存的更改 10000+ 全 D」幻影)',
+    script: 'check-no-nested-git.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_NO_NESTED_GIT',
+    stagedTriggers: ['scripts/'],
+    onFailHint: [
+      '',
+      '  💡 工作树里出现嵌套 .git —— 2026-10-14 的「暂存的更改 10000+(全 D)」幻影就是这么来的:',
+      '     IDE 把嵌套仓当独立仓库扫描,而主仓命令行面自始至终干净,机主因此看不出有没有活没交。',
+      '  🔍 定位:node scripts/check-no-nested-git.mjs(逐条点名绝对路径)',
+      '  🛠 修法:① 夹具/演练仓无留存价值 → 删目录或只摘 .git(大目录走 robocopy /MIR,§5e-2);',
+      '          ② 测试基建要临时仓 → 落点改 scripts/lib/scratch-dir.mjs 的 mkScratch()(工作区外+退出回收);',
+      '          ③ 确属合法 → 不许静默豁免:门脚本加显式常量 + 因由 + §22c 镜像对账(.worktrees 顶层已在射程外)。',
+      '  ⚠️ 应急跳过:HUSKY_SKIP_NO_NESTED_GIT=1(须在提交信息写明理由与清偿票)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
@@ -5217,28 +5216,7 @@ const pushGateChecks = [
     args: [],
     mode: 'blocking',
   },
-  // 2026-10-06 合流让号:本块原登记为 189,而 189 在基底与主干上都属 check-python-import-landed.mjs
-  // (取号发生在一份**滞后工作树副本**上,那次快照把 189 顶成同号两门,并顺带摘掉 9 道门:
-  //  i18n 流水线条件档 2p-api / 2q-cli / 2r-miniapp-taro / 2s-mobile-rn / 2t-api / 2u-cli /
-  //  2v-miniapp-taro / 2w-mobile-rn 与 190;另连带摘掉两扇门体 check-python-import-landed.mjs、
-  //  check-enum-default-widening.mjs。名单是 2026-10-07 拿注册面对账 7aa67dbe891 vs 基底 763e7da2e22
-  //  量出来的,不是记忆 —— 原写在此处的 2p-2w 并非真实 id(真实名是 2w-mobile-rn),按 §1 消掉)。
-  // 合流以主干整面为底(它是基底超集,9 道门原样恢复),本块按空闲号 193 插回;两侧注册块一个不删。
-  // git 派生调用的 stdio 纪律(2026-10-03 立)。病根本机实测(30 组对照,本票复测 2 组 × 10 次同形):
-  // `execFileSync('git', […], { cwd, encoding, windowsHide, timeout })` —— **不写 stdio** ⇒ 0/30 成功、
-  // 抛 EBUSY;同一段补 `stdio: ['ignore','pipe','pipe']` ⇒ 30/30 成功。同刻交互 bash 里直接跑 git 正常
-  // ⇒ 与 git 被锁/并发无关;**绝对路径 GIT_BIN / gitBinary() / resolveGitBin() 不是豁免**(EBUSY 是
-  // 派生面的病,与怎么找到那个 exe 无关)。另一副面孔:`execSync(<字符串>)` / `shell: true` 经 cmd.exe,
-  // 同源同修法。⚠️ 间歇性是这坑的要害(实测有一次测到"不写 stdio 6/6 通过")⇒ 任何判断必须成组对照。
-  // 口径:① 射程 = scripts/ 与 scripts/lib/ **全域**(git ls-files 枚举,不用静态清单 —— 清单会漏,
-  //    漏的那部分永远绿着;与门 80 的 HOT 清单刻意不同源,并进去会造成"只扫热文件其余静默漏过");
-  //    ② 判据匹配**调用括号内的整个文本**(括号配平取整体)⇒ prettier 折行不改判据(本仓吃过逐行
-  //    匹配的亏);③ 只判 `stdio` **作为属性名**出现、不判取值(pipe 三元与 ignore 三元都合规);
-  //    ④ 判据落在**该次调用的 options 内**(同文件另一处合规调用不得洗白本处);
-  //    ⑤ 取不到内容 ⇒ exit 2「未判定」,少扫不等于没有违规;⑥ 自豁免只对门自身与本门镜像测试两个
-  //    精确路径,**不前缀通配整个 scripts/tests**(测试面那 200+ 处同样在派生 git);⑦ 豁免只认具名
-  //    数据文件 scripts/check-git-stdio-exemptions.json,**行内豁免注释不是通道**(裁决账也不是)。
-  // 本票只立门 + 登记待办:存量判红是预期结果(那正是"问题变可见"),不在本票改生产代码。
+  // 193 check-git-stdio-discipline.mjs 的立门因由/事故史/定级史逐字归档:.ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md#b1(§1 两步归档;C1 上限腾行,判据字段一字未动)
   {
     id: '193',
     label:

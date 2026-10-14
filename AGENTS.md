@@ -189,6 +189,7 @@ pnpm dev                                      # 启动所有服务(端口见 doc
 
 - 临时文件一律 `.ihui-agent/tmp/<任务名>/`(gitignored),任务完成清理;路径推导用 `$PSScriptRoot`/`import.meta.url`,禁硬编码绝对路径;ROOT 由脚本自身位置推导,禁 `process.cwd()` 定根(共享工作区 cwd 不可靠,守门 70 镜像 13/14 恒红同型)。
 - **15b 项目外落点唯一制**:项目外落点只允许批准目录(`D:\DevEnv\{Temp,logs,backups,cache}` 等);临时夹具唯一落点 `scripts/lib/scratch-dir.mjs`(`mkScratch`/`rmScratch`,工作树同盘 `DevEnv/Temp/ihui-scratch`,**不得** `os.tmpdir()`(TEMP 可能钉 C 盘)、不得落仓库树内(git 夹具会向上逃逸到真仓));两把只读尺子 `check-scratch-root-no-nesting.mjs` / `check-fixture-tmpdir.mjs`。守门 `check-workspace-hygiene.mjs`;`check-temp-landing.mjs` 为配套只读对账工具(未接提交链)。
+- **15c 工作树内禁止嵌套 git 仓**(守门 208 `check-no-nested-git.mjs`,blocking,`stagedTriggers: ['scripts/']` 把射程收到"能造出该状态的那一面";全量档一律跑):2026-10-14 实测——测试夹具在仓库内 `git init` 且**无任何清理钩子**,中断即永久残留 52 个演练仓,IDE 源代码管理把嵌套仓当独立仓库扫描,聚合出「暂存的更改 10000+(全 D)」幻影计数,而主仓命令行面自始至终干净(机主一度无法判断自己有没有活没交)。需要临时 git 仓的夹具一律走 `mkScratch()`(§15b,工作区外 + 进程退出自动回收)。射程外只有一格:扫根直属一层的 `.worktrees/`(§12d 规定的 worktree 检出落点,linked worktree 天然带 `.git` gitfile,判红就是逼所有人不开 worktree 的恒红门);同名目录出现在更深位置照旧命中。
 
 ## 16. Push 阶段跨 Agent 改动保护规则(强制)
 
@@ -326,13 +327,15 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - 原速查整区(约 800 行超长登记)已逐字归档于 `.ihui-agent/archive/AGENTS_full-pre-compact-2026-10-14.md`;此处只留:门 89 本体 + 横向口径 + 全部门名点名索引(R4 义务:每道已接线门必须在本文或 README 可见)。**mode/blocking、skipEnv、编号一律以 `scripts/guardian-runner.mjs` 注册条目现值为准**。
 - **手动全量**:`node scripts/guardian-runner.mjs --staged`(pre-commit 模式)/不带为全量;失败不中断,跑完汇总再 exit 1(子门 exit 75 中断仍立即传播;`GUARDIAN_STOP_ON_FIRST=1` 恢复 fail-fast)。
 
+- **文档体积对账(207 `check-agents-doc-size.mjs`,warn 起步)**:AGENTS.md 逐字注入每一轮对话,预算 50KB(出处 = `check-project-plan-size.mjs` 头注的 2026-07-19 档,不得另拍新数);超预算的唯一出路 = 按 §1 两步归档把守门历史/取证叙述/重复登记副本整区移入 `.ihui-agent/archive/`,原位置留指针注记。**升 blocking 的前置 = HEAD 面存量归零(§12e),现在还没到 —— 定级以 runner 注册条目现值为准,门体头注与注册条目必须同值**。
+
 - **守门接线层对账**(89): `scripts/check-gate-wiring.mjs`(blocking)—— 全部守门的"装车检":**R1/R2** 头注或文档声称已接而五处权威点(`guardian-runner` ∪ `scripts/lib/pre-commit-hook.js` ∪ `.husky/*` ∪ 根 `package.json` ∪ `.github/workflows`+cert)零命中 ⇒ 拦;**R4** 已接线而 AGENTS.md/README.md 通篇未点名 ⇒ 拦(去后缀同名即算,文档面按 HEAD∪索引判,绝不读工作区);**R5** 同 id 登记两门 ⇒ 拦;**R7** dispatcher 依据文件不存在 ⇒ 拦;**R8** `stagedTriggers` 会让 `guardian-triggers.mjs` 当场抛错 ⇒ 拦。R3/R6/弱接线只报数。台账 `scripts/gate-wiring-allowlist.json` 只救 R3。
 
 - **横向口径(适用于绝大多数内容门,勿逐门重抄)**:全量判 HEAD blob / `--staged` 判索引 blob / `--worktree` 仅人工;两面旗同给 exit 2;取不到判「无法判定」不回落;枚举到 0 判死;棘轮锚点 = 该文件 HEAD 自身违规数;行内豁免须带原因且多数登记守门 108 存活期表;取证 = `--self-test` + §22c 镜像测试,例数以命令末行现读为准;遮罩统一引 `scripts/lib/code-mask.mjs`,方向分两档(判字面量的门"只遮注释保留字符串",判代码结构的门"注释与字符串都遮")。
 
 - **门名点名索引**(按主题归堆;blocking/warn 以 runner 现值为准):
 - 计划文档: `check-plan-dup-pointer-ratchet.mjs` `check-plan-sha-resolvable.mjs` `check-plan-sha-form.mjs` `check-baseline-freshness.mjs`
-- git/提交链: `check-commit-scope.mjs` `check-push-sync.mjs` `check-head-typecheck.mjs` `check-typecheck.mjs` `check-git-read-timeout.mjs` `check-spawn-stdio.mjs` `check-registry-worktree-superset.mjs`
+- git/提交链: `check-commit-scope.mjs` `check-push-sync.mjs` `check-head-typecheck.mjs` `check-typecheck.mjs` `check-git-read-timeout.mjs` `check-spawn-stdio.mjs` `check-registry-worktree-superset.mjs` `check-no-nested-git.mjs`
 - 接线/守门自身: `check-gate-face-discipline.mjs` `check-skip-env-promise.mjs` `check-selftest-registrant-evaluates.mjs` `check-list-predicate-has-positive-proof.mjs` `check-baseline-freshness.mjs` `check-ops-patrol.mjs`
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs`
 - i18n/文案: `check-i18n-locale-content-language.mjs` `scan-web-dead-i18n-keys.mjs` `scan-desktop-dead-i18n-keys.mjs` `scan-extension-dead-i18n-keys.mjs` `scan-miniapp-taro-dead-i18n-keys.mjs` `scan-mobile-rn-dead-i18n-keys.mjs` `check-cli-i18n-parity.mjs`
