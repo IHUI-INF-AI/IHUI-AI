@@ -216,6 +216,12 @@ function parseFrontmatterArray(front: string, key: string): string[] | null | un
     'm',
   );
   if (mappingRe.test(front)) return null;
+  // 标量无效值(G-428 残余那一格,2026-10-15 收):`key: all` / `key: "Read"` 既不是内联表也不是
+  // 块状表 ⇒ 落到这里。此前它与"键根本不存在"同形(undefined),消费侧把"声明过约束但写法非法"
+  // 读成"没说话",正是上游 profile-frontmatter 防的那一型(非法声明被吞后扩大 scope)。
+  // 判据放在两种合法形态之后 ⇒ `key: [..]`、`key:` + 块状列表、`key:` 后无值 的语义逐字不变。
+  const scalarRe = new RegExp(`^${escapeForRegExp(key)}:[ \\t]*[^\\[\\s][^\\n]*$`, 'm');
+  if (scalarRe.test(front)) return null;
   return undefined;
 }
 
