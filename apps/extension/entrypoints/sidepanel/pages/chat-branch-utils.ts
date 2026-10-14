@@ -22,11 +22,14 @@ export interface LocalMessageLike {
   content: string
 }
 
-/** 服务端已落库消息的最小投影(ConversationMessage 的结构子集) */
+/** 服务端已落库消息的最小投影(ConversationMessage 的结构子集)。
+ *  D64⑤ 消费票:metadata 一并透传 —— 元素包历史帧就在里面,原样丢弃等于
+ *  历史子代理卡永远无法回放。 */
 export interface PersistedMessageLike {
   id: string
   role: string
   content: string
+  metadata?: unknown
 }
 
 /** 本地消息 id → 后端 chat_messages.id。
@@ -61,15 +64,34 @@ export function branchTargetServerId(
  * 就是服务端 id,后续在该分支上继续对话仍可逐条分叉。
  */
 export function hydrateBranchTranscript(list: readonly PersistedMessageLike[]): {
-  messages: Array<{ id: string; role: 'user' | 'assistant'; content: string }>
+  messages: Array<{
+    id: string
+    role: 'user' | 'assistant'
+    content: string
+    metadata?: Record<string, unknown>
+  }>
   serverIds: Record<string, string>
 } {
-  const messages: Array<{ id: string; role: 'user' | 'assistant'; content: string }> = []
+  const messages: Array<{
+    id: string
+    role: 'user' | 'assistant'
+    content: string
+    metadata?: Record<string, unknown>
+  }> = []
   const serverIds: Record<string, string> = {}
   for (const item of list) {
     if (item.role !== 'user' && item.role !== 'assistant') continue
     if (item.content.trim() === '') continue
-    messages.push({ id: item.id, role: item.role, content: item.content })
+    // metadata 仅在服务端给定时随行透传(D64⑤ 元素包历史帧的载体,null 视同缺席);
+    // 既有调用面(无 metadata)输出形状不变,老测试判据不受影响
+    messages.push({
+      id: item.id,
+      role: item.role,
+      content: item.content,
+      ...(item.metadata !== undefined && item.metadata !== null
+        ? { metadata: item.metadata as Record<string, unknown> }
+        : {}),
+    })
     serverIds[item.id] = item.id
   }
   return { messages, serverIds }

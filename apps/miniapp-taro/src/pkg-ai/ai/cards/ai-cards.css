@@ -444,3 +444,83 @@
     opacity: 1;
   }
 }
+
+/* ===================== D64④:后台子任务(subagent)八态卡 ===================== */
+/* 行级 tone 修饰类只管左边框与徽章色;色值全走 design token,深浅色自动适配。 */
+.ai-card-subagent-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 16rpx;
+  margin-top: 12rpx;
+  border-left: 6rpx solid var(--color-muted-foreground);
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
+}
+.ai-card-subagent-item.is-neutral {
+  border-left-color: var(--color-muted-foreground);
+}
+.ai-card-subagent-item.is-info {
+  border-left-color: var(--color-info);
+}
+.ai-card-subagent-item.is-success {
+  border-left-color: var(--color-success);
+}
+.ai-card-subagent-item.is-warning {
+  border-left-color: var(--color-warning-amber);
+}
+.ai-card-subagent-item.is-danger {
+  border-left-color: var(--color-danger);
+}
+.ai-card-subagent-icon {
+  margin-right: 12rpx;
+  padding-top: 4rpx;
+}
+.ai-card-subagent-body {
+  flex: 1;
+  min-width: 0;
+}
+.ai-card-subagent-role {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.ai-card-subagent-status {
+  margin-left: auto;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.ai-card-subagent-status.is-info {
+  color: var(--color-info);
+}
+.ai-card-subagent-status.is-success {
+  color: var(--color-success);
+}
+.ai-card-subagent-status.is-warning {
+  color: var(--color-warning-amber);
+}
+.ai-card-subagent-status.is-danger {
+  color: var(--color-danger);
+}
+.ai-card-subagent-task {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: var(--color-foreground);
+  line-height: 1.5;
+  word-break: break-all;
+}
+.ai-card-subagent-phase {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.ai-card-subagent-hint {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.ai-card-subagent-hint.is-danger {
+  color: var(--color-danger);
+}

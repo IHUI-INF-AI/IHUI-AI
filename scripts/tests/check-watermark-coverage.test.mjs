@@ -34,7 +34,7 @@ import { __test__ as WM } from '../watermark.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
-const GIT = 'C:/Program Files/Git/mingw64/bin/git.exe'
+const GIT = 'C:/Program Files/Git/cmd/git.exe'
 const BANNER = 'Provenance-watermarked.'
 const NO_BANNER_SRC = "export const hello = () => 'hi'\n"
 // 残迹形态(2026-09-12 五态里的「残迹」):可见横幅文本俱在、零宽载荷整段丢失。

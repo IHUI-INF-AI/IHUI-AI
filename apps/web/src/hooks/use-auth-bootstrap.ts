@@ -9,7 +9,8 @@ import * as React from 'react'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { getAuthCookie } from '@/lib/cookie-utils'
-import { isDesktopEnv, getDesktopRefreshToken } from '@/lib/desktop-token-vault'
+import { getDesktopRefreshToken } from '@/lib/desktop-token-vault'
+import { isDesktopAuthVaultEnabled } from '@/lib/api-base-url'
 import { fetchApi, getLastRefreshFailure } from '@/lib/api'
 import { refreshAccessTokenOnce } from '@ihui/api-client'
 import {
@@ -55,14 +56,15 @@ async function tryRefresh(): Promise<{ accessToken: string; refreshToken?: strin
  * - 持久化 isAuthenticated 标志位(仅 UI 状态,无 token,安全;覆盖"标志位在、cookie 在"的主流回访);
  * - 可读 auth cookie(旧版本降级通道,e2e storageState 注入即走此路);
  * - 桌面 Tauri vault 里有 refreshToken(body 模式刷新)—— 覆盖 persist 解密失败时
- *   桌面自动登录不丢(D48′ 信封链路;浏览器模式恒返回 null,零影响)。
+ *   桌面自动登录不丢(D48′ 信封链路;浏览器模式与**桌面 dev 壳**恒不启用,后者 REST 已同源、
+ *   凭据走第一方 httpOnly cookie,不再读写与生产壳共享的那颗键)。
  * 唯一被跳过的场景:浏览器 localStorage 被选择性清除但 httpOnly cookie 尚在 ——
  * Chrome"清除站点数据"会连 cookie 一起清,该场景现实中几乎不存在。
  */
 async function hasUsableRefreshCredential(): Promise<boolean> {
   if (useAuthStore.getState().isAuthenticated) return true
   if (getAuthCookie()) return true
-  if (isDesktopEnv()) return (await getDesktopRefreshToken()) !== null
+  if (isDesktopAuthVaultEnabled()) return (await getDesktopRefreshToken()) !== null
   return false
 }
 

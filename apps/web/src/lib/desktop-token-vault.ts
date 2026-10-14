@@ -13,6 +13,9 @@
  * 刷新请求改走 body 模式(后端 /auth/refresh 已支持 bodyToken || cookieToken,body 优先)。
  *
  * 浏览器模式:isDesktopEnv() 为 false,全部方法为空操作,行为零变化(cookie 链路不动)。
+ * 桌面 dev 壳模式(2026-10-15):窗口由本机 Next dev server 承载(端口 8801)时同样全部空操作
+ * —— 该窗口 REST 走同源反代,凭据是第一方 httpOnly cookie;若仍读写这颗共享键,dev 与生产两壳
+ * 会互相覆盖、并在刷新被否时互相清空对方登录态(判据单一来源 = api-base-url.isDesktopAuthVaultEnabled)。
  * 平台特有:依赖 Tauri plugin-store(window.__TAURI_INTERNALS__),不适合放共享层。
  *
  * D48(G-56)B 层(2026-09-24):auth.json 里的 refresh_token 改为 AES-256-GCM 信封落盘
@@ -22,6 +25,7 @@
  */
 
 import { openVaultText, readVaultEntry, sealVaultText, writeVaultEntry } from './local-vault'
+import { isDesktopAuthVaultEnabled } from './api-base-url'
 
 /** Tauri v2 运行时探测 —— 定义已收敛到 lib/local-vault.ts(单一事实源),此处保持原导出路径不变 */
 export { isDesktopEnv } from './local-vault'
@@ -35,6 +39,9 @@ const REFRESH_TOKEN_KEY = 'refresh_token'
  * 密文解不开同样返回 null —— 调用方据此退回 cookie 链路,而不是崩在鉴权层后面。
  */
 export async function getDesktopRefreshToken(): Promise<string | null> {
+  // dev 壳(窗口由本机 Next dev server 承载)不碰这颗跨壳共享键:REST 已同源,
+  // httpOnly cookie 才是它的凭据;读同一份 auth.json 会把本机库凭据送到线上接口。
+  if (!isDesktopAuthVaultEnabled()) return null
   const stored = await readVaultEntry(STORE_FILE, REFRESH_TOKEN_KEY)
   if (stored.status !== 'ok' || stored.value === null) return null
   const opened = await openVaultText('refresh-token', stored.value)
@@ -53,6 +60,8 @@ export async function getDesktopRefreshToken(): Promise<string | null> {
 
 /** 写入(null = 删除)refreshToken;非 Tauri 为空操作;值以信封形态落盘 */
 export async function setDesktopRefreshToken(token: string | null): Promise<void> {
+  // 与读侧同判据:dev 壳写/清这颗键都会波及生产壳的登录态(刷新被否时 api.ts 会清库)。
+  if (!isDesktopAuthVaultEnabled()) return
   if (token === null) {
     await writeVaultEntry(STORE_FILE, REFRESH_TOKEN_KEY, null)
     return
