@@ -116,7 +116,73 @@ export interface ChatMessageMetadata {
    *  (与 done 事件 memoryUpdates 同源,字符串数组)。
    *  消费:web 历史水合 seed 进 store.memoryUpdateNotices(MemoryNoticeBar 既有渲染位)。 */
   memoryUpdates?: string[]
+  /**
+   * D64⑤(2026-10-14 立):元素包历史落库 —— 随轮次持久化的结构化元素帧
+   * (现值 = 子代理帧族 subagent_spawn/progress/end;种类封闭集与字段形状的
+   * 唯一真相源 = `@ihui/shared/chat` 的 `element-pack-history`,本包刻意不 import 那个
+   * 类型 —— 与 GetConversationHistoryParams.direction 同一处置,运行时依赖面只有
+   * `@ihui/types`)。写入链路:网关透传时捕获 → chat_element_packs 暂存 →
+   * ai-callback worker 原子取走归并进本键;读侧经 GET /conversations/:id/history
+   * 的 serializeMessage metadata 透传原样返回。缺失 = 老消息 / 本轮无子代理帧,
+   * 安静降级;端内回放请配合 shared 的 parseElementPackFrames 守卫消费。
+   */
+  elementPack?: { frames?: Array<Record<string, unknown>> }
   [key: string]: unknown
+}
+
+/**
+ * D64⑤ 元素包帧的读取面(wire 形态镜像)。字段清单与收窄口径的唯一真相源在
+ * `@ihui/shared/chat` 的 element-pack-history(kind 封闭集/phase 四值/status 二值);
+ * 本包只声明消费所需的形状并做**结构级**收窄:kind 不在封闭集内的帧在出口被丢弃
+ * (不冒充判过 —— 与共享层守卫同一方针,但判据本体以 shared 为准)。
+ */
+export interface ConversationElementPackFrame {
+  kind: 'subagent_spawn' | 'subagent_progress' | 'subagent_end'
+  id: string
+  timestamp: string
+  role?: string
+  task?: string
+  phase?: 'thinking' | 'tool_call' | 'tool_result' | 'output_ready'
+  iteration?: number
+  tool?: string
+  ok?: boolean
+  outputPreview?: string
+  agentName?: string
+  status?: 'done' | 'failed'
+  failureReason?: string
+}
+
+const ELEMENT_PACK_FRAME_KINDS_SET: ReadonlySet<string> = new Set([
+  'subagent_spawn',
+  'subagent_progress',
+  'subagent_end',
+])
+
+/**
+ * 从一条消息(或裸 metadata)读回元素包帧数组。任何形态不合按空数组处理(不抛):
+ * 缺失 = 老消息/无元素包;元素 kind 不在封闭集内 ⇒ 丢弃该帧(坏值不炸回放渲染)。
+ * 判据与 `@ihui/shared/chat` 的 parseElementPackFrames 同方针,两处改动须同步。
+ */
+export function readElementPackFrames(
+  input: { metadata?: ChatMessageMetadata | null } | ChatMessageMetadata | null | undefined,
+): ConversationElementPackFrame[] {
+  if (input === null || input === undefined) return []
+  const metadata =
+    'metadata' in (input as Record<string, unknown>)
+      ? ((input as { metadata?: ChatMessageMetadata | null }).metadata ?? null)
+      : (input as ChatMessageMetadata)
+  const pack = metadata?.elementPack
+  const frames = pack?.frames
+  if (!Array.isArray(frames)) return []
+  const out: ConversationElementPackFrame[] = []
+  for (const f of frames) {
+    if (typeof f !== 'object' || f === null) continue
+    const o = f as Record<string, unknown>
+    if (typeof o.kind !== 'string' || !ELEMENT_PACK_FRAME_KINDS_SET.has(o.kind)) continue
+    if (typeof o.id !== 'string' || typeof o.timestamp !== 'string') continue
+    out.push(o as unknown as ConversationElementPackFrame)
+  }
+  return out
 }
 
 export interface ConversationMessage {
