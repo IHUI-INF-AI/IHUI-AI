@@ -35,6 +35,20 @@
  *    旧口径两侧起点/主键(段尾号)必然同值:F9 主键撞号必发生、首实号必撞;平移后两侧起点
  *    大概率分离(hash 熵 999 分之一同偏),主键随之分离,CAS 兜底仍在。无 machineId ⇒ off=0,
  *    与旧口径逐字同形(镜像 N2/N3 回归锁)。
+ *
+ * 池式改造(2026-10-14 拍板,"任务编号全量压缩到三位数"枚 A):
+ *  千段租约落地后暴露了结构性膨胀 —— 每占一段就把全局 max 顶高 1000,floor 单调爬升,
+ *  号位一路涨到七位数(G-1122550)。根治不是"忘了收号",而是"取号前沿只会单调向前"这一条:
+ *  本日改池式 —— 每族号池 = 1..LEASE_POOL_MAX(硬上限 999,三位数);新占段不再越过 max,
+ *  而是在池内找"连续 segmentSize 个全空闲"的窗,从最小空闲窗起排(多个候选窗时按机器指纹
+ *  取模错开,两机同刻新占大概率落不同窗,CAS 兜底不变)。段满续占池内下一窗;整池再装不下
+ *  一段 ⇒ 池满,拒绝发号(fail-loud)—— 宁可停下来逼人归档已完成任务腾号,绝不发 1000+。
+ *  占用面口径:池内只认 ≤999 的号;归档件里 >999 的大号是存量债,不占池、不挡新号、
+ *  也因此**不参与 floor** —— collectIdFace 的宽面(台账⊕归档件)照旧同面同轮,只是
+ *  "什么号能发"由池这一层裁决。租约续占只认**完全落在池内**的段:池外的旧段是历史定格,
+ *  续发就会突破上限 ⇒ 结构上不可续(失效方向 = 走池内新占段,安全侧)。
+ *  归档回收咬合:archive-completed-tasks 归档 [x] 条目后台账只剩 HTML 注释占位,不占池;
+ *  池的占用只随"新登记"增长、随"归档"从台账面让位 —— 池满即真实水位,不是误报。
  */
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
@@ -50,8 +64,18 @@ export const LEASE_MARK = '〔千段租约〕'
 /** 台账里的租约登记区标题(appendLeaseRows 找它,找不到就在文件尾新建)。 */
 export const LEASE_SECTION_TITLE = '## 号段租约登记区(取号器专用,千段租约制)'
 
-/** 段容量:一个租约段覆盖的号数(拍板口径"千段")。 */
-export const LEASE_SEGMENT_SIZE = 1000
+/**
+ * 段容量:一个租约段覆盖的号数。千段口径(1000)在池式下会把 999 的池一次吃满 ⇒ 改 50
+ * (2026-10-14 拍板);`IHUI_LEASE_SEGMENT_SIZE` env 可覆写(1 < n ≤ 999 之外一律回落 50,
+ * 覆写不得突破池上限)。测试与运维需要别的段宽时用它,生产缺省不动。
+ */
+export const LEASE_SEGMENT_SIZE = (() => {
+  const raw = Number(process.env.IHUI_LEASE_SEGMENT_SIZE)
+  return Number.isInteger(raw) && raw > 1 && raw <= 999 ? raw : 50
+})()
+
+/** 号池硬上限:每族取号池 = 1..LEASE_POOL_MAX(三位数,2026-10-14 拍板,env 不得覆写)。 */
+export const LEASE_POOL_MAX = 999
 
 /** 编号头形状,与 usedIdsOfPrefix 的判据同形(族名 + 可选分隔符 + 数字段)。 */
 const ID_HEAD_RE = /^([A-Za-z]+)([-_ ]?)(\d+)/
@@ -107,11 +131,49 @@ export function machineIdentity(root) {
  * 段起点 = floor+1+off(封顶 floor+segmentSize),段尺寸不变(end = start+segmentSize-1)。
  * 无 machineId ⇒ 0 —— 旧口径逐字同形;family/floor 缺省仅测试直调 leaseCursor 用,真实路径
  * 由 decideLease 恒给 family、floor 恒为实数。
+ *
+ * 池式下(2026-10-14)本函数保留同一实现、同一份 hash,但入参语义微调:leaseCursor 传
+ * floor = 候选窗总数、segmentSize = 候选窗总数 ⇒ 返回值就是"第几个候选窗"的下标 ——
+ * 同面同轮两机错窗的机理不变(hash 只随机器标识分离),错开熵从段容量变成整池窗数,
+ * 反而更散。调用方不得把它当"段内偏移"复用。
  */
 export function claimOffset({ machineId, family = '', floor = 0, segmentSize = LEASE_SEGMENT_SIZE }) {
   if (!machineId || !(segmentSize > 1)) return 0
   const h = createHash('sha256').update(`${machineId}|${family}|${floor}`).digest()
   return h.readUInt32BE(0) % segmentSize
+}
+
+/**
+ * 池式占用视图(2026-10-14):把占用号收敛进池内。>poolMax 的大号不进 blocked —— 它们是
+ * 归档件里的存量债,不占池、不挡新号;但 baseMax(远端只抬高那一份,≤poolMax 时)代表的
+ * "本地看不见、对面可能已占"的那一段要一并避让,否则宽面盲区里的号会被重复发。
+ * 返回 `{ blocked:Set<number>, lowMax:number }`,lowMax = 池内已见最大号(报告用,空池 = 0)。
+ */
+export function poolBlocked({ usedNumbers = [], baseMax = null, poolMax = LEASE_POOL_MAX } = {}) {
+  const used = (Array.isArray(usedNumbers) ? usedNumbers : []).filter(Number.isFinite)
+  const blocked = new Set(used.filter((n) => n >= 1 && n <= poolMax))
+  const lowMax = blocked.size ? Math.max(...blocked) : 0
+  if (Number.isFinite(baseMax) && baseMax <= poolMax)
+    for (let n = lowMax + 1; n <= Math.min(baseMax, poolMax); n += 1) blocked.add(n)
+  return { blocked, lowMax }
+}
+
+/**
+ * 池内最小空闲号(1..poolMax 补集最小);池满 ⇒ null。
+ * next-plan-id(第二发号出口)与 resolveIdTokens 的"无租约基准"共用这一份 —— 同一把尺,不抄第二份。
+ */
+export function smallestFreeId({ usedNumbers = [], baseMax = null, poolMax = LEASE_POOL_MAX } = {}) {
+  const { blocked } = poolBlocked({ usedNumbers, baseMax, poolMax })
+  for (let n = 1; n <= poolMax; n += 1) if (!blocked.has(n)) return n
+  return null
+}
+
+/** 池内空闲号升序全表(批量发号的候选序与报告共用;池满 = 空数组)。 */
+export function poolFreeList({ usedNumbers = [], baseMax = null, poolMax = LEASE_POOL_MAX } = {}) {
+  const { blocked } = poolBlocked({ usedNumbers, baseMax, poolMax })
+  const out = []
+  for (let n = 1; n <= poolMax; n += 1) if (!blocked.has(n)) out.push(n)
+  return out
 }
 
 /** 构造一行租约登记。template 取自 usedIdsOfPrefix 的该族形状(如 `G-%d`),不另写编号语法。 */
@@ -171,12 +233,17 @@ export function parseLeases(content, family) {
 }
 
 /**
- * 取号游标的租约判定(纯函数)。
- *  - 自有段(按 machine)从最新段起找还有空闲的:段内已用 = usedNumbers ∩ [start,end] 且**剔除
- *    本行主键**(主键是段尾号,不是实号) ⇒ 下一个 = 段内 max+1(空段 = 段首)。
- *  - 没有 / 段满 ⇒ 新占段 [floor+1+off, floor+off+段容量],floor = max(本地已用, 租约主键,
- *    baseMax),off 由机器 id 派生(G-815400:两机同 floor 新占段起点/主键大概率分离)。
- *    baseMax 由调用方给"max(本地, 远端)" —— 新占段必须站在两侧 Union 之上,否则占段本身就撞。
+ * 取号游标的租约判定(纯函数;2026-10-14 起池式)。
+ *  - 自有段(按 machine)从最新段起找还有空闲的:**只认完全落在池内的段**(end ≤ poolMax)——
+ *    池外旧段是历史定格,续发就突破三位数上限 ⇒ 不可续。段内已用 = usedNumbers ∩ [start,end]
+ *    且**剔除本行主键**(主键是段尾号,不是实号) ⇒ 下一个 = 段内 max+1(空段 = 段首)。
+ *  - 没有 / 段满 ⇒ 池内新占段:在 1..poolMax 里找"连续 segmentSize 个全空闲"的窗
+ *    (避开已占号、避开一切租约段的保留位、避开 baseMax 代表的远端盲区段),
+ *    多个候选窗时按下标 `hash(machineId|family|窗数) % 窗数` 错开(同面同轮确定性,
+ *    两机大概率不同窗);**不再越过全局 max 单调爬升**。占不了窗 ⇒ mode:'pool-exhausted',
+ *    调用方必须拒绝发号 —— 绝不发 poolMax 之外的号。
+ *  baseMax 由调用方给"max(本地, 远端)":≤poolMax 时参与避让(远端只抬高),>poolMax 时
+ *  说明对面还在旧口径发大号 ⇒ 池式不理它(双方号域不相交,结构性不撞)。
  */
 export function leaseCursor({
   usedNumbers = [],
@@ -185,12 +252,17 @@ export function leaseCursor({
   family,
   baseMax = null,
   segmentSize = LEASE_SEGMENT_SIZE,
+  poolMax = LEASE_POOL_MAX,
 }) {
   const used = (Array.isArray(usedNumbers) ? usedNumbers : []).filter(Number.isFinite)
-  const keyNums = leases.map((l) => l.primaryKeyNum).filter(Number.isFinite)
-  const floor = Math.max(0, ...used, ...keyNums, Number.isFinite(baseMax) ? baseMax : 0)
   const mine = leases
-    .filter((l) => l.machine === machineId)
+    .filter(
+      (l) =>
+        l.machine === machineId &&
+        Number.isFinite(l.start) &&
+        Number.isFinite(l.end) &&
+        l.end <= poolMax,
+    )
     .sort((a, b) => b.start - a.start || b.end - a.end)
   for (const lease of mine) {
     const usedInRange = used.filter(
@@ -199,20 +271,50 @@ export function leaseCursor({
     const next = (usedInRange.length ? Math.max(...usedInRange) : lease.start - 1) + 1
     // 段尾这一号被本行主键自己占着(解析已验 主键=段尾),实号空间是 [start, end-1] ——
     // 判"还有空闲"必须用 next < end;写成 <= 会在段只剩末号时把租约行自己的主键发出去(镜像 T3 钉)。
-    if (next < lease.end) return { mode: 'in-lease', next, lease }
+    if (next < lease.end) return { mode: 'in-lease', next, lease, poolMax }
   }
-  const off = claimOffset({ machineId, family, floor, segmentSize })
-  return { mode: 'claim', start: floor + 1 + off, end: floor + off + segmentSize }
+  const { blocked } = poolBlocked({ usedNumbers: used, baseMax, poolMax })
+  // 一切池内租约段(含他机)的保留位都不可落窗:那些号虽未入占用面,但已被租约行预留。
+  const reserved = leases
+    .filter((l) => Number.isFinite(l.start) && Number.isFinite(l.end) && l.end <= poolMax)
+    .map((l) => [Math.max(1, l.start), Math.min(poolMax, l.end)])
+  const inReserved = (n) => {
+    for (const [a, b] of reserved) if (n >= a && n <= b) return true
+    return false
+  }
+  const candidates = []
+  for (let s = 1; s + segmentSize - 1 <= poolMax; s += 1) {
+    let free = true
+    for (let n = s; n < s + segmentSize; n += 1) {
+      if (blocked.has(n) || inReserved(n)) {
+        free = false
+        break
+      }
+    }
+    if (free) candidates.push(s)
+  }
+  if (candidates.length === 0) return { mode: 'pool-exhausted', poolMax, segmentSize }
+  const off = claimOffset({ machineId, family, floor: candidates.length, segmentSize: candidates.length })
+  const start = candidates[off]
+  return { mode: 'claim', start, end: start + segmentSize - 1, poolMax }
 }
 
 /** resolveIdTokens 的族级胶水:解析 + 判定一次给全(调用方只传 usedIdsOfPrefix 的结果)。 */
-export function decideLease({ baseContent, family, used, baseMax, machineId, segmentSize }) {
+export function decideLease({
+  baseContent,
+  family,
+  used,
+  baseMax,
+  machineId,
+  segmentSize,
+  poolMax = LEASE_POOL_MAX,
+}) {
   const leases = parseLeases(baseContent, family)
   const usedNumbers = (used?.ids ?? []).map((label) => {
     const m = ID_HEAD_RE.exec(String(label))
     return m ? Number(m[3]) : Number.NaN
   })
-  return leaseCursor({ usedNumbers, leases, machineId, family, baseMax, segmentSize })
+  return leaseCursor({ usedNumbers, leases, machineId, family, baseMax, segmentSize, poolMax })
 }
 
 /**

@@ -12,14 +12,15 @@
  *      usedIdsOfPrefix 的 max 被顶到段尾 ⇒ 无租约感知的 max+1 出口结构上落在段外;
  *      畸形登记编号判据不误伤(主键 + 正文段引用都不命中"族名出现两次")。
  *  T2  parseLeases:三读数(主键/段/机)齐且互洽才算;主键≠段尾号的漂移行不认(失效方向 = 走新占段)。
- *  T3  leaseCursor 四态:无租约→新占段;自有段→段内连号(剔除本行主键);段满→越过全局 max 新占;
- *      他机段不参与;baseMax(本地⊕远端)必须参与 floor。
- *  T4  resolveIdTokens 接线:给 machineId ⇒ 段内连号/新占段两态取号正确且 leaseClaims 齐全;
- *      **不给 machineId ⇒ 与旧口径逐字同形**(镜像 N2/N3 那张面,回归锁)。
+ *  T3  leaseCursor 池式(2026-10-14):无租约→池内最小空闲窗;自有池内段→段内连号(剔除本行
+ *      主键);段满→池内下一窗(不再越过 max);池外旧段(end>999)不可续;池满→拒绝发号;
+ *      baseMax(远端只抬高)≤999 参与避让、>999 池外大号不参与。
+ *  T4  resolveIdTokens 接线:给 machineId ⇒ 段内空闲序/池内新占段两态取号正确且 leaseClaims 齐全;
+ *      不给 machineId ⇒ 池内最小空闲(池式新基准;旧"与旧口径逐字同形"锁随池式改造废除)。
  *  T5  appendLeaseRows:只追加不删改;区在插区头、区不在文件尾新建。
  *  T6  源码形状锁:live-doc-edit 必须经 lib 取租约判据(抄第二份必漂),且 CAS 循环内取号带 machineId。
- *  T8  段起点偏移(G-815400):两机同 floor 段起点分离、同输入稳定、段尺寸不变、
- *      无 machineId ⇒ 偏移 0 逐字旧口径。机器标识混入 machineGuid 由 T7 的稳定性断言覆盖。
+ *  T8  段窗选择:同面同轮确定、两机窗分离(claimOffset 混机器指纹,下标=hash|窗数%窗数)、
+ *      段尺寸 50、无 machineId 恒取最小窗。
  */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -32,6 +33,7 @@ import {
   LEASE_SECTION_TITLE,
   appendLeaseRows,
   buildLeaseRow,
+  claimOffset,
   decideLease,
   machineIdentity,
   parseLeases,
@@ -85,57 +87,89 @@ test('T2 parseLeases:三读数齐且互洽才算;漂移行不认', () => {
   assert.equal(parseLeases(text, 'D').length, 0, 'D 行的段声明家族与主键家族不一致 ⇒ 对 D 族也不认')
 })
 
-test('T3 leaseCursor 四态 + baseMax 参与 floor', () => {
-  const mine = { primaryKeyNum: 1060999, primaryKey: 'G-1060999', machine: 'hostA-fp', start: 1060000, end: 1060999 }
-  const theirs = { primaryKeyNum: 1050999, primaryKey: 'G-1050999', machine: 'hostB-fp', start: 1050000, end: 1050999 }
-  // ① 无租约 ⇒ 新占段 [max+1+off, max+off+1000](G-815400:off 由机器 id|family|floor 派生;
-  //    本断言的 702/1403/2402 是 hostA-fp|''|700 的离线钉死值,同输入恒定)
-  const c1 = leaseCursor({ usedNumbers: [700], leases: [], machineId: 'hostA-fp' })
+test('T3 leaseCursor 池式:最小窗/碎窗/池满 + 段内连号 + 段满滑窗 + 池外旧段不可续 + baseMax 避让', () => {
+  // ① 无租约 ⇒ 池内最小空闲窗(无 machineId ⇒ off=0 恒取最小窗;blocked 只认 ≤999 的号)
+  const c1 = leaseCursor({ usedNumbers: [700], leases: [], family: 'G' })
   assert.deepEqual(
     { mode: c1.mode, start: c1.start, end: c1.end },
-    { mode: 'claim', start: 1403, end: 2402 },
-    '千号段尺寸 1000(end=start+999),段起点混机器偏移',
+    { mode: 'claim', start: 1, end: 50 },
+    '池内首窗 = 1..50(段尺寸 50,end=start+49),700 只堵它自己',
   )
-  // ② 自有段段内连号:主键(段尾)剔除,实号 1060000..1060002 已用 ⇒ 下一号 1060003
-  const c2 = leaseCursor({ usedNumbers: [1050500, 1060000, 1060001, 1060002, 1060999], leases: [mine, theirs], machineId: 'hostA-fp' })
+  // ①b 碎窗:1/2/49 已占 ⇒ "连续 50 全空闲"的最小窗从 50 起(3..52 含 49,不构成窗)
+  const c1b = leaseCursor({ usedNumbers: [1, 2, 49], leases: [], family: 'G' })
+  assert.deepEqual({ start: c1b.start, end: c1b.end }, { start: 50, end: 99 }, '窗必须是连续空闲段,49 处的碎片把首窗顶到 50')
+  // ①c 整池装不下一段 ⇒ 池满拒绝,绝不越界发号
+  const c1c = leaseCursor({ usedNumbers: [1, 2], leases: [], family: 'G', segmentSize: 3, poolMax: 4 })
+  assert.deepEqual(
+    { mode: c1c.mode, poolMax: c1c.poolMax, segmentSize: c1c.segmentSize },
+    { mode: 'pool-exhausted', poolMax: 4, segmentSize: 3 },
+    '池内找不出连续 segmentSize 个空闲 ⇒ pool-exhausted(调用方必须拒绝发号)',
+  )
+  // ② 自有池内段段内连号:主键(段尾=50)剔除,1/2/3 已用 ⇒ 下一号 4
+  const mine = { primaryKeyNum: 50, primaryKey: 'G-50', machine: 'hostA-fp', start: 1, end: 50 }
+  const c2 = leaseCursor({ usedNumbers: [1, 2, 3, 50], leases: [mine], machineId: 'hostA-fp', family: 'G' })
   assert.equal(c2.mode, 'in-lease')
-  assert.equal(c2.next, 1060003, '段内下一个必须是段内实号 max+1(他机段的号与租约主键都不算)')
-  // ③ 段满 ⇒ 越过全局 max(含他机段尾)新占(off = hash(hostA-fp||1060999)%1000 = 118,离线钉死)
-  const c3 = leaseCursor({ usedNumbers: [1060998, 1060999], leases: [mine, theirs], machineId: 'hostA-fp' })
-  assert.deepEqual({ mode: c3.mode, start: c3.start, end: c3.end }, { mode: 'claim', start: 1061118, end: 1062117 })
-  // ④ 他机身份不借段 ⇒ 直接新占(floor 被 mine 主键顶到 1060999,hostB-fp 偏移 166)
-  const c4 = leaseCursor({ usedNumbers: [1060000], leases: [mine], machineId: 'hostB-fp' })
+  assert.equal(c2.next, 4, '段内下一个 = 段内实号 max+1(主键是段尾不是实号)')
+  // ③ 段满 ⇒ 池内下一窗,不再越过 max:1..50 占满(自有段)、他机段 51..100 是保留位 ⇒
+  //    无 machineId 恒取最小窗 101..150;hostA-fp 按窗数 850 取模(下标 285,离线钉死)⇒ 386..435
+  const theirs = { primaryKeyNum: 100, primaryKey: 'G-100', machine: 'hostB-fp', start: 51, end: 100 }
+  const full50 = Array.from({ length: 50 }, (_, i) => i + 1)
+  const c3 = leaseCursor({ usedNumbers: full50, leases: [mine, theirs], machineId: 'hostA-fp', family: 'G' })
+  assert.deepEqual(
+    { mode: c3.mode, start: c3.start, end: c3.end },
+    { mode: 'claim', start: 386, end: 435 },
+    '段满滑到池内下一窗(他机段整段保留,窗只能落在 101 以后)',
+  )
+  const c3b = leaseCursor({ usedNumbers: full50, leases: [mine, theirs], family: 'G' })
+  assert.deepEqual({ start: c3b.start, end: c3b.end }, { start: 101, end: 150 }, '无 machineId ⇒ 恒取最小候选窗 101..150')
+  // ④ 池外旧段(end>999)不可续:七位数旧段是历史定格,续发就突破三位数上限 ⇒ 结构上不认,
+  //    与无租约同径走池内新占(失效方向 = 多占一窗,安全侧)
+  const legacy = { primaryKeyNum: 1060999, primaryKey: 'G-1060999', machine: 'hostA-fp', start: 1060000, end: 1060999 }
+  const c4 = leaseCursor({ usedNumbers: [700], leases: [legacy], machineId: 'hostA-fp', family: 'G' })
   assert.equal(c4.mode, 'claim')
-  assert.equal(c4.start, 1061166)
-  // ⑤ baseMax(远端顶高)必须参与新占段 floor(hostA-fp 偏移 656)
-  const c5 = leaseCursor({ usedNumbers: [700], leases: [], machineId: 'hostA-fp', baseMax: 9000 })
-  assert.equal(c5.start, 9657, '新占段必须站在本地⊕远端 Union 之上,否则占段本身就撞')
+  assert.equal(c4.start, 281, '池外旧段不续(hostA-fp|G|900 下标 280 ⇒ candidates[280]=281,离线钉死)')
+  // ⑤ baseMax(远端只抬高)≤999 参与避让:1..5 已用、远端 8 ⇒ 6..8 不发,首窗 9..58;
+  //    >999 是池外大号(存量债)⇒ 不参与避让、不挡新号 ⇒ 首窗 6..55
+  const c5 = leaseCursor({ usedNumbers: [1, 2, 3, 4, 5], leases: [], family: 'G', baseMax: 8 })
+  assert.deepEqual({ start: c5.start, end: c5.end }, { start: 9, end: 58 }, '远端盲区段必须避让,否则宽面盲区里的号被重复发')
+  const c5b = leaseCursor({ usedNumbers: [1, 2, 3, 4, 5], leases: [], family: 'G', baseMax: 2000 })
+  assert.deepEqual({ start: c5b.start, end: c5b.end }, { start: 6, end: 55 }, '池外大号不参与(双方号域不相交,结构性不撞)')
 })
 
 test('T4a decideLease 胶水:真实台账面上解析+判定一次给全', () => {
   const text = [
     '- [ ] G-700 基准行。',
-    row(),
+    row({ start: 1, end: 50 }),
     '',
     LEASE_SECTION_TITLE,
   ].join('\n')
   const used = usedIdsOfPrefix(text, 'G')
   const cur = decideLease({ baseContent: text, family: 'G', used, baseMax: used.max, machineId: 'hostA-fp' })
   assert.equal(cur.mode, 'in-lease')
-  assert.equal(cur.next, 1060000, '段首号是第一个实号(段尾主键被剔除)')
+  assert.equal(cur.next, 1, '自有段 1..50 段首是第一个实号(段尾主键被剔除)')
   const curB = decideLease({ baseContent: text, family: 'G', used, baseMax: used.max, machineId: 'hostB-fp' })
   assert.equal(curB.mode, 'claim')
-  assert.equal(curB.start, 1061442, '新占段起点 = floor+1+off(G-815400,hostB-fp|G|1060999 偏移 442,离线钉死)')
+  assert.deepEqual(
+    { start: curB.start, end: curB.end },
+    { start: 289, end: 338 },
+    '池内新占窗:blocked{50,700}∪保留位[1..50] ⇒ 候选 850 窗,hostB-fp 下标 238(离线钉死)⇒ 51+238',
+  )
+  const curC = decideLease({ baseContent: text, family: 'G', used, baseMax: used.max })
+  assert.deepEqual(
+    { mode: curC.mode, start: curC.start, end: curC.end },
+    { mode: 'claim', start: 51, end: 100 },
+    '无 machineId ⇒ 恒取最小候选窗(租约保留位 1..50 之后就是 51..100)',
+  )
 })
 
-test('T4b resolveIdTokens 接线:段内连号 / 新占段 / 无 machineId 逐字旧口径', () => {
+test('T4b resolveIdTokens 接线:段内空闲序 / 池内新占段 / 无 machineId 池内最小空闲 / 池满拒绝', () => {
   const leased = [
-    '- [ ] G-1059999 基准行。',
-    row(),
+    '- [ ] G-700 基准行。',
+    row({ start: 1, end: 50 }),
     '',
     LEASE_SECTION_TITLE,
   ].join('\n')
-  // ① 自有段:两个令牌段内连号,leaseNotes 交读数,无新占
+  // ① 自有池内段:令牌按段内空闲序连号(段尾主键剔除),leaseNotes 交读数,无新占
   const r1 = lde.resolveIdTokens(
     ['- [ ] {{NEXT_ID:G}} 甲。', '- [ ] {{NEXT_ID:G}} 乙。'],
     leased,
@@ -143,35 +177,40 @@ test('T4b resolveIdTokens 接线:段内连号 / 新占段 / 无 machineId 逐字
     { machineId: 'hostA-fp' },
   )
   assert.equal(r1.ok, true)
-  assert.equal(r1.assigned, 'G-1060000,G-1060001', '必须段内连号,而不是被段尾主键顶到 1061000')
+  assert.equal(r1.assigned, 'G-1,G-2', '自有段 1..50 段内空闲序连号,首号=段首(一个号不浪费)')
   assert.ok(r1.leaseClaims.length === 0, '段内连号不得新占段')
   assert.ok(r1.leaseNotes.some((n) => n.includes('自有段')), '报告必须点名段内连号')
-  // ② 无自有段:新占段,首号=段首(含机器偏移),leaseClaims 带段界
-  const plain = '- [ ] G-1059999 基准行。'
+  // ② 无自有段:池内新占窗(机器指纹选下标),首号=窗首(主键=段尾,令牌领不到),leaseClaims 带段界
+  const plain = '- [ ] G-700 基准行。'
   const r2 = lde.resolveIdTokens(['- [ ] {{NEXT_ID:G}} 甲。'], plain, null, { machineId: 'hostB-fp' })
   assert.equal(r2.ok, true)
-  assert.equal(r2.assigned, 'G-1060121', '新占段首号 = chosenMax+1+off(G-815400:hostB-fp|G|1059999 偏移 121)')
+  assert.equal(r2.assigned, 'G-549', '新占窗 = 第 hash(hostB-fp|G|900)%900=548 个候选窗 ⇒ 549(离线钉死)')
   assert.equal(r2.leaseClaims.length, 1)
   assert.deepEqual(
     { family: r2.leaseClaims[0].family, start: r2.leaseClaims[0].start, end: r2.leaseClaims[0].end },
-    { family: 'G', start: 1060121, end: 1061120 },
+    { family: 'G', start: 549, end: 598 },
   )
-  // ③ 不给 machineId ⇒ 与旧口径逐字同形(回归锁)
+  // ③ 不给 machineId ⇒ 池内最小空闲(池式新基准;旧"与旧口径逐字同形"锁随池式改造废除)
   const r3 = lde.resolveIdTokens(['- [ ] {{NEXT_ID:G}} 甲。'], plain)
   assert.equal(r3.ok, true)
-  assert.equal(r3.assigned, 'G-1060000')
+  assert.equal(r3.assigned, 'G-1')
   assert.deepEqual(r3.leaseClaims, [])
   assert.deepEqual(r3.leaseNotes, [])
-  // ④ 段内连号跨段界 ⇒ 拒绝(lease-exhausted-mid-edit)
-  const tight = row({ start: 10, end: 11 }).replace('G-1060999', 'G-11').replace('G-1060000~G-1060999', 'G-10~G-11')
+  // ④ 段空闲数不足以覆盖本块令牌 ⇒ 拒绝:自有段 10..11 只有 10 这一个实号空闲,第二令牌领空
+  const tight = row({ start: 10, end: 11 })
   const r4 = lde.resolveIdTokens(
-    ['- [ ] {{NEXT_ID:G}} 甲。', '- [ ] {{NEXT_ID:G}} 乙。', '- [ ] {{NEXT_ID:G}} 丙。'],
+    ['- [ ] {{NEXT_ID:G}} 甲。', '- [ ] {{NEXT_ID:G}} 乙。'],
     `- [ ] G-9 基准行。\n${tight}`,
     null,
     { machineId: 'hostA-fp' },
   )
   assert.equal(r4.ok, false)
-  assert.equal(r4.reason, 'lease-exhausted-mid-edit:G', '单次编辑令牌数超过段容量必须拒绝,而不是静默跨段')
+  assert.equal(r4.reason, 'pool-exhausted:G', '单次编辑令牌数超过可领空闲数必须拒绝,而不是静默跨段')
+  // ⑤ 整池占满(1..999 全被占)⇒ 池满拒绝,绝不发 1000+
+  const fullPool = Array.from({ length: 999 }, (_, i) => `- [ ] G-${i + 1} 占位行${i + 1}。`).join('\n')
+  const r5 = lde.resolveIdTokens(['- [ ] {{NEXT_ID:G}} 甲。'], fullPool, null, { machineId: 'hostA-fp' })
+  assert.equal(r5.ok, false)
+  assert.equal(r5.reason, 'pool-exhausted:G', '整池无窗 ⇒ 拒绝发号(出路=归档腾号,绝不突破三位数)')
 })
 
 test('T5 appendLeaseRows:只追加不删改;区在插区头,区不在文件尾新建', () => {
@@ -224,24 +263,26 @@ test('T7 machineIdentity:env 优先、含主机名、同根稳定', () => {
   }
 })
 
-test('T8 段起点偏移(G-815400):两机同 floor 段起点分离、同输入稳定、段尺寸不变、无 machineId 旧口径', () => {
-  // 同输入两次调用:段界确定(同机重跑不漂段;floor 含在偏移派生里)
-  const c1 = leaseCursor({ usedNumbers: [1059999], leases: [], machineId: 'hostA-fp', family: 'G' })
-  const c1b = leaseCursor({ usedNumbers: [1059999], leases: [], machineId: 'hostA-fp', family: 'G' })
+test('T8 段窗选择(池式):同面同轮确定、两机窗分离、窗尺寸不变、无 machineId 恒取最小窗', () => {
+  // 同输入两次调用:窗界确定(同机重跑不漂窗;候选窗数含在偏移派生里)
+  const c1 = leaseCursor({ usedNumbers: [700], leases: [], machineId: 'hostA-fp', family: 'G' })
+  const c1b = leaseCursor({ usedNumbers: [700], leases: [], machineId: 'hostA-fp', family: 'G' })
   assert.deepEqual({ start: c1b.start, end: c1b.end }, { start: c1.start, end: c1.end }, '同输入恒定')
-  // 段尺寸不变:偏移只平移整段,end = start + segmentSize - 1
-  assert.equal(c1.end - c1.start, 999, '段尺寸必须仍是 1000(平移不缩水)')
-  assert.equal(c1.start, 1060051, 'hostA-fp|G|1059999 偏移 51(离线钉死)')
-  // 两机同 floor 同族:段起点(含主键=段尾号)分离 —— 旧口径两侧都从 floor+1 起,
-  // 主键与首实号必撞;hostB-fp 偏移 121 ≠ 51,离线钉死。
-  const cB = leaseCursor({ usedNumbers: [1059999], leases: [], machineId: 'hostB-fp', family: 'G' })
-  assert.equal(cB.start, 1060121)
-  assert.notEqual(c1.start, cB.start, '两机同 floor 新占段起点必须分离')
+  // 窗尺寸不变:候选窗都是连续 segmentSize 个 ⇒ end = start + segmentSize - 1
+  assert.equal(c1.end - c1.start, 49, '窗尺寸必须仍是段容量 50(平移不缩水)')
+  assert.equal(c1.start, 281, 'blocked{700} ⇒ 候选 900 窗,hostA-fp|G|900 下标 280 ⇒ candidates[280]=281(离线钉死)')
+  // 两机同面同族:窗首(含主键=段尾号)分离 —— 下标 = hash(machineId|family|窗数) % 窗数
+  const cB = leaseCursor({ usedNumbers: [700], leases: [], machineId: 'hostB-fp', family: 'G' })
+  assert.equal(cB.start, 549, 'hostB-fp 下标 548(离线钉死)')
+  assert.notEqual(c1.start, cB.start, '两机同面新占窗首必须分离')
   assert.notEqual(c1.end, cB.end, '主键(段尾号)必须随之分离(F9 撞号面)')
-  // 无 machineId ⇒ 偏移 0,逐字旧口径(N2/N3 回归锁同面)
-  const cLegacy = leaseCursor({ usedNumbers: [1059999], leases: [], family: 'G' })
+  // 下标机理直钉:claimOffset(floor=窗数, segmentSize=窗数) 的返回值就是"第几个候选窗"的下标
+  assert.equal(claimOffset({ machineId: 'hostA-fp', family: 'G', floor: 900, segmentSize: 900 }), 280)
+  assert.equal(claimOffset({ machineId: 'hostB-fp', family: 'G', floor: 900, segmentSize: 900 }), 548)
+  // 无 machineId ⇒ off=0,恒取最小候选窗(N2/N3 回归锁同面)
+  const cLegacy = leaseCursor({ usedNumbers: [700], leases: [], family: 'G' })
   assert.deepEqual(
     { mode: cLegacy.mode, start: cLegacy.start, end: cLegacy.end },
-    { mode: 'claim', start: 1060000, end: 1060999 },
+    { mode: 'claim', start: 1, end: 50 },
   )
 })

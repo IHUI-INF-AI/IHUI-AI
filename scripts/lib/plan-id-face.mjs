@@ -309,6 +309,21 @@ export function familyMaxOn(text, family = PRIMARY_FAMILY) {
   return used === null ? null : used.max
 }
 
+/**
+ * 池式派生视图(2026-10-14,"编号压缩到三位数"枚 A):该族在给定文本上 **≤poolMax** 的
+ * 已用号升序表。>999 的大号不进视图 —— 它们是归档件里的存量债,不占池、不挡新号
+ * (占用的裁决住在 `lib/plan-id-lease.mjs` 的 poolBlocked/leaseCursor;本层只把面按池口径
+ * 收窄给报告与人工核对用)。null = 该族一条都没有(判不出),不是空池。
+ */
+export function usedLowIds(text, family = PRIMARY_FAMILY, poolMax = 999) {
+  const used = usedIdsOfPrefix(text, family)
+  if (used === null) return null
+  return used.ids
+    .map((label) => Number(/(\d+)$/.exec(String(label))?.[1] ?? Number.NaN))
+    .filter((n) => Number.isFinite(n) && n >= 1 && n <= poolMax)
+    .sort((a, b) => a - b)
+}
+
 // ── 自检:真临时 git 仓夹具 ⇒ 确定性,不依赖真仓瞬时状态(§22c:判据的对象是"面"的形态,输入必须像真件) ──
 function selfTest() {
   const results = []
@@ -405,6 +420,24 @@ function selfTest() {
       ok(
         'P7 报名不影响面的可用性(它是射程边界声明,不是"没判到")',
         face.ok === true && face.undetermined.length === 0,
+      )
+      // P8 池式派生视图(2026-10-14):≤999 收进 usedLowIds(O5/O9/O13/O90 都 ≤999);
+      // O9999 型大号不进视图(夹具里它只活在 .txt 与子目录件,本就不在面里,这里验的是口径形状)
+      ok(
+        'P8 usedLowIds 收 ≤999 的占用号(台账面 [5,13] / 宽面 [5,9,13,90])',
+        JSON.stringify(usedLowIds(face.text)) === JSON.stringify([5, 9, 13, 90]) &&
+          JSON.stringify(usedLowIds(face.ledgerText)) === JSON.stringify([5, 13]),
+        `wide=${JSON.stringify(usedLowIds(face.text))} ledger=${JSON.stringify(usedLowIds(face.ledgerText))}`,
+      )
+      ok(
+        'P8b >999 的大号不进视图(给宽面塞一枚四位数 ⇒ 不出现在 usedLowIds,familyMax 仍看见)',
+        (() => {
+          const wide2 = `${face.text}\n- [ ] O1001 池外大号`
+          return (
+            JSON.stringify(usedLowIds(wide2)) === JSON.stringify([5, 9, 13, 90]) &&
+            familyMaxOn(wide2) === 1001
+          )
+        })(),
       )
 
       // ② 反向对照:两面都找不到 Z 族 ⇒ 不凭空报错,按既有行为交回"判不出"(null)
@@ -675,6 +708,8 @@ function main() {
             text: Buffer.byteLength(face.text, 'utf8'),
           },
           familyMax: { ledger: familyMaxOn(face.ledgerText), wide: familyMaxOn(face.text) },
+          // 池式派生视图(2026-10-14):≤999 的占用号分布,给"编号压缩到三位数"的对账用。
+          usedLowIds: { ledger: usedLowIds(face.ledgerText), wide: usedLowIds(face.text) },
         },
         null,
         2,
@@ -717,6 +752,7 @@ export const __test__ = {
   baseNameOf,
   joinFace,
   familyMaxOn,
+  usedLowIds,
   resolveSource,
   transport: ID_FACE_TRANSPORT,
   LEDGER_DOC,
