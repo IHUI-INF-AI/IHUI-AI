@@ -168,7 +168,18 @@ function stopRunningDesktop() {
   }
   const { mine, foreign } = selectDesktopVictims(r.stdout || '', DESKTOP_TARGET_DIR)
   if (foreign.length) {
-    log(`检测到 ${foreign.length} 个非本仓 target 目录的同名实例,不动它们:${foreign.join(' | ')} —— 那是用户已安装/别处构建的应用`)
+    // 这里必须把**后果**说出来,不能只报"不动它们"。本仓 dev 构建与已安装版共用
+    // identifier `com.ihui.desktop`(四个 tauri*.json 现读同值),而 lib.rs 把
+    // tauri-plugin-single-instance 注册在插件链最前 ⇒ 安装版在场时,本脚本随后拉起的
+    // dev 实例会被插件**静默吞掉并以 exit 0 退出**:窗口看起来"起来了",实际聚焦的是
+    // 那份安装版,本地改的代码一行都没上屏。失效表现是安静的,而"不动安装版"是
+    // 2026-09-27 误杀事故后定死的正确行为(绝不改),所以唯一出路是把话说明白。
+    log(`⚠ 检测到 ${foreign.length} 个非本仓 target 目录的同名实例,按既定规则不动它们:${foreign.join(' | ')}`)
+    log('⚠ 但它们与 dev 构建同 identifier(com.ihui.desktop),单实例插件会把本脚本随后拉起的')
+    log('  dev 实例**静默吞掉并 exit 0** —— 你会看到那份已安装的应用获得焦点,而不是本地代码。')
+    log('  要联调桌面端:请先退出上面那份,再重跑本命令。(给 dev 构建配独立 identifier 会牵动')
+    log('  app_data_dir / capabilities / 更新器,属需机主拍板的设计变更,本脚本不擅自改。)'
+    )
   }
   if (!mine.length) {
     log('无本仓构建的残留桌面端实例')
