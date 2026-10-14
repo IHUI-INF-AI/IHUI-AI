@@ -492,10 +492,7 @@ export function isVerificationCodeFailure(
   errorCode: string | undefined,
   message: string | undefined,
 ): boolean {
-  if (
-    errorCode &&
-    /^(?:[A-Z]+_)?CODE_(?:INVALID|EXPIRED|ERROR|FAILED|REQUIRED)$/i.test(errorCode)
-  ) {
+  if (errorCode && /^(?:[A-Z]+_)?CODE_(?:INVALID|EXPIRED|ERROR|FAILED|REQUIRED)$/i.test(errorCode)) {
     return true
   }
   if (message && /^(?:短信|邮箱)?验证码/.test(message.trim())) return true
