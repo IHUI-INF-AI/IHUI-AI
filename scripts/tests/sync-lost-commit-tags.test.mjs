@@ -523,6 +523,26 @@ test('有界打印不得缩水判定:IHUI_TAG_LIST_CAP=1 时清单被截,但全�
   }
 })
 
+// 同一屏里"SHA 分歧"一行本来就只给 20 个,而"仅本地/仅远端/不可达"三行不截 ⇒ 判定行本身
+// 也会刷出单行几 KB。本条锁住"计数全量、名字有界"这一对(与上一条成对:上条锁逐条清单)。
+test('判定行同样有界:名字被截时计数必须仍是全量,且 JSON 不受上限影响', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    for (let i = 1; i <= 25; i++) gitAt(work, `git tag lost-commit/many-${i} HEAD`)
+    const r = runScript(['--check'], { cwd: work, env: { IHUI_TAG_LIST_CAP: '5' } })
+    assert.equal(r.status, 1, `25 枚仅本地应判红,实际 ${r.status}`)
+    assert.match(r.stdout, /25 个 tag 仅本地/, '判定行的计数必须是全量 25,不得随上限缩水')
+    assert.ok(r.stdout.includes('…(+20)'), `应明说还差 20 个没列出来\n实得:\n${r.stdout.slice(-800)}`)
+    const jr = runScript(['--check', '--json'], { cwd: work })
+    assert.equal(jr.status, 1)
+    const result = JSON.parse(jr.stdout.trim())
+    assert.equal(result.allTags.onlyLocal.length, 25, 'JSON 的机器读者永远拿全量')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
 // ─── 单元层:直接吃生产判据(§22c 禁止在测试里复制一份判定) ───────
 test('单元: diffTagMaps 锁三分流(仅本地 / 同名 SHA 分歧 / 仅远端按命名空间分流)', () => {
   const localMap = new Map([
