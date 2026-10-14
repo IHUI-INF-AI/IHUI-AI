@@ -63,6 +63,8 @@ import {
   verifyMerge,
   setRunFace,
   runFaceLabel,
+  // G-246:旁路落地次序判据进镜像 —— CI 跑的是 node --test,只锁 --self-test 等于"revert 掉本次修复也能过"
+  landingAttestationStructure,
   __test__,
 } from '../plan-tasks-merge.mjs'
 import { forkPreserved } from '../lib/plan-merge-annotation.mjs'
@@ -1841,4 +1843,58 @@ test('T33 端到端:熔断现场不得建提交,退出码必须仍是 0 并点�
   } finally {
     rmScratch(env.dir)
   }
+})
+
+/**
+ * T39 G-246 —— 七处旁路落地站点每一处都必须**就地补跑台账自愈**,且次序判据要真能失败。
+ *
+ * 立因:本器是第四台"commit-tree + CAS"落地器 ⇒ 钩子结构性不跑,挂在 .husky/post-commit 第 6 节
+ * 的自愈对本器从不触发;而它改的正是登记行,一次误写就是"已入库的登记行被滞后底稿带回"那一型。
+ * 为什么必须住在镜像而不是只在 --self-test:CI 跑的是 `node --test`,只锁自检档等于
+ * "把 heal 调用删掉也能过 CI"(§22c)。
+ *
+ * 四臂,缺一不成立:
+ *  ① 真源码 ⇒ 七个站点全绿(证明判据覆盖到全部站点,不是只对夹具有效);
+ *  ② 抽掉一处 heal ⇒ 必须报"出现 0 次"(证明这一臂真能拦,不是恒绿);
+ *  ③ 同一站点跑两遍 ⇒ 必须报"出现 2 次"(同一枚落地写两行自愈 = 会造重复提交);
+ *  ④ 把 heal 挪到共享索引写回之后 ⇒ 必须报次序违规(恢复提交会被这一次的索引写回盖掉)。
+ */
+test('T39 G-246 七处旁路落地站点必须各自就地补跑台账自愈(四臂)', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  const src = readFileSync(path.join(here, '..', 'plan-tasks-merge.mjs'), 'utf8')
+  const HEAL = 'rerunLedgerHeal({'
+
+  // ① 真源码全绿,且站点数就是判据表那七站
+  const clean = landingAttestationStructure(src)
+  if (clean.bad.length !== 0)
+    throw new Error(`真源码应判 0 违规,实测:${clean.bad.slice(0, 3).join(' | ')}`)
+  if (clean.counts.sites !== 7)
+    throw new Error(`判据表应覆盖 7 个落地站点,实测 ${clean.counts.sites}`)
+
+  const names = (v) => v.bad.map((b) => b.split(':').slice(1).join(':').trim())
+
+  // ② 抽掉第一处
+  const once = src.replace(`${HEAL}`, 'void 0 ({')
+  const v2 = landingAttestationStructure(once)
+  if (!v2.bad.some((b) => /台账自愈补跑出现 0 次/.test(b)))
+    throw new Error(`抽掉一处 heal 必须点名"出现 0 次",实测:${names(v2).slice(0, 3).join(' | ') || '(无违规 ⇒ 判据是空的)'}`)
+
+  // ③ 同一站点跑两遍
+  const firstIdx = src.indexOf(HEAL)
+  const twice = `${src.slice(0, firstIdx)}${HEAL} root: ROOT, paths: [PLAN_REL] })\n    ${src.slice(firstIdx)}`
+  const v3 = landingAttestationStructure(twice)
+  if (!v3.bad.some((b) => /台账自愈补跑出现 2 次/.test(b)))
+    throw new Error(`同一站点两次 heal 必须点名"出现 2 次",实测:${names(v3).slice(0, 3).join(' | ') || '(无违规)'}`)
+
+  // ④ 次序颠倒:heal 挪到共享索引写回之后
+  const pair = `    ${HEAL} root: ROOT, paths: [PLAN_REL] })\n    const align = alignSharedIndex(`
+  if (!src.includes(pair))
+    throw new Error('锚点形态已变(heal 与 alignSharedIndex 不再相邻)⇒ 本臂失去对象,改夹具而不是删断言')
+  const swapped = src.replace(
+    pair,
+    `    const align = alignSharedIndex(\n    // 变异臂造的形态:自愈排在索引写回之后\n    /*x*/\n    ${HEAL} root: ROOT, paths: [PLAN_REL] })\n    const alignDup = alignSharedIndex(`,
+  )
+  const v4 = landingAttestationStructure(swapped)
+  if (!v4.bad.some((b) => /排在共享索引写回之后/.test(b)))
+    throw new Error(`heal 挪到索引写回之后必须点名次序违规,实测:${names(v4).slice(0, 3).join(' | ') || '(无违规)'}`)
 })
