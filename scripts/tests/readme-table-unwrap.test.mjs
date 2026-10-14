@@ -12,10 +12,11 @@
 // 端到端 apply 只碰临时夹具文件,绝不 --apply 真 README(那是主会话决定时机的事)。
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
+import { mkScratch } from '../lib/scratch-dir.mjs'
 
 import { __test__ as unwrap } from '../readme-table-unwrap.mjs'
 import { __test__ as gate } from '../check-readme-table-integrity.mjs'
@@ -81,7 +82,7 @@ test('W5 两种"交人工"拒绝:run 无宿主行、涉及转义竖线,都不许
 })
 
 test('W6 端到端 --apply 只碰临时夹具:写盘后归位、再跑报幂等;豁免 run 不动', () => {
-  const dir = mkdtempSync(join(REPO, '.ihui-agent', 'tmp', 'unwrap-e2e-'))
+  const dir = mkScratch('unwrap-e2e-') // 2026-10-14 幻影仓根治批:落点改 scratch 唯一出口(工作区外+退出自动回收)
   try {
     const f = join(dir, 'T.md')
     writeFileSync(f, F.taLong + '\n', { encoding: 'utf8' })
