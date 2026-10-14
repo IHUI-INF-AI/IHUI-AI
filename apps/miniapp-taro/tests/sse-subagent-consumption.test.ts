@@ -103,17 +103,23 @@ describe('D64④ miniapp 子任务帧消费链路', () => {
   })
 
   describe('消费层:chat.tsx 对三帧显式消费(非静默丢)', () => {
-    it('onSubagentSpawn/Progress/End 均接线到 pushStreamActivity + ai.stream.subagent', async () => {
+    it('onSubagentSpawn/Progress/End 均接线到 aiCards.subagentTasks 八态卡(D64④ 卡片化)', async () => {
       const src = await readFile(join(HERE, '../src/pkg-ai/ai/chat.tsx'), 'utf-8')
-      const callbackNames = ['onSubagentSpawn', 'onSubagentProgress', 'onSubagentEnd'] as const
-      for (const name of callbackNames) {
-        // 形态: onSubagentXxx: (evt) =>
-        //            pushStreamActivity(t('ai.stream.subagent', { phase: evt.<field> })),
-        const re = new RegExp(
-          `${name}:\\s*\\(evt\\)\\s*=>\\s*pushStreamActivity\\(\\s*t\\('ai\\.stream\\.subagent'`,
-        )
+      // 2026-10-14 D64④ 渲染本体:三帧消费从 pushStreamActivity 文本行升级为
+      // aiCards.subagentTasks 八态卡(状态词汇走共享 element-pack backgroundTaskView),
+      // 消费通道变化但"不得静默丢弃"的意图不变 —— 断言改为归并函数接线形态。
+      const wiring: ReadonlyArray<readonly [string, string]> = [
+        ['onSubagentSpawn', 'upsertSubagentSpawn'],
+        ['onSubagentProgress', 'applySubagentProgress'],
+        ['onSubagentEnd', 'applySubagentEnd'],
+      ]
+      for (const [name, merger] of wiring) {
+        const re = new RegExp(`${name}:\\s*\\(evt\\)\\s*=>\\s*[\\s\\S]{0,120}?${merger}\\(`)
         expect(src, `${name} 子任务帧消费接线缺失(D64④:不得静默丢弃)`).toMatch(re)
       }
+      // 归并函数与渲染件的 import 在位(端内不再自写第二份状态表)
+      expect(src).toContain('upsertSubagentSpawn')
+      expect(src).toMatch(/from '@ihui\/shared\/chat\/element-pack'|from '\.\/cards\/types'/)
     })
 
     it('流式执行过程列表渲染出口在位(pushStreamActivity 写入 streamActivities)', async () => {
