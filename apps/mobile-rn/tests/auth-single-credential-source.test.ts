@@ -17,6 +17,8 @@
 // 本文件仍留着一组 @ihui/shared/stores 的覆盖,那是别名指真之后不再改变语义的冗余段,
 // 归属票#20 那一族清(不在本票射程,故只点名不顺手删)。
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+// 2026-10-14:import() 类型注解被 consistent-type-imports 禁(CI lint 红),改顶层 type 命名空间导入
+import type * as ApiClientModule from '@ihui/api-client'
 
 const { apiClient, capturedProvider } = vi.hoisted(() => {
   type Provider = {
@@ -44,7 +46,7 @@ vi.mock('@ihui/api-client', async () => {
   // 2026-10-09 分型:补真实 TransientRefreshError —— lib/token.ts 的 refresh 瞬时分支
   // 会 new 它,mock 缺这个名会在访问时报 "No export is defined on the mock";
   // 断言侧的 instanceof 也必须拿到同一个类对象。
-  const actual = await vi.importActual<typeof import('@ihui/api-client')>('@ihui/api-client')
+  const actual = await vi.importActual<typeof ApiClientModule>('@ihui/api-client')
   return { ...apiClient, TransientRefreshError: actual.TransientRefreshError }
 })
 vi.mock('@ihui/shared/stores', async () => {
