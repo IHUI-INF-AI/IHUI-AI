@@ -53,6 +53,8 @@
  *   node scripts/union-converge.mjs                  # 只报告(零副作用)
  *   node scripts/union-converge.mjs --apply          # 落地合并(幂等)
  *   node scripts/union-converge.mjs --theirs <sha>   # 指定目标(默认 origin/<当前分支>)
+ *   node scripts/union-converge.mjs --base <sha>     # 显式指定三方归并基底(远端被强制重写过才需要;
+ *                                                    #   缺省仍走 merge-base,见 plan() 内注释)
  *   node scripts/union-converge.mjs --take-ours <path> [--take-ours <path>]...
  *       # 两侧同改且**能证明对侧那一版在本树必红**时,声明该路径取本侧。
  *       #   必须逐条附取证(跑过对侧版的结果),且会出现在输出与合并提交信息里。
@@ -487,7 +489,9 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
     let byPlaceholder = 0
     let byOwnShrink = 0
     let byDupPointer = 0
+    let byVerbatimCopies = 0
     const unexplained = []
+    const verbatimCredited = []
     for (const l of universe) {
       const occ = occOf(l)
       if (!occ) continue
@@ -523,16 +527,46 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
         byDupPointer += cov
         rest -= cov
       }
+      /**
+       * ④ 同一条注记行的第 2..N 份**逐字副本**折叠成一份 ⇒ 少的是份数,不是信息。
+       * 判据与 lostAddedLines 的指针档同形:**只认逐字相同**(本循环以行原文为键 ⇒ 逐字副本天然
+       * 折进同一个桶),漂移一个字的两份一行额度都拿不到;且必须 `haveOcc > 0`(结果面仍留
+       * ≥1 份)才可记 —— 一份不剩的整族消失 ④ 一分都不给,③ 的下限照旧兜住那一型判红。
+       * 可记额度 = 想要的份数 − 结果里保留的第 1 份 = wantOcc − haveOcc(已折进 rest)。
+       * 立因(G-815405):2026-09-29 那次真实合并被本维拒收,按行量下来对侧"减少"的 1387 份
+       * **全部**是同一条注记行的逐字副本折成一份(同一条 D64 指针行逐字重复 7 次以上),
+       * 而当时三档额度都没认这一型 ⇒ 报"已扣除 0 条、仍差 30 条",把一次零信息损失的合并
+       * 判成了拒收(§1 禁止无声删除在此**没有**被违反 —— 每条注记仍保留 ≥1 份)。
+       * 报数必须报名:这一档与前三档并列打进红句(见下方 `${byVerbatimCopies}`)并逐行点名
+       * (`verbatimCredited`)—— 额度若静默生效,下一手就分不清"被折了"和"真丢了"。
+       */
+      if (rest > 0 && haveOcc > 0) {
+        const cov = rest
+        byVerbatimCopies += cov
+        verbatimCredited.push(`折 ${cov} 份(结果里剩 ${mm.get(l) || 0} 份)← ${l.slice(0, 140)}`)
+        rest -= cov
+      }
       if (rest > 0) unexplained.push(`缺 ${rest} 份 :: ${l.slice(0, 70)}`)
       allowed += wantOcc - haveOcc - rest
     }
-    if (m.mergeNotes < noteMax - allowed) {
+    /**
+     * 判红条件:总量下降(`noteMax - allowed`)与**逐行欠账**(`unexplained`)任一成立即红。
+     * 逐行这一半是 ④ 档的**反向臂**(G-815405 硬要求):`sum(wantOcc) ≥ noteMax` 只在"同一侧对
+     * 每行都取最大"时取等,于是"某行逐字折半(合法)+ 另一行整族消失(非法)"两件事可以在总量上
+     * 互相抵消 —— 只比总量就等于让合法额度替真丢失背书(实测可构造:3 份折 1 份 + 1 条独有行
+     * 归零 ⇒ 旧条件读数恰好持平)。unexplained 逐条由下方 `named` 点名,不静默。
+     */
+    if (m.mergeNotes < noteMax - allowed || unexplained.length > 0) {
       const named = unexplained.length
         ? `;未被任何机制解释的 ${unexplained.length} 条(列前 5):${unexplained.slice(0, 5).join(' | ')}`
         : ''
+      // 报数必须报名(与 formatPointerCapReport 同规矩):④ 档扣了谁、每行扣了几份,逐行点名(列前 5)。
+      const credited = verbatimCredited.length
+        ? `;逐字副本折半名单(共 ${verbatimCredited.length} 行,前 5):${verbatimCredited.slice(0, 5).join(' | ')}`
+        : ''
       out.push(
         `F5 归并落账注记 各侧最多 ${noteMax} 条,归并结果只剩 ${m.mergeNotes} 条` +
-          `(已按行扣除三类**有据**额度共 ${allowed} 条:归档占位代表 ${byPlaceholder} / 本侧相对基底自缩 ${byOwnShrink} / 副本指针有意少带 ${byDupPointer};扣完仍差 ${noteMax - allowed - m.mergeNotes} 条)${named}`,
+          `(已按行扣除四类**有据**额度共 ${allowed} 条:归档占位代表 ${byPlaceholder} / 本侧相对基底自缩 ${byOwnShrink} / 副本指针有意少带 ${byDupPointer} / 逐字副本折半 ${byVerbatimCopies};扣完仍差 ${noteMax - allowed - m.mergeNotes} 条)${named}${credited}`,
       )
     }
   }
@@ -1918,6 +1952,7 @@ export function plan(
   resolutions = new Map(),
   takeTheirs = new Set(),
   accepted = null,
+  baseOverride = null,
 ) {
   // 直接走 API 的调用方也必须拿到同一句诊断,而不是 git 的 "Not a valid commit name" 加一串堆栈
   // (G-473 ②:取不到要写成"未判定 + 出口",不得表现为工具故障)。CLI 那一支在 resolveTargets
@@ -1935,7 +1970,20 @@ export function plan(
       `未判定:${unreachableObjectGuidance({ missing: miss, theirs, head: ours, branch })}`,
     )
   }
-  const base = git(['merge-base', ours, theirs], cwd)
+  let base
+  if (baseOverride) {
+    // --base 覆盖口(2026-10-14,同日被迫补):远端被强制重写(force-push)后,git merge-base 返回的
+    // 是**被重写前**的旧分叉点,相对新的两侧历史它是个"空基底" —— 两侧独有的行在基底里都不存在,
+    // 于是三方归并把"对侧正常改的行"报成丢行、把 25 个文件炸成人工裁决(实测 b802e847fb0 下
+    // scripts/ 仅 8 个文件,plan-* 族全不在基底里)。真实共同祖先是被重写前的 origin tip。
+    // 口径:显式喂的 base 必须是本机可达的提交,否则一律"未判定"(exit 2),绝不静默退回 merge-base
+    //   —— 静默回退会把"空基底"这场事故重演一遍,而调用方看不出来自己用错了 base。
+    if (!hasCommit(baseOverride, cwd))
+      throw new Error(`未判定:--base ${baseOverride} 本机取不到该提交(先 fetch 或换一枚可达的 sha)`)
+    base = baseOverride
+  } else {
+    base = git(['merge-base', ours, theirs], cwd)
+  }
   // 一张抑制表同时喂归并与落地断言(分开算必漂移,而漂移的固定代价是"落地闸把合法未取回判成丢行")。
   const moveAwareCache = new Map()
   const built = buildUnion(
@@ -2445,11 +2493,30 @@ function selfTest() {
       })(),
     )
     ok(
-      'F5 的反面:不带指针的注记行少了 ⇒ 必须照常判红(放宽的是形状,不是方向)',
+      'F5 的反面:不带指针的注记行**整族消失** ⇒ 必须照常判红(④ 只认"仍留 ≥1 份"的逐字折半,方向不放宽)',
       planStateRegressions(
-        '- [ ] G-9 事甲 〔【归并】落账:复测 2026-09-26〕\n',
+        'z\n',
         ['- [ ] G-9 事甲 〔【归并】落账:复测 2026-09-26〕\n'.repeat(3), 'z\n'],
       ).join('').includes('F5'),
+    )
+    // G-815405 ④:同一条注记行的第 2..N 份**逐字副本**折成一份 ⇒ 少的是份数,不是信息 ⇒ 不得判红。
+    ok(
+      'G-815405 ④:逐字副本折半(仍留 ≥1 份)不得判红;且红句里这一档必须单独报数(报数必须报名)',
+      (() => {
+        const l = '- [ ] G-9 事甲 〔【归并】落账:复测 2026-09-26〕\n'
+        const okFold = planStateRegressions(l, [l.repeat(3), 'z\n']).length === 0
+        // 反向臂(硬要求):同一形状里夹一条**真丢**的行(另有一条不带注记的行整族消失)
+        // ⇒ ④ 额度不得把真丢的那条也盖掉,且红句必须报出"逐字副本折半"这一档。
+        const l2 = '- [ ] G-9 真丢那件事 〔【归并】落账:复测 2026-09-26〕\n'
+        const r = planStateRegressions(l, [l.repeat(3), l2, 'z\n']).join('')
+        return (
+          okFold &&
+          r.includes('F5') &&
+          r.includes('逐字副本折半') &&
+          r.includes('真丢那件事') &&
+          !r.includes('逐字副本折半 3')
+        )
+      })(),
     )
     // 任务状态分叉不得被并集放大(纯函数;这正是"两份真相"的产地)
     const PS_A = '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。\n'
@@ -2541,9 +2608,10 @@ function selfTest() {
       }).length === 0,
     )
     ok(
-      'F5 有牙:对侧相对基底**加**了注记、归并却没带(既非占位代表也非自缩)⇒ 照常判红并点名未解释条数',
+      'F5 有牙:对侧相对基底**加**了注记(漂移副本,④ 只认逐字相同)、归并却没带 ⇒ 照常判红并点名未解释条数',
       (() => {
-        const r = planStateRegressions(ARn(1), [ARn(1), ARn(1), ARn(3)], null, {
+        const ARv = (sfx) => `${AR}${sfx}\n`
+        const r = planStateRegressions(ARn(1), [ARn(1), ARn(1), ARv(' 甲变体') + ARv(' 乙变体')], null, {
           suppress: null,
           baseText: ARn(1),
           oursText: ARn(1),
@@ -3250,6 +3318,11 @@ async function main() {
   // 推送链零风险:对侧一份滞后台账副本就能让每一次收敛判红,那等于把收敛器自己变成恒红门
   // (§12e/§12f:被恒红逼出来的放行开关,连事故那一型也一起放行)。存量与未判定任何档位都不拦。
   const resurrectBlock = argv.includes('--resurrect-block')
+  // --base <sha>(2026-10-14):显式指定三方归并的基底。仅在远端被强制重写过、merge-base 返回
+  //   "被重写前的旧分叉点"(相对新两侧是空基底,炸出大片假人工裁决)时才需要喂 —— 此时真实共同
+  //   祖先是被重写前的远端 tip。缺省行为完全不变(仍走 merge-base)。
+  const bi = argv.indexOf('--base')
+  const baseOverride = bi >= 0 && argv[bi + 1] ? argv[bi + 1] : null
   const t = resolveTargets(ti >= 0 ? argv[ti + 1] : '')
   if (t.skip) {
     console.log(`[union-converge] ${t.skip} ⇒ 无需合并`)
@@ -3271,7 +3344,7 @@ async function main() {
       '[union-converge] 本地落后于所点名的 --theirs ⇒ 这不是"无需合并";按显式目标照常归并' +
         '(要快进请自己跑 git merge --ff-only,本器不替调用方决定动作)',
     )
-  const p = plan(t.head, t.theirs, ROOT, takeOurs, resolutions, takeTheirs, accepted)
+  const p = plan(t.head, t.theirs, ROOT, takeOurs, resolutions, takeTheirs, accepted, baseOverride)
   console.log(
     `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 删除随合并传播 ${p.propagatedDeletes?.length ?? 0} / 影子 .js 随合并删掉 ${p.shadowDeletes?.length ?? 0} / 影子 .js 未恢复 ${p.shadowRestores?.length ?? 0} / 活文档行 union`,
   )
