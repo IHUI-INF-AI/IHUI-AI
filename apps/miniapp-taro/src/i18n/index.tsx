@@ -4,7 +4,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 import Taro from '@tarojs/taro'
-import { mergeMessages, translate, resolveList } from '@ihui/i18n/loader'
+import { translate, resolveList } from '@ihui/i18n/loader'
 import type { Locale, Messages } from '@ihui/i18n/types'
 import { LOCALE_KEY, I18N_PACK_KEY_PREFIX } from '@/constants/storage'
 import { aizhsUrl } from '@/constants/icon-urls'
@@ -20,9 +20,19 @@ import { aizhsUrl } from '@/constants/icon-urls'
 // 不卡首屏、不弹错;tabBar 页文案在 zh-CN 内置集里,始终可达。就绪后 Provider bump
 // packEpoch 触发整树重渲染。离线真相 remote-locales.gen.ts 保留在磁盘供守门对账,
 // 但运行时**不再 import**(否则 440KB 重新进 common.js)。
+// 2026-10-15 主包选项 A:zh-CN 也从"明文 JSON 静态 import"改成 **gzip+b64 内联**
+// (generated/zh-cn-pack.gen.ts,约 104KB b64 取代约 230KB 明文,主包净降约 126KB)。
+// 它必须随包内联 —— 是回落语,走 CDN 等于弱网时连回落语都没有。模块加载期同步 gunzip
+// 一次(fflate + 查表 b64,不引新依赖);任一环失败 ⇒ fail-closed 回落到同批派生的
+// 最小内置键集 ZH_CN_CRITICAL(纯 JSON、不参与压缩 ⇒ 不复用失败的那条解码链路),
+// 并把可诊断错误留在 zhCnPackStatus() 上(不崩、不静默、不给空文案)。
 import { gunzipSync, strFromU8 } from 'fflate'
-import sharedZhCN from '@ihui/i18n/messages/shared/zh-CN.json'
-import miniappZhCN from '@ihui/i18n/messages/miniapp-taro/zh-CN.json'
+import {
+  ZH_CN_PACK_B64,
+  ZH_CN_PACK_BYTES,
+  ZH_CN_PACK_VERSION,
+  ZH_CN_CRITICAL,
+} from './generated/zh-cn-pack.gen'
 import { REMOTE_LOCALE_MANIFEST, type RemoteLocale } from './generated/remote-locale-manifest.gen'
 
 // 纯 JS base64 → Uint8Array 查表解码:小程序真机 JSCore 未必提供 atob,不依赖任何运行时 API
@@ -246,9 +256,64 @@ const I18nContext = createContext<I18nContextValue>({
   setLocale: () => {},
 })
 
-// 各 locale 的合并 messages:shared 作 base,miniapp-taro 覆盖(端 key 优先)。
-// zh-CN 静态打包在主包内 —— 它既是默认语言,也是按需包未就绪时的**唯一回落语**。
-const zhCNMessages: Messages = mergeMessages(sharedZhCN as Messages, miniappZhCN as Messages)
+/* ───────────────── zh-CN 内联包:模块加载期同步解压一次 ─────────────────
+ *
+ * 各 locale 的合并 messages 仍是 shared 作 base、miniapp-taro 覆盖(端 key 优先),
+ * 只是 zh-CN 的"合并"这一步搬到了生成期(generated/zh-cn-pack.gen.ts,与源 JSON 无损等价,
+ * 见 __tests__/i18n-compressed.test.ts),运行时拿到的是压缩后的载荷。
+ *
+ * 兜底形态(fail-closed,三不:不崩 / 不静默 / 不给空文案):
+ *   ① 结构性校验(字节数 → b64 字符集 → gunzip → JSON.parse → 必须是普通对象)任一环不过
+ *      ⇒ 回落到 ZH_CN_CRITICAL(生成物里的**最小内置键集**:tabBar 命名空间,纯 JSON、
+ *      **不参与压缩** —— 兜底不能复用刚刚失败的那条解码链路,否则等于没有兜底);
+ *   ② 同时 console.error 一条可诊断错误(带 version 与实际/期望字节数),并把它留在
+ *      zhCnPackStatus() 上供测试与线上报数 —— 静默回落 zh-CN 才是本端最坏的一种失败
+ *      (它长得跟"用户选了中文"一模一样)。
+ *   为什么不 throw:这一行活在模块加载期,抛出去是整端白屏,与 fail-closed 语义相反。
+ */
+
+export interface ZhCnPackStatus {
+  /** true = 内联包解压成功,zhCNMessages 是全量词典 */
+  readonly ok: boolean
+  /** 载荷版本(gzip+b64 的 sha256);失败时也是这一份,便于对账"是哪个包坏了" */
+  readonly version: string
+  /** 失败原因;成功时恒 null */
+  readonly error: string | null
+}
+
+function decodeZhCnPack(): { messages: Messages; status: ZhCnPackStatus } {
+  const critical = ZH_CN_CRITICAL as Messages
+  const fail = (error: string) => {
+    console.error(`[i18n] zh-CN 内联包解压失败 ⇒ fail-closed 回落最小内置键集: ${error}`)
+    return { messages: critical, status: { ok: false, version: ZH_CN_PACK_VERSION, error } }
+  }
+  if (ZH_CN_PACK_B64.length !== ZH_CN_PACK_BYTES) {
+    return fail(`载荷字节数 ${ZH_CN_PACK_B64.length} ≠ 生成物声明 ${ZH_CN_PACK_BYTES}`)
+  }
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(ZH_CN_PACK_B64)) return fail('载荷不是 base64 字符集')
+  try {
+    const parsed: unknown = JSON.parse(strFromU8(gunzipSync(b64ToBytes(ZH_CN_PACK_B64))))
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return fail('解压结果不是普通对象')
+    }
+    return {
+      messages: parsed as Messages,
+      status: { ok: true, version: ZH_CN_PACK_VERSION, error: null },
+    }
+  } catch (e) {
+    return fail(`gunzip/JSON 失败: ${e instanceof Error ? e.message : String(e)}`)
+  }
+}
+
+const zhCnPack = decodeZhCnPack()
+
+/** zh-CN 内联包的解码结果(默认语言 + 按需包未就绪时的**唯一回落语**) */
+const zhCNMessages: Messages = zhCnPack.messages
+
+/** 解码状态出口:供测试与线上报数读"包是不是好的",失败时 error 非空、ok=false */
+export function zhCnPackStatus(): ZhCnPackStatus {
+  return zhCnPack.status
+}
 
 /**
  * 取某语言的 messages(同步)。
