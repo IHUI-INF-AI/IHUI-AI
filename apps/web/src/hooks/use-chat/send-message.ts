@@ -104,6 +104,8 @@ import {
   tryHandleToolSlash,
 } from './slash-commands'
 import { persistMessageSafe, persistQuestionSafe } from './persistence'
+// Runtime 插话能力声明落库口(帧载荷 → store;D69 runtimeSupportsInterjection 的数据源)
+import { noteRuntimeCapabilities } from './runtime-capabilities'
 import type { PlanStep, TerminalTask } from '@ihui/types/ai'
 import type { ChatActionContext } from './types'
 
@@ -819,6 +821,9 @@ export function createSendMessage(
           clearCompactionPreview()
         },
         onUsage: (usage) => {
+          // 流尾帧(done 帧族的载荷):能力声明挂在这一帧上时同上落库;读不到不写。
+          // 放在最前:流式结束前必须让输入区拿到本轮 Runtime 的插话能力。
+          noteRuntimeCapabilities(usage)
           // P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE 流末尾发送 usage chunk,
           // 前端收到后更新 assistant 消息 meta.usage,UI 展示 token 计数。
           // #21 权威值到达:置 finalUsageReceived 停止实时估算覆盖,确保最终展示权威数字。
@@ -1013,6 +1018,9 @@ export function createSendMessage(
         // injection_applied,写入 message.injections,MessageItem 渲染 InjectionBar。
         // 此前该帧在 api-client 里只被"不喷进正文"地丢弃 —— 生产了却没人看。
         onInjectionApplied: (evt) => {
+          // 流首帧(正文之前到达):Runtime 能力声明若挂在这一帧上,读不到即不写
+          // (未声明 ⇒ 输入区回落 false,与声明落地前完全同形)。
+          noteRuntimeCapabilities(evt)
           const targetId = evt.messageId ?? assistantId
           if (!targetId) return
           useChatStore.getState().appendMessageInjection(targetId, {

@@ -36,6 +36,8 @@ import {
 } from '@/lib/subagent-timeline-mapper'
 import { loadBrowserWorkspaceContext } from './workspace'
 import { eduToolsFor, fileToolsFor, mergeAgentTools } from './tool-config'
+// Runtime 插话能力声明落库口(与 send-message.ts 同一入口)
+import { noteRuntimeCapabilities } from './runtime-capabilities'
 import {
   clearCompactionPreview,
   createToolCallHandler,
@@ -338,6 +340,8 @@ export function createSendAnswer(
           clearCompactionPreview()
         },
         onUsage: (usage) => {
+          // 流尾帧:与 sendMessage 同一姿势落 Runtime 插话能力声明(读不到不写)。
+          noteRuntimeCapabilities(usage)
           // P1 token 用量写入消息 meta(2026-08-15 立,与 sendMessage 对称):sendAnswer 续流同样收到 usage chunk,
           // 前端收到后更新 assistant 消息 meta.usage,UI 展示 token 计数。
           useChatStore.getState().updateMessageMeta(assistantId, { usage })

@@ -230,6 +230,42 @@ def _report_dropped_steers(session_id: str | None) -> list[dict[str, Any]]:
     remaining = _steer_sessions.pop(session_id, None) or []
     return [_steer_dropped_frame(item) for item in remaining]
 
+
+def _interjection_capable(session_id: str | None) -> bool:
+    """插话(steer)能力判定的**唯一出口**:本流的 steer 上行通道是否真可用。
+
+    判据不是"代码里有没有插话功能"(那是编译期事实,恒真、没有信息量),而是
+    **这条流此刻 POST .../steer 会给 200 还是 404** —— 即 `post_steer_message`
+    自己的闸门:`_steer_sessions.get(session_id) is None ⇒ 404`(本文件 :5902)。
+    两者读同一个注册表,声明与实际处置就不可能分叉。
+
+    为假的三类实况(都是真会发生的,不是防御性编造):
+      · `session_id` 为 None —— 调用方既没给 `streamSessionId` 又没给
+        `workspace_context`(gen() :3274-3280 的两个分支都没命中),桶根本没建;
+      · 桶已被 `_report_dropped_steers` 在流收口摘除(流已结束);
+      · 惰性兜底路径(工具执行中 `session_id is None` 时才现造 uuid4,:4274
+        /:4466/:4499/:4680)造出的新 id **没有回登记** `_steer_sessions` ——
+        此刻 `_drain_inlineable_steers` 对它同样返回空,声明 false 与实况一致。
+
+    声明 true 而实际 404 是最坏的一型:用户点了"插话"、界面给了 ACK、服务端没收到。
+    """
+    return bool(session_id) and session_id in _steer_sessions
+
+
+def _capabilities_payload(session_id: str | None) -> dict[str, bool]:
+    """挂在 `done` 帧载荷上的能力声明(键名取自 sse_contract 单一事实源)。
+
+    刻意不改变帧形状以外的任何东西:dict 只有已支持的键,未支持的能力不写
+    false 占位(与 tool-approval 的 exec_environment 同一纪律 —— "读不到就整块
+    不发",不造值冒充事实)。端上按 `capabilities?.interjection ?? false` 消费。
+    """
+    from app.core.sse_contract import (  # 运行时 import 点(见 sse_contract 头注的 SSE-CONTRACT-IMPORT-SITES)
+        SSE_CAPABILITY_INTERJECTION_KEY,
+    )
+
+    return {SSE_CAPABILITY_INTERJECTION_KEY: _interjection_capable(session_id)}
+
+
 # =============================================================================
 # V3 #58(2026-09-26 立):主对话流工具审批门(语义对齐 agent_loop_v2 tool_approval)
 # =============================================================================
@@ -3610,6 +3646,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "usage": accumulated["usage"],
                                     "stub": accumulated["stub"],
                                     "memoryUpdates": _mem_updates,
+                                    # 插话能力声明(2026-10-15 立):本轮收口时交代"这条流的
+                                    # steer 上行是真的能用还是只会 404"。判定出口
+                                    # `_interjection_capable()`,不写死 true。
+                                    "capabilities": _capabilities_payload(session_id),
                                 }
                                 # G-425:finishReason 透传(缺席不带键,不造值)
                                 if accumulated.get("finishReason"):
@@ -3788,6 +3828,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "usage": accumulated["usage"],
                                     "stub": accumulated["stub"],
                                     "memoryUpdates": _mem_updates,
+                                    # 插话能力声明(2026-10-15 立):本轮收口时交代"这条流的
+                                    # steer 上行是真的能用还是只会 404"。判定出口
+                                    # `_interjection_capable()`,不写死 true。
+                                    "capabilities": _capabilities_payload(session_id),
                                 }
                                 # G-425:finishReason 透传(缺席不带键,不造值)
                                 if accumulated.get("finishReason"):
@@ -5117,6 +5161,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "usage": accumulated["usage"],
                                 "stub": accumulated.get("stub", False),
                                 "memoryUpdates": _mem_updates,
+                                # 同上方两处 done:插话能力声明(工具全败收尾路径同样
+                                # 要交代,缺一格端上就只剩猜)。
+                                "capabilities": _capabilities_payload(session_id),
                             }
                             if req.metadata:
                                 done_event["metadata"] = req.metadata

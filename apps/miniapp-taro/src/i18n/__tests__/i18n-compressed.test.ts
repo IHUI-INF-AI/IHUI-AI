@@ -19,6 +19,12 @@ import {
   REMOTE_LOCALE_MANIFEST,
   type RemoteLocale,
 } from '@/i18n/generated/remote-locale-manifest.gen'
+import {
+  ZH_CN_PACK_B64,
+  ZH_CN_PACK_BYTES,
+  ZH_CN_PACK_VERSION,
+  ZH_CN_CRITICAL,
+} from '@/i18n/generated/zh-cn-pack.gen'
 
 const REMOTE_LOCALES: RemoteLocale[] = ['en', 'ja', 'ko', 'zh-TW']
 
@@ -123,10 +129,33 @@ describe('主包不再内联 440KB 载荷(判据 = 产物事实,不是"我以为
     expect(runtimeIndex).toMatch(/remote-locale-manifest\.gen/)
   })
 
-  it('内置 zh-CN 仍留在包内(它是未就绪时的唯一回落语,不得搬走)', () => {
+  it('内置 zh-CN 仍随包内联(它是未就绪时的唯一回落语,不得搬去 CDN)', () => {
+    // 2026-10-15 选项 A:载体从"两份明文 JSON 静态 import"换成"同批生成的压缩内联包",
+    // 不变的是**随包内联**这一条 —— 走 CDN 等于弱网时连回落语都没有。
     const runtimeIndex = readFileSync(join(SRC_ROOT, 'i18n', 'index.tsx'), 'utf8')
-    expect(runtimeIndex).toMatch(/@ihui\/i18n\/messages\/shared\/zh-CN\.json/)
-    expect(runtimeIndex).toMatch(/@ihui\/i18n\/messages\/miniapp-taro\/zh-CN\.json/)
+    expect(runtimeIndex).toMatch(/from '\.\/generated\/zh-cn-pack\.gen'/)
+    expect(runtimeIndex).toMatch(/ZH_CN_PACK_B64/)
+  })
+})
+
+describe('zh-CN 内联包(选项 A):压缩无损 + 兜底不空', () => {
+  it('解压数据 === mergeMessages(shared, miniapp-taro) 源 JSON(字节级无损)', () => {
+    const merged = readLocaleMessages('zh-CN')
+    const inflated = JSON.parse(strFromU8(gunzipSync(b64ToBytes(ZH_CN_PACK_B64)))) as Messages
+    expect(inflated).toEqual(merged)
+  })
+
+  it('ZH_CN_PACK_BYTES === 载荷字符数(运行时第一环结构性校验对得上)', () => {
+    expect(ZH_CN_PACK_BYTES).toBe(ZH_CN_PACK_B64.length)
+    expect(ZH_CN_PACK_VERSION).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  it('兜底键集非空、且逐键等于源里的同名命名空间(回落到它不是"半本词典")', () => {
+    const merged = readLocaleMessages('zh-CN')
+    expect(Object.keys(ZH_CN_CRITICAL).length).toBeGreaterThan(0)
+    for (const [ns, value] of Object.entries(ZH_CN_CRITICAL)) {
+      expect(merged[ns]).toEqual(value)
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
