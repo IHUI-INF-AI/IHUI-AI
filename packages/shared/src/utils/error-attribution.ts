@@ -159,11 +159,7 @@ export function listAttributionRules(): readonly AttributionRuleInfo[] {
 }
 
 /** 顶层三字段的形状提取:非对象 / 非字符串一律视为缺席(不递归 cause,不猜)。 */
-function readShape(err: unknown): {
-  name: string | null
-  message: string | null
-  code: string | null
-} {
+function readShape(err: unknown): { name: string | null; message: string | null; code: string | null } {
   if (err === null || typeof err !== 'object') return { name: null, message: null, code: null }
   const o = err as { name?: unknown; message?: unknown; code?: unknown }
   return {
@@ -183,10 +179,8 @@ function readShape(err: unknown): {
 export function attributeError(err: unknown): ErrorAttribution {
   const shape = readShape(err)
   for (const rule of RULES) {
-    const hitName =
-      shape.name !== null && rule.names !== undefined && rule.names.includes(shape.name)
-    const hitCode =
-      shape.code !== null && rule.errnos !== undefined && rule.errnos.includes(shape.code)
+    const hitName = shape.name !== null && rule.names !== undefined && rule.names.includes(shape.name)
+    const hitCode = shape.code !== null && rule.errnos !== undefined && rule.errnos.includes(shape.code)
     const hitText =
       shape.message !== null &&
       rule.needles !== undefined &&
