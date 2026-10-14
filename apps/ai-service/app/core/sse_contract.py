@@ -8,7 +8,8 @@
 由 scripts/check-agent-event-parity.mjs 断言对齐。
 
 本模块不承担序列化职责,但它**确实被运行时依赖**:全仓运行时 import 现读为
-SSE-CONTRACT-IMPORT-SITES = 1(app/routers/llm.py 函数内 import SSE_EVENT_CONTRACTS)。
+SSE-CONTRACT-IMPORT-SITES = 2(app/routers/llm.py 两处函数内 import:
+`_sse()` 取 SSE_EVENT_CONTRACTS、`_capabilities_payload()` 取能力声明键名常量)。
 这里曾写过一句"零行为变化、运行时不需要它"的自述,与上面那行 grep 结果矛盾 —— 模块自述的
 依赖关系一旦与实况分叉,读注释的人就会以为改它没有影响。该等式由
 apps/ai-service/tests/test_sse_contract_self_description.py 现读核(声明数 != 现读数即失败),
@@ -162,6 +163,39 @@ SSE_TRACE_ID_PAYLOAD_KEY: str = "traceId"
 #: 顶层注入的帧级元信息键(与本模块的 payload_fields 分属两层,理由见上方注释)。
 SSE_FRAME_META_FIELDS: frozenset[str] = frozenset({SSE_TRACE_ID_PAYLOAD_KEY})
 
+# ── 插话(steer)能力声明(2026-10-15 立) ──────────────────────────────────────
+#
+# 缺口:插话本体链路早通(前端 POST /api/chat/steer → ai-service
+# `/llm/complete/stream/{session_id}/steer` 入 `_steer_sessions` → agent_loop_v2
+# 每次 LLM 调用前 drain 注入 → SSE `event: steer(phase=injected)` 回报),但**没有
+# 能力声明通道**,前端(web `message-input.tsx`、RN `QueueInteractionBar`)只能
+# 硬编码 `runtimeSupportsInterjection=false` —— 端上不敢信一个它问不出来的事实。
+#
+# 走**零新帧**路线:不新增事件名。加一个事件名要同时动 packages/shared 的
+# SSE_EVENTS 与 scripts/check-agent-event-parity.mjs 的双端断言,而能力声明是
+# "搭既有帧的车"就能送到端上的一格 —— 与 D174 的 traceId、票5 的 openTiming
+# 同一手法:additive optional 字段挂在既有帧载荷上,老客户端按未知字段忽略。
+#
+# 承载帧选 `done`(而不是"流首帧"):主聊天流**没有恒在的流首帧** ——
+# injection_applied(有注入才有)、goal_updated(有目标才有)、compaction
+# (撞到压缩才有)三者全是条件产出,挂上去等于让能力声明时有时无;
+# `done` 是唯一"每轮恒在且恰好一次"的收口帧(llm.py 三处生产点)。
+# 代价如实登记:能力在**本轮收口时**才到达端上,端上须按会话缓存后供后续轮使用;
+# 字段缺席 ⇒ 回落 false(与今天的硬编码一致,不比现状更差)。
+#
+# ⚠️ 它与 `SSE_FRAME_META_FIELDS` 不是一层:traceId 是**每一帧**都带的顶层键,
+# 而 capabilities 只在 `SSE_CAPABILITIES_FRAME` 这一帧上出现 —— 把它塞进
+# payload_fields 之外的另一个用意是让 `_sse()` 的契约诊断(开启时)能查"这一帧
+# 有没有交代能力",与 traceId 刻意不查是两种不同纪律,别合并。
+#
+# 值不许硬编码 true:判定出口是 `app/routers/llm.py::_interjection_capable()`,
+# 读的是 `_steer_sessions` 是否登记了本流(即 steer 端点会给 200 还是 404)。
+SSE_CAPABILITIES_PAYLOAD_KEY: str = "capabilities"
+#: 能力声明里第一个(当前唯一一个)键:插话。
+SSE_CAPABILITY_INTERJECTION_KEY: str = "interjection"
+#: 承载能力声明的帧名(与下方 done 契约条目里的 capabilities 字段成对,改一处必须改两处)。
+SSE_CAPABILITIES_FRAME: str = "done"
+
 
 @dataclass(frozen=True)
 class SSEEventContract:
@@ -244,7 +278,11 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     # 事件名为我方协议自定;字段形状取自竞品一手观察(报告 §1.1 / §16.1)。
     SSEEventContract("injection_applied", ("kind", "collapsed", "fullText", "count")),
     SSEEventContract("retry_scheduled", ("attempt", "maxRetries", "retryInMs", "httpStatus")),
-    SSEEventContract("done", ("usage", "model", "stub")),
+    # 插话能力声明(2026-10-15 立):capabilities = {interjection: bool},乘坐在 done 帧上
+    # 零新帧送到端上(键名常量与承载帧名见上方 `SSE_CAPABILITIES_*`,改一处必须改两处)。
+    # 它是**每轮恒在**字段(不像 finishReason/reasoningEffort 那样"缺席不带键"):
+    # 端上缺这一格就只剩猜,而猜的默认正是今天写死的 false —— 那就等于没声明。
+    SSEEventContract("done", ("usage", "model", "stub", "capabilities")),
     # 消息级计量帧(D7/D1 全链路,2026-09-19 立):llm.py 流结束前发出
     SSEEventContract(
         "usage",
