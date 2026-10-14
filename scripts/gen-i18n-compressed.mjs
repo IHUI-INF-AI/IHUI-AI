@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​​​‌‌‍‍​‌‌‌‌​‌​‍‍​‌​‌​​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍​‌‌‌​​​​
 
 // 离线 i18n 压缩生成脚本:把非中文 4 语言包(shared + miniapp-taro)合并后
 // JSON.stringify → gzip(level 9) → base64,生成 src/i18n/generated/remote-locales.gen.ts。
@@ -15,6 +15,20 @@
 //   常年不同(2026-10-15 实测:`packages/i18n/messages/shared/{en,ja,ko,zh-TW,zh-CN}.json` 五份同时被
 //   他人 ` M` 占着)。那一时用缺省档复跑,会把**未入库的他人内容烘进产物与自述钉**(§16/§12c 同型),
 //   所以要按被审面重算。取不到(该面没有这份)⇒ exit 2 点名,绝不回落另一个面;多面旗同给 ⇒ exit 2。
+//
+// 2026-10-15 主包选项 A(机主已拍板,与上面取材面开关**同日两特性合流**):zh-CN 也改成 gzip+b64,
+// 但**必须随包内联** —— 它是回落语(按需包未就绪时全端读它),走 CDN 等于"弱网时连回落语都没有"。
+//   ④ src/i18n/generated/zh-cn-pack.gen.ts —— 运行时**要 import** 的那一份:
+//      b64(约 104KB)取代原先静态 import 的明文 JSON(约 230KB),主包净降约 126KB。
+//      同批派生一份**不参与压缩**的最小内置键集 ZH_CN_CRITICAL(tabBar 命名空间,纯 JSON),
+//      供 gunzip / JSON.parse 任一环失败时 fail-closed 回落:兜底刻意不复用失败的那条
+//      解码链路 —— 复用等于没有兜底。
+//   为什么 ④ 的钉输入清单**单独一份**:守门 check-miniapp-generated 的 G5 按"remote 那
+//      8 份"现算 inputsSha256,把 zh-CN 混进 ① 的钉 ⇒ ① 恒判 stale(恒红门)。
+//   兜底键集取哪些命名空间:只取 `tabBar`。理由是 i18n/index.tsx 里那条既有不变式 ——
+//      「tabBar 页文案在 zh-CN 内置集里,始终可达」(原生 tabBar 的 text 是 app.json 静态
+//      配置,靠 setTabBarItem 运行时覆盖)。主包解码失败时,外壳这几个词必须还是人话;
+//      其余键走既有"取不到就返回 key"的路径(不是空串,也不是崩)。
 //
 // 2026-10-06 主包余量治理(按需拉取改造):同一份 base64 载荷现在产出**三个消费面**,
 // 全部由本生成器从同一批输入派生(单源多产物,与 record_back.png"单一源→两份产物"同规矩):
@@ -60,12 +74,16 @@ const MESSAGES_REL = 'packages/i18n/messages'
 const outDir = resolve(repoRoot, 'apps/miniapp-taro/src/i18n/generated')
 const outFile = resolve(outDir, 'remote-locales.gen.ts')
 const manifestFile = resolve(outDir, 'remote-locale-manifest.gen.ts')
+// 产物④:zh-CN 内联包(运行时 import;回落语不得走 CDN)
+const zhPackFile = resolve(outDir, 'zh-cn-pack.gen.ts')
 // CDN 部署载荷目录:与 src/assets/remote-images/ 同一镜像约定 —— 目录名即 CDN URL 路径段,
 // 运维把它整体拷进 cdn-server.js 的 server-root 后,载荷即出现在 /remote-locales/<locale>.b64.txt。
 const cdnPayloadDir = resolve(repoRoot, 'apps/miniapp-taro/src/assets/remote-locales')
 const GENERATOR_REL = 'apps/miniapp-taro/scripts/gen-i18n-compressed.mjs'
 
 const REMOTE_LOCALES = ['en', 'ja', 'ko', 'zh-TW']
+/** zh-CN 的钉输入清单单独一份(G5 只按 remote 那 8 份现算 ①,混进去 ⇒ ① 恒判 stale) */
+const ZH_CN_CRITICAL_NAMESPACES = ['tabBar']
 
 // ── 取材面解析(三面互斥,口径与 lib/face-reader.mjs::selectFace 同一条:多面旗同给 ⇒ 不判)──
 // 缺省 worktree 是刻意保留的既有行为(见文件头「取材面」段),不是偷懒档。
@@ -86,15 +104,19 @@ const INPUT_RELS = REMOTE_LOCALES.flatMap((locale) => [
   `${MESSAGES_REL}/shared/${locale}.json`,
   `${MESSAGES_REL}/miniapp-taro/${locale}.json`,
 ])
+// zh-CN 两份输入(产物④):与 remote 8 份同一取材面、同一批量读 —— 缺一份就 exit 2,
+// 绝不回落另一个面(否则 ④ 的钉会说自己是从没读全的输入派生的,§0.3 同型)。
+const ZH_INPUT_RELS = [`${MESSAGES_REL}/shared/zh-CN.json`, `${MESSAGES_REL}/miniapp-taro/zh-CN.json`]
+const ALL_INPUT_RELS = [...INPUT_RELS, ...ZH_INPUT_RELS]
 // 非磁盘面:一次批量读满。逐份 `git show` 会让并行会话在第 3 份和第 4 份之间推进 HEAD,
 // 产出自洽却错位的钉(守门 118 的"少扫不红"同型)。
 let FACE_BATCH = null
 if (FACE !== 'worktree') {
   try {
-    FACE_BATCH = catBatch(repoRoot, INPUT_RELS.map(specOf), { timeout: 60000 })
+    FACE_BATCH = catBatch(repoRoot, ALL_INPUT_RELS.map(specOf), { timeout: 60000 })
   } catch (e) {
     console.error(
-      `❌ [gen:i18n] ${FACE_LABEL[FACE]} 批量读取失败(${INPUT_RELS.length} 份输入):${e?.message ?? e} ⇒ exit 2,不回落磁盘面重算`,
+      `❌ [gen:i18n] ${FACE_LABEL[FACE]} 批量读取失败(${ALL_INPUT_RELS.length} 份输入):${e?.message ?? e} ⇒ exit 2,不回落磁盘面重算`,
     )
     process.exit(2)
   }
@@ -132,9 +154,10 @@ function mergeMessages(base, override) {
   return result
 }
 
-/** 读一份消息源:同时把它按「仓库根相对路径 + 原始文本」记进钉的输入清单 */
+/** 读一份消息源:同时把它按「仓库根相对路径 + 原始文本」记进指定钉的输入清单 */
 const pinInputs = []
-function loadJson(...parts) {
+const zhPinInputs = []
+function loadJsonInto(pinList, ...parts) {
   const rel = `${MESSAGES_REL}/${parts.join('/')}`
   let text
   if (FACE === 'worktree') {
@@ -150,17 +173,20 @@ function loadJson(...parts) {
     )
     process.exit(2)
   }
-  pinInputs.push({ rel, text })
+  pinList.push({ rel, text })
   return JSON.parse(text)
+}
+function loadJson(...parts) {
+  return loadJsonInto(pinInputs, ...parts)
 }
 
 console.log(
-  `[gen:i18n] 取材面 = ${FACE_LABEL[FACE]}(${INPUT_RELS.length} 份输入${FACE === 'worktree' ? ',逐份读磁盘' : ',一次批量读满'})`,
+  `[gen:i18n] 取材面 = ${FACE_LABEL[FACE]}(${ALL_INPUT_RELS.length} 份输入${FACE === 'worktree' ? ',逐份读磁盘' : ',一次批量读满'})`,
 )
 if (FACE !== 'worktree') {
   // 脏输入点名:按被审面重算时,磁盘上若有不同内容必须喊出来 —— 否则操作者会以为
   // "产物和我盘上看到的一样",而它其实是 HEAD 那份(这正是本次要能安全做到的那件事)。
-  const dirty = INPUT_RELS.filter((rel) => {
+  const dirty = ALL_INPUT_RELS.filter((rel) => {
     const disk = readWorktreeFile(repoRoot, rel)
     return disk !== null && disk !== FACE_BATCH.get(specOf(rel))
   })
@@ -199,6 +225,23 @@ for (const locale of REMOTE_LOCALES) {
 
 console.log(
   `[gen:i18n] 合计: 原始 ${totalOriginal.toFixed(1)}KB → b64 ${totalB64.toFixed(1)}KB (净省 ${(totalOriginal - totalB64).toFixed(1)}KB)`,
+)
+
+// ── 产物④:zh-CN 内联包(回落语 ⇒ 随包内联,不走 CDN;选项 A,2026-10-15)──
+// 合并口径与 remote 各语言完全一致(shared 为 base,miniapp-taro 覆盖),b64 规约也一致
+// (gzip level 9 + mtime:0 ⇒ 跨进程逐字节确定)。
+const zhShared = loadJsonInto(zhPinInputs, 'shared', 'zh-CN.json')
+const zhMiniapp = loadJsonInto(zhPinInputs, 'miniapp-taro', 'zh-CN.json')
+const zhMerged = mergeMessages(zhShared, zhMiniapp)
+const zhJson = JSON.stringify(zhMerged) // 无缩进,与运行时 JSON.parse 对称
+const zhGz = gzipSync(strToU8(zhJson), { level: 9, mtime: 0 })
+const zhB64 = Buffer.from(zhGz).toString('base64')
+const zhCritical = {}
+for (const ns of ZH_CN_CRITICAL_NAMESPACES) {
+  if (isPlainObject(zhMerged[ns])) zhCritical[ns] = zhMerged[ns]
+}
+console.log(
+  `[gen:i18n] zh-CN(内联): ${(zhJson.length / 1024).toFixed(1)}KB (JSON) → ${(zhB64.length / 1024).toFixed(1)}KB (b64, gzip ${(zhGz.length / 1024).toFixed(1)}KB) · 兜底键集 ${JSON.stringify(zhCritical).length}B`,
 )
 
 // 运行时清单:version = 载荷 sha256(storage 缓存 key 与失效判据),bytes = 载荷字节数
@@ -286,12 +329,35 @@ for (const locale of REMOTE_LOCALES) {
   writeFileSync(resolve(cdnPayloadDir, `${locale}.b64.txt`), REMOTE_LOCALE_B64[locale], 'utf8')
 }
 
+// 产物④:zh-CN 内联包。**钉单独一份**(zhPinInputs)—— 输入集与 ① 不同,G5 只按 remote 8 份
+// 现算 ①,两份钉不得互串(否则 ① 恒判 stale)。version/bytes 口径与清单 ③ 同一约定。
+const zhPinLines = renderPin({
+  generator: GENERATOR_REL,
+  sourceCommit: readSourceCommit(),
+  inputs: zhPinInputs,
+  generatedAt: new Date().toISOString(),
+})
+const zhLines = [
+  '// GENERATED FILE — DO NOT EDIT. 由 scripts/gen-i18n-compressed.mjs 生成(pnpm gen:i18n)',
+  '// zh-CN 内联包:回落语必须随包内联(不得走 CDN),故这里是**压缩后**的 b64 ——',
+  '// 运行时在模块加载期同步 gunzip 一次还原 messages(fflate + 查表 b64,不引新依赖)。',
+  '// ZH_CN_CRITICAL 是同批派生的**最小内置键集**(纯 JSON、不参与压缩):gunzip/JSON.parse',
+  '// 任一环失败时 fail-closed 回落到它 —— 兜底刻意不复用那条失败的解码链路。',
+  ...zhPinLines,
+  `export const ZH_CN_PACK_VERSION = '${sha256Hex(zhB64)}'`,
+  `export const ZH_CN_PACK_BYTES = ${zhB64.length}`,
+  `export const ZH_CN_PACK_B64 = '${zhB64}'`,
+  `export const ZH_CN_CRITICAL: Record<string, unknown> = ${JSON.stringify(zhCritical)}`,
+  '',
+]
+writeFileSync(zhPackFile, zhLines.join('\n'), 'utf8')
+
 // 溯源水印:生成产物同样是 git 跟踪文件,受 `scripts/check-watermark-coverage.mjs` 门禁约束。
 // 此前生成器不写横幅 → 该文件长期缺失水印,使 pre-commit 与 CI 的 watermark 门禁必红。
 // 统一改为复用仓库水印工具(单一事实源),幂等:重复生成不产生 diff。
-// (两份 .ts 产物都要注入;.b64.txt 载荷不在水印分母,保持字节精确。)
+// (三份 .ts 产物都要注入;.b64.txt 载荷不在水印分母,保持字节精确。)
 const watermarkScript = resolve(repoRoot, 'scripts/watermark.mjs')
-for (const generatedFile of [outFile, manifestFile]) {
+for (const generatedFile of [outFile, manifestFile, zhPackFile]) {
   try {
     execFileSync(process.execPath, [watermarkScript, 'inject', generatedFile], {
       stdio: 'inherit',
@@ -307,6 +373,7 @@ for (const generatedFile of [outFile, manifestFile]) {
 
 console.log(`[gen:i18n] 已写入 ${outFile} (${readFileSync(outFile).length} 字节, 含溯源水印)`)
 console.log(`[gen:i18n] 已写入 ${manifestFile} (${readFileSync(manifestFile).length} 字节, 含溯源水印)`)
+console.log(`[gen:i18n] 已写入 ${zhPackFile} (${readFileSync(zhPackFile).length} 字节, 含溯源水印)`)
 console.log(
   `[gen:i18n] 已写入 CDN 载荷 ${cdnPayloadDir}/{${REMOTE_LOCALES.join(',')}}.b64.txt (部署: 整目录拷入 cdn-server.js 的 server-root)`,
 )
