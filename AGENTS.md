@@ -113,6 +113,7 @@ IHUI-AI 全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端(2026-10
 ## 5c. 溯源水印与生成产物(强制)
 
 - 三层水印(`scripts/watermark.mjs`):L1 可见横幅、L2 横幅内零宽载荷、L3 文件末独立不可见行。载荷必须**可解码且等于 `WATERMARK_TEXT`**;五态:完好/残迹/载荷损坏/仅隐写/未覆盖,后四者 `watermark.mjs verify` 与 `check-watermark-coverage.mjs` 均 exit 1。
+- 〔更正@2026-10-15,补上一条的退出码与取材面;上一条原文逐字留档,只作改判留痕读〕:①**面**——这两处自本日起按 §0.4 同面同轮:全量档判 **HEAD blob**、`--staged` 判**索引 blob**、`--worktree` 仅人工逃生舱。此前是"清单取索引面(`ls-files`)、内容取磁盘(`readFileSync`)",两面不同形 ⇒ **"HEAD 缺载荷、盘上副本已被补好但没提交"这一型在两面各自都"没问题",悬留替红顶绿**(2026-10-14 实测三枚生成物即此型,门报绿而 CI 必红)。②**退出码**——上一条"均 exit 1"只覆盖"判出缺口"那一支;按 §0.3 现在是三档:判出缺口 ⇒ 1,**取不到被审面 ⇒ 2 并显式写「未判定」(不记绿也不冒红)**,判通过 ⇒ 0。③**自愈档**——`git add` 只准发生在 `--staged`(紧接着就 commit);全量档/`--push-gate` 档 inject 后**只写工作区、不动索引**,因为工作区可回滚而索引不可——pre-push 派的全量档 add 完永不 commit,就是"暂存区里挂着没人提交的东西"的成因。取证:`scripts/tests/check-watermark-coverage.test.mjs` W9(三面分叉正控,摘掉换面即翻绿)/W10(三面一致⇒三档全 0,防恒红)/W11(取不到⇒rc 2)。
 - 新建源文件必跑 `node scripts/watermark.mjs inject <file>`;门禁自愈式(检出缺口自动 clean+inject 回写并 git add;单次缺口 >200 拒绝自动回写;CI 用 `verify` 严格判定);生成器 writeFileSync 后必须紧随注入(用 `process.execPath` + 绝对路径)。
 - **禁止对含载荷文件做文本级批量改写**(reflow/正则替换/sed -i/编码往返会毁零宽链);需批量改先 clean → 改 → inject;注入幂等。
 
