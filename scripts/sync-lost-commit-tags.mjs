@@ -180,7 +180,12 @@ function printHelp() {
   console.log('  --help        打印本帮助')
   console.log('')
   console.log('环境变量:')
-  console.log(`  ${SKIP_ENV}=1   跳过 --auto-push 模式(紧急场景)`)
+  console.log(`  ${SKIP_ENV}=1            跳过 --auto-push 模式(紧急场景)`)
+  console.log('  IHUI_TAG_LIST_CAP=N      逐条清单与判定行的名字上限(默认 20;计数与 JSON 恒为全量)')
+  console.log('  IHUI_TAG_AUTO_MAX=N      --auto-push 待推积压上限(默认 50,超限只记录不推)')
+  console.log('  IHUI_TAG_PUSH_CHUNK=N    --auto-push 分块大小(默认 20)')
+  console.log('  IHUI_TAG_ONLY=a,b        --auto-push 精确投递清单(空壳 tag 连累整块时用)')
+  console.log('  IHUI_TAG_REMOTE=<远端名>  测试接缝:指定被读的远端(默认 origin)')
   console.log('')
   console.log('退出码:')
   console.log('  0  成功')
@@ -423,6 +428,17 @@ function reachabilityBatch(tagNames, localMap) {
   })
 }
 
+/**
+ * 判定行的名字清单有界输出:**计数恒为全量**,只截名字。
+ * 为什么必须统一:同一屏里"同名 SHA 分歧"那一行本来只给 20 个,而"仅本地/仅远端/不可达"
+ * 三行不截 ⇒ 积压一上来就是单行几 KB;而"刷屏 ⇒ 没人读"正是 AGENTS §12f 点名的失效方向。
+ * JSON 数组(`allTags.*` / `reachability`)不受本函数影响,机器读者永远拿全量。
+ */
+function nameList(items, cap = LIST_CAP) {
+  if (items.length <= cap) return items.join(', ')
+  return `${items.slice(0, cap).join(', ')} …(+${items.length - cap})`
+}
+
 function checkMode() {
   if (skip) {
     console.log(`${C.yellow}⚠ ${SKIP_ENV}=1 已跳过 tag 同步(不推荐)${C.reset}`)
@@ -461,29 +477,26 @@ function checkMode() {
   const issues = []
   const warnings = []
   if (fullDiff.onlyLocal.length > 0)
-    issues.push(
-      `${fullDiff.onlyLocal.length} 个 tag 仅本地(未 push):${fullDiff.onlyLocal.join(', ')}`,
-    )
+    issues.push(`${fullDiff.onlyLocal.length} 个 tag 仅本地(未 push):${nameList(fullDiff.onlyLocal)}`)
   if (fullDiff.shaMismatch.length > 0)
     issues.push(
-      `${fullDiff.shaMismatch.length} 个 tag 同名但 SHA 分歧(本地新链 vs origin 旧链):${fullDiff.shaMismatch
-        .slice(0, 20)
-        .map((m) => m.tag)
-        .join(', ')}${fullDiff.shaMismatch.length > 20 ? ` …(+${fullDiff.shaMismatch.length - 20})` : ''}`,
+      `${fullDiff.shaMismatch.length} 个 tag 同名但 SHA 分歧(本地新链 vs origin 旧链):${nameList(
+        fullDiff.shaMismatch.map((m) => m.tag),
+      )}`,
     )
   if (fullDiff.onlyRemoteBackup.length > 0)
     issues.push(
-      `${fullDiff.onlyRemoteBackup.length} 个备份命名空间 tag 仅远端(本地备份缺失):${fullDiff.onlyRemoteBackup.join(', ')}`,
+      `${fullDiff.onlyRemoteBackup.length} 个备份命名空间 tag 仅远端(本地备份缺失):${nameList(
+        fullDiff.onlyRemoteBackup,
+      )}`,
     )
   if (unreachable.length > 0)
     issues.push(
-      `${unreachable.length} 个备份 tag 对象不可达:${unreachable.map((r) => r.tag).join(', ')}`,
+      `${unreachable.length} 个备份 tag 对象不可达:${nameList(unreachable.map((r) => r.tag))}`,
     )
   if (fullDiff.onlyRemoteOther.length > 0)
     warnings.push(
-      `${fullDiff.onlyRemoteOther.length} 个非备份命名空间 tag 仅远端(本地落后 origin,仅告警):${fullDiff.onlyRemoteOther
-        .slice(0, 20)
-        .join(', ')}${fullDiff.onlyRemoteOther.length > 20 ? ` …(+${fullDiff.onlyRemoteOther.length - 20})` : ''}`,
+      `${fullDiff.onlyRemoteOther.length} 个非备份命名空间 tag 仅远端(本地落后 origin,仅告警):${nameList(fullDiff.onlyRemoteOther)}`,
     )
 
   const hasIssue = issues.length > 0
@@ -596,27 +609,22 @@ function checkMode() {
   )
   if (fullDiff.onlyLocal.length > 0) {
     console.log(
-      `  ${C.yellow}⚠ 仅本地(未 push):${C.reset} ${fullDiff.onlyLocal.slice(0, 20).join(', ')}${fullDiff.onlyLocal.length > 20 ? ` …(+${fullDiff.onlyLocal.length - 20})` : ''}`,
+      `  ${C.yellow}⚠ 仅本地(未 push):${C.reset} ${nameList(fullDiff.onlyLocal)}`,
     )
   }
   if (fullDiff.shaMismatch.length > 0) {
     console.log(
-      `  ${C.red}❌ 同名 SHA 分歧:${C.reset} ${fullDiff.shaMismatch
-        .slice(0, 20)
-        .map((m) => m.tag)
-        .join(', ')}${fullDiff.shaMismatch.length > 20 ? ` …(+${fullDiff.shaMismatch.length - 20})` : ''}`,
+      `  ${C.red}❌ 同名 SHA 分歧:${C.reset} ${nameList(fullDiff.shaMismatch.map((m) => m.tag))}`,
     )
   }
   if (fullDiff.onlyRemoteBackup.length > 0) {
     console.log(
-      `  ${C.red}❌ 备份命名空间仅远端(本地缺失):${C.reset} ${fullDiff.onlyRemoteBackup.join(', ')}`,
+      `  ${C.red}❌ 备份命名空间仅远端(本地缺失):${C.reset} ${nameList(fullDiff.onlyRemoteBackup)}`,
     )
   }
   if (fullDiff.onlyRemoteOther.length > 0) {
     console.log(
-      `  ${C.yellow}⚠ 非备份命名空间仅远端(本地落后,仅告警):${C.reset} ${fullDiff.onlyRemoteOther
-        .slice(0, 20)
-        .join(', ')}${fullDiff.onlyRemoteOther.length > 20 ? ` …(+${fullDiff.onlyRemoteOther.length - 20})` : ''}`,
+      `  ${C.yellow}⚠ 非备份命名空间仅远端(本地落后,仅告警):${C.reset} ${nameList(fullDiff.onlyRemoteOther)}`,
     )
   }
 
