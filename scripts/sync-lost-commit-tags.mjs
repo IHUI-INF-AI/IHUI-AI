@@ -29,7 +29,8 @@
  *   - tag 是 commit 的"指向引用",git gc 默认 14 天清理无引用对象
  *   - 丢失 commit 唯一可访问方式 = tag → tag 必须 push 到远端 + 本地 fetch 必须知道要 fetch
  *   - 机制:fatal: refusing to fetch into current branch refs/tags/* 报错是 fetch 语法问题
- *     → 用 refspec `refs/tags/lost-commit/*:refs/tags/lost-commit/*` 显式映射
+ *     → 用**强制** refspec 显式映射(现值见下方 fetchMode):`+refs/tags/*:refs/tags/*`。
+ *       旧版只映射 `refs/tags/lost-commit/*` 一族,与 2026-10-14 扩射程后的全量校准不一致。
  *
  * CLI 模式(必须全部支持):
  *   --check       仅校验,不动 git 状态。比对**全部命名空间**本地 vs origin 的 tag 名字 + SHA,
@@ -119,14 +120,27 @@ const isJson = args.has('--json')
 //   旧行为: 每次 commit 后同步 `git push --atomic`(全部 tag) → 10+ 分钟阻塞 post-commit,
 //   表现 = "推送早已完成但终端一直挂着等"。新行为: ls-remote 比对 → 只推缺失项(通常 0~3 个),
 //   0 缺失时秒级退出;并加限流标记 + 超时,任何情况都不得长时间阻塞。
-const PUSH_CHUNK_SIZE = Number(process.env.IHUI_TAG_PUSH_CHUNK || 20)
-const PUSH_TIMEOUT_MS = Number(process.env.IHUI_TAG_PUSH_TIMEOUT_MS || 300_000)
+// 数值档一律走 envPositiveInt(理由见该函数注记)。
+function envPositiveInt(name, dflt) {
+  const raw = process.env[name]
+  if (raw === undefined || raw === '') return dflt
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n <= 0) {
+    // 走 stderr:--json 档的 stdout 必须保持纯 JSON,不能让提示把机器读者弄崩
+    console.warn(`⚠️ 环境变量 ${name}=${raw} 不是正整数 ⇒ 按默认档 ${dflt} 执行`)
+    return dflt
+  }
+  return n
+}
+
+const PUSH_CHUNK_SIZE = envPositiveInt('IHUI_TAG_PUSH_CHUNK', 20)
+const PUSH_TIMEOUT_MS = envPositiveInt('IHUI_TAG_PUSH_TIMEOUT_MS', 300_000)
 // 2026-09-17 实测: 单个 tag 推送需连带上传其历史对象, 20 个 tag ≈ 10 分钟(网络瓶颈)。
 // 因此 auto 模式(钩子内调用)设积压上限: 超过则只记录不推, 交人工/后台慢速收敛,
 // 保证 commit 路径永远不受 tag 同步拖累。
-const AUTO_PUSH_MAX_BACKLOG = Number(process.env.IHUI_TAG_AUTO_MAX || 50)
+const AUTO_PUSH_MAX_BACKLOG = envPositiveInt('IHUI_TAG_AUTO_MAX', 50)
 // 限流:同一间隔内(默认 60s)重复调用直接跳过,避免连续 commit 反复 ls-remote
-const THROTTLE_MS = Number(process.env.IHUI_TAG_SYNC_THROTTLE_MS || 60_000)
+const THROTTLE_MS = envPositiveInt('IHUI_TAG_SYNC_THROTTLE_MS', 60_000)
 
 // 备份命名空间(§22 管辖对象):这两个命名空间的"仅远端"意味着本地备份 tag 丢失 ⇒ 判失败;
 // 其余命名空间(desktop-v*/nightly-*/assistant-v*/发布类…)的"仅远端"只是本地落后 origin,只告警。
@@ -138,7 +152,9 @@ function isBackupNamespace(tag) {
 // 逐条清单的打印上限。本仓受管备份 tag 已 6981 枚,逐条打印会把 `--check` 刷成两万行,
 // 结果是没人看这段输出 ⇒ 判据失效方向变成"安静"(AGENTS §12f)。汇总数字在第 5 节全量给出,
 // 这里只保证"小夹具逐条可见"(回归测试断言的正是小夹具里的 tag 名)。
-const LIST_CAP = Number(process.env.IHUI_TAG_LIST_CAP || 20)
+// 这个 knob 尤其不能让拼错漏过去:`Number('abc')` ⇒ NaN ⇒ `slice(0, NaN)` = [] ⇒
+// 一个名字都不列、却照样按计数 exit,屏幕上看不出任何异常(§0.10 禁止这种失效方向)。
+const LIST_CAP = envPositiveInt('IHUI_TAG_LIST_CAP', 20)
 
 function run(cmd, opts = {}) {
   try {

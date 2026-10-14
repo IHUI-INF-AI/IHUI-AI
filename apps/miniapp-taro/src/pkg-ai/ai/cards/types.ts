@@ -11,9 +11,6 @@
 import type { ToolCall } from '@ihui/types/chat'
 import type { TerminalDeltaEvent, ToolCallEvent, ToolDeltaEvent } from '@ihui/api-client'
 import type { PlanStepStatus } from '@ihui/types'
-// D64④(2026-10-14):八态卡状态词汇取自共享 element-pack 判据层(唯一真相源),
-// 端内不再自写第二份状态表。SubagentEndEvent 的 wire 词汇归并也桥接到同一八态。
-import type { BackgroundTaskState } from '@ihui/shared/chat/element-pack'
 
 export type { ToolCallEvent } from '@ihui/api-client'
 export type { PlanStepStatus } from '@ihui/types'
@@ -367,105 +364,12 @@ export function backfillSteerNoticesFromMetadata<T extends SteerHistoryMessageLi
         planSteps: m.aiCards?.planSteps ?? [],
         toolCalls: m.aiCards?.toolCalls ?? [],
         terminalTasks: m.aiCards?.terminalTasks ?? [],
-        // D64④:重建是整体替换,已持久化的子任务卡不透传就会被这一笔抹掉
-        ...(m.aiCards?.subagentTasks?.length
-          ? { subagentTasks: m.aiCards.subagentTasks }
-          : {}),
         injections: m.aiCards?.injections ?? [],
         citations: m.aiCards?.citations ?? [],
         steerNotices: notices,
       },
     }
   })
-}
-
-/* ===================== D64④:后台子任务(subagent)八态卡 ===================== */
-
-/**
- * subagent 三帧(subagent_spawn / subagent_progress / subagent_end)聚合出的
- * 后台子任务卡。状态词汇是 element-pack 八态(BackgroundTaskState):
- * 视图判据(tone / titleKey / hintKey / action / busy / terminal)一律由共享
- * `backgroundTaskView` 派发,本端不维护第二份状态表。
- */
-export interface SubagentTaskView {
-  id: string
-  /** subagent 角色(spawn 帧 role,如 validator/reviewer) */
-  role: string
-  /** 执行的任务描述(spawn 帧 task 原文,不做本地化——它是模型生成的任务描述) */
-  task: string
-  status: BackgroundTaskState
-  /** 最近一次 progress 帧的执行阶段(thinking/tool_call/tool_result/output_ready) */
-  currentPhase?: string
-  /** end 帧 status='failed' 时的失败原因(权威快照,不猜) */
-  failureReason?: string
-}
-
-/**
- * SubagentEndEvent.wire 词汇('done' | 'failed')→ 八态的唯一桥接点。
- * switch 穷尽零 default:'done' → completed;failed 本就在八态内原样保留。
- * (跨层备注:归并若再添新 wire 词汇应上移 shared 层,与 fromAgentStatus 同位;
- *  当前仅两值,端内桥接不构成第二套判定。)
- */
-export function subagentEndToTaskState(status: 'done' | 'failed'): BackgroundTaskState {
-  switch (status) {
-    case 'done':
-      return 'completed'
-    case 'failed':
-      return 'failed'
-  }
-  return 'failed'
-}
-
-/**
- * subagent_spawn 帧归并(纯函数,chat.tsx 消费):按 id 去重 upsert,新卡即 running 态。
- * 同 id 重放(spawn 帧重复到达)不回退已收敛的终态。
- */
-export function upsertSubagentSpawn(
-  list: readonly SubagentTaskView[],
-  evt: { id: string; role: string; task: string },
-): SubagentTaskView[] {
-  if (!evt.id) return [...list]
-  const prev = list.find((x) => x.id === evt.id)
-  if (prev) return [...list]
-  return [
-    ...list,
-    { id: evt.id, role: evt.role, task: evt.task, status: 'running' },
-  ]
-}
-
-/**
- * subagent_progress 帧归并(纯函数):只更新 currentPhase,不改状态 —— 阶段是
- * running 期细分(spawn 已立 running),end 未到不存在终态翻转。卡不存在时不凭空造条目。
- */
-export function applySubagentProgress(
-  list: readonly SubagentTaskView[],
-  evt: { id: string; phase: string },
-): SubagentTaskView[] {
-  if (!evt.id) return [...list]
-  if (!list.some((x) => x.id === evt.id)) return [...list]
-  return list.map((x) => (x.id === evt.id ? { ...x, currentPhase: evt.phase } : x))
-}
-
-/**
- * subagent_end 帧归并(纯函数):wire 词汇经 subagentEndToTaskState 归并成八态终态;
- * failureReason 是权威快照整体写入。卡不存在时不造条目(end 缺 spawn 属上游乱序,
- * 造一张没有 role/task 的空壳卡比丢帧更误导)。
- */
-export function applySubagentEnd(
-  list: readonly SubagentTaskView[],
-  evt: { id: string; status: 'done' | 'failed'; failureReason?: string },
-): SubagentTaskView[] {
-  if (!evt.id) return [...list]
-  if (!list.some((x) => x.id === evt.id)) return [...list]
-  return list.map((x) =>
-    x.id === evt.id
-      ? {
-          ...x,
-          status: subagentEndToTaskState(evt.status),
-          failureReason: evt.failureReason ?? x.failureReason,
-        }
-      : x,
-  )
 }
 
 /**
@@ -480,7 +384,5 @@ export interface AICardsData {
   citations: CitationView[]
   /** D106 引导已生效记录(旧历史消息无此字段,运行时可能为 undefined) */
   steerNotices?: SteerNoticeView[]
-  /** D64④ subagent 三帧聚合的八态卡(旧历史消息无此字段,运行时可能为 undefined) */
-  subagentTasks?: SubagentTaskView[]
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

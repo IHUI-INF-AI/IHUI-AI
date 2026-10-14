@@ -6,11 +6,6 @@ import type { FastifyInstance } from 'fastify'
 import type { Worker } from 'bullmq'
 import { createWorker, QUEUE_NAMES, type AICallbackJobData, type Job } from '../plugins/queue.js'
 import { createMessage, findMessageById, updateMessage } from '../db/chat-queries.js'
-import { consumeElementPackFrames } from '../db/element-pack-queries.js'
-// D64⑤:元素包 metadata 形状的唯一构造出口(空数组返回 null ⇒ 不写 key)。
-// parseElementPackFrames 是读侧守卫:暂存表 jsonb 读回的帧是宽类型,
-// 落 metadata 前必须收窄成 ElementPackFrame(形态不合的帧被丢弃)。
-import { buildElementPackMetadata, parseElementPackFrames } from '@ihui/shared/chat'
 
 /**
  * AI Callback Worker — AI 回调队列消费者。
@@ -45,25 +40,6 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
         metadata,
       } = job.data
 
-      // D64⑤(2026-10-14 立):落库前原子取走网关捕获的元素包帧(subagent 帧族,
-      // 网关在透传路径边转发边追加进 chat_element_packs 暂存表)。DELETE ... RETURNING
-      // 取走即删 —— 回调重试(BullMQ)二次取回空数组,不重复归并。取帧失败只 warn,
-      // 绝不阻塞消息落库(与 permission-stamp 同纪律)。
-      let elementPackFrames: Record<string, unknown>[] = []
-      if (messageId) {
-        try {
-          elementPackFrames = await consumeElementPackFrames(conversationId, messageId)
-        } catch (e) {
-          server.log.warn(
-            { err: e instanceof Error ? e.message : String(e), conversationId, messageId },
-            '[ElementPack] 暂存取走失败(不影响消息落库)',
-          )
-        }
-      }
-      const elementPackMeta = buildElementPackMetadata(
-        parseElementPackFrames({ elementPack: { frames: elementPackFrames } }),
-      )
-
       let savedMessage
       if (messageId) {
         // 更新已有的占位 assistant 消息(前端预先创建的场景)
@@ -81,13 +57,7 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
         } catch {
           // 读旧值失败不阻塞落库,降级为整体覆盖(与原行为一致)
         }
-        const mergedMetadata: Record<string, unknown> = {
-          ...(prevMeta ?? {}),
-          ...metadata,
-          // D64⑤:元素包归并进消息 metadata(D24 toolCalls 同一落库面);
-          // 空帧数组 ⇒ packMeta 为 null ⇒ 不写 key(不覆盖既有/不落冗余)。
-          ...(elementPackMeta ? { elementPack: elementPackMeta } : {}),
-        }
+        const mergedMetadata: Record<string, unknown> = { ...(prevMeta ?? {}), ...metadata }
         try {
           savedMessage = await updateMessage(messageId, userId, {
             content,
@@ -121,11 +91,7 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
           content,
           reasoning,
           tokens: tokens,
-          metadata: {
-            ...(metadata ?? {}),
-            // D64⑤:同 update 路径 —— 元素包随创建一次性落库,不做二次 UPDATE
-            ...(elementPackMeta ? { elementPack: elementPackMeta } : {}),
-          },
+          metadata,
         })
       }
 
