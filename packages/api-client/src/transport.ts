@@ -46,9 +46,27 @@ export interface TransportInit {
   /**
    * fetch credentials 模式。
    * - web/desktop/extension/mobile-rn:传 'include' 让跨端口 fetch 带 cookie
-   *   (localhost 跨端口 sameSite=lax 允许,auth_token cookie 发送到 api 端,csrf 插件命中豁免)
    * - 小程序 Taro.request:通常不需要(同域或不跨域),传 'omit' 或不传
    * 默认 'include'(适配 8801 web -> 8802 api 跨端口场景)。
+   *
+   * ⚠️ 跨端口能不能真带上 cookie,判据是**同站(same-site)而不是同端口**。
+   * 2026-10-14 用真 Chromium 151(与 Tauri/WebView2 同引擎族)以窗口 origin
+   * `http://localhost:8801` 打双栈 echo 服务器、读服务器实收的请求头实测,两型分开:
+   *   · `localhost:8801 → localhost:8802`(dev 的 SSE 腿,见 api-base-url.ts 的
+   *     LOCAL_STREAM_BASE)——同站跨端口,SameSite=Lax 的 auth_token **确实发出**
+   *     (实收 `Cookie=auth_token=…`)。旧注释"localhost 跨端口 sameSite=lax 允许"
+   *     只对这一型成立。
+   *   · `localhost:8801 → 127.0.0.1:8802 / 127.0.0.1:8803`(**桌面端 dev 的 REST 与
+   *     ai-service 两条腿**)——`localhost` 与 `127.0.0.1` 是两个不同的 registrable
+   *     host,浏览器按**跨站**处理,SameSite=Lax 的 auth_token **一个字节都不发**
+   *     (实收 `Cookie=(NONE)`)。
+   * 结论:桌面端 dev 的鉴权**只依赖 `Authorization: Bearer`**(client.ts 的
+   *   fetchApi/fetchAiServiceJson 显式注入),`apps/ai-service/app/core/jwt_auth.py`
+   *   里"无 Bearer 则读 HttpOnly cookie auth_token"的兜底分支在跨站这条路上**不可达**;
+   *   该路的 401 与 csrf 豁免均与此分支无关。此处 `credentials:'include'` 对跨站腿
+   *   是惰性无害的(不带 cookie,也不报错),不要据此推断"cookie 在主路径上"。
+   *   另:127.0.0.1 这个地址本身是**承重**的、不是随手写的 —— 见 api-base-url.ts 的
+   *   resolveAiServiceBaseUrl 注释(8802/8803 只监听 IPv4,而 localhost 优先解析 ::1)。
    *
    * 2026-07-30:用字面量联合替代 DOM `RequestCredentials` 类型,因 packages/api-client
    *   是跨端共享包(被 apps/api 等无 DOM lib 的 Node 端消费),DOM 类型不可见。
@@ -63,9 +81,13 @@ export type Transport = (url: string, init: TransportInit) => Promise<TransportR
 
 /** 默认 transport:包装 native fetch(web/desktop/extension/mobile-rn) */
 const defaultTransport: Transport = async (url, init) => {
-  // 2026-07-28 加固:web 端 8801 -> 8802 跨端口 fetch 必须 credentials: 'include',
-  // 否则 auth_token cookie 不会发送,api 端 csrf 校验失败返回 403
-  // (localStorage token 不走 csrf 流程,但 cookie token 是主路径)
+  // 2026-07-28 加固:credentials: 'include' 保的是**同站跨端口**那条腿的 cookie
+  // (如 dev SSE `localhost:8801 -> localhost:8802`),那条路上 SameSite=Lax 的 auth_token
+  // 会随请求发出,api 端 csrf 校验才走得通。
+  // 2026-10-14 订正:原注释"cookie token 是主路径"**不成立** —— 桌面端 dev 走的是
+  // `localhost:8801 -> 127.0.0.1:8802/8803`,跨站 ⇒ Lax cookie 不发(见上面 TransportInit
+  // 的 credentials 说明)。那条路上主路径只有 Authorization: Bearer;此处保留 'include'
+  // 对跨站腿无害但不构成鉴权依据。
   const { body, ...rest } = init
   const response = await fetch(url, {
     ...rest,

@@ -87,8 +87,39 @@ export function resolveApiBaseUrl(): string {
  *   1. NEXT_PUBLIC_AI_SERVICE_URL 显式非空 → 最高优先(与 api-client 的
  *      aiServiceBaseUrl() 同一 env 名,不抄第二份真值);
  *   2. Tauri + 本地 origin(8801 dev / tauri.localhost 本地壳)→ 本机 8803。
- *      放行前提均已实测:ai-service CORS_ORIGIN 含 http://localhost:8801;
- *      web dev CSP connect-src 放行本机端口;tauri.conf.json csp=null。
+ *      放行前提(2026-10-14 逐条实测,非推断):
+ *        · **origin 回显**:ai-service `.env` CORS_ORIGIN=http://localhost:8801;带
+ *          `Origin: http://localhost:8801` 实打 8803,401 响应确实回带
+ *          `access-control-allow-origin: http://localhost:8801` +
+ *          `access-control-allow-credentials: true`(通配符被 config.py 禁用,故必须逐值)。
+ *        · **请求头清单**:预检实收 allow-headers 是显式清单
+ *          (Authorization, Content-Type, X-Internal-Secret, traceparent, X-Trace-Id,
+ *          X-Requested-With, x-device-fingerprint),api-client 每请求都注入的头全在册,
+ *          故带 traceparent/Authorization 的预检返 200 而非 400。
+ *        · **中间件顺序**:CORS 在 main.py **最后** add_middleware ⇒ Starlette LIFO 下位于
+ *          链最外层,所以鉴权失败的 401 短路响应仍能补上 CORS 头(实测即此路径);
+ *          若把 CORS 挪到 JWTAuth/RateLimit 内侧,桌面端直连会退化成 "TypeError: Failed to fetch"。
+ *        · **CSP**:apps/web/next.config.ts 的 connect-src 仅**开发模式**放行
+ *          `http://localhost:*` 与 `http://127.0.0.1:*`;生产档不含本机地址。
+ *          tauri.conf.json `csp: null`(不额外收口)。
+ *        · **跨站 cookie 不可用**:窗口 origin 是 `localhost:8801` 而目标是 `127.0.0.1:8803`
+ *          —— 两个不同 registrable host = **跨站**,真 Chromium 实测 SameSite=Lax 的
+ *          auth_token 不随该请求发出(服务器实收 `Cookie=(NONE)`)。所以这条路的身份**只靠
+ *          Authorization: Bearer**,ai-service jwt_auth.py 的 cookie 兜底分支在此不可达。
+ *      ⚠️ **为什么必须是 127.0.0.1、不得"顺手改成 localhost"**:本机 `localhost` 按 OS
+ *      解析顺序**优先返回 `::1`**(dns.lookup all/verbatim 实测 = [::1, 127.0.0.1]),而
+ *      8802/8803 **只监听 IPv4**(netstat 仅 `0.0.0.0:8802/8803`,无 `[::]`/`[::1]` 条目;
+ *      uvicorn 绑 0.0.0.0 即 IPv4-only;对照 8801 是 `0.0.0.0` + `[::]` 双栈)。
+ *      `::1:8802` / `::1:8803` 直连实测 **ECONNREFUSED**,`curl -6 localhost:8802|8803`
+ *      实测 http_code=000。当前只有"客户端自带 Happy-Eyeballs 回退 IPv4"时才侥幸连通,
+ *      代价是每次连接先吃一发被拒的 IPv6 往返(真 Chromium 暖连 5 次:localhost 腿
+ *      med 42ms/尾 929ms,127.0.0.1 腿 med 17ms/尾 19ms)。把常量改成 localhost = 把桌面端
+ *      的连通性押在回退行为上(macOS/Linux 壳是 WKWebView/WebKitGTK,本 Win 机无法验证),
+ *      为拿回一条 cookie 兜底去赔整条链路,不划算 —— 要恢复 cookie 请改**服务端**
+ *      (Bearer 之外另给显式 token 通道),别动这两个常量。
+ *      附:代理不是本头的理由 —— 本机 ProxyEnable=1(127.0.0.1:7897)但旁路清单同时含
+ *      `localhost` 与 `127.*`,两种写法都绕开代理;上方 LOCAL_API_BASE/LOCAL_STREAM_BASE
+ *      两处对 PAC 的说法互相矛盾,以本次实测为准。
  *   3. 其余(浏览器 dev / 生产 / Tauri 远端窗口)→ '' 同源:浏览器 dev 走
  *      next rewrites → 8803,生产走 nginx 同源反代,行为零变化。
  */
