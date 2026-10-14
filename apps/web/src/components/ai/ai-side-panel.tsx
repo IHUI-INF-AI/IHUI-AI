@@ -62,17 +62,23 @@ import { useEnvironmentInfoStore } from '@/stores/environment-info'
 import { useTerminalDockStore } from '@/stores/terminal-dock'
 import { useModeStore } from '@/stores/mode'
 import { useLoginDialogStore } from '@/stores/login-dialog'
-import { getConversation, getMessages } from '@ihui/api-client'
+// D73(2026-10-14):首屏/上翻/流后补拉的消息读路径全部改走分页投影钩子
+// (getConversationHistory turn 分片),本文件不再直连 getMessages 行端点,
+// judgePageAdvance 的 replay 防线由投影同步 effect 的"零前进 ⇒ 停止分页"承接。
+import { getConversation } from '@ihui/api-client'
+import type { ConversationMessage } from '@ihui/api-client'
 import type { ChatMode } from '@ihui/types'
 import { parsePendingQuestion } from '@/lib/pending-question'
 import { fetchApi } from '@/lib/api'
-import { judgePageAdvance } from '@/lib/pagination-stall'
 import {
   findPendingResume,
   autoResumeAfterHistory,
   type PendingResume,
 } from '@/hooks/use-chat/resume-stream'
 import { hydrateHistoryMessages } from '@/hooks/use-chat/history-message'
+// D73 长会话分页投影(2026-10-14):投影读路径的唯一 UI 宿主挂载点。
+// hook 文件头"接线现状"所述"尚未挂进聊天主列表……归他人持有"的遗留项,由本文件闭合。
+import { useChatHistoryProjection } from '@/hooks/use-chat-history-projection'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useDesktop } from '@/hooks/use-desktop'
 import { armWindowDragOnFirstMove, isDraggableBlankArea } from '@/lib/window-drag'
@@ -90,6 +96,15 @@ import {
   type ForkFailureReason,
   collectPaneLeaves,
 } from '@ihui/shared/chat/multi-pane'
+
+// D73:投影 turn 时间线 → store ChatMessage 的唯一换算点(复用既有历史水合)。
+// ConversationMessage 与 hydrateHistoryMessages 的 HistoryMessageRecord 结构兼容
+// (metadata 带索引签名,见 history-message.ts 头注),多余字段不参与水合。
+function projectionTurnsToChatMessages(
+  turns: readonly { readonly messages: readonly ConversationMessage[] }[],
+): ChatMessage[] {
+  return hydrateHistoryMessages(turns.flatMap((t) => [...t.messages]))
+}
 
 /* ──────────────────────────────────────────────────────────────────────────────
  * 懒加载边界(2026-09-30 立 · AI 面板首屏延迟根治)
@@ -620,6 +635,124 @@ export function AISidePanel() {
   // 从 store 订阅当前会话(取代原 URL ?conversationId= 同步逻辑)
   const storeConversationId = useChatStore((s) => s.conversationId)
 
+  // ============ D73 长会话分页投影挂载(2026-10-14) ============
+  // 首屏 loadLatest / 上翻 loadOlder / 流结束 refreshNewer 全部经投影钩子
+  // (fold 语义在 @ihui/shared/chat 的 mergeHistoryTurnPages/deriveHistoryBoundary,
+  // 本组件零分页算术)。turns → store 时间线的落点统一走下方同步 effect。
+  const historyProjection = useChatHistoryProjection(open ? storeConversationId : null)
+  // 异步 continuation 里读最新投影态的镜像(闭包直接捕获会读到旧值)
+  const historyProjectionRef = React.useRef(historyProjection)
+  historyProjectionRef.current = historyProjection
+  /** 待落盘的投影动作('latest' 首屏 / 'older' 上翻 / 'newer' 流后补拉);同步 effect 消费后清空 */
+  const pendingProjectionOpRef = React.useRef<'latest' | 'older' | 'newer' | null>(null)
+  /** 触发动作那一刻的本地 messages 引用(落盘前"本地未被写入"判据,语义同 isLocalMessagesChanged) */
+  const projectionLocalBeforeRef = React.useRef<ChatMessage[] | null>(null)
+  /** 触发动作时的会话域(latest 落盘前的会话一致性判据) */
+  const projectionScopeIdRef = React.useRef<string | null>(null)
+  /** loadHistory 等待投影同步轮回的 waiter 集(同步 effect 在提交后 resolve,非本轮 store 写) */
+  const projectionWaitersRef = React.useRef<Array<() => void>>([])
+  const waitForProjectionApplied = React.useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        projectionWaitersRef.current.push(resolve)
+      }),
+    [],
+  )
+
+  // 投影 → store 的唯一落盘点(每个动作完成轮回恰好进入一次:loading 翻转/turns 新引用)。
+  // - latest:整段覆盖(语义同旧 getMessages initial 快照),会话域 + "本地未被写入"双守卫;
+  // - older:全时间线按 id 前插缺失项(翻页期间 SSE/WS 可能写过本地,重复 id 不动);
+  //   零前进(replay/游标未推进)⇒ 停止分页(承接旧 judgePageAdvance 防线,不静默重试);
+  // - newer:已存在 id 用服务端行覆盖(本地流已结束,落库内容为权威),缺失项按时间补尾;
+  // - needsReload(断点倒退/游标 stale,仅 older/newer 触发):非流式中自动整段重锚,
+  //   流式中不重锚(在途消息保护),留待流结束的补拉位改走 loadLatest。
+  React.useEffect(() => {
+    const op = pendingProjectionOpRef.current
+    if (!op || historyProjection.loading) return
+    pendingProjectionOpRef.current = null
+    const storeNow = useChatStore.getState()
+    if (op === 'latest') {
+      const id = projectionScopeIdRef.current
+      const localBefore = projectionLocalBeforeRef.current
+      projectionLocalBeforeRef.current = null
+      projectionScopeIdRef.current = null
+      if (
+        id &&
+        storeNow.conversationId === id &&
+        localBefore &&
+        storeNow.messages === localBefore &&
+        !historyProjection.error
+      ) {
+        useChatStore.setState({
+          messages: projectionTurnsToChatMessages(historyProjection.turns),
+          error: null,
+        })
+      }
+      // latest 出错不在此落盘:loadHistory continuation 按既有失败路径收口(清会话/标题等)
+    } else {
+      const localBefore = projectionLocalBeforeRef.current
+      projectionLocalBeforeRef.current = null
+      projectionScopeIdRef.current = null
+      if (
+        storeNow.conversationId &&
+        localBefore &&
+        useChatStore.getState().messages === localBefore
+      ) {
+        const incoming = projectionTurnsToChatMessages(historyProjection.turns)
+        if (op === 'older') {
+          const known = new Set(storeNow.messages.map((m) => m.id))
+          const olderNew = incoming.filter((m) => !known.has(m.id))
+          if (olderNew.length > 0) {
+            useChatStore.setState((s) => ({ messages: [...olderNew, ...s.messages] }))
+            oldestCursorRef.current = historyProjection.boundary.olderCursor
+            setHasMoreHistory(historyProjection.boundary.hasOlder)
+          } else {
+            // 零前进:带着同一游标再发就是 replay,复位 hasMore 防止滚动反复触发(不静默重试)
+            setHasMoreHistory(false)
+            toast.error(tcommon('loadFailed'))
+          }
+        } else {
+          const byId = new Map(storeNow.messages.map((m) => [m.id, m]))
+          const knownIds = new Set(byId.keys())
+          for (const m of incoming) byId.set(m.id, m)
+          const appended = incoming
+            .filter((m) => !knownIds.has(m.id))
+            .sort((a, b) => a.createdAt - b.createdAt)
+          useChatStore.setState({
+            messages: [...storeNow.messages.map((m) => byId.get(m.id) ?? m), ...appended],
+          })
+          oldestCursorRef.current = historyProjection.boundary.olderCursor
+          setHasMoreHistory(historyProjection.boundary.hasOlder)
+        }
+      }
+      if (op === 'older') setLoadingMoreHistory(false)
+    }
+    if (
+      op !== 'latest' &&
+      historyProjection.needsReload &&
+      useChatStore.getState().conversationId &&
+      !useChatStore.getState().isStreaming
+    ) {
+      const id = useChatStore.getState().conversationId
+      projectionScopeIdRef.current = id
+      projectionLocalBeforeRef.current = useChatStore.getState().messages
+      pendingProjectionOpRef.current = 'latest'
+      void historyProjectionRef.current.loadLatest()
+    }
+    const waiters = projectionWaitersRef.current
+    projectionWaitersRef.current = []
+    for (const resolve of waiters) resolve()
+    // pendingProjectionOpRef 是 ref 不进依赖(与投影钩子 cursorsRef 同方针);
+    // tcommon 是 next-intl 取词函数,按本文件既有口径不进依赖。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    historyProjection.turns,
+    historyProjection.loading,
+    historyProjection.error,
+    historyProjection.needsReload,
+  ])
+  // ============ D73 挂载段结束 ============
+
   // 监听 store.conversationId 变化加载历史会话
   // (AI 面板是全局 docked 组件,与 Sidebar 同性质;不再依赖 URL ?conversationId=,
   // 会话 ID 完全由 useChatStore 维护,切换会话由历史项点击 / 新建对话 等动作触发)
@@ -683,36 +816,41 @@ export function AISidePanel() {
           // 记录拉取前的 messages 引用,识别拉取期间本地是否被写入(见 isLocalMessagesChanged)
           const localBefore = useChatStore.getState().messages
           try {
-            const [convRes, msgRes] = await Promise.all([
+            // D73:消息首屏读路径 = 分页投影 loadLatest(turn 分片,fold 语义在共享层);
+            // 会话元数据仍走 getConversation。messages 落盘由投影同步 effect 完成并
+            // resolve waiter,这里取轮回后的投影态推导分页/缓存/标题派生状态。
+            const [convRes] = await Promise.all([
               getConversation(id),
-              // P1 #24 keyset 复合游标:initial 取最新页,nextCursor 为 base64url 复合游标(透明回传)
-              getMessages(id, { direction: 'initial', pageSize: 50 }),
+              (async () => {
+                projectionScopeIdRef.current = id
+                projectionLocalBeforeRef.current = localBefore
+                pendingProjectionOpRef.current = 'latest'
+                void historyProjectionRef.current.loadLatest()
+                await waitForProjectionApplied()
+              })(),
             ])
             if (cancelled) return
-            if (convRes.success && msgRes.success) {
-              const hydrated: ChatMessage[] = hydrateHistoryMessages(msgRes.data.messages)
-              // 仅当当前仍在该会话、且拉取期间本地未被写入时才更新 store
-              // (前者避免覆盖用户已切换到的新会话;后者避免覆盖流式中的在途消息)
-              if (
-                useChatStore.getState().conversationId === id &&
-                !isLocalMessagesChanged(localBefore)
-              ) {
-                useChatStore.setState({ messages: hydrated, error: null })
+            const projectionNow = historyProjectionRef.current
+            if (convRes.success && !projectionNow.error) {
+              const hydrated: ChatMessage[] = projectionTurnsToChatMessages(projectionNow.turns)
+              // messages 落盘已由同步 effect 按"会话一致 + 本地未被写入"双守卫完成;
+              // 此处只更新会话级派生状态(切会话后不再写)
+              if (useChatStore.getState().conversationId === id) {
                 setConversationTitle(convRes.data.conversation.title || null)
                 // D28 补齐层:来源标识要在消息**已就位**之后才算 —— 发言人清单/时间跨度
-                // 是从 hydrated 上的消息现算的,用 msgRes 原始行算会和 store 实际内容脱节
+                // 是从投影时间线现算的,用原始行算会和 store 实际内容脱节
                 const prov = readImportProvenance(convRes.data.conversation.metadata, hydrated)
                 setImportProvenance(prov.kind === 'imported' ? prov.provenance : null)
-                oldestCursorRef.current = msgRes.data.nextCursor
-                setHasMoreHistory(msgRes.data.hasMore)
+                oldestCursorRef.current = projectionNow.boundary.olderCursor
+                setHasMoreHistory(projectionNow.boundary.hasOlder)
               }
               if (cancelled) return
               // 更新缓存为最新数据
               conversationCacheRef.current.delete(id)
               conversationCacheRef.current.set(id, {
                 messages: hydrated,
-                hasMore: msgRes.data.hasMore,
-                oldestCursor: msgRes.data.nextCursor,
+                hasMore: projectionNow.boundary.hasOlder,
+                oldestCursor: projectionNow.boundary.olderCursor,
               })
               // 恢复挂起提问(从 metadata)
               const meta = convRes.data.conversation.metadata as {
@@ -738,33 +876,39 @@ export function AISidePanel() {
       // 记录拉取前的 messages 引用,识别拉取期间本地是否被写入(见 isLocalMessagesChanged)
       const localBefore = useChatStore.getState().messages
       try {
-        // #8 分页加载:direction=initial 返回最新 pageSize 条(keyset 模式,按 desc + reverse)
-        const [convRes, msgRes] = await Promise.all([
+        // D73:消息首屏读路径 = 分页投影 loadLatest(首屏取最新 N turn);会话元数据
+        // 仍走 getConversation。messages 落盘由投影同步 effect 完成并 resolve waiter,
+        // 这里取轮回后的投影态推导标题/来源/分页/缓存派生状态(与缓存命中路径同形)。
+        const [convRes] = await Promise.all([
           getConversation(id),
-          getMessages(id, { direction: 'initial', pageSize: 50 }),
+          (async () => {
+            projectionScopeIdRef.current = id
+            projectionLocalBeforeRef.current = localBefore
+            pendingProjectionOpRef.current = 'latest'
+            void historyProjectionRef.current.loadLatest()
+            await waitForProjectionApplied()
+          })(),
         ])
         if (cancelled) return
-        if (convRes.success && msgRes.success) {
-          const hydrated: ChatMessage[] = hydrateHistoryMessages(msgRes.data.messages)
-          // 拉取期间本地已写入(新建会话后在途的 assistant 消息)时保留本地,
-          // 不用远端快照覆盖 —— 否则正文 / plan / terminal 卡片会被整条抹掉。
-          if (!isLocalMessagesChanged(localBefore)) {
-            useChatStore.setState({ messages: hydrated, error: null })
-          }
+        const projectionNow = historyProjectionRef.current
+        if (convRes.success && !projectionNow.error) {
+          const hydrated: ChatMessage[] = projectionTurnsToChatMessages(projectionNow.turns)
+          // messages 落盘已由同步 effect 按"会话一致 + 本地未被写入"双守卫完成
+          // (本地已写入时保留在途消息,不用远端快照覆盖 —— 语义同旧 isLocalMessagesChanged 守卫)
           setConversationTitle(convRes.data.conversation.title || null)
           // D28 补齐层:导入来源(与缓存命中路径同一判据/同一算法,见上)
           const prov = readImportProvenance(convRes.data.conversation.metadata, hydrated)
           setImportProvenance(prov.kind === 'imported' ? prov.provenance : null)
-          // 记录分页游标:oldestCursor = 当前最旧一条 id,hasMoreHistory = 是否还有更早历史
-          oldestCursorRef.current = msgRes.data.nextCursor
-          setHasMoreHistory(msgRes.data.hasMore)
+          // 记录分页游标:olderCursor = 投影边界(下一页 turn 断点),hasMoreHistory = 是否还有更早轮
+          oldestCursorRef.current = projectionNow.boundary.olderCursor
+          setHasMoreHistory(projectionNow.boundary.hasOlder)
 
           // 写入缓存(LRU:delete + set,淘汰超 5 个的最早会话)
           conversationCacheRef.current.delete(id)
           conversationCacheRef.current.set(id, {
             messages: hydrated,
-            hasMore: msgRes.data.hasMore,
-            oldestCursor: msgRes.data.nextCursor,
+            hasMore: projectionNow.boundary.hasOlder,
+            oldestCursor: projectionNow.boundary.olderCursor,
           })
           while (conversationCacheRef.current.size > 5) {
             const oldestKey = conversationCacheRef.current.keys().next().value
@@ -789,8 +933,8 @@ export function AISidePanel() {
             useChatStore.getState().clearPendingQuestion()
           }
         } else if (!isLocalMessagesChanged(localBefore)) {
-          // 拉取失败但期间本地已写入(新建会话后的在途流式消息)时按成功路径同等对待:
-          // 保留本地消息与 conversationId,不做任何清空(见 isLocalMessagesChanged)
+          // 拉取失败(会话元数据或投影首屏)但期间本地已写入(新建会话后的在途流式消息)时
+          // 按成功路径同等对待:保留本地消息与 conversationId,不做任何清空(见 isLocalMessagesChanged)
           setConversationId(null)
           useChatStore.setState({ messages: [], error: null })
           setConversationTitle(null)
@@ -814,6 +958,13 @@ export function AISidePanel() {
     }
 
     if (storeConversationId) {
+      // D73:作废上一会话遗留的投影动作与 waiter(切换后旧轮回不得落盘/悬挂);
+      // 悬挂 waiter 也一并 resolve,其 continuation 由 cancelled 标志拦截。
+      pendingProjectionOpRef.current = null
+      const staleWaiters = projectionWaitersRef.current
+      projectionWaitersRef.current = []
+      for (const resolve of staleWaiters) resolve()
+
       // 重置分页状态(防止上一会话的游标残留)
       oldestCursorRef.current = null
       setHasMoreHistory(false)
@@ -911,62 +1062,52 @@ export function AISidePanel() {
     cached.oldestCursor = oldestCursorRef.current
   }, [storeConversationId, messages, hasMoreHistory])
 
-  // #8 滚动到顶部加载更多历史消息(keyset 复合游标分页,P1 #24)
+  // #8 滚动到顶部加载更早历史(D73 起:读路径 = 分页投影 loadOlder,2026-10-14)
   // - 由 MessageList 在 scrollTop 接近 0 时触发
-  // - 加载完成后 prepend 到 messages 头部,并保持视觉滚动位置(由 MessageList 内部处理)
-  const handleLoadMoreHistory = React.useCallback(async () => {
+  // - 游标推进 / 重叠页整轮替换 / 游标 stale 判定全部在 @ihui/shared/chat 与投影钩子内,
+  //   折叠完成由上方投影同步 effect 统一落 store(prepend 缺失轮,视觉滚动位置由 MessageList 处理)
+  // - 旧 judgePageAdvance 的 replay 防线由同步 effect"零前进 ⇒ 停止分页 + 报错"承接
+  const handleLoadMoreHistory = React.useCallback(() => {
     const convId = useChatStore.getState().conversationId
-    const cursor = oldestCursorRef.current
-    if (!convId || !cursor || loadingMoreHistory || !hasMoreHistory) return
-    setLoadingMoreHistory(true)
-    try {
-      // keyset 模式:cursor 为服务端下发的 base64url 复合游标,direction=older 向前翻更早消息
-      const res = await getMessages(convId, { cursor, direction: 'older', pageSize: 50 })
-      if (!res.success) return
-      const older = res.data.messages.map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        createdAt: new Date(m.createdAt).getTime(),
-      }))
-      // G-816010 分页结果双重复核:响应游标 == 请求游标 ⇒ 本次没有任何前进信息,收下它与
-      // replay 不可区分(下次上翻发同一个游标、拿回同一页,账面每次加载都成功而更早的历史
-      // 永远读不到)⇒ 停止补拉并按可重试失败上报,不当"成功且没有更多",也不静默。
-      // 窗口首行权威复核需要"请求前/响应后对权威侧两段重读"通道,本仓今天没有 ⇒ 不传
-      // windowFront,判据落 undetermined 按报名处理(模块头注约定),不默认"首行没动"。
-      const advance = judgePageAdvance({
-        requestCursor: cursor,
-        responseCursor: res.data.nextCursor,
-        responseHasMore: res.data.hasMore,
-        rows: older,
-      })
-      if (advance.retryable) {
-        // stopPaging:带着同一游标再发就是 replay;复位 hasMore 防止滚动反复触发同一次失败。
-        setHasMoreHistory(false)
-        toast.error(tcommon('loadFailed'))
-        return
-      }
-      if (older.length === 0) {
-        setHasMoreHistory(false)
-        oldestCursorRef.current = null
-        return
-      }
-      // prepend 到 messages 头部(时间正序,older 也是正序且早于当前所有消息)
-      useChatStore.setState((s) => ({ messages: [...older, ...s.messages] }))
-      oldestCursorRef.current = res.data.nextCursor
-      setHasMoreHistory(res.data.hasMore)
-      // #11 LRU 缓存同步(2026-07-25 立):分页加载更多后,更新缓存的 messages + oldestCursor + hasMore
-      const cached = conversationCacheRef.current.get(convId)
-      if (cached) {
-        cached.messages = useChatStore.getState().messages
-        cached.oldestCursor = res.data.nextCursor
-        cached.hasMore = res.data.hasMore
-      }
-    } finally {
-      setLoadingMoreHistory(false)
+    if (!convId || loadingMoreHistory || !hasMoreHistory) return
+    if (!historyProjectionRef.current.boundary.olderCursor) {
+      // 投影侧已无更早游标 ⇒ 没有更早历史,与旧 hasMore=false 收口同义
+      setHasMoreHistory(false)
+      return
     }
-    // tcommon 是 next-intl 取词函数,按本文件既有口径不进依赖(与上方 loadHistory effect 同形)。
-  }, [loadingMoreHistory, hasMoreHistory]) // eslint-disable-line react-hooks/exhaustive-deps
+    setLoadingMoreHistory(true)
+    projectionScopeIdRef.current = convId
+    projectionLocalBeforeRef.current = useChatStore.getState().messages
+    pendingProjectionOpRef.current = 'older'
+    void historyProjectionRef.current.loadOlder()
+  }, [loadingMoreHistory, hasMoreHistory])
+
+  // D73 流结束补拉(2026-10-14):本地流结束后,若投影侧存在 newer 续读起点
+  // (rollout 断点),以 refreshNewer 增量补全"半截最新轮"(与本地追加按 id 合并幂等);
+  // 断点倒退(needsReload)时改走整段重锚。首屏 newest 页无断点时 newerCursor 恒 null
+  // ⇒ 不发起(与 hook 文件头对 projectionState 消费的描述一致)。
+  const prevStreamingRef = React.useRef(isStreaming)
+  React.useEffect(() => {
+    const was = prevStreamingRef.current
+    prevStreamingRef.current = isStreaming
+    if (!was || isStreaming || !open) return
+    const convId = useChatStore.getState().conversationId
+    if (!convId) return
+    const projectionNow = historyProjectionRef.current
+    projectionScopeIdRef.current = convId
+    projectionLocalBeforeRef.current = useChatStore.getState().messages
+    if (projectionNow.needsReload) {
+      pendingProjectionOpRef.current = 'latest'
+      void projectionNow.loadLatest()
+    } else if (projectionNow.boundary.newerCursor) {
+      pendingProjectionOpRef.current = 'newer'
+      void projectionNow.refreshNewer()
+    } else {
+      // 无续读起点:不发起,也不留下悬挂的 pending 域
+      projectionScopeIdRef.current = null
+      projectionLocalBeforeRef.current = null
+    }
+  }, [isStreaming, open])
 
   const handleNewChat = React.useCallback(() => {
     clearMessages()
