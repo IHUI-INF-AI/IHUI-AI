@@ -38,20 +38,26 @@ jobs:
     name: node --test scripts/tests (full)
     runs-on: windows-latest
     timeout-minutes: 120
-    # TODO(转 blocking 的前置,二者缺一都不许删这行):
+    # TODO(转 blocking 的前置,二者缺一都不许删 `Run all mirror tests` 那一步上的这行):
     #   ① 连续 ≥2 夜在 main 的定时跑 exit 0;
     #   ② 下列三枚"他人未提交状态"红已确认不是存量债 —— apps/web/src/config/
     #      desktop-feed.generated.ts 的工作树副本缺 HEAD(982e253789a,03:11) 已入库的
     #      updaterPlatforms 块,该文件 09:00:57 被某在制任务重写;tauri-updater-platforms
     #      的三枚断言正是钉这个回退的(干净检出 14/14 绿)。
-    continue-on-error: true
+    # ⚠️ 2026-10-16 现读更正:本行**原先写在 job 级**,于是 `Setup pnpm` 失败 ⇒ 后面全部
+    #   step 被 skipped ⇒ 测试一行没跑,而 run 结论仍是 success(连续 8 晚"绿")。这是
+    #   AGENTS §0.3 那一型的最坏形态:不是"没判成绿",是"根本没判而账面绿"。
+    #   现在 continue-on-error 只贴在"测试确实跑了、但可能带存量红"那一步上(观察期语义
+    #   不变),环境类失败(装不上 / 被跳过 / 一行没跑)由哨兵步当场判红。
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
+        # 不写 `with: version` —— 根 package.json 的 `packageManager: pnpm@11.18.0` 才是唯一
+        # 版本源。原先这里再写一个 `version: 11` 会被 action 判成
+        # "Multiple versions of pnpm specified" 直接失败(2026-10-15 那夜的 skipped 链就是这么起的);
+        # 同仓 ci-monorepo.yml / blue-green-deploy.yml 也都是只让它读 packageManager。
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -67,8 +73,49 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run all mirror tests
+        id: mirror
         # 工具任何一片解析不到 pass/fail 计数就按失败计,不会把"runner 崩了"洗成绿
+        # continue-on-error 只贴在这一位:观察期内"存量测试红"不喊红作业(前置见上方 TODO)。
+        # "到底有没有跑过"不归它放宽 —— 由下一步哨兵判。
+        continue-on-error: true
         run: node scripts/run-script-tests.mjs
+
+      - name: 哨兵 —— 测试没跑成必须当场判红(跳过不等于通过)
+        # AGENTS §0.3「取不到不记绿 / 枚举到 0 判死」在 CI 层的落地。2026-10-15 那夜实况:
+        # Setup pnpm 报 "Multiple versions of pnpm specified" ⇒ 本步及其后全部 skipped ⇒
+        # 一行用例都没跑,而 run 结论 = success(连续 8 晚)。作业级 continue-on-error 已摘,
+        # 环境类失败本身就会红;这一道是第二把尺:哪怕前面"成功"而这步没执行,也当场红。
+        if: always()
+        shell: bash
+        run: |
+          c="${{ steps.mirror.conclusion }}"
+          echo "mirror step conclusion: [$c]"
+          case "$c" in
+            skipped | cancelled | success | failure)
+              if [ "$c" = "skipped" ] || [ "$c" = "cancelled" ] || [ -z "$c" ]; then
+                echo "::error::镜像测试从未执行(conclusion=$c)⇒ 这一夜的绿不成立。先修环境;不许把「没判」写成「判过」。"
+                exit 1
+              fi
+              ;;
+          esac
+          if [ -z "$c" ]; then
+            echo "::error::取不到 mirror 步的结论(conclusion 为空)⇒ 同样按未执行判红"
+            exit 1
+          fi
+          echo "mirror 步确有执行(conclusion=$c);存量红按上方 TODO 的观察期处理,不在此处放宽"
+
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      # 守门 213 的 W1/W2:作业里**每个**带 id 的步骤都必须在 TRIAGE_IDS 里并有对应 O_<ID> 键 ——
+      # 本作业原先整作业无 id(只在 W4 报数),今天给 mirror 加了 id 就必须同批改完,否则
+      # "红了却报不出是哪一条命令"这一型正好被自己造出来(2026-10-16 safe-commit 当场拦下)。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/scripts-mirror-tests.yml
+          TRIAGE_IDS: mirror
+          O_MIRROR: ${{ steps.mirror.outcome }}
+        run: bash scripts/ci-failure-triage.sh
 
       - name: Run deploy/win PowerShell self-tests
         shell: pwsh
