@@ -201,6 +201,35 @@ export function buildGateArgs(name) {
   return name ? [GATE_REL, '--json', '--service', name] : [GATE_REL, '--json']
 }
 
+/**
+ * 把"门的一次派生"分成三件事:**有结论 / 没跑到 / 门自身异常** —— 三者绝不可并桶。
+ *
+ * 立因(2026-10-16 现读):`check-service-binary-paths.mjs` 的 **rc=1 的含义是"量到了问题"**
+ * (`totals` 当时为 22 台 · ok 3 · issue 2 · unattested 16 ⇒ exitCode 1),而它的 `--json`
+ * stdout 仍是完整报告。旧写法用 `execFileSync` 的 try/catch 把**任何非零退出**一并读成
+ * "取不到服务应答报告 ⇒ 本轮不行动" ⇒ 只要这台机上有任何一个服务出过问题,这第三层自愈
+ * 就永久罢职,而账面每轮都在报"未判定"(与"判据失效的表现永远是安静"同族)。
+ * 反过来,把"真没跑到"当成结论更糟 —— 所以只有下列三档才算未判定:
+ *   ① 派生不起来(ENOENT);② 被信号/超时终止且没有 JSON;③ 门自报异常档 rc≥2(本仓退出码约定:
+ *   0=成功 / 1=业务判定 / 2=脚本自身失效),或 stdout 根本解不出一份 JSON。
+ */
+export function classifyGateSpawn({ stdout = '', stderr = '', status = null, code = null, signal = null } = {}) {
+  const text = typeof stdout === 'string' ? stdout : Buffer.from(stdout ?? '').toString('utf8')
+  const rc = Number.isFinite(status) ? status : null
+  const hasJson = /^\s*\{[\s\S]*\}\s*$/.test(text)
+  if (hasJson && (rc === null || rc <= 1)) return { ok: true, json: text, gateRc: rc }
+  const head = String(stderr || '').split(/\r?\n/)[0].slice(0, 160)
+  const why =
+    code === 'ENOENT'
+      ? '门不可派生(ENOENT)'
+      : signal
+        ? `门被信号终止(${signal})`
+        : rc !== null && rc >= 2
+          ? `门自报异常档(rc=${rc})`
+          : '门无 JSON 输出'
+  return { ok: false, why: `${why}${rc === null ? '' : `(rc=${rc})`}:${head}` }
+}
+
 const defaultDeps = {
   gate(reportName = null) {
     try {
@@ -212,9 +241,16 @@ const defaultDeps = {
         stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf8',
       })
-      return { ok: true, json: stdout }
+      return classifyGateSpawn({ stdout, status: 0 })
     } catch (e) {
-      return { ok: false, why: `门派生失败(rc=${e?.status ?? '?'}):${String(e?.stderr || e?.message || '').split(/\r?\n/)[0]}` }
+      // 非零退出**不**等于没跑到:门判出问题时就是这个 rc,而 stdout 里就是结论。
+      return classifyGateSpawn({
+        stdout: e?.stdout ?? '',
+        stderr: e?.stderr ?? '',
+        status: e?.status ?? null,
+        code: e?.code ?? null,
+        signal: e?.signal ?? null,
+      })
     }
   },
   restart(name) {
@@ -507,6 +543,29 @@ async function selfTest() {
     const src = readFileSync(path.join(ROOT, 'scripts', 'git-guardian.mjs'), 'utf8')
     return /JSON\.parse\(String\(r\.stdout \|\| ''\)\)/.test(src) && !/JSON\.parse\(String\(`\$\{r\.stdout\}/.test(src)
   })())
+  // V10/V10b:门的 rc 语义。**rc=1 是"量到了问题"这一档结论**,不是"没跑到"。
+  // 这一条是 2026-10-16 现读逼出来的:当时 22 台里 ok 3 / issue 2 ⇒ exitCode 1,而旧写法把
+  // 非零退出整档读成"取不到报告",于是第三层自愈在"确实有服务出问题"的那些时刻**必然**罢职。
+  ok('V10 门 rc=1 且 stdout 是完整 JSON ⇒ 必须当结论用(不得折成"没跑到")', (() => {
+    const r = classifyGateSpawn({ stdout: JSON.stringify({ totals: { services: 22, issue: 2, exitCode: 1 } }), status: 1 })
+    return r.ok === true && r.gateRc === 1 && JSON.parse(r.json).totals.issue === 2
+  })())
+  ok('V10b 未判定三档各有各的措辞,且一律不换动作授权(成对反向锁)', (() => {
+    const enoent = classifyGateSpawn({ stdout: '', status: null, code: 'ENOENT' })
+    const killed = classifyGateSpawn({ stdout: '', status: null, signal: 'SIGTERM' })
+    const gateCrash = classifyGateSpawn({ stdout: '{"fatal":"x"}', status: 2 })
+    const noJson = classifyGateSpawn({ stdout: '', status: 1 })
+    const labeled = [enoent, killed, gateCrash, noJson].every((x) => x.ok === false && /ENOENT|信号|异常档|无 JSON/.test(x.why))
+    return labeled && /ENOENT/.test(enoent.why) && !/异常档/.test(enoent.why) && !/无 JSON/.test(gateCrash.why)
+  })())
+  ok('V11 装车锁:成功分支与 catch 分支都必须走 classifyGateSpawn 那一份判据,旧的笼统措辞(把三档并成一档的那句)不得回来', (() => {
+    const src = readFileSync(path.join(ROOT, 'scripts', 'heal-unresponsive-services.mjs'), 'utf8')
+    const body = src.slice(src.indexOf('const defaultDeps = {'), src.indexOf('  restart(name)'))
+    const calls = (body.match(/classifyGateSpawn\(/g) || []).length
+    // 判据串自己拼出来:写进本行的字面量会命中下面对自己所在文件的搜索(说明性文字也带执行性字符)。
+    const legacy = new RegExp('门' + '派生失败')
+    return calls === 2 && !legacy.test(src) && /export function classifyGateSpawn/.test(src)
+  })())
   const text = out.join('\n')
   return { text: `${text}\n自检 ${out.length} 条,失败 ${fail} 条`, exit: fail === 0 ? 0 : 1 }
 }
@@ -527,5 +586,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   )
 }
 
-export const __test__ = { parseConfig, verdictOf, decideRound, readState, writeState, resolveNssm, buildGateArgs, main, selfTest, renderExit, CONFIG_REL, STATE_REL, GATE_REL, DAY_MS }
+export const __test__ = { parseConfig, verdictOf, decideRound, readState, writeState, resolveNssm, buildGateArgs, classifyGateSpawn, main, selfTest, renderExit, CONFIG_REL, STATE_REL, GATE_REL, DAY_MS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
