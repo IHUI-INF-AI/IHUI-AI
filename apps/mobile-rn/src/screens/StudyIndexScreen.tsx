@@ -39,7 +39,8 @@ import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { navigateDrawerTab } from '../navigation/tab-utils'
-import { Bot, Film, Flame, Lightbulb, Menu, Play, Search, X } from 'lucide-react-native'
+import { Bot, Film, Flame, Lightbulb, Play, Search, X } from 'lucide-react-native'
+import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import {
   deleteConversation,
   fetchApi,
@@ -512,7 +513,9 @@ export function StudyIndexScreen() {
         <NavBar
           title="AI 视频"
           onBack={handleBack}
-          rightActions={[{ icon: Menu, onPress: () => setDrawerVisible(true), label: '菜单' }]}
+          rightActions={[
+            { icon: PanelLeftRounded, a11yLabel: '菜单', onPress: () => setDrawerVisible(true) },
+          ]}
           rightAction={
             <Pressable
               hitSlop={BACK_HIT_SLOP}
@@ -521,9 +524,9 @@ export function StudyIndexScreen() {
               accessibilityLabel="搜索"
             >
               {showSearch ? (
-                <X size={20} color={tk.text.primary} />
+                <X size={20} color={tk.text.medium} />
               ) : (
-                <Search size={20} color={tk.text.primary} />
+                <Search size={20} color={tk.text.medium} />
               )}
             </Pressable>
           }

@@ -52,7 +52,7 @@ import Drawer, {
   type DrawerExtraMenu,
   type DrawerTab,
 } from '../components/Drawer'
-import { Menu } from 'lucide-react-native'
+import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
@@ -300,7 +300,9 @@ export function ShareScreen() {
             <NavBar
               title={t('share.title')}
               onBack={() => navigation.goBack()}
-              leftActions={[{ icon: Menu, label: '菜单', onPress: () => setDrawerVisible(true) }]}
+              leftActions={[
+                { icon: PanelLeftRounded, a11yLabel: '菜单', onPress: () => setDrawerVisible(true) },
+              ]}
             />
           </NavChrome>
         )}

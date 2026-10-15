@@ -61,10 +61,11 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { FREE_RESOURCE_URL } from '../constants/links'
-import { type LucideIcon, Bot, Film, FolderOpen, Menu, Palette, Search } from 'lucide-react-native'
+import { type LucideIcon, Bot, Film, FolderOpen, Palette, Search } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
+import { PanelLeftRounded } from '../components/PanelLeftRounded'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -628,7 +629,7 @@ export function AgentScreen() {
           title={t('agentScreen.title')}
           leftActions={[
             { icon: FolderOpen, label: '分类', onPress: handleCategoryPress },
-            { icon: Menu, label: '菜单', onPress: handleMenuPress },
+            { icon: PanelLeftRounded, a11yLabel: '菜单', onPress: handleMenuPress },
           ]}
           rightActions={[{ icon: Search, label: '搜索', onPress: handleSearchPress }]}
         />

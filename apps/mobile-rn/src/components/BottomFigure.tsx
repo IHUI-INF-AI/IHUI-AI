@@ -14,14 +14,15 @@
  */
 import { tokens as tk } from '../theme/active-tokens'
 import { StyleSheet, View, type ViewStyle } from 'react-native'
-import Carousel from './Carousel'
+import Carousel, { type CarouselSlideImg } from './Carousel'
 import type { CarouselItem } from '@ihui/ui-native'
 import { rnRadius } from '@ihui/design-tokens'
 
-export interface BottomFigureItem extends CarouselItem {
+export interface BottomFigureItem extends Omit<CarouselItem, 'img'> {
   id: number
-  /** 原项目字段 imageUrl(1:1 对齐;缺失时回退 img) */
-  imageUrl?: string
+  /** 原项目字段 imageUrl(1:1 对齐;缺失时回退 img)。远端 URL 与本地 require 资源均可 */
+  imageUrl?: CarouselSlideImg
+  img: CarouselSlideImg
 }
 
 export interface BottomFigureProps {
@@ -34,24 +35,29 @@ export interface BottomFigureProps {
 }
 
 const DEFAULT_HEIGHT = 149
+// 2026-10-15 本地化:原 bspapp 云存储 CDN(mp-aab956eb-…)整体不可达(HTTP 000),
+// 3 张默认图按原 CDN 路径打包进应用(文件副本与 apps/web/public 本地化批次同源):
+//   tabbar/home/carousel4-footer1/BottomFigure.png → assets/images/carousel/BottomFigure.png
+//   recruitment/recruit2.png                       → assets/images/carousel/recruit2.png
+//   recruitment/recruit3.png                       → assets/images/carousel/recruit3.png
+const IMG_FIGURE = require('../../assets/images/carousel/BottomFigure.png')
+const IMG_RECRUIT2 = require('../../assets/images/carousel/recruit2.png')
+const IMG_RECRUIT3 = require('../../assets/images/carousel/recruit3.png')
 const DEFAULT_ITEMS: readonly BottomFigureItem[] = [
   {
     id: 1,
-    imageUrl:
-      'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/BottomFigure.png',
-    img: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/BottomFigure.png',
+    imageUrl: IMG_FIGURE,
+    img: IMG_FIGURE,
   },
   {
     id: 2,
-    imageUrl:
-      'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/recruitment/recruit2.png',
-    img: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/recruitment/recruit2.png',
+    imageUrl: IMG_RECRUIT2,
+    img: IMG_RECRUIT2,
   },
   {
     id: 3,
-    imageUrl:
-      'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/recruitment/recruit3.png',
-    img: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/recruitment/recruit3.png',
+    imageUrl: IMG_RECRUIT3,
+    img: IMG_RECRUIT3,
   },
 ] as const
 

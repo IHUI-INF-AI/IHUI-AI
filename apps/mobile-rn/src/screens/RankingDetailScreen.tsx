@@ -28,9 +28,9 @@ import Drawer, {
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useI18n } from '../i18n'
 import { FREE_RESOURCE_URL } from '../constants/links'
-import { Menu } from 'lucide-react-native'
-import Clipboard from '@react-native-clipboard/clipboard'
+import { Clipboard } from '@react-native-clipboard/clipboard'
 import { NavChrome } from '../components/NavChrome'
+import { PanelLeftRounded } from '../components/PanelLeftRounded'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -150,10 +150,12 @@ export default function RankingDetailScreenWrapper() {
   return (
     <View style={styles.container}>
       <NavChrome>
+        {/* 抽屉触发钮(历史榜单入口,开同一 Drawer):图标与其余各屏同款 PanelLeftRounded;
+            「历史榜单」是功能标签(非「菜单」泛称),文字保留,墨迹走 NavBarActionButton 的 text.medium */}
         <NavBar
           title={detail.title}
           onBack={() => navigation.goBack()}
-          rightActions={[{ icon: Menu, label: '历史榜单', onPress: openDrawer }]}
+          rightActions={[{ icon: PanelLeftRounded, label: '历史榜单', onPress: openDrawer }]}
         />
       </NavChrome>
       <RankingDetailScreen

@@ -60,8 +60,8 @@ import {
   Trash2,
   User,
   Wrench,
-  X,
 } from 'lucide-react-native'
+import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import { favoriteConversation, unfavoriteConversation } from '@ihui/api-client'
 
 // ── 类型定义(强类型,禁用 any) ──
@@ -673,8 +673,10 @@ export function Drawer(props: DrawerProps) {
                   accessibilityLabel="关闭抽屉"
                   android_ripple={{ color: tokens.surface.muted }}
                 >
-                  {/* 关闭键载体择优 = 矢量(与小程序端 LineIcon x 同档 glyphMd);文字 × 冒充图标已收口 */}
-                  <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+                  {/* 关闭键图标(2026-10-15 用户定):与 web 端侧边栏拉出态同款的
+                      PanelLeftRounded(箭头朝左 = 收拢方向),不再用 X;墨迹 text.medium
+                      对齐 web text-foreground/80(与 NavBar 侧钮同规);载体=矢量,文字 × 冒充图标已收口 */}
+                  <PanelLeftRounded size={rnGeometry.glyphMd} color={tokens.text.medium} />
                 </Pressable>
               </View>
 

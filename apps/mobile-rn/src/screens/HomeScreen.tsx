@@ -1366,7 +1366,7 @@ export function HomeScreen() {
               accessibilityRole="button"
               accessibilityLabel="分类"
             >
-              <SlidersHorizontal size={20} color={tokens.text.primary} />
+              <SlidersHorizontal size={20} color={tokens.text.medium} />
             </TouchableOpacity>
           }
         />
@@ -1378,6 +1378,10 @@ export function HomeScreen() {
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
+        {/* BottomFigure 轮播(2026-10-15 用户定稿:轮播图置顶;图源已本地化,原 bspapp 外链死链) */}
+        <View style={shellStyles.bottomFigureWrap}>
+          <BottomFigure />
+        </View>
         {/* Carousel banner 轮播(对齐 Uniapp 首页轮播图) */}
         {bannerItems.length > 0 ? (
           <View style={shellStyles.carouselWrap}>
@@ -1504,10 +1508,6 @@ export function HomeScreen() {
         <View style={shellStyles.sectionWrap}>
           <MoreTitles title="功能入口" />
           <FunctionBlockColumn blocks={FUNCTION_BLOCKS} onBlockPress={onFunctionBlockPress} />
-        </View>
-        {/* BottomFigure 底部装饰图(对齐 Uniapp 首页底部装饰) */}
-        <View style={shellStyles.bottomFigureWrap}>
-          <BottomFigure />
         </View>
       </ScrollView>
       {/* toodown 返回顶部悬浮按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 NewsScreen)

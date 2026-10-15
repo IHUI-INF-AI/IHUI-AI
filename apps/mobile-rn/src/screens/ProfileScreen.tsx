@@ -83,7 +83,6 @@ import {
   FileText,
   Film,
   Image as ImageIcon,
-  Menu,
   MoreHorizontal,
   Music,
   Pause,
@@ -97,6 +96,7 @@ import Drawer, {
   type DrawerTab,
 } from '../components/Drawer'
 import { NavBar } from '../components/NavBar'
+import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import { ColorfulLoader } from '../components/ColorfulLoader'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { MainStackParamList } from '../navigation/tab-utils'
@@ -524,7 +524,7 @@ export function ProfileScreen() {
               label: t('menu.feedback'),
               onPress: () => rootNav?.navigate('Feedback', { pageType: 'profile' } as never),
             },
-            { icon: Menu, onPress: () => setDrawerVisible(true) },
+            { icon: PanelLeftRounded, a11yLabel: '菜单', onPress: () => setDrawerVisible(true) },
           ]}
         />
       </NavChrome>

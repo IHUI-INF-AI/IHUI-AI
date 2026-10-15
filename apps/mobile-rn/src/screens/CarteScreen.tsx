@@ -29,11 +29,12 @@ import { rpx } from '../utils/rpx'
 import { tokens } from '../theme/active-tokens'
 import { rnRadius } from '@ihui/design-tokens'
 
-/** 原页面图片资源(CDN,与 Uniapp 一致) */
-const AVATAR_IMAGE =
-  'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/recruitment/xuancai@2x.png'
-const QR_IMAGE =
-  'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/recruitment/ewm@2x.png'
+// 2026-10-15 本地化:原 bspapp 云存储 CDN(mp-aab956eb-…)整体不可达(HTTP 000),
+// 2 张图按原 CDN 路径打包进应用(文件副本与 apps/web/public 本地化批次同源):
+//   recruitment/xuancai@2x.png → assets/images/carousel/xuancai@2x.png
+//   recruitment/ewm@2x.png     → assets/images/carousel/ewm@2x.png
+const AVATAR_IMAGE = require('../../assets/images/carousel/xuancai@2x.png')
+const QR_IMAGE = require('../../assets/images/carousel/ewm@2x.png')
 
 export default function CarteScreen() {
   return (
@@ -41,7 +42,7 @@ export default function CarteScreen() {
       <View style={styles.bottom}>
         <View style={styles.bottomTop}>
           <View>
-            <Image source={{ uri: AVATAR_IMAGE }} style={styles.avatar} resizeMode="cover" />
+            <Image source={AVATAR_IMAGE} style={styles.avatar} resizeMode="cover" />
           </View>
           <View style={styles.bottomTopText}>
             <Text style={styles.founder}>AI智汇社 | 私董会创始人 | 李总</Text>
@@ -54,7 +55,7 @@ export default function CarteScreen() {
         </Text>
 
         <View style={styles.qrWrap}>
-          <Image source={{ uri: QR_IMAGE }} style={styles.qr} resizeMode="cover" />
+          <Image source={QR_IMAGE} style={styles.qr} resizeMode="cover" />
         </View>
       </View>
     </View>

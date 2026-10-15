@@ -32,8 +32,7 @@ import { fetchApi, getCourses, type Course } from '@ihui/api-client'
 import { apiFailureToError, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
-import type { CarouselItem } from '@ihui/ui-native'
-import Carousel from '../components/Carousel'
+import Carousel, { type CarouselSlide } from '../components/Carousel'
 import Toolbar from '../components/Toolbar'
 import PopularCourses, { type PopularCourse } from '../components/PopularCourses'
 import { KnowledgePlanet, type KnowledgePlanetItem } from '../components/KnowledgePlanet'
@@ -49,32 +48,35 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 const PAGE_SIZE = 10
 
+// 2026-10-15 本地化:原 bspapp 云存储 CDN(mp-aab956eb-…)整体不可达(HTTP 000),
+// 7 张轮播图按原 CDN 路径打包进应用(文件副本与 apps/web/public 本地化批次同源):
+//   tabbar/ai_agent/lunbo6.jpg                  → assets/images/carousel/lunbo6.jpg
+//   tabbar/home/carousel4-footer1/carousel1.jpg → assets/images/carousel/carousel1.jpg
+//   tabbar/home/carousel4-footer1/carousel2.jpg → assets/images/carousel/carousel2.jpg
+//   tabbar/home/carousel4-footer1/carousel3.jpg → assets/images/carousel/carousel3.jpg
+//   tabbar/home/carousel4-footer1/carousel4-footer1-two.png → assets/images/carousel/carousel4-footer1-two.png
+//   tabbar/home/carousel4-footer1/lunbo1.png    → assets/images/carousel/lunbo1.png
+//   tabbar/home/carousel4-footer1/lunbo2.png    → assets/images/carousel/lunbo2.png
+const IMG_LUNBO6 = require('../../assets/images/carousel/lunbo6.jpg')
+const IMG_CAROUSEL1 = require('../../assets/images/carousel/carousel1.jpg')
+const IMG_CAROUSEL2 = require('../../assets/images/carousel/carousel2.jpg')
+const IMG_CAROUSEL3 = require('../../assets/images/carousel/carousel3.jpg')
+const IMG_CAROUSEL_TWO = require('../../assets/images/carousel/carousel4-footer1-two.png')
+const IMG_LUNBO1 = require('../../assets/images/carousel/lunbo1.png')
+const IMG_LUNBO2 = require('../../assets/images/carousel/lunbo2.png')
+
 /**
  * 轮播图数据(对齐来源:原 MoreCourse.vue 的 <Carousel /> 未传 banner,组件内部自渲染;
- * RN Carousel 需外部注入,复用历史项目 CourseCarousel/index.vue 内置的同源 7 张 CDN 图)
+ * RN Carousel 需外部注入,复用历史项目 CourseCarousel/index.vue 内置的同源 7 张图)
  */
-const BANNER_ITEMS: CarouselItem[] = [
-  {
-    img: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/ai_agent/lunbo6.jpg',
-  },
-  {
-    img: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/carousel1.jpg',
-  },
-  {
-    img: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/carousel2.jpg',
-  },
-  {
-    img: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/carousel3.jpg',
-  },
-  {
-    img: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/carousel4-footer1-two.png',
-  },
-  {
-    img: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/lunbo1.png',
-  },
-  {
-    img: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/lunbo2.png',
-  },
+const BANNER_ITEMS: ReadonlyArray<CarouselSlide> = [
+  { img: IMG_LUNBO6 },
+  { img: IMG_CAROUSEL1 },
+  { img: IMG_CAROUSEL2 },
+  { img: IMG_CAROUSEL3 },
+  { img: IMG_CAROUSEL_TWO },
+  { img: IMG_LUNBO1 },
+  { img: IMG_LUNBO2 },
 ]
 
 /** 知识星球资讯接口(api 层 miniapp-compat 路由,返回 { list, total };旧路径 /resource/getKnowledgePlanet 已下线 404) */

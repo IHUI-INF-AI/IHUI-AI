@@ -32,11 +32,41 @@ import {
 } from '@ihui/shared/ui/carousel-spec'
 import type { CarouselItem } from '@ihui/ui-native'
 
+/**
+ * 轮播图源:远端 URL(string)或打包进应用的本地资源(require 返回 number)。
+ * bspapp 云存储 CDN 已整体不可达,外链图本地化后经 require 引入(2026-10-15);
+ * CarouselItem(远端数据结构 img: string)结构兼容于 CarouselSlide。
+ */
+export type CarouselSlideImg = string | number
+export interface CarouselSlide {
+  img: CarouselSlideImg
+  title?: string
+  link?: string
+}
+
 export interface CarouselProps {
-  banner: CarouselItem[]
+  banner: ReadonlyArray<CarouselSlide>
   height?: number
   autoplayInterval?: number
-  onItemPress?: (item: CarouselItem, index: number) => void
+  onItemPress?: (item: CarouselSlide, index: number) => void
+}
+
+/** RN Image source:本地资源在 Metro web 下是 { uri } 资产对象(TS 标注 number,运行时按对象)、
+ *  原生下是 require number,两者原样透传;远端 URL 包一层 { uri }。
+ *  导出供本端其他 <Image> 渲染远端/本地混合图源处复用(如 CourseCarousel swiper)。 */
+export function toImageSource(img: CarouselSlideImg): number | { uri: string } {
+  if (typeof img === 'number') return img
+  if (typeof img === 'string') return { uri: img }
+  return img as unknown as { uri: string }
+}
+
+/** failedSources 的键:远端取 URL,本地资产取其 uri —— 资产对象形态下若直接 String(img)
+ *  三张 slide 会共用 "[object Object]" 一个键,一张失败将误摘全部。 */
+function slideKey(img: CarouselSlideImg): string {
+  if (typeof img === 'string') return img
+  if (typeof img === 'number') return '#' + img
+  const asset = img as { uri?: unknown }
+  return typeof asset.uri === 'string' ? asset.uri : '#' + String(img)
 }
 
 /// 指示点几何/默认高度不在本文件取数 —— 唯一源是 @ihui/shared/ui/carousel-spec(与小程序端同档);
@@ -70,7 +100,7 @@ export default function Carousel({
   }, [])
 
   const slides = useMemo(
-    () => (banner ?? []).filter((item) => !failedSources.has(item.img)),
+    () => (banner ?? []).filter((item) => !failedSources.has(slideKey(item.img))),
     [banner, failedSources],
   )
 
@@ -140,8 +170,8 @@ export default function Carousel({
             style={{ width, height }}
           >
             <Image
-              source={{ uri: item.img }}
-              onError={() => markSourceFailed(item.img)}
+              source={toImageSource(item.img)}
+              onError={() => markSourceFailed(slideKey(item.img))}
               style={{ width, height, resizeMode: 'cover' }}
             />
           </TouchableOpacity>
