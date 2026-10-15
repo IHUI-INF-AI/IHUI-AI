@@ -786,15 +786,12 @@ pub fn capture_trae_cloudide_jwt(trae_dir: &Path) -> Option<CapturedAccount> {
             log::warn!("[checkin-capture] {k} 的 token 已过期(exp={expires}),跳过");
             continue;
         }
-        // 账户名展示(tc 解密 JSON 自带 account.username,真机实证 5.8.2)
+        // 账户名展示:tc 解密的 account 对象,优先级 手机→邮箱→账号→昵称
+        // (真机实证 account.username=智汇AI;无手机号时回落账号名)
         let nickname = j
             .get("account")
-            .and_then(|a| a.get("username"))
-            .and_then(|v| v.as_str())
-            .map(str::trim)
-            .filter(|v| !v.is_empty())
-            .unwrap_or("")
-            .to_string();
+            .map(display_name_pick)
+            .unwrap_or_default();
         return Some(CapturedAccount {
             user_id,
             nickname,
@@ -3476,18 +3473,24 @@ pub fn qoder_session_uid(session: &serde_json::Value, token: &str) -> Option<Str
     qoder_jwt_uid(token)
 }
 
-/// 纯函数:Qoder 会话 JSON → 账户昵称/手机号(user.{nickname,name,phone,mobile,email}
-/// 键序优先;真机实证 user.phone=18643389808,即李总要的"显示手机号或账户名")。
-pub fn qoder_session_nickname(session: &serde_json::Value) -> String {
-    let Some(user) = session.get("user") else {
-        return String::new();
-    };
-    for key in ["nickname", "nick_name", "name", "userName", "username", "phone", "mobile", "email"] {
-        if let Some(v) = user.get(key).and_then(qoder_scalar_str) {
+/// 纯函数:JSON 对象 → 展示名,全局统一优先级(2026-10-15 李总定档):
+/// 手机号 > 邮箱 > 账号名 > 昵称(兜底账户名)。四平台共用。
+pub fn display_name_pick(obj: &serde_json::Value) -> String {
+    for key in ["phone", "mobile", "email", "username", "userName", "nickname", "nick_name", "name"] {
+        if let Some(v) = obj.get(key).and_then(qoder_scalar_str) {
             return v;
         }
     }
     String::new()
+}
+
+/// 纯函数:Qoder 会话 JSON → 展示名(user 对象,优先级见 display_name_pick;
+/// 真机实证 user.phone=18643389808)。
+pub fn qoder_session_nickname(session: &serde_json::Value) -> String {
+    match session.get("user") {
+        Some(user) => display_name_pick(user),
+        None => String::new(),
+    }
 }
 
 /// 纯函数:会话 JSON 的 expiresAt → epoch 秒(缺失/坏格式 0)。
@@ -3923,12 +3926,7 @@ pub fn parse_workbuddy_auth_doc(doc: &serde_json::Value, auth_file: &str) -> Vec
             .unwrap_or("")
             .to_string();
         if !uid.is_empty() {
-            let nick = acc
-                .get("nickname")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            entries.push((uid, nick));
+            entries.push((uid, display_name_pick(acc)));
         }
     }
     for key in ["accounts", "allAccounts"] {
@@ -3942,12 +3940,7 @@ pub fn parse_workbuddy_auth_doc(doc: &serde_json::Value, auth_file: &str) -> Vec
                 if uid.is_empty() || entries.iter().any(|(u, _)| u == &uid) {
                     continue;
                 }
-                let nick = acc
-                    .get("nickname")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                entries.push((uid, nick));
+                entries.push((uid, display_name_pick(acc)));
             }
         }
     }
@@ -4327,7 +4320,7 @@ pub fn minimax_identity_from_config_doc(doc: &serde_json::Value) -> (String, Str
     } else {
         uid
     };
-    let nick = su.get("userName").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+    let nick = display_name_pick(su);
     (uid, nick)
 }
 
@@ -4460,6 +4453,31 @@ mod tests {
     }
 
     // ── 1. TRAE 目录探测 ──
+
+    // 展示名优先级:手机号 > 邮箱 > 账号 > 昵称(2026-10-15 李总定档,四平台共用)
+    #[test]
+    fn display_name_pick_phone_first_then_email_then_account_then_nickname() {
+        // 四者齐备 ⇒ 取手机号
+        let all = serde_json::json!({
+            "nickname": "智汇AI", "name": "n", "username": "acct",
+            "email": "a@aizhs.top", "phone": "18643389808", "mobile": "13900000000"
+        });
+        assert_eq!(display_name_pick(&all), "18643389808");
+        // 无手机号 ⇒ 邮箱
+        let no_phone = serde_json::json!({"nickname": "智汇AI", "username": "acct", "email": "a@aizhs.top"});
+        assert_eq!(display_name_pick(&no_phone), "a@aizhs.top");
+        // 无手机/邮箱 ⇒ 账号名
+        let acct = serde_json::json!({"nickname": "智汇AI", "username": "智汇AI账号"});
+        assert_eq!(display_name_pick(&acct), "智汇AI账号");
+        // 只剩昵称 ⇒ 兜底账户名
+        let nick = serde_json::json!({"nickname": "智汇AI"});
+        assert_eq!(display_name_pick(&nick), "智汇AI");
+        // 空对象 ⇒ 空串(前端回落编号)
+        assert_eq!(display_name_pick(&serde_json::json!({})), "");
+        // Qoder 真机形态:user.phone 优先于 user.nickname
+        let session = serde_json::json!({"user": {"nickname": "李总", "phone": "18643389808"}});
+        assert_eq!(qoder_session_nickname(&session), "18643389808");
+    }
 
     #[test]
     fn trae_dir_candidates_override_first_then_appdata_then_localappdata() {

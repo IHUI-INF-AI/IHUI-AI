@@ -5,12 +5,12 @@
 'use client'
 
 import * as React from 'react'
+import { useIsoLayoutEffect } from './use-iso-layout-effect'
 
 /**
- * isomorphic layout effect:客户端用 useLayoutEffect(hydration 后、浏览器 paint 前执行,
- * setState 触发的重渲染对用户不可见),SSR 用 useEffect(规避 React useLayoutEffect SSR 警告)。
- */
-const useIsoLayoutEffect = typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect
+ * isomorphic layout effect 的定义已上移到 hooks/use-iso-layout-effect.ts(单一真相源,AGENTS.md §0.6):
+ * 2026-10-16 起 TagsView 的 addTag 也需要同一语义(挂载后才知道的状态却会改几何 ⇒ 不能等 paint 后再纠正),
+ * 两处各自抄一份三元表达式必然漂移,故本文件只消费不定义。
 
 /** 响应式媒体查询,SSR 安全(默认返回 false)。
  *  2026-09-09:useEffect → isomorphic layout effect。
