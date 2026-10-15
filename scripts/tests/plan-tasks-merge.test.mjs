@@ -587,7 +587,8 @@ test('T15 反向锁:裸 argv[indexOf()] 取值不得回来,且取值判据就是
     throw new Error('又回到"把紧邻的下一个 token 当值"的裸取值 —— 本票要修的正是这一格')
   if (!/flagValue\(argv,\s*'--write-to'\)/.test(src))
     throw new Error('main() 没有走取值判据(判据在而无人调用 = 没有,守门 70/76/81 同族)')
-  if (!/export function flagValue/.test(src)) throw new Error('判据未 export ⇒ 测试只能自己抄一份(§22c 禁止)')
+  if (!/export\s*\{\s*flagValue\s*\}/.test(src))
+    throw new Error('判据未从唯一出口 scripts/lib/flag-value.mjs 转出 ⇒ 测试只能自己抄一份(§22c 禁止)')
   // 无效值那一支必须既点名又非零退出,不得静默忽略旗标
   const branch = /if \(wt\.present && !wt\.valid\)\s*\{[\s\S]{0,600}?\n  \}/.exec(src)
   if (!branch) throw new Error('找不到"无效值"那一格拒绝分支(形态变了,本锁需同步)')

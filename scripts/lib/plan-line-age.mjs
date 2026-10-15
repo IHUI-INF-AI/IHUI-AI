@@ -45,6 +45,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch } from './scratch-dir.mjs'
 import { Undetermined, gitBinary, gitErrText } from './face-reader.mjs'
 import { parseTaskRows } from './plan-task-index.mjs'
+import { flagValue } from './flag-value.mjs'
 
 /**
  * 带值旗标的取值(2026-09-28 修 `--limit --staged` 这一型;**口径照抄枚 380431ffc / 636c28f58 /
@@ -55,13 +56,7 @@ import { parseTaskRows } from './plan-task-index.mjs'
  * 本旗标处置与 --output/--spec 不同:**允许退回默认值,但必须大声点名**(一行 `忽略无效的 --limit 值: …`),
  * 不得静默 —— 提示一律走 stderr,因为 `--json` 档的 stdout 是要被 JSON.parse 的。
  */
-export function flagValue(list, flag) {
-  if (!Array.isArray(list) || !list.includes(flag)) return { present: false, valid: false, value: null, token: null }
-  const raw = list[list.indexOf(flag) + 1]
-  const token = typeof raw === 'string' ? raw : null
-  const valid = token !== null && token !== '' && !token.startsWith('-')
-  return { present: true, valid, value: valid ? token : null, token }
-}
+export { flagValue }
 
 /** `--limit` 缺省值(不带该旗标时的既有行为,一字未改)。 */
 export const DEFAULT_LIMIT = 20
