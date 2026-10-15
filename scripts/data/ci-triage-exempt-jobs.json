@@ -1,0 +1,1 @@
+{"_note":"CI 失败自述覆盖面守门(check-ci-failure-triage-wiring.mjs)的具名豁免台账。每条必须带 job 与 reason(§0.7:豁免必须验过才免且会到期;审面不再命中 ⇒ 清单腐烂判红)。","items":[]}
