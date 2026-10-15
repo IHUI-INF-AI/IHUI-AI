@@ -463,6 +463,31 @@
     "subscriptions": "내 구독",
     "settings": "설정"
   },
+  "drawer": {
+    "newChat": "새 작업",
+    "history": "대화 기록",
+    "noHistory": "대화 기록이 없습니다",
+    "swipeHint": "왼쪽으로 밀어 즐겨찾기 / 삭제",
+    "collect": "즐겨찾기",
+    "collected": "즐겨찾기됨",
+    "delete": "삭제",
+    "today": "오늘",
+    "yesterday": "어제",
+    "earlier": "이전",
+    "defaultModel": "기본 모델",
+    "notLoggedIn": "로그인되지 않음",
+    "cancel": "취소",
+    "exit": "로그아웃",
+    "prompt": "알림",
+    "favoriteFailed": "즐겨찾기 작업에 실패했습니다. 다시 시도해 주세요",
+    "groupHot": "인기",
+    "groupAi": "AI",
+    "groupEdu": "교육",
+    "groupTrade": "거래",
+    "groupPromote": "프로모션",
+    "groupPersonal": "개인",
+    "groupCommunity": "커뮤니티"
+  },
   "error": {
     "network": "네트워크 오류"
   },
@@ -776,6 +801,7 @@
     "title": "n8n 모델"
   },
   "modelPlaza": {
+    "officialBadge": "IH",
     "compare": {
       "title": "모델 비교",
       "message": "비교할 모델 2-3개를 선택하세요"
@@ -1565,6 +1591,17 @@
     "placeholder": "강좌, 강사, 콘텐츠 검색",
     "empty": "검색 결과가 없습니다",
     "failed": "검색 실패",
+    "popular": "인기 검색어",
+    "quickSuggestions": [
+      "설정",
+      "프로필",
+      "프로젝트",
+      "대화 기록",
+      "멤버",
+      "워크스페이스",
+      "단축키",
+      "AI 모델"
+    ],
     "type": {
       "course": "강좌",
       "article": "게시글",

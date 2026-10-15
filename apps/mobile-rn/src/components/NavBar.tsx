@@ -39,7 +39,7 @@ export interface NavBarAction {
   /** emoji 字符 / 图片 URL(http:// / / 开头)/ lucide 图标组件引用(统一图标) */
   icon: AppIcon | string
   label?: string
-  /** 仅无障碍名:进 accessibilityLabel,不渲染可见文字(纯图标按钮用) */
+  /** 无障碍朗读标签(纯图标按钮无可见 label 时用它保留语义,2026-10-15 抽屉钮去文字化) */
   a11yLabel?: string
   onPress: () => void
 }
@@ -163,7 +163,9 @@ function NavBarActionButton({ action }: NavBarActionButtonProps) {
       )
     }
     const Icon = action.icon
-    return <Icon size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.secondary} />
+    // 墨迹色对齐 web 顶栏/侧边栏按钮的 text-foreground/80 —— RN 对应档是 text.medium
+    // (亮 #404040 / 暗 #D4D4D4,2026-10-15 用户定:全部 NavBar 侧钮图标统一,整行深浅一致)
+    return <Icon size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
   }
   return (
     <TouchableOpacity
