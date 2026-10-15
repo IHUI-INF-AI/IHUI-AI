@@ -628,6 +628,39 @@ export async function openInGoogleChrome(
  * @returns 实际关掉的 target 数;失败(端口已掉/Chrome 已退)返回 0 —— 关窗是登录成功后的
  *          收尾动作,失败只由调用方记一行 warn,不影响已落地的登录态。
  */
+/**
+ * 在项目内嵌浏览器窗里打开地址(与 Rust `embedded_browser_open` 逐参对齐)。
+ *
+ * 2026-10-16 立:桌面端"浏览器里登录"统一走项目内嵌 WebView2 窗(不再依赖本机
+ * Chrome 与 CDP 端口),同 label 复用已建窗并导航;非桌面环境回落到 window.open。
+ * 失败返回错误文案(与 openInGoogleChrome 同口径:不抛,交给调用方提示)。
+ */
+export async function openEmbeddedBrowser(url: string, title?: string): Promise<string | null> {
+  if (!isTauri()) {
+    window.open(url, '_blank')
+    return null
+  }
+  try {
+    await invokeIpc<null>('embedded_browser_open', { url, title: title ?? null })
+    return null
+  } catch (e) {
+    const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
+    console.warn('[embedded-browser] open failed:', err.code, err.message)
+    return err.message
+  }
+}
+
+/** 关闭项目内嵌浏览器窗(与 Rust `embedded_browser_close` 对齐);窗不存在即静默成功。 */
+export async function closeEmbeddedBrowser(): Promise<void> {
+  if (!isTauri()) return
+  try {
+    await invokeIpc<null>('embedded_browser_close')
+  } catch (e) {
+    const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
+    console.warn('[embedded-browser] close failed:', err.code, err.message)
+  }
+}
+
 export async function closeChromeWindow(port: number, urlPrefix: string): Promise<number> {
   if (!isTauri()) return 0
   try {
@@ -1535,7 +1568,7 @@ export async function checkinCaptureJwts(): Promise<CapturedTraeAccount[]> {
 export interface CapturedQoderSession {
   app_dir: string
   /** 展示名(手机→邮箱→账号→昵称,2026-10-15) */
-  nickname?: string
+  nickname: string
   /** "cn" | "intl" */
   edition: string
   uid: string
@@ -1648,13 +1681,13 @@ export const WB_WEB_LOGIN_URL =
   `&redirect_uri=${encodeURIComponent('https://www.workbuddy.cn/')}`
 
 /**
- * 轮询探测(浏览器扫码版,2026-10-15):`port` 来自 `openInGoogleChrome` 返回的
- * CDP 端口;Rust 侧 CDP WebSocket 读 Chrome cookie jar(workbuddy.cn 域族)→
- * 服务端验证登录态并取账号。内嵌 WebView 弹窗 open/close 已废弃,不再有独立命令。
+ * 轮询探测(内嵌浏览器版,2026-10-16):读项目内嵌浏览器登录窗 cookie jar
+ * (`cookies_for_url`,含 HttpOnly)→ 服务端 `/console/accounts` 验证登录态并取账号。
+ * 窗口由 `embedded_browser_open` 建立,Rust 侧按 `BROWSER_LABEL` 取窗,无需前端传端口。
  */
-export async function checkinWorkbuddyWebLoginProbe(port: number): Promise<WorkbuddyWebLoginProbe> {
+export async function checkinWorkbuddyWebLoginProbe(): Promise<WorkbuddyWebLoginProbe> {
   requireTauri()
-  return await invokeIpc<WorkbuddyWebLoginProbe>('checkin_workbuddy_web_login_probe', { port })
+  return await invokeIpc<WorkbuddyWebLoginProbe>('checkin_workbuddy_web_login_probe', {})
 }
 
 /** 十四层设备标识重置;includeMachineGuid=true 额外尝试注册表 MachineGuid(需 UAC);
@@ -1684,6 +1717,32 @@ export async function checkinResetDeviceIds(
 export async function checkinOneClickReset(): Promise<CheckinResetReport> {
   requireTauri()
   return await invokeIpc<CheckinResetReport>('checkin_one_click_reset')
+}
+
+/** 全平台聚合一键重置单平台摘要(与 Rust `OneClickPlatformSummary` 对齐;
+ *  executed=false = 本机未装/无特征目录,照实 skipped)。 */
+export interface CheckinOneClickPlatformSummary {
+  platform: 'trae' | 'qoder' | 'workbuddy' | 'minimax'
+  executed: boolean
+  ok: boolean
+  detail: string
+}
+
+/** 一键解决风控·全平台聚合报告(与 Rust `OneClickAllReport` 对齐,2026-10-16):
+ *  TRAE 14 层 + Qoder/WorkBuddy/MiniMax 登出重置;未安装平台 skipped 不拦流程。 */
+export interface CheckinOneClickAllReport {
+  trae: CheckinResetReport
+  qoder: { layers: CheckinResetLayerReport[] } | null
+  workbuddy: { layers: CheckinResetLayerReport[] } | null
+  minimax: { layers: CheckinResetLayerReport[] } | null
+  platforms: CheckinOneClickPlatformSummary[]
+}
+
+/** 一键解决风控·全平台聚合(2026-10-16):TRAE 14 层 + Qoder/WorkBuddy/MiniMax 登出重置
+ *  (强杀进程+登录态隔离+设备身份隔离,本地清除→应用自行重新注册)。 */
+export async function checkinOneClickResetAll(): Promise<CheckinOneClickAllReport> {
+  requireTauri()
+  return await invokeIpc<CheckinOneClickAllReport>('checkin_one_click_reset_all')
 }
 
 /** 一键解决风控 Step1.5(2026-10-10 立):拿"重置前记录的旧身份值黑名单"回扫当前

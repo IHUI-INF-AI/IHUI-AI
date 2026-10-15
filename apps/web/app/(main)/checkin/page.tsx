@@ -92,14 +92,13 @@ import {
   checkinCaptureQoder,
   checkinCaptureWorkbuddy,
   checkinCaptureMinimax,
-  closeChromeWindow,
-  openInGoogleChrome,
-  WB_WEB_LOGIN_ORIGIN,
+  closeEmbeddedBrowser,
+  openEmbeddedBrowser,
   WB_WEB_LOGIN_URL,
   checkinWorkbuddyWebLoginProbe,
   checkinDetectTraeDir,
   checkinGetPublicIp,
-  checkinOneClickReset,
+  checkinOneClickResetAll,
   checkinResetDeviceIds,
   checkinSnapshotBackup,
   checkinSnapshotDelete,
@@ -230,19 +229,20 @@ export default function CheckinPage() {
   const [wbCapturedSelected, setWbCapturedSelected] = React.useState<Set<string>>(new Set())
   const [wbTokenDrafts, setWbTokenDrafts] = React.useState<Record<string, string>>({})
 
-  // WorkBuddy 网页登录(2026-10-15 浏览器扫码版,普通用户零 token):
-  // openInGoogleChrome 开真 Chrome 窗口(CDP 端口返回)→ 轮询 probe(port)
-  // (ok=已登录,Cookie 由 Rust 走 CDP WebSocket 读浏览器 cookie jar 并服务端验证)
+  // WorkBuddy 网页登录(2026-10-16 内嵌浏览器版,普通用户零 token):
+  // openEmbeddedBrowser 开项目内嵌浏览器窗口(完整浏览器形态)→ 轮询 probe()
+  // (ok=已登录,Cookie 由 Rust 读内嵌窗 cookie jar[cookies_for_url,含 HttpOnly]并服务端验证)
   // → 自动入库(device_map.login_type='web',jwt 字段=Cookie 串加密落库)→ 收尾关窗。
-  // 2026-10-12 初版是内嵌 WebView 弹窗;用户拍板改「浏览器扫码」形态后废弃
-  // (默认浏览器 Cookie 库走 App-Bound Encryption 拿不回登录态,CDP 不受此限)。
+  // 演进:2026-10-12 初版内嵌 WebView 弹窗 → 2026-10-15 改「外部 Chrome 扫码」形态(CDP 回收)
+  // → 2026-10-16 用户拍板回归「项目内嵌浏览器」(参照 Trae/Qoder 内嵌浏览器,窗口升级为完整浏览器)。
   // 保留三条出口:① waiting 态「取消」(停轮询 + 关浏览器登录窗 + 复位);
   // ② 90s 仍无登录态 ⇒ 提示确认登录(不自动关窗,用户可能在登录途中);
   // ③ probe 连续 3 次 IPC error ⇒ 停止轮询并如实告知,不再无限空转。
   const wbWebLoginTimer = React.useRef<ReturnType<typeof setInterval> | null>(null)
   const wbWebLoginSlowTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const wbWebLoginProbeErrors = React.useRef(0)
-  const wbWebLoginPort = React.useRef<number | null>(null)
+  /** 登录流程是否仍在等待(取消/各出口置 false;轮询 tick 据此停止)。 */
+  const wbWebLoginActive = React.useRef(false)
   const [wbWebLoginState, setWbWebLoginState] = React.useState<
     'idle' | 'waiting' | 'importing' | 'done' | 'closed'
   >('idle')
@@ -261,15 +261,14 @@ export default function CheckinPage() {
   }, [])
 
   // 收尾:关闭浏览器里的 WorkBuddy 登录窗(尽力而为,失败不影响已导入的登录态)
-  const closeWbBrowserWindow = React.useCallback((port: number) => {
-    void closeChromeWindow(port, WB_WEB_LOGIN_ORIGIN).catch(() => {})
+  const closeWbBrowserWindow = React.useCallback(() => {
+    void closeEmbeddedBrowser()
   }, [])
 
-  // 取消网页登录(改主意时唯一的出口):停轮询 → 关浏览器登录窗 → 复位状态。
+  // 取消网页登录(改主意时唯一的出口):停轮询 → 关内嵌浏览器登录窗 → 复位状态。
   const cancelWbWebLogin = React.useCallback(() => {
+    closeWbBrowserWindow()
     stopWbWebLoginPoll()
-    if (wbWebLoginPort.current !== null) closeWbBrowserWindow(wbWebLoginPort.current)
-    wbWebLoginPort.current = null
     setWbWebLoginState('closed')
     setWbWebLoginMsg(t('captureWbWebCancelled'))
   }, [closeWbBrowserWindow, stopWbWebLoginPoll, t])
@@ -637,14 +636,13 @@ export default function CheckinPage() {
     // 改开 WB_WEB_LOGIN_URL(/login/ 真实登录页,扫码/账号密码),关窗前缀仍用 origin。
     // 2026-10-15 二修(用户反馈"打开的窗口不是完整的浏览器窗口"):'window' 档 = 完整 Chrome
     // 窗口(地址栏 + 标签栏),不再是 --app 无边框应用窗;CDP 回收登录态不受窗口形态影响。
-    const opened = await openInGoogleChrome(WB_WEB_LOGIN_URL, 'window')
-    if (typeof opened !== 'number') {
-      wbWebLoginPort.current = null
+    const openErr = await openEmbeddedBrowser(WB_WEB_LOGIN_URL, '登录 WorkBuddy')
+    if (openErr) {
       setWbWebLoginState('closed')
-      setWbWebLoginMsg(typeof opened === 'string' ? opened : t('captureWbWebOpenFailed'))
+      setWbWebLoginMsg(openErr || t('captureWbWebOpenFailed'))
       return
     }
-    wbWebLoginPort.current = opened
+    wbWebLoginActive.current = true
     stopWbWebLoginPoll()
     wbWebLoginProbeErrors.current = 0
     // 90s 仍无登录态 ⇒ 用户可能还没在浏览器完成登录(或网络不通)。
@@ -654,11 +652,10 @@ export default function CheckinPage() {
       setWbWebLoginMsg(t('captureWbWebSlowHint'))
     }, 90_000)
     const tick = async (): Promise<boolean> => {
-      const port = wbWebLoginPort.current
-      if (port === null) return true // 已被取消/复位
+      if (!wbWebLoginActive.current) return true // 已被取消/复位
       let probe: Awaited<ReturnType<typeof checkinWorkbuddyWebLoginProbe>>
       try {
-        probe = await checkinWorkbuddyWebLoginProbe(port)
+        probe = await checkinWorkbuddyWebLoginProbe()
         wbWebLoginProbeErrors.current = 0
       } catch {
         // IPC 连续 3 次异常(而非瞬时抖动)⇒ 停止轮询如实告知,不再无限空转
@@ -678,9 +675,9 @@ export default function CheckinPage() {
         return false
       }
       stopWbWebLoginPoll()
+      wbWebLoginActive.current = false
       if (probe.status === 'no_window') {
-        // 用户关掉了浏览器登录窗(或调试端口失效)
-        wbWebLoginPort.current = null
+        // 用户关掉了内嵌浏览器登录窗
         setWbWebLoginState('closed')
         setWbWebLoginMsg(t('captureWbWebWindowClosed'))
         return true
@@ -707,16 +704,16 @@ export default function CheckinPage() {
           failures.push(`${acc.nickname || acc.uid}: ${(e as Error).message}`)
         }
       }
-      // 收尾:关掉浏览器里的登录窗(尽力而为);失败路径也关,避免残留
-      if (wbWebLoginPort.current !== null) closeWbBrowserWindow(wbWebLoginPort.current)
-      wbWebLoginPort.current = null
+      // 收尾:关掉内嵌浏览器里的登录窗(尽力而为);失败/成功路径都关,避免残留
       if (failures.length > 0) {
         setWbWebLoginState('closed')
         setWbWebLoginMsg(failures.join('；'))
+        closeWbBrowserWindow()
         return true
       }
       setWbWebLoginState('done')
       setWbWebLoginMsg('')
+      closeWbBrowserWindow()
       setWbCaptureOpen(false)
       setBatchNotice(
         probe.cookie_checkin_ok === false
@@ -796,13 +793,15 @@ export default function CheckinPage() {
     }
   }
 
-  // 一键解决风控 Step1:全 14 层彻底重置,成功即进 Step2(IP 采集失败不回退,
+  // 一键解决风控 Step1(2026-10-16 全平台聚合):TRAE 14 层 + Qoder/WorkBuddy/MiniMax
+  // 登出重置(未安装平台照实 skipped),成功即进 Step2(IP 采集失败不回退,
   // 防止"重置已完成却显示可再点按钮"引发二次重置;基准 IP 可在 Step2 内重取)
   const startOneClickReset = async () => {
     setWizardBusy(true)
     setWizardMsg([])
     try {
-      const report = await checkinOneClickReset()
+      const all = await checkinOneClickResetAll()
+      const report = all.trae
       const okCount = report.layers.filter((l) => l.ok).length
       const fails = report.layers.filter((l) => !l.ok)
       setWizardIpFailCount(0)
@@ -811,8 +810,22 @@ export default function CheckinPage() {
       // 杜绝"非可选层挂了还说不影响"的误导(2026-10-11 UX 修正)。
       const critical = fails.some((l) => ![5, 7, 13].includes(l.layer))
       setWizardCriticalFail(critical)
+      // 全平台摘要:TRAE 之外的三平台逐行透出(executed/ok/skipped 照实)
+      const platformLines = all.platforms.map((p) => {
+        const label =
+          p.platform === 'qoder'
+            ? 'Qoder'
+            : p.platform === 'workbuddy'
+              ? 'WorkBuddy'
+              : p.platform === 'minimax'
+                ? 'MiniMax'
+                : 'TRAE'
+        if (!p.executed) return `${label}: ${p.detail}`
+        return `${label}: ${p.ok ? '✅' : '❌'} ${p.detail}`
+      })
       setWizardMsg([
         t('wizardResetDone', { ok: okCount, total: report.layers.length }),
+        ...platformLines,
         ...fails.map((l) => `${l.name}: ${l.detail}`),
       ])
       try {
@@ -1806,7 +1819,7 @@ export default function CheckinPage() {
                             {renderJwtBadge(account.jwt_exp)}
                             {renderCooldownBadge(account.cooldown_until)}
                           </div>
-                          {/* Fallback slot for the 最近签到 column: strictly complementary to that column's visibility, never duplicated nor lost. See globals.css .checkin-page block. */}
+                          {/* Fallback slot for the last-checkin column: strictly complementary to that column's visibility, never duplicated nor lost. See globals.css .checkin-page block. */}
                           <div className="checkin-name-last-checkin mt-1 text-[10px] text-muted-foreground">
                             {account.last_record
                               ? `${renderResult(account.last_record.ok)} · ${formatTime(account.last_record.created_at)}`
@@ -1892,7 +1905,7 @@ export default function CheckinPage() {
                               {checkingId === account.id && (
                                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                               )}
-                              {/* ≤459 内容区由容器查询隐藏文字,只剩图标;可访问名走 aria-label */}
+                              {/* Label hidden below 459px content width by container query; accessible name comes from aria-label */}
                               <span className="checkin-manual-label">
                                 {checkingId === account.id ? t('checking') : t('manualCheckin')}
                               </span>

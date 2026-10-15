@@ -24,6 +24,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { cpSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as G } from '../git-guardian.mjs'
@@ -492,6 +493,75 @@ test('⑮ --bare-audit-report 与 status().bareAudit 必须真在链上,零记�
   assert.match(capped, /另有 \d+ 条只被时间窗/, '截断必须报名,不得静默少打(静默截断与"没有嫌疑人"同形)')
   assert.match(capped, /↳ git\.exe/, '规则①的精确嫌疑必须无条件打印')
   assert.match(capped, /D:\/IHUI-AI-git-repo config core\.bare true/)
+})
+
+// ── ⑯⑰⑱ G-111 机主拍板出路②的后半格:归一那一刻必须落"前后 config 全文哈希" ──
+// 只看 `core.bare` 一个键看不见写入者还动了谁;SACL 那条机器级路被机主否了,邻居名单只能自己留。
+test('⑯ configFingerprint 三态:有 config ⇒ 64 位全文哈希 + 字节数;取不到 ⇒ null 并给原因(绝不折成空哈希)', () => {
+  const f = fixture()
+  try {
+    const bytes = readFileSync(join(f.gitdir, 'config'))
+    const want = createHash('sha256').update(bytes).digest('hex')
+    const fp = G.configFingerprint(f.gitdir)
+    assert.equal(fp.sha256, want, '必须是**文件全文**的 sha256,不是 core.bare 值的回声')
+    assert.equal(fp.bytes, bytes.length, '字节数要一起给(便于比对写入长度)')
+    const none = G.configFingerprint(join(f.dir, 'no-such-gitdir'))
+    assert.equal(none.sha256, null, '取不到必须 null —— 空串哈希会把"没读到"写成"读到的是空文件"')
+    assert.ok(typeof none.reason === 'string' && none.reason.length > 0, '未判定必须点名原因')
+    assert.equal(G.configFingerprint(null).sha256, null, 'gitdir 传空也不得抛,交三态承接')
+  } finally {
+    rmScratch(f.dir)
+  }
+})
+
+test('⑰ 归一那行日志必须自带前后两个全文哈希,且翻车侧必然 before≠after(true→false 改了文本)', () => {
+  const f = fixture()
+  const lines = []
+  const origLog = console.log
+  let beforeSha = null
+  try {
+    gitAt(['--git-dir', f.gitdir, 'config', 'core.bare', 'true'], null)
+    beforeSha = G.configFingerprint(f.gitdir).sha256
+    console.log = (...a) => lines.push(a.join(' '))
+    G.healWorktreeBare({
+      gitdir: f.gitdir,
+      backup: f.backup,
+      probeUsable: () => true,
+      captureAudit: () => null,
+    })
+  } finally {
+    console.log = origLog
+    rmScratch(f.dir)
+  }
+  const line = lines.find((l) => l.includes('core.bare 归一为 false'))
+  assert.ok(line, '归一日志行没出现 ⇒ 本臂无从可验(夹具坏了,不许当通过)')
+  const m = /config 全文哈希 live ([0-9a-f]{64}|未判定)→([0-9a-f]{64}|未判定)/.exec(line)
+  assert.ok(m, `日志行必须带 live 侧前后两个 64 位全文哈希,实得:${line.slice(0, 220)}`)
+  assert.notEqual(m[1], '未判定', '活仓库侧 config 在场,不该落到未判定档')
+  assert.notEqual(m[2], '未判定', '写回之后仍要读得到(读不到=这一档没落地)')
+  assert.notEqual(m[1], m[2], 'true→false 一定改了 config 文本,前后相等=这行是抄的')
+  assert.equal(m[1], beforeSha, 'before 必须等于动手前那份文件全文哈希(取材单源,不是日志行自己另算一套)')
+})
+
+test('⑱ 取证 json 那一侧也带全文哈希:bareAuditSide 的 configSha256 与自算等值,读不到时进 undetermined 而非留空', () => {
+  const f = fixture()
+  try {
+    const side = G.bareAuditSide(f.gitdir)
+    assert.equal(
+      side.configSha256,
+      createHash('sha256').update(readFileSync(join(f.gitdir, 'config'))).digest('hex'),
+      '取证侧的全文哈希必须与文件逐字节等值 —— 嫌疑人比对靠它',
+    )
+    assert.ok(Number.isFinite(side.configBytes) && side.configBytes > 0)
+    const missing = G.bareAuditSide(join(f.dir, 'no-such-gitdir'))
+    assert.equal(missing.configSha256, null)
+    assert.ok(
+      missing.undetermined.some((u) => /config 全文哈希未判定/.test(u)),
+      '读不到必须逐条点名进 undetermined(§0.3),不得静默留 null 当"没有改动"',
+    )
+  } finally {
+    rmScratch(f.dir)
+  }
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

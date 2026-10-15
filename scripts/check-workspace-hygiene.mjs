@@ -9,6 +9,10 @@
  *
  * 7 大漏洞修复(2026-07-23 v2):
  *   1. 覆盖范围:从只扫 .ihui-agent/tmp/ → 扫整个项目 working tree(排除 node_modules/.git/dist/.output/.next/turbo)
+ *      〔v3 更正@2026-10-16(台账票「门 25 全量档把别人工具的缓存算成项目违规」)〕全量档不再走磁盘递归:面 = **在册文件**(`git ls-files --cached`)
+ *      ∪ `.ihui-agent/tmp/`。磁盘递归会把 `.gitignore` 内别人工具的缓存(实测 `.DevEnv/…/.codex/`
+ *      三条)算成违规,而那类红与任何提交内容无关、会话也无法让它变绿 ⇒ §12e 恒红门。
+ *      `--staged` 档不变(仍只扫本次暂存集)。
  *   2. 模式匹配:从只检测 ihui-ext/ihui-prof → 检测所有盘符 \temp\ 项目数据 + \AppData\ + 中文绝对路径
  *   3. 阻塞模式:默认 exit 1(阻塞 commit),--warn 降级为 warn-only
  *   4. pre-commit 用 --staged 模式:只扫 staged 文件,避免误报其他 agent 的 WIP
@@ -43,6 +47,7 @@ import { join, resolve, relative, extname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execSync } from 'node:child_process';
 import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs';
+import { gitRaw } from './lib/face-reader.mjs';
 import { createLogger } from './lib/logger.mjs';
 import { flagValue } from './lib/flag-value.mjs';
 
@@ -66,6 +71,9 @@ const log = createLogger();
 const _rootIdx = process.argv.indexOf('--root');
 const _rootArg = _rootIdx > -1 ? process.argv[_rootIdx + 1] : null;
 const ROOT = _rootArg ? resolve(_rootArg) : resolve(fileURLToPath(new URL('../', import.meta.url)));
+// 显式 --root = 测试通道(那棵树多半不是 git 仓,谈不上"在册面"),仍走磁盘递归;
+// 不带它(生产链/全量审计)才走下面的在册面。两档共用同一套判据,只有取材清单不同。
+const EXPLICIT_ROOT = Boolean(_rootArg);
 
 // ===== 文件类型 =====
 const SCRIPT_EXTS = new Set(['.ps1', '.py', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.sh', '.bat', '.json', '.yaml', '.yml']);
@@ -233,6 +241,35 @@ function getStagedFiles() {
   }
 }
 
+/**
+ * 全量档取材面(AGENTS §0.4 同面同轮):版本控制在册文件 ∪ 本仓自己的暂存落点 `.ihui-agent/tmp/`。
+ *
+ * 为什么不再走磁盘递归:递归会把 `.gitignore` 内**别人工具的缓存**当项目源码扫 —— 实测
+ * `.DevEnv/cache/userhome/.codex/**\/browser-service.mjs` 三条恒命中"相对路径跳出项目",
+ * 而那些文件由 Codex 每次启动重写,任何会话都无法使其变绿。与提交内容无关的红门唯一结局是
+ * 逼人 `--no-verify`、连带废掉全部守门(§12e/§12f)。
+ * 射程没有缩小:在册源文件全在面内,§25 的临时脚本落点 `.ihui-agent/tmp/` 仍单独并入。
+ */
+const FULL_FACE_GIT_ARGS = Object.freeze(['ls-files', '--cached', '-z']);
+const TMP_LANDING_DIR = join(ROOT, '.ihui-agent', 'tmp');
+
+function getFullFaceFiles() {
+  let raw;
+  try {
+    raw = gitRaw(FULL_FACE_GIT_ARGS, ROOT);
+  } catch (e) {
+    return { ok: false, reason: `git ls-files 取不到被审面:${e?.message ?? e}` };
+  }
+  const tracked = String(raw).split('\0').filter(Boolean)
+    .filter(f => SCRIPT_EXTS.has(extname(f).toLowerCase()))
+    .map(f => join(ROOT, f));
+  if (tracked.length === 0) {
+    // §0.3:枚举到 0 个候选判死不记绿
+    return { ok: false, reason: '在册文件清单枚举结果为 0 个脚本文件(判不出"没有违规",只判"没量到")' };
+  }
+  return { ok: true, files: [...tracked, ...scanDir(TMP_LANDING_DIR)], trackedCount: tracked.length };
+}
+
 function main() {
   const args = process.argv.slice(2);
   const isStaged = args.includes('--staged');
@@ -245,8 +282,16 @@ function main() {
       log.info('✅ workspace-hygiene: 无 staged 脚本文件,跳过');
       process.exit(0);
     }
-  } else {
+  } else if (EXPLICIT_ROOT) {
+    // 测试通道:显式指定的树不是 git 仓,沿用磁盘递归(判据本体不变)
     filesToScan = scanDir(ROOT);
+  } else {
+    const face = getFullFaceFiles();
+    if (!face.ok) {
+      log.error(`❌ workspace-hygiene: 未判定(取材失败)—— ${face.reason}`);
+      process.exit(2);
+    }
+    filesToScan = face.files;
   }
 
   const allViolations = [];
@@ -327,5 +372,9 @@ export const __test__ = {
   VIOLATION_CHECKS,
   isLineWhitelisted,
   scanFile,
+  // 全量档取材面的形状锁(镜像测试据此判"有没有把未入库/被忽略的文件重新扫进面内")
+  FULL_FACE_GIT_ARGS,
+  TMP_LANDING_DIR,
+  getFullFaceFiles,
 };
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

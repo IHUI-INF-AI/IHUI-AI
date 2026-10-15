@@ -209,4 +209,38 @@ test('T6 反向对照:盘上无嵌套 ref 且清单缺席 ⇒ ok(不得给干净
     rmScratch(f.dir)
   }
 })
+
+// ── T7-T9(2026-10-16 立):"面问不到"必须有自己的名字,不得折成"清单里 N 个全部缺失" ──
+// 立因:git() 缺省 maxBuffer=1MiB,而本仓 for-each-ref 现读 2,321,794 字节 ⇒ 必然 ENOBUFS ⇒
+// allowFail 吞成 null ⇒ currentRefs 返回 {} ⇒ 守护每 2 分钟报"7149 个缺失"并按清单去撒数千枚松散
+// ref(实测日志 1318 条"自愈失败")。同一时刻逐条对账证明 7149 枚 ref 一枚没少。
+test('T7 判据三态:faceReadable=false ⇒ 未判定,既不报"缺失 N 个"也不记绿(§0.3 两头都不许)', () => {
+  const j = G.judgeRefsHealth
+  const r = j({ manifestCount: 7149, visibleNestedCount: 0, missingCount: null, faceReadable: false })
+  assert.equal(r.ok, false, '面取不到不得记绿')
+  assert.equal(r.reason, 'face-unreadable', `必须走"面取不到"这一档,实得 ${r.reason}`)
+  assert.equal(r.missingCount, 0, '"未判定"不得把整张清单的数量报成缺失 —— 那正是假告警的形态')
+  // 反向对照:缺省(面可读)时既有四态逐字不变,不给干净机器造恒红(§12e)
+  assert.equal(j({ manifestCount: 7149, visibleNestedCount: 0, missingCount: 0 }).reason, 'ok')
+  assert.equal(j({ manifestCount: 7149, visibleNestedCount: 0, missingCount: 3 }).reason, 'missing')
+})
+
+test('T8 装车锁:取材三处都必须接住 null,溢出型失败不得再被读成"面上没有 ref"', () => {
+  assert.match(fnBody('currentRefs'), /if \(out === null\) return null/, 'currentRefs 必须把"问不到"与"没有"分开')
+  assert.match(fnBody('missingRefs'), /if \(cur === null\) return null/, 'missingRefs 不得在面上空转时把整张清单报成缺失')
+  assert.match(fnBody('healRefs'), /cur === null/, 'healRefs 必须挡 null(否则按清单撒数千枚松散 ref)')
+  assert.match(fnBody('refsVerdict'), /faceReadable/, 'refsVerdict 必须把未判定信号交给 judgeRefsHealth(判据改了调用点没改 = 生效 0 次)')
+  assert.match(fnBody('git'), /maxBuffer: GIT_ENUM_MAX_BUFFER/, '整表枚举的预算必须在唯一出口给,不许散到调用点')
+  assert.ok(SRC.includes('GIT_ENUM_MAX_BUFFER = '), '预算常量必须存在且有名')
+})
+
+test('T9 措辞分流:face-unreadable 在 --check 与守护日志里都不许被印成"个缺失"', () => {
+  assert.ok(SRC.includes("refsReason === 'face-unreadable'"), 'anomaly/tick 措辞必须按这一档分流')
+  assert.ok(SRC.includes("before.refsReason === 'face-unreadable'"), '--check 措辞必须按这一档分流')
+  const checkBlock = SRC.slice(SRC.indexOf('if (CHECK_ONLY)'), 2400)
+  assert.ok(
+    !/嵌套 ref 异常\(未修复,--check 模式\):\$\{before\.refsMissing/.test(checkBlock.split("'face-unreadable'")[1] || ''),
+    '"个缺失"那一支必须排在 face-unreadable 之后,否则未判定仍被印成缺失',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
