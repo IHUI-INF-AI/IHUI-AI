@@ -22,7 +22,6 @@ import assert from 'node:assert/strict'
 import { spawnSync, execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 // 夹具唯一落点(AGENTS §26 / §15b):新增用例一律落 DevEnv 临时根,不再往 os.tmpdir() 写。
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -692,7 +691,7 @@ describe('--output 的取值(带值旗标不得吞掉相邻旗标)', () => {
       /argv\[\s*outputIdx\s*\+\s*1\s*\]/,
       '旧写法 process.argv[outputIdx + 1] 不得回来(它是本判据要防的形态)',
     )
-    assert.match(code, /function\s+flagValue\s*\(/, '唯一取值出口必须在位')
+    assert.match(code, /import\s*\{\s*flagValue\s*\}\s*from\s*'\.\/lib\/flag-value\.mjs'/, '取值判据从唯一出口 scripts/lib/flag-value.mjs 单源引入(§22c)')
     assert.match(code, /flagValue\(\s*process\.argv\.slice\(2\)\s*,\s*'--output'\s*\)/, '站点必须走出口')
     assert.match(code, /outputFlag\.present\s*&&\s*!outputFlag\.valid/, '拒绝分支必须挂在"旗标在场而值无效"上')
   })

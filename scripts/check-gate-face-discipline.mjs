@@ -59,6 +59,7 @@ import {
   scanLiterals,
   scanSpans,
 } from './lib/code-mask.mjs'
+import { flagValue } from './lib/flag-value.mjs'
 
 export { blankByMask, blankStrings, maskComments, regexCanStart, scanLiterals, scanSpans }
 // 遮噪**不复用** `check-compaction-denominator.mjs` 的 `markHidden`:那一档连字符串一起抹,
@@ -521,14 +522,7 @@ export function analyze(root, face) {
  * **口径照抄枚 380431ffc / 636c28f58 / 8832e73a4,不另发明**):紧邻的下一个 token 必须
  * **存在、非空且不以 `-` 开头**,才算该旗标的值。
  */
-export function flagValue(list, flag) {
-  if (!Array.isArray(list) || !list.includes(flag))
-    return { present: false, valid: false, value: null, token: null }
-  const raw = list[list.indexOf(flag) + 1]
-  const token = typeof raw === 'string' ? raw : null
-  const valid = token !== null && token !== '' && !token.startsWith('-')
-  return { present: true, valid, value: valid ? token : null, token }
-}
+export { flagValue }
 
 /**
  * `--root` 的取值 + 「判不出」的报告形态(2026-09-28 修;**只改形态,判据一字未动**)。
