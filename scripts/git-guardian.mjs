@@ -323,6 +323,13 @@ function syncGitMeta() {
  */
 const GIT_SAFE_ARGS = ['-c', 'safe.directory=*']
 
+/**
+ * 守护派生 git 的输出预算(256MB)。取名而不逐点写数字:`for-each-ref` 这类**整表枚举**的输出
+ * 体积随 tag 数长(本仓现读 2.3MB,而 `lost-commit/*`+`backup/*` 只会越来越多),任何写死在
+ * 调用点的数字都会随时间腐烂成一条假告警。
+ */
+const GIT_ENUM_MAX_BUFFER = 256 * 1024 * 1024
+
 function git(args, allowFail = false) {
   const bin = resolveGitBin()
   if (!bin) {
@@ -336,6 +343,12 @@ function git(args, allowFail = false) {
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 180000,
       windowsHide: true,
+      // 2026-10-16 立:缺省 maxBuffer = 1MiB,而 `for-each-ref refs/heads refs/tags refs/remotes`
+      // 在本仓现读 2,321,794 字节(23,695 条)⇒ 必然 ENOBUFS。allowFail 那一支把它吞成 null,
+      // 于是"读不到 ref 面"在账面长成"清单里 7149 个 ref 全部缺失"——守护每 2 分钟据此自我修复
+      // 一次(按清单撒 7149 枚松散 ref 再 pack),而盘上 ref 其实一枚没少。
+      // 与门 99 那次同族:**缓冲区溢出不是"没有",它必须有自己的名字**(见 currentRefs 的 null 档)。
+      maxBuffer: GIT_ENUM_MAX_BUFFER,
     }).trim()
   } catch (e) {
     if (allowFail) return null
@@ -1140,7 +1153,11 @@ function readRefsManifest() {
   }
 }
 
-/** 当前全部 ref(name → sha),含 packed 与松散 */
+/**
+ * 当前全部 ref(name → sha),含 packed 与松散。
+ * **三态**:`{}` = 面上真的没有 ref(判过);`null` = 这一面问不到(子进程失败/输出溢出)⇒ 未判定。
+ * 把后者折成前者,就是"7149 个 ref 全部缺失"这类假告警的成因(见 git() 里 maxBuffer 那条注)。
+ */
 function currentRefs() {
   const out = git(
     [
@@ -1153,6 +1170,7 @@ function currentRefs() {
     true,
   )
   const map = {}
+  if (out === null) return null
   if (!out) return map
   for (const line of out.split('\n')) {
     const [ref, sha] = line.trim().split(/\s+/)
@@ -1164,6 +1182,7 @@ function currentRefs() {
 /** 清单中解析不到(或值与清单不符)的 ref;移动型 remote HEAD 由 lib 统一放过(见 refExpectationSatisfied) */
 function missingRefs() {
   const cur = currentRefs()
+  if (cur === null) return null // 面问不到 ⇒ 未判定,不得把整张清单报成"缺失"
   return Object.entries(readRefsManifest())
     .filter(([ref, sha]) => !refExpectationSatisfied(ref, sha, cur[ref]))
     .map(([ref]) => ref)
@@ -1223,6 +1242,10 @@ function fetchHeadMain() {
  */
 function healRefs() {
   const cur = currentRefs()
+  if (cur === null) {
+    log('  ⚠️ ref 面取不到(for-each-ref 未产出)⇒ 本轮**不重建**:按清单撒数千枚松散 ref 是把"读不到"当"被删了"来治,方向反了')
+    return false
+  }
   const map = readRefsManifest()
   let learned = 0
   for (const [ref, sha] of Object.entries(cur)) {
@@ -1313,12 +1336,23 @@ function healRefs() {
  * `manifestCount` 取不到(非有限数)一律落 `undetermined` 并判不健康,绝不记为通过
  * (本仓"把没判写成判过了"同一条禁令);healRefs() 只做学习/追加,判不出时调它是无害方向。
  */
-export function judgeRefsHealth({ manifestCount, visibleNestedCount, missingCount } = {}) {
+export function judgeRefsHealth({ manifestCount, visibleNestedCount, missingCount, faceReadable = true } = {}) {
   const mc = Number(manifestCount)
   const vc = Number(visibleNestedCount)
   const ms = Number(missingCount)
   if (!Number.isFinite(mc) || mc < 0) {
     return { ok: false, reason: 'undetermined', manifestCount: null, visibleNestedCount: 0, missingCount: 0 }
+  }
+  // 面问不到(ref 那一侧读不出来)⇒ 未判定。**绝不**折成"清单里 mc 个全部缺失":那既报假红,
+  // 又会让 healRefs 按清单去撒数千枚松散 ref(把读不到当被删了治)。也不折成 ok:§0.3 两头都不许。
+  if (faceReadable === false) {
+    return {
+      ok: false,
+      reason: 'face-unreadable',
+      manifestCount: mc,
+      visibleNestedCount: Number.isFinite(vc) && vc > 0 ? vc : 0,
+      missingCount: 0,
+    }
   }
   const visible = Number.isFinite(vc) && vc > 0 ? vc : 0
   const missing = Number.isFinite(ms) && ms > 0 ? ms : 0
@@ -1332,9 +1366,10 @@ export function judgeRefsHealth({ manifestCount, visibleNestedCount, missingCoun
     : { ok: true, reason: 'ok', manifestCount: mc, visibleNestedCount: visible, missingCount: 0 }
 }
 
-/** 盘上当前可见的嵌套 ref 个数(只在清单为空这一支量,避免热路径多一次 for-each-ref) */
+/** 盘上当前可见的嵌套 ref 个数(只在清单为空这一支量,避免热路径多一次 for-each-ref);null = 面问不到 */
 function visibleNestedRefCount() {
   const cur = currentRefs()
+  if (cur === null) return null
   let n = 0
   for (const ref of Object.keys(cur)) if (isNestedRef(ref)) n++
   return n
@@ -1344,9 +1379,20 @@ function visibleNestedRefCount() {
 function refsVerdict() {
   const manifestCount = Object.keys(readRefsManifest()).length
   if (manifestCount === 0) {
-    return judgeRefsHealth({ manifestCount, visibleNestedCount: visibleNestedRefCount() })
+    const visible = visibleNestedRefCount()
+    return judgeRefsHealth({
+      manifestCount,
+      visibleNestedCount: visible === null ? 0 : visible,
+      faceReadable: visible !== null,
+    })
   }
-  return judgeRefsHealth({ manifestCount, visibleNestedCount: 0, missingCount: missingRefs().length })
+  const missing = missingRefs()
+  return judgeRefsHealth({
+    manifestCount,
+    visibleNestedCount: 0,
+    missingCount: missing === null ? null : missing.length,
+    faceReadable: missing !== null,
+  })
 }
 
 function refsOk() {
@@ -3597,7 +3643,9 @@ function anomalyLine(h) {
         ? ` | 嵌套 ref 清单未 bootstrap(盘上 ${h.refsNestedVisible || 0} 个 depth>=2 引用无人看守,本轮离线学习)`
         : h.refsReason === 'undetermined'
           ? ' | 嵌套 ref 清单取不到(未判定,不得记为通过)'
-          : ` | 缺失嵌套 ref ${(h.refsMissing || []).length} 个`
+          : h.refsReason === 'face-unreadable'
+            ? ' | 嵌套 ref 面取不到(未判定:for-each-ref 未产出,本轮不重建、不报缺失数)'
+            : ` | 缺失嵌套 ref ${(h.refsMissing || []).length} 个`
       : ''
   // 单独点名"裸档"这一型:它让其余四项全绿,却是唯一让全队 git 命令失效的那一格
   const bareHint = h.gitUsable && h.worktreeUsable === false ? ' | core.bare=true(工作树不可用)' : ''
@@ -3998,7 +4046,9 @@ function main() {
           ? `❌ 嵌套 ref 清单未 bootstrap(未修复,--check 模式):盘上 ${before.refsNestedVisible || 0} 个 depth>=2 引用无人看守 —— 跑 node scripts/git-refs-heal.mjs 离线补齐`
           : before.refsReason === 'undetermined'
             ? '❌ 嵌套 ref 清单取不到(未判定,--check 模式不得记为通过)'
-            : `❌ 嵌套 ref 异常(未修复,--check 模式):${(before.refsMissing || []).length} 个缺失`
+            : before.refsReason === 'face-unreadable'
+              ? '❌ 嵌套 ref 面取不到(for-each-ref 未产出 ⇒ 未判定;本轮不报"缺失 N 个",也不按清单重建)'
+              : `❌ 嵌套 ref 异常(未修复,--check 模式):${(before.refsMissing || []).length} 个缺失`
         : '❌ .git 异常(未修复,--check 模式)',
     )
     return 1
@@ -4036,7 +4086,9 @@ function startDaemon() {
       } else if (!h.refsOk) {
         // 核心健康但嵌套 ref 被宿主清理(实测高频) → 离线重建, 不打扰人
         log(
-          `⚠️ 检测到嵌套 ref 缺失 ${(h.refsMissing || []).length} 个: ${(h.refsMissing || []).join(', ')}`,
+          h.refsReason === 'face-unreadable'
+            ? '⚠️ 嵌套 ref 面取不到(for-each-ref 未产出)⇒ 本轮判「未判定」,不按清单重建(把读不到当被删了治会撒数千枚松散 ref)'
+            : `⚠️ 检测到嵌套 ref 缺失 ${(h.refsMissing || []).length} 个: ${(h.refsMissing || []).join(', ')}`,
         )
         healRefs()
       } else {
