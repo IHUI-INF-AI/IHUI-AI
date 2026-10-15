@@ -41,6 +41,11 @@ import { basename, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { createExclusionPredicate, LedgerUnavailable } from './lib/third-party-roots.mjs'
+import {
+  loadToolGeneratedEntries,
+  judgeToolGenerated,
+  ToolLedgerUnavailable,
+} from './lib/tool-generated-roots.mjs'
 import { coverageFileSetForFace } from './lib/watermark-scope.mjs'
 import { catBatch, selectFace, Undetermined, assertRepoRoot } from './lib/face-reader.mjs'
 import {
@@ -73,6 +78,29 @@ function exclusion() {
     }
   }
   return _excl
+}
+
+/**
+ * 「上游工具生成物」豁免面(2026-10-16 立)。与第三方台账同为**懒取 + 取不到就拒绝判定**:
+ * 算不出"哪些文件由上游工具再生"时继续判,就是把没量到写成量到了(§0.3)。
+ * 台账缺文件 ⇒ 空清单(没有豁免,覆盖面照旧全量判),这是安全的默认,不是跳过判定。
+ */
+let _toolGen
+function toolGeneratedEntries() {
+  if (!_toolGen) {
+    try {
+      _toolGen = loadToolGeneratedEntries(ROOT)
+    } catch (e) {
+      const why = e instanceof ToolLedgerUnavailable ? e.message : String(e?.message ?? e)
+      console.error(`[watermark] 工具生成物豁免面无法判定:${why.split('\n')[0]}`)
+      console.error('  水印层拒绝在算不出「哪些是上游工具再生文件」时继续判定(既不冒绿也不冒红)。')
+      console.error(
+        '  请先修 scripts/data/watermark-tool-generated.json 或 git 可用性,再重跑本命令。',
+      )
+      process.exit(1)
+    }
+  }
+  return _toolGen
 }
 
 // ---------- 水印配置 ----------
@@ -574,10 +602,18 @@ const DEFAULT_BATCH_FACE = 'head' // 全量档默认判定面(W9 变异正控就
  */
 function pickFace(argv) {
   const files = argv.filter((a) => a !== '--staged' && a !== '--worktree')
-  const pick = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: DEFAULT_BATCH_FACE })
+  const pick = selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: DEFAULT_BATCH_FACE,
+  })
   if (pick.error) return { face: null, files, error: pick.error }
   if (files.length > 0 && pick.face === 'staged') {
-    return { face: null, files, error: '显式点名文件判的是盘上那份(工作树面),与 --staged(索引 blob)冲突' }
+    return {
+      face: null,
+      files,
+      error: '显式点名文件判的是盘上那份(工作树面),与 --staged(索引 blob)冲突',
+    }
   }
   return { face: files.length > 0 ? 'worktree' : pick.face, files, error: null }
 }
@@ -641,6 +677,8 @@ function scanCoverage(scope, opts = {}) {
   const bannerlessList = []
   const excluded = []
   const unreadable = []
+  const toolGenExempt = []
+  const toolGenIssues = []
   const excl = exclusion()
   // 显式点名(scope 非空)= 工作树面(那份在盘上,用户指的是它);批量档按 opts.face。
   const face = scope ? 'worktree' : opts.face || DEFAULT_BATCH_FACE
@@ -688,6 +726,17 @@ function scanCoverage(scope, opts = {}) {
         continue
       }
     }
+    // 上游工具生成物档(2026-10-16):**在数分母之前**先问这一格 —— 与第三方台账同一层,
+    // 免的是"该不该被要求带载荷"这一项,所以它连分母都不该进(进了就变成"99 个里 12 个有水印"
+    // 这种读起来像覆盖率暴跌的假读数)。前提失效(不自述为工具产物 / 豁免到期)⇒ 照旧进分母、
+    // 按缺载荷判红,并逐条点名原因,让人看得见"为什么这枚红了"。
+    const tg = judgeToolGenerated({ rel, text, entries: toolGeneratedEntries() })
+    if (tg.exempt) {
+      toolGenExempt.push(rel)
+      continue
+    }
+    if (tg.state === 'expired' || tg.state === 'premise-missing')
+      toolGenIssues.push(`${rel}: ${tg.why}`)
     total++
     const hasPayload = INVISIBLE_RE.test(text)
     const hasBannerText = text.includes(BANNER_ID)
@@ -725,6 +774,8 @@ function scanCoverage(scope, opts = {}) {
     excluded,
     bannerless,
     bannerlessList,
+    toolGenExempt,
+    toolGenIssues,
     face,
   }
 }
@@ -742,11 +793,28 @@ function verifyAll(scope, opts = {}) {
     excluded,
     bannerless,
     bannerlessList,
+    toolGenExempt,
+    toolGenIssues,
     face,
   } = scanCoverage(scope, opts)
   console.log(
-    `[watermark:verify] 判定面=${face}${scope ? '(显式点名=工作树)' : ''} 覆盖 ${marked}/${total} 个${scope ? '指定' : '本面'}文件, 残迹(载荷丢失) ${residue} 个, 载荷损坏 ${corrupted.length} 个, 仅隐写(有载荷但可见横幅缺失或已损坏) ${bannerless} 个, 跳过 ${skipped} 个, 台账登记的第三方内容不计入 ${thirdParty} 个`,
+    `[watermark:verify] 判定面=${face}${scope ? '(显式点名=工作树)' : ''} 覆盖 ${marked}/${total} 个${scope ? '指定' : '本面'}文件, 残迹(载荷丢失) ${residue} 个, 载荷损坏 ${corrupted.length} 个, 仅隐写(有载荷但可见横幅缺失或已损坏) ${bannerless} 个, 跳过 ${skipped} 个, 台账登记的第三方内容不计入 ${thirdParty} 个, 上游工具生成物不计入 ${toolGenExempt.length} 个`,
   )
+  // 豁免面必须可见(与第三方台账同一条理由):静默少算 N 个文件与"根本没有工具生成物"在输出上分不开。
+  if (toolGenExempt.length > 0) {
+    console.log(
+      `  工具生成物豁免(scripts/data/watermark-tool-generated.json;逐枚按被审面验过前提:落在登记 root 内且自述为工具再生):${toolGenExempt.length} 个,示例(前 5):`,
+    )
+    toolGenExempt.slice(0, 5).forEach((f) => console.log('  · ' + f))
+    if (toolGenExempt.length > 5) console.log(`  · … 其余 ${toolGenExempt.length - 5} 个`)
+  }
+  if (toolGenIssues.length > 0) {
+    console.log(
+      `❌ 工具生成物豁免**前提失效** ${toolGenIssues.length} 处(这类文件照旧进覆盖面,下面的缺载荷/损坏判定就是它们的红):`,
+    )
+    toolGenIssues.slice(0, 10).forEach((l) => console.log('  · ' + l))
+    if (toolGenIssues.length > 10) console.log(`  · … 其余 ${toolGenIssues.length - 10} 处`)
+  }
   // 排除面必须可见:静默少算 N 个文件与"根本没有第三方内容"在输出上无法区分,
   // 而后者会让人以为门禁从未碰过第三方(它碰过,见 pdf.worker.min.mjs 事故)。
   if (thirdParty > 0) {
@@ -787,52 +855,52 @@ async function main() {
   const target = rest[0]
 
   if (cmd === 'inject') {
-  // `--reseat-tail`:除了"载荷在不在",还要求尾部隐写行**仍是末行**。
-  // 给"往已有内容尾部追加"的生成器用(归档器就是):注入时它当然在末行,下一次 append
-  // 就把新内容放到它后面,标记从此埋在正文中部 —— 实测一份归档件里攒了 4 行这样的孤儿。
-  // 默认档**不带**这个旗:正常编辑会把标记顶离末行,那是允许形态(它的用途是"删掉可见横幅
-  // 仍可检出",不依赖位置),要求全部回位会重写几百个文件而换来的只是形状。
-  const reseatTail = rest.includes('--reseat-tail')
-  const targets = rest.filter((a) => a !== '--reseat-tail')
-  // 文件模式: inject [--reseat-tail] <file>...(与 usage 声明一致;残迹文件会先内部 clean 再注入)
-  if (targets.length) {
-    for (const t of targets) {
-      const abs = resolve(t)
-      if (!existsSync(abs)) {
-        console.error(`文件不存在: ${t}`)
-        process.exitCode = 1
-        continue
+    // `--reseat-tail`:除了"载荷在不在",还要求尾部隐写行**仍是末行**。
+    // 给"往已有内容尾部追加"的生成器用(归档器就是):注入时它当然在末行,下一次 append
+    // 就把新内容放到它后面,标记从此埋在正文中部 —— 实测一份归档件里攒了 4 行这样的孤儿。
+    // 默认档**不带**这个旗:正常编辑会把标记顶离末行,那是允许形态(它的用途是"删掉可见横幅
+    // 仍可检出",不依赖位置),要求全部回位会重写几百个文件而换来的只是形状。
+    const reseatTail = rest.includes('--reseat-tail')
+    const targets = rest.filter((a) => a !== '--reseat-tail')
+    // 文件模式: inject [--reseat-tail] <file>...(与 usage 声明一致;残迹文件会先内部 clean 再注入)
+    if (targets.length) {
+      for (const t of targets) {
+        const abs = resolve(t)
+        if (!existsSync(abs)) {
+          console.error(`文件不存在: ${t}`)
+          process.exitCode = 1
+          continue
+        }
+        const r = injectFile(abs, { reseatTail })
+        console.log(`[watermark:inject] ${relative(ROOT, abs).replaceAll('\\', '/')} → ${r}`)
+        // 'skip-third-party' 也计红:有人(或某个生成器)显式点名要把横幅打进已登记的
+        // 第三方内容,这是一次需要被看见的拒绝,不是一次静默的"好的已经处理完了"。
+        if (
+          r === 'skip-type' ||
+          r === 'skip-binary' ||
+          r === 'skip-third-party' ||
+          r === 'reseat-refused'
+        )
+          process.exitCode = 1
       }
-      const r = injectFile(abs, { reseatTail })
-      console.log(`[watermark:inject] ${relative(ROOT, abs).replaceAll('\\', '/')} → ${r}`)
-      // 'skip-third-party' 也计红:有人(或某个生成器)显式点名要把横幅打进已登记的
-      // 第三方内容,这是一次需要被看见的拒绝,不是一次静默的"好的已经处理完了"。
-      if (
-        r === 'skip-type' ||
-        r === 'skip-binary' ||
-        r === 'skip-third-party' ||
-        r === 'reseat-refused'
+    } else {
+      let n = 0,
+        done = 0,
+        skip = 0,
+        tp = 0
+      for (const abs of walk(ROOT)) {
+        if (SKIP_FILES.has(basename(abs))) continue
+        if (BINARY_EXT.has(extname(abs).toLowerCase())) continue
+        const r = injectFile(abs)
+        if (r === 'injected') n++
+        else if (r === 'skip-done') done++
+        else if (r === 'skip-third-party') tp++
+        else skip++
+      }
+      console.log(
+        `[watermark:inject] 新注入 ${n} 个, 已有 ${done} 个, 跳过(类型/二进制) ${skip} 个, 台账登记的第三方内容未触碰 ${tp} 个`,
       )
-        process.exitCode = 1
     }
-  } else {
-    let n = 0,
-      done = 0,
-      skip = 0,
-      tp = 0
-    for (const abs of walk(ROOT)) {
-      if (SKIP_FILES.has(basename(abs))) continue
-      if (BINARY_EXT.has(extname(abs).toLowerCase())) continue
-      const r = injectFile(abs)
-      if (r === 'injected') n++
-      else if (r === 'skip-done') done++
-      else if (r === 'skip-third-party') tp++
-      else skip++
-    }
-    console.log(
-      `[watermark:inject] 新注入 ${n} 个, 已有 ${done} 个, 跳过(类型/二进制) ${skip} 个, 台账登记的第三方内容未触碰 ${tp} 个`,
-    )
-  }
   } else if (cmd === 'verify') {
     const pick = pickFace(rest)
     if (pick.error) {
@@ -860,31 +928,31 @@ async function main() {
       )
     }
   } else if (cmd === 'decode') {
-  if (!target || !existsSync(target)) {
-    console.error('用法: node scripts/watermark.mjs decode <file>')
-    process.exit(1)
-  }
-  const marks = findMarks(readFileSync(target, 'utf8'))
-  if (!marks.length) console.log('未发现隐写水印')
-  else marks.forEach((m) => console.log('解码: ' + m))
-} else if (cmd === 'clean') {
-  if (!target || !existsSync(target)) {
-    console.error('用法: node scripts/watermark.mjs clean <file>')
-    process.exit(1)
-  }
-  cleanFile(target)
-  console.log('已移除该文件水印')
-} else if (cmd === 'clean-all') {
-  let n = 0
-  for (const abs of walk(ROOT)) {
-    if (SKIP_FILES.has(basename(abs))) continue
-    if (BINARY_EXT.has(extname(abs).toLowerCase())) continue
-    const t = readFileSync(abs, 'utf8')
-    if (!t.includes(BANNER_ID) && !INVISIBLE_RE.test(t)) continue
-    cleanFile(abs)
-    n++
-  }
-  console.log(`[watermark:clean-all] 已清理 ${n} 个文件的水印`)
+    if (!target || !existsSync(target)) {
+      console.error('用法: node scripts/watermark.mjs decode <file>')
+      process.exit(1)
+    }
+    const marks = findMarks(readFileSync(target, 'utf8'))
+    if (!marks.length) console.log('未发现隐写水印')
+    else marks.forEach((m) => console.log('解码: ' + m))
+  } else if (cmd === 'clean') {
+    if (!target || !existsSync(target)) {
+      console.error('用法: node scripts/watermark.mjs clean <file>')
+      process.exit(1)
+    }
+    cleanFile(target)
+    console.log('已移除该文件水印')
+  } else if (cmd === 'clean-all') {
+    let n = 0
+    for (const abs of walk(ROOT)) {
+      if (SKIP_FILES.has(basename(abs))) continue
+      if (BINARY_EXT.has(extname(abs).toLowerCase())) continue
+      const t = readFileSync(abs, 'utf8')
+      if (!t.includes(BANNER_ID) && !INVISIBLE_RE.test(t)) continue
+      cleanFile(abs)
+      n++
+    }
+    console.log(`[watermark:clean-all] 已清理 ${n} 个文件的水印`)
   } else {
     console.log(
       '用法: node scripts/watermark.mjs <inject|verify|list-uncovered|decode|clean|clean-all> [--staged|--worktree] [file...]',
