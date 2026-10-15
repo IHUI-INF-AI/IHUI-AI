@@ -570,14 +570,45 @@ function runStagedWithPrivateIndex(spec) {
   }
 }
 
-test('端到端①(牙):台账里整批 D 行消失、同字逐字出现在同面归档件 ⇒ --staged 不判红', () => {
+// 两臂要的"整批 D 行"必须按**构造**保证,不能拿台账当下面孔赌数量。
+// 起因(2026-10-16 现读):HEAD 台账面上只剩 **12** 行 D 族行,而两臂钉的是 `>= 20` ⇒ 同一次跑里
+// 端到端①/② 双双红在夹具断言,而门体与另外 37 条用例全绿 —— 红的是尺子的前提,不是判据。
+// 让台账变瘦的正是本门要容忍的那台机器(归档阈值 0 起,完成的 D 行被持续搬进归档件),所以
+// "台账里还剩几行 D"是一条**只会往下走**的曲线:把 20 改成 10 只是把恒红往后推一格,顺带把
+// "批量够不够"这条充分性判据本身废掉。故阈值一位不降,改为构造:
+// 真实 D 行照旧全量取(仍用真语料,台账一行都不留),不足下限时补造样行 —— 每条带**互不相同**
+// 的 `G-<n>`,并用源脚本自己的 `gapIdsOfText`(§22c,不复制判据)复核"这批真贡献了 ≥下限个编号",
+// 造样因此不可能退化成空转装饰。台账面归零后两臂照样成立。
+const MOVED_MIN = 20
+
+function buildMovedBatch() {
   const headPlan = gitIn(['show', 'HEAD:PROJECT_PLAN.md'], { ...process.env, GIT_INDEX_FILE: undefined })
   const re = new RegExp(PS.taskLinePattern, 'mu')
-  const lines = headPlan.split('\n')
   const kept = []
   const moved = []
-  for (const l of lines) (re.test(l) ? moved : kept).push(l)
-  assert.ok(moved.length >= 20, `夹具不成立:HEAD 台账只匹配到 ${moved.length} 行 D 任务行`)
+  for (const l of headPlan.split('\n')) (re.test(l) ? moved : kept).push(l)
+  const ledgerRows = moved.length
+  for (let n = 0; n <= 200; n += 1) {
+    const ids = gapIdsOfText(moved.join('\n'), PS)
+    if (moved.length >= MOVED_MIN && ids.size >= MOVED_MIN) {
+      return { kept, moved, ledgerRows, ids: ids.size }
+    }
+    moved.push(
+      `- [x] ✅(2026-10-16/g57-e2e 造样)**D${8800 + n} 端到端批量下限造样行(G-${800 + n})**:只活在归档面,不落台账`,
+    )
+  }
+  throw new Error(`造样 200 行仍补不满下限(批量 ${MOVED_MIN} / 编号 ${MOVED_MIN})—— 检查 gapIdPattern 还认不认这批行`)
+}
+
+test('夹具自证:批量下限由构造保证,与台账面上剩几行无关', () => {
+  const b = buildMovedBatch()
+  assert.ok(b.moved.length >= MOVED_MIN, `批量 ${b.moved.length} < 下限 ${MOVED_MIN}`)
+  assert.ok(b.ids >= MOVED_MIN, `这批行只贡献 ${b.ids} 个编号 ⇒ 造样是空转装饰,不是批量`)
+  assert.match(b.moved.join('\n'), /g57-e2e 造样/, '台账面瘦到需要造样时,造样行必须真在批量里')
+})
+
+test('端到端①(牙):台账里整批 D 行消失、同字逐字出现在同面归档件 ⇒ --staged 不判红', () => {
+  const { kept, moved } = buildMovedBatch()
   const a = runStagedWithPrivateIndex({
     planText: kept.join('\n'),
     archiveText: `# 已归档(E2E 注入,内容 = 从台账搬走的原文逐字)\n\n${moved.join('\n')}\n`,
@@ -597,12 +628,7 @@ test('端到端①(牙):台账里整批 D 行消失、同字逐字出现在同�
 })
 
 test('端到端②(反向对照):台账与归档件**两侧都没有**那批行 ⇒ --staged 仍判红并点名', () => {
-  const headPlan = gitIn(['show', 'HEAD:PROJECT_PLAN.md'], { ...process.env, GIT_INDEX_FILE: undefined })
-  const re = new RegExp(PS.taskLinePattern, 'mu')
-  const lines = headPlan.split('\n')
-  const kept = []
-  const moved = []
-  for (const l of lines) (re.test(l) ? moved : kept).push(l)
+  const { kept, moved } = buildMovedBatch()
   const b = runStagedWithPrivateIndex({
     planText: kept.join('\n'),
     archiveText: '# 已归档(E2E 注入,里面一行任务行都没有)\n\n普通散文,不含 D 族行。\n',
@@ -610,7 +636,7 @@ test('端到端②(反向对照):台账与归档件**两侧都没有**那批行 
   })
   assert.equal(b.rc, 1, `两侧都无必须判红,实得 rc=${b.rc}\n${b.out}`)
   assert.match(b.out, /inventory-regression/, `必须点名条目倒退:\n${b.out}`)
-  assert.ok(moved.length >= 20)
+  assert.ok(moved.length >= MOVED_MIN, `夹具不成立:造样后批量仍只有 ${moved.length} 行`)
 })
 
 test('端到端③(判死):归档面枚举到 0 个候选 ⇒ exit 2「无法判定」,不得记绿', () => {
