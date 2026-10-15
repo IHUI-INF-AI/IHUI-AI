@@ -499,27 +499,6 @@ pub fn is_trae_auth_host(host: &str) -> bool {
     TRAE_AUTH_HOST_SUFFIXES.iter().any(|s| h == *s || h.ends_with(s))
 }
 
-/// 从单条 cookie 行尝试解析出 Trae 不透明会话态的 uid。
-///
-/// 2026-10-15 真机实证:Trae 新版**不再把 Cloud-IDE-JWT 落盘**(改由会话 cookie
-/// 实时换发,全盘扫描 74 个 JWT 全是 `http_localhost_8801` 的 IHUI 开发 token),
-/// 但账号 uid 仍明文存在 `uid_tt`/`uid_tt_ss` cookie 里(ByteDance passport 体系
-/// 标准位)。`passport_auth_status` 首段与 `__tea_cache_tokens_*.user_unique_id`
-/// 是设备/统计 ID,不是账号 uid,刻意不收(防假账号)。jwt 留空 ⇒ 端到端签到仍需
-/// 网页登录换发的 Cloud-IDE-JWT(与 WorkBuddy「本地只取 uid、token 走网页登录」
-/// 同口径)。
-fn trae_uid_from_cookie(host: &str, name: &str, value: &str) -> Option<String> {
-    if !is_trae_auth_host(host) {
-        return None;
-    }
-    let n = name.to_ascii_lowercase();
-    if n != "uid_tt" && n != "uid_tt_ss" {
-        return None;
-    }
-    let v = value.trim();
-    (!v.is_empty()).then(|| v.to_string())
-}
-
 fn read_jwts_from_cookies_db(
     db_path: &Path,
     key: &[u8],
@@ -574,7 +553,8 @@ fn read_jwts_from_cookies_db(
             continue;
         }
 
-        // 1) JWT 形态(优先,uid 从 payload 解)
+        // 1) JWT 形态(uid 从 payload 解;不透明会话 cookie 不产出账号 —— 2026-10-15 起
+        //    可用凭据由 iCubeAuthInfo tc 解密通道供给,cookie 只兜 JWT,防假账号噪音)
         for jwt in extract_jwt_strings(text.as_bytes()) {
             if let Some(uid) = jwt_payload_user_id(&jwt) {
                 out.push(CapturedAccount {
@@ -583,14 +563,6 @@ fn read_jwts_from_cookies_db(
                     source: format!("cookies:{host}/{name}({source_rel})"),
                 });
             }
-        }
-        // 2) Trae 不透明会话态:明文 uid cookie(新版常态,Cloud-IDE-JWT 不再落盘)
-        if let Some(uid) = trae_uid_from_cookie(&host, &name, &text) {
-            out.push(CapturedAccount {
-                user_id: uid,
-                jwt: String::new(),
-                source: format!("cookie:{host}/{name}(opaque,需网页登录换发JWT)"),
-            });
         }
     }
     out
@@ -673,9 +645,160 @@ fn scan_leveldb_jwts(trae_dir: &Path) -> Vec<CapturedAccount> {
     out
 }
 
-/// 捕获入口：Cookies 解密 + leveldb 兜底，按 user_id 去重。
+// ================== iCubeAuthInfo tc 解密(2026-10-15,本机捕获的最后一环)==================
+//
+// 2026-10-15 真机实证:Trae 新版把 Cloud-IDE-JWT 从 leveldb/cookies 全面撤盘,唯一
+// 可恢复源 = `User/globalStorage/storage.json` 的 `iCubeAuthInfo://icube.cloudide`
+// tc 加密容器:6B 头(`tc\x05\x10\x00\x00`) + 32B rb + AES-128-CBC PKCS7 密文;
+// key/iv = SHA512(SHA512(rb) + SALT_A⊕SALT_B) 的前 32 字节;明文前 64B 为保留段,
+// 其后是 {token,userId,expiredAt,host,account} JSON。token 即 RS256 JWT,payload
+// data.id = 账号 uid —— 服务端 extract_user_id 首键直接命中,服务端零改动。
+// 解密算法逆向自官方客户端(SALT 常量与社区公开实现一致,forum.trae.cn topic/183186)。
+// 用户视角:已登录 Trae 桌面端 ⇒ 点「本机捕获」直接出可用账号,零粘贴零操作。
+
+const ICUBE_SALT_A: [u8; 64] = [
+    82, 9, 106, 213, 48, 54, 165, 56, 191, 64, 163, 158, 129, 243, 215, 251, 124, 227, 57, 130,
+    155, 47, 255, 135, 52, 142, 67, 68, 196, 222, 233, 203, 84, 123, 148, 50, 166, 194, 35, 61,
+    238, 76, 149, 11, 66, 250, 195, 78, 8, 46, 161, 102, 40, 217, 36, 178, 118, 91, 162, 73, 109,
+    139, 209, 37,
+];
+const ICUBE_SALT_B: [u8; 64] = [
+    31, 221, 168, 51, 136, 7, 199, 49, 177, 18, 16, 89, 39, 128, 236, 95, 96, 81, 127, 169, 25,
+    181, 74, 13, 45, 229, 122, 159, 147, 201, 156, 239, 160, 224, 59, 77, 174, 42, 245, 176, 200,
+    235, 187, 60, 131, 83, 153, 97, 23, 43, 4, 126, 186, 119, 214, 38, 225, 105, 20, 99, 85, 33,
+    12, 125,
+];
+
+/// 纯函数:tc 容器 base64 → 解密后 JSON 文本(单测用固定向量钉死)。
+/// 手写 CBC 解密(aes crate 只出块原语,不引 cbc 依赖,依赖纪律:能不加就不加)。
+pub fn trae_tc_decrypt(b64: &str) -> Result<String, String> {
+    use aes::cipher::{generic_array::GenericArray, BlockDecrypt, KeyInit};
+    use base64::Engine as _;
+    use sha2::{Digest, Sha512};
+
+    let blob = base64::engine::general_purpose::STANDARD
+        .decode(b64.trim())
+        .map_err(|e| format!("tc 容器 base64 解码失败: {e}"))?;
+    if blob.len() < 38 + 16 {
+        return Err(format!("tc 容器过短({} 字节)", blob.len()));
+    }
+    let rb = &blob[6..38];
+    let enc = &blob[38..];
+    if enc.len() % 16 != 0 {
+        return Err(format!("tc 密文长度非 16 倍数({})", enc.len()));
+    }
+
+    let salt: Vec<u8> = ICUBE_SALT_A
+        .iter()
+        .zip(ICUBE_SALT_B.iter())
+        .map(|(a, b)| a ^ b)
+        .collect();
+    let rb_hash = Sha512::digest(rb);
+    let final_hash = Sha512::digest(rb_hash.iter().chain(salt.iter()).copied().collect::<Vec<u8>>());
+    let (key, iv) = (&final_hash[0..16], &final_hash[16..32]);
+
+    let cipher = aes::Aes128::new(GenericArray::from_slice(key));
+    let mut prev = [0u8; 16];
+    prev.copy_from_slice(iv);
+    let mut plain: Vec<u8> = Vec::with_capacity(enc.len());
+    for chunk in enc.chunks_exact(16) {
+        let mut block = *GenericArray::from_slice(chunk);
+        cipher.decrypt_block(&mut block);
+        for i in 0..16 {
+            block[i] ^= prev[i];
+        }
+        plain.extend_from_slice(&block);
+        prev.copy_from_slice(chunk);
+    }
+
+    // PKCS7 去填(手写,校验尾部一致性,防篡改静默通过)
+    let pad = *plain.last().ok_or("tc 明文为空")? as usize;
+    if pad == 0 || pad > 16 || plain.len() < pad || plain[plain.len() - pad..].iter().any(|&b| b as usize != pad) {
+        return Err("tc 容器 PKCS7 填充校验失败(密钥派生不对或容器被改)".into());
+    }
+    plain.truncate(plain.len() - pad);
+    if plain.len() < 65 {
+        return Err(format!("tc 明文过短({} 字节,应含 64B 保留段)", plain.len()));
+    }
+    String::from_utf8(plain[64..].to_vec()).map_err(|e| format!("tc 明文非 UTF8: {e}"))
+}
+
+/// 执行层:storage.json 的 iCubeAuthInfo 容器 → 可用 JWT 账号。
+/// 首选 `icube.cloudide` 键,回退遍历其余 `iCubeAuthInfo://` 键(客户端变体键名;
+/// icube-dc 解出的是设备密钥对、usertag 是映射表,均无 token 自动跳过)。
+/// 过期即弃(expiredAt 缺失/不可解析不拦,以服务端判定为准)。找不到/解不开返回 None
+/// (cookie/leveldb 通道随后兜底)。
+pub fn capture_trae_cloudide_jwt(trae_dir: &Path) -> Option<CapturedAccount> {
+    let path = trae_dir.join("User/globalStorage/storage.json");
+    let raw = std::fs::read_to_string(&path).ok()?;
+    let doc: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let obj = doc.as_object()?;
+
+    let mut keys: Vec<&String> = Vec::new();
+    if let Some(primary) = obj.get_key_value("iCubeAuthInfo://icube.cloudide") {
+        keys.push(primary.0);
+    }
+    for k in obj.keys() {
+        if k.starts_with("iCubeAuthInfo://") && !keys.contains(&k) {
+            keys.push(k);
+        }
+    }
+
+    for k in keys {
+        let Some(v) = obj.get(k).and_then(|v| v.as_str()) else {
+            continue;
+        };
+        let Ok(text) = trae_tc_decrypt(v) else {
+            continue;
+        };
+        let Ok(j) = serde_json::from_str::<serde_json::Value>(&text) else {
+            continue;
+        };
+        let token = j
+            .get("token")
+            .and_then(|t| t.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let user_id = j
+            .get("userId")
+            .and_then(|u| u.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if token.is_empty() || user_id.is_empty() {
+            continue; // icube-dc(设备密钥对)/usertag(映射表)等无 token 容器
+        }
+        let expires = j
+            .get("expiredAt")
+            .and_then(|e| e.as_str())
+            .map(qoder_parse_iso_expires)
+            .unwrap_or(0);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        if expires > 0 && expires <= now {
+            log::warn!("[checkin-capture] {k} 的 token 已过期(exp={expires}),跳过");
+            continue;
+        }
+        return Some(CapturedAccount {
+            user_id,
+            jwt: token,
+            source: format!("storage.json:{k}(tc解密)"),
+        });
+    }
+    None
+}
+
+/// 捕获入口：iCubeAuthInfo tc 解密(首选,唯一产可用 JWT)+ Cookies 解密 + leveldb 兜底，
+/// 按 user_id 去重。tc 通道排最前：同 uid 时 dedup 保 first,JWT 版压过 opaque 版。
 pub fn capture_local_jwts(trae_dir: &Path) -> Vec<CapturedAccount> {
-    let mut accounts = extract_cookie_jwts(trae_dir);
+    let mut accounts = Vec::new();
+    if let Some(acc) = capture_trae_cloudide_jwt(trae_dir) {
+        accounts.push(acc);
+    }
+    accounts.extend(extract_cookie_jwts(trae_dir));
     accounts.extend(scan_leveldb_jwts(trae_dir));
     let out = dedup_by_user_id(accounts);
     log::info!("[checkin-capture] 捕获到 {} 个账号候选（目录 {}）", out.len(), trae_dir.display());
@@ -3974,29 +4097,25 @@ mod tests {
     }
 
     #[test]
-    fn trae_uid_from_cookie_only_uid_tt_on_trae_hosts() {
-        // 正路:trae.cn 域的 uid_tt / uid_tt_ss
+    fn trae_tc_decrypt_fixed_vector_roundtrip() {
+        // 固定测试向量(rb=00..1f,固定 payload),由社区公开算法独立生成钉死;
+        // 明文前 64B 保留段 + PKCS7,防"派生公式抄错但解密不报错"的假绿。
+        const BLOB: &str = "dGMFEAAAAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh+WDhLXPAAQexhhzzj8oR8XZ5JsbYhXgFzvt3f3yqRIQUtav1Ff74HZ2D1uKyxipLIjqDPE3Ldw1eDZZf1Tcy/fxLJ9Kro/NcOybd6WRR+dolqs5SRJORH94S8q9DBmwLX1qXGHhhBLV8CNPDgHudWgM5FG+r10FrRuyrX2yhipVaef6pidWBCHQjnfhs3gNeGQ4vvOM4UHS+dPw1EQ8sYqTa8FqTmiapoxO4lBOl7Xx9o8R06vWxWRAO4VIPLQA874K6q3Q6z9z5Ka5QXvcQ+EHOijLSxi4jZyAiow16HpfA==";
+        let text = trae_tc_decrypt(BLOB).expect("固定向量应解密成功");
+        let j: serde_json::Value = serde_json::from_str(&text).expect("明文应为 JSON");
         assert_eq!(
-            trae_uid_from_cookie(".trae.cn", "uid_tt", " abb21658305c09df44f7c2df96ab3efd0 ")
-                .as_deref(),
-            Some("abb21658305c09df44f7c2df96ab3efd0")
+            j.get("token").and_then(|t| t.as_str()),
+            Some("eyJhbGciOiJSUzI1NiJ9.test-payload.sig")
         );
-        assert_eq!(
-            trae_uid_from_cookie("www.trae.cn", "uid_tt_ss", "abc").as_deref(),
-            Some("abc")
-        );
-        // 非 Trae 域拒收(防 IHUI 开发 token 污染)
-        assert_eq!(trae_uid_from_cookie("localhost", "uid_tt", "x"), None);
-        assert_eq!(trae_uid_from_cookie(".aizhs.top", "uid_tt", "x"), None);
-        // 设备/统计 ID cookie 刻意不收(防假账号)
-        assert_eq!(trae_uid_from_cookie(".trae.cn", "passport_auth_status", "a,b"), None);
-        assert_eq!(
-            trae_uid_from_cookie(".trae.cn", "__tea_cache_tokens_7111126", r#"{"user_unique_id":"769"}"#),
-            None
-        );
-        // 非 uid cookie 与空值拒收
-        assert_eq!(trae_uid_from_cookie(".trae.cn", "sid_tt", "abc"), None);
-        assert_eq!(trae_uid_from_cookie(".trae.cn", "uid_tt", "  "), None);
+        assert_eq!(j.get("userId").and_then(|u| u.as_str()), Some("4135677762212986"));
+        assert_eq!(j.get("expiredAt").and_then(|e| e.as_str()), Some("2026-10-28T04:30:07.382Z"));
+        // 篡改密文必须显式报错,不冒充成功
+        // 篡改 rb 区(base64 第 20-22 字符)⇒ key 派生全变 ⇒ PKCS7 必失败
+        // (注:CBC 早段密文损坏只花一块明文、PKCS7 仍过,是 CBC 固有行为,不作断言)
+        let mut bad = BLOB.to_string();
+        bad.replace_range(20..22, "AA");
+        assert!(trae_tc_decrypt(&bad).is_err(), "被改容器必须解密失败");
+        assert!(trae_tc_decrypt("not-base64!").is_err());
     }
 
     // ── 2. JWT 形态/校验/提取/去重 ──
