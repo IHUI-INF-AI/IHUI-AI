@@ -28012,6 +28012,7 @@
     "filesWrite": "Upload files",
     "audioRead": "Read voices",
     "audioWrite": "Speech synthesis and recognition",
+    "voiceStt": "Speech to text",
     "imagesWrite": "Generate and edit images",
     "videosWrite": "Generate and compose videos",
     "videosRead": "Query video tasks",

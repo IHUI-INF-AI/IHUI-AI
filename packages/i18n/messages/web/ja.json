@@ -28015,6 +28015,7 @@
     "filesWrite": "ファイルのアップロード",
     "audioRead": "音色の読み取り",
     "audioWrite": "音声合成/音声認識",
+    "voiceStt": "音声認識(文字起こし)",
     "imagesWrite": "画像の生成/編集",
     "videosWrite": "動画の生成/構成",
     "videosRead": "動画タスクの照会",
