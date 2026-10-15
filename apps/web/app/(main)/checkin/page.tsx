@@ -405,8 +405,12 @@ export default function CheckinPage() {
     try {
       const found = await checkinCaptureJwts()
       setCaptured(found)
-      setCapturedSelected(new Set(found.map((a) => a.user_id)))
+      // 2026-10-15:Trae 新版 Cloud-IDE-JWT 不再落盘,本机捕获可能只回收 opaque uid
+      // (jwt 空,source 带「需网页登录换发」注记)。服务端录入要求 jwt 可解析,
+      // 空 jwt 账号只展示不可导入 ⇒ 仅预选带 jwt 的账号。
+      setCapturedSelected(new Set(found.filter((a) => a.jwt).map((a) => a.user_id)))
       if (found.length === 0) setCaptureError(t('captureEmpty'))
+      else if (found.every((a) => !a.jwt)) setCaptureError(t('captureOpaqueOnly'))
     } catch (e) {
       setCaptureError((e as Error).message)
     } finally {
@@ -926,7 +930,8 @@ export default function CheckinPage() {
 
   // 添加账号对话框「智能导入」(2026-10-13 升级,取代按平台选的「一键获取」):
   // 打开对话框即自动并行检测本机 Trae / Qoder 全部登录态,勾选后一键批量入库;
-  // WorkBuddy 登录态加密不可解 ⇒ 引导到捕获对话框(内含网页登录)。
+  // 2026-10-15 重构:弹窗内 WorkBuddy 跳转按钮已移除 —— 与工具栏「从本机捕获」下拉
+  // 的 WorkBuddy 入口重复,WorkBuddy 统一从捕获对话框(网页登录 / 本机扫描)走。
   // 普通用户全程不接触 token、不用选平台 —— 傻瓜式一条路。
   const [scanScanning, setScanScanning] = React.useState(false)
   const [scanTrae, setScanTrae] = React.useState<CapturedTraeAccount[]>([])
@@ -945,7 +950,9 @@ export default function CheckinPage() {
     ])
     setScanTrae(results[0]!)
     setScanQoder(results[1]!)
-    setScanTraeSel(new Set(results[0]!.map((a) => a.user_id)))
+    // 2026-10-15:Trae 新版 Cloud-IDE-JWT 不再落盘,捕获可能只回收 opaque uid(jwt 空)
+    // —— 服务端录入要求 jwt 可解析,空 jwt 账号只展示提示、不预选不导入。
+    setScanTraeSel(new Set(results[0]!.filter((a) => a.jwt).map((a) => a.user_id)))
     setScanQoderSel(new Set(results[1]!.map((s) => s.uid || s.app_dir)))
     setScanScanning(false)
   }, [])
@@ -979,6 +986,7 @@ export default function CheckinPage() {
     }> = []
     for (const item of scanTrae) {
       if (!scanTraeSel.has(item.user_id)) continue
+      if (!item.jwt) continue // opaque 账号无凭据,录入必被服务端拒(400),跳过
       jobs.push({ name: `本机-${item.user_id}`, jwt: item.jwt, device_map: {} })
     }
     for (const item of scanQoder) {
@@ -1020,11 +1028,9 @@ export default function CheckinPage() {
     }
   }
 
-  // WorkBuddy:登录态加密不可解 ⇒ 引导到捕获对话框(网页登录 / 本机扫描两条路)
-  const goWbWebLogin = () => {
-    setAddOpen(false)
-    openWbCapture()
-  }
+  // 2026-10-15 重构:移除弹窗内「网页登录 WorkBuddy」按钮(与工具栏「从本机捕获」下拉
+  // 的 WorkBuddy 入口完全重复);平台/名称/分组等手动字段全部收进「手动填写」折叠区,
+  // 弹窗主体只留智能导入一块,砍掉装饰性说明文字。
 
   const submitAdd = async () => {
     const trimmedName = name.trim()
@@ -2135,9 +2141,16 @@ export default function CheckinPage() {
                 data-testid="smart-scan-block"
                 className="space-y-2 rounded-sm border bg-muted/40 p-3"
               >
-                <div>
+                <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-medium">{t('addSmartTitle')}</p>
-                  <p className="text-xs text-muted-foreground">{t('addSmartHint')}</p>
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    disabled={scanScanning}
+                    onClick={() => void runSmartScan()}
+                  >
+                    {t('addSmartRescan')}
+                  </Button>
                 </div>
                 {scanScanning ? (
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -2161,13 +2174,20 @@ export default function CheckinPage() {
                               type="checkbox"
                               aria-label={`smartScanTrae:${item.user_id}`}
                               checked={scanTraeSel.has(item.user_id)}
+                              disabled={!item.jwt}
                               onChange={(e) =>
                                 toggleSmartSel(setScanTraeSel, item.user_id, e.target.checked)
                               }
                             />
                             <span className="font-mono">本机-{item.user_id}</span>
+                            {!item.jwt && (
+                              <span className="text-xs text-muted-foreground">{item.source}</span>
+                            )}
                           </label>
                         ))}
+                        {scanTrae.every((a) => !a.jwt) && (
+                          <p className="text-xs text-amber-600">{t('captureOpaqueOnly')}</p>
+                        )}
                       </div>
                     )}
                     {scanQoder.length > 0 && (
@@ -2199,19 +2219,6 @@ export default function CheckinPage() {
                     </Button>
                   </div>
                 )}
-                <div className="flex items-center justify-between gap-2 border-t pt-2">
-                  <Button variant="outline" size="sm" onClick={goWbWebLogin}>
-                    {t('addSmartWorkbuddy')}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={scanScanning}
-                    onClick={() => void runSmartScan()}
-                  >
-                    {t('addSmartRescan')}
-                  </Button>
-                </div>
                 {scanMsg && (
                   <p data-testid="smart-scan-msg" className="text-xs text-amber-600">
                     {scanMsg}
@@ -2221,35 +2228,38 @@ export default function CheckinPage() {
             ) : (
               <p className="text-xs text-muted-foreground">{t('addSmartDesktopOnly')}</p>
             )}
-            <div className="space-y-1.5">
-              <Label htmlFor="checkin-platform">{t('platformLabel')}</Label>
-              <select
-                id="checkin-platform"
-                data-testid="platform-select"
-                value={addPlatform}
-                onChange={(e) => setAddPlatform(e.target.value as 'trae' | 'workbuddy' | 'qoder')}
-                className="h-9 w-full rounded-sm border bg-background px-2 text-sm"
-              >
-                <option value="trae">{t('platformTrae')}</option>
-                <option value="workbuddy">{t('platformWorkbuddy')}</option>
-                <option value="qoder">{t('platformQoder')}</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="checkin-name">{t('name')}</Label>
-              <Input
-                id="checkin-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={t('namePlaceholder')}
-                maxLength={100}
-              />
-            </div>
+            {/* 手动填写(高级):平台/名称/JWT/设备头/分组全部收进折叠区,平时不占版面 */}
             <details className="group">
               <summary className="cursor-pointer text-xs text-muted-foreground">
                 {t('addManualAdvanced')}
               </summary>
               <div className="mt-3 space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkin-platform">{t('platformLabel')}</Label>
+                  <select
+                    id="checkin-platform"
+                    data-testid="platform-select"
+                    value={addPlatform}
+                    onChange={(e) =>
+                      setAddPlatform(e.target.value as 'trae' | 'workbuddy' | 'qoder')
+                    }
+                    className="h-9 w-full rounded-sm border bg-background px-2 text-sm"
+                  >
+                    <option value="trae">{t('platformTrae')}</option>
+                    <option value="workbuddy">{t('platformWorkbuddy')}</option>
+                    <option value="qoder">{t('platformQoder')}</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkin-name">{t('name')}</Label>
+                  <Input
+                    id="checkin-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={t('namePlaceholder')}
+                    maxLength={100}
+                  />
+                </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="checkin-jwt">{t('jwt')}</Label>
                   <textarea
@@ -2272,18 +2282,18 @@ export default function CheckinPage() {
                     className="w-full resize-y rounded-sm border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkin-group">{t('groupLabel')}</Label>
+                  <Input
+                    id="checkin-group"
+                    value={groupText}
+                    onChange={(e) => setGroupText(e.target.value)}
+                    placeholder={t('groupPlaceholder')}
+                    maxLength={50}
+                  />
+                </div>
               </div>
             </details>
-            <div className="space-y-1.5">
-              <Label htmlFor="checkin-group">{t('groupLabel')}</Label>
-              <Input
-                id="checkin-group"
-                value={groupText}
-                onChange={(e) => setGroupText(e.target.value)}
-                placeholder={t('groupPlaceholder')}
-                maxLength={50}
-              />
-            </div>
             {formError && (
               <p role="alert" className="text-sm text-destructive">
                 {formError}
@@ -2471,6 +2481,7 @@ export default function CheckinPage() {
                       type="checkbox"
                       aria-label={`captureAccount:${item.user_id}`}
                       checked={capturedSelected.has(item.user_id)}
+                      disabled={!item.jwt}
                       onChange={(e) => {
                         setCapturedSelected((prev) => {
                           const next = new Set(prev)

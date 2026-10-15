@@ -40,6 +40,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitRaw, readWorktreeFile, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT = 120_000
@@ -749,8 +750,13 @@ export const check = (s: string) => HEX_COLOR_RE.test(s) || EMAIL_RE.test(s)
 function main(argv) {
   const flags = new Set(argv)
   if (flags.has('--self-test')) return runSelfTest()
-  const rootIdx = argv.indexOf('--root')
-  const root = rootIdx >= 0 ? resolve(argv[rootIdx + 1]) : DEFAULT_ROOT
+  // G-322:给了 --root 却没收到合法值 ⇒ 点名拒绝;旧写法无值抛 ERR_INVALID_ARG_TYPE 裸栈。
+  const rootArg = requireFlagValue(argv, '--root', { noun: '目录参数', fallback: null })
+  if (rootArg.error) {
+    console.error(`❌ 无法判定:${rootArg.error}`)
+    return 2
+  }
+  const root = rootArg.value !== null ? resolve(rootArg.value) : DEFAULT_ROOT
   const { face, error } = selectFace({ staged: flags.has('--staged'), worktree: flags.has('--worktree') })
   if (error) {
     console.error(`❌ ${error}`)

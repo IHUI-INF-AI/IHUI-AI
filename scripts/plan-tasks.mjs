@@ -42,6 +42,7 @@ import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { flagValue, describeFlagToken } from './lib/flag-value.mjs'
 // 派单叠层要问的两件事,本仓已各有一把尺子,禁止在这里再抄一份解析:
 //   · "这一行点名了哪些文件" ← 守门 184 的 `extractRefs`(只认反引号内,已剥行号/fragment/glob);
 //   · "哪些文件此刻不干净"   ← 守门 54 的 `parsePorcelainZ`(`git status --porcelain -z` 记录格式)。
@@ -77,6 +78,7 @@ const LABEL = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(�
 export function parseArgs(argv) {
   const has = (f) => argv.includes(f)
   const sel = selectFace({ staged: has('--staged'), worktree: has('--worktree'), def: 'head' })
+  const rootFlag = flagValue(argv, '--root')
   // `--next-id G` 与 `--next-id=G` 都收;旗标在位但族名缺失/被下一条旗标吃掉 ⇒ 记成"要取号但没给族名",
   // 由 main 判用法错 exit 2(未知/残缺开关静默掉进默认分支,是本仓登记过的失效型)。
   const niIdx = argv.indexOf('--next-id')
@@ -120,7 +122,10 @@ export function parseArgs(argv) {
     updateBaseline: has('--update-baseline'),
     face: sel.face,
     faceError: sel.error,
-    root: has('--root') ? path.resolve(argv[argv.indexOf('--root') + 1]) : ROOT,
+    // G-322:--root 给了却没收到合法值(无值是旧 `resolve(undefined)` 裸栈、空串静默落 cwd)
+    // ⇒ 记成用法错,由 main 同 faceError 的既有通道拒绝;不带 --root 行为一字不变。
+    rootError: rootFlag.present && !rootFlag.valid ? `--root 需要一个目录参数 —— 紧邻的 token 实得:${describeFlagToken(rootFlag)}(不得静默退回仓库根)` : null,
+    root: rootFlag.valid ? path.resolve(rootFlag.value) : ROOT,
   }
 }
 
@@ -2338,6 +2343,10 @@ function main() {
   if (o.selfTest) return selfTest()
   if (o.faceError) {
     console.log(`⚠️ 无法判定 —— ${o.faceError}`)
+    return 2
+  }
+  if (o.rootError) {
+    console.log(`⚠️ 无法判定 —— ${o.rootError}`)
     return 2
   }
   if (o.nextIdRequested) {

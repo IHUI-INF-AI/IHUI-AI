@@ -125,6 +125,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // 不得逐文件派生 git、仓库根比较要穿 junction、maxBuffer 要给足)只应有一处实现。
 // 本门此前自带一份 `git()` + `catBatch()`,与守门 91/94/101 同形;现统一走共用层。
 import { Undetermined, catBatch, gitRaw } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SELF_SKIP = 'HUSKY_SKIP_GLYPH_ARROW_ICON'
@@ -1750,8 +1751,14 @@ check-glyph-arrow-icon.mjs — 文本箭头当图标 / 「箭头比标签还大�
 }
 
 function main(argv) {
-  const ri = argv.indexOf('--root')
-  const root = ri >= 0 ? resolve(argv[ri + 1]) : ROOT
+  // G-322:给了 --root 却没收到合法值 ⇒ 点名拒绝;旧写法 `resolve(argv[ri+1])` 无值抛
+  // `ERR_INVALID_ARG_TYPE` 裸栈(C 档),空串静默落 ROOT。
+  const rootArg = requireFlagValue(argv, '--root', { noun: '目录参数', fallback: null })
+  if (rootArg.error) {
+    console.error(`❌ 无法判定:${rootArg.error}`)
+    return 2
+  }
+  const root = rootArg.value !== null ? resolve(rootArg.value) : ROOT
   if (argv.includes('--self-test')) return selfTest()
   if (argv.includes('--help')) {
     usage()

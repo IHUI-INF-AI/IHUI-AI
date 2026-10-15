@@ -46,10 +46,20 @@ import { fileURLToPath } from 'node:url'
 // 现在一律经 scripts/lib/face-reader.mjs:绝对 git + stdio[0]=pipe + **一次 cat-file --batch 读完整批**
 // + maxBuffer 给足 + 取不到 ⇒ 抛 Undetermined ⇒ 对外 exit 2「无法判定」。
 import { Undetermined, catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
-
+import { flagValue as libFlagValue } from './lib/flag-value.mjs'
 // ROOT 由脚本自身位置推导:守门链偶发从子包 cwd 调用,写死 process.cwd() 会静默扫不到文件而"恒绿"
 // 唯一例外是集成测试:--root 显式注入临时夹具根(测试只改 cwd 时,脚本仍会去扫真仓,
 // 于是 14 例断言全在比对真仓数据 → 13 例恒红且无人跑;2026-09-24 实测)。
+// G-322:给了 --root 却没收到合法值 ⇒ 立即非零点名,不得把 `--staged` 当路径吃掉、
+// 也不得静默折回仓库根假装没给过(runner 追加 `--staged` 时这一格必踩)。
+{
+  const _f = libFlagValue(process.argv.slice(2), '--root')
+  if (_f.present && !_f.valid) {
+    const _got = _f.token === null ? '(其后没有任何参数)' : JSON.stringify(_f.token)
+    console.error(`❌ 无法判定:--root 需要一个目录参数 —— 紧邻的 token 实得:${_got}(不得静默退回仓库根)`)
+    process.exit(2)
+  }
+}
 const rootArgValue = (() => {
   const i = process.argv.indexOf('--root')
   const v = i >= 0 ? process.argv[i + 1] : null
@@ -165,9 +175,11 @@ const args = new Set(argv)
  * 现只接受"存在且不以 `-` 开头"的值;`--top` 同形只接受纯数字(旧写法 `parseInt('--staged')` = NaN
  * 并把 NaN 当阈值用)。与文件上方 `--root` 的取值判据同形,不得各写一份。
  */
+// 判据单源在 scripts/lib/flag-value.mjs(§22c);这里保留本文件既有的单参 string|null 形,
+// 调用点(--json / --top)语义一字不变:缺旗标或坏值 ⇒ null。
 function flagValue(flag) {
-  const v = args.has(flag) ? argv[argv.indexOf(flag) + 1] : null
-  return typeof v === 'string' && v !== '' && !v.startsWith('-') ? v : null
+  const f = libFlagValue(argv, flag)
+  return f.valid ? f.value : null
 }
 // `--json` 两档:带路径 ⇒ 写文件(既有行为,一字不改);不带路径 / 下一个 token 是别的旗标 ⇒ JSON 打到 stdout
 const JSON_OUT = flagValue('--json')

@@ -121,6 +121,7 @@ import {
   readWorktreeFile,
   selectFace,
 } from './lib/face-reader.mjs'
+import { flagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符)。 */
@@ -685,14 +686,7 @@ export function analyze(root, face) {
 }
 
 /** 带值旗标的取值(口径照抄本仓既有门:紧邻 token 必须存在、非空且不以 `-` 开头)。 */
-export function flagValue(list, flag) {
-  if (!Array.isArray(list) || !list.includes(flag))
-    return { present: false, valid: false, value: null, token: null }
-  const raw = list[list.indexOf(flag) + 1]
-  const token = typeof raw === 'string' ? raw : null
-  const valid = token !== null && token !== '' && !token.startsWith('-')
-  return { present: true, valid, value: valid ? token : null, token }
-}
+export { flagValue }
 
 export function resolveRootArg(argv) {
   const f = flagValue(argv, '--root')

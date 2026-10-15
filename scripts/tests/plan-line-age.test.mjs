@@ -148,7 +148,7 @@ test('(c) 形状锁:--limit 取值必须走 resolveLimit,裸 Number(argv[indexOf
     /Number\(\s*argv\[\s*argv\.indexOf\(\s*'--limit'\s*\)\s*\+\s*1\s*\]\s*\)/,
     '旧写法 Number(argv[argv.indexOf("--limit") + 1]) 不得回来',
   )
-  assert.match(code, /function\s+flagValue\s*\(/, '判据必须是本模块那一份(供测试直接 import)')
+  assert.match(code, /export\s*\{\s*flagValue\s*\}/, '判据从唯一出口 scripts/lib/flag-value.mjs 转出(§22c 单源),测试仍直接 import 本模块')
   assert.match(code, /export function resolveLimit\(/, '出口必须 export,否则测试只能抄一份判据')
   assert.match(code, /resolveLimit\(\s*argv\s*\)/, 'main 必须真调用出口')
   assert.match(code, /limitNotice\)\s*console\.error\(/, '点名必须走 stderr,否则 --json 的 stdout 被污染')
