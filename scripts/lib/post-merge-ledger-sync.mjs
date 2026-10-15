@@ -54,6 +54,19 @@ const PLAN_REL = 'PROJECT_PLAN.md'
  * `readFace` 仅供镜像测试注入(生产调用点一律走默认 git 取面)。
  */
 export function ledgerNoteResidue({ root = '', readFace } = {}) {
+  const text = readPlanFaceText({ root, readFace })
+  if (text === null) return null
+  const m = loadRatchet()
+  if (!m) return null
+  try {
+    return m.countPointerRows(text)
+  } catch {
+    return null
+  }
+}
+
+/** 被审面(HEAD blob)取文;取不到 ⇒ null。**只读一次**,两个存量维度共用同一份面(同面同轮)。 */
+function readPlanFaceText({ root = '', readFace } = {}) {
   let text = null
   try {
     text = readFace
@@ -69,9 +82,35 @@ export function ledgerNoteResidue({ root = '', readFace } = {}) {
     return null
   }
   if (typeof text !== 'string' || text === '') return null
+  return text
+}
+
+/** 判据模块 = 守门 13d 那一份;加载不了 ⇒ null(调用方折成"未判定",不冒充 0)。 */
+function loadRatchet() {
   try {
-    const m = require(join(HERE, '..', 'check-plan-dup-pointer-ratchet.mjs'))
-    return m.countPointerRows(text)
+    return require(join(HERE, '..', 'check-plan-dup-pointer-ratchet.mjs'))
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 第二个存量维(2026-10-15 立,G-32 复清的触发缺口):同题不同编号**可折**行数。
+ *
+ * 立因(实测,不是预防):10-15 那轮 absorb 档折掉 143 行之后,旁路合并的行级 union 把副本带回,
+ * 现读注记维 = 0 条而可折维 = 136 行 ⇒ 只看注记的触发闸**永不派生复清**,带回的那一型
+ * ("无注记的真副本")只能靠人工再跑一遍器物。这一维的判据同样只许有一份 = 13d 的 `twinFoldCount`
+ * (它自己转 `plan-tasks-merge.foldTwins`,与报告口径同源),本层不另写相似度/前缀正则。
+ *
+ * 返回 `null` = 未判定(面取不到 / 判据装不上 / 判据抛错),语义与注记维一致。
+ */
+export function twinFoldResidue({ root = '', readFace } = {}) {
+  const text = readPlanFaceText({ root, readFace })
+  if (text === null) return null
+  const m = loadRatchet()
+  if (!m) return null
+  try {
+    return m.twinFoldCount(text)
   } catch {
     return null
   }
@@ -95,16 +134,27 @@ export function ledgerNoteResidue({ root = '', readFace } = {}) {
  */
 function runPurgeResettle({ root, log = (s) => console.log(s), spawnFn, readFace }) {
   const n = ledgerNoteResidue({ root, readFace })
-  if (n === null) {
-    log('⚠️ [G-32] 注记存量未判定(取不到被审面或判据模块不可用)⇒ 本轮不复清;不得读成"已归零"')
-    return { ran: false, ok: false, residue: null, why: '未判定' }
+  const t = twinFoldResidue({ root, readFace })
+  if (n === null && t === null) {
+    log('⚠️ [G-32] 两类存量均未判定(取不到被审面或判据模块不可用)⇒ 本轮不复清;不得读成"已归零"')
+    return { ran: false, ok: false, residue: null, twinResidue: null, why: '未判定' }
   }
-  if (n === 0) return { ran: false, ok: true, residue: 0, why: '' }
+  if ((n || 0) + (t || 0) === 0) {
+    if (n === null || t === null) {
+      // 一维判得出 0 而另一维取不到 ⇒ 仍不派生,但必须报名:§0.3「没量到」不等于「已归零」。
+      log(`⚠️ [G-32] 存量有一维未判定(注记=${n === null ? '未判定' : n} / 可折=${t === null ? '未判定' : t})⇒ 本轮不派生复清`)
+      return { ran: false, ok: false, residue: n, twinResidue: t, why: '未判定' }
+    }
+    return { ran: false, ok: true, residue: 0, twinResidue: 0, why: '' }
+  }
   const run = spawnFn || spawnSync
   const abs = resolve(String(root || ''), PURGE_REL)
+  // 可折维 > 0 ⇒ 必须带 `--absorb`:只有那一档动"无注记的真副本"(候选正文整段挂进幸存行行尾,
+  // 由守恒断言 A1–A4 逐条自证零丢失);只带 --apply 的旧口径对这一型一条也折不掉。
+  const flags = t > 0 ? ['--apply', '--absorb'] : ['--apply']
   let r
   try {
-    r = run(process.execPath, [abs, '--apply'], {
+    r = run(process.execPath, [abs, ...flags], {
       cwd: resolve(String(root || '')),
       encoding: 'utf8',
       windowsHide: true,
@@ -112,19 +162,19 @@ function runPurgeResettle({ root, log = (s) => console.log(s), spawnFn, readFace
     })
   } catch (e) {
     const why = String((e && (e.stderr || e.message)) || e).slice(0, 200)
-    log(`⚠️ [G-32] 复清未派生成功(面上 ${n} 行注记待清;不阻断本轮收敛):${why}`)
-    return { ran: false, ok: false, residue: n, why }
+    log(`⚠️ [G-32] 复清未派生成功(面上 ${n} 行注记 + ${t} 行可折待清;不阻断本轮收敛):${why}`)
+    return { ran: false, ok: false, residue: n, twinResidue: t, why }
   }
   if (!r || r.status !== 0) {
     const why = String((r && (r.stderr || r.stdout)) || (r && r.error && r.error.message) || '未知').slice(0, 200)
-    log(`⚠️ [G-32] 复清未完成(面上 ${n} 行注记待清,rc=${r ? r.status : '取不到'},不阻断本轮收敛):${why}`)
-    return { ran: true, ok: false, residue: n, why }
+    log(`⚠️ [G-32] 复清未完成(注记 ${n} 行 / 可折 ${t} 行待清,rc=${r ? r.status : '取不到'},不阻断本轮收敛):${why}`)
+    return { ran: true, ok: false, residue: n, twinResidue: t, why }
   }
   const out = String((r && r.stdout) || '')
   const named = out.split(/\r?\n/).filter((x) => x.includes('落地') || x.includes('守恒断言'))
-  log(`🩹 [G-32] 本轮带回 ${n} 行重复登记副本 ⇒ 已复清;逐行处置见上面`)
+  log(`🩹 [G-32] 本轮带回 注记 ${n} 行 / 可折 ${t} 行 ⇒ 已复清(${flags.join(' ')});逐行处置见上面`)
   for (const l of named.slice(0, 4)) log(`  ${l.trim()}`)
-  return { ran: true, ok: true, residue: n, why: '', lines: named }
+  return { ran: true, ok: true, residue: n, twinResidue: t, why: '', lines: named }
 }
 
 
