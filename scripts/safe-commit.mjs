@@ -86,6 +86,9 @@ import {
   diffForeignIndexEntries,
   foreignEntryAdvice,
 } from './lib/commit-payload-attribution.mjs'
+// O43建议②(2026-10-15 机主拍板):钩子运行期外来件护栏 —— 生成临时 hooksPath 逐文件转发
+// .husky 全部钩子,pre-commit 成功后写树前复量索引(判据仍是 diffForeignIndexEntries 那一份)。
+import { buildWrappedHooksDir, GUARD_MARK } from './lib/hook-window-guard.mjs'
 // G-1079146 剩余半格(2026-10-08):活文档 intake 取值。判据**只有 live-doc-edit 那一份** ——
 // 本器 import 它已导出的六个出口,不在这里抄第二条 hex 正则、也不自己 split 做行差集(§22c:
 // 两处算同一件事必漂移,而漂了的那一份会替腐烂发合格证)。该模块顶层有 §22d `isDirectRun` 守卫,
@@ -844,23 +847,58 @@ const pump = (r) => {
   return `${r.stdout || ''}${r.stderr || ''}`
 }
 
+// O43②:护栏目录生命周期 —— 每次发令前重生成(基线必须是"此刻"的全量索引),进程退出
+// (含 process.exit 路径)时清理;目录在 .ihui-agent/tmp 下,不进库。
+let hookWindowGuard = null
+process.on('exit', () => {
+  try {
+    hookWindowGuard?.cleanup()
+  } catch {
+    /* 退出路径不做二次事故 */
+  }
+})
+
 let commitResult = null
 let hookFailed = false
 let hookOutput = ''
 for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
   // G-920 前置护栏:每次真的要发 `git commit` 之前都复量一次索引(判据住 lib,不在此重写)。
   rejectIfForeignEnteredIndex(attempt === 1 ? '首次尝试' : `锁争用重试 ${attempt}`)
-  const r = spawnSync('git', commitArgs(false), {
-    encoding: 'utf8',
-    cwd: repoRoot,
-    // G-978004 ②:把本枚声明的提交面传给钩子链(整链继承)。pre-commit-hook 写进
-    // rounds.jsonl 的 declaredFiles,让统计器能按"声明集 == 落地面"发强证;
-    // 普通直 git commit 不带此 env ⇒ 维持 ⊆ 弱证,失效方向是少发强证不是发假证。
-    env: { ...process.env, IHUI_DECLARED_FILES: expectedFiles.join('\n') },
-    windowsHide: true,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'],
+  // O43建议②:发令前取**全量**索引快照作基线(含他人的已暂存水位 —— 只拦"窗口期新进",
+  // 差值棘轮语义与 4-pre 完全一致),生成临时 hooksPath 逐文件转发 .husky 全部钩子;
+  // pre-commit 成功后写树前再复量一次,钩子运行期(本机实测 ≈15 分钟)新进的外来件在这里
+  // 被挡在写树之前 —— 4-pre 结构上够不到这个窗口(台账 O43)。每次发令重生成,陈旧基线
+  // 会把他人上一轮的合法落地误判成新进。
+  hookWindowGuard?.cleanup()
+  hookWindowGuard = buildWrappedHooksDir({
+    repoRoot,
+    tmpRoot: join(repoRoot, '.ihui-agent', 'tmp'),
+    baselinePaths: gitStagedPaths({ root: repoRoot }).map(normalize),
   })
+  if (hookWindowGuard.hooksDir)
+    log(
+      'info',
+      `O43② 钩子运行期外来件护栏已布防:基线 ${hookWindowGuard.baselineCount} 条 / 转发 ` +
+        `${hookWindowGuard.hookNames.length} 个钩子(pre-commit 成功后写树前复量)`,
+    )
+  const r = spawnSync(
+    'git',
+    hookWindowGuard.hooksDir
+      ? ['-c', `core.hooksPath=${hookWindowGuard.hooksDir}`, ...commitArgs(false)]
+      : commitArgs(false),
+    {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      // G-978004 ②:把本枚声明的提交面传给钩子链(整链继承)。pre-commit-hook 写进
+      // rounds.jsonl 的 declaredFiles,让统计器能按"声明集 == 落地面"发强证;
+      // 普通直 git commit 不带此 env ⇒ 维持 ⊆ 弱证,失效方向是少发强证不是发假证。
+      // O43②:护栏的写树前复量也从这里拿声明集(env 透传给钩子进程)。
+      env: { ...process.env, IHUI_DECLARED_FILES: expectedFiles.join('\n') },
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
   const out = pump(r)
   hookOutput += out
   commitResult = r
@@ -893,6 +931,18 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
     process.exit(1)
   }
   break
+}
+
+// O43②:护栏判红 = 窗口期外来件在写树前被点名。**绝不能落进下面的 --no-verify 兜底**
+// (兜底会把外来件照样交出去,护栏就白装了 —— 与"钩子真红才允许应急跳门"是两种形态),
+// 到此为止;出路只有判红输出里那两条(等其主会话落地/撤走后重跑,或改走 object-space-land)。
+if (hookOutput.includes(GUARD_MARK)) {
+  log(
+    'err',
+    `钩子运行期复量判红(见上)—— O43② 写树前最后防线生效,**拒绝 --no-verify 兜底**,本枚提交到此为止。` +
+      '注意这与"钩子判红"不同形:门是红的可以按归因分流,而这里是索引在钩子窗口期被灌了外来件,跳门解决不了它。',
+  )
+  process.exit(1)
 }
 
 let hookSkipped = false
