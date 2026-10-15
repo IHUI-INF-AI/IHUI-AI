@@ -215,6 +215,9 @@ pub fn detect_trae_dir() -> Option<PathBuf> {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CapturedAccount {
     pub user_id: String,
+    /// 账户名/昵称(tc 解密自带 account.username;其他通道空,展示时回落 user_id)
+    #[serde(default)]
+    pub nickname: String,
     pub jwt: String,
     pub source: String,
 }
@@ -559,6 +562,7 @@ fn read_jwts_from_cookies_db(
             if let Some(uid) = jwt_payload_user_id(&jwt) {
                 out.push(CapturedAccount {
                     user_id: uid,
+                    nickname: String::new(),
                     jwt,
                     source: format!("cookies:{host}/{name}({source_rel})"),
                 });
@@ -631,7 +635,7 @@ fn scan_leveldb_dir(trae_dir: &Path, rel: &str, out: &mut Vec<CapturedAccount>) 
             .to_string();
         for jwt in extract_jwt_strings(&bytes) {
             if let Some(uid) = jwt_payload_user_id(&jwt) {
-                out.push(CapturedAccount { user_id: uid, jwt, source: format!("leveldb:{name}") });
+                out.push(CapturedAccount { user_id: uid, nickname: String::new(), jwt, source: format!("leveldb:{name}") });
             }
         }
     }
@@ -782,8 +786,15 @@ pub fn capture_trae_cloudide_jwt(trae_dir: &Path) -> Option<CapturedAccount> {
             log::warn!("[checkin-capture] {k} 的 token 已过期(exp={expires}),跳过");
             continue;
         }
+        // 账户名展示:tc 解密的 account 对象,优先级 手机→邮箱→账号→昵称
+        // (真机实证 account.username=智汇AI;无手机号时回落账号名)
+        let nickname = j
+            .get("account")
+            .map(display_name_pick)
+            .unwrap_or_default();
         return Some(CapturedAccount {
             user_id,
+            nickname,
             jwt: token,
             source: format!("storage.json:{k}(tc解密)"),
         });
@@ -3381,6 +3392,8 @@ pub struct CapturedQoderSession {
     pub machine_token: String,
     pub machine_code: String,
     pub machine_type: String,
+    /// 账户昵称/手机号(展示名,真机实证 user.phone)
+    pub nickname: String,
 }
 
 /// 纯函数:解密 auth.v1.dat(密钥已由调用方从 Local State 解出)并解析会话 JSON。
@@ -3458,6 +3471,26 @@ pub fn qoder_session_uid(session: &serde_json::Value, token: &str) -> Option<Str
         }
     }
     qoder_jwt_uid(token)
+}
+
+/// 纯函数:JSON 对象 → 展示名,全局统一优先级(2026-10-15 李总定档):
+/// 手机号 > 邮箱 > 账号名 > 昵称(兜底账户名)。四平台共用。
+pub fn display_name_pick(obj: &serde_json::Value) -> String {
+    for key in ["phone", "mobile", "email", "username", "userName", "nickname", "nick_name", "name"] {
+        if let Some(v) = obj.get(key).and_then(qoder_scalar_str) {
+            return v;
+        }
+    }
+    String::new()
+}
+
+/// 纯函数:Qoder 会话 JSON → 展示名(user 对象,优先级见 display_name_pick;
+/// 真机实证 user.phone=18643389808)。
+pub fn qoder_session_nickname(session: &serde_json::Value) -> String {
+    match session.get("user") {
+        Some(user) => display_name_pick(user),
+        None => String::new(),
+    }
 }
 
 /// 纯函数:会话 JSON 的 expiresAt → epoch 秒(缺失/坏格式 0)。
@@ -3678,6 +3711,7 @@ pub fn capture_qoder_sessions() -> Vec<CapturedQoderSession> {
             _ => "intl",
         }
         .to_string();
+        let nickname = qoder_session_nickname(&session);
         out.push(CapturedQoderSession {
             app_dir: dir.display().to_string(),
             edition,
@@ -3690,6 +3724,7 @@ pub fn capture_qoder_sessions() -> Vec<CapturedQoderSession> {
                 .to_string(),
             // expiresAt 是 ISO 字符串(真机实证);qoder_session_expires_at 兼容
             // ISO/epoch 两种形态,坏格式落 0(前端/服务端都按「>0 才用」消费)。
+            nickname,
             expires_at: qoder_session_expires_at(&session),
             jwt_exp: jwt_payload_exp(token),
             machine_id,
@@ -3891,12 +3926,7 @@ pub fn parse_workbuddy_auth_doc(doc: &serde_json::Value, auth_file: &str) -> Vec
             .unwrap_or("")
             .to_string();
         if !uid.is_empty() {
-            let nick = acc
-                .get("nickname")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            entries.push((uid, nick));
+            entries.push((uid, display_name_pick(acc)));
         }
     }
     for key in ["accounts", "allAccounts"] {
@@ -3910,12 +3940,7 @@ pub fn parse_workbuddy_auth_doc(doc: &serde_json::Value, auth_file: &str) -> Vec
                 if uid.is_empty() || entries.iter().any(|(u, _)| u == &uid) {
                     continue;
                 }
-                let nick = acc
-                    .get("nickname")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                entries.push((uid, nick));
+                entries.push((uid, display_name_pick(acc)));
             }
         }
     }
@@ -3964,7 +3989,199 @@ pub fn parse_workbuddy_auth_doc(doc: &serde_json::Value, auth_file: &str) -> Vec
         .collect()
 }
 
+// ================== $wbEncrypted 信封解密(2026-10-15,WorkBuddy 本机捕获傻瓜式)==================
+//
+// 2026-10-15 社区实证(腾讯云开发者社区 / 大佬说论坛逆向,算法细节公开):
+// WorkBuddy 5.6+ 把 auth.accessToken/refreshToken 包进 $wbEncrypted 信封
+// (suite 1 = AES-256-GCM)。密钥 = SHA-256(atRestSecretKey),而
+// atRestSecretKey 是**构建期内嵌常量**(同版本通用,不逐机随机),可由客户端
+// 自身以 ELECTRON_RUN_AS_NODE 模式活取:
+//   const m = process._linkedBinding('electron_browser_workbuddy_storage');
+//   process.stdout.write(m.loggerGet());   // → {"version":1,"atRestSecretKey":"..."}
+// AAD 为固定长度前缀 transcript(field framing):
+//   "WB-AAD\0" \x01 lp("WBEV1") lp("sym-v1") BE32(suite) lp(keyId) \x02 \x00 \x00
+// keyId = sha256(key).hexdigest()[:16],信封自带 keyId 可校验密钥是否匹配
+// (客户端更新换密钥时显式失败并提示,不静默冒充)。
+// 本机实证(5.8.2 便携版 G:\workbuddy):活取密钥与社区常量一致;解出 RS256 JWT,
+// checkin-status 带 Bearer 头返回 200 code:0。
+// 用户视角:已登录 WorkBuddy 桌面端 ⇒ 本机捕获直出可用 Bearer JWT,零粘贴。
+
+/// 已知版本的 atRestSecretKey(社区公开常量,2026-10-15 实测匹配 5.8.2)。
+/// 活取失败时的回落;keyId 校验保证版本漂移时显式失败而非静默错解。
+pub const WB_AT_REST_SECRET_DEFAULT: &str = "Sik9U5aXhCdwTVEwsEySDOmDoB9r9ntFxHF1fst9LQI=";
+
+/// 纯函数:atRestSecretKey → (AES-256 密钥, keyId=sha256(key) 前 8 字节 hex)。
+pub fn workbuddy_derive_key(secret: &str) -> ([u8; 32], String) {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(secret.as_bytes());
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&digest);
+    let key_id: String = Sha256::digest(key)[..8].iter().map(|b| format!("{b:02x}")).collect();
+    (key, key_id)
+}
+
+/// 长度前缀编码(4B 大端 + 字节)。
+fn wb_lp(b: &[u8]) -> Vec<u8> {
+    let mut v = Vec::with_capacity(4 + b.len());
+    v.extend_from_slice(&(b.len() as u32).to_be_bytes());
+    v.extend_from_slice(b);
+    v
+}
+
+/// 纯函数:复刻 buildAuthenticatedContextAad(sym-v1 / field framing)字节布局。
+pub fn workbuddy_field_aad(key_id: &str, suite: u32) -> Vec<u8> {
+    let mut aad = Vec::new();
+    aad.extend_from_slice(b"WB-AAD\0");
+    aad.push(0x01);
+    aad.extend_from_slice(&wb_lp(b"WBEV1"));
+    aad.extend_from_slice(&wb_lp(b"sym-v1"));
+    aad.extend_from_slice(&suite.to_be_bytes());
+    aad.extend_from_slice(&wb_lp(key_id.as_bytes()));
+    aad.extend_from_slice(&[0x02, 0x00, 0x00]);
+    aad
+}
+
+/// 纯函数:信封 base64 + atRestSecretKey → 明文字符串。
+/// keyId 不匹配 ⇒ 显式报错(客户端换密钥,提示重取),不静默。
+pub fn workbuddy_decrypt_field(envelope_b64: &str, secret: &str) -> Result<String, String> {
+    use aes_gcm::aead::{Aead, Payload};
+    use aes_gcm::{Aes256Gcm, KeyInit};
+    use base64::Engine as _;
+
+    let (key, expect_key_id) = workbuddy_derive_key(secret);
+    let raw = base64::engine::general_purpose::STANDARD
+        .decode(envelope_b64.trim())
+        .map_err(|e| format!("信封 base64 解码失败: {e}"))?;
+    let env: serde_json::Value = serde_json::from_slice(&raw)
+        .map_err(|e| format!("信封非 JSON: {e}"))?;
+    let key_id = env
+        .get("keyId")
+        .and_then(|v| v.as_str())
+        .ok_or("信封缺 keyId")?;
+    if key_id != expect_key_id {
+        return Err(format!(
+            "密钥不匹配(信封 keyId={key_id},本机派生={expect_key_id})——WorkBuddy 可能已更新,需重新提取 atRestSecretKey"
+        ));
+    }
+    let suite = env.get("suite").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
+    let b64 = |k: &str| -> Result<Vec<u8>, String> {
+        env.get(k)
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| format!("信封缺 {k}"))
+            .and_then(|s| {
+                base64::engine::general_purpose::STANDARD
+                    .decode(s)
+                    .map_err(|e| format!("信封 {k} base64 解码失败: {e}"))
+            })
+    };
+    let nonce = b64("nonce")?;
+    if nonce.len() != 12 {
+        return Err(format!("信封 nonce 长度异常({} 字节)", nonce.len()));
+    }
+    let mut ct_and_tag = b64("ciphertext")?;
+    ct_and_tag.extend_from_slice(&b64("authTag")?);
+    let aad = workbuddy_field_aad(key_id, suite);
+    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|e| format!("AES 密钥装载失败: {e}"))?;
+    let plain = cipher
+        .decrypt(
+            aes_gcm::Nonce::from_slice(&nonce),
+            Payload {
+                msg: &ct_and_tag,
+                aad: &aad,
+            },
+        )
+        .map_err(|_| "AES-GCM 解密/校验失败(密钥或 AAD 不对)".to_string())?;
+    String::from_utf8(plain).map_err(|e| format!("解密结果非 UTF8: {e}"))
+}
+
+/// 纯函数:登录态 doc 取 accessToken 的 envelope base64(加密形态;明文/缺失 → None)。
+pub fn workbuddy_envelope_b64(doc: &serde_json::Value) -> Option<String> {
+    let at = doc.get("auth")?.get("accessToken")?;
+    if at.get("$wbEncrypted").and_then(|v| v.as_i64()) == Some(1) {
+        at.get("envelope")?.as_str().map(|s| s.to_string())
+    } else {
+        None
+    }
+}
+
+/// WorkBuddy.exe 候选(便携版/标准安装/多盘符都在真机出现过;5.8.2 本机是 G:\workbuddy)。
+fn workbuddy_exe_candidates() -> Vec<std::path::PathBuf> {
+    let mut out: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(la) = std::env::var("LOCALAPPDATA") {
+        if !la.trim().is_empty() {
+            for rel in [
+                "Programs/WorkBuddy/WorkBuddy.exe",
+                "Programs/CodeBuddy/CodeBuddy.exe",
+                "CodeBuddyExtension/WorkBuddy.exe",
+                "WorkBuddy/WorkBuddy.exe",
+            ] {
+                out.push(std::path::PathBuf::from(&la).join(rel));
+            }
+        }
+    }
+    for root in ["G:\\", "D:\\", "C:\\"] {
+        out.push(std::path::PathBuf::from(root).join("workbuddy").join("WorkBuddy.exe"));
+    }
+    for pf in ["ProgramFiles", "ProgramFiles(x86)"] {
+        if let Ok(p) = std::env::var(pf) {
+            out.push(std::path::PathBuf::from(p).join("WorkBuddy").join("WorkBuddy.exe"));
+        }
+    }
+    out.into_iter().filter(|p| p.is_file()).collect()
+}
+
+/// 从 WorkBuddy.exe 以 ELECTRON_RUN_AS_NODE 模式活取 atRestSecretKey。
+/// 5s 超时(线程 + recv_timeout,复用守门脚本同款防挂模式);原生绑定起不来
+/// (非 Electron 主程序 / 路径猜错)即 None,由调用方回落内置常量。
+fn live_extract_wb_secret(exe: &std::path::Path) -> Option<String> {
+    let js = "const m = process._linkedBinding('electron_browser_workbuddy_storage'); process.stdout.write(m.loggerGet());";
+    let tmp = std::env::temp_dir().join(format!("ihui-wb-key-{}.js", std::process::id()));
+    if std::fs::write(&tmp, js).is_err() {
+        return None;
+    }
+    let exe = exe.to_path_buf();
+    let tmp_in_thread = tmp.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut cmd = std::process::Command::new(&exe);
+        cmd.env("ELECTRON_RUN_AS_NODE", "1").arg(&tmp_in_thread);
+        #[cfg(windows)]
+        creation_flags_if_windows(&mut cmd, 0x0800_0000);
+        let _ = tx.send(cmd.output());
+    });
+    let out = match rx.recv_timeout(std::time::Duration::from_secs(5)) {
+        Ok(Ok(o)) => o,
+        _ => {
+            let _ = std::fs::remove_file(&tmp);
+            return None;
+        }
+    };
+    let _ = std::fs::remove_file(&tmp);
+    if !out.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&out.stdout);
+    let v: serde_json::Value = serde_json::from_str(text.trim()).ok()?;
+    v.get("atRestSecretKey")
+        .and_then(|s| s.as_str())
+        .map(|s| s.to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// 解析 atRestSecretKey:优先本机客户端活取(版本自愈),回落内置常量。
+fn resolve_wb_at_rest_secret() -> String {
+    for exe in workbuddy_exe_candidates() {
+        if let Some(s) = live_extract_wb_secret(&exe) {
+            log::info!("[checkin-capture] WorkBuddy atRestSecretKey 活取成功({})", exe.display());
+            return s;
+        }
+    }
+    WB_AT_REST_SECRET_DEFAULT.to_string()
+}
+
 pub fn capture_workbuddy_sessions() -> Vec<CapturedWorkbuddySession> {
+    // 信封解密密钥只解析一次(活取要起进程;多个 .info 共用同一密钥)。
+    let mut secret: Option<String> = None;
     for path in workbuddy_auth_file_candidates() {
         if !path.is_file() {
             continue;
@@ -3979,6 +4196,28 @@ pub fn capture_workbuddy_sessions() -> Vec<CapturedWorkbuddySession> {
         };
         let out = parse_workbuddy_auth_doc(&doc, &path.display().to_string());
         if !out.is_empty() {
+            // 加密信封 → 本机直解(用户零操作);解不开保持 encrypted=true,
+            // 由前端引导网页登录/手动粘贴(旧路径不退化)。
+            if let Some(env_b64) = workbuddy_envelope_b64(&doc) {
+                let sec = secret.get_or_insert_with(resolve_wb_at_rest_secret);
+                match workbuddy_decrypt_field(&env_b64, sec) {
+                    Ok(tok) => {
+                        return out
+                            .into_iter()
+                            .map(|mut s| {
+                                if s.encrypted {
+                                    s.access_token = tok.clone();
+                                    s.encrypted = false;
+                                }
+                                s
+                            })
+                            .collect();
+                    }
+                    Err(e) => {
+                        log::warn!("[checkin-capture] WorkBuddy 信封解密失败({e}),保持加密态由用户手动粘贴");
+                    }
+                }
+            }
             return out;
         }
     }
@@ -3991,6 +4230,204 @@ pub fn checkin_capture_workbuddy() -> Result<Vec<CapturedWorkbuddySession>, IpcE
     if sessions.is_empty() {
         return Err(IpcError::not_found(
             "未找到已登录的 WorkBuddy 桌面端登录态(需本机已安装并登录 WorkBuddy)",
+        ));
+    }
+    Ok(sessions)
+}
+
+// ================== MiniMax Code 凭据捕获(2026-10-15,第四平台)==================
+//
+// 本机实证(2026-10-15):MiniMax Code(桌面端 3.1.1,CN)的 OAuth token **明文**存
+// `~/.minimax/auth/prod/cn/mcode-public/auth.json`(schemaVersion 1,records 里
+// 每条 {accessToken(mmoat_ 前缀 opaque),refreshToken,expiresAtMs,...});
+// 账号 uid 明文存 `%APPDATA%\MiniMax\minimax-agent-cn-config.json` 的
+// sharedUser.realUserID。接口契约(桌面端 api 日志 + 社区双向实证):
+//   GET  {host}/minimax-cloud/api/v1/signin/status
+//   POST {host}/minimax-cloud/api/v1/signin/claim   (body {},幂等:已领 claim_result=2)
+// 鉴权 = `Authorization: Bearer <accessToken>` + yy/x-timestamp/x-signature
+// 三重 MD5 签名(算法与服务端 checkin_minimax.py 同源双实现,那里是签到执行侧)。
+// 设备参数服务端不严格校验(伪造 uuid/device_id 实测 200),捕获端只取真 token+uid。
+// 用户视角:已登录 MiniMax Code ⇒ 点「本机捕获」直出可用账号,零粘贴。
+
+/// MiniMax 本机会话(字段名 serde snake_case,tauri-bridge 原样投影)。
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CapturedMinimaxSession {
+    pub auth_file: String,
+    /// sharedUser.realUserID(签到接口必填,缺失网关 401)
+    pub uid: String,
+    /// sharedUser.userName(展示名,缺失回落 uid)
+    pub nickname: String,
+    /// mmoat_ 前缀 OAuth accessToken(签到走 Authorization: Bearer)
+    pub access_token: String,
+    /// mmort_ 前缀 refreshToken(引擎预留自刷新,当前不消费)
+    pub refresh_token: String,
+    /// auth.json 声明的过期(epoch 秒,缺失 0)
+    pub expires_at: i64,
+    /// 每账号独立设备指纹(uuid,捕获时生成并固定;引擎签名用,服务端不校验值但独立化画像)
+    pub uuid: String,
+    /// 每账号独立设备指纹(device_id,同上)
+    pub device_id: String,
+}
+
+/// 纯函数:auth.json doc → accessToken(records 里第一条带 accessToken 的记录)。
+pub fn minimax_token_from_auth_doc(doc: &serde_json::Value) -> Option<String> {
+    let records = doc.get("records")?.as_object()?;
+    for rec in records.values() {
+        if let Some(t) = rec.get("accessToken").and_then(|v| v.as_str()).map(str::trim).filter(|s| !s.is_empty()) {
+            return Some(t.to_string());
+        }
+    }
+    None
+}
+
+/// 纯函数:auth.json doc → refreshToken(与 accessToken 同记录优先)。
+pub fn minimax_refresh_from_auth_doc(doc: &serde_json::Value) -> String {
+    let Some(records) = doc.get("records").and_then(|v| v.as_object()) else {
+        return String::new();
+    };
+    for rec in records.values() {
+        let Some(ak) = rec.get("accessToken").and_then(|v| v.as_str()) else { continue };
+        if ak.trim().is_empty() {
+            continue;
+        }
+        return rec.get("refreshToken").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+    }
+    String::new()
+}
+
+/// 纯函数:auth.json doc → expiresAtMs → epoch 秒(缺失/坏格式 0)。
+pub fn minimax_expires_from_auth_doc(doc: &serde_json::Value) -> i64 {
+    let Some(records) = doc.get("records").and_then(|v| v.as_object()) else { return 0 };
+    for rec in records.values() {
+        let Some(ak) = rec.get("accessToken").and_then(|v| v.as_str()) else { continue };
+        if ak.trim().is_empty() {
+            continue;
+        }
+        let ms = rec.get("expiresAtMs").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        return if ms > 1e12 { (ms / 1000.0) as i64 } else { ms as i64 };
+    }
+    0
+}
+
+/// 纯函数:config doc → (uid, nickname)(sharedUser.realUserID / userName)。
+pub fn minimax_identity_from_config_doc(doc: &serde_json::Value) -> (String, String) {
+    let Some(su) = doc.get("sharedUser") else {
+        return (String::new(), String::new());
+    };
+    let uid = su.get("realUserID").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+    let uid = if uid.is_empty() {
+        su.get("userID").and_then(|v| v.as_str()).unwrap_or("").trim().to_string()
+    } else {
+        uid
+    };
+    let nick = display_name_pick(su);
+    (uid, nick)
+}
+
+/// auth.json 候选:CN 固定路径优先,回退扫 `~/.minimax/auth/prod/<region>/<client>/` 两层。
+fn minimax_auth_file_candidates() -> Vec<std::path::PathBuf> {
+    let mut out: Vec<std::path::PathBuf> = Vec::new();
+    let home = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .ok()
+        .map(std::path::PathBuf::from)
+        .filter(|p| !p.as_os_str().is_empty());
+    let Some(home) = home else { return out };
+    out.push(home.join(".minimax/auth/prod/cn/mcode-public/auth.json"));
+    // 通用回退:region/client 两层目录(国际版 io/别的 clientId 也覆盖)
+    let prod = home.join(".minimax/auth/prod");
+    if let Ok(regions) = std::fs::read_dir(&prod) {
+        for r in regions.flatten() {
+            if let Ok(clients) = std::fs::read_dir(r.path()) {
+                for c in clients.flatten() {
+                    let f = c.path().join("auth.json");
+                    if f.is_file() && !out.contains(&f) {
+                        out.push(f);
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+/// config 候选(uid/nickname 来源):CN 变体名 + 国际变体名 + LOCALAPPDATA 回退。
+fn minimax_config_file_candidates() -> Vec<std::path::PathBuf> {
+    let mut out: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(ad) = std::env::var("APPDATA") {
+        if !ad.trim().is_empty() {
+            let base = std::path::PathBuf::from(&ad);
+            out.push(base.join("MiniMax/minimax-agent-cn-config.json"));
+            out.push(base.join("MiniMax Agent/minimax-agent-config.json"));
+        }
+    }
+    if let Ok(la) = std::env::var("LOCALAPPDATA") {
+        if !la.trim().is_empty() {
+            let base = std::path::PathBuf::from(&la);
+            out.push(base.join("MiniMax/minimax-agent-cn-config.json"));
+            out.push(base.join("MiniMax Agent/minimax-agent-config.json"));
+        }
+    }
+    out
+}
+
+/// 执行层:本机 MiniMax Code 登录态 → 会话列表(未登录返回空 vec)。
+pub fn capture_minimax_sessions() -> Vec<CapturedMinimaxSession> {
+    let (mut uid, mut nickname) = (String::new(), String::new());
+    for cp in minimax_config_file_candidates() {
+        if !cp.is_file() {
+            continue;
+        }
+        if let Ok(raw) = std::fs::read(&cp) {
+            if let Ok(doc) = serde_json::from_slice::<serde_json::Value>(&raw) {
+                let (u, n) = minimax_identity_from_config_doc(&doc);
+                if !u.is_empty() {
+                    uid = u;
+                    nickname = n;
+                    break;
+                }
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for ap in minimax_auth_file_candidates() {
+        if !ap.is_file() {
+            continue;
+        }
+        let Ok(raw) = std::fs::read(&ap) else { continue };
+        let Ok(doc) = serde_json::from_slice::<serde_json::Value>(&raw) else { continue };
+        let Some(token) = minimax_token_from_auth_doc(&doc) else { continue };
+        let expires_at = minimax_expires_from_auth_doc(&doc);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        if expires_at > 0 && expires_at <= now {
+            log::warn!("[checkin-capture] MiniMax token 已过期({}),跳过(打开客户端刷新)", ap.display());
+            continue;
+        }
+        out.push(CapturedMinimaxSession {
+            auth_file: ap.display().to_string(),
+            uid: uid.clone(),
+            nickname: if nickname.is_empty() { uid.clone() } else { nickname.clone() },
+            access_token: token,
+            refresh_token: minimax_refresh_from_auth_doc(&doc),
+            expires_at,
+            // 多账号风控三件套之一:每账号固化一套独立设备指纹(与 IP 代理绑定
+            // 组合成完整独立画像;服务端实测不校验值,但独立化防"同指纹多账号")
+            uuid: random_guid_like(),
+            device_id: random_hex(8),
+        });
+    }
+    out
+}
+
+#[tauri::command]
+pub fn checkin_capture_minimax() -> Result<Vec<CapturedMinimaxSession>, IpcError> {
+    let sessions = capture_minimax_sessions();
+    if sessions.is_empty() {
+        return Err(IpcError::not_found(
+            "未找到已登录的 MiniMax Code 登录态(需本机已安装并登录 MiniMax Code)",
         ));
     }
     Ok(sessions)
@@ -4016,6 +4453,31 @@ mod tests {
     }
 
     // ── 1. TRAE 目录探测 ──
+
+    // 展示名优先级:手机号 > 邮箱 > 账号 > 昵称(2026-10-15 李总定档,四平台共用)
+    #[test]
+    fn display_name_pick_phone_first_then_email_then_account_then_nickname() {
+        // 四者齐备 ⇒ 取手机号
+        let all = serde_json::json!({
+            "nickname": "智汇AI", "name": "n", "username": "acct",
+            "email": "a@aizhs.top", "phone": "18643389808", "mobile": "13900000000"
+        });
+        assert_eq!(display_name_pick(&all), "18643389808");
+        // 无手机号 ⇒ 邮箱
+        let no_phone = serde_json::json!({"nickname": "智汇AI", "username": "acct", "email": "a@aizhs.top"});
+        assert_eq!(display_name_pick(&no_phone), "a@aizhs.top");
+        // 无手机/邮箱 ⇒ 账号名
+        let acct = serde_json::json!({"nickname": "智汇AI", "username": "智汇AI账号"});
+        assert_eq!(display_name_pick(&acct), "智汇AI账号");
+        // 只剩昵称 ⇒ 兜底账户名
+        let nick = serde_json::json!({"nickname": "智汇AI"});
+        assert_eq!(display_name_pick(&nick), "智汇AI");
+        // 空对象 ⇒ 空串(前端回落编号)
+        assert_eq!(display_name_pick(&serde_json::json!({})), "");
+        // Qoder 真机形态:user.phone 优先于 user.nickname
+        let session = serde_json::json!({"user": {"nickname": "李总", "phone": "18643389808"}});
+        assert_eq!(qoder_session_nickname(&session), "18643389808");
+    }
 
     #[test]
     fn trae_dir_candidates_override_first_then_appdata_then_localappdata() {
@@ -4185,6 +4647,7 @@ mod tests {
     fn dedup_keeps_first_per_user_id() {
         let acc = |uid: &str, src: &str| CapturedAccount {
             user_id: uid.into(),
+            nickname: String::new(),
             jwt: "t".into(),
             source: src.into(),
         };
@@ -4581,6 +5044,112 @@ mod tests {
     // 造完整 TRAE 仿真现场(APPDATA/LOCALAPPDATA/TEMP/注册表/仿真进程),
     // 真跑 13 层重置,三面断言:文件全灭 / 注册表整树删除 / 仿真进程被杀。
     // 安全护栏:本机存在真实 TRAE 现场或真实 TRAE 进程时直接 panic 拒跑,防误伤。
+
+    /// 真机端到端捕获验证(#[ignore],只显式跑:`cargo test --lib real_machine_capture_e2e -- --ignored --nocapture`)。
+    /// 与 9c 仿真相反:这条读**真实**本机登录态(Trae storage.json tc 解密 /
+    /// WorkBuddy 信封直解 + atRestSecretKey 活取),断言三平台本机捕获都产出
+    /// 可用凭据。用途:①装机后的最终验收;②客户端换加密格式时的预警(悄悄坏掉
+    /// 会在这里红)。平台未安装/未登录 ⇒ 打印跳过不断言(不误伤净机器)。
+    /// 绝不外泄凭据:只断言形态与非空,不打印 token 本体。
+    #[test]
+    #[ignore]
+    fn real_machine_capture_e2e() {
+        // ── Trae:iCubeAuthInfo tc 解密通道 ──
+        let read = |k: &str| std::env::var(k).ok().filter(|v| !v.is_empty());
+        let trae_sites = trae_capture_dirs(&trae_dir_candidates(
+            read("APPDATA").as_deref(),
+            read("LOCALAPPDATA").as_deref(),
+            read(ENV_TRAE_DIR).as_deref(),
+        ));
+        if trae_sites.is_empty() {
+            println!("[real-e2e] Trae: 本机无 TRAE 现场,跳过");
+        } else {
+            let accounts = capture_local_jwts_all_sites();
+            println!("[real-e2e] Trae: {} 个账号候选", accounts.len());
+            assert!(!accounts.is_empty(), "本机有 Trae 现场但捕获 0 账号");
+            let usable = accounts.iter().filter(|a| !a.jwt.is_empty()).count();
+            assert!(
+                usable >= 1,
+                "Trae 捕获无一带 jwt 的账号(tc 解密通道坏了吗?)"
+            );
+            for a in &accounts {
+                assert!(
+                    a.jwt.is_empty() || a.jwt.starts_with("eyJ"),
+                    "Trae jwt 形态异常: {}",
+                    a.source
+                );
+            }
+            println!("[real-e2e] Trae: ✅ {usable} 个账号带可用 JWT(tc 解密通道通)");
+        }
+
+        // ── WorkBuddy:$wbEncrypted 信封直解 + atRestSecretKey 活取 ──
+        let wb_file = workbuddy_auth_file_candidates()
+            .into_iter()
+            .find(|p| p.is_file());
+        match wb_file {
+            None => println!("[real-e2e] WorkBuddy: 本机无登录态文件,跳过"),
+            Some(_) => {
+                let sessions = capture_workbuddy_sessions();
+                println!("[real-e2e] WorkBuddy: {} 个会话", sessions.len());
+                assert!(!sessions.is_empty(), "本机有 WorkBuddy 登录态但捕获 0 会话");
+                let usable = sessions
+                    .iter()
+                    .filter(|s| !s.encrypted && !s.access_token.is_empty())
+                    .count();
+                assert!(
+                    usable >= 1,
+                    "WorkBuddy 会话全部 encrypted/无 token(信封解密或活取坏了吗?)"
+                );
+                for s in &sessions {
+                    assert!(
+                        s.access_token.is_empty() || s.access_token.starts_with("eyJ"),
+                        "WorkBuddy token 形态异常: {}",
+                        s.auth_file
+                    );
+                }
+                println!("[real-e2e] WorkBuddy: ✅ {usable} 个会话带可用 Bearer JWT(信封直解+活取通)");
+            }
+        }
+
+        // ── MiniMax Code:auth.json 明文 OAuth 通道 ──
+        let mm_file = minimax_auth_file_candidates().into_iter().find(|p| p.is_file());
+        match mm_file {
+            None => println!("[real-e2e] MiniMax: 本机无登录态文件,跳过"),
+            Some(_) => {
+                let sessions = capture_minimax_sessions();
+                println!("[real-e2e] MiniMax: {} 个会话", sessions.len());
+                assert!(!sessions.is_empty(), "本机有 MiniMax 登录态但捕获 0 会话");
+                let usable = sessions
+                    .iter()
+                    .filter(|s| !s.access_token.is_empty() && !s.uid.is_empty())
+                    .count();
+                assert!(
+                    usable >= 1,
+                    "MiniMax 会话缺 access_token 或 uid(token+uid 缺一不可)"
+                );
+                println!(
+                    "[real-e2e] MiniMax: ✅ {usable} 个会话带 OAuth token+uid(明文通道通)"
+                );
+            }
+        }
+
+        // ── Qoder:v10+DPAPI 通道(本机装着就验,没装跳过)──
+        if qoder_appdata_dirs().is_empty() {
+            println!("[real-e2e] Qoder: 本机无 Qoder 目录,跳过");
+        } else {
+            let sessions = capture_qoder_sessions();
+            println!("[real-e2e] Qoder: {} 个会话", sessions.len());
+            if sessions.is_empty() {
+                println!("[real-e2e] Qoder: 有目录但无会话(未登录?),跳过断言");
+            } else {
+                assert!(
+                    sessions.iter().any(|s| !s.access_token.is_empty()),
+                    "Qoder 会话无 access_token"
+                );
+                println!("[real-e2e] Qoder: ✅ {} 个会话带 access_token", sessions.len());
+            }
+        }
+    }
 
     #[cfg(windows)]
     #[test]
@@ -5343,6 +5912,95 @@ mod tests {
         assert_eq!(out.len(), 1);
         assert!(out[0].encrypted);
         assert_eq!(out[0].expires_at, 0);
+    }
+
+    #[test]
+    fn workbuddy_derive_key_matches_known_key_id() {
+        // 社区公开常量派生 keyId 必须等于 9127dea1b44020a7(5.8.2 本机信封同值)
+        let (_k, kid) = workbuddy_derive_key(WB_AT_REST_SECRET_DEFAULT);
+        assert_eq!(kid, "9127dea1b44020a7");
+        // 换密钥 ⇒ keyId 必变(防"公式抄错但两边一起错"的假绿)
+        let (_k2, kid2) = workbuddy_derive_key("another-secret");
+        assert_ne!(kid2, kid);
+    }
+
+    #[test]
+    fn workbuddy_decrypt_field_fixed_vector() {
+        // 固定向量:已知密钥加密已知 token 的信封(与 Trae tc 向量同思路,
+        // 防 AAD 拼接/派生公式抄错但解密不报错的假绿)。
+        const ENVELOPE: &str = "eyJzdWl0ZSI6MSwia2V5SWQiOiI5MTI3ZGVhMWI0NDAyMGE3Iiwibm9uY2UiOiJBQUVDQXdRRkJnY0lDUW9MIiwiYXV0aFRhZyI6ImFEcElMZC9VcDBiMlU3WEVPUlJ6Mnc9PSIsImNpcGhlcnRleHQiOiI5cytNSEIzOFpNWktjZE12WlVKYkhQRjhtS2k5RWE4azJ3aDd3d0VCNkNkNEJ2Zm1la1k9In0=";
+        let tok = workbuddy_decrypt_field(ENVELOPE, WB_AT_REST_SECRET_DEFAULT)
+            .expect("固定向量应解密成功");
+        assert_eq!(tok, "eyJhbGciOiJSUzI1NiJ9.test-wb-token.sig");
+        // 密钥不匹配 ⇒ 显式报错(客户端换密钥场景),不静默错解
+        assert!(workbuddy_decrypt_field(ENVELOPE, "wrong-secret").is_err());
+        assert!(workbuddy_decrypt_field("not-base64!", WB_AT_REST_SECRET_DEFAULT).is_err());
+    }
+
+    #[test]
+    fn workbuddy_field_aad_exact_bytes() {
+        // AAD 布局逐字节钉死:"WB-AAD\0" \x01 lp("WBEV1") lp("sym-v1") BE32(1) lp(kid) \x02\0\0
+        let aad = workbuddy_field_aad("abcd", 1);
+        let mut expect = Vec::new();
+        expect.extend_from_slice(b"WB-AAD\0");
+        expect.push(0x01);
+        expect.extend_from_slice(&5u32.to_be_bytes());
+        expect.extend_from_slice(b"WBEV1");
+        expect.extend_from_slice(&6u32.to_be_bytes());
+        expect.extend_from_slice(b"sym-v1");
+        expect.extend_from_slice(&1u32.to_be_bytes());
+        expect.extend_from_slice(&4u32.to_be_bytes());
+        expect.extend_from_slice(b"abcd");
+        expect.extend_from_slice(&[0x02, 0x00, 0x00]);
+        assert_eq!(aad, expect);
+    }
+
+    #[test]
+    fn minimax_parse_auth_doc_fields() {
+        let doc = serde_json::json!({
+            "schemaVersion": 1,
+            "records": {
+                "com.minimax.mcode.oauth.prod.cn\u{0000}pn7olb": {
+                    "accessToken": " mmoat_test_token ",
+                    "refreshToken": "mmort_test_rt",
+                    "tokenType": "Bearer",
+                    "expiresAtMs": 1792068705715i64
+                },
+                "empty-rec": {"accessToken": ""}
+            }
+        });
+        assert_eq!(minimax_token_from_auth_doc(&doc).as_deref(), Some("mmoat_test_token"));
+        assert_eq!(minimax_refresh_from_auth_doc(&doc), "mmort_test_rt");
+        assert_eq!(minimax_expires_from_auth_doc(&doc), 1792068705);
+        // 坏形状:无 records / 空 token
+        assert_eq!(minimax_token_from_auth_doc(&serde_json::json!({})), None);
+        let all_empty = serde_json::json!({"records": {"a": {"accessToken": ""}}});
+        assert_eq!(minimax_token_from_auth_doc(&all_empty), None);
+        assert_eq!(minimax_expires_from_auth_doc(&all_empty), 0);
+    }
+
+    #[test]
+    fn minimax_identity_from_config_doc_prefers_real_user_id() {
+        let doc = serde_json::json!({
+            "sharedUser": {"userID": "x6bRP8X8QpwP", "realUserID": "314069474482810883", "userName": "AI智汇社"}
+        });
+        assert_eq!(
+            minimax_identity_from_config_doc(&doc),
+            ("314069474482810883".to_string(), "AI智汇社".to_string())
+        );
+        // 缺 realUserID 回落 userID;缺 sharedUser 全空
+        let fallback = serde_json::json!({"sharedUser": {"userID": "u-only"}});
+        assert_eq!(minimax_identity_from_config_doc(&fallback), ("u-only".to_string(), String::new()));
+        assert_eq!(minimax_identity_from_config_doc(&serde_json::json!({})), (String::new(), String::new()));
+    }
+
+    #[test]
+    fn workbuddy_envelope_b64_shape() {
+        let doc = serde_json::json!({"auth": {"accessToken": {"$wbEncrypted": 1, "envelope": "ZW52"}}});
+        assert_eq!(workbuddy_envelope_b64(&doc).as_deref(), Some("ZW52"));
+        let plain = serde_json::json!({"auth": {"accessToken": "eyJplain"}});
+        assert_eq!(workbuddy_envelope_b64(&plain), None);
+        assert_eq!(workbuddy_envelope_b64(&serde_json::json!({})), None);
     }
 
     #[test]
