@@ -166,10 +166,12 @@ test('D171 形状锁:safe-commit 的路径取值必须走 lib/git-paths 的 -z �
   for (const need of ['gitCommitPaths', 'gitStagedPaths', 'gitUntrackedPaths']) {
     assert.ok(imported.has(need), `${need} 未被 import ⇒ 那一处的取路径可能退回换行 split`)
   }
+  // 三处 → 四处(2026-10-15,G-920 前置护栏新增发令前复量)。钉的是"这几处**都**走 lib 出口":
+  // 数量随合法新增点位走,但每次增加都必须在报告里点名新点是哪个,不许只改数字了事。
   assert.equal(
     (src.match(/gitStagedPaths\(\{ root: repoRoot \}\)/g) ?? []).length,
-    3,
-    'Step 3 / 归因面 / 重暂存校验三处都必须走 lib 出口',
+    4,
+    'Step 3 / 归因面 / 重暂存校验 / **4-pre 发令前复量**四处都必须走 lib 出口',
   )
   assert.match(src, /gitUntrackedPaths\(\{ root: repoRoot \}\)/, '未跟踪清单也必须走 -z 出口')
   assert.match(
