@@ -22,6 +22,27 @@ export async function getSubscriptions(
   return fetchApi<PageData<SubscriptionItem>>(`/subscriptions${buildQs(query)}`)
 }
 
+/** 收藏资源 — POST /favorites(幂等;resourceType 枚举与后端 favoriteBody 对齐) */
+export async function addFavorite(
+  resourceType: 'project' | 'file' | 'doc' | 'post' | 'comment' | 'aiworld' | 'agent',
+  resourceId: string,
+): Promise<ApiResult<{ favorited: true }>> {
+  return fetchApi<{ favorited: true }>('/favorites', {
+    method: 'POST',
+    body: JSON.stringify({ resourceType, resourceId }),
+  })
+}
+
+/** 检查是否已收藏 — GET /favorites/check/:resourceType/:resourceId */
+export async function checkFavorite(
+  resourceType: string,
+  resourceId: string,
+): Promise<ApiResult<{ favorited: boolean }>> {
+  return fetchApi<{ favorited: boolean }>(
+    `/favorites/check/${encodeURIComponent(resourceType)}/${encodeURIComponent(resourceId)}`,
+  )
+}
+
 /** 取消收藏 — DELETE /favorites/:resourceType/:resourceId */
 export async function deleteFavorite(
   resourceType: string,

@@ -43,6 +43,7 @@ import { TextField } from '@ihui/rn-app'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { AddPanel, PlusButton } from './AddPanel'
 import {
+  ArrowUp,
   Camera,
   ChevronDown,
   Folder,
@@ -52,8 +53,8 @@ import {
   Mic,
   Paperclip,
   Scissors,
-  Send,
   Settings,
+  Square,
   SquareFunction,
   X,
 } from 'lucide-react-native'
@@ -69,6 +70,8 @@ import {
   // 56×44 的文字胶囊 + 硬编码 '发送',三端里唯一的异类;AGENTS §4 图标一律用矢量库)
   BOTTOM_ACTION_BAR_CONTROL_BOX_PX,
   BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX,
+  // 发送/停止槽字形(2026-10-15 再裁决:web 发送簇 ArrowUp/Square 均 h-4 = 16,glyphSm 箭头档)
+  BOTTOM_ACTION_BAR_SEND_GLYPH_PX,
 } from '@ihui/shared/ui/bottom-action-bar-spec'
 
 // ── 兼容旧 API:简单按钮列表 ──
@@ -573,7 +576,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityRole="button"
             accessibilityLabel="语音输入"
           >
-            <Mic size={18} color={tokens.text.secondary} />
+            <Mic size={rnGeometry.glyphMd} color={tokens.text.secondary} />
           </Pressable>
         ) : null}
 
@@ -613,12 +616,18 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityLabel={t('chat.send')}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
+              /* 流式/发送中 = 停止语义:与 web 发送簇 Square(实心方块)同形,
+                 不再用 ActivityIndicator 充当图标(AGENTS §4 矢量铁律)。 */
+              <Square
+                size={BOTTOM_ACTION_BAR_SEND_GLYPH_PX}
+                color={tokens.brand.ctaForeground}
+                fill={tokens.brand.ctaForeground}
+              />
             ) : (
-              /* 此前这一格渲染的是文字「发送」(硬编码中文,不走 i18n),而 web / 小程序同一槽
-                 都是 lucide `send` 矢量 —— 三端里唯一的文字胶囊,即用户实拍"两端图标不一样"的
-                 直接成因(AGENTS §4:UI 图标一律用矢量图标库)。前景取配对档 ctaForeground。 */
-              <Send size={BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX} color={tokens.brand.ctaForeground} />
+              /* 发送字形 2026-10-15 再裁决:与 web 发送簇 ArrowUp 同形同档(h-4 = 16),
+                 告别旧裁决的 lucide `Send` 纸飞机(墨迹 14);档源 BOTTOM_ACTION_BAR_SEND_GLYPH_PX。
+                 此前更早的形态是文字「发送」胶囊(硬编码中文,三端唯一的文字胶囊)。 */
+              <ArrowUp size={BOTTOM_ACTION_BAR_SEND_GLYPH_PX} color={tokens.brand.ctaForeground} />
             )}
           </Pressable>
         ) : null}
@@ -645,7 +654,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityRole="button"
             accessibilityLabel={t('messageInput.addFile')}
           >
-            <Folder size={18} color={tokens.text.secondary} />
+            <Folder size={rnGeometry.glyphMd} color={tokens.text.secondary} />
           </Pressable>
           {onFunctionHandle !== undefined ? (
             <Pressable
@@ -669,7 +678,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               accessibilityRole="button"
               accessibilityLabel="来源"
             >
-              <Paperclip size={18} color={tokens.text.secondary} />
+              <Paperclip size={rnGeometry.glyphMd} color={tokens.text.secondary} />
             </Pressable>
           ) : null}
           {onFangda !== undefined ? (
@@ -680,7 +689,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               accessibilityRole="button"
               accessibilityLabel="放大"
             >
-              <Maximize size={18} color={tokens.text.secondary} />
+              <Maximize size={rnGeometry.glyphMd} color={tokens.text.secondary} />
             </Pressable>
           ) : null}
           {/* 手动压缩上下文(2026-09-02 立,对齐 web 端 message-input compactButton):
@@ -698,7 +707,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               {compactContextLoading ? (
                 <ActivityIndicator size="small" color={tokens.text.secondary} />
               ) : (
-                <Scissors size={18} color={tokens.text.secondary} />
+                <Scissors size={rnGeometry.glyphMd} color={tokens.text.secondary} />
               )}
             </Pressable>
           ) : null}
