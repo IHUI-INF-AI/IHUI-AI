@@ -4958,6 +4958,25 @@ const checks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_DISK_ROOT_WRITE',
   },
+  // --- ApiKeyPermission 三面对账(1 项,blocking)---
+  {
+    id: '214',
+    label:
+      'ApiKeyPermission 三面对账(union ↔ web 两处标签表 ↔ 五语言 apiKeyPerms;2026-10-16 CI e2e 因缺 voice:stt 标签恒红那格的防回潮)',
+    script: 'check-api-key-permission-labels.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_API_KEY_PERM_LABELS',
+    stagedTriggers: ['packages/types/src/api-key.ts', 'apps/web/app/(main)/admin/developer/DeveloperKeyDialog.tsx', 'apps/web/app/(main)/settings/api-keys/PermissionSelector.tsx', 'packages/i18n/messages/web'],
+    onFailHint: [
+      '',
+      '红线:不得为变绿把表改成 Partial<Record<...>> 或加 ! 断言 —— 那等于废掉编译期那把尺(镜像测试第 4 臂钉住)。',
+      '出路:同一笔提交把 union 新成员在 DeveloperKeyDialog.PERMISSION_LABELS 与 PermissionSelector.PERM_LABELS 两处补齐,并同批补五语言 packages/i18n/messages/web/*.json 的 apiKeyPerms.<leaf>(§19)。',
+      '取证:node scripts/check-api-key-permission-labels.mjs --self-test(8 臂) + 镜像 scripts/tests/check-api-key-permission-labels.test.mjs;定级前置 = 落地当刻 HEAD 面 RC=0(§12e)。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
