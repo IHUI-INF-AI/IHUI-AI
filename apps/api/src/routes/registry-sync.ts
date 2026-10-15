@@ -33,7 +33,8 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import type { Worker } from 'bullmq'
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHmac } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import { sql, and, eq, desc } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, dbRead } from '../db/index.js'
@@ -171,10 +172,7 @@ function extractSignature(
 function verifyHmac(payload: string, signature: string, secret: string): boolean {
   if (!secret || !signature) return false
   const expected = createHmac('sha256', secret).update(payload).digest('hex')
-  const expectedBuf = Buffer.from(expected, 'utf8')
-  const providedBuf = Buffer.from(signature, 'utf8')
-  if (expectedBuf.length !== providedBuf.length) return false
-  return timingSafeEqual(expectedBuf, providedBuf)
+  return secretsEqual(expected, signature)
 }
 
 /** 从 payload 推导事件名称(用于落库 webhook_triggers.name / event_type) */

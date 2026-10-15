@@ -44,7 +44,8 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { randomUUID, timingSafeEqual } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import type {
   AgentActionAssignment,
   AgentActionRequest,
@@ -101,10 +102,9 @@ const _pending = new Map<string, PendingRequest>()
  */
 const _droppedResults = { tokenMismatch: 0, instanceMismatch: 0, unattributed: 0 }
 
-/** token 定长比较(随机 UUID 等长;不等长直接 false,避免 timingSafeEqual 抛错) */
+/** token 定长比较(经全仓唯一比较出口 secretsEqual:定长散列,无长度泄漏) */
 function tokenEquals(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  return timingSafeEqual(Buffer.from(a, 'utf-8'), Buffer.from(b, 'utf-8'))
+  return secretsEqual(a, b)
 }
 
 /** 清理超过 5 分钟未上报的端 */
