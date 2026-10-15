@@ -235,13 +235,9 @@ pub fn classify_app_child(name: &str) -> &'static str {
     "user_asset"
 }
 
-/// app/session/ 子条目分类（纯函数）。
-pub fn classify_session_child(name: &str) -> &'static str {
-    if MAINTENANCE_SESSION_DIRS.contains(&name) {
-        return "maintenance";
-    }
-    "user_asset"
-}
+/// app/session/ 子条目分类已下沉到测试面（见 mod tests 内同名夹具）：生产侧
+/// 维护/登出清单**直接迭代** `MAINTENANCE_SESSION_DIRS` 构造动作（见
+/// maintenance_actions），不做逐名分类，生产里没有它的调用点。
 
 /// 根目录 sanity 护栏：目录必须存在且命中 ≥1 特征标记；
 /// 且不得是用户主目录本身（env 误注入的最后一道闸）。
@@ -1262,6 +1258,15 @@ mod tests {
             }
         }
         panic!("未找到隔离区于 {}", parent.display());
+    }
+
+    /// app/session/ 子条目分类（纯函数镜像夹具）：生产清单直接迭代
+    /// MAINTENANCE_SESSION_DIRS，不做逐名分类，故常量语义的回归断言住在测试面。
+    fn classify_session_child(name: &str) -> &'static str {
+        if MAINTENANCE_SESSION_DIRS.contains(&name) {
+            return "maintenance";
+        }
+        "user_asset"
     }
 
     #[test]
