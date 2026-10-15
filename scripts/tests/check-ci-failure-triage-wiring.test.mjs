@@ -45,7 +45,7 @@ const GOOD = [
 ].join('\n')
 
 test('装车证明:门体在 runner 注册条目里是 blocking 且带 skipEnv(读 HEAD 面,不读工作区)', () => {
-  const head = spawnSync('git', ['show', 'HEAD:scripts/guardian-runner.mjs'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024 }).stdout
+  const head = spawnSync('git', ['show', 'HEAD:scripts/guardian-runner.mjs'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }).stdout
   const i = head.indexOf("'check-ci-failure-triage-wiring.mjs'")
   assert.ok(i > -1, '门体未接进提交链注册表')
   const block = head.slice(Math.max(0, i - 400), i + 700)
