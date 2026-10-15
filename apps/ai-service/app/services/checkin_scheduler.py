@@ -30,7 +30,9 @@ GET /api/checkin/scheduler/status 只读暴露运行状态(Phase1c)。
 from __future__ import annotations
 
 import json
+import asyncio
 import os
+import random
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -40,6 +42,10 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.core.logging import get_logger
 from app.services import checkin_credits, checkin_minimax, checkin_qoder, checkin_store, checkin_workbuddy
+from app.services.checkin_engine import client_for
+
+_BATCH_JITTER_MIN = float(os.environ.get("CHECKIN_BATCH_JITTER_MIN", "8"))
+_BATCH_JITTER_MAX = float(os.environ.get("CHECKIN_BATCH_JITTER_MAX", "45"))
 from app.services.checkin_engine import checkin_account
 
 logger = get_logger(__name__)
@@ -212,9 +218,19 @@ class CheckinScheduler:
         cooldowns: dict[int, datetime],
         label: str,
     ) -> None:
-        """遍历账号逐个签到;冷却中的账号跳过。单账号失败不中断整轮。"""
+        """遍历账号逐个签到;冷却中的账号跳过。单账号失败不中断整轮。
+
+        多账号风控三件套之三:错峰——批内账号顺序随机打散,账号之间随机
+        间隔(默认 8~45s,环境变量 CHECKIN_BATCH_JITTER_MIN/MAX 可调),
+        消除"所有账号同一秒签到"的机器信号,使批量签到的时间模式与
+        多个真人各自操作无法区分。
+        """
         now = datetime.now(UTC)
         ok_count = 0
+        shuffled = list(accounts)
+        random.shuffle(shuffled)
+        accounts = shuffled
+        _seen_any = False
         for acc in accounts:
             cd_end = cooldowns.get(acc["id"])
             if cd_end is not None and cd_end > now:
@@ -224,6 +240,13 @@ class CheckinScheduler:
                     until=cd_end.isoformat(),
                 )
                 continue
+            if _seen_any:
+                delay = random.uniform(_BATCH_JITTER_MIN, _BATCH_JITTER_MAX)
+                logger.info(
+                    "[checkin_scheduler] 错峰延迟 %.0fs 后签到", delay, account=acc.get("name")
+                )
+                await asyncio.sleep(delay)
+            _seen_any = True
             try:
                 result = await self.checkin_one(acc)
                 await self.record_result(acc["id"], result)
@@ -317,22 +340,31 @@ class CheckinScheduler:
         device_map 写回存储(Qoder 的自刷新新 token 也经此通路落库)。"""
         device_map = dict(account.get("device_map") or {})
         platform = account.get("platform")
-        if platform == "qoder":
-            result = await checkin_qoder.qoder_checkin_account(
-                account["name"], account["jwt"], device_map
-            )
-        elif platform == "workbuddy":
-            # WorkBuddy 每日 00:00(UTC+8)后随时可领,随 08:05 主窗口跑
-            result = await checkin_workbuddy.workbuddy_checkin_account(
-                account["name"], account["jwt"], device_map
-            )
-        elif platform == "minimax":
-            # MiniMax 每日随时可领(幂等),随 08:05 主窗口跑
-            result = await checkin_minimax.minimax_checkin_account(
-                account["name"], account["jwt"], device_map
-            )
-        else:
-            result = await checkin_account(account["name"], account["jwt"], device_map)
+        # 多账号风控三件套之二:device_map.proxy 绑定独立出口 IP,
+        # 有代理的账号全程走自己的 client(用完即关),无代理本机直连零变化。
+        client, owned = client_for(device_map)
+        try:
+            if platform == "qoder":
+                result = await checkin_qoder.qoder_checkin_account(
+                    account["name"], account["jwt"], device_map, client=client
+                )
+            elif platform == "workbuddy":
+                # WorkBuddy 每日 00:00(UTC+8)后随时可领,随 08:05 主窗口跑
+                result = await checkin_workbuddy.workbuddy_checkin_account(
+                    account["name"], account["jwt"], device_map, client=client
+                )
+            elif platform == "minimax":
+                # MiniMax 每日随时可领(幂等),随 08:05 主窗口跑
+                result = await checkin_minimax.minimax_checkin_account(
+                    account["name"], account["jwt"], device_map, client=client
+                )
+            else:
+                result = await checkin_account(
+                    account["name"], account["jwt"], device_map, client=client
+                )
+        finally:
+            if owned:
+                await client.aclose()
         try:
             await checkin_store.save_device_map(account["id"], device_map)
         except Exception as e:
