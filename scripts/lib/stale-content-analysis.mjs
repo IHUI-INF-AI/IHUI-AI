@@ -162,7 +162,8 @@ export const RESURRECT_PROVENANCE_KEYS = Object.freeze([
  * 溯源行的行首形态:`//` 注释引导,紧跟一个**逐条点名**的键名与冒号。
  * `(?:#\s*)?` 沿用 ② 那一格的既有形状(`// # input: …` 也认),不新造宽容度。
  */
-export const RESURRECT_PROVENANCE_LINE_RE = /^[ \t]*\/\/[ \t]*(?:#\s*)?([A-Za-z][A-Za-z0-9]*)[ \t]*:[ \t]*([\s\S]*)$/
+export const RESURRECT_PROVENANCE_LINE_RE =
+  /^[ \t]*\/\/[ \t]*(?:#\s*)?([A-Za-z][A-Za-z0-9]*)[ \t]*:[ \t]*([\s\S]*)$/
 
 /**
  * 「文件自证为生成物」的标记集 —— **现读**自仓内 HEAD 面(2026-10-14 实测:`*.generated.*` /
@@ -222,6 +223,17 @@ export function isResurrectProvenanceLine(line) {
 }
 
 /**
+ * 生成物 `// input: <路径> <hash>` 自述行里的**输入路径**(非该形态 ⇒ null)。
+ * 值(hash)不参与本函数:这一行承载的事实是"面上有这份输入",hash 只是它的指纹。
+ */
+export function resurrectInputPath(line) {
+  const m = RESURRECT_PROVENANCE_LINE_RE.exec(String(line).replace(/^[ \t　]+/, ''))
+  if (!m || m[1] !== 'input') return null
+  const first = /^[^\s]+/.exec(m[2].trim())
+  return first ? first[0] : null
+}
+
+/**
  * 行级**多重集**差(纯函数,构造面可证)。
  *
  * 刻意不做位置对齐的 diff:判"这次落地会抹掉基线里哪些行"只需要计数,而位置对齐会把
@@ -268,7 +280,11 @@ export function multisetsEqual(a, b) {
  * 计数与样本必须由同一份差集导出 —— 两处各算一遍就会在 CRLF / 文末换行这些细节上漂开,
  * 而漂开的表现是"数字合理、样本对不上",没人能发现。
  */
-export function lineDelta(baseText, newText, { sampleLines = SAMPLE_LINES, sampleCol = SAMPLE_COL } = {}) {
+export function lineDelta(
+  baseText,
+  newText,
+  { sampleLines = SAMPLE_LINES, sampleCol = SAMPLE_COL } = {},
+) {
   const maps = lineDeltaMaps(baseText, newText)
   if (!maps) return { vanished: null, appeared: null, vanishedSample: [], appearedSample: [] }
   const expand = (m) => {
@@ -331,9 +347,16 @@ export function resurrectAnalysis({
   minLineLen = RESURRECT_MIN_LINE_LEN,
   sampleLines = SAMPLE_LINES,
   sampleCol = SAMPLE_COL,
+  facePaths = null,
 } = {}) {
   const clip = (l) => (l.length > sampleCol ? `${l.slice(0, sampleCol)}…` : l)
-  const noProvenance = { generatedProvenance: false, provenanceLineCount: 0, provenanceValueDrift: 0 }
+  const noProvenance = {
+    generatedProvenance: false,
+    provenanceLineCount: 0,
+    provenanceValueDrift: 0,
+    generatedInputOnFace: 0,
+    generatedInputOffFace: 0,
+  }
   const undetermined = (reason) => ({
     status: 'undetermined',
     reason,
@@ -350,12 +373,15 @@ export function resurrectAnalysis({
     commits: [],
     ...noProvenance,
   })
-  if (typeof newText !== 'string') return outOfScope('待落地内容不是文本(二进制或取不到)⇒ 行级判据不适用')
-  if (typeof baseText !== 'string') return undetermined('基准 blob 正文取不到 ⇒ 无从判"这行是不是新加的"')
+  if (typeof newText !== 'string')
+    return outOfScope('待落地内容不是文本(二进制或取不到)⇒ 行级判据不适用')
+  if (typeof baseText !== 'string')
+    return undetermined('基准 blob 正文取不到 ⇒ 无从判"这行是不是新加的"')
   if (!Array.isArray(ancestors) || ancestors.length === 0)
     return outOfScope('祖先窗口里没有该路径的任何版本(浅历史 / 刚建的文件)⇒ 无可对照')
   const usable = ancestors.filter((a) => typeof a?.text === 'string')
-  if (usable.length === 0) return undetermined(`祖先清单有 ${ancestors.length} 枚,但正文一枚都没读到`)
+  if (usable.length === 0)
+    return undetermined(`祖先清单有 ${ancestors.length} 枚,但正文一枚都没读到`)
   if (baseText.length > maxBlobBytes || newText.length > maxBlobBytes)
     return outOfScope(
       `正文 ${Math.max(baseText.length, newText.length)}B 超过行级扫描尺寸护栏 ${maxBlobBytes}B(整 blob 判据仍照判)`,
@@ -372,6 +398,8 @@ export function resurrectAnalysis({
   const ancT = usable.map((a) => ({ commit: a.commit, m: tallyLines(a.text, key) }))
   let count = 0
   const boilerplate = [] // G-587:结构符/样板行单独成档 —— 只报数,不判红(见下)
+  const inputOnFace = [] // 生成物输入路径已在被审面上、因此折掉的 `// input:` 行(报数,不静默)
+  let inputOffFace = 0 // 产物列着而面上已不存在的输入行数(照旧计入回潮,并单独点名)
   const sample = []
   const commits = []
   const seenCommit = new Set()
@@ -386,6 +414,24 @@ export function resurrectAnalysis({
     const extra = cNew
     if (extra <= 0) continue
     const rawLine = clipBy.get(line) ?? line
+    // 生成物的 `// input: <路径> <hash>` 自述行,路径**确在被审面上**时不算回潮(2026-10-16 立)。
+    // 立据(实测):门 105 要求按面上输入集重生成产物,而 `PageLoading.tsx` 先被 `a86e4cc821`
+    // 从面上摘掉、又被 `14a04f013f` 恢复回来 ⇒ 产物如实多出一行 `// input: …`。按祖先文本比
+    // 这行是"复活",按事实它是"输入清单跟着面上走":两把尺子在这一点上必须以后者为准,
+    // 否则"照门 105 办"必然撞门 84(与 2026-10-14 那批补档同一族的互锁缺口)。
+    // 边界钉死两条:① 只有过了条件②(文件自证为生成物)的文件才进这一档;② 必须调用方按**被审面**
+    // 查过这份输入确实在面上(给不出 facePaths ⇒ 本档整体不生效,保持旧严格尺)。
+    // 路径不在面上(面上已无此输入,产物却还列着)⇒ 不减计,并单独计数点名 —— 那才是真回潮形状。
+    if (generated && facePaths instanceof Set) {
+      const rel = resurrectInputPath(rawLine)
+      if (rel !== null) {
+        if (facePaths.has(rel)) {
+          inputOnFace.push(rawLine)
+          continue
+        }
+        inputOffFace++
+      }
+    }
     const t = rawLine.trim()
     // 噪声行/骨架行不配当证据(见上 ①②);G-587 再加一条**内容性**档:
     // 裸键:值 的 YAML/CI 指令形态(`if: failure()` / `uses: foo@v3` / `severity: warning`)
@@ -417,7 +463,8 @@ export function resurrectAnalysis({
       seenCommit.add(bestCommit)
       commits.push(bestCommit)
     }
-    for (let i = 0; i < Math.min(extra, best) && sample.length < sampleLines; i++) sample.push(clip(rawLine))
+    for (let i = 0; i < Math.min(extra, best) && sample.length < sampleLines; i++)
+      sample.push(clip(rawLine))
   }
   // **放宽了多少必须可见**(与 boilerplateCount 同一条纪律:把"少看了"写成"没有"是本仓最高频失效型)。
   //  - provenanceLineCount:待检面里命中白名单的自述行总数;
@@ -444,6 +491,9 @@ export function resurrectAnalysis({
     generatedProvenance: generated,
     provenanceLineCount,
     provenanceValueDrift,
+    generatedInputOnFace: inputOnFace.length,
+    generatedInputOnFaceLines: inputOnFace,
+    generatedInputOffFace: inputOffFace,
   }
 }
 
@@ -462,7 +512,8 @@ export function resurrectAnalysis({
  * ⇒ 判据 = 纯 ASCII 行照旧,含非 ASCII 的行只有带 `- ` 列表项前缀才进样板档;
  *   无前缀的 CJK 裸键行一律按真内容取证。残余误报(`- 类型: 说明` 形文档行)如实登记,不另硬分。
  */
-export const RESURRECT_BOILER_LINE_RE = /^(?:(?=[^\u0080-\uFFFF]*$)|(?=\s*-\s))\s*(?:-\s+)?[\w.-]+:\s*[^\s"'{}[\]]\S*\s*$/
+export const RESURRECT_BOILER_LINE_RE =
+  /^(?:(?=[^\u0080-\uFFFF]*$)|(?=\s*-\s))\s*(?:-\s+)?[\w.-]+:\s*[^\s"'{}[\]]\S*\s*$/
 
 /**
  * 溯源水印**载荷槽行**(2026-10-15 立,门 84 R1r ↔ 门 47 互锁的精度修正)。
