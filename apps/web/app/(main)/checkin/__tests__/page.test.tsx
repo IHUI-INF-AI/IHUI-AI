@@ -32,9 +32,9 @@ import {
   checkinCaptureQoder,
   checkinCaptureJwts,
   checkinCaptureWorkbuddy,
-  checkinWorkbuddyWebLoginOpen,
+  openInGoogleChrome,
+  closeChromeWindow,
   checkinWorkbuddyWebLoginProbe,
-  checkinWorkbuddyWebLoginClose,
   checkinOneClickReset,
   checkinGetPublicIp,
   checkinSnapshotList,
@@ -170,9 +170,10 @@ vi.mock('@/lib/tauri-bridge', () => ({
   checkinCaptureJwts: vi.fn(async () => []),
   checkinCaptureQoder: vi.fn(async () => []),
   checkinCaptureWorkbuddy: vi.fn(async () => []),
-  checkinWorkbuddyWebLoginOpen: vi.fn(async () => undefined),
+  WB_WEB_LOGIN_ORIGIN: 'https://www.workbuddy.cn',
+  openInGoogleChrome: vi.fn(async () => null),
+  closeChromeWindow: vi.fn(async () => 0),
   checkinWorkbuddyWebLoginProbe: vi.fn(async () => ({ status: 'no_window' }) as never),
-  checkinWorkbuddyWebLoginClose: vi.fn(async () => undefined),
   checkinResetDeviceIds: vi.fn(),
   checkinOneClickReset: vi.fn(),
   checkinGetPublicIp: vi.fn(),
@@ -1066,7 +1067,7 @@ describe('Qoder 平台化(2026-10-10)', () => {
 
   it('WorkBuddy 网页登录:探测 ok 自动入库(login_type=web,jwt 字段=Cookie)', async () => {
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
-    vi.mocked(checkinWorkbuddyWebLoginOpen).mockResolvedValue(undefined)
+    vi.mocked(openInGoogleChrome).mockResolvedValue(54321)
     vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({
       status: 'ok',
       cookie: 'session_id=abc123; wb_uid=u-9',
@@ -1086,14 +1087,32 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(payload.device_map.uid).toBe('14f939c3-889b')
     expect(payload.device_map.nickname).toBe('李总')
     expect(payload.name).toBe('WorkBuddy-李总')
+    // 导入完成后收尾:关掉浏览器登录窗(尽力而为)
+    await waitFor(() =>
+      expect(closeChromeWindow).toHaveBeenCalledWith(54321, 'https://www.workbuddy.cn'),
+    )
     // 对话框自动关闭 + 完成提示
     await waitFor(() => expect(screen.getByText(/captureWbWebDone/)).toBeTruthy())
   })
 
-  it('WorkBuddy 网页登录:窗口被关后提示可重试且不入库', async () => {
+  it('WorkBuddy 网页登录:打开失败(未装 Chrome)提示且不入库', async () => {
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
-    vi.mocked(checkinWorkbuddyWebLoginOpen).mockResolvedValue(undefined)
-    // 打开后的首轮立即探测即 no_window(用户已把窗口关掉)→ 立即提示可重试
+    vi.mocked(openInGoogleChrome).mockResolvedValue('未找到 Google Chrome,请先安装 Chrome 浏览器')
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('captureWbButton'))
+    fireEvent.click(screen.getByText('captureWbWebOpen'))
+    await waitFor(() =>
+      expect(screen.getByTestId('wb-web-login-msg').textContent).toContain('未找到 Google Chrome'),
+    )
+    expect(checkinWorkbuddyWebLoginProbe).not.toHaveBeenCalled()
+    expect(createAccount).not.toHaveBeenCalled()
+  })
+
+  it('WorkBuddy 网页登录:浏览器被关后提示可重试且不入库', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(openInGoogleChrome).mockResolvedValue(54321)
+    // 打开后的首轮立即探测即 no_window(用户已把浏览器窗口关掉)→ 立即提示可重试
     vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({ status: 'no_window' })
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
@@ -1107,20 +1126,22 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(createAccount).not.toHaveBeenCalled()
   })
 
-  it('WorkBuddy 网页登录:白屏等待中可取消(停轮询+关窗+复位,不入库)', async () => {
+  it('WorkBuddy 网页登录:等待中可取消(停轮询+关浏览器登录窗+复位,不入库)', async () => {
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
-    vi.mocked(checkinWorkbuddyWebLoginOpen).mockResolvedValue(undefined)
-    // 白屏:窗口活着但 SPA 资源没加载出来 ⇒ probe 永远 no_cookie(2026-10-13 死锁场景)
+    vi.mocked(openInGoogleChrome).mockResolvedValue(54321)
+    // 迟迟未登录 ⇒ probe 永远 no_cookie(用户还在扫码/或中途放弃)
     vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({ status: 'no_cookie' })
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     fireEvent.click(screen.getByText('captureWbButton'))
     fireEvent.click(screen.getByText('captureWbWebOpen'))
-    // waiting 态:打开按钮换成取消按钮(修复前这里 disabled 且无取消出口)
+    // waiting 态:打开按钮换成取消按钮
     await waitFor(() => expect(screen.getByText('captureWbWebCancel')).toBeTruthy())
     fireEvent.click(screen.getByText('captureWbWebCancel'))
-    // 取消 ⇒ Rust 侧 close 命令被调 + 提示已取消 + 打开按钮恢复(可重开)
-    await waitFor(() => expect(checkinWorkbuddyWebLoginClose).toHaveBeenCalledTimes(1))
+    // 取消 ⇒ 浏览器登录窗被收尾关闭 + 提示已取消 + 打开按钮恢复(可重开)
+    await waitFor(() =>
+      expect(closeChromeWindow).toHaveBeenCalledWith(54321, 'https://www.workbuddy.cn'),
+    )
     await waitFor(() =>
       expect(screen.getByTestId('wb-web-login-msg').textContent).toContain('captureWbWebCancelled'),
     )
