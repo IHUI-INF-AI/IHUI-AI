@@ -51,14 +51,30 @@ export function FavoriteScreen() {
 
   const fetcher = useCallback(
     async (query: { page: number; pageSize: number }) => {
-      const apiQuery: { page: number; pageSize: number; targetType?: string } = {
+      // 查询参数名按后端 GET /api/favorites 的 schema(favoritesListQuery 只认 resourceType,
+      // 传 targetType 会被 zod 丢掉 ⇒ 切了 tab 却拿到全量,页面自己再在内存里过滤都算不上)。
+      const apiQuery: { page: number; pageSize: number; resourceType?: string } = {
         page: query.page,
         pageSize: query.pageSize,
       }
-      if (tab !== 'all') apiQuery.targetType = tab
+      if (tab !== 'all') apiQuery.resourceType = tab
       const res = await getFavorites(apiQuery)
-      if (res.success) {
-        return { success: true as const, data: res.data }
+      if (res.success && res.data) {
+        // 传输层 resource* → 共享视图模型 target*,只在这一处边界转换
+        return {
+          success: true as const,
+          data: {
+            ...res.data,
+            list: res.data.list.map((f) => ({
+              id: f.id,
+              targetId: f.resourceId,
+              targetType: f.resourceType,
+              title: f.title ?? '',
+              cover: null,
+              createdAt: f.createdAt,
+            })),
+          },
+        }
       }
       return { success: false as const, error: res.error || uniappT('favorite.loadFailed') }
     },
