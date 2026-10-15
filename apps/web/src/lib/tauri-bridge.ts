@@ -1599,9 +1599,6 @@ export interface CapturedMinimaxSession {
   refresh_token: string
   /** auth.json 声明的过期(epoch 秒,缺失 0) */
   expires_at: number
-  /** 每账号独立设备指纹(引擎签名用;与独立 IP 组合成完整画像) */
-  uuid: string
-  device_id: string
 }
 
 /** 从本机 MiniMax Code 捕获登录态(读 auth.json + config,零粘贴)。 */

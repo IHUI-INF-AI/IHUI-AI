@@ -1127,10 +1127,12 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(createAccount).not.toHaveBeenCalled()
   })
 
-  it('WorkBuddy 网页登录:必须打开真实登录页(不能是营销首页)', async () => {
-    // 2026-10-15 回归:旧实现拿 https://www.workbuddy.cn(产品营销首页,只有下载/介绍、
-    // 没有任何登录入口)开窗,用户点「打开浏览器登录」后根本登不了。真实登录页是
+  it('WorkBuddy 网页登录:必须打开真实登录页,且用完整浏览器窗口', async () => {
+    // 2026-10-15 回归(两道):① 旧实现拿 https://www.workbuddy.cn(产品营销首页,只有下载/
+    // 介绍、没有任何登录入口)开窗,用户点「打开浏览器登录」后根本登不了;真实登录页是
     // /login/?platform=website&state=2&product=workbuddy&redirect_uri=...(扫码/账号密码)。
+    // ② 用户反馈"打开的窗口不是完整的浏览器窗口" —— --app 无边框应用窗没有地址栏/标签栏,
+    // 登录页必须用 'window' 档(完整 Chrome 窗口)开。
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
     vi.mocked(openInGoogleChrome).mockResolvedValue(54321)
     vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({ status: 'no_cookie' })
@@ -1140,13 +1142,15 @@ describe('Qoder 平台化(2026-10-10)', () => {
     fireEvent.click(screen.getByText('WorkBuddy'))
     fireEvent.click(screen.getByText('captureWbWebOpen'))
     await waitFor(() => expect(openInGoogleChrome).toHaveBeenCalled())
-    const openedUrl = vi.mocked(openInGoogleChrome).mock.calls[0]![0]
+    const [openedUrl, openedMode] = vi.mocked(openInGoogleChrome).mock.calls[0]!
     expect(openedUrl).toBe(WB_WEB_LOGIN_URL)
     expect(openedUrl).toContain('/login/')
     expect(openedUrl).toContain('platform=website')
     expect(openedUrl).toContain('product=workbuddy')
     // 不得退回裸 origin(营销首页):带查询串的登录页地址,裸 origin 只是它的前缀
     expect(openedUrl).not.toBe(WB_WEB_LOGIN_ORIGIN)
+    // 必须是完整浏览器窗口档,不能是 --app 无边框应用窗
+    expect(openedMode).toBe('window')
   })
 
   it('WorkBuddy 网页登录:浏览器被关后提示可重试且不入库', async () => {
