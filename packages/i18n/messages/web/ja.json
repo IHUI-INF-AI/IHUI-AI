@@ -19178,6 +19178,7 @@
     "deleteDescription": "アカウント「{name}」とそのすべてのチェックイン記録が削除されます。この操作は元に戻せません。",
     "deviceMap": "デバイスフィンガープリント",
     "deviceMapInvalid": "デバイスフィンガープリントが有効な JSON オブジェクトではありません",
+    "deviceMapProxyHint": "複数アカウントのリスク対策:各アカウントに専用プロキシを設定すると独立した出口 IP を割り当てられます(例 \"proxy\": \"http://user:pass@host:port\"、http/socks5 対応)。ローカル直結は空欄で OK",
     "deviceMapPlaceholder": "'{'\"ua\": \"...\", \"av\": \"...\"'}'（省略可、未入力なら自動生成）",
     "emptyAccounts": "チェックインアカウントがありません。右上の追加から作成してください",
     "emptyCredits": "ポイント履歴はまだありません",
