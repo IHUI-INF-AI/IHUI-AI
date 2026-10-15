@@ -4796,6 +4796,90 @@ mod tests {
     // 真跑 13 层重置,三面断言:文件全灭 / 注册表整树删除 / 仿真进程被杀。
     // 安全护栏:本机存在真实 TRAE 现场或真实 TRAE 进程时直接 panic 拒跑,防误伤。
 
+    /// 真机端到端捕获验证(#[ignore],只显式跑:`cargo test --lib real_machine_capture_e2e -- --ignored --nocapture`)。
+    /// 与 9c 仿真相反:这条读**真实**本机登录态(Trae storage.json tc 解密 /
+    /// WorkBuddy 信封直解 + atRestSecretKey 活取),断言三平台本机捕获都产出
+    /// 可用凭据。用途:①装机后的最终验收;②客户端换加密格式时的预警(悄悄坏掉
+    /// 会在这里红)。平台未安装/未登录 ⇒ 打印跳过不断言(不误伤净机器)。
+    /// 绝不外泄凭据:只断言形态与非空,不打印 token 本体。
+    #[test]
+    #[ignore]
+    fn real_machine_capture_e2e() {
+        // ── Trae:iCubeAuthInfo tc 解密通道 ──
+        let read = |k: &str| std::env::var(k).ok().filter(|v| !v.is_empty());
+        let trae_sites = trae_capture_dirs(&trae_dir_candidates(
+            read("APPDATA").as_deref(),
+            read("LOCALAPPDATA").as_deref(),
+            read(ENV_TRAE_DIR).as_deref(),
+        ));
+        if trae_sites.is_empty() {
+            println!("[real-e2e] Trae: 本机无 TRAE 现场,跳过");
+        } else {
+            let accounts = capture_local_jwts_all_sites();
+            println!("[real-e2e] Trae: {} 个账号候选", accounts.len());
+            assert!(!accounts.is_empty(), "本机有 Trae 现场但捕获 0 账号");
+            let usable = accounts.iter().filter(|a| !a.jwt.is_empty()).count();
+            assert!(
+                usable >= 1,
+                "Trae 捕获无一带 jwt 的账号(tc 解密通道坏了吗?)"
+            );
+            for a in &accounts {
+                assert!(
+                    a.jwt.is_empty() || a.jwt.starts_with("eyJ"),
+                    "Trae jwt 形态异常: {}",
+                    a.source
+                );
+            }
+            println!("[real-e2e] Trae: ✅ {usable} 个账号带可用 JWT(tc 解密通道通)");
+        }
+
+        // ── WorkBuddy:$wbEncrypted 信封直解 + atRestSecretKey 活取 ──
+        let wb_file = workbuddy_auth_file_candidates()
+            .into_iter()
+            .find(|p| p.is_file());
+        match wb_file {
+            None => println!("[real-e2e] WorkBuddy: 本机无登录态文件,跳过"),
+            Some(_) => {
+                let sessions = capture_workbuddy_sessions();
+                println!("[real-e2e] WorkBuddy: {} 个会话", sessions.len());
+                assert!(!sessions.is_empty(), "本机有 WorkBuddy 登录态但捕获 0 会话");
+                let usable = sessions
+                    .iter()
+                    .filter(|s| !s.encrypted && !s.access_token.is_empty())
+                    .count();
+                assert!(
+                    usable >= 1,
+                    "WorkBuddy 会话全部 encrypted/无 token(信封解密或活取坏了吗?)"
+                );
+                for s in &sessions {
+                    assert!(
+                        s.access_token.is_empty() || s.access_token.starts_with("eyJ"),
+                        "WorkBuddy token 形态异常: {}",
+                        s.auth_file
+                    );
+                }
+                println!("[real-e2e] WorkBuddy: ✅ {usable} 个会话带可用 Bearer JWT(信封直解+活取通)");
+            }
+        }
+
+        // ── Qoder:v10+DPAPI 通道(本机装着就验,没装跳过)──
+        if qoder_appdata_dirs().is_empty() {
+            println!("[real-e2e] Qoder: 本机无 Qoder 目录,跳过");
+        } else {
+            let sessions = capture_qoder_sessions();
+            println!("[real-e2e] Qoder: {} 个会话", sessions.len());
+            if sessions.is_empty() {
+                println!("[real-e2e] Qoder: 有目录但无会话(未登录?),跳过断言");
+            } else {
+                assert!(
+                    sessions.iter().any(|s| !s.access_token.is_empty()),
+                    "Qoder 会话无 access_token"
+                );
+                println!("[real-e2e] Qoder: ✅ {} 个会话带 access_token", sessions.len());
+            }
+        }
+    }
+
     #[cfg(windows)]
     #[test]
     #[ignore]
