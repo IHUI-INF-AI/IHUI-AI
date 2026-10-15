@@ -8,7 +8,7 @@
  *   (messagesPath=packages/i18n/messages/web + scanTargets=apps/web/src 等)
  *   的完整扫描流程:加载 zh-CN.json + 4 语言 → 扫描代码 → 死 key 判定 → 报告写入。
  *
- *   测试用临时 fixture 文件(在 os.tmpdir() 下创建 + chdir 模拟项目根),
+ *   测试用临时 fixture 文件(mkScratch 落在仓库外的批准临时区 + chdir 模拟项目根),
  *   不依赖项目真实 i18n 文件,符合 AGENTS.md §23(目录用 tests/)。
  *
  *   ⚠️ 关键实现:_i18n-scan-helpers.mjs 顶层 const ROOT = process.cwd() 在模块加载时锁定,
@@ -28,8 +28,7 @@ import { test, describe, before, after, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
-import os from 'node:os'
-import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { mkScratch } from '../lib/scratch-dir.mjs'
 
 const ORIGINAL_CWD = process.cwd()
 
@@ -38,6 +37,8 @@ const END_CONFIG = {
   name: 'web',
   messagesPath: 'packages/i18n/messages/web/zh-CN.json',
   scanTargets: ['apps/web/src'],
+  // 夹具是无 .git 的 mkScratch 目录:显式声明磁盘档,免得把 main() 的缺省面(HEAD blob)拖进本套件断言
+  face: 'worktree',
   outputPattern: '.ihui-agent/tmp/i18n-web-dead-keys-{date}.md',
 }
 
@@ -45,7 +46,7 @@ let tmpDir
 let runScan // dynamic import 后填充
 
 before(async () => {
-  tmpDir = mkScratch("i18n-web-scan-")
+  tmpDir = mkScratch('i18n-web-scan-')
   process.chdir(tmpDir)
   // 关键:chdir 后再 dynamic import,使模块顶层 const ROOT = process.cwd() 锁定为 tmpDir
   const mod = await import('../_i18n-scan-helpers.mjs')
@@ -54,7 +55,11 @@ before(async () => {
 
 after(() => {
   process.chdir(ORIGINAL_CWD)
-  try { fs.rmSync(tmpDir, { recursive: true, force: true }) } catch { /* 清理失败不影响结果 */ }
+  try {
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  } catch {
+    /* 清理失败不影响结果 */
+  }
 })
 
 // 每个测试前清空临时目录内容(保留目录本身),保证隔离
@@ -123,7 +128,9 @@ describe('web 端 i18n 死 key 扫描器集成测试(main() 端到端)', () => {
     try {
       const code = runScan({ ...END_CONFIG, dryRun: true, exitOnDead: true })
       assert.equal(code, 0, '所有 key 被引用(about namespace + home.cta 静态),应 exit 0')
-    } finally { restore() }
+    } finally {
+      restore()
+    }
   })
 
   test('场景 2:部分 key 死 + exitOnDead=true → exit 1', () => {
@@ -143,7 +150,9 @@ describe('web 端 i18n 死 key 扫描器集成测试(main() 端到端)', () => {
     try {
       const code = runScan({ ...END_CONFIG, dryRun: true, exitOnDead: true })
       assert.equal(code, 1, 'unused.dead 未被引用,exitOnDead=true 应 exit 1')
-    } finally { restore() }
+    } finally {
+      restore()
+    }
   })
 
   test("场景 3:t('key', { args }) 带参数调用被识别(2026-07-26 STATIC_T_RE 增强,P2 关键验证)", () => {
@@ -166,7 +175,9 @@ describe('web 端 i18n 死 key 扫描器集成测试(main() 端到端)', () => {
     try {
       const code = runScan({ ...END_CONFIG, dryRun: true, exitOnDead: true })
       assert.equal(code, 0, '带参数的 t() 调用应被 STATIC_T_RE 识别,所有 key 引用 → exit 0')
-    } finally { restore() }
+    } finally {
+      restore()
+    }
   })
 
   test('场景 4:dryRun=true 不写报告文件', () => {
@@ -176,11 +187,16 @@ describe('web 端 i18n 死 key 扫描器集成测试(main() 端到端)', () => {
         'apps/web/src/page.tsx': "t('about.title')",
       },
     })
-    const expectedReportPath = path.join(tmpDir, END_CONFIG.outputPattern.replace('{date}', new Date().toISOString().slice(0, 10)))
+    const expectedReportPath = path.join(
+      tmpDir,
+      END_CONFIG.outputPattern.replace('{date}', new Date().toISOString().slice(0, 10)),
+    )
     const restore = silenceConsole()
     try {
       runScan({ ...END_CONFIG, dryRun: true, exitOnDead: false })
-    } finally { restore() }
+    } finally {
+      restore()
+    }
     assert.equal(fs.existsSync(expectedReportPath), false, 'dryRun=true 不应写报告文件')
   })
 
@@ -206,7 +222,9 @@ describe('web 端 i18n 死 key 扫描器集成测试(main() 端到端)', () => {
     try {
       const code = runScan({ ...END_CONFIG, dryRun: false, exitOnDead: false, out: customOut })
       assert.equal(code, 0, 'exitOnDead=false 即使有死 key 也 exit 0')
-    } finally { restore() }
+    } finally {
+      restore()
+    }
     assert.equal(fs.existsSync(customOut), true, '报告应写入 out 指定路径')
     const report = fs.readFileSync(customOut, 'utf8')
     assert.match(report, /死 key 列表/, '报告应含"死 key 列表"章节')
@@ -222,7 +240,9 @@ describe('web 端 i18n 死 key 扫描器集成测试(main() 端到端)', () => {
     try {
       const code = runScan({ ...END_CONFIG, dryRun: true, exitOnDead: true })
       assert.equal(code, 0, '基准语言文件不存在应跳过 exit 0')
-    } finally { restore() }
+    } finally {
+      restore()
+    }
   })
 
   test('场景 7:翻译不完整(en 缺 key)→ 报告含"翻译不完整"章节', () => {
@@ -245,7 +265,9 @@ describe('web 端 i18n 死 key 扫描器集成测试(main() 端到端)', () => {
     const restore = silenceConsole()
     try {
       runScan({ ...END_CONFIG, dryRun: false, exitOnDead: false, out: customOut })
-    } finally { restore() }
+    } finally {
+      restore()
+    }
     const report = fs.readFileSync(customOut, 'utf8')
     assert.match(report, /翻译不完整/, '报告应含"翻译不完整"章节')
     assert.match(report, /about\.subtitle/, '报告应列出 about.subtitle 为翻译不完整')

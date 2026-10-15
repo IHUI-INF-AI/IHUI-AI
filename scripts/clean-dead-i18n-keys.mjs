@@ -26,6 +26,11 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
  * `PageLoading.tsx:12` 已在 `t('tail.8')` —— 逐条 `grep -c` 都数得到,四个文件**都不在**那 8 条死腿之列
  * (该提交正文自己写着"Menu/VoiceInput 本就不在其中")。
  *
+ * 2026-10-16 更正(不得把本注释读成"`Menu.d1` 永远删不得"):同日 `a86e4cc821`「摘除 5 份零消费者
+ * 跨端死载体」把 `Menu.tsx` 本身从提交面删了 ⇒ 那枚键失去了唯一消费者,成为真孤儿,已按本器口径
+ * 经 `verifyAllDead` 放行后五语言同批清掉(取证见 scripts/tests/clean-dead-i18n-keys.test.mjs T1b)。
+ * 变的不是判据,是事实:**判"能不能删"的永远是删之前那一次现读**,不是历史上某枚提交删过它。
+ *
  * 为什么审计器没拦住(这是本票要修的真机制,不是"再加一道扫描"):
  *   死键审计判的是"**键还在包里、但代码里没人引**"⇒ 删掉一个键之后,它连"键存在"都不成立了,
  *   自然永远报不出这一格。**删除动作本身没有任何出口会验证**,于是
@@ -75,22 +80,53 @@ const MOBILE_RN_DEAD = {
   activityDetail: ['loadFailed'],
   agentReviewDetail: ['loadFailed'],
   debug: [
-    'apiBaseUrl', 'clearCache', 'clearStorage', 'cleared', 'confirm',
-    'copied', 'copyFailed', 'copyLogs', 'env', 'locale', 'platform',
-    'title', 'version', 'warning',
+    'apiBaseUrl',
+    'clearCache',
+    'clearStorage',
+    'cleared',
+    'confirm',
+    'copied',
+    'copyFailed',
+    'copyLogs',
+    'env',
+    'locale',
+    'platform',
+    'title',
+    'version',
+    'warning',
   ],
   exam: ['startHint'],
   helpDetail: ['loadFailed'],
   lecturerDetail: ['loadFailed'],
   taskDispatch: [
-    'title', 'inputPlaceholder', 'send', 'sending', 'loadTasksFailed',
-    'loadDevicesFailed', 'selectDeviceFirst', 'dispatchFailed', 'emptyTasks',
-    'noDevices', 'target',
-    'status.pending', 'status.running', 'status.completed', 'status.failed', 'status.cancelled',
-    'cancel.cancelButton', 'cancel.cancelling', 'cancel.cancelFailed',
+    'title',
+    'inputPlaceholder',
+    'send',
+    'sending',
+    'loadTasksFailed',
+    'loadDevicesFailed',
+    'selectDeviceFirst',
+    'dispatchFailed',
+    'emptyTasks',
+    'noDevices',
+    'target',
+    'status.pending',
+    'status.running',
+    'status.completed',
+    'status.failed',
+    'status.cancelled',
+    'cancel.cancelButton',
+    'cancel.cancelling',
+    'cancel.cancelFailed',
     'reconnect.reconnecting',
-    'file.attach', 'file.attached', 'file.tooLarge', 'file.invalidBase64',
-    'file.missingFilename', 'file.filenamePlaceholder', 'file.mimePlaceholder', 'file.contentPlaceholder',
+    'file.attach',
+    'file.attached',
+    'file.tooLarge',
+    'file.invalidBase64',
+    'file.missingFilename',
+    'file.filenamePlaceholder',
+    'file.mimePlaceholder',
+    'file.contentPlaceholder',
   ],
 }
 
@@ -154,7 +190,7 @@ export function verifyAllDead(deadMap, consumers, targetLabel) {
   return false
 }
 
-function processFile(relPath, deadMap, consumers, targetLabel) {
+function processFile(relPath, deadMap) {
   const fullPath = join(MESSAGES_DIR, relPath)
   if (!existsSync(fullPath)) {
     console.warn('[WARN] file not found: ' + fullPath)
@@ -182,7 +218,9 @@ if (isDirectRun) {
   if (!verifyAllDead(MINIAPP_TARO_DEAD, CONSUMERS_MINIAPP, 'miniapp-taro')) refused++
 
   if (refused > 0) {
-    console.error(`\n❌ 一键都没删(${refused} 个 target 拒删)。删活键没有"正当理由"可言 —— 先改代码。`)
+    console.error(
+      `\n❌ 一键都没删(${refused} 个 target 拒删)。删活键没有"正当理由"可言 —— 先改代码。`,
+    )
     process.exit(1)
   }
 
@@ -196,5 +234,4 @@ if (isDirectRun) {
 
   console.info('\nDone')
   // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 }
