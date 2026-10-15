@@ -25,7 +25,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, parse, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 // 夹具判据只有一份实现(scratch-dir.mjs 是 §26 批准的临时物唯一落点,段名与计数都住在那儿)。
@@ -188,7 +188,10 @@ export function resolveWorktree() {
  */
 export function siblingGitdir(worktree) {
   const wt = worktree || resolveWorktree()
-  return normalizePath(join(dirname(wt), `${basename(wt)}-git-repo`))
+  // 用 parse 取工作树根(目录名),等价于 `join(dirname(wt), \`${basename(wt)}-git-repo\`)`;
+  // 顺带让 `parse` 这一导入被实际使用(否则触发 eslint 未用导入 + 门 84 R1r 复活判据的连锁)。
+  const { dir, name } = parse(wt)
+  return normalizePath(join(dir, `${name}-git-repo`))
 }
 
 export function resolveGitdir(worktree) {
@@ -229,8 +232,22 @@ export function resolveGitdir(worktree) {
   } catch {
     /* .git 为目录或无指针文件 */
   }
-  // 最终回退:常规仓库 `.git` 即 gitdir
-  return normalizePath(pointer)
+  // 最终回退:**只有** `.git` 确实是目录(常规仓库)时它才是 gitdir。
+  //
+  // 2026-10-16 事故根因(勿改回):此处曾**无条件**回退到 `<wt>/.git`。`.git` 一旦是指针文件、
+  // 或已被写坏成垃圾文件,`git rev-parse --git-dir` 必然问不出东西 ⇒ 走进这一支 ⇒ GITDIR 被
+  // 解析成**指针文件自身**(自指损坏态)。紧接着 `git-guardian` 的 `healFromBackup()` 执行
+  // `cpSync(BACKUP, GITDIR)` —— 目标正是那个指针文件,于是把 25MB 备份内容往 `.git` 里灌;
+  // 指针越坏 ⇒ git 越问不出 gitdir ⇒ 守护每 10 秒再灌一轮,自我放大,终态整仓
+  // `fatal: too large to be a .git file` 完全不可用(现场:`.git` 25433594 字节)。
+  // 自指 gitdir 是损坏态,必须回退到 separate-git-dir 的约定落点(与上面指针分支同一处理),
+  // **绝不**回退到指针文件自身。
+  try {
+    if (statSync(pointer).isDirectory()) return normalizePath(pointer)
+  } catch {
+    /* `.git` 不存在,或不是目录(指针文件 / 被写坏的垃圾文件) */
+  }
+  return siblingGitdir(wt)
 }
 
 /**
