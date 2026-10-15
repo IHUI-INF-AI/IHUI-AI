@@ -7,6 +7,8 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import {
   Clock,
   CalendarClock,
@@ -54,6 +56,9 @@ async function api<T>(url: string): Promise<T> {
 
 export default function SchedulePage() {
   const t = useTranslations('schedule')
+  // 2026-10-15 登录态门(与 settings/notifications 同型):未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
 
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
@@ -74,6 +79,7 @@ export default function SchedulePage() {
       if (debounced) qs.set('name', debounced)
       return api<TasksData>(`/api/schedule/tasks?${qs.toString()}`)
     },
+    enabled: allow,
   })
 
   const total = data?.total ?? 0
@@ -113,7 +119,9 @@ export default function SchedulePage() {
         </div>
       </div>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
