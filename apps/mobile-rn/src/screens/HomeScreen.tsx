@@ -13,6 +13,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   Alert,
@@ -26,7 +27,6 @@ import * as ImagePicker from 'expo-image-picker'
 import * as DocumentPicker from 'expo-document-picker'
 import { Asset } from 'expo-asset'
 import {
-  type LucideIcon,
   BookOpen,
   Bot,
   Camera,
@@ -90,7 +90,6 @@ import {
   type StudyProgress,
 } from '@ihui/api-client'
 import {
-  CategoryInlineBar,
   HomeScreen as SharedHomeScreen,
   type HomeLiveItem,
   type HomeMenuItem,
@@ -146,10 +145,11 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { formatShortDateTime } from '../utils/date-utils'
 import { rpx } from '../utils/rpx'
+import { inferVendor } from '../lib/vendor-infer'
 // 底部导航(对齐原 customTabBar 5 主 Tab,HomeScreen 对应「首页」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
@@ -278,6 +278,70 @@ const MODEL_TYPES: ModelTypeOption[] = [
   { type: 'other', label: '其他', icon: Settings },
   { type: 'sck', label: '知识库', icon: BookOpen },
 ]
+
+/**
+ * 模型数字类型(0 其他/1 对话/2 图片/3 视频/4 音频/5 数字人,ModelListItem.type) →
+ * 输入区分类 ModelType 的近似映射。仅用于「直接选模型面板」(无分类前置,2026-10-15
+ * 对齐 web ModelSelector)回填 SelectedModel.type:提交链只送 name/id 不上送 type,
+ * type 只影响选中高亮匹配与参数配置表单形态(toConfigModelType),近似即可。
+ */
+const NUMERIC_MODEL_TYPE_TO_MODEL_TYPE: Record<number, ModelType> = {
+  0: 'other',
+  1: 'talk',
+  2: 'image',
+  3: 'video',
+  4: 'audio',
+  5: 'other',
+}
+
+/**
+ * 模型 category(与 web 同源字段,fetchModels /llm/models 透传)→ 弹窗分类 tab 映射,
+ * 对齐 web normalizeCategory 语义;缺失兜底 chat(web 同款)。
+ */
+const MODEL_CATEGORY_TO_TAB: Readonly<Record<string, ModelType>> = {
+  chat: 'talk',
+  vision: 'talk',
+  image: 'image',
+  video: 'video',
+  tts: 'audio',
+  asr: 'audio',
+  embedding: 'sck',
+  rerank: 'sck',
+  guard: 'other',
+  ocr: 'other',
+}
+
+/** 代次档位 → 中文标签(模型行 description 用;空串=老后端无档位不显示) */
+const MODEL_TIER_LABELS: Readonly<Record<string, string>> = {
+  latest: '最新',
+  standard: '标准',
+  legacy: '历史',
+}
+/** 代次档位排序权重(组内 latest 在前,对齐 web MODEL_TIER_ORDER) */
+const MODEL_TIER_ORDER: Readonly<Record<string, number>> = {
+  latest: 0,
+  standard: 1,
+  legacy: 2,
+}
+
+/** 把 legacy 档模型收编进尾部「历史模型(N)」独立分组(数据级折叠:ModelList 分组标题
+ *  字段 title 直承接住,不改共享组件;对齐 web 历史模型折叠语义)。
+ *  收编行的 description 从档位标签换成厂商名 —— 分组标题不再承载厂商信息。
+ *  非 legacy 分组保持原序;无 legacy 时原样返回。 */
+function foldLegacyGroups(groups: ModelListGroup[]): ModelListGroup[] {
+  const primary = groups
+    .map((g) => ({ ...g, models: g.models.filter((m) => m.modelTier !== 'legacy') }))
+    .filter((g) => g.models.length > 0)
+  const legacy: ModelListItem[] = []
+  for (const g of groups) {
+    for (const m of g.models) {
+      if (m.modelTier === 'legacy') legacy.push({ ...m, description: g.vendor ?? '' })
+    }
+  }
+  return legacy.length > 0
+    ? [...primary, { title: `历史模型 (${legacy.length})`, models: legacy }]
+    : primary
+}
 
 /** 模型参数默认配置(对齐 Uniapp ModelConfigDialog 初始值) */
 const DEFAULT_MODEL_CONFIG: ModelConfig = {
@@ -637,14 +701,21 @@ export function HomeScreen() {
   const [toastMessage, setToastMessage] = useState('')
   // ── InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分) ──
   const [inputValue, setInputValue] = useState('')
-  // ── 模型选择(对齐 Uniapp ai_index currentModelType + modelName/modelId) ──
-  // activeModelType:当前展开的类型弹窗(null 表示关闭);selectedModel:已选模型(显示在输入区小标签)
-  const [activeModelType, setActiveModelType] = useState<ModelType | null>(null)
+  // ── 模型选择(对齐 web ModelSelector:输入区模型钮 → 同一弹窗,弹窗内 8 分类 tab 切换) ──
+  // selectedModel:已选模型(显示在输入区小标签)
   const [selectedModel, setSelectedModel] = useState<SelectedModel | null>(null)
   // 真实模型列表(fetchModels,按 provider 分组;加载成功替换 PLACEHOLDER_MODELS 占位样例)
   const [realModelGroups, setRealModelGroups] = useState<ModelListGroup[]>([])
   // ── 模型参数配置弹窗(对齐 Uniapp ai_index showModelaConfig → ModelConfigDialog) ──
   const [showModelConfig, setShowModelConfig] = useState(false)
+  // 模型选择弹窗(2026-10-15 用户定:弹窗内顶部横向分类 tab,点击切换对应分类模型列表)
+  const [showModelSelect, setShowModelSelect] = useState(false)
+  /** 弹窗内当前分类 tab(打开时按已选模型类型预选,默认「对话」) */
+  const [modelModalTab, setModelModalTab] = useState<ModelType>('talk')
+  /** 弹窗内搜索词(非空时跨全部分类搜索模型名/厂商,web ModelSelector 同语义) */
+  const [modelSearch, setModelSearch] = useState('')
+  /** 搜索框展开态(头部右侧图标开关;收起时清空搜索词) */
+  const [showModelSearch, setShowModelSearch] = useState(false)
   const [modelConfig, setModelConfig] = useState<ModelConfig>(DEFAULT_MODEL_CONFIG)
   // ── 素材列表弹窗(对齐 Uniapp ai_index showMaterialList → MaterialList「我的创作」) ──
   // 数据源:getMyCreation,按分类映射 agent/plugin/workflow(对齐 Uniapp getMyCreation → /agent/creation/my/:type)
@@ -851,21 +922,75 @@ export function HomeScreen() {
   })
 
   // ── 模型类型按钮(对齐 Uniapp handleModelTypeClick / toggleSkillsPopup / toggleMaterialPopup) ──
-  /** 点击类型按钮:同类型再点收起(对齐 Uniapp 第二次点击收起),不同类型切换 activeModelType 弹 Modal */
-  const handleModelTypePress = (type: ModelType): void => {
-    setActiveModelType((prev) => (prev === type ? null : type))
+  // 入口统一:输入区模型钮/九宫格等入口 → openModelModal(tab) 打开同一弹窗,弹窗内 tab 切换分类
+  /** 关闭模型选择弹窗(搜索词与展开态一并重置,重开时是干净的分类浏览态) */
+  const closeModelModal = (): void => {
+    setShowModelSelect(false)
+    setModelSearch('')
+    setShowModelSearch(false)
   }
-  /** 关闭 Modal(对齐 Uniapp 互斥关闭其他弹窗) */
-  const closeModelModal = (): void => setActiveModelType(null)
-  /** 选择模型(对齐 Uniapp modelList selectModel → 设置 modelName/modelNameEN/modelId 后关闭弹窗) */
+  /** 打开模型选择弹窗(tab 预选:入口可带分类,如九宫格技能入口 → 'skills') */
+  const openModelModal = (tab: ModelType = selectedModel?.type ?? 'talk'): void => {
+    setModelModalTab(tab)
+    setShowModelSelect(true)
+  }
+  /**
+   * 弹窗内模型分组:搜索词非空时跨全部分类按 名称/id/厂商 过滤(web 同语义,忽略 tab);
+   * 否则按 category(与 web 同源字段,缺失兜底 chat)过滤 vendor 分组;该分类无真实模型
+   * 命中时回落 PLACEHOLDER_MODELS 占位(与既有兜底策略一致)。
+   * skills tab 渲染真实智能体列表(AgentList),不走模型过滤(搜索态除外)。
+   * 两个分支统一走 foldLegacyGroups:legacy 档收编进尾部「历史模型(N)」分组。
+   */
+  const modalModelGroups = useMemo<ModelListGroup[]>(() => {
+    const q = modelSearch.trim().toLowerCase()
+    if (q) {
+      const hit = realModelGroups
+        .map((g) => ({
+          ...g,
+          models: g.models.filter(
+            (m) =>
+              m.name.toLowerCase().includes(q) ||
+              m.id.toLowerCase().includes(q) ||
+              (g.vendor ?? '').toLowerCase().includes(q),
+          ),
+        }))
+        .filter((g) => g.models.length > 0)
+      return foldLegacyGroups(hit)
+    }
+    if (modelModalTab === 'skills') return []
+    const filtered = realModelGroups
+      .map((g) => ({
+        ...g,
+        models: g.models.filter(
+          (m) => MODEL_CATEGORY_TO_TAB[m.category ?? 'chat'] === modelModalTab,
+        ),
+      }))
+      .filter((g) => g.models.length > 0)
+    return foldLegacyGroups(filtered.length > 0 ? filtered : PLACEHOLDER_MODELS[modelModalTab])
+  }, [modelModalTab, realModelGroups, modelSearch])
+  const modalModelCount = useMemo(
+    () => modalModelGroups.reduce((n, g) => n + g.models.length, 0),
+    [modalModelGroups],
+  )
+  /**
+   * 选择模型(对齐 Uniapp modelList selectModel → 设置 modelName/modelId 后关闭弹窗)。
+   * SelectedModel.type 由模型 category 映射回填(与 web 同源字段;缺失按数字 type 近似,
+   * 提交链只送 name/id 不上送 type,type 只影响选中高亮匹配与参数配置表单形态)
+   */
   const handleModelSelect = (ids: string[]): void => {
-    if (!activeModelType || ids.length === 0) return
-    const source =
-      realModelGroups.length > 0 ? realModelGroups : PLACEHOLDER_MODELS[activeModelType]
-    const found = source.flatMap((g) => g.models).find((m) => m.id === ids[0])
-    if (!found) return
-    setSelectedModel({ type: activeModelType, id: found.id, name: found.name })
-    setActiveModelType(null)
+    if (ids.length === 0) return
+    const foundGroup = modalModelGroups.find((g) => g.models.some((m) => m.id === ids[0]))
+    const found = foundGroup?.models.find((m) => m.id === ids[0])
+    if (!found || !foundGroup) return
+    const modelType: ModelType =
+      MODEL_CATEGORY_TO_TAB[found.category ?? 'chat'] ??
+      (found.type !== undefined
+        ? (NUMERIC_MODEL_TYPE_TO_MODEL_TYPE[found.type] ?? 'other')
+        : 'other')
+    setSelectedModel({ type: modelType, id: found.id, name: found.name })
+    setShowModelSelect(false)
+    setModelSearch('')
+    setShowModelSearch(false)
   }
   /** 清除已选模型(对齐 Uniapp 切换类型时清空 modelName) */
   const handleClearModel = (): void => setSelectedModel(null)
@@ -1319,7 +1444,9 @@ export function HomeScreen() {
         if (res.success) setTokenQuantity(res.data.balance)
       })
       .catch(() => undefined)
-    // 真实模型列表(fetchModels,按 provider 分组;对齐 Uniapp modelList API 数据)
+    // 真实模型列表(fetchModels → /llm/models,与 web ModelSelector fetchSelectorModels 同源;
+    // 按 provider 分组;category 透传 —— 弹窗分类 tab 过滤依赖它,缺失按 web normalizeCategory 兜底 chat。
+    // description 显示代次档位(厂商名与分组标题重复,无信息量);组内按 latest→standard→legacy 排序)
     void fetchModels()
       .then((res) => {
         const list = res?.models ?? []
@@ -1331,14 +1458,28 @@ export function HomeScreen() {
             models.push({
               id: m.id,
               name: m.name,
-              description: m.provider ?? '',
-              icon: Bot,
+              description: m.model_tier ? (MODEL_TIER_LABELS[m.model_tier] ?? '') : '',
+              // 厂商品牌图标优先:vendor 有值时 ModelList 渲染 BrandIcon 真实矢量
+              // (web 同源 @lobehub/icons);provider 缺失按 inferVendor 从模型 id 推断
+              // (真源 vendor-infer.ts,零依赖)。icon 保留首字母,作 native / 未映射兜底
+              icon: (m.provider || 'M').charAt(0).toUpperCase(),
+              vendor: m.provider || inferVendor(m.id),
               isFree: !m.input_price,
+              category: m.category,
+              modelTier: m.model_tier,
             })
             grouped.set(key, models)
           }
           setRealModelGroups(
-            Array.from(grouped.entries()).map(([vendor, models]) => ({ vendor, models })),
+            Array.from(grouped.entries()).map(([vendor, models]) => ({
+              vendor,
+              // 组内代次排序:最新在前(web 同语义),同档保持原序
+              models: [...models].sort(
+                (a, b) =>
+                  (MODEL_TIER_ORDER[a.modelTier ?? 'latest'] ?? 0) -
+                  (MODEL_TIER_ORDER[b.modelTier ?? 'latest'] ?? 0),
+              ),
+            })),
           )
         }
       })
@@ -1464,7 +1605,7 @@ export function HomeScreen() {
   const handleSkillAgentPress = useCallback(
     (id: string): void => {
       const agent = agentItems.find((a) => a.id === id)
-      setActiveModelType(null)
+      setShowModelSelect(false)
       rootNav?.navigate('AiAssistantN8n', { agentId: id, title: agent?.name })
     },
     [agentItems, rootNav],
@@ -1666,52 +1807,9 @@ export function HomeScreen() {
           <Text style={shellStyles.backToTopIcon}>{'↑'}</Text>
         </TouchableOpacity>
       ) : null}
-      {/* ModelTypeBar 模型类型选择栏(对齐 Uniapp BottomActionBar 8 种 model-type-btn 行 44-97)
-       *  统一走 CategoryInlineBar;点击同类型收起、不同类型切换(对齐 handleModelTypeClick 互斥)
-       *  selectedModel 显示为输入区小标签(对齐 Uniapp modelName 显示) */}
-      <View style={shellStyles.modelTypeBar}>
-        <CategoryInlineBar
-          items={MODEL_TYPES.map((opt) => ({
-            id: opt.type,
-            label: opt.label,
-            // MODEL_TYPES 八项均为 lucide 组件;string 分支在本表为死配置(组件仅收 lucide/图片)
-            icon: typeof opt.icon === 'string' ? undefined : (opt.icon as LucideIcon),
-          }))}
-          selectedId={activeModelType}
-          onSelect={(id) => handleModelTypePress(id as ModelType)}
-          colorScheme={resolvedTheme}
-          contentPaddingHorizontal={0}
-          itemGap={rpx(12)}
-          testID="home-model-type-bar"
-        />
-        {selectedModel ? (
-          <View style={shellStyles.selectedChipRow}>
-            <View style={shellStyles.selectedChip}>
-              <Text style={shellStyles.selectedChipText} numberOfLines={1}>
-                {selectedModel.name}
-              </Text>
-              <Pressable
-                onPress={handleClearModel}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="清除模型"
-              >
-                <Text style={shellStyles.selectedChipClose}>×</Text>
-              </Pressable>
-            </View>
-            {/* 模型参数配置(对齐 Uniapp ai_index 配置按钮 → ModelConfigDialog) */}
-            <TouchableOpacity
-              onPress={() => setShowModelConfig(true)}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="模型配置"
-              style={shellStyles.configBtn}
-            >
-              <SlidersHorizontal size={16} color={tokens.brand.DEFAULT} />
-            </TouchableOpacity>
-          </View>
-        ) : null}
-      </View>
+      {/* ModelTypeBar 模型类型选择栏(原对齐 Uniapp BottomActionBar 8 种 model-type-btn 行 44-97)
+       *  2026-10-15 用户重构:外挂选择栏整块移除,8 种分类改经 categories props 收进 InputArea
+       *  大输入框内「+」左侧(对齐 web 输入卡底栏两行布局);selectedModel 小标签随分类行内嵌 */}
       {/* 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮 showMaterialList=true,
        *  点击打开并加载"全部"tab(getMyCreation('agent') 我的创作数据) */}
       <TouchableOpacity
@@ -1771,6 +1869,12 @@ export function HomeScreen() {
         onVoiceEnd={() => void voiceRecorder.stop()}
         onPlusToggle={handlePlusToggle}
         plusActive={plusPanelVisible}
+        // 模型选择收进大输入框(2026-10-15 用户定:对齐 web 输入卡 ModelSelector ——
+        // 单按钮显示当前模型/「自动」,点击直接弹全量模型列表;8 分类 chips 平铺已废)
+        onOpenModelSelect={() => openModelModal()}
+        selectedModelName={selectedModel?.name ?? null}
+        onClearModel={handleClearModel}
+        onOpenModelConfig={() => setShowModelConfig(true)}
       />
       {/* 输入框「+」底部滑出菜单:统一走共享 AddPanel(图标按钮组:相机/相册/本地文件/微信文件,
           与 BottomActionBar/ChatScreen 同源),上传结果拼入输入框随提交发送 */}
@@ -1840,10 +1944,10 @@ export function HomeScreen() {
         selectedMainId={selectedMainId}
         onConfirm={handleFenLeiConfirm}
       />
-      {/* ModelList Modal(对齐 Uniapp showModelList → ModelList 弹窗,选模型后填充输入区)
-       *  共享组件:RN 内置 Modal + ModelList;底部 sheet 风格(对齐 BottomPopup 同款) */}
+      {/* ModelList Modal(对齐 web ModelSelector:底部 sheet + 弹窗内 8 分类 tab 切换模型列表)
+       *  入口:输入区模型钮/九宫格技能入口 → openModelModal(tab);选模型后填充输入区小标签 */}
       <Modal
-        visible={activeModelType !== null}
+        visible={showModelSelect}
         transparent
         animationType="slide"
         onRequestClose={closeModelModal}
@@ -1856,13 +1960,42 @@ export function HomeScreen() {
             accessibilityLabel="关闭模型列表"
           />
           <View style={shellStyles.modelModalSheet}>
+            {/* 拖拽指示条(iOS bottom-sheet 惯例,可下滑关闭) */}
+            <View style={shellStyles.modelModalGrabber} />
             <View style={shellStyles.modelModalHeader}>
-              <Text style={shellStyles.modelModalTitle} numberOfLines={1}>
-                {activeModelType
-                  ? (MODEL_TYPES.find((m) => m.type === activeModelType)?.label ?? '')
-                  : ''}
-                {' 模型选择'}
-              </Text>
+              <View style={shellStyles.modelModalHeading}>
+                <Text style={shellStyles.modelModalTitle} numberOfLines={1}>
+                  模型选择
+                </Text>
+                <Text style={shellStyles.modelModalSubtitle} numberOfLines={1}>
+                  {modelSearch.trim()
+                    ? `搜索到 ${modalModelCount} 个模型`
+                    : modelModalTab === 'skills'
+                      ? `共 ${skillAgentItems.length} 个智能体`
+                      : `共 ${modalModelCount} 个模型 · 按厂商分组`}
+                </Text>
+              </View>
+              {/* 搜索开关(图标钮,2026-10-15 用户定:最右上一个图标,不带文字) */}
+              <Pressable
+                onPress={() => {
+                  if (showModelSearch) {
+                    setShowModelSearch(false)
+                    setModelSearch('')
+                  } else {
+                    setShowModelSearch(true)
+                  }
+                }}
+                hitSlop={8}
+                style={shellStyles.modelSearchToggle}
+                accessibilityRole="button"
+                accessibilityLabel="搜索模型"
+                accessibilityState={{ selected: showModelSearch }}
+              >
+                <Search
+                  size={18}
+                  color={showModelSearch ? tokens.brand.cta : tokens.text.tertiary}
+                />
+              </Pressable>
               <Pressable
                 onPress={closeModelModal}
                 hitSlop={8}
@@ -1872,24 +2005,90 @@ export function HomeScreen() {
                 <Text style={shellStyles.modelModalClose}>×</Text>
               </Pressable>
             </View>
-            {/* 技能弹窗渲染真实智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList);其余类型保持 ModelList 占位 */}
-            {activeModelType === 'skills' ? (
+            {/* 搜索框:头部搜索图标开关控制展开/收起(收起即清词);非空时跨全部分类过滤 */}
+            {showModelSearch ? (
+              <View style={shellStyles.modelSearchBox}>
+                <Search size={16} color={tokens.text.tertiary} />
+                <TextInput
+                  style={shellStyles.modelSearchInput}
+                  value={modelSearch}
+                  onChangeText={setModelSearch}
+                  placeholder="搜索模型或厂商"
+                  placeholderTextColor={tokens.text.tertiary}
+                  returnKeyType="search"
+                  clearButtonMode="while-editing"
+                  accessibilityLabel="搜索模型输入"
+                />
+                {modelSearch ? (
+                  <Pressable
+                    onPress={() => setModelSearch('')}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="清除搜索"
+                  >
+                    <Text style={shellStyles.modelSearchClear}>×</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
+            {/* 分类 tab:8 分类横向滚动,active 品牌实心底;与列表间发丝线分层 */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={shellStyles.modelModalTabRow}
+              contentContainerStyle={shellStyles.modelModalTabContent}
+            >
+              {MODEL_TYPES.map((mt) => {
+                const active = !modelSearch.trim() && modelModalTab === mt.type
+                const Icon = mt.icon
+                return (
+                  <Pressable
+                    key={mt.type}
+                    onPress={() => {
+                      setModelSearch('')
+                      setModelModalTab(mt.type)
+                    }}
+                    style={[shellStyles.modelModalTab, active && shellStyles.modelModalTabActive]}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={mt.label}
+                  >
+                    <Icon
+                      size={14}
+                      color={active ? tokens.brand.ctaForeground : tokens.text.secondary}
+                    />
+                    <Text
+                      style={[
+                        shellStyles.modelModalTabText,
+                        active && shellStyles.modelModalTabActiveText,
+                      ]}
+                    >
+                      {mt.label}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </ScrollView>
+            <View style={shellStyles.modelModalHairline} />
+            {/* 技能 tab 渲染真实智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList);
+                搜索态跨全部分类渲染模型列表;其余 tab 渲染分类过滤后的模型列表 */}
+            {modelModalTab === 'skills' && !modelSearch.trim() ? (
               <AgentList
+                style={shellStyles.modelModalListBody}
                 items={skillAgentItems}
                 onItemClick={handleSkillAgentPress}
                 isLoading={false}
                 emptyText="暂无智能体"
               />
-            ) : activeModelType ? (
+            ) : (
               <ModelList
-                groups={
-                  realModelGroups.length > 0 ? realModelGroups : PLACEHOLDER_MODELS[activeModelType]
-                }
+                style={shellStyles.modelModalListBody}
+                groups={modalModelGroups}
                 selectionMode="single"
-                selectedIds={selectedModel?.type === activeModelType ? [selectedModel.id] : []}
+                selectedIds={selectedModel ? [selectedModel.id] : []}
                 onSelectChange={handleModelSelect}
               />
-            ) : null}
+            )}
           </View>
         </View>
       </Modal>
@@ -2116,50 +2315,8 @@ const shellStyles = {
     fontWeight: '600',
     includeFontPadding: false,
   } as const,
-  // ── ModelTypeBar 模型类型选择栏(对齐 Uniapp model-type-btn 8 个) ──
-  modelTypeBar: {
-    backgroundColor: tokens.surface.card,
-    borderTopWidth: 1,
-    borderTopColor: tokens.border.light,
-    paddingHorizontal: rpx(16),
-    paddingVertical: rpx(12),
-  } as const,
-  // ── selectedChip 已选模型小标签(对齐 Uniapp modelName 显示) ──
-  selectedChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    marginTop: rpx(0),
-    paddingHorizontal: rpx(16),
-    paddingVertical: rpx(8),
-    borderRadius: rnRadius.md,
-    backgroundColor: tokens.brandAccent.light,
-  } as const,
-  selectedChipText: {
-    fontSize: 11,
-    color: tokens.brandAccent.deep,
-    fontWeight: '600',
-    maxWidth: 200,
-  } as const,
-  selectedChipClose: {
-    fontSize: 14,
-    lineHeight: 16,
-    color: tokens.brandAccent.deep,
-    marginLeft: rpx(12),
-    fontWeight: '700',
-  } as const,
-  // ── selectedChipRow + configBtn(对齐 Uniapp ai_index 已选模型 + 配置按钮同行) ──
-  selectedChipRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: rpx(12),
-  } as const,
-  configBtn: {
-    marginLeft: rpx(16),
-    padding: rpx(12),
-    borderRadius: rnRadius.sm,
-    backgroundColor: tokens.surface.muted,
-  } as const,
+  // ── ModelTypeBar 模型类型选择栏样式已随外挂选择栏移除(2026-10-15 用户重构:
+  //  分类收进 InputArea 大输入框,样式随迁至 InputArea.tsx catChip 族) ──
   // ── creationEntry 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮) ──
   creationEntry: {
     alignSelf: 'flex-start',
@@ -2248,6 +2405,9 @@ const shellStyles = {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    // 固定 chrome 不被压缩:弹窗唯一弹性路径 = 内容区 ScrollView(默认 shrink)
+    // (sheet-flex 契约,详见 scripts/check-sheet-flex-contract.mjs)
+    flexShrink: 0,
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(24),
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -2274,6 +2434,9 @@ const shellStyles = {
   } as const,
   detailDialogScroll: {
     alignSelf: 'stretch',
+    // 唯一弹性块:bounded 弹窗(maxHeight 70%)内 ScrollView flex:1 内部滚动
+    // (sheet-flex 契约,详见 scripts/check-sheet-flex-contract.mjs)
+    flex: 1,
   } as const,
   detailDialogFieldRow: {
     flexDirection: 'row',
@@ -2346,6 +2509,109 @@ const shellStyles = {
     lineHeight: 24,
     color: tokens.text.tertiary,
     fontWeight: '300',
+    paddingHorizontal: rpx(8),
+  } as const,
+  // ── 弹窗深化(2026-10-15):把手 + 副标题计数 + 分类 tab + 发丝线 + 搜索 ──
+  modelModalGrabber: {
+    alignSelf: 'center',
+    width: rpx(72),
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: tokens.border.medium,
+    marginBottom: rpx(16),
+  } as const,
+  modelModalHeading: {
+    flex: 1,
+    paddingRight: rpx(16),
+  } as const,
+  modelModalSubtitle: {
+    fontSize: 12,
+    color: tokens.text.tertiary,
+    marginTop: 2,
+  } as const,
+  modelModalTabRow: {
+    // 横向 tab 行:纵向不收缩,滚动交由内容
+    flexGrow: 0,
+    // 固定 chrome 永不被 flex 压缩:此前列表未约束 flex,自然高度撑爆 sheet 的
+    // maxHeight 时 tab 行被 shrink 压扁(33→14px,背景条比文字矮 → 图标/文字穿帮错位)
+    flexShrink: 0,
+  } as const,
+  modelModalListBody: {
+    // 列表区是弹窗里唯一弹性块:吃掉 sheet 剩余高度并内部滚动
+    // (SectionList 需要确定高度父容器才能滚,RN 0.86),
+    // 避免自然高度撑爆 maxHeight 后压缩固定块(flexShrink 灾难)
+    flex: 1,
+    minHeight: 0,
+  } as const,
+  modelModalTabContent: {
+    gap: rpx(12),
+    paddingHorizontal: rpx(32),
+    paddingBottom: rpx(16),
+  } as const,
+  modelModalTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(8),
+    // 分类胶囊:角色档 chip(6),与 InputArea 分类入口同视觉语言
+    borderRadius: rnRadiusFor.chip,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.muted,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(12),
+  } as const,
+  modelModalTabActive: {
+    backgroundColor: tokens.brand.cta,
+    borderColor: tokens.brand.cta,
+  } as const,
+  modelModalTabText: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+  } as const,
+  modelModalTabActiveText: {
+    // 底取 brand.cta、字必须取配对档 ctaForeground:cta 暗档是纯白底,写死 #FFFFFF 就是
+    // 白底白字(2026-10-16 用户实测「鬼能看清字」)。配对档两态恒反相,永不撞色。
+    // 键名必须是 modelModalTabActive + Text 的兄弟形(与 modelModalTabActive 成 R4 兄弟对),
+    // 否则判据认不出配对、R3 只能靠无配对实底兜账 —— 命名改对才让 R4/R9 直接可判。
+    color: tokens.brand.ctaForeground,
+    fontWeight: '600',
+  } as const,
+  modelModalHairline: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: tokens.border.light,
+    marginHorizontal: rpx(32),
+  } as const,
+  // ── 弹窗内搜索(头部图标开关 + 展开态胶囊输入框)──
+  modelSearchToggle: {
+    width: rpx(56),
+    height: rpx(56),
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as const,
+  modelSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(12),
+    marginHorizontal: rpx(32),
+    marginBottom: rpx(16),
+    paddingHorizontal: rpx(24),
+    height: rpx(64),
+    borderRadius: rnRadiusFor.chip,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.muted,
+  } as const,
+  modelSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: tokens.text.primary,
+    // RN web 端 TextInput 默认内边距偏大,压平与图标同行
+    paddingVertical: 0,
+  } as const,
+  modelSearchClear: {
+    fontSize: 18,
+    lineHeight: 20,
+    color: tokens.text.tertiary,
     paddingHorizontal: rpx(8),
   } as const,
   // ── 分享领智汇值弹窗(2026-10-15 重构为共享组件 ShareRewardDialog,样式随组件) ──
