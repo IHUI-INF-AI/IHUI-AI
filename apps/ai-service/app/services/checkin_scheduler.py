@@ -39,7 +39,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.core.logging import get_logger
-from app.services import checkin_credits, checkin_qoder, checkin_store, checkin_workbuddy
+from app.services import checkin_credits, checkin_minimax, checkin_qoder, checkin_store, checkin_workbuddy
 from app.services.checkin_engine import checkin_account
 
 logger = get_logger(__name__)
@@ -324,6 +324,11 @@ class CheckinScheduler:
         elif platform == "workbuddy":
             # WorkBuddy 每日 00:00(UTC+8)后随时可领,随 08:05 主窗口跑
             result = await checkin_workbuddy.workbuddy_checkin_account(
+                account["name"], account["jwt"], device_map
+            )
+        elif platform == "minimax":
+            # MiniMax 每日随时可领(幂等),随 08:05 主窗口跑
+            result = await checkin_minimax.minimax_checkin_account(
                 account["name"], account["jwt"], device_map
             )
         else:

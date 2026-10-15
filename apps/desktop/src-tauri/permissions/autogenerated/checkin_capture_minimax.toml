@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-checkin-capture-workbuddy"
+description = "Enables the checkin_capture_minimax command without any pre-configured scope."
+commands.allow = ["checkin_capture_minimax"]
+
+[[permission]]
+identifier = "deny-checkin-capture-workbuddy"
+description = "Denies the checkin_capture_minimax command without any pre-configured scope."
+commands.deny = ["checkin_capture_minimax"]

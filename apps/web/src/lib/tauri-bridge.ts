@@ -1576,6 +1576,30 @@ export async function checkinCaptureWorkbuddy(): Promise<CapturedWorkbuddySessio
   return await invokeIpc<CapturedWorkbuddySession[]>('checkin_capture_workbuddy')
 }
 
+/** 本机捕获到的 MiniMax Code 登录态(与 Rust `CapturedMinimaxSession` 逐字段对齐,2026-10-15)。
+ *  token 明文存 `~/.minimax/auth/prod/cn/mcode-public/auth.json`(mmoat_ OAuth accessToken);
+ *  uid 取 `%APPDATA%\MiniMax\minimax-agent-cn-config.json` 的 sharedUser.realUserID
+ *  (签到 query 必填,缺失网关 401)。引擎见 apps/ai-service/app/services/checkin_minimax.py。 */
+export interface CapturedMinimaxSession {
+  auth_file: string
+  /** sharedUser.realUserID(签到必填) */
+  uid: string
+  /** sharedUser.userName(展示名) */
+  nickname: string
+  /** mmoat_ 前缀 OAuth accessToken(Authorization: Bearer) */
+  access_token: string
+  /** mmort_ 前缀 refreshToken(引擎预留,当前不消费) */
+  refresh_token: string
+  /** auth.json 声明的过期(epoch 秒,缺失 0) */
+  expires_at: number
+}
+
+/** 从本机 MiniMax Code 捕获登录态(读 auth.json + config,零粘贴)。 */
+export async function checkinCaptureMinimax(): Promise<CapturedMinimaxSession[]> {
+  requireTauri()
+  return await invokeIpc<CapturedMinimaxSession[]>('checkin_capture_minimax')
+}
+
 /** WorkBuddy 网页登录探测到的账号(与 Rust `WbWebAccount` 对齐,2026-10-12)。 */
 export interface WorkbuddyWebLoginAccount {
   uid: string

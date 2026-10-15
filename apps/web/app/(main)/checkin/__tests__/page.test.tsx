@@ -172,6 +172,7 @@ vi.mock('@/lib/tauri-bridge', () => ({
   checkinDetectTraeDir: vi.fn(),
   checkinCaptureJwts: vi.fn(async () => []),
   checkinCaptureQoder: vi.fn(async () => []),
+  checkinCaptureMinimax: vi.fn(async () => []),
   checkinCaptureWorkbuddy: vi.fn(async () => []),
   WB_WEB_LOGIN_ORIGIN: 'https://www.workbuddy.cn',
   WB_WEB_LOGIN_URL:
