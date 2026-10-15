@@ -449,6 +449,60 @@ export function maskComments(text) {
  * @param isExecSync 该调用是不是 `execSync`(它的 options 在第 2 位而非第 3 位)
  * @returns {{verdict:'ok'|'noStdio'|'viaCmd'|'noOptions', stdio:boolean, shell:boolean}}
  */
+/**
+ * 在源码里找 `const/let/var <id> = {` 并返回其**花括号配平**的对象字面量文本(含字符串态跳过)。
+ * 解析不到(不是字面量赋值 / 未配平 / 是函数形参)⇒ 返回 null —— 调用方据此**保持原判**,绝不猜绿。
+ */
+export function objectLiteralFor(raw, idName) {
+  const m = new RegExp(`\\b(?:const|let|var)\\s+${idName.replace(/\$/g, '\\$')}\\s*=\\s*\\{`).exec(raw)
+  if (!m) return null
+  const open = raw.indexOf('{', m.index)
+  if (open < 0) return null
+  let depth = 0
+  let str = null
+  for (let i = open; i < raw.length; i++) {
+    const c = raw[i]
+    if (str) {
+      if (c === '\\') i++
+      else if (c === str) str = null
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') str = c
+    else if (c === '{') depth++
+    else if (c === '}') {
+      depth--
+      if (depth === 0) return raw.slice(open, i + 1)
+    }
+  }
+  return null // 未配平 ⇒ 不猜
+}
+
+/**
+ * 该调用的 options 实参若是**裸标识符**(如 `FACE_OPTS`/`opt`),回同一源码解析其对象字面量里的 stdio。
+ * 返回 `{ resolved:true, stdio:boolean, id }`(解析到字面量)或 `{ resolved:false }`(实参非标识符 /
+ * 找不到字面量赋值 / 是形参)。判据只在 `resolved && stdio` 时把 noStdio 升成 ok —— 其余一律保持原判,
+ * 是"给合规调用摘除假红",不是放宽(G-940)。
+ */
+export function namedOptionsStdio(raw, spanText, isExecSync = false) {
+  const args = splitArgs(String(spanText))
+  const optIdx = isExecSync ? 1 : 2
+  const optArg = args[optIdx]
+  if (!optArg || !/^[A-Za-z_$][\w$]*$/.test(optArg)) return { resolved: false }
+  const obj = objectLiteralFor(raw, optArg)
+  if (obj === null) return { resolved: false }
+  return { resolved: true, stdio: STDIO_PROP.test(maskComments(obj)), id: optArg }
+}
+
+/** 包住 judgeSpan:仅当原判 noStdio 且具名 options 对象**确含 stdio** 时,才升成 ok(不猜、不放宽)。 */
+export function judgeSpanWithNamed(span, raw, isExecSync = false) {
+  const v = judgeSpan(span, isExecSync)
+  if (v.verdict === 'noStdio') {
+    const n = namedOptionsStdio(raw, span, isExecSync)
+    if (n.resolved && n.stdio) return { ...v, verdict: 'ok', resolvedNamed: n.id }
+  }
+  return v
+}
+
 export function judgeSpan(span, isExecSync = false) {
   const text = String(span)
   // 属性名判据跑在**注释已遮**的文本上:注释里的 `stdio:` 不是属性(否则违规被静默洗白)。
@@ -518,7 +572,7 @@ export function scanSource(raw, opts = {}) {
   for (const b of bins) {
     const openIdx = raw.indexOf('(', b.index)
     const span = callSpan(raw, openIdx)
-    const v = judgeSpan(span, b.fn === 'execSync')
+    const v = judgeSpanWithNamed(span, raw, b.fn === 'execSync')
     if (v.verdict === 'ok') continue
     if (v.verdict === 'viaCmd') shellFlagged++
     if (selfExempt) {
@@ -804,6 +858,24 @@ function selfTest() {
       `)`,
     ].join('\n')
     if (scanSource(folded).misses.length !== 0) throw new Error('折行后的简写形态被误判红')
+  })
+  t('G-940 具名 options 对象含 stdio → 升绿(不靠台账豁免,消假阳)', () => {
+    const src = `const FACE_OPTS = {\n  stdio: ['ignore', 'pipe', 'pipe'],\n  encoding: 'utf8',\n}\nexecFileSync(GIT, ['-c', 'x', 'show', 'HEAD:f'], FACE_OPTS)\n`
+    const span = callSpan(src, src.indexOf('(', src.indexOf('execFileSync')))
+    const v = judgeSpanWithNamed(span, src, false)
+    if (v.verdict !== 'ok') throw new Error(`具名对象含 stdio 却判:${v.verdict}`)
+  })
+  t('G-940 反向:具名对象里没有 stdio → 仍判红(升级只认真含 stdio,不放宽)', () => {
+    const src = `const OPTS = {\n  encoding: 'utf8',\n  windowsHide: true,\n}\nexecFileSync(GIT, ['show', 'HEAD:f'], OPTS)\n`
+    const span = callSpan(src, src.indexOf('(', src.indexOf('execFileSync')))
+    const v = judgeSpanWithNamed(span, src, false)
+    if (v.verdict !== 'noStdio') throw new Error(`具名对象无 stdio 却被洗绿:${v.verdict}`)
+  })
+  t('G-940 反向:options 是函数形参(无同文件字面量)→ 不解析、仍判红(不猜)', () => {
+    const src = `function run(GIT, args, opts) {\n  return execFileSync(GIT, args, opts)\n}\n`
+    const span = callSpan(src, src.indexOf('(', src.indexOf('execFileSync')))
+    const v = judgeSpanWithNamed(span, src, false)
+    if (v.verdict !== 'noStdio') throw new Error(`形参被当成可解析具名对象洗绿:${v.verdict}`)
   })
   t('反向对照:名字里带 stdio 但不是 stdio 属性名的,一律仍判红(证明判据没被放成恒绿)', () => {
     // 这一例是上一例的**牙**:接住简写不得顺带把 `xstdio` / `my_stdio` / 值位置 / `stdioX` 放过。
