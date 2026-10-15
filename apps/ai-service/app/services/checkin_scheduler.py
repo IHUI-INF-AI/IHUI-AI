@@ -43,6 +43,7 @@ from apscheduler.triggers.cron import CronTrigger
 from app.core.logging import get_logger
 from app.services import checkin_credits, checkin_minimax, checkin_qoder, checkin_store, checkin_workbuddy
 from app.services.checkin_engine import client_for
+from app.services import checkin_proxy_pool
 
 _BATCH_JITTER_MIN = float(os.environ.get("CHECKIN_BATCH_JITTER_MIN", "8"))
 _BATCH_JITTER_MAX = float(os.environ.get("CHECKIN_BATCH_JITTER_MAX", "45"))
@@ -342,6 +343,12 @@ class CheckinScheduler:
         platform = account.get("platform")
         # 多账号风控三件套之二:device_map.proxy 绑定独立出口 IP,
         # 有代理的账号全程走自己的 client(用完即关),无代理本机直连零变化。
+        # 免费代理池自动分配(默认关;CHECKIN_FREE_PROXY_POOL=1 开):多账号自动绑独立出口
+        if os.environ.get("CHECKIN_FREE_PROXY_POOL") == "1":
+            try:
+                await checkin_proxy_pool.ensure_proxy(device_map)
+            except Exception as e:
+                logger.warning("[checkin_scheduler] 免费代理分配失败(直连兜底): %s", e)
         client, owned = client_for(device_map)
         try:
             if platform == "qoder":

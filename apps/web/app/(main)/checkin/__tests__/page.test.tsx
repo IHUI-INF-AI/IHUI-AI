@@ -172,7 +172,6 @@ vi.mock('@/lib/tauri-bridge', () => ({
   checkinDetectTraeDir: vi.fn(),
   checkinCaptureJwts: vi.fn(async () => []),
   checkinCaptureQoder: vi.fn(async () => []),
-  checkinCaptureMinimax: vi.fn(async () => []),
   checkinCaptureWorkbuddy: vi.fn(async () => []),
   WB_WEB_LOGIN_ORIGIN: 'https://www.workbuddy.cn',
   WB_WEB_LOGIN_URL:
@@ -545,9 +544,13 @@ describe('签到助手页面 · 更新JWT/徽章/调度/过滤/加载更多', ()
     const longMessage = 'x'.repeat(65)
     mockLoadSuccess({ records: [{ ...recordFixture, message: longMessage }] })
     render(<CheckinPage />)
-    const cell = await waitFor(() => screen.getByTitle(longMessage))
+    // 2026-10-15:信息列改走项目统一 TruncatedText(Radix Tooltip)——
+    // 原生 title 属守门 18 违规。断言从"找 title 属性"改为"找截断后的文本",
+    // 语义不变(仍验截断 60 + 非原生 title)。
+    const cell = await waitFor(() => screen.getByText(`${'x'.repeat(60)}…`))
     expect(screen.getByText('colMessage')).toBeTruthy()
-    expect(cell.textContent).toBe(`${'x'.repeat(60)}…`)
+    expect(cell.className).toContain('truncate')
+    expect(cell.getAttribute('title')).toBeNull()
   })
 
   it('积分合计:totalCreditsDelta 以 delta 参数格式化', async () => {
@@ -758,7 +761,6 @@ describe('签到助手页面 · 一键解决风控向导', () => {
     fireEvent.click(screen.getByText('maintTitle'))
     await waitFor(() => expect(screen.getByText('wizardTitle')).toBeTruthy())
   }
-
 
   it('全流程:一键重置 → 显示基准 IP → 换网验证通过 → 冷却完成态+重新开始', async () => {
     await openMaint()
