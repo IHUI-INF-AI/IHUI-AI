@@ -332,6 +332,7 @@ import {
   selectFace,
 } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..') // ROOT 由脚本自身位置推导(§15,不写死盘符)
@@ -2964,8 +2965,13 @@ function main(argv) {
     console.error(`[${GATE}] ❌ 无法判定:${error}`)
     return 2
   }
-  const ri = argv.indexOf('--root')
-  const root = ri >= 0 && argv[ri + 1] ? resolve(argv[ri + 1]) : ROOT
+  // G-322:给了 --root 却没收到合法值 ⇒ 点名拒绝,不得静默落 ROOT 还报 ✅。
+  const rootArg = requireFlagValue(argv, '--root', { noun: '目录参数', fallback: ROOT })
+  if (rootArg.error) {
+    console.error(`❌ 无法判定:${rootArg.error}`)
+    return 2
+  }
+  const root = rootArg.value !== null ? resolve(rootArg.value) : ROOT
   const fi = argv.includes('--files') ? argv.indexOf('--files') : -1
   // `--files a,b` 与 `--files a b` **都得算**。旧写法只取 argv[fi+1] 那一个 token:空格分隔的
   // 第二个及之后的路径被静默丢掉(2026-10-01 实测:传 batch-outcome.ts + notice-routes.ts 时,
