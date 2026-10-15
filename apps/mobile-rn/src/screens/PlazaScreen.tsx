@@ -63,7 +63,8 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { navigateDrawerTab } from '../navigation/tab-utils'
 import { rpx } from '../utils/rpx'
-import { Search, User, Menu, FolderOpen, X } from 'lucide-react-native'
+import { Search, User, FolderOpen, X } from 'lucide-react-native'
+import { PanelLeftRounded } from '../components/PanelLeftRounded'
 
 import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
@@ -415,7 +416,7 @@ export function PlazaScreen() {
   }
 
   const leftActions = useMemo<ReadonlyArray<NavBarAction>>(
-    () => [{ icon: Menu, label: '菜单', onPress: () => setDrawerVisible(true) }],
+    () => [{ icon: PanelLeftRounded, a11yLabel: '菜单', onPress: () => setDrawerVisible(true) }],
     [],
   )
 
@@ -448,9 +449,9 @@ export function PlazaScreen() {
               accessibilityLabel="搜索"
             >
               {showSearch ? (
-                <X size={20} color={tokens.gray.black} />
+                <X size={20} color={tokens.text.medium} />
               ) : (
-                <Search size={20} color={tokens.gray.black} />
+                <Search size={20} color={tokens.text.medium} />
               )}
             </Pressable>
           }

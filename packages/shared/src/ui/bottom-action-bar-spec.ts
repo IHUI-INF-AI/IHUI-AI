@@ -103,13 +103,26 @@ export const BOTTOM_ACTION_BAR_CONTROL_BOX_PX = GEOMETRY_PX.controlBox
 
 /**
  * 【A 两端同档】上述方块里的矢量字形墨迹 14。
- * 依据:web 两处都是 `h-3.5 w-3.5`(`Send` `message-input.tsx:1155`、`Plus`
- * `add-menu-popover.tsx:232`)= 14。与本文件正文字号档同值,不新增档。
+ * 依据:web `add-menu-popover.tsx:237` 的 `Plus` 是 `h-3.5 w-3.5` = 14。
+ * (历史备注:本档原覆盖 web 发送槽 `Send h-3.5`;2026-09-30 web 发送簇改版为
+ * ArrowUp/Square/Zap `h-4 w-4` = 16 后,发送槽单列为 {@link BOTTOM_ACTION_BAR_SEND_GLYPH_PX},
+ * 本档现仅覆盖「+」附件槽。)
  * 载体同时收口:此前小程序默认变体用字符 `+` / `↑` 当图标、RN 用文字「发送」,
  * 两者都违反 AGENTS §4「UI 图标一律用矢量图标库,禁止字符/emoji 充当图标」,
  * 且 RN 的 `'发送'` 是硬编码中文(非 i18n)。两端统一走各自矢量通道
- * (小程序 `LineIcon name="send"/"plus"`,RN `lucide-react-native` 的 `Send`/`Plus`)。
+ * (小程序 `LineIcon name="plus"`,RN `lucide-react-native` 的 `Plus`)。
  */
 export const BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX = GEOMETRY_PX.controlGlyph
+
+/**
+ * 【A 两端同档】发送/停止槽的矢量字形墨迹 16(2026-10-15 再裁决)。
+ * 依据:web `message-input.tsx` 发送簇 ArrowUp / Square(停止)/ Zap(Steer)均为
+ * `h-4 w-4` = 16(2026-09-30 发送钮改版后的现值);本票把发送槽对齐 web 现值,
+ * 数值落 geometry 既有 `glyphSm`(行内小箭头档 16),不新增档。
+ * 载体同步:发送图标三端同形 ArrowUp —— 小程序 `LineIcon name="arrow-up"`
+ * (该端此前同槽先是字符 `↑`、后改 lucide `send` 纸飞机,均为旧裁决形态),
+ * RN `lucide-react-native` 的 `ArrowUp`。
+ */
+export const BOTTOM_ACTION_BAR_SEND_GLYPH_PX = GEOMETRY_PX.glyphSm
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠import { GEOMETRY_PX } from '@ihui/design-tokens'
