@@ -14,8 +14,8 @@ import { useLoginDialogStore } from '@/stores/login-dialog'
 import { toast } from 'sonner'
 import { AuthShell } from '@/components/auth/AuthShell'
 import { resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
-import { openExternalUrl, openInGoogleChrome } from '@/lib/tauri-bridge'
-import { rememberSsoChromeWindow } from '@/lib/sso-desktop-bridge'
+import { openEmbeddedBrowser, openExternalUrl } from '@/lib/tauri-bridge'
+import { rememberSsoEmbeddedWindow } from '@/lib/sso-desktop-bridge'
 import { buildSsoLoginUrl, SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared'
 import { useDesktop } from '@/hooks/use-desktop'
 import { useIsMobile } from '@/hooks/use-media-query'
@@ -65,22 +65,24 @@ export function LoginDialog() {
     // 系统默认浏览器 —— 日常 profile、已有登录态/扩展/书签全在,登录完成后 OS 经 ihui://sso
     // 深链派发回桌面端换 token(关弹窗链路 desktop-sso-success 不变)。登录标签页留在用户
     // 自己的浏览器里(那是他的日常窗口,不该也不可由我们代关)。
-    // 兜底:默认浏览器打不开(openExternalUrl false,极端环境)才用 Chrome 隔离窗,
-    // 并记住会话以便登录成功后关窗(兜底窗没有用户日常 profile,用完即收)。
-    // 2026-10-15:形态改 'window' 完整浏览器窗口 —— 与签到助手网页登录同档(用户反馈
-    // "--app 无边框窗不是完整的浏览器窗口");同一类缺陷不留第二处。
+    // 兜底:默认浏览器打不开(openExternalUrl false,极端环境)才用**项目内嵌浏览器**,
+    // 并记住会话以便登录成功后关窗(内嵌窗是临时的、用完即收)。
+    // 2026-10-16 改:兜底窗从"外部 Chrome"换成内嵌浏览器 —— 与签到助手网页登录同
+    // 一套窗口(单一真相源);同一类缺陷不留第二处。
     const opened = await openExternalUrl(ssoUrl)
     if (opened) return
-    console.warn('[sso] 默认浏览器打开失败,兜底 Chrome 完整窗口')
-    const port = await openInGoogleChrome(ssoUrl, 'window')
-    if (typeof port === 'number') {
-      rememberSsoChromeWindow(port, `${webBase}/sso/login`)
+    console.warn('[sso] 默认浏览器打开失败,兜底项目内嵌浏览器')
+    try {
+      await openEmbeddedBrowser(ssoUrl, '登录智汇AI')
+      rememberSsoEmbeddedWindow()
       return
+    } catch {
+      // 落到这里 = 内嵌窗也没开起来,继续走下面的可见反馈
     }
     // 2026-10-13(实测"按钮又没反应"期间立):两条外开路径全失败时必须给用户
-    // 可见反馈 —— 此前 openInGoogleChrome 的失败只有 console.warn,用户感知就是
-    // "点了没反应"。常见根因是壳内页面加载失败(见 auto_refresh 的 chrome-error
-    // 自愈),提示里给出可自救动作。
+    // 可见反馈 —— 此前开窗失败只有 console.warn,用户感知就是"点了没反应"。
+    // 常见根因是壳内页面加载失败(见 auto_refresh 的 chrome-error 自愈),
+    // 提示里给出可自救动作。
     toast.error(t('desktopSsoOpenFailed'))
   }, [])
 

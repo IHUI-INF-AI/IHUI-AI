@@ -67,7 +67,10 @@ const isCheck = process.argv.includes('--check')
 // `--check-first` = 同进程内先跑同一段对账并记凭据,再进入应用 —— 对账仍然无条件发生在写之前。
 const checkFirst = process.argv.includes('--check-first')
 const inputIdx = process.argv.indexOf('--input')
-const customInput = inputIdx >= 0 ? process.argv[inputIdx + 1] : null
+const inputNext = inputIdx >= 0 ? process.argv[inputIdx + 1] : undefined
+// G-322 同族:下一 token 若是旗标(`--input --check`)不得当路径;权威拒绝在 parseArgs(exit 2),
+// 这里只是纵深防御,保证 749 行的提示也不会把 `--check` 印成"你指定的路径"。
+const customInput = inputNext !== undefined && !String(inputNext).startsWith('-') ? inputNext : null
 const targetArg = process.argv.find((a) => a.startsWith('--target='))
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
 const TARGET_IS_EXPLICIT = targetArg !== undefined
@@ -106,11 +109,18 @@ export function parseArgs(argv) {
       if (name === 'input') {
         // 只给 --input 不给值:旧行为是"当没传",于是悄悄回落到默认路径 ——
         // 调用方以为自己在应用指定的那份文件,其实应用的是盘上遗留的另一份。
-        if (a === '--input' && i + 1 < argv.length) {
-          i += 1
+        // G-322 同族:更坏的是"值"位置其实是一枚紧邻旗标(如 `--input --check`)——
+        // 旧写法无脑吃下一个 token,会把 --check/--target 当路径吞掉。口径:值必须存在且不以 '-' 开头。
+        if (a === '--input') {
+          const nxt = argv[i + 1]
+          if (nxt !== undefined && !String(nxt).startsWith('-')) {
+            i += 1
+            continue
+          }
+          out.unknown.push('--input <缺值:值必须存在且不能以 - 开头(否则会把紧邻的 --check/--target 当路径吞掉)>')
           continue
         }
-        out.unknown.push('--input <缺值>')
+        // --input=<path> 等号形态:值在等号右,不涉"下一 token"
         continue
       }
       if (name === 'allow-stale') {

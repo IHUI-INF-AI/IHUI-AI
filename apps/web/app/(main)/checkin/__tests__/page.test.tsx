@@ -32,10 +32,10 @@ import {
   checkinCaptureQoder,
   checkinCaptureJwts,
   checkinCaptureWorkbuddy,
-  openInGoogleChrome,
-  closeChromeWindow,
+  openEmbeddedBrowser,
+  closeEmbeddedBrowser,
   checkinWorkbuddyWebLoginProbe,
-  checkinOneClickReset,
+  checkinOneClickResetAll,
   checkinGetPublicIp,
   checkinSnapshotList,
   WB_WEB_LOGIN_URL,
@@ -177,11 +177,11 @@ vi.mock('@/lib/tauri-bridge', () => ({
   WB_WEB_LOGIN_ORIGIN: 'https://www.workbuddy.cn',
   WB_WEB_LOGIN_URL:
     'https://www.workbuddy.cn/login/?platform=website&state=2&product=workbuddy&redirect_uri=https%3A%2F%2Fwww.workbuddy.cn%2F',
-  openInGoogleChrome: vi.fn(async () => null),
-  closeChromeWindow: vi.fn(async () => 0),
+  openEmbeddedBrowser: vi.fn(async () => undefined),
+  closeEmbeddedBrowser: vi.fn(async () => undefined),
   checkinWorkbuddyWebLoginProbe: vi.fn(async () => ({ status: 'no_window' }) as never),
   checkinResetDeviceIds: vi.fn(),
-  checkinOneClickReset: vi.fn(),
+  checkinOneClickResetAll: vi.fn(),
   checkinGetPublicIp: vi.fn(),
   checkinAuditTraeResidual: vi.fn(async () => ({ ...cleanAudit })),
   checkinSnapshotBackup: vi.fn(),
@@ -739,13 +739,29 @@ describe('签到助手页面 · 桌面端专属入口(WP-C)', () => {
 // ── 一键解决风控向导(2026-10-10):3 步状态机 + busy 双闸 ──
 
 const wizardLayer = (i: number) => ({ layer: i, name: `L${i}`, ok: true, detail: 'ok' })
+/** 全平台聚合报告夹具(2026-10-16):TRAE 14 层 + 三平台摘要(默认空=skipped)。 */
+const allReset = (
+  layers: ReturnType<typeof wizardLayer>[],
+  platforms: {
+    platform: 'trae' | 'qoder' | 'workbuddy' | 'minimax'
+    executed: boolean
+    ok: boolean
+    detail: string
+  }[] = [],
+) => ({
+  trae: { layers },
+  qoder: null,
+  workbuddy: null,
+  minimax: null,
+  platforms,
+})
 
 describe('签到助手页面 · 一键解决风控向导', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // mockReset 清 implementation:防前测的 mockResolvedValueOnce 序列泄漏到后测
     // (useTauriIpcReady 的工厂实现不受 clearAllMocks 影响,无需重置)
-    vi.mocked(checkinOneClickReset).mockReset()
+    vi.mocked(checkinOneClickResetAll).mockReset()
     vi.mocked(checkinGetPublicIp).mockReset()
     // mockReset 会清掉工厂里的默认实现,必须显式补回默认报告
     vi.mocked(checkinAuditTraeResidual).mockReset()
@@ -765,8 +781,13 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('全流程:一键重置 → 显示基准 IP → 换网验证通过 → 冷却完成态+重新开始', async () => {
     await openMaint()
-    vi.mocked(checkinOneClickReset).mockResolvedValue({
-      layers: Array.from({ length: 14 }, (_, i) => wizardLayer(i)),
+    vi.mocked(checkinOneClickResetAll).mockResolvedValue({
+      ...allReset(Array.from({ length: 14 }, (_, i) => wizardLayer(i))),
+      platforms: [
+        { platform: 'qoder', executed: true, ok: true, detail: 'L2 logout_reset ok' },
+        { platform: 'workbuddy', executed: true, ok: true, detail: 'L2 logout_reset ok' },
+        { platform: 'minimax', executed: true, ok: true, detail: 'L2 logout_reset ok' },
+      ],
     })
     vi.mocked(checkinGetPublicIp)
       .mockResolvedValueOnce({ ip: '1.2.3.4', location: '中国 吉林 长春 电信' })
@@ -774,7 +795,7 @@ describe('签到助手页面 · 一键解决风控向导', () => {
     fireEvent.click(screen.getByText('wizardStart'))
     // Step2:重置完成报告 + 基准 IP 渲染
     await waitFor(() => expect(screen.getByText(/wizardIpBefore/)).toBeTruthy())
-    expect(checkinOneClickReset).toHaveBeenCalledTimes(1)
+    expect(checkinOneClickResetAll).toHaveBeenCalledTimes(1)
     expect(screen.getByText(/1\.2\.3\.4/)).toBeTruthy()
     expect(screen.getByText(/wizardResetDone/)).toBeTruthy()
     // Step3:换网后 IP 变化 → 完成态
@@ -790,7 +811,7 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('IP 未变时不进入完成态,红字提示重拔', async () => {
     await openMaint()
-    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinOneClickResetAll).mockResolvedValue(allReset([wizardLayer(0)]))
     vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
     fireEvent.click(screen.getByText('wizardStart'))
     await waitFor(() => expect(screen.getByText('wizardVerify')).toBeTruthy())
@@ -801,7 +822,7 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('busy 双闸:向导执行中 wizardStart 与手动 maintReset 同时禁用', async () => {
     await openMaint()
-    vi.mocked(checkinOneClickReset).mockReturnValue(new Promise(() => {}))
+    vi.mocked(checkinOneClickResetAll).mockReturnValue(new Promise(() => {}))
     fireEvent.click(screen.getByText('wizardStart'))
     await waitFor(() => {
       expect((screen.getByText('wizardStart') as HTMLButtonElement).disabled).toBe(true)
@@ -811,7 +832,7 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('重置成功后自动跑一次残留审计,并显示"无残留"结论', async () => {
     await openMaint()
-    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinOneClickResetAll).mockResolvedValue(allReset([wizardLayer(0)]))
     vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
     fireEvent.click(screen.getByText('wizardStart'))
     await waitFor(() => expect(screen.getByText('wizardAuditClean')).toBeTruthy())
@@ -821,7 +842,7 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('审计发现残留:显示残留条数并列出命中文件', async () => {
     await openMaint()
-    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinOneClickResetAll).mockResolvedValue(allReset([wizardLayer(0)]))
     vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
     vi.mocked(checkinAuditTraeResidual).mockResolvedValue({
       ...cleanAudit,
@@ -840,7 +861,7 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('点「重新检测残留」会再跑一次审计(累计 2 次)', async () => {
     await openMaint()
-    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinOneClickResetAll).mockResolvedValue(allReset([wizardLayer(0)]))
     vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
     fireEvent.click(screen.getByText('wizardStart'))
     await waitFor(() => expect(checkinAuditTraeResidual).toHaveBeenCalledTimes(1))
@@ -855,9 +876,9 @@ describe('签到助手页面 · 一键解决风控向导', () => {
   it('P0-3 非可选层失败时显示告警而非"不影响"', async () => {
     await openMaint()
     // 层 1(machineid,文件级,非可选)失败 ⇒ 必须告警,不得再说"不影响主体"
-    vi.mocked(checkinOneClickReset).mockResolvedValue({
-      layers: [{ layer: 1, name: 'machineid', ok: false, detail: 'boom' }],
-    })
+    vi.mocked(checkinOneClickResetAll).mockResolvedValue(
+      allReset([{ layer: 1, name: 'machineid', ok: false, detail: 'boom' }]),
+    )
     vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
     fireEvent.click(screen.getByText('wizardStart'))
     await waitFor(() => expect(screen.getByText('wizardVerify')).toBeTruthy())
@@ -867,7 +888,7 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('P0-1 无法换网时「直接完成」旁路可跳过验证进入冷却态', async () => {
     await openMaint()
-    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinOneClickResetAll).mockResolvedValue(allReset([wizardLayer(0)]))
     vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
     fireEvent.click(screen.getByText('wizardStart'))
     await waitFor(() => expect(screen.getByText('wizardVerify')).toBeTruthy())
@@ -879,7 +900,7 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('P0-1 IP 连续 3 次未变自动高亮引导"直接完成"', async () => {
     await openMaint()
-    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinOneClickResetAll).mockResolvedValue(allReset([wizardLayer(0)]))
     // 出口 IP 始终不变 ⇒ 每次验证都计一次失败
     vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
     fireEvent.click(screen.getByText('wizardStart'))
@@ -896,7 +917,7 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('P1-2 审计发现残留时提供"退出 TRAE 后强制重跑"按钮', async () => {
     await openMaint()
-    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinOneClickResetAll).mockResolvedValue(allReset([wizardLayer(0)]))
     vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
     vi.mocked(checkinAuditTraeResidual).mockResolvedValue({
       ...cleanAudit,
@@ -910,7 +931,7 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('P2-7 重新开始向导会清空上一轮审计结论', async () => {
     await openMaint()
-    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinOneClickResetAll).mockResolvedValue(allReset([wizardLayer(0)]))
     vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
     fireEvent.click(screen.getByText('wizardStart'))
     await waitFor(() => expect(screen.getByText('wizardAuditClean')).toBeTruthy())
@@ -1089,7 +1110,7 @@ describe('Qoder 平台化(2026-10-10)', () => {
 
   it('WorkBuddy 网页登录:探测 ok 自动入库(login_type=web,jwt 字段=Cookie)', async () => {
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
-    vi.mocked(openInGoogleChrome).mockResolvedValue(54321)
+    vi.mocked(openEmbeddedBrowser).mockResolvedValue(null)
     vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({
       status: 'ok',
       cookie: 'session_id=abc123; wb_uid=u-9',
@@ -1110,17 +1131,15 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(payload.device_map.uid).toBe('14f939c3-889b')
     expect(payload.device_map.nickname).toBe('李总')
     expect(payload.name).toBe('李总')
-    // 导入完成后收尾:关掉浏览器登录窗(尽力而为)
-    await waitFor(() =>
-      expect(closeChromeWindow).toHaveBeenCalledWith(54321, 'https://www.workbuddy.cn'),
-    )
+    // 导入完成后收尾:关掉内嵌浏览器登录窗(尽力而为)
+    await waitFor(() => expect(closeEmbeddedBrowser).toHaveBeenCalled())
     // 对话框自动关闭 + 完成提示
     await waitFor(() => expect(screen.getByText(/captureWbWebDone/)).toBeTruthy())
   })
 
-  it('WorkBuddy 网页登录:打开失败(未装 Chrome)提示且不入库', async () => {
+  it('WorkBuddy 网页登录:打开失败(未装浏览器/内嵌窗不可用)提示且不入库', async () => {
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
-    vi.mocked(openInGoogleChrome).mockResolvedValue('未找到 Google Chrome,请先安装 Chrome 浏览器')
+    vi.mocked(openEmbeddedBrowser).mockResolvedValue('未找到 Google Chrome,请先安装 Chrome 浏览器')
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     openCaptureMenu()
@@ -1133,35 +1152,33 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(createAccount).not.toHaveBeenCalled()
   })
 
-  it('WorkBuddy 网页登录:必须打开真实登录页,且用完整浏览器窗口', async () => {
-    // 2026-10-15 回归(两道):① 旧实现拿 https://www.workbuddy.cn(产品营销首页,只有下载/
+  it('WorkBuddy 网页登录:必须打开真实登录页(内嵌浏览器窗)', async () => {
+    // 2026-10-15/16 回归:① 旧实现拿 https://www.workbuddy.cn(产品营销首页,只有下载/
     // 介绍、没有任何登录入口)开窗,用户点「打开浏览器登录」后根本登不了;真实登录页是
     // /login/?platform=website&state=2&product=workbuddy&redirect_uri=...(扫码/账号密码)。
-    // ② 用户反馈"打开的窗口不是完整的浏览器窗口" —— --app 无边框应用窗没有地址栏/标签栏,
-    // 登录页必须用 'window' 档(完整 Chrome 窗口)开。
+    // ② 2026-10-16 用户拍板回到「项目内嵌浏览器」形态(参照 Trae/Qoder 内嵌浏览器),
+    // 窗口升级为完整浏览器(含地址栏/标签栏),由 openEmbeddedBrowser 统一开窗。
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
-    vi.mocked(openInGoogleChrome).mockResolvedValue(54321)
+    vi.mocked(openEmbeddedBrowser).mockResolvedValue(null)
     vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({ status: 'no_cookie' })
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     openCaptureMenu()
     fireEvent.click(screen.getByText('WorkBuddy'))
     fireEvent.click(screen.getByText('captureWbWebOpen'))
-    await waitFor(() => expect(openInGoogleChrome).toHaveBeenCalled())
-    const [openedUrl, openedMode] = vi.mocked(openInGoogleChrome).mock.calls[0]!
+    await waitFor(() => expect(openEmbeddedBrowser).toHaveBeenCalled())
+    const [openedUrl] = vi.mocked(openEmbeddedBrowser).mock.calls[0]!
     expect(openedUrl).toBe(WB_WEB_LOGIN_URL)
     expect(openedUrl).toContain('/login/')
     expect(openedUrl).toContain('platform=website')
     expect(openedUrl).toContain('product=workbuddy')
     // 不得退回裸 origin(营销首页):带查询串的登录页地址,裸 origin 只是它的前缀
     expect(openedUrl).not.toBe(WB_WEB_LOGIN_ORIGIN)
-    // 必须是完整浏览器窗口档,不能是 --app 无边框应用窗
-    expect(openedMode).toBe('window')
   })
 
   it('WorkBuddy 网页登录:浏览器被关后提示可重试且不入库', async () => {
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
-    vi.mocked(openInGoogleChrome).mockResolvedValue(54321)
+    vi.mocked(openEmbeddedBrowser).mockResolvedValue(null)
     // 打开后的首轮立即探测即 no_window(用户已把浏览器窗口关掉)→ 立即提示可重试
     vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({ status: 'no_window' })
     render(<CheckinPage />)
@@ -1177,9 +1194,9 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(createAccount).not.toHaveBeenCalled()
   })
 
-  it('WorkBuddy 网页登录:等待中可取消(停轮询+关浏览器登录窗+复位,不入库)', async () => {
+  it('WorkBuddy 网页登录:等待中可取消(停轮询+关内嵌浏览器登录窗+复位,不入库)', async () => {
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
-    vi.mocked(openInGoogleChrome).mockResolvedValue(54321)
+    vi.mocked(openEmbeddedBrowser).mockResolvedValue(null)
     // 迟迟未登录 ⇒ probe 永远 no_cookie(用户还在扫码/或中途放弃)
     vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({ status: 'no_cookie' })
     render(<CheckinPage />)
@@ -1190,10 +1207,8 @@ describe('Qoder 平台化(2026-10-10)', () => {
     // waiting 态:打开按钮换成取消按钮
     await waitFor(() => expect(screen.getByText('captureWbWebCancel')).toBeTruthy())
     fireEvent.click(screen.getByText('captureWbWebCancel'))
-    // 取消 ⇒ 浏览器登录窗被收尾关闭 + 提示已取消 + 打开按钮恢复(可重开)
-    await waitFor(() =>
-      expect(closeChromeWindow).toHaveBeenCalledWith(54321, 'https://www.workbuddy.cn'),
-    )
+    // 取消 ⇒ 内嵌浏览器登录窗被收尾关闭 + 提示已取消 + 打开按钮恢复(可重开)
+    await waitFor(() => expect(closeEmbeddedBrowser).toHaveBeenCalled())
     await waitFor(() =>
       expect(screen.getByTestId('wb-web-login-msg').textContent).toContain('captureWbWebCancelled'),
     )

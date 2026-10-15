@@ -48,8 +48,9 @@
     "allow-git-authorize-workspace",
     "allow-git-workspace-status",
     "allow-git-channel-info",
-    "allow-open-in-chrome",
-    "allow-close-in-chrome",
+    "allow-embedded-browser-open",
+    "allow-embedded-browser-close",
+    "allow-embedded-browser-state",
     "allow-get-admin-window-info",
     "allow-toggle-devtools",
     "allow-quit-app",
@@ -116,6 +117,18 @@
     "allow-workbuddy-quarantine-restore",
     "allow-workbuddy-quarantine-delete",
     "allow-workbuddy-reset-history",
-    "allow-workbuddy-reset-factory"
+    "allow-workbuddy-reset-factory",
+    "allow-minimax-reset-probe",
+    "allow-minimax-reset-plan",
+    "allow-minimax-reset-maintenance",
+    "allow-minimax-reset-logout",
+    "allow-minimax-reset-factory",
+    "allow-minimax-quarantine-list",
+    "allow-minimax-quarantine-restore",
+    "allow-minimax-quarantine-delete",
+    "allow-minimax-reset-history",
+    "allow-checkin-audit-minimax-residual",
+    "allow-checkin-audit-workbuddy-residual",
+    "allow-checkin-one-click-reset-all"
   ]
 }

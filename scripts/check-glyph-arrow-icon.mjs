@@ -273,7 +273,7 @@ const BACK_TEXT_LITERAL_RE = /^[「『]?返回[」』]?$/
  * 字面量决定在不在候选里,所以超集锁不受影响,也不得为它把筛串放宽。
  */
 const PREFILTER =
-  '›|»|→|》|‹|←|«|返回|fontSize|font-size|\'>\'|">"|BackChevron|NavBar|navigationStyle|[bB]ack[0-9]*["\']|headerShown|onBack'
+  '›|»|→|》|‹|←|«|返回|fontSize|font-size|\'>\'|">"|BackChevron|NavBar|navigationStyle|[bB]ack[0-9]*["\']|headerShown|onBack|ChevronLeft'
 
 const git = (args, cwd = ROOT) => gitRaw(args, cwd, { timeout: GIT_TIMEOUT })
 
@@ -495,6 +495,16 @@ function prevAllowsTagStart(text, i) {
   return !/[\w$)\]'"`]/.test(text[i - 1])
 }
 
+/**
+ * 标签属性区的扫描窗上限(字符数)。旧值是写死的 4000,实测把
+ * `apps/mobile-rn/src/screens/ShareScreen.tsx:283` 那个
+ * `<SharedShareScreen … onBack={…} renderHeader={() => (…)} …>`(需 ~4200)拦腰截断
+ * ⇒ `parseTagAt` 返回 null ⇒ GA7-H2 对"render-prop 宿主组合"这一型整段失明。
+ * 放开上限必须与 `headerSuppressedByRenderProp()` 同笔进:只放上限,该文件当场就多出一处假阳
+ * (子屏 `packages/app/src/features/share/ShareScreen.tsx:43-44` 是 `renderHeader` 三元兜底,属正当形态)。
+ */
+export const TAG_ATTR_SCAN_LIMIT = 64_000
+
 /** 从 i 处解析一个标签:属性里的 `{}`/`()`/`[]` 计入深度后才认配平的 `>`;不是标签返回 null */
 export function parseTagAt(text, i, strMask) {
   if (text[i] !== '<' || strMask[i]) return null
@@ -515,7 +525,7 @@ export function parseTagAt(text, i, strMask) {
   const name = m[0]
   let k = j + name.length
   let depth = 0
-  const stop = Math.min(text.length, k + 4000)
+  const stop = Math.min(text.length, k + TAG_ATTR_SCAN_LIMIT)
   while (k < stop) {
     if (strMask[k]) {
       k++
@@ -1235,9 +1245,68 @@ function branchOf(pos, returnOffsets) {
   return b
 }
 
-/** 页头级返回键渲染点:<BackChevron> 或 带 onBack 的 <NavBar>(NavBar 无 onBack 不画箭头) */
-function headerRenders(tags) {
-  return tags.filter((t) => t.name === 'BackChevron' || (t.name === 'NavBar' && tagHasOnBack(t.attrs)))
+/** 页头级返回键渲染点:<BackChevron> 或 带 onBack 的 <NavBar>,或**文件内私有页头组件的用法点**
+ *  (2026-10-16 定档的载体档:私有 `Header` 用裸 `<ChevronLeft>` 当返回 affordance,不在这三档里时
+ *   GA7 对这一型整段失明)。认的是**用法**`<Header onBack=…/>`,不是定义体里那个 `<ChevronLeft>` ——
+ *   "定义一处 + 使用一处"是正当形态,把它算成两套页头就是把定义/使用分支判成双返回(自检有反向锁)。 */
+function headerRenders(tags, localHeaders) {
+  return tags.filter(
+    (t) =>
+      t.name === 'BackChevron' ||
+      (t.name === 'NavBar' && tagHasOnBack(t.attrs)) ||
+      (!!localHeaders && localHeaders.has(t.name) && tagHasOnBack(t.attrs)),
+  )
+}
+
+/**
+ * 文件内**私有页头组件**的名字集(GA7 载体档的识别边界,2026-10-16 门 102 持有人定档)。
+ * 两条同时成立才算,刻意窄:
+ *  ① 定义签名段(取定义起 400 字)里出现 `onBack` —— 这是"这套页头自带返回职责"的声明;
+ *  ② 该定义自己的体内出现 `<ChevronLeft …>`(裸 lucide 箭头当返回 affordance)。
+ * 为什么不按 `styles.header*` 这类样式名认:那会把"随便一个 header 样式"也算成页头,方向是假阳;
+ * 也不用 TS AST(本仓判据层没有 AST 依赖)。定义边界取"到下一个模块级 function/const 声明为止",
+ * 切多了只会**漏判**,与本门"宁漏不误报"同向(见头注 GA7 段)。
+ * 实测锚点:`packages/app/src/features/chat-room/ChatRoomScreen.tsx:310-328`
+ * (`function Header({ title, onBack, styles })` 里 `TouchableOpacity onPress={onBack}` 包 `<ChevronLeft size={22}>`)。
+ */
+export function privateHeaderNames(code) {
+  const defs = []
+  for (const m of code.matchAll(/^[ \t]*(?:export\s+)?(?:default\s+)?(?:function|const)\s+([A-Z][A-Za-z0-9_]*)/gm)) {
+    defs.push({ name: m[1], start: m.index })
+  }
+  // 屏组件本身不算"私有页头载体":本档要认的是**被宿主渲染的局部页头**,而屏自己从来不在自己文件里
+  // 被 `<屏名 …>` 使用(它只会出现在导航表/宿主里)。不收这条,`function ChatRoomScreen({ onBack })`
+  // 这种"屏自己画一个 ChevronLeft 当返回键"也会被登记成载体,清单里 42 个命中里绝大多数即此型噪声。
+  const defaultNames = new Set(
+    [...code.matchAll(/export\s+default\s+(?:function|class)\s+([A-Z][A-Za-z0-9_]*)/g)].map((m) => m[1]),
+  )
+  for (const m of code.matchAll(/export\s+default\s+([A-Z][A-Za-z0-9_]*)\s*[;(,\n]/g)) defaultNames.add(m[1])
+  const names = new Set()
+  for (let i = 0; i < defs.length; i++) {
+    if (defaultNames.has(defs[i].name)) continue
+    // 只有**在同文件里真被 `<名 …>` 用过**的定义才算载体:载体档要判的是"这一屏摆了这套页头",
+    // 而屏自己的名字从不与自己文件里的标签同名(它只出现在导航表/宿主里)——收了这条,
+    // "ActivityDetailScreen 之类的屏组件也被登记"那 40 余行噪声自动归零,判据语义也更贴题面。
+    if (!new RegExp('<' + defs[i].name + '[\\s/>]').test(code)) continue
+    const body = code.slice(defs[i].start, i + 1 < defs.length ? defs[i + 1].start : code.length)
+    if (!/<ChevronLeft\b/.test(body)) continue
+    if (!/\bonBack\b/.test(code.slice(defs[i].start, defs[i].start + 400))) continue
+    names.add(defs[i].name)
+  }
+  return names
+}
+
+/**
+ * GA7-H2 的**抑制语义**(票「GA7 对 render-prop 宿主组合失明」的配套那一半)。
+ * 宿主把 `renderHeader={() => …}` 交给子屏时,子屏的页头由宿主画,它自己那一套是
+ * **三元兜底分支**(`packages/app/src/features/share/ShareScreen.tsx:29 解构 → :43-44 三元`),
+ * 同屏并不存在两套返回 affordance ⇒ 不该判红。
+ * 两个条件缺一不抑制:①宿主这个标签的属性里真写了 `renderHeader={`;②子屏正文确实**消费**
+ * `renderHeader`。只看 ① 就成了一条"任何宿主随手加个 renderHeader 就能关掉这一维"的通道,
+ * 那是 §12e 禁的"为消红削判据";子屏不消费它 ⇒ 它照旧自绘 ⇒ 判红不变(成对反证住自检)。
+ */
+function headerSuppressedByRenderProp(hostAttrs, childCode) {
+  return /[\s({,]renderHeader\s*=\s*\{/.test(hostAttrs) && /\brenderHeader\b/.test(childCode)
 }
 
 const IMPORT_RE =
@@ -1371,7 +1440,7 @@ export function findRnDoubleHeaders(readFile, files) {
     const tags = collectTags(code, strMask)
     const returnOffsets = []
     for (const m of code.matchAll(/\breturn\b/g)) returnOffsets.push(m.index)
-    const own = headerRenders(tags)
+    const own = headerRenders(tags, privateHeaderNames(code))
     const ownBranches = own.map((h) => branchOf(h.pos, returnOffsets))
     // H1:**同一 return 分支**里两套页头返回键。互斥分支各画一套(loading/错误态/正常态)是正当形态
     // —— 首跑 12 处读数里 9 处即此型(ActivityDetailScreen returns@26,40,57 各带一套),按整文件
@@ -1444,7 +1513,9 @@ export function findRnDoubleHeaders(readFile, files) {
           continue
         }
         const d = stripCommentsKeepStrings(dep)
-        if (headerRenders(collectTags(d.code, d.strMask)).length >= 1) {
+        if (headerRenders(collectTags(d.code, d.strMask), privateHeaderNames(d.code)).length >= 1) {
+          // 宿主已经用 renderHeader 把页头接过来 ⇒ 子屏那一套只是三元兜底分支,不同屏
+          if (headerSuppressedByRenderProp(t.attrs, d.code)) continue
           findings.push({
             rule: 'GA7',
             file: rel,
@@ -2408,7 +2479,7 @@ function selfTest() {
   )
   t(
     '预筛必须是判据字面量的超集:GA5 的 « 与 GA6 的三个标识符少一个,门就在自己立项的那一型上失明;GA7 同 —— headerShown/onBack 漏一个,H3 整型隐身、H2 候选全被筛掉',
-    ['«', 'BackChevron', 'NavBar', 'navigationStyle', 'headerShown', 'onBack'].every((lit) =>
+    ['«', 'BackChevron', 'NavBar', 'navigationStyle', 'headerShown', 'onBack', 'ChevronLeft'].every((lit) =>
       PREFILTER.includes(lit),
     ),
   )
@@ -2543,6 +2614,62 @@ function selfTest() {
       [WRAP]:
         "import { NavBar } from '../../components/NavBar'\nimport { G7ChildScreen } from '@ihui/rn-app'\nexport default function W() {\n  return <View><NavBar title=\"设置\" onBack={undefined}><G7ChildScreen onBack={go} /></NavBar></View>\n}\n",
     }).n7 === 0,
+  )
+  // 票「GA7 对 render-prop 宿主组合失明」的两臂成对:上限放开 + 抑制语义(缺一即假阳/失明)
+  const LONG_CFG = `[${Array(2000).fill('1,').join('')}]`
+  const WRAP_LONG =
+    `import { NavBar } from '../../components/NavBar'\nimport { G7ChildScreen } from '@ihui/rn-app'\nexport default function W() {\n  return <View><NavBar title="设置" onBack={go}><G7ChildScreen onBack={go} cfg={${LONG_CFG}} /></NavBar></View>\n}\n`
+  const WRAP_RENDER_HEADER =
+    "import { NavBar } from '../../components/NavBar'\nimport { G7ChildScreen } from '@ihui/rn-app'\nexport default function W() {\n  return <View><NavBar title=\"分享\" onBack={go} /><G7ChildScreen onBack={go} renderHeader={() => <Text>宿主自绘标题</Text>} /></View>\n}\n"
+  const CHILD_HEADER_GATED_BY_PROP =
+    "import { BackChevron } from '../../components/BackChevron'\nexport function G7ChildScreen({ onBack, renderHeader }) {\n  return <View>{renderHeader ? renderHeader() : <View><BackChevron onPress={onBack} /><Text>设置</Text></View>}</View>\n}\n"
+  t(
+    'GA7-H2 属性扫描窗:宿主标签属性区超过旧 4000 字符上限也必须解析出 onBack(这一型的失明侧;放开上限后必须判红 1)',
+    only({ ...G7_FIX, [WRAP]: WRAP_LONG }).n7 === 1 && LONG_CFG.length > 4000,
+  )
+  t(
+    'GA7-H2 抑制语义:宿主把 renderHeader 交给子屏、子屏**确实消费**它(自绘那套只是三元兜底分支)⇒ 同屏只有一套页头,不得判红(ShareScreen 那一型;判红就是假阳)',
+    only({
+      ...G7_FIX,
+      [WRAP]: WRAP_RENDER_HEADER,
+      [CHILD]: CHILD_HEADER_GATED_BY_PROP,
+    }).n7 === 0,
+  )
+  t(
+    'GA7-H2 抑制语义的反证:宿主写了 renderHeader 而子屏正文根本不消费它 ⇒ 子屏照旧自绘,判红不得被"随手加一个 prop"关掉(§12e 禁为消红削判据)',
+    only({
+      ...G7_FIX,
+      [WRAP]: WRAP_RENDER_HEADER,
+    }).n7 === 1,
+  )
+  // 载体档(2026-10-16 定档):文件内私有页头组件以裸 <ChevronLeft> 当返回载体
+  const PRIVATE_HEADER_DEF =
+    "function Header({ title, onBack, styles }) {\n  return <View style={styles.headerBar}><TouchableOpacity onPress={onBack}><ChevronLeft size={22} /></TouchableOpacity><Text>{title}</Text></View>\n}\n"
+  t(
+    'GA7 载体档阳性:私有页头 Header(签名带 onBack ∧ 体含 <ChevronLeft)在**同一 return 分支**被用两次 ⇒ 判双层页头(这一档没纳入时这里恒 0,就是票面那块失明)',
+    only({
+      [WRAP]:
+        "export default function W() {\n  return <View><Header title=\"a\" onBack={go} styles={s} /><Header title=\"b\" onBack={go} styles={s} /></View>\n}\n" +
+        PRIVATE_HEADER_DEF,
+    }).n7 === 1,
+  )
+  t(
+    'GA7 载体档反向锁:同文件"定义一处 + 使用一处"是正当形态(定义体里的 <ChevronLeft> 不是第二个页头,用法点也不得被当成跨文件子屏)⇒ 不得判红',
+    only({
+      [WRAP]:
+        "export default function W() {\n  if (loading) return <Spinner />\n  return <View><Header title=\"a\" onBack={go} styles={s} /></View>\n}\n" +
+        PRIVATE_HEADER_DEF,
+    }).n7 === 0,
+  )
+  t(
+    'GA7 载体档识别边界(三条同时锁):①体里画了 <ChevronLeft> 但签名段没有 onBack ⇒ 不算;②定义+同文件使用+onBack ⇒ 算;③只有定义、**同文件里没有用法点**(屏组件自己就是这一型)⇒ 不算(否则登记面被 40 余行噪声泡掉)',
+    privateHeaderNames("const Icon = ({ size }) => <ChevronLeft size={size} />\n")?.has('Icon') === false &&
+      privateHeaderNames(
+        "const Header = ({ title, onBack }) => <View><ChevronLeft onPress={onBack} /></View>\nexport default function S() { return <View><Header title=\"t\" onBack={go} /></View> }\n",
+      ).has('Header') === true &&
+      privateHeaderNames(
+        "export function ChatScreen({ onBack }) {\n  return <View><ChevronLeft onPress={onBack} /><Text>标题</Text></View>\n}\n",
+      ).size === 0,
   )
   t(
     'GA7-H1:同一屏文件两套页头返回键(NavBar+BackChevron)⇒ 判第二处(不需要跨文件)',
@@ -2848,6 +2975,9 @@ export const __test__ = {
   withPageConfigs,
   navStyleOf,
   findRnDoubleHeaders,
+  headerSuppressedByRenderProp,
+  privateHeaderNames,
+  TAG_ATTR_SCAN_LIMIT,
   headerBackFiles,
   importsOf,
   barrelExportMap,

@@ -679,4 +679,72 @@ test('GA8 不得复用 back-label 的三位置宽档(它借的是 GA1 那条逐�
   ).filter((f) => f.rule === 'GA8').length
   assert.equal(nowOut, 0, 'GA8 的合法出口必须是 glyph-arrow-exempt(带原因、逐行)')
 })
+
+// ── GA7 属性扫描窗 + renderHeader 抑制语义(票「GA7 对 render-prop 宿主组合失明」的成对验收臂)──
+// 取材面 = git 提交面(blob 逐字),不读工作树:这条臂锁的是"真文件喂真判据"的行为,工作树副本被别的
+// 会话占着时它仍按当次 HEAD/指定提交现读,不会闪红也不会假绿。取不到 ⇒ 断言失败并点名,不记通过。
+const GA7_RN = 'apps/mobile-rn/src/screens/'
+const GA7_PKG = 'packages/app/src/features/'
+const ga7Show = (ref, p) => {
+  try {
+    return execFileSync('git', ['show', `${ref}:${p}`], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 32 * 1024 * 1024,
+    })
+  } catch {
+    return null
+  }
+}
+function ga7Run(ref, host, child) {
+  const wanted = [host, child, 'packages/app/src/index.ts']
+  const map = new Map()
+  for (const p of wanted) {
+    const t = ga7Show(ref, p)
+    if (t !== null) map.set(p, t)
+  }
+  const readFile = (p) => {
+    if (!map.has(p)) throw Object.assign(new Error(`ENOENT: ${ref}:${p} 取不到`), { code: 'ENOENT' })
+    return map.get(p)
+  }
+  return gate.findRnDoubleHeaders(readFile, wanted.filter((p) => map.has(p)))
+}
+
+test('GA7 真 blob 反向锁:ShareScreen 现 HEAD 面喂进 GA7 必须读 0(放开属性扫描窗后不得产出假阳)', () => {
+  const r = ga7Run('HEAD', GA7_RN + 'ShareScreen.tsx', GA7_PKG + 'share/ShareScreen.tsx')
+  assert.equal(r.findings.length, 0, `宿主 render-prop 组合被误判 ⇒ ${JSON.stringify(r.findings.map((f) => f.line))}`)
+  assert.equal(r.undetermined.length, 0, '真 blob 齐面可得 ⇒ 这里出现"未判定"就是取材面坏了,不许当通过')
+})
+
+test('GA7 真 blob 阳性对照:8ef8b657^ 那三个真 blob 喂进 GA7 必须仍读 1(phone-set2 那一型不得被"放开上限"顺手放过)', () => {
+  const REF = '8ef8b65710672e0e1e34acf2b5f209bdc83bef6c^'
+  const r = ga7Run(REF, GA7_RN + 'SettingsScreen.tsx', GA7_PKG + 'settings/SettingsScreen.tsx')
+  assert.equal(r.findings.length, 1, `${REF} 三 blob 应判 1 处双层页头,实得 ${r.findings.length}`)
+  assert.match(r.findings[0].msg, /SharedSettingsScreen|BackChevron|NavBar/)
+})
+
+test('GA7 失明侧确实被打开:属性区 ~4200 字符的宿主组合标签必须解析得出(旧 4000 上限拦腰截断 = 静默失明)', () => {
+  const host = ga7Show('HEAD', GA7_RN + 'ShareScreen.tsx')
+  assert.ok(host !== null, 'HEAD 面取不到 ShareScreen.tsx ⇒ 未判定,不得记通过')
+  const i = host.indexOf('<SharedShareScreen')
+  assert.ok(i >= 0, '宿主组合标签 <SharedShareScreen 已不在位 ⇒ 本臂失去对象,须随票重定位而不是删臂')
+  const t = gate.parseTagAt(host, i, [])
+  assert.ok(t !== null, 'parseTagAt 仍把这个标签读成 null ⇒ GA7 对 render-prop 宿主组合重新失明(旧 4000 上限那一型)')
+  assert.ok(t.attrs.length > 4000, `本臂的强度全靠属性区长度 > 旧上限 4000(实得 ${t.attrs.length});文件变短了要换夹具,不是降上限`)
+  assert.match(t.attrs, /renderHeader\s*=\s*\{/, '解析出的属性表必须含 renderHeader(抑制语义的判据输入)')
+})
+
+test('GA7 载体档真 blob 对照:ChatRoomScreen 现 HEAD 面的私有 Header 必须被登记为载体,且该屏现读 findings 0(票面"当前活存量 0"这一格由真件自证)', () => {
+  const CHAT = 'packages/app/src/features/chat-room/ChatRoomScreen.tsx'
+  const src = ga7Show('HEAD', CHAT)
+  assert.ok(src !== null, 'HEAD 面取不到 ChatRoomScreen.tsx ⇒ 未判定,不得记通过')
+  assert.ok(
+    gate.privateHeaderNames(src).has('Header'),
+    '载体档没认出 `function Header({ title, onBack, styles })` + 体内裸 <ChevronLeft> ⇒ 这一档仍是失明',
+  )
+  const r = ga7Run('HEAD', CHAT, GA7_PKG + 'chat/ChatRoomScreen.tsx')
+  assert.equal(r.findings.length, 0, `票面写"当前活存量 0(该屏无 RN 路由宿主)",现读却判红 ⇒ 载体档越界了:${JSON.stringify(r.findings.map((f) => f.line))}`)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

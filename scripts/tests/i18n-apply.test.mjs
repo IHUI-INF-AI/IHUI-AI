@@ -781,6 +781,7 @@ describe('参数守卫 — `--help` 与未识别参数一律不得降级成"无�
     { name: '拼错的 --targett=web', args: ['--targett=web'], want: 2 },
     { name: '裸位置参数(被无声忽略过)', args: ['i18n-translations.json'], want: 2 },
     { name: '把 --input 的值丢了也不许当默认路径写', args: ['--target=web', '--input'], want: 2 },
+    { name: 'G-322 值吞旗:--input 紧跟 --check 不得把旗标当路径吞', args: ['--input', '--check'], want: 2 },
   ]
 
   for (const c of CASES) {
@@ -1198,4 +1199,17 @@ describe('写盘准入(票面修法③)— 陈旧载荷 / 本轮未对账 ⇒ ex
       'undetermined',
     )
   })
+})
+
+test('parseArgs(§G-322 值吞旗):--input 的"值"是紧邻旗标时必须点名,真路径不误伤', () => {
+  const bad = __testSut.parseArgs(['--input', '--check', '--target=web'])
+  assert.ok(
+    bad.unknown.some((u) => u.startsWith('--input')),
+    `--input 后跟 --check 未被判为缺值(旗标会被当路径吞):${JSON.stringify(bad.unknown)}`,
+  )
+  const badBare = __testSut.parseArgs(['--input'])
+  assert.ok(badBare.unknown.some((u) => u.startsWith('--input')), '裸 --input 应点名缺值')
+  // 正例:真路径 + 旗标后置,不得误判(--check 不该被 --input 吃掉)
+  const okp = __testSut.parseArgs(['--input', 'some.json', '--check'])
+  assert.deepEqual(okp.unknown, [], `真路径不该被判未知:${JSON.stringify(okp.unknown)}`)
 })
