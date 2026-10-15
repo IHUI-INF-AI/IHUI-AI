@@ -155,6 +155,7 @@ const DOC_FILES = ['AGENTS.md', 'README.md']
 // 两边必然漂移(而漂移的方向永远是某道门对合法注册恒红 ⇒ 逼人 --no-verify ⇒ 全部守门作废)。
 import { normalizeTriggers } from './lib/guardian-triggers.mjs'
 import { catBatch, gitRaw, Undetermined } from './lib/face-reader.mjs'
+import { isFlagValueToken } from './lib/flag-value.mjs'
 
 // ─── git 派生出口(§5b:不得依赖环境) ───────────────────────────────────
 //
@@ -1455,8 +1456,14 @@ async function main(argv = process.argv.slice(2)) {
     else if (a === '--self-test') opts.selfTest = true
     else if (a === '--self-test') opts.selfTest = true
     else if (a === '--help' || a === '-h') opts.help = true
-    else if (a.startsWith('--root=')) opts.root = resolve(a.slice('--root='.length))
-    else if (!a.startsWith('--')) opts.root = resolve(a)
+    else if (a.startsWith('--root=')) {
+      // G-322 等号形态:`--root=` 空值旧写法 resolve('')=cwd,静默按 cwd 当仓库根跑判据。
+      const v = a.slice('--root='.length)
+      if (!isFlagValueToken(v)) throw new Error(`--root= 需要一个目录值 —— 实得:${JSON.stringify(v)}(不得静默按 cwd 跑)`)
+      opts.root = resolve(v)
+    } else if (!a.startsWith('--')) {
+      throw new Error(`未知的裸位置参数「${a}」—— 指定扫描根请用 --root <目录> 或 --root=<目录>`)
+    }
   }
   if (opts.help) {
     console.log(
