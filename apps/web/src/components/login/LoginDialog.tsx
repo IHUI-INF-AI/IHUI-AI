@@ -65,12 +65,14 @@ export function LoginDialog() {
     // 系统默认浏览器 —— 日常 profile、已有登录态/扩展/书签全在,登录完成后 OS 经 ihui://sso
     // 深链派发回桌面端换 token(关弹窗链路 desktop-sso-success 不变)。登录标签页留在用户
     // 自己的浏览器里(那是他的日常窗口,不该也不可由我们代关)。
-    // 兜底:默认浏览器打不开(openExternalUrl false,极端环境)才用 Chrome --app 隔离窗,
+    // 兜底:默认浏览器打不开(openExternalUrl false,极端环境)才用 Chrome 隔离窗,
     // 并记住会话以便登录成功后关窗(兜底窗没有用户日常 profile,用完即收)。
+    // 2026-10-15:形态改 'window' 完整浏览器窗口 —— 与签到助手网页登录同档(用户反馈
+    // "--app 无边框窗不是完整的浏览器窗口");同一类缺陷不留第二处。
     const opened = await openExternalUrl(ssoUrl)
     if (opened) return
-    console.warn('[sso] 默认浏览器打开失败,兜底 Chrome --app 隔离窗')
-    const port = await openInGoogleChrome(ssoUrl)
+    console.warn('[sso] 默认浏览器打开失败,兜底 Chrome 完整窗口')
+    const port = await openInGoogleChrome(ssoUrl, 'window')
     if (typeof port === 'number') {
       rememberSsoChromeWindow(port, `${webBase}/sso/login`)
       return

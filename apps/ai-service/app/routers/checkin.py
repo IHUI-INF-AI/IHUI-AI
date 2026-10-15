@@ -30,6 +30,7 @@ WP-E(2026-10-10)增:PATCH /accounts/{id}/device_map(手动更新设备态,
 from __future__ import annotations
 
 import json
+import time
 from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -38,7 +39,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.core.jwt_auth import require_request_user_id
-from app.services import checkin_credits, checkin_qoder, checkin_store, checkin_workbuddy
+from app.services import checkin_credits, checkin_minimax, checkin_qoder, checkin_store, checkin_workbuddy
 from app.services import checkin_scheduler as checkin_scheduler_mod
 from app.services.checkin_engine import extract_user_id, get_jwt_exp
 
@@ -46,7 +47,7 @@ router = APIRouter(prefix="/api/checkin", tags=["checkin"])
 
 # 支持的账号平台(2026-10-10 平台化;2026-10-12 增 workbuddy):
 # trae = 存量默认;qoder = 阿里 AI IDE;workbuddy = 腾讯 WorkBuddy(Buddy 加油站)。
-_ACCOUNT_PLATFORMS = ("trae", "workbuddy", "qoder")
+_ACCOUNT_PLATFORMS = ("trae", "workbuddy", "qoder", "minimax")
 
 _RECORDS_LIMIT_DEFAULT = 50
 _RECORDS_LIMIT_MAX = 200
@@ -140,6 +141,30 @@ def _validate_workbuddy_token(token: str, device_map: dict[str, Any]) -> None:
         )
 
 
+def _validate_minimax_token(jwt: str, device_map: dict[str, Any]) -> None:
+    """MiniMax Code:token = OAuth accessToken(mmoat_ 前缀 opaque,非 JWT),
+    只校验非空 + device_map.uid 必填(服务端 query 缺 user_id 恒 401) +
+    会话过期时间(device_map.expires_at,epoch 秒;capture 自 auth.json)。"""
+    tok = (jwt or "").strip()
+    if len(tok) < 8:
+        raise HTTPException(status_code=400, detail="MiniMax token 为空或过短,请重新本机捕获")
+    uid = checkin_minimax.minimax_device_map_uid(device_map or {})
+    if not uid:
+        raise HTTPException(status_code=400, detail="device_map 缺 uid(user_id 必填),请重新本机捕获")
+    raw = (device_map or {}).get("expires_at")
+    try:
+        exp = float(raw) if raw is not None else 0.0
+    except (TypeError, ValueError):
+        exp = 0.0
+    if exp > 1e12:
+        exp = exp / 1000.0
+    if exp > 0 and exp <= time.time():
+        raise HTTPException(
+            status_code=400,
+            detail="MiniMax 会话已过期,请打开 MiniMax Code 桌面端刷新登录态后重新捕获",
+        )
+
+
 def _validate_jwt(
     jwt: str,
     platform: str = "trae",
@@ -160,6 +185,9 @@ def _validate_jwt(
         return None
     if platform == "workbuddy":
         _validate_workbuddy_token(jwt, device_map or {})
+        return None
+    if platform == "minimax":
+        _validate_minimax_token(jwt, device_map or {})
         return None
     user_id = extract_user_id(jwt)
     if not user_id:
@@ -346,6 +374,9 @@ async def query_credits(
     elif platform == "workbuddy":
         wb_device_map = dict(account.get("device_map") or {})
         result = await checkin_workbuddy.workbuddy_query_credits(account["jwt"], wb_device_map)
+    elif platform == "minimax":
+        mm_device_map = dict(account.get("device_map") or {})
+        result = await checkin_minimax.minimax_query_credits(account["jwt"], mm_device_map)
     else:
         result = await checkin_credits.query_remaining_credits(account["jwt"])
     error = result.get("error")

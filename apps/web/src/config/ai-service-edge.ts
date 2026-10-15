@@ -74,6 +74,16 @@ export const AI_SERVICE_EDGE_ROUTES: readonly AiServiceEdgeRoute[] = [
     upstreamPath: '/api/mcp/export/sse',
     rationale: 'MCP SSE transport,同属 mcp:connect 声明面',
   },
+  {
+    scope: 'voice:stt',
+    method: 'POST',
+    upstreamPath: '/api/voice/stt',
+    rationale:
+      '小程序「按住说话」的转写入口。上游是 ai-service 的 faster-whisper 本地推理' +
+      '(零第三方成本、音频不出本机做第三方调用)。公网可达后仍由 JWTAuthMiddleware ' +
+      '强制鉴权 —— 小程序侧经 getToken() 携带 Bearer(miniapp streaming-recognizer),' +
+      '无有效令牌即 401,不等于匿名敞口;限流沿用 ai-service 既有中间件。',
+  },
   // 2026-09-28:`connectors:read` 从这张表里**撤掉**了 —— 原先它的理由是"risk=low、
   // thirdPartyEligible=true",而实测两个 handler(`routers/connectors.py::list_connectors`
   // 走 `connector_store.list_all()`、`routers/mcp.py::list_external_servers` 走
