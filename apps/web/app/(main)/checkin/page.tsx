@@ -77,6 +77,7 @@ import {
 import { EChart } from '@/components/charts/EChart'
 import { TruncatedText } from '@/components/common/TruncatedText'
 import { AuthGatePrompt } from '@/components/common'
+import { Container } from '@/components/layout/Container'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
@@ -90,7 +91,6 @@ import {
   checkinCaptureJwts,
   checkinCaptureQoder,
   checkinCaptureWorkbuddy,
-  checkinCaptureMinimax,
   closeChromeWindow,
   openInGoogleChrome,
   WB_WEB_LOGIN_ORIGIN,
@@ -107,7 +107,6 @@ import {
   type CapturedQoderSession,
   type CapturedTraeAccount,
   type CapturedWorkbuddySession,
-  type CapturedMinimaxSession,
   type CheckinResidualAuditReport,
   type CheckinSnapshotSummary,
 } from '@/lib/tauri-bridge'
@@ -545,14 +544,6 @@ export default function CheckinPage() {
     return dm
   }
 
-  // MiniMax → device_map(引擎契约:uid 必填;expires_at 供预检)
-  const minimaxDeviceMap = (m: CapturedMinimaxSession): Record<string, unknown> => {
-    const dm: Record<string, unknown> = {}
-    if (m.uid) dm.uid = m.uid
-    if (m.expires_at > 0) dm.expires_at = m.expires_at
-    return dm
-  }
-
   const openWbCapture = () => {
     setWbCaptureOpen(true)
     setCaptureError(null)
@@ -951,8 +942,6 @@ export default function CheckinPage() {
   const [scanQoder, setScanQoder] = React.useState<CapturedQoderSession[]>([])
   const [scanTraeSel, setScanTraeSel] = React.useState<Set<string>>(new Set())
   const [scanQoderSel, setScanQoderSel] = React.useState<Set<string>>(new Set())
-  const [scanMinimax, setScanMinimax] = React.useState<CapturedMinimaxSession[]>([])
-  const [scanMinimaxSel, setScanMinimaxSel] = React.useState<Set<string>>(new Set())
   const [scanImporting, setScanImporting] = React.useState(false)
   const [scanMsg, setScanMsg] = React.useState('')
 
@@ -962,16 +951,13 @@ export default function CheckinPage() {
     const results = await Promise.all([
       checkinCaptureJwts().catch(() => [] as CapturedTraeAccount[]),
       checkinCaptureQoder().catch(() => [] as CapturedQoderSession[]),
-      checkinCaptureMinimax().catch(() => [] as CapturedMinimaxSession[]),
     ])
     setScanTrae(results[0]!)
     setScanQoder(results[1]!)
-    setScanMinimax(results[2]!)
     // 2026-10-15:Trae 新版 Cloud-IDE-JWT 不再落盘,捕获可能只回收 opaque uid(jwt 空)
     // —— 服务端录入要求 jwt 可解析,空 jwt 账号只展示提示、不预选不导入。
     setScanTraeSel(new Set(results[0]!.filter((a) => a.jwt).map((a) => a.user_id)))
     setScanQoderSel(new Set(results[1]!.map((s) => s.uid || s.app_dir)))
-    setScanMinimaxSel(new Set(results[2]!.map((m) => m.uid || m.auth_file)))
     setScanScanning(false)
   }, [])
 
@@ -1000,7 +986,7 @@ export default function CheckinPage() {
       name: string
       jwt: string
       device_map: Record<string, unknown>
-      platform?: 'qoder' | 'minimax'
+      platform?: 'qoder'
     }> = []
     for (const item of scanTrae) {
       if (!scanTraeSel.has(item.user_id)) continue
@@ -1015,17 +1001,6 @@ export default function CheckinPage() {
         jwt: item.access_token,
         device_map: qoderDeviceMap(item),
         platform: 'qoder',
-      })
-    }
-    for (const item of scanMinimax) {
-      const key = item.uid || item.auth_file
-      if (!scanMinimaxSel.has(key)) continue
-      if (!item.access_token) continue
-      jobs.push({
-        name: `MiniMax-${item.nickname || item.uid || '本机'}`,
-        jwt: item.access_token,
-        device_map: minimaxDeviceMap(item),
-        platform: 'minimax',
       })
     }
     if (jobs.length === 0) return
@@ -1390,7 +1365,7 @@ export default function CheckinPage() {
     const remainingMs = expMs - Date.now()
     if (remainingMs <= 0) {
       return (
-        <span className="inline-flex items-center rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
+        <span className="inline-flex items-center rounded-md border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
           {t('jwtExpired')}
         </span>
       )
@@ -1398,7 +1373,7 @@ export default function CheckinPage() {
     const days = Math.ceil(remainingMs / DAY_MS)
     if (days <= 7) {
       return (
-        <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+        <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
           {t('jwtExpiresSoon', { days })}
         </span>
       )
@@ -1412,7 +1387,7 @@ export default function CheckinPage() {
     const untilMs = Date.parse(cooldownUntil)
     if (Number.isNaN(untilMs) || untilMs <= Date.now()) return null
     return (
-      <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+      <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
         {t('cooldownUntil', { time: formatShortTime(cooldownUntil) })}
       </span>
     )
@@ -1510,7 +1485,7 @@ export default function CheckinPage() {
   // 平台徽章(品牌名不进 i18n):qoder 紫 / trae 橙 / workbuddy 绿,与分组徽章同形态
   const renderPlatformBadge = (platform: string | undefined) => (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+      className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-medium ${
         platform === 'qoder'
           ? 'border-purple-500/40 bg-purple-500/10 text-purple-600'
           : platform === 'workbuddy'
@@ -1524,14 +1499,17 @@ export default function CheckinPage() {
 
   const renderGroupBadge = (group: string) =>
     group ? (
-      <span className="inline-flex items-center rounded-full border border-blue-500/40 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-600">
+      <span className="inline-flex items-center rounded-md border border-blue-500/40 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-600">
         {group}
       </span>
     ) : null
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-4">
-      <div className="mb-6 flex items-center justify-between">
+    // 宽度跟随工作区:maxWidth="full" 与同类表格页(api-keys/privacy/notifications 等)同档,
+    // 此前 max-w-5xl 硬上限 1024px,工作区更宽时两侧大片死白、内容不铺满(2026-10-15 修)。
+    // checkin-page = 容器查询锚点(列降级阶梯见 globals.css 同名区块,按内容区宽度而非视口断点)。
+    <Container maxWidth="full" padding={false} className="checkin-page px-4 py-4">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <CalendarCheck className="h-5 w-5 text-primary" />
@@ -1550,7 +1528,7 @@ export default function CheckinPage() {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <Button
             variant="ghost"
             size="sm"
@@ -1699,8 +1677,8 @@ export default function CheckinPage() {
             </div>
           ) : (
             <>
-              {/* 平台筛选(恒显)+ 分组筛选(有分组才显示) */}
-              <div className="mb-3 flex items-center gap-2">
+              {/* 平台筛选(恒显)+ 分组筛选(有分组才显示);窄工作区换行不溢出 */}
+              <div className="mb-3 flex flex-wrap items-center gap-2">
                 <select
                   data-testid="platform-filter"
                   aria-label={t('platformAll')}
@@ -1734,7 +1712,8 @@ export default function CheckinPage() {
                 )}
               </div>
               <div className="rounded-xl border">
-                <Table>
+                {/* min-w only floors the narrowest usable width; column show/hide is driven by the container-query ladder in globals.css. table-fixed pins declared widths so an overlong UUID account name no longer squeezes the rest into slivers. */}
+                <Table className="min-w-[380px] table-fixed">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-8">
@@ -1747,10 +1726,16 @@ export default function CheckinPage() {
                         />
                       </TableHead>
                       <TableHead>{t('colName')}</TableHead>
-                      <TableHead>{t('colEnabled')}</TableHead>
-                      <TableHead>{t('colLastCheckin')}</TableHead>
-                      <TableHead>{t('colCredits')}</TableHead>
-                      <TableHead className="text-right">{t('colActions')}</TableHead>
+                      <TableHead className="w-[72px]">{t('colEnabled')}</TableHead>
+                      <TableHead className="checkin-col-last-checkin w-[148px]">
+                        {t('colLastCheckin')}
+                      </TableHead>
+                      <TableHead className="checkin-col-credits w-[88px]">
+                        {t('colCredits')}
+                      </TableHead>
+                      <TableHead className="checkin-col-actions w-[272px] text-right">
+                        {t('colActions')}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1766,12 +1751,22 @@ export default function CheckinPage() {
                           />
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">{account.name}</div>
+                          {/* UUID-shaped account name: truncate + hover for full value */}
+                          <TruncatedText
+                            value={account.name}
+                            className="max-w-[420px] font-medium"
+                          />
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             {renderPlatformBadge(account.platform)}
                             {renderGroupBadge(account.group)}
                             {renderJwtBadge(account.jwt_exp)}
                             {renderCooldownBadge(account.cooldown_until)}
+                          </div>
+                          {/* Fallback slot for the last-checkin column: strictly complementary to that column's visibility, never duplicated nor lost. See globals.css .checkin-page block. */}
+                          <div className="checkin-name-last-checkin mt-1 text-[10px] text-muted-foreground">
+                            {account.last_record
+                              ? `${renderResult(account.last_record.ok)} · ${formatTime(account.last_record.created_at)}`
+                              : t('none')}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -1781,7 +1776,7 @@ export default function CheckinPage() {
                             aria-label={t('colEnabled')}
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="checkin-col-last-checkin">
                           {account.last_record ? (
                             <div className="text-xs">
                               <div>{renderResult(account.last_record.ok)}</div>
@@ -1799,7 +1794,7 @@ export default function CheckinPage() {
                             <span className="text-xs text-muted-foreground">{t('none')}</span>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="checkin-col-credits">
                           {(() => {
                             const info = creditsInfo[account.id]
                             if (creditsRefreshing.has(account.id)) {
@@ -1845,12 +1840,18 @@ export default function CheckinPage() {
                               variant="outline"
                               size="sm"
                               disabled={checkingId !== null || allChecking}
+                              aria-label={
+                                checkingId === account.id ? t('checking') : t('manualCheckin')
+                              }
                               onClick={() => void runManualCheckin(account)}
                             >
                               {checkingId === account.id && (
                                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                               )}
-                              {checkingId === account.id ? t('checking') : t('manualCheckin')}
+                              {/* Label hidden below 459px content width by container query; accessible name comes from aria-label */}
+                              <span className="checkin-manual-label">
+                                {checkingId === account.id ? t('checking') : t('manualCheckin')}
+                              </span>
                             </Button>
                             <Button
                               variant="ghost"
@@ -1912,15 +1913,19 @@ export default function CheckinPage() {
                 </div>
               ) : (
                 <div className="rounded-xl border">
-                  <Table>
+                  <Table className="table-fixed">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>{t('colTime')}</TableHead>
-                        <TableHead>{t('colResult')}</TableHead>
-                        <TableHead>{t('colAction')}</TableHead>
-                        <TableHead>{t('colMessage')}</TableHead>
-                        <TableHead>{t('colCreditsDelta')}</TableHead>
-                        <TableHead>{t('colErrorClass')}</TableHead>
+                        <TableHead className="w-[140px]">{t('colTime')}</TableHead>
+                        <TableHead className="w-[76px]">{t('colResult')}</TableHead>
+                        <TableHead className="checkin-col-action w-[104px]">
+                          {t('colAction')}
+                        </TableHead>
+                        <TableHead className="checkin-col-message">{t('colMessage')}</TableHead>
+                        <TableHead className="w-[96px]">{t('colCreditsDelta')}</TableHead>
+                        <TableHead className="checkin-col-error-class w-[148px]">
+                          {t('colErrorClass')}
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1940,10 +1945,15 @@ export default function CheckinPage() {
                               {renderResult(record.ok)}
                             </span>
                           </TableCell>
-                          <TableCell className="text-xs">{record.action ?? '-'}</TableCell>
-                          <TableCell className="text-xs">
+                          <TableCell className="checkin-col-action text-xs">
+                            {record.action ?? '-'}
+                          </TableCell>
+                          <TableCell className="checkin-col-message text-xs">
                             {record.message ? (
-                              <span title={record.message}>{truncate(record.message, 60)}</span>
+                              <TruncatedText
+                                value={truncate(record.message, 60)}
+                                className="max-w-full"
+                              />
                             ) : (
                               '-'
                             )}
@@ -1951,7 +1961,7 @@ export default function CheckinPage() {
                           <TableCell className="text-xs">
                             {record.credits_delta === null ? '-' : record.credits_delta}
                           </TableCell>
-                          <TableCell className="text-xs">
+                          <TableCell className="checkin-col-error-class text-xs">
                             {record.classified_error ?? '-'}
                           </TableCell>
                         </TableRow>
@@ -1988,13 +1998,15 @@ export default function CheckinPage() {
                 </div>
               ) : (
                 <div className="rounded-xl border">
-                  <Table>
+                  <Table className="table-fixed">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>{t('colTime')}</TableHead>
+                        <TableHead className="w-[180px]">{t('colTime')}</TableHead>
                         <TableHead>{t('colAction')}</TableHead>
-                        <TableHead>{t('colCreditsDelta')}</TableHead>
-                        <TableHead>{t('colCurrentCredits')}</TableHead>
+                        <TableHead className="w-[120px]">{t('colCreditsDelta')}</TableHead>
+                        <TableHead className="checkin-col-current-credits w-[120px]">
+                          {t('colCurrentCredits')}
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2013,7 +2025,9 @@ export default function CheckinPage() {
                                 : item.credits_delta}
                             </span>
                           </TableCell>
-                          <TableCell className="text-xs">{item.credits ?? '-'}</TableCell>
+                          <TableCell className="checkin-col-current-credits text-xs">
+                            {item.credits ?? '-'}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -2186,7 +2200,7 @@ export default function CheckinPage() {
                     <Loader2 className="h-3 w-3 animate-spin" />
                     {t('addSmartScanning')}
                   </p>
-                ) : scanTrae.length === 0 && scanQoder.length === 0 && scanMinimax.length === 0 ? (
+                ) : scanTrae.length === 0 && scanQoder.length === 0 ? (
                   <p data-testid="smart-scan-none" className="text-xs text-amber-600">
                     {t('addSmartNone')}
                   </p>
@@ -2237,37 +2251,6 @@ export default function CheckinPage() {
                                 }
                               />
                               <span className="font-mono">Qoder-{item.uid || '本机'}</span>
-                            </label>
-                          )
-                        })}
-                      </div>
-                    )}
-                    {scanMinimax.length > 0 && (
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium">
-                          {t('addSmartMinimaxFound', { count: scanMinimax.length })}
-                        </p>
-                        {scanMinimax.map((item) => {
-                          const key = item.uid || item.auth_file
-                          return (
-                            <label key={key} className="flex items-center gap-2 text-sm">
-                              <input
-                                type="checkbox"
-                                aria-label={`smartScanMinimax:${key}`}
-                                checked={scanMinimaxSel.has(key)}
-                                disabled={!item.access_token}
-                                onChange={(e) =>
-                                  toggleSmartSel(setScanMinimaxSel, key, e.target.checked)
-                                }
-                              />
-                              <span className="font-mono">
-                                MiniMax-{item.nickname || item.uid || '本机'}
-                              </span>
-                              {!item.access_token && (
-                                <span className="text-xs text-muted-foreground">
-                                  {t('captureMinimaxNoToken')}
-                                </span>
-                              )}
                             </label>
                           )
                         })}
@@ -2737,7 +2720,7 @@ export default function CheckinPage() {
                             : ''}
                         </span>
                         {item.encrypted && (
-                          <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+                          <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
                             {t('captureWbEncrypted')}
                           </span>
                         )}
@@ -3103,7 +3086,7 @@ export default function CheckinPage() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </Container>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
