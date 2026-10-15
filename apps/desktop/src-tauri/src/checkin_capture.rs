@@ -4238,6 +4238,10 @@ pub struct CapturedMinimaxSession {
     pub refresh_token: String,
     /// auth.json 声明的过期(epoch 秒,缺失 0)
     pub expires_at: i64,
+    /// 每账号独立设备指纹(uuid,捕获时生成并固定;引擎签名用,服务端不校验值但独立化画像)
+    pub uuid: String,
+    /// 每账号独立设备指纹(device_id,同上)
+    pub device_id: String,
 }
 
 /// 纯函数:auth.json doc → accessToken(records 里第一条带 accessToken 的记录)。
@@ -4384,6 +4388,10 @@ pub fn capture_minimax_sessions() -> Vec<CapturedMinimaxSession> {
             access_token: token,
             refresh_token: minimax_refresh_from_auth_doc(&doc),
             expires_at,
+            // 多账号风控三件套之一:每账号固化一套独立设备指纹(与 IP 代理绑定
+            // 组合成完整独立画像;服务端实测不校验值,但独立化防"同指纹多账号")
+            uuid: random_guid_like(),
+            device_id: random_hex(8),
         });
     }
     out
