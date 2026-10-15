@@ -125,6 +125,9 @@ import {
 // 的 R1r 共用**这一份**实现 —— 本器不再抄第二条"什么算一行复活"(两处算同一件事必漂移,
 // 是本仓记过最多次的失败型;判据本体与它的三态语义见该库头注,本文件只做取材与定级)。
 import { resurrectAnalysis } from './lib/stale-content-analysis.mjs'
+// 同题去重(2026-10-15,根治 union 重复再生):union 产出后、落地前按标题指纹折叠 PROJECT_PLAN 的
+// 同题行 —— 同一件事物理上只留一行,被丢弃行的独有注记/票号并入保留行(信息守恒)。
+import { dedupeByFingerprint } from './lib/dedupe-ledger.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 // git 可执行一律经 §5b 唯一出口解析(候选链 + 探活;§5b 明写"脚本一律不得依赖环境取 git")。
@@ -902,8 +905,12 @@ export function theirsRewriteCaps(oursText, theirsText, baseText, suppress = nul
   return caps
 }
 
-/** 行级 union:以本侧顺序为脊柱,把对侧**相对基底新增、且未被搬运感知代表**的重数补在末尾。 */
-export function unionLines(oursText, theirsText, baseText = null, suppress = null) {
+/**
+ * 行级 union:以本侧顺序为脊柱,把对侧**相对基底新增、且未被搬运感知代表**的重数补在末尾。
+ * @param {object} [opts] `{ dedupeTasks=false }` —— 仅对 PROJECT_PLAN.md 开启:产出后按标题指纹
+ *   折叠同题行(根治重复再生)。默认 false,保证既有调用方(含全部既有测试)逐字不变。
+ */
+export function unionLines(oursText, theirsText, baseText = null, suppress = null, opts = {}) {
   const want = liveDocExpectedCounts(oursText, theirsText, baseText, suppress)
   // 脊柱裁剪:期望表已按改写折叠下调过的行,这里必须真把多出来的份数从本侧脊柱里去掉,
   // 否则"折叠"只存在于断言侧而产出面仍是双份 —— 那等于 F9 判据看不见、落地闸却对着一个不存在的数红。
@@ -945,7 +952,12 @@ export function unionLines(oursText, theirsText, baseText = null, suppress = nul
   const cr = counter(res)
   for (const [l, n] of want)
     if ((cr.get(l) || 0) < n) throw new Error(`行 union 丢行:${l.slice(0, 60)}`)
-  return res.endsWith('\n') ? res : res + '\n'
+  // 根治(2026-10-15):守恒断言先就"逐行重数"把住零丢失;断言通过后再按标题指纹折叠同题行。
+  // 折叠只删"同一件事的多余副本"、并把被删行独有注记/票号并入保留行,不触发上面那道守恒判据
+  // (那是就 union 自身量),也不引入任何对侧的"少带" —— 方向只可能是"少留一份冗余",绝不会"丢"。
+  let finalText = res
+  if (opts && opts.dedupeTasks) finalText = dedupeByFingerprint(res)
+  return finalText.endsWith('\n') ? finalText : finalText + '\n'
 }
 
 /**
@@ -1260,7 +1272,7 @@ export function buildUnion(
       const bt = base ? show(base, p, cwd) : null
       const ma = moveAwareCached(moveAwareCache, p, a, b, ours, cwd)
       liveDocs.push(ma)
-      const mergedText = unionLines(a, b, bt, ma.suppress)
+      const mergedText = unionLines(a, b, bt, ma.suppress, { dedupeTasks: p.endsWith('PROJECT_PLAN.md') })
       // 根治(2026-09-30):--stdin 通道要求真 stdin 管道(本会话建管道必 EBUSY)⇒ 改走
       // writeBlob 临时文件通道,同 --path 语义、同 blob SHA(该函数头注有 CRLF 等价实证)。
       const oid = writeBlob(mergedText, p, cwd)
@@ -3574,5 +3586,6 @@ export const __test__ = {
   renderResurrectWatch,
   applyResurrectBlock,
   LIVE_DOCS,
+  dedupeByFingerprint,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

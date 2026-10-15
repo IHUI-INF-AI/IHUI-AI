@@ -2215,7 +2215,7 @@ IHUI-AI/
 **到端产物也要有人看(2026-09-25)**:`pnpm check:miniapp-css-landing` 核的是“源码用到的 Tailwind utility,在小程序 dist 的 wxss 里是否真出了规则” —— 此前 36/37/93/parity/radius 五道跨端门**全部只核源码,没有一道看产物**,所以出现过五道全绿而到端 utilities 为空的状况。该门无产物时判 exit 2「未判定」,既不记绿也不冒红,因此刻意不接进提交链(它判的是构建结果,提交者机器上未必存在);小程序派生产物是否落后于源,由守门 105(warn 档)与 `dev-weapp` 的冷启刷新负责。
 | 16d | 条件 miniapp-taro dist 清理提示 | miniapp-taro/config 或 package.json staged 时输出清理提示(防 IDE 缓存混淆) |
 | 17-post | git-push-guard.mjs(post-commit) | 自动 push + 验证 local == remote(防遗漏) |
-| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后自动 push 所有 `lost-commit/*` + `backup/*` tag 到 origin(AGENTS.md §22) |
+| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖**全部命名空间**;`--check` 另比名字 + SHA,AGENTS.md §22) |
 **9 迁移审计脚本**:`audit-migration.mjs`(4 合 1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 合并) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(无引用 key 审计 + --output-keys 完整列表导出,2026-07-25 立)
 **9 PowerShell 启动脚本**:`dev-all.ps1` / `dev-up.ps1` / `dev-web.mjs` / `kill-dev-servers.ps1` / `restart-dev-server.ps1` / `fix-workspace-junctions.ps1` / `setup-token-refresh-task.ps1` / `cleanup-external-junk.ps1`
 #### E5. 测试与性能
@@ -2881,9 +2881,9 @@ setext 标题下划线、表格分隔、ASCII 示意图里都是合法内容,只
    - 远程 tag 完整性(对比 origin)
    - tag 对象可达性(annotated tag 的 commit object)
 2. **post-commit 自动 tag 同步**:`scripts/sync-lost-commit-tags.mjs --auto-push`
-   - commit 后立即 push 所有 `lost-commit/*` + `backup/*` tag 到 origin
+   - commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖全部命名空间;限流 60s + 积压闸 `IHUI_TAG_AUTO_MAX`)
    - 防止本地 git gc 清理后无远端备份
-3. **手动恢复**:`pnpm tag:sync:fetch` 从 origin 拉回所有 lost-commit/backup tag
+3. **手动恢复**:`pnpm tag:sync:fetch` 从 origin 拉回全部 tag(以 origin 为权威校准本地)
 4. **完整档案**:`docs/lost-commit-archive.md` 永久记录每个 lost commit 的 hash / subject / 改动文件 / 重做 commit / tag 状态
 **触发背景**:2026-07-25 reflog 记录 6 次 `git reset HEAD~` 丢失 3 个 commit(15b984f90 P0 安全债 + 5ef36e59d / b120c6e20 sidebar 折叠按钮 x2);2026-07-26 本地 tag 被 git gc 清理事故。
 ---
@@ -3221,7 +3221,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 **权限分级(防越线)**:`docs/**/*.md` 按位置分两级:
 - **子目录文档全公开**(`developer/*` / `user/*` / `enterprise-service/*`):用户指南、开发者 API 文档、企业服务白皮书等
 - **顶层文档仅白名单 20 篇公开**:AI_LEADERBOARD / AI_SERVICE / API_REFERENCE / architecture / AUTHENTICATION / CHANGELOG / CLI / CONTRIBUTING / DATABASE / FAQ / I18N / MULTI_END / PACKAGES / PERFORMANCE / RELEASE / SDK / SECURITY / TESTING / TROUBLESHOOTING / UI_GUIDELINES
-- **顶层敏感文档仅管理员可见**(14 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend / I18N-COMPLETION-PLAN
+- **顶层敏感文档仅管理员可见**(13 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend
 管理员登录后(`roleId >= 1`)可查看全部 87 篇工程文档 + 所有 published DB 文档,普通用户只能看子目录全公开 + 顶层白名单 20 篇。DB `docs` 表内容由管理员通过 `/admin/docs` 管理,不受文件白名单限制。
 ### 项目与架构
 | 文档                                                                   | 说明                                                                 |
@@ -3269,7 +3269,6 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | ------------------------------------------------------------ | -------------------------------------------------------------------- |
 | [docs/GATEKEEPERS.md](docs/GATEKEEPERS.md)                   | **守门规则详解**(56+10 pre-commit + post-commit + pre-push,逐项脚本) |
 | [docs/I18N.md](docs/I18N.md)                                 | 国际化(5 语言 + 68 命名空间 + 12 守门脚本 + 翻译策略)                |
-| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国际化完成计划(历史规划)                                             |
 ### SDK 与 CLI
 | 文档                                                                   | 说明                                                                                    |
 | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -4318,7 +4317,7 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4393 API 路由 / 542 数
 | 71 | check-plan-line-loss.mjs | **计划登记行防丢(blocking,`stagedTriggers=PROJECT_PLAN.md`)**:以 HEAD 为基线抽"登记行"(bullet + `**G-x`/`**Dx`/`**Px`/`**Wx`/**`**守门 NN`** 编号 + 长度 ≥40),按**编号标记的原文前缀**在待提交内容里全文搜 —— 整行消失即拦,只改写文案保留编号不报(不误伤正常编辑),原文能在 `.ihui-agent/archive/PROJECT_PLAN_*.md` 找到则按 §1 归档放行。成因是共享工作区里并发会话按"内存中旧计划文档"整文件提交,把别人已入库的登记行按旧基线回写掉(2026-09-22 一小时内发生两次);13c 归档守卫只认 `### XXX(已完成 ✅)` 任务标题行,条目内 bullet 登记行不在其视野,故补此闸。`--self-test` 9 例正反成对(含"邻居还在→插回邻居之后 / 邻居也没了→追加不丢 / 幂等不重复插入 / missingFrom 双目标比对");**自愈面**:`.husky/post-commit` 第 6 段每次提交后扫最近历史自动回捞 —— 并发会话 routinely 用 `--no-verify` 绕过 pre-commit,故这一层必须有;手动 `node scripts/check-plan-line-loss.mjs --heal`(只写工作区)/ `--heal --commit`(顺带前向提交)。**2026-09-23 两处加固**:(a) 自愈改为**工作区与 HEAD 分别判缺失** —— 旁路提交(commit-tree / `git-sync-converge` 索引层合并)不跑钩子,它把已入库行从 HEAD 合掉时共享工作区往往还留着那行,单目标比对会"无缺失"提前返回,HEAD 从此永远缺着(本次 G-154 登记行正是这么丢的);(b) 修掉一个"造好没装车"级缺陷 —— `rev-parse` / `hash-object` 返回值未 `.trim()`,尾部换行让 `read-tree` 报 `Not a valid object name`,**自愈提交自上线以来从未成功过**,而 post-commit 是 `                                                                                                                                                                                                                                                                                               |     | true`故毫无声响。现由`git-sync-converge`在落合并提交后就地补跑一次自愈,并在临时仓库做 A/B 端到端取证(旧版判"无缺失"、新版识别 HEAD 缺 1 条并建前向提交复绿)。跳过`HUSKY_SKIP_PLAN_HEAL=1`;紧急跳过本闸 `HUSKY_SKIP_PLAN_LINE_LOSS=1` |
 | 16d | 条件 miniapp-taro dist 清理提示 | miniapp-taro/config 或 package.json staged 时输出清理提示(防 IDE 缓存混淆) |
 | 17-post | git-push-guard.mjs(post-commit) | 自动 push + 验证 local == remote(防遗漏) |
-| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后自动 push 所有 `lost-commit/*` + `backup/*` tag 到 origin(AGENTS.md §22) |
+| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖**全部命名空间**;`--check` 另比名字 + SHA,AGENTS.md §22) |
 只登记、不定性、不清理(清理类任务的铁律:先验明身份)。**2026-09-24 补第二维:按名字认不出的文件再做
 内容嗅探**(`CONTENT_SIGNATURES`:仓库根两种分隔符含旧盘 `G:`、`@ihui/` 包名、溯源水印横幅)—— 起因是
 `C:\Windows\Temp` 里 5 个我们自己的 `clean-o7b.cjs` / `verify-o7b.cjs` 一类一次性脚本,名字不带任何项目
@@ -5639,8 +5638,7 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4415 API 路由 / 595 数
 - **组件层的共享真值源(2026-09-29 O92 立;同日按用户拍板改成「基座 + 追加」)**:跨端 Button 的共享档位值收口到 `packages/design-tokens/src/button-variants.ts`,两端 `buttonVariants` 先 spread 基座、**只在基座之外追加**平台修饰,**共享键不得被任何一端整档写成字面量**(那会让共享值只约束另一端)。这是本节"改一端另一端自动生效"的交付标准在**组件层**的第一处落地(此前两端只共享档位的**键名类型**,值各写一份)。覆盖范围仍要按档读,不要读成"整个 Button 已同源":2026-10-10 机主拍板统一后,`outline` 基座 = `border border-input bg-background text-foreground`、`ghost` = `bg-transparent text-foreground`、`size lg` = `h-10 px-8`(取 web 定稿,RN 原 h-12 px-6 跟上来),两端的 hover/shadow/rounded 仍是各自在基座外追加;此前 `ghost` 与 `lg` 的共享值是空串 —— 那是用空串遮住一处真分叉(同档名两端不同串)。仍有三格未统一:圆角(web lg=rounded-sm 4px vs RN 基座 rounded-md 6px)、字号(RN 由组件内部 Text 固定 text-sm,size 只管盒)、默认档高度(RN 独占 md=h-10 而 web default=h-9,现读 RN 侧 size 显式传参 0 处 ⇒ 两端默认按钮仍差 4px),已登记台账归设计规范统一批。并由常驻锁 `scripts/tests/shared-button-tier-base.test.mjs` 的 T11/T12 钉住:统一其中任一格都会让 T11 红一次并要求同步本句与台账 G-1115908(T12 用构造面证明它有牙),不得静默演进。常驻锁:`scripts/tests/shared-button-tier-base.test.mjs`(读 HEAD 面,整档另写即红)。约束正文见 AGENTS.md §4「跨端 Button 共享档位值的唯一源」。
 | 200        | check-provider-health-vocabulary.mjs                                   | **provider 健康四档单一真相源对账(blocking,2026-10-08 立 · 2026-10-10 接线)**:钉住 2026-10-07「并表」决策不许再分叉 —— canonical 在 `apps/web/app/(main)/settings/llm/types-v2.ts` 的 `PROVIDER_HEALTH_STATUSES`(as const,unknown/healthy/degraded/down),`ProviderHealthStatus` 由它派生,`apps/web/app/(main)/models/channels/channels-api.ts` 的 `RelayKeyPoolHealthStatus` 是同来源别名。**PV1** canonical 形态与派生 / **PV2** 全仓第二份**同值**声明(接线当轮 HEAD 面 409 候选 · 同值 0 ⇒ 直挂 blocking 不新增恒红面;两处真子集只报名,补齐即翻红)/ **PV3** 别名被换回字面量即红。同名不同域按值不判(web 另一张 `ProviderHealthStatus` = ok/invalid_key/unreachable/not_configured、api-client 7 档、`unhealthy` 族、`.py` 侧机主已裁决不扩)。**无行内豁免通道**,只有具名覆盖边界台账;注册条目带 `--strict`(默认档只报数,不带它的 blocking 就是永不红的尺子,守门 117 同型)。口径同 77/83/151(HEAD blob / 索引 blob / `--worktree` 仅人工 / 两旗同给 exit 2 / 枚举 0 判死);取证 `--self-test` + 镜像(T5/T15 接线方向锁双向臂、T13 两旗同给、T14 唯一真相源被摘线必 exit 2);紧急跳过 `HUSKY_SKIP_PROVIDER_HEALTH_VOCAB=1`。台账 G-814416 / G-1058634 |
 **两台机器状态探测器现在有名字了(warn 档:已注册进提交链但不阻塞 —— 它判的是机器状态,升 blocking 就是每台每次逼人跳门)**:`scripts/check-service-binary-paths.mjs`(`pnpm check:service-paths`)按 STATE / `nssm Application` 路径存在性 / 声明端口应答 三件事判一个 Windows 服务是不是"真的活着",并把"取不到值"与"值为空"以退出码分岔(nssm stdout 实测 UTF-16LE)—— 立因是 `IHUI-RSSHUB` 被 `.workbuddy` 自升级换掉 node 目录后**静默停了 3 天**,183 道门禁与告警全都看不见。`scripts/check-public-path-probe.mjs`(`pnpm check:public-path`,并由 `git-guardian` 每 30 分钟跑一次)把**换流窗口的不可用时长**与**常态公网的失败率/延迟**分成两条互不顶账的序列各自量,取证经 `scripts/run-evidence.mjs` 封缄 —— "没跑完"的 0 不算合格证。两者刻意保持 warn:判的是机器运行时状态,挂 blocking 只会逼人跳门、连带废掉全部守门。
-- **顶层敏感文档仅管理员可见**(13 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend
-| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖**全部命名空间**;`--check` 另比名字 + SHA,AGENTS.md §22) |
-   - commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖全部命名空间;限流 60s + 积压闸 `IHUI_TAG_AUTO_MAX`)
-3. **手动恢复**:`pnpm tag:sync:fetch` 从 origin 拉回全部 tag(以 origin 为权威校准本地)
-| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖**全部命名空间**;`--check` 另比名字 + SHA,AGENTS.md §22) |
+| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后自动 push 所有 `lost-commit/*` + `backup/*` tag 到 origin(AGENTS.md §22) |
+   - commit 后立即 push 所有 `lost-commit/*` + `backup/*` tag 到 origin
+3. **手动恢复**:`pnpm tag:sync:fetch` 从 origin 拉回所有 lost-commit/backup tag
+| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后自动 push 所有 `lost-commit/*` + `backup/*` tag 到 origin(AGENTS.md §22) |
