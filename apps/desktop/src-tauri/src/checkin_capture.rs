@@ -215,6 +215,9 @@ pub fn detect_trae_dir() -> Option<PathBuf> {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CapturedAccount {
     pub user_id: String,
+    /// 账户名/昵称(tc 解密自带 account.username;其他通道空,展示时回落 user_id)
+    #[serde(default)]
+    pub nickname: String,
     pub jwt: String,
     pub source: String,
 }
@@ -559,6 +562,7 @@ fn read_jwts_from_cookies_db(
             if let Some(uid) = jwt_payload_user_id(&jwt) {
                 out.push(CapturedAccount {
                     user_id: uid,
+                    nickname: String::new(),
                     jwt,
                     source: format!("cookies:{host}/{name}({source_rel})"),
                 });
@@ -631,7 +635,7 @@ fn scan_leveldb_dir(trae_dir: &Path, rel: &str, out: &mut Vec<CapturedAccount>) 
             .to_string();
         for jwt in extract_jwt_strings(&bytes) {
             if let Some(uid) = jwt_payload_user_id(&jwt) {
-                out.push(CapturedAccount { user_id: uid, jwt, source: format!("leveldb:{name}") });
+                out.push(CapturedAccount { user_id: uid, nickname: String::new(), jwt, source: format!("leveldb:{name}") });
             }
         }
     }
@@ -782,8 +786,18 @@ pub fn capture_trae_cloudide_jwt(trae_dir: &Path) -> Option<CapturedAccount> {
             log::warn!("[checkin-capture] {k} 的 token 已过期(exp={expires}),跳过");
             continue;
         }
+        // 账户名展示(tc 解密 JSON 自带 account.username,真机实证 5.8.2)
+        let nickname = j
+            .get("account")
+            .and_then(|a| a.get("username"))
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .unwrap_or("")
+            .to_string();
         return Some(CapturedAccount {
             user_id,
+            nickname,
             jwt: token,
             source: format!("storage.json:{k}(tc解密)"),
         });
@@ -3381,6 +3395,8 @@ pub struct CapturedQoderSession {
     pub machine_token: String,
     pub machine_code: String,
     pub machine_type: String,
+    /// 账户昵称/手机号(展示名,真机实证 user.phone)
+    pub nickname: String,
 }
 
 /// 纯函数:解密 auth.v1.dat(密钥已由调用方从 Local State 解出)并解析会话 JSON。
@@ -3458,6 +3474,20 @@ pub fn qoder_session_uid(session: &serde_json::Value, token: &str) -> Option<Str
         }
     }
     qoder_jwt_uid(token)
+}
+
+/// 纯函数:Qoder 会话 JSON → 账户昵称/手机号(user.{nickname,name,phone,mobile,email}
+/// 键序优先;真机实证 user.phone=18643389808,即李总要的"显示手机号或账户名")。
+pub fn qoder_session_nickname(session: &serde_json::Value) -> String {
+    let Some(user) = session.get("user") else {
+        return String::new();
+    };
+    for key in ["nickname", "nick_name", "name", "userName", "username", "phone", "mobile", "email"] {
+        if let Some(v) = user.get(key).and_then(qoder_scalar_str) {
+            return v;
+        }
+    }
+    String::new()
 }
 
 /// 纯函数:会话 JSON 的 expiresAt → epoch 秒(缺失/坏格式 0)。
@@ -3678,6 +3708,7 @@ pub fn capture_qoder_sessions() -> Vec<CapturedQoderSession> {
             _ => "intl",
         }
         .to_string();
+        let nickname = qoder_session_nickname(&session);
         out.push(CapturedQoderSession {
             app_dir: dir.display().to_string(),
             edition,
@@ -3690,6 +3721,7 @@ pub fn capture_qoder_sessions() -> Vec<CapturedQoderSession> {
                 .to_string(),
             // expiresAt 是 ISO 字符串(真机实证);qoder_session_expires_at 兼容
             // ISO/epoch 两种形态,坏格式落 0(前端/服务端都按「>0 才用」消费)。
+            nickname,
             expires_at: qoder_session_expires_at(&session),
             jwt_exp: jwt_payload_exp(token),
             machine_id,
@@ -4210,6 +4242,204 @@ pub fn checkin_capture_workbuddy() -> Result<Vec<CapturedWorkbuddySession>, IpcE
     Ok(sessions)
 }
 
+// ================== MiniMax Code 凭据捕获(2026-10-15,第四平台)==================
+//
+// 本机实证(2026-10-15):MiniMax Code(桌面端 3.1.1,CN)的 OAuth token **明文**存
+// `~/.minimax/auth/prod/cn/mcode-public/auth.json`(schemaVersion 1,records 里
+// 每条 {accessToken(mmoat_ 前缀 opaque),refreshToken,expiresAtMs,...});
+// 账号 uid 明文存 `%APPDATA%\MiniMax\minimax-agent-cn-config.json` 的
+// sharedUser.realUserID。接口契约(桌面端 api 日志 + 社区双向实证):
+//   GET  {host}/minimax-cloud/api/v1/signin/status
+//   POST {host}/minimax-cloud/api/v1/signin/claim   (body {},幂等:已领 claim_result=2)
+// 鉴权 = `Authorization: Bearer <accessToken>` + yy/x-timestamp/x-signature
+// 三重 MD5 签名(算法与服务端 checkin_minimax.py 同源双实现,那里是签到执行侧)。
+// 设备参数服务端不严格校验(伪造 uuid/device_id 实测 200),捕获端只取真 token+uid。
+// 用户视角:已登录 MiniMax Code ⇒ 点「本机捕获」直出可用账号,零粘贴。
+
+/// MiniMax 本机会话(字段名 serde snake_case,tauri-bridge 原样投影)。
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CapturedMinimaxSession {
+    pub auth_file: String,
+    /// sharedUser.realUserID(签到接口必填,缺失网关 401)
+    pub uid: String,
+    /// sharedUser.userName(展示名,缺失回落 uid)
+    pub nickname: String,
+    /// mmoat_ 前缀 OAuth accessToken(签到走 Authorization: Bearer)
+    pub access_token: String,
+    /// mmort_ 前缀 refreshToken(引擎预留自刷新,当前不消费)
+    pub refresh_token: String,
+    /// auth.json 声明的过期(epoch 秒,缺失 0)
+    pub expires_at: i64,
+    /// 每账号独立设备指纹(uuid,捕获时生成并固定;引擎签名用,服务端不校验值但独立化画像)
+    pub uuid: String,
+    /// 每账号独立设备指纹(device_id,同上)
+    pub device_id: String,
+}
+
+/// 纯函数:auth.json doc → accessToken(records 里第一条带 accessToken 的记录)。
+pub fn minimax_token_from_auth_doc(doc: &serde_json::Value) -> Option<String> {
+    let records = doc.get("records")?.as_object()?;
+    for rec in records.values() {
+        if let Some(t) = rec.get("accessToken").and_then(|v| v.as_str()).map(str::trim).filter(|s| !s.is_empty()) {
+            return Some(t.to_string());
+        }
+    }
+    None
+}
+
+/// 纯函数:auth.json doc → refreshToken(与 accessToken 同记录优先)。
+pub fn minimax_refresh_from_auth_doc(doc: &serde_json::Value) -> String {
+    let Some(records) = doc.get("records").and_then(|v| v.as_object()) else {
+        return String::new();
+    };
+    for rec in records.values() {
+        let Some(ak) = rec.get("accessToken").and_then(|v| v.as_str()) else { continue };
+        if ak.trim().is_empty() {
+            continue;
+        }
+        return rec.get("refreshToken").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+    }
+    String::new()
+}
+
+/// 纯函数:auth.json doc → expiresAtMs → epoch 秒(缺失/坏格式 0)。
+pub fn minimax_expires_from_auth_doc(doc: &serde_json::Value) -> i64 {
+    let Some(records) = doc.get("records").and_then(|v| v.as_object()) else { return 0 };
+    for rec in records.values() {
+        let Some(ak) = rec.get("accessToken").and_then(|v| v.as_str()) else { continue };
+        if ak.trim().is_empty() {
+            continue;
+        }
+        let ms = rec.get("expiresAtMs").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        return if ms > 1e12 { (ms / 1000.0) as i64 } else { ms as i64 };
+    }
+    0
+}
+
+/// 纯函数:config doc → (uid, nickname)(sharedUser.realUserID / userName)。
+pub fn minimax_identity_from_config_doc(doc: &serde_json::Value) -> (String, String) {
+    let Some(su) = doc.get("sharedUser") else {
+        return (String::new(), String::new());
+    };
+    let uid = su.get("realUserID").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+    let uid = if uid.is_empty() {
+        su.get("userID").and_then(|v| v.as_str()).unwrap_or("").trim().to_string()
+    } else {
+        uid
+    };
+    let nick = su.get("userName").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+    (uid, nick)
+}
+
+/// auth.json 候选:CN 固定路径优先,回退扫 `~/.minimax/auth/prod/<region>/<client>/` 两层。
+fn minimax_auth_file_candidates() -> Vec<std::path::PathBuf> {
+    let mut out: Vec<std::path::PathBuf> = Vec::new();
+    let home = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .ok()
+        .map(std::path::PathBuf::from)
+        .filter(|p| !p.as_os_str().is_empty());
+    let Some(home) = home else { return out };
+    out.push(home.join(".minimax/auth/prod/cn/mcode-public/auth.json"));
+    // 通用回退:region/client 两层目录(国际版 io/别的 clientId 也覆盖)
+    let prod = home.join(".minimax/auth/prod");
+    if let Ok(regions) = std::fs::read_dir(&prod) {
+        for r in regions.flatten() {
+            if let Ok(clients) = std::fs::read_dir(r.path()) {
+                for c in clients.flatten() {
+                    let f = c.path().join("auth.json");
+                    if f.is_file() && !out.contains(&f) {
+                        out.push(f);
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+/// config 候选(uid/nickname 来源):CN 变体名 + 国际变体名 + LOCALAPPDATA 回退。
+fn minimax_config_file_candidates() -> Vec<std::path::PathBuf> {
+    let mut out: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(ad) = std::env::var("APPDATA") {
+        if !ad.trim().is_empty() {
+            let base = std::path::PathBuf::from(&ad);
+            out.push(base.join("MiniMax/minimax-agent-cn-config.json"));
+            out.push(base.join("MiniMax Agent/minimax-agent-config.json"));
+        }
+    }
+    if let Ok(la) = std::env::var("LOCALAPPDATA") {
+        if !la.trim().is_empty() {
+            let base = std::path::PathBuf::from(&la);
+            out.push(base.join("MiniMax/minimax-agent-cn-config.json"));
+            out.push(base.join("MiniMax Agent/minimax-agent-config.json"));
+        }
+    }
+    out
+}
+
+/// 执行层:本机 MiniMax Code 登录态 → 会话列表(未登录返回空 vec)。
+pub fn capture_minimax_sessions() -> Vec<CapturedMinimaxSession> {
+    let (mut uid, mut nickname) = (String::new(), String::new());
+    for cp in minimax_config_file_candidates() {
+        if !cp.is_file() {
+            continue;
+        }
+        if let Ok(raw) = std::fs::read(&cp) {
+            if let Ok(doc) = serde_json::from_slice::<serde_json::Value>(&raw) {
+                let (u, n) = minimax_identity_from_config_doc(&doc);
+                if !u.is_empty() {
+                    uid = u;
+                    nickname = n;
+                    break;
+                }
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for ap in minimax_auth_file_candidates() {
+        if !ap.is_file() {
+            continue;
+        }
+        let Ok(raw) = std::fs::read(&ap) else { continue };
+        let Ok(doc) = serde_json::from_slice::<serde_json::Value>(&raw) else { continue };
+        let Some(token) = minimax_token_from_auth_doc(&doc) else { continue };
+        let expires_at = minimax_expires_from_auth_doc(&doc);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        if expires_at > 0 && expires_at <= now {
+            log::warn!("[checkin-capture] MiniMax token 已过期({}),跳过(打开客户端刷新)", ap.display());
+            continue;
+        }
+        out.push(CapturedMinimaxSession {
+            auth_file: ap.display().to_string(),
+            uid: uid.clone(),
+            nickname: if nickname.is_empty() { uid.clone() } else { nickname.clone() },
+            access_token: token,
+            refresh_token: minimax_refresh_from_auth_doc(&doc),
+            expires_at,
+            // 多账号风控三件套之一:每账号固化一套独立设备指纹(与 IP 代理绑定
+            // 组合成完整独立画像;服务端实测不校验值,但独立化防"同指纹多账号")
+            uuid: random_guid_like(),
+            device_id: random_hex(8),
+        });
+    }
+    out
+}
+
+#[tauri::command]
+pub fn checkin_capture_minimax() -> Result<Vec<CapturedMinimaxSession>, IpcError> {
+    let sessions = capture_minimax_sessions();
+    if sessions.is_empty() {
+        return Err(IpcError::not_found(
+            "未找到已登录的 MiniMax Code 登录态(需本机已安装并登录 MiniMax Code)",
+        ));
+    }
+    Ok(sessions)
+}
+
 // ================== 单测（判据区 + 可落盘的执行层）==================
 
 #[cfg(test)]
@@ -4399,6 +4629,7 @@ mod tests {
     fn dedup_keeps_first_per_user_id() {
         let acc = |uid: &str, src: &str| CapturedAccount {
             user_id: uid.into(),
+            nickname: String::new(),
             jwt: "t".into(),
             source: src.into(),
         };
@@ -4859,6 +5090,28 @@ mod tests {
                     );
                 }
                 println!("[real-e2e] WorkBuddy: ✅ {usable} 个会话带可用 Bearer JWT(信封直解+活取通)");
+            }
+        }
+
+        // ── MiniMax Code:auth.json 明文 OAuth 通道 ──
+        let mm_file = minimax_auth_file_candidates().into_iter().find(|p| p.is_file());
+        match mm_file {
+            None => println!("[real-e2e] MiniMax: 本机无登录态文件,跳过"),
+            Some(_) => {
+                let sessions = capture_minimax_sessions();
+                println!("[real-e2e] MiniMax: {} 个会话", sessions.len());
+                assert!(!sessions.is_empty(), "本机有 MiniMax 登录态但捕获 0 会话");
+                let usable = sessions
+                    .iter()
+                    .filter(|s| !s.access_token.is_empty() && !s.uid.is_empty())
+                    .count();
+                assert!(
+                    usable >= 1,
+                    "MiniMax 会话缺 access_token 或 uid(token+uid 缺一不可)"
+                );
+                println!(
+                    "[real-e2e] MiniMax: ✅ {usable} 个会话带 OAuth token+uid(明文通道通)"
+                );
             }
         }
 
@@ -5682,6 +5935,45 @@ mod tests {
         expect.extend_from_slice(b"abcd");
         expect.extend_from_slice(&[0x02, 0x00, 0x00]);
         assert_eq!(aad, expect);
+    }
+
+    #[test]
+    fn minimax_parse_auth_doc_fields() {
+        let doc = serde_json::json!({
+            "schemaVersion": 1,
+            "records": {
+                "com.minimax.mcode.oauth.prod.cn\u{0000}pn7olb": {
+                    "accessToken": " mmoat_test_token ",
+                    "refreshToken": "mmort_test_rt",
+                    "tokenType": "Bearer",
+                    "expiresAtMs": 1792068705715i64
+                },
+                "empty-rec": {"accessToken": ""}
+            }
+        });
+        assert_eq!(minimax_token_from_auth_doc(&doc).as_deref(), Some("mmoat_test_token"));
+        assert_eq!(minimax_refresh_from_auth_doc(&doc), "mmort_test_rt");
+        assert_eq!(minimax_expires_from_auth_doc(&doc), 1792068705);
+        // 坏形状:无 records / 空 token
+        assert_eq!(minimax_token_from_auth_doc(&serde_json::json!({})), None);
+        let all_empty = serde_json::json!({"records": {"a": {"accessToken": ""}}});
+        assert_eq!(minimax_token_from_auth_doc(&all_empty), None);
+        assert_eq!(minimax_expires_from_auth_doc(&all_empty), 0);
+    }
+
+    #[test]
+    fn minimax_identity_from_config_doc_prefers_real_user_id() {
+        let doc = serde_json::json!({
+            "sharedUser": {"userID": "x6bRP8X8QpwP", "realUserID": "314069474482810883", "userName": "AI智汇社"}
+        });
+        assert_eq!(
+            minimax_identity_from_config_doc(&doc),
+            ("314069474482810883".to_string(), "AI智汇社".to_string())
+        );
+        // 缺 realUserID 回落 userID;缺 sharedUser 全空
+        let fallback = serde_json::json!({"sharedUser": {"userID": "u-only"}});
+        assert_eq!(minimax_identity_from_config_doc(&fallback), ("u-only".to_string(), String::new()));
+        assert_eq!(minimax_identity_from_config_doc(&serde_json::json!({})), (String::new(), String::new()));
     }
 
     #[test]

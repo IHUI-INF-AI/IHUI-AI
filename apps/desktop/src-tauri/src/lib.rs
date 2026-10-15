@@ -350,13 +350,21 @@ fn pick_free_port() -> std::io::Result<u16> {
     Ok(port)
 }
 
-/// 2026-08-17:用系统 Google Chrome 以 --app 模式打开 URL(独立无边框窗口,完整浏览器功能)。
+/// 2026-08-17:用系统 Google Chrome 打开 URL(独立窗口,完整浏览器功能)。
 /// - 用户要求"内置浏览器要谷歌 Chrome,不要 Edge"——Tauri 内嵌只能用 WebView2(Edge 壳),
-///   而 Chrome --app 是"Google Chrome 本体 + 独立窗口",登录/点击/输入/视频全支持。
+///   而 Chrome 本体窗口是"Google Chrome + 独立进程",登录/点击/输入/视频全支持。
+/// - `mode` 两档(2026-10-15 立第二档):
+///   · 缺省 / "app" = `--app=URL` **无边框应用窗**(无地址栏、无标签栏)。2026-08-17 起的原形态,
+///     给"内置浏览器"观感用(工作台面板"在浏览器中打开")。
+///   · "window" = **完整浏览器窗口**(地址栏 + 标签栏 + 书签栏全在)。立因:用户反馈签到助手
+///     网页登录"打开的窗口不是完整的浏览器窗口"——登录页需要用户能看见地址栏/自主导航,
+///     无边框窗既不像浏览器、也没法核对地址。签到助手网页登录走这一档。
+///   两档都带 `--remote-debugging-port` + 专用 `--user-data-dir`:登录态回收依赖 CDP 读
+///   cookie jar(见 checkin_web_login.rs 决策记录),与窗口有无边框无关。
 /// - Chrome 常见安装路径探测,找不到返回错误(前端提示安装 Chrome)。
 /// - 仅允许 http/https URL(防参数注入)。
 #[tauri::command]
-fn open_in_chrome(url: String) -> Result<u16, IpcError> {
+fn open_in_chrome(url: String, mode: Option<String>) -> Result<u16, IpcError> {
     let trimmed = url.trim();
     if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
         // 宿主拒发 = permission 档(不是 internal:这是有意的策略拒绝,不是判不出)。
@@ -388,11 +396,25 @@ fn open_in_chrome(url: String) -> Result<u16, IpcError> {
     // (C:\tmp 或 D:\tmp,随进程 CWD 漂移,还可能因权限创建失败 ⇒ 窗口弹不出来,
     // 用户感知正是"点了没反应");std::env::temp_dir() 恒为 %LOCALAPPDATA%\Temp,无此问题。
     let profile_dir = std::env::temp_dir().join("ihui-chrome-profile");
+    // 窗口形态:只有显式 "window" 才是完整浏览器窗口,其余(含不传/未知值)保持 --app 应用窗,
+    // 免得旧前端不传参时行为漂移。
+    let full_window = matches!(mode.as_deref(), Some("window"));
     let mut cmd = std::process::Command::new(&chrome);
-    cmd.arg(format!("--app={}", trimmed))
-        .arg("--new-window")
-        .arg(format!("--remote-debugging-port={}", port))
-        .arg(format!("--user-data-dir={}", profile_dir.display()));
+    if full_window {
+        // 完整窗口:URL 走位置参数,--no-first-run/--no-default-browser-check 抑制专用
+        // profile 首次启动的"设为默认浏览器"提示与欢迎页(否则窗口一开先弹这些,像被劫持)。
+        cmd.arg("--new-window")
+            .arg("--no-first-run")
+            .arg("--no-default-browser-check")
+            .arg(format!("--remote-debugging-port={}", port))
+            .arg(format!("--user-data-dir={}", profile_dir.display()))
+            .arg(trimmed);
+    } else {
+        cmd.arg(format!("--app={}", trimmed))
+            .arg("--new-window")
+            .arg(format!("--remote-debugging-port={}", port))
+            .arg(format!("--user-data-dir={}", profile_dir.display()));
+    }
     // spawn 的失败按 ErrorKind 归类(可执行文件被拒 → permission;找不到 → not_found)。
     let _child = cmd.spawn().map_err(IpcError::from)?;
     Ok(port)
@@ -3444,6 +3466,7 @@ pub fn run() {
             checkin_capture::checkin_capture_jwts,
             checkin_capture::checkin_capture_qoder,
             checkin_capture::checkin_capture_workbuddy,
+            checkin_capture::checkin_capture_minimax,
             // 2026-10-15 浏览器扫码改版:open/close 已废弃(前端复用既有 open_in_chrome /
             // close_in_chrome),只留 probe(CDP 读 Cookie + 服务端验证,见 checkin_web_login.rs)。
             checkin_web_login::checkin_workbuddy_web_login_probe,
