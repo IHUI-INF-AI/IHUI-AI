@@ -19188,6 +19188,8 @@
     "addSmartScanning": "이 기기의 로그인 상태를 확인 중…",
     "addSmartTraeFound": "Trae 계정 {count}개 발견",
     "addSmartQoderFound": "Qoder 계정 {count}개 발견",
+    "addSmartMinimaxFound": "MiniMax Code 로컬 로그인 상태({count})",
+    "captureMinimaxNoToken": "token을 찾지 못했습니다. MiniMax Code에 로그인한 뒤 다시 시도하세요",
     "addSmartImport": "선택 항목 가져오기",
     "addSmartImporting": "가져오는 중…",
     "addSmartNone": "이 기기에서 Trae / Qoder 로그인 상태를 찾지 못했습니다. 해당 클라이언트에서 로그인한 후 \"다시 검색\"을 누르세요.",

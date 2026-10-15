@@ -3444,6 +3444,7 @@ pub fn run() {
             checkin_capture::checkin_capture_jwts,
             checkin_capture::checkin_capture_qoder,
             checkin_capture::checkin_capture_workbuddy,
+            checkin_capture::checkin_capture_minimax,
             // 2026-10-15 浏览器扫码改版:open/close 已废弃(前端复用既有 open_in_chrome /
             // close_in_chrome),只留 probe(CDP 读 Cookie + 服务端验证,见 checkin_web_login.rs)。
             checkin_web_login::checkin_workbuddy_web_login_probe,
