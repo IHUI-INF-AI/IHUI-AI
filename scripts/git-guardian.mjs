@@ -1451,6 +1451,21 @@ function healWorktreeTracked() {
     if (d.aligned)
       log(`✅ 幻影漂移对齐:${d.aligned} 个文件回到 HEAD(内容==祖先版本,零独有数据)(${brief(d)})`)
     if (d.refreshed) log(`✅ 落后索引刷新:${d.refreshed} 个路径的索引回到 HEAD(工作区未触碰)`)
+    // 第五层:活文档的"落地欠回写"(2026-10-14 立)。前两层的判据都从"索引里的 blob"出发,
+    // 而 ALIGN_EXEMPT_PATHS 刻意把台账整体绕行 —— 于是旁路落地推进 HEAD 后留下的那条脏索引
+    // 长期无人负责(实测 22:45:55 那枚 union-converge 之后悬到机主亲自来问)。本层只补那一格,
+    // 且**只写索引不写工作区**;判不住的一律点名,不许把"没判"读成"干净"。
+    if (d.landingAligned)
+      log(
+        `✅ 落地欠回写对齐:${d.landingAligned} 个活文档路径的索引回到 HEAD(判据=索引 blob 逐字节等于某枚旁路落地自述的前像,故零独有;工作区未触碰)` +
+          `(${(d.landingPaths || []).slice(0, 5).join(', ')})`,
+      )
+    for (const h of (d.landingHeld || []).slice(0, 3))
+      log(`ℹ️ 落地欠回写未对齐:${h.path} —— ${String(h.reason).slice(0, 130)}`)
+    for (const u of (d.landingUndetermined || []).slice(0, 3))
+      log(`⚠️ 落地欠回写未判定:${u.path} —— ${String(u.reason).slice(0, 130)}`)
+    if (d.landingDeferred?.length)
+      log(`⚠️ 落地欠回写本轮撞锁延后:${d.landingDeferred.slice(0, 5).join(', ')}`)
   }
 }
 

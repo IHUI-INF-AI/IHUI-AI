@@ -18,28 +18,42 @@
  *   生成器自带注入(如 scripts/gen-i18n-compressed.mjs)仍保留, 属"更早一步"的优化,
  *   不再是唯一防线。
  *
- * 判定口径: `watermark.mjs list-uncovered`(载荷损坏 + 残迹 + 未覆盖) ∩ **分母集合**
- *   分母集合 = 已跟踪 ∪ 未跟踪但未忽略(唯一实现:`scripts/lib/watermark-scope.mjs`)。
- *   2026-09-27 G-253 并上未跟踪面:此前"只看已跟踪"把两格真实缺口挡在分母之外 ——
- *   新建还没 `git add` 的文件、以及**整文件重写把已跟踪文件的横幅冲掉后尚未 add** 的那一格。
- *   两格的失效形态相同:闸门一路绿灯,而盘上真有一个无水印的源文件等着进仓库。
- *   `.gitignore` 依旧把构建产物与本机临时面挡在分母外(`--exclude-standard`),
- *   所以"本地未跟踪产物不计入"这句原口径没有被放宽 —— 放宽的只是"注定要提交的那部分"。
+ * 判定口径(门 118 取材面纪律,2026-10-15 换面):
+ *   verdict = `watermark.mjs list-uncovered`(载荷损坏 + 残迹 + 仅隐写 + 未覆盖) ∩ **分母集合**,
+ *   而**清单面与内容面必须同面同轮**:
+ *     - 全量档(默认 / push-gate)⇒ 判 **HEAD blob**,清单 = `git ls-tree -r --name-only HEAD`;
+ *     - `--staged`(pre-commit)⇒ 判**索引 blob**,清单 = 索引;
+ *     - `--worktree` ⇒ 磁盘 + 旧清单口径,**仅人工逃生舱**(盘上内容可能属于并行会话的半编辑态)。
+ *   那个面取不到 ⇒ 判「无法判定」并 **exit 2**(不回落另一个面、不记绿、不冒红)。
+ *   换面史:此前清单取索引(`ls-files`)而内容读磁盘,两把尺子不同面 —— "HEAD blob 缺载荷、
+ *   盘上副本已补齐但未提交"的文件对两面各自都"没问题",悬留把红遮住了(2026-10-14 实测三枚即此型);
+ *   且"索引有、盘上没有"记 skipped 不进分母,那一格在 HEAD 面本该能判。
+ *   分母集合的唯一实现:`scripts/lib/watermark-scope.mjs` 的 `coverageFileSetForFace`。
+ *   `.gitignore` 依旧把构建产物与本机临时面挡在分母外(仅 worktree 逃生舱并上未跟踪面);
+ *   未跟踪面只属于工作树面 ⇒ head/staged 面下不再出现"未跟踪面上另有 N 个"那一档。
+ *
+ * 自愈纪律(乙,2026-10-15 立):**只有 `--staged`(本次提交真要带走的那一面)才允许 `git add`**。
+ *   全量档 / `--push-gate` 档改为**只写工作区、不碰索引**并如实报「请随下一次提交带上」。
+ *   WHY:工作区可回滚,索引不可 —— 在永不 commit 的档位 add,就是把改动悬在共享索引里等别人
+ *   背(2026-10-14 悬留「暂存更改几千条没人提交」的直接成因;pre-commit 那轮 inject+add 紧接着
+ *   就 commit,语义仍是对的,不许改坏)。
  *
  * 用法:
- *   node scripts/check-watermark-coverage.mjs            # 自愈模式(pre-commit 默认)
+ *   node scripts/check-watermark-coverage.mjs            # 自愈模式,判 HEAD 面(push-gate 走这档)
+ *   node scripts/check-watermark-coverage.mjs --staged   # 自愈 + add 回索引(pre-commit 由 runner 下发)
  *   node scripts/check-watermark-coverage.mjs --no-fix   # 纯判定, 不修改(CI / 审计用)
+ *   node scripts/check-watermark-coverage.mjs --worktree # 人工逃生舱:判磁盘面(不得作提交门禁)
  *   node scripts/check-watermark-coverage.mjs --self-test# 逻辑自检(零 git 调用、零副作用)
  * 紧急跳过: HUSKY_SKIP_WATERMARK_GUARD=1 git commit ...   (正常流程不再需要)
  */
 
 import { execFileSync } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
 
-import { readWorktreeFile } from './lib/face-reader.mjs'
+import { readWorktreeFile, catBatch, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { createExclusionPredicate, LedgerUnavailable } from './lib/third-party-roots.mjs'
-import { coverageFileSet } from './lib/watermark-scope.mjs'
+import { coverageFileSetForFace } from './lib/watermark-scope.mjs'
 // G-1018220 口径②:自愈清单行的结构化豁免键从归因层 **import,不抄字面量**(与尺子导入
 // FINDING_LINE_RE 同条纪律:两处各写一遍必然漂移)。键只打在"我刚修复"的清单行上 ——
 // reportGap 报红块 / 注入失败行一个字不带,归因层因此只豁免自愈动作点名,真失败点名照旧定责。
@@ -59,6 +73,7 @@ const NO_FIX = process.argv.includes('--no-fix')
  * 所以仓库存量欠账不会被洗成绿色,只是不再由无关的提交者承担。
  */
 const STAGED = process.argv.includes('--staged')
+const WORKTREE = process.argv.includes('--worktree')
 // 安全闸: 一次性自动回写的文件数上限。超过则拒绝自愈并直接报错,
 // 避免"某个批量改写脚本把半个仓库打回未水印态"时被静默整体重写。
 const MAX_AUTOFIX = 200
@@ -287,32 +302,10 @@ function selfTest() {
   return bad ? 1 : 0
 }
 
-if (process.argv.includes('--self-test')) process.exit(selfTest())
-
-if (process.env.HUSKY_SKIP_WATERMARK_GUARD === '1') {
-  console.log('[skip] HUSKY_SKIP_WATERMARK_GUARD=1, 跳过溯源水印覆盖守门')
-  process.exit(0)
-}
-
 /**
- * 第三方排除面与 watermark.mjs 走**同一个出口**(scripts/lib/third-party-roots.mjs)。
- * 本门自己不再拼一份 roots 清单 —— 两处算同一件事各写一份,正是本仓最高频的失守形态。
- * 之所以两处都要判:本门的自愈循环(`inject` + 双横幅巡检)与 list-uncovered 是两条独立路径,
- * 只收窄其一,另一条照样会把横幅打进已登记的第三方内容。
+ * `run` 返回 stdout;**派生失败原样抛**(带 status),由调用方折成取材结果,
+ * 不在取材层直接 process.exit —— 否则 fail-closed 那一格没法被 decideCoverage 看见。
  */
-let exclusion
-try {
-  exclusion = createExclusionPredicate(REPO_ROOT)
-} catch (e) {
-  const why = e instanceof LedgerUnavailable ? e.message : String(e?.message ?? e)
-  console.error('[watermark-coverage] ❌ 第三方排除面无法判定:' + why.split('\n')[0])
-  console.error('  算不出"哪些是已登记第三方内容"时**拒绝**自愈 —— 自愈的动作是往文件里写归属横幅,')
-  console.error(
-    '  把横幅写进 Apache-2.0/MIT 许可原文比"少一个横幅"严重得多。请先修台账或 git 可用性。',
-  )
-  process.exit(1)
-}
-
 const run = (cmd, args) =>
   execFileSync(cmd, args, {
     cwd: REPO_ROOT,
@@ -325,29 +318,30 @@ const run = (cmd, args) =>
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 
-/** watermark.mjs list-uncovered → 载荷损坏 + 残迹 + 未覆盖(相对仓库根, / 分隔) */
-function listUncovered() {
+/**
+ * watermark.mjs list-uncovered → 载荷损坏 + 仅隐写 + 残迹 + 未覆盖(相对仓库根, / 分隔)。
+ * `faceArgs` 把**判定面旗原样传给 watermark.mjs** —— 清单与内容同面同轮的纪律住在对面那份实现里。
+ * 对面以 exit 2 报「无法判定」时,这里如实把 error 带上去(不得折成"没有缺口")。
+ * @returns {{paths: string[]|null, error: string|null}}
+ */
+function listUncovered(faceArgs = []) {
   try {
-    return run('node', ['scripts/watermark.mjs', 'list-uncovered'])
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean)
+    return {
+      paths: run('node', ['scripts/watermark.mjs', 'list-uncovered', ...faceArgs])
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean),
+      error: null,
+    }
   } catch (e) {
-    console.error('[watermark-coverage] 无法获取未覆盖清单:', e.message)
-    process.exit(1)
+    const why = String(e?.stderr || e?.message || e).split('\n').filter(Boolean)[0] || String(e)
+    return { paths: null, error: `${e?.status === 2 ? '对面报无法判定:' : ''}${why}` }
   }
 }
 
-function trackedFiles() {
-  // G-253:口径与 watermark.mjs 共用 scripts/lib/watermark-scope.mjs 那一份实现。
-  // 返回**两层**集合:indexFiles(可阻塞面)/ untrackedFiles(只报数面)。
-  const scope = coverageFileSet({ root: REPO_ROOT })
-  if (scope.error) {
-    console.error(`[watermark-coverage] ❌ ${scope.error}`)
-    console.error('  取不到清单时**不**按"没有缺口"放行 —— 那等于把"没判"写成"判过了"。')
-    process.exit(1)
-  }
-  return scope
+/** 判定面清单(与内容同面同轮;唯一实现住在 watermark-scope.mjs,本门不拼第二把尺子)。 */
+function trackedFiles(face) {
+  return coverageFileSetForFace({ root: REPO_ROOT, face })
 }
 
 /**
@@ -374,8 +368,10 @@ function carriedFiles() {
   }
 }
 
-function reportGap(missing, reason) {
-  console.error(`[watermark-coverage] ❌ ${missing.length} 个已跟踪文件缺失/损坏溯源水印${reason}:`)
+function reportGap(missing, reason, faceLabel = '') {
+  console.error(
+    `[watermark-coverage] ❌ ${missing.length} 个文件缺失/损坏溯源水印${faceLabel}${reason}:`,
+  )
   for (const f of missing.slice(0, 30)) console.error('  - ' + f)
   if (missing.length > 30) console.error(`  ... 其余 ${missing.length - 30} 个`)
   console.error('')
@@ -463,187 +459,308 @@ export function decideCoverage(input) {
   return { verdict: 'gap', missing, untrackedGaps, untouchedGaps, drift }
 }
 
-const scope = trackedFiles()
-const uncoveredList = listUncovered()
-// G-1018220:提交档(`--staged`,由 guardian-runner 自动下发)把**判红面与自愈面**收到"本次提交携带的文件"。
-//   - 全量档 / `--no-fix` 一字未动:仍判所有已跟踪文件 ⇒ 仓库存量欠账不会被这次收窄洗成绿色。
-//   - 索引里别人 add 过而我这次不带的缺口 ⇒ 降为**只报数**那一档(与既有"未跟踪面"同一处理方式),
-//     既不 git add 别人的文件(污染 + 越权两型),也不让一道与本次提交无关的门替当前提交者挡路(§12e/§12f)。
-//   - 携带面取不到 ⇒ 未判定并 exit 1(不得读成"这次什么都没带 ⇒ 通过")。
-//   - 携带面为空(暂存集与 HEAD 逐字相同)⇒ 本次提交不携带任何文件,判"通过"但大声说明,
-//     并点名索引里的存量欠账 —— 这一档的正当性来自本门的立项语义:"无水印文件进入提交"。
-const face = STAGED ? carriedFiles() : { paths: null, error: null }
-const decision = decideCoverage({
-  scope,
-  uncovered: uncoveredList,
-  isExcluded: exclusion.isExcluded,
-  stagedFace: STAGED,
-  carried: face.paths,
-  carriedError: face.error,
-})
-if (decision.verdict === 'undetermined') {
-  console.error(`[watermark-coverage] ❌ ${decision.reason}`)
-  console.error('  取不到判定面时**不**按"没有缺口"放行 —— 那等于把"没判"写成"判过了"。')
-  process.exit(1)
-}
-const { missing, untrackedGaps, untouchedGaps, drift } = decision
-const indexSet = new Set(scope.indexFiles)
-// 自愈后的回读校验必须用**同一个面**(carried):沿用整张索引去复核,等于把刚收窄掉的那一格
-// 从后门请回来 —— 那会让提交档再次恒红(G-1018220 的症状原样复现)。
-const carriedSetForVerify = STAGED && Array.isArray(face.paths) ? new Set(face.paths) : null
-if (drift.length > 0) {
-  console.warn(
-    `[watermark-coverage] ⚠️ 排除面两侧不一致:${drift.length} 个已登记第三方文件被 list-uncovered 报成缺口(watermark.mjs 未走同一谓词?),已跳过不注入。示例: ${drift.slice(0, 5).join(', ')}`,
-  )
-}
-console.log(
-  `[watermark-coverage] 台账登记的第三方排除面:roots ${exclusion.roots.length} 条 → 真实文件 ${exclusion.paths.size} 个(不计入水印分母,改由 provenance-ledger P8 审计)`,
-)
-if (exclusion.notes.length) {
-  for (const n of exclusion.notes) console.warn(`[watermark-coverage] NOTE 排除面: ${n}`)
-}
-if (exclusion.unresolvedRoots.length) {
-  console.warn(
-    `[watermark-coverage] NOTE 台账登记了而当前清单里没有的 root ${exclusion.unresolvedRoots.length} 条(归 provenance-ledger P1 问责): ${exclusion.unresolvedRoots.join(', ')}`,
-  )
-}
-
-// ---------- 双横幅(重复版权头)巡检:warn-only,不计入退出码 ----------
-// 2026-09-22 实测:injectFile 旧版只在"见到载荷标记"时才清洗 ⇒ 已有裸横幅(无载荷)的文件
-// 被前置一条新横幅,之后恒 skip-done ⇒ 重复头永久冻结,而"有载荷即完好"的判据看不见它。
-// 工具已修(横幅文本存在即先清洗);这里把残留量显式报出来,便于后续下调到 0 再升 blocking。
+/**
+ * 双横幅(重复版权头)巡检 —— warn-only,不计入退出码,但**必须与判定同面**。
+ * 2026-09-22 实测:injectFile 旧版只在"见到载荷标记"时才清洗 ⇒ 已有裸横幅(无载荷)的文件
+ * 被前置一条新横幅,之后恒 skip-done ⇒ 重复头永久冻结,而"有载荷即完好"的判据看不见它。
+ * 工具已修(横幅文本存在即先清洗);这里把残留量显式报出来,便于后续下调到 0 再升 blocking。
+ * head/staged 面一次 `cat-file --batch` 读完(逐文件派生 = fork 风暴);取不到 blob ⇒ 抛
+ * Undetermined(清单同轮枚举到而内容取不到 = 面自相矛盾,那是「没判」,既不记绿也不冒红)。
+ */
 const CANON_BANNER = /^\/\/ © \d{4} IHUI AI \(智汇AI\) · 版权所有者:/gm
-let dupBanner = 0
-const dupSamples = []
-for (const f of scope.indexFiles) {
-  if (!/\.(ts|tsx|js|mjs|cjs|css)$/.test(f)) continue
-  // 已登记第三方内容不参与"双横幅"巡检:本项统计的是**我方文件重复打了几个头**,
-  // 而"第三方文件上出现了我方横幅"是另一件事,由 provenance-ledger P8 独立判红。
-  // 两个判据不重叠,也不留空档 —— 这里少算的那一类正是 P8 的全部射程。
-  if (exclusion.isExcluded(f)) continue
-  let text
-  try {
-    // 门 118 取材面纪律(2026-10-07):统一走 face-reader 磁盘面读入口;缺文件返 null ⇒ 与旧 ENOENT 同形跳过
-    text = readWorktreeFile(REPO_ROOT, f)
-  } catch {
-    continue
+function sweepDupBanners({ face, scope, isExcluded }) {
+  const sweepFiles = scope.indexFiles.filter(
+    (f) => /\.(ts|tsx|js|mjs|cjs|css)$/.test(f) && !isExcluded(f),
+  )
+  let dupBanner = 0
+  const dupSamples = []
+  const bump = (f, text) => {
+    const n = (text.match(CANON_BANNER) || []).length
+    if (n > 1) {
+      dupBanner += 1
+      if (dupSamples.length < 5) dupSamples.push(`${f}(×${n})`)
+    }
   }
-  if (text === null) continue
-  const n = (text.match(CANON_BANNER) || []).length
-  if (n > 1) {
-    dupBanner += 1
-    if (dupSamples.length < 5) dupSamples.push(`${f}(×${n})`)
+  if (face === 'worktree') {
+    for (const f of sweepFiles) {
+      let text
+      try {
+        // 工作树逃生舱:磁盘读;缺文件返 null ⇒ 与旧 ENOENT 同形跳过
+        text = readWorktreeFile(REPO_ROOT, f)
+      } catch {
+        continue
+      }
+      if (text === null) continue
+      bump(f, text)
+    }
+  } else if (sweepFiles.length > 0) {
+    const prefix = face === 'head' ? 'HEAD:' : ':'
+    const specs = sweepFiles.map((f) => prefix + f)
+    const raw = catBatch(REPO_ROOT, specs)
+    sweepFiles.forEach((f, i) => {
+      const text = raw.get(specs[i])
+      if (text === null || text === undefined) {
+        throw new Undetermined(`${face} 面自相矛盾:巡检清单枚举到而 blob 取不到:${f}`)
+      }
+      bump(f, text)
+    })
   }
-}
-if (dupBanner > 0) {
-  console.log(
-    `[watermark-coverage] ⚠️ 双横幅文件 ${dupBanner} 个(warn,不阻塞;修复:node scripts/watermark.mjs clean <f> && inject <f>)`,
-  )
-  console.log(`   样例: ${dupSamples.join(', ')}`)
+  return { dupBanner, dupSamples, swept: sweepFiles.length }
 }
 
-if (untrackedGaps.length > 0) {
-  // 只报数、不判红、不代写:那批文件属别人在飞的现场(见文件头 G-253 那段)。
-  // 但必须**喊出来** —— 否则"分母并上了未跟踪面"这件事与没做只差一行日志。
-  console.log(
-    `[watermark-coverage] ℹ️ 未跟踪面上另有 ${untrackedGaps.length} 个缺水印的源文件` +
-      `(**不计入退出码、不自动往别人未提交的文件里写字**):` +
-      untrackedGaps.slice(0, 5).join(', ') +
-      (untrackedGaps.length > 5 ? ` … 其余 ${untrackedGaps.length - 5} 个` : ''),
-  )
-  console.log(
-    '   出口:各自作者在被提交/落地前跑 `node scripts/watermark.mjs inject <file>`;' +
-      '旁路提交由 scripts/object-space-land.mjs 兜(它拒绝落地无有效横幅的声明路径)。',
-  )
-}
+// ---------- 主流程(§22d 守卫;判据本体是纯函数 decideCoverage,镜像测试直接 import) ----------
+async function main() {
+  if (process.argv.includes('--self-test')) return selfTest()
 
-if (untouchedGaps.length > 0) {
-  // 只报数、不判红、**不代写也不代 add**:这批文件在索引里,但本次提交不携带它们(别人 add 过)。
-  // 判红 = 与本次提交无关的恒红门(§12e/§12f);自愈 = 把别人的欠账连同横幅 git add 进我的提交(§12 污染型)。
-  // 问责仍在:全量档与本门的 CI 侧照旧逐条判它们,所以这不是把红洗成绿,是把责任还给持有它的那一枚提交。
-  console.log(
-    `[watermark-coverage] ℹ️ 索引里另有 ${untouchedGaps.length} 个缺水印文件**不由本次提交携带**` +
-      `(**不计入退出码、不 git add 别人的文件**):` +
-      untouchedGaps.slice(0, 5).join(', ') +
-      (untouchedGaps.length > 5 ? ` … 其余 ${untouchedGaps.length - 5} 个` : ''),
-  )
-  console.log(
-    '   出口:谁提交它谁跑 `node scripts/watermark.mjs inject <file>`(或让全量档/CI 问责);' +
-      '本门不得替别人补齐再由下一个人背 —— 见 PROJECT_PLAN G-1018220。',
-  )
-}
+  if (process.env.HUSKY_SKIP_WATERMARK_GUARD === '1') {
+    console.log('[skip] HUSKY_SKIP_WATERMARK_GUARD=1, 跳过溯源水印覆盖守门')
+    return 0
+  }
 
-if (missing.length === 0) {
-  // 措辞必须与**判过的面**一致:提交档只判了本次携带的文件,不能声称"已跟踪文件水印完整"
-  // —— 那会把"没判的那一格"写成"判过了"(本仓最高频失效型),也正好掩盖 untouchedGaps 那一档。
-  console.log(
-    STAGED
-      ? `[watermark-coverage] ✅ 本次提交携带的 ${face.paths ? face.paths.length : 0} 个文件水印完整` +
-          `(索引存量欠账 ${untouchedGaps.length} 个只报数,由全量档/其持有者问责)${untouchedGaps.length === 0 && face.paths && face.paths.length === 0 ? ' —— 暂存面为空,本次不携带任何文件' : ''}`
-      : '[watermark-coverage] ✅ 已跟踪文件水印完整(未跟踪产物不计入,见上)',
-  )
-  process.exit(0)
-}
+  // 面选择:全量档判 HEAD、--staged 判索引、--worktree 读磁盘(仅人工);两面旗同给 ⇒ 未判定 exit 2。
+  const facePick = selectFace({ staged: STAGED, worktree: WORKTREE, def: 'head' })
+  if (facePick.error) {
+    console.error(`[watermark-coverage] ❌ 无法判定:${facePick.error}`)
+    return 2
+  }
+  const face = facePick.face
+  const faceArgs = face === 'worktree' ? ['--worktree'] : face === 'staged' ? ['--staged'] : []
 
-// ---------- 纯判定模式(CI / 审计): 不修改任何文件 ----------
-if (NO_FIX) {
-  reportGap(missing, '(会导致 CI 红)')
-  process.exit(1)
-}
-
-// ---------- 自愈模式(pre-commit 默认) ----------
-if (decision.verdict === 'gap-too-many') {
-  reportGap(missing, `(超过自愈上限 ${MAX_AUTOFIX}, 拒绝自动回写)`)
-  console.error('')
-  console.error(`  ⚠️ 单次缺口 ${missing.length} 个 > 上限 ${MAX_AUTOFIX}: 疑似批量改写事故。`)
-  console.error('     请先排查改写来源(文本级 sed/prettier/生成器), 再整体重注入:')
-  console.error('     node scripts/watermark.mjs inject')
-  process.exit(1)
-}
-
-console.log(`[watermark-coverage] 🔧 检出 ${missing.length} 个文件水印缺失/损坏, 自动补齐中...`)
-for (const f of missing) {
+  /**
+   * 第三方排除面与 watermark.mjs 走**同一个出口**(scripts/lib/third-party-roots.mjs)。
+   * 本门自己不再拼一份 roots 清单 —— 两处算同一件事各写一份,正是本仓最高频的失守形态。
+   * 之所以两处都要判:本门的自愈循环(`inject` + 双横幅巡检)与 list-uncovered 是两条独立路径,
+   * 只收窄其一,另一条照样会把横幅打进已登记的第三方内容。
+   */
+  let exclusion
   try {
-    run('node', ['scripts/watermark.mjs', 'inject', f])
+    exclusion = createExclusionPredicate(REPO_ROOT)
   } catch (e) {
-    console.warn(`  ⚠️ ${f} 注入失败: ${String(e.message || e).split('\n')[0]}`)
+    const why = e instanceof LedgerUnavailable ? e.message : String(e?.message ?? e)
+    console.error('[watermark-coverage] ❌ 第三方排除面无法判定:' + why.split('\n')[0])
+    console.error('  算不出"哪些是已登记第三方内容"时**拒绝**自愈 —— 自愈的动作是往文件里写归属横幅,')
+    console.error(
+      '  把横幅写进 Apache-2.0/MIT 许可原文比"少一个横幅"严重得多。请先修台账或 git 可用性。',
+    )
+    return 1
   }
-}
 
-// 回读校验: 注入后必须彻底达标(不信任"命令返回 0"这一层)
-const stillMissing = listUncovered().filter(
-  (f) => indexSet.has(f) && !exclusion.isExcluded(f) && (!carriedSetForVerify || carriedSetForVerify.has(f)),
-)
-if (stillMissing.length > 0) {
-  reportGap(stillMissing, '(自愈后仍不达标)')
-  console.error('')
-  console.error('  ⚠️ 自动补齐未能达标: 该文件类型可能不可注入, 或载荷被结构性破坏。')
-  console.error('     请按上方清单手动排查后重试。')
-  process.exit(1)
-}
-
-// 同步暂存区: 否则提交的仍是"未加水印"的旧 index blob(注入只改了工作区)
-try {
-  execFileSync('git', ['add', '--', ...missing], {
-    cwd: REPO_ROOT,
-    // 原来写的是 `stdio: 'pipe'` —— 那stdin 仍是管道,正好是 EBUSY 的触发面
-    //(`'pipe'` 是三通道全管道,不是"不要 stdin")。`git add` 不吃 stdin ⇒ 必须 'ignore'。
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
+  // G-1018220:提交档(`--staged`)把**判红面与自愈面**收到"本次提交携带的文件";
+  //   全量档与 `--no-fix` 判据一字未动(只是面从磁盘换成 HEAD blob —— 那才是提交真正带走的东西)。
+  //   索引里别人 add 过而我这次不带的缺口 ⇒ 降为**只报数**;既不 git add 别人的文件,
+  //   也不让一道与本次提交无关的门替当前提交者挡路(§12e/§12f)。
+  const scope = trackedFiles(face)
+  const uncovered = listUncovered(faceArgs)
+  const faceInfo = face === 'head' ? '' : `(判定面=${face})`
+  // 携带面**只量一次**(paths 与 error 必须来自同一轮派生;两次派生 = 两个时刻的索引)
+  const carried = face === 'staged' ? carriedFiles() : { paths: null, error: null }
+  const decision = decideCoverage({
+    scope,
+    uncovered: uncovered.paths,
+    uncoveredError: uncovered.error,
+    isExcluded: exclusion.isExcluded,
+    stagedFace: face === 'staged',
+    carried: carried.paths,
+    carriedError: carried.error,
   })
-} catch (e) {
-  console.error('[watermark-coverage] ⚠️ git add 同步暂存区失败:', String(e.message || e))
-  console.error('     注入已写入工作区, 请手动 `git add` 后重试提交。')
-  process.exit(1)
+  if (decision.verdict === 'undetermined') {
+    console.error(`[watermark-coverage] ❌ 无法判定${faceInfo}:${decision.reason}`)
+    console.error('  取不到判定面时**不**按"没有缺口"放行 —— 那等于把"没判"写成"判过了"(§0.3)。')
+    console.error('  也**不**回落另一个面去凑结论(§0.4);修复 git/HEAD 可用性后重跑。')
+    return 2
+  }
+  const { missing, untrackedGaps, untouchedGaps, drift } = decision
+  const indexSet = new Set(scope.indexFiles)
+  if (drift.length > 0) {
+    console.warn(
+      `[watermark-coverage] ⚠️ 排除面两侧不一致:${drift.length} 个已登记第三方文件被 list-uncovered 报成缺口(watermark.mjs 未走同一谓词?),已跳过不注入。示例: ${drift.slice(0, 5).join(', ')}`,
+    )
+  }
+  console.log(
+    `[watermark-coverage] 台账登记的第三方排除面:roots ${exclusion.roots.length} 条 → 真实文件 ${exclusion.paths.size} 个(不计入水印分母,改由 provenance-ledger P8 审计)`,
+  )
+  if (exclusion.notes.length) {
+    for (const n of exclusion.notes) console.warn(`[watermark-coverage] NOTE 排除面: ${n}`)
+  }
+  if (exclusion.unresolvedRoots.length) {
+    console.warn(
+      `[watermark-coverage] NOTE 台账登记了而当前清单里没有的 root ${exclusion.unresolvedRoots.length} 条(归 provenance-ledger P1 问责): ${exclusion.unresolvedRoots.join(', ')}`,
+    )
+  }
+
+  const sweep = sweepDupBanners({ face, scope, isExcluded: exclusion.isExcluded })
+  if (sweep.dupBanner > 0) {
+    console.log(
+      `[watermark-coverage] ⚠️ 双横幅文件 ${sweep.dupBanner} 个(warn,不阻塞;修复:node scripts/watermark.mjs clean <f> && inject <f>)`,
+    )
+    console.log(`   样例: ${sweep.dupSamples.join(', ')}`)
+  }
+
+  if (untrackedGaps.length > 0) {
+    // 只报数、不判红、不代写:那批文件属别人在飞的现场(见文件头 G-253 那段)。
+    // 但必须**喊出来** —— 否则"分母并上了未跟踪面"这件事与没做只差一行日志。
+    console.log(
+      `[watermark-coverage] ℹ️ 未跟踪面上另有 ${untrackedGaps.length} 个缺水印的源文件` +
+        `(**不计入退出码、不自动往别人未提交的文件里写字**):` +
+        untrackedGaps.slice(0, 5).join(', ') +
+        (untrackedGaps.length > 5 ? ` … 其余 ${untrackedGaps.length - 5} 个` : ''),
+    )
+    console.log(
+      '   出口:各自作者在被提交/落地前跑 `node scripts/watermark.mjs inject <file>`;' +
+        '旁路提交由 scripts/object-space-land.mjs 兜(它拒绝落地无有效横幅的声明路径)。',
+    )
+  }
+
+  if (untouchedGaps.length > 0) {
+    // 只报数、不判红、**不代写也不代 add**:这批文件在索引里,但本次提交不携带它们(别人 add 过)。
+    // 判红 = 与本次提交无关的恒红门(§12e/§12f);自愈 = 把别人的欠账连同横幅 git add 进我的提交(§12 污染型)。
+    // 问责仍在:全量档与本门的 CI 侧照旧逐条判它们,所以这不是把红洗成绿,是把责任还给持有它的那一枚提交。
+    console.log(
+      `[watermark-coverage] ℹ️ 索引里另有 ${untouchedGaps.length} 个缺水印文件**不由本次提交携带**` +
+        `(**不计入退出码、不 git add 别人的文件**):` +
+        untouchedGaps.slice(0, 5).join(', ') +
+        (untouchedGaps.length > 5 ? ` … 其余 ${untouchedGaps.length - 5} 个` : ''),
+    )
+    console.log(
+      '   出口:谁提交它谁跑 `node scripts/watermark.mjs inject <file>`(或让全量档/CI 问责);' +
+        '本门不得替别人补齐再由下一个人背 —— 见 PROJECT_PLAN G-1018220。',
+    )
+  }
+
+  if (missing.length === 0) {
+    // 措辞必须与**判过的面**一致:提交档只判了本次携带的文件,不能声称"已跟踪文件水印完整"
+    // —— 那会把"没判的那一格"写成"判过了"(本仓最高频失效型),也正好掩盖 untouchedGaps 那一档。
+    console.log(
+      face === 'staged'
+        ? `[watermark-coverage] ✅ 本次提交携带的 ${carried.paths ? carried.paths.length : 0} 个文件水印完整` +
+            `(索引存量欠账 ${untouchedGaps.length} 个只报数,由全量档/其持有者问责)` +
+            (untouchedGaps.length === 0 && carried.paths && carried.paths.length === 0
+              ? ' —— 暂存面为空,本次不携带任何文件'
+              : '')
+        : `[watermark-coverage] ✅ ${face === 'head' ? 'HEAD 面' : '工作树面(人工逃生舱)'}已枚举文件水印完整${face === 'worktree' ? '(未跟踪产物另列,不计入)' : ''}`,
+    )
+    return 0
+  }
+
+  // ---------- 纯判定模式(CI / 审计): 不修改任何文件 ----------
+  if (NO_FIX) {
+    reportGap(missing, '(会导致 CI 红)', faceInfo)
+    return 1
+  }
+
+  // ---------- 自愈模式 ----------
+  if (decision.verdict === 'gap-too-many') {
+    reportGap(missing, `(超过自愈上限 ${MAX_AUTOFIX}, 拒绝自动回写)`, faceInfo)
+    console.error('')
+    console.error(`  ⚠️ 单次缺口 ${missing.length} 个 > 上限 ${MAX_AUTOFIX}: 疑似批量改写事故。`)
+    console.error('     请先排查改写来源(文本级 sed/prettier/生成器), 再整体重注入:')
+    console.error('     node scripts/watermark.mjs inject')
+    return 1
+  }
+
+  console.log(
+    `[watermark-coverage] 🔧 检出 ${missing.length} 个文件水印缺失/损坏(判定面=${face}), inject 写工作区...`,
+  )
+  for (const f of missing) {
+    try {
+      run('node', ['scripts/watermark.mjs', 'inject', f])
+    } catch (e) {
+      console.warn(`  ⚠️ ${f} 注入失败: ${String(e.message || e).split('\n')[0]}`)
+    }
+  }
+
+  if (face === 'staged') {
+    // pre-commit 语义:inject 只改工作区,提交带走的是索引 blob ⇒ 必须 add 回索引,
+    // 否则提交的仍是"未加水印"的旧索引副本。**这一档 add 是对的(紧接着就 commit),不许改坏。**
+    try {
+      execFileSync('git', ['add', '--', ...missing], {
+        cwd: REPO_ROOT,
+        // 原来写的是 `stdio: 'pipe'` —— 那 stdin 仍是管道,正好是 EBUSY 的触发面
+        //(`'pipe'` 是三通道全管道,不是"不要 stdin")。`git add` 不吃 stdin ⇒ 必须 'ignore'。
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      })
+    } catch (e) {
+      console.error('[watermark-coverage] ⚠️ git add 同步暂存区失败:', String(e.message || e))
+      console.error('     注入已写入工作区, 请手动 `git add` 后重试提交。')
+      return 1
+    }
+    // 回读校验打在**索引面**(add 之后),这才等于"本次提交带走的那一份达标了"
+    const re = listUncovered(['--staged'])
+    const stillMissing =
+      re.paths === null
+        ? missing
+        : re.paths.filter(
+            (f) => indexSet.has(f) && !exclusion.isExcluded(f) && missing.includes(f),
+          )
+    if (stillMissing.length > 0) {
+      reportGap(stillMissing, '(自愈后索引面仍不达标)', faceInfo)
+      console.error('')
+      console.error('  ⚠️ 自动补齐未能达标: 该文件类型可能不可注入, 或载荷被结构性破坏。')
+      console.error('     请按上方清单手动排查后重试。')
+      return 1
+    }
+    console.log(
+      `[watermark-coverage] ✅ 已自动补齐 ${missing.length} 个文件的水印并加入暂存区(无需再跳过门禁):`,
+    )
+    // G-1018220 口径②:每条"我刚修复"的清单行带结构化豁免键(SELF_HEAL_FIXED_MARK,从归因层
+    // import 的那一份)—— 归因层"点名即定责"的铰链只认这个键豁免自愈动作行;报红块/注入失败行
+    // 不带键,真失败点名照旧定责。键是**行级**的:块内其余行(表头/计数)不参与豁免。
+    for (const f of missing.slice(0, 30)) console.log(`  - ${f} ${SELF_HEAL_FIXED_MARK}`)
+    if (missing.length > 30) console.log(`  ... 其余 ${missing.length - 30} 个`)
+    return 0
+  }
+
+  // 全量档 / push-gate 档:**只写工作区、不碰索引**。
+  // WHY:工作区可回滚,索引不可 —— 在永不 commit 的档位 `git add`,就是把改动悬在共享索引里
+  // 等下一个提交者背(2026-10-14「暂存更改悬着没提交」的直接成因)。写盘之后仍判红,
+  // 因为判定面(HEAD)只能被一次真正的提交改变 —— 把"没落地"写成"已修好"是假绿,不许。
+  const disk = listUncovered(missing) // 显式点名 = 工作树面:量"inject 是否真写到了盘上"
+  const stillOnDisk = disk.paths === null ? missing : disk.paths.filter((f) => missing.includes(f))
+  if (stillOnDisk.length > 0) {
+    reportGap(stillOnDisk, '(自愈后盘上仍不达标 —— 类型不可注入或载荷结构性破坏)', faceInfo)
+    return 1
+  }
+  if (face === 'worktree') {
+    console.log(
+      `[watermark-coverage] ✅ 工作树面(人工逃生舱)已补齐 ${missing.length} 个文件(本档刻意不动索引,请随下一次提交带上):`,
+    )
+    for (const f of missing.slice(0, 30)) console.log(`  - ${f}`)
+    return 0
+  }
+  console.log(
+    `[watermark-coverage] 💧 已 inject 到工作区,请随下一次提交带上(本档刻意不动索引 —— 工作区可回滚,索引不可)。`,
+  )
+  reportGap(missing, '(HEAD 面欠账不会因写盘而销 —— 只有一枚把它带进 HEAD 的提交能修)', faceInfo)
+  return 1
 }
 
-console.log(
-  `[watermark-coverage] ✅ 已自动补齐 ${missing.length} 个文件的水印并加入暂存区(无需再跳过门禁):`,
-)
-// G-1018220 口径②:每条"我刚修复"的清单行带结构化豁免键(SELF_HEAL_FIXED_MARK,从归因层
-// import 的那一份)—— 归因层"点名即定责"的铰链只认这个键豁免自愈动作行;报红块/注入失败行
-// 不带键,真失败点名照旧定责。键是**行级**的:块内其余行(表头/计数)不参与豁免。
-for (const f of missing.slice(0, 30)) console.log(`  - ${f} ${SELF_HEAL_FIXED_MARK}`)
-if (missing.length > 30) console.log(`  ... 其余 ${missing.length - 30} 个`)
-process.exit(0)
+const isDirectRun = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url
+
+if (isDirectRun) {
+  main()
+    .then((code) => {
+      // 必须显式传播退出码:异步 main() 自然返回时 Node 一律按 0 收工(守门 194 自检抓出的真缺陷)
+      process.exitCode = typeof code === 'number' ? code : 0
+    })
+    .catch((e) => {
+      if (e instanceof Undetermined) {
+        console.error(`[watermark-coverage] ❌ 无法判定(未判定 ≠ 通过,也不冒红):${e.message}`)
+        process.exitCode = 2
+      } else {
+        console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+        process.exitCode = 2
+      }
+    })
+}
+
+export const __test__ = {
+  decideCoverage,
+  selfTest,
+  sweepDupBanners,
+  NO_FIX,
+  STAGED,
+  WORKTREE,
+  MAX_AUTOFIX,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

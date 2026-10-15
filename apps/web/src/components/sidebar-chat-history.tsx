@@ -336,7 +336,10 @@ export function SidebarChatHistory({
       const totalPages = Math.ceil(last.total / last.pageSize)
       return last.page < totalPages ? last.page + 1 : undefined
     },
-    enabled: isAuthenticated && !collapsed,
+    // 2026-10-15:本行原本只看 isAuthenticated —— 冷启动时它可能是 localStorage 残留的
+    // true 而 bootstrap 还没跑完,侧栏照样抢跑一发注定 401 的请求(L252-254 已取 ready
+    // 却没进 enabled,即本模式原始缺陷)。补 ready 后所有会话冷启动的抢跑一并止血。
+    enabled: ready && isAuthenticated && !collapsed,
     staleTime: 30 * 1000,
   })
 
