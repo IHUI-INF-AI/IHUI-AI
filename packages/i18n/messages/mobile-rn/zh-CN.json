@@ -486,7 +486,8 @@
     "groupTrade": "交易",
     "groupPromote": "推广",
     "groupPersonal": "个人",
-    "groupCommunity": "社区"
+    "groupCommunity": "社区",
+    "claimFree": "领取免费资料"
   },
   "error": {
     "network": "网络错误,请稍后重试"

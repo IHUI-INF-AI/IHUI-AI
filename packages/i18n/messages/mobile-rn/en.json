@@ -486,7 +486,8 @@
     "groupTrade": "Commerce",
     "groupPromote": "Promotion",
     "groupPersonal": "Personal",
-    "groupCommunity": "Community"
+    "groupCommunity": "Community",
+    "claimFree": "Claim Free Materials"
   },
   "error": {
     "network": "Network error, please retry"
