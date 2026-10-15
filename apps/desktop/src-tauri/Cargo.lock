@@ -2301,6 +2301,7 @@ dependencies = [
 name = "ihui-desktop"
 version = "0.1.0"
 dependencies = [
+ "aes",
  "aes-gcm",
  "arboard",
  "base64 0.23.0",
@@ -2313,6 +2314,7 @@ dependencies = [
  "screenshots",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-autostart",
