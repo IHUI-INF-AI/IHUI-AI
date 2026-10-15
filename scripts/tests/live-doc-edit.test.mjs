@@ -535,6 +535,44 @@ test('T14 resolveIdTokens:号来自底稿、取不到即拒绝、无令牌不误
 })
 
 /**
+ * T14d/T14e 让号(改派)场景的**成对**锁(G-454 落地判据,2026-10-16 立)。
+ * 票面原话:「落地判据 = 镜像测试新增成对两例『令牌不得交回本次被让位的旧号』与
+ *  『改派后行首编号必须与旧号不同』(只留前者就是复读实现)」⇒ 两条一起进,一条钉"会拒",
+ * 一条钉"改了真的换成另一个号"。场景按 2026-10-16 本机真实撞号复刻:
+ * 台账上某号已被自己让空(池内最小空闲正好是它),而远端那一份还在用同一枚号。
+ */
+test('T14d 令牌不得交回本次被让位的旧号(① 当场拒发)', () => {
+  const ledgerWith = '- [ ] **G-1 甲**:a\n- [ ] **G-2 乙**:b\n- [ ] **G-3 丙**:c\n- [ ] **G-4 丁**:d\n- [ ] **G-5 戊**:e\n- [ ] **G-6 己**:f\n- [ ] **G-7 庚**:g\n'
+  // 让号的第一步已把 G-7 那行的声明位剥掉 ⇒ 池内最小空闲 = 7(正是本次让出的号)
+  const afterVacate = '- [ ] **G-1 甲**:a\n- [ ] **G-2 乙**:b\n- [ ] **G-3 丙**:c\n- [ ] **G-4 丁**:d\n- [ ] **G-5 戊**:e\n- [ ] **G-6 己**:f\n- [ ] 庚:g\n'
+  const reps = [{ before: '- [ ] **G-7 庚**:g', after: '- [ ] {{NEXT_ID:G}} 庚:g 〔改派为新号,原登记 G-7〕' }]
+  const vac = __test__.vacatedIdsOf(reps, ledgerWith, ['G'])
+  assert.deepEqual(vac, ['G-7'], `让位集应取到被替换行的声明位号,实得 ${JSON.stringify(vac)}`)
+  // 不带让位集时确实会把 G-7 再发一次 —— 这一支是"缺陷真实存在"的正向证据,不是空转夹具
+  const naive = __test__.resolveIdTokens(reps.map((r) => r.after), afterVacate, null, {})
+  assert.equal(naive.ok, true)
+  assert.equal(naive.assigned, 'G-7', `复现前提:池内最小空闲就是被让出的 G-7,实得 ${naive.assigned}`)
+  const refused = __test__.resolveIdTokens(reps.map((r) => r.after), afterVacate, null, { vacating: vac })
+  assert.equal(refused.ok, false, '令牌交回本次正被让位的旧号 ⇒ 必须拒发,不得安静交出同一个号')
+  assert.equal(refused.reason, 'token-returned-vacated-id')
+  assert.equal(refused.vacatedIds, 'G-7')
+})
+
+test('T14e 改派后行首编号必须与旧号不同(② 远端占位时逐面复查空闲,发下一个号)', () => {
+  const afterVacate = '- [ ] **G-1 甲**:a\n- [ ] **G-2 乙**:b\n- [ ] **G-3 丙**:c\n- [ ] **G-4 丁**:d\n- [ ] **G-5 戊**:e\n- [ ] **G-6 己**:f\n- [ ] 庚:g\n'
+  const target = '- [ ] {{NEXT_ID:G}} 庚:g 〔改派为新号,原登记 G-7〕'
+  // 远端那一份仍占着 G-7(本机 2026-10-16 的实况):max 相同与否都不是重点,重点是**已用集合**要参与
+  const remote = { max: { G: 7 }, ids: { G: ['G-7'] }, notes: [], info: [], tipSha: 'f'.repeat(40) }
+  const r = __test__.resolveIdTokens([target], afterVacate, remote, { vacating: ['G-7'] })
+  assert.equal(r.ok, true, `远端占位后应改发下一个空闲号而不是拒发:${r.reason}`)
+  assert.equal(r.assigned, 'G-8', `不得把远端仍在用的 G-7 再发一次,实得 ${r.assigned}`)
+  assert.match(r.lines[0], /^- \[ \] G-8 庚/, `落地行的声明位必须是新号,实得:${r.lines[0]}`)
+  // 反向对照:同一底稿、远端**没**占 7 ⇒ 池式口径就该回填 7(不得为了躲它而跳号)
+  const backfill = __test__.resolveIdTokens([target], afterVacate, { max: { G: 6 }, ids: { G: [] } }, {})
+  assert.equal(backfill.assigned, 'G-7', '远端未占用的空洞仍应优先回填,否则本条把池式口径改成了只追 max')
+})
+
+/**
  * T15 端到端:落地后的 HEAD 行里**只剩算出来的号**,令牌本身不得入库。
  * 这一条同时是"令牌真被 CAS 用上"的装车证明 —— 纯函数测过却没人调,就是本仓反复登记的那一型。
  */
