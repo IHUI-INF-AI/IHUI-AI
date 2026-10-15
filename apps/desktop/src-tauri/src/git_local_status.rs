@@ -106,6 +106,10 @@ pub enum EngineOutcome {
     },
 }
 
+// is_facts / undetermined_kind 只服务镜像测试：生产侧（含 git_channel_ipc.rs 的
+// From<&EngineOutcome>）一律对三态做**结构化 match**，不调便捷判定——放 cfg(test)
+// 而不是挂 allow(dead_code)，生产编译里这两个方法根本不存在。
+#[cfg(test)]
 impl EngineOutcome {
     pub fn is_facts(&self) -> bool {
         matches!(self, EngineOutcome::Facts { .. })
