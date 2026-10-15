@@ -25,7 +25,8 @@ import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 import { __test__ as G } from '../check-stale-revert.mjs'
-import { resurrectKey, resurrectAnalysis } from '../lib/stale-content-analysis.mjs'
+// §22c:复活判据与其非证据档都从 lib 那一份实现取,测试里不复制
+import { resurrectKey, resurrectAnalysis, RESURRECT_WATERMARK_SLOT_RE } from '../lib/stale-content-analysis.mjs'
 
 const GIT = 'C:/Program Files/Git/cmd/git.exe'
 
@@ -694,6 +695,65 @@ test('R1r 内容性档:样板行进样板档只报数,真阳性与引号形态�
   })
   assert.ok(r2.count > 0, `长真内容行必须仍判红,实得 ${r2.count}`)
 })
+
+/* ------------------------------------------------------------------ *
+ * WM 组(2026-10-15):水印载荷槽行不得当复活证据 —— 门 84 R1r ↔ 门 47 互锁的精度修正。
+ * 实测触发形态:`scripts/gen-i18n-compressed.mjs` HEAD 载荷被截断(门 47 判残迹),祖先完好,
+ * 按 §5c 的 `clean → inject` 修必然逐字复现那行完好载荷 ⇒ 被数成"复活 1 行"并定责到本次文件。
+ * 成对断律:只有槽行 ⇒ 不判红**但仍报名**;槽行旁边放一行真回潮 ⇒ 照红(证明削的是误伤不是牙)。
+ * ------------------------------------------------------------------ */
+{
+  const SLOT_OLD = '// [IHUI-AI-PROVENANCE]:⁠​‌ 残迹截断版'
+  const SLOT_NEW = '// [IHUI-AI-PROVENANCE]:⁠​‌‍ 完好载荷版'
+  const BODY = 'const A = 1\nconst B = 2'
+
+  test('WM-1 正控:HEAD 有槽行(截断)、落地内容是修好的槽行 ⇒ 不算复活,但必须报进样板档', () => {
+    const r = resurrectAnalysis({
+      baseText: `${BODY}\n${SLOT_OLD}`,
+      newText: `${BODY}\n${SLOT_NEW}`,
+      ancestors: [{ commit: '0b99d2790', text: `${BODY}\n${SLOT_NEW}` }],
+    })
+    assert.equal(r.status, 'judged')
+    assert.equal(r.count, 0, `载荷槽行不得当复活证据,实得 ${r.count}:${JSON.stringify(r.sample)}`)
+    assert.ok(r.boilerplateCount >= 1, `少认了必须可见(样板档计数),实得 ${r.boilerplateCount}`)
+  })
+
+  test('WM-2 反控:槽行 + 一行真内容回潮 ⇒ 真内容照判红(牙没削)', () => {
+    const REAL = 'export const staleRevertDrill = "HEAD 已删、祖先写过的那行真内容"'
+    const r = resurrectAnalysis({
+      baseText: `${BODY}\n${SLOT_OLD}`,
+      newText: `${BODY}\n${SLOT_NEW}\n${REAL}`,
+      ancestors: [{ commit: '0b99d2790', text: `${BODY}\n${SLOT_NEW}\n${REAL}` }],
+    })
+    assert.equal(r.count, 1, `真回潮行必须仍计 1 行,实得 ${r.count}:${JSON.stringify(r.sample)}`)
+    assert.ok(
+      r.sample.some((s) => s.includes('staleRevertDrill')),
+      `样本必须点名真内容行,实得 ${JSON.stringify(r.sample)}`,
+    )
+  })
+
+  test('WM-3 交叉锚:槽行 marker 字面量必须等于 watermark.mjs 那份唯一出口的 BANNER_ID', async () => {
+    const WM = await import('../watermark.mjs')
+    const bannerId = WM.__test__.BANNER_ID
+    assert.ok(typeof bannerId === 'string' && bannerId.length > 0, 'watermark.mjs 必须导出 BANNER_ID')
+    assert.ok(RESURRECT_WATERMARK_SLOT_RE.test(`// [${bannerId}]:x`), 'lib 的正则必须命中生产 marker 的槽行形态')
+    assert.ok(!RESURRECT_WATERMARK_SLOT_RE.test('// 普通注释,不含 marker'), '不得把普通注释划进非证据档')
+  })
+
+  test('WM-4 形状锁(变异替身):槽行档必须真的接在 resurrectAnalysis 的噪声判里,摘掉即红', () => {
+    const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+    const libSrc = readFileSync(join(ROOT, 'scripts/lib/stale-content-analysis.mjs'), 'utf8')
+    const body = libSrc.slice(libSrc.indexOf('export function resurrectAnalysis'))
+    assert.ok(
+      /RESURRECT_WATERMARK_SLOT_RE\.test\(rawLine\)/.test(body),
+      '噪声/样板条件里必须有槽行档 ⇒ 缺它则 WM-1 那型重新判红',
+    )
+    assert.ok(
+      body.indexOf('RESURRECT_BOILER_LINE_RE.test(rawLine)') < body.indexOf('RESURRECT_WATERMARK_SLOT_RE.test(rawLine)'),
+      '两条非证据档必须在同一个条件里(防止只在某一分支生效)',
+    )
+  })
+}
 
 test('G-587 镜像钉:样板形态清单只此一份实现,门体必须从 lib import 而非自写', () => {
   const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')

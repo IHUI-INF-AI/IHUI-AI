@@ -5,9 +5,9 @@
 
 /**
  * check-input-focus-feedback.mjs —— 「有描边的输入/选择控件对聚焦无反应」三端对账
- * (台账 G-1113923,2026-10-08 立;blocking 定级由主会话接线时裁定)
+ * (票 G-42 第①格,2026-10-08 立;2026-10-14 接线时裁定 blocking —— 前置实测:--self-test / 全量档 / --staged 三档均 RC 0,存量 81 处/54 文件由"该文件 HEAD 自身存量"棘轮只报数)
  *
- * 【接线状态:未接入】—— 注册表由主会话单写者接线。镜像测试按 `scripts/guardian-runner.mjs`
+ * 【接线状态:已接入】—— 接线点 = `scripts/guardian-runner.mjs` 注册表 id '212'(blocking,skipEnv `HUSKY_SKIP_INPUT_FOCUS_FEEDBACK`,stagedTriggers ['apps/','packages/'])。镜像测试按 `scripts/guardian-runner.mjs`
  * 现读做**双向**对账:这一行自称"已接入"而 runner 没有注册条 ⇒ 红;runner 注册了而这一行仍写
  * "未接入" ⇒ 也红。措辞不进断言,所以日后改写说明文字不会假红。
  *
