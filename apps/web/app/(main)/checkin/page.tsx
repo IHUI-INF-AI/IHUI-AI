@@ -77,6 +77,7 @@ import {
 import { EChart } from '@/components/charts/EChart'
 import { TruncatedText } from '@/components/common/TruncatedText'
 import { AuthGatePrompt } from '@/components/common'
+import { Container } from '@/components/layout/Container'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
@@ -1535,8 +1536,10 @@ export default function CheckinPage() {
     ) : null
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-4">
-      <div className="mb-6 flex items-center justify-between">
+    // 宽度跟随工作区:maxWidth="full" 与同类表格页(api-keys/privacy/notifications 等)同档,
+    // 此前 max-w-5xl 硬上限 1024px,工作区更宽时两侧大片死白、内容不铺满(2026-10-15 修)。
+    <Container maxWidth="full" padding={false} className="px-4 py-4">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <CalendarCheck className="h-5 w-5 text-primary" />
@@ -1555,7 +1558,7 @@ export default function CheckinPage() {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <Button
             variant="ghost"
             size="sm"
@@ -1704,8 +1707,8 @@ export default function CheckinPage() {
             </div>
           ) : (
             <>
-              {/* 平台筛选(恒显)+ 分组筛选(有分组才显示) */}
-              <div className="mb-3 flex items-center gap-2">
+              {/* 平台筛选(恒显)+ 分组筛选(有分组才显示);窄工作区换行不溢出 */}
+              <div className="mb-3 flex flex-wrap items-center gap-2">
                 <select
                   data-testid="platform-filter"
                   aria-label={t('platformAll')}
@@ -1739,7 +1742,7 @@ export default function CheckinPage() {
                 )}
               </div>
               <div className="rounded-xl border">
-                <Table>
+                <Table className="min-w-[900px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-8">
@@ -1917,7 +1920,7 @@ export default function CheckinPage() {
                 </div>
               ) : (
                 <div className="rounded-xl border">
-                  <Table>
+                  <Table className="min-w-[760px]">
                     <TableHeader>
                       <TableRow>
                         <TableHead>{t('colTime')}</TableHead>
@@ -1993,7 +1996,7 @@ export default function CheckinPage() {
                 </div>
               ) : (
                 <div className="rounded-xl border">
-                  <Table>
+                  <Table className="min-w-[520px]">
                     <TableHeader>
                       <TableRow>
                         <TableHead>{t('colTime')}</TableHead>
@@ -2197,6 +2200,8 @@ export default function CheckinPage() {
                   </p>
                 ) : (
                   <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">{t('deviceMapProxyHint')}</p>
+              
                     {scanTrae.length > 0 && (
                       <div className="space-y-1">
                         <p className="text-xs font-medium">
@@ -2470,6 +2475,7 @@ export default function CheckinPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">{t('deviceMapProxyHint')}</p>
             <div className="space-y-1.5">
               <Label htmlFor="checkin-device-map-update">{t('deviceMap')}</Label>
               <textarea
@@ -3108,7 +3114,7 @@ export default function CheckinPage() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </Container>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

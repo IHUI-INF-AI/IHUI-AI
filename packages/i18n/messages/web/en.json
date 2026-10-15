@@ -19175,6 +19175,7 @@
     "deleteDescription": "This will delete account \"{name}\" and all of its check-in records. This cannot be undone.",
     "deviceMap": "Device Fingerprint",
     "deviceMapInvalid": "Device fingerprint is not a valid JSON object",
+    "deviceMapProxyHint": "Multi-account anti-risk: give each account its own proxy to bind a separate egress IP, e.g. \"proxy\": \"http://user:pass@host:port\" (http/socks5). Leave empty for direct local connection",
     "deviceMapPlaceholder": "'{'\"ua\": \"...\", \"av\": \"...\"'}' (optional, auto-generated if empty)",
     "emptyAccounts": "No check-in accounts yet. Click Add to create one.",
     "emptyCredits": "No credit history yet",

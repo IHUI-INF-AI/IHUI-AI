@@ -19178,6 +19178,7 @@
     "deleteDescription": "계정 \"{name}\"과(와) 모든 출석 기록이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
     "deviceMap": "디바이스 핑거프린트",
     "deviceMapInvalid": "디바이스 핑거프린트가 유효한 JSON 개체가 아닙니다",
+    "deviceMapProxyHint": "다중 계정 리스크 방지: 각 계정에 전용 프록시를 지정하면 독립 출구 IP가 바인딩됩니다(예 \"proxy\": \"http://user:pass@host:port\", http/socks5 지원). 로컬 직결은 비워두세요",
     "deviceMapPlaceholder": "'{'\"ua\": \"...\", \"av\": \"...\"'}' (선택 사항, 비워 두면 자동 생성)",
     "emptyAccounts": "출석 계정이 없습니다. 오른쪽 위에서 추가하세요",
     "emptyCredits": "포인트 기록이 없습니다",
