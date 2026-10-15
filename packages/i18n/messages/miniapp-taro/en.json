@@ -4382,9 +4382,6 @@
   "profile": {
     "myCourses": "My courses"
   },
-  "Menu": {
-    "d1": "Music"
-  },
   "verify": {
     "phoneEmpty": "Phone number is empty",
     "phoneInvalid": "Please enter a valid phone number",

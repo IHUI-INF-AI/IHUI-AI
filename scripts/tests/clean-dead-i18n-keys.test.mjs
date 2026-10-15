@@ -33,7 +33,12 @@ import { TARGETS } from '../lib/i18n-scan-targets.mjs'
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const TARGETS_PATH = resolve(HERE, '../lib/i18n-scan-targets.mjs')
 
-/** 事故同族:154f407499 删掉的 12 个键(第 12 个 tail.8 由 G-1058616 之后单独查出并补回)。 */
+/**
+ * 事故同族:154f407499 删掉的 12 个键(第 12 个 tail.8 由 G-1058616 之后单独查出并补回)。
+ * 2026-10-16 现读更正:`Menu.d1` 从本清单摘出 —— 它的载体 `apps/miniapp-taro/src/components/Menu.tsx`
+ * 已随 `a86e4cc821`(摘除零消费者跨端死载体)从提交面删除,键因此成真孤儿,五语言同批清掉。
+ * 该事实另由 T1b 反向钉住(键不在词包 ⇒ 删键防线必须放行),不是把判据放宽。
+ */
 const INCIDENT_KEYS = [
   ['verify', 'getCode'],
   ['verify', 'phoneEmpty'],
@@ -41,7 +46,6 @@ const INCIDENT_KEYS = [
   ['verify', 'codeSent'],
   ['verify', 'codeIncomplete'],
   ['verify', 'verifySuccess'],
-  ['Menu', 'd1'],
   ['tail', '8'],
   ['tail', '12'],
   ['VerifyCodeModal', 'p2'],
@@ -49,7 +53,7 @@ const INCIDENT_KEYS = [
   ['VoiceInput', 'p1'],
 ]
 
-test('T1 阳性对照:事故同族的 12 个键必须逐条判为「仍被消费」', () => {
+test('T1 阳性对照:事故同族仍存的 11 个键必须逐条判为「仍被消费」', () => {
   const consumers = collectConsumers('miniapp-taro')
   assert.ok(consumers && consumers.scanned > 0, '取材失败:扫到 0 个文件 ⇒ 下面全是空断言')
   const stillAlive = INCIDENT_KEYS.filter(([ns, key]) =>
@@ -59,6 +63,20 @@ test('T1 阳性对照:事故同族的 12 个键必须逐条判为「仍被消费
     stillAlive.sort(),
     INCIDENT_KEYS.map(([ns, key]) => `${ns}.${key}`).sort(),
     '有键被判成"没人消费"⇒ 删键防线在这条上不咬,等于没装',
+  )
+})
+
+test('T1b 反向锁:载体被摘除的那枚键必须放行(2026-10-16 现读,Menu.d1 ⇒ a86e4cc821)', () => {
+  const miniapp = collectConsumers('miniapp-taro')
+  assert.equal(
+    isStillConsumed('Menu.d1', miniapp),
+    false,
+    'Menu.tsx 已从提交面摘除,Menu.d1 若还被判"仍被消费"说明取材面读到了盘上残留 ⇒ 删键防线会被顶绿',
+  )
+  assert.equal(
+    verifyAllDead({ Menu: ['d1'] }, miniapp, 'miniapp-taro'),
+    true,
+    '真孤儿键必须放行,否则清键的人只能绕过这道防线',
   )
 })
 

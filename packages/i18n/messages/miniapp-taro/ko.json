@@ -4382,9 +4382,6 @@
   "profile": {
     "myCourses": "내 강의"
   },
-  "Menu": {
-    "d1": "음악"
-  },
   "verify": {
     "phoneEmpty": "휴대폰 번호가 비어 있습니다",
     "phoneInvalid": "올바른 휴대폰 번호를 입력하세요",

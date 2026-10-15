@@ -4382,9 +4382,6 @@
   "profile": {
     "myCourses": "我的课程"
   },
-  "Menu": {
-    "d1": "音乐"
-  },
   "verify": {
     "phoneEmpty": "手机号为空",
     "phoneInvalid": "请输入正确手机号",

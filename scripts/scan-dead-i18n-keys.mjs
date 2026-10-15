@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * i18n 死 key 审计器 — 统一入口(2026-07-27 重构:5 端收敛为 --target 单脚本)
@@ -40,14 +39,19 @@
  *
  * 死 key 判定 / 翻译完整性 / 动态 key:见 _i18n-scan-helpers.mjs 注释
  *
- * 判定面(2026-09-28 立,与守门 70/118 同口径):
- *   --staged    ⇒ 索引 blob:locale JSON、契约文件、参照语料在同一轮经 git ls-files +
- *                 一次 cat-file --batch 读满;并行会话**未暂存**的磁盘半编辑态结构上进不了
- *                 索引,所以再也判不红本次提交(立项成因:本步作为批外 blocking 曾因他人
- *                 未提交的 apps/web/app/status/page.tsx 红过,各会话唯一出路 --no-verify,
- *                 一次绕过约等于链上全部守门作废,§12e/§12f)。
+ * 判定面(2026-09-28 立,2026-10-16 收到 AGENTS §0.4 三面口径,与守门 70/118 同律):
+ *   缺省(= face 'head')⇒ **HEAD blob**:locale JSON、契约文件、参照语料在同一轮经
+ *                 `git ls-tree -r HEAD` 枚举 + 一次 `cat-file --batch`(`scripts/lib/face-reader.mjs`
+ *                 的 `catBatch`)读满,清单与内容同面同轮。全量档判的是"提交真正带上的那一份",
+ *                 不是滞后的共享工作树 —— 2026-10-16 实测:磁盘档因 4 份已随 `a86e4cc821` 摘除、
+ *                 盘上却没刷掉的组件残留,把一枚孤儿键 `Menu.d1` 判成绿,而 CI 在干净检出判红
+ *                 (失效方向是"本地绿 / CI 红",每次都要有人在 CI 上重新发现一遍)。
+ *   --staged      ⇒ **索引 blob**:同一套装配,规格换成 `:<rel>`。提交链门禁档:并行会话**未暂存**
+ *                 的磁盘半编辑态结构上进不了索引,所以再也判不红本次提交(立项成因:本步作为批外
+ *                 blocking 曾因他人未提交的 apps/web/app/status/page.tsx 红过,各会话唯一出路
+ *                 --no-verify,一次绕过约等于链上全部守门作废,§12e/§12f)。
  *                 面上取不到 ⇒ exit 2「未判定」并点名路径,不回退磁盘、不记通过。
- *   缺省/--worktree ⇒ 工作树磁盘(既有全量档行为逐字不变;CI 与 check:all 用它)。
+ *   --worktree    ⇒ **工作树磁盘**:人工逃生舱,只用于"我就是要看盘上现在什么样"。
  *   两面旗同给 ⇒ exit 2(判据互斥,取哪一面都会把另一面洗成假绿)。
  *
  * 契约键出口:scripts/i18n-contract-keys.json(跨端词包契约键 / 被测试钉住的形状键)。
@@ -66,7 +70,7 @@ import {
 } from './_i18n-scan-helpers.mjs'
 // 判定面取材的唯一出口。本入口自己就要用 `catBatch` 读契约(--staged 档)与 `readWorktreeFile`
 // 的语义由 helpers 承担;守门 118 只认"真的调用层读取入口"的文件为 face,故读取写在这里。
-import { Undetermined, catBatch, selectFace } from './lib/face-reader.mjs'
+import { Undetermined, catBatch, selectFace, FACE_LABEL } from './lib/face-reader.mjs'
 
 // ROOT 由脚本自身位置推导(§15 / 守门 70 同口径):不再以 process.cwd() 定根,
 // 免得"扫哪棵树"跟着调用者站哪儿走。`--root <dir>` 是显式测试/夹具通道(生产不带)。
@@ -80,7 +84,6 @@ const ROOT = rootArgValue
   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 import { TARGETS } from './lib/i18n-scan-targets.mjs'
-
 
 const TODAY = new Date().toISOString().slice(0, 10)
 
@@ -98,23 +101,26 @@ function parseArgs(argv) {
     const a = argv[i]
     // --check: 烟测模式(= --dry-run),验证脚本能跑,不写报告,exit 0(除非真实错误如 messages 损坏)
     if (a === '--dry-run' || a === '--check') args.dryRun = true
-    else if (a === '--exit') { args.exitOnDead = argv[++i] === '1' }
-    else if (a === '--out') args.out = argv[++i]
+    else if (a === '--exit') {
+      args.exitOnDead = argv[++i] === '1'
+    } else if (a === '--out') args.out = argv[++i]
     else if (a === '--staged') args.staged = true
     else if (a === '--worktree') args.worktree = true
-    else if (a === '--root') i += 1 // 已在模块顶层解析(--root 必须带值,值不参与其余解析)
+    else if (a === '--root')
+      i += 1 // 已在模块顶层解析(--root 必须带值,值不参与其余解析)
     else if (a === '--target' || a.startsWith('--target=')) {
       // 同时支持 --target web(空格)和 --target=web(等号)两种形式
       const t = a.startsWith('--target=') ? a.slice('--target='.length) : argv[++i]
       // 'all' 是本轮补的:CI 与 check:all 原先只跑 web 一端 ⇒ 其余四端的红点无人执行
       // (实测 cli 的 76 枚 waiting.* 幻影死键恒红数日无人在意,正因没有一道入口跑它)。
       if (t !== 'all' && !TARGETS[t]) {
-        console.error(`[scan-dead-i18n-keys] 错误:未知 target '${t}',支持: all, ${Object.keys(TARGETS).join(', ')}`)
+        console.error(
+          `[scan-dead-i18n-keys] 错误:未知 target '${t}',支持: all, ${Object.keys(TARGETS).join(', ')}`,
+        )
         process.exit(1)
       }
       args.target = t
-    }
-    else if (a === '--help' || a === '-h') args.help = true
+    } else if (a === '--help' || a === '-h') args.help = true
   }
   return args
 }
@@ -123,7 +129,7 @@ function printHelp() {
   console.log(`scan-dead-i18n-keys.mjs — i18n 死 key 审计器(统一入口,5 端收敛)
 
 用法:
-  node scripts/scan-dead-i18n-keys.mjs                              # 默认 target=web,判定面=工作树磁盘
+  node scripts/scan-dead-i18n-keys.mjs                              # 默认 target=web,判定面=HEAD blob
   node scripts/scan-dead-i18n-keys.mjs --staged --exit 1            # 提交链门禁档:判索引 blob(pre-commit 用)
   node scripts/scan-dead-i18n-keys.mjs --target all --exit 1        # 一次跑完所有有 JS 扫描面的端(推荐入口)
   node scripts/scan-dead-i18n-keys.mjs --target miniapp-taro        # 指定目标端
@@ -131,12 +137,13 @@ function printHelp() {
   node scripts/scan-dead-i18n-keys.mjs --target web --dry-run       # 只打印统计
   node scripts/scan-dead-i18n-keys.mjs --out <path>                 # 自定义输出路径
   node scripts/scan-dead-i18n-keys.mjs --exit 1                     # 发现死 key 则 exit 1
-  node scripts/scan-dead-i18n-keys.mjs --worktree                   # 显式声明磁盘档(人工逃生舱)
+  node scripts/scan-dead-i18n-keys.mjs --worktree                   # 显式声明磁盘档(人工逃生舱,不作提交门禁)
   node scripts/scan-dead-i18n-keys.mjs --root <dir>                 # 显式仓库根(测试/夹具通道)
   node scripts/scan-dead-i18n-keys.mjs --help                       # 帮助
 
-判定面(2026-09-28 立):--staged ⇒ 索引 blob(清单与内容同面同轮,盘上未暂存改动不参与判定,
-取不到 ⇒ exit 2 未判定且**不回退磁盘**);缺省/--worktree ⇒ 工作树磁盘(既有全量档);两旗同给 ⇒ exit 2。
+判定面(2026-09-28 立,2026-10-16 收到 §0.4 三面口径):缺省 ⇒ HEAD blob(git ls-tree -r HEAD 枚举 + 一次
+cat-file --batch 读满,清单与内容同面同轮,盘上并行改动不参与判定);--staged ⇒ 索引 blob(提交链门禁);
+--worktree ⇒ 工作树磁盘(人工逃生舱)。任何 git 面取不到 ⇒ exit 2 未判定且**不回退磁盘**;两面旗同给 ⇒ exit 2。
 退出码:0 通过/跳过;1 --exit 1 下的死 key 或契约声明失效;2 无法判定(未判定,既非通过也非违规)。
 
 支持 target(5 端):
@@ -161,10 +168,13 @@ function printHelp() {
 }
 
 const args = parseArgs(process.argv.slice(2))
-if (args.help) { printHelp(); process.exit(0) }
+if (args.help) {
+  printHelp()
+  process.exit(0)
+}
 
 // 判定面选择(与守门 70/103/118 同一条 selectFace:两面旗同给 = 自相矛盾,判死不取任何一面)
-const facePick = selectFace({ staged: args.staged, worktree: args.worktree, def: 'worktree' })
+const facePick = selectFace({ staged: args.staged, worktree: args.worktree, def: 'head' })
 if (facePick.error) {
   console.error(`[scan-dead-i18n-keys] 无法判定(exit 2,未判定): ${facePick.error}`)
   process.exit(2)
@@ -176,19 +186,21 @@ const FACE = facePick.face
 // 预读一次、按判定面取材(与语料同面;逐端循环不再各读一遍 —— 清单与内容同面同轮)。
 let contractRaw = null
 try {
-  if (FACE === 'staged') {
-    const spec = `:${CONTRACT_FILE_REL}`
+  if (FACE === 'worktree') {
+    contractRaw = loadContractFile(ROOT).raw
+  } else {
+    const spec = `${FACE === 'staged' ? ':' : 'HEAD:'}${CONTRACT_FILE_REL}`
     const got = catBatch(ROOT, [spec], { maxBuffer: 1 << 29, timeout: 120000 })
     const text = got.get(spec)
-    // null = 索引面上确实没有这份声明(与磁盘档"文件不存在 = 没有声明"同一语义);
+    // null = 被审面上确实没有这份声明(与磁盘档"文件不存在 = 没有声明"同一语义);
     // git 派生失败走下面的 catch ⇒ exit 2,两者不混。
     contractRaw = typeof text === 'string' ? JSON.parse(text) : null
-  } else {
-    contractRaw = loadContractFile(ROOT).raw
   }
 } catch (e) {
   if (e instanceof Undetermined) {
-    console.error(`[scan-dead-i18n-keys] 无法判定(exit 2,未判定): 契约声明在判定面取不到:**不回退磁盘**,${e.message}`)
+    console.error(
+      `[scan-dead-i18n-keys] 无法判定(exit 2,未判定): 契约声明在判定面取不到:**不回退磁盘**,${e.message}`,
+    )
     process.exit(2)
   }
   throw e
@@ -243,7 +255,9 @@ if (args.target === 'all') {
   console.log(`[scan-dead-i18n-keys] all → ${verdicts.join(' ')}`)
   if (skipped.length) console.log(`[scan-dead-i18n-keys] 无 JS 扫描面,未计入:${skipped.join(', ')}`)
 } else {
-  console.log(`[scan-dead-i18n-keys] ${args.target} → ${verdicts.join(' ')}(判定面:${FACE === 'staged' ? '索引 blob' : '工作树磁盘'})`)
+  console.log(
+    `[scan-dead-i18n-keys] ${args.target} → ${verdicts.join(' ')}(判定面:${FACE_LABEL[FACE]})`,
+  )
 }
 process.exit(worst)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
