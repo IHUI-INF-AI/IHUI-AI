@@ -40,6 +40,7 @@ import {
   selectFace,
 } from './lib/face-reader.mjs'
 import { maskComments } from './lib/outbound-route-facts.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -879,8 +880,13 @@ function main(argv) {
     return 0
   }
   if (argv.includes('--self-test')) return selfTest()
-  const rootIdx = argv.indexOf('--root')
-  const root = rootIdx >= 0 && argv[rootIdx + 1] ? path.resolve(argv[rootIdx + 1]) : ROOT
+  // G-322:给了 --root 却没收到合法值 ⇒ 点名拒绝,不得静默落 ROOT 出五面一致结论。
+  const rootArg = requireFlagValue(argv, '--root', { noun: '目录参数', fallback: ROOT })
+  if (rootArg.error) {
+    console.error(`❌ 无法判定:${rootArg.error}`)
+    return 2
+  }
+  const root = rootArg.value !== null ? path.resolve(rootArg.value) : ROOT
   const picked = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree') })
   if (picked.error) {
     console.error(`❌ ${picked.error}`)
