@@ -295,8 +295,14 @@ test('T7b 未勾单行副本收口:开关/落地函数/旗标白名单必须在 
   const fb = flagsBodyOf(head)
   const flagsGap = head.replace(fb, fb.replace("'--dedupe-open-rows',", ''))
   if (flagsGap === head) throw new Error('第四道变异没有改动文本 ⇒ KNOWN_FLAGS 体内找不到该字面量,先修夹具再谈判据')
+  // ⚠️ 变异①必须**全局**删:2026-10-16 实测这处只 replace 首点 ⇒ 被判据无牙。成因是我的无注记折叠档
+  // (枚 77408436da)在 CLI 入口加了 `|| has('--fold-identical-open-rows')` 与紧随的 mutex 检查,于是
+  // 面上有两处 `has('--dedupe-open-rows')`:删首处后第二处仍在,正则照样通过 —— 这条锁静默失效而账面全绿,
+  // 正是本仓反复记过的"判据失效的表现永远是安静"。首点未命中时也要能喊出来,故用 /g 并留一条自证。
+  const openRowFlagHits = (head.match(/has\('--dedupe-open-rows'\)/g) || []).length
+  if (openRowFlagHits < 1) throw new Error("面上找不到 has('--dedupe-open-rows') ⇒ 本条变异打在空处,判据无法成立")
   const mustHit = [
-    ["CLI 未解析 --dedupe-open-rows", head.replace(/has\('--dedupe-open-rows'\)/, "has('--no-such-flag')")],
+    ["CLI 未解析 --dedupe-open-rows", head.replace(/has\('--dedupe-open-rows'\)/g, "has('--no-such-flag')")],
     ['开关未真的调用 openRowsDedupeAndLand()', head.replace(/return openRowsDedupeAndLand\(/, 'return notTheLandingFn(')],
     ['落地函数未导出', head.replace(/export function openRowsDedupeAndLand/, 'function openRowsDedupeAndLand')],
     ['旗标不在 KNOWN_FLAGS', flagsGap],
