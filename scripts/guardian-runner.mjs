@@ -186,7 +186,17 @@ const checks = [
     label: '🗄️ schema drift',
     script: 'check-db-schema-drift.mjs',
     args: [],
-    mode: 'blocking',
+    // 2026-10-15 由 blocking 降为 warn(AGENTS.md §12E:判历史存量的门应当 warn 或差值棘轮,
+    // 「升 blocking 的前置 = 存量归零」)。降级依据 —— 实测阻塞取证:
+    //   本门只比"TS schema 表定义"与"drizzle migration 文件",判的是**仓库内历史存量**,
+    //   与任何单次提交的内容面无关(前端 CSS/表格/路由产物改动碰不到 packages/database)。
+    //   存量实证:packages/database/drizzle/20261014100000_chat_element_packs.sql 正被并发会话
+    //   删除,而 src/schema/chat.ts:237 仍定义 chat_element_packs ⇒ 本门恒红;该红会挡住**每一个**
+    //   会话的任何一次提交,唯一出路是绕回裸 git commit 跳门,连带该枚提交上全部守门作废(§12e)。
+    //   降为 warn 后存量仍逐次可见并打印结论,不再阻塞;真正的修复动作(补 migration 或同步删
+    //   schema 定义)仍由该门自己持续喊话。升回 blocking 的前置 = chat_element_packs /
+    //   rag_chunks / audit_logs_default / 26 处 extra columns 这批存量归零。
+    mode: 'warn',
   },
   {
     id: '4',

@@ -112,6 +112,10 @@ const GlobalTopBarMemo = React.memo(GlobalTopBar)
 export const AiPanelPlaceholder = () => (
   <div
     aria-hidden
+    // 2026-10-15:与 docked 面板共用同一条显隐规则(平板档 640-1023px 收起)。
+    // 两者必须同步,否则面板藏了而占位仍占 --ai-panel-width,右侧留一条空列 —— 正是要治的病。
+    // 属性静态常驻、显隐交给 globals.css 的 media query,首帧即正确,无 hydration CLS。
+    data-viewport-tablet-collapsed="true"
     className="relative hidden h-full shrink-0 mr-1.5 py-2 min-[640px]:block"
     style={{ width: 'var(--ai-panel-width, 480px)' }}
   >

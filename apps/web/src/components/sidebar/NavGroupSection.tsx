@@ -36,8 +36,8 @@ const COLLAPSE_UNMOUNT_DELAY_MS = 200
  *      · 默认值:label === 'AI' → true,其他 → false
  *      · hydration 后真实状态优先级:命中当前路由 > localStorage > 默认值
  *      · localStorage 持久化用户切换结果,跨会话保留偏好
- *  - SSR 安全:初始 open 固定 false(hydration 一致),真实状态由 useEffect 注入,
- *    避免与 ExpandableNavItem 同型的 hydration mismatch。
+ *  - SSR 安全:初始 open 固定 defaultOpen(hydration 一致),真实状态由 useEffect 注入;
+ *    展开态的内容首帧即挂载(见 contentMounted 初值),避免第二帧长高造成 CLS。
  *  - 折叠的可访问性(G-815942):收起动画跑完(COLLAPSE_UNMOUNT_DELAY_MS)后组内 items 整体卸载,
  *    键盘 Tab 因此不会走进已收起、看不见的链接;header 的 aria-controls 与内容容器的 id
  *    由同一个 useId() 配对。展开时立刻渲染,不等动画。
@@ -109,10 +109,20 @@ const NavGroupSection = React.memo(function NavGroupSection({
   const [open, setOpen] = React.useState(defaultOpen)
 
   // 折叠后内容的挂载状态(G-815942):收起动画跑完才卸载,展开时立刻渲染。
-  // 首帧取 !open —— 与 SSR 首帧(固定 defaultOpen)同形,不产生 hydration mismatch;
   // 卸载/回退时由 cleanup 清掉定时器,所以 StrictMode 双跑 effect 也不会提前卸载或泄漏。
+  //
+  // 2026-10-16 CLS 修复:初值由 `!open` 改为 `open`。
+  // 实测:@1280px /checkin 量到 value=0.10094@2502ms,sources 含本组件根节点
+  // `div.pt-2` 144x40@8,335 -> 144x330@8,526 —— 分组本身首帧就是展开的(aiGroupLabel ∈ defaultOpen,
+  // nav-data.ts:423 的分组装 /checkin,见 :456),但旧初值 `!open` 让**展开态首帧反而不渲染内容**:
+  // grid 是 1fr 而内层是空的 ⇒ 首帧只有 40px 的分组标题,挂载后下面的 effect 才 setContentMounted(true),
+  // 整组在第二帧长出 290px,把侧栏底部用户行一起顶下去,再叠上 TagsViewChevronButton 的 40px 横向位移。
+  // 改成 `open` 后「展开 ⇒ 内容在场」在首帧即成立,内容高度一次到位,偏移为 0。
+  // hydration 安全:初值只依赖 `open`,而 `open` 只依赖 label 派生的 `defaultOpen`(两端同值),
+  // 不掺任何客户端私有状态 ⇒ SSR 与首次 hydration 渲染同形,不产生 mismatch。
+  // G-815942 的可访问性约束不受影响:那只管**收起后**何时卸载,初值只决定首帧。
   const contentId = React.useId()
-  const [contentMounted, setContentMounted] = React.useState(() => !open)
+  const [contentMounted, setContentMounted] = React.useState(() => open)
   React.useEffect(() => {
     if (open) {
       setContentMounted(true)
