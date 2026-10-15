@@ -39,6 +39,8 @@ export interface NavBarAction {
   /** emoji 字符 / 图片 URL(http:// / / 开头)/ lucide 图标组件引用(统一图标) */
   icon: AppIcon | string
   label?: string
+  /** 仅无障碍名:进 accessibilityLabel,不渲染可见文字(纯图标按钮用) */
+  a11yLabel?: string
   onPress: () => void
 }
 
@@ -170,7 +172,7 @@ function NavBarActionButton({ action }: NavBarActionButtonProps) {
       style={styles.actionBtn}
       activeOpacity={0.6}
       accessibilityRole="button"
-      accessibilityLabel={action.label}
+      accessibilityLabel={action.a11yLabel ?? action.label}
     >
       {renderIcon()}
       {action.label ? (
