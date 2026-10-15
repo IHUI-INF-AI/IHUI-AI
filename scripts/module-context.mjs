@@ -87,6 +87,17 @@ function main(argv) {
     const i = argv.indexOf(name)
     return i >= 0 ? argv[i + 1] : null
   }
+  // G-322:--face / --policy 给了旗标却没收到合法值(被下一旗标顶掉/结尾无值/空串)
+  // ⇒ 用法错,不得把缺值读成"没给"落默认面/默认策略表。
+  for (const name of ['--face', '--policy']) {
+    if (argv.includes(name)) {
+      const v = at(name)
+      if (typeof v !== 'string' || v === '' || v.startsWith('-')) {
+        const got = v === undefined || v === null ? '(其后没有任何参数)' : JSON.stringify(v)
+        return fail(`${name} 需要一个值 —— 紧邻的 token 实得:${got}(不得静默落默认档)`)
+      }
+    }
+  }
   const face = at('--face') || 'head'
   if (!FACES.includes(face)) return fail(`未知 --face「${face}」(只认 ${FACES.join('/')})—— 拼错不得静默走默认档`)
   const policyArg = at('--policy')

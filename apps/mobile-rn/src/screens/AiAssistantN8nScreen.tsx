@@ -118,6 +118,7 @@ import {
   SteerNoticeList,
 } from '../components/ChatDisclosure'
 import { NavBar } from '../components/NavBar'
+import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import { NavChrome } from '../components/NavChrome'
 import { InputArea } from '../components/InputArea'
 import { TaskStatusBar } from '../components/ai/TaskStatusBar'
@@ -1893,10 +1894,18 @@ export default function AiAssistantN8nScreen() {
   return (
     <View style={styles.root}>
       <NavChrome>
+        {/* 抽屉触发钮(2026-10-15 用户定):原 '≡' 文字字符冒充图标已收口为 PanelLeftRounded,
+            与其余各屏同款;墨迹色由 NavBarActionButton 统一注入 text.medium(对齐 web foreground/80) */}
         <NavBar
           title={navTitle}
           onBack={() => navigation.goBack()}
-          rightActions={[{ icon: '≡', label: '', onPress: () => setDrawerVisible(true) }]}
+          rightActions={[
+            {
+              icon: PanelLeftRounded,
+              a11yLabel: t('common.menu'),
+              onPress: () => setDrawerVisible(true),
+            },
+          ]}
         />
       </NavChrome>
       {/* 智汇值卡(对齐 Uniapp ai_assistant_n8n.vue 顶部 intelligent-assistant:

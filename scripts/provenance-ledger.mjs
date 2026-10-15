@@ -72,6 +72,7 @@ import {
 } from './lib/third-party-roots.mjs'
 // git 二进制的取法只有一处实现(face-reader 的 gitBinary:绝对路径优先、失败才退回 PATH)
 import { gitBinary } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const SELF = fileURLToPath(import.meta.url)
 const DEFAULT_ROOT = resolve(dirname(SELF), '..')
@@ -1347,8 +1348,13 @@ async function main(argv) {
       return 129
     }
   }
-  const rootIdx = args.indexOf('--root')
-  const root = rootIdx >= 0 && args[rootIdx + 1] ? resolve(args[rootIdx + 1]) : DEFAULT_ROOT
+  // G-322:给了 --root 却没收到合法值 ⇒ 点名拒绝,不得静默落 DEFAULT_ROOT 出台账明细。
+  const rootArg = requireFlagValue(args, '--root', { noun: '目录参数', fallback: null })
+  if (rootArg.error) {
+    console.error(`❌ 无法判定:${rootArg.error}`)
+    process.exit(2)
+  }
+  const root = rootArg.value !== null ? resolve(rootArg.value) : DEFAULT_ROOT
   if (args.includes('--help') || args.includes('-h')) {
     console.log(
       '用法: node scripts/provenance-ledger.mjs [--check|--report|--self-test] [--staged|--worktree] [--root <dir>]\n' +

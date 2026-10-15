@@ -9,8 +9,19 @@
  * 迁移自旧项目 Vue 组件 (Ai-WXMiniVue/src/components/Menu/index.vue)
  */
 import { tokens } from '../theme/active-tokens'
+import { rnRadiusFor } from '@ihui/design-tokens'
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity } from 'react-native'
 import type { MenuItem } from '@ihui/ui-native'
+import { toImageSource, type CarouselSlideImg } from './Carousel'
+// 菜单图标静态 import(declarations.d.ts 图片模块声明,Metro 标准形态,无需 lint 抑制)
+import IMG_PIC from '../../assets/images/menu/8.png'
+import IMG_VIDEO from '../../assets/images/menu/4.png'
+import IMG_WENAN from '../../assets/images/menu/2.png'
+import IMG_AGENT from '../../assets/images/menu/11.png'
+import IMG_RPA from '../../assets/images/menu/5.png'
+import IMG_CODE from '../../assets/images/menu/7.png'
+import IMG_MUSIC from '../../assets/images/menu/3.png'
+import IMG_OTHER from '../../assets/images/menu/10.png'
 import {
   MENU_CONTAINER_PADDING_PX,
   MENU_DEFAULT_COLUMNS,
@@ -19,53 +30,35 @@ import {
   menuTileStyle,
 } from '@ihui/shared/ui/menu-spec'
 
+/** 菜单项:共享 MenuItem 基础上把 icon 放宽为远端 URL 或本地 require 资源 ——
+ *  2026-10-15 图标本地化后经 require 引入(原生为 number,Metro web 下为 { uri } 资产对象)。 */
+export type MenuEntry = Pick<MenuItem, 'id' | 'name'> & { icon: CarouselSlideImg }
+
 export interface MenuProps {
-  items?: MenuItem[]
-  onPress?: (item: MenuItem, index: number) => void
+  items?: MenuEntry[]
+  onPress?: (item: MenuEntry, index: number) => void
   columns?: number
 }
 
-const DEFAULT_ITEMS: MenuItem[] = [
-  {
-    id: 1,
-    name: '图片',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/8.png',
-  },
-  {
-    id: 2,
-    name: '视频',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/4.png',
-  },
-  {
-    id: 3,
-    name: '文案',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/2.png',
-  },
-  {
-    id: 4,
-    name: '智能体',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/11.png',
-  },
-  {
-    id: 5,
-    name: 'RPA',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/5.png',
-  },
-  {
-    id: 6,
-    name: '编程',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/7.png',
-  },
-  {
-    id: 7,
-    name: '音乐',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/3.png',
-  },
-  {
-    id: 8,
-    name: '其他',
-    icon: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/coursePlanet/10.png',
-  },
+// 2026-10-15 本地化:原 bspapp 云存储 CDN(mp-aab956eb-…)整体不可达(HTTP 000),
+// 8 个菜单图标按原 CDN 路径打包进应用(文件副本与 apps/web/public 本地化批次同源):
+//   tabbar/coursePlanet/8.png  → assets/images/menu/8.png
+//   tabbar/coursePlanet/4.png  → assets/images/menu/4.png
+//   tabbar/coursePlanet/2.png  → assets/images/menu/2.png
+//   tabbar/coursePlanet/11.png → assets/images/menu/11.png
+//   tabbar/coursePlanet/5.png  → assets/images/menu/5.png
+//   tabbar/coursePlanet/7.png  → assets/images/menu/7.png
+//   tabbar/coursePlanet/3.png  → assets/images/menu/3.png
+//   tabbar/coursePlanet/10.png → assets/images/menu/10.png
+const DEFAULT_ITEMS: MenuEntry[] = [
+  { id: 1, name: '图片', icon: IMG_PIC },
+  { id: 2, name: '视频', icon: IMG_VIDEO },
+  { id: 3, name: '文案', icon: IMG_WENAN },
+  { id: 4, name: '智能体', icon: IMG_AGENT },
+  { id: 5, name: 'RPA', icon: IMG_RPA },
+  { id: 6, name: '编程', icon: IMG_CODE },
+  { id: 7, name: '音乐', icon: IMG_MUSIC },
+  { id: 8, name: '其他', icon: IMG_OTHER },
 ]
 
 export default function Menu({
@@ -86,7 +79,7 @@ export default function Menu({
           activeOpacity={0.7}
           onPress={() => onPress?.(item, index)}
         >
-          <Image source={{ uri: item.icon }} style={styles.icon} />
+          <Image source={toImageSource(item.icon)} style={styles.icon} />
           <Text style={styles.name}>{item.name}</Text>
         </TouchableOpacity>
       )}
@@ -104,6 +97,8 @@ const styles = StyleSheet.create({
   item: menuItemStyle(toUnit),
   icon: {
     ...menuTileStyle(toUnit),
+    // 图块 = chip→md(6),与小程序侧 rounded-md 同档(radius.js 角色档)
+    borderRadius: rnRadiusFor.chip,
     resizeMode: 'contain',
   },
   name: {

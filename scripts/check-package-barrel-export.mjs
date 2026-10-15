@@ -80,6 +80,7 @@ import {
   readWorktreeFile,
   selectFace,
 } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 // 消费侧的 import 解析**复用守门 98 那一份实现**,不另写第二份:两处解析同一件事必漂移,
 // 而漂移的表现永远是"某一种写法只有一边看得见"(本仓记过多次)。98 有 §22d isDirectRun 守卫,
 // import 它不会触发 CLI 主流程。
@@ -911,8 +912,13 @@ export function main(argv = process.argv.slice(2)) {
     staged: argv.includes('--staged'),
     worktree: argv.includes('--worktree'),
   })
-  const ri = argv.indexOf('--root')
-  const root = ri >= 0 && argv[ri + 1] ? resolvePath(argv[ri + 1]) : ROOT
+  // G-322:给了 --root 却没收到合法值 ⇒ 点名拒绝,不得静默落 ROOT 出全量结论。
+  const rootArg = requireFlagValue(argv, '--root', { noun: '目录参数', fallback: null })
+  if (rootArg.error) {
+    console.error(`❌ 无法判定:${rootArg.error}`)
+    return 2
+  }
+  const root = rootArg.value !== null ? resolvePath(rootArg.value) : ROOT
   if (error) {
     console.error(`❌ ${error}`)
     return 2

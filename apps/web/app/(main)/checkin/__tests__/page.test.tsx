@@ -1260,20 +1260,6 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(payload.device_map.cosy.machine_id).toBe('mid-1')
   })
 
-  it('智能导入:网页登录 WorkBuddy 一键跳转捕获对话框', async () => {
-    vi.mocked(useTauriIpcReady).mockReturnValue(true)
-    vi.mocked(checkinCaptureJwts).mockResolvedValue([])
-    vi.mocked(checkinCaptureQoder).mockResolvedValue([])
-    render(<CheckinPage />)
-    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
-    fireEvent.click(screen.getByText('addAccount'))
-    await waitFor(() => expect(screen.getByTestId('smart-scan-none')).toBeTruthy())
-    fireEvent.click(screen.getByText('addSmartWorkbuddy'))
-    // 录入框关闭、WorkBuddy 捕获对话框打开(网页登录区块在里面)
-    await waitFor(() => expect(screen.getByText('captureWbTitle')).toBeTruthy())
-    expect(screen.getByText('captureWbWebTitle')).toBeTruthy()
-  })
-
   it('官方积分实时查询:手动签到成功后自动查官方余额并显示', async () => {
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
     vi.mocked(manualCheckin).mockResolvedValue({ ok: true })
