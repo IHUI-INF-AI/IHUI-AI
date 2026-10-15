@@ -659,6 +659,12 @@ test('R1r 内容性档:样板行进样板档只报数,真阳性与引号形态�
   assert.ok(RESURRECT_BOILER_LINE_RE.test('uses: actions/checkout@v4'), 'uses 指令行必须命中')
   assert.ok(!RESURRECT_BOILER_LINE_RE.test('"staleKey": "old"'), '引号键值是真内容形态,不得进样板档')
   assert.ok(!RESURRECT_BOILER_LINE_RE.test('severity: { level: warn }'), '值带花括号不进样板档')
+  // ③ 2026-10-15 窄化一刀(G-870 三例稳定红根因),分界两条:
+  //    CJK 值的**裸键行**=真内容(2026-09-28 事故行形态);CJK 值的 **`- ` 列表项指令**=样板
+  //    (4f61a35f6 的 `- name: 阻断提示`)。两对断言缺一即把排除条款改宽/改错。
+  assert.ok(!RESURRECT_BOILER_LINE_RE.test('beta_key: 正在下载更新'), 'CJK 裸键行是真内容,不得进样板档')
+  assert.ok(RESURRECT_BOILER_LINE_RE.test('      - name: 阻断提示'), 'CJK 列表项指令行照旧进样板档(G-587 实测)')
+  assert.ok(RESURRECT_BOILER_LINE_RE.test('severity: warning'), '纯 ASCII 结构行照旧进样板档(窄化不减牙)')
   // ② 4f61a35f6 形态重放(纯函数面):HEAD 没有 if: failure(),祖先旧 workflow 写过,
   //    本次在 ci.yml 加一个失败分支步骤 ⇒ 样板行不得计入 count,但必须进 boilerplate 报数
   const head = [
