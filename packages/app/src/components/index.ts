@@ -8,8 +8,9 @@ export type { MoreLinkProps } from './MoreLink'
 export { BackChevron } from './BackChevron'
 export type { BackChevronProps } from './BackChevron'
 
-export { Selecter } from './Selecter'
-export type { SelecterProps, SelecterType, SelecterOption } from './Selecter'
+// Selecter 一条已于 2026-10-15 随本件删除一并摘除:全仓零具名消费者,小程序端渲染腿在
+// apps/miniapp-taro/src/components/adapters/Selecter.taro.tsx(与 RN 端 mobile-rn 自己的
+// ModelSelecterDialog 是两份现役实现),本包那份是从 miniapp-taro 提取后的死载体。
 
 export { TabBar } from './TabBar'
 export type { TabBarProps, TabBarItemConfig, TabBarKey } from './TabBar'
