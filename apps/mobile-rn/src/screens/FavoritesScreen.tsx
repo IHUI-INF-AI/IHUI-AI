@@ -35,9 +35,11 @@ export function FavoritesScreen() {
     () =>
       items.map((f) => ({
         id: f.id,
-        title: f.title,
-        cover: f.cover,
-        targetType: f.targetType,
+        title: f.title ?? '',
+        // 后端 userFavorites 表无封面列(契约测试锁死了这一点),共享屏视图模型要求非可选 ⇒ 显式给 null
+        cover: null,
+        // 视图模型沿用 targetType/targetId 作 UI 词汇,传输层字段名以契约为准
+        targetType: f.resourceType,
         createdAt: formatShortDateWithYear(f.createdAt),
       })),
     [items],
@@ -52,7 +54,7 @@ export function FavoritesScreen() {
         onPress: async () => {
           const original = items.find((i) => i.id === item.id)
           if (!original) return
-          const res = await deleteFavorite(original.targetType, original.targetId)
+          const res = await deleteFavorite(original.resourceType, original.resourceId)
           if (res.success) {
             removeItem((i) => i.id === item.id)
           } else {

@@ -13,7 +13,6 @@
 
 import type { TFunction } from './app-shared.js'
 
-
 /** 反馈类型(与后端 /api/feedbacks 契约对齐) */
 export type FeedbackType = 'bug' | 'suggestion' | 'question' | 'other'
 
@@ -65,10 +64,10 @@ export interface FeedbackHistoryScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 收藏对象类型(与后端 /api/favorites 契约对齐,targetType 字段对齐 FavoriteItem) */
+/** 浏览历史/书签的对象类型(这一族后端就叫 targetType —— 见 apps/api/src/routes/other/history-routes.ts 自述) */
 export type BookmarkTargetType = 'course' | 'article' | 'post' | 'note' | string
 
-/** 收藏列表项(平台注入,字段对齐 @ihui/api-client FavoriteItem) */
+/** 书签列表项(视图模型,字段名沿用后端 history/bookmark 的 target*;收藏端点是另一套名字,见 packages/api-client/tests/favorites-field-contract.test.ts) */
 export interface BookmarkItem {
   id: string
   targetId: string

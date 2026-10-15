@@ -22,7 +22,15 @@
 
 import type { Command } from 'commander';
 import chalk from 'chalk';
-import type { MemoryEntry, MemoryScope, MemoryEntryType } from '@ihui/types';
+import type {
+  MemoryEntry,
+  MemoryScope,
+  MemoryEntryType,
+  MemoryListQuery as SharedMemoryListQuery,
+  MemoryListResponse as SharedMemoryListResponse,
+  MemoryCreateInput as SharedMemoryCreateInput,
+  MemoryDeleteResponse as SharedMemoryDeleteResponse,
+} from '@ihui/types';
 
 import { createApiRequest, extractData, handleError, printJson, resolveApiKeyAsync, resolveBaseUrl } from './http-utils.js';
 import { missingTokenHint } from './token-manager.js';
@@ -42,33 +50,16 @@ const TYPES: readonly MemoryEntryType[] = [
   'skill_ref',
 ] as const;
 
-// === 请求 / 响应类型(本地定义,与 Web 端 memory-api.ts 对齐) ===
+// === 请求 / 响应类型:一律 import 自 @ihui/types,本文件不再本地定义 ===
+//
+// 这里曾有四个 interface(自述"与 Web 端 memory-api.ts 对齐"),web 也有一份、mobile-rn 也有
+// 一份,三端各抄同一份契约而没有任何一道门判"抄没抄歪"—— 漂移的表现不是编译错误,是
+// "同一接口在手机上少个筛选参数"。别名保留原名,只把定义收回单源。
 
-interface MemoryListQuery {
-  scope?: MemoryScope;
-  sessionId?: string;
-  projectKey?: string;
-}
-
-interface MemoryListData {
-  entries: MemoryEntry[];
-  total: number;
-}
-
-interface MemoryCreateInput {
-  scope: MemoryScope;
-  type: MemoryEntryType;
-  category: string;
-  text: string;
-  source?: string;
-  sessionId?: string;
-  projectKey?: string;
-}
-
-interface MemoryDeleteData {
-  id: string;
-  deleted: boolean;
-}
+type MemoryListQuery = SharedMemoryListQuery;
+type MemoryListData = SharedMemoryListResponse;
+type MemoryCreateInput = SharedMemoryCreateInput;
+type MemoryDeleteData = SharedMemoryDeleteResponse;
 
 // === CLI options 类型 ===
 

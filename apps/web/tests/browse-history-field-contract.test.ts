@@ -10,10 +10,17 @@
  * 无论读哪个字段名都能渲染出东西,只有两侧字段名**不一致**时才空。
  * 直接钉住"这三个文件里不许再出现 resourceType/resourceId"更贴判据。
  *
- * 口径来源(已拍板,勿反向):共享契约 packages/types/src/app-engagement.ts 的
- * BookmarkItem 用 targetId/targetType,其注释明写"字段对齐 @ihui/api-client FavoriteItem";
- * 前端 member/history 页此前是 resource*,本次改成 target* 对齐共享契约。
- * (2026-10-12:BookmarkItem 随 types 包重组从 app.ts 迁到 app-engagement.ts,本测试指向随之更新。)
+ * 口径来源(唯一真相在**各端点自己的后端契约**,不在本文件抄一份):
+ * - 浏览历史 / 书签这一族共享契约 `packages/types/src/app-engagement.ts` 的 `BookmarkItem`
+ *   用 `targetId`/`targetType`,与 `history-routes.ts` 自述的字段名同向 ⇒ 本测试锁的就是这一族。
+ * - 收藏 `/api/favorites` 是**另一个端点**:后端回 `resourceType`/`resourceId`
+ *   (`userFavorites` 表列 + `findFavorites` 的 `title` 富化),锁在
+ *   `packages/api-client/tests/favorites-field-contract.test.ts`;它的消费端在**边界处**把
+ *   `resource*` 映射成视图模型的 `target*`,所以"这一族叫 target*"不等于"收藏也叫 target*"。
+ *   (历史误记:这里曾写"BookmarkItem 字段对齐 @ihui/api-client FavoriteItem",而
+ *   FavoriteItem 当时本身就与后端不一致 —— 那句把一个 bug 写成了口径依据。2026-10-15 更正。)
+ *   前端 member/history 页此前是 resource*,本次改成 target* 对齐共享契约。
+ *   (2026-10-12:BookmarkItem 随 types 包重组从 app.ts 迁到 app-engagement.ts,本测试指向随之更新。)
  *
  * 变异验证:把 member/history/page.tsx 的 targetType 退回 resourceType ⇒
  * 本文件立刻红(见"页面不许回退成 resource*"一例)。
