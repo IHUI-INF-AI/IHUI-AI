@@ -1095,6 +1095,42 @@ iframe::-webkit-scrollbar {
     display: none;
   }
 }
+
+/* 平板/小笔记本档自动收起 AI 侧面板 (2026-10-15 立)
+ * ============================================================
+ * 背景:MainShell 三栏里,Sidebar 固定 160px + AI 面板固定 480px + 间距 14px = 654px
+ * 在 1024px 视口下把内容区压到只剩 370px(实测),签到/设置等数据页不可用。
+ * 侧栏早有 640-1023 自动折叠档(见下方 aside 规则),AI 面板却只有 <640 一档,
+ * 中间区间完全空白 —— 本块补上这段。
+ *
+ * **上界取 1279 而非 1023**:实测内容区 = 视口 − 侧栏 − 面板 − 间距,
+ *   768 → 214 / 1024 → 370 / 1280 → 626 / 1440 → 786 / 1920 → 1266。
+ *   1024 恰好落在 (640,1023] 之外 ⇒ 面板不收、仍被压到 370px,而这正是最该救的一档;
+ *   1280 收起后内容区可到 ~1206px,收益大且无损失(数据表在 1206px 下明显更从容)。
+ *   故本块覆盖 640-1279,1280 及以上交还用户手动控制。
+ *
+ * 显隐全部交给 CSS:data 属性在 docked 容器与 AiPanelPlaceholder 上无条件静态挂载,
+ * JS 跑之前首帧即正确 ⇒ 无 hydration CLS,也无需 useMediaQuery 分支。
+ * 两者必须共用同一条规则,否则面板藏了而占位仍占 --ai-panel-width,右侧留一条空列。
+ *
+ * 浮窗态(floatMode)不收起:浮窗本就 fixed 盖在内容之上,收起 docked 容器不影响它,
+ * 用 :not(.ai-float-glow) 排除(手机全屏浮窗是 inset-0,该档不在本区间内)。
+ *
+ * 不用 Tailwind 变体(如 max-[1279px]:hidden):与 min-[640px]:block 同特异性下
+ * 生成顺序不可靠,且本仓该类降级一律走原生 media query(见侧栏 / <640 两块)。
+ * className 一个字未动 ⇒ check-ai-panel-mount-guards 的 7 个几何 token 判定不受影响。
+ *
+ * 已知取舍:若用户在窄视口主动「折叠工作区」(workAreaCollapsed ⇒ 面板 flex-1 占满),
+ * 本规则仍会收起面板,该档内容区会短暂无处安放。属极罕见组合,未额外分支处理。
+ */
+@media (min-width: 640px) and (max-width: 1279px) {
+  .ai-panel-root[data-viewport-tablet-collapsed='true']:not(.ai-float-glow) {
+    display: none;
+  }
+  [data-viewport-tablet-collapsed='true']:not(.ai-panel-root) {
+    display: none;
+  }
+}
 @container (max-width: 485px) {
   .ai-input-toolbar .model-selector-badge {
     display: none;
@@ -1455,5 +1491,90 @@ button[data-state='closed']:focus-visible {
 /* glyph margin 空槽位 hover 提示可点击 */
 .monaco-editor .margin-view-overlays .cgmr {
   cursor: pointer;
+}
+
+/* ============================================================
+ * 签到助手页随工作区宽度降级 (2026-10-15 立)
+ * ============================================================
+ * 背景:签到助手挂在 MainShell 三栏最右(全局导航 ≈155 + AI 工作区 + 内容区),
+ * 拿到的是内容区而非视口。实测 content 宽度随视口大幅摆动:
+ *   1920 视口 ≈1234 / 1440 ≈754 / 1024 ≈338 / 768 ≈182
+ * 表格按固定 min-width 铺开 ⇒ 中窄视口永远横向滚动,且首列之外全是空白,
+ * 用户读作「排版没跟工作区宽度匹配」。
+ * 故按**容器自身宽度**(container query)降级列,而不是视口断点
+ * —— 三栏布局下视口断点与内容区宽度不相关(1440 视口的视口断点很宽,
+ *    内容区却只剩 754),用 sm:/md: 必然失真。
+ *
+ * 各表列宽实测(账号表 6 列,px):
+ *   勾选 32 | 名称 弹性 | 启用 64 | 最近签到 140 | 官方积分 90 | 操作 230
+ *   叠加 6 列左右 padding(6×24)后最小可读宽 ≈ 700
+ *   记录表 6 列最小可读宽 ≈ 760(信息/错误分类两列可弹性压缩)
+ *   积分表 4 列最小可读宽 ≈ 520
+ *
+ * 降级阶梯(阈值取 N-1 避免临界点抖动,与 .ai-input-toolbar 同款理由):
+ *   账号表 ≤799 隐「最近签到」(信息降级到名称列元信息行,不丢)→ ≤559 隐「官方积分」
+ *        → ≤459 隐「手动签到」文字(操作列同时收窄)
+ *   记录表 ≤759 隐「错误分类」→ ≤599 隐「动作」
+ *   积分表 ≤519 隐「当前积分」
+ *
+ * 「最近签到」阈值取 799 而非按列宽算的 700:该表其余列合计固定
+ * (勾选32+启用72+积分88+操作272),名称列是唯一弹性列。若按 700 隐藏,
+ * 752px 内容区下名称列只剩 124px,账号名(UUID)被截得只剩 11 字符;
+ * 799 档隐藏后名称列有 260px+,同时把结果/时间挪到名称列元信息行,信息不丢。
+ *
+ * 隐藏列必须**表头与表体成对隐藏**,否则列错位。
+ *
+ * 用原生 CSS 而非 Tailwind v4 container variant:
+ * 实测 Tailwind v4 仅编译 .@container 类(container-type: inline-size),
+ * @min-[...]: 等 container variant 不生成规则(同上 ai-input-toolbar 结论)。 */
+.checkin-page {
+  container-type: inline-size;
+}
+/* 最近签到的信息降级位:与「最近签到」列显隐严格互补,任何档位下都不重复/不丢失 */
+.checkin-page .checkin-name-last-checkin {
+  display: none;
+}
+@container (max-width: 759px) {
+  .checkin-page .checkin-col-error-class {
+    display: none;
+  }
+}
+@container (max-width: 799px) {
+  .checkin-page .checkin-col-last-checkin {
+    display: none;
+  }
+  .checkin-page .checkin-name-last-checkin {
+    display: block;
+  }
+}
+@container (max-width: 599px) {
+  .checkin-page .checkin-col-action {
+    display: none;
+  }
+}
+@container (max-width: 559px) {
+  .checkin-page .checkin-col-credits {
+    display: none;
+  }
+}
+@container (max-width: 519px) {
+  .checkin-page .checkin-col-current-credits {
+    display: none;
+  }
+}
+@container (max-width: 459px) {
+  .checkin-page .checkin-manual-label {
+    display: none;
+  }
+  /* 操作列只剩 4 个 icon 按钮(≈176px),固定 272px 会在窄内容区把表格顶出横向滚动 */
+  .checkin-page .checkin-col-actions {
+    width: auto;
+  }
+  /* 记录表:此时时间+结果+积分三列固定宽合计 ≈312,容器下限 ~338。
+     漏掉本档会让「信息」弹性列被算成负宽(实测压成竖排单字"领/取/成/功"),
+     故信息列必须与动作/错误分类一起退场 —— 不能靠弹性列兜底。 */
+  .checkin-page .checkin-col-message {
+    display: none;
+  }
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
