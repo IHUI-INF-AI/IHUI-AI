@@ -50,6 +50,12 @@ export const API_KEY_PERMISSIONS = [
   'audio:read',
   /** TTS/ASR/语音对话/声纹注册:POST /v1/audio/speech, POST /v1/audio/transcriptions */
   'audio:write',
+  /**
+   * 语音转文字(ai-service 本地 faster-whisper 推理,零第三方成本):POST /api/voice/stt
+   * 2026-10-15 新增:小程序「按住说话」的转写入口,host=ai-service(8803),
+   * 与 audio:write(api 8802 的 OpenAI 兼容 /v1/*)分属不同服务,故单列 scope。
+   */
+  'voice:stt',
   // ===== Images 类 =====
   /** 文生图/图片编辑/修复/风格迁移:POST /v1/images/generations, POST /v1/images/edits */
   'images:write',
