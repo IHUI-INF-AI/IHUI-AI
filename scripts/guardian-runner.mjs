@@ -4927,6 +4927,7 @@ const checks = [
     ].join('\n'),
   },
 
+  { id: '212', label: '🎯 输入框聚焦反馈对账(描边输入/选择控件必须有聚焦反应,三端同尺;存量按该文件 HEAD 自身棘轮只报数,定级依据与取证窗见脚本头注)', script: 'check-input-focus-feedback.mjs', args: [], mode: 'blocking', skipEnv: 'HUSKY_SKIP_INPUT_FOCUS_FEEDBACK', stagedTriggers: ['apps/', 'packages/'] },
   // --- info (1 项) ---
   {
     id: '23',
