@@ -12,7 +12,8 @@
     "ModelList": 6,
     "NavBar": 7,
     "UserInfoCard": 4,
-    "VideoPlayer": 5
+    "VideoPlayer": 5,
+    "VoiceInput": 8
   },
   "radiusCounts": {
     "AgentRuntimePanel": 1,
@@ -27,7 +28,8 @@
     "ModelList": 1,
     "NavBar": 1,
     "UserInfoCard": 1,
-    "VideoPlayer": 0
+    "VideoPlayer": 0,
+    "VoiceInput": 3
   },
   "elementRadiusCounts": {
     "AgentRuntimePanel": 0,
@@ -42,7 +44,8 @@
     "ModelList": 0,
     "NavBar": 0,
     "UserInfoCard": 0,
-    "VideoPlayer": 0
+    "VideoPlayer": 0,
+    "VoiceInput": 0
   },
   "webCounts": {
     "AgentRuntimePanel": 0,
@@ -128,6 +131,10 @@
     },
     "DrawerComponent": {
       "reason": "两端抽屉内容集合不同:RN 有左滑收藏/删除(实测 git grep -c \"DELETE_WIDTH|FAVORITE_WIDTH\" RN 8、小程序 0)、扩展菜单 26/9/10、chat.nav 快捷导航 7 行 13、头像区 60/16;小程序有顶部品牌 logo 33、底部弹层把手 36(实测小程序 grep \"extMenu|扩展|快捷\" = 0)。250/256 是抽屉宽的比例封顶,非档。",
+      "until": "2027-03-27"
+    },
+    "VoiceInput": {
+      "reason": "语音输入条的结构几何差异属设计/平台裁决项,单一源 packages/shared/src/ui/voice-input-spec.ts 头注已逐条记载并明确\"未收进来\":波形条数 7 vs 12、条宽 4 vs 3、条间距 4 vs 2、高度包络(h-5 的 60% vs 6..28 插值)、按钮内边距 16/12 vs 12/8、字号 14 vs 12、禁用透明度 0.5 vs 0.4。分叉与两端动画通道(小程序 CSS keyframes 固定高度脉冲 vs RN Animated 逐条高度插值)和录音链路(小程序流式识别 streamingRecognizer partial/final vs RN 整段上传 STT)耦合,不是\"改一端另一端不跟随\"。现读:diffCount=8(仅小程序 4/8,仅 RN 2/6)、radiusCount=3(仅小程序 8,仅 RN 2/6)、elementRadiusCount=0(RE 维仅 RN 具名 bar/clearBtn/imagePopup/imageToggleBtn/voiceBtn,两侧无同名元素故零判据)。收敛前置 = 两端录音链路统一后再收编几何,不靠给单端补数字凑平。",
       "until": "2027-03-27"
     }
   },
