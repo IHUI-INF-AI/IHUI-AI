@@ -509,10 +509,77 @@ fn build_probe_client() -> reqwest::Client {
         .expect("auto-refresh: build reqwest client")
 }
 
+/// 直连 Client:目标 host 命中 `should_bypass_proxy` 时使用(见该函数头注)。
+///
+/// 与 `build_probe_client` 同参数(timeout/user_agent),唯一差别是 `.no_proxy()`
+/// —— reqwest 的 `Proxy::all` 没有 bypass 列表,禁不掉已挂的 env 代理,
+/// 所以这里整建一个不走任何代理的 Client,按目标 host 分流选用。
+fn build_direct_probe_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .timeout(Duration::from_secs(12))
+        .user_agent("ihui-desktop-auto-refresh")
+        .no_proxy()
+        .build()
+        .expect("auto-refresh: build reqwest client")
+}
+
+/// 探活/指纹目标是否应**绕过**系统/env 代理直连。
+///
+/// 2026-10-15 立(真机事故根治):本机 Clash Verge 系统代理(127.0.0.1:7897)下,
+/// `build_probe_client` 的 `Proxy::all` 把 **localhost 探活也发给代理** ——
+/// reqwest 的 `Proxy::all` 没有 bypass 列表(不像 WebView2 走 WinINET
+/// ProxyOverride,`<local>` 默认 bypass),Clash 规则未 DIRECT localhost 时把
+/// `http://localhost:8801/api/health` 导去节点 ⇒ 探活连续失败 ⇒ 桌面端稳态
+/// 显示「网络连接不可用 · 自动重连」,而 WebView2 页面本身加载本地 dev server
+/// 是通的 —— 纯假离线。真机日志 2026-10-15 14:45 起连续 9 轮全败实证
+/// (`%LOCALAPPDATA%\com.ihui.desktop\logs\ihui-desktop.log`)。
+///
+/// 判据与系统代理 bypass 语义对齐:回环/内网 host 只有本机可达,永不走代理。
+/// 公网地址(线上生产 aizhs.top 等)不命中,仍走 env/系统代理
+/// (2026-10-13 遗留票的结论不动)。
+pub(crate) fn should_bypass_proxy(host: &str) -> bool {
+    // IPv6 字面量可能带方括号(url::Url::host_str 不带,调用方防御性处理)
+    let host = host
+        .trim()
+        .trim_matches(|c| c == '[' || c == ']')
+        .to_ascii_lowercase();
+    if host == "localhost" || host == "0.0.0.0" || host == "::1" {
+        return true;
+    }
+    // IPv4 点分四段逐段校验(避免引入 ipnetwork 依赖;非 IPv4 一律不 bypass)
+    let octets: Option<Vec<u8>> = host.split('.').map(|s| s.parse::<u8>().ok()).collect();
+    let Some(o) = octets.filter(|v| v.len() == 4) else {
+        return false;
+    };
+    let (a, b) = (o[0], o[1]);
+    a == 127 // 127.0.0.0/8 回环
+        || a == 10 // 10.0.0.0/8
+        || (a == 192 && b == 168) // 192.168.0.0/16
+        || (a == 172 && (16..=31).contains(&b)) // 172.16.0.0/12
+}
+
+/// 按后端基址选探活 Client:回环/内网直连,公网走 env/系统代理。
+///
+/// 放在 `start()` 里二选一(而不是给 Client 挂 per-request bypass)——
+/// reqwest 没有 per-request no_proxy,且一个 base 只有一个 origin,
+/// 整生命周期只需判一次。
+fn select_probe_client(base: &BackendBase) -> reqwest::Client {
+    let host = tauri::Url::parse(&base.frontend_url)
+        .ok()
+        .and_then(|u| u.host_str().map(str::to_string));
+    match host {
+        Some(h) if should_bypass_proxy(&h) => {
+            log::info!(
+                "[auto-refresh] 探活目标 {h} 命中 bypass 判据(回环/内网)⇒ 直连,不走系统/env 代理"
+            );
+            build_direct_probe_client()
+        }
+        _ => build_probe_client(),
+    }
+}
+
 pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
     tauri::async_runtime::spawn(async move {
-        let client = build_probe_client();
-
         // ── 后端基址:单一真源 = main 窗口的 origin(见 BackendBase 头注)──
         // 生产薄壳(aizhs.top)与旧硬编码常量逐字节等价;开发后端联调(localhost:8801)
         // 自动跟随本机后端。⚠ setup 期活 URL 可能还是 about:blank,必须回落配置初始
@@ -528,6 +595,11 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
             base.origin_prefix,
             base_source
         );
+
+        // 2026-10-15:回环/内网基址(localhost:8801 开发联调等)必须直连 ——
+        // 系统代理(Clash)对 localhost 不保证 DIRECT,`Proxy::all` 无 bypass 列表,
+        // 会把本机探活导去节点造成假离线(详见 select_probe_client 头注)。
+        let client = select_probe_client(&base);
 
         // ── 启动序列:探活决定首屏,永不白屏 ──
         // 启动期用「同轮重试」而非 ON/OFF 阈值滞回:此刻只有"在线/离线"二选一,
@@ -843,6 +915,54 @@ mod tests {
         // 深路径不泄漏进基址
         let deep = tauri::Url::parse("http://localhost:8801/agents/abc?x=1").unwrap();
         assert_eq!(resolve_backend_base(Some(&deep)), base);
+    }
+
+    // ── 代理 bypass 判据(2026-10-15):回环/内网探活永不走系统/env 代理 ──
+
+    #[test]
+    fn bypass_proxy_covers_loopback_and_private_rejects_public() {
+        // 回环 / 特殊地址 —— 本机 dev 后端与内网部署的完整覆盖面
+        assert!(should_bypass_proxy("localhost"));
+        assert!(should_bypass_proxy("LOCALHOST"));
+        assert!(should_bypass_proxy("127.0.0.1"));
+        assert!(should_bypass_proxy("127.255.0.53"));
+        assert!(should_bypass_proxy("::1"));
+        assert!(should_bypass_proxy("[::1]"));
+        assert!(should_bypass_proxy("0.0.0.0"));
+        // RFC1918 内网段
+        assert!(should_bypass_proxy("10.0.0.5"));
+        assert!(should_bypass_proxy("10.255.255.255"));
+        assert!(should_bypass_proxy("192.168.1.10"));
+        assert!(should_bypass_proxy("172.16.0.1"));
+        assert!(should_bypass_proxy("172.31.255.254"));
+        // 公网与畸形输入一律不 bypass(线上生产 aizhs.top 仍走代理,2026-10-13 票结论不动)
+        assert!(!should_bypass_proxy("aizhs.top"));
+        assert!(!should_bypass_proxy("8.8.8.8"));
+        assert!(!should_bypass_proxy("172.15.0.1"), "172.15 在 12 段外");
+        assert!(!should_bypass_proxy("172.32.0.1"), "172.32 在 12 段外");
+        assert!(!should_bypass_proxy("11.0.0.1"));
+        assert!(!should_bypass_proxy("192.169.0.1"));
+        assert!(!should_bypass_proxy("128.0.0.1"));
+        assert!(!should_bypass_proxy(""));
+        assert!(!should_bypass_proxy("1.2.3"), "非四段不是 IPv4");
+        assert!(!should_bypass_proxy("999.1.1.1"), "段越界 parse 失败");
+        assert!(!should_bypass_proxy("localhost.evil.com"), "仅精确命中 localhost");
+        assert!(!should_bypass_proxy("fe80::1"), "IPv6 链路本地不在判据内(不猜)");
+    }
+
+    #[test]
+    fn direct_probe_client_builds_and_bypass_holds_for_local_base() {
+        // 直连 Client 可构建(reqwest no_proxy 分支不 panic),bypass 判据对
+        // 开发后端基址的 host 命中 —— 两者合起来保证 select_probe_client
+        // 在 localhost 联调态走直连分支。
+        let _ = build_direct_probe_client();
+        let base = resolve_backend_base(Some(&tauri::Url::parse("http://localhost:8801/").unwrap()));
+        let host = tauri::Url::parse(&base.frontend_url)
+            .ok()
+            .and_then(|u| u.host_str().map(str::to_string))
+            .expect("frontend_url 必须可解析出 host");
+        assert_eq!(host, "localhost");
+        assert!(should_bypass_proxy(&host));
     }
 
     #[test]

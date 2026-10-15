@@ -293,6 +293,11 @@ fn resolve_user_dir() -> Result<std::path::PathBuf, String> {
 
 // ================== 体量与删除辅助 ==================
 
+/// 聚合层(一键全平台重置)专用解析出口(失败=本机未安装,聚合层据此跳过)。
+pub fn workbuddy_resolve_root() -> Result<std::path::PathBuf, String> {
+    resolve_user_dir()
+}
+
 fn dir_size_recursive(p: &std::path::Path) -> u64 {
     let meta = match std::fs::symlink_metadata(p) {
         Ok(m) => m,
@@ -1210,6 +1215,73 @@ pub async fn workbuddy_reset_history() -> Result<Vec<WbHistoryItem>, IpcError> {
         .map_err(|e| IpcError::internal(format!("历史读取任务异常退出: {e}")))
 }
 
+// ================== 残留审计（2026-10-16 补齐:此前 WorkBuddy 有重置无审计） ==================
+
+/// 单条残留审计条目（只读清点,不读内容、不删除）。
+#[derive(Debug, Clone, Serialize)]
+pub struct WbResidualEntry {
+    pub path: String,
+    pub kind: &'static str,
+    pub exists: bool,
+    /// 文件字节数(目录或不存在=None)
+    pub size: Option<u64>,
+}
+
+/// WorkBuddy 残留审计报告(签到/登录残留只读清点)。
+#[derive(Debug, Clone, Serialize)]
+pub struct WbResidualAuditReport {
+    pub root: String,
+    pub entries: Vec<WbResidualEntry>,
+    /// 在场条目数
+    pub present: usize,
+    pub message: String,
+}
+
+/// 残留审计主流程(纯同步,可单测;坐标来自 2026-10-10 只读侦察):
+/// app/session(Chromium webview 登录态:Local Storage/IndexedDB/Cookies)、
+/// device-id(设备身份 GUID)、app/session/Cookies(登录 Cookie 正文)。
+pub fn workbuddy_audit_residual_impl(root: &std::path::Path) -> WbResidualAuditReport {
+    let defs: [(&str, &'static str); 4] = [
+        ("app/session", "webview_login"),
+        ("app/session/Cookies", "auth_cookie"),
+        ("device-id", "device_identity"),
+        ("installation_id", "device_identity"),
+    ];
+    let mut entries: Vec<WbResidualEntry> = Vec::new();
+    for (rel, kind) in defs {
+        let full = root.join(rel);
+        let exists = full.exists();
+        let size = if exists && full.is_file() {
+            std::fs::metadata(&full).ok().map(|m| m.len())
+        } else {
+            None
+        };
+        entries.push(WbResidualEntry { path: rel.to_string(), kind, exists, size });
+    }
+    let present = entries.iter().filter(|e| e.exists).count();
+    let missing = entries.len() - present;
+    WbResidualAuditReport {
+        root: root.display().to_string(),
+        present,
+        message: format!(
+            "只读清点 WorkBuddy 根 {} 类签到/登录残留坐标:在场 {} 项、缺席 {} 项(只报存在与路径,不读内容、不删除任何东西)",
+            entries.len(),
+            present,
+            missing
+        ),
+        entries,
+    }
+}
+
+/// 残留审计命令:只读扫描,不做任何写入(重置面之外的独立取证口)。
+#[tauri::command(async)]
+pub async fn checkin_audit_workbuddy_residual() -> Result<WbResidualAuditReport, IpcError> {
+    let root = resolve_user_dir().map_err(|e| IpcError::internal(e))?;
+    tauri::async_runtime::spawn_blocking(move || workbuddy_audit_residual_impl(&root))
+        .await
+        .map_err(|e| IpcError::internal(format!("WorkBuddy 残留审计任务异常退出: {e}")))
+}
+
 // ================== 测试（临时夹具,绝不触碰真实 ~/.workbuddy） ==================
 
 #[cfg(test)]
@@ -1558,6 +1630,18 @@ mod tests {
             .any(|e| e.path == "app/session" && e.tier == "webview_logout");
         let has_mem = rep.entries.iter().any(|e| e.path == "MEMORY.md" && e.tier == "user_asset");
         assert!(has_logs && has_session && has_mem, "{:?}", rep.entries);
+        cleanup(&fx);
+    }
+
+    #[test]
+    fn audit_residual_counts_presence() {
+        let fx = fixture_root("audit");
+        let rep = workbuddy_audit_residual_impl(&fx);
+        // 在场:app/session + device-id = 2(夹具无 session/Cookies 文件与 installation_id)
+        assert_eq!(rep.present, 2, "{:?}", rep.entries);
+        assert!(rep.message.contains("在场 2 项"));
+        let login = rep.entries.iter().find(|e| e.path == "app/session").unwrap();
+        assert!(login.exists && login.kind == "webview_login");
         cleanup(&fx);
     }
 }

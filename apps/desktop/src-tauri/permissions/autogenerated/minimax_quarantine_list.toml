@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-minimax-quarantine-list"
+description = "Enables the minimax_quarantine_list command without any pre-configured scope."
+commands.allow = ["minimax_quarantine_list"]
+
+[[permission]]
+identifier = "deny-minimax-quarantine-list"
+description = "Denies the minimax_quarantine_list command without any pre-configured scope."
+commands.deny = ["minimax_quarantine_list"]
