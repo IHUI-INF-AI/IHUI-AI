@@ -40,7 +40,13 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const LIVE_DOCS = ['AGENTS.md', 'README.md']
 const ARCHIVE_PREFIX = '.ihui-agent/archive/'
 const ARCHIVE_NAME_RE = /(^|\/)AGENTS[^/]*\.md$/
-const MIN_RUN = 3
+/**
+ * 门槛取 12,依据是本轮实测两侧数字,不是拍的整数:
+ *   · 真回灌(两枚 Merge 灌回):块尺寸 3 / 4 / 13 / **2155** 行 ⇒ 抓得到的是"整区",12 行门槛照样拦下 13 与 2155;
+ *   · 合法重合(压缩版保留的条款本身也在归档件里逐字出现过):最大 4 行 ⇒ 12 行不误伤。
+ *   取 3 行时本仓当天就有 2 块假阳性(7 行),而假阳性红门的代价与恒红门同型(§12e)—— 所以宁可判"整区"。
+ */
+const MIN_RUN = 12
 
 /** 归档面行集(逐份归档件的全部行;短行/空行也收,但判定时要求整块命中) */
 export function buildArchiveFace(archiveTexts) {
@@ -177,24 +183,26 @@ async function main() {
 function selfTest() {
   const cases = []
   const eq = (name, got, want) => cases.push([name, JSON.stringify(got) === JSON.stringify(want), got, want])
-  const A = '归档正文甲行，长度足够跨过三十个字符这道有信息量门槛。'
-  const B = '归档正文乙行，同样足够长，用来证明整块会被点名出来。'
-  const C = '归档正文丙行，第三条；三条连续才够 MIN_RUN 这个门槛。'
+  const ARCH = Array.from({ length: 16 }, (_, i) => `归档正文第 ${i + 1} 行，长度足够跨过有信息量的门槛，用来构造整区级回灌样本。`)
   const NEW = '这是压缩版里仍在生效的一条规则行，它不在归档面里，应当切断块。'
-  const set = buildArchiveFace({ 'a.md': [A, B, C].join('\n') })
-  const n = (blocks) => blocks.map((b) => ({ ...b, sample: b.sample.slice(0, 4) }))
+  const set = buildArchiveFace({ 'a.md': ARCH.join('\n') })
+  const count = (lines) => findReinflatedBlocks(lines, set).length
 
-  eq('正控一:零散单行命中不算回灌', n(findReinflatedBlocks([A, NEW, B, NEW, C], set)), [])
-  eq('正控二:2 行命中不算(正当引用不误伤)', n(findReinflatedBlocks([A, B, NEW], set)), [])
-  eq('反控一:连续 3 行有信息量命中 ⇒ 判一块', n(findReinflatedBlocks([NEW, A, B, C, NEW], set)), [{ start: 2, end: 4, len: 3, sample: A.slice(0, 4) }])
-  eq('反控二:夹在归档正文里的空行不断块(归档件本来就含空行)', findReinflatedBlocks([A, '', B, C], buildArchiveFace({ 'a.md': `${A}\n\n${B}\n${C}` })).length, 1)
-  eq('反控三:两块分别点名', n(findReinflatedBlocks([A, B, C, NEW, NEW, NEW, NEW, A, B, C], set)).length, 2)
+  eq('门槛本体:连续 11 行命中不报(合法重合不误伤)', count([...ARCH.slice(0, 11), NEW]), 0)
+  eq('牙齿:连续 12 行命中 ⇒ 判一块', count([...ARCH.slice(0, 12), NEW]), 1)
+  eq('牙齿:整区回灌(16 行)判一块', count([NEW, ...ARCH, NEW]), 1)
+  eq('正控:零散命中(每 3 行夹一条本地新行)不算回灌', count([ARCH[0], ARCH[1], NEW, ARCH[2], ARCH[3], NEW, ARCH[4], ARCH[5], NEW, ARCH[6], ARCH[7], NEW, ARCH[8], ARCH[9], NEW, ARCH[10], ARCH[11], NEW, ARCH[12], ARCH[13], NEW, ARCH[14], ARCH[15]]), 0)
+  eq('两块分别点名', count([...ARCH, NEW, NEW, NEW, NEW, ...ARCH]), 2)
+  eq('夹在归档正文里的空行不断块(归档件本来就含空行)', count([ARCH[0], '', ...ARCH.slice(1, 12), NEW]), 1)
   eq(
     '横幅类样板不算(每份归档件都带同一条水印横幅 ⇒ 朴素行集合命中会假阳性)',
-    n(findReinflatedBlocks(['<!--', '© 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top', 'Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。', '-->'], buildArchiveFace({ 'a.md': '<!--\n© 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top\nProvenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。\n-->' }))),
-    [],
+    (() => {
+      const banner = ['<!--', '© 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top', 'Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。', '-->']
+      return count(banner, buildArchiveFace({ 'b.md': banner.join('\n') }))
+    })(),
+    0,
   )
-  eq('门槛本身:短行不算有信息量 / 长行算', [isInformative('ab'), isInformative(A), isInformative('© 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top')], [false, true, false])
+  eq('门槛本身:短行与横幅都不算有信息量 / 中文长行算', [isInformative('ab'), isInformative(ARCH[0]), isInformative('© 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top')], [false, true, false])
   let fail = 0
   for (const [name, ok, got, want] of cases) {
     if (ok) console.log(`  ✔ ${name}`)
