@@ -486,6 +486,40 @@ fn read_aes_key_from_local_state(trae_dir: &Path) -> Result<Vec<u8>, String> {
 
 // ================== 执行层：JWT 捕获（Cookies + leveldb 双通道）==================
 
+/// Trae 鉴权域后缀(.trae.cn / .trae.com / .trae.ai)。
+/// 2026-10-15 真机实证:Trae webview cookie jar 里混着 `localhost`/`aizhs.top` 的
+/// IHUI 开发 JWT,cookie 通道若不限域会把它们误捕成 Trae 账号 ⇒ JWT/uid 提取
+/// 一律限定 Trae 自家域。与 `delete_trae_cookies` 的 SQL LIKE 同口径(那条是
+/// 执行层 SQL,无法共享纯函数;域清单以本常量为真源)。
+pub const TRAE_AUTH_HOST_SUFFIXES: [&str; 3] = ["trae.cn", "trae.com", "trae.ai"];
+
+/// 纯函数:host_key 是否属于 Trae 鉴权域族(整域或后缀命中,含子域)。
+pub fn is_trae_auth_host(host: &str) -> bool {
+    let h = host.trim().to_ascii_lowercase();
+    TRAE_AUTH_HOST_SUFFIXES.iter().any(|s| h == *s || h.ends_with(s))
+}
+
+/// 从单条 cookie 行尝试解析出 Trae 不透明会话态的 uid。
+///
+/// 2026-10-15 真机实证:Trae 新版**不再把 Cloud-IDE-JWT 落盘**(改由会话 cookie
+/// 实时换发,全盘扫描 74 个 JWT 全是 `http_localhost_8801` 的 IHUI 开发 token),
+/// 但账号 uid 仍明文存在 `uid_tt`/`uid_tt_ss` cookie 里(ByteDance passport 体系
+/// 标准位)。`passport_auth_status` 首段与 `__tea_cache_tokens_*.user_unique_id`
+/// 是设备/统计 ID,不是账号 uid,刻意不收(防假账号)。jwt 留空 ⇒ 端到端签到仍需
+/// 网页登录换发的 Cloud-IDE-JWT(与 WorkBuddy「本地只取 uid、token 走网页登录」
+/// 同口径)。
+fn trae_uid_from_cookie(host: &str, name: &str, value: &str) -> Option<String> {
+    if !is_trae_auth_host(host) {
+        return None;
+    }
+    let n = name.to_ascii_lowercase();
+    if n != "uid_tt" && n != "uid_tt_ss" {
+        return None;
+    }
+    let v = value.trim();
+    (!v.is_empty()).then(|| v.to_string())
+}
+
 fn read_jwts_from_cookies_db(
     db_path: &Path,
     key: &[u8],
@@ -502,7 +536,12 @@ fn read_jwts_from_cookies_db(
             return out;
         }
     };
-    let Ok(mut stmt) = conn.prepare("SELECT host_key, encrypted_value FROM cookies") else {
+    // 2026-10-15 实证修复:Trae 新版把 cookie 明文存 `value` 列、`encrypted_value`
+    // 全空,旧实现只 SELECT encrypted_value 且非 v10 即 `continue` ⇒ 0 账号。
+    // 现同时读 value:解密 v10 优先,失败/缺值回落明文 value 列;明文 value 也扫 JWT。
+    let Ok(mut stmt) = conn.prepare(
+        "SELECT host_key, name, value, encrypted_value FROM cookies",
+    ) else {
         return out;
     };
     let Ok(mut rows) = stmt.query(rusqlite::params![]) else {
@@ -510,22 +549,48 @@ fn read_jwts_from_cookies_db(
     };
     while let Ok(Some(row)) = rows.next() {
         let host: String = row.get::<_, Option<String>>(0).ok().flatten().unwrap_or_default();
-        let blob: Vec<u8> = row.get(1).unwrap_or_default();
-        let Some((nonce, ct)) = split_v10_blob(&blob) else {
-            continue; // 非 v10（app-bound 等）跳过，不猜
-        };
-        let Some(plain) = aes256gcm_decrypt(key, nonce, ct) else {
+        let name: String = row.get::<_, Option<String>>(1).ok().flatten().unwrap_or_default();
+        let value: String = row.get::<_, Option<String>>(2).ok().flatten().unwrap_or_default();
+        let blob: Vec<u8> = row.get(3).unwrap_or_default();
+
+        // 候选文本:优先解密 v10 密文(v10 前缀 + 密钥);否则回落明文 value 列。
+        // v20(app-bound)等其它前缀 split_v10_blob 返回 None ⇒ 不猜,留空走明文分支。
+        let mut candidate: Option<String> = None;
+        if blob.len() >= 3 && &blob[..3] == b"v10" {
+            if let Some((nonce, ct)) = split_v10_blob(&blob) {
+                if let Some(plain) = aes256gcm_decrypt(key, nonce, ct) {
+                    candidate = Some(String::from_utf8_lossy(&plain).into_owned());
+                }
+            }
+        }
+        if candidate.is_none() && !value.is_empty() {
+            candidate = Some(value.clone());
+        }
+        let Some(text) = candidate else { continue };
+
+        // 域限定:cookie 通道只认 Trae 自家域(webview jar 里混着 localhost/aizhs.top
+        // 的 IHUI 开发 JWT,不限域会误捕成 Trae 账号 —— 2026-10-15 真机实证)。
+        if !is_trae_auth_host(&host) {
             continue;
-        };
-        let value = String::from_utf8_lossy(&plain).into_owned();
-        for jwt in extract_jwt_strings(value.as_bytes()) {
+        }
+
+        // 1) JWT 形态(优先,uid 从 payload 解)
+        for jwt in extract_jwt_strings(text.as_bytes()) {
             if let Some(uid) = jwt_payload_user_id(&jwt) {
                 out.push(CapturedAccount {
                     user_id: uid,
                     jwt,
-                    source: format!("cookies:{host}({source_rel})"),
+                    source: format!("cookies:{host}/{name}({source_rel})"),
                 });
             }
+        }
+        // 2) Trae 不透明会话态:明文 uid cookie(新版常态,Cloud-IDE-JWT 不再落盘)
+        if let Some(uid) = trae_uid_from_cookie(&host, &name, &text) {
+            out.push(CapturedAccount {
+                user_id: uid,
+                jwt: String::new(),
+                source: format!("cookie:{host}/{name}(opaque,需网页登录换发JWT)"),
+            });
         }
     }
     out
@@ -3892,6 +3957,46 @@ mod tests {
         assert!(picked.contains(&rich));
         let _ = std::fs::remove_dir_all(&shell);
         let _ = std::fs::remove_dir_all(&rich);
+    }
+
+    #[test]
+    fn is_trae_auth_host_matches_family_and_rejects_foreign() {
+        assert!(is_trae_auth_host(".trae.cn"));
+        assert!(is_trae_auth_host("api.trae.cn"));
+        assert!(is_trae_auth_host("trae.cn"));
+        assert!(is_trae_auth_host(".trae.com"));
+        assert!(is_trae_auth_host("www.trae.ai"));
+        // 外来域(含 IHUI 开发 token 载体)一律拒收
+        assert!(!is_trae_auth_host("localhost"));
+        assert!(!is_trae_auth_host(".aizhs.top"));
+        assert!(!is_trae_auth_host(".google.com"));
+        assert!(!is_trae_auth_host(""));
+    }
+
+    #[test]
+    fn trae_uid_from_cookie_only_uid_tt_on_trae_hosts() {
+        // 正路:trae.cn 域的 uid_tt / uid_tt_ss
+        assert_eq!(
+            trae_uid_from_cookie(".trae.cn", "uid_tt", " abb21658305c09df44f7c2df96ab3efd0 ")
+                .as_deref(),
+            Some("abb21658305c09df44f7c2df96ab3efd0")
+        );
+        assert_eq!(
+            trae_uid_from_cookie("www.trae.cn", "uid_tt_ss", "abc").as_deref(),
+            Some("abc")
+        );
+        // 非 Trae 域拒收(防 IHUI 开发 token 污染)
+        assert_eq!(trae_uid_from_cookie("localhost", "uid_tt", "x"), None);
+        assert_eq!(trae_uid_from_cookie(".aizhs.top", "uid_tt", "x"), None);
+        // 设备/统计 ID cookie 刻意不收(防假账号)
+        assert_eq!(trae_uid_from_cookie(".trae.cn", "passport_auth_status", "a,b"), None);
+        assert_eq!(
+            trae_uid_from_cookie(".trae.cn", "__tea_cache_tokens_7111126", r#"{"user_unique_id":"769"}"#),
+            None
+        );
+        // 非 uid cookie 与空值拒收
+        assert_eq!(trae_uid_from_cookie(".trae.cn", "sid_tt", "abc"), None);
+        assert_eq!(trae_uid_from_cookie(".trae.cn", "uid_tt", "  "), None);
     }
 
     // ── 2. JWT 形态/校验/提取/去重 ──

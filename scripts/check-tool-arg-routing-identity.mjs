@@ -40,6 +40,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符) */
@@ -642,8 +643,13 @@ export function analyze(root, face) {
 }
 
 export function main(argv) {
-  const ri = argv.indexOf('--root')
-  const root = ri >= 0 && argv[ri + 1] ? resolve(argv[ri + 1]) : ROOT
+  // G-322:给了 --root 却没收到合法值 ⇒ 点名拒绝,不得静默落 ROOT 出"通过"。
+  const rootArg = requireFlagValue(argv, '--root', { noun: '目录参数', fallback: null })
+  if (rootArg.error) {
+    console.error(`❌ 无法判定:${rootArg.error}`)
+    return 2
+  }
+  const root = rootArg.value !== null ? resolve(rootArg.value) : ROOT
   assertRepoRoot(root, '本门')
   const { face, error } = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
   if (error) {

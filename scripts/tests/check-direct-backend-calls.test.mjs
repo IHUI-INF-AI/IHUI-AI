@@ -289,4 +289,26 @@ test('(c) 源码形状锁:jsonOut 不得回到裸 argv[indexOf+1] 形态,且共�
   const routed = (SRC.match(/\n\s+jsonStdout,/g) || []).length
   assert.ok(routed >= 2, `两处 report() 调用点都要带上 jsonStdout,现测 ${routed}`)
 })
+
+// ─── G-322:--root 三支坏值必须各自非零退出并点名实得 token(不得静默落默认根) ───
+
+test('--root 三支坏值 ⇒ exit 2 且点名实得 token;不带 --root 行为不变(正反成对)', async () => {
+  const { spawnSync } = await import('node:child_process')
+  const script = new URL('../check-direct-backend-calls.mjs', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
+  const cli = (args) =>
+    spawnSync(process.execPath, [script, ...args], { cwd: 'G:/IHUI-AI', encoding: 'utf8', windowsHide: true })
+  for (const [args, token] of [
+    [['--root', '--staged'], '"--staged"'],
+    [['--root'], '(其后没有任何参数)'],
+    [['--root', ''], '""'],
+  ]) {
+    const r = cli(args)
+    assert.notEqual(r.status, 0, `--root ${JSON.stringify(args.slice(1))} 不得静默通过(旧写法空串那支 rc=0 落默认根)`)
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, /--root 需要一个目录参数/, `必须点名用法:${out.slice(0, 200)}`)
+    assert.match(out, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `必须点名实得 token:${out.slice(0, 200)}`)
+  }
+  const ok = cli([])
+  assert.equal(ok.status, 0, `默认档(不带 --root)行为必须逐字不变:rc=${ok.status}`)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

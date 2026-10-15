@@ -30,6 +30,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { flagValue } from './lib/flag-value.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -46,13 +47,6 @@ const args = process.argv.slice(2)
  * 无效值一律**大声拒绝**(exit 2 + 点名实得 token),绝不退化成"没给过滤条件"去跑全量还报成功。
  * 硬约束:不带 --spec 与 --spec <合法值> 时的默认行为一字未改。
  */
-function flagValue(list, flag) {
-  if (!Array.isArray(list) || !list.includes(flag)) return { present: false, valid: false, value: null, token: null }
-  const raw = list[list.indexOf(flag) + 1]
-  const token = typeof raw === 'string' ? raw : null
-  const valid = token !== null && token !== '' && !token.startsWith('-')
-  return { present: true, valid, value: valid ? token : null, token }
-}
 const specFlag = flagValue(args, '--spec')
 const specFilter = specFlag.value
 const checkServerOnly = args.includes('--check-server')
