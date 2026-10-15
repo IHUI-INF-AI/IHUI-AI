@@ -14,8 +14,7 @@
  * 脚本、没有 §22d 守卫,import 一次就等于真跑一遍提交流程。
  */
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
@@ -237,7 +236,7 @@ const gitIn = (dir, args) =>
   execFileSync('git', ['-C', dir, ...args], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true })
 
 function makeRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'g920-'))
+  const dir = mkScratch('g920-')
   gitIn(dir, ['init', '-q', '-b', 'main'])
   for (const [k, v] of [
     ['user.email', 't@example.com'],
@@ -271,7 +270,7 @@ test('C1 真仓:窗口期新进一条中文名外来件 ⇒ 判红并点名**真
     // 反向对照:本票件不许被读成外来件(否则会自己拒自己)
     assert.ok(!r.newEntries.includes('mine.txt'))
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir, { bestEffort: true })
   }
 })
 
@@ -286,7 +285,7 @@ test('C2 真仓棘轮对照:取样时已在外来水位里 ⇒ 不拦', () => {
     assert.equal(r.blocking, false, '既有外来水位不是本窗口引入的,拦它就是恒红')
     assert.deepEqual(r.currentForeign, ['他人-在飞件.txt'], '不拦 ≠ 不记账')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir, { bestEffort: true })
   }
 })
 
@@ -307,7 +306,7 @@ test('C3 真仓:`gitStagedStatusEntries()` 的 -z 交替帧解析 ⇒ 状态与�
     assert.equal(byName.get('新增件.txt'), 'A')
     assert.equal(byName.get('base.txt'), 'D')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir, { bestEffort: true })
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
