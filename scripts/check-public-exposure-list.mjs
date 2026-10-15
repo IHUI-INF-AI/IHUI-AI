@@ -80,6 +80,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { isFlagValueToken } from './lib/flag-value.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -698,7 +699,15 @@ export function gather(root, face) {
 
 function parseRoot(argv) {
   const i = argv.indexOf('--root')
-  if (i >= 0 && argv[i + 1]) return resolve(argv[i + 1])
+  // G-322:给了 --root 却没收到合法值(空串/被顶掉)⇒ 点名拒绝,不得静默落到等号档/返回 null。
+  if (i >= 0) {
+    const v = argv[i + 1]
+    if (!isFlagValueToken(v)) {
+      const got = v === undefined ? '(其后没有任何参数)' : JSON.stringify(v)
+      throw new Error(`--root 需要一个目录参数 —— 紧邻的 token 实得:${got}(不得静默退回默认根)`)
+    }
+    return resolve(v)
+  }
   const inline = argv.find((a) => a.startsWith('--root='))
   return inline ? resolve(inline.slice('--root='.length)) : null
 }
@@ -706,7 +715,14 @@ function parseRoot(argv) {
 export function main(argv = []) {
   const flags = new Set(argv.filter((a) => a.startsWith('--') && !a.startsWith('--root')))
   if (flags.has('--self-test')) return selfTest()
-  const rootFlag = parseRoot(argv)
+  // G-322:用法错(给了 --root 却没合法值)就近接住,只点名不抛栈 —— 栈留给真正的内部异常。
+  let rootFlag
+  try {
+    rootFlag = parseRoot(argv)
+  } catch (e) {
+    console.error(`❌ 无法判定:${e?.message ?? e}`)
+    return 2
+  }
   const picked = selectFace({ staged: flags.has('--staged'), worktree: flags.has('--worktree') })
   if (picked.error) {
     console.error(`❌ 取材面无法确定:${picked.error}`)

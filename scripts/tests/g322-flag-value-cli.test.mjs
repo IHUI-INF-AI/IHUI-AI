@@ -59,6 +59,19 @@ test('G-322 第二批:七道 blocking 门三支坏值各自大声拒绝', () => 
   assertBadRoot(S('check-prompt-injection-registry.mjs'))
 })
 
+test('G-322 第四批:九站 warn/手动档三支坏值各自大声拒绝', () => {
+  assertBadRoot(S('check-plan-sha-resolvable.mjs'))
+  assertBadRoot(S('check-package-barrel-export.mjs'))
+  assertBadRoot(S('check-tool-registry-integrity.mjs'))
+  assertBadRoot(S('provenance-ledger.mjs'))
+  assertBadRoot(S('check-tool-arg-routing-identity.mjs'))
+  assertBadRoot(S('check-tool-arg-validation-wired.mjs'))
+  assertBadRoot(S('check-tool-family-registered.mjs'))
+  assertBadRoot(S('check-shared-nonde-node-purity.mjs'))
+  // check-public-exposure-list 的 --root 在函数里,坏值走 throw ⇒ 顶层 catch,同样非零点名。
+  assertBadRoot(S('check-public-exposure-list.mjs'))
+})
+
 test('G-322 等号形态:gate-wiring / miniapp-generated 的 --root= 空值与裸位置参数各自拒绝', () => {
   const cases = [
     [S('check-gate-wiring.mjs'), ['--root='], /--root= 需要一个目录值/],
