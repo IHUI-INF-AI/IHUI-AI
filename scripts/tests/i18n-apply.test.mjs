@@ -1021,6 +1021,55 @@ describe('写盘准入(票面修法③)— 陈旧载荷 / 本轮未对账 ⇒ ex
     }
   })
 
+  test('--check-first 是登记在册的单命令出路:裸跑拒,同一夹具换它必须写成功,且不放过陈旧载荷', () => {
+    // 立因:准入把"必须先对账"变成硬判据,而 README/CONTRIBUTING/guardian-runner 登记的出路是
+    // **一条命令**(`pnpm i18n:apply`)。这条用例同时钉三件事:
+    // ① 那条出路真能走通(§0.8 禁止文档写跑不通的出路);② 它走的是同一段对账(不是绕守卫的后门);
+    // ③ package.json 里那条命令确实带着这个旗(旗与出路对账,谁改回去就红)。
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8'))
+    assert.match(pkg.scripts['i18n:apply'], /--check-first/, 'i18n:apply 没走单命令出路 = 文档里的出路跑不通')
+
+    const root = createTempProject('web')
+    try {
+      writeFullFixture(root, {
+        base: { greet: '你好' },
+        langs: { en: {}, ja: {}, ko: {}, 'zh-TW': {} },
+        translations: FULL,
+      })
+      const before = dirFingerprint(root, 'web')
+      const bare = runScriptRaw([], { cwd: root })
+      assert.equal(bare.status, 2, `裸跑竟没被准入拦下:${bare.stderr}`)
+      assert.equal(dirFingerprint(root, 'web'), before, '裸跑被拒却动了盘')
+
+      const one = runScriptRaw(['--check-first'], { cwd: root })
+      assert.equal(one.status, 0, `单命令出路走不通:${one.stdout}\n${one.stderr}`)
+      assert.match(stripAnsi(one.stdout), /本轮对账\(--check-first\)/, '没报名"这一次确实对过账"')
+      assert.notEqual(dirFingerprint(root, 'web'), before, '--check-first 没写盘')
+      // 对账凭据必须真落在盘上:它是"对过账"的证据,不是口号
+      assert.equal(
+        fs
+          .readdirSync(path.join(root, '.ihui-agent', 'tmp', 'i18n-apply'))
+          .filter((f) => f.startsWith('check-stamp-web-')).length,
+        1,
+        '--check-first 没留对账凭据(那它跟绕过准入没区别)',
+      )
+
+      // 反向锁:同一旗不许把"陈旧载荷"那道守卫也放过去
+      const afterFirst = dirFingerprint(root, 'web')
+      writeTranslations(root, {
+        translatedAt: '2026-01-01T00:00:00Z',
+        translatedBy: 'AI agent (test)',
+        translations: OTHER,
+      })
+      const staleRun = runScriptRaw(['--check-first'], { cwd: root })
+      assert.equal(staleRun.status, 2, `--check-first 放过了陈旧载荷:${staleRun.stderr}`)
+      assert.match(stripAnsi(staleRun.stderr), /陈旧载荷/)
+      assert.equal(dirFingerprint(root, 'web'), afterFirst, '陈旧那次被拒却动了盘')
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   test('陈旧载荷 translatedAt 早于盘上 mtime → exit 2 点名「陈旧载荷」;放行必须带原因', () => {
     const root = createTempProject('web')
     try {

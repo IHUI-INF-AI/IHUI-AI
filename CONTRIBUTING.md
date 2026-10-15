@@ -208,7 +208,7 @@ IHUI-AI/
 支持语言:简体中文(zh-CN,基准)/ English(en)/ 日本語(ja)/ 한국어(ko)/ 繁體中文(zh-TW)。
 
 - 所有用户可见文本必须走 `t('namespace.key')`,禁止硬编码
-- 新增 key 必须先改 `zh-CN.json`,再跑 AI 翻译流水线(`scripts/i18n-diff.mjs` → `i18n-apply.mjs`)
+- 新增 key 必须先改 `zh-CN.json`,再跑 AI 翻译流水线(`scripts/i18n-diff.mjs` → `i18n-apply.mjs --check-first`;`--check-first` 会在同一次调用内先做五语对账再应用,直接裸跑 `i18n-apply.mjs` 会因"本轮未对账"exit 2 拒写)
 - 5 语言 key 集合必须完全一致(`scripts/check-i18n-keys.mjs` 阻塞)
 - 禁止简体字残留 zh-TW(`scripts/scan-i18n-zh-residue.mjs` 阻塞)
 - 详见 [`docs/I18N.md`](docs/I18N.md) + [`AGENTS.md`](AGENTS.md) §19
