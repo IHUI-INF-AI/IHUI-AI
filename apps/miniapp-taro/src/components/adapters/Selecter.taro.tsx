@@ -84,7 +84,8 @@ const viewStyles = {
     paddingTop: toRpx(6),
     paddingBottom: toRpx(6),
     marginTop: toRpx(10),
-    borderRadius: 'var(--radius-md)',
+    // 整行内嵌区块 = card→lg(8),与 RN 侧 rnRadiusFor.card 同档(radius.js 角色档)
+    borderRadius: 'var(--radius-lg)',
     backgroundColor: tk.surface.muted,
   }),
   item: (
@@ -112,7 +113,8 @@ const viewStyles = {
     border: `1px solid ${active ? tk.brandAccent.deep : tk.border.medium}`,
     width: toRpx(w),
     height: toRpx(h),
-    borderRadius: 'var(--radius-md)',
+    // 13–20px 装饰小盒 = control→sm(4),与 RN 侧 rnRadius.sm 同档
+    borderRadius: 'var(--radius-sm)',
   }),
   backBtn: (): CSSProperties => ({
     display: 'inline-flex',
