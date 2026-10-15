@@ -17,6 +17,7 @@
 import * as React from 'react'
 import { confirmDialog } from '@/components/feedback'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import {
@@ -121,10 +122,12 @@ export function ProviderCardV2({
   const invalidate = () => qc.invalidateQueries({ queryKey: ['v2-providers'] })
 
   // 该 provider 下的 models(子表数据)
+  // 登录态门:未就绪/未登录不发注定 401 的挂载请求
+  const { allow } = useAuthGate()
   const { data: modelsData, isLoading: modelsLoading } = useQuery({
     queryKey: ['v2-models', provider.id],
     queryFn: () => fetchModelsV2(provider.id),
-    enabled: provider.models === undefined,
+    enabled: allow && provider.models === undefined,
     initialData: provider.models
       ? { list: provider.models, total: provider.models.length }
       : undefined,

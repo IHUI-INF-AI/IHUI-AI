@@ -7499,7 +7499,7 @@
         },
         "discount": {
           "active": "한산 시간대 할인 진행 중",
-          "upcoming": "{{time}} 후 한산 시간대 할인 시작"
+          "upcoming": "{time} 후 한산 시간대 할인 시작"
         },
         "duration": {
           "hour": "시간",
@@ -8947,7 +8947,12 @@
       "targetPlaceholder": "예:명문 고등학교, 985대학"
     },
     "options": {
-      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
+      "classLevel": [
+        "우수(학급 상위 10%)",
+        "양호(10-30%)",
+        "보통(30-70%)",
+        "미흡(하위 30%)"
+      ],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -8964,7 +8969,12 @@
         "시험 불안",
         "가정 환경 영향"
       ],
-      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"]
+      "school": [
+        "주요 중학교",
+        "일반 중학교",
+        "국제 학교",
+        "사립 학교"
+      ]
     },
     "result": {
       "failed": "AI 분석 실패",
@@ -10646,12 +10656,12 @@
     "issueUnbindFailed": "연결 해제에 실패했습니다",
     "selectionAnnotations": {
       "hoverHint": "마우스를 올리면 주석 표시",
-      "selectedText": "{{index}}. 선택한 텍스트",
+      "selectedText": "{index}. 선택한 텍스트",
       "noComment": "아직 댓글이 없습니다",
       "commentPlaceholder": "선택적 댓글 추가…",
       "commentAriaLabel": "선택 영역 주석 댓글",
       "addComment": "댓글 추가",
-      "removeOne": "주석 {{index}} 제거",
+      "removeOne": "주석 {index} 제거",
       "removeAll": "선택 주석 모두 제거",
       "add": "주석 추가"
     },
@@ -11683,7 +11693,7 @@
       "errorNode": "오류 메시지"
     },
     "sampling": {
-      "clearParam": "{{name}} 초기화",
+      "clearParam": "{name} 초기화",
       "useModelDefault": "모델 기본값 사용",
       "title": "샘플링 파라미터",
       "desc": "temperature, top_p 등 추론 파라미터를 조정합니다. 현재 대화에만 적용됩니다.",
@@ -11705,7 +11715,7 @@
       "systemPromptHint": "이 세션에만 적용되며 기본값으로 저장되지 않습니다.",
       "resetAll": "모두 초기화",
       "done": "완료",
-      "triggerActive": "샘플링 · {{count}}개 재정의",
+      "triggerActive": "샘플링 · {count}개 재정의",
       "trigger": "샘플링 파라미터",
       "triggerAria": "샘플링 파라미터 열기",
       "personalityCustom": "사용자 지정"
@@ -12060,151 +12070,276 @@
       "slashDiff": {
         "label": "세션 변경 요약",
         "description": "이 세션에서 AI가 변경한 파일 확인",
-        "keywords": ["diff", "변경", "검토"]
+        "keywords": [
+          "diff",
+          "변경",
+          "검토"
+        ]
       },
       "slashStatus": {
         "label": "세션 상태",
         "description": "모델, 컨텍스트, 권한 모드, 사용량 표시",
-        "keywords": ["status", "상태", "컨텍스트"]
+        "keywords": [
+          "status",
+          "상태",
+          "컨텍스트"
+        ]
       },
       "slashModel": {
         "label": "모델 전환",
         "description": "모델 선택기 열기",
-        "keywords": ["model", "모델", "전환"]
+        "keywords": [
+          "model",
+          "모델",
+          "전환"
+        ]
       },
       "slashMcp": {
         "label": "MCP 마켓",
         "description": "MCP 서버 마켓 열기",
-        "keywords": ["mcp", "마켓"]
+        "keywords": [
+          "mcp",
+          "마켓"
+        ]
       },
       "slashCompact": {
         "label": "컨텍스트 압축",
         "description": "세션 기록을 압축해 컨텍스트 확보",
-        "keywords": ["compact", "압축", "컨텍스트"]
+        "keywords": [
+          "compact",
+          "압축",
+          "컨텍스트"
+        ]
       },
       "steerPrompt": {
         "label": "프롬프트 스티어",
         "description": "실행 중인 답변에 현재 입력을 가이드로 주입합니다",
-        "keywords": ["스티어", "가이드", "steer"]
+        "keywords": [
+          "스티어",
+          "가이드",
+          "steer"
+        ]
       },
       "queuePrompt": {
         "label": "프롬프트를 대기열에 추가",
         "description": "현재 입력을 대기열에 추가하여 현재 답변이 끝나면 자동으로 전송합니다",
-        "keywords": ["대기열", "큐", "queue"]
+        "keywords": [
+          "대기열",
+          "큐",
+          "queue"
+        ]
       },
       "agent": {
         "description": "AI 에이전트 관리 및 디스패치",
-        "keywords": ["에이전트", "agent", "bot"],
+        "keywords": [
+          "에이전트",
+          "agent",
+          "bot"
+        ],
         "label": "AI 에이전트"
       },
       "browser": {
         "description": "작업 공간에서 웹 탐색",
-        "keywords": ["브라우저", "웹", "browser"],
+        "keywords": [
+          "브라우저",
+          "웹",
+          "browser"
+        ],
         "label": "내장 브라우저"
       },
       "capabilityMarket": {
         "description": "기능 팩 탐색 및 설치",
-        "keywords": ["기능", "마켓", "market", "플러그인"],
+        "keywords": [
+          "기능",
+          "마켓",
+          "market",
+          "플러그인"
+        ],
         "label": "기능 마켓"
       },
       "codeChanges": {
         "description": "작업 공간 코드 변경 확인",
-        "keywords": ["코드", "변경", "diff", "수정"],
+        "keywords": [
+          "코드",
+          "변경",
+          "diff",
+          "수정"
+        ],
         "label": "코드 변경"
       },
       "connectors": {
         "description": "외부 서비스 연결 관리",
-        "keywords": ["커넥터", "연결", "connector"],
+        "keywords": [
+          "커넥터",
+          "연결",
+          "connector"
+        ],
         "label": "커넥터"
       },
       "document": {
         "description": "작업 공간 문서 편집",
-        "keywords": ["문서", "편집", "doc"],
+        "keywords": [
+          "문서",
+          "편집",
+          "doc"
+        ],
         "label": "문서"
       },
       "editor": {
         "description": "코드 에디터 열기",
-        "keywords": ["에디터", "코드", "editor"],
+        "keywords": [
+          "에디터",
+          "코드",
+          "editor"
+        ],
         "label": "에디터"
       },
       "mcp": {
         "description": "MCP 서버 및 도구 관리",
-        "keywords": ["MCP", "서버", "도구"],
+        "keywords": [
+          "MCP",
+          "서버",
+          "도구"
+        ],
         "label": "MCP 관리"
       },
       "mcpStore": {
         "description": "MCP 서비스 탐색 및 설치",
-        "keywords": ["MCP", "스토어", "store", "설치"],
+        "keywords": [
+          "MCP",
+          "스토어",
+          "store",
+          "설치"
+        ],
         "label": "MCP 스토어"
       },
       "modeAsk": {
         "description": "질문 모드로 전환(도구 비활성)",
-        "keywords": ["질문", "ask", "모드"],
+        "keywords": [
+          "질문",
+          "ask",
+          "모드"
+        ],
         "label": "질문 모드"
       },
       "modeBuild": {
         "description": "AI가 직접 빌드하고 수정",
-        "keywords": ["빌드", "모드", "build"],
+        "keywords": [
+          "빌드",
+          "모드",
+          "build"
+        ],
         "label": "빌드 모드"
       },
       "modePlan": {
         "description": "계획 수립 후 실행",
-        "keywords": ["계획", "모드", "plan"],
+        "keywords": [
+          "계획",
+          "모드",
+          "plan"
+        ],
         "label": "계획 모드"
       },
       "modeReview": {
         "description": "기존 코드 검토",
-        "keywords": ["리뷰", "모드", "review"],
+        "keywords": [
+          "리뷰",
+          "모드",
+          "review"
+        ],
         "label": "리뷰 모드"
       },
       "modeSpec": {
         "description": "스펙에서 구현 생성",
-        "keywords": ["스펙", "모드", "spec"],
+        "keywords": [
+          "스펙",
+          "모드",
+          "spec"
+        ],
         "label": "스펙 모드"
       },
       "skill": {
         "description": "AI 스킬 관리 및 호출",
-        "keywords": ["스킬", "skill", "능력"],
+        "keywords": [
+          "스킬",
+          "skill",
+          "능력"
+        ],
         "label": "스킬"
       },
       "terminal": {
         "description": "통합 터미널 열기",
-        "keywords": ["터미널", "콘솔", "terminal"],
+        "keywords": [
+          "터미널",
+          "콘솔",
+          "terminal"
+        ],
         "label": "터미널"
       },
       "ai-world": {
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": ["AI", "월드", "앱"],
+        "keywords": [
+          "AI",
+          "월드",
+          "앱"
+        ],
         "label": "AI 월드"
       },
       "chat": {
         "description": "AI 어시스턴트와 대화",
-        "keywords": ["채팅", "대화", "AI", "chat"],
+        "keywords": [
+          "채팅",
+          "대화",
+          "AI",
+          "chat"
+        ],
         "label": "AI 채팅"
       },
       "drama": {
         "description": "AI 생성 단편 드라마",
-        "keywords": ["드라마", "비디오", "AI", "drama"],
+        "keywords": [
+          "드라마",
+          "비디오",
+          "AI",
+          "drama"
+        ],
         "label": "AI 드라마"
       },
       "profile": {
         "description": "프로필 및 설정 관리",
-        "keywords": ["프로필", "사용자", "설정"],
+        "keywords": [
+          "프로필",
+          "사용자",
+          "설정"
+        ],
         "label": "프로필"
       },
       "search": {
         "description": "전역 콘텐츠 검색",
-        "keywords": ["검색", "찾기", "search"],
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ],
         "label": "검색"
       },
       "settings": {
         "description": "시스템 환경 설정 및 구성",
-        "keywords": ["설정", "환경설정", "구성"],
+        "keywords": [
+          "설정",
+          "환경설정",
+          "구성"
+        ],
         "label": "설정"
       },
       "skillsMarket": {
         "description": "자가 진화 스킬 탐색 및 설치",
-        "keywords": ["skill", "스킬", "마켓", "market"],
+        "keywords": [
+          "skill",
+          "스킬",
+          "마켓",
+          "market"
+        ],
         "label": "스킬 마켓"
       }
     },
@@ -13236,8 +13371,8 @@
     "cardDesc": "모델 가격 및 청구 규칙",
     "cardLabel": "API 가격",
     "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '''{'\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      '{' \"role\": \"user\", \"content\": \"안녕하세요, 자기소개 부탁해요\" '}'\n    ],\n    \"temperature\": 0.7\n  '}'''",
-    "codeNode": "import OpenAI from 'openai'\n\nconst client = new OpenAI({\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: 'https://api.ihui-ai.com/v1',\n})\n\nconst completion = await client.chat.completions.create({\n  model: 'gpt-4o',\n  messages: [\n    { role: 'user', content: '안녕하세요, 자기소개 부탁해요' },\n  ],\n  temperature: 0.7,\n})\n\nconsole.log(completion.choices[0].message.content)\n\n// 비용 추적\nconst usage = completion.usage\nconsole.log(`사용량: ${usage.total_tokens} 토큰`)",
-    "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        {\"role\": \"user\", \"content\": \"안녕하세요, 자기소개 부탁해요\"},\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# 비용 추적\nusage = response.usage\nprint(f\"사용량: {usage.total_tokens} 토큰\")",
+    "codeNode": "import OpenAI from ''openai''\n\nconst client = new OpenAI('{'\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: ''https://api.ihui-ai.com/v1'',\n'}')\n\nconst completion = await client.chat.completions.create('{'\n  model: ''gpt-4o'',\n  messages: [\n    '{' role: ''user'', content: ''안녕하세요, 자기소개 부탁해요'' '}',\n  ],\n  temperature: 0.7,\n'}')\n\nconsole.log(completion.choices[0].message.content)\n\n// 비용 추적\nconst usage = completion.usage\nconsole.log(`사용량: $'{'usage.total_tokens'}' 토큰`)",
+    "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        '{'\"role\": \"user\", \"content\": \"안녕하세요, 자기소개 부탁해요\"'}',\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# 비용 추적\nusage = response.usage\nprint(f\"사용량: '{'usage.total_tokens'}' 토큰\")",
     "colCurrency": "통화",
     "colInput": "입력 가격(원/백만 토큰)",
     "colModel": "모델 ID",
@@ -14618,25 +14753,37 @@
       "quadrants": [
         {
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"],
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ],
           "tag": "Q1",
           "title": "효율적 어시스턴트"
         },
         {
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"],
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ],
           "tag": "Q2",
           "title": "스마트 어드바이저"
         },
         {
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"],
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ],
           "tag": "Q3",
           "title": "실행 전문가"
         },
         {
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"],
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ],
           "tag": "Q4",
           "title": "올라운드 전문가"
         }
@@ -14770,19 +14917,31 @@
       "items": [
         {
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"],
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ],
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티"
         },
         {
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"],
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ],
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티"
         },
         {
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"],
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ],
           "tag": "MODULE 03",
           "title": "AI 전문 서비스"
         }
@@ -15633,7 +15792,7 @@
     "descriptionPlaceholder": "선택 사항, Hook 용도를 간단히 설명",
     "fieldEvent": "트리거 이벤트",
     "fieldCondition": "조건식(JSONLogic, 선택)",
-    "conditionHint": "예: {\"==\":[\"tool\",\"write_file\"]} 는 tool 값이 write_file과 일치할 때 적용됩니다",
+    "conditionHint": "예: '{'\"==\":[\"tool\",\"write_file\"]'}' 는 tool 값이 write_file과 일치할 때 적용됩니다",
     "fieldActionType": "동작 유형",
     "testResultTitle": "테스트 결과",
     "testTriggered": "발동됨",
@@ -15658,16 +15817,16 @@
     "fieldHttpMethod": "HTTP 메서드",
     "fieldHeaders": "요청 헤더(JSON)",
     "fieldBodyTemplate": "요청 본문 템플릿",
-    "bodyTemplateHint": "{{event}} {{tool}} {{args}} {{result}} 변수 사용 가능",
+    "bodyTemplateHint": "{event} {tool} {args} {result} 변수 사용 가능",
     "fieldShellCommand": "셸 명령어",
     "shellCommandHint": "샌드박스에서 실행, 시간 초과 10초, 환경 변수 HOOK_EVENT / HOOK_CONTEXT 사용 가능",
     "fieldNotifyChannel": "알림 채널",
     "fieldNotifyMessage": "메시지 템플릿",
-    "notifyMessageHint": "{{event}} {{tool}} {{args}} 변수 사용 가능",
+    "notifyMessageHint": "{event} {tool} {args} 변수 사용 가능",
     "notifyWebhookUrlHint": "webhook 채널이 이 URL로 알림을 POST 합니다(webhook 액션과 동일한 발신기)",
-    "notifyMessagePlaceholder": "{{event}} 발동됨",
+    "notifyMessagePlaceholder": "{event} 발동됨",
     "fieldLogMessage": "로그 메시지 템플릿",
-    "logMessageHint": "{{event}} {{tool}} {{args}} 변수 사용 가능, logs/hooks.log에 기록",
+    "logMessageHint": "{event} {tool} {args} 변수 사용 가능, logs/hooks.log에 기록",
     "channel": {
       "toast": "토스트(짧은 알림)",
       "notification": "시스템 알림",
@@ -17678,7 +17837,15 @@
       "title": "Top 5 페이지",
       "visitsHeader": "방문수"
     },
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ]
   },
   "models": {
     "relay": {
@@ -18426,7 +18593,12 @@
         ]
       },
       "starter": {
-        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
+        "features": [
+          "1M 토큰 한도",
+          "기본 모델 사용 가능",
+          "5개 API 토큰",
+          "커뮤니티 지원"
+        ]
       }
     },
     "productSchema": {
@@ -18953,30 +19125,30 @@
     "wizardIpFailMany": "⚠️ 출구 IP 미변경 또는 가져오기 실패가 여러 차례입니다. 정말 바꿀 수 없다면 위의 '그대로 완료'로 검증을 건너뛰세요.",
     "wizardResidualReclean": "Qoder 종료 후 원클릭 리셋 강제 재실행(먼저 Qoder를 종료하고 잔여 정리)",
     "wizardStart": "원클릭 전체 리셋(약 1분)",
-    "wizardResetDone": "✅ 리셋 완료: {{ok}}/{{total}}계층 성공",
-    "wizardIpBefore": "리셋 전 출구 IP: {{ip}} ({{location}})",
+    "wizardResetDone": "✅ 리셋 완료: {ok}/{total}계층 성공",
+    "wizardIpBefore": "리셋 전 출구 IP: {ip} ({location})",
     "wizardGuide": "둘 중 하나로 네트워크 변경: ① 모뎀 전원을 뽑고 1분 후 다시 꽂기; ② 휴대폰 핫스팟을 켜고 PC 연결. 변경 후 아래 버튼으로 검증하세요.",
     "wizardVerify": "네트워크 변경 완료 — 새 IP 감지",
     "wizardIpUnchanged": "❌ 출구 IP 미변경 — 모뎀 재접속이 아직 안 됐을 수 있음. 30초 후 다시 전원을 뽑으세요(최소 1분).",
-    "wizardIpChanged": "✅ 새 출구 IP: {{ip}} — 이전 IP 완전 분리!",
+    "wizardIpChanged": "✅ 새 출구 IP: {ip} — 이전 IP 완전 분리!",
     "wizardCooldown": "3단계(자동): 디바이스+네트워크 모두 갱신 완료. ⚠️ 24시간 내 Qoder에 로그인하지 마세요 — 로그인 시도마다 리스크 제한 타이머가 재시작됩니다! 내일 이 시간에 평소처럼 로그인하세요.",
     "wizardOptionalNote": "미완료 표시 중 일부는 선택 계층(브라우저 실행 중으로 Cookie 정리 건너뜀 등)이며 핵심 결과에는 영향이 없습니다.",
     "wizardNoLoc": "(이번에는 IP 지역 정보를 가져오지 못했지만 네트워크 변경 검증에는 영향이 없습니다)",
     "wizardIpFetchFail": "⚠️ 출구 IP 가져오기 실패(네트워크 흔들림). 나중에 아래 버튼으로 재시도할 수 있습니다.",
-    "wizardRefetch": "기준 출구 IP 기록됨: {{ip}} (리셋 자체는 네트워크를 건드리지 않으므로 리셋 전 출구입니다)",
+    "wizardRefetch": "기준 출구 IP 기록됨: {ip} (리셋 자체는 네트워크를 건드리지 않으므로 리셋 전 출구입니다)",
     "wizardRefetchHint": "기준 IP 미취득: 아래 버튼으로 현재 출구 IP를 기준으로 기록한 뒤 네트워크를 변경하세요.",
-    "wizardIpBeforeNoLoc": "리셋 전 출구 IP: {{ip}}",
-    "wizardCooldownActive": "⏳ 마지막 원클릭 리셋 후 24시간 미만 — 쿨다운 약 {{hours}}시간 남음. 이 기간에는 Qoder에 로그인하지 마세요.",
+    "wizardIpBeforeNoLoc": "리셋 전 출구 IP: {ip}",
+    "wizardCooldownActive": "⏳ 마지막 원클릭 리셋 후 24시간 미만 — 쿨다운 약 {hours}시간 남음. 이 기간에는 Qoder에 로그인하지 마세요.",
     "wizardRestart": "위자드 다시 시작",
     "wizardAuditTitle": "🔍 리셋 완전성 검증(잔여 지문 감사)",
     "wizardAuditClean": "✅ 이전 신원 잔여 없음: 현재 Qoder 환경에 리셋 전 장치/신원 값이 남아 있지 않습니다.",
-    "wizardAuditResidual": "⚠️ 이전 신원 값 {{n}}건 잔존: 아래 파일에 리셋 전 신원 값이 남아 있습니다. Qoder를 완전히 종료한 뒤 원클릭 리셋을 다시 실행하세요.",
+    "wizardAuditResidual": "⚠️ 이전 신원 값 {n}건 잔존: 아래 파일에 리셋 전 신원 값이 남아 있습니다. Qoder를 완전히 종료한 뒤 원클릭 리셋을 다시 실행하세요.",
     "wizardAuditRerun": "잔여 재검사",
     "wizardAuditScanning": "Qoder 환경의 잔여를 검사하는 중…",
     "wizardAuditFail": "⚠️ 잔여 검사 실패(리셋 자체에는 영향 없음). 나중에 ‘잔여 재검사’로 다시 시도하세요.",
     "wizardSubtitle": "3단계로 기기 신원 재설정: 원클릭 재설정 → 네트워크 변경 검증 → 24시간 쿨다운.",
     "wizardAuditEntries": "전체 스캔 상세 보기",
-    "wizardAuditScope": "스캔 범위: {{cn}} 및 {{roaming}}, 총 {{files}}개 파일."
+    "wizardAuditScope": "스캔 범위: {cn} 및 {roaming}, 총 {files}개 파일."
   },
   "checkin": {
     "title": "출석 도우미",
@@ -19006,7 +19178,7 @@
     "deleteDescription": "계정 \"{name}\"과(와) 모든 출석 기록이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
     "deviceMap": "디바이스 핑거프린트",
     "deviceMapInvalid": "디바이스 핑거프린트가 유효한 JSON 개체가 아닙니다",
-    "deviceMapPlaceholder": "{\"ua\": \"...\", \"av\": \"...\"} (선택 사항, 비워 두면 자동 생성)",
+    "deviceMapPlaceholder": "'{'\"ua\": \"...\", \"av\": \"...\"'}' (선택 사항, 비워 두면 자동 생성)",
     "emptyAccounts": "출석 계정이 없습니다. 오른쪽 위에서 추가하세요",
     "emptyCredits": "포인트 기록이 없습니다",
     "emptyRecords": "출석 기록이 없습니다",
@@ -19082,16 +19254,17 @@
     "captureWbEncrypted": "토큰 필요",
     "captureWbTokenPlaceholder": "WorkBuddy 토큰(accessToken) 붙여넣기",
     "captureWbTokenRequired": "토큰이 비어 있습니다: 이 계정의 자격 증명은 암호화되어 있으므로 먼저 토큰을 붙여넣은 후 가져오세요",
-    "captureWbWebTitle": "웹 로그인(권장·토큰 불필요)",
-    "captureWbWebDescription": "\"로그인 창 열기\"를 누르고 열린 WorkBuddy 페이지에서 평소처럼 로그인(전화번호/QR)하세요. 로그인이 완료되면 계정이 자동으로 추가됩니다. 토큰을 복사할 필요가 없습니다.",
-    "captureWbWebOpen": "로그인 창 열기",
-    "captureWbWebWaiting": "로그인을 기다리는 중… 완료되면 자동으로 추가되며, 이 창은 뒤로 두어도 됩니다",
+    "captureWbWebTitle": "브라우저 QR 로그인(권장·토큰 불필요)",
+    "captureWbWebDescription": "\"브라우저에서 로그인\"을 누르고 열린 Chrome 창에서 WorkBuddy에 평소처럼 로그인(전화번호/QR)하세요. 로그인이 완료되면 계정이 자동으로 추가됩니다. 토큰을 복사할 필요가 없습니다.",
+    "captureWbWebOpen": "브라우저에서 로그인",
+    "captureWbWebWaiting": "브라우저를 열었습니다. 로그인을 기다리는 중… 완료되면 자동으로 추가됩니다",
     "captureWbWebImporting": "로그인 감지됨, 계정 가져오는 중…",
     "captureWbWebDone": "웹 로그인 가져오기 완료({count}개 계정)",
-    "captureWbWebWindowClosed": "로그인 창이 닫혔습니다. \"로그인 창 열기\"를 다시 눌러 재시도하세요.",
+    "captureWbWebWindowClosed": "브라우저의 로그인 페이지가 닫혔습니다. \"브라우저에서 로그인\"을 다시 눌러 재시도하세요.",
     "captureWbWebCancel": "취소",
-    "captureWbWebCancelled": "웹 로그인이 취소되었습니다. \"로그인 창 열기\"를 다시 눌러 재시도하세요.",
-    "captureWbWebSlowHint": "로그인 창이 빈 화면인 채로 로드되지 않는 것 같습니다. 네트워크가 www.workbuddy.cn에 접근할 수 있는지 확인하세요. \"취소\"를 눌러 창을 닫고 네트워크가 복구된 후 다시 열 수도 있습니다.",
+    "captureWbWebCancelled": "웹 로그인이 취소되었습니다. \"브라우저에서 로그인\"을 다시 눌러 재시도하세요.",
+    "captureWbWebSlowHint": "아직 로그인이 감지되지 않습니다: 브라우저 창에서 로그인(전화번호/QR)을 완료했는지 확인하세요. \"취소\"를 눌러 재시도할 수도 있습니다.",
+    "captureWbWebOpenFailed": "브라우저를 열지 못했습니다. Google Chrome이 설치되어 있는지 확인한 후 다시 시도하세요.",
     "captureWbWebProbeFailed": "로그인 창 프로브가 연속 실패하여 대기를 중단했습니다. 재시도하거나 아래 \"수동 캡처\"/토큰 방식을 이용하세요.",
     "captureWbManualDivider": "또는 데스크톱 로그인 정보를 수동으로 가져오기",
     "captureWbWebCheckinUncertain": "안내: 체크인 API가 웹 로그인 상태를 허용하는지 아직 확인되지 않았습니다. 체크인이 실패하면(401) 토큰 방식으로 전환하고 알려주세요.",
@@ -19117,31 +19290,31 @@
     "wizardIpFailMany": "⚠️ 출구 IP 미변경 또는 가져오기 실패가 여러 차례입니다. 정말 바꿀 수 없다면 위의 '그대로 완료'로 검증을 건너뛰세요.",
     "wizardResidualReclean": "TRAE 종료 후 원클릭 리셋 강제 재실행(먼저 TRAE를 종료하고 잔여 정리)",
     "wizardStart": "원클릭 전체 리셋(약 1분)",
-    "wizardResetDone": "✅ 리셋 완료: {{ok}}/{{total}}계층 성공",
-    "wizardIpBefore": "리셋 전 출구 IP: {{ip}} ({{location}})",
+    "wizardResetDone": "✅ 리셋 완료: {ok}/{total}계층 성공",
+    "wizardIpBefore": "리셋 전 출구 IP: {ip} ({location})",
     "wizardGuide": "둘 중 하나로 네트워크 변경: ① 모뎀 전원을 뽑고 1분 후 다시 꽂기; ② 휴대폰 핫스팟을 켜고 PC 연결. 변경 후 아래 버튼으로 검증하세요.",
     "wizardVerify": "네트워크 변경 완료 — 새 IP 감지",
     "wizardIpUnchanged": "❌ 출구 IP 미변경 — 모뎀 재접속이 아직 안 됐을 수 있음. 30초 후 다시 전원을 뽑으세요(최소 1분).",
-    "wizardIpChanged": "✅ 새 출구 IP: {{ip}} — 이전 IP 완전 분리!",
+    "wizardIpChanged": "✅ 새 출구 IP: {ip} — 이전 IP 완전 분리!",
     "wizardCooldown": "3단계(자동): 디바이스+네트워크 모두 갱신 완료. ⚠️ 24시간 내 TRAE에 로그인하지 마세요 — 로그인 시도마다 리스크 제한 타이머가 재시작됩니다! 내일 이 시간에 평소처럼 로그인하세요.",
     "wizardOptionalNote": "미완료 표시 중 일부는 선택 계층(브라우저 실행 중으로 Cookie 정리 건너뜀 등)이며 핵심 결과에는 영향이 없습니다.",
     "wizardNoLoc": "(이번에는 IP 지역 정보를 가져오지 못했지만 네트워크 변경 검증에는 영향이 없습니다)",
     "wizardIpFetchFail": "⚠️ 출구 IP 가져오기 실패(네트워크 흔들림). 나중에 아래 버튼으로 재시도할 수 있습니다.",
-    "wizardRefetch": "기준 출구 IP 기록됨: {{ip}} (리셋 자체는 네트워크를 건드리지 않으므로 리셋 전 출구입니다)",
+    "wizardRefetch": "기준 출구 IP 기록됨: {ip} (리셋 자체는 네트워크를 건드리지 않으므로 리셋 전 출구입니다)",
     "wizardRefetchHint": "기준 IP 미취득: 아래 버튼으로 현재 출구 IP를 기준으로 기록한 뒤 네트워크를 변경하세요.",
-    "wizardIpBeforeNoLoc": "리셋 전 출구 IP: {{ip}}",
-    "wizardCooldownActive": "⏳ 마지막 원클릭 리셋 후 24시간 미만 — 쿨다운 약 {{hours}}시간 남음. 이 기간에는 TRAE에 로그인하지 마세요.",
+    "wizardIpBeforeNoLoc": "리셋 전 출구 IP: {ip}",
+    "wizardCooldownActive": "⏳ 마지막 원클릭 리셋 후 24시간 미만 — 쿨다운 약 {hours}시간 남음. 이 기간에는 TRAE에 로그인하지 마세요.",
     "wizardRestart": "위자드 다시 시작",
     "wizardAuditTitle": "🔍 리셋 완전성 검증(잔여 지문 감사)",
     "wizardAuditClean": "✅ 이전 신원 잔여 없음: 현재 TRAE 환경에 리셋 전 장치/신원 값이 남아 있지 않습니다.",
-    "wizardAuditResidual": "⚠️ 이전 신원 값 {{n}}건 잔존: 아래 파일에 리셋 전 신원 값이 남아 있습니다. TRAE를 완전히 종료한 뒤 원클릭 리셋을 다시 실행하세요.",
+    "wizardAuditResidual": "⚠️ 이전 신원 값 {n}건 잔존: 아래 파일에 리셋 전 신원 값이 남아 있습니다. TRAE를 완전히 종료한 뒤 원클릭 리셋을 다시 실행하세요.",
     "wizardAuditRerun": "잔여 재검사",
     "wizardAuditScanning": "TRAE 환경의 잔여를 검사하는 중…",
     "wizardAuditFail": "⚠️ 잔여 검사 실패(리셋 자체에는 영향 없음). 나중에 ‘잔여 재검사’로 다시 시도하세요.",
-    "wizardAuditScope": "검사 범위: 파일 {{files}}개 / {{mb}} MB / TRAE 환경 디렉터리 {{sites}}개",
+    "wizardAuditScope": "검사 범위: 파일 {files}개 / {mb} MB / TRAE 환경 디렉터리 {sites}개",
     "wizardAuditRegistry": "레지스트리 항목",
     "wizardAuditHardware": "하드웨어 지문",
-    "wizardAuditSuspect": "추가로 의심 항목 {{n}}건(무관한 동명 값일 수 있으니 수동 확인용).",
+    "wizardAuditSuspect": "추가로 의심 항목 {n}건(무관한 동명 값일 수 있으니 수동 확인용).",
     "wizardAuditNoHistory": "이번 실행에는 리셋 전 이전 신원 기록이 없어(블랙리스트 비어 있음) 대조 판정이 불가합니다. 원클릭 리셋을 먼저 실행한 뒤 다시 검사하세요.",
     "maintBackup": "스냅샷 백업",
     "maintBackupDone": "파일 {count}개를 백업했습니다(누락 {missing}개)",
@@ -19167,7 +19340,7 @@
     "deviceMapUpdated": "기기 지문이 업데이트되었습니다",
     "editDeviceMap": "기기 지문 편집",
     "editDeviceMapTitle": "기기 지문 편집",
-    "editDeviceMapDescription": "{{platform}} 계정의 기기 지문을 편집합니다(JSON 객체, 비워 두고 저장하면 자동 생성됨)."
+    "editDeviceMapDescription": "{platform} 계정의 기기 지문을 편집합니다(JSON 객체, 비워 두고 저장하면 자동 생성됨)."
   },
   "nav": {
     "checkin": "출석",
@@ -19975,7 +20148,13 @@
       "enterprise": {
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"],
+        "features": [
+          "무제한 크레딧",
+          "사설 배포",
+          "SSO/SAML 2.0",
+          "감사 로그",
+          "전담 기술 지원"
+        ],
         "name": "기업판"
       },
       "free": {
@@ -23746,7 +23925,7 @@
       "computer": "내 PC",
       "description": "클릭하여 선택, 더블 클릭하여 폴더 진입; ↑↓ 로 탐색, Enter 로 열기, Backspace 로 상위 이동",
       "filterPlaceholder": "폴더 필터링...",
-      "itemCount": "{count, plural, =0 {폴더 없음} =1 {1 폴더} other {{count} 폴더}}",
+      "itemCount": "{count, plural, =0 {폴더 없음} =1 {1 폴더} other {# 폴더}}",
       "itemCountFiltered": "{filtered} / {total} 표시",
       "loading": "디렉토리 로딩 중...",
       "manualPathPlaceholder": "예: G:\\Projects\\my-app 또는 /home/user/projects",

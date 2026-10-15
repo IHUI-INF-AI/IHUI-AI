@@ -62,6 +62,10 @@ import {
   gitStagedPaths,
   gitUntrackedPaths,
   gitWorktreePaths,
+  // G-920 前置护栏新增的第四路(带状态的索引面)。**刻意追加在既有三路之后**:
+  // 有形状锁按字面邻接钉住上面三行的 import 名单,插队会把它撞红而锁的意图并未受损 ——
+  // 那种红是钉法的问题不是判据的问题,不该靠改锁去消。
+  gitStagedStatusEntries,
 } from './lib/git-paths.mjs'
 // G-1018292(2026-10-04):`git reset HEAD` 清空共享索引时会摘掉他人暂存删除的保护标记,
 // 而 reflog/index 结构上不留痕 ⇒ 只能在清空前那一瞬取样。判据与留底面在此。
@@ -75,6 +79,16 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 // (它同时是旁路留痕的写口与台账的读口;在这里另写一遍 appendFileSync = 第二份 schema,
 //  而两份 schema 的漂开会表现为"写了但统计器永远读不到")。
 import { recordGatesThenCommit } from './lib/commit-attestation.mjs'
+// G-920:事后载荷归因与处置建议的唯一出口(判据住 lib,本工具引那一份 —— 不在这里再算一遍)
+import {
+  adviceFor,
+  classifyConcurrentCommits,
+  diffForeignIndexEntries,
+  foreignEntryAdvice,
+} from './lib/commit-payload-attribution.mjs'
+// O43建议②(2026-10-15 机主拍板):钩子运行期外来件护栏 —— 生成临时 hooksPath 逐文件转发
+// .husky 全部钩子,pre-commit 成功后写树前复量索引(判据仍是 diffForeignIndexEntries 那一份)。
+import { buildWrappedHooksDir, GUARD_MARK } from './lib/hook-window-guard.mjs'
 // G-1079146 剩余半格(2026-10-08):活文档 intake 取值。判据**只有 live-doc-edit 那一份** ——
 // 本器 import 它已导出的六个出口,不在这里抄第二条 hex 正则、也不自己 split 做行差集(§22c:
 // 两处算同一件事必漂移,而漂了的那一份会替腐烂发合格证)。该模块顶层有 §22d `isDirectRun` 守卫,
@@ -513,6 +527,12 @@ if (agentScope) {
 
 log('ok', `暂存区精确匹配预期 ${C.cyan}${stagedFiles.length}${C.reset} 个文件`)
 
+// ─── 3g. 索引面基线取样(G-920 前置护栏的 T1 端)────────────────────────────
+// 只取样、不裁决。裁决在 Step 4 发令前那一瞬做(4-pre),且只认 **相对本快照的新增量**。
+// 取**全量**索引路径(含本票件):声明集是在判据里减的。这里若先减一次,窗口期内"本票件被别人
+// 整索引提交带走、又被重暂存放回"这一档就观不到了 —— 取材面不做裁决是 §0.6 的硬要求。
+const stagedBaselineAtStep3 = stagedFiles.map(normalize)
+
 // 3e. 活文档"工作树 ⊇ HEAD"行级对账 —— 把 AGENTS §12 从"人肉记得跑"变成机制
 // (2026-09-24 立)。背景:`README.md` / `AGENTS.md` / `PROJECT_PLAN.md` 是多会话共写的文档,
 // 工作树副本**常年滞后于 HEAD**(实测一日三次自伤,分别少 57 / 48 / 54 行)。而本脚本 Step 4
@@ -746,6 +766,69 @@ log('info', 'Step 4/5: git commit(普通提交,不带 pathspec)— 首次尝试(
 // (会破坏他人提交)。改为基于 beforeSha..HEAD 区间定位本次提交后再校验。
 const beforeSha = (run('git rev-parse HEAD', { allowFail: true }) || '').trim()
 
+// ─── 4-pre. 发令前复量索引(G-920 前置护栏,2026-10-15 立)──────────────────────
+// 背景:`classifyConcurrentCommits()` 那一半是**事后**的 —— 提交已落地,回读载荷再分成四型。
+// 而本枚提交此刻**还没生出来**:能在发令前挡住的,不该等落地后再去记账、再靠人工 forward-fix。
+// 判据只有 `diffForeignIndexEntries()` 一份(§0.6/§22c),这里不重写第二遍,只做取材与报告。
+//
+// 拦的是 **Step 3 之后新进入索引** 的非本票路径,不是"索引里有外来件" —— 后者在多会话下是常态,
+// 那样写会得到一把**恒红**的尺子,而恒红尺子的唯一出路是被人绕回裸 `git commit` 跳门(§12e),
+// 连带该枚提交上的全部守门一起作废 —— 比不装更坏。所以这里是差值棘轮:`current ⊖ baseline ⊖ 声明集`。
+//
+// **刻意不给行内豁免 env**(票面"不得新增行内豁免通道"):一旦留了 `IHUI_SKIP_*`,这把尺子就会在
+// "赶时间"的那一刻被一键关掉,而它管的恰恰是"把别人的在飞件交上去"这种事后极难察觉的事。
+// 出路不是开关,是换工具 —— `object-space-land.mjs` 的 commit-tree 只交声明集,结构上不吞他人内容。
+//
+// 另外不碰的:Step 4 不带 pathspec 这个决定本身(理由见本段下方 Step 4 处注记,2026-10-12 实测,
+// 仍然成立);30a / 100 / 168 等既有判据一律不动。
+
+/** 某路径最近一次入账的提交(用于点名"归属";取不到就说取不到,不猜)。 */
+const lastTouchOf = (p) => {
+  const r = spawnSync(
+    'git',
+    ['-c', 'safe.directory=*', '-C', repoRoot, 'log', '-1', '--format=%h %s', '--', p],
+    { encoding: 'utf8', windowsHide: true, timeout: 30_000, stdio: ['ignore', 'pipe', 'pipe'] },
+  )
+  const s = r.status === 0 ? String(r.stdout ?? '').trim() : ''
+  return s ? `最近入账 ${s}` : 'HEAD 里无记录(未跟踪新件 / 该路径未入过库)'
+}
+
+/** @param {string} phase  报告里点名这是哪一次发令(首次 / 锁重试 / 跳门重试)。 */
+const rejectIfForeignEnteredIndex = (phase) => {
+  const stagedNow = gitStagedPaths({ root: repoRoot }).map(normalize)
+  const d = diffForeignIndexEntries({
+    baseline: stagedBaselineAtStep3,
+    current: stagedNow,
+    expected: expectedNorm,
+  })
+  if (d.resolved.length)
+    log(
+      'info',
+      `窗口期内外来件 ${C.cyan}${d.resolved.length}${C.reset} 条已从索引消失(多半是别家那枚先落地把它们带走了)—— 只记账,不拦(它们进不了本枚提交):` +
+        `${d.resolved.slice(0, 6).join(', ')}${d.resolved.length > 6 ? ' …' : ''}`,
+    )
+  if (!d.blocking) return
+  const statusMap = new Map(
+    gitStagedStatusEntries({ root: repoRoot }).map((e) => [normalize(e.path), e.status]),
+  )
+  log(
+    'err',
+    `${C.red}拒发本枚提交${C.reset}(${phase}):Step 3 已证明索引纯净,但发令前复量发现 ` +
+      `${C.yellow}${d.newEntries.length}${C.reset} 条**非本票路径在窗口期新进入共享索引**` +
+      `(基线外来 ${d.baselineForeign.length} 条 → 现 ${d.currentForeign.length} 条)。`,
+  )
+  log(
+    'err',
+    '  Step 4 不带 pathspec(理由仍在)⇒ 普通提交会把这些一起交出去,而 commit message 只写本票的事 ⇒ 载荷与说明对不上,' +
+      ' 事后只能靠四型分类器回读,且其上一旦叠了他人提交就不能 rewind(§22)。',
+  )
+  for (const p of d.newEntries.slice(0, 8))
+    console.log(`     ${C.red}✗ ${p}${C.reset}  ${C.yellow}[${statusMap.get(p) ?? '?'}]${C.reset} ${lastTouchOf(p)}`)
+  if (d.newEntries.length > 8) console.log(`     …另 ${d.newEntries.length - 8} 条`)
+  for (const line of foreignEntryAdvice().lines) log('err', line)
+  process.exit(1)
+}
+
 /**
  * 首次失败**必须分诊**,否则一次环境抖动就会被升级成"109 道门全跳"。
  * 实测事故(2026-09-24):`git commit` 因并发 `.git/index.lock` 争用直接 exit 128 —— 钩子一次没跑,
@@ -764,21 +847,58 @@ const pump = (r) => {
   return `${r.stdout || ''}${r.stderr || ''}`
 }
 
+// O43②:护栏目录生命周期 —— 每次发令前重生成(基线必须是"此刻"的全量索引),进程退出
+// (含 process.exit 路径)时清理;目录在 .ihui-agent/tmp 下,不进库。
+let hookWindowGuard = null
+process.on('exit', () => {
+  try {
+    hookWindowGuard?.cleanup()
+  } catch {
+    /* 退出路径不做二次事故 */
+  }
+})
+
 let commitResult = null
 let hookFailed = false
 let hookOutput = ''
 for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
-  const r = spawnSync('git', commitArgs(false), {
-    encoding: 'utf8',
-    cwd: repoRoot,
-    // G-978004 ②:把本枚声明的提交面传给钩子链(整链继承)。pre-commit-hook 写进
-    // rounds.jsonl 的 declaredFiles,让统计器能按"声明集 == 落地面"发强证;
-    // 普通直 git commit 不带此 env ⇒ 维持 ⊆ 弱证,失效方向是少发强证不是发假证。
-    env: { ...process.env, IHUI_DECLARED_FILES: expectedFiles.join('\n') },
-    windowsHide: true,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'],
+  // G-920 前置护栏:每次真的要发 `git commit` 之前都复量一次索引(判据住 lib,不在此重写)。
+  rejectIfForeignEnteredIndex(attempt === 1 ? '首次尝试' : `锁争用重试 ${attempt}`)
+  // O43建议②:发令前取**全量**索引快照作基线(含他人的已暂存水位 —— 只拦"窗口期新进",
+  // 差值棘轮语义与 4-pre 完全一致),生成临时 hooksPath 逐文件转发 .husky 全部钩子;
+  // pre-commit 成功后写树前再复量一次,钩子运行期(本机实测 ≈15 分钟)新进的外来件在这里
+  // 被挡在写树之前 —— 4-pre 结构上够不到这个窗口(台账 O43)。每次发令重生成,陈旧基线
+  // 会把他人上一轮的合法落地误判成新进。
+  hookWindowGuard?.cleanup()
+  hookWindowGuard = buildWrappedHooksDir({
+    repoRoot,
+    tmpRoot: join(repoRoot, '.ihui-agent', 'tmp'),
+    baselinePaths: gitStagedPaths({ root: repoRoot }).map(normalize),
   })
+  if (hookWindowGuard.hooksDir)
+    log(
+      'info',
+      `O43② 钩子运行期外来件护栏已布防:基线 ${hookWindowGuard.baselineCount} 条 / 转发 ` +
+        `${hookWindowGuard.hookNames.length} 个钩子(pre-commit 成功后写树前复量)`,
+    )
+  const r = spawnSync(
+    'git',
+    hookWindowGuard.hooksDir
+      ? ['-c', `core.hooksPath=${hookWindowGuard.hooksDir}`, ...commitArgs(false)]
+      : commitArgs(false),
+    {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      // G-978004 ②:把本枚声明的提交面传给钩子链(整链继承)。pre-commit-hook 写进
+      // rounds.jsonl 的 declaredFiles,让统计器能按"声明集 == 落地面"发强证;
+      // 普通直 git commit 不带此 env ⇒ 维持 ⊆ 弱证,失效方向是少发强证不是发假证。
+      // O43②:护栏的写树前复量也从这里拿声明集(env 透传给钩子进程)。
+      env: { ...process.env, IHUI_DECLARED_FILES: expectedFiles.join('\n') },
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
   const out = pump(r)
   hookOutput += out
   commitResult = r
@@ -811,6 +931,18 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
     process.exit(1)
   }
   break
+}
+
+// O43②:护栏判红 = 窗口期外来件在写树前被点名。**绝不能落进下面的 --no-verify 兜底**
+// (兜底会把外来件照样交出去,护栏就白装了 —— 与"钩子真红才允许应急跳门"是两种形态),
+// 到此为止;出路只有判红输出里那两条(等其主会话落地/撤走后重跑,或改走 object-space-land)。
+if (hookOutput.includes(GUARD_MARK)) {
+  log(
+    'err',
+    `钩子运行期复量判红(见上)—— O43② 写树前最后防线生效,**拒绝 --no-verify 兜底**,本枚提交到此为止。` +
+      '注意这与"钩子判红"不同形:门是红的可以按归因分流,而这里是索引在钩子窗口期被灌了外来件,跳门解决不了它。',
+  )
+  process.exit(1)
 }
 
 let hookSkipped = false
@@ -1212,6 +1344,8 @@ if (hookFailed && commitResult.status !== 0) {
       )
     }
   }
+  // 同上:跳门重试**也是**一次整索引提交,外来件一样会跟着走 ⇒ 同样先复量,不因为"要跳门了"就放行。
+  rejectIfForeignEnteredIndex('--no-verify 重试')
   const r = spawnSync('git', commitArgs(true), {
     encoding: 'utf8',
     cwd: repoRoot,
@@ -1267,32 +1401,70 @@ if (newShas.length === 0) {
   committedSha = newShas[0]
   committedFiles = filesOfCommit(committedSha)
 } else {
-  // 并发:其他 agent 也在本次 commit 前后提交。找出「文件集全部落在预期内」的那一个,
-  // 它就是本次提交(其他 agent 的提交必然含本脚本未声明的文件,除非文件集恰好相同)。
-  const mine = newShas.find((sha) => {
-    const files = filesOfCommit(sha)
-    return files.length > 0 && files.every((f) => expectedNorm.has(f))
+  // 并发:其他 agent 也在本次 commit 前后提交。**不再用"文件集全在预期内"单一判据去找自己那枚** ——
+  // 那条把两种相反的错位(G-920 的两起实测)一起读成"未能定位本次提交",然后建议
+  // `git reset HEAD~1`;而 HEAD~1 是相对位置不是身份,照做就会把他人的提交从尖端退掉。
+  // 改按内容级分类:clean / polluted-ours(我们那枚被灌了别人 staged 的东西)/ carried-by-other
+  // (声明件被别家整索引提交带走)/ unlocated,建议与形态同处产出。
+  const subjectOfCommit = (sha) => {
+    const r = spawnSync('git', ['show', '-s', '--format=%s', sha], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return r.status === 0 ? String(r.stdout ?? '').trim() : ''
+  }
+  const verdict = classifyConcurrentCommits({
+    newShas,
+    filesOf: filesOfCommit,
+    expected: expectedNorm,
+    subjectOf: subjectOfCommit,
+    ourSubject: String(message ?? '').split('\n')[0].trim(),
   })
-  if (!mine) {
+  if (verdict.kind === 'polluted-ours') {
+    log(
+      'err',
+      `${C.red}严重!本枚提交被灌入 ${verdict.extraFiles.length} 个非本票路径${C.reset}: ${verdict.extraFiles.join(', ')}`,
+    )
+    log('err', `本次提交是 ${verdict.sha.slice(0, 9)}(内容级判据:载荷含全部声明路径 + 这些外来件)`)
+    for (const line of adviceFor('polluted-ours').lines) log('err', line)
+    process.exit(1)
+  }
+  if (verdict.kind === 'carried-by-other') {
+    log(
+      'err',
+      `${C.red}本票声明的路径没有以本枚提交落地,而是出现在他人那枚里${C.reset}(G-920 的②型错位):`,
+    )
+    for (const c of verdict.carriers)
+      console.log(
+        `     ${C.dim}${c.sha.slice(0, 9)}${C.reset}${c.subject ? ` 「${c.subject}」` : ''} 带走了 ${c.carried.join(', ')}`,
+      )
+    for (const line of adviceFor('carried-by-other').lines) log('err', line)
+    process.exit(1)
+  }
+  if (verdict.kind === 'unlocated') {
     log('err', `${C.red}并发场景下未能定位本次提交${C.reset}(beforeSha=${beforeSha.slice(0, 9)})`)
-    log('warn', `区间内 ${newShas.length} 个新提交均含非预期文件,请人工核对:`)
+    log('warn', `区间内 ${newShas.length} 个新提交与声明集无内容级对应关系,请人工核对:`)
     for (const sha of newShas) {
       console.log(`     ${C.dim}${sha.slice(0, 9)}${C.reset} ${filesOfCommit(sha).join(', ')}`)
     }
+    for (const line of adviceFor('unlocated').lines) log('err', line)
     process.exit(1)
   }
-  committedSha = mine
-  committedFiles = filesOfCommit(mine)
+  committedSha = verdict.sha
+  committedFiles = filesOfCommit(verdict.sha)
   log(
     'warn',
-    `检测到 ${newShas.length - 1} 个并发提交,已定位本次提交 ${C.cyan}${committedSha.slice(0, 9)}${C.reset}`,
+    `检测到 ${newShas.length} 个并发提交,已按内容级定位本次提交 ${C.cyan}${committedSha.slice(0, 9)}${C.reset}`,
   )
 }
 
 const committedUnexpected = committedFiles.filter((f) => !expectedNorm.has(f))
 if (committedUnexpected.length > 0) {
   log('err', `${C.red}严重!commit 包含非预期文件${C.reset}: ${committedUnexpected.join(', ')}`)
-  log('err', `这是一个污染事故! 建议立即: git reset HEAD~1 然后重新用 safe-commit 提交`)
+  log('err', '这是一个污染事故(载荷含本票之外的路径)。')
+  for (const line of adviceFor('polluted-ours').lines) log('err', line)
   process.exit(1)
 }
 

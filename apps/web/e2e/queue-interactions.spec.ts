@@ -14,7 +14,7 @@
 //      sideQueueByConversation(message-input 的 QueueInteractionBar 即渲染该桶);
 //   3. 队列条出现且 ≥2 条,即"流式生成中且有排队侧问"。
 //
-// 许可门真环境口径(D69,宿主 message-input 写死 runtimeSupportsInterjection=false):
+// 许可门真环境口径(D69;宿主 message-input 读 Runtime 能力声明,契约未落地 ⇒ 回落 false):
 //   · 流式中 reorder 被拒(denied.reorder 显式渲染);流结束后队列非空才可重排;
 //   · undo/edit 队列非空即允许;
 //   · interruptAndRun(canInterject)恒被拒 ⇒ 成功链路(停流+跑队首)真环境不可达,
@@ -425,14 +425,15 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
   })
 
   test('打断并执行成功链路(停流 + 队首立即发出)—— 真环境不可达,显式跳过', async () => {
-    // 台账 H21 期望本动词断言"点完流被中止且队首真的发出"。宿主 message-input 将
-    // runtimeSupportsInterjection 写死 false(全仓尚无能力协商生产者,D69/D38 既定口径),
-    // canInterject 恒 false ⇒ interruptPlan/handleInterruptAndRun 的成功分支不可从任何 UI 路径
+    // 台账 H21 期望本动词断言"点完流被中止且队首真的发出"。宿主 message-input 的
+    // runtimeSupportsInterjection 读 Runtime 能力声明,而该声明目前尚无生产者 ⇒ 回落
+    // false(D69/D38 既定口径),canInterject 恒 false ⇒ interruptPlan/handleInterruptAndRun
+    // 的成功分支不可从任何 UI 路径
     // 触达(禁止 page.evaluate 伪造 store 状态)。缺:runtimeSupportsInterjection=true 的
     // 协商链路生产者;它落地后本用例应改写为真断言,不得保持 skip。
     test.skip(
       true,
-      '宿主 runtimeSupportsInterjection=false 无协商生产者,「打断并执行」真环境唯一可达行为是显式被拒(上一条已断言);成功链路 e2e 待能力协商落地',
+      '宿主 runtimeSupportsInterjection 无协商生产者 ⇒ 回落 false,「打断并执行」真环境唯一可达行为是显式被拒(上一条已断言);成功链路 e2e 待能力协商落地',
     )
   })
 

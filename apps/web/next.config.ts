@@ -755,7 +755,7 @@ const nextConfig: NextConfig = {
           // - wwcdn.weixin.qq.com:企业微信 wwLogin-1.2.7.js
           // - g.alicdn.com:钉钉 h5-dingtalk-login 0.21.0
           // - lf-package-cn.feishucdn.com:飞书 LarkSSOSDKWebQRCode-1.0.3.js
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://res.wx.qq.com https://wwcdn.weixin.qq.com https://g.alicdn.com https://lf-package-cn.feishucdn.com https://cdn.jsdelivr.net",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://res.wx.qq.com https://wwcdn.weixin.qq.com https://g.alicdn.com https://lf-package-cn.feishucdn.com https://cdn.jsdelivr.net https://challenges.cloudflare.com",
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob: https:",
           "font-src 'self' data:",
@@ -778,7 +778,7 @@ const nextConfig: NextConfig = {
           // - self:Next.js dev HMR / React DevTools 需要
           // 2026-08-02 fix:WorkPanel 内置浏览器允许用户打开任意网址,
           // frame-src 放开 https:/http: 使可嵌入的外部站点能正常 iframe 展示。
-          "frame-src 'self' https: http: https://open.weixin.qq.com https://open.work.weixin.qq.com https://login.dingtalk.com https://passport.feishu.cn",
+          "frame-src 'self' https: http: https://open.weixin.qq.com https://open.work.weixin.qq.com https://login.dingtalk.com https://passport.feishu.cn https://challenges.cloudflare.com",
           "base-uri 'self'",
           "form-action 'self'",
         ].join('; '),

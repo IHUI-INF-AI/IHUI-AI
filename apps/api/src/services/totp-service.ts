@@ -15,6 +15,7 @@
  * - backup code 数据库只存 sha256 hash,明文只返回一次
  */
 import { createHmac, randomBytes, timingSafeEqual, createHash } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 
 // ============ Base32 编解码 (RFC 4648) ============
 
@@ -161,17 +162,11 @@ export function verifyTotp(token: string, secret: Buffer, options?: Partial<Totp
 }
 
 /**
- * 常量时间字符串比较(长度不同时也走完固定轮次防时序泄露)。
+ * 常量时间字符串比较(经全仓唯一比较出口 secretsEqual:先定长散列再比,
+ * 无长度泄漏、无早退)。
  */
 function constantTimeEquals(a: string, b: string): boolean {
-  const bufA = Buffer.from(a, 'utf8')
-  const bufB = Buffer.from(b, 'utf8')
-  if (bufA.length !== bufB.length) {
-    // 长度不同仍做一次假比较,保证耗时与等长情况接近
-    timingSafeEqual(bufA, bufA)
-    return false
-  }
-  return timingSafeEqual(bufA, bufB)
+  return secretsEqual(a, b)
 }
 
 // ============ Secret 生成 ============

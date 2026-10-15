@@ -18,6 +18,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { cn } from '@/lib/utils'
 import { useVipPayment } from '@/hooks/use-vip-payment'
 import { useToast } from '@/hooks/use-toast'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 
 const formatCNY = (n: number) =>
@@ -244,6 +246,9 @@ function ExistingOrderCheckout({ orderNo }: { orderNo: string }) {
   const router = useRouter()
   const { queryOrder, fetchPayInfo } = useVipPayment()
   const toast = useToast()
+  // 登录态门:未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [amount, setAmount] = React.useState<number | null>(null)
   const [qrCodeUrl, setQrCodeUrl] = React.useState('')
   const [mockError, setMockError] = React.useState(false)
@@ -262,6 +267,7 @@ function ExistingOrderCheckout({ orderNo }: { orderNo: string }) {
   useEffect(() => () => stopPoll(), [])
 
   useEffect(() => {
+    if (!allow) return
     let cancelled = false
     ;(async () => {
       try {
@@ -312,7 +318,7 @@ function ExistingOrderCheckout({ orderNo }: { orderNo: string }) {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderNo])
+  }, [orderNo, allow])
 
   const startPolling = () => {
     setPolling(true)
@@ -366,7 +372,9 @@ function ExistingOrderCheckout({ orderNo }: { orderNo: string }) {
       </h1>
       <Card>
         <CardContent className="min-[640px]:p-6 space-y-4 p-6 text-center">
-          {mockError ? (
+          {!allow ? (
+            <AuthGatePrompt message={tGate('loginRequired')} />
+          ) : mockError ? (
             <>
               <p className="text-sm text-destructive">{t('checkout.payConfigNotReady')}</p>
               <p className="text-xs text-muted-foreground">{t('checkout.contactAdmin')}</p>

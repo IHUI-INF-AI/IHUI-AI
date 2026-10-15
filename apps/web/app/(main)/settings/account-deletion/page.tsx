@@ -11,9 +11,10 @@ import { AlertTriangle, Send, Loader2, CheckCircle2 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent, Button, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { Input } from '@/components/form'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface DeletionStatus {
   isScheduled: boolean
@@ -36,6 +37,9 @@ function formatDate(iso: string | null): string {
 
 export default function AccountDeletionPage() {
   const t = useTranslations('settings')
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const user = useAuthStore((s) => s.user)
   const [status, setStatus] = React.useState<DeletionStatus | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -66,8 +70,9 @@ export default function AccountDeletionPage() {
   }, [])
 
   React.useEffect(() => {
+    if (!allow) return
     queryStatus()
-  }, [queryStatus])
+  }, [queryStatus, allow])
 
   React.useEffect(() => {
     if (!toast) return
@@ -155,7 +160,9 @@ export default function AccountDeletionPage() {
       <BackButton />
       <Alert variant="warning" title={t('accountDeletionWarning')} />
 
-      {loading ? (
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : loading ? (
         <p className="py-8 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>
       ) : status?.isScheduled ? (
         <Card>

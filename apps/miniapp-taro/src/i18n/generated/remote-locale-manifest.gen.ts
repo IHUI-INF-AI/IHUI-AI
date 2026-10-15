@@ -8,23 +8,23 @@
 // 与 src/assets/remote-locales/<locale>.b64.txt(CDN 部署),三者同批派生、同钉对账。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/gen-i18n-compressed.mjs
-// sourceCommit: b4b0b50c70bbf1667814ac96987d3c04d98e67f4
-// inputsSha256: d5ea5f226395898ff611e193e8d8d192f1cebb5487a26a412603fbf664362378
+// sourceCommit: e8348ea999d4f539a25a2b780132f71ffb61714c
+// inputsSha256: 1d969da4fc350cd145d8dcf6651192ea4f7882805ee3073993bf9f20fc89a159
 // input: packages/i18n/messages/miniapp-taro/en.json dd3772372cdbb516942f3220f655fccbd047f2d1287e3ea45eda4e389aacb8b1
 // input: packages/i18n/messages/miniapp-taro/ja.json 75c665802f9416e86eeeb778dd74bd5d1439ab7190c9cc88274df511a1f94c69
 // input: packages/i18n/messages/miniapp-taro/ko.json c7600c4c7fd4fa670d343e532799fb508ae0e0a8fb68512165eb5cc51f184bc9
 // input: packages/i18n/messages/miniapp-taro/zh-TW.json 3adbb0b6fc2f6dd557b86217507c43df103f6c463e0d0c9ebeb46af0982016b6
-// input: packages/i18n/messages/shared/en.json 4af0df93ca60354c87c63f8f6d8b5a643291dcfd7d4471ca7b1f399e5f438f5f
-// input: packages/i18n/messages/shared/ja.json 7afc46735eb3f9e5fdc8992033d777511508c66b5ddb54aa7543f7595576ec75
-// input: packages/i18n/messages/shared/ko.json 2f0742caf7decd513761e2f4fbdbd4343f18e8bf86d6abf03455a20f81f68133
-// input: packages/i18n/messages/shared/zh-TW.json 510ec0da112b558c461f68b563fdaaf37f4f8e2e84c7756d1acd5e50ead58bda
-// generatedAt: 2026-10-11T07:43:19.542Z
+// input: packages/i18n/messages/shared/en.json ad56dbbda35e9f0fd4342e4ed9162617a3488bfc02fa9425625bb54cac694cca
+// input: packages/i18n/messages/shared/ja.json b8f60d6e3cbff48ae249813217a74fd15046abbb4952a46a15759e1fbdb8dbb4
+// input: packages/i18n/messages/shared/ko.json f671dd631e9d9f6540449d184d23df62ab75b6507c071cbc08ef3bc0eb4bea99
+// input: packages/i18n/messages/shared/zh-TW.json d80846b39c4b89708396855ffcd23d34a1a2874700cea45ac2c6ec3b4cc589ca
+// generatedAt: 2026-10-15T05:17:29.701Z
 // IHUI-GEN-PIN-END
 export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'
 export const REMOTE_LOCALE_MANIFEST: Record<RemoteLocale, { version: string; bytes: number }> = {
-  en: { version: 'c99cb4bff3d51573c5f5570595bff5a197633382a3623c1bb23af018e9edea46', bytes: 107436 },
-  ja: { version: 'ed1db28c03585425732e180b19ed24c94a6f2f843f1b23414cd373b105091029', bytes: 120832 },
-  ko: { version: '2947537e8202053abc57ea2d5beb63e6860280a78ddf9bc330a45ce7b6056f76', bytes: 114896 },
-  'zh-TW': { version: '3e98d4ca441a80ad774bafba79fa99e8f0b08c5034e3db02357405446ece66c0', bytes: 108644 },
+  en: { version: 'a2e8f1e200d5b422cae5492a748301d36a1b8f11bfe8d67500c772699c707dc6', bytes: 107620 },
+  ja: { version: '67da727052541fe7f044fa3bbca3e27c001b21fa7adfd7c19e58979e7993a1ab', bytes: 121008 },
+  ko: { version: '81d38504ebee8e9d3a9542a1b5364f885a84534fd80a1b8211f90af4577923bf', bytes: 115068 },
+  'zh-TW': { version: 'fcfa9adb6e6c1e77a6aeaf9cf0abb4e8ce3c7e661d6ade08b69abc34323af5d9', bytes: 108804 },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -2220,6 +2220,13 @@
       "when": 1791510000000,
       "tag": "20261009090000_sms_used_snapshots",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 318,
+      "when": 1791936000000,
+      "tag": "20261014100000_chat_element_packs",
+      "breakpoints": true
     }
   ]
 }

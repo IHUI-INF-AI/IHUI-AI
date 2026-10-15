@@ -42,6 +42,8 @@ import {
 import { Tooltip } from '@/components/feedback'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   fetchKeyPool,
   toggleKeyPool,
@@ -75,6 +77,8 @@ function timeFmt(value: string | null): string {
 
 export default function PageClient() {
   const t = useTranslations('models')
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const qc = useQueryClient()
 
   const [page, setPage] = React.useState(1)
@@ -98,6 +102,7 @@ export default function PageClient() {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin', 'relay', 'key-pool', queryParams],
     queryFn: () => fetchKeyPool(queryParams),
+    enabled: allow,
   })
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'relay', 'key-pool'] })
@@ -217,7 +222,11 @@ export default function PageClient() {
           </div>
 
           {/* 表格 */}
-          {isLoading ? (
+          {!allow ? (
+            <div className="px-4 py-10">
+              <AuthGatePrompt message={tGate('loginRequired')} />
+            </div>
+          ) : isLoading ? (
             <div className="px-4">
               <Skeleton variant="table-row" rows={5} />
             </div>

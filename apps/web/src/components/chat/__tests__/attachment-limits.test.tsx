@@ -103,7 +103,10 @@ describe('screenAttachmentFiles 三档判据(纯函数)', () => {
 
   it('大小档:边界同侧律 —— 恰等于上限放行,上限+1 拒绝(code=max_file_size)', () => {
     const { accepted, rejections } = screenAttachmentFiles(
-      [mkFile('edge.pdf', '', CHAT_ATTACHMENT_MAX_SIZE_BYTES), mkFile('big.pdf', '', CHAT_ATTACHMENT_MAX_SIZE_BYTES + 1)],
+      [
+        mkFile('edge.pdf', '', CHAT_ATTACHMENT_MAX_SIZE_BYTES),
+        mkFile('big.pdf', '', CHAT_ATTACHMENT_MAX_SIZE_BYTES + 1),
+      ],
       0,
     )
     expect(accepted.map((f) => f.name)).toEqual(['edge.pdf'])
@@ -164,6 +167,21 @@ describe('useMessageReferences.addFileReferences(批量入口结构化回报)', 
     })
     expect(rejections[0]?.code).toBe('accept')
     expect(result.current.references).toHaveLength(0)
+  })
+
+  it('G-863 跨批空窗:同帧两批各 25(批间 await 微任务) ⇒ 总收录 30,不超容', async () => {
+    // 旧实现 countedBatchRef 在微任务后归零,而 refsRef 要到下一渲染才反映第一批,
+    // "微任务后、渲染前"的空窗里第二批按 capacity=30 全收 ⇒ 50>30;
+    // 修复后 pendingCommitRef(未落账量)与 refsRef(已反映量)互补,两批总收录钉在 30。
+    const { result } = renderHook(() => useMessageReferences())
+    const mkBatch = (tag: string) =>
+      Array.from({ length: 25 }, (_, i) => mkFile(`${tag}-${i}.png`, 'image/png'))
+    await act(async () => {
+      result.current.addFileReferences(mkBatch('b1'))
+      await Promise.resolve()
+      result.current.addFileReferences(mkBatch('b2'))
+    })
+    expect(result.current.references).toHaveLength(CHAT_ATTACHMENT_MAX_FILES)
   })
 })
 
@@ -240,13 +258,18 @@ describe('选/拖/贴三入口:拒绝聚合为一条提示(先聚合再报)', ()
         },
       }) as unknown as React.ClipboardEvent<HTMLTextAreaElement>
     act(() => {
-      result.current.send.handlePaste(pasteEvent([mkFile('a.png', 'image/png'), mkFile('b.png', 'image/png')]))
+      result.current.send.handlePaste(
+        pasteEvent([mkFile('a.png', 'image/png'), mkFile('b.png', 'image/png')]),
+      )
     })
     expect(toast.warning).not.toHaveBeenCalled()
     expect(result.current.refs.references).toHaveLength(2)
     act(() => {
       result.current.send.handlePaste(
-        pasteEvent([mkRealFile('huge.png', 'image/png', 51 * MB), mkRealFile('fine.png', 'image/png', 1024)]),
+        pasteEvent([
+          mkRealFile('huge.png', 'image/png', 51 * MB),
+          mkRealFile('fine.png', 'image/png', 1024),
+        ]),
       )
     })
     expect(toast.warning).toHaveBeenCalledTimes(1)

@@ -42,8 +42,8 @@ export function splitNulPaths(raw) {
  * 共派生出口。allowFail(缺省 true)= git 跑不动时返回 [](调用方按"取不到"走缺失判红,
  * 与改前 run(..., {allowFail:true}) 的语义逐字同形);传 false 时抛错,由调用方分诊。
  */
-function gitPaths(args, { root, timeoutMs = DEFAULT_TIMEOUT_MS, allowFail = true } = {}) {
-  if (!root) throw new Error('gitPaths() 必须显式传 root(不猜调用方位置)')
+function gitRawOutput(args, { root, timeoutMs = DEFAULT_TIMEOUT_MS, allowFail = true } = {}) {
+  if (!root) throw new Error('gitRawOutput() 必须显式传 root(不猜调用方位置)')
   const full = ['-c', 'safe.directory=*']
   if (process.platform === 'win32') full.push('-c', 'core.protectNTFS=false')
   full.push('-C', root, ...args)
@@ -57,16 +57,40 @@ function gitPaths(args, { root, timeoutMs = DEFAULT_TIMEOUT_MS, allowFail = true
       stdio: ['ignore', 'pipe', 'pipe'],
     })
   } catch (e) {
-    if (allowFail) return []
+    if (allowFail) return ''
     throw e
   }
   if (r.error || r.status !== 0) {
-    if (allowFail) return []
+    if (allowFail) return ''
     throw new Error(
       `git ${args.join(' ')} 失败: ${r.error?.message ?? (String(r.stderr ?? '').split('\n')[0] || `exit ${r.status}`)}`,
     )
   }
-  return splitNulPaths(r.stdout)
+  return String(r.stdout ?? '')
+}
+
+function gitPaths(args, opts) {
+  return splitNulPaths(gitRawOutput(args, opts))
+}
+
+/**
+ * 暂存区**带状态**清单(G-920 前置护栏"点名路径与归属"用,2026-10-15 立)。
+ *
+ * 为什么另立一路、不许调用方自己拼 `--name-status`:`-z` 下 name-status 的帧形是
+ * `<status>NUL<path>NUL` —— 状态码与路径在**同一帧流里交替**,与 `--name-only -z`
+ * 的 `<path>NUL` 不同形。直接喂 `splitNulPaths` 会把 `M` / `A` 读成一**条路径**,
+ * 于是"外来件清单"里凭空多出一堆单字母幽灵路径(本仓中文路径多,这类错读最难自查)。
+ * 解析只此一份,调用方不再各自拆帧(§0.6)。
+ *
+ * 取不到 ⇒ 返回 `[]`(与其余三路同规:调用方按"取不到"处理,不得据此断言"没有外来件")。
+ */
+export function gitStagedStatusEntries(opts = {}) {
+  const parts = gitRawOutput(['diff', '--cached', '--name-status', '--no-renames', '-z'], opts)
+    .split('\0')
+    .filter(Boolean)
+  const out = []
+  for (let i = 0; i + 1 < parts.length; i += 2) out.push({ status: parts[i], path: parts[i + 1] })
+  return out
 }
 
 /** 暂存区清单(与 safe-commit Step 3 改前同一命令面,+ -z 取真路径)。 */

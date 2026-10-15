@@ -62,6 +62,7 @@ async function freshI18n() {
     getMessages: (locale: Locale) => Messages
     ensureRemotePack: (locale: Locale) => Promise<void>
     t: (key: string, params?: Record<string, string | number>) => string
+    zhCnPackStatus: () => { ok: boolean; version: string; error: string | null }
   }
 }
 
@@ -285,6 +286,18 @@ describe('同一 locale 不重复发请求', () => {
     const [call] = T.requestCalls
     expect(call?.url).toContain('remote-locales/ja.b64.txt')
     expect(call?.url).toContain(`?v=${REMOTE_LOCALE_MANIFEST.ja.version}`)
+  })
+})
+
+describe('zh-CN 内联包:模块加载期同步解压,成功路径不得走兜底', () => {
+  it('解压成功 ⇒ zhCnPackStatus().ok === true,getMessages("zh-CN") 是全量源词典', async () => {
+    const mod = await freshI18n()
+    const status = mod.zhCnPackStatus()
+    // 兜底路径被静默走掉是最坏的一种失败:它长得跟"用户选了中文"一模一样,
+    // 所以这里必须读状态出口,而不是只看"取词有值"。
+    expect(status.ok).toBe(true)
+    expect(status.error).toBeNull()
+    expect(mod.getMessages('zh-CN')).toEqual(zhCN)
   })
 })
 

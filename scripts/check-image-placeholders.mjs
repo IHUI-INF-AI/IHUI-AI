@@ -71,17 +71,84 @@ if (!existsSync(registry)) fail(`登记表取不到:${registry}`)
 
 const src = readFileSync(registry, 'utf8')
 // URL 字面量 → 它出现在登记表里的哪一行(只取行号做**本次定位辅助**,不当证据写进台账:§1 明令行号会漂)
+//
+// 2026-10-14 修(缺陷①:漏 5 条):旧实现**逐行**扫描,`aizhsUrl(\n  'sys-backs/...'\n)` 这类
+// **多行调用**里 URL 与函数名不在同一行 ⇒ 结构性看不见。登记表里恰有 5 条这种写法,导致本尺子
+// 的登记面读数(289)比真实(294)少 5。改为整文件扫描 + 反算行号。
 const wanted = new Map()
-src.split(/\r?\n/).forEach((line, idx) => {
-  const re = /(?:aizhsUrl|bspappUrl)\(\s*'([^']+)'/g
+{
+  const re = /(?:aizhsUrl|bspappUrl)\(\s*'([^']+)'\s*,?\s*\)/g
+  const lines = src.split(/\r?\n/)
   let m
-  while ((m = re.exec(line)) !== null) {
+  while ((m = re.exec(src)) !== null) {
     const p = m[1].replace(/^\//, '').replace(/\\/g, '/')
     if (!p) continue
+    const line = src.slice(0, m.index).split(/\r?\n/).length
     if (!wanted.has(p)) wanted.set(p, [])
-    wanted.get(p).push({ line: idx + 1, text: line.trim().slice(0, 120) })
+    wanted.get(p).push({ line, text: (lines[line - 1] || '').trim().slice(0, 120) })
   }
-})
+}
+
+/**
+ * 登记表 URL 的归一化形态:HTTP 与文件系统语义下 `//` 折叠为 `/`、尾斜杠不改变目标文件。
+ * `cdn-server.js` 的 `path.join(root, url)` 天然做同一件事,所以这三种形态在 HTTP 层
+ * **真的能命中盘上文件**(2026-10-14 起 cdn-server 实测:8 条全 200 + 真内容,无 X-Placeholder)。
+ */
+function normalizeUrl(p) {
+  return p.replace(/\/{2,}/g, '/').replace(/\/+$/, '')
+}
+
+/**
+ * 把"登记表点名的 URL"与"盘上实际文件"对账。判据抽成纯函数,便于 --self-test 钉住。
+ * diskSizeLookup(url) → 字节数 / 0(空文件) / null(盘上没有)。
+ */
+function classifyReferenced(wantedKeys, diskSizeLookup) {
+  const missing = []
+  const referencedEmpty = []
+  for (const p of wantedKeys) {
+    const sz = diskSizeLookup(p)
+    if (sz === null) missing.push(p)
+    else if (sz === 0) referencedEmpty.push(p)
+  }
+  return { missing, referencedEmpty }
+}
+
+if (arg('--self-test')) {
+  // 钉住两处已修缺陷(2026-10-14)。缺任一条 ⇒ 修复被退回,自检必须翻红。
+  // 刻意不依赖源站目录/登记表:纯函数与正则在任何机器上都能跑。
+  const assert = (cond, msg) => {
+    if (!cond) { console.error(`❌ self-test:${msg}`); process.exit(1) }
+  }
+  // ① 多行调用必须被扫到(旧逐行实现结构性漏掉;登记表里恰有 5 条这种写法)
+  {
+    const sample = "const a = aizhsUrl(\n  'remote-images/x.png',\n)\nconst b = bspappUrl('remote-images/y.png')"
+    const re = /(?:aizhsUrl|bspappUrl)\(\s*'([^']+)'\s*,?\s*\)/g
+    const got = []
+    let m
+    while ((m = re.exec(sample)) !== null) got.push(m[1])
+    assert(got.length === 2, `多行调用扫描应得 2 条,实得 ${got.length}`)
+    assert(got[0] === 'remote-images/x.png', `多行调用第一条应取到 URL,实得 ${got[0]}`)
+  }
+  // ② 归一化:双斜杠折叠 / 尾斜杠去除;真缺失仍判缺失(不许把"没有"归一成"有")
+  {
+    assert(normalizeUrl('sys-mini//save@2x.png') === 'sys-mini/save@2x.png', '双斜杠未折叠')
+    assert(normalizeUrl('sys-center/default/statis/') === 'sys-center/default/statis', '尾斜杠未去除')
+    assert(normalizeUrl('distribution/图标') === 'distribution/图标', '无扩展名不应被改')
+    const disk = new Map([
+      ['distribution/图标', 12238], ['sys-mini/save@2x.png', 9936], ['sys-center/default/statis', 14301],
+      ['real-empty.png', 0],
+    ])
+    const lookup = (u) => { for (const c of [u, normalizeUrl(u)]) if (disk.has(c)) return disk.get(c); return null }
+    const r = classifyReferenced(
+      ['distribution/图标', 'sys-mini//save@2x.png', 'sys-center/default/statis/', 'real-empty.png', 'truly-gone.png'],
+      lookup,
+    )
+    assert(r.missing.length === 1 && r.missing[0] === 'truly-gone.png', `缺失应恰为 truly-gone.png,实得 ${JSON.stringify(r.missing)}`)
+    assert(r.referencedEmpty.length === 1 && r.referencedEmpty[0] === 'real-empty.png', `空文件应恰为 real-empty.png,实得 ${JSON.stringify(r.referencedEmpty)}`)
+  }
+  console.log('✅ self-test:2 组用例全过(多行扫描 / 归一化对账)')
+  process.exit(0)
+}
 
 /**
  * 空白画布审计(2026-09-30 立):源站 0 字节文件至少会渲染成灰底占位(看得见);
@@ -153,17 +220,60 @@ const blankAudit = blankCanvasAudit()
 const all = walk(srvRoot)
 const empty = []
 const real = []
+const onDiskSize = new Map() // 全量文件(不限扩展名):rel → 字节数
 for (const p of all) {
-  if (!IMG_RE.test(p)) continue
   const rel = relative(srvRoot, p).replace(/\\/g, '/')
   const st = statSync(p)
+  onDiskSize.set(rel, st.size)
+  if (!IMG_RE.test(p)) continue // 图片计数只认图片扩展名(无扩展名文件仍进 onDiskSize,供对账用)
   if (st.size === 0) empty.push(rel)
   else real.push({ rel, size: st.size })
 }
-const emptySet = new Set(empty)
-const missing = [...wanted.keys()].filter((p) => !emptySet.has(p) && !real.some((r) => r.rel === p))
-const referencedEmpty = empty.filter((p) => wanted.has(p))
+/**
+ * 2026-10-14 修(缺陷②:假阴性 8 条):旧实现把"盘上图片"限定在 `IMG_RE` 扩展名内,再与登记表
+ * URL **逐字**比对 ⇒ 无扩展名(5)/双斜杠(2)/尾斜杠(1)这 8 条**盘上明明有真文件**却被判"没有"。
+ * 现在按归一化形态在全量文件表里查;查不到才算缺失。
+ */
+function diskSizeFor(url) {
+  for (const c of [url, normalizeUrl(url)]) if (onDiskSize.has(c)) return onDiskSize.get(c)
+  return null
+}
+const { missing, referencedEmpty } = classifyReferenced([...wanted.keys()], diskSizeFor)
 const orphans = real.filter((r) => !wanted.has(r.rel))
+
+/**
+ * 2026-10-14 加:把"登记表点名而盘上没有"再分两态 —— **被活代码引用**(真债,要盯) vs
+ * **只在登记表里**(死登记项,不影响任何界面)。登记表是**扫原型源码**建的,连**注释掉的代码**
+ * 一起扫 ⇒ 会带进一批原型里早已注释掉、本仓也零引用的死路径(实测 3 条 `sys-backs/*`,
+ * 其中 2 条来自原型 `ai_index.js` 注释行与 `add_video.vue` 注释块)。
+ * 不分这两态,"缺失 N"会被读成"N 处图裂",而实际可能一处都不影响界面。
+ */
+function scanCodeReferenced(urls) {
+  const set = new Set(urls)
+  const found = new Set()
+  let files
+  try {
+    files = gitRaw(['ls-files', '-z', '--', 'apps/miniapp-taro/src', 'apps/web/src', 'packages'], ROOT)
+      .split('\0').filter((p) => /\.(ts|tsx|js|jsx|vue)$/.test(p))
+  } catch {
+    return null // 取不到源码面 ⇒ 返回 null(未判定,不冒充"零引用")
+  }
+  const re = /(?:aizhsUrl|bspappUrl)\(\s*'([^']+)'\s*,?\s*\)/g
+  for (const f of files) {
+    if (f.endsWith('remote-icons.ts')) continue // 登记表自身不算"活代码引用"
+    let s
+    try { s = readFileSync(join(ROOT, f), 'utf8') } catch { continue }
+    let m
+    while ((m = re.exec(s)) !== null) {
+      const u = m[1].replace(/^\//, '').replace(/\\/g, '/')
+      if (set.has(u)) found.add(u)
+    }
+  }
+  return found
+}
+const missingCodeRef = scanCodeReferenced(missing)
+const missingLive = missingCodeRef === null ? null : missing.filter((p) => missingCodeRef.has(p))
+const missingDead = missingCodeRef === null ? null : missing.filter((p) => !missingCodeRef.has(p))
 
 const summary = {
   root: srvRoot,
@@ -174,6 +284,8 @@ const summary = {
   realImages: real.length,
   emptyAndReferenced: referencedEmpty.length,
   requestedButNotOnDisk: missing.length,
+  missingReferencedByCode: missingLive === null ? null : missingLive.length,
+  missingRegistryOnly: missingDead === null ? null : missingDead.length,
   realButNotReferenced: orphans.length,
   blankAuditState: blankAudit.state,
   blankCanvasFiles: blankAudit.state === 'ok' ? blankAudit.blankFiles : null,
@@ -193,7 +305,10 @@ if (arg('--json')) {
   console.log(`源站目录:${summary.root}`)
   console.log(
     `登记表要 ${summary.registryUrls} 张图;盘上图片 ${summary.imageFiles} 个 = 真图 ${summary.realImages} + 空文件 ${summary.emptyImages}` +
-      `;其中被代码点名的空图 ${summary.emptyAndReferenced} 张;登记表点名而盘上没有 ${summary.requestedButNotOnDisk} 张`,
+      `;其中被代码点名的空图 ${summary.emptyAndReferenced} 张;登记表点名而盘上没有 ${summary.requestedButNotOnDisk} 张` +
+      (missingLive === null
+        ? '(两态未判定:源码面取不到)'
+        : `(被活代码引用 ${missingLive.length} 张 / 仅登记表死登记项 ${missingDead.length} 张)`),
   )
   console.log(
     `结论:${summary.emptyAndReferenced > 0 ? `界面上有 ${summary.emptyAndReferenced} 处是灰底占位图(不是报错,是"看起来正常")` : '没有空图占位(全部是真图)'}`,
@@ -219,7 +334,10 @@ if (arg('--json')) {
     if (referencedEmpty.length > 400) console.log(`  …另 ${referencedEmpty.length - 400} 条`)
     if (missing.length) {
       console.log('\n--- 登记表点名、但源站连空文件都没有 ---')
-      for (const p of missing.slice(0, 60)) console.log(`  ${p}`)
+      for (const p of missing.slice(0, 60)) {
+        const tag = missingLive === null ? '未判定' : missingCodeRef.has(p) ? '被活代码引用·需素材' : '仅登记表·死登记项'
+        console.log(`  [${tag}] ${p}`)
+      }
       if (missing.length > 60) console.log(`  …另 ${missing.length - 60} 条`)
     }
   } else if (summary.emptyAndReferenced) {

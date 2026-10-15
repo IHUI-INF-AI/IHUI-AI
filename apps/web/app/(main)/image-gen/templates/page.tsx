@@ -9,9 +9,11 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ArrowLeft, LayoutTemplate, Sparkles } from 'lucide-react'
 
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -45,11 +47,14 @@ async function api<T>(url: string): Promise<T> {
 export default function ImageGenTemplatesPage() {
   const router = useRouter()
   const locale = useLocale()
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [activeCat, setActiveCat] = React.useState('all')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['image-gen', 'templates'],
     queryFn: () => api<TemplatesData>('/api/image-gen/templates'),
+    enabled: allow,
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -120,7 +125,9 @@ export default function ImageGenTemplatesPage() {
         </div>
       )}
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...

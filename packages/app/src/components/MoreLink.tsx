@@ -11,6 +11,10 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { ChevronRight } from 'lucide-react-native'
+import {
+  SECTION_HEADER_ARROW_MARGIN_LEFT_PX as GAP,
+  SECTION_HEADER_MORE_FONT_PX as LABEL_FONT_SIZE,
+} from '@ihui/shared/ui/section-header-spec'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
 
 /**
@@ -41,10 +45,8 @@ import { getTokens, type AppThemeMode } from '../theme/tokens'
  * 按压反馈因此改走 Pressable 的 children 渲染函数:不新增布局节点,几何不变。
  */
 
-/** 与 web 端 `text-xs` + `ChevronRight h-3 w-3` 同档 */
-const LABEL_FONT_SIZE = 12
+/** 与 web 端 `text-xs` + `ChevronRight h-3 w-3` 同档;两常量收编共享 spec 单源 */
 const ICON_SIZE = 12
-const GAP = 2
 /** 与 RN `Text.maxFontSizeMultiplier` 同义的上限,防超大系统字体下按钮撑破行高 */
 const MAX_FONT_MULTIPLIER = 1.4
 

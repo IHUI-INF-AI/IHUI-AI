@@ -53,6 +53,7 @@ import {
 } from 'react-native'
 import type { FlatList } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as MediaLibrary from 'expo-media-library'
 import { captureRef } from 'react-native-view-shot'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
@@ -119,6 +120,18 @@ import {
 // D136(2026-10-01 立,承 V4 #94/D84):高危工具审批 —— 面板 + 常驻待审批胶囊,
 // 三档 once/session/always 逐档对齐 web(tool-approval-dialog.tsx),默认 once 最小特权。
 import { useToolApprovalQueue } from '../components/ai/ToolApprovalSheet'
+// D38(承 G-42):队列交互宿主 —— 排队/撤回/编辑/重排/打断并执行入口。
+// 判定复用 @ihui/shared 的 D69+D38(queueInteractionPerms/interactionAllowed/
+// effectiveMode/reorderQueue/applyQueueEdit/interruptPlan),端内不另立第二套判定;
+// 组件形态对齐 web queue-interaction-bar.tsx(hover → 按压态,拖拽 → ↑/↓ 重排)。
+import { QueueInteractionBar } from '../components/ai/QueueInteractionBar'
+import {
+  applyQueueEdit,
+  effectiveMode,
+  interruptPlan,
+  reorderQueue,
+  type FollowUpMode,
+} from '@ihui/shared/chat/queue-interactions'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
@@ -135,6 +148,8 @@ import {
   type ChatScreenModel,
 } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
+import { ShareRewardDialog } from '../components/ShareRewardDialog'
+import { NavChrome } from '../components/NavChrome'
 // G-166:交代区(RN 端共享组件)—— 引用来源 + 本轮上下文注入,与 N8n 屏同一实现
 import {
   CitationList,
@@ -150,14 +165,18 @@ import {
   applyInjectionFrame,
   appendSteerFrames,
   formatDurationMs,
+  foldElementPackFrames,
   readSteerAppliedFromMetadata,
+  subagentReplayRow,
   type AssistantExecutionFrame,
   type AssistantExecutionViz,
   type MessageCitation,
   type MessageInjection,
   type SteerNotice,
+  type SubagentReplayItem,
 } from '../utils/chat-render-model'
 import { thinkingTitleView } from '@ihui/shared/chat/element-pack'
+import { parseElementPackFrames } from '@ihui/shared/chat/element-pack-history'
 import { BottomActionBar, type BottomActionBarIconType } from '../components/BottomActionBar'
 import { McpStatusStrip } from '../components/McpStatusStrip'
 // 对齐 Uniapp ai_index2.vue 行 117-131:对话页顶部「查看卡片」折叠区(智汇值卡)
@@ -235,6 +254,8 @@ interface ChatScreenMessageWithReasoning extends ChatScreenMessage {
   /** D106 Steer(中途引导):本轮被用户注入的引导交代,对齐 web steerNoticesByMessageId。
    *  api 侧已随回调落库 metadata.steerApplied,历史水合读回(2026-09-24 立)。 */
   steerNotices?: SteerNotice[]
+  /** D64⑤ 历史回放:metadata.elementPack 子代理帧归并后的最小回放视图(空/缺席不渲染) */
+  elementPack?: SubagentReplayItem[]
 }
 
 /**
@@ -253,7 +274,11 @@ interface PanelItem {
 
 // steerNotices 是端内瞬时态:@ihui/shared ChatMessage 无此字段(types 包只读不扩),
 // 交集类型承载(live 由 onSteer 累积,历史由 metadata.steerApplied 读回)
-type ChatMessageWithSteer = ChatMessage & { steerNotices?: SteerNotice[] }
+type ChatMessageWithSteer = ChatMessage & {
+  steerNotices?: SteerNotice[]
+  /** D64⑤ 历史回放:metadata.elementPack 读回后的归并视图(流式消息无此字段) */
+  elementPack?: SubagentReplayItem[]
+}
 
 /**
  * D135(承 V4 #93)交互帧的最小承接形状(契约见 api-client StreamChatOptions.onQuestion /
@@ -286,6 +311,8 @@ const toChatScreenMessage = (m: ChatMessageWithSteer): ChatScreenMessageWithReas
   // D106:steer 交代透传 —— 不透传则 live 帧(映射发生在 onSteer 落 state 之后)与
   // 历史读回都在本屏静默丢失
   steerNotices: m.steerNotices,
+  // D64⑤:元素包历史回放透传(历史消息由 metadata.elementPack 归并,流式消息无)
+  elementPack: m.elementPack,
 })
 
 const toChatScreenModel = (m: LlmModel): ChatScreenModel => ({
@@ -297,6 +324,9 @@ const toChatScreenModel = (m: LlmModel): ChatScreenModel => ({
 })
 
 // ── 常量 ──
+
+/** D38 收口:队列模式偏好持久化键(AsyncStorage;取值 'steer' | 'queue',坏值按缺省 'queue' 处理) */
+const FOLLOW_UP_MODE_STORAGE_KEY = 'ihui.chat.followUpMode'
 
 const FALLBACK_MODELS: LlmModel[] = SHARED_FALLBACK_MODELS.map((m) => ({
   id: m.value,
@@ -546,6 +576,37 @@ export function ChatScreen() {
   // 关闭 ≠ 决策,被拒/收起后仍留人工放行入口);onToolApproval 挂进 streamChat 回调表。
   const toolApproval = useToolApprovalQueue()
 
+  // D38:侧问队列(端内本地态;web 在 chat store sideQueueByConversation,RN 无 store 层,
+  // 项形与 D38 EditableQueueItem 同构:id/text/createdAt)
+  const [sideQueue, setSideQueue] = useState<{ id: string; text: string; createdAt: number }[]>([])
+  // D38 收口:队列模式偏好持久化(AsyncStorage,与本端 theme/i18n 同一存储手段)。
+  // 初值恒 'queue',挂载后异步读回;写侧在 onModeChange 里同步落盘。坏值按缺省处理。
+  const [followUpMode, setFollowUpMode] = useState<FollowUpMode>('queue')
+  const queueIdCounter = useRef(0)
+
+  // 队列模式偏好读回(重启后恢复;键与 web localStorage 口径区分开,RN 端自有命名空间)
+  useEffect(() => {
+    let cancelled = false
+    AsyncStorage.getItem(FOLLOW_UP_MODE_STORAGE_KEY)
+      .then((v) => {
+        if (cancelled || v === null) return
+        if (v === 'steer' || v === 'queue') setFollowUpMode(v)
+      })
+      .catch(() => {
+        // 读不到就用缺省 'queue'(存储层故障不阻塞进屏)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const handleFollowUpModeChange = useCallback((mode: FollowUpMode): void => {
+    setFollowUpMode(mode)
+    void AsyncStorage.setItem(FOLLOW_UP_MODE_STORAGE_KEY, mode).catch(() => {
+      // 落盘失败静默:偏好丢失只是回退缺省,不值得打扰用户
+    })
+  }, [])
+
   const abortRef = useRef<AbortController | null>(null)
   const idCounter = useRef(0)
   const listRef = useRef<FlatList<ChatMessage> | null>(null)
@@ -586,6 +647,7 @@ export function ChatScreen() {
     response: 0,
     toolDelegate: 0,
     terminalDelta: 0,
+    terminalInteraction: 0,
     subagentSpawn: 0,
     subagentProgress: 0,
     subagentEnd: 0,
@@ -745,7 +807,17 @@ export function ChatScreen() {
     // overrideText 用于 P1.4 网页链接发送等场景;onSend 已 wrap 为 () => send() 防止 PressableEvent 传入
     // baseHistory:失败轮重试时显式传入"截到上一次提问之前"的历史,避免用渲染闭包里的旧 messages
     const text = (typeof overrideText === 'string' ? overrideText : prompt).trim()
-    if (!text || isStreaming) return
+    if (!text) return
+    if (isStreaming) {
+      // D38:流式中发送不再静默丢弃 —— 入侧问队列,本轮结束由下方流结束 effect 出队补答
+      queueIdCounter.current += 1
+      setSideQueue((prev) => [
+        ...prev,
+        { id: `sq-${queueIdCounter.current}`, text, createdAt: Date.now() },
+      ])
+      setPrompt('')
+      return
+    }
     setPrompt('')
     const userMsg: ChatMessage = { id: nextId(), role: 'user', content: text }
     const aiMsg: ChatMessage = { id: nextId(), role: 'assistant', content: '' }
@@ -845,6 +917,15 @@ export function ChatScreen() {
         streamDiagRef.current.terminalDelta += 1
         console.info(
           `[chat] terminal-delta #${streamDiagRef.current.terminalDelta} id=${event.terminalId} len=${event.text?.length ?? 0}`,
+        )
+      },
+      // D151 终端"等待键盘输入"(与 N8n 屏同一帧源):主屏无终端面板,N8n 屏的
+      // 降级态(等待行)也长在它的终端面板里,本屏无挂载位 —— 最小态 = 计数 + 日志行
+      // (与 onTerminalDelta 同一约定),不接 postTerminalInput(手机上代答是假 affordance)。
+      onTerminalInteraction: (event) => {
+        streamDiagRef.current.terminalInteraction += 1
+        console.info(
+          `[chat] terminal-interaction #${streamDiagRef.current.terminalInteraction} id=${event.terminalId}`,
         )
       },
       // 终端任务收尾:终态/输出/退出码/耗时折叠进本轮 viz
@@ -1058,6 +1139,44 @@ export function ChatScreen() {
   useEffect(() => {
     sendRef.current = send
   })
+
+  // D38/W27:流结束自动补答 —— 队列非空且生效模式为 queue 时出队队首重发
+  // (web message-input 流结束 effect 同形)。RN 端插话能力恒不可用(2026-10-15
+  // 下线能力声明协商),effectiveMode 以 false 入参解析 ⇒ 恒 queue。
+  useEffect(() => {
+    if (isStreaming) return
+    if (sideQueue.length === 0) return
+    if (effectiveMode(followUpMode, /* 插话能力恒不可用 */ false).mode !== 'queue') return
+    const head = sideQueue[0]
+    if (!head) return
+    setSideQueue((prev) => prev.filter((q) => q.id !== head.id))
+    void sendRef.current(head.text)
+    // 依赖顺序无关紧要,排列仅为本文件可读性(eslint exhaustive-deps 已覆盖完整性)
+  }, [sideQueue, isStreaming, followUpMode])
+
+  // ── D38 队列交互动作(许可判定在 QueueInteractionBar 内复用 D69/D38,这里只做状态写) ──
+  const handleQueueReorder = (fromIndex: number, toIndex: number): void => {
+    setSideQueue((prev) => [...reorderQueue(prev, fromIndex, toIndex)])
+  }
+  const handleQueueUndo = (itemId: string): void => {
+    const item = sideQueue.find((q) => q.id === itemId)
+    setSideQueue((prev) => prev.filter((q) => q.id !== itemId))
+    // W27 同形:撤回 = 移除并把文本退回输入框(已有内容换行拼接)
+    if (item) setPrompt((p) => (p ? `${p}\n${item.text}` : item.text))
+  }
+  const handleQueueEdit = (itemId: string, text: string): void => {
+    setSideQueue((prev) => [...applyQueueEdit(prev, itemId, { text })])
+  }
+  const handleInterruptAndRun = (): void => {
+    // interruptPlan 产出 stopFirst/thenRun;RN 端插话能力恒不可用(下线声明协商)
+    // ⇒ 许可门恒拒,此回调不可达;停流走 W2 abort 通道,队首由上方流结束 effect 补答。
+    const plan = interruptPlan(
+      { streaming: isStreaming, streamingMessageId: null },
+      sideQueue[0] ?? null,
+    )
+    if (!plan.thenRun) return
+    if (plan.stopFirst) stop()
+  }
   const retryLastTurn = useCallback((): void => {
     const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
     const text = resendTargetText(messages)
@@ -1926,6 +2045,17 @@ export function ChatScreen() {
                 items={(item as ChatScreenMessageWithReasoning).steerNotices ?? []}
               />
             )}
+            {/* D64⑤ 历史回放:metadata.elementPack 子代理帧的最小回放行(一行一代理,
+                与既有 execRowText 行形态同族;流式侧最小形态是计数+日志行,回放不逐帧重演) */}
+            {isFailed ? null : (item as ChatScreenMessageWithReasoning).elementPack?.length ? (
+              <View style={styles.execRows}>
+                {(item as ChatScreenMessageWithReasoning).elementPack!.map((sg) => (
+                  <Text key={sg.id} style={styles.execRowText} numberOfLines={1}>
+                    {subagentReplayRow(sg, t)}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
             {/* D111 权限档交代行:档名 + 该档后果(与 N8n 屏同一共享组件;null 不渲染) */}
             {isFailed ? null : <PermissionTierRow key="permission-tier-row" mode={workspaceTier} />}
             {/* D135 终端任务最小可视态:命令 + 状态 + 耗时(完整终端面板在 N8n 屏,不在此复制) */}
@@ -2314,6 +2444,9 @@ export function ChatScreen() {
           // D106 收尾:steer 交代历史读回 —— 守卫(text 非空字符串、timestamp 仅
           // string、8 条封顶)收敛在纯函数里,无 steer / 全坏 → undefined 不写字段
           const steerNotices = readSteerAppliedFromMetadata(meta?.steerApplied)
+          // D64⑤ 收口:元素包历史读回 —— 收窄守卫在 shared(parseElementPackFrames,
+          // 坏形态按空数组处理),归并在本端 foldElementPackFrames;无帧不写字段
+          const elementPack = foldElementPackFrames(parseElementPackFrames(meta))
           return {
             id: `${m.id}-${idx}`,
             role: m.role,
@@ -2323,6 +2456,7 @@ export function ChatScreen() {
             ...(citations && citations.length > 0 ? { citations } : {}),
             ...(injections && injections.length > 0 ? { injections } : {}),
             ...(steerNotices && steerNotices.length > 0 ? { steerNotices } : {}),
+            ...(elementPack.length > 0 ? { elementPack } : {}),
           }
         })
         setMessages(loaded)
@@ -2572,29 +2706,31 @@ export function ChatScreen() {
           此处曾另挂一份,两者读同一个 store 的 visible,打开通知会叠出两个相同面板。 */}
 
       {/* 顶部导航区(对齐 Uniapp navigation-bars:菜单 + 标题 + 加入) */}
-      <NavBar
-        title="智汇AI"
-        rightAction={
-          <View style={styles.navRight}>
-            <Pressable
-              hitSlop={8}
-              onPress={() => setDrawerVisible(true)}
-              accessibilityLabel="打开菜单"
-            >
-              <Menu size={22} color={tokens.text.primary} />
-            </Pressable>
-            <Pressable hitSlop={8} onPress={showAgentList} accessibilityLabel="选择 Agent">
-              <Bot size={22} color={tokens.text.primary} />
-            </Pressable>
-            <Pressable hitSlop={8} onPress={goToMyPage} accessibilityLabel="个人中心">
-              <Share2 size={22} color={tokens.text.primary} />
-            </Pressable>
-            <Pressable hitSlop={8} onPress={showQrCode} accessibilityLabel="加入社区">
-              <QrCode size={22} color={tokens.text.primary} />
-            </Pressable>
-          </View>
-        }
-      />
+      <NavChrome>
+        <NavBar
+          title="智汇AI"
+          rightAction={
+            <View style={styles.navRight}>
+              <Pressable
+                hitSlop={8}
+                onPress={() => setDrawerVisible(true)}
+                accessibilityLabel="打开菜单"
+              >
+                <Menu size={22} color={tokens.text.primary} />
+              </Pressable>
+              <Pressable hitSlop={8} onPress={showAgentList} accessibilityLabel="选择 Agent">
+                <Bot size={22} color={tokens.text.primary} />
+              </Pressable>
+              <Pressable hitSlop={8} onPress={goToMyPage} accessibilityLabel="个人中心">
+                <Share2 size={22} color={tokens.text.primary} />
+              </Pressable>
+              <Pressable hitSlop={8} onPress={showQrCode} accessibilityLabel="加入社区">
+                <QrCode size={22} color={tokens.text.primary} />
+              </Pressable>
+            </View>
+          }
+        />
+      </NavChrome>
 
       <KeyboardAvoidingView
         style={styles.body}
@@ -2656,6 +2792,17 @@ export function ChatScreen() {
           toolCalls={planViz?.toolCalls}
           isStreaming={isStreaming}
         />
+        {/* D38:队列交互条(排队消息 撤回/编辑/重排 + 打断并执行入口 + 模式切换;空队列零占位) */}
+        <QueueInteractionBar
+          items={sideQueue}
+          streaming={isStreaming}
+          mode={followUpMode}
+          onReorder={handleQueueReorder}
+          onUndo={handleQueueUndo}
+          onEdit={handleQueueEdit}
+          onInterruptAndRun={handleInterruptAndRun}
+          onModeChange={handleFollowUpModeChange}
+        />
         {/*
           D154(2026-10-01 收口渲染面):MCP 连接状态行,位置与小程序端一致(输入条上方)。
           数据源是共享层那一份 `mcpStatusLedger`(帧进表由 ../lib/user-broadcast 的唯一接线负责,
@@ -2666,7 +2813,8 @@ export function ChatScreen() {
         <BottomActionBar
           prompt={prompt}
           onPromptChange={updatePrompt}
-          onSend={isStreaming ? stop : () => send()}
+          // D38:流式中输入非空 = 入队(发送按钮让出排队入口);空输入仍是打断(Stop)
+          onSend={isStreaming && !prompt.trim() ? stop : () => send()}
           modelName={models.find((m) => m.id === model)?.name}
           onShowModelList={showModelList}
           onShowModelConfig={showModelConfig}
@@ -2833,36 +2981,17 @@ export function ChatScreen() {
         </Pressable>
       </Modal>
 
-      {/* 分享领智汇值弹窗(对齐 Uniapp share-points-popup) */}
-      <Modal
+      {/* 分享领智汇值弹窗(对齐 Uniapp share-points-popup)
+       *  2026-10-15 深度重构:抽共享组件 ShareRewardDialog(金渐变纪念币 Hero +
+       *  brandAccent 渐变 CTA),Home/Chat 两屏统一 */}
+      <ShareRewardDialog
         visible={shareValueVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={hideSharePoints}
-      >
-        <Pressable style={styles.modalMask} onPress={hideSharePoints}>
-          <Pressable style={styles.shareContent} onPress={(e) => e.stopPropagation()}>
-            <Pressable hitSlop={8} onPress={hideSharePoints} style={styles.shareClose}>
-              <X size={20} color={tokens.text.primary} />
-            </Pressable>
-            <Share2 size={48} color={tokens.brandAccent.deep} />
-            <Text style={styles.shareTitle}>分享领智汇值</Text>
-            <Text style={styles.shareDesc}>
-              首次分享成功,获得 {shareFirstReward}{' '}
-              智汇值奖励;邀请好友加入智汇AI社区,好友注册成功后双方均可再获智汇值。智汇值可用于兑换模型算力、会员权益等。
-            </Text>
-            <Pressable onPress={handleClaimShareReward} style={styles.shareBtn}>
-              <Text style={styles.shareBtnText}>领取 {shareFirstReward} 智汇值</Text>
-            </Pressable>
-            <Pressable
-              onPress={handleShareClick}
-              style={[styles.shareBtn, styles.shareBtnSecondary]}
-            >
-              <Text style={styles.shareBtnText}>立即分享邀请好友</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        reward={shareFirstReward}
+        onClaim={handleClaimShareReward}
+        onClose={hideSharePoints}
+        secondaryLabel="立即分享邀请好友"
+        onSecondaryPress={handleShareClick}
+      />
 
       {/* P1.1 转语音 Modal(语音类型选项 + 真实 TTS loading) */}
       <Modal
@@ -3768,51 +3897,6 @@ const styles = StyleSheet.create({
   qrCodeHintText: {
     fontSize: 12,
     color: tokens.text.secondary,
-  },
-  // ── 分享领值弹窗 ──
-  shareContent: {
-    width: 300,
-    backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
-    padding: rpx(48),
-    alignItems: 'center',
-  },
-  shareClose: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  shareTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: tokens.text.primary,
-    marginTop: rpx(24),
-    marginBottom: rpx(16),
-  },
-  shareDesc: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: tokens.text.secondary,
-    textAlign: 'center',
-    marginBottom: rpx(32),
-  },
-  shareBtn: {
-    paddingHorizontal: rpx(48),
-    paddingVertical: rpx(20),
-    borderRadius: rnRadius.sm,
-    backgroundColor: tokens.brand.cta,
-  },
-  shareBtnText: {
-    fontSize: 14,
-    color: tokens.brand.ctaForeground,
-    fontWeight: '500',
-  },
-  shareBtnSecondary: {
-    marginTop: rpx(16),
   },
   // ── 列表弹窗(ModelList / AgentList 共用容器) ──
   listDialogContent: {

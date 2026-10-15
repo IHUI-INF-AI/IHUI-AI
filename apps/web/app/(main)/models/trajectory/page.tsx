@@ -32,6 +32,8 @@ import {
 } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 
 /* ─── API helpers ─── */
 
@@ -324,6 +326,9 @@ function EmptyState({ t }: { t: ReturnType<typeof useTranslations<'models'>> }) 
 
 export default function TrajectoryPage() {
   const t = useTranslations('models')
+  // 登录态门:未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [search, setSearch] = React.useState('')
   const [expandedSessionId, setExpandedSessionId] = React.useState<string | null>(null)
 
@@ -337,6 +342,7 @@ export default function TrajectoryPage() {
   } = useQuery<TraceItem[]>({
     queryKey: ['agent-traces'],
     queryFn: fetchTraces,
+    enabled: allow,
   })
 
   // 获取展开的轨迹详情
@@ -347,7 +353,7 @@ export default function TrajectoryPage() {
   } = useQuery<TraceDetail>({
     queryKey: ['agent-trace-detail', expandedSessionId],
     queryFn: () => fetchTraceDetail(expandedSessionId!),
-    enabled: !!expandedSessionId,
+    enabled: allow && !!expandedSessionId,
   })
 
   const handleToggleExpand = (sessionId: string) => {
@@ -381,67 +387,74 @@ export default function TrajectoryPage() {
           />
         </div>
 
-        {/* 加载态 */}
-        {listLoading && <LoadingSkeleton t={t} />}
+        {/* 登录态门:未就绪/未登录不发注定 401 的请求 */}
+        {!allow ? (
+          <AuthGatePrompt message={tGate('loginRequired')} />
+        ) : (
+          <>
+            {/* 加载态 */}
+            {listLoading && <LoadingSkeleton t={t} />}
 
-        {/* 错误态 */}
-        {listError && !listLoading && (
-          <ErrorState
-            error={listErr?.message ?? t('trajectory.error')}
-            onRetry={() => refetchList()}
-            t={t}
-          />
-        )}
+            {/* 错误态 */}
+            {listError && !listLoading && (
+              <ErrorState
+                error={listErr?.message ?? t('trajectory.error')}
+                onRetry={() => refetchList()}
+                t={t}
+              />
+            )}
 
-        {/* 空数据态 */}
-        {!listLoading && !listError && (traces ?? []).length === 0 && <EmptyState t={t} />}
+            {/* 空数据态 */}
+            {!listLoading && !listError && (traces ?? []).length === 0 && <EmptyState t={t} />}
 
-        {/* 列表区域 */}
-        {!listLoading && !listError && (traces ?? []).length > 0 && (
-          <div className="space-y-2">
-            {traces!.map((trace) => (
-              <React.Fragment key={trace.session_id}>
-                <TraceCard
-                  trace={trace}
-                  t={t}
-                  expanded={expandedSessionId === trace.session_id}
-                  onToggle={() => handleToggleExpand(trace.session_id)}
-                />
-                {/* 展开详情 */}
-                {expandedSessionId === trace.session_id && (
-                  <div className="pl-2">
-                    {detailLoading ? (
-                      <div className="space-y-3 py-4">
-                        {Array.from({ length: 2 }).map((_, i) => (
-                          <Card key={i}>
-                            <CardContent className="min-[640px]:p-3 p-3">
-                              <div className="space-y-2">
-                                <div className="h-4 w-32 animate-pulse rounded-xs bg-muted" />
-                                <div className="h-16 w-full animate-pulse rounded bg-muted" />
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : detailData ? (
-                      <TraceDetailCard detail={detailData} t={t} />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-8 text-center">
-                        <AlertCircle className="mb-2 h-6 w-6 text-destructive" />
-                        <p className="mb-2 text-xs text-muted-foreground">
-                          {t('trajectory.error')}
-                        </p>
-                        <Button variant="outline" size="sm" onClick={() => refetchDetail()}>
-                          <RefreshCw className="mr-1.5 h-3 w-3" />
-                          {t('trajectory.retry')}
-                        </Button>
+            {/* 列表区域 */}
+            {!listLoading && !listError && (traces ?? []).length > 0 && (
+              <div className="space-y-2">
+                {traces!.map((trace) => (
+                  <React.Fragment key={trace.session_id}>
+                    <TraceCard
+                      trace={trace}
+                      t={t}
+                      expanded={expandedSessionId === trace.session_id}
+                      onToggle={() => handleToggleExpand(trace.session_id)}
+                    />
+                    {/* 展开详情 */}
+                    {expandedSessionId === trace.session_id && (
+                      <div className="pl-2">
+                        {detailLoading ? (
+                          <div className="space-y-3 py-4">
+                            {Array.from({ length: 2 }).map((_, i) => (
+                              <Card key={i}>
+                                <CardContent className="min-[640px]:p-3 p-3">
+                                  <div className="space-y-2">
+                                    <div className="h-4 w-32 animate-pulse rounded-xs bg-muted" />
+                                    <div className="h-16 w-full animate-pulse rounded bg-muted" />
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        ) : detailData ? (
+                          <TraceDetailCard detail={detailData} t={t} />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-8 text-center">
+                            <AlertCircle className="mb-2 h-6 w-6 text-destructive" />
+                            <p className="mb-2 text-xs text-muted-foreground">
+                              {t('trajectory.error')}
+                            </p>
+                            <Button variant="outline" size="sm" onClick={() => refetchDetail()}>
+                              <RefreshCw className="mr-1.5 h-3 w-3" />
+                              {t('trajectory.retry')}
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                )}
-              </React.Fragment>
-            ))}
-          </div>
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </TooltipProvider>

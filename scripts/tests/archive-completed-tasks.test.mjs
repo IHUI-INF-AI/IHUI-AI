@@ -8,7 +8,7 @@ import { spawnSync, execSync } from 'node:child_process'
 import { writeFileSync, existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -76,9 +76,10 @@ function runScript(cwd, args = []) {
   return r
 }
 
-// 归档文件路径(基于 today)
+// 归档文件路径 —— 归档器 2026-10-11 归一为全项目唯一统一件 PROJECT_PLAN_ARCHIVE.md(源脚本头注 13 行),
+// 测试镜像源脚本这一份命名,不得再钉历史上的 dated `_auto-archive.md`(否则归档器写共享件、测试找 dated 件 ⇒ 假红)。
 function archiveFilePath(dir) {
-  return join(dir, '.ihui-agent', 'archive', `PROJECT_PLAN_${todayStr()}_auto-archive.md`)
+  return join(dir, '.ihui-agent', 'archive', 'PROJECT_PLAN_ARCHIVE.md')
 }
 
 // ─── 1. 文件不存在 ───────────────────────────────────────
@@ -658,7 +659,7 @@ test('生产形态的 .gitignore(整目录忽略 .ihui-agent/)下,自动档仍�
       `归档文件必须进 commit(锚点入库),实得:\n  ${files.join('\n  ')}`,
     )
     const tracked = spawnSync('git', ['ls-files', '--', '.ihui-agent/archive'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] }).stdout
-    assert.match(tracked, /PROJECT_PLAN_.*_auto-archive\.md/, '归档锚点必须已被 git 跟踪')
+    assert.match(tracked, /PROJECT_PLAN_ARCHIVE\.md/, '归档锚点(归一后的唯一统一件)必须已被 git 跟踪')
     // 计划文档里必须留下 13c/71 认得的占位注释,且非条目内容一字不动
     const plan = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
     assert.match(plan, /<!-- 已归档\(/, '原位置须留占位注释')
@@ -899,7 +900,7 @@ function runScriptEnv(cwd, args, env) {
   r.all = r.out + r.err
   return r
 }
-const ARCHIVE_REL = `.ihui-agent/archive/PROJECT_PLAN_${todayStr()}_auto-archive.md`
+const ARCHIVE_REL = '.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md'
 
 test('A1 底稿面=HEAD:工作树滞后把已入库的 [x] 写成 [ ] 时,归档产出的那一面里它必须仍是 [x]', () => {
   const dir = createTempGitRepo()
@@ -1136,7 +1137,7 @@ test('G 子弹级 - [x] 真被搬走,且同一章节里的 - [ ] 一字不动地
     assert.ok(!/- \[x\].*G-900/.test(head), '已过阈值的已完成登记应被搬走(没搬=这一维没装车)')
     assert.ok(/^- \[ \] \*\*G-901/m.test(head), '未完成行必须原样留在计划文档里')
     assert.ok(/<!-- 已归档\(/.test(head), '原位必须留 §1 要求的归档占位')
-    const arch = execSync(`git show HEAD:.ihui-agent/archive/PROJECT_PLAN_${todayStr()}_auto-archive.md`, {
+    const arch = execSync(`git show HEAD:${ARCHIVE_REL}`, {
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,
       encoding: 'utf8',
@@ -1188,3 +1189,80 @@ test('I 选段结果必须先按行号排序再交给拼接(2026-09-28 实测:�
     '拼接处必须有"必须升序且不重叠"的前置断言(不能只靠下游的结构等值自证兜)',
   )
 })
+
+// 2026-10-15 归因档:`zeroLossViolations` 的 B 档是**整批**拒落的(一块证据不齐 ⇒ needMoved 里每个身份
+// 都挂同一句拒词)。实测一次拒落点名 36~47 个身份,而真正不齐的只有 1 块 —— 不点名那一块,
+// 交到手上的是"谁都可能是凶手"的清单。本档只读归因,判定仍住在那一份 zeroLossViolations 里。
+test('explainMovedExemption:整批拒词必须缩到"哪一块缺哪半条证据"(§22c 直接吃源脚本判据)', async () => {
+  const { __test__: X } = await import(pathToFileURL(SCRIPT_PATH).href)
+  const ex = X.explainMovedExemption
+  assert.equal(typeof ex, 'function', '源脚本没导出 explainMovedExemption ⇒ 归因档没装车')
+
+  // ① 没有搬运 ⇒ 一句都不该报(不许把别的档的拒词也算成"证据不齐")
+  assert.deepEqual(ex({ blockEvidence: [{ title: 'A', placeholderPresent: true, bodyInArchive: true }], movedCount: 0 }), [])
+  // ② 判定输入为空而确有搬运 ⇒ 必须喊"一块都没算出来",不能沉默
+  const none = ex({ blockEvidence: [], movedCount: 5 })
+  assert.equal(none.length, 1)
+  assert.match(none[0], /一块证据都没算出来/)
+  // ③ 两块各缺一条腿 ⇒ 逐块点名标题 + 缺的那半条
+  const two = ex({
+    movedCount: 47,
+    blockEvidence: [
+      { title: '守卫票 i18n-apply', placeholderPresent: true, bodyInArchive: false },
+      { title: '另一票', placeholderPresent: false, bodyInArchive: true },
+      { title: '证据齐的块', placeholderPresent: true, bodyInArchive: true },
+    ],
+  })
+  const joined = two.join('\n')
+  assert.match(two[0], /47 条已完成行挂的是同一句拒词/, '首行必须先说清"整批被牵连"')
+  assert.match(two[0], /真正不齐的是下面 2 块/)
+  assert.match(two[0], /其余 1 块证据齐备,别去动它们/)
+  assert.match(joined, /守卫票 i18n-apply/)
+  assert.match(joined, /正文没连续落进本次归档件/)
+  assert.match(joined, /原位置占位不在产出面/)
+  assert.doesNotMatch(joined, /证据齐的块「?缺?/)
+  assert.equal(joined.includes('「证据齐的块」'), false, '证据齐备的块不许被点名(否则下一轮又去动它)')
+  // ④ 逐块都齐 ⇒ 必须如实说"不是它们各自缺证据",把人往别的档引(不许沉默)
+  const allOk = ex({
+    movedCount: 9,
+    blockEvidence: [{ title: 'A', placeholderPresent: true, bodyInArchive: true }],
+  })
+  assert.equal(allOk.length, 1)
+  assert.match(allOk[0], /逐块证据都在位/)
+  assert.match(allOk[0], /往 A 档\/反向多报档看/)
+  // ⑤ 条目本身是 null/undefined ⇒ 不许抛,也不许静默当"齐"
+  const holes = ex({
+    movedCount: 2,
+    blockEvidence: [null, { title: 'B', placeholderPresent: false, bodyInArchive: false }],
+  })
+  assert.match(holes.join('\n'), /第 1 块:证据条目本身是空的/)
+  assert.match(holes.join('\n'), /第 2 块「B」缺:原位置占位不在产出面 \+ 正文没连续落进本次归档件/)
+  // ⑥ 装车锁:两处拒落出口都必须真调用它(判据在而无人调 = 没有,§0.9)
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  const calls = src.split('explainMovedExemption(').length - 1
+  assert.ok(calls >= 2, `归因只在落地前那一档调用(${calls} 处)⇒ 提交面复核那一档仍是哑的`)
+  assert.match(src, /🔎 归因:/, '拒落输出里必须带"归因"前缀,人一眼能把它与整批拒词分开')
+})
+
+// 2026-10-15 根因(G-937):归档器 B 档"正文没连续落进归档件"的假红,源自 stale 档把被 norm 剥掉尾换行的
+// 底稿直接 + chunk,把第 1 块 body 焊在底稿末行上。缝抽成纯函数 seamArchiveChunk,判据与真写共用一份。
+test('seamArchiveChunk:底稿尾换行缺失时补缝,保证块首行独立(§22c 直吃源脚本纯函数)', async () => {
+  const { __test__: X } = await import(pathToFileURL(SCRIPT_PATH).href)
+  const seam = X.seamArchiveChunk
+  const contig = X.blockLandsContiguously
+  assert.equal(typeof seam, 'function', 'seamArchiveChunk 未导出 ⇒ 缝焊判据没被抽成可测的纯函数')
+
+  const chunk = 'bodyA\n\n---\n\nbodyB\n\n---\n\n'
+  // stale 档:底稿被 norm 剥掉尾换行,末行停在 '---'
+  const staleBase = 'prevBody\n\n---'
+  assert.equal(contig(staleBase + chunk, 'bodyA'), false, '老写法(裸 + chunk)把块首行焊在底稿末行 ⇒ 正是要修的假红')
+  assert.equal(contig(seam(staleBase, chunk), 'bodyA'), true, '补缝后第 1 块 body 必须连续落地')
+  assert.equal(contig(seam(staleBase, chunk), 'bodyB'), true)
+  // 已带尾换行(磁盘态)不多加缝,字节与裸拼逐字一致
+  const diskBase = 'prevBody\n\n---\n'
+  assert.equal(seam(diskBase, chunk), diskBase + chunk)
+  // 空底稿(新建归档件)直接用 chunk
+  assert.equal(seam('', chunk), chunk)
+  assert.equal(seam(null, chunk), chunk)
+})
+

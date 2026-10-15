@@ -268,8 +268,13 @@ const SERVICES = [
       }
       return launchDetached(NODE_EXE, [NEXT_ENTRY, 'dev', '--turbopack', '-p', '8801'], path.join(ROOT, 'apps', 'web'), 'web', {
         // 本机 node_modules 经 junction 隔离到 D:\nm,turbopack 默认根(仓库根)容不下
-        // 解析后的 realpath,需抬到盘根(见 next.config.ts turbopack.root 注释)
-        IHUI_TURBOPACK_ROOT: 'D:\\',
+        // 解析后的 realpath,需抬到盘根(见 next.config.ts turbopack.root 注释)。
+        // 2026-10-14 修复:仅在该 junction 实际存在时才抬根。此前无条件注入,而
+        // D:\nm 已不存在(node_modules 已是普通目录),turbopack 解析根被抬到 D:\
+        // 盘根后扫不到 apps/web/app 路由 → 8801 恒 500
+        // (Cannot find module for page: route not found /(marketing)/page),
+        // 桌面端窗口因此显示"网络无法加载"。
+        ...(fs.existsSync('D:\\nm') ? { IHUI_TURBOPACK_ROOT: 'D:\\' } : {}),
       });
     },
     hint: 'apps/web 启动失败(OAuth 网页回调会不可用,不影响 App 主链路),看 .tmp-sync/dev-stack-web.log',

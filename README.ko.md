@@ -1621,7 +1621,6 @@ pnpm은 monorepo 시나리오에서 장점이 뚜렷합니다:엄격한 의존�
 | ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
 | [docs/GATEKEEPERS.md](docs/GATEKEEPERS.md)                   | **게이트키핑 규칙 심층**(23 pre-commit + post-commit + pre-push, 스크립트별) |
 | [docs/I18N.md](docs/I18N.md)                                 | 국제화(5 언어 + 68 네임스페이스 + 12 게이트키핑 스크립트 + 번역 전략)        |
-| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 국제화 완료 계획(히스토리컬 계획)                                            |
 
 ### SDK 및 CLI
 

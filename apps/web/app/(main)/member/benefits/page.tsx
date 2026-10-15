@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Award, Loader2, Check, Crown } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Card, CardContent } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { Alert } from '@/components/feedback'
@@ -28,12 +29,14 @@ async function api<T>(url: string): Promise<T> {
 }
 
 export default function MemberBenefitsPage() {
+  const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'benefits'],
     queryFn: () =>
       api<{ items: Benefit[] } | Benefit[]>('/api/member/benefits')
         .then((d) => ('items' in d ? d.items : d))
         .catch(() => [] as Benefit[]),
+    enabled: allow,
   })
 
   const items = data ?? []

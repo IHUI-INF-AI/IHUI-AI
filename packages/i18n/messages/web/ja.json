@@ -7499,7 +7499,7 @@
         },
         "discount": {
           "active": "オフピーク割引を実施中",
-          "upcoming": "{{time}}後にオフピーク割引が開始"
+          "upcoming": "{time}後にオフピーク割引が開始"
         },
         "duration": {
           "hour": "時間",
@@ -8947,7 +8947,12 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -8964,7 +8969,12 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -10646,12 +10656,12 @@
     "issueUnbindFailed": "紐付け解除に失敗しました",
     "selectionAnnotations": {
       "hoverHint": "ホバーで注釈を表示",
-      "selectedText": "{{index}}. 選択したテキスト",
+      "selectedText": "{index}. 選択したテキスト",
       "noComment": "コメントはまだありません",
       "commentPlaceholder": "任意のコメントを追加…",
       "commentAriaLabel": "選択範囲注釈のコメント",
       "addComment": "コメントを追加",
-      "removeOne": "注釈 {{index}} を削除",
+      "removeOne": "注釈 {index} を削除",
       "removeAll": "選択範囲の注釈をすべて削除",
       "add": "注釈を追加"
     },
@@ -11683,7 +11693,7 @@
       "errorNode": "エラーメッセージ"
     },
     "sampling": {
-      "clearParam": "{{name}}をリセット",
+      "clearParam": "{name}をリセット",
       "useModelDefault": "モデルのデフォルトを使用",
       "title": "サンプリングパラメータ",
       "desc": "temperature、top_p などの推論パラメータを調整します。現在の会話にのみ適用されます。",
@@ -11705,7 +11715,7 @@
       "systemPromptHint": "このセッションにのみ適用され、デフォルトには保存されません。",
       "resetAll": "すべてリセット",
       "done": "完了",
-      "triggerActive": "サンプリング · {{count}} 項を上書き",
+      "triggerActive": "サンプリング · {count} 項を上書き",
       "trigger": "サンプリングパラメータ",
       "triggerAria": "サンプリングパラメータを開く",
       "personalityCustom": "カスタム"
@@ -12060,151 +12070,276 @@
       "slashDiff": {
         "label": "セッション変更一覧",
         "description": "このセッションで AI が変更したファイルを確認",
-        "keywords": ["diff", "変更", "確認"]
+        "keywords": [
+          "diff",
+          "変更",
+          "確認"
+        ]
       },
       "slashStatus": {
         "label": "セッション状態",
         "description": "モデル・コンテキスト・権限モード・使用量を表示",
-        "keywords": ["status", "状態", "コンテキスト"]
+        "keywords": [
+          "status",
+          "状態",
+          "コンテキスト"
+        ]
       },
       "slashModel": {
         "label": "モデル切替",
         "description": "モデルセレクターを開く",
-        "keywords": ["model", "モデル", "切替"]
+        "keywords": [
+          "model",
+          "モデル",
+          "切替"
+        ]
       },
       "slashMcp": {
         "label": "MCP マーケット",
         "description": "MCP サーバーマーケットを開く",
-        "keywords": ["mcp", "マーケット"]
+        "keywords": [
+          "mcp",
+          "マーケット"
+        ]
       },
       "slashCompact": {
         "label": "コンテキスト圧縮",
         "description": "セッション履歴を圧縮してコンテキストを解放",
-        "keywords": ["compact", "圧縮", "コンテキスト"]
+        "keywords": [
+          "compact",
+          "圧縮",
+          "コンテキスト"
+        ]
       },
       "steerPrompt": {
         "label": "プロンプトをステア",
         "description": "実行中の回答に現在の入力をガイドとして注入します",
-        "keywords": ["ステア", "ガイド", "steer"]
+        "keywords": [
+          "ステア",
+          "ガイド",
+          "steer"
+        ]
       },
       "queuePrompt": {
         "label": "プロンプトをキューに追加",
         "description": "実行中の回答の終了後、現在の入力を自動送信するためにキューに追加します",
-        "keywords": ["キュー", "待機", "queue"]
+        "keywords": [
+          "キュー",
+          "待機",
+          "queue"
+        ]
       },
       "agent": {
         "description": "AI エージェントの管理とディスパッチ",
-        "keywords": ["エージェント", "agent", "bot"],
+        "keywords": [
+          "エージェント",
+          "agent",
+          "bot"
+        ],
         "label": "AI エージェント"
       },
       "browser": {
         "description": "ワークスペース内でウェブを閲覧",
-        "keywords": ["ブラウザ", "ウェブ", "browser"],
+        "keywords": [
+          "ブラウザ",
+          "ウェブ",
+          "browser"
+        ],
         "label": "組み込みブラウザ"
       },
       "capabilityMarket": {
         "description": "ケイパビリティパックの発見とインストール",
-        "keywords": ["ケイパビリティ", "マーケット", "market", "プラグイン"],
+        "keywords": [
+          "ケイパビリティ",
+          "マーケット",
+          "market",
+          "プラグイン"
+        ],
         "label": "ケイパビリティマーケット"
       },
       "codeChanges": {
         "description": "ワークスペースのコード変更を確認",
-        "keywords": ["コード", "変更", "diff", "修正"],
+        "keywords": [
+          "コード",
+          "変更",
+          "diff",
+          "修正"
+        ],
         "label": "コード変更"
       },
       "connectors": {
         "description": "外部サービス接続を管理",
-        "keywords": ["コネクタ", "接続", "connector"],
+        "keywords": [
+          "コネクタ",
+          "接続",
+          "connector"
+        ],
         "label": "コネクタ"
       },
       "document": {
         "description": "ワークスペースのドキュメントを編集",
-        "keywords": ["ドキュメント", "編集", "doc"],
+        "keywords": [
+          "ドキュメント",
+          "編集",
+          "doc"
+        ],
         "label": "ドキュメント"
       },
       "editor": {
         "description": "コードエディタを開く",
-        "keywords": ["エディタ", "コード", "editor"],
+        "keywords": [
+          "エディタ",
+          "コード",
+          "editor"
+        ],
         "label": "エディタ"
       },
       "mcp": {
         "description": "MCP サーバーとツールを管理",
-        "keywords": ["MCP", "サーバー", "ツール"],
+        "keywords": [
+          "MCP",
+          "サーバー",
+          "ツール"
+        ],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "MCP サービスの閲覧とインストール",
-        "keywords": ["MCP", "ストア", "store", "インストール"],
+        "keywords": [
+          "MCP",
+          "ストア",
+          "store",
+          "インストール"
+        ],
         "label": "MCP ストア"
       },
       "modeAsk": {
         "description": "質問モードへ切替(ツール無効)",
-        "keywords": ["質問", "ask", "モード"],
+        "keywords": [
+          "質問",
+          "ask",
+          "モード"
+        ],
         "label": "質問モード"
       },
       "modeBuild": {
         "description": "AI に直接構築・修正させる",
-        "keywords": ["ビルド", "モード", "build"],
+        "keywords": [
+          "ビルド",
+          "モード",
+          "build"
+        ],
         "label": "ビルドモード"
       },
       "modePlan": {
         "description": "計画を立ててから実行",
-        "keywords": ["計画", "モード", "plan"],
+        "keywords": [
+          "計画",
+          "モード",
+          "plan"
+        ],
         "label": "計画モード"
       },
       "modeReview": {
         "description": "既存コードをレビュー",
-        "keywords": ["レビュー", "モード", "review"],
+        "keywords": [
+          "レビュー",
+          "モード",
+          "review"
+        ],
         "label": "レビューモード"
       },
       "modeSpec": {
         "description": "仕様から実装を生成",
-        "keywords": ["仕様", "モード", "spec"],
+        "keywords": [
+          "仕様",
+          "モード",
+          "spec"
+        ],
         "label": "仕様モード"
       },
       "skill": {
         "description": "AI スキルの管理と呼び出し",
-        "keywords": ["スキル", "skill", "機能"],
+        "keywords": [
+          "スキル",
+          "skill",
+          "機能"
+        ],
         "label": "スキル"
       },
       "terminal": {
         "description": "統合ターミナルを開く",
-        "keywords": ["ターミナル", "端末", "terminal"],
+        "keywords": [
+          "ターミナル",
+          "端末",
+          "terminal"
+        ],
         "label": "ターミナル"
       },
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"],
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI", "chat"],
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI",
+          "chat"
+        ],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI",
+          "drama"
+        ],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"],
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search", "search"],
+        "keywords": [
+          "検索",
+          "search",
+          "search"
+        ],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"],
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ],
         "label": "設定"
       },
       "skillsMarket": {
         "description": "自己進化スキルの閲覧と導入",
-        "keywords": ["skill", "スキル", "マーケット", "market"],
+        "keywords": [
+          "skill",
+          "スキル",
+          "マーケット",
+          "market"
+        ],
         "label": "Skill マーケット"
       }
     },
@@ -13236,8 +13371,8 @@
     "cardDesc": "モデル価格と課金ルール",
     "cardLabel": "API 価格",
     "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '''{'\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      '{' \"role\": \"user\", \"content\": \"こんにちは、自己紹介してください\" '}'\n    ],\n    \"temperature\": 0.7\n  '}'''",
-    "codeNode": "import OpenAI from 'openai'\n\nconst client = new OpenAI({\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: 'https://api.ihui-ai.com/v1',\n})\n\nconst completion = await client.chat.completions.create({\n  model: 'gpt-4o',\n  messages: [\n    { role: 'user', content: 'こんにちは、自己紹介してください' },\n  ],\n  temperature: 0.7,\n})\n\nconsole.log(completion.choices[0].message.content)\n\n// コスト追跡\nconst usage = completion.usage\nconsole.log(`使用量:${usage.total_tokens} トークン`)",
-    "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        {\"role\": \"user\", \"content\": \"こんにちは、自己紹介してください\"},\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# コスト追跡\nusage = response.usage\nprint(f\"使用量:{usage.total_tokens} トークン\")",
+    "codeNode": "import OpenAI from ''openai''\n\nconst client = new OpenAI('{'\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: ''https://api.ihui-ai.com/v1'',\n'}')\n\nconst completion = await client.chat.completions.create('{'\n  model: ''gpt-4o'',\n  messages: [\n    '{' role: ''user'', content: ''こんにちは、自己紹介してください'' '}',\n  ],\n  temperature: 0.7,\n'}')\n\nconsole.log(completion.choices[0].message.content)\n\n// コスト追跡\nconst usage = completion.usage\nconsole.log(`使用量:$'{'usage.total_tokens'}' トークン`)",
+    "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        '{'\"role\": \"user\", \"content\": \"こんにちは、自己紹介してください\"'}',\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# コスト追跡\nusage = response.usage\nprint(f\"使用量:'{'usage.total_tokens'}' トークン\")",
     "colCurrency": "通貨",
     "colInput": "入力価格(元/百万トークン)",
     "colModel": "モデル ID",
@@ -14618,25 +14753,37 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"],
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"],
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"],
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"],
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -14770,19 +14917,31 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -15633,7 +15792,7 @@
     "descriptionPlaceholder": "任意、Hook の用途を簡単に説明",
     "fieldEvent": "トリガーイベント",
     "fieldCondition": "条件式(JSONLogic、任意)",
-    "conditionHint": "例:{\"==\":[\"tool\",\"write_file\"]} は tool が write_file と一致する場合にマッチ",
+    "conditionHint": "例:'{'\"==\":[\"tool\",\"write_file\"]'}' は tool が write_file と一致する場合にマッチ",
     "fieldActionType": "アクションの種類",
     "testResultTitle": "テスト結果",
     "testTriggered": "発火済み",
@@ -15658,16 +15817,16 @@
     "fieldHttpMethod": "HTTP メソッド",
     "fieldHeaders": "リクエストヘッダー(JSON)",
     "fieldBodyTemplate": "リクエストボディのテンプレート",
-    "bodyTemplateHint": "{{event}} {{tool}} {{args}} {{result}} 変数を使用できます",
+    "bodyTemplateHint": "{event} {tool} {args} {result} 変数を使用できます",
     "fieldShellCommand": "Shell コマンド",
     "shellCommandHint": "サンドボックス内で実行、タイムアウト 10 秒、環境変数 HOOK_EVENT / HOOK_CONTEXT が利用可能",
     "fieldNotifyChannel": "通知チャネル",
     "fieldNotifyMessage": "メッセージテンプレート",
-    "notifyMessageHint": "{{event}} {{tool}} {{args}} 変数を使用できます",
+    "notifyMessageHint": "{event} {tool} {args} 変数を使用できます",
     "notifyWebhookUrlHint": "webhook チャネルはこの URL に通知を POST します(webhook アクションと同じ送信器)",
-    "notifyMessagePlaceholder": "{{event}} が発火しました",
+    "notifyMessagePlaceholder": "{event} が発火しました",
     "fieldLogMessage": "ログメッセージのテンプレート",
-    "logMessageHint": "{{event}} {{tool}} {{args}} 変数を使用できます。logs/hooks.log に書き込みます",
+    "logMessageHint": "{event} {tool} {args} 変数を使用できます。logs/hooks.log に書き込みます",
     "channel": {
       "toast": "Toast(軽量通知)",
       "notification": "システム通知",
@@ -17678,7 +17837,15 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "models": {
     "relay": {
@@ -18958,30 +19125,30 @@
     "wizardIpFailMany": "⚠️ 出口 IP が未変更、または取得に数回失敗しました。どうしても変更できない場合は、上の「そのまま完了」で検証をスキップできます。",
     "wizardResidualReclean": "Qoder を終了した後、ワンクリックリセットを強制再実行（まず Qoder を終了し、その後残留を消去）",
     "wizardStart": "ワンクリック完全リセット（約 1 分）",
-    "wizardResetDone": "✅ リセット完了：{{ok}}/{{total}} 層成功",
-    "wizardIpBefore": "リセット前の出口 IP：{{ip}}（{{location}}）",
+    "wizardResetDone": "✅ リセット完了：{ok}/{total} 層成功",
+    "wizardIpBefore": "リセット前の出口 IP：{ip}（{location}）",
     "wizardGuide": "どちらかでネットワークを変更：① モデムの電源を抜き 1 分待ってから差し直す；② スマホのテザリングをオンにし PC を接続。変更後、下のボタンで検証してください。",
     "wizardVerify": "ネットワークを変更しました — 新 IP を検出",
     "wizardIpUnchanged": "❌ 出口 IP が未変更 — モデムの再ダイヤルが未完了の可能性。30 秒待ってもう一度電源を抜いてください（最低 1 分）。",
-    "wizardIpChanged": "✅ 新しい出口 IP：{{ip}} — 旧 IP は完全に切り離されました！",
+    "wizardIpChanged": "✅ 新しい出口 IP：{ip} — 旧 IP は完全に切り離されました！",
     "wizardCooldown": "ステップ 3（自動）：デバイス+ネットワークの両方が更新済み。⚠️ 24 時間以内に Qoder にログインしないでください — ログインを試みるたびにリスク制御タイマーが再起動します！明日の今頃に通常どおりログインしてください。",
     "wizardOptionalNote": "未完了表示の一部はオプション層（ブラウザ起動中により Cookie 消去をスキップ等）で、本体の効果には影響しません。",
     "wizardNoLoc": "（今回は IP の地域情報を取得できませんでしたが、ネットワーク変更の検証には影響しません）",
     "wizardIpFetchFail": "⚠️ 出口 IP の取得に失敗（ネットワーク揺らぎ）。後で下のボタンで再試行できます。",
-    "wizardRefetch": "基準となる出口 IP を記録：{{ip}}（リセット自体はネットワークに触れないため、これがリセット前の出口です）",
+    "wizardRefetch": "基準となる出口 IP を記録：{ip}（リセット自体はネットワークに触れないため、これがリセット前の出口です）",
     "wizardRefetchHint": "基準 IP が未取得です：下のボタンで現在の出口 IP を基準として記録してから、ネットワークを変更してください。",
-    "wizardIpBeforeNoLoc": "リセット前の出口 IP：{{ip}}",
-    "wizardCooldownActive": "⏳ 前回のワンクリックリセットから 24 時間未満 — クールダウン残り約 {{hours}} 時間。この間は Qoder にログインしないでください。",
+    "wizardIpBeforeNoLoc": "リセット前の出口 IP：{ip}",
+    "wizardCooldownActive": "⏳ 前回のワンクリックリセットから 24 時間未満 — クールダウン残り約 {hours} 時間。この間は Qoder にログインしないでください。",
     "wizardRestart": "ウィザードをやり直す",
     "wizardAuditTitle": "🔍 リセットの徹底度を検証（残留フィンガープリント監査）",
     "wizardAuditClean": "✅ 旧 ID の残留なし：現在の Qoder 現場にリセット前のデバイス/ID 値は含まれていません。",
-    "wizardAuditResidual": "⚠️ 旧 ID が {{n}} 件残留：以下のファイルにリセット前の ID 値が残っています。Qoder を完全に終了してから一括リセットを再実行してください。",
+    "wizardAuditResidual": "⚠️ 旧 ID が {n} 件残留：以下のファイルにリセット前の ID 値が残っています。Qoder を完全に終了してから一括リセットを再実行してください。",
     "wizardAuditRerun": "残留を再検出",
     "wizardAuditScanning": "Qoder 現場の残留をスキャン中…",
     "wizardAuditFail": "⚠️ 残留検出に失敗（リセット自体には影響しません）。後で「残留を再検出」から再試行できます。",
     "wizardSubtitle": "3 ステップでデバイス ID をリセット：ワンクリックリセット → ネットワーク変更の検証 → 24 時間のクールダウン。",
     "wizardAuditEntries": "スキャン詳細をすべて表示",
-    "wizardAuditScope": "スキャン範囲：{{cn}} と {{roaming}}、合計 {{files}} ファイル。"
+    "wizardAuditScope": "スキャン範囲：{cn} と {roaming}、合計 {files} ファイル。"
   },
   "checkin": {
     "title": "チェックインアシスタント",
@@ -19011,7 +19178,7 @@
     "deleteDescription": "アカウント「{name}」とそのすべてのチェックイン記録が削除されます。この操作は元に戻せません。",
     "deviceMap": "デバイスフィンガープリント",
     "deviceMapInvalid": "デバイスフィンガープリントが有効な JSON オブジェクトではありません",
-    "deviceMapPlaceholder": "{\"ua\": \"...\", \"av\": \"...\"}（省略可、未入力なら自動生成）",
+    "deviceMapPlaceholder": "'{'\"ua\": \"...\", \"av\": \"...\"'}'（省略可、未入力なら自動生成）",
     "emptyAccounts": "チェックインアカウントがありません。右上の追加から作成してください",
     "emptyCredits": "ポイント履歴はまだありません",
     "emptyRecords": "チェックイン記録はまだありません",
@@ -19087,16 +19254,17 @@
     "captureWbEncrypted": "トークンが必要",
     "captureWbTokenPlaceholder": "WorkBuddy トークン(accessToken)を貼り付け",
     "captureWbTokenRequired": "トークンが空です:このアカウントの認証情報は暗号化されているため、先にトークンを貼り付けてから取り込んでください",
-    "captureWbWebTitle": "Web ログイン(推奨・トークン不要)",
-    "captureWbWebDescription": "「ログイン画面を開く」をクリックし、開いた WorkBuddy ページで普段どおりサインイン(電話番号/QR コード)してください。サインインが完了するとアカウントを自動取り込みします。トークンのコピーは不要です。",
-    "captureWbWebOpen": "ログイン画面を開く",
-    "captureWbWebWaiting": "サインインを待っています…完了すると自動取り込みされます。この画面は背景に置いて構いません",
+    "captureWbWebTitle": "ブラウザ QR ログイン(推奨・トークン不要)",
+    "captureWbWebDescription": "「ブラウザでログイン」をクリックし、開いた Chrome ウィンドウで WorkBuddy に普段どおりサインイン(電話番号/QR コード)してください。サインインが完了するとアカウントを自動取り込みします。トークンのコピーは不要です。",
+    "captureWbWebOpen": "ブラウザでログイン",
+    "captureWbWebWaiting": "ブラウザを開きました。サインインを待っています…完了すると自動取り込みされます",
     "captureWbWebImporting": "サインインを検出、アカウントを取り込み中…",
     "captureWbWebDone": "Web ログインの取り込みが完了しました({count} 件)",
-    "captureWbWebWindowClosed": "ログイン画面が閉じられました。もう一度「ログイン画面を開く」をクリックしてください。",
+    "captureWbWebWindowClosed": "ブラウザのログインページが閉じられました。もう一度「ブラウザでログイン」をクリックしてください。",
     "captureWbWebCancel": "キャンセル",
-    "captureWbWebCancelled": "Web ログインをキャンセルしました。もう一度「ログイン画面を開く」をクリックしてください。",
-    "captureWbWebSlowHint": "ログイン画面が空白のまま読み込まれていないようです。ネットワークが www.workbuddy.cn にアクセスできるか確認してください。「キャンセル」で画面を閉じ、ネットワーク回復後に再度開くこともできます。",
+    "captureWbWebCancelled": "Web ログインをキャンセルしました。もう一度「ブラウザでログイン」をクリックしてください。",
+    "captureWbWebSlowHint": "まだサインインが検出されていません:ブラウザのウィンドウでサインイン(電話番号/QR コード)を完了したか確認してください。「キャンセル」から再試行することもできます。",
+    "captureWbWebOpenFailed": "ブラウザを開けませんでした。Google Chrome がインストールされているか確認して再試行してください。",
     "captureWbWebProbeFailed": "ログイン画面のプローブが続けて失敗したため待機を中止しました。再試行するか、下の「手動キャプチャ」/トークン方式をご利用ください。",
     "captureWbManualDivider": "またはデスクトップのログイン情報を手動で取得",
     "captureWbWebCheckinUncertain": "注意:チェックイン API が Web ログイン状態を受け付けるか未確認です。チェックインが失敗した場合(401)はトークン方式に切り替え、お知らせください。",
@@ -19122,31 +19290,31 @@
     "wizardIpFailMany": "⚠️ 出口 IP が未変更、または取得に数回失敗しました。どうしても変更できない場合は、上の「そのまま完了」で検証をスキップできます。",
     "wizardResidualReclean": "TRAE を終了した後、ワンクリックリセットを強制再実行（まず TRAE を終了し、その後残留を消去）",
     "wizardStart": "ワンクリック完全リセット（約 1 分）",
-    "wizardResetDone": "✅ リセット完了：{{ok}}/{{total}} 層成功",
-    "wizardIpBefore": "リセット前の出口 IP：{{ip}}（{{location}}）",
+    "wizardResetDone": "✅ リセット完了：{ok}/{total} 層成功",
+    "wizardIpBefore": "リセット前の出口 IP：{ip}（{location}）",
     "wizardGuide": "どちらかでネットワークを変更：① モデムの電源を抜き 1 分待ってから差し直す；② スマホのテザリングをオンにし PC を接続。変更後、下のボタンで検証してください。",
     "wizardVerify": "ネットワークを変更しました — 新 IP を検出",
     "wizardIpUnchanged": "❌ 出口 IP が未変更 — モデムの再ダイヤルが未完了の可能性。30 秒待ってもう一度電源を抜いてください（最低 1 分）。",
-    "wizardIpChanged": "✅ 新しい出口 IP：{{ip}} — 旧 IP は完全に切り離されました！",
+    "wizardIpChanged": "✅ 新しい出口 IP：{ip} — 旧 IP は完全に切り離されました！",
     "wizardCooldown": "ステップ 3（自動）：デバイス+ネットワークの両方が更新済み。⚠️ 24 時間以内に TRAE にログインしないでください — ログインを試みるたびにリスク制御タイマーが再起動します！明日の今頃に通常どおりログインしてください。",
     "wizardOptionalNote": "未完了表示の一部はオプション層（ブラウザ起動中により Cookie 消去をスキップ等）で、本体の効果には影響しません。",
     "wizardNoLoc": "（今回は IP の地域情報を取得できませんでしたが、ネットワーク変更の検証には影響しません）",
     "wizardIpFetchFail": "⚠️ 出口 IP の取得に失敗（ネットワーク揺らぎ）。後で下のボタンで再試行できます。",
-    "wizardRefetch": "基準となる出口 IP を記録：{{ip}}（リセット自体はネットワークに触れないため、これがリセット前の出口です）",
+    "wizardRefetch": "基準となる出口 IP を記録：{ip}（リセット自体はネットワークに触れないため、これがリセット前の出口です）",
     "wizardRefetchHint": "基準 IP が未取得です：下のボタンで現在の出口 IP を基準として記録してから、ネットワークを変更してください。",
-    "wizardIpBeforeNoLoc": "リセット前の出口 IP：{{ip}}",
-    "wizardCooldownActive": "⏳ 前回のワンクリックリセットから 24 時間未満 — クールダウン残り約 {{hours}} 時間。この間は TRAE にログインしないでください。",
+    "wizardIpBeforeNoLoc": "リセット前の出口 IP：{ip}",
+    "wizardCooldownActive": "⏳ 前回のワンクリックリセットから 24 時間未満 — クールダウン残り約 {hours} 時間。この間は TRAE にログインしないでください。",
     "wizardRestart": "ウィザードをやり直す",
     "wizardAuditTitle": "🔍 リセットの徹底度を検証（残留フィンガープリント監査）",
     "wizardAuditClean": "✅ 旧 ID の残留なし：現在の TRAE 現場にリセット前のデバイス/ID 値は含まれていません。",
-    "wizardAuditResidual": "⚠️ 旧 ID が {{n}} 件残留：以下のファイルにリセット前の ID 値が残っています。TRAE を完全に終了してから一括リセットを再実行してください。",
+    "wizardAuditResidual": "⚠️ 旧 ID が {n} 件残留：以下のファイルにリセット前の ID 値が残っています。TRAE を完全に終了してから一括リセットを再実行してください。",
     "wizardAuditRerun": "残留を再検出",
     "wizardAuditScanning": "TRAE 現場の残留をスキャン中…",
     "wizardAuditFail": "⚠️ 残留検出に失敗（リセット自体には影響しません）。後で「残留を再検出」から再試行できます。",
-    "wizardAuditScope": "スキャン範囲：{{files}} ファイル / {{mb}} MB / {{sites}} 件の TRAE 現場ディレクトリ",
+    "wizardAuditScope": "スキャン範囲：{files} ファイル / {mb} MB / {sites} 件の TRAE 現場ディレクトリ",
     "wizardAuditRegistry": "レジストリ項目",
     "wizardAuditHardware": "ハードウェア指紋",
-    "wizardAuditSuspect": "他に {{n}} 件の疑わしいヒット（無関係な同名値の可能性、目視確認用）。",
+    "wizardAuditSuspect": "他に {n} 件の疑わしいヒット（無関係な同名値の可能性、目視確認用）。",
     "wizardAuditNoHistory": "今回はリセット前の旧 ID 記録がなく（ブラックリスト空）、照合判定ができません。先に一括リセットを実行してから再検出してください。",
     "maintBackup": "スナップショットをバックアップ",
     "maintBackupDone": "{count} 件のファイルをバックアップしました（欠落 {missing} 件）",
@@ -19172,7 +19340,7 @@
     "deviceMapUpdated": "デバイスフィンガープリントを更新しました",
     "editDeviceMap": "デバイスフィンガープリントを編集",
     "editDeviceMapTitle": "デバイスフィンガープリントを編集",
-    "editDeviceMapDescription": "{{platform}} アカウントのデバイスフィンガープリントを編集します（JSON オブジェクト。空のまま保存すると自動生成されます）。"
+    "editDeviceMapDescription": "{platform} アカウントのデバイスフィンガープリントを編集します（JSON オブジェクト。空のまま保存すると自動生成されます）。"
   },
   "nav": {
     "checkin": "チェックイン",
@@ -23757,7 +23925,7 @@
       "computer": "この PC",
       "description": "クリックで選択、ダブルクリックでフォルダに入る;↑↓ で移動、Enter で開く、Backspace で上に戻る",
       "filterPlaceholder": "フォルダを絞り込む...",
-      "itemCount": "{count, plural, =0 {フォルダなし} =1 {1 フォルダ} other {{count} フォルダ}}",
+      "itemCount": "{count, plural, =0 {フォルダなし} =1 {1 フォルダ} other {# フォルダ}}",
       "itemCountFiltered": "{filtered} / {total} 件表示",
       "loading": "ディレクトリを読み込み中...",
       "manualPathPlaceholder": "例:G:\\Projects\\my-app または /home/user/projects",

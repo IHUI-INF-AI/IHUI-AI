@@ -31,6 +31,7 @@ import {
   Input,
 } from '@ihui/ui-react'
 import { Alert, Tooltip } from '@/components/feedback'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   fetchProvidersHealthSummary,
   type ProviderHealthInfo,
@@ -74,11 +75,14 @@ interface DryRunPreview {
 export function ProvidersHealthTab() {
   const t = useTranslations('settings.gateway.providers')
   const tm = useTranslations('settings.gateway.modelSync')
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求
+  const { allow } = useAuthGate()
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['gateway-providers-health'],
     queryFn: () => fetchProvidersHealthSummary(true),
     refetchInterval: 30_000,
+    enabled: allow,
   })
 
   // F4.9 同步中时 2s 高频刷新,空闲 10s(用函数式 refetchInterval 避免自引用)
@@ -86,6 +90,7 @@ export function ProvidersHealthTab() {
     queryKey: ['model-sync-status'],
     queryFn: fetchModelSyncStatus,
     refetchInterval: (query) => (query.state.data?.is_syncing ? 2_000 : 10_000),
+    enabled: allow,
   })
 
   const queryClient = useQueryClient()
@@ -685,16 +690,20 @@ function DryRunDialog({
 // v4:每个永久禁用 provider 旁加"重新启用"按钮(调 resetProviderSync)
 function SyncHealthPanel() {
   const tm = useTranslations('settings.gateway.modelSync')
+  // 登录态门:未登录不发注定 401 的挂载请求
+  const { allow } = useAuthGate()
   const { data, isError } = useQuery({
     queryKey: ['model-sync-health'],
     queryFn: fetchModelSyncHealth,
     retry: false,
     staleTime: 30_000,
+    enabled: allow,
   })
   // 共享 query 缓存:获取 is_syncing 状态用于禁用 reset 按钮(无额外请求)
   const { data: syncStatus } = useQuery({
     queryKey: ['model-sync-status'],
     queryFn: fetchModelSyncStatus,
+    enabled: allow,
   })
   const isSyncing = syncStatus?.is_syncing === true
 
@@ -1051,11 +1060,14 @@ function SyncConfigPanel() {
 // v4 3.3:聚合统计卡片(7/30/90 天切换 + 指标网格 + by_provider 表)
 function SyncStatsCard() {
   const tm = useTranslations('settings.gateway.modelSync')
+  // 登录态门:未登录不发注定 401 的挂载请求
+  const { allow } = useAuthGate()
   const [days, setDays] = React.useState<7 | 30 | 90>(7)
   const { data, isLoading, error } = useQuery({
     queryKey: ['model-sync-stats', days],
     queryFn: () => fetchSyncStats(days),
     staleTime: 60_000,
+    enabled: allow,
   })
 
   const dayOptions: Array<{ value: 7 | 30 | 90; label: string }> = [

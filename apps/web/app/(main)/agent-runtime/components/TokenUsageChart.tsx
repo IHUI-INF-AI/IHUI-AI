@@ -8,6 +8,7 @@ import * as React from 'react'
 import { Loader2 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 export interface TokenUsageItem {
   sessionLabel: string
@@ -28,12 +29,15 @@ function formatToken(n: number): string {
 }
 
 export function TokenUsageChart({ agentId, timeRange, refreshKey }: TokenUsageChartProps) {
+  // 登录态门:未就绪/未登录不发注定 401 的消耗查询(登录态门 campaign)
+  const { allow } = useAuthGate()
   const [data, setData] = React.useState<TokenUsageItem[]>([])
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState(false)
   const [hoverIdx, setHoverIdx] = React.useState<number | null>(null)
 
   React.useEffect(() => {
+    if (!allow) return
     if (!agentId) return
     let cancelled = false
     setLoading(true)
@@ -58,7 +62,7 @@ export function TokenUsageChart({ agentId, timeRange, refreshKey }: TokenUsageCh
     return () => {
       cancelled = true
     }
-  }, [agentId, timeRange, refreshKey])
+  }, [agentId, timeRange, refreshKey, allow])
 
   const totals = data.reduce(
     (acc, d) => {
