@@ -15463,3 +15463,4 @@ next dev / expo 这类 supervisor 内部 spawn worker 时**不带** windowsHide(
 <!-- 已归档(2026-10-15:✅(2026-10-14)O86b 托盘退出「设上限≠修好」:120s 兜底被用户驳回,改租约模型(默认 5s 必退) ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
 <!-- 已归档(2026-10-15:✅(2026-10-15) O86b 托盘退出「设上限≠修好」:120s 兜底被用户驳回,改租约模型(默认 5s 必退),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
 
+
