@@ -229,6 +229,25 @@ def _build_headers(jwt: str, dev: dict[str, Any]) -> dict[str, str]:
 _shared_client: httpx.AsyncClient | None = None
 
 
+def client_for(device_map: dict[str, Any] | None) -> tuple[httpx.AsyncClient, bool]:
+    """按账号 device_map 选 HTTP 出口(多账号风控三件套之二:独立 IP)。
+
+    device_map.proxy 形如 "http://user:pass@host:port" 或 "socks5://host:port"
+    时,创建(并返回, owned=True)带该代理的**独立** AsyncClient —— 每账号
+    固定绑定自己的出口 IP,与真人"家庭宽带一个出口"同构;无 proxy 时返回
+    共享 client(owned=False,本机直连账号零行为变化)。
+    调用方契约:owned=True 的 client 用完必须 await client.aclose()
+    (引擎封装层已统一处理,见各 checkin_*_account)。
+    """
+    dm = device_map or {}
+    proxy = str(dm.get("proxy") or "").strip()
+    if not proxy:
+        return get_http_client(), False
+    # httpx 原生支持 http/https/socks5(socks5h 由服务端解析);URL 合法性交给构造
+    client = httpx.AsyncClient(trust_env=False, proxy=proxy, timeout=DEFAULT_TIMEOUT)
+    return client, True
+
+
 def get_http_client() -> httpx.AsyncClient:
     """模块级共享 AsyncClient（惰性创建）。
 

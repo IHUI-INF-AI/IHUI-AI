@@ -215,6 +215,9 @@ pub fn detect_trae_dir() -> Option<PathBuf> {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CapturedAccount {
     pub user_id: String,
+    /// 账户名/昵称(tc 解密自带 account.username;其他通道空,展示时回落 user_id)
+    #[serde(default)]
+    pub nickname: String,
     pub jwt: String,
     pub source: String,
 }
@@ -559,6 +562,7 @@ fn read_jwts_from_cookies_db(
             if let Some(uid) = jwt_payload_user_id(&jwt) {
                 out.push(CapturedAccount {
                     user_id: uid,
+                    nickname: String::new(),
                     jwt,
                     source: format!("cookies:{host}/{name}({source_rel})"),
                 });
@@ -631,7 +635,7 @@ fn scan_leveldb_dir(trae_dir: &Path, rel: &str, out: &mut Vec<CapturedAccount>) 
             .to_string();
         for jwt in extract_jwt_strings(&bytes) {
             if let Some(uid) = jwt_payload_user_id(&jwt) {
-                out.push(CapturedAccount { user_id: uid, jwt, source: format!("leveldb:{name}") });
+                out.push(CapturedAccount { user_id: uid, nickname: String::new(), jwt, source: format!("leveldb:{name}") });
             }
         }
     }
@@ -782,8 +786,18 @@ pub fn capture_trae_cloudide_jwt(trae_dir: &Path) -> Option<CapturedAccount> {
             log::warn!("[checkin-capture] {k} 的 token 已过期(exp={expires}),跳过");
             continue;
         }
+        // 账户名展示(tc 解密 JSON 自带 account.username,真机实证 5.8.2)
+        let nickname = j
+            .get("account")
+            .and_then(|a| a.get("username"))
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .unwrap_or("")
+            .to_string();
         return Some(CapturedAccount {
             user_id,
+            nickname,
             jwt: token,
             source: format!("storage.json:{k}(tc解密)"),
         });
@@ -3381,6 +3395,8 @@ pub struct CapturedQoderSession {
     pub machine_token: String,
     pub machine_code: String,
     pub machine_type: String,
+    /// 账户昵称/手机号(展示名,真机实证 user.phone)
+    pub nickname: String,
 }
 
 /// 纯函数:解密 auth.v1.dat(密钥已由调用方从 Local State 解出)并解析会话 JSON。
@@ -3458,6 +3474,20 @@ pub fn qoder_session_uid(session: &serde_json::Value, token: &str) -> Option<Str
         }
     }
     qoder_jwt_uid(token)
+}
+
+/// 纯函数:Qoder 会话 JSON → 账户昵称/手机号(user.{nickname,name,phone,mobile,email}
+/// 键序优先;真机实证 user.phone=18643389808,即李总要的"显示手机号或账户名")。
+pub fn qoder_session_nickname(session: &serde_json::Value) -> String {
+    let Some(user) = session.get("user") else {
+        return String::new();
+    };
+    for key in ["nickname", "nick_name", "name", "userName", "username", "phone", "mobile", "email"] {
+        if let Some(v) = user.get(key).and_then(qoder_scalar_str) {
+            return v;
+        }
+    }
+    String::new()
 }
 
 /// 纯函数:会话 JSON 的 expiresAt → epoch 秒(缺失/坏格式 0)。
@@ -3678,6 +3708,7 @@ pub fn capture_qoder_sessions() -> Vec<CapturedQoderSession> {
             _ => "intl",
         }
         .to_string();
+        let nickname = qoder_session_nickname(&session);
         out.push(CapturedQoderSession {
             app_dir: dir.display().to_string(),
             edition,
@@ -3690,6 +3721,7 @@ pub fn capture_qoder_sessions() -> Vec<CapturedQoderSession> {
                 .to_string(),
             // expiresAt 是 ISO 字符串(真机实证);qoder_session_expires_at 兼容
             // ISO/epoch 两种形态,坏格式落 0(前端/服务端都按「>0 才用」消费)。
+            nickname,
             expires_at: qoder_session_expires_at(&session),
             jwt_exp: jwt_payload_exp(token),
             machine_id,
@@ -4238,6 +4270,10 @@ pub struct CapturedMinimaxSession {
     pub refresh_token: String,
     /// auth.json 声明的过期(epoch 秒,缺失 0)
     pub expires_at: i64,
+    /// 每账号独立设备指纹(uuid,捕获时生成并固定;引擎签名用,服务端不校验值但独立化画像)
+    pub uuid: String,
+    /// 每账号独立设备指纹(device_id,同上)
+    pub device_id: String,
 }
 
 /// 纯函数:auth.json doc → accessToken(records 里第一条带 accessToken 的记录)。
@@ -4384,6 +4420,10 @@ pub fn capture_minimax_sessions() -> Vec<CapturedMinimaxSession> {
             access_token: token,
             refresh_token: minimax_refresh_from_auth_doc(&doc),
             expires_at,
+            // 多账号风控三件套之一:每账号固化一套独立设备指纹(与 IP 代理绑定
+            // 组合成完整独立画像;服务端实测不校验值,但独立化防"同指纹多账号")
+            uuid: random_guid_like(),
+            device_id: random_hex(8),
         });
     }
     out
@@ -4589,6 +4629,7 @@ mod tests {
     fn dedup_keeps_first_per_user_id() {
         let acc = |uid: &str, src: &str| CapturedAccount {
             user_id: uid.into(),
+            nickname: String::new(),
             jwt: "t".into(),
             source: src.into(),
         };
