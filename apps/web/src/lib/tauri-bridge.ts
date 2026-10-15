@@ -1473,8 +1473,6 @@ export async function gitChannelInfo(): Promise<GitChannelInfoReply> {
 /** 本机捕获到的 TRAE 账号(与 Rust `CapturedAccount` 逐字段对齐)。 */
 export interface CapturedTraeAccount {
   user_id: string
-  /** 账户名(tc 解密 account.username;其他通道空) */
-  nickname?: string
   jwt: string
   /** 人类可读出处:`cookies:<host>(<相对路径>)` / `leveldb:<文件名>`。 */
   source: string
@@ -1534,8 +1532,6 @@ export async function checkinCaptureJwts(): Promise<CapturedTraeAccount[]> {
  *  Cosy-* 风控头(录账时整体并入 device_map)。 */
 export interface CapturedQoderSession {
   app_dir: string
-  /** 账户昵称/手机号(展示名,2026-10-15) */
-  nickname: string
   /** "cn" | "intl" */
   edition: string
   uid: string

@@ -91,6 +91,7 @@ import {
   checkinCaptureJwts,
   checkinCaptureQoder,
   checkinCaptureWorkbuddy,
+  checkinCaptureMinimax,
   closeChromeWindow,
   openInGoogleChrome,
   WB_WEB_LOGIN_ORIGIN,
@@ -107,6 +108,7 @@ import {
   type CapturedQoderSession,
   type CapturedTraeAccount,
   type CapturedWorkbuddySession,
+  type CapturedMinimaxSession,
   type CheckinResidualAuditReport,
   type CheckinSnapshotSummary,
 } from '@/lib/tauri-bridge'
@@ -544,6 +546,17 @@ export default function CheckinPage() {
     return dm
   }
 
+  // MiniMax → device_map(引擎契约:uid 必填;expires_at 供预检)
+  const minimaxDeviceMap = (m: CapturedMinimaxSession): Record<string, unknown> => {
+    const dm: Record<string, unknown> = {}
+    if (m.uid) dm.uid = m.uid
+    if (m.expires_at > 0) dm.expires_at = m.expires_at
+    // 每账号独立设备指纹(与独立 IP 代理组合成完整画像)
+    if (m.uuid) dm.uuid = m.uuid
+    if (m.device_id) dm.device_id = m.device_id
+    return dm
+  }
+
   const openWbCapture = () => {
     setWbCaptureOpen(true)
     setCaptureError(null)
@@ -616,11 +629,13 @@ export default function CheckinPage() {
     setCaptureError(null)
     setWbWebLoginState('waiting')
     setWbWebLoginMsg(t('captureWbWebWaiting'))
-    // 在真 Chrome(--app + CDP)里打开**登录页**;非 number 返回 = 打开失败
+    // 在真 Chrome 里打开**登录页**;非 number 返回 = 打开失败
     // (string=Rust 错误消息,如未装 Chrome;null=非桌面环境,理论到不了)
     // 2026-10-15 修:旧值 WB_WEB_LOGIN_ORIGIN 是营销首页(无登录入口) ⇒ 开窗也登不了;
     // 改开 WB_WEB_LOGIN_URL(/login/ 真实登录页,扫码/账号密码),关窗前缀仍用 origin。
-    const opened = await openInGoogleChrome(WB_WEB_LOGIN_URL)
+    // 2026-10-15 二修(用户反馈"打开的窗口不是完整的浏览器窗口"):'window' 档 = 完整 Chrome
+    // 窗口(地址栏 + 标签栏),不再是 --app 无边框应用窗;CDP 回收登录态不受窗口形态影响。
+    const opened = await openInGoogleChrome(WB_WEB_LOGIN_URL, 'window')
     if (typeof opened !== 'number') {
       wbWebLoginPort.current = null
       setWbWebLoginState('closed')
@@ -942,6 +957,8 @@ export default function CheckinPage() {
   const [scanQoder, setScanQoder] = React.useState<CapturedQoderSession[]>([])
   const [scanTraeSel, setScanTraeSel] = React.useState<Set<string>>(new Set())
   const [scanQoderSel, setScanQoderSel] = React.useState<Set<string>>(new Set())
+  const [scanMinimax, setScanMinimax] = React.useState<CapturedMinimaxSession[]>([])
+  const [scanMinimaxSel, setScanMinimaxSel] = React.useState<Set<string>>(new Set())
   const [scanImporting, setScanImporting] = React.useState(false)
   const [scanMsg, setScanMsg] = React.useState('')
 
@@ -951,13 +968,16 @@ export default function CheckinPage() {
     const results = await Promise.all([
       checkinCaptureJwts().catch(() => [] as CapturedTraeAccount[]),
       checkinCaptureQoder().catch(() => [] as CapturedQoderSession[]),
+      checkinCaptureMinimax().catch(() => [] as CapturedMinimaxSession[]),
     ])
     setScanTrae(results[0]!)
     setScanQoder(results[1]!)
+    setScanMinimax(results[2]!)
     // 2026-10-15:Trae 新版 Cloud-IDE-JWT 不再落盘,捕获可能只回收 opaque uid(jwt 空)
     // —— 服务端录入要求 jwt 可解析,空 jwt 账号只展示提示、不预选不导入。
     setScanTraeSel(new Set(results[0]!.filter((a) => a.jwt).map((a) => a.user_id)))
     setScanQoderSel(new Set(results[1]!.map((s) => s.uid || s.app_dir)))
+    setScanMinimaxSel(new Set(results[2]!.map((m) => m.uid || m.auth_file)))
     setScanScanning(false)
   }, [])
 
@@ -986,7 +1006,7 @@ export default function CheckinPage() {
       name: string
       jwt: string
       device_map: Record<string, unknown>
-      platform?: 'qoder'
+      platform?: 'qoder' | 'minimax'
     }> = []
     for (const item of scanTrae) {
       if (!scanTraeSel.has(item.user_id)) continue
@@ -1001,6 +1021,17 @@ export default function CheckinPage() {
         jwt: item.access_token,
         device_map: qoderDeviceMap(item),
         platform: 'qoder',
+      })
+    }
+    for (const item of scanMinimax) {
+      const key = item.uid || item.auth_file
+      if (!scanMinimaxSel.has(key)) continue
+      if (!item.access_token) continue
+      jobs.push({
+        name: `MiniMax-${item.nickname || item.uid || '本机'}`,
+        jwt: item.access_token,
+        device_map: minimaxDeviceMap(item),
+        platform: 'minimax',
       })
     }
     if (jobs.length === 0) return
@@ -1762,7 +1793,7 @@ export default function CheckinPage() {
                             {renderJwtBadge(account.jwt_exp)}
                             {renderCooldownBadge(account.cooldown_until)}
                           </div>
-                          {/* Fallback slot for the last-checkin column: strictly complementary to that column's visibility, never duplicated nor lost. See globals.css .checkin-page block. */}
+                          {/* Fallback slot for the 最近签到 column: strictly complementary to that column's visibility, never duplicated nor lost. See globals.css .checkin-page block. */}
                           <div className="checkin-name-last-checkin mt-1 text-[10px] text-muted-foreground">
                             {account.last_record
                               ? `${renderResult(account.last_record.ok)} · ${formatTime(account.last_record.created_at)}`
@@ -1848,7 +1879,7 @@ export default function CheckinPage() {
                               {checkingId === account.id && (
                                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                               )}
-                              {/* Label hidden below 459px content width by container query; accessible name comes from aria-label */}
+                              {/* ≤459 内容区由容器查询隐藏文字,只剩图标;可访问名走 aria-label */}
                               <span className="checkin-manual-label">
                                 {checkingId === account.id ? t('checking') : t('manualCheckin')}
                               </span>
@@ -2200,12 +2231,14 @@ export default function CheckinPage() {
                     <Loader2 className="h-3 w-3 animate-spin" />
                     {t('addSmartScanning')}
                   </p>
-                ) : scanTrae.length === 0 && scanQoder.length === 0 ? (
+                ) : scanTrae.length === 0 && scanQoder.length === 0 && scanMinimax.length === 0 ? (
                   <p data-testid="smart-scan-none" className="text-xs text-amber-600">
                     {t('addSmartNone')}
                   </p>
                 ) : (
                   <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">{t('deviceMapProxyHint')}</p>
+
                     {scanTrae.length > 0 && (
                       <div className="space-y-1">
                         <p className="text-xs font-medium">
@@ -2251,6 +2284,37 @@ export default function CheckinPage() {
                                 }
                               />
                               <span className="font-mono">Qoder-{item.uid || '本机'}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {scanMinimax.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium">
+                          {t('addSmartMinimaxFound', { count: scanMinimax.length })}
+                        </p>
+                        {scanMinimax.map((item) => {
+                          const key = item.uid || item.auth_file
+                          return (
+                            <label key={key} className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                aria-label={`smartScanMinimax:${key}`}
+                                checked={scanMinimaxSel.has(key)}
+                                disabled={!item.access_token}
+                                onChange={(e) =>
+                                  toggleSmartSel(setScanMinimaxSel, key, e.target.checked)
+                                }
+                              />
+                              <span className="font-mono">
+                                MiniMax-{item.nickname || item.uid || '本机'}
+                              </span>
+                              {!item.access_token && (
+                                <span className="text-xs text-muted-foreground">
+                                  {t('captureMinimaxNoToken')}
+                                </span>
+                              )}
                             </label>
                           )
                         })}
@@ -2448,6 +2512,7 @@ export default function CheckinPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">{t('deviceMapProxyHint')}</p>
             <div className="space-y-1.5">
               <Label htmlFor="checkin-device-map-update">{t('deviceMap')}</Label>
               <textarea
