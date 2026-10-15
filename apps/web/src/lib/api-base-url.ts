@@ -212,8 +212,11 @@ export function resolveStreamApiBaseUrl(): string {
 export function resolveWsApiBaseUrl(): string {
   const wsEnv = process.env.NEXT_PUBLIC_WS_BASE_URL
   if (wsEnv) return wsEnv.replace(/\/+$/, '')
-  // WebSocket 不经 next dev 反代(rewrites 不代理 WS 升级),所以**桌面本地壳必须直连本机 8802**,
-  // 即便 REST 已改走同源(见 resolveApiBaseUrl)。浏览器 dev 维持原样(按 origin 推导)。
+  // 桌面本地壳的 WS 一律直连本机 8802。注意理由**不是**"next 不反代 WS"——
+  // apps/web/next.config.ts 的 `/ws/:path*` 规则实测加上后 dev 握手即通(2026-09 那次
+  // /ws/ticket 404 就是这么修的)。保留直连是因为:① REST 同源是为了拿第一方 cookie,
+  // WS 握手用 ?token/ticket 自证身份,不经代理少一跳也就躲开 dev server 重启期整条断连;
+  // ② 这是本次改判前就有的行为,不动它 = 零回归。浏览器 dev 维持原样(按 origin 推导,走反代)。
   if (isTauriRuntime() && !isRemoteWindow()) return LOCAL_API_BASE
   const rest = resolveApiBaseUrl()
   if (rest) return rest

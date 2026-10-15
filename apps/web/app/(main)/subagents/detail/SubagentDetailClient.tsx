@@ -17,6 +17,7 @@ import {
   cancelDispatch,
   resumeDispatch,
 } from '@/lib/subagents-api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { DagGraph } from '@/components/subagents/DagGraph'
 import { AgentMessageList } from '@/components/subagents/AgentMessageList'
 import type { DispatchStatus, AgentRole, DispatchPriority } from '@ihui/shared/subagents/index'
@@ -92,26 +93,29 @@ export default function SubagentDetailClient() {
   const id = searchParams.get('id') ?? ''
   const router = useRouter()
   const qc = useQueryClient()
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求
+  const { allow } = useAuthGate()
 
   const activeQ = useQuery({
     queryKey: ['subagents', 'active'],
     queryFn: fetchActiveDispatches,
     refetchInterval: 5000,
+    enabled: allow,
   })
   const dagQ = useQuery({
     queryKey: ['subagents', id, 'dag'],
     queryFn: () => fetchDispatchDag(id),
-    enabled: !!id,
+    enabled: allow && !!id,
   })
   const quotasQ = useQuery({
     queryKey: ['subagents', id, 'quotas'],
     queryFn: () => fetchDispatchQuotas(id),
-    enabled: !!id,
+    enabled: allow && !!id,
   })
   const msgsQ = useQuery({
     queryKey: ['subagents', id, 'messages'],
     queryFn: () => fetchDispatchMessages(id),
-    enabled: !!id,
+    enabled: allow && !!id,
     refetchInterval: 3000,
   })
 

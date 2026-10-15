@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, Mic, CheckCircle2, XCircle, History, Wand2, Copy, Check } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Tooltip } from '@/components/feedback'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
@@ -52,6 +53,8 @@ interface RunResult {
 
 export default function KouboPage() {
   const t = useTranslations('selfMedia.kouboPage')
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求
+  const { allow } = useAuthGate()
   const [date, setDate] = React.useState('')
   const [filePath, setFilePath] = React.useState('')
   const [topic, setTopic] = React.useState('')
@@ -75,8 +78,9 @@ export default function KouboPage() {
   }
 
   React.useEffect(() => {
+    if (!allow) return
     void loadHistory()
-  }, [loadHistory])
+  }, [loadHistory, allow])
 
   const run = async (
     op: 'generate' | 'validate',

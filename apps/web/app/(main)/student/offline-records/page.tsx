@@ -16,11 +16,15 @@ import { OfflineRecordList } from './OfflineRecordList'
 import { OfflineRecordDialog } from './OfflineRecordDialog'
 import { EMPTY_FORM, api, recordToForm } from './helpers'
 import type { OfflineRecord, RecordForm } from './types'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 export default function OfflineRecordsPage() {
   const t = useTranslations('offlineRecords')
   const qc = useQueryClient()
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
 
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<OfflineRecord | null>(null)
@@ -37,6 +41,7 @@ export default function OfflineRecordsPage() {
       api<OfflineRecord[] | { list: OfflineRecord[] }>('/api/edu/my-offline-records').then((d) =>
         Array.isArray(d) ? d : (d.list ?? []),
       ),
+    enabled: allow,
   })
 
   const saveMut = useMutation({
@@ -123,14 +128,18 @@ export default function OfflineRecordsPage() {
         </Button>
       </header>
 
-      <OfflineRecordList
-        list={list}
-        isLoading={isLoading}
-        error={error as Error | null}
-        delPending={delMut.isPending}
-        onEdit={openEdit}
-        onDelete={handleDelete}
-      />
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : (
+        <OfflineRecordList
+          list={list}
+          isLoading={isLoading}
+          error={error as Error | null}
+          delPending={delMut.isPending}
+          onEdit={openEdit}
+          onDelete={handleDelete}
+        />
+      )}
 
       <OfflineRecordDialog
         open={open}

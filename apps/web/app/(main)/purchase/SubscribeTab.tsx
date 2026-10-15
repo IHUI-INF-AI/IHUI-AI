@@ -22,6 +22,8 @@ import { Building2, Check, Loader2, Sparkles, Zap } from 'lucide-react'
 
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   fetchApiSubscriptionPlans,
   subscribeApiPlan,
@@ -163,9 +165,13 @@ export function SubscribeTab() {
   const t = useTranslations('purchase')
   const router = useRouter()
   const toast = useToast()
+  // 登录态门:未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['purchase', 'subscriptions'],
+    enabled: allow,
     queryFn: async () => {
       const r = await fetchApiSubscriptionPlans()
       if (!r.success) throw new Error(r.error)
@@ -191,6 +197,10 @@ export function SubscribeTab() {
   const activePlan = status?.activePlan
   const subscription = status?.subscription
   const windows = status?.windows ?? []
+
+  if (!allow) {
+    return <AuthGatePrompt message={tGate('loginRequired')} />
+  }
 
   if (isLoading) {
     return (
