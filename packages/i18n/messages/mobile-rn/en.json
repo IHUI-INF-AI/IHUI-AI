@@ -463,6 +463,31 @@
     "subscriptions": "My Subscriptions",
     "settings": "Settings"
   },
+  "drawer": {
+    "newChat": "New Task",
+    "history": "History",
+    "noHistory": "No conversations yet",
+    "swipeHint": "Swipe left to favorite / delete",
+    "collect": "Favorite",
+    "collected": "Favorited",
+    "delete": "Delete",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "earlier": "Earlier",
+    "defaultModel": "Default Model",
+    "notLoggedIn": "Not signed in",
+    "cancel": "Cancel",
+    "exit": "Sign Out",
+    "prompt": "Notice",
+    "favoriteFailed": "Favorite action failed, please retry",
+    "groupHot": "Hot",
+    "groupAi": "AI",
+    "groupEdu": "Education",
+    "groupTrade": "Commerce",
+    "groupPromote": "Promotion",
+    "groupPersonal": "Personal",
+    "groupCommunity": "Community"
+  },
   "error": {
     "network": "Network error, please retry"
   },
@@ -776,6 +801,7 @@
     "title": "n8n Models"
   },
   "modelPlaza": {
+    "officialBadge": "智",
     "compare": {
       "title": "Compare Models",
       "message": "Please select 2-3 models to compare"
@@ -1565,6 +1591,17 @@
     "placeholder": "Search courses, lecturers and more",
     "empty": "No results found",
     "failed": "Search failed",
+    "popular": "Popular Searches",
+    "quickSuggestions": [
+      "Settings",
+      "Profile",
+      "Projects",
+      "Conversations",
+      "Members",
+      "Workspaces",
+      "Shortcuts",
+      "AI Models"
+    ],
     "type": {
       "course": "Course",
       "article": "Article",

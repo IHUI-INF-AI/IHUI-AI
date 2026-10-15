@@ -35,6 +35,9 @@
  * 用法:node scripts/check-spawn-output-channel.mjs [--staged|--worktree] [--json] [--strict] [--self-test]
  *   缺省判 HEAD blob;`--staged` 判索引 blob(只咬本次改动过的文件);`--worktree` 仅人工取证档。
  *   两面旗同给 ⇒ exit 2。`--strict` 下"有未判定"⇒ exit 2(拒绝出具合格证)。
+ *   空清单分两档,不得混为一谈:`--staged` 下"本次暂存了 scripts/ 里的文件、但无一 .mjs/.cjs/.js"
+ *   ⇒ **不适用** exit 0(纯 JSON/台账提交没有本型可判,判死就是造一台拦得住一切提交的红门);
+ *   而"清单一条都拿不到"与"全量面枚举到 0 个源码脚本"⇒ 仍判死 exit 2(那是取材环节坏了,不是没有违规)。
  * 紧急跳过:HUSKY_SKIP_SPAWN_OUTPUT_CHANNEL=1(跳过即放弃"结论通道必须看得见"这条不变量,须在提交信息写明理由)
  */
 import { dirname, resolve } from 'node:path'
@@ -61,10 +64,13 @@ function listFaceFiles(face) {
   try {
     const out = gitRaw(args, ROOT, { timeout: GIT_TIMEOUT_MS, maxBuffer: GIT_MAX })
     if (out === null) return { error: 'git 没有产出清单' }
-    return out
+    // raw 与 files 必须分开返回:"射程目录里有文件、但无一源码后缀"与"一条清单都拿不到"
+    // 是两件事,合成一个空数组就把前者误判成后者。
+    const raw = out
       .split('\n')
       .map((s) => s.trim())
-      .filter((s) => s && SRC_EXT.test(s))
+      .filter((s) => s)
+    return { raw, files: raw.filter((s) => SRC_EXT.test(s)) }
   } catch (e) {
     return { error: gitErrText(e) }
   }
@@ -191,15 +197,28 @@ function main(argv) {
     return 2
   }
   const faceName = sel.face
-  const files = listFaceFiles(faceName)
-  if (!Array.isArray(files)) {
-    console.log(`❌ 无法枚举 ${faceName} 面清单:${files.error}`)
+  const listing = listFaceFiles(faceName)
+  if (!Array.isArray(listing.files)) {
+    console.log(`❌ 无法枚举 ${faceName} 面清单:${listing.error}`)
     return 2
   }
-  if (files.length === 0) {
-    console.log(`❌ 在 ${faceName} 面枚举到 0 个源码脚本 ⇒ 判死(空扫不是"没有违规",是"什么都没看")`)
+  if (listing.raw.length === 0) {
+    console.log(`❌ 在 ${faceName} 面枚举到 0 个文件 ⇒ 判死(清单一条都没拿到,不是"没有违规")`)
     return 2
   }
+  if (listing.files.length === 0) {
+    if (faceName !== 'staged') {
+      console.log(
+        `❌ 在 ${faceName} 面枚举到 0 个源码脚本(射程目录 ${SCAN_DIRS.join('/')} 下有 ${listing.raw.length} 个文件却无一 .mjs/.cjs/.js)⇒ 判死(空扫不是"没有违规",是"什么都没看")`,
+      )
+      return 2
+    }
+    console.log(
+      `不适用:本次暂存面在 ${SCAN_DIRS.join('/')} 下有 ${listing.raw.length} 个文件,无一属本门射程(.mjs/.cjs/.js)⇒ 无候选可判。这不是"已判全部合格",是这一型在本提交里没有可判的东西。`,
+    )
+    return 0
+  }
+  const files = listing.files
   // `--staged` 的清单本身就是"本次改动过的文件"(diff --cached),所以不再二次收窄;
   // 收窄的意义是"别替别人挡路",而这里清单已经只含改动集。
   let contents = null

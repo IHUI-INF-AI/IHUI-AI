@@ -463,6 +463,31 @@
     "subscriptions": "マイサブスクリプション",
     "settings": "設定"
   },
+  "drawer": {
+    "newChat": "新しいタスク",
+    "history": "会話履歴",
+    "noHistory": "会話履歴がありません",
+    "swipeHint": "スワイプでお気に入り / 削除",
+    "collect": "お気に入り",
+    "collected": "お気に入り済み",
+    "delete": "削除",
+    "today": "今日",
+    "yesterday": "昨日",
+    "earlier": "過去",
+    "defaultModel": "デフォルトモデル",
+    "notLoggedIn": "未ログイン",
+    "cancel": "キャンセル",
+    "exit": "ログアウト",
+    "prompt": "お知らせ",
+    "favoriteFailed": "お気に入り操作に失敗しました。再試行してください",
+    "groupHot": "人気",
+    "groupAi": "AI",
+    "groupEdu": "教育",
+    "groupTrade": "取引",
+    "groupPromote": "プロモーション",
+    "groupPersonal": "個人",
+    "groupCommunity": "コミュニティ"
+  },
   "error": {
     "network": "ネットワークエラー"
   },
@@ -776,6 +801,7 @@
     "title": "n8n モデル"
   },
   "modelPlaza": {
+    "officialBadge": "智",
     "compare": {
       "title": "モデル比較",
       "message": "比較するモデルを 2〜3 個選択してください"
@@ -1565,6 +1591,17 @@
     "placeholder": "コース、講師、コンテンツを検索",
     "empty": "関連するコンテンツが見つかりません",
     "failed": "検索に失敗",
+    "popular": "人気の検索",
+    "quickSuggestions": [
+      "設定",
+      "プロフィール",
+      "プロジェクト",
+      "会話履歴",
+      "メンバー",
+      "ワークスペース",
+      "ショートカット",
+      "AI モデル"
+    ],
     "type": {
       "course": "コース",
       "article": "記事",

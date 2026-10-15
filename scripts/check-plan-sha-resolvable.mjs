@@ -55,6 +55,7 @@ import {
   Undetermined,
   FACE_LABEL,
 } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const SELF = 'check-plan-sha-resolvable.mjs'
 const DEFAULT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -546,8 +547,13 @@ async function main(argv) {
     console.error('❌ --staged 与 --worktree 不得同给（要判哪个面就只插哪面旗）')
     return 2
   }
-  const ri = argv.indexOf('--root')
-  const root = ri >= 0 && argv[ri + 1] ? path.resolve(argv[ri + 1]) : DEFAULT_ROOT
+  // G-322:给了 --root 却没收到合法值 ⇒ 点名拒绝,不得静默落 DEFAULT_ROOT 出读数。
+  const rootArg = requireFlagValue(argv, '--root', { noun: '目录参数', fallback: null })
+  if (rootArg.error) {
+    console.error(`❌ 无法判定:${rootArg.error}`)
+    return 2
+  }
+  const root = rootArg.value !== null ? path.resolve(rootArg.value) : DEFAULT_ROOT
   const strict = argv.includes('--strict')
   const ti = argv.indexOf('--top')
   const topN = ti >= 0 ? Number(argv[ti + 1]) || 10 : 10

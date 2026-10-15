@@ -71,7 +71,6 @@ import {
   Library,
   Link,
   type LucideIcon,
-  Menu,
   MessageCircle,
   MessageSquare,
   Music,
@@ -189,6 +188,8 @@ import {
   type DrawerTab,
 } from '../components/Drawer'
 import { ModelConfigDialog, type ModelConfig } from '../components/ModelConfigDialog'
+import { PanelLeftRounded } from '../components/PanelLeftRounded'
+import { NAVBAR_ACTION_GLYPH_PX } from '@ihui/shared/ui/navbar-spec'
 import ModelPickerList, { type ModelListItem } from '../components/ModelPickerList'
 import AgentList, { type AgentListItem } from '../components/AgentList'
 import { BottomPops } from '../components/BottomPops'
@@ -1141,18 +1142,17 @@ export function ChatScreen() {
   })
 
   // D38/W27:流结束自动补答 —— 队列非空且生效模式为 queue 时出队队首重发
-  // (web message-input 流结束 effect 同形)。RN 端插话能力恒不可用(2026-10-15
-  // 下线能力声明协商),effectiveMode 以 false 入参解析 ⇒ 恒 queue。
+  // (web message-input 流结束 effect 同形)。RN Runtime 暂无插话能力,effectiveMode
+  // 解析恒 queue(steer 偏好显式降级,降级句由队列条渲染)。
   useEffect(() => {
     if (isStreaming) return
     if (sideQueue.length === 0) return
-    if (effectiveMode(followUpMode, /* 插话能力恒不可用 */ false).mode !== 'queue') return
+    if (effectiveMode(followUpMode, false).mode !== 'queue') return
     const head = sideQueue[0]
     if (!head) return
     setSideQueue((prev) => prev.filter((q) => q.id !== head.id))
     void sendRef.current(head.text)
-    // 依赖顺序无关紧要,排列仅为本文件可读性(eslint exhaustive-deps 已覆盖完整性)
-  }, [sideQueue, isStreaming, followUpMode])
+  }, [isStreaming, sideQueue, followUpMode])
 
   // ── D38 队列交互动作(许可判定在 QueueInteractionBar 内复用 D69/D38,这里只做状态写) ──
   const handleQueueReorder = (fromIndex: number, toIndex: number): void => {
@@ -1168,8 +1168,8 @@ export function ChatScreen() {
     setSideQueue((prev) => [...applyQueueEdit(prev, itemId, { text })])
   }
   const handleInterruptAndRun = (): void => {
-    // interruptPlan 产出 stopFirst/thenRun;RN 端插话能力恒不可用(下线声明协商)
-    // ⇒ 许可门恒拒,此回调不可达;停流走 W2 abort 通道,队首由上方流结束 effect 补答。
+    // 计划由 interruptPlan 产出(stopFirst/thenRun);RN Runtime 暂无插话能力,
+    // 许可门恒拒 ⇒ 此回调当前不可达;停流走 W2 abort 通道,队首由上方流结束 effect 补答。
     const plan = interruptPlan(
       { streaming: isStreaming, streamingMessageId: null },
       sideQueue[0] ?? null,
@@ -2716,16 +2716,16 @@ export function ChatScreen() {
                 onPress={() => setDrawerVisible(true)}
                 accessibilityLabel="打开菜单"
               >
-                <Menu size={22} color={tokens.text.primary} />
+                <PanelLeftRounded size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
               </Pressable>
               <Pressable hitSlop={8} onPress={showAgentList} accessibilityLabel="选择 Agent">
-                <Bot size={22} color={tokens.text.primary} />
+                <Bot size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
               </Pressable>
               <Pressable hitSlop={8} onPress={goToMyPage} accessibilityLabel="个人中心">
-                <Share2 size={22} color={tokens.text.primary} />
+                <Share2 size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
               </Pressable>
               <Pressable hitSlop={8} onPress={showQrCode} accessibilityLabel="加入社区">
-                <QrCode size={22} color={tokens.text.primary} />
+                <QrCode size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
               </Pressable>
             </View>
           }

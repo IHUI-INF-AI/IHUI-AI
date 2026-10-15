@@ -41,6 +41,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { execSync } from 'node:child_process'
+import { flagValue } from './lib/flag-value.mjs'
 
 const ROOT = process.cwd()
 const ARGS = process.argv.slice(2)
@@ -50,14 +51,6 @@ const SKIP_TESTS = ARGS.includes('--skip-tests')
  * 带值旗标的取值(2026-09-28 修 G-322 这一族;**口径照抄枚 380431ffc / 636c28f58 / 8832e73a4,
  * 不另发明**):紧邻的下一个 token 必须**存在、非空且不以 `-` 开头**,才算该旗标的值。
  */
-function flagValue(list, flag) {
-  if (!Array.isArray(list) || !list.includes(flag)) return { present: false, valid: false, value: null, token: null }
-  const raw = list[list.indexOf(flag) + 1]
-  const token = typeof raw === 'string' ? raw : null
-  const valid = token !== null && token !== '' && !token.startsWith('-')
-  return { present: true, valid, value: valid ? token : null, token }
-}
-
 /** `--env` 的合法值 = 汇总行 `模式:` 已经打印的那两档(不得发明第三档)。 */
 export const ENV_MODES = ['production', 'staging']
 

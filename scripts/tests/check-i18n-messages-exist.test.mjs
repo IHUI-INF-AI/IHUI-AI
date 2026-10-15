@@ -85,8 +85,20 @@ test('resolveRoot: --root > I18N_MESSAGES_EXIST_ROOT > 仓库根', () => {
     join(REPO, 'apps'),
     'CLI 必须压过 env',
   )
-  // --root 后紧跟另一个 flag 时不得把 flag 当路径吃掉
-  assert.equal(gate.resolveRoot(['node', SCRIPT, '--root', '--staged'], {}), gate.REPO_ROOT)
+  // G-322(2026-10-15 翻转):旧断言把"`--root` 后跟别的旗标 ⇒ 静默折回仓库根"当规格钉住,
+  // 那正是普查判定的最坏一型(`--root --staged` 扫真仓报绿)。现口径:给了旗标没收到合法值
+  // ⇒ 抛错点名实得 token(三态分开),与等号形态缺值同型。
+  for (const [tail, token] of [
+    [['--root', '--staged'], '"--staged"'],
+    [['--root'], '(其后没有任何参数)'],
+    [['--root', ''], '""'],
+  ]) {
+    assert.throws(
+      () => gate.resolveRoot(['node', SCRIPT, ...tail], {}),
+      (e) => token instanceof RegExp ? token.test(String(e)) : String(e).includes(token),
+      `--root ${JSON.stringify(tail.slice(1))} 必须抛错点名实得 ${token},不得折回仓库根`,
+    )
+  }
   // 等号形态 `--root=<dir>` 必须同样生效:早期只认空格形态,于是
   // `--root=<不存在的目录>` 被静默忽略 → 扫真仓 → 假绿 exit 0(2026-09-24 实测)
   assert.equal(
@@ -407,6 +419,25 @@ test('手写字面量在 git 版本树里真实存在(独立真值,不读脚本�
   for (const f of EXPECTED_LOADERS) {
     assert.ok(tracked.has(f), `端内 loader/产物未入库: ${f}`)
   }
+})
+
+// ─── G-322:CLI 级三支坏值必须 exit 2 且点名实得 token(纯函数档之外的端到端证明) ───
+
+test('CLI:--root 三支坏值 ⇒ exit 2 点名实得 token;不带 --root 行为不变', () => {
+  const cli = (args) =>
+    spawnSync(process.execPath, [SCRIPT, ...args], { cwd: REPO, encoding: 'utf8', windowsHide: true })
+  for (const [args, token] of [
+    [['--root', '--staged'], '"--staged"'],
+    [['--root'], '(其后没有任何参数)'],
+    [['--root', ''], '""'],
+  ]) {
+    const r = cli(args)
+    assert.notEqual(r.status, 0, `--root ${JSON.stringify(args.slice(1))} 不得静默通过`)
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `必须点名实得 token:${out.slice(0, 200)}`)
+  }
+  const ok = cli([])
+  assert.equal(ok.status, 0, `默认档(不带 --root)行为必须逐字不变,实得 rc=${ok.status}\n${(ok.stdout ?? '').slice(0, 300)}`)
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

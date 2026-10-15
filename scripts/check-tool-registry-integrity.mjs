@@ -113,12 +113,23 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { COLORS as C } from './lib/logger.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { isFlagValueToken } from './lib/flag-value.mjs'
 
 const ROOT_DEFAULT = join(fileURLToPath(import.meta.url), '..', '..')
 const args = process.argv.slice(2)
 const quiet = args.includes('--quiet')
 const selfTest = args.includes('--self-test')
 const rootFlagIdx = args.indexOf('--root')
+// G-322:给了 --root 却没收到合法值 ⇒ 点名拒绝(旧 `Boolean(args[rootFlagIdx+1])` 把三支坏值
+// 全读成"没给 --root",判红清单与本应指向的根脱钩照发)。
+{
+  const v = rootFlagIdx >= 0 ? args[rootFlagIdx + 1] : undefined
+  if (rootFlagIdx >= 0 && !isFlagValueToken(v)) {
+    const got = v === undefined ? '(其后没有任何参数)' : JSON.stringify(v)
+    console.error(`❌ 无法判定:--root 需要一个目录参数 —— 紧邻的 token 实得:${got}(不得静默退回默认根)`)
+    process.exit(2)
+  }
+}
 const HAS_ROOT_FLAG = rootFlagIdx >= 0 && Boolean(args[rootFlagIdx + 1])
 const ROOT = HAS_ROOT_FLAG ? resolvePath(args[rootFlagIdx + 1]) : ROOT_DEFAULT
 
