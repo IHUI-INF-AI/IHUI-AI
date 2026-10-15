@@ -6,6 +6,9 @@ import { t } from '@/i18n'
 import Taro from '@tarojs/taro'
 import { voiceSttFromTaro } from '@ihui/api-client/endpoints/voice-stt.taro'
 import { getToken } from './auth'
+// ai-service 地址统一从 api-config 取(支持 TARO_APP_AI_SERVICE_BASE 覆盖),
+// 不再在本文件抄第二份 localhost:8803 默认值 —— 真机必须能改,硬编码等于永远连不上。
+import { AI_SERVICE_BASE_URL } from './api-config'
 
 /**
  * 流式语音识别器(miniapp-taro)。
@@ -31,7 +34,7 @@ type ErrorCallback = (message: string) => void
 
 class StreamingRecognizer {
   private config: Required<RecognizerConfig> = {
-    aiServiceUrl: 'http://localhost:8803',
+    aiServiceUrl: AI_SERVICE_BASE_URL,
     sampleRate: 16000,
     format: 'mp3',
     language: 'zh',

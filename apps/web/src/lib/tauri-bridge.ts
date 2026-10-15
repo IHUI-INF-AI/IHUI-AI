@@ -586,22 +586,29 @@ export async function openExternalUrl(url: string, windowName = '_blank'): Promi
 }
 
 /**
- * 用系统 Google Chrome 以 --app 模式打开 URL(2026-08-17 立,用户要求"内置浏览器要谷歌")。
+ * 用系统 Google Chrome 打开 URL(2026-08-17 立,用户要求"内置浏览器要谷歌")。
  *
- * - 桌面端:调 Rust 端 open_in_chrome(command 已注册)——Chrome --app 模式弹出
- *   无地址栏/无标签的独立窗口,100% Google Chrome 本体,登录/点击/输入/视频全支持,
- *   不受网站 X-Frame-Options / 反自动化拦截。
+ * - 桌面端:调 Rust 端 open_in_chrome(command 已注册)——100% Google Chrome 本体,
+ *   登录/点击/输入/视频全支持,不受网站 X-Frame-Options / 反自动化拦截。
+ * - `mode`(2026-10-15 立第二档,用户反馈"打开的窗口不是完整的浏览器窗口"):
+ *   · `'app'`(缺省)= Chrome `--app=` 无边框应用窗(无地址栏/无标签栏),"内置浏览器"观感;
+ *   · `'window'` = **完整浏览器窗口**(地址栏 + 标签栏 + 书签栏全在),需要用户看得见地址
+ *     /自主导航的登录场景走这档(签到助手网页登录)。
+ *   两档都带 CDP 调试端口 + 专用 profile,登录态回收机制不受窗口形态影响。
  * - web 端(普通浏览器):降级为 window.open 新标签页(浏览器沙箱无法启动本机程序)。
  *
  * @returns 桌面端返回 CDP 端口号,失败返回错误消息;web 端恒返回 null
  */
-export async function openInGoogleChrome(url: string): Promise<number | string | null> {
+export async function openInGoogleChrome(
+  url: string,
+  mode: 'app' | 'window' = 'app',
+): Promise<number | string | null> {
   if (!isTauri()) {
     window.open(url, '_blank')
     return null
   }
   try {
-    return await invokeIpc<number>('open_in_chrome', { url })
+    return await invokeIpc<number>('open_in_chrome', { url, mode })
   } catch (e) {
     const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
     // 带上档名再喊:Chrome 没装(not_found)/ 端口没抢到(network)/ 别的(internal)是三种处置。
@@ -1466,6 +1473,8 @@ export async function gitChannelInfo(): Promise<GitChannelInfoReply> {
 /** 本机捕获到的 TRAE 账号(与 Rust `CapturedAccount` 逐字段对齐)。 */
 export interface CapturedTraeAccount {
   user_id: string
+  /** 账户名(tc 解密 account.username;其他通道空) */
+  nickname?: string
   jwt: string
   /** 人类可读出处:`cookies:<host>(<相对路径>)` / `leveldb:<文件名>`。 */
   source: string
@@ -1525,6 +1534,8 @@ export async function checkinCaptureJwts(): Promise<CapturedTraeAccount[]> {
  *  Cosy-* 风控头(录账时整体并入 device_map)。 */
 export interface CapturedQoderSession {
   app_dir: string
+  /** 账户昵称/手机号(展示名,2026-10-15) */
+  nickname: string
   /** "cn" | "intl" */
   edition: string
   uid: string
@@ -1576,6 +1587,33 @@ export async function checkinCaptureWorkbuddy(): Promise<CapturedWorkbuddySessio
   return await invokeIpc<CapturedWorkbuddySession[]>('checkin_capture_workbuddy')
 }
 
+/** 本机捕获到的 MiniMax Code 登录态(与 Rust `CapturedMinimaxSession` 逐字段对齐,2026-10-15)。
+ *  token 明文存 `~/.minimax/auth/prod/cn/mcode-public/auth.json`(mmoat_ OAuth accessToken);
+ *  uid 取 `%APPDATA%\MiniMax\minimax-agent-cn-config.json` 的 sharedUser.realUserID
+ *  (签到 query 必填,缺失网关 401)。引擎见 apps/ai-service/app/services/checkin_minimax.py。 */
+export interface CapturedMinimaxSession {
+  auth_file: string
+  /** sharedUser.realUserID(签到必填) */
+  uid: string
+  /** sharedUser.userName(展示名) */
+  nickname: string
+  /** mmoat_ 前缀 OAuth accessToken(Authorization: Bearer) */
+  access_token: string
+  /** mmort_ 前缀 refreshToken(引擎预留,当前不消费) */
+  refresh_token: string
+  /** auth.json 声明的过期(epoch 秒,缺失 0) */
+  expires_at: number
+  /** 每账号独立设备指纹(引擎签名用;与独立 IP 组合成完整画像) */
+  uuid: string
+  device_id: string
+}
+
+/** 从本机 MiniMax Code 捕获登录态(读 auth.json + config,零粘贴)。 */
+export async function checkinCaptureMinimax(): Promise<CapturedMinimaxSession[]> {
+  requireTauri()
+  return await invokeIpc<CapturedMinimaxSession[]>('checkin_capture_minimax')
+}
+
 /** WorkBuddy 网页登录探测到的账号(与 Rust `WbWebAccount` 对齐,2026-10-12)。 */
 export interface WorkbuddyWebLoginAccount {
   uid: string
@@ -1596,9 +1634,18 @@ export type WorkbuddyWebLoginProbe =
     }
   | { status: 'error'; message: string }
 
-/** WorkBuddy 网页登录站点根(2026-10-15 浏览器扫码版:openInGoogleChrome 用它开窗,
- *  closeChromeWindow 用它做 urlPrefix 收尾)。 */
+/** WorkBuddy 站点根(仅作 closeChromeWindow 的 urlPrefix 收尾:登录成功后页面会从
+ *  /login/ 跳走,前缀必须留 origin 才能同时命中登录页与登录后的落地页)。 */
 export const WB_WEB_LOGIN_ORIGIN = 'https://www.workbuddy.cn'
+
+/** WorkBuddy 网页登录**真实登录页**(2026-10-15 修:WB_WEB_LOGIN_ORIGIN 是产品营销
+ *  首页,只有下载/介绍、没有任何登录入口,拿它开窗用户根本登不了)。真登录页 =
+ *  /login/(站点自身登录弹窗 iframe 同款参数:platform=website&state=2&product=
+ *  workbuddy,微信/企业微信扫码 + 账号密码;参数实证自官网 LoginIframeDialog  bundle
+ *  upload-*.js 的登录 URL 构造函数)。redirect_uri 指回本站首页,登录成功后落地。 */
+export const WB_WEB_LOGIN_URL =
+  'https://www.workbuddy.cn/login/?platform=website&state=2&product=workbuddy' +
+  `&redirect_uri=${encodeURIComponent('https://www.workbuddy.cn/')}`
 
 /**
  * 轮询探测(浏览器扫码版,2026-10-15):`port` 来自 `openInGoogleChrome` 返回的

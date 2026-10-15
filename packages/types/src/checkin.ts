@@ -25,7 +25,7 @@ export interface CheckinLastRecordSummary {
 
 /** 支持的签到平台:'trae' = TRAE(存量默认);'workbuddy' = WorkBuddy(2026-10-12);
  * 'qoder' = Qoder(阿里 AI IDE) */
-export type CheckinPlatform = 'trae' | 'workbuddy' | 'qoder'
+export type CheckinPlatform = 'trae' | 'workbuddy' | 'qoder' | 'minimax'
 
 /** 签到账号(脱敏形态:GET /accounts 列表项,无 jwt / jwt_enc 字段) */
 export interface CheckinAccount {
