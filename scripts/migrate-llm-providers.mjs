@@ -27,6 +27,7 @@
  */
 import { readFileSync, writeFileSync, existsSync, copyFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { flagValue } from './lib/flag-value.mjs';
 
 // Provider 字段名映射:从 config.py 扁平字段同步(单一 source of truth)
 // 格式: { canonical_name: [字段前缀列表] }
@@ -217,18 +218,6 @@ function stripFlatFields(content) {
 // =============================================================================
 // 旗标取值(2026-09-28 修 G-322 这一族里**唯一会写盘**的一处)
 // =============================================================================
-
-/**
- * 带值旗标的取值(**口径照抄枚 380431ffc / 636c28f58 / 8832e73a4,不另发明**):紧邻的下一个
- * token 必须**存在、非空且不以 `-` 开头**,才算该旗标的值。
- */
-function flagValue(list, flag) {
-  if (!Array.isArray(list) || !list.includes(flag)) return { present: false, valid: false, value: null, token: null };
-  const raw = list[list.indexOf(flag) + 1];
-  const token = typeof raw === 'string' ? raw : null;
-  const valid = token !== null && token !== '' && !token.startsWith('-');
-  return { present: true, valid, value: valid ? token : null, token };
-}
 
 /** 不给 `--input` / `--output` 时的默认路径 —— **本次改动一个字都不许动**(调用方按它跑)。 */
 export const DEFAULT_INPUT = '.env';
