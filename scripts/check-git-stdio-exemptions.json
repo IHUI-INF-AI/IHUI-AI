@@ -44,20 +44,6 @@
       "reason": "真缺 stdio,但该文件此刻由持有人持有在飞(M,其 in-flight diff 正是该文件的 GIT_STDIO 修复,尚未含这两处)⇒ §12 不动他人文件,台账豁免保推送畅通,持有人落地时自然消减",
       "owner": "plan-collide-renumber-blob 持有人 + IHUI-AI stdio 治理线(门 193 判红台账)",
       "reviewBy": "2026-10-20"
-    },
-    {
-      "file": "scripts/tests/check-csrf-exemption-shape.test.mjs",
-      "line": 76,
-      "reason": "判据假阳:该调用 options 走具名对象 FACE_OPTS(L64 定义,内含 stdio:['ignore','pipe','pipe']),门只看穿调用点内联字面量、不解析同文件具名标识符 ⇒ 误报。真调用已合规接管 stdio;消减归 detector 持有人(门 193 若支持同文件具名对象解析即可摘除此条)",
-      "owner": "check-csrf-exemption-shape 持有人 + IHUI-AI stdio 治理线(门 193 判红台账)",
-      "reviewBy": "2026-11-03"
-    },
-    {
-      "file": "scripts/tests/check-csrf-exemption-shape.test.mjs",
-      "line": 86,
-      "reason": "判据假阳:同 L76,options 走 FACE_OPTS(含 stdio),门不解析具名对象标识符 ⇒ 误报;该文件注释自述 FACE_OPTS 是'同一张面唯一取法,别为第二个文件再抄一份',内联反而违反其自身单一取源约束 ⇒ 走台账豁免。消减归 detector 持有人",
-      "owner": "check-csrf-exemption-shape 持有人 + IHUI-AI stdio 治理线(门 193 判红台账)",
-      "reviewBy": "2026-11-03"
     }
   ]
 }
