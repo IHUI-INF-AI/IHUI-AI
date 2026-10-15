@@ -368,14 +368,35 @@ function carriedFiles() {
   }
 }
 
-function reportGap(missing, reason, faceLabel = '') {
+/**
+ * 报红块 + 修复出路。出路**必须按判定面给**(G-866,§0.8 文档不得写跑不通的出路):
+ * 三面的"写盘"语义不同,混用一条提示会误导 —— 实测有人照 HEAD 面旧提示跑完 inject 就以为修完,
+ * 而 HEAD 欠账只有一枚把带水印内容带进 HEAD 的提交才能销;staged 面不 add 回索引,
+ * 提交带走的仍是未加水印的旧索引副本。
+ * @param {string[]} missing
+ * @param {string} reason
+ * @param {string} [faceLabel] 已并入主行文案的判定面标注(head 面为空串)
+ * @param {'head'|'staged'|'worktree'} [face]
+ */
+function reportGap(missing, reason, faceLabel = '', face = 'head') {
   console.error(
     `[watermark-coverage] ❌ ${missing.length} 个文件缺失/损坏溯源水印${faceLabel}${reason}:`,
   )
   for (const f of missing.slice(0, 30)) console.error('  - ' + f)
   if (missing.length > 30) console.error(`  ... 其余 ${missing.length - 30} 个`)
   console.error('')
-  console.error('  手动修复: node scripts/watermark.mjs inject <file>')
+  if (face === 'staged') {
+    console.error('  修复(暂存面): node scripts/watermark.mjs inject <file> && git add <file>')
+    console.error('            # 提交带走的是索引 blob,inject 只写工作区,必须 add 回索引才真正进提交')
+  } else if (face === 'worktree') {
+    console.error('  修复(工作树面): node scripts/watermark.mjs inject <file>')
+    console.error('            # 写到盘上即达标(人工逃生舱),无 add/提交等后续动作')
+  } else {
+    console.error('  修复(HEAD 面): node scripts/watermark.mjs inject <file>')
+    console.error('            # ⚠️ inject 只写工作区,跑完不等于修好 —— HEAD 面欠账只有一枚')
+    console.error('            # 把带水印内容带进 HEAD 的提交才能销;inject 完不提交 = 欠账还在。')
+    console.error('            # 出路: git add <file> 后随下一枚提交带上(走 safe-commit 正常提交)。')
+  }
   console.error('            node scripts/watermark.mjs list-uncovered   # 列出全部缺口')
   console.error('  紧急跳过: HUSKY_SKIP_WATERMARK_GUARD=1 git commit ...')
 }
@@ -644,13 +665,13 @@ async function main() {
 
   // ---------- 纯判定模式(CI / 审计): 不修改任何文件 ----------
   if (NO_FIX) {
-    reportGap(missing, '(会导致 CI 红)', faceInfo)
+    reportGap(missing, '(会导致 CI 红)', faceInfo, face)
     return 1
   }
 
   // ---------- 自愈模式 ----------
   if (decision.verdict === 'gap-too-many') {
-    reportGap(missing, `(超过自愈上限 ${MAX_AUTOFIX}, 拒绝自动回写)`, faceInfo)
+    reportGap(missing, `(超过自愈上限 ${MAX_AUTOFIX}, 拒绝自动回写)`, faceInfo, face)
     console.error('')
     console.error(`  ⚠️ 单次缺口 ${missing.length} 个 > 上限 ${MAX_AUTOFIX}: 疑似批量改写事故。`)
     console.error('     请先排查改写来源(文本级 sed/prettier/生成器), 再整体重注入:')
@@ -694,7 +715,7 @@ async function main() {
             (f) => indexSet.has(f) && !exclusion.isExcluded(f) && missing.includes(f),
           )
     if (stillMissing.length > 0) {
-      reportGap(stillMissing, '(自愈后索引面仍不达标)', faceInfo)
+      reportGap(stillMissing, '(自愈后索引面仍不达标)', faceInfo, face)
       console.error('')
       console.error('  ⚠️ 自动补齐未能达标: 该文件类型可能不可注入, 或载荷被结构性破坏。')
       console.error('     请按上方清单手动排查后重试。')
@@ -718,7 +739,7 @@ async function main() {
   const disk = listUncovered(missing) // 显式点名 = 工作树面:量"inject 是否真写到了盘上"
   const stillOnDisk = disk.paths === null ? missing : disk.paths.filter((f) => missing.includes(f))
   if (stillOnDisk.length > 0) {
-    reportGap(stillOnDisk, '(自愈后盘上仍不达标 —— 类型不可注入或载荷结构性破坏)', faceInfo)
+    reportGap(stillOnDisk, '(自愈后盘上仍不达标 —— 类型不可注入或载荷结构性破坏)', faceInfo, face)
     return 1
   }
   if (face === 'worktree') {
@@ -731,7 +752,7 @@ async function main() {
   console.log(
     `[watermark-coverage] 💧 已 inject 到工作区,请随下一次提交带上(本档刻意不动索引 —— 工作区可回滚,索引不可)。`,
   )
-  reportGap(missing, '(HEAD 面欠账不会因写盘而销 —— 只有一枚把它带进 HEAD 的提交能修)', faceInfo)
+  reportGap(missing, '(HEAD 面欠账不会因写盘而销 —— 只有一枚把它带进 HEAD 的提交能修)', faceInfo, face)
   return 1
 }
 
@@ -758,6 +779,7 @@ export const __test__ = {
   decideCoverage,
   selfTest,
   sweepDupBanners,
+  reportGap,
   NO_FIX,
   STAGED,
   WORKTREE,
