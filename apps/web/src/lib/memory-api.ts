@@ -10,41 +10,22 @@
  *  - POST   /api/memory  body: MemoryCreateInput       → MemoryEntry
  *  - DELETE /api/memory/:id?scope=&sessionId=&projectKey= → { id, deleted }
  *
- * 类型契约:MemoryEntry / MemoryScope / MemoryEntryType 来自 @ihui/types(agent-runtime.ts)。
- * 以下 MemoryCreateInput / MemoryListQuery / MemoryListResponse / MemoryDeleteResponse
- * 及 MEMORY_SCOPE_OPTIONS / MEMORY_TYPE_OPTIONS 为 Web 端本地定义(对标 @ihui/shared/memory 契约),
- * 后续主 agent 统一抽取到共享包后可直接替换 import 路径。
+ * 类型契约:MemoryEntry / MemoryScope / MemoryEntryType 与下列四个请求/响应类型**全部**来自
+ * `@ihui/types`(agent-runtime-memory.ts)。这里不再有任何本地定义 —— 同一份契约在 web 与
+ * 移动端各写一份时,一边加字段另一边不会红,而端上表现是"移动端拿不到 web 能拿的数据"。
  */
 import { fetchApi } from '@/lib/api'
-import type { MemoryEntry, MemoryScope, MemoryEntryType } from '@ihui/types'
+import type {
+  MemoryEntry,
+  MemoryScope,
+  MemoryEntryType,
+  MemoryListQuery,
+  MemoryListResponse,
+  MemoryCreateInput,
+  MemoryDeleteResponse,
+} from '@ihui/types'
 
-// === 请求 / 响应类型 ===
-
-export interface MemoryListQuery {
-  scope?: MemoryScope
-  sessionId?: string
-  projectKey?: string
-}
-
-export interface MemoryListResponse {
-  entries: MemoryEntry[]
-  total: number
-}
-
-export interface MemoryCreateInput {
-  scope: MemoryScope
-  type: MemoryEntryType
-  category: string
-  text: string
-  source?: string
-  sessionId?: string
-  projectKey?: string
-}
-
-export interface MemoryDeleteResponse {
-  id: string
-  deleted: boolean
-}
+export type { MemoryListQuery, MemoryListResponse, MemoryCreateInput, MemoryDeleteResponse }
 
 // === UI 常量 ===
 

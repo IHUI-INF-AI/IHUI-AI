@@ -56,11 +56,46 @@ export interface MemorySyncRequest {
   projectKey?: string
 }
 
-/** 统一记忆读写响应 */
-export interface MemorySyncResponse {
+/**
+ * `GET /api/memory` 查询参数 —— 后端 `apps/api/src/routes/memory.ts` 的 `listQuerySchema`
+ * 三条可选筛选,全仓只此一份定义。
+ */
+export interface MemoryListQuery {
+  scope?: MemoryScope
+  sessionId?: string
+  projectKey?: string
+}
+
+/** `GET /api/memory` 响应。 */
+export interface MemoryListResponse {
   entries: MemoryEntry[]
   total: number
 }
+
+/**
+ * `POST /api/memory` 请求体 —— 后端 `createEntrySchema` 的投影。
+ *
+ * `source` 可选是因为后端有 `.default('api')`;各端**照自己是谁填**(cli / mobile-rn / web),
+ * 不填不是错误。此前它被 web 与移动端各自抄了一份而两边必填性不同,这就是端间数据漂移的载体。
+ */
+export interface MemoryCreateInput {
+  scope: MemoryScope
+  type: MemoryEntryType
+  category: string
+  text: string
+  source?: string
+  sessionId?: string
+  projectKey?: string
+}
+
+/** `DELETE /api/memory/:id` 响应(与被删条目同 id;`deleted:false` = 库里没这一条)。 */
+export interface MemoryDeleteResponse {
+  id: string
+  deleted: boolean
+}
+
+/** 统一记忆读写响应 —— 与 `MemoryListResponse` 同一形状,现互为别名而非两份定义。 */
+export type MemorySyncResponse = MemoryListResponse
 
 // ============================================================================
 // 记忆系统深度层契约(P3-1,2026-07-22 立)

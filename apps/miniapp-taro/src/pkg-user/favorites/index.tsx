@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { getFavorites, deleteFavorite, type FavoriteItem } from '@/api/social'
@@ -22,17 +22,17 @@ interface CategoryDef {
   key: CategoryTab
   labelKey: string
   fallback: string
-  targetType: string
+  resourceType: string
 }
 
 // 分类 Tab:全部/课程/直播/帖子/AI作品/资讯
 const CATEGORY_TABS: CategoryDef[] = [
-  { key: 'all', labelKey: 'common.all', fallback: '全部', targetType: '' },
-  { key: 'course', labelKey: 'favorites.tabCourse', fallback: '课程', targetType: 'course' },
-  { key: 'live', labelKey: 'favorites.tabLive', fallback: '直播', targetType: 'live' },
-  { key: 'post', labelKey: 'favorites.tabPost', fallback: '帖子', targetType: 'post' },
-  { key: 'aigc', labelKey: 'favorites.tabAigc', fallback: 'AI作品', targetType: 'aigc' },
-  { key: 'news', labelKey: 'favorites.tabNews', fallback: '资讯', targetType: 'news' },
+  { key: 'all', labelKey: 'common.all', fallback: '全部', resourceType: '' },
+  { key: 'course', labelKey: 'favorites.tabCourse', fallback: '课程', resourceType: 'course' },
+  { key: 'live', labelKey: 'favorites.tabLive', fallback: '直播', resourceType: 'live' },
+  { key: 'post', labelKey: 'favorites.tabPost', fallback: '帖子', resourceType: 'post' },
+  { key: 'aigc', labelKey: 'favorites.tabAigc', fallback: 'AI作品', resourceType: 'aigc' },
+  { key: 'news', labelKey: 'favorites.tabNews', fallback: '资讯', resourceType: 'news' },
 ]
 
 // 跳转路由映射
@@ -65,8 +65,8 @@ export default function FavoritesPage() {
     let list = [...items]
     if (activeTab !== 'all') {
       const tab = CATEGORY_TABS.find((c) => c.key === activeTab)
-      if (tab && tab.targetType) {
-        list = list.filter((it) => it.targetType === tab.targetType)
+      if (tab && tab.resourceType) {
+        list = list.filter((it) => it.resourceType === tab.resourceType)
       }
     }
     const kw = searchText.trim().toLowerCase()
@@ -74,7 +74,7 @@ export default function FavoritesPage() {
       list = list.filter(
         (it) =>
           (it.title || '').toLowerCase().includes(kw) ||
-          (it.targetType || '').toLowerCase().includes(kw),
+          (it.resourceType || '').toLowerCase().includes(kw),
       )
     }
     return list
@@ -88,7 +88,7 @@ export default function FavoritesPage() {
         success: async (res) => {
           if (!res.confirm) return
           try {
-            await deleteFavorite(item.targetType, item.targetId)
+            await deleteFavorite(item.resourceType, item.resourceId)
             removeItem(item.id)
             Taro.showToast({ title: tt('common.success', '成功'), icon: 'success' })
           } catch {
@@ -122,7 +122,7 @@ export default function FavoritesPage() {
         const targets = items.filter((it) => selectedIds.has(it.id))
         try {
           await Promise.all(
-            targets.map((it) => deleteFavorite(it.targetType, it.targetId).catch(() => null)),
+            targets.map((it) => deleteFavorite(it.resourceType, it.resourceId).catch(() => null)),
           )
           targets.forEach((it) => removeItem(it.id))
           setSelectedIds(new Set())
@@ -142,13 +142,13 @@ export default function FavoritesPage() {
   const viewDetail = useCallback(
     (item: FavoriteItem) => {
       if (manageMode) return
-      const prefix = ROUTE_MAP[item.targetType]
+      const prefix = ROUTE_MAP[item.resourceType]
       if (!prefix) {
         Taro.showToast({ title: tt('favorites.unsupported', '暂未支持跳转'), icon: 'none' })
         return
       }
       Taro.navigateTo({
-        url: `${prefix}${item.targetId}`,
+        url: `${prefix}${item.resourceId}`,
         fail: () =>
           Taro.showToast({ title: tt('favorites.unsupported', '暂未支持跳转'), icon: 'none' }),
       })
@@ -263,25 +263,21 @@ export default function FavoritesPage() {
                       ) : null}
                     </View>
                   ) : null}
-                  {item.cover ? (
-                    <Image
-                      className="w-[128rpx] h-[128rpx] rounded-xl bg-muted mr-[24rpx] shrink-0"
-                      src={item.cover}
-                      mode="aspectFill"
-                    />
-                  ) : (
-                    <View className="w-[128rpx] h-[128rpx] rounded-xl bg-muted mr-[24rpx] shrink-0 flex items-center justify-center">
-                      <Text className="text-[length:20rpx] text-muted-foreground">
-                        {item.targetType}
-                      </Text>
-                    </View>
-                  )}
+                  {/* 后端 userFavorites 无封面列(GET /api/favorites 永不回传 cover)—— 这一格
+                      此前是「有 cover 就渲染图片、否则渲染本占位」的死分支,而图片那一支恒不成立。真要上图,
+                      先在后端 join 出列并同步 packages/api-client/tests/favorites-field-contract.test.ts
+                      的 allowed 集,再在这里加分支。 */}
+                  <View className="w-[128rpx] h-[128rpx] rounded-xl bg-muted mr-[24rpx] shrink-0 flex items-center justify-center">
+                    <Text className="text-[length:20rpx] text-muted-foreground">
+                      {item.resourceType}
+                    </Text>
+                  </View>
                   <View className="flex-1 min-w-0 flex flex-col gap-[16rpx]">
                     <Text className="text-[length:32rpx] font-semibold text-foreground truncate">
                       {item.title}
                     </Text>
                     <Text className="text-[length:22rpx] text-muted-foreground">
-                      {item.targetType}
+                      {item.resourceType}
                     </Text>
                     <View className="flex items-center justify-between">
                       <Text className="text-[length:22rpx] text-muted-foreground">
