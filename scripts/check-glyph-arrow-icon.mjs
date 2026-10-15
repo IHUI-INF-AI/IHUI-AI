@@ -495,6 +495,16 @@ function prevAllowsTagStart(text, i) {
   return !/[\w$)\]'"`]/.test(text[i - 1])
 }
 
+/**
+ * 标签属性区的扫描窗上限(字符数)。旧值是写死的 4000,实测把
+ * `apps/mobile-rn/src/screens/ShareScreen.tsx:283` 那个
+ * `<SharedShareScreen … onBack={…} renderHeader={() => (…)} …>`(需 ~4200)拦腰截断
+ * ⇒ `parseTagAt` 返回 null ⇒ GA7-H2 对"render-prop 宿主组合"这一型整段失明。
+ * 放开上限必须与 `headerSuppressedByRenderProp()` 同笔进:只放上限,该文件当场就多出一处假阳
+ * (子屏 `packages/app/src/features/share/ShareScreen.tsx:43-44` 是 `renderHeader` 三元兜底,属正当形态)。
+ */
+export const TAG_ATTR_SCAN_LIMIT = 64_000
+
 /** 从 i 处解析一个标签:属性里的 `{}`/`()`/`[]` 计入深度后才认配平的 `>`;不是标签返回 null */
 export function parseTagAt(text, i, strMask) {
   if (text[i] !== '<' || strMask[i]) return null
@@ -515,7 +525,7 @@ export function parseTagAt(text, i, strMask) {
   const name = m[0]
   let k = j + name.length
   let depth = 0
-  const stop = Math.min(text.length, k + 4000)
+  const stop = Math.min(text.length, k + TAG_ATTR_SCAN_LIMIT)
   while (k < stop) {
     if (strMask[k]) {
       k++
@@ -1240,6 +1250,19 @@ function headerRenders(tags) {
   return tags.filter((t) => t.name === 'BackChevron' || (t.name === 'NavBar' && tagHasOnBack(t.attrs)))
 }
 
+/**
+ * GA7-H2 的**抑制语义**(票「GA7 对 render-prop 宿主组合失明」的配套那一半)。
+ * 宿主把 `renderHeader={() => …}` 交给子屏时,子屏的页头由宿主画,它自己那一套是
+ * **三元兜底分支**(`packages/app/src/features/share/ShareScreen.tsx:29 解构 → :43-44 三元`),
+ * 同屏并不存在两套返回 affordance ⇒ 不该判红。
+ * 两个条件缺一不抑制:①宿主这个标签的属性里真写了 `renderHeader={`;②子屏正文确实**消费**
+ * `renderHeader`。只看 ① 就成了一条"任何宿主随手加个 renderHeader 就能关掉这一维"的通道,
+ * 那是 §12e 禁的"为消红削判据";子屏不消费它 ⇒ 它照旧自绘 ⇒ 判红不变(成对反证住自检)。
+ */
+function headerSuppressedByRenderProp(hostAttrs, childCode) {
+  return /[\s({,]renderHeader\s*=\s*\{/.test(hostAttrs) && /\brenderHeader\b/.test(childCode)
+}
+
 const IMPORT_RE =
   /import\s+(?:type\s+)?([\w$]+|\*\s+as\s+[\w$]+|\{[^}]*\})\s*(?:,[\s\S]{0,400}?)?from\s*['"]([^'"]+)['"]/g
 
@@ -1445,6 +1468,8 @@ export function findRnDoubleHeaders(readFile, files) {
         }
         const d = stripCommentsKeepStrings(dep)
         if (headerRenders(collectTags(d.code, d.strMask)).length >= 1) {
+          // 宿主已经用 renderHeader 把页头接过来 ⇒ 子屏那一套只是三元兜底分支,不同屏
+          if (headerSuppressedByRenderProp(t.attrs, d.code)) continue
           findings.push({
             rule: 'GA7',
             file: rel,
@@ -2544,6 +2569,33 @@ function selfTest() {
         "import { NavBar } from '../../components/NavBar'\nimport { G7ChildScreen } from '@ihui/rn-app'\nexport default function W() {\n  return <View><NavBar title=\"设置\" onBack={undefined}><G7ChildScreen onBack={go} /></NavBar></View>\n}\n",
     }).n7 === 0,
   )
+  // 票「GA7 对 render-prop 宿主组合失明」的两臂成对:上限放开 + 抑制语义(缺一即假阳/失明)
+  const LONG_CFG = `[${Array(2000).fill('1,').join('')}]`
+  const WRAP_LONG =
+    `import { NavBar } from '../../components/NavBar'\nimport { G7ChildScreen } from '@ihui/rn-app'\nexport default function W() {\n  return <View><NavBar title="设置" onBack={go}><G7ChildScreen onBack={go} cfg={${LONG_CFG}} /></NavBar></View>\n}\n`
+  const WRAP_RENDER_HEADER =
+    "import { NavBar } from '../../components/NavBar'\nimport { G7ChildScreen } from '@ihui/rn-app'\nexport default function W() {\n  return <View><NavBar title=\"分享\" onBack={go} /><G7ChildScreen onBack={go} renderHeader={() => <Text>宿主自绘标题</Text>} /></View>\n}\n"
+  const CHILD_HEADER_GATED_BY_PROP =
+    "import { BackChevron } from '../../components/BackChevron'\nexport function G7ChildScreen({ onBack, renderHeader }) {\n  return <View>{renderHeader ? renderHeader() : <View><BackChevron onPress={onBack} /><Text>设置</Text></View>}</View>\n}\n"
+  t(
+    'GA7-H2 属性扫描窗:宿主标签属性区超过旧 4000 字符上限也必须解析出 onBack(这一型的失明侧;放开上限后必须判红 1)',
+    only({ ...G7_FIX, [WRAP]: WRAP_LONG }).n7 === 1 && LONG_CFG.length > 4000,
+  )
+  t(
+    'GA7-H2 抑制语义:宿主把 renderHeader 交给子屏、子屏**确实消费**它(自绘那套只是三元兜底分支)⇒ 同屏只有一套页头,不得判红(ShareScreen 那一型;判红就是假阳)',
+    only({
+      ...G7_FIX,
+      [WRAP]: WRAP_RENDER_HEADER,
+      [CHILD]: CHILD_HEADER_GATED_BY_PROP,
+    }).n7 === 0,
+  )
+  t(
+    'GA7-H2 抑制语义的反证:宿主写了 renderHeader 而子屏正文根本不消费它 ⇒ 子屏照旧自绘,判红不得被"随手加一个 prop"关掉(§12e 禁为消红削判据)',
+    only({
+      ...G7_FIX,
+      [WRAP]: WRAP_RENDER_HEADER,
+    }).n7 === 1,
+  )
   t(
     'GA7-H1:同一屏文件两套页头返回键(NavBar+BackChevron)⇒ 判第二处(不需要跨文件)',
     only({
@@ -2848,6 +2900,8 @@ export const __test__ = {
   withPageConfigs,
   navStyleOf,
   findRnDoubleHeaders,
+  headerSuppressedByRenderProp,
+  TAG_ATTR_SCAN_LIMIT,
   headerBackFiles,
   importsOf,
   barrelExportMap,
