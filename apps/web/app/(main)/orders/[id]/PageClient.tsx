@@ -14,6 +14,8 @@ import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { TruncatedText } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 
 type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
 
@@ -74,6 +76,9 @@ export default function OrderDetailPage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const qc = useQueryClient()
+  // 登录态门:未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
 
   const {
     data: order,
@@ -82,7 +87,7 @@ export default function OrderDetailPage() {
   } = useQuery({
     queryKey: ['order', params.id],
     queryFn: () => fetchOrder(params.id),
-    enabled: !!params.id,
+    enabled: allow && !!params.id,
   })
 
   const cancelMut = useMutation({
@@ -101,6 +106,10 @@ export default function OrderDetailPage() {
     hour: '2-digit',
     minute: '2-digit',
   })
+
+  if (!allow) {
+    return <AuthGatePrompt message={tGate('loginRequired')} />
+  }
 
   if (isLoading) {
     return (

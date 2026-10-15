@@ -18,7 +18,8 @@
  * 降级:Redis 不可用时回退内存。
  */
 
-import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
+import { randomBytes, randomInt } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import type { Redis } from 'ioredis'
 import { logger } from '../utils/logger.js'
 import { verifyTurnstile } from './turnstile-service.js'
@@ -396,20 +397,11 @@ export class CaptchaService {
 /* -------------------------------------------------------------------------- */
 
 /**
- * 常量时间字符串相等比较。长度不同时也走完比较(用零填充),不提前返回,
- * 防止通过计时差异判断答案长度/前缀。
+ * 常量时间字符串相等比较(经全仓唯一比较出口 secretsEqual:定长散列,
+ * 无长度泄漏、无早退,耗时与长度无关)。
  */
 function constantTimeEqual(a: string, b: string): boolean {
-  const ba = Buffer.from(a, 'utf8')
-  const bb = Buffer.from(b, 'utf8')
-  const len = Math.max(ba.length, bb.length)
-  if (len === 0) return ba.length === bb.length
-  // 用零填充到等长
-  const pa = Buffer.alloc(len)
-  const pb = Buffer.alloc(len)
-  ba.copy(pa)
-  bb.copy(pb)
-  return timingSafeEqual(pa, pb)
+  return secretsEqual(a, b)
 }
 
 /* -------------------------------------------------------------------------- */

@@ -7,6 +7,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { fetchMentions, fetchSymbols, fetchTableSchema } from '@/lib/context-api'
@@ -16,6 +17,9 @@ import { cn } from '@/lib/utils'
 import type { ContextType, Mention, SymbolResult, TableSchema } from '@ihui/shared/context/index'
 
 export default function ContextMentionsPage() {
+  // 2026-10-15 登录态门(与 context/page.tsx 同型):/api/context/* 后端 JWT 鉴权,
+  // 未就绪/未登录不发注定 401 的查询
+  const { allow } = useAuthGate()
   const [activeType, setActiveType] = React.useState<ContextType>('file')
   const [query, setQuery] = React.useState('')
   const [selected, setSelected] = React.useState<Mention | null>(null)
@@ -25,19 +29,19 @@ export default function ContextMentionsPage() {
   const mentionsQ = useQuery({
     queryKey: ['context', 'mentions', activeType, debouncedQ],
     queryFn: () => fetchMentions(debouncedQ, activeType, 30),
-    enabled: activeType !== 'symbol' && (debouncedQ.length > 0 || activeType !== 'file'),
+    enabled: allow && activeType !== 'symbol' && (debouncedQ.length > 0 || activeType !== 'file'),
   })
 
   const symbolsQ = useQuery({
     queryKey: ['context', 'symbols', debouncedQ],
     queryFn: () => fetchSymbols(debouncedQ, 30),
-    enabled: activeType === 'symbol' && debouncedQ.length > 0,
+    enabled: allow && activeType === 'symbol' && debouncedQ.length > 0,
   })
 
   const schemaQ = useQuery({
     queryKey: ['context', 'schema', selected?.id],
     queryFn: () => fetchTableSchema(selected!.label),
-    enabled: activeType === 'database' && !!selected?.label,
+    enabled: allow && activeType === 'database' && !!selected?.label,
   })
 
   const symbolDetail: SymbolResult | null = React.useMemo(() => {

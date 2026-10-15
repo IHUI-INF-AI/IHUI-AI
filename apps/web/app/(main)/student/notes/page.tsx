@@ -15,11 +15,15 @@ import { NotesList } from './NotesList'
 import { NoteDialog } from './NoteDialog'
 import { api, EMPTY_FORM } from './helpers'
 import type { Note, NoteForm, NotesData } from './types'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 export default function MyNotesPage() {
   const t = useTranslations('notes')
   const qc = useQueryClient()
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
 
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
@@ -40,6 +44,7 @@ export default function MyNotesPage() {
       if (debounced) qs.set('search', debounced)
       return api<NotesData>(`/api/edu/my-notes?${qs.toString()}`)
     },
+    enabled: allow,
   })
 
   const saveMut = useMutation({
@@ -138,14 +143,18 @@ export default function MyNotesPage() {
         />
       </div>
 
-      <NotesList
-        list={list}
-        isLoading={isLoading}
-        error={error}
-        onEdit={openEdit}
-        onDelete={handleDelete}
-        deletePending={delMut.isPending}
-      />
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : (
+        <NotesList
+          list={list}
+          isLoading={isLoading}
+          error={error}
+          onEdit={openEdit}
+          onDelete={handleDelete}
+          deletePending={delMut.isPending}
+        />
+      )}
 
       <NoteDialog
         open={open}

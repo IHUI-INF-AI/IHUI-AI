@@ -594,6 +594,24 @@ export async function readSseStream(
   }
 }
 
+/**
+ * SSE 后台循环退出档位(此前 `.catch(() => {})` 把两档一起吞掉):
+ * - 'aborted':取消路径 —— disconnectMcpServer 触发 abort 打断循环,静默合理
+ *   (pending 请求由 10s 超时与断连清理兜底);
+ * - 'error':异常路径 —— 流自身死亡(网络断、对端重置等),必须告警并降档,不得静默。
+ * 判据:连接自己的 AbortSignal 已 aborted 视为取消;错误名恰为 AbortError
+ * (信号未置位的边缘,如底层 fetch 被旁路中止)同档;其余一律按异常路径处理
+ * (不确定时向"可观测"倾斜,不向"安静"倾斜)。
+ */
+export function classifySseStreamExit(
+  err: unknown,
+  signal: AbortSignal | undefined,
+): 'aborted' | 'error' {
+  if (signal?.aborted) return 'aborted';
+  if (err instanceof Error && err.name === 'AbortError') return 'aborted';
+  return 'error';
+}
+
 /** 轮询 predicate,在超时前满足返回 true,超时返回 false。 */
 function waitFor(predicate: () => boolean, timeoutMs: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -994,8 +1012,19 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
           }
         },
         conn.sseAbortController.signal,
-      ).catch(() => {
-        // 流关闭或被 abort,静默处理(pending 请求由超时或 disconnect 清理)
+      ).catch((err: unknown) => {
+        // 后台循环退出分两档(原 `.catch(() => {})` 两档一起吞,异常路径零观测):
+        // - 取消路径:disconnectMcpServer 触发 abort 打断循环,静默合理(pending 由
+        //   10s 超时与断连清理兜底);
+        // - 异常路径:流自身死亡(网络断/对端重置等),打一条带上下文的告警,并把连接
+        //   降档为不可用(复用既有 `connected` 字段,状态上报 `connected: !!conn.connected`
+        //   可见)。设计取向未拍板:不加 Retry、不做自动重连(禁为吞错加 Retry 藏红)。
+        if (classifySseStreamExit(err, conn.sseAbortController?.signal) === 'aborted') return;
+        const detail = err instanceof Error ? err.message : String(err);
+        console.warn(
+          `[mcp-runtime] SSE 流异常终止(非取消路径),连接降档为不可用(无自动重连): server=${server.name}: ${detail}`,
+        );
+        conn.connected = false;
       });
 
       // 3. 等待 endpoint 事件(5s 超时)

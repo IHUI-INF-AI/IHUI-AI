@@ -43,9 +43,10 @@ import {
   unsubscribeSkill,
 } from '@/lib/skills-market-api'
 import type { SkillMarketEntry } from '@ihui/shared/skills/market'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
 import { Badge } from '@/components/data'
 import { Button, Input } from '@ihui/ui-react'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 /**
  * Skill 市场 — 第三梯队 #14 自进化 Skill 市场产品化(2026-09-15 立)
@@ -67,6 +68,9 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
   const t = useTranslations('skillMarket')
   const qc = useQueryClient()
   const router = useRouter()
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [q, setQ] = React.useState('')
   const [debouncedQ, setDebouncedQ] = React.useState('')
   const [tag, setTag] = React.useState('')
@@ -86,6 +90,7 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
   const { data, isLoading, error } = useQuery({
     queryKey: ['skills-market', 'list', { q: debouncedQ, tag, page }],
     queryFn: () => fetchSkillsMarket({ q: debouncedQ, tag, page, pageSize: 20 }),
+    enabled: allow,
   })
 
   /**
@@ -101,7 +106,7 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
       const r = await fetchSkillsMarket({ q: deepLinkName, page: 1, pageSize: 100 })
       return r.items.find((it) => it.name === deepLinkName) ?? null
     },
-    enabled: Boolean(deepLinkName),
+    enabled: allow && Boolean(deepLinkName),
     retry: false,
   })
 
@@ -124,6 +129,7 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
       if (!r.success || !r.data) throw new Error(r.error ?? 'load failed')
       return r.data
     },
+    enabled: allow,
   })
   const enabledSet = React.useMemo(() => new Set(enabledData?.enabled ?? []), [enabledData])
 
@@ -196,6 +202,16 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
     for (const it of items) for (const tg of it.tags) s.add(tg)
     return Array.from(s).slice(0, 12)
   }, [items])
+
+  // 登录态门:未登录先显登录引导,不发注定 401 的请求
+  if (!allow) {
+    return (
+      <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-4">
+        <BackButton />
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      </div>
+    )
+  }
 
   // 深链解析中:先给骨架,不要闪一屏"不存在"
   if (deepLinkName && deepLinkQuery.isLoading) {

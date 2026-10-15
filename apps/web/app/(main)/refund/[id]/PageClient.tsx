@@ -13,6 +13,8 @@ import { Loader2, ArrowLeft, RotateCcw, Clock, CheckCircle, XCircle, Wallet } fr
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 
 interface RefundDetail {
   id: string
@@ -82,6 +84,9 @@ export default function RefundDetailPage() {
   const params = useParams<{ id: string }>()
   const locale = useLocale()
   const t = useTranslations('refundDetailPage')
+  // 登录态门:未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['refund', params.id],
@@ -96,7 +101,7 @@ export default function RefundDetailPage() {
       }
       throw new Error(detailRes.error || t('notFound'))
     },
-    enabled: !!params.id,
+    enabled: allow && !!params.id,
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -116,6 +121,10 @@ export default function RefundDetailPage() {
   const auditRecords = data?.auditRecords ?? []
   const statusKey = refund ? (STATUS_CONFIG[refund.status] ?? STATUS_CONFIG.pending) : null
   const StatusIcon = statusKey?.icon
+
+  if (!allow) {
+    return <AuthGatePrompt message={tGate('loginRequired')} />
+  }
 
   if (isLoading) {
     return (

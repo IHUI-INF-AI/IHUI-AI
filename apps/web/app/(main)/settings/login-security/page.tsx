@@ -35,7 +35,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
 import {
   fetchLoginPreferences,
   saveLoginPreferences,
@@ -43,6 +43,7 @@ import {
 } from '@/lib/login-preferences'
 import { startAutoRefresh, stopAutoRefresh } from '@/lib/tokenUtils'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 /** 记住天数(与后端 refresh TTL 对齐) */
 const REMEMBER_DAYS = 30
@@ -188,6 +189,9 @@ function formatDateTime(value: string): string {
 export default function LoginSecurityPage() {
   const t = useTranslations('settings')
   const s = useTranslations('eduAi.security')
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
 
   const [prefs, setPrefs] = React.useState<LoginPreferences>({
     autoLogin: false,
@@ -218,6 +222,7 @@ export default function LoginSecurityPage() {
 
   // 初始化:从后端拉取偏好
   React.useEffect(() => {
+    if (!allow) return
     let active = true
     void (async () => {
       const p = await fetchLoginPreferences()
@@ -229,10 +234,11 @@ export default function LoginSecurityPage() {
     return () => {
       active = false
     }
-  }, [])
+  }, [allow])
 
   // 初始化:拉取 MFA 状态(刷新页面恢复)
   React.useEffect(() => {
+    if (!allow) return
     let active = true
     void (async () => {
       const res = await fetchApi<MfaStatusData>('/api/mfa/status')
@@ -245,7 +251,7 @@ export default function LoginSecurityPage() {
     return () => {
       active = false
     }
-  }, [])
+  }, [allow])
 
   // 恢复码弹窗:2 秒后才能关闭(强制保存提醒)
   React.useEffect(() => {
@@ -430,6 +436,15 @@ export default function LoginSecurityPage() {
     } finally {
       setPasskeyBusy(false)
     }
+  }
+
+  if (!allow) {
+    return (
+      <div className="px-4 space-y-4 py-4">
+        <BackButton />
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      </div>
+    )
   }
 
   return (

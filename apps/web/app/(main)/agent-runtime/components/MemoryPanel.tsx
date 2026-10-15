@@ -8,6 +8,7 @@ import * as React from 'react'
 import { Loader2, Brain, Clock, Database, Workflow } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 type MemoryLayerName = 'working' | 'episodic' | 'semantic' | 'procedural'
 
@@ -99,11 +100,14 @@ function LayerCard({ data }: { data: LayerData }) {
 }
 
 export function MemoryPanel({ agentId, timeRange, refreshKey }: MemoryPanelProps) {
+  // 登录态门:未就绪/未登录不发注定 401 的记忆状态查询(登录态门 campaign)
+  const { allow } = useAuthGate()
   const [layers, setLayers] = React.useState<LayerData[]>([])
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState(false)
 
   React.useEffect(() => {
+    if (!allow) return
     if (!agentId) return
     let cancelled = false
     setLoading(true)
@@ -128,7 +132,7 @@ export function MemoryPanel({ agentId, timeRange, refreshKey }: MemoryPanelProps
     return () => {
       cancelled = true
     }
-  }, [agentId, timeRange, refreshKey])
+  }, [agentId, timeRange, refreshKey, allow])
 
   const full: LayerData[] = (
     ['working', 'episodic', 'semantic', 'procedural'] as MemoryLayerName[]

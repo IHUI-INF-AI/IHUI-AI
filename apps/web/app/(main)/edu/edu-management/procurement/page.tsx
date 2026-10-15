@@ -42,6 +42,7 @@ import {
 
 import { cn } from '@/lib/utils'
 import { fetchApi, fetchRaw } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { BackButton, toast } from '@/components/common'
 import {
   Card,
@@ -389,9 +390,12 @@ function StatsTab() {
   const [applied, setApplied] = React.useState<StatsFilters>(emptyStatsFilters)
   const t = useTranslations('eduProcurement')
   const [exporting, setExporting] = React.useState(false)
+  // 登录态门:未就绪/未登录不发注定 401 的查询(edu-canteen 全端点需权限)
+  const { allow } = useAuthGate()
 
   const statsQuery = useQuery({
     queryKey: ['edu-canteen-stats', applied],
+    enabled: allow,
     queryFn: () =>
       api<StatsResp>(
         `/api/edu-canteen/statistics${buildQuery({
@@ -941,6 +945,8 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
     kind: 'confirm' | 'void' | 'delete'
     row: ProcurementRow
   } | null>(null)
+  // 登录态门:未就绪/未登录不发注定 401 的查询
+  const { allow } = useAuthGate()
 
   // AI 录入完成后从"在台账中处理"跳转:自动打开详情
   React.useEffect(() => {
@@ -949,12 +955,14 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
 
   const supplierOptions = useQuery({
     queryKey: [OPT_KEY],
+    enabled: allow,
     queryFn: () => api<{ options: SupplierOption[] }>('/api/edu-canteen/supplier/options'),
     staleTime: 60_000,
   })
 
   const listQuery = useQuery({
     queryKey: [PROC_KEY, 'list', applied, page],
+    enabled: allow,
     queryFn: () =>
       api<Paged<ProcurementRow>>(
         `/api/edu-canteen/procurement${buildQuery({
@@ -1936,9 +1944,12 @@ function SupplierTab() {
   const [page, setPage] = React.useState(1)
   const [editing, setEditing] = React.useState<SupplierRow | 'new' | null>(null)
   const [deleting, setDeleting] = React.useState<SupplierRow | null>(null)
+  // 登录态门:未就绪/未登录不发注定 401 的查询
+  const { allow } = useAuthGate()
 
   const listQuery = useQuery({
     queryKey: [SUP_KEY, 'list', applied, page],
+    enabled: allow,
     queryFn: () =>
       api<Paged<SupplierRow>>(
         `/api/edu-canteen/supplier${buildQuery({

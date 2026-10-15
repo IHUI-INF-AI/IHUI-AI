@@ -8,9 +8,12 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2, AlertCircle, GitCompare, FileText, Activity } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { AuthGatePrompt } from '@/components/common'
 import { loadSpec, diffSpec } from '@/lib/spec-api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import type { SpecDiff } from '@ihui/shared/spec/index'
 import { SpecMarkdown } from '@/components/spec/SpecMarkdown'
 import { SpecDiffView } from '@/components/spec/SpecDiffView'
@@ -31,6 +34,9 @@ function formatDate(iso: string): string {
 export default function SpecDetailPage() {
   const params = useParams<{ id: string }>()
   const id = params.id
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
 
   const {
     data: spec,
@@ -39,7 +45,7 @@ export default function SpecDetailPage() {
   } = useQuery({
     queryKey: ['spec', 'detail', id],
     queryFn: () => loadSpec(id),
-    enabled: !!id,
+    enabled: allow && !!id,
   })
 
   const [diff, setDiff] = React.useState<SpecDiff | null>(null)
@@ -58,6 +64,20 @@ export default function SpecDetailPage() {
     } finally {
       setDiffLoading(false)
     }
+  }
+
+  if (!allow) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4 py-8">
+        <AuthGatePrompt message={tGate('loginRequired')} />
+        <Button variant="outline" asChild>
+          <Link href="/spec">
+            <ArrowLeft className="h-4 w-4" />
+            返回列表
+          </Link>
+        </Button>
+      </div>
+    )
   }
 
   if (isLoading) {

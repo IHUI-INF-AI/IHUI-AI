@@ -10,7 +10,8 @@ import { Loader2, KeyRound, Trash2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface AuthorizedItem {
   id: string
@@ -25,6 +26,9 @@ export default function MyAuthorizedPage() {
   const t = useTranslations('oauth')
   const tc = useTranslations('common')
   const locale = useLocale()
+  // 登录态门:未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
 
   const [items, setItems] = React.useState<AuthorizedItem[]>([])
   const [loading, setLoading] = React.useState(true)
@@ -41,8 +45,9 @@ export default function MyAuthorizedPage() {
   }, [])
 
   React.useEffect(() => {
+    if (!allow) return
     void load()
-  }, [load])
+  }, [load, allow])
 
   const onRevoke = async (id: string) => {
     setRevokingId(id)
@@ -80,7 +85,9 @@ export default function MyAuthorizedPage() {
         </div>
       )}
 
-      {loading ? (
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : loading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {tc('search')}...
