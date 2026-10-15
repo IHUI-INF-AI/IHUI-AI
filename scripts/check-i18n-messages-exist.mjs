@@ -106,9 +106,15 @@ function resolveRoot(argv, env) {
     cli = eqToken.slice('--root='.length)
     if (!cli.trim()) throw new Error('--root= 缺少目录值(要么给路径,要么去掉这个参数)')
   } else {
+    // G-322:给了 --root 却没收到合法值(被下一个旗标顶掉/结尾无值/空串)⇒ 与等号缺值同型,
+    // 必须抛错点名,不得把 `--staged` 之类当路径吃掉、更不得静默折回仓库根假装没给过。
     const i = argv.indexOf('--root')
-    const flagVal = i >= 0 ? argv[i + 1] : null
-    cli = flagVal && !flagVal.startsWith('-') ? flagVal : null
+    const raw = i >= 0 ? argv[i + 1] : undefined
+    if (i >= 0 && (typeof raw !== 'string' || raw === '' || raw.startsWith('-'))) {
+      const got = raw === undefined ? '(其后没有任何参数)' : JSON.stringify(raw)
+      throw new Error(`--root 需要一个目录参数 —— 紧邻的 token 实得:${got}(不得静默退回仓库根)`)
+    }
+    cli = raw ?? null
   }
   const fromEnv = String(env[ROOT_ENV_KEY] || '').trim() || null
   return path.resolve(cli || fromEnv || REPO_ROOT)

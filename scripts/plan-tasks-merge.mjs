@@ -67,6 +67,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, gitRaw, selectFace } from './lib/face-reader.mjs'
+import { flagValue } from './lib/flag-value.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import {
   CLAIM_SOURCE,
@@ -4701,14 +4702,7 @@ function selfTest() {
  * 返回 {present, valid, value, token}:token 把**真实收到的东西**原样带回去,拒绝时必须点名它
  * (调用方漏写值与被别的旗标顶上,是两种不同的修法,不能合成一句"参数错")。
  */
-export function flagValue(list, flag) {
-  if (!Array.isArray(list) || !list.includes(flag))
-    return { present: false, valid: false, value: null, token: null }
-  const raw = list[list.indexOf(flag) + 1]
-  const token = typeof raw === 'string' ? raw : null
-  const valid = token !== null && token !== '' && !token.startsWith('-')
-  return { present: true, valid, value: valid ? token : null, token }
-}
+export { flagValue }
 
 /**
  * 带值旗标的整数取值判据 —— `--max-rows` / `--rounds` 共用**这一份**。
