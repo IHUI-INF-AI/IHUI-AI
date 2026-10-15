@@ -193,7 +193,7 @@ function selfTest() {
   eq('牙齿:整区回灌(16 行)判一块', count([NEW, ...ARCH, NEW]), 1)
   eq('正控:零散命中(每 3 行夹一条本地新行)不算回灌', count([ARCH[0], ARCH[1], NEW, ARCH[2], ARCH[3], NEW, ARCH[4], ARCH[5], NEW, ARCH[6], ARCH[7], NEW, ARCH[8], ARCH[9], NEW, ARCH[10], ARCH[11], NEW, ARCH[12], ARCH[13], NEW, ARCH[14], ARCH[15]]), 0)
   eq('两块分别点名', count([...ARCH, NEW, NEW, NEW, NEW, ...ARCH]), 2)
-  eq('夹在归档正文里的空行不断块(归档件本来就含空行)', count([ARCH[0], '', ...ARCH.slice(1, 12), NEW]), 1)
+  eq('夹在归档正文里的空行不断块(归档件本来就含空行)', findReinflatedBlocks([ARCH[0], '', ...ARCH.slice(1, 12), NEW], buildArchiveFace({ 'a.md': [ARCH[0], '', ...ARCH.slice(1, 12)].join('\n') })).length, 1)
   eq(
     '横幅类样板不算(每份归档件都带同一条水印横幅 ⇒ 朴素行集合命中会假阳性)',
     (() => {
