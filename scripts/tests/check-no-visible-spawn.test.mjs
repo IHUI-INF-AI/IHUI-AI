@@ -5,10 +5,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { tmpdir } from 'node:os'
+import { mkScratch } from '../lib/scratch-dir.mjs'
 
 // §22c:直接 import 源脚本导出的 __test__,不维护任何"镜像常量",杜绝源/测两份真相漂移。
 // §22d:源脚本的 main() 受 isDirectRun 守护,被 import 时不得有任何副作用。
@@ -526,7 +526,7 @@ test('G-1058602 ② 取材对账:标签说的每一句都要有真实机制背�
 test('G-1058602 ③ 端到端(临时仓真跑 CLI):未入库件命中 ⇒ [未入库] 标注 + rc=0 + 汇总点名;同一件入库后 ⇒ rc=1 且无标注', () => {
   // 故意漏 windowsHide 的真实违规形态(写在本测试的字符串字面量里,对本门自身惰性)
   const VIOLATION = "spawnSync('git', ['status'])\n"
-  const tmp = mkdtempSync(join(tmpdir(), 'ihui-g1058602-'))
+  const tmp = mkScratch('ihui-g1058602-')
   try {
     mkdirSync(join(tmp, 'scripts'), { recursive: true })
     // ROOT 由脚本自身位置推导(§15)⇒ 把门脚本放进临时仓 scripts/ 下,判定面即落在临时仓。

@@ -11,6 +11,7 @@ import { Loader2, BookOpen } from 'lucide-react'
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { pushError } from '@/stores/error-banner'
 import { BackButton } from '@/components/common'
 
@@ -26,10 +27,12 @@ export default function LearnRecordPage() {
   const t = useTranslations('user.learn-record')
   const locale = useLocale()
   const user = useAuthStore((s) => s.user)
+  // 2026-10-15 登录态门:/api/learn/records = 当前用户的学习记录,未就绪/未登录不发注定 401 的查询
+  const { allow } = useAuthGate()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['user', 'learn-record', user?.id],
-    enabled: !!user?.id,
+    enabled: allow && !!user?.id,
     queryFn: async (): Promise<LearnRecord[]> => {
       const r = await fetchApi<{ list?: LearnRecord[] } | LearnRecord[]>(
         `/api/learn/records?userId=${user!.id}`,

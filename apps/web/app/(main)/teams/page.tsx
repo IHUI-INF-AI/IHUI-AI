@@ -7,6 +7,8 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 
 import { BackButton } from '@/components/common'
 import { TeamDialog } from './TeamDialog'
@@ -15,11 +17,16 @@ import { fetchTeams, createTeam } from './helpers'
 
 export default function TeamsPage() {
   const t = useTranslations('teams')
+  // 2026-10-15 登录态门(与 settings/notifications 同型):/api/teams = 当前用户的团队列表,
+  // 未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const queryClient = useQueryClient()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['teams'],
     queryFn: fetchTeams,
+    enabled: allow,
   })
 
   const [dialogOpen, setDialogOpen] = React.useState(false)
@@ -92,7 +99,11 @@ export default function TeamsPage() {
         />
       </div>
 
-      <TeamList data={data} isLoading={isLoading} error={error} />
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : (
+        <TeamList data={data} isLoading={isLoading} error={error} />
+      )}
     </div>
   )
 }

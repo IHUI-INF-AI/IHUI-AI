@@ -44,6 +44,8 @@ import {
 } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 
 interface PromptSummary {
   name: string
@@ -80,6 +82,9 @@ const textareaCls =
 
 export default function PromptsPage() {
   const t = useTranslations('models')
+  // 登录态门:未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
 
   const [prompts, setPrompts] = React.useState<PromptSummary[]>([])
   const [loading, setLoading] = React.useState(true)
@@ -125,8 +130,9 @@ export default function PromptsPage() {
   )
 
   React.useEffect(() => {
+    if (!allow) return
     loadPrompts()
-  }, [])
+  }, [allow])
 
   async function loadPrompts() {
     setLoading(true)
@@ -367,7 +373,9 @@ export default function PromptsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-0">
-            {loading ? (
+            {!allow ? (
+              <AuthGatePrompt message={tGate('loginRequired')} />
+            ) : loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 <span className="ml-2 text-sm text-muted-foreground">{t('prompts.loading')}</span>

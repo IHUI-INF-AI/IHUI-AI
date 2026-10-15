@@ -37,6 +37,8 @@ import {
   Switch,
 } from '@ihui/ui-react'
 import { useToast } from '@/hooks/use-toast'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChat } from '@/hooks/use-chat'
 
@@ -153,6 +155,9 @@ export default function AutomationPage() {
   const t = useTranslations('selfMedia.automationPage')
   const locale = useLocale()
   const toast = useToast()
+  // 登录态门:未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const tasksRef = React.useRef<HTMLDivElement>(null)
   const [tasks, setTasks] = React.useState<Task[]>([])
   const [history, setHistory] = React.useState<HistoryItem[]>([])
@@ -207,6 +212,7 @@ export default function AutomationPage() {
   }, [])
 
   React.useEffect(() => {
+    if (!allow) return
     void (async () => {
       setLoading(true)
       await loadAll()
@@ -218,7 +224,7 @@ export default function AutomationPage() {
       clearInterval(timer)
       if (delayedRefreshRef.current) clearTimeout(delayedRefreshRef.current)
     }
-  }, [loadAll])
+  }, [loadAll, allow])
 
   const handleToggle = async (task: Task) => {
     setTogglingId(task.id)
@@ -318,6 +324,10 @@ export default function AutomationPage() {
     if (ms < 1000) return `${ms}ms`
     if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
     return `${(ms / 60000).toFixed(1)}min`
+  }
+
+  if (!allow) {
+    return <AuthGatePrompt message={tGate('loginRequired')} />
   }
 
   if (loading) {

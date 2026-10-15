@@ -10,6 +10,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, FileText, Download } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { BackButton } from '@/components/common'
 
 interface ResourceItem {
@@ -35,10 +36,12 @@ export default function UserResourcePage() {
   const t = useTranslations('user.resource')
   const locale = useLocale()
   const user = useAuthStore((s) => s.user)
+  // 2026-10-15 登录态门:/api/resources?authorId= = 当前用户的资源,未就绪/未登录不发注定 401 的查询
+  const { allow } = useAuthGate()
 
   const { data, isLoading } = useQuery({
     queryKey: ['user', 'resources', user?.id],
-    enabled: !!user?.id,
+    enabled: allow && !!user?.id,
     queryFn: () => fetchResources(user!.id),
   })
 

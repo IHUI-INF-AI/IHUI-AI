@@ -8,7 +8,8 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ShoppingCart } from 'lucide-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { OrdersFilter } from './OrdersFilter'
 import { OrdersList } from './OrdersList'
 import { OrdersPagination } from './OrdersPagination'
@@ -16,6 +17,9 @@ import { PAGE_SIZE, fetchOrders } from './helpers'
 
 export default function OrdersPage() {
   const t = useTranslations('orders')
+  // 登录态门:未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [status, setStatus] = React.useState('all')
   const [orderType, setOrderType] = React.useState('all')
   const [page, setPage] = React.useState(1)
@@ -24,6 +28,7 @@ export default function OrdersPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['orders', 'me', status, orderType, page],
     queryFn: () => fetchOrders({ page, status, orderType }),
+    enabled: allow,
   })
 
   const total = data?.total ?? 0
@@ -55,7 +60,11 @@ export default function OrdersPage() {
         setView={setView}
       />
 
-      <OrdersList orders={data?.list ?? []} isLoading={isLoading} error={error} view={view} />
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : (
+        <OrdersList orders={data?.list ?? []} isLoading={isLoading} error={error} view={view} />
+      )}
 
       <OrdersPagination total={total} page={page} totalPages={totalPages} setPage={setPage} />
     </div>

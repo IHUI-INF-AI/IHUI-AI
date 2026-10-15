@@ -114,7 +114,8 @@ describe('本地三端联调语义保留', () => {
     // 同源后经 next rewrites 反代到 8802/8803,与浏览器 dev 同形,cookie 回到第一方。
     expect(resolveApiBaseUrl()).toBe('')
     expect(resolveAiServiceBaseUrl()).toBe('')
-    // SSE / WS 不属本次改判:dev 代理会缓冲 SSE、且 next 不反代 WS 升级,必须直连本机。
+    // SSE / WS 不属本次改判:dev 代理会缓冲 SSE;WS 直连沿用改判前行为(少一跳、躲开 dev server 重启期断连)
+    //   —— 注:next 加了 /ws/* 规则后 dev 反代其实是通的,不要把直连理由记成"next 不反代 WS"(next.config 内实测注记为证),必须直连本机。
     expect(resolveStreamApiBaseUrl()).toBe('http://localhost:8802')
     expect(resolveWsApiBaseUrl()).toBe('http://127.0.0.1:8802')
     // 凭据库同判据关闭(dev 壳不得读写那颗跨壳共享键)
