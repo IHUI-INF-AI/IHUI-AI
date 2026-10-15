@@ -78,6 +78,7 @@ import { TruncatedText } from '@/components/common/TruncatedText'
 import { AuthGatePrompt } from '@/components/common'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import { useAuthStore } from '@/stores/auth'
 import {
   checkinAuditTraeResidual,
   checkinCaptureJwts,
@@ -132,7 +133,14 @@ export default function CheckinPage() {
   // 2026-10-14 登录态门(与 /chat/favorites、/business-card/favorites 同型):
   // 冷启动时 bootstrap 的静默刷新与本页挂载请求赛跑,未拿到 access token 就发 GET
   // ⇒ 注定 401 ⇒ 整页被「加载失败」块替换。门先把挂载请求压到登录态确定之后。
-  const { allow } = useAuthGate()
+  const { ready, allow } = useAuthGate()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const hasToken = useAuthStore((s) => !!s.token)
+  // 2026-10-15 实测补的第二型:vault 被清 + localStorage 残留 isAuthenticated=true 时,
+  // allow 仍为真 ⇒ 门挡不住,照样发 401 并弹红块。这种"标志位在、token 还没刷出来"的
+  // 中间态按启动中处理(与 api.ts 对 `isAuthenticated && !token` 的既有判读同形)。
+  const booting = ready && isAuthenticated && !hasToken
+  const canLoad = allow && hasToken
   // 复用已接线的通用文案(chatHistory.loginRequired =「请先登录」),不为本页另开一组五语言键
   const tGate = useTranslations('chatHistory')
 
@@ -872,9 +880,9 @@ export default function CheckinPage() {
   }
 
   React.useEffect(() => {
-    if (!allow) return
+    if (!canLoad) return
     void loadAll()
-  }, [loadAll, allow])
+  }, [loadAll, canLoad])
 
   // 调度状态:失败静默,不阻塞页面
   React.useEffect(() => {
@@ -1595,8 +1603,15 @@ export default function CheckinPage() {
         </div>
       )}
 
-      {!allow ? (
-        <AuthGatePrompt message={tGate('loginRequired')} />
+      {!canLoad ? (
+        booting ? (
+          <div className="flex items-center justify-center py-16 text-muted-foreground">
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            {t('loading')}
+          </div>
+        ) : (
+          <AuthGatePrompt message={tGate('loginRequired')} />
+        )
       ) : loading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
