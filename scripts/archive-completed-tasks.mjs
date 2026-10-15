@@ -701,6 +701,49 @@ export function zeroLossViolations({ parentText, newText, movedRanges = [], bloc
   return { violations, kept, exempted, undetermined: 0 }
 }
 
+/**
+ * 「豁免不成立」那一档拒落的**定向说明**(只读归因,不参与判定 —— 判定仍住在 `zeroLossViolations` 那一份)。
+ *
+ * 为什么需要它:分支 B 是**整批**拒落的(`!movedExemptOk` 一旦成立,`needMoved` 里每一个身份都挂同一句
+ * 拒词),实测 2026-10-15 一次拒落点名 36 个身份,而真正缺证据的只有其中一块。只报身份不报块,
+ * 交到手上的是一张"谁都可能是凶手"的清单 —— 归因必须给出下一步,而不是让人逐块试
+ * (AGENTS §附:失效方向只能是"多要一次定向说明",绝不能是"多放一次跳门")。
+ */
+export function explainMovedExemption({ blockEvidence = [], movedCount = 0 }) {
+  const out = []
+  if (movedCount === 0) return out
+  if (blockEvidence.length === 0) {
+    out.push(
+      `本批要搬走 ${movedCount} 条已完成行,却一块证据都没算出来(清单为空 ⇒ 没有任何块能换 §1 两步走的豁免)`,
+    )
+    return out
+  }
+  const bad = []
+  blockEvidence.forEach((b, i) => {
+    if (!b || typeof b !== 'object') {
+      bad.push(`第 ${i + 1} 块:证据条目本身是空的`)
+      return
+    }
+    const legs = []
+    if (!b.placeholderPresent) legs.push('原位置占位不在产出面')
+    if (!b.bodyInArchive) legs.push('正文没连续落进本次归档件')
+    if (legs.length > 0) {
+      bad.push(`第 ${i + 1} 块「${String(b.title ?? '(无名)').slice(0, 60)}」缺:${legs.join(' + ')}`)
+    }
+  })
+  if (bad.length === 0) {
+    out.push(
+      `逐块证据都在位 ⇒ 那 ${movedCount} 条是被同分支的别的档整批点名的,不是各自缺证据(往 A 档/反向多报档看)`,
+    )
+    return out
+  }
+  out.push(
+    `${movedCount} 条已完成行挂的是同一句拒词,真正不齐的是下面 ${bad.length} 块(其余 ${blockEvidence.length - bad.length} 块证据齐备,别去动它们):`,
+  )
+  for (const s of bad) out.push('  · ' + s)
+  return out
+}
+
 /** 结构等值零损失判据的**原子**验证:产出面必须恰好等于"父面把被搬块逐块换成占位",别动一行。 */
 export function derivedByConstructionOk({
   parentText,
@@ -1023,6 +1066,12 @@ async function landThroughObjectSpace({ base, toArchive }) {
       console.error(`   [${v.why}] 身份 ${v.id} 缺 ${v.missing} 条:`)
       for (const s of v.samples) console.error(`     ${s}`)
     }
+    const movedNamed = zl.violations
+      .filter((v) => String(v.why).includes('豁免不成立'))
+      .reduce((a, v) => a + v.missing, 0)
+    for (const line of explainMovedExemption({ blockEvidence, movedCount: movedNamed })) {
+      console.error(`${C.yellow}   🔎 归因:${line}${C.reset}`)
+    }
     console.error(
       C.yellow +
         '   底稿面是 ' +
@@ -1210,6 +1259,12 @@ async function landThroughObjectSpace({ base, toArchive }) {
     console.error(C.red + `❌ 提交面复核:${zl2.violations.length} 组已完成行不在了 ——` + C.reset)
     for (const v of zl2.violations)
       console.error(`     ${v.id} 缺 ${v.missing} 条:${v.samples[0] ?? ''}`)
+    const movedNamed2 = zl2.violations
+      .filter((v) => String(v.why).includes('豁免不成立'))
+      .reduce((a, v) => a + v.missing, 0)
+    for (const line of explainMovedExemption({ blockEvidence, movedCount: movedNamed2 })) {
+      console.error(`${C.yellow}   🔎 归因:${line}${C.reset}`)
+    }
     process.exit(1)
   }
   // 旁路落地不跑钩子 ⇒ 必须留痕(2026-10-11)。归档提交每天自动产生若干枚,过去只推 HEAD
@@ -2395,6 +2450,7 @@ export const __test__ = {
   doneIdentityOf,
   doneMultiset,
   zeroLossViolations,
+  explainMovedExemption,
   derivedByConstructionOk,
   buildNewPlanText,
   buildArchiveChunk,
