@@ -40,7 +40,7 @@ import Taro, {
   usePullDownRefresh,
   useReachBottom,
 } from '@tarojs/taro'
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
 import { getSystemInfoCompat } from '@/utils/system-info'
 import NavBar from '@/components/NavBar'
@@ -59,6 +59,7 @@ import type { ModelConfig } from '@/components/ModelConfigDialog'
 import AgentListPanel, { type AgentInfo } from '@/components/AgentListPanel'
 import SkillsPopup, { type AgentItem } from '@/components/SkillsPopup'
 import { FloatBox, ModelTypeButtonGroup } from '@/components'
+import VoiceInput from '@/components/VoiceInput'
 
 import { rnRadius } from '@ihui/design-tokens'
 const closeInputPng = aizhsUrl('remote-images/close_input.png')
@@ -1133,10 +1134,20 @@ export default function Index() {
     }))
   }, [])
 
-  // ===== 语音输入(对齐原项目 toggleVoiceInput) =====
+  // ===== 语音输入(对齐原项目 toggleVoiceInput)=====
+  // 2026-10-15 接线根治:原实现只切「录音中」动画 + 5s 后自动关,代码注释自陈
+  // "模拟录音结束(实际需集成录音 API)" ⇒ **没有任何录音/转写能力的空壳**。
+  // 现改为:点麦克风 ⇒ 进入语音模式,底部渲染 VoiceInput(按住说话,走
+  // @/utils/streaming-recognizer 真流式识别);松手 ⇒ onComplete 把最终文字
+  // 追加进输入框并退出语音模式,用户可直接发送。
+  // voiceBaseRef 锚定「进入语音模式时输入框已有的文字」,使边说边出的 partial
+  // 与最终文案都基于它拼接,绝不覆盖用户已输入的内容。
+  const voiceBaseRef = useRef('')
+
   const toggleVoiceInput = useCallback(() => {
     setState((s) => {
       const newVoiceInput = !s.isVoiceInput
+      if (newVoiceInput) voiceBaseRef.current = inputText
       return {
         ...s,
         isVoiceInput: newVoiceInput,
@@ -1144,17 +1155,40 @@ export default function Index() {
         isRecording: newVoiceInput,
       }
     })
-    // 模拟录音结束(实际需集成录音 API)
-    if (!state.isVoiceInput) {
-      setTimeout(() => {
-        setState((s) => ({
-          ...s,
-          isVoiceAnimationActive: false,
-          isRecording: false,
-        }))
-      }, 5000)
-    }
-  }, [state.isVoiceInput])
+  }, [inputText])
+
+  const exitVoiceMode = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      isVoiceInput: false,
+      isVoiceAnimationActive: false,
+      isRecording: false,
+    }))
+  }, [])
+
+  // 边说边出:partial 实时回显(锚定前缀 + 当前 partial)
+  const handleVoiceChange = useCallback((text: string) => {
+    setInputText(`${voiceBaseRef.current}${text || ''}`)
+  }, [])
+
+  // 松开发送:final 文案落进输入框并退出语音模式
+  const handleVoiceComplete = useCallback(
+    (text: string) => {
+      const merged = `${voiceBaseRef.current}${text || ''}`.trim()
+      setInputText(merged)
+      voiceBaseRef.current = merged
+      exitVoiceMode()
+    },
+    [exitVoiceMode],
+  )
+
+  const handleVoiceError = useCallback(
+    (msg: string) => {
+      Taro.showToast({ title: msg || '录音失败', icon: 'none' })
+      exitVoiceMode()
+    },
+    [exitVoiceMode],
+  )
 
   // ===== 模型配置 =====
   const handleModelConfigChange = useCallback((config: ModelConfig | Record<string, unknown>) => {
@@ -1662,6 +1696,20 @@ export default function Index() {
 
             {/* MaterialCards 素材卡片流(在 ModelConfigDialog 和 BottomActionBar 之间) */}
             <MaterialCards cards={state.materialCards} onRemove={removeMaterialCard} tt={tt} />
+
+            {/* 语音输入条(2026-10-15 接线根治):仅在语音模式下渲染。
+                按住说话 → 走 streaming-recognizer 真流式识别 →
+                松手 onComplete 把文案回填输入框(handleVoiceComplete)。 */}
+            {state.isVoiceInput && (
+              <View style={{ padding: '12rpx 20rpx 4rpx' }}>
+                <VoiceInput
+                  placeholder={tt('ai.voice.holdToSpeak', '按住说话')}
+                  onChange={handleVoiceChange}
+                  onComplete={handleVoiceComplete}
+                  onError={handleVoiceError}
+                />
+              </View>
+            )}
 
             {/* BottomActionBar 底部操作栏(对齐原项目) */}
             <View

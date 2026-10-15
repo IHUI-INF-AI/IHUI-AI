@@ -1311,6 +1311,19 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   // skippedStaged 错计。判据与恢复动作见 restoreBypassOrphans 头注(四判据全成立才动手)。
   const bypass = restoreBypassOrphans(repoRoot, { dryRun })
   if (bypass.lockSkip) layerSkips.push({ layer: '旁路孤儿恢复', ...bypass.lockSkip })
+  // ── [方案A] state A 缺失文件自愈(HEAD 有 / 索引有 / 仅磁盘缺的未暂存删除 ` D`)──
+  // 复用 findOrphanedDeletions 的 safe 集合:该集合已内含 recentlyClearedStagedIntent 门禁,
+  // 绝不复活刚被 safe-commit 清空的暂存删除意图(safe-commit 的 git reset HEAD 把 `D ` 退化成
+  // ` D`,保护标记丢失的那一格)。state B(`D ` / 索引无 / 盘无)仍由 restoreBypassOrphans 负责,
+  // 本段只补 state A,不动判定④、不碰"有意 git rm"的意图、不调用会整体重写索引的逻辑。
+  const orphan = findOrphanedDeletions(repoRoot)
+  let orphanRestored = 0
+  const orphanDeferred = []
+  if (orphan.safe.length && !dryRun) {
+    const r = restoreToHead(g, orphan.safe)
+    orphanRestored = r.done.length
+    orphanDeferred.push(...r.deferred)
+  }
   const bp = {
     bypassRestored: bypass.restored,
     bypassPaths: bypass.paths,
@@ -1324,6 +1337,13 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
       ? { bypassReason: bypass.reason }
       : {}),
   }
+  // [方案A] state A 自愈结果并入 bp:确保所有后续 return(均 `...head(), ...bp`)都带这些字段。
+  Object.assign(bp, {
+    orphanRestored,
+    orphanSafe: orphan.safe.length,
+    orphanIntentLost: orphan.intentLost.length,
+    orphanDeferred,
+  })
   const head = () => ({
     refreshed: refreshed.refreshed,
     refreshDeferred: refreshed.deferred || [],
@@ -3037,6 +3057,17 @@ async function main() {
           `⚠️ ${d.bypassDeferred.length} 个旁路孤儿本轮未恢复(已延后,原因见下面 [旁路孤儿恢复] 那一行的锁状态归因):` +
             (d.bypassDeferred || []).slice(0, 10).join(', '),
         )
+      // [方案A] state A 缺失文件自愈的审计行
+      if (d.orphanRestored)
+        console.log(
+          `✅ 已还原 ${d.orphanRestored} 个缺失跟踪文件(索引有/盘缺,state A 未暂存删除;restore 仅写工作树不碰索引)`,
+        )
+      if (dryRun && d.orphanSafe)
+        console.log(`[check] ${d.orphanSafe} 个可还原(未执行)`)
+      if (d.orphanIntentLost)
+        console.log(`ℹ️ ${d.orphanIntentLost} 个删除意图刚被 safe-commit 清空,只报数不代裁`)
+      for (const p of (d.orphanDeferred || []).slice(0, 10))
+        console.log('   ⚠️ state A 延后(撞锁/前提复核不成立) ' + p)
       if (d.landingAligned) {
         console.log(
           `✅ 落地欠回写已对齐 ${d.landingAligned} 个路径的**索引**回到 HEAD(工作树未动;判据=索引 blob 逐字节等于某枚旁路落地声明过该路径的前像,故零独有)`,

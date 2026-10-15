@@ -1,6 +1,6 @@
 {
   "version": "0.0.0",
-  "generatedAt": "2026-09-28T16:33:47.068Z",
+  "generatedAt": "2026-10-15T12:30:17.075Z",
   "dataClasses": [
     "compute",
     "scoped-read",
@@ -317,6 +317,28 @@
         "token6688_upload_file",
         "token6688_cancel_task"
       ],
+      "rate": {
+        "rpm": 120,
+        "burst": 40,
+        "dailyCalls": 10000,
+        "concurrent": 4,
+        "maxDurationMs": 120000
+      }
+    },
+    {
+      "scope": "voice:stt",
+      "domain": "multimodal",
+      "dataClass": "compute",
+      "risk": "medium",
+      "billable": false,
+      "thirdPartyEligible": true,
+      "idempotencyRequired": false,
+      "description": "语音转文字(faster-whisper 本地推理,离线可用、零第三方成本)",
+      "routes": [
+        "POST /api/voice/stt"
+      ],
+      "host": "ai-service",
+      "tools": [],
       "rate": {
         "rpm": 120,
         "burst": 40,
