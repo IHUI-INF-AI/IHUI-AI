@@ -16,6 +16,7 @@ import {
   // 票⑥(2026-09-26):默认变体的附件/发送键 —— 方块与墨迹的唯一档源(与 RN 端同读这两个常量)
   BOTTOM_ACTION_BAR_CONTROL_BOX_PX,
   BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX,
+  BOTTOM_ACTION_BAR_SEND_GLYPH_PX,
 } from '@ihui/shared/ui/bottom-action-bar-spec'
 import LineIcon, { type IconName } from '@/components/LineIcon'
 import InputArea, { type InputAreaProps } from './InputArea'
@@ -352,11 +353,12 @@ export default function BottomActionBar(props: BottomActionBarProps) {
           onClick={() => value && onSend?.()}
           hoverClass="opacity-60"
         >
-          {/* 发送键:此前这一格把 `↑` 当图标,并取旧档配对(AGENTS §4 于 2026-09-24 已改档,
-              旧配对由守门 83 R5 记为退役形态);现与 RN 端同一矢量族、同一实底/前景配对。 */}
+          {/* 发送键(2026-10-15 再裁决):与 web 发送簇 ArrowUp 同形(RN 同票),墨迹取
+              BOTTOM_ACTION_BAR_SEND_GLYPH_PX(= web `h-4 w-4` = 16,落 glyphSm 箭头档)。
+              历史形态:字符 `↑` → lucide `send` 纸飞机 → ArrowUp(三端同形)。 */}
           <LineIcon
-            name="send"
-            size={toUnit(BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX)}
+            name="arrow-up"
+            size={toUnit(BOTTOM_ACTION_BAR_SEND_GLYPH_PX)}
             color={value ? 'var(--color-cta-foreground)' : 'var(--color-muted-foreground)'}
           />
         </View>

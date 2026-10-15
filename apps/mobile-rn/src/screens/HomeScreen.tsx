@@ -33,7 +33,6 @@ import {
   Folder,
   SlidersHorizontal,
   Search,
-  PanelLeft,
   History,
   Bookmark,
   Target,
@@ -62,8 +61,12 @@ import { tokens } from '../theme/active-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
+  addFavorite,
+  checkFavorite,
   claimShareFirstReward,
   deleteAgent,
+  deleteFavorite,
+  getActiveCarousels,
   getAllStudyProgress,
   getAgentCategories,
   getAgentDetail,
@@ -98,6 +101,7 @@ import type { CarouselItem } from '@ihui/ui-native'
 import type { AiModelData, AppIcon } from '@ihui/types'
 import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import Carousel from '../components/Carousel'
+import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import CardWithList, { type CardWithListItem } from '../components/CardWithList'
 import AiModelCard from '../components/AiModelCard'
 import { KnowledgePlanet, type KnowledgePlanetItem } from '../components/KnowledgePlanet'
@@ -105,7 +109,8 @@ import PopularCourses, { type PopularCourse } from '../components/PopularCourses
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
 import { ShareRewardDialog } from '../components/ShareRewardDialog'
 import { ShareSheet } from '../components/ShareSheet'
-import { BottomFigure } from '../components/BottomFigure'
+import { SearchOverlay } from '../components/SearchOverlay'
+import { BottomFigure, type BottomFigureItem } from '../components/BottomFigure'
 import { MoreTitles } from '../components/MoreTitles'
 // 对齐 Uniapp ai_index:复用共享组件 NavBar / Drawer / InputArea / FloatBox / RecentAgents
 import { NavBar, type NavBarAction } from '../components/NavBar'
@@ -574,10 +579,13 @@ async function persistShareFirstDismissed(): Promise<void> {
   }
 }
 
+/** AiModelCard 收藏资源标识(品牌主推卡固定资源;resourceType='agent' 已入后端枚举,2026-10-15) */
+const ASSISTANT_FAVORITE = { resourceType: 'agent' as const, resourceId: 'zhihui-ai-assistant' }
+
 export function HomeScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
-  const { user } = useAuth()
+  const { user, token } = useAuth()
   const { resolvedTheme } = useTheme()
   const { connected, unreadCount, setVisible } = useNotificationStore()
   // 离线横条由 App.tsx 全局挂载(见该处 OfflineBanner);此处曾另挂一份,
@@ -585,6 +593,8 @@ export function HomeScreen() {
   const [recommends, setRecommends] = useState<HomeRecommendItem[]>([])
   const [lives, setLives] = useState<HomeLiveItem[]>([])
   const [progress, setProgress] = useState<HomeProgressItem[]>([])
+  // 置顶轮播运营数据(GET /api/carousels?position=home);空/失败时 BottomFigure 回退内置默认图
+  const [carouselList, setCarouselList] = useState<BottomFigureItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -618,6 +628,9 @@ export function HomeScreen() {
   const [qrCodeVisible, setQrCodeVisible] = useState(false)
   // 分享面板(2026-10-15:导航栏「分享」从跳我的页改为弹微信分享面板,产品定)
   const [shareSheetVisible, setShareSheetVisible] = useState(false)
+  // 搜索弹层(2026-10-15 用户定:顶栏搜索按钮与 web 端一致 —— 弹窗形态,弹窗内直接出结果;
+  // 三处入口(NavBar 搜索钮 / 九宫格「搜索」/ AgentScreen 顶栏钮)统一开同一个 SearchOverlay)
+  const [searchOverlayVisible, setSearchOverlayVisible] = useState(false)
   // ── FloatBox toast(对齐 Uniapp uni.showToast 顶部悬浮提示,替代阻塞式 Alert) ──
   const [toastVisible, setToastVisible] = useState(false)
   const [toastType, setToastType] = useState<FloatBoxType>('info')
@@ -790,15 +803,17 @@ export function HomeScreen() {
     }
   }
   /** NavBar 左右按钮配置(对齐 Uniapp navigation-bars:菜单 + 搜索 + 加入社区群 + 分享)
-   *  搜索按钮对齐原 tools 页 isShowSearch=true → @clicksearch → 跳搜索页(RootStack 'Search')
+   *  搜索按钮(2026-10-15 用户定):与 web 端一致改纯图标(去文字,a11yLabel 保语义)+
+   *  点击开 SearchOverlay 弹窗(遮罩 + 三段面板,弹窗内直接出结果,不再跳全屏搜索页;
+   *  RootStack 'Search' 路由保留)
    *  间距对齐:Uniapp padding 0 24rpx ≈ 12dp(NavBar 内部已实现 paddingHorizontal: rpx(24))
    *  分享按钮(2026-10-15 产品定):原对齐 Uniapp share-image → goToMyPage 跳我的页,
    *  改为弹微信分享面板 ShareSheet(微信好友/朋友圈原生分享 + 复制链接兜底) */
   const navLeftActions: ReadonlyArray<NavBarAction> = [
-    { icon: PanelLeft, a11yLabel: '菜单', onPress: handleMenuPress },
+    { icon: PanelLeftRounded, a11yLabel: '菜单', onPress: handleMenuPress },
   ]
   const navRightActions: ReadonlyArray<NavBarAction> = [
-    { icon: Search, label: '搜索', onPress: () => rootNav?.navigate('Search') },
+    { icon: Search, a11yLabel: t('common.search'), onPress: () => setSearchOverlayVisible(true) },
     { icon: Handshake, label: '加入群', onPress: handleJoinPress },
     { icon: Gift, label: '分享', onPress: () => setShareSheetVisible(true) },
   ]
@@ -1178,6 +1193,79 @@ export function HomeScreen() {
     tags: ['免费', '热门'],
   }
 
+  // ── AiModelCard 交互接线(2026-10-15:收藏接真后端 / 警告跳反馈页 / 分享用 ShareSheet) ──
+  const [assistantFavorited, setAssistantFavorited] = useState(false)
+  const [assistantShareVisible, setAssistantShareVisible] = useState(false)
+
+  // 已登录时同步收藏状态(GET /favorites/check)
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    checkFavorite(ASSISTANT_FAVORITE.resourceType, ASSISTANT_FAVORITE.resourceId)
+      .then((res) => {
+        if (!cancelled && res.success) setAssistantFavorited(Boolean(res.data?.favorited))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  /** 收藏/取消收藏(POST/DELETE /favorites,幂等) */
+  const handleAssistantFavorite = useCallback(async () => {
+    if (!token) {
+      showToast('info', '请先登录后再收藏')
+      return
+    }
+    try {
+      if (assistantFavorited) {
+        const res = await deleteFavorite(
+          ASSISTANT_FAVORITE.resourceType,
+          ASSISTANT_FAVORITE.resourceId,
+        )
+        if (res.success) {
+          setAssistantFavorited(false)
+          showToast('info', '已取消收藏')
+        } else {
+          showToast('error', res.error || '操作失败,请稍后重试')
+        }
+      } else {
+        const res = await addFavorite(
+          ASSISTANT_FAVORITE.resourceType,
+          ASSISTANT_FAVORITE.resourceId,
+        )
+        if (res.success) {
+          setAssistantFavorited(true)
+          showToast('success', '收藏成功')
+        } else {
+          showToast('error', res.error || '操作失败,请稍后重试')
+        }
+      }
+    } catch {
+      showToast('error', '网络异常,请稍后重试')
+    }
+  }, [token, assistantFavorited, showToast])
+
+  /** 警告(举报)→ 反馈页 */
+  const handleAssistantWarning = useCallback(() => {
+    rootNav?.navigate('Feedback')
+  }, [rootNav])
+
+  /** 踩:后端无点踩接口,本地轻反馈 */
+  const handleAssistantDislike = useCallback(() => {
+    showToast('info', '已收到你的反馈,我们会持续优化')
+  }, [showToast])
+
+  /** 信息:卡片完整介绍(web 下 Alert.alert 静默,统一用 toast 保证端间可见) */
+  const handleAssistantInfo = useCallback(() => {
+    showToast('info', '智汇社区官方 AI 助手:智能问答/课程推荐,点卡片免费开聊')
+  }, [showToast])
+
+  /** 分享 → ShareSheet */
+  const handleAssistantShare = useCallback(() => {
+    setAssistantShareVisible(true)
+  }, [])
+
   /** FunctionBlockColumn 点击路由映射 */
   const onFunctionBlockPress = (id: string) => {
     switch (id) {
@@ -1256,6 +1344,36 @@ export function HomeScreen() {
       })
       .catch(() => undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /** 置顶轮播运营数据(对齐 miniapp-taro getBannerList 降级语义):
+   *  GET /api/carousels?position=home(公开端点,后端按 sort 升序返回 status=1 的运营位图);
+   *  失败/空列表静默保持空数组 → BottomFigure 回退内置 3 张本地默认图 */
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await getActiveCarousels('home')
+        if (!cancelled && res.success) {
+          setCarouselList(
+            (res.data ?? [])
+              .filter((c) => Boolean(c.imageUrl))
+              .map((c) => ({
+                id: c.id,
+                imageUrl: c.imageUrl,
+                img: c.imageUrl,
+                title: c.title ?? undefined,
+                link: c.linkUrl ?? undefined,
+              })),
+          )
+        }
+      } catch {
+        // 接口失败静默,回退内置默认图
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   /** 最近使用智能体(对齐 Uniapp getAgentUseHistory → /agents/use-history;
@@ -1379,7 +1497,7 @@ export function HomeScreen() {
               accessibilityRole="button"
               accessibilityLabel="分类"
             >
-              <SlidersHorizontal size={20} color={tokens.text.primary} />
+              <SlidersHorizontal size={20} color={tokens.text.medium} />
             </TouchableOpacity>
           }
         />
@@ -1391,6 +1509,11 @@ export function HomeScreen() {
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
+        {/* BottomFigure 轮播(2026-10-15 用户定稿:轮播图置顶;数据源 GET /api/carousels?position=home,
+            运营数据为空/接口失败时回退组件内置本地默认图) */}
+        <View style={shellStyles.bottomFigureWrap}>
+          <BottomFigure items={carouselList.length > 0 ? carouselList : undefined} />
+        </View>
         {/* Carousel banner 轮播(对齐 Uniapp 首页轮播图) */}
         {bannerItems.length > 0 ? (
           <View style={shellStyles.carouselWrap}>
@@ -1412,9 +1535,19 @@ export function HomeScreen() {
             />
           </View>
         ) : null}
-        {/* AiModelCard AI 模型卡片(对齐 Uniapp 首页 AI 模型入口) */}
+        {/* AiModelCard AI 模型卡片(对齐 Uniapp 首页 AI 模型入口;
+            2026-10-15 全交互接线:收藏/举报/踩/详情/分享) */}
         <View style={shellStyles.aiModelWrap}>
-          <AiModelCard data={aiModelData} onPress={() => rootNav?.navigate('Chat', {})} />
+          <AiModelCard
+            data={aiModelData}
+            favorited={assistantFavorited}
+            onPress={() => rootNav?.navigate('Chat', {})}
+            onWarningPress={handleAssistantWarning}
+            onDislikePress={handleAssistantDislike}
+            onFavoritePress={handleAssistantFavorite}
+            onInfoPress={handleAssistantInfo}
+            onSharePress={handleAssistantShare}
+          />
         </View>
         {/* RecentAgents 最近使用智能体(对齐 Uniapp tools/index RecentAgents)
          *  数据源:无 getAgentUseHistory 接口,降级取智能体列表前 5 条(loadAgentList 内更新);
@@ -1457,7 +1590,8 @@ export function HomeScreen() {
           onPressMenu={(key) => {
             switch (key) {
               case 'Search':
-                rootNav?.navigate('Search')
+                // 九宫格「搜索」与 NavBar 搜索钮一致(2026-10-15):开 SearchOverlay 弹窗,不跳全屏搜索页
+                setSearchOverlayVisible(true)
                 break
               case 'History':
                 rootNav?.navigate('History')
@@ -1517,10 +1651,6 @@ export function HomeScreen() {
         <View style={shellStyles.sectionWrap}>
           <MoreTitles title="功能入口" />
           <FunctionBlockColumn blocks={FUNCTION_BLOCKS} onBlockPress={onFunctionBlockPress} />
-        </View>
-        {/* BottomFigure 底部装饰图(对齐 Uniapp 首页底部装饰) */}
-        <View style={shellStyles.bottomFigureWrap}>
-          <BottomFigure />
         </View>
       </ScrollView>
       {/* toodown 返回顶部悬浮按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 NewsScreen)
@@ -1917,11 +2047,25 @@ export function HomeScreen() {
         onClose={closeRewardDialog}
         secondaryLabel="稍后再说"
       />
+      {/* AiModelCard 分享面板(2026-10-15 接线) */}
+      <ShareSheet
+        visible={assistantShareVisible}
+        onClose={() => setAssistantShareVisible(false)}
+        shareTitle="智汇AI社区 - 智汇 AI 助手"
+        shareDescription="智能问答 / 课程推荐,用AI.找AI.学AI就到智汇AI社区"
+        onNotify={(type, message) => showToast(type, message)}
+      />
       {/* 分享面板(导航栏「分享」触发;微信原生分享 + web 复制链接降级,见组件头注释) */}
       <ShareSheet
         visible={shareSheetVisible}
         onClose={() => setShareSheetVisible(false)}
         onNotify={showToast}
+      />
+      {/* 搜索弹窗(2026-10-15 与 web 端一致:NavBar 搜索钮 + 九宫格「搜索」统一开此弹层,
+       *  遮罩 + 三段面板(历史/热门/联想),弹窗内直接出结果) */}
+      <SearchOverlay
+        visible={searchOverlayVisible}
+        onClose={() => setSearchOverlayVisible(false)}
       />
       {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
       <TabBar activeTab="home" onChange={handleTabChange} />
@@ -1945,8 +2089,7 @@ const shellStyles = {
   aiModelWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   sectionWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   bottomFigureWrap: {
-    paddingHorizontal: rpx(20),
-    paddingTop: rpx(16),
+    // 横向留白已内聚于 BottomFigure(SIDE_INSET),此处仅保留底部间距(2026-10-15)
     marginBottom: rpx(20),
   } as const,
   // ── toodown 返回顶部按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 NewsScreen) ──
