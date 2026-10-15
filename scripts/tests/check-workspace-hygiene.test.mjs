@@ -5,10 +5,12 @@
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, writeFileSync, rmSync, readdirSync, statSync, existsSync } from 'node:fs'
+import { mkdirSync, writeFileSync, rmSync, readdirSync, statSync, existsSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// §22c:判据/取材面一律 import 源脚本的 __test__,本文件不复制第二份(该文件有 §22d 守卫,import 无副作用)
+import { __test__ as hygiene } from '../check-workspace-hygiene.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -390,5 +392,40 @@ test('模式: 默认 + BLOCKING 违规 → exit 1(阻塞,与 --warn 形成对比
   } finally {
     cleanup(dir)
   }
+})
+
+/**
+ * v3 全量档取材面(2026-10-16):面 = 在册文件 ∪ `.ihui-agent/tmp/`。
+ * 立项现场:磁盘递归把 `.gitignore` 内**别人工具的缓存**(Codex 插件产物)当项目源码读,
+ * 三条"相对路径跳出项目"恒命中 ⇒ 每台每次提交都被挡(blocking),而任何会话都无法让它变绿(§12e)。
+ */
+test('面·形状锁:全量档只问 `ls-files --cached`,不得重新带上 --others', () => {
+  const args = hygiene.FULL_FACE_GIT_ARGS
+  assert.ok(args.includes('ls-files') && args.includes('--cached'), '必须按在册面取清单')
+  assert.ok(!args.includes('--others'), '带回 --others = 把别人在飞的 WIP 与被忽略的缓存重新扫进射程')
+})
+
+test('面·行为锁:在册源文件与 tmp 落点都在面内,被忽略的第三方缓存不在', () => {
+  const face = hygiene.getFullFaceFiles()
+  assert.equal(face.ok, true, `取面失败(不得冒绿):${face.reason}`)
+  const rel = face.files.map((f) => relative(PROJECT_ROOT, f).replaceAll('\\', '/'))
+  assert.ok(rel.includes('scripts/check-workspace-hygiene.mjs'), '在册源文件必须仍在射程内')
+  assert.ok(
+    rel.some((p) => p.startsWith('.ihui-agent/tmp/')),
+    '§25 的临时脚本落点必须并入 —— 收面不等于缩射程',
+  )
+  const stray = join(
+    '.DevEnv',
+    'cache/userhome/.codex/plugins/cache/openai-bundled/browser/26.1007.21434/scripts/browser-service.mjs',
+  )
+  assert.ok(existsSync(join(PROJECT_ROOT, stray)), '夹具前提:这条真实存在的缓存文件正是旧版挡红的那一条')
+  assert.ok(!rel.includes(stray), '被 .gitignore 忽略的他人工具缓存不得进面')
+})
+
+test('面·取不到与枚举为 0 都走「未判定」,不记绿也不冒红', () => {
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.match(src, /ok: false, reason: ['"`]git ls-files 取不到/, 'git 取不到被审面必须点名原因并拒出合格证')
+  assert.match(src, /枚举结果为 0/, '面里一个脚本都没有 ⇒ 是"没量到",不是"没有违规"')
+  assert.match(src, /未判定\(取材失败\)[\s\S]{0,220}process\.exit\(2\)/, '取材失败分支必须 exit 2')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
