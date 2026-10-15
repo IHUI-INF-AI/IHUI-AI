@@ -172,6 +172,7 @@ vi.mock('@/lib/tauri-bridge', () => ({
   checkinDetectTraeDir: vi.fn(),
   checkinCaptureJwts: vi.fn(async () => []),
   checkinCaptureQoder: vi.fn(async () => []),
+  checkinCaptureMinimax: vi.fn(async () => []),
   checkinCaptureWorkbuddy: vi.fn(async () => []),
   WB_WEB_LOGIN_ORIGIN: 'https://www.workbuddy.cn',
   WB_WEB_LOGIN_URL:
@@ -981,6 +982,7 @@ describe('Qoder 平台化(2026-10-10)', () => {
         app_dir: 'C:/x/com.qodercn.app.stable',
         edition: 'cn',
         uid: 'q-1',
+        nickname: '18643389808',
         access_token: 'tok-1',
         refreshToken: 'rt-1',
         expires_at: 123,
@@ -1006,7 +1008,9 @@ describe('Qoder 平台化(2026-10-10)', () => {
     const arg = createAccount.mock.calls[0]![0]
     expect(arg.platform).toBe('qoder')
     expect(arg.jwt).toBe('tok-1')
-    expect(arg.name).toContain('Qoder-cn')
+    // 2026-10-15 李总定档:名称只放展示名(手机优先),平台靠 platform 字段+徽章,不拼进名称
+    expect(arg.name).toBe('18643389808')
+    expect(arg.name).not.toMatch(/^Qoder-/)
     // 2026-10-12:uid 落 device_map(Qoder token 是 opaque 非 JWT,服务端 uid 只能从这里读)
     expect(arg.device_map.uid).toBe('q-1')
     expect(arg.device_map.refresh_token).toBe('rt-1')
@@ -1022,7 +1026,7 @@ describe('Qoder 平台化(2026-10-10)', () => {
     fireEvent.click(screen.getByText('addAccount'))
     const select = screen.getByTestId('platform-select') as HTMLSelectElement
     const values = Array.from(select.options).map((o) => o.value)
-    expect(values).toEqual(['trae', 'workbuddy', 'qoder'])
+    expect(values).toEqual(['trae', 'workbuddy', 'qoder', 'minimax'])
     fireEvent.change(select, { target: { value: 'workbuddy' } })
     fireEvent.change(screen.getByLabelText('name'), { target: { value: '手工 WB' } })
     fireEvent.change(screen.getByLabelText('jwt'), { target: { value: 'wb-token-1' } })
@@ -1077,7 +1081,7 @@ describe('Qoder 平台化(2026-10-10)', () => {
     const second = createAccount.mock.calls[1]![0]
     expect(second.platform).toBe('workbuddy')
     expect(second.jwt).toBe('wb-pasted-token')
-    expect(second.name).toContain('WorkBuddy-小号')
+    expect(second.name).toBe('小号')
     expect(second.device_map.uid).toBe('wb-2')
     expect(second.device_map.domain).toBe('www.workbuddy.cn')
     expect(second.device_map.expires_at).toBe(1794225169)
@@ -1105,7 +1109,7 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(payload.device_map.login_type).toBe('web')
     expect(payload.device_map.uid).toBe('14f939c3-889b')
     expect(payload.device_map.nickname).toBe('李总')
-    expect(payload.name).toBe('WorkBuddy-李总')
+    expect(payload.name).toBe('李总')
     // 导入完成后收尾:关掉浏览器登录窗(尽力而为)
     await waitFor(() =>
       expect(closeChromeWindow).toHaveBeenCalledWith(54321, 'https://www.workbuddy.cn'),
@@ -1248,13 +1252,50 @@ describe('Qoder 平台化(2026-10-10)', () => {
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     fireEvent.click(screen.getByText('addAccount'))
     // 两个账号都列出来(多账号不再只取第 1 个)
-    await waitFor(() => expect(screen.getByText('本机-trae-user-1')).toBeTruthy())
-    expect(screen.getByText('本机-trae-user-2')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('trae-user-1')).toBeTruthy())
+    expect(screen.getByText('trae-user-2')).toBeTruthy()
     fireEvent.click(screen.getByText('addSmartImport'))
     await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(2))
     expect(createAccount.mock.calls[0]![0].jwt).toBe('eyJtrae.auto')
     expect(createAccount.mock.calls[1]![0].jwt).toBe('eyJtrae.auto2')
     expect(createAccount.mock.calls[0]![0].platform).toBeUndefined()
+  })
+
+  it('展示名优先级:手机号优先,平台以独立徽章呈现(2026-10-15)', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinCaptureJwts).mockResolvedValue([
+      { user_id: 'trae-uid-x', nickname: 'trader@aizhs.top', jwt: 'eyJx', source: 'leveldb:z' },
+    ])
+    vi.mocked(checkinCaptureQoder).mockResolvedValue([
+      {
+        app_dir: 'C:/x/com.qodercn.app.stable',
+        edition: 'cn',
+        uid: 'q-phone',
+        nickname: '18643389808',
+        access_token: 'tok-phone',
+        refreshToken: 'rt',
+        expires_at: 0,
+        jwt_exp: 0,
+        machine_id: 'mid',
+        machine_os: 'win',
+        machine_hostname: 'h',
+        machine_token: 'mt',
+        machine_code: 'mc',
+        machine_type: 'PC',
+        version: '1.0',
+      },
+    ])
+    createAccount.mockResolvedValue({ id: 11 })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('addAccount'))
+    await waitFor(() => expect(screen.getByText('18643389808')).toBeTruthy())
+    // 无手机号通道回落账号(邮箱)
+    expect(screen.getByText('trader@aizhs.top')).toBeTruthy()
+    fireEvent.click(screen.getByText('addSmartImport'))
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(2))
+    const names = createAccount.mock.calls.map((c) => c[0].name).sort()
+    expect(names).toEqual(['18643389808', 'trader@aizhs.top'])
   })
 
   it('智能导入(Qoder):入库带 platform=qoder 与 cosy 设备头 device_map', async () => {
@@ -1265,6 +1306,7 @@ describe('Qoder 平台化(2026-10-10)', () => {
         app_dir: 'C:/qoder',
         edition: 'cn',
         uid: 'qoder-uid-1',
+        nickname: '18643389808',
         access_token: 'qoder-opaque-token',
         refreshToken: 'rt-1',
         expires_at: 1794225169,
@@ -1281,7 +1323,9 @@ describe('Qoder 平台化(2026-10-10)', () => {
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     fireEvent.click(screen.getByText('addAccount'))
-    await waitFor(() => expect(screen.getByText('Qoder-qoder-uid-1')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('18643389808')).toBeTruthy())
+    // 平台是独立徽章(不是名称前缀)
+    expect(screen.getAllByText('Qoder', { selector: 'span' }).length).toBeGreaterThan(0)
     fireEvent.click(screen.getByText('addSmartImport'))
     await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
     const payload = createAccount.mock.calls[0]![0]
