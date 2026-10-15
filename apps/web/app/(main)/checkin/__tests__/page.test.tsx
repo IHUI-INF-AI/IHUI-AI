@@ -148,6 +148,7 @@ vi.mock('lucide-react', () => {
   return {
     CalendarCheck: Icon,
     CheckCheck: Icon,
+    ChevronDown: Icon,
     FolderPen: Icon,
     KeyRound: Icon,
     Laptop: Icon,
@@ -753,6 +754,7 @@ describe('签到助手页面 · 一键解决风控向导', () => {
     await waitFor(() => expect(screen.getByText('wizardTitle')).toBeTruthy())
   }
 
+
   it('全流程:一键重置 → 显示基准 IP → 换网验证通过 → 冷却完成态+重新开始', async () => {
     await openMaint()
     vi.mocked(checkinOneClickReset).mockResolvedValue({
@@ -914,6 +916,13 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 })
 
 describe('Qoder 平台化(2026-10-10)', () => {
+  /** 2026-10-15 捕获入口收敛为下拉:先开「从本机捕获」菜单再点平台项(Radix happy-dom 键盘路径,与 sidebar 同款) */
+  function openCaptureMenu() {
+    const trigger = screen.getByText('captureTitle')
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+    fireEvent.click(trigger)
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
     mockLoadSuccess()
@@ -981,7 +990,8 @@ describe('Qoder 平台化(2026-10-10)', () => {
     createAccount.mockResolvedValue({ id: 9 })
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
-    fireEvent.click(screen.getByText('captureQoderButton'))
+    openCaptureMenu()
+    fireEvent.click(screen.getByText('Qoder'))
     fireEvent.click(screen.getByText('captureQoderScan'))
     await waitFor(() => expect(screen.getByText('captureImport')).toBeTruthy())
     fireEvent.click(screen.getByText('captureImport'))
@@ -1039,7 +1049,8 @@ describe('Qoder 平台化(2026-10-10)', () => {
     createAccount.mockResolvedValue({ id: 9 })
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
-    fireEvent.click(screen.getByText('captureWbButton'))
+    openCaptureMenu()
+    fireEvent.click(screen.getByText('WorkBuddy'))
     fireEvent.click(screen.getByText('captureWbScan'))
     await waitFor(() => expect(screen.getByText('captureImport')).toBeTruthy())
     // 加密行显示「需粘贴 token」徽章
@@ -1076,7 +1087,8 @@ describe('Qoder 平台化(2026-10-10)', () => {
     createAccount.mockResolvedValue({ id: 11 })
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
-    fireEvent.click(screen.getByText('captureWbButton'))
+    openCaptureMenu()
+    fireEvent.click(screen.getByText('WorkBuddy'))
     // 首轮探测立即执行:未等轮询即导入
     fireEvent.click(screen.getByText('captureWbWebOpen'))
     await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
@@ -1100,7 +1112,8 @@ describe('Qoder 平台化(2026-10-10)', () => {
     vi.mocked(openInGoogleChrome).mockResolvedValue('未找到 Google Chrome,请先安装 Chrome 浏览器')
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
-    fireEvent.click(screen.getByText('captureWbButton'))
+    openCaptureMenu()
+    fireEvent.click(screen.getByText('WorkBuddy'))
     fireEvent.click(screen.getByText('captureWbWebOpen'))
     await waitFor(() =>
       expect(screen.getByTestId('wb-web-login-msg').textContent).toContain('未找到 Google Chrome'),
@@ -1116,7 +1129,8 @@ describe('Qoder 平台化(2026-10-10)', () => {
     vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({ status: 'no_window' })
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
-    fireEvent.click(screen.getByText('captureWbButton'))
+    openCaptureMenu()
+    fireEvent.click(screen.getByText('WorkBuddy'))
     fireEvent.click(screen.getByText('captureWbWebOpen'))
     await waitFor(() =>
       expect(screen.getByTestId('wb-web-login-msg').textContent).toContain(
@@ -1133,7 +1147,8 @@ describe('Qoder 平台化(2026-10-10)', () => {
     vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({ status: 'no_cookie' })
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
-    fireEvent.click(screen.getByText('captureWbButton'))
+    openCaptureMenu()
+    fireEvent.click(screen.getByText('WorkBuddy'))
     fireEvent.click(screen.getByText('captureWbWebOpen'))
     // waiting 态:打开按钮换成取消按钮
     await waitFor(() => expect(screen.getByText('captureWbWebCancel')).toBeTruthy())

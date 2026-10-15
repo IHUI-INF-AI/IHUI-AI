@@ -24,6 +24,7 @@ import { useTranslations } from 'next-intl'
 import {
   CalendarCheck,
   CheckCheck,
+  ChevronDown,
   FolderPen,
   KeyRound,
   Laptop,
@@ -78,6 +79,12 @@ import { TruncatedText } from '@/components/common/TruncatedText'
 import { AuthGatePrompt } from '@/components/common'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   checkinAuditTraeResidual,
   checkinCaptureJwts,
@@ -1570,18 +1577,22 @@ export default function CheckinPage() {
           </Button>
           {desktop && (
             <>
-              <Button variant="outline" size="sm" onClick={() => void openCapture()}>
-                <Laptop className="mr-1 h-4 w-4" />
-                {t('captureTitle')}
-              </Button>
-              <Button variant="outline" size="sm" onClick={openQoderCapture}>
-                <Laptop className="mr-1 h-4 w-4" />
-                {t('captureQoderButton')}
-              </Button>
-              <Button variant="outline" size="sm" onClick={openWbCapture}>
-                <Laptop className="mr-1 h-4 w-4" />
-                {t('captureWbButton')}
-              </Button>
+              {/* 2026-10-15 收敛为下拉(机主口径):三个平台各自平铺按钮占一排,
+                  改成单一「从本机捕获」下拉,菜单项按平台名直列;三个对话框本体不动 */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Laptop className="mr-1 h-4 w-4" />
+                    {t('captureTitle')}
+                    <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="p-1">
+                  <DropdownMenuItem onClick={() => void openCapture()}>TRAE</DropdownMenuItem>
+                  <DropdownMenuItem onClick={openWbCapture}>WorkBuddy</DropdownMenuItem>
+                  <DropdownMenuItem onClick={openQoderCapture}>Qoder</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button variant="outline" size="sm" onClick={() => void openMaint()}>
                 <Wrench className="mr-1 h-4 w-4" />
                 {t('maintTitle')}
