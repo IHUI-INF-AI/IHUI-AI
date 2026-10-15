@@ -55,6 +55,7 @@ import { join, resolve as resolvePath } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT_DEFAULT = join(fileURLToPath(import.meta.url), '..', '..')
 const args = process.argv.slice(2)
@@ -682,15 +683,21 @@ export function main(argv = args) {
     console.error(`判定面自相矛盾 — ${sel.error}`)
     return 2
   }
-  const rootIdx = argv.indexOf('--root')
-  const hasRoot = rootIdx >= 0 && Boolean(argv[rootIdx + 1])
+  // G-322:给了 --root 却没收到合法值(被下一旗标顶掉/结尾无值/空串)⇒ 点名拒绝;
+  // 旧 `Boolean(argv[rootIdx + 1])` 把这三支全读成"没给 --root",双根分裂检查被静默跳过。
+  const rootArg = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootArg.error) {
+    console.error(`❌ 无法判定:${rootArg.error}`)
+    return 2
+  }
+  const hasRoot = rootArg.value !== null
   if (hasRoot && sel.face !== 'worktree') {
     console.error('--root 只在 --worktree 档有效(换根却按 HEAD/索引读 = 双根分裂)')
     return 2
   }
   let inputs
   try {
-    inputs = readInputs(hasRoot ? resolvePath(argv[rootIdx + 1]) : ROOT_DEFAULT, sel.face)
+    inputs = readInputs(hasRoot && rootArg.value !== null ? resolvePath(rootArg.value) : ROOT_DEFAULT, sel.face)
   } catch (e) {
     if (e instanceof Undetermined) {
       console.error(`无法判定(面=${sel.face}): ${e.message}`)

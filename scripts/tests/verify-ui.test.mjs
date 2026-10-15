@@ -154,7 +154,7 @@ test('(c) 形状锁:--spec 取值必须走 flagValue,裸 args[indexOf(...)+1] �
     /args\[\s*args\.indexOf\(\s*'--spec'\s*\)\s*\+\s*1\s*\]/,
     '旧写法 args[args.indexOf("--spec") + 1] 不得回来',
   )
-  assert.match(code, /function\s+flagValue\s*\(/, '唯一取值出口必须在位')
+  assert.match(code, /import\s*\{\s*flagValue\s*\}\s*from\s*'\.\/lib\/flag-value\.mjs'/, '取值判据从唯一出口 scripts/lib/flag-value.mjs 单源引入(§22c)')
   assert.match(code, /flagValue\(\s*args\s*,\s*'--spec'\s*\)/, '站点必须走出口')
   assert.match(code, /specFlag\.present\s*&&\s*!specFlag\.valid/, '拒绝分支必须挂在"旗标在场而值无效"上')
   assert.match(code, /process\.exit\(2\)/, '拒绝必须真的非零退出')

@@ -30,13 +30,61 @@ import {
   carouselIndicatorWrapStyle,
   carouselDotStyle,
 } from '@ihui/shared/ui/carousel-spec'
-import type { CarouselItem } from '@ihui/ui-native'
+
+/**
+ * 轮播图源:远端 URL(string)或打包进应用的本地资源(require 返回 number)。
+ * bspapp 云存储 CDN 已整体不可达,外链图本地化后经 require 引入(2026-10-15);
+ * CarouselItem(远端数据结构 img: string)结构兼容于 CarouselSlide。
+ */
+export type CarouselSlideImg = string | number
+export interface CarouselSlide {
+  img: CarouselSlideImg
+  title?: string
+  link?: string
+}
 
 export interface CarouselProps {
-  banner: CarouselItem[]
+  banner: ReadonlyArray<CarouselSlide>
   height?: number
+  /** 单张 slide 宽度(分页步长)。缺省用应用框架实际宽;
+   *  容器有左右边距时必须传容器实际宽,否则 slide 比可视区宽、左右被裁切。 */
+  itemWidth?: number
   autoplayInterval?: number
-  onItemPress?: (item: CarouselItem, index: number) => void
+  onItemPress?: (item: CarouselSlide, index: number) => void
+}
+
+/** 应用框架实际宽度(2026-10-15 实证:web 预览下 #root 固定 430px,而 useWindowDimensions
+ *  返回整窗宽 1280,直接用窗口宽会导致 slide 溢出框架被裁;原生端无 #root,窗口即框架)。
+ *  web:实测 document.getElementById('root') 的布局宽(随窗口 resize / winW 变化重测);
+ *  native:回退 useWindowDimensions().width。导出供 BottomFigure 等需要容器实际宽的组件复用。 */
+export function useAppFrameWidth(): number {
+  const { width: winW } = useWindowDimensions()
+  const [frameW, setFrameW] = useState(winW)
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const el = document.getElementById('root')
+    const w = el ? el.getBoundingClientRect().width : 0
+    if (w > 0) setFrameW(w)
+  }, [winW])
+  return frameW
+}
+
+/** RN Image source:本地资源在 Metro web 下是 { uri } 资产对象(TS 标注 number,运行时按对象)、
+ *  原生下是 require number,两者原样透传;远端 URL 包一层 { uri }。
+ *  导出供本端其他 <Image> 渲染远端/本地混合图源处复用(如 CourseCarousel swiper)。 */
+export function toImageSource(img: CarouselSlideImg): number | { uri: string } {
+  if (typeof img === 'number') return img
+  if (typeof img === 'string') return { uri: img }
+  return img as unknown as { uri: string }
+}
+
+/** failedSources 的键:远端取 URL,本地资产取其 uri —— 资产对象形态下若直接 String(img)
+ *  三张 slide 会共用 "[object Object]" 一个键,一张失败将误摘全部。 */
+function slideKey(img: CarouselSlideImg): string {
+  if (typeof img === 'string') return img
+  if (typeof img === 'number') return '#' + img
+  const asset = img as { uri?: unknown }
+  return typeof asset.uri === 'string' ? asset.uri : '#' + String(img)
 }
 
 /// 指示点几何/默认高度不在本文件取数 —— 唯一源是 @ihui/shared/ui/carousel-spec(与小程序端同档);
@@ -51,6 +99,7 @@ const NO_FAILED_SOURCES: ReadonlySet<string> = new Set<string>()
 export default function Carousel({
   banner,
   height = DEFAULT_HEIGHT,
+  itemWidth,
   autoplayInterval = 3000,
   onItemPress,
 }: CarouselProps) {
@@ -70,13 +119,15 @@ export default function Carousel({
   }, [])
 
   const slides = useMemo(
-    () => (banner ?? []).filter((item) => !failedSources.has(item.img)),
+    () => (banner ?? []).filter((item) => !failedSources.has(slideKey(item.img))),
     [banner, failedSources],
   )
 
   const { current, setCurrent } = useAutoPlay(slides.length, autoplayInterval, slides.length > 1)
   const scrollRef = useRef<ScrollView>(null)
-  const { width } = useWindowDimensions()
+  // slide 步长:调用方传了 itemWidth(容器实际宽)用它,否则退回应用框架实际宽
+  const appFrameWidth = useAppFrameWidth()
+  const slideWidth = itemWidth ?? appFrameWidth
 
   // 有项因失败被摘掉后,current 可能暂时越界(自动播放的下一跳会自己取模收敛),
   // 这里只把这一帧的落点夹回首项,不做任何位移补偿。
@@ -85,18 +136,18 @@ export default function Carousel({
   // current 变化时滚动到对应位置(useAutoPlay 内部已驱动 current 自动变化)
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTo({ x: activeIndex * width, animated: true })
+      scrollRef.current.scrollTo({ x: activeIndex * slideWidth, animated: true })
     }
-  }, [activeIndex, width])
+  }, [activeIndex, slideWidth])
 
   const onScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const idx = Math.round(e.nativeEvent.contentOffset.x / width)
+      const idx = Math.round(e.nativeEvent.contentOffset.x / slideWidth)
       if (idx !== current && idx >= 0 && idx < slides.length) {
         setCurrent(idx)
       }
     },
-    [current, width, slides.length, setCurrent],
+    [current, slideWidth, slides.length, setCurrent],
   )
 
   if (slides.length === 0) {
@@ -137,12 +188,12 @@ export default function Carousel({
             key={index}
             activeOpacity={0.9}
             onPress={() => onItemPress?.(item, index)}
-            style={{ width, height }}
+            style={{ width: slideWidth, height }}
           >
             <Image
-              source={{ uri: item.img }}
-              onError={() => markSourceFailed(item.img)}
-              style={{ width, height, resizeMode: 'cover' }}
+              source={toImageSource(item.img)}
+              onError={() => markSourceFailed(slideKey(item.img))}
+              style={{ width: slideWidth, height, resizeMode: 'cover' }}
             />
           </TouchableOpacity>
         ))}

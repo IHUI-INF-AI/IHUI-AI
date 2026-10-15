@@ -583,9 +583,13 @@ test('装车锁:resolveIoPaths 必须真被 main 调用,且排在第一次读文
   assert.ok(callAt >= 0 && invalidAt > callAt, 'invalid 判定必须紧跟取值')
   assert.ok(firstRead > invalidAt, '路径校验必须排在**任何** readFileSync 之前 —— 否则"先读后判"仍能落盘')
   assert.ok(code.indexOf('writeFileSync(output') > invalidAt, '同上,写盘之前必须先判过')
-  // "值不得以 - 开头"这条判据必须在**代码面**存在。刻意不带引号里的 `-`:遮罩会把字符串内容
-  // 抹成空格,写成 `startsWith('-')` 的断言在遮罩面上永远匹配不到(那又是一条恒假/恒真的空断言)。
-  assert.match(code, /!\s*token\.startsWith\(/, '"值不得以 - 开头"这一条判据本身不得被删')
+  // "值不得以 - 开头"这条判据已单源到 scripts/lib/flag-value.mjs(§22c):本文件必须 import 它,
+  // 且判据本体必须在出口文件的代码面在位。import 的结构认**代码面**(遮罩后 import 语句仍完整),
+  // 路径字面量是字符串会被遮掉,认**原始面**。
+  assert.match(code, /import\s*\{\s*flagValue\s*\}/, '判据未从唯一出口引入 ⇒ 本文件自抄一份(§22c 禁止)')
+  assert.ok(raw.includes("from './lib/flag-value.mjs'"), 'import 必须指向 scripts/lib/flag-value.mjs')
+  const libCode = maskCommentsAndStrings(readFileSync(new URL('../lib/flag-value.mjs', import.meta.url), 'utf8'))
+  assert.match(libCode, /!\s*token\.startsWith\(/, '"值不得以 - 开头"这一条判据本身不得被删')
   // 反向锁走**原始面**,但只认"旧写法的标识符":遮罩会把字符串抹掉,拿含引号的模式去负向匹配
   // 会得到一条**永远为真**的断言(与本仓"永远绿的断言与永远红的断言同样没用"是同一条禁令)。
   // `inputIdx` / `outputIdx` 只存在于旧的 `args[args.indexOf(…) + 1]` 取值形态里,注释不会提到。

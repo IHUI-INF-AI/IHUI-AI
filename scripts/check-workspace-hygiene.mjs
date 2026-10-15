@@ -44,6 +44,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execSync } from 'node:child_process';
 import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs';
 import { createLogger } from './lib/logger.mjs';
+import { flagValue } from './lib/flag-value.mjs';
 
 const log = createLogger();
 
@@ -52,6 +53,16 @@ const log = createLogger();
 // 没有它,自测夹具只能落在被扫描的真仓树里,于是一次被 SIGKILL 打断的运行就把带着
 // `$env:TEMP\…` 字面量的夹具永久留在盘上 —— 之后每次全量审计都报一条"项目数据写到系统 temp"
 // 的**假违规**,而违规者早已不存在(2026-09-25 实测盘上就挂着 19:23 那一轮的残留)。
+// G-322:给了 --root 却没收到合法值(被下一旗标顶掉/结尾无值/空串)⇒ 立即非零点名,
+// 不得静默扫默认根还报"无违规" —— 那会把"审计了别的树"读成"审计了你给的树"。
+{
+  const _f = flagValue(process.argv, '--root');
+  if (_f.present && !_f.valid) {
+    const _got = _f.token === null ? '(其后没有任何参数)' : JSON.stringify(_f.token);
+    console.error(`❌ 无法判定:--root 需要一个目录参数 —— 紧邻的 token 实得:${_got}(不得静默退回仓库根)`);
+    process.exit(2);
+  }
+}
 const _rootIdx = process.argv.indexOf('--root');
 const _rootArg = _rootIdx > -1 ? process.argv[_rootIdx + 1] : null;
 const ROOT = _rootArg ? resolve(_rootArg) : resolve(fileURLToPath(new URL('../', import.meta.url)));

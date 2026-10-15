@@ -67,6 +67,7 @@ import {
   rmScratch,
   scratchRoot,
 } from './lib/scratch-dir.mjs'
+import { flagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 // §15/§118:ROOT 由脚本自身位置推导。本门**不**用它定被扫的树(那由 scratchRoot()/--root 决定),
@@ -478,6 +479,13 @@ function main(argv) {
     return
   }
   const rootArg = flagVal(argv, '--root')
+  // G-322:给了 --root 却没收到合法值 ⇒ 点名实得 token 并按"无法判定"退,不得静默扫默认树。
+  const rootFlag = flagValue(argv, '--root')
+  if (rootFlag.present && !rootFlag.valid) {
+    const got = rootFlag.token === null ? '(其后没有任何参数)' : JSON.stringify(rootFlag.token)
+    console.error(`❌ 无法判定:--root 需要一个目录参数 —— 紧邻的 token 实得:${got}(不得静默退回默认 scratch 根)`)
+    process.exit(2)
+  }
   const root = rootArg ? resolve(rootArg) : scratchRoot()
   const maxDepth = flagVal(argv, '--max-depth')
   const budget = flagVal(argv, '--budget')

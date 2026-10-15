@@ -47,6 +47,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { execSync } from 'node:child_process'
+import { flagValue } from './lib/flag-value.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
@@ -61,13 +62,6 @@ const isQuiet = process.argv.includes('--quiet')
  * 无效值一律**大声拒绝**(exit 2 + 点名实得 token),绝不静默回落默认路径写别处。
  * 硬约束:**默认输出路径(DEFAULT_OUTPUT)与不带 --output 时的默认行为一字未改**,三道门就按它读。
  */
-function flagValue(list, flag) {
-  if (!Array.isArray(list) || !list.includes(flag)) return { present: false, valid: false, value: null, token: null }
-  const raw = list[list.indexOf(flag) + 1]
-  const token = typeof raw === 'string' ? raw : null
-  const valid = token !== null && token !== '' && !token.startsWith('-')
-  return { present: true, valid, value: valid ? token : null, token }
-}
 const outputFlag = flagValue(process.argv.slice(2), '--output')
 const targetArg = process.argv.find((a) => a.startsWith('--target='))
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
