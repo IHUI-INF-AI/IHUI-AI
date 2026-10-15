@@ -150,6 +150,14 @@ foreach ($r in $CleanBuildRoots) {
     if (($CleanBuildWt -like ($r + '*')) -and ($CleanBuildWt.TrimEnd('\').Length -gt $r.Length)) { $CleanBuildPathOk = $true; break }
 }
 if (-not $CleanBuildPathOk) {
+    if ($env:IHUI_DEPLOY_CLEAN_WT) {
+        # 2026-10-15 审计收口:env 显式指了值却不在授权表内 ⇒ 硬失败(旧形态只 DISABLED,
+        # 退回共享工作树就地构建 = 静默降级,而那正是 2026-09-29 脏面 4 连败生产伤口的入口;
+        # 上面三条爆炸半径判据本就是防"指到盘根/仓库根"的,放过越权值等于自废闸门)。
+        # $ErrorActionPreference='Stop' + 顶层 throw ⇒ 非零退出。合法值只有两类:不设该
+        # 环境变量(默认 $CleanBuildRootDefault\clean-build-wt),或显式指到授权根之下。
+        throw "IHUI_DEPLOY_CLEAN_WT 指了未授权净面根,拒绝执行(递归删除爆炸半径防线):$CleanBuildWt —— 合法值 = 严格落在以下已授权临时根之下:$($CleanBuildRoots -join ' | ')(或不设该环境变量,默认 $CleanBuildRootDefault\clean-build-wt;追加授权根走 IHUI_DEPLOY_CLEAN_WT_ROOTS)"
+    }
     Write-Output "[CLEAN-BUILD] DISABLED: 净面路径不落在任何已授权临时根之下,拒绝带着它执行递归删除:$CleanBuildWt (已授权根:$($CleanBuildRoots -join ' | '))"
     $CleanBuildEnabled = $false
 }
@@ -189,13 +197,17 @@ foreach ($p in @('D:\DevEnv\runtimes\node','D:\DevEnv\tools\npm-global','C:\wind
 #      · 只设 PNPM_HOME ⇒ D:\DevEnv\tools\pnpm\store\v11,即交互上下文一直在用的那份
 #        已装满的缓存(实测目录内 files/index.db/links/projects 均在)⇒ 钉它不会让下次
 #        部署重下全部依赖。
-#    路径不存在时不静默钉(那会把部署冻结换成一次盘根污染,两头都是错),而是喊出来:
-#    落点由人裁,但"没人知道它在长"必须结束。
+#    路径不存在时不静默钉(那会把部署冻结换成一次盘根污染,两头都是错),而是拦下来:
+#    2026-10-15 审计收口,由"喊出来(WARN)"升级为**硬失败** —— WARN 不阻断 ⇒ 每轮部署
+#    照旧往盘根堆(2026-10-05 量到 2550.1MB / 194517 个文件),"落点由人裁"三个多月
+#    零人裁;而盘根 .pnpm-store 的正确形态只有一个:D:\DevEnv\tools\pnpm(§26 登记的
+#    store 真身)或部署环显式给出的 PNPM_HOME(指向 DevEnv 下的 store)。两样都没有时
+#    拒绝 install —— $ErrorActionPreference='Stop' + 顶层 throw ⇒ 非零退出,不静默继续。
 $IhuiPnpmHome = 'D:\DevEnv\tools\pnpm'
 if (Test-Path $IhuiPnpmHome) {
     $env:PNPM_HOME = $IhuiPnpmHome
 } elseif (-not $env:PNPM_HOME) {
-    Write-Host '[WARN][PNPM-STORE] 未找到 pnpm 缓存根 D:\DevEnv\tools\pnpm 且环境无 PNPM_HOME ⇒ 本次 install 的缓存将落在盘根 .pnpm-store(台账 G-1059129 那一型),请人工裁落点'
+    throw '拒绝 install:pnpm store 无法钉到 DevEnv,避免盘根外流(.pnpm-store) —— 未找到 D:\DevEnv\tools\pnpm 且环境无 PNPM_HOME;出路:创建 D:\DevEnv\tools\pnpm(§26 store 真身)或在部署环 AppEnvironmentExtra 显式设置 PNPM_HOME 指向 DevEnv 下的 store(台账 G-1059129)'
 }
 
 # ── 并发锁(2026-09-07 加;2026-09-26 判据重写):手动 -deployLatest 与计划任务 loop 可能

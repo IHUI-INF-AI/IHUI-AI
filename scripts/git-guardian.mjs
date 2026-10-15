@@ -3489,9 +3489,45 @@ function remediate(before) {
   return true
 }
 
+/** 路径同形判定(盘符/分隔符/大小写三处归一化) */
+function samePath(a, b) {
+  return String(a).replace(/\\/g, '/').toLowerCase() === String(b).replace(/\\/g, '/').toLowerCase()
+}
+
+/**
+ * `cpSync`/`rmSync` 打在 GITDIR 之前的准入闸(2026-10-16 事故加,勿删):
+ *   ① GITDIR 绝不能是工作树里的 `.git` 指针文件本身 —— 那是自指损坏态,往里灌备份 = 删库;
+ *   ② GITDIR 存在时必须是目录;是文件 ⇒ 拒绝一切破坏性恢复(先喊人,不自己动手)。
+ * 返回 false 时调用方**必须放弃恢复**(保住现场可回溯),不得退而求其次继续写。
+ *
+ * 事故现场(2026-10-16 00:21):`resolveGitdir()` 当时回退成 `<wt>/.git`,守护判定 gitdir 不健康,
+ * 于是每 10 秒 `cpSync(BACKUP, GITDIR)` 一次,25MB 备份内容被灌进 `.git` 指针文件 ⇒
+ * `fatal: too large to be a .git file`,整仓不可用。①正是这条链的断口。
+ */
+function gitdirTargetSafe() {
+  if (samePath(GITDIR, POINTER)) {
+    log(
+      `⛔ 拒绝恢复:GITDIR 解析成指针文件自身(${POINTER})—— 自指损坏态,写它等于删库;` +
+        ` 先修 scripts/lib/gitdir.mjs 的解析,勿在此放行`,
+    )
+    return false
+  }
+  try {
+    if (existsSync(GITDIR) && !statSync(GITDIR).isDirectory()) {
+      log(`⛔ 拒绝恢复:GITDIR 已存在却不是目录(${GITDIR})—— 先人工确认,勿覆盖`)
+      return false
+    }
+  } catch (e) {
+    log(`⛔ 拒绝恢复:GITDIR 形态读不出来(${GITDIR}): ${String((e && e.message) || e)}`)
+    return false
+  }
+  return true
+}
+
 /** 兜底 1:从本地备份恢复实体(快,Gitee 不可达时用) */
 function healFromBackup() {
   if (!existsSync(join(BACKUP, 'HEAD'))) return false
+  if (!gitdirTargetSafe()) return false
   log('修复: 从本地备份恢复 gitdir <- ' + BACKUP)
   mkdirSync(GITDIR, { recursive: true })
   cpSync(BACKUP, GITDIR, { recursive: true, force: true })
@@ -3505,6 +3541,7 @@ function healFromBackup() {
 /** 兜底 2:从远端整仓重建(慢,42 秒实测,保证最新) */
 function healFromRemote() {
   log('修复: 从远端重建 gitdir <- ' + GITEE_URL)
+  if (!gitdirTargetSafe()) return false
   if (existsSync(GITDIR)) {
     if (!archiveGitdir('remote-' + Date.now())) return false
     try {
