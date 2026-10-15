@@ -457,10 +457,12 @@ function ChildDetailView({
 
 function CoursesView({ childId }: { childId: string }) {
   const t = useTranslations('eduParent')
+  const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'courses'],
     queryFn: () =>
       api<{ list: CourseItem[] }>(`/api/edu-ai-management/parent/child/${childId}/schedule`),
+    enabled: allow,
   })
 
   const courses = data?.list ?? []
@@ -542,10 +544,12 @@ function CoursesView({ childId }: { childId: string }) {
 
 function MealsView({ childId }: { childId: string }) {
   const t = useTranslations('eduParent')
+  const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'meals'],
     queryFn: () =>
       api<{ list: MealItem[] }>(`/api/edu-ai-management/parent/children/${childId}/meals`),
+    enabled: allow,
   })
 
   const meals = data?.list ?? []
@@ -619,6 +623,7 @@ function MealsView({ childId }: { childId: string }) {
  */
 function BillsView({ childId }: { childId: string }) {
   const t = useTranslations('eduParent')
+  const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'bills'],
     queryFn: () =>
@@ -644,6 +649,7 @@ function BillsView({ childId }: { childId: string }) {
           } | null
         }>
       }>(`/api/edu-ai-management/parent/children/${childId}/bills`),
+    enabled: allow,
   })
 
   if (isLoading) {
@@ -740,12 +746,14 @@ function BillsView({ childId }: { childId: string }) {
 
 function StudyPlansView({ childId }: { childId: string }) {
   const t = useTranslations('eduParent')
+  const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'study-plans'],
     queryFn: () =>
       api<{ list: StudyPlanItem[] }>(
         `/api/edu-ai-management/parent/children/${childId}/study-plans`,
       ),
+    enabled: allow,
   })
 
   const plans = data?.list ?? []
@@ -812,10 +820,12 @@ function StudyPlansView({ childId }: { childId: string }) {
 
 function GradesView({ childId }: { childId: string }) {
   const t = useTranslations('eduParent')
+  const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'grades'],
     queryFn: () =>
       api<{ list: GradeItem[] }>(`/api/edu-ai-management/parent/child/${childId}/grades`),
+    enabled: allow,
   })
 
   const grades = data?.list ?? []
@@ -944,12 +954,14 @@ function GradesView({ childId }: { childId: string }) {
 
 function AttendanceView({ childId }: { childId: string }) {
   const t = useTranslations('eduParent')
+  const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'attendance'],
     queryFn: () =>
       api<{ list: AttendanceRecord[] }>(
         `/api/edu-ai-management/parent/child/${childId}/attendance`,
       ),
+    enabled: allow,
   })
 
   const records = data?.list ?? []
@@ -1073,6 +1085,7 @@ function AttendanceView({ childId }: { childId: string }) {
 function BindingsManagement() {
   const t = useTranslations('eduParent')
   const queryClient = useQueryClient()
+  const { allow } = useAuthGate()
 
   const [studentId, setStudentId] = React.useState('')
   const [relationship, setRelationship] = React.useState('father')
@@ -1081,6 +1094,7 @@ function BindingsManagement() {
   const { data, isLoading } = useQuery({
     queryKey: ['parent', 'bindings'],
     queryFn: () => api<{ list: BindingRecord[] }>('/api/edu-ai-management/parent/binding'),
+    enabled: allow,
   })
 
   const bindings = data?.list ?? []

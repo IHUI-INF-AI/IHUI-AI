@@ -8,6 +8,8 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { toast } from 'sonner'
 import {
   Sparkles,
@@ -84,6 +86,9 @@ async function fetchAll(): Promise<AiSkillMeta[]> {
 export default function AiSkillsPageClient() {
   const t = useTranslations('aiSkillsPage')
   const td = useTranslations('aiSkillDetail')
+  // 2026-10-15 登录态门(与 knowledge-base 同型):未就绪/未登录不发注定 401 的查询
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [activeTab, setActiveTab] = React.useState<TabKey>('all')
   // P3 #37(2026-09-16 立):Skill 市场产品化——热度排序(stats.perSkill 调用数)
   const [sortKey, setSortKey] = React.useState<'name' | 'hot'>('name')
@@ -94,12 +99,14 @@ export default function AiSkillsPageClient() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['ai-skills', 'list'],
+    enabled: allow,
     queryFn: fetchAll,
   })
 
   // 使用热度(skillName → 调用数/成功率),卡片徽章 + 热度排序数据源
   const statsQuery = useQuery({
     queryKey: ['ai-skills', 'stats'],
+    enabled: allow,
     queryFn: () => getAiSkillStats(),
     staleTime: 60_000,
   })
@@ -274,31 +281,37 @@ export default function AiSkillsPageClient() {
       </div>
 
       {/* 列表区 */}
-      {isLoading && (
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>{t('loading')}</span>
-        </div>
-      )}
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : (
+        <>
+          {isLoading && (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>{t('loading')}</span>
+            </div>
+          )}
 
-      {error && (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-          {t('loadFailed')}
-        </div>
-      )}
+          {error && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              {t('loadFailed')}
+            </div>
+          )}
 
-      {!isLoading && !error && filtered.length === 0 && (
-        <div className="rounded-lg border bg-card py-8 text-center text-sm text-muted-foreground">
-          {t('empty')}
-        </div>
-      )}
+          {!isLoading && !error && filtered.length === 0 && (
+            <div className="rounded-lg border bg-card py-8 text-center text-sm text-muted-foreground">
+              {t('empty')}
+            </div>
+          )}
 
-      {filtered.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
-          {filtered.map((skill) => (
-            <SkillCard key={skill.id} skill={skill} stats={statsMap.get(skill.name)} />
-          ))}
-        </div>
+          {filtered.length > 0 && (
+            <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+              {filtered.map((skill) => (
+                <SkillCard key={skill.id} skill={skill} stats={statsMap.get(skill.name)} />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* 导入对话框 */}
@@ -444,11 +457,17 @@ function SkillCard({ skill, stats }: SkillCardProps) {
 
 function RecommendSection() {
   const t = useTranslations('aiSkillsPage')
+  // 2026-10-15 登录态门(与 knowledge-base 同型):未就绪/未登录不发注定 401 的查询
+  const { allow } = useAuthGate()
 
   const { data: response, isLoading } = useQuery({
     queryKey: ['ai-skills', 'recommendations'],
+    enabled: allow,
     queryFn: () => getAiSkillRecommendations({ top_k: 6 }),
   })
+
+  // 未登录不渲染本区块(取数已被 enabled: allow 挡住,避免空转 loading)
+  if (!allow) return null
 
   const recommendations = React.useMemo(() => {
     if (!response?.success || !response.data) return []

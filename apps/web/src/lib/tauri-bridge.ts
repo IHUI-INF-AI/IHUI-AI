@@ -7,6 +7,7 @@
 import { invoke, Channel } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
+import { isTauriRuntime } from './api-base-url'
 // 仅类型导入:check() 返回的 Update 对象类型(运行时仍动态 import,避免浏览器端加载插件)
 import type { Update } from '@tauri-apps/plugin-updater'
 
@@ -30,8 +31,8 @@ export { formatFileSize } from '@ihui/shared/utils/format'
  * use-desktop.ts 用 50ms 轮询 + 3 秒超时兜底注入时机,不依赖 `__TAURI__` 早注入。
  */
 export function isTauri(): boolean {
-  if (typeof window === 'undefined') return false
-  return '__TAURI_INTERNALS__' in window
+  // 判据单一来源在 lib/api-base-url.ts(§22c);此处只保留原导出名,不再自写一份探测
+  return isTauriRuntime()
 }
 
 /**

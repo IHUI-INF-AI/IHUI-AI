@@ -62,6 +62,10 @@ import {
   gitStagedPaths,
   gitUntrackedPaths,
   gitWorktreePaths,
+  // G-920 前置护栏新增的第四路(带状态的索引面)。**刻意追加在既有三路之后**:
+  // 有形状锁按字面邻接钉住上面三行的 import 名单,插队会把它撞红而锁的意图并未受损 ——
+  // 那种红是钉法的问题不是判据的问题,不该靠改锁去消。
+  gitStagedStatusEntries,
 } from './lib/git-paths.mjs'
 // G-1018292(2026-10-04):`git reset HEAD` 清空共享索引时会摘掉他人暂存删除的保护标记,
 // 而 reflog/index 结构上不留痕 ⇒ 只能在清空前那一瞬取样。判据与留底面在此。
@@ -76,7 +80,12 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 //  而两份 schema 的漂开会表现为"写了但统计器永远读不到")。
 import { recordGatesThenCommit } from './lib/commit-attestation.mjs'
 // G-920:事后载荷归因与处置建议的唯一出口(判据住 lib,本工具引那一份 —— 不在这里再算一遍)
-import { classifyConcurrentCommits, adviceFor } from './lib/commit-payload-attribution.mjs'
+import {
+  adviceFor,
+  classifyConcurrentCommits,
+  diffForeignIndexEntries,
+  foreignEntryAdvice,
+} from './lib/commit-payload-attribution.mjs'
 // G-1079146 剩余半格(2026-10-08):活文档 intake 取值。判据**只有 live-doc-edit 那一份** ——
 // 本器 import 它已导出的六个出口,不在这里抄第二条 hex 正则、也不自己 split 做行差集(§22c:
 // 两处算同一件事必漂移,而漂了的那一份会替腐烂发合格证)。该模块顶层有 §22d `isDirectRun` 守卫,
@@ -515,6 +524,12 @@ if (agentScope) {
 
 log('ok', `暂存区精确匹配预期 ${C.cyan}${stagedFiles.length}${C.reset} 个文件`)
 
+// ─── 3g. 索引面基线取样(G-920 前置护栏的 T1 端)────────────────────────────
+// 只取样、不裁决。裁决在 Step 4 发令前那一瞬做(4-pre),且只认 **相对本快照的新增量**。
+// 取**全量**索引路径(含本票件):声明集是在判据里减的。这里若先减一次,窗口期内"本票件被别人
+// 整索引提交带走、又被重暂存放回"这一档就观不到了 —— 取材面不做裁决是 §0.6 的硬要求。
+const stagedBaselineAtStep3 = stagedFiles.map(normalize)
+
 // 3e. 活文档"工作树 ⊇ HEAD"行级对账 —— 把 AGENTS §12 从"人肉记得跑"变成机制
 // (2026-09-24 立)。背景:`README.md` / `AGENTS.md` / `PROJECT_PLAN.md` 是多会话共写的文档,
 // 工作树副本**常年滞后于 HEAD**(实测一日三次自伤,分别少 57 / 48 / 54 行)。而本脚本 Step 4
@@ -748,6 +763,69 @@ log('info', 'Step 4/5: git commit(普通提交,不带 pathspec)— 首次尝试(
 // (会破坏他人提交)。改为基于 beforeSha..HEAD 区间定位本次提交后再校验。
 const beforeSha = (run('git rev-parse HEAD', { allowFail: true }) || '').trim()
 
+// ─── 4-pre. 发令前复量索引(G-920 前置护栏,2026-10-15 立)──────────────────────
+// 背景:`classifyConcurrentCommits()` 那一半是**事后**的 —— 提交已落地,回读载荷再分成四型。
+// 而本枚提交此刻**还没生出来**:能在发令前挡住的,不该等落地后再去记账、再靠人工 forward-fix。
+// 判据只有 `diffForeignIndexEntries()` 一份(§0.6/§22c),这里不重写第二遍,只做取材与报告。
+//
+// 拦的是 **Step 3 之后新进入索引** 的非本票路径,不是"索引里有外来件" —— 后者在多会话下是常态,
+// 那样写会得到一把**恒红**的尺子,而恒红尺子的唯一出路是被人绕回裸 `git commit` 跳门(§12e),
+// 连带该枚提交上的全部守门一起作废 —— 比不装更坏。所以这里是差值棘轮:`current ⊖ baseline ⊖ 声明集`。
+//
+// **刻意不给行内豁免 env**(票面"不得新增行内豁免通道"):一旦留了 `IHUI_SKIP_*`,这把尺子就会在
+// "赶时间"的那一刻被一键关掉,而它管的恰恰是"把别人的在飞件交上去"这种事后极难察觉的事。
+// 出路不是开关,是换工具 —— `object-space-land.mjs` 的 commit-tree 只交声明集,结构上不吞他人内容。
+//
+// 另外不碰的:Step 4 不带 pathspec 这个决定本身(理由见本段下方 Step 4 处注记,2026-10-12 实测,
+// 仍然成立);30a / 100 / 168 等既有判据一律不动。
+
+/** 某路径最近一次入账的提交(用于点名"归属";取不到就说取不到,不猜)。 */
+const lastTouchOf = (p) => {
+  const r = spawnSync(
+    'git',
+    ['-c', 'safe.directory=*', '-C', repoRoot, 'log', '-1', '--format=%h %s', '--', p],
+    { encoding: 'utf8', windowsHide: true, timeout: 30_000, stdio: ['ignore', 'pipe', 'pipe'] },
+  )
+  const s = r.status === 0 ? String(r.stdout ?? '').trim() : ''
+  return s ? `最近入账 ${s}` : 'HEAD 里无记录(未跟踪新件 / 该路径未入过库)'
+}
+
+/** @param {string} phase  报告里点名这是哪一次发令(首次 / 锁重试 / 跳门重试)。 */
+const rejectIfForeignEnteredIndex = (phase) => {
+  const stagedNow = gitStagedPaths({ root: repoRoot }).map(normalize)
+  const d = diffForeignIndexEntries({
+    baseline: stagedBaselineAtStep3,
+    current: stagedNow,
+    expected: expectedNorm,
+  })
+  if (d.resolved.length)
+    log(
+      'info',
+      `窗口期内外来件 ${C.cyan}${d.resolved.length}${C.reset} 条已从索引消失(多半是别家那枚先落地把它们带走了)—— 只记账,不拦(它们进不了本枚提交):` +
+        `${d.resolved.slice(0, 6).join(', ')}${d.resolved.length > 6 ? ' …' : ''}`,
+    )
+  if (!d.blocking) return
+  const statusMap = new Map(
+    gitStagedStatusEntries({ root: repoRoot }).map((e) => [normalize(e.path), e.status]),
+  )
+  log(
+    'err',
+    `${C.red}拒发本枚提交${C.reset}(${phase}):Step 3 已证明索引纯净,但发令前复量发现 ` +
+      `${C.yellow}${d.newEntries.length}${C.reset} 条**非本票路径在窗口期新进入共享索引**` +
+      `(基线外来 ${d.baselineForeign.length} 条 → 现 ${d.currentForeign.length} 条)。`,
+  )
+  log(
+    'err',
+    '  Step 4 不带 pathspec(理由仍在)⇒ 普通提交会把这些一起交出去,而 commit message 只写本票的事 ⇒ 载荷与说明对不上,' +
+      ' 事后只能靠四型分类器回读,且其上一旦叠了他人提交就不能 rewind(§22)。',
+  )
+  for (const p of d.newEntries.slice(0, 8))
+    console.log(`     ${C.red}✗ ${p}${C.reset}  ${C.yellow}[${statusMap.get(p) ?? '?'}]${C.reset} ${lastTouchOf(p)}`)
+  if (d.newEntries.length > 8) console.log(`     …另 ${d.newEntries.length - 8} 条`)
+  for (const line of foreignEntryAdvice().lines) log('err', line)
+  process.exit(1)
+}
+
 /**
  * 首次失败**必须分诊**,否则一次环境抖动就会被升级成"109 道门全跳"。
  * 实测事故(2026-09-24):`git commit` 因并发 `.git/index.lock` 争用直接 exit 128 —— 钩子一次没跑,
@@ -770,6 +848,8 @@ let commitResult = null
 let hookFailed = false
 let hookOutput = ''
 for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
+  // G-920 前置护栏:每次真的要发 `git commit` 之前都复量一次索引(判据住 lib,不在此重写)。
+  rejectIfForeignEnteredIndex(attempt === 1 ? '首次尝试' : `锁争用重试 ${attempt}`)
   const r = spawnSync('git', commitArgs(false), {
     encoding: 'utf8',
     cwd: repoRoot,
@@ -1214,6 +1294,8 @@ if (hookFailed && commitResult.status !== 0) {
       )
     }
   }
+  // 同上:跳门重试**也是**一次整索引提交,外来件一样会跟着走 ⇒ 同样先复量,不因为"要跳门了"就放行。
+  rejectIfForeignEnteredIndex('--no-verify 重试')
   const r = spawnSync('git', commitArgs(true), {
     encoding: 'utf8',
     cwd: repoRoot,
