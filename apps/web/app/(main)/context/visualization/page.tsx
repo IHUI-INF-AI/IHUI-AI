@@ -7,6 +7,9 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { AlertCircle, ArrowLeft, Loader2, RotateCw } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { fetchVisualization } from '@/lib/context-api'
@@ -14,9 +17,13 @@ import { TokenPieChart } from '@/components/context/TokenPieChart'
 import { TokenHistoryChart } from '@/components/context/TokenHistoryChart'
 
 export default function ContextVisualizationPage() {
+  // 2026-10-15 登录态门(与 knowledge-base 同型):未就绪/未登录不发注定 401 的查询
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [conversationId, setConversationId] = React.useState('')
   const vizQ = useQuery({
     queryKey: ['context', 'visualization', conversationId],
+    enabled: allow,
     queryFn: () => fetchVisualization(conversationId),
   })
 
@@ -65,7 +72,9 @@ export default function ContextVisualizationPage() {
         </CardContent>
       </Card>
 
-      {vizQ.isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : vizQ.isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           加载中…

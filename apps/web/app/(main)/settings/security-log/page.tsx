@@ -6,6 +6,8 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { ShieldCheck, ShieldAlert, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import {
@@ -44,6 +46,9 @@ const SECURITY_EVENTS = new Set(['passwordChange', 'abnormalLogin', 'twoFactorEn
 
 export default function SecurityLogPage() {
   const t = useTranslations('settings')
+  // 2026-10-15 登录态门(与 /settings/notifications 同型):未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [logs, setLogs] = React.useState<SecurityLogItem[]>([])
   const [total, setTotal] = React.useState(0)
   const [page, setPage] = React.useState(1)
@@ -62,6 +67,7 @@ export default function SecurityLogPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   React.useEffect(() => {
+    if (!allow) return
     let cancelled = false
     setLoading(true)
     setError('')
@@ -90,7 +96,7 @@ export default function SecurityLogPage() {
     return () => {
       cancelled = true
     }
-  }, [page, t])
+  }, [page, t, allow])
 
   const filteredLogs = React.useMemo(() => {
     if (tab === 'all') return logs
@@ -136,7 +142,9 @@ export default function SecurityLogPage() {
               ))}
             </div>
 
-            {loading ? (
+            {!allow ? (
+              <AuthGatePrompt message={tGate('loginRequired')} />
+            ) : loading ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 {t('activityLoading')}
               </p>
