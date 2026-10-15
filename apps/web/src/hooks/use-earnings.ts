@@ -15,6 +15,7 @@
  */
 import { useQuery } from '@tanstack/react-query'
 
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { fetchApi } from '@/lib/api'
 
 // =============================================================================
@@ -108,27 +109,33 @@ export interface UseEarningsReturn {
 }
 
 export function useEarnings(): UseEarningsReturn {
+  // 登录态门:未就绪/未登录不发起注定 401 的查询(react-query 形态 = enabled: allow,见 use-auth-gate.ts)
+  const { allow } = useAuthGate()
   const overviewQ = useQuery({
     queryKey: ['earnings', 'overview'],
     queryFn: fetchEarningsOverview,
+    enabled: allow,
     staleTime: 60_000,
     retry: 1,
   })
   const trendQ = useQuery({
     queryKey: ['earnings', 'byok-trend', 30],
     queryFn: () => fetchByokIncomeTrend(30),
+    enabled: allow,
     staleTime: 60_000,
     retry: 1,
   })
   const referralQ = useQuery({
     queryKey: ['earnings', 'referral'],
     queryFn: fetchReferralStats,
+    enabled: allow,
     staleTime: 60_000,
     retry: 1,
   })
   const funnelQ = useQuery({
     queryKey: ['earnings', 'funnel'],
     queryFn: fetchConversionFunnel,
+    enabled: allow,
     staleTime: 60_000,
     retry: 1,
   })
