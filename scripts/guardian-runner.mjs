@@ -4996,6 +4996,25 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 活文档归档回灌对账(1 项,blocking)---
+  {
+    id: '216',
+    label:
+      '活文档归档回灌对账(§1 两步归档第②步的机器锁:连续 ≥12 行逐字命中归档面即判回灌;11/12 两侧与横幅反证都钉在自测里)',
+    script: 'check-live-doc-archive-reinflation.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_LIVE_DOC_REINFLATION',
+    stagedTriggers: ['AGENTS.md', 'README.md', '.ihui-agent/archive/'],
+    onFailHint: [
+      '',
+      '红线:不得为了变绿把归档件从审面摘掉(那是销毁证据)、不得调 207 体积预算、也不得把门槛从 12 抬高。',
+      '修复出口:把报出的块从活文档剥掉(正文逐字仍在 .ihui-agent/archive/AGENTS_* 里,剥离零丢失),剥前逐行自证"被剥的行 ∈ 归档面";若确属正当长引用,须在此行的 onFailHint 之外另立票说明,不用豁免遮。',
+      '取证:node scripts/check-live-doc-archive-reinflation.mjs --self-test(8 臂)+ 镜像 scripts/tests/check-live-doc-archive-reinflation.test.mjs(含零丢失自证臂)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
