@@ -26,7 +26,12 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 import { __test__ as G } from '../check-stale-revert.mjs'
 // §22c:复活判据与其非证据档都从 lib 那一份实现取,测试里不复制
-import { resurrectKey, resurrectAnalysis, RESURRECT_WATERMARK_SLOT_RE } from '../lib/stale-content-analysis.mjs'
+import {
+  resurrectKey,
+  resurrectAnalysis,
+  resurrectInputPath,
+  RESURRECT_WATERMARK_SLOT_RE,
+} from '../lib/stale-content-analysis.mjs'
 
 const GIT = 'C:/Program Files/Git/cmd/git.exe'
 
@@ -42,7 +47,13 @@ function repo() {
   const dir = mkScratch('stale-revert-it-')
   const run = (...a) =>
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], { stdio: ['ignore', 'pipe', 'pipe'], cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 300000 }).trim()
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 300000,
+    }).trim()
   run('init', '-q', '-b', 'main')
   run('config', 'user.email', 't@t')
   run('config', 'user.name', 't')
@@ -86,7 +97,10 @@ test('乘数级路径的识别:门的注册表 / 门自身 / 钩子 / 清单 / �
   for (const p of ['apps/web/src/app/page.tsx', 'packages/shared/src/chat/index.ts', 'docs/x.md'])
     assert.ok(!G.isMultiplierPath(p), `${p} 不该被当乘数级`)
   assert.ok(G.isMultiplierPath('scripts\\guardian-runner.mjs'), 'Windows 反斜杠形态必须同样认得')
-  assert.ok(G.isMultiplierPath('PROJECT_PLAN.md'.replace(/\//g, '/')), '台账形态必须认得(名本身即仓库根相对路径)')
+  assert.ok(
+    G.isMultiplierPath('PROJECT_PLAN.md'.replace(/\//g, '/')),
+    '台账形态必须认得(名本身即仓库根相对路径)',
+  )
 })
 
 /**
@@ -99,7 +113,13 @@ test('乘数级路径的识别:门的注册表 / 门自身 / 钩子 / 清单 / �
 test('护栏短路时三本活文档仍被点名(旧口径下这一格无人看守)', () => {
   const { dir, run } = repo()
   try {
-    stageAncestorContent(dir, run, 'PROJECT_PLAN.md', '- [ ] D9 旧形态\n', '- [x] ✅(2026-01-01) D9 新形态\n')
+    stageAncestorContent(
+      dir,
+      run,
+      'PROJECT_PLAN.md',
+      '- [ ] D9 旧形态\n',
+      '- [x] ✅(2026-01-01) D9 新形态\n',
+    )
     pad(dir, run, G.MAX_FILES + 20, 'junk\n')
     const r = G.audit(dir, { staged: true })
     assert.equal(
@@ -141,8 +161,14 @@ test('lazify 之后不得错位:等于 HEAD 的文件必须一个都不点名,�
     run('add', '--', 'scripts/check-b.mjs', 'scripts/check-c.mjs')
     const r = G.audit(dir, { staged: true })
     assert.equal(r.code, 1, `b 的回写必须拦(实际 exit ${r.code})`)
-    assert.ok(r.lines.some((l) => l.includes('scripts/check-b.mjs')), `必须点名 b:${r.lines.slice(-4).join(' | ')}`)
-    assert.ok(!r.lines.some((l) => l.includes('scripts/check-a.mjs')), 'a 与 HEAD 逐字相同,不得被点名')
+    assert.ok(
+      r.lines.some((l) => l.includes('scripts/check-b.mjs')),
+      `必须点名 b:${r.lines.slice(-4).join(' | ')}`,
+    )
+    assert.ok(
+      !r.lines.some((l) => l.includes('scripts/check-a.mjs')),
+      'a 与 HEAD 逐字相同,不得被点名',
+    )
     assert.ok(!r.lines.some((l) => l.includes('scripts/check-c.mjs')), 'c 是真新内容,不得被点名')
   } finally {
     rmScratch(dir)
@@ -155,12 +181,19 @@ test('端到端:暂存集顶过上限时,乘数级回写仍必须判红(护栏�
     stageAncestorContent(dir, run, 'scripts/guardian-runner.mjs', 'id: 1\n', 'id: 2\nid: 3\n')
     pad(dir, run, G.MAX_FILES + 20, 'junk\n')
     const r = G.audit(dir, { staged: true })
-    assert.equal(r.code, 1, `超限场景下乘数级回写必须拦,实际 exit ${r.code} / ${r.lines.slice(-3).join(' | ')}`)
+    assert.equal(
+      r.code,
+      1,
+      `超限场景下乘数级回写必须拦,实际 exit ${r.code} / ${r.lines.slice(-3).join(' | ')}`,
+    )
     assert.ok(
       r.lines.some((l) => l.includes('scripts/guardian-runner.mjs')),
       `必须点名是哪个文件:${r.lines.join('\n').slice(0, 300)}`,
     )
-    assert.ok(r.lines.some((l) => l.includes('乘数级')), '结论行必须说清为什么这一类不吃护栏')
+    assert.ok(
+      r.lines.some((l) => l.includes('乘数级')),
+      '结论行必须说清为什么这一类不吃护栏',
+    )
   } finally {
     rmScratch(dir)
   }
@@ -177,7 +210,10 @@ test('输入指纹注释行:同一输入的不同 hash 不算「复活旧内容�
   // ① 不同 hash 归一为同一行
   assert.equal(resurrectKey(oldLine), resurrectKey(newLine), '同一输入的不同 hash 必须归一')
   // ② 归一后输入路径仍在(信息不丢)
-  assert.ok(resurrectKey(newLine).includes('packages/i18n/messages/shared/en.json'), '归一须保留输入路径')
+  assert.ok(
+    resurrectKey(newLine).includes('packages/i18n/messages/shared/en.json'),
+    '归一须保留输入路径',
+  )
   // ③ 不同输入路径不得归一(否则两个文件的指纹被混成一行 = 真的放宽了牙)
   assert.notEqual(
     resurrectKey('// input: a/en.json ' + OLD),
@@ -185,7 +221,10 @@ test('输入指纹注释行:同一输入的不同 hash 不算「复活旧内容�
     '不同输入路径不得归一',
   )
   // ④ 内容行不受影响(不带 // input: 前缀 ⇒ 原样)
-  assert.ok(resurrectKey('  "agreement": { "staticContent1": "x", },').includes('agreement'), '内容行不受影响')
+  assert.ok(
+    resurrectKey('  "agreement": { "staticContent1": "x", },').includes('agreement'),
+    '内容行不受影响',
+  )
   // ⑤ 端到端:只改指纹 hash ⇒ 不判复活
   const base = ['// input: x.json ' + OLD, '"k": "v"'].join('\n')
   const r = resurrectAnalysis({
@@ -196,7 +235,11 @@ test('输入指纹注释行:同一输入的不同 hash 不算「复活旧内容�
   assert.equal(r.count, 0, `只改指纹 hash 不得判复活(实测 ${r.count})`)
   // ⑥ 牙仍在:真把旧内容搬回来照样判红
   const rolled = ['// input: x.json ' + OLD, '"k": "v"', '"staleKey": "old"'].join('\n')
-  const r2 = resurrectAnalysis({ baseText: base, newText: rolled, ancestors: [{ commit: 'deadbee', text: rolled }] })
+  const r2 = resurrectAnalysis({
+    baseText: base,
+    newText: rolled,
+    ancestors: [{ commit: 'deadbee', text: rolled }],
+  })
   assert.ok(r2.count > 0, `搬回旧内容必须仍判红(实测 ${r2.count})`)
 })
 
@@ -209,7 +252,11 @@ test('反向对照:真新编辑(既不等于 HEAD 也不等于任何祖先版本
     put(dir, 'scripts/guardian-runner.mjs', 'id: 1\n// 本次真正新增的一行\n')
     run('add', '-A')
     const r = G.audit(dir, { staged: true })
-    assert.equal(r.code, 0, `正常改动被拦 = 这道门会逼人绕过钩子:${r.lines.join('\n').slice(0, 240)}`)
+    assert.equal(
+      r.code,
+      0,
+      `正常改动被拦 = 这道门会逼人绕过钩子:${r.lines.join('\n').slice(0, 240)}`,
+    )
   } finally {
     rmScratch(dir)
   }
@@ -218,7 +265,13 @@ test('反向对照:真新编辑(既不等于 HEAD 也不等于任何祖先版本
 test('未超限时语义与改前一致:普通文件的回写照样判红', () => {
   const { dir, run } = repo()
   try {
-    stageAncestorContent(dir, run, 'apps/web/src/a.ts', 'export const a = 1\n', 'export const a = 2\nexport const b = 3\n')
+    stageAncestorContent(
+      dir,
+      run,
+      'apps/web/src/a.ts',
+      'export const a = 1\n',
+      'export const a = 2\nexport const b = 3\n',
+    )
     const r = G.audit(dir, { staged: true })
     assert.equal(r.code, 1, '未超限时普通文件的旧基线回写必须照拦')
     assert.ok(r.lines.some((l) => l.includes('apps/web/src/a.ts')))
@@ -344,8 +397,22 @@ const QUIT_LINES = [
   '  "quitRestarting": "正在重启",',
   '  "quitSkip": "跳过更新",',
 ]
-const LOCALE_A = ['{', '  "checkUpdate": "检查更新",', ...QUIT_LINES, '  "settings": "设置"', '}', ''].join('\n')
-const LOCALE_B = ['{', '  "checkUpdate": "检查更新",', '  "cancel": "取消",', '  "settings": "设置"', '}', ''].join('\n')
+const LOCALE_A = [
+  '{',
+  '  "checkUpdate": "检查更新",',
+  ...QUIT_LINES,
+  '  "settings": "设置"',
+  '}',
+  '',
+].join('\n')
+const LOCALE_B = [
+  '{',
+  '  "checkUpdate": "检查更新",',
+  '  "cancel": "取消",',
+  '  "settings": "设置"',
+  '}',
+  '',
+].join('\n')
 const NEW_KEY_LINE = '  "formChannelUnavailable": "该表单暂不可用",'
 
 function localeRepoCtx() {
@@ -377,7 +444,10 @@ test('R1r 阳性对照(本票存在的全部理由):祖先副本 ⊕ 真新行 �
   assert.match(out, /复活 5 行/)
   assert.ok(out.includes(ancestor9), `必须点名复活内容出自哪枚祖先,实得 ${out.slice(0, 400)}`)
   assert.match(out, /↺ 复活: .*quitChecking/, '必须点名到**复活行本身**,不能只报一个数')
-  assert.ok(!/↺ 复活: .*formChannelUnavailable/.test(out), '真新键不得被算成复活行(③ 不成立的那一类)')
+  assert.ok(
+    !/↺ 复活: .*formChannelUnavailable/.test(out),
+    '真新键不得被算成复活行(③ 不成立的那一类)',
+  )
 })
 
 test('R1r 反向对照(证明不是恒红):只加真新行、不搬旧行 ⇒ RC=0 且结论行不带"未判定"杂质', (t) => {
@@ -386,8 +456,14 @@ test('R1r 反向对照(证明不是恒红):只加真新行、不搬旧行 ⇒ RC
   run('add', '--', 'locale.json')
   const r = G.audit(dir, { staged: true })
   assert.equal(r.code, 0, `正当编辑被拦 = 这道门会逼人绕过钩子:${r.lines.join('\n').slice(0, 400)}`)
-  assert.ok(r.lines.some((l) => l.startsWith('✅')), '通过必须给结论行')
-  assert.ok(!r.lines.some((l) => l.startsWith('✅') && l.includes('未判定')), '本夹具是全部判定的,结论行不得凭空挂未判定')
+  assert.ok(
+    r.lines.some((l) => l.startsWith('✅')),
+    '通过必须给结论行',
+  )
+  assert.ok(
+    !r.lines.some((l) => l.startsWith('✅') && l.includes('未判定')),
+    '本夹具是全部判定的,结论行不得凭空挂未判定',
+  )
 })
 
 test('R1r 差值棘轮:复活量不超过该文件 HEAD 侧自身存量 ⇒ **只报数不判红**(存量不是本次带进来的)', (t) => {
@@ -404,22 +480,33 @@ test('R1r 差值棘轮:复活量不超过该文件 HEAD 侧自身存量 ⇒ **�
   t.after(() => rmScratch(dir))
   put(dir, 'pack.txt', `{\n${L1}\n${L2}\n${NEW}\n}\n`) // HEAD ⊕ 把乙也搬回来 ⊕ 一行真新键
   run('add', '--', 'pack.txt')
-  assert.equal(G.analyze(dir, ['pack.txt']).length, 0, '夹具不对:这一份必须不等于任何祖先(R1 才谈得上看不见)')
+  assert.equal(
+    G.analyze(dir, ['pack.txt']).length,
+    0,
+    '夹具不对:这一份必须不等于任何祖先(R1 才谈得上看不见)',
+  )
   const r = G.audit(dir, { staged: true })
   const out = r.lines.join('\n')
   assert.equal(r.code, 0, `复活量未超过存量却判红 = 恒红门(§12f):${out.slice(0, 400)}`)
   assert.match(out, /R1r 只报数/)
   assert.match(out, /复活 1 行\(HEAD 侧存量 1 行\)/)
-  assert.match(out, /其中 1 处复活只报数\(存量\)/, '结论行必须带着这个只报数的数,不得读成"全部判过且干净"')
+  assert.match(
+    out,
+    /其中 1 处复活只报数\(存量\)/,
+    '结论行必须带着这个只报数的数,不得读成"全部判过且干净"',
+  )
   // 再把同一把尺子的红臂钉住:多搬一行(乙+丙)就超过存量 ⇒ 必须红 —— 否则"只报数"那一支
   // 与"判据根本没跑"在账面上长得一模一样。
   put(dir, 'pack.txt', `{\n${L1}\n${L2}\n${L3}\n${NEW}\n}\n`)
   run('add', '--', 'pack.txt')
   const r2 = G.audit(dir, { staged: true })
-  assert.equal(r2.code, 1, `复活 2 行 > 存量 1 行时必须红,实得:${r2.lines.join('\n').slice(0, 300)}`)
+  assert.equal(
+    r2.code,
+    1,
+    `复活 2 行 > 存量 1 行时必须红,实得:${r2.lines.join('\n').slice(0, 300)}`,
+  )
   assert.match(r2.lines.join('\n'), /复活 2 行\(HEAD 侧自身存量 1 行\)/)
 })
-
 
 test('R1r 未判定必须点名、且不得被写成通过(预算耗尽型)', () => {
   const { dir, run } = localeRepoCtx()
@@ -434,7 +521,11 @@ test('R1r 未判定必须点名、且不得被写成通过(预算耗尽型)', ()
     // ② 结论行的措辞由 verdictLine 统一:有未判定就必须带出来,不得给光秃秃的"通过"
     const line = G.verdictLine(1, rr)
     assert.match(line, /其中 1 处未判定/)
-    assert.doesNotMatch(line, /通过\(判定 1 个文件,无历史版本回写\)$/, '光秃秃的"通过"就是把没判写成判过了')
+    assert.doesNotMatch(
+      line,
+      /通过\(判定 1 个文件,无历史版本回写\)$/,
+      '光秃秃的"通过"就是把没判写成判过了',
+    )
     // ③ 整轮预算压到 0 ⇒ 同样必须点名,绝不因"没读"而少一桶
     const zero = G.analyzeResurrect(dir, ['locale.json'], { runBudgetBytes: 0 })
     assert.equal(zero.undetermined.length, 1, JSON.stringify(zero))
@@ -462,10 +553,18 @@ test('R1r 只判索引面:同一份混合体,索引面判红、工作树面只�
     const hybrid = LOCALE_A.replace('  "settings"', `${NEW_KEY_LINE}\n  "settings"`)
     put(dir, 'locale.json', hybrid) // **只**脏工作树,索引仍等于 HEAD
     const full = G.audit(dir, { staged: false })
-    assert.equal(full.code, 0, `全量档因机器状态判红 = 每台每次必红:${full.lines.join('\n').slice(0, 300)}`)
+    assert.equal(
+      full.code,
+      0,
+      `全量档因机器状态判红 = 每台每次必红:${full.lines.join('\n').slice(0, 300)}`,
+    )
     assert.match(full.lines.join('\n'), /只判索引面/)
     run('add', '--', 'locale.json') // 同一份内容进了索引 ⇒ 必须判红
-    assert.equal(G.audit(dir, { staged: true }).code, 1, '索引面那一臂必须红,否则本条只是"两处都不判"')
+    assert.equal(
+      G.audit(dir, { staged: true }).code,
+      1,
+      '索引面那一臂必须红,否则本条只是"两处都不判"',
+    )
   } finally {
     rmScratch(dir)
   }
@@ -484,7 +583,11 @@ test('R1r 在合并上下文走与 R1m 同一条窄判据:两父一致照判,两
     run('add', '--', 'locale.json')
     writeFileSync(join(gitDir, 'MERGE_HEAD'), `${run('rev-parse', 'theirs-a')}\n`, 'utf8')
     const a = G.audit(dir, { staged: true })
-    assert.equal(a.code, 1, `两父一致时合并期混合体回写必须照判:${a.lines.join('\n').slice(0, 300)}`)
+    assert.equal(
+      a.code,
+      1,
+      `两父一致时合并期混合体回写必须照判:${a.lines.join('\n').slice(0, 300)}`,
+    )
     assert.match(a.lines.join('\n'), /R1r/)
     assert.ok(
       a.lines.join('\n').includes(ancestor9),
@@ -502,13 +605,16 @@ test('R1r 在合并上下文走与 R1m 同一条窄判据:两父一致照判,两
     run('add', '--', 'locale.json')
     writeFileSync(join(gitDir, 'MERGE_HEAD'), `${b}\n`, 'utf8')
     const r = G.audit(dir, { staged: true })
-    assert.equal(r.code, 0, `两父不同却判红 = 把正当合并钉成恒红:${r.lines.join('\n').slice(0, 300)}`)
+    assert.equal(
+      r.code,
+      0,
+      `两父不同却判红 = 把正当合并钉成恒红:${r.lines.join('\n').slice(0, 300)}`,
+    )
     rmSync(join(gitDir, 'MERGE_HEAD'), { force: true })
   } finally {
     rmScratch(dir)
   }
 })
-
 
 test('形状锁:R1r 的判据只能引 lib 那一份,门内不得出现第二份计行/散写取内容', () => {
   const url = new URL('../check-stale-revert.mjs', import.meta.url)
@@ -522,10 +628,19 @@ test('形状锁:R1r 的判据只能引 lib 那一份,门内不得出现第二份
     'R1r 必须与落地器共用 lib 那一份判据(两处各写一遍必漂移)',
   )
   assert.match(code, /resurrectAnalysis\s*\(/, 'import 了却没调用 = 判据仍是自写的(假接线)')
-  for (const secondImpl of [/function\s+linesOf\b/, /function\s+tallyLines\b/, /function\s+resurrectAnalysis\b/, /replace\(\/\\r\$\//])
+  for (const secondImpl of [
+    /function\s+linesOf\b/,
+    /function\s+tallyLines\b/,
+    /function\s+resurrectAnalysis\b/,
+    /replace\(\/\\r\$\//,
+  ])
     assert.ok(!secondImpl.test(code), `门内出现第二份行级实现:${secondImpl}`)
   assert.doesNotMatch(code, /\bexecSync\s*\(/, '不得再散写 execSync 取被审内容(守门 118/80)')
-  assert.doesNotMatch(code, /readFileSync\s*\(\s*join\(/, '不得按磁盘读被审内容(共享工作树滞后即换结论)')
+  assert.doesNotMatch(
+    code,
+    /readFileSync\s*\(\s*join\(/,
+    '不得按磁盘读被审内容(共享工作树滞后即换结论)',
+  )
   assert.match(code, /catBatch\s*\(/, '正文一律走 face-reader 的批量读取口(索引面同面同轮)')
   // lib 自己必须是那唯一一份
   const libSrc = readFileSync(new URL('../lib/stale-content-analysis.mjs', import.meta.url), 'utf8')
@@ -558,20 +673,36 @@ test('探针索引端到端:混合体只进私有 GIT_INDEX_FILE ⇒ --staged �
     return e
   }
   const gitMain = (args) =>
-    execFileSync(GIT, ['-c', 'safe.directory=*', ...args], { cwd: dir, encoding: 'utf8', windowsHide: true, env: mainEnv(), timeout: 300000 }).trim()
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      env: mainEnv(),
+      timeout: 300000,
+    }).trim()
   const mainIdxBefore = gitMain(['ls-files', '-s', '--', 'locale.json'])
   const gitWith = (args, opts = {}) =>
-    execFileSync(GIT, ['-c', 'safe.directory=*', ...args], { cwd: dir, encoding: 'utf8', windowsHide: true, env: { ...process.env, GIT_INDEX_FILE: probe }, ...opts })
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      env: { ...process.env, GIT_INDEX_FILE: probe },
+      ...opts,
+    })
 
   const stageIntoProbe = (text) => {
     if (existsSync(probe)) rmSync(probe, { force: true })
     gitWith(['read-tree', 'HEAD'])
-    const oid = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, 'hash-object', '-w', '--stdin'], {
-      input: text,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 300000,
-    }).trim()
+    const oid = execFileSync(
+      GIT,
+      ['-c', 'safe.directory=*', '-C', dir, 'hash-object', '-w', '--stdin'],
+      {
+        input: text,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 300000,
+      },
+    ).trim()
     gitWith(['update-index', '--add', '--cacheinfo', `100644,${oid},locale.json`])
     return oid
   }
@@ -587,8 +718,16 @@ test('探针索引端到端:混合体只进私有 GIT_INDEX_FILE ⇒ --staged �
     assert.ok(outA.includes(badOid.slice(0, 9)) || /locale\.json/.test(outA), '必须点名到那个路径')
     assert.match(outA, /↺ 复活: .*quitChecking/)
     assert.ok(outA.includes(ancestor9), `要点名复活来源祖先 ${ancestor9}`)
-    assert.equal(readFileSync(join(dir, 'locale.json'), 'utf8'), wtBefore, '工作树必须逐字未动(判的是索引,不是磁盘)')
-    assert.equal(gitMain(['ls-files', '-s', '--', 'locale.json']), mainIdxBefore, '主索引必须一步没动')
+    assert.equal(
+      readFileSync(join(dir, 'locale.json'), 'utf8'),
+      wtBefore,
+      '工作树必须逐字未动(判的是索引,不是磁盘)',
+    )
+    assert.equal(
+      gitMain(['ls-files', '-s', '--', 'locale.json']),
+      mainIdxBefore,
+      '主索引必须一步没动',
+    )
     // 同一份索引内容喂 R1:必须**空** —— 这就是旧版沉默、本票要补的那一洞(阳性对照的红确实来自 R1r)
     assert.deepEqual(G.analyze(dir, ['locale.json']), [], 'R1 对混合体永不到账,否则说不清是谁拦的')
 
@@ -605,8 +744,6 @@ test('探针索引端到端:混合体只进私有 GIT_INDEX_FILE ⇒ --staged �
   }
 })
 
-
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
@@ -619,7 +756,12 @@ test('探针索引端到端:混合体只进私有 GIT_INDEX_FILE ⇒ --staged �
  */
 test('R1r 键变换:纯缩进重排不得计复活,而真回退一行必须照旧点名(成对)', async () => {
   const { resurrectAnalysis } = await import('../lib/stale-content-analysis.mjs')
-  const head = ['function f() {', '      windowsHide: true, // 提交链派生控制台程序时不得弹窗', '  return 1', '}'].join('\n')
+  const head = [
+    'function f() {',
+    '      windowsHide: true, // 提交链派生控制台程序时不得弹窗',
+    '  return 1',
+    '}',
+  ].join('\n')
   const ancestor = [
     'function f() {',
     '        windowsHide: true, // 提交链派生控制台程序时不得弹窗',
@@ -632,17 +774,32 @@ test('R1r 键变换:纯缩进重排不得计复活,而真回退一行必须照�
     '  return 1',
     '  // 本次真的新增了一行说明',
   ].join('\n')
-  const a = resurrectAnalysis({ baseText: head, newText: reformatted, ancestors: [{ commit: 'a1b2c3d', text: ancestor }] })
+  const a = resurrectAnalysis({
+    baseText: head,
+    newText: reformatted,
+    ancestors: [{ commit: 'a1b2c3d', text: ancestor }],
+  })
   assert.equal(a.status, 'judged', `纯重排应当可判,实得 ${a.status}/${a.reason}`)
-  assert.equal(a.count, 0, `纯缩进重排不得算复活,实得 ${a.count}:${JSON.stringify(a.sample).slice(0, 120)}`)
+  assert.equal(
+    a.count,
+    0,
+    `纯缩进重排不得算复活,实得 ${a.count}:${JSON.stringify(a.sample).slice(0, 120)}`,
+  )
   // 同一把尺子必须仍咬得住真回退:HEAD 侧那行的**内容**在落地面整个消失,换成祖先版本
   const rolledBack = [
     'function f() {',
     '      windowsHide: false, // 祖先里那版把弹窗开关写回默认,正是要拦的形态',
     '  return 1',
   ].join('\n')
-  const b = resurrectAnalysis({ baseText: head, newText: rolledBack, ancestors: [{ commit: 'd4e5f6a', text: rolledBack }] })
-  assert.ok(b.status === 'judged' && b.count > 0, `真回退必须被点名(放宽键不许把牙一起磨掉),实得 ${b.status}/${b.count}`)
+  const b = resurrectAnalysis({
+    baseText: head,
+    newText: rolledBack,
+    ancestors: [{ commit: 'd4e5f6a', text: rolledBack }],
+  })
+  assert.ok(
+    b.status === 'judged' && b.count > 0,
+    `真回退必须被点名(放宽键不许把牙一起磨掉),实得 ${b.status}/${b.count}`,
+  )
 })
 
 /**
@@ -653,26 +810,34 @@ test('R1r 键变换:纯缩进重排不得计复活,而真回退一行必须照�
  * 只留样板不红,判据可以退化成"所有 ci.yml 行都不算证据";只留真阳性红,样板假阳照旧。
  */
 test('R1r 内容性档:样板行进样板档只报数,真阳性与引号形态行照旧计数(成对)', async () => {
-  const { resurrectAnalysis, RESURRECT_BOILER_LINE_RE } = await import('../lib/stale-content-analysis.mjs')
+  const { resurrectAnalysis, RESURRECT_BOILER_LINE_RE } =
+    await import('../lib/stale-content-analysis.mjs')
   // ① 样板形态正判:if: failure() 命中样板档;fi/exit 0/} 是骨架(无字母或过短)也归档
   assert.ok(RESURRECT_BOILER_LINE_RE.test('  if: failure()'), 'if: failure() 必须命中样板形态')
   assert.ok(RESURRECT_BOILER_LINE_RE.test('uses: actions/checkout@v4'), 'uses 指令行必须命中')
-  assert.ok(!RESURRECT_BOILER_LINE_RE.test('"staleKey": "old"'), '引号键值是真内容形态,不得进样板档')
+  assert.ok(
+    !RESURRECT_BOILER_LINE_RE.test('"staleKey": "old"'),
+    '引号键值是真内容形态,不得进样板档',
+  )
   assert.ok(!RESURRECT_BOILER_LINE_RE.test('severity: { level: warn }'), '值带花括号不进样板档')
   // ③ 2026-10-15 窄化一刀(G-870 三例稳定红根因),分界两条:
   //    CJK 值的**裸键行**=真内容(2026-09-28 事故行形态);CJK 值的 **`- ` 列表项指令**=样板
   //    (4f61a35f6 的 `- name: 阻断提示`)。两对断言缺一即把排除条款改宽/改错。
-  assert.ok(!RESURRECT_BOILER_LINE_RE.test('beta_key: 正在下载更新'), 'CJK 裸键行是真内容,不得进样板档')
-  assert.ok(RESURRECT_BOILER_LINE_RE.test('      - name: 阻断提示'), 'CJK 列表项指令行照旧进样板档(G-587 实测)')
-  assert.ok(RESURRECT_BOILER_LINE_RE.test('severity: warning'), '纯 ASCII 结构行照旧进样板档(窄化不减牙)')
+  assert.ok(
+    !RESURRECT_BOILER_LINE_RE.test('beta_key: 正在下载更新'),
+    'CJK 裸键行是真内容,不得进样板档',
+  )
+  assert.ok(
+    RESURRECT_BOILER_LINE_RE.test('      - name: 阻断提示'),
+    'CJK 列表项指令行照旧进样板档(G-587 实测)',
+  )
+  assert.ok(
+    RESURRECT_BOILER_LINE_RE.test('severity: warning'),
+    '纯 ASCII 结构行照旧进样板档(窄化不减牙)',
+  )
   // ② 4f61a35f6 形态重放(纯函数面):HEAD 没有 if: failure(),祖先旧 workflow 写过,
   //    本次在 ci.yml 加一个失败分支步骤 ⇒ 样板行不得计入 count,但必须进 boilerplate 报数
-  const head = [
-    'jobs:',
-    '  build:',
-    '    steps:',
-    '      - run: pnpm test',
-  ].join('\n')
+  const head = ['jobs:', '  build:', '    steps:', '      - run: pnpm test'].join('\n')
   const ancestorWorkflow = [
     'jobs:',
     '  build:',
@@ -683,15 +848,29 @@ test('R1r 内容性档:样板行进样板档只报数,真阳性与引号形态�
     '      - uses: actions/checkout@v3',
     '        with: persist-credentials: false',
   ].join('\n')
-  const added = [head, '      - name: 阻断提示', '        if: failure()', '        run: exit 1', '      - uses: actions/checkout@v3'].join('\n')
+  const added = [
+    head,
+    '      - name: 阻断提示',
+    '        if: failure()',
+    '        run: exit 1',
+    '      - uses: actions/checkout@v3',
+  ].join('\n')
   const r = resurrectAnalysis({
     baseText: head,
     newText: added,
     ancestors: [{ commit: 'fbe0e3f65', text: ancestorWorkflow }],
   })
   assert.equal(r.status, 'judged')
-  assert.equal(r.count, 0, `4f61a35f6 形态重放必须 exit 0 等价(count=0),实得 ${r.count}:${JSON.stringify(r.sample)}`)
-  assert.equal(r.boilerplateCount, 4, `样板行必须单独成档报数,实得 ${r.boilerplateCount}:${JSON.stringify(r.boilerplate)}`)
+  assert.equal(
+    r.count,
+    0,
+    `4f61a35f6 形态重放必须 exit 0 等价(count=0),实得 ${r.count}:${JSON.stringify(r.sample)}`,
+  )
+  assert.equal(
+    r.boilerplateCount,
+    4,
+    `样板行必须单独成档报数,实得 ${r.boilerplateCount}:${JSON.stringify(r.boilerplate)}`,
+  )
   // ③ 牙仍在:≥门槛长度的真内容行(祖先写过、HEAD 已删)必须照旧判红
   const realLine = '      - run: pnpm --filter @ihui/rn-app typecheck && pnpm stale-revert drill'
   const r2 = resurrectAnalysis({
@@ -741,9 +920,18 @@ test('R1r 内容性档:样板行进样板档只报数,真阳性与引号形态�
   test('WM-3 交叉锚:槽行 marker 字面量必须等于 watermark.mjs 那份唯一出口的 BANNER_ID', async () => {
     const WM = await import('../watermark.mjs')
     const bannerId = WM.__test__.BANNER_ID
-    assert.ok(typeof bannerId === 'string' && bannerId.length > 0, 'watermark.mjs 必须导出 BANNER_ID')
-    assert.ok(RESURRECT_WATERMARK_SLOT_RE.test(`// [${bannerId}]:x`), 'lib 的正则必须命中生产 marker 的槽行形态')
-    assert.ok(!RESURRECT_WATERMARK_SLOT_RE.test('// 普通注释,不含 marker'), '不得把普通注释划进非证据档')
+    assert.ok(
+      typeof bannerId === 'string' && bannerId.length > 0,
+      'watermark.mjs 必须导出 BANNER_ID',
+    )
+    assert.ok(
+      RESURRECT_WATERMARK_SLOT_RE.test(`// [${bannerId}]:x`),
+      'lib 的正则必须命中生产 marker 的槽行形态',
+    )
+    assert.ok(
+      !RESURRECT_WATERMARK_SLOT_RE.test('// 普通注释,不含 marker'),
+      '不得把普通注释划进非证据档',
+    )
   })
 
   test('WM-4 形状锁(变异替身):槽行档必须真的接在 resurrectAnalysis 的噪声判里,摘掉即红', () => {
@@ -755,7 +943,8 @@ test('R1r 内容性档:样板行进样板档只报数,真阳性与引号形态�
       '噪声/样板条件里必须有槽行档 ⇒ 缺它则 WM-1 那型重新判红',
     )
     assert.ok(
-      body.indexOf('RESURRECT_BOILER_LINE_RE.test(rawLine)') < body.indexOf('RESURRECT_WATERMARK_SLOT_RE.test(rawLine)'),
+      body.indexOf('RESURRECT_BOILER_LINE_RE.test(rawLine)') <
+        body.indexOf('RESURRECT_WATERMARK_SLOT_RE.test(rawLine)'),
       '两条非证据档必须在同一个条件里(防止只在某一分支生效)',
     )
   })
@@ -768,13 +957,77 @@ test('G-587 镜像钉:样板形态清单只此一份实现,门体必须从 lib i
   const landSrc = readFileSync(join(ROOT, 'scripts/object-space-land.mjs'), 'utf8')
   assert.ok(libSrc.includes('RESURRECT_BOILER_LINE_RE'), 'lib 必须导出样板形态常量')
   assert.equal(
-    (libSrc.match(/RESURRECT_BOILER_LINE_RE = \//g) ?? []).length,
+    // `\s*=\s*\/` 而不是 `= /`:prettier 在 printWidth 100 下会把长正则折到下一行,
+    // 按字面相邻的写法会把"格式化过一次"读成"定义消失了"(锁的强度不变:仍要求恰好一处)。
+    (libSrc.match(/RESURRECT_BOILER_LINE_RE\s*=\s*\//g) ?? []).length,
     1,
     '样板形态正则的定义在 lib 里必须只有一处',
   )
-  for (const [name, src] of [['check-stale-revert', gateSrc], ['object-space-land', landSrc]]) {
+  for (const [name, src] of [
+    ['check-stale-revert', gateSrc],
+    ['object-space-land', landSrc],
+  ]) {
     assert.ok(!src.includes('RESURRECT_BOILER_LINE_RE = '), `${name} 不得内联第二份样板形态实现`)
-    assert.ok(!/new RegExp\('[^']*\[\^\\s"'\{\}\[\]\\\]\]/.test(src), `${name} 不得用 new RegExp 复制样板形态正则`)
+    assert.ok(
+      !/new RegExp\('[^']*\[\^\\s"'\{\}\[\]\\\]\]/.test(src),
+      `${name} 不得用 new RegExp 复制样板形态正则`,
+    )
   }
   assert.match(gateSrc, /from '\.\/lib\/stale-content-analysis\.mjs'/, '门体必须 import lib 的判据')
+})
+
+/**
+ * 生成物「输入清单档」(2026-10-16 立,门 105↔门 84 互锁的第二格)。
+ * 立项现场:门 105 要求按面上输入集重生成 `ui-routes.generated.ts`,而 `PageLoading.tsx`
+ * 先被 `a86e4cc821` 摘掉、又被 `14a04f013f` 恢复 ⇒ 产物如实多出一行 `// input: …`;
+ * 按祖先文本比那是"复活"⇒ 照 105 办的人必撞 84。放宽的边界只有两条:文件自证为生成物,
+ * **且**该行点名的输入确在被审面上。
+ */
+test('输入清单档三态:面上有⇒折 / 面上无⇒计 / 没给面⇒保持旧严格尺', () => {
+  const H = (c) => String(c).repeat(64)
+  const HEAD_TXT = `// GENERATED FILE — DO NOT EDIT. 由 gen-fixture.mjs 生成\n// input: src/pages/a.tsx ${H('1')}\nexport const A = 1\n`
+  const ANC_TXT = `// GENERATED FILE — DO NOT EDIT. 由 gen-fixture.mjs 生成\n// input: src/pages/a.tsx ${H('1')}\n// input: src/pages/b.tsx ${H('2')}\nexport const A = 1\n`
+  const NEW_TXT = `// GENERATED FILE — DO NOT EDIT. 由 gen-fixture.mjs 生成\n// input: src/pages/a.tsx ${H('1')}\n// input: src/pages/b.tsx ${H('3')}\nexport const A = 1\n`
+  const ancestors = [{ commit: 'anccommit', text: ANC_TXT }]
+  const noFace = resurrectAnalysis({ baseText: HEAD_TXT, newText: NEW_TXT, ancestors })
+  const onFace = resurrectAnalysis({
+    baseText: HEAD_TXT,
+    newText: NEW_TXT,
+    ancestors,
+    facePaths: new Set(['src/pages/b.tsx']),
+  })
+  const offFace = resurrectAnalysis({
+    baseText: HEAD_TXT,
+    newText: NEW_TXT,
+    ancestors,
+    facePaths: new Set(),
+  })
+  assert.ok(noFace.count >= 1, `没给面时必须保持旧严格尺(实得 count=${noFace.count})`)
+  assert.equal(noFace.generatedInputOnFace, 0, '没量面就不许报"折过 N 行"')
+  assert.equal(onFace.count, 0, `输入在面上 ⇒ 该行不计回潮(实得 ${onFace.count})`)
+  assert.equal(onFace.generatedInputOnFace, 1, '折掉的行数必须报得出来,不得静默放宽')
+  assert.ok(offFace.count >= 1, '面上已无这份输入而产物仍列着 ⇒ 照旧是回潮')
+  assert.equal(offFace.generatedInputOffFace, 1, '这一维必须单独点名,不能混进"折过"里')
+  assert.equal(resurrectInputPath(`// input: src/pages/b.tsx ${H('2')}`), 'src/pages/b.tsx')
+  assert.equal(resurrectInputPath('export const B = 1'), null, '内容行不是输入自述行,一律 null')
+})
+
+test('形状锁:输入路径解析只有一份,门体必须两侧各按自己的面查(不得拿索引面量 HEAD 侧)', () => {
+  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+  const libSrc = readFileSync(join(ROOT, 'scripts/lib/stale-content-analysis.mjs'), 'utf8')
+  const gateSrc = readFileSync(join(ROOT, 'scripts/check-stale-revert.mjs'), 'utf8')
+  assert.equal(
+    (libSrc.match(/export function resurrectInputPath/g) ?? []).length,
+    1,
+    '输入路径解析在 lib 里必须只有一处定义',
+  )
+  assert.ok(
+    !gateSrc.includes("m[1] !== 'input'"),
+    '门体不得内联第二份 `// input:` 解析(§22c:复制判据必然漂移)',
+  )
+  assert.match(libSrc, /facePaths instanceof Set/, '没给 facePaths 时该档必须整体不生效')
+  assert.ok(
+    gateSrc.includes('(rel) => `:${rel}`') && gateSrc.includes('(rel) => `HEAD:${rel}`'),
+    '门体必须**两侧各按自己的面**查存在性(索引面 / HEAD 面)—— 一面量两面就是把两把尺子叠成一把',
+  )
 })
