@@ -1541,6 +1541,12 @@ export function AISidePanel() {
           // data-testid="ai-panel-root":全局唯一最外层容器标识,DevTools / E2E 可直接选中
           // 2026-08-02 阈值修复:全屏覆盖仅手机(<640px)触发,平板/小窗口(640-1023px)走浮窗不全屏。
           data-testid="ai-panel-root"
+          // 2026-10-15:平板档(640-1023px)自动收起 docked 面板。属性**无条件静态**挂载,
+          // 显隐由 globals.css 的同名 media query 兜底(JS 跑之前首帧就正确 ⇒ 无 hydration CLS),
+          // 与 Sidebar 的 data-viewport-collapsed 同款双层范式。
+          // floatMode 态靠 CSS 排除 .ai-float-glow(浮窗本就该盖在内容之上,不收起)。
+          // className 一个字未动 ⇒ check-ai-panel-mount-guards 的 7 个几何 token 判定不受影响。
+          data-viewport-tablet-collapsed="true"
           className={cn(
             'ai-panel-root',
             floatMode
