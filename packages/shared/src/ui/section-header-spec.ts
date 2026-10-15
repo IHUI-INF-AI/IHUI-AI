@@ -72,6 +72,9 @@ export const SECTION_HEADER_MORE_MARGIN_LEFT_PX = 8
 /** 文字与箭头图标间距 2:两端现值已同(小程序 `4rpx` = 2 / 适配层 `toRpx(2)`);取更稳的一档不再放大。 */
 export const SECTION_HEADER_ARROW_MARGIN_LEFT_PX = 2
 
+/** 「更多」文字字号 12:两端现值已同(小程序适配层裸 12 / RN MoreLink LABEL_FONT_SIZE 12);收一处防分叉。 */
+export const SECTION_HEADER_MORE_FONT_PX = 12
+
 /** 标题区结构:行内水平居中 + 可截断(溢出省略的三件套只在这一处排)。 */
 export function sectionHeaderTitleStyle<U extends string | number>(
   toUnit: GeometryUnit<U>,
