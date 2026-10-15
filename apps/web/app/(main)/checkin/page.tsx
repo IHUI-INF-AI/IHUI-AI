@@ -78,7 +78,6 @@ import { TruncatedText } from '@/components/common/TruncatedText'
 import { AuthGatePrompt } from '@/components/common'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import { useAuthGate } from '@/hooks/use-auth-gate'
-import { useAuthStore } from '@/stores/auth'
 import {
   checkinAuditTraeResidual,
   checkinCaptureJwts,
@@ -133,14 +132,14 @@ export default function CheckinPage() {
   // 2026-10-14 登录态门(与 /chat/favorites、/business-card/favorites 同型):
   // 冷启动时 bootstrap 的静默刷新与本页挂载请求赛跑,未拿到 access token 就发 GET
   // ⇒ 注定 401 ⇒ 整页被「加载失败」块替换。门先把挂载请求压到登录态确定之后。
-  const { ready, allow } = useAuthGate()
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  const hasToken = useAuthStore((s) => !!s.token)
-  // 2026-10-15 实测补的第二型:vault 被清 + localStorage 残留 isAuthenticated=true 时,
-  // allow 仍为真 ⇒ 门挡不住,照样发 401 并弹红块。这种"标志位在、token 还没刷出来"的
-  // 中间态按启动中处理(与 api.ts 对 `isAuthenticated && !token` 的既有判读同形)。
-  const booting = ready && isAuthenticated && !hasToken
-  const canLoad = allow && hasToken
+  // 2026-10-15 改判撤掉 hasToken/booting 二型门:该形态实测源自 ai-service 失效把
+  // 有效 token 也 401(机器故障误诊为代码缺陷);且 `ready && isAuthenticated && !token`
+  // 正是 bootstrap「transient 刷新失败刻意保留登录态」的收束态,其恢复机制 = 首个 401
+  // 走拦截器静默续期 —— 那要求页面真的发请求。按 token 卡门会永转 spinner 饿死该路径
+  // (真机 dev 壳实测)。凭据被明确否定时拦截器 logout() → allow 翻假 → 登录引导,
+  // 红块同样不会出现。
+  const { allow } = useAuthGate()
+  const canLoad = allow
   // 复用已接线的通用文案(chatHistory.loginRequired =「请先登录」),不为本页另开一组五语言键
   const tGate = useTranslations('chatHistory')
 
@@ -1604,14 +1603,7 @@ export default function CheckinPage() {
       )}
 
       {!canLoad ? (
-        booting ? (
-          <div className="flex items-center justify-center py-16 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            {t('loading')}
-          </div>
-        ) : (
-          <AuthGatePrompt message={tGate('loginRequired')} />
-        )
+        <AuthGatePrompt message={tGate('loginRequired')} />
       ) : loading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />

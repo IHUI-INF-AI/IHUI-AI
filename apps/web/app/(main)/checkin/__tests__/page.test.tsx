@@ -22,6 +22,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import CheckinPage from '../page'
+import { useAuthStore } from '@/stores/auth'
+
+// 门按 useAuthGate 的 allow(ready && isAuthenticated)放行
+// ⇒ 既有用例统一以已登录态跑;未登录态另有专例覆盖。
+useAuthStore.setState({ token: 'test-access-token', isAuthenticated: true })
 import {
   checkinAuditTraeResidual,
   checkinCaptureQoder,
@@ -354,6 +359,23 @@ describe('签到助手页面 · 加载/错误/空态', () => {
       expect(screen.queryByText('retry')).toBeNull()
     } finally {
       authGate.state = { ready: true, allow: true }
+    }
+  })
+
+  it('残留 isAuthenticated=true 但 token 未刷出 ⇒ 照常发请求(恢复路径 = 401 拦截器静默续期),成功则出内容', async () => {
+    // 2026-10-15 改判撤掉 hasToken 二型门:该形态的真机复量证实,`ready && isAuthenticated && !token`
+    // 正是 bootstrap「transient 刷新失败刻意保留登录态」的收束态,恢复机制 = 首个 401 走
+    // 拦截器静默续期 —— 按 token 卡门会永转 spinner 饿死该路径(dev 壳实测)。
+    mockLoadSuccess()
+    authGate.state = { ready: true, allow: true }
+    useAuthStore.setState({ token: null, isAuthenticated: true })
+    try {
+      render(<CheckinPage />)
+      await waitFor(() => expect(listAccounts).toHaveBeenCalledTimes(1))
+      await waitFor(() => expect(screen.queryByText('loading')).toBeNull())
+      expect(screen.queryAllByText('loginRequired').length).toBe(0)
+    } finally {
+      useAuthStore.setState({ token: 'test-access-token', isAuthenticated: true })
     }
   })
 })
