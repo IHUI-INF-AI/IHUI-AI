@@ -277,7 +277,7 @@ export const REMOTE_ID_TRANSPORT = {
  */
 export function readRemoteIdBasis({ root, doc, families, transport = REMOTE_ID_TRANSPORT } = {}) {
   const { remote, ref } = remoteTarget()
-  const out = { max: {}, notes: [], info: [], tipSha: '', remote, ref, remoteAheadUnfetched: false }
+  const out = { max: {}, ids: {}, notes: [], info: [], tipSha: '', remote, ref, remoteAheadUnfetched: false }
   if (!Array.isArray(families) || families.length === 0) return out
   let tip
   try {
@@ -343,8 +343,34 @@ export function readRemoteIdBasis({ root, doc, families, transport = REMOTE_ID_T
       continue
     }
     out.max[f] = used.max
+    // G-454 ②:远端那一维**不能只交 max**。池式取号会复用"本地已让空"的洞,而对面可能仍占着那个号
+    // (2026-10-16 实测:本侧某行让号后该号在本地台账⊕归档件上空闲,令牌把它又发了一次,
+    //  而远端那行还在用 ⇒ 合并面 F9 撞号 ⇒ 所有会话的落地闸一起堵)。
+    // 所以这里把远端"已用号集合"一并交出,由取号侧从空闲清单里扣掉(判据仍只有 usedIdsOfPrefix 一份)。
+    out.ids[f] = used.ids ?? []
   }
   return out
+}
+
+/**
+ * 本次改写正在**让位**的声明位编号集合(G-454 判据①的输入)。
+ * 形状取自与取号同一个出口 `usedIdsOfPrefix(...).template`,不在这里第二次定义"什么算一个编号";
+ * 只取每行**第一个**命中(= 声明位),行内引用的别的号不算让位(否则"承 D131 取证"会把 D131 判成禁区)。
+ */
+export function vacatedIdsOf(replacements, baseContent, families) {
+  const out = []
+  for (const f of families ?? []) {
+    const u = usedIdsOfPrefix(baseContent, f)
+    const tpl = u?.template
+    if (!tpl) continue
+    const body = String(tpl).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp('\\b' + body.split('%d').join('\\d+') + '\\b')
+    for (const r of replacements ?? []) {
+      const m = re.exec(String(r?.before ?? ''))
+      if (m) out.push(m[0])
+    }
+  }
+  return [...new Set(out)]
 }
 
 /** 正文里出现了哪些取号族(按出现顺序去重)—— 族集合由正文推得,不在别处硬写清单。 */
@@ -432,7 +458,10 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     if (used === null) return { ok: false, reason: `no-such-family:${f}` }
     const remoteMax = Number.isFinite(remote?.max?.[f]) ? remote.max[f] : null
     const chosenMax = remoteMax !== null && remoteMax > used.max ? remoteMax : used.max
-    const usedNums = (used.ids ?? []).map(numOf).filter(Number.isFinite)
+    // G-454 ②「返回前逐面复查空闲」:本地空闲 ≠ 全局空闲。远端那一份的**已用号集合**要一起从
+    // 空闲清单里扣掉 —— 池式取号复用本地让空的洞,而对侧可能仍占着同一枚号(2026-10-16 实测撞号)。
+    const remoteNums = (Array.isArray(remote?.ids?.[f]) ? remote.ids[f] : []).map(numOf).filter(Number.isFinite)
+    const usedNums = [...(used.ids ?? []).map(numOf).filter(Number.isFinite), ...remoteNums]
     let freeList
     if (machineId) {
       const cur = decideLease({ baseContent, family: f, used, baseMax: chosenMax, machineId })
@@ -526,6 +555,24 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     }),
   )
   if (exhaustedFamily !== null) return { ok: false, reason: `pool-exhausted:${exhaustedFamily}` }
+  // G-454 ①:令牌**不得交回本次正被让位的旧号**。改派(把一行的行首编号换掉)时,旧号刚从底稿上消失,
+  // 池式空闲清单会把它当成"新空出来的号"再发一遍 ⇒ 落地器照常打印"CAS 成功",而注记写的是
+  // 「已改为新号」、行首却还是旧号(2026-10-08 本仓两次实测:令牌两次都解析回我要让位的 G-417)。
+  // 方向:当场拒绝并点名,绝不安静交出同一个号。
+  const vacating = new Set((opts.vacating ?? []).map((v) => String(v).trim()).filter(Boolean))
+  if (vacating.size > 0) {
+    const back = [...new Set(got.filter((id) => vacating.has(id)))]
+    if (back.length > 0)
+      return {
+        ok: false,
+        reason: 'token-returned-vacated-id',
+        vacatedIds: back.join(','),
+        basis,
+        leaseClaims,
+        leaseNotes,
+        dupTitleNotes,
+      }
+  }
   return {
     ok: true,
     lines: out,
@@ -1382,7 +1429,11 @@ async function main() {
     // 号段基准**也在每次尝试里重算**:HEAD 会动,远端 tip 也会动(origin 常年被后台 worker 推进)。
     // 提到循环外就等于把"远端那一份"烘成一次性读数 —— 镜像测试 N5 用源码锁钉住这一型。
     const remote = families.length ? readRemoteIdBasis({ root, doc, families }) : null
-    const tok = resolveIdTokens(targetLines, baseContent, remote, { machineId })
+    // 改派场景(整行改写档 + 正文带令牌)才需要"让位旧号"清单:插在底稿里那一行的声明位编号,
+    // 就是本次不许再发出去的那个号(判据 ①)。形状仍走 usedIdsOfPrefix 的同一份 template,不另立定义。
+    const vacating =
+      replacements && families.length ? vacatedIdsOf(replacements, baseContent, families) : []
+    const tok = resolveIdTokens(targetLines, baseContent, remote, { machineId, vacating })
     if (!tok.ok) {
       if (tok.reason === 'duplicate-title') {
         console.error(
@@ -1390,6 +1441,16 @@ async function main() {
             `既有登记:${tok.dupMembers}。请改用 live-doc-edit REPLACE 在既有行上追加执行注记,` +
             `不要另起新号(根治"同题不同号"漂移,2026-10-13 立)。` +
             `确属同题补注记且必须走令牌的 rare 形态:LIVE_ID_ALLOW_DUP_TITLE=1 显式放行(留痕)。`,
+        )
+        process.exit(2)
+      }
+      if (tok.reason === 'token-returned-vacated-id') {
+        console.error(
+          `❌ 令牌交回了本次正在被让位的旧号(${tok.vacatedIds})⇒ 拒绝落地(G-454 判据①)。` +
+            `危害不是"号没换"而是**注记与事实相反**:行尾写「已改为新号、原登记 <旧号>」而行首仍是那个旧号,` +
+            `下一个接手者按那句去找"新号那一行"找不到,按旧号引用的人以为已经让位。` +
+            `出路:把这一步拆成两笔 —— 先落"剥掉声明位编号/只留让位注记"的改写(不带令牌),` +
+            `再单独跑一次带令牌的取号;绝不带着同一个号落地。`,
         )
         process.exit(2)
       }
@@ -1679,6 +1740,7 @@ export const __test__ = {
   applyReplacements,
   resolveIdTokens,
   readRemoteIdBasis,
+  vacatedIdsOf,
   idTokenFamilies,
   describeIdBasis,
   idBasisGate,
