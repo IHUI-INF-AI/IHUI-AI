@@ -28,19 +28,22 @@
  * 契约键出口:scripts/i18n-contract-keys.json —— 跨端词包契约键 / 被测试钉住的形状键在此声明,
  *          依据逐条按 HEAD 核验(见 CONTRACT_FILE_REL 处注释);它只免除"死键"一项,不影响其他判据
  *
- * 判定面(2026-09-28 立,与守门 70/118 同口径):
- *   - `face:'staged'` ⇒ **索引 blob**:locale JSON、契约文件、参照语料(全部 ~4.5k 个 .ts/.tsx)
- *     在同一轮里经 `git ls-files -z` 枚举 + 一次 `cat-file --batch`(`scripts/lib/face-reader.mjs`
- *     的 `catBatch`)读满 —— 清单与内容**同面同轮**。这一档是提交链门禁(`--staged`)用的:
- *     并行会话**未暂存**的磁盘半编辑态结构上不进索引,所以"别人的在飞改动"再也判不红本次提交
- *     (2026-09-28 实测:本步以批外 blocking 形态红过一次,各会话唯一出路是 --no-verify,
- *     一次绕过约等于链上全部守门对该提交作废,AGENTS §12e/§12f)。
- *     取不到 ⇒ **exit 2 未判定**并点名路径,**不回退磁盘**、不记通过。
- *   - 缺省 / `face:'worktree'` ⇒ **工作树磁盘**(既有全量档行为逐字不变;CI 与 `check:all` 用它,
- *     它们没有"别人的在飞改动"这个问题,干净检出上索引==HEAD)。
+ * 判定面(2026-09-28 立,2026-10-16 收口到 AGENTS §0.4 三面口径,与守门 70/118 同律):
+ *   - 缺省 / `face:'head'` ⇒ **HEAD blob**:清单经 `git ls-tree -r HEAD` 枚举,内容经一次
+ *     `cat-file --batch` 读满(`HEAD:<rel>` 规格)—— 清单与内容**同面同轮**。全量档判提交真正
+ *     带上的那一份,共享工作树上别人未提交的磁盘改动(含"HEAD 已删而盘上仍留一份等字节副本"
+ *     这种残留)一律不参与判定。2026-10-16 实测:磁盘档把 miniapp-taro 一枚孤儿键判成绿,而 CI
+ *     在干净检出判红 —— 差的就是那 4 份已随 `a86e4cc821` 摘除、盘上却没被刷掉的组件残留。
+ *   - `face:'staged'` ⇒ **索引 blob**:同一套装配,规格换成 `:<rel>`(清单 = `git ls-files -z`)。
+ *     提交链门禁档:并行会话未暂存的半编辑态结构上进不了索引,所以判不红本次提交(立项成因:本步
+ *     作为批外 blocking 曾因他人未提交的 apps/web/app/status/page.tsx 红过,各会话唯一出路是
+ *     --no-verify,一次绕过约等于链上全部守门作废,AGENTS §12e/§12f)。
+ *   - `face:'worktree'` ⇒ **工作树磁盘**:人工逃生舱,只用于"我就是要看盘上现在什么样"。
+ *   两面旗同给 ⇒ 由入口 exit 2(判据互斥)。任何 git 面取不到 ⇒ **exit 2 未判定**并点名原因,
+ *   **不回退磁盘**、不记通过;枚举到 0 个可扫源码同样判死不记绿。
  *
  * 跳过条件:
- *   - messagesPath 不存在(messages 目录缺失,如 desktop 端;staged 档 = 不在索引面)
+ *   - messagesPath 不存在(messages 目录缺失,如 desktop 端;git 面 = 不在该面上)
  *   - scanTargets 为空数组(端无 JS 代码,如 desktop 端)
  *   两种情况都直接 exit 0,不计入死 key。
  */
@@ -102,7 +105,8 @@ const EXCLUDE_FILE_PATTERNS = [
 // 简化为只匹配 key 部分 `t('a.b'`,允许嵌套调用内层也被识别。配合 stripComments 剥离注释避免假引用。
 // 注:简化后 false positive 风险低 — 字符串字面量里 `t('a.b.c')` 形式极罕见,且 i18n key 不含特殊字符。
 // 历史追溯:此前所有现有测试(单参/多参/嵌套对象/同行多调用)在简化后仍 pass,行为一致。
-export const STATIC_T_RE = /\b(?:t|tt|tr)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
+export const STATIC_T_RE =
+  /\b(?:t|tt|tr)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
 // 2026-07-26 新增:tList('key') 字符串数组辅助函数识别
 // 背景:miniapp-taro useI18n() 返回 tList 函数,用于读取字符串数组(appPermission.names/descs, course.ratingLabels 等),
 // 普遍存在于 about/app-permission、ai/chat、ai/image、course/detail、plaza/set-need、vip/upgrade、study/publish 等页面。
@@ -223,7 +227,8 @@ export const WRAPPER_ARG_KEY_RE = /,\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-
 // 背景:miniapp-taro pkg-shop/pay/result/index.tsx 用 `pending: ['pay.result.pending', '支付处理中']`
 // [key, fallback] 数组元组形式引用 key,首元素引号前是 `[` 而非空白,
 // 原 `(?:^|\s)` 不命中,导致 pay.result.pending / pay.result.failed 2 个 key 被误判为死 key。
-export const STRING_ARRAY_KEY_RE = /(?:^|[\s[(])['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
+export const STRING_ARRAY_KEY_RE =
+  /(?:^|[\s[(])['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
 // 2026-08-21 新增:JSX prop 传递 i18n key (emptyKey/descKey/titleKey 等)
 // 背景:extension FollowingPage/FansPage 用 `<EmptyState emptyKey="page.follow.emptyFollowing" />` JSX prop 形式
 // 传递 i18n key,原扫描器只识别冒号赋值(PROP_KEY_RE)不识别等号(JSX prop),导致 emptyFollowing/emptyFans 误判。
@@ -328,7 +333,19 @@ export function walkDir(dir, out = []) {
  * @param {string[]} scanTargets 相对根的目录清单(与磁盘档同一份配置)
  */
 export function indexScannableRels(root, scanTargets) {
-  const out = gitRaw(['ls-files', '-z', '--', ...scanTargets], root, { timeout: 120000 })
+  return relsFromGit(['ls-files', '-z', '--', ...scanTargets], root)
+}
+
+/**
+ * HEAD 面枚举:清单来自 `git ls-tree -r HEAD`(提交真正带上的那一份),
+ * 与索引档共用同一份剪枝/归一化/排序实现 —— 不允许"索引一套目录规则、HEAD 另一套"。
+ */
+export function headScannableRels(root, scanTargets) {
+  return relsFromGit(['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ...scanTargets], root)
+}
+
+function relsFromGit(args, root) {
+  const out = gitRaw(args, root, { timeout: 120000 })
   return out
     .split('\0')
     .filter(Boolean)
@@ -360,7 +377,9 @@ export function scanTexts(items) {
     // :328-335 用 `${NS}.${quadrant}.${phase}.${index}` 运行时拼出全池 76 键,静态正则一条都看不见 ⇒
     // 四端各报 76 枚假死键(rn / cli / extension / taro,三票独立取证同一根因)。
     // 只扩 usedNamespaces、不改正则、不动端 scanTargets ⇒ 不引入假阴,也不把别端专属键倒灌成本端存活。
-    for (const dm of codeOnly.matchAll(/\b([A-Z][A-Z0-9_]*I18N_NAMESPACE)\s*=\s*['"]([a-zA-Z][a-zA-Z0-9_]*)['"]/g)) {
+    for (const dm of codeOnly.matchAll(
+      /\b([A-Z][A-Z0-9_]*I18N_NAMESPACE)\s*=\s*['"]([a-zA-Z][a-zA-Z0-9_]*)['"]/g,
+    )) {
       usedNamespaces.add(dm[2])
     }
     const lines = content.split('\n')
@@ -568,19 +587,26 @@ export function contractEntriesFor(raw, target) {
   const block = targets[target]
   if (block === undefined || block === null) return { entries, issues }
   if (typeof block !== 'object' || Array.isArray(block)) {
-    return { entries, issues: [{ key: target, problems: ['targets.<端> 必须是「键 → 声明对象」的字典'] }] }
+    return {
+      entries,
+      issues: [{ key: target, problems: ['targets.<端> 必须是「键 → 声明对象」的字典'] }],
+    }
   }
   for (const [key, decl] of Object.entries(block)) {
     const problems = []
     let reason = ''
     let evidence = []
-    if (!decl || typeof decl !== 'object' || Array.isArray(decl)) problems.push('声明必须是对象 { reason, evidence }')
+    if (!decl || typeof decl !== 'object' || Array.isArray(decl))
+      problems.push('声明必须是对象 { reason, evidence }')
     else {
       reason = typeof decl.reason === 'string' ? decl.reason.trim() : ''
       if (reason.length < CONTRACT_REASON_MIN_CHARS)
-        problems.push(`reason 必须是不短于 ${CONTRACT_REASON_MIN_CHARS} 字的理由(现 ${reason.length} 字)`)
+        problems.push(
+          `reason 必须是不短于 ${CONTRACT_REASON_MIN_CHARS} 字的理由(现 ${reason.length} 字)`,
+        )
       const rawEvidence = decl.evidence
-      if (!Array.isArray(rawEvidence) || rawEvidence.length === 0) problems.push('evidence 至少 1 条,且每条都要可核验')
+      if (!Array.isArray(rawEvidence) || rawEvidence.length === 0)
+        problems.push('evidence 至少 1 条,且每条都要可核验')
       else {
         evidence = []
         rawEvidence.forEach((e, i) => {
@@ -593,9 +619,14 @@ export function contractEntriesFor(raw, target) {
           const okText = typeof e.contains === 'string' && e.contains.trim() !== ''
           if (!okFile) problems.push(`evidence[${i}].file 必须是非空字符串`)
           if (!okLine) problems.push(`evidence[${i}].line 必须是 ≥1 的整数`)
-          if (!okText) problems.push(`evidence[${i}].contains 必须是非空字符串(HEAD 该行必须真的含它)`)
+          if (!okText)
+            problems.push(`evidence[${i}].contains 必须是非空字符串(HEAD 该行必须真的含它)`)
           if (okFile && okLine && okText)
-            evidence.push({ file: e.file.trim().split('\\').join('/'), line: e.line, contains: e.contains })
+            evidence.push({
+              file: e.file.trim().split('\\').join('/'),
+              line: e.line,
+              contains: e.contains,
+            })
         })
       }
     }
@@ -619,7 +650,14 @@ export function contractEntriesFor(raw, target) {
  * @param {string} [p.faceLabel='HEAD'] - 结论文案里的面名(全量档 HEAD / --staged 档「索引面」)
  * @returns {{ violations: Array<{key:string,code:string,msg:string}>, exempted: Array<{key:string,reason:string,evidence:Array<Object>}> }}
  */
-export function verifyContractEntries({ entries, leafKeys, deadKeys, readHead, target = '', faceLabel = 'HEAD' }) {
+export function verifyContractEntries({
+  entries,
+  leafKeys,
+  deadKeys,
+  readHead,
+  target = '',
+  faceLabel = 'HEAD',
+}) {
   const violations = []
   const exempted = []
   for (const [key, decl] of entries) {
@@ -641,12 +679,16 @@ export function verifyContractEntries({ entries, leafKeys, deadKeys, readHead, t
       }
       const lines = content.split(/\r?\n/)
       if (ev.line > lines.length) {
-        evidenceProblems.push(`${ev.file}:${ev.line} 行号越界(${faceLabel} 该文件共 ${lines.length} 行)`)
+        evidenceProblems.push(
+          `${ev.file}:${ev.line} 行号越界(${faceLabel} 该文件共 ${lines.length} 行)`,
+        )
         continue
       }
       const text = lines[ev.line - 1] ?? ''
       if (!text.includes(ev.contains)) {
-        evidenceProblems.push(`${ev.file}:${ev.line} 该行不含被引用的标识符 ${JSON.stringify(ev.contains)}(依据已漂移)`)
+        evidenceProblems.push(
+          `${ev.file}:${ev.line} 该行不含被引用的标识符 ${JSON.stringify(ev.contains)}(依据已漂移)`,
+        )
       }
     }
     if (evidenceProblems.length > 0) {
@@ -712,7 +754,7 @@ export function makeHeadReader(root = ROOT) {
  * @param {boolean} [opts.exitOnDead=false] - 发现死 key 时返回 1
  * @param {string|null} [opts.out=null] - 自定义输出路径(覆盖 outputPattern)
  * @param {string} [opts.scriptName] - 日志前缀(默认 scan-{name}-dead-i18n-keys)
- * @param {'worktree'|'staged'} [opts.face='worktree'] - 判定面:磁盘(缺省,既有全量行为)或索引 blob(提交链)
+ * @param {'head'|'staged'|'worktree'} [opts.face='head'] - 判定面:HEAD blob(缺省全量档)/ 索引 blob(提交链)/ 磁盘(人工逃生舱)
  * @param {string} [opts.root] - 仓库根(缺省 = 模块加载时的 process.cwd(),即既有 CLI 契约;
  *                               提交链与测试请显式传入)
  * @param {unknown} [opts.contractPreload] - 契约文件已解析内容(入口按同一面预读后传入,免二次取材)
@@ -729,23 +771,23 @@ export function main(opts) {
     exitOnDead = false,
     out = null,
     scriptName,
-    face = 'worktree',
+    face = 'head',
     root = ROOT,
     contractPreload,
   } = opts
 
   const TAG = scriptName || `scan-${name}-dead-i18n-keys`
   const TODAY = new Date().toISOString().slice(0, 10)
-  const STAGED_FACE = face === 'staged'
+  const GIT_FACE = face === 'staged' || face === 'head'
+  const FACE_TXT = face === 'staged' ? '索引' : 'HEAD'
+  const specOf = (rel) => (face === 'staged' ? `:${rel}` : `HEAD:${rel}`)
   const messagesRel = messagesPath.split('\\').join('/')
   const LOCALE_DIR_REL = messagesRel.slice(0, messagesRel.lastIndexOf('/'))
   const ZH_CN_PATH = path.join(root, messagesPath)
   // 语言包 rel 一律 POSIX 风格:索引面拿它拼 `:<rel>` 喂 cat-file(git 只认 `/`,
   // 而 Windows 的 path.join 给反斜杠 ⇒ 索引面全部"取不到",曾把 --staged 整档静默判成"跳过")。
   // 磁盘档拼绝对路径时 path.join 本身也吃正斜杠,两同一面。
-  const LOCALE_PATHS = Object.fromEntries(
-    LOCALES.map((l) => [l, `${LOCALE_DIR_REL}/${l}.json`]),
-  )
+  const LOCALE_PATHS = Object.fromEntries(LOCALES.map((l) => [l, `${LOCALE_DIR_REL}/${l}.json`]))
   const SCAN_TARGETS = scanTargets.map((t) => path.join(root, t))
 
   const dieUndetermined = (msg) => {
@@ -759,55 +801,67 @@ export function main(opts) {
     return 0
   }
 
-  // ── 取材面装配(2026-09-28 立;清单与内容**同面同轮**,不得"键来自磁盘、引用来自 git"或反之)──
+  // ── 取材面装配(2026-09-28 立,2026-10-16 收到 §0.4 三面;清单与内容**同面同轮**,
+  //    不得"键来自磁盘、引用来自 git"或反之)──
   /** rel -> 内容 | null;null 仅由"面上确实没有/取不到"产生,由调用方定性 */
   let faceTexts = null
-  /** 索引面枚举出的语料清单 —— **只枚举一次**,与内容同轮(二次 ls-files 可能跨并发写索引,清单与批读错位) */
-  let stagedCorpusRels = null
-  if (STAGED_FACE) {
+  /** git 面枚举出的语料清单 —— **只枚举一次**,与内容同轮(二次枚举可能跨并发写索引或换 HEAD,清单与批读错位) */
+  let gitCorpusRels = null
+  if (GIT_FACE) {
+    const enumLabel = face === 'staged' ? 'git ls-files' : 'git ls-tree -r HEAD'
     try {
-      assertRepoRoot(root, `[${TAG}] --staged 判定面`)
+      assertRepoRoot(root, `[${TAG}] ${face} 判定面`)
     } catch (e) {
-      return dieUndetermined(`仓库基准不成立:${e instanceof Undetermined ? e.message : e?.message ?? String(e)}`)
+      return dieUndetermined(
+        `仓库基准不成立:${e instanceof Undetermined ? e.message : (e?.message ?? String(e))}`,
+      )
     }
     const localeRels = LOCALES.map((l) => LOCALE_PATHS[l])
     try {
-      stagedCorpusRels = indexScannableRels(root, scanTargets)
+      gitCorpusRels =
+        face === 'staged'
+          ? indexScannableRels(root, scanTargets)
+          : headScannableRels(root, scanTargets)
     } catch (e) {
       return dieUndetermined(
-        `索引面枚举(git ls-files)失败,且**不回退磁盘**:${e instanceof Undetermined ? e.message : e?.message ?? String(e)}`,
+        `${FACE_TXT}面枚举(${enumLabel})失败,且**不回退磁盘**:${e instanceof Undetermined ? e.message : (e?.message ?? String(e))}`,
       )
     }
-    // 枚举到 0 个可扫源码 = 判据失明,不是"这一端干净"(与守门 70/118"空扫不记绿"同口径)
-    if (stagedCorpusRels.length === 0) {
-      return dieUndetermined(
-        `索引面在 [${scanTargets.join(', ')}] 枚举到 0 个可扫源码文件 —— 判据失效不计通过`,
-      )
-    }
-    const rels = [...localeRels, CONTRACT_FILE_REL, ...stagedCorpusRels]
-    const specs = rels.map((r) => `:${r}`)
+    // 枚举到 0 个可扫源码 = 判据失明,不是"这一端干净"(与守门 70/118"空扫不记绿"同口径);
+    // 但**排在"基准语言文件不在面上 ⇒ 跳过"之后** —— 端无独立 i18n(如 desktop)是既有的跳过语义,
+    // 磁盘档与 git 档必须同序,否则同一份树在两面给出两种结论(2026-10-16:夹具端无 web 词包时,
+    // 先判 0 源码会把"跳过"改成"未判定",--target all 的聚合因此被一枚 2 顶掉真正的红)。
+    const rels = [...localeRels, CONTRACT_FILE_REL, ...gitCorpusRels]
+    const specs = rels.map(specOf)
     console.log(
-      `[${TAG}] 判定面: 索引 blob(git ls-files + 一次 cat-file --batch 读满 ${specs.length} 个对象;` +
-        `盘上未暂存的并行改动不参与本次判定 —— 盘上随后改对不算修好,提交进去的仍是索引这一份)`,
+      `[${TAG}] 判定面: ${FACE_TXT} blob(${enumLabel} + 一次 cat-file --batch 读满 ${specs.length} 个对象;` +
+        `盘上未提交的并行改动不参与本次判定 —— 盘上随后改对不算修好,判的仍是${FACE_TXT}这一份)`,
     )
     try {
       const got = catBatch(root, specs, { maxBuffer: 1 << 29, timeout: 120000 })
       faceTexts = new Map()
-      for (const r of rels) faceTexts.set(r, got.get(`:${r}`) ?? null)
+      for (const r of rels) faceTexts.set(r, got.get(specOf(r)) ?? null)
     } catch (e) {
       return dieUndetermined(
-        `索引 blob 一次批量读取失败,且**不回退磁盘**:${e instanceof Undetermined ? e.message : e?.message ?? String(e)}`,
+        `${FACE_TXT} blob 一次批量读取失败,且**不回退磁盘**:${e instanceof Undetermined ? e.message : (e?.message ?? String(e))}`,
       )
     }
-    // 基准语言文件不在索引面 = 与磁盘档"messages 目录缺失(端无独立 i18n)"同一跳过语义
+    // 基准语言文件不在该面 = 与磁盘档"messages 目录缺失(端无独立 i18n)"同一跳过语义
     if (typeof faceTexts.get(LOCALE_PATHS['zh-CN']) !== 'string') {
       console.log(
-        `[${TAG}] 跳过:基准语言文件不在索引面 ${LOCALE_PATHS['zh-CN']}(端无独立 i18n)`,
+        `[${TAG}] 跳过:基准语言文件不在${FACE_TXT}面 ${LOCALE_PATHS['zh-CN']}(端无独立 i18n)`,
       )
       return 0
     }
+    if (gitCorpusRels.length === 0) {
+      return dieUndetermined(
+        `${FACE_TXT}面在 [${scanTargets.join(', ')}] 枚举到 0 个可扫源码文件 —— 判据失效不计通过`,
+      )
+    }
   } else {
-    console.log(`[${TAG}] 判定面: 工作树磁盘(缺省全量档;提交链门禁请用 --staged 判索引 blob)`)
+    console.log(
+      `[${TAG}] 判定面: 工作树磁盘(--worktree 人工逃生舱;缺省全量档判 HEAD blob,提交链门禁判 --staged 索引 blob)`,
+    )
     // 0. 跳过条件:messages 不存在(端无独立 i18n,如 desktop)
     if (!fs.existsSync(ZH_CN_PATH)) {
       console.log(
@@ -829,14 +883,14 @@ export function main(opts) {
   console.log(`[${TAG}] target=${name} 加载基准: ${messagesRel}`)
   const localeData = {}
   let leafKeys
-  if (STAGED_FACE) {
+  if (GIT_FACE) {
     leafKeys = flatten(parseFaceJson(messagesRel, faceTexts.get(LOCALE_PATHS['zh-CN'])))
     localeData['zh-CN'] = { keys: leafKeys }
     for (const l of LOCALES) {
       if (l === 'zh-CN') continue
       const text = faceTexts.get(LOCALE_PATHS[l])
       if (typeof text !== 'string') {
-        console.warn(`[${TAG}] 警告:语言文件不在索引面: ${LOCALE_PATHS[l]}`)
+        console.warn(`[${TAG}] 警告:语言文件不在${FACE_TXT}面: ${LOCALE_PATHS[l]}`)
         localeData[l] = { keys: new Set() }
         continue
       }
@@ -855,18 +909,16 @@ export function main(opts) {
         continue
       }
       localeData[l] = { keys: flatten(loadJson(abs)) }
-      console.log(
-        `[${TAG}] 加载: ${path.relative(root, abs)} (${localeData[l].keys.size} keys)`,
-      )
+      console.log(`[${TAG}] 加载: ${path.relative(root, abs)} (${localeData[l].keys.size} keys)`)
     }
   }
 
   // 2. 扫描代码(同一面的参照语料;清单 = 装配那一轮枚举的那一份,不再二次 ls-files)
   let scan
-  if (STAGED_FACE) {
+  if (GIT_FACE) {
     const items = []
     const unreadable = []
-    for (const rel of stagedCorpusRels) {
+    for (const rel of gitCorpusRels) {
       const text = faceTexts.get(rel)
       if (typeof text !== 'string') {
         unreadable.push(rel) // unmerged / 非 blob / 输出错位 ⇒ 面上取不到正文,逐条点名
@@ -899,11 +951,11 @@ export function main(opts) {
     if (!staticRefs.has(k) && !isInUsedNamespace(k, usedNamespaces)) deadKeys.add(k)
   }
   // 3b. 契约键声明:仅把「有依据且依据已在判定面上逐条核验」的键从死键判定里免除(见文件头注释)。
-  //     --staged 档:契约文件与依据文件都取**索引面**(与语料同面;HEAD 档沿用既有语义 ——
-  //     契约读磁盘、依据按 HEAD 核验 —— 逐字不变,收紧只发生在提交链那一档)。
-  const contractFaceLabel = STAGED_FACE ? '索引面' : 'HEAD'
+  //     git 面(HEAD / --staged):契约文件与依据文件都取**被审那一面**(与语料同面同轮);
+  //     磁盘逃生舱沿用既有语义 —— 契约读磁盘、依据按 HEAD 核验。
+  const contractFaceLabel = face === 'staged' ? '索引面' : 'HEAD'
   let contractRaw = null
-  if (STAGED_FACE) {
+  if (GIT_FACE) {
     if (contractPreload !== undefined) contractRaw = contractPreload
     else {
       const text = faceTexts.get(CONTRACT_FILE_REL)
@@ -912,20 +964,23 @@ export function main(opts) {
   } else {
     contractRaw = contractPreload !== undefined ? contractPreload : loadContractFile(root).raw
   }
-  const { entries: contractEntries, issues: contractShapeIssues } = contractEntriesFor(contractRaw, name)
+  const { entries: contractEntries, issues: contractShapeIssues } = contractEntriesFor(
+    contractRaw,
+    name,
+  )
   const evidenceTexts = new Map()
-  if (STAGED_FACE && contractEntries.size > 0) {
+  if (GIT_FACE && contractEntries.size > 0) {
     const evRels = new Set()
     for (const decl of contractEntries.values()) for (const ev of decl.evidence) evRels.add(ev.file)
     const rels = [...evRels]
     if (rels.length > 0) {
       try {
-        const specs = rels.map((r) => `:${r}`)
+        const specs = rels.map(specOf)
         const got = catBatch(root, specs, { maxBuffer: 1 << 29, timeout: 120000 })
         for (let i = 0; i < rels.length; i++) evidenceTexts.set(rels[i], got.get(specs[i]) ?? null)
       } catch (e) {
         return dieUndetermined(
-          `契约依据文件在索引面取不到(${rels.length} 个),**不回退磁盘**:${e instanceof Undetermined ? e.message : e?.message ?? String(e)}`,
+          `契约依据文件在${FACE_TXT}面取不到(${rels.length} 个),**不回退磁盘**:${e instanceof Undetermined ? e.message : (e?.message ?? String(e))}`,
         )
       }
     }
@@ -934,7 +989,7 @@ export function main(opts) {
     entries: contractEntries,
     leafKeys,
     deadKeys,
-    readHead: STAGED_FACE ? (rel) => evidenceTexts.get(rel) ?? null : makeHeadReader(root),
+    readHead: GIT_FACE ? (rel) => evidenceTexts.get(rel) ?? null : makeHeadReader(root),
     target: name,
     faceLabel: contractFaceLabel,
   })
@@ -946,11 +1001,14 @@ export function main(opts) {
     )
     for (const e of contractExempted) {
       console.log(`  - \`${e.key}\` ← ${e.reason}`)
-      for (const ev of e.evidence) console.log(`      依据 ${ev.file}:${ev.line}(须含 ${JSON.stringify(ev.contains)})`)
+      for (const ev of e.evidence)
+        console.log(`      依据 ${ev.file}:${ev.line}(须含 ${JSON.stringify(ev.contains)})`)
     }
   }
   for (const issue of contractShapeIssues) {
-    console.error(`[${TAG}] ❌ ${CONTRACT_FILE_REL} 形状不合法 [${issue.key}]:${issue.problems.join('; ')}`)
+    console.error(
+      `[${TAG}] ❌ ${CONTRACT_FILE_REL} 形状不合法 [${issue.key}]:${issue.problems.join('; ')}`,
+    )
   }
   for (const v of contractViolations) {
     console.error(`[${TAG}] ❌ ${CONTRACT_FILE_REL} 声明失效 [${v.code}] ${v.key}:${v.msg}`)
@@ -1001,8 +1059,8 @@ export function main(opts) {
 
   // 5b. --staged 档不写报告:提交链审计不得在盘上留新产物(全量档的报告行为逐字保留,
   //     CI / check:all 仍产出 .ihui-agent/tmp/i18n-dead-keys-*.md)。
-  if (STAGED_FACE) {
-    console.log(`\n[${TAG}] --staged 档:不写报告文件(结论已在 stdout;需要报告请跑缺省全量档)`)
+  if (face === 'staged') {
+    console.log(`\n[${TAG}] --staged 档:不写报告文件(结论已在 stdout;需要报告请跑全量档)`)
     if (contractHardFail) return 1
     if (exitOnDead && deadCount > 0) {
       console.error(`[${TAG}] --exit 1:发现 ${deadCount} 个死 key:`)
@@ -1019,12 +1077,18 @@ export function main(opts) {
   L()
   L(`> 自动生成 by \`scripts/${TAG}.mjs\`(2026-07-26 公共函数抽象到 _i18n-scan-helpers.mjs)`)
   L(`> target=${name},messagesPath=${messagesPath}`)
-  L('> 判定面:**工作树磁盘(缺省全量档)** —— 干净检出(CI / check:all)上索引==HEAD==磁盘,三面同值')
+  L(
+    `> 判定面:**${
+      face === 'head'
+        ? 'HEAD blob(缺省全量档)'
+        : face === 'staged'
+          ? '索引 blob'
+          : '工作树磁盘(--worktree 人工逃生舱)'
+    }** —— 干净检出(CI)上三面同值;共享工作树上只有 HEAD 面等于"提交真正带上的那一份"`,
+  )
   L('## 总览')
   L(`- target:**${name}**`)
-  L(
-    `- 扫描文件:5 语言(\`${LOCALES.map((l) => LOCALE_PATHS[l]).join('`, `')}\`)`,
-  )
+  L(`- 扫描文件:5 语言(\`${LOCALES.map((l) => LOCALE_PATHS[l]).join('`, `')}\`)`)
   L(`- 递归 leaf key 总数:**${totalLeaves}**`)
   L(`- 代码静态引用 key(全路径 \`t('a.b.c')\` 形式):**${totalRefs}**(去重)`)
   L(
@@ -1057,7 +1121,8 @@ export function main(opts) {
   }
   if (contractShapeIssues.length + contractViolations.length > 0) {
     L('### ❌ 声明失效清单(必改,不影响退出码的"死键"语义)')
-    for (const issue of contractShapeIssues) L(`- [SHAPE] \`${issue.key}\`:${issue.problems.join(';')}`)
+    for (const issue of contractShapeIssues)
+      L(`- [SHAPE] \`${issue.key}\`:${issue.problems.join(';')}`)
     for (const v of contractViolations) L(`- [${v.code}] \`${v.key}\`:${v.msg}`)
   }
   L('## 翻译不完整 key 列表(5 语言中任一缺失)')

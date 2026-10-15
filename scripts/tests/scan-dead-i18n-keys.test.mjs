@@ -73,7 +73,11 @@ before(() => {
 
 after(() => {
   process.chdir(ORIGINAL_CWD)
-  try { rmScratch(tmpDir) } catch { /* 清理失败不影响结果 */ }
+  try {
+    rmScratch(tmpDir)
+  } catch {
+    /* 清理失败不影响结果 */
+  }
 })
 
 // 每个测试前清空临时目录内容(保留目录本身),保证隔离
@@ -128,6 +132,48 @@ function setupFixture({ target, zhCN, otherLocales = {}, codeFiles = {} }) {
     fs.mkdirSync(path.dirname(full), { recursive: true })
     fs.writeFileSync(full, content, 'utf8')
   }
+  // 2026-10-16:缺省全量档判 HEAD blob,所以夹具必须自带提交面(纯目录树喂不了被审面 ⇒ exit 2 未判定)
+  commitTmpDir()
+}
+
+/**
+ * 在 mkScratch 夹具仓里跑 git —— 本文件所有"造提交面"的动作共用这一份(§0.6 单一真相源:
+ * 两处各写一份 spawn 参数,漂移的那一处会把夹具静默留在"磁盘有、面上没有"的形态)。
+ * 不吃的子进程必须显式给 stdio,否则本机报 spawnSync EBUSY(§12g 2026-10-03 实测)。
+ */
+const GIT_IN_TESTS = process.env.IHUI_GIT_BIN || resolveGitBin() || 'git'
+
+function gitInScratch(args, env = {}) {
+  return spawnSync(GIT_IN_TESTS, ['-c', 'safe.directory=*', '-C', tmpDir, ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 30_000,
+    env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', ...env },
+  })
+}
+
+/**
+ * 把 tmpDir 变成真 git 仓并提交当前内容 —— 缺省全量档判 HEAD blob,夹具必须自带提交面。
+ * tmpDir 由 mkScratch 落在仓库外,beforeEach 会连 .git 一起清空,不会留嵌套仓(§15c)。
+ */
+function commitTmpDir(message = 'fixture') {
+  const init = gitInScratch(['init', '-q'])
+  assert.equal(init.status, 0, `git init 失败:${init.stderr}`)
+  assert.equal(gitInScratch(['add', '-A']).status, 0, 'git add 失败')
+  const commit = gitInScratch([
+    '-c',
+    'user.name=fixture',
+    '-c',
+    'user.email=fixture@example.invalid',
+    '-c',
+    'commit.gpgsign=false',
+    'commit',
+    '-q',
+    '-m',
+    message,
+  ])
+  assert.equal(commit.status, 0, `git commit 失败:${commit.stderr}${commit.stdout}`)
 }
 
 describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
@@ -172,7 +218,11 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
       },
     })
     const { status } = runCli(['--target', 'miniapp-taro', '--dry-run', '--exit', '1'])
-    assert.equal(status, 0, 'miniapp-taro target 应扫描 apps/miniapp-taro/src,所有 key 引用 → exit 0')
+    assert.equal(
+      status,
+      0,
+      'miniapp-taro target 应扫描 apps/miniapp-taro/src,所有 key 引用 → exit 0',
+    )
   })
 
   test('场景 5:--target mobile-rn → 使用 mobile-rn 配置扫描', () => {
@@ -202,7 +252,11 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
       },
     })
     const { status } = runCli(['--target', 'extension', '--dry-run', '--exit', '1'])
-    assert.equal(status, 0, 'extension target 3 个目录(entrypoints/src/lib)都被扫描,所有 key 引用 → exit 0')
+    assert.equal(
+      status,
+      0,
+      'extension target 3 个目录(entrypoints/src/lib)都被扫描,所有 key 引用 → exit 0',
+    )
   })
 
   test('场景 7:--target unknown → exit 1,stderr 含错误', () => {
@@ -294,7 +348,11 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
     runCli([]) // 无 --dry-run,无 --out,使用默认 outputPattern
     const today = new Date().toISOString().slice(0, 10)
     const expectedReport = path.join(tmpDir, `.ihui-agent/tmp/i18n-dead-keys-${today}.md`)
-    assert.equal(fs.existsSync(expectedReport), true, 'web 默认输出路径应为 i18n-dead-keys-{date}.md(无 target 后缀)')
+    assert.equal(
+      fs.existsSync(expectedReport),
+      true,
+      'web 默认输出路径应为 i18n-dead-keys-{date}.md(无 target 后缀)',
+    )
   })
 
   test('场景 13:非 web 输出路径模式 i18n-dead-keys-{date}-{target}.md', () => {
@@ -308,7 +366,11 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
     runCli(['--target', 'extension'])
     const today = new Date().toISOString().slice(0, 10)
     const expectedReport = path.join(tmpDir, `.ihui-agent/tmp/i18n-dead-keys-${today}-extension.md`)
-    assert.equal(fs.existsSync(expectedReport), true, '非 web 输出路径应为 i18n-dead-keys-{date}-{target}.md')
+    assert.equal(
+      fs.existsSync(expectedReport),
+      true,
+      '非 web 输出路径应为 i18n-dead-keys-{date}-{target}.md',
+    )
   })
 
   test('场景 14:web target 扫描多目录(web/src + web/app + miniapp-taro/src + mobile-rn/src + packages/app/src)', () => {
@@ -348,9 +410,17 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
     // 同时创建 web messages(含死 key),验证 extension target 不读它
     const webLocaleDir = path.join(tmpDir, 'packages/i18n/messages/web')
     fs.mkdirSync(webLocaleDir, { recursive: true })
-    fs.writeFileSync(path.join(webLocaleDir, 'zh-CN.json'), JSON.stringify({ web: { dead: 'web 死 key' } }), 'utf8')
+    fs.writeFileSync(
+      path.join(webLocaleDir, 'zh-CN.json'),
+      JSON.stringify({ web: { dead: 'web 死 key' } }),
+      'utf8',
+    )
     const { status } = runCli(['--target', 'extension', '--dry-run', '--exit', '1'])
-    assert.equal(status, 0, 'extension target 读 extension messages(非 web),所有 ext.* 引用 → exit 0')
+    assert.equal(
+      status,
+      0,
+      'extension target 读 extension messages(非 web),所有 ext.* 引用 → exit 0',
+    )
   })
 
   // ── 场景 16-19:--target all 与"跨包消费方必须进 scanTargets"的装车证明 ──
@@ -372,7 +442,11 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
     })
     const { status, stdout } = runCli(['--target', 'all', '--dry-run', '--exit', '1'])
     assert.equal(status, 0, `两端均无死键应 exit 0,实际:\n${stdout}`)
-    assert.match(stdout, /all →.*cli=ok/, '结论行必须逐端列出(只报总 exit 会让"某端没被扫"看着像全绿)')
+    assert.match(
+      stdout,
+      /all →.*cli=ok/,
+      '结论行必须逐端列出(只报总 exit 会让"某端没被扫"看着像全绿)',
+    )
     assert.match(stdout, /extension=ok/, 'extension 必须真被扫到并计入结论')
     assert.match(stdout, /未计入:desktop/, '无 JS 扫描面的端必须写明"未计入",不得静默')
   })
@@ -414,8 +488,12 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
     // 只把取样源从"本脚本正文"改成"配置的唯一出处";下面那半段真跑夹具的证明也原样保留 ——
     // 它才是这条锁真正要护的行为(少了目录 ⇒ 76 枚 waiting.* 误判死键)。
     const src = fs.readFileSync(TARGETS_PATH, 'utf8')
-    const cliBlock = src.slice(src.indexOf("  cli: {"), src.indexOf('  extension: {'))
-    assert.match(cliBlock, /packages\/shared\/src\/chat/, 'cli.scanTargets 必须含 packages/shared/src/chat')
+    const cliBlock = src.slice(src.indexOf('  cli: {'), src.indexOf('  extension: {'))
+    assert.match(
+      cliBlock,
+      /packages\/shared\/src\/chat/,
+      'cli.scanTargets 必须含 packages/shared/src/chat',
+    )
     setupFixture({
       target: 'cli',
       zhCN: { waiting: { agent: { first: { 0: '正在准备' } } } },
@@ -451,7 +529,10 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
 
   test('单元:依据全部可核验 + 键确为死键 → 免除死键判定', () => {
     const entries = entriesOf({
-      'contract.key': { reason: REASON, evidence: [{ file: 'a.ts', line: 2, contains: 'contract.key' }] },
+      'contract.key': {
+        reason: REASON,
+        evidence: [{ file: 'a.ts', line: 2, contains: 'contract.key' }],
+      },
     })
     const { violations, exempted } = verifyContractEntries({
       entries,
@@ -461,12 +542,18 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
       target: 'mobile-rn',
     })
     assert.deepEqual(violations, [])
-    assert.deepEqual(exempted.map((e) => e.key), ['contract.key'])
+    assert.deepEqual(
+      exempted.map((e) => e.key),
+      ['contract.key'],
+    )
   })
 
   test('单元:依据文件不在 HEAD → EVIDENCE_UNVERIFIED 且不免除', () => {
     const entries = entriesOf({
-      'contract.key': { reason: REASON, evidence: [{ file: 'gone.ts', line: 1, contains: 'contract.key' }] },
+      'contract.key': {
+        reason: REASON,
+        evidence: [{ file: 'gone.ts', line: 1, contains: 'contract.key' }],
+      },
     })
     const { violations, exempted } = verifyContractEntries({
       entries,
@@ -499,7 +586,10 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
   test('单元:声明的键不在本端语言包 → KEY_NOT_IN_PACK(防清单腐烂)', () => {
     const { violations } = verifyContractEntries({
       entries: entriesOf({
-        'ghost.key': { reason: REASON, evidence: [{ file: 'a.ts', line: 1, contains: 'ghost.key' }] },
+        'ghost.key': {
+          reason: REASON,
+          evidence: [{ file: 'a.ts', line: 1, contains: 'ghost.key' }],
+        },
       }),
       leafKeys: new Set(['other.key']),
       deadKeys: new Set(),
@@ -512,7 +602,10 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
   test('单元:键已被本端静态引用(不再死) → DECLARATION_UNNEEDED', () => {
     const { violations, exempted } = verifyContractEntries({
       entries: entriesOf({
-        'wired.key': { reason: REASON, evidence: [{ file: 'a.ts', line: 1, contains: 'wired.key' }] },
+        'wired.key': {
+          reason: REASON,
+          evidence: [{ file: 'a.ts', line: 1, contains: 'wired.key' }],
+        },
       }),
       leafKeys: new Set(['wired.key']),
       deadKeys: new Set(),
@@ -528,7 +621,10 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
       {
         targets: {
           'mobile-rn': {
-            'short.reason': { reason: '太短', evidence: [{ file: 'a.ts', line: 1, contains: 'x' }] },
+            'short.reason': {
+              reason: '太短',
+              evidence: [{ file: 'a.ts', line: 1, contains: 'x' }],
+            },
             'bad.line': {
               reason: REASON,
               evidence: [{ file: 'a.ts', line: '1', contains: 'x' }],
@@ -545,10 +641,11 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
   })
 
   test('单元:声明里出现未知 target → 点名(拼错的端名没有读者)', () => {
-    const bogus = unknownContractTargets(
-      { targets: { 'mobile-rn': {}, 'miniapp-ten': {} } },
-      ['web', 'mobile-rn', 'cli'],
-    )
+    const bogus = unknownContractTargets({ targets: { 'mobile-rn': {}, 'miniapp-ten': {} } }, [
+      'web',
+      'mobile-rn',
+      'cli',
+    ])
     assert.deepEqual(bogus, ['miniapp-ten'])
   })
 
@@ -595,26 +692,16 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
       有登记的面 += 1
       const out = runCliOnRealRepo(['--target', target, '--dry-run', '--exit', '1'])
       for (const code of FAILURE_CODES) {
-        assert.ok(!out.includes(code), `${target} 登记了 ${entries.size} 条契约声明,扫描器仍判 ${code}:\n${out}`)
+        assert.ok(
+          !out.includes(code),
+          `${target} 登记了 ${entries.size} 条契约声明,扫描器仍判 ${code}:\n${out}`,
+        )
       }
     }
     console.log(`   契约声明装车:有登记的端 ${有登记的面} 个(为 0 时本条只校验"清单不自红")`)
   })
 
   // ── 端到端:真 HEAD 读取器 ────────────────────────────────────────────────
-
-  const GIT_IN_TESTS = process.env.IHUI_GIT_BIN || resolveGitBin() || 'git'
-
-  function gitInRepo(args) {
-    return spawnSync(GIT_IN_TESTS, ['-c', 'safe.directory=*', '-C', tmpDir, ...args], {
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 30_000,
-      env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1' },
-    })
-  }
 
   /**
    * 写夹具 + git init + commit,使依据文件真的存在于 HEAD。
@@ -624,17 +711,13 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
     for (const [rel, content] of Object.entries(files)) {
       const full = path.join(tmpDir, rel)
       fs.mkdirSync(path.dirname(full), { recursive: true })
-      fs.writeFileSync(full, typeof content === 'string' ? content : JSON.stringify(content, null, 2), 'utf8')
+      fs.writeFileSync(
+        full,
+        typeof content === 'string' ? content : JSON.stringify(content, null, 2),
+        'utf8',
+      )
     }
-    const init = gitInRepo(['init', '-q'])
-    assert.equal(init.status, 0, `git init 失败:${init.stderr}`)
-    const add = gitInRepo(['add', '-A'])
-    assert.equal(add.status, 0, `git add 失败:${add.stderr}`)
-    const commit = gitInRepo([
-      '-c', 'user.name=fixture', '-c', 'user.email=fixture@example.invalid',
-      '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'fixture',
-    ])
-    assert.equal(commit.status, 0, `git commit 失败:${commit.stderr}${commit.stdout}`)
+    commitTmpDir()
   }
 
   /** 五语齐备的本端语言包(避免"翻译不完整"混进退出码断言) */
@@ -659,7 +742,8 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
     setupCommittedFixture({
       ...packsFor(),
       'apps/mobile-rn/src/screen.tsx': "t('used.key')",
-      'packages/shared/src/chat/contract-owner.ts': '// 词表约定:\n//   contract.key\nexport const K = 1\n',
+      'packages/shared/src/chat/contract-owner.ts':
+        '// 词表约定:\n//   contract.key\nexport const K = 1\n',
       [CONTRACT_FILE]: contractWith([
         { file: 'packages/shared/src/chat/contract-owner.ts', line: 2, contains: 'contract.key' },
       ]),
@@ -690,7 +774,8 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
     setupCommittedFixture({
       ...packsFor({}),
       'apps/mobile-rn/src/screen.tsx': "t('used.key')",
-      'packages/shared/src/chat/contract-owner.ts': '// 词表约定:\n//   contract.key\nexport const K = 1\n',
+      'packages/shared/src/chat/contract-owner.ts':
+        '// 词表约定:\n//   contract.key\nexport const K = 1\n',
       [CONTRACT_FILE]: contractWith([
         { file: 'packages/shared/src/chat/contract-owner.ts', line: 2, contains: 'contract.key' },
       ]),
@@ -700,6 +785,7 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
     const obj = JSON.parse(fs.readFileSync(zh, 'utf8'))
     obj.stranded = { orphan: '没人取' }
     fs.writeFileSync(zh, JSON.stringify(obj, null, 2), 'utf8')
+    commitTmpDir('orphan key lands in HEAD')
     const { status, stdout } = runCli(['--target', 'mobile-rn', '--exit', '1'])
     assert.equal(status, 1, '有真孤儿键时必须仍判红 —— 豁免只能是键级的')
     assert.match(stdout, /契约键声明/, '声明那枚照样生效')
@@ -716,7 +802,8 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
     setupCommittedFixture({
       ...packsFor({}),
       'apps/mobile-rn/src/screen.tsx': "t('used.key')",
-      'packages/shared/src/chat/contract-owner.ts': '// 词表约定:\n//   contract.key\nexport const K = 1\n',
+      'packages/shared/src/chat/contract-owner.ts':
+        '// 词表约定:\n//   contract.key\nexport const K = 1\n',
       [CONTRACT_FILE]: contractWith([
         { file: 'packages/shared/src/chat/contract-owner.ts', line: 2, contains: 'contract.key' },
       ]),
@@ -725,6 +812,7 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
     const obj = JSON.parse(fs.readFileSync(en, 'utf8'))
     delete obj.contract.key
     fs.writeFileSync(en, JSON.stringify(obj, null, 2), 'utf8')
+    commitTmpDir('en drops the declared key')
     const { stdout } = runCli(['--target', 'mobile-rn', '--exit', '1'])
     assert.match(stdout, /翻译不完整 key: 1/, '契约声明不得顺手免掉 parity 判据')
   })
@@ -733,7 +821,8 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
     setupCommittedFixture({
       ...packsFor({}),
       'apps/mobile-rn/src/screen.tsx': "t('contract.key')",
-      'packages/shared/src/chat/contract-owner.ts': '// 词表约定:\n//   contract.key\nexport const K = 1\n',
+      'packages/shared/src/chat/contract-owner.ts':
+        '// 词表约定:\n//   contract.key\nexport const K = 1\n',
       [CONTRACT_FILE]: contractWith([
         { file: 'packages/shared/src/chat/contract-owner.ts', line: 2, contains: 'contract.key' },
       ]),
@@ -748,7 +837,15 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
       ...packsFor({}),
       'apps/mobile-rn/src/screen.tsx': "t('contract.key')",
       [CONTRACT_FILE]: {
-        targets: { 'mobile-rn': {}, 'miniapp-ten': { 'contract.key': { reason: REASON, evidence: [{ file: 'x.ts', line: 1, contains: 'x' }] } } },
+        targets: {
+          'mobile-rn': {},
+          'miniapp-ten': {
+            'contract.key': {
+              reason: REASON,
+              evidence: [{ file: 'x.ts', line: 1, contains: 'x' }],
+            },
+          },
+        },
       },
     })
     const { status, stderr } = runCli(['--target', 'mobile-rn', '--exit', '1'])
@@ -786,16 +883,20 @@ describe('isScannableRel(两种取材面共用的判据)', () => {
 })
 
 /**
- * 判定面纪律(--staged,2026-09-28 立)
+ * 判定面纪律(三面:缺省 HEAD blob / --staged 索引 blob / --worktree 磁盘,2026-09-28 立,
+ * 2026-10-16 按 AGENTS §0.4 把缺省档从磁盘收到 HEAD)
  *
  * 立因(实测):本步作为**批外 blocking** 按磁盘判,并行会话未暂存的半编辑态
  * (apps/web/app/status/page.tsx 短暂 orphan `statusPage.*`)把它判红,而红与本次提交无关 ⇒
  * 各会话唯一出路 --no-verify ⇒ 链上 ~185 道门对该提交全部作废(AGENTS §12e/§12f;
- * 证据 .workbuddy/safe-commit-attestation.jsonl 两条 kind:"not-ours" 点名「🌐 i18n 死 key 扫描」)。
+ * 证据 .workbuddy/safe-commit-attestation.jsonl 两条 kind:"not-ours" 点名「🌐 i18n 死 key 扫描」）。
+ * 2026-10-16 补另一向:同一把磁盘尺子在共享工作树上把孤儿键 `Menu.d1` 判成绿(`a86e4cc821` 摘掉的
+ * 消费者在盘上留了 4 份等字节未跟踪副本),CI 却判红 —— "没判"与"判错"两个方向都得有牙。
  *
  * 取证分两层(§22c):
- *   ① 行为面:在**真 git 临时仓**里造"索引 ≠ 磁盘"现场,证明
- *      · 别人的未暂存脏改动判不红本次(--staged 绿)而磁盘档判红(同一夹具、只换一面旗);
+ *   ① 行为面:在**真 git 临时仓**里造"索引 ≠ HEAD ≠ 磁盘"现场,证明
+ *      · 未暂存的磁盘改动只动 --worktree 档,--staged 与缺省(HEAD)档都不为它红(F2);
+ *      · 面上被摘掉的消费者留在盘上时,缺省档照旧判红而磁盘档被顶绿(F2b,本次立项现场);
  *      · 索引里真出现的孤儿键照旧判红(收紧没把牙齿磨掉);
  *      · 同一枚提交里"删引用 + 删键"成对落地 ⇒ 绿;
  *      · 面上取不到 ⇒ exit 2 未判定且**不回退磁盘**(私有索引注入非 blob 条目);
@@ -803,59 +904,47 @@ describe('isScannableRel(两种取材面共用的判据)', () => {
  *      · --staged 档不在磁盘上留报告产物。
  *   ② 源码形状锁:hooks 那一行必须真带 `--staged`(本文件顶层无 isDirectRun,只能读源码);
  *      skip env 必须真被读(AGENTS 明令"文档不得写跑不通的出路");helpers/入口必须真调层的
- *      读取入口 `catBatch(`(守门 118 的 half-wired 判序同形)。
+ *      读取入口 `catBatch(`(守门 118 的 half-wired 判序同形);缺省面必须钉在 head(S3)。
  */
-describe('判定面纪律 --staged(索引 blob,不回退磁盘,未判定≠通过)', () => {
-  const GIT_IN_TESTS = process.env.IHUI_GIT_BIN || resolveGitBin() || 'git'
+describe('判定面纪律(缺省 HEAD blob / --staged 索引 blob / --worktree 磁盘,不回退磁盘,未判定≠通过)', () => {
   const REASON_F = '跨端词包契约键,本端无消费方是设计选择而非孤儿(面纪律套件用)'
   const CONTRACT_FILE_F = 'scripts/i18n-contract-keys.json'
   const contractWithF = (evidence) => ({
     targets: { 'mobile-rn': { 'contract.key': { reason: REASON_F, evidence } } },
   })
 
-  function gitInRepo(args, env = {}) {
-    return spawnSync(GIT_IN_TESTS, ['-c', 'safe.directory=*', '-C', tmpDir, ...args], {
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 30_000,
-      env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', ...env },
-    })
-  }
-
   function write(rel, content) {
     const full = path.join(tmpDir, rel)
     fs.mkdirSync(path.dirname(full), { recursive: true })
-    fs.writeFileSync(full, typeof content === 'string' ? content : JSON.stringify(content, null, 2), 'utf8')
+    fs.writeFileSync(
+      full,
+      typeof content === 'string' ? content : JSON.stringify(content, null, 2),
+      'utf8',
+    )
   }
 
   function readJson(rel) {
     return JSON.parse(fs.readFileSync(path.join(tmpDir, rel), 'utf8'))
   }
 
-  /** 写夹具 + git init + commit(本 describe 自带一份,与上方契约套件的夹具构造各自独立) */
+  /** 写夹具 + git init + commit(取材构造复用模块级 commitTmpDir,本处不再另写一份 git 序列) */
   function setupCommittedFixtureLocal(files) {
     for (const [rel, content] of Object.entries(files)) write(rel, content)
-    const init = gitInRepo(['init', '-q'])
-    assert.equal(init.status, 0, `git init 失败:${init.stderr}`)
-    assert.equal(gitInRepo(['add', '-A']).status, 0)
-    const commit = gitInRepo([
-      '-c', 'user.name=fixture', '-c', 'user.email=fixture@example.invalid',
-      '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'fixture',
-    ])
-    assert.equal(commit.status, 0, `git commit 失败:${commit.stderr}${commit.stdout}`)
+    commitTmpDir()
   }
 
   /** 五语齐备、`hello.world` 被 screen.tsx 静态引用的最小仓;git init + commit(index==HEAD) */
   function setupFaceRepo() {
     const files = {}
     for (const locale of ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']) {
-      files[`packages/i18n/messages/mobile-rn/${locale}.json`] = { hello: { world: `${locale} 值` } }
+      files[`packages/i18n/messages/mobile-rn/${locale}.json`] = {
+        hello: { world: `${locale} 值` },
+      }
     }
     setupCommittedFixtureLocal({
       ...files,
-      'apps/mobile-rn/src/screen.tsx': "import { t } from 'x'\nexport const A = () => t('hello.world')\n",
+      'apps/mobile-rn/src/screen.tsx':
+        "import { t } from 'x'\nexport const A = () => t('hello.world')\n",
     })
   }
 
@@ -863,18 +952,37 @@ describe('判定面纪律 --staged(索引 blob,不回退磁盘,未判定≠通�
     setupFaceRepo()
     const { status, stdout } = runCli(['--target', 'mobile-rn', '--staged', '--exit', '1'])
     assert.equal(status, 0, `应 exit 0:\n${stdout}`)
-    assert.match(stdout, /判定面: 索引 blob/, '必须报出判定面(缺省档同样报,免得把"没判"读成"判过了")')
+    assert.match(
+      stdout,
+      /判定面: 索引 blob/,
+      '必须报出判定面(缺省档同样报,免得把"没判"读成"判过了")',
+    )
   })
 
-  test('F2 成对:别人未暂存的磁盘脏改动判不红 --staged,同一夹具磁盘档判红', () => {
+  test('F2 三面分叉:未暂存磁盘改动只动 --worktree,缺省(HEAD)与 --staged 都不为它红', () => {
     setupFaceRepo()
     // 并行会话把唯一引用改掉,但**没有 git add** —— 危险恰恰在"下一次谁顺手 git add 它才进提交",
-    // 而本枚提交带上去的索引仍是好的:批外 blocking 若按磁盘判,红的就是别人在飞的现场。
+    // 而本枚提交带上去的索引与已落地的 HEAD 都仍是好的:门禁若按磁盘判,红的就是别人在飞的现场。
     write('apps/mobile-rn/src/screen.tsx', "export const A = () => 'no i18n here'\n")
     const staged = runCli(['--target', 'mobile-rn', '--staged', '--exit', '1'])
-    assert.equal(staged.status, 0, `--staged 不得被未暂存磁盘改动判红:\n${staged.stdout}${staged.stderr}`)
-    const disk = runCli(['--target', 'mobile-rn', '--exit', '1'])
-    assert.equal(disk.status, 1, `同一夹具磁盘档必须判红(这条对照证明判据本身有牙):\n${disk.stdout}`)
+    assert.equal(
+      staged.status,
+      0,
+      `--staged 不得被未暂存磁盘改动判红:\n${staged.stdout}${staged.stderr}`,
+    )
+    const head = runCli(['--target', 'mobile-rn', '--exit', '1'])
+    assert.equal(
+      head.status,
+      0,
+      `缺省全量档判 HEAD blob,盘上半编辑态不得计入(它既不是本次提交的内容,也不是已落地的事实):\n${head.stdout}`,
+    )
+    assert.match(head.stdout, /判定面: HEAD blob/, '缺省档必须大声报出自己判的是 HEAD 面')
+    const disk = runCli(['--target', 'mobile-rn', '--worktree', '--exit', '1'])
+    assert.equal(
+      disk.status,
+      1,
+      `同一夹具磁盘档必须判红(这条对照证明判据本身有牙,也证明 --worktree 真吃磁盘):\n${disk.stdout}`,
+    )
     assert.match(disk.stdout, /死 key: 1/, '磁盘档计数必须点名有 1 枚死 key')
     const report = fs
       .readdirSync(path.join(tmpDir, '.ihui-agent', 'tmp'))
@@ -884,13 +992,72 @@ describe('判定面纪律 --staged(索引 blob,不回退磁盘,未判定≠通�
     assert.match(report, /hello\.world/, '磁盘档报告要点名那枚被孤立的键')
   })
 
+  test('F2b 残留现场(2026-10-16 实测型):HEAD 摘掉的消费者留在盘上 ⇒ 缺省档照旧判红,磁盘档被它顶绿', () => {
+    // 立项事故:`a86e4cc821` 把 5 份零消费者组件从提交面摘掉,对象空间落地不刷工作树,
+    // 盘上留下 4 份**逐字节等值**的未跟踪副本。旧缺省档按磁盘扫 ⇒ 那 4 份残留替孤儿键顶绿,
+    // CI 在干净检出判红(本地绿 / CI 红,每次都要有人在 CI 上重新发现一遍)。
+    setupFaceRepo()
+    // 端内还得留一份与 i18n 无关的源码,否则 HEAD 面枚举到 0 = 未判定(那是 F8 的现场,不是本条要的)
+    write('apps/mobile-rn/src/keep.ts', 'export const K = 1\n')
+    assert.equal(gitInScratch(['add', '--', 'apps/mobile-rn/src/keep.ts']).status, 0)
+    assert.equal(
+      gitInScratch([
+        '-c',
+        'user.name=fixture',
+        '-c',
+        'user.email=fixture@example.invalid',
+        '-c',
+        'commit.gpgsign=false',
+        'commit',
+        '-q',
+        '-m',
+        'keep a survivor source file',
+      ]).status,
+      0,
+    )
+    assert.equal(gitInScratch(['rm', '--cached', '-q', 'apps/mobile-rn/src/screen.tsx']).status, 0)
+    const commit = gitInScratch([
+      '-c',
+      'user.name=fixture',
+      '-c',
+      'user.email=fixture@example.invalid',
+      '-c',
+      'commit.gpgsign=false',
+      'commit',
+      '-q',
+      '-m',
+      'drop carrier, keep worktree copy',
+    ])
+    assert.equal(commit.status, 0, `commit 失败:${commit.stderr}`)
+    assert.equal(
+      fs.existsSync(path.join(tmpDir, 'apps/mobile-rn/src/screen.tsx')),
+      true,
+      '夹具要造的正是"面上已无、盘上还在"',
+    )
+    const head = runCli(['--target', 'mobile-rn', '--exit', '1'])
+    assert.equal(head.status, 1, `HEAD 面必须看见那枚被孤立的键(新缺省档有牙):\n${head.stdout}`)
+    assert.match(head.stdout, /死 key: 1/, '缺省档计数必须点名 1 枚')
+    const headReport = fs
+      .readdirSync(path.join(tmpDir, '.ihui-agent', 'tmp'))
+      .filter((f) => f.endsWith('.md'))
+      .map((f) => fs.readFileSync(path.join(tmpDir, '.ihui-agent', 'tmp', f), 'utf8'))
+      .join('\n')
+    assert.match(headReport, /hello\.world/, '报告必须点名是哪枚键')
+    const disk = runCli(['--target', 'mobile-rn', '--worktree', '--exit', '1'])
+    assert.equal(
+      disk.status,
+      0,
+      `磁盘档被残留顶绿正是本次要登记的失效型(对照,不是许可):\n${disk.stdout}`,
+    )
+  })
+
   test('F3 索引里真新增孤儿键 ⇒ --staged exit 1 点名(收紧没把牙齿磨掉)', () => {
     setupFaceRepo()
     const zh = 'packages/i18n/messages/mobile-rn/zh-CN.json'
     const pack = readJson(zh)
     pack.nobody = { reads: '没人取' }
     write(zh, pack)
-    assert.equal(gitInRepo(['add', '--', zh]).status, 0)
+    assert.equal(gitInScratch(['add', '--', zh]).status, 0)
     const { status, stdout, stderr } = runCli(['--target', 'mobile-rn', '--staged', '--exit', '1'])
     assert.equal(status, 1, '本次提交带上去的孤儿键必须红')
     assert.match(`${stdout}${stderr}`, /nobody\.reads/, '必须点名是哪枚键')
@@ -903,7 +1070,7 @@ describe('判定面纪律 --staged(索引 blob,不回退磁盘,未判定≠通�
     const pack = readJson(zh)
     delete pack.hello
     write(zh, pack)
-    assert.equal(gitInRepo(['add', '-A']).status, 0)
+    assert.equal(gitInScratch(['add', '-A']).status, 0)
     const { status, stdout, stderr } = runCli(['--target', 'mobile-rn', '--staged', '--exit', '1'])
     assert.equal(status, 0, `删干净了的提交不该红:\n${stdout}${stderr}`)
   })
@@ -929,12 +1096,12 @@ describe('判定面纪律 --staged(索引 blob,不回退磁盘,未判定≠通�
 
   test('F7 私有索引注入非 blob 条目 ⇒ exit 2 并点名(面上"取不到正文"≠"没有违规")', () => {
     setupFaceRepo()
-    const head = gitInRepo(['rev-parse', 'HEAD']).stdout.trim()
+    const head = gitInScratch(['rev-parse', 'HEAD']).stdout.trim()
     const idx = path.join(tmpDir, '.git', 'evidence.idx').split('\\').join('/')
-    assert.equal(gitInRepo(['read-tree', 'HEAD'], { GIT_INDEX_FILE: idx }).status, 0)
+    assert.equal(gitInScratch(['read-tree', 'HEAD'], { GIT_INDEX_FILE: idx }).status, 0)
     // 160000 = gitlink(commit 对象,不是 blob):ls-files 会把它列进语料,cat-file --batch 给不出
     // `blob` 头 ⇒ 面上"取不到正文"。名字以 z 开头排序在批量末尾,不影响其余对象已读对。
-    const add = gitInRepo(
+    const add = gitInScratch(
       ['update-index', '--add', '--cacheinfo', `160000,${head},apps/mobile-rn/src/zzzevil.ts`],
       { GIT_INDEX_FILE: idx },
     )
@@ -965,13 +1132,17 @@ describe('判定面纪律 --staged(索引 blob,不回退磁盘,未判定≠通�
     const pack = readJson(zh)
     pack.nobody = { reads: '没人取' }
     write(zh, pack)
-    assert.equal(gitInRepo(['add', '--', zh]).status, 0)
+    assert.equal(gitInScratch(['add', '--', zh]).status, 0)
     const { status } = runCli(['--target', 'mobile-rn', '--staged', '--exit', '1']) // 故意不带 --dry-run
     assert.equal(status, 1)
     assert.equal(fs.existsSync(path.join(tmpDir, '.ihui-agent')), false, '--staged 不得写报告文件')
     // 对照:磁盘档不带 --staged 时既有报告行为逐字保留
     runCli(['--target', 'mobile-rn', '--exit', '1'])
-    assert.equal(fs.existsSync(path.join(tmpDir, '.ihui-agent', 'tmp')), true, '全量档仍按旧行为写报告')
+    assert.equal(
+      fs.existsSync(path.join(tmpDir, '.ihui-agent', 'tmp')),
+      true,
+      '全量档仍按旧行为写报告',
+    )
   })
 
   test('F10 契约依据在 --staged 档按索引面核验并如实报面名(清单与内容同面)', () => {
@@ -985,7 +1156,8 @@ describe('判定面纪律 --staged(索引 blob,不回退磁盘,未判定≠通�
     setupCommittedFixtureLocal({
       ...files,
       'apps/mobile-rn/src/screen.tsx': "t('used.key')",
-      'packages/shared/src/chat/contract-owner.ts': '// 词表约定:\n//   contract.key\nexport const K = 1\n',
+      'packages/shared/src/chat/contract-owner.ts':
+        '// 词表约定:\n//   contract.key\nexport const K = 1\n',
       [CONTRACT_FILE_F]: contractWithF([
         { file: 'packages/shared/src/chat/contract-owner.ts', line: 2, contains: 'contract.key' },
       ]),
@@ -1002,9 +1174,21 @@ describe('判定面纪律 --staged(索引 blob,不回退磁盘,未判定≠通�
     const helpers = fs.readFileSync(HELPERS_PATH, 'utf8')
     assert.match(entry, /from\s*['"]\.\/lib\/face-reader\.mjs['"]/, '入口必须引取材层')
     assert.match(entry, /catBatch\s*\(/, '入口必须真调 catBatch 读内容(只 import 不调用 = 半接线)')
-    assert.match(helpers, /catBatch\s*\(/, '公共层批量读必须走层的 catBatch(逐文件 git show = fork 风暴)')
-    assert.match(helpers, /gitRaw\s*\(/, 'ls-files 枚举走层的 gitRaw(绝对 git + timeout + windowsHide)')
-    assert.doesNotMatch(entry, /loadContractFile\(\s*process\.cwd\(\)\s*\)/, '入口不得再以 process.cwd() 定根')
+    assert.match(
+      helpers,
+      /catBatch\s*\(/,
+      '公共层批量读必须走层的 catBatch(逐文件 git show = fork 风暴)',
+    )
+    assert.match(
+      helpers,
+      /gitRaw\s*\(/,
+      'ls-files 枚举走层的 gitRaw(绝对 git + timeout + windowsHide)',
+    )
+    assert.doesNotMatch(
+      entry,
+      /loadContractFile\(\s*process\.cwd\(\)\s*\)/,
+      '入口不得再以 process.cwd() 定根',
+    )
   })
 
   test('S2 提交链那一行必须真带 --staged,且 skip env 真被读(不许跑不通的出路)', () => {
@@ -1019,9 +1203,38 @@ describe('判定面纪律 --staged(索引 blob,不回退磁盘,未判定≠通�
       /'node scripts\/scan-dead-i18n-keys\.mjs --exit 1'/,
       '旧的无 --staged 调用形态不得回来',
     )
-    assert.match(hook, /process\.env\.HUSKY_SKIP_I18N_DEAD_KEY !== '1'/, '应急跳门 env 必须真被脚本读')
+    assert.match(
+      hook,
+      /process\.env\.HUSKY_SKIP_I18N_DEAD_KEY !== '1'/,
+      '应急跳门 env 必须真被脚本读',
+    )
     // 其余 3 端 warn-only 循环与 web 步同口径收面(否则升级 blocking 那天复刻今天的红)
-    assert.match(hook, /scan-\$\{target\}-dead-i18n-keys\.mjs --staged --exit 1/, '4 端循环同样判索引面')
+    assert.match(
+      hook,
+      /scan-\$\{target\}-dead-i18n-keys\.mjs --staged --exit 1/,
+      '4 端循环同样判索引面',
+    )
+  })
+
+  test('S3 缺省档必须钉在 HEAD 面(磁盘当缺省 = 本地绿/CI 红的根因,不得回潮)', () => {
+    const entry = fs.readFileSync(SCRIPT_PATH, 'utf8')
+    const helpers = fs.readFileSync(HELPERS_PATH, 'utf8')
+    assert.match(
+      entry,
+      /selectFace\(\{[^}]*def:\s*'head'[^}]*\}\)/,
+      '入口缺省面必须是 head;写成 worktree 就等于把全量档退回磁盘',
+    )
+    assert.match(
+      helpers,
+      /'ls-tree',\s*'-r',\s*'--name-only',\s*'-z',\s*'HEAD'/,
+      'HEAD 面清单必须由 git ls-tree -r HEAD 枚举(拿磁盘目录树当 HEAD 面 = 换一把尺子)',
+    )
+    assert.match(helpers, /face = 'head'/, 'main() 的缺省 face 参数必须与入口一致(head)')
+    assert.doesNotMatch(
+      helpers,
+      /face = 'worktree',/,
+      '公共层不得再把磁盘当缺省面(入口显式传面,磁盘只经 --worktree 到达)',
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

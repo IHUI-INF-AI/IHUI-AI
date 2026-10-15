@@ -14,7 +14,7 @@
  *   - 默认运行 → exit 0(messagesPath 不存在 → skip)
  *   - --exit 1 参数解析(skip 优先于 exitOnDead)
  *
- *   测试用临时 fixture(在 os.tmpdir() 下创建 + chdir 模拟项目根),
+ *   测试用临时 fixture(mkScratch 落在仓库外的批准临时区 + chdir 模拟项目根),
  *   不依赖项目真实 i18n 文件,符合 AGENTS.md §23(目录用 tests/)。
  *
  *   ⚠️ 关键实现:_i18n-scan-helpers.mjs 顶层 const ROOT = process.cwd() 在模块加载时锁定,
@@ -28,10 +28,9 @@ import { test, describe, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
-import os from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { mkScratch } from '../lib/scratch-dir.mjs'
 
 const ORIGINAL_CWD = process.cwd()
 
@@ -46,6 +45,8 @@ const END_CONFIG = {
   name: 'desktop',
   messagesPath: 'packages/i18n/messages/desktop/zh-CN.json',
   scanTargets: [],
+  // 夹具是无 .git 的 mkScratch 目录:显式声明磁盘档,免得把 main() 的缺省面(HEAD blob)拖进本套件断言
+  face: 'worktree',
   outputPattern: '.ihui-agent/tmp/i18n-desktop-dead-keys-{date}.md',
 }
 
@@ -57,7 +58,7 @@ let tmpDir
 let runScan
 
 before(async () => {
-  tmpDir = mkScratch("i18n-desktop-scan-")
+  tmpDir = mkScratch('i18n-desktop-scan-')
   process.chdir(tmpDir)
   // 关键:chdir 后再 dynamic import,使模块顶层 const ROOT = process.cwd() 锁定为 tmpDir
   const mod = await import('../_i18n-scan-helpers.mjs')
@@ -66,7 +67,11 @@ before(async () => {
 
 after(() => {
   process.chdir(ORIGINAL_CWD)
-  try { fs.rmSync(tmpDir, { recursive: true, force: true }) } catch { /* 清理失败不影响结果 */ }
+  try {
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  } catch {
+    /* 清理失败不影响结果 */
+  }
 })
 
 // 每个测试前清空临时目录内容(保留目录本身),保证隔离
@@ -119,7 +124,9 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
       try {
         const code = runScan({ ...END_CONFIG, dryRun: false })
         assert.equal(code, 0, '默认配置应自动跳过 exit 0(端无独立 i18n)')
-      } finally { restore() }
+      } finally {
+        restore()
+      }
     })
 
     test('场景 2:dryRun=true + 默认配置 → exit 0', () => {
@@ -127,7 +134,9 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
       try {
         const code = runScan({ ...END_CONFIG, dryRun: true })
         assert.equal(code, 0, 'dryRun=true + 默认 skip 应 exit 0')
-      } finally { restore() }
+      } finally {
+        restore()
+      }
     })
 
     test('场景 3:exitOnDead=true + 默认配置 → exit 0(skip 优先于死 key 检查)', () => {
@@ -135,7 +144,9 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
       try {
         const code = runScan({ ...END_CONFIG, dryRun: true, exitOnDead: true })
         assert.equal(code, 0, '默认 skip 优先,exitOnDead=true 不应触发 exit 1')
-      } finally { restore() }
+      } finally {
+        restore()
+      }
     })
 
     test('场景 4:out=<path> + 默认配置 → exit 0,不创建 out 文件', () => {
@@ -144,19 +155,23 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
       try {
         const code = runScan({ ...END_CONFIG, dryRun: false, out: customOut })
         assert.equal(code, 0, '默认 skip 应 exit 0')
-      } finally { restore() }
+      } finally {
+        restore()
+      }
       assert.equal(fs.existsSync(customOut), false, '默认 skip 不应写 out 文件')
     })
 
     test('场景 5:默认配置不创建默认报告文件(基于 outputPattern)', () => {
       const expectedReportPath = path.join(
         tmpDir,
-        END_CONFIG.outputPattern.replace('{date}', new Date().toISOString().slice(0, 10))
+        END_CONFIG.outputPattern.replace('{date}', new Date().toISOString().slice(0, 10)),
       )
       const restore = silenceConsole()
       try {
         runScan({ ...END_CONFIG, dryRun: false })
-      } finally { restore() }
+      } finally {
+        restore()
+      }
       assert.equal(fs.existsSync(expectedReportPath), false, '默认 skip 不应写默认报告文件')
     })
   })
@@ -170,7 +185,9 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
       try {
         const code = runScan({ ...END_CONFIG, dryRun: false, exitOnDead: true })
         assert.equal(code, 0, 'scanTargets 空 → skip → exit 0(即使 messagesPath 存在)')
-      } finally { restore() }
+      } finally {
+        restore()
+      }
     })
 
     test('场景 7:messagesPath 不存在 + scanTargets 非空 → exit 0(skip,因 messagesPath 优先检查)', () => {
@@ -185,8 +202,14 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
           dryRun: false,
           exitOnDead: true,
         })
-        assert.equal(code, 0, 'messagesPath 不存在 → skip → exit 0(即使 scanTargets 非空,messagesPath 检查优先)')
-      } finally { restore() }
+        assert.equal(
+          code,
+          0,
+          'messagesPath 不存在 → skip → exit 0(即使 scanTargets 非空,messagesPath 检查优先)',
+        )
+      } finally {
+        restore()
+      }
     })
   })
 
@@ -209,8 +232,14 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
           dryRun: true,
           exitOnDead: true,
         })
-        assert.equal(code, 1, '所有 key 死 + exitOnDead=true → exit 1(模拟 desktop 端将来添加 i18n)')
-      } finally { restore() }
+        assert.equal(
+          code,
+          1,
+          '所有 key 死 + exitOnDead=true → exit 1(模拟 desktop 端将来添加 i18n)',
+        )
+      } finally {
+        restore()
+      }
     })
 
     test('场景 9:所有 key 死 + exitOnDead=false → exit 0', () => {
@@ -229,7 +258,9 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
           exitOnDead: false,
         })
         assert.equal(code, 0, '所有 key 死 + exitOnDead=false → exit 0')
-      } finally { restore() }
+      } finally {
+        restore()
+      }
     })
 
     test('场景 10:所有 key 被 useTranslations namespace 引用 → exit 0', () => {
@@ -251,7 +282,9 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
           exitOnDead: true,
         })
         assert.equal(code, 0, '所有 key 被 namespace 引用 → exit 0')
-      } finally { restore() }
+      } finally {
+        restore()
+      }
     })
 
     test('场景 11:dryRun=true → exit 0,不写报告文件', () => {
@@ -263,7 +296,7 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
       })
       const expectedReportPath = path.join(
         tmpDir,
-        END_CONFIG.outputPattern.replace('{date}', new Date().toISOString().slice(0, 10))
+        END_CONFIG.outputPattern.replace('{date}', new Date().toISOString().slice(0, 10)),
       )
       const restore = silenceConsole()
       try {
@@ -273,7 +306,9 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
           dryRun: true,
           exitOnDead: false,
         })
-      } finally { restore() }
+      } finally {
+        restore()
+      }
       assert.equal(fs.existsSync(expectedReportPath), false, 'dryRun=true 不应写报告文件')
     })
 
@@ -304,7 +339,9 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
           out: customOut,
         })
         assert.equal(code, 0, 'exitOnDead=false 即使有死 key 也 exit 0')
-      } finally { restore() }
+      } finally {
+        restore()
+      }
       assert.equal(fs.existsSync(customOut), true, '报告应写入 out 指定路径')
       const report = fs.readFileSync(customOut, 'utf8')
       assert.match(report, /死 key 列表/, '报告应含"死 key 列表"章节')
@@ -339,7 +376,9 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
           exitOnDead: false,
           out: customOut,
         })
-      } finally { restore() }
+      } finally {
+        restore()
+      }
       const report = fs.readFileSync(customOut, 'utf8')
       assert.match(report, /翻译不完整/, '报告应含"翻译不完整"章节')
       assert.match(report, /about\.subtitle/, '报告应列出 about.subtitle 为翻译不完整')
@@ -366,7 +405,7 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
         'node',
         ['scripts/scan-desktop-dead-i18n-keys.mjs', '--exit', '1'],
         // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        { stdio: ['ignore', 'pipe', 'pipe'], cwd: PROJECT_ROOT, encoding: 'utf8', timeout: 15000 }
+        { stdio: ['ignore', 'pipe', 'pipe'], cwd: PROJECT_ROOT, encoding: 'utf8', timeout: 15000 },
       )
       assert.equal(result.status, 0, '--exit 1 应 exit 0(skip 优先于 exitOnDead)')
     })

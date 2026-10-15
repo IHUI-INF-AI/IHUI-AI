@@ -4382,9 +4382,6 @@
   "profile": {
     "myCourses": "我的課程"
   },
-  "Menu": {
-    "d1": "音樂"
-  },
   "verify": {
     "phoneEmpty": "手機號碼為空",
     "phoneInvalid": "請輸入正確手機號碼",
