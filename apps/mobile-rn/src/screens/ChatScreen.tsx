@@ -194,6 +194,9 @@ import { BottomPops } from '../components/BottomPops'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
+// D38 插话能力协商的**消费端**(生产者 = ai-service 侧能力声明,并行推进):
+// 只从「流/会话能力声明」读数,**读不到 ⇒ false**(与改造前硬编码 false 同行为,零回归)。
+import { resolveInterjectionCapability } from '../utils/interjection-capability'
 // D153b / D154(2026-09-30 立)per-user 广播消费面:会话元数据覆盖 + MCP 状态行。
 // 跨端判据在 @ihui/shared/chat/user-broadcast-store,本端只做接线与 FloatBox 提示出口适配。
 import { useUserBroadcastSync } from '../hooks/use-user-broadcast-sync'
@@ -510,6 +513,16 @@ export function ChatScreen() {
   const [conversationId, setConversationId] = useState<string | null>(
     route.params?.conversationId ?? null,
   )
+  // D38 插话能力协商:会话/流侧「能力声明」的落点(载荷原样存,形状不由本端定义)。
+  // 生产者(ai-service 能力声明)未落地 ⇒ 恒 null ⇒ 下方读数 false ⇒ 与改造前硬编码
+  // false 同行为;声明到达后只需在载荷落点(loadConversationMessages / 流回调)把声明
+  // 交给 setSessionCapabilities,判定面一行都不用改。
+  const [sessionCapabilities, setSessionCapabilities] = useState<unknown>(null)
+  /** 本屏唯一的插话能力读数(缺失 ⇒ false;见 utils/interjection-capability 契约) */
+  const runtimeSupportsInterjection = resolveInterjectionCapability([
+    sessionCapabilities,
+    route.params,
+  ])
   const [prompt, setPrompt] = useState('')
   useUiTextField({ label: '请输入内容...', value: prompt, setValue: setPrompt, multiline: true })
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -1140,17 +1153,18 @@ export function ChatScreen() {
   })
 
   // D38/W27:流结束自动补答 —— 队列非空且生效模式为 queue 时出队队首重发
-  // (web message-input 流结束 effect 同形)。RN Runtime 暂无插话能力,effectiveMode
-  // 解析恒 queue(steer 偏好显式降级,降级句由队列条渲染)。
+  // (web message-input 流结束 effect 同形)。插话能力取自能力声明(缺失 ⇒ false ⇒
+  // steer 偏好显式降级为 queue,降级句由队列条渲染);声明给到 true 时 steer 不再降级,
+  // 队首改由插话通道处理,这一条 effect 自然不再出队 —— 行为随声明走,本端不硬编码。
   useEffect(() => {
     if (isStreaming) return
     if (sideQueue.length === 0) return
-    if (effectiveMode(followUpMode, false).mode !== 'queue') return
+    if (effectiveMode(followUpMode, runtimeSupportsInterjection).mode !== 'queue') return
     const head = sideQueue[0]
     if (!head) return
     setSideQueue((prev) => prev.filter((q) => q.id !== head.id))
     void sendRef.current(head.text)
-  }, [isStreaming, sideQueue, followUpMode])
+  }, [isStreaming, sideQueue, followUpMode, runtimeSupportsInterjection])
 
   // ── D38 队列交互动作(许可判定在 QueueInteractionBar 内复用 D69/D38,这里只做状态写) ──
   const handleQueueReorder = (fromIndex: number, toIndex: number): void => {
@@ -1166,8 +1180,9 @@ export function ChatScreen() {
     setSideQueue((prev) => [...applyQueueEdit(prev, itemId, { text })])
   }
   const handleInterruptAndRun = (): void => {
-    // 计划由 interruptPlan 产出(stopFirst/thenRun);RN Runtime 暂无插话能力,
-    // 许可门恒拒 ⇒ 此回调当前不可达;停流走 W2 abort 通道,队首由上方流结束 effect 补答。
+    // 计划由 interruptPlan 产出(stopFirst/thenRun);能力声明未给到插话能力时许可门
+    // 恒拒 ⇒ 此回调当前不可达;停流走 W2 abort 通道,队首由上方流结束 effect 补答。
+    // 声明给到后走同一条路径,不再有端内分支。
     const plan = interruptPlan(
       { streaming: isStreaming, streamingMessageId: null },
       sideQueue[0] ?? null,
@@ -2401,6 +2416,9 @@ export function ChatScreen() {
     async (id: string): Promise<void> => {
       const res = await getMessages(id, { direction: 'initial', pageSize: 100 })
       if (res.success) {
+        // D38 能力声明落点之一:**会话载荷**原样存(形状不由本端定义,读数在
+        // utils/interjection-capability)。声明缺席时它不含能力键 ⇒ 读数 false,零回归。
+        setSessionCapabilities(res)
         // steerNotices:live 由 onSteer 累积(下方 onSteer 回调),历史由
         // metadata.steerApplied 读回(api 侧已随回调落库,与 SSE 帧同源)
         const loaded: ChatMessageWithSteer[] = res.data.messages.map((m, idx) => {
@@ -2795,6 +2813,8 @@ export function ChatScreen() {
           items={sideQueue}
           streaming={isStreaming}
           mode={followUpMode}
+          // D38 插话能力:来自「流/会话能力声明」的唯一读数(缺失 ⇒ false,零回归)
+          runtimeSupportsInterjection={runtimeSupportsInterjection}
           onReorder={handleQueueReorder}
           onUndo={handleQueueUndo}
           onEdit={handleQueueEdit}

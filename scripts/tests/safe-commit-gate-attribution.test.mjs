@@ -1381,7 +1381,7 @@ test('态⓪b:判「仓库外文件系统状态」的门(自声明 [judges-exter
   assert.ok(EXTERNAL_FS_MARK && EXTERNAL_FS_MARK !== REMOTE_STATE_MARK, '两态必须各有各的标记,不能混用一把尺')
   const text = SUMMARY + FAIL_29
   const reader = () => `/** 注入夹具:带 ${EXTERNAL_FS_MARK} 标记的门源(判的是仓外磁盘态) */`
-  // 臂 1:基线绿 + 输出里甚至出现本次文件路径 —— 对仓外态门都不构成内容因果(分支排在点名判据之前)
+  // 臂 1:红点**未点名**本次文件 ⇒ 走未差分(标记的全部用途就在这里)
   const v1 = classifyHookFailure({
     text,
     stagedFiles: MY_FILES,
@@ -1401,6 +1401,18 @@ test('态⓪b:判「仓库外文件系统状态」的门(自声明 [judges-exter
   const line1 = verdictLine(v1)
   assert.ok(!/不在本次提交内容里/.test(line1), '反向锁:未差分不得声称红与本次无关')
   assert.match(line1, /仓库外|仓外/, `措辞必须点名真实成因(修法=查清外部现场归属),实得:${line1.slice(0, 160)}`)
+
+  // 臂 1b(**攻击路径锁**,2026-10-15 评审给的):同一枚标记 + 红点**点名本次文件** ⇒ 必须仍判 mine。
+  // 若这条分支排在点名判据之前,门源里塞一行注释就能把"点名你改的文件"的红洗成可跳 ⇒ §0.10 违规。
+  const attack = classifyHookFailure({
+    text,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 1, output: `违规: ${MY_FILES[0]}:12 在项目外也建了文件` }),
+    runGateBaseline: () => ({ ran: true, status: 0, output: 'HEAD 面绿', why: null }),
+    readGateSource: reader,
+  })
+  assert.equal(attack.kind, 'mine', `带标记但点名本次文件必须仍拒跳(标记不是免罪符),实得 ${attack.kind}`)
+  assert.equal(attack.delta?.externalFs ?? 0, 0, '点名臂先行生效后不得再计入未差分档')
 
   // 臂 2(方向锁,最关键):同一现场摘掉标记 ⇒ 差分档完整回归,"本枚引入"照判、照拒跳
   const v2 = classifyHookFailure({
@@ -1434,6 +1446,11 @@ test('态⓪b:判「仓库外文件系统状态」的门(自声明 [judges-exter
     '归因层必须真读这个标记(只声明不识别 = 门 64/70/76 那一型"造好没装车")',
   )
   assert.match(attrSource, /externalFs/, '计数必须进 delta,否则这一态不可机读、下一轮就没人知道它拦过什么')
+  // **顺序锁**:未差分分支必须排在点名判据之后(位置就是这道门的牙,挪到前面即成免罪符)
+  const atNamed = attrSource.indexOf('const named = stagedFiles.filter')
+  const atMark = attrSource.indexOf('includes(EXTERNAL_FS_MARK)')
+  assert.ok(atNamed > 0 && atMark > 0, '点名判据或未差分分支不见了 ⇒ 无法验序')
+  assert.ok(atMark > atNamed, `未差分分支必须在点名判据之后(现: named@${atNamed} mark@${atMark})`)
 })
 
 // ───────────────────────────────────────────────────────────────────────────

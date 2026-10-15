@@ -65,6 +65,8 @@ import { useLoginDialogStore } from '@/stores/login-dialog'
 import { getConversation, getMessages } from '@ihui/api-client'
 import type { ChatMode } from '@ihui/types'
 import { parsePendingQuestion } from '@/lib/pending-question'
+// Runtime 插话能力声明落库口(会话元数据 → store)
+import { noteRuntimeCapabilities } from '@/hooks/use-chat/runtime-capabilities'
 import { fetchApi } from '@/lib/api'
 import { judgePageAdvance } from '@/lib/pagination-stall'
 import {
@@ -718,6 +720,9 @@ export function AISidePanel() {
               const meta = convRes.data.conversation.metadata as {
                 pendingQuestion?: unknown
               } | null
+              // Runtime 插话能力声明(会话元数据载体):读到 boolean 才落库,
+              // 读不到 = 未声明 ⇒ 输入区回落 false(不得把"没读到"当成"支持插话")。
+              noteRuntimeCapabilities(meta)
               const pending = parsePendingQuestion(meta?.pendingQuestion)
               if (cancelled) return
               if (pending) {
@@ -781,6 +786,8 @@ export function AISidePanel() {
           const meta = convRes.data.conversation.metadata as {
             pendingQuestion?: unknown
           } | null
+          // Runtime 插话能力声明(与上方缓存命中路径同一入口、同一回落形态)
+          noteRuntimeCapabilities(meta)
           const pending = parsePendingQuestion(meta?.pendingQuestion)
           if (pending) {
             useChatStore.getState().setPendingQuestion(pending)

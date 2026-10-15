@@ -44,6 +44,13 @@
  * 台账:全部被删行原文写入 .ihui-agent/archive/plan-pointer-purge-<日期>.md(入库;
  *   文件名带日期 —— 台账是整文件重写式,**绝不复用旧日期文件名**,否则旧台账的逐字
  *   记录被覆盖,60 提交窗口内已清偿行会在门 71 全量档"复活"判丢)。
+ *   2026-10-15 复发止血:名字里还要带**机器标识**(口径 = lib/plan-id-lease.mjs 的
+ *   machineIdentity),且换后缀的基准 = **本机 HEAD 面 ∪ 远端那一份**(与 live-doc-edit
+ *   号段基准 G-313 出路② 同一条纪律)。旧实现只问本机 HEAD:两台机站在同一前沿时
+ *   "下一个后缀"必然同值,同一晚各写出一份同名台账 ⇒ add/add 冲突、跨机合并卡死。
+ *   远端面取不到 ⇒ 大声降级后按本地面取名;本地面取不到 ⇒ 拒绝取名不落(§0.3)。
+ *   新名必须仍命中消费方射程:门 71 ARCHIVE_FILE_RE 的 `plan-pointer-purge-` 前缀、
+ *   门 13c 归档点名字符集 [A-Za-z0-9._-](投影由 ledgerMachineTag 做,不自发明标识)。
  *
  * 守恒断言(任一不成立 ⇒ 整批不落,exit 1):
  *   A1 已勾选行数不减少(只许剥注记,不许动勾选状态)。
@@ -52,11 +59,11 @@
  *   A3 清偿后全文件 DUP_POINTER_RE 与 SELF_DEDISPATCH_RE 命中归零(用户要的"不要再看到")。
  *   A4 认领标记 `（进行中…）` 总数不减少(8 条存量全部转移,不许静默丢失)。
  *
- * 用法: node scripts/plan-pointer-purge.mjs [--dry-run|--apply]
+ * 用法: node scripts/plan-pointer-purge.mjs [--dry-run|--apply] [--absorb]
  */
 import { execFileSync, spawn } from 'node:child_process'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
@@ -66,6 +73,13 @@ const idx = require(path.join(ROOT, 'scripts/lib/plan-task-index.mjs'))
 // 环形引用说明:plan-tasks-merge → check-plan-dup-pointer-ratchet(取 countPointerRows)
 // → 本脚本 → plan-tasks-merge,两侧都只在**函数体内**用对方导出 ⇒ ESM 循环安全。
 import { foldTwins } from './plan-tasks-merge.mjs'
+// 台账取名的两条同源纪律(2026-10-15 跨机同名止血,详见 chooseLedgerRel 的头注):
+//  ① **机器标识口径不另发明** = `lib/plan-id-lease.mjs` 的 `machineIdentity()`
+//     (env `IHUI_MACHINE_ID` > 主机名 + 仓根路径指纹 ⊕ machineGuid),与千段租约取号同一把尺;
+//  ② **取名基准必须含远端那一份** = 与 `live-doc-edit.mjs` 号段基准(G-313 出路②)同一条纪律,
+//     只是那里量的是"号",这里量的是"归档件名"。
+import { machineIdentity } from './lib/plan-id-lease.mjs'
+import { baseNameOf, parseZList } from './lib/plan-id-face.mjs'
 // 判据同源:门 203(台账同题多号差值棘轮)的标题指纹就是它。本脚本分族若另抄一份归一化,
 // 剥注记后必然出现"门 203 看见同题、我这边没看见"的撞车 —— 首版正是这么红的。
 const { extractTaskFingerprint } = require(path.join(ROOT, 'scripts/check-plan-task-duplicates.mjs'))
@@ -74,6 +88,7 @@ const {
   attestBypassCommit,
   casUpdateRef,
   commitTreeWithIndex,
+  git: gitRead,
   resolveHeadRef,
 } = require(path.join(ROOT, 'scripts/lib/bypass-git.mjs'))
 
@@ -82,6 +97,10 @@ const PLAN = 'PROJECT_PLAN.md'
 // 门 71 在 60 提交窗口内把已清偿行判丢并回捞(对打循环复活)。见头注「台账」段。
 const LEDGER_REL = '.ihui-agent/archive/plan-pointer-purge-2026-10-14.md'
 const GIT = process.env.GIT_BIN || 'git'
+/** 归档台账所在目录 —— 由 LEDGER_REL 自身推出,不另写第二份路径常量。 */
+const LEDGER_DIR_REL = LEDGER_REL.slice(0, LEDGER_REL.lastIndexOf('/'))
+const LS_TREE_TIMEOUT_MS = 60_000
+const LS_REMOTE_TIMEOUT_MS = 30_000
 
 const DUP_POINTER_RE = idx.DUP_POINTER_RE
 const SELF_DEDISPATCH_RE = idx.SELF_DEDISPATCH_RE
@@ -156,7 +175,14 @@ const isOpenRow = (line) => /^\s*(?:[-*]\s*)?\[ \]/.test(line)
 const isProse = (line) => /^\s*<!--/.test(line)
 
 /** 分类规划(纯函数,可测):返回 {deleteSet, stripSet, claimTransfers, stats} */
-export function buildPlan(lines) {
+export function buildPlan(lines, opts = {}) {
+  // absorb(2026-10-15 立,G-32 归并侧那半格):对「正文未被幸存行逐字承载」的 L5/L6 副本,
+  // 不再交人工干等 —— 把候选行的**归一化正文整段**移植成幸存行行尾的承载段,承载成立后折并候选。
+  // 为什么必须整段:包含性判据是 `sLine.includes(body)` 一次成连,注记被替成空格后正文里带着
+  // 空格洞,只补"看起来缺的那句"永远补不平(首版实测:移植后仍拒收 17 对)。
+  // 三条硬护栏:① 候选/幸存任一带租约 ⇒ 不碰(那是他人正在做的活);② 承载段含 13d 判据字面 ⇒ 不碰;
+  // ③ 正文长度低于该层 minBody 下限 ⇒ 不碰(证明力不足,与不 absorb 同向)。失效方向永远是"少折一行"。
+  const absorb = opts.absorb === true
   const rows = []
   lines.forEach((l, i) => {
     if (isRowLine(l) && !isProse(l)) rows.push({ i, line: l })
@@ -191,7 +217,7 @@ export function buildPlan(lines) {
   const deleteSet = new Set()
   const stripSet = new Set() // 只剥注记保留的行
   const claimTransfers = [] // {from, to, claim}
-  const stats = { L1: 0, L2: 0, L3: 0, L4: 0, checkedStripped: 0, L5: 0, L6: 0 }
+  const stats = { L1: 0, L2: 0, L3: 0, L4: 0, checkedStripped: 0, L5: 0, L6: 0, L7: 0, absorbed: 0 }
   const reasons = new Map() // 行号 → 分类原因(给台账)
 
   const family = new Map() // 归并键 → 候选行集
@@ -301,19 +327,29 @@ export function buildPlan(lines) {
     const segsAll = segsOf(cLine)
     const stripped = segsAll.reduce((acc, s) => acc.replace(s, ' '), cLine)
     const body = bodyOf(stripped)
+    // 吸收档(仅 --absorb):承载不成立时把候选行**归一化正文整段**挂到幸存行行尾,再由本器折并候选。
+    const carried = (() => {
+      if (!absorb || body.length < minBody || sLine.includes(body)) return null
+      if (claimOf(cLine) || claimOf(sLine)) return null
+      const seg = ` 〔副本正文并入·承载整段:${body}〕`
+      if (DUP_POINTER_RE.test(sLine + seg) || SELF_DEDISPATCH_RE.test(sLine + seg)) return null
+      return seg
+    })()
     // 最短正文下限:L6 两行同复合主键(任务身份由键承载)取 6;L5 两行主键互异(唯一关联是
     // 题面)取 12 —— 下限之下包含性证明力不足,跳过交人工。
-    if (body.length < minBody || !sLine.includes(body)) {
+    if (body.length < minBody || (!sLine.includes(body) && !carried)) {
       skipped.push({
         i: ci,
-        why: `${layer} 正文有幸存行 L${si + 1} 未承载的独有增量(body=${body.length} 字) ⇒ 交人工,不硬删(实测:G-317 约 2000 字关键发现、G-341 整张独立票、L10371 截断回放都是这一型)`,
+        why: `${layer} 正文有幸存行 L${si + 1} 未承载的独有增量(body=${body.length} 字) ⇒ 交人工,不硬删(实测:G-317 约 2000 字关键发现、G-341 整张独立票、L10371 截断回放都是这一型)${
+          absorb && body.length >= minBody ? ' [吸收档本可承载,被租约/13d 字面护栏拦下]' : ''
+        }`,
       })
       return
     }
     const segs = segsAll.filter((s) => !sLine.includes(s))
     if (segs.length) {
       const appended = ' ' + segs.join(' ')
-      const wouldBe = sLine + appended
+      const wouldBe = sLine + (carried || '') + appended
       if (DUP_POINTER_RE.test(wouldBe) || SELF_DEDISPATCH_RE.test(wouldBe)) {
         skipped.push({
           i: ci,
@@ -323,9 +359,16 @@ export function buildPlan(lines) {
       }
       transplants.push({ to: si, text: appended })
     }
+    if (carried) {
+      transplants.push({ to: si, text: carried })
+      stats.absorbed++
+    }
     deleteSet.add(ci)
     stats[layer]++
-    reasons.set(ci, `${layer} 真归并,保留 L${si + 1}${segs.length ? `(+${segs.length} 段注记移植)` : ''}`)
+    reasons.set(
+      ci,
+      `${layer} 真归并,保留 L${si + 1}${segs.length ? `(+${segs.length} 段注记移植)` : ''}${carried ? '(+正文承载段)' : ''}`,
+    )
   }
   // L6(F4):findDupOpenCopies 的副本行,幸存者 = 判据自己的 survivor(组内最长行)——
   // 另选幸存者会让删完的面上 findDupOpenCopies 照旧点名新副本,债没清。
@@ -348,6 +391,34 @@ export function buildPlan(lines) {
     skipped.push({
       i: -1,
       why: `L5 判据未判定(${String(e?.message ?? e).slice(0, 80)})⇒ 本层整层跳过,不冒充通过`,
+    })
+  }
+
+  // L7(F4b,2026-10-15 立):无复合主键而**逐字等值**的未勾选孪生行。判据单源 = 门 130 用的
+  // `idx.findVerbatimDupOpenRows`(不在本器复制一份,§22c)。这一层与 L5/L6 的区别是它**不需要承载段**:
+  // 两行逐字相同 ⇒ 幸存行本来就装着全部内容,删多余份数是零信息差的动作。
+  // 唯一护栏:任一副本带租约 ⇒ 跳过(那是他人正在做的活,哪怕文字相同也不由本器代摘)。
+  try {
+    const vd = idx.findVerbatimDupOpenRows(lines.join('\n'))
+    for (const c of vd.copies) {
+      const ci = c.row.line - 1
+      if (deleteSet.has(ci) || stripSet.has(ci)) continue
+      const si = c.survivor.line - 1
+      // 租约:本层的两行**逐字等值**(判据就是 r.raw 全等),所以副本行上的 `（进行中@…）` 与幸存行
+      // 上的必然同文 ⇒ 删副本不会摘掉任何人的认领(§1「门绝不自动摘除任何人的认领」)。
+      // 不"相信构造",当场比一次:不同文 ⇒ 跳过交人工。
+      if (claimOf(c.row.raw) && claimOf(c.row.raw) !== claimOf(c.survivor.raw)) {
+        skipped.push({ i: ci, why: `L7 副本与幸存行认领标记不同文 ⇒ 不折(不得代摘他人认领)` })
+        continue
+      }
+      deleteSet.add(ci)
+      stats.L7++
+      reasons.set(ci, `L7 逐字孪生折并,保留 L${si + 1}`)
+    }
+  } catch (e) {
+    skipped.push({
+      i: -1,
+      why: `L7 判据未判定(${String(e?.message ?? e).slice(0, 80)})⇒ 本层整层跳过,不冒充通过`,
     })
   }
 
@@ -458,8 +529,196 @@ function readBlobContent(ref, relPath) {
   })
 }
 
+/**
+ * 台账文件名的**机器标识投影**(不是机器标识口径本身)。
+ *
+ * 口径住在 `lib/plan-id-lease.mjs` 的 `machineIdentity()`(env `IHUI_MACHINE_ID` > 主机名+仓根
+ * 路径指纹 ⊕ machineGuid)—— 本函数只做"把那个标识投成一个文件名片段"这一件事:
+ * 凡不属于 `[A-Za-z0-9._-]` 的字符一律换成 `-`,并剥掉首尾的 `-`。为什么要投影:
+ *  ① 主机名可含 NTFS/git pathspec 的禁忌字符(`machineIdentity` 只把空白折成 `-`,管不到别的);
+ *  ② 消费方只认这个字符集 —— 守门 13c 的归档点名字是
+ *     `\.ihui-agent/archive/([A-Za-z0-9._\-]+\.md)`,名字里多出这个集合 ⇒ 占位永远点不到它,
+ *     造出"写得出、没人认得"的归档件(比撞名更糟)。
+ * 投影后为空 ⇒ 返回 `''`,调用方必须喊出来,不得静默按无标识取名。
+ */
+export function ledgerMachineTag(machineId) {
+  return String(machineId ?? '')
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '')
+}
+
+/** 台账相对路径拆成 `{ dir(含尾斜杠), base(不含扩展名), ext }`;无扩展名时 ext=''。 */
+function splitLedgerRel(rel) {
+  const s = String(rel)
+  const slash = s.lastIndexOf('/')
+  const dot = s.lastIndexOf('.')
+  const cut = dot > slash ? dot : s.length
+  return { dir: s.slice(0, slash + 1), base: s.slice(slash + 1, cut), ext: s.slice(cut) }
+}
+
+/**
+ * 把机器标识插进台账名(扩展名之前):
+ * `…/plan-pointer-purge-2026-10-14.md` → `…/plan-pointer-purge-2026-10-14-<tag>.md`。
+ * 标识为空 ⇒ **逐字回退原名**(与改名前口径同形;这一条由镜像测试 ①b 钉住)。
+ */
+export function taggedLedgerRel(ledgerRel = LEDGER_REL, tag = '') {
+  const t = ledgerMachineTag(tag)
+  if (!t) return String(ledgerRel)
+  const { dir, base, ext } = splitLedgerRel(ledgerRel)
+  return `${dir}${base}-${t}${ext}`
+}
+
+/** 第 n(1 起)轮候选名:n=1 用无序号形态,n≥2 在标识之后再追加 `-n`。 */
+export function ledgerSeqRel(ledgerRel = LEDGER_REL, tag = '', n = 1) {
+  const named = taggedLedgerRel(ledgerRel, tag)
+  if (!(n > 1)) return named
+  const { dir, base, ext } = splitLedgerRel(named)
+  return `${dir}${base}-${n}${ext}`
+}
+
+/**
+ * 归档台账取名的**纯函数**(不碰 git;两面清单由调用方在同一轮取好后喂进来)。
+ *
+ * 立因(2026-10-15 实测复发):旧实现只问**本机 HEAD** —— 两台机共享同一 origin、同一仓路径语义,
+ * 站在同一个前沿时双方都看到"上一个后缀已存在、于是都取下一个",于是同一晚新建出**同名**台账
+ * (`plan-pointer-purge-2026-10-14-5.md` 两侧内容完全不同)⇒ add/add 冲突 127 处、union-converge
+ * 判需人工、部署环快进被挡。两道锁:
+ *  ① 名字里带**机器标识** ⇒ 跨机结构上不可能同名(口径见 `ledgerMachineTag` 的头注);
+ *  ② 序号基准 = **本地 HEAD 面 ∪ 远端那一份** ⇒ 同机双 checkout、或对面把同一标识报给自己时也不撞
+ *     (与 `live-doc-edit.mjs` 号段基准 G-313 出路② "max(本地 HEAD, 远端那一份)" 同一条纪律)。
+ *
+ * 三态不并桶(§0.3):
+ *  - 本地面未判定(`localFiles` 不是数组)⇒ **拒绝取名返回 null**,绝不把"没读到"当"没人占用";
+ *  - 远端面未判定(`remoteFiles` 不是数组)⇒ **喊出降级**后按本地面取名(机器标识已把跨机那一维
+ *    结构性隔开,仍可落地,但必须留声 —— 静默按窄面取名等于伪装成"已与远端对齐");
+ *  - 全部后缀被占用 ⇒ 返回 null 拒绝落地。**绝不回退原名**:整文件重写会抹掉旧台账的逐字记录
+ *    ⇒ 门 71 的归档豁免对那些行失效 ⇒ 清偿与回捞对打复活(旧实现的兜底正是这一型)。
+ */
+export function chooseLedgerRel({
+  ledgerRel = LEDGER_REL,
+  tag = '',
+  localFiles = null,
+  localReason = '',
+  remoteFiles = null,
+  remoteReason = '',
+  maxSeq = 50,
+  note = (m) => console.log(m),
+} = {}) {
+  const say = (m) => note(m)
+  if (!Array.isArray(localFiles)) {
+    say(
+      `❌ 台账取名的本地面(HEAD:${LEDGER_DIR_REL})未判定${localReason ? `(${localReason})` : ''}` +
+        ` ⇒ 本轮拒绝取名 —— "没读到"绝不写成"没人占用"(§0.3)`,
+    )
+    return null
+  }
+  const remoteKnown = Array.isArray(remoteFiles)
+  const used = new Set([...localFiles, ...(remoteKnown ? remoteFiles : [])].map((p) => baseNameOf(p)))
+  if (!ledgerMachineTag(tag))
+    say('⚠️ 本轮台账名不含机器标识 ⇒ 跨机同刻取名仍可能同名(检查 IHUI_MACHINE_ID / 主机名 / 仓根指纹)')
+  for (let n = 1; n <= maxSeq; n++) {
+    const cand = ledgerSeqRel(ledgerRel, tag, n)
+    if (!used.has(baseNameOf(cand))) {
+      if (!remoteKnown)
+        say(
+          `⚠️ 台账取名基准未含远端(原因:${remoteReason || '远端问不到'})⇒ 本轮只按本地 HEAD 面取名;` +
+            `机器标识 ${ledgerMachineTag(tag) || '(无)'} 仍在名字里,跨机不同名`,
+        )
+      return cand
+    }
+  }
+  say(
+    `❌ 前 ${maxSeq} 个后缀全部被占用 ⇒ 拒绝取名/拒绝落地(绝不整文件重写已有台账:那会抹掉旧台账的` +
+      `逐字记录 ⇒ 门 71 的归档豁免失效、清偿与回捞对打复活)`,
+  )
+  return null
+}
+
+const firstLine = (e) =>
+  String(e?.stderr ?? e?.message ?? e)
+    .split(/\r?\n/)
+    .find((l) => l.trim() !== '') ?? ''
+
+/**
+ * 某个面(`HEAD` / 远端 tip 的**显式 SHA**)上归档目录里真实存在的文件清单(全路径,不筛名字)。
+ * 读不到 ⇒ `{files:null, reason}` —— 未判定 ≠ 没有占用。
+ * 只取名、不读内容(归档目录里有 13.8 MB 的归档件,`lib/plan-id-face.mjs` 同一课)。
+ */
+export function listLedgerNamesOnSource(source, { root = ROOT, dir = LEDGER_DIR_REL, gitRun = gitRead } = {}) {
+  try {
+    const z = gitRun(['ls-tree', '-r', '--name-only', '-z', source, '--', dir], {
+      root,
+      raw: true,
+      timeout: LS_TREE_TIMEOUT_MS,
+    })
+    const all = parseZList(z)
+    if (all === null) return { files: null, reason: `${source}:${dir} 清单没有输出(未判定)` }
+    return { files: all, reason: '' }
+  } catch (e) {
+    return { files: null, reason: `${source}:${dir} 枚举失败:${firstLine(e).slice(0, 160)}` }
+  }
+}
+
+/**
+ * **远端那一份**台账名清单(取名基准的第二腿)。
+ *
+ * 三条不许漂的写法(照 `live-doc-edit.mjs` 的号段基准 G-313 出路②,把"号"换成"名"):
+ *  ① 远端 tip **只认 `git ls-remote` + 显式 SHA**。`FETCH_HEAD` 是共享文件、后台部署环每 60s 也在
+ *     fetch 改写它(§5b),拿它当基准就是把"别人此刻写到哪"读成"远端在哪"。
+ *  ② 本函数**只读**:不 fetch、不写任何 ref。§5b 禁 agent 手写 `git push` —— 推送唯一归 post-commit
+ *     的 git-push-guard 腿,取名这一层连碰都不该碰远端写面。
+ *  ③ 问不到 / 对象不在本地 ⇒ `{files:null, reason}` 交调用方**大声打印**后按本地面取名;
+ *     绝不静默(把"没判"写成"判过了"是本仓最高频失效型)。
+ */
+export function remoteLedgerFace({ root = ROOT, gitRun = gitRead } = {}) {
+  const fail = (reason) => ({ files: null, source: '', reason })
+  let branch = ''
+  try {
+    branch = gitRun(['rev-parse', '--abbrev-ref', 'HEAD'], { root, timeout: LS_TREE_TIMEOUT_MS })
+  } catch (e) {
+    return fail(`当前分支问不到:${firstLine(e).slice(0, 120)}`)
+  }
+  if (!branch || branch === 'HEAD') return fail('HEAD 处于游离状态(detached),没有同名远端分支可问')
+  let remote = 'origin'
+  try {
+    const r = gitRun(['config', '--get', `branch.${branch}.remote`], { root, allowFail: true })
+    if (r) remote = r
+  } catch {
+    /* 配置问不到 ⇒ 用 origin 兜底(§5b 本仓同步口径一律 origin main) */
+  }
+  let remoteRef = `refs/heads/${branch}`
+  try {
+    const m = gitRun(['config', '--get', `branch.${branch}.merge`], { root, allowFail: true })
+    if (m) remoteRef = m.startsWith('refs/') ? m : `refs/heads/${m}`
+  } catch {
+    /* 同上兜底 */
+  }
+  let sha = ''
+  try {
+    const out = String(gitRun(['ls-remote', remote, remoteRef], { root, timeout: LS_REMOTE_TIMEOUT_MS }) ?? '')
+    const lines = out.split(/\r?\n/).filter((l) => l.trim() !== '')
+    const hit = lines.find((l) => l.split('\t')[1] === remoteRef) ?? lines[0] ?? ''
+    sha = String(hit.split('\t')[0] ?? '').trim()
+  } catch (e) {
+    return fail(`${remote} ${remoteRef} 的 ls-remote 问不到:${firstLine(e).slice(0, 120)}`)
+  }
+  if (!/^[0-9a-f]{40}$/.test(sha)) return fail(`${remote} ${remoteRef} 的 ls-remote 回的不是 40 位 SHA`)
+  try {
+    gitRun(['cat-file', '-e', `${sha}^{tree}`], { root, timeout: LS_TREE_TIMEOUT_MS })
+  } catch {
+    return fail(`远端 tip ${sha.slice(0, 12)} 的对象不在本地对象库(本器不 fetch ⇒ 远端已用名不进基准)`)
+  }
+  const face = listLedgerNamesOnSource(sha, { root, gitRun })
+  return {
+    files: face.files,
+    source: `${remote}/${remoteRef.replace(/^refs\//, '')}@${sha.slice(0, 12)}`,
+    reason: face.files === null ? face.reason : '',
+  }
+}
+
 function main() {
   const apply = process.argv.includes('--apply')
+  const absorb = process.argv.includes('--absorb')
   // ── 门 203 同源差值校验(纯函数):清偿后不得比 HEAD 面多出「同题多号」成员键。
   // 首版缺陷的实测形状:剥注记让 146 个键从"指针行(指纹 null,不进组)"变成"有指纹的行",
   // 门 203 的棘轮把它们读成这次带进来的第二次登记。分族已改为复合主键 ∪ 指纹同源,
@@ -484,11 +743,12 @@ function main() {
   }
   const eol = headText.includes('\r\n') ? '\r\n' : '\n'
   const lines = headText.split(/\r?\n/)
-  const plan = buildPlan(lines)
+  const plan = buildPlan(lines, { absorb })
   const { stats } = plan
   console.log(
     `分类: L1 外部持有行删除=${stats.L1} L2 族内归并删除=${stats.L2} L3 纯指针删除=${stats.L3} ` +
-      `L4 剥注记保留=${stats.L4} L5 同题折并=${stats.L5} L6 同主键归并=${stats.L6} ` +
+      `L4 剥注记保留=${stats.L4} L5 同题折并=${stats.L5} L6 同主键归并=${stats.L6} L7 逐字孪生折并=${stats.L7} ` +
+      `其中吸收承载=${stats.absorbed}${absorb ? '' : '(未开 --absorb)'} ` +
       `已勾剥注记=${stats.checkedStripped} 认领转移=${plan.claimTransfers.length} ` +
       `跳过交人工=${(plan.skipped || []).length}`,
   )
@@ -524,37 +784,46 @@ function main() {
     '),并过门 203 同源自校验。\n' +
     '落地方式:对象空间 + CAS,从不写工作树(共享工作树的台账副本常年滞后 HEAD,按 pathspec 写等于\n' +
     '把别人已入库的行整批写回旧态,§12 一族);被删行原文进 ' +
-    LEDGER_REL +
-    '。\n' +
+    LEDGER_DIR_REL +
+    '/ 下的 plan-pointer-purge-* 台账(本轮实际文件名带机器标识与序号,见落地日志)。' +
+    '\n' +
     '落地后交 git-push-guard 推送:旁路不跑 post-commit ⇒ 自动推送腿不触发,不推就会被下一次「活文档行级\n' +
     'union」收敛按对侧副本拉回(2026-10-14 实测 350→1699 即此型)。\n' +
     '动因:用户指令「我不想让它出现重复登记副本 根本不想 不要再看到 给我彻底根治」。'
 
   // 每一轮都从**当下** HEAD 面重算(不复用首轮结果):别人推进过 HEAD 就必须在新面上重算,
   // 把旧面结果硬贴上去会连带写回别人的行(§12 一族)。
-  // 台账文件名防覆盖:同一天重跑(--apply 第二次,如被并发写回后再清偿)时,整文件重写式
-  // 台账会把第一轮的逐字记录抹掉 ⇒ 门 71 的归档豁免对那些行失效、回捞对打复活。
-  // 对策:HEAD 里同名台账已存在 ⇒ 自动换数字后缀(-2/-3/…,仍命中 ARCHIVE_FILE_RE 的
-  // `plan-pointer-purge-` 前缀射程,豁免不受影响)。
-  const ledgerRelForThisRun = () => {
-    const dot = LEDGER_REL.lastIndexOf('.')
-    const base = LEDGER_REL.slice(0, dot)
-    const ext = LEDGER_REL.slice(dot)
-    for (let n = 1; n <= 50; n++) {
-      const cand = n === 1 ? LEDGER_REL : `${base}-${n}${ext}`
-      try {
-        execFileSync(GIT, ['cat-file', '-e', `HEAD:${cand}`], {
-          cwd: ROOT,
-          windowsHide: true,
-          timeout: 60000,
-          stdio: ['ignore', 'ignore', 'ignore'],
-        })
-      } catch {
-        return cand // HEAD 里没有 ⇒ 可用
-      }
-    }
-    return LEDGER_REL // 50 个后缀都占满(理论上不可能)⇒ 回退原名,上面 A6 自校验兜底
+  // 台账文件名防覆盖(2026-10-15 复发止血,两道锁;机理与三态分流见 chooseLedgerRel 的头注):
+  //  ① 名字里插**机器标识** —— 旧实现只问本机 HEAD,两台机站在同一前沿时"下一个后缀"必然同值,
+  //     于是同一晚各写出一份同名台账(实测 -5 两侧内容完全不同 ⇒ add/add 冲突 127 处、部署环被挡);
+  //  ② 序号基准 = 本地 HEAD 面 ∪ **远端那一份** —— 同机双 checkout 或对面报同一标识时仍不撞。
+  // 两侧名字都必须继续命中消费方射程(门 71 ARCHIVE_FILE_RE 的 `plan-pointer-purge-` 前缀、
+  // 门 13c 的点名字符集 [A-Za-z0-9._-]),否则造出"写得出、没人认得"的归档件。
+  const ledgerTag = ledgerMachineTag(machineIdentity(ROOT))
+  const remoteLedger = remoteLedgerFace({ root: ROOT })
+  const saidNotes = new Set()
+  const sayOnce = (m) => {
+    if (saidNotes.has(m)) return
+    saidNotes.add(m)
+    console.log(m)
   }
+  const ledgerRelForThisRun = () => {
+    const local = listLedgerNamesOnSource('HEAD', { root: ROOT })
+    return chooseLedgerRel({
+      tag: ledgerTag,
+      localFiles: local.files,
+      localReason: local.reason,
+      remoteFiles: remoteLedger.files,
+      remoteReason: remoteLedger.reason,
+      note: sayOnce,
+    })
+  }
+  console.log(
+    `   台账取名基准:机器标识=${ledgerTag || '(未取到)'} · 本地面 HEAD:${LEDGER_DIR_REL} · ` +
+      (remoteLedger.files
+        ? `远端面 ${remoteLedger.source}`
+        : `远端面**未判定**(${remoteLedger.reason})⇒ 只按本地面取名,跨机那一维由机器标识隔开`),
+  )
   for (let attempt = 1; attempt <= 10; attempt++) {
     const head = execFileSync(GIT, ['rev-parse', 'HEAD'], {
       cwd: ROOT,
@@ -576,7 +845,7 @@ function main() {
       }
       const fEol = freshText.includes('\r\n') ? '\r\n' : '\n'
       const fLines = freshText.split(/\r?\n/)
-      const fPlan = buildPlan(fLines)
+      const fPlan = buildPlan(fLines, { absorb })
       const fNext = renderPurge(fLines, fPlan)
       const fErrs = verifyPurge(fLines, fNext, fPlan)
       if (fErrs.length) {
@@ -609,6 +878,8 @@ function main() {
           '> ③ 认领牌走既有转移机制。不满足者逐行跳过点名(见下),绝不硬删。',
           `> 分类:L1 ${fStats.L1} / L2 ${fStats.L2} / L3 ${fStats.L3} / L4 ${fStats.L4} / L5 ${fStats.L5} / L6 ${fStats.L6} / 已勾剥注记 ${fStats.checkedStripped} / 认领转移 ${fPlan.claimTransfers.length} / 注记移植 ${fPlan.transplants.length} / 跳过 ${fSkipped.length}。`,
           '> 落地方式:对象空间(HEAD blob → 改写 → commit-tree → CAS),从不写工作树;旁路已 attestBypassCommit 留痕。',
+          `> 取名基准(2026-10-15 跨机同名止血):机器标识 = ${ledgerTag || '(未取到)'};` +
+            `远端面 = ${remoteLedger.files ? remoteLedger.source : `未判定(${remoteLedger.reason})⇒ 本轮只按本地 HEAD 面取名`}。`,
           '> 下列每行为被删行原文(带原行号与分类原因)。',
           '',
           ...fLines.flatMap((l, i) => {
@@ -636,6 +907,11 @@ function main() {
         }
       }
       const landedLedger = ledgerRelForThisRun()
+      if (!landedLedger) {
+        // 取名未判定/无可用名 ⇒ 不落这一枚(保守方向 = 多要一次定向说明,绝不"多放一次跳门")。
+        // 上面 chooseLedgerRel 已逐条点名原因,这里不重复展开。
+        return 1
+      }
       const { commit } = commitTreeWithIndex({
         root: ROOT,
         parent: head,
@@ -653,7 +929,8 @@ function main() {
       }
       const al = alignSharedIndex({ root: ROOT, paths: [PLAN, landedLedger], parentRef: head })
       console.log(
-        `✅ 落地 ${commit.slice(0, 11)}(父 ${head.slice(0, 11)}) 删 ${fPlan.deleteSet.size} 行;主索引 moved=${(al.moved || []).length} already=${(al.already || []).length} skipped=${(al.skipped || []).length} 未判定=${(al.undetermined || []).length}`,
+        `✅ 落地 ${commit.slice(0, 11)}(父 ${head.slice(0, 11)}) 删 ${fPlan.deleteSet.size} 行;台账=${landedLedger};` +
+          `主索引 moved=${(al.moved || []).length} already=${(al.already || []).length} skipped=${(al.skipped || []).length} 未判定=${(al.undetermined || []).length}`,
       )
       if ((al.skipped || []).length || (al.undetermined || []).length) {
         console.log(
@@ -699,7 +976,8 @@ function main() {
   return 1
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${path.resolve(process.argv[1])}`).href) {
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
   main()
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -3501,6 +3501,40 @@ async function main() {
       '声明路径 = 本器构造出内容的那些(活文档 ∪ 取对侧版本的路径)',
   })
   postMergeLedgerSync({ root: ROOT })
+  // 落地即派一次现场对齐(2026-10-15 立)。本器刻意"绝不 checkout、绝不碰共享工作区",于是
+  // HEAD 推进后那条「索引/工作区仍停在落地前像」的悬留只能等守护下一拍才被人补 —— 而 git-sync-converge
+  // 派对它、单独调用本器时没人派。悬留的代价不是"难看":一次不带 pathspec 的提交会把对侧已入库的
+  // 内容写回旧态(守门 84 判红),且 `git merge --ff-only` 会被这条脏索引挡下 ⇒ 停部署。
+  // 判据与写动作全住在 heal-worktree-tracked(单一真相源),本处只负责"落地这一刻派一次",
+  // 并且**不改本轮结论**(对齐失败与合并成败是两件事,混在一起会让人以为合并没成)。
+  try {
+    const al = spawnSync(process.execPath, ['scripts/heal-worktree-tracked.mjs', '--align-drift', '--json'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      // 封顶取 600s 而非 90s:内层 makeGit 刻意无界(它的 g 承载 update-index/read-tree 等**写**操作,
+      // 中途 SIGTERM 会把 .git/index.lock 留在现场)。同族教训记在 git-sync-converge 那侧。
+      timeout: 600_000,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    let a = {}
+    try {
+      a = JSON.parse(String(al.stdout || '').trim().split('\n').pop() || '{}')
+    } catch {
+      /* 末行不是 JSON ⇒ 只报"没读到",不得把它当成对齐失败或成功 */
+    }
+    console.log(
+      `  🧹 落地后现场对齐:漂移 ${a.aligned ?? '?'} / 索引刷新 ${a.refreshed ?? '?'} / 落地欠回写 ${a.landingAligned ?? '?'}` +
+        (a.landingHeld?.length ? ` —— 另有 ${a.landingHeld.length} 格证明不了归属,只报数不代裁` : ''),
+    )
+    if (al.error || al.status !== 0) {
+      console.log(
+        `  ⚠️ 对齐子进程未完成(exit=${al.status ?? 'n/a'}${al.error ? ` / ${String(al.error.message).slice(0, 80)}` : ''})⇒ 不影响本轮结论,守护下一拍补`,
+      )
+    }
+  } catch (e) {
+    console.log(`  ⚠️ 落地后对齐未派成(不影响本轮结论):${String(e?.message ?? e).slice(0, 160)}`)
+  }
   process.exit(lost.lost.length ? 1 : 0)
 }
 
