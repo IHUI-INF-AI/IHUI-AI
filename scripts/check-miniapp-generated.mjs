@@ -103,6 +103,7 @@ import {
   selectFace,
 } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { isFlagValueToken } from './lib/flag-value.mjs'
 import {
   digestInputs,
   parsePin,
@@ -1462,8 +1463,19 @@ function parseArgv(argv) {
     else if (a === '--heal-ui-routes') opts.healUiRoutes = true
     else if (a === '--group') opts.group = argv[++i] ?? null
     else if (a.startsWith('--group=')) opts.group = a.slice(8)
-    else if (a === '--root') opts.root = resolve(argv[++i] ?? '')
-    else if (a.startsWith('--root=')) opts.root = resolve(a.slice(7))
+    else if (a === '--root') {
+      // G-322:无值/被下一旗标顶掉/空串旧写法 `resolve(argv[++i] ?? '')` 静默落 cwd。
+      const v = argv[++i]
+      if (!isFlagValueToken(v)) {
+        const got = v === undefined ? '(其后没有任何参数)' : JSON.stringify(v)
+        throw new Error(`--root 需要一个目录参数 —— 紧邻的 token 实得:${got}(不得静默按 cwd 跑)`)
+      }
+      opts.root = resolve(v)
+    } else if (a.startsWith('--root=')) {
+      const v = a.slice(7)
+      if (!isFlagValueToken(v)) throw new Error(`--root= 需要一个目录值 —— 实得:${JSON.stringify(v)}(不得静默按 cwd 跑)`)
+      opts.root = resolve(v)
+    }
     else throw new Error(`未知参数:${a}`)
   }
   return opts
