@@ -14,6 +14,15 @@ faster-whisper 本地推理(CTranslate2 后端,base 模型 74MB,首次下载后�
   CPU int8 下短语音推理约 2-5 秒仍可接受);可用环境变量 WHISPER_MODEL_SIZE 覆盖
 - 模型缓存:首次使用自动下载到 ~/.cache/huggingface,之后永久离线
 - 线程安全:全局单例 _whisper_model,首次请求懒加载
+
+2026-10-15 修复(STT 一直是 stub、返回假文本的根因):
+  旧实现**只有**"从 HuggingFace 下载到 ~/.cache/huggingface"这一条路,而生产
+  ai-service 以 **LocalSystem** 账号跑(nssm IHUI-AI-SERVICE),它的 HOME 是
+  `C:\\Windows\\System32\\config\\systemprofile`,与交互式用户不是同一个目录;再加
+  本机到 huggingface.co 直连不通 ⇒ 两条路同时断,每次请求都抛异常 → 被 except 兜成
+  `stub=True` 的假文本(界面上表现为"能录音、能返回,但永远是错的/空的")。
+  新增 `WHISPER_MODEL_DIR`:指向**预先下好的本地模型目录**时直接加载,不再联网、
+  不看 HOME。这是服务形态下唯一可靠的加载方式,也让"离线可用"真正成立。
 """
 
 import asyncio
@@ -33,6 +42,11 @@ router = APIRouter()
 
 # STT 模型尺寸(环境变量可覆盖;small=483MB 中文精度优先,base=74MB 内存受限时回退)
 _WHISPER_SIZE = os.environ.get("WHISPER_MODEL_SIZE", "small")
+
+# 本地模型目录(2026-10-15 新增,服务形态下的**首选**加载方式,见模块 docstring)。
+# 指向一个已下好的 CTranslate2 模型目录(含 config.json + model.bin)时直接加载,
+# 不联网、不依赖 HOME/用户缓存。为空则回落旧的"按尺寸名从 HF 下载"逻辑。
+_WHISPER_MODEL_DIR = os.environ.get("WHISPER_MODEL_DIR", "").strip()
 
 # STT 默认模型名(用于响应字段,标识用的引擎)
 _DEFAULT_STT_MODEL = f"whisper-{_WHISPER_SIZE}-local"
@@ -56,7 +70,12 @@ def _get_whisper_model() -> Any:
 
     默认 small 模型(483MB,中文精度优先)+ int8 量化(CPU 友好,零 GPU 依赖),
     可用环境变量 WHISPER_MODEL_SIZE 覆盖(如内存受限时设为 "base")。
-    首次调用时从 HuggingFace 下载模型到 ~/.cache/huggingface,之后永久离线可用。
+
+    加载来源二选一(优先级从高到低):
+      1. `WHISPER_MODEL_DIR`(推荐、服务形态必配):已下好的本地模型目录,
+         直接加载 —— 不联网、不读 HOME 缓存。目录不在位则**报错**,不静默回退。
+      2. 按 `WHISPER_MODEL_SIZE` 从 HuggingFace 下载到 ~/.cache/huggingface,
+         之后永久离线(仅交互式用户可用;LocalSystem 服务账号下该缓存不可达)。
 
     Returns:
         faster_whisper.WhisperModel 实例。
@@ -82,13 +101,28 @@ def _get_whisper_model() -> Any:
                 "请运行:pip install faster-whisper"
             ) from e
 
-        logger.info("加载 faster-whisper %s 模型(int8,CPU 推理,首次会下载)...", _WHISPER_SIZE)
+        model_ref = _WHISPER_SIZE
+        if _WHISPER_MODEL_DIR:
+            # 显式指定了本地目录:**不静默回退**。配了却不生效最阴——它会在界面上
+            # 表现成"录音正常、返回正常、内容永远是假的",排查成本极高。目录不在位
+            # 就明说,让运维一眼看到,而不是悄悄走回那条必然失败的联网下载路。
+            if not os.path.isdir(_WHISPER_MODEL_DIR):
+                raise RuntimeError(
+                    f"WHISPER_MODEL_DIR={_WHISPER_MODEL_DIR!r} 不存在(或不是目录)。"
+                    "服务以 LocalSystem 运行时 HOME 缓存不可达,故不回退联网下载 —— "
+                    "请把模型目录放到位后重启服务。"
+                )
+            model_ref = _WHISPER_MODEL_DIR
+            logger.info("从本地目录加载 faster-whisper 模型(离线): %s", model_ref)
+        else:
+            logger.info("加载 faster-whisper %s 模型(int8,CPU 推理,首次会下载)...", _WHISPER_SIZE)
+
         _whisper_model = WhisperModel(
-            _WHISPER_SIZE,
+            model_ref,
             device="cpu",
             compute_type="int8",
         )
-        logger.info("faster-whisper 模型加载完成")
+        logger.info("faster-whisper 模型加载完成: %s", model_ref)
         return _whisper_model
 
 

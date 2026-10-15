@@ -313,6 +313,24 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
       'token6688_cancel_task',
     ],
   }),
+  // ===== 语音转写(2026-10-15 为小程序「按住说话」公网可达而登记)=====
+  // 为什么不并入上面的 audio:write:那条 host 是 api(8802, OpenAI 兼容 /v1/* 端点),
+  // 本条是 ai-service(8803)的 /api/voice/stt。apps/web/src/config/ai-service-edge.ts
+  // 只放行 host:'ai-service' 且 thirdPartyEligible 的路径,测试按 host 现算期望集合 ——
+  // 混进一条会让对账两端同时算错(双向判红),故单列。
+  c({
+    scope: 'voice:stt',
+    domain: 'multimodal',
+    dataClass: 'compute',
+    risk: 'medium',
+    // faster-whisper 本地 CTranslate2 推理,不调用任何付费第三方 ASR ⇒ 无第三方账单。
+    billable: false,
+    thirdPartyEligible: true,
+    idempotencyRequired: false,
+    description: '语音转文字(faster-whisper 本地推理,离线可用、零第三方成本)',
+    routes: ['POST /api/voice/stt'],
+    host: 'ai-service',
+  }),
   c({
     scope: 'images:write',
     domain: 'multimodal',
