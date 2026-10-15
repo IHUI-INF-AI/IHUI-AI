@@ -14,6 +14,14 @@
  *      派单口径被同题多行灌水,"任务永远做不完"。
  *
  * 判据:对每条未勾登记行提取"标题指纹"(归一化:去编号引用/日期/注记段/空白/标点),
+ *
+ * ⚠️ 2026-10-16 增第三类「无号同题」:原分组条件要求 `distinctIds.size > 1`,而带**未解析取号令牌
+ * 字面量**(裸写 {{NEXT_ID}} 不带族后缀 ⇒ 取号器不消费,原样入库)或干脆没编号的行 `selfId=∅`
+ * 会被 `filter(Boolean)` 滤掉,整组恒看不见 —— 台账里同题多份副本可以长期存在而本门报 0 组,
+ * 派单清单却把每一份都发出去(实测:GA7 两票在 HEAD 面各 3 份;`--ratchet` 现读锚点 94 组/307 行,
+ * 全是存量,新增 0 ⇒ 加这一类不造恒红门,§12e 前置成立)。混合组(有号 + 无号)仍归"同号多行"(F4 地盘)。
+ * 注:`scripts/guardian-runner.mjs` 里本门条目写的"--self-test(18 例)"因本次改动过期(现为现读数),
+ * 该文件此刻被他席 staged 持有(§16 不代改),由持有人下一次改齐;本门体不另抄一份计数。
  * 指纹相同且票号不同的行 ⇒ "同题多号"组。指针行(〔【归并】开头,自述不再单独派单)
  * 不算独立任务,豁免。已勾行随归档走,不在本门视野。
  *
@@ -101,7 +109,17 @@ export function findDuplicateGroups(content) {
     const distinctIds = new Set(members.map((m) => m.selfId).filter(Boolean))
     // 同题且票号不同(或同号多行——那归 F4/F10,本门只管跨号)
     if (members.length > 1 && distinctIds.size > 1) {
-      groups.push({ fingerprint: fp, members, distinctIds: [...distinctIds] })
+      groups.push({ fingerprint: fp, members, distinctIds: [...distinctIds], kind: 'cross-id' })
+      continue
+    }
+    // 第三类(2026-10-16 立):**整组一行号都取不出** —— 带未解析取号令牌字面量(裸写 {{NEXT_ID}}
+    // 不带族后缀,取号器不消费 ⇒ 原样入库)或干脆没编号。跨号维对它恒看不见(distinctIds.size===0,
+    // 而 filter(Boolean) 把 ∅ 全滤掉),于是"同一件事的三份无号副本"永久隐形:门 203 报 0 组、
+    // 棘轮的 ∅ 成员键又是死码(它拿的是本函数产物)——而派单清单会把三份都发出去,
+    // 三个会话各领一张票各做一遍(GA7 两票在 HEAD 面各 3 份实测即此型)。
+    // 只在**全组都无号**时成组;混合组(有号 + 无号)仍属"同号多行"那一档(F4 地盘),本门不抢名额。
+    if (members.length > 1 && distinctIds.size === 0 && members.every((m) => !m.selfId)) {
+      groups.push({ fingerprint: fp, members, distinctIds: [], kind: 'unnumbered' })
     }
   }
   return groups
@@ -244,9 +262,14 @@ async function main() {
     process.exit(0)
   }
 
-  console.log(`[plan-dup-title] 同题多号组 ${groups.length} 组 / 涉及行 ${total} 行(判定面:${FACE_TXT[face]})`)
+  const noNum = groups.filter((g) => g.kind === 'unnumbered').length
+  console.log(
+    `[plan-dup-title] 同题副本组 ${groups.length} 组(跨号 ${groups.length - noNum} / **无号同题** ${noNum}) / 涉及行 ${total} 行(判定面:${FACE_TXT[face]})`,
+  )
   for (const g of groups.slice(0, 40)) {
-    console.log(`  ⚠️ 同题组(${g.distinctIds.join(' vs ')}):`)
+    console.log(
+      `  ⚠️ 同题组(${g.distinctIds.length ? g.distinctIds.join(' vs ') : '一行号都取不出 ⇒ 跨号维原本看不见'}):`,
+    )
     for (const m of g.members) console.log(`     L${m.line} ${m.preview}`)
   }
   if (groups.length > 40) console.log(`  …其余 ${groups.length - 40} 组略`)
@@ -267,7 +290,10 @@ function runSelfTest() {
     { name: '编号引用不污染指纹', lines: ['- [ ] G-100 **修复 G-99 引起的登录超时**', '- [ ] G-101 **修复 G-88 引起的登录超时**'], expect: 1 },
     { name: '前置状语归一', lines: ['- [ ]（进行中@2026-10-05/g1-main）G-401 **MCP 工具免批准重跑（需拍板）**', '- [ ]G-768 **MCP 工具免批准重跑（需拍板）**'], expect: 1 },
     { name: '已勾行不审', lines: ['- [x] G-100 **修复登录超时问题**', '- [ ] G-101 **修复登录超时问题**'], expect: 0 },
-    { name: '过短指纹不参与', lines: ['- [ ] G-100 **修超时**', '- [ ] G-101 **修超时**'], expect: 0 },  ]
+    { name: '过短指纹不参与', lines: ['- [ ] G-100 **修超时**', '- [ ] G-101 **修超时**'], expect: 0 },    { name: '无号同题副本必命中(第三类,2026-10-16)', lines: ['- [ ] {{NEXT_ID}} **GA7 对 render-prop 宿主组合失明 属性扫描上限 4000 字符** 甲', '- [ ]（认领已释放@2026-10-15/x） {{NEXT_ID}} **GA7 对 render-prop 宿主组合失明 属性扫描上限 4000 字符** 乙'], expect: 1 },
+    { name: '无号但只有一份 ⇒ 不成组', lines: ['- [ ] {{NEXT_ID}} **单独一份的无号登记行,标题足够长以越过指纹阈** 正文'], expect: 0 },
+    { name: '混合组(有号 + 无号)不抢 F4 名额', lines: ['- [ ] G-700 **同一件事的混合组标题,长度足够越过指纹阈** 甲', '- [ ] {{NEXT_ID}} **同一件事的混合组标题,长度足够越过指纹阈** 乙'], expect: 0 },
+  ]
   let pass = 0
   let total = 0
   const ok = (name, cond, detail = '') => {
@@ -286,6 +312,20 @@ function runSelfTest() {
   const G_C = ['- [ ] G-500 **新增导出报表功能** 说明', '- [ ] G-501 **新增导出报表功能** 补充'] // 另一题的一组
   const gs = (lines) => findDuplicateGroups(lines.join('\n'))
   ok('棘轮:锚点已有、候选不变 ⇒ 新增 0', ratchetAdded(gs(G_A), gs(G_A)).length === 0)
+  // 无号那一类的棘轮取证(第三类):锚点里已有的存量不得拦(§12e),这次多挂一份必须拦得到。
+  const U_A = [
+    '- [ ] {{NEXT_ID}} **无号同题副本的棘轮取证行,标题足够长以越过指纹阈** 甲',
+    '- [ ] {{NEXT_ID}} **无号同题副本的棘轮取证行,标题足够长以越过指纹阈** 乙',
+  ]
+  ok(
+    '棘轮:无号组存量不变 ⇒ 新增 0(存量天然在 HEAD 锚点里,判存量就是恒红门)',
+    ratchetAdded(gs(U_A), gs(U_A)).length === 0,
+  )
+  ok(
+    '棘轮:无号组多挂第三份 ⇒ 必须判 1(这类副本的成因就是"再抄一份",门过去对它恒绿)',
+    ratchetAdded(gs(U_A), gs([...U_A, '- [ ] {{NEXT_ID}} **无号同题副本的棘轮取证行,标题足够长以越过指纹阈** 丙']))
+      .length === 1,
+  )
   ok(
     '棘轮:组内多挂一个号必判 1',
     ratchetAdded(gs(G_A), gs([...G_A, ...G_B])).length === 1,
