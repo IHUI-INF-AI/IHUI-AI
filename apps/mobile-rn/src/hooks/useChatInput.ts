@@ -81,7 +81,17 @@ export interface UseChatInputResult {
   onInputAgentVariableImageChange: (index: number) => Promise<void>
 }
 
-export function useChatInput(): UseChatInputResult {
+export interface UseChatInputOptions {
+  /**
+   * 录音不可用回调(2026-10-15:原失败路径走 Alert.alert,react-native-web 上是 no-op,
+   * web 预览长按麦克风静默失效 —— 与 useVoiceRecorder 的 onUnavailable 同构收口)。
+   * reason 语义与 use-voice-recorder 对齐:permission-denied / record-failed。
+   * 调用方(ChatScreen)接 showToast;回调缺省时保留 Alert 兜底(原生端行为不变)。
+   */
+  onVoiceUnavailable?: (reason: 'permission-denied' | 'record-failed', message: string) => void
+}
+
+export function useChatInput(options?: UseChatInputOptions): UseChatInputResult {
   const [inputFiles, setInputFiles] = useState<MessageInputFile[]>([])
   const [isVoiceMode, setIsVoiceMode] = useState<boolean>(false)
   const [isRecording, setIsRecording] = useState<boolean>(false)
@@ -91,6 +101,9 @@ export function useChatInput(): UseChatInputResult {
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY!)
   const recordingRef = useRef<boolean>(false)
+  // 回调走 ref 持有(useCallback 依赖零抖动,recorder 不会因调用方每次渲染传新箭头而重挂)
+  const onVoiceUnavailableRef = useRef(options?.onVoiceUnavailable)
+  onVoiceUnavailableRef.current = options?.onVoiceUnavailable
 
   // 首次进入:申请麦克风权限 + 配置音频模式(静默模式 + 允许录音)
   useEffect(() => {
@@ -191,9 +204,19 @@ export function useChatInput(): UseChatInputResult {
 
   const onInputVoiceStart = useCallback(async (): Promise<void> => {
     if (recordingRef.current) return
+    // 按住中即置位(长按会话活跃标记):原实现只在 record() 后置位,导致 prepare 后的
+    // "已松开"守卫恒真 ⇒ 全平台长按永不开始录音且无任何反馈(2026-10-15 web 实测静默)。
+    // prepare 期间松开由 onInputVoiceEnd 清掉本标记,守卫据实判定。
+    recordingRef.current = true
     try {
       const status = await AudioModule.requestRecordingPermissionsAsync()
       if (!status.granted) {
+        recordingRef.current = false
+        const message = '无法访问麦克风,请检查权限设置'
+        if (onVoiceUnavailableRef.current) {
+          onVoiceUnavailableRef.current('permission-denied', message)
+          return
+        }
         Alert.alert('permission denied', 'microphone permission required')
         return
       }
@@ -203,12 +226,15 @@ export function useChatInput(): UseChatInputResult {
         return
       }
       recorder.record()
-      recordingRef.current = true
       setIsRecording(true)
     } catch (err: unknown) {
       recordingRef.current = false
       setIsRecording(false)
       const msg = err instanceof Error ? err.message : 'unknown'
+      if (onVoiceUnavailableRef.current) {
+        onVoiceUnavailableRef.current('record-failed', msg || '录音启动失败,请重试')
+        return
+      }
       Alert.alert('recorder error', msg)
     }
   }, [recorder])
