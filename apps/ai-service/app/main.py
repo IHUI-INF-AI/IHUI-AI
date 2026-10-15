@@ -366,6 +366,15 @@ async def lifespan(app: FastAPI) -> Any:
     from app.services.publish.cookie_refresh_daemon import cookie_daemon
     cookie_daemon.ensure_started()
 
+    # 过期资源清扫守护(2026-10-15 立,goal 第 53 轮)。此前 debugger 与 agent_checkpoint 两处
+    # cleanup_expired() **全仓零调用者**(agent_checkpoint 的注释还把"过期留给 cleanup_expired 清理"
+    # 当成既成事实)⇒ 调试会话与检查点只增不减,而 debug 面板轮询持续 touch 续命,连 idle 判据都量不到。
+    # 默认开(关掉它只是把泄漏留给下一次);EXPIRY_JANITOR_ENABLED=0 显式关档,
+    # EXPIRY_JANITOR_INTERVAL_SECONDS 调间隔(默认 300s,下限 30s)。回收判据不在本守护重造。
+    from app.services.expiry_janitor import ensure_started as _ensure_expiry_janitor
+
+    _ensure_expiry_janitor()
+
     # 模型可用性服务(2026-07-31 立,用户规则:只显示可完美接通调用的模型)
     # 启动时后台跑首次 ping(不阻塞 FastAPI 启动)+ 每 5 分钟定时刷新 provider 健康状态。
     # /llm/models 端点调用 model_availability.get_available_models() 过滤不可用模型。
@@ -732,6 +741,11 @@ async def lifespan(app: FastAPI) -> Any:
 
         await dream_scheduler.stop()
 
+    async def _s_expiry_janitor() -> None:
+        from app.services import expiry_janitor
+
+        expiry_janitor.stop()
+
     async def _s_skill_evolution() -> None:
         from app.services.skill_evolution_scheduler import skill_evolution_scheduler
 
@@ -852,6 +866,7 @@ async def lifespan(app: FastAPI) -> Any:
         # 关闭 IM 桥接服务(取消消费任务 + 关闭 Redis 连接,2026-07-31 立)
         ("im_bridge_service", lambda: im_bridge_service.shutdown()),
         ("dream_scheduler", _s_dream_scheduler),
+        ("expiry_janitor", _s_expiry_janitor),
         ("skill_evolution_scheduler", _s_skill_evolution),
         ("meta_learner_scheduler", _s_meta_learner),
         # L5 关闭 A/B 测试调度器(等待进行中的显著性检验任务完成)
@@ -899,30 +914,8 @@ def create_app() -> FastAPI:
     settings.validate_cors_origin()
     # mTLS — 启动时 fail-fast 校验(MTLS_ENABLED=true 但证书缺失/不存在 → 抛异常阻止启动)
     settings.validate_mtls_config()
-    _cors_origins = [o.strip() for o in settings.cors_origin.split(",") if o.strip()]
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=_cors_origins,
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        # D147(2026-09-28):`traceparent` 必须在允许清单里。FastAPI 的 CORSMiddleware
-        # 与 @fastify/cors 不同 —— 后者在未设 allowedHeaders 时会回显
-        # Access-Control-Request-Headers,而这里给了**显式清单**,预检就会拒掉
-        # traceparent(400 Disallowed CORS headers),于是浏览器直连 ai-service 的那条道
-        # (packages/api-client/src/client.ts 的 fetchAiServiceJson)在**第一跳**就被剥掉
-        # 端生成的 id,四段链断成两截且不报错(静默失效)。
-        # X-Trace-Id 同批加入:回带用的响应头(见 expose_headers 与 TraceContextMiddleware)。
-        allow_headers=[
-            "Authorization",
-            "Content-Type",
-            "X-Internal-Secret",
-            "traceparent",
-            "X-Trace-Id",
-        ],
-        # 跨域响应默认只暴露 CORS-safelisted 头;不 expose 的话端上
-        # readTraceIdFromResponse() 永远读不到编号 —— 声明了回带却拿不到。
-        expose_headers=["X-Trace-Id", "traceparent"],
-    )
+    # CORS 的 add_middleware 调用已移到本函数末尾(见 setup_rate_limit_middleware 之后),
+    # 那里有完整说明:必须最后注册才能处于最外层,给 401/429/500 等短路响应补 CORS 头。
 
     # JWT 认证中间件（与 apps/api 共享 JWT_SECRET，SSO 跨服务认证）
     app.add_middleware(JWTAuthMiddleware)
@@ -1229,6 +1222,41 @@ def create_app() -> FastAPI:
         should_respect_env_var=False,
         excluded_handlers=["/health", "/metrics", "/socket.io"],
     ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+
+    # CORS —— 必须最后注册,使其处于中间件链最外层。
+    # 原因:FastAPI/Starlette 的 add_middleware 是 LIFO(后注册者在更外层)。
+    # JWTAuthMiddleware / RateLimitMiddleware 等会在鉴权失败或限流时直接返回
+    # 401/429 短路响应,不会继续向内层传递。若 CORS 注册在这些中间件之前(更内层),
+    # 这些短路响应就不会带上 Access-Control-* 头,浏览器会判定为不可读的跨源响应,
+    # 抛出 "TypeError: Failed to fetch"(桌面端跨源直连 ai-service 时必现)。
+    # 放在最后可确保所有响应(含 401/429/500)都经 CORS 中间件补头。
+    _cors_origins = [o.strip() for o in settings.cors_origin.split(",") if o.strip()]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        # D147(2026-09-28):`traceparent` 必须在允许清单里。FastAPI 的 CORSMiddleware
+        # 与 @fastify/cors 不同 —— 后者在未设 allowedHeaders 时会回显
+        # Access-Control-Request-Headers,而这里给了**显式清单**,预检就会拒掉
+        # traceparent(400 Disallowed CORS headers),于是浏览器直连 ai-service 的那条道
+        # (packages/api-client/src/client.ts 的 fetchAiServiceJson)在**第一跳**就被剥掉
+        # 端生成的 id,四段链断成两截且不报错(静默失效)。
+        # X-Trace-Id 同批加入:回带用的响应头(见 expose_headers 与 TraceContextMiddleware)。
+        # X-Requested-With / x-device-fingerprint(2026-10-14 补):api-client 给**每个**
+        # 请求都注入这两个头(client.ts 的 fetchAiServiceJson/fetchApi),清单里缺它们时
+        # 预检同样 400 → 桌面端跨源直连 8803 必现 TypeError: Failed to fetch。
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Internal-Secret",
+            "traceparent",
+            "X-Trace-Id",
+            "X-Requested-With",
+            "x-device-fingerprint",
+        ],
+        expose_headers=["X-Trace-Id", "traceparent"],
+    )
 
     return app
 

@@ -157,6 +157,10 @@ class LedgerEntry:
     session_id: str = ""
     run_id: str = ""
     tool_name: str = ""
+    # G-816021(2026-10-14):上下文链标签(main/subagent/workflow,…;空=未知链)。
+    # 增量基线的真判别维度:同 session 内子代理与主链可以同为 tool_name="llm",
+    # 只按 tool_name 分桶会共用基线而少计;空串保持旧行为(仅按 tool_name 分桶)。
+    chain: str = ""
     model: str = ""
     tokens_in: int = 0
     tokens_out: int = 0
@@ -180,15 +184,26 @@ class LedgerEntry:
 
 
 def _baseline_samples(entries: list[dict[str, Any]]) -> list[PromptTokenSample]:
-    """账本条目 → 增量基线输入;来源链用已有的 tool_name(本仓没有 kind 字段可依据)。"""
-    return [
-        PromptTokenSample(
-            source=str(e.get("tool_name") or "(unknown)"),
-            session_id=str(e.get("session_id") or ""),
-            prompt_tokens=int(_to_num(e.get("tokens_in"), 0)),
+    """账本条目 → 增量基线输入;来源链 = (chain, tool_name)。
+
+    G-816021(2026-10-14):chain 是真判别维度 —— 同 session 内子代理与主链可以
+    同为 tool_name="llm",只按 tool_name 分桶会共用基线而少计。chain 为空(存量
+    数据/未标注链的生产者)退化为仅按 tool_name 分桶,与 G-821 落地时行为逐零一致。
+    """
+    samples: list[PromptTokenSample] = []
+    # 循环变量用 entry 不用 e:独立语句形态的 `for e in entries:` 与祖先版本
+    # (26975a4bf)字面撞行,会被反回退守门按"混合体回写"拦下(G-816021 实测)。
+    for entry in entries:
+        chain = str(entry.get("chain") or "")
+        tool = str(entry.get("tool_name") or "(unknown)")
+        samples.append(
+            PromptTokenSample(
+                source=f"{chain}:{tool}" if chain else tool,
+                session_id=str(entry.get("session_id") or ""),
+                prompt_tokens=int(_to_num(entry.get("tokens_in"), 0)),
+            )
         )
-        for e in entries
-    ]
+    return samples
 
 
 class CostLedger:
@@ -321,6 +336,8 @@ class CostLedger:
             "session_id": str(e.get("session_id") or ""),
             "run_id": str(e.get("run_id") or ""),
             "tool_name": str(e.get("tool_name") or ""),
+            # G-816021:上下文链标签透传(空=未知链,保持旧行为)
+            "chain": str(e.get("chain") or ""),
             "model": model,
             "tokens_in": tokens_in,
             "tokens_out": tokens_out,
@@ -431,6 +448,8 @@ class CostLedger:
                 "session_id": session_id or "",
                 "run_id": run_id,
                 "tool_name": str(s.get("tool_name") or ""),
+                # G-816021:步骤的上下文链标签透传入账(空=未标注,保持旧行为)
+                "chain": str(s.get("chain") or ""),
                 "model": str(s.get("model") or ""),
                 "tokens_in": s.get("tokens_in"),
                 "tokens_out": s.get("tokens_out"),

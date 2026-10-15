@@ -36,5 +36,15 @@ Write-Host "分域 SSO 架构:主域 aizhs.top + 认证子域 bsm.aizhs.top(只�
 Write-Host "按 Ctrl+C 停止"
 Write-Host ""
 
-cloudflared tunnel --no-autoupdate run --token $tunnelToken
+# 传输协议固定 http2(2026-10-14 诊断立因):
+# cloudflared 默认走 QUIC(UDP 784),而国内运营商对跨境 UDP 的 QoS 远差于 TCP ——
+# 真机实测(Redmi 5G → api.aizhs.top):ICMP RTT 353/493/586ms,HTTPS TTFB 1.5-4.4s,
+# 其中 TLS 握手单独占 0.8s(RTT 0.5s 的物理下限只够 1 个 RTT),且出现 6.37s 长尾。
+# 仓内既有读数(deploy/scripts/prod-bundle/health-check-bare.ps1:156,
+# 2026-08-05):http2 比 quic 公网 TTFB 快约 2 倍;该健康检查第 10 项长期因
+# "服务未带 --protocol http2" 而 WARN —— 安装端(install-service-windows.ps1)与
+# 启动端(本脚本)不写协议参数,cloudflared 就永远用默认 QUIC,守门只能干喊。
+# 部署包重装/启动脚本现从源头固化 http2;生产机现存服务的切换命令见
+# docs/DEPLOYMENT_RUNBOOK.md「Cloudflared 传输协议」节。
+cloudflared tunnel --no-autoupdate run --protocol http2 --token $tunnelToken
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

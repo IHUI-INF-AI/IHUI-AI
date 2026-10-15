@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { api, PRIORITIES, textareaClass } from './helpers'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 const TICKET_PRIORITY_KEYS: Record<'low' | 'medium' | 'high' | 'urgent', string> = {
   low: 'priority.low',
@@ -34,6 +35,8 @@ import type { Ticket, TicketPriority, Category } from './types'
 export function NewTicketForm({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient()
   const t = useTranslations('supportNewTicketForm')
+  // 登录态门:未就绪/未登录不发注定 401 的挂载请求
+  const { allow } = useAuthGate()
   const [title, setTitle] = React.useState('')
   const [description, setDescription] = React.useState('')
   const [categoryId, setCategoryId] = React.useState('')
@@ -43,6 +46,7 @@ export function NewTicketForm({ onDone }: { onDone: () => void }) {
   const { data: categoriesData } = useQuery({
     queryKey: ['cs-categories'],
     queryFn: () => api<{ list: Category[] }>(`/api/customer-service/categories`),
+    enabled: allow,
   })
 
   const createMut = useMutation({

@@ -20,15 +20,27 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mkScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as W } from '../check-watermark-syntax.mjs'
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const SCRIPT = join(REPO, 'scripts', 'check-watermark-syntax.mjs')
-/** 夹具落点:项目内 .ihui-agent/tmp(AGENTS §15,已被 .gitignore 忽略)。 */
-const TMP_ROOT = join(REPO, '.ihui-agent', 'tmp', 'wm-syntax')
+/**
+ * 夹具落点:mkScratch 唯一出口(2026-10-14 改造,幻影仓根治批)。
+ *
+ * 旧落点 `.ihui-agent/tmp/wm-syntax`(仓库内)已实证为 IDE 幻影仓主源:本测试
+ * mkRepo() 会 `git init` **独立 git 仓**且**无任何清理钩子**,测试进程被中断
+ * (SIGKILL / 会话强停 / 断电)即永久残留;数十次中断累积 52 个 repo-* 仓被
+ * Trae/VSCode 的源代码管理面板当作嵌套仓库扫描,聚合出「暂存的更改 10000+ 全 D」
+ * 的幻影计数,机主一度以为有上万未提交更改。
+ *
+ * mkScratch 落 `<盘根>/DevEnv/Temp/ihui-scratch`(工作区外,§26 唯一出口),
+ * 且挂 process.on('exit') 自动回收本进程全部夹具 —— 中断残留只剩「系统 Temp 里
+ * 的孤儿目录」,不再进入工作区、不再被 SCM 面板当仓库数。
+ */
 
 const ZW_CHARS = W.INVISIBLE_CODEPOINTS.map((c) => String.fromCharCode(c))
 /** 一条与 watermark.mjs 同形态的零宽载荷(哨兵 + 载荷 + 哨兵)。 */
@@ -37,10 +49,9 @@ const ZW = zwOf()
 const BANNER = '© 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top'
 const PROVENANCE_LINE = `// [IHUI-AI-PROVENANCE]:${ZW}`
 
-/** 临时 git 仓:自带 HEAD 提交,与真仓完全隔离。 */
+/** 临时 git 仓:自带 HEAD 提交,与真仓完全隔离。落点走 mkScratch(工作区外+退出自动回收)。 */
 function mkRepo() {
-  mkdirSync(TMP_ROOT, { recursive: true })
-  const dir = mkdtempSync(join(TMP_ROOT, 'repo-'))
+  const dir = mkScratch('wm-syntax-repo-')
   git(dir, ['init', '-q', '-b', 'main'])
   git(dir, ['config', 'user.email', 't@example.invalid'])
   git(dir, ['config', 'user.name', 'fixture'])
@@ -280,8 +291,7 @@ test('17 端到端 · 无 HEAD / 非 git 目录一律 exit 2,绝不静默报绿'
   const noHead = run(['--root', dir], dir)
   assert.equal(noHead.code, 2, `未提交仓库必须异常退出:${noHead.out}`)
   assert.doesNotMatch(noHead.out, /全部通过/)
-  mkdirSync(TMP_ROOT, { recursive: true })
-  const plain = mkdtempSync(join(TMP_ROOT, 'plain-'))
+  const plain = mkScratch('wm-syntax-plain-')
   writeFileSync(join(plain, 'a.ts'), `const a = 1 ${ZW}\n`, 'utf8')
   assert.equal(run(['--root', plain], plain).code, 2, '非 git 目录同样不得报绿')
 })

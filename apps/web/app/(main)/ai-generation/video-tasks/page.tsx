@@ -7,6 +7,8 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { Loader2, Video, RefreshCw, ChevronRight, ChevronDown } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -53,6 +55,9 @@ async function api<T>(url: string): Promise<T> {
 export default function VideoTasksPage() {
   const locale = useLocale()
   const t = useTranslations('videoTasksPage')
+  // 登录态门:任务列表是当前用户私有数据,未就绪/未登录不发注定 401 的查询(登录态门 campaign)
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [expandedId, setExpandedId] = React.useState<number | null>(null)
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -70,6 +75,7 @@ export default function VideoTasksPage() {
   const listQuery = useQuery({
     queryKey: ['jimeng-video-tasks'],
     queryFn: () => api<ListData>('/api/ai/jimeng4/video/tasks?page=1&pageSize=20'),
+    enabled: allow,
     refetchInterval: (q) => {
       const list = q.state.data?.list ?? []
       return list.some((t) => t.status === 'accepted' || t.status === 'running') ? 5000 : false
@@ -120,7 +126,9 @@ export default function VideoTasksPage() {
           <CardTitle className="text-base">{t('taskList')}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {listQuery.isLoading ? (
+          {!allow ? (
+            <AuthGatePrompt message={tGate('loginRequired')} />
+          ) : listQuery.isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               {t('loading')}

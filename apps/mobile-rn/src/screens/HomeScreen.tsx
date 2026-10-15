@@ -33,6 +33,7 @@ import {
   Folder,
   SlidersHorizontal,
   Search,
+  PanelLeft,
   History,
   Bookmark,
   Target,
@@ -54,7 +55,6 @@ import {
   Film,
   Volume2,
   Mic,
-  Menu,
   Handshake,
   MessageCircle,
 } from 'lucide-react-native'
@@ -64,7 +64,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
   claimShareFirstReward,
   deleteAgent,
-  fetchApi,
   getAllStudyProgress,
   getAgentCategories,
   getAgentDetail,
@@ -96,16 +95,16 @@ import {
   type HomeRecommendItem,
 } from '@ihui/rn-app'
 import type { CarouselItem } from '@ihui/ui-native'
-import type { AiModelData, ApiResult, AppIcon } from '@ihui/types'
-import { apiFailureToError, apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
-import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
+import type { AiModelData, AppIcon } from '@ihui/types'
+import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import Carousel from '../components/Carousel'
 import CardWithList, { type CardWithListItem } from '../components/CardWithList'
 import AiModelCard from '../components/AiModelCard'
-import { Toolbar } from '../components/Toolbar'
 import { KnowledgePlanet, type KnowledgePlanetItem } from '../components/KnowledgePlanet'
 import PopularCourses, { type PopularCourse } from '../components/PopularCourses'
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
+import { ShareRewardDialog } from '../components/ShareRewardDialog'
+import { ShareSheet } from '../components/ShareSheet'
 import { BottomFigure } from '../components/BottomFigure'
 import { MoreTitles } from '../components/MoreTitles'
 // 对齐 Uniapp ai_index:复用共享组件 NavBar / Drawer / InputArea / FloatBox / RecentAgents
@@ -129,7 +128,7 @@ import ModelConfigDialog, {
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
 // 对齐 Uniapp tools/index(AI应用商店):ai-list 智能体列表 + tagWrapShow 赛道分类弹层
-import AgentShopList, { type AgentShopItem } from '../components/AgentShopList'
+import type { AgentShopItem } from '../components/AgentShopList'
 import { FenLeiOverlay } from '../components/FenLeiOverlay'
 // 对齐 Uniapp tools/index:MyAgents(我的AI APP)+ IntelligentAssistant(智汇值卡)
 import MyAgents, { type MyAgentItem } from '../components/MyAgents'
@@ -201,17 +200,6 @@ function toProgressItem(items: StudyProgress[]): HomeProgressItem[] {
     progress: p.progress,
     completedLessons: p.completedLessons,
     totalLessons: p.totalLessons,
-  }))
-}
-
-/** 顶部轮播:取前 5 条推荐课程,适配 CourseCarouselItem 形状 */
-function toCarouselItems(items: HomeRecommendItem[]): CourseCarouselItem[] {
-  return items.slice(0, 5).map((r) => ({
-    id: r.id,
-    title: r.title,
-    price: r.price,
-    isFree: r.isFree,
-    icon: BookOpen,
   }))
 }
 
@@ -564,30 +552,6 @@ function toAgentListItem(a: AgentShopItem): AgentListItem {
   }
 }
 
-/** 智能体收藏(对齐 Uniapp pay.js getAgentCollect,body {uuid, botId})
- *  api-client 暂无封装,按项目模式用 fetchApi 在本文件内定义
- *  G-1058623:原写 /cozeZhsApi/agents/collect,归一后多一段 agents(成 /api/agents/collect),
- *  而后端 agents.ts:1567 注册的是 server.post('/collect') 且 agentsRoutes 挂 prefix /api
- *  ⇒ 实际路径是 /api/collect,原路径运行时必 404。此处按后端实际注册面改。
- *  (注释内路径一律不带引号/反引号:守门 8 的 pathRe 把引号与反引号同等当引号,
- *   加了就会被抽成调用点,自己给自己造一条死调用。) */
-function postAgentCollect(uuid: string, botId: string): Promise<ApiResult<unknown>> {
-  return fetchApi<unknown>('/api/collect', {
-    method: 'POST',
-    body: JSON.stringify({ uuid, botId }),
-  })
-}
-
-/** 智能体点赞(对齐 Uniapp pay.js getAgentLike,body {uuid, botId})
- *  G-1058623:同 postAgentCollect,原写 /cozeZhsApi/agents/thumbs 多写一段 agents;
- *  后端 agents.ts:1552 是 server.post('/thumbs') + prefix /api ⇒ 实际 /api/thumbs。 */
-function postAgentLike(uuid: string, botId: string): Promise<ApiResult<unknown>> {
-  return fetchApi<unknown>('/api/thumbs', {
-    method: 'POST',
-    body: JSON.stringify({ uuid, botId }),
-  })
-}
-
 /** Local do-not-disturb flag for the first-share reward popup (timestamp string). */
 const SHARE_FIRST_DISMISSED_KEY = 'share_first_dismissed'
 
@@ -652,6 +616,8 @@ export function HomeScreen() {
   const [drawerVisible, setDrawerVisible] = useState(false)
   // ── 二维码弹窗(对齐 Uniapp ai_index showQrCodeModal;图片 assets/images/common/qewm.png) ──
   const [qrCodeVisible, setQrCodeVisible] = useState(false)
+  // 分享面板(2026-10-15:导航栏「分享」从跳我的页改为弹微信分享面板,产品定)
+  const [shareSheetVisible, setShareSheetVisible] = useState(false)
   // ── FloatBox toast(对齐 Uniapp uni.showToast 顶部悬浮提示,替代阻塞式 Alert) ──
   const [toastVisible, setToastVisible] = useState(false)
   const [toastType, setToastType] = useState<FloatBoxType>('info')
@@ -681,7 +647,7 @@ export function HomeScreen() {
   // ── 素材卡片(对齐 Uniapp materialCards:点击素材插入输入区上方,每卡右上 × 移除) ──
   const [materialCards, setMaterialCards] = useState<MaterialCard[]>([])
   // ── 分享领智汇值弹窗(对齐 Uniapp ai_index showSharePointsPopup:onShow 自动检查首次分享奖励) ──
-  const [shareValueVisible, setShareValueVisible] = useState(false)
+  const [rewardDialogVisible, setrewardDialogVisible] = useState(false)
   const [shareFirstReward, setShareFirstReward] = useState(0)
 
   const showToast = useCallback((type: FloatBoxType, message: string): void => {
@@ -823,21 +789,18 @@ export function HomeScreen() {
       showToast('warning', '保存失败,请重试')
     }
   }
-  /** 分享图:跳我的页面(对齐 Uniapp share-image → goToMyPage → /pages/table/user/index) */
-  const handleGoToMyPage = (): void => {
-    rootNav?.navigate('Main', { screen: 'ProfileMain' })
-  }
-
   /** NavBar 左右按钮配置(对齐 Uniapp navigation-bars:菜单 + 搜索 + 加入社区群 + 分享)
    *  搜索按钮对齐原 tools 页 isShowSearch=true → @clicksearch → 跳搜索页(RootStack 'Search')
-   *  间距对齐:Uniapp padding 0 24rpx ≈ 12dp(NavBar 内部已实现 paddingHorizontal: rpx(24)) */
+   *  间距对齐:Uniapp padding 0 24rpx ≈ 12dp(NavBar 内部已实现 paddingHorizontal: rpx(24))
+   *  分享按钮(2026-10-15 产品定):原对齐 Uniapp share-image → goToMyPage 跳我的页,
+   *  改为弹微信分享面板 ShareSheet(微信好友/朋友圈原生分享 + 复制链接兜底) */
   const navLeftActions: ReadonlyArray<NavBarAction> = [
-    { icon: Menu, label: '菜单', onPress: handleMenuPress },
+    { icon: PanelLeft, a11yLabel: '菜单', onPress: handleMenuPress },
   ]
   const navRightActions: ReadonlyArray<NavBarAction> = [
     { icon: Search, label: '搜索', onPress: () => rootNav?.navigate('Search') },
     { icon: Handshake, label: '加入群', onPress: handleJoinPress },
-    { icon: Gift, label: '分享', onPress: handleGoToMyPage },
+    { icon: Gift, label: '分享', onPress: () => setShareSheetVisible(true) },
   ]
 
   // ── InputArea 提交(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) ──
@@ -857,7 +820,20 @@ export function HomeScreen() {
   const handleVoiceComplete = (text: string): void => {
     if (text) setInputValue(text)
   }
-  const voiceRecorder = useVoiceRecorder({ onComplete: handleVoiceComplete })
+  // 麦克风不可用反馈(2026-10-15:useVoiceRecorder 原先失败路径静默,web 预览长按无任何提示)
+  const handleVoiceUnavailable = useCallback(
+    (reason: 'permission-denied' | 'record-failed'): void => {
+      showToast(
+        'warning',
+        reason === 'permission-denied' ? '无法访问麦克风,请检查权限设置' : '录音启动失败,请重试',
+      )
+    },
+    [showToast],
+  )
+  const voiceRecorder = useVoiceRecorder({
+    onComplete: handleVoiceComplete,
+    onUnavailable: handleVoiceUnavailable,
+  })
 
   // ── 模型类型按钮(对齐 Uniapp handleModelTypeClick / toggleSkillsPopup / toggleMaterialPopup) ──
   /** 点击类型按钮:同类型再点收起(对齐 Uniapp 第二次点击收起),不同类型切换 activeModelType 弹 Modal */
@@ -1096,8 +1072,8 @@ export function HomeScreen() {
 
   // ── 分享领智汇值弹窗(对齐 Uniapp ai_index showSharePointsPopup / first/share/show) ──
   // Local do-not-disturb: any dismiss path persists the flag so cold starts stop popping.
-  const hideSharePoints = (): void => {
-    setShareValueVisible(false)
+  const closeRewardDialog = (): void => {
+    setrewardDialogVisible(false)
     void persistShareFirstDismissed()
   }
 
@@ -1109,7 +1085,7 @@ export function HomeScreen() {
       const res = await getShareFirstStatus()
       if (res.success && res.data.canClaim) {
         setShareFirstReward(res.data.rewardPoints)
-        setShareValueVisible(true)
+        setrewardDialogVisible(true)
       }
     } catch {
       // 接口异常静默降级,不阻塞进页
@@ -1120,7 +1096,7 @@ export function HomeScreen() {
   const handleClaimShareReward = async (): Promise<void> => {
     try {
       const res = await claimShareFirstReward()
-      hideSharePoints()
+      closeRewardDialog()
       if (res.success) {
         showToast('success', `已领取 ${res.data.points} 智汇值`)
       } else {
@@ -1200,31 +1176,6 @@ export function HomeScreen() {
     subname: '智能问答 / 课程推荐',
     userType: 'freeuse',
     tags: ['免费', '热门'],
-  }
-
-  /** Toolbar 首页工具栏(对齐 Uniapp Toolbar/index.vue: 顶部服务入口 + 营销区 + 双列条目 + AI定制条) */
-  const onToolbarMore = () => rootNav?.navigate('AgentMarket')
-  const onToolbarBanner = () => rootNav?.navigate('AigcList')
-  const onToolbarToolPress = (key: string) => {
-    // 对齐原项目 handleItemClick(item.id + 2) 分流: ai_image/ai_video/ai_wenan/ai_clip → AigcList
-    switch (key) {
-      case 'ai_live': // AI直播
-        rootNav?.navigate('LiveList')
-        break
-      case 'ai_avatar': // AI数字人
-      case 'ai_image':
-      case 'ai_video':
-      case 'ai_wenan':
-      case 'ai_clip':
-        rootNav?.navigate('AigcList')
-        break
-      default:
-        break
-    }
-  }
-  const onToolbarCustomMade = () => {
-    // AI 定制入口 → AgentMarket(Agent 市场)真实路由,对接智能体定制功能
-    rootNav?.navigate('AgentMarket')
   }
 
   /** FunctionBlockColumn 点击路由映射 */
@@ -1386,15 +1337,6 @@ export function HomeScreen() {
     [loadAgentList],
   )
 
-  // ── 智能体卡片点击(对齐 Uniapp ai-list 点击 → ai_assistant 对话页) ──
-  const handleAgentPress = useCallback(
-    (id: string): void => {
-      const agent = agentItems.find((a) => a.id === id)
-      rootNav?.navigate('AiAssistantN8n', { agentId: id, title: agent?.name })
-    },
-    [agentItems, rootNav],
-  )
-
   // ── 技能弹窗智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList;与 ai-list 同源 agentItems) ──
   const skillAgentItems: AgentListItem[] = useMemo(
     () => agentItems.map(toAgentListItem),
@@ -1410,63 +1352,6 @@ export function HomeScreen() {
     [agentItems, rootNav],
   )
 
-  // ── 点赞/收藏(对齐 Uniapp getAgentLike/getAgentCollect:乐观更新,失败回滚提示) ──
-  const toggleAgentReaction = useCallback(
-    async (id: string, kind: 'like' | 'collect'): Promise<void> => {
-      const uuid = user?.id
-      if (!uuid) {
-        showToast('info', '请先登录后再操作')
-        return
-      }
-      const prev = agentItems
-      // 乐观更新(对齐 uniapp 遍历 agentList 翻转 isThumbs/isCollect + 计数 ±1)
-      setAgentItems((items) =>
-        items.map((it) => {
-          if (it.id !== id) return it
-          if (kind === 'like') {
-            const next = !it.isThumbs
-            return {
-              ...it,
-              isThumbs: next,
-              likeCount: Math.max(0, (it.likeCount ?? 0) + (next ? 1 : -1)),
-            }
-          }
-          const nextCollect = !it.isCollect
-          return {
-            ...it,
-            isCollect: nextCollect,
-            collectCount: Math.max(0, (it.collectCount ?? 0) + (nextCollect ? 1 : -1)),
-          }
-        }),
-      )
-      try {
-        const res =
-          kind === 'like' ? await postAgentLike(uuid, id) : await postAgentCollect(uuid, id)
-        if (!res.success) throw apiFailureToError(res)
-        showToast('success', kind === 'like' ? '点赞成功' : '收藏成功')
-      } catch (e: unknown) {
-        // 失败回滚
-        setAgentItems(prev)
-        const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-        const fallback = kind === 'like' ? '点赞失败' : '收藏失败'
-        showToast('error', detail.trim() ? toUserFriendlyMessage(e) : fallback)
-      }
-    },
-    [agentItems, user?.id, showToast],
-  )
-  const handleAgentLike = useCallback(
-    (id: string): void => {
-      void toggleAgentReaction(id, 'like')
-    },
-    [toggleAgentReaction],
-  )
-  const handleAgentCollect = useCallback(
-    (id: string): void => {
-      void toggleAgentReaction(id, 'collect')
-    },
-    [toggleAgentReaction],
-  )
-
   // ── toodown 返回顶部(对齐 Uniapp handleToodownVisibility/backToTop,RN 端阈值 600) ──
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>): void => {
     setShowBackTop(e.nativeEvent.contentOffset.y > 600)
@@ -1474,11 +1359,6 @@ export function HomeScreen() {
   const backToTop = useCallback((): void => {
     scrollRef.current?.scrollTo({ y: 0, animated: true })
   }, [])
-
-  const carouselItems = useMemo<CourseCarouselItem[]>(
-    () => toCarouselItems(recommends),
-    [recommends],
-  )
 
   return (
     <View style={shellStyles.root}>
@@ -1522,42 +1402,6 @@ export function HomeScreen() {
             />
           </View>
         ) : null}
-        {/* AgentShopList AI 应用商店核心区块(对齐 Uniapp tools/index Ai-list_b 位置:
-         *  原项目固定在导航栏下方的智能体列表,RN 此前被压到页面底部——现上移到第二个核心位置,
-         *  用户进首页即看到「AI 应用商店」) */}
-        <View style={shellStyles.agentListWrap}>
-          <MoreTitles
-            title="AI 应用商店"
-            moreText={t('common.more')}
-            onMore={() => rootNav?.navigate('AiAssistant', {})}
-          />
-          <AgentShopList
-            items={agentItems}
-            onItemClick={handleAgentPress}
-            onItemLike={handleAgentLike}
-            onItemCollect={handleAgentCollect}
-            emptyText="该分类下暂无智能体"
-            scrollEnabled={false}
-          />
-        </View>
-        <CourseCarousel
-          courses={carouselItems}
-          onPress={(id) => navigation.navigate('CourseDetail', { id })}
-        />
-        {/* Toolbar 首页工具栏(对齐 Uniapp 首页营销模块)
-         *  items={[]} 是旧版 32×32 工具条兼容契约,真实营销内容(3 服务项/banner/6 工具格/AI定制)
-         *  已内置于 Toolbar 组件常量(HOME_SERVICES/HOME_TOOLS,迁移自原 Toolbar/index.vue 静态数据),
-         *  传空数组仅隐藏旧版横向工具条,不影响大块渲染 */}
-        <View style={shellStyles.toolbarWrap}>
-          <Toolbar
-            items={[]}
-            onServicePress={() => rootNav?.navigate('AgentMarket')}
-            onMorePress={onToolbarMore}
-            onBannerPress={onToolbarBanner}
-            onToolPress={onToolbarToolPress}
-            onCustomServicePress={onToolbarCustomMade}
-          />
-        </View>
         {/* CardWithList 推荐课程横向列表(对齐 Uniapp 首页推荐区) */}
         {cardItems.length > 0 ? (
           <View style={shellStyles.cardListWrap}>
@@ -1674,7 +1518,6 @@ export function HomeScreen() {
           <MoreTitles title="功能入口" />
           <FunctionBlockColumn blocks={FUNCTION_BLOCKS} onBlockPress={onFunctionBlockPress} />
         </View>
-        {/* AgentShopList 已上移到 Carousel 之后(对齐原 tools 位置) */}
         {/* BottomFigure 底部装饰图(对齐 Uniapp 首页底部装饰) */}
         <View style={shellStyles.bottomFigureWrap}>
           <BottomFigure />
@@ -2065,46 +1908,21 @@ export function HomeScreen() {
         </Pressable>
       </Modal>
       {/* 分享领智汇值弹窗(对齐 Uniapp ai_index share-points-popup)
-       *  2026-09-08 恢复 stash@{8} 丢失的 v3 修复(commit 549b500955 收编重构时遗漏):
-       *  - RN <Modal> 在 RN Web 以 position:fixed 独立层渲染,内部 flex:1 依赖原生 measure
-       *    常拿 0 高度 → 卡片不显示只剩遮罩;改用普通 View + absolute 遮罩直接铺满父容器
-       *  - Pressable absoluteFill 承载点击遮罩关闭,与卡片兄弟共存,避免嵌套 Pressable
-       *    干扰内部按钮命中;卡片自身 stopPropagation */}
-      {shareValueVisible && (
-        <View style={shellStyles.shareMask} pointerEvents="box-none">
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={hideSharePoints}
-            accessibilityRole="button"
-            accessibilityLabel="点击关闭"
-          />
-          <Pressable
-            style={shellStyles.shareContent}
-            onPress={(e) => e.stopPropagation()}
-            pointerEvents="box-none"
-          >
-            <Pressable hitSlop={8} onPress={hideSharePoints} style={shellStyles.shareClose}>
-              <Text style={shellStyles.shareCloseText}>×</Text>
-            </Pressable>
-            <Text style={shellStyles.shareTitle}>分享领智汇值</Text>
-            <Text style={shellStyles.shareDesc}>
-              首次分享成功,获得 {shareFirstReward}{' '}
-              智汇值奖励;邀请好友加入智汇AI社区,好友注册成功后双方均可再获智汇值。智汇值可用于兑换模型算力、会员权益等。
-            </Text>
-            <Pressable onPress={handleClaimShareReward} style={shellStyles.shareBtn}>
-              <Text style={shellStyles.shareBtnText}>领取 {shareFirstReward} 智汇值</Text>
-            </Pressable>
-            <Pressable
-              onPress={hideSharePoints}
-              style={[shellStyles.shareBtn, shellStyles.shareBtnSecondary]}
-            >
-              <Text style={[shellStyles.shareBtnText, shellStyles.shareBtnSecondaryText]}>
-                稍后再说
-              </Text>
-            </Pressable>
-          </Pressable>
-        </View>
-      )}
+       *  2026-10-15 深度重构:抽共享组件 ShareRewardDialog(金渐变纪念币 Hero +
+       *  brandAccent 渐变 CTA),Home/Chat 两屏统一;渲染容器病理说明见组件头注释 */}
+      <ShareRewardDialog
+        visible={rewardDialogVisible}
+        reward={shareFirstReward}
+        onClaim={handleClaimShareReward}
+        onClose={closeRewardDialog}
+        secondaryLabel="稍后再说"
+      />
+      {/* 分享面板(导航栏「分享」触发;微信原生分享 + web 复制链接降级,见组件头注释) */}
+      <ShareSheet
+        visible={shareSheetVisible}
+        onClose={() => setShareSheetVisible(false)}
+        onNotify={showToast}
+      />
       {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
       <TabBar activeTab="home" onChange={handleTabChange} />
     </View>
@@ -2123,12 +1941,9 @@ const shellStyles = {
     borderRadius: rnRadius['2xl'],
     overflow: 'hidden',
   } as const,
-  toolbarWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   cardListWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   aiModelWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   sectionWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
-  // 智能体列表区块(对齐 Uniapp tools/index ailist_content 主体区块)
-  agentListWrap: { paddingVertical: rpx(16) } as const,
   bottomFigureWrap: {
     paddingHorizontal: rpx(20),
     paddingTop: rpx(16),
@@ -2390,42 +2205,12 @@ const shellStyles = {
     fontWeight: '300',
     paddingHorizontal: rpx(8),
   } as const,
-  // ── 分享领智汇值弹窗(对齐 Uniapp share-points-popup) ──
+  // ── 分享领智汇值弹窗(2026-10-15 重构为共享组件 ShareRewardDialog,样式随组件) ──
   modalMask: {
     flex: 1,
     backgroundColor: tokens.overlay.modal,
     alignItems: 'center',
     justifyContent: 'center',
-  } as const,
-  shareMask: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: tokens.overlay.modal,
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as const,
-  shareContent: {
-    width: '84%',
-    maxWidth: 380,
-    borderRadius: rnRadius.xl,
-    backgroundColor: tokens.surface.card,
-    paddingHorizontal: rpx(40),
-    paddingTop: rpx(40),
-    paddingBottom: rpx(48),
-    alignItems: 'center',
-  } as const,
-  shareClose: {
-    alignSelf: 'flex-end',
-    padding: rpx(8),
-  } as const,
-  shareCloseText: {
-    fontSize: 22,
-    lineHeight: 24,
-    color: tokens.text.tertiary,
-    fontWeight: '300',
   } as const,
   // 二维码弹窗(对齐 Uniapp qr-code-modal:图片 600rpx≈300dp + 关闭按钮)
   qrContent: {
@@ -2460,42 +2245,6 @@ const shellStyles = {
     lineHeight: 26,
     color: tokens.text.tertiary,
     fontWeight: '300',
-  } as const,
-  shareTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: tokens.text.primary,
-    marginTop: rpx(24),
-    marginBottom: rpx(16),
-  } as const,
-  shareDesc: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: tokens.text.secondary,
-    textAlign: 'center',
-    marginBottom: rpx(32),
-  } as const,
-  shareBtn: {
-    paddingHorizontal: rpx(48),
-    paddingVertical: rpx(20),
-    borderRadius: rnRadius.sm,
-    backgroundColor: tokens.brand.cta,
-    minWidth: '70%',
-    alignItems: 'center',
-  } as const,
-  shareBtnText: {
-    fontSize: 14,
-    color: tokens.brand.ctaForeground,
-    fontWeight: '500',
-  } as const,
-  shareBtnSecondary: {
-    marginTop: rpx(16),
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.card,
-  } as const,
-  shareBtnSecondaryText: {
-    color: tokens.text.primary,
   } as const,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

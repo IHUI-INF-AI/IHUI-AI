@@ -22,7 +22,8 @@
  * 存储:进程内存 Map,重启失效(生产环境用 DB)。
  */
 import type { FastifyPluginAsync } from 'fastify'
-import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto'
+import { createHmac, randomUUID } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import {
@@ -103,15 +104,11 @@ const listEventsQuerySchema = z.object({
 /**
  * HMAC-SHA256 签名验证。
  * 外部系统用 config.secret 对 raw payload 计算 hex 摘要,放在 X-Webhook-Signature 头。
- * 用 timingSafeEqual 防时序攻击。
+ * 经全仓唯一比较出口 secretsEqual(定长散列)防时序攻击。
  */
 function verifySignature(payload: string, signature: string, secret: string): boolean {
   const expected = createHmac('sha256', secret).update(payload).digest('hex')
-  const expectedBuf = Buffer.from(expected, 'utf8')
-  const providedBuf = Buffer.from(signature, 'utf8')
-  // 长度不一致直接返回 false(timingSafeEqual 要求同长度)
-  if (expectedBuf.length !== providedBuf.length) return false
-  return timingSafeEqual(expectedBuf, providedBuf)
+  return secretsEqual(expected, signature)
 }
 
 // =============================================================================

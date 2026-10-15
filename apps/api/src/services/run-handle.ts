@@ -26,7 +26,8 @@
  * - `foreign-owner` → 由路由回 404(对外不承认该资源存在,免得句柄变成存在性探针)。
  * 两类都不是 500 —— 鉴权层后面的 fail-open 崩溃正是 AGENTS §5 记过的那类事故。
  */
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHmac } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 
 /** wire 前缀,一眼可辨,且刻意与游标的 `cr1_` 不同。 */
 export const RUN_HANDLE_PREFIX = 'runh'
@@ -56,10 +57,9 @@ function signatureOf(body: string, secret: string): string {
   return hmacDigest(secret, `${DOMAIN}|sig|${body}`).slice(0, SIGNATURE_CHARS)
 }
 
-/** 定长摘要比较;长度不等直接 false(timingSafeEqual 不等长会抛)。 */
+/** 定长摘要比较(经全仓唯一比较出口 secretsEqual:定长散列,无长度泄漏)。 */
 function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  return timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'))
+  return secretsEqual(a, b)
 }
 
 export interface IssueRunHandleInput {

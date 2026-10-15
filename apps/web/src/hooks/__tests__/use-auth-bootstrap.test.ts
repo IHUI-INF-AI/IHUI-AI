@@ -70,7 +70,7 @@ vi.mock('@/lib/cookie-utils', async (importOriginal) => {
 })
 
 vi.mock('@/stores/user', () => ({
-  useUserStore: <T,>(selector: (s: { fetchProfile: () => Promise<void> }) => T): T =>
+  useUserStore: <T>(selector: (s: { fetchProfile: () => Promise<void> }) => T): T =>
     selector({ fetchProfile: mocks.fetchProfile }),
 }))
 
@@ -108,7 +108,9 @@ afterEach(() => {
 
 describe('A. 冷启动静默刷新瞬时失败:绝不落持久登出标记(2026-10-09 主病根)', () => {
   it('getLastRefreshFailure()=transient + refresh 失败 ⇒ 不写标记、不 logout、ready', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    // 2026-10-14 控制台清零整改:瞬时失败提示从 console.warn 降级为 console.debug
+    // (默认视图不显示 debug,不再刷屏;语义不变,故断言对象同步换成 debug)。
+    const debug = vi.spyOn(console, 'debug').mockImplementation(() => {})
     // persist 冷启动带进来的幽灵 isAuthenticated 标志位(token 为空但标志位残留)
     useAuthStore.setState({ isAuthenticated: true })
     mocks.getLastRefreshFailure.mockReturnValue('transient')
@@ -124,8 +126,8 @@ describe('A. 冷启动静默刷新瞬时失败:绝不落持久登出标记(2026-
     // logout() 没被调:幽灵标志位保持原状(修复前这里会被清成 false 并落标记)
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
     expect(result.current.isAuthenticated).toBe(true)
-    // 收束方式是 console.warn(保持现状、下一次冷启动重试),不是静默
-    expect(warn).toHaveBeenCalled()
+    // 收束方式是 console.debug(保持现状、下一次冷启动重试),不是静默
+    expect(debug).toHaveBeenCalled()
     // 刷新失败即止步,不再打 /auth/me
     expect(mocks.fetchApi).not.toHaveBeenCalled()
   })
@@ -168,6 +170,9 @@ describe('C. 登出标记已在场:冷启动不得再碰刷新', () => {
 describe('D. /auth/me retry 失败按 retry 状态码分型(cancelled 漏洞回归锁)', () => {
   /** 首次 /auth/me 与 retry 都失败;refresh 两次都成功 ⇒ 走到 retry 分支看 retry.status */
   async function runBootstrapWithFailedMe(status: number): Promise<void> {
+    // 2026-10-14 控制台清零整改:无凭据门控(hasUsableRefreshCredential)要求存在登录态
+    // 标志位才会发 /auth/refresh;本组锁的是 retry 分型/cancelled 接线,按回访用户建模。
+    useAuthStore.setState({ isAuthenticated: true })
     mocks.refreshAccessTokenOnce.mockResolvedValue('fresh-access-token')
     mocks.fetchApi.mockResolvedValue({ success: false, error: `me failed ${status}`, status })
 
@@ -180,14 +185,15 @@ describe('D. /auth/me retry 失败按 retry 状态码分型(cancelled 漏洞回�
   }
 
   it('retry status=500(瞬时)⇒ 不写标记,登录态保持', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    // 2026-10-14 控制台清零整改:瞬时失败提示从 console.warn 降级为 console.debug,断言对象同步换
+    const debug = vi.spyOn(console, 'debug').mockImplementation(() => {})
 
     await runBootstrapWithFailedMe(500)
 
     expect(markerInStorage()).toBeNull()
     expect(isSessionLoggedOut()).toBe(false)
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
-    expect(warn).toHaveBeenCalled()
+    expect(debug).toHaveBeenCalled()
     // 分型看的是 retry.status,不是刷新失败记录:refresh 成功过,记录必须没被读
     expect(mocks.getLastRefreshFailure).not.toHaveBeenCalled()
   })
@@ -203,7 +209,8 @@ describe('D. /auth/me retry 失败按 retry 状态码分型(cancelled 漏洞回�
   })
 
   it('retry 落定前组件已卸载(cancelled)⇒ 即便 retry=401 也不落标记', async () => {
-    useAuthStore.setState({ isAuthenticated: false })
+    // 2026-10-14:门控要求有凭据信号才走刷新路径;本用例锁的是 cancelled 语义,按回访用户建模。
+    useAuthStore.setState({ isAuthenticated: true })
     mocks.refreshAccessTokenOnce.mockResolvedValue('fresh-access-token')
 
     // 第一次 /auth/me 立即失败;retry 挂起,直到我们主动放行
@@ -228,6 +235,39 @@ describe('D. /auth/me retry 失败按 retry 状态码分型(cancelled 漏洞回�
     expect(markerInStorage()).toBeNull()
     expect(isSessionLoggedOut()).toBe(false)
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
+  })
+})
+
+describe('E. 无任何 refresh 凭据:不发 /auth/refresh(2026-10-14 控制台清零整改)', () => {
+  it('无标志位/无 auth cookie/非桌面 ⇒ 不发刷新请求,静默收束未登录态', async () => {
+    // beforeEach 已复位为 isAuthenticated:false + getAuthCookie():null + jsdom(非桌面)
+    const { result } = renderHook(() => useAuthBootstrap())
+
+    await waitFor(() => expect(result.current.ready).toBe(true))
+
+    // 核心:无凭据时绝不发 /auth/refresh(否则后端 400 → 浏览器控制台噪声)
+    expect(mocks.refreshAccessTokenOnce).not.toHaveBeenCalled()
+    expect(mocks.fetchApi).not.toHaveBeenCalled()
+    // 不落标记、不清幽灵标志位、不写 debug(没走到失败分支)
+    expect(markerInStorage()).toBeNull()
+    expect(isSessionLoggedOut()).toBe(false)
+    expect(useAuthStore.getState().isAuthenticated).toBe(false)
+  })
+
+  it('可读 auth cookie 在场(e2e storageState 降级通道)⇒ 照常走恢复路径', async () => {
+    mocks.getAuthCookie.mockReturnValue('cookie-access-token')
+    // /auth/me 必须成功:否则 else 分支会走 tryRefresh(本用例只锁"cookie 恢复不发 refresh")
+    mocks.fetchApi.mockResolvedValue({
+      success: true,
+      data: { user: { id: 'u1', nickname: 'tester', roleId: 1 } },
+    })
+    const { result } = renderHook(() => useAuthBootstrap())
+
+    await waitFor(() => expect(result.current.ready).toBe(true))
+
+    // cookie 恢复路径:不发 refresh,直接以 cookie token 打 /auth/me
+    expect(mocks.refreshAccessTokenOnce).not.toHaveBeenCalled()
+    expect(mocks.fetchApi).toHaveBeenCalledWith('/auth/me')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

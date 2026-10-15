@@ -24,6 +24,7 @@ import {
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { BackButton, TruncatedText } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   Card,
   CardContent,
@@ -556,10 +557,13 @@ export default function SchedulingPage() {
     React.useState<TeacherSchedule | null>(null)
   const [conflictDialogOpen, setConflictDialogOpen] = React.useState(false)
   const [conflicts, setConflicts] = React.useState<string[]>([])
+  // 登录态门:未就绪/未登录不发注定 401 的查询(edu-ai-management 全端点需权限)
+  const { allow } = useAuthGate()
 
   /* ── Queries ── */
   const { data: termsData } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
+    enabled: allow,
     queryFn: () => api<{ list: Term[] }>('/api/edu-ai-management/term'),
   })
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
@@ -591,6 +595,7 @@ export default function SchedulingPage() {
 
   const { data: teachersData } = useQuery({
     queryKey: ['edu-ai-management', 'teachers'],
+    enabled: allow,
     queryFn: () => api<{ list: EduTeacher[] }>('/api/edu-ai-management/teachers'),
   })
   const teachers = React.useMemo(() => teachersData?.list ?? [], [teachersData])

@@ -8,6 +8,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
 import {
   SECTION_HEADER_ARROW_MARGIN_LEFT_PX,
+  SECTION_HEADER_MORE_FONT_PX,
   SECTION_HEADER_MORE_MARGIN_LEFT_PX,
   SECTION_HEADER_SUBTITLE_FONT_PX,
   SECTION_HEADER_SUBTITLE_GAP_PX,
@@ -74,8 +75,7 @@ const textStyles = {
     whiteSpace: 'nowrap',
   }),
   moreLabel: (tk: RnThemeTokens): CSSProperties => ({
-    // 「更多」文字 12 = §4 定档(MoreLink 单源),不重复登记
-    fontSize: 12,
+    fontSize: SECTION_HEADER_MORE_FONT_PX,
     color: tk.text.secondary,
   }),
 }

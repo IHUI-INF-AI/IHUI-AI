@@ -195,6 +195,23 @@ export default defineConfig({
         __dirname,
         '../../packages/shared/src/chat/element-pack.ts',
       ),
+      // D64⑤ 收口:元素包历史读回守卫同为纯逻辑(parseElementPackFrames 零平台依赖),
+      // 直连真实源码;子路径 alias 必须排在 '@ihui/shared/chat' 父别名之前(最长匹配优先)。
+      '@ihui/shared/chat/element-pack-history': resolve(
+        __dirname,
+        '../../packages/shared/src/chat/element-pack-history.ts',
+      ),
+      // D38 队列语义判定(queueInteractionPerms/effectiveMode 同族)同为纯逻辑,
+      // QueueInteractionBar 深路径取用;同样排在父别名之前(最长匹配优先)。
+      '@ihui/shared/chat/queue-interactions': resolve(
+        __dirname,
+        '../../packages/shared/src/chat/queue-interactions.ts',
+      ),
+      // D69 排队许可判定(queueInteractionPerms/deniedNotice 同族)同为纯逻辑,同一处置。
+      '@ihui/shared/chat/input-notices': resolve(
+        __dirname,
+        '../../packages/shared/src/chat/input-notices.ts',
+      ),
       // D20 会话置顶:conversation-pin 同为纯逻辑(不触网络/DOM),必须指向真实源码 ——
       // 给它写 mock 测的就是 mock(同 app-control-intent 的理由)。子路径 alias 排在
       // '@ihui/shared/chat' 父路径之前(最长匹配优先)。

@@ -22,6 +22,8 @@
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
+// 2026-10-14:import() 类型注解被 consistent-type-imports 禁(CI lint 红),改顶层 type 命名空间导入
+import type * as NotificationQueriesModule from '../src/db/notification-queries.js'
 
 const {
   mockAuthenticate,
@@ -185,7 +187,7 @@ vi.mock('../src/db/index.js', () => {
 // 但"路由把 userId 传对了"并不等于"查询真的按 userId 过滤了" —— 后者由下面
 // describe('deleteAllNotifications 本体') 直接打真函数验(那一组不桩它)。
 const actualNotificationQueries = await vi.importActual<
-  typeof import('../src/db/notification-queries.js')
+  typeof NotificationQueriesModule
 >('../src/db/notification-queries.js')
 
 vi.mock('../src/db/notification-queries.js', async (importOriginal) => {

@@ -24,15 +24,17 @@
  *   (把"没判"写成"判过了"是本仓最高频的失效型)。一例都没判到 ⇒ 判死,不记绿。
  *
  * 定级与落点(不要写一个跑不通的出路):
- *   本门**刻意没有接进提交链**:它需要一个 Python 解释器,而解释器在不在是**机器状态**,
- *   提交者结构上满足不了 —— 挂 blocking 就是每台每次被逼 `--no-verify`,一次绕过等于该枚
- *   提交上全部守门作废(AGENTS §12e 同型)。接线归 `guardian-runner.mjs` 的持有人裁决。
+ *   本门**已接进提交链,定级 warn**(runner 注册条目 id 现值以 `guardian-runner.mjs` 为准,本文不钉数;
+ *   应急跳过变量在注册条目里声明)。为什么是 warn 而不是 blocking:它需要一个 Python 对照解释器,
+ *   解释器在不在是**机器状态**,与任何 diff 无关 —— 在无 venv 的机器上每次提交都会被顶成"未判定",
+ *   挂 blocking 就是每台每次被逼 `--no-verify`,一次绕过等于该枚提交上全部守门作废(AGENTS §12e 同型)。
+ *   **升 blocking 的前置** = 先给 CI 一条能稳定取到对照解释器的通道(§12e 存量归零这一维本门本来就为 0:
+ *   它判的是"两侧口径是否逐例同值",不背历史存量)。
  *   问责入口(手动 / CI):`node scripts/check-line-split-parity.mjs --strict`
- *   默认档与 `--strict` 退出码同语义(它不在提交链上,所以不需要"存量只报数"那一档)。
+ *   默认档与 `--strict` 退出码同语义(它判的是逐例同值,没有"存量只报数"那一档)。
  *   取证:`--self-test`(构造面成对正反例 + 一条"少一种换行码位必须翻红"的变异对照 +
  *   真仓 worktree 面端到端)与 §22c 镜像
  *   `node --test scripts/tests/check-line-split-parity.test.mjs`。
- *   **没有紧急跳过变量** —— 它不在钩子链上,不存在"被跳过"这件事。
  *
  * 取材面:同 70/77/83/98/101/103/118 —— 缺省判 **HEAD blob**、`--staged` 判**索引 blob**、
  *   `--worktree` 仅人工取证、两面旗同给 exit 2、取不到不回落另一个面。两份内容**同面同轮**
@@ -380,8 +382,8 @@ function usage() {
   console.log(
     '用法:node scripts/check-line-split-parity.mjs [--staged|--worktree] [--strict] [--json] [--self-test]\n' +
       '  缺省判 HEAD blob;--staged 判索引 blob;--worktree 仅人工取证;两面旗同给 exit 2。\n' +
-      '  它不在提交链上(判据需要本机 Python 解释器 ⇒ 挂 blocking 就是恒红门,AGENTS §12e),\n' +
-      '  所以默认档与 --strict 同语义,也**没有**紧急跳过变量。\n' +
+      '  它以 warn 接在提交链上(判据需要本机 Python 对照解释器 ⇒ 挂 blocking 就是在无 venv 的机器上造恒红门,AGENTS §12e),\n' +
+      '  默认档与 --strict 同语义;应急跳过变量以 guardian-runner.mjs 注册条目的 skipEnv 现值为准。\n' +
       '  取证:--self-test。',
   )
 }

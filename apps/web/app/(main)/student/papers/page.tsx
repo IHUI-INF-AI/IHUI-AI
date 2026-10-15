@@ -16,11 +16,15 @@ import { PapersList } from './PapersList'
 import { PaperDialog } from './PaperDialog'
 import { EMPTY_FORM, api } from './helpers'
 import type { Paper, PaperForm } from './types'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 export default function MyPapersPage() {
   const t = useTranslations('papers')
   const qc = useQueryClient()
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
 
   const [open, setOpen] = React.useState(false)
   const [form, setForm] = React.useState<PaperForm>(EMPTY_FORM)
@@ -36,6 +40,7 @@ export default function MyPapersPage() {
       api<Paper[] | { list: Paper[] }>('/api/edu/my-papers').then((d) =>
         Array.isArray(d) ? d : (d.list ?? []),
       ),
+    enabled: allow,
   })
 
   const createMut = useMutation({
@@ -100,13 +105,17 @@ export default function MyPapersPage() {
         </Button>
       </header>
 
-      <PapersList
-        list={list}
-        isLoading={isLoading}
-        error={error}
-        delPending={delMut.isPending}
-        onDelete={handleDelete}
-      />
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : (
+        <PapersList
+          list={list}
+          isLoading={isLoading}
+          error={error}
+          delPending={delMut.isPending}
+          onDelete={handleDelete}
+        />
+      )}
 
       <PaperDialog
         open={open}

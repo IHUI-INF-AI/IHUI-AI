@@ -216,6 +216,10 @@ def _normalize_step(step: dict[str, Any], idx: int) -> dict[str, Any]:
         "step_index": int(_to_num(step.get("step_index"), idx)),
         "type": stype,
         "tool_name": str(step.get("tool_name") or ""),
+        # G-816021(2026-10-14):上下文链标签(main/subagent/workflow,…;空=未标注)。
+        # 此前归一化白名单不含该键,生产者标注的链会在录制侧被丢弃,sync_from_recorder
+        # 永远拿不到 —— 同 model(2026-09-09 立)同型事故,不重犯。
+        "chain": str(step.get("chain") or ""),
         "input_summary": input_summary,
         "result_summary": result_summary,
         "status": status,

@@ -6,8 +6,11 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Loader2, Ticket } from 'lucide-react'
 
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { api, STATUS_LABEL, STATUS_BADGE } from './helpers'
@@ -16,12 +19,15 @@ import { TicketDetailDialog } from './TicketDetailDialog'
 import { formatDate } from '@/lib/date-utils'
 
 export function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [selected, setSelected] = React.useState<TicketType | null>(null)
   const [open, setOpen] = React.useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['cs-tickets'],
     queryFn: () => api<{ list: TicketType[]; total: number }>(`/api/customer-service/tickets`),
+    enabled: allow,
   })
 
   const list = data?.list ?? []
@@ -33,7 +39,9 @@ export function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
 
   return (
     <>
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...

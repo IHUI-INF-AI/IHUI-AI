@@ -28,6 +28,7 @@
  * 其值有且仅有 alg/kid/iv/ct 四个字符串字段。这使得"是否被包裹了一层"可判定,
  * 从而支撑调用方的**幂等迁移**(恰一份、非双重包裹)。
  */
+import { isTauriRuntime } from './api-base-url'
 
 /** 保险库文件(app_data_dir 下,与 auth.json / window-state.json 同级,Windows 下按用户 ACL 隔离) */
 export const VAULT_STORE_FILE = 'ihui-vault.json'
@@ -73,9 +74,9 @@ const DOMAIN_INFO: Record<VaultDomain, string> = {
   'chat-prompt-history': 'ihui/desktop/vault/chat-prompt-history/v1',
 }
 
-/** Tauri v2 运行时探测(原 desktop-token-vault 的定义,移到这里做单一事实源) */
+/** Tauri v2 运行时探测 —— 定义已收敛到 lib/api-base-url.ts(单一事实源),此处保持原导出路径不变 */
 export function isDesktopEnv(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+  return isTauriRuntime()
 }
 
 // ==================== 条目通道(可注入,生产为 Tauri store) ====================

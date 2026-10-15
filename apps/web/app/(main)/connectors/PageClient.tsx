@@ -39,7 +39,8 @@ import {
   type ConnectorType,
 } from '@ihui/api-client/endpoints/connectors'
 import { useAuthStore } from '@/stores/auth'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { Badge } from '@/components/data'
 import {
@@ -110,6 +111,9 @@ function toSlug(input: string): string {
  */
 export default function ConnectorsPageClient() {
   const t = useTranslations('connectors')
+  // 2026-10-15 登录态门:未就绪/未登录不发注定 401 的查询,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const queryClient = useQueryClient()
   /**
    * 当前登录主体 id(未取到主体时为 null)。只订阅 `user?.id` 这一个标量,
@@ -131,6 +135,11 @@ export default function ConnectorsPageClient() {
    * `src/components/ecosystem/__tests__/ecosystem-hub.test.tsx` 里钉的就是这一型)。
    * 无主体时请求照发,结果落 'anonymous' 这一格;跨账号的另一半由
    * `providers/query-provider.tsx:52-59` 的"主体由有到无 ⇒ 清空缓存"补上。
+   *
+   * 2026-10-15 登录态门(与 /chat/favorites、签到助手同型)改判:改用 `enabled: allow`
+   * + AuthGatePrompt 渲染门 —— 未就绪/未登录不发注定 401 的查询,也不再把本页
+   * 永久停在 loading 态(登录引导替代空转);上段"请求照发"口径在本页废止,
+   * ecosystem 总览的 `useConnectors()` 不在本改动射程内,维持原口径。
    */
   const {
     data: list,
@@ -138,6 +147,7 @@ export default function ConnectorsPageClient() {
     error,
   } = useQuery({
     queryKey: ['connectors', 'list', principalId ?? 'anonymous'],
+    enabled: allow,
     queryFn: async (): Promise<ConnectorListResponse> => {
       const r = await getConnectors()
       if (!r.success || !r.data) throw new Error(r.error ?? 'load failed')
@@ -350,7 +360,7 @@ export default function ConnectorsPageClient() {
           <div className="flex items-center gap-2">
             <Library className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-            {!isLoading && !error && (
+            {allow && !isLoading && !error && (
               <Badge variant="primary">
                 {t('count', { count: list?.count ?? connectors.length })}
               </Badge>
@@ -364,8 +374,10 @@ export default function ConnectorsPageClient() {
         </Button>
       </header>
 
-      {/* 加载态 */}
-      {isLoading && (
+      {/* 登录态门 + 加载态 */}
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : isLoading && (
         <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{t('loading')}</span>
@@ -373,14 +385,14 @@ export default function ConnectorsPageClient() {
       )}
 
       {/* 错误态 */}
-      {error && (
+      {allow && error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {t('loadFailed')}
         </div>
       )}
 
       {/* 空态 */}
-      {!isLoading && !error && connectors.length === 0 && (
+      {allow && !isLoading && !error && connectors.length === 0 && (
         <div className="flex flex-col items-center gap-3 rounded-lg border bg-card py-12 text-center">
           <BookOpen className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
@@ -392,7 +404,7 @@ export default function ConnectorsPageClient() {
       )}
 
       {/* 连接器卡片列表 */}
-      {!isLoading && !error && connectors.length > 0 && (
+      {allow && !isLoading && !error && connectors.length > 0 && (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-2">
           {connectors.map((entry) => (
             <ConnectorCard

@@ -11,6 +11,7 @@ import { Plus, Network, Loader2, Eye } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { fetchActiveDispatches, fetchStats, fetchQueue } from '@/lib/subagents-api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { StatsCards } from '@/components/subagents/StatsCards'
 import { QueueList, PRIORITY_BADGE, PRIORITY_LABEL } from '@/components/subagents/QueueList'
 import type { DispatchStatus, AgentRole } from '@ihui/shared/subagents/index'
@@ -56,12 +57,15 @@ const dateFmt = new Intl.DateTimeFormat('zh-CN', {
 
 export default function SubagentsListPage() {
   const router = useRouter()
-  const statsQ = useQuery({ queryKey: ['subagents', 'stats'], queryFn: fetchStats })
-  const queueQ = useQuery({ queryKey: ['subagents', 'queue'], queryFn: fetchQueue })
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求
+  const { allow } = useAuthGate()
+  const statsQ = useQuery({ queryKey: ['subagents', 'stats'], queryFn: fetchStats, enabled: allow })
+  const queueQ = useQuery({ queryKey: ['subagents', 'queue'], queryFn: fetchQueue, enabled: allow })
   const activeQ = useQuery({
     queryKey: ['subagents', 'active'],
     queryFn: fetchActiveDispatches,
     refetchInterval: 5000,
+    enabled: allow,
   })
 
   const dispatches = activeQ.data?.dispatches ?? []

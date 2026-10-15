@@ -285,7 +285,17 @@ fn is_stale_update_check(check_id: u64) -> bool {
 
 /// 应用自更新检查(每小时一次):经 updater endpoints(Gitee raw 优先)检查新版,
 /// 有则下载+静默安装(安装器接管前先做退出准备,应用退出后重启即新版)。
+/// **开发构建例外**:函数体首按 `cfg!(debug_assertions)` 早退,不下载不重启(见该处注释)。
 async fn check_app_update(app: &tauri::AppHandle) {
+    // 开发构建(debug_assertions:`tauri dev` / `tauri build --debug`)一律不自更新。
+    // 实测危害:`pnpm dev:desktop:saas` 起来的壳照样读线上 feed,下载 7.9MB 后静默安装并
+    // 自杀重启,把正在改代码的人从自己的会话里踢出去(取证窗口连续两次因此中断);
+    // 而 dev 壳跑的是未审构建,"升级"到线上版本等于把开发环境换成发布版。
+    // release 安装包行为不变;人工「检查更新」(前端非 silent 路径)不受本判据影响。
+    if cfg!(debug_assertions) {
+        log::info!("[auto-refresh] site=debug_no_self_update 开发构建跳过应用自更新检查(不下载/不安装/不自重启)");
+        return;
+    }
     // G-698:领取本次检查的 checkId。后面每个 await 点之后都要先确认世代未被
     // (另一条链的)新检查取代 —— 旧世代的迟到结果/回调一律按 checkId 作废。
     let check_id = issue_update_check_id();

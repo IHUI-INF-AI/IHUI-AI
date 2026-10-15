@@ -38,6 +38,9 @@ import {
 import { categoryLabel, historyLabel, splitModelCatalog } from '../../../src/lib/model-catalog'
 import { toolsForChatRequest } from '../../../lib/ui-control-tools'
 import { applyToolCallStart, applyToolDelta } from '../../../lib/tool-call-frames'
+// D64⑤ 消费票(2026-10-14):历史消息带 metadata.elementPack 时解析出等价元素帧卡
+// (子代理卡),折算在共享守卫之上、渲染复用 MessageContent 既有 subagent 块
+import { hydrateElementPackActivities } from '../../../lib/element-pack-replay'
 // 票㉑(2026-09-28):工作区句柄 + 委托执行。执行器与上下文预加载都在共享层,
 // 不在端内重写 —— 服务端委托分支(`if req.workspace_context and tool_name in _FS_DEPENDENT_TOOLS`)
 // 读的就是这里预加载出来的那份文本,口径分叉的症状是"同一句话在 web 委托、在扩展不委托"。
@@ -315,10 +318,12 @@ export default function ChatPage() {
         )
         return
       }
-      const hydrated = hydrateBranchTranscript(loaded.data.messages)
+      // D64⑤:先拆 transcript(serverIds 要单独回填),消息面过元素包历史水合
+      const transcript = hydrateBranchTranscript(loaded.data.messages)
+      const hydrated = hydrateElementPackActivities(transcript.messages)
       setConversationId(newConversationId)
-      setServerIds(hydrated.serverIds)
-      setMessages(hydrated.messages)
+      setServerIds(transcript.serverIds)
+      setMessages(hydrated)
       setNotice(t('chat.branchDone'))
     } catch (err) {
       setError(
