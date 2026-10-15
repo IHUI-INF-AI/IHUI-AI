@@ -66,6 +66,38 @@ function realArchiveIndex() {
   )
 }
 
+/**
+ * 真指针语料(2026-10-16 换面):逐字取自 **HEAD 面的归档件**,而不是台账面。
+ * 为什么必须换:台账面 `auditPlan(...).counts.rotatedPointers` 现读 **0** —— §1「证据指针禁行号」
+ * 与清偿器把面上的 L 形指针全改写完 ⇒ "真仓现读必须有经归档救回的指针"这条前提结构上再也摆不出来
+ * (T7 头注记的 2026-09-29 那次重校治的是同一型的前提当判据,今天病到了下一层)。
+ * 而同一批指针逐字活在归档件里(现读 1871 条被 `findRotatedPointers` 认出)。只挑同时满足两条的行:
+ *  ① 带【归并】副本标记(与 T4 原有断言同族;ref 族按族表刻意无出口,那是 T6 的射程);
+ *  ② 其复合主键真在**同一张归档面**的索引里 ⇒ 唯一可能救回它的出口就是归档反查。
+ * 一次性取数并缓存:归档面 = 34 份文件,重复读会把夜间 soak 拖成分钟级。
+ */
+let pointerCorpusCache = null
+function realPointerSamples(idx) {
+  if (pointerCorpusCache !== null) return pointerCorpusCache
+  const listed = git(['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', '.ihui-agent/archive'])
+    .split('\0')
+    .filter(Boolean)
+    .filter((p) => /^PROJECT_PLAN_.*\.md$/.test(p.split('/').pop()))
+  const out = []
+  for (const p of listed) {
+    const text = git(['show', `HEAD:${p}`])
+    for (const q of findRotatedPointers(text)) {
+      if (!DUP_POINTER_RE.test(q.raw)) continue
+      const key = compositeKeyOf(q.raw)
+      if (!key || !idx.has(key)) continue
+      out.push({ raw: q.raw, key, file: p.split('/').pop() })
+      if (out.length >= 5) break
+    }
+    if (out.length >= 5) break
+  }
+  pointerCorpusCache = out
+  return out
+}
 const PTRO =
   '- [ ] O20 公网拓扑:ai-service 零暴露 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L9999〕'
 const DONE_ON_FACE = '- [x] ✅(2026-09-20) O20 公网拓扑:ai-service 零暴露'
@@ -178,20 +210,32 @@ ${DONE_ON_FACE}
   }
 })
 
-test('T4 真仓 HEAD 面的逐字样本 + 真归档面 ⇒ 出口必须真能命中', () => {
-  const plan = git(['show', 'HEAD:PROJECT_PLAN.md'])
+test('T4 真归档面的逐字指针样本 + 同面归档索引 ⇒ 出口必须真能命中', () => {
   const idx = realArchiveIndex()
   assert.ok(idx.size > 0, '真归档面认得的登记不能是空的(空集 ⇒ 这一维等于没测)')
-  const rotated = auditPlan(plan, { archivedKeys: idx }).rotated
-  const hits = rotated.filter((p) => p.exit === 'archived')
-  assert.ok(hits.length > 0, '真仓现读必须有经归档救回的指针,为 0 说明出口对生产形态失明')
-  // 逐字取自被审面的那一行:改写只能由生产函数产出,本文件不重算锚点
-  const sample = hits[0]
-  const line = plan.split(/\r?\n/)[sample.line - 1]
-  assert.equal(line, sample.raw, '样本行必须逐字来自 HEAD 面')
+  const samples = realPointerSamples(idx)
+  assert.ok(
+    samples.length > 0,
+    '真归档面里取不到"主键对得上"的逐字指针行 ⇒ 是取证面失效,判死,不许降级成"仓库里没有这一型"',
+  )
+  const s = samples[0]
+  // 被审面只摆这一行:目标行不在面上 ⇒ 此刻若有出口,唯一可能是归档反查(不会被面内档顶包)
+  const doc = `${s.raw}\n`
+  const a = auditPlan(doc, { archivedKeys: idx })
+  const hit = a.rotated.find((p) => p.exit === 'archived')
+  assert.ok(
+    hit,
+    `真仓逐字样本必须经归档救回,实测 exit=${a.rotated.map((p) => String(p.exit)).join(',')} ⇒ 出口对生产形态失明`,
+  )
+  const line = doc.split(/\r?\n/)[hit.line - 1]
+  assert.equal(line, s.raw, '样本行必须逐字来自 HEAD 归档面')
   const rewritten = rewritePointer(line, compositeKeyOf(line), { name: idx.get(compositeKeyOf(line)).name })
   assert.doesNotMatch(rewritten, /(?:存活于|登记在|另见|参见|指向)\s*L\d/, '真样本改写后不得再含行号')
   assert.ok(DUP_POINTER_RE.test(rewritten), '副本标记必须留着,否则派单口径会重新多出一行')
+  // 同一条样本摘掉归档索引 ⇒ 两个出口都必须归零(证明上一条的命中不是面内档冒充来的)
+  const dry = auditPlan(doc)
+  assert.equal(dry.counts.rotatedArchived, 0, '不喂索引不得有归档档出口')
+  assert.equal(dry.counts.rotatedAuto, 0, '不喂索引时这条样本也不得有面内出口')
 })
 
 test('T5 未装载归档索引 ⇒ 逐字退回旧口径,并如实报"没算"而不是"没有"', () => {
@@ -235,14 +279,29 @@ test('T7 出口摘掉 ⇒ 对应用例翻红(变异自证,不是恒绿断言)', 
   const face = auditPlan(plan)
   const both = auditPlan(plan, { archivedKeys: idx })
   assert.equal(face.counts.rotatedArchived, 0, '不喂归档索引 ⇒ archived 档必须回 0(它只能由归档反查产生)')
-  assert.ok(
-    both.counts.rotatedArchived > 0,
-    `喂了归档索引就必须救回至少一条,实测 ${both.counts.rotatedArchived}(为 0 就是归档臂空转)`,
-  )
   assert.equal(
     both.counts.rotatedAuto,
     face.counts.rotatedAuto + both.counts.rotatedArchived,
     `归档臂必须是**净增**而非替换:面内 ${face.counts.rotatedAuto} + 归档 ${both.counts.rotatedArchived} 应等于合并后的 ${both.counts.rotatedAuto}`,
+  )
+  // "喂了归档索引就必须 >0"这一半**不能钉在台账面上**:现读 `auditPlan(台账面).counts.rotatedPointers = 0`
+  // (§1 禁行号 + 清偿器已把面上的 L 形指针改写干净),把它留在台账面上等于又一次"拿当下状态当前提"——
+  // 正是本用例头注记的 2026-09-29 那次重校的同型复发。非空那一半搬到真归档语料(逐字样本),并把成对
+  // 对照做足:同一份语料摘掉索引 ⇒ archived 必回 0;喂上 ⇒ 必净增。
+  const samples = realPointerSamples(idx)
+  assert.ok(samples.length > 0, '真归档面取不到逐字指针样本 ⇒ 取证面失效,判死,不许当成"这一型不存在"')
+  const corpus = samples.map((x) => x.raw).join('\n')
+  const cDry = auditPlan(corpus)
+  const cWide = auditPlan(corpus, { archivedKeys: idx })
+  assert.equal(cDry.counts.rotatedArchived, 0, '同一份真语料:不喂索引时 archived 必须是 0')
+  assert.ok(
+    cWide.counts.rotatedArchived > 0,
+    `同一份真语料:喂上索引必须净增,实测 ${cWide.counts.rotatedArchived}(为 0 就是归档臂空转)`,
+  )
+  assert.equal(
+    cWide.counts.rotatedAuto,
+    cDry.counts.rotatedAuto + cWide.counts.rotatedArchived,
+    '真语料两侧也必须满足净增等式(归档臂不得顶掉面内臂)',
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
