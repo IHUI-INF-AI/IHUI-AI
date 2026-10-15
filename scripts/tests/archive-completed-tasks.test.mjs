@@ -76,9 +76,10 @@ function runScript(cwd, args = []) {
   return r
 }
 
-// 归档文件路径(基于 today)
+// 归档文件路径 —— 归档器 2026-10-11 归一为全项目唯一统一件 PROJECT_PLAN_ARCHIVE.md(源脚本头注 13 行),
+// 测试镜像源脚本这一份命名,不得再钉历史上的 dated `_auto-archive.md`(否则归档器写共享件、测试找 dated 件 ⇒ 假红)。
 function archiveFilePath(dir) {
-  return join(dir, '.ihui-agent', 'archive', `PROJECT_PLAN_${todayStr()}_auto-archive.md`)
+  return join(dir, '.ihui-agent', 'archive', 'PROJECT_PLAN_ARCHIVE.md')
 }
 
 // ─── 1. 文件不存在 ───────────────────────────────────────
@@ -658,7 +659,7 @@ test('生产形态的 .gitignore(整目录忽略 .ihui-agent/)下,自动档仍�
       `归档文件必须进 commit(锚点入库),实得:\n  ${files.join('\n  ')}`,
     )
     const tracked = spawnSync('git', ['ls-files', '--', '.ihui-agent/archive'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] }).stdout
-    assert.match(tracked, /PROJECT_PLAN_.*_auto-archive\.md/, '归档锚点必须已被 git 跟踪')
+    assert.match(tracked, /PROJECT_PLAN_ARCHIVE\.md/, '归档锚点(归一后的唯一统一件)必须已被 git 跟踪')
     // 计划文档里必须留下 13c/71 认得的占位注释,且非条目内容一字不动
     const plan = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
     assert.match(plan, /<!-- 已归档\(/, '原位置须留占位注释')
@@ -899,7 +900,7 @@ function runScriptEnv(cwd, args, env) {
   r.all = r.out + r.err
   return r
 }
-const ARCHIVE_REL = `.ihui-agent/archive/PROJECT_PLAN_${todayStr()}_auto-archive.md`
+const ARCHIVE_REL = '.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md'
 
 test('A1 底稿面=HEAD:工作树滞后把已入库的 [x] 写成 [ ] 时,归档产出的那一面里它必须仍是 [x]', () => {
   const dir = createTempGitRepo()
@@ -1136,7 +1137,7 @@ test('G 子弹级 - [x] 真被搬走,且同一章节里的 - [ ] 一字不动地
     assert.ok(!/- \[x\].*G-900/.test(head), '已过阈值的已完成登记应被搬走(没搬=这一维没装车)')
     assert.ok(/^- \[ \] \*\*G-901/m.test(head), '未完成行必须原样留在计划文档里')
     assert.ok(/<!-- 已归档\(/.test(head), '原位必须留 §1 要求的归档占位')
-    const arch = execSync(`git show HEAD:.ihui-agent/archive/PROJECT_PLAN_${todayStr()}_auto-archive.md`, {
+    const arch = execSync(`git show HEAD:${ARCHIVE_REL}`, {
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,
       encoding: 'utf8',
