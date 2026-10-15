@@ -27,6 +27,31 @@ import assert from 'node:assert/strict'
 
 import { __test__ } from '../gate-registry-insert.mjs'
 import { git, headBlobOf, indexBlobOf } from '../lib/bypass-git.mjs'
+
+/**
+ * T-A/B 取号口径(2026-10-16 立):注册表里**单行形态**的既有条目(`{ id: '212', label: ..., script: ... }`)
+ * 曾被行锚定式正则漏看,导致分配器把已占用的 212 再发一次(由守门 89 R5 当场判红)。
+ * 正解 = 与撞号检测共用 `check-gate-wiring.mjs` 的 `idsOfRegistry`,并当场后置复核一次。
+ */
+test('T-A 取号必须认得单行形态的既有条目(反证:旧行锚定式会重发同号)', () => {
+  const text = "const GATES = [\n  { id: '900', label: 'x', script: 'check-x.mjs' },\n]\n"
+  const r = __test__.nextIdOf(text)
+  assert.ok(r.takenIds.has(900), '单行形态的 900 必须算已占用')
+  assert.equal(r.nextId, '901', `发号必须避开已占用,实得 ${r.nextId}`)
+})
+
+test('T-B 后置锁素材:对真 HEAD 注册表现读,发出来的号绝不允许已在面上', () => {
+  const head = execFileSync('git', ['show', 'HEAD:scripts/guardian-runner.mjs'], {
+    cwd: join(dirname(fileURLToPath(import.meta.url)), '..', '..'),
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const r = __test__.nextIdOf(head)
+  assert.ok(r.takenIds.size > 100, `注册表 id 数不合理(现读 ${r.takenIds.size})⇒ 口径可能又漂`)
+  assert.equal(r.takenIds.has(Number(r.nextId)), false, `发号 ${r.nextId} 已在面上 ⇒ 后置锁的素材失效`)
+})
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
 

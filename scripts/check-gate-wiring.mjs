@@ -704,10 +704,18 @@ export function findStaleExemptions(entries, gateSet) {
  * 唯一被排除的是"注释里提到某个 id"这一类不构成登记的文本(§12e:修红不得顺手削判据,
  * 这里的削有正向对照:变异取证见 scripts/tests/check-gate-wiring.test.mjs 的 R5 两条用例)。
  */
+/**
+ * 注册表里全部 `id:` 字面量(单引号与双引号都算,**不限行首也不要求整行只剩 id**)。
+ * 立因:`gate-registry-insert.mjs` 原先用行锚定式取号,看不见单行形态的既有条目
+ * (`{ id: '212', label: ..., script: ... }`,2026-10-16 实测这样落过一枚撞号 212)⇒
+ * 分配器会把已占用的号再发一次。取号与撞号检测必须共用这一份口径,否则两面永远对不上。
+ */
+export function idsOfRegistry(runnerText) {
+  return [...stripJsComments(String(runnerText || '')).matchAll(/\bid:\s*(['"])([^'"]+)\1/g)].map((m) => m[2])
+}
+
 export function findDuplicateIds(runnerText) {
-  const ids = [...stripJsComments(String(runnerText || '')).matchAll(/\bid:\s*'([^']+)'/g)].map(
-    (m) => m[1],
-  )
+  const ids = idsOfRegistry(runnerText)
   const seen = new Set()
   const dup = new Set()
   for (const id of ids) {
@@ -3483,6 +3491,7 @@ if (isDirectRun) {
 export const __test__ = {
   WIRING_POINTS,
   GATE_FILE_RE,
+  idsOfRegistry,
   HEADER_CLAIM_PATTERNS,
   CLAIM_NEGATION_RE,
   isNegatedWiringSentence,
