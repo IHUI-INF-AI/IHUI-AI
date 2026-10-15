@@ -32,5 +32,11 @@ Set-Location (Join-Path $Root 'apps\ai-service')
 # Playwright 浏览器共享路径(2026-09-04):服务以 SYSTEM 账户运行,默认会在
 # systemprofile 的 AppData 下找浏览器导致 Chromium 启动失败;改为指向机器共享安装目录。
 $env:PLAYWRIGHT_BROWSERS_PATH = "D:\DevEnv\tools\ms-playwright"
+# faster-whisper 本地模型目录(2026-10-15):与上面 Playwright 同一个坑 —— 服务以 SYSTEM
+# 账户运行,其 HOME 是 systemprofile,`~/.cache/huggingface` 对服务进程**不可达**;再加
+# 本机到 huggingface.co 直连不通 ⇒ 旧逻辑每次请求都加载失败,被兜成 stub=true 的假文本
+# (表现:能录音、能返回,但内容永远是错的)。改成指向机器级共享的预置模型目录,离线加载。
+# 目录缺失时 app/routers/voice_stt.py 会**显式报错**而不是静默回退假文本 —— 配了就必须生效。
+$env:WHISPER_MODEL_DIR = "D:\DevEnv\models\faster-whisper-small"
 & "$(Join-Path $Root 'apps\ai-service\.venv\Scripts\python.exe')" -m uvicorn app.main:app --host 127.0.0.1 --port 8803
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

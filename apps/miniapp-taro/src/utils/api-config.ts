@@ -50,4 +50,25 @@ function getEnvApiBase(): string | undefined {
  * 未配置时回退本地开发默认值。
  */
 export const BASE_URL = getEnvApiBase() || DEFAULT_BASE_URL
+
+/**
+ * ai-service 基础地址(语音转写 STT、AI 能力等;默认 http://localhost:8803)。
+ *
+ * 与 BASE_URL 同一套机制:真机预览 / 生产发布必须在 `apps/miniapp-taro/.env.local`
+ * (或 .env.production)配置 `TARO_APP_AI_SERVICE_BASE`,否则小程序真机连不上
+ * 本机 8803 —— **手机上没有 localhost:8803,语音输入必然转写失败**。
+ *
+ * 示例:
+ *   真机调试(手机与电脑同一局域网):TARO_APP_AI_SERVICE_BASE=http://192.168.1.8:8803
+ *   生产发布(需公网端点已在 ai-service-edge 白名单登记):TARO_APP_AI_SERVICE_BASE=https://aizhs.top/ai-service
+ */
+function getEnvAiServiceBase(): string | undefined {
+  try {
+    return process.env.TARO_APP_AI_SERVICE_BASE?.trim() || undefined
+  } catch {
+    return undefined
+  }
+}
+
+export const AI_SERVICE_BASE_URL = getEnvAiServiceBase() || 'http://localhost:8803'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
