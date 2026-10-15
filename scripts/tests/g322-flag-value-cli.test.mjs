@@ -59,6 +59,21 @@ test('G-322 第二批:七道 blocking 门三支坏值各自大声拒绝', () => 
   assertBadRoot(S('check-prompt-injection-registry.mjs'))
 })
 
+test('G-322 等号形态:gate-wiring / miniapp-generated 的 --root= 空值与裸位置参数各自拒绝', () => {
+  const cases = [
+    [S('check-gate-wiring.mjs'), ['--root='], /--root= 需要一个目录值/],
+    [S('check-gate-wiring.mjs'), ['some-dir'], /未知的裸位置参数/],
+    [S('check-miniapp-generated.mjs'), ['--root='], /--root= 需要一个目录值/],
+    [S('check-miniapp-generated.mjs'), ['--root'], /--root 需要一个目录参数/],
+  ]
+  for (const [script, args, re] of cases) {
+    const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.notEqual(r.status, 0, `${script} ${JSON.stringify(args)} 不得静默按 cwd 跑(旧写法 resolve('')=cwd)`)
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, re, `必须点名:${out.slice(0, 200)}`)
+  }
+})
+
 test('G-322 收口批:module-context 的 --face/--policy 漏值与空串各自拒绝', () => {
   const script = S('module-context.mjs')
   // `--face/--policy --staged`(值被下一旗标顶掉)在更早的"未知开关"检查就已大声拒绝(既有 A 形态),
