@@ -11,6 +11,7 @@
  */
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { after, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
@@ -24,7 +25,7 @@ const GUARDIAN = path.join(ROOT, 'scripts', 'git-guardian.mjs')
 const CONFIG = path.join(ROOT, 'scripts', 'data', 'service-auto-restart.json')
 
 const heal = await import('../heal-unresponsive-services.mjs')
-const { parseConfig, decideRound, verdictOf, main } = heal.__test__
+const { parseConfig, decideRound, verdictOf, main, classifyGateSpawn, GATE_REL } = heal.__test__
 
 const NOW = Date.parse('2026-10-01T12:00:00Z')
 const scratch = mkScratch('heal-mirror')
@@ -274,5 +275,57 @@ test('T8 白名单台账自身可解析且每条四件齐(它是判据输入,坏
 test('T9 映射不猜:门的报告里缺这台服务 ⇒ 未判定(不是"没跑"也不是"没坏")', () => {
   assert.equal(verdictOf('NOPE', null).verdict, 'undetermined')
   assert.equal(verdictOf('NOPE', { rec: {} }).verdict, 'undetermined')
+})
+
+/**
+ * T10/T11:门的 rc 语义。
+ * 立因(2026-10-16 现读):`check-service-binary-paths.mjs` 量到 issue 时**返回 rc=1 并照样打完整 JSON**,
+ * 而动作器旧写法把"任何非零退出"读成"取不到报告 ⇒ 本轮不行动"。后果不是少一次日志,是
+ * **只要机器上有任何服务出问题,第三层自愈就在那一刻整档停用** —— 恰恰在它最该干活的时候。
+ * 判据只从门导出的 `classifyGateSpawn` 取(§22c:镜像不得复制第二份判据)。
+ */
+test('T10 rc=1 是结论、不是"没跑到";未判定四档各有各的措辞(成对)', () => {
+  const verdict = classifyGateSpawn({ stdout: JSON.stringify({ totals: { services: 22, issue: 2 } }), status: 1 })
+  assert.equal(verdict.ok, true, '门判出问题时 rc=1,stdout 里的报告必须被当结论用')
+  assert.equal(verdict.gateRc, 1)
+  assert.equal(JSON.parse(verdict.json).totals.issue, 2)
+  for (const [label, input, re] of [
+    ['ENOENT', { stdout: '', code: 'ENOENT' }, /ENOENT/],
+    ['被杀', { stdout: '', signal: 'SIGKILL' }, /信号/],
+    ['门自身异常', { stdout: '{"fatal":"x"}', status: 2 }, /异常档/],
+    ['零退出但没 JSON', { stdout: 'boom', status: 0 }, /无 JSON/],
+  ]) {
+    const r = classifyGateSpawn(input)
+    assert.equal(r.ok, false, `${label} 必须落未判定,不得冒充结论`)
+    assert.match(r.why, re, `${label} 的措辞必须点名是哪一种失败`)
+    assert.doesNotMatch(r.why, /门派生失败/, '旧的笼统措辞不得回来(它把三档并成一档)')
+  }
+})
+
+test('T11 端到端:真派生一次门,分档必须与门自报的 exitCode 同形', () => {
+  // 慢(~10s)但值得:这一臂证明 classifyGateSpawn 读的是真的门的形状,而不是我造的夹具。
+  const bin = process.execPath
+  let r
+  try {
+    const stdout = execFileSync(bin, [GATE_REL, '--json'], {
+      cwd: ROOT,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+      timeout: 240000,
+      maxBuffer: 1 << 24,
+      windowsHide: true,
+    })
+    r = classifyGateSpawn({ stdout, status: 0 })
+  } catch (e) {
+    r = classifyGateSpawn({ stdout: e?.stdout ?? '', stderr: e?.stderr ?? '', status: e?.status ?? null, code: e?.code ?? null, signal: e?.signal ?? null })
+  }
+  assert.ok(r.ok || (r.ok === false && typeof r.why === 'string' && r.why.length > 0), 'ok=false 必须带原因(未判定不得静默)')
+  if (!r.ok) return // 未判定是合法结局(非 win32 / 派生不起来),但已在上面要求点名
+  const rep = JSON.parse(r.json)
+  const selfRc = rep?.totals?.exitCode
+  assert.ok(
+    selfRc === undefined || r.gateRc === selfRc || (r.gateRc === 0 && selfRc === 0) || (r.gateRc === 1 && selfRc === 1),
+    `分档与门自报 exitCode 不同形:wrapper=${r.gateRc} 门=${selfRc}`,
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
