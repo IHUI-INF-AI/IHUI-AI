@@ -41,6 +41,7 @@ import {
 } from 'react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { toImageSource, type CarouselSlideImg } from './Carousel'
 
 /** 单门课程数据(对齐原项目 PopularCourses 关键字段的子集) */
 export interface CourseCarouselItem {
@@ -74,12 +75,13 @@ export interface CourseCarouselProps {
   courses2?: CourseCarouselItem[]
   /** list 变体:标签页标题(默认 ['爆款入门课程', '爆款精选课程']) */
   tabLabels?: readonly [string, string]
-  /** swiper 变体:图片轮播 URL 列表(对齐原版 CourseCarousel/index.vue 7 张图) */
-  images?: string[]
+  /** swiper 变体:图片列表(远端 URL string 或本地 require 资源,对齐原版 CourseCarousel/index.vue 7 张图;
+      2026-10-15 轮播图本地化后为 require 资源,原生为 number、Metro web 下为 { uri } 资产对象) */
+  images?: CarouselSlideImg[]
   /** swiper 变体:自动播放间隔(ms,默认 3000) */
   autoplayInterval?: number
-  /** swiper 变体:图片点击回调(原版 item-click,回传图片 URL 与下标) */
-  onImagePress?: (imageUrl: string, index: number) => void
+  /** swiper 变体:图片点击回调(原版 item-click,回传图源与下标) */
+  onImagePress?: (image: CarouselSlideImg, index: number) => void
 }
 
 // ===== 共享常量 =====
@@ -152,7 +154,11 @@ function IndexCarousel({
 }: {
   courses: CourseCarouselItem[]
   onPress?: (id: string) => void
-}): React.JSX.Element {
+}): React.JSX.Element | null {
+  // 空态整块隐藏(与下方 SwiperCarousel 的 images 空守卫同款):
+  // 无课程时若仍渲染 FlatList,会留一个撑满剩余高度的空滚动容器(首页「AI 应用商店」下方的大白块)。
+  if (courses.length === 0) return null
+
   const renderItem: ListRenderItem<CourseCarouselItem> = ({ item }) => (
     <CourseCard item={item} onPress={onPress} />
   )
@@ -654,14 +660,14 @@ function SwiperCarousel({
   onImagePress,
   autoplayInterval,
 }: {
-  images: string[]
-  onImagePress: ((imageUrl: string, index: number) => void) | undefined
+  images: CarouselSlideImg[]
+  onImagePress: ((image: CarouselSlideImg, index: number) => void) | undefined
   autoplayInterval: number
 }): React.JSX.Element | null {
   const { width: windowWidth } = useWindowDimensions()
   const [trackWidth, setTrackWidth] = useState(windowWidth)
   const { current, setCurrent } = useAutoPlay(images.length, autoplayInterval, images.length > 1)
-  const listRef = useRef<FlatList<string>>(null)
+  const listRef = useRef<FlatList<CarouselSlideImg>>(null)
 
   const width = trackWidth > 0 ? trackWidth : windowWidth
 
@@ -683,13 +689,13 @@ function SwiperCarousel({
 
   if (images.length === 0) return null
 
-  const renderItem: ListRenderItem<string> = ({ item, index }) => (
+  const renderItem: ListRenderItem<CarouselSlideImg> = ({ item, index }) => (
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={() => onImagePress?.(item, index)}
       style={{ width }}
     >
-      <Image source={{ uri: item }} style={swiperStyles.image} resizeMode="cover" />
+      <Image source={toImageSource(item)} style={swiperStyles.image} resizeMode="cover" />
     </TouchableOpacity>
   )
 
@@ -698,7 +704,9 @@ function SwiperCarousel({
       style={swiperStyles.container}
       onLayout={(e) => setTrackWidth(Math.round(e.nativeEvent.layout.width))}
     >
-      <FlatList<string>
+      {/* sheet-flex-ok:横向 pagingEnabled 轮播(定高容器内的横向分页滚动),
+          非「自然高度撑爆 maxHeight 压扁 chrome」病理范畴 */}
+      <FlatList<CarouselSlideImg>
         ref={listRef}
         data={images}
         horizontal
