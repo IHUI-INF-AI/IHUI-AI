@@ -250,7 +250,12 @@ export function resurrectAnalysis({
     // 同一行,2026-09-28 落地 CI 失败自述步骤(4f61a35f6)时实测假阳一次。这类行与被
     // 长度/字母门槛挡掉的骨架行(`}` / `fi` / `exit 0` / `return (`)一样**单独成样板档、
     // 只报数不判红**;带引号/花括号的行(`"key": "v"`)不在样板形态里,真阳性不减。
-    if (!/\p{L}/u.test(t) || t.length < minLineLen || RESURRECT_BOILER_LINE_RE.test(rawLine)) {
+    if (
+      !/\p{L}/u.test(t) ||
+      t.length < minLineLen ||
+      RESURRECT_BOILER_LINE_RE.test(rawLine) ||
+      RESURRECT_WATERMARK_SLOT_RE.test(rawLine)
+    ) {
       boilerplate.push(rawLine)
       continue
     }
@@ -282,6 +287,27 @@ export function resurrectAnalysis({
  */
 export const RESURRECT_BOILER_LINE_RE = /^\s*(?:-\s+)?[\w.-]+:\s*[^\s"'{}[\]]\S*\s*$/
 
+/**
+ * 溯源水印**载荷槽行**(2026-10-15 立,门 84 R1r ↔ 门 47 互锁的精度修正)。
+ *
+ * 为什么它不配当复活证据:这一格归工具所有(AGENTS §5c「新建源文件必跑 inject」「门禁自愈式」),
+ * `]:` 后面那串是 `WATERMARK_TEXT` 的零宽编码 —— **内容恒等,不承载任何文件信息**。实测形态:
+ * `scripts/gen-i18n-compressed.mjs` 的 HEAD 载荷被截断(门 47 判「残迹」),祖先
+ * `0b99d2790` 那份是完好的;于是按 §5c 规定的修法(`clean → inject`)**必然逐字复现那行完好载荷**
+ * ⇒ R1r 数到 1 行复活并**定责到本次文件**,而门 47 又要求"不注入就判红"。两道各自正确的门互锁,
+ * 唯一出路是 `--no-verify`/`HUSKY_SKIP_STALE_REVERT_GUARD` —— 正是 §12e/§12f 记过的"逼人来绕的尺子"。
+ * 同一族在本文件里已有先例:`resurrectKey` 为 `// input: <路径> <hash>` 做过一次同类归一
+ * ("按门 105 的要求修必然撞上门 84"),区别只在那行还带一个易变 hash,而这行的可变部分是**常量**。
+ *
+ * 牙没被削掉:槽行以外的一切照判。真回潮搬回来的是内容行(键值、函数体、登记行),
+ * 与这条正则无关;成对用例在 `scripts/tests/check-stale-revert.test.mjs`
+ * (「只有槽行 ⇒ count 0 且报名」+「槽行旁再放一行真内容回潮 ⇒ count 1 照红」),
+ * 并交叉断言 marker 字面量等于 `watermark.mjs` 那份唯一出口里的 `BANNER_ID`,防两处漂开。
+ *
+ * 走 `boilerplate` 档而不是直接 `continue`:少认了多少必须**可见**,不得把"没算"写成"没有"。
+ */
+export const RESURRECT_WATERMARK_SLOT_RE = /\[IHUI-AI-PROVENANCE\]:/
+
 export const __test__ = {
   linesOf,
   tallyLines,
@@ -292,5 +318,6 @@ export const __test__ = {
   multisetsEqual,
   resurrectAnalysis,
   RESURRECT_BOILER_LINE_RE,
+  RESURRECT_WATERMARK_SLOT_RE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
