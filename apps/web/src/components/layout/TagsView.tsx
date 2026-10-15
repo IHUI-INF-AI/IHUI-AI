@@ -13,6 +13,7 @@ import { X, ChevronDown, XCircle, Search, Pin, PinOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { useNavigateWithProgress } from '@/stores/navigation'
+import { useIsoLayoutEffect } from '@/hooks/use-iso-layout-effect'
 import { useTagsViewStore, type TagItem } from '@/stores/tags-view'
 
 /** 层栈 id(见 @/lib/overlay-stack):TagsView 搜索弹层的 Esc 只在栈顶时被消费 */
@@ -373,7 +374,15 @@ export function TagsView() {
   const togglePin = useTagsViewStore((s) => s.togglePin)
 
   // 路由切换:把当前 path 加入标签栏(只存 path+query,标题由渲染时派生)
-  React.useEffect(() => {
+  //
+  // 2026-10-16 CLS 修复(实测:@1280px /checkin 量到 value=0.10094@2502ms,
+  // sources 含 `div.flex.h-full.min-w-0` 506x44@766,4 -> 466x44@806,4 —— 顶栏左边界右移 40px):
+  // 根因是本 effect 让 tags 在 paint 之后才从 [] 变成 1,于是 GlobalTopBar 里的
+  // TagsViewChevronButton(TagsView.tsx `if (tags.length === 0) return null`)在第二帧才插进来,
+  // 36px 按钮 + 行内 gap-1 4px = 精确 40px,把 flex-1 的标签区整条推向右侧。
+  // 改成 isomorphic layout effect:addTag 在 paint 前落到 store,chevron 与首帧同帧出现,偏移为 0。
+  // GlobalTopBar 对该组件是直连导入(非 lazy),所以「pre-paint 就绪」成立,不存在 Suspense 兜底延后。
+  useIsoLayoutEffect(() => {
     if (!pathname) return
     addTag({
       path: pathname,

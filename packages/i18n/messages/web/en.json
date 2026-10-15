@@ -19237,6 +19237,7 @@
     "platformAll": "All platforms",
     "platformTrae": "TRAE",
     "platformQoder": "Qoder",
+    "platformMinimax": "MiniMax",
     "platformLabel": "Platform",
     "captureQoderButton": "Capture Qoder",
     "captureQoderTitle": "Capture from local Qoder client",
