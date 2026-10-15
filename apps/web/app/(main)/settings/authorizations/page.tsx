@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { KeyRound, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react'
 
 import {
@@ -26,7 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { buildQs, type PageData } from '@/lib/edu'
 
@@ -42,6 +43,9 @@ const PAGE_SIZE = 20
 export default function AuthorizationsPage() {
   const t = useTranslations('settings')
   const tc = useTranslations('common')
+  // 登录态门(与 settings/{privacy,notifications} 同型):未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [sessions, setSessions] = React.useState<SessionInfo[]>([])
   const [total, setTotal] = React.useState(0)
   const [page, setPage] = React.useState(1)
@@ -67,6 +71,7 @@ export default function AuthorizationsPage() {
   }, [toast])
 
   React.useEffect(() => {
+    if (!allow) return
     let cancelled = false
     setLoading(true)
     setError('')
@@ -95,7 +100,7 @@ export default function AuthorizationsPage() {
     return () => {
       cancelled = true
     }
-  }, [page, t])
+  }, [page, t, allow])
 
   // 当前会话:未过期会话中 createdAt 最新的一条(无后端 isCurrent 标记时的启发式)
   const currentSessionId = React.useMemo(() => {
@@ -149,7 +154,9 @@ export default function AuthorizationsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {!allow ? (
+            <AuthGatePrompt message={tGate('loginRequired')} />
+          ) : loading ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>
           ) : error ? (
             <p className="py-8 text-center text-sm text-destructive">{error}</p>

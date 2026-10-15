@@ -11,6 +11,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { Search, Loader2, FileText, ArrowLeft } from 'lucide-react'
 
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter, Input } from '@ihui/ui-react'
@@ -58,6 +60,8 @@ function SearchContent() {
   const locale = useLocale()
   const t = useTranslations('knowledgeBase.search')
   const tKb = useTranslations('knowledgeBase')
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const q = searchParams.get('q') ?? ''
   const category = searchParams.get('category') ?? 'all'
   const [input, setInput] = React.useState(q)
@@ -71,7 +75,7 @@ function SearchContent() {
       if (category !== 'all') qs.set('categoryId', category)
       return api<KBSearchData>(`/api/knowledge-base?${qs.toString()}`)
     },
-    enabled: q.trim().length > 0,
+    enabled: allow && q.trim().length > 0,
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' })
@@ -120,7 +124,9 @@ function SearchContent() {
         />
       </form>
 
-      {!q ? (
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : !q ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Search className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('inputKeyword')}</p>

@@ -7,6 +7,9 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { AlertCircle, ArrowRight, Loader2, RotateCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
@@ -23,13 +26,18 @@ const SUB_PAGES = [
 ] as const
 
 export default function ContextOverviewPage() {
+  // 2026-10-15 登录态门(与 knowledge-base 同型):未就绪/未登录不发注定 401 的查询
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const qc = useQueryClient()
   const sourcesQ = useQuery({
     queryKey: ['context', 'sources'],
+    enabled: allow,
     queryFn: fetchSources,
   })
   const vizQ = useQuery({
     queryKey: ['context', 'visualization', 'overview'],
+    enabled: allow,
     queryFn: () => fetchVisualization().catch(() => null),
   })
 
@@ -94,7 +102,9 @@ export default function ContextOverviewPage() {
         </Button>
       </div>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           加载中…
