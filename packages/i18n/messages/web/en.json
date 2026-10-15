@@ -19268,6 +19268,7 @@
     "captureDirFound": "Local TRAE data directory detected: {dir}",
     "captureDirMissing": "Local TRAE data directory not found (set the IHUI_TRAE_DIR environment variable)",
     "captureEmpty": "No usable JWT found in local data directory",
+    "captureOpaqueOnly": "Only account identity was detected locally; no usable JWT (newer Trae no longer stores credentials on disk). Use web login or paste a JWT manually",
     "captureScan": "Scan this machine",
     "captureImport": "Import selected accounts ({count})",
     "captureImported": "Imported {count} accounts from this machine",

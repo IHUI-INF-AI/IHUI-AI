@@ -19272,6 +19272,7 @@
     "captureDirFound": "已检测到本机 TRAE 数据目录：{dir}",
     "captureDirMissing": "未检测到本机 TRAE 数据目录（可在环境变量 IHUI_TRAE_DIR 指定）",
     "captureEmpty": "未在本机数据目录中捕获到可用 JWT",
+    "captureOpaqueOnly": "本机只识别到账号身份，未捕获到可用 JWT（Trae 新版不再把登录凭据落盘）。请改用「网页登录」或手动粘贴 JWT",
     "captureScan": "扫描本机",
     "captureImport": "导入勾选账号（{count}）",
     "captureImported": "已从本机导入 {count} 个账号",
