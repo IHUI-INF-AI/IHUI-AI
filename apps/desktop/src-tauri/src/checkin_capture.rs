@@ -3964,7 +3964,199 @@ pub fn parse_workbuddy_auth_doc(doc: &serde_json::Value, auth_file: &str) -> Vec
         .collect()
 }
 
+// ================== $wbEncrypted 信封解密(2026-10-15,WorkBuddy 本机捕获傻瓜式)==================
+//
+// 2026-10-15 社区实证(腾讯云开发者社区 / 大佬说论坛逆向,算法细节公开):
+// WorkBuddy 5.6+ 把 auth.accessToken/refreshToken 包进 $wbEncrypted 信封
+// (suite 1 = AES-256-GCM)。密钥 = SHA-256(atRestSecretKey),而
+// atRestSecretKey 是**构建期内嵌常量**(同版本通用,不逐机随机),可由客户端
+// 自身以 ELECTRON_RUN_AS_NODE 模式活取:
+//   const m = process._linkedBinding('electron_browser_workbuddy_storage');
+//   process.stdout.write(m.loggerGet());   // → {"version":1,"atRestSecretKey":"..."}
+// AAD 为固定长度前缀 transcript(field framing):
+//   "WB-AAD\0" \x01 lp("WBEV1") lp("sym-v1") BE32(suite) lp(keyId) \x02 \x00 \x00
+// keyId = sha256(key).hexdigest()[:16],信封自带 keyId 可校验密钥是否匹配
+// (客户端更新换密钥时显式失败并提示,不静默冒充)。
+// 本机实证(5.8.2 便携版 G:\workbuddy):活取密钥与社区常量一致;解出 RS256 JWT,
+// checkin-status 带 Bearer 头返回 200 code:0。
+// 用户视角:已登录 WorkBuddy 桌面端 ⇒ 本机捕获直出可用 Bearer JWT,零粘贴。
+
+/// 已知版本的 atRestSecretKey(社区公开常量,2026-10-15 实测匹配 5.8.2)。
+/// 活取失败时的回落;keyId 校验保证版本漂移时显式失败而非静默错解。
+pub const WB_AT_REST_SECRET_DEFAULT: &str = "Sik9U5aXhCdwTVEwsEySDOmDoB9r9ntFxHF1fst9LQI=";
+
+/// 纯函数:atRestSecretKey → (AES-256 密钥, keyId=sha256(key) 前 8 字节 hex)。
+pub fn workbuddy_derive_key(secret: &str) -> ([u8; 32], String) {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(secret.as_bytes());
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&digest);
+    let key_id: String = Sha256::digest(key)[..8].iter().map(|b| format!("{b:02x}")).collect();
+    (key, key_id)
+}
+
+/// 长度前缀编码(4B 大端 + 字节)。
+fn wb_lp(b: &[u8]) -> Vec<u8> {
+    let mut v = Vec::with_capacity(4 + b.len());
+    v.extend_from_slice(&(b.len() as u32).to_be_bytes());
+    v.extend_from_slice(b);
+    v
+}
+
+/// 纯函数:复刻 buildAuthenticatedContextAad(sym-v1 / field framing)字节布局。
+pub fn workbuddy_field_aad(key_id: &str, suite: u32) -> Vec<u8> {
+    let mut aad = Vec::new();
+    aad.extend_from_slice(b"WB-AAD\0");
+    aad.push(0x01);
+    aad.extend_from_slice(&wb_lp(b"WBEV1"));
+    aad.extend_from_slice(&wb_lp(b"sym-v1"));
+    aad.extend_from_slice(&suite.to_be_bytes());
+    aad.extend_from_slice(&wb_lp(key_id.as_bytes()));
+    aad.extend_from_slice(&[0x02, 0x00, 0x00]);
+    aad
+}
+
+/// 纯函数:信封 base64 + atRestSecretKey → 明文字符串。
+/// keyId 不匹配 ⇒ 显式报错(客户端换密钥,提示重取),不静默。
+pub fn workbuddy_decrypt_field(envelope_b64: &str, secret: &str) -> Result<String, String> {
+    use aes_gcm::aead::{Aead, Payload};
+    use aes_gcm::{Aes256Gcm, KeyInit};
+    use base64::Engine as _;
+
+    let (key, expect_key_id) = workbuddy_derive_key(secret);
+    let raw = base64::engine::general_purpose::STANDARD
+        .decode(envelope_b64.trim())
+        .map_err(|e| format!("信封 base64 解码失败: {e}"))?;
+    let env: serde_json::Value = serde_json::from_slice(&raw)
+        .map_err(|e| format!("信封非 JSON: {e}"))?;
+    let key_id = env
+        .get("keyId")
+        .and_then(|v| v.as_str())
+        .ok_or("信封缺 keyId")?;
+    if key_id != expect_key_id {
+        return Err(format!(
+            "密钥不匹配(信封 keyId={key_id},本机派生={expect_key_id})——WorkBuddy 可能已更新,需重新提取 atRestSecretKey"
+        ));
+    }
+    let suite = env.get("suite").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
+    let b64 = |k: &str| -> Result<Vec<u8>, String> {
+        env.get(k)
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| format!("信封缺 {k}"))
+            .and_then(|s| {
+                base64::engine::general_purpose::STANDARD
+                    .decode(s)
+                    .map_err(|e| format!("信封 {k} base64 解码失败: {e}"))
+            })
+    };
+    let nonce = b64("nonce")?;
+    if nonce.len() != 12 {
+        return Err(format!("信封 nonce 长度异常({} 字节)", nonce.len()));
+    }
+    let mut ct_and_tag = b64("ciphertext")?;
+    ct_and_tag.extend_from_slice(&b64("authTag")?);
+    let aad = workbuddy_field_aad(key_id, suite);
+    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|e| format!("AES 密钥装载失败: {e}"))?;
+    let plain = cipher
+        .decrypt(
+            aes_gcm::Nonce::from_slice(&nonce),
+            Payload {
+                msg: &ct_and_tag,
+                aad: &aad,
+            },
+        )
+        .map_err(|_| "AES-GCM 解密/校验失败(密钥或 AAD 不对)".to_string())?;
+    String::from_utf8(plain).map_err(|e| format!("解密结果非 UTF8: {e}"))
+}
+
+/// 纯函数:登录态 doc 取 accessToken 的 envelope base64(加密形态;明文/缺失 → None)。
+pub fn workbuddy_envelope_b64(doc: &serde_json::Value) -> Option<String> {
+    let at = doc.get("auth")?.get("accessToken")?;
+    if at.get("$wbEncrypted").and_then(|v| v.as_i64()) == Some(1) {
+        at.get("envelope")?.as_str().map(|s| s.to_string())
+    } else {
+        None
+    }
+}
+
+/// WorkBuddy.exe 候选(便携版/标准安装/多盘符都在真机出现过;5.8.2 本机是 G:\workbuddy)。
+fn workbuddy_exe_candidates() -> Vec<std::path::PathBuf> {
+    let mut out: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(la) = std::env::var("LOCALAPPDATA") {
+        if !la.trim().is_empty() {
+            for rel in [
+                "Programs/WorkBuddy/WorkBuddy.exe",
+                "Programs/CodeBuddy/CodeBuddy.exe",
+                "CodeBuddyExtension/WorkBuddy.exe",
+                "WorkBuddy/WorkBuddy.exe",
+            ] {
+                out.push(std::path::PathBuf::from(&la).join(rel));
+            }
+        }
+    }
+    for root in ["G:\\", "D:\\", "C:\\"] {
+        out.push(std::path::PathBuf::from(root).join("workbuddy").join("WorkBuddy.exe"));
+    }
+    for pf in ["ProgramFiles", "ProgramFiles(x86)"] {
+        if let Ok(p) = std::env::var(pf) {
+            out.push(std::path::PathBuf::from(p).join("WorkBuddy").join("WorkBuddy.exe"));
+        }
+    }
+    out.into_iter().filter(|p| p.is_file()).collect()
+}
+
+/// 从 WorkBuddy.exe 以 ELECTRON_RUN_AS_NODE 模式活取 atRestSecretKey。
+/// 5s 超时(线程 + recv_timeout,复用守门脚本同款防挂模式);原生绑定起不来
+/// (非 Electron 主程序 / 路径猜错)即 None,由调用方回落内置常量。
+fn live_extract_wb_secret(exe: &std::path::Path) -> Option<String> {
+    let js = "const m = process._linkedBinding('electron_browser_workbuddy_storage'); process.stdout.write(m.loggerGet());";
+    let tmp = std::env::temp_dir().join(format!("ihui-wb-key-{}.js", std::process::id()));
+    if std::fs::write(&tmp, js).is_err() {
+        return None;
+    }
+    let exe = exe.to_path_buf();
+    let tmp_in_thread = tmp.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut cmd = std::process::Command::new(&exe);
+        cmd.env("ELECTRON_RUN_AS_NODE", "1").arg(&tmp_in_thread);
+        #[cfg(windows)]
+        creation_flags_if_windows(&mut cmd, 0x0800_0000);
+        let _ = tx.send(cmd.output());
+    });
+    let out = match rx.recv_timeout(std::time::Duration::from_secs(5)) {
+        Ok(Ok(o)) => o,
+        _ => {
+            let _ = std::fs::remove_file(&tmp);
+            return None;
+        }
+    };
+    let _ = std::fs::remove_file(&tmp);
+    if !out.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&out.stdout);
+    let v: serde_json::Value = serde_json::from_str(text.trim()).ok()?;
+    v.get("atRestSecretKey")
+        .and_then(|s| s.as_str())
+        .map(|s| s.to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// 解析 atRestSecretKey:优先本机客户端活取(版本自愈),回落内置常量。
+fn resolve_wb_at_rest_secret() -> String {
+    for exe in workbuddy_exe_candidates() {
+        if let Some(s) = live_extract_wb_secret(&exe) {
+            log::info!("[checkin-capture] WorkBuddy atRestSecretKey 活取成功({})", exe.display());
+            return s;
+        }
+    }
+    WB_AT_REST_SECRET_DEFAULT.to_string()
+}
+
 pub fn capture_workbuddy_sessions() -> Vec<CapturedWorkbuddySession> {
+    // 信封解密密钥只解析一次(活取要起进程;多个 .info 共用同一密钥)。
+    let mut secret: Option<String> = None;
     for path in workbuddy_auth_file_candidates() {
         if !path.is_file() {
             continue;
@@ -3979,6 +4171,28 @@ pub fn capture_workbuddy_sessions() -> Vec<CapturedWorkbuddySession> {
         };
         let out = parse_workbuddy_auth_doc(&doc, &path.display().to_string());
         if !out.is_empty() {
+            // 加密信封 → 本机直解(用户零操作);解不开保持 encrypted=true,
+            // 由前端引导网页登录/手动粘贴(旧路径不退化)。
+            if let Some(env_b64) = workbuddy_envelope_b64(&doc) {
+                let sec = secret.get_or_insert_with(resolve_wb_at_rest_secret);
+                match workbuddy_decrypt_field(&env_b64, sec) {
+                    Ok(tok) => {
+                        return out
+                            .into_iter()
+                            .map(|mut s| {
+                                if s.encrypted {
+                                    s.access_token = tok.clone();
+                                    s.encrypted = false;
+                                }
+                                s
+                            })
+                            .collect();
+                    }
+                    Err(e) => {
+                        log::warn!("[checkin-capture] WorkBuddy 信封解密失败({e}),保持加密态由用户手动粘贴");
+                    }
+                }
+            }
             return out;
         }
     }
@@ -5343,6 +5557,56 @@ mod tests {
         assert_eq!(out.len(), 1);
         assert!(out[0].encrypted);
         assert_eq!(out[0].expires_at, 0);
+    }
+
+    #[test]
+    fn workbuddy_derive_key_matches_known_key_id() {
+        // 社区公开常量派生 keyId 必须等于 9127dea1b44020a7(5.8.2 本机信封同值)
+        let (_k, kid) = workbuddy_derive_key(WB_AT_REST_SECRET_DEFAULT);
+        assert_eq!(kid, "9127dea1b44020a7");
+        // 换密钥 ⇒ keyId 必变(防"公式抄错但两边一起错"的假绿)
+        let (_k2, kid2) = workbuddy_derive_key("another-secret");
+        assert_ne!(kid2, kid);
+    }
+
+    #[test]
+    fn workbuddy_decrypt_field_fixed_vector() {
+        // 固定向量:已知密钥加密已知 token 的信封(与 Trae tc 向量同思路,
+        // 防 AAD 拼接/派生公式抄错但解密不报错的假绿)。
+        const ENVELOPE: &str = "eyJzdWl0ZSI6MSwia2V5SWQiOiI5MTI3ZGVhMWI0NDAyMGE3Iiwibm9uY2UiOiJBQUVDQXdRRkJnY0lDUW9MIiwiYXV0aFRhZyI6ImFEcElMZC9VcDBiMlU3WEVPUlJ6Mnc9PSIsImNpcGhlcnRleHQiOiI5cytNSEIzOFpNWktjZE12WlVKYkhQRjhtS2k5RWE4azJ3aDd3d0VCNkNkNEJ2Zm1la1k9In0=";
+        let tok = workbuddy_decrypt_field(ENVELOPE, WB_AT_REST_SECRET_DEFAULT)
+            .expect("固定向量应解密成功");
+        assert_eq!(tok, "eyJhbGciOiJSUzI1NiJ9.test-wb-token.sig");
+        // 密钥不匹配 ⇒ 显式报错(客户端换密钥场景),不静默错解
+        assert!(workbuddy_decrypt_field(ENVELOPE, "wrong-secret").is_err());
+        assert!(workbuddy_decrypt_field("not-base64!", WB_AT_REST_SECRET_DEFAULT).is_err());
+    }
+
+    #[test]
+    fn workbuddy_field_aad_exact_bytes() {
+        // AAD 布局逐字节钉死:"WB-AAD\0" \x01 lp("WBEV1") lp("sym-v1") BE32(1) lp(kid) \x02\0\0
+        let aad = workbuddy_field_aad("abcd", 1);
+        let mut expect = Vec::new();
+        expect.extend_from_slice(b"WB-AAD\0");
+        expect.push(0x01);
+        expect.extend_from_slice(&5u32.to_be_bytes());
+        expect.extend_from_slice(b"WBEV1");
+        expect.extend_from_slice(&6u32.to_be_bytes());
+        expect.extend_from_slice(b"sym-v1");
+        expect.extend_from_slice(&1u32.to_be_bytes());
+        expect.extend_from_slice(&4u32.to_be_bytes());
+        expect.extend_from_slice(b"abcd");
+        expect.extend_from_slice(&[0x02, 0x00, 0x00]);
+        assert_eq!(aad, expect);
+    }
+
+    #[test]
+    fn workbuddy_envelope_b64_shape() {
+        let doc = serde_json::json!({"auth": {"accessToken": {"$wbEncrypted": 1, "envelope": "ZW52"}}});
+        assert_eq!(workbuddy_envelope_b64(&doc).as_deref(), Some("ZW52"));
+        let plain = serde_json::json!({"auth": {"accessToken": "eyJplain"}});
+        assert_eq!(workbuddy_envelope_b64(&plain), None);
+        assert_eq!(workbuddy_envelope_b64(&serde_json::json!({})), None);
     }
 
     #[test]
