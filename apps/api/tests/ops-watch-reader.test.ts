@@ -14,7 +14,9 @@ import {
   runOpsWatchTick,
   probeCdnLiveness,
   _resetDedupForTests,
+  OpsWatchDedupStore,
   ALERT_COOLDOWN_MS,
+  type OpsWatchDeps,
   type WatchFinding,
 } from '../src/jobs/ops-watch-reader.js'
 
@@ -177,6 +179,74 @@ describe('runOpsWatchTick — 去重/冷却(机主明令:重复告警是缺陷)'
     rmSync(join(dir, '.workbuddy', 'd-alert-UNDELIVERED.json'))
     const clean = await runOpsWatchTick({ ...base, repoRoot: dir, probe: async () => true })
     expect(clean).toEqual([])
+  })
+})
+
+// 根因修复(2026-10-15):「图片 CDN 无应答」历史噪声 —— 单次瞬断 / API 被部署环重启即发一封
+// critical,且原去重是模块级 Map(随进程死亡清零 ⇒ 同一次瞬断又被当成"新故障"重报)。
+// 本组钉死三件事:①未达阈值不发信;②一次宕机 episode 只发一封;③状态跨重启存活。
+describe('runOpsWatchTick — CDN 连续失败门控 + 持久化(根因修复)', () => {
+  const base = (store: OpsWatchDedupStore, probe: () => Promise<boolean>, pushed: WatchFinding[]) =>
+    ({
+      repoRoot: dir,
+      stateDirs: [],
+      cdnUrl: 'http://cdn-test/',
+      probe, // 必须注入:不注入则走默认真实网络探测(DNS/连接超时 ~5s/次且恒失败)
+      dedupStore: store,
+      cdnFailThreshold: 3,
+      push: (f: WatchFinding) => {
+        pushed.push(f)
+      },
+      now: () => 5_000_000,
+    }) satisfies OpsWatchDeps
+
+  it('单次探测失败 ⇒ 不告警(历史噪声根因:瞬断/重启即发一封 critical)', async () => {
+    const store = new OpsWatchDedupStore(join(dir, 'dedup1.json'))
+    const pushed: WatchFinding[] = []
+    const found = await runOpsWatchTick(base(store, async () => false, pushed))
+    expect(found.some((f) => f.key.startsWith('cdn:'))).toBe(true) // finding 仍可见(可观测)
+    expect(pushed).toHaveLength(0) // 但未达阈值 ⇒ 绝不发信
+  })
+
+  it('连续 3 次失败 ⇒ 恰好发一封;之后持续失败不再重复(闩锁)', async () => {
+    const store = new OpsWatchDedupStore(join(dir, 'dedup2.json'))
+    const pushed: WatchFinding[] = []
+    const deps = base(store, async () => false, pushed)
+    await runOpsWatchTick(deps)
+    await runOpsWatchTick(deps)
+    expect(pushed).toHaveLength(0)
+    await runOpsWatchTick(deps) // 第 3 次 ⇒ 达阈值
+    expect(pushed).toHaveLength(1)
+    await runOpsWatchTick(deps) // 第 4、5 次 ⇒ 宕机期间静默
+    await runOpsWatchTick(deps)
+    expect(pushed).toHaveLength(1)
+  })
+
+  it('恢复后重置闩锁:再次真实宕机可重新告警(不会永久静默)', async () => {
+    const store = new OpsWatchDedupStore(join(dir, 'dedup3.json'))
+    const pushed: WatchFinding[] = []
+    let up = false
+    const deps = { ...base(store, async () => up, pushed) }
+    for (let i = 0; i < 3; i++) await runOpsWatchTick(deps)
+    expect(pushed).toHaveLength(1)
+    up = true
+    await runOpsWatchTick(deps) // 恢复 ⇒ 计数清零 + 闩锁重置
+    up = false
+    for (let i = 0; i < 3; i++) await runOpsWatchTick(deps) // 新 episode 重新计次
+    expect(pushed).toHaveLength(2)
+  })
+
+  it('去重状态跨进程重启存活(原内存 Map 随进程死亡清零即噪声放大器)', async () => {
+    const file = join(dir, 'dedup4.json')
+    const pushed: WatchFinding[] = []
+    const down = async () => false
+    await runOpsWatchTick(base(new OpsWatchDedupStore(file), down, pushed))
+    await runOpsWatchTick(base(new OpsWatchDedupStore(file), down, pushed))
+    expect(pushed).toHaveLength(0)
+
+    // 模拟 API 进程重启:丢掉内存态,仅靠落盘文件重建 —— 计数必须是 3(而非回到 1)
+    await runOpsWatchTick(base(new OpsWatchDedupStore(file), down, pushed))
+    expect(pushed).toHaveLength(1)
   })
 })
 
