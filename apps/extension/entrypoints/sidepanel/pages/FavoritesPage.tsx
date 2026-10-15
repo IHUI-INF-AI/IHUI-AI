@@ -70,27 +70,20 @@ export default function FavoritesPage() {
         items.map((f) => (
           <Card key={f.id} className="hover:bg-muted/50 transition-colors">
             <CardContent className="p-3 flex items-center gap-2.5 min-[640px]:p-3">
-              {f.cover ? (
-                <img
-                  src={f.cover}
-                  alt=""
-                  className="w-10 h-10 rounded-md object-cover shrink-0"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-md bg-muted shrink-0 flex items-center justify-center text-base">
-                  <Star size={20} className="text-muted-foreground" aria-hidden />
-                </div>
-              )}
+              {/* 同上:该端点今日不回传 cover,图片分支恒不成立 ⇒ 去掉死分支,
+                  与 miniapp / RN 三端同口径(占位 tile)。 */}
+              <div className="w-10 h-10 rounded-md bg-muted shrink-0 flex items-center justify-center text-base">
+                <Star size={20} className="text-muted-foreground" aria-hidden />
+              </div>
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm truncate">{f.title}</div>
+                <div className="font-medium text-sm truncate">{f.title ?? ''}</div>
                 <div className="text-[11px] text-muted-foreground mt-0.5">
                   {fmtDate(f.createdAt)}
                 </div>
               </div>
-              {f.targetType ? (
+              {f.resourceType ? (
                 <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md shrink-0">
-                  {f.targetType}
+                  {f.resourceType}
                 </span>
               ) : null}
             </CardContent>
