@@ -820,7 +820,20 @@ export function HomeScreen() {
   const handleVoiceComplete = (text: string): void => {
     if (text) setInputValue(text)
   }
-  const voiceRecorder = useVoiceRecorder({ onComplete: handleVoiceComplete })
+  // 麦克风不可用反馈(2026-10-15:useVoiceRecorder 原先失败路径静默,web 预览长按无任何提示)
+  const handleVoiceUnavailable = useCallback(
+    (reason: 'permission-denied' | 'record-failed'): void => {
+      showToast(
+        'warning',
+        reason === 'permission-denied' ? '无法访问麦克风,请检查权限设置' : '录音启动失败,请重试',
+      )
+    },
+    [showToast],
+  )
+  const voiceRecorder = useVoiceRecorder({
+    onComplete: handleVoiceComplete,
+    onUnavailable: handleVoiceUnavailable,
+  })
 
   // ── 模型类型按钮(对齐 Uniapp handleModelTypeClick / toggleSkillsPopup / toggleMaterialPopup) ──
   /** 点击类型按钮:同类型再点收起(对齐 Uniapp 第二次点击收起),不同类型切换 activeModelType 弹 Modal */
