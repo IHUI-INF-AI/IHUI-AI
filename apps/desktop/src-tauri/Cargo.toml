@@ -58,6 +58,9 @@ image = { version = "0.24", default-features = false, features = ["png"] }
 # 2026-10-09 签到捕获(checkin_capture)新增:aes-gcm=Chromium v10 cookie 解密;
 # rusqlite(bundled)=只读 Cookies 库(自编 C sqlite,免系统依赖)。
 aes-gcm = "0.10"
+# 2026-10-15 签到捕获新增:aes(块原语,手写 CBC)=iCubeAuthInfo tc 解密;sha2=SHA512 密钥派生
+aes = "0.8"
+sha2 = "0.10"
 # 2026-10-09 本机故障规避:indexmap 1.9.3 的 has_std 由 build script 探针判定,
 # 而探针在 cargo build-script 环境下静默失败(裸 rustc 复现正常)⇒ schemars 0.8.x
 # 走 not(has_std) 分支必炸 E0107。直接依赖声明 std feature,经 feature 统一强制
