@@ -10,9 +10,11 @@
 //! - `git_local_status.rs`：Tauri command 出口 + 子进程派生（真去跑 git）。
 //!
 //! 三态约定（本仓铁律：**不得把"没判到"写成"判过了"**）：
-//! `status_outcome_from_z(&[])` 产出 `Facts{entries:[]}`（= 确认无改动），
-//! 而任何解析失败产出 `Undetermined{reason}`（= 判不了）。两者是**不同枚举分支**，
-//! 调用方结构上无法把它们折叠成同一件事。
+//! 本文件只产出「解析成功 / 解析失败」两种结果 —— 空字节流 = 确认无改动
+//! （`parse_porcelain_z(b"")` = `Ok(vec![])`），任何解析失败 = 判不了（`Err`）。
+//! 三态装配的**唯一真相源**在 `git_local_status.rs` 的 `parse_status_bytes` /
+//! `EngineOutcome`（Facts 与 Undetermined 是不同枚举分支，调用方结构上无法折叠），
+//! 本文件刻意不另造一份平行的三态实现。
 
 use std::fmt;
 
@@ -82,8 +84,6 @@ pub enum ParseError {
     /// 行形态（未加 `-z`）下 git 会给路径加双引号 + C 转义；本核心不实现反转义，
     /// 判"不了"而不是猜一个可能错的路径。
     QuotedPathUnsupported { index: usize, field: String },
-    /// 行形态的 `old -> new` 出现多个分隔串，归属不可判。
-    AmbiguousRenameArrow { index: usize, field: String },
     /// `-z` 记录里出现了预期之外的分支头/注释字段（`--branch` 属 v2 语义）。
     UnexpectedV2Field { index: usize, field: String },
 }
@@ -109,9 +109,6 @@ impl fmt::Display for ParseError {
             ParseError::QuotedPathUnsupported { index, field } => {
                 write!(f, "记录 #{index} 为带引号转义的路径（缺 -z），本核心不反转义：{field:?}")
             }
-            ParseError::AmbiguousRenameArrow { index, field } => {
-                write!(f, "记录 #{index} 含多个 \" -> \"，old/new 归属不可判：{field:?}")
-            }
             ParseError::UnexpectedV2Field { index, field } => {
                 write!(f, "记录 #{index} 是 porcelain v2/`--branch` 字段，v1 通道不接受：{field:?}")
             }
@@ -122,19 +119,6 @@ impl fmt::Display for ParseError {
 impl ParseError {
     pub fn reason(&self) -> String {
         self.to_string()
-    }
-}
-
-/// 判据层三态。`Undetermined` 与 `Facts{entries: Vec::new()}` 是**两个分支**。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum StatusOutcome {
-    Facts { entries: Vec<StatusEntry> },
-    Undetermined { reason: String },
-}
-
-impl StatusOutcome {
-    pub fn is_undetermined(&self) -> bool {
-        matches!(self, StatusOutcome::Undetermined { .. })
     }
 }
 
@@ -342,104 +326,8 @@ pub fn parse_porcelain_z(raw: &[u8]) -> Result<Vec<StatusEntry>, ParseError> {
     Ok(entries)
 }
 
-/// 行形态（**未** 加 `-z`）解析器：git 用 `R  old -> new` 表达 rename。
-/// 只作降级兜底与回归覆盖用；正常通道走 `parse_porcelain_z`。
-pub fn parse_porcelain_lines(raw: &str) -> Result<Vec<StatusEntry>, ParseError> {
-    let mut entries = Vec::new();
-    for (index, line) in raw.split('\n').enumerate() {
-        let line = line.strip_suffix('\r').unwrap_or(line);
-        if line.is_empty() {
-            continue;
-        }
-        let field = line.as_bytes();
-        let text = decode(field, index)?;
-        if text.starts_with('"') {
-            return Err(ParseError::QuotedPathUnsupported {
-                index,
-                field: preview(field),
-            });
-        }
-        let bytes = text.as_bytes();
-        if bytes.len() <= STATUS_COLUMNS {
-            return Err(ParseError::ShortField {
-                index,
-                field: preview(field),
-            });
-        }
-        // bytes[2] == b' ' ⇒ 下标 2 是字符边界（见 parse_record 同一论证）。
-        if bytes[STATUS_COLUMNS] != b' ' {
-            return Err(ParseError::MissingSeparator {
-                index,
-                field: preview(field),
-            });
-        }
-        let code = &text[..STATUS_COLUMNS];
-        let kind = classify_code(code)
-            .ok_or_else(|| ParseError::UnknownStatusCode {
-                index,
-                code: preview(field),
-            })?;
-        let path_part = &text[STATUS_COLUMNS + 1..];
-        if path_part.starts_with('"') {
-            // 未加 -z 时 git 给含空格/控制符的路径加引号转义，本核心不猜。
-            return Err(ParseError::QuotedPathUnsupported {
-                index,
-                field: preview(field),
-            });
-        }
-        let (path, old_path) = if matches!(kind, ChangeKind::Renamed | ChangeKind::Copied) {
-            let hits: Vec<usize> = path_part.match_indices(" -> ").map(|(p, _)| p).collect();
-            match hits.len() {
-                1 => {
-                    let at = hits[0];
-                    (
-                        path_part[at + 4..].to_string(),
-                        Some(path_part[..at].to_string()),
-                    )
-                }
-                0 => {
-                    return Err(ParseError::RenameSourceMissing {
-                        index,
-                        path: preview(field),
-                    })
-                }
-                _ => {
-                    return Err(ParseError::AmbiguousRenameArrow {
-                        index,
-                        field: preview(field),
-                    })
-                }
-            }
-        } else {
-            (path_part.to_string(), None)
-        };
-        entries.push(StatusEntry {
-            kind,
-            index_status: (bytes[0] as char).to_string(),
-            worktree_status: (bytes[1] as char).to_string(),
-            path,
-            old_path,
-        });
-    }
-    Ok(entries)
-}
-
-/// 判据装配：解析结果 + 结果预算 ⇒ 三态。
-pub fn status_outcome_from_z(raw: &[u8]) -> StatusOutcome {
-    match parse_porcelain_z(raw) {
-        Ok(entries) if entries.len() > MAX_ENTRIES => StatusOutcome::Undetermined {
-            reason: format!(
-                "变更条目 {} 超过单次预算 {}，清单不完整（拒绝出具合格证）",
-                entries.len(),
-                MAX_ENTRIES
-            ),
-        },
-        Ok(entries) => StatusOutcome::Facts { entries },
-        Err(err) => StatusOutcome::Undetermined {
-            reason: err.reason(),
-        },
-    }
-}
+/// 判据层三态装配的唯一真相源在 `git_local_status.rs`（`parse_status_bytes`：
+/// 解析结果 + 结果预算 ⇒ `EngineOutcome` 三态），本文件不保留平行实现。
 
 /// 三态：`Inside` 才可放行；`Outside` 是明确越界；`Undetermined` 一律按拒绝处置
 /// 但**原因不同**（前者是"不该给你看"，后者是"我没看清"，报告里不得混写）。
@@ -451,13 +339,8 @@ pub enum Contain {
 }
 
 impl Contain {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Contain::Inside => "inside",
-            Contain::Outside => "outside",
-            Contain::Undetermined => "undetermined",
-        }
-    }
+    // Contain 不跨 IPC（三态上线形态由 git_channel_ipc.rs 对 EngineOutcome 结构化
+    // match 负责），无线上名字契约，故不设 as_str。
     pub fn is_inside(self) -> bool {
         matches!(self, Contain::Inside)
     }
@@ -750,48 +633,34 @@ mod tests {
     // ---------- ④ 空输出 vs 解析失败：必须分家 ----------
 
     #[test]
-    fn empty_output_is_no_changes_while_malformed_is_undetermined() {
-        let clean = status_outcome_from_z(b"");
-        let blind = status_outcome_from_z(b"XY weird line without nul");
-        match (&clean, &blind) {
-            (StatusOutcome::Facts { entries }, StatusOutcome::Undetermined { reason }) => {
-                assert!(entries.is_empty(), "空输出 = 确认无改动");
-                assert!(
-                    reason.contains("状态码"),
-                    "判不了的原因必须点名为什么判不了，实得：{reason}"
-                );
-            }
-            other => panic!("两态不得折叠为一：{other:?}"),
-        }
-        assert!(!clean.is_undetermined());
-        assert!(blind.is_undetermined());
+    fn empty_output_is_no_changes_while_malformed_is_err() {
+        // 空字节流 = 确认无改动（Ok(vec![])），畸形输出 = 判不了（Err）——
+        // 两种结果不得折叠（三态装配唯一真源在 git_local_status 的 parse_status_bytes）。
+        assert_eq!(parse_porcelain_z(b"").expect("空输出 = 无改动"), Vec::new());
+        let blind = parse_porcelain_z(b"XY weird line without nul").expect_err("畸形必须报错");
+        assert!(
+            blind.to_string().contains("状态码"),
+            "报错原因必须点名为什么判不了，实得：{blind}"
+        );
         // 缺分隔符的畸形行也要落到"判不了"
-        assert!(status_outcome_from_z(&z(&["Zmissing separator"])).is_undetermined());
+        assert!(parse_porcelain_z(&z(&["Zmissing separator"])).is_err());
         // 双 NUL（空记录）同样是畸形
-        assert!(status_outcome_from_z(b"M  a.rs\x00\x00").is_undetermined());
+        assert!(parse_porcelain_z(b"M  a.rs\x00\x00").is_err());
         // 非 UTF-8 路径字节 ⇒ 判不了（禁止 lossy 之后继续做包含性校验）
         let mut raw = Vec::new();
         raw.extend_from_slice(b"M  bad\xff.rs");
         raw.push(0);
-        assert!(status_outcome_from_z(&raw).is_undetermined());
+        assert!(parse_porcelain_z(&raw).is_err());
     }
 
     #[test]
     fn v2_and_quoted_fields_are_refused_not_guessed() {
-        assert!(status_outcome_from_z(&z(&["# branch.oid (head)"])).is_undetermined());
-        assert!(status_outcome_from_z(&z(&["M  \"quoted path.rs\""])).is_undetermined());
+        assert!(parse_porcelain_z(&z(&["# branch.oid (head)"])).is_err());
+        assert!(parse_porcelain_z(&z(&["M  \"quoted path.rs\""])).is_err());
     }
 
-    #[test]
-    fn oversized_result_is_undetermined_not_truncated() {
-        let mut raw = Vec::new();
-        for i in 0..(MAX_ENTRIES + 1) {
-            raw.extend_from_slice(format!(" M f{i}.rs").as_bytes());
-            raw.push(0);
-        }
-        let outcome = status_outcome_from_z(&raw);
-        assert!(outcome.is_undetermined(), "超预算必须喊判不了，不得交一份残缺清单");
-    }
+    // 超预算 ⇒ 判不了的教义由唯一真源 git_local_status::parse_status_bytes 的
+    // Budget 测试覆盖（MAX_REPORTED_ENTRIES 即本文件 MAX_ENTRIES 的别名）。
 
     // ---------- ⑤ rename 的 old->new 形态 ----------
 
@@ -807,33 +676,15 @@ mod tests {
     }
 
     #[test]
-    fn rename_without_source_field_is_undetermined() {
-        assert!(status_outcome_from_z(&z(&["R  only-new.rs"])).is_undetermined());
-    }
-
-    #[test]
-    fn rename_arrow_form_parses_in_line_mode() {
-        let raw = "R  src/old.rs -> src/new.rs\nM  staged.rs\n?? u.rs\n";
-        let entries = parse_porcelain_lines(raw).expect("行形态 -> 拆分");
-        assert_eq!(entries[0].kind, ChangeKind::Renamed);
-        assert_eq!(entries[0].old_path.as_deref(), Some("src/old.rs"));
-        assert_eq!(entries[0].path, "src/new.rs");
-        assert_eq!(entries[1].kind, ChangeKind::Modified);
-        assert_eq!(entries[2].kind, ChangeKind::Untracked);
-        assert_eq!(
-            parse_porcelain_lines("").expect("空行形态").len(),
-            0,
-            "空输入 = 无改动"
-        );
-        assert!(parse_porcelain_lines("R  a -> b -> c").is_err(), "多个 -> 归属不可判");
-        assert!(parse_porcelain_lines("M  \"q uoted\"").is_err());
+    fn rename_without_source_field_is_err() {
+        assert!(parse_porcelain_z(&z(&["R  only-new.rs"])).is_err());
     }
 
     #[test]
     fn kinds_have_stable_wire_names() {
         assert_eq!(ChangeKind::Added.as_str(), "added");
         assert_eq!(ChangeKind::Renamed.as_str(), "renamed");
-        assert_eq!(Contain::Undetermined.as_str(), "undetermined");
+        // Contain 不跨 IPC，无线上名字契约，as_str 已删（见 impl Contain 注记）。
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
