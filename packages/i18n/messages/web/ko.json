@@ -28015,6 +28015,7 @@
     "filesWrite": "파일 업로드",
     "audioRead": "음색 읽기",
     "audioWrite": "음성 합성/인식",
+    "voiceStt": "음성-텍스트 변환",
     "imagesWrite": "이미지 생성/편집",
     "videosWrite": "영상 생성/구성",
     "videosRead": "영상 작업 조회",

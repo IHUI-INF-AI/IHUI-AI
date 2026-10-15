@@ -30,6 +30,7 @@ export const PERM_LABELS: Record<ApiKeyPermission, string> = {
   'files:write': 'apiKeyPerms.filesWrite',
   'audio:read': 'apiKeyPerms.audioRead',
   'audio:write': 'apiKeyPerms.audioWrite',
+  'voice:stt': 'apiKeyPerms.voiceStt',
   'images:write': 'apiKeyPerms.imagesWrite',
   'videos:write': 'apiKeyPerms.videosWrite',
   'videos:read': 'apiKeyPerms.videosRead',
