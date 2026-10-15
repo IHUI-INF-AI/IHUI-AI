@@ -463,6 +463,31 @@
     "subscriptions": "我的订阅",
     "settings": "设置"
   },
+  "drawer": {
+    "newChat": "新建任务",
+    "history": "历史对话",
+    "noHistory": "暂无历史对话",
+    "swipeHint": "左滑收藏 / 删除",
+    "collect": "收藏",
+    "collected": "已收藏",
+    "delete": "删除",
+    "today": "今天",
+    "yesterday": "昨天",
+    "earlier": "更早",
+    "defaultModel": "默认模型",
+    "notLoggedIn": "未登录",
+    "cancel": "取消",
+    "exit": "退出",
+    "prompt": "提示",
+    "favoriteFailed": "收藏操作失败,请重试",
+    "groupHot": "热门",
+    "groupAi": "AI",
+    "groupEdu": "教育",
+    "groupTrade": "交易",
+    "groupPromote": "推广",
+    "groupPersonal": "个人",
+    "groupCommunity": "社区"
+  },
   "error": {
     "network": "网络错误,请稍后重试"
   },
@@ -776,6 +801,7 @@
     "title": "n8n 模型"
   },
   "modelPlaza": {
+    "officialBadge": "智",
     "compare": {
       "title": "模型对比",
       "message": "请选择 2-3 个模型加入对比"
@@ -1565,6 +1591,17 @@
     "placeholder": "搜索课程、讲师、内容",
     "empty": "未找到相关内容",
     "failed": "搜索失败",
+    "popular": "热门搜索",
+    "quickSuggestions": [
+      "设置",
+      "个人资料",
+      "项目",
+      "对话历史",
+      "成员",
+      "工作区",
+      "快捷键",
+      "AI 模型"
+    ],
     "type": {
       "course": "课程",
       "article": "文章",

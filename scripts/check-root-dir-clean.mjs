@@ -112,6 +112,8 @@ const ALLOWED_FILES = new Set([
   // /goal 模式运行时文件(AGENTS.md §1 唯一例外条款:goal-runtime 状态与运行日志)
   'STATE.md',
   'loop-run-log.md',
+  // 2026-10-15 显式审批:GAP-PLAN 远超对标路线图(/goal 激活的权威收敛文档,随执行迭代更新)
+  'GAP-PLAN.md',
   // 开源标准文档(GitHub 官方识别)
   'README.md',
   'README.en.md',

@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 import { rnRadius } from '@ihui/design-tokens'
+import { rpx } from '../utils/rpx'
 
 /**
  * AiModelCard AI 模型卡片 (mobile-rn 端)
@@ -33,6 +34,7 @@ import {
 import { tokens } from '../theme/active-tokens'
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import type { AiModelData, AiModelUserType } from '@ihui/types'
+import { useI18n } from '../i18n'
 
 // 共享类型已下沉到 @ihui/types,本地 re-export 保持调用方兼容
 // (ModelUserType 重命名为 AiModelUserType 以避免与 legacy-migration ModelType 冲突,
@@ -60,6 +62,8 @@ export interface AiModelCardProps {
   onInfoPress?: (data: AiModelData) => void
   /** group 操作栏:分享 */
   onSharePress?: (data: AiModelData) => void
+  /** 收藏状态(2026-10-15 接真后端:已收藏时书签图标高亮) */
+  favorited?: boolean
   /** model 模式:设置按钮 */
   onSettingPress?: (data: AiModelData) => void
   /** 用户类型图片徽章(key: AiModelUserType,value: 图片 URI;缺省回退文字徽章) */
@@ -100,9 +104,11 @@ export default function AiModelCard({
   onFavoritePress,
   onInfoPress,
   onSharePress,
+  favorited,
   onSettingPress,
   userTypeIcons,
 }: AiModelCardProps) {
+  const { t } = useI18n()
   const [details, setDetails] = useState(false)
   const userType = data.userType ?? 'none'
   const userLabel = USER_TYPE_LABEL[userType]
@@ -155,27 +161,27 @@ export default function AiModelCard({
         {data.mumber !== undefined ? <Text style={styles.mumber}>{data.mumber}</Text> : null}
       </View>
 
-      {/* 标签(用 gap-* 分隔) */}
-      {hasTags ? (
-        <View style={styles.tagsWrap}>
-          {data.tags!.map((tag, idx) => (
-            <View key={idx} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
+      {/* 标签 + 用户类型徽章合并单行(2026-10-15 样式修复:原两行信息重复,合并节省竖向空间) */}
+      {hasTags || userTypeIcon || userLabel ? (
+        <View style={styles.metaRow}>
+          {hasTags
+            ? data.tags!.map((tag, idx) => (
+                <View key={idx} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </View>
+              ))
+            : null}
+          {userTypeIcon ? (
+            <Image
+              source={{ uri: userTypeIcon }}
+              style={[styles.userTypeIcon, styles.metaBadge]}
+              resizeMode="contain"
+            />
+          ) : userLabel ? (
+            <View style={[styles.badge, styles.metaBadge]}>
+              <Text style={styles.badgeText}>{userLabel}</Text>
             </View>
-          ))}
-        </View>
-      ) : null}
-
-      {/* 用户类型徽章(图片优先,缺省回退文字) */}
-      {userTypeIcon ? (
-        <View style={styles.badgeRow}>
-          <Image source={{ uri: userTypeIcon }} style={styles.userTypeIcon} resizeMode="contain" />
-        </View>
-      ) : userLabel ? (
-        <View style={styles.badgeRow}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{userLabel}</Text>
-          </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -183,7 +189,10 @@ export default function AiModelCard({
       {root === 'group' ? (
         <View style={styles.groupFooter}>
           <View style={styles.groupFooterLeft}>
-            <View style={styles.groupLogo} />
+            <View style={styles.groupLogo}>
+              {/* 官方徽标字(品牌字标不翻译,5 语言同值;原硬编码由守门 70 拦截改走语言包) */}
+              <Text style={styles.groupLogoText}>{t('modelPlaza.officialBadge')}</Text>
+            </View>
             <Text style={styles.groupFooterText} numberOfLines={1}>
               智汇社区-官方
             </Text>
@@ -193,14 +202,19 @@ export default function AiModelCard({
               <TouchableOpacity
                 key={action.key}
                 activeOpacity={0.7}
+                style={styles.actionBtn}
                 onPress={() => actionCallbacks[action.key]?.(data)}
                 accessibilityRole="button"
                 accessibilityLabel={action.label}
               >
                 <action.glyph
                   size={16}
-                  color={tokens.text.secondary}
-                  style={styles.groupActionIcon}
+                  color={
+                    action.key === 'favorite' && favorited
+                      ? tokens.brand.DEFAULT
+                      : tokens.text.secondary
+                  }
+                  fill={action.key === 'favorite' && favorited ? tokens.brand.DEFAULT : 'none'}
                 />
               </TouchableOpacity>
             ))}
@@ -271,30 +285,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderRadius: rnRadius.lg,
-    padding: 12,
-    marginBottom: 8,
+    // 2026-10-15 样式修复:padding 走 rpx(12dp=24rpx);marginBottom 删除——
+    // 卡片外留白由调用方 wrap 统一控制(HomeScreen aiModelWrap 已有 paddingVertical)
+    padding: rpx(24),
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   iconWrap: {
-    width: 48,
-    height: 48,
+    width: rpx(96),
+    height: rpx(96),
     borderRadius: rnRadius.xl,
-    backgroundColor: tokens.surface.card,
+    // 原为 surface.card(与卡片底同色,头像区视觉消失)→ 改 muted 与卡片区分
+    backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: rpx(24),
     overflow: 'hidden',
   },
   icon: {
-    width: 48,
-    height: 48,
+    width: rpx(96),
+    height: rpx(96),
     resizeMode: 'cover',
   },
   iconFallback: {
-    fontSize: 16,
+    fontSize: rpx(32),
     fontWeight: '600',
     color: tokens.brand.DEFAULT,
   },
@@ -302,61 +318,62 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 16,
+    fontSize: rpx(32),
     fontWeight: '500',
     color: tokens.brand.DEFAULT,
-    marginBottom: 4,
+    marginBottom: rpx(8),
   },
   subname: {
-    fontSize: 12,
+    fontSize: rpx(24),
     color: tokens.text.secondary,
   },
   mumber: {
-    fontSize: 10,
+    fontSize: rpx(20),
     color: tokens.text.secondary,
-    marginLeft: 8,
+    marginLeft: rpx(16),
   },
-  tagsWrap: {
+  // 标签 + 用户类型徽章合并单行(原两行信息重复)
+  metaRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 10,
+    gap: rpx(12),
+    marginTop: rpx(20),
   },
   tag: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(4),
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.md,
   },
   tagText: {
-    fontSize: 11,
+    fontSize: rpx(22),
     color: tokens.brand.DEFAULT,
   },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-  },
   badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(4),
     backgroundColor: tokens.warning.light,
     borderRadius: rnRadius.md,
   },
   badgeText: {
-    fontSize: 11,
+    fontSize: rpx(22),
     color: tokens.warning.DEFAULT,
   },
+  // 徽章推到行尾(与 tags 同行时右对齐)
+  metaBadge: {
+    marginLeft: 'auto',
+  },
   userTypeIcon: {
-    height: 20,
-    width: 80,
+    height: rpx(40),
+    width: rpx(160),
   },
   groupFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 10,
+    marginTop: rpx(24),
+    paddingTop: rpx(20),
     borderTopWidth: 1,
     borderTopColor: tokens.border.light,
   },
@@ -365,32 +382,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexShrink: 1,
   },
+  // 官方徽标(原为无内容空色块 → 内嵌「智」字标识)
   groupLogo: {
-    width: 18,
-    height: 18,
+    width: rpx(36),
+    height: rpx(36),
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
-    marginRight: 6,
+    marginRight: rpx(12),
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  groupLogoText: {
+    fontSize: rpx(24),
+    fontWeight: '600',
+    color: tokens.brand.ctaForeground,
   },
   groupFooterText: {
-    fontSize: 12,
+    fontSize: rpx(24),
     color: tokens.text.secondary,
   },
   groupFooterRight: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  groupActionIcon: {
-    fontSize: 16,
-    marginLeft: 12,
+  // 操作按钮扩触控区至 ≥32pt(原命中区仅 16×16 图标本体,远低于最低触控标准)
+  actionBtn: {
+    padding: rpx(8),
   },
   payDetailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 12,
+    marginLeft: rpx(24),
   },
   payDetailText: {
-    fontSize: 12,
+    fontSize: rpx(24),
     color: tokens.brand.DEFAULT,
     borderBottomWidth: 1,
     // 下划线取墨档(brand.DEFAULT 亮=纯黑)同样属"纯黑描边"这一型(R8 的 border\w* 就是为
@@ -398,19 +424,19 @@ const styles = StyleSheet.create({
     borderBottomColor: tokens.brandAccent.deep,
   },
   payDetailArrow: {
-    fontSize: 12,
+    fontSize: rpx(24),
     color: tokens.brand.DEFAULT,
-    marginLeft: 2,
+    marginLeft: rpx(4),
   },
   buyBtn: {
-    marginLeft: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    marginLeft: rpx(24),
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(8),
     backgroundColor: tokens.brand.cta,
     borderRadius: rnRadius.sm,
   },
   buyBtnText: {
-    fontSize: 12,
+    fontSize: rpx(24),
     color: tokens.brand.ctaForeground,
     fontWeight: '500',
   },
@@ -418,41 +444,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 10,
+    marginTop: rpx(24),
+    paddingTop: rpx(20),
     borderTopWidth: 1,
     borderTopColor: tokens.border.light,
   },
   settingBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 5,
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(10),
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.sm,
   },
   settingBtnText: {
-    fontSize: 14,
+    fontSize: rpx(28),
     color: tokens.brand.DEFAULT,
   },
   detailPanel: {
-    marginTop: 12,
-    paddingTop: 10,
+    marginTop: rpx(24),
+    paddingTop: rpx(20),
     borderTopWidth: 1,
     borderTopColor: tokens.border.light,
   },
   detailText: {
-    fontSize: 12,
+    fontSize: rpx(24),
     color: tokens.text.medium,
-    marginBottom: 6,
+    marginBottom: rpx(12),
   },
   detailMoneyRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
+    marginTop: rpx(8),
   },
   detailMoney: {
-    fontSize: 16,
+    fontSize: rpx(32),
     fontWeight: '600',
     color: tokens.brand.DEFAULT,
   },

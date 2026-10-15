@@ -463,6 +463,31 @@
     "subscriptions": "我的訂閱",
     "settings": "設定"
   },
+  "drawer": {
+    "newChat": "新建任務",
+    "history": "歷史對話",
+    "noHistory": "暫無歷史對話",
+    "swipeHint": "左滑收藏 / 刪除",
+    "collect": "收藏",
+    "collected": "已收藏",
+    "delete": "刪除",
+    "today": "今天",
+    "yesterday": "昨天",
+    "earlier": "更早",
+    "defaultModel": "默認模型",
+    "notLoggedIn": "未登入",
+    "cancel": "取消",
+    "exit": "登出",
+    "prompt": "提示",
+    "favoriteFailed": "收藏操作失敗,請重試",
+    "groupHot": "熱門",
+    "groupAi": "AI",
+    "groupEdu": "教育",
+    "groupTrade": "交易",
+    "groupPromote": "推廣",
+    "groupPersonal": "個人",
+    "groupCommunity": "社區"
+  },
   "error": {
     "network": "網路錯誤,請稍後重試"
   },
@@ -776,6 +801,7 @@
     "title": "n8n 模型"
   },
   "modelPlaza": {
+    "officialBadge": "智",
     "compare": {
       "title": "模型對比",
       "message": "請選擇 2-3 個模型加入對比"
@@ -1565,6 +1591,17 @@
     "placeholder": "搜尋課程、講師、內容",
     "empty": "未找到相關內容",
     "failed": "搜尋失敗",
+    "popular": "熱門搜尋",
+    "quickSuggestions": [
+      "設置",
+      "個人資料",
+      "項目",
+      "對話歷史",
+      "成員",
+      "工作區",
+      "快捷鍵",
+      "AI 模型"
+    ],
     "type": {
       "course": "課程",
       "article": "文章",
