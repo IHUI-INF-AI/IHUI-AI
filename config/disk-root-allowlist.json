@@ -68,8 +68,13 @@
   },
   "_pytestBasetempNote": "2026-10-03 补:.pytest_tmp(pyproject addopts 的 --basetemp=../../../.pytest_tmp)与 .pytest_tmp_runs(conftest.py pytest_configure 的 per-run 隔离树)进白名单,理由不是'看起来无害',而是这两条是 pytest 基础设施的**设计落点且落在仓外**:① 落仓内会让'仓库外'场景用例(find_project_root 向上找 .git / git baseline / 文档根越界)撞上真实 .git 全翻车(RUN5 实证,已写进 apps/ai-service/pyproject.toml 与 tests/conftest.py 注释);② 落系统 TEMP 会让全量 20 worker 的每用例 tmp SQLite 在 7200rpm HDD 上 fsync 饱和,实测 25 个跨文件用例各被拖到 ~84s(py-spy 抓栈),迁同盘 NVMe 是 09-20 性能立的直接产出;③ 两者都由 pytest 自己在每场运行 rm_rf + 重建(conftest 只回收 mtime>24h 的 run-*),不是人工堆放,也就不存在'产物外流'。不申报的后果是结构性的:每次跑 pytest 必然重建 ⇒ 盘根卫生永远判红 ⇒ 每 4 小时到人一次,而实测它催生不出任何整改动作(2026-09-30 立尺至 10-03 三天里 27 封同因告警,违规条目集合逐字不变)。真正的外流(临时 worktree 落点、探针残留)仍由 H1/H2 两维照常点名。",
   "worktreePolicy": {
-    "sanctionedPrefixes": ["G:\\IHUI-AI\\.worktrees\\", "G:/IHUI-AI/.worktrees/"],
+    "sanctionedPrefixes": [
+      "G:\\IHUI-AI\\.worktrees\\",
+      "G:/IHUI-AI/.worktrees/",
+      "D:\\DevEnv\\ihui-deploy-build"
+    ],
     "exemptPaths": ["G:\\IHUI-AI", "G:/IHUI-AI"],
-    "note": "2026-09-30 起 worktree 落点收进项目内 .worktrees/(AGENTS §12d);登记面里落在前缀之外的 worktree 一律点名待回收(主工作树豁免)"
+    "note": "2026-09-30 起 worktree 落点收进项目内 .worktrees/(AGENTS §12d);登记面里落在前缀之外的 worktree 一律点名待回收(主工作树豁免)",
+    "_deployCleanBuildNote": "2026-10-15 补申报 `D:\\DevEnv\\ihui-deploy-build`(部署环净面构建工作树根)。它不是待回收的残骸,是部署脚本自己写死的默认落点:`deploy/win/ihui-deploy.ps1:105` 的 `$CleanBuildRootDefault = 'D:\\DevEnv\\ihui-deploy-build'`(同文件 :91-102 两段注释记了两次『根治仓库里又冒出一个 clean-build-wt』的搬迁史:2026-10-10 先把默认路径从 `$Root\\.ihui-agent\\tmp\\clean-build-wt` 搬出仓库,再于同日搬出 TEMP 根,理由正是 §15b『临时夹具不得落仓库树内』+ 会话清理器会连根拔掉在飞检出)。所以这一条属于 §5e-1 里『不能整改』那一类:让部署环改回项目内 .worktrees\\ 就是把它当初根治的问题再制造一遍,整改方向本身是错的。落点本身也合规——`D:\\DevEnv` 是 §15b 唯一批准的备份/缓存/临时物根,已同盘申报在 roots.D 的 allow 里。登记走的是本文件上方的『新增合法条目必须显式改配置并随 commit 提交』通道,不是行内口头豁免。"
   }
 }

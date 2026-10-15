@@ -14,7 +14,7 @@
  *   web dev server),REST 与 ai-service 一律走**同源** `/api/*`,由 next dev rewrites
  *   反代到 8802 / 8803(2026-10-15 改:跨 host 直连会把 httpOnly refresh cookie 变成
  *   第三方,桌面 dev 壳只能靠与生产壳共享的那颗 vault 键维持登录态,两壳互相清库);
- *   SSE localhost:8802 / WS 127.0.0.1:8802 仍直连(dev 代理缓冲 SSE、且不反代 WS 升级)。
+ *   SSE localhost:8802 / WS 127.0.0.1:8802 仍直连(dev 代理缓冲 SSE;WS 直连沿用改判前行为 + 少一跳,next 加了 /ws/* 规则后 dev 反代实测可通)。
  *   Rust 侧 auto_refresh 的探活/指纹/离线恢复同样
  *   按窗口 origin 派生,不会打向线上生产。
  *
@@ -33,7 +33,7 @@
  * decorations:false/visible:false/theme 等,2026-09-28 实测)。
  *
  * 用法:
- *   pnpm dev:desktop:saas                                          # 默认:开发后端(8801 → 8802/8803)
+ *   pnpm dev:desktop:saas                                          # 默认:开发后端(8801 同源 /api/* 经 next dev 反代 → 8802/8803)
  *   NEXT_PUBLIC_API_BASE_URL=https://aizhs.top pnpm dev:desktop:saas  # 逃生舱:绝对基址直连(需目标 CORS 放行 8801)
  *   IHUI_API_PROXY_TARGET=https://aizhs.top pnpm dev:desktop:saas    # 逃生舱:本地 web + 线上 API(同源 /api/* 反代)
  *   node scripts/desktop-dev-saas.mjs --keep-dev-server             # 保留 8801 现有 dev server
@@ -62,7 +62,7 @@ const keepDevServer = process.argv.includes('--keep-dev-server')
  * 可注入的后端 env(2026-10-13 起默认**一个都不注入**)。
  *
  * 不设任何 env = 开发后端:后端寻址完全由 apps/web/src/lib/api-base-url.ts 按窗口
- * origin 判定(桌面端窗口 localhost:8801 ⇒ 本机 8802/8803;浏览器开 8801 ⇒ 同源
+ * /origin 判定\(桌面端 dev 壳 localhost:8801 ⇒ 同源反代 8802\/8803;浏览器开 8801 ⇒ 同源/
  * /api/* 反代,同样落 8802/8803)。旧版默认注入线上生产地址的历史到此为止。
  *
  * 显式设置以下任一变星才会注入(语义与旧版一致,值原样透传,仅去尾斜杠):
@@ -215,7 +215,7 @@ async function waitForPort(port, timeoutMs = 120_000) {
 }
 
 if (Object.keys(devEnv).length === 0) {
-  log('后端模式:开发后端(未注入任何 env;寻址由 api-base-url.ts 按窗口 origin 判定 ⇒ 本机 8802/8803)')
+  log('后端模式:开发后端(未注入任何 env;/寻址由 api-base-url.ts 按窗口 origin 判定 ⇒ 同源反代 8802\/8803,SSE\/WS 直连本机/)')
 } else {
   log('后端模式:自定义(显式 env 注入,绝对基址直连):')
   for (const [k, v] of Object.entries(devEnv)) log(`  ${k} = ${v}`)
@@ -239,15 +239,35 @@ if (keepDevServer) {
   log('复用 8801 现有 dev server(不释放端口、不重复拉起)。注意:若该实例是旧版本脚本拉起的(带生产 NEXT_PUBLIC_* env),后端仍指向线上——去掉本旗重跑即可切到开发后端')
 } else {
   log(`启动常驻 dev server: http://localhost:${DEV_PORT}`)
-  const dev = spawn(process.execPath, [nextBin, 'dev', '--turbopack', '-p', String(DEV_PORT)], {
-    cwd: webDir,
-    env: { ...process.env, ...devEnv },
-    detached: true,
-    windowsHide: true, // Windows 下 detached+控制台程序会弹新 cmd 窗口
-    stdio: 'ignore',
-  })
-  dev.unref()
-  spawnedDevPid = dev.pid
+  // 注入的后端 env 落到本进程环境,供下方隐藏子进程沿父链继承
+  Object.assign(process.env, devEnv)
+  if (process.platform === 'win32') {
+    // 子弹proof 隐藏:Start-Process -WindowStyle Hidden 在 Windows 上保证不弹任何控制台窗口。
+    // 旧写法 detached + windowsHide 在 explorer / 部分终端启动场景下仍可能闪出独立 cmd 窗口,
+    // 故改用 PowerShell 隐藏启动,把 next 直接脱钩为独立会话。
+    const devArgs = [nextBin, 'dev', '--turbopack', '-p', String(DEV_PORT)]
+    const psCmd =
+      `Start-Process -FilePath ${JSON.stringify(process.execPath)} ` +
+      `-ArgumentList ${JSON.stringify(devArgs.join(' '))} ` +
+      `-WorkingDirectory ${JSON.stringify(webDir)} -WindowStyle Hidden`
+    const ps = spawn(PS_BIN, ['-NoProfile', '-NonInteractive', '-Command', psCmd], {
+      stdio: 'ignore',
+      windowsHide: true,
+    })
+    ps.unref?.()
+    // Start-Process 已把 next 脱钩为独立会话,pid 不可直接追踪;健康校验以端口为准
+    spawnedDevPid = -1
+  } else {
+    const dev = spawn(process.execPath, [nextBin, 'dev', '--turbopack', '-p', String(DEV_PORT)], {
+      cwd: webDir,
+      env: { ...process.env, ...devEnv },
+      detached: true,
+      windowsHide: true,
+      stdio: 'ignore',
+    })
+    dev.unref()
+    spawnedDevPid = dev.pid
+  }
 }
 
 const ready = await waitForPort(DEV_PORT)
@@ -262,7 +282,7 @@ if (!rootResp.ok) {
   console.error(`[desktop-dev-saas] dev server 已监听 ${DEV_PORT} 但 GET / 返回 ${rootResp.status}(非 200)——端口上大概率不是本仓 web dev server,已中止(避免桌面窗口加载错误页面)`)
   process.exit(1)
 }
-log(`dev server 已就绪(${spawnedDevPid ? `pid=${spawnedDevPid}` : '复用现有实例'},GET / = ${rootResp.status})`)
+log(`dev server 已就绪(${spawnedDevPid === null ? '复用现有实例' : spawnedDevPid < 0 ? '已隐藏启动' : `pid=${spawnedDevPid}`},GET / = ${rootResp.status})`)
 
 // --config 覆盖两件事(合并语义:app.windows 是整数组替换,build 是对象深合并):
 //   ① beforeDevCommand 置空:dev server 已就绪(本脚本拉起,或 --keep-dev-server
