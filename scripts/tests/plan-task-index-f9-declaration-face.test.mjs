@@ -26,6 +26,8 @@ import assert from 'node:assert/strict'
 
 import { auditPlan, findIdCollisions, f9Faces, isDeclarationRow } from '../lib/plan-task-index.mjs'
 import { narrowF9Face, registersKeyAtIdPosition } from '../plan-tasks.mjs'
+// 取样面的唯一出口(台账 ⊕ 归档件,同面同轮):归档枚举全仓只许一份,不在测试里再写一遍
+import { collectIdFace } from '../lib/plan-id-face.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -134,8 +136,16 @@ test('单一实现:findIdCollisions 是 f9Faces 的投影,registersKeyAtIdPositi
   assert.ok(!/bodyOfRow\(|stripOwnKey\(/.test(seam), 'CLI 层不得再自己剥状态装饰/主键')
 })
 
-/** ⑦ 真仓阳性对照(§22c 红线:不得全用自造夹具):被审面上的引用档必须真的非空,而判据面确实变窄 */
-test('真仓 HEAD 面:宽口径组数 > 判据组数,且引用图非空并逐条报名 —— 收窄量到的是发生过的事', () => {
+/**
+ * ⑦ 真仓阳性对照(§22c 红线:不得全用自造夹具)。2026-10-16 把"见证者"分成两脸取,一条断言没降:
+ *  - 宽口径 vs 判据面 的**变窄**这一半,仍在**台账面**上判(现读 wide=5 / collisions=0);
+ *  - 引用档非空这一半**不能钉在台账面上**:现读台账面 `references=0`,而同一张 HEAD 面的归档件里
+ *    引用档有 12 组(宽面 wide=294 / collisions=259 / references=12)—— 归档器把带引用档的那一对
+ *    登记整批搬进了归档件,判据没错、面搬了家(与 plan-task-headings、plan-tasks-f3-archive-exit
+ *    同型,都是"把当下状态当前提")。
+ *  再加一条单调性对照:同一份语料加进归档件后引用档只可能变多,不可能变少 ⇒ 宽面那一臂不是装饰。
+ */
+test('真仓两脸(台账面判变窄 / 台账⊕归档件判引用档):宽口径 > 判据面,且引用图非空并逐条报名', () => {
   const content = execFileSync('git', ['show', 'HEAD:PROJECT_PLAN.md'], {
     cwd: ROOT,
     encoding: 'utf8',
@@ -145,11 +155,30 @@ test('真仓 HEAD 面:宽口径组数 > 判据组数,且引用图非空并逐条
     stdio: ['ignore', 'pipe', 'pipe']
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
-  const f = f9Faces(content)
-  assert.ok(f.wide.length > f.collisions.length, `宽口径必须比判据面多(伪组确实存在),实测 wide=${f.wide.length} declared=${f.collisions.length}`)
-  assert.ok(f.references.length > 0, `引用图必须非空,实测 ${JSON.stringify(f.references.map((g) => g.key))}`)
-  for (const g of f.references)
+  const lf = f9Faces(content)
+  assert.ok(lf.wide.length > lf.collisions.length, `台账面宽口径必须比判据面多(伪组确实存在),实测 wide=${lf.wide.length} declared=${lf.collisions.length}`)
+  assert.equal(findIdCollisions(content).length, lf.wide.length, '投影读数必须与同源那份宽口径等值')
+
+  const sha = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  }).trim()
+  // 唯一出口:台账 ⊕ 归档件,清单与正文同面同轮(本文件不另写第二份归档枚举)
+  const wideFace = collectIdFace({ root: ROOT, source: sha, doc: 'PROJECT_PLAN.md', ledgerText: content })
+  assert.ok(
+    wideFace.ok && wideFace.undetermined.length === 0,
+    `宽面取不齐 ⇒ 判死,绝不回落到"只有台账":${wideFace.undetermined.join(' / ') || wideFace.notes.join(' / ')}`,
+  )
+  const wf = f9Faces(wideFace.text)
+  assert.ok(wf.wide.length > wf.collisions.length, `宽面同样必须变窄,实测 wide=${wf.wide.length} declared=${wf.collisions.length}`)
+  assert.ok(wf.references.length > 0, `引用图必须非空,实测 ${JSON.stringify(wf.references.map((g) => g.key))}`)
+  for (const g of wf.references)
     assert.ok(g.titleCount >= 2 && g.titles.length >= 2, `引用档必须逐条报名,实测 ${JSON.stringify(g)}`)
-  assert.equal(findIdCollisions(content).length, f.wide.length, '投影读数必须与同源那份宽口径等值')
+  assert.ok(
+    wf.references.length >= lf.references.length,
+    `单调性:铺宽只能加见证,不能变少(台账 ${lf.references.length} → 宽面 ${wf.references.length})`,
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
