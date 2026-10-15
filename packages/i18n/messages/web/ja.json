@@ -19188,6 +19188,8 @@
     "addSmartScanning": "本機のログイン状態を確認中…",
     "addSmartTraeFound": "Trae アカウントを {count} 件検出",
     "addSmartQoderFound": "Qoder アカウントを {count} 件検出",
+    "addSmartMinimaxFound": "MiniMax Code のローカルログイン状態({count})",
+    "captureMinimaxNoToken": "token を取得できませんでした。MiniMax Code にログインして再試行してください",
     "addSmartImport": "選択を一括取込",
     "addSmartImporting": "取込中…",
     "addSmartNone": "本機に Trae / Qoder のログイン状態が見つかりません。該当クライアントでログインしてから「再検出」を押してください。",
