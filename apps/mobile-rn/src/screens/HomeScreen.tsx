@@ -33,6 +33,7 @@ import {
   Folder,
   SlidersHorizontal,
   Search,
+  PanelLeft,
   History,
   Bookmark,
   Target,
@@ -97,7 +98,6 @@ import type { CarouselItem } from '@ihui/ui-native'
 import type { AiModelData, AppIcon } from '@ihui/types'
 import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import Carousel from '../components/Carousel'
-import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import CardWithList, { type CardWithListItem } from '../components/CardWithList'
 import AiModelCard from '../components/AiModelCard'
 import { KnowledgePlanet, type KnowledgePlanetItem } from '../components/KnowledgePlanet'
@@ -795,7 +795,7 @@ export function HomeScreen() {
    *  分享按钮(2026-10-15 产品定):原对齐 Uniapp share-image → goToMyPage 跳我的页,
    *  改为弹微信分享面板 ShareSheet(微信好友/朋友圈原生分享 + 复制链接兜底) */
   const navLeftActions: ReadonlyArray<NavBarAction> = [
-    { icon: PanelLeftRounded, a11yLabel: '菜单', onPress: handleMenuPress },
+    { icon: PanelLeft, a11yLabel: '菜单', onPress: handleMenuPress },
   ]
   const navRightActions: ReadonlyArray<NavBarAction> = [
     { icon: Search, label: '搜索', onPress: () => rootNav?.navigate('Search') },
