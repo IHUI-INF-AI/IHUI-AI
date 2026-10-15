@@ -27,6 +27,7 @@ import { createHmac } from 'node:crypto'
 import nodemailer from 'nodemailer'
 import { pino, type Logger } from 'pino'
 import { flattenUntrustedText, sanitizeAlertMessage } from '../utils/alert-text.js'
+import { finalizeEmailHtml } from './email-assets.js'
 import { renderSystemAlertEmail } from './email-templates.js'
 
 const logger: Logger = pino({
@@ -454,6 +455,19 @@ async function pushEmail(
     message,
   })
 
+  /**
+   * 内嵌品牌图(CID)必须在这里挂上 —— 2026-10-15「邮件 Logo 永远加载不出来」的第二处缺口:
+   * 模板层已统一改成 `src="cid:..."`(外链会被 QQ/Gmail/Outlook 的默认远程图片拦截挡掉),
+   * 而本文件自建 nodemailer transport,此前只改了 email-service / notify-deploy-failure 两个
+   * 出口,漏了这一支 ⇒ 告警邮件里出现"引用了 cid 却没有附件"的死图。
+   * finalizeEmailHtml 只在 HTML 真引用了某个 cid 时才挂对应附件,并在资产缺席时把它改写回
+   * 公网外链 —— 失效方向是"退回修复前的行为",绝不留死 cid,也绝不因缺图阻断告警到人。
+   */
+  const prepared = finalizeEmailHtml(rendered.html)
+  if (prepared.downgraded.length > 0) {
+    logger.warn({ downgraded: prepared.downgraded }, 'inline email asset missing, downgraded to remote url')
+  }
+
   const transporter = nodemailer.createTransport({
     host: cfg.host,
     port: cfg.port,
@@ -473,8 +487,14 @@ async function pushEmail(
           from: cfg.user,
           to: cfg.to.join(','),
           subject: rendered.subject,
-          html: rendered.html,
+          html: prepared.html,
           text: rendered.text,
+          attachments: prepared.attachments.map((a) => ({
+            cid: a.cid,
+            filename: a.filename,
+            contentType: a.contentType,
+            content: a.content,
+          })),
         })
         return true
       } catch (e) {

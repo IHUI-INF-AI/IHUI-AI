@@ -111,7 +111,7 @@ function fullSmtpCfg(over?: { smtpAvailable?: boolean; smtpMissing?: string[] })
   }
 }
 
-const MAIL = { subject: 'S', html: '<html>H</html>', text: 'T' }
+const MAIL = { subject: 'S', html: '<html>H</html>', text: 'T', attachments: [], downgraded: [] }
 
 describe('parseCliArgs', () => {
   it('解析全部值参数与布尔开关', () => {

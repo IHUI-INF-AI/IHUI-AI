@@ -28,10 +28,60 @@ export const DISPATCH_TOKENS = {
   hairline: '#3A3A40',
 } as const
 
-/** 从 CORS_ORIGIN 取 web 站点根(与 payment-gateway 同一约定;直读 env 保持模块零副作用) */
+/**
+ * 邮件内不可用(收件端不可达)的原点形态:回环 / 内网私有段 / tauri 自定义协议。
+ *
+ * 2026-10-15 实测根因:生产 apps/api/.env 的
+ * `CORS_ORIGIN=http://localhost:8801,http://localhost:8804,...` 首项就是 localhost,
+ * 而旧实现取**首项** ⇒ 邮件里的 Logo、二维码、以及"进入控制台""立即锁定账号"等
+ * 所有按钮链接全部指向 `http://localhost:8801/...`,收件端取不到图、点不开按钮。
+ * CORS 允许表里本来就必须带本地开发端口,错的不是这张表,是"拿它当邮件站点根"这一步。
+ */
+/**
+ * 一个候选原点是否**可被引文收件端解析**(即:真公网 http(s))。
+ *
+ * 判据刻意做成**白名单**而不是黑名单:
+ *   黑名单那一版枚举 `localhost|127.|tauri:|file:` 等形态,而"枚举不可达形态"这件事
+ *   本身没有上界 —— 实测 `file://` 就因为不在名单里而被判成"公网",于是邮件里出现
+ *   `href="file:/dashboard"`。改成"必须是 http(s) 且主机名不是本机/内网/local"之后,
+ *   任何非 http 协议(含以后新冒出来的)一律落回兜底,不再靠逐个补齐。
+ */
+function isPublicHttpOrigin(candidate: string): boolean {
+  let u: URL
+  try {
+    u = new URL(candidate)
+  } catch {
+    return false // 解析不出原点 ⇒ 更不可能被收件端取到
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false
+  // IPv6 字面量带方括号,先剥掉再判
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  if (host === '' || host === 'localhost' || host.endsWith('.localhost')) return false
+  if (host === '::1' || host === '0.0.0.0') return false
+  if (host.endsWith('.local')) return false // mDNS,公网不可解析
+  if (/^127\./.test(host)) return false
+  if (/^10\./.test(host)) return false
+  if (/^192\.168\./.test(host)) return false
+  if (/^172\.(?:1[6-9]|2\d|3[01])\./.test(host)) return false
+  if (/^169\.254\./.test(host)) return false // link-local(云厂商元数据地址同段)
+  // 至少要像个主机名:含点(域名/IPv4)或含冒号(裸 IPv6 字面量)
+  return host.includes('.') || host.includes(':')
+}
+
+/**
+ * 从 CORS_ORIGIN 取**可被公网解析**的 web 站点根(与 payment-gateway 同一约定;
+ * 直读 env 保持模块零副作用)。
+ *
+ * 取第一个真公网 http(s) 原点;一个都没有才回落品牌域名 ——
+ * 失效方向必须是"落到 aizhs.top",绝不可以是"落到 localhost / 落到 file://"。
+ */
 export function resolveWebOrigin(): string {
-  const first = (process.env.CORS_ORIGIN ?? '').split(',')[0]?.trim()
-  return first && first.length > 0 ? first.replace(/\/+$/, '') : 'https://aizhs.top'
+  const candidates = (process.env.CORS_ORIGIN ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+  const hit = candidates.find(isPublicHttpOrigin)
+  return hit ? hit.replace(/\/+$/, '') : 'https://aizhs.top'
 }
 
 /** HTML 转义(所有动态插值必须过此函数) */
@@ -90,11 +140,31 @@ export const FOUNDER_WECHAT_ID = 'ok502319984'
 /** 品牌图片 Logo(黑底渐变,与邮件深黑卡片底色融合;PNG 保证 Outlook/Gmail 兼容) */
 export const BRAND_LOGO_PATH = '/images/logo.png'
 
+/**
+ * 邮件内嵌图片 = 附件 + CID 引用(2026-10-15 立,根治"邮件 Logo 永远加载不出来")。
+ *
+ * 旧形态是 `${origin}/images/logo.png` 外链,三重不可达:
+ * ① origin 实为 `http://localhost:8801`(生产 CORS_ORIGIN 首项)⇒ 收件端必然取不到;
+ * ② 即便换成公网域名,QQ 邮箱 / Gmail / Outlook 默认拦截"远程图片",仍不显示;
+ * ③ 867KB 的 2534×2534 原图按 56×56 渲染,每封信白搭 1MB。
+ *
+ * 根治:图片随邮件正文一起到达收件端(内嵌附件,src="cid:..."),与远程图片
+ * 拦截策略、站点可达性、origin 配置**全部解耦**。
+ * 附带的必然要求:内嵌图必须是小图 —— 160×160/7KB、256×256/33KB 的专用派生图。
+ *
+ * ⚠️ 只有 HTML 里真的出现 `cid:xxx` 才会挂对应附件(见 email-assets.ts 的按 CID 过滤),
+ * 否则图片会变成邮件底部一个多余的"下载附件"。
+ */
+export const EMAIL_LOGO_CID = 'ihui-brand-logo'
+export const EMAIL_QR_CID = 'ihui-founder-qr'
+/** 邮件专用小图(相对 apps/web/public);外链兜底时才回落到上面的原图路径 */
+export const EMAIL_LOGO_ASSET = '/images/logo-email.png'
+export const EMAIL_QR_ASSET = '/footer/erweima/wechat-vx-email.png'
+
 /** 通用版式:品牌刊头(纯 HTML) + 内容 + 按钮 + 创始人直联 + 页脚 */
 export function renderDispatchEmail(input: DispatchLayoutInput): string {
   const t = DISPATCH_TOKENS
   const accent = input.tone === 'danger' ? t.danger : t.accent
-  const origin = resolveWebOrigin()
   const button = input.button
     ? `<tr><td style="padding:24px 36px 6px;">${bulletproofButton(input.button.href, escapeHtml(input.button.label), input.button.kind ?? 'accent')}</td></tr>`
     : ''
@@ -106,14 +176,14 @@ export function renderDispatchEmail(input: DispatchLayoutInput): string {
       <div style="font-family:Consolas,monospace;font-size:13px;color:${t.dim};letter-spacing:3px;">[&nbsp;DIRECT_LINE&nbsp;//&nbsp;创始人直联&nbsp;]</div>
       <div style="margin-top:8px;">遇到任何问题,微信扫码<b style="color:${t.ink};">直接联系创始人李春川</b><br>微信号:<span style="font-family:Consolas,monospace;font-size:17px;color:${accent};letter-spacing:1px;">${FOUNDER_WECHAT_ID}</span>(长按复制)· 邮件兜底:<a href="mailto:support@aizhs.top" style="color:${accent};text-decoration:none;">support@aizhs.top</a></div>
     </td>
-    <td width="124" align="right" valign="middle"><img src="${origin}${FOUNDER_QR_PATH}" width="112" height="112" alt="创始人微信二维码" style="display:block;border:1px solid ${t.hairline};padding:5px;background:${t.pageBg};"></td>
+    <td width="124" align="right" valign="middle"><img src="cid:${EMAIL_QR_CID}" width="112" height="112" alt="创始人微信二维码" style="display:block;border:1px solid ${t.hairline};padding:5px;background:${t.pageBg};"></td>
   </tr></table>`
   return `<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:${t.pageBg};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.pageBg}"><tr><td align="center" style="padding:24px 8px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.cardBg}" style="width:600px;max-width:600px;background:${t.cardBg};">
-  <tr><td style="padding:28px 36px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="font-family:Consolas,'Courier New',monospace;font-size:14px;color:${t.dim};letter-spacing:2px;">IHUI-CORE<span style="color:${accent};">&nbsp;&nbsp;//&nbsp;&nbsp;${escapeHtml(input.tag)}</span></td><td width="64" align="right" valign="top"><img src="${origin}${BRAND_LOGO_PATH}" width="56" height="56" alt="IHUI AI" style="display:block;border:1px solid ${t.hairline};"></td></tr></table></td></tr>
+  <tr><td style="padding:28px 36px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="font-family:Consolas,'Courier New',monospace;font-size:14px;color:${t.dim};letter-spacing:2px;">IHUI-CORE<span style="color:${accent};">&nbsp;&nbsp;//&nbsp;&nbsp;${escapeHtml(input.tag)}</span></td><td width="64" align="right" valign="top"><img src="cid:${EMAIL_LOGO_CID}" width="56" height="56" alt="IHUI AI" style="display:block;border:1px solid ${t.hairline};"></td></tr></table></td></tr>
   <tr><td style="padding:14px 36px 0;font-family:Impact,'Arial Black','Microsoft YaHei',sans-serif;font-size:64px;line-height:70px;font-weight:bold;color:${t.ink};letter-spacing:3px;">IHUI<span style="color:${accent};">.</span></td></tr>
   <tr><td style="padding:10px 36px 0;font-family:Consolas,monospace;font-size:14px;color:${t.dim};letter-spacing:5px;">智汇AI&nbsp;·&nbsp;THE&nbsp;MECHANICAL&nbsp;DISPATCH</td></tr>
   <tr><td style="padding:16px 36px 0;"><div style="height:4px;background:${accent};font-size:0;line-height:0;">&nbsp;</div></td></tr>

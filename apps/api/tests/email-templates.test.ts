@@ -20,15 +20,24 @@ import {
   renderVipExpireEmail,
   renderInvoiceResultEmail,
   renderWalletRechargeEmail,
+  renderDispatchEmail,
   BRAND_LOGO_PATH,
   FOUNDER_QR_PATH,
   FOUNDER_WECHAT_ID,
+  EMAIL_LOGO_CID,
+  EMAIL_QR_CID,
   escapeHtml,
 } from '../src/services/email-templates.js'
 
 // email-templates 现为零副作用模块(不 import config),CORS_ORIGIN 直读 process.env。
 // 测试通过 env 控制站点根,默认与 config 校验后的 default 首项一致。
+//
+// 刻意保留这个「全 loopback」的默认取值:它正是 2026-10-15「邮件 Logo 永远加载不出来」
+// 的生产现场形态 —— CORS_ORIGIN 首项是 http://localhost:8801。那时模板把它直接拼进
+// 图片/链接绝对地址,于是每一封邮件里都带着一个收件端根本取不到的主机。
+// resolveWebOrigin 现在会跳过非公网项并回退 PUBLIC_FALLBACK,故断言一律用它。
 const DEFAULT_TEST_ORIGIN = 'http://localhost:8801,http://tauri.localhost'
+const PUBLIC_FALLBACK = 'https://aizhs.top'
 
 beforeEach(() => {
   process.env.CORS_ORIGIN = DEFAULT_TEST_ORIGIN
@@ -72,7 +81,7 @@ describe('email-templates — 欢迎邮件', () => {
       maskedId: 'li****uan@aizhs.top',
       initCredits: 100,
     })
-    expect(r.html).toContain('href="http://localhost:8801/dashboard"')
+    expect(r.html).toContain(`href="${PUBLIC_FALLBACK}/dashboard"`)
     expect(r.html).not.toContain('/console')
     expect(r.html).toContain('进入控制台')
     expect(r.html).toContain('+100')
@@ -86,11 +95,26 @@ describe('email-templates — 欢迎邮件', () => {
 })
 
 describe('email-templates — 品牌资产(Logo + 二维码,所有邮件共享)', () => {
-  it('刊头含品牌图片 Logo(右上角,真实静态资产路径)', () => {
+  it('刊头 Logo 以 CID 内嵌发出(不再拼站点根外链)', () => {
     const r = renderVerificationEmail('123456', 'login')
-    expect(r.html).toContain(`src="http://localhost:8801${BRAND_LOGO_PATH}"`)
+    // 2026-10-15 根治:外链会被 QQ/Gmail/Outlook 的远程图片拦截挡掉,且 localhost 型站点根
+    // 在任何收件端都不可达。改成随正文一起送到的内嵌附件(见 email-assets.ts)。
+    expect(r.html).toContain(`src="cid:${EMAIL_LOGO_CID}"`)
+    expect(r.html).not.toContain(`src="${PUBLIC_FALLBACK}${BRAND_LOGO_PATH}"`)
     expect(r.html).toContain('alt="IHUI AI"')
     expect(r.html).toContain('width="56" height="56"')
+  })
+
+  it('创始人二维码同样走 CID 内嵌', () => {
+    const r = renderLaunchEmail({
+      productName: 'IHUI AI',
+      version: 'v1.0.0',
+      features: [{ title: '特性一', desc: '说明' }],
+      ctaPath: 'workflows',
+    })
+    expect(r.html).toContain(`src="cid:${EMAIL_QR_CID}"`)
+    expect(r.html).not.toContain(`src="${PUBLIC_FALLBACK}${FOUNDER_QR_PATH}"`)
+    expect(r.html).not.toContain(`src="http://localhost`)
   })
 
   it('品牌资产路径与 web public 同源(防路径漂移)', () => {
@@ -111,7 +135,7 @@ describe('email-templates — 登录安全告警', () => {
       riskLevel: 'LOW',
     })
     expect(r.html).toContain('#FF3B2F')
-    expect(r.html).toContain('href="http://localhost:8801/settings/login-security"')
+    expect(r.html).toContain(`href="${PUBLIC_FALLBACK}/settings/login-security"`)
     expect(r.html).not.toContain('/console')
     expect(r.html).toContain('123.***.**.45')
     expect(r.text).toContain('/settings/login-security')
@@ -126,7 +150,7 @@ describe('email-templates — 维护通知', () => {
       downtime: '≤ 5 分钟',
     })
     expect(r.html).toContain('09.21 02:00 - 04:00')
-    expect(r.html).toContain('href="http://localhost:8801/status"')
+    expect(r.html).toContain(`href="${PUBLIC_FALLBACK}/status"`)
   })
 })
 
@@ -162,7 +186,7 @@ describe('email-templates — 新品上线', () => {
     expect(r.subject).toContain('v1.0.0')
     expect(r.html).toContain('01')
     expect(r.html).toContain('多步编排')
-    expect(r.html).toContain('href="http://localhost:8801/workflows"')
+    expect(r.html).toContain(`href="${PUBLIC_FALLBACK}/workflows"`)
     expect(r.html).not.toContain('/console')
     expect(r.text).toContain('多步编排 / 模板市场')
   })
@@ -174,7 +198,7 @@ describe('email-templates — 新品上线', () => {
       features: [{ title: 't', desc: 'd' }],
       ctaPath: 'workflows',
     })
-    expect(r.html).toContain('href="http://localhost:8801/workflows"')
+    expect(r.html).toContain(`href="${PUBLIC_FALLBACK}/workflows"`)
   })
 
   it('特性标题被转义(XSS 防护)', () => {
@@ -596,6 +620,30 @@ describe('email-templates — resolveWebOrigin 与转义', () => {
     expect(escapeHtml('<a href="x">&\'q\'</a>')).toBe(
       '&lt;a href=&quot;x&quot;&gt;&amp;&#39;q&#39;&lt;/a&gt;',
     )
+  })
+
+  // 以下三例是 2026-10-15「邮件 Logo 永远加载不出来」的回归钉子。
+  // 现场:CORS_ORIGIN 首项是 http://localhost:8801,模板把它拼进绝对地址 ⇒ 收件端全取不到。
+  it('CORS_ORIGIN 全为 loopback / 本机协议时,跳过并回退公网域名(根因回归)', () => {
+    process.env.CORS_ORIGIN = 'http://localhost:8801,http://127.0.0.1:8804,tauri://localhost,file://'
+    const r = renderWelcomeEmail({ nickname: 'x', maskedId: 'x', initCredits: 1 })
+    expect(r.html).toContain('https://aizhs.top/dashboard')
+    expect(r.html).not.toContain('localhost')
+    expect(r.html).not.toContain('127.0.0.1')
+    expect(r.html).not.toContain('tauri://')
+  })
+
+  it('CORS_ORIGIN 混有公网项时,取第一个公网项而非首项', () => {
+    process.env.CORS_ORIGIN = 'http://localhost:8801,https://api.aizhs.top,https://bsm.aizhs.top'
+    const r = renderWelcomeEmail({ nickname: 'x', maskedId: 'x', initCredits: 1 })
+    expect(r.html).toContain('https://api.aizhs.top/dashboard')
+    expect(r.html).not.toContain('localhost')
+  })
+
+  it('CORS_ORIGIN 全为公网项时按原序取首项(不改写既有行为)', () => {
+    process.env.CORS_ORIGIN = 'https://bsm.aizhs.top,https://api.aizhs.top'
+    const r = renderWelcomeEmail({ nickname: 'x', maskedId: 'x', initCredits: 1 })
+    expect(r.html).toContain('https://bsm.aizhs.top/dashboard')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
