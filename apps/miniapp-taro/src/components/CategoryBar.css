@@ -29,7 +29,11 @@
   gap: 12rpx;
   height: 64rpx;
   padding: 0 24rpx;
-  max-width: 320rpx;
+  /* web ITEM_BASE 是 whitespace-nowrap 且**不封顶**(现读 packages/ui-react/src/components/
+     category-bar.tsx 的 ITEM_BASE);此前这里有一条 max-width 上限 ⇒ 同名分类在手机上被截、
+     在 web 不截。跨端取 web 那一侧:长名靠横向滚动消化,不靠截断。
+     (单位数值刻意不写在这段说明里 —— 本门的几何提取式读 CSS 注释,散文会被当成端上的档。) */
+  white-space: nowrap;
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-card);

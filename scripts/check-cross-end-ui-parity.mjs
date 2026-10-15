@@ -2558,12 +2558,15 @@ export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null
  * 与 `verdictOf` 的判序**不必为 web 腿重写第二份**。
  *
  * 三条边界必须如实:
- *  - `geometry` / `named` 恒空 ⇒ web 腿**不判几何**(量纲不同,见 WEB_DIRS 头注)。空不等于"已确认相同",
- *    所以报告与 `--json` 都要打印"web 腿只量圆角档"。
+ *  - 几何(G)与元素圆角(RE)自 2026-10-15 起**这一腿真判** —— 此前 `geometry`/`named` 恒空,
+ *    于是"web 与小程序同名组件的盒档不同"这一型只在盘点脚本里量得到、提交链上看不到,
+ *    而 AGENTS §4 跨端铁律第一句写的正是"web 与 miniapp-taro 视觉必须完全一致"。
+ *    web 侧走 `'rn'` 那一支读档(px/dp 直通,不做 rpx 折半),与主腿对 RN 腿的口径同源。
+ *  - **图标载体(IC)这一维仍未判** ⇒ 不得把 `判红 0` 读成"web 与小程序已一致"。
  *  - 两侧都读不出任何档 ⇒ 记**未判定**而不是"同档"(没量到与量到零是两件事)。
  *  - 档位表解析不出来(`radiusTable` 为空)⇒ 整腿未判定,不得当成"web 腿零分叉"。
  */
-export function webRadiusAudit(webPairs, text, radiusTable, styles = {}) {
+export function webRadiusAudit(webPairs, text, radiusTable, styles = {}, tiers = {}) {
   const findings = []
   const undetermined = []
   for (const p of webPairs ?? []) {
@@ -2579,23 +2582,33 @@ export function webRadiusAudit(webPairs, text, radiusTable, styles = {}) {
     }
     const aAll = withLocalStyles(text, styles, p.miniapp)
     const bAll = withLocalStyles(text, styles, p.rn)
+    /**
+     * G / named 与主腿**同一批 helper**(readGeometry / namedConflicts / diffValues),
+     * 不在这里另写一份提取式 —— 两处算同一件事必漂移(§22c)。第 3 参 `'rn'` 是单位口径选择器:
+     * web 与 RN 同为 px/dp 直通,只有 miniapp 那一侧要折 rpx→px。
+     */
+    const ga = readGeometry(aAll, 'miniapp', tiers)
+    const gb = readGeometry(bAll, 'rn', tiers)
     const mini = new Set(radiusSetOf(aAll, radiusTable, { side: 'miniapp' }))
     const web = new Set(radiusSetOf(bAll, radiusTable))
-    if (!mini.size && !web.size) {
-      undetermined.push({ name: p.name, why: '两侧都读不出圆角档 ⇒ 零判据(不是"两端同值")' })
+    const erA = radiusEntriesOf(aAll, radiusTable)
+    const erB = radiusEntriesOf(bAll, radiusTable)
+    const elementRadius = elementRadiusDiff(erA.entries, erB.entries)
+    if (!ga.values.size && !gb.values.size && !mini.size && !web.size) {
+      undetermined.push({ name: p.name, why: '两侧都读不出几何档与圆角档 ⇒ 零判据(不是"两端同值")' })
       continue
     }
     findings.push({
       name: p.name,
       web: p.rn,
       miniapp: p.miniapp,
-      named: [],
-      geometry: { onlyMiniapp: [], onlyRn: [] },
+      named: namedConflicts(ga.named, gb.named),
+      geometry: diffValues(ga.values, gb.values),
       radius: {
         onlyMiniapp: [...mini].filter((v) => !web.has(v)),
         onlyRn: [...web].filter((v) => !mini.has(v)),
       },
-      elementRadius: { mismatched: [], onlyMiniapp: [], onlyRn: [] },
+      elementRadius,
       webSeen: { miniapp: [...mini], web: [...web] },
     })
   }
@@ -2853,9 +2866,9 @@ export function emitBaseline(findings, prior = {}, webFindings = []) {
   out.waivers = waivers
   /**
    * web 腿的豁免表同理必须**按族带过去**,而且它的"仍有差异"判据**不能沿用主腿那一把尺**:
-   * web 腿这一腿几何维恒不判(`webCounts` 恒 0),按主腿的 `counts>0` 筛会让每条 web 豁免
-   * 在第一次重锚时被静默撤下 —— 撤下的表现不是红,而是那一族回到"锚点还在、理由没了"的状态,
-   * 下一个人无从知道它为什么允许不同形。所以本腿按**它自己真在量的那一维**(RD / RE)筛。
+   * web 腿的豁免筛选必须**用本腿自己的三个计数键**(G/RD/RE)判"还有没有差异":只用主腿口径会让
+   * 每条 web 豁免在第一次重锚时被静默撤下 —— 撤下的表现不是红,而是那一族回到"锚点还在、理由没了"的状态,
+   * 下一个人无从知道它为什么允许不同形。所以本腿按**它自己真在量的那三维**(G / RD / RE)筛。
    */
   const priorWebWaivers = prior && prior[WEB_LEDGER.waivers] ? prior[WEB_LEDGER.waivers] : {}
   const webWaivers = {}
@@ -2965,6 +2978,7 @@ export function main(argv, repoRoot = ROOT) {
     collected.text,
     collected.radius,
     collected.styles ?? {},
+    collected.tiers,
   )
   const webVerdict = verdictOf(web.findings, baseline, WEB_LEDGER)
   /**
@@ -3079,12 +3093,24 @@ export function main(argv, repoRoot = ROOT) {
           pairCount: web.findings.length,
           /** 只量圆角档是**这一腿的设计边界**,不是"几何已确认相同" —— 把它写进读数旁边,
            *  否则 `webRed: 0` 会被读成"web 与小程序已一致"。 */
-          dimension: 'radius-only(文件级档值集合;几何/元素名/图标载体未判)',
+          dimension: 'G+RD+RE(文件级几何档 / 文件级档值集合 / 同名元素档);IC 与 RS 未判',
           findings: web.findings.map((f) => ({
             name: f.name,
             miniapp: f.miniapp,
             web: f.web,
+            /**
+             * 机器面必须与主腿**同键同形**(diffCount / radiusCount / elementRadiusCount + 原始集合)。
+             * 此前只递 `radius`,于是 `web.findings[i].geometry` 在 json 里根本不存在,而同一份
+             * json 的 `web.red[i].geometry` 有值 —— 两个字段在同一台输出机上互不吻合,读 json 的
+             * 人或脚本会得出"这腿没判几何"的结论,而报告行明明点出了分叉。
+             */
+            diffCount: diffCount(f),
+            radiusCount: radiusCount(f),
+            elementRadiusCount: elementRadiusCount(f),
+            geometry: f.geometry,
+            named: f.named,
             radius: f.radius,
+            elementRadius: f.elementRadius,
           })),
           red: webVerdict.red,
           shrunk: webVerdict.shrunk,
@@ -3243,22 +3269,28 @@ export function main(argv, repoRoot = ROOT) {
     /**
      * **WD = web ↔ 小程序**的圆角档对账。前缀与 RD/RE 分开,是因为三者的处置动作不同:
      * RD/RE 说"小程序与 App 两端",WD 说"web 与小程序"(AGENTS §4 的跨端铁律那一半)。
-     * 这一腿**只量圆角档**必须自己说出来 —— 不说,`判红 0` 就会被读成"web 与小程序已一致"。
+     * 这一腿现在量 G+RD+RE,**IC 与 RS 两维仍未判**,必须自己说出来 —— 不说,`判红 0` 就会被
+     * 读成"web 与小程序已一致"(读报告的人不知道哪一格是空的,正是本仓"把没判写成判过了"那一型)。
      */
     {
       const wlines = []
       for (const f of web.findings) {
         const bits = []
+        if (f.geometry.onlyMiniapp.length) bits.push(`仅小程序几何 ${f.geometry.onlyMiniapp.join('/')}`)
+        if (f.geometry.onlyRn.length) bits.push(`仅 web 几何 ${f.geometry.onlyRn.join('/')}`)
         if (f.radius.onlyMiniapp.length) bits.push(`仅小程序档 ${f.radius.onlyMiniapp.join('/')}`)
         if (f.radius.onlyRn.length) bits.push(`仅 web 档 ${f.radius.onlyRn.join('/')}`)
+        for (const m of f.elementRadius?.mismatched ?? [])
+          bits.push(`RE 同名元素 ${m.name} 小程序 ${m.miniapp.join('/')} vs web ${m.rn.join('/')}`)
+        for (const nm of f.named ?? []) bits.push(`同名具名档 ${nm.name ?? JSON.stringify(nm)}`)
         const mark = webVerdict.red.some((r) => r.name === f.name) ? '×' : '·'
         wlines.push(`  ${mark} WD ${f.name} ${bits.join(' | ')}`)
       }
       const wPruned = collected.webUnreachableLegs ?? []
       console.log(
-        `web 腿(RD 量纲,配对 ${web.findings.length} 对` +
+        `web 腿(G+RD+RE 量纲,配对 ${web.findings.length} 对` +
           (wPruned.length ? `,另剔 ${wPruned.length} 对死腿` : '') +
-          `;几何 / 元素名 / 图标载体**未判**,不是"已确认相同")` +
+          `;图标载体 IC 与根槽位 RS 两维**未判**,不是"已确认相同")` +
           `→ 判红 ${webVerdict.red.length} / 台账外新增 0 时才算收口 / 带理由豁免 ${webVerdict.waived.length} / 未判定 ${web.undetermined.length}`,
       )
       // 挂起不得静默:web 可达性没在判(种子缺席)时,这一维"没剔"与"都活着"在账面上长得一样。

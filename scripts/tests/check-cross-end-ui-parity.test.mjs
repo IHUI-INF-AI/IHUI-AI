@@ -1149,3 +1149,44 @@ test('T33 读数矛盾:14/20 是字号折出的几何档不是圆角档;几何�
     '前缀化必须保留子串 —— guardian-runner 帮助文本按子串引用这两个词',
   )
 })
+
+/**
+ * T34 web 腿的几何维必须**真判**(票 G-1108372 之后的样式收敛批)。
+ * 立因:web 腿此前把 `geometry`/`named` 硬写成空,而 AGENTS §4 跨端铁律第一句就是
+ * "web 与 miniapp-taro 视觉必须完全一致" —— 于是"同名组件的盒档两端不同"这一型只在
+ * 一次性盘点脚本里量得到、提交链上永远 0。接线之后必须留一把"它真的在判"的锁,
+ * 否则下一个人把 geometry 改回常量 [] 时,账面仍然全绿。
+ * 正反成对:分叉要报出来、同值不得报;并且 json 面每条 finding 必须带与主腿同形的标量,
+ * 否则机器消费者读 `web.findings[i].geometry` 得到 undefined,而 `web.red[i].geometry` 有值
+ * —— 同一份输出自相矛盾。
+ */
+test('T34 web 腿几何维真判:分叉必点名 / 同值不误伤 / json 与 red 同形', () => {
+  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+  const pairs = [{ name: 'Bar', miniapp: 'a/Bar.tsx', rn: 'b/Bar.tsx' }]
+  const diverging = {
+    'a/Bar.tsx': '<View className="h-2" />', // miniapp:h-2 = 8px(2 倍率折 4px)
+    'b/Bar.tsx': '<div className="h-10" />', // web:h-10 = 40px
+  }
+  const agree = {
+    'a/Bar.tsx': '<View className="h-2" />',
+    'b/Bar.tsx': '<div className="h-2" />',
+  }
+  const d = src.webRadiusAudit(pairs, diverging, tbl, {})
+  assert.equal(d.findings.length, 1, '几何分叉却被剔出 findings ⇒ 这一维又变成不判了')
+  const g = d.findings[0].geometry
+  assert.ok(
+    g.onlyMiniapp.length + g.onlyRn.length > 0,
+    `web 腿没量到几何差(两侧读数=${JSON.stringify(g)})—— 说明 readGeometry 没接进这一腿`,
+  )
+  const a = src.webRadiusAudit(pairs, agree, tbl, {})
+  assert.equal(
+    a.findings[0].geometry.onlyMiniapp.length + a.findings[0].geometry.onlyRn.length,
+    0,
+    '两端同值却报分叉 = 把尺子的读法差当成了仓库差异',
+  )
+  // json 面与 red 面同形:findings 必须带 diffCount / geometry(不能只递 radius)
+  const srcTxt = flat(readFileSync(SELF, 'utf8'))
+  const webJson = srcTxt.slice(srcTxt.indexOf('dimension:'))
+  for (const key of ['diffCount: diffCount(f)', 'geometry: f.geometry', 'elementRadius: f.elementRadius'])
+    assert.ok(webJson.includes(key), `web 腿 json 少了 ${key} ⇒ 机器面读不出这一维判过没有`)
+})

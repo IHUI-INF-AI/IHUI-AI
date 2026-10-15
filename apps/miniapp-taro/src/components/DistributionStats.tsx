@@ -101,7 +101,7 @@ export default function DistributionStats({
             {tt('distribution.monthlyTarget', '目标')} ¥{monthlyTarget}
           </Text>
         </View>
-        <ProgressBar percent={monthlyPercent} color="var(--color-primary)" height={6} />
+        <ProgressBar percent={monthlyPercent} color="var(--color-primary)" size="sm" />
       </View>
 
       <View className="grid grid-cols-3 gap-2 pt-3">
