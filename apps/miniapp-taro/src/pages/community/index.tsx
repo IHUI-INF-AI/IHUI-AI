@@ -654,6 +654,7 @@ export default function Community() {
             <NavBar
               variant="ai-home"
               title={tt('community.m1', 'A I 应用商店')}
+              bgColor="var(--color-card)"
               showFenLei
               showSearch
               onFenLeiClick={handleFenLeiClick}
@@ -665,6 +666,7 @@ export default function Community() {
             <NavBar
               variant="ai-home"
               title={tt('community.m2', 'A I 应用商店')}
+              bgColor="var(--color-card)"
               showFenLei
               showSearch
               onFenLeiClick={handleFenLeiClick}
@@ -719,12 +721,7 @@ export default function Community() {
             <View className="community-carousel-wrapper" style={{ margin: '18rpx 0 0 0' }}>
               <View className="community-carousel-gradient">
                 <View className="community-carousel-inner">
-                  <Carousel
-                    items={banners}
-                    autoplay
-                    interval={3000}
-                    onItemClick={onBannerClick}
-                  />
+                  <Carousel items={banners} autoplay interval={3000} onItemClick={onBannerClick} />
                 </View>
               </View>
             </View>

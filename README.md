@@ -5642,3 +5642,5 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4415 API 路由 / 595 数
    - commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖全部命名空间;限流 60s + 积压闸 `IHUI_TAG_AUTO_MAX`)
 3. **手动恢复**:`pnpm tag:sync:fetch` 从 origin 拉回全部 tag(以 origin 为权威校准本地)
 | 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖**全部命名空间**;`--check` 另比名字 + SHA,AGENTS.md §22) |
+- **顶层敏感文档仅管理员可见**(14 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend / I18N-COMPLETION-PLAN
+| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国际化完成计划(历史规划)                                             |

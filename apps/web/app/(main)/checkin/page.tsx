@@ -146,7 +146,10 @@ export default function CheckinPage() {
   // 走拦截器静默续期 —— 那要求页面真的发请求。按 token 卡门会永转 spinner 饿死该路径
   // (真机 dev 壳实测)。凭据被明确否定时拦截器 logout() → allow 翻假 → 登录引导,
   // 红块同样不会出现。
-  const { allow } = useAuthGate()
+  // 2026-10-15 修复:把「登录态确认中」与「确未登录」分开。
+  // ready=false 仅是 bootstrap 还在跑(静默刷新/拉资料),此时绝不能显示「请先登录」——
+  // 已登录用户会误以为被踢出;应显示转圈,等 ready 翻 true 后再按 isAuthenticated 判定。
+  const { ready, allow } = useAuthGate()
   const canLoad = allow
   // 复用已接线的通用文案(chatHistory.loginRequired =「请先登录」),不为本页另开一组五语言键
   const tGate = useTranslations('chatHistory')
@@ -1629,7 +1632,13 @@ export default function CheckinPage() {
         </div>
       )}
 
-      {!canLoad ? (
+      {!ready ? (
+        // 登录态确认中:转圈,绝不误显「请先登录」(已登录用户会误判被踢出)
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          {t('loading')}
+        </div>
+      ) : !allow ? (
         <AuthGatePrompt message={tGate('loginRequired')} />
       ) : loading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">

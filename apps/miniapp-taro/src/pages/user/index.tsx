@@ -778,7 +778,7 @@ export default function UserIndex() {
         <NavBar
           variant="ai-home"
           title={tf('user.title', '我的')}
-          bgColor="transparent"
+          bgColor="var(--color-card)"
           textColor="var(--color-foreground)"
           showFeedback
           onMenuClick={toggleDrawer}
