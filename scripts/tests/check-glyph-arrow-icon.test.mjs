@@ -735,4 +735,16 @@ test('GA7 失明侧确实被打开:属性区 ~4200 字符的宿主组合标签�
   assert.ok(t.attrs.length > 4000, `本臂的强度全靠属性区长度 > 旧上限 4000(实得 ${t.attrs.length});文件变短了要换夹具,不是降上限`)
   assert.match(t.attrs, /renderHeader\s*=\s*\{/, '解析出的属性表必须含 renderHeader(抑制语义的判据输入)')
 })
+
+test('GA7 载体档真 blob 对照:ChatRoomScreen 现 HEAD 面的私有 Header 必须被登记为载体,且该屏现读 findings 0(票面"当前活存量 0"这一格由真件自证)', () => {
+  const CHAT = 'packages/app/src/features/chat-room/ChatRoomScreen.tsx'
+  const src = ga7Show('HEAD', CHAT)
+  assert.ok(src !== null, 'HEAD 面取不到 ChatRoomScreen.tsx ⇒ 未判定,不得记通过')
+  assert.ok(
+    gate.privateHeaderNames(src).has('Header'),
+    '载体档没认出 `function Header({ title, onBack, styles })` + 体内裸 <ChevronLeft> ⇒ 这一档仍是失明',
+  )
+  const r = ga7Run('HEAD', CHAT, GA7_PKG + 'chat/ChatRoomScreen.tsx')
+  assert.equal(r.findings.length, 0, `票面写"当前活存量 0(该屏无 RN 路由宿主)",现读却判红 ⇒ 载体档越界了:${JSON.stringify(r.findings.map((f) => f.line))}`)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
