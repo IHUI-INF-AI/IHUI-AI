@@ -3952,7 +3952,7 @@ mod tests {
     }
 
     #[test]
-    fn extract_jwt_strings_ignores_non_jwt_eyJ_fragments() {
+    fn extract_jwt_strings_ignores_non_jwt_eyj_fragments() {
         // eyJ 开头但不成三段的不许被收
         assert!(extract_jwt_strings(b"eyJhbGciOiJIUzI1NiJ9only").is_empty());
     }
