@@ -1596,9 +1596,18 @@ export type WorkbuddyWebLoginProbe =
     }
   | { status: 'error'; message: string }
 
-/** WorkBuddy 网页登录站点根(2026-10-15 浏览器扫码版:openInGoogleChrome 用它开窗,
- *  closeChromeWindow 用它做 urlPrefix 收尾)。 */
+/** WorkBuddy 站点根(仅作 closeChromeWindow 的 urlPrefix 收尾:登录成功后页面会从
+ *  /login/ 跳走,前缀必须留 origin 才能同时命中登录页与登录后的落地页)。 */
 export const WB_WEB_LOGIN_ORIGIN = 'https://www.workbuddy.cn'
+
+/** WorkBuddy 网页登录**真实登录页**(2026-10-15 修:WB_WEB_LOGIN_ORIGIN 是产品营销
+ *  首页,只有下载/介绍、没有任何登录入口,拿它开窗用户根本登不了)。真登录页 =
+ *  /login/(站点自身登录弹窗 iframe 同款参数:platform=website&state=2&product=
+ *  workbuddy,微信/企业微信扫码 + 账号密码;参数实证自官网 LoginIframeDialog  bundle
+ *  upload-*.js 的登录 URL 构造函数)。redirect_uri 指回本站首页,登录成功后落地。 */
+export const WB_WEB_LOGIN_URL =
+  'https://www.workbuddy.cn/login/?platform=website&state=2&product=workbuddy' +
+  `&redirect_uri=${encodeURIComponent('https://www.workbuddy.cn/')}`
 
 /**
  * 轮询探测(浏览器扫码版,2026-10-15):`port` 来自 `openInGoogleChrome` 返回的
