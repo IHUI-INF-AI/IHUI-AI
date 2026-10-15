@@ -54,6 +54,18 @@
  *   如实登记两处未完:①lib 返回的放宽读数(`provenanceLineCount`/`provenanceValueDrift`)本门的
  *   四桶渲染(`renderResurrect`)目前**不打印**这两个数 —— 接线要在门体里加一行,本票的射程不含;
  *   ②这一档不吃路径白名单也不设行内豁免,与门 105 一样按"生成物自述"判,不存在可挂的放行开关。
+ * 2026-10-16 补第三格(同一互锁的下一环;判据只有一份,住在 lib 的 `resurrectAnalysis({facePaths})`):
+ *   上面那一格折的是**自述行的值**;还剩一型折不掉 —— 面上的一份输入被摘掉后又恢复回来,门 105 要求
+ *   重生成的产物会**如实多出一整行** `// input: <路径> <hash>`(实测:`PageLoading.tsx` 由 `a86e4cc821`
+ *   摘、`14a04f013f` 恢复 ⇒ 产物多一行 ⇒ 按祖先文本比是"复活"⇒ 照 105 办必撞本门)。放宽边界钉死两条,
+ *   缺一不生效:① 文件自证为生成物(同一把条件②);② 该行点名的输入**确在被审面上**(门体两侧各按
+ *   自己的面查:落地侧查索引、锚点侧查 HEAD —— 拿一面量两面就是把两把尺子叠成一把)。面上已无这份输入
+ *   而产物仍列着 ⇒ 照旧计入回潮并单独报数点名;没给面(含面取不到)⇒ 本档整体不生效,保持旧严格尺
+ *   —— 放宽必须是有据的,"没量到"永远倒向严的那一侧。取证:`--self-test` 例 11c/11d/11e +
+ *   `node --test scripts/tests/check-stale-revert.test.mjs`(「输入清单档三态」「形状锁:两侧各按自己的面」)。
+ *   **同族未完(点名,不是遗漏)**:`scripts/object-space-land.mjs` 也调 `resurrectAnalysis` 但未传
+ *   `facePaths` ⇒ 落地器那一侧仍会撞上"重生成产物多一行输入"这一型(方向是**拒落**,不是放过);
+ *   它比的是候选 blob 而非索引,面口径要与落地票一并定档,不在本票射程内。
  * R2(warn,不计失败):暂存删除了 HEAD 里存在的路径。宿主层会静默删工作区文件(实测一次
  *   137 个),这类删除被顺手提交同样是回滚;但删除也可能是真意图(`git rm` 合法),
  *   按「宁漏不误报」只告警。
@@ -99,7 +111,7 @@ import { Undetermined, catBatch, catBatchOids, catBatchSizes, gitRaw } from './l
 // R1r 的行级复活判据与尺寸/证据行护栏:与落地器 `object-space-land.mjs` 共用**这一份**实现。
 // 两处各写一遍必然漂开(本仓记过最多次的失败型),而漂开的后果不是"数字不一致",是同一枚提交
 // 在两道尺子下一红一绿。本层是纯函数层 —— 取材一律走下面的 face-reader,不得在 lib 里读 git。
-import { resurrectAnalysis } from './lib/stale-content-analysis.mjs'
+import { resurrectAnalysis, resurrectInputPath } from './lib/stale-content-analysis.mjs'
 // §26:临时夹具唯一落点(旧写法把演练仓造在仓内 `.ihui-agent/tmp/` —— 既不受 scratch 根的
 // 嵌套闸保护,也会被 post-commit 的 `--auto-clean` 按名字波及;os.tmpdir() 同样禁用,
 // 活进程的 TEMP 可能仍钉在 C 盘)。
@@ -469,6 +481,35 @@ function firstLine(e) {
 }
 
 /**
+ * 生成物自述行 `// input: <路径> <hash>` 点名的那些输入,**在这一面**上存在吗?
+ * 一次 `cat-file --batch-check` 问完(逐路径派生 git = fork 风暴,守门 118 同口径)。
+ * 返回 Set(可为空集 = 面上确实一份都没有);git 问不到 ⇒ null,调用方**不放宽**,
+ * 按旧严格尺判("没依据"永远只能往严的那一侧倒)。
+ * @param {string} repoRoot 仓库根
+ * @param {(rel:string)=>string} specOf 面规格(索引 `:p` / HEAD `HEAD:p`)
+ * @param {string|null} text 被检正文(非生成物也照问,由 resurrectAnalysis 的条件②决定生不生效)
+ */
+function facePathsForGeneratedInputs(repoRoot, specOf, text) {
+  const rels = new Set()
+  for (const line of String(text ?? '').split(/\r?\n/)) {
+    const rel = resurrectInputPath(line)
+    if (rel) rels.add(rel)
+  }
+  if (rels.size === 0) return new Set()
+  const list = [...rels]
+  const specs = list.map((r) => specOf(r))
+  let got
+  try {
+    got = catBatchOids(repoRoot, specs, { maxBuffer: 1 << 28, timeout: 120000 })
+  } catch {
+    return null
+  }
+  const present = new Set()
+  for (let i = 0; i < list.length; i++) if (got.get(specs[i])) present.add(list[i])
+  return present
+}
+
+/**
  * R1r 的成本政策(门档自己的参数,**不是**判据的松紧):
  *  - `RESURRECT_GATE_MAX_BLOB_BYTES`:门档愿意读的单份正文上限。lib 那道 2MB 护栏是**落地器**的
  *    成本档;本门必须把活文档放进去判 —— 实测 HEAD 面 `PROJECT_PLAN.md` = 5,751,784 B、
@@ -518,7 +559,7 @@ export function analyzeResurrect(
     runBudgetBytes = RESURRECT_RUN_BUDGET_BYTES,
   } = {},
 ) {
-  const buckets = { red: [], stock: [], uncovered: [], undetermined: [] }
+  const buckets = { red: [], stock: [], uncovered: [], undetermined: [], genInputFolds: [] }
   const pushU = (p, reason) => buckets.undetermined.push({ path: p, reason })
   if (!paths.length) return buckets
 
@@ -657,16 +698,28 @@ export function analyzeResurrect(
   const flagged = []
   for (const p of toRead.keys()) {
     const { used, total, exhausted, window } = winUsed.get(p)
+    const newText = texts.get(`:${p}`) ?? null
+    // 生成物的输入清单档:先按**被审面**(此处 = 索引)量一次"这行点名的输入在不在面上"。
+    // 面取不到 ⇒ null ⇒ 该档不生效,照旧严格尺(放宽必须是有据的,不能靠猜)。
+    const facePaths = facePathsForGeneratedInputs(repoRoot, (rel) => `:${rel}`, newText)
     const r = resurrectAnalysis({
       baseText: texts.get(`HEAD:${p}`) ?? null,
-      newText: texts.get(`:${p}`) ?? null,
+      newText,
       maxBlobBytes,
+      facePaths,
       ancestors: used.map((c) => ({
         commit: c.slice(0, 9),
         sha: c,
         text: texts.get(`${c}:${p}`) ?? null,
       })),
     })
+    if (r.generatedInputOnFace > 0 || r.generatedInputOffFace > 0)
+      buckets.genInputFolds.push({
+        path: p,
+        onFace: r.generatedInputOnFace,
+        offFace: r.generatedInputOffFace,
+        lines: r.generatedInputOnFaceLines ?? [],
+      })
     if (r.status === 'undetermined') pushU(p, r.reason)
     else if (r.status === 'out-of-scope') buckets.uncovered.push({ path: p, reason: r.reason })
     else if (r.count > 0) flagged.push({ path: p, ...r, usedShas: used, total, exhausted, window })
@@ -728,6 +781,13 @@ export function analyzeResurrect(
         baseText: anchorTexts.get(`HEAD^:${f.path}`) ?? null,
         newText: texts.get(`HEAD:${f.path}`) ?? null,
         maxBlobBytes,
+        // 锚点侧的面 = HEAD:两侧必须各按自己那面问"输入在不在面上"(§0.5 棘轮锚点的同尺前提),
+        // 拿索引面去量 HEAD 侧就是把两把尺子叠成一把。
+        facePaths: facePathsForGeneratedInputs(
+          repoRoot,
+          (rel) => `HEAD:${rel}`,
+          texts.get(`HEAD:${f.path}`) ?? null,
+        ),
         ancestors: older,
       })
     }
@@ -773,7 +833,15 @@ function renderResurrect(rr) {
       for (const l of v.sample) lines.push(`       ↺ 复活: ${l}`)
       // G-587:样板档(骨架行/裸键值指令行)被内容性档排除后单独报数 —— 让"少认了多少"可见,
       // 不计证据、不判红,但也不静默(把"少看了"写成"没有"是本仓最高频失效型)。
-      if (v.boilerplateCount > 0) lines.push(`       ↺ 另有 ${v.boilerplateCount} 行样板/骨架行不计证据(内容性档):${(v.boilerplate ?? []).slice(0, 5).map((s) => s.slice(0, 40)).join(' | ')}`)
+      if (v.boilerplateCount > 0)
+        lines.push(
+          `       ↺ 另有 ${v.boilerplateCount} 行样板/骨架行不计证据(内容性档):${(
+            v.boilerplate ?? []
+          )
+            .slice(0, 5)
+            .map((s) => s.slice(0, 40))
+            .join(' | ')}`,
+        )
     }
     if (rr.red.length > 30) lines.push(`   ... 另有 ${rr.red.length - 30} 个`)
     lines.push('   成因与 R1 同族(共享工作区滞后 HEAD 的副本被 `git add`),但**这一型 R1 看不见**:')
@@ -806,6 +874,17 @@ function renderResurrect(rr) {
     )
     for (const v of rr.uncovered.slice(0, 15)) lines.push(`   - ${v.path}: ${v.reason}`)
     if (rr.uncovered.length > 15) lines.push(`   ... 另有 ${rr.uncovered.length - 15} 个`)
+  }
+  if (rr.genInputFolds.length) {
+    const n = rr.genInputFolds.reduce((a, v) => a + v.onFace, 0)
+    const off = rr.genInputFolds.reduce((a, v) => a + v.offFace, 0)
+    lines.push(
+      `ℹ️  [R1r 生成物输入清单档] ${rr.genInputFolds.length} 个产物里 ${n} 行 \`// input:\` 点名的输入**确在被审面上**⇒ 不计回潮(重生成如实跟着面上输入集走,不是把谁写回旧态);面上已不存在的输入列着 ${off} 行(非零即照旧计入回潮并在此点名)。`,
+    )
+    for (const v of rr.genInputFolds.slice(0, 8))
+      lines.push(
+        `   - ${v.path}: 折 ${v.onFace} 行 / 面上无此输入 ${v.offFace} 行${v.lines.length ? `(如 ${v.lines[0].trim().slice(0, 90)}…)` : ''}`,
+      )
   }
   if (rr.undetermined.length) {
     lines.push(
@@ -951,7 +1030,14 @@ function endCostMeter() {
  * §22c:镜像测试按字段名认读数时**只能引用这一份** —— 字段名在两处各写一遍,门加/改字段
  * 那天测试照绿,读数的账面价值(给扩容定档用的)就没人看守了。
  */
-export const COST_READOUT_FIELDS = ['mode', 'paths', 'elapsed_ms', 'git_log', 'ancestor_commits', 'window_truncated']
+export const COST_READOUT_FIELDS = [
+  'mode',
+  'paths',
+  'elapsed_ms',
+  'git_log',
+  'ancestor_commits',
+  'window_truncated',
+]
 
 /** 机器可 grep 的一行成本读数(固定前缀 `[成本读数]`,key=value;挂在 audit 输出尾行)。 */
 export function renderCostLine(cost, { mode }) {
@@ -1338,8 +1424,20 @@ function selfTestRun() {
         `// generatedAt: ${at}`,
         '// IHUI-GEN-PIN-END',
       ].join('\n')
-    const PIN_OLD = { sha: H64('1'), commit: H64('a'), scanned: 3, at: '2026-10-01T00:00:00.000Z', inputHash: H64('1') }
-    const PIN_NEW = { sha: H64('2'), commit: H64('b'), scanned: 2, at: '2026-10-02T00:00:00.000Z', inputHash: H64('2') }
+    const PIN_OLD = {
+      sha: H64('1'),
+      commit: H64('a'),
+      scanned: 3,
+      at: '2026-10-01T00:00:00.000Z',
+      inputHash: H64('1'),
+    }
+    const PIN_NEW = {
+      sha: H64('2'),
+      commit: H64('b'),
+      scanned: 2,
+      at: '2026-10-02T00:00:00.000Z',
+      inputHash: H64('2'),
+    }
     // 内容行:HEAD 侧已删掉 `/pkg/b/index` 那一条(它是"真回滚"的靶子)
     const CONTENT_OLD = "export const ROUTE_MAP = { a: '/pkg/a/index', b: '/pkg/b/index' }\n"
     const CONTENT_HEAD =
@@ -1375,12 +1473,18 @@ function selfTestRun() {
     const regenPure = resurrectAnalysis({
       baseText: genV2,
       newText: genRegen,
-      ancestors: [{ commit: 'g1commit', text: genV1 }, { commit: 'g2commit', text: genV2 }],
+      ancestors: [
+        { commit: 'g1commit', text: genV1 },
+        { commit: 'g2commit', text: genV2 },
+      ],
     })
     const strictSame = resurrectAnalysis({
       baseText: unmark(genV2),
       newText: unmark(genRegen),
-      ancestors: [{ commit: 'g1commit', text: unmark(genV1) }, { commit: 'g2commit', text: unmark(genV2) }],
+      ancestors: [
+        { commit: 'g1commit', text: unmark(genV1) },
+        { commit: 'g2commit', text: unmark(genV2) },
+      ],
     })
     check(
       `11b 同一内容两条臂:自证面 count=${regenPure.count}/值有变=${regenPure.provenanceValueDrift},摘掉自证标记 count=${strictSame.count}(旧尺即互锁那次红)`,
@@ -1422,6 +1526,55 @@ function selfTestRun() {
     // 收尾:两枚夹具回到 HEAD 形态并同步索引(不污染任何后续读数)
     writeFileSync(join(repo, 'gen/plain.ts'), unmark(genV2))
     g(['add', '--', 'gen/plain.ts'])
+
+    // ── 11c/11d/11e:生成物「输入清单档」(2026-10-16 立,门 105↔84 互锁的第二格)──────────
+    // 立项现场:`PageLoading.tsx` 先被 a86e4cc821 从面上摘掉、又被 14a04f013f 恢复回来,
+    // 门 105 要求按面上输入集重生成的产物因此**如实多出一行** `// input: …`。按祖先文本比
+    // 那是"复活"(门 84 判红),按事实那是"输入跟着面走" ⇒ 两把尺子在这一点上必须以后者为准。
+    const INPUT_B_OLD = `// input: src/pages/b.tsx ${H64('5')}`
+    const INPUT_B_NEW = `// input: src/pages/b.tsx ${H64('6')}`
+    const inV1 = `${pinBlock(PIN_OLD)}\n${INPUT_B_OLD}\n${CONTENT_OLD}`
+    const inV2 = `${pinBlock(PIN_NEW)}\n${CONTENT_HEAD}`
+    const inV3 = `${pinBlock(PIN_NEW)}\n${INPUT_B_NEW}\n${CONTENT_HEAD}`
+    mkdirSync(join(repo, 'src/pages'), { recursive: true })
+    writeFileSync(join(repo, 'src/pages/b.tsx'), 'export const B = 1\n')
+    commitOnly('src/pages/b.tsx', 'B1: 这份输入在面上')
+    writeFileSync(join(repo, 'gen/inputs.generated.ts'), inV1)
+    commitOnly('gen/inputs.generated.ts', 'I1: 产物列着这份输入')
+    writeFileSync(join(repo, 'gen/inputs.generated.ts'), inV2)
+    commitOnly('gen/inputs.generated.ts', 'I2: 模拟输入被摘,产物随之不再列')
+    writeFileSync(join(repo, 'gen/inputs.generated.ts'), inV3)
+    g(['add', '--', 'gen/inputs.generated.ts'])
+    const inputOn = audit(repo, { staged: true })
+    check(
+      '11c 阳性:面上有这份输入 ⇒ 重生成把 `// input:` 行列回来不判红',
+      inputOn.code === 0 && inputOn.lines.join('\n').includes('生成物输入清单档'),
+    )
+    g(['rm', '--cached', '-q', '--', 'src/pages/b.tsx'])
+    const inputOff = audit(repo, { staged: true })
+    check(
+      '11d 反向:面上已无这份输入而产物仍列着 ⇒ 照旧判红并点名(放宽不是放行)',
+      inputOff.code === 1 && inputOff.lines.join('\n').includes('gen/inputs.generated.ts'),
+    )
+    g(['add', '--', 'src/pages/b.tsx'])
+    const pureOn = resurrectAnalysis({
+      baseText: inV2,
+      newText: inV3,
+      ancestors: [{ commit: 'i1commit', text: inV1 }],
+      facePaths: new Set(['src/pages/b.tsx']),
+    })
+    const pureNoFace = resurrectAnalysis({
+      baseText: inV2,
+      newText: inV3,
+      ancestors: [{ commit: 'i1commit', text: inV1 }],
+    })
+    check(
+      `11e 三态分色:给面且有输入⇒折 0 行(${pureOn.generatedInputOnFace});没给面⇒保持旧严格尺(${pureNoFace.count} 行,绝不误读成放宽)`,
+      pureOn.count === 0 &&
+        pureOn.generatedInputOnFace === 1 &&
+        pureNoFace.count >= 1 &&
+        pureNoFace.generatedInputOnFace === 0,
+    )
 
     let fail = 0
     for (const r of results) {
