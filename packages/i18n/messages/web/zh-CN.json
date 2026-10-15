@@ -28016,6 +28016,7 @@
     "filesWrite": "上传文件",
     "audioRead": "读取音色",
     "audioWrite": "语音合成/识别",
+    "voiceStt": "语音转文字",
     "imagesWrite": "生成/编辑图片",
     "videosWrite": "生成/编排视频",
     "videosRead": "查询视频任务",
