@@ -50,12 +50,14 @@ import {
   buildOpenRowDedupe,
   buildRowDedupe,
   findLeasedTwinRefusals,
+  findIdenticalOpenRowGroups,
   findOpenRowRefusals,
   findOpenRowTwins,
   findRowTwins,
   isLeasedRow,
   leasedTwinNote,
   openRowsDedupeAndLand,
+  verifyIdenticalOpenRowDedupe,
   verifyOpenRowDedupe,
   verifyRowDedupe,
 } from '../plan-tasks-merge.mjs'
@@ -562,6 +564,142 @@ describe('F 形状锁:三件事不得靠下一次的自觉', () => {
     )
     const seen = (SRC.match(/seen\.get\(l\)\.push\(i \+ 1\)/g) || []).length
     assert.equal(seen, 1, `取组核心出现 ${seen} 处 ⇒ 已经有人抄了第二份`)
+  })
+})
+
+/**
+ * 15914 方向①:未带「【归并】重复登记副本」指针、却**整行逐字节相同**的未勾选行,
+ * 由 `--fold-identical-open-rows` 提供一条**无注记**摘除通道(多重集 N→1)。
+ *
+ * 这一族过去在工具面上不可清:整行改写档拒绝(两份同文没有内容锚点)、`--dedupe-open-rows`
+ * 结构性不取(它只认带指针的)、加注记又被机主 2026-10-13 明令封死。后果正是机主禁止的
+ * "两个 agent 领同一张票各做一遍" —— 派单清单会把同文两行都列出来。
+ * 断言方向与指针档同源而不同账(实测得出,不是推的):尺子本来就把整行同文的多份算作**一条**
+ * claimable,所以本档落地后 claimable 必须**一枚不动**;真正跟着减的是 F4/F4b 的**副本台账**计数。
+ */
+describe('无注记折叠档(15914 方向①)— 未带指针而逐字节相同的未勾行', () => {
+  const TWIN_KEYED =
+    '- [ ] G-90010001 无注记折叠档的合成待办:两份逐字节相同,长度足够越过四十个字符的噪声阈,正文一字不差。'
+  const OTHER =
+    '- [ ] G-90010002 一条独立的真待办,内容与上面不同,长度也足够越过四十个字符的噪声阈,不得被牵连。'
+  const NOTE = '〔【归并】重复登记副本(2026-10-16):逐字相同的另一条登记,派单以那条为准。〕'
+  const mkSrc = (twin, n = 2) =>
+    ['# 计划', '', ...Array.from({ length: n }, () => twin), OTHER, ''].join('\n')
+
+  it('F1 两把尺子分族:本档取无指针那一族,指针档一条不取;带指针的行本档不得再折', () => {
+    const s = mkSrc(TWIN_KEYED)
+    const ig = findIdenticalOpenRowGroups(s)
+    assert.equal(ig.length, 1, `无指针的逐字孪生必须被本档取到,实得 ${ig.length} 组`)
+    assert.equal(ig[0].copies, 2)
+    assert.equal(
+      findOpenRowTwins(s).length,
+      0,
+      '指针档不得把无注记那一族也认领(两档互相顶名额 ⇒ 同一族算两笔账)',
+    )
+    const noted = mkSrc(TWIN_KEYED + NOTE)
+    assert.equal(
+      findIdenticalOpenRowGroups(noted).length,
+      0,
+      '已带指针的行归 --dedupe-open-rows,本档再折就是同一族清两次',
+    )
+    assert.equal(findOpenRowTwins(noted).length, 1)
+  })
+
+  it('F2 漂移一条不折:第 41 个字符起分叉 ⇒ 机器折半即有损,组数必须为 0', () => {
+    const a = '- [ ] G-90010003 单行孪生的漂移对照:同一段前缀必须长到越过第四十个字符才分叉,之后甲写第一段取证。'
+    const b = '- [ ] G-90010003 单行孪生的漂移对照:同一段前缀必须长到越过第四十个字符才分叉,之后乙写第二段取证。'
+    assert.equal(findIdenticalOpenRowGroups([a, b, ''].join('\n')).length, 0)
+  })
+
+  it('F3 认领牌在取组口就拦(G-761 第⑥维与两档同源):带牌的两份一份不取', () => {
+    const leased =
+      '- [ ]（进行中@2026-10-16/probe） G-90010004 带认领牌的逐字孪生:两份相同,越过噪声阈,归持有人裁。'
+    assert.equal(
+      findIdenticalOpenRowGroups([leased, leased, ''].join('\n')).length,
+      0,
+      '带牌行被本档删掉 = 把别人的认领洗没,而八条零损失断言一条都拦不住 ⇒ 必须由取组拦',
+    )
+  })
+
+  it('F4 折叠形态:保留首次出现、只删第 2..N 份,同面另一条真待办逐字在场', () => {
+    const s = mkSrc(TWIN_KEYED, 3)
+    const r = buildOpenRowDedupe(s, null, null, findIdenticalOpenRowGroups)
+    assert.equal(r.deletedCount, 2)
+    const lines = r.text.split('\n')
+    assert.equal(lines.filter((l) => l === TWIN_KEYED).length, 1, '必须折到恰好一份')
+    assert.ok(lines.includes(OTHER), '与本族无关的行必须逐字不动')
+  })
+
+  it('F5 断言有牙:好产物 0 问题;假删一条不同文本的真待办 ⇒ 同时点名 claimable 与副本台账', () => {
+    const s = mkSrc(TWIN_KEYED)
+    const good = buildOpenRowDedupe(s, null, null, findIdenticalOpenRowGroups)
+    assert.deepEqual(verifyIdenticalOpenRowDedupe(s, good.text, good.deletedCount), [])
+    const bad = s
+      .split('\n')
+      .filter((l) => l !== OTHER)
+      .join('\n')
+    const p = verifyIdenticalOpenRowDedupe(s, bad, 1)
+    assert.ok(p.length > 0, '假删真待办的产物若被判过,本档就退化成无条件删除')
+    assert.ok(
+      p.some((x) => /派单口径活数/.test(x)),
+      `必须点名派单口径动了:${p.join(' | ')}`,
+    )
+    assert.ok(
+      p.some((x) => /副本台账/.test(x)),
+      `必须点名副本计数没按声明份数闭合:${p.join(' | ')}`,
+    )
+  })
+
+  it('F6 零注记当场反证:产物只要多出一个「【归并】重复登记副本」,本档即拒(机主 2026-10-13 明令)', () => {
+    const s = mkSrc(TWIN_KEYED)
+    const r = buildOpenRowDedupe(s, null, null, findIdenticalOpenRowGroups)
+    const p = verifyIdenticalOpenRowDedupe(s, r.text.replace(OTHER, OTHER + NOTE), r.deletedCount)
+    assert.ok(
+      p.some((x) => /注记/.test(x)),
+      `注记增删必须被点名:${p.join(' | ')}`,
+    )
+  })
+
+  it('F7 装车锁:两档共用同一条落地链,新旗标已进权威清单,两面旗同给当场拒', () => {
+    assert.ok(
+      /const finder = identical \? findIdenticalOpenRowGroups : findOpenRowTwins/.test(SRC),
+      '落地循环必须由一个开关选尺子 —— 另写一份 CAS 链就是本仓禁的第二把尺子',
+    )
+    assert.ok(
+      SRC.includes("'--fold-identical-open-rows',"),
+      '旗标必须进权威旗标清单,否则 inspectArgs 把它当未识别参数(判据改了调用点没改=生效 0 次)',
+    )
+    assert.ok(
+      /if \(has\('--dedupe-open-rows'\) && has\('--fold-identical-open-rows'\)\)/.test(SRC),
+      '两面旗同给必须当场 exit 2:两档对副本台账的要求相反,同轮只能判一个方向',
+    )
+    assert.ok(
+      /source: 'plan-tasks-merge:dedupe-open-rows',/.test(SRC),
+      '留痕站点名必须逐字留在 BYPASS_LANDING_SITES 台账认得的那一份上(改成模板字面量会让门 A3 分不清是哪一档绕的门)',
+    )
+    assert.ok(
+      SRC.includes("identical\n        ? 'fix(plan): 折叠未带指针的逐字节相同未勾选登记行"),
+      '两档共用同一留痕站点,靠落地提交信息区分 —— 无注记档的信息必须自证是哪一档',
+    )
+  })
+
+  it('F8 真仓 HEAD 面现读:折叠产物必须通过本档全部零损失断言(不变量,不是时变读数)', () => {
+    const face = execFileSync('git', ['show', 'HEAD:PROJECT_PLAN.md'], {
+      cwd: REPO,
+      encoding: 'utf8',
+      maxBuffer: 256 * 1024 * 1024,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const groups = findIdenticalOpenRowGroups(face)
+    for (const g of groups) {
+      assert.ok(!g.line.includes('【归并】重复登记副本'), `本族不得含带指针的行:${g.line.slice(0, 60)}`)
+      assert.ok(g.copies >= 2, `取到的组必须至少两份,实得 ${g.copies}`)
+    }
+    const r = buildOpenRowDedupe(face, null, null, findIdenticalOpenRowGroups)
+    const problems = verifyIdenticalOpenRowDedupe(face, r.text, r.deletedCount, r.droppedLines)
+    assert.deepEqual(problems, [], `真仓产物未过零损失断言(现存 ${groups.length} 组)`)
+    console.log(`   ℹ 真仓当次读数:${groups.length} 组 / 拟删 ${r.deletedCount} 行(只报数,不进断言)`)
   })
 })
 

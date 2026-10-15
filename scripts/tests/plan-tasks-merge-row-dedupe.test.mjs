@@ -183,7 +183,25 @@ describe('R4 装车证明(开关必须真的接进去)', () => {
   })
 
   it('落地函数只走 lib/bypass-git 那一份 plumbing(不得再手写一遍 read-tree/commit-tree/CAS)', () => {
-    assert.match(SRC, /import \{ alignSharedIndex, casUpdateRef, commitTreeWithIndex \} from '\.\/lib\/bypass-git\.mjs'/)
+    // 逐字单行钉法在 prettier 把这条 import 折成多行后就静默失效了(2026-10-16 实测:HEAD 面
+    // 与工作树都已是多行形态,而这条锁一直红着 —— 锁失效的方向必须是"多要一次定向说明",
+    // 绝不能是"多放一次跳门":这里改成按**同一份取材**判"三个出口齐备 +  specifier 是 bypass-git",
+    // 并显式要求 `git` 不混进这一条语句(那才是原锁真正要拦的事)。
+    const importBlock = /import\s*\{([^}]*)\}\s*from\s*'\.\/lib\/bypass-git\.mjs'/g
+    const names = [...String(SRC).matchAll(importBlock)].map((m) =>
+      m[1]
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    )
+    assert.ok(
+      names.some(
+        (list) =>
+          ['alignSharedIndex', 'casUpdateRef', 'commitTreeWithIndex'].every((n) => list.includes(n)) &&
+          !list.includes('git'),
+      ),
+      `落地三出口必须由同一条 bypass-git import 提供(不得手写 plumbing,也不得把 \`git\` 混进来顶掉锁),实得 ${JSON.stringify(names)}`,
+    )
     const body = SRC.slice(SRC.indexOf('export function rowsDedupeAndLand'))
     assert.ok(!/commit-tree/.test(body.slice(0, 4000)), '落地函数里不该再出现自派生 commit-tree')
   })
@@ -384,7 +402,7 @@ describe('R5 装车证明与形状锁', () => {
   })
 
   it('主档必须真的接上落地函数,且 --commit 才动手;非 HEAD 面一律拒绝落地', () => {
-    const armStart = SRC.indexOf("if (has('--dedupe-open-rows'))")
+    const armStart = SRC.indexOf("if (has('--dedupe-open-rows')")
     const arm = SRC.slice(armStart, SRC.indexOf('  const sel = selectFace(', armStart))
     assert.ok(arm.length > 2000, '取不出 --dedupe-open-rows 那一档的源码 ⇒ 下面三条锁都在对空气判绿')
     assert.match(
