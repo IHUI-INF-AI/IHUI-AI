@@ -3,14 +3,21 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * Drawer 侧滑抽屉组件 (mobile-rn 端) — 完整版
+ * Drawer 侧滑抽屉组件 (mobile-rn 端) — web 侧边栏同构版(2026-10-15 重构)。
  *
- * 1:1 复刻历史 Uniapp DrawerComponentall.vue:
- * - 顶部用户区(头像 + 昵称 + 等级标识 VIP/普通)
- * - 5 主菜单(AI 对话社区 / AI 应用 / 广场 / 动态 / 我的,对齐 Uniapp 5 主入口)
- * - 一人公司入口 / 领取免费资料 / 创建新对话(对齐 Uniapp label_content)
- * - 历史对话列表:按模型分组 → 按日期分组(今天/昨天/更早) → 左滑收藏/删除
- * - 底部操作区:设置 / 消息 / 回到主页(对齐 Uniapp bottom_userInfo + back_index_btn)
+ * 按 web 端 Sidebar(apps/web/src/components/sidebar/*)信息架构 1:1 重写:
+ * - Header:logo 方标 26(亮/暗双图,点击回首页并收拢;web ThemeLogo mobile 变体高 26)
+ *   + PanelLeftRounded 收拢钮(36 命中方块,tapBox 档)
+ * - 快捷区:「新建任务」灰底行(对齐 web BTN_NEW_CONVERSATION:h-9/rounded-md/px-2.5)
+ * - 分组竖排导航:首页行 + 热门(hot 红字 + Flame 橙)/AI/教育/交易/推广/个人/社区,
+ *   行几何对齐 web NAV_ITEM_BASE_CLASS(h-9 gap-2.5 px-2.5 rounded-md,图标 20/文字 14),
+ *   active 行 = brand.cta 底 + ctaForeground 字(对齐 web bg-cta text-cta-foreground),
+ *   active 判定 = useNavigationState 根栈顶路由名(Main Tab 容器时取 params.screen);
+ *   可折叠分组标题(text-xs uppercase,折时 ChevronDown -90°),
+ *   无 RN 路由的 web 项(插件市场/自动化任务/管理/开发者组)一律不渲染,不放假入口
+ * - 历史对话:按模型分组 → 按日期分组(今天/昨天/更早) → 左滑收藏/删除(机制原样保留)
+ * - 底部 UserRow:头像 24 + 昵称(对齐 web SidebarUserRow),点击上浮菜单
+ *   (我的/会员/消息/设置/退出登录;未登录显登录入口 → Login 路由)
  *
  * 左侧滑入,半透明遮罩(收口到 --color-black-40 同一档:0.4,与小程序端同值),
  * 0.66 屏宽、封顶取几何档 rnGeometry.drawerWidth(250,与小程序 500rpx 同源)。
@@ -37,44 +44,69 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useNavigationState } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { MainTabKey } from '../navigation/tab-utils'
 import {
+  Award,
+  Bell,
   Bot,
   BookOpen,
-  Building2,
-  ChevronRight,
+  Brain,
+  ChevronDown,
+  ClipboardList,
+  Crown,
+  FileText,
+  Flame,
   Gift,
+  Globe,
+  GraduationCap,
+  Heart,
+  HelpCircle,
   Home,
-  LayoutGrid,
+  Info,
+  Layers,
+  ListChecks,
+  LogIn,
+  LogOut,
+  Megaphone,
   MessageCircle,
+  MessageSquare,
+  NotebookPen,
   Palette,
+  PlayCircle,
   Plus,
   Puzzle,
+  ScrollText,
+  Send,
   Settings,
-  Share2,
+  ShoppingBag,
   Star,
+  Ticket,
   Trash2,
   User,
-  Wrench,
-  X,
+  UserPlus,
+  Users,
+  UsersRound,
+  Wallet,
 } from 'lucide-react-native'
+import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import { favoriteConversation, unfavoriteConversation } from '@ihui/api-client'
+// logo 取源:亮/暗双图(与 LoginScreen 主题感知同款资产;logo.png 同时是 App 图标流水线源,勿删)
+// 静态 import 走 declarations.d.ts 的图片模块声明(Metro 标准形态,无需 lint 抑制)
+import LOGO_LIGHT from '../../assets/images/logo.png' // icon-bitmap-exempt: 品牌多色插画 logo(非线形 UI 图标,web 同一资产,暂无矢量等价物) until 2027-01-15
+import LOGO_DARK from '../../assets/images/logo-dark.png' // icon-bitmap-exempt: 品牌多色插画 logo 暗主题版(同 LOGO_LIGHT 理由) until 2027-01-15
 
 // ── 类型定义(强类型,禁用 any) ──
 
 export type DrawerTab = 'home' | 'ai' | 'square' | 'share' | 'mine'
 /**
- * 扩展菜单(对齐 Uniapp DrawerComponentall.vue 行 14-40 隐藏菜单 + label_content 入口)。
- * 独立于 DrawerTab 以避免破坏 ChatScreen 的 `Record<DrawerTab, ...>` 严格映射
- * (任务禁止改 ChatScreen,故新增独立类型 + 可选回调)。
- * 主 agent 后续可在 ChatScreen 接 onNavigateExtra 实现真实跳转:
- *   tools→AiAssistant/AgentScreen, aigc→AigcList, learn→StudyIndex,
- *   modelPlaza→ModelPlaza, company→Distribution, assistant→Assistant
- *   (路由均已注册,见 RootNavigator)。
+ * 扩展菜单类型(历史契约保留:ChatScreen 等调用方仍可传 onNavigateExtra;
+ * web 同构版无对应入口,本组件不再渲染扩展菜单行,仅保留类型与可选 prop 兼容签名)。
  */
 export type DrawerExtraMenu = 'tools' | 'aigc' | 'learn' | 'modelPlaza' | 'company' | 'assistant'
 export type DrawerUserLevel = 'vip' | 'normal'
@@ -110,12 +142,12 @@ export interface DrawerProps {
   conversations: DrawerConversationItem[]
   // 回调
   onNavigate: (tab: DrawerTab) => void
-  /**
-   * 扩展菜单跳转回调(可选)。未传入时由本组件兜底导航到真实路由(见 handleNavigateExtra)。
-   */
+  /** 历史契约保留(可选):调用方可传,web 同构版无扩展菜单入口,不再消费 */
   onNavigateExtra?: (menu: DrawerExtraMenu) => void
-  onNavigateCompany: () => void // 一人公司
-  onClaimFree: () => void // 领取免费资料
+  /** 历史契约保留(可选):一人公司入口已并入导航分组,不再单独渲染 */
+  onNavigateCompany?: () => void
+  /** 历史契约保留(可选):领取免费资料入口已并入导航分组,不再单独渲染 */
+  onClaimFree?: () => void
   onCreateNewChat: () => void // 创建新对话
   onSelectConversation: (id: string) => void // 选择历史对话
   onDeleteConversation: (id: string) => void // 删除历史对话
@@ -137,59 +169,361 @@ const FAVORITE_WIDTH = 50 // 左滑露出的收藏按钮宽度
 const SWIPE_WIDTH = DELETE_WIDTH + FAVORITE_WIDTH // 左滑总露出宽度(收藏 + 删除)
 const SWIPE_THRESHOLD = 28 // 触发展开删除的位移阈值
 const DAY_MS = 24 * 60 * 60 * 1000
+/**
+ * 用户菜单浮层距抽屉底部的偏移 = 行高 36(h-9 = tapBox) + pb-2(8) + 间隙 4。
+ * 行高取 tapBox 档;8/4 是 web UserRow 同款外距(px-2 容器 + 行间距),不另立档。
+ */
+const USER_MENU_BOTTOM_OFFSET = rnGeometry.tapBox + 12
 
-// ── 主菜单配置(对齐 Uniapp 5 主入口,RN 端 tab 结构) ──
+/** logo 方标 26:web ThemeLogo mobile 变体高度(h-[26px]),RN 方形标取同值,不横拉变形 */
+const HEADER_LOGO_SIZE = 26
+/** UserRow 头像 24:web SidebarUserRow 头像 h-6 w-6 同源 */
+const USER_AVATAR_SIZE = 24
 
-interface MainMenuConfig {
-  key: DrawerTab
-  label: string
-  /** 对应 i18n key(mobile-rn nav 命名空间);提供时优先用 t(i18nKey) 渲染,否则回退 label */
-  i18nKey?: string
-  Icon: typeof Home
+// ── 导航分组配置(对齐 web nav-data.ts 信息架构;label 全走 i18n 既有键) ──
+
+type LucideGlyph = typeof Home
+
+/**
+ * 抽屉可达路由联合(全部 params 可选/无参,支持无参 navigate;
+ * 显式联合而非 keyof 全集 —— 全集含必参路由,navigate(name) 无参会 TS 报错)。
+ */
+type DrawerRouteName =
+  | 'Publish'
+  | 'AiWorld'
+  | 'ModelPlaza'
+  | 'Assistant'
+  | 'AgentMarket'
+  | 'AigcList'
+  | 'KnowledgeBase'
+  | 'Memory'
+  | 'Subagents'
+  | 'ChatTools'
+  | 'LiveList'
+  | 'Learn'
+  | 'Exam'
+  | 'StudyRecord'
+  | 'NoteList'
+  | 'Certificate'
+  | 'Vip'
+  | 'Wallet'
+  | 'Order'
+  | 'Coupon'
+  | 'PointsMall'
+  | 'TaskCenter'
+  | 'Promote'
+  | 'Distribution'
+  | 'Team'
+  | 'Favorites'
+  | 'Follow'
+  | 'MessageCenter'
+  | 'Settings'
+  | 'Help'
+  | 'Feedback'
+  | 'About'
+  | 'ArticleList'
+  | 'CircleIndex'
+  | 'AskList'
+
+/** 点击目标:drawerTab 走父级 onNavigate 契约;route 直跳根栈;main 跳 Main Tab 容器 */
+type NavTarget =
+  | { type: 'drawerTab'; tab: DrawerTab }
+  | { type: 'route'; name: DrawerRouteName }
+  | { type: 'main'; screen: MainTabKey }
+
+interface NavItemConfig {
+  labelKey: string
+  Icon: LucideGlyph
+  /** active 匹配用路由名(根栈路由名,或 Main Tab 容器时的 params.screen 值) */
+  route?: string
+  target: NavTarget
 }
 
-const MAIN_MENUS: readonly MainMenuConfig[] = [
-  { key: 'home', label: 'AI 对话社区', Icon: Home },
-  { key: 'ai', label: 'AI 应用', i18nKey: 'nav.agents', Icon: Bot },
-  { key: 'square', label: '广场', Icon: LayoutGrid },
-  { key: 'share', label: '动态', Icon: Share2 },
-  { key: 'mine', label: '我的', i18nKey: 'nav.profile', Icon: User },
-] as const
-
-// ── 扩展菜单配置(对齐 Uniapp 行 14-40 隐藏菜单 + label_content 入口) ──
-// emoji 图标对齐 GlobalFloatBox 风格(任务约束:菜单项图标用 emoji)。
-// 5 项分别对应 Uniapp:应用商店/灵感/课程/模型广场(隐藏)/我的一人公司。
-
-interface ExtraMenuConfig {
-  key: DrawerExtraMenu
-  label: string
-  Icon: typeof Home
+interface NavGroupConfig {
+  titleKey: string
+  /** hot 组:标题红字 + Flame 橙图标(对齐 web hot 分组) */
+  variant?: 'hot'
+  defaultOpen: boolean
+  items: readonly NavItemConfig[]
 }
 
-const EXTRA_MENUS: readonly ExtraMenuConfig[] = [
-  { key: 'tools', label: '工具', Icon: Wrench },
-  { key: 'aigc', label: 'AIGC', Icon: Palette },
-  { key: 'learn', label: '学习', Icon: BookOpen },
-  { key: 'modelPlaza', label: '模型广场', Icon: Bot },
-  { key: 'company', label: '一人公司', Icon: Building2 },
-  { key: 'assistant', label: '我的智能体', Icon: Puzzle },
+const NAV_GROUPS: readonly NavGroupConfig[] = [
+  {
+    titleKey: 'drawer.groupHot',
+    variant: 'hot',
+    defaultOpen: true,
+    items: [
+      {
+        labelKey: 'menu.publish',
+        Icon: Send,
+        route: 'Publish',
+        target: { type: 'route', name: 'Publish' },
+      },
+      {
+        labelKey: 'menu.aiWorld',
+        Icon: Globe,
+        route: 'AiWorld',
+        target: { type: 'route', name: 'AiWorld' },
+      },
+      {
+        labelKey: 'modelPlaza.title',
+        Icon: Bot,
+        route: 'ModelPlaza',
+        target: { type: 'route', name: 'ModelPlaza' },
+      },
+    ],
+  },
+  {
+    titleKey: 'drawer.groupAi',
+    defaultOpen: true,
+    items: [
+      {
+        labelKey: 'chat.navAgent',
+        Icon: Bot,
+        route: 'Assistant',
+        target: { type: 'route', name: 'Assistant' },
+      },
+      {
+        labelKey: 'menu.agentMarket',
+        Icon: Puzzle,
+        route: 'AgentMarket',
+        target: { type: 'route', name: 'AgentMarket' },
+      },
+      {
+        labelKey: 'menu.imageGen',
+        Icon: Palette,
+        route: 'AigcList',
+        target: { type: 'route', name: 'AigcList' },
+      },
+      {
+        labelKey: 'menu.knowledgeBase',
+        Icon: BookOpen,
+        route: 'KnowledgeBase',
+        target: { type: 'route', name: 'KnowledgeBase' },
+      },
+      {
+        labelKey: 'menu.memory',
+        Icon: Brain,
+        route: 'Memory',
+        target: { type: 'route', name: 'Memory' },
+      },
+      {
+        labelKey: 'menu.subagents',
+        Icon: Layers,
+        route: 'Subagents',
+        target: { type: 'route', name: 'Subagents' },
+      },
+      {
+        labelKey: 'menu.chatTools',
+        Icon: MessageSquare,
+        route: 'ChatTools',
+        target: { type: 'route', name: 'ChatTools' },
+      },
+    ],
+  },
+  {
+    titleKey: 'drawer.groupEdu',
+    defaultOpen: false,
+    items: [
+      {
+        labelKey: 'nav.courses',
+        Icon: GraduationCap,
+        route: 'CourseMain',
+        target: { type: 'main', screen: 'CourseMain' },
+      },
+      {
+        labelKey: 'nav.live',
+        Icon: PlayCircle,
+        route: 'LiveList',
+        target: { type: 'route', name: 'LiveList' },
+      },
+      {
+        labelKey: 'menu.sectionStudy',
+        Icon: BookOpen,
+        route: 'Learn',
+        target: { type: 'route', name: 'Learn' },
+      },
+      {
+        labelKey: 'menu.exam',
+        Icon: ScrollText,
+        route: 'Exam',
+        target: { type: 'route', name: 'Exam' },
+      },
+      {
+        labelKey: 'menu.studyRecord',
+        Icon: ClipboardList,
+        route: 'StudyRecord',
+        target: { type: 'route', name: 'StudyRecord' },
+      },
+      {
+        labelKey: 'menu.noteList',
+        Icon: NotebookPen,
+        route: 'NoteList',
+        target: { type: 'route', name: 'NoteList' },
+      },
+      {
+        labelKey: 'menu.certificate',
+        Icon: Award,
+        route: 'Certificate',
+        target: { type: 'route', name: 'Certificate' },
+      },
+    ],
+  },
+  {
+    titleKey: 'drawer.groupTrade',
+    defaultOpen: false,
+    items: [
+      { labelKey: 'menu.vip', Icon: Crown, route: 'Vip', target: { type: 'route', name: 'Vip' } },
+      {
+        labelKey: 'menu.wallet',
+        Icon: Wallet,
+        route: 'Wallet',
+        target: { type: 'route', name: 'Wallet' },
+      },
+      {
+        labelKey: 'menu.order',
+        Icon: ShoppingBag,
+        route: 'Order',
+        target: { type: 'route', name: 'Order' },
+      },
+      {
+        labelKey: 'menu.coupon',
+        Icon: Ticket,
+        route: 'Coupon',
+        target: { type: 'route', name: 'Coupon' },
+      },
+      {
+        labelKey: 'menu.pointsMall',
+        Icon: Star,
+        route: 'PointsMall',
+        target: { type: 'route', name: 'PointsMall' },
+      },
+      {
+        labelKey: 'menu.taskCenter',
+        Icon: ListChecks,
+        route: 'TaskCenter',
+        target: { type: 'route', name: 'TaskCenter' },
+      },
+    ],
+  },
+  {
+    titleKey: 'drawer.groupPromote',
+    defaultOpen: false,
+    items: [
+      {
+        labelKey: 'menu.promote',
+        Icon: Megaphone,
+        route: 'Promote',
+        target: { type: 'route', name: 'Promote' },
+      },
+      {
+        labelKey: 'menu.distribution',
+        Icon: Gift,
+        route: 'Distribution',
+        target: { type: 'route', name: 'Distribution' },
+      },
+      {
+        labelKey: 'menu.team',
+        Icon: Users,
+        route: 'Team',
+        target: { type: 'route', name: 'Team' },
+      },
+    ],
+  },
+  {
+    titleKey: 'drawer.groupPersonal',
+    defaultOpen: false,
+    items: [
+      {
+        labelKey: 'nav.profile',
+        Icon: User,
+        route: 'ProfileMain',
+        target: { type: 'drawerTab', tab: 'mine' },
+      },
+      {
+        labelKey: 'menu.favorites',
+        Icon: Heart,
+        route: 'Favorites',
+        target: { type: 'route', name: 'Favorites' },
+      },
+      {
+        labelKey: 'menu.follow',
+        Icon: UserPlus,
+        route: 'Follow',
+        target: { type: 'route', name: 'Follow' },
+      },
+      {
+        labelKey: 'menu.messageCenter',
+        Icon: Bell,
+        route: 'MessageCenter',
+        target: { type: 'route', name: 'MessageCenter' },
+      },
+      {
+        labelKey: 'menu.settings',
+        Icon: Settings,
+        route: 'Settings',
+        target: { type: 'route', name: 'Settings' },
+      },
+      {
+        labelKey: 'help.title',
+        Icon: HelpCircle,
+        route: 'Help',
+        target: { type: 'route', name: 'Help' },
+      },
+      {
+        labelKey: 'menu.feedback',
+        Icon: MessageSquare,
+        route: 'Feedback',
+        target: { type: 'route', name: 'Feedback' },
+      },
+      {
+        labelKey: 'menu.about',
+        Icon: Info,
+        route: 'About',
+        target: { type: 'route', name: 'About' },
+      },
+    ],
+  },
+  {
+    titleKey: 'drawer.groupCommunity',
+    defaultOpen: false,
+    items: [
+      {
+        labelKey: 'menu.articleList',
+        Icon: FileText,
+        route: 'ArticleList',
+        target: { type: 'route', name: 'ArticleList' },
+      },
+      {
+        labelKey: 'menu.circleIndex',
+        Icon: UsersRound,
+        route: 'CircleIndex',
+        target: { type: 'route', name: 'CircleIndex' },
+      },
+      {
+        labelKey: 'menu.askList',
+        Icon: MessageCircle,
+        route: 'AskList',
+        target: { type: 'route', name: 'AskList' },
+      },
+    ],
+  },
 ] as const
 
 // ── 日期分组逻辑 ──
 
 type DateBucket = 'today' | 'yesterday' | 'earlier'
 
-const DATE_LABELS: Record<DateBucket, string> = {
-  today: '今天',
-  yesterday: '昨天',
-  earlier: '更早',
-}
-
 const DATE_ORDER: readonly DateBucket[] = ['today', 'yesterday', 'earlier']
+
+/**
+ * 「默认模型」哨兵:分组与排序用它,渲染时才翻译(drawer.defaultModel)。
+ * 端内不再落中文/英文第二份文案,groupByModelAndDate 保持纯数据。
+ */
+const DEFAULT_MODEL_NAME = '__default_model__'
 
 interface DateGroup {
   bucket: DateBucket
-  label: string
   list: DrawerConversationItem[]
 }
 
@@ -224,7 +558,7 @@ function groupByModelAndDate(conversations: DrawerConversationItem[]): ModelGrou
     { name: string; icon?: string; items: DrawerConversationItem[] }
   >()
   for (const conv of conversations) {
-    const name = conv.modelConfig?.name ?? '默认模型'
+    const name = conv.modelConfig?.name ?? DEFAULT_MODEL_NAME
     const icon = conv.modelConfig?.icon
     const entry = modelMap.get(name)
     if (entry) {
@@ -249,15 +583,14 @@ function groupByModelAndDate(conversations: DrawerConversationItem[]): ModelGrou
     }
     const dateGroups: DateGroup[] = DATE_ORDER.filter((b) => bucketMap.has(b)).map((b) => ({
       bucket: b,
-      label: DATE_LABELS[b],
       list: bucketMap.get(b) as DrawerConversationItem[],
     }))
     groups.push({ modelName: name, modelIcon: icon, dateGroups })
   }
 
   groups.sort((a, b) => {
-    if (a.modelName === '默认模型') return 1
-    if (b.modelName === '默认模型') return -1
+    if (a.modelName === DEFAULT_MODEL_NAME) return 1
+    if (b.modelName === DEFAULT_MODEL_NAME) return -1
     return a.modelName.localeCompare(b.modelName, 'zh-CN')
   })
   return groups
@@ -282,6 +615,7 @@ function SwipeableConversationItem({
   onDelete,
   onToggleFavorite,
 }: SwipeItemProps) {
+  const { t } = useI18n()
   const translateX = useRef(new Animated.Value(0)).current
   // 用 ref 跟踪当前 offset / 最后位移,避免读取 Animated.Value 私有字段(_value)
   const offsetRef = useRef(0)
@@ -340,10 +674,6 @@ function SwipeableConversationItem({
     onSelect(item.id)
   }
 
-  const handleDelete = () => {
-    onDelete(item.id)
-  }
-
   return (
     <View className="relative overflow-hidden">
       {/* 操作按钮(底层,右侧露出:收藏 + 删除) */}
@@ -359,15 +689,18 @@ function SwipeableConversationItem({
             className="items-center justify-center"
             style={{ width: FAVORITE_WIDTH, height: '100%' }}
             onPress={() => onToggleFavorite(item.id, !item.favorited)}
-            accessibilityLabel={`${item.favorited ? '取消收藏' : '收藏'}对话 ${item.title}`}
+            accessibilityLabel={`${item.favorited ? t('drawer.collected') : t('drawer.collect')} ${item.title}`}
           >
             <Star
-              size={20}
+              size={rnGeometry.glyphMd}
               color={tokens.surface.light}
               fill={item.favorited ? tokens.surface.light : 'transparent'}
             />
-            <Text className="text-[11px] text-white mt-1">
-              {item.favorited ? '已收藏' : '收藏'}
+            <Text
+              className="mt-1"
+              style={{ color: tokens.surface.light, fontSize: rnGeometry.textCaption }}
+            >
+              {item.favorited ? t('drawer.collected') : t('drawer.collect')}
             </Text>
           </Pressable>
         </View>
@@ -378,11 +711,16 @@ function SwipeableConversationItem({
           <Pressable
             className="items-center justify-center"
             style={{ width: DELETE_WIDTH, height: '100%' }}
-            onPress={handleDelete}
-            accessibilityLabel={`删除对话 ${item.title}`}
+            onPress={() => onDelete(item.id)}
+            accessibilityLabel={`${t('drawer.delete')} ${item.title}`}
           >
-            <Trash2 size={20} color={tokens.surface.light} />
-            <Text className="text-[11px] text-white mt-1">删除</Text>
+            <Trash2 size={rnGeometry.glyphMd} color={tokens.surface.light} />
+            <Text
+              className="mt-1"
+              style={{ color: tokens.surface.light, fontSize: rnGeometry.textCaption }}
+            >
+              {t('drawer.delete')}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -407,6 +745,83 @@ function SwipeableConversationItem({
   )
 }
 
+// ── 导航行(web NAV_ITEM_BASE_CLASS 同构:h-9 gap-2.5 px-2.5 rounded-md,图标 20/文字 14) ──
+
+interface NavRowModel {
+  key: string
+  label: string
+  Icon: LucideGlyph
+  active: boolean
+  onPress: () => void
+}
+
+function NavRow({ item }: { item: NavRowModel }) {
+  const { Icon, active } = item
+  return (
+    <Pressable
+      onPress={item.onPress}
+      className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"
+      style={active ? styles.navRowActive : undefined}
+      android_ripple={{ color: tokens.surface.muted }}
+    >
+      <Icon
+        size={rnGeometry.glyphMd}
+        color={active ? tokens.brand.ctaForeground : tokens.text.secondary}
+      />
+      <Text
+        numberOfLines={1}
+        className="flex-1 font-medium"
+        style={active ? styles.navRowActiveText : styles.navRowText}
+      >
+        {item.label}
+      </Text>
+    </Pressable>
+  )
+}
+
+// ── 可折叠分组(web NavGroupSection 同构:text-xs uppercase 标题 + ChevronDown,折时 -90°) ──
+
+interface NavGroupSectionProps {
+  title: string
+  variant?: 'hot'
+  defaultOpen: boolean
+  items: readonly NavRowModel[]
+}
+
+function NavGroupSection({ title, variant, defaultOpen, items }: NavGroupSectionProps) {
+  const [expanded, setExpanded] = useState(defaultOpen)
+  return (
+    <View className="mt-1">
+      <Pressable
+        onPress={() => setExpanded((v) => !v)}
+        className="h-8 flex-row items-center gap-1.5 rounded-md px-2.5"
+        android_ripple={{ color: tokens.surface.muted }}
+      >
+        {variant === 'hot' ? (
+          <Flame size={rnGeometry.glyphSm} color={tokens.warning.DEFAULT} />
+        ) : null}
+        <Text
+          numberOfLines={1}
+          className="flex-1 text-xs font-semibold uppercase tracking-wider"
+          style={{ color: variant === 'hot' ? tokens.danger.DEFAULT : tokens.text.tertiary }}
+        >
+          {title}
+        </Text>
+        <View style={{ transform: [{ rotate: expanded ? '0deg' : '-90deg' }] }}>
+          <ChevronDown size={rnGeometry.glyphSm} color={tokens.text.tertiary} />
+        </View>
+      </Pressable>
+      {expanded ? (
+        <View>
+          {items.map((item) => (
+            <NavRow key={item.key} item={item} />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
 // ── 主组件 ──
 
 export function Drawer(props: DrawerProps) {
@@ -416,9 +831,6 @@ export function Drawer(props: DrawerProps) {
     user,
     conversations,
     onNavigate,
-    onNavigateExtra,
-    onNavigateCompany,
-    onClaimFree,
     onCreateNewChat,
     onSelectConversation,
     onDeleteConversation,
@@ -430,6 +842,7 @@ export function Drawer(props: DrawerProps) {
   const insets = useSafeAreaInsets()
   const { t } = useI18n()
   const { logout } = useAuth()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<DrawerNav>()
   const screenWidth = Dimensions.get('window').width
   const drawerWidth = Math.min(screenWidth * DRAWER_WIDTH_RATIO, rnGeometry.drawerWidth)
@@ -437,6 +850,7 @@ export function Drawer(props: DrawerProps) {
   // progress: 0 = 隐藏, 1 = 显示
   const progress = useRef(new Animated.Value(0)).current
   const [openSwipeId, setOpenSwipeId] = useState<string | null>(null)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   // 会话收藏乐观覆盖(id → favorited),避免 9 个屏各自接回调(2026-09-05)
   const [favOverrides, setFavOverrides] = useState<Record<string, boolean>>({})
 
@@ -449,9 +863,12 @@ export function Drawer(props: DrawerProps) {
     }).start()
   }, [progress, visible])
 
-  // 关闭抽屉时重置左滑状态
+  // 关闭抽屉时重置左滑状态与用户菜单
   useEffect(() => {
-    if (!visible) setOpenSwipeId(null)
+    if (!visible) {
+      setOpenSwipeId(null)
+      setUserMenuOpen(false)
+    }
   }, [visible])
 
   const translateX = progress.interpolate({
@@ -473,105 +890,157 @@ export function Drawer(props: DrawerProps) {
   }, [conversations, favOverrides])
 
   /** 收藏切换(乐观更新,失败回滚;2026-09-05 矩阵① Chat 收藏补齐) */
-  const handleToggleFavoriteConversation = useCallback((id: string, next: boolean) => {
-    setFavOverrides((prev) => ({ ...prev, [id]: next }))
-    const call = next ? favoriteConversation(id) : unfavoriteConversation(id)
-    call.catch(() => {
-      setFavOverrides((prev) => {
-        const { [id]: _rollback, ...rest } = prev
-        return rest
+  const handleToggleFavoriteConversation = useCallback(
+    (id: string, next: boolean) => {
+      setFavOverrides((prev) => ({ ...prev, [id]: next }))
+      const call = next ? favoriteConversation(id) : unfavoriteConversation(id)
+      call.catch(() => {
+        setFavOverrides((prev) => {
+          const { [id]: _rollback, ...rest } = prev
+          return rest
+        })
+        Alert.alert(t('drawer.prompt'), t('drawer.favoriteFailed'))
       })
-      Alert.alert('提示', '收藏操作失败,请重试')
-    })
-  }, [])
+    },
+    [t],
+  )
 
   const handleSwipeOpen = useCallback((id: string) => {
     setOpenSwipeId((prev) => (prev === id ? prev : id))
   }, [])
 
-  const handleNavigate = (tab: DrawerTab) => {
-    onNavigate(tab)
-    onClose()
-  }
-
   /**
-   * 扩展菜单点击:优先走父级 onNavigateExtra(真实路由已接),未注入回调时由本组件兜底导航。
-   * 所有扩展菜单均已有真实页面/路由(RootNavigator 已注册 AigcList/Learn/ModelPlaza/Settings),
-   * 故兜底直接跳真实路由,不再弹"功能开发中(待接入路由)"占位。
+   * active 判定:取根栈顶路由名;顶栈是 Main Tab 容器时取 params.screen
+   * (HomeMain/CourseMain/...),与导航行 route 字段匹配。
    */
-  const handleNavigateExtra = (menu: DrawerExtraMenu) => {
-    if (onNavigateExtra) {
-      onNavigateExtra(menu)
-    } else {
-      switch (menu) {
-        case 'aigc':
-          navigation.navigate('AigcList')
-          break
-        case 'learn':
-          navigation.navigate('Learn')
-          break
-        case 'modelPlaza':
-          navigation.navigate('ModelPlaza')
-          break
-        case 'tools':
-        case 'company':
-          navigation.navigate('Settings')
-          break
-        case 'assistant':
-          navigation.navigate('Assistant')
-          break
+  const activeRouteName = useNavigationState((state) => {
+    if (!state || state.routes.length === 0) return undefined
+    // noUncheckedIndexedAccess:索引访问返回 T | undefined,须显式收窄
+    const route = state.routes[state.index]
+    if (!route) return undefined
+    if (route.name === 'Main') {
+      const params = route.params as { screen?: string } | undefined
+      return params?.screen
+    }
+    return route.name
+  })
+
+  /** 导航行点击:drawerTab 走父级契约(由调用方 navigateDrawerTab 统一映射),其余直跳路由 */
+  const handleNavTarget = useCallback(
+    (target: NavTarget) => {
+      if (target.type === 'drawerTab') {
+        onNavigate(target.tab)
+        onClose()
+        return
       }
-    }
-    onClose()
-  }
+      onClose()
+      if (target.type === 'main') {
+        navigation.navigate('Main', { screen: target.screen })
+      } else {
+        // as never:navigate 重载按单一键名分派,联合键名(DrawerRouteName)匹配不了任何单一重载
+        // (同 navigation-ref.ts / DistributionScreen 先例)
+        navigation.navigate(target.name as never)
+      }
+    },
+    [navigation, onClose, onNavigate],
+  )
 
-  /**
-   * 快捷导航(chat.nav* 区)点击:全部接通真实路由(2026-08-26 修复,
-   * 此前 7 项均为 Alert '待接入导航路由' 死按钮)。导航统一冒泡到 RootStack,
-   * 与 handleNavigateExtra 兜底同模式;logout 弹确认后调 AuthContext.logout。
-   */
-  const handleQuickNav = (
-    key: 'agent' | 'wallet' | 'course' | 'order' | 'profile' | 'settings' | 'logout',
-  ) => {
-    if (key === 'logout') {
-      Alert.alert(t('chat.navLogout'), '确定要退出登录吗?', [
-        { text: '取消', style: 'cancel' },
-        { text: '退出', style: 'destructive', onPress: () => void logout() },
-      ])
-      return
-    }
+  const handleCreateNewChat = useCallback(() => {
+    onCreateNewChat()
     onClose()
-    switch (key) {
-      case 'agent':
-        navigation.navigate('Assistant')
-        break
-      case 'wallet':
-        navigation.navigate('Wallet')
-        break
-      case 'course':
-        navigation.navigate('Main', { screen: 'CourseMain' })
-        break
-      case 'order':
-        navigation.navigate('Order')
-        break
-      case 'profile':
-        navigation.navigate('Main', { screen: 'ProfileMain' })
-        break
-      case 'settings':
-        navigation.navigate('Settings')
-        break
-    }
-  }
+  }, [onCreateNewChat, onClose])
+
+  const handleLogoPress = useCallback(() => {
+    onGoHome()
+    onClose()
+  }, [onGoHome, onClose])
 
   const handleSelectConversation = (id: string) => {
     onSelectConversation(id)
     onClose()
   }
 
-  // 头像:有 URL -> Image, 否则用首字母(initials)
-  const nickname = user.nickname || '未登录'
-  const initials = nickname.slice(0, 1).toUpperCase()
-  const isVip = user.level === 'vip'
+  // 登录态判定沿用 web UserRow 语义:昵称为空 = 未登录
+  const isLoggedIn = Boolean(user.nickname)
+  const initials = (user.nickname || t('drawer.notLoggedIn')).slice(0, 1).toUpperCase()
+
+  /** 未登录 → Login 路由(对齐 web UserRow 登录入口) */
+  const handleLoginPress = useCallback(() => {
+    onClose()
+    navigation.navigate('Login')
+  }, [navigation, onClose])
+
+  /** 用户菜单-退出登录:确认后登出(文案全 i18n,替代旧硬编码"确定要退出登录吗?") */
+  const handleLogoutPress = useCallback(() => {
+    setUserMenuOpen(false)
+    Alert.alert(t('common.logout'), t('settings.logoutConfirm'), [
+      { text: t('drawer.cancel'), style: 'cancel' },
+      { text: t('drawer.exit'), style: 'destructive', onPress: () => void logout() },
+    ])
+  }, [logout, t])
+
+  // 渲染态导航分组(label 就地翻译 + active 判定 + 点击闭包)
+  const navGroups = NAV_GROUPS.map((group) => ({
+    key: group.titleKey,
+    title: t(group.titleKey),
+    variant: group.variant,
+    defaultOpen: group.defaultOpen,
+    items: group.items.map<NavRowModel>((item) => ({
+      key: item.labelKey,
+      label: t(item.labelKey),
+      Icon: item.Icon,
+      active: item.route !== undefined && item.route === activeRouteName,
+      onPress: () => handleNavTarget(item.target),
+    })),
+  }))
+
+  // 用户菜单项(web SidebarUserRow 下拉的 RN 可达子集)
+  const userMenuItems = isLoggedIn
+    ? [
+        {
+          key: 'profile',
+          labelKey: 'nav.profile',
+          Icon: User,
+          onPress: () => {
+            setUserMenuOpen(false)
+            handleNavTarget({ type: 'drawerTab', tab: 'mine' })
+          },
+        },
+        {
+          key: 'vip',
+          labelKey: 'menu.vip',
+          Icon: Crown,
+          onPress: () => {
+            setUserMenuOpen(false)
+            handleNavTarget({ type: 'route', name: 'Vip' })
+          },
+        },
+        {
+          key: 'messages',
+          labelKey: 'menu.messageCenter',
+          Icon: Bell,
+          onPress: () => {
+            setUserMenuOpen(false)
+            onOpenMessages()
+          },
+        },
+        {
+          key: 'settings',
+          labelKey: 'menu.settings',
+          Icon: Settings,
+          onPress: () => {
+            setUserMenuOpen(false)
+            onOpenSettings()
+          },
+        },
+        {
+          key: 'logout',
+          labelKey: 'common.logout',
+          Icon: LogOut,
+          onPress: handleLogoutPress,
+        },
+      ]
+    : []
 
   return (
     <Modal
@@ -604,312 +1073,124 @@ export function Drawer(props: DrawerProps) {
               backgroundColor: tokens.surface.card,
             }}
           >
-            <ScrollView
-              className="flex-1"
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 8 }}
-            >
-              {/* 1. 顶部用户区:头像 + 昵称 + 等级标识 + 关闭按钮 */}
-              {/* 头部横向 padding 14dp(对齐 Uniapp 28rpx)/ 底部 12dp(对齐 Uniapp 25rpx≈12.5dp) */}
-              <View
-                className="pt-3 pb-3 flex-row items-center gap-3"
-                style={{ paddingHorizontal: 14 }}
+            {/* 1. Header:logo(点击回首页)+ PanelLeftRounded 收拢钮(web SidebarHeader 同构) */}
+            <View className="flex-row items-center justify-between px-2 py-1">
+              <Pressable
+                onPress={handleLogoPress}
+                className="h-9 w-9 items-center justify-center rounded-md"
+                android_ripple={{ color: tokens.surface.muted }}
               >
-                <View className="relative">
-                  {user.avatar ? (
-                    <Image
-                      source={{ uri: user.avatar }}
-                      className="rounded-2xl"
-                      style={{ width: 60, height: 60 }}
-                    />
-                  ) : (
-                    <View
-                      className="rounded-2xl items-center justify-center"
-                      style={{ backgroundColor: tokens.surface.muted, width: 60, height: 60 }}
-                    >
-                      <Text
-                        className="text-[16px] font-semibold"
-                        style={{ color: tokens.text.secondary }}
-                      >
-                        {initials}
-                      </Text>
-                    </View>
-                  )}
-                  {isVip ? (
-                    <View className="absolute -top-1 -right-1 px-1 py-0.5 rounded-md bg-purple">
-                      <Text className="text-[9px] font-bold text-white leading-tight">VIP</Text>
-                    </View>
-                  ) : null}
-                </View>
-                <View className="flex-1">
+                <Image
+                  source={resolvedTheme === 'dark' ? LOGO_DARK : LOGO_LIGHT}
+                  style={styles.headerLogo}
+                />
+              </Pressable>
+              <Pressable
+                onPress={onClose}
+                className="h-9 w-9 items-center justify-center rounded-md"
+                android_ripple={{ color: tokens.surface.muted }}
+              >
+                {/* 收拢键图标(2026-10-15 用户定):与 web 端侧边栏拉出态同款的
+                    PanelLeftRounded(箭头朝左 = 收拢方向);墨迹 text.medium 对齐 web text-foreground/80 */}
+                <PanelLeftRounded size={rnGeometry.glyphMd} color={tokens.text.medium} />
+              </Pressable>
+            </View>
+
+            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+              <View className="px-2 pb-2">
+                {/* 2. 快捷区:「新建任务」灰底行(web BTN_NEW_CONVERSATION 同构) */}
+                <Pressable
+                  onPress={handleCreateNewChat}
+                  className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"
+                  style={{ backgroundColor: tokens.surface.muted }}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Plus size={rnGeometry.glyphMd} color={tokens.text.primary} />
                   <Text
-                    className="font-semibold"
-                    style={{ color: tokens.text.primary, fontSize: rnGeometry.textStrong }}
                     numberOfLines={1}
+                    className="flex-1 font-medium"
+                    style={{ color: tokens.text.primary, fontSize: rnGeometry.textBody }}
                   >
-                    {nickname}
+                    {t('drawer.newChat')}
                   </Text>
-                  <View className="mt-1">
-                    {isVip ? (
-                      <View className="self-start px-1.5 py-0.5 rounded-md bg-purple-light">
-                        <Text className="text-[10px] text-purple font-medium">VIP 会员</Text>
-                      </View>
-                    ) : (
-                      <View
-                        className="self-start px-1.5 py-0.5 rounded-md"
-                        style={{ backgroundColor: tokens.surface.muted }}
-                      >
-                        <Text className="text-[10px]" style={{ color: tokens.text.tertiary }}>
-                          普通用户
-                        </Text>
-                      </View>
-                    )}
-                  </View>
+                </Pressable>
+
+                {/* 3. 首页行(无标题组,对齐 web 侧边栏首个 Home 行) */}
+                <View className="mt-2">
+                  <NavRow
+                    item={{
+                      key: 'nav.home',
+                      label: t('nav.home'),
+                      Icon: Home,
+                      active: activeRouteName === 'HomeMain',
+                      onPress: () => handleNavTarget({ type: 'drawerTab', tab: 'home' }),
+                    }}
+                  />
                 </View>
-                <Pressable
-                  className="w-8 h-8 items-center justify-center rounded-lg"
-                  hitSlop={8}
-                  onPress={onClose}
-                  accessibilityLabel="关闭抽屉"
-                  android_ripple={{ color: tokens.surface.muted }}
-                >
-                  {/* 关闭键载体择优 = 矢量(与小程序端 LineIcon x 同档 glyphMd);文字 × 冒充图标已收口 */}
-                  <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
-                </Pressable>
-              </View>
 
-              {/* 2. 5 主菜单(横向等分,对齐 Uniapp drawer_menu;容器 padding 8dp 对齐 Uniapp 15rpx≈7.5dp) */}
-              <View
-                className="py-2 flex-row items-start justify-between"
-                style={{ paddingHorizontal: 14 }}
-              >
-                {MAIN_MENUS.map(({ key, label, i18nKey, Icon }) => (
-                  <Pressable
-                    key={key}
-                    className="flex-1 items-center py-1.5 rounded-lg"
-                    onPress={() => handleNavigate(key)}
-                    android_ripple={{ color: tokens.surface.muted, radius: 60 }}
-                  >
-                    <View
-                      className="rounded-xl items-center justify-center mb-1"
-                      style={{ backgroundColor: tokens.surface.muted, width: 30, height: 30 }}
-                    >
-                      <Icon size={22} color={tokens.text.primary} />
-                    </View>
-                    <Text
-                      className="text-center"
-                      style={{ color: tokens.text.secondary, fontSize: rnGeometry.textLabel }}
-                    >
-                      {i18nKey ? t(i18nKey) : label}
-                    </Text>
-                  </Pressable>
+                {/* 4. 分组竖排导航(热门/AI/教育/交易/推广/个人/社区;无路由项不渲染) */}
+                {navGroups.map((group) => (
+                  <NavGroupSection
+                    key={group.key}
+                    title={group.title}
+                    variant={group.variant}
+                    defaultOpen={group.defaultOpen}
+                    items={group.items}
+                  />
                 ))}
-              </View>
 
-              {/* 2b. 6 扩展菜单(横向等分,对齐 Uniapp 隐藏菜单 + label_content 入口)。
-                  2026-09-23 修复 P0:6 项在 256dp 抽屉内每项约 42dp,"模型广场/一人公司/我的智能体"
-                  4 字在 text-[11px] 下强制换行。方案 A+C:字号 11→10px + 图标容器 30→26 / 图标 22→18
-                  释放横向空间 + numberOfLines={1} + ellipsizeMode="tail" 单行截断兜底。 */}
-              <View
-                className="py-2 flex-row items-start justify-between"
-                style={{ paddingHorizontal: 14 }}
-              >
-                {EXTRA_MENUS.map(({ key, label, Icon }) => (
-                  <Pressable
-                    key={key}
-                    className="flex-1 items-center py-1.5 rounded-lg"
-                    onPress={() => handleNavigateExtra(key)}
-                    android_ripple={{ color: tokens.surface.muted, radius: 60 }}
-                  >
-                    <View
-                      className="rounded-xl items-center justify-center mb-0.5"
-                      style={{ backgroundColor: tokens.surface.muted, width: 26, height: 26 }}
-                    >
-                      <Icon size={18} color={tokens.text.secondary} />
-                    </View>
-                    <Text
-                      className="text-[10px] text-center"
-                      style={{ color: tokens.text.secondary }}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      {label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              {/* 3-5. 入口列表:一人公司 / 领取免费资料 / 创建新对话(对齐 Uniapp label_content) */}
-              <View className="px-2 py-2 gap-0.5">
-                <Pressable
-                  className="flex-row items-center px-3 py-2.5 rounded-lg"
-                  onPress={onNavigateCompany}
-                  android_ripple={{ color: tokens.surface.muted }}
-                >
-                  <View className="w-8 h-8 rounded-lg items-center justify-center bg-accent-light mr-3">
-                    <Building2 size={18} color={tokens.brandAccent.deep} />
-                  </View>
-                  <Text className="flex-1" style={{ color: tokens.text.primary, fontSize: rnGeometry.textBody }}>
-                    我的一人公司
-                  </Text>
-                  <ChevronRight size={rnGeometry.glyphSm} color={tokens.text.tertiary} />
-                </Pressable>
-                <Pressable
-                  className="flex-row items-center px-3 py-2.5 rounded-lg"
-                  onPress={onClaimFree}
-                  android_ripple={{ color: tokens.surface.muted }}
-                >
-                  <View className="w-8 h-8 rounded-lg items-center justify-center bg-success-lighter mr-3">
-                    <Gift size={18} color={tokens.success.DEFAULT} />
-                  </View>
-                  <Text className="flex-1" style={{ color: tokens.text.primary, fontSize: rnGeometry.textBody }}>
-                    领取免费资料
-                  </Text>
-                  <ChevronRight size={rnGeometry.glyphSm} color={tokens.text.tertiary} />
-                </Pressable>
-                <Pressable
-                  className="flex-row items-center px-3 py-2.5 rounded-lg"
-                  onPress={onCreateNewChat}
-                  android_ripple={{ color: tokens.surface.muted }}
-                >
-                  <View className="w-8 h-8 rounded-lg items-center justify-center bg-purple-light mr-3">
-                    <Plus size={18} color={tokens.brandAccent.deep} />
-                  </View>
-                  <Text className="flex-1" style={{ color: tokens.text.primary, fontSize: rnGeometry.textBody }}>
-                    创建新对话
-                  </Text>
-                  <ChevronRight size={rnGeometry.glyphSm} color={tokens.text.tertiary} />
-                </Pressable>
-              </View>
-
-              {/* 2c. 快捷导航(chat.nav* 键:智能体/钱包/课程/订单/我的/设置/退出登录)。
-                  2026-08-26:7 项全部接通真实路由(handleQuickNav),不再弹占位 Alert */}
-
-              <View className="px-2 py-2 gap-0.5">
-                <Pressable
-                  className="flex-row items-center px-3 py-2 rounded-lg"
-                  onPress={() => handleQuickNav('agent')}
-                  android_ripple={{ color: tokens.surface.muted }}
-                >
-                  <Text className="flex-1 text-[13px]" style={{ color: tokens.text.secondary }}>
-                    {t('chat.navAgent')}
-                  </Text>
-                  <ChevronRight size={15} color={tokens.text.tertiary} />
-                </Pressable>
-                <Pressable
-                  className="flex-row items-center px-3 py-2 rounded-lg"
-                  onPress={() => handleQuickNav('wallet')}
-                  android_ripple={{ color: tokens.surface.muted }}
-                >
-                  <Text className="flex-1 text-[13px]" style={{ color: tokens.text.secondary }}>
-                    {t('chat.navWallet')}
-                  </Text>
-                  <ChevronRight size={15} color={tokens.text.tertiary} />
-                </Pressable>
-                <Pressable
-                  className="flex-row items-center px-3 py-2 rounded-lg"
-                  onPress={() => handleQuickNav('course')}
-                  android_ripple={{ color: tokens.surface.muted }}
-                >
-                  <Text className="flex-1 text-[13px]" style={{ color: tokens.text.secondary }}>
-                    {t('chat.navCourse')}
-                  </Text>
-                  <ChevronRight size={15} color={tokens.text.tertiary} />
-                </Pressable>
-                <Pressable
-                  className="flex-row items-center px-3 py-2 rounded-lg"
-                  onPress={() => handleQuickNav('order')}
-                  android_ripple={{ color: tokens.surface.muted }}
-                >
-                  <Text className="flex-1 text-[13px]" style={{ color: tokens.text.secondary }}>
-                    {t('chat.navOrder')}
-                  </Text>
-                  <ChevronRight size={15} color={tokens.text.tertiary} />
-                </Pressable>
-                <Pressable
-                  className="flex-row items-center px-3 py-2 rounded-lg"
-                  onPress={() => handleQuickNav('profile')}
-                  android_ripple={{ color: tokens.surface.muted }}
-                >
-                  <Text className="flex-1 text-[13px]" style={{ color: tokens.text.secondary }}>
-                    {t('chat.navProfile')}
-                  </Text>
-                  <ChevronRight size={15} color={tokens.text.tertiary} />
-                </Pressable>
-                <Pressable
-                  className="flex-row items-center px-3 py-2 rounded-lg"
-                  onPress={() => handleQuickNav('settings')}
-                  android_ripple={{ color: tokens.surface.muted }}
-                >
-                  <Text className="flex-1 text-[13px]" style={{ color: tokens.text.secondary }}>
-                    {t('chat.navSettings')}
-                  </Text>
-                  <ChevronRight size={15} color={tokens.text.tertiary} />
-                </Pressable>
-                <Pressable
-                  className="flex-row items-center px-3 py-2 rounded-lg"
-                  onPress={() => handleQuickNav('logout')}
-                  android_ripple={{ color: tokens.surface.muted }}
-                >
-                  <Text className="flex-1 text-[13px]" style={{ color: tokens.text.secondary }}>
-                    {t('chat.navLogout')}
-                  </Text>
-                  <ChevronRight size={15} color={tokens.text.tertiary} />
-                </Pressable>
-              </View>
-
-              {/* 6. 历史对话列表(按模型分组 → 按日期分组 → 左滑收藏/删除) */}
-              <View className="px-4 pt-3 pb-2 flex-row items-center justify-between">
-                <Text className="font-bold" style={{ color: tokens.text.primary, fontSize: rnGeometry.textBody }}>
-                  历史对话
-                </Text>
-                <Text className="text-[11px]" style={{ color: tokens.text.tertiary }}>
-                  左滑收藏 / 删除
-                </Text>
-              </View>
-
-              {modelGroups.length === 0 ? (
-                <View className="px-4 py-8 items-center">
+                {/* 5. 历史对话(模型分组 → 日期分组 → 左滑收藏/删除;机制原样,文案 i18n 化) */}
+                <View className="mt-3 flex-row items-center justify-between px-2.5">
                   <Text
-                    style={{ color: tokens.text.tertiary, fontSize: rnGeometry.textLabel }}
+                    className="font-bold"
+                    style={{ color: tokens.text.primary, fontSize: rnGeometry.textStrong }}
                   >
-                    暂无历史对话
+                    {t('drawer.history')}
+                  </Text>
+                  <Text style={{ color: tokens.text.tertiary, fontSize: rnGeometry.textCaption }}>
+                    {t('drawer.swipeHint')}
                   </Text>
                 </View>
-              ) : (
-                <View className="px-2">
-                  {modelGroups.map((mg) => (
-                    <View key={mg.modelName} className="mb-3">
-                      {/* 模型标题(对齐 Uniapp model-title + model-logo) */}
-                      <View className="flex-row items-center px-3 py-1.5">
+
+                {modelGroups.length === 0 ? (
+                  <View className="items-center px-2.5 py-8">
+                    <Text style={{ color: tokens.text.tertiary, fontSize: rnGeometry.textLabel }}>
+                      {t('drawer.noHistory')}
+                    </Text>
+                  </View>
+                ) : (
+                  modelGroups.map((mg) => (
+                    <View key={mg.modelName} className="mt-2">
+                      {/* 模型标题 */}
+                      <View className="flex-row items-center gap-1.5 px-2.5 py-1">
                         {mg.modelIcon ? (
-                          <Image
-                            source={{ uri: mg.modelIcon }}
-                            className="w-4 h-4 rounded-sm mr-1.5"
-                          />
+                          <Image source={{ uri: mg.modelIcon }} style={styles.modelIcon} />
                         ) : (
-                          <View
-                            className="w-4 h-4 rounded-sm mr-1.5 items-center justify-center"
-                            style={{ backgroundColor: tokens.surface.muted }}
-                          >
-                            <Bot size={10} color={tokens.text.secondary} />
+                          <View style={[styles.modelIcon, styles.modelIconFallback]}>
+                            <Bot size={rnGeometry.glyphSm} color={tokens.text.secondary} />
                           </View>
                         )}
                         <Text
-                          className="font-semibold"
+                          numberOfLines={1}
+                          className="flex-1 font-semibold"
                           style={{ color: tokens.text.secondary, fontSize: rnGeometry.textLabel }}
                         >
-                          {mg.modelName}
+                          {mg.modelName === DEFAULT_MODEL_NAME
+                            ? t('drawer.defaultModel')
+                            : mg.modelName}
                         </Text>
                       </View>
-                      {/* 日期分组(对齐 Uniapp date-group + date-title) */}
+                      {/* 日期分组(今天/昨天/更早) */}
                       {mg.dateGroups.map((dg) => (
-                        <View key={dg.bucket} className="ml-3 mb-1">
+                        <View key={dg.bucket}>
                           <Text
-                            className="px-3 py-1"
-                            style={{ color: tokens.text.tertiary, fontSize: rnGeometry.textCaption }}
+                            className="px-2.5 py-1"
+                            style={{
+                              color: tokens.text.tertiary,
+                              fontSize: rnGeometry.textCaption,
+                            }}
                           >
-                            {dg.label}
+                            {t(`drawer.${dg.bucket}`)}
                           </Text>
                           {dg.list.map((item) => (
                             <SwipeableConversationItem
@@ -925,45 +1206,66 @@ export function Drawer(props: DrawerProps) {
                         </View>
                       ))}
                     </View>
-                  ))}
-                </View>
-              )}
+                  ))
+                )}
+              </View>
             </ScrollView>
 
-            {/* 7. 底部操作区:回到主页 + 设置 + 消息(对齐 Uniapp back_index_btn + bottom_userInfo) */}
-            <View
-              className="px-4 py-3 flex-row items-center justify-between"
-              style={{ backgroundColor: tokens.surface.card }}
-            >
+            {/* 6. 底部 UserRow(web SidebarUserRow 同构):头像 24 + 昵称,点击上浮菜单 */}
+            <View className="shrink-0 px-2 pb-2">
               <Pressable
-                className="flex-row items-center gap-1.5 py-1.5 px-2 rounded-lg"
-                onPress={onGoHome}
+                onPress={isLoggedIn ? () => setUserMenuOpen((v) => !v) : handleLoginPress}
+                className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"
                 android_ripple={{ color: tokens.surface.muted }}
               >
-                <Home size={18} color={tokens.text.secondary} />
-                <Text className="text-[13px]" style={{ color: tokens.text.secondary }}>
-                  回到主页
+                {isLoggedIn ? (
+                  user.avatar ? (
+                    <Image source={{ uri: user.avatar }} style={styles.userAvatar} />
+                  ) : (
+                    <View style={[styles.userAvatar, styles.userAvatarFallback]}>
+                      <Text style={styles.userAvatarInitials}>{initials}</Text>
+                    </View>
+                  )
+                ) : (
+                  <LogIn size={rnGeometry.glyphMd} color={tokens.text.secondary} />
+                )}
+                <Text
+                  numberOfLines={1}
+                  className="flex-1"
+                  style={{ color: tokens.text.secondary, fontSize: rnGeometry.textBody }}
+                >
+                  {isLoggedIn ? user.nickname : t('common.login')}
                 </Text>
               </Pressable>
-              <View className="flex-row items-center gap-1">
-                <Pressable
-                  className="w-6 h-6 items-center justify-center rounded-lg"
-                  onPress={onOpenSettings}
-                  accessibilityLabel="设置"
-                  android_ripple={{ color: tokens.surface.muted }}
-                >
-                  <Settings size={20} color={tokens.text.secondary} />
-                </Pressable>
-                <Pressable
-                  className="w-6 h-6 items-center justify-center rounded-lg"
-                  onPress={onOpenMessages}
-                  accessibilityLabel="消息"
-                  android_ripple={{ color: tokens.surface.muted }}
-                >
-                  <MessageCircle size={20} color={tokens.text.secondary} />
-                </Pressable>
-              </View>
             </View>
+
+            {/* 7. 用户菜单浮层(点空白收起;下拉容器取角色档 card=8) */}
+            {userMenuOpen ? (
+              <>
+                <Pressable style={styles.menuScrim} onPress={() => setUserMenuOpen(false)} />
+                <View
+                  style={[styles.userMenu, { bottom: insets.bottom + USER_MENU_BOTTOM_OFFSET }]}
+                >
+                  {userMenuItems.map(({ key, labelKey, Icon, onPress }) => (
+                    <Pressable
+                      key={key}
+                      onPress={onPress}
+                      className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"
+                      android_ripple={{ color: tokens.surface.muted }}
+                    >
+                      <Icon size={rnGeometry.glyphSm} color={tokens.text.secondary} />
+                      <Text
+                        numberOfLines={1}
+                        className="flex-1"
+                        style={{ color: tokens.text.secondary, fontSize: rnGeometry.textBody }}
+                      >
+                        {t(labelKey)}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            ) : null}
           </View>
         </Animated.View>
       </View>
@@ -972,6 +1274,19 @@ export function Drawer(props: DrawerProps) {
 }
 
 const styles = StyleSheet.create({
+  // active 行品牌实底与配对前景(守门 83 R3/R4 成文形态:底/字拆兄弟 key 且名字同核心
+  // navRowActive ↔ navRowActiveText,前景取 brand.ctaForeground 配对档,内联不参与配对判定)
+  navRowActive: {
+    backgroundColor: tokens.brand.cta,
+  },
+  navRowActiveText: {
+    color: tokens.brand.ctaForeground,
+    fontSize: rnGeometry.textBody,
+  },
+  navRowText: {
+    color: tokens.text.secondary,
+    fontSize: rnGeometry.textBody,
+  },
   overlay: {
     ...StyleSheet.absoluteFill,
     // 底色只取纯黑档,不透明度由 OVERLAY_OPACITY(= --color-black-40 的 0.4)单点携带;
@@ -989,6 +1304,52 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 2, height: 0 },
     elevation: 8,
+  },
+  headerLogo: {
+    width: HEADER_LOGO_SIZE,
+    height: HEADER_LOGO_SIZE,
+  },
+  modelIcon: {
+    width: rnGeometry.glyphSm,
+    height: rnGeometry.glyphSm,
+    borderRadius: rnRadiusFor.control,
+  },
+  modelIconFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.muted,
+  },
+  userAvatar: {
+    width: USER_AVATAR_SIZE,
+    height: USER_AVATAR_SIZE,
+    borderRadius: rnRadiusFor.chip,
+  },
+  userAvatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.muted,
+  },
+  userAvatarInitials: {
+    fontSize: rnGeometry.textLabel,
+    fontWeight: '600',
+    color: tokens.text.secondary,
+  },
+  menuScrim: {
+    ...StyleSheet.absoluteFill,
+  },
+  userMenu: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    // 下拉菜单容器:角色档 card(§3.1"下拉"定在 card,2026-09-27 用户定档卡片一律此档)
+    borderRadius: rnRadiusFor.card,
+    backgroundColor: tokens.surface.card,
+    paddingVertical: 4,
+    shadowColor: tokens.gray.black,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 12,
   },
 })
 
