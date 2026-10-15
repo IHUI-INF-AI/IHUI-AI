@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { deleteFavorite, getFavorites } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { BookmarkScreen as SharedBookmarkScreen } from '@ihui/rn-app'
 import type { BookmarkItem } from '@ihui/rn-app'
@@ -27,9 +27,20 @@ export function BookmarkScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<BookmarkItem[]>('/api/favorites')
-      if (!res.success) throw new Error()
-      setItems(res.data ?? [])
+      // 收藏只有 GET /api/favorites 这一个来源(/api/bookmarks 在后端不存在)。
+      // 传输层字段按后端契约叫 resource*,共享视图模型 BookmarkItem 叫 target*,
+      // 名字在**这一处边界**转换,不在屏内两处各转一次。
+      const res = await getFavorites({ page: 1, pageSize: 50 })
+      if (!res.success || !res.data) throw new Error()
+      setItems(
+        res.data.list.map((f) => ({
+          id: f.id,
+          targetId: f.resourceId,
+          targetType: f.resourceType,
+          title: f.title ?? '',
+          createdAt: f.createdAt,
+        })),
+      )
     } catch {
       setError(t('bookmark.loadFailed'))
     } finally {
@@ -51,9 +62,7 @@ export function BookmarkScreen() {
   }
 
   const onRemove = async (item: BookmarkItem) => {
-    const res = await fetchApi<void>(`/api/bookmarks/${encodeURIComponent(item.id)}`, {
-      method: 'DELETE',
-    })
+    const res = await deleteFavorite(item.targetType, item.targetId)
     if (res.success) setItems((prev) => prev.filter((b) => b.id !== item.id))
     else setError(apiFailureToText(res, t('common.failed')))
   }
