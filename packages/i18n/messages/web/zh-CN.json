@@ -19179,6 +19179,7 @@
     "deleteDescription": "将删除账号「{name}」及其全部签到记录，此操作不可恢复。",
     "deviceMap": "设备指纹",
     "deviceMapInvalid": "设备指纹不是合法的 JSON 对象",
+    "deviceMapProxyHint": "多账号防风控:给每个账号填一个独立代理即可绑定独立出口 IP,如 \"proxy\": \"http://用户名:密码@主机:端口\"(支持 http/socks5)。本机直连账号留空即可",
     "deviceMapPlaceholder": "'{'\"ua\": \"...\", \"av\": \"...\"'}'（可选，留空自动生成）",
     "emptyAccounts": "暂无签到账号，点击右上角添加",
     "emptyCredits": "暂无积分记录",
