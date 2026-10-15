@@ -2433,18 +2433,6 @@
           "markdownDescription": "Enables the checkin_snapshot_restore command without any pre-configured scope."
         },
         {
-          "description": "Enables the checkin_workbuddy_web_login_close command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-checkin-workbuddy-web-login-close",
-          "markdownDescription": "Enables the checkin_workbuddy_web_login_close command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the checkin_workbuddy_web_login_open command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-checkin-workbuddy-web-login-open",
-          "markdownDescription": "Enables the checkin_workbuddy_web_login_open command without any pre-configured scope."
-        },
-        {
           "description": "Enables the checkin_workbuddy_web_login_probe command without any pre-configured scope.",
           "type": "string",
           "const": "allow-checkin-workbuddy-web-login-probe",
@@ -2881,18 +2869,6 @@
           "type": "string",
           "const": "deny-checkin-snapshot-restore",
           "markdownDescription": "Denies the checkin_snapshot_restore command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the checkin_workbuddy_web_login_close command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-checkin-workbuddy-web-login-close",
-          "markdownDescription": "Denies the checkin_workbuddy_web_login_close command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the checkin_workbuddy_web_login_open command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-checkin-workbuddy-web-login-open",
-          "markdownDescription": "Denies the checkin_workbuddy_web_login_open command without any pre-configured scope."
         },
         {
           "description": "Denies the checkin_workbuddy_web_login_probe command without any pre-configured scope.",
