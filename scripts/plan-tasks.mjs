@@ -47,6 +47,10 @@ import { flagValue, describeFlagToken } from './lib/flag-value.mjs'
 //   · "这一行点名了哪些文件" ← 守门 184 的 `extractRefs`(只认反引号内,已剥行号/fragment/glob);
 //   · "哪些文件此刻不干净"   ← 守门 54 的 `parsePorcelainZ`(`git status --porcelain -z` 记录格式)。
 import { extractRefs } from './check-live-doc-references.mjs'
+// 同题分组**只此一份实现**(§0.6):直接委托守门 203 的 `findDuplicateGroups`(含它自己的最小长度阈
+// 与 2026-10-16 新加的「无号同题」第三类)。派单面不得另拍阈值 —— 上一版这里自己写了个 `length < 20`,
+// 而 203 的阈更宽,结果"门判得出的组、清单点名不出",两份尺子的分歧正是本仓记过最多次的那一型。
+import { findDuplicateGroups } from './check-plan-task-duplicates.mjs'
 import { parsePorcelainZ } from './check-uncommitted-age.mjs'
 // 第三件事:"这个工作树 blob 是不是该路径的某个历史版本"(纯滞后副本 vs 真在飞)——
 // 唯一出口是工作区自愈的 `blobInAncestry`(与守门 84 同一把尺子,四态对象)。
@@ -156,6 +160,35 @@ export function parseArgs(argv) {
  *    "真在飞"继续让位**,并经 `judgedList` 逐条报名,绝不静默少判(约束④);
  *  - 不传 lagJudge ⇒ 判据与旧版逐字同值(所有命中都算冲突)。
  */
+/**
+ * 派单面的「同题副本」分组(2026-10-16 立)。指纹一律取**守门 203 那一份实现**(见上方 import 注),
+ * 本器不另归一化一遍 —— 两处各算一次必然漂开,而漂开的表现不是报错,是"门报 N 组、清单一个没点名"。
+ *
+ * 为什么要有这一格:同一件事被登记两份时,派单清单会把两份**都**发出去(2026-10-16 实测:默认档
+ * 425 行可派单里 37 组 / 99 行同题)⇒ 两个会话各读一份、各领一张票,做完还被记两遍账 —— 正是机主
+ * 禁止的"agent 打架重复做同一件任务"。
+ * 口径与上一格 `sameIdDone` 一致:**只点名,不剔名额、不判红**。按基号把副本剔出派单面等于替人判定
+ * "这条没人要了",而"没做完的活被记成做过的"是本仓反复记过的失效型(§1 F4 同一条禁令)。
+ * 最小长度阈与"什么算同题"一律由门 203 决定(本器只把行号映射回来),不在此处另拍一条。
+ */
+export function sameTitleDispatchGroups(rows) {
+  const list = (Array.isArray(rows) ? rows : []).filter((r) =>
+    String(r?.raw ?? '').startsWith('- [ ]'),
+  )
+  if (list.length < 2) return []
+  const sub = findDuplicateGroups(list.map((r) => String(r.raw)).join('\n'))
+  return sub
+    .map((g) => ({
+      fingerprint: g.fingerprint,
+      members: g.members.map((mm) => {
+        const src = list[mm.line - 1]
+        return { line: Number(src?.line) || 0, title: String(src?.title ?? '').slice(0, 46) }
+      }),
+    }))
+    .filter((g) => g.members.length > 1)
+    .sort((a, b) => a.members[0].line - b.members[0].line)
+}
+
 export function fileConflictOverlay({ rows, dirtySet, headSet, lagJudge = null }) {
   const hasAnyUnder = (set, key) => {
     const pre = key + '/'
@@ -2574,6 +2607,24 @@ function main() {
           )
         }
         if (sid.pairs.length > 12) console.log(`    …另 ${sid.pairs.length - 12} 对见 --json 的 counts.sameIdDonePairs`)
+      }
+      // 同题多份未勾行混在派单清单里 ⇒ 两个会话各读一份、各领一张票,做完的事还被记两遍账。
+      // 与上一格同口径:点名到行,不剔名额、不判红(剔名额就是 §1 禁止的"替人判定这条没人要")。
+      const stg = sameTitleDispatchGroups(rows)
+      if (stg.length > 0) {
+        const stRows = stg.reduce((s, g) => s + g.members.length, 0)
+        console.log(
+          `  ⚠️ 同题副本(与守门 203 **同一份指纹**量得):本清单里 ${stg.length} 组 / ${stRows} 行是同一件事的第二次以上登记` +
+            ' ⇒ 一组只该领一张票。本档只点名、不剔名额;' +
+            '结清出口:整行逐字节相同的走 `node scripts/plan-tasks-merge.mjs --fold-identical-open-rows`(无注记 N→1),' +
+            '正文已漂开的那一族机器折半即有损,交人工按标题锚点对齐(禁止手写归并注记)。',
+        )
+        for (const g of stg.slice(0, 8))
+          console.log(
+            `    ${g.members.length} 份 @ L${g.members.map((m) => m.line).join(',L')}: ${g.members[0].title}`,
+          )
+        if (stg.length > 8)
+          console.log(`    …另 ${stg.length - 8} 组(全量读数跑 node scripts/check-plan-task-duplicates.mjs)`)
       }
     }
     // 文件归属叠层只在显式旗标下生效 —— 默认派单口径的输出面已有下游按行解析(归并器/自检),
