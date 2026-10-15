@@ -38,12 +38,14 @@
  *
  * provenance: 7ab6f29e01c4b3d58a2f1e9c04d76b35a8e2c9f1d4b7a6e3c8f5d2b1a9e4c7f0
  */
-import { lstatSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GATE_LABEL = '[check-no-nested-git]'
+/** 具名豁免台账(§0.7「验过才免、会到期」的落地形态)。缺文件/坏 JSON ⇒ 不放行任何豁免。 */
+const EXEMPTION_FILE = join(REPO_ROOT, 'scripts', 'data', 'no-nested-git-exemptions.json')
 
 /** 仓库根 .git 本体(本仓挂载,gitfile)按精确路径豁免 —— 其余任何 .git 命中即红。 */
 export function isRepoRootGit(absPath, repoRoot = REPO_ROOT) {
@@ -60,6 +62,73 @@ const PRUNED_DIRS = new Set(['node_modules', '.pnpm', '.venv', 'venv', '__pycach
  * 不这么做的后果是 §12e 禁止的恒红门:有人照规矩开一个 worktree,此后所有无关提交都被拦。
  */
 const SANCTIONED_LANDINGS = new Set(['.worktrees'])
+
+/** 目录串归一(斜杠方向 / 前导 ./ / 尾斜杠),豁免按**逐字等值**比对,不做前缀、不做同名。 */
+function normRel(p) {
+  return String(p).replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '')
+}
+
+function isoToday() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+/**
+ * 读具名豁免台账。返回 `{entries, error}`:
+ *  文件缺/坏 JSON ⇒ `error` 非空且 `entries=[]` —— **不放行任何豁免**(取不到输入绝不冒绿,§0.3),
+ *  形态不合格的条目(缺 owner / 缺 why / 到期日不是 YYYY-MM-DD)整条作废并单独点名。
+ */
+export function loadNamedExemptions(file = EXEMPTION_FILE) {
+  if (!existsSync(file)) return { entries: [], error: `台账文件不存在:${file}` }
+  let parsed
+  try {
+    parsed = JSON.parse(readFileSync(file, 'utf8'))
+  } catch (e) {
+    return { entries: [], error: `台账坏 JSON(${e.message})` }
+  }
+  const list = Array.isArray(parsed?.entries) ? parsed.entries : null
+  if (!list) return { entries: [], error: '台账缺 entries 数组' }
+  const bad = []
+  const entries = []
+  for (const e of list) {
+    const okShape =
+      e && typeof e.rel === 'string' && normRel(e.rel) !== '' && typeof e.owner === 'string' &&
+      e.owner.trim() !== '' && typeof e.why === 'string' && e.why.trim() !== '' &&
+      /^\d{4}-\d{2}-\d{2}$/.test(String(e.expires ?? ''))
+    if (okShape) entries.push({ ...e, rel: normRel(e.rel) })
+    else bad.push(String(e?.rel ?? '(无 rel)'))
+  }
+  return { entries, error: '', bad }
+}
+
+/**
+ * 按台账把 hits 分成「仍判红 / 具名放行」两堆,并另算**腐烂**(§0.7:已登记的豁免在审面不再命中 ⇒ 清单腐烂判红)。
+ * 判据要点(都是为了让这条出口不能被滥用):
+ *  · 只有**容器目录 rel 与台账条目逐字等值**才免;更深位置、同名别处、前缀相似一律照旧红;
+ *  · 到期(ISO 字典序比较)⇒ 不免,并点名"需重新 ack";
+ *  · 台账读不到 ⇒ 传入 entries=[] 即可,效果是零放行(严档)。
+ */
+export function splitByExemption(hits, entries, today = isoToday()) {
+  const reported = []
+  const exempted = []
+  const matched = new Set()
+  for (const h of hits) {
+    const segs = String(h.rel).split(/[\\/]/).filter(Boolean)
+    const container = segs.slice(0, -1).join('/')
+    const e = entries.find((x) => x.rel === container)
+    if (!e) {
+      reported.push(h)
+      continue
+    }
+    if (e.expires < today) {
+      reported.push({ ...h, exemptWhy: `具名豁免已到期(${e.expires})⇒ 需重新 ack` })
+      continue
+    }
+    matched.add(e.rel)
+    exempted.push({ ...h, entry: e })
+  }
+  const stale = entries.filter((e) => !matched.has(e.rel))
+  return { reported, exempted, stale }
+}
 
 /**
  * 有界枚举仓库树,收集一切名为 `.git` 的 entry(目录或 gitfile)。
@@ -139,17 +208,39 @@ export function scanForNestedGit(root, opts = {}) {
 /**
  * 判决纯函数:hits 非空 或 truncated(未判完) ⇒ 红。
  * unreadable 单条不红(权限噪音),但如实透出供人复核。
+ *
+ * `opts.entries` 给出具名豁免台账条目时,按 `splitByExemption` 把命中分成两堆:
+ * 只有**逐字等值容器目录 + 形态合格 + 未到期**那几条被放行,放行结果一并回传给调用方大声打印
+ * (§0.7 不许静默豁免)。不传 entries ⇒ 行为与加装豁免之前**逐字相同**(既有调用方/测试不受影响)。
+ * `opts.checkStale` 只在扫的是仓库根本体时为真:那才有资格判「台账里的条目已无命中 ⇒ 清单腐烂」。
  */
-export function evaluateResult(scan) {
-  const reasons = scan.hits.map(
-    (h) => `${h.isDir ? '嵌套 .git 目录' : '嵌套 .git(gitfile)'}: ${h.path}`
+export function evaluateResult(scan, opts = {}) {
+  const entries = opts.entries ?? []
+  const checkStale = opts.checkStale === true
+  const split = splitByExemption(scan.hits, entries, opts.today ?? isoToday())
+  const reasons = split.reported.map(
+    (h) =>
+      `${h.isDir ? '嵌套 .git 目录' : '嵌套 .git(gitfile)'}: ${h.path}` +
+      (h.exemptWhy ? ` —— ${h.exemptWhy}` : '')
   )
+  if (checkStale) {
+    for (const s of split.stale) {
+      reasons.push(
+        `具名豁免腐烂:台账里的「${s.rel}」本次审面已无命中 ⇒ 清单腐烂判红(§0.7:豁免必须随现场一起销,不许留在册上等人猜它还在不在)`
+      )
+    }
+  }
   if (scan.truncated) {
     reasons.push(
       '扫描超预算未判完(truncated) —— 没判完不能出合格证:用 --root 指到更小子树分段复跑,定位到命中段即为真凶'
     )
   }
-  return { ok: reasons.length === 0, reasons }
+  return {
+    ok: reasons.length === 0,
+    reasons,
+    exempted: split.exempted,
+    stale: split.stale,
+  }
 }
 
 /** CLI 主体:返回进程退出码。 */
@@ -165,28 +256,71 @@ export async function main(argv = process.argv.slice(2)) {
   if (ri !== -1 && argv[ri + 1]) root = resolve(argv[ri + 1])
 
   const scan = scanForNestedGit(root)
-  const verdict = evaluateResult(scan)
+  const ledger = loadNamedExemptions()
+  const verdict = evaluateResult(scan, {
+    entries: ledger.entries,
+    checkStale: resolve(root) === REPO_ROOT,
+  })
+  if (ledger.error && scan.hits.length > 0) {
+    verdict.reasons.push(
+      `具名豁免台账不可用(${ledger.error})⇒ 本轮零放行:上面的命中一条也不许被当作"已豁免"`
+    )
+    verdict.ok = false
+  }
+  if (ledger.bad && ledger.bad.length > 0) {
+    verdict.reasons.push(
+      `具名豁免条目形态不合格 ${ledger.bad.length} 条(缺 owner/why 或到期日不是 YYYY-MM-DD)⇒ 整条作废:${ledger.bad.join(', ')}`
+    )
+    verdict.ok = false
+  }
 
   if (verdict.ok) {
     console.info(
       `${GATE_LABEL} ✅ 工作树内嵌套 git 仓 = 0(扫描 ${scan.scanned} 条目,` +
-        `symlink 跳过 ${scan.skippedReparse},unreadable ${scan.unreadable.length})`
+        `symlink 跳过 ${scan.skippedReparse},unreadable ${scan.unreadable.length}` +
+        `${verdict.exempted.length ? `,具名放行 ${verdict.exempted.length} 处(逐条见下)` : ''})`
     )
+    for (const x of verdict.exempted) {
+      console.info(
+        `   🪪 具名豁免:${x.entry.rel} —— 归属 ${x.entry.owner};因由 ${x.entry.why};到期 ${x.entry.expires}(过期即判红)`
+      )
+    }
+    if (ledger.error) {
+      console.warn(`${GATE_LABEL} ⚠ 具名豁免台账不可用(${ledger.error});本轮无命中故不影响结论,但下次有命中时将零放行`)
+    }
     return 0
   }
 
   console.error(`${GATE_LABEL} ❌ 工作树内出现嵌套 git 仓 —— 守门 208 红(blocking):`)
   for (const r of verdict.reasons) console.error(`  - ${r}`)
+  if (verdict.exempted.length) {
+    console.error(`  ℹ 另有 ${verdict.exempted.length} 处已被具名豁免放行(仍逐条列出,不静默):`)
+    for (const x of verdict.exempted) {
+      console.error(
+        `     - ${x.entry.rel} —— 归属 ${x.entry.owner};因由 ${x.entry.why};到期 ${x.entry.expires}`
+      )
+    }
+  }
   if (scan.unreadable.length) {
     console.error(`  (unreadable ${scan.unreadable.length} 处,未穿透复核: ${scan.unreadable.slice(0, 5).join(', ')}${scan.unreadable.length > 5 ? ' …' : ''})`)
   }
   console.error('  处置: 演练/夹具仓 → 删目录或摘 .git;测试基建 → 落点改 scripts/lib/scratch-dir.mjs mkScratch()。')
+  console.error(
+    `  确属长期合法的在飞现场 → 走具名台账 scripts/data/no-nested-git-exemptions.json(必须带 owner + why + YYYY-MM-DD 到期日;逐字等值容器目录才免,到期自动翻红,条目失去命中按清单腐烂判红)。`
+  )
   console.error('  因由: 嵌套仓被 IDE 源代码管理当独立仓库扫描,聚合出「暂存更改 10000+ 全 D」幻影计数(2026-10-14 事故)。')
   return 1
 }
 
 /** §22d 镜像测试入口:判据纯函数统一从 __test__ 取用。 */
-export const __test__ = { scanForNestedGit, evaluateResult, isRepoRootGit }
+export const __test__ = {
+  scanForNestedGit,
+  evaluateResult,
+  isRepoRootGit,
+  loadNamedExemptions,
+  splitByExemption,
+  normRel,
+}
 
 /** §22d 直接运行守卫:被 import(镜像测试/编排器)时不自跑。 */
 const isDirectRun =
