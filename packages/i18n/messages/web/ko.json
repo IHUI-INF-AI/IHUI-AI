@@ -19271,6 +19271,7 @@
     "captureDirFound": "로컬 TRAE 데이터 디렉터리를 감지했습니다: {dir}",
     "captureDirMissing": "로컬 TRAE 데이터 디렉터리를 찾을 수 없습니다(환경 변수 IHUI_TRAE_DIR로 지정 가능)",
     "captureEmpty": "로컬 데이터 디렉터리에서 사용 가능한 JWT를 찾지 못했습니다",
+    "captureOpaqueOnly": "계정 ID만 감지되었으며 사용 가능한 JWT가 없습니다(최신 Trae는 자격 증명을 디스크에 저장하지 않음). 웹 로그인을 사용하거나 JWT를 직접 붙여넣으세요",
     "captureScan": "로컬 스캔",
     "captureImport": "선택한 계정 가져오기({count})",
     "captureImported": "로컬에서 계정 {count}개를 가져왔습니다",

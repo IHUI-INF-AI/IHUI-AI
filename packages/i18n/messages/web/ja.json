@@ -19271,6 +19271,7 @@
     "captureDirFound": "ローカルの TRAE データディレクトリを検出しました：{dir}",
     "captureDirMissing": "ローカルの TRAE データディレクトリが見つかりません（環境変数 IHUI_TRAE_DIR で指定できます）",
     "captureEmpty": "ローカルのデータディレクトリから利用可能な JWT を検出できませんでした",
+    "captureOpaqueOnly": "アカウント ID のみ検出され、利用可能な JWT は見つかりませんでした（新版 Trae は資格情報をディスクに保存しません）。Web ログインを使用するか、JWT を手動で貼り付けてください",
     "captureScan": "ローカルをスキャン",
     "captureImport": "選択したアカウントをインポート（{count}）",
     "captureImported": "ローカルから {count} 件のアカウントをインポートしました",
