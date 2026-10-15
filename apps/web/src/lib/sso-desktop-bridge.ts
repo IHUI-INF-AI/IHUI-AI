@@ -21,7 +21,7 @@
 import { exchangeSsoCode, extractSsoCode, SSO_CLIENT_IDS } from '@ihui/shared'
 import { useAuthStore } from '@/stores/auth'
 import { resolveApiBaseUrl } from '@/lib/api-base-url'
-import { closeChromeWindow } from '@/lib/tauri-bridge'
+import { closeEmbeddedBrowser } from '@/lib/tauri-bridge'
 import type { AuthUser } from '@ihui/api-client'
 
 const DESKTOP_CLIENT_ID = SSO_CLIENT_IDS.DESKTOP
@@ -33,31 +33,32 @@ const DESKTOP_CLIENT_ID = SSO_CLIENT_IDS.DESKTOP
 let lastProcessedCode: string | null = null
 
 /**
- * 本次"在浏览器中登录"打开的 Chrome --app 窗口(CDP 端口 + 地址前缀)。
+ * 本次"在浏览器中登录"打开的是不是**项目内嵌浏览器窗**(布尔即可,不再需要 CDP 端口)。
  *
- * 2026-10-13 立:桌面端按钮改走 open_in_chrome 后,登录闭环的最后一环是把浏览器窗关掉
+ * 2026-10-13 立:桌面端按钮改走外部浏览器后,登录闭环的最后一环是把那个窗关掉
  * (用户要求"已登录直接获取并关闭浏览器")。会话由 LoginDialog 在打开窗口时记住,
  * 本模块在换 token 成功后消费它 —— 放在换 token 侧而不是打开侧,是因为**只有换成功**
- * 才该关窗:失败时窗留着,用户可以就地重试(比如 Chrome 外部协议弹窗没点开)。
- * 没有会话(Chrome 不可用回退到系统默认浏览器的旧路径)⇒ 无从关起,静默跳过。
+ * 才该关窗:失败时窗留着,用户可以就地重试。
+ * 2026-10-16 改:窗口形态统一为项目内嵌浏览器(embedded_browser),关窗只认"有没有
+ * 开过内嵌窗"这一件事,不需要端口与前缀;走系统默认浏览器登录的路径不置位 ⇒ 无从关起,
+ * 静默跳过。
  */
-let pendingSsoChrome: { port: number; urlPrefix: string } | null = null
+let pendingSsoChrome = false
 
-/** 记住刚用 open_in_chrome 打开的 SSO 登录窗,供登录成功后关闭。 */
-export function rememberSsoChromeWindow(port: number, urlPrefix: string): void {
-  pendingSsoChrome = { port, urlPrefix }
+/** 记住刚开的 SSO 内嵌浏览器窗,供登录成功后关闭(2026-10-16 改内嵌形态)。 */
+export function rememberSsoEmbeddedWindow(): void {
+  pendingSsoChrome = true
 }
 
-/** 关掉记住的 SSO 登录窗;失败(端口已掉/Chrome 已退)只记一行 warn,不冒泡。 */
+/** 关掉记住的 SSO 内嵌浏览器窗;失败(窗口已经被用户关掉)只记一行 warn,不冒泡。 */
 async function closeRememberedSsoChrome(): Promise<void> {
-  const session = pendingSsoChrome
-  if (!session) return
+  if (!pendingSsoChrome) return
   // 先清账再关:重复派发的 deep-link 走到这里不该再开第二次关窗请求。
-  pendingSsoChrome = null
+  pendingSsoChrome = false
   try {
-    await closeChromeWindow(session.port, session.urlPrefix)
+    await closeEmbeddedBrowser()
   } catch (e) {
-    console.warn('[chrome] 关闭 SSO 登录窗失败:', e)
+    console.warn('[embedded-browser] 关闭 SSO 登录窗失败:', e)
   }
 }
 

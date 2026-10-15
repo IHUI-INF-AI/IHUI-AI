@@ -992,6 +992,57 @@ export function requiresUserConfirmation(tool: Tool, leaseContentDrifted = false
   return false;
 }
 
+/**
+ * 工具入参校验(影子/enforce 两档)的**唯一**应用点。
+ *
+ * 返回非 null = 这次调用必须被拒绝(调用方原样 return 该 ToolResult,不得执行);
+ * 返回 null = 放行 —— enforce 的 pass-normalized 档可能已把 `call.arguments`
+ * 替换成归一树(原键全保留),调用方继续原路径。
+ *
+ * 档位语义(A31 第①步「影子校验」/ A36 第③步「enforce」;默认 shadow,L22150 装车):
+ *   off      显式关闭,校验器一次都不被调用,行为与不加这段代码时逐字相同;
+ *   shadow   校验器真跑、只进遥测计数器,不改 call.arguments、不改返回值、不拦调用;
+ *   enforce  先过 schema-aware 容错解析(原值即过则一次都不 re-parse),违规即拒 ——
+ *            错误里带**单行**违规清单供模型修复;拒绝发生在权限/批准弹窗与限流**之前**
+ *            (一条参数就不合法的调用没有可批准的事,也不该消耗限流配额);
+ *            容错解析通过时**只有**这一档会替换 call.arguments(归一树,原键全保留)。
+ * 与 doom-loop 检测共存:repair 不是执行器内的第二次自动重试 —— 拒绝直接 return
+ * (不经 executeWithRetry;`isRetryableErrorType` 也不认 invalid_arguments*),
+ * 模型是否再投由下一轮决定;而按工具名计的**连续**拒绝窗把回喂封顶在
+ * TOOL_ARG_REPAIR_MAX_ATTEMPTS 次,超限硬失败并保留最后一次违规清单 ⇒ 换写法也顶得出。
+ * 拒绝文案用 ASCII(守门 70 的硬编码中文基线棘轮同样约束本文件,见上方预算标注注记)。
+ *
+ * hub 分支与本地路径**共用**本函数(不写第二份校验):两处唯一的差别是"拿不拿得到
+ * Tool 对象",见 `executeToolCall` hub 分支的覆盖面注记。
+ */
+function applyToolArgValidation(tool: Tool, call: ParsedToolCall): ToolResult | null {
+  const toolArgMode = resolveToolArgValidationMode();
+  if (toolArgMode === 'enforce') {
+    const decision = enforceValidateToolArguments(tool, call.arguments);
+    if (decision.status === 'reject') {
+      const repair = noteEnforceRepairRejection(tool.name);
+      const violations = formatValidationErrorsLine(decision.errors);
+      return {
+        success: false,
+        output: '',
+        error: repair.exhausted
+          ? `arg_validation_exhausted: rejection #${repair.attempt} exceeds the ${repair.max}-attempt repair window; do not re-issue this call without new information. last violations -> ${violations}`
+          : `arg_validation_failed (${repair.attempt}/${repair.max}): fix these fields and retry. violations -> ${violations}`,
+        errorType: repair.exhausted ? 'invalid_arguments_exhausted' : 'invalid_arguments',
+      };
+    }
+    if (decision.status === 'pass-normalized') {
+      call.arguments = decision.args;
+    }
+    // pass / undetermined(校验器抛异常,fail-open 已记 validatorThrew)→ 原路径继续。
+    return null;
+  }
+  // 刻意放在**批准弹窗之前** —— 弹窗与"批准 = 执行"的同一引用传递链路(上一票实测出的
+  // 语义)在此完全不受影响。
+  shadowValidateToolArguments(tool, call.arguments);
+  return null;
+}
+
 export async function executeToolCall(
   call: ParsedToolCall,
   ctx: ToolContext,
@@ -1001,9 +1052,27 @@ export async function executeToolCall(
   // 横切关注点(permission / rate limit / retry)在 hub 未启用或 fallback 时仍由原路径处理。
   if (hubEnabled && hubResolver) {
     const resolver = hubResolver;
+    // 入参校验覆盖面(L15134-②,2026-10-15 补):本分支曾因"拿不到 Tool 对象"整体跳过
+    // 影子/enforce 校验(源码注释自标"本票不扩面")。现读判据:CompoundResolver 是
+    // local-shadows-remote,而 hubLocalRegistry 的每个条目都 wrap 自主 registry
+    // (enableToolHub 启用时快照 + registerTools 在启用期间同步)—— 所以**本地解析**
+    // 的调用(全部内建工具,以及非 hub-adapter 路径注册的 MCP 工具)用 getTool 就能
+    // 拿回将要执行的那个真实 Tool,与本地路径同一判据(共用 applyToolArgValidation,
+    // 不写第二份校验)。拒绝同样发生在 dispatch 之前:一条参数就不合法的调用没有
+    // 可执行的事,也不该消耗墙钟预算。
+    // 剩余缺口(如实登记,不假判绿):仅 **remote 解析**(hub-adapter 路径注册的 MCP
+    // 工具)仍拿不到 Tool —— 其 ToolDescription.parameters 是 inputSchema 原貌
+    // (mcp-adapter.ts:100-102 的约定),不是 ToolParameter 属性表;在执行器层按形状
+    // 猜转换会把垃圾 schema 喂进校验器 ⇒ 假拒绝(把正常调用改红),比不校验更坏。
+    // 那一族维持不校验,与 G-712"推不出 schema 不得兜空表冒充已校验"同一条纪律。
+    const hubTool = getTool(call.name);
+    if (hubTool) {
+      const rejection = applyToolArgValidation(hubTool, call);
+      if (rejection) return rejection;
+    }
     try {
-      // hub 路径同样收进唯一出口:这一支拿不到本地 Tool 对象(可能是 MCP 远端工具),
-      // 所以按**默认档**约束 —— 特性开关不得成为绕过墙钟预算的第二条执行路径。
+      // hub 路径同样收进唯一出口:拿不到本地 Tool 对象时(remote 工具)按**默认档**
+      // 约束墙钟预算 —— 特性开关不得成为绕过墙钟预算的第二条执行路径。
       // G-426:活动上报口随 ctx 下发,长跑远端工具同样能重排空闲窗(与本地分支同一语义)。
       return await executeWithinExecBudget({ name: call.name }, ctx, (signal, reportActivity) =>
         resolver.dispatch(call.name, call.arguments, {
@@ -1027,44 +1096,10 @@ export async function executeToolCall(
   if (!tool) {
     return { success: false, output: '', error: `未知工具: ${call.name}`, errorType: 'not_found' };
   }
-  // A31 第①步「影子校验」/ A36 第③步「enforce」。默认 shadow(L22150 装车):校验器
-  // 真跑、只记账;显式 off ⇒ 整个分支等价于不存在(行为与改前逐字相同)。
-  //   shadow:跑校验、只进遥测计数器,不改 call.arguments、不改返回值、不拦调用;
-  //   enforce:先过 schema-aware 容错解析(原值即过则一次都不 re-parse),违规即拒 ——
-  //     错误里带**单行**违规清单供模型修复;拒绝发生在权限/批准弹窗与限流**之前**
-  //     (一条参数就不合法的调用没有可批准的事,也不该消耗限流配额);
-  //     容错解析通过时**只有**这一档会替换 call.arguments(归一树,原键全保留)。
-  // 与 doom-loop 检测共存:repair 不是执行器内的第二次自动重试 —— 拒绝直接 return
-  // (不经 executeWithRetry;`isRetryableErrorType` 也不认 invalid_arguments*),
-  // 模型是否再投由下一轮决定;而按工具名计的**连续**拒绝窗把回喂封顶在
-  // TOOL_ARG_REPAIR_MAX_ATTEMPTS 次,超限硬失败并保留最后一次违规清单 ⇒ 换写法也顶得出。
-  // 已知覆盖面缺口:hubEnabled 分支在 getTool 之前就 return 了,那里拿不到 Tool 对象,
-  // 影子与 enforce 都不生效,本票不扩面。
-  // 拒绝文案用 ASCII(守门 70 的硬编码中文基线棘轮同样约束本文件,见上方预算标注注记)。
-  const toolArgMode = resolveToolArgValidationMode();
-  if (toolArgMode === 'enforce') {
-    const decision = enforceValidateToolArguments(tool, call.arguments);
-    if (decision.status === 'reject') {
-      const repair = noteEnforceRepairRejection(tool.name);
-      const violations = formatValidationErrorsLine(decision.errors);
-      return {
-        success: false,
-        output: '',
-        error: repair.exhausted
-          ? `arg_validation_exhausted: rejection #${repair.attempt} exceeds the ${repair.max}-attempt repair window; do not re-issue this call without new information. last violations -> ${violations}`
-          : `arg_validation_failed (${repair.attempt}/${repair.max}): fix these fields and retry. violations -> ${violations}`,
-        errorType: repair.exhausted ? 'invalid_arguments_exhausted' : 'invalid_arguments',
-      };
-    }
-    if (decision.status === 'pass-normalized') {
-      call.arguments = decision.args;
-    }
-    // pass / undetermined(校验器抛异常,fail-open 已记 validatorThrew)→ 原路径继续。
-  } else {
-    // 刻意放在**批准弹窗之前** —— 弹窗与"批准 = 执行"的同一引用传递链路(上一票实测出的
-    // 语义)在此完全不受影响。
-    shadowValidateToolArguments(tool, call.arguments);
-  }
+  // 入参校验唯一应用点(档位语义与 repair 共存纪律见 applyToolArgValidation 头注):
+  // 违规 ⇒ 拒绝直接 return(不进权限/批准/限流/执行任何一环)。
+  const argRejection = applyToolArgValidation(tool, call);
+  if (argRejection) return argRejection;
   // P0-7 Permission rules:白名单/黑名单拦截(在 rate limit 之前,避免被限流工具仍消耗配额)
   // 权限租约(默认关闭):`activePermissionLease()` 为 null 时走的仍是改造前那一份
   // `checkPermission` 调用,行为逐字不变;有租约时也**只**可能把 rules 里的 'ask'
