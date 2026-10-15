@@ -22,6 +22,7 @@ import { Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger } f
 import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { ConversationImportPanel } from './conversation-import-panel'
 import {
   commitImport,
@@ -95,6 +96,8 @@ export default function ImportPage() {
 function CliImportSection() {
   const t = useTranslations('cliImport')
   const qc = useQueryClient()
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求
+  const { allow } = useAuthGate()
 
   const [source, setSource] = React.useState<CliConfigSource | ''>('')
   const [file, setFile] = React.useState<File | null>(null)
@@ -107,6 +110,7 @@ function CliImportSection() {
     queryKey: ['cli-import-sources'],
     queryFn: () => fetchSources(),
     staleTime: 5 * 60_000,
+    enabled: allow,
   })
   const sources: SourceInfo[] = sourcesData?.sources ?? []
 
@@ -114,6 +118,7 @@ function CliImportSection() {
   const { data: historyData, isLoading: historyLoading } = useQuery({
     queryKey: ['cli-import-history'],
     queryFn: () => fetchHistory(),
+    enabled: allow,
   })
   const history: ImportHistoryItem[] = historyData?.list ?? []
 

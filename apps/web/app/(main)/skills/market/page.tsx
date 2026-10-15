@@ -48,12 +48,15 @@ import {
   markSkillNotificationsRead,
   SKILL_MARKET_PAGE_SIZE,
 } from '@/lib/skills-market-api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 const TAGS = ['code', 'content', 'devops', 'design', 'media', 'video', 'ai', 'docs']
 
 export default function SkillsMarketPage() {
   const t = useTranslations('skills.market')
   const qc = useQueryClient()
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求
+  const { allow } = useAuthGate()
   const [q, setQ] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [tag, setTag] = React.useState('')
@@ -74,12 +77,14 @@ export default function SkillsMarketPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['skills', 'market', debounced, tag, page],
     queryFn: () => fetchSkillsMarket({ q: debounced, tag, page }),
+    enabled: allow,
   })
 
   const { data: notifications } = useQuery({
     queryKey: ['skills', 'notifications'],
     queryFn: fetchSkillNotifications,
     staleTime: 10_000,
+    enabled: allow,
   })
 
   const installMut = useMutation({

@@ -9,6 +9,8 @@ import { confirmDialog } from '@/components/feedback'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 
 import { useAuthStore } from '@/stores/auth'
 import type { FileItem } from '@/components/workspace/file-list'
@@ -33,6 +35,10 @@ export default function ProjectDetailPage() {
   const router = useRouter()
   const t = useTranslations('workspace')
   const td = useTranslations('workspace.detail')
+  // 2026-10-15 登录态门(与 settings/notifications 同型):/api/workspace/* = 当前用户的项目,
+  // 未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const queryClient = useQueryClient()
 
   const projectId = params.id
@@ -45,7 +51,7 @@ export default function ProjectDetailPage() {
   } = useQuery({
     queryKey: ['workspace', 'project', projectId],
     queryFn: () => fetchProject(projectId),
-    enabled: !!projectId,
+    enabled: allow && !!projectId,
   })
 
   const {
@@ -56,7 +62,7 @@ export default function ProjectDetailPage() {
   } = useQuery({
     queryKey: ['workspace', 'files', projectId],
     queryFn: () => fetchFiles(projectId),
-    enabled: !!projectId,
+    enabled: allow && !!projectId,
   })
 
   const [uploading, setUploading] = React.useState(false)
@@ -146,6 +152,14 @@ export default function ProjectDetailPage() {
     if (preview?.url) window.URL.revokeObjectURL(preview.url)
     setPreview(null)
   }
+
+  // 登录态门:未登录时用最简外壳 + 登录引导
+  if (!allow)
+    return (
+      <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      </div>
+    )
 
   return (
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">

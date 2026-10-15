@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Network, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { fetchTopology } from '@/lib/subagents-api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   SwarmTopologyView,
   SWARM_ROLE_LABEL,
@@ -35,10 +36,13 @@ const STATUS_DOT: Record<DispatchStatus, string> = {
 
 export default function SubagentTopologyPage() {
   const router = useRouter()
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求
+  const { allow } = useAuthGate()
   const topoQ = useQuery({
     queryKey: ['subagents', 'topology'],
     queryFn: fetchTopology,
     refetchInterval: 5000,
+    enabled: allow,
   })
 
   const topology = topoQ.data?.topology

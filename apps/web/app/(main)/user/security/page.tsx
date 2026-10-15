@@ -12,6 +12,7 @@ import { toUserFriendlyMessage } from '@ihui/shared'
 
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { BackButton } from '@/components/common'
 
 import { PasswordSection } from './PasswordSection'
@@ -24,6 +25,8 @@ export default function SecurityPage() {
   const t = useTranslations('user.security')
   const locale = useLocale()
   const user = useAuthStore((s) => s.user)
+  // 2026-10-15 登录态门:/api/users/:id/devices = 当前用户的登录设备,未就绪/未登录不发注定 401 的查询
+  const { allow } = useAuthGate()
   const [pwMsg, setPwMsg] = React.useState<FormMsg>(null)
   const [pwLoading, setPwLoading] = React.useState(false)
   const [codeCountdown, setCodeCountdown] = React.useState(0)
@@ -40,7 +43,7 @@ export default function SecurityPage() {
       if (!r.success) throw new Error(r.error)
       return r.data
     },
-    enabled: !!user?.id,
+    enabled: allow && !!user?.id,
   })
   const devicesList = devices ?? []
 

@@ -6,6 +6,9 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 
 import { MembersHeader } from './MembersHeader'
 import { MembersFilter } from './MembersFilter'
@@ -15,6 +18,8 @@ import { PAGE_SIZE, api } from './helpers'
 import type { MembersData, LevelItem } from './types'
 
 export default function MembersPage() {
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [statusFilter, setStatusFilter] = React.useState('all')
@@ -33,6 +38,7 @@ export default function MembersPage() {
     queryKey: ['members', 'levels'],
     queryFn: () =>
       api<{ list: LevelItem[] }>(`/api/admin/members/levels`).then((d) => d.list ?? []),
+    enabled: allow,
   })
 
   const { data, isLoading, error } = useQuery({
@@ -44,6 +50,7 @@ export default function MembersPage() {
       if (levelFilter !== 'all') qs.set('levelId', levelFilter)
       return api<MembersData>(`/api/admin/members?${qs.toString()}`)
     },
+    enabled: allow,
   })
 
   const total = data?.total ?? 0
@@ -73,19 +80,25 @@ export default function MembersPage() {
         }}
         levels={levels}
       />
-      <MembersList
-        members={members}
-        isLoading={isLoading}
-        error={error as Error | null}
-        levelMap={levelMap}
-      />
-      <MembersPagination
-        total={total}
-        page={page}
-        totalPages={totalPages}
-        pageSize={PAGE_SIZE}
-        setPage={setPage}
-      />
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : (
+        <>
+          <MembersList
+            members={members}
+            isLoading={isLoading}
+            error={error as Error | null}
+            levelMap={levelMap}
+          />
+          <MembersPagination
+            total={total}
+            page={page}
+            totalPages={totalPages}
+            pageSize={PAGE_SIZE}
+            setPage={setPage}
+          />
+        </>
+      )}
     </div>
   )
 }

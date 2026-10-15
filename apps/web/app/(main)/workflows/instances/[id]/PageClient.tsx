@@ -8,6 +8,8 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { Loader2 } from 'lucide-react'
 
 import { InstanceHeader } from './InstanceHeader'
@@ -20,6 +22,10 @@ export default function InstanceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const t = useTranslations('workflows')
+  // 2026-10-15 登录态门(与 settings/notifications 同型):/api/workflows/instances/* = 当前用户的实例,
+  // 未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const locale = useLocale()
   const [logLevel, setLogLevel] = React.useState<'all' | LogLevel>('all')
 
@@ -27,16 +33,19 @@ export default function InstanceDetailPage() {
     queryKey: ['wf', 'instance', id],
     queryFn: () =>
       api<{ instance: Instance }>(`/api/workflows/instances/${id}`).then((d) => d.instance),
+    enabled: allow,
   })
   const tasksQ = useQuery({
     queryKey: ['wf', 'instance', id, 'tasks'],
     queryFn: () =>
       api<{ list: Task[] }>(`/api/workflows/instances/${id}/tasks`).then((d) => d.list ?? []),
+    enabled: allow,
   })
   const logsQ = useQuery({
     queryKey: ['wf', 'instance', id, 'logs'],
     queryFn: () =>
       api<{ list: Log[] }>(`/api/workflows/instances/${id}/logs`).then((d) => d.list ?? []),
+    enabled: allow,
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -52,6 +61,14 @@ export default function InstanceDetailPage() {
     const d = new Date(v)
     return Number.isNaN(d.getTime()) ? '-' : dateFmt.format(d)
   }
+
+  // 登录态门:未登录时用最简外壳 + 登录引导
+  if (!allow)
+    return (
+      <div className="space-y-4 px-4 py-4">
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      </div>
+    )
 
   if (instQ.isLoading)
     return (

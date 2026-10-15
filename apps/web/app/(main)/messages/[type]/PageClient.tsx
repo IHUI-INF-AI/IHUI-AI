@@ -14,6 +14,8 @@ import { Avatar } from '@/components/data'
 import { cn } from '@/lib/utils'
 import type { NotificationItem } from '@ihui/types'
 import { BackButton } from '@/components/common'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 type MessageType = 'notice' | 'like' | 'favorite' | 'comment' | 'fans' | 'private-letter'
 
@@ -88,13 +90,15 @@ export default function MessageTypePage() {
   const qc = useQueryClient()
   const t = useTranslations('messages')
   const tp = useTranslations('privateMessages')
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
 
   const isValid = VALID_TYPES.includes(type)
   const isPrivateLetter = type === 'private-letter'
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['messages-type', type],
-    enabled: isValid,
+    enabled: allow && isValid,
     queryFn: async (): Promise<UnifiedItem[]> => {
       if (isPrivateLetter) {
         const res = await api<{ list: Conversation[] }>(`/api/messages/list?page=1&pageSize=10`)
@@ -162,7 +166,9 @@ export default function MessageTypePage() {
         </h2>
       </div>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : isLoading ? (
         <div className="whitespace-nowrap py-8 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {t('loading')}

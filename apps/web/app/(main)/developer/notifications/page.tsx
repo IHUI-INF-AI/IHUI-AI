@@ -22,6 +22,8 @@ import {
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button, Label, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { BackButton } from '@/components/common'
 
 interface NotificationPrefs {
@@ -80,17 +82,22 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 export default function NotificationsPage() {
   const t = useTranslations('developer.notifications')
+  // 2026-10-15 登录态门:GET/PUT /api/developer/notifications 后端 requireAuth,
+  // 未就绪/未登录不发注定 401 的挂载请求,整页改为显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [prefs, setPrefs] = React.useState<NotificationPrefs>(DEFAULT_PREFS)
   const [loaded, setLoaded] = React.useState(false)
 
   React.useEffect(() => {
+    if (!allow) return
     api<{ preferences?: NotificationPrefs }>('/api/developer/notifications')
       .then((d) => {
         if (d.preferences) setPrefs({ ...DEFAULT_PREFS, ...d.preferences })
       })
       .catch(() => {})
       .finally(() => setLoaded(true))
-  }, [])
+  }, [allow])
 
   const saveMut = useMutation({
     mutationFn: () =>
@@ -101,6 +108,14 @@ export default function NotificationsPage() {
     onSuccess: () => toast.success(t('saved')),
     onError: (e: Error) => toast.error(e.message),
   })
+
+  if (!allow) {
+    return (
+      <div className="px-4 py-4">
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      </div>
+    )
+  }
 
   if (!loaded) {
     return (

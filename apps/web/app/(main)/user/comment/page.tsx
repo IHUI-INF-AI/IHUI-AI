@@ -10,6 +10,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, MessageSquare } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { pushError } from '@/stores/error-banner'
 import { BackButton } from '@/components/common'
 
@@ -31,10 +32,12 @@ export default function CommentPage() {
   const t = useTranslations('user.comment')
   const locale = useLocale()
   const user = useAuthStore((s) => s.user)
+  // 2026-10-15 登录态门:/api/comments?authorId= = 当前用户的评论,未就绪/未登录不发注定 401 的查询
+  const { allow } = useAuthGate()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['user', 'comment', user?.id],
-    enabled: !!user?.id,
+    enabled: allow && !!user?.id,
     queryFn: async (): Promise<CommentItem[]> => {
       const r = await fetchApi<{ list?: CommentItem[] } | CommentItem[]>(
         `/api/comments?authorId=${user!.id}`,

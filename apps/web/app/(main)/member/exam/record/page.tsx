@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 
 import { getMyRecords, getResult, type ExamResult, type ExamResultDetail } from '@ihui/api-client'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { Alert } from '@/components/feedback'
@@ -43,6 +44,7 @@ const PAGE_SIZE = 10
 export default function MemberExamRecordPage() {
   const locale = useLocale()
   const t = useTranslations('memberExamRecordPage')
+  const { allow } = useAuthGate()
   const [page, setPage] = React.useState(1)
   const [detailId, setDetailId] = React.useState<string | null>(null)
 
@@ -53,6 +55,7 @@ export default function MemberExamRecordPage() {
       if (!r.success) throw new Error(r.error)
       return r.data as unknown as RecordsData
     },
+    enabled: allow,
   })
 
   const detailQ = useQuery({

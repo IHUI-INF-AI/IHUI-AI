@@ -32,6 +32,7 @@ import type {
   DesignPreviewResponse,
 } from '@ihui/shared/design/element'
 import { useTheme } from '@/hooks/use-theme'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { createComment, exportCode, generateHtml, listComments } from '@/lib/design/design-api'
 import type { ExportFormat } from '@/lib/design/code-exporter'
 import { applySnap, computeGuides } from '@/lib/design/alignment-guides'
@@ -63,6 +64,9 @@ interface DesignPageProps {
 
 export default function DesignPage({ onComment }: DesignPageProps) {
   const t = useTranslations()
+  // 2026-10-15 登录态门:GET /api/design/previews 后端 checkAuth,列出当前用户所有预览,
+  // 未就绪/未登录不发注定 401 的挂载请求(失败只落侧栏错误态,不加渲染门)
+  const { allow } = useAuthGate()
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -190,8 +194,9 @@ export default function DesignPage({ onComment }: DesignPageProps) {
   }, [])
 
   useEffect(() => {
+    if (!allow) return
     loadPreviews()
-  }, [loadPreviews])
+  }, [loadPreviews, allow])
 
   useEffect(() => {
     if (currentPreviewId) loadComments(currentPreviewId)

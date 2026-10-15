@@ -16,6 +16,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { ContentEditorCard, type UploadResult, type Format } from './ContentEditorCard'
 import { PlatformSelectorCard } from './PlatformSelectorCard'
@@ -72,6 +73,8 @@ function NewPublishPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { track } = useAnalytics()
+  // 登录态门:未就绪/未登录不发注定 401 的账号拉取请求
+  const { allow } = useAuthGate()
   const [accounts, setAccounts] = React.useState<Account[]>([])
   const [title, setTitle] = React.useState('')
   const [format, setFormat] = React.useState<Format>('md')
@@ -106,6 +109,7 @@ function NewPublishPage() {
   }, [searchParams])
 
   React.useEffect(() => {
+    if (!allow) return
     void (async () => {
       try {
         const data = await api<{ items?: Account[]; list?: Account[] } | Account[]>(
@@ -117,7 +121,7 @@ function NewPublishPage() {
         toast.error((e as Error).message)
       }
     })()
-  }, [toast])
+  }, [toast, allow])
 
   const platformMap = React.useMemo(() => {
     const m = new Map<string, Account[]>()

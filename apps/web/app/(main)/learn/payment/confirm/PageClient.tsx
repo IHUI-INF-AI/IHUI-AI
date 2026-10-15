@@ -12,6 +12,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, CheckCircle2, XCircle, Clock, ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -44,11 +45,12 @@ function PaymentConfirmContent() {
   const router = useRouter()
   const sp = useSearchParams()
   const orderNo = sp.get('orderNo') ?? ''
+  const { allow } = useAuthGate()
 
   const { data: order, isLoading: orderLoading } = useQuery({
     queryKey: ['order', orderNo],
     queryFn: () => api<OrderInfo>(`/api/orders/${orderNo}`),
-    enabled: !!orderNo,
+    enabled: allow && !!orderNo,
     retry: false,
   })
 
@@ -74,7 +76,7 @@ function PaymentConfirmContent() {
   }, [order, initialOrderStatus])
 
   React.useEffect(() => {
-    if (!orderNo || !polling) return
+    if (!allow || !orderNo || !polling) return
     let cancelled = false
     const poll = async () => {
       try {
@@ -98,7 +100,7 @@ function PaymentConfirmContent() {
       cancelled = true
       clearInterval(tm)
     }
-  }, [orderNo, polling])
+  }, [allow, orderNo, polling])
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',

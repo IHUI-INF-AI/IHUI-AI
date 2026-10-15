@@ -35,6 +35,7 @@ import {
 } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   BookOpen,
   KeyRound,
@@ -62,6 +63,8 @@ export default function UserLlmConfigsPage() {
   const t = useTranslations('llmSettings')
   const tV2 = useTranslations('llmSettings.v2')
   const qc = useQueryClient()
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求
+  const { allow } = useAuthGate()
 
   // 选中的 group('__all__' | '__ungrouped__' | groupCode)
   const [activeGroup, setActiveGroup] = React.useState('__all__')
@@ -117,6 +120,7 @@ export default function UserLlmConfigsPage() {
     queryKey: ['v2-templates'],
     queryFn: () => fetchTemplatesV2(),
     staleTime: 5 * 60_000,
+    enabled: allow,
   })
   const templates: PlatformTemplate[] = React.useMemo(() => tplData?.templates ?? [], [tplData])
   const templateMap = React.useMemo(
@@ -147,12 +151,14 @@ export default function UserLlmConfigsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['v2-providers'],
     queryFn: () => fetchProvidersV2(),
+    enabled: allow,
   })
   // 加载分组实体(/llm-groups,含 id/label;用于分组 CRUD 与 existingGroups 下拉)
   const { data: groupsData } = useQuery({
     queryKey: ['v2-groups'],
     queryFn: () => fetchGroupsV2(),
     staleTime: 60_000,
+    enabled: allow,
   })
   const groups: ProviderGroup[] = React.useMemo(() => {
     // 聚合接口不返回 group 实体 id,按 label 从 /llm-groups 注入,供删除/编辑分组使用

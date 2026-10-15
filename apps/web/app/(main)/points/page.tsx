@@ -16,12 +16,16 @@ import { PointsLeaderboard } from './PointsLeaderboard'
 import { PointsRedeemList } from './PointsRedeemList'
 import { api } from './helpers'
 import type { Transaction, LeaderboardUser } from './types'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import Link from 'next/link'
 import { ListChecks, ShoppingBag } from 'lucide-react'
 
 export default function PointsPage() {
   const t = useTranslations('points')
+  // 登录态门:未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [tab, setTab] = React.useState<'tx' | 'lb' | 'redeem'>('tx')
   const currentUserId = useAuthStore((s) => s.user?.id)
 
@@ -34,6 +38,7 @@ export default function PointsPage() {
 
   const pointsQ = useQuery({
     queryKey: ['points'],
+    enabled: allow,
     queryFn: () =>
       api<{ points: { points: number; totalEarned: number; totalSpent: number } }>(
         '/api/points',
@@ -45,16 +50,19 @@ export default function PointsPage() {
   })
   const txQ = useQuery({
     queryKey: ['points', 'tx'],
+    enabled: allow,
     queryFn: () =>
       api<{ list: Transaction[] }>('/api/points/transactions').then((d) => d.list ?? []),
   })
   const lbQ = useQuery({
     queryKey: ['leaderboard'],
+    enabled: allow,
     queryFn: () => api<{ list: LeaderboardUser[] }>('/api/leaderboard').then((d) => d.list ?? []),
     select: (list) => list.map((u) => ({ ...u, isMe: u.userId === currentUserId })),
   })
   const levelQ = useQuery({
     queryKey: ['levels', 'current'],
+    enabled: allow,
     queryFn: () =>
       api<{
         current: { level: number; name: string; minExperience: number }
@@ -119,7 +127,9 @@ export default function PointsPage() {
       </div>
 
       <div key={tab} className="animate-in fade-in-0 duration-(--duration-unified) ease-unified">
-        {tab === 'tx' ? (
+        {!allow ? (
+          <AuthGatePrompt message={tGate('loginRequired')} />
+        ) : tab === 'tx' ? (
           <PointsTransactionList isLoading={txQ.isLoading} error={txQ.error} data={txQ.data} />
         ) : tab === 'lb' ? (
           <PointsLeaderboard isLoading={lbQ.isLoading} error={lbQ.error} data={lbQ.data} />
