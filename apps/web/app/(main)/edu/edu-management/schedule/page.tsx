@@ -24,7 +24,8 @@ import {
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
-import { BackButton, toast } from '@/components/common'
+import { BackButton, toast, AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   Card,
   CardContent,
@@ -547,6 +548,9 @@ function ClassDialog({
 export default function SchedulePage() {
   const t = useTranslations('eduSchedule')
   const queryClient = useQueryClient()
+  // 2026-10-15 登录态门:未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
 
   /* ── State ── */
   const [selectedTermId, setSelectedTermId] = React.useState('')
@@ -567,6 +571,7 @@ export default function SchedulePage() {
     error: termsError,
   } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
+    enabled: allow,
     queryFn: () => api<{ list: Term[] }>('/api/edu-ai-management/term'),
   })
 
@@ -584,7 +589,7 @@ export default function SchedulePage() {
     queryKey: ['edu-ai-management', 'class', selectedTermId],
     queryFn: () =>
       api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
-    enabled: !!selectedTermId,
+    enabled: allow && !!selectedTermId,
   })
 
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
@@ -602,7 +607,7 @@ export default function SchedulePage() {
       api<{ list: ScheduleEntry[] }>(
         `/api/edu-ai-management/schedule?termId=${selectedTermId}&classId=${selectedClassId}`,
       ),
-    enabled: !!selectedTermId && !!selectedClassId,
+    enabled: allow && !!selectedTermId && !!selectedClassId,
   })
 
   const schedules = (schedulesData?.list ?? []).filter((s) => !s.deletedAt)
@@ -856,6 +861,15 @@ export default function SchedulePage() {
   }
 
   /* ── Loading / Error states ── */
+  if (!allow) {
+    return (
+      <div className="space-y-4 px-4 py-4">
+        <BackButton />
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      </div>
+    )
+  }
+
   if (termsLoading) {
     return (
       <div className="space-y-4 px-4 py-4">

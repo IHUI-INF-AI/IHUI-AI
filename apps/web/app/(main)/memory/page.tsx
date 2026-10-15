@@ -12,6 +12,7 @@ import { Plus, Search, Loader2, Brain, AlertCircle, Sparkles } from 'lucide-reac
 import { Button, Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui-react'
 import { fetchMemory, deleteMemory } from '@/lib/memory-api'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import type { MemoryEntry, MemoryScope, MemoryEntryType } from '@ihui/types'
 import { MemoryCard } from '@/components/memory/MemoryCard'
 import { MemoryScopeTabs, type ScopeFilter } from '@/components/memory/MemoryScopeTabs'
@@ -89,6 +90,7 @@ export function resolveAutoMemoryEnabled(
 export default function MemoryListPage() {
   const router = useRouter()
   const t = useTranslations('memory')
+  const { allow } = useAuthGate()
   const [scope, setScope] = useState<ScopeFilter>('all')
   const [type, setType] = useState<TypeFilter>('all')
   const [keyword, setKeyword] = useState('')
@@ -105,6 +107,7 @@ export default function MemoryListPage() {
   } | null>(null)
 
   useEffect(() => {
+    if (!allow) return
     let cancelled = false
     // 两个请求并行:一个是 per-user 偏好,一个是部署方全局 env 镜像(只读一个布尔)。
     //
@@ -146,7 +149,7 @@ export default function MemoryListPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [allow])
 
   useEffect(() => {
     if (!autoMemoryToast) return
@@ -195,8 +198,13 @@ export default function MemoryListPage() {
   }, [scope])
 
   useEffect(() => {
+    if (!allow) {
+      // 未登录不发记忆请求;放行渲染(落空态),避免整页永久停在加载中
+      setLoading(false)
+      return
+    }
     void load()
-  }, [load])
+  }, [load, allow])
 
   const filtered = entries.filter((e) => {
     if (type !== 'all' && e.type !== (type as MemoryEntryType)) return false

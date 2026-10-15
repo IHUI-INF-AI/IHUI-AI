@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, Mail, MessageSquare, Search } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Card, Input } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { Alert } from '@/components/feedback'
@@ -22,6 +23,7 @@ const PAGE_SIZE = 100
 
 export default function LettersPage() {
   const t = useTranslations('eduAi.letters')
+  const { allow } = useAuthGate()
 
   const [keyword, setKeyword] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
@@ -45,6 +47,7 @@ export default function LettersPage() {
       if (!r.success) throw new Error(r.error)
       return r.data
     },
+    enabled: allow,
     // 会话列表 15s 自动刷新
     refetchInterval: 15000,
   })

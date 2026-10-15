@@ -13,6 +13,8 @@ import { Settings, Loader2, Save, AlertTriangle, Trash2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button, Input, Label, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { BackButton } from '@/components/common'
 
 interface DevInfo {
@@ -47,11 +49,16 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 export default function SettingsPage() {
   const t = useTranslations('developer.settings')
+  // 2026-10-15 登录态门:GET/PUT/DELETE /api/developer/settings 后端 requireAuth,
+  // 未就绪/未登录不发注定 401 的挂载请求,整页改为显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [info, setInfo] = React.useState<DevInfo>({ name: '', email: '', company: '', website: '' })
   const [prefs, setPrefs] = React.useState<DevPreferences>(DEFAULT_PREFS)
   const [loaded, setLoaded] = React.useState(false)
 
   React.useEffect(() => {
+    if (!allow) return
     api<DevSettings>('/api/developer/settings')
       .then((d) => {
         if (d.info) setInfo(d.info)
@@ -59,7 +66,7 @@ export default function SettingsPage() {
       })
       .catch(() => {})
       .finally(() => setLoaded(true))
-  }, [])
+  }, [allow])
 
   const saveInfoMut = useMutation({
     mutationFn: () =>
@@ -86,6 +93,14 @@ export default function SettingsPage() {
     onSuccess: () => toast.success(t('accountDeleted')),
     onError: (e: Error) => toast.error(e.message),
   })
+
+  if (!allow) {
+    return (
+      <div className="px-4 py-4">
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      </div>
+    )
+  }
 
   if (!loaded) {
     return (

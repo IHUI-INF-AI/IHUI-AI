@@ -13,6 +13,7 @@ import { QRCodeCanvas } from 'qrcode.react'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 
 interface OrderDetail {
@@ -32,8 +33,11 @@ function SuccessContent() {
   const payUrl = searchParams.get('payUrl') ?? ''
 
   const [status, setStatus] = React.useState<'pending' | 'paid' | 'timeout'>('pending')
+  // 2026-10-15 登录态门:/api/orders/:orderNo = 当前用户的订单,未就绪/未登录不发起轮询
+  const { allow } = useAuthGate()
 
   React.useEffect(() => {
+    if (!allow) return
     if (!orderNo) return
     let stop = false
     let count = 0
@@ -63,7 +67,7 @@ function SuccessContent() {
     return () => {
       stop = true
     }
-  }, [orderNo])
+  }, [orderNo, allow])
 
   const isAlipay = method === 'alipay' && !!payUrl
 

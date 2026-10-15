@@ -11,6 +11,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, FileQuestion } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
 
@@ -68,6 +69,9 @@ export default function UserExamPage() {
   const t = useTranslations('user.exam')
   const locale = useLocale()
   const user = useAuthStore((s) => s.user)
+  // 2026-10-15 登录态门:/api/exam/records = 当前用户的答题记录(JWT 取 userId),
+  // 未就绪/未登录不发注定 401 的查询
+  const { allow } = useAuthGate()
   const STATUS_LABEL: Record<string, string> = {
     draft: t('statusDraft'),
     published: t('statusPublished'),
@@ -77,7 +81,7 @@ export default function UserExamPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['user', 'exams', user?.id],
-    enabled: !!user?.id,
+    enabled: allow && !!user?.id,
     queryFn: () => fetchExams(),
   })
 

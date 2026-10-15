@@ -11,6 +11,7 @@ import { Loader2, UserMinus, UserPlus } from 'lucide-react'
 import { toast } from '@/components/common/Toaster'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { pushError } from '@/stores/error-banner'
 import { Avatar } from '@/components/data'
 import { Button } from '@ihui/ui-react'
@@ -35,10 +36,12 @@ export default function FollowPage() {
   const locale = useLocale()
   const qc = useQueryClient()
   const user = useAuthStore((s) => s.user)
+  // 2026-10-15 登录态门:/api/users/:id/follows(本人) = 我的关注列表,未就绪/未登录不发注定 401 的查询
+  const { allow } = useAuthGate()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['user', 'follow', user?.id],
-    enabled: !!user?.id,
+    enabled: allow && !!user?.id,
     queryFn: async (): Promise<FollowUser[]> => {
       const r = await fetchApi<{ list?: FollowUser[] } | FollowUser[]>(
         `/api/users/${user!.id}/follows`,

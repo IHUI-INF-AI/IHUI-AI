@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 export interface ErrorCell {
   time: string
@@ -31,12 +32,15 @@ function cellColor(count: number): string {
 }
 
 export function ErrorHeatmap({ agentId, timeRange, refreshKey }: ErrorHeatmapProps) {
+  // 登录态门:未就绪/未登录不发注定 401 的运行时查询(登录态门 campaign)
+  const { allow } = useAuthGate()
   const [cells, setCells] = React.useState<ErrorCell[]>([])
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState(false)
   const [hover, setHover] = React.useState<{ time: string; tool: string } | null>(null)
 
   React.useEffect(() => {
+    if (!allow) return
     if (!agentId) return
     let cancelled = false
     setLoading(true)
@@ -61,7 +65,7 @@ export function ErrorHeatmap({ agentId, timeRange, refreshKey }: ErrorHeatmapPro
     return () => {
       cancelled = true
     }
-  }, [agentId, timeRange, refreshKey])
+  }, [agentId, timeRange, refreshKey, allow])
 
   const times = React.useMemo(() => Array.from(new Set(cells.map((c) => c.time))).sort(), [cells])
   const tools = React.useMemo(() => Array.from(new Set(cells.map((c) => c.tool))).sort(), [cells])

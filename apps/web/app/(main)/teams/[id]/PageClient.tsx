@@ -9,6 +9,8 @@ import { confirmDialog } from '@/components/feedback'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { Loader2, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -24,21 +26,28 @@ export default function TeamDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const t = useTranslations('teams')
+  // 2026-10-15 登录态门(与 settings/notifications 同型):/api/teams/* = 当前用户的团队,
+  // 未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const qc = useQueryClient()
 
   const teamQ = useQuery({
     queryKey: ['teams', id],
     queryFn: () => api<{ team: TeamDetail }>(`/api/teams/${id}`).then((d) => d.team),
+    enabled: allow,
   })
   const membersQ = useQuery({
     queryKey: ['teams', id, 'members'],
     queryFn: () =>
       api<{ members: TeamMember[] }>(`/api/teams/${id}/members`).then((d) => d.members),
+    enabled: allow,
   })
   const invitesQ = useQuery({
     queryKey: ['teams', id, 'invitations'],
     queryFn: () =>
       api<{ invitations: Invitation[] }>(`/api/teams/${id}/invitations`).then((d) => d.invitations),
+    enabled: allow,
   })
 
   const [tab, setTab] = React.useState<'members' | 'invitations' | 'settings'>('members')
@@ -138,6 +147,14 @@ export default function TeamDetailPage() {
       if (ok) deleteMut.mutate()
     })
   }
+
+  // 登录态门:未登录时用最简外壳 + 登录引导
+  if (!allow)
+    return (
+      <div className="px-4 py-4 mx-auto w-full max-w-5xl">
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      </div>
+    )
 
   if (teamQ.isLoading)
     return (
