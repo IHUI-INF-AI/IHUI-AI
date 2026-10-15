@@ -4945,6 +4945,25 @@ const checks = [
   },
 
   { id: '212', label: '🎯 输入框聚焦反馈对账(描边输入/选择控件必须有聚焦反应,三端同尺;存量按该文件 HEAD 自身棘轮只报数,定级依据与取证窗见脚本头注)', script: 'check-input-focus-feedback.mjs', args: [], mode: 'blocking', skipEnv: 'HUSKY_SKIP_INPUT_FOCUS_FEEDBACK', stagedTriggers: ['apps/', 'packages/'] },
+  // --- CI 失败自述对账(1 项,blocking)---
+  {
+    id: '212',
+    label:
+      'CI 失败自述覆盖面与自洽性对账(blocking,W2/W3 硬拦;W1 覆盖面走差值棘轮只拦新增,存量只报数)',
+    script: 'check-ci-failure-triage-wiring.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CI_TRIAGE_WIRING',
+    stagedTriggers: ['.github/workflows/', 'scripts/ci-failure-triage.sh', 'scripts/data/ci-triage-exempt-jobs.json', 'scripts/check-ci-failure-triage-wiring.mjs'],
+    onFailHint: [
+      '',
+      '红线:不得为变绿去放宽 TRIAGE_IDS 匹配或删掉豁免台账条目;W1 覆盖面存量归各工作流持有人,判据只拦新增(§12e)。',
+      '修复出口:给该作业每个带 id 的步骤补 TRIAGE_IDS 与同名 O_<大写> 注入,TRIAGE_WORKFLOW_FILE 写本文件自身,命令单行 bash scripts/ci-failure-triage.sh;确属例外往 scripts/data/ci-triage-exempt-jobs.json 具名登记并写 reason。',
+      '取证:self-test 16 臂 + 镜像测试 scripts/tests/check-ci-failure-triage-wiring.test.mjs(装车证明臂读 HEAD 面 runner 条目)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
