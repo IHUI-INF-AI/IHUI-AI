@@ -41,6 +41,7 @@ import { dirname, resolve as resolvePath } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符) */
@@ -589,7 +590,13 @@ export function analyze(root, face) {
 }
 
 function main(argv) {
-  const root = argv.includes('--root') ? resolvePath(argv[argv.indexOf('--root') + 1] || '.') : ROOT
+  // G-322:给了 --root 却没收到合法值 ⇒ 点名拒绝;旧写法 `|| '.'` 把空串直接折成 cwd。
+  const rootArg = requireFlagValue(argv, '--root', { noun: '目录参数', fallback: null })
+  if (rootArg.error) {
+    console.error(`❌ 无法判定:${rootArg.error}`)
+    return 2
+  }
+  const root = rootArg.value !== null ? resolvePath(rootArg.value) : ROOT
   // 基准必须是仓库根:root 是子目录时 ls-tree 的路径与 join(root,rel) 会错位(取材层注释里的"自洽但基准错位的假绿")
   try {
     assertRepoRoot(root, '本门')
