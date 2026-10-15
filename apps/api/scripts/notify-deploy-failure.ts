@@ -26,7 +26,8 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import nodemailer from 'nodemailer'
 import { escapeHtml, renderSystemAlertEmail } from '../src/services/email-templates.js'
-import type { DispatchEmail } from '../src/services/email-templates.js'
+import { finalizeEmailHtml, missingInlineImageAssets } from '../src/services/email-assets.js'
+import type { InlineImageAttachment } from '../src/services/email-assets.js'
 import { sanitizeAlertMessage } from '../src/utils/alert-text.js'
 
 type Severity = 'info' | 'warning' | 'critical'
@@ -354,18 +355,28 @@ interface AlertRenderInput {
   time: string
 }
 
-function renderAlertEmail(input: AlertRenderInput): DispatchEmail {
+function renderAlertEmail(input: AlertRenderInput): RenderedMail {
   if (input.plain) {
     const html = `<div style="font-family:Consolas,'Courier New',monospace;font-size:15px;">${escapeHtml(input.message).split(/\r?\n/).join('<br>')}</div>`
-    return { subject: input.title, html, text: input.message }
+    // 纯文本降级档不引用任何 cid ⇒ 附件必须为空。挂上去就是给收件人塞两个多余的下载附件。
+    return { subject: input.title, html, text: input.message, attachments: [], downgraded: [] }
   }
-  return renderSystemAlertEmail({
+  const r = renderSystemAlertEmail({
     severity: input.severity,
     source: input.source,
     time: input.time,
     title: input.title,
     message: input.message,
   })
+  // 内嵌图片落位:Logo/二维码随正文一起到达收件端,才不受"远程图片拦截"影响
+  const prepared = finalizeEmailHtml(r.html)
+  return {
+    subject: r.subject,
+    html: prepared.html,
+    text: r.text,
+    attachments: prepared.attachments,
+    downgraded: prepared.downgraded,
+  }
 }
 
 interface MailPayload {
@@ -374,6 +385,7 @@ interface MailPayload {
   subject: string
   html: string
   text: string
+  attachments: InlineImageAttachment[]
 }
 
 interface SmtpSendOpts {
@@ -424,6 +436,10 @@ interface RenderedMail {
   subject: string
   html: string
   text: string
+  /** 内嵌图片附件;纯文本降级档恒为空(HTML 里没有 cid,挂了就成多余的下载附件) */
+  attachments: InlineImageAttachment[]
+  /** 资产缺席、已退回公网外链的 cid;空 = 两图都以内嵌形式送出 */
+  downgraded: string[]
 }
 
 interface DispatchResult {
@@ -446,6 +462,9 @@ async function dispatchMail(
   deps: { sendSmtp: SmtpSendFn; fetchResend: FetchLike },
 ): Promise<DispatchResult> {
   const reasons: string[] = []
+  // 归一化一次:本脚本是 CLI 入口,mail 也可能由尚未跟进新契约的调用方构造。
+  // 缺 attachments 只能是"没图",绝不能变成 TypeError 把最后一条到人通道打死(§5e)。
+  const images: InlineImageAttachment[] = mail.attachments ?? []
   if (cfg.smtp.available) {
     try {
       await deps.sendSmtp(
@@ -462,6 +481,9 @@ async function dispatchMail(
           subject: mail.subject,
           html: mail.html,
           text: mail.text,
+          // InlineImageAttachment 的字段名(cid/filename/content/contentType)
+          // 与 nodemailer 的附件契约逐字同形 ⇒ 直接透传,不做二次映射
+          attachments: images,
         },
       )
       return { ok: true, channel: 'smtp', reasons }
@@ -485,6 +507,18 @@ async function dispatchMail(
           subject: mail.subject,
           html: mail.html,
           text: mail.text,
+          // Resend 的内嵌图:content 是 base64 文本,content_id 对应 src="cid:..."
+          // (与 nodemailer 的 cid 同义异名)。空数组不带这个键,免得无谓触发附件校验。
+          ...(images.length > 0
+            ? {
+                attachments: images.map((a) => ({
+                  filename: a.filename,
+                  content: a.content.toString('base64'),
+                  content_id: a.cid,
+                  content_type: a.contentType,
+                })),
+              }
+            : {}),
         }),
       })
       if (res.ok) return { ok: true, channel: 'resend', reasons }
@@ -896,6 +930,13 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
     plain: args.plain,
     time: deps.now(),
   })
+  // 内嵌图缺席必须响:这条链路上唯一能暴露它的时刻,就是有人已经看不到 Logo 了
+  if (rendered.downgraded.length > 0) {
+    warnings.push(
+      `邮件内嵌图片缺席,已退回公网外链(cid=${rendered.downgraded.join(',')};` +
+        `缺席文件=${missingInlineImageAssets().join(',') || '未知'})`,
+    )
+  }
 
   const base: Omit<RunOutcome, 'sent' | 'channel' | 'reasons' | 'suppressed' | 'dedupeWhy'> = {
     help: false,
