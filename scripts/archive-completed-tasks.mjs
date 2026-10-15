@@ -914,6 +914,18 @@ export function reconcileArchiveBase(headText, diskText) {
   return { verdict, headOnly, diskOnly }
 }
 
+/**
+ * 归档件底稿与本次 chunk 的**接缝**(纯函数,镜像测试直接吃):
+ * 底稿不以换行结尾时补一个,保证"块首行独立"。stale 档的 base 是 norm 过的(尾换行全剥),
+ * 直接 + chunk 会把第 1 块 body 焊在底稿最后一行上 —— bodyInArchive 假红,且写出 --- 与正文同行的坏归档件。
+ * 判据(archiveWouldBe)与真写必须共用这一份,不得各写一份(§单一真相源)。
+ */
+export function seamArchiveChunk(baseText, chunk) {
+  return baseText === '' || baseText === null || baseText === undefined
+    ? chunk
+    : (/\n$/.test(baseText) ? baseText : baseText + '\n') + String(chunk)
+}
+
 /** 一段块正文是否**逐行连续**地出现在目标文本里(§1 第二步"完整内容进归档文件"的证据判据)。 */
 function blockLandsContiguously(haystackText, bodyText) {
   if (!bodyText) return false
@@ -1039,8 +1051,11 @@ async function landThroughObjectSpace({ base, toArchive }) {
         C.reset,
     )
   }
+  // 接缝(§单一真相源):底稿与 chunk 的拼接缝抽成纯函数 seamArchiveChunk(见上),
+  // 判据(archiveWouldBe)与真写(下方 writeFileSync)共用同一份,保证"检查通过的字节 == 写下去的字节"。
+  const withSeam = (baseText) => seamArchiveChunk(baseText, chunk)
   const existingArchive = archiveBaseText === '' ? null : archiveBaseText
-  const archiveWouldBe = (existingArchive ?? '') + chunk
+  const archiveWouldBe = withSeam(existingArchive ?? '')
   const placeholderOf = (t) =>
     placeholderLine(today, t.titleText, archiveBaseName, mergeNotesOf(t.bodyLines))
   const blockEvidence = toArchive.map((t, i) => ({
@@ -1095,7 +1110,10 @@ async function landThroughObjectSpace({ base, toArchive }) {
   // (本文件由每一路会话的 post-commit 钩子写,同一轮里判据取材与下笔之间它完全可能被别人追加过)。
   // 此时整写等于吞掉别人的追加,只有"内容没动"才允许按判据的结果落盘。
   const diskNow = existsSync(archiveFile) ? readWorktreeFile(ROOT, archiveRel) : null
-  if ((diskNow ?? '') !== (existingArchive ?? '')) {
+  // 这道闸问的是"下笔前,盘上那份被第三方动过吗" —— 必须比"判据取材那一刻读到的盘"(diskArchive)。
+  // 不能比 existingArchive:stale 档里它是 HEAD 底稿,与滞后的盘天然不等 ⇒ 会把"正常滞后"误判成
+  // "被人动过",让 stale 的整写重建永远走不到(这正是本仓多会话现场归档器恒拒的成因之一)。
+  if ((diskNow ?? '') !== (diskArchive ?? '')) {
     console.error(
       C.red +
         '❌ 归档件在"判据取材"与"下笔"之间被第三方改动 ⇒ 不落(整写会吞掉别人的追加)' +
@@ -1103,7 +1121,7 @@ async function landThroughObjectSpace({ base, toArchive }) {
     )
     console.error(
       C.dim +
-        `   判据时=${existingArchive === null ? '(文件不存在)' : `${existingArchive.split('\n').length} 行`} / 现在=${diskNow === null ? '(文件不见了)' : `${diskNow.split('\n').length} 行`}` +
+        `   判据时=${diskArchive === null ? '(文件不存在)' : `${diskArchive.split('\n').length} 行`} / 现在=${diskNow === null ? '(文件不见了)' : `${diskNow.split('\n').length} 行`}` +
         C.reset,
     )
     console.error(
@@ -1113,7 +1131,8 @@ async function landThroughObjectSpace({ base, toArchive }) {
   }
   if (rec.verdict === 'stale') {
     // 滞后面整写 = HEAD 面 ⊕ 本次搬运:HEAD 面 ⊇ 盘上面(判据已证),故不丢任何一侧的独有行。
-    writeFileSync(archiveFile, archiveBaseText + chunk, 'utf8')
+    // 走 withSeam 与判据那条 seam 同源,保证"检查通过"的字节正是"真正写下去"的字节。
+    writeFileSync(archiveFile, withSeam(archiveBaseText), 'utf8')
   } else {
     appendFileSync(archiveFile, chunk, 'utf8')
   }
@@ -2331,11 +2350,15 @@ function runSelfTest() {
       const s = src.indexOf('async function landThroughObjectSpace')
       const e = src.indexOf('\nfunction ', s + 10)
       const body = s >= 0 ? src.slice(s, e > s ? e : src.length) : ''
+      const usesSeam = (body.match(/withSeam\(/g) || []).length
       return (
         /reconcileArchiveBase\(headArchive/.test(body) &&
-        /if \(rec\.verdict === 'stale'\) \{[\s\S]{0,200}writeFileSync\(archiveFile, archiveBaseText \+ chunk/.test(
-          body,
-        ) &&
+        // stale 档走整写重建、fresh 走追加;拼接缝(withSeam)必须与 B 档判据(archiveWouldBe)共用同一份,
+        // 保证"检查通过的字节 == 写下去的字节"(§单一真相源);withSeam 至少出现在判据+真写两处。
+        /writeFileSync\(archiveFile, withSeam\(archiveBaseText\)/.test(body) &&
+        /rec\.verdict === 'stale'/.test(body) &&
+        /const archiveWouldBe = withSeam\(existingArchive \?\? ''\)/.test(body) &&
+        usesSeam >= 2 &&
         /else \{\s*\n\s*appendFileSync\(archiveFile, chunk/.test(body)
       )
     })(),
@@ -2454,6 +2477,7 @@ export const __test__ = {
   derivedByConstructionOk,
   buildNewPlanText,
   buildArchiveChunk,
+  seamArchiveChunk,
   blockLandsContiguously,
   reconcileArchiveBase,
   resolveRequestedFace,

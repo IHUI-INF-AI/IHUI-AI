@@ -1243,3 +1243,25 @@ test('explainMovedExemption:整批拒词必须缩到"哪一块缺哪半条证据
   assert.match(src, /🔎 归因:/, '拒落输出里必须带"归因"前缀,人一眼能把它与整批拒词分开')
 })
 
+// 2026-10-15 根因(G-937):归档器 B 档"正文没连续落进归档件"的假红,源自 stale 档把被 norm 剥掉尾换行的
+// 底稿直接 + chunk,把第 1 块 body 焊在底稿末行上。缝抽成纯函数 seamArchiveChunk,判据与真写共用一份。
+test('seamArchiveChunk:底稿尾换行缺失时补缝,保证块首行独立(§22c 直吃源脚本纯函数)', async () => {
+  const { __test__: X } = await import(pathToFileURL(SCRIPT_PATH).href)
+  const seam = X.seamArchiveChunk
+  const contig = X.blockLandsContiguously
+  assert.equal(typeof seam, 'function', 'seamArchiveChunk 未导出 ⇒ 缝焊判据没被抽成可测的纯函数')
+
+  const chunk = 'bodyA\n\n---\n\nbodyB\n\n---\n\n'
+  // stale 档:底稿被 norm 剥掉尾换行,末行停在 '---'
+  const staleBase = 'prevBody\n\n---'
+  assert.equal(contig(staleBase + chunk, 'bodyA'), false, '老写法(裸 + chunk)把块首行焊在底稿末行 ⇒ 正是要修的假红')
+  assert.equal(contig(seam(staleBase, chunk), 'bodyA'), true, '补缝后第 1 块 body 必须连续落地')
+  assert.equal(contig(seam(staleBase, chunk), 'bodyB'), true)
+  // 已带尾换行(磁盘态)不多加缝,字节与裸拼逐字一致
+  const diskBase = 'prevBody\n\n---\n'
+  assert.equal(seam(diskBase, chunk), diskBase + chunk)
+  // 空底稿(新建归档件)直接用 chunk
+  assert.equal(seam('', chunk), chunk)
+  assert.equal(seam(null, chunk), chunk)
+})
+
