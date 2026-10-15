@@ -53,7 +53,8 @@ import NavBar from '../components/NavBar'
 import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
 import MyAgents, { type MyAgentItem } from '../components/MyAgents'
 import IntelligentAssistant from '../components/IntelligentAssistant'
-import { SearchInput, CategoryInlineBar, type CategoryItem } from '@ihui/rn-app'
+import { SearchOverlay } from '../components/SearchOverlay'
+import { CategoryInlineBar, type CategoryItem } from '@ihui/rn-app'
 import type { CarouselItem } from '@ihui/ui-native'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -61,10 +62,11 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { FREE_RESOURCE_URL } from '../constants/links'
-import { type LucideIcon, Bot, Film, FolderOpen, Menu, Palette, Search } from 'lucide-react-native'
+import { type LucideIcon, Bot, Film, FolderOpen, Palette, Search } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
+import { PanelLeftRounded } from '../components/PanelLeftRounded'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -165,9 +167,9 @@ export function AgentScreen() {
   const [myAgents, setMyAgents] = useState<MyAgentItem[]>([])
   // 智汇值卡(对齐 Uniapp Intelligent-assistant.vue):getTokenBalance 返回余额,失败保持 0
   const [tokenQuantity, setTokenQuantity] = useState(0)
-  // 搜索关键词 + 搜索框显隐(对齐 Uniapp showSearchBox:默认隐藏,点击导航搜索按钮展开)
-  const [searchKeyword, setSearchKeyword] = useState('')
-  const [showSearchBox, setShowSearchBox] = useState(false)
+  // 搜索弹窗(2026-10-15 与 web 端一致):顶栏搜索按钮开 SearchOverlay(遮罩 + 三段面板,
+  // 弹窗内直接出结果),取代原页内展开搜索框(showSearchBox/searchKeyword 已删)
+  const [searchOverlayVisible, setSearchOverlayVisible] = useState(false)
   // 返回顶部按钮(对齐 Uniapp toodown-wrapper)
   const [showBackToTop, setShowBackToTop] = useState(false)
   const contentScrollRef = useRef<ScrollView>(null)
@@ -360,14 +362,6 @@ export function AgentScreen() {
     navigation.navigate('AiAssistantN8n', { title: selectedModelName })
   }, [navigation, selectedModelIds.length, selectedModelName])
 
-  const filteredItems = useMemo<AgentScreenItem[]>(() => {
-    const kw = searchKeyword.trim().toLowerCase()
-    if (!kw) return items
-    return items.filter(
-      (item) => item.name.toLowerCase().includes(kw) || item.description.toLowerCase().includes(kw),
-    )
-  }, [items, searchKeyword])
-
   const handleToastHide = useCallback((): void => {
     setToast((prev) => ({ ...prev, visible: false }))
   }, [])
@@ -490,7 +484,8 @@ export function AgentScreen() {
     setDrawerVisible(true)
   }, [])
   const handleSearchPress = useCallback((): void => {
-    setShowSearchBox((prev) => !prev)
+    // 与 web 端一致(2026-10-15):开 SearchOverlay 弹窗,取代页内展开搜索框
+    setSearchOverlayVisible(true)
   }, [])
 
   // ── Drawer 回调 ──
@@ -628,9 +623,11 @@ export function AgentScreen() {
           title={t('agentScreen.title')}
           leftActions={[
             { icon: FolderOpen, label: '分类', onPress: handleCategoryPress },
-            { icon: Menu, label: '菜单', onPress: handleMenuPress },
+            { icon: PanelLeftRounded, a11yLabel: '菜单', onPress: handleMenuPress },
           ]}
-          rightActions={[{ icon: Search, label: '搜索', onPress: handleSearchPress }]}
+          rightActions={[
+            { icon: Search, a11yLabel: t('common.search'), onPress: handleSearchPress },
+          ]}
         />
       </NavChrome>
       <ScrollView
@@ -670,17 +667,8 @@ export function AgentScreen() {
             />
           </View>
         ) : null}
-        {/* 搜索框位置对齐 Uniapp tools/index.vue 行 44:轮播图之后、RecentAgents 之前;
-            原 InputArea 被误用作搜索框,统一替换为共享 SearchInput(原 UI 无语音入口故 voiceEnabled 关闭) */}
-        {showSearchBox ? (
-          <SearchInput
-            value={searchKeyword}
-            onChangeText={setSearchKeyword}
-            placeholder="搜索AI应用"
-            colorScheme={resolvedTheme}
-            voiceEnabled={false}
-          />
-        ) : null}
+        {/* 搜索框已改弹窗形态(2026-10-15 与 web 端一致):原页内展开的 SearchInput(showSearchBox)
+            已删,顶栏搜索按钮统一开文件尾 <SearchOverlay /> */}
         {recentAgents.length > 0 ? (
           <RecentAgents items={recentAgents} onItemClick={(item) => handleItemClick(item.id)} />
         ) : null}
@@ -721,7 +709,7 @@ export function AgentScreen() {
             <SharedAgentScreen
               t={t}
               colorScheme={resolvedTheme}
-              items={filteredItems}
+              items={items}
               loading={loading}
               refreshing={refreshing}
               error={error}
@@ -824,6 +812,12 @@ export function AgentScreen() {
           </View>
         </View>
       </Modal>
+      {/* 搜索弹窗(2026-10-15 与 web 端一致:顶栏搜索钮开此弹层,遮罩 + 三段面板,
+       *  弹窗内直接出结果,与 HomeScreen 共用同一 SearchOverlay 形态) */}
+      <SearchOverlay
+        visible={searchOverlayVisible}
+        onClose={() => setSearchOverlayVisible(false)}
+      />
       {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
       <TabBar activeTab="aiShop" onChange={handleTabChange} />
     </View>
