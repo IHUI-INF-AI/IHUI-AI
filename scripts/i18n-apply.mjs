@@ -26,9 +26,10 @@
  *   }
  *
  * 用法:
- *   node scripts/i18n-apply.mjs                  # 应用默认路径的翻译结果(= web 端)
+ *   node scripts/i18n-apply.mjs --check-first     # 单命令出路:同一次调用内先对账,再应用(= web 端)
+ *   node scripts/i18n-apply.mjs                  # 应用默认路径的翻译结果(须本轮先跑过 --check,否则拒写)
  *   node scripts/i18n-apply.mjs --input <path>   # 自定义翻译结果路径
- *   node scripts/i18n-apply.mjs --check          # 只校验 parity,不写入
+ *   node scripts/i18n-apply.mjs --check          # 只校验 parity,不写入(跑过即留本轮对账凭据)
  *   node scripts/i18n-apply.mjs --target=<端>    # 端名须与 packages/i18n/messages/ 目录名逐字相同:
  *                                                #   web / extension / miniapp-taro / shared /
  *                                                #   mobile-rn / cli / api(全部读写 .json)
@@ -55,10 +56,16 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { createHash } from 'node:crypto'
 import { execSync } from 'node:child_process'
 
 const ROOT = process.cwd()
 const isCheck = process.argv.includes('--check')
+// 单命令出路(2026-10-15):写盘模式强制"本轮先对账",而 README/CONTRIBUTING/guardian-runner 三处
+// 登记的出路都是**一条命令**(`pnpm i18n:apply`)。把准入落成"必须先手动跑一遍 --check"会把那条
+// 已登记的出路当场变成跑不通的出路(§0.8),并给增量流水线造一道恒红门(§12e)。
+// `--check-first` = 同进程内先跑同一段对账并记凭据,再进入应用 —— 对账仍然无条件发生在写之前。
+const checkFirst = process.argv.includes('--check-first')
 const inputIdx = process.argv.indexOf('--input')
 const customInput = inputIdx >= 0 ? process.argv[inputIdx + 1] : null
 const targetArg = process.argv.find((a) => a.startsWith('--target='))
@@ -79,10 +86,10 @@ const denyOverwrite = process.argv.includes('--deny-overwrite')
  * ② 未识别的参数(含裸位置参数)一律 exit 2 并点名,**不降级成默认动作**;
  * ③ 拒写时盘上零变化是本函数的契约,由镜像测试用"跑完 git status 必须为空"钉死。
  */
-const KNOWN_FLAGS = new Set(['check', 'input', 'target', 'deny-overwrite'])
+const KNOWN_FLAGS = new Set(['check', 'check-first', 'input', 'target', 'deny-overwrite', 'allow-stale'])
 
 export function parseArgs(argv) {
-  const out = { help: false, unknown: [] }
+  const out = { help: false, unknown: [], allowStaleReason: '' }
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
     if (a === '--help' || a === '-h') {
@@ -106,6 +113,17 @@ export function parseArgs(argv) {
         out.unknown.push('--input <缺值>')
         continue
       }
+      if (name === 'allow-stale') {
+        // 放行陈旧载荷必须**带原因**(与 LIVE_SHA_ALLOW / 行内豁免同一条规矩:无原因不放行)。
+        const eq = a.indexOf('=')
+        const reason = eq >= 0 ? a.slice(eq + 1).trim() : ''
+        if (!reason) {
+          out.unknown.push('--allow-stale=<原因> <缺原因:放行陈旧载荷必须写清为什么>')
+          continue
+        }
+        out.allowStaleReason = reason
+        continue
+      }
       continue
     }
     out.unknown.push(a)
@@ -113,16 +131,83 @@ export function parseArgs(argv) {
   return out
 }
 
+/**
+ * 陈旧载荷守卫(票面修法 ③ 的前半,头注早就写了"配套:载荷 translatedAt 早于目标语言包 mtime
+ * 时 exit 2 拒写",但**代码从未落地过**——那是本仓最贵的一型:文档说有的守卫其实不存在,
+ * 于是"我以为它挡得住"变成零道防线。这里把它变成真判据。
+ * 三态不得混(§0.3):载荷没时间标注 / 目标目录还没有文件 ⇒ 判不出,如实放行但报名;
+ * 只有"载荷时刻 < 盘上最新 mtime"才是陈旧。
+ */
+export function stalePayloadVerdict({ translatedAt, targetMtimesMs = [], allowStaleReason = '' }) {
+  const times = targetMtimesMs.filter((n) => Number.isFinite(n))
+  if (!translatedAt) {
+    return { state: 'undetermined', refused: false, note: '载荷无 translatedAt ⇒ 不构成陈旧判据(如实报名,不冒充"对上了")' }
+  }
+  const at = Date.parse(String(translatedAt))
+  if (!Number.isFinite(at)) {
+    return { state: 'undetermined', refused: false, note: `载荷 translatedAt=${JSON.stringify(translatedAt)} 解析不出时刻 ⇒ 未判定,不冒充判过` }
+  }
+  if (!times.length) {
+    return { state: 'undetermined', refused: false, note: '目标端还没有任何语言包文件 ⇒ 无 mtime 可比' }
+  }
+  const newest = Math.max(...times)
+  if (at >= newest) return { state: 'fresh', refused: false, note: '', newest, at }
+  if (allowStaleReason) {
+    return {
+      state: 'stale-allowed',
+      refused: false,
+      newest,
+      at,
+      note: `载荷早于盘上最新 mtime ${((newest - at) / 1000).toFixed(0)}s,已凭显式原因放行:${allowStaleReason}`,
+    }
+  }
+  return {
+    state: 'stale',
+    refused: true,
+    newest,
+    at,
+    note: `载荷 translatedAt(${new Date(at).toISOString()})早于目标语言包盘上最新 mtime(${new Date(newest).toISOString()})⇒ 这份载荷比盘上内容旧,写下去就是把别人的批次烤回去`,
+  }
+}
+
+/** 本轮 --check 的凭据文件名:吃**载荷字节 sha256 + 端名**,换载荷或换端即失效,不许沿用上一轮的对账。 */
+export function checkStampName({ inputSha256, target }) {
+  return `check-stamp-${String(target).replace(/[^A-Za-z0-9._-]/g, '_')}-${String(inputSha256).slice(0, 16)}.json`
+}
+
+/**
+ * 「本轮没先跑过 --check 就拒写」的判据(票面修法 ③ 的后半)。
+ * 为什么需要它:写盘模式的破坏性来自"没对过账就烤进主线";`--check` 才是那道对账,
+ * 而它此前只是一个**可选参数** —— 没人强制,于是守卫等于装饰。
+ * 状态机:absent(没跑过)/ mismatch(跑过但载荷或端不同)/ ok。
+ */
+export function checkStampVerdict({ stamp, inputSha256, target }) {
+  if (!stamp || typeof stamp !== 'object') {
+    return { refused: true, state: 'absent', reason: '本轮没有为该载荷跑过 --check(没有对账凭据)' }
+  }
+  if (stamp.inputSha256 !== inputSha256) {
+    return { refused: true, state: 'mismatch', reason: `凭据对应的是另一份载荷(记 ${String(stamp.inputSha256).slice(0, 12)}… ≠ 本次 ${String(inputSha256).slice(0, 12)}…)` }
+  }
+  if (stamp.target !== target) {
+    return { refused: true, state: 'mismatch', reason: `凭据是 ${stamp.target} 端跑出来的,本次目标端是 ${target}` }
+  }
+  return { refused: false, state: 'ok', reason: '' }
+}
+
 function usageText() {
   return [
-    '用法: node scripts/i18n-apply.mjs [--target=<端>] [--input <path>] [--check] [--deny-overwrite]',
+    '用法: node scripts/i18n-apply.mjs [--target=<端>] [--input <path>] [--check] [--deny-overwrite] [--allow-stale=<原因>]',
     '',
-    '  --check                 只校验五语 parity,不写任何文件',
+    '  --check                 只校验五语 parity,不写任何文件(跑过就留本轮对账凭据)',
+    '  --check-first           同一次调用内先跑 --check 那段对账并记凭据,再继续应用(单命令出路)',
     '  --target=<端>           须与 packages/i18n/messages/ 下目录名逐字相同(未知值一律拒)',
     '  --input <path>          指定翻译结果 JSON(默认 .ihui-agent/tmp/i18n-translations.json)',
     '  --deny-overwrite          已有键会被改写/丢弃时直接拒写(默认只点名,不拦)',
+    '  --allow-stale=<原因>      放行"载荷比盘上旧"这一守卫,**必须写原因**;无原因不算放行',
     '',
-    '退出码: 0 成功 / 1 输入或校验失败 / 2 用法错误(未识别参数、未知 --target、--deny-overwrite 下会回退)',
+    '写盘准入:① 本轮必须先对过账(先跑 --check,或直接用 --check-first;凭据吃载荷 sha256 + 端名,换一样即失效);',
+    '           ② 载荷 translatedAt 早于目标语言包盘上最新 mtime ⇒ 拒写(除非 ② 用 --allow-stale 带原因放行)。',
+    '退出码: 0 成功 / 1 输入或校验失败 / 2 用法错误(未识别参数、未知 --target、未对账、陈旧载荷未获放行)',
   ].join('\n')
 }
 
@@ -524,7 +609,11 @@ function main() {
   // 回退守卫要比对的是"盘上现状 vs 这次会写成什么",所以必须在应用前先抓一份快照。
   const pristine = structuredClone(messages)
 
-  console.log(`${C.bold}[i18n AI 翻译应用]${C.reset} ${isCheck ? '校验模式' : '应用模式'}`)
+  console.log(
+    `${C.bold}[i18n AI 翻译应用]${C.reset} ${
+      isCheck ? '校验模式' : checkFirst ? '应用模式(--check-first:同一次调用内先对账)' : '应用模式'
+    }`,
+  )
   // 目标端一律先自证:即将被写的目录必须出现在输出里,否则"写对了"和"写错了端"同形。
   console.log(
     `${C.cyan}目标端:${C.reset} ${TARGET} → ${TARGET_CFG.dir}(${isCheck ? '只校验不写' : '写回目标'})`,
@@ -533,20 +622,69 @@ function main() {
   console.log(`翻译时间: ${translationData.translatedAt || '(未标注)'}`)
   console.log('')
 
-  if (isCheck) {
-    // 校验模式:只验证 parity,不写入
+  // 载荷指纹:本轮 --check 的凭据与写盘模式的准入都吃它(换载荷/换端即失效,不许沿用上一轮对账)
+  const inputSha256 = createHash('sha256').update(fs.readFileSync(INPUT_FILE)).digest('hex')
+  const stampDir = path.join(ROOT, '.ihui-agent', 'tmp', 'i18n-apply')
+  const stampFile = path.join(stampDir, checkStampName({ inputSha256, target: TARGET }))
+
+  if (isCheck || checkFirst) {
+    // 校验模式:只验证 parity,不写入;--check-first 同一份对账跑完后继续进入应用
     const issues = verifyParity(messages)
-    if (issues.length === 0) {
+    // 对账凭据:**跑过就记**,不要求"通过"。
+    //   为什么(2026-10-15 实测被一条既有用例挡下才发现):这条流水线的正常动作就是
+    //   "先发现缺键 → 翻译 → 应用补上",应用之前 parity 天然是坏的;若要求 --check 必须
+    //   通过才准写,就等于把增量翻译整条路堵死(那是新守卫自己引入的假红门,§12e 同型)。
+    //   票面要的是"本轮先看过账"(有凭据),不是"账本已经绿"。
+    try {
+      fs.mkdirSync(stampDir, { recursive: true })
+      fs.writeFileSync(
+        stampFile,
+        JSON.stringify(
+          {
+            inputSha256,
+            target: TARGET,
+            at: new Date().toISOString(),
+            parity: issues.length === 0 ? 'pass' : 'fail',
+            parityIssueLangs: [...new Set(issues.map((i) => i.lang))],
+          },
+          null,
+          2,
+        ) + '\n',
+        'utf8',
+      )
+      console.log(
+        `  ${C.dim}对账凭据:${path.relative(ROOT, stampFile)}(parity=${issues.length === 0 ? 'pass' : 'fail'},fail 也记 —— 见上注释)${C.reset}`,
+      )
+    } catch (e) {
+      console.error(`${C.yellow}⚠️ 对账凭据写不出去(${e.message})⇒ 随后的写盘模式会被拒(宁可拦,不放过)${C.reset}`)
+    }
+    if (!isCheck) {
+      // --check-first:对账已经在这一次调用里发生并记了凭据,如实报数后继续应用。
+      // 缺口按增量流水线的常态处理(点名但不拦),与 `--check` 档的 exit 1 不是一回事。
+      if (issues.length === 0) {
+        console.log(`${C.green}✅ 本轮对账(--check-first)通过,继续应用${C.reset}`)
+      } else {
+        console.log(
+          `${C.yellow}ℹ 本轮对账(--check-first)发现 ${issues.length} 处 parity 缺口(应用前 parity 天然坏,属常态),凭据已记,继续应用${C.reset}`,
+        )
+        for (const issue of issues) {
+          console.log(
+            `  [${issue.lang}] 待补 ${issue.count} 键: ${issue.keys.slice(0, 10).join(', ')}${issue.count > 10 ? ' ...' : ''}`,
+          )
+        }
+      }
+    } else if (issues.length === 0) {
       console.log(`${C.green}✅ parity 校验通过,所有语言 key 集合与 ${BASE_LANG} 一致${C.reset}`)
       process.exit(0)
+    } else {
+      console.error(`${C.red}❌ parity 校验失败:${C.reset}`)
+      for (const issue of issues) {
+        console.error(
+          `  [${issue.lang}] 缺失 ${issue.count} 键: ${issue.keys.join(', ')}${issue.count > 10 ? ' ...' : ''}`,
+        )
+      }
+      process.exit(1)
     }
-    console.error(`${C.red}❌ parity 校验失败:${C.reset}`)
-    for (const issue of issues) {
-      console.error(
-        `  [${issue.lang}] 缺失 ${issue.count} 键: ${issue.keys.join(', ')}${issue.count > 10 ? ' ...' : ''}`,
-      )
-    }
-    process.exit(1)
   }
 
   // 应用模式:写入翻译结果
@@ -581,6 +719,46 @@ function main() {
       )
       process.exit(2)
     }
+  }
+
+  // ── 写盘准入(票面修法 ③):陈旧载荷 + 本轮未对账,任一命中就一个字节都不写 ──
+  const targetMtimesMs = TARGET_LANGS.map((lang) => {
+    const f = path.join(MESSAGES_DIR, `${lang}${MESSAGE_EXT}`)
+    try {
+      return fs.statSync(f).mtimeMs
+    } catch {
+      return Number.NaN
+    }
+  })
+  const stale = stalePayloadVerdict({
+    translatedAt: translationData.translatedAt,
+    targetMtimesMs,
+    allowStaleReason: argvParsed.allowStaleReason,
+  })
+  let stamp = null
+  try {
+    stamp = JSON.parse(fs.readFileSync(stampFile, 'utf8'))
+  } catch {
+    stamp = null
+  }
+  const stampVerdict = checkStampVerdict({ stamp, inputSha256, target: TARGET })
+  const refused = []
+  if (stale.refused) refused.push(`陈旧载荷:${stale.note}`)
+  if (stampVerdict.refused) {
+    refused.push(
+      `未对账:${stampVerdict.reason} —— 正解:node scripts/i18n-apply.mjs --check${customInput ? ` --input ${customInput}` : ''}${targetArg ? ` --target=${TARGET}` : ''}(或一条命令到底:把 --check 换成 --check-first,同一次调用内先对账再应用)`,
+    )
+  }
+  if (refused.length) {
+    console.error(`${C.red}❌ [i18n-apply] 写盘准入未通过,本轮**一个字节都没写**(盘上零变化):${C.reset}`)
+    for (const r of refused) console.error(`   · ${r}`)
+    console.error(
+      `   确属陈旧但必须应用时:显式带原因重跑 —— --allow-stale="<为什么这份旧载荷是对的>"(无原因不算放行)。`,
+    )
+    process.exit(2)
+  }
+  if (stale.state === 'undetermined' || stale.state === 'stale-allowed') {
+    console.log(`  ${C.yellow}ℹ 陈旧守卫如实报名:${stale.note}${C.reset}`)
   }
 
   // 写回 locale 文件
@@ -664,5 +842,12 @@ if (isDirectRun) {
   main()
 }
 
-export const __test__ = { parseArgs, regressionProblems, targetMismatchProblems }
+export const __test__ = {
+  parseArgs,
+  regressionProblems,
+  targetMismatchProblems,
+  stalePayloadVerdict,
+  checkStampVerdict,
+  checkStampName,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

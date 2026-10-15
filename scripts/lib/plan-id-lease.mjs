@@ -77,8 +77,13 @@ export const LEASE_SEGMENT_SIZE = (() => {
 /** 号池硬上限:每族取号池 = 1..LEASE_POOL_MAX(三位数,2026-10-14 拍板,env 不得覆写)。 */
 export const LEASE_POOL_MAX = 999
 
-/** 编号头形状,与 usedIdsOfPrefix 的判据同形(族名 + 可选分隔符 + 数字段)。 */
-const ID_HEAD_RE = /^([A-Za-z]+)([-_ ]?)(\d+)/
+/**
+ * 编号头形状,与 usedIdsOfPrefix 的判据同形(族名 + 可选分隔符 + 数字段)。
+ * 2026-10-14 起**导出**:号池对账门(`check-plan-id-pool.mjs`)要按同一把尺子取"族 + 数字段",
+ * 在门里再抄一份正则就是第二份实现(§22c:第二份必然漂移 —— 抄窄一点就把 `O13b`/无分隔符形态
+ * 读成"不是号",面上就漏判)。
+ */
+export const ID_HEAD_RE = /^([A-Za-z]+)([-_ ]?)(\d+)/
 const SEGMENT_RE = /段=([A-Za-z]+[-_ ]?)?(\d+)~(?:[A-Za-z]+[-_ ]?)?(\d+)/
 const MACHINE_RE = /本机=([^\s（(〔【,，;；"']+)/
 

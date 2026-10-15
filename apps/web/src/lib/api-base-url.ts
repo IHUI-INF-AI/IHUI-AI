@@ -20,8 +20,11 @@
  *   1. NEXT_PUBLIC_API_BASE_URL 显式非空 → 最高优先(桌面端 SaaS 烘焙场景);
  *   2. Tauri + 窗口加载远端站点 → ''(同源 /api/*,与线上浏览器完全一致;cookie 同源
  *      自动附带,顺带恢复 SameSite=Lax 的 refresh 轮转);
- *   3. Tauri + 窗口是本地 origin(localhost:8801 dev / tauri.localhost 本地壳 /
- *      offline 兜底页)→ 本机 API(本地三端联调语义原样保留);
+ *   3. Tauri + 窗口由本机 Next dev server 承载(localhost:8801 等本地 origin + 端口 8801)
+ *      → ''(同源,经 next rewrites 反代到 8802/8803;2026-10-15 改,与浏览器 dev 同形,
+ *      cookie 回到第一方,登录态不再依赖与生产壳共享的桌面 vault);
+ *   3b. Tauri + 其它本地 origin(tauri.localhost 本地壳 / offline 兜底页)→ 本机 API
+ *      (这类窗口没有 dev server 可反代,本地三端联调语义原样保留);
  *   4. 浏览器 dev(localhost:8801)→ ''(同源,Next dev rewrites 代理到 8802);
  *   5. 其它 → ''(生产同源)。
  *
@@ -57,9 +60,35 @@ export function isRemoteWindow(): boolean {
 }
 
 /** 浏览器本地 dev(Next dev server:8801) */
-function isLocalDevOrigin(): boolean {
+export function isLocalWebDevOrigin(): boolean {
   if (typeof window === 'undefined') return false
-  return window.location.hostname === 'localhost' && window.location.port === '8801'
+  const { hostname, port } = window.location
+  return LOCAL_HOSTNAMES.has(hostname) && port === '8801'
+}
+
+/**
+ * 桌面 dev 壳 = Tauri 运行时 + 窗口由本机 Next dev server 承载(端口 8801)。
+ *
+ * 与 `isDesktopAuthVaultEnabled()` 互补,两者共用同一组原语(本文件是 origin 语义的单一来源)。
+ * 存在的理由:开发壳里"自动"两字必须默认关掉 —— 实测 dev 构建照常跑线上 updater feed,
+ * 启动 5s 静默检查 + 每小时 Rust 侧自更新会把未审构建装进开发机并自杀重启,
+ * 把正在改代码的人从自己的会话里踢出去(本轮 CDP 取证连续两次因此中断)。
+ */
+export function isDesktopDevShell(): boolean {
+  return isTauriRuntime() && isLocalWebDevOrigin()
+}
+
+/**
+ * 桌面凭据库是否应当启用(2026-10-15 立,根治「dev 壳与生产壳互相烧 token」)。
+ *
+ * `com.ihui.desktop/auth.json` 的 `refresh_token` 是**按 App identifier 共享**的一颗键:
+ * 生产壳装的是线上库凭据,dev 壳装的是本机库凭据,两边读写同一颗键;而刷新被否(401)时
+ * `api.ts` 会 `setDesktopRefreshToken(null)` 清库 —— 于是一侧的失败会静默抹掉另一侧的登录态。
+ * dev 壳的窗口由本机 Next dev server 承载,REST 已是同源(见 resolveApiBaseUrl),httpOnly
+ * refresh cookie 是第一方凭据,根本不需要桌面 vault 兜底 ⇒ 这一族窗口不读也不写该库。
+ */
+export function isDesktopAuthVaultEnabled(): boolean {
+  return isTauriRuntime() && !isLocalWebDevOrigin()
 }
 
 /**
@@ -70,7 +99,15 @@ export function resolveApiBaseUrl(): string {
   const env = process.env.NEXT_PUBLIC_API_BASE_URL
   if (env) return env
   if (typeof window === 'undefined') return ''
-  if (isTauriRuntime()) return isRemoteWindow() ? '' : LOCAL_API_BASE
+  if (isTauriRuntime()) {
+    if (isRemoteWindow()) return ''
+    // 2026-10-15 根治:窗口由本机 Next dev server 承载(dev 壳)⇒ 走同源 /api/* 反代。
+    // 直连 127.0.0.1:8802 时,窗口 origin(localhost:8801)与 API(127.0.0.1:8802)是**跨 host**,
+    // httpOnly refresh cookie 永不附带,登录态只剩与生产壳共享的那颗桌面 vault 键(见
+    // isDesktopAuthVaultEnabled);同源反代后 cookie 回到第一方,与浏览器 dev 完全同形。
+    if (isLocalWebDevOrigin()) return ''
+    return LOCAL_API_BASE
+  }
   return ''
 }
 
@@ -86,7 +123,9 @@ export function resolveApiBaseUrl(): string {
  * 判定口径与 resolveApiBaseUrl 同族(按窗口 origin,不按"是不是 Tauri"):
  *   1. NEXT_PUBLIC_AI_SERVICE_URL 显式非空 → 最高优先(与 api-client 的
  *      aiServiceBaseUrl() 同一 env 名,不抄第二份真值);
- *   2. Tauri + 本地 origin(8801 dev / tauri.localhost 本地壳)→ 本机 8803。
+ *   2. Tauri + 窗口由本机 Next dev server 承载(端口 8801)→ '' 同源,经 next rewrites
+ *      (`/api/checkin/:path*` → 8803)转发 —— 与浏览器 dev 完全同形,cookie 保持第一方;
+ *      2b. Tauri + tauri.localhost 本地壳 / offline 兜底页 → 本机 8803(无 dev server 可反代)。
  *      放行前提(2026-10-14 逐条实测,非推断):
  *        · **origin 回显**:ai-service `.env` CORS_ORIGIN=http://localhost:8801;带
  *          `Origin: http://localhost:8801` 实打 8803,401 响应确实回带
@@ -127,7 +166,13 @@ export function resolveAiServiceBaseUrl(): string {
   const env = process.env.NEXT_PUBLIC_AI_SERVICE_URL
   if (env) return env
   if (typeof window === 'undefined') return ''
-  if (isTauriRuntime()) return isRemoteWindow() ? '' : LOCAL_AI_SERVICE_BASE
+  if (isTauriRuntime()) {
+    if (isRemoteWindow()) return ''
+    // 与 resolveApiBaseUrl 同判据:dev 壳同源经 next rewrites(/api/checkin → 8803),
+    // 不再跨 host 直连;只有 tauri.localhost / offline 本地壳才直连本机 8803。
+    if (isLocalWebDevOrigin()) return ''
+    return LOCAL_AI_SERVICE_BASE
+  }
   return ''
 }
 
@@ -150,7 +195,7 @@ export function resolveStreamApiBaseUrl(): string {
     // SSE 必须复用同一线上地址,否则会误连本机 dev 后端
     return process.env.NEXT_PUBLIC_API_BASE_URL || LOCAL_STREAM_BASE
   }
-  if (process.env.NODE_ENV === 'development' && isLocalDevOrigin()) return LOCAL_STREAM_BASE
+  if (process.env.NODE_ENV === 'development' && isLocalWebDevOrigin()) return LOCAL_STREAM_BASE
   return ''
 }
 
@@ -167,6 +212,9 @@ export function resolveStreamApiBaseUrl(): string {
 export function resolveWsApiBaseUrl(): string {
   const wsEnv = process.env.NEXT_PUBLIC_WS_BASE_URL
   if (wsEnv) return wsEnv.replace(/\/+$/, '')
+  // WebSocket 不经 next dev 反代(rewrites 不代理 WS 升级),所以**桌面本地壳必须直连本机 8802**,
+  // 即便 REST 已改走同源(见 resolveApiBaseUrl)。浏览器 dev 维持原样(按 origin 推导)。
+  if (isTauriRuntime() && !isRemoteWindow()) return LOCAL_API_BASE
   const rest = resolveApiBaseUrl()
   if (rest) return rest
   return typeof window !== 'undefined' ? window.location.origin : ''

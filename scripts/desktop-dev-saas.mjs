@@ -11,9 +11,11 @@
  *
  * 后端语义(以 main 窗口实际 origin 为唯一真源,apps/web/src/lib/api-base-url.ts):
  *   默认(不设任何 env):窗口经 `--config` 覆盖加载 **http://localhost:8801/**(本地
- *   web dev server),web 端按本地 origin 判定 ⇒ REST 127.0.0.1:8802 /
- *   ai-service 127.0.0.1:8803 / SSE localhost:8802 / WS 127.0.0.1:8802,
- *   即本机三端联调(开发后端)。Rust 侧 auto_refresh 的探活/指纹/离线恢复同样
+ *   web dev server),REST 与 ai-service 一律走**同源** `/api/*`,由 next dev rewrites
+ *   反代到 8802 / 8803(2026-10-15 改:跨 host 直连会把 httpOnly refresh cookie 变成
+ *   第三方,桌面 dev 壳只能靠与生产壳共享的那颗 vault 键维持登录态,两壳互相清库);
+ *   SSE localhost:8802 / WS 127.0.0.1:8802 仍直连(dev 代理缓冲 SSE、且不反代 WS 升级)。
+ *   Rust 侧 auto_refresh 的探活/指纹/离线恢复同样
  *   按窗口 origin 派生,不会打向线上生产。
  *
  * 背景与三个必踩的坑(2026-09-02 实测):

@@ -14,6 +14,7 @@ import {
   type UpdateSession,
   type UpdateProgress,
 } from '@/lib/tauri-bridge'
+import { isDesktopDevShell } from '@/lib/api-base-url'
 
 /** 更新状态机:idle → checking → available → downloading → installing → done / up-to-date / error */
 export type UpdateStatus =
@@ -118,6 +119,9 @@ function createMockSession(): UpdateSession {
  * - 组件手动触发 checkForUpdate()
  *
  * 强制自动更新策略(2026-07-31 立,无需用户点击任何按钮):
+ * - 例外(2026-10-15 立):桌面 dev 壳(窗口由本机 Next dev server 承载,端口 8801)不跑启动
+ *   静默检查与自动安装 —— 实测会把线上 feed 的构建装进开发机并自杀重启,打断正在改代码的会话。
+ *   判据 = isDesktopDevShell();`?dev-update=1/0` 显式试验通道与托盘「检查更新」人工路径不受限。
  * - 打开程序:启动 5s 后静默检查,发现更新自动下载安装,完成后 60 秒倒计时自动重启
  *   (2026-08-16 改:倒计时期间用户可点"稍后重启"重置倒计时,或"立即重启"直接重启)
  * - 关闭程序:立即退出(2026-09-27 撤掉旧的"退出前检查更新"链;更新由上面启动静默检查与
@@ -208,7 +212,10 @@ export function useUpdater() {
     try {
       await session.downloadAndInstall((p: UpdateProgress) => {
         // G-698:进度分片只接受当前世代,旧世代迟到分片丢弃
-        if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+        if (
+          !mountedRef.current ||
+          isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
+        )
           return
         const ratio = p.total > 0 ? p.downloaded / p.total : 0
         setState((prev) => ({
@@ -222,7 +229,10 @@ export function useUpdater() {
     } catch (e) {
       installInFlightRef.current = false
       // G-698:失败收尾同样只接受当前世代
-      if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+      if (
+        !mountedRef.current ||
+        isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
+      )
         return
       setState((prev) => ({
         ...prev,
@@ -255,7 +265,10 @@ export function useUpdater() {
         if (new URLSearchParams(window.location.search).get('dev-update') === '0') {
           setState({ ...INITIAL_STATE, status: 'checking' })
           await new Promise((r) => setTimeout(r, 800))
-          if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+          if (
+            !mountedRef.current ||
+            isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
+          )
             return
           setAvailableUpdateSession(null)
           setState({ ...INITIAL_STATE, status: silent ? 'idle' : 'up-to-date' })
@@ -263,7 +276,10 @@ export function useUpdater() {
         }
         setState({ ...INITIAL_STATE, status: 'checking' })
         await new Promise((r) => setTimeout(r, 800))
-        if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+        if (
+          !mountedRef.current ||
+          isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
+        )
           return
         const mockSession = createMockSession()
         if (autoInstall) {
@@ -286,7 +302,10 @@ export function useUpdater() {
         session = await checkForUpdates()
       } catch (e) {
         // G-698:失败结果只接受当前世代,旧世代的迟到失败不得覆盖新状态
-        if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+        if (
+          !mountedRef.current ||
+          isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
+        )
           return
         setState({
           ...INITIAL_STATE,
@@ -297,7 +316,10 @@ export function useUpdater() {
       }
       // G-698:检查结果只接受当前世代 —— await 期间若另一条链(托盘检查/重试)
       // 已发起新检查,本次即成旧世代,迟到结果(含"无更新"与"发现新版")丢弃。
-      if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+      if (
+        !mountedRef.current ||
+        isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
+      )
         return
       if (!session) {
         // 已是最新
@@ -350,6 +372,9 @@ export function useUpdater() {
       return () => clearTimeout(timer)
     }
     if (!isTauri()) return
+    // 2026-10-15:桌面 dev 壳不跑启动静默检查/自动安装。上面 `?dev-update=1` 那条是**显式**试验
+    // 通道,不受本判据限制;托盘「检查更新」这类人工触发同样照常(判据只挡"自动")。
+    if (isDesktopDevShell()) return
     const timer = setTimeout(() => {
       void checkForUpdate(true, true)
     }, SILENT_CHECK_DELAY_MS)

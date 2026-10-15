@@ -310,6 +310,19 @@ const SUPERSEDED_SUFFIX = '.superseded-';
 const SWAP_MARKER_NAME = '.ihui-swap-transaction.json';
 
 /**
+ * G-807①:回位副本的显式过期时间戳(Unix 纪元)。
+ *
+ * 崩溃恢复把旧代 rename 回权威槽位后,这份内容的真实年龄已经随那次 rename 丢了,
+ * 而紧随其后的摘标记还会把目录 mtime **重盖**到当前时刻 —— 不显式置过期,
+ * TTL 判据(见 `getOrCloneGitCache` 内 `ageMs = Date.now() - stat.mtimeMs`)就会把
+ * 恢复出来的旧代误判成"刚更新的新副本"而命中缓存,下一轮刷新要白等一整个 TTL
+ * (G-730 交付报告残余⑥;实测本机该 mtime 可比 `Date.now()` 超前最多 1.5ms+,
+ * 于是连 `ttlMs:-1` 都会被偶发判成新鲜)。写入侧取最保守值:盖到 Unix 纪元 ⇒
+ * 任何 TTL 下 ageMs 都远大于 ttl,"必须刷新"成为确定性前提,不靠 mtime 猜。
+ */
+const RESTORED_COPY_STAMP = new Date(0);
+
+/**
  * 本进程这一次"交换主体身份"的凭据(G-731 机制出处的 `atomicProcessOwnerId` 同形)。
  * ownerPid 单独不够:pid 会被系统复用,而"复用后的新进程"恰恰最容易被误判成"写者还活着/已死"。
  * 所以 marker 同时记 ownerPid + ownerId,回读时两元都对得上才认定是**本进程**在途的交换。
@@ -802,6 +815,37 @@ async function classifySwapOwner(
 }
 
 /**
+ * Windows 上"刚写入的目录立即 rename"会被实时扫描/索引器短暂锁住 —— 实测本机该形态
+ * EPERM 率最高 ~18%(紧循环复刻千次)/ ~3%(常规间隔),与 `copyFileGuarded` 已处置的
+ * 瞬时错误码是同一家族,处置取同一形状:封闭集内有限次退避重试,封闭集之外的结构性
+ * 错误(槽位不存在 / 已存在 / 跨设备等)原样上抛,绝不模糊重试。
+ * G-807 补记:该形态正是"恢复/提交序列的随机红"在进程级残留的实测根因(探针量化),
+ * 不重试就等于把插件安装/缓存刷新的稳定性交给杀软的心情。
+ *
+ * 三个调用点(`takeOwnershipOfTarget` / `landStagedSwap` / `restoreArchiveToTarget`)
+ * 的目标槽位都由各自前置判据保证为空,重试不会覆盖任何既有内容;rename 在 OS 侧原子,
+ * 不存在"半途而废"的中间态需要回退。
+ */
+const TRANSIENT_FS_CODES = new Set(['EACCES', 'EBUSY', 'EPERM']);
+const RENAME_BUSY_BACKOFF_MS = [25, 50, 100, 200] as const;
+
+function renameDirectoryWithRetry(from: string, to: string): void {
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt <= RENAME_BUSY_BACKOFF_MS.length; attempt++) {
+    if (attempt > 0) sleepSync(RENAME_BUSY_BACKOFF_MS[attempt - 1] ?? 0);
+    try {
+      fs.renameSync(from, to);
+      return;
+    } catch (e) {
+      lastErr = e;
+      const code = (e as NodeJS.ErrnoException).code;
+      if (!code || !TRANSIENT_FS_CODES.has(code)) throw e;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(`目录改名失败(已退避重试):${from} → ${to}`);
+}
+
+/**
  * 提交点第一步:把旧副本**原子改名**挪开,取得目标槽位的所有权。
  *
  * - 目标不存在 ⇒ hadPrevious=false,什么都不动;
@@ -835,7 +879,7 @@ export function takeOwnershipOfTarget(
     fs.rmSync(superseded, { recursive: true, force: true });
   }
   try {
-    fs.renameSync(target, superseded);
+    renameDirectoryWithRetry(target, superseded);
   } catch (e) {
     activeSwapScratch.delete(superseded);
     throw new DirectorySwapError(
@@ -879,7 +923,7 @@ export function landStagedSwap(swap: StagedSwap): void {
     );
   }
   try {
-    fs.renameSync(swap.staging, swap.target);
+    renameDirectoryWithRetry(swap.staging, swap.target);
   } catch (e) {
     const preserved = restoreSuperseded(swap);
     discardStagingDirectory(swap.staging);
@@ -1041,7 +1085,7 @@ export interface SwapRecoveryEntry {
 
 async function restoreArchiveToTarget(archive: string, target: string): Promise<SwapRecoveryEntry> {
   try {
-    fs.renameSync(archive, target);
+    renameDirectoryWithRetry(archive, target);
   } catch (e) {
     return {
       archive,
@@ -1057,7 +1101,15 @@ async function restoreArchiveToTarget(archive: string, target: string): Promise<
   } catch {
     // 摘不掉不改判据结论:内容已回位,下一轮恢复会再问一次
   }
-  return { archive, action: 'restored', reason: `旧副本已回位到权威槽位:${target}` };
+  // G-807①(写侧置过期):上面两步都会让文件系统给目录**重盖** mtime 到当前时刻,
+  // 而"判新鲜"只看 mtime ⇒ 不显式置过期,回位回来的旧代会被 TTL 判成新副本
+  // (根因与实测数据见 RESTORED_COPY_STAMP 注释)。内容年龄已丢,取最保守值盖到纪元。
+  try {
+    fs.utimesSync(target, RESTORED_COPY_STAMP, RESTORED_COPY_STAMP);
+  } catch {
+    // 置不上过期不改"已回位"的结论:内容已在权威槽位,最坏退回改动前的 mtime 行为
+  }
+  return { archive, action: 'restored', reason: `旧副本已回位到权威槽位(已显式标记需刷新):${target}` };
 }
 
 async function deleteCommittedArchive(archive: string): Promise<SwapRecoveryEntry> {

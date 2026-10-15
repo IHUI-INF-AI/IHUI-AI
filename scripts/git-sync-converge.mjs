@@ -1420,6 +1420,17 @@ function main() {
       if (r.aligned) {
         log(C.dim, `  🧹 工作区幻影漂移已对齐 ${r.aligned} 个文件(HEAD 前进未 checkout 的后遗症)`)
       }
+      // 落地欠回写(第五层)最该喊出来的位置就是这里:HEAD 刚被推进,活文档那条脏索引是**本轮**
+      // 造成的。以前它无人负责,一路悬到别人提交(守门 84 判红)或挡住 `--ff-only`(停部署)。
+      if (r.landingAligned) {
+        log(C.dim, `  🧹 落地欠回写已对齐 ${r.landingAligned} 个路径的索引(只写索引,工作树未动)`)
+      }
+      for (const h of (r.landingHeld || []).slice(0, 3)) {
+        log(C.yellow, `  ℹ️ ${h.path} 未按落地欠账对齐:${String(h.reason).slice(0, 120)}`)
+      }
+      for (const u of (r.landingUndetermined || []).slice(0, 3)) {
+        log(C.yellow, `  ⚠️ 未判定 ${u.path}:${String(u.reason).slice(0, 120)}`)
+      }
     } catch (e) {
       log(C.yellow, '  工作区漂移对齐未完成(不影响收敛结论): ' + alignFailureNote(e))
       recordAlignOutcome(repoRoot, false, alignFailureNote(e), null)
