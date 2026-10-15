@@ -93,6 +93,7 @@ import {
   closeChromeWindow,
   openInGoogleChrome,
   WB_WEB_LOGIN_ORIGIN,
+  WB_WEB_LOGIN_URL,
   checkinWorkbuddyWebLoginProbe,
   checkinDetectTraeDir,
   checkinGetPublicIp,
@@ -614,9 +615,11 @@ export default function CheckinPage() {
     setCaptureError(null)
     setWbWebLoginState('waiting')
     setWbWebLoginMsg(t('captureWbWebWaiting'))
-    // 在真 Chrome(--app + CDP)里打开登录页;非 number 返回 = 打开失败
+    // 在真 Chrome(--app + CDP)里打开**登录页**;非 number 返回 = 打开失败
     // (string=Rust 错误消息,如未装 Chrome;null=非桌面环境,理论到不了)
-    const opened = await openInGoogleChrome(WB_WEB_LOGIN_ORIGIN)
+    // 2026-10-15 修:旧值 WB_WEB_LOGIN_ORIGIN 是营销首页(无登录入口) ⇒ 开窗也登不了;
+    // 改开 WB_WEB_LOGIN_URL(/login/ 真实登录页,扫码/账号密码),关窗前缀仍用 origin。
+    const opened = await openInGoogleChrome(WB_WEB_LOGIN_URL)
     if (typeof opened !== 'number') {
       wbWebLoginPort.current = null
       setWbWebLoginState('closed')
