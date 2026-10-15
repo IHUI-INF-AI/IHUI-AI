@@ -10,6 +10,9 @@ mod checkin_capture;
 // 2026-10-12 立:WorkBuddy「网页登录自动添加账号」——内嵌 WebView 登录 + cookie jar
 // 读取(含 HttpOnly)+ /console/accounts 登录态验证,普通用户零 token 体验。
 mod checkin_web_login;
+// 2026-10-16 立:项目内嵌浏览器(自绘工具条 + 地址栏 + Chrome UA 的 WebView2 窗口)。
+// 签到网页登录、SSO 兜底窗等"需要在浏览器里走一趟"的场景统一用它,不再外部拉 Chrome。
+mod embedded_browser;
 // 2026-09-28 立:托盘/关窗/启动/角标的「行为偏好」——判定与持久化都在模块内,本文件只做接线。
 mod desktop_prefs;
 // 本地 git/diff 通道（2026-09-27）：纯判据 / 执行层 / tauri 胶水三件套。
@@ -343,150 +346,9 @@ fn get_app_info(app: tauri::AppHandle) -> AppInfo {
     }
 }
 
-fn pick_free_port() -> std::io::Result<u16> {
-    let listener = std::net::TcpListener::bind(("127.0.0.1", 0))?;
-    let port = listener.local_addr()?.port();
-    drop(listener);
-    Ok(port)
-}
+// 2026-10-16:`pick_free_port` 随外部 Chrome 方案(CDP 端口分配)一并删除 ——
+// 内嵌浏览器不需要调试端口,登录态直读窗口自己的 cookie jar。
 
-/// 2026-08-17:用系统 Google Chrome 打开 URL(独立窗口,完整浏览器功能)。
-/// - 用户要求"内置浏览器要谷歌 Chrome,不要 Edge"——Tauri 内嵌只能用 WebView2(Edge 壳),
-///   而 Chrome 本体窗口是"Google Chrome + 独立进程",登录/点击/输入/视频全支持。
-/// - `mode` 两档(2026-10-15 立第二档):
-///   · 缺省 / "app" = `--app=URL` **无边框应用窗**(无地址栏、无标签栏)。2026-08-17 起的原形态,
-///     给"内置浏览器"观感用(工作台面板"在浏览器中打开")。
-///   · "window" = **完整浏览器窗口**(地址栏 + 标签栏 + 书签栏全在)。立因:用户反馈签到助手
-///     网页登录"打开的窗口不是完整的浏览器窗口"——登录页需要用户能看见地址栏/自主导航,
-///     无边框窗既不像浏览器、也没法核对地址。签到助手网页登录走这一档。
-///   两档都带 `--remote-debugging-port` + 专用 `--user-data-dir`:登录态回收依赖 CDP 读
-///   cookie jar(见 checkin_web_login.rs 决策记录),与窗口有无边框无关。
-/// - Chrome 常见安装路径探测,找不到返回错误(前端提示安装 Chrome)。
-/// - 仅允许 http/https URL(防参数注入)。
-#[tauri::command]
-fn open_in_chrome(url: String, mode: Option<String>) -> Result<u16, IpcError> {
-    let trimmed = url.trim();
-    if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
-        // 宿主拒发 = permission 档(不是 internal:这是有意的策略拒绝,不是判不出)。
-        return Err(IpcError::permission("仅支持 http/https URL"));
-    }
-    let candidates = [
-        std::env::var_os("LOCALAPPDATA")
-            .map(|p| std::path::PathBuf::from(p).join("Google/Chrome/Application/chrome.exe")),
-        std::env::var_os("PROGRAMFILES")
-            .map(|p| std::path::PathBuf::from(p).join("Google/Chrome/Application/chrome.exe")),
-        std::env::var_os("PROGRAMFILES(X86)")
-            .map(|p| std::path::PathBuf::from(p).join("Google/Chrome/Application/chrome.exe")),
-        Some(std::path::PathBuf::from(
-            "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-        )),
-        Some(std::path::PathBuf::from(
-            "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-        )),
-    ];
-    let chrome = candidates.into_iter().flatten().find(|p| p.exists());
-    let Some(chrome) = chrome else {
-        return Err(IpcError::not_found("未找到 Google Chrome,请先安装 Chrome 浏览器"));
-    };
-
-    // 端口分配是网络栈动作,失败归 network 档(不按 io 文案反猜:Windows 的 bind 报错措辞并不稳定)。
-    let port = pick_free_port().map_err(|e| IpcError::network(format!("分配调试端口失败: {}", e)))?;
-    // profile 目录必须落在用户可写的标准位置:%TEMP%\ihui-chrome-profile。
-    // 旧写法硬编码 /tmp/ihui-chrome-profile 在 Windows 上会被 Chrome 解析成"当前盘符根 \tmp"
-    // (C:\tmp 或 D:\tmp,随进程 CWD 漂移,还可能因权限创建失败 ⇒ 窗口弹不出来,
-    // 用户感知正是"点了没反应");std::env::temp_dir() 恒为 %LOCALAPPDATA%\Temp,无此问题。
-    let profile_dir = std::env::temp_dir().join("ihui-chrome-profile");
-    // 窗口形态:只有显式 "window" 才是完整浏览器窗口,其余(含不传/未知值)保持 --app 应用窗,
-    // 免得旧前端不传参时行为漂移。
-    let full_window = matches!(mode.as_deref(), Some("window"));
-    let mut cmd = std::process::Command::new(&chrome);
-    if full_window {
-        // 完整窗口:URL 走位置参数,--no-first-run/--no-default-browser-check 抑制专用
-        // profile 首次启动的"设为默认浏览器"提示与欢迎页(否则窗口一开先弹这些,像被劫持)。
-        cmd.arg("--new-window")
-            .arg("--no-first-run")
-            .arg("--no-default-browser-check")
-            .arg(format!("--remote-debugging-port={}", port))
-            .arg(format!("--user-data-dir={}", profile_dir.display()))
-            .arg(trimmed);
-    } else {
-        cmd.arg(format!("--app={}", trimmed))
-            .arg("--new-window")
-            .arg(format!("--remote-debugging-port={}", port))
-            .arg(format!("--user-data-dir={}", profile_dir.display()));
-    }
-    // spawn 的失败按 ErrorKind 归类(可执行文件被拒 → permission;找不到 → not_found)。
-    let _child = cmd.spawn().map_err(IpcError::from)?;
-    Ok(port)
-}
-
-/// 2026-10-13:桌面端"在浏览器中登录"闭环收尾 —— 关掉 `open_in_chrome` 打开的那个 Chrome --app 窗口。
-///
-/// 走 CDP(`port` 即 open_in_chrome 的返回值)只关 `url_prefix` 命中的 page target:
-/// 同一 Chrome 实例(--user-data-dir 固定)里工作台等其它 --app 窗口不受影响。
-///
-/// 语义刻意做成**尽力而为**:端口已掉/Chrome 已退/列 target 失败一律返回 Ok(0) 而不是 Err ——
-/// 关窗是登录成功后的收尾动作,失败只由前端记一行 warn,不得让人"已登录"被记成失败。
-/// 只有入参不合法(端口 0 / 前缀非 http[s])才是 permission 档的策略拒绝。
-#[tauri::command]
-async fn close_in_chrome(port: u16, url_prefix: String) -> Result<u32, IpcError> {
-    if port == 0 {
-        return Err(IpcError::permission("非法 CDP 端口(0)"));
-    }
-    let prefix = url_prefix.trim();
-    if !(prefix.starts_with("http://") || prefix.starts_with("https://")) {
-        return Err(IpcError::permission("url_prefix 仅支持 http/https 前缀"));
-    }
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(3))
-        .build()
-        .map_err(|e| IpcError::internal(format!("HTTP 客户端构建失败: {e}")))?;
-    // reqwest 未启用 json feature(default-features=false):取 text 再 serde_json 解析,
-    // 与 checkin_web_login.rs 同一约束,不开第二份依赖。
-    let body = match client.get(format!("http://127.0.0.1:{port}/json/list")).send().await {
-        Ok(resp) => match resp.text().await {
-            Ok(t) => t,
-            Err(_) => return Ok(0),
-        },
-        // 连不上 = Chrome 已退/端口已掉:没有可关的窗,收尾成功(0 个)。
-        Err(_) => return Ok(0),
-    };
-    let targets: Vec<serde_json::Value> = match serde_json::from_str(&body) {
-        Ok(v) => v,
-        Err(_) => return Ok(0),
-    };
-    let mut closed: u32 = 0;
-    for target in &targets {
-        // 只关 page target(不碰 service worker / iframe 等其它 target 类型)。
-        if target.get("type").and_then(|t| t.as_str()) != Some("page") {
-            continue;
-        }
-        let url = target.get("url").and_then(|u| u.as_str()).unwrap_or("");
-        if !url.starts_with(prefix) {
-            continue;
-        }
-        let Some(id) = target.get("id").and_then(|i| i.as_str()) else {
-            continue;
-        };
-        if let Ok(resp) = client
-            .get(format!("http://127.0.0.1:{port}/json/close/{id}"))
-            .send()
-            .await
-        {
-            if resp.status().is_success() {
-                closed += 1;
-            }
-        }
-    }
-    Ok(closed)
-}
-
-/// 启动窗口 resize(P0-1:8 方向边缘缩放,2026-07-27 立)。
-/// direction: n/s/e/w/ne/nw/se/sw
-/// label: 窗口标签(main/admin),默认 "main"。2026-07-27 立:支持 admin 窗口独立 resize。
-///
-/// 2026-07-28 修复:最大化/全屏状态下拒绝 resize(Windows 原生行为)。
-/// 前端 MainShell 也已禁用最大化时的 resize 区域渲染,这里作为防御性兜底。
 #[tauri::command]
 fn start_resize(
     direction: String,
@@ -3424,8 +3286,9 @@ pub fn run() {
             git_channel_ipc::git_authorize_workspace,
             git_channel_ipc::git_workspace_status,
             git_channel_ipc::git_channel_info,
-            open_in_chrome,
-            close_in_chrome,
+            embedded_browser::embedded_browser_open,
+            embedded_browser::embedded_browser_close,
+            embedded_browser::embedded_browser_state,
             get_admin_window_info,
             toggle_devtools,
             quit_app,
@@ -3467,8 +3330,8 @@ pub fn run() {
             checkin_capture::checkin_capture_qoder,
             checkin_capture::checkin_capture_workbuddy,
             checkin_capture::checkin_capture_minimax,
-            // 2026-10-15 浏览器扫码改版:open/close 已废弃(前端复用既有 open_in_chrome /
-            // close_in_chrome),只留 probe(CDP 读 Cookie + 服务端验证,见 checkin_web_login.rs)。
+            // 2026-10-16 内嵌浏览器版:窗口开/关统一走 embedded_browser(注册在上方),
+            // 这里只留 probe(读内嵌窗 cookie jar + 服务端验证,见 checkin_web_login.rs)。
             checkin_web_login::checkin_workbuddy_web_login_probe,
             checkin_capture::checkin_reset_device_ids,
             checkin_capture::checkin_get_public_ip,

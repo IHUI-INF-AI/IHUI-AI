@@ -12,7 +12,7 @@ import { useTranslations } from 'next-intl'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useMounted } from '@/hooks/use-mounted'
 import { useWebViewFrameLabels } from '@/hooks/use-web-view-frame-labels'
-import { openInGoogleChrome } from '@/lib/tauri-bridge'
+import { openEmbeddedBrowser } from '@/lib/tauri-bridge'
 
 import { CdpBrowserView } from './cdp-browser-view'
 
@@ -155,14 +155,14 @@ export function WebWorkPanel() {
   const uiTabs: WorkPanelTabItem[] = React.useMemo(
     () =>
       tabs.map((t) => ({ id: t.id, title: t.title || t.url || tw('untitledTab'), type: t.type })),
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- next-intl 4.13.4 的 t 每次渲染换新引用(实测 same=false),补进依赖会让本 effect 每渲染重跑
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- next-intl 4.13.4 的 t 每次渲染换新引用(实测 same=false),补进依赖会让本 effect 每渲染重跑
     [tabs],
   )
 
   const handleOpenExternal = React.useCallback(() => {
-    // 2026-08-17:桌面端用 Google Chrome --app 打开(用户要求"内置浏览器要谷歌"),
-    // web 端降级 window.open 新标签页。
-    if (url) void openInGoogleChrome(url)
+    // 2026-10-16:桌面端用**项目内嵌浏览器**打开(自绘工具条 + 地址栏,
+    // Chromium 内核 + Chrome UA),web 端降级 window.open 新标签页。
+    if (url) void openEmbeddedBrowser(url)
   }, [url])
 
   // 代理 iframe 桥接(2026-09-02):监听代理页 postMessage

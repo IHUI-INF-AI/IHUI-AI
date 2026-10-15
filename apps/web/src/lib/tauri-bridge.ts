@@ -111,12 +111,7 @@ export class DesktopIpcError extends Error {
   /** 原始 rejection(仅用于排查与日志,不得参与判据、不得渲染给用户)。 */
   readonly raw: unknown
 
-  constructor(
-    code: IpcErrorCode,
-    message: string,
-    codeSource: 'wire' | 'fallback',
-    raw: unknown,
-  ) {
+  constructor(code: IpcErrorCode, message: string, codeSource: 'wire' | 'fallback', raw: unknown) {
     super(message)
     this.name = 'DesktopIpcError'
     this.code = code
@@ -586,56 +581,35 @@ export async function openExternalUrl(url: string, windowName = '_blank'): Promi
 }
 
 /**
- * 用系统 Google Chrome 打开 URL(2026-08-17 立,用户要求"内置浏览器要谷歌")。
+ * 在项目内嵌浏览器窗里打开地址(与 Rust `embedded_browser_open` 逐参对齐)。
  *
- * - 桌面端:调 Rust 端 open_in_chrome(command 已注册)——100% Google Chrome 本体,
- *   登录/点击/输入/视频全支持,不受网站 X-Frame-Options / 反自动化拦截。
- * - `mode`(2026-10-15 立第二档,用户反馈"打开的窗口不是完整的浏览器窗口"):
- *   · `'app'`(缺省)= Chrome `--app=` 无边框应用窗(无地址栏/无标签栏),"内置浏览器"观感;
- *   · `'window'` = **完整浏览器窗口**(地址栏 + 标签栏 + 书签栏全在),需要用户看得见地址
- *     /自主导航的登录场景走这档(签到助手网页登录)。
- *   两档都带 CDP 调试端口 + 专用 profile,登录态回收机制不受窗口形态影响。
- * - web 端(普通浏览器):降级为 window.open 新标签页(浏览器沙箱无法启动本机程序)。
- *
- * @returns 桌面端返回 CDP 端口号,失败返回错误消息;web 端恒返回 null
+ * 2026-10-16 立:桌面端"浏览器里登录"统一走项目内嵌 WebView2 窗(不再依赖本机
+ * Chrome 与 CDP 端口),同 label 复用已建窗并导航;非桌面环境回落到 window.open。
+ * 失败返回错误文案(不抛,交给调用方提示)。
  */
-export async function openInGoogleChrome(
-  url: string,
-  mode: 'app' | 'window' = 'app',
-): Promise<number | string | null> {
+export async function openEmbeddedBrowser(url: string, title?: string): Promise<string | null> {
   if (!isTauri()) {
     window.open(url, '_blank')
     return null
   }
   try {
-    return await invokeIpc<number>('open_in_chrome', { url, mode })
+    await invokeIpc<null>('embedded_browser_open', { url, title: title ?? null })
+    return null
   } catch (e) {
     const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
-    // 带上档名再喊:Chrome 没装(not_found)/ 端口没抢到(network)/ 别的(internal)是三种处置。
-    console.warn('[chrome] open_in_chrome failed:', err.code, err.message)
+    console.warn('[embedded-browser] open failed:', err.code, err.message)
     return err.message
   }
 }
 
-/**
- * 关掉 `openInGoogleChrome` 打开的那个窗口(2026-10-13 立,桌面端"在浏览器中登录"闭环收尾)。
- *
- * Rust 端 close_in_chrome 走 CDP(端口即 open_in_chrome 的返回值)只关 `urlPrefix` 命中的
- * 那一个 page target —— 同一 Chrome 实例(--user-data-dir 固定)里工作台等其它 --app 窗口不受影响。
- *
- * @param port openInGoogleChrome 返回的 CDP 端口号
- * @param urlPrefix 目标窗口的地址前缀(桌面 SSO 即 `{webBase}/sso/login`)
- * @returns 实际关掉的 target 数;失败(端口已掉/Chrome 已退)返回 0 —— 关窗是登录成功后的
- *          收尾动作,失败只由调用方记一行 warn,不影响已落地的登录态。
- */
-export async function closeChromeWindow(port: number, urlPrefix: string): Promise<number> {
-  if (!isTauri()) return 0
+/** 关闭项目内嵌浏览器窗(与 Rust `embedded_browser_close` 对齐);窗不存在即静默成功。 */
+export async function closeEmbeddedBrowser(): Promise<void> {
+  if (!isTauri()) return
   try {
-    return await invokeIpc<number>('close_in_chrome', { port, urlPrefix })
+    await invokeIpc<null>('embedded_browser_close')
   } catch (e) {
     const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
-    console.warn('[chrome] close_in_chrome failed:', err.code, err.message)
-    return 0
+    console.warn('[embedded-browser] close failed:', err.code, err.message)
   }
 }
 
@@ -668,7 +642,6 @@ export async function quitApp(): Promise<void> {
   if (!isTauri()) return
   await invoke('quit_app')
 }
-
 
 /**
  * 发送系统原生通知(标题 + 正文)。
@@ -1634,8 +1607,8 @@ export type WorkbuddyWebLoginProbe =
     }
   | { status: 'error'; message: string }
 
-/** WorkBuddy 站点根(仅作 closeChromeWindow 的 urlPrefix 收尾:登录成功后页面会从
- *  /login/ 跳走,前缀必须留 origin 才能同时命中登录页与登录后的落地页)。 */
+/** WorkBuddy 站点根(登录页落在它之下;仅作"不得退回裸营销首页"的测试护栏,
+ *  以及和 WB_WEB_LOGIN_URL 对照:真登录页带查询串,裸 origin 只是它的前缀)。 */
 export const WB_WEB_LOGIN_ORIGIN = 'https://www.workbuddy.cn'
 
 /** WorkBuddy 网页登录**真实登录页**(2026-10-15 修:WB_WEB_LOGIN_ORIGIN 是产品营销
@@ -1648,13 +1621,12 @@ export const WB_WEB_LOGIN_URL =
   `&redirect_uri=${encodeURIComponent('https://www.workbuddy.cn/')}`
 
 /**
- * 轮询探测(浏览器扫码版,2026-10-15):`port` 来自 `openInGoogleChrome` 返回的
- * CDP 端口;Rust 侧 CDP WebSocket 读 Chrome cookie jar(workbuddy.cn 域族)→
- * 服务端验证登录态并取账号。内嵌 WebView 弹窗 open/close 已废弃,不再有独立命令。
+ * 轮询探测(项目内嵌浏览器版,2026-10-16):Rust 读内嵌窗 cookie jar(cookies_for_url,
+ * 含 HttpOnly)→ 服务端验证登录态并取账号;不再依赖 CDP 端口。
  */
-export async function checkinWorkbuddyWebLoginProbe(port: number): Promise<WorkbuddyWebLoginProbe> {
+export async function checkinWorkbuddyWebLoginProbe(): Promise<WorkbuddyWebLoginProbe> {
   requireTauri()
-  return await invokeIpc<WorkbuddyWebLoginProbe>('checkin_workbuddy_web_login_probe', { port })
+  return await invokeIpc<WorkbuddyWebLoginProbe>('checkin_workbuddy_web_login_probe')
 }
 
 /** 十四层设备标识重置;includeMachineGuid=true 额外尝试注册表 MachineGuid(需 UAC);
@@ -2022,7 +1994,6 @@ export async function checkinAuditQoderResidual(): Promise<QoderResidualAuditRep
   requireTauri()
   return await invokeIpc<QoderResidualAuditReport>('checkin_audit_qoder_residual')
 }
-
 
 /** 备份指定账号的 9 类 TRAE 现场文件到应用数据目录快照区。 */
 export async function checkinSnapshotBackup(userId: string): Promise<CheckinBackupReport> {

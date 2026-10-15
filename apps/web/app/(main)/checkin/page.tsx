@@ -91,9 +91,8 @@ import {
   checkinCaptureJwts,
   checkinCaptureQoder,
   checkinCaptureWorkbuddy,
-  closeChromeWindow,
-  openInGoogleChrome,
-  WB_WEB_LOGIN_ORIGIN,
+  openEmbeddedBrowser,
+  closeEmbeddedBrowser,
   WB_WEB_LOGIN_URL,
   checkinWorkbuddyWebLoginProbe,
   checkinDetectTraeDir,
@@ -226,19 +225,20 @@ export default function CheckinPage() {
   const [wbCapturedSelected, setWbCapturedSelected] = React.useState<Set<string>>(new Set())
   const [wbTokenDrafts, setWbTokenDrafts] = React.useState<Record<string, string>>({})
 
-  // WorkBuddy 网页登录(2026-10-15 浏览器扫码版,普通用户零 token):
-  // openInGoogleChrome 开真 Chrome 窗口(CDP 端口返回)→ 轮询 probe(port)
-  // (ok=已登录,Cookie 由 Rust 走 CDP WebSocket 读浏览器 cookie jar 并服务端验证)
+  // WorkBuddy 网页登录(2026-10-16 内嵌浏览器版,普通用户零 token):
+  // openEmbeddedBrowser 开项目内嵌浏览器窗口(完整浏览器形态)→ 轮询 probe()
+  // (ok=已登录,Cookie 由 Rust 读内嵌窗 cookie jar[cookies_for_url,含 HttpOnly]并服务端验证)
   // → 自动入库(device_map.login_type='web',jwt 字段=Cookie 串加密落库)→ 收尾关窗。
-  // 2026-10-12 初版是内嵌 WebView 弹窗;用户拍板改「浏览器扫码」形态后废弃
-  // (默认浏览器 Cookie 库走 App-Bound Encryption 拿不回登录态,CDP 不受此限)。
+  // 演进:2026-10-12 初版内嵌 WebView 弹窗 → 2026-10-15 改「外部 Chrome 扫码」形态(CDP 回收)
+  // → 2026-10-16 用户拍板回归「项目内嵌浏览器」(参照 Trae/Qoder 内嵌浏览器,窗口升级为完整浏览器)。
   // 保留三条出口:① waiting 态「取消」(停轮询 + 关浏览器登录窗 + 复位);
   // ② 90s 仍无登录态 ⇒ 提示确认登录(不自动关窗,用户可能在登录途中);
   // ③ probe 连续 3 次 IPC error ⇒ 停止轮询并如实告知,不再无限空转。
   const wbWebLoginTimer = React.useRef<ReturnType<typeof setInterval> | null>(null)
   const wbWebLoginSlowTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const wbWebLoginProbeErrors = React.useRef(0)
-  const wbWebLoginPort = React.useRef<number | null>(null)
+  /** 登录流程是否仍在等待(取消/各出口置 false;轮询 tick 据此停止)。 */
+  const wbWebLoginActive = React.useRef(false)
   const [wbWebLoginState, setWbWebLoginState] = React.useState<
     'idle' | 'waiting' | 'importing' | 'done' | 'closed'
   >('idle')
@@ -257,15 +257,14 @@ export default function CheckinPage() {
   }, [])
 
   // 收尾:关闭浏览器里的 WorkBuddy 登录窗(尽力而为,失败不影响已导入的登录态)
-  const closeWbBrowserWindow = React.useCallback((port: number) => {
-    void closeChromeWindow(port, WB_WEB_LOGIN_ORIGIN).catch(() => {})
+  const closeWbBrowserWindow = React.useCallback(() => {
+    void closeEmbeddedBrowser()
   }, [])
 
-  // 取消网页登录(改主意时唯一的出口):停轮询 → 关浏览器登录窗 → 复位状态。
+  // 取消网页登录(改主意时唯一的出口):停轮询 → 关内嵌浏览器登录窗 → 复位状态。
   const cancelWbWebLogin = React.useCallback(() => {
+    closeWbBrowserWindow()
     stopWbWebLoginPoll()
-    if (wbWebLoginPort.current !== null) closeWbBrowserWindow(wbWebLoginPort.current)
-    wbWebLoginPort.current = null
     setWbWebLoginState('closed')
     setWbWebLoginMsg(t('captureWbWebCancelled'))
   }, [closeWbBrowserWindow, stopWbWebLoginPoll, t])
@@ -616,20 +615,18 @@ export default function CheckinPage() {
     setCaptureError(null)
     setWbWebLoginState('waiting')
     setWbWebLoginMsg(t('captureWbWebWaiting'))
-    // 在真 Chrome 里打开**登录页**;非 number 返回 = 打开失败
-    // (string=Rust 错误消息,如未装 Chrome;null=非桌面环境,理论到不了)
+    // 在项目内嵌浏览器窗里打开**登录页**;非 null 返回 = 打开失败
+    // (string=Rust 错误消息,如 WebView 创建失败;null=非桌面环境,理论到不了)
     // 2026-10-15 修:旧值 WB_WEB_LOGIN_ORIGIN 是营销首页(无登录入口) ⇒ 开窗也登不了;
-    // 改开 WB_WEB_LOGIN_URL(/login/ 真实登录页,扫码/账号密码),关窗前缀仍用 origin。
-    // 2026-10-15 二修(用户反馈"打开的窗口不是完整的浏览器窗口"):'window' 档 = 完整 Chrome
-    // 窗口(地址栏 + 标签栏),不再是 --app 无边框应用窗;CDP 回收登录态不受窗口形态影响。
-    const opened = await openInGoogleChrome(WB_WEB_LOGIN_URL, 'window')
-    if (typeof opened !== 'number') {
-      wbWebLoginPort.current = null
+    // 改开 WB_WEB_LOGIN_URL(/login/ 真实登录页,扫码/账号密码)。
+    // 2026-10-16 用户拍板回归「项目内嵌浏览器」:openEmbeddedBrowser 开完整浏览器窗。
+    const openErr = await openEmbeddedBrowser(WB_WEB_LOGIN_URL, '登录 WorkBuddy')
+    if (openErr) {
       setWbWebLoginState('closed')
-      setWbWebLoginMsg(typeof opened === 'string' ? opened : t('captureWbWebOpenFailed'))
+      setWbWebLoginMsg(openErr || t('captureWbWebOpenFailed'))
       return
     }
-    wbWebLoginPort.current = opened
+    wbWebLoginActive.current = true
     stopWbWebLoginPoll()
     wbWebLoginProbeErrors.current = 0
     // 90s 仍无登录态 ⇒ 用户可能还没在浏览器完成登录(或网络不通)。
@@ -639,11 +636,10 @@ export default function CheckinPage() {
       setWbWebLoginMsg(t('captureWbWebSlowHint'))
     }, 90_000)
     const tick = async (): Promise<boolean> => {
-      const port = wbWebLoginPort.current
-      if (port === null) return true // 已被取消/复位
+      if (!wbWebLoginActive.current) return true // 已被取消/复位
       let probe: Awaited<ReturnType<typeof checkinWorkbuddyWebLoginProbe>>
       try {
-        probe = await checkinWorkbuddyWebLoginProbe(port)
+        probe = await checkinWorkbuddyWebLoginProbe()
         wbWebLoginProbeErrors.current = 0
       } catch {
         // IPC 连续 3 次异常(而非瞬时抖动)⇒ 停止轮询如实告知,不再无限空转
@@ -663,9 +659,9 @@ export default function CheckinPage() {
         return false
       }
       stopWbWebLoginPoll()
+      wbWebLoginActive.current = false
       if (probe.status === 'no_window') {
-        // 用户关掉了浏览器登录窗(或调试端口失效)
-        wbWebLoginPort.current = null
+        // 用户关掉了内嵌浏览器登录窗
         setWbWebLoginState('closed')
         setWbWebLoginMsg(t('captureWbWebWindowClosed'))
         return true
@@ -692,9 +688,8 @@ export default function CheckinPage() {
           failures.push(`${acc.nickname || acc.uid}: ${(e as Error).message}`)
         }
       }
-      // 收尾:关掉浏览器里的登录窗(尽力而为);失败路径也关,避免残留
-      if (wbWebLoginPort.current !== null) closeWbBrowserWindow(wbWebLoginPort.current)
-      wbWebLoginPort.current = null
+      // 收尾:关掉内嵌浏览器里的登录窗(尽力而为);失败/成功路径都关,避免残留
+      closeWbBrowserWindow()
       if (failures.length > 0) {
         setWbWebLoginState('closed')
         setWbWebLoginMsg(failures.join('；'))
