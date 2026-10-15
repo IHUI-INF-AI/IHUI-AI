@@ -63,6 +63,8 @@ import {
   writeBlob,
 } from './lib/bypass-git.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// §22c:取号与撞号检测(守门 89 R5)必须共用同一份 id 口径,不得各写一遍正则
+import { idsOfRegistry } from './check-gate-wiring.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
@@ -82,14 +84,16 @@ export function jsQ(s) {
   return `'${String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r/g, '\\r')}'`
 }
 
-/** 从注册表全文取号:数字 id 的最大值 + 1;**单引号与双引号两种形态都算已占用**。 */
+/**
+ * 从注册表全文取号:数字 id 的最大值 + 1。
+ * 口径**必须与撞号检测(守门 89 R5)同一份实现** ⇒ 直接 import `idsOfRegistry`,不再自带行锚定式正则。
+ * 实测教训(2026-10-16):旧的 `^\s*id:...\s*$` 看不见单行形态条目
+ * `{ id: '212', label: ..., script: ... }`,于是把已占用的 212 又发了一次,由守门 89 R5 当场判红。
+ */
 export function nextIdOf(text) {
-  const used = []
-  for (const m of text.matchAll(new RegExp(ID_RE, 'gm'))) {
-    if (/^\d+$/.test(m[2])) used.push(Number(m[2]))
-  }
+  const used = idsOfRegistry(text).filter((v) => /^\d+$/.test(v)).map(Number)
   const dupes = used.filter((v, i) => used.indexOf(v) !== i)
-  return { nextId: String((used.length ? Math.max(...used) : 0) + 1), used: used.length, dupes }
+  return { nextId: String((used.length ? Math.max(...used) : 0) + 1), used: used.length, takenIds: new Set(used), dupes }
 }
 
 /**
@@ -220,6 +224,14 @@ async function main() {
     }
     const taken = nextIdOf(baseLines.join('\n'))
     newId = taken.nextId
+    // 后置锁(§0.6 单一真相源挡不住形态再漂,所以要当场问一次):发出来的号绝不允许已在面上
+    if (taken.takenIds.has(Number(newId))) {
+      console.error(
+        `❌ 取号后置锁拦停:算出的 ${newId} 仍已在注册表里 ⇒ 说明 id 口径又出现第三种书写形态。\n` +
+          '   出路:把新形态并入 scripts/check-gate-wiring.mjs 的 idsOfRegistry(取号与撞号检测共用它),不得手工挑一个号继续插。',
+      )
+      process.exit(1)
+    }
     if (taken.dupes.length > 0) {
       console.log(`⚠️ HEAD 版 runner 已有重复数字 id(与本票无关,先登记):${[...new Set(taken.dupes)].join(', ')} ⇒ 请人工裁决后再插号`)
     }
