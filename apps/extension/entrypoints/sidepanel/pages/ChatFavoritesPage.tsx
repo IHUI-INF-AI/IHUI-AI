@@ -5,11 +5,12 @@
 /**
  * ChatFavoritesPage — 收藏的对话列表(2026-07-25 立)。
  *
- * 数据源:GET /api/chat/favorites(分页 PageData<ChatFavorite>)。
+ * 数据源:GET /api/chat/favorites —— 后端回 {favorites,page,pageSize,total}(不是 PageData 的 {list}),
+ * 与 web 端 /chat/favorites 页读的是同一个键;这条自述此前写着 PageData,而按它读 .list 只会静默空列表。
  * 列表项:对话标题 + 收藏时间 + 摘要,点击 chrome.tabs.create 跳 web 详情。
  */
 import { useEffect, useState } from 'react'
-import { fetchApi, type PageData } from '@ihui/api-client'
+import { fetchApi } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { fmtDateOnly as fmtDate } from '../../../lib/date-utils'
@@ -32,10 +33,13 @@ export default function ChatFavoritesPage() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetchApi<PageData<ChatFavorite>>('/api/chat/favorites', {
+      // 后端 GET /chat/favorites 回 success({favorites,page,pageSize,total}) —— 不是 PageData
+      // 那套 {list,total};按 PageData 读 .list 会静默拿到 undefined,于是这页永远显示"暂无收藏"。
+      // web 侧(/chat/favorites 页)读的就是 .favorites,两端在此对齐。
+      const res = await fetchApi<{ favorites: ChatFavorite[] }>('/api/chat/favorites', {
         params: { page: 1, pageSize: 30 },
       })
-      if (res.success) setItems(res.data.list)
+      if (res.success) setItems(res.data?.favorites ?? [])
       else setError(res.error || t('common.failed'))
     } catch (e) {
       setError(e instanceof Error ? e.message : t('common.failed'))
