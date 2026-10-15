@@ -234,7 +234,7 @@ test('B9 反证:前置护栏**不得**给出行内豁免 env(票面硬约束)', 
 // 这两条夹具测不出来:不跑真 git,两种错读都不会发生。
 
 const gitIn = (dir, args) =>
-  execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', windowsHide: true })
+  execFileSync('git', ['-C', dir, ...args], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true })
 
 function makeRepo() {
   const dir = mkdtempSync(join(tmpdir(), 'g920-'))
