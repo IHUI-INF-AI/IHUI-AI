@@ -310,7 +310,13 @@ export function SidebarUserRow({
       type="button"
       aria-label={tc('login')}
       className={cn(
-        'flex w-full items-center justify-center gap-1.5 rounded-sm p-1 text-sm font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        // 2026-10-16 CLS 修复:旧值 p-1(text-sm + h-3.5 图标 ⇒ 内容 20px + 上下各 4px = 28px),
+        // 而已登录态 userTrigger 是 h-9(36px)。实测 @1280px /checkin 量到
+        // `div.shrink-0` 160x36@0,864 -> 160x44@0,856 —— auth store 是 zustand persist,
+        // 首帧 showAuthed=false 渲染矮一号的登录按钮,rehydrate 后换成高的用户行,整条底栏上下跳 8px。
+        // 这里改 h-9 + px-1:与 userTrigger、与导航项行高(NavLink h-9)三方严格同高,
+        // 既消除位移,也顺带修掉「登录按钮比旁边导航项矮一截」的观感不一致。
+        'flex h-9 w-full items-center justify-center gap-1.5 rounded-sm px-1 text-sm font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
       )}
     >
       <LogIn className="h-3.5 w-3.5 shrink-0" />
