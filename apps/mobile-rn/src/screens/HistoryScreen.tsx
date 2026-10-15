@@ -26,9 +26,11 @@ export function HistoryScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<HistoryItem[]>('/api/browse-history')
+      // 后端 GET /browse-history 回 success({list,total,page,pageSize}),而这里曾把整个
+      // 信封当数组用 —— FlatList 拿到对象不报错,只是永远空列表。web 侧读的是 .list。
+      const res = await fetchApi<{ list: HistoryItem[] }>('/api/browse-history')
       if (!res.success) throw new Error()
-      setItems(res.data ?? [])
+      setItems(res.data?.list ?? [])
     } catch {
       setError(t('history.loadFailed'))
     } finally {
