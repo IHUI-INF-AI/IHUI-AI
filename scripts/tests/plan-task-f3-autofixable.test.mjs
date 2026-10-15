@@ -29,6 +29,8 @@ import { test } from 'node:test'
 
 import { auditPlan, compositeKeyOf, findRotatedPointers } from '../lib/plan-task-index.mjs'
 import { gitRaw } from '../lib/face-reader.mjs'
+// 见证语料的唯一出口(台账 ⊕ 归档件,清单与正文同面同轮):归档枚举全仓只许一份,不在测试里再写一遍
+import { collectIdFace } from '../lib/plan-id-face.mjs'
 
 const KEYED = [
   '# 计划',
@@ -71,12 +73,29 @@ test('F3-c 无主键但确有逐字孪生 ⇒ 可自动收口(出口那句"与�
     throw new Error('有逐字孪生时那句锚点可核验,判不可修等于把自动档关掉')
 })
 
-test('F3-d 真仓 HEAD 面上每一条 auto 都能独立复核其依据(性质判据,不靠数量 ⇒ 不会因并发提交闪红)', () => {
-  const txt = gitRaw(['show', 'HEAD:PROJECT_PLAN.md'], process.cwd())
-  if (!txt || txt.length < 100000) throw new Error('取不到 HEAD 版计划文档 ⇒ 无从复核,不算通过')
+test('F3-d 真仓语料(台账⊕归档件)上每一条 auto 都能独立复核其依据(性质判据不判数量;见证面随原文搬家)', () => {
+  const ledgerTxt = gitRaw(['show', 'HEAD:PROJECT_PLAN.md'], process.cwd())
+  if (!ledgerTxt || ledgerTxt.length < 100000) throw new Error('取不到 HEAD 版计划文档 ⇒ 无从复核,不算通过')
+  // 2026-10-16 现读:台账面 `auditPlan(...).counts.rotatedPointers = 0` —— §1「证据指针禁行号」+
+  // 清偿器把面上的 L 形指针逐条改写完,这一型的**见证者**只剩归档件(同一张 HEAD 面里逐字存着 1871 条)。
+  // 性质臂本身(每条 auto 的"出口将写的那句话"必须独立复核成立)与取哪张面无关 ⇒ 只搬见证面,
+  // 断言一条不降;台账面读数继续如实点名,不得把"面上空了"写成"这一型不存在"。
+  const wide = collectIdFace({
+    root: process.cwd(),
+    source: 'HEAD',
+    doc: 'PROJECT_PLAN.md',
+    ledgerText: ledgerTxt,
+  })
+  if (!wide.ok || wide.undetermined.length > 0)
+    throw new Error(
+      `宽面取不齐 ⇒ 判死,绝不回落到"只有台账"的窄面:${wide.undetermined.join(' / ') || wide.notes.join(' / ')}`,
+    )
+  const txt = wide.text
   const a = auditPlan(txt)
   if (a.rotated.length === 0)
-    throw new Error('真仓面上一条腐烂指针都没数到 ⇒ 尺子对这一型失明(实测应仍有 180+ 处无出口)')
+    throw new Error(
+      `台账⊕归档件里一条腐烂指针都没数到(台账面 ${auditPlan(ledgerTxt).rotated.length} 条)⇒ 尺子对这一型失明`,
+    )
   const lines = txt.split('\n')
   const verbatim = new Map()
   for (const l of lines) if (/^\s*[-*]\s\[( |x|X)\]/.test(l)) verbatim.set(l, (verbatim.get(l) ?? 0) + 1)
