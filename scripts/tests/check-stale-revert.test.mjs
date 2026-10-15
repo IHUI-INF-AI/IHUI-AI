@@ -26,6 +26,16 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 import { __test__ as G } from '../check-stale-revert.mjs'
 import { resurrectKey, resurrectAnalysis } from '../lib/stale-content-analysis.mjs'
+// §22c:白名单与标记集**只在 lib 里有一份**,本测试一律从源头 import,禁止在这里重抄键名清单。
+import {
+  RESURRECT_PROVENANCE_KEYS,
+  RESURRECT_PROVENANCE_LINE_RE,
+  GENERATED_SELF_EVIDENCE_RES,
+  generatedProvenanceResurrectKey,
+  isGeneratedSelfDescribing,
+  isResurrectProvenanceLine,
+} from '../lib/stale-content-analysis.mjs'
+import { __test__ as PIN_LIB } from '../lib/generated-input-pin.mjs'
 
 const GIT = 'C:/Program Files/Git/cmd/git.exe'
 
@@ -711,4 +721,222 @@ test('G-587 镜像钉:样板形态清单只此一份实现,门体必须从 lib i
     assert.ok(!/new RegExp\('[^']*\[\^\\s"'\{\}\[\]\\\]\]/.test(src), `${name} 不得用 new RegExp 复制样板形态正则`)
   }
   assert.match(gateSrc, /from '\.\/lib\/stale-content-analysis\.mjs'/, '门体必须 import lib 的判据')
+})
+
+/**
+ * ── 生成物「同源溯源/计数行」档(2026-10-14 补档)──────────────────────────────
+ *
+ * 立因(现读复跑):门 105 `check-miniapp-generated.mjs` 判 `ui-routes.generated.ts` 的
+ * `inputsSha256` 钉落后 ⇒ 要求按官方生成器重生成;重生成写出的 `// scanned: 345 source files(…)`
+ * 行 HEAD 面无(HEAD 现为 344)、祖先面记过(实测 e751a97b01/2b1863d4e2/b892b5362b/ba0123ff6b)
+ * ⇒ 被 R1r 读成"复活了旧内容" ⇒ 红。即"按 105 修"必然撞 84,两条 blocking 门互锁。
+ * 2026-10-03 那一版只补了 `// input:` 的 hash 旋转一格,其余同源行是盲区;本档把它们补齐,
+ * 而补齐的**安全前提**就是下面这几条成对对照 —— 缺任一条,这一档就是"把牙磨掉"而不是"补档"。
+ */
+const GEN_MARK = '// GENERATED FILE — DO NOT EDIT. 由 gen-fixture.mjs 生成(pnpm gen:fixture)'
+const PIN_OPEN = '// IHUI-GEN-PIN-BEGIN'
+const PIN_CLOSE = '// IHUI-GEN-PIN-END'
+const H64 = (c) => String(c).repeat(64)
+const pinBlock = ({ sha, commit, scanned, at, inputHash }) =>
+  [
+    GEN_MARK,
+    PIN_OPEN,
+    `// generator: gen-fixture.mjs`,
+    `// sourceCommit: ${commit}`,
+    `// inputsSha256: ${sha}`,
+    `// input: src/pages/a.tsx ${inputHash}`,
+    `// scanned: ${scanned} source files(参数探测依据)`,
+    `// skipped: pagesWithoutOwnConfig=1(标题回落)`,
+    `// generatedAt: ${at}`,
+    PIN_CLOSE,
+  ].join('\n')
+const PIN_OLD = { sha: H64('1'), commit: H64('a'), scanned: 3, at: '2026-10-01T00:00:00.000Z', inputHash: H64('1') }
+const PIN_NEW = { sha: H64('2'), commit: H64('b'), scanned: 2, at: '2026-10-02T00:00:00.000Z', inputHash: H64('2') }
+const CONTENT_OLD = "export const ROUTE_MAP = { a: '/pkg/a/index', b: '/pkg/b/index' }\n"
+const CONTENT_HEAD = "export const ROUTE_MAP = { a: '/pkg/a/index' }\nexport const ROUTE_FLAGS = { newPageProbe: true }\n"
+const V1 = `${pinBlock(PIN_OLD)}\n${CONTENT_OLD}`
+const V2 = `${pinBlock(PIN_NEW)}\n${CONTENT_HEAD}`
+// 重生成的落地面:自述行全部退回旧值,内容行保持 HEAD 形态并追加一行真新内容(混合体)
+const REGEN = `${pinBlock(PIN_OLD)}\n${CONTENT_HEAD}export const ROUTE_NOTE = '重生成后又改了源'\n`
+// 真回滚的落地面:自述行保持 HEAD 形态,内容行把 HEAD 已删的 `/pkg/b/index` 写回来
+const REVERT = `${pinBlock(PIN_NEW)}\n${CONTENT_OLD}${CONTENT_HEAD}`
+/** 摘掉自证标记(横幅 + 钉起止行)⇒ 同一批行落到"文件不自证为生成物"那一格 */
+const unmark = (t) =>
+  t
+    .split('\n')
+    .filter((l) => l !== GEN_MARK && l !== PIN_OPEN && l !== PIN_CLOSE)
+    .join('\n')
+const ANCS = [
+  { commit: 'a1b2c3d01', text: V1 },
+  { commit: 'a1b2c3d02', text: V2 },
+]
+const ANCS_STRICT = [
+  { commit: 'a1b2c3d01', text: unmark(V1) },
+  { commit: 'a1b2c3d02', text: unmark(V2) },
+]
+
+test('生成物溯源行档 · 反向锁:重生成只改自述行 ⇒ 不判复活(门 84↔105 互锁已解)', () => {
+  assert.equal(isGeneratedSelfDescribing(V2), true, '夹具必须自证为生成物,否则这条只是恒绿的空断言')
+  const r = resurrectAnalysis({ baseText: V2, newText: REGEN, ancestors: ANCS })
+  assert.equal(r.status, 'judged', `应当可判,实得 ${r.status}/${r.reason}`)
+  assert.equal(r.generatedProvenance, true, '必须走到生成物档')
+  assert.equal(r.count, 0, `只有溯源/计数行变化不得算复活,实得 ${r.count}:${JSON.stringify(r.sample)}`)
+  assert.ok(r.provenanceValueDrift > 0, `放宽量必须可见(旧尺下这些行是复活候选),实得 ${r.provenanceValueDrift}`)
+})
+
+test('生成物溯源行档 · 阳性对照一:生成物内真回滚内容行 ⇒ 照旧判红(牙没被磨掉)', () => {
+  const r = resurrectAnalysis({ baseText: V2, newText: REVERT, ancestors: ANCS })
+  assert.equal(r.status, 'judged')
+  assert.equal(r.generatedProvenance, true, '同一枚生成物,档确实生效着')
+  assert.ok(r.count > 0, `HEAD 已删的路由条目被写回必须点名,实得 ${r.count}`)
+  assert.ok(
+    r.sample.some((l) => l.includes('/pkg/b/index')),
+    `样本必须点名被搬回的内容行,实得 ${JSON.stringify(r.sample)}`,
+  )
+})
+
+test('生成物溯源行档 · 阳性对照二:同一批溯源行写在未自证的文件里 ⇒ 条件②缺一不放宽', () => {
+  assert.equal(isGeneratedSelfDescribing(unmark(V2)), false, '摘掉标记后必须不再自证为生成物')
+  const strict = resurrectAnalysis({ baseText: unmark(V2), newText: unmark(REGEN), ancestors: ANCS_STRICT })
+  assert.equal(strict.status, 'judged')
+  assert.equal(strict.generatedProvenance, false, '非生成物不得走放宽档')
+  assert.ok(strict.count > 0, `条件②缺失时连自述行也照旧判复活,实得 ${strict.count}`)
+  // 同一套内容、只差条件②:两臂读数必须不同,否则"自证"这一维是装饰
+  const relaxed = resurrectAnalysis({ baseText: V2, newText: REGEN, ancestors: ANCS })
+  assert.ok(
+    relaxed.count === 0 && strict.count > relaxed.count,
+    `放宽档必须真的只吸收自述行(严格臂 ${strict.count} vs 自证臂 ${relaxed.count})`,
+  )
+})
+
+test('生成物溯源行档 · 白名单是清单不是"整行注释一律放过"', () => {
+  assert.ok(RESURRECT_PROVENANCE_KEYS.length >= 5, '白名单必须逐条点名(现读自钉格式与生成器 extraLines)')
+  for (const key of RESURRECT_PROVENANCE_KEYS) {
+    // `input:` 那一格的值位是"路径 + hash":路径是真信息(不得归一),被归一的只有 hash;
+    // 其余同源行的整个值都是自述内容,变化不得算复活。
+    const [a, b] =
+      key === 'input'
+        ? [`// ${key}: src/pages/a.tsx ${H64('1')}`, `// ${key}: src/pages/a.tsx ${H64('2')}`]
+        : [`// ${key}: ZZZZZZZZ-value-one`, `// ${key}: YYYYYYYYY-value-two`]
+    assert.ok(isResurrectProvenanceLine(a), `${key} 必须在自述行形态里`)
+    assert.ok(isResurrectProvenanceLine(b), `${key} 的另一种取值也必须在自述行形态里`)
+    assert.equal(
+      generatedProvenanceResurrectKey(a),
+      generatedProvenanceResurrectKey(b),
+      `${key}: 的值变化不得算复活(这正是门 105 要求重生成时必然发生的事)`,
+    )
+    // 归一后键名仍在(信息不丢),否则"任何行都归一成空串"也能骗过上一条
+    assert.ok(generatedProvenanceResurrectKey(a).includes(`${key}`), `${key} 归一后必须留下键名`)
+  }
+  // 不在白名单里的键必须照旧判:`<hashA>` vs `<hashB>` 两个键
+  const foreign = 'outputHashes'
+  assert.ok(!RESURRECT_PROVENANCE_KEYS.includes(foreign), '反面对照键不得被登记进白名单')
+  assert.notEqual(
+    generatedProvenanceResurrectKey(`// ${foreign}: AAAA`),
+    generatedProvenanceResurrectKey(`// ${foreign}: BBBB`),
+    '白名单外的注释行必须保持原样参与判据(不许"整行注释一律放过")',
+  )
+  // 非注释行、导出对象、JSX 一律原样
+  for (const content of [CONTENT_OLD.trim(), `export const X = { y: 'z' }`, `  <Text style={[styles.hit]}>`]) {
+    assert.equal(generatedProvenanceResurrectKey(content), resurrectKey(content), `内容行不得被归一:${content}`)
+  }
+  // input: 那一格额外锁:键值折掉,但**输入路径必须保留**(不同输入不得归一)
+  assert.notEqual(
+    generatedProvenanceResurrectKey(`// input: a/en.json ${H64('1')}`),
+    generatedProvenanceResurrectKey(`// input: b/ja.json ${H64('1')}`),
+    '不同输入路径不得归一',
+  )
+  assert.ok(
+    generatedProvenanceResurrectKey(`// input: a/en.json ${H64('2')}`).includes('a/en.json'),
+    '归一须保留输入路径',
+  )
+})
+
+test('生成物溯源行档 · 钉格式漂移锁:renderPin 写出的每一行都必须被这一档覆盖', () => {
+  // 用**生成物自述钉的唯一实现**渲染两块钉(值全不同 + 各带 extraLines 计数行),
+  // 逐行要求"同位置的两行归一后同键";若将来往钉里加新字段而不进白名单,这里就红。
+  const inputs = [{ rel: 'src/pages/a.tsx', text: 'a' }]
+  const render = (v, scanned) =>
+    PIN_LIB.renderPin({
+      generator: 'gen-fixture.mjs',
+      sourceCommit: H64(v),
+      inputs,
+      generatedAt: `2026-10-0${v}T00:00:00.000Z`,
+      extraLines: [`scanned: ${scanned} source files(参数探测依据)`, `skipped: pagesWithoutOwnConfig=${v}`],
+    })
+  const A = render('1', 300)
+  const B = render('2', 299)
+  assert.equal(A.length, B.length, '两次渲染行数必须同形,否则夹具不成立')
+  for (let i = 0; i < A.length; i++) {
+    if (A[i] === B[i]) continue // 结构行(BEGIN/END/generator)本就逐字相同
+    assert.ok(isResurrectProvenanceLine(A[i]), `钉里的自述行未被白名单覆盖:${A[i]}`)
+    assert.equal(
+      generatedProvenanceResurrectKey(A[i]),
+      generatedProvenanceResurrectKey(B[i]),
+      `同源行的值差异必须归一,否则门 105 要求的重生成会撞门 84:${A[i]} vs ${B[i]}`,
+    )
+  }
+  // 不同输入路径的两枚钉不得被归一(生成器换输入清单是真变化)
+  const other = PIN_LIB.renderPin({ generator: 'g', sourceCommit: H64('1'), inputs: [{ rel: 'src/pages/b.tsx', text: 'b' }], generatedAt: 'x' })
+  const inputLineOf = (lines) => {
+    const hit = lines.find((l) => l.startsWith('// input: '))
+    assert.ok(hit, `钉块里必须有 input: 行,实得 ${JSON.stringify(lines.slice(0, 6))}`)
+    return hit
+  }
+  assert.notEqual(
+    generatedProvenanceResurrectKey(inputLineOf(A)),
+    generatedProvenanceResurrectKey(inputLineOf(other)),
+    '输入路径不同必须可辨',
+  )
+})
+
+test('生成物溯源行档 · 自证标记现读对账:真产物必须自证,提到标记的手写脚本不得自证', () => {
+  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+  const gitAt = (args) => execFileSync(GIT, ['-c', 'safe.directory=*', ...args], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true, timeout: 300000 })
+  const named = gitAt(['ls-files']).split(/\r?\n/).filter((p) => /(\.generated\.|\.gen\.)/.test(p))
+  assert.ok(named.length >= 5, `HEAD 面应有生成物命名族,实得 ${named.length}`)
+  for (const p of named) {
+    assert.ok(isGeneratedSelfDescribing(gitAt(['show', `HEAD:${p}`])), `${p} 是生成物却没有自证标记 ⇒ 标记清单与现实脱节`)
+  }
+  // 反面对照:这些手写脚本/生成器**散文里也写着这些标记词**,但标记不在注释行行首 ⇒ 不得自证。
+  // (放宽到"整篇包含"就把它们洗成生成物了 —— 那才是这条档真正的失守形态。)
+  for (const p of [
+    'scripts/lib/generated-input-pin.mjs',
+    'scripts/check-miniapp-generated.mjs',
+    'scripts/check-declared-shortcuts.mjs',
+    'scripts/union-converge.mjs',
+    'apps/miniapp-taro/scripts/generate-ui-routes.mjs',
+    'scripts/lib/stale-content-analysis.mjs',
+    'scripts/check-stale-revert.mjs',
+  ]) {
+    assert.ok(!isGeneratedSelfDescribing(gitAt(['show', `HEAD:${p}`])), `${p} 只是提到了标记,不得自证为生成物`)
+  }
+})
+
+test('生成物溯源行档 · 形状锁:白名单/标记集只此一份实现', () => {
+  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+  const libSrc = readFileSync(join(ROOT, 'scripts/lib/stale-content-analysis.mjs'), 'utf8')
+  assert.equal((libSrc.match(/RESURRECT_PROVENANCE_KEYS = /g) ?? []).length, 1, '白名单定义在 lib 里必须只有一处')
+  assert.equal((libSrc.match(/GENERATED_SELF_EVIDENCE_RES = /g) ?? []).length, 1, '自证标记集定义在 lib 里必须只有一处')
+  assert.equal((libSrc.match(/RESURRECT_PROVENANCE_LINE_RE = /g) ?? []).length, 1, '溯源行形态定义在 lib 里必须只有一处')
+  for (const rel of ['scripts/check-stale-revert.mjs', 'scripts/object-space-land.mjs', 'scripts/safe-commit.mjs']) {
+    const src = readFileSync(join(ROOT, rel), 'utf8')
+    for (const name of ['RESURRECT_PROVENANCE_KEYS =', 'GENERATED_SELF_EVIDENCE_RES =', 'generatedProvenanceResurrectKey(']) {
+      if (name.endsWith('(')) assert.ok(!new RegExp(`function\\s+${name.slice(0, -1)}`).test(src), `${rel} 不得内联第二份 ${name}`)
+      else assert.ok(!src.includes(name), `${rel} 不得内联第二份 ${name}`)
+    }
+  }
+  // 本测试文件也不得有第二份清单:出现的键名必须全部来自 import 的那一份
+  const self = readFileSync(join(ROOT, 'scripts/tests/check-stale-revert.test.mjs'), 'utf8')
+  const literalList = /^\s*(?:const|let)\s+\w*(?:KEYS|keys)\w*\s*=\s*\[/m
+  assert.ok(!literalList.test(self.replace(/RESURRECT_PROVENANCE_KEYS/g, '')), '测试里不得另立一份键名清单(§22c)')
+  // lib 必须是纯判据层:不许在这里读 git / 读盘
+  assert.ok(!/execFileSync|readFileSync|from 'node:fs'|from 'node:child_process'/.test(libSrc), 'lib 层不得取材(取材面住在 face-reader)')
+  // 形态必须要求 `//` 注释引导:裸 `键: 值`(YAML/代码)与真代码行都不算自述行
+  assert.ok(isResurrectProvenanceLine('// scanned: 3 source files'), '// 注释引导必须命中形态')
+  assert.ok(!isResurrectProvenanceLine('scanned: 3 source files'), '非 // 注释引导的行不得算自述行')
+  assert.ok(!isResurrectProvenanceLine('export const scanned = 3'), '真代码行不得算自述行')
+  assert.ok(RESURRECT_PROVENANCE_LINE_RE.test(`// inputsSha256: ${H64('1')}`), '形态正则必须认钉里的聚合哈希行')
+  assert.ok(!RESURRECT_PROVENANCE_LINE_RE.test('const inputsSha256 = 1'), '形态正则不得认代码行')
+  assert.ok(GENERATED_SELF_EVIDENCE_RES.length >= 2, '自证标记至少覆盖横幅与钉起始行两族')
 })
