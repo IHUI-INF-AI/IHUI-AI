@@ -83,6 +83,7 @@ import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from '
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { flagValue as flagValueRaw, requireFlagValue } from './lib/flag-value.mjs'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 
 // 判据里「值缺失」一律 null 与 undefined 同待:eqeqeq 禁 `== null`,而拆成 `=== null` 会只挡一半(典型误修)。
@@ -1011,10 +1012,11 @@ const argv = process.argv.slice(2)
  * ② 调用方按本文件头注的用法以为 `--json` 有机器可读出口,实际 stdout 里只有人读文本 ⇒ 解析不到结论。
  * 现:带真路径 ⇒ 写文件(既有行为一字不改);不带值 / 下一个 token 是别的旗标 ⇒ JSON 打到 stdout。
  */
+// 判据单源在 scripts/lib/flag-value.mjs(§22c);这里只把对象形解包成本文件既有的 string|null 形,
+// 既有调用点与测试的语义(缺旗标/坏值 ⇒ null)一字不变。
 function flagValue(list, flag) {
-  if (!list.includes(flag)) return null
-  const v = list[list.indexOf(flag) + 1]
-  return typeof v === 'string' && v !== '' && !v.startsWith('-') ? v : null
+  const f = flagValueRaw(list, flag)
+  return f.valid ? f.value : null
 }
 
 /** 人读文本的去向:JSON-stdout 档必须把一切非 JSON 文本挪出 stdout,否则调用方 JSON.parse(stdout) 直接失败。
@@ -1374,8 +1376,12 @@ if (isDirectRun) {
     process.exit(__selfTest() ? 0 : 1)
   }
   try {
-    const rootIdx = argv.indexOf('--root')
-    const root = rootIdx >= 0 ? resolve(argv[rootIdx + 1]) : DEFAULT_ROOT
+    const rootArg = requireFlagValue(argv, '--root', { noun: '目录参数' })
+    if (rootArg.error) {
+      console.error(`[check-direct-backend-calls] ❌ 无法判定:${rootArg.error}`)
+      process.exit(2)
+    }
+    const root = rootArg.value !== null ? resolve(rootArg.value) : DEFAULT_ROOT
     if (!existsSync(root)) {
       console.error(`[check-direct-backend-calls] ❌ --root 不存在: ${root}`)
       process.exit(2)

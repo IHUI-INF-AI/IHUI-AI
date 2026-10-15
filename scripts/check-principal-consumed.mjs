@@ -63,6 +63,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitBinary, gitRaw, readWorktreeFile, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { prependPathDir } from './lib/normalize-path-env.mjs'
 
 const ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..')
@@ -260,8 +261,13 @@ function main() {
   }
   // 测试通道:镜像测试用临时仓造现场;生产调用不带 --root(守门 70 的教训 —— 靠 cwd 定位
   // 夹具的调用会在脚本忽略 cwd 后结构失效,所以夹具必须走显式 --root)。
-  const rootIdx = argv.indexOf('--root')
-  const root = rootIdx >= 0 && argv[rootIdx + 1] ? resolvePath(argv[rootIdx + 1]) : ROOT
+  // G-322:给了 --root 却没收到合法值 ⇒ 点名实得 token 并走"无法判定",不得折回 ROOT。
+  const rootArg = requireFlagValue(argv, '--root', { noun: '目录参数', fallback: ROOT })
+  if (rootArg.error) {
+    console.log(`❌ 无法判定:${rootArg.error}`)
+    return 2
+  }
+  const root = rootArg.value !== null ? resolvePath(rootArg.value) : ROOT
   const wantJson = flags.has('--json')
   const anchorFace = face === 'head' ? 'head^' : 'head'
   const out = {
@@ -387,7 +393,7 @@ const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process
 
 if (isDirectRun) {
   try {
-    process.exitCode = main()
+    process.exit(main())
   } catch (e) {
     console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
     process.exit(2)
