@@ -378,7 +378,11 @@ $failures = @()
 # 因此日志里出现的失败原因与 pg_dump 的退出码不再同形(旧形态只有一句 exit=1)。
 # 2026-10-13 加固:探测从 pg_isready(120s 预算 5s 轮询)换成 psql `SELECT 1` 退避重试 ——
 # 连接方式与下方 pg_dump 完全一致(localhost/$dbPort/$dbUser,PGPASSWORD 已在上方就位,
-# 不新造任何连接参数),--connect-timeout=5 保证开机窗口里单次探测不会卡死;
+# 不新造任何连接参数);开机窗口里单次探测不会卡死的语义由 `$env:PGCONNECT_TIMEOUT='5'` 保证 ——
+# ⚠ 2026-10-13 加固时用的 `--connect-timeout=5` 是 psql 14–17 的命令行开关,但本机 psql 已升到
+# 18.6,该开关在 18 被移除 ⇒ 探测每次都 `illegal option -- connect-timeout=5` 而 exit=1、就绪门恒判
+# "未就绪"、备份自 2026-10-13 03:00 那一轮起彻底中断。改用 libpq 环境变量 PGCONNECT_TIMEOUT 等价替代
+# (psql 全版本读取,语义一致)。见下方 $env:PGCONNECT_TIMEOUT 赋值与探测调用处。
 # 失败后按 15s/30s/60s/120s/120s 退避重试(日志记"第 n/5 次",纯等待 345s ≈ 6 分钟窗口),
 # 全部失败才走失败路径(沿用 Send-FailureAlert + exit 1)。
 $readyWaitSteps = @(15, 30, 60, 120, 120)
@@ -392,6 +396,8 @@ if (-not (Test-Path -LiteralPath $psql)) {
     $readyLastCode = $null
     $readyLastOut = ''
     $readyAttempts = 0
+    # psql 18 已移除 `--connect-timeout` 开关 ⇒ 改用 libpq 环境变量等价替代(见上方注释)。
+    $env:PGCONNECT_TIMEOUT = '5'
     while ($true) {
         $readyAttempts++
         # 原生程序的 stderr 在 EAP=Stop 下会被升成终止错误(本文件 176-182 行已有同一处置惯例),
@@ -399,7 +405,7 @@ if (-not (Test-Path -LiteralPath $psql)) {
         $prevReadyEap = $ErrorActionPreference
         try {
             $ErrorActionPreference = 'Continue'
-            $readyLastOut = (& $psql -w -h localhost -p $dbPort -U $dbUser -d $dbName --connect-timeout=5 -t -A -c "SELECT 1;" 2>&1 | Out-String).Trim()
+            $readyLastOut = (& $psql -w -h localhost -p $dbPort -U $dbUser -d $dbName -t -A -c "SELECT 1;" 2>&1 | Out-String).Trim()
             $readyLastCode = $LASTEXITCODE
         } catch {
             $readyLastOut = "psql 探测派生异常: $($_.Exception.Message)"
