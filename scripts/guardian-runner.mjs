@@ -4977,6 +4977,25 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- CI 失败自述对账(1 项,blocking)---
+  {
+    id: '215',
+    label:
+      'CI 失败自述覆盖面与自洽性对账(blocking,W2/W3 硬拦;W1 覆盖面走差值棘轮只拦新增,存量只报数)',
+    script: 'check-ci-failure-triage-wiring.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CI_TRIAGE_WIRING',
+    stagedTriggers: ['.github/workflows/', 'scripts/ci-failure-triage.sh', 'scripts/data/ci-triage-exempt-jobs.json', 'scripts/check-ci-failure-triage-wiring.mjs'],
+    onFailHint: [
+      '',
+      '红线:不得为变绿去放宽 TRIAGE_IDS 匹配或删掉豁免台账条目;W1 覆盖面存量归各工作流持有人,判据只拦新增(§12e)。',
+      '修复出口:给该作业每个带 id 的步骤补 TRIAGE_IDS 与同名 O_ 注入,TRIAGE_WORKFLOW_FILE 写本文件自身,命令单行 bash scripts/ci-failure-triage.sh;确属例外往 scripts/data/ci-triage-exempt-jobs.json 具名登记并写 reason。',
+      '备注:本条注册曾被他席整文件回写洗掉一次(枚 dc57b333a9 落过 id 213),现重新注册;回潮即说明共享注册表必须逐块核对 diff(§26)。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
