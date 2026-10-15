@@ -3,7 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 并发整索引提交下的**载荷归因**唯一出口(G-920,2026-10-15 立)。
+ * 并发整索引提交下的**载荷归因**唯一出口(G-920,2026-10-15 立)。本票两半都住这里:
+ *  - 事后:`classifyConcurrentCommits()` —— 提交已落地,回读载荷把它分成四型(2026-10-15 先落)。
+ *  - 事前:`diffForeignIndexEntries()`  —— 发令前复量索引,窗口期新进的外来件当场拒发(本次补)。
  *
  * 为什么住 lib 而不是留在 `safe-commit.mjs` 里:本仓的规矩是"算同一件事的判据只许一份"(§0.6/§22c),
  * 而 `safe-commit.mjs` 是直线执行脚本(无 §22d `isDirectRun` 守卫)⇒ 测试 import 它就会**真的跑一次提交流程**。
@@ -101,6 +103,49 @@ export function classifyConcurrentCommits({ newShas, filesOf, expected, subjectO
 }
 
 /**
+ * **前置**护栏的差值棘轮(G-920 的另一半,2026-10-15 立)。
+ *
+ * 上面 `classifyConcurrentCommits` 是**事后**的:提交已经落地,我们回看载荷把它读成四型之一。
+ * 这一半是**事前**的:在"Step 3 证明索引纯净"到"Step 4 发命令"之间,再取一次索引面,
+ * 凡**窗口期内新进来**的非本票路径 ⇒ 当场拒发,而不是等落地后再去分类。
+ *
+ * 为什么必须是**差值**而不是"索引里有外来件就拒":
+ *   Step 1 `git reset HEAD` + Step 2 声明式 add 之后索引理论上是干净的,但 `git add` 与 `git status`
+ *   之间、以及活文档对账(3e/3f)自身运行期间,并发会话随时可能往共享索引里放东西 —— 这是常态,
+ *   不是故障。若按"有外来件就拒"写,这把尺子会在多会话环境下**恒红**,而恒红尺子的唯一出路是
+ *   被人绕回裸 `git commit` 跳门(§12e),连带该枚提交上的全部守门一起作废 —— 比不装更坏。
+ *   所以判据只认 **current ⊖ baseline**(窗口期**新进**的那批),取样时已在索引里的算既有水位、
+ *   只记账不拦。
+ *
+ * @param {string[]} baseline  Step 3 通过那一刻的索引路径快照(全量,含本票件)
+ * @param {string[]} current   发命令前复量得到的索引路径快照(全量)
+ * @param {Iterable<string>} expected 本票声明的路径集
+ * @returns {{newEntries:string[], resolved:string[], baselineForeign:string[], currentForeign:string[], blocking:boolean}}
+ */
+export function diffForeignIndexEntries({ baseline = [], current = [], expected = [] } = {}) {
+  const expectedNorm = new Set([...(expected ?? [])].map(NORM).filter(Boolean))
+  const foreignOf = (list) =>
+    Array.isArray(list)
+      ? [...new Set(list.map(NORM).filter(Boolean).filter((p) => !expectedNorm.has(p)))].sort()
+      : []
+  const baselineForeign = foreignOf(baseline)
+  const currentForeign = foreignOf(current)
+  const baseSet = new Set(baselineForeign)
+  const nowSet = new Set(currentForeign)
+  const newEntries = currentForeign.filter((p) => !baseSet.has(p))
+  // 窗口期内从索引里**消失**的外来件:多半是别人那枚先落地把它提交掉了。只记账,不拦 ——
+  // 它进不了本枚提交(普通提交只交当前索引内容),拦它就是凭空造一处恒红。
+  const resolved = baselineForeign.filter((p) => !nowSet.has(p))
+  return {
+    newEntries,
+    resolved,
+    baselineForeign,
+    currentForeign,
+    blocking: newEntries.length > 0,
+  }
+}
+
+/**
  * 形态 → 处置建议。建议与形态**绑死**,因为读错建议的代价是把他人提交退掉(§22:任何 rewind 前先验
  * 尖端身份)。这里唯一允许出现"回退"字样的场景,是明确说明"不得直接 reset HEAD~1"。
  */
@@ -128,5 +173,22 @@ export function adviceFor(kind) {
   }
 }
 
-export const __test__ = { classifyConcurrentCommits, adviceFor, NORM }
+/**
+ * 前置护栏判红时的出路。**刻意不给行内豁免 token**(§12e + 票面"不得新增行内豁免通道"):
+ * 一旦留了 `IHUI_SKIP_*`,这把尺子就会在"赶时间"时被人一键关掉,而它管的恰恰是
+ * "把别人的在飞件交上去"这种事后极难发现的事。出路只有换工具 —— `object-space-land.mjs`
+ * 的 `commit-tree` 只交声明集,结构上不吞他人内容,不需要任何开关。
+ */
+export function foreignEntryAdvice() {
+  return {
+    lines: [
+      '处置:本枚**不发** `git commit` —— 窗口期内有新外来件,普通提交会把它们一起交出去。',
+      '出路:`LAND_PATHS=<本票路径,分号分隔> LAND_MSG="<信息>" node scripts/object-space-land.mjs`(commit-tree 只交声明集,结构上不吞他人内容)。',
+      '理由:Step 4 不带 pathspec 不是疏漏 —— pathspec 提交在钩子运行期间由父 git 持 `.git/index.lock`,与 lint-staged 自碰撞(理由见 safe-commit.mjs Step 4 处注记,仍然成立)。所以"先证明索引纯净再发普通提交"这条路必须补一道发令前的复量,而不是改回 pathspec。',
+    ],
+    exit: 1,
+  }
+}
+
+export const __test__ = { classifyConcurrentCommits, adviceFor, diffForeignIndexEntries, foreignEntryAdvice, NORM }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
