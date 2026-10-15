@@ -4935,6 +4935,19 @@ const checks = [
   },
 
   { id: '212', label: '🎯 输入框聚焦反馈对账(描边输入/选择控件必须有聚焦反应,三端同尺;存量按该文件 HEAD 自身棘轮只报数,定级依据与取证窗见脚本头注)', script: 'check-input-focus-feedback.mjs', args: [], mode: 'blocking', skipEnv: 'HUSKY_SKIP_INPUT_FOCUS_FEEDBACK', stagedTriggers: ['apps/', 'packages/'] },
+  // --- 213 (2026-10-15 新增,盘根写入回归锁:从代码面杜绝新的盘根外流生产者) ---
+  // blocking:只拦**本次提交新增**的盘根一级写入(差值棘轮,锚点 = 该文件 HEAD 自身 W1 数),
+  //   存量只报数不判红(§12e 恒红门禁令);全量档按构造恒"新增 0",提交链走 --staged。
+  //   与 check-disk-root-hygiene(守盘上别留垃圾)互补,本门守代码别再产新的。应急放行:
+  //   HUSKY_SKIP_DISK_ROOT_WRITE=1 git commit ...(不推荐)。
+  {
+    id: '213',
+    label: '🛡️  盘根写入回归锁(代码里别再产新的盘根外流;差值棘轮只拦新增)',
+    script: 'check-disk-root-write.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DISK_ROOT_WRITE',
+  },
   // --- info (1 项) ---
   {
     id: '23',

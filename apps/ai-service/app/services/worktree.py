@@ -27,6 +27,42 @@ logger = logging.getLogger(__name__)
 WORKTREE_DIR_ENV = "IHUI_WORKTREE_DIR"
 # task_id 路径安全校验(防 ../ 注入)
 _TASK_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+# DevEnv 根判据(落点护栏用):<盘符>:/DevEnv 本身或其下(Windows 盘符不区分大小写,
+# 比较前统一小写化)。与 CLI 端 assertWorktreeDirLanding 的正则逐字同源。
+_DEVENV_ROOT_RE = re.compile(r"^[a-z]:/devenv(/|$)")
+
+
+def _assert_worktree_dir_landing(env_value: str, source_path: str) -> None:
+    """IHUI_WORKTREE_DIR 落点护栏(2026-10-15 立,AGENTS.md §15b:项目产物不外流)。
+
+    判据与 apps/cli/src/subagents/worktree.ts 的 assertWorktreeDirLanding
+    **逐字同源**(单一真相源:两处实现 + 注释互引、判据一字不差;2026-10-15 查证
+    packages/shared 无现成 path 校验工具可复用,故按各自语言实现):
+      ① 项目树内 .worktrees/ 之下(含 .worktrees 本身);
+      ② 任意盘的 DevEnv 根之下(部署环净面根同族,如 D:\\DevEnv\\...;
+         Windows 盘符不区分大小写,故 nt 上比较一律小写化)。
+    其余值(盘根、TEMP、家目录、仓内其他目录、相对路径、含 .. 的逃逸形)
+    一律 ValueError —— env 指错时的历史形态是在仓外长出一个无人申报的检出,
+    正是 scripts/check-disk-root-hygiene.mjs H2 维点名的那一类。
+    默认行为不变:不设 env 时仍落仓内 .worktrees/。
+    """
+    is_win = os.name == "nt"
+
+    def _key(p: str) -> str:
+        # 先解析成绝对归一形:吃掉 .. 逃逸(如 <src>/.worktrees/../../evil)与相对值,
+        # 再统一分隔符;Windows 上小写化。
+        abs_path = os.path.abspath(p).replace("\\", "/")
+        return abs_path.lower() if is_win else abs_path
+
+    v = _key(env_value)
+    src = _key(source_path)
+    in_repo = v == f"{src}/.worktrees" or v.startswith(f"{src}/.worktrees/")
+    in_devenv = _DEVENV_ROOT_RE.match(v) is not None
+    if not (in_repo or in_devenv):
+        raise ValueError(
+            "IHUI_WORKTREE_DIR 必须落在项目 .worktrees/ 或 DevEnv 内"
+            f"(§15b 项目产物不外流):收到 {env_value}(源仓库 {source_path})"
+        )
 
 
 @dataclass
@@ -39,9 +75,16 @@ class WorktreeInfo:
 
 
 def get_default_worktree_root(source_path: str) -> str:
-    """获取 worktree 根目录(对齐 CLI 端 getWorktreeRoot)。"""
+    """获取 worktree 根目录(对齐 CLI 端 getWorktreeRoot)。
+
+    env 设了值时要过落点护栏(_assert_worktree_dir_landing,§15b):
+    只允许项目树内 .worktrees/ 之下或 <盘>/DevEnv 之下,其余抛 ValueError。
+    """
     env = os.environ.get(WORKTREE_DIR_ENV)
-    return env if env else os.path.join(source_path, ".worktrees")
+    if env:
+        _assert_worktree_dir_landing(env, source_path)
+        return env
+    return os.path.join(source_path, ".worktrees")
 
 
 def worktree_path(source_path: str, task_id: str) -> str:

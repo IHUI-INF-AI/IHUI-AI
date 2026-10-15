@@ -141,9 +141,9 @@ class TestWorktreeInfo:
 
 class TestGetDefaultWorktreeRoot:
     def test_env_var_set_returns_env(self, monkeypatch):
-        """env 存在 → 返回 env 值。"""
-        monkeypatch.setenv(WORKTREE_DIR_ENV, "/custom/wt")
-        assert get_default_worktree_root("/repo") == "/custom/wt"
+        """env 存在 → 返回 env 值(2026-10-15 起 env 值须过落点护栏,合法值才返回)。"""
+        monkeypatch.setenv(WORKTREE_DIR_ENV, "/repo/.worktrees/from-env")
+        assert get_default_worktree_root("/repo") == "/repo/.worktrees/from-env"
 
     def test_env_var_unset_returns_source_worktrees(self, monkeypatch):
         """env 不存在 → source_path/.worktrees。"""
@@ -168,11 +168,88 @@ class TestGetDefaultWorktreeRoot:
         assert result == os.path.join("./repo", ".worktrees")
 
     def test_env_takes_precedence_over_source(self, monkeypatch):
-        """env 优先于 source_path/.worktrees。"""
-        monkeypatch.setenv(WORKTREE_DIR_ENV, "/env/wt")
+        """env 优先于 source_path/.worktrees(合法落点下优先级不变)。"""
+        monkeypatch.setenv(WORKTREE_DIR_ENV, "/some/repo/.worktrees/override")
         result = get_default_worktree_root("/some/repo")
-        assert result == "/env/wt"
-        assert "/some/repo" not in result
+        assert result == "/some/repo/.worktrees/override"
+
+
+# =============================================================================
+# 3b. IHUI_WORKTREE_DIR 落点护栏(2026-10-15 立,§15b;与 CLI 端同源判据)
+# =============================================================================
+
+
+class TestWorktreeDirLanding:
+    """合法值过、非法值抛错(判据:项目 .worktrees/ 之下 或 <盘>/DevEnv 之下)。"""
+
+    def test_legal_repo_worktrees_root(self, monkeypatch):
+        """合法①:.worktrees 本身。"""
+        monkeypatch.setenv(WORKTREE_DIR_ENV, "/repo/.worktrees")
+        assert get_default_worktree_root("/repo") == "/repo/.worktrees"
+
+    def test_legal_repo_worktrees_child(self, monkeypatch):
+        """合法①:.worktrees/ 之下的子目录。"""
+        monkeypatch.setenv(WORKTREE_DIR_ENV, "/repo/.worktrees/wt-1")
+        assert get_default_worktree_root("/repo") == "/repo/.worktrees/wt-1"
+
+    def test_legal_devenv(self, monkeypatch):
+        """合法②:<盘>/DevEnv 之下(部署环净面根同族)。"""
+        monkeypatch.setenv(WORKTREE_DIR_ENV, "D:\\DevEnv\\ihui-wt")
+        assert get_default_worktree_root("D:\\IHUI-AI") == "D:\\DevEnv\\ihui-wt"
+
+    def test_legal_devenv_forward_slash_and_case_insensitive_drive(self, monkeypatch):
+        """合法②:正斜杠形态 + 盘符大小写不敏感(Windows 语义)。"""
+        monkeypatch.setenv(WORKTREE_DIR_ENV, "d:/devenv/wt")
+        assert get_default_worktree_root("D:\\IHUI-AI") == "d:/devenv/wt"
+
+    def test_illegal_disk_root_raises(self, monkeypatch):
+        """非法:盘根一级(§15 明令禁止)。"""
+        monkeypatch.setenv(WORKTREE_DIR_ENV, "D:\\stray-wt")
+        with pytest.raises(ValueError, match="IHUI_WORKTREE_DIR 必须落在项目"):
+            get_default_worktree_root("D:\\IHUI-AI")
+
+    def test_illegal_devenv_lookalike_raises(self, monkeypatch):
+        """非法:DevEnvX 形似而非(正则要求 devenv 后即路径结束或 /)。"""
+        monkeypatch.setenv(WORKTREE_DIR_ENV, "D:\\DevEnvX\\wt")
+        with pytest.raises(ValueError, match="必须落在"):
+            get_default_worktree_root("D:\\IHUI-AI")
+
+    def test_illegal_inside_repo_but_not_worktrees(self, monkeypatch):
+        """非法:仓内但不在 .worktrees/ 之下(如 .ihui-agent/tmp)。"""
+        monkeypatch.setenv(WORKTREE_DIR_ENV, "/repo/.ihui-agent/tmp/wt")
+        with pytest.raises(ValueError, match="必须落在"):
+            get_default_worktree_root("/repo")
+
+    def test_illegal_dotdot_escape_raises(self, monkeypatch):
+        """非法:.. 逃逸形(先解析成绝对归一形再判,逃逸必落网)。"""
+        monkeypatch.setenv(WORKTREE_DIR_ENV, "/repo/.worktrees/../../evil")
+        with pytest.raises(ValueError, match="必须落在"):
+            get_default_worktree_root("/repo")
+
+    def test_illegal_relative_path_raises(self, monkeypatch):
+        """非法:相对路径(落点随 cwd 漂移,不可申报)。"""
+        monkeypatch.setenv(WORKTREE_DIR_ENV, "../outside-wt")
+        with pytest.raises(ValueError, match="必须落在"):
+            get_default_worktree_root("/repo")
+
+    def test_error_message_carries_rule_and_value(self, monkeypatch):
+        """错误信息必须写明判据(§15b 项目产物不外流)与收到的值/源仓库。"""
+        monkeypatch.setenv(WORKTREE_DIR_ENV, "D:\\stray-wt")
+        with pytest.raises(ValueError) as ei:
+            get_default_worktree_root("D:\\IHUI-AI")
+        msg = str(ei.value)
+        assert "§15b" in msg and "项目产物不外流" in msg
+        assert "D:\\stray-wt" in msg and "D:\\IHUI-AI" in msg
+
+    def test_unset_env_default_unchanged(self, monkeypatch):
+        """不设 env ⇒ 默认落仓内 .worktrees/(默认行为不变)。"""
+        monkeypatch.delenv(WORKTREE_DIR_ENV, raising=False)
+        assert get_default_worktree_root("/repo") == os.path.join("/repo", ".worktrees")
+
+    def test_empty_env_default_unchanged(self, monkeypatch):
+        """空串 env 等同未设(既有行为锁定)。"""
+        monkeypatch.setenv(WORKTREE_DIR_ENV, "")
+        assert get_default_worktree_root("/repo") == os.path.join("/repo", ".worktrees")
 
 
 # =============================================================================
@@ -223,10 +300,10 @@ class TestWorktreePath:
         assert result.endswith("task id")
 
     def test_env_var_overrides_root(self, monkeypatch):
-        """env 设置时,worktree_path 用 env 作 root。"""
-        monkeypatch.setenv(WORKTREE_DIR_ENV, "/env/wt")
+        """env 设置时(合法落点),worktree_path 用 env 作 root。"""
+        monkeypatch.setenv(WORKTREE_DIR_ENV, "/repo/.worktrees")
         result = worktree_path("/repo", "task1")
-        assert result == os.path.join("/env/wt", "task1")
+        assert result == os.path.join("/repo/.worktrees", "task1")
 
     def test_unicode_task_id_not_matched_lowered(self, monkeypatch):
         """Unicode 字符不匹配 [A-Za-z0-9_-] → .lower()。"""

@@ -37,6 +37,8 @@ import {
   getDefaultWorktreeRoot,
   cleanupWorktree,
 } from '../src/tools/worktree.js'
+// subagent 版 getDefaultWorktreeRoot(读 IHUI_WORKTREE_DIR;与 tools 版同名不同物,别名导入)
+import { getDefaultWorktreeRoot as getSubagentWorktreeRoot } from '../src/subagents/worktree.js'
 
 // 全文件均为真实 git 子进程 + 临时目录操作,并行全量跑时受机器负载影响大,
 // 15s 全局默认易误伤(实测孤儿检测用例高负载下超时重试 2 次仍失败)→ 文件级提升到 60s。
@@ -758,6 +760,74 @@ describe('WorktreeManager 辅助函数', () => {
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true })
     }
+  })
+})
+
+// ============ IHUI_WORKTREE_DIR 落点护栏(subagents/worktree.ts,2026-10-15 立,§15b) ============
+// 判据与 apps/ai-service/app/services/worktree.py 的 _assert_worktree_dir_landing 逐字同源:
+// ① 项目树内 .worktrees/ 之下;② <盘>/DevEnv 之下;其余抛错。默认行为(不设 env 落仓内)不变。
+
+describe('getDefaultWorktreeRoot(subagents)IHUI_WORKTREE_DIR 落点护栏', () => {
+  const KEY = 'IHUI_WORKTREE_DIR'
+  let saved: string | undefined
+  beforeEach(() => {
+    saved = process.env[KEY]
+  })
+  afterEach(() => {
+    if (saved === undefined) delete process.env[KEY]
+    else process.env[KEY] = saved
+  })
+
+  it('不设 env ⇒ 默认落仓内 .worktrees/(默认行为不变)', () => {
+    delete process.env[KEY]
+    expect(getSubagentWorktreeRoot('/repo')).toBe(path.join('/repo', '.worktrees'))
+  })
+
+  it('空串 env ⇒ 等同未设,默认落仓内 .worktrees/', () => {
+    process.env[KEY] = ''
+    expect(getSubagentWorktreeRoot('/repo')).toBe(path.join('/repo', '.worktrees'))
+  })
+
+  it('合法①:项目树内 .worktrees/ 之下(含 .worktrees 本身)', () => {
+    process.env[KEY] = '/repo/.worktrees/custom-root'
+    expect(getSubagentWorktreeRoot('/repo')).toBe('/repo/.worktrees/custom-root')
+    process.env[KEY] = '/repo/.worktrees'
+    expect(getSubagentWorktreeRoot('/repo')).toBe('/repo/.worktrees')
+  })
+
+  it('非法:仓内但不在 .worktrees/ 下(.ihui-agent/tmp)⇒ 抛错且措辞含 §15b', () => {
+    process.env[KEY] = '/repo/.ihui-agent/tmp/wt'
+    expect(() => getSubagentWorktreeRoot('/repo')).toThrowError(
+      /IHUI_WORKTREE_DIR 必须落在项目 \.worktrees\/ 或 DevEnv 内\(§15b 项目产物不外流\)/,
+    )
+  })
+
+  it('非法:.. 逃逸形 ⇒ 抛错(先解析成绝对归一形再判)', () => {
+    process.env[KEY] = '/repo/.worktrees/../../evil'
+    expect(() => getSubagentWorktreeRoot('/repo')).toThrowError(/必须落在项目/)
+  })
+
+  it('非法:相对路径 ⇒ 抛错(落点随 cwd 漂移,不可申报)', () => {
+    process.env[KEY] = '../outside-wt'
+    expect(() => getSubagentWorktreeRoot('/repo')).toThrowError(/必须落在项目/)
+  })
+
+  it.skipIf(process.platform !== 'win32')('合法②:<盘>/DevEnv 之下(部署环净面根同族)', () => {
+    process.env[KEY] = 'D:\\DevEnv\\ihui-wt'
+    expect(getSubagentWorktreeRoot('D:\\repo')).toBe('D:\\DevEnv\\ihui-wt')
+    // 盘符大小写不敏感(Windows 语义)
+    process.env[KEY] = 'd:/devenv/wt'
+    expect(getSubagentWorktreeRoot('D:\\repo')).toBe('d:/devenv/wt')
+  })
+
+  it.skipIf(process.platform !== 'win32')('非法:盘根一级 ⇒ 抛错(§15 明令禁止)', () => {
+    process.env[KEY] = 'D:\\stray-wt'
+    expect(() => getSubagentWorktreeRoot('D:\\repo')).toThrowError(/必须落在项目/)
+  })
+
+  it.skipIf(process.platform !== 'win32')('非法:DevEnvX 形似而非 ⇒ 抛错', () => {
+    process.env[KEY] = 'D:\\DevEnvX\\wt'
+    expect(() => getSubagentWorktreeRoot('D:\\repo')).toThrowError(/必须落在项目/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

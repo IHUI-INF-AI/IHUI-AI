@@ -1,0 +1,32 @@
+[
+  {
+    "file": "scripts/db-second-copy.ps1",
+    "reason": "PG 备份第二副本的跨物理盘容灾(F:\\BaiduSyncdisk 源 + G:\\backups 目标),机主 2026-10-07(G-916939)拍板;与 D:\\DevEnv 同盘副本互补,非重复产物。",
+    "ticket": "G-916939",
+    "until": "2026-11-15"
+  },
+  {
+    "file": "deploy/win/ihui-pg-backup.ps1",
+    "reason": "云备份同步腿目标 D:\\BaiduSyncdisk\\IHUI-PG-BACKUP($cloudDir),机主拍板的出机备份设计;副本落同步盘供第三方客户端上传,非项目产物外流。",
+    "ticket": "G-916939",
+    "until": "2026-11-15"
+  },
+  {
+    "file": "apps/ai-service/pyproject.toml",
+    "reason": "pytest --basetemp=../../../.pytest_tmp 是 pytest 基础设施设计落点(理由见 config/disk-root-allowlist.json 的 _pytestBasetempNote);该文件不在本门扫描扩展名内,此处为登记性条目。",
+    "ticket": "盘根审计-2026-10-15",
+    "until": "2026-11-15"
+  },
+  {
+    "file": "scripts/lib/gitdir.mjs",
+    "reason": "DevEnv 解析失败时盘根兜底候选(外置真 gitdir / 备份源,§5b 禁删项);属'兜底即响'设计,非常态外流。",
+    "ticket": "盘根审计-2026-10-15",
+    "until": "2026-11-15"
+  },
+  {
+    "file": "scripts/git-rebuild-local.mjs",
+    "reason": "gitdirArchivePath 推导失败时的现场归档 fallback(正常路径落 DevEnv,推导失败才外流);登记待整改。",
+    "ticket": "盘根审计-2026-10-15",
+    "until": "2026-11-15"
+  }
+]
