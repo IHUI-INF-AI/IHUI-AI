@@ -34,6 +34,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitRaw, selectFace, assertRepoRoot, Undetermined } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -525,8 +526,14 @@ async function main() {
     process.exitCode = selfTest()
     return
   }
-  const ri = argv.indexOf('--root')
-  const root = ri >= 0 && argv[ri + 1] ? path.resolve(argv[ri + 1]) : ROOT
+  // G-322:给了 --root 却没收到合法值 ⇒ 点名拒绝,不得静默落 ROOT 出"对账通过"。
+  const rootArg = requireFlagValue(argv, '--root', { noun: '目录参数', fallback: ROOT })
+  if (rootArg.error) {
+    console.error(`❌ 无法判定:${rootArg.error}`)
+    process.exitCode = 2
+    return
+  }
+  const root = rootArg.value !== null ? path.resolve(rootArg.value) : ROOT
   const { face, error } = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
   if (error) {
     console.error(`❌ ${error}`)
