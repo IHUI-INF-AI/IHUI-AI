@@ -167,6 +167,13 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
         setToken(storedToken, useAuthStore.getState().refreshToken)
       }
 
+      // 2026-10-15 加速门收敛:到此 storedToken 已确立(内存/cookie/刷新任一成功),
+      // 登录态已经确定 → 立即翻 ready,让鉴权页面(如签到助手)马上渲染、跳过
+      // /auth/me + fetchProfile 的串行等待(走隧道时常 1-2s)。用户资料为补充信息,
+      // 后台继续拉取即可,不必阻塞「是否登录」的判定(否则墙会挂满整个确认窗口,
+      // 已登录用户误以为被踢出 → 投诉「已登录还显示请先登录 / 授权慢」)。
+      setReady(true)
+
       try {
         const res = await fetchApi<{
           user: {
