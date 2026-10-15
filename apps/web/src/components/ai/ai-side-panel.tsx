@@ -30,10 +30,11 @@ import {
 } from 'lucide-react'
 import { Button, CloseButton, IconButton } from '@ihui/ui-react'
 import { rnRadius } from '@ihui/design-tokens'
-import { toast } from '@/components/common'
+import { toast, AuthGatePrompt } from '@/components/common'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   useWebSocket,
   type WSNotification,
@@ -287,6 +288,9 @@ export function AISidePanel() {
   const t = useTranslations('chat')
   const tc = useTranslations('aiChat')
   const tcommon = useTranslations('common')
+  // 登录态门(与 settings 页同型):未就绪/未登录不发注定 401 的会话历史请求,消息区改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
 
   // 性能修复(2026-07-25):全解构 → 单字段 selector。
   // zustand action 函数引用稳定,不会触发重渲染;state 字段(open/width/isResizing)
@@ -631,6 +635,7 @@ export function AISidePanel() {
   // - 缓存未命中:正常拉取,拉取后写入缓存
   // - LRU 淘汰:cache.size > 5 时删除最早(Map.keys().next().value)
   React.useEffect(() => {
+    if (!allow) return
     if (!open) return
 
     // 切换会话前保存旧会话到缓存(LRU:delete + set 重新插入)
@@ -877,7 +882,7 @@ export function AISidePanel() {
     // hasMoreHistory 用于切换会话前保存旧会话到缓存,但不放入依赖:
     // 避免 hasMoreHistory 变化触发 loadHistory 重载(分页加载由 handleLoadMoreHistory +
     // messages 同步 effect 处理缓存更新)
-  }, [storeConversationId, setConversationId, open]) // eslint-disable-line react-hooks/exhaustive-deps -- hasMoreHistory 故意不放入依赖,避免其变化触发 loadHistory 重载
+  }, [storeConversationId, setConversationId, open, allow]) // eslint-disable-line react-hooks/exhaustive-deps -- hasMoreHistory 故意不放入依赖,避免其变化触发 loadHistory 重载
 
   // 工作区按对话隔离(2026-09-04 立,响应"工作区设置完以后全部对话都是这个工作区"反馈):
   // 切换会话时把 activeWorkspace 换装为该会话绑定的工作区:
@@ -1809,7 +1814,9 @@ export function AISidePanel() {
 
             {/* D73 多任务窗格(G-100):未拆分时主体直挂(与挂载前逐字同构,观感零变化);
                 拆分后由容器画窗格树,主体唯一、固定在根窗格,其余窗格为承载标记(边界 1)。 */}
-            {d73Expanded ? (
+            {!allow ? (
+              <AuthGatePrompt message={tGate('loginRequired')} />
+            ) : d73Expanded ? (
               <div className="relative flex min-h-0 flex-1 flex-col" data-d73-host="">
                 <PaneSplitContainer
                   renderPaneContent={(paneConversationId, paneId) =>

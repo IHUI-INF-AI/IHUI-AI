@@ -6,6 +6,8 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { Activity as ActivityIcon, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import {
@@ -39,6 +41,9 @@ const PAGE_SIZE = 20
 
 export default function ActivityPage() {
   const t = useTranslations('settings')
+  // 2026-10-15 登录态门(与 /settings/notifications 同型):未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [logs, setLogs] = React.useState<ActivityLog[]>([])
   const [total, setTotal] = React.useState(0)
   const [page, setPage] = React.useState(1)
@@ -56,6 +61,7 @@ export default function ActivityPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   React.useEffect(() => {
+    if (!allow) return
     let cancelled = false
     setLoading(true)
     setError('')
@@ -84,7 +90,7 @@ export default function ActivityPage() {
     return () => {
       cancelled = true
     }
-  }, [page, t])
+  }, [page, t, allow])
 
   return (
     <div className="px-4 space-y-4 py-4">
@@ -97,7 +103,9 @@ export default function ActivityPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {!allow ? (
+            <AuthGatePrompt message={tGate('loginRequired')} />
+          ) : loading ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>
           ) : error ? (
             <p className="py-8 text-center text-sm text-destructive">{error}</p>

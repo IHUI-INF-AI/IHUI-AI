@@ -37,6 +37,23 @@
  *   覆盖面如实登记:R1r **只判索引面**(全量档判的是工作树副本 = 机器状态,不是本次提交的内容,
  *   拿它判红同样是恒红门);正文超过行级尺寸护栏的路径落"未覆盖"—— 那 3.9MB 的活文档仍由 R1 的
  *   整 blob 那一支护着(它比 sha,不读正文,不受护栏影响)。
+ *   **生成物「同源溯源/计数行」档(2026-10-14 补齐,与门 105 的互锁出口)**:R1r 的键变换原本
+ *   只把 `// input: <路径> <hash>` 的 hash 旋转一档归一(2026-10-03),同族的
+ *   `scanned / skipped / inputsSha256 / sourceCommit / generatedAt / generator` 六行是盲区 ——
+ *   后果是"按门 105 的要求重生成产物"必撞本门(实测 `ui-routes.generated.ts` 重生成后写出
+ *   `// scanned: 345 …`,HEAD 面是 344、祖先面 e751a97b01 等四枚记过 345 ⇒ 判复活 ⇒ 红)。
+ *   补齐口径(实现只有一份,住在 `scripts/lib/stale-content-analysis.mjs`):
+ *   **同时**满足「命中 `RESURRECT_PROVENANCE_KEYS` 键名白名单的 `//` 自述行」与「文件自证为生成物
+ *   (`GENERATED_SELF_EVIDENCE_RES`,标记名现读自仓内 11 份真产物,不发明)」才折掉该行的值;
+ *   真实内容行(非该形态)一条也不放宽。成对对照与复现命令:
+ *     反向锁(重生成只改自述行 ⇒ 不判红)与阳性对照(生成物内内容行真回滚 ⇒ 仍判红、
+ *     同一批自述行写在未自证的文件里 ⇒ 仍判红):
+ *       `node scripts/check-stale-revert.mjs --self-test`(例 11 / 11b / 12 / 13)
+ *       `node --test scripts/tests/check-stale-revert.test.mjs`(「生成物溯源行档」七条,含钉格式
+ *        漂移锁:往 `renderPin` 里加新字段而不进白名单 ⇒ 那条测试红)
+ *   如实登记两处未完:①lib 返回的放宽读数(`provenanceLineCount`/`provenanceValueDrift`)本门的
+ *   四桶渲染(`renderResurrect`)目前**不打印**这两个数 —— 接线要在门体里加一行,本票的射程不含;
+ *   ②这一档不吃路径白名单也不设行内豁免,与门 105 一样按"生成物自述"判,不存在可挂的放行开关。
  * R2(warn,不计失败):暂存删除了 HEAD 里存在的路径。宿主层会静默删工作区文件(实测一次
  *   137 个),这类删除被顺手提交同样是回滚;但删除也可能是真意图(`git rm` 合法),
  *   按「宁漏不误报」只告警。
@@ -1118,6 +1135,12 @@ function selfTestRun() {
   const repo = join(root, 'repo')
   mkdirSync(repo, { recursive: true })
   const g = (args) => git(['-C', repo, ...args])
+  // 演练仓里后续还要用"只提交这一条路径"的形态(不带 pathspec 的 `commit -a` 会把前面例子
+  // 留在索引里的东西一并提交掉,HEAD 一漂,后面每一条断言都读不准)。
+  const commitOnly = (rel, msg) => {
+    g(['add', '--', rel])
+    g(['commit', '-qm', msg, '--', rel])
+  }
   const results = []
   const check = (name, ok) => results.push({ name, ok })
   try {
@@ -1294,6 +1317,111 @@ function selfTestRun() {
       (probeOut.match(/\[window-probe\]/g) ?? []).length === 3 &&
         probeOut.includes('[window-probe 汇总]'),
     )
+
+    // ── 生成物「同源溯源/计数行」档(2026-10-14 补档):门 84 与门 105 互锁那一型的收口 ──
+    // 立因(现读复跑):门 105 判 `ui-routes.generated.ts` 的 inputsSha256 钉落后 ⇒ 要求按生成器重生成,
+    // 而重生成写出的 `// scanned: 345 source files(…)` 行 HEAD 面无(HEAD 现为 344)、祖先面记过
+    // (实测 e751a97b01/2b1863d4e2/b892b5362b/ba0123ff6b 四枚)⇒ 按 ①②③ 被 R1r 读成复活 ⇒ 红,
+    // "按 105 修"必然撞 84。2026-10-03 那一版只把 `// input:` 的 hash 旋转一档补进判据,
+    // 其余同源行留作盲区。这一档把两处补齐,并由下面四条对照钉住"只放宽自述行、不放宽内容行"。
+    const H64 = (c) => String(c).repeat(64)
+    const pinBlock = ({ sha, commit, scanned, at, inputHash }) =>
+      [
+        '// GENERATED FILE — DO NOT EDIT. 由 gen-fixture.mjs 生成(pnpm gen:fixture)',
+        '// IHUI-GEN-PIN-BEGIN',
+        '// generator: gen-fixture.mjs',
+        `// sourceCommit: ${commit}`,
+        `// inputsSha256: ${sha}`,
+        `// input: src/pages/a.tsx ${inputHash}`,
+        `// scanned: ${scanned} source files(参数探测依据)`,
+        `// skipped: pagesWithoutOwnConfig=1(标题回落)`,
+        `// generatedAt: ${at}`,
+        '// IHUI-GEN-PIN-END',
+      ].join('\n')
+    const PIN_OLD = { sha: H64('1'), commit: H64('a'), scanned: 3, at: '2026-10-01T00:00:00.000Z', inputHash: H64('1') }
+    const PIN_NEW = { sha: H64('2'), commit: H64('b'), scanned: 2, at: '2026-10-02T00:00:00.000Z', inputHash: H64('2') }
+    // 内容行:HEAD 侧已删掉 `/pkg/b/index` 那一条(它是"真回滚"的靶子)
+    const CONTENT_OLD = "export const ROUTE_MAP = { a: '/pkg/a/index', b: '/pkg/b/index' }\n"
+    const CONTENT_HEAD =
+      "export const ROUTE_MAP = { a: '/pkg/a/index' }\nexport const ROUTE_FLAGS = { newPageProbe: true }\n"
+    const genV1 = `${pinBlock(PIN_OLD)}\n${CONTENT_OLD}`
+    const genV2 = `${pinBlock(PIN_NEW)}\n${CONTENT_HEAD}`
+    // 重生成的落地面:自述行全部退回 PIN_OLD 那批值(门 105 要求的正是这次重生成),内容行保持 HEAD
+    // 形态并追加一行真新内容 ⇒ 混合体,整 blob 判据 R1 看不见,只有 R1r 看得见。
+    const genRegen = `${pinBlock(PIN_OLD)}\n${CONTENT_HEAD}export const ROUTE_NOTE = '重生成后又改了源'\n`
+    // 真回滚的落地面:自述行保持 HEAD 形态,内容行把 HEAD 已删的 `/pkg/b/index` 写回来。
+    const genRevert = `${pinBlock(PIN_NEW)}\n${CONTENT_OLD}${CONTENT_HEAD}`
+    // 摘掉自证标记(横幅 + 钉起始/结束行)⇒ 同一批行落到"文件不自证为生成物"那一格
+    const unmark = (t) =>
+      t
+        .split('\n')
+        .filter((l) => !/^\/\/ (GENERATED FILE|IHUI-GEN-PIN-BEGIN|IHUI-GEN-PIN-END)/.test(l))
+        .join('\n')
+
+    mkdirSync(join(repo, 'gen'), { recursive: true })
+    writeFileSync(join(repo, 'gen/routes.generated.ts'), genV1)
+    commitOnly('gen/routes.generated.ts', 'G1: 生成物 v1(scanned=3,含 /pkg/b 路由)')
+    writeFileSync(join(repo, 'gen/routes.generated.ts'), genV2)
+    commitOnly('gen/routes.generated.ts', 'G2: 生成物 v2(重生成后 scanned=2,/pkg/b 已删)')
+    writeFileSync(join(repo, 'gen/plain.ts'), unmark(genV1))
+    commitOnly('gen/plain.ts', 'G3: 同内容但文件不自证为生成物')
+    writeFileSync(join(repo, 'gen/plain.ts'), unmark(genV2))
+    commitOnly('gen/plain.ts', 'G4: 同上')
+
+    writeFileSync(join(repo, 'gen/routes.generated.ts'), genRegen)
+    g(['add', '--', 'gen/routes.generated.ts'])
+    const regenR = audit(repo, { staged: true })
+    check('11 生成物重生成:仅同源溯源/计数行变化 ⇒ 不判红(门 105↔84 互锁已解)', regenR.code === 0)
+    const regenPure = resurrectAnalysis({
+      baseText: genV2,
+      newText: genRegen,
+      ancestors: [{ commit: 'g1commit', text: genV1 }, { commit: 'g2commit', text: genV2 }],
+    })
+    const strictSame = resurrectAnalysis({
+      baseText: unmark(genV2),
+      newText: unmark(genRegen),
+      ancestors: [{ commit: 'g1commit', text: unmark(genV1) }, { commit: 'g2commit', text: unmark(genV2) }],
+    })
+    check(
+      `11b 同一内容两条臂:自证面 count=${regenPure.count}/值有变=${regenPure.provenanceValueDrift},摘掉自证标记 count=${strictSame.count}(旧尺即互锁那次红)`,
+      regenPure.status === 'judged' &&
+        regenPure.generatedProvenance === true &&
+        regenPure.count === 0 &&
+        regenPure.provenanceValueDrift === 4 &&
+        strictSame.status === 'judged' &&
+        strictSame.generatedProvenance === false &&
+        strictSame.count === 4,
+    )
+
+    writeFileSync(join(repo, 'gen/routes.generated.ts'), genRevert)
+    g(['add', '--', 'gen/routes.generated.ts'])
+    const revertR = audit(repo, { staged: true })
+    const revertOut = revertR.lines.join('\n')
+    check(
+      '12 阳性对照:生成物内把**内容行**(HEAD 已删的路由)按祖先写回 ⇒ 仍判红且点名 R1r',
+      revertR.code === 1 &&
+        revertOut.includes('gen/routes.generated.ts') &&
+        revertOut.includes('[R1r]') &&
+        revertOut.includes('/pkg/b/index'),
+    )
+
+    // 隔离:把 routes 夹具恢复成 HEAD 形态并同步索引,让第 13 条的红只能来自 plain.ts。
+    writeFileSync(join(repo, 'gen/routes.generated.ts'), genV2)
+    g(['add', '--', 'gen/routes.generated.ts'])
+    writeFileSync(join(repo, 'gen/plain.ts'), unmark(genRegen))
+    g(['add', '--', 'gen/plain.ts'])
+    const plainR = audit(repo, { staged: true })
+    const plainOut = plainR.lines.join('\n')
+    check(
+      '13 阳性对照:同一批溯源行写在**未自证为生成物**的文件里 ⇒ 条件②缺一不放宽,照旧判红',
+      plainR.code === 1 &&
+        plainOut.includes('gen/plain.ts') &&
+        plainOut.includes('[R1r]') &&
+        !plainOut.includes('gen/routes.generated.ts'),
+    )
+    // 收尾:两枚夹具回到 HEAD 形态并同步索引(不污染任何后续读数)
+    writeFileSync(join(repo, 'gen/plain.ts'), unmark(genV2))
+    g(['add', '--', 'gen/plain.ts'])
 
     let fail = 0
     for (const r of results) {

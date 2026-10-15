@@ -8,6 +8,8 @@ import * as React from 'react'
 import { confirmDialog } from '@/components/feedback'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import {
   Users,
   Plus,
@@ -350,6 +352,9 @@ function GroupCard({
 export default function GroupsPage() {
   const t = useTranslations('eduAi.groups')
   const tc = useTranslations('common')
+  // 2026-10-15 登录态门(与 settings/notifications 同型):未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const queryClient = useQueryClient()
 
   const [name, setName] = React.useState('')
@@ -361,6 +366,7 @@ export default function GroupsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['groups'],
     queryFn: () => api<GroupListData>('/api/groups'),
+    enabled: allow,
   })
 
   const createGroup = useMutation({
@@ -477,7 +483,9 @@ export default function GroupsPage() {
       </Card>
 
       {/* 群组列表 */}
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
         </div>
