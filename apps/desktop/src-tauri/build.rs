@@ -20,8 +20,9 @@ fn main() {
             "git_authorize_workspace",
             "git_workspace_status",
             "git_channel_info",
-            "open_in_chrome",
-            "close_in_chrome",
+            "embedded_browser_open",
+            "embedded_browser_close",
+            "embedded_browser_state",
             "get_admin_window_info",
             "toggle_devtools",
             "quit_app",
@@ -61,7 +62,8 @@ fn main() {
             "checkin_capture_jwts",
             "checkin_capture_qoder",
             "checkin_capture_workbuddy",
-            // 2026-10-15 浏览器扫码改版:open/close 废弃(复用 open_in_chrome/close_in_chrome)
+            // 2026-10-16 内嵌浏览器改版:外部 Chrome 的 open_in_chrome/close_in_chrome 已删除
+            // (三处调用点全部改走内嵌浏览器),登录窗开/关统一用 embedded_browser_*。
             "checkin_workbuddy_web_login_probe",
             "checkin_reset_device_ids",
             "checkin_get_public_ip",

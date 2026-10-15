@@ -95,6 +95,19 @@ fn q_reset_gate() -> Result<(), String> {
     q_reset_gate_with(|k| std::env::var(k).ok())
 }
 
+/// 聚合层(一键全平台重置)专用 sanity 出口:目录在 + 特征标记命中 + 非主目录。
+/// 编排层(qoder_*_reset)内部是 expect("sanity") panic 语义,聚合层必须先走本出口探测,
+/// 不满足则跳过该平台而不是炸整个一键流程。
+pub fn qoder_sanity_check(cn: &std::path::Path, roaming: &std::path::Path) -> Result<(), String> {
+    sanity_check_dir(cn, Q_SANITY_MARKERS_CN)?;
+    sanity_check_dir(roaming, Q_SANITY_MARKERS_ROAMING)
+}
+
+/// 聚合层专用双根解析出口(失败=本机未安装/环境缺 APPDATA,聚合层据此跳过)。
+pub fn qoder_resolve_dirs() -> Result<(std::path::PathBuf, std::path::PathBuf), String> {
+    Ok((resolve_cn_dir()?, resolve_roaming_dir()?))
+}
+
 /// 根②维护档整删条目的中文理由（按名字细分,计划面透出）。
 fn roaming_maintenance_reason(name: &str) -> &'static str {
     match name {

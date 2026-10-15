@@ -3281,6 +3281,156 @@ pub fn checkin_one_click_reset() -> Result<ResetReport, IpcError> {
     Ok(report)
 }
 
+/// 单平台一键重置摘要(2026-10-16 全平台聚合):executed=false=本机未装/无特征目录,照实跳过。
+#[derive(Debug, Clone, Serialize)]
+pub struct OneClickPlatformSummary {
+    pub platform: &'static str,
+    pub executed: bool,
+    pub ok: bool,
+    pub detail: String,
+}
+
+/// 一键解决风控·全平台聚合报告:TRAE 14 层 + Qoder/WorkBuddy/MiniMax 登出重置(含设备身份)。
+#[derive(Debug, Clone, Serialize)]
+pub struct OneClickAllReport {
+    pub trae: ResetReport,
+    pub qoder: Option<crate::workbuddy_reset::WbResetReport>,
+    pub workbuddy: Option<crate::workbuddy_reset::WbResetReport>,
+    pub minimax: Option<crate::workbuddy_reset::WbResetReport>,
+    pub platforms: Vec<OneClickPlatformSummary>,
+}
+
+/// 一键解决风控·全平台聚合(2026-10-16 立,补齐"向导只重置 TRAE"的半截子):
+/// TRAE 走 14 层全开(原 checkin_one_click_reset 语义,MachineGuid 备份安全网不变);
+/// Qoder/WorkBuddy/MiniMax 各走"登出重置"(强杀进程 + 登录态隔离 + 设备身份隔离,
+/// 本地清除→应用自行重新注册,不做指纹伪造)。本机未安装/无特征目录的平台照实
+/// skipped,不拦流程;各平台失败也逐条入 platforms 摘要,不谎报全绿。
+#[tauri::command(async)]
+pub fn checkin_one_click_reset_all() -> Result<OneClickAllReport, IpcError> {
+    // ── TRAE:原 14 层语义不变 ──
+    let trae = checkin_one_click_reset()?;
+
+    let mut platforms: Vec<OneClickPlatformSummary> = Vec::new();
+
+    // ── Qoder:登出重置(含设备身份) ──
+    let mut qoder_report = None;
+    match crate::qoder_reset::qoder_resolve_dirs() {
+        Ok((cn, roaming)) => {
+            if let Err(e) = crate::qoder_reset::qoder_sanity_check(&cn, &roaming) {
+                platforms.push(OneClickPlatformSummary {
+                    platform: "qoder",
+                    executed: false,
+                    ok: true,
+                    detail: format!("skipped: {e}"),
+                });
+            } else {
+                let rep = crate::qoder_reset::qoder_logout_reset(&cn, &roaming, true, true, None);
+                let ok = rep.layers.iter().all(|l| l.ok);
+                platforms.push(OneClickPlatformSummary {
+                    platform: "qoder",
+                    executed: true,
+                    ok,
+                    detail: rep
+                        .layers
+                        .iter()
+                        .map(|l| format!("L{} {} {}", l.layer, l.name, if l.ok { "ok" } else { "FAIL" }))
+                        .collect::<Vec<_>>()
+                        .join("; "),
+                });
+                qoder_report = Some(rep);
+            }
+        }
+        Err(e) => platforms.push(OneClickPlatformSummary {
+            platform: "qoder",
+            executed: false,
+            ok: true,
+            detail: format!("skipped(本机未安装或环境不满足): {e}"),
+        }),
+    }
+
+    // ── WorkBuddy:登出重置(含设备身份) ──
+    let mut workbuddy_report = None;
+    match crate::workbuddy_reset::workbuddy_resolve_root() {
+        Ok(root) => {
+            if let Err(e) = crate::workbuddy_reset::sanity_check_root(&root) {
+                platforms.push(OneClickPlatformSummary {
+                    platform: "workbuddy",
+                    executed: false,
+                    ok: true,
+                    detail: format!("skipped: {e}"),
+                });
+            } else {
+                let rep =
+                    crate::workbuddy_reset::workbuddy_logout_reset(&root, true, true, None);
+                let ok = rep.layers.iter().all(|l| l.ok);
+                platforms.push(OneClickPlatformSummary {
+                    platform: "workbuddy",
+                    executed: true,
+                    ok,
+                    detail: rep
+                        .layers
+                        .iter()
+                        .map(|l| format!("L{} {} {}", l.layer, l.name, if l.ok { "ok" } else { "FAIL" }))
+                        .collect::<Vec<_>>()
+                        .join("; "),
+                });
+                workbuddy_report = Some(rep);
+            }
+        }
+        Err(e) => platforms.push(OneClickPlatformSummary {
+            platform: "workbuddy",
+            executed: false,
+            ok: true,
+            detail: format!("skipped(本机未安装或环境不满足): {e}"),
+        }),
+    }
+
+    // ── MiniMax:登出重置(含账号身份) ──
+    let mut minimax_report = None;
+    match crate::minimax_reset::minimax_resolve_dirs() {
+        Ok((home, roaming)) => {
+            if let Err(e) = crate::minimax_reset::minimax_sanity_check(&home, &roaming) {
+                platforms.push(OneClickPlatformSummary {
+                    platform: "minimax",
+                    executed: false,
+                    ok: true,
+                    detail: format!("skipped: {e}"),
+                });
+            } else {
+                let rep =
+                    crate::minimax_reset::minimax_logout_reset(&home, &roaming, true, true, None);
+                let ok = rep.layers.iter().all(|l| l.ok);
+                platforms.push(OneClickPlatformSummary {
+                    platform: "minimax",
+                    executed: true,
+                    ok,
+                    detail: rep
+                        .layers
+                        .iter()
+                        .map(|l| format!("L{} {} {}", l.layer, l.name, if l.ok { "ok" } else { "FAIL" }))
+                        .collect::<Vec<_>>()
+                        .join("; "),
+                });
+                minimax_report = Some(rep);
+            }
+        }
+        Err(e) => platforms.push(OneClickPlatformSummary {
+            platform: "minimax",
+            executed: false,
+            ok: true,
+            detail: format!("skipped(本机未安装或环境不满足): {e}"),
+        }),
+    }
+
+    Ok(OneClickAllReport {
+        trae,
+        qoder: qoder_report,
+        workbuddy: workbuddy_report,
+        minimax: minimax_report,
+        platforms,
+    })
+}
+
 /// 残留指纹审计(一键向导 Step1 之后自动跑一次,也可随时手点)。
 /// 拿"历次重置前记录的旧身份值"当黑名单,扫当前全部 TRAE 现场,给出**可复核的残留条数**。
 /// 走 spawn_blocking:扫描是重 I/O,直接跑在异步运行时线程上会把 UI 卡住。

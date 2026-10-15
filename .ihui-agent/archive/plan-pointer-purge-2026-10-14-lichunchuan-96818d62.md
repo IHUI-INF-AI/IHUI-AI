@@ -1,3 +1,9 @@
+<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
 # plan-pointer-purge 存量清偿台账(2026-10-14)
 
 > 清偿 PROJECT_PLAN.md 重复登记存量,用户指令「彻底根治 / 一条也不许再产生」。
@@ -66,3 +72,4 @@
   - [ ] **G-933 冷启动抢跑全仓盘点余量:A 类 23 页与 B 类 2 处已全清(2026-10-15),C 类(打需鉴权端点但不吞内容,42 代表/总 143)按需推进** —— A 类 23/23:首批 5 处(settings 三页 + knowledge-base/PageClient + sidebar-chat-history)在枚 b100d9457a01021869e829975017862c3bba9228;余 18 页 + 非页组件 2 处(use-earnings 四查询 enabled:allow、ai-side-panel 会话历史 effect 门 + 主体三元登录引导)在枚 70ee02810c3beeb4ba74fbbc3ea4657ad64bf0b1(groups/spec/schedule/voices、image-gen/{gallery,templates}、knowledge-base/search/PageClient、support/TicketList、context/{page,compression,visualization}、ai-skills/PageClient、settings/{authorizations,security-log,activity,data-export})。B 类 2/3:edu/parent 七个子视图逐查询 enabled:allow + models/eval RunDetailDialog 补 !run||!allow 门(同枚 70ee02810c);vip/page.tsx 有意不挡 —— 查询打公开端点,登录门会把「未登录可浏览 VIP 权益」改成强制登录,产品语义变更(审计原文即注「端点公开危害低」),不工具代裁。验证(两批同口径,现读):tsc --noEmit 零错误;vitest 触达面 6 文件 98 用例过;watermark verify 20/20。余量登记(行号会漂移,按内容锚定):**C 类 143 个**(抢跑但打公开端点或失败落空态),其中打需鉴权端点且不吞内容的约 42 个代表:`settings/login-security` L238、`member/benefits` L33、`points/page` L35-51、`workflows/PageClient` L23、`subagents/page` L59-63、`letters/ChatWindow` L42、`mcp-manager` L151、`settings/{DeviceManager,SessionManager,LoginHistory,SecurityScore,TwoFactorAuth}.tsx`、`agent-runtime` 5 个子面板。 〔G-933 代裁留痕@2026-10-15:机主拍板撤销旧态行(进行中@Qoder席)认领并摘除,原文逐字留档 .ihui-agent/archive/PROJECT_PLAN_adjudicated-2026-10-15.md;本行为唯一登记〕
   ```
 
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

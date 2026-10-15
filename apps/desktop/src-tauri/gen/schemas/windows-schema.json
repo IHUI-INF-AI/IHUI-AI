@@ -2355,6 +2355,12 @@
           "markdownDescription": "Enables the active_window command without any pre-configured scope."
         },
         {
+          "description": "Enables the checkin_audit_minimax_residual command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-audit-minimax-residual",
+          "markdownDescription": "Enables the checkin_audit_minimax_residual command without any pre-configured scope."
+        },
+        {
           "description": "Enables the checkin_audit_qoder_residual command without any pre-configured scope.",
           "type": "string",
           "const": "allow-checkin-audit-qoder-residual",
@@ -2365,6 +2371,12 @@
           "type": "string",
           "const": "allow-checkin-audit-trae-residual",
           "markdownDescription": "Enables the checkin_audit_trae_residual command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the checkin_audit_workbuddy_residual command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-audit-workbuddy-residual",
+          "markdownDescription": "Enables the checkin_audit_workbuddy_residual command without any pre-configured scope."
         },
         {
           "description": "Enables the checkin_capture_jwts command without any pre-configured scope.",
@@ -2401,6 +2413,12 @@
           "type": "string",
           "const": "allow-checkin-one-click-reset",
           "markdownDescription": "Enables the checkin_one_click_reset command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the checkin_one_click_reset_all command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-one-click-reset-all",
+          "markdownDescription": "Enables the checkin_one_click_reset_all command without any pre-configured scope."
         },
         {
           "description": "Enables the checkin_reset_device_ids command without any pre-configured scope.",
@@ -2461,6 +2479,24 @@
           "type": "string",
           "const": "allow-close-in-chrome",
           "markdownDescription": "Enables the close_in_chrome command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_close command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-close",
+          "markdownDescription": "Enables the embedded_browser_close command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_open command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-open",
+          "markdownDescription": "Enables the embedded_browser_open command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-state",
+          "markdownDescription": "Enables the embedded_browser_state command without any pre-configured scope."
         },
         {
           "description": "Enables the get_admin_window_info command without any pre-configured scope.",
@@ -2527,6 +2563,60 @@
           "type": "string",
           "const": "allow-list-dir",
           "markdownDescription": "Enables the list_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the minimax_quarantine_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-minimax-quarantine-delete",
+          "markdownDescription": "Enables the minimax_quarantine_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the minimax_quarantine_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-minimax-quarantine-list",
+          "markdownDescription": "Enables the minimax_quarantine_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the minimax_quarantine_restore command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-minimax-quarantine-restore",
+          "markdownDescription": "Enables the minimax_quarantine_restore command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the minimax_reset_factory command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-minimax-reset-factory",
+          "markdownDescription": "Enables the minimax_reset_factory command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the minimax_reset_history command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-minimax-reset-history",
+          "markdownDescription": "Enables the minimax_reset_history command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the minimax_reset_logout command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-minimax-reset-logout",
+          "markdownDescription": "Enables the minimax_reset_logout command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the minimax_reset_maintenance command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-minimax-reset-maintenance",
+          "markdownDescription": "Enables the minimax_reset_maintenance command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the minimax_reset_plan command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-minimax-reset-plan",
+          "markdownDescription": "Enables the minimax_reset_plan command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the minimax_reset_probe command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-minimax-reset-probe",
+          "markdownDescription": "Enables the minimax_reset_probe command without any pre-configured scope."
         },
         {
           "description": "Enables the mouse_click command without any pre-configured scope.",
@@ -2793,6 +2883,12 @@
           "markdownDescription": "Denies the active_window command without any pre-configured scope."
         },
         {
+          "description": "Denies the checkin_audit_minimax_residual command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-audit-minimax-residual",
+          "markdownDescription": "Denies the checkin_audit_minimax_residual command without any pre-configured scope."
+        },
+        {
           "description": "Denies the checkin_audit_qoder_residual command without any pre-configured scope.",
           "type": "string",
           "const": "deny-checkin-audit-qoder-residual",
@@ -2803,6 +2899,12 @@
           "type": "string",
           "const": "deny-checkin-audit-trae-residual",
           "markdownDescription": "Denies the checkin_audit_trae_residual command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_audit_workbuddy_residual command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-audit-workbuddy-residual",
+          "markdownDescription": "Denies the checkin_audit_workbuddy_residual command without any pre-configured scope."
         },
         {
           "description": "Denies the checkin_capture_jwts command without any pre-configured scope.",
@@ -2839,6 +2941,12 @@
           "type": "string",
           "const": "deny-checkin-one-click-reset",
           "markdownDescription": "Denies the checkin_one_click_reset command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_one_click_reset_all command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-one-click-reset-all",
+          "markdownDescription": "Denies the checkin_one_click_reset_all command without any pre-configured scope."
         },
         {
           "description": "Denies the checkin_reset_device_ids command without any pre-configured scope.",
@@ -2899,6 +3007,24 @@
           "type": "string",
           "const": "deny-close-in-chrome",
           "markdownDescription": "Denies the close_in_chrome command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_close command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-close",
+          "markdownDescription": "Denies the embedded_browser_close command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_open command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-open",
+          "markdownDescription": "Denies the embedded_browser_open command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-state",
+          "markdownDescription": "Denies the embedded_browser_state command without any pre-configured scope."
         },
         {
           "description": "Denies the get_admin_window_info command without any pre-configured scope.",
@@ -2965,6 +3091,60 @@
           "type": "string",
           "const": "deny-list-dir",
           "markdownDescription": "Denies the list_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the minimax_quarantine_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-minimax-quarantine-delete",
+          "markdownDescription": "Denies the minimax_quarantine_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the minimax_quarantine_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-minimax-quarantine-list",
+          "markdownDescription": "Denies the minimax_quarantine_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the minimax_quarantine_restore command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-minimax-quarantine-restore",
+          "markdownDescription": "Denies the minimax_quarantine_restore command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the minimax_reset_factory command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-minimax-reset-factory",
+          "markdownDescription": "Denies the minimax_reset_factory command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the minimax_reset_history command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-minimax-reset-history",
+          "markdownDescription": "Denies the minimax_reset_history command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the minimax_reset_logout command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-minimax-reset-logout",
+          "markdownDescription": "Denies the minimax_reset_logout command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the minimax_reset_maintenance command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-minimax-reset-maintenance",
+          "markdownDescription": "Denies the minimax_reset_maintenance command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the minimax_reset_plan command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-minimax-reset-plan",
+          "markdownDescription": "Denies the minimax_reset_plan command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the minimax_reset_probe command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-minimax-reset-probe",
+          "markdownDescription": "Denies the minimax_reset_probe command without any pre-configured scope."
         },
         {
           "description": "Denies the mouse_click command without any pre-configured scope.",

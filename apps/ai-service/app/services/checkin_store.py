@@ -492,6 +492,19 @@ def _account_jwt_exp(
         dm = device_map if isinstance(device_map, dict) else {}
         exp_dt, _remaining = qoder_session_expiry(dm)
         return exp_dt.isoformat() if exp_dt is not None else None
+    if platform == "minimax":
+        # MiniMax:token opaque,exp 自 device_map.expires_at(auth.json 的 epoch 秒)
+        dm = device_map if isinstance(device_map, dict) else {}
+        try:
+            exp = float(dm.get("expires_at") or 0)
+        except (TypeError, ValueError):
+            exp = 0.0
+        if exp > 1e12:
+            exp = exp / 1000.0
+        if exp <= 0:
+            return None
+        # 与 qoder_session_expiry 同口径:本地时区 naive(列表展示用)
+        return datetime.fromtimestamp(exp).isoformat()
     try:
         jwt = _decrypt_jwt(jwt_enc)
     except ValueError:

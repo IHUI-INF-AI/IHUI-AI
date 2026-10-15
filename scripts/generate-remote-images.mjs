@@ -258,7 +258,8 @@ function badgeSvg({ w = 140, h = 56, text = '', from = C.blue, to = C.navy, radi
 }
 
 // ── 数字封面(课程星球 1-11)────────────────────────────────────────────────
-const COVER_SAFE_HUES = [210, 25, 160, 205, 340, 45, 190, 120, 195, 10, 230] // 禁紫:265/285 用蓝青替代
+const COVER_HUES = [210, 25, 160, 265, 340, 45, 190, 120, 285, 10, 230] // 禁紫:265/285 用蓝青替代
+const COVER_SAFE_HUES = [210, 25, 160, 205, 340, 45, 190, 120, 195, 10, 230]
 function coverSvg(n, i, size = 240) {
   const h = COVER_SAFE_HUES[(i - 1) % COVER_SAFE_HUES.length]
   const h2 = (h + 40) % 360
@@ -351,7 +352,7 @@ async function aiCrop(key, w, h, out, { jpg = false, cutBottom = 0.10, quality =
   const src = stage(key)
   const meta = await sharp(src).metadata()
   const cutH = STAGING_FILES.mascot === STAGING_FILES[key] ? 0 : Math.round(meta.height * cutBottom)
-  const pipe = sharp(src).extract({ left: 0, top: 0, width: meta.width, height: meta.height - cutH })
+  let pipe = sharp(src).extract({ left: 0, top: 0, width: meta.width, height: meta.height - cutH })
     .resize(w, h, { fit: 'cover', position: 'centre' })
   const buf = jpg
     ? await pipe.flatten({ background: C.navy }).jpeg({ quality }).toBuffer()
