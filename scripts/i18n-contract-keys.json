@@ -119,6 +119,45 @@
           }
         ]
       }
+    },
+    "miniapp-taro": {
+      "ai.stream.subagent": {
+        "reason": "D64④(2026-10-14)把 subagent 三帧改聚进 aiCards.subagentTasks 八态卡(chat.tsx:831-848 现读),旧的 pushStreamActivity(t(\"ai.stream.subagent\")) 消费点随之摘除 ⇒ 本端无静态引用;但本端测试 sse-subagent-consumption.test.ts 仍把\"五语言该键齐且带 {phase}\"钉成契约形状键(零删除口径),所以它不是孤儿。删键必须与该测试同批,归该线持有人;本席不改他人测试。",
+        "evidence": [
+          {
+            "file": "apps/miniapp-taro/tests/sse-subagent-consumption.test.ts",
+            "line": 132,
+            "contains": "五语言 ai.stream.subagent 键齐且带 phase 占位符"
+          },
+          {
+            "file": "apps/miniapp-taro/tests/sse-subagent-consumption.test.ts",
+            "line": 142,
+            "contains": "ai.stream.subagent 为非空字符串且含 {phase} 占位符"
+          },
+          {
+            "file": "apps/miniapp-taro/src/pkg-ai/ai/chat.tsx",
+            "line": 831,
+            "contains": "subagent 三帧聚合进 aiCards.subagentTasks"
+          }
+        ]
+      }
+    },
+    "mobile-rn": {
+      "nav.agents": {
+        "reason": "跨端词包契约:同一个 nav.agents 由 web 后台导航表与 extension 侧栏取词(两条依据均 HEAD 现读),而 mobile-rn 的导航由原生栈渲染、本端没有该词的取词点 ⇒ 本端零静态引用属结构必然,不是孤儿;语言包基线跨端同源,单端摘键会打断另两端的取词。",
+        "evidence": [
+          {
+            "file": "apps/web/src/components/layout/AdminNav.tsx",
+            "line": 941,
+            "contains": "agents: 'nav.agents',"
+          },
+          {
+            "file": "apps/extension/entrypoints/sidepanel/pages/AgentPage.tsx",
+            "line": 82,
+            "contains": "t('nav.agents')"
+          }
+        ]
+      }
     }
   }
 }
