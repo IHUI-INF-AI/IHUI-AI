@@ -38,6 +38,8 @@ import {
   checkinOneClickReset,
   checkinGetPublicIp,
   checkinSnapshotList,
+  WB_WEB_LOGIN_URL,
+  WB_WEB_LOGIN_ORIGIN,
 } from '@/lib/tauri-bridge'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import type { CheckinAccount, CheckinRecord, CheckinCreditsHistoryItem } from '@ihui/api-client'
@@ -170,8 +172,11 @@ vi.mock('@/lib/tauri-bridge', () => ({
   checkinDetectTraeDir: vi.fn(),
   checkinCaptureJwts: vi.fn(async () => []),
   checkinCaptureQoder: vi.fn(async () => []),
+  checkinCaptureMinimax: vi.fn(async () => []),
   checkinCaptureWorkbuddy: vi.fn(async () => []),
   WB_WEB_LOGIN_ORIGIN: 'https://www.workbuddy.cn',
+  WB_WEB_LOGIN_URL:
+    'https://www.workbuddy.cn/login/?platform=website&state=2&product=workbuddy&redirect_uri=https%3A%2F%2Fwww.workbuddy.cn%2F',
   openInGoogleChrome: vi.fn(async () => null),
   closeChromeWindow: vi.fn(async () => 0),
   checkinWorkbuddyWebLoginProbe: vi.fn(async () => ({ status: 'no_window' }) as never),
@@ -1120,6 +1125,28 @@ describe('Qoder 平台化(2026-10-10)', () => {
     )
     expect(checkinWorkbuddyWebLoginProbe).not.toHaveBeenCalled()
     expect(createAccount).not.toHaveBeenCalled()
+  })
+
+  it('WorkBuddy 网页登录:必须打开真实登录页(不能是营销首页)', async () => {
+    // 2026-10-15 回归:旧实现拿 https://www.workbuddy.cn(产品营销首页,只有下载/介绍、
+    // 没有任何登录入口)开窗,用户点「打开浏览器登录」后根本登不了。真实登录页是
+    // /login/?platform=website&state=2&product=workbuddy&redirect_uri=...(扫码/账号密码)。
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(openInGoogleChrome).mockResolvedValue(54321)
+    vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({ status: 'no_cookie' })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    openCaptureMenu()
+    fireEvent.click(screen.getByText('WorkBuddy'))
+    fireEvent.click(screen.getByText('captureWbWebOpen'))
+    await waitFor(() => expect(openInGoogleChrome).toHaveBeenCalled())
+    const openedUrl = vi.mocked(openInGoogleChrome).mock.calls[0]![0]
+    expect(openedUrl).toBe(WB_WEB_LOGIN_URL)
+    expect(openedUrl).toContain('/login/')
+    expect(openedUrl).toContain('platform=website')
+    expect(openedUrl).toContain('product=workbuddy')
+    // 不得退回裸 origin(营销首页):带查询串的登录页地址,裸 origin 只是它的前缀
+    expect(openedUrl).not.toBe(WB_WEB_LOGIN_ORIGIN)
   })
 
   it('WorkBuddy 网页登录:浏览器被关后提示可重试且不入库', async () => {

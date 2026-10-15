@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { maskComments } from '../lib/code-mask.mjs'
-import { postMergeLedgerSync, ledgerNoteResidue } from '../lib/post-merge-ledger-sync.mjs'
+import { postMergeLedgerSync, ledgerNoteResidue, twinFoldResidue } from '../lib/post-merge-ledger-sync.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SRC = (rel) => readFileSync(join(HERE, '..', rel), 'utf8')
@@ -196,5 +196,69 @@ test('L13 生产形状只读臂:不设 fixture、真取本仓 HEAD 面 ⇒ 必�
   const n = ledgerNoteResidue({ root: resolve(HERE, '..', '..') })
   assert.equal(typeof n, 'number', `取不到面/判据装不上 ⇒ 复清永远不触发,实测 ${String(n)}`)
   assert.ok(n >= 0)
+})
+
+/* ── 触发缺口那一格(2026-10-15 实测立):注记维为 0 不代表活文档没有被带回的副本 ── */
+
+// 同题不同编号的孪生登记:两行题面逐字同形、编号不同 ⇒ 13d 的 foldTwins 应报可折 ≥1。
+const TWIN_FACE = '- [ ] G-40 同一件事的题面,持有行正文交代。\n- [ ] G-41 同一件事的题面,持有行正文交代。\n'
+
+test('L14 夹具自证:TWIN_FACE 必须真的"注记 0 而可折 >0",否则下面那条臂是空跑', () => {
+  assert.equal(ledgerNoteResidue({ root: 'X:/fixture', readFace: () => TWIN_FACE }), 0, '夹具不得自带注记(要隔离出第二维)')
+  const t = twinFoldResidue({ root: 'X:/fixture', readFace: () => TWIN_FACE })
+  assert.ok(typeof t === 'number' && t >= 1, `可折维必须量得到(量不到 = 夹具没造出现场,臂就成了假绿),实测 ${String(t)}`)
+  assert.equal(twinFoldResidue({ root: 'X:/fixture', readFace: () => CLEAN_FACE }), 0, '干净面必须判得出 0,不是 null')
+  assert.equal(twinFoldResidue({ root: 'X:/fixture', readFace: () => '' }), null, '取不到面 ⇒ 未判定,不冒充 0(§0.3)')
+})
+
+test('L15 触发缺口已补:注记 0 而可折 >0 ⇒ 仍派生复清,且必须带 absorb 档', () => {
+  const seen = []
+  const heard = []
+  const r = postMergeLedgerSync({
+    root: 'X:/fixture',
+    log: (s) => heard.push(s),
+    readFace: () => TWIN_FACE,
+    spawnFn: (cmd, args) => {
+      seen.push([cmd, args.join(' ')])
+      return { status: 0, stdout: '✅ 回补 0 条计划登记行\n守恒断言 5/5 通过\n✅ 落地 abc12345678(父 def) 删 1 行\n', stderr: '' }
+    },
+  })
+  assert.equal(seen.length, 2, `回捞 + 复清各一次,实测 ${seen.length}`)
+  const [cmd, argline] = seen[1]
+  assert.equal(cmd, process.execPath, '复清派生必须用 process.execPath')
+  assert.match(argline, /plan-pointer-purge\.mjs --apply --absorb$/, `可折维必须带上 absorb 档(只 --apply 折不掉无注记真副本),实测 ${argline}`)
+  assert.equal(r.purge.twinResidue >= 1, true, '第二维读数必须如实回传调用方,不得被折进一个布尔')
+  assert.equal(r.purge.ok, true)
+  assert.ok(heard.some((s) => /可折/.test(s)), `必须点名第二维,实测 ${JSON.stringify(heard)}`)
+})
+
+test('L16 反向锁:两维都判得出 0 才叫"无事可做"(一维未判定时 ok 必须 false,不得读成已归零)', () => {
+  const heard = []
+  const r = postMergeLedgerSync({
+    root: 'X:/fixture',
+    log: (s) => heard.push(s),
+    readFace: () => CLEAN_FACE,
+    spawnFn: () => ({ status: 0, stdout: '✅ 回补 0 条计划登记行', stderr: '' }),
+  })
+  assert.equal(r.purge.ran, false)
+  assert.equal(r.purge.ok, true, '两维都是现读 0 ⇒ 这才是"无事"')
+  assert.equal(r.purge.twinResidue, 0)
+  const heard2 = []
+  const r2 = postMergeLedgerSync({
+    root: 'X:/fixture',
+    log: (s) => heard2.push(s),
+    // 注记维取不到(null)而可折维判得出 0 ⇒ 不派生,但 ok 必须 false 并报名
+    readFace: (rel) => (rel === 'PROJECT_PLAN.md' ? '' : ''),
+    spawnFn: () => ({ status: 0, stdout: '✅ 回补 0 条计划登记行', stderr: '' }),
+  })
+  assert.equal(r2.purge.ran, false, '未判定不得派生复清')
+  assert.equal(r2.purge.ok, false, '「没量到」不等于「已归零」(§0.3)')
+  assert.ok(heard2.some((s) => /未判定/.test(s)), `必须点名未判定,实测 ${JSON.stringify(heard2)}`)
+})
+
+test('L17 生产形状第二维装车证明:真取本仓 HEAD 面 ⇒ 可折存量必须是数字(不是 null)', () => {
+  const t = twinFoldResidue({ root: resolve(HERE, '..', '..') })
+  assert.equal(typeof t, 'number', `判据装不上 ⇒ 带回的副本永远不触发复清,实测 ${String(t)}`)
+  assert.ok(t >= 0)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
