@@ -148,6 +148,7 @@ import {
   type ChatScreenModel,
 } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
+import { ShareRewardDialog } from '../components/ShareRewardDialog'
 import { NavChrome } from '../components/NavChrome'
 // G-166:交代区(RN 端共享组件)—— 引用来源 + 本轮上下文注入,与 N8n 屏同一实现
 import {
@@ -194,9 +195,6 @@ import { BottomPops } from '../components/BottomPops'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
-// D38 插话能力协商的**消费端**(生产者 = ai-service 侧能力声明,并行推进):
-// 只从「流/会话能力声明」读数,**读不到 ⇒ false**(与改造前硬编码 false 同行为,零回归)。
-import { resolveInterjectionCapability } from '../utils/interjection-capability'
 // D153b / D154(2026-09-30 立)per-user 广播消费面:会话元数据覆盖 + MCP 状态行。
 // 跨端判据在 @ihui/shared/chat/user-broadcast-store,本端只做接线与 FloatBox 提示出口适配。
 import { useUserBroadcastSync } from '../hooks/use-user-broadcast-sync'
@@ -513,16 +511,6 @@ export function ChatScreen() {
   const [conversationId, setConversationId] = useState<string | null>(
     route.params?.conversationId ?? null,
   )
-  // D38 插话能力协商:会话/流侧「能力声明」的落点(载荷原样存,形状不由本端定义)。
-  // 生产者(ai-service 能力声明)未落地 ⇒ 恒 null ⇒ 下方读数 false ⇒ 与改造前硬编码
-  // false 同行为;声明到达后只需在载荷落点(loadConversationMessages / 流回调)把声明
-  // 交给 setSessionCapabilities,判定面一行都不用改。
-  const [sessionCapabilities, setSessionCapabilities] = useState<unknown>(null)
-  /** 本屏唯一的插话能力读数(缺失 ⇒ false;见 utils/interjection-capability 契约) */
-  const runtimeSupportsInterjection = resolveInterjectionCapability([
-    sessionCapabilities,
-    route.params,
-  ])
   const [prompt, setPrompt] = useState('')
   useUiTextField({ label: '请输入内容...', value: prompt, setValue: setPrompt, multiline: true })
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -1153,18 +1141,18 @@ export function ChatScreen() {
   })
 
   // D38/W27:流结束自动补答 —— 队列非空且生效模式为 queue 时出队队首重发
-  // (web message-input 流结束 effect 同形)。插话能力取自能力声明(缺失 ⇒ false ⇒
-  // steer 偏好显式降级为 queue,降级句由队列条渲染);声明给到 true 时 steer 不再降级,
-  // 队首改由插话通道处理,这一条 effect 自然不再出队 —— 行为随声明走,本端不硬编码。
+  // (web message-input 流结束 effect 同形)。RN 端插话能力恒不可用(2026-10-15
+  // 下线能力声明协商),effectiveMode 以 false 入参解析 ⇒ 恒 queue。
   useEffect(() => {
     if (isStreaming) return
     if (sideQueue.length === 0) return
-    if (effectiveMode(followUpMode, runtimeSupportsInterjection).mode !== 'queue') return
+    if (effectiveMode(followUpMode, /* 插话能力恒不可用 */ false).mode !== 'queue') return
     const head = sideQueue[0]
     if (!head) return
     setSideQueue((prev) => prev.filter((q) => q.id !== head.id))
     void sendRef.current(head.text)
-  }, [isStreaming, sideQueue, followUpMode, runtimeSupportsInterjection])
+    // 依赖顺序无关紧要,排列仅为本文件可读性(eslint exhaustive-deps 已覆盖完整性)
+  }, [sideQueue, isStreaming, followUpMode])
 
   // ── D38 队列交互动作(许可判定在 QueueInteractionBar 内复用 D69/D38,这里只做状态写) ──
   const handleQueueReorder = (fromIndex: number, toIndex: number): void => {
@@ -1180,9 +1168,8 @@ export function ChatScreen() {
     setSideQueue((prev) => [...applyQueueEdit(prev, itemId, { text })])
   }
   const handleInterruptAndRun = (): void => {
-    // 计划由 interruptPlan 产出(stopFirst/thenRun);能力声明未给到插话能力时许可门
-    // 恒拒 ⇒ 此回调当前不可达;停流走 W2 abort 通道,队首由上方流结束 effect 补答。
-    // 声明给到后走同一条路径,不再有端内分支。
+    // interruptPlan 产出 stopFirst/thenRun;RN 端插话能力恒不可用(下线声明协商)
+    // ⇒ 许可门恒拒,此回调不可达;停流走 W2 abort 通道,队首由上方流结束 effect 补答。
     const plan = interruptPlan(
       { streaming: isStreaming, streamingMessageId: null },
       sideQueue[0] ?? null,
@@ -2416,9 +2403,6 @@ export function ChatScreen() {
     async (id: string): Promise<void> => {
       const res = await getMessages(id, { direction: 'initial', pageSize: 100 })
       if (res.success) {
-        // D38 能力声明落点之一:**会话载荷**原样存(形状不由本端定义,读数在
-        // utils/interjection-capability)。声明缺席时它不含能力键 ⇒ 读数 false,零回归。
-        setSessionCapabilities(res)
         // steerNotices:live 由 onSteer 累积(下方 onSteer 回调),历史由
         // metadata.steerApplied 读回(api 侧已随回调落库,与 SSE 帧同源)
         const loaded: ChatMessageWithSteer[] = res.data.messages.map((m, idx) => {
@@ -2813,8 +2797,6 @@ export function ChatScreen() {
           items={sideQueue}
           streaming={isStreaming}
           mode={followUpMode}
-          // D38 插话能力:来自「流/会话能力声明」的唯一读数(缺失 ⇒ false,零回归)
-          runtimeSupportsInterjection={runtimeSupportsInterjection}
           onReorder={handleQueueReorder}
           onUndo={handleQueueUndo}
           onEdit={handleQueueEdit}
@@ -2999,36 +2981,17 @@ export function ChatScreen() {
         </Pressable>
       </Modal>
 
-      {/* 分享领智汇值弹窗(对齐 Uniapp share-points-popup) */}
-      <Modal
+      {/* 分享领智汇值弹窗(对齐 Uniapp share-points-popup)
+       *  2026-10-15 深度重构:抽共享组件 ShareRewardDialog(金渐变纪念币 Hero +
+       *  brandAccent 渐变 CTA),Home/Chat 两屏统一 */}
+      <ShareRewardDialog
         visible={shareValueVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={hideSharePoints}
-      >
-        <Pressable style={styles.modalMask} onPress={hideSharePoints}>
-          <Pressable style={styles.shareContent} onPress={(e) => e.stopPropagation()}>
-            <Pressable hitSlop={8} onPress={hideSharePoints} style={styles.shareClose}>
-              <X size={20} color={tokens.text.primary} />
-            </Pressable>
-            <Share2 size={48} color={tokens.brandAccent.deep} />
-            <Text style={styles.shareTitle}>分享领智汇值</Text>
-            <Text style={styles.shareDesc}>
-              首次分享成功,获得 {shareFirstReward}{' '}
-              智汇值奖励;邀请好友加入智汇AI社区,好友注册成功后双方均可再获智汇值。智汇值可用于兑换模型算力、会员权益等。
-            </Text>
-            <Pressable onPress={handleClaimShareReward} style={styles.shareBtn}>
-              <Text style={styles.shareBtnText}>领取 {shareFirstReward} 智汇值</Text>
-            </Pressable>
-            <Pressable
-              onPress={handleShareClick}
-              style={[styles.shareBtn, styles.shareBtnSecondary]}
-            >
-              <Text style={styles.shareBtnText}>立即分享邀请好友</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        reward={shareFirstReward}
+        onClaim={handleClaimShareReward}
+        onClose={hideSharePoints}
+        secondaryLabel="立即分享邀请好友"
+        onSecondaryPress={handleShareClick}
+      />
 
       {/* P1.1 转语音 Modal(语音类型选项 + 真实 TTS loading) */}
       <Modal
@@ -3934,51 +3897,6 @@ const styles = StyleSheet.create({
   qrCodeHintText: {
     fontSize: 12,
     color: tokens.text.secondary,
-  },
-  // ── 分享领值弹窗 ──
-  shareContent: {
-    width: 300,
-    backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
-    padding: rpx(48),
-    alignItems: 'center',
-  },
-  shareClose: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  shareTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: tokens.text.primary,
-    marginTop: rpx(24),
-    marginBottom: rpx(16),
-  },
-  shareDesc: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: tokens.text.secondary,
-    textAlign: 'center',
-    marginBottom: rpx(32),
-  },
-  shareBtn: {
-    paddingHorizontal: rpx(48),
-    paddingVertical: rpx(20),
-    borderRadius: rnRadius.sm,
-    backgroundColor: tokens.brand.cta,
-  },
-  shareBtnText: {
-    fontSize: 14,
-    color: tokens.brand.ctaForeground,
-    fontWeight: '500',
-  },
-  shareBtnSecondary: {
-    marginTop: rpx(16),
   },
   // ── 列表弹窗(ModelList / AgentList 共用容器) ──
   listDialogContent: {
