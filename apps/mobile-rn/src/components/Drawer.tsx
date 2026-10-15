@@ -146,7 +146,7 @@ export interface DrawerProps {
   onNavigateExtra?: (menu: DrawerExtraMenu) => void
   /** 历史契约保留(可选):一人公司入口已并入导航分组,不再单独渲染 */
   onNavigateCompany?: () => void
-  /** 历史契约保留(可选):领取免费资料入口已并入导航分组,不再单独渲染 */
+  /** 历史契约保留(可选):领取免费资料入口挂底部用户行上浮菜单(复制飞书链接动作,无路由对应) */
   onClaimFree?: () => void
   onCreateNewChat: () => void // 创建新对话
   onSelectConversation: (id: string) => void // 选择历史对话
@@ -836,6 +836,7 @@ export function Drawer(props: DrawerProps) {
     onDeleteConversation,
     onOpenSettings,
     onOpenMessages,
+    onClaimFree,
     onGoHome,
   } = props
 
@@ -1031,6 +1032,15 @@ export function Drawer(props: DrawerProps) {
           onPress: () => {
             setUserMenuOpen(false)
             onOpenSettings()
+          },
+        },
+        {
+          key: 'claimFree',
+          labelKey: 'drawer.claimFree',
+          Icon: Gift,
+          onPress: () => {
+            setUserMenuOpen(false)
+            onClaimFree?.()
           },
         },
         {

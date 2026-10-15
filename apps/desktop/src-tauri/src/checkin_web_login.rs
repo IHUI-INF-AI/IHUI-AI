@@ -48,7 +48,11 @@ use std::time::Duration;
 
 use crate::IpcError;
 
-/// 网页版站点(登录入口)。前端 `openInGoogleChrome` 用它开窗,probe 校验 Cookie 域也用它。
+/// 网页版站点根(本域 API 基址:/console/accounts、/v2/billing/meter/* 都挂在它下面)。
+/// 注意:**不是**登录入口 —— 前端 `openInGoogleChrome` 开窗用的是真实登录页
+/// `WB_WEB_LOGIN_URL`(https://www.workbuddy.cn/login/?platform=website&state=2&
+/// product=workbuddy&redirect_uri=…,扫码/账号密码);裸 origin 是产品营销首页,
+/// 没有任何登录入口(2026-10-15 实证修正)。
 pub const WB_WEB_ORIGIN: &str = "https://www.workbuddy.cn";
 /// /console/accounts 响应里取账号的 JSON 路径:data.accounts[]。
 const ACCOUNTS_PATH: &str = "/console/accounts";

@@ -1576,6 +1576,30 @@ export async function checkinCaptureWorkbuddy(): Promise<CapturedWorkbuddySessio
   return await invokeIpc<CapturedWorkbuddySession[]>('checkin_capture_workbuddy')
 }
 
+/** 本机捕获到的 MiniMax Code 登录态(与 Rust `CapturedMinimaxSession` 逐字段对齐,2026-10-15)。
+ *  token 明文存 `~/.minimax/auth/prod/cn/mcode-public/auth.json`(mmoat_ OAuth accessToken);
+ *  uid 取 `%APPDATA%\MiniMax\minimax-agent-cn-config.json` 的 sharedUser.realUserID
+ *  (签到 query 必填,缺失网关 401)。引擎见 apps/ai-service/app/services/checkin_minimax.py。 */
+export interface CapturedMinimaxSession {
+  auth_file: string
+  /** sharedUser.realUserID(签到必填) */
+  uid: string
+  /** sharedUser.userName(展示名) */
+  nickname: string
+  /** mmoat_ 前缀 OAuth accessToken(Authorization: Bearer) */
+  access_token: string
+  /** mmort_ 前缀 refreshToken(引擎预留,当前不消费) */
+  refresh_token: string
+  /** auth.json 声明的过期(epoch 秒,缺失 0) */
+  expires_at: number
+}
+
+/** 从本机 MiniMax Code 捕获登录态(读 auth.json + config,零粘贴)。 */
+export async function checkinCaptureMinimax(): Promise<CapturedMinimaxSession[]> {
+  requireTauri()
+  return await invokeIpc<CapturedMinimaxSession[]>('checkin_capture_minimax')
+}
+
 /** WorkBuddy 网页登录探测到的账号(与 Rust `WbWebAccount` 对齐,2026-10-12)。 */
 export interface WorkbuddyWebLoginAccount {
   uid: string
@@ -1596,9 +1620,18 @@ export type WorkbuddyWebLoginProbe =
     }
   | { status: 'error'; message: string }
 
-/** WorkBuddy 网页登录站点根(2026-10-15 浏览器扫码版:openInGoogleChrome 用它开窗,
- *  closeChromeWindow 用它做 urlPrefix 收尾)。 */
+/** WorkBuddy 站点根(仅作 closeChromeWindow 的 urlPrefix 收尾:登录成功后页面会从
+ *  /login/ 跳走,前缀必须留 origin 才能同时命中登录页与登录后的落地页)。 */
 export const WB_WEB_LOGIN_ORIGIN = 'https://www.workbuddy.cn'
+
+/** WorkBuddy 网页登录**真实登录页**(2026-10-15 修:WB_WEB_LOGIN_ORIGIN 是产品营销
+ *  首页,只有下载/介绍、没有任何登录入口,拿它开窗用户根本登不了)。真登录页 =
+ *  /login/(站点自身登录弹窗 iframe 同款参数:platform=website&state=2&product=
+ *  workbuddy,微信/企业微信扫码 + 账号密码;参数实证自官网 LoginIframeDialog  bundle
+ *  upload-*.js 的登录 URL 构造函数)。redirect_uri 指回本站首页,登录成功后落地。 */
+export const WB_WEB_LOGIN_URL =
+  'https://www.workbuddy.cn/login/?platform=website&state=2&product=workbuddy' +
+  `&redirect_uri=${encodeURIComponent('https://www.workbuddy.cn/')}`
 
 /**
  * 轮询探测(浏览器扫码版,2026-10-15):`port` 来自 `openInGoogleChrome` 返回的

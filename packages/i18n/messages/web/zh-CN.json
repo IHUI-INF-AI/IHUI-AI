@@ -19189,6 +19189,8 @@
     "addSmartScanning": "正在检测本机登录态…",
     "addSmartTraeFound": "检测到 {count} 个 Trae 账号",
     "addSmartQoderFound": "检测到 {count} 个 Qoder 账号",
+    "addSmartMinimaxFound": "MiniMax Code 本机登录态({count})",
+    "captureMinimaxNoToken": "未读到 token,请打开 MiniMax Code 登录后重试",
     "addSmartImport": "一键导入所选",
     "addSmartImporting": "导入中…",
     "addSmartNone": "本机没检测到 Trae / Qoder 登录态,请先在对应客户端登录后重新检测。",

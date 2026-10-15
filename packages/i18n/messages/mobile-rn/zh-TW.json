@@ -486,7 +486,8 @@
     "groupTrade": "交易",
     "groupPromote": "推廣",
     "groupPersonal": "個人",
-    "groupCommunity": "社區"
+    "groupCommunity": "社區",
+    "claimFree": "領取免費資料"
   },
   "error": {
     "network": "網路錯誤,請稍後重試"
