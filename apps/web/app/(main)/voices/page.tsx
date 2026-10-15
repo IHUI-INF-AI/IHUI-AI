@@ -7,6 +7,8 @@
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import {
   Loader2,
   RefreshCw,
@@ -88,6 +90,9 @@ export default function VoicesPage() {
   const t = useTranslations('voicesPage')
   const locale = useLocale()
   const queryClient = useQueryClient()
+  // 2026-10-15 登录态门(与 settings/notifications 同型):未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   // 声纹库是平台共享资源,删除影响所有用户 → 仅 admin(roleId>=1)可见删除按钮,
   // 与后端 delete_voice 的 _require_admin 守卫对齐(2026-09-09 P1)。
   const userRoleId = useAuthStore((s) => s.user?.roleId)
@@ -103,6 +108,7 @@ export default function VoicesPage() {
   const listQuery = useQuery({
     queryKey: ['voices'],
     queryFn: () => api<{ ok: boolean; voices: VoiceItem[]; count: number }>('/voice/voices'),
+    enabled: allow,
     // 2026-09-09 F6:声纹克隆是异步任务,存在克隆中(非终态)的声纹时 5s 自动轮询,
     // 克隆完成后自动刷新出可试听/可用的新声纹,无需手动刷新。
     // 2026-09-09 收尾修复:failed/error 等失败终态不再轮询(此前失败会 5s 无限轮询)。
@@ -243,7 +249,9 @@ export default function VoicesPage() {
       )}
 
       <div className="overflow-hidden rounded-md border border-border/50 bg-card/50">
-        {listQuery.isLoading ? (
+        {!allow ? (
+          <AuthGatePrompt message={tGate('loginRequired')} />
+        ) : listQuery.isLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {t('loading')}

@@ -142,7 +142,7 @@ const checks = [
       '  💡 zh-CN.json 有改动但 i18n pending 非空,请先跑翻译流水线:',
       '     1. node scripts/i18n-diff.mjs          (检测差异,生成 pending 清单)',
       '     2. AI agent 翻译 → .ihui-agent/tmp/i18n-translations.json',
-      '     3. node scripts/i18n-apply.mjs         (应用翻译)',
+      '     3. node scripts/i18n-apply.mjs --check-first  (先对账再应用翻译)',
       '     4. node scripts/check-i18n-keys.mjs    (验证 parity)',
       '     5. git add apps/web/messages/{en,ja,ko,zh-TW}.json 重新 commit',
       '',
@@ -159,7 +159,7 @@ const checks = [
       '  💡 miniapp-taro zh-CN.ts 有改动但 i18n pending 非空,请先跑翻译流水线:',
       '     1. node scripts/i18n-diff.mjs --target=miniapp-taro  (检测差异,生成 pending 清单)',
       '     2. AI agent 翻译 → .ihui-agent/tmp/i18n-translations.json',
-      '     3. node scripts/i18n-apply.mjs --target=miniapp-taro  (应用翻译)',
+      '     3. node scripts/i18n-apply.mjs --target=miniapp-taro --check-first  (先对账再应用翻译)',
       '     4. node scripts/i18n-diff.mjs --target=miniapp-taro   (复验 parity,应无 pending)',
       '     5. git add apps/miniapp-taro/src/i18n/{en,ja,ko,zh-TW}.ts 重新 commit',
       '',
@@ -887,7 +887,7 @@ const checks = [
       '  💡 shared/zh-CN.json 有改动但 i18n pending 非空,请先跑翻译流水线:',
       '     1. node scripts/i18n-diff.mjs --target=shared  (检测差异,生成 pending 清单)',
       '     2. AI agent 翻译 → .ihui-agent/tmp/i18n-translations.json',
-      '     3. node scripts/i18n-apply.mjs --target=shared  (应用翻译)',
+      '     3. node scripts/i18n-apply.mjs --target=shared --check-first  (先对账再应用翻译)',
       '     4. node scripts/check-i18n-keys.mjs --target=shared  (验证 parity)',
       '     5. git add packages/i18n/messages/shared/{en,ja,ko,zh-TW}.json 重新 commit',
       '',
@@ -4932,6 +4932,7 @@ const checks = [
     ].join('\n'),
   },
 
+  { id: '212', label: '🎯 输入框聚焦反馈对账(描边输入/选择控件必须有聚焦反应,三端同尺;存量按该文件 HEAD 自身棘轮只报数,定级依据与取证窗见脚本头注)', script: 'check-input-focus-feedback.mjs', args: [], mode: 'blocking', skipEnv: 'HUSKY_SKIP_INPUT_FOCUS_FEEDBACK', stagedTriggers: ['apps/', 'packages/'] },
   // --- info (1 项) ---
   {
     id: '23',

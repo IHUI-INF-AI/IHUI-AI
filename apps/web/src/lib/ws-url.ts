@@ -19,6 +19,7 @@
  *   2. 桌面端 + NEXT_PUBLIC_API_BASE_URL —— 由 REST 基址推导(https→wss / http→ws)。
  *   3. 其余(浏览器 dev / 生产)—— 空字符串 = 同源,与改造前行为完全一致(零回归)。
  */
+import { isTauriRuntime } from './api-base-url'
 
 /** http(s) 基址 → ws(s) 源(去尾部斜杠) */
 function toWsOrigin(base: string): string {
@@ -35,7 +36,7 @@ export function detectWsOrigin(): string {
   const explicit = process.env.NEXT_PUBLIC_WS_BASE_URL
   if (explicit) return toWsOrigin(explicit)
   // 仅桌面端改写:浏览器 dev/生产保持同源,行为零变更
-  if ('__TAURI_INTERNALS__' in window) {
+  if (isTauriRuntime()) {
     const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL
     if (apiBase) return toWsOrigin(apiBase)
   }

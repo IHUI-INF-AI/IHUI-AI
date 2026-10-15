@@ -8,6 +8,8 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { BookOpen, Search, FileText, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -48,6 +50,9 @@ export default function KnowledgeBasePageClient() {
   const t = useTranslations('knowledgeBase.list')
   const tKb = useTranslations('knowledgeBase')
   const tCommon = useTranslations('common')
+  // 2026-10-15 登录态门(与 /chat/favorites、签到助手同型):未就绪/未登录不发注定 401 的查询
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [categoryId, setCategoryId] = React.useState<string>('all')
@@ -63,12 +68,14 @@ export default function KnowledgeBasePageClient() {
 
   const { data: categories = [] } = useQuery({
     queryKey: ['kb', 'categories'],
+    enabled: allow,
     queryFn: () =>
       api<{ list: KBCategory[] }>(`/api/knowledge-base/categories`).then((d) => d.list ?? []),
   })
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['kb', 'list', debounced, categoryId, page],
+    enabled: allow,
     queryFn: () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (categoryId !== 'all') qs.set('categoryId', categoryId)
@@ -152,7 +159,9 @@ export default function KnowledgeBasePageClient() {
             />
           </div>
 
-          {isLoading ? (
+          {!allow ? (
+            <AuthGatePrompt message={tGate('loginRequired')} />
+          ) : isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               {tCommon('loading')}

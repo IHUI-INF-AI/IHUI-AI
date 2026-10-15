@@ -32,10 +32,10 @@ apps/desktop 的 Tauri 打包产物（不含前端资源）
 
 桌面端开发有两条路，按「窗口加载谁」区分：
 
-| 入口                              | 窗口加载                                        | 后端                                            | 适用                            |
-| --------------------------------- | ----------------------------------------------- | ----------------------------------------------- | ------------------------------- |
-| `pnpm dev:desktop:saas`           | `http://localhost:8801/`（本地 web dev server） | **开发后端**（本机 api 8802 / ai-service 8803） | 日常联调（2026-10-13 起的默认） |
-| `pnpm --filter @ihui/desktop dev` | `https://aizhs.top/`（线上站点）                | 线上生产                                        | 验证薄壳本身 / 线上行为         |
+| 入口                              | 窗口加载                                        | 后端                                                                        | 适用                            |
+| --------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------- |
+| `pnpm dev:desktop:saas`           | `http://localhost:8801/`（本地 web dev server） | **开发后端**（同源 `/api/*` 经 next dev 反代 → api 8802 / ai-service 8803） | 日常联调（2026-10-13 起的默认） |
+| `pnpm --filter @ihui/desktop dev` | `https://aizhs.top/`（线上站点）                | 线上生产                                                                    | 验证薄壳本身 / 线上行为         |
 
 ### 开发后端联调（默认）
 
@@ -48,7 +48,7 @@ pnpm dev:desktop:saas
 - `build.beforeDevCommand` 置空 —— dev server 已由脚本启动，Tauri 不再重复拉起抢端口；
 - `app.windows[0].url` 改为 `http://localhost:8801/` —— 薄壳态下 `tauri.conf.json` 的 url 是绝对线上地址（`External` 原样加载，`devUrl` 不生效），不改它窗口永远加载线上生产。url 必须带**完整 windows[0] 对象**再改（只给 `{label,url}` 会丢掉 `decorations:false`/`visible:false`/`theme` 等，2026-09-28 实测）。且必须写绝对地址 `http://localhost:8801/` 而不是 `index.html` —— Next dev 对 `/index.html` 返回 404 页，只有 `/` 是真应用（2026-10-13 实测）。
 
-后端寻址不需要任何 env：`apps/web/src/lib/api-base-url.ts` 按窗口 origin 判定 —— 桌面端窗口是 localhost:8801 ⇒ REST `127.0.0.1:8802` / ai-service `127.0.0.1:8803` / SSE `localhost:8802` / WS `127.0.0.1:8802`；浏览器直接开 8801 则走同源 `/api/*` 反代（next rewrites），同样落 8802/8803。Rust 侧 `auto_refresh` 的探活/指纹/离线恢复也按窗口 origin 派生（`BackendBase`，2026-10-13 起）：开发后端在跑时不会误判离线，恢复时也不会被顶回线上首页。
+后端寻址不需要任何 env：`apps/web/src/lib/api-base-url.ts` 按窗口 origin 判定 —— 桌面端 dev 壳（窗口由本机 Next dev server 承载，端口 8801）的 REST 与 ai-service 一律**同源** `/api/*`，由 next dev rewrites 反代到 8802/8803（2026-10-15 改：跨 host 直连会把 httpOnly refresh cookie 变成第三方，桌面 dev 壳的登录态就只剩与生产壳共享的那颗 `auth.json` 键，两壳会互相覆盖、并在刷新被否时互相清空对方登录态）；SSE `localhost:8802` / WS `127.0.0.1:8802` 仍直连本机（dev 代理会缓冲 SSE；WS 保留直连是沿用改判前的既有行为并少一跳——注意 next 加上 `/ws/:path*` 规则后 dev 的 WS 反代实测是通的，不要把直连的理由记成"rewrites 不代理 WS 升级"）；`tauri.localhost` 本地壳与 `offline://` 兜底页没有 dev server 可反代，才回退本机 8802/8803。浏览器直接开 8801 一直是同源，行为不变。Rust 侧 `auto_refresh` 的探活/指纹/离线恢复也按窗口 origin 派生（`BackendBase`，2026-10-13 起）：开发后端在跑时不会误判离线，恢复时也不会被顶回线上首页。另：dev 构建（`cfg!(debug_assertions)`）不跑应用自更新，前端腿由 `isDesktopDevShell()` 挡启动静默检查（`?dev-update=1` 显式试验通道与托盘「检查更新」人工路径不受限）。
 
 换后端（不换窗口）：
 

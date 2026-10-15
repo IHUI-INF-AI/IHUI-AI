@@ -319,4 +319,25 @@
 * {
   font-family: 'AlimamaFangYuanTi';
 }
+
+/* Web 预览隐藏滚动条(2026-10-15 立)
+ * RN Web 把 ScrollView 渲染成 overflow:scroll 的 div,桌面浏览器显示原生滚动条;
+ * 本项目是移动端形态(H5/原生),原生端不存在滚动条,H5 也不应显示。
+ * 仅隐藏视觉,滚动行为(wheel/触摸)不受影响;原生端无 web CSS,天然不受影响。
+ * 注:页面样式表里存在第三方 scrollbar 规则(NativeWind/runtime 注入,特异性更高),
+ * 必须用 !important 全域压平,否则具体容器上的 ::-webkit-scrollbar 规则会反杀通配规则。 */
+html,
+body {
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* 旧 Edge/IE */
+}
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+*::-webkit-scrollbar {
+  display: none !important; /* Chrome/Edge/Safari */
+  width: 0 !important;
+  height: 0 !important;
+}
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
