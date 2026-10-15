@@ -5,6 +5,11 @@
 import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
 import { renderNoticeEmail } from './email-templates.js'
+import {
+  finalizeEmailHtml,
+  missingInlineImageAssets,
+  type InlineImageAttachment,
+} from './email-assets.js'
 import { emailLogs } from '@ihui/database'
 import { db } from '../db/index.js'
 import type { FastifyInstance } from 'fastify'
@@ -55,6 +60,17 @@ export interface SendEmailOptions {
   metadata?: Record<string, unknown>
 }
 
+/**
+ * 待发邮件 = 调用方给的选项 + 内嵌图片附件。
+ *
+ * 附件在**发送前一刻**才加工出来,刻意不进 SendEmailOptions —— 那个对象会被
+ * queueEmail 原样序列化进队列,把 40KB 的 PNG 塞进去等于每封邮件往 Redis 送一份图,
+ * 而附件本身是常量、根本没有入队的必要。
+ */
+interface OutgoingMail extends SendEmailOptions {
+  attachments: InlineImageAttachment[]
+}
+
 /** 邮件发送通道。'stub' = 当前配置下该收件人路由上无任何可用通道(未发送)。 */
 export type EmailProvider = 'smtp' | 'resend' | 'stub'
 
@@ -93,6 +109,13 @@ interface NodemailerTransporter {
     subject: string
     html: string
     text?: string
+    /** 内嵌图片。cid 与 HTML 里的 src="cid:..." 对应,随正文一起到达收件端 */
+    attachments?: {
+      filename: string
+      content: Buffer
+      cid: string
+      contentType: string
+    }[]
   }): Promise<unknown>
 }
 
@@ -244,6 +267,23 @@ if (
 }
 
 /**
+ * 把渲染好的 HTML 加工成可发送形态(内嵌图附件 + cid 落位)。
+ *
+ * 缺席的图只降级、不阻断:退回公网外链后再响一声 warn ——
+ * 这条链路上唯一能暴露它的时刻就是有人已经看不到图了,静默等于没人知道。
+ */
+function prepareOutgoing(options: SendEmailOptions): OutgoingMail {
+  const prepared = finalizeEmailHtml(options.html)
+  if (prepared.downgraded.length > 0) {
+    logger.warn(
+      `[email-assets] 邮件内嵌图片缺席,已退回公网外链(收件端可能仍然看不到图): ` +
+        `cid=${prepared.downgraded.join(',')};缺席文件=${missingInlineImageAssets().join(',') || '未知'}`,
+    )
+  }
+  return { ...options, html: prepared.html, attachments: prepared.attachments }
+}
+
+/**
  * 同步发送邮件(主入口)。
  * 失败时按 provider 链路降级:primary → smtp → stub。
  * 每次发送都会异步写入 email_logs 审计(写日志失败不影响发送结果)。
@@ -262,11 +302,12 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     )
     result = { sent: false, stub: true, provider: 'stub', reasons: resolution.blockers }
   } else {
-    result = await dispatch(options, primary)
+    const mail = prepareOutgoing(options)
+    result = await dispatch(mail, primary)
 
     // primary 失败 → 尝试 SMTP 兜底(若 SMTP 可用且 primary 不是 SMTP)
     if (!result.sent && primary !== 'smtp' && config.SMTP_ENABLED && config.SMTP_HOST) {
-      const fallback = await sendViaSmtp(options)
+      const fallback = await sendViaSmtp(mail)
       if (fallback.sent) {
         logger.warn(
           `[email-fallback] primary=${primary} failed, smtp ok, To: ${maskEmail(options.to)}`,
@@ -294,12 +335,9 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 /**
  * 按 primary provider 实际发送一次(不降级,降级由 sendEmail 负责)。
  */
-async function dispatch(
-  options: SendEmailOptions,
-  primary: 'resend' | 'smtp',
-): Promise<SendEmailResult> {
-  if (primary === 'resend') return sendViaResend(options)
-  return sendViaSmtp(options)
+async function dispatch(mail: OutgoingMail, primary: 'resend' | 'smtp'): Promise<SendEmailResult> {
+  if (primary === 'resend') return sendViaResend(mail)
+  return sendViaSmtp(mail)
 }
 
 /**
@@ -324,7 +362,7 @@ async function recordEmailLog(options: SendEmailOptions, result: SendEmailResult
 /**
  * SMTP 通道(nodemailer)。
  */
-async function sendViaSmtp(options: SendEmailOptions): Promise<SendEmailResult> {
+async function sendViaSmtp(mail: OutgoingMail): Promise<SendEmailResult> {
   if (!config.SMTP_ENABLED || !config.SMTP_HOST) {
     return { sent: false, stub: false, provider: 'smtp', error: 'smtp not configured' }
   }
@@ -342,10 +380,17 @@ async function sendViaSmtp(options: SendEmailOptions): Promise<SendEmailResult> 
     })
     await transporter.sendMail({
       from: config.SMTP_FROM,
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-      text: options.text,
+      to: mail.to,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+      // 内嵌图片:nodemailer 直接吃 Buffer,输出时自己按 cid 生成 Content-ID 头
+      attachments: mail.attachments.map((a) => ({
+        filename: a.filename,
+        content: a.content,
+        cid: a.cid,
+        contentType: a.contentType,
+      })),
     })
     return { sent: true, stub: false, provider: 'smtp' }
   } catch (e) {
@@ -356,11 +401,24 @@ async function sendViaSmtp(options: SendEmailOptions): Promise<SendEmailResult> 
 /**
  * Resend 通道(REST API,无需 SDK)。
  */
-async function sendViaResend(options: SendEmailOptions): Promise<SendEmailResult> {
+async function sendViaResend(mail: OutgoingMail): Promise<SendEmailResult> {
   if (!config.RESEND_API_KEY) {
     return { sent: false, stub: false, provider: 'resend', error: 'resend not configured' }
   }
   const from = config.RESEND_FROM || '智汇AI官方 <IHUI-AI@aizhs.top>'
+  // Resend 的内嵌图:content 是 base64 文本,content_id 对应 HTML 里的 src="cid:..."
+  // (与 nodemailer 的 cid 字段同义、异名)。空数组不带这个键 —— 免得无谓触发附件校验。
+  const attachments =
+    mail.attachments.length > 0
+      ? {
+          attachments: mail.attachments.map((a) => ({
+            filename: a.filename,
+            content: a.content.toString('base64'),
+            content_id: a.cid,
+            content_type: a.contentType,
+          })),
+        }
+      : {}
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -370,10 +428,11 @@ async function sendViaResend(options: SendEmailOptions): Promise<SendEmailResult
       },
       body: JSON.stringify({
         from,
-        to: [options.to],
-        subject: options.subject,
-        html: options.html,
-        text: options.text,
+        to: [mail.to],
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+        ...attachments,
       }),
     })
     if (!res.ok) {
