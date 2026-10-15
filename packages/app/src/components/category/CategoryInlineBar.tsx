@@ -196,7 +196,8 @@ function createStyles(tk: AppThemeTokens) {
       // 在 card 面板里整条 chip 与背景同色,可点性觉得"没有样式"。
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.muted,
-      maxWidth: 160,
+      // 不写宽度上限:三端取齐 web 那份 ITEM_BASE(它既不封顶也不截断),长分类名靠横向滚动消化。
+      // 单位数值刻意不写在这里 —— 门 128 的几何提取式会读注释,散文里的数字会被当成端上的档。
     },
     itemActive: {
       borderColor: tk.brandAccent.deep,
@@ -210,7 +211,6 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '400',
       lineHeight: 18,
       color: tk.text.secondary,
-      maxWidth: 120,
     },
     itemTextActive: {
       fontWeight: '600',
