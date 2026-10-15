@@ -6,7 +6,7 @@ import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, writeFileSync, rmSync, readdirSync, statSync, existsSync, readFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { join, relative, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 // §22c:判据/取材面一律 import 源脚本的 __test__,本文件不复制第二份(该文件有 §22d 守卫,import 无副作用)
@@ -410,10 +410,23 @@ test('面·行为锁:在册源文件与 tmp 落点都在面内,被忽略的第�
   assert.equal(face.ok, true, `取面失败(不得冒绿):${face.reason}`)
   const rel = face.files.map((f) => relative(PROJECT_ROOT, f).replaceAll('\\', '/'))
   assert.ok(rel.includes('scripts/check-workspace-hygiene.mjs'), '在册源文件必须仍在射程内')
-  assert.ok(
-    rel.some((p) => p.startsWith('.ihui-agent/tmp/')),
-    '§25 的临时脚本落点必须并入 —— 收面不等于缩射程',
+  // tmp 落点的并入用"形状 + 行为"两把尺:盘上有 .mjs 就必须量到(行为),没有也不能让本臂变脆
+  const onDisk = existsSync(hygiene.TMP_LANDING_DIR)
+    ? readdirSync(hygiene.TMP_LANDING_DIR, { recursive: true, encoding: 'utf8' })
+        .map((p) => String(p).replaceAll('\\', '/'))
+        .filter((p) => hygiene.SCRIPT_EXTS.has(extname(p)))
+    : []
+  assert.match(
+    readFileSync(SCRIPT_PATH, 'utf8'),
+    /files: \[\.\.\.tracked, \.\.\.scanDir\(TMP_LANDING_DIR\)\]/,
+    '§25 的临时脚本落点必须并进全量面 —— 收面不等于缩射程',
   )
+  if (onDisk.length > 0) {
+    assert.ok(
+      rel.some((p) => p.startsWith('.ihui-agent/tmp/')),
+      `盘上有 ${onDisk.length} 个临时脚本,面里一条都没有 ⇒ 并入实际失效`,
+    )
+  }
   const stray = join(
     '.DevEnv',
     'cache/userhome/.codex/plugins/cache/openai-bundled/browser/26.1007.21434/scripts/browser-service.mjs',
