@@ -6,7 +6,8 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type { Redis } from 'ioredis'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
-import { randomBytes, timingSafeEqual } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import { eq } from 'drizzle-orm'
 import { generateShortCode } from '../utils/crypto-random.js'
 import {
@@ -3349,12 +3350,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     webOrigin: string | null
   }
 
-  // 常量时间字符串比对(长度不等直接失败,避免 timing 攻击泄露比对进度)
+  // 常量时间字符串比对(经全仓唯一比较出口 secretsEqual:定长散列,无长度泄漏)
   function safeEqual(a: string, b: string): boolean {
-    const ab = Buffer.from(a)
-    const bb = Buffer.from(b)
-    if (ab.length !== bb.length) return false
-    return timingSafeEqual(ab, bb)
+    return secretsEqual(a, b)
   }
 
   /** CORS_ORIGIN 白名单集合(回跳源校验;每次调用解析,兼容运行期 env 变化) */

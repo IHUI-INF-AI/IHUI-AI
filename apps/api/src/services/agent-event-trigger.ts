@@ -17,7 +17,8 @@
  * 分离,纯函数可单测,无需 DB / 网络。
  */
 
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHmac } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import type { FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { db } from '../db/index.js'
@@ -45,7 +46,7 @@ export function parseSignatureHeader(header: string | undefined): string | null 
  * 验证 GitHub webhook 签名(HMAC-SHA256 真校验)。
  * - 无签名头 / 格式非法 → false
  * - 长度不一致直接 false(timingSafeEqual 要求同长)
- * - 用 timingSafeEqual 防时序攻击
+ * - 用 secretsEqual(定长散列)防时序攻击
  * - secret 为空串时恒返回 false(调用方据 GITHUB_WEBHOOK_SECRET 是否已配置决定 503)
  */
 export function verifyGitHubSignature(
@@ -57,10 +58,7 @@ export function verifyGitHubSignature(
   const provided = parseSignatureHeader(signatureHeader)
   if (!provided) return false
   const expected = createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex')
-  const expectedBuf = Buffer.from(expected, 'utf8')
-  const providedBuf = Buffer.from(provided, 'utf8')
-  if (expectedBuf.length !== providedBuf.length) return false
-  return timingSafeEqual(expectedBuf, providedBuf)
+  return secretsEqual(expected, provided)
 }
 
 // =============================================================================
