@@ -5,12 +5,14 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { BarChart3, DollarSign, Gauge, Zap } from 'lucide-react'
 
 import { Tooltip } from '@/components/feedback'
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, AuthGatePrompt } from '@/components/common'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 
 interface UsageStats {
@@ -70,12 +72,16 @@ function UsageBarChart({ data }: { data: Record<string, { total_tokens: number; 
 }
 
 export default function UsagePage() {
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [stats, setStats] = React.useState<UsageStats | null>(null)
   const [quota, setQuota] = React.useState<QuotaInfo | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState('')
 
   React.useEffect(() => {
+    if (!allow) return
     let cancelled = false
     setLoading(true)
     setError('')
@@ -98,7 +104,15 @@ export default function UsagePage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [allow])
+
+  if (!allow)
+    return (
+      <div className="px-4 space-y-4 py-4">
+        <BackButton />
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      </div>
+    )
 
   if (loading)
     return (

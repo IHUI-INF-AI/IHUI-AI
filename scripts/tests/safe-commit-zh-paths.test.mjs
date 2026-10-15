@@ -170,8 +170,8 @@ test('D171 形状锁:safe-commit 的路径取值必须走 lib/git-paths 的 -z �
   // 数量随合法新增点位走,但每次增加都必须在报告里点名新点是哪个,不许只改数字了事。
   assert.equal(
     (src.match(/gitStagedPaths\(\{ root: repoRoot \}\)/g) ?? []).length,
-    4,
-    'Step 3 / 归因面 / 重暂存校验 / **4-pre 发令前复量**四处都必须走 lib 出口',
+    5,
+    'Step 3 / 归因面 / 重暂存校验 / 4-pre 发令前复量 / **O43② 发令前基线快照**五处都必须走 lib 出口',
   )
   assert.match(src, /gitUntrackedPaths\(\{ root: repoRoot \}\)/, '未跟踪清单也必须走 -z 出口')
   assert.match(

@@ -16,10 +16,15 @@ import { CertificateList } from './CertificateList'
 import { CertificatePrintArea } from './CertificatePrintArea'
 import { api } from './helpers'
 import { formatDate } from '@/lib/date-utils'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import type { Certificate, CertsData } from './types'
 
 export default function CertificateDownloadPage() {
   const t = useTranslations('certificate')
+  // 2026-10-15 登录态门(与 /chat/favorites、签到助手同型):未就绪/未登录不发注定 401 的查询
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [downloadingId, setDownloadingId] = React.useState<string | null>(null)
   const [printingId, setPrintingId] = React.useState<string | null>(null)
 
@@ -30,6 +35,7 @@ export default function CertificateDownloadPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['certificates', 'my'],
+    enabled: allow,
     queryFn: () => api<CertsData>(`/api/certificates/my?page=1&pageSize=20`),
   })
 
@@ -134,16 +140,20 @@ export default function CertificateDownloadPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('download.subtitle')}</p>
       </div>
 
-      <CertificateList
-        list={list}
-        isLoading={isLoading}
-        error={error as Error | null}
-        downloadingId={downloadingId}
-        printingId={printingId}
-        statusText={STATUS_TEXT}
-        onDownload={handleDownload}
-        onPrint={handlePrint}
-      />
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : (
+        <CertificateList
+          list={list}
+          isLoading={isLoading}
+          error={error as Error | null}
+          downloadingId={downloadingId}
+          printingId={printingId}
+          statusText={STATUS_TEXT}
+          onDownload={handleDownload}
+          onPrint={handlePrint}
+        />
+      )}
 
       <CertificatePrintArea list={list} statusText={STATUS_TEXT} />
     </div>

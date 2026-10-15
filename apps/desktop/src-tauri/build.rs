@@ -61,9 +61,8 @@ fn main() {
             "checkin_capture_jwts",
             "checkin_capture_qoder",
             "checkin_capture_workbuddy",
-            "checkin_workbuddy_web_login_open",
+            // 2026-10-15 浏览器扫码改版:open/close 废弃(复用 open_in_chrome/close_in_chrome)
             "checkin_workbuddy_web_login_probe",
-            "checkin_workbuddy_web_login_close",
             "checkin_reset_device_ids",
             "checkin_get_public_ip",
             "checkin_one_click_reset",

@@ -10,6 +10,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Users, MessageSquare } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { BackButton } from '@/components/common'
 
 interface CircleItem {
@@ -35,10 +36,12 @@ export default function UserCirclePage() {
   const t = useTranslations('user.circle')
   const locale = useLocale()
   const user = useAuthStore((s) => s.user)
+  // 2026-10-15 登录态门:/api/circles?userId= = 当前用户的圈子,未就绪/未登录不发注定 401 的查询
+  const { allow } = useAuthGate()
 
   const { data, isLoading } = useQuery({
     queryKey: ['user', 'circles', user?.id],
-    enabled: !!user?.id,
+    enabled: allow && !!user?.id,
     queryFn: () => fetchCircles(user!.id),
   })
 

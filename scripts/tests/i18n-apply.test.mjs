@@ -947,14 +947,13 @@ describe('写盘准入(票面修法③)— 陈旧载荷 / 本轮未对账 ⇒ ex
       langs: { en: {}, ja: {}, ko: {}, 'zh-TW': {} },
       translations: FULL,
     })
-    const opt = { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
     gitIn(root, ['init', '-q', '-b', 'main'])
     for (const kv of [
       ['config', 'user.email', 'test@ihui.local'],
       ['config', 'user.name', 'Test'],
       ['config', 'commit.gpgsign', 'false'],
     ]) {
-      spawnSync('git', kv, opt)
+      gitIn(root, kv)
     }
     // 真仓 .gitignore 忽略 .ihui-agent/tmp;夹具照抄这条条件,否则"工作区干净"是夹具缺条件造出来的
     fs.writeFileSync(path.join(root, '.gitignore'), '.ihui-agent/\n', 'utf8')

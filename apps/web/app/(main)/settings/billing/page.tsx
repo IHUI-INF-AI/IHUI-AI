@@ -21,6 +21,7 @@ import {
 } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { buildQs, type PageData } from '@/lib/edu'
 import { getDailyCreditsUsage, type Order } from '@ihui/api-client'
 import { CreditsHeatmapCard } from '@/components/billing/credits-heatmap-card'
@@ -32,6 +33,8 @@ import type { InvoiceApplication } from './types'
 
 export default function BillingPage() {
   const t = useTranslations('settings')
+  // 登录态门(与签到助手同型):未就绪/未登录不发注定 401 的挂载请求
+  const { allow } = useAuthGate()
   const locale = useLocale()
   const [tab, setTab] = React.useState<'orders' | 'invoices'>('orders')
   const [orderPage, setOrderPage] = React.useState(1)
@@ -62,7 +65,7 @@ export default function BillingPage() {
       if (!res.success) throw new Error(res.error)
       return res.data
     },
-    enabled: tab === 'orders',
+    enabled: allow && tab === 'orders',
   })
 
   const invoicesQuery = useQuery({
@@ -74,7 +77,7 @@ export default function BillingPage() {
       if (!res.success) throw new Error(res.error)
       return res.data
     },
-    enabled: tab === 'invoices',
+    enabled: allow && tab === 'invoices',
   })
 
   // 按日积分消耗热力图(§D64 卡不取数,数据面 = GET /api/credits/usage/daily,UTC 分桶缺日补零)
@@ -85,6 +88,7 @@ export default function BillingPage() {
       if (!res.success) throw new Error(res.error)
       return res.data
     },
+    enabled: allow,
   })
   const heatmapDayCounts = React.useMemo(() => {
     const buckets = dailyUsageQuery.data?.buckets

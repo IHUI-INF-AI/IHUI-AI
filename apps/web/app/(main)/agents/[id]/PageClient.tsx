@@ -29,6 +29,7 @@ import { DispatchSubagentDialog } from '@/components/ai/dispatch-subagent-dialog
 import type { SwarmData, BackgroundAgent } from '@/components/ai/types'
 import { getAgentPermission } from '@ihui/api-client'
 import { usePageVisibility } from '@/hooks/use-page-visibility'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { useChatStore } from '@/stores/chat'
 
 const RUNTIME_POLL_MS = 5_000
@@ -130,6 +131,8 @@ export default function AgentDetailPage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const id = params.id
+  // 登录态门:详情本体公开可游客浏览;权限校验与运行时汇总是登录态私有查询,未就绪不发
+  const { allow } = useAuthGate()
   const [permOpen, setPermOpen] = React.useState(false)
   const [dispatchOpen, setDispatchOpen] = React.useState(false)
   // 从 chat store 读取 sub-agent 活动流(多 agent 多路复用:SSE chunk 按 agentId 分流后累加)
@@ -149,7 +152,7 @@ export default function AgentDetailPage() {
   const { data: permission, isLoading: permLoading } = useQuery({
     queryKey: ['agents', 'permission', id],
     queryFn: () => getAgentPermission(id),
-    enabled: !!id,
+    enabled: !!id && allow,
     retry: false,
   })
 
@@ -160,7 +163,7 @@ export default function AgentDetailPage() {
   const { data: runtime, refetch: refetchRuntime } = useQuery({
     queryKey: ['agents', 'runtime', id],
     queryFn: () => api<AgentRuntimeSummary>(`/api/subagents/by-agent/${id}/summary`),
-    enabled: !!id,
+    enabled: !!id && allow,
     retry: false,
     refetchInterval: visible ? RUNTIME_POLL_MS : RUNTIME_POLL_HIDDEN_MS,
   })
