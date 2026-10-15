@@ -39,11 +39,9 @@ import { rpx } from '../../utils/rpx'
  * (queueOps.degraded.runtimeNoInterject,与 D69 denied.interject 同一句判据原文),
  * 不得静默禁用。
  *
- * **插话能力(消费端,零耦合)**:`runtimeSupportsInterjection` 由宿主从「流/会话能力声明」
- * 读入后注入(读数见 `../utils/interjection-capability`)。契约只有一条 ——
- * **字段缺失即回落 false**:能力声明的生产者(ai-service 侧)未落地时,本端行为与
- * 此前硬编码 false **逐字节一致**(零回归);声明一旦到达即自动生效,本组件不用再改。
- * 显式传 false 与"不传"同效,不额外分支。
+ * **插话能力**:RN 端插话能力恒不可用(2026-10-15 下线能力声明协商,原
+ * `runtimeSupportsInterjection` prop 已拆除),许可门恒拒(「打断并执行」不可达,
+ * 被拒时仍显式渲染降级句,不静默吞),steer 偏好显式降级为 queue。
  *
  * 平台特有:RN 无 hover ⇒ 全部用按压态(Pressable style 函数);web 的拖拽重排
  * 在触屏上退化为 ↑/↓ 按钮重排(同一 reorderQueue 语义,流式中同样被锁)。
@@ -60,12 +58,6 @@ export interface QueueInteractionBarProps {
   items: readonly RnQueuedItemView[]
   /** 是否流式生成中(重排锁定 + interruptPlan.stopFirst 依据) */
   streaming: boolean
-  /**
-   * D38 插话能力协商结果:宿主从「流/会话能力声明」读入后注入(可选)。
-   * **缺省 / undefined ⇒ false**(能力声明未落地时的既有行为,零回归);
-   * 声明到达即原样透传(true 放开插话与 steer 模式,false 仍走降级句)。
-   */
-  runtimeSupportsInterjection?: boolean
   /** 当前队列模式偏好(steer / queue) */
   mode: FollowUpMode
   /** 重排回调(fromIndex → toIndex,先摘后插);被拒时调用方不回调 */
@@ -87,8 +79,6 @@ export function QueueInteractionBar({
   items,
   streaming,
   mode,
-  // 能力声明未落地 ⇒ 宿主不传 ⇒ 回落 false(与改造前硬编码 false 同行为,零回归)
-  runtimeSupportsInterjection = false,
   onReorder,
   onUndo,
   onEdit,
@@ -105,11 +95,10 @@ export function QueueInteractionBar({
     reason: QueueDenyReason
   } | null>(null)
 
-  // 许可门统一走 D69 复用判定;插话能力由宿主注入(缺失 ⇒ false,见上契约),端内不判语义。
-  // 非布尔兜底:声明面若给出非布尔(脏数据 / 旧服务端),按"没读到"处理,不误放量。
-  const supportsInterjection = runtimeSupportsInterjection === true
+  // 许可门统一走 D69 复用判定。RN 端插话能力恒不可用(2026-10-15 下线能力声明协商),
+  // 许可门恒拒(「打断并执行」不可达),端内不判语义。
   const perms = queueInteractionPerms({
-    runtimeSupportsInterjection: supportsInterjection,
+    runtimeSupportsInterjection: false,
     streaming,
     hasQueuedMessages: items.length > 0,
   })
@@ -122,9 +111,9 @@ export function QueueInteractionBar({
     setDeniedHint(null)
   }, [streaming, items.length])
 
-  // 模式解析:steer 偏好遇不支持插话的 Runtime ⇒ 显式降级句,不得静默降级(web 同)。
-  // 支撑位同样取自能力声明(缺失 ⇒ false ⇒ steer 显式降级为 queue,与改造前同)。
-  const modeResolution = effectiveMode(mode, supportsInterjection)
+  // 模式解析:RN 端插话能力恒不可用(2026-10-15 下线能力声明协商),steer 偏好
+  // 显式降级为 queue,不得静默降级(web 同)。
+  const modeResolution = effectiveMode(mode, /* 插话能力恒不可用 */ false)
 
   if (items.length === 0) return null
 
@@ -149,7 +138,7 @@ export function QueueInteractionBar({
 
   const handleInterrupt = (): void => {
     if (!interruptVerdict.allowed) {
-      // D38 收口:插话被拒显式说因(能力声明未给到/给 false —— 与降级句同判据,不静默吞)
+      // D38 收口:插话被拒显式说因(RN 端插话能力恒不可用 —— 与降级句同判据,不静默吞)
       setDeniedHint({ action: 'interject', reason: 'runtimeNoInterject' })
       return
     }
@@ -197,7 +186,9 @@ export function QueueInteractionBar({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t(qk('reorderAria'))}
-              accessibilityState={{ disabled: !reorderVerdict.allowed || index === items.length - 1 }}
+              accessibilityState={{
+                disabled: !reorderVerdict.allowed || index === items.length - 1,
+              }}
               testID={`queue-op-reorder-down-${index}`}
               style={({ pressed }) => [
                 styles.opBtn,

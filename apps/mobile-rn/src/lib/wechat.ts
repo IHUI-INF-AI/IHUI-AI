@@ -93,4 +93,50 @@ export async function sendWechatAuth(scope = 'snsapi_userinfo', state?: string):
 export function isWechatRegistered(): boolean {
   return isRegistered
 }
+
+/** 网页分享载荷(scene 决定去向:WXSceneSession=聊天 / WXSceneTimeline=朋友圈) */
+interface WechatWebPagePayload {
+  title: string
+  description?: string
+  webpageUrl: string
+  thumbImageUrl?: string
+  /** wechat-lib WXScene:0=好友会话 1=朋友圈(lib 内 WXSceneSession/WXSceneTimeline) */
+  scene: number
+}
+
+/** 分享网页卡片公共实现:web 抛错(调用方降级),原生走 shareWebpage。 */
+async function shareWebPage(payload: WechatWebPagePayload): Promise<void> {
+  if (Platform.OS === 'web') throw new Error('微信原生 SDK 不支持 web 平台')
+  if (typeof wechatLib.shareWebpage !== 'function') throw new Error('微信 SDK 未初始化')
+  if (!(await isWechatInstalled())) throw new Error('未安装微信')
+  const res = await wechatLib.shareWebpage({
+    webpageUrl: payload.webpageUrl,
+    title: payload.title,
+    description: payload.description,
+    thumbImageUrl: payload.thumbImageUrl,
+    // WXScene 是 lib 的值导出;web 走不到这里(stub 无该导出,提前 throw)
+    scene: payload.scene as never,
+  })
+  if (
+    res &&
+    typeof res === 'object' &&
+    res.errCode !== undefined &&
+    res.errCode !== WECHAT_ERRCODE.SUCCESS
+  ) {
+    if (res.errCode === WECHAT_ERRCODE.USER_CANCEL) throw new Error('USER_CANCEL')
+    throw new Error(res.errStr ?? `微信分享失败(errCode=${res.errCode})`)
+  }
+}
+
+/** 分享到微信会话(好友)。前置:registerWechat 成功 + 微信 App 已安装,否则抛错。 */
+export function shareWebPageToSession(payload: Omit<WechatWebPagePayload, 'scene'>): Promise<void> {
+  return shareWebPage({ ...payload, scene: 0 })
+}
+
+/** 分享到朋友圈。前置与错误语义同 shareWebPageToSession。 */
+export function shareWebPageToTimeline(
+  payload: Omit<WechatWebPagePayload, 'scene'>,
+): Promise<void> {
+  return shareWebPage({ ...payload, scene: 1 })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
