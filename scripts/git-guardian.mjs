@@ -468,6 +468,9 @@ function healWorktreeBare({
   const liveWas = readBareFlag(gitdir)
   const backupWas = existsSync(join(backup, 'config')) ? readBareFlag(backup) : null
   if (liveWas !== 'true' && backupWas !== 'true') return probeUsable()
+  // 修复**之前**先取全文指纹(healthy 路径不付这个代价);取证与这里的取样同一时刻两侧。
+  const cfgBeforeLive = configFingerprint(gitdir)
+  const cfgBeforeBackup = existsSync(join(backup, 'config')) ? configFingerprint(backup) : null
   // —— 取证必须在修复**之前**(2026-09-29 立)——
   // 写回 false 之后,config 的 mtime 就是"我修的那一刻"而非"别人翻车的那一刻",而当时开着的
   // 进程也大概率已经退了;先落一份现场审计,规则②(进程生日 ≈ config mtime)才有锚点。
@@ -480,10 +483,17 @@ function healWorktreeBare({
   const liveOk = writeBareFalse(gitdir)
   const backupOk = backupWas === 'true' ? writeBareFalse(backup) : true
   const usable = probeUsable()
+  // G-111 机主拍板出路②:归一那一刻顺手把**前后 config 全文哈希**落进守护日志。
+  // 完整 64 位而不是短前缀 —— 这条行的用途是将来与 `flip-*.json`(修复前那份取证)以及
+  // 任何可疑进程的写入痕迹做**逐字比对**,截断就没法比(§1 那条"短 sha 会腐烂"说的是文档指针,
+  // 这里是机器取证面,越全越好)。读不到一律印「未判定」,不印空哈希。
+  const fpText = (b, a) => `${b.sha256 || '未判定'}→${a.sha256 || '未判定'}(${b.bytes ?? '?'}B→${a.bytes ?? '?'}B)`
   log(
     `${usable && liveOk && backupOk ? '修复' : '修复失败'}: core.bare 归一为 false ` +
       `(活仓库 ${liveWas}→${readBareFlag(gitdir)},恢复源 ${backupWas}→${existsSync(join(backup, 'config')) ? readBareFlag(backup) : '无 config'})` +
-      ` | 工作树可用=${usable}`,
+      ` | 工作树可用=${usable}` +
+      ` | config 全文哈希 live ${fpText(cfgBeforeLive, configFingerprint(gitdir))}` +
+      (cfgBeforeBackup ? ` | backup ${fpText(cfgBeforeBackup, configFingerprint(backup))}` : ' | backup 无 config(不参与)'),
   )
   return usable && liveOk && backupOk
 }
@@ -738,17 +748,42 @@ function bareAuditSelfCheck({ spawn, processes, malformedCount, cmdlineMissing, 
 }
 
 /** 某一侧 gitdir 的现场读数(path + bare 现值 + config 的 mtime/ctime);取不到的字段一律点名原因 */
+/**
+ * 某个 gitdir 的 `config` **全文**指纹(2026-10-16 补,G-111 机主拍板出路②的那半格)。
+ * 为什么要全文哈希而不是只记 `core.bare` 的值:翻写者若同时动了别的键(实测有人连 `[core]`
+ * 段一起改),只看 bare 一档永远看不见"还改了谁";而 SACL 那条机器级路被机主否了,
+ * 邻居名单就只能靠"归一那一刻自己留下前后全文哈希"去对。
+ * 三态:读不到 ⇒ `{sha256:null, bytes:null, reason}` —— **绝不**把读不到折成空串哈希
+ * (那是 §0.3 明令禁止的"把没判写成判过")。
+ */
+export function configFingerprint(gitdir) {
+  const configFile = gitdir ? join(gitdir, 'config') : null
+  if (!configFile || !existsSync(configFile)) {
+    return { configFile: configFile || null, sha256: null, bytes: null, reason: 'config 文件取不到' }
+  }
+  try {
+    const buf = readFileSync(configFile)
+    return { configFile, sha256: createHash('sha256').update(buf).digest('hex'), bytes: buf.length, reason: null }
+  } catch (e) {
+    return { configFile, sha256: null, bytes: null, reason: '读 config 全文失败:' + String((e && e.message) || e) }
+  }
+}
+
 function bareAuditSide(gitdir, { readBare = readBareFlag } = {}) {
   const configFile = gitdir ? join(gitdir, 'config') : null
+  const fp = configFingerprint(gitdir)
   const side = {
     path: gitdir || null,
     configFile,
     bare: null,
+    configSha256: fp.sha256,
+    configBytes: fp.bytes,
     configMtime: null,
     configCtime: null,
     configMtimeMs: null,
     undetermined: [],
   }
+  if (fp.sha256 === null) side.undetermined.push('config 全文哈希未判定:' + fp.reason)
   if (!configFile || !existsSync(configFile)) {
     side.undetermined.push('config 文件不存在 ⇒ bare/mtime/ctime 全部未判定(不读成"没有裸档")')
     return side
@@ -4319,6 +4354,7 @@ export const __test__ = {
   readBareFlag,
   writeBareFalse,
   healWorktreeBare,
+  configFingerprint,
   coreHealthy,
   // core.bare 翻车现场取证(2026-09-29 立):判据一律以**纯函数 + 构造面**取证,
   // 不得依赖此刻真仓的进程状态/真仓的 gitdir(守门 103 T12 那一课)。
