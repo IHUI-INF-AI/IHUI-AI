@@ -486,7 +486,8 @@
     "groupTrade": "取引",
     "groupPromote": "プロモーション",
     "groupPersonal": "個人",
-    "groupCommunity": "コミュニティ"
+    "groupCommunity": "コミュニティ",
+    "claimFree": "無料資料を受け取る"
   },
   "error": {
     "network": "ネットワークエラー"

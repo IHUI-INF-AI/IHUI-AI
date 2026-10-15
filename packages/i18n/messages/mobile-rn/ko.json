@@ -486,7 +486,8 @@
     "groupTrade": "거래",
     "groupPromote": "프로모션",
     "groupPersonal": "개인",
-    "groupCommunity": "커뮤니티"
+    "groupCommunity": "커뮤니티",
+    "claimFree": "무료 자료 받기"
   },
   "error": {
     "network": "네트워크 오류"

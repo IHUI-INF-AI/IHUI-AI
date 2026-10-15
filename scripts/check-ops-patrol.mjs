@@ -805,6 +805,24 @@ export function checkUndeliveredAlertDebt({
  * `databases` / `execCands` 是**测试通道**(镜像测试要能造"清单里有第二个库"与"清单解析不出"
  * 两种现场,又不必为此改动真仓 runner);生产调用不传,语义不变 —— 与节拍审计同一个约定。
  */
+
+/**
+ * 部署环(IHUI-DEPLOYLOOP)的**活源**台账路径。
+ *
+ * **为什么不是 `join(REPO, 'deploy/win/deploy-loop.log')`(2026-10-15 修)**:
+ * 活着的 IHUI-DEPLOYLOOP 服务由 nssm 托管,其 AppParameters 指向**生产 checkout 的副本**
+ * `D:\DevEnv\ihui-prod\deploy\win\ihui-deploy-loop.ps1` —— `install-deploy-loop-service.ps1`
+ * 的 `$Root = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot`,即在哪份 checkout 里装就跑哪份。
+ * 那一份把心跳/轮询台账写到它自己的 `deploy/win/deploy-loop.log`,每 60 秒一轮都在追加。
+ * 仓库内的 `D:\IHUI-AI/deploy/win/deploy-loop.log` 只是历史/镜像,活环根本不写它 —— 巡检若读它,
+ * 会把这个每 60 秒都在跑的活环误判成"停更 3305 分钟"(2026-10-15 实测红即此成因)。
+ * 故这里解析生产 checkout 的那一份(`devEnvRoot` 即 `D:\DevEnv`,再进 `ihui-prod`)。
+ * 语义守恒:文件存在但陈旧 ⇒ 仍正确报红(活环真停了);文件不存在 ⇒ undetermined(不冒充"没问题")。
+ */
+export function prodDeployLoopLog(repoRoot = REPO) {
+  return join(devEnvRoot(repoRoot), 'ihui-prod', 'deploy/win/deploy-loop.log')
+}
+
 export function heartbeatRows({ now, devEnv, databases, execCands = EXEC_CANDIDATES }) {
   const rows = []
   const push = (label, path, maxAgeMinutes, note) => {
@@ -826,7 +844,7 @@ export function heartbeatRows({ now, devEnv, databases, execCands = EXEC_CANDIDA
       })
     }
   }
-  push('部署环迭代', join(REPO, 'deploy/win/deploy-loop.log'), LIMITS.deployLoopLogMin, 'IHUI-DEPLOYLOOP 60s 一轮')
+  push('部署环迭代', prodDeployLoopLog(), LIMITS.deployLoopLogMin, 'IHUI-DEPLOYLOOP 60s 一轮(读生产 checkout 台账)')
   // ── 数据库备份产出(2026-10-01 起:逐库、只认本链产物)─────────────────────
   // 旧判据是"取目录里最新的一个 .dump"。当日实测证明它会把**别人链的产物**读成本链的合格证:
   // 本链(IHUI-PG-BACKUP,命名 `ihui_dev_<日期>_<时刻>.dump`)最新一份停在 09-30 03:00,
@@ -1210,7 +1228,7 @@ export function checkGrowth({ devEnv }) {
  * 并带出最近一条 FAIL 原文当证据。读不到收尾行 ⇒ 未判定(可能正在构建中),不读成"没问题"。
  */
 export function checkDeployLoopOutcome({
-  logFile = join(REPO, 'deploy/win/deploy-loop.log'),
+  logFile = prodDeployLoopLog(),
   tailBytes = 260000,
   readHeadLine = null,
   isDirty = null,

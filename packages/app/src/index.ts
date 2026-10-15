@@ -243,13 +243,14 @@ export type {
   CourseCardProps,
 } from './features/cards'
 
-/** 跨端共享小组件(Selecter,从 miniapp-taro 提取;SectionHeader 一条已于 2026-09-30 随其
- *  packages/app 侧死副本一并摘除 —— 判据与 ColorfulLoader/PayButton 那批同形:全仓零具名消费者,
- *  小程序端渲染腿在 apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx,而 RN 侧
- *  区段头部至今**没有单一源**(9+ 屏各自自绘,见 packages/shared/src/ui/section-header-spec.ts)。
+/** 跨端共享小组件。两条死载体已先后摘除,依据与判据同形(全仓零具名消费者):
+ *  · SectionHeader —— 2026-09-30 摘除,小程序端渲染腿在 apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx,
+ *    而 RN 侧区段头部至今**没有单一源**(9+ 屏各自自绘,见 packages/shared/src/ui/section-header-spec.ts)。
+ *  · Selecter —— 2026-10-15 摘除(连同 packages/app 侧文件);小程序端腿是 adapters/Selecter.taro.tsx,
+ *    RN 端用 apps/mobile-rn/src/components/ModelConfigDialog.tsx 自绘的 ModelSelecterDialog,本包那份无人取。
  *  历史同批:ColorfulLoader / PayButton 两条出口于 2026-09-26 摘除。 */
-export { Selecter, SearchInput } from './components'
-export type { SelecterProps, SelecterType, SelecterOption, SearchInputProps } from './components'
+export { SearchInput } from './components'
+export type { SearchInputProps } from './components'
 
 /**
  * 带聚焦描边的输入框 —— RN/共享屏的唯一实现(§4"描边不得取墨档"的唯一例外位是聚焦态)。
