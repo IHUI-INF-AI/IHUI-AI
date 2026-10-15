@@ -6,6 +6,8 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import {
   Eye,
   Target,
@@ -75,6 +77,9 @@ interface PrivacyPrefs {
 export default function PrivacyPage() {
   const t = useTranslations('settings')
   const tc = useTranslations('common')
+  // 2026-10-15 登录态门(与 /chat/favorites、签到助手同型):未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [prefs, setPrefs] = React.useState<PrivacyPrefs>({
     dataVisible: true,
     adTracking: false,
@@ -91,6 +96,7 @@ export default function PrivacyPage() {
   const [toast, setToast] = React.useState<{ type: 'success' | 'error'; msg: string } | null>(null)
 
   React.useEffect(() => {
+    if (!allow) return
     let cancelled = false
     // 两个 GET 并行:per-user 偏好 + 部署方全局 env 镜像(只读一个布尔)。
     //
@@ -100,54 +106,54 @@ export default function PrivacyPage() {
       fetchApi<{ settings: Record<string, string> }>('/settings/privacy'),
       fetchApi<{ autoMemoryGloballyEnabled?: boolean }>('/settings/runtime-flags'),
     ]).then(([prefsSettled, flagsSettled]) => {
-        if (cancelled) return
-        // 全局闸只在"端点明确回 false"时才关。
-        //
-        // 判据是 `!( ... === false)` 这个整体取反,而不是 `=== false`:
-        // 请求 reject / 端点不存在(部署方还没升级 api)/ success=false / 字段缺失
-        // —— 这些都归入"没关"。写成 `=== false` 会把一次接口抖动显示成
-        // "用户已关闭记忆",方向与后端 `auto_memory_optout` 的"读不到按现状
-        // 行为(开启)放行"相反。隐私页尤其不能错:错的方向会让用户以为
-        // 记忆已关、实际还在提取。
-        const flagsOff =
-          flagsSettled.status === 'fulfilled' &&
-          flagsSettled.value?.success === true &&
-          flagsSettled.value.data?.autoMemoryGloballyEnabled === false
-        const globalEnabled = !flagsOff
-        const prefsRes = prefsSettled.status === 'fulfilled' ? prefsSettled.value : undefined
-        if (prefsRes?.success) {
-          const s = prefsRes.data.settings
-          setPrefs({
-            dataVisible: s.dataVisible !== 'false',
-            adTracking: s.adTracking === 'true',
-            personalizedRecommendation: s.personalizedRecommendation !== 'false',
-            // 三个新开关:键缺失(= 用户从未改过)一律按 false「未阻止」,
-            // 与后端默认行为一致。不给「没设置」编第三种默认语义 ——
-            // 那种三态在 UI 上无法呈现,只会让开关的当前状态不可预期。
-            llmRawRetentionOptOut: s.llmRawRetentionOptOut === 'true',
-            codeIndexEgressOptOut: s.codeIndexEgressOptOut === 'true',
-            // ⚠ 极性:这一项是 **opt-out**(true = 已关闭),而全局闸是"是否开启"。
-            //    所以合取在这里是 **OR**,不是 AND ——
-            //    "记忆当前是关的" = 用户关了 **或** 部署方全局关了。
-            //    写成 `s.autoMemoryOptOut === 'true' && globalEnabled` 会得到
-            //    "部署方关了 ⇒ 显示未关闭",与事实相反(与本项极性相同的一批
-            //    开关都只需原样透传,唯独这一项要参与合取,故在此显式留注释)。
-            autoMemoryOptOut: s.autoMemoryOptOut === 'true' || !globalEnabled,
-            // opt-in 语义:只有显式 'false' 才关(与 use-analytics.ts 的判定一致)。
-            // 写成 `!== 'false'` 而不是 `=== 'true'` —— 后者会让"键存在但值缺失"
-            // 变成关闭,与读取端的判定逻辑不一致,开关会显示成与实际相反的状态。
-            analyticsEnabled: s.analyticsEnabled !== 'false',
-            autoMemoryGloballyEnabled: globalEnabled,
-          })
-        } else {
-          setError(t('privacyLoadFailed'))
-        }
-        setLoading(false)
-      })
+      if (cancelled) return
+      // 全局闸只在"端点明确回 false"时才关。
+      //
+      // 判据是 `!( ... === false)` 这个整体取反,而不是 `=== false`:
+      // 请求 reject / 端点不存在(部署方还没升级 api)/ success=false / 字段缺失
+      // —— 这些都归入"没关"。写成 `=== false` 会把一次接口抖动显示成
+      // "用户已关闭记忆",方向与后端 `auto_memory_optout` 的"读不到按现状
+      // 行为(开启)放行"相反。隐私页尤其不能错:错的方向会让用户以为
+      // 记忆已关、实际还在提取。
+      const flagsOff =
+        flagsSettled.status === 'fulfilled' &&
+        flagsSettled.value?.success === true &&
+        flagsSettled.value.data?.autoMemoryGloballyEnabled === false
+      const globalEnabled = !flagsOff
+      const prefsRes = prefsSettled.status === 'fulfilled' ? prefsSettled.value : undefined
+      if (prefsRes?.success) {
+        const s = prefsRes.data.settings
+        setPrefs({
+          dataVisible: s.dataVisible !== 'false',
+          adTracking: s.adTracking === 'true',
+          personalizedRecommendation: s.personalizedRecommendation !== 'false',
+          // 三个新开关:键缺失(= 用户从未改过)一律按 false「未阻止」,
+          // 与后端默认行为一致。不给「没设置」编第三种默认语义 ——
+          // 那种三态在 UI 上无法呈现,只会让开关的当前状态不可预期。
+          llmRawRetentionOptOut: s.llmRawRetentionOptOut === 'true',
+          codeIndexEgressOptOut: s.codeIndexEgressOptOut === 'true',
+          // ⚠ 极性:这一项是 **opt-out**(true = 已关闭),而全局闸是"是否开启"。
+          //    所以合取在这里是 **OR**,不是 AND ——
+          //    "记忆当前是关的" = 用户关了 **或** 部署方全局关了。
+          //    写成 `s.autoMemoryOptOut === 'true' && globalEnabled` 会得到
+          //    "部署方关了 ⇒ 显示未关闭",与事实相反(与本项极性相同的一批
+          //    开关都只需原样透传,唯独这一项要参与合取,故在此显式留注释)。
+          autoMemoryOptOut: s.autoMemoryOptOut === 'true' || !globalEnabled,
+          // opt-in 语义:只有显式 'false' 才关(与 use-analytics.ts 的判定一致)。
+          // 写成 `!== 'false'` 而不是 `=== 'true'` —— 后者会让"键存在但值缺失"
+          // 变成关闭,与读取端的判定逻辑不一致,开关会显示成与实际相反的状态。
+          analyticsEnabled: s.analyticsEnabled !== 'false',
+          autoMemoryGloballyEnabled: globalEnabled,
+        })
+      } else {
+        setError(t('privacyLoadFailed'))
+      }
+      setLoading(false)
+    })
     return () => {
       cancelled = true
     }
-  }, [t])
+  }, [t, allow])
 
   React.useEffect(() => {
     if (!toast) return
@@ -243,7 +249,9 @@ export default function PrivacyPage() {
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
-        {loading ? (
+        {!allow ? (
+          <AuthGatePrompt message={tGate('loginRequired')} />
+        ) : loading ? (
           <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             {tc('loading')}
