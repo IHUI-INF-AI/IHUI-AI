@@ -19185,6 +19185,8 @@
     "addSmartScanning": "Scanning this machine for saved logins…",
     "addSmartTraeFound": "Found {count} Trae account(s)",
     "addSmartQoderFound": "Found {count} Qoder account(s)",
+    "addSmartMinimaxFound": "MiniMax Code local session ({count})",
+    "captureMinimaxNoToken": "No token found. Sign in to MiniMax Code and retry",
     "addSmartImport": "Import Selected",
     "addSmartImporting": "Importing…",
     "addSmartNone": "No Trae / Qoder login found on this machine. Sign in to the client first, then click \"Rescan\".",
