@@ -246,6 +246,39 @@ test('M7 判死边界:两面旗同给 exit 2;枚举到 0 个源码脚本 exit 2(
   }
 })
 
+test('M7b 空清单分档:纯非源码提交 ⇒ 不适用 exit 0;射程内文件一出现照判;暂存面一条都没有 ⇒ 仍判死', () => {
+  const dir = mkScratch('soc-na-')
+  try {
+    makeRepo(dir, CLEAN)
+    // 只暂存一份 JSON 台账:旧口径把"零候选"读成判死 ⇒ 任何改 scripts/data/*.json 的提交都被拦,
+    // 而本型在纯数据提交里确实没有可判的东西。这一档必须 exit 0 且**喊出"不适用"**(不得冒充"已判全部合格")。
+    mkdirSync(join(dir, 'scripts', 'data'), { recursive: true })
+    writeFileSync(join(dir, 'scripts', 'data', 'ledger.json'), '{"entries":[]}\n', 'utf8')
+    gitIn(dir, ['add', '--', 'scripts/data/ledger.json'])
+    const na = runGate(dir, ['--staged'])
+    assert.equal(na.code, 0, `暂存面只有非源码文件时必须"不适用"而不是判死:\n${na.out}`)
+    assert.match(na.out, /不适用/, '必须写明"不适用",不得写成"零命中/全部合格"')
+    // 反向锁(牙):同一现场一旦把射程内的违规脚本暂存起来,必须当场翻红 ⇒ 证明"不适用"那一档没有把判据一起放行。
+    writeFileSync(join(dir, 'scripts/target.mjs'), BLIND, 'utf8')
+    gitIn(dir, ['add', '--', 'scripts/target.mjs'])
+    const red = runGate(dir, ['--staged'])
+    assert.equal(red.code, 1, `同一现场补上射程内文件就必须照判(不适用那一档不得成为绕行通道):\n${red.out}`)
+    assert.match(red.out, /scripts\/target\.mjs/, '红必须点名被注入的文件')
+  } finally {
+    rmScratch(dir)
+  }
+  // 另一档:暂存面**一条清单都没有**(取材环节空转)⇒ 仍是"什么都没看",必须判死,不得复用上面的"不适用"。
+  const dir2 = mkScratch('soc-na2-')
+  try {
+    makeRepo(dir2, CLEAN)
+    const dead = runGate(dir2, ['--staged'])
+    assert.equal(dead.code, 2, `暂存面枚举到 0 个文件必须判死:\n${dead.out}`)
+    assert.match(dead.out, /判死/, '必须喊出"判死"')
+  } finally {
+    rmScratch(dir2)
+  }
+})
+
 test('M8 无豁免通道:这一型只有"改回管道"一条正解', () => {
   const src = gitIn(REPO, ['show', `HEAD:scripts/${GATE_REL}`])
   // 注意区分:**自豁免门自身文件**(判据必含违例形态的文本,否则门给自己立项那一型判红)
