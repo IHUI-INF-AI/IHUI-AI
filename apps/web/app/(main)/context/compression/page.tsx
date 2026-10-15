@@ -7,14 +7,21 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { AlertCircle, ArrowLeft, Loader2, RotateCw } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { fetchCompressionStats } from '@/lib/context-api'
 import { CompressionStatsTable } from '@/components/context/CompressionStatsTable'
 
 export default function ContextCompressionPage() {
+  // 2026-10-15 登录态门(与 knowledge-base 同型):未就绪/未登录不发注定 401 的查询
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const statsQ = useQuery({
     queryKey: ['context', 'compression-stats'],
+    enabled: allow,
     queryFn: () => fetchCompressionStats(),
   })
 
@@ -46,7 +53,9 @@ export default function ContextCompressionPage() {
         </button>
       </div>
 
-      {statsQ.isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : statsQ.isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           加载中…

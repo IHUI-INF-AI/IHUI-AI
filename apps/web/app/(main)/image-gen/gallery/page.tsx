@@ -6,10 +6,12 @@
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ArrowLeft, Images } from 'lucide-react'
 import Image from 'next/image'
 
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 
@@ -34,10 +36,13 @@ async function api<T>(url: string): Promise<T> {
 
 export default function ImageGenGalleryPage() {
   const locale = useLocale()
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['image-gen', 'gallery'],
     queryFn: () => api<ListData>('/api/image-gen/gallery'),
+    enabled: allow,
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -75,7 +80,9 @@ export default function ImageGenGalleryPage() {
         <p className="mt-1 text-sm text-muted-foreground">社区创作的图片作品</p>
       </div>
 
-      {isLoading ? (
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           加载中...

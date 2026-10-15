@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { Settings, Loader2, Bell, Shield, Save } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Card, CardContent, Button, Label } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { Alert } from '@/components/feedback'
@@ -85,11 +86,17 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 export default function MemberSettingsPage() {
   const t = useTranslations('memberSettingsPage')
+  const { allow } = useAuthGate()
   const [notif, setNotif] = React.useState<NotificationPrefs>(DEFAULT_NOTIF)
   const [privacy, setPrivacy] = React.useState<PrivacyPrefs>(DEFAULT_PRIVACY)
   const [loaded, setLoaded] = React.useState(false)
 
   React.useEffect(() => {
+    if (!allow) {
+      // 未登录不拉个人设置,但放行渲染(用默认值),避免整页永久停在 loading
+      setLoaded(true)
+      return
+    }
     api<{ settings: { notifications?: NotificationPrefs; privacy?: PrivacyPrefs } }>(
       '/api/member/settings',
     )
@@ -99,7 +106,7 @@ export default function MemberSettingsPage() {
       })
       .catch(() => {})
       .finally(() => setLoaded(true))
-  }, [])
+  }, [allow])
 
   const saveMut = useMutation({
     mutationFn: () =>

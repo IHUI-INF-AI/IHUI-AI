@@ -505,23 +505,76 @@ Blink 引擎已验证"，不主张 WebView2 已验证。派发形态是页内合
 - **`--no-verify` 会跳过约 110 道守门**——这是仓库自己的记录（AGENTS.md §12e、守门 78 条），
   审计时应假定"任何一次提交都可能是在跳过门禁的情况下产生的"。
 
-### 5.3 本机计划任务（实测快照，`Get-ScheduledTask -TaskName 'IHUI*'`，共 15 项）
+### 5.3 本机计划任务（实测快照，`Get-ScheduledTask -TaskName 'IHUI*'`，共 14 项）
 
-**Principal 全部是 `Administrator`**，即这些任务都以交互管理员身份运行：
+**登录身份已不再统一为"交互管理员"**：2026-09-23 起，核心守护任务改用
+**S4U**（`New-ScheduledTaskPrincipal -LogonType S4U -RunLevel Limited`）。
+S4U 任务运行在 session 0，**结构上无桌面**，动作即使是控制台程序也不可能弹窗
+——这是本仓"零弹窗"的根治手段（见 `scripts/ensure-silent-tasks.mjs` 头注与
+AGENTS.md §5b）。仍未迁移的 Interactive 任务由 `ensure-silent-tasks.mjs`
+以 wscript + VBS(SW_HIDE) 包装兜底（该脚本对 S4U 任务直接跳过，不会改写它们）。
 
-| 任务 | 触发 | 动作（wscript 隐藏启动器 → 真实脚本） | 写入/删除面 |
-| --- | --- | --- | --- |
-| `IHUI-AI git-guardian` | 每 **2 分钟** | `scripts/git-guardian-hidden.vbs` | 自愈 `.git`/嵌套 ref/工作区跟踪文件/**家目录 junction**/C 盘根封口；现已接邮件出口 |
-| `IHUI Git Backup Refresh` | 每 **15 分钟** | `git-backup-refresh-hidden.vbs` → `scripts/git-backup-refresh.mjs` | 对**仓外**备份 gitdir 做增量 fetch + `read-tree --reset` 重建其索引 |
-| `IHUI credential-health` | 每 **6 小时** | `credential-health-hidden.vbs` → `scripts/check-credential-health.mjs` | 探测凭据活性；失败写 `UNDELIVERED` 标记 + 发邮件 |
-| `IHUI C-Drive AutoMaintain` | 每日 03:00 | `c-drive-maintain-hidden.vbs` → `scripts/c-drive-auto-maintain.ps1` | **删除**：见 §5.4 |
-| `IHUI-AI-DevProcessCleanup` | 每 **10 分钟** + 登录 | `cleanup-zombie-processes-hidden.vbs` → `cleanup-zombie-processes.ps1` | **杀进程 + 修剪内存**：见 §5.4 |
-| `IHUI-AI-G-Root-Guardian` | 登录时（restartCount=999） | `g-root-guardian-hidden.vbs` → `g-root-guardian.ps1` | **删除 `G:\` 根未知项**：见 §5.4 |
-| `IHUI-KillGitSelector` | 每 **1 分钟** | `kill-git-selector-hidden.vbs` | ⚠️ 其包装的 `scripts/kill-git-selector.ps1` **在本 checkout 实测不存在**；vbs 头注 `:26-29` 写明"脚本缺失时静默 bail，不弹控制台"。⇒ 每分钟被拉起一次、什么也不做 |
-| `IHUI-RefreshCliToken` | 每周 | `node scripts/refresh-cli-token.mjs`（**直接以 node.exe 为动作**，未走 vbs 包装） | 刷新 CLI token |
-| `IHUI_Ai_Dev` / `IHUI_Api_Dev` / `IHUI_Web_Dev` / `IHUI_Dev_Start` | 单次 TimeTrigger（StartBoundary 2026-08-31，已过期） | `scripts/_*_independent.cmd` | 拉起开发服务 |
-| `IHUI-AI-AutoStart` | 登录（**Disabled**） | `scripts/start-all-services.ps1` | — |
-| `IHUI-AutoRecovery-HealthCheck` / `-Startup` | 5 分钟 / 登录（**均 Disabled**） | `scripts/auto-recovery/*.ps1` | — |
+| 任务 | 触发 | 登录身份 | 动作 | 写入/删除面 |
+| --- | --- | --- | --- | --- |
+| `IHUI-DevStack` | 登录时 | **S4U** | `node dev-stack-launch.mjs watcher … dev-stack.mjs --watch --device` | **开机自启总入口**：拉起 postgres/redis/api/metro/web/ai-service 并 30s 自愈；由 `scripts/install-dev-stack-autostart.mjs` 注册 |
+| `IHUI-AutoRecovery-Startup` | 登录时 | **S4U** | `node scripts/dev-stack-watchdog.mjs` | 登录即跑一次自愈巡检（单次形态） |
+| `IHUI-AutoRecovery-HealthCheck` | 每 **2 分钟** | **S4U** | `node scripts/dev-stack-watchdog.mjs` | 周期巡检：读 `dev-stack-watcher.heartbeat.json`，守护失活则隐蔽重拉 `dev-stack --watch` |
+| `IHUI-AI git-guardian` | 每 **2 分钟** | **S4U** | `scripts/git-guardian-hidden.vbs` | 自愈 `.git`/嵌套 ref/工作区跟踪文件/**家目录 junction**/C 盘根封口；现已接邮件出口 |
+| `IHUI Git Backup Refresh` | 每 **15 分钟** | Interactive | `git-backup-refresh-hidden.vbs` → `scripts/git-backup-refresh.mjs` | 对**仓外**备份 gitdir 做增量 fetch + `read-tree --reset` 重建其索引 |
+| `IHUI credential-health` | 每 **6 小时** | **S4U** | `credential-health-hidden.vbs` → `scripts/check-credential-health.mjs` | 探测凭据活性；失败写 `UNDELIVERED` 标记 + 发邮件 |
+| `IHUI C-Drive AutoMaintain` | 每日 03:00 | **S4U** | `c-drive-maintain-hidden.vbs` → `scripts/c-drive-auto-maintain.ps1` | **删除**：见 §5.4 |
+| `IHUI-AI-DevProcessCleanup` | 每 **10 分钟** + 登录 | Interactive | `cleanup-zombie-processes-hidden.vbs` → `cleanup-zombie-processes.ps1` | **杀进程 + 修剪内存**：见 §5.4 |
+| `IHUI-AI-G-Root-Guardian` | 登录时（restartCount=999） | Interactive | `g-root-guardian-hidden.vbs` → `g-root-guardian.ps1` | **删除 `G:\` 根未知项**：见 §5.4 |
+| `IHUI-CleanBuildGarbage` | 每周日 | **S4U** | `pwsh -File scripts/clean-build-garbage.ps1` | 清理构建垃圾 |
+| `IHUI-KillGitSelector` | 每 **1 分钟** | Interactive | `kill-git-selector-hidden.vbs` | ⚠️ 其包装的 `scripts/kill-git-selector.ps1` **在本 checkout 实测不存在**；vbs 头注 `:26-29` 写明"脚本缺失时静默 bail，不弹控制台"。⇒ 每分钟被拉起一次、什么也不做（有意保留的空转形态） |
+| `IHUI-RefreshCliToken` | 每周 | Interactive | `RefreshCliToken-*-hidden.vbs` → `node scripts/refresh-cli-token.mjs`（wscript 包装，由 `ensure-silent-tasks.mjs` 自动生成） | 刷新 CLI token |
+| `IHUI-PG-SECOND-COPY` | 每日 | Interactive | `PG-SECOND-COPY-*-hidden.vbs` → `powershell -File scripts/db-second-copy.ps1`（wscript 包装，由 `ensure-silent-tasks.mjs` 自动生成） | Postgres 二次拷贝（数据副拷贝） |
+| `IHUI-AI-AutoStart` | 登录（**Disabled**） | Interactive | `powershell -File scripts/start-all-services.ps1`（**该脚本实测不存在**） | — 2026-10-14 停用；自启职责已移交 `IHUI-DevStack` |
+
+> **变更注记（2026-10-14）**：`IHUI-AutoRecovery-Startup` / `-HealthCheck` 原先
+> 指向**不存在**的 `scripts/auto-recovery/*.ps1` 且为 Disabled，已重建为调用仓库
+> 维护脚本 `scripts/dev-stack-watchdog.mjs` 的 **S4U** 任务；`-HealthCheck` 的巡检
+> 间隔由 5 分钟对齐到仓库标准 **2 分钟**。文档旧版登记的
+> `IHUI_Ai_Dev`/`IHUI_Api_Dev`/`IHUI_Web_Dev`/`IHUI_Dev_Start` 四个过期单次任务
+> （动作 `scripts/_*_independent.cmd` 不存在）在本机已不存在。
+
+#### 5.3b 非 IHUI 命名的自建机器任务：`P40UG-EDID-Guard`
+
+上表口径只覆盖 `IHUI*` 任务名，但本机还有一个**不属于该命名族**的机器级任务，
+它的破坏面与上面几个同等重要，故单独登记：
+
+| 任务 | 触发 | 登录身份 | 动作 | 写入/删除面 |
+| --- | --- | --- | --- | --- |
+| `P40UG-EDID-Guard` | 开机 + 每 **15 分钟** + 事件 | **SYSTEM** / Highest | `cmd.exe /c D:\edid-backup\edid-guard.cmd`（`ExecutionTimeLimit=PT5M`，`MultipleInstances=IgnoreNew`） | 写 `HKLM` 的 EDID_OVERRIDE 与显卡类键、`powercfg` 监视器超时、对 Intel 显示音频/HDA 控制器/显卡发 `pnputil` 设备操作；工作目录 `D:\edid-backup`（已在 `config/disk-root-allowlist.json` 申报为 D 盘根白名单项，不可删不可挪） |
+
+**变更注记（2026-10-15）**：该脚本 v4 的三条 `pnputil /restart-device` **没有超时**——
+SetupAPI 侧同步等待整条设备栈 stop→start，实测 2026-10-15 有调用在 Executive wait
+上挂 **3 小时 30 分、CPU 0 秒**；任务计划程序 5 分钟只杀"任务"、**不回收子进程**，
+于是每拍都可能留下孤儿 `pnputil`。同时 `guard-heal.state` 的配额写在 rung 1 **之后**，
+rung 1 一挂死 `HEALCOUNT` 就永远停在 0，30 分钟节流与 3 次配额双双失效——实测当天
+**161 次心跳全部停在 "heal attempt 0/3"**，最后一条真实 `rc=` 记录停在 10:46。
+现改为：三条 rung 全部经 `D:\edid-backup\bop.cmd`（纯 cmd 有界执行器，秒级上限 +
+`taskkill /f /t` 杀它自己启动的整棵树 + 按命令行签名清扫上一轮遗留；退出码 0/50/51/
+52/55/56/60/128 的语义写在该文件头注，其中 **51/55 表示"结果未知"，只有 0 才是跑完**），
+并把配额写入移到第一个可能阻塞的调用**之前**。SYSTEM 下实测：补丁后第一次自动运行
+**97 秒收敛**，日志出现 `bop rc=50 ... waited=45s`（rung 1、rung 2 各一次），
+跑完遗留 `pnputil` **0 枚**，`IgnoreNew` 亦实测生效（运行中手动 `/Run` 被忽略）。
+病根（P40UG 音频端点 `DeviceState=0x4` 自 10:46 起持续不存在）**仍需一次系统重启**
+才能重建端点，自愈阶梯对此无能为力——现在它会诚实报 "reboot is needed" 并停手。
+
+同批实测到的机器事实（供以后写 cmd 的人避坑）：`wmic` 重定向到文件是 **UTF-16LE**、
+`for /f` 取 wmic 值带**尾部 CR**；PATH 上的 `timeout` 是 GNU coreutils 版本不是
+Windows 的；`find` 放进 `for /f` 的**管道**里会等 stdin 挂死整批（守卫日志裁剪用的是
+`find /c /v "" < 文件` 重定向形态，不是管道，故未踩到）；`wmic process call create`
+创建的子进程**不继承调用方工作目录**（改用 `start`），且 `%%~sI` 的 8.3 短路径会吃掉
+文件名里的标签（标签必须作为参数传递）。
+
+另记一条机器状态：本机网易 UU 远程（`D:\software\GameViewer`）自装的 IDD 虚拟显示
+设备节点 `ROOT\DISPLAY\0000` 已于 2026-10-14 置 `DF_DISABLED`（写在
+`HKLM\SYSTEM\CurrentControlSet\Enum\ROOT\DISPLAY\0000` 的 `ConfigFlags`，重启后保持），
+UU 服务与其余虚拟外设（GVINPUT 键鼠、ViGEm 手柄总线、UU 虚拟音频）保持原样；恢复出口
+`Enable-PnpDevice -InstanceId 'ROOT\DISPLAY\0000' -Confirm:$false`。`edid-guard.cmd`
+只清 Intel 显示音频那台设备的 `ConfigFlags`，与该节点无交集。
 
 **另外两件实测到的事**：
 

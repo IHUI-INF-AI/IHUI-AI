@@ -6,10 +6,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { maskComments } from '../lib/code-mask.mjs'
-import { postMergeLedgerSync } from '../lib/post-merge-ledger-sync.mjs'
+import { postMergeLedgerSync, ledgerNoteResidue } from '../lib/post-merge-ledger-sync.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SRC = (rel) => readFileSync(join(HERE, '..', rel), 'utf8')
@@ -42,6 +42,7 @@ test('L3 失败臂:自愈没跑成只喊一行,绝不抛、绝不把零丢失自
   const r = postMergeLedgerSync({
     root: 'D:/IHUI-AI',
     log: (s) => heard.push(s),
+    readFace: () => '# t\n- [ ] 干净的一行\n', // 注记存量 0 ⇒ 本轮不涉及复清,这一条只测回捞臂
     spawnFn: () => ({ status: 1, stderr: 'boom', stdout: '' }),
   })
   assert.equal(r.ok, false, 'rc!=0 必须如实报 ok:false')
@@ -55,6 +56,7 @@ test('L4 成功臂:点名登记行的那些行必须原样交回调用方,不得
   const r = postMergeLedgerSync({
     root: 'D:/IHUI-AI',
     log: (s) => heard.push(s),
+    readFace: () => '# t\n- [ ] 干净的一行\n',
     spawnFn: () => ({
       status: 0,
       stdout: '无关行\n✅ 回补 2 条计划登记行\n尾行',
@@ -71,6 +73,7 @@ test('L5 派生抛错臂:与"跑过而失败"分开计,且同样不抛', () => {
   const r = postMergeLedgerSync({
     root: 'D:/IHUI-AI',
     log: (s) => heard.push(s),
+    readFace: () => '# t\n- [ ] 干净的一行\n',
     spawnFn: () => {
       throw new Error('ENOENT')
     },
@@ -84,5 +87,114 @@ test('L6 跳门留痕:union-converge 落合并提交必须写进同一本台账(
   const code = CODE('union-converge.mjs')
   assert.match(code, /commit-attestation\.mjs/, '留痕只许用 lib/commit-attestation.mjs 那一份实现')
   assert.match(code, /recordBypassLanding\(/, '必须真调用(注释里提一句不算装车)')
+})
+
+/* ══ G-32 复清臂(2026-10-14):旁路合并把已清偿的行带回 ⇒ 同一件器物再过一遍,接在自愈源头 ══
+ * 为什么不是"在归并器里折掉它":真档实测带回的那 9 行**带着本侧没有的新取证**
+ * (中段插着 `〔真机复核通过@2026-10-14 本席:…〕`),少带 = 丢掉别人刚写的行,不可恢复;
+ * 而 `plan-pointer-purge` 的准入闸本来就是干这件事的(逐字承载才删 / 独有段先移植 / 判不准点名交人工)。
+ */
+const NOTE_FACE = `- [ ] G-9 事甲:持有行正文交代。\n- [ ] G-10 事乙 〔【归并】重复登记副本(2026-09-26):与 G-9 同题,派单以那条为准,本行不再单独派单。〕\n`
+const CLEAN_FACE = '# t\n- [ ] 干净的一行\n'
+
+test('L7 存量 0 ⇒ 完全不派生复清(不给每轮收敛加常数成本,也不产生噪声)', () => {
+  const seen = []
+  const heard = []
+  postMergeLedgerSync({
+    root: 'X:/fixture',
+    log: (s) => heard.push(s),
+    readFace: () => CLEAN_FACE,
+    spawnFn: (cmd, args) => {
+      seen.push(args.join(' '))
+      return { status: 0, stdout: '✅ 无登记行丢失', stderr: '' }
+    },
+  })
+  assert.equal(seen.length, 1, `只该派生回捞那一次,实测 ${JSON.stringify(seen)}`)
+  assert.doesNotMatch(seen.join('\n'), /plan-pointer-purge/, '存量 0 却派生复清 = 每轮白花几分钟')
+})
+
+test('L8 存量 > 0 ⇒ 派生复清,且走 process.execPath + 绝对路径 + --apply(不是只报数)', () => {
+  const seen = []
+  const heard = []
+  const r = postMergeLedgerSync({
+    root: 'X:/fixture',
+    log: (s) => heard.push(s),
+    readFace: () => NOTE_FACE,
+    spawnFn: (cmd, args) => {
+      seen.push([cmd, args.join(' ')])
+      return {
+        status: 0,
+        stdout: '✅ 回补 0 条计划登记行\n守恒断言 5/5 通过;门 203 同源自校验 0 键\n✅ 落地 abc12345678(父 def) 删 1 行\n',
+        stderr: '',
+      }
+    },
+  })
+  assert.equal(seen.length, 2, `回捞 + 复清各一次,实测 ${seen.length}`)
+  const [cmd, argline] = seen[1]
+  assert.equal(cmd, process.execPath, '复清派生必须用 process.execPath(裸 node 依赖 PATH)')
+  assert.match(argline, /plan-pointer-purge\.mjs --apply$/, `必须带 --apply 真复清,实测 ${argline}`)
+  assert.equal(r.purge.residue, 1)
+  assert.equal(r.purge.ok, true)
+  assert.ok(heard.some((s) => /复清|带回/.test(s)), `必须喊出来,实测 ${JSON.stringify(heard)}`)
+})
+
+test('L9 未判定 ⇒ 不派生、必须报名,且绝不读成"已归零"(§0.3)', () => {
+  const seen = []
+  const heard = []
+  const r = postMergeLedgerSync({
+    root: 'X:/fixture',
+    log: (s) => heard.push(s),
+    readFace: () => '', // 面取不到
+    spawnFn: () => {
+      seen.push(1)
+      return { status: 0, stdout: '✅ 回补 0 条计划登记行', stderr: '' }
+    },
+  })
+  assert.equal(seen.length, 1, '未判定不得派生复清')
+  assert.equal(r.purge.residue, null, '未判定必须是 null,不是 0')
+  assert.equal(r.purge.ok, false)
+  assert.ok(heard.some((s) => /未判定/.test(s)), `必须点名"未判定",实测 ${JSON.stringify(heard)}`)
+})
+
+test('L10 复清失败臂:只喊一行、不抛,且第一步的 ok/ran/lines 口径不被第二步改写', () => {
+  const heard = []
+  const r = postMergeLedgerSync({
+    root: 'X:/fixture',
+    log: (s) => heard.push(s),
+    readFace: () => NOTE_FACE,
+    spawnFn: (_cmd, args) =>
+      String(args.join(' ')).includes('plan-pointer-purge')
+        ? { status: 1, stdout: '', stderr: 'boom' }
+        : { status: 0, stdout: '✅ 回补 3 条计划登记行', stderr: '' },
+  })
+  assert.equal(r.ok, true, '第一步成功就是成功 —— 第二步的红并进第一步会把无关的一侧判成失败(§12e)')
+  assert.equal(r.lines.length, 1)
+  assert.equal(r.purge.ok, false, '第二步必须单独报账')
+  assert.equal(r.purge.ran, true)
+  assert.ok(heard.some((s) => /不阻断/.test(s)), `复清失败必须写明不改本轮成败,实测 ${JSON.stringify(heard)}`)
+})
+
+test('L11 判据同源锁:本层不得自己抄注记正则,计数只许走守门 13d 那一份', () => {
+  const code = CODE('lib/post-merge-ledger-sync.mjs')
+  assert.doesNotMatch(code, /【归并】|不再单独派单/, '本层出现判据字面 = 第二份实现,必漂(§22c)')
+  assert.match(code, /check-plan-dup-pointer-ratchet\.mjs/, '计数必须来自 13d 的 countPointerRows')
+  assert.match(code, /countPointerRows\(/, '必须真调用')
+})
+
+test('L12 ledgerNoteResidue 三态:有注记 / 无注记 / 面取不到(未判定 ≠ 0)', () => {
+  assert.equal(ledgerNoteResidue({ root: 'X:/fixture', readFace: () => NOTE_FACE }), 1)
+  assert.equal(ledgerNoteResidue({ root: 'X:/fixture', readFace: () => CLEAN_FACE }), 0)
+  assert.equal(ledgerNoteResidue({ root: 'X:/fixture', readFace: () => '' }), null)
+  assert.equal(ledgerNoteResidue({ root: 'X:/fixture', readFace: () => { throw new Error('x') } }), null)
+})
+
+test('L13 生产形状只读臂:不设 fixture、真取本仓 HEAD 面 ⇒ 必须量出数字(不是 null)', () => {
+  // 这一条只证"尺子在这台机上真能装上":git 取面 + 13d 判据 require 成功。
+  // 刻意不断言具体条数(台账每几分钟被别人推进,断言条数 = 造一条会自己烂的绿)。
+  // 也刻意不跑"临时仓端到端":plan-pointer-purge 的 ROOT 由自身位置推导,在 fixture 仓里
+  // 真跑它会把**本仓**当被审面对象空间落地 —— 那是测试冒充端到端的反面教材。
+  const n = ledgerNoteResidue({ root: resolve(HERE, '..', '..') })
+  assert.equal(typeof n, 'number', `取不到面/判据装不上 ⇒ 复清永远不触发,实测 ${String(n)}`)
+  assert.ok(n >= 0)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

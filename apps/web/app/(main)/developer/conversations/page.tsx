@@ -10,6 +10,7 @@ import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { MessageSquare, Trash2, ChevronDown, ChevronUp, Pencil, Loader2 } from 'lucide-react'
 
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
@@ -63,6 +64,9 @@ const TITLE_EDIT_OVERLAY_ID = 'developer-conversations-title-edit'
 
 export default function ConversationsPage() {
   const locale = useLocale()
+  // 2026-10-15 登录态门:GET /api/developer/conversations 后端 requireAuth(当前用户会话),
+  // 未就绪/未登录不发注定 401 的查询(失败被 catch 吞成空态,不加渲染门)
+  const { allow } = useAuthGate()
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
   const [expandedId, setExpandedId] = React.useState<string | null>(null)
@@ -83,6 +87,7 @@ export default function ConversationsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['developer', 'conversations', page],
+    enabled: allow,
     queryFn: () =>
       api<Paginated<Conversation>>(
         `/api/developer/conversations?page=${page}&pageSize=${PAGE_SIZE}`,
@@ -97,7 +102,7 @@ export default function ConversationsPage() {
       api<Paginated<RelayMessage>>(
         `/api/developer/conversations/${expandedId}/messages?pageSize=100`,
       ).catch(() => ({ items: [], total: 0, page: 1, pageSize: 100 }) as Paginated<RelayMessage>),
-    enabled: !!expandedId,
+    enabled: allow && !!expandedId,
   })
 
   const delMut = useMutation({

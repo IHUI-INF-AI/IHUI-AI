@@ -6,6 +6,9 @@
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { Plus, FileText, Loader2, AlertCircle, Layers } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
@@ -66,9 +69,13 @@ function HistoryRow({ entry }: { entry: SpecHistoryEntry }) {
 }
 
 export default function SpecListPage() {
+  // 2026-10-15 登录态门(与 settings/notifications 同型):未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['spec', 'history'],
     queryFn: () => fetchSpecHistory(),
+    enabled: allow,
   })
 
   return (
@@ -92,7 +99,9 @@ export default function SpecListPage() {
       <div className="grid grid-cols-1 gap-6 min-[1024px]:grid-cols-[1fr_220px]">
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground">历史版本</h2>
-          {isLoading ? (
+          {!allow ? (
+            <AuthGatePrompt message={tGate('loginRequired')} />
+          ) : isLoading ? (
             <div className="flex items-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               加载中…

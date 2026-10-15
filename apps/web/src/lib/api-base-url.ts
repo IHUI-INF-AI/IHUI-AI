@@ -20,8 +20,11 @@
  *   1. NEXT_PUBLIC_API_BASE_URL 显式非空 → 最高优先(桌面端 SaaS 烘焙场景);
  *   2. Tauri + 窗口加载远端站点 → ''(同源 /api/*,与线上浏览器完全一致;cookie 同源
  *      自动附带,顺带恢复 SameSite=Lax 的 refresh 轮转);
- *   3. Tauri + 窗口是本地 origin(localhost:8801 dev / tauri.localhost 本地壳 /
- *      offline 兜底页)→ 本机 API(本地三端联调语义原样保留);
+ *   3. Tauri + 窗口由本机 Next dev server 承载(localhost:8801 等本地 origin + 端口 8801)
+ *      → ''(同源,经 next rewrites 反代到 8802/8803;2026-10-15 改,与浏览器 dev 同形,
+ *      cookie 回到第一方,登录态不再依赖与生产壳共享的桌面 vault);
+ *   3b. Tauri + 其它本地 origin(tauri.localhost 本地壳 / offline 兜底页)→ 本机 API
+ *      (这类窗口没有 dev server 可反代,本地三端联调语义原样保留);
  *   4. 浏览器 dev(localhost:8801)→ ''(同源,Next dev rewrites 代理到 8802);
  *   5. 其它 → ''(生产同源)。
  *
@@ -57,9 +60,35 @@ export function isRemoteWindow(): boolean {
 }
 
 /** 浏览器本地 dev(Next dev server:8801) */
-function isLocalDevOrigin(): boolean {
+export function isLocalWebDevOrigin(): boolean {
   if (typeof window === 'undefined') return false
-  return window.location.hostname === 'localhost' && window.location.port === '8801'
+  const { hostname, port } = window.location
+  return LOCAL_HOSTNAMES.has(hostname) && port === '8801'
+}
+
+/**
+ * 桌面 dev 壳 = Tauri 运行时 + 窗口由本机 Next dev server 承载(端口 8801)。
+ *
+ * 与 `isDesktopAuthVaultEnabled()` 互补,两者共用同一组原语(本文件是 origin 语义的单一来源)。
+ * 存在的理由:开发壳里"自动"两字必须默认关掉 —— 实测 dev 构建照常跑线上 updater feed,
+ * 启动 5s 静默检查 + 每小时 Rust 侧自更新会把未审构建装进开发机并自杀重启,
+ * 把正在改代码的人从自己的会话里踢出去(本轮 CDP 取证连续两次因此中断)。
+ */
+export function isDesktopDevShell(): boolean {
+  return isTauriRuntime() && isLocalWebDevOrigin()
+}
+
+/**
+ * 桌面凭据库是否应当启用(2026-10-15 立,根治「dev 壳与生产壳互相烧 token」)。
+ *
+ * `com.ihui.desktop/auth.json` 的 `refresh_token` 是**按 App identifier 共享**的一颗键:
+ * 生产壳装的是线上库凭据,dev 壳装的是本机库凭据,两边读写同一颗键;而刷新被否(401)时
+ * `api.ts` 会 `setDesktopRefreshToken(null)` 清库 —— 于是一侧的失败会静默抹掉另一侧的登录态。
+ * dev 壳的窗口由本机 Next dev server 承载,REST 已是同源(见 resolveApiBaseUrl),httpOnly
+ * refresh cookie 是第一方凭据,根本不需要桌面 vault 兜底 ⇒ 这一族窗口不读也不写该库。
+ */
+export function isDesktopAuthVaultEnabled(): boolean {
+  return isTauriRuntime() && !isLocalWebDevOrigin()
 }
 
 /**
@@ -70,7 +99,15 @@ export function resolveApiBaseUrl(): string {
   const env = process.env.NEXT_PUBLIC_API_BASE_URL
   if (env) return env
   if (typeof window === 'undefined') return ''
-  if (isTauriRuntime()) return isRemoteWindow() ? '' : LOCAL_API_BASE
+  if (isTauriRuntime()) {
+    if (isRemoteWindow()) return ''
+    // 2026-10-15 根治:窗口由本机 Next dev server 承载(dev 壳)⇒ 走同源 /api/* 反代。
+    // 直连 127.0.0.1:8802 时,窗口 origin(localhost:8801)与 API(127.0.0.1:8802)是**跨 host**,
+    // httpOnly refresh cookie 永不附带,登录态只剩与生产壳共享的那颗桌面 vault 键(见
+    // isDesktopAuthVaultEnabled);同源反代后 cookie 回到第一方,与浏览器 dev 完全同形。
+    if (isLocalWebDevOrigin()) return ''
+    return LOCAL_API_BASE
+  }
   return ''
 }
 
@@ -86,9 +123,42 @@ export function resolveApiBaseUrl(): string {
  * 判定口径与 resolveApiBaseUrl 同族(按窗口 origin,不按"是不是 Tauri"):
  *   1. NEXT_PUBLIC_AI_SERVICE_URL 显式非空 → 最高优先(与 api-client 的
  *      aiServiceBaseUrl() 同一 env 名,不抄第二份真值);
- *   2. Tauri + 本地 origin(8801 dev / tauri.localhost 本地壳)→ 本机 8803。
- *      放行前提均已实测:ai-service CORS_ORIGIN 含 http://localhost:8801;
- *      web dev CSP connect-src 放行本机端口;tauri.conf.json csp=null。
+ *   2. Tauri + 窗口由本机 Next dev server 承载(端口 8801)→ '' 同源,经 next rewrites
+ *      (`/api/checkin/:path*` → 8803)转发 —— 与浏览器 dev 完全同形,cookie 保持第一方;
+ *      2b. Tauri + tauri.localhost 本地壳 / offline 兜底页 → 本机 8803(无 dev server 可反代)。
+ *      放行前提(2026-10-14 逐条实测,非推断):
+ *        · **origin 回显**:ai-service `.env` CORS_ORIGIN=http://localhost:8801;带
+ *          `Origin: http://localhost:8801` 实打 8803,401 响应确实回带
+ *          `access-control-allow-origin: http://localhost:8801` +
+ *          `access-control-allow-credentials: true`(通配符被 config.py 禁用,故必须逐值)。
+ *        · **请求头清单**:预检实收 allow-headers 是显式清单
+ *          (Authorization, Content-Type, X-Internal-Secret, traceparent, X-Trace-Id,
+ *          X-Requested-With, x-device-fingerprint),api-client 每请求都注入的头全在册,
+ *          故带 traceparent/Authorization 的预检返 200 而非 400。
+ *        · **中间件顺序**:CORS 在 main.py **最后** add_middleware ⇒ Starlette LIFO 下位于
+ *          链最外层,所以鉴权失败的 401 短路响应仍能补上 CORS 头(实测即此路径);
+ *          若把 CORS 挪到 JWTAuth/RateLimit 内侧,桌面端直连会退化成 "TypeError: Failed to fetch"。
+ *        · **CSP**:apps/web/next.config.ts 的 connect-src 仅**开发模式**放行
+ *          `http://localhost:*` 与 `http://127.0.0.1:*`;生产档不含本机地址。
+ *          tauri.conf.json `csp: null`(不额外收口)。
+ *        · **跨站 cookie 不可用**:窗口 origin 是 `localhost:8801` 而目标是 `127.0.0.1:8803`
+ *          —— 两个不同 registrable host = **跨站**,真 Chromium 实测 SameSite=Lax 的
+ *          auth_token 不随该请求发出(服务器实收 `Cookie=(NONE)`)。所以这条路的身份**只靠
+ *          Authorization: Bearer**,ai-service jwt_auth.py 的 cookie 兜底分支在此不可达。
+ *      ⚠️ **为什么必须是 127.0.0.1、不得"顺手改成 localhost"**:本机 `localhost` 按 OS
+ *      解析顺序**优先返回 `::1`**(dns.lookup all/verbatim 实测 = [::1, 127.0.0.1]),而
+ *      8802/8803 **只监听 IPv4**(netstat 仅 `0.0.0.0:8802/8803`,无 `[::]`/`[::1]` 条目;
+ *      uvicorn 绑 0.0.0.0 即 IPv4-only;对照 8801 是 `0.0.0.0` + `[::]` 双栈)。
+ *      `::1:8802` / `::1:8803` 直连实测 **ECONNREFUSED**,`curl -6 localhost:8802|8803`
+ *      实测 http_code=000。当前只有"客户端自带 Happy-Eyeballs 回退 IPv4"时才侥幸连通,
+ *      代价是每次连接先吃一发被拒的 IPv6 往返(真 Chromium 暖连 5 次:localhost 腿
+ *      med 42ms/尾 929ms,127.0.0.1 腿 med 17ms/尾 19ms)。把常量改成 localhost = 把桌面端
+ *      的连通性押在回退行为上(macOS/Linux 壳是 WKWebView/WebKitGTK,本 Win 机无法验证),
+ *      为拿回一条 cookie 兜底去赔整条链路,不划算 —— 要恢复 cookie 请改**服务端**
+ *      (Bearer 之外另给显式 token 通道),别动这两个常量。
+ *      附:代理不是本头的理由 —— 本机 ProxyEnable=1(127.0.0.1:7897)但旁路清单同时含
+ *      `localhost` 与 `127.*`,两种写法都绕开代理;上方 LOCAL_API_BASE/LOCAL_STREAM_BASE
+ *      两处对 PAC 的说法互相矛盾,以本次实测为准。
  *   3. 其余(浏览器 dev / 生产 / Tauri 远端窗口)→ '' 同源:浏览器 dev 走
  *      next rewrites → 8803,生产走 nginx 同源反代,行为零变化。
  */
@@ -96,7 +166,13 @@ export function resolveAiServiceBaseUrl(): string {
   const env = process.env.NEXT_PUBLIC_AI_SERVICE_URL
   if (env) return env
   if (typeof window === 'undefined') return ''
-  if (isTauriRuntime()) return isRemoteWindow() ? '' : LOCAL_AI_SERVICE_BASE
+  if (isTauriRuntime()) {
+    if (isRemoteWindow()) return ''
+    // 与 resolveApiBaseUrl 同判据:dev 壳同源经 next rewrites(/api/checkin → 8803),
+    // 不再跨 host 直连;只有 tauri.localhost / offline 本地壳才直连本机 8803。
+    if (isLocalWebDevOrigin()) return ''
+    return LOCAL_AI_SERVICE_BASE
+  }
   return ''
 }
 
@@ -119,7 +195,7 @@ export function resolveStreamApiBaseUrl(): string {
     // SSE 必须复用同一线上地址,否则会误连本机 dev 后端
     return process.env.NEXT_PUBLIC_API_BASE_URL || LOCAL_STREAM_BASE
   }
-  if (process.env.NODE_ENV === 'development' && isLocalDevOrigin()) return LOCAL_STREAM_BASE
+  if (process.env.NODE_ENV === 'development' && isLocalWebDevOrigin()) return LOCAL_STREAM_BASE
   return ''
 }
 
@@ -136,6 +212,12 @@ export function resolveStreamApiBaseUrl(): string {
 export function resolveWsApiBaseUrl(): string {
   const wsEnv = process.env.NEXT_PUBLIC_WS_BASE_URL
   if (wsEnv) return wsEnv.replace(/\/+$/, '')
+  // 桌面本地壳的 WS 一律直连本机 8802。注意理由**不是**"next 不反代 WS"——
+  // apps/web/next.config.ts 的 `/ws/:path*` 规则实测加上后 dev 握手即通(2026-09 那次
+  // /ws/ticket 404 就是这么修的)。保留直连是因为:① REST 同源是为了拿第一方 cookie,
+  // WS 握手用 ?token/ticket 自证身份,不经代理少一跳也就躲开 dev server 重启期整条断连;
+  // ② 这是本次改判前就有的行为,不动它 = 零回归。浏览器 dev 维持原样(按 origin 推导,走反代)。
+  if (isTauriRuntime() && !isRemoteWindow()) return LOCAL_API_BASE
   const rest = resolveApiBaseUrl()
   if (rest) return rest
   return typeof window !== 'undefined' ? window.location.origin : ''

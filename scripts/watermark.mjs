@@ -22,7 +22,15 @@
  *   node scripts/watermark.mjs decode <file>      # 解码指定文件中的隐写内容
  *   node scripts/watermark.mjs clean <file>       # 移除指定文件的水印(仅限版权所有者自查用)
  *
- * verify / list-uncovered 的判定口径 = `git ls-files` ∩ 可注入类型(见 scanCoverage)
+ * **判定读哪一面(门 118 取材面纪律, 2026-10-15 换面)** —— 只作用于 verify / list-uncovered 的判定链:
+ *   批量档(不给 file 参数) 默认判 **HEAD blob**(`git ls-tree -r --name-only HEAD` ∩ `cat-file --batch`);
+ *   加 `--staged` 判**索引 blob**;加 `--worktree` 才读磁盘(人工逃生舱)。两面旗同给 ⇒ 未判定 exit 2;
+ *   清单面与内容面**同面同轮**;那个面取不到 ⇒ 报「无法判定」exit 2,**绝不回落另一个面、绝不记绿**。
+ *   给显式 file 参数 ⇒ 判的是你点名的**盘上那份**(工作树面)—— 与 --staged 冲突(那要判索引 blob,
+ *   而你指的是磁盘),直接拒绝。inject / clean / decode 是**写盘/读盘子命令**,恒作用于磁盘,不涉面。
+ *
+ * verify / list-uncovered 批量档的判定口径 = 面清单 ∩ 可注入类型(见 scanCoverage)
+ *   面清单唯一实现:`scripts/lib/watermark-scope.mjs` 的 `coverageFileSetForFace`。
  *   **减去**来源台账已登记的第三方内容(`config/third-party-provenance/*.json` 的 roots,
  *   经 scripts/lib/third-party-roots.mjs 单点解析)。横幅是归属主张,不得打到第三方作品上;
  *   这些文件不是"没人管",而是改由 scripts/provenance-ledger.mjs 的 P8「归属反噬」审计。
@@ -30,10 +38,11 @@
 
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { basename, extname, join, relative, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { createExclusionPredicate, LedgerUnavailable } from './lib/third-party-roots.mjs'
-import { coverageFileSet } from './lib/watermark-scope.mjs'
+import { coverageFileSetForFace } from './lib/watermark-scope.mjs'
+import { catBatch, selectFace, Undetermined, assertRepoRoot } from './lib/face-reader.mjs'
 import {
   CANONICAL_BANNER_LINES,
   hasVisibleCopyright,
@@ -549,25 +558,28 @@ function findMarks(text) {
 
 /**
  * 水印判定口径的文件集合 = `scripts/lib/watermark-scope.mjs` 的那一份实现
- * (已跟踪 ∪ 未跟踪但未忽略)。
+ * (`coverageFileSetForFace`:head 档取 HEAD 树清单、staged 档取索引、worktree 档取
+ * `ls-files ∪ --others`)。
  *
- * verify 此前走 walk(ROOT) 全树遍历, 只按 SKIP_DIRS 猜、不认 .gitignore, 于是把
- * `.ihui-agent/**` 等本机未跟踪产物一并计入 → 本机恒报 2000+ 缺口而 CI 恒绿,
- * 把每个本地核验的 agent 引向"仓库有几千个水印问题"的错觉(AGENTS §5c 口径是"只统计 git 跟踪文件")。
- * 后来又发现分母窄了一格(G-253):**还没进索引的新文件**与"整文件重写后尚未 add"的文件
- * 在盘上真实存在、会被下一次提交带进仓库,却对两把尺子都不存在 —— 于是"漏盖横幅"这件事
- * 恰好发生在最需要的时刻。现在两处共用同一份集合并都并上未跟踪面(`--exclude-standard`
- * 继续让 .gitignore 挡产物)。用 `-z`: 默认输出会按 core.quotePath 把非 ASCII 文件名
- * 转义成八进制串, 那种路径永远对不上真实文件。
+ * 换面史(2026-10-15):此前批量档用**索引面清单**(`ls-files`)去配**磁盘内容**,
+ * 两把尺子不同面 —— "HEAD blob 缺载荷、盘上副本已被补好但没提交"的文件在两面各自都"没问题",
+ * 悬留因此把红整个遮住(2026-10-14 实测三枚文件即此型)。现清单与内容同面同轮。
  */
-function gitTrackedFiles() {
-  const { files, error } = coverageFileSet({ root: ROOT })
-  if (error) {
-    console.error(`[watermark] ${error}`)
-    console.error('  水印口径以 git 清单为准; 清单缺失时绝不按"已覆盖"放行。')
-    process.exit(1)
+const DEFAULT_BATCH_FACE = 'head' // 全量档默认判定面(W9 变异正控就是把这里改成 'worktree')
+
+/**
+ * 判定档的**面选择**(纯函数,镜像测试直接用这一份,不在测试里重写旗语解析)。
+ * @param {string[]} argv verify / list-uncovered 旗与文件参数的混合体
+ * @returns {{face:string|null, files:string[], error:string|null}}
+ */
+function pickFace(argv) {
+  const files = argv.filter((a) => a !== '--staged' && a !== '--worktree')
+  const pick = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: DEFAULT_BATCH_FACE })
+  if (pick.error) return { face: null, files, error: pick.error }
+  if (files.length > 0 && pick.face === 'staged') {
+    return { face: null, files, error: '显式点名文件判的是盘上那份(工作树面),与 --staged(索引 blob)冲突' }
   }
-  return files
+  return { face: files.length > 0 ? 'worktree' : pick.face, files, error: null }
 }
 
 // walk() 是按目录名剪枝的, 跟踪清单必须同样排除: 已跟踪的第三方目录
@@ -577,7 +589,14 @@ function underSkipDir(rel) {
   return dirs.some((seg) => SKIP_DIRS.has(seg))
 }
 
-/** 显式传参时按参数收窄范围, 不留"传了参数却静默跑全局"的误导 */
+/** 路径级过滤(与面无关):类型可注入、非二进制、非锁定文件。 */
+function injectableRel(rel) {
+  if (SKIP_FILES.has(basename(rel))) return false
+  if (BINARY_EXT.has(extname(rel).toLowerCase())) return false
+  return Boolean(styleFor(join(ROOT, rel)))
+}
+
+/** 显式传参时按参数收窄范围, 不留"传了参数却静默跑全局"的误导(参数恒为盘上那份 = 工作树面) */
 function scopeFromArgs(args) {
   return args.map((a) => {
     const abs = [resolve(process.cwd(), a), resolve(ROOT, a)].find(
@@ -591,7 +610,25 @@ function scopeFromArgs(args) {
   })
 }
 
-function scanCoverage(scope) {
+/**
+ * head/staged 面:一次 `cat-file --batch` 读完一批 blob(逐文件派生在真仓是 fork 风暴)。
+ * 派生失败由 face-reader 抛 Undetermined;单条 null = 该面自相矛盾,由调用方折成未判定。
+ * @returns {Map<string, string|null>}
+ */
+function readFaceContents(face, rels) {
+  const prefix = face === 'head' ? 'HEAD:' : ':'
+  const specs = rels.map((r) => prefix + r)
+  const raw = catBatch(ROOT, specs)
+  const m = new Map()
+  rels.forEach((r, i) => m.set(r, raw.get(specs[i]) ?? null))
+  return m
+}
+
+/**
+ * 「已跟踪但盘上无此文件」旧档记 skipped 不进分母 —— 那一格只在工作树面存在;
+ * head/staged 面的内容来自对象库/索引,路径枚举到就必须判(这正是第二格逃逸的修法)。
+ */
+function scanCoverage(scope, opts = {}) {
   let total = 0,
     marked = 0,
     residue = 0,
@@ -603,13 +640,28 @@ function scanCoverage(scope) {
   const corrupted = []
   const bannerlessList = []
   const excluded = []
+  const unreadable = []
   const excl = exclusion()
-  const candidates = scope ?? gitTrackedFiles().filter((rel) => !underSkipDir(rel))
+  // 显式点名(scope 非空)= 工作树面(那份在盘上,用户指的是它);批量档按 opts.face。
+  const face = scope ? 'worktree' : opts.face || DEFAULT_BATCH_FACE
+  if (face !== 'worktree' && face !== 'head' && face !== 'staged') {
+    throw new Undetermined(`未知判定面 "${String(face)}"(允许:head/staged/worktree)`)
+  }
+  let candidates
+  if (scope) {
+    candidates = scope
+  } else {
+    const listed = coverageFileSetForFace({ root: ROOT, face })
+    if (listed.error) throw new Undetermined(listed.error)
+    candidates = listed.files.filter((rel) => !underSkipDir(rel))
+  }
+  let contents = null
+  if (face !== 'worktree') {
+    const wanted = candidates.filter((rel) => injectableRel(rel) && !excl.isExcluded(rel))
+    contents = readFaceContents(face, wanted)
+  }
   for (const rel of candidates) {
-    const abs = join(ROOT, rel)
-    if (SKIP_FILES.has(basename(abs))) continue
-    if (BINARY_EXT.has(extname(abs).toLowerCase())) continue
-    if (!styleFor(abs)) continue
+    if (!injectableRel(rel)) continue
     // 台账登记的第三方内容**从分母里移出**,但不是"看不见":它改由 provenance-ledger 的
     // P8「归属反噬」按同一份 roots 审计(有我方横幅 ⇒ 判红)。水印层与台账层在此交接,
     // 谁都不许既不管又不报数,故 excluded 原样回传并打印条数。
@@ -620,20 +672,27 @@ function scanCoverage(scope) {
       excluded.push(rel)
       continue
     }
-    // 已跟踪但工作区无此文件(并行会话删文件未提交 / 部分 checkout): 无从校验, 不计入分母
-    if (!existsSync(abs)) {
-      skipped++
-      continue
+    let text
+    if (face === 'worktree') {
+      const abs = join(ROOT, rel)
+      // 已跟踪但工作区无此文件(并行会话删文件未提交 / 部分 checkout): 无从校验, 不计入分母
+      if (!existsSync(abs)) {
+        skipped++
+        continue
+      }
+      text = readFileSync(abs, 'utf8')
+    } else {
+      text = contents.get(rel)
+      if (text === null || text === undefined) {
+        unreadable.push(rel)
+        continue
+      }
     }
     total++
-    const text = readFileSync(abs, 'utf8')
     const hasPayload = INVISIBLE_RE.test(text)
     const hasBannerText = text.includes(BANNER_ID)
     if (hasPayload && payloadIntact(text)) {
-      // 载荷在而**可见横幅整块不见了**:这一格以前被算进"完好",于是"把版权横幅删掉"这个
-      // 动作在门禁上等价于"没问题" —— 而 L3(独立隐写末行)的设计理由恰恰是"删除可见横幅仍可
-      // 检出"。判据只查"载荷在不在",等于把 L3 的存在意义反着用了(2026-09-29 实测 HEAD 面
-      // 两份文件即此型,其中一份 34,580 行的归档件通篇无横幅)。
+      // 载荷存在而**可见横幅整块不见了**:这一维必须判(详见 verifyAll 的「仅隐写」分支)。
       const withBanner = hasVisibleCopyright(text)
       if (withBanner) marked++
       else {
@@ -647,6 +706,13 @@ function scanCoverage(scope) {
       residues.push(rel)
     } else missing.push(rel)
   }
+  if (unreadable.length > 0) {
+    // 清单(同轮枚举)说这 N 个路径在这个面上,内容却取不到 ⇒ 面自相矛盾 = 没判,
+    // 不回落磁盘重读、不记绿、也不冒红(§0.3/§0.4)。
+    throw new Undetermined(
+      `${face} 面自相矛盾:清单枚举到而 blob 取不到的路径 ${unreadable.length} 个(${unreadable.slice(0, 5).join(', ')})⇒ 无法判定`,
+    )
+  }
   return {
     total,
     marked,
@@ -659,10 +725,11 @@ function scanCoverage(scope) {
     excluded,
     bannerless,
     bannerlessList,
+    face,
   }
 }
 
-function verifyAll(scope) {
+function verifyAll(scope, opts = {}) {
   const {
     total,
     marked,
@@ -675,9 +742,10 @@ function verifyAll(scope) {
     excluded,
     bannerless,
     bannerlessList,
-  } = scanCoverage(scope)
+    face,
+  } = scanCoverage(scope, opts)
   console.log(
-    `[watermark:verify] 覆盖 ${marked}/${total} 个${scope ? '指定' : '已跟踪'}文件, 残迹(载荷丢失) ${residue} 个, 载荷损坏 ${corrupted.length} 个, 仅隐写(有载荷但可见横幅缺失或已损坏) ${bannerless} 个, 跳过 ${skipped} 个, 台账登记的第三方内容不计入 ${thirdParty} 个`,
+    `[watermark:verify] 判定面=${face}${scope ? '(显式点名=工作树)' : ''} 覆盖 ${marked}/${total} 个${scope ? '指定' : '本面'}文件, 残迹(载荷丢失) ${residue} 个, 载荷损坏 ${corrupted.length} 个, 仅隐写(有载荷但可见横幅缺失或已损坏) ${bannerless} 个, 跳过 ${skipped} 个, 台账登记的第三方内容不计入 ${thirdParty} 个`,
   )
   // 排除面必须可见:静默少算 N 个文件与"根本没有第三方内容"在输出上无法区分,
   // 而后者会让人以为门禁从未碰过第三方(它碰过,见 pdf.worker.min.mjs 事故)。
@@ -713,11 +781,12 @@ function verifyAll(scope) {
   }
 }
 
-// ---------- 主流程 ----------
-const [cmd, ...rest] = process.argv.slice(2)
-const target = rest[0]
+// ---------- 主流程(§22d:必须经 isDirectRun 守卫;判据本体住函数,镜像测试 import __test__) ----------
+async function main() {
+  const [cmd, ...rest] = process.argv.slice(2)
+  const target = rest[0]
 
-if (cmd === 'inject') {
+  if (cmd === 'inject') {
   // `--reseat-tail`:除了"载荷在不在",还要求尾部隐写行**仍是末行**。
   // 给"往已有内容尾部追加"的生成器用(归档器就是):注入时它当然在末行,下一次 append
   // 就把新内容放到它后面,标记从此埋在正文中部 —— 实测一份归档件里攒了 4 行这样的孤儿。
@@ -764,17 +833,33 @@ if (cmd === 'inject') {
       `[watermark:inject] 新注入 ${n} 个, 已有 ${done} 个, 跳过(类型/二进制) ${skip} 个, 台账登记的第三方内容未触碰 ${tp} 个`,
     )
   }
-} else if (cmd === 'verify') {
-  verifyAll(rest.length ? scopeFromArgs(rest) : null)
-} else if (cmd === 'list-uncovered') {
-  // 供批量修复管道消费: 先损坏后仅隐写再残迹最后未覆盖, 每行一个相对路径。
-  // 「仅隐写」必须进这个清单:否则自愈式门禁看不见它,而 `inject` 现在会把它清洗重注 ——
-  // 两边不在同一份集合上,门就只会喊红而给不出出路(§5e"失败必须响"的同一条要求:喊了还得能修)。
-  const { missing, residues, corrupted, bannerlessList } = scanCoverage(
-    rest.length ? scopeFromArgs(rest) : null,
-  )
-  ;[...corrupted, ...bannerlessList, ...residues, ...missing].forEach((f) => console.log(f))
-} else if (cmd === 'decode') {
+  } else if (cmd === 'verify') {
+    const pick = pickFace(rest)
+    if (pick.error) {
+      console.error(`[watermark] ❌ 无法判定:${pick.error}`)
+      process.exitCode = 2
+    } else {
+      if (!pick.files.length) assertRepoRoot(ROOT, 'watermark 批量档')
+      verifyAll(pick.files.length ? scopeFromArgs(pick.files) : null, { face: pick.face })
+    }
+  } else if (cmd === 'list-uncovered') {
+    // 供批量修复管道消费: 先损坏后仅隐写再残迹最后未覆盖, 每行一个相对路径。
+    // 「仅隐写」必须进这个清单:否则自愈式门禁看不见它,而 `inject` 现在会把它清洗重注 ——
+    // 两边不在同一份集合上,门就只会喊红而给不出出路(§5e"失败必须响"的同一条要求:喊了还得能修)。
+    const pick = pickFace(rest)
+    if (pick.error) {
+      console.error(`[watermark] ❌ 无法判定:${pick.error}`)
+      process.exitCode = 2
+    } else {
+      if (!pick.files.length) assertRepoRoot(ROOT, 'watermark 批量档')
+      const cov = scanCoverage(pick.files.length ? scopeFromArgs(pick.files) : null, {
+        face: pick.face,
+      })
+      ;[...cov.corrupted, ...cov.bannerlessList, ...cov.residues, ...cov.missing].forEach((f) =>
+        console.log(f),
+      )
+    }
+  } else if (cmd === 'decode') {
   if (!target || !existsSync(target)) {
     console.error('用法: node scripts/watermark.mjs decode <file>')
     process.exit(1)
@@ -800,9 +885,50 @@ if (cmd === 'inject') {
     n++
   }
   console.log(`[watermark:clean-all] 已清理 ${n} 个文件的水印`)
-} else {
-  console.log(
-    '用法: node scripts/watermark.mjs <inject|verify|list-uncovered|decode|clean|clean-all> [file...]',
-  )
+  } else {
+    console.log(
+      '用法: node scripts/watermark.mjs <inject|verify|list-uncovered|decode|clean|clean-all> [--staged|--worktree] [file...]',
+    )
+  }
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main()
+    .then((code) => {
+      // 显式传播退出码:异步 main() 自然返回时 Node 一律按 0 收工;main 内以 return 数字表态,
+      // 未表态时保留分支里已写入的 process.exitCode。
+      if (typeof code === 'number') process.exitCode = code
+    })
+    .catch((e) => {
+      if (e instanceof Undetermined) {
+        console.error(`[watermark] ❌ 无法判定(未判定 ≠ 通过,也不冒红):${e.message}`)
+        process.exitCode = 2
+      } else {
+        console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+        process.exitCode = 2
+      }
+    })
+}
+
+export const __test__ = {
+  scanCoverage,
+  pickFace,
+  payloadIntact,
+  decodePayload,
+  encodePayload,
+  extractMarks,
+  findMarks,
+  styleFor,
+  makeBanner,
+  tailFor,
+  tailIsSeated,
+  injectableRel,
+  WATERMARK_TEXT,
+  BANNER_ID,
+  INVISIBLE_MARK,
+  INVISIBLE_RE,
+  DEFAULT_BATCH_FACE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

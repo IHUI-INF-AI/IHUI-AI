@@ -24,6 +24,7 @@ import { useTranslations } from 'next-intl'
 import {
   CalendarCheck,
   CheckCheck,
+  ChevronDown,
   FolderPen,
   KeyRound,
   Laptop,
@@ -75,15 +76,24 @@ import {
 } from '@ihui/api-client'
 import { EChart } from '@/components/charts/EChart'
 import { TruncatedText } from '@/components/common/TruncatedText'
+import { AuthGatePrompt } from '@/components/common'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   checkinAuditTraeResidual,
   checkinCaptureJwts,
   checkinCaptureQoder,
   checkinCaptureWorkbuddy,
-  checkinWorkbuddyWebLoginOpen,
+  closeChromeWindow,
+  openInGoogleChrome,
+  WB_WEB_LOGIN_ORIGIN,
   checkinWorkbuddyWebLoginProbe,
-  checkinWorkbuddyWebLoginClose,
   checkinDetectTraeDir,
   checkinGetPublicIp,
   checkinOneClickReset,
@@ -127,6 +137,19 @@ async function updateCheckinDeviceMap(
 
 export default function CheckinPage() {
   const t = useTranslations('checkin')
+  // 2026-10-14 登录态门(与 /chat/favorites、/business-card/favorites 同型):
+  // 冷启动时 bootstrap 的静默刷新与本页挂载请求赛跑,未拿到 access token 就发 GET
+  // ⇒ 注定 401 ⇒ 整页被「加载失败」块替换。门先把挂载请求压到登录态确定之后。
+  // 2026-10-15 改判撤掉 hasToken/booting 二型门:该形态实测源自 ai-service 失效把
+  // 有效 token 也 401(机器故障误诊为代码缺陷);且 `ready && isAuthenticated && !token`
+  // 正是 bootstrap「transient 刷新失败刻意保留登录态」的收束态,其恢复机制 = 首个 401
+  // 走拦截器静默续期 —— 那要求页面真的发请求。按 token 卡门会永转 spinner 饿死该路径
+  // (真机 dev 壳实测)。凭据被明确否定时拦截器 logout() → allow 翻假 → 登录引导,
+  // 红块同样不会出现。
+  const { allow } = useAuthGate()
+  const canLoad = allow
+  // 复用已接线的通用文案(chatHistory.loginRequired =「请先登录」),不为本页另开一组五语言键
+  const tGate = useTranslations('chatHistory')
 
   const [accounts, setAccounts] = React.useState<CheckinAccount[]>([])
   const [records, setRecords] = React.useState<CheckinRecord[]>([])
@@ -198,17 +221,19 @@ export default function CheckinPage() {
   const [wbCapturedSelected, setWbCapturedSelected] = React.useState<Set<string>>(new Set())
   const [wbTokenDrafts, setWbTokenDrafts] = React.useState<Record<string, string>>({})
 
-  // WorkBuddy 网页登录(2026-10-12「网页登录自动添加」,普通用户零 token):
-  // 打开内嵌 WebView 登录窗口 → 轮询探测(ok=已登录,cookie+账号由 Rust 读 jar 验证)
-  // → 自动入库(device_map.login_type='web',jwt 字段=Cookie 串加密落库)。
-  // 2026-10-13 白屏死锁修复:www.workbuddy.cn 是 SPA 外壳,WebView2 加载不到
-  // assets.workbuddy.cn 的 JS 时窗口纯白且无 cookie ⇒ 轮询永不结束。补三条出口:
-  // ① waiting 态「取消」按钮(停轮询 + Rust 侧 close 窗口 + 复位,再打开会重建重载);
-  // ② 90s 仍无登录态 ⇒ 提示网络可能不通(不自动关窗,用户可能在登录途中);
+  // WorkBuddy 网页登录(2026-10-15 浏览器扫码版,普通用户零 token):
+  // openInGoogleChrome 开真 Chrome 窗口(CDP 端口返回)→ 轮询 probe(port)
+  // (ok=已登录,Cookie 由 Rust 走 CDP WebSocket 读浏览器 cookie jar 并服务端验证)
+  // → 自动入库(device_map.login_type='web',jwt 字段=Cookie 串加密落库)→ 收尾关窗。
+  // 2026-10-12 初版是内嵌 WebView 弹窗;用户拍板改「浏览器扫码」形态后废弃
+  // (默认浏览器 Cookie 库走 App-Bound Encryption 拿不回登录态,CDP 不受此限)。
+  // 保留三条出口:① waiting 态「取消」(停轮询 + 关浏览器登录窗 + 复位);
+  // ② 90s 仍无登录态 ⇒ 提示确认登录(不自动关窗,用户可能在登录途中);
   // ③ probe 连续 3 次 IPC error ⇒ 停止轮询并如实告知,不再无限空转。
   const wbWebLoginTimer = React.useRef<ReturnType<typeof setInterval> | null>(null)
   const wbWebLoginSlowTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const wbWebLoginProbeErrors = React.useRef(0)
+  const wbWebLoginPort = React.useRef<number | null>(null)
   const [wbWebLoginState, setWbWebLoginState] = React.useState<
     'idle' | 'waiting' | 'importing' | 'done' | 'closed'
   >('idle')
@@ -226,15 +251,19 @@ export default function CheckinPage() {
     wbWebLoginProbeErrors.current = 0
   }, [])
 
-  // 取消网页登录(白屏/改主意时唯一的出口):停轮询 → Rust 侧销毁窗口 → 复位状态。
+  // 收尾:关闭浏览器里的 WorkBuddy 登录窗(尽力而为,失败不影响已导入的登录态)
+  const closeWbBrowserWindow = React.useCallback((port: number) => {
+    void closeChromeWindow(port, WB_WEB_LOGIN_ORIGIN).catch(() => {})
+  }, [])
+
+  // 取消网页登录(改主意时唯一的出口):停轮询 → 关浏览器登录窗 → 复位状态。
   const cancelWbWebLogin = React.useCallback(() => {
     stopWbWebLoginPoll()
-    void checkinWorkbuddyWebLoginClose().catch(() => {
-      // 关窗失败不阻断复位:probe 的 no_window 分支与下次 open 都能自愈
-    })
+    if (wbWebLoginPort.current !== null) closeWbBrowserWindow(wbWebLoginPort.current)
+    wbWebLoginPort.current = null
     setWbWebLoginState('closed')
     setWbWebLoginMsg(t('captureWbWebCancelled'))
-  }, [stopWbWebLoginPoll, t])
+  }, [closeWbBrowserWindow, stopWbWebLoginPoll, t])
 
   React.useEffect(() => stopWbWebLoginPoll, [stopWbWebLoginPoll])
 
@@ -546,9 +575,7 @@ export default function CheckinPage() {
     for (const item of picked) {
       const token = item.access_token || (wbTokenDrafts[wbKey(item)] || '').trim()
       if (!token) {
-        failures.push(
-          `${item.nickname || item.uid}: ${t('captureWbTokenRequired')}`,
-        )
+        failures.push(`${item.nickname || item.uid}: ${t('captureWbTokenRequired')}`)
         continue
       }
       try {
@@ -575,30 +602,35 @@ export default function CheckinPage() {
   }
 
   // WorkBuddy 网页登录自动导入(2026-10-12):ok 后逐账号入库,普通用户全程零 token。
-  // 先立即探测一轮(窗口已存在且已登录时秒导入),未登录再进 2.5s 轮询。
+  // 先立即探测一轮(浏览器已登录过时秒导入),未登录再进 2.5s 轮询。
   const startWbWebLogin = async () => {
     setCaptureError(null)
     setWbWebLoginState('waiting')
     setWbWebLoginMsg(t('captureWbWebWaiting'))
-    try {
-      await checkinWorkbuddyWebLoginOpen()
-    } catch (e) {
+    // 在真 Chrome(--app + CDP)里打开登录页;非 number 返回 = 打开失败
+    // (string=Rust 错误消息,如未装 Chrome;null=非桌面环境,理论到不了)
+    const opened = await openInGoogleChrome(WB_WEB_LOGIN_ORIGIN)
+    if (typeof opened !== 'number') {
+      wbWebLoginPort.current = null
       setWbWebLoginState('closed')
-      setWbWebLoginMsg((e as Error).message)
+      setWbWebLoginMsg(typeof opened === 'string' ? opened : t('captureWbWebOpenFailed'))
       return
     }
+    wbWebLoginPort.current = opened
     stopWbWebLoginPoll()
     wbWebLoginProbeErrors.current = 0
-    // 90s 仍无登录态 ⇒ 页面大概率白屏(网络到不了 assets.workbuddy.cn)。
+    // 90s 仍无登录态 ⇒ 用户可能还没在浏览器完成登录(或网络不通)。
     // 只提示不关窗:用户可能正在登录途中,打断比等待更糟。
     // 定时器存活即等价于"仍在等待"(ok/取消/失败各出口都会清它),无需判 state。
     wbWebLoginSlowTimer.current = setTimeout(() => {
       setWbWebLoginMsg(t('captureWbWebSlowHint'))
     }, 90_000)
     const tick = async (): Promise<boolean> => {
+      const port = wbWebLoginPort.current
+      if (port === null) return true // 已被取消/复位
       let probe: Awaited<ReturnType<typeof checkinWorkbuddyWebLoginProbe>>
       try {
-        probe = await checkinWorkbuddyWebLoginProbe()
+        probe = await checkinWorkbuddyWebLoginProbe(port)
         wbWebLoginProbeErrors.current = 0
       } catch {
         // IPC 连续 3 次异常(而非瞬时抖动)⇒ 停止轮询如实告知,不再无限空转
@@ -611,7 +643,7 @@ export default function CheckinPage() {
         return false
       }
       if (probe.status === 'no_cookie' || probe.status === 'not_logged_in') {
-        return false // 未登录:等用户在窗口里完成登录
+        return false // 未登录:等用户在浏览器里完成登录
       }
       if (probe.status === 'error') {
         setWbWebLoginMsg(probe.message) // 暂态网络错误:展示但继续轮询
@@ -619,7 +651,8 @@ export default function CheckinPage() {
       }
       stopWbWebLoginPoll()
       if (probe.status === 'no_window') {
-        // 用户关掉了登录窗口(或窗口创建失败)
+        // 用户关掉了浏览器登录窗(或调试端口失效)
+        wbWebLoginPort.current = null
         setWbWebLoginState('closed')
         setWbWebLoginMsg(t('captureWbWebWindowClosed'))
         return true
@@ -646,6 +679,9 @@ export default function CheckinPage() {
           failures.push(`${acc.nickname || acc.uid}: ${(e as Error).message}`)
         }
       }
+      // 收尾:关掉浏览器里的登录窗(尽力而为);失败路径也关,避免残留
+      if (wbWebLoginPort.current !== null) closeWbBrowserWindow(wbWebLoginPort.current)
+      wbWebLoginPort.current = null
       if (failures.length > 0) {
         setWbWebLoginState('closed')
         setWbWebLoginMsg(failures.join('；'))
@@ -866,8 +902,9 @@ export default function CheckinPage() {
   }
 
   React.useEffect(() => {
+    if (!canLoad) return
     void loadAll()
-  }, [loadAll])
+  }, [loadAll, canLoad])
 
   // 调度状态:失败静默,不阻塞页面
   React.useEffect(() => {
@@ -1053,7 +1090,12 @@ export default function CheckinPage() {
                 : undefined
             return {
               ...prev,
-              [id]: { remaining: res.ok ? res.remaining : null, error: res.ok ? undefined : res.error || '', delta, ts: Date.now() },
+              [id]: {
+                remaining: res.ok ? res.remaining : null,
+                error: res.ok ? undefined : res.error || '',
+                delta,
+                ts: Date.now(),
+              },
             }
           })
         } catch (e) {
@@ -1535,18 +1577,22 @@ export default function CheckinPage() {
           </Button>
           {desktop && (
             <>
-              <Button variant="outline" size="sm" onClick={() => void openCapture()}>
-                <Laptop className="mr-1 h-4 w-4" />
-                {t('captureTitle')}
-              </Button>
-              <Button variant="outline" size="sm" onClick={openQoderCapture}>
-                <Laptop className="mr-1 h-4 w-4" />
-                {t('captureQoderButton')}
-              </Button>
-              <Button variant="outline" size="sm" onClick={openWbCapture}>
-                <Laptop className="mr-1 h-4 w-4" />
-                {t('captureWbButton')}
-              </Button>
+              {/* 2026-10-15 收敛为下拉(机主口径):三个平台各自平铺按钮占一排,
+                  改成单一「从本机捕获」下拉,菜单项按平台名直列;三个对话框本体不动 */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Laptop className="mr-1 h-4 w-4" />
+                    {t('captureTitle')}
+                    <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="p-1">
+                  <DropdownMenuItem onClick={() => void openCapture()}>TRAE</DropdownMenuItem>
+                  <DropdownMenuItem onClick={openWbCapture}>WorkBuddy</DropdownMenuItem>
+                  <DropdownMenuItem onClick={openQoderCapture}>Qoder</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button variant="outline" size="sm" onClick={() => void openMaint()}>
                 <Wrench className="mr-1 h-4 w-4" />
                 {t('maintTitle')}
@@ -1583,7 +1629,9 @@ export default function CheckinPage() {
         </div>
       )}
 
-      {loading ? (
+      {!canLoad ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : loading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
@@ -2074,7 +2122,10 @@ export default function CheckinPage() {
           <div className="space-y-4">
             {/* 智能导入(2026-10-13):打开即自动检测本机全部平台登录态,勾选一键导入,零 token 零平台选择 */}
             {desktop ? (
-              <div data-testid="smart-scan-block" className="space-y-2 rounded-sm border bg-muted/40 p-3">
+              <div
+                data-testid="smart-scan-block"
+                className="space-y-2 rounded-sm border bg-muted/40 p-3"
+              >
                 <div>
                   <p className="text-sm font-medium">{t('addSmartTitle')}</p>
                   <p className="text-xs text-muted-foreground">{t('addSmartHint')}</p>
@@ -2123,7 +2174,9 @@ export default function CheckinPage() {
                                 type="checkbox"
                                 aria-label={`smartScanQoder:${key}`}
                                 checked={scanQoderSel.has(key)}
-                                onChange={(e) => toggleSmartSel(setScanQoderSel, key, e.target.checked)}
+                                onChange={(e) =>
+                                  toggleSmartSel(setScanQoderSel, key, e.target.checked)
+                                }
                               />
                               <span className="font-mono">Qoder-{item.uid || '本机'}</span>
                             </label>
@@ -2535,7 +2588,7 @@ export default function CheckinPage() {
                 {captureError}
               </p>
             )}
-            {/* 网页登录(推荐·零 token,2026-10-12):内嵌 WebView 登录 → 自动导入 */}
+            {/* 网页登录(推荐·零 token,2026-10-15 浏览器扫码版):真 Chrome 窗口登录 → CDP 自动导入 */}
             <div className="space-y-2 rounded-sm border bg-muted/40 p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
@@ -2543,12 +2596,8 @@ export default function CheckinPage() {
                   <p className="text-xs text-muted-foreground">{t('captureWbWebDescription')}</p>
                 </div>
                 {wbWebLoginState === 'waiting' ? (
-                  // 白屏/改主意时的取消出口(2026-10-13):停轮询 + 关闭登录窗口 + 复位
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void cancelWbWebLogin()}
-                  >
+                  // 改主意时的取消出口:停轮询 + 关闭浏览器登录窗 + 复位
+                  <Button size="sm" variant="outline" onClick={() => void cancelWbWebLogin()}>
                     {t('captureWbWebCancel')}
                   </Button>
                 ) : (

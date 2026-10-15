@@ -843,11 +843,13 @@ interface RunDetailDialogProps {
 
 function RunDetailDialog({ run, onClose }: RunDetailDialogProps) {
   const t = useTranslations('models')
+  // 2026-10-15 登录态门:未登录不发注定 401 的详情查询(与页面级 useQuery 的 enabled: allow 同型)
+  const { allow } = useAuthGate()
   const [detail, setDetail] = React.useState<EvalRun | null>(null)
   const [loading, setLoading] = React.useState(false)
 
   React.useEffect(() => {
-    if (!run) {
+    if (!run || !allow) {
       setDetail(null)
       return
     }
@@ -862,7 +864,7 @@ function RunDetailDialog({ run, onClose }: RunDetailDialogProps) {
       })
       .catch(() => setDetail(null))
       .finally(() => setLoading(false))
-  }, [run])
+  }, [run, allow])
 
   return (
     <Dialog

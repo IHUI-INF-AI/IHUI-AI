@@ -13,8 +13,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { rmSync, writeFileSync, existsSync } from 'node:fs'
+import { mkScratch } from '../lib/scratch-dir.mjs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -37,7 +37,7 @@ function g(cwd, args, opts = {}) {
 }
 
 function scratch(label) {
-  const dir = mkdtempSync(join(tmpdir(), `ihui-heal-${label}-`))
+  const dir = mkScratch(`ihui-heal-${label}-`)
   return dir
 }
 

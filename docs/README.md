@@ -96,7 +96,7 @@
 |---|---|
 | [GATEKEEPERS.md](./GATEKEEPERS.md) | **守门规则详解**:23 pre-commit 钩子 + post-commit 自动 push + pre-push typecheck,逐项脚本工作原理、跳过策略、添加新守门流程、失败排查 |
 | [I18N.md](./I18N.md) | **国际化**:5 语言矩阵、68 命名空间、翻译策略、12 守门/工作流脚本、添加新 key/新语言流程、前端使用 |
-| [I18N-COMPLETION-PLAN.md](./I18N-COMPLETION-PLAN.md) | i18n 完整性计划(历史规划文档) |
+| [I18N-COMPLETION-PLAN(已归档)](../.ihui-agent/archive/I18N-COMPLETION-PLAN_archived-2026-10-14.md) | i18n 完整性计划(历史规划文档,2026-10-14 归档) |
 | [SECURITY.md](./SECURITY.md) | **安全策略**:漏洞报告流程、响应时间、支持版本、安全措施清单、依赖扫描 |
 
 ---

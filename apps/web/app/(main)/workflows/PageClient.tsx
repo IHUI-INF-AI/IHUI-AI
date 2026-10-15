@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Workflow } from 'lucide-react'
 import { BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { WorkflowCreateDialog } from './WorkflowCreateDialog'
 import { WorkflowCardList } from './WorkflowCardList'
 import { api, EMPTY_FORM } from './helpers'
@@ -17,12 +18,16 @@ import type { WorkflowItem } from './types'
 
 export default function WorkflowsPageClient() {
   const t = useTranslations('workflows')
+  // 2026-10-15 登录态门(与 settings/notifications 同型):/api/workflows = 当前用户的工作流,
+  // 未就绪/未登录不发注定 401 的查询(失败仅落空态,不加渲染门)
+  const { allow } = useAuthGate()
   const router = useRouter()
   const qc = useQueryClient()
 
   const wfsQ = useQuery({
     queryKey: ['workflows'],
     queryFn: () => api<{ list: WorkflowItem[] }>('/api/workflows').then((d) => d.list ?? []),
+    enabled: allow,
   })
 
   const [createOpen, setCreateOpen] = React.useState(false)

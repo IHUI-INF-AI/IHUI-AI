@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react'
 import { fetchApi } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 
 export interface AdminRouterItem {
   id: string
@@ -35,8 +36,14 @@ export function useAdminRouters() {
     loading: true,
     loaded: false,
   })
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
   useEffect(() => {
+    // 未登录:后台菜单路由对用户无意义,且调用会触发 401 控制台噪声;直接收束为空列表。
+    if (!isAuthenticated) {
+      setState({ list: [], loading: false, loaded: true })
+      return
+    }
     let cancelled = false
     setState((s) => ({ ...s, loading: true }))
     void fetchApi<{ list: AdminRouterItem[] }>('/api/admin/menu/getRouters')
@@ -54,7 +61,7 @@ export function useAdminRouters() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [isAuthenticated])
 
   return state
 }

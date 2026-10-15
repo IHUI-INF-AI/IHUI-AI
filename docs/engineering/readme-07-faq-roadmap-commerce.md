@@ -214,7 +214,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 - **子目录文档全公开**(`developer/*` / `user/*` / `enterprise-service/*`):用户指南、开发者 API 文档、企业服务白皮书等
 - **顶层文档仅白名单 20 篇公开**:AI_LEADERBOARD / AI_SERVICE / API_REFERENCE / architecture / AUTHENTICATION / CHANGELOG / CLI / CONTRIBUTING / DATABASE / FAQ / I18N / MULTI_END / PACKAGES / PERFORMANCE / RELEASE / SDK / SECURITY / TESTING / TROUBLESHOOTING / UI_GUIDELINES
-- **顶层敏感文档仅管理员可见**(14 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend / I18N-COMPLETION-PLAN
+- **顶层敏感文档仅管理员可见**(13 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend
 
 管理员登录后(`roleId >= 1`)可查看全部 87 篇工程文档 + 所有 published DB 文档,普通用户只能看子目录全公开 + 顶层白名单 20 篇。DB `docs` 表内容由管理员通过 `/admin/docs` 管理,不受文件白名单限制。
 
@@ -275,7 +275,6 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | ------------------------------------------------------------ | -------------------------------------------------------------------- |
 | [docs/GATEKEEPERS.md](docs/GATEKEEPERS.md)                   | **守门规则详解**(56+10 pre-commit + post-commit + pre-push,逐项脚本) |
 | [docs/I18N.md](docs/I18N.md)                                 | 国际化(5 语言 + 68 命名空间 + 12 守门脚本 + 翻译策略)                |
-| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国际化完成计划(历史规划)                                             |
 
 ### SDK 与 CLI
 

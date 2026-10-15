@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "anchor": "DB 行面维护性修复文件逐文件的「模板缺项」集合(expected/fourState/reread);缺项只许减少,新增即判红,存量只报数。",
+  "reason": "2026-10-15 G-93 首建:模板 scripts/lib/db-row-narrow-cas.mjs 与本节同枚落地。基线取当日 HEAD 现值。",
+  "face": "head",
+  "scanDirs": [
+    "apps/api/src"
+  ],
+  "parts": [
+    "expected",
+    "fourState",
+    "reread"
+  ],
+  "perFile": {
+    "apps/api/src/db/id-mapping-queries.ts": [
+      "expected",
+      "fourState"
+    ],
+    "apps/api/src/routes/automations.ts": [
+      "expected",
+      "fourState"
+    ],
+    "apps/api/src/routes/monitor.ts": [
+      "expected",
+      "fourState"
+    ],
+    "apps/api/src/routes/workspace-ai.ts": [
+      "expected",
+      "fourState"
+    ]
+  }
+}

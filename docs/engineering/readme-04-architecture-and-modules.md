@@ -1148,7 +1148,7 @@ IHUI-AI/
 **到端产物也要有人看(2026-09-25)**:`pnpm check:miniapp-css-landing` 核的是“源码用到的 Tailwind utility,在小程序 dist 的 wxss 里是否真出了规则” —— 此前 36/37/93/parity/radius 五道跨端门**全部只核源码,没有一道看产物**,所以出现过五道全绿而到端 utilities 为空的状况。该门无产物时判 exit 2「未判定」,既不记绿也不冒红,因此刻意不接进提交链(它判的是构建结果,提交者机器上未必存在);小程序派生产物是否落后于源,由守门 105(warn 档)与 `dev-weapp` 的冷启刷新负责。
 | 16d | 条件 miniapp-taro dist 清理提示 | miniapp-taro/config 或 package.json staged 时输出清理提示(防 IDE 缓存混淆) |
 | 17-post | git-push-guard.mjs(post-commit) | 自动 push + 验证 local == remote(防遗漏) |
-| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后自动 push 所有 `lost-commit/*` + `backup/*` tag 到 origin(AGENTS.md §22) |
+| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖**全部命名空间**;`--check` 另比名字 + SHA,AGENTS.md §22) |
 
 **9 迁移审计脚本**:`audit-migration.mjs`(4 合 1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 合并) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(无引用 key 审计 + --output-keys 完整列表导出,2026-07-25 立)
 

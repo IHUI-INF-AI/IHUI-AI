@@ -16,6 +16,7 @@ import {
   CollapsibleContent,
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 export interface SessionMessage {
   role: string
@@ -126,11 +127,14 @@ function SessionRow({
 }
 
 export function SessionTree({ agentId, timeRange, refreshKey }: SessionTreeProps) {
+  // 登录态门:未就绪/未登录不发注定 401 的会话查询(登录态门 campaign)
+  const { allow } = useAuthGate()
   const [data, setData] = React.useState<SessionNode[]>([])
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState(false)
 
   React.useEffect(() => {
+    if (!allow) return
     if (!agentId) return
     let cancelled = false
     setLoading(true)
@@ -155,7 +159,7 @@ export function SessionTree({ agentId, timeRange, refreshKey }: SessionTreeProps
     return () => {
       cancelled = true
     }
-  }, [agentId, timeRange, refreshKey])
+  }, [agentId, timeRange, refreshKey, allow])
 
   return (
     <Card className="h-full">

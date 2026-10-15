@@ -2052,3 +2052,77 @@ test('G585-F 形状锁:防少与防多两条断言必须跑在同一份 finalTex
     '严格档判红分支必须在位(摘掉它 = 防多这一半对台账又失明)',
   )
 })
+
+/**
+ * G-815405 的 F5 判据修复(2026-10-14):2026-09-29 那次真实合并被落地闸拒收,按行量下来
+ * 对侧"减少"的 1387 份**全部**是同一条注记行的逐字副本折成一份(同一条 D64 指针行逐字重复
+ * 7 次以上),而当时三档额度都没认这一型 ⇒ 报"已扣除 0 条、仍差 30 条",把一次零信息损失的
+ * 合并判成拒收(§1 禁止无声删除在这里**没有**被违反 —— 每条注记仍保留 ≥1 份)。
+ * 票面修法:把"同一条注记行的第 2..N 份逐字副本"计入合法额度(判据与 lostAddedLines 的指针档
+ * 同形:只认逐字相同、漂移副本一份都不扣),并且**报数必须报名**(该文件已有
+ * formatPointerCapReport / formatMoveAwareReport 两条先例)。
+ * 禁止的出路(票面明文):调阈值、用 --accept-state-growth 把这一处声明放行、删掉任一侧的行。
+ */
+test('G-815405 ④(F5 逐字副本折半):折半留一份不得判红;漂移副本与整族消失必须照常判红并点名', () => {
+  // ④ 只认逐字相同:行原文为键 ⇒ 逐字副本天然折进同一个桶;漂移一个字就是另一桶,一分额度都拿不到。
+  const VERBATIM = '- [x] G-900101 逐字副本注记行〔【归并】落账:复测 2026-09-29〕\n'
+  const DRIFTED = '- [x] G-900102 漂移注记行〔【归并】落账:复测 2026-09-29〕\n'
+  const DRIFTED_V2 = '- [x] G-900102 漂移注记行〔【归并】落账:复测 2026-09-30: 二次复测〕\n'
+  const NOTHING = 'z 无关行\n'
+
+  // A) 逐字副本 3 份 → 1 份(仍留 ≥1 份)⇒ 不得判红(这正是被拒收那次的形状)
+  assert.equal(
+    U.planStateRegressions(VERBATIM, [VERBATIM.repeat(3), NOTHING]).length,
+    0,
+    'A) 逐字副本折半(留一份)是合法额度,判红就是重演 2026-09-29 那次误拒收',
+  )
+  // A2) 3 份 → 2 份同样放过;额度封顶在"只保留第 1 份",多折不额外记账。
+  assert.equal(
+    U.planStateRegressions(VERBATIM.repeat(2), [VERBATIM.repeat(3), NOTHING]).length,
+    0,
+    'A2) 3 份折成 2 份同样不得判红(折半额度只要求结果面 ≥1 份)',
+  )
+  // B) 漂移副本 2 份(逐字不同)→ 1 份 ⇒ 必须照常判红(④ 只认逐字相同,漂移一份都不扣)
+  const b = U.planStateRegressions(DRIFTED, [DRIFTED + DRIFTED_V2, NOTHING]).join('')
+  assert.ok(b.includes('F5'), `B) 漂移副本折半必须判红,实测 ${JSON.stringify(b)}`)
+  assert.ok(
+    b.includes('未被任何机制解释'),
+    `B) 漂移副本那一份必须落进"未被任何机制解释"(④ 给它 0 额度),实测 ${b}`,
+  )
+  // C) 反向臂(票面硬要求):合法额度不得替真丢失背书 —— 逐字折半(合法)夹着一条整族消失(非法)
+  //    ⇒ 必须判红并逐行点名那条真丢的行。
+  const LOST = '- [x] G-900103 真丢那件事〔【归并】落账:复测 2026-09-29〕\n'
+  const c = U.planStateRegressions(VERBATIM, [VERBATIM.repeat(3) + LOST, NOTHING]).join('')
+  assert.ok(c.includes('F5'), `C) 合法折半夹带真丢必须判红,实测 ${JSON.stringify(c)}`)
+  assert.ok(c.includes('真丢那件事'), `C) 真丢那条必须逐行点名,实测 ${c}`)
+  assert.ok(
+    c.includes('逐字副本折半'),
+    `C) 同一条红句里④ 档必须单独报数(报数必须报名),实测 ${c}`,
+  )
+  // D) 整族消失(结果面一份不剩)⇒ ④ 一分都不给,照常判红(③ 的下限语义不得被 ④ 放大)
+  const d = U.planStateRegressions(NOTHING, [VERBATIM.repeat(3), NOTHING]).join('')
+  assert.ok(
+    d.includes('F5') && d.includes('未被任何机制解释'),
+    `D) 逐字副本整族消失必须判红,实测 ${JSON.stringify(d)}`,
+  )
+  // E) 形状锁:④ 档必须真的把点名名单打进红句(名单若只活在返回值里,读者就看不到"折了谁")
+  //    场景:逐字副本 3 份折成 1 份(合法,记档)+ 另一条真丢(非法,点名)⇒ 同一条红句两者俱全。
+  const e = U.planStateRegressions(
+    VERBATIM,
+    [VERBATIM.repeat(3) + '- [x] G-900104 另一条真丢〔【归并】落账:复测 2026-09-29〕\n', NOTHING],
+  ).join('')
+  assert.ok(e.includes('逐字副本折半名单'), `E) 红句必须带④ 档逐行名单,实测 ${e}`)
+  assert.ok(e.includes('折 2 份'), `E) 名单必须逐行报"折了几份",实测 ${e}`)
+  // F) 判据仍在函数体里:摘掉 ④ 档(把 byVerbatimCopies 改回 0 的旁路)必须被这条形状锁咬住
+  const body = topLevelBody(srcOfTool(), 'export function planStateRegressions(')
+  assert.match(
+    body,
+    /byVerbatimCopies/,
+    '④ 档的记账器必须仍在 planStateRegressions 体内(摘掉它 = 回到票面"扣除 0 条"的误拒收形态)',
+  )
+  assert.match(
+    body,
+    /unexplained\.length > 0/,
+    '判红条件必须含逐行欠账这一半(只比总量会让合法折半替真丢失背书,见票面反向臂)',
+  )
+})

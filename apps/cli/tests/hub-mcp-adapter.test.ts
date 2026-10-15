@@ -256,4 +256,52 @@ describe('adaptMcpToolToHubTool', () => {
     expect(result.output).toBe('bar result');
   });
 });
+
+describe('G-422 MCP 同名碰撞检测', () => {
+  beforeEach(() => {
+    callMcpServerMock.mockReset();
+  });
+
+  it('同名注册必须拒收:先到者保留,后到者 count=0', () => {
+    const hub = new InMemoryRegistry();
+    const connA = makeMockConn('demo', [makeToolDef('web_search')]);
+    const connB = makeMockConn('demo', [makeToolDef('web_search')]);
+
+    const countA = registerMcpToolsToHub({ hub, mcpConnection: connA, serverName: 'demo' });
+    const countB = registerMcpToolsToHub({ hub, mcpConnection: connB, serverName: 'demo' });
+
+    expect(countA).toBe(1);
+    expect(countB).toBe(0);
+    // 先到者保留:find 回的仍是 A 侧注册的 handle(id 相同,但 hub 中只有 1 份)
+    expect(hub.find('mcp__demo__web_search')).toBeDefined();
+    expect(hub.size()).toBe(1);
+  });
+
+  it('报错文本点名冲突双方 server 名', () => {
+    const hub = new InMemoryRegistry();
+    registerMcpToolsToHub({ hub, mcpConnection: makeMockConn('demo', [makeToolDef('t')]), serverName: 'demo' });
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      registerMcpToolsToHub({ hub, mcpConnection: makeMockConn('demo', [makeToolDef('t')]), serverName: 'demo' });
+      const joined = warnSpy.mock.calls.map((c) => String(c[0])).join('\n');
+      expect(joined).toContain("已由 服务器 'demo' 注册");
+      expect(joined).toContain("拒收 服务器 'demo' 的同名注册");
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('不同名注册不受影响:两轴键不同,双双注册成功', () => {
+    const hub = new InMemoryRegistry();
+    const countA = registerMcpToolsToHub({ hub, mcpConnection: makeMockConn('alpha', [makeToolDef('web_search')]), serverName: 'alpha' });
+    const countB = registerMcpToolsToHub({ hub, mcpConnection: makeMockConn('beta', [makeToolDef('web_search')]), serverName: 'beta' });
+
+    expect(countA).toBe(1);
+    expect(countB).toBe(1);
+    expect(hub.size()).toBe(2);
+    expect(hub.find('mcp__alpha__web_search')).toBeDefined();
+    expect(hub.find('mcp__beta__web_search')).toBeDefined();
+  });
+});
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

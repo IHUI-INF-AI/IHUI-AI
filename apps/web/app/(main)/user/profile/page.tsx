@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { BackButton } from '@/components/common'
 import { TokenUsagePanel } from '@/components/ai/token-usage-panel'
 import { RoutinesPanel } from '@/components/ai/routines-panel'
@@ -32,6 +33,9 @@ export default function ProfilePage() {
   const t = useTranslations('user.profile')
   const user = useAuthStore((s) => s.user)
   const setUser = useAuthStore((s) => s.setUser)
+  // 2026-10-15 登录态门:/api/users/:id(本人) 与 /api/ai/history = 当前用户私有态,
+  // 未就绪/未登录不发注定 401 的查询
+  const { allow } = useAuthGate()
   const [saved, setSaved] = React.useState(false)
   const [errorMsg, setErrorMsg] = React.useState('')
   const [avatarUploading, setAvatarUploading] = React.useState(false)
@@ -56,7 +60,7 @@ export default function ProfilePage() {
       if (!res.success) throw new Error(res.error)
       return res.data
     },
-    enabled: !!user?.id,
+    enabled: allow && !!user?.id,
   })
 
   const { data: usageData } = useQuery({
@@ -66,7 +70,7 @@ export default function ProfilePage() {
       if (!res.success) throw new Error(res.error)
       return res.data
     },
-    enabled: !!user?.id,
+    enabled: allow && !!user?.id,
   })
 
   const aiStats = React.useMemo(() => {

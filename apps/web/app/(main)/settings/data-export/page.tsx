@@ -6,6 +6,8 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
 import { FileJson, FileText, Download, RefreshCw, Loader2 } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui-react'
@@ -45,6 +47,9 @@ function formatTime(iso: string | null): string {
 export default function DataExportPage() {
   const t = useTranslations('settings')
   const tc = useTranslations('common')
+  // 2026-10-15 登录态门(与 /settings/notifications 同型):未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [lastExport, setLastExport] = React.useState<ExportTask>({
     taskId: null,
     status: null,
@@ -58,6 +63,7 @@ export default function DataExportPage() {
   const [toast, setToast] = React.useState<{ type: 'success' | 'error'; msg: string } | null>(null)
 
   React.useEffect(() => {
+    if (!allow) return
     let cancelled = false
     setLoading(true)
     setError('')
@@ -79,7 +85,7 @@ export default function DataExportPage() {
     return () => {
       cancelled = true
     }
-  }, [t])
+  }, [t, allow])
 
   React.useEffect(() => {
     if (!toast) return
@@ -165,7 +171,9 @@ export default function DataExportPage() {
         </CardContent>
       </Card>
 
-      {loading ? (
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : loading ? (
         <p className="py-4 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>
       ) : error ? (
         <p className="py-4 text-center text-sm text-destructive">{error}</p>

@@ -9,7 +9,7 @@
  *      + 认领转移;④ 守恒断言(A1 勾选态 / A3 注记归零 / A4 族级认领守恒)。
  */
 import { test } from 'node:test'
-import { ratchetVerdict, countPointerRows, pointerRows } from '../check-plan-dup-pointer-ratchet.mjs'
+import { ratchetVerdict, countPointerRows, pointerRows, twinRatchetVerdict } from '../check-plan-dup-pointer-ratchet.mjs'
 import { stripMergeNotes, buildPlan, renderPurge, verifyPurge } from '../plan-pointer-purge.mjs'
 
 const NOTE =
@@ -61,7 +61,10 @@ test('P1 剥注记:〔〕/【】/（）三形态全剥,不动普通中文括注'
 test('P2 清偿分层:L1 删副本留持有行 / L3 删纯指针 / 认领转移到持有行', () => {
   const lines = [
     '# 计划',
-    `- [ ]（进行中）G-1 真任务持有行 ${NOTE}`, // L1:有外部持有行(本行是候选但也有同主键持有行?) —— 见下
+    // G-1 题面刻意与 G-2 不同:L5/L6(A5 单调性,2026-10-14)之后,剥注记会让行重新进入
+    // foldTwins 的候选面 —— 若两行同题面而编号不同,剥注记会"造出"一个新的 F10 族,
+    // A5 当场拦(它在真仓 HEAD 面实测为净减,不拦;这里改题面让夹具只测 L1/L3/认领转移)。
+    `- [ ]（进行中）G-1 另一件真任务 ${NOTE}`, // L4:剥注记保留(无同题持有行)
     `- [ ] G-2 真任务持有行`,
     `- [ ] G-2 真任务持有行 ${NOTE}`, // L1:外部持有行存在 ⇒ 删
     `- [ ] ${NOTE}`, // L3:纯指针行
@@ -82,6 +85,47 @@ test('P2 清偿分层:L1 删副本留持有行 / L3 删纯指针 / 认领转移�
   if (/^- \[ \]\s*$/m.test(text)) throw new Error('纯指针行未删')
   const errs = verifyPurge(lines, next, plan)
   if (errs.length) throw new Error(`守恒断言失败:${errs.join('; ')}`)
+})
+
+test('P2b L5/L6 真归并:无注记重复行真删行,注记移植到幸存行,独有增量整行跳过(2026-10-14)', () => {
+  // L6(F4):同复合主键的未勾副本(无任何注记)⇒ 删副本留幸存者(组内最长行),一行注记不产
+  // (夹具形态照抄真仓实测:副本 = 幸存者标题的精确前缀,D18/82 两族都是这个形状)
+  const l6 = [
+    '# 计划',
+    '- [ ] D21 同一件事(G-9)',
+    '- [ ] D21 同一件事(G-9)。较长的那条登记,承载了更多上下文说明,是幸存行。',
+  ]
+  const p6 = buildPlan(l6)
+  if (!p6.deleteSet.has(1)) throw new Error(`L6 应删短副本行,实得 ${[...p6.deleteSet]}`)
+  const n6 = renderPurge(l6, p6)
+  if (n6.length !== 2 || !n6[1].includes('较长的那条登记')) throw new Error(`L6 幸存行不对:${n6}`)
+  if (verifyPurge(l6, n6, p6).length) throw new Error('L6 清偿不应触发守恒断言')
+  if (countPointerRows(n6.join('\n')) !== 0) throw new Error('L6 不得产任何指针注记(用户禁令)')
+  // L5(F10):同题面不同编号的可折行 ⇒ 删被折行留 keeper,候选行尾的让号/拍板段移植过去
+  // (候选正文必须是幸存行的子串 —— 本夹具候选=纯标题行+注记,正文即题面,幸存行天然承载)
+  const l5 = [
+    '# 计划',
+    '- [ ] G-801. 同一件事被并发登记成两个不同的号:第一份登记,持有行,后面是它的正文交代。',
+    '- [ ] G-802. 同一件事被并发登记成两个不同的号 〔让号记录(2026-10-14):原号 G-802 同号多题,本行让出。〕',
+  ]
+  const p5 = buildPlan(l5)
+  if (!p5.deleteSet.has(2)) throw new Error(`L5 应删被折行,实得 ${[...p5.deleteSet]}`)
+  const n5 = renderPurge(l5, p5)
+  if (n5.length !== 2) throw new Error(`L5 应一行不增不删地并成一行:${n5}`)
+  if (!n5[1].includes('G-801') || !n5[1].includes('让号记录'))
+    throw new Error(`keeper 丢失或移植段丢失:${n5[1].slice(0, 120)}`)
+  if (verifyPurge(l5, n5, p5).length) throw new Error('L5 清偿不应触发守恒断言')
+  // 准入闸:候选正文有幸存行未承载的独有增量 ⇒ 整行跳过点名,绝不硬删
+  const lSkip = [
+    '# 计划',
+    '- [ ] G-901. 同一件事的两个号:第一份登记,持有行,正文很短。',
+    '- [ ] G-902. 同一件事的两个号:第二份登记带着大量只有本行才有的关键发现与待拍板决定,幸存行完全没有这些内容,所以本行必须保留。',
+  ]
+  const pSkip = buildPlan(lSkip)
+  if (pSkip.deleteSet.has(2) && !pSkip.skipped.some((s) => s.i === 2))
+    throw new Error('独有增量的行被硬删了 ⇒ 准入闸失明')
+  const nSkip = renderPurge(lSkip, pSkip)
+  if (!nSkip.some((l) => l.includes('G-902'))) throw new Error('独有增量行被删 = 丢活账')
 })
 
 test('P3 守恒断言:A3 注记残留必红(有牙证明:注入一行注记,断言必须报错)', () => {
@@ -121,5 +165,71 @@ test('P5 认领守恒按族断言:副本带认领、持有行无认领 ⇒ 认�
   if (errs.length) throw new Error(`守恒断言失败:${errs.join('; ')}`)
   const text = next.join('\n')
   if (!/（进行中@2026-10-02\/李四）/.test(text)) throw new Error('认领标记随副本删除而消失')
+})
+
+test('P6 F10 差值棘轮(维②):同题不同编号可折重复登记只拦变多,同键副本(F4)不归它管', () => {
+  // 正向:HEAD 面 1 族,staged 面多登记一份同题不同号 ⇒ grew=true(拦)
+  const head = [
+    '# 计划',
+    '- [ ] G-601. 同一件事被并发登记成两个号:第一份登记,持有行,正文交代。',
+    '- [ ] G-602. 同一件事被并发登记成两个号',
+  ]
+  const staged = [
+    ...head,
+    '- [ ] G-603. 同一件事被并发登记成两个号:又一份登记,题面同、号不同。',
+  ]
+  const grew = twinRatchetVerdict(head.join('\n'), staged.join('\n'))
+  if (grew.undetermined) throw new Error('判据未判定 ⇒ 不得当通过')
+  if (!grew.grew) throw new Error(`新增同题不同号应判 grew,实得 ${JSON.stringify(grew)}`)
+  // 反向一:面不变 ⇒ 不增(存量豁免的差值棘轮纪律)
+  const same = twinRatchetVerdict(head.join('\n'), head.join('\n'))
+  if (same.grew) throw new Error('面不变不得判 grew')
+  // 反向二:F4 同键副本(编号同、题面同)不进本维 —— 那是守门 130 的 F4 维,重复设门=同罪两罚
+  const f4pair = ['# 计划', '- [ ] D31 同一件事(G-9)', '- [ ] D31 同一件事(G-9)。较长的正文。']
+  const f4 = twinRatchetVerdict('# 计划', f4pair.join('\n'))
+  if (f4.grew) throw new Error('同键副本被算进 F10 维 ⇒ 与守门 130 重复设门')
+  // 收敛方向:删掉一份 ⇒ 不增(变少永远放行)
+  const shrunk = twinRatchetVerdict(staged.join('\n'), head.join('\n'))
+  if (shrunk.grew) throw new Error('变少被拦 ⇒ 棘轮方向反了')
+})
+
+test('P7 A5 归一化:剥注记让同题副本"露出"不得算反增(实测 8→18 那一型)', () => {
+  // 复现形状(与 HEAD 面诊断输出同型):持有行是裸行,副本带指针注记且**正文与持有行不同**
+  // ⇒ 清偿对它只能走 L4 剥注记保留(指纹不同 ⇒ 落不进 L1/L2 的删除条件;正文 >30 字 ⇒ 不落 L3)。
+  // foldTwins 把带注记的行整个排除在候选外(plan-tasks-merge.mjs:2639)⇒ 清偿前可折 0;
+  // 剥完注记 ⇒ 同题两条裸行 ⇒ 可折 1。这 1 不是本轮造出来的重复,是本来就存在的重复被看见。
+  const lines = [
+    '- [ ] G-701. 同题甲的第一份登记：持有行正文交代得很长很长,以便稳稳过最短正文闸阈值。',
+    `- [ ] G-702. 同题甲的第一份登记：副本正文是另一批取证,内容完全不同但也够长过闸。${NOTE}`,
+  ]
+  const plan = buildPlan(lines)
+  const next = renderPurge(lines, plan)
+  const errs = verifyPurge(lines, next, plan)
+  const a5 = errs.filter((e) => e.startsWith('A5'))
+  if (a5.length) throw new Error(`剥注记被 A5 误判反增:${a5.join('; ')}`)
+  // 这条断言自身也得有前提证明:本轮确实剥了一行注记(否则"通过"是因为压根没动)
+  if (countPointerRows(lines.join('\n')) !== 1 || countPointerRows(next.join('\n')) !== 0)
+    throw new Error('夹具没有复现"注记被剥净"的前提')
+})
+
+test('P8 A5 仍有牙:未勾选行数不变而重复度上升 ⇒ 必红(不许归一化把判据磨平)', () => {
+  const lines = [
+    '- [ ] G-801. 甲题正文够长：第一份登记,交代得很长以便过闸阈值。',
+    '- [ ] G-802. 乙题正文够长：第二份登记,交代得很长以便过闸阈值。',
+    '- [ ] G-803. 丙题正文够长：第三份登记,交代得很长以便过闸阈值。',
+  ]
+  const plan = buildPlan(lines)
+  const next = renderPurge(lines, plan)
+  if (verifyPurge(lines, next, plan).length !== 0) throw new Error('无事发生的批次不该红')
+  // 把 G-802 改成与 G-801 同题同号不冲突的副本(未勾选行数不变 ⇒ A2 静默;无注记 ⇒ A3 静默;
+  // 无认领 ⇒ A4 静默;已勾行数不变 ⇒ A1 静默)⇒ 只有 A5 该响
+  const corrupted = [
+    '- [ ] G-801. 甲题正文够长：第一份登记,交代得很长以便过闸阈值。',
+    '- [ ] G-802. 甲题正文够长：第一份登记,交代得很长以便过闸阈值。',
+    '- [ ] G-803. 丙题正文够长：第三份登记,交代得很长以便过闸阈值。',
+  ]
+  const errs = verifyPurge(lines, corrupted, plan)
+  if (!errs.some((e) => e.startsWith('A5'))) throw new Error(`A5 未报警:${errs.join('; ')}`)
+  if (errs.some((e) => e.startsWith('A2'))) throw new Error('A2 被误触发(行数未变) ⇒ 夹具失真')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

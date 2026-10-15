@@ -89,6 +89,9 @@ import {
   getBalance as _getBalance,
   createAlipayMiniappPayment as _createAlipayMiniappPayment,
 } from '@ihui/api-client'
+// D49① + D111:评价(rateChatMessage)/审批(sendToolApprovalResponse)共享端点 re-export(§3 共享层优先,
+// 端内经 @ihui/api-client,不另起传输层);与 web / mobile-rn / extension 三端共用同一把函数。
+import { rateChatMessage as _rateChatMessage, sendToolApprovalResponse as _sendToolApprovalResponse } from '@ihui/api-client'
 // HTTP 方法助手(get/post/put/patch/del)与 unwrapApi 统一来自 api-bridge,
 // 替代原 utils/request.ts,内部走 @ihui/api-client fetchApi + Taro transport。
 import { unwrapApi, get, post, put, patch, del } from '../utils/api-bridge'
@@ -99,6 +102,10 @@ export { get, post, put, patch, del }
 // 与 agent 任务流的 sendToolApprovalResponse 分属两套注册表、回传端点不同(V3 #58 路由纪律);
 // 端内一律经 @ihui/api-client,不另起传输层(§3 共享层优先)。
 export { postToolApprovalResponse } from '@ihui/api-client'
+// D49① + D111:评价 / 审批端点 re-export 为本地具名导出,保持 `import { rateChatMessage, sendToolApprovalResponse } from '@/api'`
+// 四端(web / mobile-rn / extension / miniapp)引用一致;真实调用走 @ihui/api-client,不另起传输层(§3 共享层优先)。
+export const rateChatMessage = _rateChatMessage
+export const sendToolApprovalResponse = _sendToolApprovalResponse
 // 类型单一来源:LlmModel / FetchModelsResult / AgentPermission / AgentPermissionType / WalletBalance / VipLevel / SignContractResponse / ExamQuestion 复用 @ihui/api-client,本地 re-export 保持外部引用不变
 export type {
   LlmModel,

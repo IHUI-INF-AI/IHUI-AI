@@ -10,6 +10,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, HelpCircle, MessageCircle } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { pushError } from '@/stores/error-banner'
 import { BackButton } from '@/components/common'
 
@@ -34,10 +35,12 @@ export default function AskPage() {
   const t = useTranslations('user.ask')
   const locale = useLocale()
   const user = useAuthStore((s) => s.user)
+  // 2026-10-15 登录态门:/api/asks?authorId= = 当前用户的提问,未就绪/未登录不发注定 401 的查询
+  const { allow } = useAuthGate()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['user', 'ask', user?.id],
-    enabled: !!user?.id,
+    enabled: allow && !!user?.id,
     queryFn: async (): Promise<AskItem[]> => {
       const r = await fetchApi<{ list?: AskItem[] } | AskItem[]>(`/api/asks?authorId=${user!.id}`)
       if (!r.success) {
