@@ -1596,23 +1596,18 @@ export type WorkbuddyWebLoginProbe =
     }
   | { status: 'error'; message: string }
 
-/** 打开(或聚焦)WorkBuddy 网页登录窗口(内嵌 WebView 加载 www.workbuddy.cn)。 */
-export async function checkinWorkbuddyWebLoginOpen(): Promise<void> {
-  requireTauri()
-  await invokeIpc<void>('checkin_workbuddy_web_login_open')
-}
+/** WorkBuddy 网页登录站点根(2026-10-15 浏览器扫码版:openInGoogleChrome 用它开窗,
+ *  closeChromeWindow 用它做 urlPrefix 收尾)。 */
+export const WB_WEB_LOGIN_ORIGIN = 'https://www.workbuddy.cn'
 
-/** 关闭(并销毁)WorkBuddy 网页登录窗口(2026-10-13 白屏死锁修复:
- *  页面加载失败时前端唯一的取消出口;关闭后再打开会重建窗口重新加载)。 */
-export async function checkinWorkbuddyWebLoginClose(): Promise<void> {
+/**
+ * 轮询探测(浏览器扫码版,2026-10-15):`port` 来自 `openInGoogleChrome` 返回的
+ * CDP 端口;Rust 侧 CDP WebSocket 读 Chrome cookie jar(workbuddy.cn 域族)→
+ * 服务端验证登录态并取账号。内嵌 WebView 弹窗 open/close 已废弃,不再有独立命令。
+ */
+export async function checkinWorkbuddyWebLoginProbe(port: number): Promise<WorkbuddyWebLoginProbe> {
   requireTauri()
-  await invokeIpc<void>('checkin_workbuddy_web_login_close')
-}
-
-/** 轮询探测:读登录窗口 cookie jar(含 HttpOnly)→ Rust 侧验证登录态并取账号。 */
-export async function checkinWorkbuddyWebLoginProbe(): Promise<WorkbuddyWebLoginProbe> {
-  requireTauri()
-  return await invokeIpc<WorkbuddyWebLoginProbe>('checkin_workbuddy_web_login_probe')
+  return await invokeIpc<WorkbuddyWebLoginProbe>('checkin_workbuddy_web_login_probe', { port })
 }
 
 /** 十四层设备标识重置;includeMachineGuid=true 额外尝试注册表 MachineGuid(需 UAC);
