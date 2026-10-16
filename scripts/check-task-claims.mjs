@@ -578,6 +578,8 @@ function findClosedTwins(rows, completed) {
     line: c.line,
     body: bodyOf(c),
     sq: squash(bodyOf(c)),
+    /** 门 203 那一份指纹(同题不同编号的**可证**通道)要的原始行,不能只带骨架。 */
+    full: c.full,
   }))
   const twins = []
   for (const r of rows) {
@@ -588,13 +590,23 @@ function findClosedTwins(rows, completed) {
     for (const d of doneBodies) {
       const score = jaccard(tb, tokenize(d.body))
       const contained = d.sq.includes(squash(body))
-      if (score < SIM_THRESHOLD && !contained) continue
-      const eff = Math.max(score, contained ? 1 : 0)
+      // 第三条**可证**通道:剥掉主键位置的编号之后**逐字节相同**(= 让号遗留那一型:同一条活
+      // 登记在两个号下)。它既不被包住(编号字节挡在中间),又常因这几枚字节掉到阈值附近 ——
+      // 只用那两条通道会把可证的副本降级成猜。这条比指纹强:除编号外一字不差才算。
+      const sameTitle = keyIdStripped(r.full) === keyIdStripped(d.full)
+      if (score < SIM_THRESHOLD && !contained && !sameTitle) continue
+      const eff = Math.max(score, contained || sameTitle ? 1 : 0)
       if (!best || eff > best.score) {
         best = {
           line: d.line,
           score,
-          via: score >= SIM_THRESHOLD ? (contained ? 'both' : 'jaccard') : 'contain',
+          via: contained
+            ? score >= SIM_THRESHOLD
+              ? 'both'
+              : 'contain'
+            : sameTitle
+              ? 'same-title'
+              : 'jaccard',
         }
       }
     }
@@ -617,6 +629,45 @@ function findClosedTwins(rows, completed) {
  * 认领/租约标记及空白之后的正文,**两行整行可以并不相等**(差的那几枚字节正是租约),
  * 所以报名不得自称"整行逐字重复" —— 文案与出路见下面的 `DUP_GROUP_HEADING`(S17 钉这一条)。
  */
+/**
+ * 孪生旧行按**证据强度**分档(2026-10-16,S18 钉这一条):
+ *  - `contain`(含 `both`)= 未勾行的骨架被那条 `[x]` 行**逐字包住**,对方只是追加了取证 ⇒ 可证;
+ *  - `same-title` = 与那条 `[x]` 行**除主键位置的编号外逐字节相同**(让号遗留那一型)⇒ 同样可证:
+ *    它不被包住(编号字节挡在中间),相似度又常因那几枚字节掉到阈值附近,只用那两条会降级成猜;
+ *  - `jaccard` 单通道 = 字符二元组相似度过了 `SIM_THRESHOLD`(现读 0.6)就配成一对 ⇒ **弱证据**。
+ *
+ * 只有可证那两档才从"可认领"里扣名额。理由:0.6 的相似度足以把两条**不同的活**判成一对
+ * (同族票的题面前几十字几乎总是一模一样),而扣名额的后果是那条真待办从派单面**永久隐形** ——
+ * 与本仓记过的"台账里 N 族待办对派单永久隐形"同型,方向还更坏(那型是重复认领,这型是没人认领)。
+ * 与 `plan-tasks.mjs` 派单口径同取向:**拿不准的留在清单里、只点名,不踢掉**。
+ */
+/**
+ * 剥掉**主键位置**上的编号(行首第一个 `G-147` / `G-998128` / `D1047` / `82.` 之类的 token),
+ * 其余一字不动 —— 供 `same-title` 那条可证通道用:两条行只有在这一步之后**逐字节相同**,才敢说
+ * 它们是"同一条活登记在两个号下"(§9b 让号、门 203 同题多号那一族)。
+ * 刻意只碰行首那一枚:任何"顺手把所有数字都抹掉"的写法都会把 `web 86 处` 与 `web 99 处` 这种
+ * **不同的活**洗成同一条(本仓 T2 型禁令就是防这个)。
+ */
+export function keyIdStripped(full) {
+  const body = bodyOf({ full })
+  return squash(body.replace(/^\s*(?:\*\*)?[A-Za-z]{1,3}-?\d{1,}(?:[①-⑳])?[.、:：]?\s*/, ''))
+}
+
+export function splitTwinsByProof(twins) {
+  const proven = twins.filter((t) => t.via === 'contain' || t.via === 'both' || t.via === 'same-title')
+  const suspect = twins.filter((t) => t.via === 'jaccard')
+  return { proven, suspect }
+}
+
+/**
+ * 从"无人认领"里扣名额 —— **只扣逐字可证那一档**(理由见 `splitTwinsByProof`)。
+ * 抽成函数不是为好看:镜像测试要判的是**同一份减法**,而不是在测试里再抄一遍 filter(§22c)。
+ */
+export function subtractProvenTwins(unclaimed, proven) {
+  const lines = new Set(proven.map((t) => t.line))
+  return unclaimed.filter((t) => !lines.has(t.line))
+}
+
 /**
  * `--twins` 第二段与汇总行共用的报名文案(2026-10-16 改正,取证见 S17)。
  *
@@ -1032,6 +1083,63 @@ function selfTest(realNow = Date.now()) {
     eq(DUP_GROUP_HEADING.includes('fold-identical-open-rows'), true, '报名未点名整行逐字节相同那条出路')
     eq(DUP_GROUP_HEADING.includes('逐字重复的未勾行组'), false, '那句谎话仍在报名文案里')
   })
+  check('S18 弱相似(只到 SIM_THRESHOLD 而未逐字包住)不得从可认领里扣名额', () => {
+    const t = [
+      { line: 1, twinLine: 9, via: 'contain', score: 0.4 },
+      { line: 2, twinLine: 8, via: 'both', score: 0.8 },
+      { line: 3, twinLine: 7, via: 'jaccard', score: 0.61 },
+      { line: 4, twinLine: 6, via: 'jaccard', score: 0.75 },
+      { line: 5, twinLine: 5, via: 'same-title', score: 0.42 },
+    ]
+    const { proven, suspect } = splitTwinsByProof(t)
+    eq(proven.map((r) => r.line).join(','), '1,2,5', '可证两通道(逐字包住 / 同题不同编号)都必须进可证档')
+    eq(suspect.map((r) => r.line).join(','), '3,4', '只到相似度的两条必须落弱证据档')
+    eq(proven.length + suspect.length, t.length, '两档不穷尽 ⇒ 要么名额被悄悄扣掉,要么孪生漏报')
+    const rows = [{ line: 1 }, { line: 2 }, { line: 3 }, { line: 4 }, { line: 5 }, { line: 6 }]
+    eq(
+      subtractProvenTwins(rows, proven).map((r) => r.line).join(','),
+      '3,4,6',
+      '弱证据那两条被扣了名额 —— 那条真待办就此对派单永久隐形(本臂防的就是这一型)',
+    )
+    // same-title 那条通道的取材取证:除主键位置编号外**逐字节相同** ⇒ 可证(真仓 L15375↔L10358 那一型)
+    const twin =
+      `- [ ] G-998128 票 4（观察）Windows Path 双键收口:往子进程 env 塞大写 PATH 的两处站点无归一层 —— 机制与出处略
+- [x] ✅(2026-10-16) G-147 票 4（观察）Windows Path 双键收口:往子进程 env 塞大写 PATH 的两处站点无归一层 —— 机制与出处略
+`
+    const st = splitTwinsByProof(findClosedTwins([...scanTasks(twin).unclaimed], scanTasks(twin).completed))
+    eq(st.proven.length, 1, '除编号外逐字节相同的让号遗留没被判成可证孪生(该通道取材断了)')
+    eq(st.proven[0].via, 'same-title', '同题不同编号必须走 same-title 档,不得冒充逐字包住')
+    eq(st.suspect.length, 0, '可证那对掉进了弱证据档')
+    // 反向(镜像 T2 同型):同一前缀、尾部讲另一件事 ⇒ 两档可证通道都不许接上
+    const near =
+      `- [ ] G-301 冷启动抢跑全仓盘点余量:甲线已清完 A 类 23 页并登记了回执行号
+- [x] ✅(2026-10-16) G-118 冷启动抢跑全仓盘点余量:乙线只剩 C 类 42 处待按需推进
+`
+    const stN = splitTwinsByProof(findClosedTwins([...scanTasks(near).unclaimed], scanTasks(near).completed))
+    eq(stN.proven.length, 0, '同前缀而尾部讲另一件事的两条被证成了"同一条活" —— 真活就此被扣掉名额')
+    // 只剥主键位置那一枚,绝不抹掉正文里的数字(web 86 处 vs web 99 处 必须是两条活)
+    eq(
+      keyIdStripped('- [ ] G-147 票 4 甲正文') === keyIdStripped('- [ ] G-998128 票 4 甲正文'),
+      true,
+      '除编号外逐字节相同的两行没被判等 ⇒ same-title 通道无牙',
+    )
+    eq(
+      keyIdStripped('- [ ] web 86 处内的键名对齐') === keyIdStripped('- [ ] web 99 处内的键名对齐'),
+      false,
+      '编号剥法越界:正文里的数字也被抹掉了 ⇒ 两条不同的活会被洗成一条',
+    )
+    // 端到端正向对照:被 [x] 行**逐字包住**的未勾行仍照扣 —— 放宽只砍弱通道,没把可证那一档也放行
+    const BODY = '冷启动抢跑全仓盘点余量甲任务的正文骨架需要长过容器下界'
+    const e2e = scanTasks(`- [ ] ${BODY}\n- [x] ✅(2026-10-16) ${BODY},取证:末行原文 RC=0\n`)
+    const tw = findClosedTwins([...e2e.unclaimed, ...e2e.inProgress], e2e.completed)
+    const e2eSplit = splitTwinsByProof(tw)
+    eq(e2eSplit.proven.length, 1, '逐字包住的那条没被判成可证孪生')
+    eq(
+      subtractProvenTwins(e2e.unclaimed, e2eSplit.proven).length,
+      0,
+      '可证孪生没从可认领里扣掉(那"接了就是白干"这一维就失效了)',
+    )
+  })
   for (const r of results) console.log(r)
   console.log(`--self-test: ${results.length - failures}/${results.length} 通过`)
   return failures
@@ -1122,17 +1230,25 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   }
 
   const twins = findClosedTwins([...unclaimed, ...inProgress], completed)
-  const twinLines = new Set(twins.map((t) => t.line))
-  const claimable = unclaimed.filter((t) => !twinLines.has(t.line))
+  const { proven: provenTwins, suspect: suspectTwins } = splitTwinsByProof(twins)
+  const claimable = subtractProvenTwins(unclaimed, provenTwins)
   const dupGroups = findDuplicateGroups([...unclaimed, ...inProgress])
   const dupExtra = dupGroups.reduce((n, g) => n + g.length - 1, 0)
 
   if (parsed.flags.has('--twins')) {
-    console.log(`已闭环 [x] 行的未勾孪生旧行 (${twins.length} 条) —— 接了就是白干:`)
-    for (const t of twins) {
+    console.log(
+      `已闭环 [x] 行的未勾孪生旧行 —— 可证(骨架被那条 [x] 行逐字包住,或**除主键位置编号外逐字节相同**) ${provenTwins.length} 条 ⇒ 接了就是白干,已从"可认领"扣名额:`,
+    )
+    for (const t of provenTwins) {
       console.log(
-        `  L${t.line} ↔ 已勾 L${t.twinLine}  (${t.via}${t.via === 'jaccard' || t.via === 'both' ? ` ${t.score.toFixed(2)}` : ''}) ${t.text}`,
+        `  L${t.line} ↔ 已勾 L${t.twinLine}  (${t.via}${t.via === 'both' ? ` ${t.score.toFixed(2)}` : ''}) ${t.text}`,
       )
+    }
+    console.log(
+      `  ⚠️ 相似度只到 SIM_THRESHOLD(现读 ${SIM_THRESHOLD})而**两档可证通道都没接上**的 ${suspectTwins.length} 条 —— 弱证据:照点名,**不扣名额**(拿不准的留在派单面,同 plan-tasks 的"剔除按正文推导,拿不准的留在清单里").要结清它:两行除编号外仍有一字之差 ⇒ 无法机器证明是同一条,与那条 [x] 行按**标题锚点**人工对齐后再走 node scripts/plan-tasks-merge.mjs --fold-twins(同题不同编号折叠);相似度不得替"同一条活"作证:`,
+    )
+    for (const t of suspectTwins) {
+      console.log(`  L${t.line} ↔ 已勾 L${t.twinLine}  (jaccard ${t.score.toFixed(2)}) ${t.text}`)
     }
     console.log(
       `\n${DUP_GROUP_HEADING} (${dupGroups.length} 组,多出 ${dupExtra} 条)`,
@@ -1151,12 +1267,16 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
           inProgress,
           completed,
           closedTwins: twins,
+          closedTwinsProven: provenTwins,
+          closedTwinsSuspect: suspectTwins,
           duplicateGroups: dupGroups,
           totals: {
             unclaimed: unclaimed.length,
             inProgress: inProgress.length,
             completed: completed.length,
             closedTwins: twins.length,
+            closedTwinsProven: provenTwins.length,
+            closedTwinsSuspect: suspectTwins.length,
             duplicateExtra: dupExtra,
             claimable: claimable.length,
           },
@@ -1171,7 +1291,7 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
 
   if (parsed.flags.has('--unclaimed')) {
     console.log(
-      `无人认领任务 (${claimable.length};另有 ${unclaimed.length - claimable.length} 条是已闭环行的孪生旧行,见 --twins):`,
+      `无人认领任务 (${claimable.length};另有 ${unclaimed.length - claimable.length} 条可证为已闭环行的旧副本(骨架被逐字包住 / 除编号外逐字节相同)⇒ 已扣名额;相似度只到阈值而未被逐字包住的仍在本清单内,见 --twins):`,
     )
     for (const t of claimable) console.log(`  L${t.line}: ${t.text}`)
     console.log(`判定面:${faceLabel}`)
@@ -1191,7 +1311,7 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   console.log('='.repeat(60))
   console.log()
   console.log(
-    `  无人认领:  ${unclaimed.length}(其中 ${unclaimed.length - claimable.length} 条是已闭环 [x] 行的孪生旧行 ⇒ **可认领 ${claimable.length}**;正文骨架相同组 ${dupGroups.length},不等同整行逐字节 —— 见 --twins)`,
+    `  无人认领:  ${unclaimed.length}(其中 ${unclaimed.length - claimable.length} 条**可证**为已闭环 [x] 行的旧副本(骨架被逐字包住 / 除编号外逐字节相同)⇒ **可认领 ${claimable.length}**;弱相似而两档可证通道都没接上的 ${suspectTwins.length} 条**不扣名额**、仍在清单内(见 --twins);正文骨架相同组 ${dupGroups.length},不等同整行逐字节 —— 见 --twins)`,
   )
   console.log(
     `  进行中:    ${inProgress.length}(旧格式无租约 ${leaseCounts.legacy} / 形态不可辨 ${leaseCounts.unknown} / 有持有者无日期 ${leaseCounts.holderNoDate};租约到期判红见 --check-gate)`,
@@ -1243,6 +1363,10 @@ export const __test__ = {
   findDuplicateGroups,
   /** S17 锁的是"报名文案不得比判据强一档",镜像测试要读同一份文案,不许在测试里另写一句。 */
   DUP_GROUP_HEADING,
+  /** S18:证据分档与"只扣可证那一档"的减法,镜像测试走同一份实现(§22c)。 */
+  splitTwinsByProof,
+  keyIdStripped,
+  subtractProvenTwins,
   bodyOf,
   parseClaim,
   analyzeLeases,
