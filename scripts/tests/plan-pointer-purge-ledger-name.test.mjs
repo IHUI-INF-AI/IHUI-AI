@@ -10,7 +10,8 @@
  *  ① 同机重跑:已用名必须换到未占用者;无机器标识时**逐字退回旧口径**(降级不改变既有行为)
  *  ② 跨机形状:本机 HEAD 没有、远端那一份已有 ⇒ 取名必须避开远端已用名
  *  ③ 反向对照:远端面拿掉 ⇒ 必须**喊出降级**;本地面拿不到 ⇒ 必须**拒绝取名**(§0.3 三态不并桶)
- *  ④ 正则兼容:造出的新名逐个喂给**真实消费方**(门 71 的 archivedCopy / 门 13c 的 anchorVerdict),
+ *  ④ 正则兼容:造出的新名逐个喂给**真实消费方**(门 71 的 archivedCopy;门 13c 的 anchorVerdict
+ *     那一臂随归档机制退役 295487496e2 一并退役 —— 13c 整门已拆,判据出口不复存在),
  *     由消费方自己判认不认得 —— 本文件不抄 ARCHIVE_FILE_RE
  *  ⑤ 口径同源:机器标识必须 import `lib/plan-id-lease.mjs`,不得在本脚本里第二实现
  *  ⑥ 装车证明:对真仓 HEAD 面(只读派生)现取一次,选出的名字必须真不在该面上
@@ -32,9 +33,9 @@ import {
   remoteLedgerFace,
   taggedLedgerRel,
 } from '../plan-pointer-purge.mjs'
-// 消费方判据的唯一实现:门 71 的归档豁免与门 13c 的归档点名。测试只调它们,不复制正则。
+// 消费方判据的唯一实现:门 71 的归档豁免(anchorVerdict 所在的门 13c 随归档机制退役,
+// 295487496e2,其 ④b 臂一并退役 —— 见下)。
 import { archivedCopy } from '../check-plan-line-loss.mjs'
-import { anchorVerdict } from '../check-project-plan-archive.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = join(HERE, '..', '..')
@@ -176,31 +177,6 @@ test('④a 正则兼容(门 71 消费方):新名必须落在归档豁免射程�
   // 反向锁:前缀被换掉的名字结构上不该放行 —— 证明上面三条命中不是"全都算"
   const offTarget = `${DIR}purge-ledger-2026-10-15-DESKTOP-MACH-A.md`
   assert.equal(archivedCopy(marker, { list: () => [offTarget], read: () => marker }), null)
-})
-
-test('④b 正则兼容(门 13c 消费方):占位点名新名必须被提取到,含非法字符的名字则点不出来', () => {
-  const v = anchorVerdict({
-    diskAnchors: [],
-    faceFiles: [],
-    faceRelPaths: [],
-    planText: `<!-- 已归档(2026-01-02):X,完整内容在 ${MK3} -->`,
-  })
-  assert.ok(
-    v.red.some((r) => r.includes('A2') && r.includes(bn(MK3))),
-    `门 13c 认不出新名(实测 ${JSON.stringify(v.red)})⇒ "写得出、没人认得"的归档件`,
-  )
-  // 反向对照:名字里混进空格/非 ASCII(投影前形态)⇒ 点名字符集提取不到,这一格就是投影存在的理由
-  const bad = 'purge ledger 甲.md'
-  const vBad = anchorVerdict({
-    diskAnchors: [],
-    faceFiles: [],
-    faceRelPaths: [],
-    planText: `<!-- 已归档(2026-01-02):X,完整内容在 ${DIR}${bad} -->`,
-  })
-  assert.ok(
-    !vBad.red.some((r) => r.includes(bad)),
-    `非法字符名竟被点名(实测 ${JSON.stringify(vBad.red)})⇒ 反向锁失效`,
-  )
 })
 
 test('④c 命名形态锁:标识投影与插位必须逐字产出消费方认得的形状', () => {

@@ -270,16 +270,19 @@ async def create_account(
 ) -> dict[str, Any]:
     """录入账号(jwt 加密落库)。同名账号已存在时抛 ValueError。
 
-    2026-10-16 李总定档兜底:传入 name 是 UUID 编码形态(旧前端/桌面端兜底名)时,
-    按 手机>邮箱>账户名>用户名 从 jwt 派生展示名顶替(桌面端 0.1.67+ 已在捕获侧
-    定名,这里是手动录入与旧调用方的第二道闸)。
+    2026-10-16 李总定档:展示名一律按「手机>邮箱>账户名>用户名」派生优先 ——
+    桌面端 tc 通道把 account 原始 profile 落进 device_map.account(含 phone),
+    这里**首次录入即取用**,不再等到列表加载才自愈(避免 UUID 兜底名先落库)。
+    派不出名时才退回调用方传入的 name。
     """
     pool = await get_shared_pool()
     jwt_enc = _encrypt_jwt(jwt)
-    if uuid_shaped_name(name):
-        better = extract_display_name(jwt, device_map)
-        if better:
-            name = better
+    derived = extract_display_name(jwt, device_map)
+    if derived:
+        name = derived
+    elif uuid_shaped_name(name):
+        # 派不出且传入的是 UUID 编码名 ⇒ 留待列表自愈(用户仍可行内改名)
+        logger.info("[checkin_store] 录入名 %s 为 UUID 形态且派不出展示名,保持原名", name)
     async with pool.acquire() as conn:
         try:
             row = await conn.fetchrow(

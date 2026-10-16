@@ -245,6 +245,29 @@ export function buildPlan(lines, opts = {}) {
     if (isRowLine(l) && !isProse(l)) rows.push({ i, line: l })
   })
   const candidates = rows.filter((r) => isCheckedRow(r.line) === false && isCandidate(r.line))
+  // 第三候选族(2026-10-16,机主令"一号一行"):同号多行组的漂开副本。上两族(指针/让位)只认
+  // 行内自述标记;union 反复带回的同号组两行都无标记 ⇒ 结构上永不进候选。正本 = 带租约者,
+  // 无租约组取行号靠前(早登记);非正本行进候选后走既有 L 吸收/承载档(零丢失断言照判)。
+  {
+    const byKey = new Map()
+    for (const r of rows) {
+      if (isCheckedRow(r.line)) continue
+      // 分族键 = 号本身(一号一行的"号"是身份键)。compositeKey=号+题面前缀,漂开组题面
+      // 已不同 ⇒ 键不同 ⇒ 永不成组(2026-10-16 实测 O88 组两行键各异)。号用 keyOfRow
+      // (主键窗口口径,plan-task-index 唯一出口)取;取不到号的行不进本族。
+      const k = idx.keyOfRow(r.line)
+      if (!k) continue
+      if (!byKey.has(k)) byKey.set(k, [])
+      byKey.get(k).push(r)
+    }
+    for (const [, grp] of byKey) {
+      if (grp.length < 2) continue
+      const holder = grp.find((r) => CLAIM_RE.test(stripMergeNotes(r.line))) || grp[0]
+      for (const r of grp) {
+        if (r !== holder && !candidates.includes(r)) candidates.push(r)
+      }
+    }
+  }
   const holders = rows.filter((r) => isCheckedRow(r.line) === false && !isCandidate(r.line))
   const bareOf = (l) => stripMergeNotes(stripMergeNotes(l).replace(CLAIM_RE, '')).trim()
   const claimOf = (l) => (CLAIM_RE.exec(stripMergeNotes(l)) || [null])[0]
@@ -385,8 +408,10 @@ export function buildPlan(lines, opts = {}) {
     // 吸收档(仅 --absorb):承载不成立时把候选行**归一化正文整段**挂到幸存行行尾,再由本器折并候选。
     const carried = (() => {
       if (!absorb || body.length < minBody || sLine.includes(body)) return null
-      if (claimOf(cLine) || claimOf(sLine)) return null
-      const seg = ` 〔副本正文并入·承载整段:${body}〕`
+      // 2026-10-16 收窄(机主令"一号一行"):候选行租约不再一票拒绝 —— 同号组的租约是
+      // 现场信息,随并入段原样保留(丢租约=丢现场);幸存行无租约时由 claimTransfers 转正。
+      const claimSeg = claimOf(cLine) && !claimOf(sLine) ? ` ${claimOf(cLine)}` : ''
+      const seg = ` 〔副本正文并入·承载整段:${body}${claimSeg}〕`
       if (DUP_POINTER_RE.test(sLine + seg) || SELF_DEDISPATCH_RE.test(sLine + seg)) return null
       return seg
     })()
