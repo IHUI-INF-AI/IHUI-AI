@@ -270,7 +270,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (status) (rate(ihui_llm_calls_total{job=\"ai-service\"}[5m]))",
+          "expr": "sum by (status) (rate(ihui_llm_calls_total{job=\"ai-service\"}[1h]))",
           "legendFormat": "{{status}}",
           "refId": "A"
         }
@@ -312,7 +312,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(ihui_llm_calls_total{job=\"ai-service\",status=\"ok\"}[5m])) / sum(rate(ihui_llm_calls_total{job=\"ai-service\"}[5m]))",
+          "expr": "sum(increase(ihui_llm_calls_total{job=\"ai-service\",status=\"ok\"}[$__range])) / sum(increase(ihui_llm_calls_total{job=\"ai-service\"}[$__range]))",
           "legendFormat": "success",
           "refId": "A"
         }
@@ -422,17 +422,17 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(ihui_llm_request_duration_seconds_bucket{job=\"ai-service\"}[5m])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(ihui_llm_request_duration_seconds_bucket{job=\"ai-service\"}[1h])))",
           "legendFormat": "P50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(ihui_llm_request_duration_seconds_bucket{job=\"ai-service\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(ihui_llm_request_duration_seconds_bucket{job=\"ai-service\"}[1h])))",
           "legendFormat": "P95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(ihui_llm_request_duration_seconds_bucket{job=\"ai-service\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(ihui_llm_request_duration_seconds_bucket{job=\"ai-service\"}[1h])))",
           "legendFormat": "P99",
           "refId": "A"
         }
@@ -475,17 +475,17 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(ihui_llm_ttft_seconds_bucket{job=\"ai-service\"}[5m])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(ihui_llm_ttft_seconds_bucket{job=\"ai-service\"}[1h])))",
           "legendFormat": "P50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(ihui_llm_ttft_seconds_bucket{job=\"ai-service\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(ihui_llm_ttft_seconds_bucket{job=\"ai-service\"}[1h])))",
           "legendFormat": "P95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(ihui_llm_ttft_seconds_bucket{job=\"ai-service\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(ihui_llm_ttft_seconds_bucket{job=\"ai-service\"}[1h])))",
           "legendFormat": "P99",
           "refId": "A"
         }
@@ -542,7 +542,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (direction) (rate(ihui_llm_tokens_total{job=\"ai-service\"}[5m]))",
+          "expr": "sum by (direction) (rate(ihui_llm_tokens_total{job=\"ai-service\"}[1h]))",
           "legendFormat": "{{direction}}",
           "refId": "A"
         }
@@ -628,7 +628,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(ihui_llm_tokens_total{job=\"ai-service\",direction=\"cache_read\"}[1h])) / sum(increase(ihui_llm_tokens_total{job=\"ai-service\",direction=\"input\"}[1h]))",
+          "expr": "sum(increase(ihui_llm_tokens_total{job=\"ai-service\",direction=\"cache_read\"}[$__range])) / sum(increase(ihui_llm_tokens_total{job=\"ai-service\",direction=\"input\"}[$__range]))",
           "legendFormat": "hit",
           "refId": "A"
         }
@@ -692,7 +692,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (provider) (rate(ihui_llm_calls_total{job=\"ai-service\"}[5m]))",
+          "expr": "sum by (provider) (rate(ihui_llm_calls_total{job=\"ai-service\"}[1h]))",
           "legendFormat": "{{provider}}",
           "refId": "A"
         }
@@ -734,7 +734,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (provider, status) (rate(ihui_llm_provider_errors_total{job=\"ai-service\"}[5m]))",
+          "expr": "sum by (provider, status) (rate(ihui_llm_provider_errors_total{job=\"ai-service\"}[1h]))",
           "legendFormat": "{{provider}} {{status}}",
           "refId": "A"
         }
@@ -833,7 +833,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (reason) (rate(llm_fallback_triggered_total{job=\"ai-service\"}[5m]))",
+          "expr": "sum by (reason) (rate(llm_fallback_triggered_total{job=\"ai-service\"}[1h]))",
           "legendFormat": "{{reason}}",
           "refId": "A"
         }
@@ -875,7 +875,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(llm_fallback_success_total{job=\"ai-service\"}[5m])) / clamp_min(sum(rate(llm_fallback_triggered_total{job=\"ai-service\"}[5m])),0.0001)",
+          "expr": "sum(increase(llm_fallback_success_total{job=\"ai-service\"}[$__range])) / sum(increase(llm_fallback_triggered_total{job=\"ai-service\"}[$__range]))",
           "legendFormat": "ok",
           "refId": "A"
         }
@@ -981,7 +981,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (call_type) (rate(business_ai_calls_total{job=\"business-metrics\"}[5m]))",
+          "expr": "sum by (call_type) (rate(business_ai_calls_total{job=\"business-metrics\"}[1h]))",
           "legendFormat": "{{call_type}}",
           "refId": "A"
         }
