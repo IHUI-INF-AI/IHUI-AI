@@ -1,4 +1,4 @@
-# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -375,38 +375,54 @@ function Get-Diagnosis {
 }
 
 function Send-Alert($msg) {
-  # 去重身份只取**异常清单**,不含诊断段:诊断里的构建时间/pid/持续分钟每轮都变,
-  # 拿它当身份等于没去重(5 分钟一轮 → 一条持续故障一天 288 封)。
-  $sig = ($msg -replace '\s+', ' ').Trim()
+  # [2026-10-16 根治] 去重身份从"全清单组合签名"改为**逐项独立身份**(机主明令:重复告警
+  # 本身就是缺陷)。旧形:身份 = 所有异常项 join 后的单一签名,组合一变(一项恢复/一项新增)
+  # 就生成新身份绕过 4h 去重 → 持续故障期间每个新组合都寄一封(10-15 一天 20+ 封的机制根源)。
+  # 新形:把异常清单按 " | " 拆成逐项,每项独立走"部署窗口抑制 + 身份去重":
+  #   - 全部项都命中抑制/去重 ⇒ 一条 [INFO] 汇总,不寄信
+  #   - 任一项 due ⇒ 寄**一封**(正文仍是完整异常清单+诊断,收信人视角不变),
+  #     仅 due 项被登记(Test-AlertDueByIdentity 判'该寄'时自带登记,未 due 项不触碰)。
+  # 项内不含 " | " 分隔串(项形如 'web(8801) 未监听' / '<URL> → ERR'),拆分可靠。
+  $items = @($msg -split '\s*\|\s*' | Where-Object { $_ })
   $diag = Get-Diagnosis
   # 诊断已判"部署重启中-预期现象"(部署锁在 / 15 分钟内有构建)⇒ 换流窗口的短暂拒连是
   # 预期内现象,只记日志不寄信。2026-09-28 实测:两天 30+ 封告警邮件全是这一种 —— 每轮部署
   # 窗口里 web/api/ai 与各公网域名各算一个不同告警身份,按身份去重拦不住。
   #
-  # 但抑制**必须有终态**(2026-09-29 补,修我自己的缺陷):上一版这里无条件 return,而
-  # "部署锁在 / 最近有构建"这两个条件在崩溃循环里会一直成立(部署环每轮重建即刷新"最近构建"),
-  # 于是 22:17:49→00:57:11 API 反复启动即死的那 2 小时 39 分(同一条身份最后一条抑制行落在 01:01:58),
-  # 每轮都只留下一行 [INFO] 而没有人被通知。
-  # 现在连续抑制超过 $ExpectedWindowGraceMinutes 分钟就不再当预期现象,落回正常发信路径,
-  # 并把"为什么这轮不再抑制"写进正文 —— 抑制的理由与放行的理由一样都要可见。
-  $graceNote = ''
-  if ($diag.Contains('[部署重启中-预期现象]')) {
-    $g = Test-AlertSuppressionGrace -Sig $sig -StateFile $MonitorStateFile -GraceMinutes $ExpectedWindowGraceMinutes
-    if ($g.Suppressed) {
-      "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [INFO] 预期窗口(部署重启中)告警已抑制,不推送: $msg | 诊断: $($diag -replace "`r?`n", ' | ') | $($g.Note)" | Add-Content $alertLog -Encoding utf8
-      return
+  # 抑制**必须有终态**(2026-09-29 补):连续抑制超过 $ExpectedWindowGraceMinutes 分钟就不再当
+  # 预期现象,落回正常发信路径。2026-10-16 起抑制锚也逐项化 —— "三项里两项恢复一项还在"时,
+  # 第三项的 grace 计数不再被整体签名变化打断。
+  $graceNotes = @()
+  $itemNotes  = @()
+  $dueItems   = @()
+  foreach ($item in $items) {
+    $isig = ($item -replace '\s+', ' ').Trim()
+    if ($diag.Contains('[部署重启中-预期现象]')) {
+      $g = Test-AlertSuppressionGrace -Sig $isig -StateFile $MonitorStateFile -GraceMinutes $ExpectedWindowGraceMinutes
+      if ($g.Suppressed) {
+        $itemNotes += "[$isig] 预期窗口抑制: $($g.Note)"
+        continue
+      }
+      $graceNotes += "[$isig] $($g.Note)"
     }
-    $graceNote = "`n- 抑制已到期: $($g.Note)"
-    $diag = $diag + "`n[预期窗口已超期] 该现象已连续超过 $ExpectedWindowGraceMinutes 分钟,不再按'部署重启中的正常现象'抑制"
+    $due = Test-AlertDue -Sig $isig
+    if ($due.Due) {
+      $dueItems += $isig
+      $itemNotes += "[$isig] 放行: $($due.Note)"
+    } else {
+      $itemNotes += "[$isig] 身份去重跳过: $($due.Note)"
+    }
   }
-  $due = Test-AlertDue -Sig $sig
-  if (-not $due.Due) {
-    Write-Host "$(Get-Date -Format 'HH:mm:ss') 告警按身份去重跳过: $($due.Note)" -ForegroundColor DarkYellow
+  if ($dueItems.Count -eq 0) {
+    "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [INFO] 逐项身份判定,全部命中抑制/去重,不推送: $msg | $($itemNotes -join ' | ')" | Add-Content $alertLog -Encoding utf8
     return
   }
-  $full = "$msg`n--------------------------------`n[原因诊断] $diag$($due.Note)$graceNote"
-  "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [ALERT] $msg | 诊断: $($diag -replace "`r?`n", ' | ')" | Add-Content $alertLog -Encoding utf8
-  Send-MailAlert -Subject "[IHUI-AI 监控告警] $sig" -BodyText $full | Out-Null
+  $subject = $dueItems -join ' | '
+  if ($subject.Length -gt 140) { $subject = $subject.Substring(0, 140) + '…' }
+  $full = "$msg`n--------------------------------`n[本次放行身份] $subject`n[逐项判定] $(($itemNotes -join "`n"))`n[原因诊断] $diag"
+  if ($graceNotes.Count) { $full = "$full`n[抑制到期] $($graceNotes -join "`n")" }
+  "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [ALERT] 放行($($dueItems.Count)/$($items.Count)项): $subject | 诊断: $($diag -replace "`r?`n", ' | ')" | Add-Content $alertLog -Encoding utf8
+  Send-MailAlert -Subject "[IHUI-AI 监控告警] $subject" -BodyText $full | Out-Null
 }
 
 Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 监控服务启动 — 通知唯一出口:品牌邮件 $NotifyEmailTo(按告警身份去重,每 $AlertRepeatHours 小时重发一次,无每日总量封顶)"
