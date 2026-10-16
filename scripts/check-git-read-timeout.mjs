@@ -51,6 +51,7 @@ export const HOT = [
   '.husky/pre-commit',
   '.husky/post-commit',
   '.husky/pre-push',
+  'scripts/lib/post-commit-hook.js',
   'scripts/guardian-runner.mjs',
   'scripts/safe-commit.mjs',
   'scripts/git-lock.mjs',
