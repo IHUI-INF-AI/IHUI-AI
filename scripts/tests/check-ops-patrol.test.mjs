@@ -816,7 +816,8 @@ test('TG P4 归属点名:红档要说清"这堆条目是谁的",且判定口径�
     assert.match(row.detail, /liveCache\([^)]*近 24h 有动,在用\)/)
     assert.doesNotMatch(row.detail, /镜像空目录清该目录/, '旧出路叫人不验身份镜像清空整个目录,而目录里最大的几枚是在用缓存')
     assert.match(row.detail, /不得照做/)
-    assert.match(row.detail, /scrub-temp-fixtures\.mjs --apply/)
+    assert.ok(gate.SCRUB_TEMP_FIXTURES_ROUTE.length > 0, '出路常量取不到 ⇒ 本用例空转,先判失败')
+    assert.ok(row.detail.includes(gate.SCRUB_TEMP_FIXTURES_ROUTE), `出路必须点名门自己的清扫入口,实得 ${row.detail}`)
     const noTop = gate.growthRow('P4a', { ...m, top: null }, 1024 ** 4, 5)
     assert.equal(noTop.state, 'finding', '摘掉 top 只该少了点名,不该少了红')
     assert.doesNotMatch(noTop.detail, /大头:/, '拿不到实测量就不得凭空点名归属')
@@ -836,23 +837,28 @@ test('TG2 外部件取用:绝对路径优先、量不到根只回落裸名,两�
   const win = { SystemRoot: 'C:\\windows' }
   const p = systemExePaths('w32tm.exe', win)
   assert.equal(p.length, 2, '有根 ⇒ 两档:绝对路径在前、裸名兜底在后')
-  assert.match(p[0], /System32[\\/]w32tm\.exe$/)
+  assert.ok(gate.SYSTEM32_SUBDIR.length > 0, '子目录常量取不到 ⇒ 本用例空转,先判失败')
+  assert.equal(p[0], join(win.SystemRoot, gate.SYSTEM32_SUBDIR, 'w32tm.exe'), '绝对路径一档必须由门体那份子目录拼出')
   assert.equal(p[1], 'w32tm.exe')
   const none = systemExePaths('tasklist.exe', {})
   assert.deepEqual(none, ['tasklist.exe'], '量不到根时只剩裸名一档(§26 禁止硬编码 C 盘)')
   assert.ok(!JSON.stringify(none).includes('C:\\'), '不得凭空造一个 C 盘根')
-  const hit = resolveSystemExe('w32tm.exe', { env: win, exists: (c) => c.includes('System32') })
+  const hit = resolveSystemExe('w32tm.exe', { env: win, exists: (c) => c.includes(gate.SYSTEM32_SUBDIR) })
   assert.equal(hit.via, '绝对路径')
-  assert.match(hit.exe, /System32/)
+  assert.ok(hit.exe.includes(gate.SYSTEM32_SUBDIR), '取用的必须是绝对路径那一档')
   const miss = resolveSystemExe('w32tm.exe', { env: win, exists: () => false })
   assert.equal(miss.exe, 'w32tm.exe', '两档都不在 ⇒ 回落裸名,让派生自己喊 ENOENT(而不是这里编一个不存在的路径)')
   assert.match(miss.via, /都没命中/, '回落必须写明为什么回落 —— 静默兜底会把"这台机没有那个 exe"读成"取到了"')
   assert.equal(miss.tried.length, 2, '原因里要能数出试过几条路径')
   const s = src('scripts/check-ops-patrol.mjs')
   const body = s.slice(s.indexOf('function runW32tm'), s.indexOf('function runW32tm') + 1400) + s.slice(s.indexOf('export function baiduSyncRunning'), s.indexOf('export function baiduSyncRunning') + 1600)
-  assert.doesNotMatch(body, /execFileSync\(\s*['"](?:w32tm|tasklist)/, '调用点又写回裸名 ⇒ 守护那一档会重新瞎掉')
-  assert.equal((body.match(/resolveSystemExe\(/g) || []).length, 2, '两处裸名派生必须都换成解析器,漏一处就是留一格盲区')
-  assert.match(body, /running: null, why:/, 'P5·网盘那一支原先裸 catch 把 error 当场丢弃 ⇒ 失败必须带原因')
+  assert.doesNotMatch(body, gate.CALLSITE_SHAPE.bareCallRe, '调用点又写回裸名 ⇒ 守护那一档会重新瞎掉')
+  assert.equal(
+    (body.match(gate.CALLSITE_SHAPE.resolverCallRe) || []).length,
+    gate.CALLSITE_SHAPE.resolverCalls,
+    '两处裸名派生必须都换成解析器,漏一处就是留一格盲区',
+  )
+  assert.match(body, gate.CALLSITE_SHAPE.whyRe, 'P5·网盘那一支原先裸 catch 把 error 当场丢弃 ⇒ 失败必须带原因')
 })
 
 test('TG3 时钟解析必须同时认两档区域:zh-CN 年份在前、SYSTEM 档(en-US)月在前带 AM/PM', () => {

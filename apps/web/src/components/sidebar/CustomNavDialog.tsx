@@ -115,6 +115,23 @@ export function CustomNavDialog({
     return result
   }, [groups, t])
 
+  // 浏览态:按顶级分组归桶(候选本就按分组顺序生成,同组项天然连续)
+  //
+  // 分组头不能省:只留父子两级的话,「热门/AI/管理/教育/内容/个人」这些大分组之间
+  // 没有分隔,整页又变成一条长列表 —— 那正是上一版被判"平铺"的形状。
+  const browseBuckets = React.useMemo(() => {
+    const order: string[] = []
+    const buckets = new Map<string, Candidate[]>()
+    for (const c of candidates) {
+      if (!buckets.has(c.groupLabel)) {
+        buckets.set(c.groupLabel, [])
+        order.push(c.groupLabel)
+      }
+      buckets.get(c.groupLabel)!.push(c)
+    }
+    return order.map((g) => ({ groupLabel: g, items: buckets.get(g)! }))
+  }, [candidates])
+
   const q = query.trim().toLowerCase()
 
   // 搜索态:拍平(含子项),按分组归桶 —— 搜索本身已收窄,平铺够用
@@ -217,7 +234,10 @@ export function CustomNavDialog({
               <div className="flex flex-col gap-4">
                 {searchBuckets.map((bucket) => (
                   <div key={bucket.groupLabel} className="flex flex-col gap-1">
-                    <div className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+                    <div
+                      data-testid={`nav-custom-group-${bucket.groupLabel}`}
+                      className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60"
+                    >
                       {bucket.groupLabel}
                     </div>
                     <div className="flex flex-col gap-0.5">
@@ -227,21 +247,33 @@ export function CustomNavDialog({
                 ))}
               </div>
             )
-          ) : // 浏览态:层级结构,与侧边栏一致
-          candidates.length === 0 ? (
+          ) : // 浏览态:三级结构,与侧边栏心智一致 —— 顶级分组头 → 父项 → 缩进子项
+          browseBuckets.length === 0 ? (
             <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground/60">
               {t('customNoResults')}
             </div>
           ) : (
             <div className="flex flex-col gap-4">
-              {candidates.map((c) => (
-                <div key={c.href} className="flex flex-col gap-0.5">
-                  {renderItemRow(c, false)}
-                  {c.children?.length ? (
-                    <div className="flex flex-col gap-0.5">
-                      {c.children.map((child) => renderItemRow(child, true))}
-                    </div>
-                  ) : null}
+              {browseBuckets.map((bucket) => (
+                <div key={bucket.groupLabel} className="flex flex-col gap-1">
+                  <div
+                    data-testid={`nav-custom-group-${bucket.groupLabel}`}
+                    className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60"
+                  >
+                    {bucket.groupLabel}
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    {bucket.items.map((c) => (
+                      <div key={c.href} className="flex flex-col gap-0.5">
+                        {renderItemRow(c, false)}
+                        {c.children?.length ? (
+                          <div className="flex flex-col gap-0.5">
+                            {c.children.map((child) => renderItemRow(child, true))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>

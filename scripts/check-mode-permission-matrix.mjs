@@ -755,10 +755,7 @@ function selfTest() {
 
   const c12 = clone()
   // 反例:构造器绕过合并、直接用附加集赋值生效集(基础档被替换)⇒ 必红
-  c12[FILES.pyAgentLoop] = loopSrc.replace(
-    /self\._effective_denylist(?::\s*frozenset\[str\])?\s*=\s*merge_turn_scoped_denylist\(\s*deny_tools,\s*turn_denylist\s*\)/,
-    'self._effective_denylist: frozenset[str] = frozenset(turn_denylist or ())',
-  )
+  c12[FILES.pyAgentLoop] = loopSrc.replace(M6_BYPASS_RE, M6_BYPASS_TO)
   t(
     'M6 反例:生效集绕过合并直接取附加集(基础档被替换)必红',
     c12[FILES.pyAgentLoop] !== loopSrc &&
@@ -854,10 +851,18 @@ function main() {
   process.exit(1)
 }
 
+// M6 反例注入料:锚定"合并调用方"那一行,把它换成"绕过合并直接取附加集"。
+// 单一出处 —— 门内自检与 §22c 镜像测试共用,谁改锚文本两侧同时可见(§22c 禁第二份)。
+const M6_BYPASS_RE =
+  /self\._effective_denylist(?::\s*frozenset\[str\])?\s*=\s*merge_turn_scoped_denylist\(\s*deny_tools,\s*turn_denylist\s*\)/
+const M6_BYPASS_TO = 'self._effective_denylist: frozenset[str] = frozenset(turn_denylist or ())'
+
 export const __test__ = {
   FILES,
   CHAT_MODES,
   PERM_MODES,
+  M6_BYPASS_RE,
+  M6_BYPASS_TO,
   parsePyDict,
   parsePyFrozenset,
   parseTsDict,
