@@ -1,123 +1,468 @@
 {
-  "annotations": { "list": [] },
-  "description": "IHUI-AI AI 调用成本与用量监控",
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
   "editable": true,
+  "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
   "links": [],
+  "liveNow": false,
   "panels": [
     {
-      "title": "AI 总成本 (USD)",
-      "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
-      "targets": [
-        { "expr": "sum(business_ai_cost_usd_total)", "legendFormat": "总成本", "refId": "A" }
-      ],
-      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "id": 200,
+      "type": "row",
+      "title": "支出总览",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "collapsed": false,
+      "panels": [],
+      "repeat": null
     },
     {
-      "title": "AI 调用总量",
+      "id": 201,
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
-      "targets": [
-        { "expr": "sum(business_ai_calls_total)", "legendFormat": "调用数", "refId": "A" }
-      ],
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
-    },
-    {
-      "title": "AI Token 总量",
-      "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
-      "targets": [
-        { "expr": "sum(business_ai_tokens_total)", "legendFormat": "Token", "refId": "A" }
-      ],
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
-    },
-    {
-      "title": "各厂商成本 (USD)",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "title": "区间总支出(USD)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
       "targets": [
         {
-          "expr": "sum by (vendor) (business_ai_cost_usd_total)",
-          "legendFormat": "{{vendor}}",
+          "expr": "sum(increase(ihui_llm_cost_usd_total{job=\"ai-service\"}[$__range]))",
+          "legendFormat": "total",
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "currencyUSD" } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
     },
     {
-      "title": "各厂商调用趋势 (QPS)",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "id": 202,
+      "type": "stat",
+      "title": "每小时支出",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
       "targets": [
         {
-          "expr": "sum(rate(business_ai_calls_total[5m])) by (vendor)",
-          "legendFormat": "{{vendor}}",
+          "expr": "sum(increase(ihui_llm_cost_usd_total{job=\"ai-service\"}[1h]))",
+          "legendFormat": "per-hour",
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "ops" } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
     },
     {
-      "title": "Token 消耗趋势",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "id": 203,
+      "type": "stat",
+      "title": "每千 token 单价(USD)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
       "targets": [
         {
-          "expr": "sum(rate(business_ai_tokens_total[5m])) by (vendor)",
-          "legendFormat": "{{vendor}}",
+          "expr": "sum(rate(ihui_llm_cost_usd_total{job=\"ai-service\"}[1h])) / clamp_min(sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=~\"input|output\"}[1h])),0.0001) * 1000",
+          "legendFormat": "k",
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "ops" } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
     },
     {
-      "title": "各模型调用分布",
-      "type": "piechart",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "id": 204,
+      "type": "stat",
+      "title": "支出是否在被采集",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
       "targets": [
         {
-          "expr": "sum by (model) (business_ai_calls_total)",
+          "expr": "count(ihui_llm_cost_usd_total{job=\"ai-service\"})",
+          "legendFormat": "series",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 205,
+      "type": "row",
+      "title": "趋势与构成",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "collapsed": false,
+      "panels": [],
+      "repeat": null
+    },
+    {
+      "id": 206,
+      "type": "timeseries",
+      "title": "支出趋势(按厂商)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      },
+      "targets": [
+        {
+          "expr": "sum by (provider) (rate(ihui_llm_cost_usd_total{job=\"ai-service\"}[1h]))",
+          "legendFormat": "{{provider}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 207,
+      "type": "timeseries",
+      "title": "支出趋势(按模型)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 7
+      },
+      "targets": [
+        {
+          "expr": "sum by (model) (rate(ihui_llm_cost_usd_total{job=\"ai-service\"}[1h]))",
           "legendFormat": "{{model}}",
           "refId": "A"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
     },
     {
-      "title": "单次调用成本 (USD/call)",
+      "id": 208,
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 22 },
+      "title": "Token 输入/输出速率",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
       "targets": [
         {
-          "expr": "sum by (vendor) (business_ai_cost_usd_total) / sum by (vendor) (business_ai_calls_total)",
-          "legendFormat": "{{vendor}} 单次成本",
+          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"input\"}[5m]))",
+          "legendFormat": "input",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"output\"}[5m]))",
+          "legendFormat": "output",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"cache_read\"}[5m]))",
+          "legendFormat": "cache_read",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"cache_creation\"}[5m]))",
+          "legendFormat": "cache_creation",
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "currencyUSD" } }
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 209,
+      "type": "table",
+      "title": "模型支出排行(区间)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "targets": [
+        {
+          "expr": "sum by (model, provider) (increase(ihui_llm_cost_usd_total{job=\"ai-service\"}[$__range]))",
+          "legendFormat": "m",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
     }
   ],
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
   "tags": ["ihui-ai", "ai", "cost"],
-  "templating": { "list": [] },
-  "time": { "from": "now-24h", "to": "now" },
-  "timepicker": {},
-  "timezone": "browser",
-  "title": "IHUI-AI AI 成本监控",
+  "templating": {
+    "list": [
+      {
+        "name": "provider",
+        "label": "厂商",
+        "query": {
+          "cloudCommand": null,
+          "cloudDuration": null,
+          "expression": "label_values(ihui_llm_cost_usd_total{job=\"ai-service\"}, provider)",
+          "range": false
+        },
+        "current": {
+          "selectedText": "All",
+          "text": "All",
+          "value": "$__all"
+        },
+        "includeAll": true,
+        "multi": true,
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query",
+        "hide": 0,
+        "definition": "label_values(ihui_llm_cost_usd_total{job=\"ai-service\"}, provider)",
+        "options": [],
+        "allValue": ".*"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "1h"]
+  },
+  "timezone": "",
+  "title": "IHUI-AI 模型成本与用量",
+  "tooltip": {
+    "shared": true,
+    "showCrosshair": false,
+    "sort": 2
+  },
   "uid": "ihui-ai-ai-cost",
   "version": 1,
   "weekStart": ""

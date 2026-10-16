@@ -1,0 +1,53 @@
+{
+  "_comment": "Grafana 大屏里合法引用、但由第三方导出器/采集器产生(不在本仓代码里发射)的指标名前缀台账。守门 check-grafana-metric-exists.mjs 的唯一外部通道;每条必须带 owner+reason+until(§0.7:豁免必须验过才免且会到期,且登记了却无人引用的前缀会被 G2 判成清单腐烂)。2026-10-17 首建:只收录当次审面实测被引用的前缀,node_/windows_/process_/loki_/go_ 等未被任何大屏引用的条目不留。",
+  "entries": [
+    {
+      "prefix": "pg_",
+      "owner": "postgres_exporter",
+      "reason": "postgres-exporter(9187)按 pg_stat_* 映射,postgresql.json 依赖",
+      "until": "2027-04-01"
+    },
+    {
+      "prefix": "redis_",
+      "owner": "redis_exporter",
+      "reason": "redis-exporter(9121),redis-cluster.json 依赖",
+      "until": "2027-04-01"
+    },
+    {
+      "prefix": "grafana_",
+      "owner": "grafana",
+      "reason": "Grafana 自监控指标(monitor_health.json)",
+      "until": "2027-04-01"
+    },
+    {
+      "prefix": "alertmanager_",
+      "owner": "alertmanager",
+      "reason": "Alertmanager 自监控指标(alert_history.json)",
+      "until": "2027-04-01"
+    },
+    {
+      "prefix": "http_",
+      "owner": "prometheus-fastapi-instrumentator / fastify metrics 插件",
+      "reason": "HTTP 层通用指标由第三方 instrumentation 库在运行时注册,名字不在仓内以 name: 声明",
+      "until": "2027-04-01"
+    },
+    {
+      "prefix": "ws_",
+      "owner": "apps/api/src/plugins 手写渲染",
+      "reason": "WebSocket 族由仓内手写 PromQL 文本渲染,名字以模板串出现",
+      "until": "2027-04-01"
+    },
+    {
+      "prefix": "bullmq",
+      "owner": "队列采集(线上未接线)",
+      "reason": "如实登记:bullmq.json 查询的族当前无采集器 ⇒ 面板恒 No data,属存量,清理前不得再扩",
+      "until": "2027-04-01"
+    },
+    {
+      "prefix": "container_",
+      "owner": "cAdvisor(未部署)",
+      "reason": "有面板引用该族但线上无容器采集器,登记为待定性存量",
+      "until": "2027-04-01"
+    }
+  ]
+}
