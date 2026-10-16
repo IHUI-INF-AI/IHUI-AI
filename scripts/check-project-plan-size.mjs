@@ -19,9 +19,7 @@
  *   exit 0 = 始终通过(warn-only,不阻塞 commit)
  */
 import { statSync, existsSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 
 const ROOT = process.cwd()
 const FILE = join(ROOT, 'PROJECT_PLAN.md')
@@ -50,17 +48,20 @@ if (stats.size > WARN_BYTES) {
   console.warn(`${C.yellow}⚠️  PROJECT_PLAN.md 体积偏大(warn-only,不阻塞)${C.reset}`)
   console.warn(`   当前: ${C.yellow}${sizeKB} KB${C.reset}`)
   console.warn(`   软参考: ${C.cyan}${warnKB} KB${C.reset}`)
-  // 出路必须**实测**,不许印一句"跑那个命令"。2026-09-25 抓到本门正给着一条跑不通的出路:
-  // 它原文建议"把已完成(✅)历史条目归档到 .ihui-agent/archive/",而当场跑
-  // `node scripts/archive-completed-tasks.mjs --all --dry-run` 报的是
-  // 「无可归档的已完成任务条目 (共 0 个已完成,阈值 all)」—— 归档器按 §1 只搬
-  // `### XXX(已完成 ✅ …)` **标题条目**,而本文件今天的体积主要来自
-  // `- [x] ✅ … **G-xxx/O-xx**` 这类**登记 bullet**(§1 禁止删、守门 71 防丢),不在它射程内。
-  // ⇒ 现在去问归档器本身,把它那一行原样打出来;问不到就明写"未判定",绝不印未经我验证的建议。
-  // (同型先例:守门 check-c-drive-pollution 曾提示一个根 package.json 里根本不存在的脚本名。)
-  // 2026-10-16 存档机制退役(机主令:完成即删):旧"移入 .ihui-agent/archive/"出路已死,
-  // 本门不再提供归档出路 —— 出路 = 完成行直接删 + 长注记按"台账只记真工作"收短,人工决定。
-
+  // 出路必须"跑得到",不许印一句跑不通的旧话(AGENTS.md §0.8;可整改性准入 §5e-1)。
+  // 2026-09-25 抓到旧本门建议"把已完成(✅)历史条目归档到 .ihui-agent/archive/",而当场跑
+  // `node scripts/archive-completed-tasks.mjs --all --dry-run` 报「无可归档的已完成任务条目 (共 0 个)」
+  // —— 归档器按 §1 只搬 `### 标题(已完成 ✅)` 条目,登记 bullet 不在射程 ⇒ 那句是跑不通的死路。
+  // 2026-10-16 存档机制整体退役(机主令"完成即删"):归档器 archive-completed-tasks / 守门 13c /
+  // pnpm archive 已拆除(实测 HEAD 与磁盘皆无),`.ihui-agent/archive/` 不再承接台账存料 ⇒
+  // 本门不再探测、也不再让用户去跑已退役的归档器(印一句跑不通的旧话 = §0.8 禁止)。
+  // ⇒ 现状唯一可执行出路:完成(✅)行直接删除(不留档);逐字节相同且未带指针的未勾行走真实存在的
+  // `plan-tasks-merge.mjs --fold-identical-open-rows`(默认只出报告,确认后再 --commit)。人工决定、不阻塞。
+  console.warn(
+    `   出路(现状·可执行): 完成(✅)行直接删除(2026-10-16 机主令"完成即删",不留档、不归档;` +
+      `旧"移入 .ihui-agent/archive/"那条死路已随归档器退役作废)。` +
+      `逐字节相同且未带指针的未勾行用 \`node scripts/plan-tasks-merge.mjs --fold-identical-open-rows\`(默认只出报告,确认后再加 --commit)。`
+  )
   // 2026-08-19 立:warn-only 违规显式 exit 1,让 guardian-runner 计入 warned 计数
   // (原本 exit 0 会让违规被 guardian-runner 静默吞掉,统计不可信)
   process.exit(1)

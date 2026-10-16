@@ -105,7 +105,7 @@ export function CloseChoiceDialog() {
         if (!next) answer('cancel')
       }}
     >
-      <DialogContent>
+      <DialogContent overlayClassName="wc-dim-exempt">
         <DialogHeader>
           <DialogTitle>{t('desktopAskTitle')}</DialogTitle>
           <DialogDescription>{t('desktopAskBody')}</DialogDescription>
