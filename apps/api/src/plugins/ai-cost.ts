@@ -21,6 +21,12 @@ import { requireAdmin } from './require-permission.js'
 import { success, error } from '../utils/response.js'
 import { calculateCost } from '../services/pricing-service.js'
 import { logger } from '../utils/logger.js'
+import {
+  recordAiCallSample,
+  recordAiCostWriteFailure,
+  type AiCallStatus,
+  type AiCallType,
+} from './business-metrics.js'
 
 // =============================================================================
 // Prompt 缓存 (L1 内存 LRU + L2 Redis 分布式双层)
@@ -342,6 +348,46 @@ export interface CostRecordInput {
   requestType?: string
   promptHash?: string
   metadata?: string
+  /**
+   * 成本币种(ISO 4217)。仅供 Prometheus 标签如实标注:
+   * 缺省取定价引擎返回的 currency(现值 CNY),再兜底 'CNY'。
+   * 落库列 ai_cost_records 无币种字段,故不影响 DB 写入。
+   */
+  currency?: string
+  /** 调用结果,缺省 'success'。供 business_ai_calls_total{status=...} 用。 */
+  status?: AiCallStatus
+  /**
+   * 调用类型。缺省由 requestType 经 REQUEST_TYPE_TO_CALL_TYPE 推导;
+   * 显式传入时优先(例:路由想把自己单列成一档)。
+   */
+  callType?: AiCallType
+}
+
+/**
+ * requestType → Prometheus `call_type` 标签的唯一映射表(单一真相源:除本表外别处不再判)。
+ *
+ * 'chat' 归入 'stream' 的依据(2026-10-17 现读全仓调用方):`requestType:'chat'` 的**唯一**
+ * 产出方是 `workers/ai-callback-worker.ts:146` —— AI 服务推理完成后的回调落账,而该回调就是
+ * SSE 流式对话的收口(chat-models / ai-chat-stream 的流式响应由上游 ai-service 推流、
+ * 结束时回调本 worker 记成本与 token)。非流式的直连对话各有自己的 requestType
+ * ('user-model-chat' / 'crew' / 'crew_session' / 'conversation-title' / 'semantic-summary')。
+ * 因此"没有 requestType 标记"的默认档才是 'chat',两者不会互相顶掉。
+ */
+const REQUEST_TYPE_TO_CALL_TYPE: Readonly<Record<string, AiCallType>> = {
+  chat: 'stream',
+  stream: 'stream',
+  crew: 'crew',
+  crew_session: 'crew',
+  'user-model-chat': 'user-model-chat',
+  'conversation-title': 'conversation-title',
+  'semantic-summary': 'semantic-summary',
+}
+
+/** 派生 call_type:未登记的 requestType 落 'chat'(默认档),不新增未知标签值以防基数漂移。 */
+export function resolveAiCallType(requestType?: string, explicit?: AiCallType): AiCallType {
+  if (explicit) return explicit
+  if (!requestType) return 'chat'
+  return REQUEST_TYPE_TO_CALL_TYPE[requestType] ?? 'chat'
 }
 
 /**
@@ -378,9 +424,16 @@ async function resolveTenantIdForUser(userId: string): Promise<string | undefine
  * - 若模型无定价配置，回退 0 成本并记录 warning。
  * - 若 input.tenantId 未提供且 input.userId 存在，自动从 tenant_members 解析租户归属，
  *   保证 admin 配额页租户维度用量与 tenant 预算检查有真实数据（2026-08-06 修复）。
+ * - **单点桥接 Prometheus `business_ai_*`**(2026-10-17 立):本函数是 AI 成本/用量的
+ *   唯一收口(crew-llm-adapter / ai-user-model-chat / conversation-title /
+ *   semantic-summary / ai-callback-worker 全走它),桥接放在这里 ⇒ 调用方自动受益、
+ *   结构上不可能漏;散在每个路由里埋点必然漂移。观测写入永不抛(见 recordAiCallSample),
+ *   且在落库**之前**记录 —— 一次调用是否发生过,与它最终有没有写成 ai_cost_records 是两件事,
+ *   后者失败另有 business_ai_record_failures_total 单独看得见。
  */
 export async function recordAiCost(input: CostRecordInput): Promise<void> {
   let cost = input.cost
+  let costCurrency = input.currency
   if (cost === undefined) {
     const result = await calculateCost({
       modelId: input.model,
@@ -392,23 +445,44 @@ export async function recordAiCost(input: CostRecordInput): Promise<void> {
       logger.warn(`[ai-cost] 模型无定价配置,回退 0 成本: model=${input.model}`)
     }
     cost = result.totalCost
+    // 币种口径跟定价引擎走,不在这里另拍一份(§0.6)
+    if (costCurrency === undefined) costCurrency = result.currency
   }
   const tenantId =
     input.tenantId ?? (input.userId ? await resolveTenantIdForUser(input.userId) : undefined)
-  await db.insert(aiCostRecords).values({
-    userId: input.userId,
-    tenantId,
+
+  recordAiCallSample({
+    vendor: input.provider,
     model: input.model,
-    provider: input.provider,
-    promptTokens: input.promptTokens,
-    completionTokens: input.completionTokens,
-    totalTokens: input.totalTokens,
-    cost: cost.toString(),
-    cached: input.cached ?? false,
-    requestType: input.requestType ?? 'chat',
-    promptHash: input.promptHash,
-    metadata: input.metadata,
+    inputTokens: input.promptTokens,
+    outputTokens: input.completionTokens,
+    // cost 的单位是「分」(定价引擎唯一口径),故标签如实写最小货币单位,不谎称 USD
+    costMinorUnits: cost,
+    currency: costCurrency ?? 'CNY',
+    status: input.status ?? 'success',
+    callType: resolveAiCallType(input.requestType, input.callType),
   })
+
+  try {
+    await db.insert(aiCostRecords).values({
+      userId: input.userId,
+      tenantId,
+      model: input.model,
+      provider: input.provider,
+      promptTokens: input.promptTokens,
+      completionTokens: input.completionTokens,
+      totalTokens: input.totalTokens,
+      cost: cost.toString(),
+      cached: input.cached ?? false,
+      requestType: input.requestType ?? 'chat',
+      promptHash: input.promptHash,
+      metadata: input.metadata,
+    })
+  } catch (err) {
+    // 成本落库失败 ⇒ 大屏上这条 AI 调用有计数但没有 DB 明细,必须留痕(不吞异常,原样上抛)
+    recordAiCostWriteFailure(input.provider, input.model)
+    throw err
+  }
 }
 
 /** 装饰 server: 提供 AI 成本治理辅助方法。 */
