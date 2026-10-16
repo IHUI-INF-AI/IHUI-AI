@@ -245,6 +245,26 @@ export function buildPlan(lines, opts = {}) {
     if (isRowLine(l) && !isProse(l)) rows.push({ i, line: l })
   })
   const candidates = rows.filter((r) => isCheckedRow(r.line) === false && isCandidate(r.line))
+  // 第三候选族(2026-10-16,机主令"一号一行"):同号多行组的漂开副本。上两族(指针/让位)只认
+  // 行内自述标记;union 反复带回的同号组两行都无标记 ⇒ 结构上永不进候选。正本 = 带租约者,
+  // 无租约组取行号靠前(早登记);非正本行进候选后走既有 L 吸收/承载档(零丢失断言照判)。
+  {
+    const byKey = new Map()
+    for (const r of rows) {
+      if (isCheckedRow(r.line)) continue
+      const k = idx.compositeKeyOf(stripMergeNotes(r.line))
+      if (!k) continue
+      if (!byKey.has(k)) byKey.set(k, [])
+      byKey.get(k).push(r)
+    }
+    for (const [, grp] of byKey) {
+      if (grp.length < 2) continue
+      const holder = grp.find((r) => CLAIM_RE.test(stripMergeNotes(r.line))) || grp[0]
+      for (const r of grp) {
+        if (r !== holder && !candidates.includes(r)) candidates.push(r)
+      }
+    }
+  }
   const holders = rows.filter((r) => isCheckedRow(r.line) === false && !isCandidate(r.line))
   const bareOf = (l) => stripMergeNotes(stripMergeNotes(l).replace(CLAIM_RE, '')).trim()
   const claimOf = (l) => (CLAIM_RE.exec(stripMergeNotes(l)) || [null])[0]
