@@ -567,7 +567,7 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
     assert.match(violations[0].msg, /HEAD 中不存在/)
   })
 
-  test('单元:行号越界 / 该行不含标识符 → 各自点名', () => {
+  test('单元:依据按内容锚定 —— 行号写歪但标识符在文件别处存在仍免除;处处不存在才判红', () => {
     const mk = (ev, head) =>
       verifyContractEntries({
         entries: entriesOf({ 'contract.key': { reason: REASON, evidence: [ev] } }),
@@ -576,11 +576,20 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
         readHead: () => head,
         target: 'mobile-rn',
       })
-    const range = mk({ file: 'a.ts', line: 99, contains: 'contract.key' }, 'l1\nl2\n')
-    assert.equal(range.violations[0].code, 'EVIDENCE_UNVERIFIED')
-    assert.match(range.violations[0].msg, /行号越界/)
-    const drift = mk({ file: 'a.ts', line: 2, contains: 'moved.away' }, 'l1\n// contract.key\n')
-    assert.match(drift.violations[0].msg, /依据已漂移/)
+    // 正向锁(§1 禁行号锚的落点):声明行号 99 早已越界/漂移,但标识符真在第 4 行 ⇒ 仍应免除死键判定。
+    const lineWrong = mk(
+      { file: 'a.ts', line: 99, contains: 'contract.key' },
+      'l1\nl2\nl3\n// contract.key\n',
+    )
+    assert.deepEqual(lineWrong.violations, [], '内容锚点成立就必须免除,不得因行号漂移判红')
+    assert.deepEqual(
+      lineWrong.exempted.map((e) => e.key),
+      ['contract.key'],
+    )
+    // 反向牙:标识符在该文件任何一行都不存在 ⇒ 判红(假依据绝不橡皮章)。
+    const absent = mk({ file: 'a.ts', line: 2, contains: 'moved.away' }, 'l1\n// contract.key\n')
+    assert.equal(absent.violations[0].code, 'EVIDENCE_UNVERIFIED')
+    assert.match(absent.violations[0].msg, /依据已漂移/)
   })
 
   test('单元:声明的键不在本端语言包 → KEY_NOT_IN_PACK(防清单腐烂)', () => {
