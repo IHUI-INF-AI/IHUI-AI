@@ -27,7 +27,7 @@ vi.mock('@tarojs/taro', () => ({
 }))
 vi.mock('@/utils/auth', () => ({ getToken: () => 'test-token' }))
 
-import { postToolApprovalResponse } from '@ihui/api-client'
+import type { postToolApprovalResponse } from '@ihui/api-client'
 import { SSEStreamParser } from '../src/lib/sse'
 import { TOOL_APPROVAL_FRAME_TYPE, parseToolApprovalLine } from '../src/lib/tool-approval-frame'
 import {
@@ -85,7 +85,10 @@ describe('D136 解析+分发:帧到设备不再静默丢弃(onToolApproval 真�
     // 缺 approval_id ⇒ 整帧不要(没有 id 就回传不了决策,留着只会挡路)
     expect(dispatch('data: {"type":"tool-approval","tool_name":"x"}')).toHaveLength(0)
     expect(dispatch('data: not-json')).toHaveLength(0)
-    expect(dispatch('data: {"type":"tool-approval","approval_id":"a","danger_level":"low"}')[0]?.dangerLevel).toBe('low')
+    expect(
+      dispatch('data: {"type":"tool-approval","approval_id":"a","danger_level":"low"}')[0]
+        ?.dangerLevel,
+    ).toBe('low')
   })
 })
 
