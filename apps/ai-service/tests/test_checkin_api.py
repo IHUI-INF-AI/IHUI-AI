@@ -1077,5 +1077,175 @@ async def test_credits_daily_series_and_consumed_formula(client, fake_store):
     assert series["total"] == [None, None, 160, 140, 100]
     assert series["gained"] == [0, 0, 0, 0, 20]
     assert series["consumed"] == [None, None, None, 20, 60]
+
+
+# ---------------------------------------------------------------------------
+# 风控第四件套(2026-10-16):出站节流 / 即时冷却 / 手动 429
+# ---------------------------------------------------------------------------
+
+
+async def _seed_account(store, name="风控号", platform="trae") -> int:
+    aid = store.next_account_id
+    store.next_account_id += 1
+    store.accounts[aid] = {
+        "id": aid,
+        "owner_user_id": "dev-anonymous",
+        "name": name,
+        "jwt": make_jwt(),
+        "device_map": {},
+        "group": "",
+        "platform": platform,
+        "enabled": True,
+        "created_at": datetime.now(UTC),
+        "updated_at": datetime.now(UTC),
+    }
+    return aid
+
+
+async def test_record_result_session_dead_instant_cooldown(fake_store):
+    """非计数类分类(SessionDead/-1)即时落冷却 —— 死号不再每天被重打。"""
+    sched = checkin_scheduler_mod.checkin_scheduler
+    aid = await _seed_account(fake_store, name="死号")
+    res = make_engine_result("死号", ok=False, classified_error={"type": "SessionDead", "cooldown_seconds": -1})
+    rec = await sched.record_result(aid, res)
+    assert rec["cooldown_until"] is not None
+    assert datetime.fromisoformat(rec["cooldown_until"]) > datetime.now(UTC) + timedelta(days=3000)
+    cooldowns = await fake_store.get_active_cooldowns()
+    assert aid in cooldowns
+
+
+async def test_record_result_soft_rate_instant_cooldown_and_global_pause(fake_store):
+    """SoftRate(429)→ 即时冷却 60s + 触发出站全局暂停(整批/手动立即停手)。"""
+    from app.services.checkin_outbound import checkin_outbound_gate
+
+    sched = checkin_scheduler_mod.checkin_scheduler
+    aid = await _seed_account(fake_store, name="限流号")
+    res = make_engine_result("限流号", ok=False, classified_error={"type": "SoftRate", "cooldown_seconds": 60})
+    rec = await sched.record_result(aid, res)
+    assert rec["cooldown_until"] is not None
+    assert datetime.fromisoformat(rec["cooldown_until"]) <= datetime.now(UTC) + timedelta(seconds=65)
+    assert checkin_outbound_gate.paused_remaining() > 0  # 全局暂停已挂起
+    checkin_outbound_gate.reset()
+
+
+async def test_record_result_plan_limit_instant_cooldown(fake_store):
+    """PlanLimit(配额尽)12h 即时冷却;0/None 不冷却。"""
+    sched = checkin_scheduler_mod.checkin_scheduler
+    aid = await _seed_account(fake_store, name="配额尽")
+    rec = await sched.record_result(
+        aid,
+        make_engine_result("配额尽", ok=False, classified_error={"type": "PlanLimit", "cooldown_seconds": 43200}),
+    )
+    assert rec["cooldown_until"] is not None
+    # cooldown_seconds=0 → 不冷却
+    rec2 = await sched.record_result(
+        aid, make_engine_result("配额尽", ok=False, classified_error={"type": "BusinessError", "cooldown_seconds": 0})
+    )
+    assert rec2["cooldown_until"] is None
+
+
+async def test_batch_aborts_on_outbound_pause(fake_store, mock_engine_success, monkeypatch):
+    """批内第一个账号 429 → 出站全局暂停 → 整批中止,后续账号不再被打。"""
+    from app.services.checkin_outbound import checkin_outbound_gate
+
+    await _seed_account(fake_store, name="A")
+    await _seed_account(fake_store, name="B")
+
+    # 打散 → 确定性顺序;错峰延迟与出站间隔归零免真实睡眠
+    monkeypatch.setattr(checkin_scheduler_mod.random, "shuffle", lambda x: None)
+    monkeypatch.setattr(checkin_scheduler_mod.random, "uniform", lambda a, b: 0)
+    monkeypatch.setenv("CHECKIN_OUTBOUND_MIN", "0")
+    monkeypatch.setenv("CHECKIN_OUTBOUND_MAX", "0")
+
+    # 假引擎真实过闸门:第一发 429 → record_result 挂起全局暂停 →
+    # 第二发 before_request 抛 OutboundPaused → _run_batch 整批中止
+    calls = []
+
+    async def fake_engine_429(name, jwt, device_map, **kwargs):
+        await checkin_outbound_gate.before_request("trae")
+        calls.append(name)
+        return make_engine_result(name, ok=False, classified_error={"type": "SoftRate", "cooldown_seconds": 60})
+
+    monkeypatch.setattr(checkin_scheduler_mod, "checkin_account", fake_engine_429)
+
+    sched = checkin_scheduler_mod.checkin_scheduler
+    await sched._run_batch(list(fake_store.accounts.values()), {}, "主窗口")
+    assert calls == ["A"]  # 第二个账号不再被打(整批中止)
+    # 429 号已落即时冷却
+    assert await fake_store.get_active_cooldowns()
+    checkin_outbound_gate.reset()
+
+
+async def test_manual_checkin_429_when_outbound_paused(client, fake_store, mock_engine_success):
+    """出站全局暂停中:手动签到 429 快速失败(引擎不被调用)。"""
+    from app.services.checkin_outbound import checkin_outbound_gate
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "手签号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+
+    checkin_outbound_gate.pause(seconds=60, reason="test")
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/checkin")
+    assert resp.status_code == 429
+    assert "限流冷却中" in resp.json()["detail"]
+    assert mock_engine_success == []  # 未打引擎
+    checkin_outbound_gate.reset()
+
+
+async def test_manual_checkin_429_when_account_in_cooldown(client, fake_store, mock_engine_success):
+    """账号冷却中:手动签到 429(尊重冷却,不给绕过后门)。"""
+    resp = await client.post("/api/checkin/accounts", json={"name": "冷却号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+    await fake_store.insert_record(
+        account_id,
+        ok=False,
+        action="claim",
+        http_status=401,
+        code=None,
+        message="unauthorized",
+        classified_error='{"type": "SessionDead", "cooldown_seconds": -1}',
+        cooldown_until=datetime.now(UTC) + timedelta(hours=1),
+        credits=None,
+        credits_delta=None,
+    )
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/checkin")
+    assert resp.status_code == 429
+    assert "冷却期" in resp.json()["detail"]
+    assert mock_engine_success == []
+
+
+async def test_query_credits_429_when_outbound_paused(client, fake_store, monkeypatch):
+    """出站暂停中:query_credits 统一 429(Trae 路径底层会转 error dict,预检拦在前面)。"""
+    from app.services import checkin_credits
+    from app.services.checkin_outbound import checkin_outbound_gate
+
+    async def fake_query(jwt):
+        raise AssertionError("暂停预检应在查询前拦下")
+
+    monkeypatch.setattr(checkin_credits, "query_remaining_credits", fake_query)
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "查分号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+
+    checkin_outbound_gate.pause(seconds=60, reason="test")
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
+    assert resp.status_code == 429
+    assert "限流冷却中" in resp.json()["detail"]
+    checkin_outbound_gate.reset()
+
+
+async def test_scheduler_cron_triggers_carry_jitter():
+    """日级起批漂移:三个 CronTrigger 均带 jitter(不再每天同一秒起批)。"""
+    from apscheduler.triggers.cron import CronTrigger
+
+    assert checkin_scheduler_mod._CRON_JITTER > 0
+    for hour, minute in ((8, 5), (10, 5), (8, 10)):
+        t = CronTrigger(hour=hour, minute=minute, timezone=checkin_scheduler_mod._CN_TZ,
+                        jitter=checkin_scheduler_mod._CRON_JITTER)
+        assert t.jitter == checkin_scheduler_mod._CRON_JITTER
+    # 调度器源码三处 add_job 均显式带 jitter=(防回退)
+    import inspect
+
+    src = inspect.getsource(type(checkin_scheduler_mod.checkin_scheduler))
+    assert src.count("jitter=_CRON_JITTER") >= 3
 # ⁠[IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
