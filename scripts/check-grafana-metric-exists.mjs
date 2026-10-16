@@ -322,7 +322,7 @@ function runAudit(face, opts = {}) {
 /** 差值棘轮:锚点 = 该 dashboard 文件在 HEAD 上自身的违规数。 */
 function applyRatchet(current, headViolationByFile) {
   const blocks = []
-  const存量 = []
+  const legacy = []
   for (const r of current.report) {
     const base = headViolationByFile[r.file] ?? 0
     const now = r.violations.length
@@ -335,10 +335,10 @@ function applyRatchet(current, headViolationByFile) {
       const added = r.violations.filter((v) => !baseSet.has(v.name))
       if (added.length > 0) blocks.push({ file: r.file, kind: 'new-ghost', added })
     } else if (now > 0) {
-      存量.push({ file: r.file, count: now, base })
+      legacy.push({ file: r.file, count: now, base })
     }
   }
-  return { blocks, 存量 }
+  return { blocks, legacy }
 }
 
 function main() {
@@ -366,13 +366,13 @@ function main() {
     console.log(`⚪ 未判定:HEAD 面对账失败(${head.reason})—— 无锚点不判棘轮`)
     return 2
   }
-  const { blocks, 存量 } = applyRatchet(res, headByFile)
+  const { blocks, legacy } = applyRatchet(res, headByFile)
   const totalRefs = res.report.reduce((a, r) => a + (r.referenced || 0), 0)
   console.log(
     `[grafana-metric-exists] 面=${face} 大屏 ${res.dashboardCount} 份 · 引用名 ${totalRefs} 个 · 发射点源 ${res.scanned} 个 · 已知名 ${res.emittedCount} 个`
   )
-  if (存量.length > 0) {
-    console.log(`⚠ 存量幽灵名(§12e 只报数,不拦无关提交):${存量.reduce((a, s) => a + s.count, 0)} 处` + (存量.length <= 12 ? ` — ${存量.map((s) => `${s.file}(${s.count})`).join(', ')}` : ''))
+  if (legacy.length > 0) {
+    console.log(`⚠ 存量幽灵名(§12e 只报数,不拦无关提交):${legacy.reduce((a, s) => a + s.count, 0)} 处` + (legacy.length <= 12 ? ` — ${legacy.map((s) => `${s.file}(${s.count})`).join(', ')}` : ''))
   }
   if (res.rotten.length > 0) console.log(`⚠ 台账腐烂:外部前缀 ${res.rotten.join(', ')} 已无大屏引用(§0.7,请清理)`)
   if (blocks.length === 0) {
