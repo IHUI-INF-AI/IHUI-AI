@@ -4,13 +4,14 @@
 
 // scripts/tests/check-no-conflict-markers.test.mjs
 /**
- * 守门 77「提交内容含 Git 冲突标记」的 §22c 镜像测试。
+ * 守门 79「提交内容含 Git 冲突标记」的 §22c 镜像测试。
  *
  * 跑法:node --test scripts/tests/check-no-conflict-markers.test.mjs
  *
  * 纪律(AGENTS.md §22c/§22d):本文件**不复制任何判据实现**,只 import 源脚本导出的
  * `__test__`;源脚本 main() 受 isDirectRun 守护,import 时零副作用(下面第 0 例即钉这一点)。
- * 端到端取证(临时仓 + 三种模式)另有源脚本的 `--self-test`(23 例),两处互补不重复造轮子。
+ * 端到端取证(临时仓 + 三种模式)另有源脚本的 `--self-test` —— 例数不在本文钉死(§0.1 凡数字
+ * 现读:`node scripts/check-no-conflict-markers.mjs --self-test` 末行即现值),两处互补不重复造轮子。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -45,10 +46,12 @@ test('0 __test__ 导出锚点齐全(§22c:源脚本必须导出核心函数)', (
     'SKIP_ENV',
     'MAX_BYTES',
     'SELF_EXEMPT_PREFIX',
+    'ORPHAN_JUDGED_RE',
   ]) {
     assert.ok(key in src, `__test__ 缺少导出键 ${key}`)
   }
   assert.equal(typeof src.findMarkerPairs, 'function')
+  assert.ok(src.ORPHAN_JUDGED_RE instanceof RegExp, 'P4 词尾名单必须是源脚本那一份 RegExp(测试不得自立名单)')
   assert.equal(src.SKIP_ENV, 'HUSKY_SKIP_CONFLICT_MARKERS')
 })
 
@@ -302,4 +305,87 @@ function srcGit() {
   if (bin) return bin
   throw new Error('未解析到 git 可执行文件')
 }
+
+// ── G-588(2026-10-16 收紧 P4)补齐的三臂 ──────────────────────────────────────
+// 立项现场:真仓归档件里躺着"只剩一半"的合并标记,每次提交全绿 —— 因为本门只判成对那一型。
+// 这三臂钉的是收紧本身:11 正反例、12 "判据只有一份实现"(验收③)、13 报数分型不混称。
+
+test('11 P4 正反例:带词尾的孤立标记进违规,合法单行 / 不带词尾 / E1 词尾一律不进', () => {
+  const judged = ['>>>>>>> theirs', '<<<<<<< theirs', '>>>>>>> ours', '<<<<<<< HEAD', '>>>>>>> HEAD']
+  for (const line of judged) {
+    const stats = src.newStats()
+    const v = src.judgeBuffer('doc.md', Buffer.from(['正文', line, ''].join('\n'), 'utf8'), stats)
+    assert.equal(v.length, 1, `${line} ⇒ 必须判违规`)
+    assert.equal(v[0].kind, 'orphan', `${line} ⇒ kind 必须是 orphan(渲染层要靠它分型报数)`)
+    assert.equal(v[0].startLine, 2, `${line} ⇒ 孤立标记点名到自己的行号,不能顶给整份文件`)
+    assert.equal(stats.orphanJudged, 1)
+    assert.equal(stats.filesWithViolations, 1)
+  }
+  // 反向锁(本票明令禁止的出路 = 把 P2/P3 整档改判红):这三型都不许变成违规
+  const notJudged = ['>>>>>>> REPLACE', '>>>>>>> feature/x', '=======', '<<<<<<< PATCH']
+  for (const line of notJudged) {
+    const stats = src.newStats()
+    const v = src.judgeBuffer('doc.md', Buffer.from(['正文', line, ''].join('\n'), 'utf8'), stats)
+    assert.equal(v.length, 0, `${line} ⇒ 仍不判红(词尾不在 P4 名单:setext/表格/E1 补丁语法都合法)`)
+    assert.equal(stats.orphanJudged, 0)
+    assert.equal(stats.filesWithViolations, 0)
+    assert.equal(stats.judged, 1, '不判红也必须算"判过",否则"没判"会被读成"判过且干净"')
+  }
+  // 纯孤立 `=======`:连标记针都没吃进,但 judged 仍要 +1(报数口径不能被护栏吞掉)
+  const sep = src.newStats()
+  assert.equal(src.judgeBuffer('md.md', Buffer.from('小节名\n=======\n正文\n', 'utf8'), sep).length, 0)
+  assert.equal(sep.judged, 1)
+  assert.equal(sep.unpairedStarts + sep.unpairedEnds, 0, '孤立 ======= 本就不进孤立计数(它不是尖括号标记)')
+})
+
+test('12 验收③:孤立判据吃的是 findMarkerPairs 那一份配对结果,禁止两处各扫一遍', () => {
+  const body = src.judgeBuffer.toString()
+  const calls = body.split('findMarkerPairs(').length - 1
+  assert.equal(calls, 1, `judgeBuffer 只允许问一次配对实现(实测 ${calls} 次)—— 第二次就是第二份真相`)
+  assert.match(body, /unpairedStarts/, '孤立判据必须从 findMarkerPairs 的未配对结果取,不许自扫行')
+  assert.match(body, /unpairedEnds/)
+  assert.match(body, /ORPHAN_JUDGED_RE/, '升判红的那一族只认源脚本那份词尾名单')
+  // 形状锁的反面:任何"自己再扫一遍行"的写法(切行 / 再配正则)都算漂开
+  for (const forbidden of [/\.split\(/, /\.match\(/, /OPEN_RE|END_RE|PATCH_OPEN|PATCH_CLOSE/]) {
+    assert.ok(!forbidden.test(body), `judgeBuffer 内出现 ${forbidden} ⇒ 判据被复制第二份,回到"两处各扫一遍"`)
+  }
+  // 行为等值锁:违规行号集必须与"直接问配对实现"推出的结果逐字相同(不只钉形状)
+  const corpus = [
+    ['正文', '>>>>>>> theirs', '', '=======', ''].join('\n'),
+    ['<<<<<<< HEAD', 'a', '=======', 'b'].join('\n'),
+    ['<<<<<<< ours', 'x', '', '>>>>>>> theirs', 'y', '>>>>>>> HEAD'].join('\n'),
+    ['小节名', '=======', '| a | b |'].join('\n'),
+  ]
+  for (const text of corpus) {
+    const fm = src.findMarkerPairs(text)
+    const expectLines = [...fm.unpairedStarts, ...fm.unpairedEnds]
+      .filter((u) => src.ORPHAN_JUDGED_RE.test(String(u.text ?? '')))
+      .map((u) => u.line)
+      .sort((x, y) => x - y)
+    const gotLines = src
+      .judgeBuffer('doc.md', Buffer.from(text, 'utf8'), src.newStats())
+      .filter((v) => v.kind === 'orphan')
+      .map((v) => v.startLine)
+      .sort((x, y) => x - y)
+    assert.deepEqual(gotLines, expectLines, `语料逐字对照漂开:${JSON.stringify(text.slice(0, 40))}…`)
+  }
+})
+
+test('13 render 分型报数:成对与孤立各报各的,不得混称"N 对"', () => {
+  const text = [OPEN, 'a', SEP, 'b', END, '', '>>>>>>> theirs', ''].join('\n')
+  const stats = src.newStats()
+  const violations = src.judgeBuffer('src/mixed.ts', Buffer.from(text, 'utf8'), stats)
+  assert.equal(violations.length, 2)
+  const out = src.render('全量', 1, violations, stats).join('\n')
+  assert.match(out, /成对 1 对 \/ 孤立带词尾 1 处/, '两型必须分别报数')
+  assert.doesNotMatch(out, /检出 2 对/, '把孤立说成"对"会引导读者去找不存在的另一半')
+  assert.match(out, /src\/mixed\.ts:7.*孤立标记/s, '孤立那一行要自带 ⟵ 孤立标记 说明')
+  assert.match(out, /git log -S/, '孤立那一型必须给出"另一半被谁吃掉"的取证出口')
+  assert.equal(stats.orphanJudged, 1)
+  assert.equal(stats.filesWithViolations, 1, '同一文件两型同现只算一个文件')
+  // 干净面:末行必须自己说清"两型都没检出",不能被读成只判了成对
+  const s2 = src.newStats()
+  const clean = src.render('提交树 HEAD', 0, [], s2).join('\n')
+  assert.match(clean, /✅.*P1.*P4/s)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

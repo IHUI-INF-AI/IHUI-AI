@@ -299,13 +299,19 @@ test('T8 ②′ 通道:行子集才刷新(正例)/ 真新暂存不动(反例)/ �
     g(['update-index', '--cacheinfo', `100644,${newBlob},sub2.ts`])
     writeFileSync(join(dir, 'sub2.ts'), 'c1\nc2\n别人新加的字段\n再改一行\n')
     const r2 = refreshStaleIndex(dir)
-    assert.ok(!r2.paths.includes('sub2.ts') && !r2.subsetPaths.includes('sub2.ts'), '真新暂存被刷新 = 替他撤销暂存')
+    assert.ok(
+      !r2.paths.includes('sub2.ts') && !r2.subsetPaths.includes('sub2.ts'),
+      '真新暂存被刷新 = 替他撤销暂存',
+    )
     assert.equal(
       g(['ls-files', '-s', '--', 'sub2.ts']).split(/\s+/)[1],
       newBlob,
       '索引 blob 被改动',
     )
-    assert.ok(!r2.paths.includes('born.ts') && !r2.subsetPaths.includes('born.ts'), '暂存删除走进 ②′ = 把有意 git rm 读成无损')
+    assert.ok(
+      !r2.paths.includes('born.ts') && !r2.subsetPaths.includes('born.ts'),
+      '暂存删除走进 ②′ = 把有意 git rm 读成无损',
+    )
 
     const src = healSrc()
     const body = funcBody(src, 'subsetRefreshable')
@@ -391,7 +397,11 @@ test('T9 装车 + 形状锁:第五层接进 alignDrifts 而 heal 不接,函数�
   assert.match(body, /ALIGN_EXEMPT_PATHS/, '判据①的取材被摘 ⇒ 本层会去碰非豁免路径')
   assert.match(body, /BYPASS_KIND/, '判据②的留痕族键被摘 ⇒ 任意一跳台账都能给陈旧作证')
   assert.match(body, /merge-base/, 'landedSha 的祖先校验被摘 ⇒ 不在当前线上的落地也能作证')
-  assert.match(body, /writeIndexCacheInfos\(/, '唯一写出口必须是 writeIndexCacheInfos(锁让路在它里面)')
+  assert.match(
+    body,
+    /writeIndexCacheInfos\(/,
+    '唯一写出口必须是 writeIndexCacheInfos(锁让路在它里面)',
+  )
   assert.doesNotMatch(
     body,
     /writeFileSync|appendFileSync|copyFileSync|rmSync|checkout/,
@@ -527,9 +537,17 @@ test('T16 dryRun:零写(索引 blob 与执行前逐字相同),candidates 带出�
     assert.equal(r.dryRun, true, 'dryRun 标志必须带出来,否则调用方分不清"预演"与"没活"')
     assert.equal(r.aligned, 0, 'dryRun 还报已对齐 = 谎报写盘')
     assert.deepEqual(r.paths, [])
-    assert.equal(r.candidates.length, 1, `必须点名作证的那一枚,实得 ${JSON.stringify(r.candidates)}`)
+    assert.equal(
+      r.candidates.length,
+      1,
+      `必须点名作证的那一枚,实得 ${JSON.stringify(r.candidates)}`,
+    )
     assert.equal(r.candidates[0].path, 'PROJECT_PLAN.md')
-    assert.equal(r.candidates[0].landingSha, landedSha, '作证 sha 必须就是落地那一枚(绑不上 sha 就统计不了)')
+    assert.equal(
+      r.candidates[0].landingSha,
+      landedSha,
+      '作证 sha 必须就是落地那一枚(绑不上 sha 就统计不了)',
+    )
     assert.equal(r.candidates[0].headBefore, headBefore)
     assert.equal(planIndexBlob(g), idxBefore, 'dryRun 写了索引')
     assert.equal(readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'), wtBefore, 'dryRun 写了工作树')
@@ -564,10 +582,17 @@ test('T17 MERGE_HEAD 让路:alignDrifts 整轮不写,返回形状必须带 landi
       'landingDeferred',
       'landingCandidates',
     ]) {
-      assert.ok(Object.hasOwn(r, k), `合并让路那个返回字面量里缺 ${k} ⇒ 守护读到 undefined 与读到 0 同形`)
+      assert.ok(
+        Object.hasOwn(r, k),
+        `合并让路那个返回字面量里缺 ${k} ⇒ 守护读到 undefined 与读到 0 同形`,
+      )
     }
     assert.equal(planIndexBlob(g), idxBefore, '合并中索引被写')
-    assert.equal(readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'), 'line-old\n', '合并中工作树被写')
+    assert.equal(
+      readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'),
+      'line-old\n',
+      '合并中工作树被写',
+    )
     // 对照一:同一现场若无 MERGE_HEAD 那一格,判据本身成立 ⇒ 起作用的是门,不是"永远不写"
     const dry = alignLandingDebtIndex(dir, { dryRun: true })
     assert.ok(
@@ -592,4 +617,83 @@ test('T17 MERGE_HEAD 让路:alignDrifts 整轮不写,返回形状必须带 landi
     rmScratch(dir)
   }
 })
+
+/**
+ * G-182(2026-10-16):②′ 行级子集那一档的尺寸护栏 —— 热活文档单给一档,其余保持 2 MB。
+ *
+ * 立因:2 MB 一刀切把 PROJECT_PLAN.md 整族挡在②′ 之外,而 LIVE-DOC 复原层要求逐字出处 ⇒
+ * 两层各自都对,叠在同一份文件上就"永远无人能证明可复原"(2026-10-11 实测一份滞后副本
+ * 连挡 git merge --ff-only 146 分钟、28 枚提交没上线)。这里钉三件事:
+ * ① 热文档超 2 MB 仍被判(且判成无损才动);② 同尺寸的普通路径照旧落 oversized 不判;
+ * ③ 报名必须说**这一批各自用的档**,不得把 17 MB 的 PROJECT_PLAN 报成"超 2 MB 护栏"。
+ */
+test('G-182 ②′ 尺寸档:热活文档单档放行、普通路径照旧不判、报名点出各自档值', () => {
+  const dir = mkScratch('heal-subset-cap-')
+  try {
+    const g = (args) =>
+      spawnSync(
+        'git',
+        ['-c', 'safe.directory=*', '-c', 'core.autocrlf=false', '-C', dir, ...args],
+        {
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 60_000,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      )
+    const mk = (headExtra, tag) => {
+      // 每行唯一(避免多重集判据在重复行上失真),两侧都 > 2 MB
+      const n = 24000
+      const rows = []
+      for (let i = 0; i < n; i++) rows.push(`line-${tag}-${i}-${'p'.repeat(120)}`)
+      for (const e of headExtra) rows.push(e)
+      return rows.join('\n') + '\n'
+    }
+    for (const rel of ['PROJECT_PLAN.md', 'big-normal.bin.txt']) {
+      writeFileSync(join(dir, rel), mk(['head-only-line-' + rel], 'h'))
+    }
+    g(['init', '-q'])
+    g(['add', '-A'])
+    g(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'base'])
+    const headBlob = new Map()
+    for (const rel of ['PROJECT_PLAN.md', 'big-normal.bin.txt']) {
+      headBlob.set(rel, g(['rev-parse', 'HEAD:' + rel]).stdout.trim())
+    }
+    // 索引侧改成"HEAD 的行子集"(删掉最后一行)⇒ ②′ 该判它无损可刷新
+    for (const rel of ['PROJECT_PLAN.md', 'big-normal.bin.txt']) {
+      const t = readFileSync(join(dir, rel), 'utf8').split('\n')
+      t.splice(-2, 1) // 去掉 head-only 那一行
+      writeFileSync(join(dir, rel), t.join('\n'))
+      g(['add', '--', rel])
+    }
+    const idxBlob = new Map()
+    for (const rel of ['PROJECT_PLAN.md', 'big-normal.bin.txt']) {
+      idxBlob.set(rel, g(['rev-parse', ':' + rel]).stdout.trim())
+    }
+    const sizes = [headBlob, idxBlob].map(() => null)
+    assert.ok(sizes.length === 2)
+    const cands = ['PROJECT_PLAN.md', 'big-normal.bin.txt']
+    const loss = []
+    const out = __test__.subsetRefreshable(dir, cands, idxBlob, headBlob, loss)
+    const refreshed = out.map(([p2]) => p2)
+    assert.ok(
+      refreshed.includes('PROJECT_PLAN.md'),
+      `热活文档(> 2 MB)必须落在②′ 的档内并被证明无损可刷新,实得 ${JSON.stringify(refreshed)}`,
+    )
+    assert.ok(
+      !refreshed.includes('big-normal.bin.txt'),
+      '同尺寸的普通路径必须仍被 2 MB 护栏挡住(放宽的只是点名过的三份)',
+    )
+    const oversized = loss.find((l) => l.bucket === 'oversized')
+    assert.ok(oversized, '普通路径那条必须作为 oversized 点名,不得静默')
+    assert.match(oversized.reason, /2097152/, '报名必须给出它实际用的档值(2 MB)')
+    assert.ok(!oversized.paths.includes('PROJECT_PLAN.md'), '热文档不能被塞进 oversized 桶')
+    assert.equal(__test__.subsetCapForPath('AGENTS.md'), 16 * 1024 * 1024, 'AGENTS.md 同属热档')
+    assert.equal(__test__.subsetCapForPath('README.md'), 16 * 1024 * 1024)
+    assert.equal(__test__.subsetCapForPath('apps/web/src/x.ts'), 2 * 1024 * 1024)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

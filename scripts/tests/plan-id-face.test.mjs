@@ -86,9 +86,12 @@ test('T1 装车证明:两个取号出口必须真的 import 并调用这份共�
   assert.match(body, /collectIdFace\(\{/, '占用面必须在 CAS 循环体内每轮现取')
   assert.match(body, /const baseContent = idFace\.text/, '喂给 usedIdsOfPrefix 的底稿必须是宽面')
   // 取号与幂等形状必须吃同一个变量:两面不同形 ⇒ 发出的号匹配不上自己编出的匹配式 ⇒ 幂等永不命中
+  // 这条锁判的是**machineId 有没有喂进那次调用**,不是第四个实参里还有谁:参数清单会随正当演进变宽
+  // (G-454 让号档加过 `vacating`),把整张字面量清单钉死,等于让"装车证明"在下一次加选项时自锁成
+  // 恒红 —— 而那型红的唯一结局是逼人绕开这条锁(§12e)。
   assert.match(
     body,
-    /resolveIdTokens\(targetLines, baseContent, remote, \{ machineId \}\)/,
+    /resolveIdTokens\(\s*targetLines,\s*baseContent,\s*remote,\s*\{[^}]*\bmachineId\b[^}]*\}\s*\)/,
     '取号必须带 machineId(池式租约判据要按机器分窗,漏喂 = 每次都当新机重占窗)',
   )
   assert.match(body, /compileBlockMatchers\(block,\s*baseContent\)/)

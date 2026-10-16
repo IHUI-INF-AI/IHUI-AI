@@ -813,10 +813,28 @@ export function compositeDriftPaths(
  *   **判据缺的不是严格,是"能证明无损时应当动手"**。
  *   两条护栏:① 暂存删除(diff-filter=D)**永不**走这条通道(删除可以是有意意图,
  *   "索引里没有"在多重集判据里天然成立,那是把意图读成无损);
- *   ② 单侧尺寸超过 `SUBSET_MAX_BYTES`(默认 2 MB)的路径不判 —— 巨型活文档的行级子集判定
- *   每 2 分钟跑一次不划算,而那一格恰恰最不该自动动(AGENTS §12 的活文档纪律要人工归并)。
+ *   ② 单侧尺寸超过 `SUBSET_MAX_BYTES`(默认 2 MB)的路径不判 —— 行级子集判定每 2 分钟跑一次,
+ *   拿它去扫任意巨型产物不划算,而产物那一格恰恰最不该自动动。
+ *
+ * **但这一刀切到不了热活文档**(G-182,2026-10-16 收口):`PROJECT_PLAN.md` / `AGENTS.md` /
+ * `README.md` 三份是"必然几十 MB 级、又必然被并行会话的旧副本顶住"的那一族。2 MB 上限把它们
+ * 整族挡在②′之外,而 LIVE-DOC 复原层要求"逐字出处在 HEAD∪归档∪远端" ⇒ **两层各自都对,
+ * 叠在同一份文件上就永远无人能证明它可复原**。实测代价(2026-10-16 现读,同一台机同一轮):
+ * 从 HEAD 读满 6.58 MB 的 `PROJECT_PLAN.md` = 77 ms、建行多重集 = 11 ms(15,932 行 / 9,374 个
+ * 不同行);3.05 MB 的 `README.md` = 70 ms + 8 ms。两侧都读满一次 ≈ 0.2 s,按守护 2 分钟一轮
+ * 算占空比 <0.2%,而它换来的是一枚真实停摆的消失:2026-10-11 一份 5.2 MB 滞后副本连挡
+ * `git merge --ff-only` **146 分钟、28 枚提交没上线**,期间到人的告警按 4h 身份去重只寄了 2 封。
+ * 所以热文档单给一档 `SUBSET_MAX_BYTES_HOT`(16 MB = 现读最大者 6.58 MB 的 ~2.4 倍余量),
+ * **其余路径保持 2 MB 原档不动**(放宽的只是这一族点名过的三份,不是把护栏整体调松)。
  */
 const SUBSET_MAX_BYTES = 2 * 1024 * 1024
+/** 热活文档档(只此三份,逐字节路径等值):见上方 G-182 的实测理由。 */
+const SUBSET_MAX_BYTES_HOT = 16 * 1024 * 1024
+const HOT_LIVE_DOCS = new Set(['PROJECT_PLAN.md', 'AGENTS.md', 'README.md'])
+/** 按路径取尺寸档 —— 两个面(索引 / HEAD)用同一把尺,免得一侧宽松一侧严格。 */
+function subsetCapForPath(rel) {
+  return HOT_LIVE_DOCS.has(rel) ? SUBSET_MAX_BYTES_HOT : SUBSET_MAX_BYTES
+}
 export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
   const g = makeGit(repoRoot)
   // 逻辑写锁守卫(2026-10-12):safe-commit 等 git-lock 消费方在伞下提交时,索引写入窗口实测
@@ -1009,8 +1027,8 @@ export function subsetRefreshable(repoRoot, candidates, idxBlob, headBlob, loss 
   const keep = sized.filter((p) => (sizes.get(`:${p}`) ?? 1 << 30) <= (sizes.get(`HEAD:${p}`) ?? 0))
   const readable = keep.filter(
     (p) =>
-      (sizes.get(`:${p}`) ?? 1 << 30) <= SUBSET_MAX_BYTES &&
-      (sizes.get(`HEAD:${p}`) ?? 1 << 30) <= SUBSET_MAX_BYTES,
+      (sizes.get(`:${p}`) ?? 1 << 30) <= subsetCapForPath(p) &&
+      (sizes.get(`HEAD:${p}`) ?? 1 << 30) <= subsetCapForPath(p),
   )
   // 超护栏的一族是**刻意不动**(活文档走人工归并),但它必须被点名 —— 否则"没判"与"判过"同形
   const oversized = sized.filter((p) => !readable.includes(p) && !keep.includes(p))
@@ -1024,12 +1042,17 @@ export function subsetRefreshable(repoRoot, candidates, idxBlob, headBlob, loss 
       reason: '索引侧字节**大于** HEAD 侧 ⇒ "行级子集"这一维结构上不成立(加行/扩写不是子集),本层不动',
       bucket: 'index-larger-than-head',
     })
-  if (loss && tooBig.length)
+  if (loss && tooBig.length) {
+    // 报数必须说**这一批各自用的档**(热文档 16 MB / 其余 2 MB)—— 只印 2097152 会把
+    // 一枚 17 MB 的 PROJECT_PLAN 报成"超 2 MB 护栏",那是第二个假归因(与上面 2026-10-14
+    // 那条"oversized 名不副实"同型)。
+    const caps = [...new Set(tooBig.map((p) => subsetCapForPath(p)))].sort((x, y) => x - y)
     loss.push({
       paths: tooBig,
-      reason: `超尺寸护栏(${SUBSET_MAX_BYTES} B)⇒ 本层刻意不判,交人工归并`,
+      reason: `超尺寸护栏(本批档:${caps.join(' / ')} B;热活文档单档见 SUBSET_MAX_BYTES_HOT)⇒ 本层刻意不判,交人工归并`,
       bucket: 'oversized',
     })
+  }
   if (!readable.length) return []
   const want = []
   for (const p of readable) want.push(`:${p}`, `HEAD:${p}`)
@@ -3230,6 +3253,10 @@ export const __test__ = {
   heal,
   alignDrifts,
   refreshStaleIndex,
+  // ②′ 行级子集那一档(G-182 加行为测:热活文档单档 vs 其余 2 MB,必须在测试里真跑判据,
+  // 不能再靠读源码文本断言 —— 读文本断不出"16 MB 的档到底落在哪条路径上")
+  subsetRefreshable,
+  subsetCapForPath,
   compositeDriftPaths,
   restoreToHead,
   restoreBypassOrphans,

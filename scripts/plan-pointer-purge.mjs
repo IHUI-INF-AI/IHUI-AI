@@ -61,7 +61,8 @@
  *
  * 用法: node scripts/plan-pointer-purge.mjs [--dry-run|--apply] [--absorb]
  */
-import { execFileSync, spawn } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
@@ -82,7 +83,9 @@ import { machineIdentity } from './lib/plan-id-lease.mjs'
 import { baseNameOf, parseZList } from './lib/plan-id-face.mjs'
 // 判据同源:门 203(台账同题多号差值棘轮)的标题指纹就是它。本脚本分族若另抄一份归一化,
 // 剥注记后必然出现"门 203 看见同题、我这边没看见"的撞车 —— 首版正是这么红的。
-const { extractTaskFingerprint } = require(path.join(ROOT, 'scripts/check-plan-task-duplicates.mjs'))
+const { extractTaskFingerprint } = require(
+  path.join(ROOT, 'scripts/check-plan-task-duplicates.mjs'),
+)
 const {
   alignSharedIndex,
   attestBypassCommit,
@@ -93,6 +96,56 @@ const {
 } = require(path.join(ROOT, 'scripts/lib/bypass-git.mjs'))
 
 const PLAN = 'PROJECT_PLAN.md'
+
+/**
+ * 台账正文交进 HEAD 之前必须带上溯源水印载荷(AGENTS §5c:生成器写盘后紧随注入)。
+ *
+ * 为什么这里绕一圈磁盘:本器走对象空间、**从不写工作树**,而零宽编码只有 `watermark.mjs`
+ * 那一份实现 —— 在这里再写一份 encoder 就是 §0.6 禁止的第二份真相(必然漂移)。
+ * 临时件落在 `.ihui-agent/tmp/<...>`(gitignored),用完即删;`inject` 幂等,已有载荷时是 no-op。
+ *
+ * @returns {{ok:true, text:string}|{ok:false, why:string}} 装不上就报原因,由调用方**拒绝落地**
+ *   (方向是保守的:宁可不落、下一轮重跑,也不把无水印的归档件送进 HEAD —— 那正是
+ *   2026-10-16 实测到的"每一枚 purge 台账都要有人在 CI 上重新发现一次红"的成因)。
+ */
+function ledgerWithWatermark(ledgerRel, text) {
+  const stage = path.join(
+    ROOT,
+    '.ihui-agent',
+    'tmp',
+    'plan-pointer-purge-wm',
+    path.basename(ledgerRel),
+  )
+  try {
+    mkdirSync(path.dirname(stage), { recursive: true })
+    writeFileSync(stage, text, 'utf8')
+    const r = spawnSync(
+      process.execPath,
+      [path.join(ROOT, 'scripts', 'watermark.mjs'), 'inject', stage],
+      { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: 120_000 },
+    )
+    if (r.status !== 0) {
+      return {
+        ok: false,
+        why: `watermark inject 退出码 ${r.status}:${String(r.stderr || '').split('\n')[0]}`,
+      }
+    }
+    const out = readFileSync(stage, 'utf8')
+    if (!out.includes('[IHUI-AI-PROVENANCE]:')) {
+      return { ok: false, why: 'inject 跑完仍无载荷标记 ⇒ 不交进 HEAD(不猜它成功了)' }
+    }
+    return { ok: true, text: out }
+  } catch (e) {
+    return { ok: false, why: String(e?.message ?? e) }
+  } finally {
+    try {
+      rmSync(stage, { force: true })
+    } catch {
+      /* 临时件删不掉不影响结论(在 gitignored 区) */
+    }
+  }
+}
+
 // 台账文件名必须带**本次运行日期**:整文件重写式,复用旧日期 = 抹掉旧台账的逐字记录 =
 // 门 71 在 60 提交窗口内把已清偿行判丢并回捞(对打循环复活)。见头注「台账」段。
 const LEDGER_REL = '.ihui-agent/archive/plan-pointer-purge-2026-10-14.md'
@@ -244,9 +297,7 @@ export function buildPlan(lines, opts = {}) {
     } else if (fam.length > 1) {
       // L2 族内归并:保留一条,**优先非候选持有行**(带认领的持有行),其次带认领副本,再次首行
       const keep =
-        fam.find((f) => !candidates.includes(f)) ||
-        fam.find((f) => claimOf(f.line)) ||
-        fam[0]
+        fam.find((f) => !candidates.includes(f)) || fam.find((f) => claimOf(f.line)) || fam[0]
       if (keep.i !== c.i) {
         deleteSet.add(c.i)
         stats.L2++
@@ -482,14 +533,22 @@ export function verifyPurge(oldLines, newLines, plan) {
     if (isRowLine(l) && !isProse(l) && CLAIM_RE.test(stripMergeNotes(l))) oldClaims.add(famKeyOf(l))
   const newClaimFams = new Set()
   for (const l of newLines)
-    if (isRowLine(l) && !isProse(l) && CLAIM_RE.test(stripMergeNotes(l))) newClaimFams.add(famKeyOf(l))
+    if (isRowLine(l) && !isProse(l) && CLAIM_RE.test(stripMergeNotes(l)))
+      newClaimFams.add(famKeyOf(l))
   const lostClaims = [...oldClaims].filter((k) => !newClaimFams.has(k))
   if (lostClaims.length)
-    errs.push(`A4 族级认领守恒破坏:${lostClaims.length} 个族丢失认领标记;样例:${lostClaims.slice(0, 3).join(' | ')}`)
+    errs.push(
+      `A4 族级认领守恒破坏:${lostClaims.length} 个族丢失认领标记;样例:${lostClaims.slice(0, 3).join(' | ')}`,
+    )
   // A3 注记残留只数**登记行**(散文/占位注释里的引用不动,渲染不可见且受门 13c 保护)
-  const residueDup = newLines.filter((l) => isRowLine(l) && !isProse(l) && DUP_POINTER_RE.test(l)).length
-  const residueSelf = newLines.filter((l) => isRowLine(l) && !isProse(l) && SELF_DEDISPATCH_RE.test(l)).length
-  if (residueDup || residueSelf) errs.push(`A3 登记行注记残留:dup=${residueDup} selfDe=${residueSelf}`)
+  const residueDup = newLines.filter(
+    (l) => isRowLine(l) && !isProse(l) && DUP_POINTER_RE.test(l),
+  ).length
+  const residueSelf = newLines.filter(
+    (l) => isRowLine(l) && !isProse(l) && SELF_DEDISPATCH_RE.test(l),
+  ).length
+  if (residueDup || residueSelf)
+    errs.push(`A3 登记行注记残留:dup=${residueDup} selfDe=${residueSelf}`)
   const openDelta = countOpen(oldLines) - countOpen(newLines)
   if (openDelta < 0) errs.push(`A2 未勾选行数反增:${countOpen(oldLines)} → ${countOpen(newLines)}`)
   // A5 真归并单调性(L5/L6,2026-10-14):结果面上的 F4 副本数与 F10 可折数都不得比清偿前多。
@@ -505,10 +564,12 @@ export function verifyPurge(oldLines, newLines, plan) {
     const aLines = bareFace(newLines)
     const before4 = idx.findDupOpenCopies(idx.auditPlan(bLines.join('\n')).dupOpen).length
     const after4 = idx.findDupOpenCopies(idx.auditPlan(aLines.join('\n')).dupOpen).length
-    if (after4 > before4) errs.push(`A5 F4 副本数反增:${before4} → ${after4}(注记已归一化 ⇒ 这是真造出来的重复)`)
+    if (after4 > before4)
+      errs.push(`A5 F4 副本数反增:${before4} → ${after4}(注记已归一化 ⇒ 这是真造出来的重复)`)
     const before10 = foldTwins(bLines).edits.length
     const after10 = foldTwins(aLines).edits.length
-    if (after10 > before10) errs.push(`A5 F10 可折数反增:${before10} → ${after10}(注记已归一化 ⇒ 这是真造出来的重复)`)
+    if (after10 > before10)
+      errs.push(`A5 F10 可折数反增:${before10} → ${after10}(注记已归一化 ⇒ 这是真造出来的重复)`)
   } catch (e) {
     // 判据自己炸了 ≠ 通过。旧版这里 `catch {}` 静默放行 = "未判定"被读成"已判定且绿"(§0.3 禁),
     // 而本脚本的动作是整批真删行 ⇒ 未判定只能往保守方向走:不落。
@@ -613,9 +674,13 @@ export function chooseLedgerRel({
     return null
   }
   const remoteKnown = Array.isArray(remoteFiles)
-  const used = new Set([...localFiles, ...(remoteKnown ? remoteFiles : [])].map((p) => baseNameOf(p)))
+  const used = new Set(
+    [...localFiles, ...(remoteKnown ? remoteFiles : [])].map((p) => baseNameOf(p)),
+  )
   if (!ledgerMachineTag(tag))
-    say('⚠️ 本轮台账名不含机器标识 ⇒ 跨机同刻取名仍可能同名(检查 IHUI_MACHINE_ID / 主机名 / 仓根指纹)')
+    say(
+      '⚠️ 本轮台账名不含机器标识 ⇒ 跨机同刻取名仍可能同名(检查 IHUI_MACHINE_ID / 主机名 / 仓根指纹)',
+    )
   for (let n = 1; n <= maxSeq; n++) {
     const cand = ledgerSeqRel(ledgerRel, tag, n)
     if (!used.has(baseNameOf(cand))) {
@@ -644,7 +709,10 @@ const firstLine = (e) =>
  * 读不到 ⇒ `{files:null, reason}` —— 未判定 ≠ 没有占用。
  * 只取名、不读内容(归档目录里有 13.8 MB 的归档件,`lib/plan-id-face.mjs` 同一课)。
  */
-export function listLedgerNamesOnSource(source, { root = ROOT, dir = LEDGER_DIR_REL, gitRun = gitRead } = {}) {
+export function listLedgerNamesOnSource(
+  source,
+  { root = ROOT, dir = LEDGER_DIR_REL, gitRun = gitRead } = {},
+) {
   try {
     const z = gitRun(['ls-tree', '-r', '--name-only', '-z', source, '--', dir], {
       root,
@@ -695,18 +763,23 @@ export function remoteLedgerFace({ root = ROOT, gitRun = gitRead } = {}) {
   }
   let sha = ''
   try {
-    const out = String(gitRun(['ls-remote', remote, remoteRef], { root, timeout: LS_REMOTE_TIMEOUT_MS }) ?? '')
+    const out = String(
+      gitRun(['ls-remote', remote, remoteRef], { root, timeout: LS_REMOTE_TIMEOUT_MS }) ?? '',
+    )
     const lines = out.split(/\r?\n/).filter((l) => l.trim() !== '')
     const hit = lines.find((l) => l.split('\t')[1] === remoteRef) ?? lines[0] ?? ''
     sha = String(hit.split('\t')[0] ?? '').trim()
   } catch (e) {
     return fail(`${remote} ${remoteRef} 的 ls-remote 问不到:${firstLine(e).slice(0, 120)}`)
   }
-  if (!/^[0-9a-f]{40}$/.test(sha)) return fail(`${remote} ${remoteRef} 的 ls-remote 回的不是 40 位 SHA`)
+  if (!/^[0-9a-f]{40}$/.test(sha))
+    return fail(`${remote} ${remoteRef} 的 ls-remote 回的不是 40 位 SHA`)
   try {
     gitRun(['cat-file', '-e', `${sha}^{tree}`], { root, timeout: LS_TREE_TIMEOUT_MS })
   } catch {
-    return fail(`远端 tip ${sha.slice(0, 12)} 的对象不在本地对象库(本器不 fetch ⇒ 远端已用名不进基准)`)
+    return fail(
+      `远端 tip ${sha.slice(0, 12)} 的对象不在本地对象库(本器不 fetch ⇒ 远端已用名不进基准)`,
+    )
   }
   const face = listLedgerNamesOnSource(sha, { root, gitRun })
   return {
@@ -764,7 +837,9 @@ function main() {
   // 门 203 同源自校验:清偿不得自己造出「同题多号」
   const dups = gate203Delta(headText, next.join(eol) + eol)
   if (dups.length) {
-    console.error(`❌ 门 203 同源自校验失败:清偿后比 HEAD 多出 ${dups.length} 个同题多号成员键,拒绝落地:`)
+    console.error(
+      `❌ 门 203 同源自校验失败:清偿后比 HEAD 多出 ${dups.length} 个同题多号成员键,拒绝落地:`,
+    )
     for (const d of dups.slice(0, 12))
       console.error(`   - 指纹=${d.fingerprint} 自持号=${d.selfId} 多出=${d.extra} 份`)
     console.error('   ⇒ 分族键仍与门 203 不同源,先修 famKeyOf 的归一化,再重跑(不许为消红放宽判据)')
@@ -772,7 +847,9 @@ function main() {
   }
   const before = lines.filter((l) => l.trim() !== '').length
   const after = next.filter((l) => l.trim() !== '').length
-  console.log(`守恒断言 5/5 通过;门 203 同源自校验 0 键;非空行 ${before} → ${after}(-${before - after})`)
+  console.log(
+    `守恒断言 5/5 通过;门 203 同源自校验 0 键;非空行 ${before} → ${after}(-${before - after})`,
+  )
   if (!apply) {
     console.log('--dry-run 模式,未落地。加 --apply 走对象空间落地(从不写工作树)。')
     return 0
@@ -912,13 +989,20 @@ function main() {
         // 上面 chooseLedgerRel 已逐条点名原因,这里不重复展开。
         return 1
       }
+      const wm = ledgerWithWatermark(landedLedger, fLedger)
+      if (!wm.ok) {
+        console.log(
+          `❌ 台账水印装不上(${wm.why})⇒ 本枚不落地(无载荷的归档件进 HEAD = 每轮都要有人在 CI 上重新发现一次红);修好 inject 这一环再重跑本器。`,
+        )
+        return 1
+      }
       const { commit } = commitTreeWithIndex({
         root: ROOT,
         parent: head,
         message: fMsg,
         entries: [
           { path: PLAN, text: fNextText },
-          { path: landedLedger, text: fLedger },
+          { path: landedLedger, text: wm.text },
         ],
         baseRef: 'HEAD',
       })
@@ -969,7 +1053,12 @@ function main() {
       }
       return 0
     } catch (e) {
-      console.log(`   第 ${attempt} 次派生失败,重读面再来:${String(e?.message ?? e).split('\n').pop().slice(0, 140)}`)
+      console.log(
+        `   第 ${attempt} 次派生失败,重读面再来:${String(e?.message ?? e)
+          .split('\n')
+          .pop()
+          .slice(0, 140)}`,
+      )
     }
   }
   console.log('❌ 多次未抢到 CAS ⇒ 不覆盖别人的推进(这不是失败,是并发窗口太密;稍后重跑即可)')
@@ -980,4 +1069,7 @@ const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process
 if (isDirectRun) {
   main()
 }
+
+/** 供镜像测试直取(§22c:测试 import 源实现,不复制判据)。 */
+export const __test__ = { ledgerWithWatermark }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

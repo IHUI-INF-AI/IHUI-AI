@@ -30,7 +30,11 @@ tauri-build = { version = "2.6", features = [] }
 indexmap = { version = "1.9.3", features = ["std"] }
 
 [dependencies]
-tauri = { version = "2.11", features = ["tray-icon", "devtools"] }
+# 2026-10-16 内嵌浏览器升级为 Trae 形态:窗口内「工具条 + 多内容 webview」需要
+# `Window::add_child`(多 webview 单窗),该 API 在 Tauri 2 里挂在 `unstable` feature
+# 下(docs.rs:"Available on crate feature unstable only")。用户 2026-10-16 拍板启用,
+# 以换取真·多标签(切换不重载)。desktop-only,不影响移动端。
+tauri = { version = "2.11", features = ["tray-icon", "devtools", "unstable"] }
 tauri-plugin-deep-link = "2.4"
 tauri-plugin-dialog = "2.7"
 tauri-plugin-fs = "2.5"

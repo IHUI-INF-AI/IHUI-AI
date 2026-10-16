@@ -18,6 +18,8 @@ import assert from 'node:assert/strict'
 import { normalizeTriggers, triggersTouch } from '../lib/guardian-triggers.mjs'
 
 const RUNNER = resolve(import.meta.dirname, '../guardian-runner.mjs')
+// 2026-10-16 执行段外置:消费面(T9)改判外置层源;注册面(T8)仍读 runner。
+const EXECUTOR = resolve(import.meta.dirname, '../lib/guardian-executor.mjs')
 
 test('T1 数组注册:逐条保留,顺序不变', () => {
   assert.deepEqual(normalizeTriggers(['apps/', 'packages/']), ['apps/', 'packages/'])
@@ -62,7 +64,9 @@ test('T8 反向回归锁:注册表里不得再有裸字符串 stagedTriggers', (
 })
 
 test('T9 消费面两处都走归一层(不得只修一处留下另一个崩点)', () => {
-  const src = readFileSync(RUNNER, 'utf8')
+  // 2026-10-16 执行段外置:stagedPathsTouch 定义与跳过提示行逐字搬到 scripts/lib/guardian-executor.mjs,
+  // 本锁跟着落点走;链路 runner → executor → guardian-triggers,运行时仍是同一份归一实现。
+  const src = readFileSync(EXECUTOR, 'utf8')
   assert.ok(/function stagedPathsTouch\(prefixes\) \{[\s\S]*?\n\}/.test(src))
   const body = src.match(/function stagedPathsTouch\(prefixes\) \{([\s\S]*?)\n\}/)[1]
   assert.ok(body.includes('triggersTouch('), 'stagedPathsTouch 未改道共用层')

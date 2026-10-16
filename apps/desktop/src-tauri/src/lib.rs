@@ -3033,6 +3033,15 @@ pub fn run() {
                     let app = window.app_handle().clone();
                     let _ = save_window_state(Some(label.clone()), app);
                 }
+                // 2026-10-16 内嵌浏览器多标签:窗口被系统关闭(Alt+F4 / 任务栏)时,
+                // 子 webview 已随窗销毁,但会话状态还留着标签表 ⇒ 复位,免得下次
+                // open 时 active 指向已不存在的 webview。
+                if label == embedded_browser::BROWSER_WINDOW_LABEL {
+                    let app = window.app_handle().clone();
+                    use tauri::Manager;
+                    app.state::<embedded_browser::BrowserManager>()
+                        .reset();
+                }
                 // 2026-09-26 A10C-1:深链闸门的目标窗口销毁 ⇒ 清账 + 复位就绪标记,
                 // 否则积压的 sso_code 会活到下一次冷启动、被投给另一次会话的渲染端。
                 reset_deep_link_gate_on_destroy(&label);
@@ -3041,6 +3050,9 @@ pub fn run() {
         // 本地 git/diff 通道：授权根/允许基目录/git 候选都存在这份宿主状态里，
         // 前端永远不能自报 root（见 git_channel_ipc.rs 头注）。
         .manage(git_channel_ipc::GitChannelState::from_env())
+        // 2026-10-16 内嵌浏览器升级:多标签会话状态(窗口/标签/当前标签),命令与
+        // 工具条哨兵处理器共用这一份。
+        .manage(embedded_browser::BrowserManager::default())
         // 关窗「询问我」的等待闸门(2026-09-28 立):窗口事件与命令共用这一份挂账状态。
         .manage(CloseGate::default())
         .setup(|app| {
@@ -3292,6 +3304,8 @@ pub fn run() {
             embedded_browser::embedded_browser_open,
             embedded_browser::embedded_browser_close,
             embedded_browser::embedded_browser_state,
+            embedded_browser::embedded_browser_new_tab,
+            embedded_browser::embedded_browser_devtools,
             get_admin_window_info,
             toggle_devtools,
             quit_app,
