@@ -135,10 +135,13 @@ test('T5 遮罩必须真起作用:同一句旧写法只出现在注释里时不�
     false,
     '注释里的散文引用被读成了违规(遮罩没生效)',
   )
-  // 反例(构造面):同一形态出现在代码位上必须命中
+  // 反例(构造面):同一形态出现在代码位上必须命中。
+  // 注:--root 注入缝(2026-10-16)把 `const ROOT = resolve(dirname(...))` 改成三元式,
+  // 锚点不再是整行;改锚三元式里仍在的 `resolve(dirname(fileURLToPath(import.meta.url)), '..')`
+  // 这一码位片段,替换成 process.cwd() 后遮罩必须判出(正/反成对的牙不变)。
   const poisoned = codeFace().replace(
-    /const ROOT = resolve\(dirname\(fileURLToPath\(import\.meta\.url\)\), '\.\.'\)/,
-    "const ROOT = process.cwd()",
+    /resolve\(dirname\(fileURLToPath\(import\.meta\.url\)\), '\.\.'\)/,
+    "process.cwd()",
   )
   assert.notEqual(poisoned, codeFace(), '构造变异的锚点没命中 ⇒ 这条反例是空跑')
   assert.match(poisoned, /process\.cwd\(\)/, '把 ROOT 换成 cwd 后必须能被判出 ⇒ 否则 T4 是恒绿断言')

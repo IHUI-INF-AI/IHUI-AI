@@ -222,12 +222,21 @@ test('T4 if 块内的顶层 main() 不算违规(守卫块是合规写法)', () =
   assert.equal(bare.state, 'hit', JSON.stringify(bare))
 })
 
-test('T5 真实文件锚点(§22c 红线:不得全用自造夹具)—— 从 HEAD 现读一枚真违规 blob 复判', () => {
+test('T5 真实文件锚点(§22c 红线:不得全用自造夹具)—— 从 HEAD 现读一枚真违规 blob 复判;债已还清则用 --self-test 证尺子有牙', (t) => {
   const a = gate.analyze({ face: 'head', root: REPO })
   assert.ok(a.counts.listed > 100, `射程内只枚举到 ${a.counts.listed} 个文件 ⇒ 扫描面失效`)
   assert.ok(a.counts.candidates > 0, '枚举到文件却判不出任何候选 ⇒ 尺子失明')
   const real = a.judged.find((j) => j.state === 'hit')
-  assert.ok(real, 'HEAD 面一枚命中都没有:要么账已还清,要么判据失明 —— 用 --self-test ST38 分这两格')
+  if (!real) {
+    // 0 命中有两种:①账已还清(这门求之不得的好结局)②判据失明。§12e:把"必须还能找到一枚真违规"
+    // 钉死 = 给还清债的每个后人设一台恒红闹钟。故此处用门的 --self-test(含 ST38 变异:摘守卫必红)
+    // 证明尺子有牙;上面 candidates>0 已排除"枚举为空"。两格分清后才记通过,不冒绿也不误判红。
+    const st = runGate(['--self-test'])
+    assert.equal(st.rc, 0, 'HEAD 面 0 命中且 --self-test 不绿 ⇒ 判据失明,不得读成通过')
+    assert.match(st.all, /失败 0/, `--self-test 有失败例 ⇒ 尺子本身有缺陷:${st.all.slice(-300)}`)
+    t.diagnostic('HEAD 面 direct-run 守卫债已还清(0 命中);--self-test 44 例全绿证明尺子有牙 ⇒ 记通过')
+    return
+  }
   const blob = catBatch(REPO, [`HEAD:${real.rel}`]).get(`HEAD:${real.rel}`)
   const again = gate.judgeSource(real.rel, blob)
   assert.equal(again.state, 'hit', `同一枚真实 blob 复判换了态:${JSON.stringify(again)}`)

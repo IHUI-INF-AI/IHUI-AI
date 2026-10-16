@@ -25,7 +25,7 @@ import type { TtFn } from '@/i18n'
 /** 一条 warn/truncated 提示条(端内既有胶囊形态:命中块用 View、文案用 Text) */
 function NoticeBar({ text, testId }: { text: string; testId?: string }) {
   return (
-    <ThemeRoot className="flex items-start gap-[12rpx] p-[16rpx] mb-[12rpx] bg-card rounded-md">
+    <ThemeRoot className="flex items-start gap-[12rpx] p-[16rpx] mb-[12rpx] bg-card rounded-lg">
       <View className="flex-shrink-0 mt-[4rpx]">
         <LineIcon name="triangle-alert" size={26} color="var(--color-destructive)" />
       </View>
@@ -109,7 +109,7 @@ export function ImportPreviewList({
         return (
           <ThemeRoot
             key={r.id}
-            className="flex items-center p-[20rpx] mb-[12rpx] bg-card rounded-md"
+            className="flex items-center p-[20rpx] mb-[12rpx] bg-card rounded-lg"
           >
             <View
               className={`w-[36rpx] h-[36rpx] rounded-sm flex items-center justify-center mr-[16rpx] flex-shrink-0 ${
@@ -174,7 +174,7 @@ export function ImportResultList({
         {tt('conversationImport.resultTitle', '已导入 {count} 个会话', { count: items.length })}
       </Text>
       {items.map((c) => (
-        <ThemeRoot key={c.conversationId} className="p-[20rpx] mb-[12rpx] bg-card rounded-md">
+        <ThemeRoot key={c.conversationId} className="p-[20rpx] mb-[12rpx] bg-card rounded-lg">
           <Text className="block text-[length:26rpx] text-foreground font-semibold truncate">
             {c.title || tt('conversationImport.conversationUntitled', '未命名会话')}
           </Text>
@@ -242,7 +242,7 @@ export function ImportHistoryList({
         </Text>
       ) : (
         items.map((h) => (
-          <ThemeRoot key={h.id} className="p-[20rpx] mb-[12rpx] bg-card rounded-md">
+          <ThemeRoot key={h.id} className="p-[20rpx] mb-[12rpx] bg-card rounded-lg">
             <View className="flex items-center justify-between gap-[16rpx]">
               <Text className="flex-1 text-[length:26rpx] text-foreground truncate">
                 {h.fileName || '—'}

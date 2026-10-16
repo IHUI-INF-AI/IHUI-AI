@@ -19706,10 +19706,8 @@
     "customAddTitle": "자주 쓰는 기능",
     "customEmptyHint": "자주 쓰는 기능 추가",
     "customSearchPlaceholder": "기능 검색",
-    "customAdded": "추가됨",
     "customAdd": "추가",
     "customRemove": "제거",
-    "customManage": "자주 쓰는 기능 관리",
     "customDragHint": "드래그하여 정렬",
     "customNoResults": "일치하는 기능이 없습니다"
   },

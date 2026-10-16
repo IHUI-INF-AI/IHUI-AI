@@ -183,12 +183,17 @@ if (!skipAuditReportCheck) {
   };
   for (const [canonical, candidates] of Object.entries(AUDIT_REPORT_ALIASES)) {
     check(`审计报告存在: ${canonical}`, () => {
-      // 根目录或归档目录(.ihui-agent/archive/audit-reports-2026-07-21/)任一存在即通过
-      const ARCHIVE_DIR = path.join(ROOT, '.ihui-agent/archive/audit-reports-2026-07-21');
+      // 根目录或任一归档目录存在即通过。头注(2026-09-13)本就写明报告分居 .ihui-agent 与 .trae-cn
+      // 两处归档,但此前代码只搜 .ihui-agent 一支;2026-10-16 归档退役清空了 .ihui-agent/archive/
+      // ⇒ 报告只剩 .trae-cn 一份却搜不到(路径 bug,审计确做过,非历史欠账)。补齐第二处即兑现头注,判据未削。
+      const ARCHIVE_DIRS = [
+        path.join(ROOT, '.ihui-agent/archive/audit-reports-2026-07-21'),
+        path.join(ROOT, '.trae-cn/archive/audit-reports-2026-07-21'),
+      ];
       const found = candidates.find(
-        (f) => existsSync(path.join(ROOT, f)) || existsSync(path.join(ARCHIVE_DIR, f)),
+        (f) => existsSync(path.join(ROOT, f)) || ARCHIVE_DIRS.some((d) => existsSync(path.join(d, f))),
       );
-      if (!found) throw new Error(`未找到 ${canonical} 或别名 ${candidates.join('/')} 之一(根目录或归档目录), 必须先跑 D 盘历史项目审计`);
+      if (!found) throw new Error(`未找到 ${canonical} 或别名 ${candidates.join('/')} 之一(根目录或 .ihui-agent/.trae-cn 归档目录), 必须先跑 D 盘历史项目审计`);
       return true;
     });
   }
