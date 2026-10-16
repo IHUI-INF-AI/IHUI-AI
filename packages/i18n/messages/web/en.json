@@ -19703,10 +19703,8 @@
     "customAddTitle": "Custom Shortcuts",
     "customEmptyHint": "Add favorites",
     "customSearchPlaceholder": "Search items",
-    "customAdded": "Added",
     "customAdd": "Add",
     "customRemove": "Remove",
-    "customManage": "Manage shortcuts",
     "customDragHint": "Drag to reorder",
     "customNoResults": "No matching items"
   },

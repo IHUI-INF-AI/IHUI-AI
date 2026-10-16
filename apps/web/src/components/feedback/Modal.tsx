@@ -46,6 +46,10 @@ export function Modal({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-(--duration-unified) ease-unified" />
         <DialogPrimitive.Content
+          // 只给 title 不给 description 时,Radix 会在 dev 抛
+          // "Missing Description or aria-describedby";显式传 undefined 即声明"本就无描述"。
+          // 有 description 时不插手:让 Radix 自己把 Description 的 id 关联上。
+          {...(description ? {} : { 'aria-describedby': undefined })}
           className={cn(
             'fixed left-1/2 top-1/2 z-modal grid w-full -translate-x-1/2 -translate-y-1/2 gap-4 border bg-background p-3 shadow-lg',
             'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-(--duration-unified) ease-unified',

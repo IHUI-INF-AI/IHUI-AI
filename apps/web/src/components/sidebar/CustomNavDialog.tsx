@@ -218,6 +218,8 @@ export function CustomNavDialog({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('customSearchPlaceholder')}
+            // placeholder 不是无障碍名:读屏只念"编辑框",补 aria-label 让它念得出这是什么
+            aria-label={t('customSearchPlaceholder')}
             className="h-9 w-full rounded-sm border bg-background pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
