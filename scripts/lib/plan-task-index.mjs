@@ -31,6 +31,52 @@ import { TASK_ID_PATTERN } from '../check-plan-line-loss.mjs'
 /** 认领标记体(旧裸形 `（进行中）` 与新租约形 `（进行中@YYYY-MM-DD/持有者）`)。
  *  ⚠ 与 `check-task-claims.mjs` 的 `CLAIM_MARKER_SRC` 同义 —— 接线完成后那边必须改为 import
  *  本常量(方向:门 → 本层)。两处各写一份迟早漂成"一边判租约、一边判无人认领"。 */
+import { catBatch, gitRaw } from './face-reader.mjs'
+const ARCHIVE_DIR = '.ihui-agent/archive'
+const ANCHOR_RE = /^PROJECT_PLAN_.*\.md$/
+
+export function archiveFaceEntries(root, face) {
+  const args =
+    face === 'staged'
+      ? ['ls-files', '-z', '--', ARCHIVE_DIR]
+      : ['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ARCHIVE_DIR]
+  let faceRaw = ''
+  let faceReadFailed = null
+  try {
+    faceRaw = gitRaw(args, root, { timeout: 60000 })
+  } catch (e) {
+    faceReadFailed = `git ${args[0]} 取不到归档审面:${String(e?.message ?? e).split(/\r?\n/)[0]}`
+  }
+  const facePaths = faceRaw.split('\0').filter(Boolean)
+  const anchorPaths = facePaths.filter((p) => ANCHOR_RE.test(p.split('/').pop()))
+  const entries = []
+  const undetermined = []
+  if (anchorPaths.length) {
+    const specs = anchorPaths.map((p) => (face === 'staged' ? `:${p}` : `HEAD:${p}`))
+    let blobs
+    try {
+      blobs = catBatch(root, specs, { timeout: 60000 })
+    } catch {
+      blobs = new Map()
+    }
+    for (const [i, spec] of specs.entries()) {
+      const src = blobs.get(spec)
+      if (typeof src === 'string')
+        entries.push({ path: anchorPaths[i], name: anchorPaths[i].split('/').pop(), text: src })
+      else undetermined.push(anchorPaths[i])
+    }
+  }
+  // git 的 pathspec 输出恒用正斜杠(即使在 Windows),所以剥前缀即可得到归档目录内的相对路径。
+  const PREFIX = `${ARCHIVE_DIR}/`
+  return {
+    entries,
+    undetermined,
+    faceFiles: facePaths.map((p) => p.split('/').pop()),
+    faceRelPaths: facePaths.map((p) => (p.startsWith(PREFIX) ? p.slice(PREFIX.length) : p)),
+    faceReadFailed,
+  }
+}
+
 export const CLAIM_SOURCE = '（进行中[^）]*）'
 export const CLAIM_MARKER_RE = new RegExp(`^- \\[ \\]${CLAIM_SOURCE}\\s*`)
 

@@ -60,6 +60,10 @@ const TAURI_CONF_PATH = join(PROJECT_ROOT, 'apps/desktop/src-tauri/tauri.conf.js
 const DEFAULT_REPO = 'IHUI-INF-AI/IHUI-AI'
 const RELEASE_PREFIX = 'desktop-v'
 const RELEASES_PAGE = 'https://github.com/IHUI-INF-AI/IHUI-AI/releases'
+// Gitee 镜像仓坐标(与 resolveFromGitee 的 GITEE_OWNER/GITEE_REPO 默认值同源 ——
+// 2026-10-16 起 host 钉定(下方 forceGiteeWindowsExe)也要用它,故提为模块级常量单源)。
+const GITEE_OWNER = process.env.GITEE_OWNER || 'JLSLSSZWHYXGS_0'
+const GITEE_REPO = process.env.GITEE_REPO || 'IHUI-AI'
 
 // 收窄护栏的两个出口:一个是人工放行,一个是把本地快照落点改到别处(测试/取证通道)。
 const ALLOW_NARROWER_ENV = 'ALLOW_NARROWER_FEED'
@@ -300,12 +304,11 @@ async function fetchReleasesPaged(baseUrl, headers, label, { perPage = 100, maxP
  * 下载页须能反映最新版本;Gitee 直链国内下载也快)。无匹配则返回 null 由 GitHub 兜底。
  */
 async function resolveFromGitee() {
-  const owner = process.env.GITEE_OWNER || 'JLSLSSZWHYXGS_0'
-  const repo = process.env.GITEE_REPO || 'IHUI-AI'
+  // 仓坐标用模块级常量(GITEE_OWNER/GITEE_REPO),与 host 钉定 forceGiteeWindowsExe 同源
   let releases
   try {
     releases = await fetchReleasesPaged(
-      `https://gitee.com/api/v5/repos/${owner}/${repo}/releases`,
+      `https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}/releases`,
       { Accept: 'application/json' },
       'Gitee',
     )
@@ -330,7 +333,7 @@ async function resolveFromGitee() {
   /** 签名"取不到"(限流/断网/超时)的资产名 —— 与"该 release 没挂 sig"必须分开报 */
   const sigFetchFailures = []
   for (const asset of release.assets || []) {
-    const href = `https://gitee.com/${owner}/${repo}/releases/download/${release.tag_name}/${encodeURIComponent(asset.name)}`
+    const href = `https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/${release.tag_name}/${encodeURIComponent(asset.name)}`
     // Gitee 列表 API 不返回 size → HEAD 取 content-length(302 后为真实文件大小)
     let size = Number(asset.size || asset.file_size || 0)
     if (!size) {
@@ -398,7 +401,7 @@ async function resolveFromGitee() {
   return {
     version,
     releaseDate,
-    giteeReleasesUrl: `https://gitee.com/${owner}/${repo}/releases`,
+    giteeReleasesUrl: `https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases`,
     resolvedFromTag: release.tag_name,
     assets,
     updaterEntries,
@@ -554,17 +557,44 @@ function nameFromHref(href) {
  * `assets.find(/Windows/i)` 消费的是同一对象,逐字节不变),再加下载页不展示的
  * updater 专属产物兜底(macOS 唯一可更新产物 `.app.tar.gz`、rpm 等,URL 恒为
  * GitHub 直链 —— Gitee mac/linux 资产实测 404)。空签名/白名单外 host 不出键。
+ *
+ * 2026-10-16 host 钉定:windows-x86_64(updater 第一优先平台)的 URL 恒为 Gitee 直链。
+ * GitHub 直链在国内网络下被重置(curl exit 56,2026-09-21 0.1.42 实测),端内更新器
+ * 拿不到包即整体失效;且 Gitee 侧该形态可完全确定性推导(owner/repo 常量 + 本快照自己的
+ * resolvedFromTag + 资产名),不需要 Gitee API 当次命中 —— Gitee 源未命中/GitHub 兜底
+ * 那条路(0.1.54 快照实锤形态)以前会把 windows 键落回 github.com,判据因此红。
+ * 签名是 minisign 对包体的签名,两端挂的是同一 CI 产物字节,改写 host 不毁签。
+ * `tauri-updater-platforms.test.mjs` ① 锁的就是这一不变式(windows 键必须 Gitee 形态,
+ * 且不钉具体版本字节)。
  */
+function forceGiteeWindowsExe(href, tag) {
+  if (!/^https:\/\/github\.com\/[^/]+\/[^/]+\/releases\/download\//.test(String(href))) return href
+  return `https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/${tag}/${encodeURIComponent(nameFromHref(href))}`
+}
+
 function withUpdaterPlatforms(data) {
   // gitee 源单独命中时 data 带着 giteeReleasesUrl,它不进快照 → 解构剥离(下划线前缀 = 刻意弃用,eslint /^_/u)
   const { updaterEntries, giteeReleasesUrl: _giteeReleasesUrl, ...rest } = data
-  const assetEntries = (data.assets || []).map((a) => ({
+  // host 钉定在**源数据**上做:下载页 assets 与 updaterPlatforms 同读同一份条目,
+  // 若只改 updaterPlatforms、不改 assets,「两形态并读」(windows 键 url 必须与
+  // assets 里那条 Windows 资产同值)那条断言必红。
+  const winExe = (a) => a.format === 'Windows NSIS exe'
+  rest.assets = (data.assets || []).map((a) =>
+    winExe(a) ? { ...a, href: forceGiteeWindowsExe(a.href, data.resolvedFromTag) } : a,
+  )
+  const assetEntries = rest.assets.map((a) => ({
     name: nameFromHref(a.href),
     url: a.href,
     signature: a.signature || '',
   }))
   const seenNames = new Set(assetEntries.map((e) => e.name))
-  const extras = (updaterEntries || []).filter((e) => !seenNames.has(e.name))
+  const extras = (updaterEntries || [])
+    .filter((e) => !seenNames.has(e.name))
+    .map((e) =>
+      /_x64-setup\.exe$/.test(e.name)
+        ? { ...e, url: forceGiteeWindowsExe(e.url, data.resolvedFromTag) }
+        : e,
+    )
   const all = [...assetEntries, ...extras]
   // 同优先级、同版本匹配、签名却不同的候选 = 择优靠"保留首个"静默决定。
   // 2026-09-24 实测 Gitee 上真同时挂着 CI 与本机通道两份 Windows exe ⇒ 必须吼出来。

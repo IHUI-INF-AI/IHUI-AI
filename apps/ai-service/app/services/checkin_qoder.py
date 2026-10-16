@@ -37,7 +37,11 @@ import httpx
 
 from app.core.logging import get_logger
 from app.services.checkin_engine import DEFAULT_TIMEOUT, get_http_client
-from app.services.checkin_outbound import OutboundPaused, checkin_outbound_gate
+from app.services.checkin_outbound import (
+    CHALLENGE_COOLDOWN_SECONDS,
+    OutboundPaused,
+    checkin_outbound_gate,
+)
 
 logger = get_logger(__name__)
 
@@ -333,6 +337,9 @@ def qoder_classify_error(
         return "SessionDead", -1
     if http_status == 429:
         return "SoftRate", 60
+    if http_status == 403:
+        # 第五件套(2026-10-16):403 = WAF/拦截墙,即时熔断(原 4xx 三连击太软)
+        return "Challenge", CHALLENGE_COOLDOWN_SECONDS
     if 500 <= http_status < 600:
         return "Server", 600
     if 400 <= http_status < 500:
@@ -448,7 +455,12 @@ async def qoder_checkin_account(
         result["http_status"] = None
         return result
     if status != 200 or not isinstance(data, dict):
-        error_type, cooldown_secs = qoder_classify_error(status if status >= 400 else None, None)
+        if status < 400:
+            # 第五件套(2026-10-16):2xx 非 JSON = WAF/挑战页插页,即时熔断
+            error_type, cooldown_secs = "Challenge", CHALLENGE_COOLDOWN_SECONDS
+            checkin_outbound_gate.note_challenge("qoder")
+        else:
+            error_type, cooldown_secs = qoder_classify_error(status, None)
         result["message"] = f"活动查询失败 HTTP {status}"
         if error_type not in ("Unknown",):
             result["classified_error"] = {"type": error_type, "cooldown_seconds": cooldown_secs}
@@ -510,7 +522,12 @@ async def qoder_checkin_account(
 
     if claimable:
         # 有可领活动但领取失败 → 按状态分类(401 已在上方处理过,此处多为 4xx/5xx)
-        error_type, cooldown_secs = qoder_classify_error(last_status, None)
+        if last_status is not None and last_status < 400:
+            # 第五件套(2026-10-16):2xx 非 JSON 领取响应 = 挑战页插页,即时熔断
+            error_type, cooldown_secs = "Challenge", CHALLENGE_COOLDOWN_SECONDS
+            checkin_outbound_gate.note_challenge("qoder")
+        else:
+            error_type, cooldown_secs = qoder_classify_error(last_status, None)
         result["message"] = f"领取失败 HTTP {last_status}"
         result["http_status"] = last_status
         if error_type not in ("Unknown",):

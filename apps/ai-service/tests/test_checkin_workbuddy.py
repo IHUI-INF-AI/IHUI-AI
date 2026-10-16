@@ -18,6 +18,7 @@ import time
 import httpx
 import pytest
 
+from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
 from app.services.checkin_workbuddy import (
     PATH_CHECKIN_STATUS,
     PATH_DAILY_CHECKIN,
@@ -132,6 +133,8 @@ class TestClassify:
     def test_contract(self):
         assert workbuddy_classify_error(None) == ("Unknown", 0)
         assert workbuddy_classify_error(401) == ("SessionDead", -1)
+        # 第五件套(2026-10-16)钉死:本平台 403 保持 SessionDead 永久冷却,
+        # 比 Challenge(30min)更保守 —— WAF 误伤时 fail-closed 停手,不自动恢复
         assert workbuddy_classify_error(403) == ("SessionDead", -1)
         assert workbuddy_classify_error(429) == ("SoftRate", 60)
         assert workbuddy_classify_error(500) == ("Server", 600)
@@ -196,6 +199,25 @@ class TestCheckinFlow:
         assert result["code"] == 10002
         assert "10002" in result["message"] and "活动未开始" in result["message"]
         assert result["classified_error"] is None
+
+    @pytest.mark.asyncio
+    async def test_challenge_page_non_json_fuses(self, jwt):
+        """第五件套:2xx 非 JSON(WAF 挑战页)→ Challenge 熔断 + 全局暂停
+        (原路径只写 message、不落冷却,下一批会继续打墙)。"""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, text="<html>请完成安全验证</html>")
+
+        result = await workbuddy_checkin_account(
+            "wb-1", jwt, {"uid": UID}, client=make_client(handler)
+        )
+        assert result["ok"] is False
+        assert result["classified_error"] == {
+            "type": "Challenge",
+            "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+        }
+        assert checkin_outbound_gate.paused_remaining() > 0  # 全局暂停已触发
+        checkin_outbound_gate.reset()
 
     @pytest.mark.asyncio
     async def test_401_session_dead(self, jwt):

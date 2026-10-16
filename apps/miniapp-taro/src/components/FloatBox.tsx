@@ -89,7 +89,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
         style={{
           position: 'fixed',
           right: isOpen ? '20rpx' : '-240rpx',
-          bottom: '9%',
+          bottom: 'calc(110rpx + env(safe-area-inset-bottom))',
           width: '118rpx',
           minHeight: '340rpx',
           backgroundColor: 'var(--color-card)',
