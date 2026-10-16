@@ -3640,7 +3640,12 @@ pub fn qoder_session_uid(session: &serde_json::Value, token: &str) -> Option<Str
 /// 纯函数:JSON 对象 → 展示名,全局统一优先级(2026-10-15 李总定档):
 /// 手机号 > 邮箱 > 账号名 > 昵称(兜底账户名)。四平台共用。
 pub fn display_name_pick(obj: &serde_json::Value) -> String {
-    for key in ["phone", "mobile", "email", "username", "userName", "nickname", "nick_name", "name"] {
+    // nonPlainTextMobile:TRAE account 的脱敏手机号("186******08",真机实证 ——
+    // TRAE 本地无明文手机号,打码串即其"手机号"形态;2026-10-16 李总报障补录)
+    for key in [
+        "phone", "mobile", "nonPlainTextMobile", "email", "username", "userName", "nickname",
+        "nick_name", "name",
+    ] {
         if let Some(v) = obj.get(key).and_then(qoder_scalar_str) {
             return v;
         }
