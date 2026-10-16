@@ -85,7 +85,7 @@
  * 一字未动 —— 把判据放宽/收紧都不解决"判据没在真跑它的那一刻成立",而那属于"为消红削判据"。
  */
 import { execFileSync, spawn } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { catBatch, FACE_LABEL, gitBinary, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
@@ -543,8 +543,11 @@ function faceArchiveFiles(face, root = ROOT) {
     .filter(Boolean)
     .filter((p) => ARCHIVE_FILE_RE.test(p.split('/').pop()))
   // 清偿台账的现役落点(.ihui-agent/tmp/,gitignored):盘上枚举,射程正则同一把
-  const tmpRel = join('.ihui-agent', 'tmp')
-  const tmpDir = join(root, tmpRel)
+  // tmpRel 是**判据面路径**:必须保持 POSIX 正斜杠 —— faceArchiveBlobs 按
+  // `startsWith('.ihui-agent/tmp/')` 分拣磁盘族,这里若用 path.join 拼,Windows 上会得到
+  // 反斜杠 ⇒ 前缀一条都匹配不上 ⇒ 盘读族被静默丢空,豁免失效退回假红(且没人会红)。
+  const tmpRel = '.ihui-agent/tmp'
+  const tmpDir = path.join(root, '.ihui-agent', 'tmp')
   let diskPaths = []
   try {
     diskPaths = readdirSync(tmpDir)
@@ -579,7 +582,7 @@ function faceArchiveBlobs(face, root = ROOT) {
     if (typeof v === 'string') map.set(treeFiles[i], v)
   }
   for (const p of diskFiles) {
-    try { map.set(p, readFileSync(join(root, p), 'utf8')) } catch { /* 取不到 ⇒ 不计入凭据 */ }
+    try { map.set(p, readFileSync(path.join(root, ...p.split('/')), 'utf8')) } catch { /* 取不到 ⇒ 不计入凭据 */ }
   }
   ARCHIVE_BLOB_CACHE.set(`${root}\u0000${face}`, map)
   return map
@@ -1510,6 +1513,12 @@ const FIX_PLAN_NO_HEADING = FIX_PLAN_FULL.split('\n')
   .join('\n')
 const FIX_ARCHIVE_REL = '.ihui-agent/archive/PROJECT_PLAN_2099-01-01_selftest.md'
 const FIX_ARCHIVE_BODY = ['# 归档(自检夹具)', '', FIX_HEADING, ''].join('\n')
+/** 盘读族夹具:.ihui-agent/tmp/ 下的清偿台账 —— gitignored 常驻、**永不入版本控制**,
+ *  所以 HEAD 树与索引面都取不到它,只有 faceArchiveFiles 的盘读族认(06943c8c78 的射程)。
+ *  缺这一族的覆盖,那次提交把 join/readdirSync 两个未定义名带进 HEAD 都没人发现。 */
+const FIX_TMP_LEDGER_NAME = 'plan-pointer-purge-2026-10-16-selftest-ledger.md'
+const FIX_TMP_LEDGER_REL = `.ihui-agent/tmp/${FIX_TMP_LEDGER_NAME}`
+const FIX_TMP_LEDGER_BODY = ['# 清偿台账(自检夹具)', '', FIX_HEADING, ''].join('\n')
 
 function selfTest() {
   const base = [
@@ -1601,6 +1610,32 @@ function selfTest() {
     const dir = faceFixtureRepo({
       commits: [{ plan: FIX_PLAN_FULL }, { plan: FIX_PLAN_NO_HEADING, msg: '旧基线整文件提交' }],
       diskExtra: { [FIX_ARCHIVE_REL]: FIX_ARCHIVE_BODY },
+    })
+    try {
+      const head = runCheck(false, 'head', { root: dir })
+      return head.ok === false && head.lost.length === 1 && head.lost[0].id === 'O42'
+    } finally {
+      rmScratch(dir)
+    }
+  })
+  t('面③b:盘读族(tmp/ 清偿台账,结构上永不入库)也能出具归档凭据', () => {
+    const dir = faceFixtureRepo({
+      commits: [{ plan: FIX_PLAN_FULL }, { plan: FIX_PLAN_NO_HEADING, msg: '旧基线整文件提交' }],
+      diskExtra: { [FIX_TMP_LEDGER_REL]: FIX_TMP_LEDGER_BODY },
+    })
+    try {
+      const head = runCheck(false, 'head', { root: dir })
+      // 台账只在盘上:HEAD 树与索引都取不到,只有盘读族认。tmpRel 若被拼成反斜杠
+      // (Windows 上 path.join 的形态),这里会静默丢空 ⇒ 本档翻红,不给人蒙混过关。
+      return head.ok === true && head.lost.length === 0 && head.scanned > 0
+    } finally {
+      rmScratch(dir)
+    }
+  })
+  t('面③b反向对照:tmp/ 里找不到原文 ⇒ 照旧判丢(§0.3 不冒充,盘读不是免罪金牌)', () => {
+    const dir = faceFixtureRepo({
+      commits: [{ plan: FIX_PLAN_FULL }, { plan: FIX_PLAN_NO_HEADING, msg: '旧基线整文件提交' }],
+      diskExtra: { [FIX_TMP_LEDGER_REL]: '# 清偿台账(夹具里没有原文)' },
     })
     try {
       const head = runCheck(false, 'head', { root: dir })
