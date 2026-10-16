@@ -62,8 +62,20 @@ const REMOTE_TUNNEL_PORTS = [7843, 7844]
 // 与区域(SYSTEM=en-US / Administrator=zh-CN 两档身份的外部程序输出语言不同 —— 解析这类输出的格
 // 必须只认 ASCII 字段,同一条教训今天已在别处咬过两次)。
 const TASKLIST = 'C:/Windows/System32/tasklist.exe'
+// 事件日志走 wevtutil 而不是 Get-WinEvent:后者要拉起 PowerShell,而 PowerShell 在守护身份下冷启动
+// 会被本器采集超时杀掉(2026-10-16 实测:`powershell(命令超时(15000ms)被杀)`)。wevtutil 是原生命令,
+// `/f:XML` 输出与区域无关(Level 是数字、TimeCreated 是 ISO、cloudflared 的正文恒英文)——
+// `/f:CSV` 与 `/f:RD` 在本机实测直接报「选项 f 的值无效」,别改回去。
+const WEVTUTIL = 'C:/Windows/System32/wevtutil.exe'
 const SPAWN_TIMEOUT_MS = 15000
 const TASKLIST_TIMEOUT_MS = 10_000
+// 重启账的量纲依据(全部现读,非拍的):14 天内 provider=Cloudflared 共 21 条、**全为 Level 4(信息)**,
+// 归类为 starting 7 / arguments 7 / stopped 3 / terminated-without-error 3 / graceful-shutdown 1。
+// 而 10-15 出现过「两次 starting 相隔 21 秒」两回(13:23:39→13:24:00、14:18:39→14:19:00)——
+// 那是崩溃循环的签名,基线 ≈0.5 次/天,所以双启窗口取 90s(21s 的 4 倍余量),24h 报数线取 4 次(≈8 倍基线)。
+const RESTART_EVENT_WINDOW_MS = 24 * 60 * 60 * 1000
+const DOUBLE_START_SKEW_MS = 90_000
+const STARTS_WARN_24H = 4
 
 function runCapture(cmd, args, timeoutMs = SPAWN_TIMEOUT_MS) {
   return new Promise((resolve) => {
@@ -184,11 +196,44 @@ export function parseTasklistPids(stdout) {
 }
 
 /**
+ * wevtutil `/f:XML` 的拼接输出 → 事件数组。只取三样:Level(数字)、SystemTime、`EventData/Data` 正文。
+ * 解析不出任何一条 ⇒ 交给上层判"采集失败"(把"读不出来"说成"没有事件"是本仓禁止的那一型)。
+ */
+export function parseEventLogXml(text) {
+  const out = []
+  for (const m of String(text || '').matchAll(/<Event\b[\s\S]*?<\/Event>/g)) {
+    const level = Number(/<Level>(\d+)<\/Level>/.exec(m[0])?.[1])
+    const timeRaw = /<TimeCreated\s+SystemTime='([^']+)'/.exec(m[0])?.[1] || /<TimeCreated\s+SystemTime="([^"]+)"/.exec(m[0])?.[1]
+    const msg = (Array.from(m[0].matchAll(/<Data>([\s\S]*?)<\/Data>/g)).map((x) => x[1]).join(' ').trim().slice(0, 200)) || ''
+    const timeMs = Date.parse(String(timeRaw || ''))
+    if (!Number.isFinite(level) || !Number.isFinite(timeMs)) continue
+    out.push({ level, timeMs, msg: msg.replace(/\s+/g, ' ') })
+  }
+  return out
+}
+
+/** 重启账:starting 序列 + 双启间隔 + 非信息级事件数。只算事实,不下结论(结论在 judge 里)。 */
+export function summarizeRestarts(events, opt = {}) {
+  const skew = opt.doubleStartSkewMs ?? DOUBLE_START_SKEW_MS
+  const list = Array.isArray(events) ? events.slice() : []
+  const starts = list.filter((e) => /^Cloudflared service starting/i.test(e.msg)).map((e) => e.timeMs).sort((a, b) => a - b)
+  const stops = list.filter((e) => /^Cloudflared service stopped/i.test(e.msg)).length
+  const graceful = list.filter((e) => /graceful shutdown/i.test(e.msg)).length
+  const nonInfo = list.filter((e) => e.level !== 4)
+  let minGapMs = null
+  for (let i = 1; i < starts.length; i += 1) {
+    const gap = starts[i] - starts[i - 1]
+    if (minGapMs === null || gap < minGapMs) minGapMs = gap
+  }
+  return { total: list.length, starts: starts.length, stops, graceful, nonInfo: nonInfo.length, minStartGapMs: minGapMs, doubleStart: minGapMs !== null && minGapMs < skew }
+}
+
+/**
  * 核心判定:输入是采集层给出的原始事实(或测试夹具),输出每维独立结论。
  * processProbe: 'ok'(拿到 pid 列表) | 'failed'(探测本身失败 ⇒ 进程存在性未知)
  * netshProbe / netstatProbe: 'ok' | 'failed'
  */
-export function judge({ processProbe, pids, netshProbe, netstatProbe, legs, addresses }) {
+export function judge({ processProbe, pids, netshProbe, netstatProbe, legs, addresses, eventsProbe = 'absent', restarts = null }) {
   const dims = {}
   const processPresent = processProbe === 'ok' ? pids.length > 0 : null
 
@@ -202,6 +247,32 @@ export function judge({ processProbe, pids, netshProbe, netstatProbe, legs, addr
     dims['leg-count'] = { verdict: 'breach', reason: `进程在(pid=${pids.join(',')})而 7843/7844 上 ESTABLISHED 腿数 = 0 —— 隧道断了` }
   } else {
     dims['leg-count'] = { verdict: 'ok', reading: { legs: legs.length, pids } }
+  }
+
+  // 第四维:重启账(事件日志 provider=Cloudflared 的生命周期)。为什么值得单立:
+  // 15:40 那次重启实测留下约 3 分钟入口中断(监控 15:41 现读到 530),而 10-15 的"21 秒内两次 starting"
+  // 是崩溃循环签名 —— 这两件事当时都没有任何一门能提前说。
+  if (eventsProbe === 'absent') {
+    // 调用方没采这一路(旧夹具/第三方调用)⇒ 整维不产出,不得凭空多出一格 unjudged 把退出码拖成 3
+  } else if (eventsProbe === 'failed') {
+    dims['restart-churn'] = { verdict: 'unjudged', reason: 'wevtutil 取事件失败,重启账未知(不是「没有重启」)' }
+  } else if (!restarts) {
+    dims['restart-churn'] = { verdict: 'unjudged', reason: '没有可用的重启账统计 ⇒ 该维不判定' }
+  } else if (restarts.total === 0) {
+    // 真 0 与「读不出」必须分家:24h 内一条生命周期事件都没有 = 服务没动过(已判定的好态)。
+    dims['restart-churn'] = { verdict: 'ok', reading: { starts: 0, stops: 0, note: '24h 内 0 条 Cloudflared 事件(已判定的真 0)' } }
+  } else if (restarts.doubleStart) {
+    dims['restart-churn'] = { verdict: 'breach', reason: `24h 内两次 service starting 相隔 ${Math.round((restarts.minStartGapMs || 0) / 1000)}s(双启窗口上限 ${Math.round(DOUBLE_START_SKEW_MS / 1000)}s)= 崩溃循环签名;starting=${restarts.starts} stopped=${restarts.stops}`, reading: restarts }
+  } else if (restarts.nonInfo > 0) {
+    dims['restart-churn'] = { verdict: 'breach', reason: `事件日志里出现 ${restarts.nonInfo} 条非信息级(Level≠4)Cloudflared 事件`, reading: restarts }
+  } else if (restarts.starts >= STARTS_WARN_24H) {
+    dims['restart-churn'] = {
+      verdict: 'warn',
+      reason: `24h 内 starting ${restarts.starts} 次(基线 14 天 7 次 ≈0.5/天)—— 抖动但在允许范围内,只报数`,
+      reading: restarts,
+    }
+  } else {
+    dims['restart-churn'] = { verdict: 'ok', reading: { starts: restarts.starts, stops: restarts.stops, minStartGapMs: restarts.minStartGapMs } }
   }
 
   const sources = [...new Set(legs.map((l) => l.source))]
@@ -276,23 +347,28 @@ export function decideExit(dims, controlPassed) {
 }
 
 async function collect() {
-  const [ps, netsh, netstat] = await Promise.all([
+  const [ps, netsh, netstat, ev] = await Promise.all([
     runCapture(TASKLIST, ['/NH', '/FO', 'CSV', '/FI', 'IMAGENAME eq cloudflared.exe'], TASKLIST_TIMEOUT_MS),
     runCapture('netsh', ['interface', 'ipv6', 'show', 'addresses']),
     runCapture('netstat', ['-ano']),
+    runCapture(WEVTUTIL, ['qe', 'Application', `/q:*[System[Provider[@Name=\'Cloudflared\'] and TimeCreated[timediff(@SystemTime) <= ${RESTART_EVENT_WINDOW_MS}]]]`, '/f:XML', '/c:200'], SPAWN_TIMEOUT_MS),
   ])
   const processProbe = ps.ok && !ps.killed ? 'ok' : 'failed'
   const pids = processProbe === 'ok' ? parseTasklistPids(ps.stdout) : []
   const netshProbe = netsh.ok && !netsh.killed ? 'ok' : 'failed'
   const netstatProbe = netstat.ok && !netstat.killed ? 'ok' : 'failed'
+  const events = parseEventLogXml(ev.stdout || '')
+  const eventsProbe = ev.ok && !ev.killed && events.length > 0 ? 'ok' : events.length === 0 && ev.ok && !ev.killed ? 'empty' : 'failed'
+  const restarts = eventsProbe === 'failed' ? null : summarizeRestarts(events)
   const addresses = netshProbe === 'ok' ? parseNetshAddresses(netsh.stdout) : new Map()
   const { legs, unparseableTcp } = netstatProbe === 'ok' ? parseNetstatLegs(netstat.stdout, pids) : { legs: [], unparseableTcp: [] }
   const failedNames = [
     processProbe === 'failed' ? `tasklist(${ps.err || '无输出'})` : null,
     netshProbe === 'failed' ? `netsh(${netsh.err || '输出异常'})` : null,
     netstatProbe === 'failed' ? `netstat(${netstat.err || '输出异常'})` : null,
+    eventsProbe === 'failed' ? `wevtutil(${ev.err || '输出异常或解析不出事件'})` : null,
   ].filter(Boolean)
-  return { processProbe, pids, netshProbe, netstatProbe, legs, addresses, unparseableTcp, failedNames, evidenceAt: new Date().toISOString() }
+  return { processProbe, pids, netshProbe, netstatProbe, eventsProbe, restarts, eventTotal: events.length, legs, addresses, unparseableTcp, failedNames, evidenceAt: new Date().toISOString() }
 }
 
 function formatHuman(dims, exitCode, evidenceAt, extra) {
@@ -462,6 +538,8 @@ export const __test__ = {
   parseNetstatLegs,
   isDeprecatedRecord,
   parseTasklistPids,
+  parseEventLogXml,
+  summarizeRestarts,
   judge,
   positiveControl,
   decideExit,
