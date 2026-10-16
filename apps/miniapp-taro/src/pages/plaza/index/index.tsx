@@ -4,6 +4,7 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
+import { TAB_BAR_OCCUPIED_PX, TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
@@ -294,8 +295,14 @@ export default function PlazaIndex() {
           }))}
         />
 
-        {/* 瀑布流双列 */}
-        <ScrollView scrollY className="pza-scroll">
+        {/* 瀑布流双列(底部留位取单一出处 tab-bar-metrics:自定义 tabBar 是浮层,
+            不压缩页面视口 ⇒ 滚动容器自己让位;原 `.pza-bottom-space` 160rpx 空块与之同一名目,
+            已由本 padding 取代,避免两份留位叠加) */}
+        <ScrollView
+          scrollY
+          className="pza-scroll"
+          style={{ paddingBottom: TAB_BAR_PAGE_RESERVE_CSS }}
+        >
           {loading && leftList.length === 0 ? (
             <View className="pza-empty">
               <Text>{tt('common.loading', '加载中…')}</Text>
@@ -321,11 +328,16 @@ export default function PlazaIndex() {
           {!hasMore && leftList.length > 0 ? (
             <Text className="pza-load-more">{tt('common.noMore', '没有更多了')}</Text>
           ) : null}
-          <View className="pza-bottom-space" />
         </ScrollView>
 
         {/* 悬浮发布按钮 */}
-        <View className="pza-fab" onClick={onSetNeed} hoverClass="opacity-60">
+        <View
+          className="pza-fab"
+          // 浮层胶囊会盖住贴底区域,抬高量取自 tab-bar-metrics 同一出处(不在 CSS 里再抄一份数字)
+          style={{ bottom: `calc(48rpx + ${TAB_BAR_OCCUPIED_PX}px + env(safe-area-inset-bottom))` }}
+          onClick={onSetNeed}
+          hoverClass="opacity-60"
+        >
           <Text className="pza-fab-icon">+</Text>
         </View>
 
@@ -390,7 +402,10 @@ export default function PlazaIndex() {
                   onClick={() => setShowCenter(false)}
                 />
               </View>
-              <ScrollView scrollY className="pza-center-body pb-[calc(140rpx+env(safe-area-inset-bottom))]">
+              <ScrollView
+                scrollY
+                className="pza-center-body pb-[calc(140rpx+env(safe-area-inset-bottom))]"
+              >
                 {detail.coverUrl ? (
                   <Image className="pza-center-cover" src={detail.coverUrl} mode="widthFix" />
                 ) : null}

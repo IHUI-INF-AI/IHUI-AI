@@ -56,6 +56,15 @@ export type RnVipTokens = {
 }
 
 /**
+ * 通用玻璃底档(2026-10-16 立,底部菜单 TabBar 悬浮胶囊液态玻璃背景:半透明 + backdrop blur,
+ * 下方内容若隐若现;明暗两档)。键名按 `scripts/sync-rn-tokens.mjs` 同名推导对位 tokens.css
+ * `glass.bg` → `--color-glass-bg`。改值只能改 tokens.css。
+ */
+export type RnGlassTokens = {
+  bg: string
+}
+
+/**
  * 模型广场类型徽章三色(明暗同值)。
  * 键名按 `scripts/sync-rn-tokens.mjs` 的同名推导规则对位 tokens.css,不加第二张映射表:
  * `modelType.textBg` → `--color-model-type-text-bg`。改色值只能改 tokens.css 再跑派生器。
@@ -126,6 +135,11 @@ export const rnTokens = {
     gradFrom: '#b8d4e3',
     gradTo: '#8fb8cc',
   },
+  /* 通用玻璃底(TabBar 悬浮胶囊液态玻璃背景,半透明 + backdrop blur;明暗两档)——
+     值由 scripts/sync-rn-tokens.mjs 从 tokens.css 派生(--color-glass-bg),勿手改 */
+  glass: {
+    bg: 'rgba(255, 255, 255, 0.66)',
+  } satisfies RnGlassTokens,
   warning: {
     light: '#fffbeb',
     amberLight: '#fef3c7',
@@ -228,6 +242,8 @@ export type RnThemeTokens = {
     gradFrom: string
     gradTo: string
   }
+  /* 通用玻璃底(--color-glass-bg;明暗两档,派生自 tokens.css;TabBar 悬浮胶囊液态玻璃背景) */
+  glass: RnGlassTokens
   warning: RnWarningTokens
   success: RnSuccessTokens
   danger: RnDangerTokens
@@ -292,6 +308,10 @@ export const rnLightTokens: RnThemeTokens = {
     foreground: '#1e3a47',
     gradFrom: '#b8d4e3',
     gradTo: '#8fb8cc',
+  },
+  /* 值由 scripts/sync-rn-tokens.mjs 从 tokens.css 派生(--color-glass-bg),勿手改 */
+  glass: {
+    bg: 'rgba(255, 255, 255, 0.66)',
   },
   warning: {
     light: '#fffbeb',
@@ -383,6 +403,10 @@ export const rnDarkTokens: RnThemeTokens = {
     foreground: '#16262e',
     gradFrom: '#b8d4e3',
     gradTo: '#a3c4d6',
+  },
+  /* 暗档值同样由 scripts/sync-rn-tokens.mjs 派生(tokens.css .dark 里成对声明) */
+  glass: {
+    bg: 'rgba(26, 26, 26, 0.66)',
   },
   warning: {
     light: '#451a03',

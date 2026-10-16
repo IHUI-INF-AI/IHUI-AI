@@ -25,6 +25,7 @@ import InterestTrackModal from './components/InterestTrackModal'
 import './index.css'
 import SearchBar from '@/components/SearchBar'
 import { aizhsUrl } from '@/constants/icon-urls'
+import { TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
 import ThemeRoot from '@/components/ThemeRoot'
 import CategoryBar from '@/components/CategoryBar'
 import { getTopBarMetrics } from '@/utils/system-info'
@@ -564,8 +565,11 @@ export default function ShareIndexPage() {
 
   // ===== 排行榜入口视图(activeNavbar=false) =====
   if (!activeNavbar) {
+    // 页面根即滚动容器(整页原生滚动)⇒ 留位取单一出处 `constants/tab-bar-metrics`。
+    // 原端内手写的 `pb-[calc(140rpx+env(...))]`(= 70px,同一名目的第二份量)由该常量取代,
+    // 不留两个互相覆盖的 padding。
     return (
-      <View className="share-page pb-[calc(140rpx+env(safe-area-inset-bottom))]">
+      <View className="share-page" style={{ paddingBottom: TAB_BAR_PAGE_RESERVE_CSS }}>
         <View className="share-rank-wrap">
           <View className="share-rank-header">
             <View className="share-rank-header-left">
@@ -709,10 +713,16 @@ export default function ShareIndexPage() {
         }}
       />
 
-      {/* main-container — 对齐原项目结构，no-scroll 样式由 tagWrapShow 控制 */}
+      {/* main-container — 对齐原项目结构，no-scroll 样式由 tagWrapShow 控制。
+          整页原生滚动(页面根本没有 ScrollView)⇒ 底部留位加在本容器上,取单一出处
+          `constants/tab-bar-metrics`;`.share-list` 自己的 96rpx 底部呼吸位不与此冲突,保持不动。 */}
       <View
         className={`share-main-container${tagWrapShow ? ' no-scroll' : ''}`}
-        style={{ minHeight: '110vh', color: 'var(--color-foreground)' }}
+        style={{
+          minHeight: '110vh',
+          color: 'var(--color-foreground)',
+          paddingBottom: TAB_BAR_PAGE_RESERVE_CSS,
+        }}
       >
         {/* FloatBox 浮动组件 — 对齐原项目：放在 main-container 内部 */}
         <FloatBox />

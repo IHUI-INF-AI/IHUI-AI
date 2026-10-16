@@ -75,6 +75,15 @@ const COLORS_MAPPING = {
   bgTertiary: '--color-muted',
   border: '--color-border',
   divider: '--color-border',
+  // 2026-10-16 底部悬浮玻璃胶囊专用两档。为什么必须进 JS 派生态而不是写 var():
+  // 微信自定义 tabBar 是页面树之外的独立组件,app.wxss 的类与 `.dark{--color-*}` 覆盖块
+  // 都进不去它的作用域(实测:开发者工具截图里 5 个标签竖排 = flex 工具类全失效)。
+  // 色值真相源仍是 tokens.css,这里只是多派生两个消费面。
+  glassBg: '--color-glass-bg',
+  borderMedium: '--color-border-medium',
+  // 既有的 textTertiary 指的是 muted-foreground(#666/#a3a3a3),与 RN 端 text.tertiary
+  // (#a3a3a3/#737373)不是同一档;底部栏未选中态要与 RN 同值,只能按 token 名再派生一格。
+  tertiary: '--color-text-tertiary',
 }
 
 const args = process.argv.slice(2)
