@@ -314,6 +314,7 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **桌面事件接线三层对账**:`check-desktop-event-wiring.mjs`(Tauri emit → listen → 前端注册;"就绪点亮"按可达性判,被抽进被调函数也算,允许一跳)。
 - **迁移正文不可变**(185):已进 journal 的 .sql 禁就地改正文(IM1 首次入库 blob 对照/IM2 索引 vs HEAD);守门 49 记账结构(B1-B5 离线,B6-B9 连库)。**受管 `.env` 键值被清空对账** `check-env-drift.mjs`(守护巡检档,判机器状态不进提交链)。
 - **元运维巡检轮** `check-ops-patrol.mjs`:看守者本身还活着吗(P1-P6:副本漂移/规则不热加载/时钟失步/无上限/心跳无人判/引用不存在指标)。**服务存续双探测**:`check-service-binary-paths.mjs`(warn,STATE/nssm Application 存在/端口应答,nssm stdout 是 UTF-16)、`check-public-path-probe.mjs`(outage 与常态分序列,取证经 `run-evidence.mjs` 封缄,truncated 不成合格证)。
+- **隧道腿健康只读哨兵** `check-tunnel-leg-health.mjs`(运维尺子,判机器状态不进提交链;公网入口断流时由 git-guardian 报警出路点名):量 Cloudflared 腿存续与在用源地址退化(netsh 首选寿命 0s 或反对/deprecated ⇒ breach——15:0x 实测的"4 腿全吊在将删地址上"事故型),单点共用只 warn 报"放大因子"不另立 breach;三态纪律 ok/breach/unjudged 逐维独立,真跑前先以构造夹具阳性对照证明判据有牙。
 - **跳门留痕**:钩子失败归因是量出来的(`scripts/lib/commit-gate-attribution.mjs`:逐道复跑、点名本次文件 ⇒ 必修;批没跑完 ⇒ safe-commit 自跑一遍再归因;汇总块必须先过"轮次绑定"锁——之前那次 staged 清单回显必须完整包含本次声明集)。跳门次数唯一真值 = `.workbuddy/safe-commit-attestation.jsonl`。**agent 不得假设"钩子红了就能跳"**。
 
 ## 关键参考文档
@@ -365,19 +366,35 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-input-focus-feedback.mjs`
   - 聚焦反馈这一维(票 G-42 第①格,runner 条目 id 212,2026-10-15):描边的输入/选择控件必须对聚焦有反应,三端同一把尺子;存量按该文件 HEAD 自身棘轮只报数,取证窗只取元素自己的属性区。
   - **「重复登记副本」指针注记:存量已清零,今后一条也不许再产生(2026-10-13 立,用户指令"彻底根治")**:`〔【归并】重复登记副本…〕`、`**[归并]**`、`（【归并】…）` 等注记形态曾把计划文档堆到 1963 条勾选行里 1137 条是副本指针(其中 1074 条是渲染不可见的登记行注记)。现已由 `node scripts/plan-pointer-purge.mjs --apply` 一次性清偿并**对象空间落地**(`715d495a9b5`,从不写工作树;落地前四条守恒断言 + 门 203 同源自校验必须全绿:L1 同题外部持有行删除 879 / L2 指纹族内归并 345 / L3 纯指针 1 / L4 剥注记保留 163 / 认领标记转移 5,台账 `.ihui-agent/archive/plan-pointer-purge-2026-10-13.md`)。守住清偿成果的是**两道互不可替**的门(2026-10-14 补正:首版只登记了 13d,当天实测它单独守不住):① **守门 13d**(`scripts/check-plan-dup-pointer-ratchet.mjs`,pre-commit blocking,差值棘轮:只拦"本次提交让登记行注记变多";全量档判 **HEAD 真相面**而非工作树 —— 工作树副本滞后 HEAD 且含他人在飞编辑,按它判就是 §12e 禁的恒红门)。② **门 71 的归档豁免射程**(`check-plan-line-loss.mjs` 的 `ARCHIVE_FILE_RE`,纳入清偿台账 `plan-pointer-purge-*.md`):为什么 ② 不可省 —— 门 71 自愈回捞器走 `commit-tree`+CAS **旁路落地,pre-commit 钩子结构性不跑** ⇒ 13d(只在提交时跑)永远拦不到它;实测对打两轮:清偿删 40 条(`7826f3b0741`)⇒ 门 71 把正当移除读成"被并发旧基线抹掉"原样回捞(`2560d82194`/`6e8d2e089e` 各还原 40)⇒ 清偿成果永远守不住。射程放宽**只扩文件名**,豁免的实体条件(被删行逐字原文在已入库归档 blob 里找得到)一字未松,`archivedCopy` 仍按面读 blob 不退回磁盘 readdir;不在台账里的真删照旧判丢(镜像测试 `check-plan-line-loss.test.mjs` 的「射程锁」双向钉住)。⇒ 教训:**旁路落地的机器(回捞器/自愈/落地循环)不跑钩子,任何只活在 pre-commit 的门对它一律无效,防它必须在它自己的判据源头接。****分族键指纹优先**(与门 203 的 `extractTaskFingerprint` 同源,首版按复合主键分族实测 139 键撞车:不同票号抄同一段正文,剥掉注记后露出同一副指纹,清偿自己成了新一批同题多号)。**登记一件事只有一个入口规矩**:同主键的新登记必须翻勾旧行或就地改写(§1 第 22 行的机器闸已在),不要给旧行贴指针注记 —— 计划文档不是"标注了指针"的清单,是"只剩一份活账"的清单;指针注记既不删除也不派单,只是把同一个错抄了两遍。
+
 ```bash
+
 ```
-  })
+
+})
+
 ```bash
+
 ```
+
 ```
+
 ```
+
 ```
+
 ```
+
 ```
+
 ```
+
 ```javascript
+
 ```
+
 ```
+
 ```
+
 - 接线/守门自身: `check-gate-face-discipline.mjs` `check-skip-env-promise.mjs` `check-selftest-registrant-evaluates.mjs` `check-ci-failure-triage-wiring.mjs`(id 215,blocking:CI 失败自述覆盖面与自洽性对账 —— W2 失明/错位/孤儿锁 + TRIAGE_WORKFLOW_FILE 必须指本文件为硬拦;W1 覆盖面按 §12e 全量档只报数、`--staged` 差值棘轮只拦新增;自检 `--self-test`,跳过 `HUSKY_SKIP_CI_TRIAGE_WIRING=1`) `check-api-key-permission-labels.mjs`(id 214,blocking:ApiKeyPermission 三面对账 —— union ↔ web 两处 `Record<ApiKeyPermission, string>` 标签表 ↔ 五语言 `apiKeyPerms.*`;P1 键集等值、P2 表值必须逐端取得到(§19);取不到或枚举为 0 ⇒ exit 2 未判定;按输入面 `stagedTriggers` 收窄不给无关提交造恒红;自检 `--self-test`,跳过 `HUSKY_SKIP_API_KEY_PERM_LABELS=1`) `check-live-doc-archive-reinflation.mjs`(id 216,blocking:活文档归档回灌对账 —— §1 两步归档第②步的机器锁;连续 ≥12 行有信息量且逐字命中 `.ihui-agent/archive/AGENTS*` 行集即判回灌,门槛两侧(11/12)与水印横幅反证都钉在自检里;取不到面或归档面枚举为 0 ⇒ exit 2 未判定;触发面 `AGENTS.md;README.md;.ihui-agent/archive/`;自检 `--self-test`,跳过 `HUSKY_SKIP_LIVE_DOC_REINFLATION=1`) `check-sheet-flex-contract.mjs`(id 217,blocking:mobile-rn sheet/弹窗 flex 弹性契约 —— bounded 容器(maxHeight/height)内列表必须唯一弹性块、固定 chrome 显式 `flexShrink:0`、例外 `// sheet-flex-ok:` 行注释豁免;`--src` 注 fixture 属外部输入恒磁盘读(守门 118 许可条款),仓库面走 face-reader;原注 213/214 两度撞号让位顺延;自检走 `scripts/tests/check-sheet-flex-contract.test.mjs` 10 例) `check-mobile-rn-style-parity.mjs`(id 218,blocking:RN 端硬编码 hex 基线棘轮 —— 基线外新增 #hex 即 BLOCK,存量只减不增;取材口径全量=HEAD blob/`--staged`=索引 blob/`--worktree`=人工逃生舱,取不到 ⇒ exit 2 未判定;自检 `--self-test`,跳过 `HUSKY_SKIP_RN_STYLE_PARITY=1`) `check-list-predicate-has-positive-proof.mjs` `check-baseline-freshness.mjs` `check-ops-patrol.mjs`
