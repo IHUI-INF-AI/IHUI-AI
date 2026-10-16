@@ -3478,13 +3478,17 @@ export function auditPublicPathProbe(opts = {}) {
         // 绝不因为新维缺失就把出路那一行省掉。
         const leg = String(r?.leg || '')
         const exitLine =
-          leg === 'entry'
-            ? '出路:本轮定位是**公网入口 ↔ 本机隧道**这一段(web 直连同轮很快,已排除服务本体)。按序问:①`Get-Service Cloudflared` 与隧道日志(该服务以 --protocol http2 跑);②`node scripts/net-doctor.mjs` 量出口与代理;③看当时上行是否被占(构建/推送/同步)。'
-            : leg === 'service'
-              ? '出路:本地对照组同轮也越阈 ⇒ 洞在**服务段**(web 本体),查 IHUI-WEB 进程与 8801 自身健康(heal-unresponsive-services 归口),不必查公网链路。'
-              : leg === 'undetermined'
-                ? '出路:本轮**定位拿不到**(对照组没样本)⇒ 先问对照组为什么没采到(尺子被掐/8801 未监听/取证未跑完),别按"公网坏了"动手。'
-                : '出路:先用 --report 确认是**目标端**慢/失败(而非探针机抖动);目标真不可用时查该服务自身健康' + '(本机 web/api/ai-service 由 heal-unresponsive-services 自愈;外部目标查其服务端与链路)。'
+          leg === 'egress'
+            ? '出路:本轮定位是**本机出口 ↔ Cloudflare 边缘**这一跳(握手没完成的样本停在 TCP/TLS 段;本地直连同轮很快,已排除 web;经节点的参照腿可证真实访客不经此路)。按序问:①`node scripts/net-doctor.mjs` 对比直连与节点腿;②看本机上行是否被占(构建/推送/同步);③链路侧丢包要换出口或找运营商 —— **不必**去查隧道或 web 服务。'
+            : leg === 'entry'
+              ? '出路:本轮定位是**公网入口 ↔ 本机隧道**这一段(web 直连同轮很快,已排除服务本体)。按序问:①`node scripts/check-tunnel-leg-health.mjs` 看隧道腿与源地址是否退化;②`Get-Service Cloudflared` 与隧道日志(该服务以 --protocol http2 跑);③`node scripts/net-doctor.mjs` 量出口与代理;④看当时上行是否被占(构建/推送/同步)。'
+              : leg === 'service'
+                ? '出路:本地对照组同轮也越阈 ⇒ 洞在**服务段**(web 本体),查 IHUI-WEB 进程与 8801 自身健康(heal-unresponsive-services 归口),不必查公网链路。'
+                : leg === 'unlocated'
+                  ? '出路:本轮**定位拿不到**(分阶段读数不全)⇒ 先确认尺子跑的是带 stages 的新传输层(--report 里每条样本应有 stageReached),别按"公网坏了"动手。'
+                  : leg === 'undetermined'
+                    ? '出路:本轮**定位拿不到**(对照组没样本)⇒ 先问对照组为什么没采到(尺子被掐/8801 未监听/取证未跑完),别按"公网坏了"动手。'
+                    : '出路:先用 --report 确认是**目标端**慢/失败(而非探针机抖动);目标真不可用时查该服务自身健康' + '(本机 web/api/ai-service 由 heal-unresponsive-services 自愈;外部目标查其服务端与链路)。'
         notify(
           `公网路径探测越阈值:${key}`,
           `同一身份连续第 ${st.streak}/${st.required} 轮越阈(门槛 ${st.required} 轮,单轮尖峰不寄信)。\n${String(r?.numbers || '(无读数控)')}\n${reasons.join('\n')}\n` +

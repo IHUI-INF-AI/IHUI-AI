@@ -228,9 +228,11 @@ test('出路按定位到的段点名:入口段提隧道/net-doctor,服务段提 
     [`B/公网·常态${extraKey}`]: { verdict: 'breach', ...(leg ? { leg } : {}), numbers: '样本 10 / 慢 6', reasons: ['慢样本率 60.0%'] },
   })
   const cases = [
-    ['entry', '·入口段', /Cloudflared/],
+    ['entry', '·入口段', /check-tunnel-leg-health/],
+    ['egress', '·本机出口段', /net-doctor/],
     ['service', '·服务段', /IHUI-WEB/],
     ['undetermined', '', /定位拿不到/],
+    ['unlocated', '', /分阶段读数不全/],
     [null, '', /--report/],
   ]
   for (const [leg, suffix, expect] of cases) {
