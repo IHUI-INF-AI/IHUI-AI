@@ -79,6 +79,11 @@ export function TurnstileWidget({
   errorRef.current = onError
   expireRef.current = onExpire
 
+  // api.js 加载失败标记(网络不可达/challenges.cloudflare.com 被拦截时)。
+  // 旧实现:加载失败 → 完全空白,用户根本不知道验证组件没起来。
+  // 现改为:显式提示"加载失败,请重试",避免"验证框没出来"却也无从排查。
+  const [loadError, setLoadError] = React.useState(false)
+
   React.useEffect(() => {
     setGlobalCallback(verifyName, (token: unknown) => {
       verifyRef.current(token as string)
@@ -110,14 +115,24 @@ export function TurnstileWidget({
         strategy="afterInteractive"
         async
         defer
+        onError={() => setLoadError(true)}
       />
-      <div
-        className={containerClass}
-        data-sitekey={siteKey}
-        data-callback={verifyName}
-        data-error-callback={errorName}
-        data-expired-callback={expireName}
-      />
+      {loadError ? (
+        <div
+          className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-700"
+          role="alert"
+        >
+          人机验证组件加载失败(多为网络无法访问验证服务)。请检查网络后刷新页面重试;若仍失败,可改用登录弹窗中的「在浏览器中登录」按钮(走系统浏览器,不依赖本窗口的验证环境)。
+        </div>
+      ) : (
+        <div
+          className={containerClass}
+          data-sitekey={siteKey}
+          data-callback={verifyName}
+          data-error-callback={errorName}
+          data-expired-callback={expireName}
+        />
+      )}
     </>
   )
 }
