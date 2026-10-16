@@ -250,6 +250,34 @@ def minimax_classify_error(http_status: int | None) -> tuple[str, int]:
     return "Unknown", 0
 
 
+async def minimax_probe_status(
+    name: str,
+    token: str,
+    device_map: dict[str, Any],
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[bool, bool | None, int | None, str]:
+    """探针:MiniMax 官方无只读状态位(status 只有 7 天进度环 days[].day_no,
+    无日期 ⇒ 无法定位「今天」)⇒ 只能走**幂等 claim** 兜底:今日已领时引擎自报
+    skip_already,未领则顺手领掉(官方幂等,重复领不重复发积分)。
+
+    返回 (ok, checked_in|None, credits|None, message)。与 TRAE/WorkBuddy/Qoder
+    的只读探针统一签名,供 06:00 状态探针按平台分发。
+    """
+    result = await minimax_checkin_account(
+        name, token, device_map, timeout=timeout, client=client
+    )
+    action = result.get("action")
+    credits = result.get("credits_delta")
+    if not result.get("ok"):
+        return False, None, None, str(result.get("message") or "")
+    checked_in = action in ("skip_already", "claim_ok")
+    return True, checked_in, credits if isinstance(credits, int) else None, (
+        str(result.get("message") or "")
+    )
+
+
 async def minimax_checkin_account(
     name: str,
     token: str,
