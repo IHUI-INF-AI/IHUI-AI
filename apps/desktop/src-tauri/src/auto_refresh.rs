@@ -607,17 +607,12 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
         let healthy = probe_health_with_retry(&client, &base.health_url).await;
         if let Some(w) = app.get_webview_window("main") {
             if healthy {
-                // 远程页在窗口隐藏期间已开始加载,直接点亮
-                if reveal_on_probe {
-                    log::info!("[window-show] site=auto_refresh_probe_online trigger=启动探活成功且 reveal_on_probe=true(用户未勾「启动后先进托盘」)⇒ 点亮前端页");
-                    let _ = w.show();
-                    log::info!("[auto-refresh] 启动探活成功 → 显示前端页");
-                } else {
-                    log::info!(
-                        "[auto-refresh] 启动探活成功,但用户要求启动后进托盘 → 保持隐藏\
-                         (唤起另有三条独立通道:托盘、Ctrl+Shift+I、单实例)"
-                    );
-                }
+                // ⚠️ 2026-10-16:点亮时机从「探活落定」改为「主文档加载完成」(lib.rs
+                // on_page_load Finished + 15s 硬超时兜底)。探活只证后端活,此刻远程首页
+                // 往往才开始加载,在这里 show 会亮出一个 chrome 缺席的空窗 —— 用户报
+                // 「刚启动左上 logo/右上窗控按钮隔好久才出来」正是它。本分支只落在线态,
+                // show 交给页面加载完成事件。
+                log::info!("[auto-refresh] 启动探活成功 → 在线态落定,点亮交给 page_load_finished(不再此处 show)");
                 // 2026-09-17 薄壳核心假设自检:远程页是否可用 Tauri IPC。
                 // 机制:等页面稳定(8s) → JS 写 location.hash(#ipc-ok / #ipc-missing)→
                 // Rust 读窗口 URL(原生属性,不受页面 title/CSP 干扰)并落日志 → 清 hash。
