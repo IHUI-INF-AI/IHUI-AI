@@ -82,6 +82,10 @@ vi.mock('react-native', async () => {
     // 主题单例(src/theme/active-tokens.ts)在模块求值时调 Appearance.getColorScheme(),
     // 缺这个导出会让整个测试文件加载失败 ⇒ 该文件的断言一条都不会跑。
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
+    // 同一条教训的第三次应用:`SearchOverlay` 渲染期调 useWindowDimensions() 做面板定位,
+    // 而**这份内联工厂会覆盖 vitest.config 的 react-native 替身**(替身里其实已有该导出)⇒
+    // 缺它同样是"渲染期抛错 ⇒ 6 条断言一条没跑",且报错点离断言很远,极易被误读成组件坏了。
+    useWindowDimensions: () => ({ width: 375, height: 812, scale: 1, fontScale: 1 }),
     DevSettings: { reload: () => {} },
     __esModule: true,
     Modal: ({ children, visible }: { visible?: boolean; children?: React.ReactNode }) =>
