@@ -882,4 +882,115 @@ test('TG4 心跳:调度器那一档(--json)必须留痕并带未判定原因原�
   assert.ok(seg.indexOf('heartbeatRecord({') > 0, '心跳必须真由 main 接上(判据写出来而没装车 = 本仓最高频失效型)')
   assert.doesNotMatch(seg.slice(0, 3000), /if \(!json\) \{/, '不得再退回"只人工档才写"的守卫')
 })
+
+test('TS1 巡检发信必须过持续性门槛(风暴型尖峰不寄信),且未判定原因必须进守护日志', async () => {
+  const gd = await import(pathToFileURL(join(REPO, 'scripts', 'git-guardian.mjs')).href)
+  const { auditOpsPatrol } = gd
+  assert.equal(typeof auditOpsPatrol, 'function', '派发点导不出来 ⇒ 这一枚锁无从证明,不得当成通过')
+  const INTERVAL = 15 * 60 * 1000
+  const t0 = Date.parse('2026-10-16T05:00:00.000Z')
+  const payload = (red, undetDetail = 'w32tm 派生失败:ENOENT(取用档=裸名兜底)') =>
+    JSON.stringify({
+      at: new Date(t0).toISOString(),
+      counts: { findings: red ? 1 : 0, undetermined: 1, ok: red ? 19 : 20, adjudicated: 0, rotten: 0 },
+      findings: red ? [{ id: 'P4a', detail: '3.06 GB / 64205 项 | 越阈:条目数 64205>60000 | 大头:trae-agent-toolhost(14554 文件/20.5MB/近 24h 有动,在用)' }] : [],
+      undetermined: [{ id: 'P3', detail: undetDetail }],
+      adjudicated: [],
+      ok: red ? [{ id: 'P5b', detail: 'exit=0' }] : [{ id: 'P4a', detail: '绿' }, { id: 'P5b', detail: 'exit=0' }],
+    })
+  const base = mkScratch('ops-streak-')
+  try {
+    // ── 场景 A:今天实测到的形状 —— 越阈两轮就自己回绿 ⇒ 一封都不许寄,且清零必须可见
+    const sendsA = []
+    const logA = []
+    const tickA = join(base, 'tickA.iso')
+    const streakA = join(base, 'streakA.json')
+    const callA = (round, red) =>
+      auditOpsPatrol({
+        now: t0 + round * INTERVAL,
+        tickFile: tickA,
+        streakFile: streakA,
+        logger: (s) => logA.push(String(s)),
+        notify: (name, detail, o) => {
+          sendsA.push({ name, dedupKey: o?.dedupKey, detail })
+          return { ok: true }
+        },
+        runner: () => ({ status: 0, stdout: payload(red), stderr: '' }),
+      })
+    callA(0, true)
+    callA(1, true)
+    callA(2, false)
+    assert.deepEqual(sendsA, [], '连红 2 轮即回绿 = 风暴型尖峰,门槛 3 轮内不得寄信')
+    assert.ok(logA.some((l) => /未达持续性门槛.*连 1\/3 轮/.test(l)), `第 1 轮必须写明"连 1/3 轮"与终态,实得:${logA.filter((l) => /门槛/.test(l))[0] || '(无)'}`)
+    assert.ok(logA.some((l) => /连击清零:P4a\(此前连 2 轮/.test(l)), '恢复必须是可见的终态,不是悄悄不留痕')
+    assert.ok(logA.some((l) => /未判定原因 P3:w32tm 派生失败/.test(l)), `只报格名等于下一轮还是同一条无名盲区(§0.3),实得:${logA.filter((l) => /未判定原因/.test(l))[0] || '(无该行)'}`)
+    assert.ok(logA.some((l) => /判红 1 格/.test(l)), '不发信 ≠ 不留痕:红档仍须逐轮打印')
+    // 成对反控:门没给原因时必须显式写"(门没给原因)",而不是静默印成 `undefined` ——
+    // 盲区说不出为什么瞎,下一轮还是同一条盲区;而"undefined"会被读成"有过原因"。
+    const logNoWhy = []
+    auditOpsPatrol({
+      now: t0 + 30 * INTERVAL,
+      tickFile: join(base, 'tickW.iso'),
+      streakFile: join(base, 'streakW.json'),
+      logger: (s) => logNoWhy.push(String(s)),
+      notify: () => ({ ok: true }),
+      runner: () => ({ status: 0, stdout: payload(false, ''), stderr: '' }),
+    })
+    assert.ok(logNoWhy.some((l) => /未判定原因 P3:\(门没给原因\)/.test(l)), `缺原因必须当场点名,实得:${logNoWhy.filter((l) => /未判定/.test(l)).join(' ‖ ')}`)
+
+    // ── 场景 B:同一身份连红到第 3 轮 ⇒ 必须到人,且身份仍是"红了哪几格"(实时读数不进指纹)
+    const sendsB = []
+    const logB = []
+    const tickB = join(base, 'tickB.iso')
+    const streakB = join(base, 'streakB.json')
+    for (let i = 0; i < 3; i++)
+      auditOpsPatrol({
+        now: t0 + i * INTERVAL,
+        tickFile: tickB,
+        streakFile: streakB,
+        logger: (s) => logB.push(String(s)),
+        notify: (name, detail, o) => {
+          sendsB.push({ name, dedupKey: o?.dedupKey, detail })
+          return { ok: true }
+        },
+        runner: () => ({ status: 0, stdout: payload(true), stderr: '' }),
+      })
+    assert.equal(sendsB.length, 1, `第 3 轮必须寄且只寄一封,实得 ${sendsB.length}`)
+    assert.equal(sendsB[0].name, '元运维巡检红(1 格)')
+    assert.equal(sendsB[0].dedupKey, 'cells=P4a', '去重身份仍按"哪几格红了",逐轮变动的读数只进正文')
+    assert.match(sendsB[0].detail, /连续第 P4a=3 轮越阈\(门槛 3 轮/)
+    assert.match(sendsB[0].detail, /大头:trae-agent-toolhost/, '门给的归属点名必须原样进正文,否则收信人无从下手(§5e-1)')
+    assert.match(sendsB[0].detail, /ops-patrol-last\.json/, '信里要指得出盲区与逐格读数的盘上凭据')
+
+    // ── 反向锁(门槛是不是真装在判据上):把 required 设 1 ⇒ 第一轮就该到人
+    const sendsC = []
+    auditOpsPatrol({
+      now: t0,
+      tickFile: join(base, 'tickC.iso'),
+      streakFile: join(base, 'streakC.json'),
+      requiredStreak: 1,
+      logger: () => {},
+      notify: (name, detail, o) => {
+        sendsC.push({ name, dedupKey: o?.dedupKey })
+        return { ok: true }
+      },
+      runner: () => ({ status: 0, stdout: payload(true), stderr: '' }),
+    })
+    assert.equal(sendsC.length, 1, '门槛降到 1 就当场发信 ⇒ 证明发信真接在连击判据上,不是被别处硬静音')
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(base, 'streakA.json'), 'utf8')),
+      {},
+      '回绿后 P4a 的连击必须被清掉(留在册上会把下一次独立尖峰顶成"第 2 轮")',
+    )
+    // ── 形态锁:连击算术只准有一份实现(§22c),巡检这一路必须调既有的 bumpProbeStreak
+    const s = src('scripts/git-guardian.mjs')
+    const body = s.slice(s.indexOf('export function auditOpsPatrol'), s.indexOf('export function auditOpsPatrol') + 9000)
+    assert.match(body, /bumpProbeStreak\(/, '巡检发信没接连击判据 ⇒ 门槛只是注释')
+    assert.match(body, /OPS_PATROL_STREAK_FILE/, '连击账本必须是具名常量(第二份戳/第二份账必然漂移)')
+    assert.doesNotMatch(body, /streak \+ 1|streak\+\+/, '派发点里不得自己写连击算术(复用同一份实现)')
+    assert.equal([...s.matchAll(/export function bumpProbeStreak/g)].length, 1, '连击实现全仓只许一份')
+  } finally {
+    rmScratch(base)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
