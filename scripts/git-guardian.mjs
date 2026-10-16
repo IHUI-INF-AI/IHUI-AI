@@ -3675,8 +3675,8 @@ export function auditTunnelLegHealth(opts = {}) {
         breaches += 1
         const exit =
           dim === 'deprecated-source'
-            ? '出路:重启 `Cloudflared` 服务让腿重选源地址(约 10-30 秒公网 502 窗口,与换流窗口同语义);不重启的后果是源地址被删时 4 条腿同时断 ⇒ 入口直接 530。'
-            : '出路:进程在而腿数 0 ⇒ 隧道没连上 CF 边缘。先看 `Get-Service Cloudflared` 与它的启动方式(ImagePath 是裸 tunnel run,无日志落点是已知盲区),再看本机出口:`node scripts/net-doctor.mjs`。'
+            ? '出路:重启 `Cloudflared` 服务让腿重选源地址。**实测代价(2026-10-16 15:40 那次)**:优雅关闭到旧进程退出约 3 分钟,期间监控现读到 `530` 与 `StopPending(公网入口将不可达)`;写"10-30 秒"是错的。不重启的后果则是源地址被删时 4 条腿同时断 ⇒ 入口长时间 530。挑低峰做,做完用本尺子复验腿数。'
+            : '出路:进程在而腿数 0 ⇒ 隧道没连上 CF 边缘。①`node scripts/check-tunnel-leg-health.mjs --json` 看四维与重启账;②隧道**生命周期**落 Windows 事件日志(provider=`Cloudflared`,只到信息级:starting/stopped/graceful),用 `wevtutil qe Application "/q:*[System[Provider[@Name=\'Cloudflared\']]]" /f:XML /rd /c:20`;**运行期错误(握手/重连)不落任何地方**(stdout 被丢),那一段是结构性盲区;③本机出口 `node scripts/net-doctor.mjs`。'
         notify(
           `公网入口隧道腿异常:${dim}`,
           `读数:${reading}\n原因:${String(d?.reason || '(尺子未给原因)')}\n尺子:scripts/check-tunnel-leg-health.mjs(netsh 地址寿命 + netstat 腿 + 进程三路现读,只读)。\n取证:node scripts/check-tunnel-leg-health.mjs --json(或读 .workbuddy/tunnel-leg-health-last.json)\n${exit}`,

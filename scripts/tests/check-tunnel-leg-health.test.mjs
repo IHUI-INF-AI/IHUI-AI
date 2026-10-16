@@ -223,4 +223,71 @@ test('解析全失败形态:空文本 ⇒ 0 地址 0 腿,judge 落 unjudged 而�
 test('REMOTE_TUNNEL_PORTS 事实锁:7843/7844 都在(实测值会漂,两档都认)', () => {
   assert.deepEqual(kit.REMOTE_TUNNEL_PORTS, [7843, 7844])
 })
+
+// ───────── 重启账(第四维):事件日志 provider=Cloudflared 的生命周期 ─────────
+// 量出来的定档依据:14 天 21 条、全 Level 4;10-15 两次"相隔 21 秒的 starting"= 崩溃循环签名。
+
+const EV = (ms, msg, level = 4) =>
+  `<Event xmlns='x'><System><Provider Name='Cloudflared'/><Level>${level}</Level><TimeCreated SystemTime='${new Date(ms).toISOString()}'/></System><EventData><Data>${msg}</Data></EventData></Event>`
+
+test('parseEventLogXml:取 Level/SystemTime/Data 三样;解析不出 ⇒ 空表(交给上层判采集失败)', () => {
+  const t0 = Date.parse('2026-10-16T07:43:00.000Z')
+  const list = kit.parseEventLogXml(EV(t0, 'Cloudflared service starting') + EV(t0 + 1000, 'cloudflared terminated without error'))
+  assert.equal(list.length, 2)
+  assert.equal(list[0].level, 4)
+  assert.equal(list[0].timeMs, t0)
+  assert.equal(list[0].msg, 'Cloudflared service starting')
+  assert.deepEqual(kit.parseEventLogXml(''), [], '空输入 = 空表')
+  assert.deepEqual(kit.parseEventLogXml('<Event><垃圾>没有 Level 也没有时刻'), [], '残缺记录不吃(不得把读不出说成没有事件)')
+})
+
+test('summarizeRestarts:两次 starting 相隔 21 秒 ⇒ doubleStart;正常一停一起 ⇒ 不', () => {
+  const t0 = 1_760_000_000_000
+  const flap = kit.summarizeRestarts([
+    { level: 4, timeMs: t0, msg: 'Cloudflared service starting' },
+    { level: 4, timeMs: t0 + 21_000, msg: 'Cloudflared service starting' },
+  ])
+  assert.equal(flap.doubleStart, true)
+  assert.equal(flap.minStartGapMs, 21_000)
+  const calm = kit.summarizeRestarts([
+    { level: 4, timeMs: t0, msg: 'cloudflared starting graceful shutdown' },
+    { level: 4, timeMs: t0 + 1000, msg: 'Cloudflared service stopped' },
+    { level: 4, timeMs: t0 + 5000, msg: 'Cloudflared service starting' },
+  ])
+  assert.equal(calm.doubleStart, false)
+  assert.equal(calm.starts, 1)
+  assert.equal(calm.stops, 1)
+})
+
+test('restart-churn 五向:双启 breach / 非信息级 breach / 4 次 warn / 真 0 ok / 采集失败 unjudged', () => {
+  const t0 = 1_760_000_000_000
+  const mk = (restarts, eventsProbe = 'ok') => kit.judge(mkInput({ restarts, eventsProbe }))
+  assert.equal(mk(kit.summarizeRestarts([{ level: 4, timeMs: t0, msg: 'Cloudflared service starting' }, { level: 4, timeMs: t0 + 21_000, msg: 'Cloudflared service starting' }]))['restart-churn'].verdict, 'breach')
+  assert.equal(mk({ total: 3, starts: 1, stops: 1, nonInfo: 1, doubleStart: false })['restart-churn'].verdict, 'breach', '出现 Warning/Error 级事件必须喊')
+  assert.equal(mk({ total: 8, starts: 4, stops: 4, nonInfo: 0, doubleStart: false })['restart-churn'].verdict, 'warn', '4 次/24h(基线 0.5)只报数')
+  assert.equal(mk({ total: 2, starts: 1, stops: 1, nonInfo: 0, doubleStart: false })['restart-churn'].verdict, 'ok')
+  assert.equal(mk(null, 'failed')['restart-churn'].verdict, 'unjudged')
+  assert.match(mk(null, 'failed')['restart-churn'].reason, /wevtutil/, '未判定必须点名生产者')
+})
+
+test('restart-churn 真 0 与"读不出"分家;调用方不采这一路时整维不产出(旧夹具不得被拖成 3)', () => {
+  const zero = kit.judge(mkInput({ eventsProbe: 'empty', restarts: { total: 0, starts: 0, stops: 0, nonInfo: 0, doubleStart: false } }))
+  assert.equal(zero['restart-churn'].verdict, 'ok')
+  assert.match(zero['restart-churn'].reading.note, /真 0/)
+  const absent = kit.judge(mkInput({}))
+  assert.equal(absent['restart-churn'], undefined, '没采这一路 ⇒ 不产出该维(平白多一格 unjudged 会把退出码拖成 3)')
+})
+
+test('形状锁:事件采集只走原生 wevtutil,不得回到 PowerShell(守护身份下冷启动会杀穿超时)', () => {
+  const raw = readFileSync(fileURLToPath(new URL('../check-tunnel-leg-health.mjs', import.meta.url)), 'utf8')
+  // 锁只判**代码行**:注释里写"为什么不用 Get-WinEvent"是必需的来龙去脉,不该把这条锁绊倒
+  // (遮噪方向与守门 118 一致:判代码结构时注释与字符串都要遮,判字面量时才保留字符串)。
+  const code = raw
+    .split(/\r?\n/)
+    .filter((l) => !l.trim().startsWith('//') && !l.trim().startsWith('*') && !l.trim().startsWith('/*'))
+    .join('\n')
+  assert.equal(/Get-WinEvent|powershell\.exe|PWSH/.test(code), false, '取事件必须走原生 wevtutil —— PowerShell 在 LocalSystem 身份下冷启动会杀穿采集超时')
+  assert.ok(/wevtutil\.exe/.test(code) && /\/f:XML/.test(code), '必须显式绝对路径 + /f:XML(区域无关;/f:CSV 与 /f:RD 本机实测报"选项 f 的值无效")')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
