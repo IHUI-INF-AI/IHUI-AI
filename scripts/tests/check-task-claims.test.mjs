@@ -585,16 +585,25 @@ test('T19 反引号叙述不计 / 剥掉包裹必计 / 判不出保守计入并�
 })
 
 test('T20 真仓 HEAD 逐字输入:叙述行不计的**理由**必须可复核,剥掉反引号必计(尺子的牙长在真形态上)', () => {
-  // §22c:判据的对象是真实文件的形态 ⇒ 至少一条用例的输入逐字取自真实文件(这里取 HEAD 面,
+  // §22c:判据的对象是真实文件的形态 ⇒ 输入逐字取自真实文件(这里取 HEAD 面,
   // 全部用内容锚点筛行,不锚行号 —— 行号在任何一次 append 后都会挪位)。
+  // 〔夹具重构@2026-10-16〕旧版把夹具输入钉死在「HEAD 面存在 `- [x]`×`（进行中` 行」这一形态,
+  // 而机主 2026-10-16「完成即删」令已把该形态**合法清零**(现读 HEAD blob:含标记行 229,
+  // 其中勾选态 0)⇒ 夹具自锁,不是判源缺陷(判源一字未动,红因取证见本次提交信息)。
+  // 拆成两格,两格都吃真行:
+  //  格①(真文档,零改动):含标记行逐行可复核 + 整篇 vs 逐行守恒(跨行串扰锁)——若 [x]×标记
+  //    形态回潮,该臂连同"剥掉包裹必计"的阳性对照自动复活;
+  //  格②(夹具正反例):从真 HEAD **逐字抽取**「标记整个落在成对反引号码段内」的叙述行,
+  //    仅把行首勾选框翻成 `- [x]` 以武装矛盾判据(正文一字不动,锚点仍在真实文件)⇒
+  //    断言"成对反引号内不计且理由可复核 / 同文剥掉包裹必计且整篇==逐行合计"。
+  //    抽取归零 ⇒ 当场判死,不得静默空转。
   const head = gitRun(['show', 'HEAD:PROJECT_PLAN.md'], { maxBuffer: 1 << 29 })
-  const cand = head
-    .split('\n')
-    .map((l) => l.trimStart())
-    .filter((t) => /^- \[[xX]\]/.test(t) && t.includes('（进行中'))
-  assert.ok(cand.length > 0, 'HEAD 面上连一行含标记的勾选行都没有?若真归零,本夹具需重新设计,不得静默空转')
+  const lines = head.split('\n').map((l) => l.trimStart())
+  const markerLines = lines.filter((t) => /^- \[[xX]\]/.test(t) && t.includes('（进行中'))
+
+  // —— 格①:真文档逐行可复核 + 守恒不变量(排除跨行串扰);只断相等,不钉"当前几条"
   let counted = 0
-  for (const t of cand) {
+  for (const t of markerLines) {
     const asIs = claims.findContradictions(t)
     const aCount = asIs.contradictions.length + asIs.legacyContradictions
     const bare = t.match(/（进行中[^）]*）/g) ?? []
@@ -629,15 +638,61 @@ test('T20 真仓 HEAD 逐字输入:叙述行不计的**理由**必须可复核,�
       )
     }
   }
-  // 整篇与逐行口径一致(排除跨行串扰);只断**相等**这一不变量,不钉"当前几条"。
   const whole = claims.findContradictions(head)
   assert.equal(
     whole.contradictions.length + whole.legacyContradictions,
     counted,
     '整篇计数 ≠ 逐行合计 ⇒ 判据被相邻行串扰',
   )
+
+  // —— 格②:夹具正反例,取材逐字来自真 HEAD(只翻行首勾选框武装判据,正文零改动)
+  const narr = []
+  for (const t of lines) {
+    if (!t.includes('（进行中')) continue
+    if ((t.match(/（进行中[^）]*）/g) ?? []).length === 0) continue
+    const armed = t.startsWith('- [ ]') ? '- [x]' + t.slice(5) : t
+    if (!armed.startsWith('- [x]')) continue // 非勾选框行(散文/列表嵌套)翻不出可判形态,不抽
+    const r = claims.findContradictions(armed)
+    if (r.contradictions.length + r.legacyContradictions === 0 && r.undeterminedCode === 0) {
+      // 入选条件本身要复核:每个标记都**确实**整体落在成对码段内
+      const { spans } = claims.codeSpanRangesOf(armed)
+      const allIn = [...armed.matchAll(/（进行中[^）]*）/g)].every((m) =>
+        claims.insideCodeSpan(spans, m.index, m[0].length),
+      )
+      if (allIn) narr.push(armed)
+    }
+  }
+  assert.ok(
+    narr.length > 0,
+    'HEAD 面上连一行「标记落在成对反引号码段内」的叙述形态都没有?若真归零,本夹具需再次重新设计,不得静默空转',
+  )
+  const fixtureDoc = narr.join('\n') + '\n'
+  // 反向臂:叙述形态逐字来自真行 ⇒ 不计,且不落"判不出"档(反引号是配过对的)
+  const jAsIs = claims.findContradictions(fixtureDoc)
+  assert.equal(
+    jAsIs.contradictions.length + jAsIs.legacyContradictions,
+    0,
+    '真行反引号叙述被计成矛盾 ⇒ S16 修掉的假阳回潮',
+  )
+  assert.equal(jAsIs.undeterminedCode, 0, '成对反引号的真行竟判不出 ⇒ 码段测量对真形态失明')
+  // 阳性臂:同文剥掉全部反引号 ⇒ 标记全落结构位,逐行必计,且整篇==逐行合计
+  let bareSum = 0
+  for (const t of narr) {
+    const u = claims.findContradictions(t.replace(/`/g, ''))
+    assert.ok(
+      u.contradictions.length + u.legacyContradictions >= 1,
+      `剥掉包裹仍不计 ⇒ 判据对真形态失明:${t.slice(0, 60)}`,
+    )
+    bareSum += u.contradictions.length + u.legacyContradictions
+  }
+  const jBare = claims.findContradictions(fixtureDoc.replace(/`/g, ''))
+  assert.equal(
+    jBare.contradictions.length + jBare.legacyContradictions,
+    bareSum,
+    '夹具整篇剥皮计数 ≠ 逐行合计 ⇒ 判据被相邻行串扰',
+  )
   console.log(
-    `  (真仓现读:含标记的勾选行 ${cand.length} 条,其中仍计 ${counted} 条 —— 数字随台账在途变化,本测试不钉死)`,
+    `  (真仓现读:含标记的勾选行 ${markerLines.length} 条(仍计 ${counted} 条)/ 抽作夹具的码段内叙述真行 ${narr.length} 条 —— 数字随台账在途变化,本测试不钉死)`,
   )
 })
 
