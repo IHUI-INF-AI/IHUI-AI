@@ -50,12 +50,15 @@ export default function AgentRuntimePage() {
 
   React.useEffect(() => {
     let cancelled = false
-    fetchApi<Agent[]>('/api/agents?limit=50')
+    // 后端 GET /agents 回 success({list,total,page,pageSize})；此前按数组读 ⇒ r.data.length
+    // 恒 undefined，列表拿不到行。`limit` 不在后端 query(只认 page/pageSize)，故改为 pageSize。
+    fetchApi<{ list: Agent[] }>('/api/agents?pageSize=50')
       .then((r) => {
         if (cancelled) return
-        if (r.success && r.data) {
-          setAgents(r.data)
-          if (r.data.length > 0 && !agentId) setAgentId(r.data[0]?.id ?? '')
+        if (r.success) {
+          const list = r.data?.list ?? []
+          setAgents(list)
+          if (list.length > 0 && !agentId) setAgentId(list[0]?.id ?? '')
         }
       })
       .catch(() => {})

@@ -4,8 +4,12 @@
 
 import { View, Text } from '@tarojs/components'
 import LineIcon, { type IconName } from '@/components/LineIcon'
+import type { ChatModelType } from '@ihui/types'
 
-export type ModelType = 'skills' | 'talk' | 'image' | 'video' | 'audio' | 'videoa' | 'other' | 'sck'
+// 值域单源在 @ihui/types 的 ChatModelType：这一副 8 个值原本在本仓有三份逐字相同的副本
+// (本文件、RN ChatScreen、RN HomeScreen)，改名成 ModelType 会和 legacy-migration 的
+// 「LLM 厂商枚举」撞名(同名不同物)，所以别名保留 ModelType 不动消费方。
+export type ModelType = ChatModelType
 
 /**
  * ModelTypeButton 模型类型按钮
@@ -70,7 +74,9 @@ export default function ModelTypeButton({
         color={active ? 'var(--color-primary)' : 'var(--color-muted-foreground)'}
         className="mb-1"
       />
-      <Text className={`text-[length:22rpx] ${active ? 'text-primary' : 'text-foreground'}`}>{label}</Text>
+      <Text className={`text-[length:22rpx] ${active ? 'text-primary' : 'text-foreground'}`}>
+        {label}
+      </Text>
     </View>
   )
 }

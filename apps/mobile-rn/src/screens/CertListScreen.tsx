@@ -25,9 +25,12 @@ export function CertListScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<CertListItem[]>('/certificates')
+      // 后端 GET /certificates 回 success(findCertificates(...))，其声明返回
+      // { list,total,page,pageSize };同端点另一屏 CertificateScreen 读的是分页对象，
+      // 本屏把整个信封当数组 ⇒ 列表永远空，不抛错。
+      const res = await fetchApi<{ list: CertListItem[] }>('/certificates')
       if (!res.success) throw new Error()
-      setItems(res.data ?? [])
+      setItems(res.data?.list ?? [])
     } catch {
       setError(t('certList.loadFailed'))
     } finally {

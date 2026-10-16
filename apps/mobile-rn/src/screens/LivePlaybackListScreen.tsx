@@ -35,9 +35,11 @@ export function LivePlaybackListScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<LivePlaybackItem[]>('/live/history')
+      // 后端 GET /live/history 回 success({ list, total, page, pageSize })(live.ts)，
+      // 本屏此前把整个信封当数组用 ⇒ 回放列表永远空。
+      const res = await fetchApi<{ list: LivePlaybackItem[] }>('/live/history')
       if (!res.success) throw new Error()
-      setItems(res.data ?? [])
+      setItems(res.data?.list ?? [])
     } catch {
       setError(t('livePlaybackList.loadFailed'))
     } finally {

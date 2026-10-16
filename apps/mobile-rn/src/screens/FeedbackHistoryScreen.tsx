@@ -26,9 +26,11 @@ export function FeedbackHistoryScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<FeedbackHistoryItem[]>('/feedbacks')
+      // 后端 GET /feedbacks 回 success({ list, total, page,pageSize })(comments.ts)，
+      // 本屏把整个信封当数组 ⇒ "我的反馈"历史永远空列表。
+      const res = await fetchApi<{ list: FeedbackHistoryItem[] }>('/feedbacks')
       if (!res.success) throw new Error()
-      setItems(res.data ?? [])
+      setItems(res.data?.list ?? [])
     } catch {
       setError(t('feedbackHistory.loadFailed'))
     } finally {

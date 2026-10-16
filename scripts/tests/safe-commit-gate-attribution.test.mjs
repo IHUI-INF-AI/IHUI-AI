@@ -23,7 +23,12 @@ import { selfTest, __test__ } from '../lib/commit-gate-attribution.mjs'
 import { maskComments } from '../lib/code-mask.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const runnerSource = readFileSync(join(here, '..', 'guardian-runner.mjs'), 'utf8')
+// 2026-10-16 执行段外置:汇总/失败清单的打印(printSummary、failedGates 报告)搬到
+// scripts/lib/guardian-executor.mjs,取材面拼接两份源,夹具格式断言原文不变。
+const runnerSource =
+  readFileSync(join(here, '..', 'guardian-runner.mjs'), 'utf8') +
+  '\n' +
+  readFileSync(join(here, '..', 'lib', 'guardian-executor.mjs'), 'utf8')
 const safeCommitSource = readFileSync(join(here, '..', 'safe-commit.mjs'), 'utf8')
 
 test('判据自测:夹具可解析 + A1–A10 十条正反对照(含 mine 必拒跳)', () => {

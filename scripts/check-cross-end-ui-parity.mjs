@@ -2055,11 +2055,24 @@ function matchParenAt(text, open) {
  * @param {Record<string, number>|null} table `radiusLookup` 的档位表
  * @returns {{anchored:boolean, indirect:boolean, tiers:number[]|null}}
  */
-export function rootSlotRadiiOf(src, table) {
+export function rootSlotRadiiOf(src, table, name = null) {
   // 注释遮罩必须**等长**(pad):下面的取材按同一套下标 slice 原文,删注释会让下标左移。
   const mat = stripComments(String(src ?? ''), true)
   const code = maskStringsForDepth(mat)
-  const defAt = code.search(/\bexport\s+default\b/)
+  let defAt = code.search(/\bexport\s+default\b/)
+  /**
+   * 只锚 `export default` 会漏掉整类文件:小程序 `components/adapters/*.taro.tsx` 下大量组件写的是
+   * **具名导出**(`export function ColorfulLoader({…})`)⇒ 那一族的根槽位维"没看"。
+   * 这里按**族名精确匹配**具名导出(不取"第一个 export"，那会锚到同文件里的别的组件)，
+   * 归一化成下面 isFnBody 认得的三种形态；两条都找不到才如实报 anchored:false。
+   */
+  if (defAt < 0 && name) {
+    const named = new RegExp(
+      `\\bexport\\s+(?:(?:async\\s+)?function\\s+${name}\\b|const\\s+${name}\\s*=)`,
+    )
+    const m = named.exec(code)
+    if (m) defAt = m.index
+  }
   if (defAt < 0) return { anchored: false, indirect: false, tiers: null }
   /**
    * `export default` 后面是什么,决定这一维**有没有得看**:
@@ -2068,16 +2081,67 @@ export function rootSlotRadiiOf(src, table) {
    *    ⇒ 组件体在别处,本文里没有"顶层 return 直接吐出的那个元素"可读。
    * 这两种都必须**如实报**,不得当成"这个组件根上没有圆角"。
    */
-  const whole = code.slice(defAt)
-  const after = whole.replace(/^\s*export\s+default\s+/, '')
+  let whole = code.slice(defAt)
+  let after = whole
+    .replace(/^\s*export\s+default\s+/, '')
+    .replace(/^\s*export\s+const\s+[A-Za-z_$][\w$]*\s*=\s*/, '')
+    .replace(/^\s*export\s+/, '')
+  /**
+   * `export default Foo;`(裸标识符)是本仓 RN 侧最常见的写法之一，而 **Foo 的定义往往就在同一文件里**
+   * (`export function Foo({…})` 在上方)。旧判据在这里直接报"间接"，于是整族的根槽位永远没看 ——
+   * ColorfulLoader 就是这么从"锚不到"变成"读不出"的。这里把锚点**改到同文件里那个定义上**；
+   * 跟不到(定义真在别处 / HOC 包裹)才如实报 indirect，绝不退化成"根上没有档"。
+   */
+  const bareId = /^([A-Za-z_$][\w$]*)\s*;?\s*$/.exec(after.trim())
+  if (
+    bareId &&
+    !/^(?:async\s+)?(?:function\b|class\b|\(\s*[^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/.test(
+      after.trim(),
+    )
+  ) {
+    const nm = bareId[1]
+    const dm = new RegExp(
+      `\\b(?:export\\s+)?(?:async\\s+)?function\\s+${nm}\\b|\\b(?:export\\s+)?const\\s+${nm}\\s*=`,
+    ).exec(code)
+    if (dm && dm.index !== defAt) {
+      // whole 必须是**未剥离**的切片：下面的 bodyOpen 靠 `whole.length - after.length`
+      // 还原"剥掉了多少个字符"，两边不同源就会整体偏移(每字符 1 位的错位，读出来是隔壁一行的档)。
+      defAt = dm.index
+      whole = code.slice(dm.index)
+      after = whole
+        .replace(/^\s*export\s+const\s+[A-Za-z_$][\w$]*\s*=\s*/, '')
+        .replace(/^\s*(?:export\s+)?(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*/, '')
+        .replace(/^\s*export\s+/, '')
+    }
+  }
   const isFnBody =
     /^(?:async\s+)?(?:function\b|class\b|\(\s*[^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/.test(after)
   const bodyOpen = isFnBody ? defAt + (whole.length - after.length) + bodyOffsetOf(after) : -1
   if (bodyOpen < 0) return { anchored: true, indirect: true, tiers: null }
   // 组件体顶层 return:只在**函数体第一层**找,嵌套函数/回调里的 return 不是根槽位。
   const body = code.slice(bodyOpen)
+  /**
+   * 表达式起点(绝对下标):跳过空白与**可选的一层**圆括号。
+   * `return (\n <View …> )` 与 `return <View …>` 都算"直接吐出根元素"。
+   */
+  const exprStartOf = (from) => {
+    let j = from
+    while (j < code.length && /\s/.test(code[j])) j++
+    if (code[j] === '(') {
+      j++
+      while (j < code.length && /\s/.test(code[j])) j++
+    }
+    return j
+  }
   let depth = 0
-  let retAt = -1
+  /**
+   * ⚠️ 取的是**第一个直接吐 JSX 的**顶层 return，不是"第一个 return"：
+   * `if (!visible) return null` 这类卫语句在组件体里排在校显 return 之前(真仓
+   * `ColorfulLoader` 两端都是这个写法)，旧写法在这里就把整族读成"根槽位读不出" ——
+   * 报的是"没看出根在哪"，真相是"看错了地方"。`return cond ? <A/> : <B/>` 仍算读不出
+   * (根不唯一)，与旧判据一致。
+   */
+  let exprAt = -1
   for (let i = 0; i < body.length; i++) {
     const c = body[i]
     if (c === '{') depth++
@@ -2091,11 +2155,14 @@ export function rootSlotRadiiOf(src, table) {
       !/[\w$]/.test(body[i - 1] ?? '')
     )
       if (!/[\w$]/.test(body[i + 6] ?? '')) {
-        retAt = i
-        break
+        const cand = exprStartOf(bodyOpen + i + 6)
+        if (code[cand] === '<') {
+          exprAt = cand
+          break
+        }
       }
   }
-  if (retAt < 0) return { anchored: true, indirect: true, tiers: null }
+  if (exprAt < 0) return { anchored: true, indirect: true, tiers: null }
   /**
    * `return` 的表达式:只认**直接吐一个元素**的形态 —— 可选的一层圆括号,紧跟 `<`。
    * 其余(`return null` / `return cond ? <A/> : <B/>` / `return renderList()` / `return <Foo />` 里
@@ -2112,15 +2179,8 @@ export function rootSlotRadiiOf(src, table) {
    * ⚠️ `maskStringsForDepth` **长度不变**,所以 `code` 的下标可以直接用来切原文 —— 这是
    * "深度定位在遮罩上做、取材在原文上做"能成立的前提;哪天遮罩改成变长输出,这一格立刻失效。
    */
-  const retEnd = bodyOpen + retAt + 6
-  let exprAt = retEnd
-  while (exprAt < code.length && /\s/.test(code[exprAt])) exprAt++
-  /** 可选的一层圆括号:`return (\n <View …> )` 与 `return <View …>` 两种写法都算"直接吐出根元素"。 */
-  if (code[exprAt] === '(') {
-    exprAt++
-    while (exprAt < code.length && /\s/.test(code[exprAt])) exprAt++
-  }
-  if (code[exprAt] !== '<') return { anchored: true, indirect: true, tiers: null }
+  // `exprAt` 已由上面的扫描定在"直接吐出的那个 `<`"上：这里不再二次换算下标
+  // (两处各算一遍必漂，漂开的表现是"取材取到隔壁一行的档")。
   /**
    * 根元素的**开标签**到 `>` / `/>` 为止 —— 子树上的档**不属于根槽位**(那正是 RD 的读数面;
    * 把子树也算进来,本维就会退化成 RD 加一个"根"字样,恰好复现它要修的那个推断错误)。
@@ -2224,12 +2284,12 @@ export function rootSlotAudit(pairs, text, table, styles = {}) {
     const a = withLocalStyles(text, styles, p.miniapp)
     const b = withLocalStyles(text, styles, p.rn)
     if (a === undefined || b === undefined) continue
-    const ra = rootSlotRadiiOf(a, table)
-    const rb = rootSlotRadiiOf(b, table)
+    const ra = rootSlotRadiiOf(a, table, p.name)
+    const rb = rootSlotRadiiOf(b, table, p.name)
     if (!ra.anchored || !rb.anchored) {
       undetermined.push({
         name: p.name,
-        why: `export default 锚不到(${!ra.anchored ? 'miniapp' : 'rn'}侧)⇒ 根槽位这一维没看,不当"一致"记`,
+        why: `导出锚不到(${!ra.anchored ? 'miniapp' : 'rn'}侧既无 export default，也没有与族名同名的具名导出)⇒ 根槽位这一维没看,不当"一致"记`,
       })
       continue
     }
@@ -2558,12 +2618,15 @@ export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null
  * 与 `verdictOf` 的判序**不必为 web 腿重写第二份**。
  *
  * 三条边界必须如实:
- *  - `geometry` / `named` 恒空 ⇒ web 腿**不判几何**(量纲不同,见 WEB_DIRS 头注)。空不等于"已确认相同",
- *    所以报告与 `--json` 都要打印"web 腿只量圆角档"。
+ *  - 几何(G)与元素圆角(RE)自 2026-10-15 起**这一腿真判** —— 此前 `geometry`/`named` 恒空,
+ *    于是"web 与小程序同名组件的盒档不同"这一型只在盘点脚本里量得到、提交链上看不到,
+ *    而 AGENTS §4 跨端铁律第一句写的正是"web 与 miniapp-taro 视觉必须完全一致"。
+ *    web 侧走 `'rn'` 那一支读档(px/dp 直通,不做 rpx 折半),与主腿对 RN 腿的口径同源。
+ *  - **图标载体(IC)这一维仍未判** ⇒ 不得把 `判红 0` 读成"web 与小程序已一致"。
  *  - 两侧都读不出任何档 ⇒ 记**未判定**而不是"同档"(没量到与量到零是两件事)。
  *  - 档位表解析不出来(`radiusTable` 为空)⇒ 整腿未判定,不得当成"web 腿零分叉"。
  */
-export function webRadiusAudit(webPairs, text, radiusTable, styles = {}) {
+export function webRadiusAudit(webPairs, text, radiusTable, styles = {}, tiers = {}) {
   const findings = []
   const undetermined = []
   for (const p of webPairs ?? []) {
@@ -2579,23 +2642,36 @@ export function webRadiusAudit(webPairs, text, radiusTable, styles = {}) {
     }
     const aAll = withLocalStyles(text, styles, p.miniapp)
     const bAll = withLocalStyles(text, styles, p.rn)
+    /**
+     * G / named 与主腿**同一批 helper**(readGeometry / namedConflicts / diffValues),
+     * 不在这里另写一份提取式 —— 两处算同一件事必漂移(§22c)。第 3 参 `'rn'` 是单位口径选择器:
+     * web 与 RN 同为 px/dp 直通,只有 miniapp 那一侧要折 rpx→px。
+     */
+    const ga = readGeometry(aAll, 'miniapp', tiers)
+    const gb = readGeometry(bAll, 'rn', tiers)
     const mini = new Set(radiusSetOf(aAll, radiusTable, { side: 'miniapp' }))
     const web = new Set(radiusSetOf(bAll, radiusTable))
-    if (!mini.size && !web.size) {
-      undetermined.push({ name: p.name, why: '两侧都读不出圆角档 ⇒ 零判据(不是"两端同值")' })
+    const erA = radiusEntriesOf(aAll, radiusTable)
+    const erB = radiusEntriesOf(bAll, radiusTable)
+    const elementRadius = elementRadiusDiff(erA.entries, erB.entries)
+    if (!ga.values.size && !gb.values.size && !mini.size && !web.size) {
+      undetermined.push({
+        name: p.name,
+        why: '两侧都读不出几何档与圆角档 ⇒ 零判据(不是"两端同值")',
+      })
       continue
     }
     findings.push({
       name: p.name,
       web: p.rn,
       miniapp: p.miniapp,
-      named: [],
-      geometry: { onlyMiniapp: [], onlyRn: [] },
+      named: namedConflicts(ga.named, gb.named),
+      geometry: diffValues(ga.values, gb.values),
       radius: {
         onlyMiniapp: [...mini].filter((v) => !web.has(v)),
         onlyRn: [...web].filter((v) => !mini.has(v)),
       },
-      elementRadius: { mismatched: [], onlyMiniapp: [], onlyRn: [] },
+      elementRadius,
       webSeen: { miniapp: [...mini], web: [...web] },
     })
   }
@@ -2853,9 +2929,9 @@ export function emitBaseline(findings, prior = {}, webFindings = []) {
   out.waivers = waivers
   /**
    * web 腿的豁免表同理必须**按族带过去**,而且它的"仍有差异"判据**不能沿用主腿那一把尺**:
-   * web 腿这一腿几何维恒不判(`webCounts` 恒 0),按主腿的 `counts>0` 筛会让每条 web 豁免
-   * 在第一次重锚时被静默撤下 —— 撤下的表现不是红,而是那一族回到"锚点还在、理由没了"的状态,
-   * 下一个人无从知道它为什么允许不同形。所以本腿按**它自己真在量的那一维**(RD / RE)筛。
+   * web 腿的豁免筛选必须**用本腿自己的三个计数键**(G/RD/RE)判"还有没有差异":只用主腿口径会让
+   * 每条 web 豁免在第一次重锚时被静默撤下 —— 撤下的表现不是红,而是那一族回到"锚点还在、理由没了"的状态,
+   * 下一个人无从知道它为什么允许不同形。所以本腿按**它自己真在量的那三维**(G / RD / RE)筛。
    */
   const priorWebWaivers = prior && prior[WEB_LEDGER.waivers] ? prior[WEB_LEDGER.waivers] : {}
   const webWaivers = {}
@@ -2965,6 +3041,7 @@ export function main(argv, repoRoot = ROOT) {
     collected.text,
     collected.radius,
     collected.styles ?? {},
+    collected.tiers,
   )
   const webVerdict = verdictOf(web.findings, baseline, WEB_LEDGER)
   /**
@@ -3079,12 +3156,24 @@ export function main(argv, repoRoot = ROOT) {
           pairCount: web.findings.length,
           /** 只量圆角档是**这一腿的设计边界**,不是"几何已确认相同" —— 把它写进读数旁边,
            *  否则 `webRed: 0` 会被读成"web 与小程序已一致"。 */
-          dimension: 'radius-only(文件级档值集合;几何/元素名/图标载体未判)',
+          dimension: 'G+RD+RE(文件级几何档 / 文件级档值集合 / 同名元素档);IC 与 RS 未判',
           findings: web.findings.map((f) => ({
             name: f.name,
             miniapp: f.miniapp,
             web: f.web,
+            /**
+             * 机器面必须与主腿**同键同形**(diffCount / radiusCount / elementRadiusCount + 原始集合)。
+             * 此前只递 `radius`,于是 `web.findings[i].geometry` 在 json 里根本不存在,而同一份
+             * json 的 `web.red[i].geometry` 有值 —— 两个字段在同一台输出机上互不吻合,读 json 的
+             * 人或脚本会得出"这腿没判几何"的结论,而报告行明明点出了分叉。
+             */
+            diffCount: diffCount(f),
+            radiusCount: radiusCount(f),
+            elementRadiusCount: elementRadiusCount(f),
+            geometry: f.geometry,
+            named: f.named,
             radius: f.radius,
+            elementRadius: f.elementRadius,
           })),
           red: webVerdict.red,
           shrunk: webVerdict.shrunk,
@@ -3243,22 +3332,29 @@ export function main(argv, repoRoot = ROOT) {
     /**
      * **WD = web ↔ 小程序**的圆角档对账。前缀与 RD/RE 分开,是因为三者的处置动作不同:
      * RD/RE 说"小程序与 App 两端",WD 说"web 与小程序"(AGENTS §4 的跨端铁律那一半)。
-     * 这一腿**只量圆角档**必须自己说出来 —— 不说,`判红 0` 就会被读成"web 与小程序已一致"。
+     * 这一腿现在量 G+RD+RE,**IC 与 RS 两维仍未判**,必须自己说出来 —— 不说,`判红 0` 就会被
+     * 读成"web 与小程序已一致"(读报告的人不知道哪一格是空的,正是本仓"把没判写成判过了"那一型)。
      */
     {
       const wlines = []
       for (const f of web.findings) {
         const bits = []
+        if (f.geometry.onlyMiniapp.length)
+          bits.push(`仅小程序几何 ${f.geometry.onlyMiniapp.join('/')}`)
+        if (f.geometry.onlyRn.length) bits.push(`仅 web 几何 ${f.geometry.onlyRn.join('/')}`)
         if (f.radius.onlyMiniapp.length) bits.push(`仅小程序档 ${f.radius.onlyMiniapp.join('/')}`)
         if (f.radius.onlyRn.length) bits.push(`仅 web 档 ${f.radius.onlyRn.join('/')}`)
+        for (const m of f.elementRadius?.mismatched ?? [])
+          bits.push(`RE 同名元素 ${m.name} 小程序 ${m.miniapp.join('/')} vs web ${m.rn.join('/')}`)
+        for (const nm of f.named ?? []) bits.push(`同名具名档 ${nm.name ?? JSON.stringify(nm)}`)
         const mark = webVerdict.red.some((r) => r.name === f.name) ? '×' : '·'
         wlines.push(`  ${mark} WD ${f.name} ${bits.join(' | ')}`)
       }
       const wPruned = collected.webUnreachableLegs ?? []
       console.log(
-        `web 腿(RD 量纲,配对 ${web.findings.length} 对` +
+        `web 腿(G+RD+RE 量纲,配对 ${web.findings.length} 对` +
           (wPruned.length ? `,另剔 ${wPruned.length} 对死腿` : '') +
-          `;几何 / 元素名 / 图标载体**未判**,不是"已确认相同")` +
+          `;图标载体 IC 与根槽位 RS 两维**未判**,不是"已确认相同")` +
           `→ 判红 ${webVerdict.red.length} / 台账外新增 0 时才算收口 / 带理由豁免 ${webVerdict.waived.length} / 未判定 ${web.undetermined.length}`,
       )
       // 挂起不得静默:web 可达性没在判(种子缺席)时,这一维"没剔"与"都活着"在账面上长得一样。
