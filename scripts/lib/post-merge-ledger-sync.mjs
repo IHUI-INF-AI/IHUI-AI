@@ -94,7 +94,27 @@ function loadRatchet() {
   }
 }
 
-/**
+/
+/** 第三存量维(2026-10-16 立,机主令"一号一行"):同号多行组数。判据 = plan-task-index 的
+ *  parseTaskRows(台账唯一解析层,§22c 不抄第二份);数"同 key 出现 ≥2 次的组数"。
+ *  与注记/可折两维并列进 runPurgeResettle 的派生条件:任一 >0 就派生折并。 */
+function sameKeyGroupResidue({ root = '', readFace }) {
+  const text = readPlanFaceText({ root, readFace })
+  if (text === null) return null
+  try {
+    const idx = require(join(HERE, '..', 'lib', 'plan-task-index.mjs'))
+    const rows = idx.parseTaskRows(text).filter((r) => r.state === 'open' && r.key)
+    const seen = new Map()
+    for (const r of rows) seen.set(r.key, (seen.get(r.key) || 0) + 1)
+    let n = 0
+    for (const [, c] of seen) if (c > 1) n++
+    return n
+  } catch {
+    return null
+  }
+}
+
+**
  * 第二个存量维(2026-10-15 立,G-32 复清的触发缺口):同题不同编号**可折**行数。
  *
  * 立因(实测,不是预防):10-15 那轮 absorb 档折掉 143 行之后,旁路合并的行级 union 把副本带回,
@@ -135,11 +155,12 @@ export function twinFoldResidue({ root = '', readFace } = {}) {
 function runPurgeResettle({ root, log = (s) => console.log(s), spawnFn, readFace }) {
   const n = ledgerNoteResidue({ root, readFace })
   const t = twinFoldResidue({ root, readFace })
-  if (n === null && t === null) {
+  const g = sameKeyGroupResidue({ root, readFace })
+  if (n === null && t === null && g === null) {
     log('⚠️ [G-32] 两类存量均未判定(取不到被审面或判据模块不可用)⇒ 本轮不复清;不得读成"已归零"')
     return { ran: false, ok: false, residue: null, twinResidue: null, why: '未判定' }
   }
-  if ((n || 0) + (t || 0) === 0) {
+  if ((n || 0) + (t || 0) + (g || 0) === 0) {
     if (n === null || t === null) {
       // 一维判得出 0 而另一维取不到 ⇒ 仍不派生,但必须报名:§0.3「没量到」不等于「已归零」。
       log(`⚠️ [G-32] 存量有一维未判定(注记=${n === null ? '未判定' : n} / 可折=${t === null ? '未判定' : t})⇒ 本轮不派生复清`)
@@ -151,7 +172,7 @@ function runPurgeResettle({ root, log = (s) => console.log(s), spawnFn, readFace
   const abs = resolve(String(root || ''), PURGE_REL)
   // 可折维 > 0 ⇒ 必须带 `--absorb`:只有那一档动"无注记的真副本"(候选正文整段挂进幸存行行尾,
   // 由守恒断言 A1–A4 逐条自证零丢失);只带 --apply 的旧口径对这一型一条也折不掉。
-  const flags = t > 0 ? ['--apply', '--absorb'] : ['--apply']
+  const flags = ['--apply', '--absorb']
   let r
   try {
     r = run(process.execPath, [abs, ...flags], {
