@@ -1715,7 +1715,7 @@ export default function Index() {
             <View
               style={{
                 background: 'var(--color-card)',
-                paddingBottom: 'calc(env(safe-area-inset-bottom) + 10rpx)',
+                paddingBottom: 'calc(110rpx + env(safe-area-inset-bottom))',
                 boxShadow: '0 -2rpx 10rpx var(--color-black-5)',
               }}
             >

@@ -273,7 +273,7 @@
 
 /* RN listContent paddingBottom 80dp→160rpx */
 .pza-bottom-space {
-  height: 160rpx;
+  height: calc(160rpx + env(safe-area-inset-bottom));
 }
 
 /* 悬浮发布按钮对齐 RN fab:bottom 24dp→48rpx / 全宽居中;
@@ -282,11 +282,11 @@
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 48rpx;
+  bottom: calc(110rpx + env(safe-area-inset-bottom));
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10;
+  z-index: 60;
 }
 
 .pza-fab-icon {
