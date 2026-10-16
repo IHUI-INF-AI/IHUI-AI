@@ -2,3 +2,8 @@
 !offline/**
 # 2026-09-17 终极薄壳 frontendDist 占位页(同上)
 !shell/**
+
+# Tauri 签名私钥(绝不入库)
+ihui-desktop.key
+ihui-desktop.key.pub
+.env

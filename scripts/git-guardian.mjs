@@ -3014,6 +3014,17 @@ const PUBLIC_PROBE_LAST = join(WORKTREE, '.workbuddy', 'public-path-probe-last.j
 const PUBLIC_PROBE_INTERVAL_MS = Number(process.env.IHUI_PUBLIC_PROBE_INTERVAL_MS || 30 * 60 * 1000)
 /** 尺子最坏墙钟:90 次公网 × 上限 15s 的极端不可能全中,但一次守护不能被网络拖死 ⇒ 硬超时 */
 const PUBLIC_PROBE_TIMEOUT_MS = Number(process.env.IHUI_PUBLIC_PROBE_TIMEOUT_MS || 240_000)
+/** 持续性门槛的状态件:按身份记"同一结论连了几轮" */
+const PUBLIC_PROBE_STREAK_FILE = join(WORKTREE, '.workbuddy', 'public-path-probe-streak.json')
+/**
+ * 同一身份连续第几轮越阈才到人。**默认 2 = 最长约 30 分钟**(一轮节流 30 分钟)。
+ * 这个数不是拍的:2026-10-16 现读的健康轮里,公网 10 次采样已出现 1 条 9971ms(慢样本率正好
+ * 压在 10% 这条线上),而同轮本地对照组 9–47ms ⇒ 单轮尖峰既不足以判"持续故障",又足以寄一封
+ * 收信人下不了手的信(§5e-1)。设 0/1 = 恢复"越阈即寄"的老语义。
+ */
+const PUBLIC_PROBE_STREAK_REQUIRED = Number(process.env.IHUI_PUBLIC_PROBE_STREAK || 2)
+/** 身份本轮没再出现(改名/换段/不再越阈)时,streak 条目超过这个年龄即回收 —— 工作队列必须有死亡机制 */
+const PUBLIC_PROBE_STREAK_TTL_MS = Number(process.env.IHUI_PUBLIC_PROBE_STREAK_TTL_MS || 24 * 60 * 60 * 1000)
 /**
  * 元运维巡检节流:尺子要开 PowerShell 问服务/任务/时钟,还要走一遍 Temp(4.8 万条目),
  * 2 分钟一轮太贵、每天一轮又兜不住"环停了 3 小时"这一型 ⇒ 15 分钟。
@@ -3243,12 +3254,91 @@ export function auditOpsPatrol(opts = {}) {
   }
 }
 
+/**
+ * 持续性门槛的判据(纯函数,镜像测试直接调它,不在测试里复制第二份判据 §22c)。
+ *
+ * 一条身份每被量到一次 breach 就 +1;达到门槛才允许到人。三种结论各有各的账,**不得并桶**:
+ *   · `breach` ⇒ 连击 +1(同身份同语义才算连着,换了段就是另一件事);**但距上一次 breach 不足
+ *              `minGapMs` 的那一轮算"重复测量",只报名不推进** —— 本机守护有两个执行体共用一个
+ *              节流戳,"轮"这个单位必须是时间,否则一次尖峰会被 60 秒内的两次采样凑成"连续两轮"
+ *              (2026-10-16 13:19/13:20 实测,门槛就是这么被绕过的);
+ *   · `ok`     ⇒ 清零并报名"从第几轮断的"(恢复必须是可见的终态,不是悄悄不留痕);
+ *   · `unjudged` ⇒ **不推进也不清零**,且**不刷新 lastSeenAt**:本轮没量到有效结论,
+ *                  既不能替故障续命,也不能替它收尸(拿不到输入时永远多要一次,绝不少要)。
+ * 本轮没出现的旧条目(改名/换段)按 `ttlMs` 回收 —— 台账不能只进不出。
+ * @param {{[k:string]:{streak?:number,firstAt?:string,lastSeenAt?:string}}} prev
+ * @param {{[k:string]:{verdict?:string}}} results
+ * @returns {{state:object, info:object, cleared:{key:string,from:number}[], pruned:{key:string,streak:number,ageAnchor:string|null,lastSeenAt:string|null}[]}}
+ */
+export function bumpProbeStreak(prev, results, opt = {}) {
+  const now = opt.now ?? Date.now()
+  const required = Number.isFinite(Number(opt.required)) ? Math.max(0, Number(opt.required)) : 2
+  const ttlMs = Number.isFinite(Number(opt.ttlMs)) ? Number(opt.ttlMs) : 24 * 60 * 60 * 1000
+  // 两轮之间至少隔这么久才算"又过了一轮"(0 = 关闭这一维)。见函数头注的 2026-10-16 实测。
+  const minGapMs = Number.isFinite(Number(opt.minGapMs)) ? Math.max(0, Number(opt.minGapMs)) : 0
+  const iso = (t) => new Date(t).toISOString()
+  const src = prev && typeof prev === 'object' ? prev : {}
+  const state = {}
+  const info = {}
+  const cleared = []
+  // 本轮**被问到过**的身份(不论结论是哪种)。回填只准动"本轮根本没出现"的条目 ——
+  // 少了这一维,`ok` 清零会被下面的回填原样复活(测试抓到过这一型:恢复一轮再尖仍然直接到人)。
+  const handled = new Set()
+  for (const [key, r] of Object.entries(results || {})) {
+    const verdict = String((r && r.verdict) || '')
+    if (verdict === 'breach' || verdict === 'ok' || verdict === 'unjudged') handled.add(key)
+    const before = src[key] && typeof src[key] === 'object' ? src[key] : null
+    const prior = Number.isFinite(Number(before?.streak)) ? Math.max(0, Number(before.streak)) : 0
+    if (verdict === 'breach') {
+      const prevLast = Date.parse(String(before?.lastSeenAt || ''))
+      // **同一节流窗口里的重复测量不推进连击**:守护在这台机上有两个执行体(2 分钟计划任务 +
+      // 常驻 daemon)共用一个节流戳,谁先到谁干活,但"读到戳→写戳"之间没有互斥 ⇒ 实测 2026-10-16
+      // 13:19 与 13:20 各派了一轮(相隔 60 秒),把"连续 2 轮"凑成了一次尖峰的两倍采样,
+      // 门槛被绕过去、又多寄了一封。连击的计量单位必须是**时间**,不是"进过几次这段代码"。
+      const dup = prior > 0 && Number.isFinite(prevLast) && now - prevLast < minGapMs
+      if (dup) {
+        state[key] = { streak: prior, firstAt: before?.firstAt || iso(prevLast), lastSeenAt: before?.lastSeenAt || iso(now) }
+        info[key] = { streak: prior, required, due: false, merged: true, gapMs: now - prevLast, minGapMs }
+        continue
+      }
+      const streak = prior + 1
+      state[key] = { streak, firstAt: before?.firstAt || iso(now), lastSeenAt: iso(now) }
+      info[key] = { streak, required, due: streak >= required }
+    } else if (verdict === 'ok') {
+      if (prior > 0) cleared.push({ key, from: prior })
+      info[key] = { streak: 0, required, due: false }
+    } else if (verdict === 'unjudged') {
+      if (prior > 0) state[key] = { streak: prior, firstAt: before?.firstAt || iso(now), lastSeenAt: before?.lastSeenAt || null }
+      info[key] = { streak: prior, required, due: false, unjudged: true }
+    }
+  }
+  const pruned = []
+  for (const [key, entry] of Object.entries(src)) {
+    if (state[key] || handled.has(key)) continue
+    const first = Date.parse(String(entry?.firstAt || ''))
+    const last = Date.parse(String(entry?.lastSeenAt || ''))
+    // 年龄锚:有 breach 用 firstAt(从第一次红算起),纯 stale 用 lastSeenAt;两个都读不出 ⇒ 直接回收。
+    const ageAnchor = Number.isFinite(first) ? first : Number.isFinite(last) ? last : null
+    const ageMs = ageAnchor === null ? Infinity : now - ageAnchor
+    if (ageMs <= ttlMs) {
+      state[key] = entry
+      continue
+    }
+    pruned.push({ key, streak: Number(entry?.streak) || 0, ageAnchor: ageAnchor === null ? null : iso(ageAnchor), lastSeenAt: entry?.lastSeenAt || null })
+  }
+  return { state, info, cleared, pruned }
+}
+
 export function auditPublicPathProbe(opts = {}) {
   const {
     now = Date.now(),
     intervalMs = PUBLIC_PROBE_INTERVAL_MS,
     tickFile = PUBLIC_PROBE_TICK,
     lastFile = PUBLIC_PROBE_LAST,
+    streakFile = PUBLIC_PROBE_STREAK_FILE,
+    requiredStreak = PUBLIC_PROBE_STREAK_REQUIRED,
+    streakTtlMs = PUBLIC_PROBE_STREAK_TTL_MS,
+    minGapMs = Math.floor(PUBLIC_PROBE_INTERVAL_MS / 2),
     logger = log,
     notify = notifyGuardRed,
     runner = null,
@@ -3303,9 +3393,36 @@ export function auditPublicPathProbe(opts = {}) {
       return { ran: true, judged: false, why: v.why }
     }
     const results = v.parsed.results && typeof v.parsed.results === 'object' ? v.parsed.results : {}
+    // ── 持续性门槛(2026-10-16 立):同一身份要连着几轮越阈才到人,单轮尖峰只报名。
+    // 成因现读:健康轮也会出现 1/10 条 ≥8s(慢样本率正好压在 10% 线上),而这类尖峰下一轮就没了
+    // —— 为它寄一封信,收信人除了"刚才那一下很慢"什么也做不了(§5e-1 答不上"红了能做什么")。
+    // 账本读不出的失效方向钉死为**多喊一次**:除"文件本来就不在(第一轮)"外,任何读失败都按
+    // 门槛 1 立即到人(§0.10:绝不能因为账本坏了就静默)。
+    let prevStreak = {}
+    let effRequired = requiredStreak
+    try {
+      const parsedStreak = JSON.parse(readFileSync(streakFile, 'utf8'))
+      if (parsedStreak && typeof parsedStreak === 'object' && !Array.isArray(parsedStreak)) prevStreak = parsedStreak
+      else effRequired = 1
+    } catch (e) {
+      if (String(e?.code || '') !== 'ENOENT') effRequired = 1
+      logger(`ℹ️ 公网探测连击账本:${String(e?.code || e?.message || e).slice(0, 60)}${effRequired === 1 && requiredStreak !== 1 ? ' ⇒ 读不出,本轮按"越阈即寄"处理(宁多勿默)' : ''}`)
+    }
+    const bump = bumpProbeStreak(prevStreak, results, { now, required: effRequired, ttlMs: streakTtlMs, minGapMs })
+    for (const c of bump.cleared) logger(`✅ 公网探测连击清零:${c.key}(此前连 ${c.from} 轮,本轮已判定合规)`)
+    for (const [key, i] of Object.entries(bump.info)) if (i.merged) logger(`ℹ️ 公网探测重复测量(距上轮 ${Math.round(i.gapMs / 1000)}s < 最小间隔 ${Math.round(minGapMs / 1000)}s,两个执行体撞进同一个节流窗口)⇒ 不推进连击:${key} 仍算连 ${i.streak}/${i.required} 轮`)
+    for (const p of bump.pruned) logger(`ℹ️ 公网探测连击条目回收(本轮未再出现且距 ${p.ageAnchor || p.lastSeenAt || '不可知'} 已超 ${Math.max(1, Math.round(streakTtlMs / 3600000))}h):${p.key} 连 ${p.streak} 轮`)
+    try {
+      mkdirSync(dirname(streakFile), { recursive: true })
+      writeFileSync(streakFile, JSON.stringify(bump.state, null, 1), 'utf8')
+    } catch (e) {
+      logger(`⚠️ 公网探测连击账本写失败(下轮从第一轮重连,不影响本轮结论):${String(e?.message || e).slice(0, 80)}`)
+    }
     try {
       mkdirSync(dirname(lastFile), { recursive: true })
-      writeFileSync(lastFile, JSON.stringify({ at: new Date(now).toISOString(), rc: v.parsed.rc, results }, null, 1), 'utf8')
+      const streakView = {}
+      for (const [key, r] of Object.entries(results)) streakView[key] = { ...(bump.info[key] || {}), verdict: String(r?.verdict || '') }
+      writeFileSync(lastFile, JSON.stringify({ at: new Date(now).toISOString(), rc: v.parsed.rc, requiredStreak: effRequired, streak: streakView, results }, null, 1), 'utf8')
     } catch {
       /* 状态件写不掉只影响 --status 的可见性,不影响告警本身 */
     }
@@ -3333,13 +3450,30 @@ export function auditPublicPathProbe(opts = {}) {
           )
           continue
         }
+        const st = bump.info[key] || { streak: 1, required: effRequired, due: true }
+        if (st.due !== true) {
+          logger(
+            `ℹ️ 公网探测越阈但未达持续性门槛:${key} 连 ${st.streak}/${st.required} 轮 ⇒ 本轮只报名不寄信(下一轮约 ${Math.round(PUBLIC_PROBE_INTERVAL_MS / 60000)} 分钟后;同一身份连续 ${st.required} 轮即到人)`,
+          )
+          continue
+        }
+        // 出路按**定位到的那一段**给(§5e-1 出口 1):一封"公网慢"的信没法执行,一封"入口段慢、
+        // 对照 20ms"的信才有人能动手。尺子没给定位(A 序列、旧版尺子)时退回原文那条通用出路,
+        // 绝不因为新维缺失就把出路那一行省掉。
+        const leg = String(r?.leg || '')
+        const exitLine =
+          leg === 'entry'
+            ? '出路:本轮定位是**公网入口 ↔ 本机隧道**这一段(web 直连同轮很快,已排除服务本体)。按序问:①`Get-Service Cloudflared` 与隧道日志(该服务以 --protocol http2 跑);②`node scripts/net-doctor.mjs` 量出口与代理;③看当时上行是否被占(构建/推送/同步)。'
+            : leg === 'service'
+              ? '出路:本地对照组同轮也越阈 ⇒ 洞在**服务段**(web 本体),查 IHUI-WEB 进程与 8801 自身健康(heal-unresponsive-services 归口),不必查公网链路。'
+              : leg === 'undetermined'
+                ? '出路:本轮**定位拿不到**(对照组没样本)⇒ 先问对照组为什么没采到(尺子被掐/8801 未监听/取证未跑完),别按"公网坏了"动手。'
+                : '出路:先用 --report 确认是**目标端**慢/失败(而非探针机抖动);目标真不可用时查该服务自身健康' + '(本机 web/api/ai-service 由 heal-unresponsive-services 自愈;外部目标查其服务端与链路)。'
         notify(
           `公网路径探测越阈值:${key}`,
-          `${String(r?.numbers || '(无读数控)')}\n${reasons.join('\n')}\n` +
+          `同一身份连续第 ${st.streak}/${st.required} 轮越阈(门槛 ${st.required} 轮,单轮尖峰不寄信)。\n${String(r?.numbers || '(无读数控)')}\n${reasons.join('\n')}\n` +
             `尺子:scripts/check-public-path-probe.mjs 序列 ${key}。取证回读:node scripts/check-public-path-probe.mjs --report .ihui-agent/tmp/probers/public-path-burst.jsonl\n` +
-            // 出口 1(§5e-1):必须给可执行下一步,只给"取证回读"是把同一条结论再念一遍。
-            `出路:先用 --report 确认是**目标端**慢/失败(而非探针机抖动);目标真不可用时查该服务自身健康` +
-            `(本机 web/api/ai-service 由 heal-unresponsive-services 自愈;外部目标查其服务端与链路)。`,
+            exitLine,
           {
             severity: 'warning',
             // dedupKey(§5e-1 配套):numbers 里 `最长连续不可用 13.5s` 这类**带小数点**的值,
@@ -3585,24 +3719,43 @@ function samePath(a, b) {
  * 于是每 10 秒 `cpSync(BACKUP, GITDIR)` 一次,25MB 备份内容被灌进 `.git` 指针文件 ⇒
  * `fatal: too large to be a .git file`,整仓不可用。①正是这条链的断口。
  */
+/**
+ * `gitdirTargetSafe` 的**纯判据层**(§22c:镜像测试直接吃这份,不在测试里复制第二份判据)。
+ *
+ * 为什么单列:真实现要 stat 本机路径,而这一格的判据本身是"三个输入 ⇒ 一个结论",
+ * 把它留在只有 side effect 的函数里,就只能靠"在真仓上把 .git 换成一个大文件"来取证 ——
+ * 那台机上每条 git 命令都会失败,而这是一棵**共享工作树**,别人正在提交。
+ * 所以形态三态在此判清,现场演练交给人(见 ledger 行 L15556 的残余),不由守护自己制造。
+ *
+ * @param {{ samePointer?: boolean, exists?: boolean, isDirectory?: boolean }} p
+ *   samePointer = GITDIR 解析后与工作树 `.git` 指针文件同路径(自指损坏态);
+ *   exists/isDirectory = 对 GITDIR 的 stat 结果投影(读不出来时调用方给 exists:true,isDirectory:false 也不行,
+ *   必须走 unreadable 一支)。
+ * @returns {{ok:boolean, why:string}} false ⇒ 调用方必须放弃一切破坏性恢复
+ */
+export function gitdirTargetVerdict({ samePointer = false, exists = false, isDirectory = false, unreadable = false } = {}) {
+  if (samePointer)
+    return { ok: false, why: 'GITDIR 解析成指针文件自身 —— 自指损坏态,写它等于删库;先修 scripts/lib/gitdir.mjs 的解析,勿在此放行' }
+  if (unreadable) return { ok: false, why: 'GITDIR 形态读不出来 ⇒ 不猜它是目录,拒绝恢复(宁可不修,不可误删)' }
+  if (exists && !isDirectory) return { ok: false, why: 'GITDIR 已存在却不是目录 ⇒ 先人工确认,勿覆盖' }
+  return { ok: true, why: exists && isDirectory ? '已存在且是目录' : '不存在,可安全建目录' }
+}
+
 function gitdirTargetSafe() {
-  if (samePath(GITDIR, POINTER)) {
-    log(
-      `⛔ 拒绝恢复:GITDIR 解析成指针文件自身(${POINTER})—— 自指损坏态,写它等于删库;` +
-        ` 先修 scripts/lib/gitdir.mjs 的解析,勿在此放行`,
-    )
-    return false
-  }
+  let v
   try {
-    if (existsSync(GITDIR) && !statSync(GITDIR).isDirectory()) {
-      log(`⛔ 拒绝恢复:GITDIR 已存在却不是目录(${GITDIR})—— 先人工确认,勿覆盖`)
-      return false
-    }
+    const exists = existsSync(GITDIR)
+    v = gitdirTargetVerdict({
+      samePointer: samePath(GITDIR, POINTER),
+      exists,
+      isDirectory: exists ? statSync(GITDIR).isDirectory() : false,
+    })
   } catch (e) {
-    log(`⛔ 拒绝恢复:GITDIR 形态读不出来(${GITDIR}): ${String((e && e.message) || e)}`)
+    log(`⛔ 拒绝恢复:${gitdirTargetVerdict({ unreadable: true }).why}(${GITDIR}): ${String((e && e.message) || e)}`)
     return false
   }
-  return true
+  if (!v.ok) log(`⛔ 拒绝恢复:${v.why}(${GITDIR})`)
+  return v.ok
 }
 
 /** 兜底 1:从本地备份恢复实体(快,Gitee 不可达时用) */
@@ -4351,10 +4504,12 @@ if (isDirectRun) {
 // §22c 镜像测试出口:通知层"是否应当发信"的全部判据(指纹/去重窗口/退避/状态归一/argv 契约)
 // 必须能在零副作用、零网络、零真收件人的前提下取证。
 export const __test__ = {
+  gitdirTargetVerdict,
   judgeRefsHealth,
   alertFingerprint,
   stableAlertFingerprint,
   auditPublicPathProbe,
+  bumpProbeStreak,
   parseNotifyState,
   shouldAlert,
   withAlertMark,

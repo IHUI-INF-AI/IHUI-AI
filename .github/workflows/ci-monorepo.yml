@@ -181,6 +181,28 @@ jobs:
           O_PORT_REGISTRY: ${{ steps.port-registry.outcome }}
         run: bash scripts/ci-failure-triage.sh
 
+  # 纵深防御(2026-10-16):门 213(pre-commit blocking)只在 apps/mobile-rn/src/ 入暂存时拦截,
+  # 但该链可被 --no-verify 整体旁路(仓史实锤:115 道门曾集体旁路)。本 job 用同一判据在
+  # PR/push 上补一道不可旁路层;脚本零依赖(fs/path),故免装依赖,与 port-registry-check 同形。
+  sheet-flex-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        id: checkout
+      - name: sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块)
+        id: sheet-flex
+        run: node scripts/check-sheet-flex-contract.mjs
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
+          TRIAGE_IDS: checkout sheet-flex
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_SHEET_FLEX: ${{ steps.sheet-flex.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
   test:
     needs: setup
     runs-on: ubuntu-latest

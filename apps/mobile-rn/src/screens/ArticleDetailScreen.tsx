@@ -338,6 +338,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    // 固定 chrome 不被压缩:弹窗唯一弹性块 = 评论 FlatList(sheet-flex 契约,
+    // 详见 scripts/check-sheet-flex-contract.mjs)
+    flexShrink: 0,
     paddingHorizontal: 16,
     paddingBottom: 10,
   } as ViewStyle,
@@ -356,7 +359,9 @@ const styles = StyleSheet.create({
     marginVertical: 40,
   },
   commentList: {
-    flexGrow: 0,
+    // 唯一弹性块:bounded 弹窗(maxHeight 72%)内列表 flex:1 内部滚动,
+    // 不以自然高度参与压缩分摊(sheet-flex 契约)
+    flex: 1,
     paddingHorizontal: 16,
   } as ViewStyle,
   commentListEmpty: {

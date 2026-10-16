@@ -398,24 +398,69 @@ test('C11 接线条件不变量:登记了就 mode=warn + skipEnv + 编号唯一 
 // 本门刻意「缺/未知 --target 即 exit 2、不回落默认档」,而 runner 曾以 `args: []` 登记它,
 // 且提交链会给每道门自动下发 --staged ⇒ 它在链里 100% 跑不起来。exit 2 被 warn 档计成
 // 「警告」,看起来像检测结果,实际含义是"这道门从没运行过" —— 那比恒红更坏(恒红至少逼人去看)。
-test('C12 链式调用形态必须可执行:--target + --staged 不得 exit 2', () => {
-  const r = spawnSync(
-    process.execPath,
-    [join(REPO, 'scripts', SCRIPT), '--target', 'miniapp', '--staged'],
-    {
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 240000,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    },
-  )
-  assert.notEqual(
-    r.status,
-    2,
-    `链式形态被判"无法判定" ⇒ 本门在提交链里等于没跑\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
-  )
-  assert.ok(r.status === 0 || r.status === 1, `应给出真结论(0 或 1),实得 ${r.status}`)
+test('C12 链式调用形态必须可执行:--target + --artifact(夹具)+ --staged 必须给出真结论 0/1,不得 exit 2', () => {
+  // 这条臂原先把**真仓 miniapp 产物路径**直接喂进去 ⇒ 它赌的其实是"这台机器此刻构建过没有"。
+  // 没构建时门如实报「主包口径要求 …/app.json,它不在」并 exit 2 —— 那是 §0.3 的正确行为,
+  // 与本门**旗标能否组合**毫无关系(2026-10-16 夜间首跑量出的 146 条里就混着这一型假红)。
+  // 要判的事只有一件:链式旗标不互相顶掉。所以输入由夹具给,结论必须是 0/1;
+  // 反向那一半(输入确实取不到时必须是"未判定 + 点名缺哪一件")另立一条臂,两者不混。
+  const dir = mkScratch('g-artifact-budget-c12')
+  try {
+    writeFileSync(join(dir, 'app.json'), '{"pages":["index/index"],"subpackages":[]}\n', 'utf8')
+    writeFileSync(join(dir, 'index.js'), 'console.log(1)\n', 'utf8')
+    const r = spawnSync(
+      process.execPath,
+      [join(REPO, 'scripts', SCRIPT), '--target', 'miniapp', '--artifact', dir, '--staged'],
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 240000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    assert.notEqual(
+      r.status,
+      2,
+      `夹具齐了却仍"无法判定" ⇒ 才是真的旗标/口径问题(本门在提交链里等于没跑)\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.ok(
+      r.status === 0 || r.status === 1,
+      `应给出真结论(0 或 1),实得 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C12d 输入取不到时三档必须分得开:不冒红、不记绿,且点名缺的是哪一件', () => {
+  const dir = mkScratch('g-artifact-budget-c12d')
+  try {
+    // 夹具只给一个空目录(没有 app.json,也可能整目录已被 mkScratch 的退出回收)。
+    // 本门这两档都属**机器态**:按 §12e 不得冒红(逼所有人跳门),也不得静默记绿 ——
+    // 要锁的性质是"未判定必须报名",而不是具体第几号退出码(第一版把它写成"必须 exit 2",
+    // 实测门对"产物目录不在"走的是 exit 0 + 未判定 + 下一步,那条臂判错了档 ⇒ 假红)。
+    const r = spawnSync(
+      process.execPath,
+      [join(REPO, 'scripts', SCRIPT), '--target', 'miniapp', '--artifact', dir, '--staged'],
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 240000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.notEqual(r.status, 1, `输入不在却冒红 ⇒ 恒红门(§12e 唯一结局是逼人 --no-verify)\n${out.slice(-600)}`)
+    assert.match(out, /未判定/, `必须明写"未判定",不许把没判成写成判过(§0.3):\n${out.slice(-600)}`)
+    assert.match(
+      out,
+      /app\.json|产物目录/,
+      `未判定必须点名缺的是哪一件输入,否则就是"没跑"的遮罩:\n${out.slice(-600)}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
 })
 
 test('C12b runner 的 110 注册块必须带 --target(args 为空就是本门的死因)', () => {

@@ -59,6 +59,16 @@ function findShell() {
 }
 const SHELL = findShell()
 
+/**
+ * 取证面前置:强制子进程 stdout 走 UTF-8。
+ * 本机控制台码页是 GBK —— 不设这一步时,PowerShell 输出的中文到了 node 就是 mojibake,
+ * 于是**任何针对中文文案的断言永不命中**。2026-10-16 实测:T15 报"抑制行没写身份"、T16 报
+ * "Z形态 没落进 4h 窗口",而手工带上这一步复跑,模块写出的 `身份=997cb218a0014f85` 与三条
+ * window-hit 全部原样在位 ⇒ 两条红是尺子坏了,不是判据坏了。
+ * 同 §5d 那条"凡读回来继续用的值,先设 UTF8 再取"。由 T18 从行为上钉住它(删掉前置必红)。
+ */
+const UTF8_PREAMBLE = '[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; '
+
 function pwsh(cmd, env = {}) {
   if (!SHELL) {
     return {
@@ -67,7 +77,7 @@ function pwsh(cmd, env = {}) {
       missingShell: true,
     }
   }
-  const r = spawnSync(SHELL, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', cmd], {
+  const r = spawnSync(SHELL, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', UTF8_PREAMBLE + cmd], {
     encoding: 'utf8',
     timeout: 120000,
     env: { ...process.env, ...env },
@@ -484,6 +494,20 @@ test('T15 抑制行必须写出"压住的是哪件事"(只补出处,判定一字
   } finally {
     rmScratch(scratch)
   }
+})
+
+test('T18 取证面自证:子进程中文必须原样回到 node(码页前置被删时本套件的中文断言会全体假红)', () => {
+  // 为什么住在这里而不是只写进注释:2026-10-16 的 T15/T16 就是被"GBK 码页 + 中文断言"打红的,
+  // 当时判据与模块都是对的,坏的是尺子。尺子坏了必须自己喊 —— 删掉 pwsh() 里的 UTF-8 前置,本条先红。
+  const sentinel = '身份=abc123 抑制可审计'
+  const r = pwsh(`Write-Output ('${sentinel}')`)
+  requireShell(r.out)
+  assert.equal(r.status, 0, `pwsh 非零退出: ${r.out}`)
+  assert.ok(
+    r.out.includes(sentinel),
+    `中文没能原样回来(实得 ${JSON.stringify(String(r.out).slice(0, 120))})⇒ 取证面码页坏了;` +
+      '此时 T15/T16 一类中文断言的"红"不构成判据结论,先修尺子再谈判据',
+  )
 })
 
 // T16 / T17 由 2026-10-11 的一次实测逼出,根因与 T6/T10 那两根红是同一个,不是两个缺陷:

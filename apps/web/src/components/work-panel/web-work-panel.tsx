@@ -12,7 +12,8 @@ import { useTranslations } from 'next-intl'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useMounted } from '@/hooks/use-mounted'
 import { useWebViewFrameLabels } from '@/hooks/use-web-view-frame-labels'
-import { openEmbeddedBrowser } from '@/lib/tauri-bridge'
+import { openEmbeddedBrowser, onEmbeddedBrowserElementPicked } from '@/lib/tauri-bridge'
+import { ADD_TEXT_REFERENCE_EVENT } from '@/components/chat/annotation-anchor'
 
 import { CdpBrowserView } from './cdp-browser-view'
 
@@ -164,6 +165,38 @@ export function WebWorkPanel() {
     // Chromium 内核 + Chrome UA),web 端降级 window.open 新标签页。
     if (url) void openEmbeddedBrowser(url)
   }, [url])
+
+  // 内嵌浏览器「元素点选」→ 汇入既有文本引用通道(D22 `ihui:add-text-reference`)。
+  // 点选发生在内嵌窗(第三方站点无 IPC),Rust 侧经哨兵导航收到后 emit 到 main;
+  // 这里把它转成与 CDP 标注/文档批注同一条文本引用事件,由 message-input 消费。
+  React.useEffect(() => {
+    let disposed = false
+    let unlisten: (() => void) | undefined
+    void onEmbeddedBrowserElementPicked((payload) => {
+      try {
+        const info = JSON.parse(payload) as {
+          selector?: string
+          text?: string
+          tag?: string
+          url?: string
+        }
+        const label = info.selector || info.tag || '元素'
+        const text = `[浏览器元素] ${label}${info.text ? ` — ${info.text}` : ''}`
+        window.dispatchEvent(
+          new CustomEvent(ADD_TEXT_REFERENCE_EVENT, { detail: { text } }),
+        )
+      } catch {
+        /* 负载非 JSON:忽略 */
+      }
+    }).then((un) => {
+      if (disposed) un()
+      else unlisten = un
+    })
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
+  }, [])
 
   // 代理 iframe 桥接(2026-09-02):监听代理页 postMessage
   // - ihui-embed-nav:页内导航 → 同步 tab url + 地址栏

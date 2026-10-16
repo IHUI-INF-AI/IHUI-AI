@@ -196,7 +196,19 @@ test('T13 P6 必须真被 patrol 接上(判据写出来而没装车 = 本仓最�
   const all = [...r.findings, ...r.undetermined, ...r.adjudicated, ...r.ok]
   assert.ok(all.some((x) => x.id === 'P6'), 'patrol 没产出 P6 汇总行 ⇒ 判据没接进巡检')
   const sum = all.find((x) => x.id === 'P6')
-  assert.match(sum.detail, /^规则 \d+ 条:在采/, `汇总行没报数:${sum.detail}`)
+  // 本文件对"机器态那一族"早就立过法(见 P7 段头注:只锁形状与三态方向,**不锁此刻的颜色** ——
+  // 锁颜色就造出恒红门,与 T3 同一条理由)。P6 的量名接口要联网:取不到时门必须走未判定并报名,
+  // 那一支不是"没报数"。所以这里锁**两条出路之一 + 两支都必须报名**,而不是钉死健康态那一支的字面形状。
+  assert.ok(
+    /^规则 \d+ 条:在采/.test(sum.detail) || /未判定/.test(sum.detail),
+    `P6 汇总行既没报数也没报名(两条出路都不占)= 这台尺子没接上:${sum.detail}`,
+  )
+  if (/未判定/.test(sum.detail))
+    assert.match(
+      sum.detail,
+      /(TypeError|取不到|读不到|无法判定)/,
+      `P6 走未判定那一支时必须带原因,否则与"静默没跑"分不开:${sum.detail}`,
+    )
 })
 
 test('T14 P6 的遮噪必须引唯一实现(第二份注释/字符串状态机迟早漂移,而漂移是安静的)', () => {
@@ -585,7 +597,14 @@ test('P5 备份产出:逐库出头,一库齐备不得替另一库作证(注入�
  * P9 邮件通道活性 / P10 未送达欠账(2026-10-01 补)。
  * 同样一律 import 源文件的尺子(§22c):镜像里重写"什么算未判定",就等于没在测它。
  * ───────────────────────────────────────────────────────────────────────────── */
-const { parseProbeOutput, mailProbeDue, mailProbeRow, loadDebtAcks, ackCoversDebt, debtAnchor, checkUndeliveredAlertDebt } = mod.__test__
+const { parseProbeOutput, mailProbeDue, mailProbeRow, loadDebtAcks, ackCoversDebt, debtAnchor, checkUndeliveredAlertDebt: checkUndeliveredAlertDebtRaw } = mod.__test__
+/**
+ * 夹具隔离默认:不注入 `channelOkAtMs` 时,门会去读**真机**的邮件探针落盘件
+ * (`.workbuddy/mail-probe-last.json`),于是夹具自造的欠账被这台机的成功投递时刻全数豁免,
+ * 该判红的臂回成 `ok` —— 门头注写着"必须可注入…2026-10-03 实测踩过,判据自身没错是取材没隔离",
+ * 而这条镜像臂当初就漏了注入。默认给 0(通道从未通),要测豁免那一支的臂自己显式传值覆盖。
+ */
+const checkUndeliveredAlertDebt = (opts = {}) => checkUndeliveredAlertDebtRaw({ channelOkAtMs: 0, ...opts })
 
 // 逐字取自 2026-10-01 本机真跑 `--probe` 的输出(§22c:判据的对象是"某个真实文件的形态"时,
 // 输入必须取自那个文件 —— 自造夹具只会复读实现自己的形状)。
@@ -737,6 +756,10 @@ test('TP6 P10 三态与出口:挂账红 / 逐条裁过绿且报名 / 台账坏 J
     assert.equal(loadDebtAcks(join(base, 'no-such.json')).readError, null, '文件不在位应是"零裁决"而非错误')
     writeFileSync(join(base, 'bad.json'), '{', 'utf8')
     assert.match(String(loadDebtAcks(join(base, 'bad.json')).readError), /解析失败|Cannot|JSON/, '坏台账必须带回原因')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
 
 /**
  * P11(2026-10-02 补):promtool 规则单测 —— 判据写完没人跑 = 造好没装车。
@@ -756,9 +779,5 @@ test('TP7 P11 promtool:必须真住在 patrol 装配里,且 promtool/用例取�
   })
   assert.equal(noTool.state, 'undetermined', `promtool/用例目录取不到时必须未判定,实得 ${noTool.state}:${noTool.detail}`)
   assert.notEqual(noTool.state, 'finding', '机器态缺失不得判红')
-})
-  } finally {
-    rmSync(base, { recursive: true, force: true })
-  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

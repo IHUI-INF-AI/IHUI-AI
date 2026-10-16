@@ -1,4 +1,4 @@
-# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -54,6 +54,11 @@ param(
     [switch]$Daemon,
     [int]$IntervalSeconds = 60,
     [int]$RunBudgetMin = 45,         # 单轮墙钟预算:构建本身允许 30 分钟,留余量给门禁与重启
+    # [2026-10-16 根治] 最小部署间隔(分钟):两次真实部署之间至少隔这么久,期间的新提交攒批,
+    # 到点由下一轮轮询统一部署。旧形 behind>0 就立即部署,origin/main 持续推送时变成
+    # "10-15 晚 9 次 + 次日晨 3 次、每 ~10 分钟一次完整重建+全服务重启",每次都制造
+    # 公网 502/ERR 报警窗口(监控日志逐条可证)。手动 -deployLatest 不走本守护,不受节流。
+    [int]$MinDeployIntervalMin = 30,
     # 取证通道:给定目录时**只**跑"锁处置"这一段并打印 JSON 结论,绝不发起部署、绝不碰
     # deploy\win\.deploy-loop.lock。由 deploy/tests/deploy-loop-lock-preemption.test.mjs 驱动。
     # 为什么入口在本文件而不是全放在夹具里:本票要证的是**本文件**拿到判据结论之后做的事
@@ -280,7 +285,22 @@ function Enter-IhuiLoopLock {
     return $true
 }
 
+# [2026-10-16 根治] 节流锚:最近一次"真实部署完成"的时刻。仅在本守护进程内存中维护,
+# 守护重启即清零(首轮不节流)。只认子脚本输出里的 "部署完成,HEAD=" 行 —— behind=0
+# 优雅退出、构建失败都不刷新锚点,否则节流会把"没部署过"误判成"刚部署过"。
+$script:LastDeployDoneAt = $null
+
 function Invoke-PollOnce {
+    # ---- 0) 最小部署间隔节流(2026-10-16 根治,见 param 注) ----
+    # 放在拿锁之前:被节流的本轮不 fetch、不部署、不碰锁,60 秒后下一轮再看。
+    # 攒批语义:节流期间到达的提交不会丢,间隔一到,下一轮轮询统一部署。
+    if ($null -ne $script:LastDeployDoneAt) {
+        $elapsed = ((Get-Date) - $script:LastDeployDoneAt).TotalMinutes
+        if ($elapsed -lt $MinDeployIntervalMin) {
+            Log ("[loop] 距上次部署完成 {0:N1} 分钟 < 最小间隔 {1} 分钟,本轮跳过(攒批,等下一轮)" -f $elapsed, $MinDeployIntervalMin)
+            return
+        }
+    }
     # ---- 1) 并发锁(四条判据同时成立才算持有;见 deploy-lock-common.ps1) ----
     # 旧实现在这里只有一句 `Get-Process -Id $pidIn` 的存活判断,pid 复用即恒真。
     if (-not (Enter-IhuiLoopLock -Path $LockFile)) { return }
@@ -337,6 +357,9 @@ function Invoke-PollOnce {
                             if ($null -ne $line) {
                                 Log "[deploy] $line"
                                 if ($line.Trim()) { $lastLine = $line }
+                                # [2026-10-16 根治] 只认真实部署完成的标志行刷新节流锚
+                                # (ihui-deploy.ps1 健康门禁通过后打印;失败/behind=0 不含此行)。
+                                if ($line -match '部署完成,HEAD=') { $script:LastDeployDoneAt = Get-Date }
                             }
                         }
                         $seen = $sr.BaseStream.Position
@@ -581,7 +604,7 @@ if ($SelfTestScratch) {
 }
 
 if ($Daemon) {
-    Log "==== 部署守护启动(pid=$PID, interval=${IntervalSeconds}s, pwsh=$PwshExe) ===="
+    Log "==== 部署守护启动(pid=$PID, interval=${IntervalSeconds}s, min-deploy-interval=${MinDeployIntervalMin}min, pwsh=$PwshExe) ===="
     while ($true) {
         Invoke-LogRotate
         Invoke-PollOnce
