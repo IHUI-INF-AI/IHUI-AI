@@ -129,6 +129,8 @@ import { resurrectAnalysis } from './lib/stale-content-analysis.mjs'
 // 同题行 —— 同一件事物理上只留一行,被丢弃行的独有注记/票号并入保留行(信息守恒)。
 import { dedupeByFingerprint } from './lib/dedupe-ledger.mjs'
 
+import { findMarkerPairs } from './lib/conflict-marker-triples.mjs'
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 // git 可执行一律经 §5b 唯一出口解析(候选链 + 探活;§5b 明写"脚本一律不得依赖环境取 git")。
 // 旧写法把 git 钉死在本机 Git 安装目录的一条绝对路径上,另一台机(G 盘 checkout)实测 git 落点不同 ⇒ 换机即 ENOENT。
@@ -1622,6 +1624,44 @@ function oidMap(rev, cwd) {
  *      而②的前提恰恰是"基底里有",属本侧对既有路径的改名/搬家/删除;
  *    ③ 真吞并 —— 对侧改过(或基底没有)而内容在合并树里无处可寻 ⇒ 判红,不落地。
  *  ①② 一律逐条进 `bad.moved` 并在结论行点名,绝不静默成"0 处"。 */
+/**
+ * G-580 ②:落地闸拒绝把"归并自己造出来的输出"里带行首冲突标记的内容落库 —— 含「两侧皆空」那一型。
+ * 判据只问共用层那一份配对实现(`scripts/lib/conflict-marker-triples.mjs`),**不在这里另扫一遍行**
+ * (门 79 的镜像锁 S17-③ 同一条禁令:两处各扫一遍必漂)。
+ * 为什么这一档可以比门 79 更严:门 79 是每次提交的账面判据,升档前必须先清存量(§12e);
+ * 本闸只判**本次归并合成的那几个 blob**,存量与它无关 ⇒ 孤立标记一律拒,不做词尾白名单。
+ */
+export function mergedMarkerViolations(text) {
+  if (typeof text !== 'string') return ['内容取不到 ⇒ 不得当成「没有标记」放过']
+  if (!text.includes('<<<<<<< ') && !text.includes('>>>>>>> ')) return []
+  const { pairs, unpairedStarts, unpairedEnds } = findMarkerPairs(text)
+  const orphans = [...unpairedStarts, ...unpairedEnds].filter((u) => {
+    const s = String(u.text ?? '')
+    return s.startsWith('<<<<<<< ') || s.startsWith('>>>>>>> ')
+  })
+  const out = []
+  if (pairs.length) out.push('成对冲突标记 ' + pairs.length + ' 处(第一处 L' + pairs[0].startLine + ')')
+  if (orphans.length) out.push('孤立标记 ' + orphans.length + ' 处(只剩一半;含「两侧皆空」那型)')
+  return out
+}
+
+/** 一次 git grep 走完整棵树定位行首标记针(命中数决定后面逐路径取证的次数,不是每文件起一个进程)。 */
+function treeMarkerHits(tree, cwd) {
+  let out
+  try {
+    out = gitBuf(['grep', '-Ilz', '--no-color', '-e', '^<<<<<<< ', '-e', '^>>>>>>> ', tree], cwd)
+  } catch (e) {
+    if (e && e.status === 1) return [] // git grep 无命中就是 exit 1,不是异常
+    throw e
+  }
+  const prefix = tree + ':'
+  return out
+    .toString('utf8')
+    .split('\0')
+    .filter(Boolean)
+    .map((l) => (l.startsWith(prefix) ? l.slice(prefix.length) : l))
+}
+
 export function verifyUnion(
   ours,
   theirs,
@@ -1635,6 +1675,18 @@ export function verifyUnion(
   const moved = []
   const pointerCaps = []
   const moveAware = []
+  /**
+   * G-580 ②:只判**归并合成的**那些 blob —— 某一侧本来就带标记的字节照旧由门 79 在提交链咬,
+   * 本闸不替别人的在飞内容判红、也不把仓库存量算进来(否则这是一台与本次合并无关的恒红闸,§12e)。
+   * 失效方向:内容取不到 ⇒ `mergedMarkerViolations` 自己报"不得当成没有标记放过",不静默放过。
+   */
+  for (const p of treeMarkerHits(tree, cwd)) {
+    const o = blobOf(tree, p, cwd)
+    if (!o) continue
+    if (o === blobOf(ours, p, cwd) || o === blobOf(theirs, p, cwd)) continue
+    const why = mergedMarkerViolations(blobText(o, cwd))
+    if (why.length) bad.push(`合并输出 ${p} 带行首冲突标记:${why.join(' / ')} —— 归并中间态不得当内容落库(G-580 ②)`)
+  }
   for (const p of listPaths(ours, cwd)) {
     if (M.has(p)) continue
     /**
@@ -2036,6 +2088,34 @@ function selfTest() {
   const run = (...a) => git(a, dir)
   const cases = []
   const ok = (n, c, note = '') => cases.push({ n, c, note })
+  /**
+   * G-580 ②:落地闸那道标记判据的成对臂(纯函数,不依赖夹具仓)。
+   * 正反都必须有:只有正向 ⇒ "恒拒"也能全绿;只有反向 ⇒ "恒放"也能全绿。
+   */
+  ok(
+    'MG1「两侧皆空」的嵌套块 ⇒ 成对判拒(本票立项那一型)',
+    mergedMarkerViolations(
+      ['<<<<<<< ours', '=======', '>>>>>>> theirs', '', '<<<<<<< ours', '=======', '', '=======', '>>>>>>> theirs'].join('\n'),
+    ).some((x) => x.startsWith('成对')),
+  )
+  ok(
+    'MG2 单侧孤立标记 ⇒ 孤立判拒(门 79 只升带词尾那一族,本闸合成输出一律拒)',
+    mergedMarkerViolations('正文\n>>>>>>> theirs\n').some((x) => x.startsWith('孤立')),
+  )
+  ok(
+    'MG3 反向:合法 setext/表格的单行 ======= ⇒ 不拒(否则这台闸对文档类合并就是恒拒)',
+    mergedMarkerViolations('小节名\n=======\n| a | b |\n').length === 0,
+  )
+  ok('MG4 反向:干净内容 ⇒ 不拒', mergedMarkerViolations('正文一行\n').length === 0)
+  ok(
+    'MG5 内容取不到 ⇒ 报「不得当成没有标记」,既不静默也不冒绿',
+    mergedMarkerViolations(null).length === 1 && mergedMarkerViolations(null)[0].includes('取不到'),
+  )
+  ok(
+    'MG6 形状锁:判据吃共用层那一份配对实现,本闸不另扫一遍行(§0.6/§22c)',
+    /findMarkerPairs\(/.test(mergedMarkerViolations.toString()) &&
+      !/\.split\(/.test(mergedMarkerViolations.toString()),
+  )
   try {
     run('init', '-q', '-b', 'main')
     run('config', 'user.email', 't@t')
@@ -3562,6 +3642,7 @@ export const __test__ = {
   buildUnion,
   unionLines,
   verifyUnion,
+  mergedMarkerViolations,
   resolveTargets,
   hasCommit,
   unreachableObjectGuidance,
