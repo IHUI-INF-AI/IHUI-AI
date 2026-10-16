@@ -28,6 +28,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.core.jwt_auth import require_request_user_id
+from app.routers import checkin as checkin_router_mod
 from app.services import checkin_scheduler as checkin_scheduler_mod
 from app.services import checkin_store
 from app.services.checkin_engine import get_jwt_exp
@@ -358,6 +359,19 @@ def fake_store(monkeypatch):
     return store
 
 
+@pytest.fixture(autouse=True)
+def probe_noop(monkeypatch):
+    """导入探针默认打桩为 no-op:单测绝不触真网(2026-10-16 导入即探针配套)。
+
+    需要验证探针真行为的用例在本用例内再 monkeypatch 覆盖即可(fixture 先跑,
+    用例内 setattr 后生效)。
+    """
+    async def _noop(account_id: int, owner: str):
+        return None
+
+    monkeypatch.setattr(checkin_router_mod, "_import_probe", _noop)
+
+
 def make_engine_result(name: str, *, ok: bool = True, classified_error=None) -> dict[str, Any]:
     """与 checkin_account 返回结构对齐的假结果。"""
     return {
@@ -421,6 +435,46 @@ async def test_create_duplicate_name_conflict(client, fake_store):
     assert resp1.status_code == 200
     resp2 = await client.post("/api/checkin/accounts", json={"name": "dup", "jwt": jwt})
     assert resp2.status_code == 409
+
+
+async def test_create_import_probe_records_already_checked(client, fake_store, monkeypatch):
+    """导入即探针(2026-10-16 李总报障):账号在平台侧今日已签 ⇒ 录入响应直接带
+    last_record(ok=True / skip_already),首屏「今日已签到」亮、按钮置灰,
+    不必等调度或手动签到落记录。"""
+
+    async def fake_already(name, jwt, device_map, **kwargs):
+        return {
+            "ok": True,
+            "status": "already",
+            "action": "skip_already",
+            "user_id": "u-1001",
+            "name": name,
+            "code": 0,
+            "message": "已签到",
+            "http_status": 200,
+            "credits": 20,
+            "credits_delta": None,
+            "classified_error": None,
+            "warning": None,
+        }
+
+    monkeypatch.setattr(checkin_scheduler_mod, "checkin_account", fake_already)
+    # 解除 autouse 的探针打桩:本用例走真实 run_checkin_now 全路径(fake_store 兜底)
+    monkeypatch.setattr(
+        checkin_router_mod,
+        "_import_probe",
+        checkin_scheduler_mod.checkin_scheduler.run_checkin_now,
+    )
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={"name": "外签号", "jwt": make_jwt(), "device_map": {"u-1001": {"device_id": "d1"}}},
+    )
+    assert resp.status_code == 200
+    last = resp.json().get("last_record")
+    assert last is not None
+    assert last["ok"] is True
+    assert last["action"] == "skip_already"
+    assert last["message"] == "已签到"
 
 
 async def test_create_rejects_unparseable_and_expired_jwt(client, fake_store):
