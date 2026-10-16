@@ -48,6 +48,7 @@
 Var IHUIDPI        ; 系统 DPI(splash 档位依据)
 Var IHUITIER       ; splash 资产档(100/125/150/175/200)
 Var IHUIWTIER      ; 窗口资产档(页面位图/按钮)
+Var IHUIEXTTIER    ; 已解压到 $PLUGINSDIR 的页面资产档(避免运行期重复解压 ~14MB)
 Var IHUIWW         ; 外层窗口 client 宽(物理像素)
 Var IHUIWH         ; 外层窗口 client 高(物理像素)
 Var IHUIFONT       ; 外层 GUI 字体
@@ -593,8 +594,93 @@ Var IHUIRF13      ; 重装页说明行品牌字体(13 逻辑 px)
   nsDialogs::Show
 !macroend
 
+; =====================================================================
+; 【根因修复 2026-10-16】运行期窗口尺寸变化 → 布局重锚
+;
+;   病因:PerMonitorV2 下,窗口可在运行期被系统改尺寸(WM_DPICHANGED / 跨屏拖动 /
+;   用户中途改显示缩放)。IHUI 布局原先只在 .onGUIInit 与重装页定档,$IHUIWW/$IHUIWH
+;   与"已解压资产档位"不会跟随 → 内层 dialog/背景位图小于窗口 → 右/下露出原生白底
+;   + 一枚未换皮的原生按钮(用户报「第3/4页纯白按钮、点不动」),且控件坐标整体错档。
+;   实测:窗口从 880x600 被系统改成 1321x900(DPI 96→144)后,页面上方品牌内容被裁、
+;   右下大片白底 + 原生「继续›」。
+;
+;   修法:每个页面入口按**实际客户区**反推布局 DPI 与资产档位;尺寸未变则整段跳过
+;   (零副作用);变了则重算 $IHUIDPIW/$IHUIWW/$IHUIWH/$IHUIWTIER + 重解压到新档
+;   + 重算窗口裁剪区。**窗口框本身不动**(系统已按新 DPI 给过建议尺寸,IHUI 只跟随),
+;   避免与核心的页面布局打架。
+;
+;   寄存器纪律:$0..$9 / $R0..$R9 一律 Push/Pop 保护 —— 重装页 $R0(版本比较)/$R1/$R2/
+;   $R3(radio 句柄)/$R6(WixMode 键)是 PageLeaveReinstall 还要用的存活数据。
+; =====================================================================
+!macro IHUI_REANCHOR
+  Push $0
+  Push $1
+  Push $2
+  Push $3
+  Push $4
+  Push $R0
+  Push $R1
+  Push $R2
+  Push $R3
+  Push $R4
+  Push $R6
+  Push $R7
+  Push $R9
+  ; ---- 实际客户区(无边框窗口 client==window,但用 GetClientRect 更稳)----
+  System::Call "*(i 0, i 0, i 0, i 0) p .s"
+  Pop $4
+  System::Call "user32::GetClientRect(p $HWNDPARENT, p r4)"
+  System::Call "*$4(i .r0, i .r1, i .r2, i .r3)"
+  System::Free $4
+  ; $2 = 客户区宽, $3 = 客户区高
+  ${If} $2 > 0
+  ${AndIf} $3 > 0
+  ${AndIf} $2 != $IHUIWW
+    ; 反推布局 DPI:客户区宽 x 96 / 逻辑宽(880),与 IHUI_GUIINIT_SIZE 同口径
+    IntOp $4 $2 * 96
+    IntOp $4 $4 / ${IHUI_LOG_W}
+    ${If} $4 < 96
+      StrCpy $4 96
+    ${EndIf}
+    ${If} $4 > ${IHUI_DPI_CAP}
+      StrCpy $4 ${IHUI_DPI_CAP}
+    ${EndIf}
+    StrCpy $IHUIDPIW $4
+    ; 逻辑尺寸 -> 物理尺寸(与 IHUI_PX 同口径),把窗口归一到该尺寸
+    !insertmacro IHUI_PX $IHUIWW ${IHUI_LOG_W}
+    !insertmacro IHUI_PX $IHUIWH ${IHUI_LOG_H}
+    ; SWP_NOZORDER(0x04)|SWP_NOACTIVATE(0x10)|SWP_NOMOVE(0x02) = 0x0016:
+    ; 只改尺寸、原地不动。**不得带 SWP_NOSIZE(0x01)** —— 带了尺寸参数就被忽略(实测踩到)
+    System::Call "user32::SetWindowPos(p $HWNDPARENT, p 0, i 0, i 0, i $IHUIWW, i $IHUIWH, i 0x0016)"
+    !insertmacro IHUI_TIER_OF $IHUIDPIW $IHUIWTIER
+    ; 档位与"已解压档"不一致才重解压(避免每页重复解压 ~14MB)
+    ${If} $IHUIWTIER != $IHUIEXTTIER
+      !insertmacro IHUI_EXTRACTPAGESETS $IHUIWTIER
+      StrCpy $IHUIEXTTIER $IHUIWTIER
+    ${EndIf}
+    ; 裁剪区域(圆角回退分支把 region 钉死在旧尺寸上,不重算则右/下被裁)
+    !insertmacro IHUI_WINDOW_RGN
+    !insertmacro IHUI_LOG "reanchor-w$IHUIWW-h$IHUIWH-dpiw$IHUIDPIW-wtier$IHUIWTIER"
+  ${EndIf}
+  Pop $R9
+  Pop $R7
+  Pop $R6
+  Pop $R4
+  Pop $R3
+  Pop $R2
+  Pop $R1
+  Pop $R0
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
+!macroend
+
 ; ---- 自定义页前置: 内层 dialog 满幅可见 + 黑底白字(自绘控件宿主) ----
 !macro IHUI_PAGE_PRE
+  ; 运行期窗口尺寸变化 → 先重锚(DPI/尺寸/档位/资产),再按重锚后的几何铺页面
+  !insertmacro IHUI_REANCHOR
   nsDialogs::Create 1018
   Pop $IHUIHOST
   System::Call "user32::MoveWindow(p $IHUIHOST, i 0, i 0, i $IHUIWW, i $IHUIWH, i 1)"
@@ -607,8 +693,11 @@ Var IHUIRF13      ; 重装页说明行品牌字体(13 逻辑 px)
   ; instfiles 页背景是裸 STATIC(STM_SETIMAGE 不拉伸), 低档 880x600 位图原样
   ; 贴出 → 右/下大片原生白底(即用户报「左右的原生底漏出」真凶之一)。
   ; 统一提到 PAGE_PRE: 每个品牌页进入时都保证位图档位=窗口档位。
-  ${If} $IHUIWTIER != $IHUITIER
+  ; (IHUI_REANCHOR 已在入口处理"运行期尺寸变化";此处兜住"入口尺寸未变但档位与
+  ;  已解压档不一致"的情形,故判据用 IHUIEXTTIER 而非 IHUITIER。)
+  ${If} $IHUIWTIER != $IHUIEXTTIER
     !insertmacro IHUI_EXTRACTPAGESETS $IHUIWTIER
+    StrCpy $IHUIEXTTIER $IHUIWTIER
   ${EndIf}
   System::Call "user32::SendMessageW(p $HWNDPARENT, i 0x0031, p 0, p 0) p .s"
   Pop $IHUIFONT
@@ -958,6 +1047,7 @@ FunctionEnd
     ; GUIInit 会按窗口 DPI 重算 IHUIWTIER; 此处先按系统档解压,
     ; 若窗口档与系统档不一致(极少见的多屏异 DPI), 页面函数兜底补解压。
     !insertmacro IHUI_EXTRACTPAGESETS $IHUITIER
+    StrCpy $IHUIEXTTIER $IHUITIER   ; 记录已解压档,运行期重锚据此判断是否需要重解压
     ; ---- 资产探针:降级必须在**任何页面渲染之前**定 ----
     ; 页面函数一进来就 IHUI_HIDE_ALL 把原生 1/2/3 移屏,那时才发现位图加载不出来
     ; 已经无路可退 —— 正是用户看到的"纯黑且点不动"。故此处先探一张:
@@ -1255,10 +1345,13 @@ Function IHUIInstShow
     Return
   ${EndIf}
   StrCpy $IHUIFINMODE 0
+  ; 运行期窗口尺寸变化 → 重锚(instfiles 是原生页,不走 PAGE_PRE,必须在此重锚)
+  !insertmacro IHUI_REANCHOR
   !insertmacro IHUI_HIDE_ALL
   ; 档位兜底(instfiles 是原生页不走 PAGE_PRE,R68: 125% 档低档位图裸贴白底)
-  ${If} $IHUIWTIER != $IHUITIER
+  ${If} $IHUIWTIER != $IHUIEXTTIER
     !insertmacro IHUI_EXTRACTPAGESETS $IHUIWTIER
+    StrCpy $IHUIEXTTIER $IHUIWTIER
   ${EndIf}
   ; ---- 全品牌化(R63):原生 1/2/3 隐藏但保留(核心完成时自动恢复,不可销毁)。
   ;      品牌视觉由 CreateWindowExW 真 BUTTON 提供,ID 复用原生 1/2(NSIS 主
@@ -1323,8 +1416,12 @@ Function IHUIInstShow
   ; 外层窗口类背景刷 = 品牌黑: 内层挖洞区透出的就是这层,必须与位图底色一致
   ; (#242424 = .dark --color-background)。安装期就要设,不能等完成态 ——
   ; 取消槽的洞在整个安装过程中都存在。
+  ; ⚠️ 2026-10-16 根因修复:必须用 SetClassLongW —— 32 位 NSIS stub 没有
+  ;    SetClassLongPtrW(见本文件头「已验证技术约束」第 1 条),旧写法调用静默失败,
+  ;    类背景刷一直是系统默认白 → 安装中取消槽的洞透出**纯白块**(用户报
+  ;    「正在安装时左下角取消按钮纯白、啥都看不到」)。第三参是 LONG(32 位),用 i 传。
   System::Call "gdi32::CreateSolidBrush(i 0x00242424) p .R6"
-  System::Call "user32::SetClassLongPtrW(p $HWNDPARENT, i -10, p R6)"
+  System::Call "user32::SetClassLongW(p $HWNDPARENT, i -10, i R6)"
   ; 背景位图挂内层 dialog
   !insertmacro IHUI_LOADIMG instfiles.bmp $0
   System::Call "user32::CreateWindowExW(p 0, w 'STATIC', w '', i 0x5400010E, i 0, i 0, i $IHUIWW, i $IHUIWH, p r1, p 0, p 0, p 0) p .s"
@@ -1341,12 +1438,20 @@ Function IHUIInstShow
   ; 「继续/完成」槽位安装中留空(位图该处本就是空底),完成态由
   ; IHUI_INST_DONE_THEME 接管,绝不再出现"看着能点其实不能点"的死按钮。
   StrCpy $IHUINXT 0
+  ; ⚠️ 2026-10-16 根因修复:旧版(2026-09-22 起)「不摆取消钮,却保留取消槽的洞」→
+  ;    洞区没有任何控件覆盖,透出的是**外层窗口客户区**;而类背景刷因用了 32 位 stub
+  ;    不存在的 SetClassLongPtrW 从未设成品牌黑 → 洞区裸露为**纯白块**(用户报
+  ;    「正在安装有进度条在走的时候左下角的取消按钮还是纯白、啥都看不到、点不了」)。
+  ;    现改为**真摆一枚可点的品牌「取消」**:
+  ;      原生 2 本体移入取消槽(点击 = 核心原生取消链路,与标题栏 X 同语义) +
+  ;      BS_BITMAP 贴 btn-cancel.bmp;紧接着显式 EnableWindow 1 —— 核心在安装中会把
+  ;      原生钮置灰,禁用态 BS_BITMAP 会被系统灰化成灰块(正是 r9/v10 根除的死按钮)。
+  !insertmacro IHUI_INST_SLOT 2 btn-cancel.bmp ${IHUI_CANCEL_X} ${IHUI_BTN_Y} ${IHUI_CANCEL_W} 40
+  GetDlgItem $0 $HWNDPARENT 2
+  ${If} $0 <> 0
+    EnableWindow $0 1
+  ${EndIf}
   StrCpy $IHUICNC 0
-  ; 2026-09-22 computer-use 真实截图实证:instfiles 全程原生取消钮被核心置为 disabled
-  ; (UIA 树 `按钮 (disabled) 取消(C) ID: 2`),而 BS_BITMAP 按钮在禁用态会被系统
-  ; 灰化 → 槽位变成一个灰色块,正是 r9/v10 明令根除的"看着能点其实不能点"死按钮。
-  ; 故本页不再摆取消钮,保持 IHUI_HIDE_ALL 的隐藏+移屏状态。退出通路 = 完成后「继续 ›」
-  ; 与窗口 WS_SYSMENU 下的 Alt+F4(与原生语义一致:文件复制中本就不允许取消)。
   !insertmacro IHUI_INST_HOLES 0 1
   ; ---- 进度区(2026-09-22「墨光」改版) ----
   ; 视觉主体 = 自绘品牌进度条(bar-fill.bmp + SetWindowRgn 按百分比裁宽)。
@@ -1423,9 +1528,13 @@ FunctionEnd
   ; 完成态:百分比与品牌条打满(阶段驱动的最后一级;POSTINSTALL hook 触发)
   !insertmacro IHUI_PROGRESS 100 "安装完成"
   !insertmacro IHUI_LOG "doneTheme_entry"
+  ; 运行期窗口尺寸变化 → 重锚:安装过程中窗口可能被系统放大(见 IHUI_REANCHOR 注释),
+  ; 不重锚则完成态的 CTA/挖洞/覆盖层全部按旧几何摆,右侧/下方露原生白底 + 裸原生按钮。
+  !insertmacro IHUI_REANCHOR
   ; ---- 0) 外层窗口类背景刷换品牌黑(挖洞区透出的底色;安装期已设,此处兜底) ----
+  ; ⚠️ 同 IHUIInstShow:32 位 stub 无 SetClassLongPtrW,必须用 SetClassLongW(见该处注释)
   System::Call "gdi32::CreateSolidBrush(i 0x00242424) p .R6"
-  System::Call "user32::SetClassLongPtrW(p $HWNDPARENT, i -10, p R6)"
+  System::Call "user32::SetClassLongW(p $HWNDPARENT, i -10, i R6)"
   ; ---- 1) 先销毁安装期那枚取消覆盖层(同槽不留双覆盖层) ----
   !insertmacro IHUI_DESTROY $IHUICNC 0 0 0 0 0
   StrCpy $IHUICNC 0
@@ -1586,6 +1695,19 @@ Function IHUIOnFinish
   !insertmacro IHUI_DESTROY $IHUIBG 0 0 0 0 0
   !insertmacro IHUI_DESTROY $IHUINXT $IHUICNC $IHUISTART 0 0 0
   !insertmacro IHUI_LOG "onFinish_cleanup"
+  ; ⚠️ 2026-10-16 根因修复(用户报「安装完成后安装包退不掉,留黑底怎么关都关不掉」):
+  ;    本回调运行在完成页 nsDialogs::Show 的**模态消息循环**内,单独 Quit 只置退出
+  ;    旗标、要等控制权回到主循环才生效,而模态循环不退出旗标永远等不到 —— 实机复现:
+  ;    onFinish_cleanup 打点后进程持续存活、窗口变纯黑(r101 的"停定时器"只解决了
+  ;    定时器拖住消息循环;PostQuitMessage 也已实测无效)。
+  ;    修法:完成页是**最后一页**,对原生 Next(id=1)发 BM_CLICK —— 核心推进过末页
+  ;    即走**正常退出流程**(消息循环自然收尾 + 自动清 $PLUGINSDIR/自删临时副本),
+  ;    与用户一路点「下一步」装完的收尾逐字节等价。Quit 旗标作为兜底随后置上。
+  GetDlgItem $0 $HWNDPARENT 1
+  ${If} $0 <> 0
+    SendMessage $0 0x00F5 0 0
+  ${EndIf}
+  System::Call "user32::PostQuitMessage(i 0)"
   Quit
 FunctionEnd
 
@@ -1670,51 +1792,18 @@ FunctionEnd
   ; 降级态:这张页保留原生皮肤(它开头就 IHUI_HIDE_ALL 移屏原生钮 + 自建位图 CTA,
   ; 位图加载失败时用户将没有任何可点出口)。${EndIf} 配平在本宏末尾。
   ${If} $IHUIFALL = 0
-  ; ---- 0) DPI 加固(R70)----
-  StrCpy $0 96
-  System::Call "user32::GetDpiForWindow(p $HWNDPARENT) i .s"
-  Pop $0
-  IntOp $0 $0 + 0
-  ${If} $0 < 96
-    StrCpy $0 96
-  ${EndIf}
-  ${If} $0 > ${IHUI_DPI_CAP}
-    StrCpy $0 ${IHUI_DPI_CAP}
-  ${EndIf}
-  ${If} $0 != $IHUIDPIW
-    !insertmacro IHUI_LOG "reinstallTheme_dpiChanged"
-    ; $R2/$R3 是存活 radio 句柄,IHUI_GUIINIT_SIZE 内部用 $R2/$R3 做换算临时量
-    StrCpy $1 $R2
-    StrCpy $2 $R3
-    System::Call "*(i 0, i 0, i 0, i 0) p .s"
-    Pop $3
-    System::Call "user32::SystemParametersInfoW(i 0x0030, i 0, p r3, i 0)"
-    System::Call "*$3(i .R5, i .R6, i .R7, i .R8)"
-    System::Free $3
-    ; 两轮**紧邻**定档,与 IHUI_GUIINIT_COMMON 同口径(2026-09-23 收口:本分支此前只跑
-    ; 一轮,跨屏搬迁时比定窗路径少一轮收敛)。根因见宏注释:首轮把窗口 SetWindowPos 到
-    ; 目标屏之后 per-monitor DPI 才生效,不复读重算则档位/坐标整体错一档。
-    ; $R5..$R8(工作区矩形)在定档过程中只被读、不被写,故第二轮无需重跑
-    ; SystemParametersInfoW;两轮之间也不得依赖任何寄存器存活($R2/$R3 由本分支首尾
-    ; 的 $1/$2 保存-写回兜住)。
-    ; ⚠️ 第二轮必须排在下面 IHUI_WINDOW_RGN **之前**:该宏把 $R6/$R7 用作临时量
-    ; (区域句柄/圆角直径),把它夹在两轮中间,第二轮读到的就是脏工作区矩形 → 窗口被
-    ; 摆到屏外。
-    !insertmacro IHUI_GUIINIT_SIZE
-    !insertmacro IHUI_GUIINIT_SIZE
-    ; 裁剪区域必须跟窗口框一起重算:IHUI_GUIINIT_COMMON 的回退分支(Win10 无 DWM
-    ; 圆角时)把窗口 region 硬钉在当时的 $IHUIWW/$IHUIWH 上,SetWindowPos 放大窗口
-    ; 不会让 region 跟随 → 右/下被裁,控件"位置对了但内容仍缺一块"。Win11 上 DWM
-    ; 调用成功、不设 region,本宏幂等无副作用。
-    !insertmacro IHUI_WINDOW_RGN
-    StrCpy $R2 $1
-    StrCpy $R3 $2
-  ${EndIf}
+  ; ---- 0) 运行期尺寸/DPI 变化重锚(2026-10-16)----
+  ;   本页不走 IHUI_PAGE_PRE,必须在此重锚。统一走 IHUI_REANCHOR(与 GUIINIT 同 API:
+  ;   GetDpiForWindow + IHUI_PX 物理尺寸 + SetWindowPos 拉正 + 重解压 + 重算裁剪区),
+  ;   原先分散在 R70 的"DpiChanged -> 两轮定档"分支已被其覆盖,删去以免两套重锚打架
+  ;   (实测:两套连跑会把窗口在 1320x900 / 880x600 之间来回弹)。
+  !insertmacro IHUI_REANCHOR
   ; ---- 1) 隐藏原生 1/2/3 与页头经典控件(R67 同款) ----
   !insertmacro IHUI_HIDE_ALL
   ; 档位兜底(重装页不走 PAGE_PRE,R68: 125% 档低档位图裸贴白底)
-  ${If} $IHUIWTIER != $IHUITIER
+  ${If} $IHUIWTIER != $IHUIEXTTIER
     !insertmacro IHUI_EXTRACTPAGESETS $IHUIWTIER
+    StrCpy $IHUIEXTTIER $IHUIWTIER
   ${EndIf}
   ; ---- 2) 内层 dialog 满幅 + 黑底白字 ----
   System::Call "user32::MoveWindow(p $R4, i 0, i 0, i $IHUIWW, i $IHUIWH, i 1)"

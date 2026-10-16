@@ -238,7 +238,23 @@ async def create_account(
         )
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
+    # 导入即探针(2026-10-16 李总报障):账号今天在平台侧已签过时,库里没有
+    # 今天的记录 ⇒ 首屏「今日已签到」不亮、按钮还能点。录入后立刻跑一次真实
+    # 签到引擎(全平台幂等,已签路径=status 预检命中后落 skip_already 记录),
+    # 响应里直接带 last_record,首屏即真实状态;限流/冷却时静默跳过不阻塞导入。
+    try:
+        account["last_record"] = await _import_probe(account["id"], current_user)
+    except Exception:
+        # 探针失败(限流/冷却/网络)绝不阻塞导入:记录缺席 = UI 下次签到动作照常纠偏
+        pass
     return account
+
+
+async def _import_probe(account_id: int, owner_user_id: str) -> dict[str, Any] | None:
+    """导入探针:对新建账号跑一次真实签到引擎,返回落库的记录(单测统一在此打桩)。"""
+    return await checkin_scheduler_mod.checkin_scheduler.run_checkin_now(
+        account_id, owner_user_id
+    )
 
 
 @router.get("/accounts")
