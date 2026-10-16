@@ -344,7 +344,7 @@ async def _heal_uuid_names(
     - 幂等:修好不再命中(UUID 形态才触发,零常驻成本);
     - 取不到更好名时静默保持原状(不报错、不改写),用户仍可行内重命名。
     """
-    for row, acc in zip(rows, accounts):
+    for row, acc in zip(rows, accounts, strict=True):
         if not uuid_shaped_name(acc.get("name")):
             continue
         jwt = _decrypt_jwt(row["jwt_enc"]) if row.get("jwt_enc") else ""
@@ -840,6 +840,33 @@ async def get_active_cooldowns() -> dict[int, datetime]:
             datetime.now(UTC),
         )
     return {r["account_id"]: r["cooldown_until"] for r in rows}
+
+
+async def latest_outbound_pause_signal() -> tuple[str, datetime] | None:
+    """最近一条 SoftRate/Challenge 记录 → (type, created_at);无则 None。
+
+    出站全局暂停是**进程级易失状态**:服务重启即丢,而平台的限流/挑战
+    窗口(60s/300s)可能仍在有效期——重启后若不补暂停,定时批或手动入口
+    会立刻顶风打(第五件套配套,2026-10-16)。调度器 start() 调本函数
+    决定是否按原时长补一次暂停。只读最近一条,查询失败由调用方 fail-open。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT classified_error, created_at
+            FROM checkin_records
+            WHERE classified_error LIKE '%"SoftRate"%'
+               OR classified_error LIKE '%"Challenge"%'
+            ORDER BY created_at DESC
+            LIMIT 1
+            """
+        )
+    if row is None or row["created_at"] is None:
+        return None
+    raw = row["classified_error"] or ""
+    etype = "Challenge" if '"Challenge"' in raw else "SoftRate"
+    return etype, row["created_at"]
 
 
 # ---------------------------------------------------------------------------
