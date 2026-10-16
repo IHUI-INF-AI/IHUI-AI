@@ -830,4 +830,56 @@ test('TG P4 归属点名:红档要说清"这堆条目是谁的",且判定口径�
     rmScratch(base)
   }
 })
+
+test('TG2 外部件取用:绝对路径优先、量不到根只回落裸名,两处调用点都必须走解析器', () => {
+  const { systemExePaths, resolveSystemExe } = gate
+  const win = { SystemRoot: 'C:\\windows' }
+  const p = systemExePaths('w32tm.exe', win)
+  assert.equal(p.length, 2, '有根 ⇒ 两档:绝对路径在前、裸名兜底在后')
+  assert.match(p[0], /System32[\\/]w32tm\.exe$/)
+  assert.equal(p[1], 'w32tm.exe')
+  const none = systemExePaths('tasklist.exe', {})
+  assert.deepEqual(none, ['tasklist.exe'], '量不到根时只剩裸名一档(§26 禁止硬编码 C 盘)')
+  assert.ok(!JSON.stringify(none).includes('C:\\'), '不得凭空造一个 C 盘根')
+  const hit = resolveSystemExe('w32tm.exe', { env: win, exists: (c) => c.includes('System32') })
+  assert.equal(hit.via, '绝对路径')
+  assert.match(hit.exe, /System32/)
+  const miss = resolveSystemExe('w32tm.exe', { env: win, exists: () => false })
+  assert.equal(miss.exe, 'w32tm.exe', '两档都不在 ⇒ 回落裸名,让派生自己喊 ENOENT(而不是这里编一个不存在的路径)')
+  assert.match(miss.via, /都没命中/, '回落必须写明为什么回落 —— 静默兜底会把"这台机没有那个 exe"读成"取到了"')
+  assert.equal(miss.tried.length, 2, '原因里要能数出试过几条路径')
+  const s = src('scripts/check-ops-patrol.mjs')
+  const body = s.slice(s.indexOf('function runW32tm'), s.indexOf('function runW32tm') + 1400) + s.slice(s.indexOf('export function baiduSyncRunning'), s.indexOf('export function baiduSyncRunning') + 1600)
+  assert.doesNotMatch(body, /execFileSync\(\s*['"](?:w32tm|tasklist)/, '调用点又写回裸名 ⇒ 守护那一档会重新瞎掉')
+  assert.equal((body.match(/resolveSystemExe\(/g) || []).length, 2, '两处裸名派生必须都换成解析器,漏一处就是留一格盲区')
+  assert.match(body, /running: null, why:/, 'P5·网盘那一支原先裸 catch 把 error 当场丢弃 ⇒ 失败必须带原因')
+})
+
+test('TG3 时钟解析必须同时认两档区域:zh-CN 年份在前、SYSTEM 档(en-US)月在前带 AM/PM', () => {
+  const { parseLastSync } = gate
+  assert.equal(parseLastSync('Last Successful Sync Time:9/28/2026 7:52:42 PM'), Date.parse('2026-09-28T19:52:42'), 'en-US PM 档解不出 ⇒ P3 在 SYSTEM 那一档永久未判定')
+  assert.equal(parseLastSync('Last Successful Sync Time:1/5/2026 12:05:00 AM'), Date.parse('2026-01-05T00:05:00'), '12 AM 是 0 点')
+  assert.equal(parseLastSync('Last Successful Sync Time:1/5/2026 1:30:00 AM'), Date.parse('2026-01-05T01:30:00'))
+  assert.equal(parseLastSync('上次成功同步时间: 2026/9/28 19:52:42'), Date.parse('2026-09-28T19:52:42'), '新档不得把旧档挤掉')
+  assert.equal(parseLastSync('Last Successful Sync Time:28/9/2026 7:52:42 PM'), null, '日/月/年那形月份位 >12 ⇒ 必须落 null(未判定),不得读成一个错时刻')
+  assert.equal(parseLastSync('没有这一行'), null)
+})
+
+test('TG4 心跳:调度器那一档(--json)必须留痕并带未判定原因原文,且有界', () => {
+  const { heartbeatRecord } = gate
+  const j = heartbeatRecord({ at: 'A', counts: { ok: 1 }, rc: 0, json: true, undetermined: [{ id: 'P3', detail: 'w32tm 派生失败:ENOENT(取用档=裸名兜底;试过 C:\\windows\\System32\\w32tm.exe | w32tm.exe)' }] })
+  assert.equal(j.mode, 'json', '心跳必须记是哪一档留的痕 —— 原先 `if (!json)` 让唯一调度器那一档永远不写')
+  assert.equal(j.undetermined.length, 1)
+  assert.match(j.undetermined[0].detail, /ENOENT/)
+  const h = heartbeatRecord({ at: 'A', counts: {}, rc: 0, json: false })
+  assert.equal(h.mode, 'human')
+  assert.deepEqual(h.findings, [], '缺省也必须出数组,不得留 undefined(读的人会把"没有字段"读成"没跑")')
+  const big = heartbeatRecord({ json: true, undetermined: Array.from({ length: 41 }, (_, i) => ({ id: `P${i}`, detail: 'y'.repeat(500) })) })
+  assert.equal(big.undetermined.length, 40)
+  assert.equal(big.undetermined[0].detail.length, 300)
+  const s = src('scripts/check-ops-patrol.mjs')
+  const seg = s.slice(s.indexOf('async function main(argv)'))
+  assert.ok(seg.indexOf('heartbeatRecord({') > 0, '心跳必须真由 main 接上(判据写出来而没装车 = 本仓最高频失效型)')
+  assert.doesNotMatch(seg.slice(0, 3000), /if \(!json\) \{/, '不得再退回"只人工档才写"的守卫')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
