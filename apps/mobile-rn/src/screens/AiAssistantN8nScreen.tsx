@@ -2083,6 +2083,8 @@ export default function AiAssistantN8nScreen() {
               </TouchableOpacity>
             </View>
             <View style={[pickerStyles.listWrap, { height: modelPickerHeight }]}>
+              {/* sheet-flex-ok:外层 listWrap 已内联确定高度 height: modelPickerHeight,
+                  ModelPickerList 组件头注释契约 = 调用方提供定高/flex 容器 */}
               <ModelPickerList
                 items={modelListItems}
                 selectedIds={selectedModelId ? [selectedModelId] : []}
