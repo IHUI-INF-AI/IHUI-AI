@@ -610,6 +610,52 @@ describe('签到助手页面 · 更新JWT/徽章/调度/过滤/加载更多', ()
     await waitFor(() => expect(screen.getByText('skippedExpired')).toBeTruthy())
   })
 
+  it('一键全部签到:跳过冷却中账号并提示,不对其调用签到', async () => {
+    const cooling = makeAccount({
+      id: 2,
+      name: '冷却号',
+      cooldown_until: new Date(Date.now() + 3_600_000).toISOString(),
+    })
+    mockLoadSuccess({ accounts: [accountFixture, cooling] })
+    render(<CheckinPage />)
+    const btn = await waitFor(() => screen.getByText('checkinAll'))
+    fireEvent.click(btn)
+    await waitFor(() => expect(manualCheckin).toHaveBeenCalledTimes(1))
+    expect(manualCheckin).toHaveBeenCalledWith(1)
+    expect(manualCheckin).not.toHaveBeenCalledWith(2)
+    await waitFor(() => expect(screen.getByText('skippedCooldown')).toBeTruthy())
+  })
+
+  it('一键全部签到:命中全局限流(429)立即中止整批并提示', async () => {
+    const second = makeAccount({ id: 2, name: '二号' })
+    mockLoadSuccess({ accounts: [accountFixture, second] })
+    manualCheckin.mockRejectedValue(new Error('签到出站限流冷却中(60s)'))
+    render(<CheckinPage />)
+    const btn = await waitFor(() => screen.getByText('checkinAll'))
+    fireEvent.click(btn)
+    // 中止:仅第一发被调用,第二个账号不再被打
+    await waitFor(() => expect(screen.getByText('checkinRateLimited')).toBeTruthy())
+    expect(manualCheckin).toHaveBeenCalledTimes(1)
+    expect(manualCheckin).not.toHaveBeenCalledWith(2)
+    // 后续用例恢复
+    manualCheckin.mockResolvedValue(recordFixture)
+  })
+
+  it('批量余额刷新:串行错峰,不再 Promise.all 并发', async () => {
+    const second = makeAccount({ id: 2, name: '二号' })
+    mockLoadSuccess({ accounts: [accountFixture, second] })
+    render(<CheckinPage />)
+    const btn = await waitFor(() => screen.getByText('refreshCredits'))
+    queryCredits.mockClear()
+    fireEvent.click(btn)
+    // 串行含 600ms 错峰间隔,等待窗口放宽
+    await waitFor(() => expect(queryCredits).toHaveBeenCalledTimes(2), { timeout: 3000 })
+    const first = queryCredits.mock.invocationCallOrder[0]!
+    const secondCall = queryCredits.mock.invocationCallOrder[1]!
+    // 严格串行:第二个调用在第一个 resolve 之后才发出
+    expect(secondCall).toBeGreaterThan(first)
+  })
+
   it('勾选批量:勾选单个账号后仅对其调用签到', async () => {
     const second = makeAccount({ id: 2, name: '二号' })
     mockLoadSuccess({ accounts: [accountFixture, second] })
