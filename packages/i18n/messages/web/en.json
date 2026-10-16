@@ -19696,7 +19696,16 @@
     "adminDeployDiagnosis": "Deployment Diagnosis",
     "githubApp": "GitHub App",
     "smsReceive": "SMS Verification",
-    "sms": "SMS Templates"
+    "sms": "SMS Templates",
+    "customGroup": "Custom",
+    "customAddTitle": "Custom Shortcuts",
+    "customAddDesc": "Select and add your frequently used sidebar items below",
+    "customEmptyHint": "Click + at the top right to add your frequently used items",
+    "customSearchPlaceholder": "Search items",
+    "customAdded": "Added",
+    "customAdd": "Add",
+    "customRemove": "Remove",
+    "customManage": "Manage shortcuts"
   },
   "news": {
     "allCategories": "All Categories",
