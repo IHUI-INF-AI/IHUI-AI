@@ -94,7 +94,6 @@ function loadRatchet() {
   }
 }
 
-/
 /** 第三存量维(2026-10-16 立,机主令"一号一行"):同号多行组数。判据 = plan-task-index 的
  *  parseTaskRows(台账唯一解析层,§22c 不抄第二份);数"同 key 出现 ≥2 次的组数"。
  *  与注记/可折两维并列进 runPurgeResettle 的派生条件:任一 >0 就派生折并。 */
@@ -114,7 +113,7 @@ function sameKeyGroupResidue({ root = '', readFace }) {
   }
 }
 
-**
+/**
  * 第二个存量维(2026-10-15 立,G-32 复清的触发缺口):同题不同编号**可折**行数。
  *
  * 立因(实测,不是预防):10-15 那轮 absorb 档折掉 143 行之后,旁路合并的行级 union 把副本带回,
