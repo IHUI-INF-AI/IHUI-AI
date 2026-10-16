@@ -91,7 +91,6 @@ import {
   checkinCaptureJwts,
   checkinCaptureQoder,
   checkinCaptureWorkbuddy,
-  checkinCaptureMinimax,
   closeChromeWindow,
   openInGoogleChrome,
   WB_WEB_LOGIN_ORIGIN,
@@ -108,7 +107,6 @@ import {
   type CapturedQoderSession,
   type CapturedTraeAccount,
   type CapturedWorkbuddySession,
-  type CapturedMinimaxSession,
   type CheckinResidualAuditReport,
   type CheckinSnapshotSummary,
 } from '@/lib/tauri-bridge'
@@ -216,12 +214,10 @@ export default function CheckinPage() {
 
   // 平台筛选(平台化,2026-10-10;2026-10-12 增 workbuddy):'all' | 'trae' | 'workbuddy' | 'qoder'
   const [platformFilter, setPlatformFilter] = React.useState<
-    'all' | 'trae' | 'workbuddy' | 'qoder' | 'minimax'
+    'all' | 'trae' | 'workbuddy' | 'qoder'
   >('all')
   // 录入对话框的平台选择(默认 trae 与存量语义一致)
-  const [addPlatform, setAddPlatform] = React.useState<
-    'trae' | 'workbuddy' | 'qoder' | 'minimax'
-  >('trae')
+  const [addPlatform, setAddPlatform] = React.useState<'trae' | 'workbuddy' | 'qoder'>('trae')
 
   // WorkBuddy 本机捕获(2026-10-12 第三平台):复用 capturing/importing/captureError。
   // 5.8+ 登录态加密 ⇒ encrypted 行 token 为空,wbTokenDrafts 保存每行的手动粘贴值。
@@ -435,7 +431,7 @@ export default function CheckinPage() {
     for (const item of picked) {
       try {
         await createCheckinAccount({
-          name: item.nickname || item.user_id,
+          name: `本机-${item.user_id}`,
           jwt: item.jwt,
           device_map: {},
           group: groupFilter !== 'all' ? groupFilter : '',
@@ -513,7 +509,7 @@ export default function CheckinPage() {
     for (const item of picked) {
       try {
         await createCheckinAccount({
-          name: item.nickname || item.uid || item.app_dir,
+          name: `Qoder-${item.edition}-${item.uid || '本机'}`,
           jwt: item.access_token,
           device_map: qoderDeviceMap(item),
           group: groupFilter !== 'all' ? groupFilter : '',
@@ -545,17 +541,6 @@ export default function CheckinPage() {
     if (s.uid) dm.uid = s.uid
     if (s.domain) dm.domain = s.domain
     if (s.expires_at > 0) dm.expires_at = s.expires_at
-    return dm
-  }
-
-  // MiniMax → device_map(引擎契约:uid 必填;expires_at 供预检)
-  const minimaxDeviceMap = (m: CapturedMinimaxSession): Record<string, unknown> => {
-    const dm: Record<string, unknown> = {}
-    if (m.uid) dm.uid = m.uid
-    if (m.expires_at > 0) dm.expires_at = m.expires_at
-    // 每账号独立设备指纹(与独立 IP 代理组合成完整画像)
-    if (m.uuid) dm.uuid = m.uuid
-    if (m.device_id) dm.device_id = m.device_id
     return dm
   }
 
@@ -604,7 +589,7 @@ export default function CheckinPage() {
       }
       try {
         await createCheckinAccount({
-          name: item.nickname || item.uid || item.auth_file,
+          name: `WorkBuddy-${item.nickname || item.uid || '本机'}`,
           jwt: token,
           device_map: wbDeviceMap(item),
           group: groupFilter !== 'all' ? groupFilter : '',
@@ -696,7 +681,7 @@ export default function CheckinPage() {
       for (const acc of probe.accounts) {
         try {
           await createCheckinAccount({
-            name: acc.nickname || acc.uid.slice(0, 8),
+            name: `WorkBuddy-${acc.nickname || acc.uid.slice(0, 8)}`,
             jwt: probe.cookie,
             device_map: { login_type: 'web', uid: acc.uid, nickname: acc.nickname },
             group: groupFilter !== 'all' ? groupFilter : '',
@@ -959,8 +944,6 @@ export default function CheckinPage() {
   const [scanQoder, setScanQoder] = React.useState<CapturedQoderSession[]>([])
   const [scanTraeSel, setScanTraeSel] = React.useState<Set<string>>(new Set())
   const [scanQoderSel, setScanQoderSel] = React.useState<Set<string>>(new Set())
-  const [scanMinimax, setScanMinimax] = React.useState<CapturedMinimaxSession[]>([])
-  const [scanMinimaxSel, setScanMinimaxSel] = React.useState<Set<string>>(new Set())
   const [scanImporting, setScanImporting] = React.useState(false)
   const [scanMsg, setScanMsg] = React.useState('')
 
@@ -970,16 +953,13 @@ export default function CheckinPage() {
     const results = await Promise.all([
       checkinCaptureJwts().catch(() => [] as CapturedTraeAccount[]),
       checkinCaptureQoder().catch(() => [] as CapturedQoderSession[]),
-      checkinCaptureMinimax().catch(() => [] as CapturedMinimaxSession[]),
     ])
     setScanTrae(results[0]!)
     setScanQoder(results[1]!)
-    setScanMinimax(results[2]!)
     // 2026-10-15:Trae 新版 Cloud-IDE-JWT 不再落盘,捕获可能只回收 opaque uid(jwt 空)
     // —— 服务端录入要求 jwt 可解析,空 jwt 账号只展示提示、不预选不导入。
     setScanTraeSel(new Set(results[0]!.filter((a) => a.jwt).map((a) => a.user_id)))
     setScanQoderSel(new Set(results[1]!.map((s) => s.uid || s.app_dir)))
-    setScanMinimaxSel(new Set(results[2]!.map((m) => m.uid || m.auth_file)))
     setScanScanning(false)
   }, [])
 
@@ -1008,32 +988,21 @@ export default function CheckinPage() {
       name: string
       jwt: string
       device_map: Record<string, unknown>
-      platform?: 'qoder' | 'minimax'
+      platform?: 'qoder'
     }> = []
     for (const item of scanTrae) {
       if (!scanTraeSel.has(item.user_id)) continue
       if (!item.jwt) continue // opaque 账号无凭据,录入必被服务端拒(400),跳过
-      jobs.push({ name: item.nickname || item.user_id, jwt: item.jwt, device_map: {} })
+      jobs.push({ name: `本机-${item.user_id}`, jwt: item.jwt, device_map: {} })
     }
     for (const item of scanQoder) {
       const key = item.uid || item.app_dir
       if (!scanQoderSel.has(key)) continue
       jobs.push({
-        name: item.nickname || item.uid || item.app_dir,
+        name: `Qoder-${item.uid || '本机'}`,
         jwt: item.access_token,
         device_map: qoderDeviceMap(item),
         platform: 'qoder',
-      })
-    }
-    for (const item of scanMinimax) {
-      const key = item.uid || item.auth_file
-      if (!scanMinimaxSel.has(key)) continue
-      if (!item.access_token) continue
-      jobs.push({
-        name: item.nickname || item.uid || item.auth_file,
-        jwt: item.access_token,
-        device_map: minimaxDeviceMap(item),
-        platform: 'minimax',
       })
     }
     if (jobs.length === 0) return
@@ -1523,18 +1492,10 @@ export default function CheckinPage() {
           ? 'border-purple-500/40 bg-purple-500/10 text-purple-600'
           : platform === 'workbuddy'
             ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
-            : platform === 'minimax'
-              ? 'border-teal-500/40 bg-teal-500/10 text-teal-600'
-              : 'border-orange-500/40 bg-orange-500/10 text-orange-600'
+            : 'border-orange-500/40 bg-orange-500/10 text-orange-600'
       }`}
     >
-      {platform === 'qoder'
-        ? 'Qoder'
-        : platform === 'workbuddy'
-          ? 'WorkBuddy'
-          : platform === 'minimax'
-            ? 'MiniMax'
-            : 'TRAE'}
+      {platform === 'qoder' ? 'Qoder' : platform === 'workbuddy' ? 'WorkBuddy' : 'TRAE'}
     </span>
   )
 
@@ -1725,9 +1686,7 @@ export default function CheckinPage() {
                   aria-label={t('platformAll')}
                   value={platformFilter}
                   onChange={(e) =>
-                    setPlatformFilter(
-                      e.target.value as 'all' | 'trae' | 'workbuddy' | 'qoder' | 'minimax',
-                    )
+                    setPlatformFilter(e.target.value as 'all' | 'trae' | 'workbuddy' | 'qoder')
                   }
                   className="h-8 rounded-sm border bg-background px-2 text-xs"
                 >
@@ -1735,7 +1694,6 @@ export default function CheckinPage() {
                   <option value="trae">{t('platformTrae')}</option>
                   <option value="workbuddy">{t('platformWorkbuddy')}</option>
                   <option value="qoder">{t('platformQoder')}</option>
-                  <option value="minimax">{t('platformMinimax')}</option>
                 </select>
                 {distinctGroups.length > 0 && (
                   <select
@@ -1806,7 +1764,7 @@ export default function CheckinPage() {
                             {renderJwtBadge(account.jwt_exp)}
                             {renderCooldownBadge(account.cooldown_until)}
                           </div>
-                          {/* Fallback slot for the 最近签到 column: strictly complementary to that column's visibility, never duplicated nor lost. See globals.css .checkin-page block. */}
+                          {/* Fallback slot for the last-checkin column: strictly complementary to that column's visibility, never duplicated nor lost. See globals.css .checkin-page block. */}
                           <div className="checkin-name-last-checkin mt-1 text-[10px] text-muted-foreground">
                             {account.last_record
                               ? `${renderResult(account.last_record.ok)} · ${formatTime(account.last_record.created_at)}`
@@ -1892,7 +1850,7 @@ export default function CheckinPage() {
                               {checkingId === account.id && (
                                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                               )}
-                              {/* ≤459 内容区由容器查询隐藏文字,只剩图标;可访问名走 aria-label */}
+                              {/* Label hidden below 459px content width by container query; accessible name comes from aria-label */}
                               <span className="checkin-manual-label">
                                 {checkingId === account.id ? t('checking') : t('manualCheckin')}
                               </span>
@@ -2244,14 +2202,12 @@ export default function CheckinPage() {
                     <Loader2 className="h-3 w-3 animate-spin" />
                     {t('addSmartScanning')}
                   </p>
-                ) : scanTrae.length === 0 && scanQoder.length === 0 && scanMinimax.length === 0 ? (
+                ) : scanTrae.length === 0 && scanQoder.length === 0 ? (
                   <p data-testid="smart-scan-none" className="text-xs text-amber-600">
                     {t('addSmartNone')}
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">{t('deviceMapProxyHint')}</p>
-
                     {scanTrae.length > 0 && (
                       <div className="space-y-1">
                         <p className="text-xs font-medium">
@@ -2268,10 +2224,7 @@ export default function CheckinPage() {
                                 toggleSmartSel(setScanTraeSel, item.user_id, e.target.checked)
                               }
                             />
-                            {renderPlatformBadge('trae')}
-                            <span className="font-mono">
-                              {item.nickname || item.user_id}
-                            </span>
+                            <span className="font-mono">本机-{item.user_id}</span>
                             {!item.jwt && (
                               <span className="text-xs text-muted-foreground">{item.source}</span>
                             )}
@@ -2299,42 +2252,7 @@ export default function CheckinPage() {
                                   toggleSmartSel(setScanQoderSel, key, e.target.checked)
                                 }
                               />
-                              {renderPlatformBadge('qoder')}
-                              <span className="font-mono">
-                                {item.nickname || item.uid || '本机'}
-                              </span>
-                            </label>
-                          )
-                        })}
-                      </div>
-                    )}
-                    {scanMinimax.length > 0 && (
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium">
-                          {t('addSmartMinimaxFound', { count: scanMinimax.length })}
-                        </p>
-                        {scanMinimax.map((item) => {
-                          const key = item.uid || item.auth_file
-                          return (
-                            <label key={key} className="flex items-center gap-2 text-sm">
-                              <input
-                                type="checkbox"
-                                aria-label={`smartScanMinimax:${key}`}
-                                checked={scanMinimaxSel.has(key)}
-                                disabled={!item.access_token}
-                                onChange={(e) =>
-                                  toggleSmartSel(setScanMinimaxSel, key, e.target.checked)
-                                }
-                              />
-                              {renderPlatformBadge('minimax')}
-                              <span className="font-mono">
-                                {item.nickname || item.uid || '本机'}
-                              </span>
-                              {!item.access_token && (
-                                <span className="text-xs text-muted-foreground">
-                                  {t('captureMinimaxNoToken')}
-                                </span>
-                              )}
+                              <span className="font-mono">Qoder-{item.uid || '本机'}</span>
                             </label>
                           )
                         })}
@@ -2368,14 +2286,13 @@ export default function CheckinPage() {
                     data-testid="platform-select"
                     value={addPlatform}
                     onChange={(e) =>
-                      setAddPlatform(e.target.value as 'trae' | 'workbuddy' | 'qoder' | 'minimax')
+                      setAddPlatform(e.target.value as 'trae' | 'workbuddy' | 'qoder')
                     }
                     className="h-9 w-full rounded-sm border bg-background px-2 text-sm"
                   >
                     <option value="trae">{t('platformTrae')}</option>
                     <option value="workbuddy">{t('platformWorkbuddy')}</option>
                     <option value="qoder">{t('platformQoder')}</option>
-                    <option value="minimax">{t('platformMinimax')}</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
@@ -2533,7 +2450,6 @@ export default function CheckinPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-xs text-muted-foreground">{t('deviceMapProxyHint')}</p>
             <div className="space-y-1.5">
               <Label htmlFor="checkin-device-map-update">{t('deviceMap')}</Label>
               <textarea
@@ -2620,7 +2536,7 @@ export default function CheckinPage() {
                         })
                       }}
                     />
-                    <span className="font-mono">{item.nickname || item.user_id}</span>
+                    <span className="font-mono">{item.user_id}</span>
                     <span className="truncate text-xs text-muted-foreground">{item.source}</span>
                   </label>
                 ))}
@@ -2685,9 +2601,7 @@ export default function CheckinPage() {
                           })
                         }}
                       />
-                      <span className="font-mono">
-                        {item.nickname || item.uid || '本机会话'}
-                      </span>
+                      <span className="font-mono">{item.uid || '本机会话'}</span>
                       <span className="truncate text-xs text-muted-foreground">
                         {item.edition}
                         {item.version ? ` · v${item.version}` : ''}

@@ -18,6 +18,7 @@ export default defineConfig(async (merge) => {
   // node_modules/@tarojs/cli/src/cli.ts:66),此处读到的值即真实平台。
   // 显式 fallback 到 'weapp' 防御 shell 注入 TARO_ENV 但 --type 缺失的边界场景。
   const taroEnv = process.env.TARO_ENV || 'weapp'
+  console.error('IHUI_CONFIG_LOADED_MARKER_2026 taroEnv=' + taroEnv)
   // 隔离构建落点(2026-09-26 立):共享 `dist/` 被 .gitignore 忽略、被多会话**共读**,一次"只为量产物"
   // 的取证构建把它换成另一形态(h5 覆盖 weapp 是既发事故,见 check-miniapp-css-landing 的 C1 头注),
   // 别人的读数就失真。设 IHUI_MINIAPP_OUTPUT_ROOT 即把整条产物链(含下方 copy.patterns)改道到私有目录;
@@ -145,6 +146,10 @@ export default defineConfig(async (merge) => {
     alias: {
       '@': path.resolve(__dirname, '..', 'src'),
     },
+    // 关键修复(顶层): 从 commonChunks 剔除 'common' 入口,消除与 Taro 默认
+    // common cacheGroup 的同名碰撞(详情见 mini.webpackChain 内注释)。Taro 读取
+    // combination.config.commonChunks;顶层与 mini 段各置一份,确保任意解析路径命中。
+    commonChunks: ['runtime', 'vendors', 'taro'],
     mini: {
       es5: true,
       // 2026-10-01 react 双实例白屏修复:workspace 同时存在 react@18.3.1(miniapp)与
@@ -167,6 +172,15 @@ export default defineConfig(async (merge) => {
       // 2026-09-10 主包 2MB 硬上限治理:把仅被分包引用的公共 chunk 自动
       // 下沉到分包,避免 common.js 整体压在主包(webpack5 编译器专属能力)
       optimizeMainPackage: { enable: true },
+      // 关键修复: 从 commonChunks 中剔除 'common'。Taro 默认 commonChunks =
+      // ['runtime','vendors','taro','common'],会据此生成一个名为 common 的入口
+      // chunk(initial);而 Taro 默认 splitChunks.cacheGroups.common(name:'common')
+      // 与之同名,webpack5 禁止 cacheGroup 与 entrypoint 同名(非父子关系),编译期抛
+      // "Cache group 'common' conflicts with existing chunk"。即便在 webpackChain 里把
+      // common cacheGroup 置 false 也会被 Taro 后续重新注入,唯一稳妥做法是去掉 common
+      // 入口本身。共享代码改由 vendors/ihuiPackages(初始)与 ihuiSharedAsync(异步)接管,
+      // common 入口退化为不存在,对产物与运行时无害。
+      commonChunks: ['runtime', 'vendors', 'taro'],
       postcss: {
         pxtransform: { enable: true, config: {} },
         tailwindcss: { enable: true, config: {} },
@@ -272,7 +286,8 @@ export default defineConfig(async (merge) => {
       // - vendors: 初始入口依赖的 node_modules（react/react-dom/@tarojs/* 等），chunks:'initial'
       //   仅抽取初始包 vendor，避免把异步页面专属 vendor 拖入首屏
       // - ihui-packages: 初始入口依赖的 monorepo workspace 包（@ihui/* TS 源码）
-      // - common: 跨≥2 个异步 chunk 共享的业务代码，仅作用于 async 包，不影响首屏
+      // - ihui-shared-async: 跨≥2 个异步 chunk 共享的业务代码(原命名 common 与
+      //   optimizeMainPackage 生成的 common entrypoint 冲突,已改名),仅作用于 async 包,不影响首屏
       // - runtime: webpack 运行时单独抽出，利于长缓存
       // 优化前 app.js 单文件 823 KiB（含全部 vendor + runtime），优化后主 bundle 显著下降
       webpackChain: (chain: any) => {
@@ -283,13 +298,33 @@ export default defineConfig(async (merge) => {
             ...options,
             presets: [['taro', { framework: 'react', ts: true, compiler: 'webpack5' }]],
           }))
-        chain.optimization.runtimeChunk('single')
-        chain.optimization.splitChunks({
-          chunks: 'async',
-          maxAsyncRequests: 10,
+      chain.optimization.runtimeChunk('single')
+      // 顶层 chunks 必须保持 Taro 默认的 'all',绝不能设为 'async'。
+      // 原因:Taro 默认 splitChunks.cacheGroups.common(name:'common') 不自带 chunks,
+      // 会继承顶层 chunks。若该值为 'async',此 group 只选异步模块却要写入 common
+      // 入口 chunk(initial),触发 SplitChunksPlugin 致命错误
+      // "Cache group 'common' conflicts with existing chunk"。'vendors'/'taro' 同理。
+      // 各业务 group(vendors/ihuiPackages/ihuiSharedAsync)已自带 chunks 精确限定作用域。
+      chain.optimization.splitChunks({
+        chunks: 'all',
+        maxAsyncRequests: 10,
           maxInitialRequests: 5,
           automaticNameDelimiter: '~',
           cacheGroups: {
+            // 关键修复: 把 Taro 内置的 common cacheGroup 精确限定为 chunks:'initial'。
+            // 根因:Taro 默认 splitChunks.cacheGroups.common(name:'common') 与 commonChunks 生成的
+            // common 入口 chunk(initial)同名;webpack5 要求该 cacheGroup 选中的模块必须是 common
+            // 入口的子类,否则抛 "Cache group 'common' conflicts with existing chunk"。
+            // 我们额外加了 vendors/ihuiPackages(初始,高优先级)后,common 组(继承顶层 chunks:'all')
+            // 会把"仅异步分包共享、非 node_modules/workspace"的模块也选进来,而这些模块不是 common
+            // 入口的子类 → 碰撞。限定为 chunks:'initial' 后,common 组只收初始共享模块(必为 common
+            // 入口子类),碰撞消除;异步共享改由下方 ihuiSharedAsync 接管。
+            common: {
+              name: 'common',
+              chunks: 'initial',
+              minChunks: 2,
+              priority: 1,
+            },
             vendors: {
               test: /[\\/]node_modules[\\/]/,
               name: 'vendors',
@@ -304,8 +339,12 @@ export default defineConfig(async (merge) => {
               priority: 15,
               reuseExistingChunk: true,
             },
-            common: {
-              name: 'common',
+            // 注意: 不能命名为 'common' —— Taro optimizeMainPackage 会生成同名
+            // entrypoint chunk,与 cacheGroup 同名会触发 SplitChunksPlugin 致命错误
+            // "Cache group 'common' conflicts with existing chunk"。改名避免碰撞,
+            // 优化意图(跨≥2 async chunk 共享代码抽离)保持不变。
+            ihuiSharedAsync: {
+              name: 'ihui-shared-async',
               chunks: 'async',
               minChunks: 2,
               priority: 5,
@@ -313,6 +352,10 @@ export default defineConfig(async (merge) => {
             },
           },
         })
+        // 调试:同步dump本 webpackChain 计算出的 splitChunks(在 Taro 插件重新注入之前)
+        try {
+          require('fs').writeFileSync('/c/Users/Administrator/AppData/Local/Temp/ihui_chain_split.json', JSON.stringify(chain.optimization.splitChunks(), null, 2))
+        } catch (e) {}
         // 彻底删除 react-refresh-webpack-plugin 插件（H5 模式下远程图片加载
         // 失败会触发 unhandledrejection 被 react-refresh overlay 捕获遮挡页面）
         // 注意: 单纯 tap([options]) => [{...options, overlay:false}] 在该版本
