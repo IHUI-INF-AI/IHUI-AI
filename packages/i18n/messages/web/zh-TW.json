@@ -19235,7 +19235,7 @@
     "skippedToday": "已跳過 {count} 個今日已簽帳號",
     "skippedExpired": "已跳過 {count} 個 JWT 已過期帳號",
     "skippedCooldown": "已跳過 {count} 個冷卻中帳號",
-    "checkinRateLimited": "平台限流已中止本批，請稍後再試",
+    "checkinRateLimited": "平臺限流已中止本批，請稍後再試",
     "checkinFailedCount": "有 {count} 個帳號簽到失敗",
     "checkinSelected": "簽到勾選帳號（{count}）",
     "selectAllVisible": "全選當前列表",
