@@ -40,7 +40,7 @@ from typing import Any, Final
 import httpx
 
 from app.core.logging import get_logger
-from app.services.checkin_outbound import checkin_outbound_gate
+from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
 
 logger = get_logger(__name__)
 
@@ -371,6 +371,10 @@ def classify_error(
         return "SessionDead", -1
     if http_status == 404:
         return "NotFound", 60
+    if http_status == 403:
+        # 第五件套(2026-10-16):403 = WAF/拦截墙。原走 4xx→Client 三连击
+        # 才冷却,等于对拦截墙最多再打 6 次;挑战墙信号必须即时熔断。
+        return "Challenge", CHALLENGE_COOLDOWN_SECONDS
     if 500 <= http_status < 600:
         return "Server", 600
     if 400 <= http_status < 500:
@@ -500,11 +504,52 @@ async def checkin_account(
                 classified_error={"type": "SoftRate", "cooldown_seconds": 60},
             )
             return result
+        # 第五件套(2026-10-16):status 预检拿到 2xx 非 JSON = WAF/挑战页
+        # 插页。继续 claim 等于对挑战墙双倍请求;直接按 Challenge 熔断
+        # (全局暂停 + 单账号 30min 即时冷却,调度批据此整批中止)。
+        # 判据必须钉「真收到 2xx」:status_check 的非 JSON 分支把 http status
+        # 放在返回值的 code 位(见其本体),网络异常(0/-1)body 为空也落
+        # 「非 JSON 响应」消息 —— 那是 Unknown 不是挑战,误熔断=网络抖动
+        # 就停全体账号(2026-10-16 测试实证的假阳性,已修)。
+        if (
+            msg_s
+            and msg_s.startswith("非 JSON 响应")
+            and isinstance(code_s, int)
+            and 200 <= code_s < 300
+        ):
+            checkin_outbound_gate.note_challenge("trae")
+            result.update(
+                code=None,
+                message="平台返回挑战页/非 API 响应,已熔断",
+                classified_error={"type": "Challenge", "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS},
+            )
+            return result
 
     ok, msg, code, http_status = await signin_with_retry(
         name, jwt, device_map, timeout, retry=retry, retry_delay=retry_delay, client=client
     )
     result.update(code=code, message=msg, http_status=http_status)
+
+    # 第五件套(2026-10-16):403 拦截墙 / 2xx 非 JSON 挑战页 → Challenge 熔断。
+    # 2xx+失败+code None = 响应体不是我们的 JSON 契约(status_check 同款信号
+    # 已在上方预检处熔断,这里是 claim 路的兜底);网络异常走 0/-1 不在此列。
+    if not ok and (
+        http_status == 403
+        or (http_status is not None and 200 <= http_status < 300 and code is None)
+    ):
+        checkin_outbound_gate.note_challenge("trae")
+        result["classified_error"] = {
+            "type": "Challenge",
+            "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+        }
+        logger.warning(
+            "检测到挑战页/WAF 拦截,已熔断",
+            name=name,
+            user_id=user_id,
+            http_status=http_status,
+            body=(msg or "")[:120],
+        )
+        return result
 
     if ok:
         # credits_before 来自 status 接口，表示签到可获得的积分额度；
