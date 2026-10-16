@@ -36,6 +36,7 @@ import {
   type PlatformMeta,
 } from '@/config/downloads.config'
 import { useDownloadTrack } from '@ihui/shared/hooks'
+import type { DesktopFeed } from '@/config/desktop-feed.generated'
 
 /** platform → 图标组件映射(与 downloads.tsx 的 DOWNLOADS 数组同源) */
 const PLATFORM_ICON: Record<DownloadPlatform, LucideIcon | React.FC<{ className?: string }>> = {
@@ -61,8 +62,21 @@ const PLATFORM_LABEL_KEY: Record<DownloadPlatform, string> = {
   cli: 'downloadCli',
 }
 
-/** 详情页主内容(client component,使用 useTranslations + useParams) */
-export function DownloadDetailContent({ platform: platformParam }: { platform: string }) {
+/**
+ * 详情页主内容(client component,使用 useTranslations + useParams)
+ *
+ * 2026-10-17:`liveDesktopFeed` 由 server page 运行期解析后注入(源 = 最新 desktop release
+ * 自带的 latest.json)。只对 desktop 端生效 —— 这是当前唯一存在"版本已发到 → 线上仍显示旧号"
+ * 的那一端(快照入库链被 main 分支保护挡死,见 @/config/desktop-feed-live 头注)。
+ * 注入失败/缺 foreground 时静默回落到构建期快照,详情页形态不变。
+ */
+export function DownloadDetailContent({
+  platform: platformParam,
+  liveDesktopFeed,
+}: {
+  platform: string
+  liveDesktopFeed?: DesktopFeed | null
+}) {
   const t = useTranslations('nav')
   const router = useRouter()
 
@@ -81,7 +95,18 @@ export function DownloadDetailContent({ platform: platformParam }: { platform: s
     validPlatforms.includes(platformParam as DownloadPlatform) ? platformParam : 'desktop'
   ) as DownloadPlatform
 
-  const meta: PlatformMeta = getPlatformMeta(platform)
+  // 构建期快照为底,运行期解析到新版本才覆盖 —— 覆盖只动「版本/日期/安装包」三个展示面,
+  // installGuideKey 等静态文案仍走快照,避免把两种来源混成一个类型。
+  const staticMeta: PlatformMeta = getPlatformMeta(platform)
+  const meta: PlatformMeta =
+    platform === 'desktop' && liveDesktopFeed
+      ? {
+          ...staticMeta,
+          version: liveDesktopFeed.version,
+          releaseDate: liveDesktopFeed.releaseDate || staticMeta.releaseDate,
+          assets: liveDesktopFeed.assets.length > 0 ? liveDesktopFeed.assets : staticMeta.assets,
+        }
+      : staticMeta
   const Icon = PLATFORM_ICON[platform]
   const label = t(PLATFORM_LABEL_KEY[platform])
   const hasAssets = meta.assets.length > 0

@@ -635,6 +635,67 @@ test.describe('桌面端窗口控制按钮 — 模态压暗 + 失焦降亮(真�
     expect(after.container.windowInactive, '收口后控件仍不应有 data-window-inactive').toBeNull()
   })
 
+  /* ================= 回归:模态关闭淡出相(data-state=closed 仍在 DOM)控件须已解灰 =================
+   * 修复前(modal-overlay-watcher 不追踪 data-state):Radix Overlay 关闭时先翻 data-state=closed
+   * 再跑 --duration-unified 淡出、留 DOM ~1000ms;期间 computed 仍有底色 → detectModalOverlayColor
+   * 仍当激活遮罩 → 三按钮压暗层比页面多灰整整一拍(深色尤甚)。修复后:watcher 把 data-state
+   * 列入 attributeFilter,且 detect 跳过 data-state=closed → 遮罩翻 closed 的当帧 dimActive 翻
+   * false,压暗层与遮罩淡出同帧起步。
+   *
+   * 本用例用**状态**而非**时序**取证据,避免 flaky:在「遮罩仍挂载于 DOM 且 data-state=closed」
+   * 这一瞬窗内断言控件 data-modal-dim 已为 null。修复前该瞬窗内 data-modal-dim 仍为 '1' → 失败。
+   */
+  test('模态遮罩关闭淡出相(data-state=closed 仍在 DOM)时,窗口控件须已解灰', async ({
+    page,
+  }) => {
+    test.info().annotations.push({
+      type: 'target',
+      description: 'modal-overlay-watcher: data-state=closed 跳过 → dimActive 同帧翻 false',
+    })
+    await installTauriStub(page)
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    await page
+      .locator(WINDOW_CONTROLS_SELECTOR)
+      .waitFor({ state: 'attached', timeout: 60_000 })
+
+    // 基线 + 打开遮罩
+    const idle = await probeDimLayer(page)
+    expect(idle.container.modalDim, '基线不应有 data-modal-dim').toBeNull()
+    await openLoginDialog(page)
+    await expect(page.locator(DIM_LAYER_SELECTOR)).toHaveCSS('opacity', '1', { timeout: 15_000 })
+    await expect(page.locator(WINDOW_CONTROLS_SELECTOR)).toHaveAttribute('data-modal-dim', '1')
+    console.info('[9] 遮罩打开:dim.opacity=1 data-modal-dim=1')
+
+    // 关闭:Radix 进入 data-state=closed 淡出相(遮罩仍挂载于 DOM ~1000ms)
+    await page.keyboard.press('Escape')
+
+    // 核心断言(状态取证据):存在「遮罩仍挂载 且 data-state=closed」的瞬窗,
+    // 该瞬窗内控件必须已解灰(data-modal-dim===null)。修复前此瞬窗内 data-modal-dim 仍为 '1'。
+    await expect
+      .poll(
+        async () => {
+          const stillMounted = (await page.getByTestId('login-dialog').count()) > 0
+          const state = await page.getByTestId('login-dialog').getAttribute('data-state')
+          const modalDim = (await probeDimLayer(page)).container.modalDim
+          return { stillMounted, closed: state === 'closed', unDimmed: modalDim === null }
+        },
+        {
+          message:
+            '关闭淡出相(data-state=closed 仍在 DOM)内,窗口控件未解灰(data-modal-dim 未即时翻 null)',
+          timeout: 6_000,
+        },
+      )
+      .toMatchObject({ stillMounted: true, closed: true, unDimmed: true })
+    console.info('[9] 关闭淡出相:遮罩 data-state=closed 仍在 DOM,但 data-modal-dim 已为 null(同帧解灰)')
+
+    // 终态:淡出结束后 dim.opacity 归 0,且 data-modal-dim 消失
+    await expect(page.getByTestId('login-dialog')).toBeHidden({ timeout: 15_000 })
+    await expect(page.locator(DIM_LAYER_SELECTOR)).toHaveCSS('opacity', '0', { timeout: 15_000 })
+    await expect(page.locator(WINDOW_CONTROLS_SELECTOR)).not.toHaveAttribute('data-modal-dim')
+    await page.screenshot({ path: `${SCREENSHOT_DIR}/11-close-fadeout-undim-synced.png` })
+  })
+
   /* ================= 分支扩展:真机 oklab/color-mix 数值不被 happy-dom 覆盖 =================
    * 上面那一条只证明了「亮色 + 单层 Dialog 遮罩」这一条路径。以下 4 条补齐 watcher 的
    * 其余真机分支(单测在 happy-dom 上跑过,但 happy-dom 会静默丢弃 oklab / color-mix 赋值,
