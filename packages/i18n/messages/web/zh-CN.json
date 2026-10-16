@@ -19234,6 +19234,8 @@
     "groupUngrouped": "未分组",
     "skippedToday": "已跳过 {count} 个今日已签账号",
     "skippedExpired": "已跳过 {count} 个 JWT 已过期账号",
+    "skippedCooldown": "已跳过 {count} 个冷却中账号",
+    "checkinRateLimited": "平台限流已中止本批，请稍后再试",
     "checkinSelected": "签到勾选账号（{count}）",
     "selectAllVisible": "全选当前列表",
     "selectAccount": "选中账号 {name}",

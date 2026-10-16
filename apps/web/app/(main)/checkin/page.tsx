@@ -218,9 +218,9 @@ export default function CheckinPage() {
     'all' | 'trae' | 'workbuddy' | 'qoder' | 'minimax'
   >('all')
   // 录入对话框的平台选择(默认 trae 与存量语义一致)
-  const [addPlatform, setAddPlatform] = React.useState<
-    'trae' | 'workbuddy' | 'qoder' | 'minimax'
-  >('trae')
+  const [addPlatform, setAddPlatform] = React.useState<'trae' | 'workbuddy' | 'qoder' | 'minimax'>(
+    'trae',
+  )
 
   // WorkBuddy 本机捕获(2026-10-12 第三平台):复用 capturing/importing/captureError。
   // 5.8+ 登录态加密 ⇒ encrypted 行 token 为空,wbTokenDrafts 保存每行的手动粘贴值。
@@ -382,6 +382,10 @@ export default function CheckinPage() {
           await queryCheckinAccountCredits(account.id)
         } catch {
           // 单账号查询失败(网络/JWT 失效)不阻断其余账号
+        }
+        // 逐个错峰(风控:避免批量快照瞬时并发直打官方接口)
+        if (account !== targets[targets.length - 1]) {
+          await new Promise((r) => setTimeout(r, 600))
         }
       }
       await loadAll()
@@ -1137,40 +1141,41 @@ export default function CheckinPage() {
   const refreshCredits = async (ids: number[]) => {
     if (ids.length === 0) return
     setCreditsRefreshing((prev) => new Set([...prev, ...ids]))
-    await Promise.all(
-      ids.map(async (id) => {
-        try {
-          const res = await queryCheckinAccountCredits(id)
-          setCreditsInfo((prev) => {
-            const old = prev[id]?.remaining
-            const delta =
-              res.ok && typeof old === 'number' && typeof res.remaining === 'number'
-                ? res.remaining - old
-                : undefined
-            return {
-              ...prev,
-              [id]: {
-                remaining: res.ok ? res.remaining : null,
-                error: res.ok ? undefined : res.error || '',
-                delta,
-                ts: Date.now(),
-              },
-            }
-          })
-        } catch (e) {
-          setCreditsInfo((prev) => ({
+    // 风控:逐个错峰串行查询(原 Promise.all 并发直打官方接口,批量号时瞬时并发过高)
+    for (const id of ids) {
+      try {
+        const res = await queryCheckinAccountCredits(id)
+        setCreditsInfo((prev) => {
+          const old = prev[id]?.remaining
+          const delta =
+            res.ok && typeof old === 'number' && typeof res.remaining === 'number'
+              ? res.remaining - old
+              : undefined
+          return {
             ...prev,
-            [id]: { remaining: null, error: (e as Error).message, ts: Date.now() },
-          }))
-        } finally {
-          setCreditsRefreshing((prev) => {
-            const next = new Set(prev)
-            next.delete(id)
-            return next
-          })
-        }
-      }),
-    )
+            [id]: {
+              remaining: res.ok ? res.remaining : null,
+              error: res.ok ? undefined : res.error || '',
+              delta,
+              ts: Date.now(),
+            },
+          }
+        })
+      } catch (e) {
+        setCreditsInfo((prev) => ({
+          ...prev,
+          [id]: { remaining: null, error: (e as Error).message, ts: Date.now() },
+        }))
+      } finally {
+        setCreditsRefreshing((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }
+      // 账号间错峰(最后一个不空等);后端闸门另有全局节流,此处双保险
+      if (id !== ids[ids.length - 1]) await new Promise((r) => setTimeout(r, 600))
+    }
   }
 
   const toggleEnabled = async (account: CheckinAccount, enabled: boolean) => {
@@ -1219,8 +1224,9 @@ export default function CheckinPage() {
   const localDateStr = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-  // 一键全部签到:对 enabled 账号顺序执行(不并发轰炸);
-  // 跳过今日已成功签到(last_record 为今日且 ok)的账号,实时汇报进度,结束后统一刷新
+  // 一键全部签到:对 enabled 账号顺序执行(不并发轰炸),账号间随机错峰;
+  // 跳过今日已签 / JWT 过期 / 冷却中账号,命中全局限流(429)立即中止整批,
+  // 实时汇报进度,结束后统一刷新
   const runCheckinAll = async (scope?: Set<number>) => {
     const today = localDateStr(new Date())
     const targets = accounts.filter(
@@ -1234,29 +1240,67 @@ export default function CheckinPage() {
     ).length
     const pending = targets.filter((account) => {
       if (account.jwt_exp && new Date(account.jwt_exp).getTime() <= now) return false
+      // 冷却中的账号直接跳过(后端手动入口已尊重冷却,预筛避免无谓 429 往返)
+      if (account.cooldown_until && new Date(account.cooldown_until).getTime() > now) return false
       const last = account.last_record
       if (!last || last.ok !== true || !last.created_at) return true
       return localDateStr(new Date(last.created_at)) !== today
     })
-    const skipped = targets.length - expiredCount - pending.length
+    const cooldownCount = targets.filter(
+      (account) =>
+        !(account.jwt_exp && new Date(account.jwt_exp).getTime() <= now) &&
+        !!account.cooldown_until &&
+        new Date(account.cooldown_until).getTime() > now,
+    ).length
+    const skipped = targets.length - expiredCount - cooldownCount - pending.length
     setAllChecking(true)
     setActionError(null)
     setBatchNotice(null)
     setAllProgress({ done: 0, total: pending.length })
     const okIds: number[] = []
+    // 全局限流命中判据:后端 RateLimitedError → HTTP 429 detail 含「限流冷却中」;
+    // 单账号冷却(CooldownActiveError)只跳过该账号,不中止整批
+    const isGlobalRateLimit = (msg: string) => /限流冷却中|HTTP 429|限流/.test(msg)
+    const isCooldownRejection = (msg: string) => /冷却期/.test(msg)
     try {
       let done = 0
+      let skippedCooldownRun = 0
+      let rateLimited = false
       for (const account of pending) {
-        await manualCheckinAccount(account.id)
+        try {
+          await manualCheckinAccount(account.id)
+          okIds.push(account.id)
+        } catch (e) {
+          const msg = (e as Error).message
+          if (isGlobalRateLimit(msg)) {
+            // 命中平台/出站限流:立即中止整批(继续打只会加深风控)
+            rateLimited = true
+            setActionError(msg)
+            break
+          }
+          if (isCooldownRejection(msg)) {
+            // 预筛后仍冷却(近期刚失败进入冷却):跳过该账号继续
+            skippedCooldownRun += 1
+            continue
+          }
+          throw e
+        }
         done += 1
-        okIds.push(account.id)
         setAllProgress({ done, total: pending.length })
+        // 账号间错峰(后端闸门另有全局节流,前端双保险,避免机器化连发)
+        if (account !== pending[pending.length - 1]) {
+          await new Promise((r) => setTimeout(r, 500))
+        }
       }
+      const cooldownSkipped = cooldownCount + skippedCooldownRun
       const notices = [
         skipped > 0 ? t('skippedToday', { count: skipped }) : null,
         expiredCount > 0 ? t('skippedExpired', { count: expiredCount }) : null,
+        cooldownSkipped > 0 ? t('skippedCooldown', { count: cooldownSkipped }) : null,
+        rateLimited ? t('checkinRateLimited') : null,
       ].filter((part): part is string => !!part)
       if (notices.length > 0) setBatchNotice(notices.join('；'))
+      if (!rateLimited) setActionError(null)
     } catch (e) {
       setActionError((e as Error).message)
     } finally {
@@ -2282,9 +2326,7 @@ export default function CheckinPage() {
                               }
                             />
                             {renderPlatformBadge('trae')}
-                            <span className="font-mono">
-                              {item.nickname || item.user_id}
-                            </span>
+                            <span className="font-mono">{item.nickname || item.user_id}</span>
                             {!item.jwt && (
                               <span className="text-xs text-muted-foreground">{item.source}</span>
                             )}
@@ -2698,9 +2740,7 @@ export default function CheckinPage() {
                           })
                         }}
                       />
-                      <span className="font-mono">
-                        {item.nickname || item.uid || '本机会话'}
-                      </span>
+                      <span className="font-mono">{item.nickname || item.uid || '本机会话'}</span>
                       <span className="truncate text-xs text-muted-foreground">
                         {item.edition}
                         {item.version ? ` · v${item.version}` : ''}
