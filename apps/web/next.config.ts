@@ -816,7 +816,12 @@ const nextConfig: NextConfig = {
         //               Cache Rules 层统一处理,不在本层赌。
         // force-static 路由的 s-maxage(HTML 缓存)属「部署即时性换回源」拍板项,
         // 不在本次默认开启。
-        source: '/:path*\\.(?:png|jpg|jpeg|gif|webp|avif|svg|ico|woff2)',
+        // ⚠ 2026-10-17 修:上一版写的 `/:path*\.(?:png|…)` 在 path-to-regexp 里是**非法模式**
+        //   (`:path*` 之后不能直接跟字面量),`next build` 报 `source` parse failed /
+        //   "Invalid header found" ⇒ 构建连续失败,部署环每 30 分钟冷却重试,生产被冻结在
+        //   旧版本一个多小时(线上无故障,但任何新提交都上不去)。改用文档形态:具名参数
+        //   自带匹配模式 `/:path(正则)`,扩展名集合仍在同一括号内,语义与上一版一致。
+        source: '/:path(.*\\.(?:png|jpg|jpeg|gif|webp|avif|svg|ico|woff2))',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
         ],
