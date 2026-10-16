@@ -1327,3 +1327,47 @@ test('T35 具名导出与卫语句不得冒充"根槽位读不出"(本轮把 9 �
     '真仓 AgentRuntimePanel 小程序侧仍报"读不出" ⇒ 卫语句那条洞没真修掉',
   )
 })
+
+test('T36 ALIAS 跨名配对的族,RS 必须按"本文件名"再锚一次;锚不到仍点名未判定(不得记成一致)', () => {
+  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+  // 配对层认得这对(CategoryBar.tsx ↔ CategoryInlineBar.tsx),但 RS 只认族名 ⇒ 别名腿这一维又"没看"。
+  // 判据必须覆盖它自己产出的那种配对形态,所以第二次锚定用文件 stem(不是"第一个 export")。
+  const aliasPairs = {
+    pairs: [{ name: 'CategoryBar', miniapp: 'a/CategoryBar.tsx', rn: 'p/CategoryInlineBar.tsx' }],
+  }
+  const text = {
+    'a/CategoryBar.tsx':
+      'import { View } from "@tarojs/components"\nexport default function CategoryBar() {\n  return <View className="rounded-lg" />\n}\n',
+    'p/CategoryInlineBar.tsx':
+      'import { View } from "react-native"\nexport function CategoryInlineBar() {\n  return <View style={{ borderRadius: 8 }} />\n}\n',
+  }
+  const got = src.rootSlotAudit(aliasPairs, text, tbl)
+  assert.deepEqual(
+    got.undetermined,
+    [],
+    'ALIAS 族两侧都该读得出根槽位 —— 读不出就说明第二次锚定没接上,这一维又被记成"没看"',
+  )
+  assert.deepEqual(got.findings, [], '两端都是 lg(8) ⇒ 无差异,但这条用例断的是"看过了"')
+
+  // 反向:stem 也不是导出名时,必须继续报未判定(修洞不许顺手变成放宽)
+  const wrongName = {
+    pairs: [{ name: 'FooBar', miniapp: 'a/FooBar.tsx', rn: 'b/NotTheExport.tsx' }],
+  }
+  const text2 = {
+    'a/FooBar.tsx':
+      'import { View } from "@tarojs/components"\nexport default function FooBar() {\n  return <View className="rounded-lg" />\n}\n',
+    'b/NotTheExport.tsx':
+      'import { View } from "react-native"\nexport const SomethingElse = () => <View style={{ borderRadius: 8 }} />\n',
+  }
+  const got2 = src.rootSlotAudit(wrongName, text2, tbl)
+  assert.equal(
+    got2.undetermined.length,
+    1,
+    '族名与文件名都锚不到 ⇒ 必须仍报未判定;把它读成"两端根上无档/一致"就是放宽',
+  )
+  assert.match(
+    got2.undetermined[0].why,
+    /族名或本文件名/,
+    '未判定要点名"两次锚定都试过",否则下一步的人不知道该往哪补',
+  )
+})
