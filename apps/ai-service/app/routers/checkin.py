@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -464,7 +464,9 @@ async def query_credits(
     remaining = result.get("remaining")
     if not isinstance(remaining, int):
         return {"ok": False, "error": "积分余额解析结果异常"}
-    day = datetime.now(_CN_TZ).date().isoformat()
+    # 传 date 对象:asyncpg date 参数走客户端编码,str 必抛 DataError
+    # (2026-10-17 实测 query_credits 连炸 4 次 500;详见 checkin_store._coerce_day)
+    day = datetime.now(_CN_TZ).date()
     gained = await checkin_store.sum_credits_delta_for_day(account_id, current_user, day)
     await checkin_store.upsert_credits_daily(account_id, current_user, day, remaining, gained)
     return {"ok": True, "remaining": remaining}
