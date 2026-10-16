@@ -232,10 +232,15 @@ export function measureDir(path, { maxEntries = 120000, byTop = false } = {}) {
 /**
  * 外部系统程序必须**先按绝对路径取**,取不到才回落裸名(2026-10-16 立)。
  *
- * 立因是实测,不是预防:`auditOpsPatrol()` 每轮稳定报「2 格未判定 —— P3, P5·网盘同步客户端」,
- * 而同一条命令在交互 shell 里这两格都是绿的 —— 这两格是全巡检里**仅有的两处靠裸名派生外部程序**的
- * (`w32tm.exe` / `tasklist.exe`),裸名解析依赖调用方的 PATH,而守护那两个执行体的环境块未必含
- * system32 ⇒ ENOENT 被 catch 吞成"未判定",这两格在**唯一的调度器**里永久瞎掉。
+ * 立因是实测,但**成因尚未分离**,所以这一处把两个候选一次堵死,并让它自己报名:
+ *   现读事实:「2 格未判定 —— P3, P5·网盘同步客户端」每轮都出现在调度器那一档,而手工跑两格都绿;
+ *   这两格恰是全巡检里**仅有的两处靠裸名派生外部程序**的(`w32tm.exe` / `tasklist.exe`)。
+ *   已被现读否证的假设:"机器级 PATH 缺 system32"(HKLM 里在,且同一执行体下裸名 `cscript.exe` 解析成功,
+ *   错的是 ETIMEDOUT 而非 ENOENT)。剩下的两个候选 —— ① 执行体继承的环境块与交互档不同(nssm 可覆写 PATH),
+ *   ② 外部程序的**输出形状随登录账户区域设置变**(常驻档身份 NT AUTHORITY\SYSTEM 默认 en-US,交互档 zh-CN)。
+ *   ① 由本函数堵死(绝对路径优先,不依赖 PATH);② 由 `parseLastSync` 补 en-US 那一形堵死。
+ *   到底哪一档起的作用不必再猜:ok 分支的 detail 现在带 `(取用=绝对路径|裸名兜底)`,
+ *   盘上凭据在 `.workbuddy/ops-patrol-last.json`。修后现读:两档执行体都成「21 格绿(0 格未判定)」(自 10:53Z 起)。
  * 根一律取 `%SystemRoot%`(AGENTS §26:不得硬编码 C 盘);量不到根就只剩裸名一档,
  * 并把"试过哪些路径"写进未判定原因 —— 失明必须说得清为什么瞎(§0.3),不得只报格名。
  *
@@ -289,10 +294,11 @@ export function parseLastSync(text) {
       const t = Date.parse(`${m[1]}-${pad(m[2])}-${pad(m[3])}T${pad(m[4])}:${m[5]}:${m[6]}`)
       if (Number.isFinite(t)) return t
     }
-    // 月在前一档(`9/28/2026 7:52:42 PM`)—— 2026-10-16 立,立因是实测的形状差而不是想象:
-    // 跑巡检的那个执行体身份是 **NT AUTHORITY\SYSTEM**(nssm 服务 IHUI-GIT-GUARD,现读 pid 27512),
-    // SYSTEM 用默认用户配置的区域设置(en-US),而交互 shell 那一档是 Administrator/zh-CN ——
-    // 这正是"守护每轮 P3 未判定、手工跑却绿"的两档分歧。原先只认年份在前,月在前一律解不出。
+    // 月在前一档(`9/28/2026 7:52:42 PM`)—— 2026-10-16 立。立据是**身份差**这一条现读事实:
+    // 跑巡检的常驻执行体是 `NT AUTHORITY\SYSTEM`(nssm 服务 IHUI-GIT-GUARD),而计划任务那一档是
+    // Administrator;SYSTEM 用默认用户配置的区域设置 = en-US,交互档 = zh-CN。原先只认年份在前,
+    // 月在前一律解不出 ⇒ 这是 P3 在班次里落"未判定"的两个候选成因之一(另一个是 PATH/取件档,
+    // 由 `resolveSystemExe` 堵;**两者本轮一起补,所以现在不必赌是哪一个**,ok 行自带"取用=哪一档")。
     // 取值口径按 en-US 的 **月/日/年**;若某台机真是 日/月/年,月份位会 >12 ⇒ Date.parse 得 NaN ⇒
     // 继续往下掉到"未判定",**失效方向是多要一次说明,绝不会把时钟读成"刚同步过"**(§0.3/§0.10)。
     const alt = line.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})[ T](\d{1,2}):(\d{2}):(\d{2})\s*([AP]M)/i)
@@ -1133,7 +1139,7 @@ async function reloadEndpoint(url) {
 }
 
 export function checkClock({ now }) {
-  const { text, why } = runW32tm()
+  const { text, why, via } = runW32tm()
   if (why) return { id: 'P3', state: 'undetermined', detail: why }
   const at = parseLastSync(text)
   if (at === null)
@@ -1179,7 +1185,8 @@ export function checkClock({ now }) {
   return {
     id: 'P3',
     state: 'ok',
-    detail: `上次成功同步 ${ISO(at)} | 阈 ${LIMITS.ntpMaxAgeHours} 小时${quality}`,
+    // "取用=绝对路径/裸名兜底"是**自证的取件档** —— 下次这一格再瞎,不必重新猜是哪一档起的左右。
+    detail: `上次成功同步 ${ISO(at)} | 阈 ${LIMITS.ntpMaxAgeHours} 小时${quality}(取用=${via})`,
   }
 }
 
@@ -2039,7 +2046,7 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
       baidu.running === false
         ? '网盘同步客户端进程不在 ⇒ 云同步腿这一腿此刻不成立(备份复制到网盘目录,而同步没在跑),且全仓没有"同步是否完成"的判据'
         : baidu.running === true
-          ? '进程在位(注:同步**完成与否**仍无判据,这里只判进程)'
+          ? `进程在位(注:同步**完成与否**仍无判据,这里只判进程;取用=${baidu.via})`
           : baidu.why,
   })
   // P7:副本在位/新鲜/同哈希三维。"网盘客户端在不在跑"这一维**留在上面 P5 那一行**,
