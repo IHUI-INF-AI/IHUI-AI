@@ -20,9 +20,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..', '..')
 const GATE_REL = 'scripts/check-shared-type-not-redeclared.mjs'
 const GATE = join(ROOT, GATE_REL)
-const GATE_MOD = await import(
-  new URL(`../${GATE_REL.split('/').pop()}`, import.meta.url).href
-)
+const GATE_MOD = await import(new URL(`../${GATE_REL.split('/').pop()}`, import.meta.url).href)
 // 判据走门的生产出口;`keep` 这类内部工具只从 `__test__` 取(门刻意不把内部形态做成公共导出)
 const { judge, sharedTypeNames, listConsumerPaths } = GATE_MOD
 const { keep } = GATE_MOD.__test__
@@ -99,7 +97,11 @@ test('T5 别名收回单源是正当写法:cli 那份落 passed,且拆掉别名�
   // 现读事实:cli 那份四个本地名里只有 `MemoryListQuery` 与 `MemoryCreateInput` 与共享同名
   // (`MemoryListData`/`MemoryDeleteData` 是端内改名,天然不在射程)⇒ 别名通道应恰好认下 2 条。
   // 钉死确切值而不是 `>0`:后者在"共享名集合解析变窄"时会跟着退化而无牙。
-  assert.equal(r.passed.length, 2, `别名通道实得 ${r.passed.length}:${JSON.stringify(r.passed.map((x) => x.name))}`)
+  assert.equal(
+    r.passed.length,
+    2,
+    `别名通道实得 ${r.passed.length}:${JSON.stringify(r.passed.map((x) => x.name))}`,
+  )
   // 牙:把别名换成手写 interface,同一条判据必须立刻读到命中
   const mutated = cur.replace(
     /^type MemoryListQuery = SharedMemoryListQuery;$/m,
@@ -156,6 +158,81 @@ test('T9 --json 档的 stdout 必须可 JSON.parse(尾随人类读语会砸碎�
   }
   if (j.face === 'head')
     assert.ok(j.hits > 0, 'HEAD 面存量早已实测非零 ⇒ 量到 0 说明扫描面塌了,不是"已清干净"')
+  // sameShape 维的真仓锁:三态计数必须与 hits 自洽，且 yes/no 两桶都必须量到非零 ——
+  // 实测量的是 yes 47 / no 150 / undetermined 63。若这把尺子在全量上静默失效(解析器崩溃被
+  // 吞掉、共享形态表没传)，全体会落进 undetermined，"只有 yes 可收敛"就退化成"一条也不能动"，
+  // 而那恰好是它要消灭的状态；所以 yes>0 与 no>0 两条都是它的存活证明，不是装饰。
+  assert.ok(j.sameShapeCounts, '--json 必须带 sameShapeCounts(缺维就等于没判)')
+  const c = j.sameShapeCounts
+  assert.equal(
+    c.yes + c.no + c.undetermined,
+    j.hits,
+    `三态计数之和(${c.yes}+${c.no}+${c.undetermined})必须等于 hits(${j.hits}) ⇒ 有一条被漏桶`,
+  )
+  for (const d of j.detail)
+    assert.ok(
+      ['yes', 'no', 'undetermined'].includes(d.sameShape),
+      `detail 每条必须带三态之一(实际拿到 ${JSON.stringify(d.sameShape)})`,
+    )
+  if (j.face === 'head') {
+    assert.ok(c.yes > 0, 'HEAD 面 yes 量到 0 ⇒ 形态尺子在真仓上失效(不是"没有可收敛的")')
+    assert.ok(c.no > 0, 'HEAD 面 no 量到 0 ⇒ 形态尺子把所有命中都读成了同形,必然是坏了')
+  }
   assert.ok(!out.includes('✅'), '合格结论只由退出码与 JSON 字段承载,stdout 不得再打 ✅')
+  // 可达性维的 JSON 契约:三桶之和必须等于 hits，且 convergenceReady 不得大于 yes
+  // (ready = yes ∧ 出口可达，是 yes 的子集 —— 若哪天 ready > yes，说明有两个口径在各自算账)
+  assert.ok(j.reachableCounts, '--json 必须带 reachableCounts')
+  const rc = j.reachableCounts
+  assert.equal(
+    rc.true + rc.false + rc.undetermined,
+    j.hits,
+    `可达性三桶(${rc.true}+${rc.false}+${rc.undetermined})必须等于 hits(${j.hits})`,
+  )
+  for (const d of j.detail)
+    assert.ok(
+      d.reachable === true || d.reachable === false || d.reachable === null,
+      `detail 每条的 reachable 必须是三态之一(实际 ${JSON.stringify(d.reachable)})`,
+    )
+  assert.ok(
+    j.convergenceReady <= c.yes,
+    `convergenceReady(${j.convergenceReady}) 不得大于 yes(${c.yes}) ⇒ 两口径分叉了`,
+  )
+})
+
+test('T10 sameShape 三态用门的生产函数判:等/不等/判不出各钉一条,且格式与字段顺序不得影响"等"', () => {
+  const { sharedTypeNames, judge, buildSharedShapes } = GATE_MOD.__test__
+  const sharedSrc = {
+    'packages/types/src/widget.ts':
+      'export interface Widget {\n  a: string\n  b?: number\n}\n\nexport type Flag = "on" | "off"\n\nexport type Loose = Pick<Widget, "a">\n',
+  }
+  const names = sharedTypeNames(sharedSrc)
+  const shapes = buildSharedShapes(sharedSrc, names)
+  const hitOf = (files) => {
+    const r = judge(files, names, shapes)
+    return Object.fromEntries(r.hits.map((h) => [h.name, h.sameShape]))
+  }
+  // 等：换了缩进/换行、字段顺序相反，仍必须判 yes —— 否则"格式差异"会被当成"两件东西"
+  assert.deepEqual(
+    hitOf({ 'apps/web/src/a.ts': 'export interface Widget {\n    b?: number;\n  a: string; }\n' }),
+    { Widget: 'yes' },
+  )
+  // 不等：少一个字段(哪怕它可选)就是不同契约，判 yes 会被自动并档并把功能改掉
+  assert.deepEqual(hitOf({ 'apps/web/src/b.ts': 'interface Widget { a: string }\n' }), {
+    Widget: 'no',
+  })
+  // 判不出：共享侧那条是工具类型 ⇒ 不许猜成 no，也不许猜成 yes
+  assert.deepEqual(hitOf({ 'apps/web/src/c.ts': 'type Loose = Widget["a"]\n' }), {
+    Loose: 'undetermined',
+  })
+  // union 两侧只差书写顺序 ⇒ yes(值域才是契约)
+  assert.deepEqual(hitOf({ 'apps/web/src/d.ts': 'type Flag = "off" | "on"\n' }), { Flag: 'yes' })
+  // 没给形态表 ⇒ 整维显式判不出(不得因为"名字撞了"就出 yes)
+  const noTable = judge(
+    { 'apps/web/src/e.ts': 'interface Widget { a: string\n  b?: number }\n' },
+    names,
+  )
+  assert.deepEqual(Object.fromEntries(noTable.hits.map((h) => [h.name, h.sameShape])), {
+    Widget: 'undetermined',
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
