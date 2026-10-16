@@ -43,6 +43,7 @@ import httpx
 
 from app.core.logging import get_logger
 from app.services.checkin_engine import DEFAULT_TIMEOUT, get_http_client
+from app.services.checkin_outbound import checkin_outbound_gate
 
 logger = get_logger(__name__)
 
@@ -217,12 +218,14 @@ async def _wb_post(
         "authorization": f"Bearer {token}",
     }
     http = client if client is not None else get_http_client()
+    await checkin_outbound_gate.before_request("workbuddy")
     try:
         resp = await http.post(WB_BASE.rstrip("/") + path, json={}, headers=headers, timeout=timeout)
     except httpx.TimeoutException:
         return 0, None
     except Exception as e:
         return -1, f"{type(e).__name__}: {e}"
+    checkin_outbound_gate.note_status(resp.status_code, "workbuddy")
     try:
         return resp.status_code, json.loads(resp.text)
     except Exception:
@@ -246,6 +249,7 @@ async def _wb_post_web(
         "cookie": cookie_header,
     }
     http = client if client is not None else get_http_client()
+    await checkin_outbound_gate.before_request("workbuddy")
     try:
         resp = await http.post(
             WB_WEB_BASE.rstrip("/") + path, json={}, headers=headers, timeout=timeout
@@ -254,6 +258,7 @@ async def _wb_post_web(
         return 0, None
     except Exception as e:
         return -1, f"{type(e).__name__}: {e}"
+    checkin_outbound_gate.note_status(resp.status_code, "workbuddy")
     try:
         return resp.status_code, json.loads(resp.text)
     except Exception:
