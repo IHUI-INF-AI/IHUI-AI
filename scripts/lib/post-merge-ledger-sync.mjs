@@ -27,10 +27,14 @@
  * 退出码/返回:永不抛。`{ ok, ran, lines, why }` —— `ran` 是"这次到底派生成了没有",
  * 与 `ok`(派生成且脚本 0 退出)分开计,是为了让调用方能区分"跑过且没问题"与"没跑成"。
  */
-import { spawnSync, execFileSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
+// 2026-10-16 取材层收口(face-reader 棘轮型 A):默认 git 取面(HEAD:PROJECT_PLAN.md)走共用层
+// gitRaw —— 绝对路径 git + safe.directory + quotepath + 显式 stdio + EBUSY 兜底。
+// 失败语义不变:取不到 ⇒ 该面折 null(未判定),由调用方按 §0.3 大声报名。
+import { gitRaw } from './face-reader.mjs'
 
 const require = createRequire(import.meta.url)
 // 判据实现按**自身位置**取(§15:ROOT 由脚本自身推导)。`root` 参数是"被落地的仓库根",
@@ -71,12 +75,9 @@ function readPlanFaceText({ root = '', readFace } = {}) {
   try {
     text = readFace
       ? readFace(PLAN_REL)
-      : execFileSync('git', ['-C', resolve(String(root)), 'show', `HEAD:${PLAN_REL}`], {
-          encoding: 'utf8',
-          windowsHide: true,
+      : gitRaw(['show', `HEAD:${PLAN_REL}`], resolve(String(root)), {
           timeout: 120000,
           maxBuffer: 256 * 1048576,
-          stdio: ['ignore', 'pipe', 'pipe'],
         })
   } catch {
     return null

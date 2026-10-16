@@ -454,6 +454,17 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // 提示);棘轮判 HEAD blob,本枚工作树改动不进分母 ⇒ 提交前现读仍 9,9 ≤ 9 判得过;入库后现读 8,
 // 8 ≤ 9 仍判得过(打降档提示)。故本轮 10 → 9(紧贴现读,不留余量=不容忍新增;也不挖坑恒红)。
 // 提交者入库后复核:若打出 `◽ 型 B 存量已降到 8(基线 9)`,可将基线一并降到 8。
+// 2026-10-16 红门收口批(型 A −4 枚 + 型 C 自拼 batch 清零一枚):求差基线提交 14a04f013f(定 76
+// 那枚)与 HEAD 现读差出 4 枚新入库文件,其中三枚有真实裸派生、随本批迁层 gitRaw/catBatchCheck:
+//   ① generate-remote-images.mjs(status/ls-files 两处)、② lib/guardian-executor.mjs
+//   (rev-parse HEAD 子树/status/diff --cached)、③ lib/post-merge-ledger-sync.mjs
+//   (HEAD:PROJECT_PLAN.md 取面);第 4 枚 check-disk-root-write.mjs 无真实派生 —— 命中全在本门
+//   自己的**判据材料**(ST18/ST19/ST20 阳性对照夹具必须逐字嵌入靶形,§22c 镜像纪律),
+//   走不了 gitRaw,按存量登记(14a04f013f 大提交期已入存量面,76 基线含它)。
+// 同期 guardian-runner.mjs 他票收口自降(77 → 76 那枚);sync-lost-commit-tags.mjs 的自拼
+// `cat-file --batch` 迁层 `catBatchCheck`(型 C 清零,基线 0 的"零容忍"档不破)。
+// 落地后 HEAD 面现读 = 80 − 4 = **76 ⇒ 76 ≤ 76 判得过,基线 76 不动**;型 C 现读 0。
+// 提交者入库后复核 `node --test scripts/tests/face-reader.test.mjs` 应两尺全绿(无"已降到"提示)。
 const BARE_GIT_BASELINE = 76
 // 2026-10-08 10 → 9:紧贴现读,不留余量=不容忍新增(账见上方 440-456 行)。
 // 行尾注记形态系落地守门"复活行"判别所需(本行`= 9`与祖先 0c6198cc44 逐字相同会误判复活),行为零变化。

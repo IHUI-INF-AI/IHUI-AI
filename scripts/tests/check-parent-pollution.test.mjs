@@ -5,9 +5,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -49,30 +50,99 @@ function isCredentialDir(name) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 1. CLI 行为测试(基线干净:实际环境 g:\ 已无 agent 污染)
+// 1. CLI 行为测试(2026-10-16 改夹具档)
+//    旧写法把「这台机此刻的父目录恰好干净」当成 exit 0 的前提 ⇒ 任何会话往盘根扔一枚探针,
+//    这三条连带门 26 一起红,而红的是环境不是内容(§12e 同型;`check-workspace-hygiene.test.mjs`
+//    头注早就记过同一条:基线干净判的是内容面,不是磁盘)。正解 = 判**夹具面**,真实面交给提交链。
 // ═══════════════════════════════════════════════════════════════
 
-test('CLI: 默认模式(基线干净)→ exit 0 + stdout 含 "✅" + "无 agent 污染"', () => {
-  const r = runScript()
-  assert.equal(r.status, 0, `基线应 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
-  assert.match(r.out, /✅/)
-  assert.match(r.out, /无 agent 污染/)
-})
+const FIXTURE_NAME = 'cleanup-g26-probe.ps1'
+const FIXTURE_BODY = '# 一次性夹具:文件名命中 agent 强信号,内容带项目路径与操作痕迹\nGet-ChildItem G:\\IHUI-AI | Out-File out.txt\n'
 
-test('CLI: --warn / --auto-clean 模式(基线干净)→ 均 exit 0', () => {
-  for (const flag of ['--warn', '--auto-clean']) {
-    const r = runScript([flag])
-    assert.equal(r.status, 0, `${flag} 基线应 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
-    // 无污染时走主流程,均打印 "✅ ... 无 agent 污染"
-    assert.match(r.out, /✅|无 agent 污染/, `${flag} 应有 ✅ 或 "无 agent 污染" 输出`)
+test('CLI: 默认模式(夹具空面)→ exit 0 + stdout 含 "✅" + "无 agent 污染"', () => {
+  const dir = mkScratch('g26-clean-')
+  try {
+    const r = runScript(['--scan-root', dir])
+    assert.equal(r.status, 0, `夹具空面应 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
+    assert.match(r.out, /✅/)
+    assert.match(r.out, /无 agent 污染/)
+  } finally {
+    rmScratch(dir)
   }
 })
 
-test('CLI: --quiet 模式(基线干净)→ exit 0 + stdout 静默(无 ✅ 输出)', () => {
-  const r = runScript(['--quiet'])
-  assert.equal(r.status, 0, `--quiet 应 exit 0\nstdout: ${r.out}`)
-  // --quiet 抑制 console.log("✅ ..." ),stdout 应为空
-  assert.equal(r.out.trim(), '', `--quiet 应静默 stdout,实际: "${r.out}"`)
+test('CLI: --warn / --auto-clean 模式(夹具空面)→ 均 exit 0', () => {
+  const dir = mkScratch('g26-clean2-')
+  try {
+    for (const flag of ['--warn', '--auto-clean']) {
+      const r = runScript(['--scan-root', dir, flag])
+      assert.equal(r.status, 0, `${flag} 夹具空面应 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
+      assert.match(r.out, /✅|无 agent 污染/, `${flag} 应有 ✅ 或 "无 agent 污染" 输出`)
+    }
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('CLI: --quiet 模式(夹具空面)→ exit 0 + stdout 静默(无 ✅ 输出)', () => {
+  const dir = mkScratch('g26-quiet-')
+  try {
+    const r = runScript(['--scan-root', dir, '--quiet'])
+    assert.equal(r.status, 0, `--quiet 应 exit 0\nstdout: ${r.out}`)
+    assert.equal(r.out.trim(), '', `--quiet 应静默 stdout(含夹具档喊话),实际: "${r.out}"`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('CLI: 阳性对照 —— 夹具里有强信号文件 ⇒ exit 1 且逐条点名(夹具档不得变成消红通道)', () => {
+  // 前提由门体自己的尺子验:命中判定用的是生产入口 matchesAgentFilenamePattern(§22c 不另抄一份)。
+  assert.equal(
+    matchesAgentFilenamePattern(FIXTURE_NAME),
+    true,
+    `夹具样本 ${FIXTURE_NAME} 已不再命中门体的文件名强信号表 ⇒ 本对照的前提失效(改表要同步改夹具,不得反过来放宽)`,
+  )
+  const dir = mkScratch('g26-hit-')
+  try {
+    writeFileSync(join(dir, FIXTURE_NAME), FIXTURE_BODY)
+    const r = runScript(['--scan-root', dir])
+    assert.equal(r.status, 1, `夹具里有污染必须判红,实得 exit ${r.status}\nstdout: ${r.out}\nstderr: ${r.err}`)
+    // 判红明细走 stderr(log.error),喊话走 stdout(log.info)⇒ 断言读两路合并,不得只盯一路
+    const all = r.out + r.err
+    assert.match(all, new RegExp(FIXTURE_NAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), '判红要点名到文件')
+    assert.match(r.out, /夹具档/, '夹具档生效时必须喊出来(否则"只扫一棵树"会被读成整门通过)')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('CLI: 出路自证 —— 门自己提示的 --auto-clean 在夹具面真跑得通(§12f「文档写的出路必须实测」)', () => {
+  const dir = mkScratch('g26-clean3-')
+  try {
+    const file = join(dir, FIXTURE_NAME)
+    writeFileSync(file, FIXTURE_BODY)
+    const r = runScript(['--scan-root', dir, '--auto-clean'])
+    assert.equal(r.status, 0, `auto-clean 清掉强信号后应 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
+    assert.match(r.out, /已自动清理 1 个/)
+    assert.equal(existsSync(file), false, 'auto-clean 声称清理了,但文件还在原处')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('CLI: 夹具档取不到目录 / 没给目录 ⇒ exit 2 未判定,既不记绿也不冒红(§0.3)', () => {
+  const missing = join(mkScratch('g26-gone-'), 'nope')
+  try {
+    const a = runScript(['--scan-root', missing])
+    assert.equal(a.status, 2, `夹具根取不到应 exit 2,实得 ${a.status}\nstdout: ${a.out}`)
+    assert.match(a.out + a.err, /未判定/)
+    assert.doesNotMatch(a.out, /无 agent 污染/, '未判定不得被打印成"无污染"')
+    const b = runScript(['--scan-root'])
+    assert.equal(b.status, 2, `--scan-root 缺值应 exit 2,实得 ${b.status}`)
+    assert.match(b.out + b.err, /未判定/)
+  } finally {
+    rmScratch(dirname(missing))
+  }
 })
 
 test('CLI: --help 不崩溃(脚本未实现 --help,按默认模式运行)', () => {

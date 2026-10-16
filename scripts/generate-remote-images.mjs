@@ -33,10 +33,13 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, readdirSync, copyFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
+// 2026-10-16 取材层收口(G-998191 家族,face-reader 棘轮型 A):两处只读 git 派生(status/ls-files)
+// 走共用层 gitRaw(绝对路径 git + safe.directory + quotepath + 显式 stdio + EBUSY 兜底),
+// 不再裸派生 'git'(服务账户/GUI 宿主下 PATH 不通,§5b)。失败语义不变:抛错即跳过镜像,不冒险覆盖。
+import { gitRaw } from './lib/face-reader.mjs'
 
 const require = createRequire(import.meta.url)
 
@@ -258,7 +261,7 @@ function badgeSvg({ w = 140, h = 56, text = '', from = C.blue, to = C.navy, radi
 }
 
 // ── 数字封面(课程星球 1-11)────────────────────────────────────────────────
-const COVER_HUES = [210, 25, 160, 265, 340, 45, 190, 120, 285, 10, 230] // 禁紫:265/285 用蓝青替代
+// 禁紫:原 265/285(紫)已用蓝青 205/195 替代,故此处直接取安全档。
 const COVER_SAFE_HUES = [210, 25, 160, 205, 340, 45, 190, 120, 195, 10, 230]
 function coverSvg(n, i, size = 240) {
   const h = COVER_SAFE_HUES[(i - 1) % COVER_SAFE_HUES.length]
@@ -352,7 +355,7 @@ async function aiCrop(key, w, h, out, { jpg = false, cutBottom = 0.10, quality =
   const src = stage(key)
   const meta = await sharp(src).metadata()
   const cutH = STAGING_FILES.mascot === STAGING_FILES[key] ? 0 : Math.round(meta.height * cutBottom)
-  let pipe = sharp(src).extract({ left: 0, top: 0, width: meta.width, height: meta.height - cutH })
+  const pipe = sharp(src).extract({ left: 0, top: 0, width: meta.width, height: meta.height - cutH })
     .resize(w, h, { fit: 'cover', position: 'centre' })
   const buf = jpg
     ? await pipe.flatten({ background: C.navy }).jpeg({ quality }).toBuffer()
@@ -807,9 +810,7 @@ async function replaceIfBlank(out, svg) {
 async function mirrorWeb() {
   const dirty = new Set()
   try {
-    const st = execFileSync('git', ['-C', ROOT, 'status', '--porcelain', '-z', '--', 'apps/web/public'], {
-      encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
-    })
+    const st = gitRaw(['status', '--porcelain', '-z', '--', 'apps/web/public'], ROOT, { maxBuffer: 1 << 28 })
     for (const rec of st.split('\0')) {
       const m = rec.match(/^.{2} (.+)$/)
       if (m) dirty.add(m[1])
@@ -820,9 +821,7 @@ async function mirrorWeb() {
   }
   const tracked = new Set()
   try {
-    const out = execFileSync('git', ['-C', ROOT, 'ls-files', '-z', '--', 'apps/web/public'], {
-      encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
-    })
+    const out = gitRaw(['ls-files', '-z', '--', 'apps/web/public'], ROOT, { maxBuffer: 1 << 28 })
     for (const p of out.split('\0')) if (p) tracked.add(p)
   } catch {
     console.log('web/public 镜像跳过:ls-files 取不到')

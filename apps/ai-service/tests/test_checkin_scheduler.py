@@ -180,5 +180,76 @@ async def test_record_result_challenge_cools_and_pauses(monkeypatch):
     assert 1700 < remaining <= 1800
     assert checkin_outbound_gate.paused_remaining() > 0  # 全局暂停已触发
     checkin_outbound_gate.reset()
+
+
+# ---------------------------------------------------------------------------
+# 重启恢复出站暂停(第五件套配套,2026-10-16)
+# ---------------------------------------------------------------------------
+
+
+async def test_restore_outbound_pause_within_window(monkeypatch):
+    """重启恢复:最近 SoftRate 记录在窗口内 → 按剩余时间补暂停(丢状态不丢停手)。"""
+    checkin_outbound_gate.reset()
+    monkeypatch.setenv("CHECKIN_RATE_LIMIT_PAUSE", "60")
+
+    async def fake_signal() -> tuple[str, datetime]:
+        return "SoftRate", datetime.now(UTC) - timedelta(seconds=10)  # 10s 前,窗口剩 50s
+
+    monkeypatch.setattr(checkin_store, "latest_outbound_pause_signal", fake_signal)
+    await cs.checkin_scheduler._restore_outbound_pause()
+    remaining = checkin_outbound_gate.paused_remaining()
+    assert 40 < remaining <= 50
+    checkin_outbound_gate.reset()
+
+
+async def test_restore_outbound_pause_challenge_uses_longer_window(monkeypatch):
+    """Challenge 信号按 300s 窗口恢复(比 SoftRate 的 60s 长)。"""
+    checkin_outbound_gate.reset()
+    monkeypatch.setenv("CHECKIN_CHALLENGE_PAUSE", "300")
+
+    async def fake_signal() -> tuple[str, datetime]:
+        return "Challenge", datetime.now(UTC) - timedelta(seconds=20)  # 窗口剩 280s
+
+    monkeypatch.setattr(checkin_store, "latest_outbound_pause_signal", fake_signal)
+    await cs.checkin_scheduler._restore_outbound_pause()
+    assert 260 < checkin_outbound_gate.paused_remaining() <= 280
+    checkin_outbound_gate.reset()
+
+
+async def test_restore_outbound_pause_expired_window_noop(monkeypatch):
+    """窗口已走完 → 不补暂停(不误伤)。"""
+    checkin_outbound_gate.reset()
+    monkeypatch.setenv("CHECKIN_RATE_LIMIT_PAUSE", "60")
+
+    async def fake_signal() -> tuple[str, datetime]:
+        return "SoftRate", datetime.now(UTC) - timedelta(seconds=120)  # 早过 60s 窗口
+
+    monkeypatch.setattr(checkin_store, "latest_outbound_pause_signal", fake_signal)
+    await cs.checkin_scheduler._restore_outbound_pause()
+    assert checkin_outbound_gate.paused_remaining() == 0
+
+
+async def test_restore_outbound_pause_no_signal_noop(monkeypatch):
+    """无历史信号 → 不补暂停(全新部署零行为变化)。"""
+    checkin_outbound_gate.reset()
+
+    async def fake_signal() -> None:
+        return None
+
+    monkeypatch.setattr(checkin_store, "latest_outbound_pause_signal", fake_signal)
+    await cs.checkin_scheduler._restore_outbound_pause()
+    assert checkin_outbound_gate.paused_remaining() == 0
+
+
+async def test_restore_outbound_pause_query_failure_fail_open(monkeypatch):
+    """读信号失败 → fail-open(不阻塞启动;每账号冷却仍持久兜底)。"""
+    checkin_outbound_gate.reset()
+
+    async def fake_signal() -> tuple[str, datetime]:
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(checkin_store, "latest_outbound_pause_signal", fake_signal)
+    await cs.checkin_scheduler._restore_outbound_pause()  # 不抛
+    assert checkin_outbound_gate.paused_remaining() == 0
 # [IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

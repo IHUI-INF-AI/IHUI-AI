@@ -145,7 +145,12 @@ describe('水合出口:mapServerMessage 消费 metadata.elementPack', () => {
   it('elementPack 全坏帧 ⇒ 同「无元素包」处理', () => {
     const msg = mapServerMessage({
       ...base,
-      metadata: { [ELEMENT_PACK_METADATA_KEY]: { [ELEMENT_PACK_FRAMES_KEY]: ['junk'] } },
+      // 坏帧=非对象元素(string);frames 槽位类型是 Record<string,unknown>[],用断言表达"脏数据回放"场景
+      metadata: {
+        [ELEMENT_PACK_METADATA_KEY]: {
+          [ELEMENT_PACK_FRAMES_KEY]: ['junk'] as unknown as Record<string, unknown>[],
+        },
+      },
     })
     expect(msg?.aiCards).toBeUndefined()
   })

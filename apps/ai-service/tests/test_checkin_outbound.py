@@ -128,7 +128,7 @@ class TestNoteChallenge:
         """挑战暂停默认 300s,长于 429 的 60s(被拦截时停手必须更久)。"""
         monkeypatch.delenv("CHECKIN_CHALLENGE_PAUSE", raising=False)
         gate.note_challenge("qoder")
-        assert 290 < gate.paused_remaining() <= 300
+        assert 290 < gate.paused_remaining() <= 301  # 上界留 1s 浮点容差
         t0 = time.monotonic()
         with pytest.raises(OutboundPaused):
             await gate.before_request("trae")
@@ -137,12 +137,12 @@ class TestNoteChallenge:
     async def test_pause_env_override(self, gate, monkeypatch):
         monkeypatch.setenv("CHECKIN_CHALLENGE_PAUSE", "600")
         gate.note_challenge("minimax")
-        assert 590 < gate.paused_remaining() <= 600
+        assert 590 < gate.paused_remaining() <= 601  # 上界留 1s 浮点容差
 
     async def test_pause_env_bad_value_falls_back(self, gate, monkeypatch):
         monkeypatch.setenv("CHECKIN_CHALLENGE_PAUSE", "abc")
         gate.note_challenge("trae")
-        assert 290 < gate.paused_remaining() <= 300
+        assert 290 < gate.paused_remaining() <= 301  # 上界留 1s 浮点容差
 
     async def test_reset_clears_challenge_pause(self, gate):
         gate.note_challenge("trae")

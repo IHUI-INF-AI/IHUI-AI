@@ -216,7 +216,26 @@ test('T7 工作树档必须被拒(按磁盘判会把错数写回棘轮台账)', 
   assert.throws(() => src.faceFromArgv(['--staged', '--worktree']), /不得同用|互斥/)
 })
 
-test('T8 真仓跑通:索引面 exit 0,且逐组件实测数与台账锚点逐条相等', () => {
+/* 台账对账判据(T8 与其变异对照共用,§22c 不两处各抄):
+   台账法自己写的是「锚点 = 台账里钉住的 HEAD 读数,只拦"把两端差异加大"」(门体头注定级段),
+   `--emit-baseline` 的准入闸也是"锚点只允许下降或持平" ⇒ 镜像若判**逐条相等**,每次合法收敛
+   (实测 DrawerComponent 17→12,两腿 `a00ad04bde`/`7c0479a5e4`/`14a04f013f` 都动了)都会把镜像
+   打红,而唯一的官方刷新路 `--emit-baseline` 又被它自己的闸拒着(9 族上升/消失须先甄别)⇒
+   "相等"是一个没有任何命令能合法到达的状态(§12e 同型)。改成棘轮向:上升/新键 ⇒ 红,
+   下降/持平 ⇒ 过但点名(台账刷新不得悄悄发生)。 */
+function ledgerVerdict(findings, counts) {
+  const increased = []
+  const improved = []
+  for (const f of findings) {
+    const led = counts[f.name]
+    if (led === undefined) increased.push(`${f.name}:台账无此键(新族未登记)`)
+    else if (f.diffCount > led) increased.push(`${f.name} ${f.diffCount}>${led}`)
+    else if (f.diffCount < led) improved.push(`${f.name} ${led}→${f.diffCount}`)
+  }
+  return { increased, improved }
+}
+
+test('T8 真仓跑通:索引面 exit 0,且逐组件实测数不高于台账锚(棘轮向)、键集两向闭合', (t) => {
   const r = spawnSync(process.execPath, [SELF, '--staged', '--json'], {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
@@ -227,13 +246,45 @@ test('T8 真仓跑通:索引面 exit 0,且逐组件实测数与台账锚点逐�
   const j = JSON.parse(r.stdout)
   assert.ok(j.pairCount > 0, '配对数 0 = 判据失明')
   const led = JSON.parse(readFileSync(LEDGER, 'utf8'))
-  for (const f of j.findings)
-    assert.equal(f.diffCount, led.counts[f.name], `${f.name} 实测与台账不符`)
+  const v = ledgerVerdict(j.findings, led.counts)
+  assert.deepEqual(
+    v.increased,
+    [],
+    `实测比台账锚更高 = 差异被加大而没登记 waiver ⇒ ${v.increased.join('; ')}`,
+  )
+  if (v.improved.length)
+    t.diagnostic(
+      `台账锚已高于现读(合法收敛,台账待 --emit-baseline 全量甄别后刷新):${v.improved.join('; ')}`,
+    )
   for (const k of Object.keys(led.counts))
     assert.ok(
       j.findings.some((f) => f.name === k),
       `台账挂着一条已不存在的账:${k}(清单腐烂)`,
     )
+})
+
+test('T8b 台账对账判据必须有牙(变异自证,合成输入)', () => {
+  const counts = { A: 5, B: 3, C: 1 }
+  // 上升必须翻红:同一族实测 6>5
+  assert.ok(
+    ledgerVerdict([{ name: 'A', diffCount: 6 }], counts).increased.length === 1,
+    '上升没被拦 ⇒ 棘轮失效',
+  )
+  // 新族(台账无键)必须翻红:与 --emit-baseline 的"锚点消失 = 免费额度"同一型
+  assert.ok(
+    ledgerVerdict([{ name: 'D', diffCount: 2 }], counts).increased.length === 1,
+    '新族没被拦 ⇒ 账外分叉免费',
+  )
+  // 下降/持平必须放行(合法收敛不是红)
+  const v = ledgerVerdict(
+    [
+      { name: 'A', diffCount: 4 },
+      { name: 'B', diffCount: 3 },
+    ],
+    counts,
+  )
+  assert.deepEqual(v.increased, [], '下降/持平被误判红 ⇒ 与门体"只拦新增"同语义被破坏')
+  assert.deepEqual(v.improved, ['A 5→4'], '收敛未被点名 ⇒ 台账刷新会悄悄发生')
 })
 
 /**

@@ -50,7 +50,12 @@ from app.services import (
     checkin_workbuddy,
 )
 from app.services.checkin_engine import client_for
-from app.services.checkin_outbound import OutboundPaused, checkin_outbound_gate
+from app.services.checkin_outbound import (
+    OutboundPaused,
+    challenge_pause_seconds,
+    checkin_outbound_gate,
+    rate_limit_pause_seconds,
+)
 
 _BATCH_JITTER_MIN = float(os.environ.get("CHECKIN_BATCH_JITTER_MIN", "8"))
 _BATCH_JITTER_MAX = float(os.environ.get("CHECKIN_BATCH_JITTER_MAX", "45"))
@@ -159,6 +164,7 @@ class CheckinScheduler:
         except Exception as e:
             logger.warning("[checkin_scheduler] 签到建表异常(忽略,签到功能不可用): %s", e)
             return
+        await self._restore_outbound_pause()
         self._scheduler = AsyncIOScheduler(timezone=_CN_TZ)
         self._scheduler.add_job(
             self._daily_run,
@@ -196,6 +202,40 @@ class CheckinScheduler:
                 logger.warning("[checkin_scheduler] shutdown 失败(忽略): %s", e)
         self._scheduler = None
         self._started = False
+
+    async def _restore_outbound_pause(self) -> None:
+        """重启后补回出站全局暂停(第五件套配套,2026-10-16)。
+
+        全局暂停是**进程级易失状态**:NSSM 重启/部署即丢,而平台的限流
+        (60s)/挑战(300s)窗口可能仍在有效期。若 DB 里最近一条 SoftRate/
+        Challenge 记录的暂停窗口仍未走完,按原口径补一次暂停——否则重启后
+        第一个定时批/手动签到立刻顶风打,前面所有暂停努力归零。
+
+        只补「最近一条」信号(最新信号主导;窗口已剩 ≤5s 不补,无意义);
+        fail-open:查询失败只告警不阻塞启动(每账号冷却已持久化,那是
+        更细的兜底层)。
+        """
+        try:
+            signal = await checkin_store.latest_outbound_pause_signal()
+        except Exception as e:
+            logger.warning("[checkin_scheduler] 读取最近限流信号失败(跳过暂停恢复): %s", e)
+            return
+        if signal is None:
+            return
+        etype, created_at = signal
+        window = rate_limit_pause_seconds() if etype == "SoftRate" else challenge_pause_seconds()
+        remaining = window - (datetime.now(UTC) - created_at).total_seconds()
+        if remaining <= 5.0:
+            return
+        checkin_outbound_gate.pause(
+            seconds=remaining, reason=f"重启恢复:{etype} 暂停窗口剩 {remaining:.0f}s"
+        )
+        logger.warning(
+            "[checkin_scheduler] 重启恢复出站暂停:%s 窗口剩 %.0fs(记录于 %s)",
+            etype,
+            remaining,
+            created_at.isoformat(),
+        )
 
     def status(self) -> dict[str, Any]:
         """运行状态(公开只读视图,供 GET /api/checkin/scheduler/status)。

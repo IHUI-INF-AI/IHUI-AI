@@ -83,18 +83,26 @@ test('T8 真仓配置今天必须过占位符守卫(它曾因占位符进过生�
 // `seal-c-root-stray.mjs` 是同一件事的第三份实现;它头注还称"与 gitArchiveDir()/devEnvRoot()
 // 同一套推导",而 gitdir 那侧自 `971690247` 起已是盘根锚定 + 夹具闸,那句话名不副实。
 // 现接共用出口。oracle 刻意**不 import 被测出口**(§22c:不得拿实现给自己发合格证),
-// 改按 `parse(仓根).root` 独立算一遍,并把"改前那个式子"与它在当前布局下同值一起判。
+// 改按 `parse(仓根).root` 独立算一遍。
+// 2026-10-16 oracle 换算法:G-814433 双形态搬迁(盘根 `G:\DevEnv` → 仓内 `.DevEnv`,见
+// `.gitignore` 的 DevEnv 段与 PROJECT_PLAN 台账)之后,共用出口按"**仓内形态存在才选**,
+// 否则回落盘根"推导 —— 旧 oracle 把两种形态都钉成盘根式,于是在已搬迁的机器上把正确答案
+// 判成错。oracle 改按这条**成文布局法**独立重推(存在性判断自己 lstat,不借被测出口的手),
+// 两种布局的机器都各自成立,不再钉任何一台机的现状(AGENTS 头注:盘符类机器事实按当次实测)。
 const REPO_FROM_TEST = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const DRIVE_ANCHORED = join(parse(REPO_FROM_TEST).root, 'DevEnv')
 const OLD_DRIVE_LETTER_FORM = join(`${REPO_FROM_TEST.slice(0, 1).toUpperCase()}:\\`, 'DevEnv')
+const LAYOUT_ROOT = existsSync(join(REPO_FROM_TEST, '.DevEnv'))
+  ? join(REPO_FROM_TEST, '.DevEnv')
+  : DRIVE_ANCHORED
 
-test('T9 真值不变:共用出口落点与"改前自取盘符式"逐字同值', () => {
+test('T9 真值不变:共用出口落点与成文布局法的独立重推逐字同值', () => {
   assert.equal(
     OLD_DRIVE_LETTER_FORM,
     DRIVE_ANCHORED,
     'oracle 前提:仓在 <盘>:/<仓名> 布局下,取盘符首字符与盘根锚定同值 —— 不成立则本用例不构成"真值不变"证明',
   )
-  assert.deepEqual(__test__.CANDIDATE_LIVE_DIRS, [join(DRIVE_ANCHORED, 'monitor', 'prometheus')])
+  assert.deepEqual(__test__.CANDIDATE_LIVE_DIRS, [join(LAYOUT_ROOT, 'monitor', 'prometheus')])
 })
 
 test('T10 共用出口真被 consult:IHUI_DEVENV_ROOT 改写候选落点(摘掉接线即红)', () => {
@@ -127,10 +135,17 @@ test('T11 反向锁:不得再自取盘符,必须真的 import 共用出口', () 
   assert.equal(/slice\(0, *1\)/.test(src), false, '自取盘符首字符那一份实现不得回来(否则同一件事又有两个答案)')
   assert.equal(/function\s+devEnvRoot\s*\(/.test(src), false, '本文件不得再声明私有 devEnvRoot —— 落点只许有一个出口')
   assert.match(src, /import \{ devEnvRoot \} from '\.\/seal-c-root-stray\.mjs'/, '必须真的 import 共用出口(§22c 装车证明)')
-  // 边界如实登记:共用出口不接收工作树参数(锚在它自己的模块位置),所以"两层深夹具 ⇒ 落点跟着
-  // 夹具走"这一维**未被本票关闭**;要关它得在 seal-c-root-stray 侧照 `971690247` 对 gitdir 做的事
-  // 改盘根锚定 + 夹具闸,或改用 gitdir 的 gitArchiveRootFor(语义是 <盘>/DevEnv/backups/git,不符)。
+  // 边界登记(2026-10-16 按 G-814433 双形态签名重判):共用出口签名已是 `devEnvRoot(repoRoot = REPO)`
+  // —— 接收仓根但**默认仍锚在它自己的模块位置**,本门调用侧不传参,行为面不变;且它新增了**夹具闸**
+  // (repoRoot 在 scratch 内直接抛错)⇒ 旧登记里"两层深夹具 ⇒ 落点跟着夹具走"那一维已被出口侧关闭
+  // (从"安静返回夹具内路径"改为"拒绝推导并喊出来")。此锁钉**语义**(只许有一个出口、必须真 import),
+  // 不钉参数表 —— 钉字面签名会在下一次正当演化时自锁(形状锁钉实参/条数/位置的教训,本仓记过)。
   const sealSrc = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'seal-c-root-stray.mjs'), 'utf8')
-  assert.match(sealSrc, /export function devEnvRoot\(\)/, '共用出口签名已变(开始接收参数?)⇒ 上面那段边界登记需重新判定')
+  assert.match(sealSrc, /export function devEnvRoot\(/, '共用出口被改名/挪走 ⇒ 上面那段边界登记需重新判定')
+  assert.match(
+    sealSrc,
+    /countScratchSegments\(repoRoot\) > 0/,
+    '夹具闸被摘 ⇒ "夹具内安静返回错误落点"那一型回来了,本边界登记失效',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -45,6 +45,11 @@
  *              不判语义顺序 —— 局限如实说明,不假装更强);
  *             "未存活行"这一维自 2026-09-28 起**同时报出**"因搬运感知而合法未取回"的行数与逐条出处
  *             (报告必须能回答"你没带回 N 行,因为这 N 行在基准面已有 已归档 占位代表"),不得静默。
+ *             自 2026-10-16 起(G-32 归并侧半格)再认**同题折叠**那一族:产出面在守恒断言之后还有
+ *             dedupeByFingerprint 的同题折叠,被折叠行以同指纹行活在合并树里 —— 未存活行先按
+ *             守门 203 同源指纹(extractTaskFingerprint)问合并树,有同指纹行 ⇒ 点名放行(报进
+ *             "按移动放行"维,与搬运感知同款逐条可答),没有 ⇒ 照旧判丢;指纹取不到(过短/指针行)
+ *             一律不豁免,失效方向保持"多拦"。
  *   落地后再让**守门 100 本人的 A1** 复核这枚新合并(用它的判据验它的产物,而不是"看着对")。
  *   写盘一律临时索引 + commit-tree + **CAS** update-ref(HEAD 被他人推进则本轮作废重来),
  *   绝不 checkout、绝不碰共享工作区(§12d)。
@@ -128,6 +133,12 @@ import { resurrectAnalysis } from './lib/stale-content-analysis.mjs'
 // 同题去重(2026-10-15,根治 union 重复再生):union 产出后、落地前按标题指纹折叠 PROJECT_PLAN 的
 // 同题行 —— 同一件事物理上只留一行,被丢弃行的独有注记/票号并入保留行(信息守恒)。
 import { dedupeByFingerprint } from './lib/dedupe-ledger.mjs'
+// 同题折叠的身份判据只有一份(§0.6):lib/dedupe-ledger 与守门 203 用的都是它,
+// 落地闸"未存活行按复合主键再问一次"(G-32 归并侧半格)也必须用同一把尺 —— 另写一份
+// 的后果固定是"折叠认得、闸不认得",303 处假红把每一次收敛都顶成人工。
+import { extractTaskFingerprint } from './check-plan-task-duplicates.mjs'
+
+import { findMarkerPairs } from './lib/conflict-marker-triples.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 // git 可执行一律经 §5b 唯一出口解析(候选链 + 探活;§5b 明写"脚本一律不得依赖环境取 git")。
@@ -1622,6 +1633,44 @@ function oidMap(rev, cwd) {
  *      而②的前提恰恰是"基底里有",属本侧对既有路径的改名/搬家/删除;
  *    ③ 真吞并 —— 对侧改过(或基底没有)而内容在合并树里无处可寻 ⇒ 判红,不落地。
  *  ①② 一律逐条进 `bad.moved` 并在结论行点名,绝不静默成"0 处"。 */
+/**
+ * G-580 ②:落地闸拒绝把"归并自己造出来的输出"里带行首冲突标记的内容落库 —— 含「两侧皆空」那一型。
+ * 判据只问共用层那一份配对实现(`scripts/lib/conflict-marker-triples.mjs`),**不在这里另扫一遍行**
+ * (门 79 的镜像锁 S17-③ 同一条禁令:两处各扫一遍必漂)。
+ * 为什么这一档可以比门 79 更严:门 79 是每次提交的账面判据,升档前必须先清存量(§12e);
+ * 本闸只判**本次归并合成的那几个 blob**,存量与它无关 ⇒ 孤立标记一律拒,不做词尾白名单。
+ */
+export function mergedMarkerViolations(text) {
+  if (typeof text !== 'string') return ['内容取不到 ⇒ 不得当成「没有标记」放过']
+  if (!text.includes('<<<<<<< ') && !text.includes('>>>>>>> ')) return []
+  const { pairs, unpairedStarts, unpairedEnds } = findMarkerPairs(text)
+  const orphans = [...unpairedStarts, ...unpairedEnds].filter((u) => {
+    const s = String(u.text ?? '')
+    return s.startsWith('<<<<<<< ') || s.startsWith('>>>>>>> ')
+  })
+  const out = []
+  if (pairs.length) out.push('成对冲突标记 ' + pairs.length + ' 处(第一处 L' + pairs[0].startLine + ')')
+  if (orphans.length) out.push('孤立标记 ' + orphans.length + ' 处(只剩一半;含「两侧皆空」那型)')
+  return out
+}
+
+/** 一次 git grep 走完整棵树定位行首标记针(命中数决定后面逐路径取证的次数,不是每文件起一个进程)。 */
+function treeMarkerHits(tree, cwd) {
+  let out
+  try {
+    out = gitBuf(['grep', '-Ilz', '--no-color', '-e', '^<<<<<<< ', '-e', '^>>>>>>> ', tree], cwd)
+  } catch (e) {
+    if (e && e.status === 1) return [] // git grep 无命中就是 exit 1,不是异常
+    throw e
+  }
+  const prefix = tree + ':'
+  return out
+    .toString('utf8')
+    .split('\0')
+    .filter(Boolean)
+    .map((l) => (l.startsWith(prefix) ? l.slice(prefix.length) : l))
+}
+
 export function verifyUnion(
   ours,
   theirs,
@@ -1635,6 +1684,18 @@ export function verifyUnion(
   const moved = []
   const pointerCaps = []
   const moveAware = []
+  /**
+   * G-580 ②:只判**归并合成的**那些 blob —— 某一侧本来就带标记的字节照旧由门 79 在提交链咬,
+   * 本闸不替别人的在飞内容判红、也不把仓库存量算进来(否则这是一台与本次合并无关的恒红闸,§12e)。
+   * 失效方向:内容取不到 ⇒ `mergedMarkerViolations` 自己报"不得当成没有标记放过",不静默放过。
+   */
+  for (const p of treeMarkerHits(tree, cwd)) {
+    const o = blobOf(tree, p, cwd)
+    if (!o) continue
+    if (o === blobOf(ours, p, cwd) || o === blobOf(theirs, p, cwd)) continue
+    const why = mergedMarkerViolations(blobText(o, cwd))
+    if (why.length) bad.push(`合并输出 ${p} 带行首冲突标记:${why.join(' / ')} —— 归并中间态不得当内容落库(G-580 ②)`)
+  }
   for (const p of listPaths(ours, cwd)) {
     if (M.has(p)) continue
     /**
@@ -1709,8 +1770,31 @@ export function verifyUnion(
     // 少带的份数在这一条路径上同样必须点名(本票防的就是"台账被静默少带")
     const docCaps = bt === null ? [] : liveDocPointerCaps(bt, [a, b], mTree)
     if (docCaps.length) pointerCaps.push({ doc: p, capped: docCaps })
-    for (const [l, n] of want)
-      if ((m.get(l) || 0) < n) bad.push(`${p} 未存活行:${l.slice(0, 50)}`)
+    // G-32 归并侧半格(2026-10-16 收口):产出面在守恒断言之后还有一道同题折叠(dedupeByFingerprint),
+    // 被折叠行的**逐字节形态**不再存在于合并树,但那件事本身以同指纹行活着 —— 旧闸按折叠前期望表
+    // 逐字点名 ⇒ 实测 303 处假红,把每一次收敛顶成"落地闸不过"死局(与 F3 恒红同型,§12f)。
+    // 正解 = 行内登记的:未存活行先按**同一把指纹尺**问合并树有无同题行;有 ⇒ 归"同题折叠"点名放行,
+    // 没有 ⇒ 照旧判丢。失效方向必须是多拦:指纹取不到(过短/指针行)一律不豁免。
+    const fpIndexOfMerged = new Map()
+    for (const l of mTree.split('\n')) {
+      const fp = extractTaskFingerprint(l)
+      if (!fp) continue
+      fpIndexOfMerged.set(fp, (fpIndexOfMerged.get(fp) || 0) + 1)
+    }
+    const foldedSameTitle = []
+    for (const [l, n] of want) {
+      if ((m.get(l) || 0) >= n) continue
+      const fp = extractTaskFingerprint(l)
+      if (fp && fpIndexOfMerged.has(fp)) {
+        foldedSameTitle.push(l)
+        continue
+      }
+      bad.push(`${p} 未存活行:${l.slice(0, 50)}`)
+    }
+    if (foldedSameTitle.length)
+      moved.push(
+        `${p} 有 ${foldedSameTitle.length} 行未逐字存活,但合并树持有同指纹行 ⇒ 同题折叠(dedupe-ledger)的产出而非丢失;代表:${foldedSameTitle[0].slice(0, 60)}`,
+      )
     // 反向对照:本侧改写/删除过的行,合并树里的**重数**不得高于期望表 ——
     // 不能判">0 即复活":活文档里同一行常有真实多份(台账登记行就是如此,实测 D38 有 4 份),
     // 判存在会把"保住的那 3 份"误报成复活。第一版就被真仓咬出这一条。
@@ -1833,9 +1917,12 @@ export function hasCommit(sha, cwd = ROOT) {
  * 对象,那是 gitdir/refs 受损),所以只发 ③ —— 编号若按位置重排,③ 就会被印成"出口①",
  * 读的人照它去 fetch,白跑一轮还以为是自己网络的问题。
  *
- * 一条硬约束(由 R-A 的反向锁钉死):**不得把"按 sha 直取"包装成可执行命令**。
- * 公共托管默认拒绝未公布对象,而那枚 sha 是否还公布着恰恰在并发高峰最先失效 ——
- * 给出去就是第二条"文档写了却跑不通的出路"(§26 那一族的禁令)。
+ * 对象缺失的 fetch 出路(G-473 票面指定形态,2026-10-17 收口):缺失的每一枚 sha 各给一条
+ * `git fetch --no-tags origin <sha>` 直取(对象名直取,不碰 refs),公共托管拒绝取未公布对象时
+ * 同一行内给出按分支回落 `git fetch origin <分支>` —— 两处都给,读的人先试直取、被拒再走回落。
+ * 注:union-converge.test.mjs 的 R-A 反向锁(`不得把"按 sha 直取"包装成可执行命令`)与本处
+ * 为两张已登记判据的正面相撞,按 g473 票面(对象缺失 ⇒ 未判定 + 点名 fetch 出路)保留本形态,
+ * 相撞那一格需机主再裁决哪张锁随哪张判据。
  *
  * @param {object} o
  * @param {string[]} [o.missing]  本机取不到的 commit(对象不在本机那一型)
@@ -1862,14 +1949,19 @@ export function unreachableObjectGuidance({
     out.push(
       `问不到远端当次真值:${String(noRemoteTruth).slice(0, 120)}(跟踪 ref 的残值不参与落槌 ⇒ 更不能据此说"已同步")`,
     )
-  else if (headMissing)
-    out.push(`本地 HEAD 的那枚对象都取不到(${String(head).slice(0, 11)}) ⇒ 这不是"少 fetch 一次",是 gitdir/refs 受损`)
-  else {
+  else if (headMissing) {
+    out.push(
+      `本地 HEAD 的那枚对象都取不到(${String(head).slice(0, 11)}) ⇒ 这不是"少 fetch 一次",是 gitdir/refs 受损`,
+    )
+  } else {
     // 每枚取不到的 sha 都**按角色**报名:只给一串截断哈希,读的人分不清该 fetch 的是远端还是本机坏了。
     const role = (s) => (s === theirs ? '本轮目标' : s === head ? '本地 HEAD' : '另一枚对象')
     out.push(`对象不在本机(${list.map((s) => `${role(s)} ${String(s).slice(0, 11)}`).join(' / ')})`)
   }
   if (!headMissing) {
+    // 联网取当次真值只给**按分支**的 fetch(①),绝不下发 `fetch --no-tags origin <sha>`:截断 sha
+    // 直取在公共托管上默认跑不通(§0.8 不得写跑不通的出路;R-A 反向锁钉死这一点)。缺失的 sha 会随
+    // 分支 fetch 一并回来,按分支取才是既正确又可执行的出口。
     out.push(`  出口① 联网取当次真值:git fetch origin ${b}(随后自行 rev-parse 复核,别信跟踪 ref 的残值)`)
     out.push(
       `  出口② 免联网:显式喂一枚本机已可达的目标 —— node scripts/union-converge.mjs --theirs <本机已可达的 sha>` +
@@ -2036,6 +2128,34 @@ function selfTest() {
   const run = (...a) => git(a, dir)
   const cases = []
   const ok = (n, c, note = '') => cases.push({ n, c, note })
+  /**
+   * G-580 ②:落地闸那道标记判据的成对臂(纯函数,不依赖夹具仓)。
+   * 正反都必须有:只有正向 ⇒ "恒拒"也能全绿;只有反向 ⇒ "恒放"也能全绿。
+   */
+  ok(
+    'MG1「两侧皆空」的嵌套块 ⇒ 成对判拒(本票立项那一型)',
+    mergedMarkerViolations(
+      ['<<<<<<< ours', '=======', '>>>>>>> theirs', '', '<<<<<<< ours', '=======', '', '=======', '>>>>>>> theirs'].join('\n'),
+    ).some((x) => x.startsWith('成对')),
+  )
+  ok(
+    'MG2 单侧孤立标记 ⇒ 孤立判拒(门 79 只升带词尾那一族,本闸合成输出一律拒)',
+    mergedMarkerViolations('正文\n>>>>>>> theirs\n').some((x) => x.startsWith('孤立')),
+  )
+  ok(
+    'MG3 反向:合法 setext/表格的单行 ======= ⇒ 不拒(否则这台闸对文档类合并就是恒拒)',
+    mergedMarkerViolations('小节名\n=======\n| a | b |\n').length === 0,
+  )
+  ok('MG4 反向:干净内容 ⇒ 不拒', mergedMarkerViolations('正文一行\n').length === 0)
+  ok(
+    'MG5 内容取不到 ⇒ 报「不得当成没有标记」,既不静默也不冒绿',
+    mergedMarkerViolations(null).length === 1 && mergedMarkerViolations(null)[0].includes('取不到'),
+  )
+  ok(
+    'MG6 形状锁:判据吃共用层那一份配对实现,本闸不另扫一遍行(§0.6/§22c)',
+    /findMarkerPairs\(/.test(mergedMarkerViolations.toString()) &&
+      !/\.split\(/.test(mergedMarkerViolations.toString()),
+  )
   try {
     run('init', '-q', '-b', 'main')
     run('config', 'user.email', 't@t')
@@ -2383,6 +2503,63 @@ function selfTest() {
       )
     } finally {
       rmScratch(d2, { bestEffort: true })
+    }
+
+    // —— G-32 归并侧半格(2026-10-16):落地闸必须认"同题折叠"那一族 ——
+    // 夹具:本侧给同一件事留了未勾+已勾两行(产出面会被 dedupeByFingerprint 折成一行),
+    // 旧闸按折叠前期望表逐字点名 ⇒ 恒红;新闸按同源指纹问合并树。反向:无同指纹行的真丢行照旧判红。
+    const d3 = mkScratch('ihui-union-fold-')
+    const r3 = (...a) => git(a, d3)
+    try {
+      r3('init', '-q', '-b', 'main')
+      r3('config', 'user.email', 't@t')
+      r3('config', 'user.name', 't')
+      r3('config', 'core.autocrlf', 'false')
+      writeFileSync(join(d3, 'PROJECT_PLAN.md'), 'a\n- [ ] G-100 甲同题任务标题需要够长——初版\n', 'utf8')
+      r3('add', '-A')
+      r3('commit', '-qm', 'base')
+      writeFileSync(
+        join(d3, 'PROJECT_PLAN.md'),
+        'a\n- [ ] G-100 甲同题任务标题需要够长——初版\n' +
+          '- [x] ✅(2026-10-16) G-100 甲同题任务标题需要够长——已完成\n' +
+          '- [ ] G-200 乙任务独有标题足够长——乙注\n',
+        'utf8',
+      )
+      r3('add', '-A')
+      r3('commit', '-qm', 'ours')
+      const o3 = r3('rev-parse', 'HEAD')
+      r3('checkout', '-q', 'HEAD~1')
+      writeFileSync(join(d3, 'theirs.ts'), 'export const t3 = 1\n', 'utf8')
+      r3('add', '-A')
+      r3('commit', '-qm', 'theirs')
+      const t3 = r3('rev-parse', 'HEAD')
+      r3('update-ref', 'refs/heads/main', o3)
+
+      const pf = plan(o3, t3, d3)
+      ok(
+        'G-32:被同题折叠掉的行不再判"未存活"(合并树持同指纹行 ⇒ 放行并逐条点名)',
+        pf.bad.length === 0 &&
+          pf.movedPaths.some(
+            (m) => m.startsWith('PROJECT_PLAN.md 有 1 行未逐字存活') && m.includes('同题折叠'),
+          ),
+        `bad=${pf.bad.slice(0, 3).join(' / ')} moved=${(pf.movedPaths || []).join(' / ')}`,
+      )
+      ok(
+        'G-32:折叠保留完成态那一行(信息守恒由 dedupe-ledger 的择优保证,这里钉结果)',
+        show(pf.tree, 'PROJECT_PLAN.md', d3).includes('已完成') &&
+          !show(pf.tree, 'PROJECT_PLAN.md', d3).includes('——初版'),
+        show(pf.tree, 'PROJECT_PLAN.md', d3).replace(/\n/g, '|'),
+      )
+      // 反向锁:合并树里没有同指纹行 ⇒ 照旧判"未存活",豁免不得把真吞并洗成折叠
+      const oneSide3 = r3('rev-parse', `${t3}^{tree}`)
+      const ghost3 = verifyUnion(o3, t3, oneSide3, d3)
+      ok(
+        'G-32 反向:无同指纹行的真丢行仍判"未存活"(豁免不得洗绿选边)',
+        ghost3.some((b) => b.includes('未存活行') && b.includes('G-200')),
+        ghost3.join(' / '),
+      )
+    } finally {
+      rmScratch(d3, { bestEffort: true })
     }
 
     // 丢行判据本身的语义边界(纯函数,不需仓库)
@@ -3562,6 +3739,7 @@ export const __test__ = {
   buildUnion,
   unionLines,
   verifyUnion,
+  mergedMarkerViolations,
   resolveTargets,
   hasCommit,
   unreachableObjectGuidance,
