@@ -33,7 +33,7 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, readdirSync, copyFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { gitRaw } from './lib/face-reader.mjs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
@@ -807,8 +807,8 @@ async function replaceIfBlank(out, svg) {
 async function mirrorWeb() {
   const dirty = new Set()
   try {
-    const st = execFileSync('git', ['-C', ROOT, 'status', '--porcelain', '-z', '--', 'apps/web/public'], {
-      encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
+    const st = gitRaw(['status', '--porcelain', '-z', '--', 'apps/web/public'], ROOT, {
+      maxBuffer: 1 << 28,
     })
     for (const rec of st.split('\0')) {
       const m = rec.match(/^.{2} (.+)$/)
@@ -820,8 +820,8 @@ async function mirrorWeb() {
   }
   const tracked = new Set()
   try {
-    const out = execFileSync('git', ['-C', ROOT, 'ls-files', '-z', '--', 'apps/web/public'], {
-      encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
+    const out = gitRaw(['ls-files', '-z', '--', 'apps/web/public'], ROOT, {
+      maxBuffer: 1 << 28,
     })
     for (const p of out.split('\0')) if (p) tracked.add(p)
   } catch {

@@ -59,6 +59,7 @@ export function CustomNavDialog({
   onRemove,
 }: CustomNavDialogProps) {
   const t = useTranslations('nav')
+  const tCommon = useTranslations('common')
   const [query, setQuery] = React.useState('')
 
   // 退出时清空搜索词,避免下次打开残留
@@ -173,7 +174,24 @@ export function CustomNavDialog({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={t('customAddTitle')} size="lg">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t('customAddTitle')}
+      size="lg"
+      footer={
+        // 选择即生效(勾选/取消实时写入,无需"应用"步骤),「确定」只负责收口关窗。
+        // 样式对齐项目弹窗主按钮惯例(bg-foreground,见 environment-commit-dialog)。
+        <button
+          type="button"
+          onClick={onClose}
+          data-testid="nav-custom-done"
+          className="inline-flex h-8 items-center justify-center rounded-md bg-foreground px-4 text-xs font-medium text-background transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {tCommon('ok')}
+        </button>
+      }
+    >
       <div className="flex flex-col gap-3">
         {/* 搜索框 */}
         <div className="relative">

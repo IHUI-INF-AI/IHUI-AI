@@ -143,7 +143,13 @@ class FakeStore:
 
     async def list_enabled_accounts(self):
         return [
-            {"id": a["id"], "name": a["name"], "jwt": a["jwt"], "device_map": dict(a["device_map"])}
+            {
+                "id": a["id"],
+                "name": a["name"],
+                "jwt": a["jwt"],
+                "device_map": dict(a["device_map"]),
+                "platform": a.get("platform", "trae"),
+            }
             for a in self.accounts.values()
             if a["enabled"]
         ]
@@ -475,6 +481,48 @@ async def test_create_import_probe_records_already_checked(client, fake_store, m
     assert last["ok"] is True
     assert last["action"] == "skip_already"
     assert last["message"] == "已签到"
+
+
+async def test_daily_status_probe_syncs_already_checked(client, fake_store, monkeypatch):
+    """06:00 状态探针(2026-10-16 李总需求):半夜已在平台手动签完的账号,探针
+    只读 status 查到 checked_in=true ⇒ 落 skip_already 记录,UI 即时亮「今日
+    已签到」、主窗口不重复签;未签账号不落记录。非 TRAE 平台不探。"""
+    store = fake_store
+    acc1 = await store.create_account(
+        "owner-a", "已签号", make_jwt(), {"u-1001": {"device_id": "d1"}}, platform="trae"
+    )
+    acc2 = await store.create_account(
+        "owner-a", "未签号", make_jwt(), {"u-2002": {"device_id": "d2"}}, platform="trae"
+    )
+    acc3 = await store.create_account(
+        "owner-a", "Qoder号", "opaque-token", {}, platform="qoder"
+    )
+
+    status_calls: list[str] = []
+
+    async def fake_status_check(name, jwt, device_map, timeout=30, client=None):
+        status_calls.append(name)
+        if name == "已签号":
+            return True, True, 20, 0, "已签到"
+        return True, False, 10, 0, ""
+
+    monkeypatch.setattr(checkin_scheduler_mod, "status_check", fake_status_check)
+    monkeypatch.setattr(
+        checkin_scheduler_mod.checkin_outbound_gate, "paused_remaining", lambda: 0
+    )
+
+    await checkin_scheduler_mod.checkin_scheduler._daily_status_probe()
+
+    # 只有 TRAE 账号被探;Qoder 无独立 status 端点不探
+    assert status_calls == ["已签号", "未签号"]
+    recs1 = [r for r in store.records.values() if r["account_id"] == acc1["id"]]
+    recs2 = [r for r in store.records.values() if r["account_id"] == acc2["id"]]
+    recs3 = [r for r in store.records.values() if r["account_id"] == acc3["id"]]
+    assert len(recs1) == 1
+    assert recs1[0]["action"] == "skip_already" and recs1[0]["ok"] is True
+    assert recs1[0]["credits"] == 20
+    assert recs2 == []  # 未签不落记录(留给主窗口签)
+    assert recs3 == []  # qoder 不探
 
 
 async def test_create_rejects_unparseable_and_expired_jwt(client, fake_store):
@@ -854,7 +902,7 @@ async def test_scheduler_status_shape(client, monkeypatch):
 
 
 def test_scheduler_status_next_run_when_started(monkeypatch):
-    """status():started 单例 + job.next_run_time → 带时区 ISO8601;未启动四字段缺省。"""
+    """status():started 单例 + job.next_run_time → 带时区 ISO8601;未启动五字段缺省。"""
     monkeypatch.setenv("CHECKIN_CRON_ENABLED", "false")
     sched = checkin_scheduler_mod.CheckinScheduler()
     assert sched.status() == {
@@ -862,10 +910,12 @@ def test_scheduler_status_next_run_when_started(monkeypatch):
         "started": False,
         "next_run": None,
         "next_run_qoder": None,
+        "next_run_probe": None,
     }
 
     nrt = datetime(2026, 10, 9, 8, 5, tzinfo=checkin_scheduler_mod._CN_TZ)
     nrt_q = datetime(2026, 10, 9, 10, 5, tzinfo=checkin_scheduler_mod._CN_TZ)
+    nrt_p = datetime(2026, 10, 9, 6, 0, tzinfo=checkin_scheduler_mod._CN_TZ)
 
     class _FakeJob:
         next_run_time: datetime | None = nrt
@@ -873,12 +923,17 @@ def test_scheduler_status_next_run_when_started(monkeypatch):
     class _FakeJobQoder:
         next_run_time: datetime | None = nrt_q
 
+    class _FakeJobProbe:
+        next_run_time: datetime | None = nrt_p
+
     class _FakeApscheduler:
         def get_job(self, job_id: str):
             if job_id == checkin_scheduler_mod._JOB_ID:
                 return _FakeJob()
             if job_id == checkin_scheduler_mod._JOB_ID_QODER:
                 return _FakeJobQoder()
+            if job_id == checkin_scheduler_mod._JOB_ID_PROBE:
+                return _FakeJobProbe()
             return None
 
     sched._scheduler = _FakeApscheduler()  # 模拟已 start 的单例,不真起事件循环调度
@@ -888,6 +943,7 @@ def test_scheduler_status_next_run_when_started(monkeypatch):
     assert st["enabled"] is False
     assert st["next_run"] == "2026-10-09T08:05:00+08:00"
     assert st["next_run_qoder"] == "2026-10-09T10:05:00+08:00"
+    assert st["next_run_probe"] == "2026-10-09T06:00:00+08:00"
 
 
 async def test_cooldown_semantics_server_trip_and_success_reset(fake_store):

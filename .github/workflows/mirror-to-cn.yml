@@ -105,7 +105,7 @@ jobs:
           #   ② 原删除式用 `grep -E '\t'` 匹配制表符 —— GNU grep 的 ERE **不把 `\t` 当 tab**(它匹配
           #      字面 `t`),对 `sha<TAB>refs/tags/...` 恒 0 命中,于是"零损失删除"整步静默跳过。
           #      现改为先 `cut -f2` 取列再匹配,判据不依赖不可见的转义语义。
-          INTERNAL_TAG_RE='^refs/tags/(lost-commit|nightly|backup)'
+          INTERNAL_TAG_RE='^refs/tags/(lost-commit|nightly|backup|probe)'
           "${GITC[@]}" ls-remote "$REMOTE" 'refs/tags/*' > /tmp/gitee-tags.tsv 2>/dev/null || true
           # ls-remote 对**附注标签**会额外输出一行 `refs/tags/<名>^{}`(指向被注解对象 peel 后的
           # commit)。它不是可推送的 ref:混进 `git push --delete` 会让**整批 300 条**以
