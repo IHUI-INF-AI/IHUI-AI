@@ -49,7 +49,39 @@ export function ImageViewer({
   const tImage = useTranslations('ai.toolCall')
   const [zoom, setZoom] = React.useState(1)
   const [rotation, setRotation] = React.useState(0)
+  // 全屏查看态:fullscreen=是否挂载遮罩;fullscreenClosing=关闭淡出相。必须用「挂载 + 淡出相」两段式,
+  // 不能条件 && 硬卸载 —— 硬卸载会瞬间移除全屏遮罩,三按钮压暗层虽随之收回,但破坏全站
+  // 「关闭即淡出」一致性,且本组件是全站唯一非 Radix 的全屏遮罩,不补 data-state=closed 淡出会让它
+  // 成为视觉孤例。此处显式补上等同 Radix 的 data-state=closed 淡出,与 modal-overlay-watcher 的
+  // data-state=closed 跳过对齐:遮罩开始淡出的当帧,三按钮压暗层同帧解灰(见该 watcher 注释)。
   const [fullscreen, setFullscreen] = React.useState(false)
+  const [fullscreenClosing, setFullscreenClosing] = React.useState(false)
+  const fullscreenCloseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 与 --duration-unified(1000ms)对齐:遮罩淡出时长,超时才真正卸载 DOM。
+  const FULLSCREEN_CLOSE_MS = 1000
+  const openFullscreen = React.useCallback(() => {
+    if (fullscreenCloseTimer.current !== null) {
+      clearTimeout(fullscreenCloseTimer.current)
+      fullscreenCloseTimer.current = null
+    }
+    setFullscreen(true)
+    setFullscreenClosing(false)
+  }, [])
+  const closeFullscreen = React.useCallback(() => {
+    setFullscreenClosing(true)
+    if (fullscreenCloseTimer.current !== null) clearTimeout(fullscreenCloseTimer.current)
+    fullscreenCloseTimer.current = setTimeout(() => {
+      setFullscreen(false)
+      setFullscreenClosing(false)
+      fullscreenCloseTimer.current = null
+    }, FULLSCREEN_CLOSE_MS)
+  }, [])
+  React.useEffect(
+    () => () => {
+      if (fullscreenCloseTimer.current !== null) clearTimeout(fullscreenCloseTimer.current)
+    },
+    [],
+  )
   const [current, setCurrent] = React.useState(index)
 
   const list = images ?? [src]
@@ -124,7 +156,7 @@ export function ImageViewer({
         <RotateCw className="h-4 w-4" />
       </button>
       <button
-        onClick={() => setFullscreen(true)}
+        onClick={() => openFullscreen()}
         aria-label={t('fullscreen')}
         className="rounded-sm p-1.5 text-white hover:bg-white/20"
       >
@@ -192,12 +224,19 @@ export function ImageViewer({
         <div
           role="button"
           tabIndex={0}
-          className="fixed inset-0 z-modal flex items-center justify-center bg-black/90"
-          onClick={() => setFullscreen(false)}
+          data-state={fullscreenClosing ? 'closed' : 'open'}
+          className={cn(
+            'fixed inset-0 z-modal flex items-center justify-center bg-black/90',
+            // 关闭相:与全站 Radix Overlay 同款淡出(--duration-unified),data-state=closed 触发
+            // modal-overlay-watcher 跳过 → 三按钮压暗层同帧解灰,视觉与遮罩淡出严格同步。
+            fullscreenClosing &&
+              'animate-out fade-out-0 duration-(--duration-unified) ease-unified',
+          )}
+          onClick={() => closeFullscreen()}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()
-              setFullscreen(false)
+              closeFullscreen()
             }
           }}
         >
@@ -246,7 +285,7 @@ export function ImageViewer({
             aria-label="Close"
             onClick={(e) => {
               e.stopPropagation()
-              setFullscreen(false)
+              closeFullscreen()
             }}
           />
         </div>
