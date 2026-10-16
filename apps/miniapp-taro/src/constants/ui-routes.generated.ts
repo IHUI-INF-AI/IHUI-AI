@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: unknown
-// inputsSha256: 03196b326373592a47ab21890ef9baca74ca7edfe9a0d0c4c67df984ca44af18
+// sourceCommit: 9a4cf929b35706d09bebefc1b17c873b27dfb55e
+// inputsSha256: 7917cbf076a09e91cea6aa1279b609bebc8135423c6390748e752209a5226a29
 // input: apps/miniapp-taro/src/api/index.ts 725df344e6690b04d16eb2b83ebe64a63d861c45ce2c555cf1700ce6140d903d
 // input: apps/miniapp-taro/src/api/social.ts 6fd0f50805af0b076929ce380009d01c6856fa63994bce8367577161e968a160
 // input: apps/miniapp-taro/src/app.config.ts 9026fcfe1da989a751224a41e880c03f12883add016fef483249193ceff9c9bd
@@ -117,7 +117,7 @@
 // input: apps/miniapp-taro/src/constants/storage.ts a1d5bc7710eb9278665c9599056b473b72e15f865e1778d1babae9e72e8aec62
 // input: apps/miniapp-taro/src/constants/style.ts aed113747dde051a6a34c1bc816c4e587c51ab832a7a9532ec8460afb9e4de35
 // input: apps/miniapp-taro/src/constants/tab-bar-metrics.ts 68e277cb4bd26872f86cadbc2bd66c534069eb3db80b3cb2fdb0c3b768b21236
-// input: apps/miniapp-taro/src/custom-tab-bar/index.tsx c733390a063b46f8485aef4ae5e925adf4c2ea196f2f607c71f8ea7516df4ea4
+// input: apps/miniapp-taro/src/custom-tab-bar/index.tsx 2c03bd8bddd024f07e41cdd9da8d973fb5d569f58b4565758e95b6b27dd540a1
 // input: apps/miniapp-taro/src/hooks/use-field-focus.ts dcdafa4c47ed8a1483c8ad57873088374e4cafbc0effa23b9eea3fe6235d1d2d
 // input: apps/miniapp-taro/src/hooks/use-load-more.ts cabdc9a194774f4532bfe290b28c1497932176841d8f438a1bd2f7126d4af724
 // input: apps/miniapp-taro/src/hooks/use-pagination.ts 0afac9939e4ac88dc95d20966bb2b0b383efa69f59d312140f657a0470241a77
@@ -476,7 +476,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 4959a62f1cb83c3b0a280a446f001ac92ed3163cb539a812bc6ec4608924dcc3
 // scanned: 344 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=36(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-10-16T18:10:11.800Z
+// generatedAt: 2026-10-16T18:33:54.724Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
