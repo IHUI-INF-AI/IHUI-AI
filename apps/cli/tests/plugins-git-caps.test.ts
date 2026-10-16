@@ -20,6 +20,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   DEFAULT_GIT_MAX_BUFFER_BYTES,
@@ -325,3 +326,62 @@ describe('G-814424 execGitStatus —— 超限降级为按目录折叠，且必�
     } finally { rmScratch(dir) }
   })
 })
+
+describe('G-146 git 二进制解析改"当次实测链"(§5b:候选表 + existsSync ∧ X_OK + PATH×PATHEXT)', () => {
+  const isWin = process.platform === 'win32';
+  const exeName = isWin ? 'git.exe' : 'git';
+
+  it('候选全落空时按 PATH 实测命中 ⇒ 返回绝对路径,而不是裸 git', () => {
+    const bin = mkScratch('ihui-gitbin-');
+    try {
+      const hit = path.join(bin, exeName);
+      fs.writeFileSync(hit, '#!/bin/sh\nexit 0\n');
+      if (!isWin) fs.chmodSync(hit, 0o755);
+      const emptyPf = mkScratch('ihui-gitbin-nopf-');
+      const env = (
+        isWin
+          ? { PATH: bin, PATHEXT: '.EXE', PROGRAMFILES: emptyPf, 'PROGRAMFILES(X86)': emptyPf, ProgramW6432: emptyPf }
+          : { PATH: bin }
+      ) as NodeJS.ProcessEnv;
+      try {
+        expect(resolveGitBinary(env)).toBe(path.normalize(hit));
+      } finally {
+        rmScratch(emptyPf);
+      }
+    } finally {
+      rmScratch(bin);
+    }
+  });
+
+  it('候选存在但不可执行 ⇒ 跳过该格并继续,最终兜底裸 git(失败方向是"少猜一个路径",不是"猜错")', () => {
+    const probe = { exists: () => true, canExec: () => false };
+    expect(resolveGitBinary({ PATH: '' } as NodeJS.ProcessEnv, probe)).toBe('git');
+  });
+
+  it('PATH 里那格不可执行也不算命中(POSIX 的 X_OK 那一维;Windows 由 PATHEXT 决定,故同一断言按平台分档)', () => {
+    const bin = mkScratch('ihui-gitbin-nox-');
+    try {
+      fs.writeFileSync(path.join(bin, exeName), '#!/bin/sh\nexit 0\n');
+      if (!isWin) fs.chmodSync(path.join(bin, exeName), 0o644);
+      const env = (isWin ? { PATH: bin, PATHEXT: '.TXT' } : { PATH: bin }) as NodeJS.ProcessEnv;
+      expect(resolveGitBinary(env)).toBe('git');
+    } finally {
+      rmScratch(bin);
+    }
+  });
+
+  it('形状锁:源码里不得再出现写死的 Program Files 盘符候选(§5b 七类机器事实必须当次实测)', () => {
+    const src = fs.readFileSync(
+      fileURLToPath(new URL('../src/plugins/git-runner.ts', import.meta.url)),
+      'utf8',
+    );
+    expect(/['"]C:\/Program Files/.test(src)).toBe(false);
+    expect(src).toContain('PROGRAMFILES');
+    expect(src).toContain('PATHEXT');
+  });
+
+  it('IHUI_GIT_BIN 覆盖优先级不变(仍不被存在性过滤掉,用例靠它模拟"无 git")', () => {
+    const fake = path.posix.join(mkScratch('ihui-gitbin-ovr-'), 'nope');
+    expect(resolveGitBinary({ IHUI_GIT_BIN: fake } as NodeJS.ProcessEnv)).toBe(fake);
+  });
+});
