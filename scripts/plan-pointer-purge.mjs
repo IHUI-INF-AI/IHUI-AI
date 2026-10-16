@@ -252,7 +252,10 @@ export function buildPlan(lines, opts = {}) {
     const byKey = new Map()
     for (const r of rows) {
       if (isCheckedRow(r.line)) continue
-      const k = idx.compositeKeyOf(stripMergeNotes(r.line))
+      // 分族键 = 号本身(一号一行的"号"是身份键)。compositeKey=号+题面前缀,漂开组题面
+      // 已不同 ⇒ 键不同 ⇒ 永不成组(2026-10-16 实测 O88 组两行键各异)。号用 keyOfRow
+      // (主键窗口口径,plan-task-index 唯一出口)取;取不到号的行不进本族。
+      const k = idx.keyOfRow(r.line)
       if (!k) continue
       if (!byKey.has(k)) byKey.set(k, [])
       byKey.get(k).push(r)
