@@ -416,8 +416,10 @@ test('T13 grace 与去重共用一份档案但互不顶账(否则抑制会把真
 
 test('T14 反向源码锁:监控侧不得再回到"无条件 return",且必须真调用到期出口', () => {
   const src = readFileSync(join(repoRoot, 'deploy', 'win', 'ihui-monitor.ps1'), 'utf8')
+  // 2026-10-16 起抑制锚逐项化,变量名 $sig → $isig(调用仍在抑制分支内、机制未变),
+  // 这条锁随源同步钉 $isig:把分支改回一刀切(删掉调用)时本条照样红。
   assert.ok(
-    /Test-AlertSuppressionGrace\s+-Sig\s+\$sig/.test(src),
+    /Test-AlertSuppressionGrace\s+-Sig\s+\$isig/.test(src),
     'ihui-monitor.ps1 没在抑制分支里调用到期出口(函数在、没人调 = 这条机制等于没有)',
   )
   assert.ok(

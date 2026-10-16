@@ -33,7 +33,7 @@ from cryptography.fernet import Fernet, InvalidToken
 
 from app.core.db_pool import get_shared_pool
 from app.core.logging import get_logger
-from app.services.checkin_engine import get_jwt_exp
+from app.services.checkin_engine import extract_display_name, get_jwt_exp, uuid_shaped_name
 from app.services.checkin_qoder import qoder_session_expiry
 
 if TYPE_CHECKING:
@@ -259,9 +259,18 @@ async def create_account(
     account_group: str = "",
     platform: str = "trae",
 ) -> dict[str, Any]:
-    """录入账号(jwt 加密落库)。同名账号已存在时抛 ValueError。"""
+    """录入账号(jwt 加密落库)。同名账号已存在时抛 ValueError。
+
+    2026-10-16 李总定档兜底:传入 name 是 UUID 编码形态(旧前端/桌面端兜底名)时,
+    按 手机>邮箱>账户名>用户名 从 jwt 派生展示名顶替(桌面端 0.1.67+ 已在捕获侧
+    定名,这里是手动录入与旧调用方的第二道闸)。
+    """
     pool = await get_shared_pool()
     jwt_enc = _encrypt_jwt(jwt)
+    if uuid_shaped_name(name):
+        better = extract_display_name(jwt, device_map)
+        if better:
+            name = better
     async with pool.acquire() as conn:
         try:
             row = await conn.fetchrow(
@@ -317,7 +326,38 @@ async def list_accounts(owner_user_id: str) -> list[dict[str, Any]]:
             """,
             owner_user_id,
         )
-    return [_account_row(r) for r in rows]
+    accounts = [_account_row(r) for r in rows]
+    await _heal_uuid_names(owner_user_id, rows, accounts)
+    return accounts
+
+
+async def _heal_uuid_names(
+    owner_user_id: str, rows: list[Mapping[str, Any]], accounts: list[dict[str, Any]]
+) -> None:
+    """存量自愈(2026-10-16 李总报障「名称还是一对编码」)。
+
+    旧捕获把 UUID 编码存进了 name(手机优先定档 645789cdbed 之前的存量),
+    这些账号不会重新捕获 ⇒ 名字永远不会自己变好。列表加载时对 UUID 形态的
+    name 按 手机>邮箱>账户名>用户名 重取名并落库:
+    - 数据源:账号 jwt 明文(各平台 token 均为标准 JWT,TRAE/Qoder/WorkBuddy 桌面/
+      MiniMax 的 payload claims 可解析)+ device_map.nickname 兜底(网页 Cookie 模式);
+    - 幂等:修好不再命中(UUID 形态才触发,零常驻成本);
+    - 取不到更好名时静默保持原状(不报错、不改写),用户仍可行内重命名。
+    """
+    for row, acc in zip(rows, accounts):
+        if not uuid_shaped_name(acc.get("name")):
+            continue
+        jwt = _decrypt_jwt(row["jwt_enc"]) if row.get("jwt_enc") else ""
+        better = extract_display_name(jwt, acc.get("device_map") or {})
+        if not better or better == acc["name"]:
+            continue
+        if await update_account_name(acc["id"], owner_user_id, better):
+            acc["name"] = better
+            logger.info(
+                "[checkin_store] 账号名自愈 UUID 编码 -> 展示名 id=%s name=%s",
+                acc["id"],
+                better,
+            )
 
 
 async def delete_account(account_id: int, owner_user_id: str) -> bool:

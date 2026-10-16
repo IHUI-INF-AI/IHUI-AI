@@ -19700,7 +19700,16 @@
     "adminDeployDiagnosis": "部署诊断",
     "githubApp": "GitHub App",
     "smsReceive": "短信接码",
-    "sms": "短信模板"
+    "sms": "短信模板",
+    "customGroup": "自定义",
+    "customAddTitle": "自定义常用功能",
+    "customAddDesc": "从下方选择并添加你常用的侧边栏功能键",
+    "customEmptyHint": "点击右上角 + 添加你常用的功能",
+    "customSearchPlaceholder": "搜索功能",
+    "customAdded": "已添加",
+    "customAdd": "添加",
+    "customRemove": "移除",
+    "customManage": "管理常用功能"
   },
   "news": {
     "allCategories": "全部分类",

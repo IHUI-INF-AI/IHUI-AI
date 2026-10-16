@@ -19,6 +19,7 @@ import { NAV_GROUPS, flattenNavItems, isHrefActive } from './nav-data'
 import type { SidebarProps, NavItem, RegisterRef } from './types'
 import { SidebarUserRow } from './SidebarUserRow'
 import { NavGroupSection } from './NavGroupSection'
+import { CustomNavSection } from './CustomNavSection'
 import { SidebarHeader } from './SidebarHeader'
 import { SidebarQuickActions } from './SidebarQuickActions'
 // 宽度常量保留在 barrel (../sidebar.tsx) 中,供 scripts/check-sidebar-width-consistency.mjs 守门脚本校验;
@@ -42,6 +43,9 @@ const SidebarChatHistoryMemo = React.memo(SidebarChatHistory)
 const SidebarQuickActionsMemo = React.memo(SidebarQuickActions)
 const SidebarUserRowMemo = React.memo(SidebarUserRow)
 const SidebarHeaderMemo = React.memo(SidebarHeader)
+// 自定义栏(2026-10-16 立):props 全是稳定引用(collapsed 布尔 / 父级 useCallback /
+// visibleGroups memo),memo 后不参与与路由无关的重渲染;未登录时内部直接返回 null。
+const CustomNavSectionMemo = React.memo(CustomNavSection)
 
 const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: SidebarProps) {
   // 性能优化(2026-09-04 用户授权"最快速度"):折叠状态 collapsed 从 GlobalShell 下沉到 Sidebar 内部。
@@ -389,18 +393,31 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
       <SidebarChatHistoryMemo collapsed={collapsedState} />
 
       {visibleGroups.map((group, gi) => (
-        <NavGroupSection
-          key={group.label || `group-${gi}`}
-          group={group}
-          collapsed={collapsedState}
-          activeHref={activeHref}
-          onCloseMobile={onCloseMobile}
-          registerRef={registerRef}
-          t={t}
-          scope={scope}
-          isFirst={gi === 0}
-          onBeforeNav={handleBeforeNav}
-        />
+        <React.Fragment key={group.label || `group-${gi}`}>
+          {/* 自定义栏(2026-10-16 立):渲染在「热门」分组上方。
+              登录态专属,未登录时组件内部直接返回 null,SSR 首帧同样为空。 */}
+          {group.label === 'hotGroupLabel' ? (
+            <CustomNavSectionMemo
+              collapsed={collapsedState}
+              onCloseMobile={onCloseMobile}
+              registerRef={registerRef}
+              onBeforeNav={handleBeforeNav}
+              groups={visibleGroups}
+            />
+          ) : null}
+          <NavGroupSection
+            key={group.label || `group-${gi}`}
+            group={group}
+            collapsed={collapsedState}
+            activeHref={activeHref}
+            onCloseMobile={onCloseMobile}
+            registerRef={registerRef}
+            t={t}
+            scope={scope}
+            isFirst={gi === 0}
+            onBeforeNav={handleBeforeNav}
+          />
+        </React.Fragment>
       ))}
     </nav>
   )

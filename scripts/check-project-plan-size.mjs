@@ -36,49 +36,6 @@ const C = {
   reset: '\x1b[0m',
 }
 
-/**
- * 问归档器本身"现在有什么可归档"—— 只读:`--dry-run` 不写盘、不提交。
- * 路径由**本脚本自身位置**推(§15:不得依赖 cwd、不得硬编码盘符);派生一律带 `windowsHide`
- * (§5b/守门 52:无控制台宿主下派生 node 必弹窗)与 `timeout`(守门 80:热路径 git/node 调用不得无界)。
- * @returns {{ok:boolean, args?:string, line?:string, why?:string}}
- */
-function archiverVerdict() {
-  const script = join(dirname(fileURLToPath(import.meta.url)), 'archive-completed-tasks.mjs')
-  if (!existsSync(script)) return { ok: false, why: '归档器脚本不在位,无法核实' }
-  const args = ['--all', '--dry-run']
-  try {
-    const out = execFileSync(process.execPath, [script, ...args], {
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: ROOT,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 60_000,
-      maxBuffer: 32 << 20,
-    })
-    const all = String(out || '')
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean)
-    // 取**带结论的那一行**,不是最后一行:dry-run 的末行是「⚠ --dry-run 模式,未实际归档」,
-    // 拿它当答案就把量级(几条/哪些)丢了 —— 而本门要的正是在不在 0 这一格。
-    const line =
-      all.find((s) => /可归档的已完成任务条目/.test(s)) ||
-      all.find((s) => /无可归档|不存在|跳过/.test(s)) ||
-      all[all.length - 1] ||
-      ''
-    if (!line) return { ok: false, why: '归档器零输出 —— 拿不到结论,不计为已核实' }
-    return { ok: true, args: args.join(' '), line }
-  } catch (e) {
-    // 归档器非零退出时它自己的输出通常仍可读,那种场合仍算"实测到了";彻底跑不起来才判未判定。
-    const all = String(e?.stdout || e?.message || '')
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean)
-    const text = all.find((s) => /可归档的已完成任务条目/.test(s)) || all[all.length - 1] || ''
-    return { ok: false, why: text ? `归档器异常但回了「${text.slice(0, 90)}」` : '归档器跑不起来' }
-  }
-}
 
 if (!existsSync(FILE)) {
   console.log(`${C.dim}⏭  PROJECT_PLAN.md 不存在,跳过长度检查${C.reset}`)
@@ -101,20 +58,9 @@ if (stats.size > WARN_BYTES) {
   // `- [x] ✅ … **G-xxx/O-xx**` 这类**登记 bullet**(§1 禁止删、守门 71 防丢),不在它射程内。
   // ⇒ 现在去问归档器本身,把它那一行原样打出来;问不到就明写"未判定",绝不印未经我验证的建议。
   // (同型先例:守门 check-c-drive-pollution 曾提示一个根 package.json 里根本不存在的脚本名。)
-  const v = archiverVerdict()
-  if (v.ok) {
-    console.warn(`   归档器实测(${v.args}):${C.cyan}${v.line}${C.reset}`)
-    console.warn(
-      `   机制说明:归档器只移动「### 标题(已完成 ✅)」条目;本文件的增长来自登记 bullet ——` +
-        ` §1 规定不得删、守门 71 防丢,所以"再归档"不是本警告的出路。`,
-    )
-    console.warn(
-      `   真正的影响面:体积影响的是 AI 单次读取的上下文预算(2026-07-19 曾因此停响应),` +
-        ` 需要瘦身只能按季度把**旧登记段整体**移入 .ihui-agent/archive/ 并在原位置留占位注释 —— 那是人工决定,不是一条命令。`,
-    )
-  } else {
-    console.warn(`   归档器实测:未判定(${v.why})—— 不给你一条我没能验证过的出路`)
-  }
+  // 2026-10-16 存档机制退役(机主令:完成即删):旧"移入 .ihui-agent/archive/"出路已死,
+  // 本门不再提供归档出路 —— 出路 = 完成行直接删 + 长注记按"台账只记真工作"收短,人工决定。
+
   // 2026-08-19 立:warn-only 违规显式 exit 1,让 guardian-runner 计入 warned 计数
   // (原本 exit 0 会让违规被 guardian-runner 静默吞掉,统计不可信)
   process.exit(1)

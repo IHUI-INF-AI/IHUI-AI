@@ -148,7 +148,11 @@ function ledgerWithWatermark(ledgerRel, text) {
 
 // 台账文件名必须带**本次运行日期**:整文件重写式,复用旧日期 = 抹掉旧台账的逐字记录 =
 // 门 71 在 60 提交窗口内把已清偿行判丢并回捞(对打循环复活)。见头注「台账」段。
-const LEDGER_REL = '.ihui-agent/archive/plan-pointer-purge-2026-10-14.md'
+// 2026-10-16 存档机制退役(机主令:完成即删):purge 台账落点随之迁出归档目录 ——
+// .ihui-agent/archive/ 已整体出版本控制并整目录忽略,新台账一律落 .ihui-agent/tmp/(gitignored,
+// 只作本机取证,不再入库;被删行原文凭 git 历史可查,无需入库台账)。门 71 已改为"已勾行不进
+// 保护集",清偿带走的行不再触发回捞,本台账从"防回捞凭据"降级为纯本机留痕。
+const LEDGER_REL = '.ihui-agent/tmp/plan-pointer-purge-2026-10-14.md'
 const GIT = process.env.GIT_BIN || 'git'
 /** 归档台账所在目录 —— 由 LEDGER_REL 自身推出,不另写第二份路径常量。 */
 const LEDGER_DIR_REL = LEDGER_REL.slice(0, LEDGER_REL.lastIndexOf('/'))
