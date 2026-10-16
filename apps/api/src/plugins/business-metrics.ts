@@ -8,6 +8,7 @@ import { ttftMonitor, type TtftStats } from '../utils/ttft-monitor.js'
 import { authenticate } from '../plugins/auth.js'
 import { isSystemAdmin } from './require-permission.js'
 import { error } from '../utils/response.js'
+import { logger } from '../utils/logger.js'
 
 /**
  * 业务漏斗与自定义业务指标插件。
@@ -21,9 +22,11 @@ import { error } from '../utils/response.js'
  * 3. 自定义业务指标：
  *    - business_orders_total{type,status}
  *    - business_payments_total{channel,status}
- *    - business_ai_calls_total{vendor,model}
- *    - business_ai_tokens_total{vendor,type="prompt|completion"}
- *    - business_ai_cost_usd_total{vendor}
+ *    - business_ai_calls_total{vendor,model,call_type,status}
+ *    - business_ai_tokens_total{vendor,model,direction="input|output"}
+ *    - business_ai_cost_minor_units_total{vendor,model,currency}   (值 = 最小货币单位「分」)
+ *    - business_ai_record_failures_total{vendor,model}
+ *    - business_ai_series_dropped_total                            (基数上限丢弃计数)
  * 4. 用户指标（gauge）：
  *    - business_users_total
  *    - business_users_active_24h
@@ -60,6 +63,11 @@ import { error } from '../utils/response.js'
  *
  * 路由通过 server.recordFunnel / recordApiCall / recordOrder / recordPayment / recordAiCall
  * 及新增的 record* 系列装饰器上报。
+ *
+ * AI 那一族的真实收口不在路由里,而在 `plugins/ai-cost.ts` 的 `recordAiCost()`(所有 AI
+ * 成本调用方都汇到它),因此由它单点桥接到本文件的模块级 AI 采样入口
+ * `recordAiCallSample()` —— 装饰器 `recordAiCall` 与桥接走的是同一个实现、同一份状态,
+ * 不另立第二套标签形状(AGENTS §0.6 单一真相源)。
  */
 
 type FunnelStage = 'register' | 'activate' | 'paid'
@@ -73,9 +81,10 @@ interface BusinessMetrics {
   apiDurationCount: Map<string, number>
   orders: Map<string, number> // key: type|status
   payments: Map<string, number> // key: channel|status
-  aiCalls: Map<string, number> // key: vendor|model
-  aiTokens: Map<string, number> // key: vendor|type
-  aiCost: Map<string, number> // key: vendor
+  aiCalls: Map<string, number> // key: vendor|model|call_type|status
+  aiTokens: Map<string, number> // key: vendor|model|direction
+  aiCostMinorUnits: Map<string, number> // key: vendor|model|currency(值 = 最小货币单位「分」)
+  aiRecordFailures: Map<string, number> // key: vendor|model
   // 新增：用户指标（Gauge，单值）
   usersTotal: number
   usersActive24h: number
@@ -251,6 +260,155 @@ export class BizTimer {
   }
 }
 
+/**
+ * ============================================================================
+ * AI 采样状态 —— 模块级单例(全仓唯一的一份 `business_ai_*` 状态与写入入口)
+ * ============================================================================
+ *
+ * 为什么不在插件闭包里:AI 成本/调用的真实收口是 `plugins/ai-cost.ts` 的
+ * `recordAiCost()`,它是**不依赖 fastify 实例**的模块级函数(crew-llm-adapter /
+ * ai-user-model-chat / conversation-title / semantic-summary 都直接 import 它调用)。
+ * 装饰器 `server.recordAiCall` 只能被持有 server 的代码触达 ⇒ 若状态留在插件闭包,
+ * 桥接就得把 server 传到这些调用链上(改动面炸开、且必漏)。故状态上移到模块级,
+ * 装饰器与桥接都写同一份;`/business-metrics` 渲染读的还是 `m.aiCalls` 等同一批 Map 引用。
+ *
+ * 纪律(AGENTS §0.7 / 指标层铁律):写入函数内部 try/catch 兜底,**永不抛**——
+ * 观测面坏了不能把业务链路带崩(与 ai-cost L2 Redis 降级同一风格)。
+ */
+
+/** token 方向:与 ai_cost_records 的 prompt/completion 两列一一对应。 */
+export type AiTokenDirection = 'input' | 'output'
+/** 调用结果:大屏错误率 = sum(status!="success") / sum(全部)。 */
+export type AiCallStatus = 'success' | 'error' | 'cancelled'
+/**
+ * 调用类型。取值封闭为这 7 个(派生口径见 ai-cost.ts 的 REQUEST_TYPE_TO_CALL_TYPE):
+ * - stream              AI 服务流式回调落账(ai-callback-worker 的 requestType='chat')
+ * - chat                未带类型标记的对话(默认档)
+ * - crew                CrewAI 编排(含 crew / crew_session)
+ * - user-model-chat     用户自带模型配置对话
+ * - conversation-title  会话标题生成
+ * - semantic-summary    语义摘要
+ * - other               其余/显式未知
+ */
+export type AiCallType =
+  | 'stream'
+  | 'chat'
+  | 'crew'
+  | 'user-model-chat'
+  | 'conversation-title'
+  | 'semantic-summary'
+  | 'other'
+
+export interface AiCallSampleInput {
+  /** 供应商标签(取 ai_cost_records.provider;缺省归 'unknown') */
+  vendor: string
+  /** 模型标签(取 ai_cost_records.model;调用方常为用户可控值,写入前必洗) */
+  model: string
+  inputTokens?: number
+  outputTokens?: number
+  /**
+   * 成本,单位 = 该币种的**最小货币单位(分)**。
+   * 不再叫 costUsd:`ai_cost_records.cost` 由 pricing-service 以「分」落库、
+   * 币种默认 CNY,把它塞进 `..._usd_total` 是在标签上撒谎。
+   */
+  costMinorUnits?: number
+  /** 成本币种(ISO 4217,缺省 'CNY',与 pricing-service DEFAULT_CURRENCY 同档) */
+  currency?: string
+  status?: AiCallStatus
+  callType?: AiCallType
+}
+
+/** 标签基数上限:单族最多这么多条序列(model 来自用户可控配置,必须设上限)。 */
+const AI_SERIES_CAP = 2048
+const AI_LABEL_MAX_LEN = 64
+
+const aiState = {
+  /** key: vendor|model|call_type|status */
+  calls: new Map<string, number>(),
+  /** key: vendor|model|direction */
+  tokens: new Map<string, number>(),
+  /** key: vendor|model|currency(值 = 累计最小货币单位) */
+  costMinorUnits: new Map<string, number>(),
+  /** key: vendor|model —— 成本落库失败(ai_cost_records 写不进去,业务侧不可见的静默丢数) */
+  recordFailures: new Map<string, number>(),
+  /** 因基数上限被拒的**序列写入次数**(一条采样可能同时命中多个族,故按次计不按条计) */
+  seriesDroppedTotal: 0,
+}
+
+/**
+ * 洗标签值:Prometheus 文本里一个未转义的 `"` 或换行会把**整次 scrape** 打回
+ * (与 metrics.ts 注过的 2026-09-28 "分位数永远查不出来" 同型失效:坏一个样本、
+ * 丢的是整个抓取目标的全部指标)。model 标签是用户可控字符串,只能白名单收口。
+ */
+function sanitizeAiLabel(value: string | undefined | null, maxLen = AI_LABEL_MAX_LEN): string {
+  if (typeof value !== 'string') return 'unknown'
+  const cleaned = value.replace(/[^A-Za-z0-9_.:/@+-]/g, '_').slice(0, maxLen)
+  return cleaned.length > 0 ? cleaned : 'unknown'
+}
+
+/** 基数护栏:超上限的新序列不录(改计入 seriesDroppedTotal)。 */
+function aiCounterInc(map: Map<string, number>, key: string, by: number): void {
+  if (map.has(key)) {
+    map.set(key, (map.get(key) ?? 0) + by)
+    return
+  }
+  if (map.size >= AI_SERIES_CAP) {
+    aiState.seriesDroppedTotal++
+    return
+  }
+  map.set(key, by)
+}
+
+function nonNegativeNumber(value: number | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+}
+
+/**
+ * 记录一次 AI 调用采样(计数 + token 双向 + 成本)。
+ * 装饰器 `server.recordAiCall` 与 `recordAiCost()` 桥接共用这一个写入实现。
+ */
+export function recordAiCallSample(input: AiCallSampleInput): void {
+  try {
+    const vendor = sanitizeAiLabel(input.vendor)
+    const model = sanitizeAiLabel(input.model)
+    const status: AiCallStatus = input.status ?? 'success'
+    const callType: AiCallType = input.callType ?? 'chat'
+    aiCounterInc(aiState.calls, `${vendor}|${model}|${callType}|${status}`, 1)
+
+    const inputTokens = nonNegativeNumber(input.inputTokens)
+    const outputTokens = nonNegativeNumber(input.outputTokens)
+    if (inputTokens > 0) aiCounterInc(aiState.tokens, `${vendor}|${model}|input`, inputTokens)
+    if (outputTokens > 0) aiCounterInc(aiState.tokens, `${vendor}|${model}|output`, outputTokens)
+
+    const cost = nonNegativeNumber(input.costMinorUnits)
+    if (cost > 0) {
+      const currency = sanitizeAiLabel(input.currency ?? 'CNY', 8).toUpperCase()
+      aiCounterInc(aiState.costMinorUnits, `${vendor}|${model}|${currency}`, cost)
+    }
+  } catch (err) {
+    // 观测层异常绝不允许冒泡到业务(调用点不 catch 也必须安全)
+    logger.warn(`[business-metrics] recordAiCallSample 异常,已跳过该采样: ${String(err)}`)
+  }
+}
+
+/** 记录一次「AI 成本落库失败」。同样是永不抛的观测写入。 */
+export function recordAiCostWriteFailure(vendor: string, model: string): void {
+  try {
+    aiCounterInc(aiState.recordFailures, `${sanitizeAiLabel(vendor)}|${sanitizeAiLabel(model)}`, 1)
+  } catch (err) {
+    logger.warn(`[business-metrics] recordAiCostWriteFailure 异常,已跳过: ${String(err)}`)
+  }
+}
+
+/** 清 AI 单例状态(resetAllMetrics 与测试各自要用)。 */
+function resetAiState(): void {
+  aiState.calls.clear()
+  aiState.tokens.clear()
+  aiState.costMinorUnits.clear()
+  aiState.recordFailures.clear()
+  aiState.seriesDroppedTotal = 0
+}
+
 const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   const m: BusinessMetrics = {
     // 现有指标
@@ -261,9 +419,10 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     apiDurationCount: new Map(),
     orders: new Map(),
     payments: new Map(),
-    aiCalls: new Map(),
-    aiTokens: new Map(),
-    aiCost: new Map(),
+    aiCalls: aiState.calls,
+    aiTokens: aiState.tokens,
+    aiCostMinorUnits: aiState.costMinorUnits,
+    aiRecordFailures: aiState.recordFailures,
     // 用户指标
     usersTotal: 0,
     usersActive24h: 0,
@@ -316,6 +475,9 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
   // P2 修复:统一重置所有 metrics Map 与 number gauge,防止长期运行内存累积。
   // 触发场景:① 进程 onClose 释放内存;② admin 手动 POST /business-metrics/reset。
   function resetAllMetrics(): void {
+    // AI 四族的状态在模块级单例上(m 里存的是同一批 Map 引用),含一个不在 m 上的
+    // seriesDroppedTotal 计数,故显式走单例的重置出口。
+    resetAiState()
     for (const value of Object.values(m)) {
       if (value instanceof Map) {
         value.clear()
@@ -336,6 +498,19 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
   }
 
   // 自动采集 API 调用成功率与延迟（按路由+状态码）
+  // P2 修复:早返回判断保留在钩子同步段(快速跳过非 /api/ 与健康检查路径);
+  // 实际指标更新挪到 setImmediate,避免同步遍历 LATENCY_BUCKETS + 更新 3 个 Map
+  // 拖慢 onResponse 钩子链(高 QPS 热点)。
+  //
+  // 2026-10-16 根因修复:钩子**必须声明为 async**。
+  // Fastify 5 对 onResponse 钩子按形参个数判风格:3 参(request, reply, done)走回调、
+  // 需显式 done();2 参则按 Promise 处理。此前写成同步 2 参函数,既不调 done 也不返回
+  // Promise ⇒ Fastify 一直等这个钩子的完成信号,onResponse 链在此**静默停滞**:
+  // 请求照常 200 返回、不报错、不告警,但**本插件之后注册的所有 onResponse 钩子永不再执行**。
+  // 实测后果:api_logger(server.ts 注册序在本插件之后)从未触发 ⇒ api_logs 全生命周期 0 行,
+  // 监控大屏「今日 API 调用 / API 失败率 / TOP5 接口」恒为 0;
+  // n1-detector / open-idempotency / point·search·tenant aspect 等同批后置 onResponse 能力一并静默失效。
+  // 最小修法:函数体一字不改,只把钩子声明改为 async(返回 Promise,让 Fastify 立即续链)。
   // P2 修复:onResponse 钩子改为同步函数,用 setImmediate 异步上报 histogram,
   // 避免同步遍历 LATENCY_BUCKETS + 更新 3 个 Map 阻塞 onResponse 钩子链(高 QPS 热点)。
   // 早返回判断保留在同步段(快速跳过非 /api/ 与健康检查路径);实际指标更新挪到 setImmediate。
@@ -364,10 +539,34 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
   })
   server.decorate(
     'recordAiCall',
-    (vendor: string, model: string, tokens: number, costUsd: number) => {
-      counterInc(m.aiCalls, `${vendor}|${model}`)
-      counterInc(m.aiTokens, `${vendor}|prompt`, tokens)
-      m.aiCost.set(vendor, (m.aiCost.get(vendor) ?? 0) + costUsd)
+    (
+      vendor: string,
+      model: string,
+      tokens: number,
+      costUsd: number,
+      options?: {
+        /** tokens 计入哪个方向;缺省 'input'(= 旧实现把 tokens 全记为 prompt 的行为) */
+        direction?: AiTokenDirection
+        /** 调用结果;缺省 'success' */
+        status?: AiCallStatus
+        /** 调用类型;缺省 'other'(旧签名不带该维度,不做乐观猜测) */
+        callType?: AiCallType
+        /** 成本币种;costUsd 旧语义为美元,故缺省 'USD' */
+        currency?: string
+      },
+    ) => {
+      const direction: AiTokenDirection = options?.direction ?? 'input'
+      recordAiCallSample({
+        vendor,
+        model,
+        inputTokens: direction === 'input' ? tokens : 0,
+        outputTokens: direction === 'output' ? tokens : 0,
+        // 旧第 4 参 costUsd 的单位是「美元」,本族统一存最小货币单位,故 ×100 换算
+        costMinorUnits: Math.round(nonNegativeNumber(costUsd) * 100),
+        currency: options?.currency ?? 'USD',
+        status: options?.status ?? 'success',
+        callType: options?.callType ?? 'other',
+      })
     },
   )
 
@@ -584,25 +783,54 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
       lines.push(`business_payments_total{channel="${channel}",status="${status}"} ${v}`)
     }
 
-    lines.push('# HELP business_ai_calls_total AI model invocation counter')
+    // AI 族:标签值一律来自 sanitizeAiLabel(写入侧洗过),这里只做 4/3 段反拆。
+    lines.push(
+      '# HELP business_ai_calls_total AI model invocation counter (labels: vendor, model, call_type, status)',
+    )
     lines.push('# TYPE business_ai_calls_total counter')
     for (const [k, v] of m.aiCalls) {
-      const [vendor, model] = k.split('|')
-      lines.push(`business_ai_calls_total{vendor="${vendor}",model="${model}"} ${v}`)
+      const [vendor, model, callType, status] = k.split('|')
+      lines.push(
+        `business_ai_calls_total{vendor="${vendor}",model="${model}",call_type="${callType}",status="${status}"} ${v}`,
+      )
     }
 
-    lines.push('# HELP business_ai_tokens_total AI token consumption counter')
+    lines.push(
+      '# HELP business_ai_tokens_total AI token consumption counter (direction=input|output)',
+    )
     lines.push('# TYPE business_ai_tokens_total counter')
     for (const [k, v] of m.aiTokens) {
-      const [vendor, type] = k.split('|')
-      lines.push(`business_ai_tokens_total{vendor="${vendor}",type="${type}"} ${v}`)
+      const [vendor, model, direction] = k.split('|')
+      lines.push(
+        `business_ai_tokens_total{vendor="${vendor}",model="${model}",direction="${direction}"} ${v}`,
+      )
     }
 
-    lines.push('# HELP business_ai_cost_usd_total AI cost in USD counter')
-    lines.push('# TYPE business_ai_cost_usd_total counter')
-    for (const [vendor, v] of m.aiCost) {
-      lines.push(`business_ai_cost_usd_total{vendor="${vendor}"} ${v.toFixed(6)}`)
+    lines.push(
+      '# HELP business_ai_cost_minor_units_total AI cost accumulated in currency minor units (1 CNY/USD = 100 分)',
+    )
+    lines.push('# TYPE business_ai_cost_minor_units_total counter')
+    for (const [k, v] of m.aiCostMinorUnits) {
+      const [vendor, model, currency] = k.split('|')
+      lines.push(
+        `business_ai_cost_minor_units_total{vendor="${vendor}",model="${model}",currency="${currency}"} ${v.toFixed(6)}`,
+      )
     }
+
+    lines.push(
+      '# HELP business_ai_record_failures_total AI cost record (ai_cost_records insert) failures',
+    )
+    lines.push('# TYPE business_ai_record_failures_total counter')
+    for (const [k, v] of m.aiRecordFailures) {
+      const [vendor, model] = k.split('|')
+      lines.push(`business_ai_record_failures_total{vendor="${vendor}",model="${model}"} ${v}`)
+    }
+
+    lines.push(
+      '# HELP business_ai_series_dropped_total AI metric series writes dropped at the label cardinality cap (counts overflow writes, not samples)',
+    )
+    lines.push('# TYPE business_ai_series_dropped_total counter')
+    lines.push(`business_ai_series_dropped_total ${aiState.seriesDroppedTotal}`)
 
     // 4. 用户指标
     lines.push('# HELP business_users_total Total registered users')
@@ -839,6 +1067,19 @@ export default fp(businessMetricsPlugin, {
   fastify: '5.x',
 })
 
+/**
+ * 测试唯一入口(AGENTS §22c:测试必须用源实现,不许把判据复制一份)。
+ * `aiState` 是模块级单例 ⇒ 用例之间必须显式隔离,否则前一个用例的计数会顶掉断言基线。
+ */
+export const __test__ = {
+  aiState,
+  resetAiState,
+  sanitizeAiLabel,
+  AI_SERIES_CAP,
+  recordAiCallSample,
+  recordAiCostWriteFailure,
+}
+
 declare module 'fastify' {
   interface FastifyInstance {
     /** 上报转化漏斗事件（register → activate → paid）。 */
@@ -847,8 +1088,24 @@ declare module 'fastify' {
     recordOrder: (type: string, status: string) => void
     /** 上报支付事件。 */
     recordPayment: (channel: string, status: string) => void
-    /** 上报 AI 调用事件（含 token 与成本）。 */
-    recordAiCall: (vendor: string, model: string, tokens: number, costUsd: number) => void
+    /**
+     * 上报 AI 调用事件（含 token 与成本）。
+     * 前 4 个位置参数与旧签名逐一同型(向后兼容);第 5 参带默认值,不传即回旧行为。
+     * 注:AI 链路的**首选埋点是 `plugins/ai-cost.ts` 的 `recordAiCost()` 内部桥接**
+     * (所有调用方自动受益、不会漏);本装饰器只服务持有 server 的非成本链路。
+     */
+    recordAiCall: (
+      vendor: string,
+      model: string,
+      tokens: number,
+      costUsd: number,
+      options?: {
+        direction?: AiTokenDirection
+        status?: AiCallStatus
+        callType?: AiCallType
+        currency?: string
+      },
+    ) => void
     /** 设置用户总数（Gauge）。 */
     recordUsersTotal: (count: number) => void
     /** 设置 24h 活跃用户数（Gauge）。 */
