@@ -394,7 +394,6 @@ def mock_engine_success(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-
 async def test_create_and_list_masked(client, fake_store):
     """录入 → 列表脱敏:响应绝不含 jwt / jwt_enc 字段。"""
     resp = await client.post(
@@ -416,14 +415,12 @@ async def test_create_and_list_masked(client, fake_store):
     assert acc["device_map"] == {"u-1001": {"device_id": "d1"}}
 
 
-
 async def test_create_duplicate_name_conflict(client, fake_store):
     jwt = make_jwt()
     resp1 = await client.post("/api/checkin/accounts", json={"name": "dup", "jwt": jwt})
     assert resp1.status_code == 200
     resp2 = await client.post("/api/checkin/accounts", json={"name": "dup", "jwt": jwt})
     assert resp2.status_code == 409
-
 
 
 async def test_create_rejects_unparseable_and_expired_jwt(client, fake_store):
@@ -435,7 +432,6 @@ async def test_create_rejects_unparseable_and_expired_jwt(client, fake_store):
     resp = await client.post("/api/checkin/accounts", json={"name": "expired", "jwt": expired})
     assert resp.status_code == 400
     assert "过期" in resp.json()["detail"]
-
 
 
 async def test_create_qoder_accepts_opaque_token(client, fake_store):
@@ -462,7 +458,6 @@ async def test_create_qoder_accepts_opaque_token(client, fake_store):
     assert stored["device_map"]["uid"] == "019f17c6-0eca-7510-a4f5-5b22e8305ed4"
 
 
-
 async def test_create_qoder_rejects_expired_session(client, fake_store):
     """Qoder token 非空但会话已过期(device_map ISO expiresAt 在过去)→ 400。"""
     expired = (datetime.now(UTC) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -479,7 +474,6 @@ async def test_create_qoder_rejects_expired_session(client, fake_store):
     assert "已过期" in resp.json()["detail"]
 
 
-
 async def test_create_qoder_rejects_blank_token(client, fake_store):
     """Qoder token 空/过短 → 400(空串进不了 Field min_length,这里钉过短分支)。"""
     resp = await client.post(
@@ -487,7 +481,6 @@ async def test_create_qoder_rejects_blank_token(client, fake_store):
         json={"name": "Qoder-blank", "jwt": "short", "platform": "qoder"},
     )
     assert resp.status_code == 400
-
 
 
 async def test_create_workbuddy_accepts_token_with_uid(client, fake_store):
@@ -584,7 +577,6 @@ async def test_create_workbuddy_web_mode_rejects_blank_cookie(client, fake_store
     assert "网页登录" in resp.json()["detail"]
 
 
-
 async def test_update_jwt_qoder_platform_split(client, fake_store):
     """PATCH /jwt 按账号平台分流:qoder 账号换 opaque token 不被 TRAE 判据误杀。"""
     resp = await client.post(
@@ -603,7 +595,6 @@ async def test_update_jwt_qoder_platform_split(client, fake_store):
     )
     assert resp.status_code == 200
     assert fake_store.accounts[account_id]["jwt"] == "qoder_opaque_token_27chars_new"
-
 
 
 async def test_manual_checkin_records_and_credits(client, fake_store, mock_engine_success):
@@ -634,11 +625,9 @@ async def test_manual_checkin_records_and_credits(client, fake_store, mock_engin
     assert body["total_credits_delta"] == 20
 
 
-
 async def test_checkin_account_not_found(client, fake_store, mock_engine_success):
     resp = await client.post("/api/checkin/accounts/9999/checkin")
     assert resp.status_code == 404
-
 
 
 async def test_set_enabled_and_delete(client, fake_store, mock_engine_success):
@@ -661,7 +650,6 @@ async def test_set_enabled_and_delete(client, fake_store, mock_engine_success):
     assert await fake_store.list_accounts("dev-anonymous") == []
 
 
-
 async def test_update_jwt_roundtrip(client, fake_store):
     """PATCH jwt 成功:响应含 ok/jwt_exp,store 里 jwt 已换新。"""
     resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": make_jwt()})
@@ -681,12 +669,10 @@ async def test_update_jwt_roundtrip(client, fake_store):
     assert old_jwt != new_jwt
 
 
-
 async def test_update_jwt_not_found(client, fake_store):
     resp = await client.patch("/api/checkin/accounts/9999/jwt", json={"jwt": make_jwt()})
     assert resp.status_code == 404
     assert "账号不存在" in resp.json()["detail"]
-
 
 
 async def test_update_jwt_rejects_unparseable(client, fake_store):
@@ -698,7 +684,6 @@ async def test_update_jwt_rejects_unparseable(client, fake_store):
     resp = await client.patch(f"/api/checkin/accounts/{account_id}/jwt", json={"jwt": "not-a-jwt"})
     assert resp.status_code == 400
     assert fake_store.accounts[account_id]["jwt"] == original_jwt
-
 
 
 async def test_update_jwt_owner_isolation(client, fake_store):
@@ -718,7 +703,6 @@ async def test_update_jwt_owner_isolation(client, fake_store):
         assert fake_store.accounts[account_id]["jwt"] == original_jwt
     finally:
         fastapi_app.dependency_overrides.pop(require_request_user_id, None)
-
 
 
 async def test_list_accounts_jwt_exp_and_cooldown_until(client, fake_store):
@@ -743,7 +727,6 @@ async def test_list_accounts_jwt_exp_and_cooldown_until(client, fake_store):
     resp = await client.get("/api/checkin/accounts")
     acc = resp.json()["accounts"][0]
     assert acc["cooldown_until"] == cd.isoformat()
-
 
 
 async def test_group_create_list_and_patch(client, fake_store):
@@ -816,7 +799,6 @@ async def test_scheduler_status_shape(client, monkeypatch):
     assert body["next_run_qoder"] is None
 
 
-
 def test_scheduler_status_next_run_when_started(monkeypatch):
     """status():started 单例 + job.next_run_time → 带时区 ISO8601;未启动四字段缺省。"""
     monkeypatch.setenv("CHECKIN_CRON_ENABLED", "false")
@@ -854,7 +836,6 @@ def test_scheduler_status_next_run_when_started(monkeypatch):
     assert st["next_run_qoder"] == "2026-10-09T10:05:00+08:00"
 
 
-
 async def test_cooldown_semantics_server_trip_and_success_reset(fake_store):
     """Server 错误连击 <3 不冷却只计数,≥3 触发冷却并清零;成功 → 两计数清零。"""
     sched = checkin_scheduler_mod.checkin_scheduler
@@ -885,7 +866,6 @@ async def test_cooldown_semantics_server_trip_and_success_reset(fake_store):
     assert (s, c) == (0, 0)
 
 
-
 async def test_cooldown_semantics_client_independent(fake_store):
     """Client 类错误独立计数,不影响 Server 计数。"""
     sched = checkin_scheduler_mod.checkin_scheduler
@@ -900,7 +880,6 @@ async def test_cooldown_semantics_client_independent(fake_store):
     await sched.record_result(aid, server_fail)
     s, c = await fake_store.get_error_counts(aid)
     assert (s, c) == (1, 2)
-
 
 
 async def test_daily_run_skips_cooldown_account(fake_store, mock_engine_success):
@@ -1239,13 +1218,65 @@ async def test_scheduler_cron_triggers_carry_jitter():
 
     assert checkin_scheduler_mod._CRON_JITTER > 0
     for hour, minute in ((8, 5), (10, 5), (8, 10)):
-        t = CronTrigger(hour=hour, minute=minute, timezone=checkin_scheduler_mod._CN_TZ,
-                        jitter=checkin_scheduler_mod._CRON_JITTER)
+        t = CronTrigger(
+            hour=hour,
+            minute=minute,
+            timezone=checkin_scheduler_mod._CN_TZ,
+            jitter=checkin_scheduler_mod._CRON_JITTER,
+        )
         assert t.jitter == checkin_scheduler_mod._CRON_JITTER
     # 调度器源码三处 add_job 均显式带 jitter=(防回退)
     import inspect
 
     src = inspect.getsource(type(checkin_scheduler_mod.checkin_scheduler))
     assert src.count("jitter=_CRON_JITTER") >= 3
+
+
+async def test_query_credits_429_when_account_on_cooldown(client, fake_store, monkeypatch):
+    """第五件套配套:账号冷却中(如 401 死号 10 年冷却)手动查余额统一 429,
+    绝不拿死 token 打平台鉴权点(与积分快照跳冷却同口径)。"""
+    from app.services import checkin_credits
+
+    async def fake_query(jwt):
+        raise AssertionError("冷却预检应在查询前拦下")
+
+    monkeypatch.setattr(checkin_credits, "query_remaining_credits", fake_query)
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "死号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+    # 直接往 records 里塞一条未来冷却(模拟 SessionDead 已落冷却)
+    fake_store.records[fake_store.next_record_id] = {
+        "id": fake_store.next_record_id,
+        "account_id": account_id,
+        "cooldown_until": datetime.now(UTC) + timedelta(days=3650),
+    }
+    fake_store.next_record_id += 1
+
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
+    assert resp.status_code == 429
+    assert "冷却期" in resp.json()["detail"]
+
+
+async def test_query_credits_passes_classified_error_through(client, fake_store, monkeypatch):
+    """查询失败时 classified_error 透传给调用方(观测面:挑战/死号可见)。"""
+    from app.services import checkin_credits
+
+    async def fake_query(jwt):
+        return {
+            "remaining": None,
+            "packs": [],
+            "error": "余额接口 HTTP 403: 挑战墙/WAF 拦截,已熔断",
+            "classified_error": {"type": "Challenge", "cooldown_seconds": 1800},
+        }
+
+    monkeypatch.setattr(checkin_credits, "query_remaining_credits", fake_query)
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "挑战号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is False
+    assert body["classified_error"] == {"type": "Challenge", "cooldown_seconds": 1800}
 # ⁠[IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

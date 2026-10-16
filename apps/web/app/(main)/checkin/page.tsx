@@ -1199,8 +1199,13 @@ export default function CheckinPage() {
     setCheckingId(account.id)
     setActionError(null)
     try {
-      await manualCheckinAccount(account.id)
+      const record = await manualCheckinAccount(account.id)
       await loadAll()
+      if (record && record.ok === false) {
+        // 200 + ok=false(挑战页熔断/平台拒绝等):当场可见,不静默
+        if (record.message) setActionError(record.message)
+        return
+      }
       // 签到成功即查官方余额,变化实时可见
       void refreshCredits([account.id])
     } catch (e) {
@@ -1312,10 +1317,17 @@ export default function CheckinPage() {
       let done = 0
       let skippedCooldownRun = 0
       let rateLimited = false
+      let fusedCount = 0
       for (const account of pending) {
         try {
-          await manualCheckinAccount(account.id)
-          okIds.push(account.id)
+          const record = await manualCheckinAccount(account.id)
+          // 200 + ok=false 也是「没签上」(如挑战页熔断/平台拒绝):不得计成功,
+          // 否则批量提示谎报、且把账号推进 okIds 触发对暂停期账号的查余额 429。
+          if (record && record.ok === false) {
+            fusedCount += 1
+          } else {
+            okIds.push(account.id)
+          }
         } catch (e) {
           const msg = (e as Error).message
           if (isGlobalRateLimit(msg)) {
@@ -1343,6 +1355,7 @@ export default function CheckinPage() {
         skipped > 0 ? t('skippedToday', { count: skipped }) : null,
         expiredCount > 0 ? t('skippedExpired', { count: expiredCount }) : null,
         cooldownSkipped > 0 ? t('skippedCooldown', { count: cooldownSkipped }) : null,
+        fusedCount > 0 ? t('checkinFailedCount', { count: fusedCount }) : null,
         rateLimited ? t('checkinRateLimited') : null,
       ].filter((part): part is string => !!part)
       if (notices.length > 0) setBatchNotice(notices.join('；'))
