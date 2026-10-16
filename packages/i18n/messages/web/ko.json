@@ -19233,6 +19233,8 @@
     "groupUngrouped": "그룹 없음",
     "skippedToday": "오늘 이미 출석한 {count}개 계정을 건너뛰었습니다",
     "skippedExpired": "JWT가 만료된 계정 {count}개를 건너뛰었습니다",
+    "skippedCooldown": "쿨다운 중인 계정 {count}개를 건너뛰었습니다",
+    "checkinRateLimited": "rate limit으로 일괄 체크인을 중단했습니다. 나중에 다시 시도하세요",
     "checkinSelected": "선택한 계정 체크인({count})",
     "selectAllVisible": "목록 전체 선택",
     "selectAccount": "계정 {name} 선택",
@@ -19343,7 +19345,9 @@
     "deviceMapUpdated": "기기 지문이 업데이트되었습니다",
     "editDeviceMap": "기기 지문 편집",
     "editDeviceMapTitle": "기기 지문 편집",
-    "editDeviceMapDescription": "{platform} 계정의 기기 지문을 편집합니다(JSON 객체, 비워 두고 저장하면 자동 생성됨)."
+    "editDeviceMapDescription": "{platform} 계정의 기기 지문을 편집합니다(JSON 객체, 비워 두고 저장하면 자동 생성됨).",
+    "checkedInToday": "오늘 출석 완료",
+    "rename": "이름 변경"
   },
   "nav": {
     "checkin": "출석",

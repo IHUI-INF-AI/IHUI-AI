@@ -27,6 +27,7 @@ from typing import Any, Final
 
 from app.core.logging import get_logger
 from app.services.checkin_engine import get_http_client
+from app.services.checkin_outbound import checkin_outbound_gate
 
 logger = get_logger(__name__)
 
@@ -119,9 +120,12 @@ async def query_remaining_credits(jwt: str) -> dict[str, Any]:
     }
     try:
         client = get_http_client()
+        # 出站节流闸门:查余额与签到共用一条节流轴(手动批量查余额也受错峰保护)
+        await checkin_outbound_gate.before_request("trae")
         resp = await client.post(ENT_USAGE_URL, json=_REQUEST_BODY, headers=headers)
     except Exception as e:
         return _error_result(f"积分余额接口请求失败: {type(e).__name__}: {e}")
+    checkin_outbound_gate.note_status(resp.status_code, "trae")
     if resp.status_code != 200:
         return _error_result(f"积分余额接口 HTTP {resp.status_code}: {resp.text[:200]}")
     try:

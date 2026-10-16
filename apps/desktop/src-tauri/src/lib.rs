@@ -3013,6 +3013,24 @@ pub fn run() {
                         log::warn!("[desktop-event] emit desktop-window-focus failed: {}", e);
                     }
                 }
+                // 2026-10-16 省内存(两层):① 内存目标档位切 Low/Normal(官方机制,
+                // 非活动态可降 ~95%);② WebView2 官方挂起/恢复 TrySuspend/Resume(真正
+                // 冻结 webview、释放渲染进程,保留页面状态无重载)。两层都在「窗口失焦 ⇒
+                // 挂起+Low;回前台 ⇒ 恢复+Normal」。
+                // main/admin 各自只有一个 webview(main 是薄壳主窗,内存最大头);
+                // 内嵌浏览器窗要遍历它的全部标签 webview。
+                if label == "main" || label == "admin" || label == embedded_browser::BROWSER_WINDOW_LABEL {
+                    let app = window.app_handle().clone();
+                    for (wl, wv) in app.webviews() {
+                        if wl == label
+                            || wl.starts_with(embedded_browser::TAB_LABEL_PREFIX)
+                            || wl == embedded_browser::BROWSER_WINDOW_LABEL
+                        {
+                            embedded_browser::set_memory_low(&wv, !focused);
+                            embedded_browser::set_suspend(&wv, !focused);
+                        }
+                    }
+                }
             }
             // 窗口移动 / 缩放过程中防抖持久化(300ms 内合并,避免每次拖动都写盘)
             // 2026-07-27 立:扩展 admin 窗口也持久化位置/尺寸

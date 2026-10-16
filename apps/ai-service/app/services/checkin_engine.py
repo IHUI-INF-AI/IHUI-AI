@@ -40,6 +40,7 @@ from typing import Any, Final
 import httpx
 
 from app.core.logging import get_logger
+from app.services.checkin_outbound import checkin_outbound_gate
 
 logger = get_logger(__name__)
 
@@ -284,13 +285,17 @@ async def _http_post(
     """
     headers = _build_headers(jwt, dev)
     http = client if client is not None else get_http_client()
+    # 多账号风控第四件套(2026-10-16):所有出站签到请求先过全局节流闸门,
+    # 暂停期(429 后)抛 OutboundPaused 快速失败,绝不顶着限流继续打。
+    await checkin_outbound_gate.before_request("trae")
     try:
         resp = await http.post(url, content=body, headers=headers, timeout=timeout)
-        return resp.status_code, resp.text
     except httpx.TimeoutException:
         return 0, ""
     except Exception as e:
         return -1, f"{type(e).__name__}: {e}"
+    checkin_outbound_gate.note_status(resp.status_code, "trae")
+    return resp.status_code, resp.text
 
 
 # ---------------------------------------------------------------------------
@@ -471,6 +476,7 @@ async def checkin_account(
     ok_s, checked_in, credits_before, code_s, msg_s = await status_check(
         name, jwt, device_map, timeout, client=client
     )
+    # 进入本账号前出站已在全局暂停(别的账号刚吃 429)→ 冒泡,调度批据此整批中止
     if ok_s and checked_in:
         logger.info("已签到跳过", name=name, user_id=user_id, credits=credits_before)
         result.update(
@@ -484,6 +490,16 @@ async def checkin_account(
         return result
     if not ok_s:
         logger.warning("status 预检失败仍尝试 claim", name=name, code=code_s, message=msg_s)
+        if checkin_outbound_gate.paused_remaining() > 0:
+            # 本账号 status 刚回 429 触发出站全局暂停:不再顶风 claim,
+            # 直接按 SoftRate 结构化失败返回(单账号契约仍是 dict,冷却由调用方落)
+            result.update(
+                code=429,
+                message="平台限流(429),出站全局暂停中",
+                http_status=429,
+                classified_error={"type": "SoftRate", "cooldown_seconds": 60},
+            )
+            return result
 
     ok, msg, code, http_status = await signin_with_retry(
         name, jwt, device_map, timeout, retry=retry, retry_delay=retry_delay, client=client

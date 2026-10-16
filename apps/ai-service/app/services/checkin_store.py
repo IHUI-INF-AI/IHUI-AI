@@ -409,6 +409,24 @@ async def update_group(account_id: int, owner_user_id: str, group: str) -> bool:
     return tag == "UPDATE 1"
 
 
+async def update_account_name(account_id: int, owner_user_id: str, name: str) -> bool:
+    """更新账号展示名(重命名)。返回是否命中行(属主校验并入 WHERE)。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        # 同 :269:asyncpg 状态文本钉成 str,Bool 判定才有人看守。
+        tag: str = await conn.execute(
+            """
+            UPDATE checkin_accounts
+            SET name = $3, updated_at = now()
+            WHERE id = $1 AND owner_user_id = $2
+            """,
+            account_id,
+            owner_user_id,
+            name,
+        )
+    return tag == "UPDATE 1"
+
+
 async def get_decrypted_jwt(account_id: int, owner_user_id: str) -> dict[str, Any] | None:
     """按属主取账号并解密 jwt(内部使用:手动签到 / 调度)。不命中返回 None。"""
     pool = await get_shared_pool()

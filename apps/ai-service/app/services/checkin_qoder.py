@@ -37,6 +37,7 @@ import httpx
 
 from app.core.logging import get_logger
 from app.services.checkin_engine import DEFAULT_TIMEOUT, get_http_client
+from app.services.checkin_outbound import OutboundPaused, checkin_outbound_gate
 
 logger = get_logger(__name__)
 
@@ -257,6 +258,9 @@ async def _api_call(
     last: tuple[int, Any] = (0, None)
     for base in QODER_BASES:
         url = base.rstrip("/") + path
+        # 出站节流闸门:暂停期(429 后)抛 OutboundPaused 必须向上穿透本函数的
+        # 逐端点兜底(否则被吞成 -1 网络错,整批中止语义丢失)
+        await checkin_outbound_gate.before_request("qoder")
         try:
             if method == "POST":
                 resp = await http.post(url, json=body or {}, headers=headers, timeout=timeout)
@@ -265,9 +269,12 @@ async def _api_call(
         except httpx.TimeoutException:
             last = (0, None)
             continue
+        except OutboundPaused:
+            raise
         except Exception as e:
             last = (-1, f"{type(e).__name__}: {e}")
             continue
+        checkin_outbound_gate.note_status(resp.status_code, "qoder")
         if resp.status_code in (0, 404):
             last = (resp.status_code, None)
             continue

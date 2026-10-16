@@ -70,6 +70,7 @@ import {
   setCheckinAccountEnabled,
   updateCheckinAccountGroup,
   updateCheckinAccountJwt,
+  updateCheckinAccountName,
   type CheckinAccount,
   type CheckinCreditsHistoryItem,
   type CheckinRecord,
@@ -175,6 +176,10 @@ export default function CheckinPage() {
 
   // 行内操作态
   const [checkingId, setCheckingId] = React.useState<number | null>(null)
+  // 行内重命名(2026-10-16):点名称直接改,Enter 存 / Esc 弃 / 失焦存
+  const [renamingId, setRenamingId] = React.useState<number | null>(null)
+  const [renameDraft, setRenameDraft] = React.useState('')
+  const [renaming, setRenaming] = React.useState(false)
   const [deleteTarget, setDeleteTarget] = React.useState<CheckinAccount | null>(null)
   const [deleting, setDeleting] = React.useState(false)
   const [actionError, setActionError] = React.useState<string | null>(null)
@@ -218,9 +223,9 @@ export default function CheckinPage() {
     'all' | 'trae' | 'workbuddy' | 'qoder' | 'minimax'
   >('all')
   // 录入对话框的平台选择(默认 trae 与存量语义一致)
-  const [addPlatform, setAddPlatform] = React.useState<
-    'trae' | 'workbuddy' | 'qoder' | 'minimax'
-  >('trae')
+  const [addPlatform, setAddPlatform] = React.useState<'trae' | 'workbuddy' | 'qoder' | 'minimax'>(
+    'trae',
+  )
 
   // WorkBuddy 本机捕获(2026-10-12 第三平台):复用 capturing/importing/captureError。
   // 5.8+ 登录态加密 ⇒ encrypted 行 token 为空,wbTokenDrafts 保存每行的手动粘贴值。
@@ -382,6 +387,10 @@ export default function CheckinPage() {
           await queryCheckinAccountCredits(account.id)
         } catch {
           // 单账号查询失败(网络/JWT 失效)不阻断其余账号
+        }
+        // 逐个错峰(风控:避免批量快照瞬时并发直打官方接口)
+        if (account !== targets[targets.length - 1]) {
+          await new Promise((r) => setTimeout(r, 600))
         }
       }
       await loadAll()
@@ -1137,40 +1146,41 @@ export default function CheckinPage() {
   const refreshCredits = async (ids: number[]) => {
     if (ids.length === 0) return
     setCreditsRefreshing((prev) => new Set([...prev, ...ids]))
-    await Promise.all(
-      ids.map(async (id) => {
-        try {
-          const res = await queryCheckinAccountCredits(id)
-          setCreditsInfo((prev) => {
-            const old = prev[id]?.remaining
-            const delta =
-              res.ok && typeof old === 'number' && typeof res.remaining === 'number'
-                ? res.remaining - old
-                : undefined
-            return {
-              ...prev,
-              [id]: {
-                remaining: res.ok ? res.remaining : null,
-                error: res.ok ? undefined : res.error || '',
-                delta,
-                ts: Date.now(),
-              },
-            }
-          })
-        } catch (e) {
-          setCreditsInfo((prev) => ({
+    // 风控:逐个错峰串行查询(原 Promise.all 并发直打官方接口,批量号时瞬时并发过高)
+    for (const id of ids) {
+      try {
+        const res = await queryCheckinAccountCredits(id)
+        setCreditsInfo((prev) => {
+          const old = prev[id]?.remaining
+          const delta =
+            res.ok && typeof old === 'number' && typeof res.remaining === 'number'
+              ? res.remaining - old
+              : undefined
+          return {
             ...prev,
-            [id]: { remaining: null, error: (e as Error).message, ts: Date.now() },
-          }))
-        } finally {
-          setCreditsRefreshing((prev) => {
-            const next = new Set(prev)
-            next.delete(id)
-            return next
-          })
-        }
-      }),
-    )
+            [id]: {
+              remaining: res.ok ? res.remaining : null,
+              error: res.ok ? undefined : res.error || '',
+              delta,
+              ts: Date.now(),
+            },
+          }
+        })
+      } catch (e) {
+        setCreditsInfo((prev) => ({
+          ...prev,
+          [id]: { remaining: null, error: (e as Error).message, ts: Date.now() },
+        }))
+      } finally {
+        setCreditsRefreshing((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }
+      // 账号间错峰(最后一个不空等);后端闸门另有全局节流,此处双保险
+      if (id !== ids[ids.length - 1]) await new Promise((r) => setTimeout(r, 600))
+    }
   }
 
   const toggleEnabled = async (account: CheckinAccount, enabled: boolean) => {
@@ -1200,6 +1210,38 @@ export default function CheckinPage() {
     }
   }
 
+  const startRename = (account: CheckinAccount) => {
+    setRenamingId(account.id)
+    setRenameDraft(account.name)
+    setActionError(null)
+  }
+
+  const cancelRename = () => {
+    setRenamingId(null)
+    setRenameDraft('')
+  }
+
+  const commitRename = async (account: CheckinAccount) => {
+    if (renamingId !== account.id || renaming) return
+    const name = renameDraft.trim()
+    // 空值或未改动:直接退出编辑态,不发请求
+    if (!name || name === account.name) {
+      cancelRename()
+      return
+    }
+    setRenaming(true)
+    try {
+      await updateCheckinAccountName(account.id, name)
+      setAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, name } : a)))
+      setActionError(null)
+    } catch (e) {
+      setActionError((e as Error).message)
+    } finally {
+      setRenaming(false)
+      cancelRename()
+    }
+  }
+
   const confirmDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
@@ -1219,8 +1261,18 @@ export default function CheckinPage() {
   const localDateStr = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-  // 一键全部签到:对 enabled 账号顺序执行(不并发轰炸);
-  // 跳过今日已成功签到(last_record 为今日且 ok)的账号,实时汇报进度,结束后统一刷新
+  // 今日是否已签到(2026-10-16):最近一次记录成功且发生在本地今天。
+  // 与「一键全部签到」的跳过判据同口径(last.ok===true && 本地日==今天);
+  // 今日签到失败(ok=false)不算已签,按钮仍可点,允许当天重试。
+  const isCheckedInToday = (account: CheckinAccount) => {
+    const last = account.last_record
+    if (!last || last.ok !== true || !last.created_at) return false
+    return localDateStr(new Date(last.created_at)) === localDateStr(new Date())
+  }
+
+  // 一键全部签到:对 enabled 账号顺序执行(不并发轰炸),账号间随机错峰;
+  // 跳过今日已签 / JWT 过期 / 冷却中账号,命中全局限流(429)立即中止整批,
+  // 实时汇报进度,结束后统一刷新
   const runCheckinAll = async (scope?: Set<number>) => {
     const today = localDateStr(new Date())
     const targets = accounts.filter(
@@ -1234,29 +1286,67 @@ export default function CheckinPage() {
     ).length
     const pending = targets.filter((account) => {
       if (account.jwt_exp && new Date(account.jwt_exp).getTime() <= now) return false
+      // 冷却中的账号直接跳过(后端手动入口已尊重冷却,预筛避免无谓 429 往返)
+      if (account.cooldown_until && new Date(account.cooldown_until).getTime() > now) return false
       const last = account.last_record
       if (!last || last.ok !== true || !last.created_at) return true
       return localDateStr(new Date(last.created_at)) !== today
     })
-    const skipped = targets.length - expiredCount - pending.length
+    const cooldownCount = targets.filter(
+      (account) =>
+        !(account.jwt_exp && new Date(account.jwt_exp).getTime() <= now) &&
+        !!account.cooldown_until &&
+        new Date(account.cooldown_until).getTime() > now,
+    ).length
+    const skipped = targets.length - expiredCount - cooldownCount - pending.length
     setAllChecking(true)
     setActionError(null)
     setBatchNotice(null)
     setAllProgress({ done: 0, total: pending.length })
     const okIds: number[] = []
+    // 全局限流命中判据:后端 RateLimitedError → HTTP 429 detail 含「限流冷却中」;
+    // 单账号冷却(CooldownActiveError)只跳过该账号,不中止整批
+    const isGlobalRateLimit = (msg: string) => /限流冷却中|HTTP 429|限流/.test(msg)
+    const isCooldownRejection = (msg: string) => /冷却期/.test(msg)
     try {
       let done = 0
+      let skippedCooldownRun = 0
+      let rateLimited = false
       for (const account of pending) {
-        await manualCheckinAccount(account.id)
+        try {
+          await manualCheckinAccount(account.id)
+          okIds.push(account.id)
+        } catch (e) {
+          const msg = (e as Error).message
+          if (isGlobalRateLimit(msg)) {
+            // 命中平台/出站限流:立即中止整批(继续打只会加深风控)
+            rateLimited = true
+            setActionError(msg)
+            break
+          }
+          if (isCooldownRejection(msg)) {
+            // 预筛后仍冷却(近期刚失败进入冷却):跳过该账号继续
+            skippedCooldownRun += 1
+            continue
+          }
+          throw e
+        }
         done += 1
-        okIds.push(account.id)
         setAllProgress({ done, total: pending.length })
+        // 账号间错峰(后端闸门另有全局节流,前端双保险,避免机器化连发)
+        if (account !== pending[pending.length - 1]) {
+          await new Promise((r) => setTimeout(r, 500))
+        }
       }
+      const cooldownSkipped = cooldownCount + skippedCooldownRun
       const notices = [
         skipped > 0 ? t('skippedToday', { count: skipped }) : null,
         expiredCount > 0 ? t('skippedExpired', { count: expiredCount }) : null,
+        cooldownSkipped > 0 ? t('skippedCooldown', { count: cooldownSkipped }) : null,
+        rateLimited ? t('checkinRateLimited') : null,
       ].filter((part): part is string => !!part)
       if (notices.length > 0) setBatchNotice(notices.join('；'))
+      if (!rateLimited) setActionError(null)
     } catch (e) {
       setActionError((e as Error).message)
     } finally {
@@ -1808,16 +1898,45 @@ export default function CheckinPage() {
                           />
                         </TableCell>
                         <TableCell>
-                          {/* UUID-shaped account name: truncate + hover for full value */}
-                          <TruncatedText
-                            value={account.name}
-                            className="max-w-[420px] font-medium"
-                          />
+                          {/* UUID-shaped account name: truncate + hover;点击即行内重命名 */}
+                          {renamingId === account.id ? (
+                            <Input
+                              autoFocus
+                              value={renameDraft}
+                              aria-label={t('rename')}
+                              onChange={(e) => setRenameDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') void commitRename(account)
+                                if (e.key === 'Escape') cancelRename()
+                              }}
+                              onBlur={() => void commitRename(account)}
+                              disabled={renaming}
+                              className="h-7 max-w-[420px] text-sm"
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              title={t('rename')}
+                              aria-label={t('rename')}
+                              onClick={() => startRename(account)}
+                              className="block max-w-full cursor-text text-left"
+                            >
+                              <TruncatedText
+                                value={account.name}
+                                className="max-w-[420px] font-medium"
+                              />
+                            </button>
+                          )}
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             {renderPlatformBadge(account.platform)}
                             {renderGroupBadge(account.group)}
                             {renderJwtBadge(account.jwt_exp)}
                             {renderCooldownBadge(account.cooldown_until)}
+                            {isCheckedInToday(account) && (
+                              <span className="inline-flex items-center rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
+                                {t('checkedInToday')}
+                              </span>
+                            )}
                           </div>
                           {/* Fallback slot for the last-checkin column: strictly complementary to that column's visibility, never duplicated nor lost. See globals.css .checkin-page block. */}
                           <div className="checkin-name-last-checkin mt-1 text-[10px] text-muted-foreground">
@@ -1896,9 +2015,15 @@ export default function CheckinPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              disabled={checkingId !== null || allChecking}
+                              disabled={
+                                checkingId !== null || allChecking || isCheckedInToday(account)
+                              }
                               aria-label={
-                                checkingId === account.id ? t('checking') : t('manualCheckin')
+                                isCheckedInToday(account)
+                                  ? t('checkedInToday')
+                                  : checkingId === account.id
+                                    ? t('checking')
+                                    : t('manualCheckin')
                               }
                               onClick={() => void runManualCheckin(account)}
                             >
@@ -1907,7 +2032,11 @@ export default function CheckinPage() {
                               )}
                               {/* Label hidden below 459px content width by container query; accessible name comes from aria-label */}
                               <span className="checkin-manual-label">
-                                {checkingId === account.id ? t('checking') : t('manualCheckin')}
+                                {isCheckedInToday(account)
+                                  ? t('checkedInToday')
+                                  : checkingId === account.id
+                                    ? t('checking')
+                                    : t('manualCheckin')}
                               </span>
                             </Button>
                             <Button
@@ -2282,9 +2411,7 @@ export default function CheckinPage() {
                               }
                             />
                             {renderPlatformBadge('trae')}
-                            <span className="font-mono">
-                              {item.nickname || item.user_id}
-                            </span>
+                            <span className="font-mono">{item.nickname || item.user_id}</span>
                             {!item.jwt && (
                               <span className="text-xs text-muted-foreground">{item.source}</span>
                             )}
@@ -2698,9 +2825,7 @@ export default function CheckinPage() {
                           })
                         }}
                       />
-                      <span className="font-mono">
-                        {item.nickname || item.uid || '本机会话'}
-                      </span>
+                      <span className="font-mono">{item.nickname || item.uid || '本机会话'}</span>
                       <span className="truncate text-xs text-muted-foreground">
                         {item.edition}
                         {item.version ? ` · v${item.version}` : ''}
