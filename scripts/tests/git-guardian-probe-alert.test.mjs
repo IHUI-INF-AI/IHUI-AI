@@ -34,6 +34,8 @@ function harness(results, extra = {}) {
       tickFile: `${dir}/tick`,
       lastFile: `${dir}/last.json`,
       streakFile: `${dir}/streak.json`,
+      // 夹具默认关掉"重复测量合并",让每一格测试各测各的那一维;合并本身由下面两格专测钉住。
+      minGapMs: 0,
       logger: (l) => logs.push(l),
       notify: (name, detail, o) => {
         sent.push({ name, detail: String(detail), opts: o || {} })
@@ -110,6 +112,39 @@ test('变异对照:门槛设 1 时同一份读数立刻寄信(门槛真的在起
   try {
     h.round()
     assert.equal(h.sent.length, 1, '门槛 1 = 老语义"越阈即寄"必须还活着')
+  } finally {
+    rmScratch(h.dir)
+  }
+})
+
+// ───────── 连击的计量单位是**时间**,不是"进过几次这段代码"(2026-10-16 13:19/13:20 实测被绕过一次) ─────────
+
+test('同一节流窗口里的第二轮 ⇒ 算重复测量,不推进连击、不寄信', () => {
+  const MIN_GAP = 15 * 60 * 1000
+  const T = 1_800_000_000_000
+  const h = harness(B_PUBLIC_BREACH, { minGapMs: MIN_GAP })
+  try {
+    h.round() // 连 1
+    h.round(B_PUBLIC_BREACH, { now: T + 60_000 }) // 60 秒后的第二轮(两个执行体撞进同一个窗口)
+    assert.equal(h.sent.length, 0, `60 秒内的第二次采样不得凑满"连续两轮",实寄 ${h.sent.length}`)
+    const line = h.logs.find((l) => l.includes('重复测量'))
+    assert.ok(line, '合并这件事必须报名(不得静默把一轮抹掉)')
+    assert.match(line, /仍算连 1\/2 轮/)
+    // 而真正过了窗口的下一轮,仍然照常到人
+    h.round(B_PUBLIC_BREACH, { now: T + 40 * 60 * 1000 })
+    assert.equal(h.sent.length, 1, '隔了 40 分钟的第二轮是真·下一轮,必须到人')
+  } finally {
+    rmScratch(h.dir)
+  }
+})
+
+test('反向:关掉合并(minGapMs=0)时,60 秒内的两轮照样凑满门槛(证明上面那格真有牙)', () => {
+  const T = 1_800_000_000_000
+  const h = harness(B_PUBLIC_BREACH, { minGapMs: 0 })
+  try {
+    h.round()
+    h.round(B_PUBLIC_BREACH, { now: T + 60_000 })
+    assert.equal(h.sent.length, 1, '合并被关掉后必须回到"两轮即寄" —— 否则上一格是恒绿的断言')
   } finally {
     rmScratch(h.dir)
   }
