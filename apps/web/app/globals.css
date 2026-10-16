@@ -1018,6 +1018,15 @@ iframe::-webkit-scrollbar {
   background-color: color-mix(in oklab, var(--color-card) 50%, transparent);
 }
 
+/* 关闭询问进行中(data-close-ask='true',GlobalTopBar 收到 desktop-close-ask open=true 时置位):
+   控件强制维持活动外观且瞬时切换(禁 transition)。prevent_close 期间窗口会瞬失焦 →
+   data-window-inactive 可能先到一帧,若走 transition-colors 会被拖成可见的浅灰淡出(浅色模式尤明显)。
+   关闭询问弹窗自身遮罩已被 watcher 豁免(wc-dim-exempt),这里再堵住失焦灰化的淡出尾巴。
+   关闭询问收口即移除 data-close-ask,按钮恢复正常过渡。 */
+[data-window-controls][data-close-ask='true'] > button {
+  transition: none;
+}
+
 /* ============================================================
  * AI 输入卡描边四态(2026-09-30)
  * ============================================================

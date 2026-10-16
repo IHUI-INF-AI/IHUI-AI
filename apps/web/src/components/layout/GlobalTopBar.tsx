@@ -284,7 +284,11 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
     window.addEventListener('desktop-close-ask', onCloseAsk)
     // 事件只报"变化"不报现状,故挂载时补查一次初值;已收到事件则丢弃(避免用旧值覆盖新状态)
     void isWindowFocused().then((focused) => {
-      if (!cancelled && !focusEventArrived) setWindowFocused(focused)
+      // 关键修复(2026-10-17):窗口以 visible:false 创建、由 auto_refresh 才 show。
+      // 挂载瞬间探测常赶在窗口真正现身+聚焦之前返回 false,若据此把初值 true 覆盖成
+      // false,就会「一打开就死灰一下」再被焦点事件救回(浅色模式尤明显)。
+      // 策略:探测只能「确认聚焦」(false 当未知忽略),真实失焦一律交给焦点事件驱动。
+      if (!cancelled && !focusEventArrived && focused) setWindowFocused(true)
     })
     return () => {
       cancelled = true
@@ -768,6 +772,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
               data-window-controls
               data-modal-dim={effectiveDimActive ? '1' : undefined}
               data-window-inactive={effectiveWindowInactive}
+              data-close-ask={closeAskOpen ? 'true' : undefined}
             >
               {/* 模态遮罩"等效压暗"层(2026-09-22 立,同族第 3 次复发):
                   按钮容器挂 z-max=10003(必须高过 resize 抓手 z-loading=10000,否则右上角拖不动
@@ -776,14 +781,24 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
                   浅色模式甚至是 bg-white/80(变亮),写死 bg-black/80 会把顶栏压成黑块。
                   激活方向 duration-0 是硬约束:遮罩 open 态禁止 fade-in 是本项目既有 blocking 守门
                   (check-z-index-guard 第 4 项),压暗必须第一帧到位;取消方向保留统一时长与遮罩
-                  fade-out 同步。pointer-events-none → 模态期间三按钮依然可点(未登录也能关窗)。 */}
+                  fade-out 同步。pointer-events-none → 模态期间三按钮依然可点(未登录也能关窗)。
+                  关闭询问期间(wc-dim-exempt 已让 watcher 不激活压暗):此处再强制瞬时收起,
+                  即便有残余 dim 态也禁掉取消方向的 1000ms 灰化淡出(用户可见闪灰的根因)。 */}
               <div
                 aria-hidden="true"
                 data-window-controls-dim
                 style={{ backgroundColor: dimColor ?? 'transparent' }}
                 className={cn(
-                  'pointer-events-none absolute inset-0 rounded-md opacity-0 transition-opacity duration-(--duration-unified) ease-unified',
-                  effectiveDimActive && 'opacity-100 duration-0',
+                  'pointer-events-none absolute inset-0 rounded-md',
+                  // 三态互斥,同一时刻只挂一组 opacity/duration,避免同特异性 class 顺序不定导致冲突:
+                  //  - 关闭询问中:瞬时收起(无淡出)
+                  //  - 激活:第一帧到位,禁 fade-in
+                  //  - 取消:统一时长淡出,与遮罩 fade-out 同步
+                  closeAskOpen
+                    ? 'opacity-0 duration-0'
+                    : effectiveDimActive
+                      ? 'opacity-100 duration-0'
+                      : 'opacity-0 transition-opacity duration-(--duration-unified) ease-unified',
                 )}
               />
               <WindowControlButton
