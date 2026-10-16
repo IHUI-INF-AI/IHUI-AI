@@ -618,7 +618,7 @@ export default function Community() {
   }))
 
   return (
-    <ThemeRoot className="community-out-container">
+    <ThemeRoot className="community-out-container pb-[calc(140rpx+env(safe-area-inset-bottom))]">
       <View
         style={
           {

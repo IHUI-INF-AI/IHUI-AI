@@ -34,27 +34,14 @@ import { SearchInput } from '../../components/SearchInput'
 import { MoreLink } from '../../components/MoreLink'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import { Lightbulb, Play, Flame, Bot, Clapperboard } from 'lucide-react-native'
-import type { AppIcon } from '@ihui/types'
+import type { AppIcon, StudyTrackCategory, StudyVideoItem } from '@ihui/types'
 
 import { rnRadius } from '@ihui/design-tokens'
+export type { StudyTrackCategory, StudyVideoItem }
 
 /** 赛道分类 */
-export interface StudyTrackCategory {
-  id: string
-  name: string
-}
 
 /** 学习视频项 */
-export interface StudyVideoItem {
-  id: string | number
-  courseId?: string | number
-  title: string
-  name?: string
-  cover?: string
-  teacherName?: string
-  avatar?: string
-  createdAt?: string
-}
 
 /** 模型预览项(简化,对齐 ModelListItem 子集) */
 export interface StudyModelPreview {
