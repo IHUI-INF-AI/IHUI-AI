@@ -19708,7 +19708,8 @@
     "customAdded": "追加済み",
     "customAdd": "追加",
     "customRemove": "削除",
-    "customManage": "よく使う機能を管理"
+    "customManage": "よく使う機能を管理",
+    "customDragHint": "ドラッグで並べ替え"
   },
   "news": {
     "allCategories": "All categories",

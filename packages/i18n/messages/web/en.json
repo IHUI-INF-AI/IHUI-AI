@@ -19705,7 +19705,8 @@
     "customAdded": "Added",
     "customAdd": "Add",
     "customRemove": "Remove",
-    "customManage": "Manage shortcuts"
+    "customManage": "Manage shortcuts",
+    "customDragHint": "Drag to reorder"
   },
   "news": {
     "allCategories": "All Categories",
