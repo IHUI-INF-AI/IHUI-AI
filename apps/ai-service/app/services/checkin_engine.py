@@ -233,27 +233,36 @@ def extract_display_name(
 ) -> str | None:
     """按 手机 > 邮箱 > 账户名 > 用户名 派生展示名;取不到返回 None(调用方保持原名)。
 
-    搜索面:JWT payload 平铺 + data/user/account/profile 一层嵌套。
-    device_map.nickname 作最低优先级兜底(网页登录 Cookie 模式 jwt 非 JWT 时)。
+    搜索面(按优先级):
+    1. device_map.account —— 桌面端 tc 捕获时落库的完整 profile 对象(真机实证
+       含 phone/email/username;TRAE 的 JWT payload 只有 data.id 无身份字段,
+       手机号**只能**从这里取,2026-10-16 李总报障的根因面);
+    2. JWT payload 平铺 + data/user/account/profile 一层嵌套;
+    3. device_map.nickname 最低兜底(网页登录 Cookie 模式 jwt 非 JWT 时)。
     UUID 形态的值一律跳过(那不是展示名,是编码)。
     """
+    scopes: list[dict[str, Any]] = []
+    if device_map:
+        dm_account = device_map.get("account")
+        if isinstance(dm_account, dict):
+            scopes.append(dm_account)
     payload = _jwt_payload(jwt or "")
     if payload:
-        scopes: list[dict[str, Any]] = [payload]
+        scopes.append(payload)
         for key in _DISPLAY_NAME_NESTED_KEYS:
             nested = payload.get(key)
             if isinstance(nested, dict):
                 scopes.append(nested)
-        for group in _DISPLAY_NAME_KEY_GROUPS:
-            for scope in scopes:
-                for key in group:
-                    raw = scope.get(key)
-                    if not isinstance(raw, str):
-                        continue
-                    value = raw.strip()
-                    if not value or len(value) > 50 or _UUID_RE.search(value):
-                        continue
-                    return value
+    for group in _DISPLAY_NAME_KEY_GROUPS:
+        for scope in scopes:
+            for key in group:
+                raw = scope.get(key)
+                if not isinstance(raw, str):
+                    continue
+                value = raw.strip()
+                if not value or len(value) > 50 or _UUID_RE.search(value):
+                    continue
+                return value
     if device_map:
         nick = device_map.get("nickname")
         if isinstance(nick, str):

@@ -1583,6 +1583,10 @@ export interface CapturedTraeAccount {
   jwt: string
   /** 人类可读出处:`cookies:<host>(<相对路径>)` / `leveldb:<文件名>`。 */
   source: string
+  /** 账号原始 profile(tc 解密容器的 account,含 phone/email/username)。
+   * 2026-10-16 立:整体带出后落进 device_map.account,服务端据此按
+   * 「手机>邮箱>账号>用户名」重取名(此前只取 nickname 单值,手机号丢失)。 */
+  account?: Record<string, unknown> | null
 }
 
 /** 设备重置单层结果(与 Rust `ResetLayerReport` 对齐)。 */
