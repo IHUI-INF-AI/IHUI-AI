@@ -10,7 +10,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Calendar, Gift, Clock, ArrowRight, UserPlus } from 'lucide-react'
 import Image from 'next/image'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton } from '@/components/common'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -41,19 +41,13 @@ const STATUS_KEY: Record<Status, string> = {
   ended: 'status.ended',
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function ActivitiesPage() {
   const t = useTranslations('activities')
   const locale = useLocale()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['activities'],
-    queryFn: () => api<{ list: Activity[] }>('/api/activities').then((d) => d.list ?? []),
+    queryFn: () => apiOrThrow<{ list: Activity[] }>('/api/activities').then((d) => d.list ?? []),
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {

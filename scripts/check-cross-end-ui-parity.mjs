@@ -2280,16 +2280,32 @@ function isLocallyDeclaredComponent(code, tagName, raw) {
 export function rootSlotAudit(pairs, text, table, styles = {}) {
   const findings = []
   const undetermined = []
+  /**
+   * 锚名两次尝试:先按**族名**，再按**该文件自己的组件名**(文件 stem)。
+   * 为什么必须有第二次:ALIAS 跨名配对的成立前提就是"两端文件名不同"(CategoryBar.tsx ↔ CategoryInlineBar.tsx)，
+   * 而上一枚修好的具名导出锚定只认族名 ⇒ 配对层认得出的这一族，RS 这一维又"没看"了 ——
+   * 判据必须覆盖它自己产出的那种配对形态，否则别名腿永远在报告里显示为未判定。
+   * 刻意只在**第一次锚不到**才试第二次，且第二次用的是 stem 而不是"文件里第一个 export"。
+   */
+  const anchor = (src, file, familyName) => {
+    const first = rootSlotRadiiOf(src, table, familyName)
+    if (first.anchored) return first
+    const stem = String(file)
+      .split('/')
+      .pop()
+      .replace(/\.(tsx|ts|jsx|js)$/, '')
+    return stem === familyName ? first : rootSlotRadiiOf(src, table, stem)
+  }
   for (const p of pairs?.pairs ?? []) {
     const a = withLocalStyles(text, styles, p.miniapp)
     const b = withLocalStyles(text, styles, p.rn)
     if (a === undefined || b === undefined) continue
-    const ra = rootSlotRadiiOf(a, table, p.name)
-    const rb = rootSlotRadiiOf(b, table, p.name)
+    const ra = anchor(a, p.miniapp, p.name)
+    const rb = anchor(b, p.rn, p.name)
     if (!ra.anchored || !rb.anchored) {
       undetermined.push({
         name: p.name,
-        why: `导出锚不到(${!ra.anchored ? 'miniapp' : 'rn'}侧既无 export default，也没有与族名同名的具名导出)⇒ 根槽位这一维没看,不当"一致"记`,
+        why: `导出锚不到(${!ra.anchored ? 'miniapp' : 'rn'}侧既无 export default，也没有与族名或本文件名同名的具名导出)⇒ 根槽位这一维没看,不当"一致"记`,
       })
       continue
     }

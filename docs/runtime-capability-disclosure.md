@@ -562,6 +562,39 @@ rung 1 一挂死 `HEALCOUNT` 就永远停在 0，30 分钟节流与 3 次配额�
 病根（P40UG 音频端点 `DeviceState=0x4` 自 10:46 起持续不存在）**仍需一次系统重启**
 才能重建端点，自愈阶梯对此无能为力——现在它会诚实报 "reboot is needed" 并停手。
 
+**变更注记（2026-10-16）**：该任务已于 **21:08:50** 停用
+（`Disable-ScheduledTask -TaskName 'P40UG-EDID-Guard'`）。停用后实证：
+`D:\edid-backup\guard.log` 自 **21:01:46 起冻结在 231894 字节**（22:03 复量
+delta=0，约 62 分钟零心跳），任务 `State=Disabled`、`LastRunTime=21:01:38`、
+`LastTaskResult=0`，孤儿 `pnputil`/`bop`/`edid-guard` 命令行进程 **0 枚**。
+备份 = `P40UG-EDID-Guard.pre-disable-20261016-210850.xml`(1765B) +
+`guard-heal.state.snapshot`(8B)，落 `.ihui-agent/tmp/uu-lag-diag/backup/`；
+**回滚 = `Enable-ScheduledTask -TaskName 'P40UG-EDID-Guard'`**。
+停用理由不是"它有害"，而是上一条把它自己的结论写死了——它每 15 分钟做的所有
+rung 都在等一次不会由它自己实现的重启，而那条结论**已被实测否掉（见下）**：
+在判据不成立的前提下继续每 15 分钟对 Intel 显示音频/显卡发 `pnputil` 设备操作，
+等于让一个已知无效的阶梯长期占着显示栈的破坏面。
+
+**〔更正@2026-10-16，推翻上一条"仍需一次系统重启"的判据；上一条原文逐字留档，
+只作改判留痕读〕**：本机 **已经重启过了** —— `Win32_OperatingSystem.LastBootUpTime`
+= **2026-10-15 20:47:45**（22:10 量得 uptime 25.4h，`GameViewer*` 四枚进程起于
+20:47:53，即开机 8 秒后）。重启之后 10-16 的 20:31 与 21:01 两拍，guard 仍报
+`endpoint {37d3b3ba-…} DeviceState=0x4 intelConfigFlags=absent`，rung 1
+`pnputil rc=1167`（=ERROR_NO_SUCH_DEVICE，设备根本不在）、rung 2
+`pnputil rc=0`（控制器重启成功）之后 `DeviceState` 仍是 `0x4`，于是写
+"all heal rungs failed - a reboot is required"——**它要求的那次重启早已发生并且
+没有用**。22:12–22:24 复量的机器事实：`HDAUDIO\FUNC_01&VEN_8086&DEV_2815…`
+整台功能设备**不在 PnP 树里**（注意不是"被禁用"：禁用会以 `Present=False`
+留在枚举里；全树按 `Display Audio|Intel.*High Definition` 匹配命中 **0 条**），
+父控制器 `PCI\VEN_8086&DEV_7A50…&FB`（High Definition Audio 控制器）
+`Present=True Status=OK`，`IntcDAud` 服务 = Stopped/Manual、
+`ImagePath` 指向完整的 `DriverStore\FileRepository\intcdaud.inf_amd64_ee8402319d14f217\IntcDAud.sys`
+（1 inf + 1 sys 俱在），显卡 INF `oem7.inf`（Intel UHD 730，DriverVer
+**32.0.101.7026 / 2025-08-19**）自述含 `IntcDAud`。⇒ 真判据是
+**"Intel 显示音频 codec 从未被总线枚举出来"**，与"重启一次"无关；剩下的出路是
+驱动层（重装/更新 Intel 显卡驱动连同其显示音频组件）或物理层（HDMI 线的 DDC
+通道故障，见 §5.3b 末尾的 EDID 那条），二者都不是本任务能自动完成的。
+
 同批实测到的机器事实（供以后写 cmd 的人避坑）：`wmic` 重定向到文件是 **UTF-16LE**、
 `for /f` 取 wmic 值带**尾部 CR**；PATH 上的 `timeout` 是 GNU coreutils 版本不是
 Windows 的；`find` 放进 `for /f` 的**管道**里会等 stdin 挂死整批（守卫日志裁剪用的是
@@ -575,6 +608,72 @@ Windows 的；`find` 放进 `for /f` 的**管道**里会等 stdin 挂死整批�
 UU 服务与其余虚拟外设（GVINPUT 键鼠、ViGEm 手柄总线、UU 虚拟音频）保持原样；恢复出口
 `Enable-PnpDevice -InstanceId 'ROOT\DISPLAY\0000' -Confirm:$false`。`edid-guard.cmd`
 只清 Intel 显示音频那台设备的 `ConfigFlags`，与该节点无交集。
+
+**〔更正@2026-10-16，上一条的"置 `DF_DISABLED`…重启后保持"在本机已不成立〕**：
+22:09 实测 `HKLM\SYSTEM\CurrentControlSet\Enum\ROOT\DISPLAY\0000` 的
+`ConfigFlags = **0**`（不是 1），`Present=True Status=OK`，`Driver`=
+`{4d36e968-…}\0001`。洗掉它的是 **2026-10-15 12:43:53** 那一次重装
+（Kernel-PnP/Configuration 事件 id=400："正在安装设备 ROOT\DISPLAY\0000，
+oem11.inf，gamevieweridddriver.inf_amd64_9586929572de2d1b"）——即"彻底卸载后被
+被控端原样重装回来"那一轮，重装把 Enum 节点连同禁用位一起重建了。所以
+**"禁用位重启后保持"这条不能当既有防护引用**：它会随着 UU 自身重装消失。
+闲置期该适配器仍不挂桌面（`Screen.AllScreens` 恒 1 屏），只在远程会话期成为
+唯一主屏（见下方会话内实测）。
+
+**会话期实测（2026-10-16 22:10，2 秒采样监听器抓到的一次真会话）**：
+桌面主屏几何由闲置态 `1920x1080` 在会话内变成 **.NET 报 1848x853**，而
+1848/2772 = 853/1280 = 恰好 2/3，与 `config/server/<peerid>.ini` 里
+`dpi_2772_1280=150` 独立吻合 ⇒ 会话内实际是 **2772×1280 @150% DPI**
+（`.NET Screen.Bounds` 受 DPI 虚拟化，设备像素要以 `Win32_VideoController` 为准）。
+同一段 `udp_eps=5`、`GameViewerServer` 0.2–0.3 %core。⇒ 超级屏**已在生效**；
+第二把尺子（`session-devicepx.ps1`，2 秒/轮）把同一件事量得更硬：会话内主屏
+设备名变成 **`\\.\DISPLAY5`**（10 行 ≈20 秒），而 **Intel 物理口全程恒
+`1920x1080`**、IDD 适配器的 `Win32_VideoController.CurrentHorizontalResolution`
+恒按其默认 `3840x2160` 报（该字段不跟随会话内实际模式，**不能**拿它当会话模式
+的读数）⇒ 会话期是虚拟屏**接管了主屏**，不是物理屏换模式。
+`config\server\*.ini` 的 `[super_screen] open=` 由 `GameViewerServer.exe` 自己在
+会话收尾时序列化写盘（实测 21:27:38、22:01:17、22:10:07、22:21:16、22:42:48 五笔
+写盘均为 `open=1`，本会话从未手改过该 ini——备份目录里只有 guard 的两件、无 ini
+副本可反证），所以"控制端会话内启用"才是唯一合法出口，手改 ini 不是。
+
+**本机显示链身份链与 `EDID_OVERRIDE` 的两次实测（2026-10-16）**：
+
+- 身份链：闲置期唯一 `Present=True` 监视器 =
+  `DISPLAY\MS_0001\4&3B118078&0&UID2117756`（挂在 Intel `PCI\VEN_8086&DEV_4682`
+  上），其 `Device Parameters\EDID` 是 **128 字节合成 EDID**（魔数后 `36 7F 01 00`
+  ⇒ mfg `'MS_'`、week=0/year=2002、物理尺寸 0cm）；`LHCFFFF`(P40UG) 与 `SAC2400`
+  全 `Present=False`；Dell `DELD0E6` 的 7 枚历史节点父级全是 `HTREE\ROOT\0` 或
+  `ROOT\DISPLAY\0000`(UU IDD)，**从未出现在 Intel 容器 `4&3b118078` 上** ⇒ Intel
+  口上唯一有过的真实面板身份就是 `LHCFFFF` = P40UG。`GraphicsDrivers\Connectivity`
+  里 `MS_00011_00_07D2_EE` 与 `LHCFFFF0000000000000_2D_07E7_9A` 互为同一条 path 的
+  `Recent`/`eXtend` ⇒ 同一连接器在"读到 P40UG EDID"与"读不到→落合成 MS_0001"之间
+  反复翻，这就是本机桌面长期 1920×1080 的直接成因（配套读数：
+  `WmiMonitorListedSupportedSourceModes` 只给 1 个 source mode）。
+- 已在位的 override 管的是**音频**不是分辨率：
+  `LHCFFFF\…UID51\Device Parameters\EDID_OVERRIDE` 值 "1" = **128 字节纯 CEA 扩展块**
+  （首字节 `02 03 40 F1`，与 `D:\edid-backup\apply-fix.reg` 逐字节相同；同目录
+  `restore-original.reg` 的 `EDID` 才是 256 字节完整 EDID）。它改的是 LPCM 能力位
+  （`edid_new` 相对 `edid_orig` 只有 `09 7f`→`01 07` 加校验和 `bf`→`3f`），
+  **对 1080p 这条症状无效**，本次未动它。
+- 写入实测（**"写了"不等于"被消费"**）：
+  ① 22:30 `edid-override-apply.ps1`——把 `P40UG-fixed-LPCM.bin`（256B，双块校验和
+  归零自证通过）写进 MS_0001 节点，回读逐字节一致；再对该**监视器节点**做
+  Disable/Enable（经 `Start-Job` + `Wait-Job -Timeout 30`，2.5 秒返回、无孤儿），
+  轮询 25 秒恒 `1920x1080 / MS_0001 / lhcPresent=0` ⇒ 未消费 ⇒ 按脚本设计自动删
+  override 并再重枚举一次，`RESTORED_TO_BASELINE=True`，盘上无残留。
+  ② 22:37 第二次改拿面板 `SC_MONITORPOWER 2→-1` 当扳机：`SendMessageW` 是
+  **阻塞式**广播而我没给它超时 ⇒ 脚本卡死在第一条广播（日志只到
+  `written bytes=256 identical=True`），回滚没跑、override 留在盘上。22:46
+  `recover-apply2.ps1` 收现场：残留进程 0、删 override 并复量 `exists=False`、
+  唤醒换成 `SendMessageTimeoutW(…, SMTO_ABORTIFHUNG, 1500ms)` +
+  `SetThreadExecutionState(ES_DISPLAY_REQUIRED)` + 鼠标抖动，复量回到
+  `Intel 1920x1080 / MS_0001 / DISPLAY1`。
+  ⇒ 本机 `EDID_OVERRIDE` 的消费需要 **GPU 级重枚举**（重启 Intel 显卡设备 / 重启
+  系统 / 拔插线），三条都会造成一次黑屏或断流，时段归机主；写入→复验→自动回滚
+  三段已备好可复跑（`.ihui-agent/tmp/uu-lag-diag/edid-override-apply.ps1`）。
+  同一条"阻塞调用必须有界"的规矩，本仓已为 `pnputil` 落成 `bop.cmd`（见上一条
+  10-15 注记）——本次是**同一个会话里第二次**踩"无超时阻塞调用"，只不过这次凶手的
+  名字从 `pnputil` 换成了 `SendMessageW`。
 
 **另外两件实测到的事**：
 

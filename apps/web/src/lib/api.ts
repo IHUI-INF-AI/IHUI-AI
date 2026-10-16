@@ -200,6 +200,26 @@ export async function fetchApi<T>(
   return result
 }
 
+/**
+ * 「取数据，失败就抛」的单源壳 —— 替代此前 `apps/web` 里 **237 个文件各自手抄一份**
+ * `async function api<T>() { const r = await fetchApi<T>(…); if (!r.success) throw; return r.data }`
+ * (HEAD 面现读，另有 1162 处 `api<…>` 调用点)。
+ *
+ * 为什么必须包在**本文件**的 fetchApi 之上，而不是让页面直连 `@ihui/api-client` 那份同名实现：
+ * web 的 401→登录弹窗、cookie/续期与 timeoutMs 语义都住在上面那层，页面绕过它就静默丢掉这些
+ * (本文件头注已记过"绕过本包装的直调路径会静默失去续期语义"这一格)。
+ * 每份本地拷贝都在页面上**自己决定 `r.data` 是什么** ⇒ 后端换响应形状时，237 个副本按各自理解
+ * 漂移，而移动端"把信封当数组 ⇒ 界面静默空列表"那 15 族正是同一个病的另一端。
+ */
+export async function apiOrThrow<T>(
+  url: string,
+  options: RequestInit & { timeoutMs?: number } = {},
+): Promise<T> {
+  const r = await fetchApi<T>(url, options)
+  if (!r.success) throw new Error(r.error)
+  return r.data
+}
+
 export function getStreamBaseUrl(): string {
   return detectStreamBaseUrl()
 }

@@ -34,10 +34,14 @@
  * 用法:`node scripts/check-shared-type-not-redeclared.mjs [--staged|--worktree|--json|--strict|--self-test]`
  * 退出码:0 通过(含"只有存量") / 1 本次带进来的命中 / 2 无法判定。
  *
- * 接线状态(如实登记,不撒谎):**尚未接进提交链** —— 落地当轮 `scripts/guardian-runner.mjs`
- * 正被他席的未合并冲突(UU)持有,按 AGENTS §12 只报不动;在那里插注册块会和他的合并互相覆盖。
- * 今天的问责入口就是上面那条直跑命令(CI/巡检档 `--strict`);接进提交链的前置 = 该注册表
- * 回到单一写者、且用 `scripts/gate-registry-insert.mjs` 以 HEAD 为底取号插入并同枚点名。
+ * 接线状态(如实登记,不撒谎):**已接进提交链 = 守门 id 219**(2026-10-16 用
+ * `scripts/gate-registry-insert.mjs` 以 HEAD 为底取号插入并同枚落地,注册条目现读
+ * `mode: 'blocking'` / `skipEnv: 'HUSKY_SKIP_SHARED_TYPE_REDECLARED'` /
+ * `stagedTriggers: ['apps/','packages/']`)。之所以敢 blocking 而不是 warn:拦的只有"本次把重声明
+ * 加回来"的那一条(锚点 = 该文件 HEAD 自身命中数),现读存量 247 处对任何一次提交都不构成红 ——
+ * 与 §12e 禁的恒红门不同型。落地当天 AGENTS.md「门名点名索引」同批改名(守门 89 R4 的义务),
+ * 否则这道门自己就是"接线在位而文档隐形"的那一类。镜像测试 T1 钉的就是"头注声称与 runner 注册
+ * 同真同假",这条注释一旦与注册表脱节即红。
  */
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -480,6 +484,76 @@ export function subpathsToFiles(pkgJsonText, srcDir) {
   return [...out]
 }
 
+/**
+ * 形态指纹 —— 把 shapeOf 的结果压成一个可分组的字符串。unknown 一律无指纹(不参与分组)。
+ * 刻意**不含名字**:这一维要回答的正是"名字不同而契约相同"。
+ */
+export function shapeKey(shape) {
+  if (!shape || shape.kind === 'unknown') return null
+  if (shape.kind === 'union')
+    return 'union:' + [...shape.literals].sort().join('|')
+  return 'obj:' + [...shape.fields.entries()].sort().map(([k, v]) => `${k}${v.optional ? '?' : ''}:${v.type}`).join(',')
+}
+
+const END_OF_PATH = (p) => (p.startsWith('apps/') ? p.split('/')[1] : p.split('/')[0])
+
+/**
+ * 跨名同契约(只开队列，永不判红)：
+ *  - `vsShared` 端内声明与某个**共享**类型逐字段同形而名字不同 ⇒ 动作 = 直接 import 那个共享名；
+ *  - `crossEnd` 两个**不同端**的本地声明互相同形(共享侧没有) ⇒ 动作 = 提到共享层单源。
+ * 为什么不判红：按名字并档已被证明会把跨层同名不同物并错(实测 no 150 处)，反过来"按形状并档"
+ * 同样会撞车(两条 `{id:string,name:string}` 可以是两件东西)—— 所以这一维只交清单，不替人做决定。
+ * 噪音护栏：成员 <2 的形状不报(空壳/单字段 everywhere)，同指纹组 >8 份不报(那是通用形状，不是同一件事)。
+ */
+export function crossNameQueue(files, sharedShapes, sharedNames) {
+  const sharedByKey = new Map()
+  for (const [name, shape] of sharedShapes ?? []) {
+    const k = shapeKey(shape)
+    if (!k) continue
+    if (!sharedByKey.has(k)) sharedByKey.set(k, [])
+    sharedByKey.get(k).push(name)
+  }
+  const byKey = new Map()
+  for (const [path, src] of Object.entries(files)) {
+    if (typeof src !== 'string') continue
+    const imports = importedNames(src)
+    for (const d of declarations(src)) {
+      if (sharedNames.has(d.name)) continue // 同名的走 hits，不在此重复计
+      if (d.alias && imports.has(d.alias)) continue
+      const k = shapeKey(shapeOf(src, d.name))
+      if (!k) continue
+      if (!byKey.has(k)) byKey.set(k, [])
+      byKey.get(k).push({ path, name: d.name })
+    }
+  }
+  const vsShared = []
+  const crossEnd = []
+  for (const [k, list] of byKey) {
+    // 单字段形状不报：`{ id: string }` 这种在仓里能命中上百件不同的东西，报出来只会淹掉清单
+    if (k.startsWith('obj:') && !k.slice(4).includes(',')) continue
+    const sharedHits = sharedByKey.get(k)
+    if (sharedHits?.length) {
+      for (const item of list) vsShared.push({ ...item, sharedNames: sharedHits.slice(0, 4) })
+      continue
+    }
+    if (list.length > 8) continue // 通用形状，不是同一件事
+    const ends = new Set(list.map((x) => END_OF_PATH(x.path)))
+    if (list.length >= 2 && ends.size >= 2) {
+      const names = new Set(list.map((x) => x.name))
+      // 分两档，因为"同形"的证据强度差一个数量级：
+      //  sameName = 两端各自写了一个**同名**的本地声明(共享侧缺)⇒ 可直接提共享层单源，高信度；
+      //  diffName = 只是形状撞了(MessageCursor ↔ NotifItem 这种)⇒ 只排队，绝不替人判定。
+      crossEnd.push({
+        tier: names.size === 1 ? 'sameName' : 'diffName',
+        key: k,
+        members: list.slice(0, 8),
+        ends: [...ends].sort(),
+      })
+    }
+  }
+  return { vsShared, crossEnd }
+}
+
 /** 三态计数唯一出口(json 档与人读档共用一份,避免两个口径互相打脸)。 */
 export function countShapes(hits) {
   const c = { yes: 0, no: 0, undetermined: 0 }
@@ -739,6 +813,74 @@ function runSelfTest() {
     ).join(',') === 'packages/types/src/user.ts',
   )
 
+  // ── 跨名同契约(只开队列)：名字匹配看不见的那批 ──
+  const cnShared = {
+    'packages/types/src/a.ts':
+      'export interface AsksRow { id: string\n title: string }\nexport interface Pair { x: string\n y: string }\n',
+  }
+  const cnNames = sharedTypeNames(cnShared)
+  const cnShapes = buildSharedShapes(cnShared, cnNames)
+  const cnFiles = {
+    // 与共享 AsksRow 同形而不同名 ⇒ vsShared
+    'apps/web/app/x.ts': 'interface AsksData { id: string; title: string }\n',
+    // 两端各自本地声明同一契约(共享侧没有)⇒ crossEnd / tier=sameName
+    'apps/mobile-rn/src/y.ts': 'interface CoursePick { a: string\n b: number }\n',
+    'apps/miniapp-taro/src/z.ts': 'interface CoursePick { a: string; b: number }\n',
+    // 异名同形跨端 ⇒ 同一把尺子必须分到 diffName(只是形状撞车,不得与同名同层对待)
+    'apps/web/app/u.ts': 'interface OneThing { p: string; q: number }\n',
+    'apps/cli/src/u2.ts': 'interface OtherThing { p: string; q: number }\n',
+    // 单字段形状 ⇒ 噪音护栏，不报
+    'apps/web/app/w.ts': 'interface JustId { id: string }\n',
+    // 同名 ⇒ 走 hits，不进队列
+    'apps/web/app/v.ts': 'interface AsksRow { id: string; title: string }\n',
+  }
+  const q = crossNameQueue(cnFiles, cnShapes, cnNames)
+  t(
+    'Q1 端内声明与共享类型同形而不同名 ⇒ 进 vsShared 并点名那个共享名',
+    q.vsShared.length === 1 &&
+      q.vsShared[0].name === 'AsksData' &&
+      q.vsShared[0].sharedNames.includes('AsksRow'),
+  )
+  t(
+    'Q2 两个不同端各自本地声明同一契约(共享侧缺)⇒ 进 crossEnd、tier=sameName,并列出两端',
+    q.crossEnd.length === 2 &&
+      q.crossEnd.filter((g) => g.tier === 'sameName').length === 1 &&
+      q.crossEnd.find((g) => g.tier === 'sameName')?.ends.join(',') === 'miniapp-taro,mobile-rn' &&
+      q.crossEnd.find((g) => g.tier === 'sameName')?.members.length === 2,
+  )
+  t(
+    'Q3 单字段形状不进队列(通用形状不是同一件事)',
+    ![...q.crossEnd, ...q.vsShared].some(
+      (x) => x.name === 'JustId' || x.members?.some?.((m) => m.name === 'JustId'),
+    ),
+  )
+  t(
+    'Q6 异名同形跨端必须落 diffName 档(形状撞车不等于同一件事)',
+    q.crossEnd.filter((g) => g.tier === 'diffName').length === 1 &&
+      q.crossEnd
+        .find((g) => g.tier === 'diffName')
+        .members.map((m) => m.name)
+        .sort()
+        .join(',') === 'OneThing,OtherThing',
+  )
+  t(
+    'Q4 与共享同名的那条走 hits，不被 crossName 重复计一次',
+    judge(cnFiles, cnNames, cnShapes).hits.some((h) => h.name === 'AsksRow') &&
+      !q.vsShared.some((x) => x.name === 'AsksRow') &&
+      !q.crossEnd.some((g) => g.members.some((m) => m.name === 'AsksRow')),
+  )
+  t(
+    'Q5 无指纹(unknown)的形状绝不进队列:交叉/工具类型/extends 都不报',
+    crossNameQueue(
+      {
+        'apps/web/p.ts': 'type Left = A & B\n',
+        'apps/api/q.ts': 'interface Right extends Base { id: string; title: string }\n',
+      },
+      cnShapes,
+      cnNames,
+    ).crossEnd.length === 0,
+  )
+
   console.log(`\n${pass}/${pass + fail} 条通过`)
   return fail ? 1 : 0
 }
@@ -801,6 +943,8 @@ function main() {
   )
   const files = readFace(face, consumerPaths)
   const { hits, passed, undetermined } = judge(files, shared, sharedShapes, sharedReach)
+  // 跨名同契约：只开队列，不参与 hits/red/退出码(按形状并档与按名字并档同样会撞车)
+  const queue = crossNameQueue(files, sharedShapes, shared)
 
   let red = []
   let ratcheted = 0
@@ -853,6 +997,14 @@ function main() {
           },
           convergenceReady: hits.filter((h) => h.sameShape === 'yes' && h.reachable === true)
             .length,
+          // 跨名同契约(只开队列)：名字匹配看不见的那批同契约声明
+          crossName: {
+            vsShared: queue.vsShared.length,
+            crossEnd: queue.crossEnd.length,
+            crossEndSameName: queue.crossEnd.filter((g) => g.tier === 'sameName').length,
+            vsSharedList: queue.vsShared.slice(0, 40),
+            crossEndList: queue.crossEnd.slice(0, 20),
+          },
           red,
           ratcheted,
           passed: passed.length,
@@ -879,6 +1031,14 @@ function main() {
     console.log(
       `  可一条命令收敛(yes 且出口可达) ${ready} 条 —— 其余各有前置:no 不许并、undetermined 要人工读、不可达要先补包出口`,
     )
+    const sameNameGroups = queue.crossEnd.filter((g) => g.tier === 'sameName')
+    console.log(
+      `  跨名同契约(只开队列,不判红):端内同形于共享名 ${queue.vsShared.length} 条 · 跨端同契约 同名片段 ${sameNameGroups.length} 组 / 异名同形 ${(queue.crossEnd.length - sameNameGroups.length)} 组(后者只是形状撞车,不得当"同一件事")`,
+    )
+    for (const q of sameNameGroups.slice(0, 6))
+      console.log(
+        `    ⇄ 同名跨端 [${q.ends.join(' / ')}] ${q.members.map((m) => `${m.path.split('/').pop()}::${m.name}`).join(' , ')}`,
+      )
     for (const h of hits.filter((x) => x.sameShape === 'yes' && x.reachable === true).slice(0, 12))
       console.log(`    → ${h.path} :: ${h.name} —— ${h.why}`)
     if (hits.length > red.length)
@@ -926,6 +1086,8 @@ export const __test__ = {
   subpathsToFiles,
   shapeVerdict,
   countShapes,
+  shapeKey,
+  crossNameQueue,
   keep,
   specOf,
   listSharedPaths,

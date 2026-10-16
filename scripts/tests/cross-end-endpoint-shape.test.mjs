@@ -147,7 +147,12 @@ const REGISTRY = [
       {
         end: 'miniapp-taro',
         file: 'apps/miniapp-taro/src/pkg-content/activity/index.tsx',
-        reads: (src) => /res\.data\?\.list/.test(src) && !/fetchApi<ActivityItem\[\]>/.test(src),
+        // 两种拼法都算"读了后端真回的键":经 fetchApi 自己判 success 的老写法,
+        // 和经单源壳 apiOrThrow 的新写法(2026-10-16 迁移,壳把信封交出来后再取 .list)。
+        reads: (src) =>
+          /(res\.data\?\.list|apiOrThrow<\{ list: ActivityItem\[\] \}>[\s\S]{0,80}?\bd\.list)/.test(
+            src,
+          ) && !/fetchApi<ActivityItem\[\]>/.test(src),
       },
     ],
   },
@@ -347,6 +352,53 @@ const REGISTRY = [
       },
     ],
   },
+  {
+    // 这一条是"台账把自己判错的路径捡回来"的样本:`/api/asks` 曾被判成死端点,只因注册写成多行形态,
+    // 且前缀要穿两层(index.ts 的 /api → community.ts 里不加前缀的 register(asksRoutes))。
+    ep: 'GET /api/asks',
+    backend: 'apps/api/src/routes/community/asks.ts',
+    backendProves: (src) =>
+      /server\.get\(\s*'\/asks',(?:(?!(?:server|fastify)\.(?:get|post|put|patch|delete)\()[\s\S]){0,2600}?success\(\{ list, total, page, pageSize \}\)/.test(
+        src,
+      ),
+    consumers: [
+      {
+        end: 'mobile-rn',
+        file: 'apps/mobile-rn/src/screens/AskListScreen.tsx',
+        reads: (src) => /res\.data\?\.list/.test(src) && !/fetchApi<AskListItem\[\]>/.test(src),
+      },
+    ],
+  },
+  {
+    // RN 原来打 `/refund`,经 normalizeUrl 补成 `/api/refund`;而唯一的 `'/refund'` 字面注册住在
+    // edu-ai-management.ts(前缀 /api/edu-ai-management)⇒ 那条是 404,用户向真端点是这一条。
+    // 形状证据在 db 层(handler 只写 success(result))⇒ 由 backendAlso 让后端第二处自证,不由消费端反推。
+    ep: 'GET /api/refunds/me',
+    backend: 'apps/api/src/routes/order.ts',
+    // 窗口里禁止跨进下一条注册:否则同文件后面任何一处 success(result) 都会替这条 handler 背书
+    // (实测负控"把 success(result) 改成包 {list}"仍命中 ⇒ 原正则匹到了相邻路由)。
+    backendProves: (src) =>
+      /server\.get\(\s*'\/refunds\/me',(?:(?!(?:server|fastify)\.(?:get|post|put|patch|delete)\()[\s\S]){0,1400}?success\(result\)/.test(
+        src,
+      ),
+    backendAlso: {
+      file: 'apps/api/src/db/order-queries.ts',
+      proves: (src) =>
+        // 必须锚在 findRefunds 自己的签名上:该文件里 findOrders 等多条函数同形,不锚名字的正则
+        // 等于"本文件存在某个分页形状",而不是"这条端点回 {list,total,page,pageSize}"。
+        /findRefunds\([\s\S]{0,200}?\):\s*Promise<\{\s*list:[\s\S]{0,220}?total:[\s\S]{0,220}?page:[\s\S]{0,220}?pageSize/.test(
+          src,
+        ),
+    },
+    consumers: [
+      {
+        end: 'mobile-rn',
+        file: 'apps/mobile-rn/src/screens/RefundHistoryScreen.tsx',
+        reads: (src) =>
+          /res\.data\?\.list/.test(src) && !/fetchApi<RefundHistoryItem\[\]>/.test(src),
+      },
+    ],
+  },
 ]
 
 test('K1 后端形状在位:契约的每一条都由路由侧自证,而不是由调用端互相印证', () => {
@@ -432,7 +484,10 @@ test('K3 阳性对照:把读法退回"信封当数组"必须让判据红(否则 
       (c) => c.end === 'mobile-rn' || c.end === 'miniapp-taro',
     )) {
       const real = read(k.file)
-      const mutated = real.replace(/res\.data\?\.list/g, 'res.data')
+      // 两种拼法都要能退回旧错形:经 fetchApi 的 `res.data?.list`，与经单源壳的 `d.list ?? []`
+      const mutated = real
+        .replace(/res\.data\?\.list/g, 'res.data')
+        .replace(/d\.list \?\? \[\]/g, 'd ?? []')
       assert.notEqual(mutated, real, `${k.file} 变异未命中 ⇒ 契约与写法脱节`)
       assert.equal(k.reads(mutated), false, `${fam.ep} 在 ${k.end} 退回"信封当数组"必须红`)
       assert.equal(k.reads(real), true)
@@ -448,13 +503,14 @@ test('K3 阳性对照:把读法退回"信封当数组"必须让判据红(否则 
 
   // 第七到十四族：同一 App 里两个屏对同一端点各写各的(一个读 .list、一个把信封当数组)，
   // 所以逐消费端变异 —— 只钉"读对的那个"等于没钉。
-  // 第十五族(索引 14)是"前缀 + 裸段"拼出来的路径，变异链里 data?.list → data 已覆盖它的旧错形。
-  for (const idx of [6, 7, 8, 9, 10, 11, 12, 13, 14]) {
+  // 第十五到十七族(索引 14–16)都是"前缀 + 裸段/穿两层 register"拼出来的路径，变异链里 data?.list → data 已覆盖它们的旧错形。
+  for (const idx of [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]) {
     const fam = REGISTRY[idx]
     for (const k of fam.consumers) {
       const real = read(k.file)
       const mutated = real
         .replace(/data\?\.list/g, 'data')
+        .replace(/d\.list \?\? \[\]/g, 'd ?? []')
         .replace(/data\?\.entries/g, 'data')
         .replace(/data\.list \?\? \[\]/g, 'data ?? []')
         .replace(/fetchApi<PageData<NotificationItem>>/g, 'fetchApi<NotificationItem[]>')
@@ -477,6 +533,6 @@ test('K4 覆盖面自证:契约确实覆盖了它点名的每一条,而非静默
   }
   const total = REGISTRY.reduce((n, c) => n + 1 + c.consumers.length, 0)
   assert.equal(checked, total, `应核 ${total} 个文件而实核 ${checked} ⇒ 有静默跳过的端点`)
-  assert.ok(total >= 42, '契约面退化到不足 42 个(15 族)⇒ 有族被删,本文件已不再覆盖当初那条分叉')
+  assert.ok(total >= 46, '契约面退化到不足 46 个(17 族)⇒ 有族被删,本文件已不再覆盖当初那条分叉')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
