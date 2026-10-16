@@ -246,6 +246,31 @@ const REGISTRY = [
       },
     ],
   },
+  {
+    // 第十一族：同一屏里两半各打一条端点，overview 回对象、invited-users 回分页信封 ——
+    // 按数组读记录那半，"已邀请用户"就永远空。
+    ep: 'GET /api/distribution/invited-users',
+    backend: 'apps/api/src/routes/distribution.ts',
+    // 这条 handler 有**两个分支**(传 page/pageSize 走分页、不传走"保持移动端现有行为"全量)，
+    // 两支都包着 list 键 ⇒ 无论调用方怎么问，把整个信封当数组都是错的。断言两支同证，
+    // 只断一支会留下"改了另一支而契约照绿"的缝。
+    backendProves: (src) => {
+      const win =
+        /server\.get\('\/distribution\/invited-users'([\s\S]{0,1600}?)\n  \}\)/.exec(src)?.[1] ?? ''
+      return (
+        win.includes('success({ list, total: list.length })') &&
+        win.includes('success({ list: result.items, total: result.total, page, pageSize })')
+      )
+    },
+    consumers: [
+      {
+        end: 'mobile-rn',
+        file: 'apps/mobile-rn/src/screens/InviteScreen.tsx',
+        reads: (src) =>
+          /listRes\.data\?\.list/.test(src) && !/fetchApi<InviteRecordItem\[\]>/.test(src),
+      },
+    ],
+  },
 ]
 
 test('K1 后端形状在位:契约的每一条都由路由侧自证,而不是由调用端互相印证', () => {
@@ -347,7 +372,7 @@ test('K3 阳性对照:把读法退回"信封当数组"必须让判据红(否则 
 
   // 第七到十族：同一 App 里两个屏对同一端点各写各的(一个读 .list、一个把信封当数组)，
   // 所以逐消费端变异 —— 只钉"读对的那个"等于没钉。
-  for (const idx of [6, 7, 8, 9]) {
+  for (const idx of [6, 7, 8, 9, 10]) {
     const fam = REGISTRY[idx]
     for (const k of fam.consumers) {
       const real = read(k.file)
@@ -373,6 +398,6 @@ test('K4 覆盖面自证:契约确实覆盖了它点名的每一条,而非静默
   }
   const total = REGISTRY.reduce((n, c) => n + 1 + c.consumers.length, 0)
   assert.equal(checked, total, `应核 ${total} 个文件而实核 ${checked} ⇒ 有静默跳过的端点`)
-  assert.ok(total >= 31, '契约面退化到不足 31 个(10 族)⇒ 有族被删,本文件已不再覆盖当初那条分叉')
+  assert.ok(total >= 33, '契约面退化到不足 33 个(11 族)⇒ 有族被删,本文件已不再覆盖当初那条分叉')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
