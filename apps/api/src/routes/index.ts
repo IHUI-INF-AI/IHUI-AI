@@ -273,6 +273,8 @@ import { adminContentOpsRoutes } from './admin-content-routes.js'
 import { adminAuthEduRoutes } from './admin-auth-edu-routes.js'
 // 监控/统计路由（19 个真实聚合端点，替代空桩）
 import { adminMonitoringRoutes } from './admin-monitoring-routes.js'
+// 生产在线端监控大屏数据聚合（2026-10-16 新增）
+import { adminOpsWallboardRoutes } from './admin-ops-wallboard.js'
 // 插件市场统计(2026-07-22 新增,热度/安装量/点击量监测)
 import { adminPluginStatsRoutes } from './admin-plugin-stats.js'
 // 商城路由（10 个端点，替代空桩）
@@ -1016,6 +1018,7 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(adminContentOpsRoutes, { prefix: '/api/admin' })
   server.register(adminAuthEduRoutes, { prefix: '/api/admin' })
   server.register(adminMonitoringRoutes, { prefix: '/api/admin' })
+  server.register(adminOpsWallboardRoutes, { prefix: '/api/admin' })
   server.register(adminPluginStatsRoutes, { prefix: '/api/admin/plugins' })
   server.register(adminShopRoutes, { prefix: '/api/admin' })
   server.register(adminInvoicesRoutes, { prefix: '/api/admin' })

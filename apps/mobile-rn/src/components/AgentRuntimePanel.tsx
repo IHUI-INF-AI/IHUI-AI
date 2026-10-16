@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { View, Text, Pressable, ScrollView } from 'react-native'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadiusFor } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { Check, X } from 'lucide-react-native'
 import { useAgentRuntime, toolDisplayKey, permissionDecisionWord } from '@ihui/shared'
@@ -46,7 +46,9 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
   return (
     <View
       className="flex-1"
-      style={{ backgroundColor: tokens.surface.card, borderRadius: rnRadius.lg }}
+      // 归卡定档见 packages/design-tokens RADIUS_ROLES 注记(2026-09-27 用户定档);
+      // 形态自带角色的写法让 [150] 权威高于组件名后缀,与小程序端同档。
+      style={{ backgroundColor: tokens.surface.card, borderRadius: rnRadiusFor.card }}
     >
       <View
         className="flex-row items-center border-b px-3 py-2"
