@@ -189,6 +189,9 @@
 
   /* 以下 1 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
   --color-chrome: #ffffff;
+
+  /* 以下 1 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
+  --color-glass-bg: rgba(255, 255, 255, 0.66);
 }
 
 .dark {
@@ -309,6 +312,9 @@
 
   /* 以下 1 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
   --color-chrome: #262626;
+
+  /* 以下 1 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
+  --color-glass-bg: rgba(26, 26, 26, 0.66);
 }
 
 /* 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)

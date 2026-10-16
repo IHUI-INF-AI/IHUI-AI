@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { aizhsUrl } from '@/constants/icon-urls'
+import { TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, Image, Slider, CoverView } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
@@ -709,7 +710,17 @@ export default function UserIndex() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen pb-[calc(160rpx+env(safe-area-inset-bottom))]" style={{ background: 'var(--color-background)' }}>
+      {/* 底部留位取单一出处 `constants/tab-bar-metrics`:自定义 tabBar 是浮层
+          (实测 windowHeight == screenHeight,不压缩页面视口)⇒ 页面根容器自己让位。
+          原端内手写的 `pb-[calc(160rpx+env(safe-area-inset-bottom))]`(= 80px,同一名目的
+          第二份量)已由该常量取代,不再留两个互相覆盖的 padding。 */}
+      <View
+        className="min-h-screen"
+        style={{
+          background: 'var(--color-background)',
+          paddingBottom: TAB_BAR_PAGE_RESERVE_CSS,
+        }}
+      >
         {/* ===== DrawerComponent 侧边栏抽屉（对齐原项目结构：outContainer → DrawerComponent → FloatBox → navigation-bars） ===== */}
         <DrawerComponent
           visible={showDrawer}
