@@ -2134,7 +2134,7 @@ IHUI-AI/
 | en    | `apps/web/messages/en.json`    | 破碎机翻英文检测(阻塞)                   |
 | ko    | `apps/web/messages/ko.json`    | 字符范围检测中文残留(阻塞)               |
 | ja    | `apps/web/messages/ja.json`    | 中文残留检测(warn-only,日文汉字词易误报) |
-**11 个 i18n 工具链脚本**(`scripts/`): apply-brand-glossary.mjs / apply-i18n-translations.mjs / apply-translation-fallback.mjs / deep-i18n-audit.mjs / export-untranslated-i18n.mjs / fix-i18n-deep.mjs / scan-hardcoded-zh.mjs / scan-i18n-zh-residue.mjs / translate-i18n-batch.mjs / analyze-unique-i18n-values.mjs / verify-i18n.mjs
+**20 i18n 工具链脚本**(`scripts/`):apply-brand-glossary / apply-i18n-translations / apply-translation-fallback / audit-i18n-missing-evaluate / deep-i18n-audit / export-untranslated-i18n / fix-i18n-deep / fix-missing-i18n-keys / fix-zh-tw-simp / fix-zhtw-parity / generate-i18n / prune-orphan-i18n-namespaces / scan-hardcoded-zh / scan-i18n-zh-residue / scan-zh-tw-untranslated / sync-i18n-fixes / translate-i18n-batch / analyze-unique-i18n-values / verify-i18n / audit-i18n-unused-keys.mjs(无引用 key 审计 + --output-keys 完整列表导出)
 **品牌翻译策略**:优先官方英文名(智谱清言 → Zhipu AI,百度文心 → Baidu ERNIE,火山引擎 → Volcengine 等),机器可读映射表见 `scripts/brand-glossary.json`。
 #### E4. 工程守门(56+10 pre-commit + post-commit + drizzle-kit push 模式)
 项目通过 56+10 pre-commit 项 + post-commit 自动 push + drizzle-kit push 模式脚本杜绝协作事故:
@@ -5644,3 +5644,4 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4415 API 路由 / 595 数
 | 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖**全部命名空间**;`--check` 另比名字 + SHA,AGENTS.md §22) |
 - **顶层敏感文档仅管理员可见**(14 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend / I18N-COMPLETION-PLAN
 | [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国际化完成计划(历史规划)                                             |
+**11 个 i18n 工具链脚本**(`scripts/`): apply-brand-glossary.mjs / apply-i18n-translations.mjs / apply-translation-fallback.mjs / deep-i18n-audit.mjs / export-untranslated-i18n.mjs / fix-i18n-deep.mjs / scan-hardcoded-zh.mjs / scan-i18n-zh-residue.mjs / translate-i18n-batch.mjs / analyze-unique-i18n-values.mjs / verify-i18n.mjs

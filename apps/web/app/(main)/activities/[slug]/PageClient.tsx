@@ -10,7 +10,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Calendar, Users, Check, X, Sparkles } from 'lucide-react'
 import Image from 'next/image'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -53,12 +53,6 @@ const STATUS_KEY: Record<Status, string> = {
   ended: 'status.ended',
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function ActivityDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const router = useRouter()
@@ -68,15 +62,16 @@ export default function ActivityDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['activities', slug],
-    queryFn: () => api<{ activity: Activity }>(`/api/activities/${slug}`).then((d) => d.activity),
+    queryFn: () =>
+      apiOrThrow<{ activity: Activity }>(`/api/activities/${slug}`).then((d) => d.activity),
   })
 
   const joinMut = useMutation({
-    mutationFn: (id: string) => api(`/api/activities/${id}`, { method: 'POST' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/activities/${id}`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['activities', slug] }),
   })
   const leaveMut = useMutation({
-    mutationFn: (id: string) => api(`/api/activities/${id}/join`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/activities/${id}/join`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['activities', slug] }),
   })
 
