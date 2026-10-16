@@ -62,12 +62,14 @@ vi.mock('@/i18n', () => ({
     setLocale: () => {},
   }),
   t: (key: string) => key,
-  useTt: () => (key: string, fb: string) => fb,
+  // 端内 tt(key, fb) 在本 mock 下恒回落 fb(mock 的 t 原样回吐键名,取不到译文);
+  // 第一个槽位由调用方 arity 决定,刻意不读,故按 eslint argsIgnorePattern '^_' 命名
+  useTt: () => (_key: string, fb: string) => fb,
 }))
 
 vi.mock('@/components/ThemeRoot', () => {
-  const Stub = (props: Record<string, unknown>) =>
-    createElement('div', { className: props.className as string }, props.children)
+  const Stub = (props: { className?: string; children?: ReactNode }) =>
+    createElement('div', { className: props.className }, props.children)
   Stub.displayName = 'ThemeRootStub'
   return { default: Stub }
 })
@@ -91,7 +93,7 @@ vi.mock('@/constants/remote-icons', () => ({
   },
 }))
 
-import { createElement } from 'react'
+import { createElement, type ReactNode } from 'react'
 import {
   clearServerConversations,
   applyServerClearResult,
