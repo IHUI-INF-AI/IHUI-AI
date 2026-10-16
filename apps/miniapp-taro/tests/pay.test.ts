@@ -143,9 +143,14 @@ describe('miniapp-taro 微信支付调起', () => {
 
     it('使用 orderInfo 对象时 JSON 序列化', async () => {
       mockPaymentSuccess()
+      // orderInfo 的对象形态在类型层重新可用:AnyPayParams 原先写成 WxPayParams & AliPayParams,
+      // 两侧同名键 orderInfo 一宽(string | Record)一窄(string),交集把它压成无任何字面量可满足的形态,
+      // 而运行时分支一直支持对象序列化(packages/shared/src/pay/normalize.ts 的 buildAppWxOrderInfo)。
+      // 契约已按"两侧任一可接受的值"收口,故这里不再需要断言逃逸。
       await requestWxPayment({ orderInfo: { foo: 'bar' } })
-      const call = fns.requestPayment.mock.calls[0][0] as Record<string, unknown>
-      expect(call.orderInfo).toBe(JSON.stringify({ foo: 'bar' }))
+      const call = fns.requestPayment.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+      expect(call).toBeDefined()
+      expect(call?.orderInfo).toBe(JSON.stringify({ foo: 'bar' }))
     })
 
     it('从字段构建 orderInfo', async () => {
@@ -157,8 +162,9 @@ describe('miniapp-taro 微信支付调起', () => {
         nonceStr: 'n',
         sign: 's',
       })
-      const call = fns.requestPayment.mock.calls[0][0] as Record<string, unknown>
-      const orderInfo = JSON.parse(call.orderInfo as string)
+      const call = fns.requestPayment.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+      expect(call).toBeDefined()
+      const orderInfo = JSON.parse(call?.orderInfo as string)
       expect(orderInfo.appid).toBe('wx123')
       expect(orderInfo.partnerid).toBe('p1')
       expect(orderInfo.prepayid).toBe('pre1')
@@ -300,8 +306,9 @@ describe('miniapp-taro 微信支付调起', () => {
       state.env = 'rn'
       mockPaymentSuccess({})
       await unifiedPay('alipay', { orderInfo: 'test' })
-      const call = fns.requestPayment.mock.calls[0][0] as Record<string, unknown>
-      expect(call.provider).toBe('alipay')
+      const call = fns.requestPayment.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+      expect(call).toBeDefined()
+      expect(call?.provider).toBe('alipay')
     })
   })
 })
