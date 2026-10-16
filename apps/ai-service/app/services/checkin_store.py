@@ -343,21 +343,36 @@ async def _heal_uuid_names(
       MiniMax 的 payload claims 可解析)+ device_map.nickname 兜底(网页 Cookie 模式);
     - 幂等:修好不再命中(UUID 形态才触发,零常驻成本);
     - 取不到更好名时静默保持原状(不报错、不改写),用户仍可行内重命名。
+
+    2026-10-16 加固:单账号解密失败(跨机密钥不一致遗留的坏密文)必须就地跳过 ——
+    放到列表链路上抛异常会把整个 GET /accounts 打成 500、整页签到功能不可用
+    (实测生产存在此形态密文)。失败只记 warning,不影响其余账号与整表返回。
     """
     for row, acc in zip(rows, accounts, strict=True):
         if not uuid_shaped_name(acc.get("name")):
             continue
-        jwt = _decrypt_jwt(row["jwt_enc"]) if row.get("jwt_enc") else ""
+        try:
+            jwt = _decrypt_jwt(row["jwt_enc"]) if row.get("jwt_enc") else ""
+        except Exception as e:  # noqa: BLE001 — 单账号坏密文不得打挂整表
+            logger.warning(
+                "[checkin_store] 账号 %s 密文不可解,跳过取名自愈(需重录凭证): %s",
+                acc.get("id"),
+                e,
+            )
+            continue
         better = extract_display_name(jwt, acc.get("device_map") or {})
         if not better or better == acc["name"]:
             continue
-        if await update_account_name(acc["id"], owner_user_id, better):
-            acc["name"] = better
-            logger.info(
-                "[checkin_store] 账号名自愈 UUID 编码 -> 展示名 id=%s name=%s",
-                acc["id"],
-                better,
-            )
+        try:
+            if await update_account_name(acc["id"], owner_user_id, better):
+                acc["name"] = better
+                logger.info(
+                    "[checkin_store] 账号名自愈 UUID 编码 -> 展示名 id=%s name=%s",
+                    acc["id"],
+                    better,
+                )
+        except Exception as e:  # noqa: BLE001 — 自愈是增强,不得反噬列表读取
+            logger.warning("[checkin_store] 账号 %s 取名自愈落库失败: %s", acc.get("id"), e)
 
 
 async def delete_account(account_id: int, owner_user_id: str) -> bool:
