@@ -39,7 +39,6 @@
  * 取不到面 ⇒ exit 2 拒绝出合格证,不回落、不记绿。
  */
 import { Undetermined, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
-import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
@@ -299,7 +298,7 @@ function runSelfTest() {
   const cases = [
     { name: '同题不同号必命中', lines: ['- [ ] G-100 **修复登录超时问题** 详情甲', '- [ ] G-999 **修复登录超时问题。** 详情乙(2026-10-13)'], expect: 1 },
     { name: '不同题不命中', lines: ['- [ ] G-100 **修复登录超时问题**', '- [ ] G-101 **新增导出报表功能**'], expect: 0 },
-    { name: '同号多行不算本门(F4地盘)', lines: ['- [ ] G-100 **修复登录超时问题**', '- [ ] G-100 **修复登录超时问题**'], expect: 0 },
+    { name: '同号多行成组(第四类,2026-10-16 机主令一号一行)', lines: ['- [ ] G-100 **修复登录超时问题**', '- [ ] G-100 **修复登录超时问题**'], expect: 1 },
     { name: '指针行豁免', lines: ['- [ ] G-100 **修复登录超时问题**', '- [ ]〔【归并】重复登记副本:本行与 G-100 同题,派单以那条为准〕'], expect: 0 },
     { name: '编号引用不污染指纹', lines: ['- [ ] G-100 **修复 G-99 引起的登录超时**', '- [ ] G-101 **修复 G-88 引起的登录超时**'], expect: 1 },
     { name: '前置状语归一', lines: ['- [ ]（进行中@2026-10-05/g1-main）G-401 **MCP 工具免批准重跑（需拍板）**', '- [ ]G-768 **MCP 工具免批准重跑（需拍板）**'], expect: 1 },
