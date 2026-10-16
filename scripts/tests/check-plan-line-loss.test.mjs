@@ -332,6 +332,49 @@ test('射程锁(归档豁免):清偿台账 plan-pointer-purge-*.md 必须在豁�
   assert.doesNotMatch(fn, /readdirSync\(/, '射程放宽不得顺手把 archivedCopy 退回按磁盘判(G-183 ③ 的洞)')
 })
 
+test('盘读族射程锁(tmp/ 清偿台账):readdirSync/盘读只许发生在豁免这一族,且路径前缀钉死 POSIX 斜杠', () => {
+  // 06943c8c78 把裸 join(×3)与未 import 的 readdirSync 带进 HEAD,门 71 一跑就
+  // ReferenceError(自测第一档即崩)——提交时没跑过任何到达这函数的路径、自测对盘读族
+  // 零覆盖,所以它能静默进 HEAD。本锁把三个 API 的拼写与射程钉死,防下一枚重演。
+  const src = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
+  // 段必须同时包住 faceArchiveFiles + faceArchiveBlobs(盘读分拣住在后者);
+  // 止于 archivedCopy 的头注 —— 头注里那句「旧实现是 readdirSync(ARCHIVE_DIR)」是对
+  // G-183 缺陷的说明,不是判据现场(G-183 档同一条纪律:注释里的字样不作数)。
+  const raw = src.slice(
+    src.indexOf('function faceArchiveFiles'),
+    src.indexOf('export function archivedCopy'),
+  )
+  assert.ok(raw.length > 100, '没切到 faceArchiveFiles+faceArchiveBlobs 段 ⇒ 本锁变成空判据')
+  // 只看代码:滤掉 // 与 /* */ 注释放行,防"注释里提了一句"就算断过的假绿
+  const disks = raw
+    .split('\n')
+    .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
+    .join('\n')
+  assert.match(disks, /readdirSync\(tmpDir\)/, '盘读枚举必须发生在 faceArchiveFiles(且形如 readdirSync(tmpDir))')
+  assert.match(
+    disks,
+    /const tmpRel = '\.ihui-agent\/tmp'/,
+    "tmpRel 必须是 POSIX 正斜杠字面量 —— 拼成 join('.ihui-agent','tmp') 在 Windows 上得到反斜杠,与 faceArchiveBlobs 的 startsWith('.ihui-agent/tmp/') 前缀错配 ⇒ 盘读族被静默丢空,豁免失效=假红回潮",
+  )
+  assert.match(
+    disks,
+    /startsWith\('\.ihui-agent\/tmp\/'\)/,
+    '盘读族分拣必须按 .ihui-agent/tmp/ 前缀钉死(防射程漂移:本机任意位置写一份台账就出具凭据,G-183 ③ 同族)',
+  )
+  assert.match(
+    disks,
+    /readFileSync\(path\.join\(root, \.\.\.p\.split\('\/'\)/,
+    '盘读内容必须经 faceArchiveBlobs 的 diskFiles 分拣后,按 POSIX 分段拼本机路径',
+  )
+  // 盘读 API 不得逃出这一族:切走上面那段之后,src 其余代码(注释行除外)不得再出现 readdirSync(
+  const rest = src.slice(0, src.indexOf('function faceArchiveFiles')) + src.slice(src.indexOf('export function archivedCopy'))
+  const codeOnly = rest
+    .split('\n')
+    .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
+    .join('\n')
+  assert.doesNotMatch(codeOnly, /readdirSync\(/, 'readdirSync 逃出盘读族 ⇒ 又有别的路径在读磁盘目录(判据面偷偷读盘,G-183 ③ 同型)')
+})
+
 test('取材面形状锁:缺省面必须是 head,磁盘面只能经取材层,三面各一支且不回落', () => {
   const src = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
   const pick = src.slice(
