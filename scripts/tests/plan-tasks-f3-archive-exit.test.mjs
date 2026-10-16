@@ -183,8 +183,10 @@ test('T1b 带指针的行由归档档 F3 单独收口、F1 按档 A 豁免 ⇒ �
     // (本文件上面实测:该夹具只产 F3,forks=0)⇒ 原来的 stripped 变异对照落在射程外,两闸双双返回空。
     // 处理口径:不删这条锁(删了就没人知道契约还在),改为**手工合成** F1+F3 的记录去喂闸门 —— 任何
     // 生产者(自检/镜像/未来的合并器)若发出这种形态且少传 pointerArchived,闸门仍必须拦。
-    // ⚠️ 同时如实记下没被覆盖的那一格:**F3-only 形态目前没有"少传归档值"的等价检测**;要不要把
-    // normalizeForkedBefore 的射程从 (F3∧F1|F2) 扩到 F3,属于判据变更,归该链持有人裁,不由测试侧单改。
+    // ⚠️ 更正我上一手写在这里的话(当时记的是「F3-only 没有等价的少传检测,是一格没被覆盖的洞」):
+    // **那个洞不存在**。实测同一条 F3-only 记录,传完整 pointerArchived 与把这一维整块摘掉,两道闸结论
+    // 逐字相同 ⇒ F3-only 根本不读这个值(F3 对账走 f3Reading() 那份共用读数,G-184)。因此正确处置不是把
+    // normalizeForkedBefore 的射程扩到 F3-only(试过,只是白改 before),而是把它钉成下面的不变量锁。
     const synth = r.changed.map((c) => ({
       line: c.line,
       kind: `F1+${c.kind}`,
@@ -203,6 +205,23 @@ test('T1b 带指针的行由归档档 F3 单独收口、F1 按档 A 豁免 ⇒ �
       verifyMerge(doc, r.text, synth).problems.some((x) => x.includes('逐字相等')),
       '报告档同一形态也必须点名(两闸各一份,只装一道将来另一道会漂)',
     )
+    // ②b F3-only 的**不变量锁**(2026-10-16):生产现在只发 F3-only(档 A 之后无 F1+F3 同行),
+    // 而这条记录的 pointerArchived 到底传不传,两道闸必须给出**逐字相同**的结论 —— 因为它不读这个值
+    // (F3 的对账自走 f3Reading() 那份共用读数,G-184)。我一度把"stripped 两闸返回空"读成漏判的洞,
+    // 那是没先做这一步对照;真正该锁的是"值不承载结论",而不是"少传必红"。
+    // 若哪天 F3-only 开始依赖这个值,下面这条会因两侧不再等值而翻红,而不是静默放行。
+    const strippedLive = r.changed.map((c) => ({ line: c.line, kind: c.kind, before: c.before, after: c.after }))
+    assert.deepEqual(
+      healStopReasons(doc, r.text, strippedLive, 0),
+      stop,
+      'F3-only 少传 pointerArchived 与完整记录必须同结论(该值不承载这道闸)——不等值即意味着 F3 开始依赖它,须回来补正向锁',
+    )
+    assert.deepEqual(
+      verifyMerge(doc, r.text, strippedLive).problems,
+      rep.problems,
+      '报告档同一不变量:传与不传结论必须一致',
+    )
+    assert.deepEqual(strippedLive.map((c) => c.kind), r.changed.map((c) => c.kind), '夹具前提:两组记录 kind 相同,比的只是 pointerArchived 这一维')
   } finally {
     setArchivedIndex(null)
   }

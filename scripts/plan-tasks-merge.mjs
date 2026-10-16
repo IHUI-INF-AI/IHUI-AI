@@ -3688,6 +3688,11 @@ export function healStopReasons(srcText, merged, changed, refusedCount, adj = nu
  */
 function normalizeForkedBefore(changed) {
   if (!Array.isArray(changed)) return changed
+  // 射程刻意只覆盖 F3∧F1|F2:这条归一化是为"翻勾类记录要用 before 比正文逐字相等"服务的,
+  // 而 F3-only 那一支不读 c.pointerArchived —— 它的对账自走 f3Reading()(G-184 的两道闸共用出口)。
+  // 2026-10-16 实测坐实:同一条 F3-only 记录,传完整 pointerArchived 与整维摘掉,两道闸结论逐字相同
+  // (均不停手、均不报问题)⇒ 这里没有"少传即漏判"的洞,不要为了账面补洞去扩射程(扩了也只是白改 before)。
+  // 该不变量由镜像臂 `F3-only 传与不传必须同结论` 钉住;若哪天 F3-only 真的开始依赖这个值,那条臂会先红。
   return changed.map((c) =>
     /(?:^|\+)F3(?:\+|$)/.test(c.kind ?? '') && /(?:^|\+)F[12](?:\+|$)/.test(c.kind ?? '')
       ? {
