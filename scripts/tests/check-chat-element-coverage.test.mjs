@@ -892,11 +892,15 @@ test('端到端③(判死):归档件与退役 ledger **两个来源都空** ⇒ 
 })
 
 // 来源优先级:ledger 只是"归档件整批退出"时的顶班凭据,**不得顶掉面上的真凭据**。
-// 两臂都在私有索引里造出 ledger(内容 = 真 ledger 文件原文,不经它就无法证明"它在场"),
+// 两臂都在私有索引里造出 ledger(内容 = HEAD 面 ledger blob 原文,不经它就无法证明"它在场"),
 // 一臂再加一份面上归档件 ⇒ 必须读归档件(source='face')、不打印 ledger 那一行。
 test('端到端④(来源优先级锁):面上同时有归档件与退役 ledger ⇒ 必须用归档件,ledger 不得顶掉真凭据', () => {
   const { kept, moved } = buildMovedBatch()
-  const ledgerText = readFileSync(join(ROOT_DIR, LEDGER_REL), 'utf8')
+  // 不按工作区磁盘读 ledger:共享工作树下他席随时可删该盘副本(2026-10-19 实测 ` D` 在飞,
+  // HEAD/索引面 blob 完好而盘上 0 字节 ⇒ 本臂曾因此 ENOENT)。磁盘快照不可作为仓库事实,
+  // 与本文件 407/697 行两条形状锁同纪律;取被审的 HEAD 面 blob——夹具私有索引的基面
+  // 正是 read-tree HEAD,同面同轮。取不到 ⇒ gitIn 当场 throw 点名,不静默换夹具(§0.3)。
+  const ledgerText = gitIn(['show', `HEAD:${LEDGER_REL}`], process.env)
   assert.ok(ledgerText.trim(), `${LEDGER_REL} 取不到或为空 ⇒ 本臂的凭据无从构造(取不到就明说,不静默换夹具)`)
   const both = runStagedWithPrivateIndex({
     planText: kept.join('\n'),

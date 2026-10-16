@@ -16,14 +16,16 @@
  * 本文件只钉三条不变量,放宽其中任何一条都必须当场红:
  *   T1 `.git` 是垃圾文件 ⇒ 回退到 separate-git-dir 约定落点,**绝不**回退到指针自身;
  *   T2 `.git` 是目录(常规仓库)⇒ 它本身就是 gitdir(不得因修 T1 把常规仓改坏);
- *   T3 真工作树现读:gitdir 是库外实体,与 `.git` 不同形(指针形态成立)。
+ *   T3 真工作树现读:gitdir 解析与**当次实测的 `.git` 节点形态**自洽(形态是机器事实,
+ *      按 AGENTS.md 前言须现读——本机 2026-10-16 实测 = 工作区内 `.git` 实体目录;
+ *      另一形态 separate-git-dir 指针上同样有断言,两臂各有牙,公共不变量两形态都判);
  *   T4 接线:`healFromBackup` / `healFromRemote` 两处破坏性写入前都必须过准入闸。
  *
  * 零副作用:夹具落 `mkScratch`(§26 唯一临时物落点),跑完 `rmScratch`。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -70,20 +72,31 @@ test('T2 `.git` 是目录(常规仓库)⇒ 它本身就是 gitdir', () => {
   }
 })
 
-test('T3 真工作树现读:gitdir 是库外实体,与 `.git` 不同形', async () => {
+test('T3 真工作树现读:gitdir 解析与当次实测的 `.git` 节点形态自洽', () => {
   const wt = resolveWorktree()
   const gd = resolveGitdir(wt)
+  assert.ok(gd, 'resolveGitdir 必须给出一个 gitdir')
   assert.ok(existsSync(gd), `解析出的 gitdir 必须真实存在:${gd}`)
-  assert.equal(same(gd, join(wt, '.git')), false, 'separate-git-dir 形态下 gitdir 不得落在工作树内')
+  assert.ok(existsSync(join(gd, 'HEAD')), `gitdir 必须承载 HEAD(解析落点错了这里就没有 HEAD):${gd}`)
   const pointer = join(wt, '.git')
-  assert.ok(existsSync(pointer), '工作树 `.git` 指针必须存在')
-  const raw = (await import('node:fs')).readFileSync(pointer, 'utf8').trim()
-  assert.match(raw, /^gitdir:\s*\S+/i, `.git 必须是指针文件,实得 ${raw.slice(0, 40)}`)
-  assert.equal(
-    same(raw.match(/^gitdir:\s*(.+)$/i)[1].trim().replace(/\\/g, '/'), gd),
-    true,
-    '指针指向的路径必须与解析出的 gitdir 同形',
-  )
+  // 形态本身是机器事实(AGENTS.md 前言七类之一),当次实测分叉;两臂都有硬断言,判据不恒真。
+  // statSync 在 `.git` 不存在时直接抛 ⇒ 测试环境本身坏掉也会红,不会静默放过。
+  if (statSync(pointer).isDirectory()) {
+    // 形态 A(常规仓库,本机 2026-10-16 实测):`.git` 目录本身就是 gitdir,
+    // 解析绝不得跑去同级 sibling——那会把真工作树的 gitdir 指向不存在的目录。
+    assert.equal(same(gd, pointer), true, `常规形态下 GITDIR 应等于 <wt>/.git,实得 ${gd}`)
+    assert.ok(statSync(gd).isDirectory(), '形态 A:gitdir 必须是目录')
+  } else {
+    // 形态 B(separate-git-dir 指针):gitdir 必须是库外实体,与指针自身同形即 2026-10-16 事故自指态。
+    assert.equal(same(gd, pointer), false, 'separate-git-dir 形态下 gitdir 不得落在工作树内')
+    const raw = readFileSync(pointer, 'utf8').trim()
+    assert.match(raw, /^gitdir:\s*\S+/i, `.git 必须是指针文件,实得 ${raw.slice(0, 40)}`)
+    assert.equal(
+      same(raw.match(/^gitdir:\s*(.+)$/i)[1].trim().replace(/\\/g, '/'), gd),
+      true,
+      '指针指向的路径必须与解析出的 gitdir 同形',
+    )
+  }
 })
 
 test('T4 接线:两处破坏性恢复前都必须过 gitdirTargetSafe 准入闸', async () => {
