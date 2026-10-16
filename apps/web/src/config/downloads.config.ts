@@ -87,6 +87,9 @@
  *  - 每次发版(desktop-vX.Y.Z)后,下载页自动展示新版本号、日期与安装包,无需改代码。
  */
 
+import cliPkg from '../../../cli/package.json'
+import extensionPkg from '../../../extension/package.json'
+import mobileRnPkg from '../../../mobile-rn/package.json'
 import { DESKTOP_FEED } from './desktop-feed.generated'
 
 /** 项目所有支持的下载端(8 端),与 apps/* 目录一一对应 */
@@ -373,7 +376,9 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
   return {
     web: {
       platform: 'web',
-      version: '1.0.0',
+      // 2026-10-17:此处历史上写死 '1.0.0',而 apps/web 真实版本是 0.0.0 —— 一个从没对过的假号。
+      // web 是 PWA(`href: '/'`),没有可下载的、有版本概念的安装包,
+      // 展示一个"看起来像版本号"的字符串属于凭空给信息 ⇒ 改为不设版本(详情页不渲染该字段)。
       releaseDate: '2026-08-06',
       systemRequirementsKey: 'downloadWebSysReq',
       installGuideKey: 'downloadWebInstallGuide',
@@ -417,7 +422,10 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
     },
     mobile: {
       platform: 'mobile',
-      version: '1.0.0',
+      // 同 web:写死的 '1.0.0' 与真实版本(0.0.5)从未一致。改为直读 apps/mobile-rn 的
+      // package.json —— 该值又是 CI 构建 APK 时注入 versionName 的基准 ⇒ 详情页显示的
+      // 与用户装到的包同史。
+      version: mobileRnPkg.version || undefined,
       releaseDate: '2026-08-06',
       systemRequirementsKey: 'downloadMobileSysReq',
       installGuideKey: 'downloadMobileInstallGuide',
@@ -436,7 +444,7 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
     },
     extension: {
       platform: 'extension',
-      version: '1.0.0',
+      version: extensionPkg.version || undefined,
       releaseDate: '2026-08-06',
       systemRequirementsKey: 'downloadExtensionSysReq',
       installGuideKey: 'downloadExtensionInstallGuide',
@@ -452,7 +460,7 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
     },
     cli: {
       platform: 'cli',
-      version: '1.0.0',
+      version: cliPkg.version || undefined,
       releaseDate: '2026-08-06',
       systemRequirementsKey: 'downloadCliSysReq',
       installGuideKey: 'downloadCliInstallGuide',

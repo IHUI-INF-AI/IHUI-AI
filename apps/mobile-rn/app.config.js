@@ -83,10 +83,16 @@ module.exports = ({ config }) => {
   // 版本号:android.versionCode 与 ios.buildNumber 同源(见 resolveBuildNumber 头注)。
   // prebuild 时分别写入 build.gradle 与 Info.plist;EAS(remote 源)不读这两个值。
   const buildNumber = resolveBuildNumber()
+  // 显示版本号(2026-10-17 起):CI 每次构建由 scripts/resolve-mobile-version.mjs 派生
+  // (形态 `<base>.<UTC YYYYMMDD>`)并通过 IHUI_MOBILE_VERSION 注入 ⇒ **每次发 APK 自动涨**,
+  // 无需有人记得改 package.json。本地/未注入时回退 package.json,行为与历史一致。
+  // 同名的值还会以 EXPO_PUBLIC_IHUI_MOBILE_VERSION 走进 JS bundle(src/lib/config.ts),
+  // 两端读的是**同一串**,不可能出现"原生号 ≠ 界面号"。
+  const displayVersion = process.env.IHUI_MOBILE_VERSION || pkg.version
 
   return {
     ...config,
-    version: pkg.version,
+    version: displayVersion,
     android: { ...config.android, versionCode: buildNumber },
     ios: { ...config.ios, buildNumber: String(buildNumber) },
     plugins: [
