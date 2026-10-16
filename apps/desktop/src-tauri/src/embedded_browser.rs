@@ -509,6 +509,69 @@ pub fn set_memory_low(webview: &tauri::webview::Webview, low: bool) {
     }
 }
 
+/// 把某个 webview 真正挂起 / 恢复(Windows / WebView2)。
+///
+/// 与 [`set_memory_low`] 互补:`set_memory_low` 只是把内存**目标档位**调低(告诉
+/// 运行时"优先省内存",webview 仍活着);本函数用 WebView2 官方挂起 API
+/// `CoreWebView2.TrySuspend` / `Resume` 把 webview **真正冻结** —— 释放渲染进程
+/// 占用、暂停 JS/定时器,保留页面状态,回前台 `Resume` 无重载闪烁。
+///
+/// 失焦 ⇒ suspend=true,回到前台 ⇒ false。用法同 `set_memory_low`:**窗口失焦 ⇒ 挂起,
+/// 回前台 ⇒ 恢复**。
+///
+/// 安全要点(2026-10-16 立):本 binding(webview2-com 0.38)里没有 `TrySuspendAsync`,
+/// 而是 handler 形态的 `TrySuspend(handler)` —— 立即返回,结果经 completion handler
+/// 回投到 WebView2 UI 线程。绝不能用 `wait_for_async_operation`(内部 wait_with_pump
+/// 会在 `with_webview` 闭包内重入 UI 线程消息循环 → 死锁);只用
+/// `TrySuspendCompletedHandler::create(closure)`(fire-and-forget,闭包只记日志)。
+/// `Resume()` 无 handler,直接调即可。Runtime < ~88 时 `cast::<ICoreWebView2_3>()`
+/// 失败 ⇒ 直接跳过(no-op),与 `set_memory_low` 一致。TrySuspend 是 best-effort:页面
+/// 正在导航/播放媒体等会返回 did_suspend=false,属正常,不强制。
+pub fn set_suspend(webview: &tauri::webview::Webview, suspend: bool) {
+    #[cfg(windows)]
+    {
+        use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_3;
+        use webview2_com::TrySuspendCompletedHandler;
+        use windows_core::Interface;
+        let _ = webview.with_webview(move |pw| {
+            // 与 set_memory_low 完全一致的 COM 链:controller → CoreWebView2 →
+            // cast 到版本化接口 _3(TrySuspend/Resume 只在 ICoreWebView2_3 上;
+            // Runtime < ~88 时 cast 失败 ⇒ 直接跳过)。
+            let controller = pw.controller();
+            let core = match unsafe { controller.CoreWebView2() } {
+                Ok(c) => c,
+                Err(_) => return,
+            };
+            let v3: ICoreWebView2_3 = match core.cast() {
+                Ok(v) => v,
+                Err(_) => return,
+            };
+            if suspend {
+                let handler = TrySuspendCompletedHandler::create(Box::new(|hr, did_suspend: bool| {
+                    if let Err(e) = hr {
+                        log::debug!("[embedded-browser] TrySuspend 报错: {e}");
+                    } else if !did_suspend {
+                        log::debug!("[embedded-browser] TrySuspend 未实际挂起(页面导航/媒体等,best-effort)");
+                    }
+                    Ok(())
+                }));
+                // TrySuspend 要的是 &handler(借引用);直接传 handler 不满足 Param bound。
+                unsafe {
+                    let _ = v3.TrySuspend(&handler);
+                }
+            } else {
+                unsafe {
+                    let _ = v3.Resume();
+                }
+            }
+        });
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (webview, suspend);
+    }
+}
+
 /// 对整个内嵌浏览器(当前活动标签页)设置内存档位。
 #[allow(dead_code)]
 pub fn set_active_memory_low(app: &AppHandle, low: bool) {
