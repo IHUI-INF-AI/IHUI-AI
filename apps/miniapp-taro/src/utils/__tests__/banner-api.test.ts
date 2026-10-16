@@ -36,6 +36,20 @@ vi.mock('@tarojs/taro', () => ({
 vi.mock('@ihui/api-client', () => ({
   fetchApi: (url: string, options?: { method?: string; params?: unknown }) =>
     mockFetchApi(url, options?.params),
+  // D49①:rateChatMessage 真实语义 = fetchApi POST /api/chat/messages/feedback,
+  // 成功回 data、失败抛 error(与 packages/api-client chat.ts 实现同构)
+  rateChatMessage: async (input: { messageId: string; rating: string }) => {
+    const res = await mockFetchApi('/api/chat/messages/feedback', {
+      method: 'POST',
+      body: JSON.stringify({ messageId: input.messageId, rating: input.rating }),
+    })
+    if (!res.success) throw new Error(res.error ?? '反馈提交失败')
+    return res.data
+  },
+  // 模块顶层绑定/re-export 用到的其余端点(本测试不调用,占位即可)
+  sendToolApprovalResponse: vi.fn(),
+  postToolApprovalResponse: vi.fn(),
+  runResumableSSEStream: vi.fn(),
 }))
 
 import { getBannerList, getHomePage, type Banner } from '../../api'
