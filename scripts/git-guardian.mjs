@@ -3148,6 +3148,15 @@ export function healUnresponsiveServices(opts = {}) {
 
 const OPS_PATROL_INTERVAL_MS = Number(process.env.IHUI_OPS_PATROL_INTERVAL_MS || 15 * 60 * 1000)
 const OPS_PATROL_TIMEOUT_MS = Number(process.env.IHUI_OPS_PATROL_TIMEOUT_MS || 180_000)
+// ── 巡检发信的持续性门槛(2026-10-16 立,与 auditPublicPathProbe 共用 `bumpProbeStreak` 同一份实现)──
+// 门槛取 **3 轮 ≈ 45 分钟**,这个数不是拍的,是当天量出来的:P4a(Temp 条目越阈)今天两场风暴
+// 各只持续了 2 轮就自己回绿(05:21Z 64,205>60,000、05:36Z 64,289 ⇒ 05:51Z 已绿;07:52Z 又一模一样),
+// 而真待修的那一族(备份停摆 63 小时、规则没上岗、副本没出机)一红就是几十轮。
+// ⇒ 3 轮掐得掉"下一轮就没了"的尖峰,压不住真故障;单轮/两轮尖峰只逐轮报名(红档与原因照旧每轮打印、
+// 每轮落 `.workbuddy/ops-patrol-last.json`),**不发信 ≠ 不留痕**(§5e-1:红了要能答"收信人能做什么")。
+const OPS_PATROL_STREAK_FILE = join(WORKTREE, '.workbuddy', 'ops-patrol-streak.json')
+const OPS_PATROL_STREAK_REQUIRED = Number(process.env.IHUI_OPS_PATROL_STREAK || 3)
+const OPS_PATROL_STREAK_TTL_MS = Number(process.env.IHUI_OPS_PATROL_STREAK_TTL_MS || 24 * 60 * 60 * 1000)
 
 /** 节流判定(纯函数):距上次派发是否已够一个间隔。取不到 tick 文件 ⇒ 视为**该跑了**。 */
 export function publicProbeDue(nowMs, tickMs, intervalMs = PUBLIC_PROBE_INTERVAL_MS) {
@@ -3179,6 +3188,10 @@ export function auditOpsPatrol(opts = {}) {
     now = Date.now(),
     intervalMs = OPS_PATROL_INTERVAL_MS,
     tickFile = OPS_PATROL_TICK,
+    streakFile = OPS_PATROL_STREAK_FILE,
+    requiredStreak = OPS_PATROL_STREAK_REQUIRED,
+    streakTtlMs = OPS_PATROL_STREAK_TTL_MS,
+    minGapMs = Math.floor(OPS_PATROL_INTERVAL_MS / 2),
     logger = log,
     notify = notifyGuardRed,
     runner = null,
@@ -3228,13 +3241,62 @@ export function auditOpsPatrol(opts = {}) {
     }
     const findings = parsed.findings || []
     const undet = parsed.undetermined || []
-    if (undet.length) logger(`ℹ️ 元运维巡检:${undet.length} 格未判定(只登记不喊人)—— ${undet.map((x) => x.id).join(', ')}`)
+    if (undet.length) {
+      logger(`ℹ️ 元运维巡检:${undet.length} 格未判定(只登记不喊人)—— ${undet.map((x) => x.id).join(', ')}`)
+      // 只报格名等于"下一轮还是同一条无名盲区"(§0.3)。原因逐格带上界 120 字符、最多 5 条,
+      // 超出部分指回 `.workbuddy/ops-patrol-last.json`(门在 --json 档也会落盘)——
+      // 这一格每 15 分钟一轮,不设界就是往守护日志里堆无限账。
+      for (const x of undet.slice(0, 5)) logger(`   · 未判定原因 ${x.id}:${String(x.detail || '(门没给原因)').slice(0, 120)}`)
+      if (undet.length > 5) logger(`   · 另有 ${undet.length - 5} 格未判定,原因见 .workbuddy/ops-patrol-last.json`)
+    }
+    // ── 持续性门槛(与公网探测同一份 `bumpProbeStreak`,不写第二份,§22c)──────────────
+    // 身份 = 格 id;`ok` 清零、`unjudged` 不推进也不清零、`breach` +1(不足 minGapMs 的重复测量只报名)。
+    // 账本读不出的失效方向钉死为**多喊一次**:除"文件本来就不在(第一轮)"外,任何读失败都按门槛 1
+    // 立即到人(§0.10:绝不能因为账本坏了就静默)。
+    const verdicts = {}
+    for (const x of parsed.ok || []) verdicts[x.id] = { verdict: 'ok' }
+    for (const x of parsed.adjudicated || []) verdicts[x.id] = { verdict: 'ok' } // 已裁 = 本轮不需要到人
+    for (const x of undet) verdicts[x.id] = { verdict: 'unjudged' }
+    for (const x of findings) verdicts[x.id] = { verdict: 'breach' }
+    let prevStreak = {}
+    let effRequired = requiredStreak
+    try {
+      const parsedStreak = JSON.parse(readFileSync(streakFile, 'utf8'))
+      if (parsedStreak && typeof parsedStreak === 'object' && !Array.isArray(parsedStreak)) prevStreak = parsedStreak
+      else effRequired = 1
+    } catch (e) {
+      if (String(e?.code || '') !== 'ENOENT') effRequired = 1
+      logger(`ℹ️ 元运维巡检连击账本:${String(e?.code || e?.message || e).slice(0, 60)}${effRequired === 1 && requiredStreak !== 1 ? ' ⇒ 读不出,本轮按"越阈即寄"处理(宁多勿默)' : ''}`)
+    }
+    const bump = bumpProbeStreak(prevStreak, verdicts, { now, required: effRequired, ttlMs: streakTtlMs, minGapMs })
+    for (const c of bump.cleared) logger(`✅ 元运维巡检连击清零:${c.key}(此前连 ${c.from} 轮,本轮已判定合规)`)
+    for (const [key, i] of Object.entries(bump.info))
+      if (i.merged) logger(`ℹ️ 元运维巡检重复测量(距上轮 ${Math.round(i.gapMs / 1000)}s < 最小间隔 ${Math.round(minGapMs / 1000)}s,两个执行体撞进同一个节流窗口)⇒ 不推进连击:${key} 仍算连 ${i.streak}/${i.required} 轮`)
+    for (const p of bump.pruned) logger(`ℹ️ 元运维巡检连击条目回收(${p.reason}):${p.key} 连 ${p.streak} 轮`)
+    if (bump.bogus.length) logger(`⚠️ 元运维巡检连击账本里有 ${bump.bogus.length} 条时刻不可信的条目(在未来):${bump.bogus.join(', ')} —— 已回收,且不参与本轮连击`)
+    try {
+      mkdirSync(dirname(streakFile), { recursive: true })
+      writeFileSync(streakFile, JSON.stringify(bump.state, null, 1), 'utf8')
+    } catch (e) {
+      logger(`⚠️ 元运维巡检连击账本写不进(不改判定,下一轮按"读不出即多喊"处理):${String(e?.code || e?.message || e).slice(0, 60)}`)
+    }
     if (findings.length) {
       const body = findings.map((x) => `· ${x.id} ${x.detail}`).join('\n')
       logger(`❌ 元运维巡检判红 ${findings.length} 格:\n${body}`)
+      const due = findings.filter((x) => bump.info[x.id] && bump.info[x.id].due === true)
+      if (!due.length) {
+        // 未达门槛:红档与原因照旧逐轮打印、照旧落盘,只是这一轮不发信。写明"下一轮约多久、几轮到头",
+        // 让抑制有可见的终态,而不是一张静音键。
+        logger(
+          `ℹ️ 元运维巡检判红但未达持续性门槛:${findings.map((x) => `${x.id} 连 ${bump.info[x.id]?.streak ?? 1}/${effRequired} 轮`).join('、')}` +
+            ` ⇒ 本轮只报名不寄信(约 ${Math.round(OPS_PATROL_INTERVAL_MS / 60000)} 分钟一轮;同一身份连续 ${effRequired} 轮即到人)`,
+        )
+      } else {
       notify(
         `元运维巡检红(${findings.length} 格)`,
-        `${body}\n\n手动复现:node scripts/check-ops-patrol.mjs(只读) / --apply(顺手修可修的)`,
+        `${body}\n\n同一身份连续第 ${due.map((x) => `${x.id}=${bump.info[x.id].streak}`).join('、')} 轮越阈(门槛 ${effRequired} 轮,单轮尖峰不寄信)。` +
+          `\n手动复现:node scripts/check-ops-patrol.mjs(只读) / --apply(顺手修可修的)` +
+          `\n连击账本:.workbuddy/ops-patrol-streak.json;盲区与逐格读数:.workbuddy/ops-patrol-last.json`,
         {
           severity: 'warning',
           // dedupKey(§5e-1 配套,24 封):聚合告警的正文是**逐格 detail 清单**,而每格 detail
@@ -3243,6 +3305,7 @@ export function auditOpsPatrol(opts = {}) {
           dedupKey: `cells=${findings.map((x) => x.id).sort().join('+')}`,
         },
       )
+      }
     } else {
       logger(`✅ 元运维巡检:${parsed.counts.ok} 格绿,无红(${undet.length} 格未判定)`)
     }
@@ -3512,6 +3575,125 @@ export function auditPublicPathProbe(opts = {}) {
     return { ran: true, judged: true, breaches, unjudged }
   } catch (e) {
     logger('⚠️ 公网路径探测派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
+/**
+ * 隧道腿健康哨的**常驻**派发点(尺子本体 = `scripts/check-tunnel-leg-health.mjs`)。
+ *
+ * 为什么必须挂在这里(2026-10-16 立项,当天实测到一次真险):cloudflared 的 4 条已建立腿**全部**吊在
+ * 同一个已进入 deprecated 的临时 IPv6 源地址上(`首选寿命 0s`)。该地址一旦被系统删除,4 条腿同时断
+ * ⇒ 公网入口直接 530,而当天**没有任何一门会提前喊**:监控只会事后报"公网 ERR",公网探测会把这
+ * 一跳归进"入口段/出口段"的延迟读数里,谁都不会去看源地址的寿命。这台机是生产机,入口就是这一条隧道。
+ *
+ * 三条不可漂的写法照抄 `auditPublicPathProbe`:节流而非封量、告警一律经 `notifyGuardRed()`、
+ * 未判定只写日志并点名原因(发一封"我什么都没量到"的信是把噪音冒充成告警)。
+ *
+ * 与公网探测**刻意不同**的一处:这里**不设"连几轮才到人"的持续性门槛**。理由是量纲,不是省事:
+ * 公网延迟是**会抖的样本量**(健康轮也会出现 1/10 条 ≥8s,单轮尖峰寄信 = 噪音);而"源地址已废弃 /
+ * 进程在而腿数 0"是**状态量**,一轮就是一次事实,而且它是**事前**信号 —— 等第二轮就等于多开 15 分钟
+ * "随时可能整组断腿"的危险窗口。
+ */
+const TUNNEL_LEG_TICK = join(WORKTREE, '.workbuddy', 'tunnel-leg-tick.ts')
+const TUNNEL_LEG_LAST = join(WORKTREE, '.workbuddy', 'tunnel-leg-health-last.json')
+const TUNNEL_LEG_INTERVAL_MS = Number(process.env.IHUI_TUNNEL_LEG_INTERVAL_MS || 15 * 60 * 1000)
+const TUNNEL_LEG_TIMEOUT_MS = Number(process.env.IHUI_TUNNEL_LEG_TIMEOUT_MS || 90_000)
+
+export function auditTunnelLegHealth(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = TUNNEL_LEG_INTERVAL_MS,
+    tickFile = TUNNEL_LEG_TICK,
+    lastFile = TUNNEL_LEG_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-tunnel-leg-health.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 隧道腿健康:尺子脚本不在位(scripts/check-tunnel-leg-health.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+                timeout: TUNNEL_LEG_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生 git/子进程必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return { status: typeof e.status === 'number' ? e.status : 2, stdout: String(e.stdout || ''), stderr: String(e.stderr || e.message || '') }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || !parsed.dims || typeof parsed.dims !== 'object') {
+      logger(`⚠️ 隧道腿健康未产出结论(未判定,不记为已探测):rc=${call.status} ${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/)[0].slice(0, 140)}`)
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    // **尺子自己的阳性对照失手 ⇒ 整轮不采信**:一把抓不到"已知必坏"目标的尺子没资格出具合格证,
+    // 更没资格据此寄信(既不寄"坏了",也不寄"没坏")—— 只报名,等人来看。
+    if (parsed.positiveControl && parsed.positiveControl !== 'pass') {
+      logger(`⚠️ 隧道腿健康阳性对照未命中(${String(parsed.positiveControl).slice(0, 80)})⇒ 该尺子本轮失明,不采信其结论、不派信`)
+      return { ran: true, judged: false, why: '阳性对照未命中' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify({ at: new Date(now).toISOString(), ...parsed }, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响 --status 可见性,不影响告警本身 */
+    }
+    let breaches = 0
+    let warns = 0
+    let unjudged = 0
+    for (const [dim, d] of Object.entries(parsed.dims)) {
+      const verdict = String(d?.verdict || '')
+      const reading = JSON.stringify(d?.reading ?? {}).slice(0, 300)
+      if (verdict === 'breach') {
+        breaches += 1
+        const exit =
+          dim === 'deprecated-source'
+            ? '出路:重启 `Cloudflared` 服务让腿重选源地址(约 10-30 秒公网 502 窗口,与换流窗口同语义);不重启的后果是源地址被删时 4 条腿同时断 ⇒ 入口直接 530。'
+            : '出路:进程在而腿数 0 ⇒ 隧道没连上 CF 边缘。先看 `Get-Service Cloudflared` 与它的启动方式(ImagePath 是裸 tunnel run,无日志落点是已知盲区),再看本机出口:`node scripts/net-doctor.mjs`。'
+        notify(
+          `公网入口隧道腿异常:${dim}`,
+          `读数:${reading}\n原因:${String(d?.reason || '(尺子未给原因)')}\n尺子:scripts/check-tunnel-leg-health.mjs(netsh 地址寿命 + netstat 腿 + 进程三路现读,只读)。\n取证:node scripts/check-tunnel-leg-health.mjs --json(或读 .workbuddy/tunnel-leg-health-last.json)\n${exit}`,
+          { severity: 'warning', dedupKey: `dim=${dim};verdict=${verdict};legs=${Number(parsed.legs) || 0}` },
+        )
+      } else if (verdict === 'warn') {
+        warns += 1
+        logger(`⚠️ 隧道腿健康报数(${dim},不判红):${String(d?.reason || reading).slice(0, 200)}`)
+      } else if (verdict === 'unjudged') {
+        unjudged += 1
+        logger(`ℹ️ 隧道腿健康 ${dim}:未判定 —— ${String(d?.reason || '(无原因)').slice(0, 200)}`)
+      }
+    }
+    if (breaches === 0 && unjudged === 0) logger(`✅ 隧道腿健康:${parsed.legs} 条腿,源地址未见废弃(${warns} 格只报数)`)
+    return { ran: true, judged: true, breaches, warns, unjudged, legs: parsed.legs }
+  } catch (e) {
+    logger('⚠️ 隧道腿健康派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
     return { ran: false, why: '派发异常' }
   }
 }
@@ -4266,6 +4448,7 @@ function main() {
     // 公网路径与换流窗口的常驻探测(票 G-301):两条序列互不顶账,节流 30 分钟,
     // 判"未判定"只写日志不喊人;它不改本守护退出码 —— 探测失败不等于 .git 失败。
     if (!CHECK_ONLY) auditPublicPathProbe()
+    if (!CHECK_ONLY) auditTunnelLegHealth()
     // 不能进提交链,而"手动问责"等于只有人在跑 —— 本行是它唯一的调度器。挂进 CHECK_ONLY 分支等于永不执行。
     if (!CHECK_ONLY) auditOrphanDeletionRefs()
     // TEMP 夹具清扫器同理:判据/保护面/镜像测试全在,唯独没人调度 ⇒ 本项目命名的残留过完账龄就永久留着。
@@ -4529,6 +4712,7 @@ export const __test__ = {
   alertFingerprint,
   stableAlertFingerprint,
   auditPublicPathProbe,
+  auditTunnelLegHealth,
   bumpProbeStreak,
   parseNotifyState,
   shouldAlert,
