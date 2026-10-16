@@ -19234,6 +19234,8 @@
     "groupUngrouped": "未分组",
     "skippedToday": "已跳过 {count} 个今日已签账号",
     "skippedExpired": "已跳过 {count} 个 JWT 已过期账号",
+    "skippedCooldown": "已跳过 {count} 个冷却中账号",
+    "checkinRateLimited": "平台限流已中止本批，请稍后再试",
     "checkinSelected": "签到勾选账号（{count}）",
     "selectAllVisible": "全选当前列表",
     "selectAccount": "选中账号 {name}",
@@ -19344,7 +19346,9 @@
     "deviceMapUpdated": "设备指纹已更新",
     "editDeviceMap": "编辑设备指纹",
     "editDeviceMapTitle": "编辑设备指纹",
-    "editDeviceMapDescription": "为 {platform} 账号编辑设备指纹（JSON 对象；留空保存将自动生成）。"
+    "editDeviceMapDescription": "为 {platform} 账号编辑设备指纹（JSON 对象；留空保存将自动生成）。",
+    "checkedInToday": "今日已签到",
+    "rename": "重命名"
   },
   "nav": {
     "checkin": "签到助手",

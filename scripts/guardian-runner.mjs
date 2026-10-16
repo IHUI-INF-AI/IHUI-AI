@@ -278,13 +278,8 @@ const checks = [
     args: [],
     mode: 'blocking',
   },
-  {
-    id: '13c',
-    label: '🗂️  PROJECT_PLAN.md 已完成任务防误删',
-    script: 'check-project-plan-archive.mjs',
-    args: [],
-    mode: 'blocking',
-  },
+  // 13c(check-project-plan-archive)已退役(2026-10-16 机主令:完成即删,存档机制拆除):
+  // 归档器/归档件不再存在,防误删语义由门 71 新判据("已勾行不进保护集,未勾行照旧拦")承接。
   {
     id: '15',
     label: '📊 迁移完整性(7 大类 29 子项)',

@@ -655,7 +655,7 @@ describe('blockOnError 配置正确(4 events 全覆盖)', () => {
   });
 
   describe('postToolCall', () => {
-    it('默认 blockOnError(未设置)时命令失败不阻塞(fail-open)', () => {
+    it('默认 blockOnError(未设置)时命令失败不阻塞(fail-open)', async () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-bo-post-def-'));
       const hooksPath = path.join(tmpDir, 'hooks.json');
       fs.writeFileSync(hooksPath, JSON.stringify({
@@ -711,7 +711,7 @@ describe('blockOnError 配置正确(4 events 全覆盖)', () => {
   });
 
   describe('sessionEnd', () => {
-    it('始终不阻塞(即使 blockOnError:true 且命令失败)', () => {
+    it('始终不阻塞(即使 blockOnError:true 且命令失败)', async () => {
       const config: HooksConfig = {
         sessionEnd: [{ name: 'end-always-open', command: exit1, blockOnError: true }],
       };
