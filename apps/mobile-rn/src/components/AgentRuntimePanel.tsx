@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { View, Text, Pressable, ScrollView } from 'react-native'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadiusFor } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { Check, X } from 'lucide-react-native'
 import { useAgentRuntime, toolDisplayKey, permissionDecisionWord } from '@ihui/shared'
@@ -39,14 +39,15 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
       : permission.toolName
     : 'unknown'
 
-  // 根上必须带卡片圆角：小程序侧的根走 card 角色档，而本屏此前整份文件没有任何圆角，
-  // 于是同一块运行时面板在一端是圆角卡、另一端是方角块。跨端对账门本轮才把这一格量出来
-  // —— 它的根槽位扫描原先会把卫语句早退误当成根，修好扫描才看得见这条。
+  // 根上必须带卡片圆角：小程序侧的根走卡片角色档，而本屏此前整份文件没有任何圆角，
+  // 于是同一块运行时面板在一端是圆角卡、另一端是方角块。
+  // 这里刻意写**角色名**而不是档位名：角色门在文件没有任何身份声明时会退回"按文件名推角色"，
+  // 而 AgentRuntimePanel 这个名字推出来的是面板档，会与对端(自称卡片)不同值 —— 两端必须同一身份同一档。
   // (刻意不在这条注释里写档位名与数值：对账门的提取式会读注释文本。)
   return (
     <View
       className="flex-1"
-      style={{ backgroundColor: tokens.surface.card, borderRadius: rnRadius.lg }}
+      style={{ backgroundColor: tokens.surface.card, borderRadius: rnRadiusFor.card }}
     >
       <View
         className="flex-row items-center border-b px-3 py-2"
