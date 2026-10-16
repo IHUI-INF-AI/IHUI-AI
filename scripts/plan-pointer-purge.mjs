@@ -405,8 +405,10 @@ export function buildPlan(lines, opts = {}) {
     // 吸收档(仅 --absorb):承载不成立时把候选行**归一化正文整段**挂到幸存行行尾,再由本器折并候选。
     const carried = (() => {
       if (!absorb || body.length < minBody || sLine.includes(body)) return null
-      if (claimOf(cLine) || claimOf(sLine)) return null
-      const seg = ` 〔副本正文并入·承载整段:${body}〕`
+      // 2026-10-16 收窄(机主令"一号一行"):候选行租约不再一票拒绝 —— 同号组的租约是
+      // 现场信息,随并入段原样保留(丢租约=丢现场);幸存行无租约时由 claimTransfers 转正。
+      const claimSeg = claimOf(cLine) && !claimOf(sLine) ? ` ${claimOf(cLine)}` : ''
+      const seg = ` 〔副本正文并入·承载整段:${body}${claimSeg}〕`
       if (DUP_POINTER_RE.test(sLine + seg) || SELF_DEDISPATCH_RE.test(sLine + seg)) return null
       return seg
     })()
