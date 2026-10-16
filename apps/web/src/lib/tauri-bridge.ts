@@ -661,6 +661,76 @@ export async function closeEmbeddedBrowser(): Promise<void> {
   }
 }
 
+/** 内嵌浏览器窗口状态(与 Rust `embedded_browser_state` 对齐;`open`/`url` 向后兼容)。 */
+export interface EmbeddedBrowserState {
+  open: boolean
+  url: string | null
+  tabs: Array<{ id: number; url: string; title: string }>
+  active: number | null
+}
+
+/** 查询内嵌浏览器状态(窗口在不在、标签列表、当前标签)。 */
+export async function getEmbeddedBrowserState(): Promise<EmbeddedBrowserState | null> {
+  if (!isTauri()) return null
+  try {
+    return await invokeIpc<EmbeddedBrowserState>('embedded_browser_state')
+  } catch (e) {
+    const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
+    console.warn('[embedded-browser] state failed:', err.code, err.message)
+    return null
+  }
+}
+
+/** 在内嵌浏览器里新建标签页(不传 url 则去主页;窗口不在则直接开窗)。 */
+export async function openEmbeddedBrowserTab(url?: string): Promise<string | null> {
+  if (!isTauri()) {
+    if (url) window.open(url, '_blank')
+    return null
+  }
+  try {
+    await invokeIpc<null>('embedded_browser_new_tab', { url: url ?? null })
+    return null
+  } catch (e) {
+    const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
+    console.warn('[embedded-browser] new-tab failed:', err.code, err.message)
+    return err.message
+  }
+}
+
+/** 打开内嵌浏览器当前标签页的开发者工具(WebView2 DevTools)。 */
+export async function openEmbeddedBrowserDevtools(): Promise<void> {
+  if (!isTauri()) return
+  try {
+    await invokeIpc<null>('embedded_browser_devtools')
+  } catch (e) {
+    const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
+    console.warn('[embedded-browser] devtools failed:', err.code, err.message)
+  }
+}
+
+/**
+ * 订阅「内嵌浏览器元素点选」事件(Rust 端 `emit_to("main", "embedded-browser://element-picked", json)`)。
+ *
+ * 点选发生在内嵌窗(第三方站点),站点无 IPC;Rust 侧经哨兵导航收到后转发到 main 窗口。
+ * 返回取消订阅函数;非桌面环境返回 no-op。
+ */
+export async function onEmbeddedBrowserElementPicked(
+  handler: (payload: string) => void,
+): Promise<() => void> {
+  if (!isTauri()) return () => {}
+  try {
+    const { listen } = await import('@tauri-apps/api/event')
+    const unlisten = await listen<string>('embedded-browser://element-picked', (e) =>
+      handler(e.payload),
+    )
+    return unlisten
+  } catch (e) {
+    const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
+    console.warn('[embedded-browser] listen picked failed:', err.code, err.message)
+    return () => {}
+  }
+}
+
 export async function closeChromeWindow(port: number, urlPrefix: string): Promise<number> {
   if (!isTauri()) return 0
   try {

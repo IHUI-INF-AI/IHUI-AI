@@ -51,6 +51,8 @@
     "allow-embedded-browser-open",
     "allow-embedded-browser-close",
     "allow-embedded-browser-state",
+    "allow-embedded-browser-new-tab",
+    "allow-embedded-browser-devtools",
     "allow-get-admin-window-info",
     "allow-toggle-devtools",
     "allow-quit-app",
