@@ -147,7 +147,12 @@ const REGISTRY = [
       {
         end: 'miniapp-taro',
         file: 'apps/miniapp-taro/src/pkg-content/activity/index.tsx',
-        reads: (src) => /res\.data\?\.list/.test(src) && !/fetchApi<ActivityItem\[\]>/.test(src),
+        // 两种拼法都算"读了后端真回的键":经 fetchApi 自己判 success 的老写法,
+        // 和经单源壳 apiOrThrow 的新写法(2026-10-16 迁移,壳把信封交出来后再取 .list)。
+        reads: (src) =>
+          /(res\.data\?\.list|apiOrThrow<\{ list: ActivityItem\[\] \}>[\s\S]{0,80}?\bd\.list)/.test(
+            src,
+          ) && !/fetchApi<ActivityItem\[\]>/.test(src),
       },
     ],
   },
@@ -479,7 +484,10 @@ test('K3 阳性对照:把读法退回"信封当数组"必须让判据红(否则 
       (c) => c.end === 'mobile-rn' || c.end === 'miniapp-taro',
     )) {
       const real = read(k.file)
-      const mutated = real.replace(/res\.data\?\.list/g, 'res.data')
+      // 两种拼法都要能退回旧错形:经 fetchApi 的 `res.data?.list`，与经单源壳的 `d.list ?? []`
+      const mutated = real
+        .replace(/res\.data\?\.list/g, 'res.data')
+        .replace(/d\.list \?\? \[\]/g, 'd ?? []')
       assert.notEqual(mutated, real, `${k.file} 变异未命中 ⇒ 契约与写法脱节`)
       assert.equal(k.reads(mutated), false, `${fam.ep} 在 ${k.end} 退回"信封当数组"必须红`)
       assert.equal(k.reads(real), true)
@@ -502,6 +510,7 @@ test('K3 阳性对照:把读法退回"信封当数组"必须让判据红(否则 
       const real = read(k.file)
       const mutated = real
         .replace(/data\?\.list/g, 'data')
+        .replace(/d\.list \?\? \[\]/g, 'd ?? []')
         .replace(/data\?\.entries/g, 'data')
         .replace(/data\.list \?\? \[\]/g, 'data ?? []')
         .replace(/fetchApi<PageData<NotificationItem>>/g, 'fetchApi<NotificationItem[]>')
