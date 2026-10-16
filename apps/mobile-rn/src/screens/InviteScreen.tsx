@@ -29,12 +29,15 @@ export function InviteScreen() {
     setError('')
     try {
       const [infoRes, listRes] = await Promise.all([
+        // 后端 GET /distribution/invited-users 两个分支都包 list 键(传 page/pageSize 回
+        // {list,total,page,pageSize}，不传回 {list,total})，而同页 overview 回的是对象本身 ⇒
+        // 记录那半按数组读会让"已邀请用户"永远空列表。
         fetchApi<InviteInfo>('/distribution/overview'),
-        fetchApi<InviteRecordItem[]>('/distribution/invited-users'),
+        fetchApi<{ list: InviteRecordItem[] }>('/distribution/invited-users'),
       ])
       if (!infoRes.success || !listRes.success) throw new Error()
       setInfo(infoRes.data ?? null)
-      setRecords(listRes.data ?? [])
+      setRecords(listRes.data?.list ?? [])
     } catch {
       setError(t('invite.loadFailed'))
     } finally {
