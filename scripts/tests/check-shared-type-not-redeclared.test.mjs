@@ -197,6 +197,29 @@ test('T9 --json 档的 stdout 必须可 JSON.parse(尾随人类读语会砸碎�
     j.convergenceReady <= c.yes,
     `convergenceReady(${j.convergenceReady}) 不得大于 yes(${c.yes}) ⇒ 两口径分叉了`,
   )
+  // 跨名同契约是**只开队列**的一维：它不得改变 hits/red，且分档计数必须自洽
+  assert.ok(j.crossName, '--json 必须带 crossName 队列')
+  assert.ok(
+    j.crossName.crossEndSameName <= j.crossName.crossEnd,
+    `sameName 档(${j.crossName.crossEndSameName})必须 ≤ crossEnd 总组数(${j.crossName.crossEnd})`,
+  )
+  assert.equal(
+    j.hits,
+    c.yes + c.no + c.undetermined,
+    '新增队列维度不得改变 hits 与三态计数(它只开队列,不参与判定)',
+  )
+  const hitNames = new Set(j.detail.map((d) => `${d.path}::${d.name}`))
+  for (const v of j.crossName.vsSharedList)
+    assert.equal(
+      hitNames.has(`${v.path}::${v.name}`),
+      false,
+      `同一条声明不得同时出现在 hits 与 vsShared 队列(${v.path}::${v.name})⇒ 两个口径在重复计`,
+    )
+  if (j.face === 'head')
+    assert.ok(
+      j.crossName.crossEndSameName > 0,
+      'HEAD 面同名跨端组量到 0 ⇒ 这把形状尺子在真仓上失效(实测 94 组),不是"没有跨名重复"',
+    )
 })
 
 test('T10 sameShape 三态用门的生产函数判:等/不等/判不出各钉一条,且格式与字段顺序不得影响"等"', () => {
