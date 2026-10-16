@@ -220,6 +220,13 @@ pub struct CapturedAccount {
     pub nickname: String,
     pub jwt: String,
     pub source: String,
+    /// 账号原始 profile 对象(tc 解密容器的 `account`,含 phone/email/username 等)。
+    /// 2026-10-16 立:此前只取 `nickname` 单值落库,手机号等更高优先级的身份字段
+    /// 就此丢失——服务端后续无法按「手机>邮箱>账号>用户名」重取名(李总报障
+    /// 「Trae 都有绑定好的手机号啊 应该获取好」)。改为整体带出,前端原样存进
+    /// device_map.account,服务端 extract_display_name 优先从它派生。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account: Option<serde_json::Value>,
 }
 
 /// JWT 形态：三段 base64url，'.' 分隔，每段非空。
@@ -565,6 +572,7 @@ fn read_jwts_from_cookies_db(
                     nickname: String::new(),
                     jwt,
                     source: format!("cookies:{host}/{name}({source_rel})"),
+                    account: None,
                 });
             }
         }
@@ -635,7 +643,7 @@ fn scan_leveldb_dir(trae_dir: &Path, rel: &str, out: &mut Vec<CapturedAccount>) 
             .to_string();
         for jwt in extract_jwt_strings(&bytes) {
             if let Some(uid) = jwt_payload_user_id(&jwt) {
-                out.push(CapturedAccount { user_id: uid, nickname: String::new(), jwt, source: format!("leveldb:{name}") });
+                out.push(CapturedAccount { user_id: uid, nickname: String::new(), jwt, source: format!("leveldb:{name}"), account: None });
             }
         }
     }
@@ -788,8 +796,13 @@ pub fn capture_trae_cloudide_jwt(trae_dir: &Path) -> Option<CapturedAccount> {
         }
         // 账户名展示:tc 解密的 account 对象,优先级 手机→邮箱→账号→昵称
         // (真机实证 account.username=智汇AI;无手机号时回落账号名)
-        let nickname = j
-            .get("account")
+        // 账户名展示:tc 解密的 account 对象,优先级 手机→邮箱→账号→昵称
+        // (真机实证 account.username=智汇AI;无手机号时回落账号名)
+        // 2026-10-16:account 原对象整体带出(不只取 nickname),手机号等字段交服务端
+        // 按「手机>邮箱>账号>用户名」重取名 —— 此前只留单值致手机号丢失。
+        let account_obj = j.get("account").cloned();
+        let nickname = account_obj
+            .as_ref()
             .map(display_name_pick)
             .unwrap_or_default();
         return Some(CapturedAccount {
@@ -797,6 +810,7 @@ pub fn capture_trae_cloudide_jwt(trae_dir: &Path) -> Option<CapturedAccount> {
             nickname,
             jwt: token,
             source: format!("storage.json:{k}(tc解密)"),
+            account: account_obj,
         });
     }
     None
@@ -4800,6 +4814,7 @@ mod tests {
             nickname: String::new(),
             jwt: "t".into(),
             source: src.into(),
+            account: None,
         };
         let out =
             dedup_by_user_id(vec![acc("1", "cookies:a"), acc("1", "leveldb:x"), acc("2", "leveldb:y")]);
