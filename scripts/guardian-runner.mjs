@@ -5015,6 +5015,26 @@ const checks = [
     ].join('\n'),
   },
 
+
+  // --- 217/218(2026-10-15/16 立;原注 213/214→214/215 两度与上游撞号让位顺延:213 已归盘根写入门、214 已归 ApiKeyPermission 三面对账;病理五类实锤/hex 取材口径逐字归档 .ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md §门214/215,2026-10-16 C1 腾行)---
+  { id: '217', label: '📐 mobile-rn sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块,固定 chrome 不被压扁)', script: 'check-sheet-flex-contract.mjs', args: [], mode: 'blocking', stagedTriggers: ['apps/mobile-rn/src/'] },
+  {
+    id: '218',
+    label: '🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增)',
+    script: 'check-mobile-rn-style-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RN_STYLE_PARITY',
+    stagedTriggers: ['apps/mobile-rn/src/', 'scripts/rn-style-parity-baseline.json'],
+    onFailHint: [
+      '',
+      '  改法:把 #hex 换成 @ihui/design-tokens(rnLightTokens/rnDarkTokens)的 token 引用,不要新造近似色。',
+      '  存量治理后可运行 node scripts/check-mobile-rn-style-parity.mjs --update-baseline 收紧基线(全量档,不得与 --staged 同用)。',
+      '  取材口径:全量=HEAD blob、--staged=索引 blob、--worktree=人工排查;取不到 ⇒ exit 2 无法判定。',
+      '  自检:node scripts/check-mobile-rn-style-parity.mjs --self-test',
+      '',
+    ].join('\n'),
+  },
   // --- info (1 项) ---
   {
     id: '23',
