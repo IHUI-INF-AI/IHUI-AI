@@ -22,20 +22,16 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { desc, gte, lte, sql, and } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
-import {
-  apiLogs,
-  llmCallLogs,
-  monitorAlerts,
-  orders,
-  systemEvents,
-  users,
-} from '@ihui/database'
+import { apiLogs, llmCallLogs, monitorAlerts, orders, systemEvents, users } from '@ihui/database'
 import { success, error } from '../utils/response.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 
 // ===== 可观测数据源端点(环境变量可覆盖;默认值 = Windows 原生部署实况)=====
 const PROMETHEUS_URL = (process.env.PROMETHEUS_URL ?? 'http://127.0.0.1:8815').replace(/\/$/, '')
-const ALERTMANAGER_URL = (process.env.ALERTMANAGER_URL ?? 'http://127.0.0.1:9093').replace(/\/$/, '')
+const ALERTMANAGER_URL = (process.env.ALERTMANAGER_URL ?? 'http://127.0.0.1:9093').replace(
+  /\/$/,
+  '',
+)
 /** 单次探测超时:大屏每 5s 轮询,任一数据源卡住都不得拖到下一轮。 */
 const FETCH_TIMEOUT_MS = 5000
 /** 业务库聚合口径的主库名(PG exporter 的 datname 标签值)。 */
@@ -429,7 +425,7 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
         dbRead
           .select({
             total: sql<number>`count(*)::int`,
-            todayNew: sql<number>`count(*) filter (where ${users.createdAt} >= ${todayStart})::int`,
+            todayNew: sql<number>`count(*) filter (where ${users.createdAt} >= ${todayStart.toISOString()}::timestamptz)::int`,
             active: sql<number>`count(*) filter (where ${users.status} = 1)::int`,
           })
           .from(users),
@@ -517,7 +513,8 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       llmP95LatencyMs: l?.p95Latency ?? 0,
       llmTopModels: llmModels.map((r) => ({ model: r.model, calls: r.calls })),
     }
-  } catch {
+  } catch (e) {
+    console.error('[ops-wallboard] buildBusiness failed:', e)
     return null
   }
 }
@@ -706,7 +703,10 @@ async function buildTrend(minutes: number, step: number): Promise<TrendSnapshot>
 export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
-  server.get('/ops-wallboard/overview', async (_req, reply) => {
+  server.get('/ops-wallboard/overview', async (request, reply) => {
+    // 字段名含 "token"(llmTokensToday 等)会被 response-sanitizer 遮蔽为 "***"(同 ai-cost);
+    // 大屏为 requireAdmin 管理端点,可信上下文直接跳过整端点脱敏
+    request.skipResponseSanitization = true
     const [host, services, http, redis, pg, bridge, business, alerts, events] = await Promise.all([
       buildHost(),
       buildServices(),
@@ -741,6 +741,7 @@ export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/ops-wallboard/trend', async (request, reply) => {
+    request.skipResponseSanitization = true
     const parsed = trendQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, 'minutes/step 参数不合法'))
