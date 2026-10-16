@@ -178,4 +178,80 @@ test('⑤ 换流签名对真日志有牙(只读;非部署机如实跳过 —— 
   assert.ok(r.events.length > 0, `真日志尾部必须问出至少一个换流事件(拿不到 = oracle 又瞎了):${r.reason}`)
   assert.ok(Number.isFinite(r.at))
 })
+
+// ───────────── 2026-10-16 两维新增:归因到"哪一跳" + 按对照组定位到"哪一段" ─────────────
+
+test('⑥ connect 超时具名落 connStall(它既不是对端坏、也不是尺子失明)', () => {
+  // 真形态取自 2026-10-16 11:42 实测样本(12 样本里那条 10735ms)
+  const real = { status: null, ms: 10_735, errorName: 'TypeError', causeCode: 'UND_ERR_CONNECT_TIMEOUT,Connect,Timeout,Error,(attempted,addresses:,2606:4700:3033::ac43:a3c3:443,,timeout:,10000ms),fetch,failed,TypeError' }
+  const c = probe.classifySample(real)
+  assert.equal(c.bucket, 'connStall', '回退到旧实现时这条会落 probeError ⇒ 本断言即翻红')
+  assert.equal(c.stage, 'stall')
+  assert.equal(c.indeterminate, true)
+  assert.notEqual(c.probeSideBroken, true, '不得记成"尺子自己失明" —— 20% 失明线会把真链路故障洗成"本轮不出结论"')
+  assert.notEqual(c.unavailable, true, '也不得记成对端不可用')
+  // 反向对照:同一个统计面上,拒连仍然是"走到了对端 + 对端可归因"(拆归因不许反过来洗白对端坏)
+  const refused = probe.classifySample({ status: null, ms: 3, causeCode: 'ECONNREFUSED,127.0.0.1:8801' })
+  assert.equal(refused.stage, 'conn')
+  assert.equal(refused.unavailable, true)
+})
+
+test('⑦ 慢样本按跳分账且总额不丢;旧取证(没有 stage 字段)按 status/bucket 派生', () => {
+  const mix = [
+    mkSample({ status: 200, ms: 100 }, 0),
+    mkSample({ status: 200, ms: 9000 }, 1),
+    mkSample({ status: null, ms: 10_735, errorName: 'TypeError', causeCode: 'UND_ERR_CONNECT_TIMEOUT' }, 2),
+    mkSample({ status: null, ms: 9000, causeCode: 'ECONNREFUSED' }, 3),
+    mkSample({ status: null, ms: 1, errorName: 'Error', causeCode: 'ERR_INTERNAL_WEIRD' }, 4),
+  ]
+  const s = probe.summarizeSequence(mix, { slowMs: 8000 })
+  assert.equal(s.n, 5)
+  assert.equal(s.httpN, 2, '两条 200 才算走到对端')
+  assert.equal(s.stallN, 2, 'connect 超时 + 无法归类异常')
+  assert.equal(s.connN, 1, '拒连走到了对端')
+  assert.equal(s.slow, 3, '总额仍是老口径(含 conn 阶段的慢样本)—— 拆维不得把账抹掉')
+  assert.equal(s.httpSlow, 1)
+  assert.equal(s.stallSlow, 1)
+  assert.equal(s.buckets.connStall, 1)
+  // 旧取证行:classifySample 当年不写 stage,派生必须走 status/bucket,不能把 200 读成"没走到对端"
+  const legacy = [{ bucket: 'ok', unavailable: false, ms: 9000, status: 200, at: iso(0) }, { bucket: 'connStall', unavailable: false, indeterminate: true, ms: 10_735, status: null, at: iso(1) }]
+  const l = probe.summarizeSequence(legacy, { slowMs: 8000 })
+  assert.equal(l.httpN, 1, '一条 200 响应绝不能被读成 stall')
+  assert.equal(l.stallN, 1)
+  assert.equal(l.httpSlow, 1)
+  assert.equal(l.stallSlow, 1)
+})
+
+test('⑧ 定位到"哪一段"必须**随对照组翻**(同一份公网读数,换对照即换段 —— 变异取证)', () => {
+  const pub = probe.summarizeSequence(
+    Array.from({ length: 10 }, (_, i) => mkSample({ status: 200, ms: i < 6 ? 9000 : 500 }, i)),
+    { slowMs: 8000 },
+  )
+  const localFast = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mkSample({ status: 200, ms: 20 }, i)), { slowMs: 8000 })
+  const localSlow = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mkSample({ status: 200, ms: 9000 }, i)), { slowMs: 8000 })
+  const entry = probe.classifyPublicLeg(pub, localFast)
+  assert.equal(entry.leg, 'entry')
+  assert.equal(entry.tag, '入口段', '公网 6/10 条 ≥8s 而对照 20ms ⇒ 只能是 CF 边缘/隧道/上行那一段')
+  const service = probe.classifyPublicLeg(pub, localSlow)
+  assert.equal(service.leg, 'service')
+  assert.equal(service.tag, '服务段', '对照同轮也慢 ⇒ 洞在 web 本体,再让人去查公网链路就是误导')
+  assert.notEqual(entry.tag, service.tag, '两段的身份必须不同(dedupKey 按身份,换段该重新起一轮)')
+  // 三态:任一侧没样本 ⇒ 不猜
+  assert.equal(probe.classifyPublicLeg(pub, probe.summarizeSequence([])).leg, 'undetermined')
+  assert.equal(probe.classifyPublicLeg(pub, probe.summarizeSequence([])).tag, null, '拿不到定位时身份里不许凭空多一档段名')
+  assert.equal(probe.classifyPublicLeg(probe.summarizeSequence([]), localFast).leg, 'undetermined')
+  // 公网自己没越阈 ⇒ clear(段名只用于真有坏点时)
+  assert.equal(probe.classifyPublicLeg(localFast, localSlow).leg, 'clear')
+})
+
+test('⑨ 形状锁:新判据符号必须从 __test__ 出口可达(实现了但调不到 = 没实现,§0.9)', () => {
+  for (const k of ['classifySample', 'sampleStage', 'summarizeSequence', 'classifyPublicLeg', 'judgeSequence']) {
+    assert.equal(typeof probe[k], 'function', `__test__ 出口缺 ${k} —— 镜像测试就只能靠复制判据(§22c 禁止)`)
+  }
+  // numbers 必须真带出分账读数(否则邮件里仍然只有"慢 6"这一句话,收信人无从下手)
+  const stat = probe.summarizeSequence([mkSample({ status: 200, ms: 9000 }, 0), mkSample({ status: null, ms: 10_735, causeCode: 'UND_ERR_CONNECT_TIMEOUT' }, 1)], { slowMs: 8000 })
+  const j = probe.judgeSequence('B/公网·常态·入口段', stat, { rule: 'ratio', slowMs: 8000 })
+  assert.match(j.numbers, /走到对端并拿到响应 1,没走到对端 1/, `读数必须把两跳分开:${j.numbers}`)
+  assert.match(j.numbers, /响应之后 1 \/ 连对端都没到 1/)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

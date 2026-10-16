@@ -16,7 +16,14 @@ import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import type { MemoryEntry, MemoryEntryType, MemoryScope } from '@ihui/types'
+import type {
+  MemoryEntry,
+  MemoryEntryType,
+  MemoryScope,
+  MemoryListResponse,
+  MemoryDeleteResponse,
+  MemoryCreateInput,
+} from '@ihui/types'
 import { MemoryScreen as SharedMemoryScreen } from '@ihui/rn-app'
 import { useAuthStore } from '../stores/auth-store'
 import { useI18n } from '../i18n'
@@ -25,26 +32,10 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-/** GET /api/memory 响应(对标 web @/lib/memory-api MemoryListResponse) */
-interface MemoryListResponse {
-  entries: MemoryEntry[]
-  total: number
-}
-
-/** DELETE /api/memory/:id 响应 */
-interface MemoryDeleteResponse {
-  id: string
-  deleted: boolean
-}
-
-/** POST /api/memory 请求体(对齐 apps/api routes/memory.ts createEntrySchema) */
-interface MemoryCreateInput {
-  scope: MemoryScope
-  type: MemoryEntryType
-  category: string
-  text: string
-  source: string
-}
+/// 三个请求/响应类型自 2026-10-16 起 import 自 @ihui/types(与 web `@/lib/memory-api`、
+/// cli `commands/memory.ts` 同一份定义)。此前本文件手抄过一份,且 `source` 被写成必填 —— 与
+/// web 那份可选不同,而后端 `createEntrySchema` 对它是有 `.default('api')` 的:同一份契约
+/// 三端三个形状,类型层不会红,红的是端间行为差异。
 
 /**
  * 记忆列表(M3 补齐:web /memory 在移动端的原生入口)。

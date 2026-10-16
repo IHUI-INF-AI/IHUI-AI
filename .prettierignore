@@ -51,3 +51,10 @@ apps/web/e2e/.auth/
 # 提交都被迫重跑导出。格式化对机器产物没有价值,对可比性有破坏。
 apps/api/openapi.json
 packages/types/generated/capabilities.json
+
+# 守门 208 具名豁免台账([84] R1r 与 prettier 折叠行为互斥,2026-10-16 立):
+# 台账空档期的跨行写法("entries": [ 换行 ])是与所有历史 blob 都不同的新形态,[84] R1r
+# 行级判据才能认出"这不是历史回写";而 prettier --write(lint-staged 每次 commit 都跑)
+# 会把跨行空数组折回单行 "entries": [] —— 那正是祖先销账版 5c38c62e1 的已删行,
+# R1r 每次都判"复活祖先行" ⇒ 销账提交死锁。格式化对这份守门判据数据没有价值,退出格式门禁。
+scripts/data/no-nested-git-exemptions.json

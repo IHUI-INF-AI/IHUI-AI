@@ -25,9 +25,11 @@ export function PromotionScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const resp = await fetchApi<PromotionCoupon[]>('/coupons')
+      // 后端 GET /coupons 回 success({ list, total, page, pageSize })(promotions.ts)，
+      // 同端点另一屏 CouponScreen 读的是分页对象；本屏按数组读 ⇒ 优惠券永远空。
+      const resp = await fetchApi<{ list: PromotionCoupon[] }>('/coupons')
       if (!resp.success) throw new Error('http')
-      setItems(resp.data ?? [])
+      setItems(resp.data?.list ?? [])
     } catch {
       setError(t('promotion.loadFailed'))
     } finally {
@@ -57,7 +59,8 @@ export function PromotionScreen() {
         navigation.navigate('Order')
       }}
       onBack={() => navigation.goBack()}
-     colorScheme={resolvedTheme}/>
+      colorScheme={resolvedTheme}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

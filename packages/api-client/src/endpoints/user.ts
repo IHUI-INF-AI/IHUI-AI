@@ -31,12 +31,20 @@ export interface UserStatistics {
   points: number
 }
 
+/**
+ * 收藏列表项 —— 字段名一律取后端 `GET /api/favorites` 真实回传键:
+ * `apps/api/src/db/social-queries.ts` 的 `findFavorites` = `userFavorites` 表列
+ * (`id` / `userId` / `resourceType` / `resourceId` / `createdAt`)⊕ 富化的 `title`,
+ * 与本包 `social.ts` 的 `addFavorite` / `checkFavorite` / `deleteFavorite` 同一套词汇。
+ * 此前这里写的是 `targetId` / `targetType`,而库里与路由参数都叫 resource* ——
+ * 移动端读 `item.targetType` 恒得 undefined,分类过滤、取消收藏、跳详情三件事一起静默失效。
+ */
 export interface FavoriteItem {
   id: string
-  targetId: string
-  targetType: string
-  title: string
-  cover: string | null
+  resourceType: string
+  resourceId: string
+  /** 由后端按 resourceType 批量关联取名;取不到时缺省 */
+  title?: string
   createdAt: string
 }
 

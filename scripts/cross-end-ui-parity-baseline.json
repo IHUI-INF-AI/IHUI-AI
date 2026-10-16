@@ -3,8 +3,7 @@
     "AgentRuntimePanel": 1,
     "BottomActionBar": 15,
     "Carousel": 6,
-    "CategoryBar": 1,
-    "DrawerComponent": 17,
+    "DrawerComponent": 12,
     "InputArea": 14,
     "IntelligentAssistant": 6,
     "LoginPopUp": 8,
@@ -19,7 +18,6 @@
     "AgentRuntimePanel": 1,
     "BottomActionBar": 2,
     "Carousel": 0,
-    "CategoryBar": 0,
     "DrawerComponent": 2,
     "InputArea": 1,
     "IntelligentAssistant": 1,
@@ -35,7 +33,6 @@
     "AgentRuntimePanel": 0,
     "BottomActionBar": 0,
     "Carousel": 0,
-    "CategoryBar": 0,
     "DrawerComponent": 0,
     "InputArea": 0,
     "IntelligentAssistant": 0,
@@ -91,10 +88,6 @@
     },
     "Carousel": {
       "reason": "小程序独有兜底文案块 + course 叠加层(实测 variant=\"course\" 有 1 处真实调用点,非死分支),RN 侧不渲染这两层 → 2/4/8/14/16/20 全属\"一端多元素\",不是同元素取不同值。",
-      "until": "2027-03-27"
-    },
-    "CategoryBar": {
-      "reason": "RN itemText 另有 maxWidth 120 文字截断帽(实测 CategoryInlineBar.tsx:213),小程序靠容器 max-width 320rpx(=160)承担截断、同值已在几何维抵掉。截断上限不是元素盒档,取齐两端要改的是截断策略而非补数字。",
       "until": "2027-03-27"
     },
     "InputArea": {

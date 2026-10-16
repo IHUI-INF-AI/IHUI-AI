@@ -15,15 +15,18 @@
  * - 取消分享(USER_CANCEL)静默,对齐微信授权登录的静默约定
  * - 形态:底部滑出 action sheet(Modal slide);圆角守门(顶部 xl = panel 档,
  *   图标块 lg);按压态「外框拿盒,面层拿 pressed」(守门 131);全 token,无硬编码
+ * - 微信系两图标为官方品牌图形(2026-10-16 用户定,替换 lucide 通用图标):微信好友
+ *   绿底白色双气泡 + 朋友圈官方七彩光圈,见 WechatBrandIcons.tsx(品牌图形色豁免)
  * - 渲染容器同 ShareRewardDialog:除遮罩 flex:1 外内容全部内在高度(RN Web Modal 安全形态)
  */
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import type { TextStyle, ViewStyle } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
-import { Link2, MessageCircle, Users } from 'lucide-react-native'
-import { rnRadius } from '@ihui/design-tokens'
+import { Link2 } from 'lucide-react-native'
+import { OAUTH_BRAND_COLORS, rnRadius } from '@ihui/design-tokens'
 import { shareWebPageToSession, shareWebPageToTimeline } from '../lib/wechat'
 import { tokens } from '../theme/active-tokens'
+import { WechatFriendIcon, WechatMomentsIcon } from './WechatBrandIcons'
 
 /** 图标块边长 */
 const ICON_TILE = 56
@@ -135,8 +138,8 @@ export function ShareSheet(props: ShareSheetProps): React.JSX.Element | null {
             >
               {({ pressed }) => (
                 <View style={[styles.optionFace, pressed ? styles.pressed : null]}>
-                  <View style={styles.iconTile}>
-                    <MessageCircle size={24} color={tokens.success.DEFAULT} />
+                  <View style={[styles.iconTile, styles.iconTileWechat]}>
+                    <WechatFriendIcon size={24} />
                   </View>
                   <Text style={styles.optionLabel}>微信好友</Text>
                 </View>
@@ -152,7 +155,7 @@ export function ShareSheet(props: ShareSheetProps): React.JSX.Element | null {
               {({ pressed }) => (
                 <View style={[styles.optionFace, pressed ? styles.pressed : null]}>
                   <View style={styles.iconTile}>
-                    <Users size={24} color={tokens.success.DEFAULT} />
+                    <WechatMomentsIcon size={24} />
                   </View>
                   <Text style={styles.optionLabel}>朋友圈</Text>
                 </View>
@@ -234,6 +237,11 @@ const styles = StyleSheet.create({
     gap: 8,
   } as ViewStyle,
   pressed: { opacity: 0.6 } as ViewStyle,
+  /** 微信好友位:官方绿实底(品牌身份色豁免,同 oauth-colors.ts;盖在通用 iconTile 之上) */
+  iconTileWechat: {
+    backgroundColor: OAUTH_BRAND_COLORS.wechat,
+    borderColor: OAUTH_BRAND_COLORS.wechat,
+  } as ViewStyle,
   iconTile: {
     width: ICON_TILE,
     height: ICON_TILE,

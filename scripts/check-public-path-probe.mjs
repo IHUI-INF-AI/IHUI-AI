@@ -116,26 +116,53 @@ export const DEFAULTS = {
 /**
  * 一次 HTTP 采样 → 归桶。**归桶决定"能不能把它算成对端的错"**,所以宁可落 indeterminate
  * 也不把"我方出口坏了"记成"目标坏了"(§5d:网络不可达不等于对端失效)。
+ *
+ * `stage` 是把"这一跳走到哪儿就断了"钉成一等的判据面(2026-10-16 立,当天那封"公网慢 60%"的
+ * 邮件答不出是哪一段坏了):
+ *   `http`  拿到状态行 ⇒ 只有这一型证明"请求真的走完了,对端花了 ms 才答"
+ *   `conn`  TCP 到了对端但被拒/被复位 ⇒ 可算对端不可用(换流那一型)
+ *   `stall` 连对端都没到(DNS/TLS/连接超时/被我方上限中止)⇒ 属**本机出口与链路**,不得冒充对端慢
  * @param {{status?:number|null, ms:number, errorName?:string, errorCode?:string, causeCode?:string}} r
  */
 export function classifySample(r) {
   const code = String(r.causeCode || r.errorCode || r.errorName || '')
   if (typeof r.status === 'number') {
-    if (r.status >= 500) return { bucket: 'http5xx', unavailable: true, note: `HTTP ${r.status}` }
-    if (r.status >= 400) return { bucket: 'http4xx', unavailable: false, note: `HTTP ${r.status}(未算对端不可用:4xx 常是路由/鉴权语义)` }
-    if (r.status >= 300) return { bucket: 'redirected', unavailable: false, note: `HTTP ${r.status}` }
-    return { bucket: 'ok', unavailable: false, note: `HTTP ${r.status}` }
+    if (r.status >= 500) return { stage: 'http', bucket: 'http5xx', unavailable: true, note: `HTTP ${r.status}` }
+    if (r.status >= 400) return { stage: 'http', bucket: 'http4xx', unavailable: false, note: `HTTP ${r.status}(未算对端不可用:4xx 常是路由/鉴权语义)` }
+    if (r.status >= 300) return { stage: 'http', bucket: 'redirected', unavailable: false, note: `HTTP ${r.status}` }
+    return { stage: 'http', bucket: 'ok', unavailable: false, note: `HTTP ${r.status}` }
   }
   if (r.aborted || /PROBE_CEILING|ABORT_ERR|AbortError/i.test(code)) {
-    return { bucket: 'overCeiling', unavailable: false, indeterminate: true, note: '超过探测上限被我方中止 ⇒ 只知"比上限还慢",不得记成对端不可用' }
+    return { stage: 'stall', bucket: 'overCeiling', unavailable: false, indeterminate: true, note: '超过探测上限被我方中止 ⇒ 只知"比上限还慢",不得记成对端不可用' }
   }
-  if (/ECONNREFUSED/i.test(code)) return { bucket: 'connRefused', unavailable: true, note: '连接被拒(换流那一型)' }
-  if (/ECONNRESET|EPIPE|SocketClosed|ERR_SOCKET|socket hang up/i.test(code)) return { bucket: 'connReset', unavailable: true, note: '连接被复位' }
-  if (/ENOTFOUND|EAI_AGAIN/i.test(code)) return { bucket: 'dns', unavailable: false, indeterminate: true, note: 'DNS 解析失败 ⇒ 分不清对端与我方出口,计未判定' }
-  if (/CERT|TLS|SSL|UNABLE_TO_VERIFY|SELF_SIGNED/i.test(code)) return { bucket: 'tls', unavailable: false, indeterminate: true, note: 'TLS 握手失败 ⇒ 可能是我方信任库,计未判定' }
-  if (/PROXY|TUNNEL/i.test(code)) return { bucket: 'proxy', unavailable: false, indeterminate: true, note: '出口代理链路报错 ⇒ 属我方配置,计未判定' }
-  if (code) return { bucket: 'probeError', unavailable: false, probeSideBroken: true, note: `无法归类的本地异常:${code.slice(0, 90)}` }
-  return { bucket: 'probeError', unavailable: false, probeSideBroken: true, note: '既无状态码也无错误形态 ⇒ 探测本身没跑到' }
+  if (/ECONNREFUSED/i.test(code)) return { stage: 'conn', bucket: 'connRefused', unavailable: true, note: '连接被拒(换流那一型)' }
+  if (/ECONNRESET|EPIPE|SocketClosed|ERR_SOCKET|socket hang up/i.test(code)) return { stage: 'conn', bucket: 'connReset', unavailable: true, note: '连接被复位' }
+  if (/ENOTFOUND|EAI_AGAIN/i.test(code)) return { stage: 'stall', bucket: 'dns', unavailable: false, indeterminate: true, note: 'DNS 解析失败 ⇒ 分不清对端与我方出口,计未判定' }
+  if (/CERT|TLS|SSL|UNABLE_TO_VERIFY|SELF_SIGNED/i.test(code)) return { stage: 'stall', bucket: 'tls', unavailable: false, indeterminate: true, note: 'TLS 握手失败 ⇒ 可能是我方信任库,计未判定' }
+  if (/PROXY|TUNNEL/i.test(code)) return { stage: 'stall', bucket: 'proxy', unavailable: false, indeterminate: true, note: '出口代理链路报错 ⇒ 属我方配置,计未判定' }
+  // **连接阶段就没通**(undici 的 UND_ERR_CONNECT_TIMEOUT 带 `attempted addresses` 与 10000ms)。
+  // 旧稿没有这一条,它一路落到 probeError ⇒ 记成"本地探测故障 = 这把尺子失明",于是 20% 失明线
+  // 会把一次真的链路故障洗成"本轮不出结论"(2026-10-16 实测:12 样本里那 1 条 10735ms 就被这么记的)。
+  // 它既不是对端坏(没走到对端),也不是尺子坏(尺子自己跑完了、错误形态认识)⇒ 具名落 stall。
+  if (/UND_ERR_CONNECT_TIMEOUT|EHOSTUNREACH|ENETUNREACH|ENETDOWN|NETWORK_UNREACH|NetworkUnreachable|Connect,?Timeout/i.test(code)) {
+    return { stage: 'stall', bucket: 'connStall', unavailable: false, indeterminate: true, note: 'TCP 连接阶段就没通(连接超时/网络不可达)⇒ 属本机出口与链路这一跳,不得记成对端不可用' }
+  }
+  if (code) return { stage: 'stall', bucket: 'probeError', unavailable: false, probeSideBroken: true, note: `无法归类的本地异常:${code.slice(0, 90)}` }
+  return { stage: 'stall', bucket: 'probeError', unavailable: false, probeSideBroken: true, note: '既无状态码也无错误形态 ⇒ 探测本身没跑到' }
+}
+
+/**
+ * 样本的 `stage`:优先读归类时写下的字段,**旧取证行没有这个字段**(2026-10-16 之前的取证),
+ * 所以缺失时按 status/bucket 派生 —— 绝不能把"没有 stage"读成 `stall`,那等于把历史取证里
+ * 每一条 200 响应改判成"没走到对端"(把账面改成事实)。一份实现,统计与定位都走它。
+ */
+export function sampleStage(s) {
+  if (s && typeof s.stage === 'string' && ['http', 'conn', 'stall'].includes(s.stage)) return s.stage
+  if (s && typeof s.status === 'number') return 'http'
+  const b = String((s && s.bucket) || '')
+  if (b === 'connRefused' || b === 'connReset') return 'conn'
+  if (b === 'ok' || b === 'http4xx' || b === 'http5xx' || b === 'redirected') return 'http'
+  return 'stall'
 }
 
 /**
@@ -145,18 +172,33 @@ export function classifySample(r) {
 export function summarizeSequence(samples, opt = {}) {
   const slowMs = opt.slowMs ?? DEFAULTS.slowMs
   const n = samples.length
-  const buckets = { ok: 0, redirected: 0, http4xx: 0, http5xx: 0, connRefused: 0, connReset: 0, overCeiling: 0, dns: 0, tls: 0, proxy: 0, probeError: 0 }
+  const buckets = { ok: 0, redirected: 0, http4xx: 0, http5xx: 0, connRefused: 0, connReset: 0, overCeiling: 0, connStall: 0, dns: 0, tls: 0, proxy: 0, probeError: 0 }
   let unavailable = 0
   let indeterminate = 0
   let probeSideBroken = 0
   let slow = 0
   let maxMs = 0
+  // 按"走到哪一跳"分账:`httpSlow` 才是"对端答得慢"的事实,`stallSlow` 是"连对端都没到"的事实。
+  // `slow` 保留为总额(旧口径,含 conn 阶段的慢样本)—— 拆维是**加维度**,不是把原来的账抹掉。
+  let httpN = 0
+  let connN = 0
+  let stallN = 0
+  let httpSlow = 0
+  let stallSlow = 0
   for (const s of samples) {
     buckets[s.bucket] = (buckets[s.bucket] || 0) + 1
+    const st = sampleStage(s)
+    if (st === 'http') httpN += 1
+    else if (st === 'conn') connN += 1
+    else stallN += 1
     if (s.unavailable) unavailable += 1
     if (s.indeterminate) indeterminate += 1
     if (s.probeSideBroken) probeSideBroken += 1
-    if (typeof s.ms === 'number' && s.ms >= slowMs) slow += 1
+    if (typeof s.ms === 'number' && s.ms >= slowMs) {
+      slow += 1
+      if (st === 'http') httpSlow += 1
+      else if (st === 'stall') stallSlow += 1
+    }
     if (typeof s.ms === 'number' && s.ms > maxMs) maxMs = s.ms
   }
   const { longestRunMs, runs } = longestUnavailableRun(samples)
@@ -167,14 +209,42 @@ export function summarizeSequence(samples, opt = {}) {
     indeterminate,
     probeSideBroken,
     slow,
+    httpN,
+    connN,
+    stallN,
+    httpSlow,
+    stallSlow,
     maxMs,
     failRatio: n ? unavailable / n : null,
     slowRatio: n ? slow / n : null,
+    httpSlowRatio: httpN ? httpSlow / httpN : null,
+    stallRatio: n ? stallN / n : null,
     indeterminateRatio: n ? indeterminate / n : null,
     longestRunMs,
     runs,
     spanMs: n ? new Date(samples[n - 1].at).getTime() - new Date(samples[0].at).getTime() : 0,
   }
+}
+
+/**
+ * 公网侧越阈了 —— **是哪一段坏了?** 拿同轮本地对照组(127.0.0.1:8801,绕过 CF 边缘与隧道)定位:
+ *   `service` 对照组同轮也越阈 ⇒ web 本体慢,公网那条路只是把它透出来;
+ *   `entry`   对照组同轮不越阈 ⇒ 服务段是快的,洞在"公网入口 ↔ 本机隧道"这一跳;
+ *   `undetermined` 任一侧没采到样本 ⇒ **不猜**。这一档必须存在:把"没量到"写成"入口段没问题"
+ *              就是本仓反复禁止的"把失明说成平静"。
+ * 只读两侧已有的比率,不自立新阈值(2026-10-16 现读的实测:健康轮公网也会 1/10 条 ≥8s,
+ * 而对照组始终 9–47ms ⇒ 定位真身靠的是对照,不是再拍一条线)。
+ */
+export function classifyPublicLeg(pub, local, opt = {}) {
+  const slowRatio = opt.slowRatio ?? DEFAULTS.slowRatio
+  const failRatio = opt.failRatio ?? DEFAULTS.failRatio
+  const over = (st) => (st.slowRatio !== null && st.slowRatio > slowRatio) || (st.failRatio !== null && st.failRatio > failRatio)
+  if (!pub || pub.n === 0) return { leg: 'undetermined', tag: null, note: '公网侧本轮无样本 ⇒ 不定位(不得读成"入口段没问题")' }
+  if (!local || local.n === 0) return { leg: 'undetermined', tag: null, note: '本地对照组本轮没采到样本 ⇒ 分不清"入口段慢"与"服务段慢",不得冒认定位' }
+  if (!over(pub)) return { leg: 'clear', tag: null, note: `公网侧本轮未越阈(对照 ${local.n} 样本、最慢 ${Math.round(local.maxMs)}ms)` }
+  const stallNote = pub.stallSlow > 0 ? `;其中 ${pub.stallSlow}/${pub.n} 条连对端都没到(TCP/DNS/TLS 阶段就卡住)` : `;${pub.httpSlow}/${pub.httpN} 条是走到对端之后才慢`
+  if (over(local)) return { leg: 'service', tag: '服务段', note: `本地对照组同轮也越阈(慢 ${local.slow}/${local.n},最慢 ${Math.round(local.maxMs)}ms)⇒ 洞在**服务段**(web 本体),不是公网入口${stallNote}` }
+  return { leg: 'entry', tag: '入口段', note: `本地对照组同轮 ${local.n} 样本最慢仅 ${Math.round(local.maxMs)}ms ⇒ 服务段是快的,洞在**公网入口 ↔ 本机隧道**这一跳(CF 边缘 / cloudflared / 上行)${stallNote}` }
 }
 
 /** 最长连续"对端可归因失败"的墙钟跨度(不是次数 × 间隔 —— 间隔会漂)。 */
@@ -208,7 +278,13 @@ export function longestUnavailableRun(samples) {
 export function judgeSequence(id, stat, opt = {}) {
   const rule = opt.rule === 'outage' ? 'outage' : 'ratio'
   const slowMs = opt.slowMs ?? DEFAULTS.slowMs
-  const numbers = `样本 ${stat.n} 次;对端可归因失败 ${stat.unavailable};慢(≥${slowMs}ms)${stat.slow};DNS/TLS/超上限等不可归因 ${stat.indeterminate};本地探测故障 ${stat.probeSideBroken};最长连续不可用 ${Math.round(stat.longestRunMs / 100) / 10}s;最慢单次 ${Math.round(stat.maxMs)}ms`
+  // 读数里带上"走到哪一跳"的分账(2026-10-16):原来这一行只有 `慢 6`,收信人无法判断
+  // 是**对端答得慢**还是**这一跳根本没走通**——而这两件事的下一步动作完全不同。
+  const httpN = stat.httpN ?? 0
+  const stallN = stat.stallN ?? 0
+  const httpSlow = stat.httpSlow ?? 0
+  const stallSlow = stat.stallSlow ?? 0
+  const numbers = `样本 ${stat.n} 次;走到对端并拿到响应 ${httpN},没走到对端 ${stallN};对端可归因失败 ${stat.unavailable};慢(≥${slowMs}ms)${stat.slow}(响应之后 ${httpSlow} / 连对端都没到 ${stallSlow});DNS/TLS/连接超时/超上限等不可归因 ${stat.indeterminate};本地探测故障 ${stat.probeSideBroken};最长连续不可用 ${Math.round(stat.longestRunMs / 100) / 10}s;最慢单次 ${Math.round(stat.maxMs)}ms`
   if (stat.n === 0) return { verdict: 'unjudged', reasons: [`${id}:一个样本都没采到 ⇒ **未判定**,不得读成"0 次失败"`], numbers: `${id} 样本 0` }
   if (stat.probeSideBroken > 0 && stat.probeSideBroken / stat.n > 0.2) {
     return { verdict: 'unjudged', reasons: [`${id}:${stat.probeSideBroken}/${stat.n} 次是**本地**异常(无法归类)⇒ 这台尺子该目标本轮失明,不出结论`], numbers }
@@ -225,7 +301,7 @@ export function judgeSequence(id, stat, opt = {}) {
       reasons.push(`${id}:慢样本率 ${(stat.slowRatio * 100).toFixed(1)}% > 阈值 ${((opt.slowRatio ?? DEFAULTS.slowRatio) * 100).toFixed(0)}%(≥${slowMs}ms)`)
     }
   }
-  if (stat.indeterminate > 0) reasons.push(`(附)${id}:${stat.indeterminate} 次不可归因(DNS/TLS/超上限)—— 只报数,不参与判红`)
+  if (stat.indeterminate > 0) reasons.push(`(附)${id}:${stat.indeterminate} 次不可归因(DNS/TLS/连接超时/超上限)—— 只报数,不参与判红`)
   return { verdict: reasons.some((r) => !r.startsWith('(附)')) ? 'breach' : 'ok', reasons, numbers }
 }
 
@@ -599,6 +675,46 @@ function selfTest() {
     const r = splitBySwapWindow([S({ at: 'garbage' })], [{ at: Date.parse('2026-09-28T00:00:00.000Z') }])
     return r.steady.length === 1 && r.untimeable === 1
   })())
+  // ── 归因到"哪一跳"(2026-10-16 立:当天那封"公网慢 60%"的邮件答不出是哪一段坏了)
+  ok('C8 TCP 连接阶段超时 ⇒ 具名落 connStall(stall 面、不可归因),**不**得记成"尺子自己失明"', (() => {
+    const r = classifySample({ ms: 10735, errorName: 'TypeError', causeCode: 'UND_ERR_CONNECT_TIMEOUT,Connect,Timeout,Error,(attempted,addresses:,2606:4700:3033::ac43:a3c3:443)' })
+    return r.bucket === 'connStall' && r.stage === 'stall' && r.indeterminate === true && r.probeSideBroken !== true && r.unavailable === false
+  })())
+  ok('C9 反向:拒连仍是"对端可归因"(拆归因不许把对端坏洗成出口坏)', (() => {
+    const r = classifySample({ ms: 3, causeCode: 'ECONNREFUSED' })
+    return r.stage === 'conn' && r.unavailable === true
+  })())
+  ok('S1 慢样本按跳分账且总额不丢:slow = http 慢 + stall 慢 + conn 慢', (() => {
+    const mix = [S({ status: 200, ms: 100 }), S({ status: 200, ms: 9000 }), S({ bucket: 'connStall', stage: 'stall', indeterminate: true, ms: 10735, status: null }), S({ bucket: 'connRefused', stage: 'conn', unavailable: true, ms: 9000, status: null }), S({ bucket: 'probeError', stage: 'stall', probeSideBroken: true, ms: 1, status: null })]
+    const m = summarizeSequence(mix, { slowMs: 8000 })
+    return m.n === 5 && m.slow === 3 && m.httpSlow === 1 && m.stallSlow === 1 && m.httpN === 2 && m.connN === 1 && m.stallN === 2 && m.buckets.connStall === 1
+  })())
+  ok('S2 旧取证行没有 stage ⇒ 从 status/bucket 派生;一条 200 响应绝不能被读成"没走到对端"', (() => {
+    const legacy = [S({ status: 200, ms: 9000 }), S({ bucket: 'connStall', ms: 10735, status: null })]
+    const l = summarizeSequence(legacy, { slowMs: 8000 })
+    return l.httpN === 1 && l.stallN === 1 && l.httpSlow === 1 && l.stallSlow === 1
+  })())
+  // 定位:同一份公网读数,结论必须**随对照组翻** —— 这就是"定位真读了对照"的变异取证
+  const pubBad = summarizeSequence(Array.from({ length: 10 }, (_, i) => S({ status: 200, ms: i < 6 ? 9000 : 500, at: new Date(t0 + i * 1000).toISOString() })), { slowMs: 8000 })
+  const localFast = summarizeSequence(Array.from({ length: 10 }, (_, i) => S({ status: 200, ms: 20, at: new Date(t0 + i * 1000).toISOString() })), { slowMs: 8000 })
+  const localSlow = summarizeSequence(Array.from({ length: 10 }, (_, i) => S({ status: 200, ms: 9000, at: new Date(t0 + i * 1000).toISOString() })), { slowMs: 8000 })
+  ok('L1 公网越阈 + 对照同轮健康 ⇒ 定位入口段(洞在 CF 边缘/隧道/上行,不是 web)', (() => {
+    const g = classifyPublicLeg(pubBad, localFast)
+    return g.leg === 'entry' && g.tag === '入口段' && /最慢仅 20ms/.test(g.note)
+  })())
+  ok('L2 变异对照:公网读数一字不改,换成对照也慢 ⇒ 必须翻成服务段', (() => {
+    const g = classifyPublicLeg(pubBad, localSlow)
+    return g.leg === 'service' && g.tag === '服务段'
+  })())
+  ok('L3 对照组没采到样本 ⇒ undetermined 且不给段名(不得冒认"入口段没问题")', (() => {
+    const g = classifyPublicLeg(pubBad, summarizeSequence([]))
+    return g.leg === 'undetermined' && g.tag === null && /不得冒认/.test(g.note)
+  })())
+  ok('L4 公网自己没样本 ⇒ undetermined(不是"公网健康")', classifyPublicLeg(null, localFast).leg === 'undetermined' && classifyPublicLeg(summarizeSequence([]), localFast).leg === 'undetermined')
+  ok('L5 公网未越阈 ⇒ clear 且不给段名(段名只用于真有坏点时,否则身份里凭空多一档)', (() => {
+    const g = classifyPublicLeg(localFast, localFast)
+    return g.leg === 'clear' && g.tag === null
+  })())
   // 取证三态:复用 run-evidence 的判据,不另立标记语法
   ok('V1 有 RC 行 ⇒ complete(跑完)', judgeEvidence('{}\n{}\n' + RC_MARK + '0\n').kind === 'complete')
   ok('V2 没跑完 ⇒ truncated ⇒ exit 3(INCOMPLETE ≠ 通过 ≠ 失败)', (() => {
@@ -655,6 +771,16 @@ async function main(argv) {
     for (const id of ['A', 'B']) {
       const byUrl = new Map()
       for (const s of r.bySeq[id]) byUrl.set(s.url || '(无 url)', (byUrl.get(s.url || '(无 url)') || []).concat([s]))
+      const bstats = new Map()
+      for (const [u, ss] of byUrl) {
+        const sp = splitBySwapWindow(ss, swapEvents, { preMs: DEFAULTS.splitPreMs, postMs: DEFAULTS.splitPostMs })
+        bstats.set(u, { split: sp, stat: summarizeSequence(sp.steady, { slowMs: DEFAULTS.slowMs }) })
+      }
+      // 对照 URL 从取证摘要行取(取证当时那一份)。拿不到 ⇒ 不定位 —— 拿"两个 url 里随便挑一个
+      // 当公网"去猜,猜反了就把服务段的锅甩给入口段(反之亦然)。
+      const sumOpt = (r.summary && r.summary.opt) || {}
+      const pubUrl = typeof sumOpt.publicUrl === 'string' ? sumOpt.publicUrl : null
+      const localUrl = typeof sumOpt.localUrl === 'string' ? sumOpt.localUrl : null
       for (const [url, samples] of byUrl) {
         if (id === 'A') {
           const stat = summarizeSequence(samples, { slowMs: DEFAULTS.slowMs })
@@ -663,11 +789,14 @@ async function main(argv) {
           console.log(`    ⇒ ${j.verdict}${j.reasons.length ? ' | ' + j.reasons.join(' | ') : ''}`)
           continue
         }
-        const split = splitBySwapWindow(samples, swapEvents, { preMs: DEFAULTS.splitPreMs, postMs: DEFAULTS.splitPostMs })
-        const stat = summarizeSequence(split.steady, { slowMs: DEFAULTS.slowMs })
-        const j = judgeSequence(`B/${url}·常态`, stat, { rule: 'ratio', slowMs: DEFAULTS.slowMs })
+        const { split, stat } = bstats.get(url)
+        const leg = url === pubUrl ? classifyPublicLeg(stat, localUrl && bstats.get(localUrl) ? bstats.get(localUrl).stat : null, { slowMs: DEFAULTS.slowMs }) : null
+        const tagKey = `B/${url}·常态${leg && leg.tag ? `·${leg.tag}` : ''}`
+        const j = judgeSequence(tagKey, stat, { rule: 'ratio', slowMs: DEFAULTS.slowMs })
         if (!split.splitApplied) j.reasons.push(`(附)换流窗口未剔除(${split.reason})—— 常态比率可能含换流洞`)
-        console.log(`  B/${url}·常态:${j.numbers}`)
+        if (leg) j.reasons.push(`[定位]${leg.note}`)
+        else if (pubUrl && localUrl && url !== localUrl) j.reasons.push('(附)本目标既非取证里的公网目标也非对照目标 ⇒ 未定位')
+        console.log(`  ${tagKey}:${j.numbers}`)
         console.log(`    ⇒ ${j.verdict}${j.reasons.length ? ' | ' + j.reasons.join(' | ') : ''}`)
         if (split.inWindow.length > 0) {
           const w = summarizeSequence(split.inWindow, { slowMs: DEFAULTS.slowMs })
@@ -790,19 +919,29 @@ async function main(argv) {
     }
   }
   if (wantB) {
+    // 两趟:先把两个目标的样本各自统计完(**分离判据对两个目标都跑**,对照组也得剔窗口洞),
+    // 再出结论 —— 因为"公网越阈是哪一段坏了"必须拿**同轮**对照组定位,一趟里公网先出结论时
+    // 对照组还没算出来,只能瞎写(票 G-301 立"任一不得替另一条顶结论"的同一条纪律)。
+    const bstat = {}
     for (const [label, url] of targets) {
       const all = out.B.samples.filter((s) => s.url === url)
       const split = splitBySwapWindow(all, ev.events, { preMs: opt.splitPreMs, postMs: opt.splitPostMs })
       splitReport[label] = { applied: split.splitApplied, steady: split.steady.length, inWindow: split.inWindow.length, untimeable: split.untimeable, reason: split.reason }
-      const stat = summarizeSequence(split.steady, { slowMs: opt.slowMs })
-      const j = judgeSequence(`B/${label}·常态`, stat, { rule: 'ratio', slowMs: opt.slowMs, failRatio: opt.failRatio, slowRatio: opt.slowRatio })
+      bstat[label] = { split, stat: summarizeSequence(split.steady, { slowMs: opt.slowMs }), win: split.inWindow.length > 0 ? summarizeSequence(split.inWindow, { slowMs: opt.slowMs }) : null }
+    }
+    for (const [label, url] of targets) {
+      const { split, stat, win } = bstat[label]
+      // 只有公网侧才定位到"段";对照组自己不需要(它越阈的语义早就定为"本机服务没起",归服务自愈层)。
+      const leg = label === '公网' ? classifyPublicLeg(stat, bstat['本地'] ? bstat['本地'].stat : null, { slowMs: opt.slowMs, slowRatio: opt.slowRatio, failRatio: opt.failRatio }) : null
+      const key = `B/${label}·常态${leg && leg.tag ? `·${leg.tag}` : ''}`
+      const j = judgeSequence(key, stat, { rule: 'ratio', slowMs: opt.slowMs, failRatio: opt.failRatio, slowRatio: opt.slowRatio })
       if (!split.splitApplied) j.reasons = [...j.reasons, `(附)B/${label}:换流窗口**未剔除**(${split.reason})⇒ 若本轮发生过部署,常态比率含换流洞,不得据此给公网出"常态健康"合格证`]
       else if (split.untimeable > 0) j.reasons = [...j.reasons, `(附)B/${label}:${split.untimeable} 条样本无可用时刻,保守留在常态集(不猜归属)`]
-      emit(`B/${label}·常态`, url, j)
-      if (split.inWindow.length > 0) {
+      if (leg) j.reasons = [...j.reasons, `[定位]${leg.note}`]
+      emit(key, url, { ...j, leg: leg ? leg.leg : null })
+      if (win) {
         // 窗口段按序列 A 的"洞长"口径判:它是换流的既定代价,不是公网常态病 —— 混进比率就是两条互相掩盖。
-        const w = summarizeSequence(split.inWindow, { slowMs: opt.slowMs })
-        emit(`B/${label}·窗口段(归A语义)`, url, judgeSequence(`B/${label}·窗口段`, w, { rule: 'outage', slowMs: opt.slowMs, outageMs: opt.outageMs }))
+        emit(`B/${label}·窗口段(归A语义)`, url, judgeSequence(`B/${label}·窗口段`, win, { rule: 'outage', slowMs: opt.slowMs, outageMs: opt.outageMs }))
       } else {
         lines.push(`B/${label}·窗口段:${split.splitApplied ? '窗口内样本 0(**已判定**的真 0,与常态比率互不顶账)' : `**未判定** —— ${split.reason}`}`)
       }
@@ -827,7 +966,7 @@ async function main(argv) {
   let rc = verdicts.length === 0 ? 3 : anyBreach ? 1 : allUnjudged ? 3 : 0
   if (controlBlind) rc = 3
   const results = {}
-  for (const v of verdicts) results[v.key] = { verdict: v.verdict, reasons: v.reasons, numbers: v.numbers }
+  for (const v of verdicts) results[v.key] = { verdict: v.verdict, reasons: v.reasons, numbers: v.numbers, ...(v.leg ? { leg: v.leg } : {}) }
   if (opt.ledger) {
     writeLedgerTrailer(opt.ledger, { at: new Date().toISOString(), rc, results, control, split: splitReport, swapEvents: (ev.events || []).map((e) => e.at).slice(-50), opt: { slowMs: opt.slowMs, ceilingMs: opt.ceilingMs, samples: opt.samples, publicUrl: opt.publicUrl, localUrl: opt.localUrl } })
     sealLedger(opt.ledger, rc)
@@ -876,7 +1015,9 @@ if (isDirectRun) {
 
 export const __test__ = {
   classifySample,
+  sampleStage,
   summarizeSequence,
+  classifyPublicLeg,
   longestUnavailableRun,
   judgeSequence,
   findLatestSwapEvent,

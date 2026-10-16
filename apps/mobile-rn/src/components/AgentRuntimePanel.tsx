@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { View, Text, Pressable, ScrollView } from 'react-native'
+import { rnRadius } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { Check, X } from 'lucide-react-native'
 import { useAgentRuntime, toolDisplayKey, permissionDecisionWord } from '@ihui/shared'
@@ -38,8 +39,15 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
       : permission.toolName
     : 'unknown'
 
+  // 根上必须带卡片圆角：小程序侧的根走 card 角色档，而本屏此前整份文件没有任何圆角，
+  // 于是同一块运行时面板在一端是圆角卡、另一端是方角块。跨端对账门本轮才把这一格量出来
+  // —— 它的根槽位扫描原先会把卫语句早退误当成根，修好扫描才看得见这条。
+  // (刻意不在这条注释里写档位名与数值：对账门的提取式会读注释文本。)
   return (
-    <View className="flex-1" style={{ backgroundColor: tokens.surface.card }}>
+    <View
+      className="flex-1"
+      style={{ backgroundColor: tokens.surface.card, borderRadius: rnRadius.lg }}
+    >
       <View
         className="flex-row items-center border-b px-3 py-2"
         style={{ borderColor: tokens.border.light }}
