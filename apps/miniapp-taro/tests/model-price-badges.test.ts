@@ -84,7 +84,7 @@ function badgeRadius(code: string): Array<{ pad: string; radius: string | undefi
     /paddingLeft:\s*toUnit\(MODEL_LIST_(PRICE_)?BADGE_PADDING_X_PX\)[\s\S]{0,600}?borderRadius:\s*([^,\n]+)/g
   let m: RegExpExecArray | null
   while ((m = re.exec(code)) !== null) {
-    found.push({ pad: m[1] ? 'price' : 'rank', radius: m[2].trim() })
+    found.push({ pad: m[1] ? 'price' : 'rank', radius: m[2]?.trim() })
   }
   return found
 }
