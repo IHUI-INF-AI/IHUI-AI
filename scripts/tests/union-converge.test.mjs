@@ -142,6 +142,49 @@ test('反向对照:取某一侧整棵树(选边)必须被 verifyUnion 判失败'
   }
 })
 
+test('G-32 归并侧半格:被同题折叠掉的行放行并点名,无同指纹行的真丢行照旧判红', () => {
+  const { dir, run } = fixture()
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\n- [ ] G-100 甲同题任务标题需要够长——初版\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'base')
+    writeFileSync(
+      join(dir, 'PROJECT_PLAN.md'),
+      'a\n- [ ] G-100 甲同题任务标题需要够长——初版\n' +
+        '- [x] ✅(2026-10-16) G-100 甲同题任务标题需要够长——已完成\n' +
+        '- [ ] G-200 乙任务独有标题足够长——乙注\n',
+      'utf8',
+    )
+    run('add', '-A')
+    run('commit', '-qm', 'ours')
+    const ours = run('rev-parse', 'HEAD')
+    run('checkout', '-q', 'HEAD~1')
+    writeFileSync(join(dir, 'theirs.ts'), 't\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'theirs')
+    const theirs = run('rev-parse', 'HEAD')
+    run('update-ref', 'refs/heads/main', ours)
+    run('checkout', '-q', 'main')
+
+    const p = U.plan(ours, theirs, dir)
+    assert.deepEqual(p.bad, [], `零丢失自证必须通过(折叠族须放行):${p.bad.slice(0, 3).join(' / ')}`)
+    assert.ok(
+      p.movedPaths.some((m) => m.startsWith('PROJECT_PLAN.md 有 1 行未逐字存活') && m.includes('同题折叠')),
+      `折叠族必须逐条点名,实际 moved:${(p.movedPaths || []).join(' / ')}`,
+    )
+    const doc = U.show(p.tree, 'PROJECT_PLAN.md', dir)
+    assert.ok(doc.includes('已完成') && !doc.includes('——初版'), `折叠必须保留完成态:${doc.replace(/\n/g, '|')}`)
+    const oneSide = run('rev-parse', `${theirs}^{tree}`)
+    const bad = U.verifyUnion(ours, theirs, oneSide, dir)
+    assert.ok(
+      bad.some((b) => b.includes('未存活行') && b.includes('G-200')),
+      `无同指纹行的真丢行不得被豁免洗绿:${bad.join(' / ')}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 test('行 union 的单调性:任一侧多出的重数不得减少,重复行也要按重数保住', () => {
   const merged = U.unionLines('x\ny\n', 'y\ny\nz\n')
   assert.equal(
