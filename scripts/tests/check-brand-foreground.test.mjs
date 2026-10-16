@@ -47,6 +47,7 @@ test('__test__ 出口齐备(§22c 锚点:判据函数 + 扩面所系的正则本
     'readJsxAttrValues',
     'parseTagHead',
     'maskNestedElements',
+    'findR9Violations',
   ]) {
     assert.equal(typeof gate[fn], 'function', `缺少导出函数 ${fn}`)
   }
@@ -57,6 +58,9 @@ test('__test__ 出口齐备(§22c 锚点:判据函数 + 扩面所系的正则本
     'R3_FILL_CTA',
     'BRAND_FG',
     'BRAND_FG_CTA',
+    'R9_LITERAL_FG',
+    'R9_COMMENT_LINE',
+    'R9_EXEMPT',
   ]) {
     assert.ok(gate[rx] instanceof RegExp, `缺少导出正则 ${rx}(镜像测试要靠它做变异对照)`)
   }
@@ -824,6 +828,14 @@ test('真仓端到端:全量审计 exit 0,且 R3 存量未跌回盲区态(盲区
   // R7 的计数必须出现在结论行:它没有分母(命中数 / 范围)就分不清"债清完了"与"树解不出来"
   const m7 = out.match(/R7 (\d+) 处全部 ≤ 基线/)
   assert.ok(m7, `结论行未含 R7 计数(R7 静默失效的唯一表现就是这行少一截):${out}`)
+  // R9 同一条硬规则:零容忍判据报 0 必须有分母同行,否则"0 是判出来的"与"门瞎了"分不开
+  const m9 = out.match(/R9 (\d+) 处\(零容忍\)/)
+  assert.ok(m9, `结论行未含 R9 计数(R9 静默失效的唯一表现就是这行少一截):${out}`)
+  assert.equal(
+    Number(m9[1]),
+    0,
+    `R9 全量实测 ${m9[1]} 处(零容忍)⇒ 仓内出现品牌底 × 硬编码字面量前景,必须改用配对前景 token`,
+  )
   // 真正的防漂移:扫出来的数必须等于基线合计。两个独立来源(实扫 vs 冻结台账)不一致即红 ——
   // 有人未登记地改了存量会红,把存量合法清到 0 则两边同时归 0,不会误伤。
   const baseNest = Object.values(
@@ -878,6 +890,67 @@ test('R8 装车证明:两条清单都必须真被 run() 调用(判据在而 run 
   // 基线键必须进 updateBaseline 的读写两侧,否则一次 --update-baseline 就把 R8 的额度抹掉
   const ub = src.slice(src.indexOf('if (options.updateBaseline)'))
   assert.ok(ub.slice(0, 1400).includes('inkBorderCounts'), 'updateBaseline 未保留 inkBorderCounts')
+})
+
+test('R9 装车证明:run() 必须真调用 findR9Violations,且零容忍段与结论行都在(死函数 = 提交链一路绿灯)', () => {
+  const src = readFileSync(join(REPO, 'scripts', 'check-brand-foreground.mjs'), 'utf8')
+  const body = src.slice(src.indexOf('function run(options)'))
+  assert.ok(
+    body.includes('findR9Violations(lines)'),
+    'run() 里没有 findR9Violations(lines) ⇒ R9 只是挂在文件里的死函数(判据在而永不调用 = 没有)',
+  )
+  assert.ok(
+    body.includes('r9ByFile'),
+    'run() 里没有 r9ByFile ⇒ R9 命中无处汇集,失败段永远不会亮',
+  )
+  // 零容忍段:任何命中即 failed,不查基线(R9 无基线键 —— 复用任何键都会被 --update-baseline 发额度)
+  assert.ok(
+    body.includes('R9 品牌底 × 硬编码字面量前景'),
+    'run() 缺 R9 失败面文案 ⇒ 命中时无人知道该改哪一行',
+  )
+  // 词法边界:R9 只认字面量前景 —— 放宽成"任意 color"会与 R1/R4 撞面(同一笔债两道门各计)
+  assert.ok(
+    gate.R9_LITERAL_FG.test("    color: '#FFFFFF',"),
+    'R9_LITERAL_FG 放宽不到字面量形态 ⇒ 本案病灶判不出',
+  )
+  assert.equal(
+    gate.R9_LITERAL_FG.test('    color: tokens.brand.ctaForeground,'),
+    false,
+    'R9_LITERAL_FG 误收 token 前景 ⇒ 与 R1/R4 撞面,基线互相顶掉',
+  )
+})
+
+test('R9 真内容 A/B:用本案病灶形态注入(不落盘,行数组)必命中;换回配对 token 必归 0', () => {
+  // 注入 = HomeScreen 模型分类 tab 改坏后的**兄弟命名 + 字面量**形态(三门全漏的真空)
+  const broken = [
+    '  modelModalTabActive: {',
+    '    backgroundColor: tokens.brand.cta,',
+    '    borderColor: tokens.brand.cta,',
+    '  },',
+    '  modelModalTabActiveText: {',
+    "    color: '#FFFFFF',",
+    '  },',
+  ]
+  const nBroken = gate.findR9Violations(broken).length
+  assert.equal(nBroken, 1, `病灶形态必命中 1 处,实得 ${nBroken} ⇒ 判据失效`)
+  // A/B:把字面量换成与底同档的配对前景 ⇒ 必归 0(证明"0 是修出来的",不是恒绿)
+  const fixed = broken.map((l) => (l.includes("'#FFFFFF'") ? '    color: tokens.brand.ctaForeground,' : l))
+  assert.equal(
+    gate.findR9Violations(fixed).length,
+    0,
+    '换成 brand.ctaForeground 后必归 0 ⇒ R9 的红真挂在字面量上',
+  )
+  // 同块对称对照:DEFAULT 底 + 字面量黑字(暗档白底白字)同样必命中
+  assert.equal(
+    gate.findR9Violations([
+      '  chipOn: {',
+      '    backgroundColor: tokens.brand.DEFAULT,',
+      "    color: '#000000',",
+      '  },',
+    ]).length,
+    1,
+    'DEFAULT 底 × 字面量黑字(深色白压白)必命中 —— 两档品牌底都在射程内',
+  )
 })
 
 test('R8 基线键独立:与 R2/R3/R4/R5/R7 五面互不重叠', () => {

@@ -178,6 +178,8 @@ import { thinkingTitleView } from '@ihui/shared/chat/element-pack'
 import { parseElementPackFrames } from '@ihui/shared/chat/element-pack-history'
 import { BottomActionBar, type BottomActionBarIconType } from '../components/BottomActionBar'
 import { McpStatusStrip } from '../components/McpStatusStrip'
+// 2026-10-16 录音消息:消息内语音气泡(播放回听),渲染面挂在 renderMessage 的 audio 段
+import { VoiceBubble } from '../components/VoiceBubble'
 // 对齐 Uniapp ai_index2.vue 行 117-131:对话页顶部「查看卡片」折叠区(智汇值卡)
 import IntelligentAssistant from '../components/IntelligentAssistant'
 import MaterialList, { type MaterialCategory, type MaterialItem } from '../components/MaterialList'
@@ -458,15 +460,32 @@ export function ChatScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>()
   const rootNav = navigation.getParent<RootNav>()
   const { user: authUser, token: authToken, logout } = useAuth()
+  // 录音不可用 → toast(showToast 定义在本函数后段,经 ref 桥接避免顺序依赖;
+  // reason→文案与 HomeScreen handleVoiceUnavailable 逐字一致,2026-10-15 web 静默失效修复)
+  const voiceUnavailableBridge = useRef<((reason: 'permission-denied' | 'record-failed', message: string) => void) | null>(null)
+  const handleVoiceUnavailableBridge = useCallback(
+    (reason: 'permission-denied' | 'record-failed', message: string): void => {
+      voiceUnavailableBridge.current?.(reason, message)
+    },
+    [],
+  )
   const {
     inputFiles,
     isVoiceMode,
+    isRecording,
+    recordingDuration,
     onInputAddImage,
     onInputRemoveFile,
     onInputVoiceToggle,
     onInputVoiceStart,
     onInputVoiceEnd,
-  } = useChatInput()
+  } = useChatInput({
+    onVoiceUnavailable: handleVoiceUnavailableBridge,
+    // 2026-10-16 录音消息:松手 → 上传 → 发语音气泡(可回听)
+    onVoiceRecorded: (uri, durationSec) => {
+      void handleVoiceRecorded(uri, durationSec)
+    },
+  })
 
   // ── 弹窗/抽屉状态 ──
   const [drawerVisible, setDrawerVisible] = useState(false)
@@ -631,6 +650,16 @@ export function ChatScreen() {
     [setToastType, setToastMessage, setToastVisible],
   )
   const hideToast = useCallback((): void => setToastVisible(false), [])
+  // 录音不可用桥接的落点:reason→文案与 HomeScreen handleVoiceUnavailable 逐字一致
+  voiceUnavailableBridge.current = useCallback(
+    (reason: 'permission-denied' | 'record-failed', message: string): void => {
+      showToast(
+        'warning',
+        message || (reason === 'permission-denied' ? '无法访问麦克风,请检查权限设置' : '录音启动失败,请重试'),
+      )
+    },
+    [showToast],
+  )
 
   // ── D135 执行帧接线状态(承 V4 #93) ──
   // 本轮 assistant 消息 id → 折叠后的 tool/plan/terminal 快照。折叠实现唯一在
@@ -1392,6 +1421,34 @@ export function ChatScreen() {
   const closeSourcePanel = (): void => setSourcePanelVisible(false)
 
   /**
+   * 2026-10-16 录音消息:长按录音松手 → 上传本地 m4a → 以「[语音] <url> <秒>」
+   * 作为用户消息发送(renderMessage 的 audio 段渲染成可回听的语音气泡)。
+   * 上传走既有 uploadFileMultipart(后端白名单已开 m4a/mp3/wav/aac);
+   * 发送复用 send(登录/VIP/流式入队校验齐全),不新造 LLM 调用链。
+   */
+  const handleVoiceRecorded = useCallback(
+    async (uri: string, durationSec: number): Promise<void> => {
+      if (!uri) return
+      try {
+        const up = await uploadFileMultipart({
+          uri,
+          type: 'audio/m4a',
+          name: `voice-${Date.now()}.m4a`,
+        })
+        if (up.success && up.data?.path) {
+          const url = resolveFileUrl(up.data.path)
+          void sendRef.current(`[语音] ${url} ${durationSec}`)
+        } else {
+          showToast('warning', '语音上传失败,请重试')
+        }
+      } catch {
+        showToast('warning', '语音上传失败,请重试')
+      }
+    },
+    [showToast],
+  )
+
+  /**
    * P1.1 转语音:打开语音类型选项 Modal,调用真实 TTS 接口并播放生成的音频。
    */
   const openTtsPanel = (): void => {
@@ -1888,6 +1945,17 @@ export function ChatScreen() {
               ) : null}
               {!isFailed &&
                 segments.map((seg, segIndex) => {
+                  if (seg.type === 'audio') {
+                    // 2026-10-16 录音消息:语音气泡(播放/暂停 + 进度点条 + 时长),可回听
+                    return (
+                      <VoiceBubble
+                        key={`${item.id}-voice-${segIndex}`}
+                        url={seg.url}
+                        durationSec={seg.durationSec}
+                        isUser={isUser}
+                      />
+                    )
+                  }
                   if (seg.type === 'image') {
                     return (
                       <Pressable
@@ -2506,6 +2574,21 @@ export function ChatScreen() {
     void sendRef.current(promptText)
   }, [route.params?.autoSendPrompt, conversationId, isStreaming])
 
+  /**
+   * 2026-10-16 录音消息(HomeScreen 入口):在首页大输入框长按录音 → 上传 →
+   * 跳 Chat 带 autoSendVoice,本 effect 把它作为本会话首条用户消息发出
+   * (与 autoSendPrompt 同一 send 出口,登录/VIP/流式校验齐全)。
+   * 不要求 conversationId:新会话从首页进来时本就还没有 id,等它永远等不到。
+   */
+  const autoSendVoiceDoneRef = useRef(false)
+  useEffect(() => {
+    const voice = route.params?.autoSendVoice
+    if (!voice?.url || autoSendVoiceDoneRef.current) return
+    if (isStreaming) return
+    autoSendVoiceDoneRef.current = true
+    void sendRef.current(`[语音] ${voice.url} ${voice.durationSec}`)
+  }, [route.params?.autoSendVoice, isStreaming])
+
   // ── 手动压缩上下文(2026-09-02 立,对齐 web 端 message-input.tsx compactButton):
   // POST /api/chat/compact → compressed=true → 成功 toast + getMessages 刷新消息列表
   //   (压缩摘要已替换旧消息,本地列表需同步;仅刷新消息,不重置输入框/素材卡);
@@ -2840,6 +2923,8 @@ export function ChatScreen() {
           onTextareaHeightChange={textareaHeightChange}
           onStartLongPress={handleStartLongPress}
           onEndLongPress={handleEndLongPress}
+          recording={isRecording}
+          recordingDuration={recordingDuration}
           onInputClick={handleInputClick}
           onStartVoiceAnimation={handleStartVoiceAnimation}
           onStopVoiceAnimation={handleStopVoiceAnimation}
@@ -3218,7 +3303,13 @@ export function ChatScreen() {
                 <X size={20} color={tokens.text.primary} />
               </Pressable>
             </View>
-            <AgentList items={agentListItems} onItemClick={handleAgentSelect} />
+            {/* AgentList 是弹窗唯一弹性块(flex:1 内部滚动);固定 header 不被压缩
+                (同 HomeScreen 模型弹窗 flexShrink 根治模式,2026-10-15) */}
+            <AgentList
+              style={{ flex: 1 }}
+              items={agentListItems}
+              onItemClick={handleAgentSelect}
+            />
           </Pressable>
         </Pressable>
       </Modal>

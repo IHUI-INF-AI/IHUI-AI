@@ -131210,7 +131210,8 @@
                 "doc",
                 "post",
                 "comment",
-                "aiworld"
+                "aiworld",
+                "agent"
               ]
             },
             "in": "query",
@@ -131305,7 +131306,8 @@
                       "doc",
                       "post",
                       "comment",
-                      "aiworld"
+                      "aiworld",
+                      "agent"
                     ],
                     "description": "资源类型"
                   },

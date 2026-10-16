@@ -19,6 +19,7 @@ import {
   useWindowDimensions,
   type ImageSourcePropType,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 // 分享图兜底资源(require 写法对齐项目惯例,如 BusinessLicenseScreen)
@@ -64,9 +65,15 @@ import { LoginPopUp } from '../components/LoginPopUp'
 import { VideoPlayer } from '../components/VideoPlayer'
 import Empty from '../components/common/Empty'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
+// 横向尺寸按应用框架实际宽(430 壳)取,不用视口宽(2026-10-15 修溢出,与 SearchOverlay 同轨):
+// web 预览 #root 被壳约束 430,useWindowDimensions 返回整窗 ~586 —— 页内海报/视频/预览图按
+// 视口宽算会超出壳被 #root overflow:hidden 裁掉右侧;Modal 内的同理(portal 已封顶 430,页宽按
+// 562 算会被裁 132)。原生无 #root,回退窗口宽行为不变。
+import { useAppFrameWidth } from '../components/Carousel'
 // 对齐 Uniapp user/index.vue 行 8 <FloatBox />:悬浮导航(赚米/客服/反馈),补齐 ProfileScreen
 // 底部导航(对齐原 customTabBar 5 主 Tab,ProfileScreen 对应「我的」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
+import { tabBarScrollReserve } from '../components/TabBar.styles'
 import { UserCard, type UserCardKey } from '../components/UserCard'
 import UserInfoCard from '../components/UserInfoCard'
 import {
@@ -175,6 +182,8 @@ export function ProfileScreen() {
   const rootNav = navigation.getParent<RootNav>()
   const { user, logout, ready } = useAuth()
   const { resolvedTheme } = useTheme()
+  // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
+  const insets = useSafeAreaInsets()
   // 返回顶部按钮(对齐 Uniapp user/index.vue toodown:滚动超过阈值显示,点击回顶)
   const [showBackToTop, setShowBackToTop] = useState(false)
   const profileScrollRef = useRef<ScrollView>(null)
@@ -535,7 +544,10 @@ export function ProfileScreen() {
       <ScrollView
         ref={profileScrollRef}
         style={styles.screenScroll}
-        contentContainerStyle={styles.screenScrollContent}
+        contentContainerStyle={[
+          styles.screenScrollContent,
+          { paddingBottom: tabBarScrollReserve(insets.bottom) },
+        ]}
         showsVerticalScrollIndicator={false}
         onScroll={handleProfileScroll}
         scrollEventThrottle={16}
@@ -1376,7 +1388,7 @@ interface VideoTabProps {
 }
 
 function VideoTabContent({ list, onPlay }: VideoTabProps): React.JSX.Element {
-  const { width: screenWidth } = useWindowDimensions()
+  const screenWidth = useAppFrameWidth()
   // 视频封面宽度 = screenWidth - 32(容器 padding),高度默认 200(对齐 Uniapp 400rpx ≈ 200)
   const posterWidth = screenWidth - 32
   const posterHeight = 200
@@ -1595,7 +1607,9 @@ function ImagePreviewModal({
   visible,
   onClose,
 }: ImagePreviewModalProps): React.JSX.Element {
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions()
+  // 高度仍取视口高(== 框架高,#root 100dvh);宽取框架宽,理由见文件头 useAppFrameWidth 注释
+  const { height: screenHeight } = useWindowDimensions()
+  const screenWidth = useAppFrameWidth()
   // 图片分享弹窗(对齐 Uniapp showImageSharePopup 行 201-216,点"分享"先弹分享弹层)
   const [shareVisible, setShareVisible] = useState(false)
   const currentUrl = images[index] ?? images[0] ?? ''
@@ -1769,7 +1783,7 @@ interface VideoPlayerModalProps {
 }
 
 function VideoPlayerModal({ url, visible, onClose }: VideoPlayerModalProps): React.JSX.Element {
-  const { width: screenWidth } = useWindowDimensions()
+  const screenWidth = useAppFrameWidth()
   // 视频容器宽度 = screenWidth - 32,高度按 16:9
   const videoWidth = screenWidth - 32
   const videoHeight = Math.round((videoWidth * 9) / 16)
@@ -2432,8 +2446,13 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
     textAlign: 'center',
     marginBottom: rpx(32),
+    // 固定 chrome 不被压缩:唯一弹性块 = levelIntroScroll(sheet-flex 契约,
+    // 详见 scripts/check-sheet-flex-contract.mjs)
+    flexShrink: 0,
   },
   levelIntroScroll: {
+    // 唯一弹性块:bounded 弹窗(maxHeight 80%)内 ScrollView flex:1 内部滚动
+    flex: 1,
     marginBottom: rpx(32),
   },
   levelIntroItem: {
@@ -2471,6 +2490,8 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
+    // 固定 chrome 不被压缩:唯一弹性块 = levelIntroScroll(sheet-flex 契约)
+    flexShrink: 0,
   },
   levelIntroCloseBtnText: {
     fontSize: 14,

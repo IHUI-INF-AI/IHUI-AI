@@ -24,6 +24,8 @@ import {
 } from '../src/lib/ui-field-registry'
 import { useUiTextField } from '../src/lib/use-ui-text-field'
 import { InputArea } from '../src/components/InputArea'
+// InputArea 现内部取 t() ⇒ 裸渲染必须挂 Provider(useI18n 在 Provider 外即抛)
+import { I18nProvider } from '../src/i18n'
 
 interface HarnessProps {
   label?: string
@@ -192,7 +194,7 @@ describe('业务真组件:InputArea 的裸 TextInput 接入后对 AI 可见可�
         onSubmit: () => {},
       })
     }
-    const { container } = render(createElement(Host))
+    const { container } = render(createElement(I18nProvider, null, createElement(Host)))
     const el = firstField()
     expect(el).toMatchObject({ label: '请输入您的问题', writable: true, kind: 'input' })
 

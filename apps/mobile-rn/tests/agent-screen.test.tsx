@@ -18,12 +18,18 @@ import { render, waitFor } from '@testing-library/react'
 // 同一文件（tests/__mocks__/ihui-rn-app.ts），运行时为同一模块实例；
 // 而 tsc 类型检查不受影响（主 tsconfig 无 mock alias）。
 import { agentScreenPropsCaptured } from './__mocks__/ihui-rn-app'
+// i18n mock 的 importOriginal 泛型取原模块类型:顶层 type import(consistent-type-imports
+// 禁止写在泛型位的 import() 内联注解)
+import type * as I18nModule from '../src/i18n'
 
 const { apiMocks } = vi.hoisted(() => ({
   apiMocks: {
     getAgents: vi.fn(),
     getAiModels: vi.fn(),
     getAgentCategories: vi.fn(),
+    // SearchOverlay(2026-10-15 顶栏搜索改弹窗)经 fetchApi('/api/search') 取结果;
+    // 本套件渲染 AgentScreen 必然加载该模块,mock 补齐避免误走真实网络。
+    fetchApi: vi.fn(),
     navigate: vi.fn(),
     goBack: vi.fn(),
   },
@@ -33,6 +39,7 @@ vi.mock('@ihui/api-client', () => ({
   getAgents: apiMocks.getAgents,
   getAiModels: apiMocks.getAiModels,
   getAgentCategories: apiMocks.getAgentCategories,
+  fetchApi: apiMocks.fetchApi,
 }))
 
 vi.mock('@react-navigation/native', () => ({
@@ -45,9 +52,12 @@ vi.mock('@react-navigation/native', () => ({
 
 vi.mock('@react-navigation/native-stack', () => ({}))
 
-vi.mock('../src/i18n', () => {
+// 只替 useI18n 出口:t 走 key 原样(本套件不验文案),但 messages / getValueByPath 必须保留 ——
+// SearchOverlay 联想段取 search.quickSuggestions 数组词条,全替则该组件渲染即抛缺导出。
+vi.mock('../src/i18n', async (importOriginal) => {
+  const mod = await importOriginal<typeof I18nModule>()
   const t = (key: string) => key
-  return { useI18n: () => ({ t }) }
+  return { ...mod, useI18n: () => ({ t }) }
 })
 
 // 默认未登录状态
@@ -96,6 +106,8 @@ vi.mock('react-native', async () => {
     ActivityIndicator: () => h('div', { 'data-testid': 'activity-indicator' }, null),
     Alert: { alert: vi.fn() },
     StyleSheet: {
+      // hairlineWidth:SearchOverlay(styles 分隔线 height 求值期就读它)缺则模块求值即炸
+      hairlineWidth: 1,
       create: (s: Record<string, unknown>) => {
         const out: Record<string, unknown> = {}
         for (const [k, v] of Object.entries(s)) {
@@ -109,6 +121,8 @@ vi.mock('react-native', async () => {
     PanResponder: () => ({ panHandlers: {} }),
     Platform: { OS: 'web' as const },
     useColorScheme: () => 'light' as const,
+    // SearchOverlay 顶栏弹窗取窗口宽算面板宽,缺该导出即 "No useWindowDimensions export"
+    useWindowDimensions: () => ({ width: 375, height: 812, scale: 1, fontScale: 1 }),
     Animated: {
       View: mk('div'),
       Text: mk('span'),
@@ -139,9 +153,18 @@ vi.mock('../src/components/NavBar', () => ({
   default: () => null,
   NavBar: () => null,
 }))
-vi.mock('../src/components/Carousel', () => ({
-  default: () => null,
-}))
+vi.mock('../src/components/Carousel', async () => {
+  // 被 mock 的 hook 实测的就是 web 预览壳宽 —— 值与壳同档,取仓级几何档
+  // (用户 token 铁律:壳宽不许散落字面量)。动态 import 是 vi.mock 工厂被提升的
+  // 安全取值方式(静态 import 的绑定在工厂执行期可能未初始化)。
+  const { GEOMETRY_PX } = await import('@ihui/design-tokens')
+  return {
+    default: () => null,
+    // SearchOverlay 面板宽改用框架实际宽(修溢出)而消费此 hook;mock 需给同名导出,
+    // 否则该 hook 在本测试环境无定义直接抛错(渲染 SearchOverlay 的用例全红)
+    useAppFrameWidth: () => GEOMETRY_PX.previewShellWidth,
+  }
+})
 vi.mock('../src/components/RecentAgents', () => ({
   default: () => null,
 }))

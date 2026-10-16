@@ -150,6 +150,25 @@ export default defineConfig({
         __dirname,
         '../../packages/shared/src/hooks/use-connectivity.ts',
       ),
+      // 2026-10-15 搜索弹窗(SearchOverlay):深路径三连 —— use-search-history.ts 引
+      // '@ihui/shared/utils/storage' + '@ihui/shared/hooks/use-storage',SearchOverlay.tsx 引
+      // '@ihui/shared/utils/search-suggestions'。不配则被下方父别名按 startsWith 吞进
+      // <mock ihui-shared-utils/hooks>.xxx(收集期 MODULE_NOT_FOUND,同 connectivity 那两条)。
+      // 指真实源码:storage.ts 除 type+logger 外零平台依赖、use-storage.ts 只依赖 React、
+      // search-suggestions.ts 零 import,均为纯实现 —— 给它写 mock 测的就是 mock。
+      // 子路径别名必须排在 '@ihui/shared/utils' / '@ihui/shared/hooks' 父别名之前(最长匹配优先)。
+      '@ihui/shared/utils/search-suggestions': resolve(
+        __dirname,
+        '../../packages/shared/src/utils/search-suggestions.ts',
+      ),
+      '@ihui/shared/utils/storage': resolve(
+        __dirname,
+        '../../packages/shared/src/utils/storage.ts',
+      ),
+      '@ihui/shared/hooks/use-storage': resolve(
+        __dirname,
+        '../../packages/shared/src/hooks/use-storage.ts',
+      ),
       '@ihui/shared/utils': resolve(__dirname, 'tests/__mocks__/ihui-shared-utils.ts'),
       '@ihui/shared/hooks': resolve(__dirname, 'tests/__mocks__/ihui-shared-hooks.ts'),
       // 2026-09-27 收口:stores 从"手写替身"改为直指真实工厂。

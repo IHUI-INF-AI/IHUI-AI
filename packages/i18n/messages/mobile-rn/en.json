@@ -280,6 +280,8 @@
     "voice": "Voice",
     "title": "IHUI AI",
     "modelLabel": "Model",
+    "model": "Model",
+    "modelAuto": "Auto",
     "selectModel": "Select Model",
     "thinking": "Thinking...",
     "inputPlaceholder": "Type a message...",

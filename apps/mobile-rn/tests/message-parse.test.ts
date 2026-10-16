@@ -55,6 +55,44 @@ describe('parseMessageContent 消息富内容解析', () => {
     expect(segs[0]!.type).toBe('code')
   })
 
+  it('识别 [语音] 标记为 audio 段并带时长', () => {
+    const segs = parseMessageContent('[语音] https://file.aizhs.top/uploads/abc.m4a 12')
+    expect(segs).toEqual([
+      { type: 'audio', url: 'https://file.aizhs.top/uploads/abc.m4a', durationSec: 12 },
+    ])
+  })
+
+  it('语音标记时长缺省按 0', () => {
+    const segs = parseMessageContent('听听这段 [语音] https://x.com/a.mp3 再说')
+    expect(segs[0]!).toEqual({ type: 'text', text: '听听这段 ' })
+    expect(segs[1]!).toEqual({ type: 'audio', url: 'https://x.com/a.mp3', durationSec: 0 })
+    expect(segs[2]!).toEqual({ type: 'text', text: ' 再说' })
+  })
+
+  it('语音标记支持 mp3/wav/aac 扩展名与查询参数', () => {
+    for (const ext of ['mp3', 'wav', 'aac']) {
+      const segs = parseMessageContent(`[语音] https://x.com/a.${ext}?t=1 5`)
+      expect(segs).toEqual([{ type: 'audio', url: `https://x.com/a.${ext}?t=1`, durationSec: 5 }])
+    }
+  })
+
+  it('代码块内语音标记不误拆(代码段整体保留)', () => {
+    const segs = parseMessageContent('```txt\n[语音] https://x.com/a.m4a 3\n```')
+    expect(segs).toHaveLength(1)
+    expect(segs[0]!.type).toBe('code')
+  })
+
+  it('语音标记与图片 URL 同段时各自成段', () => {
+    const segs = parseMessageContent(
+      '[语音] https://x.com/a.m4a 8\n看图 https://x.com/b.png 完',
+    )
+    expect(segs).toHaveLength(4)
+    expect(segs[0]!).toEqual({ type: 'audio', url: 'https://x.com/a.m4a', durationSec: 8 })
+    expect(segs[1]!).toEqual({ type: 'text', text: '\n看图 ' })
+    expect(segs[2]!.type).toBe('image')
+    expect(segs[3]!).toEqual({ type: 'text', text: ' 完' })
+  })
+
   it('兼容 CRLF 代码块并保护代码块内图片 URL', () => {
     const segs = parseMessageContent('```py\r\nurl = "https://x.com/a.png"\r\n```')
     expect(segs).toEqual([

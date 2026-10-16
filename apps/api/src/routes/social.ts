@@ -40,7 +40,8 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 // 2026-08-06:加 'aiworld'(AI World 收藏闭环,与下方 JSON schema enum 对齐;
 import { buildResponseSchema, paginationQuerySchema } from '../utils/api-schemas.js'
 // 此前仅 JSON schema 加了 aiworld,zod 常量漏同步会导致 POST /favorites 传 aiworld 被 400)
-const FAVORITE_RESOURCE_TYPES = ['project', 'file', 'doc', 'post', 'comment', 'aiworld'] as const
+// 2026-10-15 加 'agent':AI 助手收藏(首页 AiModelCard 收藏按钮接线,与 mobile 端对齐)
+const FAVORITE_RESOURCE_TYPES = ['project', 'file', 'doc', 'post', 'comment', 'aiworld', 'agent'] as const
 const TAG_RESOURCE_TYPES = ['project', 'file', 'doc', 'post', 'comment'] as const
 const TARGET_TYPES = ['user', 'project', 'tag', 'category'] as const
 

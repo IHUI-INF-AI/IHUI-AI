@@ -265,6 +265,12 @@ export type RootStackParamList = {
      * 走既有 `send(overrideText)` 出口(登录/VIP/流式校验齐全),不新造 LLM 调用链。
      */
     autoSendPrompt?: string
+    /**
+     * 2026-10-16 录音消息(HomeScreen 大输入框入口):进入后把这条已上传的录音
+     * 作为**本会话首条用户消息**发出,渲染为可回听的语音气泡。
+     * url = 上传后的公开地址;durationSec = 录音时长(秒,气泡显示用)。
+     */
+    autoSendVoice?: { url: string; durationSec: number }
   }
   CourseDetail: { id: string }
   VideoPlayer: { courseId: string; lessonId: string; title?: string }

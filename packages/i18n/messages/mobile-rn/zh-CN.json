@@ -280,6 +280,8 @@
     "voice": "语音",
     "title": "IHUI AI",
     "modelLabel": "模型",
+    "model": "模型",
+    "modelAuto": "自动",
     "selectModel": "选择模型",
     "thinking": "思考中...",
     "inputPlaceholder": "输入消息...",

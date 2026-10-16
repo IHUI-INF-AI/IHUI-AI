@@ -10,6 +10,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { StyleSheet, View, type FlatList, type ViewStyle } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -33,6 +34,7 @@ import { ExternalLink } from 'lucide-react-native'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
 // 底部导航(对齐原 customTabBar 5 主 Tab,NewsScreen 对应「动态」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
+import { tabBarScrollReserve } from '../components/TabBar.styles'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import { FREE_RESOURCE_URL } from '../constants/links'
@@ -90,6 +92,8 @@ export default function NewsScreenWrapper() {
   const { user } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<RootNav>()
+  // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
+  const insets = useSafeAreaInsets()
 
   /** 底部 Tab 切换(对齐原 customTabBar 5 主 Tab;News 为 RootStack 独立路由) */
   const handleTabChange = (key: TabBarKey): void => {
@@ -424,6 +428,7 @@ export default function NewsScreenWrapper() {
           listRef.current = ref as FlatList<ArticleItem> | null
         }}
         hideHeader
+        contentBottomPadding={tabBarScrollReserve(insets.bottom)}
       />
       <FloatBox
         visible={floatBox.visible}

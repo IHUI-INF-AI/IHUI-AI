@@ -79,7 +79,9 @@ describe('parseElementPackFrames', () => {
   })
 
   it('progress.phase 非契约四值 → 整帧丢弃', () => {
-    const frames = parseElementPackFrames(pack([{ ...PROGRESS_TOOL, phase: 'dancing' }]))
+    const frames = parseElementPackFrames(
+      pack([{ ...PROGRESS_TOOL, phase: 'dancing' }]),
+    )
     expect(frames).toHaveLength(0)
   })
 
@@ -106,9 +108,7 @@ describe('parseElementPackFrames', () => {
 describe('elementPackFramesToSubagentActivities', () => {
   it('完整生命周期 → 与流式 store 终态等价的单条 activity', () => {
     const [a] = elementPackFramesToSubagentActivities(
-      parseElementPackFrames(
-        pack([SPAWN, PROGRESS_TOOL, PROGRESS_RESULT_OK, PROGRESS_OUTPUT, END_DONE]),
-      ),
+      parseElementPackFrames(pack([SPAWN, PROGRESS_TOOL, PROGRESS_RESULT_OK, PROGRESS_OUTPUT, END_DONE])),
     )
     expect(a).toMatchObject({
       agentId: 'sa-1',

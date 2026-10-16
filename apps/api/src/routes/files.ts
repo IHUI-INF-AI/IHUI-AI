@@ -761,7 +761,12 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       try {
         if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
         const fileId = randomUUID()
-        const filePath = join(UPLOAD_DIR, fileId)
+        // 2026-10-16:落盘名带 canonical 扩展名 —— @fastify/static 的 send 按扩展名推
+        // Content-Type,此前裸 UUID 名对音频等类型只能回 application/octet-stream
+        // (浏览器/播放器嗅探不一致,语音气泡回听偶发无声)。旧文件(UUID 无扩展名)
+        // 仍由静态服务兜底,不受影响。
+        const storedName = `${fileId}.${validation.extension}`
+        const filePath = join(UPLOAD_DIR, storedName)
         writeFileSync(filePath, buffer)
 
         return reply.status(201).send(
@@ -771,7 +776,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
               name: safeFilename,
               size: buffer.length,
               mimeType: validation.mimeType,
-              path: resolvePublicUrl(fileId),
+              path: resolvePublicUrl(storedName),
               uploadedBy: request.userId,
             },
           }),

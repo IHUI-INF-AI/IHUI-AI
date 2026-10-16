@@ -20,14 +20,19 @@
 //   `sc start` 一个不存在的服务名)。同族裁决见 AGENTS.md「判某引擎在不在必须先读被
 //   审应用自己那份 DSN」与 README.md 端口段落,勿改回固定 8810/8811。
 //   应用端口不受影响:api 8802(/health)· web 8801 · ai-service 8803(/health)(约定=实况)。
-//   metro 8081 —— 手机 dev client 的 bundle 地址指向 localhost:8081(RN 默认),
-//   仓库 start 脚本虽是 expo --port 8805,但手机实机链路以 8081 为准。
-//   web-preview 8806(浏览器打开手机 App)· prod-proxy 8807(它的 API 出口 → aizhs.top)
+//   Metro 单实例铁律(2026-10-15 立,用户明令禁止双实例):全仓库唯一 Metro = web-preview
+//   8806(手机 dev client 与浏览器共用)。手机默认 bundle 地址 localhost:8081(RN 硬编码)
+//   经 adb reverse tcp:8081 tcp:8806 复用 8806,任何脚本不得再启动第二个 Expo/Metro
+//   进程(8081/8805 端口号仅作为 reverse 映射与仓库脚本端口保留,不再是进程监听位)。
+//   事故背景:8081 与 8806 双 Metro 并存且文件监听各自缓存,同一份代码两端编译结果
+//   不一致(8806 已含修复、8081 恒旧),用户 Ctrl+F5 也刷不出 ⇒ 排障半小时起。
+//   web-preview 8806(浏览器打开手机 App + 手机 dev client 唯一 bundle 源)
+//   prod-proxy 8807(它的 API 出口 → aizhs.top;手机经 reverse tcp:8807 同源直连生产)
 //
 // 用法:
 //   node scripts/dev-stack.mjs                 体检,缺失的按依赖顺序拉起,必需全就绪才退出 0
 //   node scripts/dev-stack.mjs --check         只体检不自愈(未就绪 exit 1),适合开工自检
-//   node scripts/dev-stack.mjs --device        起完后把 8081/8802/8801 反向转发到已连接手机
+//   node scripts/dev-stack.mjs --device        起完后把 8081→8806(Metro 复用)/8807/8802/8801 反向转发到已连接手机
 //   node scripts/dev-stack.mjs --watch         前台守护,每 30s 复检,挂了自动重拉(Ctrl+C 退出)
 //   node scripts/dev-stack.mjs --only=api,redis
 //   node scripts/dev-stack.mjs --json          机器可读输出
@@ -243,15 +248,10 @@ const SERVICES = [
     hint: 'apps/api 启动失败:优先确认 .env 存在(缺失是已发生过的事故),再看 .tmp-sync/dev-stack-api.log',
   },
   {
-    name: 'metro',
-    port: 8081,
-    required: false,
-    probe: 'tcp',
-    describe: 'Metro RN 打包器(手机 dev client 指向 8081)',
-    start: () => launchDetached(NODE_EXE, [EXPO_ENTRY, 'start', '--port', '8081'], RN_DIR, 'metro'),
-    hint: 'apps/mobile-rn 不存在或 expo 启动失败,看 .tmp-sync/dev-stack-metro.log',
-  },
-  {
+    // Metro 单实例铁律(头注「2026-10-15 立」):不再有独立 metro(8081)服务槽。
+    // 手机 dev client 的 bundle 改由下方 web-preview(8806)统一供给,8081 仅作为
+    // 手机侧端口号经 adb reverse tcp:8081 tcp:8806 复用(见 adbReverse)。
+    // 双 Metro 各自缓存文件监听结果曾导致「8806 新代码、8081 恒旧」的排障事故,勿回加。
     name: 'web',
     port: 8801,
     required: false,
@@ -314,7 +314,7 @@ const SERVICES = [
     port: 8806,
     required: false,
     probe: 'tcp',
-    describe: 'Expo Web 预览(浏览器打开手机 App,可选,API 走 8807 反代到生产)',
+    describe: 'Expo Web 预览 + 全仓库唯一 Metro(浏览器与手机 dev client 共用,可选,API 走 8807 反代到生产)',
     start: () => {
       const child = launchDetached(
         NODE_EXE,
@@ -338,7 +338,7 @@ const SERVICES = [
       }
       return child;
     },
-    hint: '浏览器打开 http://localhost:8806(微信 SDK / 闪验 / 本地推送等平台独占能力会降级,真机仍需另验),看 .tmp-sync/dev-stack-web-preview.log',
+    hint: '浏览器打开 http://localhost:8806;手机 dev client 亦指向它(经 reverse tcp:8081 tcp:8806,单 Metro 铁律)。微信 SDK / 闪验 / 本地推送等平台独占能力会降级,真机仍需另验。看 .tmp-sync/dev-stack-web-preview.log',
   },
 ];
 
@@ -418,11 +418,14 @@ function canStart(svc) {
   if (svc.name === 'prod-proxy') return fs.existsSync(path.join(ROOT, 'scripts', 'dev-prod-proxy.mjs'));
   // 兜底那行按 apps/<name> 判目录,web-preview 实际目录是 apps/mobile-rn
   if (svc.name === 'web-preview') return fs.existsSync(RN_DIR) && fs.existsSync(EXPO_ENTRY);
-  return fs.existsSync(path.join(ROOT, 'apps', svc.name === 'metro' ? 'mobile-rn' : svc.name));
+  return fs.existsSync(path.join(ROOT, 'apps', svc.name));
 }
 
 // 手机 dev client 的 bundle/API 地址全走 localhost,依赖 adb reverse;
-// 设备重启后转发丢失是已发生过的事故,所以 8081(Metro)/8802(API)/8801(web OAuth)三个都要。
+// 设备重启后转发丢失是已发生过的事故,所以这些映射都要。
+// 8081→8806:单 Metro 铁律 —— 手机默认 bundle 地址(8081,RN 硬编码)复用 8806 唯一 Metro;
+// 8807→8807:8806 出的 bundle 内嵌 EXPO_PUBLIC_API_BASE_URL=8807,手机须能回源本机反代;
+// 8802/8801:API 与 web OAuth,原样直转。
 async function adbReverse() {
   if (!fs.existsSync(ADB)) return { ok: false, msg: `未找到 adb:${ADB}` };
   const dev = await runCapture([ADB, 'devices']);
@@ -432,9 +435,14 @@ async function adbReverse() {
     return { ok: false, msg: '无已授权设备(服务已就绪;手机 USB 连上后重跑 --device 即可转发)' };
   }
   const out = [];
-  for (const port of [8081, 8802, 8801]) {
-    await runCapture([ADB, 'reverse', `tcp:${port}`, `tcp:${port}`]);
-    out.push(`${port}→设备`);
+  for (const [devicePort, hostPort] of [
+    [8081, 8806],
+    [8807, 8807],
+    [8802, 8802],
+    [8801, 8801],
+  ]) {
+    await runCapture([ADB, 'reverse', `tcp:${devicePort}`, `tcp:${hostPort}`]);
+    out.push(`${devicePort}→${hostPort}`);
   }
   return { ok: true, msg: `${online[0].split('\t')[0]} | ${out.join(', ')}` };
 }

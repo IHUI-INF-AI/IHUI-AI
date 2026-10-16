@@ -35,7 +35,7 @@
       "timeout_sec": 90
     },
     "mobile-rn": {
-      "_note": "本表 8805 仅对应仓库 start 脚本(expo --port 8805);手机 dev client 实际指向 8081(RN 默认),scripts/dev-stack.mjs --device 显式以 8081 启 Metro 并 adb reverse 转发到手机。详见 docs/port-management.md §5。",
+      "_note": "2026-10-15 单 Metro 铁律(用户明令禁止双实例):全仓库唯一 Metro = web-preview 8806。本表 8805 仅对应仓库 start 脚本(expo --port 8805),不再是实机链路;8081 亦不再被任何脚本启动,手机 dev client(RN 硬编码 localhost:8081)经 adb reverse tcp:8081 tcp:8806 复用 8806。详见 docs/port-management.md §5。",
       "cmd": "pnpm",
       "args": ["--filter", "@ihui/mobile-rn", "start"],
       "cwd": "apps/mobile-rn",

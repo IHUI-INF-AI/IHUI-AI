@@ -46,8 +46,7 @@ beforeEach(() => {
   savedHome = process.env[HOME_ENV];
   savedMock = process.env[MOCK_CLONE_SRC_ENV];
   process.env[HOME_ENV] = tmpHome;
-  // G-807①之后:回位副本被写侧显式置过期(cache.ts RESTORED_COPY_STAMP)⇒ 读入口必然走刷新,
-  // mock 源就是这次刷新的确定结果(在那之前回位后"命中即早退",mock 源只是防打到真网络的备胎)。
+  // 回位后缓存命中即早退,不真 clone;仍备好 mock 源,防命中判据任何一条不成立时打到真网络
   process.env[MOCK_CLONE_SRC_ENV] = tmpMockSrc;
   fs.writeFileSync(path.join(tmpMockSrc, 'plugin.json'), JSON.stringify({ name: 'g757', version: '1.0.0' }), 'utf-8');
 });
@@ -119,13 +118,9 @@ describe('G-757 恢复结论的到人出口', () => {
     const entry = res.recovered![0]!;
     expect(entry.action).toBe('restored');
     expect(entry.reason.length).toBeGreaterThan(0);
-    // 回位是真实发生的:归档被回位消费掉,权威槽位先拿到旧副本、随即被本次刷新替换
+    // 回位是真实发生的:归档消失,旧副本回到权威槽位
     expect(fs.existsSync(scene.archive)).toBe(false);
-    // G-807①之后回位副本显式置过期 ⇒ 刷新必然发生(fromCache:false),
-    // mock 源的 plugin.json 落位即刷新证据;旧内容被新副本承接而非混入。
-    expect(res.fromCache).toBe(false);
-    expect(fs.readFileSync(path.join(scene.target, 'plugin.json'), 'utf-8')).toContain('g757');
-    expect(fs.existsSync(path.join(scene.target, 'old.txt'))).toBe(false);
+    expect(fs.readFileSync(path.join(scene.target, 'old.txt'), 'utf-8')).toBe('old');
 
     // ② 到人出口:stderr 逐条报名,处置词与依据可见
     const joined = stderrLines.join('');

@@ -76,9 +76,7 @@ vi.mock('../src/utils/conversation-archive.js', () => ({
   persistMessageArchive: vi.fn(),
 }))
 
-vi.mock('../src/services/repo-wiki-context.js', () => ({
-  loadRepoWikiContext: vi.fn(async () => null),
-}))
+vi.mock('../src/services/repo-wiki-context.js', () => ({ loadRepoWikiContext: vi.fn(async () => null) }))
 vi.mock('../src/services/knowledge-chat-context.js', () => ({
   loadKnowledgeContext: vi.fn(async () => null),
 }))
@@ -91,9 +89,7 @@ vi.mock('../src/utils/ai-service-fetch.js', () => ({
 
 // queue:不真建 BullMQ worker,捕获 handler 供测试直调
 const { capturedHandler } = vi.hoisted(() => ({
-  capturedHandler: {
-    fn: null as null | ((job: { data: Record<string, unknown> }) => Promise<unknown>),
-  },
+  capturedHandler: { fn: null as null | ((job: { data: Record<string, unknown> }) => Promise<unknown>) },
 }))
 vi.mock('../src/plugins/queue.js', () => ({
   QUEUE_NAMES: { aiCallback: 'aiCallback' },

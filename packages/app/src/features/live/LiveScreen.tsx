@@ -44,6 +44,7 @@ export function LiveScreen({
   onPressItem,
   onBack,
   colorScheme = 'light',
+  contentBottomPadding = 16,
 }: LiveScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -66,7 +67,10 @@ export function LiveScreen({
         <FlatList<LiveScreenItem>
           data={items}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listBody}
+          contentContainerStyle={[
+            styles.listBody,
+            { paddingBottom: contentBottomPadding },
+          ]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={

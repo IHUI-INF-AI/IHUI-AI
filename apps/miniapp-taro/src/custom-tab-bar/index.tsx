@@ -54,9 +54,10 @@ const TABS: TabItem[] = [
   },
 ]
 
-// 配色:激活用品牌灰蓝,未激活用 muted-foreground(2026-09-07 复刻旧App TabBar 品牌色选中态)
-const ACTIVE_COLOR = 'var(--color-brand-accent)'
-const INACTIVE_COLOR = 'var(--color-muted-foreground)'
+// 配色:选中深紫 --color-purple / 未选中浅紫 --color-purple-light(2026-10-16 用户定稿,
+// 与原生 tabBar theme.json tabColor/tabSelected、mobile-rn/TabBar.tsx 同两档,彻底替换偏灰配色)
+const ACTIVE_COLOR = 'var(--color-purple)'
+const INACTIVE_COLOR = 'var(--color-purple-light)'
 
 export default function CustomTabBar() {
   const { t } = useI18n()
