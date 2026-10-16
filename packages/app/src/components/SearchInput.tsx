@@ -49,6 +49,7 @@ import {
   type TextInputSubmitEditingEventData,
 } from 'react-native'
 import { getRnTokens, rnRadiusFor } from '@ihui/design-tokens'
+import { useWrapFocus } from '../hooks/use-wrap-focus'
 import { Search, Mic, Keyboard, X } from 'lucide-react-native'
 
 export interface SearchInputProps {
@@ -104,21 +105,12 @@ export function SearchInput({
   colorScheme = 'light',
 }: SearchInputProps) {
   const tokens = getRnTokens(colorScheme)
-  const [focused, setFocused] = useState(false)
   const [isVoiceMode, setIsVoiceMode] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const longPressTriggeredRef = useRef(false)
   const lastVoiceTextRef = useRef<string | undefined>(undefined)
 
-  const handleFocus = useCallback(() => {
-    setFocused(true)
-    onFocus?.()
-  }, [onFocus])
-
-  const handleBlur = useCallback(() => {
-    setFocused(false)
-    onBlur?.()
-  }, [onBlur])
+  const ff = useWrapFocus(tokens, { onFocus, onBlur })
 
   const handleSubmit = useCallback(
     (_e: NativeSyntheticEvent<TextInputSubmitEditingEventData>) => {
@@ -174,9 +166,9 @@ export function SearchInput({
       style={[
         styles.container,
         { backgroundColor: tokens.surface.muted, borderColor: tokens.border.light },
-        // 聚焦态描边取墨档(亮纯黑/暗纯白)是 AGENTS §4 的**唯一合法例外位** —— 静态描边仍禁墨档。
-        // 守门 83 的 R8 按"是否处在聚焦书写位"放行 —— 只认 focused ? 这类聚焦条件,active/选中态不豁免。
-        focused ? { borderColor: tokens.brand.DEFAULT } : null,
+        // 聚焦描边走 WRAP 唯一实现 useWrapFocus(墨档:亮纯黑/暗纯白,换色不换宽)——
+        // 它是 AGENTS §4「描边不得取墨档」唯一例外位的取值出口,本站点不再自己挑 brand 色值。
+        ff.focusBorder,
       ]}
     >
       <Search size={ICON_FONT_SIZE} color={tokens.text.tertiary} />
@@ -216,8 +208,8 @@ export function SearchInput({
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor={tokens.text.tertiary}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
+          onFocus={ff.onFocus}
+          onBlur={ff.onBlur}
           onSubmitEditing={handleSubmit}
           returnKeyType="search"
           autoFocus={autoFocus}

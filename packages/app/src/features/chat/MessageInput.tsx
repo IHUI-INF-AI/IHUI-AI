@@ -31,6 +31,7 @@ import {
 } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { wrapFocusInk } from '../../hooks/use-wrap-focus'
 
 export type { MessageInputAgentVariable, MessageInputFile, MessageInputProps }
 
@@ -414,7 +415,8 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 6,
       gap: 10,
     },
-    inputRowFocused: { borderColor: primary },
+    // 聚焦描边取墨档走 WRAP 唯一实现(与 SearchInput / TextField 同一出口),不在这里另挑一档
+    inputRowFocused: { borderColor: wrapFocusInk(tk) },
     iconBtn: {
       width: 24,
       height: 24,
