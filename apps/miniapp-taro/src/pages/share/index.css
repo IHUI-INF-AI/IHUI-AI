@@ -124,7 +124,7 @@
 /* ===== 资讯列表(对齐 RN listContent:paddingHorizontal 10 → 20rpx,paddingVertical 12 → 24rpx;
    底部 96rpx 为触底加载预留,非 RN 项) ===== */
 .share-list {
-  padding: 24rpx 20rpx 96rpx;
+  padding: 24rpx 20rpx calc(120rpx + env(safe-area-inset-bottom));
 }
 
 /* 资讯卡片样式由 InformationItem 组件内联实现,此处仅保留空状态/加载样式 */
