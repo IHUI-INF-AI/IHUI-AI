@@ -3,9 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // §22c 镜像测试:判据一律 import 源脚本的 __test__,本文件不复制第二份实现。
-// 锁的是三件事:① 面口径(全量=HEAD blob / --staged=索引 blob / 两面同给=exit 2);
+// 锁的是四件事:① 面口径(全量=HEAD blob / --staged=索引 blob / 两面同给=exit 2);
 // ② "装了自述但失明"那一型必须被 W2 抓到(成对:正控零违规 + 三条反例各红一处);
-// ③ W1 覆盖面走差值棘轮 —— 存量不红、新增红、锚点取不到 ⇒ 未判定(不得当成 0 冒绿)。
+// ③ W1 覆盖面走差值棘轮 —— 存量不红、新增红、锚点取不到 ⇒ 未判定(不得当成 0 冒绿);
+// ④ 射程臂量的是"看不看得见 + 报了改不改得动"(与独立清单对账,不钉份数),
+//    不钉 HEAD 现读硬缺口数 —— 那是并发提交随时会挪的活读数,钉上去就是把别人的缺口变成我的红(§12e);
+//    门体本身照旧按档判红(W2/W3 硬拦不在本文件收窄),测试闪绿不等于缺口销账,现读数恒随运行打印。
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -21,6 +24,13 @@ const ROOT = resolve(HERE, '..', '..')
 const SCRIPT = join(ROOT, 'scripts', 'check-ci-failure-triage-wiring.mjs')
 
 const run = (args = []) => spawnSync(process.execPath, [SCRIPT, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024 })
+
+// §12g:派生 git 必须显式接管 stdio;取不到 ⇒ 当场判"未判定",不得当成空清单冒绿
+const gitOut = (args) => {
+  const g = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] })
+  assert.equal(g.status, 0, `HEAD 面取不到(git ${args.join(' ')}),本臂不判定:\n${g.stderr}`)
+  return g.stdout
+}
 
 const GOOD = [
   'jobs:',
@@ -108,12 +118,52 @@ test('口径:默认判 HEAD blob;--staged 判索引 blob;两面同给 ⇒ exit 2
   assert.match(staged.stdout, /面=staged/)
 })
 
-test('射程:真面(HEAD)扫得到全部工作流,且自洽维度现读零硬缺口', () => {
+test('射程:HEAD 面扫得到该面的全部工作流,判定可判定且每处硬缺口可归因(现读缺口只报不钉)', () => {
   const src = readFileSync(SCRIPT, 'utf8')
   assert.ok(src.includes("'ls-tree', '-r', '--name-only', 'HEAD', '--'"), '全量档必须按 HEAD 面列清单')
   assert.ok(src.includes("'ls-files', '--cached'"), '--staged 必须按索引面列清单')
-  const r = run([])
-  assert.match(r.stdout, /工作流 \d+ 份 \/ 作业 \d+ 个/)
-  assert.equal(r.status, 0, `HEAD 面应无硬缺口,实得:\n${r.stdout}\n${r.stderr}`)
+
+  // 覆盖面对账取独立清单(整仓 ls-tree 后按目录+扩展名筛),不抄门体自己那条命令:
+  // 门体把射程收窄、把 .yaml 漏掉时两份计数会分叉;而钉死"47 份"则会把别人的并发新增读成我的红(§12e)。
+  const workflows = gitOut(['ls-tree', '-r', '--name-only', 'HEAD'])
+    .split(/\r?\n/)
+    .filter((l) => l.startsWith('.github/workflows/') && /\.ya?ml$/.test(l))
+    .sort()
+  assert.ok(workflows.length > 0, 'HEAD 面枚举到 0 个工作流 ⇒ 无从对账射程(不判定,不冒绿)')
+  const face = new Map(workflows.map((rel) => [rel, gate.parseWorkflow(rel, gitOut(['show', `HEAD:${rel}`]))]))
+
+  const r = run(['--json'])
+  assert.match(r.stdout, /面=head/, '默认档必须判 HEAD 面')
+  assert.notEqual(r.status, 2, `真面取得到输入却判不出 ⇒ 失明:\n${r.stdout}\n${r.stderr}`)
+  const jsonStart = r.stdout.indexOf('{')
+  const jsonEnd = r.stdout.lastIndexOf('}')
+  assert.ok(jsonStart > -1 && jsonEnd > jsonStart, `--json 自述拿不到:\n${r.stdout}\n${r.stderr}`)
+  const verdict = JSON.parse(r.stdout.slice(jsonStart, jsonEnd + 1))
+  assert.equal(verdict.counts.files, workflows.length, `门只扫到 ${verdict.counts.files} 份,HEAD 面实有 ${workflows.length} 份 ⇒ 射程失明`)
+  assert.ok(verdict.counts.jobs > 0 && verdict.counts.triageSteps > 0, `作业/自述步骤枚举到 0 ⇒ 解析失明:${JSON.stringify(verdict.counts)}`)
+  assert.equal(r.status === 0, verdict.hard.length === 0, `退出码与硬缺口清单分叉(rc=${r.status},hard=${verdict.hard.length})`)
+
+  // 可整改性(§5e-1):每处硬缺口必须点名到 HEAD 面真实存在的工作流/作业,报出的步骤 id 必须真对不上 —— 报得出才改得动
+  for (const line of verdict.hard) {
+    const ref = line.match(/(\.github\/workflows\/[^\s`]+\.ya?ml)(?:#([^\s`,]+))?/)
+    assert.ok(ref, `硬缺口没点名到工作流文件 ⇒ 无从整改:${line}`)
+    assert.ok(face.has(ref[1]), `硬缺口点了 HEAD 面不存在的工作流 ${ref[1]}:${line}`)
+    if (!ref[2] || line.startsWith('W1 腐烂')) continue // 棘轮档只点名文件;腐烂这一维判的就是"作业已不命中"
+    const job = face.get(ref[1]).jobs.find((j) => j.name === ref[2])
+    assert.ok(job, `硬缺口点了 ${ref[1]}#${ref[2]},但该作业不在 HEAD 面解析结果里(报告不实):${line}`)
+    const blind = line.match(/步骤 id `([^`]+)`/)
+    if (blind) {
+      const ids = new Set(job.steps.map((s) => s.id).filter(Boolean))
+      assert.ok(ids.has(blind[1]), `报 ${ref[1]}#${ref[2]} 失明于 ${blind[1]},但该 id 根本不在 HEAD 面步骤里:${line}`)
+      const t = job.triages[job.triages.length - 1]
+      const named = ((t && t.env.TRIAGE_IDS) || '').split(/\s+/).filter(Boolean)
+      assert.ok(!named.includes(blind[1]), `报 ${blind[1]} 不在 TRIAGE_IDS,但它其实已登记(报告不实):${line}`)
+    }
+  }
+  // 现读硬缺口是活账:归各工作流持有人,门体在提交链按档判红;本臂只把它念出来,不钉成每个会话的红
+  if (verdict.hard.length > 0) {
+    console.log(`   ℹ HEAD 现读 ${verdict.hard.length} 处硬缺口(只报不钉,销账归工作流持有人):`)
+    for (const line of verdict.hard.slice(0, 5)) console.log(`     ${line}`)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

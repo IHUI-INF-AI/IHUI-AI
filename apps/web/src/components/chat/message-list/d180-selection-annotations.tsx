@@ -96,7 +96,7 @@ export function SelectionAnnotationBar({
       </div>
       {open && (
         <div
-          className="absolute left-0 top-full z-10 mt-1 w-full max-w-md rounded-md border border-border bg-card p-3 shadow-md"
+          className="absolute left-0 top-full z-10 mt-1 w-full max-w-md rounded-lg border border-border bg-card p-3 shadow-md"
           role="group"
           aria-label={t('selectionAnnotations.hoverHint')}
           data-testid={`selection-annotation-panel-${messageId}`}

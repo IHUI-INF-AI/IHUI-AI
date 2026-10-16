@@ -150,7 +150,7 @@ export function ImportAnalysisPanel({
 
         <ScrollView className="max-h-[52vh] h-0" scrollY>
           {catalog.phase === 'error' && (
-            <ThemeRoot className="flex items-start gap-[12rpx] p-[20rpx] mb-[20rpx] bg-card rounded-md">
+            <ThemeRoot className="flex items-start gap-[12rpx] p-[20rpx] mb-[20rpx] bg-card rounded-lg">
               <View className="flex-shrink-0 mt-[4rpx]">
                 <LineIcon name="triangle-alert" size={26} color="var(--color-destructive)" />
               </View>

@@ -81,13 +81,23 @@ test('T3 唯一键必须是四列,不得退化成台账标题里那个两列简�
   assert.notDeepEqual(narrowCols, cols, '判据必须能分辨四列与两列')
 })
 
-test('T4 journal tag 与 .sql 同 stem,idx 连续且本枚是末条', () => {
+test('T4 journal tag 与 .sql 同 stem,idx 连续(不钉"全局末条")', () => {
   const j = JSON.parse(readFileSync(JOURNAL_PATH, 'utf8'))
   const stem = '20261002033500_im_messages_platform_msg_unique'
   assert.ok(j.entries.some((e) => e.tag === stem), 'journal 必须登记这枚迁移')
   const idxs = j.entries.map((e) => e.idx)
   for (let i = 1; i < idxs.length; i++) assert.equal(idxs[i], idxs[i - 1] + 1, 'idx 必须逐条 +1,断在第 ' + i + ' 条')
-  assert.equal(j.entries[j.entries.length - 1].tag, stem, '追加顺序不能插队(末条必须是本枚)')
+  // 「journal tag 与 .sql 同 stem」这一标题承诺的真判据:journal 登记的每条 tag 都能对上同名的 .sql 文件,
+  // 本枚亦然(MIG_PATH 存在且其 basename 去 .sql == stem)。旧臂把"im_messages 是全局末条"钉死,
+  // 可任何更晚迁移(如 20261014 chat_element_packs)入库后它就不再是末条 —— 那是设计上的必然、不是缺陷,
+  // 给所有后人设了台恒红闹钟;改判这条耐久的 tag↔.sql 对账(缺文件即红,牙更硬而非更松)。
+  const sqlStem = MIG_PATH.split(/[\\/]/).pop().replace(/\.sql$/, '')
+  assert.equal(sqlStem, stem, '.sql 文件 stem 必须等于被审的 journal tag')
+  try {
+    readFileSync(MIG_PATH, 'utf8')
+  } catch (e) {
+    assert.fail(`journal 登记了 ${stem} 却取不到同名 .sql(${MIG_PATH}):${e.message}`)
+  }
 })
 
 test('T5 readDsn 三态:非开发库名 / 缺 DATABASE_URL 都是"未判定",不得被读成通过', () => {
