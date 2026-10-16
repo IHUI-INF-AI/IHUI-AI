@@ -90,6 +90,11 @@ const TS_NAME_RE = /\bname:\s*['"]([a-zA-Z_:][a-zA-Z0-9_:]*)['"]/g
 // 手写渲染型端点(如 apps/api 的 /business-metrics 自己拼 PromQL 文本)不用 prom-client
 // 的 name: 声明,指标名以字符串字面量出现 —— 不认这一形会把它们误判成幽灵。
 const TS_LITERAL_RE = /['"]([a-z][a-z0-9_]{3,}_(?:total|seconds|bytes|ms|info|ratio))['"]/g
+// 手拼 Prometheus 文本的两种真实形状:HELP 行里的名字,与模板串里"名字{标签}"的序列行。
+// 只认相邻引号的那一条会漏掉这两形(business_ai_* / business_funnel_total 都住在这里),
+// 漏了就是门把自己的仓判成幽灵 —— 判据假阳比漏判更贵,因为它逼人跳门。
+const TS_HELP_RE = /#\s*HELP\s+([a-zA-Z_:][a-zA-Z0-9_:]*)/g
+const TS_SERIES_RE = /[`'"]([a-z][a-z0-9_]{3,})\{/g
 
 /** 按 prometheus_client / prom-client 的后缀规则展开一个声明名的合法暴露形态。 */
 function normalizedNameVariants(name) {
@@ -139,7 +144,7 @@ function emittedViaGitGrep(face) {
   const rev = face === 'staged' ? [] : ['HEAD']
   const calls = [
     { args: ['grep', '-h', '-E', '-A', '1', ...opts, '(Counter|Histogram|Gauge|Summary|Info|Enum)\\(', ...rev, '--', 'apps/ai-service/app'], re: PY_METRIC_RE },
-    { args: ['grep', '-h', '-E', ...opts, "\\bname:\\s*['\"][a-z_][a-z0-9_]*['\"]|['\"][a-z][a-z0-9_]{3,}_(total|seconds|bytes|ms|info|ratio)['\"]", ...rev, '--', 'apps/api/src', 'packages'], re: null, res: [TS_NAME_RE, TS_LITERAL_RE] },
+    { args: ['grep', '-h', '-E', ...opts, "\\bname:\\s*['\"][a-z_][a-z0-9_]*['\"]|['\"][a-z][a-z0-9_]{3,}_(total|seconds|bytes|ms|info|ratio)['\"]|#\\s*HELP\\s+[a-z_][a-z0-9_]*", ...rev, '--', 'apps/api/src', 'packages'], re: null, res: [TS_NAME_RE, TS_LITERAL_RE, TS_HELP_RE, TS_SERIES_RE] },
   ]
   const set = new Set()
   let scanned = 0
@@ -167,7 +172,7 @@ function buildEmittedSet(pathsOf, readText) {
       const text = readText(p)
       if (text === null) continue
       scanned++
-      const regexes = p.endsWith('.py') ? [PY_METRIC_RE] : [TS_NAME_RE, TS_LITERAL_RE]
+      const regexes = p.endsWith('.py') ? [PY_METRIC_RE] : [TS_NAME_RE, TS_LITERAL_RE, TS_HELP_RE, TS_SERIES_RE]
       for (const re of regexes) {
         re.lastIndex = 0
         let m
