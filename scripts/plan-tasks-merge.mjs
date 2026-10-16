@@ -86,7 +86,7 @@ import {
 } from './lib/plan-task-index.mjs'
 // F3「归档反查出口」的**面判据**直接取守门 13c 那一份实现(A2/A3 问的就是"归档件真在被审面上吗",
 // 与本出口问的同一件事;在这里另抄一份 ls-tree/readFileSync 就是本仓禁的第二份真相)。
-import { archiveFaceEntries } from './check-project-plan-archive.mjs'
+import { archiveFaceEntries } from './lib/plan-task-index.mjs'
 // 指针注记棘轮的**计数判据**取守门 13d 自己导出的那一份(`countPointerRows`:登记行口径 +
 // DUP_POINTER_RE / SELF_DEDISPATCH_RE 单一实现,不在此抄第二份)。为什么 heal 要接它:
 // 自动档走 commit-tree 旁路落地,pre-commit 的门 13d 结构性不跑(AGENTS §1「旁路落地的机器

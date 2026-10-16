@@ -14,6 +14,7 @@ request.state.user_id,解析不到且全局鉴权未启用时回落 dev 身份)�
 - PATCH  /accounts/{id}/jwt     更换 jwt(可解析 + 未过期校验后重加密落库)
 - DELETE /accounts/{id}         删除(级联 records / error_counts)
 - PATCH  /accounts/{id}/enabled 启用/停用
+- PATCH  /accounts/{id}/name    重命名展示名
 - POST   /accounts/{id}/checkin 手动签到(无视冷却,结果照写 records)
 - GET    /records               签到记录倒序分页
 - GET    /credits/history       积分流水(从 records 聚合 credits_delta)
@@ -31,7 +32,7 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -39,9 +40,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.core.jwt_auth import require_request_user_id
-from app.services import checkin_credits, checkin_minimax, checkin_qoder, checkin_store, checkin_workbuddy
+from app.services import (
+    checkin_credits,
+    checkin_minimax,
+    checkin_qoder,
+    checkin_store,
+    checkin_workbuddy,
+)
 from app.services import checkin_scheduler as checkin_scheduler_mod
 from app.services.checkin_engine import extract_user_id, get_jwt_exp
+from app.services.checkin_outbound import OutboundPaused, checkin_outbound_gate
 
 router = APIRouter(prefix="/api/checkin", tags=["checkin"])
 
@@ -79,6 +87,12 @@ class UpdateGroupIn(BaseModel):
     """分组允许空串 = 移出分组;上限与列宽一致(50)。"""
 
     group: str = Field(max_length=50)
+
+
+class UpdateNameIn(BaseModel):
+    """展示名重命名;上限与 CreateAccountIn.name 一致(100)。"""
+
+    name: str = Field(min_length=1, max_length=100)
 
 
 class UpdateDeviceMapIn(BaseModel):
@@ -224,7 +238,23 @@ async def create_account(
         )
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
+    # 导入即探针(2026-10-16 李总报障):账号今天在平台侧已签过时,库里没有
+    # 今天的记录 ⇒ 首屏「今日已签到」不亮、按钮还能点。录入后立刻跑一次真实
+    # 签到引擎(全平台幂等,已签路径=status 预检命中后落 skip_already 记录),
+    # 响应里直接带 last_record,首屏即真实状态;限流/冷却时静默跳过不阻塞导入。
+    try:
+        account["last_record"] = await _import_probe(account["id"], current_user)
+    except Exception:
+        # 探针失败(限流/冷却/网络)绝不阻塞导入:记录缺席 = UI 下次签到动作照常纠偏
+        pass
     return account
+
+
+async def _import_probe(account_id: int, owner_user_id: str) -> dict[str, Any] | None:
+    """导入探针:对新建账号跑一次真实签到引擎,返回落库的记录(单测统一在此打桩)。"""
+    return await checkin_scheduler_mod.checkin_scheduler.run_checkin_now(
+        account_id, owner_user_id
+    )
 
 
 @router.get("/accounts")
@@ -302,17 +332,38 @@ async def update_account_group(
     return {"ok": True, "id": account_id, "group": body.group}
 
 
+@router.patch("/accounts/{account_id}/name")
+async def update_account_name(
+    account_id: int,
+    body: UpdateNameIn,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """更新账号展示名(重命名;旧版捕获把 UUID 编码存进 name 的存量由用户就地改名)。
+
+    属主命中后落库,未命中 404。
+    """
+    updated = await checkin_store.update_account_name(account_id, current_user, body.name)
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
+    return {"ok": True, "id": account_id, "name": body.name}
+
+
 @router.post("/accounts/{account_id}/checkin")
 async def manual_checkin(
     account_id: int, current_user: str = Depends(require_request_user_id)
 ) -> dict[str, Any]:
-    """手动触发签到:无视冷却,结果照写 records。"""
+    """手动触发签到:尊重冷却与全局限流(命中返回 429),结果照写 records。"""
     try:
         record = await checkin_scheduler_mod.checkin_scheduler.run_checkin_now(
             account_id, current_user
         )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    except (
+        checkin_scheduler_mod.RateLimitedError,
+        checkin_scheduler_mod.CooldownActiveError,
+    ) as e:
+        raise HTTPException(status_code=429, detail=str(e)) from e
     return record
 
 
@@ -362,26 +413,54 @@ async def query_credits(
     account = await checkin_store.get_decrypted_jwt(account_id, current_user)
     if account is None:
         raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
+    # 出站闸门限流预检:暂停中统一 429 快速失败(Trae 路径底层会把暂停转成
+    # error dict,不预检就返回 200+error,前端无法按限流中止批量刷新)
+    gate_remaining = checkin_outbound_gate.paused_remaining()
+    if gate_remaining > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"签到出站限流冷却中({gate_remaining:.0f}s)",
+        )
+    # 账号冷却预检(第五件套,2026-10-16):冷却中账号(如 401 死号 10 年 /
+    # 挑战页 30min)不再查余额——天天拿死 token 打平台鉴权点是封号前兆。
+    # 与积分快照跳冷却(get_active_cooldowns)同口径;读冷却失败按无冷却放行
+    # (fail-open,不阻塞正常查询)。
+    try:
+        cooldowns = await checkin_store.get_active_cooldowns()
+    except Exception:
+        cooldowns = {}
+    cd_end = cooldowns.get(account_id)
+    if cd_end is not None and cd_end > datetime.now(UTC):
+        raise HTTPException(
+            status_code=429,
+            detail=f"账号处于冷却期, {cd_end.isoformat()} 后解冻",
+        )
     platform = account.get("platform")
-    if platform == "qoder":
-        device_map = dict(account.get("device_map") or {})
-        result = await checkin_qoder.qoder_query_credits(account["jwt"], device_map)
-        # 401→refresh 会写回 device_map(新 token),落库持久化
-        try:
-            await checkin_store.save_device_map(account_id, device_map)
-        except Exception:
-            pass
-    elif platform == "workbuddy":
-        wb_device_map = dict(account.get("device_map") or {})
-        result = await checkin_workbuddy.workbuddy_query_credits(account["jwt"], wb_device_map)
-    elif platform == "minimax":
-        mm_device_map = dict(account.get("device_map") or {})
-        result = await checkin_minimax.minimax_query_credits(account["jwt"], mm_device_map)
-    else:
-        result = await checkin_credits.query_remaining_credits(account["jwt"])
+    try:
+        if platform == "qoder":
+            device_map = dict(account.get("device_map") or {})
+            result = await checkin_qoder.qoder_query_credits(account["jwt"], device_map)
+            # 401→refresh 会写回 device_map(新 token),落库持久化
+            try:
+                await checkin_store.save_device_map(account_id, device_map)
+            except Exception:
+                pass
+        elif platform == "workbuddy":
+            wb_device_map = dict(account.get("device_map") or {})
+            result = await checkin_workbuddy.workbuddy_query_credits(account["jwt"], wb_device_map)
+        elif platform == "minimax":
+            mm_device_map = dict(account.get("device_map") or {})
+            result = await checkin_minimax.minimax_query_credits(account["jwt"], mm_device_map)
+        else:
+            result = await checkin_credits.query_remaining_credits(account["jwt"])
+    except OutboundPaused as e:
+        # 出站闸门限流暂停:快速失败,不发真实请求(前端按 429 提示)
+        raise HTTPException(status_code=429, detail=str(e)) from e
     error = result.get("error")
     if error is not None:
-        return {"ok": False, "error": str(error)}
+        # 第五件套配套(2026-10-16):查询路径的分类结果(SessionDead/Challenge)
+        # 一并透传,调用方与前端可观测「为什么失败」,不再只有一句 error 文案
+        return {"ok": False, "error": str(error), "classified_error": result.get("classified_error")}
     remaining = result.get("remaining")
     if not isinstance(remaining, int):
         return {"ok": False, "error": "积分余额解析结果异常"}

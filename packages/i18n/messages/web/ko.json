@@ -19233,6 +19233,9 @@
     "groupUngrouped": "그룹 없음",
     "skippedToday": "오늘 이미 출석한 {count}개 계정을 건너뛰었습니다",
     "skippedExpired": "JWT가 만료된 계정 {count}개를 건너뛰었습니다",
+    "skippedCooldown": "쿨다운 중인 계정 {count}개를 건너뛰었습니다",
+    "checkinRateLimited": "rate limit으로 일괄 체크인을 중단했습니다. 나중에 다시 시도하세요",
+    "checkinFailedCount": "체크인에 실패한 계정이 {count}개 있습니다",
     "checkinSelected": "선택한 계정 체크인({count})",
     "selectAllVisible": "목록 전체 선택",
     "selectAccount": "계정 {name} 선택",
@@ -19343,10 +19346,13 @@
     "deviceMapUpdated": "기기 지문이 업데이트되었습니다",
     "editDeviceMap": "기기 지문 편집",
     "editDeviceMapTitle": "기기 지문 편집",
-    "editDeviceMapDescription": "{platform} 계정의 기기 지문을 편집합니다(JSON 객체, 비워 두고 저장하면 자동 생성됨)."
+    "editDeviceMapDescription": "{platform} 계정의 기기 지문을 편집합니다(JSON 객체, 비워 두고 저장하면 자동 생성됨).",
+    "checkedInToday": "오늘 출석 완료",
+    "rename": "이름 변경"
   },
   "nav": {
     "checkin": "출석",
+    "monitorWallboard": "모니터링 월보",
     "ecosystemHub": "생태 마켓",
     "adminRelayInsights": "인사이트",
     "adminRelayEnterprise": "기업 컴플라이언스",
@@ -19695,7 +19701,17 @@
     "adminDeployDiagnosis": "배포 진단",
     "githubApp": "GitHub App",
     "smsReceive": "SMS 인증번호",
-    "sms": "SMS 템플릿"
+    "sms": "SMS 템플릿",
+    "customGroup": "사용자 정의",
+    "customAddTitle": "자주 쓰는 기능",
+    "customEmptyHint": "자주 쓰는 기능 추가",
+    "customSearchPlaceholder": "기능 검색",
+    "customAdded": "추가됨",
+    "customAdd": "추가",
+    "customRemove": "제거",
+    "customManage": "자주 쓰는 기능 관리",
+    "customDragHint": "드래그하여 정렬",
+    "customNoResults": "일치하는 기능이 없습니다"
   },
   "news": {
     "allCategories": "All categories",

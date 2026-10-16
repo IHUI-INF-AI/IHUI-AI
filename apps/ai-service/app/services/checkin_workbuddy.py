@@ -43,6 +43,7 @@ import httpx
 
 from app.core.logging import get_logger
 from app.services.checkin_engine import DEFAULT_TIMEOUT, get_http_client
+from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
 
 logger = get_logger(__name__)
 
@@ -217,12 +218,14 @@ async def _wb_post(
         "authorization": f"Bearer {token}",
     }
     http = client if client is not None else get_http_client()
+    await checkin_outbound_gate.before_request("workbuddy")
     try:
         resp = await http.post(WB_BASE.rstrip("/") + path, json={}, headers=headers, timeout=timeout)
     except httpx.TimeoutException:
         return 0, None
     except Exception as e:
         return -1, f"{type(e).__name__}: {e}"
+    checkin_outbound_gate.note_status(resp.status_code, "workbuddy")
     try:
         return resp.status_code, json.loads(resp.text)
     except Exception:
@@ -246,6 +249,7 @@ async def _wb_post_web(
         "cookie": cookie_header,
     }
     http = client if client is not None else get_http_client()
+    await checkin_outbound_gate.before_request("workbuddy")
     try:
         resp = await http.post(
             WB_WEB_BASE.rstrip("/") + path, json={}, headers=headers, timeout=timeout
@@ -254,6 +258,7 @@ async def _wb_post_web(
         return 0, None
     except Exception as e:
         return -1, f"{type(e).__name__}: {e}"
+    checkin_outbound_gate.note_status(resp.status_code, "workbuddy")
     try:
         return resp.status_code, json.loads(resp.text)
     except Exception:
@@ -370,6 +375,13 @@ async def workbuddy_checkin_account(
         return result
     if not isinstance(data, dict):
         result["message"] = f"签到失败: 响应非 JSON(HTTP {status})"
+        # 第五件套(2026-10-16):2xx 非 JSON = WAF/挑战页插页,即时熔断
+        # (403 保持本平台既有 SessionDead 永久冷却语义,比 Challenge 更保守)
+        result["classified_error"] = {
+            "type": "Challenge",
+            "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+        }
+        checkin_outbound_gate.note_challenge("workbuddy")
         return result
 
     code = data.get("code")
@@ -396,6 +408,53 @@ async def workbuddy_checkin_account(
             detail += f" streak_days={streak}"
     result.update(ok=True, status="ok", message="签到成功" + (f"({detail})" if detail else ""))
     return result
+
+
+async def workbuddy_probe_status(
+    token: str,
+    device_map: dict[str, Any],
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[bool, bool | None, int | None, str]:
+    """只读探针:查 checkin-status 的 data.today_checked_in ⇒ 今日是否已签。
+
+    返回 (ok, checked_in|None, credits|None, message)。**不调 daily-checkin,
+    零领取副作用** —— 供 06:00 状态探针在主窗口前同步「今日已签到」。
+
+    契约:HTTP 非 200 / 非 JSON / 字段缺失 ⇒ ok=False 且 checked_in=None
+    (宁缺勿假,探针据此跳过,不打平台也不误报)。
+    """
+    tok = (token or "").strip()
+    web_mode = workbuddy_is_web_mode(device_map)
+    if not tok:
+        return False, None, None, "未配置网页登录 Cookie" if web_mode else "未配置 token"
+    if not web_mode:
+        exp_dt, remaining = workbuddy_session_expiry(device_map)
+        if remaining is not None and remaining < 0:
+            return False, None, None, f"会话已过期({exp_dt:%Y-%m-%d %H:%M})"
+    if web_mode:
+        status, data = await _wb_post_web(PATH_WEB_CHECKIN_STATUS, tok, timeout, client)
+    else:
+        status, data = await _wb_post(PATH_CHECKIN_STATUS, tok, timeout, client)
+    if status in (0, -1):
+        return False, None, None, "网络异常"
+    if status != 200 or not isinstance(data, dict):
+        return False, None, None, f"状态查询失败(HTTP {status})"
+    payload = data.get("data")
+    payload = payload if isinstance(payload, dict) else {}
+    # today_checked_in 顶层/内层都找(实测两型都出现过)
+    for bucket in (data, payload):
+        raw = bucket.get("today_checked_in")
+        if isinstance(raw, bool):
+            credits: int | None = None
+            for key in ("remaining", "credit", "balance", "total_credit", "totalCredit", "credits"):
+                val = payload.get(key)
+                if isinstance(val, int):
+                    credits = val
+                    break
+            return True, raw, credits, "今日已签到" if raw else ""
+    return False, None, None, "状态响应不含 today_checked_in"
 
 
 async def workbuddy_query_credits(
@@ -437,6 +496,17 @@ async def workbuddy_query_credits(
                 if web_mode
                 else f"token 已过期或无权限(HTTP {status})"
             ),
+            # 第五件套(2026-10-16):与签到主路同语义(401/403=SessionDead),
+            # 供消费方观测;本平台 403 不比 Challenge 软——永久冷却更保守
+            "classified_error": {"type": "SessionDead", "cooldown_seconds": -1},
+        }
+    if status == 200 and not isinstance(data, dict):
+        # 第五件套:2xx 非 JSON = WAF 挑战页插页(与签到主路同款熔断)
+        checkin_outbound_gate.note_challenge("workbuddy")
+        return {
+            "remaining": None,
+            "error": "状态查询返回非 JSON(挑战页,已熔断)",
+            "classified_error": {"type": "Challenge", "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS},
         }
     if status != 200 or not isinstance(data, dict):
         return {"remaining": None, "error": f"状态查询失败(HTTP {status})"}

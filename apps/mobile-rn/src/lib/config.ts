@@ -6,9 +6,23 @@ import { Platform } from 'react-native'
 import { SSO_CLIENT_IDS } from '@ihui/shared/constants'
 import { version as PKG_VERSION } from '../../package.json'
 
-/** 应用版本唯一真相源 = apps/mobile-rn/package.json(此前 SettingsScreen 写死 1.0.2、
- *  SharedDemoScreen 写死 1.0.0,而真实版本是 0.0.5 —— 三个版本号互相矛盾)。 */
-export const APP_VERSION = PKG_VERSION
+/**
+ * 应用版本号的唯一消费点。
+ *
+ * 取值顺序(2026-10-17 起):
+ *   1. `EXPO_PUBLIC_IHUI_MOBILE_VERSION` —— CI 每次构建 APK 时内联进 JS bundle 的值,
+ *      由 scripts/resolve-mobile-version.mjs 从构建时刻派生(`<base>.<UTC YYYYMMDD>`)
+ *      ⇒ **每次发新包界面自动变**,不再要求有人记得改 package.json。
+ *   2. 回退 `apps/mobile-rn/package.json` 的 version —— 本地开发 / 未走 CI 时使用。
+ *
+ * 两个来源必须与原生 versionName 同一次计算(app.config.js 读同一个 env),否则会出现
+ * "手机上装的是 A 号、界面显示 B 号"。团结紧密谁改一边都得改另一边 ⇒ 由这两个文件的
+ * 同名 env 约束住,不靠人的记忆。
+ *
+ * 治理史:此前 SettingsScreen 写死 1.0.2、SharedDemoScreen 写死 1.0.0,而真实版本是
+ * 0.0.5 —— 三个版本号互相矛盾。收敛到单一真相源解决的是"打架",本条解决的是"不动"。
+ */
+export const APP_VERSION = process.env.EXPO_PUBLIC_IHUI_MOBILE_VERSION || PKG_VERSION
 
 /**
  * 首方 User-Agent(2026-09-24 立)。RN 的 fetch 由 okhttp 实现,而后端

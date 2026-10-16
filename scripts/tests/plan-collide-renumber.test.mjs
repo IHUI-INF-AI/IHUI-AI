@@ -18,9 +18,12 @@
  *
  * 每条断言的变异自证(把判据中和掉该条必读红)写在各自注释里,数字见交付报告,不写进本文当恒定事实。
  *
- * 需要外部通道(缺省时**报名字并 skip,绝不静默记绿**):
+ * 外部通道是**可选的钉面器**(CI 可以钉一份隔离副本):
  *  IHUI_RENUMBER_HEAD_UNION  HEAD 面 union-converge.mjs 的一份副本(特征标识符计数的基准)
  *  IHUI_RENUMBER_REALPLAN    HEAD 面 PROJECT_PLAN.md 的一份副本(真仓内容阳性对照的语料)
+ * 缺省时默认面 = 本仓 git 的 HEAD blob 现读(2026-10-16 改:此前缺 env 即抛错,把"没给通道"
+ * 记成红 —— 本机跑 `node --test` 没有通道就恒红,与提交无关,§12e 同型);
+ * git 也取不到 ⇒ 报名字大声失败,绝不静默记绿。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -30,11 +33,12 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { maskComments } from '../lib/code-mask.mjs'
-import { gitBinary } from '../lib/face-reader.mjs'
+import { gitBinary, gitRaw } from '../lib/face-reader.mjs'
 import { __test__ as R } from '../plan-collide-renumber.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPTS = resolve(HERE, '..')
+const REPO = resolve(SCRIPTS, '..')
 const TOOL = join(SCRIPTS, 'plan-collide-renumber.mjs')
 const LIB = join(SCRIPTS, 'lib', 'plan-collide-renumber-plan.mjs')
 const CONV = join(SCRIPTS, 'union-converge.mjs')
@@ -181,11 +185,22 @@ test('T4 登记侧必须真求值:自检打印的 N/N 必须是量出来的,不�
 const re = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 test('T5 真仓内容阳性对照 + --apply 的 blob 必须从对象库回读得回', () => {
-  if (!realPlanEnv || !existsSync(realPlanEnv))
-    throw new Error(
-      '缺 IHUI_RENUMBER_REALPLAN(HEAD 面 PROJECT_PLAN.md 副本)⇒ 本条**未执行**,不得记为通过',
-    )
-  const plan = read(realPlanEnv)
+  // 语料面(2026-10-16):env 副本仍是可选的钉面通道;缺省时现读本仓 git 的 HEAD blob。
+  // 撞号是**形态**不是**存量**:对任何一份真台账都能造出来,故语料不必依赖外部通道在位。
+  let plan
+  if (realPlanEnv && existsSync(realPlanEnv)) {
+    plan = read(realPlanEnv)
+  } else {
+    try {
+      plan = gitRaw(['show', 'HEAD:PROJECT_PLAN.md'], REPO, { maxBuffer: 1 << 27 })
+    } catch (e) {
+      throw new Error(
+        `HEAD 面 PROJECT_PLAN.md 取不到(${String(e?.message ?? e).split('\n')[0]})⇒ 本条**未执行**,不得记为通过`,
+      )
+    }
+  }
+  if (!plan || plan.length < 1000)
+    throw new Error('HEAD 面真台账取不到或近乎为空 ⇒ 本条**未执行**,不得记为通过')
   // 语料取**真台账**(§22c),撞号形态取今天真实发生的那一种:两侧各拿一枚**尚未被任何面占用**的新号
   // 登记了两件不同的事(并发取号撞的)。取号走本器自己的出口,不在测试里另算一遍号段。
   const K = R.pickId('G', R.occupancy([plan]), { texts: [plan], jump: 5, taken: new Set() })
@@ -401,11 +416,19 @@ test('T7 少参数 ⇒ rc 2 并给可执行用法(不得写跑不通的出路)',
 })
 
 test('T8 特征标识符计数不变:补丁只加出路,没顺手动别人的逻辑', () => {
-  if (!headUnionEnv || !existsSync(headUnionEnv))
-    throw new Error(
-      '缺 IHUI_RENUMBER_HEAD_UNION(HEAD 面 union-converge.mjs 副本)⇒ 本条**未执行**,不得记为通过',
-    )
-  const before = read(headUnionEnv)
+  // 基准面(2026-10-16):env 副本仍是可选的钉面通道;缺省时现读本仓 git 的 HEAD blob。
+  let before
+  if (headUnionEnv && existsSync(headUnionEnv)) {
+    before = read(headUnionEnv)
+  } else {
+    try {
+      before = gitRaw(['show', 'HEAD:scripts/union-converge.mjs'], REPO, { maxBuffer: 1 << 27 })
+    } catch (e) {
+      throw new Error(
+        `HEAD 面 union-converge.mjs 取不到(${String(e?.message ?? e).split('\n')[0]})⇒ 本条**未执行**,不得记为通过`,
+      )
+    }
+  }
   const after = read(CONV)
   for (const id of ['theirsRewriteCaps', 'SIM_THRESHOLD', 'noteCredits', 'byPlaceholder']) {
     const c = (s) => s.split(id).length - 1

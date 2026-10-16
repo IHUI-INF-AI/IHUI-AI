@@ -37,6 +37,11 @@ import httpx
 
 from app.core.logging import get_logger
 from app.services.checkin_engine import DEFAULT_TIMEOUT, get_http_client
+from app.services.checkin_outbound import (
+    CHALLENGE_COOLDOWN_SECONDS,
+    OutboundPaused,
+    checkin_outbound_gate,
+)
 
 logger = get_logger(__name__)
 
@@ -257,6 +262,9 @@ async def _api_call(
     last: tuple[int, Any] = (0, None)
     for base in QODER_BASES:
         url = base.rstrip("/") + path
+        # 出站节流闸门:暂停期(429 后)抛 OutboundPaused 必须向上穿透本函数的
+        # 逐端点兜底(否则被吞成 -1 网络错,整批中止语义丢失)
+        await checkin_outbound_gate.before_request("qoder")
         try:
             if method == "POST":
                 resp = await http.post(url, json=body or {}, headers=headers, timeout=timeout)
@@ -265,9 +273,12 @@ async def _api_call(
         except httpx.TimeoutException:
             last = (0, None)
             continue
+        except OutboundPaused:
+            raise
         except Exception as e:
             last = (-1, f"{type(e).__name__}: {e}")
             continue
+        checkin_outbound_gate.note_status(resp.status_code, "qoder")
         if resp.status_code in (0, 404):
             last = (resp.status_code, None)
             continue
@@ -326,6 +337,9 @@ def qoder_classify_error(
         return "SessionDead", -1
     if http_status == 429:
         return "SoftRate", 60
+    if http_status == 403:
+        # 第五件套(2026-10-16):403 = WAF/拦截墙,即时熔断(原 4xx 三连击太软)
+        return "Challenge", CHALLENGE_COOLDOWN_SECONDS
     if 500 <= http_status < 600:
         return "Server", 600
     if 400 <= http_status < 500:
@@ -358,6 +372,41 @@ def _claimable_campaigns(campaigns: list[Any], now: float) -> tuple[list[dict[st
                 if start <= now < end:
                     already = True
     return claimable, already
+
+
+async def qoder_probe_status(
+    name: str,
+    jwt: str,
+    device_map: dict[str, Any],
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[bool, bool | None, int | None, str]:
+    """只读探针:GET campaigns(不 POST claim)按 claimStatus 判今日是否已领。
+
+    返回 (ok, checked_in|None, credits|None, message)。已领判据与签到主路
+    同一函数 _claimable_campaigns(CLAIMED 且落在当前领取窗口内),
+    **不发起任何领取请求,零副作用** —— 供 06:00 状态探针同步状态。
+
+    注:Qoder 领取窗口 10:00(UTC+8)才开放,06:00 探时活动常未下发 ⇒
+    claimable 空且未标已领,如实报「未签」(不误报已签,避免用户漏签)。
+    """
+    if not jwt:
+        return False, None, None, "未配置 token"
+    status, data = await _api_call(
+        PATH_CAMPAIGNS, "GET", token=jwt, device_map=device_map, timeout=timeout, client=client
+    )
+    if status in (0, -1):
+        return False, None, None, "网络异常"
+    if status != 200 or not isinstance(data, dict):
+        return False, None, None, f"活动查询失败 HTTP {status}"
+    campaigns = data.get("campaigns")
+    if not isinstance(campaigns, list):
+        campaigns = []
+    claimable, already_claimed = _claimable_campaigns(campaigns, time.time())
+    if already_claimed and not claimable:
+        return True, True, None, "今日已领取"
+    return True, False, None, ""
 
 
 async def qoder_checkin_account(
@@ -441,7 +490,12 @@ async def qoder_checkin_account(
         result["http_status"] = None
         return result
     if status != 200 or not isinstance(data, dict):
-        error_type, cooldown_secs = qoder_classify_error(status if status >= 400 else None, None)
+        if status < 400:
+            # 第五件套(2026-10-16):2xx 非 JSON = WAF/挑战页插页,即时熔断
+            error_type, cooldown_secs = "Challenge", CHALLENGE_COOLDOWN_SECONDS
+            checkin_outbound_gate.note_challenge("qoder")
+        else:
+            error_type, cooldown_secs = qoder_classify_error(status, None)
         result["message"] = f"活动查询失败 HTTP {status}"
         if error_type not in ("Unknown",):
             result["classified_error"] = {"type": error_type, "cooldown_seconds": cooldown_secs}
@@ -503,7 +557,12 @@ async def qoder_checkin_account(
 
     if claimable:
         # 有可领活动但领取失败 → 按状态分类(401 已在上方处理过,此处多为 4xx/5xx)
-        error_type, cooldown_secs = qoder_classify_error(last_status, None)
+        if last_status is not None and last_status < 400:
+            # 第五件套(2026-10-16):2xx 非 JSON 领取响应 = 挑战页插页,即时熔断
+            error_type, cooldown_secs = "Challenge", CHALLENGE_COOLDOWN_SECONDS
+            checkin_outbound_gate.note_challenge("qoder")
+        else:
+            error_type, cooldown_secs = qoder_classify_error(last_status, None)
         result["message"] = f"领取失败 HTTP {last_status}"
         result["http_status"] = last_status
         if error_type not in ("Unknown",):
@@ -553,7 +612,15 @@ async def qoder_query_credits(
             )
     if status in (0, -1):
         return {"remaining": None, "packs": [], "error": "网络异常"}
-    if status != 200 or not isinstance(data, dict):
+    if status == 403:
+        # 第五件套:403 = 挑战墙/WAF 拦截(与 qoder_classify_error 同语义)
+        checkin_outbound_gate.note_challenge("qoder")
+        return {"remaining": None, "packs": [], "error": "余额接口 HTTP 403: 挑战墙/WAF 拦截,已熔断"}
+    if status == 200 and not isinstance(data, dict):
+        # 第五件套:2xx 非 JSON = WAF 挑战页插页
+        checkin_outbound_gate.note_challenge("qoder")
+        return {"remaining": None, "packs": [], "error": "余额接口返回非 JSON 响应(挑战页,已熔断)"}
+    if status != 200:
         return {"remaining": None, "packs": [], "error": f"余额接口 HTTP {status}"}
     data_field = data.get("data") if isinstance(data.get("data"), dict) else None
     inner = data_field if isinstance(data_field, dict) else data

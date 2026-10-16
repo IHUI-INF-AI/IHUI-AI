@@ -314,35 +314,26 @@ jobs:
             echo "changed=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Commit synced downloads
+      # 2026-10-17:不再 push 回 main —— 那一步是**必然失败**的,重试多少次都一样:
+      #   main 要求 status check「CI / lint-typecheck-test (push)」,而 GITHUB_TOKEN 推送
+      #   产生的 commit 不触发 workflow run ⇒ check 永远缺席 ⇒ GH006 拒收(实测,
+      #   sync-downloads.yml 自 10-11 起连日 failure)。旧注释里的"并发推进导致被拒"只是
+      #   表面现象,重试循环从来没救成功过 —— 它唯一的作用是让失败看起来像偶发。
+      #   版本号这条线已改为运行期直读发布源(desktop-feed-live.ts),不再需要入库;
+      #   这里只把解析结果当 artifact 留档。
+      - name: Upload resolved feed snapshot (not pushed)
         if: steps.changes.outputs.changed == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add apps/web/public/downloads/ apps/web/src/config/desktop-feed.generated.ts
-          git commit -m "chore(downloads): auto-sync downloads + desktop feed after release ${{ inputs.tag || github.ref_name }}"
-          # 2026-09-18(实测):本 job 运行期间常有并发会话/其它 workflow 推进 main,
-          # 裸 `git push origin main` 被拒(rejected — fetch first) → 快照刷新整体失败
-          # (0.1.35 重跑实证)。改为「合并远端后重试」;快照是生成物,冲突时以本次
-          # 解析结果为准(-X ours),避免刚补上的 Windows 资产又被旧快照覆盖。
-          for i in 1 2 3; do
-            if git push origin main; then
-              echo "✓ 快照已推送到 main"
-              exit 0
-            fi
-            echo "push 被拒(第 $i 次),合并远端 main 后重试"
-            git fetch origin main
-            git merge -X ours --no-edit origin/main || { git merge --abort || true; exit 1; }
-          done
-          echo "::error::快照提交推送失败(main 被并发持续推进,已重试 3 次)"
-          exit 1
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-feed-snapshot-${{ inputs.tag || github.ref_name }}
+          path: apps/web/src/config/desktop-feed.generated.ts
 
       - name: Summary
         run: |
           echo "### Downloads 同步完成" >> $GITHUB_STEP_SUMMARY
           echo "tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "产物已同步到 apps/web/public/downloads/(desktop + extension)" >> $GITHUB_STEP_SUMMARY
-          echo "桌面下载快照 desktop-feed.generated.ts 已刷新(版本/URL/大小自动解析)" >> $GITHUB_STEP_SUMMARY
+          echo "下载页/更新器版本号:站点运行期直读发布源,发版即生效(无需快照入库)" >> $GITHUB_STEP_SUMMARY
 
   # 2026-09-17:国内发行(Gitee)自动化——安装包+更新签名镜像到 Gitee release,
   # latest.json(url 全部指向 Gitee 直链)更新 desktop-feed 分支 raw 直链。

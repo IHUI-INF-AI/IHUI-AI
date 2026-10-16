@@ -246,17 +246,9 @@ test('T12 M6 反例:合并体丢弃基础档(整体替换调用方集合)必红'
 test('T13 M6 反例:生效集绕过合并直接取附加集(基础档被替换)必红', () => {
   const { base, clone } = worktreeFace()
   const loopSrc = base[G.FILES.pyAgentLoop]
-  assert.ok(
-    /self\._effective_denylist(?::\s*frozenset\[str\])?\s*=\s*merge_turn_scoped_denylist\(\s*deny_tools,\s*turn_denylist\s*\)/.test(
-      loopSrc,
-    ),
-    '锚文本漂移,用例已空转',
-  )
+  assert.ok(G.M6_BYPASS_RE.test(loopSrc), '锚文本漂移,用例已空转')
   const c = clone()
-  c[G.FILES.pyAgentLoop] = loopSrc.replace(
-    /self\._effective_denylist(?::\s*frozenset\[str\])?\s*=\s*merge_turn_scoped_denylist\(\s*deny_tools,\s*turn_denylist\s*\)/,
-    'self._effective_denylist: frozenset[str] = frozenset(turn_denylist or ())',
-  )
+  c[G.FILES.pyAgentLoop] = loopSrc.replace(G.M6_BYPASS_RE, G.M6_BYPASS_TO)
   const m6 = G.decide(c).problems.filter((p) => p.startsWith('M6'))
   assert.ok(
     m6.some((p) => p.includes('绕过合并')),
@@ -277,7 +269,7 @@ test('T14 M6 反例:轮次负向面写回 checkpoint 元数据(粘会话)必红'
 })
 
 test('T15 M6 锚点缺失(旧 HEAD 面)计未判定:不冒红也不记绿', () => {
-  const { base, clone } = worktreeFace()
+  const { clone } = worktreeFace()
   const c = clone()
   c[G.FILES.pyAgentLoop] = 'TOOLS = {}\n'
   const r = G.decide(c)

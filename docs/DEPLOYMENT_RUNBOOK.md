@@ -394,5 +394,42 @@ Restart-Service Cloudflared
 
 **根因②(物理下限,不可修,只能校准阈值):** 手机→CF 边缘 RTT ~493ms,一次 HTTPS 探针需 TCP 1 RTT + TLS 1–2 RTT + 请求 1 RTT ≈ 4 RTT ≈ 2s 起步(`apps/mobile-rn/src/lib/network-probe.ts:30-35` 同源注释)。而旧慢网阈值 `slowLatencyMs = 1500ms`(`packages/shared/src/utils/connectivity.ts:72`)低于该物理下限 ⇒ 即使链路最优,横幅也常态化亮起。**机主已拍板(2026-10-14):上调至 `2500ms`**(`connectivity.ts:72`),高于 http2 后正常 TTFB 上限 ~2.2s,只为真·劣化(单轮最快应答 ≥ 2500ms)亮横幅,健康跨境链路不再误判。该调整不改变"慢网 ≠ 断网"语义(G-1113920 锁),离线/未判定档位逻辑未动。
 
+**根因④(2026-10-16 立案,本机实测,跨境段硬约束):** 公网入口 TTFB 1.3s~16.4s、约一半请求 25s 超时,而同轮 `127.0.0.1:8801` 只要 3~17ms。逐项排除与定档见下表 —— 结论是**慢在「本机(长春联通)↔ Cloudflare 洛杉矶 PoP」这条跨境段**,不是服务、不是隧道进程、也不是本机拥塞。
+
+| 判据 | 实测(2026-10-16 23:16–23:55 +0800) | 结论 |
+|---|---|---|
+| 本地直连 8801(`/sso/login`、`/api/health`) | 3–17ms,全 200 | 服务段排除 |
+| 公网 TCP 建连 / TLS 握手 | 0.30s / 0.64s(能完成) | 边缘可达 |
+| 公网 TTFB | 1.30s ~ 16.36s,约一半 >25s 超时 | 卡在回源那一跳 |
+| cloudflared metrics `server_locations` | 4 条腿全部 lax05/lax09/lax12/lax13(洛杉矶) | 跨境段落点在美国 |
+| ICMP 到 1.1.1.1 / 站点 IP 104.21.15.184 | ≈300ms / ≈700ms(对照阿里 DNS 223.5.5.5 = 19ms) | 跨境段又远又丢包 |
+| TCP 重传率(30s 窗口) | 27% | 丢包实证 |
+| 上行占用 | 198 KB/s(≈1.6Mbps);ICMP 0 丢包;MTU 1500 + DF 通 | 非拥塞、非 MTU 黑洞 |
+| 重启 Cloudflared 后 4 分钟复测 | 仍 10–16s / 超时 | 重启不治,不是腿坏了 |
+
+**可行动的两条路(除此之外都是白查):**
+
+1. **换出口** —— 让 cloudflared 到 CF 边缘的流量走一条到 CF 更近的线路(代理 / 中转机,落点争取 nrt / icn / sin / hkg)。`--region` 参数**只支持 `us`**(Cloudflare 官方口径),本机已在美国 ⇒ 没有「选更近 PoP」的旋钮;`--edge-ip-version` 只切地址族,实测 IPv4 / IPv6 同样劣化(1.3s vs 10.4s,均伴随超时),也不治本。
+2. **减少回源** —— 提高 CF 边缘缓存命中率(静态资源长缓存 / Cache Rules),把跨太平洋回源的次数压下去;顺带把监控探针自身的回源频次降下来(它每轮 12–24 次请求,本身就是这条劣化链路的加压者)。
+
+**隧道侧可观测性(2026-10-16 补齐两条,今天定位时就是缺这两样):**
+
+1. **指标时间轴(已自动,零人工)**:`scripts/record-tunnel-metrics.mjs` 每 15 分钟把 cloudflared metrics 的白名单指标**追加一行**到 `.workbuddy/tunnel-metrics.jsonl`(腿数 / 累计请求 / 回源错误 / 落点 PoP / 进程启动时刻 / origin 连接均值),并给出与上一轮的差分 —— **进程重启过则差分记 `null`**(不同进程的累计值相减会得出负数或天量,是台账污染的头号来源)。派发点 `git-guardian.mjs: auditTunnelMetrics()`。回看:`tail -n 50 .workbuddy/tunnel-metrics.jsonl`。**为什么不挂 Prometheus**:metrics 端点**端口每次启动会变**,静态 target 天然会漂;本尺子按 pid 从 netstat 现读端口。
+2. **运行期日志(需人手动,一条命令)**:Cloudflared 服务 ImagePath 是裸 `tunnel run`,没有 `--logfile` ⇒ 隧道握手 / 重连错误**不落任何文件**。补法(管理员权限、非沙箱;会重启服务,窗口约数十秒):
+
+   ```powershell
+   $p = 'HKLM:\SYSTEM\CurrentControlSet\Services\Cloudflared'
+   $cur = (Get-ItemProperty -Path $p).ImagePath
+   if ($cur -notmatch '--logfile') {
+     Set-ItemProperty -Path $p -Name ImagePath -Value ($cur + ' --logfile D:\DevEnv\logs\cloudflared.log --loglevel info')
+   }
+   (Get-ItemProperty -Path $p).ImagePath      # 复核已生效
+   Restart-Service Cloudflared
+   ```
+
+   等价命令行:`sc.exe config Cloudflared binPath= "<原 ImagePath> --logfile D:\DevEnv\logs\cloudflared.log --loglevel info"`。**注**:本机安全策略硬拦 `sc.exe` / `reg.exe` / 注册表写入 ⇒ AI 会话内做不了,必须由人执行;生命周期事件(starting / stopped / graceful)仍可从事件日志取:`wevtutil qe Application "/q:*[System[Provider[@Name='Cloudflared']]]" /f:XML /rd /c:20`。
+
+**已固化的判据:** `scripts/check-tunnel-leg-health.mjs` 新增第五维 `edge-location`(读本机 cloudflared metrics 的 `server_locations`,metrics 端口按 pid 从 netstat 现读、不硬编码)。落点全在非亚太 PoP 时**只报数不判红**(本机在国内、CF 无大陆 PoP ⇒ 这是常态形态,判红即 §12e 恒红门),并在正文写明「入口慢先归因跨境段,别去查 web/api」;`scripts/git-guardian.mjs` 的入口段出路同步点名该维。运维读法:`node scripts/check-tunnel-leg-health.mjs --json`。
+
 **根因③(远期,需预算):** CF 边缘→源站段走公网绕行。Cloudflare Argo Smart Routing(付费订阅)可让该段走 CF 优化骨干;另 `api.aizhs.top` 未接入 img 子域同款「优选 IP」机制(`deploy/cf-preferred-ip.mjs` 仅支持 A 记录,Tunnel 的 CNAME 形态不适用),二者均为结构性改进,记录备选。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

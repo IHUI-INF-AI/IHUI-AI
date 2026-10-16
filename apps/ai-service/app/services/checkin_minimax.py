@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import time
 import urllib.parse
 from typing import Any, Final
@@ -38,6 +37,7 @@ import httpx
 
 from app.core.logging import get_logger
 from app.services.checkin_engine import DEFAULT_TIMEOUT, get_http_client
+from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
 
 logger = get_logger(__name__)
 
@@ -203,10 +203,12 @@ async def _mm_request(
     headers["Authorization"] = f"Bearer {token}"
     http = client if client is not None else get_http_client()
     url = f"{host}{path}?{query}"
+    await checkin_outbound_gate.before_request("minimax")
     if method.upper() == "GET":
         resp = await http.get(url, headers=headers, timeout=timeout)
     else:
         resp = await http.post(url, headers=headers, json=body or {}, timeout=timeout)
+    checkin_outbound_gate.note_status(resp.status_code, "minimax")
     try:
         return resp.status_code, resp.json()
     except Exception:
@@ -246,6 +248,34 @@ def minimax_classify_error(http_status: int | None) -> tuple[str, int]:
     if 400 <= http_status < 500:
         return "Client", 600
     return "Unknown", 0
+
+
+async def minimax_probe_status(
+    name: str,
+    token: str,
+    device_map: dict[str, Any],
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[bool, bool | None, int | None, str]:
+    """探针:MiniMax 官方无只读状态位(status 只有 7 天进度环 days[].day_no,
+    无日期 ⇒ 无法定位「今天」)⇒ 只能走**幂等 claim** 兜底:今日已领时引擎自报
+    skip_already,未领则顺手领掉(官方幂等,重复领不重复发积分)。
+
+    返回 (ok, checked_in|None, credits|None, message)。与 TRAE/WorkBuddy/Qoder
+    的只读探针统一签名,供 06:00 状态探针按平台分发。
+    """
+    result = await minimax_checkin_account(
+        name, token, device_map, timeout=timeout, client=client
+    )
+    action = result.get("action")
+    credits = result.get("credits_delta")
+    if not result.get("ok"):
+        return False, None, None, str(result.get("message") or "")
+    checked_in = action in ("skip_already", "claim_ok")
+    return True, checked_in, credits if isinstance(credits, int) else None, (
+        str(result.get("message") or "")
+    )
 
 
 async def minimax_checkin_account(
@@ -292,6 +322,13 @@ async def minimax_checkin_account(
         return result
     if not isinstance(data, dict):
         result["message"] = f"签到失败: 响应非 JSON(HTTP {status})"
+        # 第五件套(2026-10-16):2xx 非 JSON = WAF/挑战页插页,即时熔断
+        # (403 保持本平台既有 SessionDead 永久冷却语义,比 Challenge 更保守)
+        result["classified_error"] = {
+            "type": "Challenge",
+            "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+        }
+        checkin_outbound_gate.note_challenge("minimax")
         return result
 
     ok, action, credits = parse_claim_result(data)
@@ -345,7 +382,20 @@ async def minimax_query_credits(
         uuid_str=str(device_map.get("uuid") or ""),
     )
     if status in (401, 403):
-        return {"remaining": None, "error": "token 无效或过期(401/403),请重新捕获"}
+        return {
+            "remaining": None,
+            "error": "token 无效或过期(401/403),请重新捕获",
+            # 第五件套(2026-10-16):与签到主路同语义(401/403=SessionDead)
+            "classified_error": {"type": "SessionDead", "cooldown_seconds": -1},
+        }
+    if status == 200 and not isinstance(data, dict):
+        # 第五件套:2xx 非 JSON = WAF 挑战页插页(与签到主路同款熔断)
+        checkin_outbound_gate.note_challenge("minimax")
+        return {
+            "remaining": None,
+            "error": "状态查询返回非 JSON(挑战页,已熔断)",
+            "classified_error": {"type": "Challenge", "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS},
+        }
     if status != 200 or not isinstance(data, dict):
         return {"remaining": None, "error": f"状态查询失败(HTTP {status})"}
     days = parse_status_days(data)
