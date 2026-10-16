@@ -145,6 +145,17 @@ test('T9 --json 档的 stdout 必须可 JSON.parse(尾随人类读语会砸碎�
   const j = JSON.parse(out)
   assert.ok(['head', 'staged', 'worktree'].includes(j.face), 'face 字段必须是面名')
   assert.ok(typeof j.hits === 'number' && Array.isArray(j.red), 'hits 计数与 red 清单都要在')
+  // detail 锁:计数出口不清账 ⇒ 清账方只能自己再写一份扫描(§22c 禁)。这条断言钉的是
+  // "门必须自己把逐条清单交出去",不是钉清单内容。
+  assert.ok(Array.isArray(j.detail), '--json 必须带 detail 逐条清单(只有 counts 的出口不清账)')
+  assert.equal(j.detail.length, j.hits, 'detail 条数与 hits 计数不等 ⇒ 有一边在撒谎')
+  for (const d of j.detail) {
+    assert.ok(typeof d.path === 'string' && d.path.length > 0, 'detail 每条必须点名文件')
+    assert.ok(typeof d.name === 'string' && d.name.length > 0, 'detail 每条必须点名类型名')
+    assert.equal(typeof d.isRed, 'boolean', 'detail 必须带棘轮归属(清账要先知道哪条真是红)')
+  }
+  if (j.face === 'head')
+    assert.ok(j.hits > 0, 'HEAD 面存量早已实测非零 ⇒ 量到 0 说明扫描面塌了,不是"已清干净"')
   assert.ok(!out.includes('✅'), '合格结论只由退出码与 JSON 字段承载,stdout 不得再打 ✅')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
