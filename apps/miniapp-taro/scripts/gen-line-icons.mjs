@@ -45,13 +45,11 @@ for (const file of svgs.sort()) {
   entries.push([iconName(file), normalizeSvgColor(svg)])
 }
 
-// lucide 字形里的 rx/ry 是 24 格 viewBox 的**几何单位**,不是 UI 圆角档位(吸附会把图标扭歪)。
-// 守门 77 的 B5 看不到这层语义,故由生成器自己吐豁免行 —— 手写 marker 会在下次生成时被抹掉,
-// 生成器内置才闭环(2026-09-23 圆角同源收口时实测到该缺口)。
-const EXEMPT = '
+// 圆角豁免标记通道已于 2026-09-28 废除(门 77 改成量形状、门 108 棘轮按该族 HEAD 存量取 0),
+// 生成器不再吐任何 marker;再挂一个新标记就是新增违规。
 const lines = entries.flatMap(([k, v]) => {
   const row = `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`
-  return /\br[xy]\s*=/.test(v) ? [EXEMPT, row] : [row]
+  return [row]
 })
 
 // 质量闸:源 svg 目录早在「图片全量外置 CDN」那轮就被清空(实测 HEAD~400 起就只剩 1 个),
