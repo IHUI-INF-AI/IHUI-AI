@@ -4,14 +4,23 @@
 
 /**
  * 生成 miniapp-taro 原生 tabBar 亮色图标(lucide 风格,81x81 PNG)
- * 用法: cd G:/IHUI-AI && node apps/miniapp-taro/scripts/gen-tabbar-icons.mjs
+ * 用法: node apps/miniapp-taro/scripts/gen-tabbar-icons.mjs
  * 产物: apps/miniapp-taro/src/assets/tabbar/tab-<name>.png / tab-<name>-active.png
- * 依据 AGENTS.md §4:miniapp 端图标 = lucide 风格 stroke #000000;未选中用中性灰。
+ * 图标色**派生自 tokens.css**(AGENTS §4「色值副本一律是派生态」):PNG 把颜色烤死,
+ * 是 theme.json 同级的副本 —— 未选中 --color-text-tertiary / 选中 --color-foreground
+ * (2026-10-16 用户定稿「液态玻璃 + 深色中性」,与 mobile-rn/TabBar.tsx、theme.json
+ * tabColor/tabSelected 同两档;浅紫/品牌蓝方案均已作废)。
+ * 取源走 scripts/lib/design-token-blocks.mjs + check-cross-end-tokens.mjs 的 normalizeColor
+ * (与 sync-miniapp-chrome.mjs 同形),**不得在这里写第二份转换器或硬编码 hex**。
+ * 注意:这批 PNG 只服务原生 tabBar 的低版本兜底渲染;custom-tab-bar(液态玻璃胶囊)
+ * 用 LineIcon 内联 SVG 着色,不消费这批文件。
  */
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { collectVars } from '../../../scripts/lib/design-token-blocks.mjs'
+import { __test__ as crossEnd } from '../../../scripts/check-cross-end-tokens.mjs'
 
 const require = createRequire(import.meta.url)
 const sharp = require('sharp')
@@ -20,8 +29,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const OUT_DIR = path.join(__dirname, '..', 'src', 'assets', 'tabbar')
 const SIZE = 81
-const INACTIVE = '#9CA3AF' // gray-400
-const ACTIVE = '#000000' // 品牌黑(对齐 RN rnLightTokens.brand.DEFAULT)
+
+/** tokens.css 的 light 档取一个 token 并归一为 #rrggbb(缺档/不可表达 ⇒ 大声失败,绝不烤错色)。 */
+function tokenHex(name) {
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'packages', 'design-tokens', 'src', 'styles', 'tokens.css'), 'utf8')
+  const decl = collectVars(css, ['@theme', ':root']).get(name)
+  if (!decl) throw new Error(`tokens.css 取不到 ${name}(light 档) —— tabBar 图标色必须派生自 token`)
+  const hex = crossEnd.normalizeColor(decl.value)
+  if (!/^#[0-9a-f]{6}$/.test(hex)) throw new Error(`${name} 归一后 = "${hex}",不是 #rrggbb,不能烤进 PNG`)
+  return hex
+}
+
+const INACTIVE = tokenHex('--color-text-tertiary') // 中性灰(未选中)
+const ACTIVE = tokenHex('--color-foreground') // 深色中性(选中)
 
 /** lucide 24x24 path 数据(简化自 lucide.dev) */
 const ICONS = {

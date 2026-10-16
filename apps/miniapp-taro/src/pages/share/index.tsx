@@ -565,7 +565,7 @@ export default function ShareIndexPage() {
   // ===== 排行榜入口视图(activeNavbar=false) =====
   if (!activeNavbar) {
     return (
-      <View className="share-page">
+      <View className="share-page pb-[calc(140rpx+env(safe-area-inset-bottom))]">
         <View className="share-rank-wrap">
           <View className="share-rank-header">
             <View className="share-rank-header-left">
