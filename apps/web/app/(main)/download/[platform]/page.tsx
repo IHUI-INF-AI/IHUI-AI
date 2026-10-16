@@ -4,6 +4,7 @@
 
 import type { Metadata } from 'next'
 import { DownloadDetailContent } from './DownloadDetailContent'
+import { liveToDesktopFeed, resolveLiveDesktopFeed } from '@/config/desktop-feed-live'
 
 interface DownloadPageProps {
   params: Promise<{ platform: string }>
@@ -40,8 +41,14 @@ export function generateStaticParams() {
   ]
 }
 
+// 与 desktop-feed.json 同一 ISR 窗口:新桌面版的版本号/安装包在 10 分钟内自动反映到详情页,
+// 无需任何人工同步,也不依赖 CI 把生成物推回 main(那条路被分支保护挡死,见 desktop-feed-live)。
+export const revalidate = 600
+
 export default async function DownloadPage({ params }: DownloadPageProps) {
   const { platform } = await params
-  return <DownloadDetailContent platform={platform} />
+  const resolved = await resolveLiveDesktopFeed()
+  const liveDesktopFeed = resolved.source === 'live' ? liveToDesktopFeed(resolved.data) : null
+  return <DownloadDetailContent platform={platform} liveDesktopFeed={liveDesktopFeed} />
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
