@@ -311,6 +311,12 @@ const RN_FINE_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
     defaultValue: '#e8f5e9',
     description: '模型类型徽章-音视频底色(明暗同值实色浅绿,与 RN typeBadge 一致)',
   },
+  {
+    name: '--color-glass-bg',
+    type: 'color',
+    defaultValue: 'rgba(255, 255, 255, 0.66)',
+    description: '液态玻璃悬浮栏背景(底部菜单 TabBar 半透明底,配合 backdrop blur;dark 档 .dark 块)',
+  },
 ]
 
 /** 业务品牌色 token。 */

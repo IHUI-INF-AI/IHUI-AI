@@ -289,6 +289,9 @@
   --color-model-type-av-bg: #e8f5e9;
   /* 智能体卡片名称链接色(RN DevEnterScreen cardTitle #517BFF,明暗同值;dark 覆盖见 .dark 块) */
   --color-agent-name: #517bff;
+  /* 通用玻璃底(2026-10-16 立,底部菜单 TabBar 悬浮胶囊液态玻璃背景:
+   * 半透明 + backdrop blur,下方内容若隐若现;描边复用 --color-border;dark 档见 .dark 块) */
+  --color-glass-bg: rgba(255, 255, 255, 0.66);
 
   /* ============ 图表色板(2026-07-27 立,统一 web 端图表硬编码色) ============
    * 8 色主色板对应 Tailwind blue/emerald/amber/red/violet/pink/cyan/lime-500
@@ -658,6 +661,8 @@ select:-webkit-autofill:focus {
   --color-model-type-av-bg: #e8f5e9;
   /* 智能体卡片名称链接色(与上方 @theme 亮色值成对,明暗同值) */
   --color-agent-name: #517bff;
+  /* 通用玻璃底暗色覆盖(与上方 @theme 亮色值成对,明暗同值) */
+  --color-glass-bg: rgba(26, 26, 26, 0.66);
   /* RN 屏幕画布暗色覆盖(bg-white ↔ dark:bg-neutral-900 #171717) */
   --color-screen-canvas: #171717;
   /* Tailwind v3 端 alpha 通道三元组的暗色分解(与上方 :root 的 *-rgb 块成对;
