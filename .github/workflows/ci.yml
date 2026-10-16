@@ -142,6 +142,15 @@ jobs:
         id: assert-web-artifact
         run: node -e "const fs=require('fs');const f='apps/web/.next/BUILD_ID';if(!fs.existsSync(f)){console.error('Build 步报绿但没有 '+f+' -> web 端本次未被真正构建,该步骤形同虚设');process.exit(1)}console.log('web BUILD_ID =',fs.readFileSync(f,'utf8').trim())"
 
+      # 后置断言(2026-10-16 立,事故 3299ba4978b 的防回潮闸):构建产物 sw.js 必须已被
+      # stamp-sw-version.mjs 注入部署版本号。若这里还是占位符,说明 prebuild 链条没跑或被绕过
+      # ⇒ sw.js 在两次部署间字节相同 ⇒ 浏览器判定 SW 无更新 ⇒ 老客户端(桌面端 WebView2
+      # 持久化 profile 尤甚)永远拿不到新版本 —— 10-13~10-16 的全站级事故就是这一型。
+      # 查的是 apps/web/public/sw.js(next start 直接从 public/ 服务,这就是被部署的那份)。
+      - name: Assert sw.js build id stamped (SW update reachability gate)
+        id: assert-sw-stamped
+        run: node -e "const fs=require('fs');const f='apps/web/public/sw.js';const s=fs.readFileSync(f,'utf8');const m=/const SW_BUILD_ID = '([^']*)'/.exec(s);if(!m){console.error('sw.js 缺 SW_BUILD_ID 声明 -> 版本注入机制被破坏');process.exit(1)}if(m[1]==='SW_BUILD_ID_PLACEHOLDER'){console.error('构建后 sw.js 仍是占位符 -> prebuild 未跑 stamp-sw-version.mjs,SW 永不更新');process.exit(1)}console.log('sw.js SW_BUILD_ID =',m[1])"
+
       - name: Typecheck
         id: typecheck
         run: pnpm turbo run typecheck
@@ -237,23 +246,47 @@ jobs:
       run:
         working-directory: apps/ai-service
     steps:
+      # 每一步都要 id:失败自述脚本只认 TRIAGE_IDS 点名的 id,没有 id 的步骤在自述里结构上不存在
+      # (判据见 scripts/check-ci-failure-triage-wiring.mjs;台账 G-591 第③件点名的正是"python 这条红了说不出为什么")
       - uses: actions/checkout@v4
+        id: checkout
 
       - name: Setup Python
+        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
       - name: Install uv
+        id: install-uv
         run: pip install uv
 
       - name: Install dependencies
+        id: install-deps
         run: uv pip install --system -e ".[dev]" || echo "依赖安装失败(可能缺少可选依赖,跳过)"
         continue-on-error: true
 
       - name: Syntax check
+        id: syntax-check
         run: |
           python -c "import ast, os; files=[os.path.join(d,f) for d,_,fs in os.walk('app') for f in fs if f.endswith('.py')]; [ast.parse(open(fp,encoding='utf-8').read()) for fp in files]; print(f'{len(files)} files OK')"
+
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      # 注:本作业 defaults.run.working-directory = apps/ai-service ⇒ 必须先回到仓根,否则脚本里
+      #     TRIAGE_WORKFLOW_FILE 的相对路径读不到本工作流,"重跑映射"整格失效(那等于白装)。
+      # 注:syntax-check 是块标量 run: ⇒ 脚本走"重跑映射缺失"分支,仍会点名步骤名(刻意不猜块标量内容)。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci.yml
+          TRIAGE_IDS: checkout setup-python install-uv install-deps syntax-check
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_SETUP_PYTHON: ${{ steps.setup-python.outcome }}
+          O_INSTALL_UV: ${{ steps.install-uv.outcome }}
+          O_INSTALL_DEPS: ${{ steps.install-deps.outcome }}
+          O_SYNTAX_CHECK: ${{ steps.syntax-check.outcome }}
+        run: cd ../../ && bash scripts/ci-failure-triage.sh
 
   ai-service-schema-check:
     runs-on: ubuntu-latest
