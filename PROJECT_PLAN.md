@@ -15935,3 +15935,4 @@ next dev / expo 这类 supervisor 内部 spawn worker 时**不带** windowsHide(
 
 - [ ] G-951 签到助手批量签到风控第四件套加固(2026-10-16):新增进程级出站节流闸门 `checkin_outbound.py`(全局随机间隔 1.5~4.5s 可 env 调 + 429 触发全局暂停 60s + 暂停期快速失败 OutboundPaused),手动与定时链路互斥共用;record_result 补齐分类即时冷却缺口(SessionDead/SoftRate/PlanLimit/NotFound/BusinessError 即时落冷却,0/None 不冷却),SoftRate 连带触发全局 pause;`_run_batch`/积分快照命中 OutboundPaused 即 break 中止整批;CronTrigger 加 jitter(`CHECKIN_CRON_JITTER`=420s)消除每天同秒起批的机器信号;手动入口废止「无视冷却」,RateLimitedError/CooldownActiveError 映射 HTTP 429,query_credits 加闸门预检(拦在平台分发前);引擎 status 预检 429 时不顶风 claim,直接返回结构化 SoftRate 失败(保单账号 dict 契约);前端一键批量预筛冷却中账号、命中 429 立即中止整批并提示,余额刷新改串行 600ms 错峰;i18n 五语言补 skippedCooldown/checkinRateLimited;验收:后端 pytest 166 passed、前端 vitest 75 passed、tsc 0、eslint 0、ruff 绿、i18n parity 绿、watermark verify 绿。
 
+
