@@ -114,9 +114,15 @@ export function detectModalOverlayColor(root?: Document | DocumentFragment): str
   for (const layer of Array.from(scope.querySelectorAll(FIXED_LAYER_SELECTOR))) {
     if (isOwnDimLayer(layer)) continue
     // 关闭询问弹窗的遮罩显式豁免:它自身的全屏 z-modal 遮罩若被当普通模态处理,
-    // 会瞬间把触发它的三按钮压暗,再被 desktop-close-ask 抑制 → 取消方向 1000ms 灰化淡出
+    // 会瞬间把触发它 的三按钮压暗,再被 desktop-close-ask 抑制 → 取消方向 1000ms 灰化淡出
     // (用户可见闪灰)。豁免后压暗层永不激活,从根上消除该闪灰。
     if (layer.classList.contains(EXEMPT_CLASS)) continue
+    // 遮罩进入关闭淡出相(Radix Overlay data-state=closed,或自绘全屏遮罩显式置位)时立即失活:
+    // Radix Overlay 关闭时先翻 data-state=closed,再跑 --duration-unified 淡出、留 DOM ~1000ms,
+    // 期间 computed 仍有底色 → 若仍当激活遮罩,三按钮会比页面多灰整整一拍(深色尤甚)。
+    // data-state 翻 closed 的当帧 MutationObserver 即触发重算(下方已把 data-state 列入
+    // attributeFilter),detect 跳过 → dimActive 同帧翻 false,与遮罩淡出严格同步起步。
+    if (layer.getAttribute('data-state') === 'closed') continue
     const style = computedOf(layer)
     if (!style || style.position !== 'fixed') continue
     const z = readZIndex(style.zIndex)
@@ -199,7 +205,9 @@ export function subscribeModalDim(listener: (state: ModalDimState) => void): () 
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['class', 'style'],
+      // data-state 必须列入:Radix Overlay 关闭时只翻 data-state=closed(类不变,animate-out
+      // 是 data-state 条件变体),漏掉它 → 关闭淡出相的整段不被观测 → 三按钮多灰 ~1000ms。
+      attributeFilter: ['class', 'style', 'data-state'],
     })
   }
   // 订阅瞬间同步一次:遮罩恰好在"渲染取初值 → effect 挂观察者"之间打开时不会漏掉
