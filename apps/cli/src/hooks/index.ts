@@ -1451,8 +1451,11 @@ export async function runPermissionRequest(
         worst = worseTerminal(worst, state);
         feedbackLines.push(feedbackForEntry('permissionRequest', entry, state, r));
       }
-      // 阻断条件:blockOnError && 非零退出,另加 exit 2 = 本次阻断(上游约定,同 runPreToolCall)。
-      if (r.exitCode !== 0 && (blockOnError || r.exitCode === 2)) {
+      // 阻断条件:**只有用户显式 blockOnError 才阻断**。
+      // 这里刻意不收 preToolCall 那条 "exit 2 = 阻断" 的上游约定:permissionRequest 是**应答面**,
+      // 把非零退出折成阻断等于把"钩子失败"当成一次 deny —— 三态不混流(失败 ⇒ 无应答 ⇒ 落回人工窗,
+      // 人说了算)。调用方 tools/index.ts 的同一段注释就是这条契约:proceed:false 只由 blockOnError 触发。
+      if (r.exitCode !== 0 && blockOnError) {
         return {
           proceed: false,
           terminal: state,
