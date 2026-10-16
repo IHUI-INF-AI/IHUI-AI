@@ -14,18 +14,11 @@ import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
 import { useAuthStore } from '@/stores/auth'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
+import type { HistoryItem } from '@ihui/types'
 
-type TargetType = 'project' | 'file' | 'doc' | 'post'
-
-interface HistoryItem {
-  id: string
-  targetType: TargetType
-  targetId: string
-  title?: string | null
-  visitedAt: string
-}
-
-const TYPE_ICON: Record<TargetType, React.ComponentType<{ className?: string }>> = {
+// 图标映射按 targetType 取值并带兜底(FileText)：targetType 在共享契约里是开放值域，
+// 后端上报白名单只是它的子集，所以这里用 Record<string, …> 而不是再锁一份本地联合类型。
+const TYPE_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   project: Folder,
   file: FileText,
   doc: FileText,
