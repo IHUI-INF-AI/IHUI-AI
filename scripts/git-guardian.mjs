@@ -3014,6 +3014,17 @@ const PUBLIC_PROBE_LAST = join(WORKTREE, '.workbuddy', 'public-path-probe-last.j
 const PUBLIC_PROBE_INTERVAL_MS = Number(process.env.IHUI_PUBLIC_PROBE_INTERVAL_MS || 30 * 60 * 1000)
 /** 尺子最坏墙钟:90 次公网 × 上限 15s 的极端不可能全中,但一次守护不能被网络拖死 ⇒ 硬超时 */
 const PUBLIC_PROBE_TIMEOUT_MS = Number(process.env.IHUI_PUBLIC_PROBE_TIMEOUT_MS || 240_000)
+/** 持续性门槛的状态件:按身份记"同一结论连了几轮" */
+const PUBLIC_PROBE_STREAK_FILE = join(WORKTREE, '.workbuddy', 'public-path-probe-streak.json')
+/**
+ * 同一身份连续第几轮越阈才到人。**默认 2 = 最长约 30 分钟**(一轮节流 30 分钟)。
+ * 这个数不是拍的:2026-10-16 现读的健康轮里,公网 10 次采样已出现 1 条 9971ms(慢样本率正好
+ * 压在 10% 这条线上),而同轮本地对照组 9–47ms ⇒ 单轮尖峰既不足以判"持续故障",又足以寄一封
+ * 收信人下不了手的信(§5e-1)。设 0/1 = 恢复"越阈即寄"的老语义。
+ */
+const PUBLIC_PROBE_STREAK_REQUIRED = Number(process.env.IHUI_PUBLIC_PROBE_STREAK || 2)
+/** 身份本轮没再出现(改名/换段/不再越阈)时,streak 条目超过这个年龄即回收 —— 工作队列必须有死亡机制 */
+const PUBLIC_PROBE_STREAK_TTL_MS = Number(process.env.IHUI_PUBLIC_PROBE_STREAK_TTL_MS || 24 * 60 * 60 * 1000)
 /**
  * 元运维巡检节流:尺子要开 PowerShell 问服务/任务/时钟,还要走一遍 Temp(4.8 万条目),
  * 2 分钟一轮太贵、每天一轮又兜不住"环停了 3 小时"这一型 ⇒ 15 分钟。
@@ -3243,12 +3254,74 @@ export function auditOpsPatrol(opts = {}) {
   }
 }
 
+/**
+ * 持续性门槛的判据(纯函数,镜像测试直接调它,不在测试里复制第二份判据 §22c)。
+ *
+ * 一条身份每被量到一次 breach 就 +1;达到门槛才允许到人。三种结论各有各的账,**不得并桶**:
+ *   · `breach` ⇒ 连击 +1(同身份同语义才算连着,换了段就是另一件事);
+ *   · `ok`     ⇒ 清零并报名"从第几轮断的"(恢复必须是可见的终态,不是悄悄不留痕);
+ *   · `unjudged` ⇒ **不推进也不清零**,且**不刷新 lastSeenAt**:本轮没量到有效结论,
+ *                  既不能替故障续命,也不能替它收尸(拿不到输入时永远多要一次,绝不少要)。
+ * 本轮没出现的旧条目(改名/换段)按 `ttlMs` 回收 —— 台账不能只进不出。
+ * @param {{[k:string]:{streak?:number,firstAt?:string,lastSeenAt?:string}}} prev
+ * @param {{[k:string]:{verdict?:string}}} results
+ * @returns {{state:object, info:object, cleared:{key:string,from:number}[], pruned:{key:string,streak:number,ageAnchor:string|null,lastSeenAt:string|null}[]}}
+ */
+export function bumpProbeStreak(prev, results, opt = {}) {
+  const now = opt.now ?? Date.now()
+  const required = Number.isFinite(Number(opt.required)) ? Math.max(0, Number(opt.required)) : 2
+  const ttlMs = Number.isFinite(Number(opt.ttlMs)) ? Number(opt.ttlMs) : 24 * 60 * 60 * 1000
+  const iso = (t) => new Date(t).toISOString()
+  const src = prev && typeof prev === 'object' ? prev : {}
+  const state = {}
+  const info = {}
+  const cleared = []
+  // 本轮**被问到过**的身份(不论结论是哪种)。回填只准动"本轮根本没出现"的条目 ——
+  // 少了这一维,`ok` 清零会被下面的回填原样复活(测试抓到过这一型:恢复一轮再尖仍然直接到人)。
+  const handled = new Set()
+  for (const [key, r] of Object.entries(results || {})) {
+    const verdict = String((r && r.verdict) || '')
+    if (verdict === 'breach' || verdict === 'ok' || verdict === 'unjudged') handled.add(key)
+    const before = src[key] && typeof src[key] === 'object' ? src[key] : null
+    const prior = Number.isFinite(Number(before?.streak)) ? Math.max(0, Number(before.streak)) : 0
+    if (verdict === 'breach') {
+      const streak = prior + 1
+      state[key] = { streak, firstAt: before?.firstAt || iso(now), lastSeenAt: iso(now) }
+      info[key] = { streak, required, due: streak >= required }
+    } else if (verdict === 'ok') {
+      if (prior > 0) cleared.push({ key, from: prior })
+      info[key] = { streak: 0, required, due: false }
+    } else if (verdict === 'unjudged') {
+      if (prior > 0) state[key] = { streak: prior, firstAt: before?.firstAt || iso(now), lastSeenAt: before?.lastSeenAt || null }
+      info[key] = { streak: prior, required, due: false, unjudged: true }
+    }
+  }
+  const pruned = []
+  for (const [key, entry] of Object.entries(src)) {
+    if (state[key] || handled.has(key)) continue
+    const first = Date.parse(String(entry?.firstAt || ''))
+    const last = Date.parse(String(entry?.lastSeenAt || ''))
+    // 年龄锚:有 breach 用 firstAt(从第一次红算起),纯 stale 用 lastSeenAt;两个都读不出 ⇒ 直接回收。
+    const ageAnchor = Number.isFinite(first) ? first : Number.isFinite(last) ? last : null
+    const ageMs = ageAnchor === null ? Infinity : now - ageAnchor
+    if (ageMs <= ttlMs) {
+      state[key] = entry
+      continue
+    }
+    pruned.push({ key, streak: Number(entry?.streak) || 0, ageAnchor: ageAnchor === null ? null : iso(ageAnchor), lastSeenAt: entry?.lastSeenAt || null })
+  }
+  return { state, info, cleared, pruned }
+}
+
 export function auditPublicPathProbe(opts = {}) {
   const {
     now = Date.now(),
     intervalMs = PUBLIC_PROBE_INTERVAL_MS,
     tickFile = PUBLIC_PROBE_TICK,
     lastFile = PUBLIC_PROBE_LAST,
+    streakFile = PUBLIC_PROBE_STREAK_FILE,
+    requiredStreak = PUBLIC_PROBE_STREAK_REQUIRED,
+    streakTtlMs = PUBLIC_PROBE_STREAK_TTL_MS,
     logger = log,
     notify = notifyGuardRed,
     runner = null,
@@ -3303,9 +3376,35 @@ export function auditPublicPathProbe(opts = {}) {
       return { ran: true, judged: false, why: v.why }
     }
     const results = v.parsed.results && typeof v.parsed.results === 'object' ? v.parsed.results : {}
+    // ── 持续性门槛(2026-10-16 立):同一身份要连着几轮越阈才到人,单轮尖峰只报名。
+    // 成因现读:健康轮也会出现 1/10 条 ≥8s(慢样本率正好压在 10% 线上),而这类尖峰下一轮就没了
+    // —— 为它寄一封信,收信人除了"刚才那一下很慢"什么也做不了(§5e-1 答不上"红了能做什么")。
+    // 账本读不出的失效方向钉死为**多喊一次**:除"文件本来就不在(第一轮)"外,任何读失败都按
+    // 门槛 1 立即到人(§0.10:绝不能因为账本坏了就静默)。
+    let prevStreak = {}
+    let effRequired = requiredStreak
+    try {
+      const parsedStreak = JSON.parse(readFileSync(streakFile, 'utf8'))
+      if (parsedStreak && typeof parsedStreak === 'object' && !Array.isArray(parsedStreak)) prevStreak = parsedStreak
+      else effRequired = 1
+    } catch (e) {
+      if (String(e?.code || '') !== 'ENOENT') effRequired = 1
+      logger(`ℹ️ 公网探测连击账本:${String(e?.code || e?.message || e).slice(0, 60)}${effRequired === 1 && requiredStreak !== 1 ? ' ⇒ 读不出,本轮按"越阈即寄"处理(宁多勿默)' : ''}`)
+    }
+    const bump = bumpProbeStreak(prevStreak, results, { now, required: effRequired, ttlMs: streakTtlMs })
+    for (const c of bump.cleared) logger(`✅ 公网探测连击清零:${c.key}(此前连 ${c.from} 轮,本轮已判定合规)`)
+    for (const p of bump.pruned) logger(`ℹ️ 公网探测连击条目回收(本轮未再出现且距 ${p.ageAnchor || p.lastSeenAt || '不可知'} 已超 ${Math.max(1, Math.round(streakTtlMs / 3600000))}h):${p.key} 连 ${p.streak} 轮`)
+    try {
+      mkdirSync(dirname(streakFile), { recursive: true })
+      writeFileSync(streakFile, JSON.stringify(bump.state, null, 1), 'utf8')
+    } catch (e) {
+      logger(`⚠️ 公网探测连击账本写失败(下轮从第一轮重连,不影响本轮结论):${String(e?.message || e).slice(0, 80)}`)
+    }
     try {
       mkdirSync(dirname(lastFile), { recursive: true })
-      writeFileSync(lastFile, JSON.stringify({ at: new Date(now).toISOString(), rc: v.parsed.rc, results }, null, 1), 'utf8')
+      const streakView = {}
+      for (const [key, r] of Object.entries(results)) streakView[key] = { ...(bump.info[key] || {}), verdict: String(r?.verdict || '') }
+      writeFileSync(lastFile, JSON.stringify({ at: new Date(now).toISOString(), rc: v.parsed.rc, requiredStreak: effRequired, streak: streakView, results }, null, 1), 'utf8')
     } catch {
       /* 状态件写不掉只影响 --status 的可见性,不影响告警本身 */
     }
@@ -3333,13 +3432,30 @@ export function auditPublicPathProbe(opts = {}) {
           )
           continue
         }
+        const st = bump.info[key] || { streak: 1, required: effRequired, due: true }
+        if (st.due !== true) {
+          logger(
+            `ℹ️ 公网探测越阈但未达持续性门槛:${key} 连 ${st.streak}/${st.required} 轮 ⇒ 本轮只报名不寄信(下一轮约 ${Math.round(PUBLIC_PROBE_INTERVAL_MS / 60000)} 分钟后;同一身份连续 ${st.required} 轮即到人)`,
+          )
+          continue
+        }
+        // 出路按**定位到的那一段**给(§5e-1 出口 1):一封"公网慢"的信没法执行,一封"入口段慢、
+        // 对照 20ms"的信才有人能动手。尺子没给定位(A 序列、旧版尺子)时退回原文那条通用出路,
+        // 绝不因为新维缺失就把出路那一行省掉。
+        const leg = String(r?.leg || '')
+        const exitLine =
+          leg === 'entry'
+            ? '出路:本轮定位是**公网入口 ↔ 本机隧道**这一段(web 直连同轮很快,已排除服务本体)。按序问:①`Get-Service Cloudflared` 与隧道日志(该服务以 --protocol http2 跑);②`node scripts/net-doctor.mjs` 量出口与代理;③看当时上行是否被占(构建/推送/同步)。'
+            : leg === 'service'
+              ? '出路:本地对照组同轮也越阈 ⇒ 洞在**服务段**(web 本体),查 IHUI-WEB 进程与 8801 自身健康(heal-unresponsive-services 归口),不必查公网链路。'
+              : leg === 'undetermined'
+                ? '出路:本轮**定位拿不到**(对照组没样本)⇒ 先问对照组为什么没采到(尺子被掐/8801 未监听/取证未跑完),别按"公网坏了"动手。'
+                : '出路:先用 --report 确认是**目标端**慢/失败(而非探针机抖动);目标真不可用时查该服务自身健康' + '(本机 web/api/ai-service 由 heal-unresponsive-services 自愈;外部目标查其服务端与链路)。'
         notify(
           `公网路径探测越阈值:${key}`,
-          `${String(r?.numbers || '(无读数控)')}\n${reasons.join('\n')}\n` +
+          `同一身份连续第 ${st.streak}/${st.required} 轮越阈(门槛 ${st.required} 轮,单轮尖峰不寄信)。\n${String(r?.numbers || '(无读数控)')}\n${reasons.join('\n')}\n` +
             `尺子:scripts/check-public-path-probe.mjs 序列 ${key}。取证回读:node scripts/check-public-path-probe.mjs --report .ihui-agent/tmp/probers/public-path-burst.jsonl\n` +
-            // 出口 1(§5e-1):必须给可执行下一步,只给"取证回读"是把同一条结论再念一遍。
-            `出路:先用 --report 确认是**目标端**慢/失败(而非探针机抖动);目标真不可用时查该服务自身健康` +
-            `(本机 web/api/ai-service 由 heal-unresponsive-services 自愈;外部目标查其服务端与链路)。`,
+            exitLine,
           {
             severity: 'warning',
             // dedupKey(§5e-1 配套):numbers 里 `最长连续不可用 13.5s` 这类**带小数点**的值,
@@ -4375,6 +4491,7 @@ export const __test__ = {
   alertFingerprint,
   stableAlertFingerprint,
   auditPublicPathProbe,
+  bumpProbeStreak,
   parseNotifyState,
   shouldAlert,
   withAlertMark,
