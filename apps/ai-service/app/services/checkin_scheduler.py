@@ -29,8 +29,8 @@ GET /api/checkin/scheduler/status 只读暴露运行状态(Phase1c)。
 
 from __future__ import annotations
 
-import json
 import asyncio
+import json
 import os
 import random
 from datetime import UTC, datetime, timedelta
@@ -41,10 +41,16 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.core.logging import get_logger
-from app.services import checkin_credits, checkin_minimax, checkin_qoder, checkin_store, checkin_workbuddy
+from app.services import (
+    checkin_credits,
+    checkin_minimax,
+    checkin_proxy_pool,
+    checkin_qoder,
+    checkin_store,
+    checkin_workbuddy,
+)
 from app.services.checkin_engine import client_for
 from app.services.checkin_outbound import OutboundPaused, checkin_outbound_gate
-from app.services import checkin_proxy_pool
 
 _BATCH_JITTER_MIN = float(os.environ.get("CHECKIN_BATCH_JITTER_MIN", "8"))
 _BATCH_JITTER_MAX = float(os.environ.get("CHECKIN_BATCH_JITTER_MAX", "45"))
@@ -317,16 +323,36 @@ class CheckinScheduler:
         """每日积分快照:遍历 enabled 账号逐个查余额并 upsert 当日快照。
 
         单账号失败(网络/解析/落库)只告警不中断整轮;收尾一行汇总日志。
+
+        风控第五件套配套(2026-10-16):**跳过活跃冷却中的账号**。401 死号
+        (SessionDead=10 年冷却)此前每天仍被查一次余额 = 天天拿死 token 打
+        平台鉴权点,是最典型的封号前兆信号;SoftRate/PlanLimit 等即时冷却
+        同理。快照缺一天只是趋势数据少一格,死打鉴权点是无谓风险。
         """
         try:
             accounts = await checkin_store.list_enabled_accounts_full()
         except Exception as e:
             logger.warning("[checkin_scheduler] 读取签到账号失败(积分快照本轮放弃): %s", e)
             return
+        try:
+            cooldowns = await checkin_store.get_active_cooldowns()
+        except Exception as e:
+            logger.warning("[checkin_scheduler] 读取冷却状态失败(按无冷却处理): %s", e)
+            cooldowns = {}
         day = datetime.now(_CN_TZ).date().isoformat()
         ok_count = 0
         fail_count = 0
+        skip_count = 0
         for acc in accounts:
+            cd_end = cooldowns.get(acc["id"])
+            if cd_end is not None and cd_end > datetime.now(UTC):
+                skip_count += 1
+                logger.info(
+                    "[checkin_scheduler] 账号冷却中跳过积分查询",
+                    account=acc["name"],
+                    until=cd_end.isoformat(),
+                )
+                continue
             try:
                 if acc.get("platform") == "qoder":
                     device_map = dict(acc.get("device_map") or {})
@@ -373,10 +399,11 @@ class CheckinScheduler:
                     "[checkin_scheduler] 账号 %s 积分快照异常(继续下一个): %s", acc.get("name"), e
                 )
         logger.info(
-            "[checkin_scheduler] 本轮积分快照完成: 共 %d 个账号,成功 %d,失败 %d",
+            "[checkin_scheduler] 本轮积分快照完成: 共 %d 个账号,成功 %d,失败 %d,冷却跳过 %d",
             len(accounts),
             ok_count,
             fail_count,
+            skip_count,
         )
 
     # ===== 单账号执行 =====
@@ -467,9 +494,12 @@ class CheckinScheduler:
                         str(etype),
                         cooldown_until.isoformat(),
                     )
-            if etype == "SoftRate":
-                # 平台已回 429:全局暂停出站,整批/后续手动立即停手
-                checkin_outbound_gate.pause(reason=f"account {account_id} SoftRate(429)")
+            if etype in ("SoftRate", "Challenge"):
+                # 平台已回 429 / 挑战页拦截:全局暂停出站,整批/后续手动立即停手
+                # (Challenge 分支 = 第五件套,2026-10-16:403 经 classify 落 Challenge
+                #  的账号在此触持续暂停,与解析点 note_challenge 双保险不冲突——
+                #  pause() 取更晚截止,叠加只会更晚,不会更早)
+                checkin_outbound_gate.pause(reason=f"account {account_id} {etype}")
         code = result.get("code")
         record = await checkin_store.insert_record(
             account_id,

@@ -34,13 +34,14 @@ import datetime
 import hashlib
 import json
 import random
+import re
 import uuid
 from typing import Any, Final
 
 import httpx
 
 from app.core.logging import get_logger
-from app.services.checkin_outbound import checkin_outbound_gate
+from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
 
 logger = get_logger(__name__)
 
@@ -170,6 +171,96 @@ def get_jwt_exp(jwt: str) -> tuple[datetime.datetime | None, float | None]:
         return exp_dt, remaining
     except Exception:
         return None, None
+
+
+# ---------------------------------------------------------------------------
+# 展示名派生（2026-10-16 李总定档：手机 > 邮箱 > 账户名 > 用户名）
+# ---------------------------------------------------------------------------
+
+# UUID 段(8-4-4-4-12 十六进制)。name 命中它 ⇒ 旧捕获留下的编码名,不是展示名。
+_UUID_RE: Final = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE
+)
+
+# 展示名候选键,按优先级分组(组间即优先级,组内并列):
+# 手机 > 邮箱 > 账户名(username/account/preferred_username)> 用户名(nickname/name)。
+# 键名按平台漂移:TRAE 顶层 phone;Keycloak 风格(WorkBuddy/Qoder)email /
+# preferred_username / phone_number;故宽键表覆盖,与桌面端 checkin_capture.rs
+# 的 display_name_pick 同口径(那里是 user 对象,这里是 JWT payload)。
+_DISPLAY_NAME_KEY_GROUPS: Final[tuple[tuple[str, ...], ...]] = (
+    ("phone", "phone_number", "phoneNumber", "mobile", "telephone"),
+    ("email", "mail", "email_address", "emailAddress"),
+    (
+        "username",
+        "user_name",
+        "userName",
+        "account",
+        "account_name",
+        "accountName",
+        "preferred_username",
+        "preferredUsername",
+    ),
+    ("nickname", "nick_name", "nickName", "name", "display_name", "displayName"),
+)
+
+# payload 内一层嵌套的常见容器(TRAE 把身份放 data 里)
+_DISPLAY_NAME_NESTED_KEYS: Final = ("data", "user", "account", "profile")
+
+
+def uuid_shaped_name(name: str | None) -> bool:
+    """name 是否为「UUID 编码名」(旧捕获兜底形态,如 `Qoder-<uuid>` / 裸 uid)。"""
+    return bool(name) and bool(_UUID_RE.search(name or ""))
+
+
+def _jwt_payload(jwt: str) -> dict[str, Any] | None:
+    """解 JWT payload(不校验签名);非 JWT 串返回 None。"""
+    token = (jwt or "").strip()
+    if token.startswith("Cloud-IDE-JWT "):
+        token = token.split(None, 1)[1]
+    parts = token.split(".")
+    if len(parts) < 2:
+        return None
+    try:
+        pad = parts[1] + "=" * (-len(parts[1]) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(pad))
+        return payload if isinstance(payload, dict) else None
+    except Exception:
+        return None
+
+
+def extract_display_name(
+    jwt: str | None, device_map: dict[str, Any] | None = None
+) -> str | None:
+    """按 手机 > 邮箱 > 账户名 > 用户名 派生展示名;取不到返回 None(调用方保持原名)。
+
+    搜索面:JWT payload 平铺 + data/user/account/profile 一层嵌套。
+    device_map.nickname 作最低优先级兜底(网页登录 Cookie 模式 jwt 非 JWT 时)。
+    UUID 形态的值一律跳过(那不是展示名,是编码)。
+    """
+    payload = _jwt_payload(jwt or "")
+    if payload:
+        scopes: list[dict[str, Any]] = [payload]
+        for key in _DISPLAY_NAME_NESTED_KEYS:
+            nested = payload.get(key)
+            if isinstance(nested, dict):
+                scopes.append(nested)
+        for group in _DISPLAY_NAME_KEY_GROUPS:
+            for scope in scopes:
+                for key in group:
+                    raw = scope.get(key)
+                    if not isinstance(raw, str):
+                        continue
+                    value = raw.strip()
+                    if not value or len(value) > 50 or _UUID_RE.search(value):
+                        continue
+                    return value
+    if device_map:
+        nick = device_map.get("nickname")
+        if isinstance(nick, str):
+            value = nick.strip()
+            if value and len(value) <= 50 and not _UUID_RE.search(value):
+                return value
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -371,6 +462,10 @@ def classify_error(
         return "SessionDead", -1
     if http_status == 404:
         return "NotFound", 60
+    if http_status == 403:
+        # 第五件套(2026-10-16):403 = WAF/拦截墙。原走 4xx→Client 三连击
+        # 才冷却,等于对拦截墙最多再打 6 次;挑战墙信号必须即时熔断。
+        return "Challenge", CHALLENGE_COOLDOWN_SECONDS
     if 500 <= http_status < 600:
         return "Server", 600
     if 400 <= http_status < 500:
@@ -500,11 +595,52 @@ async def checkin_account(
                 classified_error={"type": "SoftRate", "cooldown_seconds": 60},
             )
             return result
+        # 第五件套(2026-10-16):status 预检拿到 2xx 非 JSON = WAF/挑战页
+        # 插页。继续 claim 等于对挑战墙双倍请求;直接按 Challenge 熔断
+        # (全局暂停 + 单账号 30min 即时冷却,调度批据此整批中止)。
+        # 判据必须钉「真收到 2xx」:status_check 的非 JSON 分支把 http status
+        # 放在返回值的 code 位(见其本体),网络异常(0/-1)body 为空也落
+        # 「非 JSON 响应」消息 —— 那是 Unknown 不是挑战,误熔断=网络抖动
+        # 就停全体账号(2026-10-16 测试实证的假阳性,已修)。
+        if (
+            msg_s
+            and msg_s.startswith("非 JSON 响应")
+            and isinstance(code_s, int)
+            and 200 <= code_s < 300
+        ):
+            checkin_outbound_gate.note_challenge("trae")
+            result.update(
+                code=None,
+                message="平台返回挑战页/非 API 响应,已熔断",
+                classified_error={"type": "Challenge", "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS},
+            )
+            return result
 
     ok, msg, code, http_status = await signin_with_retry(
         name, jwt, device_map, timeout, retry=retry, retry_delay=retry_delay, client=client
     )
     result.update(code=code, message=msg, http_status=http_status)
+
+    # 第五件套(2026-10-16):403 拦截墙 / 2xx 非 JSON 挑战页 → Challenge 熔断。
+    # 2xx+失败+code None = 响应体不是我们的 JSON 契约(status_check 同款信号
+    # 已在上方预检处熔断,这里是 claim 路的兜底);网络异常走 0/-1 不在此列。
+    if not ok and (
+        http_status == 403
+        or (http_status is not None and 200 <= http_status < 300 and code is None)
+    ):
+        checkin_outbound_gate.note_challenge("trae")
+        result["classified_error"] = {
+            "type": "Challenge",
+            "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+        }
+        logger.warning(
+            "检测到挑战页/WAF 拦截,已熔断",
+            name=name,
+            user_id=user_id,
+            http_status=http_status,
+            body=(msg or "")[:120],
+        )
+        return result
 
     if ok:
         # credits_before 来自 status 接口，表示签到可获得的积分额度；
