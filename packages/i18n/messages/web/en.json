@@ -19342,7 +19342,9 @@
     "deviceMapUpdated": "Device fingerprint updated",
     "editDeviceMap": "Edit device fingerprint",
     "editDeviceMapTitle": "Edit device fingerprint",
-    "editDeviceMapDescription": "Edit the device fingerprint for the {platform} account (JSON object; leave empty to auto-generate on save)."
+    "editDeviceMapDescription": "Edit the device fingerprint for the {platform} account (JSON object; leave empty to auto-generate on save).",
+    "checkedInToday": "Checked in today",
+    "rename": "Rename"
   },
   "nav": {
     "checkin": "Check-in",

@@ -14,6 +14,7 @@ request.state.user_id,解析不到且全局鉴权未启用时回落 dev 身份)�
 - PATCH  /accounts/{id}/jwt     更换 jwt(可解析 + 未过期校验后重加密落库)
 - DELETE /accounts/{id}         删除(级联 records / error_counts)
 - PATCH  /accounts/{id}/enabled 启用/停用
+- PATCH  /accounts/{id}/name    重命名展示名
 - POST   /accounts/{id}/checkin 手动签到(无视冷却,结果照写 records)
 - GET    /records               签到记录倒序分页
 - GET    /credits/history       积分流水(从 records 聚合 credits_delta)
@@ -80,6 +81,12 @@ class UpdateGroupIn(BaseModel):
     """分组允许空串 = 移出分组;上限与列宽一致(50)。"""
 
     group: str = Field(max_length=50)
+
+
+class UpdateNameIn(BaseModel):
+    """展示名重命名;上限与 CreateAccountIn.name 一致(100)。"""
+
+    name: str = Field(min_length=1, max_length=100)
 
 
 class UpdateDeviceMapIn(BaseModel):
@@ -301,6 +308,22 @@ async def update_account_group(
     if not updated:
         raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
     return {"ok": True, "id": account_id, "group": body.group}
+
+
+@router.patch("/accounts/{account_id}/name")
+async def update_account_name(
+    account_id: int,
+    body: UpdateNameIn,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """更新账号展示名(重命名;旧版捕获把 UUID 编码存进 name 的存量由用户就地改名)。
+
+    属主命中后落库,未命中 404。
+    """
+    updated = await checkin_store.update_account_name(account_id, current_user, body.name)
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
+    return {"ok": True, "id": account_id, "name": body.name}
 
 
 @router.post("/accounts/{account_id}/checkin")

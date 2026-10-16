@@ -19345,7 +19345,9 @@
     "deviceMapUpdated": "기기 지문이 업데이트되었습니다",
     "editDeviceMap": "기기 지문 편집",
     "editDeviceMapTitle": "기기 지문 편집",
-    "editDeviceMapDescription": "{platform} 계정의 기기 지문을 편집합니다(JSON 객체, 비워 두고 저장하면 자동 생성됨)."
+    "editDeviceMapDescription": "{platform} 계정의 기기 지문을 편집합니다(JSON 객체, 비워 두고 저장하면 자동 생성됨).",
+    "checkedInToday": "오늘 출석 완료",
+    "rename": "이름 변경"
   },
   "nav": {
     "checkin": "출석",

@@ -19345,7 +19345,9 @@
     "deviceMapUpdated": "デバイスフィンガープリントを更新しました",
     "editDeviceMap": "デバイスフィンガープリントを編集",
     "editDeviceMapTitle": "デバイスフィンガープリントを編集",
-    "editDeviceMapDescription": "{platform} アカウントのデバイスフィンガープリントを編集します（JSON オブジェクト。空のまま保存すると自動生成されます）。"
+    "editDeviceMapDescription": "{platform} アカウントのデバイスフィンガープリントを編集します（JSON オブジェクト。空のまま保存すると自動生成されます）。",
+    "checkedInToday": "本日は出席済み",
+    "rename": "名前を変更"
   },
   "nav": {
     "checkin": "チェックイン",

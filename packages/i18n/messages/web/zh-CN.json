@@ -19346,7 +19346,9 @@
     "deviceMapUpdated": "设备指纹已更新",
     "editDeviceMap": "编辑设备指纹",
     "editDeviceMapTitle": "编辑设备指纹",
-    "editDeviceMapDescription": "为 {platform} 账号编辑设备指纹（JSON 对象；留空保存将自动生成）。"
+    "editDeviceMapDescription": "为 {platform} 账号编辑设备指纹（JSON 对象；留空保存将自动生成）。",
+    "checkedInToday": "今日已签到",
+    "rename": "重命名"
   },
   "nav": {
     "checkin": "签到助手",
