@@ -852,9 +852,13 @@ test('TG2 外部件取用:绝对路径优先、量不到根只回落裸名,两�
   assert.equal(miss.tried.length, 2, '原因里要能数出试过几条路径')
   const s = src('scripts/check-ops-patrol.mjs')
   const body = s.slice(s.indexOf('function runW32tm'), s.indexOf('function runW32tm') + 1400) + s.slice(s.indexOf('export function baiduSyncRunning'), s.indexOf('export function baiduSyncRunning') + 1600)
-  assert.doesNotMatch(body, /execFileSync\(\s*['"](?:w32tm|tasklist)/, '调用点又写回裸名 ⇒ 守护那一档会重新瞎掉')
-  assert.equal((body.match(/resolveSystemExe\(/g) || []).length, 2, '两处裸名派生必须都换成解析器,漏一处就是留一格盲区')
-  assert.match(body, /running: null, why:/, 'P5·网盘那一支原先裸 catch 把 error 当场丢弃 ⇒ 失败必须带原因')
+  assert.doesNotMatch(body, gate.CALLSITE_SHAPE.bareCallRe, '调用点又写回裸名 ⇒ 守护那一档会重新瞎掉')
+  assert.equal(
+    (body.match(gate.CALLSITE_SHAPE.resolverCallRe) || []).length,
+    gate.CALLSITE_SHAPE.resolverCalls,
+    '两处裸名派生必须都换成解析器,漏一处就是留一格盲区',
+  )
+  assert.match(body, gate.CALLSITE_SHAPE.whyRe, 'P5·网盘那一支原先裸 catch 把 error 当场丢弃 ⇒ 失败必须带原因')
 })
 
 test('TG3 时钟解析必须同时认两档区域:zh-CN 年份在前、SYSTEM 档(en-US)月在前带 AM/PM', () => {

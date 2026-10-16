@@ -248,6 +248,18 @@ export function measureDir(path, { maxEntries = 120000, byTop = false } = {}) {
  */
 export const SYSTEM32_SUBDIR = 'System32'
 
+/**
+ * 裸名派生的形状锁材料(§22c 单一出处):门内自检与 §22c 镜像测试都吃这一份。
+ * 拆成两份的失效形态是"门改了形状而测试仍绿" —— 那正是本仓记过多次的安静失效。
+ */
+export const CALLSITE_SHAPE = {
+  bareCallRe: /execFileSync\(\s*['"](?:w32tm|tasklist)/,
+  resolverCallRe: /resolveSystemExe\(/g,
+  resolverCalls: 2,
+  whyRe: /running: null, why:/,
+  viaRe: /取用档=/,
+}
+
 export function systemExePaths(name, env = process.env) {
   const root = env.SystemRoot || env.windir || env.WINDIR || ''
   const out = []
@@ -2799,9 +2811,9 @@ export async function selfTest() {
   })())
   t('形态锁:w32tm/tasklist 两处调用点必须走解析器,且 baiduSyncRunning 失败必须带 why(原裸 catch 把 error 当场丢弃)', (() => {
     const src = String(runW32tm) + String(baiduSyncRunning)
-    if (/execFileSync\(\s*['"](?:w32tm|tasklist)/.test(src)) return false
-    if ((src.match(/resolveSystemExe\(/g) || []).length !== 2) return false
-    return /running: null, why:/.test(String(baiduSyncRunning)) && /取用档=/.test(src)
+    if (CALLSITE_SHAPE.bareCallRe.test(src)) return false
+    if ((src.match(CALLSITE_SHAPE.resolverCallRe) || []).length !== CALLSITE_SHAPE.resolverCalls) return false
+    return CALLSITE_SHAPE.whyRe.test(String(baiduSyncRunning)) && CALLSITE_SHAPE.viaRe.test(src)
   })())
   t('时钟解析补档:月在前(en-US,SYSTEM 档默认区域)能解出时刻且 PM 换算对', parseLastSync('Last Successful Sync Time:9/28/2026 7:52:42 PM') === Date.parse('2026-09-28T19:52:42'))
   t('时钟解析:12:05:00 AM 是 0 点(不是 12 点),1:30:00 AM 是凌晨 —— AM/PM 两支各一条', parseLastSync('Last Successful Sync Time:1/5/2026 12:05:00 AM') === Date.parse('2026-01-05T00:05:00') && parseLastSync('Last Successful Sync Time:1/5/2026 1:30:00 AM') === Date.parse('2026-01-05T01:30:00'))
@@ -3146,6 +3158,7 @@ export const __test__ = {
   growthRow,
   SCRUB_TEMP_FIXTURES_ROUTE,
   SYSTEM32_SUBDIR,
+  CALLSITE_SHAPE,
   systemExePaths,
   resolveSystemExe,
   heartbeatRecord,
