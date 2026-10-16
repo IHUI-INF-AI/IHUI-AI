@@ -950,6 +950,155 @@
         "orientation": "auto",
         "textMode": "auto"
       }
+    },
+    {
+      "id": 508,
+      "type": "row",
+      "title": "业务口径核对(API 落账 vs 网关尝试)",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "collapsed": false,
+      "panels": [],
+      "repeat": null
+    },
+    {
+      "id": 509,
+      "type": "timeseries",
+      "title": "落账调用速率(按调用类型)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 51
+      },
+      "targets": [
+        {
+          "expr": "sum by (call_type) (rate(business_ai_calls_total{job=\"business-metrics\"}[5m]))",
+          "legendFormat": "{{call_type}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 510,
+      "type": "stat",
+      "title": "落账支出(区间累计 CNY 元)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 51
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(business_ai_cost_minor_units_total{job=\"business-metrics\"}[$__range])) / 100",
+          "legendFormat": "cost",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyCNY",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 511,
+      "type": "stat",
+      "title": "业务口径时序数",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 51
+      },
+      "targets": [
+        {
+          "expr": "count(business_ai_calls_total{job=\"business-metrics\"})",
+          "legendFormat": "series",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
     }
   ],
   "refresh": "30s",
