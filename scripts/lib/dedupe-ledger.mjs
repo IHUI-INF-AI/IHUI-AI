@@ -67,6 +67,20 @@ export function uniqueNotes(droppedLine, keptLine) {
 }
 
 /**
+ * 把一行内**逐字相同**的 〔…〕 注记折到一条(信息零损失:同文重复不承载新事实)。
+ * 立因:旧折叠写法按成员各拼一次「同题原号」,HEAD 面实测单行最多 63 条同注(全档 40 行 / 347 条多余副本),
+ * 而 AGENTS §1 明令这类注记"今后一条也不许再产生"。本函数既修历史损害,也让重跑幂等。
+ */
+export function collapseDuplicateNotes(line) {
+  const seen = new Set()
+  return String(line).replace(/〔[^〕]*〕/g, (seg) => {
+    if (seen.has(seg)) return ''
+    seen.add(seg)
+    return seg
+  })
+}
+
+/**
  * 组内择优选保留行:① 已翻勾 [x] 优先(完成态盖过待办态);
  * ② 否则取注记里最新日期(进度最新);③ 否则取字节最长(信息最全)。
  * @returns {{line:string, i:number}}
@@ -112,29 +126,37 @@ export function dedupeByFingerprint(text) {
   }
   const remove = new Set()
   const appendTo = new Map() // keptIndex -> 追加文本
-  for (const [fp, idxs] of groups) {
+  for (const idxs of groups.values()) {
     if (idxs.length < 2) continue // 指纹唯一出现 ⇒ 不是重复,跳过(含同一行被摘指针后单存的形态)
     const members = idxs.map((i) => ({ line: lines[i], i }))
     const best = pickBest(members)
     const keptId = selfIdOf(best.line)
     const extraIds = []
+    const notes = [] // 本轮已并过的注记段,同段只并一次(旧写法逐成员各拼一次 ⇒ 一组 N 人产 N 条累计注记)
+    const keptSegs = noteSegments(best.line)
     for (const m of members) {
       if (m.i === best.i) continue
       remove.add(m.i)
-      const notes = uniqueNotes(m.line, best.line)
+      for (const seg of noteSegments(m.line)) {
+        if (keptSegs.includes(seg) || notes.includes(seg)) continue
+        notes.push(seg)
+      }
       const id = selfIdOf(m.line)
       if (id && id !== keptId && !extraIds.includes(id)) extraIds.push(id)
-      let add = notes
-      if (extraIds.length) add += `〔同题原号 ${extraIds.join(' ')}〕`
-      if (add) appendTo.set(best.i, (appendTo.get(best.i) || '') + add)
     }
+    // 「同题原号」按**组**出一条,而不是按成员各出一条:旧写法在成员循环里拼,
+    // 于是 N 个被折成员会留下 N 条逐字递增的同题原号注记(实测单行最多 63 条同注)。
+    let add = notes.join('')
+    if (extraIds.length) add += `〔同题原号 ${extraIds.join(' ')}〕`
+    if (add) appendTo.set(best.i, (appendTo.get(best.i) || '') + add)
   }
   if (remove.size === 0) return text // 无折叠:原样返回,避免任何不必要的重写
   const out = []
   for (let i = 0; i < lines.length; i++) {
     if (remove.has(i)) continue
     const add = appendTo.get(i)
-    out.push(add ? lines[i] + add : lines[i])
+    // 只折"本轮真动过的那一行"里的同注 ⇒ 射程收在折叠集内,不顺手改与本次无关的行
+    out.push(add ? collapseDuplicateNotes(lines[i] + add) : lines[i])
   }
   return out.join('\n')
 }
