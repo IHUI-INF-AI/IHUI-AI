@@ -4,8 +4,11 @@
 
 // 跨端「同一端点:后端形状 ↔ 各端读法」契约对账(常驻回归,不在提交链)。
 // 立因:探针按"调用点邻近行出现的字段名"比两端,抽样 12 条里逐条读代码后坐实四族；随后按同一
-// 反模式(端内 `fetchApi<X[]>` + 直接把 data 喂列表)扫出剩余 44 处候选，又逐条读后端收口六族
-// (activities、announcements、certificates、coupons、feedbacks、help/articles)共十族 ——
+// 反模式(端内 `fetchApi<X[]>` + 直接把 data 喂列表)扫出剩余 44 处候选，又逐条读后端收口十族
+// (activities、announcements、certificates、coupons、feedbacks、help/articles、invited-users、
+//  notifications、memory、live/history)共十四族 ——
+// 后四族里有三条的注册是**多行形态**(`server.get(` 换行再写路径)：本仓的路径不能按整串字面量
+// grep 就判"没有服务端"，本轮就被它骗过一次(曾把 GET /api/notifications 误登记成死端点)。
 //   · apps/mobile-rn/src/screens/HistoryScreen.tsx 曾把 GET /api/browse-history 的整个信封
 //     {list,total,page,pageSize} 当数组用 ⇒ FlatList 拿到对象不报错,只是永远空列表;
 //   · apps/extension/.../ChatFavoritesPage.tsx 曾按 PageData 读 .list,而后端回的是 {favorites,…}
@@ -271,6 +274,61 @@ const REGISTRY = [
       },
     ],
   },
+  {
+    // 第十二到十四族：后端注册是**多行形态**(`server.get(` 换行再写路径)，单行 grep 会把它们
+    // 读成"没有这条路由"—— 本轮就被这种形态骗过一次(曾把 /api/notifications 误判成死端点)。
+    ep: 'GET /api/notifications',
+    backend: 'apps/api/src/routes/notifications.ts',
+    backendProves: (src) =>
+      /server\.get\(\s*'\/notifications',[\s\S]{0,1600}?success\(\{\s*list: listWithTopic, total, page, pageSize, unread:/.test(
+        src,
+      ),
+    consumers: [
+      {
+        end: 'shared(api-client)',
+        file: 'packages/api-client/src/endpoints/notification.ts',
+        reads: (src) => src.includes('fetchApi<PageData<NotificationItem>>'),
+      },
+      {
+        end: 'mobile-rn',
+        file: 'apps/mobile-rn/src/screens/NotificationListScreen.tsx',
+        reads: (src) =>
+          /res\.data\?\.list/.test(src) && !/fetchApi<NotificationListItem\[\]>/.test(src),
+      },
+    ],
+  },
+  {
+    // 这一族的键不是 list 而是 entries —— 契约按"每个消费端读后端真回的那个键"判，不按习惯猜。
+    ep: 'GET /api/memory',
+    backend: 'apps/api/src/routes/memory.ts',
+    backendProves: (src) =>
+      /server\.get\('\/memory'[\s\S]{0,900}?success\(\{ entries, total: entries\.length \}\)/.test(
+        src,
+      ),
+    consumers: [
+      {
+        end: 'extension',
+        file: 'apps/extension/entrypoints/sidepanel/pages/MemoryPage.tsx',
+        reads: (src) => /res\.data\?\.entries/.test(src) && !/fetchApi<MemoryItem\[\]>/.test(src),
+      },
+    ],
+  },
+  {
+    ep: 'GET /api/live/history',
+    backend: 'apps/api/src/routes/live.ts',
+    backendProves: (src) =>
+      /server\.get\('\/live\/history'[\s\S]{0,900}?success\(\{ list, total: result\.total/.test(
+        src,
+      ),
+    consumers: [
+      {
+        end: 'mobile-rn',
+        file: 'apps/mobile-rn/src/screens/LivePlaybackListScreen.tsx',
+        reads: (src) =>
+          /res\.data\?\.list/.test(src) && !/fetchApi<LivePlaybackItem\[\]>/.test(src),
+      },
+    ],
+  },
 ]
 
 test('K1 后端形状在位:契约的每一条都由路由侧自证,而不是由调用端互相印证', () => {
@@ -372,13 +430,15 @@ test('K3 阳性对照:把读法退回"信封当数组"必须让判据红(否则 
 
   // 第七到十族：同一 App 里两个屏对同一端点各写各的(一个读 .list、一个把信封当数组)，
   // 所以逐消费端变异 —— 只钉"读对的那个"等于没钉。
-  for (const idx of [6, 7, 8, 9, 10]) {
+  for (const idx of [6, 7, 8, 9, 10, 11, 12, 13]) {
     const fam = REGISTRY[idx]
     for (const k of fam.consumers) {
       const real = read(k.file)
       const mutated = real
         .replace(/data\?\.list/g, 'data')
+        .replace(/data\?\.entries/g, 'data')
         .replace(/data\.list \?\? \[\]/g, 'data ?? []')
+        .replace(/fetchApi<PageData<NotificationItem>>/g, 'fetchApi<NotificationItem[]>')
       assert.notEqual(mutated, real, `${k.file} 变异未命中 ⇒ 契约与写法脱节`)
       assert.equal(k.reads(mutated), false, `${fam.ep} 在 ${k.end} 摘掉 .list 必须红`)
       assert.equal(k.reads(real), true)
@@ -398,6 +458,6 @@ test('K4 覆盖面自证:契约确实覆盖了它点名的每一条,而非静默
   }
   const total = REGISTRY.reduce((n, c) => n + 1 + c.consumers.length, 0)
   assert.equal(checked, total, `应核 ${total} 个文件而实核 ${checked} ⇒ 有静默跳过的端点`)
-  assert.ok(total >= 33, '契约面退化到不足 33 个(11 族)⇒ 有族被删,本文件已不再覆盖当初那条分叉')
+  assert.ok(total >= 40, '契约面退化到不足 40 个(14 族)⇒ 有族被删,本文件已不再覆盖当初那条分叉')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
