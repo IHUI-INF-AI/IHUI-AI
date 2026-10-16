@@ -374,6 +374,41 @@ def _claimable_campaigns(campaigns: list[Any], now: float) -> tuple[list[dict[st
     return claimable, already
 
 
+async def qoder_probe_status(
+    name: str,
+    jwt: str,
+    device_map: dict[str, Any],
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[bool, bool | None, int | None, str]:
+    """只读探针:GET campaigns(不 POST claim)按 claimStatus 判今日是否已领。
+
+    返回 (ok, checked_in|None, credits|None, message)。已领判据与签到主路
+    同一函数 _claimable_campaigns(CLAIMED 且落在当前领取窗口内),
+    **不发起任何领取请求,零副作用** —— 供 06:00 状态探针同步状态。
+
+    注:Qoder 领取窗口 10:00(UTC+8)才开放,06:00 探时活动常未下发 ⇒
+    claimable 空且未标已领,如实报「未签」(不误报已签,避免用户漏签)。
+    """
+    if not jwt:
+        return False, None, None, "未配置 token"
+    status, data = await _api_call(
+        PATH_CAMPAIGNS, "GET", token=jwt, device_map=device_map, timeout=timeout, client=client
+    )
+    if status in (0, -1):
+        return False, None, None, "网络异常"
+    if status != 200 or not isinstance(data, dict):
+        return False, None, None, f"活动查询失败 HTTP {status}"
+    campaigns = data.get("campaigns")
+    if not isinstance(campaigns, list):
+        campaigns = []
+    claimable, already_claimed = _claimable_campaigns(campaigns, time.time())
+    if already_claimed and not claimable:
+        return True, True, None, "今日已领取"
+    return True, False, None, ""
+
+
 async def qoder_checkin_account(
     name: str,
     jwt: str,
