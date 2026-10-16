@@ -21,7 +21,7 @@
 
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import test from 'node:test'
 
@@ -97,7 +97,13 @@ test('T1 形状锁:横幅判据只有一份实现,watermark.mjs 不得再本地�
   assert.match(src(LIB), /export const BANNER_TEXT_RE/, '实现本体必须在 lib 里且被导出')
 })
 
-test('T2 形状锁:归档器必须真过两道闸,并以归位旗调注入', () => {
+test('T2 形状锁:归档器必须真过两道闸,并以归位旗调注入', (t) => {
+  if (!existsSync(ARCHIVER)) {
+    // 归档器已随 2026-10-16「完成即删 / 存档机制退役」从仓里删除 ⇒ 本形状锁的对象不在。
+    // 按本文件 T6 既立的口径:目标退役 ⇒ 如实 skip,不冒充判定(判据没有变弱,只是主体已不存在)。
+    t.skip('archive-completed-tasks.mjs 已退役删除 ⇒ 该形状锁主体不在,不冒充判定')
+    return
+  }
   const a = src(ARCHIVER)
   assert.match(a, /from '\.\/lib\/watermark-lines\.mjs'/, '归档器必须共用那份识别实现')
   assert.match(
@@ -292,7 +298,10 @@ test('T9 形状锁:横幅文案不许被任何消费者抄第二份(它们各自
   const LINES = '© 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top'
   // 每个受水印保护的文件**自己**的横幅里就有这一行,所以"出现过"不等于"抄了一份"。
   // 真正的判据是:只许出现在文件自己的水印块里(前 4 行),且总共只出现一次。
-  for (const f of [WM, ARCHIVER, join(REPO, 'scripts', 'object-space-land.mjs')]) {
+  // 归档器退役后可能已不在 ⇒ 按存在性过滤(在位的消费者逐个照判,主体消失不冒充判定,同 T6/T2)。
+  const consumers = [WM, ARCHIVER, join(REPO, 'scripts', 'object-space-land.mjs')].filter((f) => existsSync(f))
+  assert.ok(consumers.length >= 2, '现存消费者至少应有 watermark.mjs 与 object-space-land.mjs')
+  for (const f of consumers) {
     const s = src(f)
     const at = s.indexOf(LINES)
     if (at < 0) continue // 未注入(测试夹具/新文件)也合规 —— 它本来就不该自己写文案
@@ -301,7 +310,7 @@ test('T9 形状锁:横幅文案不许被任何消费者抄第二份(它们各自
       s.slice(0, at).split(String.fromCharCode(10)).length <= 4,
       '只许落在文件自己的水印块内(前 4 行):' + f,
     )
-    assert.match(s, /watermark-lines.mjs/, '三个消费者都必须走那份 lib:' + f)
+    assert.match(s, /watermark-lines.mjs/, '现存消费者都必须走那份 lib:' + f)
   }
   assert.ok(src(LIB).includes(LINES), '文案本体必须在 lib 里(否则"唯一实现"是句空话)')
 })
