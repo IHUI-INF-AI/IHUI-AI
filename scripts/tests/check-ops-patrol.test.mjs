@@ -199,11 +199,14 @@ test('T13 P6 必须真被 patrol 接上(判据写出来而没装车 = 本仓最�
   // 本文件对"机器态那一族"早就立过法(见 P7 段头注:只锁形状与三态方向,**不锁此刻的颜色** ——
   // 锁颜色就造出恒红门,与 T3 同一条理由)。P6 的量名接口要联网:取不到时门必须走未判定并报名,
   // 那一支不是"没报数"。所以这里锁**两条出路之一 + 两支都必须报名**,而不是钉死健康态那一支的字面形状。
+  // 2026-10-16 修正"走没走未判定那一支"的**取法**:原先拿 `/未判定/` 在 detail 里找子串,而汇总行
+  //  healthy 时也印得出 `/ 未判定 0` —— 于是判据健康即必然命中该支、要求"原因",HEAD 面上恒红。
+  // 改按门自己给出的 `state` 判(§22c:判定读源头的机器字段,不在测试里用字符串猜第二份)。
   assert.ok(
-    /^规则 \d+ 条:在采/.test(sum.detail) || /未判定/.test(sum.detail),
+    /^规则 \d+ 条:在采/.test(sum.detail) || sum.state === 'undetermined',
     `P6 汇总行既没报数也没报名(两条出路都不占)= 这台尺子没接上:${sum.detail}`,
   )
-  if (/未判定/.test(sum.detail))
+  if (sum.state === 'undetermined')
     assert.match(
       sum.detail,
       /(TypeError|取不到|读不到|无法判定)/,
@@ -779,5 +782,52 @@ test('TP7 P11 promtool:必须真住在 patrol 装配里,且 promtool/用例取�
   })
   assert.equal(noTool.state, 'undetermined', `promtool/用例目录取不到时必须未判定,实得 ${noTool.state}:${noTool.detail}`)
   assert.notEqual(noTool.state, 'finding', '机器态缺失不得判红')
+})
+
+test('TG P4 归属点名:红档要说清"这堆条目是谁的",且判定口径一字不变(真夹具上量)', () => {
+  const base = mkScratch('p4mir-')
+  try {
+    const temp = join(base, 'Temp')
+    const mk = (rel, name, content, ageMs) => {
+      const d = join(temp, rel)
+      mkdirSync(d, { recursive: true })
+      const p = join(d, name)
+      writeFileSync(p, content, 'utf8')
+      if (ageMs) {
+        const t = (Date.now() - ageMs) / 1000
+        utimesSync(p, t, t)
+      }
+    }
+    for (let i = 0; i < 5; i++) mk('oldBig', `f${i}.tmp`, 'x', 9 * 86400000) // 闲置 9 天的大头
+    for (let i = 0; i < 2; i++) mk('liveCache', `f${i}.tmp`, 'y', 0) // 刚写过 = 在用
+    mk('.', 'stray.txt', 'z', 0) // 顶层散文件另有归属桶,不得混进上面两枚
+    const m = measureDir(temp, { byTop: true })
+    const plain = measureDir(temp)
+    assert.equal(m.entries, plain.entries, '带 byTop 不得改变文件数口径')
+    assert.equal(m.bytes, plain.bytes, '带 byTop 不得改变字节口径')
+    assert.equal(plain.top, null, '不带 byTop ⇒ 不凭空造归属')
+    assert.equal(m.top.reduce((a, t) => a + t.files, 0), m.entries, '归属加总必须等于总文件数(不漏计、不双计)')
+    const names = m.top.map((t) => t.name)
+    assert.deepEqual(names, ['oldBig', 'liveCache', '(顶层散文件)'], `归属必须按文件数从大到小点名,实得 ${names}`)
+    const row = gate.growthRow('P4a', m, 1024 ** 4, 5) // 把条目阈压到 5 ⇒ 必然越阈
+    assert.equal(row.state, 'finding', '越阈照旧判红(归属只加文案,不放宽判定)')
+    assert.match(row.detail, /条目数 8>5/, '越的是哪一维仍要点名')
+    assert.match(row.detail, /大头:oldBig\(5 文件\/[0-9.]+MB\/已闲置 9 天\)/)
+    assert.match(row.detail, /liveCache\([^)]*近 24h 有动,在用\)/)
+    assert.doesNotMatch(row.detail, /镜像空目录清该目录/, '旧出路叫人不验身份镜像清空整个目录,而目录里最大的几枚是在用缓存')
+    assert.match(row.detail, /不得照做/)
+    assert.match(row.detail, /scrub-temp-fixtures\.mjs --apply/)
+    const noTop = gate.growthRow('P4a', { ...m, top: null }, 1024 ** 4, 5)
+    assert.equal(noTop.state, 'finding', '摘掉 top 只该少了点名,不该少了红')
+    assert.doesNotMatch(noTop.detail, /大头:/, '拿不到实测量就不得凭空点名归属')
+    const green = gate.growthRow('P4a', m, 1024 ** 4, 9999)
+    assert.equal(green.state, 'ok')
+    assert.doesNotMatch(green.detail, /大头:|出路:/, '绿档不点名、不给出路(点名只在红档发生)')
+    const other = gate.growthRow('P4b', m, 1, 1)
+    assert.doesNotMatch(other.detail, /出路:/, 'P4a 的出路文案不得外溢到 P4b')
+    assert.equal(gate.growthRow('P4a', { ...m, truncated: true }, 1024 ** 4, 5).state, 'undetermined', '截断仍落未判定,归属不得把它读成结论')
+  } finally {
+    rmScratch(base)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
