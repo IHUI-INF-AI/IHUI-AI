@@ -4,6 +4,7 @@
 
 export {
   fetchApi,
+  apiOrThrow,
   fetchAiServiceJson,
   fetchRaw,
   fetchText,

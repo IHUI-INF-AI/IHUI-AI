@@ -846,6 +846,22 @@ function normalizeErrorToResult(err: unknown): ApiFailure {
   }
 }
 
+/**
+ * 「取数据，失败就抛」的单源出口 —— 给 web 侧(RSC 页面与 PageClient)用的那一层薄壳。
+ *
+ * 为什么要提到这里而不是留在各页：`apps/web` 里此前有 **237 个文件各自手抄了一份
+ * `async function api<T>() { const r = await fetchApi<T>(…); if (!r.success) throw …; return r.data }`**
+ * (HEAD 面现读，另有 1162 处 `api<…>` 调用点)。每份拷贝都在本地**自己决定 `r.data` 是什么**，
+ * 于是"后端把响应从裸数组改成 {list,total} 时，237 个副本按各自理解漂移"这件事在结构上无法被发现 ——
+ * 而本仓移动端那 15 族"把信封当数组 ⇒ 界面静默空列表"正是同一个病。
+ * 收敛动作的口径 = 只保留这一份实现；页面侧只许 `import { apiOrThrow }`，不得再抄本地壳。
+ */
+export async function apiOrThrow<T>(url: string, options: FetchApiOptions = {}): Promise<T> {
+  const r = await fetchApi<T>(url, options)
+  if (!r.success) throw new Error(r.error)
+  return r.data
+}
+
 export async function fetchApi<T>(
   url: string,
   options: FetchApiOptions = {},
