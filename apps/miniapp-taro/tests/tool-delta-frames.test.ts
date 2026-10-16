@@ -149,7 +149,10 @@ describe('D113 接线自证(源码级):解析 / dispatch / 回调表 / 消费点
 })
 
 describe('applyToolCallStart(D113:重复 start 帧不得抹掉流中预览)', () => {
-  const evt = {
+  // fixture 按 applyToolCallStart 第二参的契约类型标注(类型层取自源码本身,不复制三字面量联合,
+  // 防契约与测试两份定义漂移);此前裸对象字面量把 serverSource 推断为宽 string,与契约的
+  // 'builtin' | 'plugin' | 'mcp' 三字面量联合不符,TS2345。
+  const evt: Parameters<typeof applyToolCallStart>[1] = {
     toolCallId: 'call-1',
     toolName: 'write_file',
     serverSource: 'builtin',
