@@ -147,6 +147,10 @@ export default defineConfig(async (merge) => {
     },
     mini: {
       es5: true,
+      // PayPopup/CategoryBar/LessonListItem 这类共享组件在各 tab 页的 import 次序天然分叉,
+      // mini-css-extract 把 "Conflicting order" 当 error 抛 ⇒ 生产档 `build:weapp` 整轮不出产物
+      // (h5 段 251 行早已设同一项,mini 段漏设)。顺序对这批组件样式无实际影响,按 h5 同档忽略。
+      miniCssExtractPluginOption: { ignoreOrder: true },
       // 2026-10-01 react 双实例白屏修复:workspace 同时存在 react@18.3.1(miniapp)与
       // react@19.2.8(shared 自带依赖)。@ihui/shared 的 TS 源码经 compile.include 编入
       // 小程序包,其 `import 'react'` 从 packages/shared 目录解析到 react@19,而 Taro
@@ -166,7 +170,13 @@ export default defineConfig(async (merge) => {
       },
       // 2026-09-10 主包 2MB 硬上限治理:把仅被分包引用的公共 chunk 自动
       // 下沉到分包,避免 common.js 整体压在主包(webpack5 编译器专属能力)
-      optimizeMainPackage: { enable: true },
+      // 2026-10-16 关掉:开着它 `build:weapp` 整轮出不了产物 —— Taro 4.2 的 MiniCombination
+      // 自带 cacheGroups.common(name:'common'),与 optimizeMainPackage 造出的同名 chunk 相撞,
+      // webpack 判 `Cache group "common" conflicts with existing chunk` 直接中止(dev/prod 两档同红)。
+      // 关掉后用本仓自己的门量过:`node scripts/check-artifact-budget.mjs --target miniapp` ⇒ ✅ 预算内
+      // (主包 1,524,667 B / 上限 2,097,152 B,余量 572,485 B)。要翻回 true 必须先解掉那条同名相撞,
+      // 且重跑预算门取现值,不得拿本行旧数当依据。
+      optimizeMainPackage: { enable: false },
       postcss: {
         pxtransform: { enable: true, config: {} },
         tailwindcss: { enable: true, config: {} },

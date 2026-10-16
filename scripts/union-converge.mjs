@@ -127,7 +127,11 @@ import {
 import { resurrectAnalysis } from './lib/stale-content-analysis.mjs'
 // 同题去重(2026-10-15,根治 union 重复再生):union 产出后、落地前按标题指纹折叠 PROJECT_PLAN 的
 // 同题行 —— 同一件事物理上只留一行,被丢弃行的独有注记/票号并入保留行(信息守恒)。
-import { dedupeByFingerprint } from './lib/dedupe-ledger.mjs'
+import { dedupeByFingerprint, uniqueNotes, selfIdOf } from './lib/dedupe-ledger.mjs'
+// 折叠去向的举证只用**这一把**指纹尺子(与 dedupe-ledger / 守门 194 / 守门 203 同一个来源):
+// 自证侧问"被折掉的那一行,产物面里还有没有同一件事的那一行",问的是**身份**而不是**策略** ——
+// 折谁、注记怎么并、保留行怎么选全都住在 lib/dedupe-ledger,本器一处也不重写(§22c)。
+import { extractTaskFingerprint } from './check-plan-task-duplicates.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 // git 可执行一律经 §5b 唯一出口解析(候选链 + 探活;§5b 明写"脚本一律不得依赖环境取 git")。
@@ -905,12 +909,146 @@ export function theirsRewriteCaps(oursText, theirsText, baseText, suppress = nul
   return caps
 }
 
+/** union 的行切分出口:产物一律以 `\n` 收尾(与改动前逐字同形,只是把这一步收成一份实现)。 */
+function ensureTrailingNewline(text) {
+  return String(text ?? '').endsWith('\n') ? String(text) : `${text}\n`
+}
+
 /**
- * 行级 union:以本侧顺序为脊柱,把对侧**相对基底新增、且未被搬运感知代表**的重数补在末尾。
- * @param {object} [opts] `{ dedupeTasks=false }` —— 仅对 PROJECT_PLAN.md 开启:产出后按标题指纹
- *   折叠同题行(根治重复再生)。默认 false,保证既有调用方(含全部既有测试)逐字不变。
+ * 折叠台账:对**同一次** `dedupeByFingerprint` 的输入面与输出面做多重集差。
+ *
+ * 为什么它不是第二份折叠逻辑:本函数一条行都不自己判"该不该折"、一个字符都不自己并 ——
+ * 它只是把"折叠这一步真跑完之后,账面少了哪些行(各几份)、多了哪些行(各几份)"抄下来。
+ * 折叠策略(分组、择优选保留行、注记/票号并入)全部住在 `lib/dedupe-ledger.mjs`,只有一个调用点
+ * (`foldDedupe`),所以台账与产物不可能不同轮:`folded` 与 `ledger` 出自同一次函数调用。
+ *
+ * `pairs` 是"哪些行被折进哪个保留行"的那本账,配对只按**身份**问(`extractTaskFingerprint`
+ * 与 dedupe-ledger / 门 194 / 门 203 同源),不重做选择:
+ *  - 被折掉的行自己在产物面还剩着(同题多份折成更少份)⇒ 去向就是它自己;
+ *  - 自己在产物面一份不剩 ⇒ 去向 = 本次折叠产生的、同一枚指纹的那一行;
+ *  - 两者都问不出来 ⇒ `kept:null`,由自证侧记「未判定」并点名(§0.3,绝不当成"没丢")。
+ *
+ * @param {string} beforeText 折叠输入(= 未折叠的行 union 产物)
+ * @param {string} afterText  折叠输出(= 真正落地的产物)
  */
-export function unionLines(oursText, theirsText, baseText = null, suppress = null, opts = {}) {
+export function foldLedgerOf(beforeText, afterText) {
+  const cb = counter(beforeText)
+  const ca = counter(afterText)
+  const foldedAway = new Map()
+  const foldedIn = new Map()
+  for (const [l, n] of cb) {
+    const d = n - (ca.get(l) || 0)
+    if (d > 0) foldedAway.set(l, d)
+  }
+  for (const [l, n] of ca) {
+    const d = n - (cb.get(l) || 0)
+    if (d > 0) foldedIn.set(l, d)
+  }
+  const pairs = []
+  for (const [l, n] of foldedAway) {
+    let kept = (ca.get(l) || 0) > 0 ? l : null
+    if (kept === null) {
+      const fp = extractTaskFingerprint(l)
+      // 指纹算不出 ⇒ 无从配对。不猜、不回落"就当它活着"(§0.3):登记 kept:null 交自证侧点名。
+      if (fp) {
+        for (const k of foldedIn.keys()) {
+          if (extractTaskFingerprint(k) === fp) {
+            kept = k
+            break
+          }
+        }
+      }
+    }
+    pairs.push({ dropped: l, droppedCopies: n, kept, keptCopies: kept === null ? 0 : ca.get(kept) || 0 })
+  }
+  return { foldedAway, foldedIn, pairs }
+}
+
+/**
+ * 折叠去向的**举证**判据(2026-10-16 立,本票的牙住在这里)。
+ *
+ * 台账是折叠自己写的,所以它不能自证:验证侧必须拿**产物面**把它报的每一次"折掉了"问一遍 ——
+ * 少带一份只有在这一行确实被并进了产物面里的另一行、且那一行确实接住了它的信息时才算合法。
+ * 四问全过才算 `attested`,任何一问不过就照原判据判红(§0.2 只许"多要一次说明",
+ * 绝不允许把这条好判据做成掩体):
+ *  Q1 主键算不出 ⇒ `undetermined`(点名,绝不当成"没丢");
+ *  Q2 去向行必须**真在产物面**里(份数 ≥1);
+ *  Q3 身份必须同一件事(指纹同一把尺子 `extractTaskFingerprint`,或复合主键 `keyOfRow` 相等;
+ *     与门 194/203 同源,本器不另写"什么叫同一件事");
+ *  Q4 信息守恒:被折行的独有 〔…〕 注记段与自持票号必须由去向行接住
+ *     (判据取自 `lib/dedupe-ledger` 那一份 `uniqueNotes`/`selfIdOf` —— 折叠自己承诺的就是这两样)。
+ *
+ * @param {{dropped:string,kept:string|null}} pair foldLedgerOf 产出来的一条去向
+ * @param {Map<string,number>} m 产物面的行重数
+ * @returns {{status:'attested'|'undetermined'|'lost',reason:string,kept:string|null}}
+ */
+export function attestFoldPair(pair, m) {
+  const dropped = String(pair?.dropped ?? '')
+  const kept = pair?.kept ?? null
+  const fpDropped = extractTaskFingerprint(dropped)
+  const keyDropped = keyOfRow(dropped)
+  if (kept === null || kept === '') {
+    return {
+      status: 'undetermined',
+      kept: null,
+      reason: '折叠台账给不出去向行(主键/指纹算不出或产物面没有同指纹的保留行)',
+    }
+  }
+  if ((m.get(kept) || 0) < 1)
+    return {
+      status: 'lost',
+      kept,
+      reason: `台账报的去向行在产物面一份都没有(产物面与台账不同形;份数=${m.get(kept) || 0})`,
+    }
+  if (kept !== dropped) {
+    if (!fpDropped && !keyDropped)
+      return {
+        status: 'undetermined',
+        kept,
+        reason: '被折行既算不出标题指纹也算不出复合主键 ⇒ 无从证明"折进了同一件事"',
+      }
+    const sameFp = !!fpDropped && extractTaskFingerprint(kept) === fpDropped
+    const sameKey = !!keyDropped && keyOfRow(kept) === keyDropped
+    if (!sameFp && !sameKey)
+      return { status: 'lost', kept, reason: '去向行与被折行不是同一件事(指纹与主键都不等)⇒ 这是一次真删除,不是折叠' }
+    const lostNotes = uniqueNotes(dropped, kept)
+    if (lostNotes)
+      return {
+        status: 'lost',
+        kept,
+        reason: `去向行没接住被折行的独有注记,信息不守恒:${lostNotes.slice(0, 60)}`,
+      }
+    const droppedId = selfIdOf(dropped)
+    if (droppedId && !kept.includes(droppedId))
+      return {
+        status: 'lost',
+        kept,
+        reason: `去向行没接住被折行的票号 ${droppedId},跨引用会断链`,
+      }
+  }
+  return { status: 'attested', kept, reason: '' }
+}
+
+/**
+ * 折叠的唯一调用点(2026-10-16 收口):`dedupeByFingerprint` 只在这里被调,产物与台账同轮产出。
+ * 返回的 `text` 与 `unionLines(..., { dedupeTasks: true })` 逐字等值(该函数体就是这两步)。
+ */
+export function foldDedupe(text) {
+  const folded = dedupeByFingerprint(String(text ?? ''))
+  return { text: folded, ledger: foldLedgerOf(text, folded) }
+}
+
+/**
+ * 行级 union 的**本体**(2026-10-16 从 `unionLines` 拆出):除产物文本外,还把**折叠台账**一起交回去。
+ *
+ * 为什么必须拆:落地闸(`verifyUnion`)此前只能对着"折叠前的重数"判红 —— 折叠这一步住在
+ * `unionLines` 体内、产物面比自证面少一份,而自证侧不知道它发生过(实测本机 2026-10-16
+ * 复现:关折叠 flagged=0 / 开折叠 flagged=295,真丢失 0)。台账必须**在折叠真发生的那一次调用里**
+ * 取,不许验证侧另起一轮折叠、更不许再写一份折叠策略(§0.6/§22c)。
+ *
+ * 文本形状与拆分前逐字一致:`pre` 就是"未折叠的行 union 产物",`text` 就是"折叠后的产物"。
+ */
+function unionLinesCore(oursText, theirsText, baseText, suppress, dedupeTasks) {
   const want = liveDocExpectedCounts(oursText, theirsText, baseText, suppress)
   // 脊柱裁剪:期望表已按改写折叠下调过的行,这里必须真把多出来的份数从本侧脊柱里去掉,
   // 否则"折叠"只存在于断言侧而产出面仍是双份 —— 那等于 F9 判据看不见、落地闸却对着一个不存在的数红。
@@ -955,9 +1093,20 @@ export function unionLines(oursText, theirsText, baseText = null, suppress = nul
   // 根治(2026-10-15):守恒断言先就"逐行重数"把住零丢失;断言通过后再按标题指纹折叠同题行。
   // 折叠只删"同一件事的多余副本"、并把被删行独有注记/票号并入保留行,不触发上面那道守恒判据
   // (那是就 union 自身量),也不引入任何对侧的"少带" —— 方向只可能是"少留一份冗余",绝不会"丢"。
-  let finalText = res
-  if (opts && opts.dedupeTasks) finalText = dedupeByFingerprint(res)
-  return finalText.endsWith('\n') ? finalText : finalText + '\n'
+  // 2026-10-16:折叠的那一步收进唯一调用点 `foldDedupe`,产物与台账出自同一次函数调用。
+  const pre = ensureTrailingNewline(res)
+  if (!dedupeTasks) return { text: pre, pre, ledger: null }
+  const folded = foldDedupe(pre)
+  return { text: folded.text, pre, ledger: folded.ledger }
+}
+
+/**
+ * 行级 union:以本侧顺序为脊柱,把对侧**相对基底新增、且未被搬运感知代表**的重数补在末尾。
+ * @param {object} [opts] `{ dedupeTasks=false }` —— 仅对 PROJECT_PLAN.md 开启:产出后按标题指纹
+ *   折叠同题行(根治重复再生)。默认 false,保证既有调用方(含全部既有测试)逐字不变。
+ */
+export function unionLines(oursText, theirsText, baseText = null, suppress = null, opts = {}) {
+  return unionLinesCore(oursText, theirsText, baseText, suppress, !!(opts && opts.dedupeTasks)).text
 }
 
 /**
@@ -1263,6 +1412,9 @@ export function buildUnion(
     // 1) 活文档:三方行 union(对侧相对基底的**独有行**必须存活;本侧就地改写的行不得被旧副本复活;
     //    本侧已有 `已归档` 占位代表的行不得再从对侧取回 —— 见 lib/ledger-move-aware.mjs 头注)
     const liveDocs = []
+    // 折叠台账(2026-10-16 立,根治"产物面折了、自证面不知道"那 295 处误拒收):
+    // 键 = 文档路径,值 = `foldLedgerOf` 的产物。**只有真跑过折叠的那一份文档才会进这本账。**
+    const foldLedgers = new Map()
     // 行级复活对账记录(G-383 最后一格):每份活文档归并后逐条登记,随返回值交 plan/main 呈报。
     const resurrect = []
     for (const p of LIVE_DOCS) {
@@ -1272,7 +1424,13 @@ export function buildUnion(
       const bt = base ? show(base, p, cwd) : null
       const ma = moveAwareCached(moveAwareCache, p, a, b, ours, cwd)
       liveDocs.push(ma)
-      const mergedText = unionLines(a, b, bt, ma.suppress, { dedupeTasks: p.endsWith('PROJECT_PLAN.md') })
+      // 折叠台账必须在这里、在折叠真发生的那一次调用里取(§0.4 同面同轮):`mergedText` 是**产物面**,
+      // `foldLedgers` 记的是"哪些行被折进哪个保留行、各折了几份",自证侧拿它才可能问出"少掉的那一份
+      // 是合法折叠还是真丢失"。未开折叠的两份文档(AGENTS/README)不进这本账 ⇒ 自证侧对它们逐字照旧。
+      const foldOn = p.endsWith('PROJECT_PLAN.md')
+      const built0 = unionLinesCore(a, b, bt, ma.suppress, foldOn)
+      const mergedText = built0.text
+      if (foldOn) foldLedgers.set(p, built0.ledger)
       // 根治(2026-09-30):--stdin 通道要求真 stdin 管道(本会话建管道必 EBUSY)⇒ 改走
       // writeBlob 临时文件通道,同 --path 语义、同 blob SHA(该函数头注有 CRLF 等价实证)。
       const oid = writeBlob(mergedText, p, cwd)
