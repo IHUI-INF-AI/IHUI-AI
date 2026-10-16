@@ -8,7 +8,7 @@ import { useCallback, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
-import { fetchApi } from '@ihui/api-client'
+import { apiOrThrow } from '@ihui/api-client'
 import type { ActivityItem } from '@ihui/types'
 import { useTt } from '@/i18n'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -167,9 +167,8 @@ export default function ActivityList() {
     try {
       // 后端 GET /activities 回 success({ list })(promotions.ts)，web 侧读的正是 d.list；
       // 这里曾把整个信封当数组 ⇒ 列表永远空，不抛错。与 RN ActivityScreen 同批收口。
-      const res = await fetchApi<{ list: ActivityItem[] }>('/activities')
-      if (!res.success) throw new Error()
-      setItems(res.data?.list ?? [])
+      const d = await apiOrThrow<{ list: ActivityItem[] }>('/activities')
+      setItems(d.list ?? [])
     } catch {
       setError(tt('activity.loadFailed', '加载活动失败'))
     } finally {
