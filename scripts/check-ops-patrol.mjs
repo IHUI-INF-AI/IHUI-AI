@@ -1318,6 +1318,8 @@ function attributionText(m, now) {
  * 是别的工具**正在用**的缓存(Trae 1.45 万、Node 编译缓存 7485、tsx 3701),照做就是毁掉在跑的工具。
  * ⇒ 出路只能指向"标了闲置天数的那几枚",并给本项目自己的夹具出口。
  */
+export const SCRUB_TEMP_FIXTURES_ROUTE = 'node scripts/scrub-temp-fixtures.mjs --apply'
+
 export function growthRow(id, m, bytesLimit, entriesLimit, { now = Date.now() } = {}) {
   const overBytes = m.bytes > bytesLimit
   const overEntries = entriesLimit ? m.entries > entriesLimit : false
@@ -1328,7 +1330,7 @@ export function growthRow(id, m, bytesLimit, entriesLimit, { now = Date.now() } 
   const owners = over ? attributionText(m, now) : ''
   const how = id.startsWith('P4a')
     ? ' | 出路:上面**标了"已闲置 N 天"的那几枚**才是可清的(按名逐个删,删前先改名验句柄);"近 24h 有动"的是 Trae/Node/tsx 这类在用缓存,' +
-      '整目录镜像清空会连正在跑的工具一起毁,不得照做;本项目自己的夹具走 `node scripts/scrub-temp-fixtures.mjs --apply`(名字围栏 + 账龄闸)'
+      `整目录镜像清空会连正在跑的工具一起毁,不得照做;本项目自己的夹具走 \`${SCRUB_TEMP_FIXTURES_ROUTE}\`(名字围栏 + 账龄闸)`
     : ''
   return {
     id,
@@ -2757,7 +2759,7 @@ export async function selfTest() {
     return iTrae > 0 && iStray > iTrae && /nscD071\.tmp\(1123 文件\/[0-9.]+MB\/已闲置 7 天\)/.test(rowOver.detail)
   })())
   t('在用与闲置分别标出(近 24h 有动 = 在用,7 天没动 = 已闲置)', /trae-agent-toolhost\([^)]*近 24h 有动,在用\)/.test(rowOver.detail))
-  t('出路不得再写"镜像空目录清该目录"(那是叫人毁在用缓存的指令)', !/镜像空目录清该目录/.test(rowOver.detail) && /不得照做/.test(rowOver.detail) && /scrub-temp-fixtures\.mjs --apply/.test(rowOver.detail))
+  t('出路不得再写"镜像空目录清该目录"(那是叫人毁在用缓存的指令)', !/镜像空目录清该目录/.test(rowOver.detail) && /不得照做/.test(rowOver.detail) && rowOver.detail.includes(SCRUB_TEMP_FIXTURES_ROUTE))
   t('反向锁:摘掉 top ⇒ 正文不凭空点名,而判定照旧 finding(归属只影响文案,不影响红绿)', (() => {
     const r = growthRow('P4a', { ...fixOver, top: null }, LIMITS.devenvTempBytes, LIMITS.devenvTempEntries, { now: fixNow })
     return r.state === 'finding' && !/大头:/.test(r.detail)
@@ -3140,6 +3142,7 @@ if (isDirectRun) {
 export const __test__ = {
   measureDir,
   growthRow,
+  SCRUB_TEMP_FIXTURES_ROUTE,
   systemExePaths,
   resolveSystemExe,
   heartbeatRecord,
