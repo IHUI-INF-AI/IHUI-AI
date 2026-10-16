@@ -84,7 +84,7 @@ pub const BROWSER_WINDOW_LABEL: &str = "embedded-browser";
 pub const HOME_URL: &str = "https://aizhs.top/";
 
 /// 内容 webview label 前缀;完整 label = `browser-tab-<id>`。
-const TAB_LABEL_PREFIX: &str = "browser-tab-";
+pub(crate) const TAB_LABEL_PREFIX: &str = "browser-tab-";
 
 /// 哨兵导航 host(RFC 2606 保留 `.invalid`,永不解析;仅作页面→宿主的信号)。
 const SENTINEL_HOST: &str = "browser.ihui.invalid";
@@ -100,6 +100,33 @@ const MAX_TABS: usize = 12;
 /// Chrome UA。WebView2 默认 UA 带 `Edg/` 标识,登录类站点可能据 UA 走不同分支
 /// (也会把"内嵌"这件事暴露给站点);显式伪装成 Chrome,与内核事实自洽。
 pub const CHROME_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+/// WebView2(Chromium 内核)启动参数 —— 压内存。
+///
+/// 2026-10-16 立(用户反馈「子进程太多、内存太大」)。实测我们 App 单开 = 7 进程 /
+/// ~776 MB,是 Chromium 多进程模型的正常基线;本串把可调的几项压下去:
+///
+/// - `--renderer-process-limit=2`:渲染进程上限(默认按 CPU 核数,可能起十几个)
+/// - `--js-flags=--max-old-space-size=256 --scavenger_max_new_space_capacity_mb=8`:
+///   压 V8 老生代/新生代堆(第二项取自微软官方 flags 文档示例值)
+/// - `--disk-cache-size=52428800`:磁盘缓存上限 50 MB
+/// - `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`:
+///   **必须原样保留** —— 这是 wry 的默认值,而只要显式传 `additionalBrowserArgs`
+///   就会**整体覆盖**默认(官方文档原话),漏掉等于把默认行为改坏。
+///
+/// ⚠️ **反面清单(实测/官方明说会变差,禁止加)**:
+/// - `--disable-background-timer-throttling` —— 会增加后台 CPU 与内存
+/// - `--disable-gpu` —— 丢掉 GPU 合成,渲染变差且省不了多少
+/// - `--enable-features=msWebView2MemoryUsageTargetLevel:low` —— **这个开关不存在**,
+///   官方机制是 API `SetMemoryUsageTargetLevel`,见 [`set_memory_low`]。
+///
+/// ⚠️ **必须全 App 一致**:WebView2 同一 user-data-folder 下,各 webview 的 options
+/// 一旦不一致就 `0x8007139F` 拒建(2026-10-13 白屏事故根因)。所以主窗(配置)、
+/// admin(lib.rs)、内嵌浏览器(本文件两处)**同用这一份常量**,一处漏传就开窗炸。
+pub const WEBVIEW2_BROWSER_ARGS: &str = "--renderer-process-limit=2 \
+--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
+--js-flags=--max-old-space-size=256 --scavenger_max_new_space_capacity_mb=8 \
+--disk-cache-size=52428800";
 
 // ==================== 工具条注入脚本(纯 CSSOM,零 IPC) ====================
 
@@ -428,11 +455,6 @@ fn tab_label(id: u64) -> String {
 }
 
 /// 取当前活动标签页的 webview(供签到探针读 cookie / url 用)。
-///
-/// 2026-10-16 多标签升级后,窗口本身是不带 webview 的 [`tauri::Window`],真正的
-/// 页面在 `browser-tab-<id>` 子 webview 里 —— 所以"读内嵌窗 cookie"必须落在
-/// **活动标签页 webview** 上,而不是窗口上。
-///
 /// 降级模式(单 webview 窗)下,窗口 label 本身就是 webview label,直接取它。
 pub fn active_webview(app: &AppHandle) -> Option<tauri::webview::Webview> {
     let (id, degraded) = app.state::<BrowserManager>().with(|s| (s.active, s.degraded));
@@ -441,6 +463,58 @@ pub fn active_webview(app: &AppHandle) -> Option<tauri::webview::Webview> {
     }
     let id = id?;
     app.get_webview(&tab_label(id))
+}
+
+/// 把某个 webview 的内存目标档位切到 Low / Normal(Windows / WebView2)。
+///
+/// 官方机制(不是命令行开关):`CoreWebView2.MemoryUsageTargetLevel`,
+/// 需要 Runtime ≥ 114.0.1823.32;更旧的运行时调用是 no-op(不报错)。
+/// wry 有 `WebViewExtWindows::set_memory_usage_level` 但 Tauri 没转出来,
+/// 而 `PlatformWebview::controller()` 直接给 `ICoreWebView2Controller`,
+/// 所以这里自己调 COM。用法:**窗口失焦 ⇒ Low,回到前台 ⇒ Normal**。
+pub fn set_memory_low(webview: &tauri::webview::Webview, low: bool) {
+    #[cfg(windows)]
+    {
+        use webview2_com::Microsoft::Web::WebView2::Win32::{
+            ICoreWebView2_19, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW,
+            COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL,
+        };
+        use windows_core::Interface;
+        let _ = webview.with_webview(move |pw| {
+            // COM 链:controller → CoreWebView2 → cast 到版本化接口 _19
+            // (SetMemoryUsageTargetLevel 只在 ICoreWebView2_19 上;Runtime < 114 时
+            //  cast 失败 ⇒ 直接跳过,不强求)。
+            let controller = pw.controller();
+            let core = match unsafe { controller.CoreWebView2() } {
+                Ok(c) => c,
+                Err(_) => return,
+            };
+            let v19: ICoreWebView2_19 = match core.cast() {
+                Ok(v) => v,
+                Err(_) => return,
+            };
+            let level = if low {
+                COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW
+            } else {
+                COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL
+            };
+            unsafe {
+                let _ = v19.SetMemoryUsageTargetLevel(level);
+            }
+        });
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (webview, low);
+    }
+}
+
+/// 对整个内嵌浏览器(当前活动标签页)设置内存档位。
+#[allow(dead_code)]
+pub fn set_active_memory_low(app: &AppHandle, low: bool) {
+    if let Some(wv) = active_webview(app) {
+        set_memory_low(&wv, low);
+    }
 }
 
 /// 生成推给页面工具条的状态 JSON。
@@ -503,6 +577,7 @@ fn build_tab_builder(
     let app_for_load = app.clone();
     WebviewBuilder::new(label, WebviewUrl::External(url))
         .user_agent(CHROME_UA)
+        .additional_browser_args(WEBVIEW2_BROWSER_ARGS)
         .devtools(true)
         .background_color(Color(0x24, 0x24, 0x24, 0xff))
         .initialization_script(BAR_JS)
@@ -579,6 +654,7 @@ fn spawn_degraded_window(
     .decorations(true)
     .background_color(Color(0x24, 0x24, 0x24, 0xff))
     .user_agent(CHROME_UA)
+    .additional_browser_args(WEBVIEW2_BROWSER_ARGS)
     .initialization_script(BAR_JS)
     .initialization_script(PICK_JS)
     .on_navigation(move |url| {
