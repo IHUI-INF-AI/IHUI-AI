@@ -3544,7 +3544,7 @@ export function auditPublicPathProbe(opts = {}) {
           leg === 'egress'
             ? '出路:本轮定位是**本机出口 ↔ Cloudflare 边缘**这一跳(握手没完成的样本停在 TCP/TLS 段;本地直连同轮很快,已排除 web;经节点的参照腿可证真实访客不经此路)。按序问:①`node scripts/net-doctor.mjs` 对比直连与节点腿;②看本机上行是否被占(构建/推送/同步);③链路侧丢包要换出口或找运营商 —— **不必**去查隧道或 web 服务。'
             : leg === 'entry'
-              ? '出路:本轮定位是**公网入口 ↔ 本机隧道**这一段(web 直连同轮很快,已排除服务本体)。按序问:①`node scripts/check-tunnel-leg-health.mjs` 看隧道腿与源地址是否退化;②`Get-Service Cloudflared` 与隧道日志(该服务以 --protocol http2 跑);③`node scripts/net-doctor.mjs` 量出口与代理;④看当时上行是否被占(构建/推送/同步)。'
+              ? '出路:本轮定位是**公网入口 ↔ 本机隧道**这一段(web 直连同轮很快,已排除服务本体)。按序问:①`node scripts/check-tunnel-leg-health.mjs --json` 看五维(腿数 / 源地址寿命 / 单点 / 重启账 / **edge-location 落点 PoP**);②若 edge-location 报"全部落在非亚太 PoP" ⇒ 跨境 RTT 与丢包是硬约束,**站点本体无故障,不必查 web/api**,真要动只有换出口(代理/中转机)或提高边缘缓存命中率以减少回源;③`Get-Service Cloudflared` 与隧道日志(该服务以 --protocol http2 跑;运行期错误不落任何文件,是结构性盲区);④`node scripts/net-doctor.mjs` 量出口与代理;⑤看当时上行是否被占(构建/推送/同步)。'
               : leg === 'service'
                 ? '出路:本地对照组同轮也越阈 ⇒ 洞在**服务段**(web 本体),查 IHUI-WEB 进程与 8801 自身健康(heal-unresponsive-services 归口),不必查公网链路。'
                 : leg === 'unlocated'
