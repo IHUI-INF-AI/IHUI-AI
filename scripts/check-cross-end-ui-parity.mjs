@@ -2055,11 +2055,24 @@ function matchParenAt(text, open) {
  * @param {Record<string, number>|null} table `radiusLookup` 的档位表
  * @returns {{anchored:boolean, indirect:boolean, tiers:number[]|null}}
  */
-export function rootSlotRadiiOf(src, table) {
+export function rootSlotRadiiOf(src, table, name = null) {
   // 注释遮罩必须**等长**(pad):下面的取材按同一套下标 slice 原文,删注释会让下标左移。
   const mat = stripComments(String(src ?? ''), true)
   const code = maskStringsForDepth(mat)
-  const defAt = code.search(/\bexport\s+default\b/)
+  let defAt = code.search(/\bexport\s+default\b/)
+  /**
+   * 只锚 `export default` 会漏掉整类文件:小程序 `components/adapters/*.taro.tsx` 下大量组件写的是
+   * **具名导出**(`export function ColorfulLoader({…})`)⇒ 那一族的根槽位维"没看"。
+   * 这里按**族名精确匹配**具名导出(不取"第一个 export"，那会锚到同文件里的别的组件)，
+   * 归一化成下面 isFnBody 认得的三种形态；两条都找不到才如实报 anchored:false。
+   */
+  if (defAt < 0 && name) {
+    const named = new RegExp(
+      `\\bexport\\s+(?:(?:async\\s+)?function\\s+${name}\\b|const\\s+${name}\\s*=)`,
+    )
+    const m = named.exec(code)
+    if (m) defAt = m.index
+  }
   if (defAt < 0) return { anchored: false, indirect: false, tiers: null }
   /**
    * `export default` 后面是什么,决定这一维**有没有得看**:
@@ -2068,16 +2081,67 @@ export function rootSlotRadiiOf(src, table) {
    *    ⇒ 组件体在别处,本文里没有"顶层 return 直接吐出的那个元素"可读。
    * 这两种都必须**如实报**,不得当成"这个组件根上没有圆角"。
    */
-  const whole = code.slice(defAt)
-  const after = whole.replace(/^\s*export\s+default\s+/, '')
+  let whole = code.slice(defAt)
+  let after = whole
+    .replace(/^\s*export\s+default\s+/, '')
+    .replace(/^\s*export\s+const\s+[A-Za-z_$][\w$]*\s*=\s*/, '')
+    .replace(/^\s*export\s+/, '')
+  /**
+   * `export default Foo;`(裸标识符)是本仓 RN 侧最常见的写法之一，而 **Foo 的定义往往就在同一文件里**
+   * (`export function Foo({…})` 在上方)。旧判据在这里直接报"间接"，于是整族的根槽位永远没看 ——
+   * ColorfulLoader 就是这么从"锚不到"变成"读不出"的。这里把锚点**改到同文件里那个定义上**；
+   * 跟不到(定义真在别处 / HOC 包裹)才如实报 indirect，绝不退化成"根上没有档"。
+   */
+  const bareId = /^([A-Za-z_$][\w$]*)\s*;?\s*$/.exec(after.trim())
+  if (
+    bareId &&
+    !/^(?:async\s+)?(?:function\b|class\b|\(\s*[^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/.test(
+      after.trim(),
+    )
+  ) {
+    const nm = bareId[1]
+    const dm = new RegExp(
+      `\\b(?:export\\s+)?(?:async\\s+)?function\\s+${nm}\\b|\\b(?:export\\s+)?const\\s+${nm}\\s*=`,
+    ).exec(code)
+    if (dm && dm.index !== defAt) {
+      // whole 必须是**未剥离**的切片：下面的 bodyOpen 靠 `whole.length - after.length`
+      // 还原"剥掉了多少个字符"，两边不同源就会整体偏移(每字符 1 位的错位，读出来是隔壁一行的档)。
+      defAt = dm.index
+      whole = code.slice(dm.index)
+      after = whole
+        .replace(/^\s*export\s+const\s+[A-Za-z_$][\w$]*\s*=\s*/, '')
+        .replace(/^\s*(?:export\s+)?(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*/, '')
+        .replace(/^\s*export\s+/, '')
+    }
+  }
   const isFnBody =
     /^(?:async\s+)?(?:function\b|class\b|\(\s*[^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/.test(after)
   const bodyOpen = isFnBody ? defAt + (whole.length - after.length) + bodyOffsetOf(after) : -1
   if (bodyOpen < 0) return { anchored: true, indirect: true, tiers: null }
   // 组件体顶层 return:只在**函数体第一层**找,嵌套函数/回调里的 return 不是根槽位。
   const body = code.slice(bodyOpen)
+  /**
+   * 表达式起点(绝对下标):跳过空白与**可选的一层**圆括号。
+   * `return (\n <View …> )` 与 `return <View …>` 都算"直接吐出根元素"。
+   */
+  const exprStartOf = (from) => {
+    let j = from
+    while (j < code.length && /\s/.test(code[j])) j++
+    if (code[j] === '(') {
+      j++
+      while (j < code.length && /\s/.test(code[j])) j++
+    }
+    return j
+  }
   let depth = 0
-  let retAt = -1
+  /**
+   * ⚠️ 取的是**第一个直接吐 JSX 的**顶层 return，不是"第一个 return"：
+   * `if (!visible) return null` 这类卫语句在组件体里排在校显 return 之前(真仓
+   * `ColorfulLoader` 两端都是这个写法)，旧写法在这里就把整族读成"根槽位读不出" ——
+   * 报的是"没看出根在哪"，真相是"看错了地方"。`return cond ? <A/> : <B/>` 仍算读不出
+   * (根不唯一)，与旧判据一致。
+   */
+  let exprAt = -1
   for (let i = 0; i < body.length; i++) {
     const c = body[i]
     if (c === '{') depth++
@@ -2091,11 +2155,14 @@ export function rootSlotRadiiOf(src, table) {
       !/[\w$]/.test(body[i - 1] ?? '')
     )
       if (!/[\w$]/.test(body[i + 6] ?? '')) {
-        retAt = i
-        break
+        const cand = exprStartOf(bodyOpen + i + 6)
+        if (code[cand] === '<') {
+          exprAt = cand
+          break
+        }
       }
   }
-  if (retAt < 0) return { anchored: true, indirect: true, tiers: null }
+  if (exprAt < 0) return { anchored: true, indirect: true, tiers: null }
   /**
    * `return` 的表达式:只认**直接吐一个元素**的形态 —— 可选的一层圆括号,紧跟 `<`。
    * 其余(`return null` / `return cond ? <A/> : <B/>` / `return renderList()` / `return <Foo />` 里
@@ -2112,15 +2179,8 @@ export function rootSlotRadiiOf(src, table) {
    * ⚠️ `maskStringsForDepth` **长度不变**,所以 `code` 的下标可以直接用来切原文 —— 这是
    * "深度定位在遮罩上做、取材在原文上做"能成立的前提;哪天遮罩改成变长输出,这一格立刻失效。
    */
-  const retEnd = bodyOpen + retAt + 6
-  let exprAt = retEnd
-  while (exprAt < code.length && /\s/.test(code[exprAt])) exprAt++
-  /** 可选的一层圆括号:`return (\n <View …> )` 与 `return <View …>` 两种写法都算"直接吐出根元素"。 */
-  if (code[exprAt] === '(') {
-    exprAt++
-    while (exprAt < code.length && /\s/.test(code[exprAt])) exprAt++
-  }
-  if (code[exprAt] !== '<') return { anchored: true, indirect: true, tiers: null }
+  // `exprAt` 已由上面的扫描定在"直接吐出的那个 `<`"上：这里不再二次换算下标
+  // (两处各算一遍必漂，漂开的表现是"取材取到隔壁一行的档")。
   /**
    * 根元素的**开标签**到 `>` / `/>` 为止 —— 子树上的档**不属于根槽位**(那正是 RD 的读数面;
    * 把子树也算进来,本维就会退化成 RD 加一个"根"字样,恰好复现它要修的那个推断错误)。
@@ -2224,12 +2284,12 @@ export function rootSlotAudit(pairs, text, table, styles = {}) {
     const a = withLocalStyles(text, styles, p.miniapp)
     const b = withLocalStyles(text, styles, p.rn)
     if (a === undefined || b === undefined) continue
-    const ra = rootSlotRadiiOf(a, table)
-    const rb = rootSlotRadiiOf(b, table)
+    const ra = rootSlotRadiiOf(a, table, p.name)
+    const rb = rootSlotRadiiOf(b, table, p.name)
     if (!ra.anchored || !rb.anchored) {
       undetermined.push({
         name: p.name,
-        why: `export default 锚不到(${!ra.anchored ? 'miniapp' : 'rn'}侧)⇒ 根槽位这一维没看,不当"一致"记`,
+        why: `导出锚不到(${!ra.anchored ? 'miniapp' : 'rn'}侧既无 export default，也没有与族名同名的具名导出)⇒ 根槽位这一维没看,不当"一致"记`,
       })
       continue
     }
@@ -2595,7 +2655,10 @@ export function webRadiusAudit(webPairs, text, radiusTable, styles = {}, tiers =
     const erB = radiusEntriesOf(bAll, radiusTable)
     const elementRadius = elementRadiusDiff(erA.entries, erB.entries)
     if (!ga.values.size && !gb.values.size && !mini.size && !web.size) {
-      undetermined.push({ name: p.name, why: '两侧都读不出几何档与圆角档 ⇒ 零判据(不是"两端同值")' })
+      undetermined.push({
+        name: p.name,
+        why: '两侧都读不出几何档与圆角档 ⇒ 零判据(不是"两端同值")',
+      })
       continue
     }
     findings.push({
@@ -3276,7 +3339,8 @@ export function main(argv, repoRoot = ROOT) {
       const wlines = []
       for (const f of web.findings) {
         const bits = []
-        if (f.geometry.onlyMiniapp.length) bits.push(`仅小程序几何 ${f.geometry.onlyMiniapp.join('/')}`)
+        if (f.geometry.onlyMiniapp.length)
+          bits.push(`仅小程序几何 ${f.geometry.onlyMiniapp.join('/')}`)
         if (f.geometry.onlyRn.length) bits.push(`仅 web 几何 ${f.geometry.onlyRn.join('/')}`)
         if (f.radius.onlyMiniapp.length) bits.push(`仅小程序档 ${f.radius.onlyMiniapp.join('/')}`)
         if (f.radius.onlyRn.length) bits.push(`仅 web 档 ${f.radius.onlyRn.join('/')}`)
