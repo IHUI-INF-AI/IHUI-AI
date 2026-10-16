@@ -1,8 +1,20 @@
 {
   "annotations": {
-    "list": []
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
   },
-  "description": "IHUI-AI 应用监控总览",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -11,38 +23,297 @@
   "liveNow": false,
   "panels": [
     {
-      "title": "请求总量(QPS)",
+      "id": 1,
+      "type": "row",
+      "title": "自诊断:大屏有没有在吃数据",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "collapsed": false,
+      "panels": [],
+      "repeat": null
+    },
+    {
+      "id": 2,
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "title": "LLM 调用指标时序数",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
       "targets": [
-        { "expr": "sum(rate(http_requests_total[1m]))", "legendFormat": "QPS", "refId": "A" }
+        {
+          "expr": "count(ihui_llm_calls_total{job=\"ai-service\"})",
+          "legendFormat": "series",
+          "refId": "A"
+        }
       ],
-      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
       }
     },
     {
-      "title": "平均响应时间(ms)",
+      "id": 3,
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
-      "targets": [{ "expr": "http_response_time_ms_avg", "legendFormat": "avg", "refId": "A" }],
-      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } }
-    },
-    {
-      "title": "错误率(5xx)",
-      "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "title": "Agent 指标时序数",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
       "targets": [
         {
-          "expr": "sum(rate(http_requests_by_status{status=~\"5..\"}[1m])) / sum(rate(http_requests_total[1m]))",
-          "legendFormat": "error rate",
+          "expr": "count(ihui_agent_loop_runs_total{job=\"ai-service\"})",
+          "legendFormat": "series",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "AI 服务存活",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"ai-service\"}",
+          "legendFormat": "up",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "抓取新鲜度(最近一次成功抓取距今秒)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "time() - timestamp(up{job=\"ai-service\"})",
+          "legendFormat": "seconds",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 300
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 6,
+      "type": "row",
+      "title": "流量与成功率",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "collapsed": false,
+      "panels": [],
+      "repeat": null
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "调用尝试速率(次/秒)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(ihui_llm_calls_total{job=\"ai-service\"}[5m]))",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "gauge",
+      "title": "成功率",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 6
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(ihui_llm_calls_total{job=\"ai-service\",status=\"ok\"}[5m])) / sum(rate(ihui_llm_calls_total{job=\"ai-service\"}[5m]))",
+          "legendFormat": "success",
           "refId": "A"
         }
       ],
@@ -52,87 +323,707 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green" },
-              { "color": "yellow", "value": 0.01 },
-              { "color": "red", "value": 0.05 }
+              {
+                "color": "green"
+              },
+              {
+                "color": "red"
+              },
+              {
+                "color": "yellow",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.98
+              }
             ]
           }
-        }
+        },
+        "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "showThresholdLabels": false,
+        "showThresholdStats": true
+      }
     },
     {
-      "title": "服务运行时间",
+      "id": 9,
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
-      "targets": [{ "expr": "process_uptime_seconds", "legendFormat": "uptime", "refId": "A" }],
-      "fieldConfig": { "defaults": { "unit": "s" } },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
-    },
-    {
-      "title": "请求量趋势(QPM)",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
-      "targets": [
-        { "expr": "sum(rate(http_requests_total[1m])) * 60", "legendFormat": "QPM", "refId": "A" }
-      ],
-      "fieldConfig": { "defaults": { "unit": "reqpm" } }
-    },
-    {
-      "title": "响应时间分布",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
-      "targets": [{ "expr": "http_response_time_ms_avg", "legendFormat": "平均", "refId": "A" }],
-      "fieldConfig": { "defaults": { "unit": "ms" } }
-    },
-    {
-      "title": "状态码分布",
-      "type": "piechart",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "title": "活跃 LLM 会话",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 6
+      },
       "targets": [
         {
-          "expr": "sum by (status) (http_requests_by_status)",
-          "legendFormat": "{{status}}",
+          "expr": "max(ihui_llm_active_sessions{job=\"ai-service\"})",
+          "legendFormat": "sessions",
           "refId": "A"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
     },
     {
-      "title": "响应时间桶分布",
-      "type": "barchart",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
-      "targets": [{ "expr": "http_response_time_bucket", "legendFormat": "{{le}}", "refId": "A" }]
+      "id": 10,
+      "type": "row",
+      "title": "延迟与首字(TTFT)",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "collapsed": false,
+      "panels": [],
+      "repeat": null
     },
     {
-      "title": "按方法统计",
-      "type": "table",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 22 },
+      "id": 11,
+      "type": "timeseries",
+      "title": "端到端延迟 P50 / P95 / P99",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
       "targets": [
         {
-          "expr": "sum by (method) (http_requests_by_method)",
-          "legendFormat": "{{method}}",
-          "refId": "A",
-          "format": "table",
-          "instant": true
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(ihui_llm_request_duration_seconds_bucket{job=\"ai-service\"}[5m])))",
+          "legendFormat": "P50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(ihui_llm_request_duration_seconds_bucket{job=\"ai-service\"}[5m])))",
+          "legendFormat": "P95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(ihui_llm_request_duration_seconds_bucket{job=\"ai-service\"}[5m])))",
+          "legendFormat": "P99",
+          "refId": "A"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "首字 TTFT P50 / P95 / P99",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(ihui_llm_ttft_seconds_bucket{job=\"ai-service\"}[5m])))",
+          "legendFormat": "P50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(ihui_llm_ttft_seconds_bucket{job=\"ai-service\"}[5m])))",
+          "legendFormat": "P95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(ihui_llm_ttft_seconds_bucket{job=\"ai-service\"}[5m])))",
+          "legendFormat": "P99",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "row",
+      "title": "Token 与成本",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "collapsed": false,
+      "panels": [],
+      "repeat": null
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Token 速率(按方向)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 24
+      },
+      "targets": [
+        {
+          "expr": "sum by (direction) (rate(ihui_llm_tokens_total{job=\"ai-service\"}[5m]))",
+          "legendFormat": "{{direction}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "支出(区间累计 USD)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 24
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_llm_cost_usd_total{job=\"ai-service\"}[$__range]))",
+          "legendFormat": "cost",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 16,
+      "type": "gauge",
+      "title": "缓存命中占输入比",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 24
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_llm_tokens_total{job=\"ai-service\",direction=\"cache_read\"}[1h])) / sum(increase(ihui_llm_tokens_total{job=\"ai-service\",direction=\"input\"}[1h]))",
+          "legendFormat": "hit",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red"
+              },
+              {
+                "color": "green",
+                "value": 0.2
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "showThresholdLabels": false,
+        "showThresholdStats": true
+      }
+    },
+    {
+      "id": 17,
+      "type": "row",
+      "title": "厂商分布与韧性",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "collapsed": false,
+      "panels": [],
+      "repeat": null
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "按厂商调用速率",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 33
+      },
+      "targets": [
+        {
+          "expr": "sum by (provider) (rate(ihui_llm_calls_total{job=\"ai-service\"}[5m]))",
+          "legendFormat": "{{provider}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "按厂商错误分布",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 33
+      },
+      "targets": [
+        {
+          "expr": "sum by (provider, status) (rate(ihui_llm_provider_errors_total{job=\"ai-service\"}[5m]))",
+          "legendFormat": "{{provider}} {{status}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "厂商健康(1=健康 0=不健康)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 33
+      },
+      "targets": [
+        {
+          "expr": "model_sync_provider_health{job=\"ai-service\"}",
+          "legendFormat": "{{provider_code}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 21,
+      "type": "row",
+      "title": "韧性兜底:fallback / 熔断 / 降级",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "collapsed": false,
+      "panels": [],
+      "repeat": null
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "备用切换触发速率(按原因)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 41
+      },
+      "targets": [
+        {
+          "expr": "sum by (reason) (rate(llm_fallback_triggered_total{job=\"ai-service\"}[5m]))",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 23,
+      "type": "gauge",
+      "title": "备用切换成功率",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 41
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(llm_fallback_success_total{job=\"ai-service\"}[5m])) / clamp_min(sum(rate(llm_fallback_triggered_total{job=\"ai-service\"}[5m])),0.0001)",
+          "legendFormat": "ok",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red"
+              },
+              {
+                "color": "green",
+                "value": 0.5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "showThresholdLabels": false,
+        "showThresholdStats": true
+      }
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "上下文压缩触发次数(区间)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 41
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(llm_token_compaction_triggered_total{job=\"ai-service\"}[$__range]))",
+          "legendFormat": "n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
     }
   ],
-  "refresh": "15s",
+  "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["ihui-ai", "overview"],
-  "templating": { "list": [] },
-  "time": { "from": "now-1h", "to": "now" },
-  "timepicker": {},
-  "timezone": "browser",
-  "title": "IHUI-AI 总览",
+  "tags": ["ihui-ai", "ai", "llm"],
+  "templating": {
+    "list": [
+      {
+        "name": "provider",
+        "label": "厂商",
+        "query": {
+          "cloudCommand": null,
+          "cloudDuration": null,
+          "expression": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, provider)",
+          "range": false
+        },
+        "current": {
+          "selectedText": "All",
+          "text": "All",
+          "value": "$__all"
+        },
+        "includeAll": true,
+        "multi": true,
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query",
+        "hide": 0,
+        "definition": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, provider)",
+        "options": [],
+        "allValue": ".*"
+      },
+      {
+        "name": "model",
+        "label": "模型",
+        "query": {
+          "cloudCommand": null,
+          "cloudDuration": null,
+          "expression": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, model)",
+          "range": false
+        },
+        "current": {
+          "selectedText": "All",
+          "text": "All",
+          "value": "$__all"
+        },
+        "includeAll": true,
+        "multi": true,
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query",
+        "hide": 0,
+        "definition": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, model)",
+        "options": [],
+        "allValue": ".*"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "1h"]
+  },
+  "timezone": "",
+  "title": "IHUI-AI · AI 运行全景",
+  "tooltip": {
+    "shared": true,
+    "showCrosshair": false,
+    "sort": 2
+  },
   "uid": "ihui-ai-overview",
   "version": 1,
   "weekStart": ""
