@@ -137,6 +137,7 @@
     "alert-volume": "node scripts/alert-volume-report.mjs",
     "test:alertmanager-config": "node --test scripts/tests/render-alertmanager-config.test.mjs",
     "check:agent-event-parity": "node scripts/check-agent-event-parity.mjs",
+    "check:sse-parity": "node scripts/check-agent-event-parity.mjs && node scripts/check-sse-parser-parity.mjs && node scripts/check-sse-dispatch-parity.mjs",
     "check:desktop-event-wiring": "node scripts/check-desktop-event-wiring.mjs",
     "knip": "knip",
     "openapi-check": "node scripts/openapi-check.mjs",

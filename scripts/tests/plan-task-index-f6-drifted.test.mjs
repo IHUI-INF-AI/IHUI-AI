@@ -125,14 +125,20 @@ test('T5 源码锁:重合率阈值与"首行须是登记行"两条判据不得�
     const mutatedPath = path.join(dir, 'mutant.mjs')
     const { writeFileSync } = await import('node:fs')
     const { pathToFileURL } = await import('node:url')
-    // 变异体落在 scratch 里,它的相对导入会指空 ⇒ 把那条相对导入改写成绝对 file:// URL
+    // 变异体落在 scratch 里,它的相对导入会指空 ⇒ 把**每一条**相对导入改写成绝对 file:// URL,
+    // 按被测模块真实所在目录(scripts/lib)解析 —— 逐条枚举而非钉死某一条,否则被测源新增一个
+    // 本地 import(如 face-reader.mjs)本探针就 ENOENT 崩(§22c/闭包:一次改一条 = 下次加一条又红)。
     // (Windows 上 ESM 绝对路径同样必须走 file://,裸 'g:\...' 会撞 ERR_UNSUPPORTED_ESM_URL_SCHEME)
-    const depUrl = pathToFileURL(path.join(ROOT, 'scripts', 'check-plan-line-loss.mjs')).href
+    const libDir = path.join(ROOT, 'scripts', 'lib')
     const mutatedWithDeps = mutated.replace(
-      /from '\.\.\/check-plan-line-loss\.mjs'/,
-      `from ${JSON.stringify(depUrl)}`,
+      /from '(\.\.?\/[^']+)'/g,
+      (_m, rel) => `from ${JSON.stringify(pathToFileURL(path.resolve(libDir, rel)).href)}`,
     )
-    assert.notEqual(mutatedWithDeps, mutated, '变异必须真的改到阈值那行 —— 否则本条是假锁')
+    assert.notEqual(
+      mutatedWithDeps,
+      mutated.replace('const DUP_BLOCK_MIN_BODY_OVERLAP = 0.05', 'const DUP_BLOCK_MIN_BODY_OVERLAP = 0'),
+      '变异后仍应残留至少一条被改写的相对导入 —— 否则说明源已无相对导入,本改写形同空转',
+    )
     writeFileSync(mutatedPath, mutatedWithDeps)
     const probe = [
       `import { findDupBlocks } from ${JSON.stringify(pathToFileURL(mutatedPath).href)}`,
