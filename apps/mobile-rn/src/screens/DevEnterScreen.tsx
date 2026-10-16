@@ -557,7 +557,8 @@ const styles = StyleSheet.create({
   promptContent: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#B0AEFA',
+    // 强调文字取 brandAccent.deep(rn-tokens 注:deep=浅底上的文字/图标变体;同族先例 BottomPopup 提示文字)
+    color: tokens.brandAccent.deep,
     letterSpacing: 1,
     textAlign: 'center',
   } as TextStyle,
@@ -577,7 +578,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   } as ViewStyle,
   promptConfirm: {
-    backgroundColor: '#CFCEFF',
+    // 强调底色取 brandAccent.DEFAULT(同族先例 BottomPopup:DEFAULT 仅作底色,前景另用 deep)
+    backgroundColor: tokens.brandAccent.DEFAULT,
   } as ViewStyle,
   promptCancelText: {
     fontSize: 12,
