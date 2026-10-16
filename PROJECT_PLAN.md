@@ -15818,3 +15818,4 @@ next dev / expo 这类 supervisor 内部 spawn worker 时**不带** windowsHide(
 - [ ]G-171（等条件·两格缺模型输入/发送回传接线,一格缺浏览器会话)队列拒因残余三件(承 G-937950,2026-10-10 收口其①②③后如实移交,非遗漏):a) 拒因现只有 3 个能判(streaming/emptyQueue/runtimeNoInterject),`queueChanged`/`controlCommand`/`awaitingApproval` 需先给 `QueueInteractionPerms` 喂进这些条件(现模型无此输入,硬加=编造);b) `deferred`(未发送)与 `failed`(失败)两个终态全仓零命中,要接的是发送结果回传路径;c) 键盘路径实测(上下方向键重排)需浏览器会话,本机无 ⇒ 只能静态加 aria/按键处理,不得写成已实测。判定面与既有出口沿用 input-notices.deniedCauseNotice 唯一本体,新增因时 switch 穷尽即编译期红。 〔改号(2026-10-14):原G-1104172〕〔同题原号 G-1104172〕〔同题原号 G-1104172〕〔同题原号 G-1104172〕〔同题原号 G-1104172〕〔同题原号 G-1104172〕〔同题原号 G-1104172〕〔同题原号 G-1104172〕〔同题原号 G-1104172〕
 
 
+
