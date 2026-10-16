@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: aa7263e20c3e9bde831099c10ae70ff022fda146
-// inputsSha256: 7dfcec77fb4cba7fdbc5e321a1a5c2bd7d2be323e73699835aff04343c1da587
+// sourceCommit: a97659162f7af4462e77471719fc44fd9fc812b4
+// inputsSha256: 8dfae1f811ccfb0234e03d75b7f3166750ed764ab921e40996e6067590da1b87
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -218,6 +218,7 @@
 // input: apps/web/app/(main)/admin/monitor/alerts/page.tsx 5bde614fb2694347ecf278d23fb86f5ce188ce0f59e7b113e5ea07aa9f1adcdb
 // input: apps/web/app/(main)/admin/monitor/dashboard/page.tsx 324189db7105e01ebb6eb56b295d16aa02bfe18a709c1d7ed166cdad97ec7974
 // input: apps/web/app/(main)/admin/monitor/funnel/page.tsx 0063e5e3d9e508014ab9c58f4310b825c867f5775b3f277a088b3f236ea67fe5
+// input: apps/web/app/(main)/admin/monitor/wallboard/page.tsx f76057994d1cd876f35be8d9bbcfc417c61424cb366998bbd762c6a05e78e602
 // input: apps/web/app/(main)/admin/monitoring-dashboard/page.tsx c717bd0089fa2ef649facb0f028ca410ec5493cc992c9124c2e860886acafcd4
 // input: apps/web/app/(main)/admin/news/categories/page.tsx 9435286baf4a33389619cc8b41914da958edfd53f9079c6962ce74ea7b00d2c7
 // input: apps/web/app/(main)/admin/news/page.tsx 7d0127c4117f7c5168bc51fc4164aa98f9a249f01e700fbe4c7670f9bc5b9854
@@ -915,7 +916,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx 73f528f7654b7eb8bf5d08493a07afa63ed1de621f5a792399270a41505bf2fd
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-10-16T01:55:26.750Z
+// generatedAt: 2026-10-16T08:45:37.989Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1122,6 +1123,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/monitor/alerts', param: false, group: 'admin' },
   { path: '/admin/monitor/dashboard', param: false, group: 'admin' },
   { path: '/admin/monitor/funnel', param: false, group: 'admin' },
+  { path: '/admin/monitor/wallboard', param: false, group: 'admin' },
   { path: '/admin/monitoring-dashboard', param: false, group: 'admin' },
   { path: '/admin/news', param: false, group: 'admin' },
   { path: '/admin/news/categories', param: false, group: 'admin' },

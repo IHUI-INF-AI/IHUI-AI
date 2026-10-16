@@ -1,7 +1,4 @@
 #!/usr/bin/env node
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /* eslint-disable no-console -- 巡检工具,诊断输出就是它的产品 */
 /**
@@ -163,20 +160,23 @@ function sha(buf) {
 /**
  * 有界目录量算:只统计普通文件,**绝不跟随重解析点**(§26),到预算即停并如实标 truncated。
  * 返回 null = 量不到(目录不存在 / 权限),调用方必须落成"未判定"而不是 0。
+ * `byTop: true` 在同一次遍历里顺带按**顶层条目**归集文件数/字节/最后一次动过的时刻,
+ * 供红档点名归属(不额外走第二遍树);不带该选项时返回 `top: null`,口径与旧版逐字相同。
  */
-export function measureDir(path, { maxEntries = 120000 } = {}) {
+export function measureDir(path, { maxEntries = 120000, byTop = false } = {}) {
   if (!existsSync(path)) return null
   let bytes = 0
   let entries = 0
   let truncated = false
-  const stack = [path]
+  const top = byTop ? new Map() : null
+  const stack = [{ dir: path, owner: null }]
   try {
     if (lstatSync(path).isSymbolicLink() || lstatSync(path).isFile()) return null
   } catch {
     return null
   }
   while (stack.length) {
-    const dir = stack.pop()
+    const { dir, owner } = stack.pop()
     let names
     try {
       names = readdirSync(dir)
@@ -197,17 +197,33 @@ export function measureDir(path, { maxEntries = 120000 } = {}) {
       }
       if (st.isSymbolicLink()) continue // 重解析点:断链与穿透都不得发生在这里
       if (st.isDirectory()) {
-        stack.push(p)
+        stack.push({ dir: p, owner: top ? (owner ?? name) : null })
         continue
       }
       if (st.isFile()) {
         entries += 1
         bytes += st.size
+        if (top) {
+          const key = owner ?? '(顶层散文件)'
+          let t = top.get(key)
+          if (!t) {
+            t = { name: key, files: 0, bytes: 0, newestMs: 0 }
+            top.set(key, t)
+          }
+          t.files += 1
+          t.bytes += st.size
+          if (st.mtimeMs > t.newestMs) t.newestMs = st.mtimeMs
+        }
       }
     }
     if (truncated) break
   }
-  return { bytes, entries, truncated }
+  return {
+    bytes,
+    entries,
+    truncated,
+    top: top ? [...top.values()].sort((a, b) => b.files - a.files) : null,
+  }
 }
 
 /** 年龄判定三态:量不到 → undetermined;超阈 → finding;否则 ok。 */
@@ -1189,32 +1205,57 @@ export function checkPromtoolRules({ devEnv = devEnvRoot(REPO), repoRoot = REPO,
   }
 }
 
+/** 归属点名用的"最后动过"话术:近 24 小时有动作 = 在用缓存,不得建议删;其余报闲置天数。 */
+function idleText(newestMs, now) {
+  if (!Number.isFinite(newestMs) || newestMs <= 0) return '动过时刻量不到'
+  const d = (now - newestMs) / 86_400_000
+  return d <= 1 ? '近 24h 有动,在用' : `已闲置 ${d.toFixed(0)} 天`
+}
+
+/** 把"这一堆条目是谁的"点进正文(文件数前 3 的大头)。拿不到 top(未带 byTop 量算)⇒ 空串,不编。 */
+function attributionText(m, now) {
+  if (!Array.isArray(m.top)) return ''
+  const big = [...m.top].sort((a, b) => b.files - a.files).filter((t) => t.files > 0).slice(0, 3)
+  if (!big.length) return ''
+  return ` | 大头:${big.map((t) => `${t.name}(${t.files} 文件/${(t.bytes / 1024 ** 2).toFixed(1)}MB/${idleText(t.newestMs, now)})`).join('、')}`
+}
+
+/**
+ * P4 单格判定(纯函数,镜像测试直接调它判三态,§22c)。
+ * 阈值与判定口径一个字都没动,这里只解决**可整改性**(AGENTS §5e-1):红了必须说清"越的是哪一维"
+ * 与"这一堆条目是谁的"。两版旧文案各治过一半 —— 头一版两个阈并排印出、不说越的是哪一个,
+ * 收信人只会盯着体积看(实测 P4a 3.72 GB **未**超 4 GB,越的是条目数 67595 > 60000)⇒ 129 次判红
+ * 零整改;第二版给出了路,可那条出路写的是"整目录镜像清空",而现读这 5 万条目里最大的三枚
+ * 是别的工具**正在用**的缓存(Trae 1.45 万、Node 编译缓存 7485、tsx 3701),照做就是毁掉在跑的工具。
+ * ⇒ 出路只能指向"标了闲置天数的那几枚",并给本项目自己的夹具出口。
+ */
+export function growthRow(id, m, bytesLimit, entriesLimit, { now = Date.now() } = {}) {
+  const overBytes = m.bytes > bytesLimit
+  const overEntries = entriesLimit ? m.entries > entriesLimit : false
+  const over = overBytes || overEntries
+  const which = [overBytes && `体积 ${(m.bytes / 1024 ** 3).toFixed(2)}>${(bytesLimit / 1024 ** 3).toFixed(0)}GB`, overEntries && `条目数 ${m.entries}>${entriesLimit}`]
+    .filter(Boolean)
+    .join(' 且 ')
+  const owners = over ? attributionText(m, now) : ''
+  const how = id.startsWith('P4a')
+    ? ' | 出路:上面**标了"已闲置 N 天"的那几枚**才是可清的(按名逐个删,删前先改名验句柄);"近 24h 有动"的是 Trae/Node/tsx 这类在用缓存,' +
+      '整目录镜像清空会连正在跑的工具一起毁,不得照做;本项目自己的夹具走 `node scripts/scrub-temp-fixtures.mjs --apply`(名字围栏 + 账龄闸)'
+    : ''
+  return {
+    id,
+    state: m.truncated ? 'undetermined' : over ? 'finding' : 'ok',
+    detail: over
+      ? `${(m.bytes / 1024 ** 3).toFixed(2)} GB / ${m.entries} 项 | 越阈:${which}${owners}${how}`
+      : `${(m.bytes / 1024 ** 3).toFixed(2)} GB / ${m.entries} 项 | 阈 ${(bytesLimit / 1024 ** 3).toFixed(0)} GB${entriesLimit ? ` / ${entriesLimit} 项` : ''}`,
+  }
+}
+
 export function checkGrowth({ devEnv }) {
   const out = []
   const one = (id, path, bytesLimit, entriesLimit) => {
-    const m = measureDir(path)
+    const m = measureDir(path, { byTop: true }) // 同一次遍历顺带归集归属,不走第二遍树
     if (!m) return void out.push({ id, state: 'undetermined', detail: `量不到:${path}` })
-    const overBytes = m.bytes > bytesLimit
-    const overEntries = entriesLimit ? m.entries > entriesLimit : false
-    const over = overBytes || overEntries
-    // **越阈必须点名是哪一维 + 给出路**(AGENTS §5e-1 出口 1)。此前两个阈并排印出、
-    // 不说越的是哪一个,收信人只会盯着体积看(实测 P4a 3.72 GB **未**超 4 GB,越的是条目数
-    // 67595 > 60000),于是"清到 4 GB 以下"这件做不到的事成了唯一可见的下一步 ⇒ 129 次判红
-    // 零整改。出路要给能真跑的那条:Temp 下是探针/夹具残留,robocopy 镜像空目录即可
-    // (与 AGENTS §5e-2 的批量删除正解同一条)。
-    const which = [overBytes && `体积 ${(m.bytes / 1024 ** 3).toFixed(2)}>${(bytesLimit / 1024 ** 3).toFixed(0)}GB`, overEntries && `条目数 ${m.entries}>${entriesLimit}`]
-      .filter(Boolean)
-      .join(' 且 ')
-    const how = id.startsWith('P4a')
-      ? ' | 出路:robocopy 镜像空目录清该目录(AGENTS §5e-2;先确认无活跃句柄)'
-      : ''
-    out.push({
-      id,
-      state: m.truncated ? 'undetermined' : over ? 'finding' : 'ok',
-      detail: over
-        ? `${(m.bytes / 1024 ** 3).toFixed(2)} GB / ${m.entries} 项 | 越阈:${which}${how}`
-        : `${(m.bytes / 1024 ** 3).toFixed(2)} GB / ${m.entries} 项 | 阈 ${(bytesLimit / 1024 ** 3).toFixed(0)} GB${entriesLimit ? ` / ${entriesLimit} 项` : ''}`,
-    })
+    out.push(growthRow(id, m, bytesLimit, entriesLimit))
   }
   one('P4a', join(devEnv, 'Temp'), LIMITS.devenvTempBytes, LIMITS.devenvTempEntries)
   one('P4b', join(devEnv, 'logs'), LIMITS.devenvLogsBytes)
@@ -2591,6 +2632,42 @@ export async function selfTest() {
   t('预算截断必须自己喊出来', (() => { const s = measureDir(dir, { maxEntries: 2 }); return s.truncated === true })())
   t('重解析点不得被跟随(真造 junction 测)', junctionNotFollowed())
   t('不存在的目录量不到(返回 null 而非 0)', measureDir(join(REPO, '__no_such_dir__')) === null)
+  // ── P4 归属点名(2026-10-16 立;机主裁"删已验死的 + 改判据,阈值不动")────────────────
+  // 旧出路写的是"robocopy 镜像空目录清该目录",而现读那 5 万条目里最大的三枚是**正在用**的
+  // 第三方缓存(Trae agent toolhost 14,554、Node 编译缓存 7,485、tsx 3,701)—— 照做就是毁掉
+  // 在跑的工具(AGENTS §5e-1「文档不得写跑不通的出路」同型)。红档必须点名归属,且**判定口径不变**。
+  const fixNow = Date.parse('2026-10-16T08:00:00.000Z')
+  const fixTop = [
+    { name: 'trae-agent-toolhost', files: 14554, bytes: 21_000_000, newestMs: fixNow - 2 * 3600_000 },
+    { name: 'nscD071.tmp', files: 1123, bytes: 1_229_682_776, newestMs: fixNow - 7.2 * 86_400_000 },
+    { name: '(顶层散文件)', files: 5556, bytes: 76_000, newestMs: fixNow - 9 * 86_400_000 },
+  ]
+  const fixOver = { bytes: 1.56 * 1024 ** 3, entries: 60_001, truncated: false, top: fixTop }
+  const rowOver = growthRow('P4a', fixOver, LIMITS.devenvTempBytes, LIMITS.devenvTempEntries, { now: fixNow })
+  t('P4 加了归属之后越阈照旧判红(判定口径一字未动)', rowOver.state === 'finding' && /条目数 60001>60000/.test(rowOver.detail))
+  t('红档点名大头并按文件数从大到小排(14554 的 Trae 必须排在 5556 散文件前)', (() => {
+    const iTrae = rowOver.detail.indexOf('trae-agent-toolhost')
+    const iStray = rowOver.detail.indexOf('(顶层散文件)')
+    return iTrae > 0 && iStray > iTrae && /nscD071\.tmp\(1123 文件\/[0-9.]+MB\/已闲置 7 天\)/.test(rowOver.detail)
+  })())
+  t('在用与闲置分别标出(近 24h 有动 = 在用,7 天没动 = 已闲置)', /trae-agent-toolhost\([^)]*近 24h 有动,在用\)/.test(rowOver.detail))
+  t('出路不得再写"镜像空目录清该目录"(那是叫人毁在用缓存的指令)', !/镜像空目录清该目录/.test(rowOver.detail) && /不得照做/.test(rowOver.detail) && /scrub-temp-fixtures\.mjs --apply/.test(rowOver.detail))
+  t('反向锁:摘掉 top ⇒ 正文不凭空点名,而判定照旧 finding(归属只影响文案,不影响红绿)', (() => {
+    const r = growthRow('P4a', { ...fixOver, top: null }, LIMITS.devenvTempBytes, LIMITS.devenvTempEntries, { now: fixNow })
+    return r.state === 'finding' && !/大头:/.test(r.detail)
+  })())
+  t('绿档不带归属也不带出路(点名只在红档发生)', (() => {
+    const r = growthRow('P4a', { bytes: 1.56 * 1024 ** 3, entries: 59_999, truncated: false, top: fixTop }, LIMITS.devenvTempBytes, LIMITS.devenvTempEntries, { now: fixNow })
+    return r.state === 'ok' && !/大头:/.test(r.detail) && !/出路:/.test(r.detail)
+  })())
+  t('P4b/P4c 不套 P4a 的出路文案(出路是逐格的话,不是一句通用口号)', !/出路:/.test(growthRow('P4b', fixOver, 1, 1, { now: fixNow }).detail))
+  t('预算截断仍落未判定(有了归属也不得把截断读成结论)', growthRow('P4a', { ...fixOver, truncated: true }, LIMITS.devenvTempBytes, LIMITS.devenvTempEntries, { now: fixNow }).state === 'undetermined')
+  t('byTop 不改总量口径:同一真实目录带/不带 byTop,bytes 与 entries 逐字同值,且归属加总==总文件数', (() => {
+    const d = join(REPO, 'scripts/lib')
+    const a = measureDir(d)
+    const b = measureDir(d, { byTop: true })
+    return a.bytes === b.bytes && a.entries === b.entries && a.truncated === b.truncated && b.top.reduce((x, t2) => x + t2.files, 0) === b.entries && a.top === null
+  })())
   t('P5b 三态成对(exit=1 红 / exit=0 绿 / 正在构建 未判定)', p5bThreeStates())
   // 2026-10-01 补的两条:失败通报的下游可见性(P8)与备份产出的**归属**(P5 逐库、只认本链)。
   // 各自的旧形态都在同一份夹具上现算对照 —— 只测新规则那一臂,等于把实现复读一遍。
@@ -2907,6 +2984,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   measureDir,
+  growthRow,
   ageVerdict,
   parseLastSync,
   LIMITS,
@@ -2946,4 +3024,3 @@ export const __test__ = {
   patrolAssemblyText,
   patrolWiringGaps,
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
