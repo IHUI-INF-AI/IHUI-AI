@@ -19709,7 +19709,8 @@
     "customAdded": "已添加",
     "customAdd": "添加",
     "customRemove": "移除",
-    "customManage": "管理常用功能"
+    "customManage": "管理常用功能",
+    "customDragHint": "拖拽排序"
   },
   "news": {
     "allCategories": "全部分类",

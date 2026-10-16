@@ -340,6 +340,28 @@ export async function updatePreferences(
   })
 }
 
+/**
+ * 读取侧边栏「自定义」栏配置(2026-10-16 立)。
+ * 返回有序 href 列表 —— 顺序即侧栏显示顺序,调用方不得重排。
+ * `exists=false` 表示该用户从未设置过(区别于"设置过但为空",后者 exists=true 且 hrefs=[]);
+ * 调用方据此决定是否把本地缓存上推,推错会让已删项复活。
+ */
+export async function getSidebarNavPreference(): Promise<
+  ApiResult<{ hrefs: string[]; exists: boolean }>
+> {
+  return fetchApi<{ hrefs: string[]; exists: boolean }>('/api/settings/sidebar-nav')
+}
+
+/** 写入侧边栏「自定义」栏配置(整体覆盖,顺序即显示顺序)。 */
+export async function updateSidebarNavPreference(
+  hrefs: string[],
+): Promise<ApiResult<{ hrefs: string[]; exists: boolean }>> {
+  return fetchApi<{ hrefs: string[]; exists: boolean }>('/api/settings/sidebar-nav', {
+    method: 'PUT',
+    body: JSON.stringify({ hrefs }),
+  })
+}
+
 /** 获取登录设备列表 */
 export async function getLoginDevices(): Promise<ApiResult<LoginDevice[]>> {
   return fetchApi<LoginDevice[]>('/api/settings/devices')
