@@ -15,6 +15,7 @@ import {
   latestNoteDate,
   selfIdOf,
   noteSegments,
+  collapseDuplicateNotes,
 } from '../lib/dedupe-ledger.mjs'
 import { __test__ as U } from '../union-converge.mjs'
 
@@ -220,6 +221,52 @@ describe('辅助函数', () => {
   it('uniqueNotes 只返回保留行没有的段', () => {
     assert.equal(uniqueNotes('x 〔甲〕 〔乙〕', 'x 〔甲〕'), '〔乙〕')
     assert.equal(uniqueNotes('x 〔甲〕', 'x 〔甲〕 〔乙〕'), '')
+  })
+})
+
+describe('G-240 族:同题组的注记不得按成员重复追加(旧写法一组 N 人产 N 条累计注记)', () => {
+  const TITLE = '**折叠同题组不得按成员重复追加原号注记**'
+  const src = [
+    '# 台账',
+    `- [ ] G-200 ${TITLE} 甲`,
+    `- [ ] G-201 ${TITLE} 乙 〔进展@2026-10-13:已核〕`,
+    `- [ ] G-202 ${TITLE} 丙`,
+    `- [ ] G-203 ${TITLE} 丁 〔进展@2026-10-13:已核〕`,
+    '',
+  ].join('\n')
+
+  it('四个成员折成 1 行 ⇒ 「同题原号」注记恰好一条,且一条就装下全部他号', () => {
+    const out = dedupeByFingerprint(src).split('\n')
+    const kept = out.filter((l) => l.includes(TITLE))
+    assert.equal(kept.length, 1, `同题组必须只剩一行,实得 ${kept.length}`)
+    const segs = noteSegments(kept[0])
+    const idNotes = segs.filter((s) => s.startsWith('〔同题原号'))
+    assert.equal(idNotes.length, 1, `原号注记必须恰好一条,实得 ${idNotes.length} 条:${JSON.stringify(idNotes)}`)
+    const keptId = selfIdOf(kept[0])
+    for (const other of ['G-200', 'G-201', 'G-202', 'G-203']) {
+      if (other === keptId) continue
+      assert.ok(idNotes[0].includes(other), `他号 ${other} 必须在同一条原号注记里(跨引用不断链)`)
+    }
+  })
+
+  it('同一注记段在保留行只出现一次(两名成员各带同一条 〔进展…〕 时不得拼两遍)', () => {
+    const kept = dedupeByFingerprint(src)
+      .split('\n')
+      .find((l) => l.includes(TITLE))
+    const segs = noteSegments(kept)
+    assert.equal(segs.length, new Set(segs).size, `注记段出现重复:${JSON.stringify(segs)}`)
+    assert.equal(segs.filter((s) => s === '〔进展@2026-10-13:已核〕').length, 1)
+  })
+
+  it('幂等:再跑一遍逐字不变(重跑不增产注记,正是 63 条同注那一型的止口)', () => {
+    const once = dedupeByFingerprint(src)
+    assert.equal(dedupeByFingerprint(once), once)
+  })
+
+  it('反向锁:不同文的注记一条也不许折掉(信息守恒)', () => {
+    assert.equal(collapseDuplicateNotes('x 〔甲〕 〔乙〕'), 'x 〔甲〕 〔乙〕')
+    assert.equal(collapseDuplicateNotes('a 〔甲〕 b 〔甲〕 c 〔乙〕'), 'a 〔甲〕 b  c 〔乙〕')
+    assert.equal(collapseDuplicateNotes('无注记的一行'), '无注记的一行')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
