@@ -3,63 +3,45 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 自定义 TabBar — 5 Tab:首页 / 智汇社区 / 课程 / 直播 / 我的
+ * 自定义 TabBar — 5 Tab:智汇社区 / AI agent / 广场 / 我的 / 分享星球
  *
  * 配置位置:app.config.ts 的 tabBar.custom = true
  * 小程序要求:此文件路径固定为 custom-tab-bar/index,
  * 且需要在每个 tab 页面 json 中声明 { "usingComponents": {} }。
+ *
+ * 2026-10-16 用户定稿:悬浮液态玻璃胶囊(backdrop-filter: blur(24px) + --color-glass-bg),
+ * 内容可滚到栏下若隐若现;图标用 LineIcon 内联 SVG(CSS mask 随主题换色),
+ * 选中 --color-foreground / 未选中 --color-text-tertiary(深色中性,彻底替换紫色档);
+ * root 挂 .dark 类保证 CSS 变量随浅/深主题切换。
  */
-import { useI18n } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
+import { useAppTheme } from '@/lib/theme'
+import LineIcon, { type IconName } from '@/components/LineIcon'
 
 interface TabItem {
   pagePath: string
-  i18nKey: string
-  icon: string
-  activeIcon: string
+  label: string
+  icon: IconName
 }
 
+// 与 app.config.ts tabBar.list 的 5 个 tab 严格对齐(顺序/路由/文案一致)
 const TABS: TabItem[] = [
-  {
-    pagePath: '/pages/index/index',
-    i18nKey: 'nav.home',
-    icon: 'assets/tabbar/home.png',
-    activeIcon: 'assets/tabbar/home-active.png',
-  },
-  {
-    pagePath: '/pages/community/index',
-    i18nKey: 'nav.community',
-    icon: 'assets/tabbar/community.png',
-    activeIcon: 'assets/tabbar/community-active.png',
-  },
-  {
-    pagePath: '/pkg-learn/course/list',
-    i18nKey: 'nav.courses',
-    icon: 'assets/tabbar/course.png',
-    activeIcon: 'assets/tabbar/course-active.png',
-  },
-  {
-    pagePath: '/pkg-learn/live/list',
-    i18nKey: 'nav.live',
-    icon: 'assets/tabbar/live.png',
-    activeIcon: 'assets/tabbar/live-active.png',
-  },
-  {
-    pagePath: '/pages/user/index',
-    i18nKey: 'nav.profile',
-    icon: 'assets/tabbar/user.png',
-    activeIcon: 'assets/tabbar/user-active.png',
-  },
+  { pagePath: '/pages/index/index', label: '智汇社区', icon: 'home' },
+  { pagePath: '/pages/community/index', label: 'AI agent', icon: 'bot' },
+  { pagePath: '/pages/plaza/index/index', label: '广场', icon: 'layout-grid' },
+  { pagePath: '/pages/user/index', label: '我的', icon: 'user' },
+  { pagePath: '/pages/share/index', label: '分享星球', icon: 'share-2' },
 ]
 
-// 配色:激活用品牌灰蓝,未激活用 muted-foreground(2026-09-07 复刻旧App TabBar 品牌色选中态)
-const ACTIVE_COLOR = 'var(--color-brand-accent)'
-const INACTIVE_COLOR = 'var(--color-muted-foreground)'
+// 配色:选中 --color-foreground / 未选中 --color-text-tertiary(2026-10-16 用户定稿液态玻璃+深色中性,
+// 与原生 tabBar theme.json tabColor/tabSelected、mobile-rn/TabBar.styles.ts 同两档,彻底替换紫色档)
+const COLOR_ACTIVE = 'var(--color-foreground)'
+const COLOR_INACTIVE = 'var(--color-text-tertiary)'
 
 export default function CustomTabBar() {
-  const { t } = useI18n()
+  const { resolved } = useAppTheme()
   const [current, setCurrent] = useState<string>(() => {
     try {
       const pages = Taro.getCurrentPages()
@@ -77,26 +59,44 @@ export default function CustomTabBar() {
   }
 
   return (
-    <View className="fixed left-0 right-0 bottom-0 z-50 bg-card flex">
+    <View
+      className={`fixed z-50 flex ${resolved === 'dark' ? 'dark' : ''}`}
+      style={{
+        left: '24rpx',
+        right: '24rpx',
+        bottom: '0',
+        marginBottom: 'calc(12rpx + env(safe-area-inset-bottom))',
+        backgroundColor: 'var(--color-glass-bg)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        borderRadius: '24rpx',
+        borderWidth: '1rpx',
+        borderStyle: 'solid',
+        borderColor: 'var(--color-border-medium)',
+        paddingTop: '12rpx',
+        paddingBottom: '12rpx',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
+      }}
+    >
       {TABS.map((item) => {
         const active = current === item.pagePath
         return (
           <View
             key={item.pagePath}
-            className="flex-1 flex flex-col items-center justify-center pt-[6px] pb-[2px]"
+            className="flex-1 flex flex-col items-center justify-center"
             onClick={() => switchTab(item)}
             hoverClass="opacity-60"
           >
-            <Image
-              className="w-[24px] h-[24px]"
-              src={active ? item.activeIcon : item.icon}
-              mode="aspectFit"
+            <LineIcon
+              name={item.icon}
+              size={24}
+              color={active ? COLOR_ACTIVE : COLOR_INACTIVE}
             />
             <Text
-              className="mt-[2px] text-[10px]"
-              style={{ color: active ? ACTIVE_COLOR : INACTIVE_COLOR }}
+              className="mt-[4px] text-[10px]"
+              style={{ color: active ? COLOR_ACTIVE : COLOR_INACTIVE }}
             >
-              {t(item.i18nKey)}
+              {item.label}
             </Text>
           </View>
         )
