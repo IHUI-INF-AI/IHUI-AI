@@ -87,6 +87,28 @@ class TestExtractDisplayName:
         """非 JWT(cookie 串)⇒ device_map.nickname 兜底。"""
         assert extract_display_name("cookie-string-not-jwt", {"nickname": "网页账号"}) == "网页账号"
 
+    def test_device_map_account_phone_highest(self):
+        """device_map.account(tc 捕获落库的完整 profile)⇒ 手机号优先。
+
+        TRAE JWT payload 只有 data.id 无身份字段,手机号只能从这里取(2026-10-16 李总报障)。
+        """
+        dm = {
+            "account": {"username": "智汇AI", "email": "a@aizhs.top", "phone": "18643389808"},
+            "nickname": "智汇AI",
+        }
+        assert extract_display_name("not-a-jwt", dm) == "18643389808"
+
+    def test_device_map_account_beats_jwt_payload(self):
+        """account 与 JWT payload 都有时,account(捕获侧真值)优先。"""
+        jwt = make_jwt({"email": "jwt@aizhs.top"})
+        dm = {"account": {"phone": "18643389808"}}
+        assert extract_display_name(jwt, dm) == "18643389808"
+
+    def test_device_map_account_username_only(self):
+        """account 无手机/邮箱时取账户名。"""
+        dm = {"account": {"username": "lichunchuan", "nickname": "智汇AI"}}
+        assert extract_display_name("not-a-jwt", dm) == "lichunchuan"
+
     def test_device_map_nickname_uuid_skipped(self):
         """兜底值是 UUID 也不给(返回 None,调用方保持原名)。"""
         jwt = "cookie-string"
