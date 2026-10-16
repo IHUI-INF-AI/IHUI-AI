@@ -246,10 +246,24 @@ export function measureDir(path, { maxEntries = 120000, byTop = false } = {}) {
  *
  * 纯函数 + 注入 `env`/`exists`:判据要能在非 Windows runner 上被成对夹具判,而不是靠当次机器态。
  */
+export const SYSTEM32_SUBDIR = 'System32'
+
+/**
+ * 裸名派生的形状锁材料(§22c 单一出处):门内自检与 §22c 镜像测试都吃这一份。
+ * 拆成两份的失效形态是"门改了形状而测试仍绿" —— 那正是本仓记过多次的安静失效。
+ */
+export const CALLSITE_SHAPE = {
+  bareCallRe: /execFileSync\(\s*['"](?:w32tm|tasklist)/,
+  resolverCallRe: /resolveSystemExe\(/g,
+  resolverCalls: 2,
+  whyRe: /running: null, why:/,
+  viaRe: /取用档=/,
+}
+
 export function systemExePaths(name, env = process.env) {
   const root = env.SystemRoot || env.windir || env.WINDIR || ''
   const out = []
-  if (root) out.push(join(root, 'System32', name))
+  if (root) out.push(join(root, SYSTEM32_SUBDIR, name))
   out.push(name)
   return out
 }
@@ -1318,6 +1332,8 @@ function attributionText(m, now) {
  * 是别的工具**正在用**的缓存(Trae 1.45 万、Node 编译缓存 7485、tsx 3701),照做就是毁掉在跑的工具。
  * ⇒ 出路只能指向"标了闲置天数的那几枚",并给本项目自己的夹具出口。
  */
+export const SCRUB_TEMP_FIXTURES_ROUTE = 'node scripts/scrub-temp-fixtures.mjs --apply'
+
 export function growthRow(id, m, bytesLimit, entriesLimit, { now = Date.now() } = {}) {
   const overBytes = m.bytes > bytesLimit
   const overEntries = entriesLimit ? m.entries > entriesLimit : false
@@ -1328,7 +1344,7 @@ export function growthRow(id, m, bytesLimit, entriesLimit, { now = Date.now() } 
   const owners = over ? attributionText(m, now) : ''
   const how = id.startsWith('P4a')
     ? ' | 出路:上面**标了"已闲置 N 天"的那几枚**才是可清的(按名逐个删,删前先改名验句柄);"近 24h 有动"的是 Trae/Node/tsx 这类在用缓存,' +
-      '整目录镜像清空会连正在跑的工具一起毁,不得照做;本项目自己的夹具走 `node scripts/scrub-temp-fixtures.mjs --apply`(名字围栏 + 账龄闸)'
+      `整目录镜像清空会连正在跑的工具一起毁,不得照做;本项目自己的夹具走 \`${SCRUB_TEMP_FIXTURES_ROUTE}\`(名字围栏 + 账龄闸)`
     : ''
   return {
     id,
@@ -2757,7 +2773,7 @@ export async function selfTest() {
     return iTrae > 0 && iStray > iTrae && /nscD071\.tmp\(1123 文件\/[0-9.]+MB\/已闲置 7 天\)/.test(rowOver.detail)
   })())
   t('在用与闲置分别标出(近 24h 有动 = 在用,7 天没动 = 已闲置)', /trae-agent-toolhost\([^)]*近 24h 有动,在用\)/.test(rowOver.detail))
-  t('出路不得再写"镜像空目录清该目录"(那是叫人毁在用缓存的指令)', !/镜像空目录清该目录/.test(rowOver.detail) && /不得照做/.test(rowOver.detail) && /scrub-temp-fixtures\.mjs --apply/.test(rowOver.detail))
+  t('出路不得再写"镜像空目录清该目录"(那是叫人毁在用缓存的指令)', !/镜像空目录清该目录/.test(rowOver.detail) && /不得照做/.test(rowOver.detail) && rowOver.detail.includes(SCRUB_TEMP_FIXTURES_ROUTE))
   t('反向锁:摘掉 top ⇒ 正文不凭空点名,而判定照旧 finding(归属只影响文案,不影响红绿)', (() => {
     const r = growthRow('P4a', { ...fixOver, top: null }, LIMITS.devenvTempBytes, LIMITS.devenvTempEntries, { now: fixNow })
     return r.state === 'finding' && !/大头:/.test(r.detail)
@@ -2795,9 +2811,9 @@ export async function selfTest() {
   })())
   t('形态锁:w32tm/tasklist 两处调用点必须走解析器,且 baiduSyncRunning 失败必须带 why(原裸 catch 把 error 当场丢弃)', (() => {
     const src = String(runW32tm) + String(baiduSyncRunning)
-    if (/execFileSync\(\s*['"](?:w32tm|tasklist)/.test(src)) return false
-    if ((src.match(/resolveSystemExe\(/g) || []).length !== 2) return false
-    return /running: null, why:/.test(String(baiduSyncRunning)) && /取用档=/.test(src)
+    if (CALLSITE_SHAPE.bareCallRe.test(src)) return false
+    if ((src.match(CALLSITE_SHAPE.resolverCallRe) || []).length !== CALLSITE_SHAPE.resolverCalls) return false
+    return CALLSITE_SHAPE.whyRe.test(String(baiduSyncRunning)) && CALLSITE_SHAPE.viaRe.test(src)
   })())
   t('时钟解析补档:月在前(en-US,SYSTEM 档默认区域)能解出时刻且 PM 换算对', parseLastSync('Last Successful Sync Time:9/28/2026 7:52:42 PM') === Date.parse('2026-09-28T19:52:42'))
   t('时钟解析:12:05:00 AM 是 0 点(不是 12 点),1:30:00 AM 是凌晨 —— AM/PM 两支各一条', parseLastSync('Last Successful Sync Time:1/5/2026 12:05:00 AM') === Date.parse('2026-01-05T00:05:00') && parseLastSync('Last Successful Sync Time:1/5/2026 1:30:00 AM') === Date.parse('2026-01-05T01:30:00'))
@@ -3140,6 +3156,9 @@ if (isDirectRun) {
 export const __test__ = {
   measureDir,
   growthRow,
+  SCRUB_TEMP_FIXTURES_ROUTE,
+  SYSTEM32_SUBDIR,
+  CALLSITE_SHAPE,
   systemExePaths,
   resolveSystemExe,
   heartbeatRecord,
