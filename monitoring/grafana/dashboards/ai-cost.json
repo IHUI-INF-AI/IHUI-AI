@@ -331,22 +331,22 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"input\"}[5m]))",
+          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"input\"}[1h]))",
           "legendFormat": "input",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"output\"}[5m]))",
+          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"output\"}[1h]))",
           "legendFormat": "output",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"cache_read\"}[5m]))",
+          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"cache_read\"}[1h]))",
           "legendFormat": "cache_read",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"cache_creation\"}[5m]))",
+          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"cache_creation\"}[1h]))",
           "legendFormat": "cache_creation",
           "refId": "A"
         }
@@ -488,7 +488,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (call_type, status) (rate(business_ai_calls_total{job=\"business-metrics\"}[5m]))",
+          "expr": "sum by (call_type, status) (rate(business_ai_calls_total{job=\"business-metrics\"}[1h]))",
           "legendFormat": "{{call_type}} {{status}}",
           "refId": "A"
         }
@@ -530,7 +530,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (direction) (rate(business_ai_tokens_total{job=\"business-metrics\"}[5m]))",
+          "expr": "sum by (direction) (rate(business_ai_tokens_total{job=\"business-metrics\"}[1h]))",
           "legendFormat": "{{direction}}",
           "refId": "A"
         }
