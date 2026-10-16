@@ -27,8 +27,11 @@ export function ExamHistoryScreen() {
     if (refresh) setRefreshing(true)
     else setLoading(true)
     setError('')
-    const res = await fetchApi<ExamHistoryItem[]>('/api/exam/records')
-    if (res.success) setHistory(res.data ?? [])
+    // 后端 GET /exam/records 回 success({list,total,page,pageSize})(exam.ts:649)，
+    // 而这里曾把整个信封当数组用 —— 与 HistoryScreen 同一型：FlatList 拿到对象不报错，
+    // 只是永远空列表。web 侧读的是 r.data?.list(user/exam/page.tsx)。
+    const res = await fetchApi<{ list: ExamHistoryItem[] }>('/api/exam/records')
+    if (res.success) setHistory(res.data?.list ?? [])
     else setError(apiFailureToText(res, t('examHistory.loadFailed')))
     setLoading(false)
     setRefreshing(false)

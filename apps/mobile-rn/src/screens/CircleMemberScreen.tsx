@@ -37,12 +37,15 @@ export function CircleMemberScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<ApiMember[]>(
+      /** 后端回 success({ list, total, page, pageSize }),整串信封不是数组 —— 按数组读会得到空列表。 */
+      const res = await fetchApi<{ list: ApiMember[]; total: number }>(
         `/api/circles/${encodeURIComponent(circleId)}/members`,
+        // 该路由 querystring 的 pageSize 默认 20,而本屏没有分页器 ⇒ 显式取到 schema 允许的上限
+        { params: { pageSize: 100 } },
       )
       if (res.success) {
         setItems(
-          (res.data ?? []).map((m) => ({
+          (res.data?.list ?? []).map((m) => ({
             id: m.id,
             name: m.nickname,
             avatar: m.avatar,

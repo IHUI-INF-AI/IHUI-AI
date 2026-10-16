@@ -13,7 +13,6 @@
 
 import type { TFunction } from './app-shared.js'
 
-
 /** 批次 9:Agent/问答/证书/提现/VIP 对比/分享(2026-07-29) */
 
 /** Agent 详情(平台注入,字段对齐 mobile-rn AgentDetailScreen) */
@@ -96,6 +95,18 @@ export interface AgentReviewListScreenProps {
 /** 模型类型(对齐 mobile-rn ModelPlazaScreen ModelType) */
 export type ModelPlazaModelType = 'text' | 'image' | 'av'
 export type ModelPlazaTypeFilter = 'all' | ModelPlazaModelType
+
+/**
+ * 聊天页底部的 8 种模型类型按钮(skills 技能 / talk 对话 / image 图片 / video 视频 /
+ * audio 音频 / videoa 数字人 / other 其他 / sck 知识库)。
+ *
+ * 立此单源的原因：同一副值域在仓里有三份逐字相同的副本(小程序 ModelTypeButton 导出那份、
+ * RN ChatScreen 与 HomeScreen 各一份)。刻意不叫 `ModelType` —— 那名字已被
+ * legacy-migration.ts 占用且语义是"LLM 厂商枚举"(同名不同物，本仓 ui-native-components.ts
+ * 立 ModelConfigType 时为同一件事留过注记)。
+ */
+export type ChatModelType =
+  'skills' | 'talk' | 'image' | 'video' | 'audio' | 'videoa' | 'other' | 'sck'
 
 /** 模型广场供应商(对齐 mobile-rn ModelPlazaScreen Provider) */
 export interface ModelPlazaProvider {

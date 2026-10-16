@@ -590,22 +590,31 @@ test('T15 文档面取材的退化防线:源脚本读 AGENTS.md/README.md 必须
  * 面口径说明(避免被误读成"镜像测试也判 HEAD"):本文件读**磁盘**,因为它是开发者侧回归;
  * 提交链上那道门判 HEAD / --staged 判索引。两者互补,不互相替代。
  */
-test('T16 R8 的前提锁:runner 调度循环必须**没有**把归一层包进 try(否则"抛错=中止整批"这个红理由失效)', () => {
+test('T16 R8 的前提锁:调度循环必须**没有**把归一层包进 try(否则"抛错=中止整批"这个红理由失效)', () => {
   const root = fileURLToPath(new URL('../..', import.meta.url))
-  const runner = readFileSync(join(root, 'scripts/guardian-runner.mjs'), 'utf8')
-  const at = runner.indexOf('for (const check of effectiveChecks)')
-  assert.ok(at > 0, 'runner 的调度循环锚点找不到 —— 结构变了,本测试与 R8 都要跟着改')
-  const call = runner.indexOf('stagedPathsTouch(check.stagedTriggers)', at)
-  assert.ok(call > 0, 'runner 不再走 stagedPathsTouch(check.stagedTriggers) 这一形态 ⇒ R8 的红理由需重估')
+  // 2026-10-16 执行段外置(C1 收口):调度循环与 stagedTriggers 触达逐字搬到
+  // scripts/lib/guardian-executor.mjs 的 runGuardianBatch 内,本锁跟着落点走;
+  // import 链断言改为两跳:runner → executor → guardian-triggers(运行时仍是同一份归一实现)。
+  const executor = readFileSync(join(root, 'scripts/lib/guardian-executor.mjs'), 'utf8')
+  const at = executor.indexOf('for (const check of effectiveChecks)')
+  assert.ok(at > 0, '执行器的调度循环锚点找不到 —— 结构变了,本测试与 R8 都要跟着改')
+  const call = executor.indexOf('stagedPathsTouch(check.stagedTriggers)', at)
+  assert.ok(call > 0, '执行器不再走 stagedPathsTouch(check.stagedTriggers) 这一形态 ⇒ R8 的红理由需重估')
   assert.ok(
-    !runner.slice(at, call).includes('try {'),
+    !executor.slice(at, call).includes('try {'),
     '归一调用已被 try 包住 ⇒ 一次非法注册不再中止整批 ⇒ R8 必须从"判红"降为"报数",不得继续按旧理由拦人',
   )
-  // 同一条前提的第二个失效面:红条件委托的是**运行时那份** lib,若 runner 换掉 import 源就失效
+  // 同一条前提的第二个失效面:红条件委托的是**运行时那份** lib,若链上任一跳换掉 import 源就失效
+  const runner = readFileSync(join(root, 'scripts/guardian-runner.mjs'), 'utf8')
   assert.match(
     runner,
-    /from '\.\/lib\/guardian-triggers\.mjs'/,
-    'runner 必须仍从 lib 取归一实现 —— 换成第二份实现时,R8 委托的契约就不再是运行时那份',
+    /from '\.\/lib\/guardian-executor\.mjs'/,
+    'runner 必须经 executor 外置层调度 —— 链断了说明执行段被复制回 runner,双份实现必漂移',
+  )
+  assert.match(
+    executor,
+    /from '\.\/guardian-triggers\.mjs'/,
+    '执行器必须仍从共享 lib 取归一实现 —— 换成第二份实现时,R8 委托的契约就不再是运行时那份',
   )
 })
 

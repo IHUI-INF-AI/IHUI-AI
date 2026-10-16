@@ -35,8 +35,12 @@ export default function MemoryPage() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetchApi<MemoryItem[]>('/memory', { params: { page: 1, pageSize: 30 } })
-      if (res.success) setItems(res.data)
+      // 后端 GET /memory 回的是 { entries, total }(memory.ts 的列表 handler)，不是数组；
+      // 本页面此前按数组取 data ⇒ items 拿到的是信封对象，列表区永远没有内容。
+      const res = await fetchApi<{ entries: MemoryItem[] }>('/memory', {
+        params: { page: 1, pageSize: 30 },
+      })
+      if (res.success) setItems(res.data?.entries ?? [])
       else setError(res.error || t('common.failed'))
     } catch (e) {
       setError(e instanceof Error ? e.message : t('common.failed'))

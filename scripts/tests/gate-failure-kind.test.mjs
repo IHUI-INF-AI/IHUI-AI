@@ -76,8 +76,12 @@ test('C5 处置动作必须真给出来(光说"未判定"不写怎么清偿 = �
 
 test('C6 装车:runner 必须真调这把尺子,并把崩溃单独成档(判函数体,不判相邻文本窗口)', () => {
   const here = resolve(fileURLToPath(import.meta.url), '../../..')
-  const src = readFileSync(resolve(here, 'scripts/guardian-runner.mjs'), 'utf-8')
-  assert.match(src, /from '\.\/lib\/gate-failure-kind\.mjs'/, 'runner 没引这把尺子')
+  // 2026-10-16 执行段外置:applyGateResult(调尺子的地方)逐字搬到 scripts/lib/guardian-executor.mjs,
+  // 本锁跟着落点走;链路改为 runner → executor → 本 lib(同目录 import),运行时仍是同一份实现。
+  const src = readFileSync(resolve(here, 'scripts/lib/guardian-executor.mjs'), 'utf-8')
+  const runner = readFileSync(resolve(here, 'scripts/guardian-runner.mjs'), 'utf-8')
+  assert.match(runner, /from '\.\/lib\/guardian-executor\.mjs'/, 'runner 没接执行器外置层(链断 = 双份实现)')
+  assert.match(src, /from '\.\/gate-failure-kind\.mjs'/, '执行器没引这把尺子')
   assert.match(src, /decideGateOutcome\(\{/, '引了却没调用 = 提交链上一路绿灯')
   assert.match(src, /crashedGates\.push\(/, '崩溃没被单独成档')
   assert.match(src, /crashAdvisory\(/, '汇总里没给处置动作')
@@ -96,7 +100,8 @@ test('C6 装车:runner 必须真调这把尺子,并把崩溃单独成档(判函�
 
 test('C7 stderr 必须仍被吐回上游(改 pipe 之后,"子门的话看得见"靠的是这段代码)', () => {
   const here = resolve(fileURLToPath(import.meta.url), '../../..')
-  const src = readFileSync(resolve(here, 'scripts/guardian-runner.mjs'), 'utf-8')
+  // 2026-10-16 执行段外置:这段捕获/回吐在 applyGateResult 里,随执行段搬到 executor lib。
+  const src = readFileSync(resolve(here, 'scripts/lib/guardian-executor.mjs'), 'utf-8')
   assert.match(
     src,
     /process\.stderr\.write\(gateStderr\)/,

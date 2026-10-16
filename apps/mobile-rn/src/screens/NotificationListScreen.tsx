@@ -26,9 +26,12 @@ export function NotificationListScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<NotificationListItem[]>('/api/notifications')
+      // 后端 GET /notifications 回分页信封(notifications.ts 的列表 handler：
+      // success({ list, total, page, pageSize, unread }))，此前本屏把整个信封当数组用
+      // ⇒ 通知列表永远空，且没有任何一层会红。
+      const res = await fetchApi<{ list: NotificationListItem[] }>('/api/notifications')
       if (!res.success) throw new Error()
-      setItems(res.data ?? [])
+      setItems(res.data?.list ?? [])
     } catch {
       setError(t('notificationList.loadFailed'))
     } finally {
