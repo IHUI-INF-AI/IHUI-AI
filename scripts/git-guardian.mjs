@@ -3585,24 +3585,43 @@ function samePath(a, b) {
  * 于是每 10 秒 `cpSync(BACKUP, GITDIR)` 一次,25MB 备份内容被灌进 `.git` 指针文件 ⇒
  * `fatal: too large to be a .git file`,整仓不可用。①正是这条链的断口。
  */
+/**
+ * `gitdirTargetSafe` 的**纯判据层**(§22c:镜像测试直接吃这份,不在测试里复制第二份判据)。
+ *
+ * 为什么单列:真实现要 stat 本机路径,而这一格的判据本身是"三个输入 ⇒ 一个结论",
+ * 把它留在只有 side effect 的函数里,就只能靠"在真仓上把 .git 换成一个大文件"来取证 ——
+ * 那台机上每条 git 命令都会失败,而这是一棵**共享工作树**,别人正在提交。
+ * 所以形态三态在此判清,现场演练交给人(见 ledger 行 L15556 的残余),不由守护自己制造。
+ *
+ * @param {{ samePointer?: boolean, exists?: boolean, isDirectory?: boolean }} p
+ *   samePointer = GITDIR 解析后与工作树 `.git` 指针文件同路径(自指损坏态);
+ *   exists/isDirectory = 对 GITDIR 的 stat 结果投影(读不出来时调用方给 exists:true,isDirectory:false 也不行,
+ *   必须走 unreadable 一支)。
+ * @returns {{ok:boolean, why:string}} false ⇒ 调用方必须放弃一切破坏性恢复
+ */
+export function gitdirTargetVerdict({ samePointer = false, exists = false, isDirectory = false, unreadable = false } = {}) {
+  if (samePointer)
+    return { ok: false, why: 'GITDIR 解析成指针文件自身 —— 自指损坏态,写它等于删库;先修 scripts/lib/gitdir.mjs 的解析,勿在此放行' }
+  if (unreadable) return { ok: false, why: 'GITDIR 形态读不出来 ⇒ 不猜它是目录,拒绝恢复(宁可不修,不可误删)' }
+  if (exists && !isDirectory) return { ok: false, why: 'GITDIR 已存在却不是目录 ⇒ 先人工确认,勿覆盖' }
+  return { ok: true, why: exists && isDirectory ? '已存在且是目录' : '不存在,可安全建目录' }
+}
+
 function gitdirTargetSafe() {
-  if (samePath(GITDIR, POINTER)) {
-    log(
-      `⛔ 拒绝恢复:GITDIR 解析成指针文件自身(${POINTER})—— 自指损坏态,写它等于删库;` +
-        ` 先修 scripts/lib/gitdir.mjs 的解析,勿在此放行`,
-    )
-    return false
-  }
+  let v
   try {
-    if (existsSync(GITDIR) && !statSync(GITDIR).isDirectory()) {
-      log(`⛔ 拒绝恢复:GITDIR 已存在却不是目录(${GITDIR})—— 先人工确认,勿覆盖`)
-      return false
-    }
+    const exists = existsSync(GITDIR)
+    v = gitdirTargetVerdict({
+      samePointer: samePath(GITDIR, POINTER),
+      exists,
+      isDirectory: exists ? statSync(GITDIR).isDirectory() : false,
+    })
   } catch (e) {
-    log(`⛔ 拒绝恢复:GITDIR 形态读不出来(${GITDIR}): ${String((e && e.message) || e)}`)
+    log(`⛔ 拒绝恢复:${gitdirTargetVerdict({ unreadable: true }).why}(${GITDIR}): ${String((e && e.message) || e)}`)
     return false
   }
-  return true
+  if (!v.ok) log(`⛔ 拒绝恢复:${v.why}(${GITDIR})`)
+  return v.ok
 }
 
 /** 兜底 1:从本地备份恢复实体(快,Gitee 不可达时用) */
@@ -4351,6 +4370,7 @@ if (isDirectRun) {
 // §22c 镜像测试出口:通知层"是否应当发信"的全部判据(指纹/去重窗口/退避/状态归一/argv 契约)
 // 必须能在零副作用、零网络、零真收件人的前提下取证。
 export const __test__ = {
+  gitdirTargetVerdict,
   judgeRefsHealth,
   alertFingerprint,
   stableAlertFingerprint,
