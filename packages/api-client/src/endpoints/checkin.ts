@@ -29,6 +29,7 @@ import type {
   CheckinDeleteResponse,
   CheckinGroupUpdateResponse,
   CheckinJwtUpdateResponse,
+  CheckinNameUpdateResponse,
   CheckinRecord,
   CheckinRecordsResponse,
   CheckinSchedulerStatusResponse,
@@ -38,6 +39,7 @@ import type {
   ManualCheckinResponse,
   UpdateCheckinAccountGroupIn,
   UpdateCheckinAccountJwtIn,
+  UpdateCheckinAccountNameIn,
 } from '@ihui/types'
 import { fetchAiServiceJson } from '../client.js'
 
@@ -117,8 +119,21 @@ export async function updateCheckinAccountGroup(
   )
 }
 
-/** 手动触发签到:尊重冷却与全局限流(命中返回 429),结果照写 records */
-export async function manualCheckinAccount(accountId: number): Promise<ManualCheckinResponse> {
+/** 更新账号展示名(重命名;旧版捕获的 UUID 编码名由用户就地改名) */
+export async function updateCheckinAccountName(
+  accountId: number,
+  name: string,
+): Promise<CheckinNameUpdateResponse> {
+  const body: UpdateCheckinAccountNameIn = { name }
+  return unwrap<CheckinNameUpdateResponse>(
+    await fetchAiServiceJson<CheckinNameUpdateResponse>(
+      `/api/checkin/accounts/${encodeURIComponent(String(accountId))}/name`,
+      { method: 'PATCH', body: JSON.stringify(body) },
+    ),
+  )
+}
+
+/** 手动触发签到:尊重冷却与全局限流(命中返回 429),结果照写 records */export async function manualCheckinAccount(accountId: number): Promise<ManualCheckinResponse> {
   return unwrap<ManualCheckinResponse>(
     await fetchAiServiceJson<ManualCheckinResponse>(
       `/api/checkin/accounts/${encodeURIComponent(String(accountId))}/checkin`,

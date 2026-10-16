@@ -112,6 +112,11 @@ export interface UpdateCheckinAccountGroupIn {
   group: string
 }
 
+/** PATCH /accounts/{id}/name 请求体(重命名展示名) */
+export interface UpdateCheckinAccountNameIn {
+  name: string
+}
+
 /** PATCH /accounts/{id}/device_map 请求体(整体替换设备指纹 map;≤16KB) */
 export interface UpdateCheckinDeviceMapIn {
   device_map: Record<string, unknown>
@@ -154,6 +159,13 @@ export interface CheckinGroupUpdateResponse {
   ok: boolean
   id: number
   group: string
+}
+
+/** PATCH /accounts/{id}/name 响应(重命名) */
+export interface CheckinNameUpdateResponse {
+  ok: boolean
+  id: number
+  name: string
 }
 
 /** PATCH /accounts/{id}/device_map 响应(2026-10-11 立) */

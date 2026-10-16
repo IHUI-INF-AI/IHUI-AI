@@ -70,6 +70,7 @@ import {
   setCheckinAccountEnabled,
   updateCheckinAccountGroup,
   updateCheckinAccountJwt,
+  updateCheckinAccountName,
   type CheckinAccount,
   type CheckinCreditsHistoryItem,
   type CheckinRecord,
@@ -175,6 +176,10 @@ export default function CheckinPage() {
 
   // 行内操作态
   const [checkingId, setCheckingId] = React.useState<number | null>(null)
+  // 行内重命名(2026-10-16):点名称直接改,Enter 存 / Esc 弃 / 失焦存
+  const [renamingId, setRenamingId] = React.useState<number | null>(null)
+  const [renameDraft, setRenameDraft] = React.useState('')
+  const [renaming, setRenaming] = React.useState(false)
   const [deleteTarget, setDeleteTarget] = React.useState<CheckinAccount | null>(null)
   const [deleting, setDeleting] = React.useState(false)
   const [actionError, setActionError] = React.useState<string | null>(null)
@@ -1205,6 +1210,38 @@ export default function CheckinPage() {
     }
   }
 
+  const startRename = (account: CheckinAccount) => {
+    setRenamingId(account.id)
+    setRenameDraft(account.name)
+    setActionError(null)
+  }
+
+  const cancelRename = () => {
+    setRenamingId(null)
+    setRenameDraft('')
+  }
+
+  const commitRename = async (account: CheckinAccount) => {
+    if (renamingId !== account.id || renaming) return
+    const name = renameDraft.trim()
+    // 空值或未改动:直接退出编辑态,不发请求
+    if (!name || name === account.name) {
+      cancelRename()
+      return
+    }
+    setRenaming(true)
+    try {
+      await updateCheckinAccountName(account.id, name)
+      setAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, name } : a)))
+      setActionError(null)
+    } catch (e) {
+      setActionError((e as Error).message)
+    } finally {
+      setRenaming(false)
+      cancelRename()
+    }
+  }
+
   const confirmDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
@@ -1223,6 +1260,15 @@ export default function CheckinPage() {
   // 本地时区的 YYYY-MM-DD(后端 created_at 是 UTC ISO,签到「今天」按本地日历日算)
   const localDateStr = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+  // 今日是否已签到(2026-10-16):最近一次记录成功且发生在本地今天。
+  // 与「一键全部签到」的跳过判据同口径(last.ok===true && 本地日==今天);
+  // 今日签到失败(ok=false)不算已签,按钮仍可点,允许当天重试。
+  const isCheckedInToday = (account: CheckinAccount) => {
+    const last = account.last_record
+    if (!last || last.ok !== true || !last.created_at) return false
+    return localDateStr(new Date(last.created_at)) === localDateStr(new Date())
+  }
 
   // 一键全部签到:对 enabled 账号顺序执行(不并发轰炸),账号间随机错峰;
   // 跳过今日已签 / JWT 过期 / 冷却中账号,命中全局限流(429)立即中止整批,
@@ -1852,16 +1898,45 @@ export default function CheckinPage() {
                           />
                         </TableCell>
                         <TableCell>
-                          {/* UUID-shaped account name: truncate + hover for full value */}
-                          <TruncatedText
-                            value={account.name}
-                            className="max-w-[420px] font-medium"
-                          />
+                          {/* UUID-shaped account name: truncate + hover;点击即行内重命名 */}
+                          {renamingId === account.id ? (
+                            <Input
+                              autoFocus
+                              value={renameDraft}
+                              aria-label={t('rename')}
+                              onChange={(e) => setRenameDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') void commitRename(account)
+                                if (e.key === 'Escape') cancelRename()
+                              }}
+                              onBlur={() => void commitRename(account)}
+                              disabled={renaming}
+                              className="h-7 max-w-[420px] text-sm"
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              title={t('rename')}
+                              aria-label={t('rename')}
+                              onClick={() => startRename(account)}
+                              className="block max-w-full cursor-text text-left"
+                            >
+                              <TruncatedText
+                                value={account.name}
+                                className="max-w-[420px] font-medium"
+                              />
+                            </button>
+                          )}
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             {renderPlatformBadge(account.platform)}
                             {renderGroupBadge(account.group)}
                             {renderJwtBadge(account.jwt_exp)}
                             {renderCooldownBadge(account.cooldown_until)}
+                            {isCheckedInToday(account) && (
+                              <span className="inline-flex items-center rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
+                                {t('checkedInToday')}
+                              </span>
+                            )}
                           </div>
                           {/* Fallback slot for the last-checkin column: strictly complementary to that column's visibility, never duplicated nor lost. See globals.css .checkin-page block. */}
                           <div className="checkin-name-last-checkin mt-1 text-[10px] text-muted-foreground">
@@ -1940,9 +2015,15 @@ export default function CheckinPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              disabled={checkingId !== null || allChecking}
+                              disabled={
+                                checkingId !== null || allChecking || isCheckedInToday(account)
+                              }
                               aria-label={
-                                checkingId === account.id ? t('checking') : t('manualCheckin')
+                                isCheckedInToday(account)
+                                  ? t('checkedInToday')
+                                  : checkingId === account.id
+                                    ? t('checking')
+                                    : t('manualCheckin')
                               }
                               onClick={() => void runManualCheckin(account)}
                             >
@@ -1951,7 +2032,11 @@ export default function CheckinPage() {
                               )}
                               {/* Label hidden below 459px content width by container query; accessible name comes from aria-label */}
                               <span className="checkin-manual-label">
-                                {checkingId === account.id ? t('checking') : t('manualCheckin')}
+                                {isCheckedInToday(account)
+                                  ? t('checkedInToday')
+                                  : checkingId === account.id
+                                    ? t('checking')
+                                    : t('manualCheckin')}
                               </span>
                             </Button>
                             <Button
