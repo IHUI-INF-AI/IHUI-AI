@@ -3288,7 +3288,12 @@ export function bumpProbeStreak(prev, results, opt = {}) {
     const verdict = String((r && r.verdict) || '')
     if (verdict === 'breach' || verdict === 'ok' || verdict === 'unjudged') handled.add(key)
     const before = src[key] && typeof src[key] === 'object' ? src[key] : null
-    const prior = Number.isFinite(Number(before?.streak)) ? Math.max(0, Number(before.streak)) : 0
+    // **来历不明的账不拿来加连击**:条目的时刻在未来(实测一例:测试夹具把 `now` 固定成 2027 年
+    // 又没覆写状态件路径,污染了生产账本)⇒ 按不可信处理,prior 记 0 并点名。否则同身份真越阈的
+    // 第一轮会被这条脏数据顶成"第 2 轮"当场放行,持续性门槛等于被绕过。
+    const beforeTs = Date.parse(String(before?.lastSeenAt || before?.firstAt || ''))
+    const beforeOk = before !== null && !(Number.isFinite(beforeTs) && beforeTs > now)
+    const prior = beforeOk && Number.isFinite(Number(before?.streak)) ? Math.max(0, Number(before.streak)) : 0
     if (verdict === 'breach') {
       const prevLast = Date.parse(String(before?.lastSeenAt || ''))
       // **同一节流窗口里的重复测量不推进连击**:守护在这台机上有两个执行体(2 分钟计划任务 +
@@ -3313,20 +3318,30 @@ export function bumpProbeStreak(prev, results, opt = {}) {
     }
   }
   const pruned = []
+  const bogus = []
   for (const [key, entry] of Object.entries(src)) {
     if (state[key] || handled.has(key)) continue
     const first = Date.parse(String(entry?.firstAt || ''))
     const last = Date.parse(String(entry?.lastSeenAt || ''))
     // 年龄锚:有 breach 用 firstAt(从第一次红算起),纯 stale 用 lastSeenAt;两个都读不出 ⇒ 直接回收。
     const ageAnchor = Number.isFinite(first) ? first : Number.isFinite(last) ? last : null
-    const ageMs = ageAnchor === null ? Infinity : now - ageAnchor
-    if (ageMs <= ttlMs) {
+    // **时刻在未来 ⇒ 这条账不可信,必须回收并点名**。实测成因:一版测试夹具的 `now` 固定成
+    // 2027-01-15,而它没覆写状态件路径就调了生产派发点 ⇒ 真账本里落了一条"未来"条目;
+    // `now - ageAnchor` 为负 ⇒ 永远 ≤ ttl ⇒ 这条永生,并且同身份真越阈第一轮就被它顶成 due。
+    const inFuture = ageAnchor !== null && ageAnchor > now
+    if (!inFuture && ageMsSafe(ageAnchor, now) <= ttlMs) {
       state[key] = entry
       continue
     }
-    pruned.push({ key, streak: Number(entry?.streak) || 0, ageAnchor: ageAnchor === null ? null : iso(ageAnchor), lastSeenAt: entry?.lastSeenAt || null })
+    pruned.push({ key, streak: Number(entry?.streak) || 0, ageAnchor: ageAnchor === null ? null : iso(ageAnchor), lastSeenAt: entry?.lastSeenAt || null, reason: inFuture ? '时刻在未来(不可信)' : '本轮未再出现且超龄' })
+    if (inFuture) bogus.push(key)
   }
-  return { state, info, cleared, pruned }
+  return { state, info, cleared, pruned, bogus }
+}
+
+/** 年龄(毫秒);锚点读不出 ⇒ Infinity(按"最坏年龄"处理,直接回收而不是留在册上)。 */
+function ageMsSafe(anchor, now) {
+  return anchor === null ? Infinity : now - anchor
 }
 
 export function auditPublicPathProbe(opts = {}) {
@@ -3411,7 +3426,8 @@ export function auditPublicPathProbe(opts = {}) {
     const bump = bumpProbeStreak(prevStreak, results, { now, required: effRequired, ttlMs: streakTtlMs, minGapMs })
     for (const c of bump.cleared) logger(`✅ 公网探测连击清零:${c.key}(此前连 ${c.from} 轮,本轮已判定合规)`)
     for (const [key, i] of Object.entries(bump.info)) if (i.merged) logger(`ℹ️ 公网探测重复测量(距上轮 ${Math.round(i.gapMs / 1000)}s < 最小间隔 ${Math.round(minGapMs / 1000)}s,两个执行体撞进同一个节流窗口)⇒ 不推进连击:${key} 仍算连 ${i.streak}/${i.required} 轮`)
-    for (const p of bump.pruned) logger(`ℹ️ 公网探测连击条目回收(本轮未再出现且距 ${p.ageAnchor || p.lastSeenAt || '不可知'} 已超 ${Math.max(1, Math.round(streakTtlMs / 3600000))}h):${p.key} 连 ${p.streak} 轮`)
+    for (const p of bump.pruned) logger(`ℹ️ 公网探测连击条目回收(${p.reason},距 ${p.ageAnchor || p.lastSeenAt || '不可知'}):${p.key} 连 ${p.streak} 轮`)
+    if (bump.bogus.length) logger(`⚠️ 公网探测连击账本里有 ${bump.bogus.length} 条时刻不可信的条目(在未来):${bump.bogus.join(', ')} —— 已回收,且不参与本轮连击;来历通常是夹具或时钟漂移`)
     try {
       mkdirSync(dirname(streakFile), { recursive: true })
       writeFileSync(streakFile, JSON.stringify(bump.state, null, 1), 'utf8')
