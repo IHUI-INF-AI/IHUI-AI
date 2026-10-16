@@ -3600,6 +3600,102 @@ const TUNNEL_LEG_LAST = join(WORKTREE, '.workbuddy', 'tunnel-leg-health-last.jso
 const TUNNEL_LEG_INTERVAL_MS = Number(process.env.IHUI_TUNNEL_LEG_INTERVAL_MS || 15 * 60 * 1000)
 const TUNNEL_LEG_TIMEOUT_MS = Number(process.env.IHUI_TUNNEL_LEG_TIMEOUT_MS || 90_000)
 
+/**
+ * 隧道指标落台账的**常驻**派发点(尺子本体 = `scripts/record-tunnel-metrics.mjs`)。
+ *
+ * 为什么单立一格而不是塞进隧道腿哨(2026-10-16 实测出来的缺口):
+ * 腿哨判的是"此刻"的状态(腿在不在 / 源地址退没退化 / 落点在哪个 PoP),它**不留时间轴**;
+ * 而 cloudflared 服务没有 --logfile、monitoring/prometheus 里也没有 cloudflared job ⇒
+ * 今天定位"公网入口慢"时只能当场临时抓一次 metrics,回答不了"什么时候开始劣化的、
+ * 落点什么时候换的、回源错误率怎么走的"。这一格只做一件事:每 15 分钟把白名单指标
+ * **追加一行**到 `.workbuddy/tunnel-metrics.jsonl`,让下次事故有得回放。
+ *
+ * 三条纪律(与腿哨同格):
+ *  ① **只落盘与报数,不判红、不寄信** —— 累计值本身不构成告警语义,落点变化/进程重启
+ *     才是有意义的信号,那两档也只进日志;
+ *  ② **取不到就点名**(进程不在 / 端口没枚举到 / HTTP 失败 / 抽不出指标)⇒ 写未判定,
+ *     绝不落一行"全 0"充数 —— 假台账比没台账更害人;
+ *  ③ 节流而非封量,与其余派发点同语义。
+ */
+const TUNNEL_METRICS_TICK = join(WORKTREE, '.workbuddy', 'tunnel-metrics-tick.ts')
+const TUNNEL_METRICS_LAST = join(WORKTREE, '.workbuddy', 'tunnel-metrics-last.json')
+const TUNNEL_METRICS_INTERVAL_MS = Number(process.env.IHUI_TUNNEL_METRICS_INTERVAL_MS || 15 * 60 * 1000)
+const TUNNEL_METRICS_TIMEOUT_MS = Number(process.env.IHUI_TUNNEL_METRICS_TIMEOUT_MS || 60_000)
+
+export function auditTunnelMetrics(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = TUNNEL_METRICS_INTERVAL_MS,
+    tickFile = TUNNEL_METRICS_TICK,
+    lastFile = TUNNEL_METRICS_LAST,
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'record-tunnel-metrics.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 隧道指标台账:尺子脚本不在位(scripts/record-tunnel-metrics.mjs)⇒ 本轮跳过,不记为已落盘')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true,
+                timeout: TUNNEL_METRICS_TIMEOUT_MS,
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'],
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return { status: typeof e.status === 'number' ? e.status : 2, stdout: String(e.stdout || ''), stderr: String(e.stderr || e.message || '') }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || typeof parsed !== 'object') {
+      logger(`ℹ️ 隧道指标台账:本轮未取到(未判定,不落行)—— ${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/)[0].slice(0, 140)}`)
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    if (parsed.ok !== true) {
+      logger(`ℹ️ 隧道指标台账:未判定 —— ${String(parsed.reason || '(尺子未给原因)').slice(0, 200)}`)
+      return { ran: true, judged: false, why: '尺子未取到' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify({ at: new Date(now).toISOString(), ...parsed }, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响 --status 可见性 */
+    }
+    const d = parsed.diff && typeof parsed.diff === 'object' ? parsed.diff : {}
+    if (d.restarted === true) logger(`⚠️ 隧道指标台账报数:cloudflared 进程在本轮与上一轮之间**重启过**(累计计数已归零重来,差分按 null 处理)`)
+    if (d.popChanged === true) logger(`⚠️ 隧道指标台账报数:隧道落点 PoP 变了 ⇒ 上一轮 ${String(parsed.previousPops?.join('/') || '(未读)')} → 本轮 ${String((parsed.pops || []).join('/') || '(未读)')}`)
+    if (Number.isFinite(d.errorsDelta) && d.errorsDelta > 0) logger(`⚠️ 隧道指标台账报数:本轮新增回源错误 ${d.errorsDelta} 次(累计 ${parsed.requestErrors ?? '(未读)'})`)
+    logger(`✅ 隧道指标台账:已落一行(腿 ${parsed.haConnections ?? '?'} 条,落点 ${(parsed.pops || []).join('/') || '(未读)'},累计请求 ${parsed.totalRequests ?? '?'},回源错误 ${parsed.requestErrors ?? '?'})⇒ ${String(parsed.ledger || '.workbuddy/tunnel-metrics.jsonl')}`)
+    return { ran: true, judged: true, ok: true, ledger: parsed.ledger || null, diff: d }
+  } catch (e) {
+    logger('⚠️ 隧道指标台账派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
 export function auditTunnelLegHealth(opts = {}) {
   const {
     now = Date.now(),
@@ -4449,6 +4545,7 @@ function main() {
     // 判"未判定"只写日志不喊人;它不改本守护退出码 —— 探测失败不等于 .git 失败。
     if (!CHECK_ONLY) auditPublicPathProbe()
     if (!CHECK_ONLY) auditTunnelLegHealth()
+    if (!CHECK_ONLY) auditTunnelMetrics()
     // 不能进提交链,而"手动问责"等于只有人在跑 —— 本行是它唯一的调度器。挂进 CHECK_ONLY 分支等于永不执行。
     if (!CHECK_ONLY) auditOrphanDeletionRefs()
     // TEMP 夹具清扫器同理:判据/保护面/镜像测试全在,唯独没人调度 ⇒ 本项目命名的残留过完账龄就永久留着。
@@ -4713,6 +4810,7 @@ export const __test__ = {
   stableAlertFingerprint,
   auditPublicPathProbe,
   auditTunnelLegHealth,
+  auditTunnelMetrics,
   bumpProbeStreak,
   parseNotifyState,
   shouldAlert,
