@@ -2487,6 +2487,18 @@
           "markdownDescription": "Enables the embedded_browser_close command without any pre-configured scope."
         },
         {
+          "description": "Enables the embedded_browser_devtools command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-devtools",
+          "markdownDescription": "Enables the embedded_browser_devtools command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_new_tab command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-new-tab",
+          "markdownDescription": "Enables the embedded_browser_new_tab command without any pre-configured scope."
+        },
+        {
           "description": "Enables the embedded_browser_open command without any pre-configured scope.",
           "type": "string",
           "const": "allow-embedded-browser-open",
@@ -3013,6 +3025,18 @@
           "type": "string",
           "const": "deny-embedded-browser-close",
           "markdownDescription": "Denies the embedded_browser_close command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_devtools command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-devtools",
+          "markdownDescription": "Denies the embedded_browser_devtools command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_new_tab command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-new-tab",
+          "markdownDescription": "Denies the embedded_browser_new_tab command without any pre-configured scope."
         },
         {
           "description": "Denies the embedded_browser_open command without any pre-configured scope.",

@@ -41,9 +41,9 @@ use std::sync::OnceLock;
 use std::time::Duration;
 
 use serde::Serialize;
-use tauri::{Manager, Url};
+use tauri::Url;
 
-use crate::embedded_browser::BROWSER_LABEL;
+use crate::embedded_browser::active_webview;
 use crate::IpcError;
 
 /// 网页版站点根(本域 API 基址:/console/accounts、/v2/billing/meter/* 都挂在它下面)。
@@ -189,7 +189,7 @@ fn shared_client() -> &'static reqwest::Client {
 /// 窗口由 `embedded_browser_open` 建(本文件不建窗:单一真相源)。
 #[tauri::command]
 pub async fn checkin_workbuddy_web_login_probe(app: tauri::AppHandle) -> Result<WebLoginProbe, IpcError> {
-    let Some(win) = app.get_webview_window(BROWSER_LABEL) else {
+    let Some(win) = active_webview(&app) else {
         return Ok(WebLoginProbe::NoWindow);
     };
     let url = Url::parse(&format!("{WB_WEB_ORIGIN}/"))
