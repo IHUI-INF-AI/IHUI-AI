@@ -22,10 +22,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync, execFileSync } from 'node:child_process'
-import { writeFileSync, existsSync, readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { writeFileSync, existsSync, readFileSync, readdirSync, mkdirSync } from 'node:fs'
+import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { relativeImportClosure } from '../lib/scratch-module-closure.mjs'
 // 形态锁必须判**代码面**:本仓库不止一次记过"说明性文字也会带执行性字符" ——
 // 源脚本的 JSDoc 里逐字引用了被禁的旧写法,拿原文跑反向锁就会把注释当成代码判红。
 // 遮罩实现只有一份(scripts/lib/code-mask.mjs),测试不得自己再写一份。
@@ -381,17 +382,36 @@ test('parseEnv 剥离单/双引号包裹的值', () => {
 // 退出(不回落默认路径 —— 回落等于把"用户以为写到别处"换成"静默写到 .env.migrated")。
 // 缺省档(不给这两个旗标)由 M21 拿 HEAD 副本做同瞬间 A/B 逐字节对账。
 
-/** 取 HEAD 版脚本落到临时目录,和当前版在同一瞬间对照 —— 不碰仓库、不碰工作树 */
+/** 取 HEAD 版脚本连同它的相对 import 闭包落到临时目录,和当前版在同一瞬间对照 —— 不碰仓库、不碰工作树。
+ *  G-322 把取值收口进 scripts/lib/flag-value.mjs 后,"只拷单文件"的前提不再成立(入口的 `./lib/flag-value.mjs`
+ *  在 scratch 里找不到 ⇒ MODULE_NOT_FOUND ⇒ RC 平白不等)。闭包清单按当次推导,唯一源 = 共用层
+ *  relativeImportClosure(§22c 引真函数不手抄);逐成员一律 `git show HEAD:scripts/<rel>` 取被审面(取磁盘=工作树自比,不是"改前")。
+ *  取不到被审面 ⇒ 显式 throw「未判定」,绝不回落另一个面(§0.3)。 */
 function writeHeadCopy(dir, name = 'migrate.head.mjs') {
-  const src = execFileSync(
-    'git',
-    ['-c', 'safe.directory=*', 'show', 'HEAD:scripts/migrate-llm-providers.mjs'],
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
-  )
-  const p = join(dir, name)
-  writeFileSync(p, src, 'utf8')
-  return p
+  const scriptsDir = join(REPO_ROOT, 'scripts')
+  const entryRel = 'migrate-llm-providers.mjs'
+  const closure = [...relativeImportClosure(scriptsDir, entryRel)].map((r) => r.replace(/\\/g, '/'))
+  let entryOut = null
+  const top = new Set()
+  for (const rel of closure) {
+    let blob
+    try {
+      blob = execFileSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:scripts/${rel}`], {
+        cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    } catch (e) {
+      throw new Error(`取不到 HEAD:scripts/${rel} —— 未判定(闭包成员在改前面缺失): ${e?.message ?? e}`)
+    }
+    const out = rel === entryRel ? join(dir, name) : join(dir, rel)
+    mkdirSync(dirname(out), { recursive: true })
+    writeFileSync(out, blob, 'utf8')
+    top.add(rel === entryRel ? name : rel.split('/')[0])
+    if (rel === entryRel) entryOut = out
+  }
+  if (!entryOut) throw new Error(`闭包里不含入口 ${entryRel} —— 未判定`)
+  return { path: entryOut, top }
 }
 
 function runFile(cwd, scriptPath, args) {
@@ -517,12 +537,12 @@ test('缺省档逐字不变:同瞬间拿 HEAD 副本与新副本跑,stdout/stder
       }
       const head = writeHeadCopy(dirA)
       // 相对路径跑,产物名一致 ⇒ 字节可比(绝对路径会把两个临时目录名本身打进输出)
-      const a = runFile(dirA, head, c.args)
+      const a = runFile(dirA, head.path, c.args)
       const b = runFile(dirB, SCRIPT_PATH, c.args)
       assert.equal(b.status, a.status, `${c.name}:RC 不同 a=${a.status} b=${b.status}\n${a.err}\n${b.err}`)
       assert.equal(b.out, a.out, `${c.name}:stdout 不同形\n--- HEAD ---\n${a.out}\n--- 现在 ---\n${b.out}`)
       assert.equal(b.err, a.err, `${c.name}:stderr 不同形\n${a.err}\n${b.err}`)
-      const filesA = readdirSync(dirA).filter((f) => !f.endsWith('.mjs')).sort()
+      const filesA = readdirSync(dirA).filter((f) => !f.endsWith('.mjs') && !head.top.has(f)).sort()
       const filesB = readdirSync(dirB).sort()
       assert.deepEqual(filesB, filesA, `${c.name}:产物文件集合不同`)
       for (const f of filesB) {
