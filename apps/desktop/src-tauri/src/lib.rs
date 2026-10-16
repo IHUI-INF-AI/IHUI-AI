@@ -3013,8 +3013,10 @@ pub fn run() {
                         log::warn!("[desktop-event] emit desktop-window-focus failed: {}", e);
                     }
                 }
-                // 2026-10-16 省内存:窗口失焦 ⇒ WebView2 内存目标档位切 Low
-                // (官方机制,非活动态可降 ~95%);回前台切回 Normal。
+                // 2026-10-16 省内存(两层):① 内存目标档位切 Low/Normal(官方机制,
+                // 非活动态可降 ~95%);② WebView2 官方挂起/恢复 TrySuspend/Resume(真正
+                // 冻结 webview、释放渲染进程,保留页面状态无重载)。两层都在「窗口失焦 ⇒
+                // 挂起+Low;回前台 ⇒ 恢复+Normal」。
                 // main/admin 各自只有一个 webview(main 是薄壳主窗,内存最大头);
                 // 内嵌浏览器窗要遍历它的全部标签 webview。
                 if label == "main" || label == "admin" || label == embedded_browser::BROWSER_WINDOW_LABEL {
@@ -3025,6 +3027,7 @@ pub fn run() {
                             || wl == embedded_browser::BROWSER_WINDOW_LABEL
                         {
                             embedded_browser::set_memory_low(&wv, !focused);
+                            embedded_browser::set_suspend(&wv, !focused);
                         }
                     }
                 }
