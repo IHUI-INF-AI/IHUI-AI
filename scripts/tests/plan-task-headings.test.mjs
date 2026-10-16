@@ -26,6 +26,10 @@ import {
   shapeCoverageVerdict,
   parseCompletedTaskBlocks,
 } from '../lib/plan-task-headings.mjs'
+import { collectIdFace } from '../lib/plan-id-face.mjs'
+// §22c:覆盖面那条臂用的 grandfathered 清单从生产门(守门 13c)的 `__test__` 里取,
+// 不在测试里抄第二份 —— 抄了就会有一份先漂(门 191 判的就是这型)。
+import { __test__ as gate13 } from '../check-project-plan-archive.mjs'
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -45,38 +49,81 @@ try {
   headPlan = ''
 }
 
-test('真实 HEAD 面:##+✅ 形态必须逐字被保护集与搬运集认出(判据与所守对象同形)', () => {
+/**
+ * 真实语料 = 台账 ⊕ 归档件(同一被审面、同一轮取数;唯一出口 `lib/plan-id-face.mjs`,不另写枚举)。
+ *
+ * 为什么 2026-10-16 起取样面跟着搬家:归档阈值 0 起,`##`/`###` 级已完成小节被**合法搬空**——
+ * 现读 HEAD 台账面 `^## .*✅` 与 `^### .*✅` 都是 0 条(连 2026-10-14 改档前那枚也一样),
+ * 而同一批原文逐字活在 34 份归档件里(h2 ✅ 775 条 / h3 ✅ 576 条)。本文件 2026-10-03 那次
+ * 重校(搬运集基线 ≥71 → ≥30)登记的就是同一型,今天连 30 都不成立。
+ * 「判据与所守对象同形」守的是**仓库里真实存在过的形态**,它们只是换了面 ⇒ 断言跟着换面取样,
+ * 而不是把数量调低。判据射程(§1 粒度 `##`/`###`)一个字没动。
+ */
+let corpusCache = null
+function realCorpus() {
+  if (corpusCache !== null) return corpusCache
+  const sha = execFileSync('git', ['-c', 'safe.directory=*', 'rev-parse', 'HEAD'], {
+    cwd: REPO,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  }).trim()
+  const f = collectIdFace({ root: REPO, source: sha, doc: 'PROJECT_PLAN.md', ledgerText: headPlan })
+  assert.ok(
+    f.ok && f.undetermined.length === 0,
+    `宽面取不齐 ⇒ 判死,绝不回落"只有台账"的窄面:${f.undetermined.join(' / ') || f.notes.join(' / ')}`,
+  )
+  // 一次性取数:宽面 = 台账 + 34 份归档件拼接,现读 121 MB;三条臂各跑一次会把夜间 soak 拖成
+  // 分钟级。同一轮内 sha 固定,缓存不引入"两臂读不同面"的错位(那正是本仓记过的失效型)。
+  corpusCache = f.text
+  return corpusCache
+}
+
+test('真实语料(台账⊕归档件):## 与 ### 级 ✅ 形态必须逐字被保护集与搬运集认出(判据与所守对象同形)', () => {
   assert.ok(headPlan.length > 1000, 'HEAD 面 PROJECT_PLAN.md 取不到 ⇒ 本用例判死,不是跳过')
-  const realLine = headPlan
-    .split(/\r?\n/)
-    .find((l) => /^## .+✅/.test(l) && /^## .*(2026-\d\d-\d\d)/.test(l))
-  assert.ok(realLine, 'HEAD 面实测存在 ##+✅+日期 行,取不到说明现读失败')
-  assert.equal(isCompletedTaskHeading(realLine), true, '保护集必须认出真实 ## 级条目')
-  assert.equal(isArchivableTaskHeading(realLine), true, '搬运集必须认出真实 ## 级 ✅ 条目')
-  assert.ok(extractCompletedTaskHeadings(headPlan).includes(realLine))
+  const corpus = realCorpus()
+  for (const re of [/^## .+✅/, /^### .+✅/]) {
+    const realLine = corpus.split(/\r?\n/).find((l) => re.test(l))
+    assert.ok(realLine, `${re.source} 在本仓真实语料里一条都找不到 —— 那是取证面不对,不是"没有"`)
+    assert.ok(/\d{4}-\d{2}-\d{2}/.test(realLine), `真实条目该带完成日期,取样取到了不带日期的行:${realLine}`)
+    assert.equal(isCompletedTaskHeading(realLine), true, '保护集必须认出真实条目标题')
+    assert.equal(isArchivableTaskHeading(realLine), true, '搬运集必须认出真实 ##/### 级 ✅ 条目')
+    assert.ok(extractCompletedTaskHeadings(corpus).includes(realLine), '逐字提取必须取到同一行')
+  }
 })
 
-test('真实 HEAD 面:量级对账 —— 搬运集/###✅/bullet 三维重校基线(G-1018204 出路①),禁止把看不见写成没有', () => {
+test('真实语料量级 census + 覆盖面按生产口径判台账面(G-1018204 出路①,禁止把看不见写成没有)', () => {
   assert.ok(headPlan.length > 1000)
-  const archivable = headPlan
-    .split(/\r?\n/)
-    .filter(isArchivableTaskHeading).length
-  // G-1018204 量级重校(2026-10-03,票面出路①:合法归档,非吞级):
-  // 旧基线 ≥71 立于 bullet 级归档(2026-09-28)之前。漂移的 22 个 ## ✅ 条目已逐条
-  // 取证 —— 标题全部可溯到 .ihui-agent/archive/PROJECT_PLAN_*.md 归档件,且
-  // PROJECT_PLAN.md 内留有 `<!-- 已归档(2026-09-28:…) -->` 占位(归档锚点在位,
-  // 13c 反查可闭合)⇒ 这是"完成即归档"的合法减量,不是 union/自愈吞级。
-  // 现量(lib 判据现读):搬运集 52(## 38 + ### 14)、bullet 完成 6480。
-  // ### ✅ 从 0 → 14 是同期新完成的 h3 级条目按同一判据被认出,不是降级吞并
-  // (22 个消失的 ## 标题在归档件里逐字可查,若被降级则会在 HEAD 面出现,
-  // 实测不在)。下限留并发归档的减量容差;大幅偏离时按同一条规矩重新取证
-  // 再重校,不得静默改数。
-  assert.ok(archivable >= 30, `HEAD 面搬运集应 ≥30(重校基线 52,容并发归档减量),实得 ${archivable}`)
-  const h3Archivable = headPlan
-    .split(/\r?\n/)
-    .filter((l) => isArchivableTaskHeading(l) && /^### /.test(l)).length
-  assert.ok(h3Archivable >= 8, `HEAD 面 ### ✅ 应 ≥8(重校基线 14),实得 ${h3Archivable}`)
-  assert.ok(countBulletCompleted(headPlan) >= 5000, 'bullet 级必须报出真实量级(重校基线 6480)')
+  const corpus = realCorpus()
+  const lines = corpus.split(/\r?\n/)
+  // ① 普查必须看见射程内两种形态:任一为 0 = 取样面失效(尺子坏了),不是"仓库里没有"。
+  const h2 = lines.filter((l) => /^## .+✅/.test(l)).length
+  const h3 = lines.filter((l) => /^### .+✅/.test(l)).length
+  assert.ok(h2 > 0 && h3 > 0, `真实语料普查 h2 ✅=${h2} / h3 ✅=${h3} ⇒ 任一为 0 就是取样面失效`)
+  // ② 集合关系:搬运集 ⊂ 保护集(由构造保证,这里再用真实语料验一遍)。
+  const protectedSet = extractCompletedTaskHeadings(corpus)
+  const archivableSet = lines.filter(isArchivableTaskHeading)
+  assert.ok(protectedSet.length > 0 && archivableSet.length > 0, '两侧都空 ⇒ 本用例退化成复读机')
+  assert.ok(
+    archivableSet.every((l) => protectedSet.includes(l)),
+    '搬运集 ⊄ 保护集 ⇒ 归档器会搬走本该被 13c 保护的行',
+  )
+  // ③ 覆盖面判据按**生产同一口径、同一取材面**判:门 13c 判的是被审的台账文档正文,归档件不在
+  //    它射程(归档件的一级标题是容器名,不是任务条目)。不在这里换成宽面跑,那是给生产判据另造
+  //    一个它从不判的输入(与"同一判据两处各写一遍必漂移"同一条理由)。
+  const t3 = shapeCoverageVerdict(headPlan, {
+    grandfathered: gate13.T3_GRANDFATHERED_SHAPES,
+    bulletCount: countBulletCompleted(headPlan),
+  })
+  assert.equal(t3.red.length, 0, `现行提取式对台账面普查见得到的形态必须全覆盖:${t3.red.join(' | ')}`)
+  // ④ 量级**只如实打印,不再当断言**:原三条下限(搬运集 ≥30/### ✅ ≥8/bullet ≥5000)立于
+  //    2026-10-03,那时台账面还有 ##/### 条目与 6480 行 bullet 完成项;完成即归档把这三类
+  //    一路搬薄(今天台账面 ##/### ✅ 均 0、bullet 完成 50)。把数字改小只是把下一次恒红往后推,
+  //    而"看不见"这件事已由 ①②③ 用性质判掉 —— 数字留给取证读,不当闸。
+  console.info(
+    `ℹ 现读量级:台账⊕归档件 h2 ✅=${h2} / h3 ✅=${h3};保护集=${protectedSet.length} 搬运集=${archivableSet.length};` +
+      `台账面 bullet 完成=${countBulletCompleted(headPlan)};台账面 grandfathered 报数=${t3.report.length} 形态`,
+  )
 })
 
 test('子集不变量(构造面):含"已完成"无"✅"被保护但永不可搬', () => {
@@ -145,14 +192,17 @@ test('shapeCoverageVerdict:现行提取式对 h2/h3 全覆盖;h5 新形态必红
   assert.equal(gf.report.length, 1)
 })
 
-test('变异对照(§22c 要求的"有牙"):提取式若退回只认 ###,真实 HEAD 面必须整批判失明', () => {
-  assert.ok(headPlan.length > 1000)
+test('变异对照(§22c 要求的"有牙"):提取式若退回只认 ###,真实语料必须整批判失明', () => {
+  const corpus = realCorpus()
   const narrow = (line) => line.startsWith('### ') && (line.includes('✅') || line.includes('已完成'))
-  const v = shapeCoverageVerdict(headPlan, { isCovered: narrow })
+  const v = shapeCoverageVerdict(corpus, { isCovered: narrow })
   assert.ok(
     v.red.some((r) => r.includes('h2|✅')),
-    '收窄回旧式后 ##+✅(HEAD 面 71 处)必须被判红 —— 这正是 2026-09 那次空转的形态',
+    '收窄回旧式后 ##+✅ 必须被判红 —— 这正是 2026-09 那次空转的形态(取样面用台账⊕归档件,所以这一牙不随台账搬薄而失效)',
   )
+  // 反向对照:同一份语料用现行提取式判,不得报出 h2|✅ ⇒ 证明上一条红是"收窄"造成的,不是语料本身脏
+  const now = shapeCoverageVerdict(corpus)
+  assert.ok(!now.red.some((r) => r.includes('h2|✅')), '现行提取式不该把 h2|✅ 判成未覆盖')
 })
 
 test('countBulletCompleted:缩进项也计,未完成 `- [ ]` 不计', () => {

@@ -112,7 +112,14 @@ test('T5 判据方向:绕开包装=红,走包装=绿(构造面,不依赖仓库�
 
 /** 自己派生进程的字面量(用拼接构造,免得本测试文件自己成为被量的形状)。 */
 const SPAWN_FN = 'exec' + 'FileSync'
-const SPAWN_RE = new RegExp(`\\b(?:${SPAWN_FN}|execSync|spawnSync|spawn)\\s*\\(`)
+// 射程 = **用派生进程去取正文**(守门 118 那条取材面纪律)。原先它匹配*任何* spawn,
+// 于是本门跑 Python 做跨语言对账(`spawnSync(python, ['-c', …])`)也被判成散写 —— 那是假红:
+// 跨语言对账不读 git 面上的正文,而派生进程的 stdio/通道纪律另有门 193/199 在判(§12g),
+// 一把尺不该替另一把尺执法。收紧成"只有拿 git 取内容才算"。
+const GIT_BIN_ARG = 'GIT_BIN|' + "'" + 'git' + "'" + '|resolveGitBin\\s*\\(' 
+const SPAWN_RE = new RegExp(
+  `\\b(?:${SPAWN_FN}|execSync|spawnSync|spawn)\\s*\\(\\s*(?:${GIT_BIN_ARG})`,
+)
 /** 把标识符绑到裸 git 二进制(型 B 的输入:引号包住的裸名)。 */
 const BARE_GIT_Q = "'" + 'git' + "'"
 const BARE_GIT_RE = new RegExp(`["']git(?:\\.exe)?["']`)
@@ -137,6 +144,21 @@ test('T6 取材必须走层:引层 + 真调用层的读取出口,且不得再自
     "import { catBatch, gitRaw } from './lib/face-reader.mjs'\nconst m = catBatch(ROOT, ['HEAD:a.ts'])\nreturn gitRaw(['ls-files'], ROOT)\n"
   assert.equal(spawnsOwnProcess(goodLayer), false, '正确写法被误伤:走层不得算散写')
   assert.equal(bindsBareGit(goodLayer), false, '正确写法被误伤:层调用里的 HEAD:a.ts 不是裸 git 名')
+  // 收紧射程后必须有正负两条对照,免得"不再误伤"变成"再也没有牙":
+  //   负向 = 跑 Python 做跨语言对账(不取 git 面正文)⇒ 不算散写;
+  //   正向 = 退回自派生 git 取正文 ⇒ 必须检出。
+  const pyParity = ['spawn', 'Sync', '(python, ', '"-c"]'].join('') + '\n'
+  assert.equal(
+    spawnsOwnProcess(pyParity),
+    false,
+    '跨语言对账跑 Python 子进程不归取材面纪律管(stdio/通道另有门 193/199 判),不得误伤',
+  )
+  const gitRead = `${SPAWN_FN}(GIT_BIN, ['show', 'HEAD:a.ts'])\n`
+  assert.equal(
+    spawnsOwnProcess(gitRead),
+    true,
+    '退回自派生 git 取正文必须仍被检出 ⇒ 收紧后这条不能变成无牙',
+  )
 
   // ── 对本门的三条断言
   assert.match(

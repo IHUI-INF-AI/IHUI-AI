@@ -401,6 +401,7 @@ const RED_KINDS = new Set(['loose-git', 'loose-fs', 'half-wired'])
 /** 聚合(纯函数,自检/镜像靠构造输入证明它有牙)。 */
 export function decide({ verdicts, mode, pending = [] }) {
   const red = []
+  const inherited = []
   const counts = {
     face: 0,
     loose: 0,
@@ -409,6 +410,7 @@ export function decide({ verdicts, mode, pending = [] }) {
     noContent: 0,
     unreadable: 0,
     self: 0,
+    inheritedRed: 0,
     pendingInIndex: pending.length,
   }
   for (const v of verdicts) {
@@ -418,14 +420,24 @@ export function decide({ verdicts, mode, pending = [] }) {
     else if (RED_KINDS.has(v.kind)) {
       if (v.kind === 'half-wired') counts.halfWired++
       counts.loose++
-      if (mode === 'staged') red.push(v)
+      // **差值棘轮的锚点 = 该文件 HEAD 自己是不是已经红**(§0.5/§12e)。本档头注写的从来是
+      // "把取材方式**退回**散写就红;存量门不去碰它就只报数",而实现过去只看"这次碰没碰"——
+      // 于是任何人在一扇本来就以散写入库的门里改一行无关代码,都会被定责成"本任务自己的红",
+      // 2026-10-16 实测:`check-public-path-probe.mjs` 的 HEAD blob 与索引 blob 分类**完全同形**
+      // (都是 loose-fs,读的全是不在 HEAD 树里的运行台账),照样挡住那次交付。
+      // `headKind` 缺省(旧调用方/构造输入)⇒ 按"没对照过"处理,一律判红 —— 收紧方向不松动。
+      if (mode === 'staged') {
+        if (RED_KINDS.has(v.headKind)) inherited.push(v)
+        else red.push(v)
+      }
     } else if (v.kind === 'unknown') counts.unknown++
     else if (v.kind === 'no-content') counts.noContent++
     else if (v.kind === 'self') counts.self++
     else counts.unreadable++
   }
+  counts.inheritedRed = inherited.length
   const exit = counts.unreadable > 0 ? 2 : red.length > 0 ? 1 : 0
-  return { exit, red, counts, mode }
+  return { exit, red, inherited, counts, mode }
 }
 
 /** 取材(与守门 113/77/83 同形):全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 逃生舱 */
@@ -498,22 +510,39 @@ export function analyze(root, face) {
     gates = all
   }
   const texts = readFace(root, face, gates)
+  // `--staged` 档要问的第二面:**同一批文件在 HEAD 里长什么样**。差值棘轮的锚点必须是它自己
+  // 的存量(§0.5),否则改一行无关代码就会替一扇本来就散写入库的门挨这一刀(§12e 恒红门)。
+  // 对照面整块取不到 ⇒ **不放松**:退回"照判红",并报名依据 —— 宁多拦一次,绝不静默放行。
+  let headKinds = null
+  const notices = []
+  if (mode === 'staged') {
+    try {
+      const headTexts = readFace(root, 'head', gates)
+      headKinds = new Map(gates.map((p) => [p, classify(p, headTexts.get(p)).kind]))
+    } catch (e) {
+      notices.push(`⚠️ 存量对照面(HEAD)取不到:${(e?.message ?? String(e)).split(/\r?\n/)[0]} ⇒ 本档退回"照判红"(不因为量不到就放行)`)
+    }
+  }
   const verdicts = gates.map((p) => {
     const c = classify(p, texts.get(p))
-    return { file: p, ...c }
+    // headKind 缺 'absent' 一档:HEAD 里没有这个文件 = 本次新增的门 ⇒ 存量 0 ⇒ 照判红。
+    const headKind = headKinds ? headKinds.get(p) || 'absent' : undefined
+    return { file: p, ...c, ...(headKind ? { headKind } : {}) }
   })
+  const base = decide({ verdicts, mode, pending: pendingInIndex })
   return {
-    ...decide({ verdicts, mode, pending: pendingInIndex }),
+    ...base,
     verdicts,
     pendingInIndex,
-    notices:
+    notices: [
+      ...notices,
+      ...(base.inherited || []).map((v) => `存量同档(该门在 HEAD 里本来就是 ${v.headKind},本次没有把它接回取材层 ⇒ 只报数不判红,§12e):${v.file}`),
       mode === 'staged' || pendingInIndex.length === 0
-        ? []
-        : [
-            `在飞未入库的门脚本 ${pendingInIndex.length} 个(已 staged 未提交,不在 HEAD 面射程;只报名不判红、不参与退出码):${pendingInIndex
-              .slice(0, 5)
-              .join(', ')}${pendingInIndex.length > 5 ? ' …' : ''}`,
-          ],
+        ? null
+        : `在飞未入库的门脚本 ${pendingInIndex.length} 个(已 staged 未提交,不在 HEAD 面射程;只报名不判红、不参与退出码):${pendingInIndex
+            .slice(0, 5)
+            .join(', ')}${pendingInIndex.length > 5 ? ' …' : ''}`,
+    ].filter(Boolean),
   }
 }
 
@@ -613,7 +642,7 @@ function main(argv) {
   const tag =
     out.mode === 'staged' ? '本次改动' : '全量(只报数,不判红 —— 存量 122 型一次性判红就是恒红门)'
   console.log(
-    `${out.exit === 0 ? '✅' : out.exit === 2 ? '❌ 无法判定' : '❌ 判红'} ${tag}:经取材层 ${c.face} / 散写 ${c.loose} / 判不了(疑临时夹具) ${c.unknown} / 不读内容 ${c.noContent} / 取不到 ${c.unreadable} / 在飞未入库 ${c.pendingInIndex}`,
+    `${out.exit === 0 ? '✅' : out.exit === 2 ? '❌ 无法判定' : '❌ 判红'} ${tag}:经取材层 ${c.face} / 散写 ${c.loose}(其中存量同档不判红 ${c.inheritedRed}) / 判不了(疑临时夹具) ${c.unknown} / 不读内容 ${c.noContent} / 取不到 ${c.unreadable} / 在飞未入库 ${c.pendingInIndex}`,
   )
   return out.exit
 }
@@ -1122,6 +1151,44 @@ function selfTest() {
   eq(
     'F13 unknown 一律不进红(宁漏不误报)',
     decide({ verdicts: [{ file: 'x', kind: 'unknown', why: '' }], mode: 'staged' }).exit,
+    0,
+  )
+  // 差值棘轮的锚点方向(2026-10-16 补):`--staged` 的红必须是**本次带进来的**,存量同档只报数。
+  // 这四格各自钉住一个失效方向,少任何一格都等于把判据做成恒红门或把它挖空。
+  eq(
+    'F13b 存量同档(HEAD 本来就是 loose-fs)⇒ 不判红,但必须报数',
+    (() => {
+      const r = decide({ verdicts: [{ file: 'x', kind: 'loose-fs', headKind: 'loose-fs', why: '' }], mode: 'staged' })
+      return r.exit === 0 && r.red.length === 0 && r.inherited.length === 1 && r.counts.loose === 1 && r.counts.inheritedRed === 1
+    })(),
+    true,
+  )
+  eq(
+    'F13c 牙还在:HEAD 经取材层而现在散写 ⇒ 照判红',
+    decide({ verdicts: [{ file: 'x', kind: 'loose-fs', headKind: 'face', why: '' }], mode: 'staged' }).exit,
+    1,
+  )
+  eq(
+    'F13d 没带对照(旧调用方/对照面取不到)⇒ 一律照判红,收紧方向不许因为量不到就松动',
+    decide({ verdicts: [{ file: 'x', kind: 'loose-fs', why: '' }], mode: 'staged' }).exit,
+    1,
+  )
+  eq(
+    'F13e HEAD 里没有这个文件(本次新增的门)⇒ 判红',
+    decide({ verdicts: [{ file: 'x', kind: 'loose-fs', headKind: 'absent', why: '' }], mode: 'staged' }).exit,
+    1,
+  )
+  eq(
+    'F13f 换个散写形态(HEAD loose-git → 现在 loose-fs)仍是同一扇红门:不新增红,但报数',
+    (() => {
+      const r = decide({ verdicts: [{ file: 'x', kind: 'loose-fs', headKind: 'loose-git', why: '' }], mode: 'staged' })
+      return r.exit === 0 && r.inherited.length === 1 && r.counts.loose === 1
+    })(),
+    true,
+  )
+  eq(
+    'F13g full 档不受对照影响:同一份散写仍然只报数(存量语义与 headKind 无关)',
+    decide({ verdicts: [{ file: 'x', kind: 'loose-fs', headKind: 'face', why: '' }], mode: 'full' }).exit,
     0,
   )
   // 遮噪两层各自的方向(第一版就是因为混用一层而 F1/F2 双双假绿)

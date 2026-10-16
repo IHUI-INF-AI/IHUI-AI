@@ -23,6 +23,8 @@ fn main() {
             "embedded_browser_open",
             "embedded_browser_close",
             "embedded_browser_state",
+            "embedded_browser_new_tab",
+            "embedded_browser_devtools",
             "get_admin_window_info",
             "toggle_devtools",
             "quit_app",

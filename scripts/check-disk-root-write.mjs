@@ -112,7 +112,6 @@
  * 只读变更文件、廉价);紧急跳过 HUSKY_SKIP_DISK_ROOT_WRITE=1(不推荐)。
  */
 
-import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -1759,7 +1758,10 @@ export function selfTest() {
     'ST66 真仓 runner 面:注册条目 blocking + skipEnv 成套(接线四件套之 runner 件)',
     (() => {
       try {
-        const runnerText = readFileSync(resolve(ROOT, 'scripts/guardian-runner.mjs'), 'utf8')
+        // §0.4 + 本门头注(self-test 也只走 HEAD/索引):接线状态必须读 **HEAD blob**。
+        // 原先读盘上那份 guardian-runner —— 而 runner 是并行会话共改的注册面,2026-10-16 实测
+        // 对席一份滞后 WIP 把 213/214/216/217/218 五块删掉,本条就替别人未入库的旧态判红(§12e 同型)。
+        const runnerText = gitRaw(['show', 'HEAD:scripts/guardian-runner.mjs'], ROOT, { timeout: GIT_TIMEOUT })
         const w = wiringState(runnerText)
         return w.wired && w.missing.length === 0
       } catch {

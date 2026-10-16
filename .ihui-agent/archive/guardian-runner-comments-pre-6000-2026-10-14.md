@@ -149,3 +149,25 @@
   // 由 scripts/tests/check-brand-email-channel.test.mjs 的"装车证明"抓回):判据已扫到
   // monitoring/** 与 apps/api/scripts/**,若触发清单不跟上,则**只改 bridge 的提交在 pre-commit
   // 根本不会唤起本门** —— 判据存在而永不调用,等于没有(守门 70/76 同型)。
+
+## 门 214/215(sheet-flex 弹性契约 + RN hex 棘轮)注释逐字归档(2026-10-16,C1 上限腾行)
+
+> 背景:两门原注 213/214,与上游同日入场的「盘根写入回归锁」(现门 213)撞号,顺延 214/215。
+> 同笔 guardian-runner.mjs 触及 C1 行数上限(6009>6000),按 §1 两步归档腾行:下列注释逐字迁入,
+> runner 内仅留一行指针;判据字段一字未动。
+
+### 门 214 原注(mobile-rn sheet/弹窗 flex 弹性契约)
+  // --- sheet/弹窗 flex 弹性契约(1 项,blocking,2026-10-15 立;原注 213,2026-10-16 与上游盘根写入门撞号让位顺延 214,注册前已核 '214'/'215' 未被占用)---
+  // 病理:弹窗容器百分比 maxHeight 内部列表以自然高度渲染 → 撑爆 maxHeight → flexbox
+  // 把 flexShrink:1 的固定 chrome(标题/tab/搜索框)按比例压扁(实锤:模型弹窗 tab 33px→14px,
+  // 「标签背景文字都错位没居中」)。根治契约见 scripts/check-sheet-flex-contract.mjs 头注:
+  // bounded 容器内列表 = 唯一弹性块(style flex:1);固定 chrome 显式 flexShrink:0;
+  // 数据天然有限用 // sheet-flex-ok: <理由> 豁免。
+  // 触发面钉在 apps/mobile-rn/src/(脚本只扫该面);--staged 由 runner 统一追加,脚本不读 argv。
+
+### 门 215 原注(RN 端硬编码 hex 基线棘轮)
+  // RN 端硬编码 hex 基线棘轮(2026-10-16 接线;原注 214,同日撞号顺延 215):此前只挂 check:all,pre-commit 全程不跑 ⇒
+  // 新增硬编码 hex 无人拦。同日迁 face-reader:全量判 HEAD blob、--staged 判索引 blob(runner
+  // 统一追加,这里**不得写死**)、--worktree 仅人工逃生舱 —— 磁盘读会把共享工作树的半编辑态
+  // 顶红或把改对的盘上内容误当修好。基线 scripts/rn-style-parity-baseline.json 只减不增;
+  // 基线文件本身被改时也要触发(防止"顺手把红写进基线"绕开全量口径复核)。

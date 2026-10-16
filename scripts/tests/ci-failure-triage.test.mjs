@@ -28,8 +28,14 @@ const TARGET_WORKFLOWS = [
 ]
 const TMP = join(ROOT, '.ihui-agent', 'tmp', 'ci-triage-shared')
 
+// bash 解析:Windows 本机 PATH 常不含 bash(Git 装机自带但不入 PATH),裸 'bash' 会让全部
+// 真跑用例环境性红(CI windows-latest 上 bash 在 PATH ⇒ 本地红/CI 绿两处形态不一致,2026-10-16
+// 全量套件实证)。与 gitdir.mjs resolveGitBin 同族:显式候选在前,PATH 兜底。
+const BASH =
+  ['C:/Program Files/Git/bin/bash.exe', 'C:/Program Files (x86)/Git/bin/bash.exe'].find((p) => existsSync(p)) ?? 'bash'
+
 function runTriage(env, cwd) {
-  return spawnSync('bash', [SCRIPT], {
+  return spawnSync(BASH, [SCRIPT], {
     env: { ...process.env, ...env },
     cwd,
     encoding: 'utf8',
@@ -218,7 +224,7 @@ test('d: mutations prove the assertions have teeth; original untouched', () => {
     const mutant = original.replace(/tail -n 60/, 'tail -n 2')
     assert.notEqual(mutant, original, 'mutation must actually apply')
     writeFileSync(mutantPath, mutant, 'utf8')
-    const bad = spawnSync('bash', [mutantPath], {
+    const bad = spawnSync(BASH, [mutantPath], {
       env: { ...process.env, ...envM },
       cwd: TMP,
       encoding: 'utf8',
@@ -245,7 +251,7 @@ test('d: mutations prove the assertions have teeth; original untouched', () => {
     )
     assert.notEqual(mutant, original, 'mutation must actually apply')
     writeFileSync(mutantPath, mutant, 'utf8')
-    const bad = spawnSync('bash', [mutantPath], {
+    const bad = spawnSync(BASH, [mutantPath], {
       env: { ...process.env, ...envM },
       cwd: TMP,
       encoding: 'utf8',
@@ -279,9 +285,15 @@ test('wiring lock: every target workflow invokes the shared script under if: fai
     assert.match(text, /if: failure\(\)/, `${rel} triage step must be failure()-gated`)
     assert.match(text, /TRIAGE_WORKFLOW_FILE: /, `${rel} must pass its own file`)
     assert.match(text, /TRIAGE_IDS: /, `${rel} must pass the step-id list`)
-    // 每个工作流恰一次调用(防一个作业里写两份分诊)。
+    // 调用数必须与 triage 步骤名/TRIAGE_IDS 数三量对齐(防悬空调用、防一个作业写两份分诊、
+    // 防只添 env 没添步骤)。曾写死 calls===1 —— 当时各 workflow 单 job,ci-monorepo 长出
+    // 多 job 后该锁恒红(2026-10-16 全量套件实证的预存漂移,此处保意图修形)。
     const calls = (text.match(/bash scripts\/ci-failure-triage\.sh/g) || []).length
-    assert.equal(calls, 1, `${rel} must call the shared script exactly once`)
+    const steps = (text.match(/name: Failure triage \(public annotations\)/g) || []).length
+    const ids = (text.match(/TRIAGE_IDS: /g) || []).length
+    assert.ok(calls >= 1, `${rel} must invoke the shared script at least once`)
+    assert.equal(calls, steps, `${rel} 每次调用必须配对一个 "Failure triage (public annotations)" 步骤`)
+    assert.equal(calls, ids, `${rel} 每次调用必须配对一份 TRIAGE_IDS`)
     // 接 triage 不得顺手加 continue-on-error(判 triage 步骤块自身 —— ci.yml 在
     // python-ai-service 作业里本就有一处历史 continue-on-error: true,不属本次接线)。
     const start = text.indexOf('name: Failure triage (public annotations)')

@@ -22,12 +22,33 @@ import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// §0.4 取材面纪律:接线判据读的是**被审面**(全量档 = HEAD blob),不是工作树副本。
+import { gitRaw } from '../lib/face-reader.mjs'
 // §22c/§22d:直接调门体导出的生产判据,不在测试里重述判据材料。
 import { __test__ as gate } from '../check-disk-root-write.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-disk-root-write.mjs')
 const RUNNER_PATH = join(__dirname, '..', 'guardian-runner.mjs')
+const REPO_ROOT = join(__dirname, '..', '..')
+
+/**
+ * 接线状态的取材出口 = **HEAD blob**。
+ * 为什么不是 `readFileSync(RUNNER_PATH)`:runner 是常年被多个会话同时改的共享注册面,盘上那份
+ * 可能是别人的**滞后 WIP**。2026-10-16 实测:对席工作树副本把 213/214/216/217/218 五块删掉后,
+ * 本用例报「未接线:注册块不在 runner 面」——一道与任何提交内容无关的假红(§12e 那一型),
+ * 而 HEAD 面上六块俱在(现读 201 条注册)。读盘还把结论标成 "HEAD=",等于替别人未入库的旧态背书。
+ */
+function runnerFaceText() {
+  const head = gitRaw(['show', 'HEAD:scripts/guardian-runner.mjs'], REPO_ROOT)
+  try {
+    if (readFileSync(RUNNER_PATH, 'utf8') !== head)
+      console.info('ℹ 工作树那份 runner 与 HEAD 不同形(他席在飞)⇒ 本判据按 §0.4 只认 HEAD blob')
+  } catch {
+    /* 盘上没有也不影响:判据面是 HEAD */
+  }
+  return head
+}
 
 const J = (rel, src) => gate.judgeSource(rel, src)
 
@@ -159,8 +180,8 @@ describe('check-disk-root-write.mjs — decide() 棘轮与台账', () => {
 })
 
 describe('check-disk-root-write.mjs — 接线四件套(runner 件)', () => {
-  test('guardian-runner 已注册本门:blocking + skipEnv 成套', () => {
-    const w = gate.wiringState(readFileSync(RUNNER_PATH, 'utf8'))
+  test('guardian-runner 已注册本门:blocking + skipEnv 成套(取材 = HEAD blob)', () => {
+    const w = gate.wiringState(runnerFaceText())
     assert_.equal(w.wired, true, `未接线:${w.reason || ''}`)
     assert_.equal(w.mode, 'blocking')
     assert_.equal(w.skipEnv, 'HUSKY_SKIP_DISK_ROOT_WRITE')

@@ -34,7 +34,23 @@ import { __test__ } from '../check-tool-family-registered.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
 const GUARD = join(REPO, 'scripts', 'check-tool-family-registered.mjs')
-const RUNNER = join(REPO, 'scripts', 'guardian-runner.mjs')
+/**
+ * runner 的**被审面**读取(§0.4:全量档判 HEAD blob,`--staged` 判索引,工作树永远不是门禁面)。
+ * 为什么不能读盘上那份 `scripts/guardian-runner.mjs`:runner 是并行会话共改的注册文件 —— 2026-10-16 实测对席一份
+ * 滞后 WIP 把 213/214/216/217/218 五块删掉(HEAD 面上六块俱在),读盘的两条臂于是同时假红,
+ * 还把结论标成 `HEAD=…`,等于替别人未入库的旧态背书(§12e:与提交内容无关的红唯一结局是逼人跳门)。
+ */
+function runnerFace(rev = 'HEAD') {
+  const r = spawnSync('git', ['-c', 'safe.directory=*', 'show', `${rev}:scripts/guardian-runner.mjs`], {
+    cwd: REPO,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60000,
+    maxBuffer: 32 << 20,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  return r.status === 0 && r.stdout ? r.stdout : null
+}
 const PKG = join(REPO, 'package.json')
 const SCRIPT_NAME = 'check-tool-family-registered.mjs'
 const SCRIPTS_DIR = join(REPO, 'scripts')
@@ -174,7 +190,8 @@ test('T1 §22c:源模块导出判据所需的纯函数与常量', () => {
 })
 
 test('T2 装车证明:runner 有本门条目,mode=blocking + skipEnv 成套 + 编号唯一未被占', () => {
-  const text = readFileSync(RUNNER, 'utf8')
+  const text = runnerFace()
+  assert.ok(text, '取不到 HEAD 版 runner ⇒ 未判定,不得拿工作树副本顶包(§0.4)')
   const hits = registrationOf(text, SCRIPT_NAME)
   assert.equal(hits.length, 1, `本门在 runner 里应恰好注册一次(实得 ${hits.length})`)
   const hit = hits[0]
@@ -313,7 +330,7 @@ test('T7 判据失效方向:两面旗同给 ⇒ exit 2;空面 ⇒ exit 2', () =>
 })
 
 test('T8 指向反查·存在性臂:在册号的 script 必须真实存在于 scripts/(现读注册表,不建号单)', () => {
-  const rows = parseRegistry(readFileSync(RUNNER, 'utf8'))
+  const rows = parseRegistry(runnerFace() ?? '')
   // 解析完备性:字段取不到 ⇒ 判据在扫空气,不许表现为绿
   assert.ok(rows.length > 0, '注册表解析为空 ⇒ 判据扫空气,不得记绿')
   for (const r of rows) {
@@ -331,21 +348,15 @@ test('T8 指向反查·存在性臂:在册号的 script 必须真实存在于 sc
 })
 
 test('T9 指向反查·改指臂:在册号的 script 相对基线不得被改写(基线 HEAD^,取不到则降级/未判定,绝不记绿)', (t) => {
-  const cur = parseRegistry(readFileSync(RUNNER, 'utf8'))
-  // spawnSync 不走 shell —— execSync 经 cmd.exe 会把 `^` 当转义符吃掉(取证脚本实测踩过:
-  // `rev-parse <hash>^` 静默返回自身 ⇒ 全量假 0)。基线取法依票面草案与本仓既有形态
-  // (live-doc-edit.test.mjs 已用 `git show "HEAD^:…"`)。
-  const show = (rev) => {
-    const r = spawnSync('git', ['-c', 'safe.directory=*', 'show', `${rev}:scripts/guardian-runner.mjs`], {
-      cwd: REPO,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 60000,
-      maxBuffer: 32 << 20,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    return r.status === 0 && r.stdout ? r.stdout : null
-  }
+  // 两面都必须是 **git 面**(§0.4):当前 = HEAD blob,基线 = HEAD^。
+  // 原先当前读盘,于是对席**未提交**的挪号把我这条臂钉红,而它打印的标签还写着 `HEAD=`
+  // —— 等于替别人未入库的旧态背书(§12e:与提交内容无关的红唯一结局是逼人 --no-verify)。
+  // 不走 shell 的理由保留:execSync 经 cmd.exe 会把 `^` 当转义符吃掉(实测踩过:
+  // `rev-parse <hash>^` 静默返回自身 ⇒ 全量假 0)。
+  const curText = runnerFace('HEAD')
+  assert.ok(curText, '取不到 HEAD 版 runner ⇒ 未判定,不得拿工作树副本顶包')
+  const cur = parseRegistry(curText)
+  const show = runnerFace
   let baseText = show('HEAD^')
   let label = 'HEAD^'
   if (!baseText) {
@@ -364,7 +375,8 @@ test('T9 指向反查·改指臂:在册号的 script 相对基线不得被改写
 })
 
 test('T10 变异对照(镜像·全内存):改指他处/指向不存在/同判据重复登记 ⇒ 必红,合法共享 ⇒ 过', () => {
-  const text = readFileSync(RUNNER, 'utf8')
+  const text = runnerFace()
+  assert.ok(text, '取不到 HEAD 版 runner ⇒ 未判定,不得拿工作树副本顶包(§0.4)')
   const base = parseRegistry(text)
   assert.deepEqual(missingScripts(base, SCRIPTS_DIR), [], '正例①:在册号全部指向存在的脚本')
   assert.deepEqual(duplicateCriteria(base), [], '正例③:现注册表无同判据重复登记(参数化共享放行)')
