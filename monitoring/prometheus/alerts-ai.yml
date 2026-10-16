@@ -1,0 +1,113 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# AI 链路告警组(2026-10-17 立)。
+#
+# 为什么单开一个文件而不是往 alerts.yml 里塞:这一组的每条都必须回答"红了之后人能做什么"
+# (AGENTS §5e-1 可整改性准入),把这类判据集中一处,将来撤一条/加一条都只动这一个文件。
+#
+# 低流量保护(这一族的命门):本机 AI 调用是零星的,窄窗口与无门槛的比率判据会把
+# "没人调用"读成"全在报错"。因此每条比率型规则都必须:
+#   ① 窗口放宽到 30m–1h;② 用 `and on()` 挂一个"样本量门槛";
+#   ③ 绝不用 clamp_min 把"没数据"伪装成 0%(§0.3:没判不能写成判过)。
+# 采集侧断了 ≠ AI 坏了,所以存续类规则单独一族,不与质量类混身份(去重按身份,§5e-1)。
+
+groups:
+  - name: ai-llm-alerts
+    rules:
+      # 刻意**不**在这里再写一条 up{job="ai-service"}==0:alerts.yml 第 63 行的 AiServiceDown
+      # 已经是同一身份(for: 1m),再挂一条只会让同一件事寄两封邮件(§5e-1:去重按稳定身份,
+      # 同一故障两条规则 = 噪声而不是双保险)。本组只补它覆盖不到的维度。
+      - alert: AiServiceTargetMissing
+        expr: absent(up{job="ai-service"})
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'AI 服务抓取目标从配置里消失'
+          description: 'Prometheus 目标清单里已经没有 ai-service 这一项(≠ 它挂了,而是 job 被删/scrape 配置漂移)。下一步:核对 monitoring/prometheus/prometheus.yml 与线上运行副本是否同形。'
+
+      - alert: AiBusinessMetricsDown
+        expr: up{job="business-metrics"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'AI 业务落账指标停止采集'
+          description: '/business-metrics 抓取 10 分钟不成功 ⇒ business_ai_* 大屏会静默变空。下一步:确认 8802 端点仍返回 200(该族曾因"注释写着 401"而被整段注释掉抓取,实际端点是通的)。'
+
+      - alert: AiLlmHighFailureRate
+        expr: |
+          (
+            sum(increase(ihui_llm_calls_total{job="ai-service",status=~"error|timeout|connection|interrupted"}[30m]))
+            /
+            sum(increase(ihui_llm_calls_total{job="ai-service"}[30m]))
+          ) > 0.2
+          and on()
+          sum(increase(ihui_llm_calls_total{job="ai-service"}[30m])) >= 5
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'LLM 调用失败率过高(≥20%)'
+          description: '近 30 分钟尝试数 {{ $value }} 比例超阈且样本量达标。下一步:看厂商健康面板 model_sync_provider_health 与号池/key 池状态,确认是整家厂商欠费(额度类)还是单把 key 失效;别先改代码。'
+
+      - alert: AiLlmLatencyP95High
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(ihui_llm_request_duration_seconds_bucket{job="ai-service"}[30m]))) > 30
+          and on()
+          sum(increase(ihui_llm_calls_total{job="ai-service"}[1h])) >= 10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'LLM P95 端到端延迟 > 30s'
+          description: '近 30 分钟 P95 超 30 秒。下一步:按厂商拆开看是不是某一家上游排队(provider_caps 的 timeout 档位),再决定是否调 fallback 链。'
+
+      - alert: AiLlmTtftP95High
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(ihui_llm_ttft_seconds_bucket{job="ai-service"}[30m]))) > 8
+          and on()
+          sum(increase(ihui_llm_ttft_seconds_count{job="ai-service"}[1h])) >= 10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: '流式首字 TTFT P95 > 8s'
+          description: '流式体验正在变差(端到端可能仍正常)。下一步:看是不是推理模型把 reasoning 先发了出来,或上游排队;这是用户能直接感知的维度,不要只盯总延迟。'
+
+      - alert: AiStreamInterruptHigh
+        expr: |
+          (
+            sum(increase(ihui_llm_stream_interrupt_total{job="ai-service"}[30m]))
+            /
+            sum(increase(ihui_llm_calls_total{job="ai-service"}[30m]))
+          ) > 0.1
+          and on()
+          sum(increase(ihui_llm_calls_total{job="ai-service"}[30m])) >= 10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: '流式中断率 > 10%'
+          description: '已发内容后流被截断的比例升高(前端 partial_done 同一判据)。下一步:按 reason 拆 upstream_error / timeout_guard,前者查上游断流,后者是厂商流式降级。'
+
+      - alert: AiCostLedgerWriteFailures
+        expr: increase(business_ai_record_failures_total{job="business-metrics"}[15m]) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'AI 成本落库失败'
+          description: 'ai_cost_records 写入在抛异常(业务侧完全看不见,只有这一条会响)。下一步:查 DB 连接/迁移落后/字段约束;这是计费数据,必须真修不能压掉。'
+
+      - alert: AiMetricSeriesCapHit
+        expr: increase(business_ai_series_dropped_total{job="business-metrics"}[30m]) > 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'AI 指标触到基数护栏(有序列被拒)'
+          description: '标签组合超过 2048 上限后新序列不计数 ⇒ 大屏读数会偏小而非报错。下一步:看是不是 model 标签被上游自由文本灌爆(应回清洗/收口取值),而不是简单调大上限。'
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
