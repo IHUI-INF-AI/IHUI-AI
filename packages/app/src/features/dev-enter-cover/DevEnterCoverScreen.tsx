@@ -5,20 +5,11 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius } from '@ihui/design-tokens'
-
-export interface DevEnterCoverScreenProps {
-  t: TFunction
-  planType: 'month' | 'year'
-  loading: boolean
-  onSelectPlan: (plan: 'month' | 'year') => void
-  onNavigate: () => void
-  onBack: () => void
-  colorScheme?: 'light' | 'dark'
-}
+import type { DevEnterCoverScreenProps } from '@ihui/types'
+export type { DevEnterCoverScreenProps }
 
 export function DevEnterCoverScreen({
   t,

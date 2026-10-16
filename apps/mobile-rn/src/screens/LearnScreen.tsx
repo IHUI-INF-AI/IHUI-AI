@@ -19,21 +19,10 @@ import { LearnScreen as SharedLearnScreen } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Smartphone, Users, PenLine, BarChart3 } from 'lucide-react-native'
-import type { AppIcon } from '@ihui/types'
+import type { LearnCategory, ProgressOverview } from '@ihui/types'
+export type { LearnCategory }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-interface ProgressOverview {
-  totalCourses: number
-  completedCourses: number
-  learningHours: number
-}
-
-export interface LearnCategory {
-  id: string
-  name: string
-  icon: AppIcon | string
-}
 
 export const CATEGORIES: readonly LearnCategory[] = [
   { id: 'douyin', name: '抖音运营', icon: Smartphone },

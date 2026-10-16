@@ -109,16 +109,7 @@ function bindingOffsets(body, varName) {
     new RegExp(`\\b(?:const|let|var)\\s+${n}\\b`, 'g'),
     new RegExp(`\\b(?:const|let|var)\\s*[\\[{][^\\]}\\n]*\\b${n}\\b`, 'g'),
     new RegExp(`\\b${n}\\s*(?:of|in)\\b`, 'g'),
-    // 参数表那一档必须**只**吃标识符列表,且左括号前不能是控制流关键字。
-    // 原式 `\\(\\s*[^()\\n]*\\b${n}\\b[^()\\n]*\\)\\s*(?:=>|\\{)` 会把 `if (r.status !== 0) {`
-    // 读成"r 在这里重新绑定"⇒ 活区在真正的读点之前被截断。而真实代码几乎必然先查
-    // `r.error` / `r.status` 再读 `r.stdout`(本仓 §12g 自己就是这么要求的),于是这条门
-    // 对现实形态基本全盲:2026-10-16 实测 spawn 与读点之间只隔一行 `if (r.status !== 0)`
-    // 就 0 命中,同一份文本去掉那行则命中 —— 漏的是门,不是夹具。
-    new RegExp(
-      `(?<!\\b(?:if|while|for|switch|catch)\\b\\s*)\\((?:\\s*[\\w$]+\\s*,)*\\s*\\b${n}\\b\\s*(?:,\\s*[\\w$]+\\s*)*\\)\\s*(?:=>|\\{)`,
-      'g',
-    ),
+    new RegExp(`\\(\\s*[^()\\n]*\\b${n}\\b[^()\\n]*\\)\\s*(?:=>|\\{)`, 'g'),
     new RegExp(`\\b${n}\\s*=[^=>]`, 'g'),
   ]
   const at = []

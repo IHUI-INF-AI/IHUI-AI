@@ -47,39 +47,7 @@ vi.mock('@react-navigation/native-stack', () => ({}))
 
 vi.mock('../src/i18n', () => {
   const t = (key: string) => key
-  // getValueByPath 取真实实现语义(packages/i18n/src/loader.ts):按点分路径逐段下钻,
-  // 任一段缺失返回 undefined,由调用方自行回退(SearchOverlay 对数组词条判 isArray)。
-  const getValueByPath = (obj: unknown, path: string): unknown => {
-    if (!obj || typeof obj !== 'object') return undefined
-    let current: unknown = obj
-    for (const part of path.split('.')) {
-      if (current && typeof current === 'object' && part in (current as Record<string, unknown>)) {
-        current = (current as Record<string, unknown>)[part]
-      } else {
-        return undefined
-      }
-    }
-    return current
-  }
-  // messages 单例:空词条即可 —— 缺 key 时 getValueByPath 走上面的真实回退路径返回 undefined,
-  // SearchOverlay 自行落到空联想池,与真实模块"缺 key 回退"行为一致。
-  const messages: Record<string, unknown> = {
-    'zh-CN': {},
-    en: {},
-    ja: {},
-    ko: {},
-    'zh-TW': {},
-  }
-  return {
-    useI18n: () => ({ t, locale: 'zh-CN', setLocale: async () => {} }),
-    messages,
-    getValueByPath,
-    // 真实模块的其余导出面:ui-action-registry.ts 引 requestLocaleChange,
-    // 无 setter 注册时真实语义即返回 false。
-    registerLocaleSetter: () => {},
-    requestLocaleChange: () => false,
-    I18nProvider: ({ children }: { children?: React.ReactNode }) => children,
-  }
+  return { useI18n: () => ({ t }) }
 })
 
 // 默认未登录状态
@@ -114,10 +82,6 @@ vi.mock('react-native', async () => {
     // 主题单例(src/theme/active-tokens.ts)在模块求值时调 Appearance.getColorScheme(),
     // 缺这个导出会让整个测试文件加载失败 ⇒ 该文件的断言一条都不会跑。
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
-    // 同一条教训的第三次应用:`SearchOverlay` 渲染期调 useWindowDimensions() 做面板定位,
-    // 而**这份内联工厂会覆盖 vitest.config 的 react-native 替身**(替身里其实已有该导出)⇒
-    // 缺它同样是"渲染期抛错 ⇒ 6 条断言一条没跑",且报错点离断言很远,极易被误读成组件坏了。
-    useWindowDimensions: () => ({ width: 375, height: 812, scale: 1, fontScale: 1 }),
     DevSettings: { reload: () => {} },
     __esModule: true,
     Modal: ({ children, visible }: { visible?: boolean; children?: React.ReactNode }) =>

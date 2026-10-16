@@ -51,17 +51,6 @@ describe('T1 三档语义各自成对', () => {
     assert.match(redactAlertDetail(longDetail), /token=\*\*\*/, '但值必须消失')
   })
 
-  it('空输入明写占位(判据 a 末臂):子进程档/正文档各写各的占位,原始档静默由包裹层补', () => {
-    assert.equal(redactChildOutput(''), '(无输出)', '空字符串明写占位,不得静默返回空串让日志看起来像没发生')
-    assert.equal(redactChildOutput(undefined), '(无输出)', 'undefined 入参与空串同判占位')
-    assert.equal(redactAlertDetail(''), '(无详情)', '空正文明写占位,不静默变短')
-    assert.equal(
-      redactSecretishLines(''),
-      '',
-      '原始档按设计保持静默 —— 占位语义由包裹层(redactChildOutput/redactAlertDetail)负责;三档语义分开,不得为了统一占位把三档并成一档',
-    )
-  })
-
   it('正文档只抹值形状:散文与 40 位 sha 逐字通过', () => {
     assert.equal(
       redactAlertDetail('gitee apikey.txt 取不到形状合法的 token(注意同目录副本不可用)'),

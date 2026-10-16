@@ -90,12 +90,13 @@
 //   (2 ≠ 0),runner 也会因非零而拦住提交 —— 未判定从不等于通过。
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
-import { mkScratch } from './lib/scratch-dir.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -252,14 +253,6 @@ export function judgeSources({ root = ROOT, python, criterionSrc, cases }) {
       // 后者仍是三通道全管道、stdin 照样建管道、照样 EBUSY)。
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
-      // ⚠️ 码页必须钉死 UTF-8:不传 env 时 python 子进程**继承控制台码页**,在 GBK 机器上
-      //   判据文本里任何一个非 ASCII 字符(实测 `⇒` U+21D2)都会让 stdout 抛
-      //   `UnicodeEncodeError` 并非零退出 —— 于是这台门上 `fatal: python 判据侧非零退出`,
-      //   整门在未判定档位上**永久全盲**,而且症状与被测内容无关(2026-10-16 现读逼出)。
-      //   与同族先例一致:pwsh 子进程要设 `[Console]::OutputEncoding`、node stdout 中文路径
-      //   会被 GBK 吃掉 —— 凡是"读回来还要用"的通道,编码必须由调用方显式规定。
-      //   PYTHONUTF8=1 走 UTF-8 模式(连文件系统编码一起),PYTHONIOENCODING 显式钉 stdio 两通道。
-      env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
     })
     if (proc.error) return { fatal: `python 派生失败:${proc.error.message}`, results: [], undetermined: [] }
     if (proc.status !== 0)

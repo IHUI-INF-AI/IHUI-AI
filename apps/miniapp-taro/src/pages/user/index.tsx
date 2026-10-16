@@ -709,7 +709,7 @@ export default function UserIndex() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen pb-[40rpx]" style={{ background: 'var(--color-background)' }}>
+      <View className="min-h-screen pb-[calc(160rpx+env(safe-area-inset-bottom))]" style={{ background: 'var(--color-background)' }}>
         {/* ===== DrawerComponent 侧边栏抽屉（对齐原项目结构：outContainer → DrawerComponent → FloatBox → navigation-bars） ===== */}
         <DrawerComponent
           visible={showDrawer}
