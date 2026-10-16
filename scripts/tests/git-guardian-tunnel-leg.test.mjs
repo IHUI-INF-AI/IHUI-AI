@@ -84,6 +84,18 @@ test('单点共用只报数不判红(健康态亦此形态 ⇒ 判红就是 §12
   }
 })
 
+test('edge-location 落点:境外 PoP 只报数不寄信(本机在国内而 CF 无大陆 PoP ⇒ 判红即 §12e 恒红门)', () => {
+  const h = harness(dims({ 'edge-location': { verdict: 'warn', reason: '隧道 3 条腿全部落在非亚太 PoP(lax09/lax13/lax05);入口慢先归因跨境段,别去查 web/api', reading: { pops: ['lax09', 'lax13', 'lax05'], near: [], far: ['lax09', 'lax13', 'lax05'] } } }))
+  try {
+    const r = G.auditTunnelLegHealth(h.opts)
+    assert.equal(h.sent.length, 0, '落点报数不得寄信(常态形态)')
+    assert.equal(r.warns, 2, `warn 必须计数(单点 + 落点),实得 ${r.warns}`)
+    assert.ok(h.logs.some((l) => l.includes('edge-location') && l.includes('lax09')), '落点读数必须进日志,否则收信人不知道该归因到哪一段')
+  } finally {
+    rmScratch(h.dir)
+  }
+})
+
 test('未判定:不喊人但必须点名原因(把"没量到"写成"没问题"是本仓最高频失效型)', () => {
   const h = harness(dims({ 'leg-count': { verdict: 'unjudged', reason: 'cloudflared 进程不在(不是"0 条腿")', reading: { pids: [] } } }))
   try {
