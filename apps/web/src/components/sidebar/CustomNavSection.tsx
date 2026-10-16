@@ -112,11 +112,24 @@ function SortableCustomItem({
         onBeforeNav={onBeforeNav}
       />
       {/*
-        右侧浮层:拖拽手柄 + 移除。
-        两者都只在 hover / 键盘聚焦时可见;pointer-events-none 在隐藏时生效,
-        避免不可见按钮拦截点击(否则点条目空白处会误触移除)。
+        右侧浮层:拖拽手柄 + 移除。只在 hover / 键盘聚焦时浮现。
+
+        【P0 修复 2026-10-17】此前只有 opacity-0 没有 pointer-events-none ——
+        opacity 不影响命中测试,于是行右侧约 54px 是一排**隐形但可点**的按钮:
+        最右 24px 落在「移除」上 ⇒ 点条目右侧 = 静默删除收藏(无确认无撤销);
+        再左 24px 落在拖拽手柄上 ⇒ 点击被吞、行毫无反应。160px 侧栏里这占了近 1/3 行宽。
+        现在:隐藏态 pointer-events-none(不可点),hover / 键盘聚焦时恢复 auto;
+        触屏无 hover,靠 touch-reveal(项目既有口径,animations.css)常驻可见,
+        并用 [@media(hover:none)] 把 pointer-events 也常开 —— 否则手机上按钮看得见摸不着。
       */}
-      <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover/citem:opacity-100 has-[:focus-visible]:opacity-100">
+      <div
+        className={cn(
+          'absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity',
+          'pointer-events-none group-hover/citem:pointer-events-auto has-[:focus-visible]:pointer-events-auto',
+          'group-hover/citem:opacity-100 has-[:focus-visible]:opacity-100 touch-reveal',
+          '[@media(hover:none)]:pointer-events-auto',
+        )}
+      >
         <button
           type="button"
           {...attributes}
@@ -163,7 +176,21 @@ const CustomNavSection = React.memo(function CustomNavSection({
 }) {
   const t = useTranslations('nav')
   const pathname = usePathname()
-  const { userId, hydrated, customHrefs, addHref, removeHref, reorderHref } = useCustomNav()
+
+  // 当前可见项的 href 集合 —— 作为"允许集"交给数据层。
+  // admin 的 80 项后台路由是运行时拉取合并进 visibleGroups 的,不在模块级静态表
+  // (ALL_NAV_HREFS)里;不把它们并进允许集,用户收藏的动态项会在刷新后被当失效项
+  // 剔除 ⇒ "加了之后刷新就没了"。引用由 groups memo 稳定,只在导航结构真变时换。
+  const visibleHrefs = React.useMemo(() => {
+    const set = new Set<string>()
+    for (const group of groups) {
+      for (const item of flattenNavItems(group.items)) set.add(item.href)
+    }
+    return set
+  }, [groups])
+
+  const { userId, hydrated, customHrefs, addHref, removeHref, reorderHref } =
+    useCustomNav(visibleHrefs)
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
   // href -> NavItem 索引:groups 在父级已 memo,导航结构不变则零重建
@@ -263,8 +290,11 @@ const CustomNavSection = React.memo(function CustomNavSection({
   // 展开态:标题行(标签 + 右侧 + 号)+ 可拖拽排序的自定义项列表 / 空态引导
   return (
     <div className="pt-2">
-      <div className="flex items-center gap-1.5 px-2.5 pb-1 pt-1">
-        <span className="min-w-0 whitespace-nowrap text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+      {/* 标题行字号/内边距对齐紧邻的「热门」等可折叠分组标题(text-sm、pb/pt-1.5);
+          此前 text-xs 比所有邻居弱一档,视觉上像另一层东西。
+          + 号按钮 24×24:20×20 低于 WCAG 2.5.8 最小目标尺寸,手指/鼠标都更难点中。 */}
+      <div className="flex items-center gap-1.5 px-2.5 pb-1.5 pt-1.5">
+        <span className="min-w-0 whitespace-nowrap text-left text-sm font-semibold uppercase tracking-wider text-muted-foreground/60">
           {t('customGroup')}
         </span>
         <button
@@ -273,9 +303,9 @@ const CustomNavSection = React.memo(function CustomNavSection({
           aria-label={t('customAddTitle')}
           title={t('customAddTitle')}
           data-testid="nav-custom-add"
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-sidebar-item-hover-bg hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-sidebar-item-hover-bg hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-4 w-4" />
         </button>
       </div>
 

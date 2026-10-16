@@ -19707,10 +19707,8 @@
     "customAddTitle": "自定義常用功能",
     "customEmptyHint": "新增常用功能",
     "customSearchPlaceholder": "搜尋功能",
-    "customAdded": "已新增",
     "customAdd": "新增",
     "customRemove": "移除",
-    "customManage": "管理常用功能",
     "customDragHint": "拖曳排序",
     "customNoResults": "沒有找到符合的功能"
   },
