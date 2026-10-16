@@ -5,7 +5,10 @@
 
 // scripts/check-no-conflict-markers.mjs
 /**
- * 守门 77:提交内容含 Git 冲突标记(blocking)。
+ * 守门 79:提交内容含 Git 冲突标记(blocking)。
+ *   (编号让号留痕:本门立项时占了 77,而 77 同时被 `check-radius-single-source` 使用,
+ *    2026-09-24 由后落地方让号至 79 —— 见 `scripts/guardian-runner.mjs` 的 id 唯一性自检注释。
+ *    本文旧版通篇仍写 77,G-588 收紧时按 runner 注册条目现值改正。)
  *
  * 起因(2026-09-23 实测,不是假想):本机 `.git` 于 15:49 被宿主清除,恢复期间某个会话
  *   在**共享工作区**里跑了真实 `git merge`,留下 103 个未合并路径、94 个工作区文件带字面
@@ -19,8 +22,17 @@
  *      (行首 7 个大于号 + 空格),中间允许夹 `^=======$`(整行恰好 7 个等号)。
  *   P2 强制成对,单行不判:`=======` 在 Markdown setext 标题下划线、表格分隔、ASCII 示意图里
  *      都是合法内容,只判单行会满天假红 —— 实测全仓 `^=======$` 命中远多于成对命中。
- *   P3 未配对的开始/结束标记**不计红**,但如实报数(它们是"标记被手删了一半"的强信号,
+ *   P3 未配对的开始/结束标记**默认不计红**,但如实报数(它们是"标记被手删了一半"的强信号,
  *      而"手删标记当作已解决"正是本门要禁掉的动作)。
+ *   P4(G-588,2026-10-16 收紧)**带 `ours|theirs|HEAD` 词尾的孤立标记升为判红** —— 判据吃的是
+ *      `findMarkerPairs` 已经算出来的 `unpairedStarts/unpairedEnds`,不在本文件另扫一遍行。
+ *      为什么只升这一族:那三种写法(`<<<<<<< HEAD` / `<<<<<<< ours` / `>>>>>>> theirs` 等)在
+ *      Markdown 里没有任何合法用途 —— setext 下划线、表格分隔、ASCII 示意图都写不出带词尾的
+ *      尖括号行,所以升档不会造出与提交内容无关的恒红面(§12e)。而**孤立的 `=======`、以及
+ *      不带 ours/theirs/HEAD 词尾的孤立尖括号维持 P3 只报数**:P2 那条单行假阳风险正是为它们
+ *      立的,把它们一并改成判红就是本票明令禁止的出路。
+ *      收紧前置(先清偿再收紧)由 G-588 达成:真仓 HEAD 面带词尾的孤立标记现读 = 0。
+ *      E1 的 SEARCH/REPLACE 豁免族(`>>>>>>> REPLACE`)不属于 P4:词尾不在名单内。
  *
  * 三种模式:
  *   --staged         pre-commit(runner 自动下发):只判**索引内容**(`git show :<path>`),
@@ -45,16 +57,23 @@
  *   node scripts/check-no-conflict-markers.mjs [--staged]
  *   node scripts/check-no-conflict-markers.mjs --rev HEAD
  *   node scripts/check-no-conflict-markers.mjs --self-test
- * 退出码:0 通过 / 1 检成对冲突标记 / 2 脚本自身异常。
+ * 退出码:0 通过 / 1 检出成对标记(P1)或带 ours/theirs/HEAD 词尾的孤立标记(P4) / 2 脚本自身异常。
  * 紧急跳过:HUSKY_SKIP_CONFLICT_MARKERS=1 git commit ...(确属有意保留标记的内容,请先把它放进
  *   字符串字面量或转义,而不是靠跳过守门)
  *
- * 当前接入:guardian-runner id '77',blocking,不设 stagedTriggers(全量/索引扫描本身就是判据面)。
+ * 当前接入:guardian-runner id '79',blocking,不设 stagedTriggers(全量/索引扫描本身就是判据面)。
  *
  * 判据住在哪儿(2026-09-28 收口):**配对判据与「剥三行」判据只有一份实现**,在
- *   `scripts/lib/conflict-marker-triples.mjs`。本文件 import 再 re-export,不另写一份正则 ——
- *   消费者现在有三个:本门(判红)、`archive-completed-tasks.mjs`(搬运前问一句)、
- *   `union-converge.mjs`(活文档并集出口要剥掉三行)。两处各写一遍必漂,是本仓记过最多次的失败型。
+ *   `scripts/lib/conflict-marker-triples.mjs`。本文件 import 再 re-export,不另写一份正则。
+ *   消费者按现读只有两处(2026-10-16 核):本门(判红)与 `archive-completed-tasks.mjs`
+ *   (搬运前问一句 —— `grep -n findMarkerPairs scripts/archive-completed-tasks.mjs` 现值)。
+ *   旧版本此处还写了第三个 `union-converge.mjs`,那是条不成立的声明:该器自己调
+ *   `git merge-file`,通篇不 import 这份判据(它因此把"剥三行"这一维留成了自己的盲区,
+ *   `stripMarkerTriples` 目前在 scripts/ 面零消费者 —— 记下而不据此删函数,那是另一票)。
+ *   两处各写一遍必漂,是本仓记过最多次的失败型。
+ *   P4(G-588)新增的只有"孤立标记里哪一族升判红"这一份词尾名单(`ORPHAN_JUDGED_RE`,经 `__test__`
+ *   供镜像测试 import,**不在测试里再抄一遍**),它吃的配对结果仍是上面那一份实现 ——
+ *   "什么算孤立"只问一次,不允许本门与 lib 各扫一遍行。
  */
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -85,6 +104,14 @@ export const SNIPPET_CHARS = 60
 /** 大文件预筛用的字节针(内容判据在共用层,这里只留"要不要把这份内容拿去判"的快速问句)。 */
 const OPEN_NEEDLE = Buffer.from('<<<<<<< ', 'latin1')
 const END_NEEDLE = Buffer.from('>>>>>>> ', 'latin1')
+/**
+ * P4(G-588,2026-10-16 收紧):**带 `ours|theirs|HEAD` 词尾的孤立标记**判红。
+ * 只升这一族的理由是"它在 Markdown 里没有任何合法写法":setext 下划线、表格分隔、ASCII 示意图
+ * 都可能产出孤立 `=======` 或裸尖括号行,而 `>>>>>>> theirs` / `<<<<<<< HEAD` 只会是"合并标记
+ * 被手删了一半"。孤立 `=======` 与不带词尾的孤立尖括号**维持只报数**(头注 P2 的单行假阳风险
+ * 正是为它们立的)—— 这个不对称是刻意的,不是漏;把它整档改成判红就是本票明令禁止的恒红门出路。
+ */
+const ORPHAN_JUDGED_RE = /^(?:<{7}|>{7}) (?:ours|theirs|HEAD)\b/
 
 // ── git 派生:绝对路径候选解析(服务账户无 PATH 时 'git' 会失败)+ 强制 windowsHide(守门 52) ──
 let _gitBin = undefined
@@ -179,9 +206,18 @@ export function judgeBuffer(path, buf, stats) {
   stats.unpairedStarts += unpairedStarts.length
   stats.unpairedEnds += unpairedEnds.length
   stats.patchFormatExempt += exempt.length
-  if (pairs.length === 0) return []
+  // 孤立标记的判据**必须吃 findMarkerPairs 那一份配对结果**(验收③):在这里再扫一遍行,
+  // 就会与成对判据在"什么算未配对"上漂开,而漂开的表现是同一份内容两道判据各说各话。
+  const orphans = []
+  for (const u of [...unpairedStarts, ...unpairedEnds]) {
+    if (!ORPHAN_JUDGED_RE.test(String(u.text ?? ''))) continue
+    orphans.push({ path, kind: 'orphan', startLine: u.line, startText: u.text })
+    stats.orphanJudged += 1
+  }
+  const out = [...pairs.map((p) => ({ path, kind: 'pair', ...p })), ...orphans]
+  if (out.length === 0) return []
   stats.filesWithViolations += 1
-  return pairs.map((p) => ({ path, ...p }))
+  return out
 }
 
 export function newStats() {
@@ -196,6 +232,8 @@ export function newStats() {
     unreadable: 0,
     unpairedStarts: 0,
     unpairedEnds: 0,
+    /** P4:其中"带 ours|theirs|HEAD 词尾"而被判红的孤立标记数(与上面两项并列报,不互相顶名额)。 */
+    orphanJudged: 0,
     patchFormatExempt: 0,
   }
 }
@@ -208,16 +246,26 @@ function snippet(line) {
 /** 违规清单 + 汇总 + 修复指引(三种模式共用一份渲染,避免结论漂移)。 */
 export function render(modeLabel, totalPaths, violations, stats) {
   const lines = [`🔀 冲突标记守门(${modeLabel}):判定 ${stats.judged} 个内容源(候选 ${totalPaths})`]
+  // 两型必须分开报数(G-588 验收②的可读面):合成一句"检出 N 对"会把 P4 的孤立标记
+  // 伪装成成对标记,读的人会去找那条并不存在的 >>>>>>> 闭合行。
+  const pairItems = violations.filter((v) => v.kind !== 'orphan')
+  const orphanItems = violations.filter((v) => v.kind === 'orphan')
   if (violations.length > 0) {
     lines.push(
-      `❌ 检出 ${violations.length} 对 Git 冲突标记,分布在 ${stats.filesWithViolations} 个文件:`,
+      `❌ 检出 Git 冲突标记:成对 ${pairItems.length} 对 / 孤立带词尾 ${orphanItems.length} 处(P1/P4),分布在 ${stats.filesWithViolations} 个文件:`,
     )
     for (const v of violations.slice(0, 40)) {
+      if (v.kind === 'orphan') {
+        lines.push(
+          `   - ${v.path}:${v.startLine}  |  ${snippet(v.startText)}  ⟵ 孤立标记(只剩一半;P4:带 ours/theirs/HEAD 词尾判红)`,
+        )
+        continue
+      }
       lines.push(`   - ${v.path}:${v.startLine}  |  ${snippet(v.startText)}`)
       if (v.sepLine) lines.push(`       ${v.path}:${v.sepLine}  |  ${'='.repeat(7)}`)
       lines.push(`       ${v.path}:${v.endLine}  |  ${snippet(v.endText)}`)
     }
-    if (violations.length > 40) lines.push(`   ... 另有 ${violations.length - 40} 对`)
+    if (violations.length > 40) lines.push(`   ... 另有 ${violations.length - 40} 项`)
     lines.push('')
     lines.push(
       '   修复:用 `git checkout --theirs/--ours <文件>` 取一侧真实内容,或按 AGENTS.md §12b 协作收尾',
@@ -225,8 +273,14 @@ export function render(modeLabel, totalPaths, violations, stats) {
     lines.push(
       '   重新归并;**禁止手删 <<<<====>>>> 三行标记当作已解决**(那会把两侧代码之一静默丢掉)。',
     )
+    if (orphanItems.length > 0) {
+      lines.push(
+        '   孤立那一型:先查是哪一次并发改动把另一半吃掉(`git log -S\'>>>>>>> \'<file>`),按上面同一条归并取回完整内容;' +
+          ' 若这份内容本就是"逐字留档的合并残留"(归档件/台账),同样不许只删标记 —— 要么整段按原样取回,要么走 §1 两步归档。',
+      )
+    }
   } else {
-    lines.push('✅ 未检出成对 Git 冲突标记')
+    lines.push('✅ 未检出成对 Git 冲突标记(P1),也没有带 ours/theirs/HEAD 词尾的孤立标记(P4)')
   }
   const skips = [
     stats.selfExempt > 0 ? `自豁免(本门自身与测试文件,判据含字面量)=${stats.selfExempt}` : '',
@@ -244,7 +298,7 @@ export function render(modeLabel, totalPaths, violations, stats) {
   const unpaired = stats.unpairedStarts + stats.unpairedEnds
   if (unpaired > 0) {
     lines.push(
-      `   ⚠️ 另有未配对标记 ${stats.unpairedStarts} 处孤立 \`<<<<<<<\` / ${stats.unpairedEnds} 处孤立 \`>>>>>>>\` —— 按 P2/P3 不计红,但"只剩一半"通常意味着标记被手删,请人工确认`,
+      `   ⚠️ 另有未配对标记 ${stats.unpairedStarts} 处孤立 \`<<<<<<<\` / ${stats.unpairedEnds} 处孤立 \`>>>>>>>\` —— 其中带 ours/theirs/HEAD 词尾的 ${stats.orphanJudged} 处已按 P4 判红(见上方清单),剩下的按 P2/P3 只报数不计红;"只剩一半"通常意味着标记被手删,请人工确认`,
     )
   }
   return lines
@@ -297,24 +351,33 @@ export function trackedPaths(repoRoot) {
 }
 
 /**
- * rev 模式的候选:先按 `git grep -Il -- "^<<<<<<< " <rev>` 定位含开始标记的 blob(-I = 跳二进制,
- * -z = `rev\0path\0` 无歧义),再逐个取 blob 复核成对(P2)。
+ * rev 模式的候选:先按行首标记针定位含标记的 blob(-I = 跳二进制,-z = `rev\0path\0` 无歧义),
+ * 再逐个取 blob 复核(P1 成对 / P4 孤立)。
+ *
+ * **两枚针都必须下**(G-588 收紧时补的洞):旧实现只 grep `^<<<<<<< `,于是"只有闭合行、
+ * 开始行已被手删"的文件在 rev 档**根本进不了候选清单** —— 那正是本票的立项现场(归档件里
+ * `>>>>>>> theirs` 成段残留)。判据升到 P4 却仍用单针候选,等于把新判据挂在一个看不见它的面上。
  */
+const REV_CANDIDATE_NEEDLES = ['^<<<<<<< ', '^>>>>>>> ']
+
 export function revCandidatePaths(repoRoot, rev) {
-  let out = ''
-  try {
-    out = gitPathList(['-C', repoRoot, 'grep', '-Ilz', '--', '^<<<<<<< ', rev])
-  } catch (e) {
-    // git grep 无命中时以 exit 1 结束(不是错误);其他失败码才是真异常
-    const status = e && typeof e === 'object' && 'status' in e ? e.status : undefined
-    if (status === 1 && !String(e?.stderr ?? '').includes('fatal')) return []
-    throw e
-  }
+  const found = new Set()
   const prefix = `${rev}:`
-  return out
-    .split('\0')
-    .filter(Boolean)
-    .map((l) => (l.startsWith(prefix) ? l.slice(prefix.length) : l))
+  for (const needle of REV_CANDIDATE_NEEDLES) {
+    let out = ''
+    try {
+      out = gitPathList(['-C', repoRoot, 'grep', '-Ilz', '--', needle, rev])
+    } catch (e) {
+      // git grep 无命中时以 exit 1 结束(不是错误);其他失败码才是真异常
+      const status = e && typeof e === 'object' && 'status' in e ? e.status : undefined
+      if (status === 1 && !String(e?.stderr ?? '').includes('fatal')) continue
+      throw e
+    }
+    for (const l of out.split('\0').filter(Boolean)) {
+      found.add(l.startsWith(prefix) ? l.slice(prefix.length) : l)
+    }
+  }
+  return [...found]
 }
 
 function readRevBlob(repoRoot, rev, rel) {
@@ -608,6 +671,78 @@ function selfTestRun() {
         mergeConflict.code === 1 &&
         mergeConflict.violations.some((v) => v.path === 'f.txt'),
     )
+    try {
+      g(['merge', '--abort'])
+    } catch {
+      /* 已不在 merge 态:无副作用,后面的臂自己会重写内容 */
+    }
+
+    // ── P4(G-588)成对正反例:验收②要求"注入一处单侧 ⇒ 必红 / 注入合法单行 ⇒ 必不红" ──
+    //     必须走真仓 + 真 audit(纯函数臂钉不住"退出码真的翻红"这一维,而那才是本票要的洞)。
+    const onlyEnd = join(repo, 'orphan_end.md')
+    writeFileSync(onlyEnd, ['# 标题', '正文一行', '', '>>>>>>> theirs', ''].join('\n'))
+    g(['add', '-A'])
+    const p4end = audit(repo, { staged: true })
+    check(
+      '24 单侧 `>>>>>>> theirs` 判红(P4 正向,kind=orphan 且计数如实)',
+      p4end.code === 1 &&
+        p4end.violations.length === 1 &&
+        p4end.violations[0].kind === 'orphan' &&
+        p4end.violations[0].path === 'orphan_end.md' &&
+        p4end.stats.orphanJudged === 1 &&
+        p4end.stats.filesWithViolations === 1,
+    )
+
+    writeFileSync(onlyEnd, ['# 标题', '正文一行', '', '<<<<<<< ours', ''].join('\n'))
+    g(['add', '-A'])
+    const p4start = audit(repo, { staged: true })
+    check(
+      '25 单侧 `<<<<<<< ours` 同样判红(开始/结束两侧都得有牙,只升一侧等于没升)',
+      p4start.code === 1 && p4start.violations[0].kind === 'orphan',
+    )
+
+    // 反向锁:这一族**不得**被顺手升红(本票明令禁止的出路 = 把 P2/P3 整档改判红,
+    // 那会把 Markdown 合法单行判成违规,造出一台与任何提交内容无关的恒红门)。
+    writeFileSync(
+      onlyEnd,
+      ['小节名', '=======', '| a | b |', '| --- | --- |', '', '>>>>>>> feature/x', ''].join('\n'),
+    )
+    g(['add', '-A'])
+    const legal = audit(repo, { staged: true })
+    check(
+      '26 反向:孤立 `=======`(setext/表格)+ 不带词尾的孤立 `>>>>>>>` ⇒ 判绿,但报数照常',
+      legal.code === 0 &&
+        legal.violations.length === 0 &&
+        legal.stats.orphanJudged === 0 &&
+        legal.stats.unpairedEnds === 1,
+    )
+
+    // E1 合法豁免族(SEARCH/REPLACE)的词尾不在 P4 名单内 —— 真仓 HEAD 面上那一处就是它。
+    writeFileSync(onlyEnd, ['some patch text', '>>>>>>> REPLACE', ''].join('\n'))
+    g(['add', '-A'])
+    const e1 = audit(repo, { staged: true })
+    check(
+      '27 反向:`>>>>>>> REPLACE` 属 E1 补丁语法族,升 P4 后仍判绿(升档不得吃掉既有豁免)',
+      e1.code === 0 && e1.stats.orphanJudged === 0,
+    )
+
+    // rev 档必须也看得见这一型:旧候选清单只 grep `^<<<<<<< `,单侧闭合行的文件根本进不了候选
+    // (G-588 立项现场正是那一型),所以这一臂同时是"两枚针"的阳性对照。
+    writeFileSync(onlyEnd, ['归档正文', '>>>>>>> theirs', ''].join('\n'))
+    g(['add', '-A'])
+    g(['commit', '-qm', 'orphan end marker in tree'])
+    const revOrphan = auditRev(repo, 'HEAD')
+    check(
+      '28 --rev 档下两枚针:只有单侧闭合行的提交树判红(旧单针候选下本臂必失败)',
+      revCandidatePaths(repo, 'HEAD').includes('orphan_end.md') &&
+        revOrphan.code === 1 &&
+        revOrphan.violations.some((v) => v.kind === 'orphan' && v.path === 'orphan_end.md'),
+    )
+
+    writeFileSync(onlyEnd, '归档正文(标记已按 §12b 归并取回)\n')
+    g(['add', '-A'])
+    g(['commit', '-qm', 'clean again 2'])
+    check('29 摘净单侧标记后 --rev HEAD 回到判绿(收紧后置条件可复核)', auditRev(repo, 'HEAD').code === 0)
 
     let fail = 0
     for (const r of results) {
@@ -617,7 +752,7 @@ function selfTestRun() {
     console.log(
       fail
         ? `❌ check-no-conflict-markers self-test FAILED ${fail}/${results.length}`
-        : `✅ check-no-conflict-markers self-test 全部通过(${results.length} 例,含正反成对对照)`,
+        : `✅ check-no-conflict-markers self-test 全部通过(${results.length} 例:P1 正反成对对照 + E1 豁免与混搭反例 + 真实 merge 未合并路径 + P4 单侧升红与"合法单行仍判绿"反向锁)`,
     )
     return fail ? 1 : 0
   } finally {
@@ -635,8 +770,9 @@ const HELP = [
   '  --rev <r>   判某个提交树(git grep -Il 定位候选 + blob 复核成对)',
   '  --self-test 临时仓端到端取证,不触碰真实仓',
   '',
-  '判据:同文件内成对的 ^<<<<<<< 与 ^>>>>>>> (中间可夹 ^=======$);单行不判。',
-  `退出码:0 通过 / 1 检出成对标记 / 2 脚本自身异常。紧急跳过:${SKIP_ENV}=1`,
+  '判据:P1 同文件内成对的 ^<<<<<<< 与 ^>>>>>>> (中间可夹 ^=======$);P4 带 ours/theirs/HEAD 词尾',
+  '          的孤立标记(只剩一半)同样判红;孤立 ======= 与不带该词尾的孤立尖括号只报数不判红。',
+  `退出码:0 通过 / 1 检出 P1 成对标记或 P4 孤立带词尾标记 / 2 脚本自身异常。紧急跳过:${SKIP_ENV}=1`,
 ].join('\n')
 
 async function main() {
@@ -698,5 +834,7 @@ export const __test__ = {
   SKIP_ENV,
   MAX_BYTES,
   SELF_EXEMPT_PREFIX,
+  /** P4 词尾名单(镜像测试 import 这一份,禁止在测试里复制正则 —— §22c)。 */
+  ORPHAN_JUDGED_RE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
