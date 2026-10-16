@@ -163,7 +163,32 @@ test('T5 真仓 HEAD 面端到端:看不见存量不算通过(默认只报数,--
     0,
     `全量档默认不得因存量判红,stdout=${plain.stdout} stderr=${plain.stderr}`,
   )
-  assert.match(plain.stderr, /IM1 检出 \d+ 条/, '存量红必须被点名(只报数不等于不报)')
+  // 「IM1 检出 N 条」只在**真有存量红**时才会出现:2026-10-16 现读 `--json` 的 `counts.stockReds = 0`、
+  // stderr 为空、exit 0 ⇒ 存量已清账。原断言无条件匹配,等于把"仓库此刻还欠着 IM1"当判据前提 ——
+  // 清账之后这条臂永久红,而红的原因与门的行为无关(与本用例上方"锚定**会变的量**的字面量 = 自埋
+  // 定时炸弹"同一条教训,这次锚的不是数字而是"有没有债")。
+  // 命名能力的可复现证据是门体自己的 S4 夹具臂(改一个 SQL 词 ⇒ 必判红并点名第一条不等行),所以:
+  // 有存量 ⇒ 当场必须报名;无存量 ⇒ 必须**验证那条夹具臂真跑绿**,不许静默跳过(跳过=把没判写成判过,§0.3)。
+  // 判据本体一个字未动。
+  const faceJson = JSON.parse(runGate(['--json']).stdout)
+  const hasStock = faceJson.counts.stockReds > 0
+  if (hasStock) {
+    assert.match(plain.stderr, /IM1 检出 \d+ 条/, '有存量红却不点名 = 只报数不报名')
+  } else {
+    const st = runGate(['--self-test'])
+    assert.equal(
+      st.status,
+      0,
+      `无存量红时,命名与问责两维的唯一证据是门体自检夹具臂(S4/S15/S16),自检必须绿:${String(st.stderr).slice(-300)}`,
+    )
+    const stOut = `${st.stdout}${st.stderr}`
+    for (const [arm, why] of [
+      [/S4[^\n]*点名/, 'S4 夹具臂(改一个 SQL 词 ⇒ 判红并点名)缺席 ⇒ 报名这一维已无人判'],
+      [/S15[^\n]*存量红默认[^\n]*0/, 'S15 缺席 ⇒ "默认只报数"这条防恒红锁没人守'],
+      [/S16[^\n]*--strict[^\n]*1/, 'S16 缺席 ⇒ 问责档会咬人这件事只剩散文声称'],
+    ])
+      assert.match(stOut, arm, `${why},不得当成通过(静默跳过 = 把没判写成判过,§0.3)`)
+  }
   // ⚠️ 原断言是 `/可比对 30\d/` —— 锚定**数字前缀**, 而"可比对候选数"会随迁移入库单调增长
   // (现读 311,已跨过 30\d 的边界 ⇒ 这条断言从某天起永久失效, 且没人会注意到它失效)。
   // 它想说的是"可比对数非零且与 json 面同源", 不是"落在某个区间" ⇒ 改成结构断言:
@@ -172,7 +197,14 @@ test('T5 真仓 HEAD 面端到端:看不见存量不算通过(默认只报数,--
   assert.match(plain.stdout, /\[判定面=head\][\s\S]*可比对 \d+/)
 
   const strict = runGate(['--strict'])
-  assert.equal(strict.status, 1, `--strict 下有存量不等必须判红,stdout=${strict.stdout}`)
+  // 与上一条同教训:`--strict` 该不该咬,取决于**此刻有没有存量不等**(现读 `stockReds = 0`),
+  // 所以按同一个读数分档判,而不是无条件要求 1 —— 无条件要求 1 等于把"仓库还欠着债"当判据前提,
+  // 清账之后这条臂就永久红,而红的原因与门的行为无关。无存量时必须是 0,与门体 S15/S16 夹具臂同口径。
+  assert.equal(
+    strict.status,
+    hasStock ? 1 : 0,
+    `--strict 应当${hasStock ? '把存量不等判红' : '在无存量时判绿'}(问责档口径),实得 ${strict.status}:stdout=${strict.stdout}`,
+  )
 
   const json = runGate(['--json'])
   const parsed = JSON.parse(json.stdout)
