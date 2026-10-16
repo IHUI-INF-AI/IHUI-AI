@@ -2403,6 +2403,9 @@ struct DeepLinkGateState {
     pending: DeepLinkPending,
 }
 
+/// 主窗点亮是否被用户"先进托盘/--minimized"压住(setup 写入,on_page_load 回调读取)。
+static STARTUP_START_HIDDEN: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 static DEEP_LINK_GATE: LazyLock<Mutex<DeepLinkGateState>> =
     LazyLock::new(|| Mutex::new(DeepLinkGateState::default()));
 
@@ -2873,6 +2876,32 @@ pub fn run() {
         }
     }
     tauri::Builder::default()
+        // ⚠️ 2026-10-16 修「启动后左上 logo / 右上窗控隔好久才出来」(用户报):
+        // 主窗 visible:false 创建,点亮原先挂在 auto_refresh 探活落定 —— 探活只证后端
+        // 活,此刻远程首页往往才开始加载,窗口亮起后网页 chrome(logo/窗控,
+        // decorations:false 下全部由网页绘制)还要等页面 JS/渲染,慢则数秒。
+        // 改为「主文档加载完成(PageLoadEvent::Finished)即亮」—— DOM 就绪,chrome
+        // 第一帧可见。配套:①auto_refresh 在线分支的 show 已摘除(探活只落在线态);
+        // ②setup 15s 硬超时兜底,页面卡死/探活挂起也绝不黑窗;③离线分支切本地兜底页
+        // 后照旧 show,双保险。三路都尊重 STARTUP_START_HIDDEN(先进托盘/--minimized)。
+        // on_page_load 是 app 级 Builder API(2.11 实例侧无此方法),须按 label 过滤主窗。
+        .on_page_load(|wv, payload| {
+            if std::sync::atomic::AtomicBool::load(
+                &STARTUP_START_HIDDEN,
+                std::sync::atomic::Ordering::SeqCst,
+            ) {
+                return;
+            }
+            if wv.label() != "main" {
+                return;
+            }
+            if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
+                if let Some(win) = wv.app_handle().get_webview_window("main") {
+                    log::info!("[window-show] site=page_load_finished trigger=主文档加载完成 ⇒ 点亮(chrome 第一帧可见,替代探活点亮)");
+                    let _ = win.show();
+                }
+            }
+        })
         // 结构化日志(写文件 %LOCALAPPDATA%\com.ihui.desktop\logs\ + 控制台)
         // 2026-07-29: 替代裸 println!/eprintln!,线上问题可追溯 + 设置项可一键导出
         // 12546(2026-09-28):上一版只有 .level(Info) 而**没声明任何 target** —— 本行注释
@@ -3226,7 +3255,24 @@ pub fn run() {
             //   双击不带参数,是明确的"打开界面"意图,不能再被开关按住;开关只管开机自启。
             let start_hidden =
                 should_start_hidden(startup_prefs.launch_minimized, argv_has_minimized);
+            STARTUP_START_HIDDEN.store(start_hidden, std::sync::atomic::Ordering::SeqCst);
             auto_refresh::start(app.handle().clone(), !start_hidden);
+            {
+                let app_handle = app.handle().clone();
+                let start_hidden_timeout = start_hidden;
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(15));
+                    if start_hidden_timeout {
+                        return;
+                    }
+                    if let Some(win) = app_handle.get_webview_window("main") {
+                        if !win.is_visible().unwrap_or(true) {
+                            log::info!("[window-show] site=startup_timeout_reveal trigger=15s 硬超时页面仍未点亮 ⇒ 兜底显示(绝不黑窗)");
+                            let _ = win.show();
+                        }
+                    }
+                });
+            }
             // 2026-08-16 修复:autostart 插件透传 --minimized(开机自启最小化到托盘),
             // 此前无任何 args 解析,开机自启会直接弹出主窗口。须在恢复窗口状态后执行。
             // 2026-09-28 立:**用户开关压过命令行参数** —— 这条反直觉,所以把理由写全:
