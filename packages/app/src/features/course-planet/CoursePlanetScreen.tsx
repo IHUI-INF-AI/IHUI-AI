@@ -5,29 +5,12 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { TFunction } from '../../types'
 import { BookOpen } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius } from '@ihui/design-tokens'
-
-export interface CoursePlanetScreenProps {
-  t: TFunction
-  data: {
-    hot: { id: string; title: string; coverImage?: string; price: number; isFree: boolean }[]
-    beginner: { id: string; title: string; coverImage?: string; price: number; isFree: boolean }[]
-    selected: { id: string; title: string; coverImage?: string; price: number; isFree: boolean }[]
-  }
-  loading: boolean
-  refreshing: boolean
-  error: string
-  selectedType: 'all' | 'free' | 'paid'
-  onTypeChange: (type: 'all' | 'free' | 'paid') => void
-  onCoursePress: (id: string) => void
-  onRefresh: () => void
-  onBack: () => void
-  colorScheme?: 'light' | 'dark'
-}
+import type { CoursePlanetScreenProps } from '@ihui/types'
+export type { CoursePlanetScreenProps }
 
 const TYPE_TABS = [
   { key: 'all', label: '全部' },

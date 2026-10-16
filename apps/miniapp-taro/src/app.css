@@ -254,6 +254,9 @@ page {
 
   /* 以下 1 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
   --color-chrome: #ffffff;
+
+  /* 以下 1 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --color-glass-bg: rgba(255, 255, 255, 0.66);
 }
 
 /* ===== 阿里妈妈方圆体 VF — 统一项目字体 (对齐原项目) =====
@@ -514,7 +517,10 @@ iframe#webpack-dev-server-client-overlay {
 
   /* 以下 1 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
   --color-chrome: #ffffff;
-  /* ===== Tailwind v3 alpha 通道三元组(自动同步自 tokens.css,勿手动编辑;
+
+  /* 以下 1 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --color-glass-bg: rgba(255, 255, 255, 0.66);
+/* ===== Tailwind v3 alpha 通道三元组(自动同步自 tokens.css,勿手动编辑;
      给 bg/text/border-*-/<透明度> 用,见 packages/design-tokens/src/tailwind-alpha-plugin.js)===== */
   --color-foreground-rgb: 10, 10, 10;
   --color-primary-rgb: 0, 0, 0;
@@ -698,6 +704,9 @@ iframe#webpack-dev-server-client-overlay {
 
   /* 以下 1 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
   --color-chrome: #262626;
+
+  /* 以下 1 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --color-glass-bg: rgba(26, 26, 26, 0.66);
 }
 
 /* ===== 通用工具类 ===== */

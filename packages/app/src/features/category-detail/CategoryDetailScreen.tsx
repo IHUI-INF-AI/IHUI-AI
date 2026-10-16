@@ -14,24 +14,11 @@ import {
 } from 'react-native'
 import { ChevronRight } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius } from '@ihui/design-tokens'
-
-export interface CategoryDetailScreenProps {
-  t: TFunction
-  items: { id: string; name: string; description?: string; cover?: string }[]
-  activeTab: string
-  loading: boolean
-  hasMore: boolean
-  error: string
-  onTabChange: (tab: string) => void
-  onLoadMore: () => void
-  onAgentPress: (id: string) => void
-  onBack: () => void
-  colorScheme?: 'light' | 'dark'
-}
+import type { CategoryDetailScreenProps } from '@ihui/types'
+export type { CategoryDetailScreenProps }
 
 const TABS = ['推荐', '热门', '最新'] as const
 

@@ -13,22 +13,11 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Newspaper } from 'lucide-react-native'
-import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius } from '@ihui/design-tokens'
-
-export interface KnowledgePlanetScreenProps {
-  t: TFunction
-  items: { id: string; title: string; cover?: string; summary?: string; createdAt: number }[]
-  loading: boolean
-  refreshing: boolean
-  error: string
-  onRefresh: () => void
-  onItemClick: (id: string) => void
-  onBack: () => void
-  colorScheme?: 'light' | 'dark'
-}
+import type { KnowledgePlanetScreenProps } from '@ihui/types'
+export type { KnowledgePlanetScreenProps }
 
 export function KnowledgePlanetScreen({
   t,
