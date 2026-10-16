@@ -3148,6 +3148,15 @@ export function healUnresponsiveServices(opts = {}) {
 
 const OPS_PATROL_INTERVAL_MS = Number(process.env.IHUI_OPS_PATROL_INTERVAL_MS || 15 * 60 * 1000)
 const OPS_PATROL_TIMEOUT_MS = Number(process.env.IHUI_OPS_PATROL_TIMEOUT_MS || 180_000)
+// ── 巡检发信的持续性门槛(2026-10-16 立,与 auditPublicPathProbe 共用 `bumpProbeStreak` 同一份实现)──
+// 门槛取 **3 轮 ≈ 45 分钟**,这个数不是拍的,是当天量出来的:P4a(Temp 条目越阈)今天两场风暴
+// 各只持续了 2 轮就自己回绿(05:21Z 64,205>60,000、05:36Z 64,289 ⇒ 05:51Z 已绿;07:52Z 又一模一样),
+// 而真待修的那一族(备份停摆 63 小时、规则没上岗、副本没出机)一红就是几十轮。
+// ⇒ 3 轮掐得掉"下一轮就没了"的尖峰,压不住真故障;单轮/两轮尖峰只逐轮报名(红档与原因照旧每轮打印、
+// 每轮落 `.workbuddy/ops-patrol-last.json`),**不发信 ≠ 不留痕**(§5e-1:红了要能答"收信人能做什么")。
+const OPS_PATROL_STREAK_FILE = join(WORKTREE, '.workbuddy', 'ops-patrol-streak.json')
+const OPS_PATROL_STREAK_REQUIRED = Number(process.env.IHUI_OPS_PATROL_STREAK || 3)
+const OPS_PATROL_STREAK_TTL_MS = Number(process.env.IHUI_OPS_PATROL_STREAK_TTL_MS || 24 * 60 * 60 * 1000)
 
 /** 节流判定(纯函数):距上次派发是否已够一个间隔。取不到 tick 文件 ⇒ 视为**该跑了**。 */
 export function publicProbeDue(nowMs, tickMs, intervalMs = PUBLIC_PROBE_INTERVAL_MS) {
@@ -3179,6 +3188,10 @@ export function auditOpsPatrol(opts = {}) {
     now = Date.now(),
     intervalMs = OPS_PATROL_INTERVAL_MS,
     tickFile = OPS_PATROL_TICK,
+    streakFile = OPS_PATROL_STREAK_FILE,
+    requiredStreak = OPS_PATROL_STREAK_REQUIRED,
+    streakTtlMs = OPS_PATROL_STREAK_TTL_MS,
+    minGapMs = Math.floor(OPS_PATROL_INTERVAL_MS / 2),
     logger = log,
     notify = notifyGuardRed,
     runner = null,
@@ -3228,13 +3241,62 @@ export function auditOpsPatrol(opts = {}) {
     }
     const findings = parsed.findings || []
     const undet = parsed.undetermined || []
-    if (undet.length) logger(`ℹ️ 元运维巡检:${undet.length} 格未判定(只登记不喊人)—— ${undet.map((x) => x.id).join(', ')}`)
+    if (undet.length) {
+      logger(`ℹ️ 元运维巡检:${undet.length} 格未判定(只登记不喊人)—— ${undet.map((x) => x.id).join(', ')}`)
+      // 只报格名等于"下一轮还是同一条无名盲区"(§0.3)。原因逐格带上界 120 字符、最多 5 条,
+      // 超出部分指回 `.workbuddy/ops-patrol-last.json`(门在 --json 档也会落盘)——
+      // 这一格每 15 分钟一轮,不设界就是往守护日志里堆无限账。
+      for (const x of undet.slice(0, 5)) logger(`   · 未判定原因 ${x.id}:${String(x.detail || '(门没给原因)').slice(0, 120)}`)
+      if (undet.length > 5) logger(`   · 另有 ${undet.length - 5} 格未判定,原因见 .workbuddy/ops-patrol-last.json`)
+    }
+    // ── 持续性门槛(与公网探测同一份 `bumpProbeStreak`,不写第二份,§22c)──────────────
+    // 身份 = 格 id;`ok` 清零、`unjudged` 不推进也不清零、`breach` +1(不足 minGapMs 的重复测量只报名)。
+    // 账本读不出的失效方向钉死为**多喊一次**:除"文件本来就不在(第一轮)"外,任何读失败都按门槛 1
+    // 立即到人(§0.10:绝不能因为账本坏了就静默)。
+    const verdicts = {}
+    for (const x of parsed.ok || []) verdicts[x.id] = { verdict: 'ok' }
+    for (const x of parsed.adjudicated || []) verdicts[x.id] = { verdict: 'ok' } // 已裁 = 本轮不需要到人
+    for (const x of undet) verdicts[x.id] = { verdict: 'unjudged' }
+    for (const x of findings) verdicts[x.id] = { verdict: 'breach' }
+    let prevStreak = {}
+    let effRequired = requiredStreak
+    try {
+      const parsedStreak = JSON.parse(readFileSync(streakFile, 'utf8'))
+      if (parsedStreak && typeof parsedStreak === 'object' && !Array.isArray(parsedStreak)) prevStreak = parsedStreak
+      else effRequired = 1
+    } catch (e) {
+      if (String(e?.code || '') !== 'ENOENT') effRequired = 1
+      logger(`ℹ️ 元运维巡检连击账本:${String(e?.code || e?.message || e).slice(0, 60)}${effRequired === 1 && requiredStreak !== 1 ? ' ⇒ 读不出,本轮按"越阈即寄"处理(宁多勿默)' : ''}`)
+    }
+    const bump = bumpProbeStreak(prevStreak, verdicts, { now, required: effRequired, ttlMs: streakTtlMs, minGapMs })
+    for (const c of bump.cleared) logger(`✅ 元运维巡检连击清零:${c.key}(此前连 ${c.from} 轮,本轮已判定合规)`)
+    for (const [key, i] of Object.entries(bump.info))
+      if (i.merged) logger(`ℹ️ 元运维巡检重复测量(距上轮 ${Math.round(i.gapMs / 1000)}s < 最小间隔 ${Math.round(minGapMs / 1000)}s,两个执行体撞进同一个节流窗口)⇒ 不推进连击:${key} 仍算连 ${i.streak}/${i.required} 轮`)
+    for (const p of bump.pruned) logger(`ℹ️ 元运维巡检连击条目回收(${p.reason}):${p.key} 连 ${p.streak} 轮`)
+    if (bump.bogus.length) logger(`⚠️ 元运维巡检连击账本里有 ${bump.bogus.length} 条时刻不可信的条目(在未来):${bump.bogus.join(', ')} —— 已回收,且不参与本轮连击`)
+    try {
+      mkdirSync(dirname(streakFile), { recursive: true })
+      writeFileSync(streakFile, JSON.stringify(bump.state, null, 1), 'utf8')
+    } catch (e) {
+      logger(`⚠️ 元运维巡检连击账本写不进(不改判定,下一轮按"读不出即多喊"处理):${String(e?.code || e?.message || e).slice(0, 60)}`)
+    }
     if (findings.length) {
       const body = findings.map((x) => `· ${x.id} ${x.detail}`).join('\n')
       logger(`❌ 元运维巡检判红 ${findings.length} 格:\n${body}`)
+      const due = findings.filter((x) => bump.info[x.id] && bump.info[x.id].due === true)
+      if (!due.length) {
+        // 未达门槛:红档与原因照旧逐轮打印、照旧落盘,只是这一轮不发信。写明"下一轮约多久、几轮到头",
+        // 让抑制有可见的终态,而不是一张静音键。
+        logger(
+          `ℹ️ 元运维巡检判红但未达持续性门槛:${findings.map((x) => `${x.id} 连 ${bump.info[x.id]?.streak ?? 1}/${effRequired} 轮`).join('、')}` +
+            ` ⇒ 本轮只报名不寄信(约 ${Math.round(OPS_PATROL_INTERVAL_MS / 60000)} 分钟一轮;同一身份连续 ${effRequired} 轮即到人)`,
+        )
+      } else {
       notify(
         `元运维巡检红(${findings.length} 格)`,
-        `${body}\n\n手动复现:node scripts/check-ops-patrol.mjs(只读) / --apply(顺手修可修的)`,
+        `${body}\n\n同一身份连续第 ${due.map((x) => `${x.id}=${bump.info[x.id].streak}`).join('、')} 轮越阈(门槛 ${effRequired} 轮,单轮尖峰不寄信)。` +
+          `\n手动复现:node scripts/check-ops-patrol.mjs(只读) / --apply(顺手修可修的)` +
+          `\n连击账本:.workbuddy/ops-patrol-streak.json;盲区与逐格读数:.workbuddy/ops-patrol-last.json`,
         {
           severity: 'warning',
           // dedupKey(§5e-1 配套,24 封):聚合告警的正文是**逐格 detail 清单**,而每格 detail
@@ -3243,6 +3305,7 @@ export function auditOpsPatrol(opts = {}) {
           dedupKey: `cells=${findings.map((x) => x.id).sort().join('+')}`,
         },
       )
+      }
     } else {
       logger(`✅ 元运维巡检:${parsed.counts.ok} 格绿,无红(${undet.length} 格未判定)`)
     }
