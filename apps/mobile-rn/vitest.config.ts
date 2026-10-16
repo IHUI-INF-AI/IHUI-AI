@@ -20,6 +20,36 @@ const SHARED_UI_SPEC_ALIASES = Object.fromEntries(
     .map((f) => [`@ihui/shared/ui/${f.replace(/\.ts$/, '')}`, resolve(SHARED_UI_DIR, f)]),
 )
 
+const SHARED_UTILS_DIR = resolve(__dirname, '../../packages/shared/src/utils')
+/**
+ * 同一条教训的第二处应用(见上面 `*-spec` 那段注释):`@ihui/shared/utils` 这条**父别名指向测试替身**,
+ * 而 vite 的父别名按 `pattern + '/'` 前缀匹配,会把 `@ihui/shared/utils/<模块>` 整段子路径吞成
+ * `<替身文件>/<模块>` ⇒ 收集期 MODULE_NOT_FOUND,整份套件**一条 it 都没跑**而账面仍在"通过"里。
+ * 逐条手写必然漏(实测漏过 search-suggestions 与 storage 两条),所以按目录派生:
+ * 共享 utils 目录里每个真实 `.ts` 都先于父别名解析到真源码;`index.ts` 不单独出条目(父别名就是它)。
+ */
+const SHARED_UTILS_ALIASES = Object.fromEntries(
+  readdirSync(SHARED_UTILS_DIR)
+    .filter((f) => f.endsWith('.ts') && f !== 'index.ts')
+    .map((f) => [`@ihui/shared/utils/${f.replace(/\.ts$/, '')}`, resolve(SHARED_UTILS_DIR, f)]),
+)
+
+const SHARED_HOOKS_DIR = resolve(__dirname, '../../packages/shared/src/hooks')
+/**
+ * `@ihui/shared/hooks` 父别名与 utils 完全同型(实测第二条被吞的就是 `hooks/use-storage`):
+ * 父别名指向测试替身,而它按 `pattern + '/'` 前缀匹配,会把整段子路径吞成 `<替身>/use-storage`
+ * ⇒ 收集期 MODULE_NOT_FOUND,而 `pnpm test` 的账面仍显示"套件通过 / 用例数正常"。
+ * 同一条规矩第二次应用:按目录派生,不逐条手写。
+ */
+const SHARED_HOOKS_ALIASES = Object.fromEntries(
+  readdirSync(SHARED_HOOKS_DIR)
+    .filter((f) => /\.(ts|tsx)$/.test(f) && !/^index\./.test(f))
+    .map((f) => [
+      `@ihui/shared/hooks/${f.replace(/\.(ts|tsx)$/, '')}`,
+      resolve(SHARED_HOOKS_DIR, f),
+    ]),
+)
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -150,7 +180,12 @@ export default defineConfig({
         __dirname,
         '../../packages/shared/src/hooks/use-connectivity.ts',
       ),
+      // 按目录派生的共享 utils 子路径别名(成因与规矩见文件头 `SHARED_UTILS_ALIASES` 的注释)。
+      // 必须整体排在下面 '@ihui/shared/utils' 父别名**之前** —— 否则父替身会吞掉每一条子路径。
+      ...SHARED_UTILS_ALIASES,
       '@ihui/shared/utils': resolve(__dirname, 'tests/__mocks__/ihui-shared-utils.ts'),
+      // hooks 家族同上一条的应用(父别名指替身 ⇒ 子路径按前缀被吞)。
+      ...SHARED_HOOKS_ALIASES,
       '@ihui/shared/hooks': resolve(__dirname, 'tests/__mocks__/ihui-shared-hooks.ts'),
       // 2026-09-27 收口:stores 从"手写替身"改为直指真实工厂。
       // 旧替身自己实现了一份 createAuthStore/createThemeStore,与真实工厂**语义不同形**——
