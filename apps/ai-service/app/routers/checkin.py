@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -40,7 +40,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.core.jwt_auth import require_request_user_id
-from app.services import checkin_credits, checkin_minimax, checkin_qoder, checkin_store, checkin_workbuddy
+from app.services import (
+    checkin_credits,
+    checkin_minimax,
+    checkin_qoder,
+    checkin_store,
+    checkin_workbuddy,
+)
 from app.services import checkin_scheduler as checkin_scheduler_mod
 from app.services.checkin_engine import extract_user_id, get_jwt_exp
 from app.services.checkin_outbound import OutboundPaused, checkin_outbound_gate
@@ -399,6 +405,20 @@ async def query_credits(
             status_code=429,
             detail=f"签到出站限流冷却中({gate_remaining:.0f}s)",
         )
+    # 账号冷却预检(第五件套,2026-10-16):冷却中账号(如 401 死号 10 年 /
+    # 挑战页 30min)不再查余额——天天拿死 token 打平台鉴权点是封号前兆。
+    # 与积分快照跳冷却(get_active_cooldowns)同口径;读冷却失败按无冷却放行
+    # (fail-open,不阻塞正常查询)。
+    try:
+        cooldowns = await checkin_store.get_active_cooldowns()
+    except Exception:
+        cooldowns = {}
+    cd_end = cooldowns.get(account_id)
+    if cd_end is not None and cd_end > datetime.now(UTC):
+        raise HTTPException(
+            status_code=429,
+            detail=f"账号处于冷却期, {cd_end.isoformat()} 后解冻",
+        )
     platform = account.get("platform")
     try:
         if platform == "qoder":
@@ -422,7 +442,9 @@ async def query_credits(
         raise HTTPException(status_code=429, detail=str(e)) from e
     error = result.get("error")
     if error is not None:
-        return {"ok": False, "error": str(error)}
+        # 第五件套配套(2026-10-16):查询路径的分类结果(SessionDead/Challenge)
+        # 一并透传,调用方与前端可观测「为什么失败」,不再只有一句 error 文案
+        return {"ok": False, "error": str(error), "classified_error": result.get("classified_error")}
     remaining = result.get("remaining")
     if not isinstance(remaining, int):
         return {"ok": False, "error": "积分余额解析结果异常"}

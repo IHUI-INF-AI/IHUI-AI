@@ -104,8 +104,24 @@ def challenge_type(http_status: int | None) -> str | None:
     return "Challenge" if http_status in _CHALLENGE_STATUSES else None
 
 
-def _challenge_pause_seconds() -> float:
-    """挑战全局暂停时长(env 运行时读;非法/非正回退默认 300s)。"""
+def rate_limit_pause_seconds() -> float:
+    """429 全局暂停时长(env 运行时读;非法/非正回退默认 60s)。
+
+    公开给调度器重启恢复用(与 challenge_pause_seconds 同一模式,
+    防恢复逻辑与 pause() 默认档两处漂移)。
+    """
+    try:
+        secs = float(os.environ.get(_DEFAULT_PAUSE_ENV, str(_DEFAULT_PAUSE)))
+    except ValueError:
+        return _DEFAULT_PAUSE
+    return secs if secs > 0 else _DEFAULT_PAUSE
+
+
+def challenge_pause_seconds() -> float:
+    """挑战全局暂停时长(env 运行时读;非法/非正回退默认 300s)。
+
+    公开给调度器重启恢复用(恢复时按同一口径补暂停,防两处漂移)。
+    """
     try:
         secs = float(os.environ.get(_CHALLENGE_PAUSE_ENV, str(_CHALLENGE_PAUSE_DEFAULT)))
     except ValueError:
@@ -200,7 +216,7 @@ class OutboundGate:
         challenge_type() 进 classify,再经调度层 record_result 的
         Challenge 分支落单账号冷却与本暂停,路径不重复。
         """
-        self.pause(seconds=_challenge_pause_seconds(), reason=f"{label or 'checkin'} 挑战页/WAF 拦截")
+        self.pause(seconds=challenge_pause_seconds(), reason=f"{label or 'checkin'} 挑战页/WAF 拦截")
 
     def pause(self, seconds: float | None = None, reason: str = "") -> None:
         """全局暂停出站(可叠加,取更晚的截止)。seconds 缺省用 429 默认档。"""
