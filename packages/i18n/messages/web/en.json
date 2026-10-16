@@ -19232,6 +19232,7 @@
     "skippedExpired": "Skipped {count} accounts with expired JWT",
     "skippedCooldown": "Skipped {count} accounts on cooldown",
     "checkinRateLimited": "Platform rate limited, batch aborted, please retry later",
+    "checkinFailedCount": "Failed to check in {count} accounts",
     "checkinSelected": "Check selected ({count})",
     "selectAllVisible": "Select all visible",
     "selectAccount": "Select account {name}",
