@@ -55,6 +55,20 @@ def make_jwt(user_id: str = "u-1001", exp_offset_seconds: float = 86400) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _day_iso(day: str | date | datetime) -> str:
+    """替身 day 键收口成 ISO str(与真 store `day: str | date` 契约对齐)。
+
+    2026-10-17 _coerce_day 修复后,路由层/调度器改传 date 对象(asyncpg date 列
+    绑参要求 date,str 必抛 DataError)。替身若直接 date.fromisoformat(day) 或
+    拿 date 当 dict 键,与测试断言的 ISO str 键错位 ⇒ 必炸(与线上 500 同款机制)。
+    """
+    if isinstance(day, str):
+        return day
+    if isinstance(day, datetime):
+        return day.date().isoformat()
+    return day.isoformat()
+
+
 class FakeStore:
     def __init__(self) -> None:
         self.accounts: dict[int, dict[str, Any]] = {}
@@ -241,6 +255,7 @@ class FakeStore:
     # --- 积分每日快照(WP-B) ---
 
     async def upsert_credits_daily(self, account_id, owner_user_id, day, remaining, gained):
+        day = _day_iso(day)
         key = (account_id, day)
         row = self.credits_daily.get(key)
         if row is None:
@@ -265,7 +280,7 @@ class FakeStore:
         for row in self.credits_daily.values():
             if row["owner_user_id"] != owner_user_id:
                 continue
-            if date.fromisoformat(row["day"]) < start:
+            if date.fromisoformat(_day_iso(row["day"])) < start:
                 continue
             agg = out.setdefault(row["day"], {"day": row["day"], "total": None, "gained": None})
             if row["remaining"] is not None:
@@ -286,7 +301,7 @@ class FakeStore:
         if acc is None or acc["owner_user_id"] != owner_user_id:
             return 0
         cn = ZoneInfo("Asia/Shanghai")
-        target = date.fromisoformat(day)
+        target = date.fromisoformat(_day_iso(day))
         return sum(
             r["credits_delta"]
             for r in self.records.values()
