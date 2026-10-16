@@ -1,0 +1,450 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * check-tunnel-leg-health.mjs — 隧道腿健康只读哨兵(运维尺子,未接任何提交链/调度器)
+ *
+ * ## 立项目标
+ *
+ * 公网入口 aizhs.top 由本机 Windows 服务 `Cloudflared` 承载
+ * (`cloudflared.exe tunnel run --protocol http2 --token-file C:\ProgramData\cloudflared\token`)。
+ * ImagePath 是裸 `tunnel run`,无日志落点 ⇒ 隧道侧事件级取证在本机结构上拿不到(已知盲区)。
+ * 本尺子量的是唯一还能从 OS 面观测到的先行信号:**腿还在不在、腿绑的源地址是不是已退化
+ * (deprecated)、以及是不是全吊在同一个源地址上**。
+ *
+ * ## 定档依据(本机实测读数,取证时刻 2026-10-16 16:01 +0800,非拍脑袋)
+ *
+ * - cloudflared pid = 1484;`netstat -ano` 现读 4 条 ESTABLISHED 腿,远端口均为 7844,
+ *   源地址全部 = `2408:8234:c16:1f44:187:718f:be39:60a3`。
+ * - `netsh interface ipv6 show addresses` 现读:
+ *   - `…187:718f:be39:60a3` = 临时/首选项,有效寿命 2d10h28m5s,**首选寿命 22h10m2s**(健康态)
+ *   - `…284a:8ae6:e432:bb3` = 临时/**反对**,**首选寿命 0s**(= 今天 15:0x 事故型:4 条腿全吊在它上面,
+ *     系统随时可删该地址 ⇒ 4 腿同时断 ⇒ 入口直接 530,且没有任何门会提前喊)
+ *   - `…a941:20e7:542c:6d2b` = 公用/首选项,首选寿命 1d10h28m5s
+ * - 15:4x 重启服务后 4 条腿换到上面第一枚(首选项)地址 ⇒ "腿的源地址 ∈ {0s/反对}" 与 "断流"
+ *   的因果链在现场被完整观测到一次,这就是 breach 线的出处:**任一在用源地址首选寿命 0s
+ *   或状态含 反对/deprecated ⇒ breach**。
+ * - 单点维不判红的依据:实测健康态同样是 4 腿共用 1 个源地址(单点是该部署的常态形态),
+ *   判红即恒红门(§12e)⇒ warn-only 报数,仅当与 deprecated 同时成立时在结论里升级为
+ *   "放大因子"(4 腿一起断的乘数),不另立 breach。
+ * - 远端口认 7843/7844 两档(Cloudflare 隧道端口,实测现值为 7844)。
+ *
+ * ## 三态纪律(§0.3)
+ *
+ * 每维独立给 ok / breach / unjudged,各自计未判定,互不顶账。取不到输入(netsh 失败 /
+ * powershell 失败 / netstat 无行 / 解析不出地址 / 腿的源地址查不到)⇒ unjudged 并点名原因,
+ * 不记绿也不冒红。腿数枚举为 0 分两种:进程在而无腿 = breach(隧道断了);进程不在 =
+ * unjudged 并点名(本尺子不判定"服务本该在跑")。
+ * 阳性对照:每轮真跑前先用构造夹具("已知坏":首选寿命 0s 的在用源地址)证明判据有牙,
+ * 对照不命中 ⇒ 整轮降 exit 3(判据失效的表现为安静,§12f)。
+ *
+ * ## 退出码
+ *
+ * 0 = 已判定且未越阈(warn 不越阈) / 1 = 已判定且越阈 / 2 = 用法错或本器自身异常 /
+ * 3 = 未判定(INCOMPLETE)。
+ *
+ * ## 取材面(守门 118 口径声明)
+ *
+ * 本器判的是**机器运行时状态**(netsh/netstat/powershell 三路现读),不读任何仓库内容 ⇒
+ * 没有 HEAD/索引/--staged 档,也不出现 readFileSync + resolve(ROOT…) 组合;输入取不到时
+ * 一律落到对应维的 unjudged,不回落、不猜。
+ */
+import { execFile } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
+
+const REMOTE_TUNNEL_PORTS = [7843, 7844]
+const PWSH = 'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
+const SPAWN_TIMEOUT_MS = 15000
+
+function runCapture(cmd, args, timeoutMs = SPAWN_TIMEOUT_MS) {
+  return new Promise((resolve) => {
+    execFile(
+      cmd,
+      args,
+      { windowsHide: true, encoding: 'buffer', timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024 },
+      (err, stdout, stderr) => {
+        const killed = Boolean(err && err.killed)
+        resolve({
+          ok: !err,
+          err: err ? (killed ? `命令超时(${timeoutMs}ms)被杀` : err.message) : null,
+          killed,
+          stdout: toText(stdout),
+          stderr: toText(stderr),
+        })
+      }
+    )
+  })
+}
+
+function toText(buf) {
+  if (!buf) return ''
+  // 码页是机器事实,不假设:先按 UTF-8 严格解(本窗实测 netsh 已是 UTF-8 输出),
+  // 解不动才回落 GBK;两把尺子都不行才软解 UTF-8(至少保住 ASCII 寿命字段)。
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf)
+  } catch {}
+  try {
+    return new TextDecoder('gbk').decode(buf)
+  } catch {
+    return new TextDecoder('utf-8').decode(buf)
+  }
+}
+
+export function normalizeAddr(raw) {
+  let v = String(raw).trim().toLowerCase()
+  v = v.replace(/^\[/, '').replace(/\]$/, '')
+  v = v.replace(/%\d+$/, '')
+  return v
+}
+
+const IPV6_SHAPE = /^[0-9a-f]*(?::[0-9a-f:.]*)+$/
+
+export function parseNetshAddresses(text) {
+  const out = new Map()
+  if (typeof text !== 'string' || text.length === 0) return out
+  for (const line of text.split(/\r?\n/)) {
+    const cols = line.trim().split(/\s+/)
+    if (cols.length !== 5) continue
+    const addr = cols[4]
+    const addrKey = normalizeAddr(addr)
+    if (!IPV6_SHAPE.test(addrKey)) continue
+    out.set(addrKey, {
+      kind: cols[0],
+      state: cols[1],
+      validLifetime: cols[2],
+      preferredLifetime: cols[3],
+    })
+  }
+  return out
+}
+
+export function isDeprecatedRecord(rec) {
+  if (!rec) return false
+  if (String(rec.preferredLifetime).trim().toLowerCase() === '0s') return true
+  return /反对|deprecated/i.test(String(rec.state || ''))
+}
+
+export function parseNetstatLegs(text, pids, ports = REMOTE_TUNNEL_PORTS) {
+  const legs = []
+  const unparseableTcp = []
+  if (typeof text !== 'string' || text.length === 0) return { legs, unparseableTcp }
+  const pidSet = new Set((pids || []).map(String))
+  if (pidSet.size === 0) return { legs, unparseableTcp }
+  for (const line of text.split(/\r?\n/)) {
+    const cols = line.trim().split(/\s+/)
+    if (cols.length < 5 || cols[0].toUpperCase() !== 'TCP') continue
+    const pid = cols[cols.length - 1]
+    if (!pidSet.has(pid)) continue
+    if (cols[3].toUpperCase() !== 'ESTABLISHED') continue
+    const local = cols[1]
+    const remote = cols[2]
+    const lm = /^(.*):(\d+)$/.exec(local)
+    const rm = /^(.*):(\d+)$/.exec(remote)
+    if (!lm || !rm) {
+      unparseableTcp.push(line.trim())
+      continue
+    }
+    const rport = Number(rm[2])
+    if (!ports.includes(rport)) continue
+    legs.push({
+      source: normalizeAddr(lm[1]),
+      sourcePort: Number(lm[2]),
+      dest: normalizeAddr(rm[1]),
+      destPort: rport,
+    })
+  }
+  return { legs, unparseableTcp }
+}
+
+export function getPids(powershellStdout) {
+  return String(powershellStdout || '')
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter((s) => /^\d+$/.test(s))
+}
+
+/**
+ * 核心判定:输入是采集层给出的原始事实(或测试夹具),输出每维独立结论。
+ * processProbe: 'ok'(拿到 pid 列表) | 'failed'(探测本身失败 ⇒ 进程存在性未知)
+ * netshProbe / netstatProbe: 'ok' | 'failed'
+ */
+export function judge({ processProbe, pids, netshProbe, netstatProbe, legs, addresses }) {
+  const dims = {}
+  const processPresent = processProbe === 'ok' ? pids.length > 0 : null
+
+  if (processProbe !== 'ok') {
+    dims['leg-count'] = { verdict: 'unjudged', reason: 'powershell 取 pid 失败,进程存在性未知' }
+  } else if (processPresent === false) {
+    dims['leg-count'] = { verdict: 'unjudged', reason: 'cloudflared 进程不存在 —— 本尺子不判定"服务本该在跑",0 条腿不能记成断流' }
+  } else if (netstatProbe !== 'ok') {
+    dims['leg-count'] = { verdict: 'unjudged', reason: 'netstat 采集失败,腿数不可测' }
+  } else if (legs.length === 0) {
+    dims['leg-count'] = { verdict: 'breach', reason: `进程在(pid=${pids.join(',')})而 7843/7844 上 ESTABLISHED 腿数 = 0 —— 隧道断了` }
+  } else {
+    dims['leg-count'] = { verdict: 'ok', reading: { legs: legs.length, pids } }
+  }
+
+  const sources = [...new Set(legs.map((l) => l.source))]
+  const legsKnown = processProbe === 'ok' && pids.length > 0 && netstatProbe === 'ok' && legs.length > 0
+
+  if (!legsKnown) {
+    dims['deprecated-source'] = {
+      verdict: 'unjudged',
+      reason: dims['leg-count'].verdict === 'breach' ? '无腿可查在用源地址(腿已全断)' : '没有可判的在用腿,源地址枚举为 0 ⇒ 不记绿',
+    }
+  } else if (netshProbe !== 'ok') {
+    dims['deprecated-source'] = { verdict: 'unjudged', reason: 'netsh 采集失败,源地址寿命表取不到' }
+  } else {
+    const deprecated = sources.filter((s) => isDeprecatedRecord(addresses.get(s)))
+    const missing = sources.filter((s) => !addresses.has(s))
+    if (deprecated.length > 0) {
+      const amplifying = sources.length === 1 && legs.length >= 2
+      dims['deprecated-source'] = {
+        verdict: 'breach',
+        reason:
+          `在用源地址已退化:${deprecated.map((s) => `${s}(首选寿命 ${addresses.get(s).preferredLifetime},状态 ${addresses.get(s).state})`).join('; ')}` +
+          (amplifying ? ' —— 且全部腿吊在这一个源地址上,退化即 4 腿同断的乘数(放大因子)' : ''),
+        reading: { deprecated },
+      }
+    } else if (missing.length > 0) {
+      dims['deprecated-source'] = { verdict: 'unjudged', reason: `腿的源地址在 netsh 地址表里查不到,无法判退化:${missing.join(', ')}` }
+    } else {
+      dims['deprecated-source'] = {
+        verdict: 'ok',
+        reading: { sources: sources.map((s) => ({ addr: s, preferredLifetime: addresses.get(s).preferredLifetime, state: addresses.get(s).state })) },
+      }
+    }
+  }
+
+  if (!legsKnown) {
+    dims['single-source-point'] = { verdict: 'unjudged', reason: '腿数不足以评估单点(枚举 <1 条腿 ⇒ 该维不判定)' }
+  } else if (legs.length >= 2 && sources.length === 1) {
+    dims['single-source-point'] = { verdict: 'warn', reason: `全部 ${legs.length} 条腿共用同一源地址 ${sources[0]}(单点;健康态亦为此形态 ⇒ 只报数不判红,§12e)`, reading: { sources: 1 } }
+  } else {
+    dims['single-source-point'] = { verdict: 'ok', reading: { legs: legs.length, sources: sources.length } }
+  }
+
+  return dims
+}
+
+/** 阳性对照:"已知坏"夹具必须被判 deprecated-source=breach,否则判据无牙。 */
+export function positiveControl() {
+  const addresses = new Map([['2408::bad', { kind: '临时', state: '反对', validLifetime: '2d', preferredLifetime: '0s' }]])
+  const dims = judge({
+    processProbe: 'ok',
+    pids: ['999'],
+    netshProbe: 'ok',
+    netstatProbe: 'ok',
+    legs: [
+      { source: '2408::bad', sourcePort: 1, dest: '2606::1', destPort: 7844 },
+      { source: '2408::bad', sourcePort: 2, dest: '2606::2', destPort: 7844 },
+    ],
+    addresses,
+  })
+  return {
+    passed: dims['deprecated-source'].verdict === 'breach' && dims['leg-count'].verdict === 'ok',
+    dims,
+  }
+}
+
+export function decideExit(dims, controlPassed) {
+  const verdicts = Object.values(dims).map((d) => d.verdict)
+  if (!controlPassed) return 3
+  if (verdicts.includes('breach')) return 1
+  if (verdicts.includes('unjudged')) return 3
+  return 0
+}
+
+async function collect() {
+  const [ps, netsh, netstat] = await Promise.all([
+    runCapture(PWSH, ['-NoProfile', '-NonInteractive', '-Command', '(Get-Process cloudflared -ErrorAction SilentlyContinue).Id']),
+    runCapture('netsh', ['interface', 'ipv6', 'show', 'addresses']),
+    runCapture('netstat', ['-ano']),
+  ])
+  const processProbe = ps.ok && !ps.killed ? 'ok' : 'failed'
+  const pids = processProbe === 'ok' ? getPids(ps.stdout) : []
+  const netshProbe = netsh.ok && !netsh.killed ? 'ok' : 'failed'
+  const netstatProbe = netstat.ok && !netstat.killed ? 'ok' : 'failed'
+  const addresses = netshProbe === 'ok' ? parseNetshAddresses(netsh.stdout) : new Map()
+  const { legs, unparseableTcp } = netstatProbe === 'ok' ? parseNetstatLegs(netstat.stdout, pids) : { legs: [], unparseableTcp: [] }
+  const failedNames = [
+    processProbe === 'failed' ? `powershell(${ps.err || '无输出'})` : null,
+    netshProbe === 'failed' ? `netsh(${netsh.err || '输出异常'})` : null,
+    netstatProbe === 'failed' ? `netstat(${netstat.err || '输出异常'})` : null,
+  ].filter(Boolean)
+  return { processProbe, pids, netshProbe, netstatProbe, legs, addresses, unparseableTcp, failedNames, evidenceAt: new Date().toISOString() }
+}
+
+function formatHuman(dims, exitCode, evidenceAt, extra) {
+  const lines = [`隧道腿健康(只读)取证时刻 ${evidenceAt}`]
+  for (const [name, d] of Object.entries(dims)) {
+    const mark = d.verdict === 'ok' ? 'OK' : d.verdict === 'breach' ? 'BREACH' : d.verdict === 'warn' ? 'WARN' : 'UNJUDGED'
+    let detail = d.reason || ''
+    if (d.reading) detail += (detail ? ' ' : '') + JSON.stringify(d.reading)
+    lines.push(`  [${mark}] ${name}${detail ? ': ' + detail : ''}`)
+  }
+  if (extra && extra.failedNames && extra.failedNames.length > 0) lines.push(`  采集失败源: ${extra.failedNames.join(', ')}`)
+  if (extra && extra.unparseableTcp && extra.unparseableTcp.length > 0) lines.push(`  解析不了的本 pid TCP 行: ${extra.unparseableTcp.length} 条`)
+  lines.push(`  结论 exit=${exitCode}`)
+  return lines.join('\n')
+}
+
+async function main() {
+  const argv = process.argv.slice(2)
+  if (argv.includes('--self-test')) return selfTest()
+  const known = ['--json']
+  const unknown = argv.filter((a) => a.startsWith('-') && !known.includes(a))
+  if (unknown.length > 0) {
+    console.error(`用法错:未识别参数 ${unknown.join(' ')}(可用:--json / --self-test)`)
+    process.exitCode = 2
+    return
+  }
+  let collected
+  try {
+    collected = await collect()
+  } catch (e) {
+    console.error(`本器自身异常: ${e && e.message}`)
+    process.exitCode = 2
+    return
+  }
+  const dims = judge(collected)
+  const control = positiveControl()
+  const exitCode = decideExit(dims, control.passed)
+  if (!control.passed) dims['positive-control'] = { verdict: 'unjudged', reason: '阳性对照不命中 ⇒ 判据无牙,整轮降未判定' }
+  if (argv.includes('--json')) {
+    console.log(
+      JSON.stringify({
+        tool: 'check-tunnel-leg-health',
+        exitCode,
+        evidenceAt: collected.evidenceAt,
+        pids: collected.pids,
+        legs: collected.legs.length,
+        failedCollectSources: collected.failedNames,
+        positiveControl: control.passed ? 'pass' : 'FAIL',
+        dims,
+      })
+    )
+  } else {
+    console.log(formatHuman(dims, exitCode, collected.evidenceAt, collected))
+  }
+  process.exitCode = exitCode
+}
+
+function selfTest() {
+  let pass = 0
+  let total = 0
+  const t = (name, fn) => {
+    total += 1
+    try {
+      fn()
+      pass += 1
+    } catch (e) {
+      console.log(`  ✗ ${name}: ${e && e.message}`)
+    }
+  }
+  const eq = (a, b, msg) => {
+    if (a !== b) throw new Error(`${msg || ''} 期望 ${b} 实得 ${a}`)
+  }
+  const addrText = [
+    '地址类型   DAD 状态    有效寿命   首选寿命   地址',
+    '临时         首选项         2d10h28m5s   22h10m2s 2408:8234::60a3',
+    '临时         反对          2d10h28m5s         0s 2408:8234::bb3',
+    '公用         首选项         2d10h28m5s 1d10h28m5s 2408:8234::6d2b',
+    '其他         首选项           infinite   infinite ::1',
+    '---------  ----------- ---------- ---------- ----',
+  ].join('\n')
+  t('netsh 解析:表头/分隔行被拒,4 条地址收下', () => {
+    eq(parseNetshAddresses(addrText).size, 4, '地址数')
+  })
+  t('netsh 解析:0s 与 反对 都判 deprecated(正/反)', () => {
+    const m = parseNetshAddresses(addrText)
+    eq(isDeprecatedRecord(m.get('2408:8234::bb3')), true, '0s 枚')
+    eq(isDeprecatedRecord(m.get('2408:8234::60a3')), false, '健康枚')
+    eq(isDeprecatedRecord(m.get('2408:8234::6d2b')), false, '公用枚')
+  })
+  const nsText = [
+    '  TCP    127.0.0.1:20241        0.0.0.0:0              LISTENING       1484',
+    '  TCP    [::1]:51730            [::1]:22               ESTABLISHED     1484',
+    '  TCP    [2408:8234::60a3]:49167  [2606:4700:a0::6]:7844  ESTABLISHED     1484',
+    '  TCP    [2408:8234::60a3]:49175  [2606:4700:a8::10]:7844  ESTABLISHED     1484',
+    '  TCP    [2408:8234::60a3]:49177  [2606:4700:a0::1]:7843  ESTABLISHED     9999',
+    '  UDP    0.0.0.0:53             *:*                                    1484',
+  ].join('\n')
+  t('netstat 解析:只收本 pid + 7843/7844 + ESTABLISHED', () => {
+    const { legs } = parseNetstatLegs(nsText, ['1484'])
+    eq(legs.length, 2, '腿数')
+    eq(legs[0].source, '2408:8234::60a3', '方括号剥净')
+  })
+  t('leg-count:进程在而无腿 = breach;进程不在 = unjudged(不并桶)', () => {
+    const d1 = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [], addresses: new Map() })
+    eq(d1['leg-count'].verdict, 'breach', '无腿')
+    const d2 = judge({ processProbe: 'ok', pids: [], netshProbe: 'ok', netstatProbe: 'ok', legs: [], addresses: new Map() })
+    eq(d2['leg-count'].verdict, 'unjudged', '进程缺席')
+    const d3 = judge({ processProbe: 'failed', pids: [], netshProbe: 'failed', netstatProbe: 'failed', legs: [], addresses: new Map() })
+    eq(d3['leg-count'].verdict, 'unjudged', '探测失败')
+  })
+  t('deprecated:在用源 0s ⇒ breach;健康 ⇒ ok;查不到 ⇒ unjudged(点名)', () => {
+    const addresses = parseNetshAddresses(addrText)
+    const mk = (src) => judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [{ source: src, sourcePort: 5, dest: '2606::1', destPort: 7844 }], addresses })
+    eq(mk('2408:8234::bb3')['deprecated-source'].verdict, 'breach', '0s 源')
+    eq(mk('2408:8234::60a3')['deprecated-source'].verdict, 'ok', '健康源')
+    eq(mk('2408:dead::beef')['deprecated-source'].verdict, 'unjudged', '查无此源')
+  })
+  t('单点:≥2 腿同源 = warn(不是 breach);双源 = ok;0 腿 = unjudged', () => {
+    const addresses = parseNetshAddresses(addrText)
+    const one = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [{ source: '2408:8234::60a3', sourcePort: 1, dest: '::', destPort: 7844 }, { source: '2408:8234::60a3', sourcePort: 2, dest: '::', destPort: 7844 }], addresses })
+    eq(one['single-source-point'].verdict, 'warn', '同源')
+    const two = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [{ source: '2408:8234::60a3', sourcePort: 1, dest: '::', destPort: 7844 }, { source: '2408:8234::6d2b', sourcePort: 2, dest: '::', destPort: 7844 }], addresses })
+    eq(two['single-source-point'].verdict, 'ok', '双源')
+  })
+  t('netsh 采集失败时 deprecated 维 unjudged,不拿 leg-count 的绿顶账', () => {
+    const d = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'failed', netstatProbe: 'ok', legs: [{ source: '2408:8234::60a3', sourcePort: 1, dest: '::', destPort: 7844 }], addresses: new Map() })
+    eq(d['deprecated-source'].verdict, 'unjudged', 'netsh 挂')
+    eq(d['leg-count'].verdict, 'ok', '腿数维不受累')
+  })
+  t('阳性对照夹具必须 breach(摘掉 deprecated 支即翻红的形状锁)', () => {
+    eq(positiveControl().passed, true, '对照')
+  })
+  t('退出码映射:breach=1 / 仅warn=0 / 未判定=3 / 对照失手=3', () => {
+    const addresses = parseNetshAddresses(addrText)
+    const breach = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [{ source: '2408:8234::bb3', sourcePort: 1, dest: '::', destPort: 7844 }], addresses })
+    eq(decideExit(breach, true), 1, 'breach')
+    const warn = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [{ source: '2408:8234::60a3', sourcePort: 1, dest: '::', destPort: 7844 }, { source: '2408:8234::60a3', sourcePort: 2, dest: '::', destPort: 7844 }], addresses })
+    eq(decideExit(warn, true), 0, '仅 warn')
+    const unj = judge({ processProbe: 'failed', pids: [], netshProbe: 'failed', netstatProbe: 'failed', legs: [], addresses: new Map() })
+    eq(decideExit(unj, true), 3, '全未判定')
+    eq(decideExit(warn, false), 3, '对照失手')
+  })
+  t('解析失败形态:空文本/乱表头 ⇒ 枚举 0 地址/0 腿,配合 judge 落 unjudged', () => {
+    eq(parseNetshAddresses('').size, 0, '空')
+    eq(parseNetshAddresses('nothing useful').size, 0, '无地址形态')
+    eq(parseNetstatLegs('', ['1']).legs.length, 0, '空 netstat')
+    eq(getPids('\nabc\n42\n').join(), '42', 'pid 抽取吃掉非数字行')
+  })
+  console.log(`${pass}/${total} 通过`)
+  process.exitCode = pass === total ? 0 : 1
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+
+export const __test__ = {
+  normalizeAddr,
+  parseNetshAddresses,
+  parseNetstatLegs,
+  isDeprecatedRecord,
+  getPids,
+  judge,
+  positiveControl,
+  decideExit,
+  REMOTE_TUNNEL_PORTS,
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
