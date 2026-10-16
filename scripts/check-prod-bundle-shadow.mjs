@@ -78,6 +78,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gitBinary } from './lib/face-reader.mjs'
+import { mkScratch } from './lib/scratch-dir.mjs'
 
 if (process.env.HUSKY_SKIP_PROD_BUNDLE_SHADOW === '1') {
   console.log('⏭  HUSKY_SKIP_PROD_BUNDLE_SHADOW=1 — 跳过 prod-bundle 影子副本对账')
@@ -613,7 +614,10 @@ export function decide(res, opts = {}) {
 }
 
 function selfTest() {
-  const root = join(REPO, '.ihui-agent', 'tmp', 'prod-bundle-shadow-selftest')
+  // 夹具落点 = §15b 唯一出口 mkScratch(工作区外 + 进程退出自动回收)。
+  // 原先落在仓库树内 `.ihui-agent/tmp/…` 并在那里 `git init` ⇒ 门 208「工作树内禁止嵌套 git 仓」
+  // 对**每一次**自检判红(blocking),IDE 源代码管理还会把它扫成「暂存更改 10000+」幻影计数(§15c 事故型)。
+  const root = mkScratch('prod-bundle-shadow-selftest-')
   // 夹具必须跨轮次可重跑:上一轮的 E1/digest 用例会把 stray.ps1 / a.ps1 之类留在
   // bundle 目录里,第二轮的"全部登记 ⇒ 零 unlisted"会被自己的残留顶红(与 --allow-empty
   // 那条"第二次起恒 exit 2"同一型教训 —— 只能跑一次的取证等于没有取证)。
