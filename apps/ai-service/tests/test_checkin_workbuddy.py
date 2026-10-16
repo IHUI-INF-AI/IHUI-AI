@@ -220,6 +220,34 @@ class TestCheckinFlow:
         checkin_outbound_gate.reset()
 
     @pytest.mark.asyncio
+    async def test_query_credits_challenge_page_fuses(self, jwt):
+        """第五件套(查询路径):状态查询 2xx 非 JSON → Challenge 熔断 + 暂停。"""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, text="<html>challenge</html>")
+
+        result = await workbuddy_query_credits(jwt, {"uid": UID}, client=make_client(handler))
+        assert result["remaining"] is None
+        assert "挑战页" in str(result["error"])
+        assert result["classified_error"] == {
+            "type": "Challenge",
+            "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+        }
+        assert checkin_outbound_gate.paused_remaining() > 0
+        checkin_outbound_gate.reset()
+
+    @pytest.mark.asyncio
+    async def test_query_credits_401_dead_token_classified(self, jwt):
+        """第五件套(查询路径):401 → 结果带 SessionDead 分类(与签到主路同语义)。"""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(401, json={"code": 401})
+
+        result = await workbuddy_query_credits(jwt, {"uid": UID}, client=make_client(handler))
+        assert result["remaining"] is None
+        assert result["classified_error"] == {"type": "SessionDead", "cooldown_seconds": -1}
+
+    @pytest.mark.asyncio
     async def test_401_session_dead(self, jwt):
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(401, json={"requestId": "401401401-uuid"})

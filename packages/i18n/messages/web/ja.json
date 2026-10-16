@@ -19235,6 +19235,7 @@
     "skippedExpired": "JWT 期限切れのアカウントを {count} 件スキップしました",
     "skippedCooldown": "クールダウン中のアカウントを {count} 件スキップしました",
     "checkinRateLimited": "レート制限により一括チェックインを中止しました。後でお試しください",
+    "checkinFailedCount": "チェックインに失敗したアカウントが {count} 件あります",
     "checkinSelected": "選択したアカウントをチェックイン（{count}）",
     "selectAllVisible": "表示中をすべて選択",
     "selectAccount": "アカウント {name} を選択",
@@ -19700,7 +19701,17 @@
     "adminDeployDiagnosis": "デプロイ診断",
     "githubApp": "GitHub App",
     "smsReceive": "SMS認証コード",
-    "sms": "SMSテンプレート"
+    "sms": "SMSテンプレート",
+    "customGroup": "カスタム",
+    "customAddTitle": "よく使う機能",
+    "customAddDesc": "下からよく使うサイドバー項目を選んで追加",
+    "customEmptyHint": "右上の + をクリックしてよく使う機能を追加",
+    "customSearchPlaceholder": "機能を検索",
+    "customAdded": "追加済み",
+    "customAdd": "追加",
+    "customRemove": "削除",
+    "customManage": "よく使う機能を管理",
+    "customDragHint": "ドラッグで並べ替え"
   },
   "news": {
     "allCategories": "All categories",

@@ -449,6 +449,17 @@ async def workbuddy_query_credits(
                 if web_mode
                 else f"token 已过期或无权限(HTTP {status})"
             ),
+            # 第五件套(2026-10-16):与签到主路同语义(401/403=SessionDead),
+            # 供消费方观测;本平台 403 不比 Challenge 软——永久冷却更保守
+            "classified_error": {"type": "SessionDead", "cooldown_seconds": -1},
+        }
+    if status == 200 and not isinstance(data, dict):
+        # 第五件套:2xx 非 JSON = WAF 挑战页插页(与签到主路同款熔断)
+        checkin_outbound_gate.note_challenge("workbuddy")
+        return {
+            "remaining": None,
+            "error": "状态查询返回非 JSON(挑战页,已熔断)",
+            "classified_error": {"type": "Challenge", "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS},
         }
     if status != 200 or not isinstance(data, dict):
         return {"remaining": None, "error": f"状态查询失败(HTTP {status})"}

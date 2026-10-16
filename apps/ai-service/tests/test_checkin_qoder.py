@@ -321,6 +321,36 @@ class TestCheckinFlow:
         checkin_outbound_gate.reset()
 
     @pytest.mark.asyncio
+    async def test_query_credits_challenge_page_fuses(self, jwt):
+        """第五件套(查询路径):余额查询 2xx 非 JSON → Challenge 熔断 + 暂停。"""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == PATH_QUOTA:
+                return httpx.Response(200, text="<html>challenge</html>")
+            return httpx.Response(404)
+
+        result = await qoder_query_credits(jwt, {"cosy": {"machine_id": "mid"}}, client=make_client(handler))
+        assert result["remaining"] is None
+        assert "挑战页" in str(result["error"])
+        assert checkin_outbound_gate.paused_remaining() > 0
+        checkin_outbound_gate.reset()
+
+    @pytest.mark.asyncio
+    async def test_query_credits_403_fuses(self, jwt):
+        """第五件套(查询路径):余额查询 403 → Challenge 熔断(对齐主路语义)。"""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == PATH_QUOTA:
+                return httpx.Response(403, text="blocked")
+            return httpx.Response(404)
+
+        result = await qoder_query_credits(jwt, {"cosy": {"machine_id": "mid"}}, client=make_client(handler))
+        assert result["remaining"] is None
+        assert "403" in str(result["error"])
+        assert checkin_outbound_gate.paused_remaining() > 0
+        checkin_outbound_gate.reset()
+
+    @pytest.mark.asyncio
     async def test_already_claimed(self, jwt):
         def handler(request: httpx.Request) -> httpx.Response:
             if request.url.path == PATH_CAMPAIGNS:
