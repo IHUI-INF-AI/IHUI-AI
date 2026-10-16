@@ -420,7 +420,8 @@ const styles = StyleSheet.create({
     height: 88,
     borderRadius: rnRadius['2xl'],
     borderWidth: 1,
-    borderColor: '#BFBEFF',
+    // 强调描边取 brandAccent.deep(§4 描边档;同族先例 BottomPopup 弹窗描边、本文件权益高亮同档)
+    borderColor: tokens.brandAccent.deep,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
