@@ -38,6 +38,7 @@ import httpx
 
 from app.core.logging import get_logger
 from app.services.checkin_engine import DEFAULT_TIMEOUT, get_http_client
+from app.services.checkin_outbound import checkin_outbound_gate
 
 logger = get_logger(__name__)
 
@@ -203,10 +204,12 @@ async def _mm_request(
     headers["Authorization"] = f"Bearer {token}"
     http = client if client is not None else get_http_client()
     url = f"{host}{path}?{query}"
+    await checkin_outbound_gate.before_request("minimax")
     if method.upper() == "GET":
         resp = await http.get(url, headers=headers, timeout=timeout)
     else:
         resp = await http.post(url, headers=headers, json=body or {}, timeout=timeout)
+    checkin_outbound_gate.note_status(resp.status_code, "minimax")
     try:
         return resp.status_code, resp.json()
     except Exception:

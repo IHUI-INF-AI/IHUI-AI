@@ -43,6 +43,7 @@ from apscheduler.triggers.cron import CronTrigger
 from app.core.logging import get_logger
 from app.services import checkin_credits, checkin_minimax, checkin_qoder, checkin_store, checkin_workbuddy
 from app.services.checkin_engine import client_for
+from app.services.checkin_outbound import OutboundPaused, checkin_outbound_gate
 from app.services import checkin_proxy_pool
 
 _BATCH_JITTER_MIN = float(os.environ.get("CHECKIN_BATCH_JITTER_MIN", "8"))
@@ -67,6 +68,30 @@ _CREDITS_JOB_ID = "checkin_credits_daily"
 # /events/100credits),08:05 主 job 对 Qoder 账号必然「活动未下发」且当天不再重试
 # ⇒ Qoder 账号独立 10:05 job,主 job 排除 qoder 账号。
 _JOB_ID_QODER = "checkin_daily_qoder"
+
+# 日级起批漂移(2026-10-16 风控第四件套):CronTrigger jitter = uniform(0, jitter)
+# 加到触发时刻,每天起批时间在窗口内随机(08:05~08:12 / 10:05~10:10 / 08:10~08:15),
+# 消除「每天同一秒起批」的机器信号(env CHECKIN_CRON_JITTER 可调,0 关闭)。
+_CRON_JITTER = int(os.environ.get("CHECKIN_CRON_JITTER", "420"))
+
+
+class RateLimitedError(RuntimeError):
+    """平台限流/出站全局暂停中:手动入口映射 HTTP 429,调用方应立刻停手。"""
+
+    def __init__(self, message: str, remaining: float = 0.0) -> None:
+        self.remaining = remaining
+        super().__init__(message)
+
+
+class CooldownActiveError(RuntimeError):
+    """账号处于冷却期:手动入口映射 HTTP 429(尊重冷却,不给绕过口子)。"""
+
+    def __init__(self, account_name: str, until: datetime) -> None:
+        self.until = until
+        remaining = max(0.0, (until - datetime.now(UTC)).total_seconds())
+        super().__init__(
+            f"账号 {account_name} 处于冷却期, {remaining:.0f}s 后解冻({until.isoformat()})"
+        )
 
 
 def partition_platforms(
@@ -131,27 +156,28 @@ class CheckinScheduler:
         self._scheduler = AsyncIOScheduler(timezone=_CN_TZ)
         self._scheduler.add_job(
             self._daily_run,
-            trigger=CronTrigger(hour=8, minute=5, timezone=_CN_TZ),
+            trigger=CronTrigger(hour=8, minute=5, timezone=_CN_TZ, jitter=_CRON_JITTER),
             id=_JOB_ID,
             replace_existing=True,
         )
         self._scheduler.add_job(
             self._daily_run_qoder,
-            trigger=CronTrigger(hour=10, minute=5, timezone=_CN_TZ),
+            trigger=CronTrigger(hour=10, minute=5, timezone=_CN_TZ, jitter=_CRON_JITTER),
             id=_JOB_ID_QODER,
             replace_existing=True,
         )
         # WP-B(2026-10-09):每日积分快照 job,与签到 job 同一启用开关
         self._scheduler.add_job(
             self._daily_credits_snapshot,
-            trigger=CronTrigger(hour=8, minute=10, timezone=_CN_TZ),
+            trigger=CronTrigger(hour=8, minute=10, timezone=_CN_TZ, jitter=_CRON_JITTER),
             id=_CREDITS_JOB_ID,
             replace_existing=True,
         )
         self._scheduler.start()
         self._started = True
         logger.info(
-            "[checkin_scheduler] 已启动每日调度(08:05 签到 / 10:05 Qoder 签到 / 08:10 积分快照)"
+            "[checkin_scheduler] 已启动每日调度(08:05 签到 / 10:05 Qoder 签到 / 08:10 积分快照,起批漂移 ≤%ds)",
+            _CRON_JITTER,
         )
 
     async def stop(self) -> None:
@@ -253,6 +279,16 @@ class CheckinScheduler:
                 await self.record_result(acc["id"], result)
                 if result.get("ok"):
                     ok_count += 1
+            except OutboundPaused as e:
+                # 风控铁律:平台限流全局暂停中,整批立即中止(绝不换个账号继续打)
+                logger.warning(
+                    "[checkin_scheduler] %s出站限流暂停中(剩 %.0fs),整批中止: 共 %d 个账号,已签 %d",
+                    label,
+                    e.remaining,
+                    len(accounts),
+                    ok_count,
+                )
+                break
             except Exception as e:
                 logger.warning(
                     "[checkin_scheduler] 账号 %s 签到异常(继续下一个): %s", acc.get("name"), e
@@ -322,6 +358,15 @@ class CheckinScheduler:
                     acc["id"], acc["owner_user_id"], day, result["remaining"], gained
                 )
                 ok_count += 1
+            except OutboundPaused as e:
+                # 平台限流全局暂停中:查询也会被闸门拒绝,整批中止(不空转刷警告)
+                logger.warning(
+                    "[checkin_scheduler] 出站限流暂停中(剩 %.0fs),积分快照整批中止: 已完成 %d,失败 %d",
+                    e.remaining,
+                    ok_count,
+                    fail_count,
+                )
+                break
             except Exception as e:
                 fail_count += 1
                 logger.warning(
@@ -379,7 +424,15 @@ class CheckinScheduler:
         return result
 
     async def record_result(self, account_id: int, result: dict[str, Any]) -> dict[str, Any]:
-        """引擎结果 → checkin_records + 冷却累积语义(见模块 docstring)。"""
+        """引擎结果 → checkin_records + 冷却累积语义(见模块 docstring)。
+
+        冷却缺口修复(2026-10-16):引擎 classify_error 给出的非计数类分类
+        (SessionDead=-1 永久 / SoftRate=60s / PlanLimit=12h / NotFound /
+        BusinessError)此前只进 records 的 classified_error,cooldown_until 恒为
+        None ⇒ 401 死号每天仍被调度重打、429 后账号照样秒重试。此档按引擎
+        cooldown_seconds **立即落冷却**(0/None 不冷却),与 Server/Client 的
+        三连击档并行不冲突。SoftRate 另触发出站全局暂停(被限流就立刻停手)。
+        """
         classified = result.get("classified_error")
         cooldown_until: datetime | None = None
         if classified:
@@ -405,6 +458,18 @@ class CheckinScheduler:
                         count,
                         cooldown_until.isoformat() if cooldown_until else "-",
                     )
+            else:
+                # 非计数类分类:立即按引擎给的时长冷却(-1 永久 → 10 年,0 不冷却)
+                cooldown_until = _cooldown_end(secs if isinstance(secs, int) else 0)
+                if cooldown_until is not None:
+                    logger.warning(
+                        "[checkin_scheduler] %s 触发即时冷却至 %s",
+                        str(etype),
+                        cooldown_until.isoformat(),
+                    )
+            if etype == "SoftRate":
+                # 平台已回 429:全局暂停出站,整批/后续手动立即停手
+                checkin_outbound_gate.pause(reason=f"account {account_id} SoftRate(429)")
         code = result.get("code")
         record = await checkin_store.insert_record(
             account_id,
@@ -427,11 +492,35 @@ class CheckinScheduler:
     # ===== 手动触发 =====
 
     async def run_checkin_now(self, account_id: int, owner_user_id: str) -> dict[str, Any]:
-        """手动签到:无视冷却,结果照写 records(冷却计数语义照常累积)。"""
+        """手动签到:尊重冷却与全局限流(2026-10-16 风控加固,原「无视冷却」废止)。
+
+        - 出站全局暂停中(平台回过 429)→ RateLimitedError,路由映射 429 快速失败;
+        - 账号仍在冷却期 → CooldownActiveError,路由映射 429(手动不给绕过冷却的
+          后门:401 死号/429 限流账号被手动连点只会把风险放大到同 IP 全部账号);
+        - 结果照写 records(冷却计数语义照常累积)。
+        """
+        remaining = checkin_outbound_gate.paused_remaining()
+        if remaining > 0:
+            raise RateLimitedError(
+                f"签到接口限流冷却中({remaining:.0f}s),请稍后再试", remaining=remaining
+            )
         account = await checkin_store.get_decrypted_jwt(account_id, owner_user_id)
         if account is None:
             raise LookupError(f"账号不存在: {account_id}")
-        result = await self.checkin_one(account)
+        try:
+            cooldowns = await checkin_store.get_active_cooldowns()
+        except Exception as e:
+            logger.warning("[checkin_scheduler] 手动签到读冷却状态失败(按无冷却放行): %s", e)
+            cooldowns = {}
+        cd_end = cooldowns.get(account_id)
+        if cd_end is not None and cd_end > datetime.now(UTC):
+            raise CooldownActiveError(str(account.get("name") or account_id), cd_end)
+        try:
+            result = await self.checkin_one(account)
+        except OutboundPaused as e:
+            raise RateLimitedError(
+                f"签到接口限流冷却中({e.remaining:.0f}s),请稍后再试", remaining=e.remaining
+            ) from e
         return await self.record_result(account_id, result)
 
 
