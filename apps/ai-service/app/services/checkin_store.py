@@ -25,7 +25,7 @@ import json
 import os
 import secrets
 from collections.abc import Callable, Mapping
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Final
 from zoneinfo import ZoneInfo
 
@@ -917,9 +917,10 @@ async def latest_outbound_pause_signal() -> tuple[str, datetime] | None:
 
 
 async def upsert_credits_daily(
-    account_id: int, owner_user_id: str, day: str, remaining: int | None, gained: int
+    account_id: int, owner_user_id: str, day: str | date, remaining: int | None, gained: int
 ) -> None:
     """写入/更新某账号某日的积分快照;remaining 为 None 时不覆盖旧值。"""
+    day = _coerce_day(day)
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
         await conn.execute(
@@ -978,8 +979,22 @@ async def get_credits_daily_range(owner_user_id: str, days: int) -> list[dict[st
     return [{"day": r["day"], "total": r["total"], "gained": r["gained"]} for r in rows]
 
 
-async def sum_credits_delta_for_day(account_id: int, owner_user_id: str, day: str) -> int:
+def _coerce_day(day: str | date) -> date:
+    """把日参数收口成 datetime.date(2026-10-17 线上 500 的根因修)。
+
+    asyncpg 的 date 参数走**客户端编码**(date_codec 内部调 `.toordinal()`),
+    只吃 `datetime.date` 对象;调用方把 `date().isoformat()` 产出的 str 传进来,
+    服务端 `$3::date` 这个 cast 救不了客户端 ⇒ 必抛 `DataError: str object has
+    no attribute 'toordinal'`。2026-10-17 实测:`POST /api/checkin/accounts/{id}/
+    query_credits` 连炸 4 次 500、08:10 积分快照 job 整轮 0 成功。
+    入口统一收口,调用方传 str 或 date 都不炸;纯函数无 IO,可直接单测。
+    """
+    return date.fromisoformat(day) if isinstance(day, str) else day
+
+
+async def sum_credits_delta_for_day(account_id: int, owner_user_id: str, day: str | date) -> int:
     """某账号某日(Asia/Shanghai 日界)的 credits_delta 合计(query_credits 落快照时用)。"""
+    day = _coerce_day(day)
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(

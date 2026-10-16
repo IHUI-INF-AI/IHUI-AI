@@ -35,7 +35,7 @@ import os
 import random
 
 import httpx
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -505,7 +505,9 @@ class CheckinScheduler:
         except Exception as e:
             logger.warning("[checkin_scheduler] 读取冷却状态失败(按无冷却处理): %s", e)
             cooldowns = {}
-        day = datetime.now(_CN_TZ).date().isoformat()
+        # 传 date 对象:asyncpg date 参数走客户端编码,str 必抛 DataError
+        # (2026-10-17 实测积分快照 job 整轮 0 成功;详见 checkin_store._coerce_day)
+        day = datetime.now(_CN_TZ).date()
         ok_count = 0
         fail_count = 0
         skip_count = 0

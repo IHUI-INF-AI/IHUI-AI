@@ -804,6 +804,24 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // 2026-10-17 公网入口提速(仓内 ~5% 那部分):public/ 无指纹静态资产加浏览器/
+        // CDN 缓存头。背景:tunnel-metrics 台账 22691 请求,HTML 动态页是回源大头
+        // (CF Cache Rules 已把 _next/static 指纹资产打到 100% HIT),但 public/ 下
+        // 256 png + 35 svg + 16 jpg + 11 ico + 6 woff2 仍每次回源/重新协商。
+        // 配 stale-while-revalidate:过期后后台刷新,用户侧零等待。
+        // 排除清单(有意为之):
+        //   /sw.js   —— 上面精确规则已禁缓存(SW 换代语义,冲突时精确规则胜出);
+        //   .json/.md/.txt/.zip —— 清单/文档类,内容更新必须即时可达;
+        //   .js/.ts  —— 版本语义未审(public 下 139 个 js 来源混杂),留给 CF
+        //               Cache Rules 层统一处理,不在本层赌。
+        // force-static 路由的 s-maxage(HTML 缓存)属「部署即时性换回源」拍板项,
+        // 不在本次默认开启。
+        source: '/:path*\\.(?:png|jpg|jpeg|gif|webp|avif|svg|ico|woff2)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+        ],
+      },
+      {
         source: '/(.*)',
         headers: securityHeaders,
       },
