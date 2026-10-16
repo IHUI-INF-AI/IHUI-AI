@@ -47,10 +47,9 @@
  * 用法:node scripts/check-live-doc-archive-reinflation.mjs [--staged|--worktree|--self-test|--json]
  */
 
-import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
-import { gitRaw, gitErrText, Undetermined } from './lib/face-reader.mjs'
+import { gitRaw, gitErrText, Undetermined, catBatch, readWorktreeFile } from './lib/face-reader.mjs'
 
 export const RUN_MIN = 12
 export const MIN_SUBSTANTIVE_CHARS = 24
@@ -105,12 +104,21 @@ export function findReinflation(docName, docText, archiveSet) {
   return runs
 }
 
-function headBlob(root, p) {
-  return gitRaw(['show', `HEAD:${p}`], root)
-}
-
-function stagedBlob(root, p) {
-  return gitRaw(['show', `:${p}`], root)
+/**
+ * 取内容只走取材层的读取出口(守门 118 的 half-wired 判序:管子共用不等于面共用)。
+ * head/staged 走 catBatch 的 rev 规格,worktree 走 readWorktreeFile;取不到 = null ⇒ 抛 Undetermined,
+ * 绝不回落到另一个面(§0.4),也不把"没问到"读成"没有"(§0.3)。
+ */
+export function readAtFace(root, face, p) {
+  if (face === 'worktree') {
+    const t = readWorktreeFile(root, p)
+    if (t === null || t === undefined) throw new Undetermined(`工作树面取不到 ${p}`)
+    return t
+  }
+  const spec = (face === 'staged' ? ':' : 'HEAD:') + p
+  const v = catBatch(root, new Set([spec])).get(spec)
+  if (v === null || v === undefined) throw new Undetermined(`该面取不到 ${p}(rev 规格 ${spec})`)
+  return v
 }
 
 /** 对照面清单:按同一个面枚举,绝不 readdirSync 磁盘 */
@@ -130,7 +138,7 @@ export function listArchiveFace(root, face) {
     .filter((s) => s && ARCHIVE_FILE_RE.test(s.split('/').pop()))
     .filter((s) => {
       try {
-        readFileSync(s, 'utf8')
+        readAtFace(root, 'worktree', s)
         return true
       } catch {
         return false
@@ -140,7 +148,7 @@ export function listArchiveFace(root, face) {
 
 export function buildArchiveSet(root, face, files) {
   const set = new Set()
-  const read = face === 'staged' ? (p) => stagedBlob(root, p) : face === 'worktree' ? (p) => readFileSync(p, 'utf8') : (p) => headBlob(root, p)
+  const read = (p) => readAtFace(root, face, p)
   for (const p of files) {
     let txt
     try {
@@ -158,7 +166,7 @@ export function audit(root, face) {
   if (files.length === 0) return { state: 'undetermined', why: `对照面(${ARCHIVE_DIR}/AGENTS*)在该面枚举到 0 个文件 ⇒ 不判(§0.3)` }
   const archiveSet = buildArchiveSet(root, face, files)
   if (archiveSet.size === 0) return { state: 'undetermined', why: '对照面一行"有信息量"正文都取不到 ⇒ 不判' }
-  const read = face === 'staged' ? (p) => stagedBlob(root, p) : face === 'worktree' ? (p) => readFileSync(p, 'utf8') : (p) => headBlob(root, p)
+  const read = (p) => readAtFace(root, face, p)
   const runs = []
   const missing = []
   let scanned = 0
@@ -238,7 +246,7 @@ export function main(argv = process.argv.slice(2)) {
   return 0
 }
 
-export const __test__ = { RUN_MIN, MIN_SUBSTANTIVE_CHARS, DOC_PATHS, ARCHIVE_FILE_RE, substantive, normalizeLine, findReinflation, audit, listArchiveFace, buildArchiveSet }
+export const __test__ = { readAtFace, RUN_MIN, MIN_SUBSTANTIVE_CHARS, DOC_PATHS, ARCHIVE_FILE_RE, substantive, normalizeLine, findReinflation, audit, listArchiveFace, buildArchiveSet }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
