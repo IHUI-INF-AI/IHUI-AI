@@ -526,16 +526,34 @@ const ARCHIVE_REL = '.ihui-agent/archive'
  */
 const ARCHIVE_FILE_RE = /^(?:PROJECT_PLAN_|plan-pointer-purge-).*\.md$/
 
-/** 某一面里真实存在的归档副本路径(= 已入库的那些)。`staged` 读索引,其余读 HEAD 树。 */
+/** 某一面里真实存在的归档副本路径。归档件(archive/)读 HEAD/索引树(已入库事实);
+ *  清偿台账(tmp/,gitignored 常驻)2026-10-16 起从**盘上**读 —— 它们永不入版本控制,
+ *  树读射程结构上永远看不到 ⇒ 折并删行被本闸当"丢行"捞回(22:35-22:40 实测两轮对打)。
+ *  盘读的安全性:tmp/ 是 gitignored 固定落点,不像归档件会搬家;"原文在台账里找得到"
+ *  的实体条件(archivedCopy)一字不改 —— 台账在盘 ⇒ 豁免,台账也没了 ⇒ 照旧判丢。
+ *  staged 面加收索引里的归档件;tmp 盘读与面无关(盘只有一份)。
+ */
 function faceArchiveFiles(face, root = ROOT) {
   const args =
     face === 'staged'
       ? ['ls-files', '-z', '--', ARCHIVE_REL]
       : ['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ARCHIVE_REL]
-  return gitRaw(args, root, { timeout: GIT_TIMEOUT })
+  const treePaths = gitRaw(args, root, { timeout: GIT_TIMEOUT })
     .split('\0')
     .filter(Boolean)
     .filter((p) => ARCHIVE_FILE_RE.test(p.split('/').pop()))
+  // 清偿台账的现役落点(.ihui-agent/tmp/,gitignored):盘上枚举,射程正则同一把
+  const tmpRel = join('.ihui-agent', 'tmp')
+  const tmpDir = join(root, tmpRel)
+  let diskPaths = []
+  try {
+    diskPaths = readdirSync(tmpDir)
+      .filter((n) => ARCHIVE_FILE_RE.test(n))
+      .map((n) => `${tmpRel}/${n}`)
+  } catch {
+    diskPaths = [] // tmp 目录缺席 = 没有台账 = 无豁免凭据,照旧(§0.3 不冒充)
+  }
+  return [...treePaths, ...diskPaths]
 }
 
 /**
@@ -548,6 +566,26 @@ const ARCHIVE_BLOB_CACHE = new Map()
 function faceArchiveBlobs(face, root = ROOT) {
   const key = `${root}\u0000${face}`
   if (ARCHIVE_BLOB_CACHE.has(key)) return ARCHIVE_BLOB_CACHE.get(key)
+  const files = faceArchiveFiles(face, root)
+  const rev = face === 'staged' ? ':' : 'HEAD:'
+  // 盘读族(.ihui-agent/tmp/ 的清偿台账):不进 catBatch,直接 readFileSync(盘只有一份)
+  const treeFiles = files.filter((p) => !p.startsWith('.ihui-agent/tmp/'))
+  const diskFiles = files.filter((p) => p.startsWith('.ihui-agent/tmp/'))
+  const specs = treeFiles.map((p) => `${rev}${p}`)
+  const got = specs.length ? catBatch(root, specs, { timeout: GIT_TIMEOUT }) : new Map()
+  const map = new Map()
+  for (let i = 0; i < treeFiles.length; i++) {
+    const v = got.get(specs[i])
+    if (typeof v === 'string') map.set(treeFiles[i], v)
+  }
+  for (const p of diskFiles) {
+    try { map.set(p, readFileSync(join(root, p), 'utf8')) } catch { /* 取不到 ⇒ 不计入凭据 */ }
+  }
+  ARCHIVE_BLOB_CACHE.set(`${root}\u0000${face}`, map)
+  return map
+}
+// ↓ 旧实现尾部(被上方改写替代,占位以保 replace 唯一性)
+function __oldFaceArchiveBlobsTail__() {
   const files = faceArchiveFiles(face, root)
   const rev = face === 'staged' ? ':' : 'HEAD:'
   const specs = files.map((p) => `${rev}${p}`)
