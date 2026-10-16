@@ -133,7 +133,9 @@ export interface HistoryItem {
   id: string
   targetId: string
   targetType: HistoryTargetType
-  title: string
+  // 库里 user_browse_history.title 是无 notNull 的 varchar(200)，上报体里也是 optional，
+  // 所以这一格真会为 null；此前声明成必选 ⇒ 端内被迫自己再写一份"可空"版本(web 浏览历史页)。
+  title: string | null
   /** 访问时间(ISO 或格式化后字符串) */
   visitedAt: string
 }

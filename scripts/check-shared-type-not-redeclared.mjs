@@ -322,6 +322,15 @@ function main() {
           sharedNames: shared.size,
           scanned: Object.keys(files).length,
           hits: hits.length,
+          // detail 是逐条清单:只有计数 ⇒ 262 处存量无人能清(清账必须先知道"哪条在哪个文件"),
+          // 而让清账方自己再写一份扫描 = §22c 禁的"同一判据第二份"。red 用同一批对象引用回标,
+          // 不再第二遍算棘轮。
+          detail: hits.map((h) => ({
+            path: h.path,
+            name: h.name,
+            line: h.line ?? null,
+            isRed: red.includes(h),
+          })),
           red,
           ratcheted,
           passed: passed.length,
