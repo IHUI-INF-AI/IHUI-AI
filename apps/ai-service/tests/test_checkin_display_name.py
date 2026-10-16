@@ -1,6 +1,6 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-# [IHUI-AI-PROVENANCE]:⁠​‌​‌​‌​​‌‍‍​‌​‌​‌​‌‍‍‌​‌​‌​‌​‍‍‌​‌‌​‌‍‌​‌​‌‌‍​‌‌‌​​‌​‍‍‌‌‌‌​‌‍‍‌​‌‌​​‌‌‌​​​‌‌‌‍‌​‌‌‌​‍‌‌‍
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 """展示名派生与存量自愈测试(2026-10-16 李总定档:手机 > 邮箱 > 账户名 > 用户名)。
 
@@ -205,3 +205,37 @@ class TestHealUuidNames:
         accounts = [{"id": 7, "name": "Qoder-019f17c6-0eca-7510-a4f5-5b22e8305ed4", "device_map": {}}]
         await checkin_store._heal_uuid_names("owner-1", rows, accounts)
         assert accounts[0]["name"] == "Qoder-019f17c6-0eca-7510-a4f5-5b22e8305ed4"
+
+    async def test_bad_ciphertext_does_not_break_list(self, heal_env, monkeypatch):
+        """跨机密钥遗留的坏密文:单账号解密失败必须跳过,不打挂整表(2026-10-16 加固)。
+
+        实测生产存在此形态(A 机加密写库、B 机解密读库,密钥不一致)。若这里抛异常,
+        GET /accounts 会 500、整页签到不可用。
+        """
+        def fake_decrypt_raises(blob):
+            raise ValueError("JWT 密文解密失败(密钥不匹配或密文损坏)")
+
+        monkeypatch.setattr(checkin_store, "_decrypt_jwt", fake_decrypt_raises)
+        rows = [{"id": 3, "jwt_enc": "bad1"}, {"id": 4, "jwt_enc": "bad2"}]
+        accounts = [
+            {"id": 3, "name": "Qoder-019f17c6-0eca-7510-a4f5-5b22e8305ed4", "device_map": {}},
+            {"id": 4, "name": "14f939c3-889b-4ea2-88b7-ca4582f3b435", "device_map": {}},
+        ]
+        # 不抛异常即通过(坏密文账号保持原名,其余账号照常返回)
+        await checkin_store._heal_uuid_names("owner-1", rows, accounts)
+        assert accounts[0]["name"].startswith("Qoder-")
+        assert accounts[1]["name"].startswith("14f939c3")
+
+    async def test_heal_db_error_swallowed(self, heal_env, monkeypatch):
+        """自愈落库失败(DB 抖动)不得反噬列表读取。"""
+        heal_env["decrypted"]["enc1"] = make_jwt({"phone": "18643389808"})
+
+        async def fake_update_raises(account_id, owner, name):
+            raise RuntimeError("db down")
+
+        monkeypatch.setattr(checkin_store, "update_account_name", fake_update_raises)
+        rows = [{"id": 7, "jwt_enc": "enc1"}]
+        accounts = [{"id": 7, "name": "Qoder-019f17c6-0eca-7510-a4f5-5b22e8305ed4", "device_map": {}}]
+        await checkin_store._heal_uuid_names("owner-1", rows, accounts)
+        assert accounts[0]["name"] == "Qoder-019f17c6-0eca-7510-a4f5-5b22e8305ed4"
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

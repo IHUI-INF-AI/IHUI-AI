@@ -354,7 +354,20 @@ async def minimax_query_credits(
         uuid_str=str(device_map.get("uuid") or ""),
     )
     if status in (401, 403):
-        return {"remaining": None, "error": "token 无效或过期(401/403),请重新捕获"}
+        return {
+            "remaining": None,
+            "error": "token 无效或过期(401/403),请重新捕获",
+            # 第五件套(2026-10-16):与签到主路同语义(401/403=SessionDead)
+            "classified_error": {"type": "SessionDead", "cooldown_seconds": -1},
+        }
+    if status == 200 and not isinstance(data, dict):
+        # 第五件套:2xx 非 JSON = WAF 挑战页插页(与签到主路同款熔断)
+        checkin_outbound_gate.note_challenge("minimax")
+        return {
+            "remaining": None,
+            "error": "状态查询返回非 JSON(挑战页,已熔断)",
+            "classified_error": {"type": "Challenge", "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS},
+        }
     if status != 200 or not isinstance(data, dict):
         return {"remaining": None, "error": f"状态查询失败(HTTP {status})"}
     days = parse_status_days(data)

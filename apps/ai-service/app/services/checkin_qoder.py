@@ -577,7 +577,15 @@ async def qoder_query_credits(
             )
     if status in (0, -1):
         return {"remaining": None, "packs": [], "error": "网络异常"}
-    if status != 200 or not isinstance(data, dict):
+    if status == 403:
+        # 第五件套:403 = 挑战墙/WAF 拦截(与 qoder_classify_error 同语义)
+        checkin_outbound_gate.note_challenge("qoder")
+        return {"remaining": None, "packs": [], "error": "余额接口 HTTP 403: 挑战墙/WAF 拦截,已熔断"}
+    if status == 200 and not isinstance(data, dict):
+        # 第五件套:2xx 非 JSON = WAF 挑战页插页
+        checkin_outbound_gate.note_challenge("qoder")
+        return {"remaining": None, "packs": [], "error": "余额接口返回非 JSON 响应(挑战页,已熔断)"}
+    if status != 200:
         return {"remaining": None, "packs": [], "error": f"余额接口 HTTP {status}"}
     data_field = data.get("data") if isinstance(data.get("data"), dict) else None
     inner = data_field if isinstance(data_field, dict) else data

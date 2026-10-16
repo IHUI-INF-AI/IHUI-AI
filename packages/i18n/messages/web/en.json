@@ -19232,6 +19232,7 @@
     "skippedExpired": "Skipped {count} accounts with expired JWT",
     "skippedCooldown": "Skipped {count} accounts on cooldown",
     "checkinRateLimited": "Platform rate limited, batch aborted, please retry later",
+    "checkinFailedCount": "Failed to check in {count} accounts",
     "checkinSelected": "Check selected ({count})",
     "selectAllVisible": "Select all visible",
     "selectAccount": "Select account {name}",
@@ -19697,7 +19698,17 @@
     "adminDeployDiagnosis": "Deployment Diagnosis",
     "githubApp": "GitHub App",
     "smsReceive": "SMS Verification",
-    "sms": "SMS Templates"
+    "sms": "SMS Templates",
+    "customGroup": "Custom",
+    "customAddTitle": "Custom Shortcuts",
+    "customAddDesc": "Select and add your frequently used sidebar items below",
+    "customEmptyHint": "Click + at the top right to add your frequently used items",
+    "customSearchPlaceholder": "Search items",
+    "customAdded": "Added",
+    "customAdd": "Add",
+    "customRemove": "Remove",
+    "customManage": "Manage shortcuts",
+    "customDragHint": "Drag to reorder"
   },
   "news": {
     "allCategories": "All Categories",

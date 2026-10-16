@@ -19236,6 +19236,7 @@
     "skippedExpired": "已跳过 {count} 个 JWT 已过期账号",
     "skippedCooldown": "已跳过 {count} 个冷却中账号",
     "checkinRateLimited": "平台限流已中止本批，请稍后再试",
+    "checkinFailedCount": "有 {count} 个账号签到失败",
     "checkinSelected": "签到勾选账号（{count}）",
     "selectAllVisible": "全选当前列表",
     "selectAccount": "选中账号 {name}",
@@ -19701,7 +19702,17 @@
     "adminDeployDiagnosis": "部署诊断",
     "githubApp": "GitHub App",
     "smsReceive": "短信接码",
-    "sms": "短信模板"
+    "sms": "短信模板",
+    "customGroup": "自定义",
+    "customAddTitle": "自定义常用功能",
+    "customAddDesc": "从下方选择并添加你常用的侧边栏功能键",
+    "customEmptyHint": "点击右上角 + 添加你常用的功能",
+    "customSearchPlaceholder": "搜索功能",
+    "customAdded": "已添加",
+    "customAdd": "添加",
+    "customRemove": "移除",
+    "customManage": "管理常用功能",
+    "customDragHint": "拖拽排序"
   },
   "news": {
     "allCategories": "全部分类",
