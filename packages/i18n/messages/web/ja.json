@@ -19351,6 +19351,7 @@
   },
   "nav": {
     "checkin": "チェックイン",
+    "monitorWallboard": "監視ウォールボード",
     "ecosystemHub": "エコシステムマーケット",
     "adminRelayInsights": "インサイト",
     "adminRelayEnterprise": "エンタープライズ",
@@ -19699,16 +19700,7 @@
     "adminDeployDiagnosis": "デプロイ診断",
     "githubApp": "GitHub App",
     "smsReceive": "SMS認証コード",
-    "sms": "SMSテンプレート",
-    "customGroup": "カスタム",
-    "customAddTitle": "よく使う機能",
-    "customAddDesc": "下からよく使うサイドバー項目を選んで追加",
-    "customEmptyHint": "右上の + をクリックしてよく使う機能を追加",
-    "customSearchPlaceholder": "機能を検索",
-    "customAdded": "追加済み",
-    "customAdd": "追加",
-    "customRemove": "削除",
-    "customManage": "よく使う機能を管理"
+    "sms": "SMSテンプレート"
   },
   "news": {
     "allCategories": "All categories",
