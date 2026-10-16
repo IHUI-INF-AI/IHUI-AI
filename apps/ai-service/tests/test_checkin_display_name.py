@@ -238,4 +238,35 @@ class TestHealUuidNames:
         accounts = [{"id": 7, "name": "Qoder-019f17c6-0eca-7510-a4f5-5b22e8305ed4", "device_map": {}}]
         await checkin_store._heal_uuid_names("owner-1", rows, accounts)
         assert accounts[0]["name"] == "Qoder-019f17c6-0eca-7510-a4f5-5b22e8305ed4"
+
+    async def test_duplicate_name_falls_back_to_platform_suffix(self, heal_env, monkeypatch):
+        """同名冲突(同手机号多平台各一账号)⇒ 退化为「手机号·平台」,保可区分。
+
+        实测生产:id=20 WorkBuddy 与 id=22 Qoder 同为 18643389808 ⇒ 唯一约束
+        (owner_user_id,name) 拒写,若不退化则自愈永久卡住。
+        """
+        calls: list[tuple[int, str]] = []
+
+        async def fake_update(account_id, owner, name):
+            calls.append((account_id, name))
+            if name == "18643389808":
+                err = ValueError("duplicate key value violates unique constraint")
+                err.sqlstate = "23505"  # type: ignore[attr-defined]
+                raise err
+            return True
+
+        monkeypatch.setattr(checkin_store, "update_account_name", fake_update)
+        heal_env["decrypted"]["enc1"] = make_jwt({"phone": "18643389808"})
+        rows = [{"id": 20, "jwt_enc": "enc1"}]
+        accounts = [
+            {
+                "id": 20,
+                "name": "14f939c3-889b-4ea2-88b7-ca4582f3b435",
+                "platform": "workbuddy",
+                "device_map": {},
+            }
+        ]
+        await checkin_store._heal_uuid_names("owner-1", rows, accounts)
+        assert accounts[0]["name"] == "18643389808·WorkBuddy"
+        assert calls == [(20, "18643389808"), (20, "18643389808·WorkBuddy")]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

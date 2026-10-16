@@ -26,7 +26,7 @@ import os
 import secrets
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 from zoneinfo import ZoneInfo
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -51,6 +51,15 @@ _get_jwt_exp: Callable[[str], tuple[datetime | None, float | None]] = get_jwt_ex
 
 _KEY_ENV = "CHECKIN_FERNET_KEY"
 _KEY_FILE = os.path.join("data", "checkin_fernet_key")
+
+# 同名冲突时的平台后缀(同一手机号在 TRAE/WorkBuddy/Qoder 各有一个账号 ⇒
+# 展示名撞唯一约束 (owner_user_id, name);自愈退化带平台名保可区分)。
+_PLATFORM_LABELS: Final[dict[str, str]] = {
+    "trae": "TRAE",
+    "workbuddy": "WorkBuddy",
+    "qoder": "Qoder",
+    "minimax": "MiniMax",
+}
 
 # ---------------------------------------------------------------------------
 # 建表 SQL(幂等)
@@ -371,8 +380,23 @@ async def _heal_uuid_names(
                     acc["id"],
                     better,
                 )
+                continue
         except Exception as e:  # noqa: BLE001 — 自愈是增强,不得反噬列表读取
-            logger.warning("[checkin_store] 账号 %s 取名自愈落库失败: %s", acc.get("id"), e)
+            # 同名冲突(同一手机号在多平台各有一个账号)⇒ 退化带平台后缀,保可区分
+            if getattr(e, "sqlstate", None) == "23505" or "duplicate key" in str(e).lower():
+                alt = f"{better}·{_PLATFORM_LABELS.get(acc.get('platform') or 'trae', 'TRAE')}"
+                try:
+                    if await update_account_name(acc["id"], owner_user_id, alt):
+                        acc["name"] = alt
+                        logger.info(
+                            "[checkin_store] 账号名自愈(同名冲突,带平台后缀) id=%s name=%s",
+                            acc["id"],
+                            alt,
+                        )
+                except Exception as e2:  # noqa: BLE001
+                    logger.warning("[checkin_store] 账号 %s 取名自愈(后缀)失败: %s", acc.get("id"), e2)
+            else:
+                logger.warning("[checkin_store] 账号 %s 取名自愈落库失败: %s", acc.get("id"), e)
 
 
 async def delete_account(account_id: int, owner_user_id: str) -> bool:
