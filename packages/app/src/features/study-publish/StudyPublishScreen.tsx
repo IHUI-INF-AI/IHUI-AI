@@ -14,64 +14,17 @@ import {
 } from 'react-native'
 import { getTokens, tokens as baseTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryDropdown } from '../../components/category/CategoryDropdown'
-import type { TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
+import type { StageOption, StudyCategory, StudyPublishScreenProps } from '@ihui/types'
+export type { StageOption, StudyCategory, StudyPublishScreenProps }
 
 /** 课程分类(共享层简化类型,对齐 @ihui/types CourseCategory) */
-export interface StudyCategory {
-  id: string
-  name: string
-}
 
 /** 课程阶段选项 */
-export interface StageOption {
-  id: number
-  name: string
-}
 
 /** StudyPublishScreen props(平台无关,wrapper 注入数据+回调) */
-export interface StudyPublishScreenProps {
-  t: TFunction
-  colorScheme?: 'light' | 'dark'
-  mode: 'group' | 'video'
-  onModeChange: (mode: 'group' | 'video') => void
-  onBack?: () => void
-  // Group form
-  groupTitle: string
-  groupContent: string
-  groupCategory: string
-  groupStage: number
-  groupCoverUri: string
-  groupCategories: readonly StudyCategory[]
-  groupLoadingCategories: boolean
-  onGroupTitleChange: (v: string) => void
-  onGroupContentChange: (v: string) => void
-  onGroupCategoryChange: (v: string) => void
-  onGroupStageChange: (v: number) => void
-  onGroupCoverPick: () => void
-  onGroupCoverClear: () => void
-  onGroupSubmit: () => void
-  // Video form
-  videoTitle: string
-  videoContent: string
-  videoAgent: string
-  videoRemark: string
-  videoCoverUri: string
-  videoUri: string
-  onVideoTitleChange: (v: string) => void
-  onVideoContentChange: (v: string) => void
-  onVideoAgentChange: (v: string) => void
-  onVideoRemarkChange: (v: string) => void
-  onVideoCoverPick: () => void
-  onVideoCoverClear: () => void
-  onVideoPick: () => void
-  onVideoClear: () => void
-  onVideoSubmit: () => void
-  // Common
-  submitting: boolean
-}
 
 const STAGES: readonly StageOption[] = [
   { id: 0, name: '入门' },
