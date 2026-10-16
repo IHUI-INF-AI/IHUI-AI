@@ -1054,7 +1054,7 @@ export function f9AvoidGuidance() {
     '   避让(撞号的成因几乎都是"取号竞态",不是有人抢号):',
     '   ① 取号面必须含 **HEAD ∪ FETCH_HEAD ∪ 归档件** —— 只看工作树/只看本地 HEAD 都会把已推未合的号段、',
     '      以及"取过又让出"的号当成空闲。现读出口:`node scripts/plan-tasks.mjs --next-id <族>`(按被审面算),',
-    '      归档件的占用面由 `scripts/live-doc-edit.mjs` 那一路并入(台账 ⊕ .ihui-agent/archive/PROJECT_PLAN*)。',
+    '      占用面只按台账现面计(存档机制已于 2026-10-16 退役,.ihui-agent/archive/ 不再存在)。',
     '   ② 登记新条目一律经 `node scripts/live-doc-edit.mjs` 的 `{{NEXT_ID:<族>}}` 令牌:它在**每次 CAS 尝试**里',
     '      按当下底稿重算,所以"查号"与"写行"之间的竞态窗口被消掉 —— 手工 max+1 抄进正文必撞。',
     '   ③ 令牌展开值本身已含族名,正文不得再手写字面值(`G-` + `{{NEXT_ID:G}}` 产出 `G-G-334` 这一型,',

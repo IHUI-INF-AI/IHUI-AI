@@ -46,7 +46,7 @@
 11. `scripts/check-delivery-report-consistency.mjs` — 交付报告一致性
 12. `scripts/check-grokbuild-integration-completeness.mjs` — grok-build 整合完整性
     13b. `scripts/check-project-plan-size.mjs` — PROJECT_PLAN.md 体积 < 50KB
-    13c. `scripts/check-project-plan-archive.mjs` — 已完成任务条目防误删
+    13c. ~~`scripts/check-project-plan-archive.mjs`~~ — 已退役(2026-10-16 存档机制拆除,完成即删)
 13. `scripts/check-api-migration-completeness.mjs` — 迁移完整性
 14. `scripts/check-input-border-var.mjs` — CSS 颜色 token 嵌套
 15. `scripts/check-native-title-tooltip.mjs` — 原生 title tooltip 违规
