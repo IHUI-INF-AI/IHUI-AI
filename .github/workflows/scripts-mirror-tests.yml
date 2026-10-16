@@ -16,7 +16,10 @@ name: scripts mirror tests (nightly soak)
 # (C 盘污染/封口 junction、HKCU TEMP 漂移、.bin shim、页面文件量取)。既有 workflow 用
 # ubuntu-latest 是因为它们跑的是纯逻辑测试;而 `check-c-drive-pollution.test.mjs` 会建
 # junction、读注册表 —— 在 Linux 上必然红,那将是一道与任何改动都无关的常红门。
-# 实测:132 份测试里只有 2 份引用 process.platform ⇒ 无法靠"跳过"兜住,只能选对 OS。
+# 实测(数字不钉在这里,以现读为准 —— §0.1 凡数字现读,同 2026-10-14「注册条目不再钉镜像例数」那条裁定):
+#   套件总数 = `node scripts/run-script-tests.mjs --list | tail -1`(2026-10-16 现读共 499 个);
+#   引用 process.platform 的套件 = `grep -rl "process\.platform" scripts/tests/*.test.mjs | wc -l`
+#   (现读 10 个,不是原文写的 2 —— 两份都判不出"靠跳过兜住"成立)⇒ 只能选对 OS。
 #
 # 为什么 continue-on-error 只贴在测试那一步(通报而非阻断):本机之外从未在"干净的 Windows 检出 +
 # 装好依赖"的环境里跑过全量。拿一条未验证的门去阻断全队提交,后果就是各会话合法
