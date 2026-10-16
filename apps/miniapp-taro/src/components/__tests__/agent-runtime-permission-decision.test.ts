@@ -113,6 +113,30 @@ describe('权限决策徽章端接线证据(miniapp-taro 源码)', () => {
     src.replace(/,*(\s*[)\]])/g, '$1').replace(/\s+/g, '')
 
   /**
+   * zh-CN 深合并这条判据要钉的是「哪一份消息源是 base、哪一份是覆盖」,不是排版、
+   * 也不是标识符叫什么名字(同文件上面 T_CALL_SHAPE 那段写的就是逐字钉标识符的代价:
+   * 一次语义未变的折行重构把已入库面弄红,红在 CI 的唯一 required 门上)。
+   * 因此两种等价拼法都要认:实参内联嵌套,或先各 bind 一个 const 再把它俩喂给 merge;
+   * 而实参顺序与两份来源的身份必须逐字读出来 —— 换序、少一份,一律返回 null。
+   */
+  const zhMergeSources = (src: string): { base: string; override: string } | null => {
+    const flat = stripFormat(src)
+    const inline =
+      /mergeMessages\(loadJsonInto\(zhPinInputs,'shared','zh-CN\.json'\),loadJsonInto\(zhPinInputs,'miniapp-taro','zh-CN\.json'\)\)/
+    if (inline.test(flat)) return { base: 'shared', override: 'miniapp-taro' }
+    const bindings = [
+      ...flat.matchAll(/const([\w$]+)=loadJsonInto\(zhPinInputs,'([^']+)','zh-CN\.json'\)/g),
+    ]
+    const idOf = (pkg: string): string | undefined => bindings.find((b) => b[2] === pkg)?.[1]
+    const base = idOf('shared')
+    const override = idOf('miniapp-taro')
+    if (!base || !override) return null
+    return new RegExp(`mergeMessages\\(${base},${override}\\)`).test(flat)
+      ? { base: 'shared', override: 'miniapp-taro' }
+      : null
+  }
+
+  /**
    * 这条判据要钉的是**调用形状**,不是第一个实参叫什么名字。
    * `t(key, params)` 根本没有 locale 形参 —— 当前语言由 I18nProvider 同步到模块级
    * `currentLocale`(见 index.tsx 里那段注释)。上一版把标识符逐字写成 `locale`,于是
@@ -141,11 +165,32 @@ describe('权限决策徽章端接线证据(miniapp-taro 源码)', () => {
   it('端 i18n 的 zh-CN 必须以 shared 为 base 深合并(2026-10-15 起合并落在生成期)', () => {
     // 生成端:zh-CN 必须还是 mergeMessages(shared ⊕ miniapp-taro)——
     // 压缩只换载体,不换"哪一份是 base"这件事(否则上面的合并视图与运行时不一致)。
-    expect(stripFormat(generatorSrc)).toContain(
-      stripFormat(
-        "mergeMessages(loadJsonInto(zhPinInputs, 'shared', 'zh-CN.json'), loadJsonInto(zhPinInputs, 'miniapp-taro', 'zh-CN.json'))",
+    expect(zhMergeSources(generatorSrc)).toEqual({ base: 'shared', override: 'miniapp-taro' })
+    // 成对自证(§22c 那条「放宽排版、不放宽判据」的同型要求,四条同时成立才叫尺子有牙):
+    // ① 另一种等价拼法(实参内联嵌套)必须同样匹配 —— 判据不站在某一种书写形态上;
+    expect(
+      zhMergeSources(
+        "const zhMerged = mergeMessages(loadJsonInto(zhPinInputs, 'shared', 'zh-CN.json'), loadJsonInto(zhPinInputs, 'miniapp-taro', 'zh-CN.json'))",
       ),
-    )
+    ).toEqual({ base: 'shared', override: 'miniapp-taro' })
+    // ② 只 bind 出一份来源(半本词典)必须读成 null;
+    expect(
+      zhMergeSources(
+        "const a = loadJsonInto(zhPinInputs, 'miniapp-taro', 'zh-CN.json'); const m = mergeMessages(a, a)",
+      ),
+    ).toBeNull()
+    // ③ 换序(把覆盖当 base)必须读成 null —— 变异照旧要咬;
+    expect(
+      zhMergeSources(
+        "const x = loadJsonInto(zhPinInputs, 'shared', 'zh-CN.json'); const y = loadJsonInto(zhPinInputs, 'miniapp-taro', 'zh-CN.json'); const m = mergeMessages(y, x)",
+      ),
+    ).toBeNull()
+    // ④ 标识符改名而顺序与来源不变 ⇒ 必须仍匹配(上一版就是死在逐字钉名字上)。
+    expect(
+      zhMergeSources(
+        "const p = loadJsonInto(zhPinInputs, 'shared', 'zh-CN.json'); const q = loadJsonInto(zhPinInputs, 'miniapp-taro', 'zh-CN.json'); const m = mergeMessages(p, q)",
+      ),
+    ).toEqual({ base: 'shared', override: 'miniapp-taro' })
     // 运行端:取词必须从那份内联产物来(不得退回"只取 miniapp-taro 一半"),且解码失败
     // 要回落到最小内置键集 —— 空词典/崩都不在允许集里。
     expect(i18nEntry).toContain("from './generated/zh-cn-pack.gen'")
