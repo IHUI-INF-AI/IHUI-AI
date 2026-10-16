@@ -110,30 +110,41 @@ test('PROJECT_PLAN.md 体积 > 500KB → exit 1(warn-only)+ ⚠️ 警告', () =
   }
 })
 
-// ─── 4b. 出路必须实测(2026-09-25 抓到本门给着一条跑不通的建议)────────
+// ─── 4b. 出路必须与现状相符(2026-10-16 存档机制退役后,不得再引用已退役归档器)──────
+// 根因:2026-09-25 立此锁时出路 = 探测归档器(archive-completed-tasks)并印其"实测"行;
+// 2026-10-16 机主令"完成即删",归档器 / 守门 13c / pnpm archive 已整体拆除
+// (实测 HEAD 与磁盘皆无 `scripts/archive-completed-tasks.mjs`)⇒ 再要 stderr 含"归档器实测"
+// 就是钉一句永远跑不通的旧话(AGENTS.md §0.8)。判源在 check-project-plan-size.mjs(§22c):
+// 本测试改为断言"与现状相符的可执行出路",阈值 500KB / warn 定级(exit 1 供 runner 计)一律不动。
 
-test('warn 的出路必须实测:给出归档器实测量或明写未判定,不得再印旧那句', () => {
+test('warn 的出路必须与现状相符:给出可执行出路(完成即删+折同文行),不得再引用已退役归档器或旧死路', () => {
   const dir = createTempRoot()
   try {
     writePlan(dir, 'x'.repeat(WARN_BYTES + 1024))
     const r = runScript(dir)
     assert.equal(r.status, 1, 'warn-only 违规仍应 exit 1(本测试不得改退出语义)')
-    // 两条合法出路:(a) 真问到了归档器 (b) 问不到就明写未判定。缺标注即为"给未验证建议"。
+    // 现状可执行出路(§5e-1 可整改性 + §0.8 出路须跑得到):
+    // 必须(a)给出一条出路、(b)与"完成即删"现状相符、(c)点名真实存在的折除命令。
+    assert.match(r.err, /出路/, 'warn 必须给出一条出路')
+    assert.match(r.err, /完成\(✅\)行直接删除/, '出路须与 2026-10-16"完成即删"现状相符')
     assert.match(
       r.err,
-      /归档器实测/,
-      `出路必须标明它来自归档器的实测或"未判定",实得 stderr:\n${r.err.slice(0, 400)}`,
+      /fold-identical-open-rows/,
+      '出路必须点名真实存在的折除命令(scripts/plan-tasks-merge.mjs --fold-identical-open-rows)'
     )
-    // 反向锁:旧文本建议"把已完成(✅)历史条目归档到 .ihui-agent/archive/",而
-    // `archive-completed-tasks.mjs --all --dry-run` 实测报「无可归档的已完成任务条目 (共 0 个)」——
-    // 归档器按 §1 只搬 `### 标题(已完成 ✅)` 条目,登记 bullet 不在射程 ⇒ 那句话是跑不通的出路
-    //(同型先例:守门 check-c-drive-pollution 曾提示一个 package.json 里不存在的脚本名)。
+    // 反向锁:旧"去归档"死路措辞不得回来(它会让人跑一条返回 0 / 已不存在的命令)。
     assert.doesNotMatch(
       r.err,
       /建议: 把已完成\(✅\)历史条目归档/,
-      '旧那条"去归档"的死路措辞不得回来(它会让人跑一条返回 0 的命令)',
+      '旧那条"去归档"的死路措辞不得回来(它会让人跑一条返回 0 的命令)'
     )
-    // 未判定时必须自带原因,不许只说"跑不了"
+    // 反向锁:不得再让用户去跑 2026-10-16 已退役删除的归档器。
+    assert.doesNotMatch(
+      r.err,
+      /node scripts\/archive-completed-tasks/,
+      '出路不得引用已退役删除的归档器 archive-completed-tasks'
+    )
+    // 若印「未判定」必须自带原因,不许只说"跑不了"(§0.3)。
     if (/未判定/.test(r.err)) assert.match(r.err, /未判定\(.+\)/, '未判定必须带括号里的原因')
   } finally {
     rmScratch(dir)

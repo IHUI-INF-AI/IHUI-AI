@@ -502,38 +502,135 @@ test('L4 台账文件名与门体常量必须同值(改名/搬位不许只改一
   assert.ok(existsSync(LEDGER_PATH), `工作树缺 ${LEDGER_PATH}:台账文件不入库就没法被任何面读到`)
 })
 
-test('L5 台账必须被 run() 真加载:一份从没被读过的台账与一份生效的台账,在输出里不得长得一样', () => {
+test('L5 台账必须被 run() 真加载:同一枚命中,台账在被审面上存在与否 ⇒ CLI 输出不得同形', () => {
   // 2026-09-28 摘掉 todo:接线已落地(门体新增 loadLedger + 逐行 applyLedger,并在 --json 里
   // 报 exemptionsLoaded)。留 todo 的那一晚,台账里 5 条 B 堆对现读读数**零影响**,
   // 而账面读起来像"豁免已生效"—— 那正是本仓记过多次的半接线(函数在、自检过、调用点没接)。
-  // 用 --worktree 档而非默认档:台账与本测试同枚提交,提交前 HEAD 面上它当然不存在,
-  // 那种情形门必须走"缺席⇒零豁免并大声报出"那一支(另有 L1 钉住)。
-  const expiredEntry = {
-    file: 'scripts/check-c-drive-pollution.mjs',
-    reason: '判据对象是活 TEMP',
-    reviewBy: '2020-01-01',
+  //
+  // 2026-10-17:对照整段搬到**构造面**。原写法真起子进程跑 `--worktree` 档读**当前这份共享工作树**,
+  // 而那个输入压根不属于本判据 —— 另一会话把两枚仍被索引跟踪的测试文件从磁盘删掉(` D`)时,
+  // 门按 decide ②「面上有文件取不到 ⇒ exit 2 未判定」如实判死(§0.3/§0.4 要求的正确行为),
+  // execFileSync 再把 exit 2 抛成异常 ⇒ 本条随并发闪红:红的是"这台机此刻有没有别人在删文件",
+  // 不是"台账有没有被加载"。判机器状态的输入不得当判据的输入(§12e 同族)。
+  // 牙一点没磨短:同一枚命中、同一棵演练仓,四臂只让"台账在不在面上 / 条目有效与否 / 命中还在不在"
+  // 变化,并显式断言"生效臂与从没读过臂的输出不得逐字节相同"。
+  const fix = mkScratch('g16-l5-')
+  const git = gitBinary()
+  const g = (...a) =>
+    execFileSync(git, ['-c', 'safe.directory=*', '-C', fix, ...a], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  const gc = (...a) => g('-c', 'user.email=t@t', '-c', 'user.name=t', ...a)
+  const TARGET = 'scripts/tests/l5-target.test.mjs'
+  const LEDGER_REL = 'scripts/fixture-tmpdir-exemptions.json'
+
+  /** 跑演练仓里的门并取回 JSON;exit 非 0 也从 e.stdout 取 —— 门的 rot 档判 1 是结论,不是崩。 */
+  function gateJson() {
+    let code = 0
+    let out = ''
+    try {
+      out = runGate(['--json'], fix)
+    } catch (e) {
+      if (typeof e.status !== 'number' || typeof e.stdout !== 'string') throw e
+      code = e.status
+      out = e.stdout
+    }
+    return { code, json: JSON.parse(out) }
   }
-  const res = applyLedger({ wired: false, rawHits: RAW_HITS, entry: expiredEntry, today: TODAY })
-  assert.ok(res.violations.length > 0, '过期条目必须不再放过')
-  const cli = JSON.parse(runGateReal(['--worktree', '--json']))
-  assert.equal(
-    cli.exemptionsLoaded,
-    true,
-    'CLI 必须报告"台账已加载"这一维:没有它,一份从没被读过的台账与一份生效的台账在输出里长得一模一样',
-  )
-  const row = cli.perFile.find((f) => f.path === expiredEntry.file)
-  assert.ok(row, `被审面上应能枚举到台账点名的这个文件(${expiredEntry.file})`)
-  assert.ok(
-    (row.rawHits || []).length > 0,
-    '该行必须真有原始命中,否则"被放过 N 处"是拿空集凑出来的(条目还在而命中没了走 rot,由 L2 钉)',
-  )
-  assert.equal(
-    row.hits.length,
-    0,
-    `合法且未过期的台账应把该文件剩余违规全部放过,实得 ${JSON.stringify(row.hits)}`,
-  )
-  assert.equal(row.exempted, row.rawHits.length, 'exempted 必须等于被放过的原始命中数(少算 = 静默丢账)')
-  assert.equal(row.problem, null, '该行台账合法未过期 ⇒ 不得报 problem')
+  function rowOf(j, what) {
+    const row = j.perFile.find((f) => f.path === TARGET)
+    assert.ok(row, `${what}:被审面上枚举不到 ${TARGET} ⇒ 夹具没建成功,本锁没有对象`)
+    return row
+  }
+  /** 台账必须**入库**:门读的是被审面,不是磁盘(与其余取材同档,守门 118)。 */
+  function landLedger(entries) {
+    writeFileSync(
+      join(fix, LEDGER_REL),
+      `${JSON.stringify({ $comment: '构造面台账,只服务本条对照', exemptions: entries }, null, 2)}\n`,
+    )
+    g('add', '--', LEDGER_REL)
+    gc('commit', '-q', '-m', 'ledger')
+  }
+
+  try {
+    mkdirSync(join(fix, 'scripts', 'tests'), { recursive: true })
+    installGateIn(fix)
+    writeFileSync(join(fix, 'scripts', 'tests', 'l5-target.test.mjs'), HIT_TEXT)
+    g('init', '-q', '-b', 'main')
+    g('add', '.')
+    gc('commit', '-q', '-m', 'hits-without-ledger')
+
+    // 反照臂:被审面上**从没存在过**台账 ⇒ 必须报"未加载",且一条命中都不许放过。
+    const absent = gateJson()
+    assert.equal(absent.json.exemptionsLoaded, false, '面上没有台账却报"已加载" ⇒ 那一维是写死的')
+    const aRow = rowOf(absent.json, '无台账臂')
+    assert.ok(
+      aRow.rawHits.length > 0,
+      '夹具文本必须真产生命中,否则本锁没有对象(空转的断言比没有断言更糟)',
+    )
+    assert.equal(aRow.hits.length, aRow.rawHits.length, '无台账 ⇒ 一条都不许放过')
+    assert.equal(aRow.exempted, 0)
+    assert.equal(aRow.problem, null, '缺席不是坏行(那是另一码事,别把报告刷脏)')
+    assert.match(runGate([], fix), /不存在|零豁免/, '台账缺席必须在报告里点名(缺席不等于通过)')
+
+    // 正照臂:**同一枚命中、同一棵树**,只是台账入库且条目合法未过期 ⇒ run() 必须真去读它。
+    landLedger([{ file: TARGET, reason: '判据对象是活 TEMP(构造面理由)', reviewBy: '2099-01-01' }])
+    const loaded = gateJson()
+    assert.equal(
+      loaded.json.exemptionsLoaded,
+      true,
+      'CLI 必须报告"台账已加载"这一维:没有它,一份从没被读过的台账与一份生效的台账在输出里长得一模一样',
+    )
+    const lRow = rowOf(loaded.json, '合法台账臂')
+    assert.equal(
+      lRow.hits.length,
+      0,
+      `合法且未过期的台账应把该文件剩余违规全部放过,实得 ${JSON.stringify(lRow.hits)}`,
+    )
+    assert.equal(lRow.exempted, lRow.rawHits.length, 'exempted 必须等于被放过的原始命中数(少算 = 静默丢账)')
+    assert.equal(lRow.problem, null, '该行台账合法未过期 ⇒ 不得报 problem')
+    const loadedCliText = runGate([], fix)
+    assert.match(loadedCliText, /已闭合/, '加载过台账且确无违规时才允许打"已闭合"')
+    assert.doesNotMatch(loadedCliText, /不存在/, '台账在面上时不得再喊缺席(两臂不得同形)')
+    // 本条的核心:**两份输出必须不同形** —— 否则"从没被读过的台账"与"生效的台账"无法区分。
+    assert.notEqual(
+      JSON.stringify(loaded.json),
+      JSON.stringify(absent.json),
+      '台账在被审面上存在与否,CLI 输出逐字节相同 ⇒ loadLedger 是半接线(函数在、调用点没接)',
+    )
+
+    // 第三臂:台账仍在面上而条目**已过期** ⇒ 放过必须收回并由 problem 点名
+    // (证明读的是条目内容,不是"文件存在就等于已生效")。
+    landLedger([{ file: TARGET, reason: '同一件事但到期了', reviewBy: '2020-01-01' }])
+    const expired = gateJson()
+    assert.equal(expired.json.exemptionsLoaded, true, '台账在面上(条目过期)仍算加载,只是不再放过')
+    const xRow = rowOf(expired.json, '过期台账臂')
+    assert.match(xRow.problem || '', /过期/, '过期要说明是过期,而不是笼统一句"条目坏"')
+    assert.ok(
+      xRow.hits.length > 0,
+      '过期 ⇒ 豁免失效,账回到该文件头上(与合法臂同形就等于台账条目没人读)',
+    )
+    assert.equal(xRow.exempted, 0, '过期条目不得再放过任何一处')
+    assert.equal(xRow.rot, false, '"过期而有命中"是待清偿的账,不是清单腐烂')
+
+    // 第四臂:命中被清掉而台账行仍挂着 ⇒ 清单腐烂必须在**真跑的 CLI**上现形。
+    // W1 钉的是"run() 把 rotations 喂给了 decide"这个形状;这一臂钉的是形状成立之后
+    // 提交链那一侧真拿得到 code 1(默认档也判红,rot 不是存量)。
+    landLedger([{ file: TARGET, reason: '仍在台账上', reviewBy: '2099-01-01' }])
+    writeFileSync(join(fix, 'scripts', 'tests', 'l5-target.test.mjs'), 'export const clean = 1\n')
+    g('add', '--', TARGET)
+    gc('commit', '-q', '-m', 'target-clean')
+    const rotted = gateJson()
+    assert.equal(rotted.code, 1, 'rot 不看 strict:默认档也必须判红(挂着腐烂行 = 替后来人下结论)')
+    assert.equal(rotted.json.verdict.kind, 'ledger-rot')
+    assert.equal(rotted.json.rotations, 1)
+    assert.equal(rowOf(rotted.json, '腐烂臂').rot, true)
+  } finally {
+    rmScratch(fix)
+  }
 
   // 成对的另一臂走**构造面**(不在测试里 shell 出去读别的文件 —— 那会把两个文件耦合成
   // "任一改名本测试即红",而改名本身不是缺陷):**台账在被审面上不存在** ⇒ 报告必须大声喊出来,
@@ -637,14 +734,5 @@ test('两个名字都未设时不得进入跳过分支(防"恒真"的跳过判�
   assert.match(r.out, /self-test/, '未设跳过变量时应真的跑出自检(输出里应有 self-test 结论)')
 })
 
-function runGateReal(args) {
-  return execFileSync(process.execPath, [GATE, ...args], {
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 180_000,
-    maxBuffer: 1 << 26,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-}
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
