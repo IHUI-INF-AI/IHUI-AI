@@ -91,13 +91,19 @@ async def _fetch_source(url: str, client: httpx.AsyncClient) -> str:
         return ""
 
 
-async def _probe_alive(proxy: str, client: httpx.AsyncClient) -> str | None:
-    """并发测活:对任一目标 host 发 HEAD,连接建立即算活(鉴权由引擎层处理)。"""
+async def _probe_alive(proxy: str) -> str | None:
+    """并发测活:按代理单独建 client 发 HEAD,连接建立即算活(鉴权由引擎层处理)。
+
+    httpx 0.28 请求方法(.head/.get)不接受 proxy 入参——代理只能在 AsyncClient 构造期绑定,
+    故每个待测代理各建一个 client(旧写法 `client.head(target, proxy=…)` 运行时会抛 TypeError
+    被下面 except 吞掉,导致代理恒判不活)。
+    """
     for target in _PROBE_TARGETS:
         try:
-            resp = await client.head(target, proxy=proxy, timeout=_PROBE_TIMEOUT)
-            if resp.status_code < 600:
-                return proxy
+            async with httpx.AsyncClient(proxy=proxy, trust_env=False, timeout=_PROBE_TIMEOUT) as probe_client:
+                resp = await probe_client.head(target)
+                if resp.status_code < 600:
+                    return proxy
         except Exception:
             continue
     return None
@@ -121,7 +127,7 @@ async def refresh_pool(client: httpx.AsyncClient | None = None) -> list[str]:
 
         async def probe(p: str) -> None:
             async with semaphore:
-                result = await _probe_alive(p, http)
+                result = await _probe_alive(p)
                 if result:
                     alive.append(result)
 
