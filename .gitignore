@@ -161,7 +161,8 @@ deploy/prod-bundle/cloudflared/*.local.txt
 # .ihui-agent/archive/PROJECT_PLAN_*.md 为"这行是被正当归档、不是被删"的依据。锚点只存在于
 # 某一台机器,等于让另一台机器的对账依据凭空消失(G-173 同条规矩:可审计锚点必须受版本控制)。
 .ihui-agent/*
-!.ihui-agent/archive/
+# 存档机制已退役(2026-10-16):.ihui-agent/archive/ 整目录忽略,防回潮
+.ihui-agent/archive/
 .qoder/
 *.swp
 *.swo

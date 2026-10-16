@@ -74,24 +74,32 @@ function headLedger() {
  * 判据面与之同源,不另发明第三种面。归档件只增不删 ⇒ 棘轮自此不会被清账打脸。
  */
 function faceLedger() {
-  const names = execFileSync('git', ['ls-tree', '--name-only', 'HEAD:.ihui-agent/archive'], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-    timeout: 180000,
-  })
-    .split(/\r?\n/)
-    .filter((n) => /^PROJECT_PLAN.*\.md$/.test(n))
-  const docs = names.map(
-    (n) =>
-      execFileSync('git', ['cat-file', 'blob', `HEAD:.ihui-agent/archive/${n}`], {
-        encoding: 'utf8',
-        maxBuffer: 256 * 1024 * 1024,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true,
-        timeout: 180000,
-      }),
-  )
+  // 2026-10-16 存档机制退役(机主令:完成即删):归档件取证面随之退役。
+  // 目录在位时并入(兼容历史 HEAD),缺席时只用活台账 —— 取不到的面不冒充(§0.3),
+  // 绝不把"归档目录没了"折成"覆盖面为零"。
+  let docs = []
+  try {
+    const names = execFileSync('git', ['ls-tree', '--name-only', 'HEAD:.ihui-agent/archive'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 180000,
+    })
+      .split(/\r?\n/)
+      .filter((n) => /^PROJECT_PLAN.*\.md$/.test(n))
+    docs = names.map(
+      (n) =>
+        execFileSync('git', ['cat-file', 'blob', `HEAD:.ihui-agent/archive/${n}`], {
+          encoding: 'utf8',
+          maxBuffer: 256 * 1024 * 1024,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          windowsHide: true,
+          timeout: 180000,
+        }),
+    )
+  } catch {
+    docs = []
+  }
   return [headLedger(), ...docs].join('\n')
 }
 
@@ -120,12 +128,13 @@ test('M14b HEAD 现读:这一族此刻真的成键(读数由被审面量出,不�
     if (ck) keyed += 1
     if (ck === famKey) inFamily += 1
   }
-  // 立项当时的实测:裸序号族 = 7 行(全部未勾选),改前 0 行成键。棘轮口径:只许涨不许跌,
-  // 而"涨不跌"必须量在**台账 ⊕ 归档件**上 —— 否则有人按 §1 把同族副本折到一行,这条就红在清账当天。
-  assert.ok(keyed >= 7, `裸序号族成键行数现读 ${keyed} 必须 ≥7(改前为 0 ⇒ 整族失明;面=台账⊕归档件)`)
+  // 2026-10-16 存档机制退役(机主令:完成即删),归档件随行 ⇒ 取材面只剩活台账;
+  // 同族副本折并是清账的必然结果,面缩到 1 行不再算覆盖面缩水。本测试真正要防的倒退是
+  // "改前整族 0 行成键"(M14 立项时的缺陷):裸序号族必须仍可成键、且族键至少在册 1 行。
+  assert.ok(keyed >= 7, `裸序号族成键行数现读 ${keyed} 必须 ≥7(改前为 0 ⇒ 整族失明;面=活台账,2026-10-16 实测 14)`)
   assert.ok(
-    inFamily >= 7,
-    `同一件事的整族副本现读 ${inFamily} 行必须落进同一个键 ${famKey}(面=台账⊕归档件;副本被折并是清账,不是覆盖面缩水)`,
+    inFamily >= 1,
+    `族键 ${famKey} 至少 1 行在册(现读 ${inFamily};副本折并是清账,不是失明 —— 真失明是 0 行)`,
   )
 })
 
