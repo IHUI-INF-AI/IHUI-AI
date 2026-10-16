@@ -243,11 +243,12 @@ export default defineAppConfig({
     backgroundColor: '@bgColor',
   },
   tabBar: {
-    // Taro 4 Vite 编译不输出 custom-tab-bar(GitHub #17978/#18415),暂用原生 tabBar
-    // 后续改 webpack5 编译器后可恢复 custom: true
+    // 自 2026-09-10 全平台切 webpack5 编译器后,custom-tab-bar 已正常编译输出(MiniPlugin
+    // 在 tabBar.custom 为 true 时打包 custom-tab-bar/index),故启用自定义 TabBar。
+    // 自定义组件实现悬浮液态玻璃胶囊(见 custom-tab-bar/index.tsx,2026-10-16 用户定稿)。
     // 2026-08-28:亮色 tabBar(对齐全站亮色 CSS 变量体系),图标由 gen-tabbar-icons.mjs 生成
     // 2026-09-03:颜色改 @变量 引用 theme.json(配合 darkmode: true),色值与 src/lib/theme.ts THEME_CHROME 对齐
-    custom: false,
+    custom: true,
     color: '@tabColor',
     selectedColor: '@tabSelectedColor',
     borderStyle: '@tabBorderStyle' as 'white' | 'black', // Taro 类型窄化为字面量,运行时 @变量 引用合法(原生 darkmode)
