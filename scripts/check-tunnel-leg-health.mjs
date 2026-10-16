@@ -34,7 +34,7 @@
  * ## 三态纪律(§0.3)
  *
  * 每维独立给 ok / breach / unjudged,各自计未判定,互不顶账。取不到输入(netsh 失败 /
- * powershell 失败 / netstat 无行 / 解析不出地址 / 腿的源地址查不到)⇒ unjudged 并点名原因,
+ * tasklist 失败 / netstat 无行 / 解析不出地址 / 腿的源地址查不到)⇒ unjudged 并点名原因,
  * 不记绿也不冒红。腿数枚举为 0 分两种:进程在而无腿 = breach(隧道断了);进程不在 =
  * unjudged 并点名(本尺子不判定"服务本该在跑")。
  * 阳性对照:每轮真跑前先用构造夹具("已知坏":首选寿命 0s 的在用源地址)证明判据有牙,
@@ -47,7 +47,7 @@
  *
  * ## 取材面(守门 118 口径声明)
  *
- * 本器判的是**机器运行时状态**(netsh/netstat/powershell 三路现读),不读任何仓库内容 ⇒
+ * 本器判的是**机器运行时状态**(netsh/netstat/tasklist 三路现读,全是原生命令行工具 —— PowerShell 在守护身份下冷启动超时会把三格洗成永久未判定),不读任何仓库内容 ⇒
  * 没有 HEAD/索引/--staged 档,也不出现 readFileSync + resolve(ROOT…) 组合;输入取不到时
  * 一律落到对应维的 unjudged,不回落、不猜。
  */
@@ -55,8 +55,15 @@ import { execFile } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 
 const REMOTE_TUNNEL_PORTS = [7843, 7844]
-const PWSH = 'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
+// 为什么用 tasklist 而不是 PowerShell 取 pid(2026-10-16 实测,不是偏好问题):守护以 LocalSystem
+// 身份跑,Windows PowerShell 5.1 在该身份下冷启动 >15s 会被本器采集超时杀掉 ⇒ 三格全部 unjudged、
+// 这把哨永远不会喊人(现场:.workbuddy/tunnel-leg-health-last.json 的 failedCollectSources =
+// "powershell(命令超时(15000ms)被杀)")。tasklist 是原生命令行工具,亚秒级,且不依赖控制台代码页
+// 与区域(SYSTEM=en-US / Administrator=zh-CN 两档身份的外部程序输出语言不同 —— 解析这类输出的格
+// 必须只认 ASCII 字段,同一条教训今天已在别处咬过两次)。
+const TASKLIST = 'C:/Windows/System32/tasklist.exe'
 const SPAWN_TIMEOUT_MS = 15000
+const TASKLIST_TIMEOUT_MS = 10_000
 
 function runCapture(cmd, args, timeoutMs = SPAWN_TIMEOUT_MS) {
   return new Promise((resolve) => {
@@ -158,11 +165,22 @@ export function parseNetstatLegs(text, pids, ports = REMOTE_TUNNEL_PORTS) {
   return { legs, unparseableTcp }
 }
 
-export function getPids(powershellStdout) {
-  return String(powershellStdout || '')
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter((s) => /^\d+$/.test(s))
+/**
+ * tasklist 的 CSV 行 → pid 列表。只认映像名逐字等于 cloudflared.exe 的行。
+ * 为什么按列取而不是"抓任意数字":CSV 的内存列本身带千分位逗号("39,780 K"),
+ * 全局抓数字会把无关数字当成 pid。提示行(INFO: No tasks…)⇒ 空集 = 进程不在。
+ */
+export function parseTasklistPids(stdout) {
+  const out = []
+  for (const raw of String(stdout || '').split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line.startsWith('"')) continue
+    const cols = line.split('","').map((c, i, arr) => (i === 0 ? c.slice(1) : i === arr.length - 1 ? c.slice(0, -1) : c))
+    if (String(cols[0] || '').toLowerCase() !== 'cloudflared.exe') continue
+    const pid = String(cols[1] || '').trim()
+    if (/^\d+$/.test(pid)) out.push(pid)
+  }
+  return [...new Set(out)]
 }
 
 /**
@@ -175,7 +193,7 @@ export function judge({ processProbe, pids, netshProbe, netstatProbe, legs, addr
   const processPresent = processProbe === 'ok' ? pids.length > 0 : null
 
   if (processProbe !== 'ok') {
-    dims['leg-count'] = { verdict: 'unjudged', reason: 'powershell 取 pid 失败,进程存在性未知' }
+    dims['leg-count'] = { verdict: 'unjudged', reason: 'tasklist 取 pid 失败,进程存在性未知' }
   } else if (processPresent === false) {
     dims['leg-count'] = { verdict: 'unjudged', reason: 'cloudflared 进程不存在 —— 本尺子不判定"服务本该在跑",0 条腿不能记成断流' }
   } else if (netstatProbe !== 'ok') {
@@ -259,18 +277,18 @@ export function decideExit(dims, controlPassed) {
 
 async function collect() {
   const [ps, netsh, netstat] = await Promise.all([
-    runCapture(PWSH, ['-NoProfile', '-NonInteractive', '-Command', '(Get-Process cloudflared -ErrorAction SilentlyContinue).Id']),
+    runCapture(TASKLIST, ['/NH', '/FO', 'CSV', '/FI', 'IMAGENAME eq cloudflared.exe'], TASKLIST_TIMEOUT_MS),
     runCapture('netsh', ['interface', 'ipv6', 'show', 'addresses']),
     runCapture('netstat', ['-ano']),
   ])
   const processProbe = ps.ok && !ps.killed ? 'ok' : 'failed'
-  const pids = processProbe === 'ok' ? getPids(ps.stdout) : []
+  const pids = processProbe === 'ok' ? parseTasklistPids(ps.stdout) : []
   const netshProbe = netsh.ok && !netsh.killed ? 'ok' : 'failed'
   const netstatProbe = netstat.ok && !netstat.killed ? 'ok' : 'failed'
   const addresses = netshProbe === 'ok' ? parseNetshAddresses(netsh.stdout) : new Map()
   const { legs, unparseableTcp } = netstatProbe === 'ok' ? parseNetstatLegs(netstat.stdout, pids) : { legs: [], unparseableTcp: [] }
   const failedNames = [
-    processProbe === 'failed' ? `powershell(${ps.err || '无输出'})` : null,
+    processProbe === 'failed' ? `tasklist(${ps.err || '无输出'})` : null,
     netshProbe === 'failed' ? `netsh(${netsh.err || '输出异常'})` : null,
     netstatProbe === 'failed' ? `netstat(${netstat.err || '输出异常'})` : null,
   ].filter(Boolean)
@@ -421,7 +439,9 @@ function selfTest() {
     eq(parseNetshAddresses('').size, 0, '空')
     eq(parseNetshAddresses('nothing useful').size, 0, '无地址形态')
     eq(parseNetstatLegs('', ['1']).legs.length, 0, '空 netstat')
-    eq(getPids('\nabc\n42\n').join(), '42', 'pid 抽取吃掉非数字行')
+    eq(parseTasklistPids('"cloudflared.exe","42","Console","1","39,780 K"').join(), '42', 'CSV 第二列才是 pid(内存列带千分位逗号,不许乱抓数字)')
+    eq(parseTasklistPids('INFO: No tasks are running which match the specified criteria.').join(), '', '无匹配 ⇒ 空集(进程不在),不吃提示行')
+    eq(parseTasklistPids('"notepad.exe","7","Console","1","1,000 K"').join(), '', '别的映像名不许被算成隧道进程')
   })
   console.log(`${pass}/${total} 通过`)
   process.exitCode = pass === total ? 0 : 1
@@ -441,7 +461,7 @@ export const __test__ = {
   parseNetshAddresses,
   parseNetstatLegs,
   isDeprecatedRecord,
-  getPids,
+  parseTasklistPids,
   judge,
   positiveControl,
   decideExit,
