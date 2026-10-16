@@ -3517,6 +3517,125 @@ export function auditPublicPathProbe(opts = {}) {
 }
 
 /**
+ * 隧道腿健康哨的**常驻**派发点(尺子本体 = `scripts/check-tunnel-leg-health.mjs`)。
+ *
+ * 为什么必须挂在这里(2026-10-16 立项,当天实测到一次真险):cloudflared 的 4 条已建立腿**全部**吊在
+ * 同一个已进入 deprecated 的临时 IPv6 源地址上(`首选寿命 0s`)。该地址一旦被系统删除,4 条腿同时断
+ * ⇒ 公网入口直接 530,而当天**没有任何一门会提前喊**:监控只会事后报"公网 ERR",公网探测会把这
+ * 一跳归进"入口段/出口段"的延迟读数里,谁都不会去看源地址的寿命。这台机是生产机,入口就是这一条隧道。
+ *
+ * 三条不可漂的写法照抄 `auditPublicPathProbe`:节流而非封量、告警一律经 `notifyGuardRed()`、
+ * 未判定只写日志并点名原因(发一封"我什么都没量到"的信是把噪音冒充成告警)。
+ *
+ * 与公网探测**刻意不同**的一处:这里**不设"连几轮才到人"的持续性门槛**。理由是量纲,不是省事:
+ * 公网延迟是**会抖的样本量**(健康轮也会出现 1/10 条 ≥8s,单轮尖峰寄信 = 噪音);而"源地址已废弃 /
+ * 进程在而腿数 0"是**状态量**,一轮就是一次事实,而且它是**事前**信号 —— 等第二轮就等于多开 15 分钟
+ * "随时可能整组断腿"的危险窗口。
+ */
+const TUNNEL_LEG_TICK = join(WORKTREE, '.workbuddy', 'tunnel-leg-tick.ts')
+const TUNNEL_LEG_LAST = join(WORKTREE, '.workbuddy', 'tunnel-leg-health-last.json')
+const TUNNEL_LEG_INTERVAL_MS = Number(process.env.IHUI_TUNNEL_LEG_INTERVAL_MS || 15 * 60 * 1000)
+const TUNNEL_LEG_TIMEOUT_MS = Number(process.env.IHUI_TUNNEL_LEG_TIMEOUT_MS || 90_000)
+
+export function auditTunnelLegHealth(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = TUNNEL_LEG_INTERVAL_MS,
+    tickFile = TUNNEL_LEG_TICK,
+    lastFile = TUNNEL_LEG_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-tunnel-leg-health.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 隧道腿健康:尺子脚本不在位(scripts/check-tunnel-leg-health.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+                timeout: TUNNEL_LEG_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生 git/子进程必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return { status: typeof e.status === 'number' ? e.status : 2, stdout: String(e.stdout || ''), stderr: String(e.stderr || e.message || '') }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || !parsed.dims || typeof parsed.dims !== 'object') {
+      logger(`⚠️ 隧道腿健康未产出结论(未判定,不记为已探测):rc=${call.status} ${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/)[0].slice(0, 140)}`)
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    // **尺子自己的阳性对照失手 ⇒ 整轮不采信**:一把抓不到"已知必坏"目标的尺子没资格出具合格证,
+    // 更没资格据此寄信(既不寄"坏了",也不寄"没坏")—— 只报名,等人来看。
+    if (parsed.positiveControl && parsed.positiveControl !== 'pass') {
+      logger(`⚠️ 隧道腿健康阳性对照未命中(${String(parsed.positiveControl).slice(0, 80)})⇒ 该尺子本轮失明,不采信其结论、不派信`)
+      return { ran: true, judged: false, why: '阳性对照未命中' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify({ at: new Date(now).toISOString(), ...parsed }, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响 --status 可见性,不影响告警本身 */
+    }
+    let breaches = 0
+    let warns = 0
+    let unjudged = 0
+    for (const [dim, d] of Object.entries(parsed.dims)) {
+      const verdict = String(d?.verdict || '')
+      const reading = JSON.stringify(d?.reading ?? {}).slice(0, 300)
+      if (verdict === 'breach') {
+        breaches += 1
+        const exit =
+          dim === 'deprecated-source'
+            ? '出路:重启 `Cloudflared` 服务让腿重选源地址(约 10-30 秒公网 502 窗口,与换流窗口同语义);不重启的后果是源地址被删时 4 条腿同时断 ⇒ 入口直接 530。'
+            : '出路:进程在而腿数 0 ⇒ 隧道没连上 CF 边缘。先看 `Get-Service Cloudflared` 与它的启动方式(ImagePath 是裸 tunnel run,无日志落点是已知盲区),再看本机出口:`node scripts/net-doctor.mjs`。'
+        notify(
+          `公网入口隧道腿异常:${dim}`,
+          `读数:${reading}\n原因:${String(d?.reason || '(尺子未给原因)')}\n尺子:scripts/check-tunnel-leg-health.mjs(netsh 地址寿命 + netstat 腿 + 进程三路现读,只读)。\n取证:node scripts/check-tunnel-leg-health.mjs --json(或读 .workbuddy/tunnel-leg-health-last.json)\n${exit}`,
+          { severity: 'warning', dedupKey: `dim=${dim};verdict=${verdict};legs=${Number(parsed.legs) || 0}` },
+        )
+      } else if (verdict === 'warn') {
+        warns += 1
+        logger(`⚠️ 隧道腿健康报数(${dim},不判红):${String(d?.reason || reading).slice(0, 200)}`)
+      } else if (verdict === 'unjudged') {
+        unjudged += 1
+        logger(`ℹ️ 隧道腿健康 ${dim}:未判定 —— ${String(d?.reason || '(无原因)').slice(0, 200)}`)
+      }
+    }
+    if (breaches === 0 && unjudged === 0) logger(`✅ 隧道腿健康:${parsed.legs} 条腿,源地址未见废弃(${warns} 格只报数)`)
+    return { ran: true, judged: true, breaches, warns, unjudged, legs: parsed.legs }
+  } catch (e) {
+    logger('⚠️ 隧道腿健康派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
+/**
  * 孤儿删除引用巡检的**常驻**派发点(尺子本体 = `scripts/check-orphan-deletion-refs.mjs`)。
  *
  * 为什么必须挂在这里而不是"留作手动问责":这把尺子判的是**此刻索引与 HEAD 的错位**
@@ -4266,6 +4385,7 @@ function main() {
     // 公网路径与换流窗口的常驻探测(票 G-301):两条序列互不顶账,节流 30 分钟,
     // 判"未判定"只写日志不喊人;它不改本守护退出码 —— 探测失败不等于 .git 失败。
     if (!CHECK_ONLY) auditPublicPathProbe()
+    if (!CHECK_ONLY) auditTunnelLegHealth()
     // 不能进提交链,而"手动问责"等于只有人在跑 —— 本行是它唯一的调度器。挂进 CHECK_ONLY 分支等于永不执行。
     if (!CHECK_ONLY) auditOrphanDeletionRefs()
     // TEMP 夹具清扫器同理:判据/保护面/镜像测试全在,唯独没人调度 ⇒ 本项目命名的残留过完账龄就永久留着。
@@ -4529,6 +4649,7 @@ export const __test__ = {
   alertFingerprint,
   stableAlertFingerprint,
   auditPublicPathProbe,
+  auditTunnelLegHealth,
   bumpProbeStreak,
   parseNotifyState,
   shouldAlert,
