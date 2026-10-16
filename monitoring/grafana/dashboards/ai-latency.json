@@ -1,19 +1,112 @@
 {
-  "annotations": { "list": [] },
-  "description": "IHUI-AI AI 模型延迟分布 (P50/P95/P99 / TTFT / 流式中断 / provider 健康)",
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
   "editable": true,
+  "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
   "links": [],
+  "liveNow": false,
   "panels": [
     {
-      "title": "P95 延迟",
+      "id": 100,
+      "type": "row",
+      "title": "整体延迟分位",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "collapsed": false,
+      "panels": [],
+      "repeat": null
+    },
+    {
+      "id": 101,
       "type": "gauge",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "title": "P50 延迟",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (ihui_ai_latency_seconds_bucket{instance=~\"$instance\"}))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(ihui_llm_request_duration_seconds_bucket{job=\"ai-service\"}[5m])))",
+          "legendFormat": "P50",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "showThresholdLabels": false,
+        "showThresholdStats": true
+      }
+    },
+    {
+      "id": 102,
+      "type": "gauge",
+      "title": "P95 延迟",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(ihui_llm_request_duration_seconds_bucket{job=\"ai-service\"}[5m])))",
           "legendFormat": "P95",
           "refId": "A"
         }
@@ -21,208 +114,475 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green" },
-              { "color": "yellow", "value": 3 },
-              { "color": "red", "value": 10 }
+              {
+                "color": "green"
+              },
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 15
+              }
             ]
           }
         },
         "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "showThresholdLabels": false,
+        "showThresholdStats": true
+      }
     },
     {
-      "title": "超时率",
-      "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
-      "targets": [
-        {
-          "expr": "sum(rate(ihui_ai_timeout_total{instance=~\"$instance\"}[5m])) / sum(rate(ihui_ai_calls_total{instance=~\"$instance\"}[5m]))",
-          "legendFormat": "超时率",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green" },
-              { "color": "yellow", "value": 0.02 },
-              { "color": "red", "value": 0.05 }
-            ]
-          }
-        },
-        "overrides": []
+      "id": 103,
+      "type": "gauge",
+      "title": "P99 延迟",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
-    },
-    {
-      "title": "流式响应中断率",
-      "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
-      "targets": [
-        {
-          "expr": "sum(rate(ihui_ai_stream_interrupt_total{instance=~\"$instance\"}[5m])) / sum(rate(ihui_ai_stream_started_total{instance=~\"$instance\"}[5m]))",
-          "legendFormat": "中断率",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green" },
-              { "color": "yellow", "value": 0.01 },
-              { "color": "red", "value": 0.05 }
-            ]
-          }
-        },
-        "overrides": []
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 1
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
-    },
-    {
-      "title": "Provider 健康度",
-      "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
       "targets": [
         {
-          "expr": "1 - (sum(rate(ihui_ai_provider_error_total{instance=~\"$instance\"}[5m])) / sum(rate(ihui_ai_calls_total{instance=~\"$instance\"}[5m])))",
-          "legendFormat": "健康度",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "red" },
-              { "color": "yellow", "value": 0.9 },
-              { "color": "green", "value": 0.98 }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
-    },
-    {
-      "title": "P50/P95/P99 延迟趋势",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.5, sum by (le) (ihui_ai_latency_seconds_bucket{instance=~\"$instance\"}))",
-          "legendFormat": "P50",
-          "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum by (le) (ihui_ai_latency_seconds_bucket{instance=~\"$instance\"}))",
-          "legendFormat": "P95",
-          "refId": "B"
-        },
-        {
-          "expr": "histogram_quantile(0.99, sum by (le) (ihui_ai_latency_seconds_bucket{instance=~\"$instance\"}))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(ihui_llm_request_duration_seconds_bucket{job=\"ai-service\"}[5m])))",
           "legendFormat": "P99",
-          "refId": "C"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
-    },
-    {
-      "title": "TTFT 分布 (按 provider)",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, sum by (le, provider) (ihui_ai_ttft_seconds_bucket{instance=~\"$instance\"}))",
-          "legendFormat": "TTFT P95 {{provider}}",
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 30
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "showThresholdLabels": false,
+        "showThresholdStats": true
+      }
     },
     {
-      "title": "模型调用 Top10",
-      "type": "table",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "id": 104,
+      "type": "gauge",
+      "title": "超时占比",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
       "targets": [
         {
-          "expr": "topk(10, sum by (model, provider) (rate(ihui_ai_calls_total{instance=~\"$instance\"}[5m])))",
-          "legendFormat": "{{provider}}/{{model}}",
-          "refId": "A",
-          "format": "table",
-          "instant": true
+          "expr": "sum(rate(ihui_llm_calls_total{job=\"ai-service\",status=\"timeout\"}[5m])) / sum(rate(ihui_llm_calls_total{job=\"ai-service\"}[5m]))",
+          "legendFormat": "timeout",
+          "refId": "A"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 0.01
+              },
+              {
+                "color": "red",
+                "value": 0.05
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "showThresholdLabels": false,
+        "showThresholdStats": true
+      }
     },
     {
-      "title": "超时率趋势 (按 provider)",
+      "id": 105,
+      "type": "row",
+      "title": "首字延迟与中断",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "collapsed": false,
+      "panels": [],
+      "repeat": null
+    },
+    {
+      "id": 106,
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "title": "TTFT P95(按厂商)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
       "targets": [
         {
-          "expr": "sum by (provider) (rate(ihui_ai_timeout_total{instance=~\"$instance\"}[5m])) / sum by (provider) (rate(ihui_ai_calls_total{instance=~\"$instance\"}[5m]))",
+          "expr": "histogram_quantile(0.95, sum by (le, provider) (rate(ihui_llm_ttft_seconds_bucket{job=\"ai-service\"}[5m])))",
           "legendFormat": "{{provider}}",
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
     },
     {
-      "title": "流式响应中断趋势",
+      "id": 107,
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 22 },
+      "title": "流式中断速率(按原因)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
       "targets": [
         {
-          "expr": "sum by (provider, model) (rate(ihui_ai_stream_interrupt_total{instance=~\"$instance\"}[5m]))",
+          "expr": "sum by (provider, reason) (rate(ihui_llm_stream_interrupt_total{job=\"ai-service\"}[5m]))",
+          "legendFormat": "{{provider}} {{reason}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 108,
+      "type": "row",
+      "title": "按模型的延迟热区",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "collapsed": false,
+      "panels": [],
+      "repeat": null
+    },
+    {
+      "id": 109,
+      "type": "timeseries",
+      "title": "模型调用速率 Top10",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 17
+      },
+      "targets": [
+        {
+          "expr": "topk(10, sum by (model) (rate(ihui_llm_calls_total{job=\"ai-service\"}[5m])))",
+          "legendFormat": "{{model}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 110,
+      "type": "timeseries",
+      "title": "模型 P95 延迟 Top10",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      },
+      "targets": [
+        {
+          "expr": "topk(10, histogram_quantile(0.95, sum by (le, model) (rate(ihui_llm_request_duration_seconds_bucket{job=\"ai-service\"}[5m]))))",
+          "legendFormat": "{{model}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 111,
+      "type": "timeseries",
+      "title": "厂商错误率",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 25
+      },
+      "targets": [
+        {
+          "expr": "sum by (provider) (rate(ihui_llm_provider_errors_total{job=\"ai-service\"}[5m]))",
+          "legendFormat": "{{provider}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 112,
+      "type": "heatmap",
+      "title": "P95 延迟热区(厂商×模型)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, provider, model) (rate(ihui_llm_request_duration_seconds_bucket{job=\"ai-service\"}[5m])))",
           "legendFormat": "{{provider}}/{{model}}",
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
     }
   ],
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["ihui-ai", "domain:ai", "latency"],
+  "tags": ["ihui-ai", "ai", "latency"],
   "templating": {
     "list": [
       {
-        "name": "instance",
-        "type": "query",
-        "datasource": { "type": "prometheus", "uid": "Prometheus" },
-        "query": "label_values(ihui_ai_calls_total, instance)",
-        "refresh": 2,
+        "name": "provider",
+        "label": "厂商",
+        "query": {
+          "cloudCommand": null,
+          "cloudDuration": null,
+          "expression": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, provider)",
+          "range": false
+        },
+        "current": {
+          "selectedText": "All",
+          "text": "All",
+          "value": "$__all"
+        },
         "includeAll": true,
         "multi": true,
-        "current": { "selected": true, "text": "All", "value": "$__all" }
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query",
+        "hide": 0,
+        "definition": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, provider)",
+        "options": [],
+        "allValue": ".*"
       }
     ]
   },
-  "time": { "from": "now-1h", "to": "now" },
-  "timepicker": {},
-  "timezone": "browser",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "1h"]
+  },
+  "timezone": "",
   "title": "IHUI-AI 模型延迟分布",
+  "tooltip": {
+    "shared": true,
+    "showCrosshair": false,
+    "sort": 2
+  },
   "uid": "ihui-ai-ai-latency",
   "version": 1,
   "weekStart": ""
