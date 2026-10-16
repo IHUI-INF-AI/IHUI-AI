@@ -45,6 +45,11 @@
  *              不判语义顺序 —— 局限如实说明,不假装更强);
  *             "未存活行"这一维自 2026-09-28 起**同时报出**"因搬运感知而合法未取回"的行数与逐条出处
  *             (报告必须能回答"你没带回 N 行,因为这 N 行在基准面已有 已归档 占位代表"),不得静默。
+ *             自 2026-10-16 起(G-32 归并侧半格)再认**同题折叠**那一族:产出面在守恒断言之后还有
+ *             dedupeByFingerprint 的同题折叠,被折叠行以同指纹行活在合并树里 —— 未存活行先按
+ *             守门 203 同源指纹(extractTaskFingerprint)问合并树,有同指纹行 ⇒ 点名放行(报进
+ *             "按移动放行"维,与搬运感知同款逐条可答),没有 ⇒ 照旧判丢;指纹取不到(过短/指针行)
+ *             一律不豁免,失效方向保持"多拦"。
  *   落地后再让**守门 100 本人的 A1** 复核这枚新合并(用它的判据验它的产物,而不是"看着对")。
  *   写盘一律临时索引 + commit-tree + **CAS** update-ref(HEAD 被他人推进则本轮作废重来),
  *   绝不 checkout、绝不碰共享工作区(§12d)。
@@ -128,6 +133,10 @@ import { resurrectAnalysis } from './lib/stale-content-analysis.mjs'
 // 同题去重(2026-10-15,根治 union 重复再生):union 产出后、落地前按标题指纹折叠 PROJECT_PLAN 的
 // 同题行 —— 同一件事物理上只留一行,被丢弃行的独有注记/票号并入保留行(信息守恒)。
 import { dedupeByFingerprint } from './lib/dedupe-ledger.mjs'
+// 同题折叠的身份判据只有一份(§0.6):lib/dedupe-ledger 与守门 203 用的都是它,
+// 落地闸"未存活行按复合主键再问一次"(G-32 归并侧半格)也必须用同一把尺 —— 另写一份
+// 的后果固定是"折叠认得、闸不认得",303 处假红把每一次收敛都顶成人工。
+import { extractTaskFingerprint } from './check-plan-task-duplicates.mjs'
 
 import { findMarkerPairs } from './lib/conflict-marker-triples.mjs'
 
@@ -1761,8 +1770,31 @@ export function verifyUnion(
     // 少带的份数在这一条路径上同样必须点名(本票防的就是"台账被静默少带")
     const docCaps = bt === null ? [] : liveDocPointerCaps(bt, [a, b], mTree)
     if (docCaps.length) pointerCaps.push({ doc: p, capped: docCaps })
-    for (const [l, n] of want)
-      if ((m.get(l) || 0) < n) bad.push(`${p} 未存活行:${l.slice(0, 50)}`)
+    // G-32 归并侧半格(2026-10-16 收口):产出面在守恒断言之后还有一道同题折叠(dedupeByFingerprint),
+    // 被折叠行的**逐字节形态**不再存在于合并树,但那件事本身以同指纹行活着 —— 旧闸按折叠前期望表
+    // 逐字点名 ⇒ 实测 303 处假红,把每一次收敛顶成"落地闸不过"死局(与 F3 恒红同型,§12f)。
+    // 正解 = 行内登记的:未存活行先按**同一把指纹尺**问合并树有无同题行;有 ⇒ 归"同题折叠"点名放行,
+    // 没有 ⇒ 照旧判丢。失效方向必须是多拦:指纹取不到(过短/指针行)一律不豁免。
+    const fpIndexOfMerged = new Map()
+    for (const l of mTree.split('\n')) {
+      const fp = extractTaskFingerprint(l)
+      if (!fp) continue
+      fpIndexOfMerged.set(fp, (fpIndexOfMerged.get(fp) || 0) + 1)
+    }
+    const foldedSameTitle = []
+    for (const [l, n] of want) {
+      if ((m.get(l) || 0) >= n) continue
+      const fp = extractTaskFingerprint(l)
+      if (fp && fpIndexOfMerged.has(fp)) {
+        foldedSameTitle.push(l)
+        continue
+      }
+      bad.push(`${p} 未存活行:${l.slice(0, 50)}`)
+    }
+    if (foldedSameTitle.length)
+      moved.push(
+        `${p} 有 ${foldedSameTitle.length} 行未逐字存活,但合并树持有同指纹行 ⇒ 同题折叠(dedupe-ledger)的产出而非丢失;代表:${foldedSameTitle[0].slice(0, 60)}`,
+      )
     // 反向对照:本侧改写/删除过的行,合并树里的**重数**不得高于期望表 ——
     // 不能判">0 即复活":活文档里同一行常有真实多份(台账登记行就是如此,实测 D38 有 4 份),
     // 判存在会把"保住的那 3 份"误报成复活。第一版就被真仓咬出这一条。
@@ -2463,6 +2495,63 @@ function selfTest() {
       )
     } finally {
       rmScratch(d2, { bestEffort: true })
+    }
+
+    // —— G-32 归并侧半格(2026-10-16):落地闸必须认"同题折叠"那一族 ——
+    // 夹具:本侧给同一件事留了未勾+已勾两行(产出面会被 dedupeByFingerprint 折成一行),
+    // 旧闸按折叠前期望表逐字点名 ⇒ 恒红;新闸按同源指纹问合并树。反向:无同指纹行的真丢行照旧判红。
+    const d3 = mkScratch('ihui-union-fold-')
+    const r3 = (...a) => git(a, d3)
+    try {
+      r3('init', '-q', '-b', 'main')
+      r3('config', 'user.email', 't@t')
+      r3('config', 'user.name', 't')
+      r3('config', 'core.autocrlf', 'false')
+      writeFileSync(join(d3, 'PROJECT_PLAN.md'), 'a\n- [ ] G-100 甲同题任务标题需要够长——初版\n', 'utf8')
+      r3('add', '-A')
+      r3('commit', '-qm', 'base')
+      writeFileSync(
+        join(d3, 'PROJECT_PLAN.md'),
+        'a\n- [ ] G-100 甲同题任务标题需要够长——初版\n' +
+          '- [x] ✅(2026-10-16) G-100 甲同题任务标题需要够长——已完成\n' +
+          '- [ ] G-200 乙任务独有标题足够长——乙注\n',
+        'utf8',
+      )
+      r3('add', '-A')
+      r3('commit', '-qm', 'ours')
+      const o3 = r3('rev-parse', 'HEAD')
+      r3('checkout', '-q', 'HEAD~1')
+      writeFileSync(join(d3, 'theirs.ts'), 'export const t3 = 1\n', 'utf8')
+      r3('add', '-A')
+      r3('commit', '-qm', 'theirs')
+      const t3 = r3('rev-parse', 'HEAD')
+      r3('update-ref', 'refs/heads/main', o3)
+
+      const pf = plan(o3, t3, d3)
+      ok(
+        'G-32:被同题折叠掉的行不再判"未存活"(合并树持同指纹行 ⇒ 放行并逐条点名)',
+        pf.bad.length === 0 &&
+          pf.movedPaths.some(
+            (m) => m.startsWith('PROJECT_PLAN.md 有 1 行未逐字存活') && m.includes('同题折叠'),
+          ),
+        `bad=${pf.bad.slice(0, 3).join(' / ')} moved=${(pf.movedPaths || []).join(' / ')}`,
+      )
+      ok(
+        'G-32:折叠保留完成态那一行(信息守恒由 dedupe-ledger 的择优保证,这里钉结果)',
+        show(pf.tree, 'PROJECT_PLAN.md', d3).includes('已完成') &&
+          !show(pf.tree, 'PROJECT_PLAN.md', d3).includes('——初版'),
+        show(pf.tree, 'PROJECT_PLAN.md', d3).replace(/\n/g, '|'),
+      )
+      // 反向锁:合并树里没有同指纹行 ⇒ 照旧判"未存活",豁免不得把真吞并洗成折叠
+      const oneSide3 = r3('rev-parse', `${t3}^{tree}`)
+      const ghost3 = verifyUnion(o3, t3, oneSide3, d3)
+      ok(
+        'G-32 反向:无同指纹行的真丢行仍判"未存活"(豁免不得洗绿选边)',
+        ghost3.some((b) => b.includes('未存活行') && b.includes('G-200')),
+        ghost3.join(' / '),
+      )
+    } finally {
+      rmScratch(d3, { bestEffort: true })
     }
 
     // 丢行判据本身的语义边界(纯函数,不需仓库)
