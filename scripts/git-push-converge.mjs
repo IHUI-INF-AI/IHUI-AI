@@ -71,17 +71,30 @@ import { resolveGitBin } from './lib/gitdir.mjs'
  * 调用方 cwd 找 —— 一旦那一棵树不是本仓,读数就是本仓 HEAD 配别人家的推送状态。
  * 现在三处一律钉在同一个 ROOT(本文件上一级即仓根,AGENTS §15「路径推导用脚本自身位置」),
  * git 一律走 `resolveGitBin()`(AGENTS §5b「脚本不得依赖环境取 git」;钩子/计划任务不继承 shell env)。
+ *
+ * 唯一旁路 = `--root=<目录>`(e2e 注入缝,2026-10-16 立,镜像 pg-drill R7/R8 的假执行器那
+ * 一类「注入缝」模式):生产链(guard / 计划任务 / 钩子)一律不传 ⇒ 逐字保持「由本文件自身位置
+ * 推根」;测试在临时仓里构造「本地落后 + 四小时前关于别枚提交的 push-state」这一现场时,
+ * 走这一缝让脚本判**注入的那份** push-state,而不是真仓 `.workbuddy/push-state.json`
+ * 里那条与测试无关的读数(那条真仓读数会随 guard 后台推送不断刷新,把构造场景活生生顶掉)。
+ * guard 委托腿(healViaGuard)与 SKIPPED-branch 腿在注入根下都不产生(本地落后 ⇒ 走 SKIP,
+ * 不触推送),因此注入根只改变「push-state 与 HEAD 读自哪棵树」,不改任何判据。
  */
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const GIT_BIN = resolveGitBin() || 'git'
-
-// ─── 参数 ───
+// ─── 参数(先于 ROOT 解析取:--root= 是「注入缝」旗标,见上头注)───
 const args = process.argv.slice(2)
 const getArg = (name, def) => {
   const hit = args.find((a) => a.startsWith(`--${name}=`))
   return hit ? hit.split('=').slice(1).join('=') : def
 }
-const hasFlag = (name) => args.includes(`--${name}`)
+function hasFlag(name) {
+  return args.includes(`--${name}`)
+}
+const hasRootFlag = args.some((a) => a.startsWith('--root='))
+const ROOT = hasRootFlag
+  ? resolve(getArg('root', '.'))
+  : resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const GIT_BIN = resolveGitBin() || 'git'
+
 const remotes = getArg('remotes', 'origin').split(',').map((s) => s.trim()).filter(Boolean)
 const branch = getArg('branch', 'main')
 const allowLease = hasFlag('force-with-lease')

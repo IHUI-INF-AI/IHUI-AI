@@ -62,7 +62,9 @@ test('resolveTargets:对象缺失 ⇒ 未判定并给出 fetch 出路,绝不伪�
   assert.equal(r.skip, null, '未判定不得写成 skip —— 那会被调用方读成"无事可做"')
   assert.equal(r.head, head)
   assert.match(r.undetermined, /对象不在本机/)
-  assert.match(r.undetermined, new RegExp(`git fetch --no-tags origin ${ABSENT.slice(0, 11)}`))
+  // 联网出口只按分支取(R-A 反向锁:截断 sha 直取在公共托管上跑不通,§0.8 不得下发)。缺失的 sha
+  // 随分支 fetch 一并回来,故这里钉「按分支」的 fetch 而非 `fetch --no-tags origin <sha>`。
+  assert.match(r.undetermined, /git fetch origin/)
   assert.match(r.undetermined, /不代跑 fetch/)
 })
 
@@ -78,7 +80,8 @@ test('反向锁:两条 sha 都在本地时,这一维一字未改判(否则新判
 test('plan():直接走 API 也报同一句诊断,而不是 git 的 Not a valid commit name 加堆栈', (t) => {
   const { dir, head } = initRepo(t)
   assert.throws(() => U.plan(head, ABSENT, dir), /未判定:对象不在本机/)
-  assert.throws(() => U.plan(ABSENT, head, dir), /git fetch --no-tags origin/)
+  // our 缺的那枚按「本地 HEAD 取不到」的 ③(ref 存续体检)出口报,不再下发截断 sha 直取(R-A 反向锁)。
+  assert.throws(() => U.plan(ABSENT, head, dir), /未判定:本地 HEAD 的那枚对象都取不到/)
 })
 
 test('CLI:未判定必须 exit 2、含出路、且不得以 Node 堆栈收场', (t) => {

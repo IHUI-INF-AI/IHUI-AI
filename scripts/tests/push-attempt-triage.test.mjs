@@ -23,7 +23,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { mkScratch, rmScratch, scratchRoot } from '../lib/scratch-dir.mjs'
 // 唯一入口:源脚本的 __test__ 导出(§22c 第 2 步)。禁止在这里复制判据。
 import { __test__ as T } from '../lib/push-attempt-triage.mjs'
 
@@ -440,9 +440,14 @@ test('T14 向后兼容:只给等值(旧调用方形态)时结论一字不动', (
 })
 
 test('T11 e2e:converge 在"本地落后 + 一条四小时前的他人读数"下报 SKIP,并把读数喊成历史残留/未现推', () => {
+  // 夹具全部落在 scratch 根**之内**(mkScratch 的 mkdtempSync 保证前缀匹配,不嵌套):
+  // 真仓的守护链(git-guardian / git-push-guard)按「cwd 里最近的 .git / .workbuddy」找本仓,
+  // 落在 scratch 根里的仓对它们而言都是「仓外」的独立仓库,不会把本仓的 push-state
+  // 写进夹具 ⇒ 注入的 push-state 保持确定性(2026-10-16 实测:夹具若落在 scratch 根
+  // 外,守护链在 peer 的 commit/push 后会把夹具 push-state 刷新成本地 HEAD + 当下 ts,
+  // 把构造的「4h 前、关于别枚提交」现场顶掉 ⇒ SKIP 支不可达)。
   const origin = mkScratch('ihui-conv-origin-')
   const work = mkScratch('ihui-conv-work-')
-  const peer = mkScratch('ihui-conv-peer-')
   try {
     shGit(['init', '--bare', '-b', 'main', origin])
     const originUrl = origin.replace(/\\/g, '/')
@@ -454,54 +459,77 @@ test('T11 e2e:converge 在"本地落后 + 一条四小时前的他人读数"下�
     shGit(['remote', 'add', 'origin', originUrl], work)
     shGit(['push', '-u', 'origin', 'main'], work)
 
-    // 「另一个会话」推进远端 ⇒ 本侧落后 ⇒ converge 走 SKIP 支(只读,不产生任何写)
-    shGit(['clone', originUrl, peer], process.cwd())
-    setIdentity(peer)
-    writeFileSync(join(peer, 'PEER.md'), 'peer\n')
-    shGit(['add', 'PEER.md'], peer)
-    shGit(['commit', '-m', 'peer commit'], peer)
-    shGit(['push', 'origin', 'main'], peer)
-    const foreignSha = shGit(['rev-parse', 'HEAD'], peer).trim()
-    assert.notEqual(foreignSha, shGit(['rev-parse', 'HEAD'], work).trim(), '夹具没造成落后')
+    // 「另一个会话」推进远端 ⇒ 本侧落后(本地 HEAD 是远端 tip 的祖先,本地没领先)
+    // ⇒ converge 走 SKIP 支(只读,不产生任何写)。
+    // clone 必须落在 scratch 根内:guard 守护链按「cwd 里最近的 .git」认本仓,
+    // 落在 process.cwd()(本仓树内)的 peer 仓会被它当成「本仓的 worktree」收编。
+    const peerDir = join(scratchRoot(), 'ihui-conv-peer-clone')
+    mkdirSync(join(peerDir), { recursive: true })
+    try {
+      shGit(['clone', originUrl, peerDir], peerDir)
+      setIdentity(peerDir)
+      writeFileSync(join(peerDir, 'PEER.md'), 'peer\n')
+      shGit(['add', 'PEER.md'], peerDir)
+      shGit(['commit', '-m', 'peer commit'], peerDir)
+      shGit(['push', 'origin', 'main'], peerDir)
+      const foreignSha = shGit(['rev-parse', 'HEAD'], peerDir).trim()
+      assert.notEqual(foreignSha, shGit(['rev-parse', 'HEAD'], work).trim(), '夹具没造成落后')
 
-    // 一条**关于别的提交、四小时前**的 push-state(正是本票登记的那种失真现场)
-    mkdirSync(join(work, '.workbuddy'), { recursive: true })
-    writeFileSync(
-      join(work, '.workbuddy', 'push-state.json'),
-      JSON.stringify({
-        status: 'failed',
-        headSha: foreignSha,
-        ts: Date.now() - 4 * HOUR,
-        pid: 999999,
-        reason: '上一枚提交的旧失败',
-      }),
-    )
+      // 取回他方提交对象(只读,不动工作树提交序):converge 的祖先判定要先 cat-file
+      // 得到远端 tip 对象才肯下「本地落后」结论,而本地仓此刻只 init+push 过自己那一条历史。
+      shGit(['fetch', 'origin'], work)
 
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    const r = spawnSync(process.execPath, [CONVERGE_PATH, '--remotes=origin'], {
-      cwd: work,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-      timeout: 180_000,
-      maxBuffer: 64 * 1024 * 1024,
-    })
-    const out = `${r.stdout || ''}\n${r.stderr || ''}`
-    assert.match(out, /⏭️\s+SKIP/, `应走 SKIP 支:${out}`)
-    assert.match(out, /依据出处:/, '结论行下面必须有依据出处行')
-    assert.match(out, /历史残留\/未现推/, '四小时前、且关于别的提交 ⇒ 必须喊历史残留')
-    // 读数**本身**不得被定性成当下量的(lib 的 current 文案是"… = **当下量的**");
-    // 同一行的 ls-remote 旁证写"当下量的"是另一件事(那是真·现读),不该被这条锁误伤。
-    assert.doesNotMatch(
-      out,
-      /push-state 读数:[^\n]*=\s*\*\*当下量的\*\*/,
-      '那条记录与当前 HEAD 无关,却被打成了当下依据 ⇒ 失真复活',
-    )
-    assert.match(out, /距今 4h/, '年龄必须带小时档')
-    assert.match(out, /汇总出处:/, '末行必须再报一次出处')
-    assert.equal(r.status, 0, `本地落后不判失败,应 exit 0。实得 ${r.status}\n${out}`)
+      // 一条**关于别的提交、四小时前**的 push-state(正是本票登记的那种失真现场)
+      mkdirSync(join(work, '.workbuddy'), { recursive: true })
+      writeFileSync(
+        join(work, '.workbuddy', 'push-state.json'),
+        JSON.stringify({
+          status: 'failed',
+          headSha: foreignSha,
+          ts: Date.now() - 4 * HOUR,
+          pid: 999999,
+          reason: '上一枚提交的旧失败',
+        }),
+      )
+
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // 注入缝(--root=):让 converge 判**夹具树**的 push-state 与 HEAD(经脚本 --root 旗标),
+      // 不得被真仓 .workbuddy/push-state.json 那条与测试无关的实时读数顶掉(构造场景必须被确定性判定)。
+      const r = spawnSync(
+        process.execPath,
+        [CONVERGE_PATH, '--remotes=origin', `--root=${work}`],
+        {
+          cwd: work,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+          windowsHide: true,
+          timeout: 180_000,
+          maxBuffer: 64 * 1024 * 1024,
+        },
+      )
+      const out = `${r.stdout || ''}\n${r.stderr || ''}`
+      assert.match(out, /⏭️\s+SKIP/, `应走 SKIP 支:${out}`)
+      assert.match(out, /依据出处:/, '结论行下面必须有依据出处行')
+      assert.match(out, /历史残留\/未现推/, '四小时前、且关于别的提交 ⇒ 必须喊历史残留')
+      // 读数**本身**不得被定性成当下量的(lib 的 current 文案是"… = **当下量的**");
+      // 同一行的 ls-remote 旁证写"当下量的"是另一件事(那是真·现读),不该被这条锁误伤。
+      assert.doesNotMatch(
+        out,
+        /push-state 读数:[^\n]*=\s*\*\*当下量的\*\*/,
+        '那条记录与当前 HEAD 无关,却被打成了当下依据 ⇒ 失真复活',
+      )
+      assert.match(out, /距今 4h/, '年龄必须带小时档')
+      assert.match(out, /汇总出处:/, '末行必须再报一次出处')
+      assert.equal(r.status, 0, `本地落后不判失败,应 exit 0。实得 ${r.status}\n${out}`)
+    } finally {
+      try {
+        rmScratch(peerDir)
+      } catch {
+        /* 清理失败不影响结论,已在用例内断言完毕 */
+      }
+    }
   } finally {
-    for (const d of [peer, work, origin]) {
+    for (const d of [work, origin]) {
       try {
         rmScratch(d)
       } catch {

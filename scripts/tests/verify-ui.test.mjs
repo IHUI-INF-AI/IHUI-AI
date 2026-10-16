@@ -24,6 +24,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { relativeImportClosure } from '../lib/scratch-module-closure.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const REPO = path.resolve(__dirname, '..', '..')
@@ -41,28 +42,36 @@ function runScript(args, cwd) {
   })
 }
 
-// 把改前那份(HEAD 面)取到 scratch 里;该脚本只 import node 内置,不存在闭包缺失问题
-// —— 若照旧"只拷单文件"就够用,但先把 import 面断言住,免得日后它引了本地模块而这里静默失效。
+// 把改前那份(HEAD 面)连同它的相对 import 闭包取到 scratch 里。
+// 2026-09 G-322 把取值收口进 scripts/lib/flag-value.mjs 之后,"只拷单文件"的前提不再成立:
+// 闭包清单按当次推导,唯一源 = 共用层 relativeImportClosure(§22c 引真函数,不手抄清单);
+// 逐文件内容一律 `git show HEAD:scripts/<rel>` 取被审面 —— 取磁盘就变成工作树自比,不是"改前"。
+// 取不到被审面 ⇒ 显式 throw「未判定」,不得回落另一个面(§0.3)。
 function materializeHeadCopy(dir) {
-  const src = execFileSync('git', ['-C', REPO, 'show', 'HEAD:scripts/verify-ui.mjs'], {
-    encoding: 'utf8',
-    maxBuffer: 1 << 24,
-    windowsHide: true,
-    timeout: 60_000,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  const localImports = src
-    .split('\n')
-    .filter((l) => /^\s*import\s.*from\s+['"]\.\.?\/|['"]@/.test(l))
-  assert.equal(
-    localImports.length,
-    0,
-    `改前副本只拷单文件的前提不再成立(出现本地 import:${localImports.join(';')})—— 需连带取闭包`,
+  const scriptsDir = path.join(REPO, 'scripts')
+  const closure = [...relativeImportClosure(scriptsDir, 'verify-ui.mjs')].map((rel) =>
+    rel.replace(/\\/g, '/'),
   )
-  const out = path.join(dir, 'verify-ui.head.mjs')
-  fs.writeFileSync(out, src, 'utf8')
-  return out
+  const destScripts = path.join(dir, 'scripts')
+  for (const rel of closure) {
+    let blob
+    try {
+      blob = execFileSync('git', ['-C', REPO, 'show', `HEAD:scripts/${rel}`], {
+        encoding: 'utf8',
+        maxBuffer: 1 << 24,
+        windowsHide: true,
+        timeout: 60_000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    } catch (e) {
+      throw new Error(`取不到 HEAD:scripts/${rel} —— 未判定(闭包成员在改前面缺失),原因: ${e?.message ?? e}`)
+    }
+    const out = path.join(destScripts, rel)
+    fs.mkdirSync(path.dirname(out), { recursive: true })
+    fs.writeFileSync(out, blob, 'utf8')
+  }
+  return path.join(destScripts, 'verify-ui.mjs')
 }
 
 const listing = (dir) => fs.readdirSync(dir).sort().join('|')

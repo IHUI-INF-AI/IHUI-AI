@@ -24,7 +24,7 @@
  *    不得静默退化成"这一族没配上"(那是本仓最高频的失效型)。
  *  · C6 **成对自检①**(票面明写):加一行新前缀副本 ⇒ 报数上升。
  *  · C7 **成对自检②**(票面明写):副本被人工指定 holder 并加指针后 ⇒ 该族清零。
- *  · C8 真仓面性质复核 + 源码反向锁(不许把"精确前缀"换成相似度/长度猜测)。
+ *  · C8 真仓面性质复核(不钉存量) + 构造面机制正对照 + 源码反向锁(不许把"精确前缀"换成相似度/长度猜测)。
  */
 
 import { readFileSync } from 'node:fs'
@@ -214,34 +214,52 @@ test('C7 成对自检②:副本被人工指定 holder 并加指针后 ⇒ 该族
     throw new Error('摘掉指针后报数必须回到 3 ⇒ 上一个 0 来自前缀关系被破坏,而不是判据失明')
 })
 
-test('C8 真仓面性质复核 + 源码反向锁(性质判据不判数量 ⇒ 不因并发提交闪红;且不许换成相似度/长度猜测)', () => {
+test('C8 真仓面性质复核 + 构造面机制正对照 + 源码反向锁(性质判据不钉数量 ⇒ 不因并发提交/存量清偿闪红;且不许换成相似度/长度猜测)', () => {
   const txt = gitRaw(['show', 'HEAD:PROJECT_PLAN.md'], process.cwd())
   if (!txt || txt.length < 100000) throw new Error('取不到 HEAD 版计划文档 ⇒ 无从复核,不算通过')
   const a = auditPlan(txt)
-  if (!(a.counts.prefixNestedGroups > 0) || !(a.counts.prefixNestedPairs > 0))
-    throw new Error('真仓面上本族读数为 0 ⇒ 尺子对这一型失明(本仓 2026-09-29 现读为 223 组这一档)')
-  // 逐条独立复核:每一对都必须是"同复合主键 + 精确前缀",否则就是判据报错了
-  const lines = txt.split('\n')
-  for (const p of a.prefixNested.pairs) {
-    const s = lines[p.short.line - 1]
-    const l = lines[p.long.line - 1]
-    if (!l.startsWith(s)) throw new Error(`L${p.short.line} 不是 L${p.long.line} 的精确前缀(判据报错了)`)
-    if (compositeKeyOf(s) !== compositeKeyOf(l))
-      throw new Error(`L${p.short.line}/L${p.long.line} 复合主键不等 ⇒ 判据绕开了同一份实现`)
+  // 真仓面性质复核(**对任何读数都成立,不钉 2026-09-29 那 223 组存量** —— 存量已随清偿搬走,
+  // 钉"真仓此刻必须 N>0"就是把见证者钉死在搬走之前那一帧,清光那一笔提交后本臂自锁,§12e 同型):
+  // 每一条报出来的对都必须是"同复合主键 + 精确前缀",否则就是判据报错了(报 0 条时循环 vacuous,不放行假绿)。
+  const recheck = (doc, res, label) => {
+    const ls = doc.split('\n')
+    for (const p of res.prefixNested.pairs) {
+      const s = ls[p.short.line - 1]
+      const l = ls[p.long.line - 1]
+      if (!l.startsWith(s)) throw new Error(`[${label}] L${p.short.line} 不是 L${p.long.line} 的精确前缀(判据报错了)`)
+      if (compositeKeyOf(s) !== compositeKeyOf(l))
+        throw new Error(`[${label}] L${p.short.line}/L${p.long.line} 复合主键不等 ⇒ 判据绕开了同一份实现`)
+    }
+    return res
   }
-  // 真仓 composition 锁(**性质**,不判数量 ⇒ 不因并发提交闪红):本族的**长行几乎都已带副本指针**,
-  // 而 F4 的第一道闸就是"带指针的剔掉" + 要求 `live>=2` ⇒ F4 副本行读 0 而本族真实存在。
-  // 这一格是"为什么 F4c 不是 F4 的重复劳动"的**现读证据**;机制描述一旦漂(比如哪天有人给
-  // 短行也加上了指针 ⇒ short 带计数上升),这里的下限会先红,提醒下一个人重读机制。
-  const pairsWithPtrLong = a.prefixNested.pairs.filter((p) => DUP_POINTER_RE.test(p.long.raw)).length
-  if (pairsWithPtrLong * 2 < a.prefixNested.pairs.length)
+  recheck(txt, a, '真仓面')
+  // 正对照走**构造面**:本族"长行带副本指针、短行不带"的机制形态(票面 223 组里 981/1054 对的同型,
+  // 长度取小值只为可读)。尺子有牙必须在这里量出来:真仓面存量清零时不得读成"尺子失明"。
+  const MECH = [
+    '# 计划',
+    '- [ ] **G-910 机制夹具**:前段证据,后面还没有。',
+    '- [ ] **G-910 机制夹具**:前段证据,后面还没有。后段证据也补齐了。【归并】重复登记副本',
+  ].join('\n')
+  const m = recheck(MECH, auditPlan(MECH), '机制夹具')
+  if (!(m.counts.prefixNestedGroups > 0) || !(m.counts.prefixNestedPairs > 0))
     throw new Error(
-      `长行带副本指针的比例 ${pairsWithPtrLong}/${a.prefixNested.pairs.length} 掉到一半以下 ⇒ F4 漏口的成因已变,机制描述要按现读重写`,
+      `机制夹具在构造面上必须读得 1 组 / 1 对(尺子对本族失明或判据漂了),实测 groups=${m.counts.prefixNestedGroups} pairs=${m.counts.prefixNestedPairs}`,
     )
-  if (a.counts.dupOpenCopies !== 0)
+  // 机制成对钉死:长行带指针、短行不带 ⇒ F4c 仍计入这一对(指针追加在长行尾,不破前缀关系);
+  // 同一面上 F4 的两道闸(带指针的剔除 + 要求 live>=2)读数必为 0 ⇒ F4c 不是 F4 的重复劳动。
+  // 这一型此前钉在真仓存量上(F4 全仓读 0),存量是**其他族也会喂的读数**,钉它就是恒红门;
+  // 改钉在"只有本族在场"的构造面上,牙原样保留。
+  const mm = m.prefixNested.pairs
+  if (mm.length !== 1 || !DUP_POINTER_RE.test(mm[0].long.raw) || DUP_POINTER_RE.test(mm[0].short.raw))
+    throw new Error('机制夹具对形态漂了(必须恰 1 对且长行带指针、短行不带)')
+  if (m.counts.dupOpenCopies !== 0)
     throw new Error(
-      `真仓面 F4 副本行读数应为 0(这正是本族"对全部判据隐身"的读数证据),实测 ${a.counts.dupOpenCopies}(若非零说明 F4 已被改宽,机制描述要重读)`,
+      `机制夹具面上 F4 副本行读数应为 0(长行带指针、剥完 live<2),实测 ${m.counts.dupOpenCopies}(若非零说明 F4 已被改宽,机制描述要重读)`,
     )
+  console.log(
+    `   ℹ 真仓面现读(只报数不判):prefixNested ${a.counts.prefixNestedGroups} 组 / ${a.counts.prefixNestedPairs} 对;` +
+      `F4 副本行 ${a.counts.dupOpenCopies}`,
+  )
   // 定级锁:只报数 ⇒ **不得**出现在 probe 差值棘轮里(接 blocking = 恒红门,§12e/§12f)。
   // `probe` 那份清单在 `plan-tasks.mjs`(它 import 本库,共用同一组 counts)——**只读不改**:
   // 本票的改动面收在库内,而"把 F4c 塞进棘轮"这件事必须被一道锁看住,故这里读它的源码断言。
