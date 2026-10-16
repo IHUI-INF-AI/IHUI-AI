@@ -19351,6 +19351,7 @@
   },
   "nav": {
     "checkin": "출석",
+    "monitorWallboard": "모니터링 월보",
     "ecosystemHub": "생태 마켓",
     "adminRelayInsights": "인사이트",
     "adminRelayEnterprise": "기업 컴플라이언스",
@@ -19699,16 +19700,7 @@
     "adminDeployDiagnosis": "배포 진단",
     "githubApp": "GitHub App",
     "smsReceive": "SMS 인증번호",
-    "sms": "SMS 템플릿",
-    "customGroup": "사용자 정의",
-    "customAddTitle": "자주 쓰는 기능",
-    "customAddDesc": "아래에서 자주 쓰는 사이드바 항목을 선택해 추가하세요",
-    "customEmptyHint": "오른쪽 위 + 를 클릭해 자주 쓰는 기능을 추가하세요",
-    "customSearchPlaceholder": "기능 검색",
-    "customAdded": "추가됨",
-    "customAdd": "추가",
-    "customRemove": "제거",
-    "customManage": "자주 쓰는 기능 관리"
+    "sms": "SMS 템플릿"
   },
   "news": {
     "allCategories": "All categories",
