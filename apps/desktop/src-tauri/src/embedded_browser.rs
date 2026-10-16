@@ -50,6 +50,23 @@
 //! 故:①open 命令必须 `async`;②哨兵处理器在 `on_navigation`(主线程)里**只做派发**,
 //! 真正的建窗/关窗在 `async_runtime::spawn` 出来的工作线程上跑 —— 因为
 //! `Window::add_child` 内部是 `run_on_main_thread` + 阻塞等待,主线程直接调必自锁。
+//!
+//! ## 降级兜底(2026-10-16 补)
+//!
+//! `unstable` 多 webview 是 Tauri 官方标注的实验特性,极端环境可能建不出来。
+//! 故 `open_or_navigate` 有两条降级路:**①裸窗 `WindowBuilder::build` 失败**;
+//! **②裸窗建起来但 `add_child` 失败** —— 都退到 `spawn_degraded_window`:
+//! 用 `WebviewWindowBuilder` 建「窗口自带 webview」的单窗(label 仍是
+//! `embedded-browser`,于是窗口 label == webview label),**多标签不可用,但
+//! 浏览/工具条/点选/DevTools 全部照常**。会话里 `degraded = true` 标记,工具条
+//! 据此隐藏标签栏(`multiTab:false`),`Switch`/`CloseTab` 哨兵在降级下退化为
+//! 空操作 / 关窗,`active_webview` 改取窗口自身的 webview。
+//!
+//! ## WebView2 运行时
+//!
+//! `tauri.conf.json` 设 `bundle.windows.webviewInstallMode = offlineInstaller`
+//! (内嵌完整 WebView2 运行时,离线可装;安装包 +~127MB)。想瘦身可改
+//! `embedBootstrapper`(+1.8MB,装时联网下运行时)或 `downloadBootstrapper`(默认,最小)。
 
 use std::sync::Mutex;
 
@@ -191,25 +208,29 @@ const BAR_JS: &str = r#"(function () {
   var lastState = { tabs: [], picking: false };
   window.__ihuiBarRender = function (s) {
     lastState = s || lastState;
-    // 标签栏
+    // 标签栏(降级单 webview 模式整条隐藏 —— 没有多标签可言)
+    var multi = (s.multiTab !== false);
+    tabStrip.style.setProperty('display', multi ? 'flex' : 'none');
     while (tabStrip.firstChild) tabStrip.removeChild(tabStrip.firstChild);
-    (s.tabs || []).forEach(function (t) {
-      var tab = el('div', {
-        display: 'flex', 'align-items': 'center', gap: '6px', flex: '0 0 auto',
-        'max-width': '200px', height: '24px', padding: '0 8px', 'border-radius': '6px',
-        background: t.active ? '#2f2f2f' : 'transparent', color: t.active ? '#ffffff' : '#b0b0b0',
-        cursor: 'pointer', 'font-size': '12px', 'box-sizing': 'border-box'
+    if (multi) {
+      (s.tabs || []).forEach(function (t) {
+        var tab = el('div', {
+          display: 'flex', 'align-items': 'center', gap: '6px', flex: '0 0 auto',
+          'max-width': '200px', height: '24px', padding: '0 8px', 'border-radius': '6px',
+          background: t.active ? '#2f2f2f' : 'transparent', color: t.active ? '#ffffff' : '#b0b0b0',
+          cursor: 'pointer', 'font-size': '12px', 'box-sizing': 'border-box'
+        });
+        var titleText = (t.active && document.title) ? document.title : (t.title || t.url || '新标签页');
+        var title = el('span', { overflow: 'hidden', 'white-space': 'nowrap', 'text-overflow': 'ellipsis', 'max-width': '160px' }, titleText);
+        var x = el('span', { 'flex': '0 0 auto', color: '#888888', cursor: 'pointer', 'font-size': '13px' }, '\u2715');
+        x.addEventListener('click', function (e) { e.stopPropagation(); window.__ihuiNav('close-tab', 'i=' + t.id); });
+        tab.appendChild(title);
+        tab.appendChild(x);
+        tab.addEventListener('click', function () { window.__ihuiNav('switch', 'i=' + t.id); });
+        tabStrip.appendChild(tab);
       });
-      var titleText = (t.active && document.title) ? document.title : (t.title || t.url || '新标签页');
-      var title = el('span', { overflow: 'hidden', 'white-space': 'nowrap', 'text-overflow': 'ellipsis', 'max-width': '160px' }, titleText);
-      var x = el('span', { 'flex': '0 0 auto', color: '#888888', cursor: 'pointer', 'font-size': '13px' }, '\u2715');
-      x.addEventListener('click', function (e) { e.stopPropagation(); window.__ihuiNav('close-tab', 'i=' + t.id); });
-      tab.appendChild(title);
-      tab.appendChild(x);
-      tab.addEventListener('click', function () { window.__ihuiNav('switch', 'i=' + t.id); });
-      tabStrip.appendChild(tab);
-    });
-    tabStrip.appendChild(newTabBtn);
+      tabStrip.appendChild(newTabBtn);
+    }
     // 地址栏
     if (document.activeElement !== urlInput) urlInput.value = s.url || location.href;
     // 点选态
@@ -367,6 +388,9 @@ struct Session {
     next_id: u64,
     tabs: Vec<TabInfo>,
     active: Option<u64>,
+    /// true = `Window::add_child`(unstable 多 webview)建窗失败,已降级为
+    /// **单 webview 窗**(窗口 label 即 webview label,无多标签)。见 `open_or_navigate`。
+    degraded: bool,
 }
 
 /// 浏览器会话状态(窗口在不在、标签列表、当前标签)。
@@ -395,6 +419,8 @@ pub struct BrowserStateDto {
     pub url: Option<String>,
     pub tabs: Vec<TabInfo>,
     pub active: Option<u64>,
+    /// true = 走了单 webview 降级路径(多标签不可用)。
+    pub degraded: bool,
 }
 
 fn tab_label(id: u64) -> String {
@@ -406,8 +432,14 @@ fn tab_label(id: u64) -> String {
 /// 2026-10-16 多标签升级后,窗口本身是不带 webview 的 [`tauri::Window`],真正的
 /// 页面在 `browser-tab-<id>` 子 webview 里 —— 所以"读内嵌窗 cookie"必须落在
 /// **活动标签页 webview** 上,而不是窗口上。
+///
+/// 降级模式(单 webview 窗)下,窗口 label 本身就是 webview label,直接取它。
 pub fn active_webview(app: &AppHandle) -> Option<tauri::webview::Webview> {
-    let id = app.state::<BrowserManager>().with(|s| s.active)?;
+    let (id, degraded) = app.state::<BrowserManager>().with(|s| (s.active, s.degraded));
+    if degraded {
+        return app.get_webview(BROWSER_WINDOW_LABEL);
+    }
+    let id = id?;
     app.get_webview(&tab_label(id))
 }
 
@@ -430,7 +462,7 @@ fn bar_state_json(s: &Session) -> serde_json::Value {
         .and_then(|id| s.tabs.iter().find(|t| t.id == id))
         .map(|t| t.url.clone())
         .unwrap_or_default();
-    serde_json::json!({ "tabs": tabs, "url": url, "picking": false })
+    serde_json::json!({ "tabs": tabs, "url": url, "picking": false, "multiTab": !s.degraded })
 }
 
 /// 把状态渲染进某个 webview 的工具条。
@@ -447,35 +479,30 @@ fn push_bar_state(app: &AppHandle, webview_label: &str, s: &Session) {
 /// 把状态推给当前活动标签页(不持锁调用,避免在锁内做 eval)。
 fn refresh_active_bar(app: &AppHandle) {
     let snapshot = app.state::<BrowserManager>().with(|s| s.clone());
+    if snapshot.degraded {
+        // 降级:窗口 label == webview label
+        push_bar_state(app, BROWSER_WINDOW_LABEL, &snapshot);
+        return;
+    }
     if let Some(id) = snapshot.active {
         push_bar_state(app, &tab_label(id), &snapshot);
     }
 }
 
-// ==================== 建窗 / 建标签 ====================
-
-/// 为一个 URL 建内容 webview 并挂到窗口上。返回 webview label。
+/// 构建一个内容 webview builder(多标签与降级两条路共用)。
 ///
-/// 注意:必须在**非主线程**调用(`add_child` 内部 `run_on_main_thread` 阻塞等待,
-/// 主线程直接调会自锁,见模块头「建窗时序铁律」)。
-fn add_tab_webview(
-    window: &tauri::Window,
+/// - `label` = 该 webview 的 label(多标签下是 `browser-tab-<id>`;降级下是窗口 label)
+/// - `tab_id` = 用于 `on_page_load` 时定位会话里的标签行
+fn build_tab_builder(
     app: &AppHandle,
-    id: u64,
-    url: &Url,
-) -> Result<(), IpcError> {
-    let parsed: Url = url
-        .clone();
-    let label = tab_label(id);
+    label: String,
+    tab_id: u64,
+    url: Url,
+) -> WebviewBuilder<tauri::Wry> {
     let app_for_nav = app.clone();
     let app_for_load = app.clone();
-    let label_for_load = label.clone();
-    let size = window
-        .inner_size()
-        .map_err(|e| IpcError::internal(format!("取窗口尺寸失败: {e}")))?;
-    let builder = WebviewBuilder::new(label.clone(), WebviewUrl::External(parsed))
+    WebviewBuilder::new(label, WebviewUrl::External(url))
         .user_agent(CHROME_UA)
-        .auto_resize()
         .devtools(true)
         .background_color(Color(0x24, 0x24, 0x24, 0xff))
         .initialization_script(BAR_JS)
@@ -495,11 +522,10 @@ fn add_tab_webview(
             // 导航完成/开始时同步标签 URL 并刷新工具条(标题由注入脚本对活动标签
             // 直接用 document.title 呈现,见 BAR_JS),否则标签栏/地址栏停在建窗初值。
             let app = app_for_load.clone();
-            let lbl = label_for_load.clone();
             let url = payload.url().to_string();
             tauri::async_runtime::spawn(async move {
                 app.state::<BrowserManager>().with(|s| {
-                    if let Some(tab) = s.tabs.iter_mut().find(|t| tab_label(t.id) == lbl) {
+                    if let Some(tab) = s.tabs.iter_mut().find(|t| t.id == tab_id) {
                         tab.url = url.clone();
                         if tab.title.is_empty() {
                             tab.title = url.clone();
@@ -508,15 +534,96 @@ fn add_tab_webview(
                 });
                 refresh_active_bar(&app);
             });
-        });
+        })
+}
+
+/// 一个标签页的内容 webview,建好并按父窗口尺寸铺满。
+fn spawn_tab_webview(
+    window: &tauri::Window,
+    builder: WebviewBuilder<tauri::Wry>,
+    size: PhysicalSize<u32>,
+) -> Result<(), IpcError> {
     window
         .add_child(
             builder,
             PhysicalPosition::new(0i32, 0i32),
             PhysicalSize::new(size.width, size.height),
         )
-        .map_err(|e| IpcError::internal(format!("创建标签页失败: {e}")))?;
+        .map(|_| ())
+        .map_err(|e| IpcError::internal(format!("创建标签页失败: {e}")))
+}
+
+/// 降级:用 `WebviewWindowBuilder` 建「窗口自带 webview」的单窗(不依赖 unstable
+/// `add_child`)。只在裸窗 `WindowBuilder::build` 于该环境不可用时走这条路 ——
+/// 代价是多标签不可用,但浏览/工具条/点选/DevTools 照常。
+fn spawn_degraded_window(
+    app: &AppHandle,
+    title: Option<String>,
+    parsed: Url,
+) -> Result<(), IpcError> {
+    let id = app.state::<BrowserManager>().with(|s| {
+        s.next_id += 1;
+        s.next_id
+    });
+    let app_for_nav = app.clone();
+    tauri::WebviewWindowBuilder::new(
+        app,
+        BROWSER_WINDOW_LABEL,
+        WebviewUrl::External(parsed.clone()),
+    )
+    .title(title.unwrap_or_else(|| "智汇AI 浏览器".to_string()))
+    .inner_size(1280.0, 860.0)
+    .min_inner_size(900.0, 640.0)
+    .resizable(true)
+    .center()
+    .decorations(true)
+    .background_color(Color(0x24, 0x24, 0x24, 0xff))
+    .user_agent(CHROME_UA)
+    .initialization_script(BAR_JS)
+    .initialization_script(PICK_JS)
+    .on_navigation(move |url| {
+        if let Some(action) = parse_sentinel(url) {
+            let a = app_for_nav.clone();
+            tauri::async_runtime::spawn(async move {
+                handle_sentinel(a, action).await;
+            });
+            false
+        } else {
+            true
+        }
+    })
+    .build()
+    .map_err(|e| IpcError::internal(format!("内嵌浏览器窗口创建失败: {e}")))?;
+    app.state::<BrowserManager>().with(|s| {
+        s.tabs.push(TabInfo {
+            id,
+            url: parsed.to_string(),
+            title: parsed.to_string(),
+        });
+        s.active = Some(id);
+        s.degraded = true;
+    });
     Ok(())
+}
+
+// ==================== 建窗 / 建标签 ====================
+
+/// 为一个 URL 建内容 webview 并挂到窗口上。返回 webview label。
+///
+/// 注意:必须在**非主线程**调用(`add_child` 内部 `run_on_main_thread` 阻塞等待,
+/// 主线程直接调会自锁,见模块头「建窗时序铁律」)。
+fn add_tab_webview(
+    window: &tauri::Window,
+    app: &AppHandle,
+    id: u64,
+    url: &Url,
+) -> Result<(), IpcError> {
+    let size = window
+        .inner_size()
+        .map_err(|e| IpcError::internal(format!("取窗口尺寸失败: {e}")))?;
+    // 内容 webview 随窗口缩放(auto_resize);降级路不需要(webview 即窗口)。
+    let builder = build_tab_builder(app, tab_label(id), id, url.clone()).auto_resize();
+    spawn_tab_webview(window, builder, size)
 }
 
 /// 打开(或复用)浏览器窗口。已存在则让当前标签导航到 `url`。
@@ -535,27 +642,26 @@ pub async fn open_or_navigate(
         .parse()
         .map_err(|e| IpcError::internal(format!("地址解析失败: {e}")))?;
 
-    // 复用:窗口在 ⇒ 当前标签导航
+    // 复用:窗口在 ⇒ 当前标签导航(降级窗也走 active_webview)
     if let Some(window) = app.get_window(BROWSER_WINDOW_LABEL) {
-        let active = app.state::<BrowserManager>().with(|s| s.active);
-        if let Some(id) = active {
-            if let Some(wv) = app.get_webview(&tab_label(id)) {
-                let _ = wv.navigate(parsed.clone());
-            }
-            app.state::<BrowserManager>().with(|s| {
-                if let Some(t) = s.tabs.iter_mut().find(|t| t.id == id) {
-                    t.url = parsed.to_string();
-                }
-            });
+        if let Some(wv) = active_webview(&app) {
+            let _ = wv.navigate(parsed.clone());
         }
+        let active = app.state::<BrowserManager>().with(|s| s.active);
+        app.state::<BrowserManager>().with(|s| {
+            if let Some(t) = active.and_then(|id| s.tabs.iter_mut().find(|t| t.id == id)) {
+                t.url = parsed.to_string();
+            }
+        });
         let _ = window.show();
         let _ = window.set_focus();
         return Ok(());
     }
 
-    // 新建窗口 + 第一个标签
-    let window = tauri::window::WindowBuilder::new(&app, BROWSER_WINDOW_LABEL)
-        .title(title.unwrap_or_else(|| "智汇AI 浏览器".to_string()))
+    // 新建:裸窗 + 第一个内容 webview(unstable 多 webview)。两条降级路:
+    // ①裸窗建不起来;②裸窗建起来但 add_child 失败 —— 都退到「窗口自带 webview」的单窗。
+    let bare = tauri::window::WindowBuilder::new(&app, BROWSER_WINDOW_LABEL)
+        .title(title.clone().unwrap_or_else(|| "智汇AI 浏览器".to_string()))
         .inner_size(1280.0, 860.0)
         .min_inner_size(900.0, 640.0)
         .resizable(true)
@@ -565,14 +671,24 @@ pub async fn open_or_navigate(
         // 标题栏拖不动窗口。保留系统标题栏换取可靠的移动/最小化/关闭。
         .decorations(true)
         .background_color(Color(0x24, 0x24, 0x24, 0xff))
-        .build()
-        .map_err(|e| IpcError::internal(format!("内嵌浏览器窗口创建失败: {e}")))?;
+        .build();
+    let window = match bare {
+        Ok(w) => w,
+        Err(e) => {
+            log::warn!("[embedded-browser] 裸窗创建失败,降级单 webview: {e}");
+            return spawn_degraded_window(&app, title, parsed);
+        }
+    };
 
     let id = app.state::<BrowserManager>().with(|s| {
         s.next_id += 1;
         s.next_id
     });
-    add_tab_webview(&window, &app, id, &parsed)?;
+    if let Err(e) = add_tab_webview(&window, &app, id, &parsed) {
+        log::warn!("[embedded-browser] add_child 失败,降级单 webview: {e}");
+        let _ = window.close();
+        return spawn_degraded_window(&app, title, parsed);
+    }
     app.state::<BrowserManager>().with(|s| {
         s.tabs.push(TabInfo {
             id,
@@ -580,6 +696,7 @@ pub async fn open_or_navigate(
             title: parsed.to_string(),
         });
         s.active = Some(id);
+        s.degraded = false;
     });
     Ok(())
 }
@@ -592,7 +709,12 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
         return;
     };
     let active_wv = || -> Option<tauri::webview::Webview> {
-        let id = app.state::<BrowserManager>().with(|s| s.active)?;
+        let (id, degraded) = app.state::<BrowserManager>().with(|s| (s.active, s.degraded));
+        if degraded {
+            // 降级:窗口 label == webview label
+            return app.get_webview(BROWSER_WINDOW_LABEL);
+        }
+        let id = id?;
         app.get_webview(&tab_label(id))
     };
 
@@ -656,6 +778,20 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
             let _ = app.emit_to("main", "embedded-browser://element-picked", decoded);
         }
         SentinelAction::NewTab(u) => {
+            // 降级模式(单 webview 窗)无多标签可言:把"新建标签"退化为"当前页导航"。
+            let degraded = app.state::<BrowserManager>().with(|s| s.degraded);
+            if degraded {
+                let target = match u {
+                    Some(u) if is_browsable_url(&u) => u,
+                    _ => HOME_URL.to_string(),
+                };
+                if let Some(wv) = active_wv() {
+                    if let Ok(parsed) = target.parse::<Url>() {
+                        let _ = wv.navigate(parsed);
+                    }
+                }
+                return;
+            }
             let count = app.state::<BrowserManager>().with(|s| s.tabs.len());
             if count >= MAX_TABS {
                 return;
@@ -691,6 +827,15 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
             refresh_active_bar(&app);
         }
         SentinelAction::CloseTab(i) => {
+            // 降级模式:没有真标签可关,当"关窗"处理。
+            let degraded = app.state::<BrowserManager>().with(|s| s.degraded);
+            if degraded {
+                let _ = window.close();
+                app.state::<BrowserManager>().with(|s| {
+                    *s = Session::default();
+                });
+                return;
+            }
             let (remaining, new_active) = app.state::<BrowserManager>().with(|s| {
                 s.tabs.retain(|t| t.id != i);
                 if s.active == Some(i) {
@@ -717,6 +862,11 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
             }
         }
         SentinelAction::Switch(i) => {
+            // 降级模式:只有一个 webview,切换无意义(工具条也已不显示标签栏)。
+            let degraded = app.state::<BrowserManager>().with(|s| s.degraded);
+            if degraded {
+                return;
+            }
             let prev = app.state::<BrowserManager>().with(|s| {
                 if !s.tabs.iter().any(|t| t.id == i) {
                     return None;
@@ -814,6 +964,7 @@ pub fn embedded_browser_state(app: AppHandle) -> BrowserStateDto {
             url: None,
             tabs: vec![],
             active: None,
+            degraded: false,
         };
     }
     app.state::<BrowserManager>().with(|s| {
@@ -826,6 +977,7 @@ pub fn embedded_browser_state(app: AppHandle) -> BrowserStateDto {
             url,
             tabs: s.tabs.clone(),
             active: s.active,
+            degraded: s.degraded,
         }
     })
 }
@@ -982,6 +1134,20 @@ mod tests {
         assert!(PICK_JS.contains("__ihuiPick"));
         assert!(PICK_JS.contains("picked"));
         assert!(PICK_JS.contains("crosshair"));
+    }
+
+    #[test]
+    fn bar_state_json_reflects_degraded_flag() {
+        // 正常多标签:multiTab = true
+        let s = Session::default();
+        assert_eq!(bar_state_json(&s)["multiTab"], serde_json::json!(true));
+        // 降级单 webview:multiTab = false(工具条据此隐藏标签栏)
+        let mut d = Session::default();
+        d.degraded = true;
+        assert_eq!(bar_state_json(&d)["multiTab"], serde_json::json!(false));
+        // 工具条脚本里确实有这条分支
+        assert!(BAR_JS.contains("multiTab"));
+        assert!(BAR_JS.contains("'display', multi ? 'flex' : 'none'"));
     }
 
     #[test]
