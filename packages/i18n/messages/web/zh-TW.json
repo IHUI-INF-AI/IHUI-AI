@@ -19346,7 +19346,9 @@
     "deviceMapUpdated": "設備指紋已更新",
     "editDeviceMap": "編輯設備指紋",
     "editDeviceMapTitle": "編輯設備指紋",
-    "editDeviceMapDescription": "為 {platform} 帳號編輯設備指紋（JSON 物件；留空儲存將自動產生）。"
+    "editDeviceMapDescription": "為 {platform} 帳號編輯設備指紋（JSON 物件；留空儲存將自動產生）。",
+    "checkedInToday": "今日已簽到",
+    "rename": "重新命名"
   },
   "nav": {
     "checkin": "簽到助手",
