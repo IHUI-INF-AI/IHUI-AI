@@ -25,6 +25,7 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { gitRaw } from './face-reader.mjs'
 // 2026-10-16 [11e] 余量拉开:push-gate 缓存(指纹/命中早退/写入)与批次留痕 attest 各自外置成
 // 独立 lib(执行逻辑逐字搬,闭包引用改 ctx 参数);本文件只保留调用点与数组本体。
 import { pushGateCacheEarlyExit, writePushGateCache } from './guardian-pushgate-cache.mjs'
@@ -163,13 +164,8 @@ let stagedFilesCache = null
 function stagedFilesOrNull() {
   if (stagedFilesCache) return stagedFilesCache
   try {
-    stagedFilesCache = execFileSync('git', ['diff', '--cached', '--name-only'], {
-      encoding: 'utf8',
-      cwd: process.cwd(),
-      windowsHide: true,
+    stagedFilesCache = gitRaw(['diff', '--cached', '--name-only'], process.cwd(), {
       timeout: 120_000,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
     })
       .split('\n')
       .map((s) => s.trim())
