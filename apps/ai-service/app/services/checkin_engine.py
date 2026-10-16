@@ -34,6 +34,7 @@ import datetime
 import hashlib
 import json
 import random
+import re
 import uuid
 from typing import Any, Final
 
@@ -170,6 +171,96 @@ def get_jwt_exp(jwt: str) -> tuple[datetime.datetime | None, float | None]:
         return exp_dt, remaining
     except Exception:
         return None, None
+
+
+# ---------------------------------------------------------------------------
+# 展示名派生（2026-10-16 李总定档：手机 > 邮箱 > 账户名 > 用户名）
+# ---------------------------------------------------------------------------
+
+# UUID 段(8-4-4-4-12 十六进制)。name 命中它 ⇒ 旧捕获留下的编码名,不是展示名。
+_UUID_RE: Final = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE
+)
+
+# 展示名候选键,按优先级分组(组间即优先级,组内并列):
+# 手机 > 邮箱 > 账户名(username/account/preferred_username)> 用户名(nickname/name)。
+# 键名按平台漂移:TRAE 顶层 phone;Keycloak 风格(WorkBuddy/Qoder)email /
+# preferred_username / phone_number;故宽键表覆盖,与桌面端 checkin_capture.rs
+# 的 display_name_pick 同口径(那里是 user 对象,这里是 JWT payload)。
+_DISPLAY_NAME_KEY_GROUPS: Final[tuple[tuple[str, ...], ...]] = (
+    ("phone", "phone_number", "phoneNumber", "mobile", "telephone"),
+    ("email", "mail", "email_address", "emailAddress"),
+    (
+        "username",
+        "user_name",
+        "userName",
+        "account",
+        "account_name",
+        "accountName",
+        "preferred_username",
+        "preferredUsername",
+    ),
+    ("nickname", "nick_name", "nickName", "name", "display_name", "displayName"),
+)
+
+# payload 内一层嵌套的常见容器(TRAE 把身份放 data 里)
+_DISPLAY_NAME_NESTED_KEYS: Final = ("data", "user", "account", "profile")
+
+
+def uuid_shaped_name(name: str | None) -> bool:
+    """name 是否为「UUID 编码名」(旧捕获兜底形态,如 `Qoder-<uuid>` / 裸 uid)。"""
+    return bool(name) and bool(_UUID_RE.search(name or ""))
+
+
+def _jwt_payload(jwt: str) -> dict[str, Any] | None:
+    """解 JWT payload(不校验签名);非 JWT 串返回 None。"""
+    token = (jwt or "").strip()
+    if token.startswith("Cloud-IDE-JWT "):
+        token = token.split(None, 1)[1]
+    parts = token.split(".")
+    if len(parts) < 2:
+        return None
+    try:
+        pad = parts[1] + "=" * (-len(parts[1]) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(pad))
+        return payload if isinstance(payload, dict) else None
+    except Exception:
+        return None
+
+
+def extract_display_name(
+    jwt: str | None, device_map: dict[str, Any] | None = None
+) -> str | None:
+    """按 手机 > 邮箱 > 账户名 > 用户名 派生展示名;取不到返回 None(调用方保持原名)。
+
+    搜索面:JWT payload 平铺 + data/user/account/profile 一层嵌套。
+    device_map.nickname 作最低优先级兜底(网页登录 Cookie 模式 jwt 非 JWT 时)。
+    UUID 形态的值一律跳过(那不是展示名,是编码)。
+    """
+    payload = _jwt_payload(jwt or "")
+    if payload:
+        scopes: list[dict[str, Any]] = [payload]
+        for key in _DISPLAY_NAME_NESTED_KEYS:
+            nested = payload.get(key)
+            if isinstance(nested, dict):
+                scopes.append(nested)
+        for group in _DISPLAY_NAME_KEY_GROUPS:
+            for scope in scopes:
+                for key in group:
+                    raw = scope.get(key)
+                    if not isinstance(raw, str):
+                        continue
+                    value = raw.strip()
+                    if not value or len(value) > 50 or _UUID_RE.search(value):
+                        continue
+                    return value
+    if device_map:
+        nick = device_map.get("nickname")
+        if isinstance(nick, str):
+            value = nick.strip()
+            if value and len(value) <= 50 and not _UUID_RE.search(value):
+                return value
+    return None
 
 
 # ---------------------------------------------------------------------------
