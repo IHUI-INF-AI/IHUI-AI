@@ -117,7 +117,7 @@ export async function updateCheckinAccountGroup(
   )
 }
 
-/** 手动触发签到:无视冷却,结果照写 records */
+/** 手动触发签到:尊重冷却与全局限流(命中返回 429),结果照写 records */
 export async function manualCheckinAccount(accountId: number): Promise<ManualCheckinResponse> {
   return unwrap<ManualCheckinResponse>(
     await fetchAiServiceJson<ManualCheckinResponse>(
