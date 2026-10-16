@@ -415,19 +415,28 @@ Restart-Service Cloudflared
 **隧道侧可观测性(2026-10-16 补齐两条,今天定位时就是缺这两样):**
 
 1. **指标时间轴(已自动,零人工)**:`scripts/record-tunnel-metrics.mjs` 每 15 分钟把 cloudflared metrics 的白名单指标**追加一行**到 `.workbuddy/tunnel-metrics.jsonl`(腿数 / 累计请求 / 回源错误 / 落点 PoP / 进程启动时刻 / origin 连接均值),并给出与上一轮的差分 —— **进程重启过则差分记 `null`**(不同进程的累计值相减会得出负数或天量,是台账污染的头号来源)。派发点 `git-guardian.mjs: auditTunnelMetrics()`。回看:`tail -n 50 .workbuddy/tunnel-metrics.jsonl`。**为什么不挂 Prometheus**:metrics 端点**端口每次启动会变**,静态 target 天然会漂;本尺子按 pid 从 netstat 现读端口。
-2. **运行期日志(需人手动,一条命令)**:Cloudflared 服务 ImagePath 是裸 `tunnel run`,没有 `--logfile` ⇒ 隧道握手 / 重连错误**不落任何文件**。补法(管理员权限、非沙箱;会重启服务,窗口约数十秒):
+2. **运行期日志(2026-10-17 已落地)**:Cloudflared 服务 ImagePath 曾为裸 `tunnel run`,隧道握手 / 重连错误不落任何文件。已补 `--logfile D:\DevEnv\logs\cloudflared.log --loglevel info`,当前 ImagePath(全局位写法):
+
+   ```
+   "C:\Program Files\cloudflared\cloudflared.exe" --logfile D:\DevEnv\logs\cloudflared.log --loglevel info tunnel run --protocol http2 --token-file C:\ProgramData\cloudflared\token
+   ```
+
+   ⚠️ **血的教训(2026-10-17 实测)**:`--logfile` / `--loglevel` 是**全局 flag,必须放在子命令 `tunnel run` 之前**。cloudflared 2026.7.3 若按 `tunnel run ... --logfile ...` 子命令后置写法传递,服务模式直接秒退(SCM 报「函数不正确」,即 exe exit 1),而**前台探测是秒退 code=0 且零输出**——极易误判为「参数被接受」。正确姿势与踩坑记录:
 
    ```powershell
    $p = 'HKLM:\SYSTEM\CurrentControlSet\Services\Cloudflared'
    $cur = (Get-ItemProperty -Path $p).ImagePath
    if ($cur -notmatch '--logfile') {
-     Set-ItemProperty -Path $p -Name ImagePath -Value ($cur + ' --logfile D:\DevEnv\logs\cloudflared.log --loglevel info')
+     # 全局位:flag 插在 cloudflared.exe 之后、tunnel 之前;原值以引号包裹 exe 路径
+     $new = $cur -replace '^(.*?cloudflared\.exe")\s*(.*)$', '$1 --logfile D:\DevEnv\logs\cloudflared.log --loglevel info $2'
+     [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SYSTEM\CurrentControlSet\Services\Cloudflared', $true).
+       SetValue('ImagePath', $new, [Microsoft.Win32.RegistryValueKind]::String)
    }
    (Get-ItemProperty -Path $p).ImagePath      # 复核已生效
    Restart-Service Cloudflared
    ```
 
-   等价命令行:`sc.exe config Cloudflared binPath= "<原 ImagePath> --logfile D:\DevEnv\logs\cloudflared.log --loglevel info"`。**注**:本机安全策略硬拦 `sc.exe` / `reg.exe` / 注册表写入 ⇒ AI 会话内做不了,必须由人执行;生命周期事件(starting / stopped / graceful)仍可从事件日志取:`wevtutil qe Application "/q:*[System[Provider[@Name='Cloudflared']]]" /f:XML /rd /c:20`。
+   验证三连:服务 `Running` ⇒ `D:\DevEnv\logs\cloudflared.log` 开始生长 ⇒ `curl --noproxy '*' https://aizhs.top/` 200(**必须绕代理**,bash 默认走 7897 会得出假结论)。改错值时的回滚:写回原 ImagePath + `Start-Service Cloudflared`,窗口约 1 分钟。前台探测 flag 形态:`& cloudflared.exe --logfile <tmp> --loglevel info tunnel run --protocol http2 --token-file ...`(10 秒内退 = 参数没被接受)。
 
 **已固化的判据:** `scripts/check-tunnel-leg-health.mjs` 新增第五维 `edge-location`(读本机 cloudflared metrics 的 `server_locations`,metrics 端口按 pid 从 netstat 现读、不硬编码)。落点全在非亚太 PoP 时**只报数不判红**(本机在国内、CF 无大陆 PoP ⇒ 这是常态形态,判红即 §12e 恒红门),并在正文写明「入口慢先归因跨境段,别去查 web/api」;`scripts/git-guardian.mjs` 的入口段出路同步点名该维。运维读法:`node scripts/check-tunnel-leg-health.mjs --json`。
 
