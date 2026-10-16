@@ -130,9 +130,11 @@ export default function AnnouncementList() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<AnnouncementItem[]>('/announcements')
+      // 后端 GET /announcements 回 success({ list })(content.ts)，web 侧读的正是 d.list；
+      // 这里曾把整个信封当数组 ⇒ 列表永远空，不抛错。与 RN AnnouncementScreen 同批收口。
+      const res = await fetchApi<{ list: AnnouncementItem[] }>('/announcements')
       if (!res.success) throw new Error()
-      setItems(res.data ?? [])
+      setItems(res.data?.list ?? [])
     } catch {
       setError(tt('announcement.loadFailed', '加载公告失败'))
     } finally {

@@ -26,9 +26,11 @@ export function HelpScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<HelpListItem[]>('/help/articles')
+      // 后端 GET /help/articles 回 success({ list })(content.ts)，本屏把整个信封当数组
+      // ⇒ 帮助中心永远空列表。
+      const res = await fetchApi<{ list: HelpListItem[] }>('/help/articles')
       if (!res.success) throw new Error('http')
-      setItems(res.data ?? [])
+      setItems(res.data?.list ?? [])
     } catch {
       setError(t('help.loadFailed'))
     } finally {
