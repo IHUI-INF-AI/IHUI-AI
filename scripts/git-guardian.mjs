@@ -3258,7 +3258,10 @@ export function auditOpsPatrol(opts = {}) {
  * 持续性门槛的判据(纯函数,镜像测试直接调它,不在测试里复制第二份判据 §22c)。
  *
  * 一条身份每被量到一次 breach 就 +1;达到门槛才允许到人。三种结论各有各的账,**不得并桶**:
- *   · `breach` ⇒ 连击 +1(同身份同语义才算连着,换了段就是另一件事);
+ *   · `breach` ⇒ 连击 +1(同身份同语义才算连着,换了段就是另一件事);**但距上一次 breach 不足
+ *              `minGapMs` 的那一轮算"重复测量",只报名不推进** —— 本机守护有两个执行体共用一个
+ *              节流戳,"轮"这个单位必须是时间,否则一次尖峰会被 60 秒内的两次采样凑成"连续两轮"
+ *              (2026-10-16 13:19/13:20 实测,门槛就是这么被绕过的);
  *   · `ok`     ⇒ 清零并报名"从第几轮断的"(恢复必须是可见的终态,不是悄悄不留痕);
  *   · `unjudged` ⇒ **不推进也不清零**,且**不刷新 lastSeenAt**:本轮没量到有效结论,
  *                  既不能替故障续命,也不能替它收尸(拿不到输入时永远多要一次,绝不少要)。
@@ -3271,6 +3274,8 @@ export function bumpProbeStreak(prev, results, opt = {}) {
   const now = opt.now ?? Date.now()
   const required = Number.isFinite(Number(opt.required)) ? Math.max(0, Number(opt.required)) : 2
   const ttlMs = Number.isFinite(Number(opt.ttlMs)) ? Number(opt.ttlMs) : 24 * 60 * 60 * 1000
+  // 两轮之间至少隔这么久才算"又过了一轮"(0 = 关闭这一维)。见函数头注的 2026-10-16 实测。
+  const minGapMs = Number.isFinite(Number(opt.minGapMs)) ? Math.max(0, Number(opt.minGapMs)) : 0
   const iso = (t) => new Date(t).toISOString()
   const src = prev && typeof prev === 'object' ? prev : {}
   const state = {}
@@ -3285,6 +3290,17 @@ export function bumpProbeStreak(prev, results, opt = {}) {
     const before = src[key] && typeof src[key] === 'object' ? src[key] : null
     const prior = Number.isFinite(Number(before?.streak)) ? Math.max(0, Number(before.streak)) : 0
     if (verdict === 'breach') {
+      const prevLast = Date.parse(String(before?.lastSeenAt || ''))
+      // **同一节流窗口里的重复测量不推进连击**:守护在这台机上有两个执行体(2 分钟计划任务 +
+      // 常驻 daemon)共用一个节流戳,谁先到谁干活,但"读到戳→写戳"之间没有互斥 ⇒ 实测 2026-10-16
+      // 13:19 与 13:20 各派了一轮(相隔 60 秒),把"连续 2 轮"凑成了一次尖峰的两倍采样,
+      // 门槛被绕过去、又多寄了一封。连击的计量单位必须是**时间**,不是"进过几次这段代码"。
+      const dup = prior > 0 && Number.isFinite(prevLast) && now - prevLast < minGapMs
+      if (dup) {
+        state[key] = { streak: prior, firstAt: before?.firstAt || iso(prevLast), lastSeenAt: before?.lastSeenAt || iso(now) }
+        info[key] = { streak: prior, required, due: false, merged: true, gapMs: now - prevLast, minGapMs }
+        continue
+      }
       const streak = prior + 1
       state[key] = { streak, firstAt: before?.firstAt || iso(now), lastSeenAt: iso(now) }
       info[key] = { streak, required, due: streak >= required }
@@ -3322,6 +3338,7 @@ export function auditPublicPathProbe(opts = {}) {
     streakFile = PUBLIC_PROBE_STREAK_FILE,
     requiredStreak = PUBLIC_PROBE_STREAK_REQUIRED,
     streakTtlMs = PUBLIC_PROBE_STREAK_TTL_MS,
+    minGapMs = Math.floor(PUBLIC_PROBE_INTERVAL_MS / 2),
     logger = log,
     notify = notifyGuardRed,
     runner = null,
@@ -3391,8 +3408,9 @@ export function auditPublicPathProbe(opts = {}) {
       if (String(e?.code || '') !== 'ENOENT') effRequired = 1
       logger(`ℹ️ 公网探测连击账本:${String(e?.code || e?.message || e).slice(0, 60)}${effRequired === 1 && requiredStreak !== 1 ? ' ⇒ 读不出,本轮按"越阈即寄"处理(宁多勿默)' : ''}`)
     }
-    const bump = bumpProbeStreak(prevStreak, results, { now, required: effRequired, ttlMs: streakTtlMs })
+    const bump = bumpProbeStreak(prevStreak, results, { now, required: effRequired, ttlMs: streakTtlMs, minGapMs })
     for (const c of bump.cleared) logger(`✅ 公网探测连击清零:${c.key}(此前连 ${c.from} 轮,本轮已判定合规)`)
+    for (const [key, i] of Object.entries(bump.info)) if (i.merged) logger(`ℹ️ 公网探测重复测量(距上轮 ${Math.round(i.gapMs / 1000)}s < 最小间隔 ${Math.round(minGapMs / 1000)}s,两个执行体撞进同一个节流窗口)⇒ 不推进连击:${key} 仍算连 ${i.streak}/${i.required} 轮`)
     for (const p of bump.pruned) logger(`ℹ️ 公网探测连击条目回收(本轮未再出现且距 ${p.ageAnchor || p.lastSeenAt || '不可知'} 已超 ${Math.max(1, Math.round(streakTtlMs / 3600000))}h):${p.key} 连 ${p.streak} 轮`)
     try {
       mkdirSync(dirname(streakFile), { recursive: true })
