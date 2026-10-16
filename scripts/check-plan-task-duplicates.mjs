@@ -121,6 +121,20 @@ export function findDuplicateGroups(content) {
     if (members.length > 1 && distinctIds.size === 0 && members.every((m) => !m.selfId)) {
       groups.push({ fingerprint: fp, members, distinctIds: [], kind: 'unnumbered' })
     }
+    // 第四类(2026-10-16 立,机主令"一号一行彻底根治"):**同号多行**(同一 selfId 出现 ≥2 行)。
+    // 此前刻意排除(注释称"归 F4/F10"),但 F4/F10 是修法出口不是提交链拦截闸 —— 同号新增
+    // (union 回潮/取号竞态/手写撞号)从产生到被发现之间零拦截,只能事后折。变异实测:
+    // 复制一行同号追加 ⇒ ratchetAdded 0 枚。本类让差值棘轮看见它:锚点里没有的键 = 新增 ⇒ 拦;
+    // 锚点已有的存量组不拦(§12e)。fingerprint 前缀 S: 与跨号 F:/无号族区分。
+    const bySelfId = new Map()
+    for (const m of members) {
+      if (!m.selfId) continue
+      if (!bySelfId.has(m.selfId)) bySelfId.set(m.selfId, [])
+      bySelfId.get(m.selfId).push(m)
+    }
+    for (const [sid, grp] of bySelfId) {
+      if (grp.length > 1) groups.push({ fingerprint: `S:${sid}`, members: grp, distinctIds: [sid], kind: 'same-key' })
+    }
   }
   return groups
 }
