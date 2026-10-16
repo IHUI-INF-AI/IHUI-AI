@@ -163,6 +163,7 @@ if (isDirectRun()) {
     const out = spawnSync(process.execPath, ['scripts/check-plan-task-duplicates.mjs'], {
       cwd: ROOT,
       encoding: 'utf8',
+      windowsHide: true,
       maxBuffer: 1 << 26,
     })
     for (const line of (out.stdout || '').split('\n')) {
