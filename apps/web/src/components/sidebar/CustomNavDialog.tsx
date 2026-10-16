@@ -114,7 +114,7 @@ export function CustomNavDialog({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('customSearchPlaceholder')}
-            className="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-9 w-full rounded-sm border bg-background pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
 
@@ -142,7 +142,7 @@ export function CustomNavDialog({
                           type="button"
                           onClick={() => (added ? onRemove(c.href) : onAdd(c.href))}
                           className={cn(
-                            'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 text-sm font-medium leading-none transition-colors',
+                            'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-sm px-2.5 text-sm font-medium leading-none transition-colors',
                             'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                             added ? 'text-foreground' : 'text-foreground/70',
                           )}
@@ -158,11 +158,7 @@ export function CustomNavDialog({
                             )}
                             aria-hidden="true"
                           >
-                            {added ? (
-                              <Check className="h-4 w-4" />
-                            ) : (
-                              <Plus className="h-4 w-4" />
-                            )}
+                            {added ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                           </span>
                           <span className="sr-only">
                             {added ? t('customRemove') : t('customAdd')}
