@@ -506,14 +506,19 @@ async def test_daily_status_probe_syncs_already_checked(client, fake_store, monk
             return True, True, 20, 0, "已签到"
         return True, False, 10, 0, ""
 
+    async def fake_qoder_probe(name, jwt, device_map, timeout=30, client=None):
+        return True, False, None, ""  # 已领判据未命中
+
     monkeypatch.setattr(checkin_scheduler_mod, "status_check", fake_status_check)
+    monkeypatch.setattr(
+        checkin_scheduler_mod.checkin_qoder, "qoder_probe_status", fake_qoder_probe
+    )
     monkeypatch.setattr(
         checkin_scheduler_mod.checkin_outbound_gate, "paused_remaining", lambda: 0
     )
 
     await checkin_scheduler_mod.checkin_scheduler._daily_status_probe()
 
-    # 只有 TRAE 账号被探;Qoder 无独立 status 端点不探
     assert status_calls == ["已签号", "未签号"]
     recs1 = [r for r in store.records.values() if r["account_id"] == acc1["id"]]
     recs2 = [r for r in store.records.values() if r["account_id"] == acc2["id"]]
@@ -522,7 +527,149 @@ async def test_daily_status_probe_syncs_already_checked(client, fake_store, monk
     assert recs1[0]["action"] == "skip_already" and recs1[0]["ok"] is True
     assert recs1[0]["credits"] == 20
     assert recs2 == []  # 未签不落记录(留给主窗口签)
-    assert recs3 == []  # qoder 不探
+    assert recs3 == []  # qoder 探到未领 ⇒ 不落记录
+
+
+async def test_daily_status_probe_all_platforms(client, fake_store, monkeypatch):
+    """06:00 探针全平台覆盖(2026-10-17 李总点名「官方没有不是借口」):
+    trae / workbuddy / qoder 走各自只读查询口,minimax 官方无只读口走幂等
+    claim;四型命中已签都落 skip_already 记录。"""
+    store = fake_store
+    accs = {}
+    for plat in ("trae", "workbuddy", "qoder", "minimax"):
+        accs[plat] = await store.create_account(
+            "owner-a", f"{plat}-号", make_jwt(), {"u-1": {"device_id": "d1"}}, platform=plat
+        )
+
+    async def fake_status_check(name, jwt, device_map, timeout=30, client=None):
+        return True, True, 20, 0, "已签到"
+
+    async def fake_wb_probe(token, device_map, timeout=30, client=None):
+        return True, True, 30, "今日已签到"
+
+    async def fake_qoder_probe(name, jwt, device_map, timeout=30, client=None):
+        return True, True, None, "今日已领取"
+
+    async def fake_mm_probe(name, token, device_map, timeout=30, client=None):
+        return True, True, 5, "今日已签到,无需重复领取"
+
+    monkeypatch.setattr(checkin_scheduler_mod, "status_check", fake_status_check)
+    monkeypatch.setattr(
+        checkin_scheduler_mod.checkin_workbuddy, "workbuddy_probe_status", fake_wb_probe
+    )
+    monkeypatch.setattr(
+        checkin_scheduler_mod.checkin_qoder, "qoder_probe_status", fake_qoder_probe
+    )
+    monkeypatch.setattr(
+        checkin_scheduler_mod.checkin_minimax, "minimax_probe_status", fake_mm_probe
+    )
+    monkeypatch.setattr(
+        checkin_scheduler_mod.checkin_outbound_gate, "paused_remaining", lambda: 0
+    )
+
+    await checkin_scheduler_mod.checkin_scheduler._daily_status_probe()
+
+    for plat in ("trae", "workbuddy", "qoder", "minimax"):
+        recs = [r for r in store.records.values() if r["account_id"] == accs[plat]["id"]]
+        assert len(recs) == 1, f"{plat} 应落 1 条记录"
+        assert recs[0]["action"] == "skip_already" and recs[0]["ok"] is True
+
+
+async def test_probe_platform_parsers(monkeypatch):
+    """四平台只读探针解析层(2026-10-17):命中已签的判据与「宁缺勿假」的
+    失败形态 —— HTTP 异常/字段缺失一律 ok=False + checked_in=None。"""
+    from app.services import (
+        checkin_minimax as mm_mod,
+        checkin_qoder as qoder_mod,
+        checkin_workbuddy as wb_mod,
+    )
+
+    # WorkBuddy:data.today_checked_in 已签 / 未签 / 字段缺失
+    async def wb_checked(path, token, timeout, client=None):
+        return 200, {"data": {"today_checked_in": True, "remaining": 30}}
+
+    async def wb_unchecked(path, token, timeout, client=None):
+        return 200, {"data": {"today_checked_in": False}}
+
+    async def wb_missing(path, token, timeout, client=None):
+        return 200, {"data": {}}
+
+    async def wb_http_fail(path, token, timeout, client=None):
+        return 500, {}
+
+    monkeypatch.setattr(wb_mod, "_wb_post", wb_checked)
+    assert await wb_mod.workbuddy_probe_status("tok", {}) == (True, True, 30, "今日已签到")
+    monkeypatch.setattr(wb_mod, "_wb_post", wb_unchecked)
+    assert await wb_mod.workbuddy_probe_status("tok", {}) == (True, False, None, "")
+    monkeypatch.setattr(wb_mod, "_wb_post", wb_missing)
+    ok, checked, _c, _m = await wb_mod.workbuddy_probe_status("tok", {})
+    assert ok is False and checked is None  # 字段缺失宁缺勿假
+    monkeypatch.setattr(wb_mod, "_wb_post", wb_http_fail)
+    ok, checked, _c, _m = await wb_mod.workbuddy_probe_status("tok", {})
+    assert ok is False and checked is None
+    assert await wb_mod.workbuddy_probe_status("", {}) == (False, None, None, "未配置 token")
+
+    # Qoder:campaigns 已领(CLAIMED 落窗口内)/ 未领 / 活动未下发
+    now = time.time()
+    claimed = {
+        "campaigns": [
+            {
+                "actionType": "CLAIM_BENEFIT",
+                "claimStatus": "CLAIMED",
+                "startAt": now - 60,
+                "endAt": now + 3600,
+            }
+        ]
+    }
+    claimable = {
+        "campaigns": [
+            {
+                "actionType": "CLAIM_BENEFIT",
+                "claimStatus": "CLAIMABLE",
+                "startAt": now - 60,
+                "endAt": now + 3600,
+            }
+        ]
+    }
+
+    async def q_claimed(path, method, token=..., device_map=..., body=None, timeout=30, client=None):
+        return 200, claimed
+
+    async def q_claimable(path, method, token=..., device_map=..., body=None, timeout=30, client=None):
+        return 200, claimable
+
+    async def q_empty(path, method, token=..., device_map=..., body=None, timeout=30, client=None):
+        return 200, {"campaigns": []}
+
+    monkeypatch.setattr(qoder_mod, "_api_call", q_claimed)
+    # _probe 内 _claimable_campaigns 用 time.time();startAt/endAt 已按 now 给窗口
+    ok, chk, _c, _m = await qoder_mod.qoder_probe_status("n", "tok", {})
+    assert ok is True and chk is True
+    monkeypatch.setattr(qoder_mod, "_api_call", q_claimable)
+    ok, chk, _c, _m = await qoder_mod.qoder_probe_status("n", "tok", {})
+    assert ok is True and chk is False
+    monkeypatch.setattr(qoder_mod, "_api_call", q_empty)
+    ok, chk, _c, _m = await qoder_mod.qoder_probe_status("n", "tok", {})
+    assert ok is True and chk is False  # 活动未下发≠已签(不误报,防漏签)
+
+    # MiniMax:官方无只读口 ⇒ 幂等 claim 自报 skip_already
+    async def mm_already(name, token, device_map, *, timeout=30, client=None):
+        return {
+            "ok": True,
+            "action": "skip_already",
+            "credits_delta": None,
+            "message": "今日已签到,无需重复领取",
+        }
+
+    async def mm_claimed(name, token, device_map, *, timeout=30, client=None):
+        return {"ok": True, "action": "claim_ok", "credits_delta": 5, "message": "签到成功"}
+
+    monkeypatch.setattr(mm_mod, "minimax_checkin_account", mm_already)
+    ok, chk, _c, msg = await mm_mod.minimax_probe_status("n", "tok", {})
+    assert ok is True and chk is True and "已签到" in msg
+    monkeypatch.setattr(mm_mod, "minimax_checkin_account", mm_claimed)
+    ok, chk, cr, _m = await mm_mod.minimax_probe_status("n", "tok", {})
+    assert ok is True and chk is True and cr == 5
 
 
 async def test_create_rejects_unparseable_and_expired_jwt(client, fake_store):

@@ -410,6 +410,53 @@ async def workbuddy_checkin_account(
     return result
 
 
+async def workbuddy_probe_status(
+    token: str,
+    device_map: dict[str, Any],
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[bool, bool | None, int | None, str]:
+    """只读探针:查 checkin-status 的 data.today_checked_in ⇒ 今日是否已签。
+
+    返回 (ok, checked_in|None, credits|None, message)。**不调 daily-checkin,
+    零领取副作用** —— 供 06:00 状态探针在主窗口前同步「今日已签到」。
+
+    契约:HTTP 非 200 / 非 JSON / 字段缺失 ⇒ ok=False 且 checked_in=None
+    (宁缺勿假,探针据此跳过,不打平台也不误报)。
+    """
+    tok = (token or "").strip()
+    web_mode = workbuddy_is_web_mode(device_map)
+    if not tok:
+        return False, None, None, "未配置网页登录 Cookie" if web_mode else "未配置 token"
+    if not web_mode:
+        exp_dt, remaining = workbuddy_session_expiry(device_map)
+        if remaining is not None and remaining < 0:
+            return False, None, None, f"会话已过期({exp_dt:%Y-%m-%d %H:%M})"
+    if web_mode:
+        status, data = await _wb_post_web(PATH_WEB_CHECKIN_STATUS, tok, timeout, client)
+    else:
+        status, data = await _wb_post(PATH_CHECKIN_STATUS, tok, timeout, client)
+    if status in (0, -1):
+        return False, None, None, "网络异常"
+    if status != 200 or not isinstance(data, dict):
+        return False, None, None, f"状态查询失败(HTTP {status})"
+    payload = data.get("data")
+    payload = payload if isinstance(payload, dict) else {}
+    # today_checked_in 顶层/内层都找(实测两型都出现过)
+    for bucket in (data, payload):
+        raw = bucket.get("today_checked_in")
+        if isinstance(raw, bool):
+            credits: int | None = None
+            for key in ("remaining", "credit", "balance", "total_credit", "totalCredit", "credits"):
+                val = payload.get(key)
+                if isinstance(val, int):
+                    credits = val
+                    break
+            return True, raw, credits, "今日已签到" if raw else ""
+    return False, None, None, "状态响应不含 today_checked_in"
+
+
 async def workbuddy_query_credits(
     jwt: str,
     device_map: dict[str, Any],
