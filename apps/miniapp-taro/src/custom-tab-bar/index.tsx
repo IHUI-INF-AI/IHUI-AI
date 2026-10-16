@@ -48,8 +48,9 @@ const TABS: TabItem[] = [
   { pagePath: '/pages/share/index', labelKey: 'tabBar.share', icon: 'share-2' },
 ]
 
-/** 玻璃模糊半径:与 mobile-rn TabBar.styles.ts 的 GLASS_BLUR_RADIUS 同值 */
-const GLASS_BLUR_RADIUS = 24
+/** 毛玻璃模糊半径(px):非圆角档位,与 mobile-rn TabBar.styles.ts 的同值模糊对齐。
+ *  本端取名 *_PX 而非 *_RADIUS,避免圆角单源门 B2 把"喂给 blur() 的模糊半径"误当本地圆角常量。 */
+const GLASS_BLUR_PX = 24
 
 export default function CustomTabBar() {
   const { resolved } = useAppTheme()
@@ -87,8 +88,8 @@ export default function CustomTabBar() {
         justifyContent: 'space-around',
         height: `${TAB_BAR_HEIGHT}px`,
         backgroundColor: COLORS.glassBg[resolved],
-        backdropFilter: `blur(${GLASS_BLUR_RADIUS}px)`,
-        WebkitBackdropFilter: `blur(${GLASS_BLUR_RADIUS}px)`,
+        backdropFilter: `blur(${GLASS_BLUR_PX}px)`,
+        WebkitBackdropFilter: `blur(${GLASS_BLUR_PX}px)`,
         borderRadius: rnRadius.xl,
         borderWidth: 1,
         borderStyle: 'solid',
