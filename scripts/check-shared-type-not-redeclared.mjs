@@ -126,16 +126,373 @@ export function declarations(src) {
     if (!m) continue
     const [, kind, name, rest] = m
     const alias =
-      kind === 'type'
-        ? /^\s*=\s*([A-Za-z_$][\w$]*)(?:\.[\w$]+)?\s*;?\s*$/.exec(rest ?? '')
-        : null
+      kind === 'type' ? /^\s*=\s*([A-Za-z_$][\w$]*)(?:\.[\w$]+)?\s*;?\s*$/.exec(rest ?? '') : null
     out.push({ kind, name, alias: alias ? alias[1] : null })
   }
   return out
 }
 
+/**
+ * 形态提取 —— 回答"同名到底是不是同物"的唯一尺子。
+ * 失效方向刻意是「判不出」：解析不了的形态一律 unknown，让清账方看见"这条得人工读"，
+ * 而不是让门替它猜一个"等/不等"再被当成结论派单。
+ */
+const stripComments = (text) => {
+  let out = ''
+  let i = 0
+  let str = null
+  while (i < text.length) {
+    const c = text[i]
+    const n = text[i + 1]
+    if (str) {
+      out += c
+      if (c === '\\') {
+        out += n ?? ''
+        i += 2
+        continue
+      }
+      if (c === str) str = null
+      i += 1
+      continue
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      str = c
+      out += c
+      i += 1
+      continue
+    }
+    if (c === '/' && n === '/') {
+      while (i < text.length && text[i] !== '\n') i += 1
+      continue
+    }
+    if (c === '/' && n === '*') {
+      i += 2
+      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i += 1
+      i += 2
+      continue
+    }
+    out += c
+    i += 1
+  }
+  return out
+}
+
+/** 从声明头行起，取到这一条声明结束(外层括号配平 / 顶层分号 / 下一条顶层声明)。 */
+function declText(lines, at, head) {
+  const body = stripComments(lines.slice(at, at + 400).join('\n'))
+  const open = body.indexOf('{')
+  const eq = body.indexOf('=')
+  if (head[1] === 'interface') {
+    if (open < 0) return { form: 'unknown', why: 'interface 没有对象体' }
+    let depth = 0
+    for (let i = open; i < body.length; i++) {
+      if (body[i] === '{') depth += 1
+      else if (body[i] === '}') {
+        depth -= 1
+        if (depth === 0) return { form: 'object', text: body.slice(open + 1, i) }
+      }
+    }
+    return { form: 'unknown', why: 'interface 的花括号未配平(截断或解析失败)' }
+  }
+  if (eq < 0) return { form: 'unknown', why: 'type 没有右值' }
+  const rhsStart = body.slice(eq + 1)
+  if (rhsStart.trimStart().startsWith('{')) {
+    const open2 = rhsStart.indexOf('{')
+    let depth = 0
+    for (let i = open2; i < rhsStart.length; i++) {
+      if (rhsStart[i] === '{') depth += 1
+      else if (rhsStart[i] === '}') {
+        depth -= 1
+        if (depth === 0) return { form: 'object', text: rhsStart.slice(open2 + 1, i) }
+      }
+    }
+    return { form: 'unknown', why: 'type 对象体的花括号未配平' }
+  }
+  const stop = rhsStart.search(/[;\r\n](?=\s*(?:export|interface|type|const|enum|\/\*|$))/)
+  const rhs = (stop >= 0 ? rhsStart.slice(0, stop) : rhsStart).trim().replace(/;$/, '')
+  return { form: 'rhs', text: rhs }
+}
+
+const splitTop = (text, seps) => {
+  const parts = []
+  let depth = 0
+  let cur = ''
+  let str = null
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (str) {
+      cur += c
+      if (c === '\\') {
+        cur += text[i + 1] ?? ''
+        i += 1
+        continue
+      }
+      if (c === str) str = null
+      continue
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      str = c
+      cur += c
+      continue
+    }
+    if ('([{<'.includes(c)) depth += 1
+    else if (')]}>'.includes(c)) depth -= 1
+    if (depth === 0 && seps.includes(c)) {
+      parts.push(cur)
+      cur = ''
+      continue
+    }
+    cur += c
+  }
+  parts.push(cur)
+  return parts.map((s) => s.trim()).filter(Boolean)
+}
+
+const normType = (t) =>
+  t
+    .replace(/\s+/g, ' ')
+    .replace(/,+\s*$/, '')
+    .trim()
+
+/**
+ * 一条声明 → 可比对的形态。object 取"成员名 + 是否可选 + 类型文本"，
+ * union 取字面量集合；其余一律 unknown(继承、交叉、工具类型、引用别的命名类型、数组/元组、函数体)。
+ */
+export function shapeOf(src, name) {
+  const lines = src.split(/\r?\n/)
+  let at = -1
+  let head = null
+  for (let i = 0; i < lines.length; i++) {
+    const m = TOP_DECL_RE.exec(lines[i])
+    if (m && m[2] === name) {
+      at = i
+      head = m
+      break
+    }
+  }
+  if (!head) return { kind: 'unknown', why: `正文里定位不到 ${name} 的顶层声明` }
+  const rest = head[3] ?? ''
+  if (/\bextends\b/.test(rest)) return { kind: 'unknown', why: '带 extends ⇒ 字段集不等于全部契约' }
+  if (/<[A-Za-z_$][\w$]*(\s+extends|>)/.test(rest))
+    return { kind: 'unknown', why: '带泛型参数 ⇒ 不比' }
+  const d = declText(lines, at, head)
+  if (d.form === 'unknown') return { kind: 'unknown', why: d.why }
+  if (d.form === 'object') {
+    const fields = new Map()
+    for (const piece of splitTop(d.text, ',;\n')) {
+      const m = /^(?:readonly\s+)?(\[[^\]]*\]|[A-Za-z_$][\w$]*)(\?)?\s*:\s*([\s\S]+)$/.exec(
+        piece.replace(/\n\s*/g, ' '),
+      )
+      // 解析不出"名: 类型"的就是索引签名/方法签名/条件类型 —— 一律回判不出，不猜成字段
+      if (!m)
+        return { kind: 'unknown', why: `成员行解析不出"名: 类型"(片段起头 ${piece.slice(0, 24)})` }
+      if (m[1].startsWith('[')) return { kind: 'unknown', why: '含索引签名 ⇒ 字段集不完整' }
+      fields.set(m[1], { optional: !!m[2], type: normType(m[3]) })
+    }
+    if (!fields.size) return { kind: 'unknown', why: '对象体里没有可解析成员' }
+    return { kind: 'object', fields }
+  }
+  const parts = splitTop(d.text, '|')
+  if (
+    parts.length > 1 &&
+    parts.every((p) =>
+      /^(?:'[^']*'|"[^"]*"|`[^`]*`|-?\d+(?:\.\d+)?|true|false|null|undefined)$/.test(p.trim()),
+    )
+  )
+    return { kind: 'union', literals: new Set(parts.map((p) => p.trim())) }
+  if (/&/.test(d.text)) return { kind: 'unknown', why: '交叉类型 ⇒ 不比' }
+  if (/^[A-Z]/.test(d.text) || /[A-Za-z_$][\w$]*\s*[<[]/.test(d.text))
+    return {
+      kind: 'unknown',
+      why: `右值是引用/工具类型/数组形态(${normType(d.text).slice(0, 30)})`,
+    }
+  return { kind: 'unknown', why: '右值形状不在这把尺子的射程内' }
+}
+
+/** 两个形态比出三态；unknown 永远优先于"不等"(判不出 ≠ 不同物)。 */
+export function compareShapes(a, b) {
+  if (!a || a.kind === 'unknown')
+    return { sameShape: 'undetermined', why: a ? a.why : '端内形态未取得' }
+  if (!b || b.kind === 'unknown')
+    return { sameShape: 'undetermined', why: b ? b.why : '共享形态未取得' }
+  if (a.kind !== b.kind) return { sameShape: 'no', why: `形态类别不同(${a.kind} vs ${b.kind})` }
+  if (a.kind === 'union') {
+    const diff = [...new Set([...a.literals, ...b.literals])].filter(
+      (v) => !(a.literals.has(v) && b.literals.has(v)),
+    )
+    return diff.length
+      ? { sameShape: 'no', why: `字面量值域不同(差 ${diff.length} 个)` }
+      : { sameShape: 'yes', why: `字面量集合逐相等(${a.literals.size} 个)` }
+  }
+  const keys = new Set([...a.fields.keys(), ...b.fields.keys()])
+  const diff = []
+  for (const k of keys) {
+    const x = a.fields.get(k)
+    const y = b.fields.get(k)
+    if (!x || !y) {
+      diff.push(`${k}(只在一侧)`)
+      continue
+    }
+    if (x.optional !== y.optional || x.type !== y.type) diff.push(`${k}: ${x.type} ↔ ${y.type}`)
+  }
+  return diff.length
+    ? { sameShape: 'no', why: `字段不同(${diff.length} 处)`, diff: diff.slice(0, 6) }
+    : { sameShape: 'yes', why: `字段名与类型文本逐相等(${a.fields.size} 个成员)` }
+}
+
+/** 命中条目上的三态判定；调用方没给共享形态表 ⇒ 这一维显式判不出，不默认成"等"。 */
+export function shapeVerdict(src, name, sharedShapes) {
+  if (!sharedShapes) return { sameShape: 'undetermined', why: '调用方未提供共享形态表 ⇒ 该维没判' }
+  const sharedShape = sharedShapes.get(name)
+  if (!sharedShape) return { sameShape: 'undetermined', why: '共享侧形态未取得' }
+  return compareShapes(shapeOf(src, name), sharedShape)
+}
+
+/** 共享包 name → 形态；同名在两处声明而形态不同 ⇒ 标 unknown(让清账方去读，不让门猜)。 */
+export function buildSharedShapes(sharedTexts, sharedNameSet) {
+  const map = new Map()
+  const seen = new Map()
+  for (const [path, src] of Object.entries(sharedTexts)) {
+    if (typeof src !== 'string') continue
+    for (const d of declarations(src)) {
+      if (!sharedNameSet.has(d.name)) continue
+      const s = shapeOf(src, d.name)
+      const prev = seen.get(d.name)
+      if (prev && prev.kind !== s.kind)
+        map.set(d.name, { kind: 'unknown', why: '共享侧两处声明不同形' })
+      else if (!map.has(d.name)) map.set(d.name, s)
+      seen.set(d.name, s)
+    }
+  }
+  return map
+}
+
+/**
+ * 可达性：一个共享名只有**从包的对外出口够得到**，"改 import 共享出口"这条清账动作才可执行。
+ * 门的射程按名字算(任何 src 文件里的 export 都算共享名)，而 `@ihui/types` 的公共面 =
+ * src/index.ts 的出口图 + package.json exports 里声明的子路径文件。住在没进桶的文件里的名字
+ * (实测 ProgressOverview 所在的 app-learning.ts 就是这一型)在源码树里"看着像契约"，消费端却 import 不到。
+ * 这一维不删命中、只把动作分型：reachable=false 的动作 = 先把出口补进桶(或承认它不是对外契约)。
+ */
+const REEXPORT_STAR_RE = /^export\s+\*\s+(?:as\s+[A-Za-z_$][\w$]*\s+)?from\s*['"](\.[^'"]+)['"]/
+const REEXPORT_NAMED_RE = /^export\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"](\.[^'"]+)['"]/
+
+const resolveSpec = (fromPath, spec) => {
+  const rel = spec.replace(/^\.\//, '').replace(/\.js$/, '')
+  const base = fromPath.split('/').slice(0, -1)
+  for (const p of rel.split('/')) {
+    if (p === '.') continue
+    else if (p === '..') base.pop()
+    else base.push(p)
+  }
+  return `${base.join('/')}.ts`
+}
+
+/** 一个文件里"对外可见"的声明名(顶层 export 的 interface/type，以及 export {A, B} 具名清单)。 */
+const exportedNamesOf = (src) => {
+  const out = new Set()
+  for (const raw of src.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line.startsWith('export')) continue
+    const decl = TOP_DECL_RE.exec(line.replace(/^export\s+/, ''))
+    if (decl) out.add(decl[2])
+    const braces = /^export\s+(?:type\s+)?\{([^}]*)\}/.exec(line)
+    if (braces && !/\bfrom\b/.test(line)) {
+      for (const piece of braces[1].split(',')) {
+        const t = piece.trim().replace(/^type\s+/, '')
+        if (t)
+          out.add(
+            t
+              .split(/\s+as\s+/)
+              .pop()
+              .trim(),
+          )
+      }
+    }
+  }
+  return out
+}
+
+/** 从入口图求可达名集；取不到入口文件 ⇒ 返回 null(该维显式判不出，不默认成"全都可达")。 */
+export function buildSharedReach(sharedTexts, entryPath, subpathFiles) {
+  const entry = sharedTexts[entryPath]
+  if (typeof entry !== 'string') return null
+  const reachable = new Set()
+  const queued = new Set()
+  const queue = [entryPath, ...(subpathFiles ?? [])].filter(
+    (p) => typeof sharedTexts[p] === 'string',
+  )
+  for (const p of queue) queued.add(p)
+  while (queue.length) {
+    const path = queue.shift()
+    const src = sharedTexts[path]
+    if (typeof src !== 'string') continue
+    for (const n of exportedNamesOf(src)) reachable.add(n)
+    for (const raw of src.split(/\r?\n/)) {
+      const line = raw.trim()
+      const star = REEXPORT_STAR_RE.exec(line)
+      if (star) {
+        const target = resolveSpec(path, star[1])
+        if (!queued.has(target) && typeof sharedTexts[target] === 'string') {
+          queued.add(target)
+          queue.push(target)
+        }
+        continue
+      }
+      const named = REEXPORT_NAMED_RE.exec(line)
+      if (!named) continue
+      const target = resolveSpec(path, named[2])
+      if (typeof sharedTexts[target] !== 'string') continue
+      for (const piece of named[1].split(',')) {
+        const t = piece.trim().replace(/^type\s+/, '')
+        if (!t) continue
+        reachable.add(
+          t
+            .split(/\s+as\s+/)
+            .pop()
+            .trim(),
+        )
+      }
+    }
+  }
+  return reachable
+}
+
+/** package.json 的 exports 子路径 → src 文件清单(`"./user": {types:"./dist/user.d.ts"}` ⇒ src/user.ts)。 */
+export function subpathsToFiles(pkgJsonText, srcDir) {
+  let pkg
+  try {
+    pkg = JSON.parse(pkgJsonText)
+  } catch {
+    return [] // 解析不出 ⇒ 交调用方按"未判定"出，不猜
+  }
+  const out = new Set()
+  const walk = (node) => {
+    if (typeof node === 'string') {
+      const m = /^\.\/dist\/([A-Za-z0-9._-]+?)\.(?:d\.ts|js)$/.exec(node)
+      if (m && m[1] !== 'index') out.add(`${srcDir}/${m[1]}.ts`)
+      return
+    }
+    if (Array.isArray(node)) for (const v of node) walk(v)
+    else if (node && typeof node === 'object') for (const v of Object.values(node)) walk(v)
+  }
+  walk(pkg?.exports ?? {})
+  return [...out]
+}
+
+/** 三态计数唯一出口(json 档与人读档共用一份,避免两个口径互相打脸)。 */
+export function countShapes(hits) {
+  const c = { yes: 0, no: 0, undetermined: 0 }
+  for (const h of hits) {
+    // 认不出的取值一律归 undetermined(而不是加出一个 NaN 桶把计数砸穿)
+    const key = h.sameShape === 'yes' || h.sameShape === 'no' ? h.sameShape : 'undetermined'
+    c[key] += 1
+  }
+  return c
+}
+
 /** 判据本体:端内文件 × 共享名集合 → 命中 / 放过 / 未判定。三态绝不并桶。 */
-export function judge(files, shared) {
+export function judge(files, shared, sharedShapes, sharedReach) {
   const hits = []
   const passed = []
   const undetermined = []
@@ -151,7 +508,14 @@ export function judge(files, shared) {
         passed.push({ path, name: d.name, why: `别名指向共享出口 ${d.alias}` })
         continue
       }
-      hits.push({ path, name: d.name, kind: d.kind })
+      hits.push({
+        path,
+        name: d.name,
+        kind: d.kind,
+        // null = 调用方没给可达性表 ⇒ 这一维没判(不默认成 true，也不默认成 false)
+        reachable: sharedReach ? sharedReach.has(d.name) : null,
+        ...shapeVerdict(src, d.name, sharedShapes),
+      })
     }
   }
   return { hits, passed, undetermined }
@@ -167,7 +531,10 @@ function readFace(face, paths) {
     }
     return out
   }
-  const map = catBatch(ROOT, paths.map((rel) => specOf(face, rel)))
+  const map = catBatch(
+    ROOT,
+    paths.map((rel) => specOf(face, rel)),
+  )
   for (const p of paths) {
     const v = map.get(specOf(face, p))
     if (typeof v === 'string') out[p] = v
@@ -211,7 +578,10 @@ function runSelfTest() {
     },
     new Set([...shared, 'MemoryListResponse']),
   )
-  t('S4 别名收回单源 ⇒ 放过(不得把正解判成违规)', alias.hits.length === 0 && alias.passed.length === 1)
+  t(
+    'S4 别名收回单源 ⇒ 放过(不得把正解判成违规)',
+    alias.hits.length === 0 && alias.passed.length === 1,
+  )
 
   const aliasLocal = judge({ 'apps/web/src/b.ts': 'type MemoryEntry = SomethingLocal;\n' }, shared)
   t('S5 右值不是 import 进来的 ⇒ 仍命中(别名通道不给本地型开后门)', aliasLocal.hits.length === 1)
@@ -226,7 +596,9 @@ function runSelfTest() {
   t('S8 缩进的嵌套/散文声明不判(只认顶层)', nested.hits.length === 0)
 
   const useOnly = judge(
-    { 'apps/web/src/f.ts': 'const x: MemoryEntry = 1\nfunction f(v: { MemoryEntry: string }) {}\n' },
+    {
+      'apps/web/src/f.ts': 'const x: MemoryEntry = 1\nfunction f(v: { MemoryEntry: string }) {}\n',
+    },
     shared,
   )
   t('S9 使用点(非声明)不判红', useOnly.hits.length === 0)
@@ -243,10 +615,129 @@ function runSelfTest() {
   )
 
   const iface = judge(
-    { 'apps/web/src/g.ts': "import type { MemoryEntry as X } from '@ihui/types';\ninterface MemoryEntry { a: string }\n" },
+    {
+      'apps/web/src/g.ts':
+        "import type { MemoryEntry as X } from '@ihui/types';\ninterface MemoryEntry { a: string }\n",
+    },
     shared,
   )
   t('S11 导入了共享名但仍另写同名 interface ⇒ 命中(import 不遮丑)', iface.hits.length === 1)
+
+  // ── sameShape 维(同名是否同物)——三态都必须有正反用例，缺一条就是这把尺子没牙 ──
+  const shapeTable = new Map([
+    [
+      'MemoryEntry',
+      { kind: 'object', fields: new Map([['a', { optional: false, type: 'string' }]]) },
+    ],
+  ])
+  const yesCase = judge(
+    { 'apps/web/src/s1.ts': 'interface MemoryEntry { a: string }\n' },
+    shared,
+    shapeTable,
+  )
+  t(
+    'S12 字段名与类型文本逐相等 ⇒ yes(不是"名字撞了就算")',
+    yesCase.hits.length === 1 && yesCase.hits[0].sameShape === 'yes',
+  )
+
+  const noCase = judge(
+    { 'apps/web/src/s2.ts': 'interface MemoryEntry { a: number }\n' },
+    shared,
+    shapeTable,
+  )
+  t(
+    'S13 同名字段类型不同 ⇒ no(把 no 记成 yes 就会自动并档,并错)',
+    noCase.hits[0]?.sameShape === 'no',
+  )
+
+  const noKeyCase = judge(
+    { 'apps/web/src/s3.ts': 'interface MemoryEntry { a: string; b?: string }\n' },
+    shared,
+    shapeTable,
+  )
+  t('S14 多一个字段(哪怕可选)⇒ no', noKeyCase.hits[0]?.sameShape === 'no')
+
+  const undCase = judge(
+    { 'apps/web/src/s4.ts': 'interface MemoryEntry extends Base { a: string }\n' },
+    shared,
+    shapeTable,
+  )
+  t(
+    'S15 带 extends ⇒ undetermined(判不出绝不写成"不等"，也不写成"等")',
+    undCase.hits[0]?.sameShape === 'undetermined',
+  )
+
+  const noTableCase = judge(
+    { 'apps/web/src/s5.ts': 'interface MemoryEntry { a: string }\n' },
+    shared,
+  )
+  t(
+    'S16 调用方没给共享形态表 ⇒ 该维显式判不出(不得默认成 yes)',
+    noTableCase.hits[0]?.sameShape === 'undetermined',
+  )
+
+  const unionSrc = (vals) => `export type ChatModelType = ${vals}\n`
+  const uA = shapeOf(unionSrc("'a' | 'b' | 'c'"), 'ChatModelType')
+  const uB = shapeOf(unionSrc("'c' | 'b' | 'a'"), 'ChatModelType')
+  const uC = shapeOf(unionSrc("'a' | 'b'"), 'ChatModelType')
+  t(
+    'S17 字面量 union 按集合比(书写顺序无关)，值域真不同时必须 no',
+    compareShapes(uA, uB).sameShape === 'yes' && compareShapes(uA, uC).sameShape === 'no',
+  )
+  t(
+    'S18 右值是引用/工具类型/索引签名一律 undetermined(不当"不等"，也不当"等")',
+    [
+      'export type Foo = Bar & Baz\n',
+      'export type Foo = Pick<Bar, "a">\n',
+      'export type Foo = { [k: string]: string }\n',
+      'export type Foo = Bar[]\n',
+    ].every((src) => shapeOf(src, 'Foo').kind === 'unknown'),
+  )
+
+  // ── 可达性维:共享名只有从包出口够得到，"改 import 共享出口"才是可执行动作 ──
+  const graph = {
+    'packages/types/src/index.ts': "export * from './a.js'\nexport { type Only } from './c.js'\n",
+    'packages/types/src/a.ts': 'export interface ReachableOne { a: string }\n',
+    'packages/types/src/c.ts':
+      'export interface Only { o: string }\nexport interface NotReExported { n: string }\n',
+    'packages/types/src/lonely.ts': 'export interface Hidden { h: string }\n',
+  }
+  const reach = buildSharedReach(graph, 'packages/types/src/index.ts', [])
+  t(
+    'R1 入口图:export * 全量可达、具名再导出只认列出的名字、没进桶的文件里的名字不可达',
+    reach.has('ReachableOne') &&
+      reach.has('Only') &&
+      !reach.has('NotReExported') &&
+      !reach.has('Hidden'),
+  )
+  const reachJudge = judge(
+    {
+      'apps/web/x.ts': 'interface Hidden { h: string }\ninterface ReachableOne { a: string }\n',
+    },
+    new Set(['Hidden', 'ReachableOne']),
+    undefined,
+    reach,
+  )
+  const byName = Object.fromEntries(reachJudge.hits.map((h) => [h.name, h.reachable]))
+  t(
+    'R2 命中条目带可达性:桶里的 true、没进桶的 false(两者都是命中,只是动作不同)',
+    byName.ReachableOne === true && byName.Hidden === false,
+  )
+  const reachNoTable = judge(
+    { 'apps/web/y.ts': 'interface ReachableOne { a: string }\n' },
+    new Set(['ReachableOne']),
+  )
+  t(
+    'R3 没给可达性表 ⇒ reachable=null(判不出,不得默认成"全都可达")',
+    reachNoTable.hits[0]?.reachable === null,
+  )
+  t(
+    'R4 子路径出口解析:./dist/user.d.ts ⇒ src/user.ts，且非 dist 路径不误收',
+    subpathsToFiles(
+      '{"exports":{".":{"types":"./dist/index.d.ts"},"./user":{"types":"./dist/user.d.ts"},"./style.css":"./style.css"}}',
+      'packages/types/src',
+    ).join(',') === 'packages/types/src/user.ts',
+  )
 
   console.log(`\n${pass}/${pass + fail} 条通过`)
   return fail ? 1 : 0
@@ -263,7 +754,10 @@ function main() {
     // `face === 'staged'` 恒假 ⇒ `--staged` 静默改读 HEAD blob —— 本仓在
     // `check-plan-sha-resolvable.mjs` 上记过同型缺陷("三面同读 HEAD")。这里显式取 `.face`,
     // 并保留对旧签名的兜底(取不到名字就判死,绝不退化成"看起来跑过了")。
-    const sel = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree') })
+    const sel = selectFace({
+      staged: argv.includes('--staged'),
+      worktree: argv.includes('--worktree'),
+    })
     face = typeof sel === 'string' ? sel : sel?.face
     if (!['staged', 'head', 'worktree'].includes(face)) {
       console.error(`❌ 取材面解析不出(${JSON.stringify(sel)})⇒ 无法判定,不记绿也不冒红`)
@@ -289,12 +783,24 @@ function main() {
     console.error(`❌ 共享面解析出 0 个对外类型名(${face})⇒ 判死,不记绿`)
     process.exit(2)
   }
+  // 共享侧形态表与命中扫描同面取(source = 同一个 readFace(face, sharedPaths) 的结果)——
+  // 拿工作树源码去比 HEAD 词表会造出假分叉(本仓记过"诊断只能取同一个面")。
+  const sharedShapes = buildSharedShapes(sharedFiles, shared)
+  const SHARED_ENTRY = 'packages/types/src/index.ts'
+  const pkgText = readFace(face, ['packages/types/package.json'])['packages/types/package.json']
+  const subpathFiles =
+    typeof pkgText === 'string' ? subpathsToFiles(pkgText, 'packages/types/src') : undefined
+  if (typeof pkgText !== 'string' || !subpathFiles.length)
+    console.error(
+      'ⓘ 取不到 packages/types/package.json 或其中没有子路径出口 ⇒ 可达性按"未判定"出，不默认成全都可达',
+    )
+  const sharedReach = buildSharedReach(sharedFiles, SHARED_ENTRY, subpathFiles)
 
   const consumerPaths = listConsumerPaths(face).filter(
     (p) => !SELF_EXEMPT.some((s) => p.includes(s)),
   )
   const files = readFace(face, consumerPaths)
-  const { hits, passed, undetermined } = judge(files, shared)
+  const { hits, passed, undetermined } = judge(files, shared, sharedShapes, sharedReach)
 
   let red = []
   let ratcheted = 0
@@ -307,7 +813,8 @@ function main() {
     for (const [path, list] of Object.entries(byPath)) {
       const src = headFiles[path]
       // 新文件不在 HEAD 上 ⇒ 锚点 0(读不到不许 exit 2,否则每次"新增一个文件"都被恒挡)
-      const allowance = typeof src === 'string' ? judge({ [path]: src }, shared).hits.length : 0
+      const allowance =
+        typeof src === 'string' ? judge({ [path]: src }, shared, sharedShapes).hits.length : 0
       list.forEach((h, i) => {
         if (i + 1 > allowance) red.push(h)
         else ratcheted += 1
@@ -330,7 +837,22 @@ function main() {
             name: h.name,
             line: h.line ?? null,
             isRed: red.includes(h),
+            // 三态：yes 才是可机械收敛的一条；no = 同名不同物(按名字并档就是把两件东西并成一件)；
+            // undetermined 必须显式点名"为什么判不出"，不得默认成等或不等。
+            sameShape: h.sameShape,
+            shapeWhy: h.why ?? null,
+            shapeDiff: h.diff ?? null,
+            // 可达性:false = 该共享名没进包出口,"改 import 共享出口"这条动作对它不可执行
+            reachable: h.reachable,
           })),
+          sameShapeCounts: countShapes(hits),
+          reachableCounts: {
+            true: hits.filter((h) => h.reachable === true).length,
+            false: hits.filter((h) => h.reachable === false).length,
+            undetermined: hits.filter((h) => h.reachable !== true && h.reachable !== false).length,
+          },
+          convergenceReady: hits.filter((h) => h.sameShape === 'yes' && h.reachable === true)
+            .length,
           red,
           ratcheted,
           passed: passed.length,
@@ -348,8 +870,21 @@ function main() {
       `端内重声明命中 ${hits.length} 处(本次新增判红 ${red.length} · 存量按该文件 HEAD 棘轮只报数 ${ratcheted})`,
     )
     for (const h of red.slice(0, 40)) console.log(`  ❌ ${h.path} :: ${h.kind} ${h.name}`)
+    const c = countShapes(hits)
+    const ready = hits.filter((h) => h.sameShape === 'yes' && h.reachable === true).length
+    const unreachable = hits.filter((h) => h.reachable === false).length
+    console.log(
+      `  同名同物 yes ${c.yes} · 同名不同物 no ${c.no} · 判不出 undetermined ${c.undetermined} · 出口不可达 ${unreachable}`,
+    )
+    console.log(
+      `  可一条命令收敛(yes 且出口可达) ${ready} 条 —— 其余各有前置:no 不许并、undetermined 要人工读、不可达要先补包出口`,
+    )
+    for (const h of hits.filter((x) => x.sameShape === 'yes' && x.reachable === true).slice(0, 12))
+      console.log(`    → ${h.path} :: ${h.name} —— ${h.why}`)
     if (hits.length > red.length)
-      console.log(`  ⓘ 另有 ${hits.length - red.length} 处属存量(与本次提交无关),清偿动作 = 改 import 共享出口`)
+      console.log(
+        `  ⓘ 另有 ${hits.length - red.length} 处属存量(与本次提交无关),清偿动作 = 改 import 共享出口`,
+      )
     for (const u of undetermined.slice(0, 10)) console.log(`  ? 未判定:${u.path} —— ${u.why}`)
     if (undetermined.length > 10) console.log(`  ? 其余 ${undetermined.length - 10} 条未判定同上`)
     console.log(`  ✓ 放过 ${passed.length} 处(别名指向共享出口,正当写法)`)
@@ -384,6 +919,13 @@ export const __test__ = {
   importedNames,
   declarations,
   judge,
+  shapeOf,
+  compareShapes,
+  buildSharedShapes,
+  buildSharedReach,
+  subpathsToFiles,
+  shapeVerdict,
+  countShapes,
   keep,
   specOf,
   listSharedPaths,

@@ -19,15 +19,8 @@ import type { TFunction } from '../../types'
 import { ChevronRight, Settings } from 'lucide-react-native'
 
 import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
-
-/** N8n 消息项 */
-export interface N8nMessage {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  /** assistant 回复中提取的图片 URL 列表(对齐 Uniapp imgUrlList) */
-  images?: string[]
-}
+import type { N8nMessage } from '@ihui/types'
+export type { N8nMessage }
 
 /** AiAssistantN8nScreen props(wrapper 注入数据+回调) */
 export interface AiAssistantN8nScreenProps {
