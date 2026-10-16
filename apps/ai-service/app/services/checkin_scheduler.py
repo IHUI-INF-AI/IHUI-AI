@@ -33,6 +33,8 @@ import asyncio
 import json
 import os
 import random
+
+import httpx
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -362,6 +364,40 @@ class CheckinScheduler:
             "[checkin_scheduler] %s本轮签到完成: 共 %d 个账号,成功 %d", label, len(accounts), ok_count
         )
 
+    async def _probe_platform(
+        self,
+        acc: dict[str, Any],
+        device_map: dict[str, Any],
+        client: httpx.AsyncClient | None,
+    ) -> tuple[bool, bool | None, int | None, str]:
+        """按平台分发只读探针,统一返回 (ok, checked_in|None, credits|None, message)。
+
+        四型入口(2026-10-17 李总点名:官方没有查询口不是借口,各平台都要覆盖):
+        - trae      : status 接口(checked_in 位)              —— 只读
+        - workbuddy : checkin-status 的 today_checked_in        —— 只读
+        - qoder     : GET campaigns 按 claimStatus 判已领       —— 只读(不 claim)
+        - minimax   : 官方 status 只有 7 天进度环、无日期 ⇒ 走幂等 claim 兜底,
+                      已领自报 skip_already,未领会顺手领掉(官方幂等不重复发分)
+        """
+        name = acc.get("name") or str(acc["id"])
+        platform = str(acc.get("platform") or "trae")
+        if platform == "workbuddy":
+            return await checkin_workbuddy.workbuddy_probe_status(
+                acc["jwt"], device_map, client=client
+            )
+        if platform == "qoder":
+            return await checkin_qoder.qoder_probe_status(
+                name, acc["jwt"], device_map, client=client
+            )
+        if platform == "minimax":
+            return await checkin_minimax.minimax_probe_status(
+                name, acc["jwt"], device_map, client=client
+            )
+        ok_s, checked_in, credits, code_s, msg_s = await status_check(
+            name, acc["jwt"], device_map, client=client
+        )
+        return ok_s, checked_in, credits, msg_s or ""
+
     async def _daily_run(self) -> None:
         """08:05 主窗口:遍历非 Qoder 账号(Qoder 账号走 10:05 独立窗口)。"""
         loaded = await self._load_accounts_and_cooldowns("主窗口")
@@ -379,8 +415,10 @@ class CheckinScheduler:
         skip_already 记录 —— UI 即时亮「今日已签到」,主窗口 status 预检命中
         直接跳过,不重复签。
 
-        仅 TRAE 有无副作用的 status 端点;Qoder/WorkBuddy/MiniMax 引擎本身
-        幂等且无独立查询口,主窗口照常处理。未签账号不落任何记录(留给主窗口签)。
+        全平台覆盖(2026-10-17 李总点名「官方没有不是借口」):_probe_platform
+        按平台分发 —— TRAE/WorkBuddy/Qoder 走只读查询口零副作用;MiniMax 官方
+        status 只有无日期的 7 天进度环 ⇒ 走幂等 claim 兜底(已领自报 skip_already,
+        未领会顺手领掉,官方幂等不重复发分)。未签账号不落任何记录(留给主窗口签)。
         """
         if checkin_outbound_gate.paused_remaining() > 0:
             logger.info("[checkin_scheduler] 出站限流暂停中,状态探针本轮跳过")
@@ -389,7 +427,7 @@ class CheckinScheduler:
         if loaded is None:
             return
         accounts, cooldowns = loaded
-        targets = [acc for acc in accounts if acc.get("platform") == "trae"]
+        targets = list(accounts)
         if not targets:
             return
         now = datetime.now(UTC)
@@ -401,11 +439,8 @@ class CheckinScheduler:
             device_map = dict(acc.get("device_map") or {})
             client, owned = client_for(device_map)
             try:
-                ok_s, checked_in, credits, _code_s, msg_s = await status_check(
-                    acc.get("name") or str(acc["id"]),
-                    acc["jwt"],
-                    device_map,
-                    client=client,
+                ok_s, checked_in, credits, msg_s = await self._probe_platform(
+                    acc, device_map, client
                 )
             except Exception as e:
                 logger.warning(
@@ -437,7 +472,7 @@ class CheckinScheduler:
             if len(targets) > 1:
                 await asyncio.sleep(random.uniform(0.5, 2.0))
         logger.info(
-            "[checkin_scheduler] 06:00 状态探针完成:TRAE 账号 %d 个,同步「已签到」%d 个",
+            "[checkin_scheduler] 06:00 状态探针完成:账号 %d 个,同步「已签到」%d 个",
             len(targets),
             synced,
         )
