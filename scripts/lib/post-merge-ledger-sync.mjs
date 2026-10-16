@@ -172,6 +172,19 @@ function runPurgeResettle({ root, log = (s) => console.log(s), spawnFn, readFace
   const abs = resolve(String(root || ''), PURGE_REL)
   // 可折维 > 0 ⇒ 必须带 `--absorb`:只有那一档动"无注记的真副本"(候选正文整段挂进幸存行行尾,
   // 由守恒断言 A1–A4 逐条自证零丢失);只带 --apply 的旧口径对这一型一条也折不掉。
+  // 第三维(同号多行组)的折并器不是 purge(L1 候选=带指针/让位行,同号漂开组不进候选集)
+  // 而是 plan-tasks-merge --heal --match-prefix-holder(同号前缀持有行折并,零损失断言自带)。
+  // 派生两段:先折同号组,再按注记/可折维走 purge。
+  const foldSameKey = () => {
+    if (!g) return
+    const absMerge = resolve(String(root || ''), 'scripts', 'plan-tasks-merge.mjs')
+    const r2 = (spawnFn || spawnSync)(process.execPath, [absMerge, '--heal', '--match-prefix-holder', '--commit'], {
+      cwd: resolve(String(root || '')), encoding: 'utf8', windowsHide: true, timeout: 600000,
+    })
+    if (!r2 || r2.status !== 0) log(`⚠️ [G-32] 同号折并派生未完成(组数=${g},rc=${r2 ? r2.status : '取不到'},不阻断)`)
+    else log(`✅ [G-32] 同号折并派生完成(组数=${g})`)
+  }
+  if (g > 0) foldSameKey()
   const flags = ['--apply', '--absorb']
   let r
   try {
