@@ -40,9 +40,8 @@
  * 用法:
  *   node scripts/check-parent-pollution.mjs          # 阻塞模式(exit 1)
  *   node scripts/check-parent-pollution.mjs --warn   # warn-only(不阻塞)
- *   node scripts/check-parent-pollution.mjs --scan-root <dir>  # 夹具档:只扫这一棵树(判定本体不变)
  *
- * 退出码:0 = 无污染;1 = 发现项目外污染(阻塞 commit);2 = 未判定(夹具档拿不到目录)。
+ * 退出码:0 = 无污染;1 = 发现项目外污染(阻塞 commit)
  */
 
 import { readFileSync, existsSync, readdirSync, unlinkSync, statSync } from 'node:fs'
@@ -57,32 +56,23 @@ const log = createLogger()
 
 const ROOT = resolve(fileURLToPath(new URL('../', import.meta.url)))
 const PROJECT_NAME = basename(ROOT) // IHUI-AI
-// 盘判门的自我定位一律从模块 URL 直接推导(一层目录 = URL 里一个 '..'),不再绕 ROOT 二次拼装:
-//   本门一处仓库 blob 都不读,读的全是仓库外的盘;而绕经 ROOT 再 dirname 会让门 118 的**文件级**
-//   合取把它误标成"按磁盘判仓库内容"(该假阳 118 自己登记在头注,真修 = 认识 gitignore 语义,是另一票)。
-//   同型三道盘判门 `check-c-drive-pollution` / `check-disk-root-hygiene` / `check-temp-landing` 现读都是
-//   `unknown`(读文件但找不到仓库锚点);118 对自己这条假阳印的出路也正是「判的不是仓库内容 ⇒ 改成不读
-//   ROOT 锚点即可」。判定行为一字未变(新旧门体 stdout/stderr/RC 对账见本枚提交说明)。
-const PARENT_DIR = resolve(fileURLToPath(new URL('../../', import.meta.url))) // 项目父目录(§15 动态推导)
-const GRANDPARENT_DIR = resolve(fileURLToPath(new URL('../../../', import.meta.url))) // 项目祖父目录
-/** `<仓库>/.git` 的位置(同样直接从模块 URL 推导,等价于旧的 `join(ROOT, '.git')`)。 */
-const DOT_GIT = resolve(fileURLToPath(new URL('../.git', import.meta.url)))
+const PARENT_DIR = dirname(ROOT) // 项目父目录(动态推导,符合 AGENTS.md §15)
+const GRANDPARENT_DIR = dirname(PARENT_DIR) // 项目祖父目录(动态推导)
 
 /**
  * 主仓真实 gitdir(兼容 separate-git-dir 布局)。
  * 2026-09-12 起本仓 `.git` 是 28 字节指针文件(`gitdir: D:/IHUI-AI-git-repo`),
- * 真 gitdir 在工作区之外;若将来改回 `.git` 目录形态,这里同样返回 `<仓库>/.git`。
+ * 真 gitdir 在工作区之外;若将来改回 `.git` 目录形态,这里同样返回 `<ROOT>/.git`。
  */
 function resolveRealGitDir() {
+  const dotGit = join(ROOT, '.git')
   try {
-    if (!existsSync(DOT_GIT)) return null
-    if (!statSync(DOT_GIT).isFile()) return DOT_GIT
-    const m = readFileSync(DOT_GIT, 'utf8')
+    if (!existsSync(dotGit)) return null
+    if (!statSync(dotGit).isFile()) return dotGit
+    const m = readFileSync(dotGit, 'utf8')
       .trim()
       .match(/^gitdir:\s*(.+)$/i)
-    // 指针里的相对路径按 git 自己的规则**相对 .git 文件所在目录**解析(旧写法拿仓库根当基准,
-    // 本仓两者同址 ⇒ 实测等值;而"相对 .git 所在目录"才是 git 定义的那一条)。
-    return m ? resolve(dirname(DOT_GIT), m[1].trim()) : null
+    return m ? resolve(ROOT, m[1].trim()) : null
   } catch {
     return null
   }
@@ -323,7 +313,7 @@ function isLinkedWorktree(dir) {
     // 真 gitdir 在工作区之外(现为 D:/IHUI-AI-git-repo),worktree 的 .git 指向
     // `<真实gitdir>/worktrees/<名>`,旧实现硬拼 ROOT/.git 会恒不匹配 →
     // 合法 worktree 会被误判为污染、阻塞一切提交。故改为解析真实 gitdir。
-    const baseGitDir = REAL_GIT_DIR || DOT_GIT
+    const baseGitDir = REAL_GIT_DIR || join(ROOT, '.git')
     const expectedPrefix = baseGitDir.replace(/\\/g, '/').toLowerCase()
     return normalizedGitDir.startsWith(expectedPrefix)
   } catch {
@@ -434,7 +424,8 @@ function main() {
   const isAutoClean = args.includes('--auto-clean')
   // --quiet 由共享 logger 处理(见 ./lib/logger.mjs),无需在此手动解析
 
-  // 0. linked worktree 场景跳过(2026-09-13 立)  // worktree 的 ROOT 是 worktree 路径,其 PARENT_DIR 通常正是主工作区所在盘
+  // 0. linked worktree 场景跳过(2026-09-13 立)
+  // worktree 的 ROOT 是 worktree 路径,其 PARENT_DIR 通常正是主工作区所在盘
   // (如 G:/IHUI-AI),巡查会把主工作区里的历史 agent 临时文件误判为本 worktree
   // 的父目录污染 → 每次 worktree 提交都被 [26] 阻塞。此前只能临时改脚本绕过,
   // 现固化为正式判定(仅豁免指针式 .git 且指向 <真实gitdir>/worktrees/ 的情形;
@@ -444,50 +435,25 @@ function main() {
     process.exit(0)
   }
 
-  // 夹具档(2026-10-16 立):`--scan-root <dir>` 只替换**扫哪棵树**,判定本体(findPollution 的双信号、
-  // 凭据库/备份目录整目录不扫、深度 ≤2)一字不动。存在它的理由是本门的镜像曾把"这台机此刻的父目录
-  // 恰好干净"当成 exit 0 的前提 ⇒ 任何会话往 G:/ 扔一个探针,镜像三条用例连带本门一起红(§12e 同型,
-  // 与 check-workspace-hygiene.test.mjs 记过的"基线干净判的是内容面不是磁盘"同源)。
-  // 该档不是消红通道:① 生效时必喊话(上面那句 + 末行读数点名根目录);② 目录取不到 ⇒ exit 2「未判定」,
-  // 既不记绿也不冒红(§0.3);③ 只在显式带旗时生效,缺省档仍然扫真实四面,提交链读的是缺省档。
-  const scanRootIdx = args.indexOf('--scan-root')
-  const scanRootGiven = scanRootIdx >= 0
-  const scanRoot = scanRootGiven ? args[scanRootIdx + 1] : undefined
-  if (scanRootGiven && (!scanRoot || scanRoot.startsWith('--'))) {
-    log.error(
-      '❌ parent-pollution [未判定]: --scan-root 后面没给目录 ⇒ 不回落真实根(那会把夹具档读成缺省档)',
-    )
-    process.exit(2)
-  }
-
   const allPollutions = []
 
-  if (scanRoot) {
-    if (!existsSync(scanRoot)) {
-      log.error(`❌ parent-pollution [未判定]: 夹具根取不到 ${scanRoot} ⇒ 不记绿也不冒红`)
-      process.exit(2)
-    }
-    log.info(`⚠️ parent-pollution [夹具档]: 本轮只扫 ${scanRoot}(真实四面未读,不得当成装机证明)`)
-    allPollutions.push(...findPollution(scanRoot, true, 0))
-  } else {
-    // 1. 扫描项目父目录(递归到 2 层,捕获父目录根级 *.ps1 和子目录中的污染)
-    allPollutions.push(...findPollution(PARENT_DIR, true, 0))
+  // 1. 扫描项目父目录(递归到 2 层,捕获父目录根级 *.ps1 和子目录中的污染)
+  allPollutions.push(...findPollution(PARENT_DIR, true, 0))
 
-    // 2. 扫描项目祖父目录(桌面)的根级文件(不递归,避免误伤其他项目)
-    allPollutions.push(...findPollution(GRANDPARENT_DIR, false, 0))
+  // 2. 扫描项目祖父目录(桌面)的根级文件(不递归,避免误伤其他项目)
+  allPollutions.push(...findPollution(GRANDPARENT_DIR, false, 0))
 
-    // 3. 扫描用户主目录根级(只扫 agent 临时产物命名模式的文件,不递归)
-    //    覆盖 agent 误写到 ~/ 的情况(如 ~/*.ps1 / ~/*.txt 调试日志)
-    const homeDir = os.homedir()
-    allPollutions.push(...findPollution(homeDir, false, 0))
+  // 3. 扫描用户主目录根级(只扫 agent 临时产物命名模式的文件,不递归)
+  //    覆盖 agent 误写到 ~/ 的情况(如 ~/*.ps1 / ~/*.txt 调试日志)
+  const homeDir = os.homedir()
+  allPollutions.push(...findPollution(homeDir, false, 0))
 
-    // 4. 扫描用户真实桌面路径(跨驱动器场景,2026-07-25 立)
-    //    历史教训:用户桌面重定向到 E:\桌面,原守门脚本只扫 G:\ 父目录,盲区!
-    //    本扫描覆盖所有可能的桌面路径(PowerShell 获取 + 驱动器兜底),
-    //    根级不递归(避免误伤桌面合法子目录),捕获 agent 在桌面创建的污染文件。
-    for (const desktopPath of DESKTOP_PATHS) {
-      allPollutions.push(...findPollution(desktopPath, false, 0))
-    }
+  // 4. 扫描用户真实桌面路径(跨驱动器场景,2026-07-25 立)
+  //    历史教训:用户桌面重定向到 E:\桌面,原守门脚本只扫 G:\ 父目录,盲区!
+  //    本扫描覆盖所有可能的桌面路径(PowerShell 获取 + 驱动器兜底),
+  //    根级不递归(避免误伤桌面合法子目录),捕获 agent 在桌面创建的污染文件。
+  for (const desktopPath of DESKTOP_PATHS) {
+    allPollutions.push(...findPollution(desktopPath, false, 0))
   }
 
   // --auto-clean: 自动清理强信号命中(文件名匹配 agent 临时产物模式)的污染

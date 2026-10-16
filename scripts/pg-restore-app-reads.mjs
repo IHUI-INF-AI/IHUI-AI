@@ -158,10 +158,7 @@ export function main(argv = process.argv, deps = {}) {
     return 2
   }
   const psql = join(PG_BIN, 'psql.exe')
-  // 注入执行器的场合跳过真二进制检查:注入缝存在的意义就是"本机没装 pgsql 也能端到端验证判据"
-  // (R7/R8 的假执行器从不碰文件系统)。把检查放在注入缝之前,等于在没有 pgsql 的机器上把
-  // R7/R8 的场景整个短路(exit 2 抢答),端到端臂形同虚设。真实档(未注入)才要求客户端在位。
-  if (!deps.spawnPsql && !existsSync(psql)) {
+  if (!existsSync(psql)) {
     console.error(`❌ 无法判定:psql 不在位 ${psql}`)
     return 2
   }

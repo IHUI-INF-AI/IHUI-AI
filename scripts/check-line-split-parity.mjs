@@ -234,11 +234,6 @@ function runPythonSide(pythonPath, llmText, scratch) {
       windowsHide: true,
       timeout: 60000,
       maxBuffer: 8 << 20,
-      // 编码必须由调用方显式规定:不传 env 时 python 子进程**继承控制台码页**(本机 GBK),
-      // 而本门的 payload 就是仓库源码原文 —— 任何一行含中文都会让它非零退出 gbk UnicodeEncodeError,
-      // 于是这台机上整门在未判定档位全盲(同族已证:不带 env 打 `⇒` ⇒ exit 1;带 env ⇒ exit 0)。
-      // 先例:check-bpe-encoding-parity / check-principal-consumed / check-load-state-loaded-marks。
-      env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
     })
   } catch (e) {
     return { undetermined: `派生 Python 抛错:${(e && e.message) || e}` }
@@ -393,9 +388,7 @@ function usage() {
   )
 }
 
-// 既有形态如实记下:`--json` 这一维今天**没有**被 runOnce 消费(改名加下划线让 eslint 与读者都看得见,
-// 不悄悄删参 —— 删了就等于把"CLI 收了一个不生效的旗"这件事一起抹掉,那是另一格待办的凭据)。
-async function runOnce({ face, json: _json }) {
+async function runOnce({ face, json }) {
   const contents = readBothContents(face, ROOT)
   const tsText = contents.get(TS_REL)
   const pyText = contents.get(PY_REL)

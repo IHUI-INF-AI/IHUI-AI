@@ -33,8 +33,7 @@ import { execFileSync } from 'node:child_process'
 // DevEnv 根的唯一出口(§15b;`re-home-junctions.mjs` / `check-c-drive-pollution.mjs` /
 // `pg-restore-drill.mjs` 复用同一份)。**不再**由本文件自取工作树盘符首字符拼 `X:\DevEnv`:
 // 那是同一件事的第三份独立实现 —— 它碰巧与工作树深度无关,但"碰巧对"不等于"按同一个出口推"。
-// 未设 `IHUI_DEVENV_ROOT` 时落点按共用出口的双形态推导(G-814433):仓内 `.DevEnv` 存在则用仓内,
-// 否则回落 `<盘根>\DevEnv` —— 搬迁前后两条机器各自同值,机器布局是现读事实,不写死盘符。
+// 未设 `IHUI_DEVENV_ROOT` 时两者逐字同值(本机同为 `G:\DevEnv\monitor\prometheus`)。
 import { devEnvRoot } from './seal-c-root-stray.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')

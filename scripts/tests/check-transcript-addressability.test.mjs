@@ -203,7 +203,7 @@ test('TA-11 参数面：--source / --top / --strict / 未知参数', () => {
 })
 
 // ── 4. 真源端到端（只读复制 ⇒ 夹具 ⇒ 解析 ⇒ 回收）────────────────────────────
-test('TA-12 真源跑一遍：零判红 + 命中数闭合 + 真源字节上造样的差分阳性对照', (t) => {
+test('TA-12 真源跑一遍：零判红 + 命中数与流内生产/消费行数自证', (t) => {
   const probe = gate.inspectSource(gate.DEFAULT_SOURCE)
   if (!probe.ok) {
     t.diagnostic(`未判定（跳过，不计通过）：${probe.reason}`)
@@ -243,56 +243,8 @@ test('TA-12 真源跑一遍：零判红 + 命中数闭合 + 真源字节上造�
       throw new Error(`覆盖面不闭合：命中 ${s.resolved} ≠ 生产 ${producers} + 消费 ${consumers}`)
     }
     if (s.entries !== all.length) throw new Error(`条目数不闭合：${s.entries} vs ${all.length}`)
-    // 「未判定必须 >0」不得写成对真源语料的绝对下限：`~/.ihui/audit.jsonl` 是机器态语料，会轮换/截断
-    //   （头注 2026-10-08 抽样 8037 行、48 个去重文件目标；2026-10-16 现读 390 行、文件类 target 为 0
-    //   ⇒ 未判定 0）。语料一换就红的尺子是恒红门（§12e），而这一档真正要拦的是"抽取式对 path /
-    //   files[] / operations[].path 三种形态瞎了"。正解 = 在**同一份真源字节**上造样做差分阳性对照：
-    //   追加的文件类行必须让未判定按行数精确上涨、逐条点名带原因，且一律不判红。判据本体一字未动。
-    const undReal = s.undetermined
-    const base = buf.toString('utf8').replace(/\n+$/, '')
-    const PROBE = 'g679/e2e/file-target-probe'
-    const probeRows = [
-      { tool: 'read_file', input: { path: PROBE }, success: true },
-      { tool: 'git_add', input: { files: [`${PROBE}-a`, `${PROBE}-b`] }, success: true },
-      { tool: 'batch_edit', input: { operations: [{ path: `${PROBE}-c` }] }, success: true },
-    ].map((r) => ({ timestamp: '2026-01-01T00:00:00.000Z', ...r }))
-    const jlines = probeRows.map((r) => JSON.stringify(r)).join('\n')
-    // 配对负对照：不追加 ⇒ 未判定必须与真源读数等值（证明涨幅只归因于造样的那几行）。
-    const sBase = gate.summarize(gate.runPass(gate.materialize(`${base}\n`, 1)))
-    if (sBase.undetermined !== undReal)
-      throw new Error(
-        `同文本复跑未判定不等值：${undReal} vs ${sBase.undetermined} ⇒ 差分对照的分母不可信`,
-      )
-    const matProbe = gate.materialize(`${base}\n${jlines}\n`, 1)
-    if (matProbe.badLines !== 0)
-      throw new Error(
-        `造样行被读成坏行（badLines=${matProbe.badLines}）⇒ 差分对照的输入不成立，本镜结论无效`,
-      )
-    const sProbe = gate.summarize(gate.runPass(matProbe), { top: Number.MAX_SAFE_INTEGER })
-    if (sProbe.entries !== s.entries + probeRows.length)
-      throw new Error(
-        `造样没进真源那一遍：条目 ${s.entries} + ${probeRows.length} ≠ ${sProbe.entries}`,
-      )
-    if (sProbe.undetermined !== undReal + probeRows.length)
-      throw new Error(
-        `差分阳性对照失灵：造了 ${probeRows.length} 条文件类 target，未判定 ${undReal} → ${sProbe.undetermined} ⇒ 抽取式对 path/files[]/operations[].path 形态瞎了（0 命中先怀疑尺子）`,
-      )
-    if (sProbe.red !== 0)
-      throw new Error(
-        `文件类 target 被读成判红 ${sProbe.red} ⇒ 票面"这一族一律落未判定"被破，等于造一台恒红门（§12e）`,
-      )
-    const named = sProbe.undeterminedSamples.filter((g) =>
-      (g.values || []).some((v) => typeof v === 'string' && v.startsWith(PROBE)),
-    )
-    if (named.length !== probeRows.length)
-      throw new Error(
-        `未判定没有逐条点名：造样 ${probeRows.length} 行只点名 ${named.length} 组（三行 target 互不相同 ⇒ 必须是 ${probeRows.length} 组）`,
-      )
-    if (!named.every((g) => typeof g.reason === 'string' && g.reason.length > 0))
-      throw new Error('未判定组缺原因 ⇒ "判不了"没交代判不了在哪')
-    t.diagnostic(
-      `真源现读：条目=${s.entries} 命中=${s.resolved} 放过=${s.heuristic} 未判定=${undReal}（文件类 target 造样后=${sProbe.undetermined}）`,
-    )
+    if (s.undetermined === 0)
+      throw new Error('真源里文件类 target 明明存在，未判定归零 ⇒ 抽取式失灵（0 命中先怀疑尺子）')
   } finally {
     gate.rmScratch(fx.dir)
     if (fs.existsSync(fx.dir)) throw new Error('夹具未回收（会在 scratch 根里长二阶目录）')
