@@ -14,7 +14,9 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
-import { __test__ as src } from '../check-chat-element-coverage.mjs'
+// 2026-10-16 新增的补偿维第二来源是**具名导出**(源脚本已 export function ledgerCorpus),
+// 测试照旧直接 import 生产判据,不在本文件抄第二份形状判定(§22c / 守门 191)。
+import { __test__ as src, ledgerCorpus } from '../check-chat-element-coverage.mjs'
 
 const {
   parsePlanned,
@@ -30,6 +32,12 @@ const {
 const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 /** 台账本体(单一事实源):测试直接读它,不再抄第二份数字 */
 const LEDGER = JSON.parse(readFileSync(join(ROOT_DIR, 'scripts', 'data', 'chat-flow-elements.json'), 'utf8'))
+
+/**
+ * 退役留痕 ledger 在审面上的**路径**不在本文件抄第二份(§22c/§0.6 单一真相源):它是生产函数
+ * `ledgerCorpus` 的缺省 `source` 参数,所以拿一次真调的返回值剥掉 `#gapIds` 尾巴就是唯一真相。
+ */
+const LEDGER_REL = ledgerCorpus(JSON.stringify({ gapIds: ['G-0'] })).archives[0].path.replace(/#gapIds$/, '')
 
 const PLAN_SOURCE = {
   taskLinePattern: '^- \\[([ x])\\]\\s*(?:✅[^*]*)?\\*\\*(D[0-9]+)',
@@ -491,15 +499,217 @@ test('形状锁:归档面取材必须走 face-reader,不得回到 readdirSync / 
   assert.match(srcText, /res\.archiveMissing\.length > 0[\s\S]{0,120}return 2/, 'blob 取不到 ⇒ 拒绝出具合格证')
 })
 
-test('真仓取材:HEAD 面上的归档件必须真被枚举到(空扫 = 尺子失效,不是"没有归档")', () => {
-  const res = readArchiveCorpus('head', ROOT_DIR)
-  assert.equal(res.error, null, `归档面取材失败:${res.error}`)
-  assert.ok(res.enumerated > 0, `${ROOT_DIR} 的 HEAD 树里枚举到 0 份 PROJECT_PLAN_*.md ⇒ 无法判定`)
+// 归档补偿维自 2026-10-16 起有**两个来源**:面上归档件(source='face')与面上 0 份时顶上的
+// 退役留痕 ledger(source='retirement-ledger')。本条把**两档都锁死**:
+//   · 枚举到 0 一律红 —— 这是本品自己的防盗线(谁把两个来源都摘了必须喊响),绝不放行;
+//   · source 只可能是这两值之一,其余('none'/'ledger-broken'/'error')一律红;
+//   · 两档各自的形状断言分开写:face 档读到的必须都是 PROJECT_PLAN_*.md,
+//     ledger 档条目必须自述 ledger 且 gapIds > 0(空编号早在 ledgerCorpus 就 error 掉了)。
+function assertCorpusOnFace(face, label) {
+  const res = readArchiveCorpus(face, ROOT_DIR)
+  assert.equal(res.error, null, `${label}取材失败(未判定不得当通过):${res.error}`)
+  assert.ok(
+    res.enumerated > 0,
+    `${label}归档件与退役 ledger 双双枚举到 0(source=${res.source})⇒ 无法判定 —— 空扫不是"没有归档"`,
+  )
   assert.equal(res.archives.length, res.enumerated - res.missing.length, '枚举数必须 = 读到 + 点名缺的,不得静默少一份')
   assert.ok(
-    res.archives.every((a) => ARCHIVE_FILE_RE.test(a.path)),
-    '读到的必须都是 PROJECT_PLAN_*.md 形状(别的归档件不参与本判据)',
+    res.source === 'face' || res.source === 'retirement-ledger',
+    `${label}凭据来源只可能是面档或退役 ledger,实得 ${res.source}`,
   )
+  if (res.source === 'face') {
+    assert.ok(
+      res.archives.every((a) => !a.ledger && ARCHIVE_FILE_RE.test(a.path)),
+      '面档来源读到的必须都是 PROJECT_PLAN_*.md 形状(别的归档件不参与本判据)',
+    )
+  } else {
+    assert.ok(
+      res.archives.every((a) => a.ledger === true && a.gapIds > 0 && typeof a.text === 'string' && a.text.trim()),
+      'ledger 来源条目必须带 ledger:true 与非空编号集合,且正文就是那批编号',
+    )
+    assert.ok(
+      res.archives.every((a) => ARCHIVE_FILE_RE.test(a.path) === false),
+      'ledger 条目不得伪装成 PROJECT_PLAN_*.md 形状(两源必须可分辨)',
+    )
+  }
+  return res
+}
+
+test('真仓取材:HEAD 面上的补偿凭据必须真被枚举到(空扫 = 尺子失效,不是"没有归档")', () => {
+  assertCorpusOnFace('head', 'HEAD 树面:')
+})
+
+test('真仓取材(索引面):同一把尺子在 --staged 档也必须枚举到 >0,不许有一档失明', () => {
+  assertCorpusOnFace('staged', '索引面:')
+})
+
+// ═══ 2026-10-16 新语义①:归档补偿维的第二来源(退役留痕 ledger)═══════════════════
+//
+// 门体只在**面上归档件为 0** 时才去同一面取 ledger;面上有归档件 ⇒ 一律用归档件。
+// 三态纪律(§0.3):取到 ⇒ 顶上;缺文件 ⇒ absent(交调用方判死);形状坏 ⇒ error(点名,绝不静默当"没有那份")。
+
+test('ledgerCorpus 四态成对:正常 / 缺文件 / 坏 JSON / gapIds 形状不对,每种只有一条出路', () => {
+  const good = ledgerCorpus(JSON.stringify({ gapIds: ['G-10', 'G-11', 'G-12'], sourceCommit: 'a'.repeat(40) }), 'ledger.json')
+  assert.equal(good.error, null, `正常 ledger 不该报错:${good.error}`)
+  assert.equal(good.absent, false)
+  assert.equal(good.archives.length, 1, '一份 ledger 只合成一条归档面条目')
+  assert.equal(good.archives[0].gapIds, 3, 'gapIds 必须逐条数出来,不得只报"有一份"')
+  assert.equal(good.archives[0].ledger, true, '条目必须自述 ledger(这是 mode 切换的唯一凭据形状)')
+  assert.match(good.archives[0].path, /^ledger\.json#gapIds$/, 'path 必须点名来源与字段,便于人工复核')
+  assert.equal(good.archives[0].text, 'G-10\nG-11\nG-12', '正文 = 编号换行拼接')
+  assert.equal(good.archives[0].sourceCommit, 'a'.repeat(40))
+
+  for (const [miss, label] of [['', '空文本'], ['   \n  ', '纯空白']]) {
+    const r = ledgerCorpus(miss, 'ledger.json')
+    assert.equal(r.absent, true, `${label} 必须判 absent(缺文件 ≠ 形状坏)`)
+    assert.equal(r.error, null, `${label} 不得冒充 error`)
+    assert.deepEqual(r.archives, [])
+  }
+
+  const broken = ledgerCorpus('{ 这不是 JSON }', 'ledger.json')
+  assert.equal(broken.absent, false, '形状坏绝不能读成"没有那份"')
+  assert.ok(broken.error, '坏 JSON 必须 error 点名')
+  assert.match(broken.error, /不是合法 JSON/, `error 必须说清坏在哪:${broken.error}`)
+  assert.match(broken.error, /ledger\.json/, 'error 必须点名是哪份文件')
+  assert.deepEqual(broken.archives, [])
+
+  for (const bad of ['{"gapIds":[]}', '{"gapIds":null}', '{"gapIds":"G-1"}', '{}', '{"gapIds":[1,2]}', '[]']) {
+    const r = ledgerCorpus(bad, 'ledger.json')
+    assert.equal(r.absent, false, `${bad} 是形状问题,不是缺文件`)
+    assert.ok(r.error && /gapIds/.test(r.error), `${bad} 必须 error 且点名 gapIds,实得:${r.error}`)
+    assert.deepEqual(r.archives, [])
+  }
+})
+
+// ═══ 2026-10-16 新语义②:判据③ 的射程按**凭据形状**切换(绝对式 / 拆半式)═══════════
+//
+// 拆半档只把"台账派生那一半"降级成 note;代码侧被删仍判红;任一输入取不到 ⇒ 回落绝对式。
+// 所有档位用**同一组数字**构造,只有 mode/输入变 ⇒ 测的是射程,不是阈值。
+
+const items = (n) => Array.from({ length: n }, (_, i) => ({ id: `e${i}` }))
+const LEDGER_PARTS = { implemented: items(40), gapCount: 5, elementCountBaseline: 40, mode: 'retirement-ledger' }
+const reds = (out) => out.filter((v) => v.kind === 'inventory-regression')
+const notesOf = (out) => out.filter((v) => v.kind === 'inventory-shortfall-note')
+
+test('checkBaseline① face 档沿用绝对式:文案逐字未动(证明绝对式没被这轮改射程动过)', () => {
+  const out = checkBaseline(60, 103, '(夹具说明)')
+  assert.equal(out.length, 1)
+  assert.equal(out[0].kind, 'inventory-regression')
+  assert.equal(out[0].id, '(inventory)')
+  assert.match(
+    out[0].detail,
+    /^清单条目 60 < 基线 103\(夹具说明\) —— 删任务行或删已实现元素必须同 PR 说明理由并调基线;基线不为变绿而下调,本判据的\*\*阈值\*\*不是本票的可调项$/,
+  )
+  // 持平/上涨一律不判红(绝对式本身没被改成"只报数")
+  assert.deepEqual(checkBaseline(103, 103, '', { mode: 'face' }), [])
+  assert.deepEqual(checkBaseline(104, 103, '', { mode: 'face' }), [])
+})
+
+test('checkBaseline② 拆半档:代码侧够而台账派生不足 ⇒ 只出 note,violations 为 0', () => {
+  const out = checkBaseline(45, 103, '(夹具说明)', LEDGER_PARTS)
+  assert.equal(reds(out).length, 0, `同一组数字在 face 档是红,拆半档必须放行台账派生那一半:${JSON.stringify(out)}`)
+  const ns = notesOf(out)
+  assert.equal(ns.length, 1)
+  assert.equal(ns[0].id, '(inventory-plan-derive)')
+  assert.match(ns[0].detail, /台账派生编号 5 < 额度 63/, `note 必须把两个数都报出来:${ns[0].detail}`)
+  assert.match(ns[0].detail, /不判红/, 'note 自己必须说明这是存量、不判红')
+  assert.equal(out.length, ns.length, '拆半档这一支不得混进任何判红种类')
+})
+
+test('checkBaseline③ 拆半档仍拦代码侧:entryCount − gapCount < elementCountBaseline ⇒ 必红并点出两个数', () => {
+  const out = checkBaseline(45, 103, '', { ...LEDGER_PARTS, implemented: items(35), gapCount: 10 })
+  const rs = reds(out)
+  assert.equal(rs.length, 1, `删已实现元素(代码侧 35 < 额度 40)必须被抓:${JSON.stringify(out)}`)
+  assert.match(rs[0].detail, /代码侧条目 35 < 额度 40/)
+  assert.match(rs[0].detail, /entryCount 45/)
+  assert.match(rs[0].detail, /台账派生 10/)
+  assert.equal(rs[0].id, '(inventory)')
+  // 同时台账派生那一半照旧只报数(note 与红并存,互不遮蔽)
+  assert.equal(notesOf(out).length, 1)
+  // 正向对照:代码侧正好持平 ⇒ 只剩 note
+  const ok = checkBaseline(45, 103, '', { ...LEDGER_PARTS, implemented: items(40), gapCount: 5 })
+  assert.equal(reds(ok).length, 0, '代码侧持平不得误伤')
+})
+
+test('checkBaseline④ 拆半档任一输入取不到 ⇒ 回落绝对式判红(宁多拦一次,绝不静默放行)', () => {
+  for (const [label, parts] of [
+    ['缺 elementCountBaseline', { implemented: items(40), gapCount: 5, mode: 'retirement-ledger' }],
+    ['缺 implemented', { gapCount: 5, elementCountBaseline: 40, mode: 'retirement-ledger' }],
+    ['缺 gapCount', { implemented: items(40), elementCountBaseline: 40, mode: 'retirement-ledger' }],
+    ['elementCountBaseline 非数', { implemented: items(40), gapCount: 5, elementCountBaseline: '四十', mode: 'retirement-ledger' }],
+    ['implemented 非数组', { implemented: 40, gapCount: 5, elementCountBaseline: 40, mode: 'retirement-ledger' }],
+    ['parts 整个缺省', undefined],
+  ]) {
+    const out = checkBaseline(45, 103, '', parts)
+    assert.equal(reds(out).length, 1, `${label} ⇒ 必须落回绝对式判红,实得 ${JSON.stringify(out)}`)
+    assert.match(reds(out)[0].detail, /^清单条目 45 < 基线 103/, `${label} 回落的必须是绝对式那句原话`)
+    assert.equal(notesOf(out).length, 0, '回落档不得同时产 note')
+  }
+  // 正向对照:三样输入齐备时同一组数字走拆半(证明上面不是无脑判红)
+  assert.equal(reds(checkBaseline(45, 103, '', LEDGER_PARTS)).length, 0)
+})
+
+test('checkBaseline⑤ 变异对照:只有 mode 变、数字一律不动 ⇒ 射程真的由凭据形状驱动', () => {
+  for (const mode of [undefined, null, '', 'face', 'FACE', 'ledger', 'retirement-ledger-x', 0, true]) {
+    const out = checkBaseline(45, 103, '', { ...LEDGER_PARTS, mode })
+    assert.equal(reds(out).length, 1, `mode=${JSON.stringify(mode)} 必须走绝对式(拆半档只认 'retirement-ledger' 这一个值)`)
+    assert.equal(notesOf(out).length, 0, `mode=${JSON.stringify(mode)} 不得产 note`)
+  }
+  const halved = checkBaseline(45, 103, '', { ...LEDGER_PARTS, mode: 'retirement-ledger' })
+  assert.equal(reds(halved).length, 0)
+  assert.equal(notesOf(halved).length, 1)
+})
+
+test('runChecks 集成:凭据形状是 ledger ⇒ note 进 inventoryNotes、绝不混进 violations', () => {
+  const data = baseData({
+    entryCountBaseline: 4,
+    elementCountBaseline: 1,
+    implemented: [{ id: 'ok', anchors: [{ file: 'package.json' }], events: [] }],
+  })
+  const res = runChecks({
+    data,
+    planText: '',
+    contractPy: '',
+    contractTs: '',
+    archives: [{ path: `${LEDGER_REL}#gapIds`, text: 'G-1\nG-2\nG-3', ledger: true, gapIds: 3 }],
+  })
+  assert.equal(res.inventoryNotes.length, 1, `拆半档必须把缺口放进 inventoryNotes:${JSON.stringify(res.violations)}`)
+  assert.equal(res.inventoryNotes[0].kind, 'inventory-shortfall-note')
+  assert.deepEqual(res.violations, [], 'note 不参与退出码:违规出口必须一条不剩')
+  // 反证:同一批输入换成面档形状的凭据 ⇒ mode 切回 face ⇒ 绝对式回来 ⇒ 必红、且不再产 note
+  const face = runChecks({
+    data,
+    planText: '',
+    contractPy: '',
+    contractTs: '',
+    archives: [{ path: '.ihui-agent/archive/PROJECT_PLAN_shape.md', text: 'G-1\nG-2\nG-3' }],
+  })
+  assert.equal(face.inventoryNotes.length, 0)
+  assert.equal(face.violations.filter((v) => v.kind === 'inventory-regression').length, 1)
+})
+
+test('装车锁(2026-10-16 新语义):ledger 兜底 / 两源皆空仍 enumerated:0 / 判死 / note 真打印', () => {
+  const srcText = readFileSync(join(ROOT_DIR, 'scripts', 'check-chat-element-coverage.mjs'), 'utf8')
+  assert.equal(typeof ledgerCorpus, 'function', '源脚本必须把 ledgerCorpus 作为具名导出交出来(测试只 import,不复制)')
+  // ① 面上 0 份 ⇒ 同一面取 ledger,绝不回落磁盘
+  assert.match(srcText, /if \(files\.length === 0\) \{/, '面上没有归档件时必须显式走兜底分支')
+  assert.match(srcText, /const l = ledgerCorpus\(got\.get\(specs\[0\]\)/, 'ledger 内容必须经 catBatch 从被审面取(磁盘副本不构成凭据)')
+  assert.doesNotMatch(srcText, /ledgerCorpus\((readFileSync|existsSync)/, '不得按磁盘读 ledger 当被审内容')
+  assert.match(srcText, /source: 'retirement-ledger'/, '取到 ledger ⇒ 来源必须显式报名')
+  assert.match(srcText, /source: 'ledger-broken'/, '形状坏必须单独一档,不得静默当"没有那份"')
+  // ② 两源皆空仍必须 enumerated:0(退役 ≠ 看不见)
+  assert.match(srcText, /if \(l\.absent\)[\s\S]{0,200}enumerated: 0[\s\S]{0,120}source: 'none'/, '两源皆空必须照旧交调用方判死')
+  assert.match(srcText, /if \(l\.error\)[\s\S]{0,200}enumerated: 0/, 'ledger 形状坏也不得冒计一份凭据')
+  assert.match(srcText, /if \(corpus\.enumerated === 0\)[\s\S]{0,900}\n\s*return 2/, 'main 里枚举到 0 仍 return 2')
+  // ③ 射程只由凭据形状决定,且取不到数就回落绝对式
+  assert.match(srcText, /if \(mode === 'face'\) return absolute\(\)/, 'face 档必须原样沿用绝对式')
+  assert.match(srcText, /if \(els === null \|\| gapCount === null \|\| elementFloor === null\) return absolute\(\)/, '输入取不到必须回落绝对式')
+  assert.match(srcText, /mode: archives\.length > 0 && archives\.every\(\(a\) => a\.ledger === true\) \? 'retirement-ledger' : 'face'/, 'mode 必须由凭据形状推出,不是文案开关')
+  assert.match(srcText, /const codeSide = entryCount - gapCount/, '拆半档必须真算代码侧')
+  // ④ note 必须被打印出去(静默的绿与恒红门同样是本仓记过最多次的坑)
+  assert.match(srcText, /res\.inventoryNotes[\s\S]{0,400}console\.error\(/, 'inventoryNotes 必须打印')
+  assert.match(srcText, /for \(const n of res\.inventoryNotes \?\? \[\]\) console\.error\(/, '逐条打印,不得只报计数')
+  assert.match(srcText, /inventoryNotes\.filter|baselineRes\.filter\(\(v\) => v\.kind === 'inventory-shortfall-note'\)/, 'note 与判红必须在源头就分桶')
 })
 
 // ─── 端到面(私有索引注入):证明"审面"这条判据真的有牙 ─────────────────────────
@@ -524,7 +734,8 @@ function gitIn(args, env, input) {
 }
 
 /**
- * @param {{planText:string|null, archiveText:string|null, dropRealArchives:boolean}} spec
+ * @param {{planText:string|null, archiveText:string|null, dropRealArchives:boolean,
+ *          dropLedger?:boolean, ledgerText?:string|null}} spec
  * @returns {{rc:number, out:string}}
  */
 function runStagedWithPrivateIndex(spec) {
@@ -539,6 +750,9 @@ function runStagedWithPrivateIndex(spec) {
     if (spec.dropRealArchives) {
       for (const p of realArchives) gitIn(['update-index', '--force-remove', p], env)
     }
+    // 补偿维的第二来源(2026-10-16):面上归档件为 0 时由退役 ledger 顶上。
+    // 想测"两个来源都空 ⇒ 判死"必须把**它也从私有索引里摘掉**,否则测的只是"还没提交"。
+    if (spec.dropLedger) gitIn(['update-index', '--force-remove', LEDGER_REL], env)
     if (spec.planText !== null) {
       const f = join(dir, 'plan.md')
       writeFileSync(f, spec.planText, 'utf8')
@@ -553,6 +767,12 @@ function runStagedWithPrivateIndex(spec) {
         ['update-index', '--add', '--cacheinfo', `100644,${sha},.ihui-agent/archive/PROJECT_PLAN_E2E-injected.md`],
         env,
       )
+    }
+    if (typeof spec.ledgerText === 'string') {
+      const f = join(dir, 'ledger.json')
+      writeFileSync(f, spec.ledgerText, 'utf8')
+      const sha = gitIn(['hash-object', '-w', f], env).trim()
+      gitIn(['update-index', '--add', '--cacheinfo', `100644,${sha},${LEDGER_REL}`], env)
     }
     // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
     const r = spawnSync(process.execPath, [join(ROOT_DIR, 'scripts', 'check-chat-element-coverage.mjs'), '--staged'], {
@@ -579,7 +799,14 @@ function runStagedWithPrivateIndex(spec) {
 // 真实 D 行照旧全量取(仍用真语料,台账一行都不留),不足下限时补造样行 —— 每条带**互不相同**
 // 的 `G-<n>`,并用源脚本自己的 `gapIdsOfText`(§22c,不复制判据)复核"这批真贡献了 ≥下限个编号",
 // 造样因此不可能退化成空转装饰。台账面归零后两臂照样成立。
-const MOVED_MIN = 20
+//
+// 2026-10-16 门体把判据③ 的射程改成**按凭据形状切换**后,这个下限换了算法而不是被调低:
+// 注入归档件 ⇒ 面上有 PROJECT_PLAN_*.md ⇒ `source='face'` ⇒ mode='face' ⇒ **绝对式原样生效**
+// (`entryCount < entryCountBaseline` 判红)。夹具把台账 D 行清空成 0 条贡献,于是全部额度必须由
+// 那一份注入的归档件补回 ⇒ 下限 = entryCountBaseline − implemented.length(当次实测 103 − 40 = 63)。
+// 两个数都从台账现读,不写死:额度或已实现元素一变,下限跟着走,构造仍然自证。
+const GAP_FLOOR = LEDGER.entryCountBaseline - LEDGER.implemented.length
+const MOVED_MIN = Math.max(20, GAP_FLOOR)
 
 function buildMovedBatch() {
   const headPlan = gitIn(['show', 'HEAD:PROJECT_PLAN.md'], { ...process.env, GIT_INDEX_FILE: undefined })
@@ -601,6 +828,10 @@ function buildMovedBatch() {
 }
 
 test('夹具自证:批量下限由构造保证,与台账面上剩几行无关', () => {
+  // 下限算式的两个输入必须同源:拆半档用的额度也是 implemented.length,两处一旦分叉,
+  // 夹具算出的 MOVED_MIN 就不再是门体真用的那道线。
+  assert.equal(LEDGER.elementCountBaseline, LEDGER.implemented.length, '台账的 elementCountBaseline 必须等于 implemented 条数(拆半档额度同源)')
+  assert.ok(GAP_FLOOR > 0, `额度算出 ${GAP_FLOOR} ≤ 0 ⇒ 台账数据自相矛盾(entryCountBaseline ${LEDGER.entryCountBaseline} / implemented ${LEDGER.implemented.length})`)
   const b = buildMovedBatch()
   assert.ok(b.moved.length >= MOVED_MIN, `批量 ${b.moved.length} < 下限 ${MOVED_MIN}`)
   assert.ok(b.ids >= MOVED_MIN, `这批行只贡献 ${b.ids} 个编号 ⇒ 造样是空转装饰,不是批量`)
@@ -612,19 +843,24 @@ test('端到端①(牙):台账里整批 D 行消失、同字逐字出现在同�
   const a = runStagedWithPrivateIndex({
     planText: kept.join('\n'),
     archiveText: `# 已归档(E2E 注入,内容 = 从台账搬走的原文逐字)\n\n${moved.join('\n')}\n`,
-    // 保留真实归档件:台账清空后 rc=0 只能由"归档面确实带着那一行"换来(基线 103 = 63 条 G-ID
-    // + 40 个已实现元素,而本夹具让台账贡献 0 条),不靠夹具自己凑数。
+    // 保留真实归档件:台账清空后 rc=0 只能由"归档面确实带着那一行"换来(基线 = 额度条 G-ID
+    // + implemented 个已实现元素,而本夹具让台账贡献 0 条),不靠夹具自己凑数。
     dropRealArchives: false,
   })
   assert.equal(a.rc, 0, `搬走不得算撤销,实得 rc=${a.rc}\n${a.out}`)
   assert.match(a.out, /planned 任务 0 行/, `夹具必须真把台账的 D 行清空:\n${a.out}`)
   assert.match(a.out, /归档件补回 [1-9]/, `必须报出"归档件补回"的条数,实得:\n${a.out}`)
   assert.doesNotMatch(a.out, /inventory-regression/, `不得判红:\n${a.out}`)
-  // 反向锁:同一批原文若在归档面上找不到,补回数必须掉下来 —— 证明"补回"不是常量装饰
-  const cov = gitIn(['ls-files', '--', '.ihui-agent/archive'], { ...process.env, GIT_INDEX_FILE: undefined })
-    .split('\n')
-    .filter((p) => ARCHIVE_FILE_RE.test(p)).length
-  assert.ok(cov > 0, '归档面在本仓必须非空(否则本用例的 rc=0 无从谈起)')
+  // 射程锁:面上有归档件 ⇒ 必须走绝对式('face'),而不是拿拆半档的 note 当后门把这一臂糊过去。
+  // (note 只在 source='retirement-ledger' 时才可能产生,所以这里"没有 note"就是"mode=face"的证据。)
+  assert.doesNotMatch(a.out, /inventory-shortfall-note/, `注入归档件后 mode 必须切回 face 绝对式,实得:\n${a.out}`)
+  assert.doesNotMatch(a.out, /本维改用入库退役 ledger/, '面档凭据在场时 ledger 不得抢来源(见端到端④)')
+  // 反向锁:补偿凭据在本仓必须真存在(两源任一),否则本门日常就只是"判死"而非"判过"
+  const corpus = readArchiveCorpus('staged', ROOT_DIR)
+  assert.ok(
+    corpus.enumerated > 0 && (corpus.source === 'face' || corpus.source === 'retirement-ledger'),
+    `本仓审面必须带着补偿凭据(归档件或退役 ledger),实得 enumerated=${corpus.enumerated} source=${corpus.source}`,
+  )
 })
 
 test('端到端②(反向对照):台账与归档件**两侧都没有**那批行 ⇒ --staged 仍判红并点名', () => {
@@ -633,16 +869,53 @@ test('端到端②(反向对照):台账与归档件**两侧都没有**那批行 
     planText: kept.join('\n'),
     archiveText: '# 已归档(E2E 注入,里面一行任务行都没有)\n\n普通散文,不含 D 族行。\n',
     dropRealArchives: true,
+    // 补偿来源整批摘掉(面档被注入的散文件替掉、ledger 也从私有索引摘走)⇒
+    // 这一臂测的是"摘掉补偿来源仍能测出红",牙必须留在这里。
+    dropLedger: true,
   })
   assert.equal(b.rc, 1, `两侧都无必须判红,实得 rc=${b.rc}\n${b.out}`)
   assert.match(b.out, /inventory-regression/, `必须点名条目倒退:\n${b.out}`)
+  assert.doesNotMatch(b.out, /inventory-shortfall-note/, '判红那一档不得同时把缺口降级成 note')
   assert.ok(moved.length >= MOVED_MIN, `夹具不成立:造样后批量仍只有 ${moved.length} 行`)
 })
 
-test('端到端③(判死):归档面枚举到 0 个候选 ⇒ exit 2「无法判定」,不得记绿', () => {
-  const c = runStagedWithPrivateIndex({ planText: null, archiveText: null, dropRealArchives: true })
+test('端到端③(判死):归档件与退役 ledger **两个来源都空** ⇒ exit 2「无法判定」,不得记绿', () => {
+  const c = runStagedWithPrivateIndex({
+    planText: null,
+    archiveText: null,
+    dropRealArchives: true,
+    dropLedger: true,
+  })
   assert.equal(c.rc, 2, `空枚举必须判死,实得 rc=${c.rc}\n${c.out}`)
   assert.match(c.out, /枚举到 0 份/, `必须点名是"枚举失效"而不是"没有违规":\n${c.out}`)
+  assert.match(c.out, /两个来源都空/, '退役 ledger 也在同一句里点名,否则"archive 搬家"会被读成唯一病因')
 })
 
+// 来源优先级:ledger 只是"归档件整批退出"时的顶班凭据,**不得顶掉面上的真凭据**。
+// 两臂都在私有索引里造出 ledger(内容 = 真 ledger 文件原文,不经它就无法证明"它在场"),
+// 一臂再加一份面上归档件 ⇒ 必须读归档件(source='face')、不打印 ledger 那一行。
+test('端到端④(来源优先级锁):面上同时有归档件与退役 ledger ⇒ 必须用归档件,ledger 不得顶掉真凭据', () => {
+  const { kept, moved } = buildMovedBatch()
+  const ledgerText = readFileSync(join(ROOT_DIR, LEDGER_REL), 'utf8')
+  assert.ok(ledgerText.trim(), `${LEDGER_REL} 取不到或为空 ⇒ 本臂的凭据无从构造(取不到就明说,不静默换夹具)`)
+  const both = runStagedWithPrivateIndex({
+    planText: kept.join('\n'),
+    archiveText: `# 已归档(E2E 注入,与 ledger 同面并存)\n\n${moved.join('\n')}\n`,
+    dropRealArchives: true,
+    ledgerText,
+  })
+  assert.doesNotMatch(both.out, /本维改用入库退役 ledger/, `ledger 在场也不得抢来源:\n${both.out}`)
+  assert.match(both.out, /归档件补回 [1-9]/, `来源必须是面档归档件(补回数只有它给得出):\n${both.out}`)
+  assert.doesNotMatch(both.out, /inventory-shortfall-note/, '面档在场 ⇒ mode 必须是 face 绝对式')
+  assert.equal(both.rc, 0, `面档凭据足够时不得判红,实得 rc=${both.rc}\n${both.out}`)
+  // 正向对照(同面只留 ledger):来源切到 ledger,那一行必须打印出来 —— 证明上一条 doesNotMatch 有牙
+  const only = runStagedWithPrivateIndex({
+    planText: kept.join('\n'),
+    archiveText: null,
+    dropRealArchives: true,
+    ledgerText,
+  })
+  assert.match(only.out, /本维改用入库退役 ledger/, `只剩 ledger 时必须报名:\n${only.out}`)
+  assert.match(only.out, /归档件补回 0/, 'ledger 正文是裸编号,不得被当成"面档补回"混计')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
