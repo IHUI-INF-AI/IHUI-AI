@@ -408,7 +408,11 @@ test('面·形状锁:全量档只问 `ls-files --cached`,不得重新带上 --ot
 test('面·行为锁:在册源文件与 tmp 落点都在面内,被忽略的第三方缓存不在', () => {
   const face = hygiene.getFullFaceFiles()
   assert.equal(face.ok, true, `取面失败(不得冒绿):${face.reason}`)
-  const rel = face.files.map((f) => relative(PROJECT_ROOT, f).replaceAll('\\', '/'))
+  // 新形状:faceFiles = 被审面上的在册件(仓库相对、正斜杠);diskFiles = 只存在于磁盘的并入件
+  const rel = [
+    ...face.faceFiles.map((f) => String(f).replaceAll('\\', '/')),
+    ...face.diskFiles.map((f) => relative(PROJECT_ROOT, f).replaceAll('\\', '/')),
+  ]
   assert.ok(rel.includes('scripts/check-workspace-hygiene.mjs'), '在册源文件必须仍在射程内')
   // tmp 落点的并入用"形状 + 行为"两把尺:盘上有 .mjs 就必须量到(行为),没有也不能让本臂变脆
   const onDisk = existsSync(hygiene.TMP_LANDING_DIR)
@@ -418,7 +422,7 @@ test('面·行为锁:在册源文件与 tmp 落点都在面内,被忽略的第�
     : []
   assert.match(
     readFileSync(SCRIPT_PATH, 'utf8'),
-    /files: \[\.\.\.tracked, \.\.\.scanDir\(TMP_LANDING_DIR\)\]/,
+    /faceFiles: tracked, diskFiles: scanDir\(TMP_LANDING_DIR\)/,
     '§25 的临时脚本落点必须并进全量面 —— 收面不等于缩射程',
   )
   if (onDisk.length > 0) {
@@ -442,3 +446,27 @@ test('面·取不到与枚举为 0 都走「未判定」,不记绿也不冒红',
   assert.match(src, /未判定\(取材失败\)[\s\S]{0,220}process\.exit\(2\)/, '取材失败分支必须 exit 2')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ── 面·内容取材锁(G-949 同族,2026-10-17 立)──────────────────────────────
+// 本门从前"清单走在册面、内容走磁盘":共享工作树里等于把别人没提交的旧态当被审内容判
+// (守门 118 判这一型为 half-wired —— 管子共用不等于面共用)。下面三条锁钉的就是这一格。
+test('面·内容规格:head 走 HEAD:rel,staged 走 :rel(索引 blob),不混面', () => {
+  assert.equal(hygiene.faceSpecOf('head', 'a/b.mjs'), 'HEAD:a/b.mjs')
+  assert.equal(hygiene.faceSpecOf('staged', 'a/b.mjs'), ':a/b.mjs')
+})
+
+test('面·在册件确实从被审面取到内容并判(不是磁盘)', () => {
+  const r = hygiene.scanSetFromFace(PROJECT_ROOT, 'head', ['scripts/check-workspace-hygiene.mjs'])
+  assert.equal(r.scanned, 1, 'HEAD 面上这个在册件必然取得到')
+  assert.equal(r.unreadable.length, 0, '取得到却记未判定 ⇒ 判据在骗人')
+  assert.deepEqual(r.violations, [], '本门自身在被审面上应无违规(有则先修再锁)')
+})
+
+test('面·只在磁盘或只在文档里出现的名字,不得被磁盘回落读成已判(§0.4 不回落另一个面)', () => {
+  // 反证用一条真实事实:此门名曾出现在 AGENTS 索引,但从未存在于任何提交,盘上也没有。
+  const ghost = 'scripts/check-virtualization-coverage.mjs'
+  assert.equal(existsSync(join(PROJECT_ROOT, ghost)), false, '夹具前提:盘上也不该有它')
+  const r = hygiene.scanSetFromFace(PROJECT_ROOT, 'head', [ghost])
+  assert.equal(r.scanned, 0, '面路上没有 blob ⇒ 不得算已扫')
+  assert.deepEqual(r.unreadable, [ghost], '必须落未判定并点名,而不是静默当成没有违规')
+})
