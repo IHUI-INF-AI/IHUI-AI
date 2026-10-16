@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Check, Plus, Search } from 'lucide-react'
+import { Button } from '@ihui/ui-react'
 import { Modal } from '@/components/feedback/Modal'
 import { cn } from '@/lib/utils'
 import type { NavItem } from './types'
@@ -198,15 +199,10 @@ export function CustomNavDialog({
       size="lg"
       footer={
         // 选择即生效(勾选/取消实时写入,无需"应用"步骤),「确定」只负责收口关窗。
-        // 样式对齐项目弹窗主按钮惯例(bg-foreground,见 environment-commit-dialog)。
-        <button
-          type="button"
-          onClick={onClose}
-          data-testid="nav-custom-done"
-          className="inline-flex h-8 items-center justify-center rounded-md bg-foreground px-4 text-xs font-medium text-background transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
+        // 主按钮只走共享 <Button>(尺寸/圆角/CTA 色对都由单一源头给),不得在这里手搓 class。
+        <Button variant="primary" size="sm" data-testid="nav-custom-done" onClick={onClose}>
           {tCommon('ok')}
-        </button>
+        </Button>
       }
     >
       <div className="flex flex-col gap-3">
