@@ -25,18 +25,22 @@
  * 四档 windows-x86_64 / linux-x86_64 / darwin-x86_64 / darwin-aarch64、version 0.1.49)。
  * 本文件是该 feed 的同源别名,全仓无运行期调用方(只有注释互引)—— 不得把它当更新器出口来"修"。
  */
-import { DESKTOP_FEED } from '@/config/desktop-feed.generated'
 import { buildDesktopFeedPayload } from '@/config/desktop-feed-payload'
+import { resolveDesktopFeedForUpdater } from '@/config/desktop-feed-live'
 
-export const dynamic = 'force-static'
+export const revalidate = 600
 
-export function GET() {
-  const payload = buildDesktopFeedPayload(DESKTOP_FEED)
+export async function GET() {
+  const feed = await resolveDesktopFeedForUpdater()
+  const payload = buildDesktopFeedPayload(feed)
   if (!payload) {
     return Response.json({ error: 'no windows asset in snapshot' }, { status: 404 })
   }
   return Response.json(payload, {
-    headers: { 'Cache-Control': 'public, max-age=300' },
+    headers: {
+      'Cache-Control': 'public, max-age=300',
+      'X-Desktop-Feed-Version': feed.version,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
