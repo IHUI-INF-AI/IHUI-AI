@@ -132,7 +132,7 @@ test('L8 存量 > 0 ⇒ 派生复清,且走 process.execPath + 绝对路径 + --
   assert.equal(seen.length, 2, `回捞 + 复清各一次,实测 ${seen.length}`)
   const [cmd, argline] = seen[1]
   assert.equal(cmd, process.execPath, '复清派生必须用 process.execPath(裸 node 依赖 PATH)')
-  assert.match(argline, /plan-pointer-purge\.mjs --apply$/, `必须带 --apply 真复清,实测 ${argline}`)
+  assert.match(argline, /plan-pointer-purge\.mjs --apply --absorb$/, `必须带 --apply 真复清(10-15 起还须带 --absorb,否则无注记的真副本折不掉),实测 ${argline}`)
   assert.equal(r.purge.residue, 1)
   assert.equal(r.purge.ok, true)
   assert.ok(heard.some((s) => /复清|带回/.test(s)), `必须喊出来,实测 ${JSON.stringify(heard)}`)
