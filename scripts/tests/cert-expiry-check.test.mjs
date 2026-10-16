@@ -18,7 +18,8 @@
  */
 
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
-import { copyFileSync, writeFileSync, readFileSync } from 'node:fs'
+import { copyFileSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
+import { generateKeyPairSync } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -38,8 +39,24 @@ function fixture() {
   // 绕开出口 ⇒ gitdir/scratch 的夹具闸与退出清理对这一族零覆盖)。
   const dir = mkScratch('cert-mirror-')
   try {
-    for (const f of ['apiclient_cert.pem', 'apiclient_key.pem', 'pub_key.pem'])
+    for (const f of ['apiclient_cert.pem', 'apiclient_key.pem'])
       copyFileSync(join(REPO, 'cert', f), join(dir, f))
+    // `pub_key.pem` 是微信支付"公钥模式"的**运维投放件**(`git log -- cert/pub_key.pem` 零历史,
+    // 从未入库)⇒ 换一台机 / 干净检出上它就是不存在。镜像测试不得因为"这台机没投这个件"而红
+    // (§12e:判机器状态的断言钉成 blocking = 唯一结局是逼人跳门)。本夹具要的只是"一份形如
+    // SPKI 公钥的 PEM"这一**内容形态**——被测判据按内容归桶、不验凭据真伪 —— 故就地合成一把公钥
+    // (只导出 publicKey,不落任何私钥材料),真件在位时仍优先用真件。
+    const realPub = join(REPO, 'cert', 'pub_key.pem')
+    if (existsSync(realPub)) copyFileSync(realPub, join(dir, 'pub_key.pem'))
+    else
+      writeFileSync(
+        join(dir, 'pub_key.pem'),
+        generateKeyPairSync('rsa', { modulusLength: 2048 }).publicKey.export({
+          type: 'spki',
+          format: 'pem',
+        }),
+        'utf8',
+      )
     // 一个既不是证书也不是密钥的 PEM 形态:必须落"未判定",不得被算成 ok 或 error
     writeFileSync(join(dir, 'weird.pem'), '-----BEGIN X509 CRL-----\nQUJD\n-----END X509 CRL-----\n')
   } catch (e) {
