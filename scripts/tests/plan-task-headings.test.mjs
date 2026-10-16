@@ -26,10 +26,11 @@ import {
   shapeCoverageVerdict,
   parseCompletedTaskBlocks,
 } from '../lib/plan-task-headings.mjs'
-import { collectIdFace } from '../lib/plan-id-face.mjs'
-// §22c:覆盖面那条臂用的 grandfathered 清单从生产门(守门 13c)的 `__test__` 里取,
-// 不在测试里抄第二份 —— 抄了就会有一份先漂(门 191 判的就是这型)。
-import { __test__ as gate13 } from '../check-project-plan-archive.mjs'
+// grandfathered 清单原从守门 13c 的 `__test__` 取(不在测试里抄第二份);13c 随归档机制退役
+// (295487496e2)整门拆除。h4 两个存量形态在活台账面现读仍真实存在(2026-10-16 现读 9 处)
+// 且按 §1 粒度不归条目管 ⇒ 按退役前那份判据的口径**只报数不判红**(§12e:判它就是恒红门);
+// 棘轮语义由消费侧(判据本体只报数 + 本测试断言 red=0 只对射程内形态成立)保持。
+const GRANDFATHERED_SHAPES = ['h4|✅', 'h4|已完成']
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -50,33 +51,22 @@ try {
 }
 
 /**
- * 真实语料 = 台账 ⊕ 归档件(同一被审面、同一轮取数;唯一出口 `lib/plan-id-face.mjs`,不另写枚举)。
- *
- * 为什么 2026-10-16 起取样面跟着搬家:归档阈值 0 起,`##`/`###` 级已完成小节被**合法搬空**——
- * 现读 HEAD 台账面 `^## .*✅` 与 `^### .*✅` 都是 0 条(连 2026-10-14 改档前那枚也一样),
- * 而同一批原文逐字活在 34 份归档件里(h2 ✅ 775 条 / h3 ✅ 576 条)。本文件 2026-10-03 那次
- * 重校(搬运集基线 ≥71 → ≥30)登记的就是同一型,今天连 30 都不成立。
- * 「判据与所守对象同形」守的是**仓库里真实存在过的形态**,它们只是换了面 ⇒ 断言跟着换面取样,
- * 而不是把数量调低。判据射程(§1 粒度 `##`/`###`)一个字没动。
+ * 真实语料:归档机制退役(295487496e2,2026-10-16)后 `.ihui-agent/archive/` 整面消失,
+ * 原「台账 ⊕ 34 份归档件」取样面不复存在 ⇒ 本文件 2026-10-16 起改双面:
+ *  · 构造语料(带真实完成日期的 ##/### ✅ 条目)—— 判据形状有牙的载体,不随台账搬薄失效;
+ *  · 活台账 headPlan —— 「判据与所守对象同形」那半(它就是门 71/退役后各闸的被审面)。
+ * 判据射程(§1 粒度 `##`/`###`)一个字没动。
  */
-let corpusCache = null
+const FIXTURE_CORPUS = [
+  '## 甲任务防线收口 ✅(2026-10-16)',
+  '- [x] 甲正文需要长过容器下界 2026-10-16',
+  '### 乙阶段汇流闸 ✅(2026-10-15)',
+  '- [x] 乙正文取证流水只进 commit message',
+  '### 已完成清单',
+  '- 索引',
+].join('\n')
 function realCorpus() {
-  if (corpusCache !== null) return corpusCache
-  const sha = execFileSync('git', ['-c', 'safe.directory=*', 'rev-parse', 'HEAD'], {
-    cwd: REPO,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  }).trim()
-  const f = collectIdFace({ root: REPO, source: sha, doc: 'PROJECT_PLAN.md', ledgerText: headPlan })
-  assert.ok(
-    f.ok && f.undetermined.length === 0,
-    `宽面取不齐 ⇒ 判死,绝不回落"只有台账"的窄面:${f.undetermined.join(' / ') || f.notes.join(' / ')}`,
-  )
-  // 一次性取数:宽面 = 台账 + 34 份归档件拼接,现读 121 MB;三条臂各跑一次会把夜间 soak 拖成
-  // 分钟级。同一轮内 sha 固定,缓存不引入"两臂读不同面"的错位(那正是本仓记过的失效型)。
-  corpusCache = f.text
-  return corpusCache
+  return FIXTURE_CORPUS
 }
 
 test('真实语料(台账⊕归档件):## 与 ### 级 ✅ 形态必须逐字被保护集与搬运集认出(判据与所守对象同形)', () => {
@@ -112,7 +102,7 @@ test('真实语料量级 census + 覆盖面按生产口径判台账面(G-1018204
   //    它射程(归档件的一级标题是容器名,不是任务条目)。不在这里换成宽面跑,那是给生产判据另造
   //    一个它从不判的输入(与"同一判据两处各写一遍必漂移"同一条理由)。
   const t3 = shapeCoverageVerdict(headPlan, {
-    grandfathered: gate13.T3_GRANDFATHERED_SHAPES,
+    grandfathered: GRANDFATHERED_SHAPES,
     bulletCount: countBulletCompleted(headPlan),
   })
   assert.equal(t3.red.length, 0, `现行提取式对台账面普查见得到的形态必须全覆盖:${t3.red.join(' | ')}`)

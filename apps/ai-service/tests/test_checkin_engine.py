@@ -34,6 +34,7 @@ from app.services.checkin_engine import (
     signin_with_retry,
     status_check,
 )
+from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
 
 USER_ID = "1234567890123456"
 
@@ -139,6 +140,10 @@ class TestClassifyError:
     def test_server_5xx(self):
         assert classify_error(502, "bad gateway", None) == ("Server", 600)
 
+    def test_challenge_403(self):
+        """第五件套:403 拦截墙 → Challenge 即时熔断(不再走 4xx 三连击)。"""
+        assert classify_error(403, "forbidden", None) == ("Challenge", CHALLENGE_COOLDOWN_SECONDS)
+
     def test_unknown_network(self):
         assert classify_error(0, "网络异常", None) == ("Unknown", 0)
 
@@ -235,8 +240,56 @@ class TestSigninFlow:
         assert result["ok"] is False
         assert result["classified_error"] == {"type": "SoftRate", "cooldown_seconds": 60}
 
-    async def test_network_timeout_classified(self, jwt, device_map):
-        """网络超时: httpx.TimeoutException → http_status=0，分类 Unknown（不落冷却）。"""
+    async def test_checkin_account_challenge_page_non_json(self, jwt, device_map, monkeypatch):
+        """第五件套:status 预检拿到 2xx 非 JSON(WAF 挑战页)→ Challenge 熔断,
+        且不再发 claim(对挑战墙不双倍请求)。"""
+        monkeypatch.setenv("CHECKIN_OUTBOUND_MIN", "0")
+        monkeypatch.setenv("CHECKIN_OUTBOUND_MAX", "0")
+        calls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(str(request.url))
+            return httpx.Response(200, text="<html><title>请完成安全验证</title></html>")
+
+        async with make_client(handler) as client:
+            result = await checkin_account("u1", jwt, device_map, client=client)
+        assert result["ok"] is False
+        assert result["classified_error"] == {
+            "type": "Challenge",
+            "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+        }
+        assert len(calls) == 1  # 只在 status 预检处熔断,未继续 claim
+
+    async def test_checkin_account_challenge_403(self, jwt, device_map, monkeypatch):
+        """第五件套:claim 路 403(带 JSON 体的拦截墙)→ Challenge 熔断。"""
+        monkeypatch.setenv("CHECKIN_OUTBOUND_MIN", "0")
+        monkeypatch.setenv("CHECKIN_OUTBOUND_MAX", "0")
+        calls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(str(request.url))
+            if "status" in str(request.url):
+                # status 正常放行(未签),让流程走到 claim 再吃 403
+                return httpx.Response(200, json={"code": 0, "checked_in": False, "credits": 5, "message": ""})
+            return httpx.Response(403, json={"code": 40301, "message": "blocked"})
+
+        async with make_client(handler) as client:
+            result = await checkin_account("u1", jwt, device_map, client=client)
+        assert result["ok"] is False
+        assert result["classified_error"] == {
+            "type": "Challenge",
+            "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+        }
+        assert len(calls) == 2  # status + claim 各一发,之后熔断不再重试
+
+    async def test_network_timeout_classified(self, jwt, device_map, monkeypatch):
+        """网络超时: httpx.TimeoutException → http_status=0，分类 Unknown（不落冷却）。
+
+        第五件套回归护栏(2026-10-16 假阳性实证):超时 body 为空同样落
+        「非 JSON 响应」消息,但 status=0 不是 2xx ⇒ 绝不许熔断/暂停。
+        """
+        monkeypatch.setenv("CHECKIN_OUTBOUND_MIN", "0")
+        monkeypatch.setenv("CHECKIN_OUTBOUND_MAX", "0")
 
         def handler(request: httpx.Request) -> httpx.Response:
             raise httpx.ConnectTimeout("timed out", request=request)
@@ -247,6 +300,7 @@ class TestSigninFlow:
             result = await checkin_account("u1", jwt, device_map, client=client)
         assert result["http_status"] == 0
         assert result["classified_error"] is None  # Unknown 不写冷却分类
+        assert checkin_outbound_gate.paused_remaining() == 0  # 未误触熔断暂停
 
     async def test_retry_on_network_error_then_success(self, jwt, device_map):
         """重试路径: 首次网络异常 → 重试后成功；仅网络层异常重试。"""

@@ -8,11 +8,32 @@
  * - 静态资源(/_next/static/*):cache-first
  * - 不缓存 /api/* 与认证相关请求(避免数据不一致与 token 泄露)
  * - 不处理 SSE / 流式响应
+ *
+ * ⚠️ 部署铁律(2026-10-16 根因修复):**每次部署必须让 sw.js 的字节内容发生变化**。
+ *
+ * 病因(实测复现):`CACHE_VERSION` 原为写死的常量 'v2'。部署构建后 sw.js 字节与上一版
+ * 完全一致 ⇒ 浏览器比对脚本内容发现"无变化"⇒ **不触发 install/activate** ⇒ 新 SW 的
+ * 任何逻辑(包括下面的缓存清理)**一次都不会跑** ⇒ 用户端长期停留在旧缓存上。
+ * 表现:新功能已上线、HTML 也是最新的,但页面行为仍是旧的,刷新/清缓存都不一定好。
+ * 修复:SW_BUILD_ID 由构建期注入(见 scripts/stamp-sw-version.mjs),每次部署唯一,
+ * 保证 sw.js 字节必变 ⇒ 必然触发更新 ⇒ activate 里清掉旧 cache。
+ * 若该占位符未被替换(本地直开 / 未走构建脚本),退化为带时间戳的兜底值而不是固定串。
  */
-const CACHE_VERSION = 'v2'
+/*
+ * SW_BUILD_ID 由构建期注入(见 scripts/stamp-sw-version.mjs)。
+ * 未被替换时(本地直开 / 未走构建脚本)会退化为带时间戳的兜底值,而不是固定串 ——
+ * 这里比较的是哨兵串 SW_BUILD_ID_PLACEHOLDER,
+ * 它与构建脚本替换的目标字面量**不是同一个字符串**,所以替换不会破坏本判断。
+ */
+const SW_BUILD_ID = 'SW_BUILD_ID_PLACEHOLDER'
+const CACHE_VERSION =
+  SW_BUILD_ID === 'SW_BUILD_ID_PLACEHOLDER' ? 'dev-' + Date.now() : SW_BUILD_ID
 const CORE_CACHE = `ihui-core-${CACHE_VERSION}`
 const STATIC_CACHE = `ihui-static-${CACHE_VERSION}`
-const CORE_ASSETS = ['/', '/offline.html', '/manifest.json']
+// 注意:这里**不放 '/'**。首页 HTML 若进 precache,install 那一刻的快照会被永久留在
+// CORE_CACHE 里,而页面请求虽走 network-first,离线兜底却会翻出这份陈旧 HTML,
+// 其内引用的 chunk hash 可能已被新构建取代 ⇒ 白屏。只预缓存与业务内容无关的静态壳。
+const CORE_ASSETS = ['/offline.html', '/manifest.json']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -24,6 +45,8 @@ self.addEventListener('install', (event) => {
 })
 
 self.addEventListener('activate', (event) => {
+  // 版本变了 ⇒ 新旧 cache 名不同 ⇒ 这里把非当前的整批删掉。
+  // SW_BUILD_ID 每次部署唯一,所以这段代码现在**每次部署都会真的执行**(修复前从不执行)。
   event.waitUntil(
     caches
       .keys()

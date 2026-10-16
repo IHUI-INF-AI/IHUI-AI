@@ -163,20 +163,23 @@ function sha(buf) {
 /**
  * 有界目录量算:只统计普通文件,**绝不跟随重解析点**(§26),到预算即停并如实标 truncated。
  * 返回 null = 量不到(目录不存在 / 权限),调用方必须落成"未判定"而不是 0。
+ * `byTop: true` 在同一次遍历里顺带按**顶层条目**归集文件数/字节/最后一次动过的时刻,
+ * 供红档点名归属(不额外走第二遍树);不带该选项时返回 `top: null`,口径与旧版逐字相同。
  */
-export function measureDir(path, { maxEntries = 120000 } = {}) {
+export function measureDir(path, { maxEntries = 120000, byTop = false } = {}) {
   if (!existsSync(path)) return null
   let bytes = 0
   let entries = 0
   let truncated = false
-  const stack = [path]
+  const top = byTop ? new Map() : null
+  const stack = [{ dir: path, owner: null }]
   try {
     if (lstatSync(path).isSymbolicLink() || lstatSync(path).isFile()) return null
   } catch {
     return null
   }
   while (stack.length) {
-    const dir = stack.pop()
+    const { dir, owner } = stack.pop()
     let names
     try {
       names = readdirSync(dir)
@@ -197,17 +200,84 @@ export function measureDir(path, { maxEntries = 120000 } = {}) {
       }
       if (st.isSymbolicLink()) continue // 重解析点:断链与穿透都不得发生在这里
       if (st.isDirectory()) {
-        stack.push(p)
+        stack.push({ dir: p, owner: top ? (owner ?? name) : null })
         continue
       }
       if (st.isFile()) {
         entries += 1
         bytes += st.size
+        if (top) {
+          const key = owner ?? '(顶层散文件)'
+          let t = top.get(key)
+          if (!t) {
+            t = { name: key, files: 0, bytes: 0, newestMs: 0 }
+            top.set(key, t)
+          }
+          t.files += 1
+          t.bytes += st.size
+          if (st.mtimeMs > t.newestMs) t.newestMs = st.mtimeMs
+        }
       }
     }
     if (truncated) break
   }
-  return { bytes, entries, truncated }
+  return {
+    bytes,
+    entries,
+    truncated,
+    top: top ? [...top.values()].sort((a, b) => b.files - a.files) : null,
+  }
+}
+
+/**
+ * 外部系统程序必须**先按绝对路径取**,取不到才回落裸名(2026-10-16 立)。
+ *
+ * 立因是实测,但**成因尚未分离**,所以这一处把两个候选一次堵死,并让它自己报名:
+ *   现读事实:「2 格未判定 —— P3, P5·网盘同步客户端」每轮都出现在调度器那一档,而手工跑两格都绿;
+ *   这两格恰是全巡检里**仅有的两处靠裸名派生外部程序**的(`w32tm.exe` / `tasklist.exe`)。
+ *   已被现读否证的假设:"机器级 PATH 缺 system32"(HKLM 里在,且同一执行体下裸名 `cscript.exe` 解析成功,
+ *   错的是 ETIMEDOUT 而非 ENOENT)。剩下的两个候选 —— ① 执行体继承的环境块与交互档不同(nssm 可覆写 PATH),
+ *   ② 外部程序的**输出形状随登录账户区域设置变**(常驻档身份 NT AUTHORITY\SYSTEM 默认 en-US,交互档 zh-CN)。
+ *   ① 由本函数堵死(绝对路径优先,不依赖 PATH);② 由 `parseLastSync` 补 en-US 那一形堵死。
+ *   到底哪一档起的作用不必再猜:ok 分支的 detail 现在带 `(取用=绝对路径|裸名兜底)`,
+ *   盘上凭据在 `.workbuddy/ops-patrol-last.json`。修后现读:两档执行体都成「21 格绿(0 格未判定)」(自 10:53Z 起)。
+ * 根一律取 `%SystemRoot%`(AGENTS §26:不得硬编码 C 盘);量不到根就只剩裸名一档,
+ * 并把"试过哪些路径"写进未判定原因 —— 失明必须说得清为什么瞎(§0.3),不得只报格名。
+ *
+ * 纯函数 + 注入 `env`/`exists`:判据要能在非 Windows runner 上被成对夹具判,而不是靠当次机器态。
+ */
+export const SYSTEM32_SUBDIR = 'System32'
+
+/**
+ * 裸名派生的形状锁材料(§22c 单一出处):门内自检与 §22c 镜像测试都吃这一份。
+ * 拆成两份的失效形态是"门改了形状而测试仍绿" —— 那正是本仓记过多次的安静失效。
+ */
+export const CALLSITE_SHAPE = {
+  bareCallRe: /execFileSync\(\s*['"](?:w32tm|tasklist)/,
+  resolverCallRe: /resolveSystemExe\(/g,
+  resolverCalls: 2,
+  whyRe: /running: null, why:/,
+  viaRe: /取用档=/,
+}
+
+export function systemExePaths(name, env = process.env) {
+  const root = env.SystemRoot || env.windir || env.WINDIR || ''
+  const out = []
+  if (root) out.push(join(root, SYSTEM32_SUBDIR, name))
+  out.push(name)
+  return out
+}
+
+export function resolveSystemExe(name, { env = process.env, exists = existsSync } = {}) {
+  const tried = systemExePaths(name, env)
+  for (const c of tried) {
+    try {
+      if (exists(c)) return { exe: c, tried, via: '绝对路径' }
+    } catch {
+      /* 单条探测失败不终结整轮:继续试下一档 */
+    }
+  }
+  return { exe: tried[tried.length - 1], tried, via: '裸名兜底(绝对路径一档都没命中)' }
 }
 
 /** 年龄判定三态:量不到 → undetermined;超阈 → finding;否则 ok。 */
@@ -233,12 +303,42 @@ export function parseLastSync(text) {
   for (const line of lines) {
     if (!want.test(line)) continue
     const m = line.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})[ T]?(\d{1,2}):(\d{2}):(\d{2})/)
-    if (!m) continue
-    const pad = (s) => String(s).padStart(2, '0')
-    const t = Date.parse(`${m[1]}-${pad(m[2])}-${pad(m[3])}T${pad(m[4])}:${m[5]}:${m[6]}`)
-    if (Number.isFinite(t)) return t
+    if (m) {
+      const pad = (s) => String(s).padStart(2, '0')
+      const t = Date.parse(`${m[1]}-${pad(m[2])}-${pad(m[3])}T${pad(m[4])}:${m[5]}:${m[6]}`)
+      if (Number.isFinite(t)) return t
+    }
+    // 月在前一档(`9/28/2026 7:52:42 PM`)—— 2026-10-16 立。立据是**身份差**这一条现读事实:
+    // 跑巡检的常驻执行体是 `NT AUTHORITY\SYSTEM`(nssm 服务 IHUI-GIT-GUARD),而计划任务那一档是
+    // Administrator;SYSTEM 用默认用户配置的区域设置 = en-US,交互档 = zh-CN。原先只认年份在前,
+    // 月在前一律解不出 ⇒ 这是 P3 在班次里落"未判定"的两个候选成因之一(另一个是 PATH/取件档,
+    // 由 `resolveSystemExe` 堵;**两者本轮一起补,所以现在不必赌是哪一个**,ok 行自带"取用=哪一档")。
+    // 取值口径按 en-US 的 **月/日/年**;若某台机真是 日/月/年,月份位会 >12 ⇒ Date.parse 得 NaN ⇒
+    // 继续往下掉到"未判定",**失效方向是多要一次说明,绝不会把时钟读成"刚同步过"**(§0.3/§0.10)。
+    const alt = line.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})[ T](\d{1,2}):(\d{2}):(\d{2})\s*([AP]M)/i)
+    if (alt) {
+      let h = Number(alt[4])
+      const mer = alt[7].toUpperCase()
+      if (mer === 'PM' && h < 12) h += 12
+      if (mer === 'AM' && h === 12) h = 0
+      const pad = (s) => String(s).padStart(2, '0')
+      const t = Date.parse(`${alt[3]}-${pad(alt[1])}-${pad(alt[2])}T${pad(h)}:${alt[5]}:${alt[6]}`)
+      if (Number.isFinite(t)) return t
+    }
   }
   return null
+}
+
+/** 未判定时必须给"看见了什么"(遮掉数字只留形状),否则下一轮还是同一条无名盲区。 */
+function rawShapeSample(text, limit = 200) {
+  const s = String(text || '')
+    .split(/\r?\n/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(' ⏎ ')
+    .replace(/\d/g, 'N')
+  return s.slice(0, limit) || '(无输出)'
 }
 
 /**
@@ -268,10 +368,11 @@ export function parseSyncQuality(text) {
   }
 }
 
-function runW32tm() {
+function runW32tm({ env = process.env, exists = existsSync } = {}) {
+  const { exe, tried, via } = resolveSystemExe('w32tm.exe', { env, exists })
   let buf
   try {
-    buf = execFileSync('w32tm.exe', ['/query', '/status'], {
+    buf = execFileSync(exe, ['/query', '/status'], {
       windowsHide: true,
       timeout: 15000,
       maxBuffer: 1 << 20,
@@ -279,11 +380,11 @@ function runW32tm() {
       encoding: 'buffer',
     })
   } catch (e) {
-    return { text: null, why: `w32tm 派生失败:${e?.code || e?.message || '未知'}` }
+    return { text: null, why: `w32tm 派生失败:${e?.code || e?.message || '未知'}(取用档=${via};试过 ${tried.join(' | ')})` }
   }
   const asUtf8 = Buffer.from(buf).toString('utf8')
   const text = parseLastSync(asUtf8) === null ? new TextDecoder('gbk').decode(buf) : asUtf8
-  return { text, why: null }
+  return { text, why: null, via }
 }
 
 function newestMatching(dir, pattern) {
@@ -933,20 +1034,29 @@ export function heartbeatRows({ now, devEnv, databases, execCands = EXEC_CANDIDA
   return rows
 }
 
-export function baiduSyncRunning() {
+export function baiduSyncRunning({ env = process.env, exists = existsSync } = {}) {
+  // 2026-10-07 实测:客户端已升级为 Unite 架构,同步组件进程族 = BaiduNetdiskUnite /
+  // baidunetdiskhost(旧 BaiduNetbox.exe 不再存在);判"客户端在跑"按进程族并判。
+  // 2026-10-16 改**绝对路径优先**并带上失败原因:原先裸名在守护那一档 ENOENT ⇒ 返回 null,
+  // 而 P5 那一行只印「tasklist 派生失败 ⇒ 未判定」,既不说试过哪条路径也不说为什么瞎(§0.3)。
+  const { exe, tried, via } = resolveSystemExe('tasklist.exe', { env, exists })
+  let out
   try {
-    // 2026-10-07 实测:客户端已升级为 Unite 架构,同步组件进程族 = BaiduNetdiskUnite /
-    // baidunetdiskhost(旧 BaiduNetbox.exe 不再存在);判"客户端在跑"按进程族并判。
-    const out = execFileSync('tasklist.exe', ['/FO', 'CSV', '/NH'], {
+    out = execFileSync(exe, ['/FO', 'CSV', '/NH'], {
       windowsHide: true,
       timeout: 15000,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     })
-    return /"?BaiduNetbox\.exe"?|"?BaiduNetdiskUnite\.exe"?|"?baidunetdiskhost\.exe"?/i.test(String(out))
-  } catch {
-    return null
+  } catch (e) {
+    return { running: null, why: `tasklist 派生失败:${e?.code || e?.message || '未知'}(取用档=${via};试过 ${tried.join(' | ')})` }
   }
+  const s = String(out || '')
+  // 空输出/错误文本都不算"进程不在":那一型是**没量到**,把它读成 finding 就是拿盲区冒充故障,
+  // 反过来读成 ok 更是把瞎掉写成健康(§0.3 两向都不许)。
+  if (/^\s*ERROR/i.test(s) || s.split(/\r?\n/).filter((x) => x.includes('.exe')).length < 3)
+    return { running: null, why: `tasklist 有回话但量不到进程清单(前 80 字符:${rawShapeSample(s, 80)})`, via }
+  return { running: /"?BaiduNetbox\.exe"?|"?BaiduNetdiskUnite\.exe"?|"?baidunetdiskhost\.exe"?/i.test(s), why: null, via }
 }
 
 /**
@@ -1043,10 +1153,18 @@ async function reloadEndpoint(url) {
 }
 
 export function checkClock({ now }) {
-  const { text, why } = runW32tm()
+  const { text, why, via } = runW32tm()
   if (why) return { id: 'P3', state: 'undetermined', detail: why }
   const at = parseLastSync(text)
-  if (at === null) return { id: 'P3', state: 'undetermined', detail: '两种标签都没解出"上次成功同步"—— 不猜' }
+  if (at === null)
+    return {
+      id: 'P3',
+      state: 'undetermined',
+      // 盲区必须说得清"看见了什么形状",否则下一轮还是同一条无名未判定(§0.3)。
+      // 数字一律遮成 N 只留形状:这一格每 15 分钟被量一次,逐轮变动的时刻进结论串会把去重打成每轮一封新信
+      // (本文件 P10 头注立过同一条禁令)。
+      detail: `两种标签都没解出"上次成功同步"—— 不猜 | 看到的形状:${rawShapeSample(text)}`,
+    }
   const ageH = (now - at) / 3600000
   const q = parseSyncQuality(text)
   // 判红时必须带**可执行出口**(AGENTS §5e-1 出口 1):只报"上次同步 9 小时前"而不给
@@ -1081,7 +1199,8 @@ export function checkClock({ now }) {
   return {
     id: 'P3',
     state: 'ok',
-    detail: `上次成功同步 ${ISO(at)} | 阈 ${LIMITS.ntpMaxAgeHours} 小时${quality}`,
+    // "取用=绝对路径/裸名兜底"是**自证的取件档** —— 下次这一格再瞎,不必重新猜是哪一档起的左右。
+    detail: `上次成功同步 ${ISO(at)} | 阈 ${LIMITS.ntpMaxAgeHours} 小时${quality}(取用=${via})`,
   }
 }
 
@@ -1189,32 +1308,59 @@ export function checkPromtoolRules({ devEnv = devEnvRoot(REPO), repoRoot = REPO,
   }
 }
 
+/** 归属点名用的"最后动过"话术:近 24 小时有动作 = 在用缓存,不得建议删;其余报闲置天数。 */
+function idleText(newestMs, now) {
+  if (!Number.isFinite(newestMs) || newestMs <= 0) return '动过时刻量不到'
+  const d = (now - newestMs) / 86_400_000
+  return d <= 1 ? '近 24h 有动,在用' : `已闲置 ${d.toFixed(0)} 天`
+}
+
+/** 把"这一堆条目是谁的"点进正文(文件数前 3 的大头)。拿不到 top(未带 byTop 量算)⇒ 空串,不编。 */
+function attributionText(m, now) {
+  if (!Array.isArray(m.top)) return ''
+  const big = [...m.top].sort((a, b) => b.files - a.files).filter((t) => t.files > 0).slice(0, 3)
+  if (!big.length) return ''
+  return ` | 大头:${big.map((t) => `${t.name}(${t.files} 文件/${(t.bytes / 1024 ** 2).toFixed(1)}MB/${idleText(t.newestMs, now)})`).join('、')}`
+}
+
+/**
+ * P4 单格判定(纯函数,镜像测试直接调它判三态,§22c)。
+ * 阈值与判定口径一个字都没动,这里只解决**可整改性**(AGENTS §5e-1):红了必须说清"越的是哪一维"
+ * 与"这一堆条目是谁的"。两版旧文案各治过一半 —— 头一版两个阈并排印出、不说越的是哪一个,
+ * 收信人只会盯着体积看(实测 P4a 3.72 GB **未**超 4 GB,越的是条目数 67595 > 60000)⇒ 129 次判红
+ * 零整改;第二版给出了路,可那条出路写的是"整目录镜像清空",而现读这 5 万条目里最大的三枚
+ * 是别的工具**正在用**的缓存(Trae 1.45 万、Node 编译缓存 7485、tsx 3701),照做就是毁掉在跑的工具。
+ * ⇒ 出路只能指向"标了闲置天数的那几枚",并给本项目自己的夹具出口。
+ */
+export const SCRUB_TEMP_FIXTURES_ROUTE = 'node scripts/scrub-temp-fixtures.mjs --apply'
+
+export function growthRow(id, m, bytesLimit, entriesLimit, { now = Date.now() } = {}) {
+  const overBytes = m.bytes > bytesLimit
+  const overEntries = entriesLimit ? m.entries > entriesLimit : false
+  const over = overBytes || overEntries
+  const which = [overBytes && `体积 ${(m.bytes / 1024 ** 3).toFixed(2)}>${(bytesLimit / 1024 ** 3).toFixed(0)}GB`, overEntries && `条目数 ${m.entries}>${entriesLimit}`]
+    .filter(Boolean)
+    .join(' 且 ')
+  const owners = over ? attributionText(m, now) : ''
+  const how = id.startsWith('P4a')
+    ? ' | 出路:上面**标了"已闲置 N 天"的那几枚**才是可清的(按名逐个删,删前先改名验句柄);"近 24h 有动"的是 Trae/Node/tsx 这类在用缓存,' +
+      `整目录镜像清空会连正在跑的工具一起毁,不得照做;本项目自己的夹具走 \`${SCRUB_TEMP_FIXTURES_ROUTE}\`(名字围栏 + 账龄闸)`
+    : ''
+  return {
+    id,
+    state: m.truncated ? 'undetermined' : over ? 'finding' : 'ok',
+    detail: over
+      ? `${(m.bytes / 1024 ** 3).toFixed(2)} GB / ${m.entries} 项 | 越阈:${which}${owners}${how}`
+      : `${(m.bytes / 1024 ** 3).toFixed(2)} GB / ${m.entries} 项 | 阈 ${(bytesLimit / 1024 ** 3).toFixed(0)} GB${entriesLimit ? ` / ${entriesLimit} 项` : ''}`,
+  }
+}
+
 export function checkGrowth({ devEnv }) {
   const out = []
   const one = (id, path, bytesLimit, entriesLimit) => {
-    const m = measureDir(path)
+    const m = measureDir(path, { byTop: true }) // 同一次遍历顺带归集归属,不走第二遍树
     if (!m) return void out.push({ id, state: 'undetermined', detail: `量不到:${path}` })
-    const overBytes = m.bytes > bytesLimit
-    const overEntries = entriesLimit ? m.entries > entriesLimit : false
-    const over = overBytes || overEntries
-    // **越阈必须点名是哪一维 + 给出路**(AGENTS §5e-1 出口 1)。此前两个阈并排印出、
-    // 不说越的是哪一个,收信人只会盯着体积看(实测 P4a 3.72 GB **未**超 4 GB,越的是条目数
-    // 67595 > 60000),于是"清到 4 GB 以下"这件做不到的事成了唯一可见的下一步 ⇒ 129 次判红
-    // 零整改。出路要给能真跑的那条:Temp 下是探针/夹具残留,robocopy 镜像空目录即可
-    // (与 AGENTS §5e-2 的批量删除正解同一条)。
-    const which = [overBytes && `体积 ${(m.bytes / 1024 ** 3).toFixed(2)}>${(bytesLimit / 1024 ** 3).toFixed(0)}GB`, overEntries && `条目数 ${m.entries}>${entriesLimit}`]
-      .filter(Boolean)
-      .join(' 且 ')
-    const how = id.startsWith('P4a')
-      ? ' | 出路:robocopy 镜像空目录清该目录(AGENTS §5e-2;先确认无活跃句柄)'
-      : ''
-    out.push({
-      id,
-      state: m.truncated ? 'undetermined' : over ? 'finding' : 'ok',
-      detail: over
-        ? `${(m.bytes / 1024 ** 3).toFixed(2)} GB / ${m.entries} 项 | 越阈:${which}${how}`
-        : `${(m.bytes / 1024 ** 3).toFixed(2)} GB / ${m.entries} 项 | 阈 ${(bytesLimit / 1024 ** 3).toFixed(0)} GB${entriesLimit ? ` / ${entriesLimit} 项` : ''}`,
-    })
+    out.push(growthRow(id, m, bytesLimit, entriesLimit))
   }
   one('P4a', join(devEnv, 'Temp'), LIMITS.devenvTempBytes, LIMITS.devenvTempEntries)
   one('P4b', join(devEnv, 'logs'), LIMITS.devenvLogsBytes)
@@ -1911,13 +2057,13 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
   const baidu = baiduSyncRunning()
   add({
     id: 'P5·网盘同步客户端',
-    state: baidu === null ? 'undetermined' : baidu ? 'ok' : 'finding',
+    state: baidu.running === null ? 'undetermined' : baidu.running ? 'ok' : 'finding',
     detail:
-      baidu === false
+      baidu.running === false
         ? '网盘同步客户端进程不在 ⇒ 云同步腿这一腿此刻不成立(备份复制到网盘目录,而同步没在跑),且全仓没有"同步是否完成"的判据'
-        : baidu === true
-          ? '进程在位(注:同步**完成与否**仍无判据,这里只判进程)'
-          : 'tasklist 派生失败 ⇒ 未判定',
+        : baidu.running === true
+          ? `进程在位(注:同步**完成与否**仍无判据,这里只判进程;取用=${baidu.via})`
+          : baidu.why,
   })
   // P7:副本在位/新鲜/同哈希三维。"网盘客户端在不在跑"这一维**留在上面 P5 那一行**,
   // 这里只量副本本身 —— 同一条债不在两个判据各计一次(机主明令)。
@@ -2035,6 +2181,20 @@ export function applyAdjudications({ rows, entries = [], readError = null, now =
   return { rows: next, ledgerFindings, rotten }
 }
 
+/**
+ * 心跳件的形状(纯函数,自检与镜像测试都判这一份,§22c)。
+ * `mode` 记录**是哪一档留的痕**(`json` = 唯一调度器 `auditOpsPatrol` 那一档),
+ * `undetermined` 存原因原文而不是只存计数 —— 盲区说不出为什么瞎,下一轮就还是同一条盲区(§0.3)。
+ * 有界:最多 40 条、单条 detail 截 300 字符(这一格每 15 分钟被量一次,不设界等于往盘上堆无限账)。
+ */
+export function heartbeatRecord({ at, counts, rc, json = false, findings = [], undetermined = [] } = {}) {
+  const clip = (rows) =>
+    (Array.isArray(rows) ? rows : [])
+      .slice(0, 40)
+      .map((x) => ({ id: x.id, detail: String(x.detail || '').slice(0, 300) }))
+  return { at, counts, rc, mode: json ? 'json' : 'human', findings: clip(findings), undetermined: clip(undetermined) }
+}
+
 async function main(argv) {
   const apply = argv.includes('--apply')
   const strict = argv.includes('--strict')
@@ -2057,13 +2217,16 @@ async function main(argv) {
     if (!r.findings.length && r.counts.undetermined) console.log('   (没有红不等于健康:上面那些"未判定"是本脚本没看见的格子)')
     if (r.counts.adjudicated) console.log('   (已裁 ≠ 已修:那一格仍在原地被量着,只是机主已裁"不代为处置";到期日之后自动回红)')
   }
-  if (!json) {
-    try {
-      mkdirSync(join(REPO, '.workbuddy'), { recursive: true })
-      writeFileSync(join(REPO, '.workbuddy/ops-patrol-last.json'), JSON.stringify({ at: r.at, counts: r.counts, rc: r.rc }), 'utf8')
-    } catch {
-      /* 心跳自记失败不改判定:它只影响下一轮看没看到这一轮 */
-    }
+  // 心跳**两档都写**(2026-10-16 改,原先 `if (!json)` 让班次那一档永远不写)。
+  // 立因:唯一调度器 `auditOpsPatrol()` 用的正是 `--json --apply`,而守卫只让人工那一档留痕 ⇒
+  // "守护最近一次量过是什么时候、它当时瞎了哪几格"在盘上根本没有凭据,盲区当场抓不住、事后也补不回来。
+  // 现在把红档与**未判定的原因原文**一起落盘(有界:每条截 300 字符、最多 40 条),
+  // 下一轮班次跑完就能直接读出瞎在哪。
+  try {
+    mkdirSync(join(REPO, '.workbuddy'), { recursive: true })
+    writeFileSync(join(REPO, '.workbuddy/ops-patrol-last.json'), JSON.stringify(heartbeatRecord({ at: r.at, counts: r.counts, rc: r.rc, json, findings: r.findings, undetermined: r.undetermined })), 'utf8')
+  } catch {
+    /* 心跳自记失败不改判定:它只影响下一轮看没看到这一轮 */
   }
   return r.rc
 }
@@ -2591,6 +2754,91 @@ export async function selfTest() {
   t('预算截断必须自己喊出来', (() => { const s = measureDir(dir, { maxEntries: 2 }); return s.truncated === true })())
   t('重解析点不得被跟随(真造 junction 测)', junctionNotFollowed())
   t('不存在的目录量不到(返回 null 而非 0)', measureDir(join(REPO, '__no_such_dir__')) === null)
+  // ── P4 归属点名(2026-10-16 立;机主裁"删已验死的 + 改判据,阈值不动")────────────────
+  // 旧出路写的是"robocopy 镜像空目录清该目录",而现读那 5 万条目里最大的三枚是**正在用**的
+  // 第三方缓存(Trae agent toolhost 14,554、Node 编译缓存 7,485、tsx 3,701)—— 照做就是毁掉
+  // 在跑的工具(AGENTS §5e-1「文档不得写跑不通的出路」同型)。红档必须点名归属,且**判定口径不变**。
+  const fixNow = Date.parse('2026-10-16T08:00:00.000Z')
+  const fixTop = [
+    { name: 'trae-agent-toolhost', files: 14554, bytes: 21_000_000, newestMs: fixNow - 2 * 3600_000 },
+    { name: 'nscD071.tmp', files: 1123, bytes: 1_229_682_776, newestMs: fixNow - 7.2 * 86_400_000 },
+    { name: '(顶层散文件)', files: 5556, bytes: 76_000, newestMs: fixNow - 9 * 86_400_000 },
+  ]
+  const fixOver = { bytes: 1.56 * 1024 ** 3, entries: 60_001, truncated: false, top: fixTop }
+  const rowOver = growthRow('P4a', fixOver, LIMITS.devenvTempBytes, LIMITS.devenvTempEntries, { now: fixNow })
+  t('P4 加了归属之后越阈照旧判红(判定口径一字未动)', rowOver.state === 'finding' && /条目数 60001>60000/.test(rowOver.detail))
+  t('红档点名大头并按文件数从大到小排(14554 的 Trae 必须排在 5556 散文件前)', (() => {
+    const iTrae = rowOver.detail.indexOf('trae-agent-toolhost')
+    const iStray = rowOver.detail.indexOf('(顶层散文件)')
+    return iTrae > 0 && iStray > iTrae && /nscD071\.tmp\(1123 文件\/[0-9.]+MB\/已闲置 7 天\)/.test(rowOver.detail)
+  })())
+  t('在用与闲置分别标出(近 24h 有动 = 在用,7 天没动 = 已闲置)', /trae-agent-toolhost\([^)]*近 24h 有动,在用\)/.test(rowOver.detail))
+  t('出路不得再写"镜像空目录清该目录"(那是叫人毁在用缓存的指令)', !/镜像空目录清该目录/.test(rowOver.detail) && /不得照做/.test(rowOver.detail) && rowOver.detail.includes(SCRUB_TEMP_FIXTURES_ROUTE))
+  t('反向锁:摘掉 top ⇒ 正文不凭空点名,而判定照旧 finding(归属只影响文案,不影响红绿)', (() => {
+    const r = growthRow('P4a', { ...fixOver, top: null }, LIMITS.devenvTempBytes, LIMITS.devenvTempEntries, { now: fixNow })
+    return r.state === 'finding' && !/大头:/.test(r.detail)
+  })())
+  t('绿档不带归属也不带出路(点名只在红档发生)', (() => {
+    const r = growthRow('P4a', { bytes: 1.56 * 1024 ** 3, entries: 59_999, truncated: false, top: fixTop }, LIMITS.devenvTempBytes, LIMITS.devenvTempEntries, { now: fixNow })
+    return r.state === 'ok' && !/大头:/.test(r.detail) && !/出路:/.test(r.detail)
+  })())
+  t('P4b/P4c 不套 P4a 的出路文案(出路是逐格的话,不是一句通用口号)', !/出路:/.test(growthRow('P4b', fixOver, 1, 1, { now: fixNow }).detail))
+  t('预算截断仍落未判定(有了归属也不得把截断读成结论)', growthRow('P4a', { ...fixOver, truncated: true }, LIMITS.devenvTempBytes, LIMITS.devenvTempEntries, { now: fixNow }).state === 'undetermined')
+  t('byTop 不改总量口径:同一真实目录带/不带 byTop,bytes 与 entries 逐字同值,且归属加总==总文件数', (() => {
+    const d = join(REPO, 'scripts/lib')
+    const a = measureDir(d)
+    const b = measureDir(d, { byTop: true })
+    return a.bytes === b.bytes && a.entries === b.entries && a.truncated === b.truncated && b.top.reduce((x, t2) => x + t2.files, 0) === b.entries && a.top === null
+  })())
+  // ── 外部件取用与"盲区必须说得清为什么瞎"(2026-10-16 立)──────────────────────
+  // 现读现场:唯一调度器那一档的执行体身份是 **NT AUTHORITY\SYSTEM**(nssm 服务 IHUI-GIT-GUARD,
+  // 现读 pid 27512;另一档计划任务是 Administrator),而 P3 与 P5·网盘同步客户端是全部 21 格里
+  // **仅有的两处裸名派生** —— 这两格在班次里每轮落"未判定"、手工跑却是绿的。同一把尺子两个读数,
+  // 两边都得补:①取用改绝对路径优先(照既有先例 check-service-binary-paths.mjs 的 netstat 候选,
+  // 不依赖 PATH),②失败原因落进 detail 与心跳,③时钟解析补上 SYSTEM 默认区域(en-US)那一形。
+  t('systemExePaths:有 %SystemRoot% 时绝对路径在前、裸名兜底在后', (() => {
+    const p = systemExePaths('w32tm.exe', { SystemRoot: 'C:\\windows' })
+    return p.length === 2 && /[\\/]System32[\\/]w32tm\.exe$/.test(p[0]) && p[1] === 'w32tm.exe'
+  })())
+  t('systemExePaths:量不到根 ⇒ 只剩裸名一档(不得硬编码 C 盘,§26)', systemExePaths('tasklist.exe', {}).length === 1 && systemExePaths('tasklist.exe', [])[0] === 'tasklist.exe')
+  t('resolveSystemExe:绝对路径一档命中就用它(注入 exists,不在真实盘上造现场)', (() => {
+    const r = resolveSystemExe('w32tm.exe', { env: { SystemRoot: 'C:\\windows' }, exists: (c) => c.includes('System32') })
+    return r.exe.includes('System32') && r.via === '绝对路径' && r.tried.length === 2
+  })())
+  t('resolveSystemExe 反向:两档都不在 ⇒ 回落裸名并写明"绝对路径一档都没命中"(不得静默读成量到了)', (() => {
+    const r = resolveSystemExe('w32tm.exe', { env: { SystemRoot: 'C:\\windows' }, exists: () => false })
+    return r.exe === 'w32tm.exe' && /都没命中/.test(r.via) && r.tried.length === 2
+  })())
+  t('形态锁:w32tm/tasklist 两处调用点必须走解析器,且 baiduSyncRunning 失败必须带 why(原裸 catch 把 error 当场丢弃)', (() => {
+    const src = String(runW32tm) + String(baiduSyncRunning)
+    if (CALLSITE_SHAPE.bareCallRe.test(src)) return false
+    if ((src.match(CALLSITE_SHAPE.resolverCallRe) || []).length !== CALLSITE_SHAPE.resolverCalls) return false
+    return CALLSITE_SHAPE.whyRe.test(String(baiduSyncRunning)) && CALLSITE_SHAPE.viaRe.test(src)
+  })())
+  t('时钟解析补档:月在前(en-US,SYSTEM 档默认区域)能解出时刻且 PM 换算对', parseLastSync('Last Successful Sync Time:9/28/2026 7:52:42 PM') === Date.parse('2026-09-28T19:52:42'))
+  t('时钟解析:12:05:00 AM 是 0 点(不是 12 点),1:30:00 AM 是凌晨 —— AM/PM 两支各一条', parseLastSync('Last Successful Sync Time:1/5/2026 12:05:00 AM') === Date.parse('2026-01-05T00:05:00') && parseLastSync('Last Successful Sync Time:1/5/2026 1:30:00 AM') === Date.parse('2026-01-05T01:30:00'))
+  t('旧档不得被新档挤掉:年份在前(zh-CN 那形)照旧解得出', parseLastSync('上次成功同步时间: 2026/9/28 19:52:42') === Date.parse('2026-09-28T19:52:42'))
+  t('真·日/月/年(en-GB 那形)不得被读成一个错时刻:月份位 >12 ⇒ null ⇒ 未判定(失效方向是多要一次说明,绝不是把时钟读成"刚同步过")', parseLastSync('Last Successful Sync Time:28/9/2026 7:52:42 PM') === null)
+  t('盲区要说清"看见了什么形状":数字一律遮成 N 且有界(逐轮变动的时刻进结论串 = 每轮一封新信)', (() => {
+    const s = rawShapeSample('上次成功同步时间: 2026-10-16 17:52:42\nStratum :3\n' + 'x'.repeat(400))
+    return !/\d/.test(s.split(' ⏎ ')[0]) && s.length <= 200
+  })())
+  t('心跳两档都留痕:调度器那一档(--json)也必须写,且 mode 记明是哪一档、原因原文照带', (() => {
+    const j = heartbeatRecord({ at: 'X', counts: { ok: 1 }, rc: 0, json: true, findings: [], undetermined: [{ id: 'P3', detail: 'w32tm 派生失败:ENOENT(取用档=裸名兜底)' }] })
+    const h = heartbeatRecord({ at: 'X', counts: { ok: 1 }, rc: 0, json: false, findings: [], undetermined: [] })
+    return j.mode === 'json' && h.mode === 'human' && j.undetermined.length === 1 && /ENOENT/.test(j.undetermined[0].detail) && Array.isArray(h.findings)
+  })())
+  t('心跳有界:41 条只留 40,单条 detail 超 300 字符被截', (() => {
+    const rows = Array.from({ length: 41 }, (_, i) => ({ id: `P${i}`, detail: 'y'.repeat(500) }))
+    const r = heartbeatRecord({ json: true, undetermined: rows })
+    return r.undetermined.length === 40 && r.undetermined[0].detail.length === 300
+  })())
+  t('装车锁:心跳必须真由 main 走 heartbeatRecord,且不再有"只人工档才写"的守卫', (() => {
+    const src = readFileSync(join(SELF_DIR, 'check-ops-patrol.mjs'), 'utf8')
+    const i = src.indexOf('async function main(argv)')
+    const seg = src.slice(i, i + 3000)
+    return seg.includes('heartbeatRecord({') && !/if \(!json\) \{/.test(seg) && seg.includes('ops-patrol-last.json')
+  })())
   t('P5b 三态成对(exit=1 红 / exit=0 绿 / 正在构建 未判定)', p5bThreeStates())
   // 2026-10-01 补的两条:失败通报的下游可见性(P8)与备份产出的**归属**(P5 逐库、只认本链)。
   // 各自的旧形态都在同一份夹具上现算对照 —— 只测新规则那一臂,等于把实现复读一遍。
@@ -2907,6 +3155,13 @@ if (isDirectRun) {
 
 export const __test__ = {
   measureDir,
+  growthRow,
+  SCRUB_TEMP_FIXTURES_ROUTE,
+  SYSTEM32_SUBDIR,
+  CALLSITE_SHAPE,
+  systemExePaths,
+  resolveSystemExe,
+  heartbeatRecord,
   ageVerdict,
   parseLastSync,
   LIMITS,

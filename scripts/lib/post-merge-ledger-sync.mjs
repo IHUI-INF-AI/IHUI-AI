@@ -27,10 +27,11 @@
  * 退出码/返回:永不抛。`{ ok, ran, lines, why }` —— `ran` 是"这次到底派生成了没有",
  * 与 `ok`(派生成且脚本 0 退出)分开计,是为了让调用方能区分"跑过且没问题"与"没跑成"。
  */
-import { spawnSync, execFileSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
+import { gitRaw } from './face-reader.mjs'
 
 const require = createRequire(import.meta.url)
 // 判据实现按**自身位置**取(§15:ROOT 由脚本自身推导)。`root` 参数是"被落地的仓库根",
@@ -71,12 +72,9 @@ function readPlanFaceText({ root = '', readFace } = {}) {
   try {
     text = readFace
       ? readFace(PLAN_REL)
-      : execFileSync('git', ['-C', resolve(String(root)), 'show', `HEAD:${PLAN_REL}`], {
-          encoding: 'utf8',
-          windowsHide: true,
+      : gitRaw(['show', `HEAD:${PLAN_REL}`], resolve(String(root)), {
           timeout: 120000,
           maxBuffer: 256 * 1048576,
-          stdio: ['ignore', 'pipe', 'pipe'],
         })
   } catch {
     return null
@@ -89,6 +87,25 @@ function readPlanFaceText({ root = '', readFace } = {}) {
 function loadRatchet() {
   try {
     return require(join(HERE, '..', 'check-plan-dup-pointer-ratchet.mjs'))
+  } catch {
+    return null
+  }
+}
+
+/** 第三存量维(2026-10-16 立,机主令"一号一行"):同号多行组数。判据 = plan-task-index 的
+ *  parseTaskRows(台账唯一解析层,§22c 不抄第二份);数"同 key 出现 ≥2 次的组数"。
+ *  与注记/可折两维并列进 runPurgeResettle 的派生条件:任一 >0 就派生折并。 */
+function sameKeyGroupResidue({ root = '', readFace }) {
+  const text = readPlanFaceText({ root, readFace })
+  if (text === null) return null
+  try {
+    const idx = require(join(HERE, '..', 'lib', 'plan-task-index.mjs'))
+    const rows = idx.parseTaskRows(text).filter((r) => r.state === 'open' && r.key)
+    const seen = new Map()
+    for (const r of rows) seen.set(r.key, (seen.get(r.key) || 0) + 1)
+    let n = 0
+    for (const [, c] of seen) if (c > 1) n++
+    return n
   } catch {
     return null
   }
@@ -135,11 +152,12 @@ export function twinFoldResidue({ root = '', readFace } = {}) {
 function runPurgeResettle({ root, log = (s) => console.log(s), spawnFn, readFace }) {
   const n = ledgerNoteResidue({ root, readFace })
   const t = twinFoldResidue({ root, readFace })
-  if (n === null && t === null) {
+  const g = sameKeyGroupResidue({ root, readFace })
+  if (n === null && t === null && g === null) {
     log('⚠️ [G-32] 两类存量均未判定(取不到被审面或判据模块不可用)⇒ 本轮不复清;不得读成"已归零"')
     return { ran: false, ok: false, residue: null, twinResidue: null, why: '未判定' }
   }
-  if ((n || 0) + (t || 0) === 0) {
+  if ((n || 0) + (t || 0) + (g || 0) === 0) {
     if (n === null || t === null) {
       // 一维判得出 0 而另一维取不到 ⇒ 仍不派生,但必须报名:§0.3「没量到」不等于「已归零」。
       log(`⚠️ [G-32] 存量有一维未判定(注记=${n === null ? '未判定' : n} / 可折=${t === null ? '未判定' : t})⇒ 本轮不派生复清`)
@@ -151,7 +169,20 @@ function runPurgeResettle({ root, log = (s) => console.log(s), spawnFn, readFace
   const abs = resolve(String(root || ''), PURGE_REL)
   // 可折维 > 0 ⇒ 必须带 `--absorb`:只有那一档动"无注记的真副本"(候选正文整段挂进幸存行行尾,
   // 由守恒断言 A1–A4 逐条自证零丢失);只带 --apply 的旧口径对这一型一条也折不掉。
-  const flags = t > 0 ? ['--apply', '--absorb'] : ['--apply']
+  // 第三维(同号多行组)的折并器不是 purge(L1 候选=带指针/让位行,同号漂开组不进候选集)
+  // 而是 plan-tasks-merge --heal --match-prefix-holder(同号前缀持有行折并,零损失断言自带)。
+  // 派生两段:先折同号组,再按注记/可折维走 purge。
+  const foldSameKey = () => {
+    if (!g) return
+    const absMerge = resolve(String(root || ''), 'scripts', 'plan-tasks-merge.mjs')
+    const r2 = (spawnFn || spawnSync)(process.execPath, [absMerge, '--heal', '--match-prefix-holder', '--commit'], {
+      cwd: resolve(String(root || '')), encoding: 'utf8', windowsHide: true, timeout: 600000,
+    })
+    if (!r2 || r2.status !== 0) log(`⚠️ [G-32] 同号折并派生未完成(组数=${g},rc=${r2 ? r2.status : '取不到'},不阻断)`)
+    else log(`✅ [G-32] 同号折并派生完成(组数=${g})`)
+  }
+  if (g > 0) foldSameKey()
+  const flags = ['--apply', '--absorb']
   let r
   try {
     r = run(process.execPath, [abs, ...flags], {

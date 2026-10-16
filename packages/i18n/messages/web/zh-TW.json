@@ -19234,6 +19234,9 @@
     "groupUngrouped": "未分組",
     "skippedToday": "已跳過 {count} 個今日已簽帳號",
     "skippedExpired": "已跳過 {count} 個 JWT 已過期帳號",
+    "skippedCooldown": "已跳過 {count} 個冷卻中帳號",
+    "checkinRateLimited": "平臺限流已中止本批，請稍後再試",
+    "checkinFailedCount": "有 {count} 個帳號簽到失敗",
     "checkinSelected": "簽到勾選帳號（{count}）",
     "selectAllVisible": "全選當前列表",
     "selectAccount": "選中帳號 {name}",
@@ -19344,10 +19347,13 @@
     "deviceMapUpdated": "設備指紋已更新",
     "editDeviceMap": "編輯設備指紋",
     "editDeviceMapTitle": "編輯設備指紋",
-    "editDeviceMapDescription": "為 {platform} 帳號編輯設備指紋（JSON 物件；留空儲存將自動產生）。"
+    "editDeviceMapDescription": "為 {platform} 帳號編輯設備指紋（JSON 物件；留空儲存將自動產生）。",
+    "checkedInToday": "今日已簽到",
+    "rename": "重新命名"
   },
   "nav": {
     "checkin": "簽到助手",
+    "monitorWallboard": "監控大屏",
     "ecosystemHub": "生態市場",
     "adminRelayInsights": "運營洞察",
     "adminRelayEnterprise": "企業合規",
@@ -19696,7 +19702,17 @@
     "adminDeployDiagnosis": "部署診斷",
     "githubApp": "GitHub App",
     "smsReceive": "簡訊接碼",
-    "sms": "簡訊範本"
+    "sms": "簡訊範本",
+    "customGroup": "自定義",
+    "customAddTitle": "自定義常用功能",
+    "customEmptyHint": "新增常用功能",
+    "customSearchPlaceholder": "搜尋功能",
+    "customAdded": "已新增",
+    "customAdd": "新增",
+    "customRemove": "移除",
+    "customManage": "管理常用功能",
+    "customDragHint": "拖曳排序",
+    "customNoResults": "沒有找到符合的功能"
   },
   "news": {
     "allCategories": "全部分類",

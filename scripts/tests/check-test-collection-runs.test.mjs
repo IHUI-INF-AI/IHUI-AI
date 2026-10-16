@@ -96,12 +96,21 @@ test('T2 方向性对照:把注册块删掉,同一条判据必须认出"未接�
   assert.equal(registrationOf(unwired, SCRIPT_NAME), null, '摘线后仍报"已接线" ⇒ T1 是一把没有牙的尺子')
 })
 
-test('T3 定级反向锁:有人把 warn 改成 blocking 时,判据必须看见(不靠人眼)', () => {
+test('T3 定级反向锁(G-29 前置②):现读 runner 条目必须仍是 warn;若被改成 blocking 则必红并点名前置①未满足', () => {
+  // 定级从 runner 注册条目**现读**(§0.1 凡数字现读),不把 warn 字面量当判据复制;
+  // 变异臂证明这条断言有牙:有人真把 mode 改成 blocking 时,同一把尺子必须看得见。
+  const reg = registrationOf(readFileSync(RUNNER, 'utf8'), SCRIPT_NAME)
+  assert.ok(reg, 'runner 里找不到本门注册块,无法现读定级')
+  assert.equal(
+    reg.mode,
+    'warn',
+    '升 blocking 的前置①(全端收集失败数现读归零)未满足,不得改 blocking(G-29;恒红 blocking = 逼人 --no-verify,见门体头注)',
+  )
   const mutated = readFileSync(RUNNER, 'utf8').replace(
     new RegExp(`(script: '${SCRIPT_NAME}',[\\s\\S]{0,200}?mode: ')warn(')`),
     '$1blocking$2',
   )
-  assert.equal(registrationOf(mutated, SCRIPT_NAME).mode, 'blocking')
+  assert.equal(registrationOf(mutated, SCRIPT_NAME).mode, 'blocking', '变异后仍读出 warn ⇒ 这条定级断言没有牙')
 })
 
 test('T4 全 runner 守门编号不得重复(含本门恰好一次)', () => {

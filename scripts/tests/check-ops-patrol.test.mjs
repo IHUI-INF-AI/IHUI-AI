@@ -199,11 +199,14 @@ test('T13 P6 必须真被 patrol 接上(判据写出来而没装车 = 本仓最�
   // 本文件对"机器态那一族"早就立过法(见 P7 段头注:只锁形状与三态方向,**不锁此刻的颜色** ——
   // 锁颜色就造出恒红门,与 T3 同一条理由)。P6 的量名接口要联网:取不到时门必须走未判定并报名,
   // 那一支不是"没报数"。所以这里锁**两条出路之一 + 两支都必须报名**,而不是钉死健康态那一支的字面形状。
+  // 2026-10-16 修正"走没走未判定那一支"的**取法**:原先拿 `/未判定/` 在 detail 里找子串,而汇总行
+  //  healthy 时也印得出 `/ 未判定 0` —— 于是判据健康即必然命中该支、要求"原因",HEAD 面上恒红。
+  // 改按门自己给出的 `state` 判(§22c:判定读源头的机器字段,不在测试里用字符串猜第二份)。
   assert.ok(
-    /^规则 \d+ 条:在采/.test(sum.detail) || /未判定/.test(sum.detail),
+    /^规则 \d+ 条:在采/.test(sum.detail) || sum.state === 'undetermined',
     `P6 汇总行既没报数也没报名(两条出路都不占)= 这台尺子没接上:${sum.detail}`,
   )
-  if (/未判定/.test(sum.detail))
+  if (sum.state === 'undetermined')
     assert.match(
       sum.detail,
       /(TypeError|取不到|读不到|无法判定)/,
@@ -779,5 +782,221 @@ test('TP7 P11 promtool:必须真住在 patrol 装配里,且 promtool/用例取�
   })
   assert.equal(noTool.state, 'undetermined', `promtool/用例目录取不到时必须未判定,实得 ${noTool.state}:${noTool.detail}`)
   assert.notEqual(noTool.state, 'finding', '机器态缺失不得判红')
+})
+
+test('TG P4 归属点名:红档要说清"这堆条目是谁的",且判定口径一字不变(真夹具上量)', () => {
+  const base = mkScratch('p4mir-')
+  try {
+    const temp = join(base, 'Temp')
+    const mk = (rel, name, content, ageMs) => {
+      const d = join(temp, rel)
+      mkdirSync(d, { recursive: true })
+      const p = join(d, name)
+      writeFileSync(p, content, 'utf8')
+      if (ageMs) {
+        const t = (Date.now() - ageMs) / 1000
+        utimesSync(p, t, t)
+      }
+    }
+    for (let i = 0; i < 5; i++) mk('oldBig', `f${i}.tmp`, 'x', 9 * 86400000) // 闲置 9 天的大头
+    for (let i = 0; i < 2; i++) mk('liveCache', `f${i}.tmp`, 'y', 0) // 刚写过 = 在用
+    mk('.', 'stray.txt', 'z', 0) // 顶层散文件另有归属桶,不得混进上面两枚
+    const m = measureDir(temp, { byTop: true })
+    const plain = measureDir(temp)
+    assert.equal(m.entries, plain.entries, '带 byTop 不得改变文件数口径')
+    assert.equal(m.bytes, plain.bytes, '带 byTop 不得改变字节口径')
+    assert.equal(plain.top, null, '不带 byTop ⇒ 不凭空造归属')
+    assert.equal(m.top.reduce((a, t) => a + t.files, 0), m.entries, '归属加总必须等于总文件数(不漏计、不双计)')
+    const names = m.top.map((t) => t.name)
+    assert.deepEqual(names, ['oldBig', 'liveCache', '(顶层散文件)'], `归属必须按文件数从大到小点名,实得 ${names}`)
+    const row = gate.growthRow('P4a', m, 1024 ** 4, 5) // 把条目阈压到 5 ⇒ 必然越阈
+    assert.equal(row.state, 'finding', '越阈照旧判红(归属只加文案,不放宽判定)')
+    assert.match(row.detail, /条目数 8>5/, '越的是哪一维仍要点名')
+    assert.match(row.detail, /大头:oldBig\(5 文件\/[0-9.]+MB\/已闲置 9 天\)/)
+    assert.match(row.detail, /liveCache\([^)]*近 24h 有动,在用\)/)
+    assert.doesNotMatch(row.detail, /镜像空目录清该目录/, '旧出路叫人不验身份镜像清空整个目录,而目录里最大的几枚是在用缓存')
+    assert.match(row.detail, /不得照做/)
+    assert.ok(gate.SCRUB_TEMP_FIXTURES_ROUTE.length > 0, '出路常量取不到 ⇒ 本用例空转,先判失败')
+    assert.ok(row.detail.includes(gate.SCRUB_TEMP_FIXTURES_ROUTE), `出路必须点名门自己的清扫入口,实得 ${row.detail}`)
+    const noTop = gate.growthRow('P4a', { ...m, top: null }, 1024 ** 4, 5)
+    assert.equal(noTop.state, 'finding', '摘掉 top 只该少了点名,不该少了红')
+    assert.doesNotMatch(noTop.detail, /大头:/, '拿不到实测量就不得凭空点名归属')
+    const green = gate.growthRow('P4a', m, 1024 ** 4, 9999)
+    assert.equal(green.state, 'ok')
+    assert.doesNotMatch(green.detail, /大头:|出路:/, '绿档不点名、不给出路(点名只在红档发生)')
+    const other = gate.growthRow('P4b', m, 1, 1)
+    assert.doesNotMatch(other.detail, /出路:/, 'P4a 的出路文案不得外溢到 P4b')
+    assert.equal(gate.growthRow('P4a', { ...m, truncated: true }, 1024 ** 4, 5).state, 'undetermined', '截断仍落未判定,归属不得把它读成结论')
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('TG2 外部件取用:绝对路径优先、量不到根只回落裸名,两处调用点都必须走解析器', () => {
+  const { systemExePaths, resolveSystemExe } = gate
+  const win = { SystemRoot: 'C:\\windows' }
+  const p = systemExePaths('w32tm.exe', win)
+  assert.equal(p.length, 2, '有根 ⇒ 两档:绝对路径在前、裸名兜底在后')
+  assert.ok(gate.SYSTEM32_SUBDIR.length > 0, '子目录常量取不到 ⇒ 本用例空转,先判失败')
+  assert.equal(p[0], join(win.SystemRoot, gate.SYSTEM32_SUBDIR, 'w32tm.exe'), '绝对路径一档必须由门体那份子目录拼出')
+  assert.equal(p[1], 'w32tm.exe')
+  const none = systemExePaths('tasklist.exe', {})
+  assert.deepEqual(none, ['tasklist.exe'], '量不到根时只剩裸名一档(§26 禁止硬编码 C 盘)')
+  assert.ok(!JSON.stringify(none).includes('C:\\'), '不得凭空造一个 C 盘根')
+  const hit = resolveSystemExe('w32tm.exe', { env: win, exists: (c) => c.includes(gate.SYSTEM32_SUBDIR) })
+  assert.equal(hit.via, '绝对路径')
+  assert.ok(hit.exe.includes(gate.SYSTEM32_SUBDIR), '取用的必须是绝对路径那一档')
+  const miss = resolveSystemExe('w32tm.exe', { env: win, exists: () => false })
+  assert.equal(miss.exe, 'w32tm.exe', '两档都不在 ⇒ 回落裸名,让派生自己喊 ENOENT(而不是这里编一个不存在的路径)')
+  assert.match(miss.via, /都没命中/, '回落必须写明为什么回落 —— 静默兜底会把"这台机没有那个 exe"读成"取到了"')
+  assert.equal(miss.tried.length, 2, '原因里要能数出试过几条路径')
+  const s = src('scripts/check-ops-patrol.mjs')
+  const body = s.slice(s.indexOf('function runW32tm'), s.indexOf('function runW32tm') + 1400) + s.slice(s.indexOf('export function baiduSyncRunning'), s.indexOf('export function baiduSyncRunning') + 1600)
+  assert.doesNotMatch(body, gate.CALLSITE_SHAPE.bareCallRe, '调用点又写回裸名 ⇒ 守护那一档会重新瞎掉')
+  assert.equal(
+    (body.match(gate.CALLSITE_SHAPE.resolverCallRe) || []).length,
+    gate.CALLSITE_SHAPE.resolverCalls,
+    '两处裸名派生必须都换成解析器,漏一处就是留一格盲区',
+  )
+  assert.match(body, gate.CALLSITE_SHAPE.whyRe, 'P5·网盘那一支原先裸 catch 把 error 当场丢弃 ⇒ 失败必须带原因')
+})
+
+test('TG3 时钟解析必须同时认两档区域:zh-CN 年份在前、SYSTEM 档(en-US)月在前带 AM/PM', () => {
+  const { parseLastSync } = gate
+  assert.equal(parseLastSync('Last Successful Sync Time:9/28/2026 7:52:42 PM'), Date.parse('2026-09-28T19:52:42'), 'en-US PM 档解不出 ⇒ P3 在 SYSTEM 那一档永久未判定')
+  assert.equal(parseLastSync('Last Successful Sync Time:1/5/2026 12:05:00 AM'), Date.parse('2026-01-05T00:05:00'), '12 AM 是 0 点')
+  assert.equal(parseLastSync('Last Successful Sync Time:1/5/2026 1:30:00 AM'), Date.parse('2026-01-05T01:30:00'))
+  assert.equal(parseLastSync('上次成功同步时间: 2026/9/28 19:52:42'), Date.parse('2026-09-28T19:52:42'), '新档不得把旧档挤掉')
+  assert.equal(parseLastSync('Last Successful Sync Time:28/9/2026 7:52:42 PM'), null, '日/月/年那形月份位 >12 ⇒ 必须落 null(未判定),不得读成一个错时刻')
+  assert.equal(parseLastSync('没有这一行'), null)
+})
+
+test('TG4 心跳:调度器那一档(--json)必须留痕并带未判定原因原文,且有界', () => {
+  const { heartbeatRecord } = gate
+  const j = heartbeatRecord({ at: 'A', counts: { ok: 1 }, rc: 0, json: true, undetermined: [{ id: 'P3', detail: 'w32tm 派生失败:ENOENT(取用档=裸名兜底;试过 C:\\windows\\System32\\w32tm.exe | w32tm.exe)' }] })
+  assert.equal(j.mode, 'json', '心跳必须记是哪一档留的痕 —— 原先 `if (!json)` 让唯一调度器那一档永远不写')
+  assert.equal(j.undetermined.length, 1)
+  assert.match(j.undetermined[0].detail, /ENOENT/)
+  const h = heartbeatRecord({ at: 'A', counts: {}, rc: 0, json: false })
+  assert.equal(h.mode, 'human')
+  assert.deepEqual(h.findings, [], '缺省也必须出数组,不得留 undefined(读的人会把"没有字段"读成"没跑")')
+  const big = heartbeatRecord({ json: true, undetermined: Array.from({ length: 41 }, (_, i) => ({ id: `P${i}`, detail: 'y'.repeat(500) })) })
+  assert.equal(big.undetermined.length, 40)
+  assert.equal(big.undetermined[0].detail.length, 300)
+  const s = src('scripts/check-ops-patrol.mjs')
+  const seg = s.slice(s.indexOf('async function main(argv)'))
+  assert.ok(seg.indexOf('heartbeatRecord({') > 0, '心跳必须真由 main 接上(判据写出来而没装车 = 本仓最高频失效型)')
+  assert.doesNotMatch(seg.slice(0, 3000), /if \(!json\) \{/, '不得再退回"只人工档才写"的守卫')
+})
+
+test('TS1 巡检发信必须过持续性门槛(风暴型尖峰不寄信),且未判定原因必须进守护日志', async () => {
+  const gd = await import(pathToFileURL(join(REPO, 'scripts', 'git-guardian.mjs')).href)
+  const { auditOpsPatrol } = gd
+  assert.equal(typeof auditOpsPatrol, 'function', '派发点导不出来 ⇒ 这一枚锁无从证明,不得当成通过')
+  const INTERVAL = 15 * 60 * 1000
+  const t0 = Date.parse('2026-10-16T05:00:00.000Z')
+  const payload = (red, undetDetail = 'w32tm 派生失败:ENOENT(取用档=裸名兜底)') =>
+    JSON.stringify({
+      at: new Date(t0).toISOString(),
+      counts: { findings: red ? 1 : 0, undetermined: 1, ok: red ? 19 : 20, adjudicated: 0, rotten: 0 },
+      findings: red ? [{ id: 'P4a', detail: '3.06 GB / 64205 项 | 越阈:条目数 64205>60000 | 大头:trae-agent-toolhost(14554 文件/20.5MB/近 24h 有动,在用)' }] : [],
+      undetermined: [{ id: 'P3', detail: undetDetail }],
+      adjudicated: [],
+      ok: red ? [{ id: 'P5b', detail: 'exit=0' }] : [{ id: 'P4a', detail: '绿' }, { id: 'P5b', detail: 'exit=0' }],
+    })
+  const base = mkScratch('ops-streak-')
+  try {
+    // ── 场景 A:今天实测到的形状 —— 越阈两轮就自己回绿 ⇒ 一封都不许寄,且清零必须可见
+    const sendsA = []
+    const logA = []
+    const tickA = join(base, 'tickA.iso')
+    const streakA = join(base, 'streakA.json')
+    const callA = (round, red) =>
+      auditOpsPatrol({
+        now: t0 + round * INTERVAL,
+        tickFile: tickA,
+        streakFile: streakA,
+        logger: (s) => logA.push(String(s)),
+        notify: (name, detail, o) => {
+          sendsA.push({ name, dedupKey: o?.dedupKey, detail })
+          return { ok: true }
+        },
+        runner: () => ({ status: 0, stdout: payload(red), stderr: '' }),
+      })
+    callA(0, true)
+    callA(1, true)
+    callA(2, false)
+    assert.deepEqual(sendsA, [], '连红 2 轮即回绿 = 风暴型尖峰,门槛 3 轮内不得寄信')
+    assert.ok(logA.some((l) => /未达持续性门槛.*连 1\/3 轮/.test(l)), `第 1 轮必须写明"连 1/3 轮"与终态,实得:${logA.filter((l) => /门槛/.test(l))[0] || '(无)'}`)
+    assert.ok(logA.some((l) => /连击清零:P4a\(此前连 2 轮/.test(l)), '恢复必须是可见的终态,不是悄悄不留痕')
+    assert.ok(logA.some((l) => /未判定原因 P3:w32tm 派生失败/.test(l)), `只报格名等于下一轮还是同一条无名盲区(§0.3),实得:${logA.filter((l) => /未判定原因/.test(l))[0] || '(无该行)'}`)
+    assert.ok(logA.some((l) => /判红 1 格/.test(l)), '不发信 ≠ 不留痕:红档仍须逐轮打印')
+    // 成对反控:门没给原因时必须显式写"(门没给原因)",而不是静默印成 `undefined` ——
+    // 盲区说不出为什么瞎,下一轮还是同一条盲区;而"undefined"会被读成"有过原因"。
+    const logNoWhy = []
+    auditOpsPatrol({
+      now: t0 + 30 * INTERVAL,
+      tickFile: join(base, 'tickW.iso'),
+      streakFile: join(base, 'streakW.json'),
+      logger: (s) => logNoWhy.push(String(s)),
+      notify: () => ({ ok: true }),
+      runner: () => ({ status: 0, stdout: payload(false, ''), stderr: '' }),
+    })
+    assert.ok(logNoWhy.some((l) => /未判定原因 P3:\(门没给原因\)/.test(l)), `缺原因必须当场点名,实得:${logNoWhy.filter((l) => /未判定/.test(l)).join(' ‖ ')}`)
+
+    // ── 场景 B:同一身份连红到第 3 轮 ⇒ 必须到人,且身份仍是"红了哪几格"(实时读数不进指纹)
+    const sendsB = []
+    const logB = []
+    const tickB = join(base, 'tickB.iso')
+    const streakB = join(base, 'streakB.json')
+    for (let i = 0; i < 3; i++)
+      auditOpsPatrol({
+        now: t0 + i * INTERVAL,
+        tickFile: tickB,
+        streakFile: streakB,
+        logger: (s) => logB.push(String(s)),
+        notify: (name, detail, o) => {
+          sendsB.push({ name, dedupKey: o?.dedupKey, detail })
+          return { ok: true }
+        },
+        runner: () => ({ status: 0, stdout: payload(true), stderr: '' }),
+      })
+    assert.equal(sendsB.length, 1, `第 3 轮必须寄且只寄一封,实得 ${sendsB.length}`)
+    assert.equal(sendsB[0].name, '元运维巡检红(1 格)')
+    assert.equal(sendsB[0].dedupKey, 'cells=P4a', '去重身份仍按"哪几格红了",逐轮变动的读数只进正文')
+    assert.match(sendsB[0].detail, /连续第 P4a=3 轮越阈\(门槛 3 轮/)
+    assert.match(sendsB[0].detail, /大头:trae-agent-toolhost/, '门给的归属点名必须原样进正文,否则收信人无从下手(§5e-1)')
+    assert.match(sendsB[0].detail, /ops-patrol-last\.json/, '信里要指得出盲区与逐格读数的盘上凭据')
+
+    // ── 反向锁(门槛是不是真装在判据上):把 required 设 1 ⇒ 第一轮就该到人
+    const sendsC = []
+    auditOpsPatrol({
+      now: t0,
+      tickFile: join(base, 'tickC.iso'),
+      streakFile: join(base, 'streakC.json'),
+      requiredStreak: 1,
+      logger: () => {},
+      notify: (name, detail, o) => {
+        sendsC.push({ name, dedupKey: o?.dedupKey })
+        return { ok: true }
+      },
+      runner: () => ({ status: 0, stdout: payload(true), stderr: '' }),
+    })
+    assert.equal(sendsC.length, 1, '门槛降到 1 就当场发信 ⇒ 证明发信真接在连击判据上,不是被别处硬静音')
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(base, 'streakA.json'), 'utf8')),
+      {},
+      '回绿后 P4a 的连击必须被清掉(留在册上会把下一次独立尖峰顶成"第 2 轮")',
+    )
+    // ── 形态锁:连击算术只准有一份实现(§22c),巡检这一路必须调既有的 bumpProbeStreak
+    const s = src('scripts/git-guardian.mjs')
+    const body = s.slice(s.indexOf('export function auditOpsPatrol'), s.indexOf('export function auditOpsPatrol') + 9000)
+    assert.match(body, /bumpProbeStreak\(/, '巡检发信没接连击判据 ⇒ 门槛只是注释')
+    assert.match(body, /OPS_PATROL_STREAK_FILE/, '连击账本必须是具名常量(第二份戳/第二份账必然漂移)')
+    assert.doesNotMatch(body, /streak \+ 1|streak\+\+/, '派发点里不得自己写连击算术(复用同一份实现)')
+    assert.equal([...s.matchAll(/export function bumpProbeStreak/g)].length, 1, '连击实现全仓只许一份')
+  } finally {
+    rmScratch(base)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

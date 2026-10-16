@@ -26,14 +26,14 @@ import os
 import secrets
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 from zoneinfo import ZoneInfo
 
 from cryptography.fernet import Fernet, InvalidToken
 
 from app.core.db_pool import get_shared_pool
 from app.core.logging import get_logger
-from app.services.checkin_engine import get_jwt_exp
+from app.services.checkin_engine import extract_display_name, get_jwt_exp, uuid_shaped_name
 from app.services.checkin_qoder import qoder_session_expiry
 
 if TYPE_CHECKING:
@@ -51,6 +51,15 @@ _get_jwt_exp: Callable[[str], tuple[datetime | None, float | None]] = get_jwt_ex
 
 _KEY_ENV = "CHECKIN_FERNET_KEY"
 _KEY_FILE = os.path.join("data", "checkin_fernet_key")
+
+# 同名冲突时的平台后缀(同一手机号在 TRAE/WorkBuddy/Qoder 各有一个账号 ⇒
+# 展示名撞唯一约束 (owner_user_id, name);自愈退化带平台名保可区分)。
+_PLATFORM_LABELS: Final[dict[str, str]] = {
+    "trae": "TRAE",
+    "workbuddy": "WorkBuddy",
+    "qoder": "Qoder",
+    "minimax": "MiniMax",
+}
 
 # ---------------------------------------------------------------------------
 # 建表 SQL(幂等)
@@ -259,9 +268,21 @@ async def create_account(
     account_group: str = "",
     platform: str = "trae",
 ) -> dict[str, Any]:
-    """录入账号(jwt 加密落库)。同名账号已存在时抛 ValueError。"""
+    """录入账号(jwt 加密落库)。同名账号已存在时抛 ValueError。
+
+    2026-10-16 李总定档:展示名一律按「手机>邮箱>账户名>用户名」派生优先 ——
+    桌面端 tc 通道把 account 原始 profile 落进 device_map.account(含 phone),
+    这里**首次录入即取用**,不再等到列表加载才自愈(避免 UUID 兜底名先落库)。
+    派不出名时才退回调用方传入的 name。
+    """
     pool = await get_shared_pool()
     jwt_enc = _encrypt_jwt(jwt)
+    derived = extract_display_name(jwt, device_map)
+    if derived:
+        name = derived
+    elif uuid_shaped_name(name):
+        # 派不出且传入的是 UUID 编码名 ⇒ 留待列表自愈(用户仍可行内改名)
+        logger.info("[checkin_store] 录入名 %s 为 UUID 形态且派不出展示名,保持原名", name)
     async with pool.acquire() as conn:
         try:
             row = await conn.fetchrow(
@@ -317,7 +338,68 @@ async def list_accounts(owner_user_id: str) -> list[dict[str, Any]]:
             """,
             owner_user_id,
         )
-    return [_account_row(r) for r in rows]
+    accounts = [_account_row(r) for r in rows]
+    await _heal_uuid_names(owner_user_id, rows, accounts)
+    return accounts
+
+
+async def _heal_uuid_names(
+    owner_user_id: str, rows: list[Mapping[str, Any]], accounts: list[dict[str, Any]]
+) -> None:
+    """存量自愈(2026-10-16 李总报障「名称还是一对编码」)。
+
+    旧捕获把 UUID 编码存进了 name(手机优先定档 645789cdbed 之前的存量),
+    这些账号不会重新捕获 ⇒ 名字永远不会自己变好。列表加载时对 UUID 形态的
+    name 按 手机>邮箱>账户名>用户名 重取名并落库:
+    - 数据源:账号 jwt 明文(各平台 token 均为标准 JWT,TRAE/Qoder/WorkBuddy 桌面/
+      MiniMax 的 payload claims 可解析)+ device_map.nickname 兜底(网页 Cookie 模式);
+    - 幂等:修好不再命中(UUID 形态才触发,零常驻成本);
+    - 取不到更好名时静默保持原状(不报错、不改写),用户仍可行内重命名。
+
+    2026-10-16 加固:单账号解密失败(跨机密钥不一致遗留的坏密文)必须就地跳过 ——
+    放到列表链路上抛异常会把整个 GET /accounts 打成 500、整页签到功能不可用
+    (实测生产存在此形态密文)。失败只记 warning,不影响其余账号与整表返回。
+    """
+    for row, acc in zip(rows, accounts, strict=True):
+        if not uuid_shaped_name(acc.get("name")):
+            continue
+        try:
+            jwt = _decrypt_jwt(row["jwt_enc"]) if row.get("jwt_enc") else ""
+        except Exception as e:  # noqa: BLE001 — 单账号坏密文不得打挂整表
+            logger.warning(
+                "[checkin_store] 账号 %s 密文不可解,跳过取名自愈(需重录凭证): %s",
+                acc.get("id"),
+                e,
+            )
+            continue
+        better = extract_display_name(jwt, acc.get("device_map") or {})
+        if not better or better == acc["name"]:
+            continue
+        try:
+            if await update_account_name(acc["id"], owner_user_id, better):
+                acc["name"] = better
+                logger.info(
+                    "[checkin_store] 账号名自愈 UUID 编码 -> 展示名 id=%s name=%s",
+                    acc["id"],
+                    better,
+                )
+                continue
+        except Exception as e:  # noqa: BLE001 — 自愈是增强,不得反噬列表读取
+            # 同名冲突(同一手机号在多平台各有一个账号)⇒ 退化带平台后缀,保可区分
+            if getattr(e, "sqlstate", None) == "23505" or "duplicate key" in str(e).lower():
+                alt = f"{better}·{_PLATFORM_LABELS.get(acc.get('platform') or 'trae', 'TRAE')}"
+                try:
+                    if await update_account_name(acc["id"], owner_user_id, alt):
+                        acc["name"] = alt
+                        logger.info(
+                            "[checkin_store] 账号名自愈(同名冲突,带平台后缀) id=%s name=%s",
+                            acc["id"],
+                            alt,
+                        )
+                except Exception as e2:  # noqa: BLE001
+                    logger.warning("[checkin_store] 账号 %s 取名自愈(后缀)失败: %s", acc.get("id"), e2)
+            else:
+                logger.warning("[checkin_store] 账号 %s 取名自愈落库失败: %s", acc.get("id"), e)
 
 
 async def delete_account(account_id: int, owner_user_id: str) -> bool:
@@ -405,6 +487,24 @@ async def update_group(account_id: int, owner_user_id: str, group: str) -> bool:
             account_id,
             owner_user_id,
             group,
+        )
+    return tag == "UPDATE 1"
+
+
+async def update_account_name(account_id: int, owner_user_id: str, name: str) -> bool:
+    """更新账号展示名(重命名)。返回是否命中行(属主校验并入 WHERE)。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        # 同 :269:asyncpg 状态文本钉成 str,Bool 判定才有人看守。
+        tag: str = await conn.execute(
+            """
+            UPDATE checkin_accounts
+            SET name = $3, updated_at = now()
+            WHERE id = $1 AND owner_user_id = $2
+            """,
+            account_id,
+            owner_user_id,
+            name,
         )
     return tag == "UPDATE 1"
 
@@ -782,6 +882,33 @@ async def get_active_cooldowns() -> dict[int, datetime]:
             datetime.now(UTC),
         )
     return {r["account_id"]: r["cooldown_until"] for r in rows}
+
+
+async def latest_outbound_pause_signal() -> tuple[str, datetime] | None:
+    """最近一条 SoftRate/Challenge 记录 → (type, created_at);无则 None。
+
+    出站全局暂停是**进程级易失状态**:服务重启即丢,而平台的限流/挑战
+    窗口(60s/300s)可能仍在有效期——重启后若不补暂停,定时批或手动入口
+    会立刻顶风打(第五件套配套,2026-10-16)。调度器 start() 调本函数
+    决定是否按原时长补一次暂停。只读最近一条,查询失败由调用方 fail-open。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT classified_error, created_at
+            FROM checkin_records
+            WHERE classified_error LIKE '%"SoftRate"%'
+               OR classified_error LIKE '%"Challenge"%'
+            ORDER BY created_at DESC
+            LIMIT 1
+            """
+        )
+    if row is None or row["created_at"] is None:
+        return None
+    raw = row["classified_error"] or ""
+    etype = "Challenge" if '"Challenge"' in raw else "SoftRate"
+    return etype, row["created_at"]
 
 
 # ---------------------------------------------------------------------------
