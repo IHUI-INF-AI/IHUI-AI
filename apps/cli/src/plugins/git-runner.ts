@@ -239,24 +239,76 @@ export class GitCloneRetriesExhaustedError extends Error {
   }
 }
 
+/** 解析用的实测探针(注入面):生产走真实 fs,用例可换成假探针。 */
+export interface GitBinaryProbe {
+  exists: (p: string) => boolean;
+  canExec: (p: string) => boolean;
+}
+
+const defaultGitBinaryProbe: GitBinaryProbe = {
+  exists: (p) => {
+    try {
+      return fs.existsSync(p);
+    } catch {
+      // 存在性判不了就当没有,继续下一候选(不猜、不抛)
+      return false;
+    }
+  },
+  canExec: (p) => {
+    if (process.platform === 'win32') return true; // Windows 的"可执行"由扩展名决定,走 PATHEXT 那一档
+    try {
+      fs.accessSync(p, fs.constants.X_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+};
+
 /**
- * 从候选里挑一个**存在**的绝对路径,拿不到才回退 `'git'`(交给 PATH)。
+ * 从候选里挑一个**实测存在且可执行**的绝对路径,拿不到才回退 `'git'`(交给 PATH)。
+ *
+ * 候选不再写死盘符(§5b/§26:盘符、安装树 flavor 都是"每次必须现读"的机器事实——
+ * 本机 Git 安装树已从 mingw64 迁到 ucrt64,写死路径的那类代码就是这么静默失效的):
+ *  - Windows:由 `%PROGRAMFILES%` / `%PROGRAMFILES(X86)%` / `%ProgramW6432%` 模板展开后逐个实测;
+ *  - 类 Unix:保留绝对候选,但每格都过 existsSync ∧ accessSync(X_OK);
+ *  - 全落空 ⇒ 逐 PATH 目录 × PATHEXT 走一遍命令,命中就返回**绝对路径**;仍拿不到才交裸 `'git'`。
+ *
  * 刻意不做"跑一次 --version"的探活:那是真派生,会污染既有"拒绝路径根本不派生 git"的断言
  * (apps/cli/tests/plugin-git-url-shape.test.ts 按 execFileSync 调用次数记账)。
  */
-export function resolveGitBinary(sourceEnv: NodeJS.ProcessEnv = process.env): string {
+export function resolveGitBinary(
+  sourceEnv: NodeJS.ProcessEnv = process.env,
+  probe: GitBinaryProbe = defaultGitBinaryProbe,
+): string {
   const override = (sourceEnv[GIT_BIN_ENV] ?? sourceEnv.GIT_BIN ?? '').trim();
   // 测试钩子优先:用例常把它指向**不存在**的路径来模拟 git 缺失 ⇒ 这里不得存在性过滤掉它
   if (override) return override;
-  const candidates: readonly string[] =
-    process.platform === 'win32'
-      ? ['C:/Program Files/Git/cmd/git.exe', 'C:/Program Files (x86)/Git/cmd/git.exe']
-      : ['/usr/bin/git', '/usr/local/bin/git', '/opt/homebrew/bin/git'];
+
+  const isWin = process.platform === 'win32';
+  const exe = isWin ? 'git.exe' : 'git';
+  const candidates: string[] = isWin
+    ? (['PROGRAMFILES', 'PROGRAMFILES(X86)', 'ProgramW6432'] as const)
+        .map((k) => (sourceEnv[k] ?? '').trim())
+        .filter(Boolean)
+        .map((root) => path.join(root, 'Git', 'cmd', exe))
+    : ['/usr/bin/git', '/usr/local/bin/git', '/opt/homebrew/bin/git'];
   for (const c of candidates) {
-    try {
-      if (fs.existsSync(c)) return c;
-    } catch {
-      /* 存在性判不了就当没有,继续下一候选 */
+    if (probe.exists(c) && probe.canExec(c)) return path.normalize(c);
+  }
+
+  const pathVar = sourceEnv.PATH ?? sourceEnv.Path ?? sourceEnv.path ?? '';
+  const exts = isWin
+    ? (sourceEnv.PATHEXT ?? '.EXE;.CMD;.BAT').split(';').map((e) => e.trim()).filter(Boolean)
+    : [''];
+  for (const dir of pathVar.split(path.delimiter)) {
+    if (!dir) continue;
+    for (const rawExt of exts) {
+      if (isWin && !/\.(exe|cmd|bat)$/i.test(rawExt)) continue;
+      // PATHEXT 的大小写是机器事实(实测常为 `.EXE`);开盘不区分大小写,但返回串收平成与 exe 同档的小写,
+      // 免得同一个解析结果在不同机器上写成 git.EXE / git.exe 两副面孔。
+      const cand = path.join(dir, isWin ? `git${rawExt.toLowerCase()}` : 'git');
+      if (probe.exists(cand) && probe.canExec(cand)) return path.normalize(cand);
     }
   }
   return 'git';
