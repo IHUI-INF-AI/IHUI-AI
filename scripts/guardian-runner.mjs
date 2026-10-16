@@ -5004,6 +5004,23 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- 端内共享类型重声明(1 项,blocking)---
+  {
+    id: '219',
+    label:
+      '🧬 端内共享类型重声明对账(共享对外类型名不得在端内再写一份;差值棘轮锚点=该文件 HEAD 自身违规数,存量只报数)',
+    script: 'check-shared-type-not-redeclared.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_SHARED_TYPE_REDECLARED',
+    stagedTriggers: ['apps/', 'packages/'],
+    onFailHint: [
+      '',
+      '① 看是哪一条:node scripts/check-shared-type-not-redeclared.mjs --staged --json 里 detail 逐条点名 文件/类型名/sameShape(yes|no|undetermined)/reachable;\\n② sameShape=yes 且 reachable=true 的才是一条命令能收的:删本地声明,改 import 自 @ihui/types(原本导出的另起一行 export type { X } 保住上游 import 面);\\n③ sameShape=no 是"跨层同名不同物",不许并 —— 并了就是把两件不同的东西并成一件(改档前必须先读完两侧字段);\\n④ sameShape=undetermined 要人工读两侧声明(门刻意不猜,判不出理由写在 shapeWhy);\\n⑤ 禁止用改阈值/加豁免/把命中集缩小消红;唯一出口是改 import 共享出口(AGENTS §3 共享层优先)。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
