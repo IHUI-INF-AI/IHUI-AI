@@ -144,8 +144,9 @@ class ShimNode {
   private _relink(): void {
     for (let i = 0; i < this.childNodes.length; i++) {
       const c = this.childNodes[i]
-      c.previousSibling = i > 0 ? this.childNodes[i - 1] : null
-      c.nextSibling = i < this.childNodes.length - 1 ? this.childNodes[i + 1] : null
+      if (!c) continue
+      c.previousSibling = i > 0 ? (this.childNodes[i - 1] ?? null) : null
+      c.nextSibling = i < this.childNodes.length - 1 ? (this.childNodes[i + 1] ?? null) : null
     }
   }
   get firstChild(): ShimNode | null {
@@ -202,7 +203,7 @@ class ShimElement extends ShimNode {
     this.attributes[name] = String(value)
   }
   getAttribute(name: string): string | null {
-    return name in this.attributes ? this.attributes[name] : null
+    return name in this.attributes ? (this.attributes[name] ?? null) : null
   }
   hasAttribute(name: string): boolean {
     return name in this.attributes
