@@ -24,6 +24,20 @@ interface NotificationPrefs {
   pushEnabled: boolean
 }
 
+// G-402:每键缺省值的单一真相源。读侧从存储值还原时一律回落这张表(从未设置 / 被清空 → 该键默认),
+// 不再散写 `!== 'false'` / `=== 'true'`(同一含义两键极性相反 ⇒ 漂移风险);默认态初值也取同一份。
+const NOTIFICATION_DEFAULTS: NotificationPrefs = {
+  emailEnabled: true,
+  systemNotif: true,
+  marketingEmail: false,
+  smsEnabled: false,
+  pushEnabled: true,
+}
+
+// 显式 'true'/'false' 优先;缺省(undefined / null / 被清空)回落该键默认 —— 逐值等价于旧散写逻辑,只是集中一处。
+const resolvePref = (raw: string | null | undefined, key: keyof NotificationPrefs): boolean =>
+  raw === 'true' ? true : raw === 'false' ? false : NOTIFICATION_DEFAULTS[key]
+
 export default function NotificationsPage() {
   const t = useTranslations('settings')
   const tc = useTranslations('common')
@@ -31,13 +45,7 @@ export default function NotificationsPage() {
   const tGate = useTranslations('chatHistory')
   const { allow } = useAuthGate()
   const { soundEnabled, setSoundEnabled } = useNotification()
-  const [prefs, setPrefs] = React.useState<NotificationPrefs>({
-    emailEnabled: true,
-    systemNotif: true,
-    marketingEmail: false,
-    smsEnabled: false,
-    pushEnabled: true,
-  })
+  const [prefs, setPrefs] = React.useState<NotificationPrefs>(NOTIFICATION_DEFAULTS)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState('')
   const [toast, setToast] = React.useState<{ type: 'success' | 'error'; msg: string } | null>(null)
@@ -51,11 +59,11 @@ export default function NotificationsPage() {
         if (res.success) {
           const s = res.data.settings
           setPrefs({
-            emailEnabled: s.emailEnabled !== 'false',
-            systemNotif: s.systemNotif !== 'false',
-            marketingEmail: s.marketingEmail === 'true',
-            smsEnabled: s.smsEnabled === 'true',
-            pushEnabled: s.pushEnabled !== 'false',
+            emailEnabled: resolvePref(s.emailEnabled, 'emailEnabled'),
+            systemNotif: resolvePref(s.systemNotif, 'systemNotif'),
+            marketingEmail: resolvePref(s.marketingEmail, 'marketingEmail'),
+            smsEnabled: resolvePref(s.smsEnabled, 'smsEnabled'),
+            pushEnabled: resolvePref(s.pushEnabled, 'pushEnabled'),
           })
         } else {
           setError(t('notificationsLoadFailed'))
