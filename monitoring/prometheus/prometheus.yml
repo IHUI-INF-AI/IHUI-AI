@@ -61,6 +61,25 @@ scrape_configs:
   #       labels:
   #         service: 'api'
   #         layer: 'backend'
+  # ↑ 上面这段"因 401 而注释"的历史原文逐字留档不删(它是这条误判的出处证据);
+  #   但结论已在 2026-10-17 实测推翻：`curl http://127.0.0.1:8802/business-metrics`
+  #   返回 **HTTP 200** 且吐出合法 Prometheus 文本 ⇒ 是注释里的历史事实骗住了配置，
+  #   导致 business_ai_* 这一族从来没被采集过(Prometheus 侧 series=0)。
+  #   真采集走下面这个启用的 job,不再靠改注释掩盖历史。
+  # ⚠ 安全面如实说明(不靠本注释掩盖)：该端点在 API 进程内**无鉴权**(无 preHandler),
+  #   且被 server.ts 的 PUBLIC_PREFIXES 显式列为"不注入网络分段" ⇒ 任何能直连 8802 的
+  #   主体都能读到全站漏斗/订单/支付/AI 成本计数。本机现状：nginx 无对应 location(只代理
+  #   /api/),故公网经反代取不到;但 8802 若被对外绑定即是暴露面。本 job 按 127.0.0.1 抓取
+  #   不改变该暴露面,只是让它可观测。真正的收口(挪内网分段或加 basic_auth + 抓取侧凭证)
+  #   属另行决策,未在本票额度内实施。
+  - job_name: 'business-metrics'
+    metrics_path: '/business-metrics'
+    scheme: 'http'
+    static_configs:
+      - targets: ['127.0.0.1:8802']
+        labels:
+          service: 'api'
+          layer: 'backend'
 
   # Prometheus 自监控（原生部署 Prometheus 监听 8815，非容器内 9090）
   - job_name: 'prometheus'
