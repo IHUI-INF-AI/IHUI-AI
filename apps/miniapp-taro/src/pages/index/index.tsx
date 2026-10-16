@@ -30,6 +30,7 @@
  * - ModelConfigDialog 模型配置弹窗
  */
 import { aizhsUrl } from '@/constants/icon-urls'
+import { TAB_BAR_OCCUPIED_CSS, TAB_BAR_OCCUPIED_PX } from '@/constants/tab-bar-metrics'
 import { domesticImageAt } from '@ihui/shared/constants'
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Image, Text, ScrollView, Button } from '@tarojs/components'
@@ -1210,8 +1211,10 @@ export default function Index() {
       }
     : undefined
 
-  // ===== 计算底部偏移(对齐原项目 computedContainerBottom,简化为 0 由键盘自适应)=====
-  const computedContainerBottom = '0'
+  // ===== 计算底部偏移(对齐原项目 computedContainerBottom)=====
+  // 2026-10-16:tabBar 改自定义后是**浮层**(实测 systemInfo.windowHeight==screenHeight,它不压缩
+  // 页面视口),原值 '0' 会让这栏贴到屏幕底、被玻璃胶囊整条盖住。抬到胶囊顶边之上。
+  const computedContainerBottom = TAB_BAR_OCCUPIED_CSS
 
   // ===== 当前类型模型列表(对齐原项目根据 currentModelType 过滤)=====
   const filteredModels = useMemo(() => {
@@ -1294,7 +1297,7 @@ export default function Index() {
             className="top_box"
             style={{
               padding: '0 20rpx',
-              height: 'calc(100vh - 120rpx - env(safe-area-inset-bottom))',
+              height: `calc(100vh - 120rpx - ${TAB_BAR_OCCUPIED_PX}px - env(safe-area-inset-bottom))`,
               position: 'relative',
               overflow: 'hidden',
             }}
@@ -1715,7 +1718,8 @@ export default function Index() {
             <View
               style={{
                 background: 'var(--color-card)',
-                paddingBottom: 'calc(110rpx + env(safe-area-inset-bottom))',
+                // 安全区已由浮层胶囊的 marginBottom 吃掉一份,这里再算一次会把输入区顶高 34px
+                paddingBottom: '10rpx',
                 boxShadow: '0 -2rpx 10rpx var(--color-black-5)',
               }}
             >

@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { aizhsUrl } from '@/constants/icon-urls'
+import { TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
 import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, {
@@ -618,13 +619,18 @@ export default function Community() {
   }))
 
   return (
-    <ThemeRoot className="community-out-container pb-[calc(140rpx+env(safe-area-inset-bottom))]">
+    // 底部留位取单一出处 `constants/tab-bar-metrics`(自定义 tabBar 是浮层,不压缩页面
+    // 视口 ⇒ 页面滚动内容必须自己让位)。原先端内手写的 `pb-[calc(140rpx+env(...))]`
+    // 是同一名目的的第二份量,已剥掉并由下面滚动容器的 paddingBottom 承接(外层显式
+    // 归零 pb-0,避免两份留位叠加/互相覆盖)。
+    <ThemeRoot className="community-out-container pb-0">
       <View
         style={
           {
             ['--app-top-bar-height']: appTopBarHeight,
             height: showCategoryPopup ? '100vh' : 'auto',
             overflowY: showCategoryPopup ? 'hidden' : 'auto',
+            paddingBottom: TAB_BAR_PAGE_RESERVE_CSS,
           } as React.CSSProperties
         }
       >
