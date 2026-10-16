@@ -26,9 +26,11 @@ export function AgentMarketScreen() {
   const load = async (kw: string) => {
     setLoading(true)
     setError('')
+    // 后端 GET /agents 回 success({list,total,page,pageSize})，而这里曾把整个信封当数组用
+    // ⇒ 市场页永远空列表（与 HistoryScreen / ExamHistoryScreen 同一型，没有任何一层会红）。
     const url = kw ? `/api/agents?keyword=${encodeURIComponent(kw)}` : '/api/agents'
-    const res = await fetchApi<AgentMarketItem[]>(url)
-    if (res.success) setAgents(res.data ?? [])
+    const res = await fetchApi<{ list: AgentMarketItem[] }>(url)
+    if (res.success) setAgents(res.data?.list ?? [])
     else setError(apiFailureToText(res, t('agentMarket.loadFailed')))
     setLoading(false)
   }
