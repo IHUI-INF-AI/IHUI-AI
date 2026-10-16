@@ -4996,6 +4996,22 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- Grafana 大屏指标名对账(1 项,blocking)---
+  {
+    id: '220',
+    label:
+      'Grafana 大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记)',
+    script: 'check-grafana-metric-exists.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GRAFANA_METRIC_EXISTS',
+    stagedTriggers: ['monitoring', 'deploy', 'apps/ai-service/app', 'apps/api/src', 'packages', 'scripts/'],
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
