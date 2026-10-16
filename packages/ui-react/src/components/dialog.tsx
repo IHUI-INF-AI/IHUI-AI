@@ -47,8 +47,12 @@ const DialogContent = React.forwardRef<
      *  true → 不渲染 DialogPrimitive.Close,DOM 中只有外部一个按钮。
      */
     hideCloseButton?: boolean
+    /** 透传到 Radix Overlay 的附加 className(2026-10-17 立)。
+     *  仅用于极少数需要被 modal-overlay-watcher 豁免的全屏遮罩(如「关闭询问」弹窗),
+     *  普通弹窗不应使用,以免其遮罩不再等效压暗窗口控件。 */
+    overlayClassName?: string
   }
->(({ className, children, hideCloseButton, onEscapeKeyDown, ...props }, ref) => {
+>(({ className, children, hideCloseButton, overlayClassName, onEscapeKeyDown, ...props }, ref) => {
   // 2026-09-16:无 Root 时(React19 prerender context 断裂)渲染 null 而非抛错——
   // 同 DialogTrigger 降级逻辑(见文件头),异常分支仅 SSR HTML 缺失,真实交互路径不受影响。
   const inDialog = React.useContext(InDialogContext)
@@ -78,7 +82,12 @@ const DialogContent = React.forwardRef<
         以全亮度暴露在遮罩之下,用户视觉感知为"AI 面板跟着登录窗一起发亮"。
         移除 open 态 animate-in + fade-in-0,遮罩瞬间出现,AI 面板从第一帧就被暗化。
         保留 closed 态 fade-out-0,关闭时仍有平滑淡出过渡。 */}
-      <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-(--duration-unified) data-[state=closed]:ease-unified" />
+      <DialogPrimitive.Overlay
+        className={cn(
+          'fixed inset-0 z-modal bg-black/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-(--duration-unified) data-[state=closed]:ease-unified',
+          overlayClassName,
+        )}
+      />
       <DialogPrimitive.Content
         ref={escStackRef}
         onEscapeKeyDown={guardEscKeyDown(escStackId, onEscapeKeyDown)}

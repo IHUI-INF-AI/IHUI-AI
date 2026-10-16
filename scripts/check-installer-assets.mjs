@@ -615,9 +615,30 @@ export function checkDpiReanchorCompleteness({ uiSrc, installerSrc }) {
   if (at >= 0 && show >= 0 && at > show)
     v.push('IHUI_REINSTALLTHEME 插在 nsDialogs::Show 之后 —— 页面已进入才重锚,首帧按旧档绘制')
 
-  // ② 重锚分支:从 DPI 不一致判定到其 ${EndIf},必须同时定窗框与定裁剪区域
+  // ② 重锚分支:2026-10-16 起统一走 IHUI_REANCHOR(按实际客户区反推档位,每个页面
+  //    入口共用一份;重装页不再内联 R70 分支 —— 两套重锚连跑会把窗口在两档间来回弹)。
+  //    守门改校验 REANCHOR 宏体的不变量:窗口框归一(SetWindowPos)+ 档位变化重解压
+  //    (EXTRACTPAGESETS)+ 裁剪区域重算(WINDOW_RGN)。旧内联分支仍兼容(若被改回)。
   const theme = bodyOf('IHUI_REINSTALLTHEME')
   if (!theme) return v.concat(['ihui-ui.nsi 里找不到 IHUI_REINSTALLTHEME 宏体'])
+  const usesUnifiedReanchor = /!insertmacro\s+IHUI_REANCHOR\b/.test(theme)
+  if (usesUnifiedReanchor) {
+    const ra = bodyOf('IHUI_REANCHOR')
+    if (!ra) {
+      v.push('IHUI_REINSTALLTHEME 引用了 IHUI_REANCHOR,但 ihui-ui.nsi 里找不到该宏体 —— 重锚链断裂')
+    } else {
+      for (const [needle, what] of [
+        ['user32::GetClientRect', '重锚判据必须取自窗口实际客户区(运行期被系统改尺寸的权威观测点)'],
+        ['SetWindowPos', '窗口框必须归一到新档物理尺寸 —— 不归一则内层 dialog 永远填不满窗口(右/下露原生白底)'],
+        ['IHUI_EXTRACTPAGESETS', '档位变化后必须重解压页面资产 —— 不重解压则位图停在旧档,与新窗口框错档'],
+        ['IHUI_WINDOW_RGN', '窗口裁剪区域(SetWindowRgn 回退分支)'],
+      ]) {
+        if (!ra.includes(needle)) {
+          v.push(`IHUI_REANCHOR 宏体缺 ${needle} —— ${what}`)
+        }
+      }
+    }
+  } else {
   const from = theme.indexOf('${If} $0 != $IHUIDPIW')
   if (from < 0) {
     v.push(
@@ -658,6 +679,7 @@ export function checkDpiReanchorCompleteness({ uiSrc, installerSrc }) {
       )
     }
   }
+  } // end: 旧内联 DPI 分支校验(非统一 REANCHOR 时)
 
   // ③ 同源实现:IHUI_WINDOW_RGN 必须存在、被 GUIINIT_COMMON 一起用、几何取自 $IHUIWW/$IHUIWH
   const rgn = bodyOf('IHUI_WINDOW_RGN')

@@ -19234,6 +19234,9 @@
     "groupUngrouped": "未分组",
     "skippedToday": "已跳过 {count} 个今日已签账号",
     "skippedExpired": "已跳过 {count} 个 JWT 已过期账号",
+    "skippedCooldown": "已跳过 {count} 个冷却中账号",
+    "checkinRateLimited": "平台限流已中止本批，请稍后再试",
+    "checkinFailedCount": "有 {count} 个账号签到失败",
     "checkinSelected": "签到勾选账号（{count}）",
     "selectAllVisible": "全选当前列表",
     "selectAccount": "选中账号 {name}",
@@ -19344,10 +19347,13 @@
     "deviceMapUpdated": "设备指纹已更新",
     "editDeviceMap": "编辑设备指纹",
     "editDeviceMapTitle": "编辑设备指纹",
-    "editDeviceMapDescription": "为 {platform} 账号编辑设备指纹（JSON 对象；留空保存将自动生成）。"
+    "editDeviceMapDescription": "为 {platform} 账号编辑设备指纹（JSON 对象；留空保存将自动生成）。",
+    "checkedInToday": "今日已签到",
+    "rename": "重命名"
   },
   "nav": {
     "checkin": "签到助手",
+    "monitorWallboard": "监控大屏",
     "ecosystemHub": "生态市场",
     "adminRelayInsights": "运营洞察",
     "adminRelayEnterprise": "企业合规",
@@ -19696,7 +19702,17 @@
     "adminDeployDiagnosis": "部署诊断",
     "githubApp": "GitHub App",
     "smsReceive": "短信接码",
-    "sms": "短信模板"
+    "sms": "短信模板",
+    "customGroup": "自定义",
+    "customAddTitle": "自定义常用功能",
+    "customEmptyHint": "添加常用功能",
+    "customSearchPlaceholder": "搜索功能",
+    "customAdded": "已添加",
+    "customAdd": "添加",
+    "customRemove": "移除",
+    "customManage": "管理常用功能",
+    "customDragHint": "拖拽排序",
+    "customNoResults": "没有找到匹配的功能"
   },
   "news": {
     "allCategories": "全部分类",

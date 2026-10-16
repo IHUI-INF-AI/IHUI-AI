@@ -27,6 +27,7 @@ from typing import Any, Final
 
 from app.core.logging import get_logger
 from app.services.checkin_engine import get_http_client
+from app.services.checkin_outbound import checkin_outbound_gate
 
 logger = get_logger(__name__)
 
@@ -117,19 +118,33 @@ async def query_remaining_credits(jwt: str) -> dict[str, Any]:
         ),
         "content-type": "application/json",
     }
+    # 出站节流闸门:查余额与签到共用一条节流轴(手动批量查余额也受错峰保护)。
+    # before_request 在 try 之外(第五件套修复,2026-10-16):暂停期抛出的
+    # OutboundPaused 必须上抛——原先在 try 内被 except Exception 吞成
+    # error dict,全局暂停期整批查询静默逐账号失败、调度批不 break。
+    await checkin_outbound_gate.before_request("trae")
     try:
         client = get_http_client()
         resp = await client.post(ENT_USAGE_URL, json=_REQUEST_BODY, headers=headers)
     except Exception as e:
         return _error_result(f"积分余额接口请求失败: {type(e).__name__}: {e}")
+    checkin_outbound_gate.note_status(resp.status_code, "trae")
+    if resp.status_code == 403:
+        # 第五件套:403 = 挑战墙/WAF 拦截(与 Trae 签到主路 classify 的
+        # Challenge 同语义);查询路不熔断会让快照批对拦截墙静默连打
+        checkin_outbound_gate.note_challenge("trae")
+        return _error_result(f"积分余额接口 HTTP 403: 挑战墙/WAF 拦截,已熔断: {resp.text[:120]}")
     if resp.status_code != 200:
         return _error_result(f"积分余额接口 HTTP {resp.status_code}: {resp.text[:200]}")
     try:
         data = json.loads(resp.text)
     except Exception:
-        return _error_result("积分余额接口返回非 JSON 响应")
+        # 第五件套:2xx 非 JSON = WAF 挑战页插页(API 契约是 JSON)
+        checkin_outbound_gate.note_challenge("trae")
+        return _error_result("积分余额接口返回非 JSON 响应(挑战页,已熔断)")
     if not isinstance(data, dict):
-        return _error_result("积分余额接口响应结构异常(顶层非对象)")
+        checkin_outbound_gate.note_challenge("trae")
+        return _error_result("积分余额接口响应结构异常(顶层非对象,已熔断)")
 
     raw_packs = data.get("user_entitlement_pack_list")
     if not isinstance(raw_packs, list):

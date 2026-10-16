@@ -33,9 +33,9 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, readdirSync, copyFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { gitRaw } from './lib/face-reader.mjs'
 import { join, dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
@@ -258,7 +258,7 @@ function badgeSvg({ w = 140, h = 56, text = '', from = C.blue, to = C.navy, radi
 }
 
 // ── 数字封面(课程星球 1-11)────────────────────────────────────────────────
-const COVER_HUES = [210, 25, 160, 265, 340, 45, 190, 120, 285, 10, 230] // 禁紫:265/285 用蓝青替代
+// 禁紫:原 265/285(紫)已用蓝青 205/195 替代,取 COVER_SAFE_HUES。
 const COVER_SAFE_HUES = [210, 25, 160, 205, 340, 45, 190, 120, 195, 10, 230]
 function coverSvg(n, i, size = 240) {
   const h = COVER_SAFE_HUES[(i - 1) % COVER_SAFE_HUES.length]
@@ -352,7 +352,7 @@ async function aiCrop(key, w, h, out, { jpg = false, cutBottom = 0.10, quality =
   const src = stage(key)
   const meta = await sharp(src).metadata()
   const cutH = STAGING_FILES.mascot === STAGING_FILES[key] ? 0 : Math.round(meta.height * cutBottom)
-  let pipe = sharp(src).extract({ left: 0, top: 0, width: meta.width, height: meta.height - cutH })
+  const pipe = sharp(src).extract({ left: 0, top: 0, width: meta.width, height: meta.height - cutH })
     .resize(w, h, { fit: 'cover', position: 'centre' })
   const buf = jpg
     ? await pipe.flatten({ background: C.navy }).jpeg({ quality }).toBuffer()
@@ -807,8 +807,8 @@ async function replaceIfBlank(out, svg) {
 async function mirrorWeb() {
   const dirty = new Set()
   try {
-    const st = execFileSync('git', ['-C', ROOT, 'status', '--porcelain', '-z', '--', 'apps/web/public'], {
-      encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
+    const st = gitRaw(['status', '--porcelain', '-z', '--', 'apps/web/public'], ROOT, {
+      maxBuffer: 1 << 28,
     })
     for (const rec of st.split('\0')) {
       const m = rec.match(/^.{2} (.+)$/)
@@ -820,8 +820,8 @@ async function mirrorWeb() {
   }
   const tracked = new Set()
   try {
-    const out = execFileSync('git', ['-C', ROOT, 'ls-files', '-z', '--', 'apps/web/public'], {
-      encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
+    const out = gitRaw(['ls-files', '-z', '--', 'apps/web/public'], ROOT, {
+      maxBuffer: 1 << 28,
     })
     for (const p of out.split('\0')) if (p) tracked.add(p)
   } catch {
@@ -890,5 +890,11 @@ async function generate(rel, s) {
   }
 }
 
-main().catch((e) => { console.error(e); process.exit(1) })
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => { console.error(e); process.exit(1) })
+}
+
+export const __test__ = { main }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

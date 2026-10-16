@@ -11,8 +11,11 @@
  * 耦合只有 ctx 一层,整体搬出后 runner 只剩「注册表 + CLI 解析 + help + 一次调用」。
  *
  * 搬运纪律:执行逻辑**逐字搬入 runGuardianBatch**,不改任何判定/打印/退出码语义;
- * 行为不变量:help 早退在调用前、push-gate 缓存命中早退在函数内(顺序不变)、
- * substrate 探针先于 PAR 池、中断 75 传播与崩溃分流逐字保留。
+ * 行为不变量:help 早退在调用前、push-gate 缓存命中早退在调用处(缓存本体在
+ * lib/guardian-pushgate-cache.mjs)、substrate 探针先于 PAR 池、中断 75 传播与崩溃分流逐字保留。
+ * 2026-10-16 二次外置([11e] 余量拉开):push-gate 缓存 → guardian-pushgate-cache.mjs,
+ * 批次留痕 attest → guardian-batch-attest.mjs(数组本体/计数器仍在本文件,经 wrapper 传引用与当下值);
+ * stagedPathsTouch/printSummary/PAR 池/applyGateResult/主循环留在本文件(镜像测试钉死面)。
  * 镜像测试同步:6 个测试(check-gate-wiring/safe-commit-gate-attribution/gate-failure-kind/
  * substrate-probe/installer-gates-wiring/guardian-triggers)同票改取材面到本文件。
  * 打印出口:本文件一律 console.info/warn/error(eslint-config no-console 白名单),不留行内抑制
@@ -20,20 +23,16 @@
  */
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { createHash } from 'node:crypto'
+import { gitRaw } from './face-reader.mjs'
+// 2026-10-16 [11e] 余量拉开:push-gate 缓存(指纹/命中早退/写入)与批次留痕 attest 各自外置成
+// 独立 lib(执行逻辑逐字搬,闭包引用改 ctx 参数);本文件只保留调用点与数组本体。
+import { pushGateCacheEarlyExit, writePushGateCache } from './guardian-pushgate-cache.mjs'
+import { attestGateBatchRun as attestGateBatchRunImpl } from './guardian-batch-attest.mjs'
 import { normalizeTriggers, triggersTouch } from './guardian-triggers.mjs'
 import { resolveGitBin } from './gitdir.mjs'
 import { probeSubstrate } from './substrate-probe.mjs'
-// G-1059139:守门批的结构化留痕(批次跑了 / 逐道 env 自跳 / 暂存区未触及 / 当次索引的树指纹)。
-// 归一函数与读写出口只住这一处 lib,runner 不自己拼台账路径、也不自己算 digest(两份实现必漂移)。
-import {
-  appendGateBatchRecord,
-  indexTreeDigest,
-  indexVsHeadPaths,
-  stepLevelSkipHits,
-} from './attestation-tree-digest.mjs'
 // G-611:子门"被信号杀死"与"检查结论失败"的分界用共享尺子判(集合/分类唯一实现在该 lib;
 // 75 传播语义见执行段 catch)。此前本 runner 只认 status===75,子门被可捕获信号杀掉而
 // 产出 128+N、或没装产出侧只留下 signal 时,都被计成"结论失败"—— 归因分叉的 runner 层。
@@ -79,91 +78,10 @@ if (showTiming) {
 
 // === 执行 ===
 
-// ─── push-gate 结果缓存(2026-09-18 立,"已推完还在等"根治第二刀) ───
-// 背景:pre-push 钩子是仓库级——同一批 commit 推 N 个仓就清缓存全量 tsc+mypy N 遍,
-//      单遍数分钟,多会话收尾动辄干等 8-13 分钟。而同一 HEAD 的代码内容完全相同,
-//      短窗口内重复跑门是纯浪费。
-// 策略(2026-09-18 晚二次根治):**内容指纹**为键,不再按 HEAD sha——
-//      typecheck 实际消费的是工作区(apps/+packages/ 的 HEAD 子树 + 脏改动),
-//      合并提交/文档提交虽推进 HEAD 但类型相关内容不变,按 sha 键控必 miss,
-//      导致每轮收敛都重跑 270s 全量门(实测收敛 3 轮 = 13 分钟)。
-//      指纹 = HEAD:apps 树 hash + HEAD:packages 树 hash + 脏文件清单及内容 hash。
-//      只缓存"全部通过"结果;指纹一变立即失效。
-// 跳过:HUSKY_SKIP_PUSHGATE_CACHE=1(需要强制重跑全量门时使用)。
-const PUSHGATE_CACHE_TTL_MS = 10 * 60 * 1000
-const pushGateCacheFile = resolve(process.cwd(), '.workbuddy/push-gate-cache.json')
-
-function readPushGateCache() {
-  try {
-    return JSON.parse(readFileSync(pushGateCacheFile, 'utf8'))
-  } catch {
-    return null
-  }
-}
-
-/** 计算门检查输入的内容指纹:HEAD 类型相关子树 + 工作区脏状态(含脏文件内容) */
-function computeGateFingerprint() {
-  try {
-    const trees = execFileSync('git', ['rev-parse', 'HEAD:apps', 'HEAD:packages'], {
-      encoding: 'utf8',
-      windowsHide: true,
-      // 只读查询,可安全封顶:同日 check-port-registry 因无 timeout 挂住 80 分钟,
-      // 把整条 pre-commit 拖成"看起来像卡死"。5 分钟远高于任何正常耗时,只截病态挂起。
-      timeout: 300_000,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }).trim()
-    // -z:NUL 分隔,路径无转义歧义;rename 条目 "R  new\0old\0" 需跳过 old 段
-    const statusRaw = execFileSync(
-      'git',
-      ['status', '--porcelain', '-z', '--', 'apps', 'packages'],
-      {
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: 300_000,
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    )
-    const h = createHash('sha1')
-    h.update(trees)
-    h.update(statusRaw)
-    const tokens = statusRaw.split('\0').filter(Boolean)
-    for (let i = 0; i < tokens.length && i < 400; i++) {
-      const tok = tokens[i]
-      if (tok.length <= 3 || tok[2] !== ' ') continue
-      const xy = tok.slice(0, 2)
-      try {
-        h.update(readFileSync(resolve(process.cwd(), tok.slice(3))))
-      } catch {
-        /* 删除态/瞬时不可读文件跳过,不影响指纹整体有效性 */
-      }
-      if (xy.includes('R') || xy.includes('C')) i++ // 跳过 rename 的 old path 段
-    }
-    return h.digest('hex')
-  } catch {
-    return null
-  }
-}
-
-if (pushGate && !cliArgs.includes('--no-cache') && process.env.HUSKY_SKIP_PUSHGATE_CACHE !== '1') {
-  const cache = readPushGateCache()
-  const fp = computeGateFingerprint()
-  if (
-    cache &&
-    cache.passed === true &&
-    cache.fp &&
-    cache.fp === fp &&
-    Date.now() - cache.ts < PUSHGATE_CACHE_TTL_MS
-  ) {
-    const ageMin = ((Date.now() - cache.ts) / 60000).toFixed(1)
-    console.info(
-      `${C.green}⚡ [push-gate] 命中缓存:类型相关内容指纹 ${String(fp).slice(0, 11)} 于 ${ageMin} 分钟前已通过全量门,跳过重复 typecheck${C.reset}`,
-    )
-    console.info(`${C.dim}   (内容一致复用结果;强制重跑:HUSKY_SKIP_PUSHGATE_CACHE=1)${C.reset}`)
-    process.exit(0)
-  }
-}
+// ─── push-gate 结果缓存(2026-09-18 立;2026-10-16 外置到 lib/guardian-pushgate-cache.mjs) ───
+// 内容指纹为键(HEAD:apps/packages 树 hash + 脏文件内容 hash),只缓存全部通过结果;
+// 命中即在本函数内 process.exit(0),--no-cache / HUSKY_SKIP_PUSHGATE_CACHE=1 逃生舱保留。
+pushGateCacheEarlyExit({ pushGate, cliArgs, C })
 
 let passed = 0
 let warned = 0
@@ -192,58 +110,28 @@ const selfSkippedGates = []
 const notTriggeredGates = []
 
 /**
- * 往台账落一行 kind=gate-batch-run。**永不抛、永不改退出码** —— 一次正常的守门批不得因为记账写失败而变红,
- * 但写失败必须响亮(stderr 一行),因为台账静默失踪是本仓最高频失效型。
- * ranFullBatch:早退路径(逃生舱 stopOnFirst)为 false,跑完为 true。
+ * 往台账落一行 kind=gate-batch-run(2026-10-16 函数体外置到 lib/guardian-batch-attest.mjs,
+ * 数组本体与计数器仍在本文件 —— 调用点(L620 早退 / 跑完各一)零改动,经 wrapper 传当下值)。
+ * **永不抛、永不改退出码**:一次正常的守门批不得因为记账写失败而变红。
  */
 function attestGateBatchRun(ranFullBatch) {
-  try {
-    const dg = indexTreeDigest()
-    const df = indexVsHeadPaths()
-    const declaredEnvs = [
-      ...new Set([...checks, ...pushGateChecks].map((c) => c.skipEnv).filter(Boolean)),
-    ]
-    const step = stepLevelSkipHits({ declared: declaredEnvs })
-    const w = appendGateBatchRecord({
-      mode: passStaged ? 'staged' : 'full',
-      totalChecks: effectiveChecks.length,
-      executed: passed + warned + failed + skipped,
-      blockingFailed: failedGates.length,
-      selfSkipped: selfSkippedGates,
-      notTriggered: notTriggeredGates.map((g) => ({ ...g, reason: 'stagedTriggers 未触及' })),
-      undeclaredSkipHits: step.count,
-      undeclaredSkipHitsUndetermined: step.undetermined,
-      declaredFiles: df.ok ? df.files : [],
-      declaredFilesTruncated: df.truncated === true,
-      declaredFilesTotalSeen: df.ok ? df.totalSeen : 0,
-      ranFullBatch,
-      treeDigest: dg.digest,
-      treeDigestWhy: dg.ok ? null : dg.why,
-    })
-    if (!w.ok) {
-      console.error(`⚠️  [attest] 本轮守门批**未落批次留痕**:${w.why}`)
-    } else if (!dg.ok) {
-      console.error(
-        `⚠️  [attest] 批次留痕已落,但 treeDigest 取不到 ⇒ 统计器把这一枚绑不回本轮(${dg.why})`,
-      )
-    } else {
-      console.info(
-        `${C.dim}🧾 [attest] 批次留痕 kind=gate-batch-run(treeDigest=${dg.digest.slice(0, 12)}…,selfSkipped=${selfSkippedGates.length},undeclaredSkipHits=${step.count})${C.reset}`,
-      )
-    }
-    if (step.undetermined.length > 0) {
-      console.error(
-        `ℹ️  [attest] 步骤级门有 ${step.undetermined.length} 个面读不到(${step.undetermined
-          .map((u) => u.file)
-          .join(', ')})⇒ undeclaredSkipHits 只覆盖扫得动的面,**不得读成"该面已覆盖"**,也不得折成 0`,
-      )
-    }
-    if (!df.ok) console.error(`ℹ️  [attest] declaredFiles 取不到:${df.why}(落空数组并点名,不伪造)`)
-  } catch (e) {
-    console.error(
-      `⚠️  [attest] 批次留痕流程异常:${String(e?.message ?? e).slice(0, 200)} —— 不影响门禁结论与退出码`,
-    )
-  }
+  return attestGateBatchRunImpl(
+    {
+      C,
+      checks,
+      pushGateChecks,
+      passStaged,
+      effectiveChecks,
+      failedGates,
+      selfSkippedGates,
+      notTriggeredGates,
+      passed,
+      warned,
+      failed,
+      skipped,
+    },
+    ranFullBatch,
+  )
 }
 
 /** 打印批量检查汇总。早退与跑完两条路径共用,避免两份实现漂移。 */
@@ -276,13 +164,8 @@ let stagedFilesCache = null
 function stagedFilesOrNull() {
   if (stagedFilesCache) return stagedFilesCache
   try {
-    stagedFilesCache = execFileSync('git', ['diff', '--cached', '--name-only'], {
-      encoding: 'utf8',
-      cwd: process.cwd(),
-      windowsHide: true,
+    stagedFilesCache = gitRaw(['diff', '--cached', '--name-only'], process.cwd(), {
       timeout: 120_000,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
     })
       .split('\n')
       .map((s) => s.trim())
@@ -725,21 +608,8 @@ if (failedGates.length > 0) {
   process.exit(1)
 }
 
-// push-gate 全部通过 → 写缓存(内容指纹键控,同内容短窗口内重复 push 复用,见执行段注释)
-if (pushGate && failed === 0) {
-  try {
-    mkdirSync(resolve(process.cwd(), '.workbuddy'), { recursive: true })
-    writeFileSync(
-      pushGateCacheFile,
-      JSON.stringify({ fp: computeGateFingerprint(), passed: true, ts: Date.now() }),
-    )
-    console.info(
-      `${C.dim}⚡ [push-gate] 结果已缓存(类型相关内容一致时 10 分钟内重复推送免重跑)${C.reset}`,
-    )
-  } catch {
-    /* 缓存写失败不影响放行 */
-  }
-}
+// push-gate 全部通过 → 写缓存(2026-10-16 外置到 lib/guardian-pushgate-cache.mjs;failed===0 守卫与打印在 lib 内)
+writePushGateCache({ C, failed, pushGate })
 
 process.exit(0)
 }

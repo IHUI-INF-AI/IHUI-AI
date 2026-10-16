@@ -8,6 +8,17 @@
 # 日志: D:\DevEnv\logs\svc-ai-nssm.log / svc-ai-nssm-err.log(NSSM 捕获)
 # =============================================================================
 
+# ⚠️⚠️ 单 worker 契约(签到风控第五件套,2026-10-16 钉死,改前必读)⚠️⚠️
+# 下方 uvicorn 严禁加 --workers / --reload 等多进程形态:
+# 签到出站节流闸门(checkin_outbound.py 的 OutboundGate 单例)与每日调度器
+# (APScheduler 单例)都是**进程级**状态 —— 全局随机间隔、429/挑战页全局暂停、
+# 每日 job 都只在单进程内成立。多 worker 下每个 worker 各持一套闸门、各跑
+# 一份每日 job:"全局节流"静默退化成各 worker 各自为政,同平台多账号并发
+# 请求直接打穿风控(封号面自杀)。要扩并发必须先把闸门改为跨进程共享
+# (Redis/DB)实现,并连同本注释一起改;在那之前,单 worker 是硬约束。
+# 另:本文件有两份落点(入库源 deploy\scripts\prod-bundle\svc 与生产实际执行的
+# deploy\prod-bundle\svc),改动须同步两份,勿只改一份。
+
 # 仓库根不再写死(2026-10-12):把仓库路径写死进生产启动脚本,换机/换根后 NSSM 起的服务
 # 会指向错误目录、跑错代码。唯一解析实现在 deploy\win\ihui-root-common.ps1;本脚本有两份
 # 落点(入库源 deploy\scripts\prod-bundle\svc 与生产实际执行的 deploy\prod-bundle\svc,

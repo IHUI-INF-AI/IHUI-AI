@@ -573,11 +573,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             />
           </I18nProvider>
         </ThemeProvider>
+        {/*
+          Service Worker 注册(2026-10-16 根因修复)。
+
+          原实现 `register('/sw.js')` 有两个盲区,会让**所有**新功能在老客户端上不生效:
+          ① 默认 `updateViaCache='imports'`,浏览器可能拿 HTTP 缓存里的旧 sw.js 去比对
+             ⇒ 判定"字节未变" ⇒ 不触发 install/activate ⇒ 新 SW 逻辑一次都不跑。
+             必须显式 `updateViaCache:'none'` 强制每次都问网络。
+          ② 注册后不主动 `update()`,用户要等浏览器自己的更新周期(可能数天)。
+          这里注册完立即 update() 一次,配合 sw.js 里每次部署唯一 BUILD_ID,
+          使"部署 → 用户下次进入即拿到新版本"成为确定性行为而不是碰运气。
+
+          另:`!location.host.includes('localhost')` 保留 —— 本地 dev 不起 SW,
+          避免开发时被 SW 缓存干扰(Turbopack HMR 与 SW 缓存互相打架很难排查)。
+        */}
         <Script
           id="sw-register"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator && !location.host.includes('localhost'))window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}))`,
+            __html: `if('serviceWorker' in navigator && !location.host.includes('localhost')){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).then(function(r){r.update().catch(function(){})}).catch(function(){})})}`,
           }}
         />
       </body>

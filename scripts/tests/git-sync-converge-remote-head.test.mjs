@@ -145,14 +145,22 @@ test('装车证明:收敛器不再用 `rev-parse origin/<branch>` 做决策(三�
     '合并前的"输入新鲜度复核"必须走唯一取法 —— 残值在这一处最伤(会合掉别人刚推的东西)',
   )
   // 收尾用的子进程也必须封顶:并行会话持有 index.lock 时对齐器会等/失败,无界等待会把
-  // "收敛成功后的收尾"变成整条链的挂起点(守门 80 立的正是这一族)
+  // "收敛成功后的收尾"变成整条链的挂起点(守门 80 立的正是这一族)。
+  // 2026-10-04 修:90s 字面量砍满会 SIGTERM 掉刻意无界的写操作腿(24h 停摆的成因),
+  // 封顶值改为 env 可调常量 ALIGN_DRIFT_TIMEOUT_MS —— 牙口不变:spawn 必须显式带
+  // 这个常量,且常量默认必须是有限非零值(退回 0/无界 ⇒ 本条红)。
   assert.match(
     s.slice(
       s.indexOf('function alignWorktreeAfterHeadMove'),
       s.indexOf('function alignWorktreeAfterHeadMove') + 1400,
     ),
-    /timeout:\s*90_000/,
-    'alignWorktreeAfterHeadMove 的子进程必须有 timeout',
+    /timeout:\s*ALIGN_DRIFT_TIMEOUT_MS/,
+    'alignWorktreeAfterHeadMove 的子进程必须有 timeout(显式封顶值 ALIGN_DRIFT_TIMEOUT_MS)',
+  )
+  assert.match(
+    s,
+    /const ALIGN_DRIFT_TIMEOUT_MS = Number\(process\.env\.IHUI_ALIGN_DRIFT_TIMEOUT_MS \|\| 600_000\)/,
+    'ALIGN_DRIFT_TIMEOUT_MS 的默认值必须是有限非零(0 ⇒ 无界,重新造 24h 停摆;改档请同步本条锁)',
   )
 })
 

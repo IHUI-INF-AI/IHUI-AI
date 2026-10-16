@@ -786,6 +786,24 @@ const nextConfig: NextConfig = {
     ]
     return [
       {
+        // Service Worker 脚本必须禁 HTTP 缓存(2026-10-16 立,配 stamp-sw-version.mjs)。
+        //
+        // 为什么:sw.js 的更新检测是"浏览器重新拉取脚本、逐字节比对"。若 sw.js 本身被
+        // HTTP 缓存(部署层给 public/ 文件的默认值是 max-age=14400,实测 4 小时),
+        // 即使新部署改了内容,客户端在缓存窗口内拿到的仍是旧副本 ⇒ 判定"无更新"⇒
+        // SW 永不换代。这与 stamp-sw-version.mjs 的"每次构建字节必变"是配套的:
+        // 字节必变解决"内容相同判为无更新",这里解决"内容变了但拿到的是缓存副本"。
+        // 两者缺一,部署都不能确定性地触达老客户端(桌面端 WebView2 持久化 profile 尤甚)。
+        //
+        // `must-revalidate` 让浏览器每次使用前先问服务器;`no-cache` 允许存副本但必须校验。
+        // 不用 no-store:SW 规范要求脚本可被缓存以支持离线更新检查,只是必须重新校验。
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+      {
         source: '/(.*)',
         headers: securityHeaders,
       },

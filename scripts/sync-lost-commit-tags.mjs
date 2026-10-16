@@ -69,7 +69,13 @@
  *   - 手动验证: git gc 后跑 --fetch 拉回 + --check 确认一致
  *   - 定时任务: 每周一检查 tag 完整性(见 docs/lost-commit-archive.md 防护机制)
  */
-import { execSync, execFileSync } from 'node:child_process'
+import { execSync } from 'node:child_process'
+// 2026-10-16 取材层收口(face-reader 棘轮:型 C 自拼 batch 零容忍 + 型 A 裸 git 只减不增):
+// 三处只读 git 派生全部改走共用层 —— for-each-ref / ls-remote 走 `gitRaw`(绝对路径 git +
+// safe.directory + quotepath + 显式 stdio + EBUSY 兜底),`cat-file --batch-check` 走
+// `catBatchCheck`(层内统一的 stdio[0]=pipe / 去重 / 块护栏 / missing 解析)。
+// 失败语义不变:取不到 ⇒ 该面折空表 / 全体判不可达并点名原因(宁可响,绝不假绿,§0.3)。
+import { gitRaw, catBatchCheck } from './lib/face-reader.mjs'
 
 const C = {
   red: '\x1b[31m',
@@ -217,15 +223,10 @@ function printHelp() {
 function listLocalTagMap() {
   const map = new Map()
   try {
-    const out = execFileSync(
-      'git',
+    const out = gitRaw(
       ['for-each-ref', '--format=%(refname:short)%09%(objectname)%09%(*objectname)', 'refs/tags'],
-      {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true,
-        maxBuffer: 64 * 1024 * 1024,
-      },
+      process.cwd(),
+      { maxBuffer: 64 * 1024 * 1024 },
     )
     for (const line of out.split('\n')) {
       if (!line) continue
@@ -304,13 +305,11 @@ function lsRemoteTagMap(pattern = null) {
   // IHUI_TAG_REMOTE 是**测试接缝**:注入一个不存在的远端名即可验证"取不到远端真值"这条
   // fail-closed 分支(实测用 GIT_CONFIG_* 覆盖 remote.origin.url 不生效,故留这个开关)。
   const remote = process.env.IHUI_TAG_REMOTE || 'origin'
-  const argv = ['-c', 'safe.directory=*', 'ls-remote', '--tags', remote]
+  const argv = ['ls-remote', '--tags', remote]
   if (pattern) argv.push(pattern)
   try {
-    const out = execFileSync('git', argv, {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
+    // gitRaw 已自带 safe.directory 配置,无需在此重复
+    const out = gitRaw(argv, process.cwd(), {
       timeout: 180000,
       maxBuffer: 64 * 1024 * 1024,
     })
@@ -412,23 +411,9 @@ function reachabilityBatch(tagNames, localMap) {
   let missing = null
   if (shas.length > 0) {
     try {
-      const out = execFileSync('git', ['cat-file', '--batch-check'], {
-        encoding: 'utf8',
-        // §12g:带 input 的派生必须连 stdin 一起交出来(['ignore',...] 会当场 EBUSY)
-        input: `${shas.join('\n')}\n`,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        windowsHide: true,
-        timeout: 120000,
-        maxBuffer: 64 * 1024 * 1024,
-      })
-      // 每个输入回一行:"<oid> <type> <size>" 或 "<oid> missing"
-      missing = new Set(
-        out
-          .split('\n')
-          .map((l) => l.trim())
-          .filter((l) => l.endsWith(' missing'))
-          .map((l) => l.split(' ')[0]),
-      )
+      // 层内 `catBatchCheck` = 本仓唯一一份 `cat-file --batch-check` 收口(stdio[0]=pipe /
+      // 去重 / hex 过滤 / missing 解析全在层里,本仓 2026-10-02 实测病窗也一并兜住)。
+      missing = catBatchCheck(process.cwd(), shas).missing
     } catch (e) {
       console.error(
         `${C.red}❌ 可达性判据跑不动(git cat-file --batch-check 失败):${e?.message ?? e} ⇒ 全体判不可达(取不到输入就不记绿)${C.reset}`,

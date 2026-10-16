@@ -182,8 +182,41 @@ export function listArchiveFilesOnFace(face, root = ROOT) {
 }
 
 /**
+ * 归档补偿维的**第二来源**:退役留痕 ledger(2026-10-16 立)。
+ *
+ * 来历:机主 2026-10-16 令"完成即删,不留档、不归档"(AGENTS §1),`.ihui-agent/archive/PROJECT_PLAN_*.md`
+ * 整体退出审面 —— 当次实测 HEAD 上 0 份(目录里只剩 1 份 purger 台账)。而这一维不是装饰:
+ * 它是"台账里被搬走的行不得被读成撤销"的凭据(2026-09-28 现场:行数没减、元素没删,entryCount
+ * 从 103 掉到 74 判红,当时靠手工搬回 68 行才转绿 = 症状处置)。凭据从"归档件"换成"归档件里抽出的
+ * 编号集合",**仍是已入库、可复核的内容**(G-183/G-173:只躺在本机磁盘上、从未进任何提交的归档件不构成凭据),
+ * 所以这不是把判据调松,是把它取材的那一面搬到政策还在的地方。
+ * 面上还有归档件时**一律优先用它们**(`source='face'`),本文件只在整批退出时顶上。
+ * **两个来源都空 ⇒ `enumerated === 0` 照旧交调用方判死 exit 2** —— 退役 ≠ 看不见;
+ * 谁把这份 ledger 也删了,那一格就必须喊响,而不是悄悄绿(这条是本品自己的阳性对照)。
+ */
+const LEDGER_REL = 'scripts/data/chat-flow-archive-ledger.json'
+
+/** 纯函数:ledger 文本 → 归档面可用的合成条目。缺文件 ⇒ absent;形状坏 ⇒ error(绝不静默当"没有那份")。 */
+export function ledgerCorpus(text, source = LEDGER_REL) {
+  if (!text || !text.trim()) return { archives: [], error: null, absent: true }
+  let j
+  try {
+    j = JSON.parse(text)
+  } catch (e) {
+    return { archives: [], error: `退役 ledger(${source})不是合法 JSON:${e?.message ?? e}`, absent: false }
+  }
+  const ids = Array.isArray(j?.gapIds) ? j.gapIds.filter((x) => typeof x === 'string' && x) : null
+  if (!ids || ids.length === 0) return { archives: [], error: `退役 ledger(${source})里 gapIds 为空或形状不对 ⇒ 本维无从判`, absent: false }
+  return {
+    archives: [{ path: `${source}#gapIds`, text: ids.join('\n'), ledger: true, gapIds: ids.length, sourceCommit: j.sourceCommit || null }],
+    error: null,
+    absent: false,
+  }
+}
+
+/**
  * 台账 ⊕ 归档件的合并取材(一次批量派生,逐文件各开一次 git 是本仓守门 80 立过的 fork 风暴)。
- * @returns {{archives:Array<{path:string,text:string}>, missing:string[], enumerated:number, face:string, error:string|null}}
+ * @returns {{archives:Array<{path:string,text:string}>, missing:string[], enumerated:number, face:string, error:string|null, source:string}}
  *   - `enumerated === 0` ⇒ 调用方必须**判死**(空扫正是本判据要防的那一型故障,不得记绿);
  *   - `missing` = 面上有名字而 blob 取不到(unmerged / 对象损坏)⇒ 必须点名计数,
  *     不得静默当"没有那份"(把"没判"写成"判过了"是本仓最高频失效型)。
@@ -192,7 +225,15 @@ export function readArchiveCorpus(face, root = ROOT) {
   const usedFace = archiveFaceFor(face)
   try {
     const files = listArchiveFilesOnFace(usedFace, root)
-    if (files.length === 0) return { archives: [], missing: [], enumerated: 0, face: usedFace, error: null }
+    if (files.length === 0) {
+      // 审面没有归档件 ⇒ 试退役留痕 ledger,**同一面取材**(索引 blob 或 HEAD blob,绝不回落磁盘)
+      const specs = [`${usedFace === 'staged' ? ':' : 'HEAD:'}${LEDGER_REL}`]
+      const got = catBatch(root, specs, { timeout: ARCHIVE_GIT_TIMEOUT })
+      const l = ledgerCorpus(got.get(specs[0]) ?? '')
+      if (l.absent) return { archives: [], missing: [], enumerated: 0, face: usedFace, error: null, source: 'none' }
+      if (l.error) return { archives: [], missing: [], enumerated: 0, face: usedFace, error: l.error, source: 'ledger-broken' }
+      return { archives: l.archives, missing: [], enumerated: l.archives.length, face: usedFace, error: null, source: 'retirement-ledger' }
+    }
     const specs = files.map((p) => `${usedFace === 'staged' ? ':' : 'HEAD:'}${p}`)
     const got = catBatch(root, specs, { timeout: ARCHIVE_GIT_TIMEOUT })
     const archives = []
@@ -202,7 +243,7 @@ export function readArchiveCorpus(face, root = ROOT) {
       if (typeof v === 'string') archives.push({ path: files[i], text: v })
       else missing.push(files[i])
     }
-    return { archives, missing, enumerated: files.length, face: usedFace, error: null }
+    return { archives, missing, enumerated: files.length, face: usedFace, error: null, source: 'face' }
   } catch (e) {
     return {
       archives: [],
@@ -210,6 +251,7 @@ export function readArchiveCorpus(face, root = ROOT) {
       enumerated: 0,
       face: usedFace,
       error: e instanceof Undetermined ? e.message : `归档面取材异常:${e?.message ?? e}`,
+      source: 'error',
     }
   }
 }
@@ -524,19 +566,74 @@ export function checkEvents(implemented, contractPyText, contractTsText) {
   return violations
 }
 
-export function checkBaseline(entryCount, baseline, corpusNote = '') {
-  return entryCount < baseline
-    ? [
-        {
-          kind: 'inventory-regression',
-          id: '(inventory)',
-          detail:
-            `清单条目 ${entryCount} < 基线 ${baseline}${corpusNote} —— ` +
-            `删任务行或删已实现元素必须同 PR 说明理由并调基线;` +
-            `基线不为变绿而下调,本判据的**阈值**不是本票的可调项`,
-        },
-      ]
-    : []
+/**
+ * 判据③ 条目数对账(2026-10-16 改**射程**;不是放宽 —— 是把拦不住的那一半交还给拦得住的门)。
+ *
+ * 原先只有一条绝对式 `entryCount < baseline ⇒ 判红`,而 `entryCount = 代码侧元素数 + 台账派生 G-ID 数`。
+ * 后一半自机主 2026-10-16 令"完成即删,不留档、不归档"(AGENTS §1)起**不再是持久不变式**:
+ * 任务完成后整行从台账摘除是政策要求的动作,不是撤销。当次实测 HEAD 面上台账派生那一半只剩 5/63,
+ * 于是这条绝对式对**接下来每个人的每一次提交**都成立 ⇒ 人人被逼 `--no-verify`。§12e 把这一型写死了:
+ * "与提交内容无关的红,唯一结局是逼人跳门、连带废掉全部守门"。
+ *
+ * 现在的分工**按凭据在不在自动切换**(政策今天来回翻过:AGENTS 里"归档已退役"与"归档机制"两段并存,
+ * 另有会话正在把归档件往回恢复 —— 所以这一维不能一次性改死):
+ *  · `mode='face'`(面上真有归档件,或 self-test 合成夹具)⇒ **沿用绝对式** `entryCount < baseline` 判红,
+ *    牙齿一个字没动;归档件哪天回到面上,这一维当场自动重新武装;
+ *  · `mode='retirement-ledger'`(归档件整批退出、由退役 ledger 顶上来)⇒ 拆半拦:
+ *      − **代码侧照旧判红**:`entryCount − 台账派生数 < elementCountBaseline` 即拦,删已实现元素必被抓;
+ *      − 台账派生那一半低于额度**只报数不判红**:未勾登记行的丢失由守门 71(`check-plan-line-loss.mjs`)
+ *        按行拦,锚点侧还有判据④逐条额度 + 总数拦(比数条目数更精确),同一条债不在两处各计一次
+ *        (机主对 P5/P7 立过同一条);
+ *  · 拆半档里任一环节取不到数 ⇒ **回落绝对式判红**:宁多拦一次,绝不静默放行(§0.3/§0.10)。
+ * 额度数同源不新造:`gapFloor = entryCountBaseline − elementCountBaseline`,当次实测
+ * `implemented.length === 40`、`103 − 40 = 63` 与之相符。
+ */
+export function checkBaseline(entryCount, baseline, corpusNote = '', parts = {}) {
+  const mode = parts.mode === 'retirement-ledger' ? 'retirement-ledger' : 'face'
+  const els = Array.isArray(parts.implemented) ? parts.implemented.length : null
+  const gapCount = Number.isFinite(Number(parts.gapCount)) ? Number(parts.gapCount) : null
+  const elementFloor = Number.isFinite(Number(parts.elementCountBaseline)) ? Number(parts.elementCountBaseline) : null
+  const absolute = () =>
+    entryCount < baseline
+      ? [
+          {
+            kind: 'inventory-regression',
+            id: '(inventory)',
+            detail:
+              `清单条目 ${entryCount} < 基线 ${baseline}${corpusNote} —— ` +
+              `删任务行或删已实现元素必须同 PR 说明理由并调基线;基线不为变绿而下调,本判据的**阈值**不是本票的可调项`,
+          },
+        ]
+      : []
+  // 凭据链完整 ⇒ 原判据一字不动
+  if (mode === 'face') return absolute()
+  // 拆半档:取不到数一律回落绝对式(拿不到输入就多拦一次,绝不静默放行)
+  if (els === null || gapCount === null || elementFloor === null) return absolute()
+  const gapFloor = Math.max(0, baseline - elementFloor)
+  const codeSide = entryCount - gapCount
+  const out = []
+  if (codeSide < elementFloor) {
+    out.push({
+      kind: 'inventory-regression',
+      id: '(inventory)',
+      detail:
+        `代码侧条目 ${codeSide} < 额度 ${elementFloor}(= entryCount ${entryCount} − 台账派生 ${gapCount})${corpusNote} —— ` +
+        `删已实现元素必须同 PR 说明理由并同笔调 elementCountBaseline;基线不为变绿而下调`,
+    })
+  }
+  if (gapCount < gapFloor) {
+    out.push({
+      kind: 'inventory-shortfall-note',
+      id: '(inventory-plan-derive)',
+      detail:
+        `台账派生编号 ${gapCount} < 额度 ${gapFloor} —— **存量,不判红**:归档件已整批退出审面` +
+        `(机主 2026-10-16 令"完成即删,不留档"),完成后整行摘除是政策动作而非撤销,绝对式会变成对每一次提交都` +
+        `成立的恒红门(§12e:与提交内容无关的红,唯一结局是逼人跳门、连带废掉全部守门)。未勾登记行的丢失由` +
+        `守门 71 按行拦,代码侧由上面那条与判据④锚点额度拦;**归档件一回到面上本行自动失效**(mode 切回 face ` +
+        `即沿用绝对式)。凭据:scripts/data/chat-flow-archive-ledger.json、tag backup/archive-removal-2026-10-16`,
+    })
+  }
+  return out
 }
 
 export function runChecks({ data, planText, contractPy, contractTs, archives = [], archiveMissing = [] }) {
@@ -548,14 +645,26 @@ export function runChecks({ data, planText, contractPy, contractTs, archives = [
   const persistenceRes = checkAnchorPersistence(data.implemented, data.anchorCountBaseline)
   const eventViolations = checkEvents(data.implemented, contractPy, contractTs)
   const entryCount = gapIds.size + data.implemented.length
-  const baselineViolations = checkBaseline(
+  const baselineRes = checkBaseline(
     entryCount,
     data.entryCountBaseline,
     `(审面 = 台账 ${merged.fromPlan} 条 + 归档件补回 ${merged.archivedOnly.length} 条,` +
       `共读 ${archives.length} 份同面归档件)`,
+    // 拆半取材:代码侧 = data.implemented 那份清单(只有显式编辑才会少),
+    // 台账派生 = 本轮从 plan ⊕ 归档凭据现读出的 G-ID 数。两个数都来自同一份 data,不另造额度。
+    {
+      implemented: data.implemented,
+      gapCount: gapIds.size,
+      elementCountBaseline: Number.isFinite(Number(data.elementCountBaseline)) ? Number(data.elementCountBaseline) : null,
+      // mode 只由**凭据形状**决定:归档件真在面上 = 'face'(绝对式);由退役 ledger 顶上 = 'retirement-ledger'
+      mode: archives.length > 0 && archives.every((a) => a.ledger === true) ? 'retirement-ledger' : 'face',
+    },
   )
+  const baselineViolations = baselineRes.filter((v) => v.kind !== 'inventory-shortfall-note')
+  const inventoryNotes = baselineRes.filter((v) => v.kind === 'inventory-shortfall-note')
   const anchorCount = (data.implemented ?? []).reduce((s, el) => s + (el.anchors ?? []).length, 0)
   return {
+    inventoryNotes,
     plannedTasks: parsePlanned(planText, data.planSource.taskLinePattern, data.planSource.gapIdPattern).length,
     gapIds: gapIds.size,
     // 台账正文单独一条与"归档件补回"分开计:只有后者才是"搬走 ≠ 撤销"的证据,不得混成一桶
@@ -896,11 +1005,22 @@ function main(argv) {
   }
   if (corpus.enumerated === 0) {
     console.error(
-      `❌ [chat-element-coverage] ${FACE_LABEL[corpus.face] ?? corpus.face}里 ${ARCHIVE_REL}/ 下枚举到 0 份 PROJECT_PLAN_*.md ` +
-        `⇒ 审面不完整,无法判定(空枚举不是"通过";归档清单来源被摘线/目录搬家正是本判据要防的那一型)`,
+      `❌ [chat-element-coverage] 归档补偿维**两个来源都空**:${FACE_LABEL[corpus.face] ?? corpus.face}里 ` +
+        `${ARCHIVE_REL}/ 下枚举到 0 份 PROJECT_PLAN_*.md,退役留痕 ledger(scripts/data/chat-flow-archive-ledger.json)` +
+        `也不在这面上(source=${corpus.source})⇒ 审面不完整,无法判定(空枚举不是"通过";` +
+        `清单来源被摘线/目录搬家/凭据被删正是本判据要防的那一型)`,
     )
     return 2
   }
+  if (corpus.error) {
+    console.error(`❌ [chat-element-coverage] 归档补偿维取材异常 ⇒ 无法判定:${corpus.error}`)
+    return 2
+  }
+  if (corpus.source === 'retirement-ledger')
+    console.log(
+      `ℹ️ [chat-element-coverage] 归档件已随"完成即删"整体退出审面(机主 2026-10-16 令),本维改用入库退役 ledger:` +
+        `${corpus.archives[0].gapIds} 枚编号,出处提交 ${(corpus.archives[0].sourceCommit || '?').slice(0, 12)}`,
+    )
   // 计划文本与两份契约同样按**仓库内容**判(见 contentAt 注释):PROJECT_PLAN.md 是共享工作区里
   // 最容易被并发会话按旧基线整文件覆写的一份,按磁盘读会把"别人没提交的旧副本"当成本仓清单。
   const planText = contentAt('PROJECT_PLAN.md')
@@ -934,6 +1054,9 @@ function main(argv) {
     )
     for (const v of res.violations) console.error(`  ${v.kind} :: ${v.id} :: ${v.detail}`)
   }
+  // 射程说明:台账派生那一半低于额度是**政策存量**(完成即删),只报数不拦;
+  // 报不出来才等于隐形 —— 静默的全绿与恒红门同样是本仓记过最多次的坑。
+  for (const n of res.inventoryNotes ?? []) console.error(`  ⚠️ ${n.kind} :: ${n.id} :: ${n.detail}`)
   // 存量与未判定一律要喊出来:静默的"看起来全绿"与恒红门同样是本仓记过最多次的坑
   if (res.knownCommentOnly > 0) {
     console.error(

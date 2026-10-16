@@ -278,13 +278,8 @@ const checks = [
     args: [],
     mode: 'blocking',
   },
-  {
-    id: '13c',
-    label: '🗂️  PROJECT_PLAN.md 已完成任务防误删',
-    script: 'check-project-plan-archive.mjs',
-    args: [],
-    mode: 'blocking',
-  },
+  // 13c(check-project-plan-archive)已退役(2026-10-16 机主令:完成即删,存档机制拆除):
+  // 归档器/归档件不再存在,防误删语义由门 71 新判据("已勾行不进保护集,未勾行照旧拦")承接。
   {
     id: '15',
     label: '📊 迁移完整性(7 大类 29 子项)',
@@ -4964,26 +4959,6 @@ const checks = [
       '',
     ].join('\n'),
   },
-
-  // --- 活文档归档回灌对账(1 项,blocking)---
-  {
-    id: '216',
-    label:
-      '活文档归档回灌对账(§1 两步归档第②步的机器锁:连续 ≥12 行逐字命中归档面即判回灌;11/12 两侧与横幅反证都钉在自测里)',
-    script: 'check-live-doc-archive-reinflation.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_LIVE_DOC_REINFLATION',
-    stagedTriggers: ['AGENTS.md', 'README.md', '.ihui-agent/archive/'],
-    onFailHint: [
-      '',
-      '红线:不得为了变绿把归档件从审面摘掉(那是销毁证据)、不得调 207 体积预算、也不得把门槛从 12 抬高。',
-      '修复出口:把报出的块从活文档剥掉(正文逐字仍在 .ihui-agent/archive/AGENTS_* 里,剥离零丢失),剥前逐行自证"被剥的行 ∈ 归档面";若确属正当长引用,须在此行的 onFailHint 之外另立票说明,不用豁免遮。',
-      '取证:node scripts/check-live-doc-archive-reinflation.mjs --self-test(8 臂)+ 镜像 scripts/tests/check-live-doc-archive-reinflation.test.mjs(含零丢失自证臂)',
-      '',
-    ].join('\n'),
-  },
-
 
   // --- 217/218(2026-10-15/16 立;原注 213/214→214/215 两度与上游撞号让位顺延:213 已归盘根写入门、214 已归 ApiKeyPermission 三面对账;病理五类实锤/hex 取材口径逐字归档 .ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md §门214/215,2026-10-16 C1 腾行)---
   { id: '217', label: '📐 mobile-rn sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块,固定 chrome 不被压扁)', script: 'check-sheet-flex-contract.mjs', args: [], mode: 'blocking', stagedTriggers: ['apps/mobile-rn/src/'] },

@@ -47,6 +47,8 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
   return (
     <View
       className="flex-1"
+      // 归卡定档见 packages/design-tokens RADIUS_ROLES 注记(2026-09-27 用户定档);
+      // 形态自带角色的写法让 [150] 权威高于组件名后缀,与小程序端同档。
       style={{ backgroundColor: tokens.surface.card, borderRadius: rnRadiusFor.card }}
     >
       <View

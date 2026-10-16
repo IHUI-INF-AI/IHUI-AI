@@ -228,15 +228,51 @@ export function judgeIntraDay(files, t = THRESHOLDS) {
   return out
 }
 
-/** 落盘时刻是否在计划窗口内(注意:同日多轮时,只要**任一份**落在窗口内就算在点 —— 实测 09-25 有 8 份、最早 02:21,若只看最早那份会误判成"没在点") */
+/**
+ * 落盘时刻是否在计划窗口内(按**秒**量,2026-10-11 实测假阳根治:计划轮的文件名是 dump **起始**时刻,
+ * 02:59:59 这种"跨了分钟界的正常轮"曾被小时粒度+迟到侧单边宽限报成 OFF_WINDOW_LAND)。
+ * 窗口 = 计划时刻两侧各 scheduleGraceHours(边界含):01:00:00 与 05:00:00 在点,
+ * 00:59:59 判 off-window,05:00:01 判 late —— 双边收紧,单边放宽不得发生(镜像测试成对钉住)。
+ * 同日多轮时,只要**任一份**落在窗口内就算在点 —— 实测 09-25 有 8 份、最早 02:21,若只看最早那份会误判成"没在点"。
+ * 返回 early(秒数,落在**计划时刻**之前的那份,02:59:59 即属这一维)/ window([lo,hi] 分钟,报告口径)/
+ * seconds(逐份秒数)/ inWindow(逐份 bool)。时间戳读不出的份不算在点(§0.3:没量到 ≠ 通过)。
+ */
+export function secOfDay(hms) {
+  const m = /^(\d{2})(\d{2})(\d{2})$/.exec(String(hms ?? ''))
+  if (!m) return NaN
+  return Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3])
+}
+/** 分钟数 → HH:MM(报告须给得出具体时刻,不是裸小时整数);量不到 ⇒ '??:??' */
+export function hhmm(mins) {
+  if (typeof mins !== 'number' || Number.isNaN(mins) || mins < 0 || mins > 1439) return '??:??'
+  return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`
+}
+/** 整分钟口径的分钟数(读不出 ⇒ NaN);边界判据用秒级 secOfDay,这里保留分钟档给报告/旧口径对账 */
+export function minuteOfDay(hms) {
+  const s = secOfDay(hms)
+  return Number.isNaN(s) ? NaN : Math.floor(s / 60)
+}
+
 export function judgeLanding(files, schedHour, t = THRESHOLDS) {
   const dumps = (files || []).filter((f) => f.family === 'dump')
   if (dumps.length === 0) return { state: 'none' }
-  const hours = dumps.map((f) => Number(f.hms.slice(0, 2)))
-  const lo = schedHour, hi = schedHour + t.scheduleGraceHours
-  if (hours.some((h) => h >= lo && h <= hi)) return { state: 'on-schedule', hours }
-  if (hours.every((h) => h > hi)) return { state: 'late', hours }
-  return { state: 'off-window', hours }
+  const secs = dumps.map((f) => secOfDay(f.hms))
+  const schedSec = schedHour * 3600
+  const lo = schedSec - t.scheduleGraceHours * 3600
+  const hi = schedSec + t.scheduleGraceHours * 3600
+  const inWindow = secs.map((s) => !Number.isNaN(s) && s >= lo && s <= hi)
+  const base = {
+    hours: [...new Set(dumps.map((f) => Number(String(f.hms).slice(0, 2))))],
+    // "落在计划时刻之前" 量的是**计划时刻**(schedHour:00)之前,不是窗口左界 —— 02:59:59 那种
+    // 跨了分钟界的正常轮正是 3:00 之前、窗口之内,这一维要看得见,不得静默。
+    early: secs.filter((s) => !Number.isNaN(s) && s < schedSec),
+    window: [Math.round(lo / 60), Math.round(hi / 60)],
+    inWindow,
+    seconds: secs,
+  }
+  if (inWindow.some(Boolean)) return { state: 'on-schedule', ...base }
+  if (secs.some((s) => !Number.isNaN(s) && s > hi)) return { state: 'late', ...base }
+  return { state: 'off-window', ...base }
 }
 
 /**
@@ -303,8 +339,17 @@ export function judgeDay({ ymd, files, window, todayStr, nowHour, schedHour, int
   if (counts.truncated > 0) status = counts.complete > 0 ? 'ok-with-truncated' : 'TRUNCATED'
   else if (counts.undetermined > 0 && counts.complete === 0) status = 'UNDETERMINED'
   const land = judgeLanding(dumps, schedHour ?? 3)
-  if (land.state === 'late') findings.push({ code: 'LATE_LAND', severity: 'degraded', db, text: `${who}${ymd} 没在计划 ${String(schedHour).padStart(2, '0')}:00±${THRESHOLDS.scheduleGraceHours}h 落盘,最早落在 ${land.hours.slice().sort((a, b) => a - b)[0]}:xx —— 调度器延迟或在重试` })
-  else if (land.state === 'off-window') findings.push({ code: 'OFF_WINDOW_LAND', severity: 'degraded', db, text: `${who}${ymd} 落盘时刻 ${land.hours.join('/')} 全在计划窗口外(常见于服务启动即备份那一轮)` })
+  const mmOfSec = (s) => hhmm(Math.floor(s / 60))
+  if (land.state === 'late') {
+    const lateSecs = land.seconds.filter((s) => !Number.isNaN(s) && s > land.window[1] * 60)
+    const shown = (lateSecs.length ? lateSecs : land.seconds).filter((s) => !Number.isNaN(s)).map(mmOfSec)
+    findings.push({ code: 'LATE_LAND', severity: 'degraded', db, text: `${who}${ymd} 没在计划 ${String(schedHour).padStart(2, '0')}:00±${THRESHOLDS.scheduleGraceHours}h 落盘,落在 ${shown.length ? shown.join(' / ') : '读不出'} —— 调度器延迟或在重试` })
+  } else if (land.state === 'off-window') {
+    const shown = land.seconds.filter((s) => !Number.isNaN(s)).map(mmOfSec)
+    findings.push({ code: 'OFF_WINDOW_LAND', severity: 'degraded', db, text: `${who}${ymd} 落盘时刻 ${shown.length ? shown.join(' / ') : '读不出'} 全在计划窗口外(常见于服务启动即备份那一轮)` })
+  } else if (land.state === 'on-schedule' && land.early.length > 0) {
+    notes.push(`有 ${land.early.length} 份落在计划时刻之前(${land.early.map(mmOfSec).join(' / ')}),当日仍有在点档 —— 提前起了头,不作故障`)
+  }
   return { ymd, status, findings, notes, counts, kind, landing: land, foreign: foreign.length }
 }
 
@@ -947,6 +992,9 @@ export const __test__ = {
   judgeShrink,
   judgeIntraDay,
   judgeLanding,
+  secOfDay,
+  minuteOfDay,
+  hhmm,
   judgeDay,
   judgeVersionDrift,
   judgeTableDrift,

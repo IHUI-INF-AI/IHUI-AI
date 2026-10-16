@@ -10,7 +10,7 @@
     "dev": "node ../../scripts/dev-with-warmup.mjs",
     "dev:clean": "node ../../scripts/dev-with-warmup.mjs --purge",
     "dev:stable": "node ../../scripts/dev-with-warmup.mjs --purge --no-turbopack",
-    "prebuild": "pnpm --filter @ihui/extension build && node ../../scripts/sync-downloads.mjs --platform=extension",
+    "prebuild": "pnpm --filter @ihui/extension build && node ../../scripts/sync-downloads.mjs --platform=extension && node ../../scripts/stamp-sw-version.mjs",
     "build": "node ../../scripts/deploy-lock.mjs run --mode build --timeout 600000 --stale 600000 -- node --max-old-space-size=8192 node_modules/next/dist/bin/next build",
     "build:analyze": "pnpm exec next experimental-analyze",
     "start": "next start -p 8801",

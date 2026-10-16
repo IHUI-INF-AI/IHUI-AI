@@ -275,6 +275,20 @@ def _reset_rate_limit_buckets():
     yield
 
 
+@pytest.fixture(autouse=True)
+def _reset_checkin_outbound_gate():
+    """每个测试前后清空签到出站闸门状态(2026-10-16 立)。
+
+    闸门是进程级单例:429 用例 pause() 后若不复位,后续用例的
+    before_request 会直接抛 OutboundPaused(实证 6 个引擎用例连环翻车)。
+    """
+    from app.services.checkin_outbound import checkin_outbound_gate
+
+    checkin_outbound_gate.reset()
+    yield
+    checkin_outbound_gate.reset()
+
+
 # vendor env key 列表单一来源:app/core/llm_gateway.py 模块级 VENDOR_ENV_KEYS
 # (LLMGateway._is_stub_mode 第二层直接用它判定,2026-08-31 提取为模块级常量)。
 # _is_stub_mode 检查 os.environ 里这些 key 是否有任一非空 → 否就 stub 模式

@@ -19,8 +19,8 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { collectVars } from '../../../scripts/lib/design-token-blocks.mjs'
-import { __test__ as crossEnd } from '../../../scripts/check-cross-end-tokens.mjs'
+import { collectVars } from '../../../scripts/lib/design-token-blocks.mjs' // arch-exempt: 构建工具(非运行期 app 代码)读单一色值源 tokens.css 烤 tabBar 双色 PNG,必须派生自 token 不硬编(§4 单一色值源);需把该 lib 提级/建"构建工具层"后收回 until 2027-01-16
+import { __test__ as crossEnd } from '../../../scripts/check-cross-end-tokens.mjs' // arch-exempt: 取 normalizeColor 把 HSL token 归一为 #rrggbb 烤进 PNG;正解=把 normalizeColor 抽进共享 lib 供门体与构建工具同源 until 2027-01-16
 
 const require = createRequire(import.meta.url)
 const sharp = require('sharp')

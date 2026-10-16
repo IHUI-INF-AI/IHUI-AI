@@ -18,6 +18,7 @@ import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { useAppTheme } from '@/lib/theme'
+import { rnRadius } from '@ihui/design-tokens'
 import LineIcon, { type IconName } from '@/components/LineIcon'
 
 interface TabItem {
@@ -69,7 +70,7 @@ export default function CustomTabBar() {
         backgroundColor: 'var(--color-glass-bg)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
-        borderRadius: '24rpx',
+        borderRadius: rnRadius.xl,
         borderWidth: '1rpx',
         borderStyle: 'solid',
         borderColor: 'var(--color-border-medium)',
@@ -87,11 +88,7 @@ export default function CustomTabBar() {
             onClick={() => switchTab(item)}
             hoverClass="opacity-60"
           >
-            <LineIcon
-              name={item.icon}
-              size={24}
-              color={active ? COLOR_ACTIVE : COLOR_INACTIVE}
-            />
+            <LineIcon name={item.icon} size={24} color={active ? COLOR_ACTIVE : COLOR_INACTIVE} />
             <Text
               className="mt-[4px] text-[10px]"
               style={{ color: active ? COLOR_ACTIVE : COLOR_INACTIVE }}

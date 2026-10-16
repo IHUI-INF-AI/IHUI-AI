@@ -173,6 +173,7 @@ interface AdminNavItem {
     | 'oauthAudit'
     | 'oauthTokens'
     | 'monitorDashboard'
+    | 'monitorWallboard'
     | 'monitorFunnel'
     | 'monitorAlerts'
     | 'memberUsers'
@@ -371,6 +372,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/oauth/tokens', labelKey: 'oauthTokens', icon: KeyRound },
   // 监控总仪表盘
   { href: '/admin/monitor/dashboard', labelKey: 'monitorDashboard', icon: MonitorCog },
+  { href: '/admin/monitor/wallboard', labelKey: 'monitorWallboard', icon: MonitorCog },
   { href: '/admin/monitor/funnel', labelKey: 'monitorFunnel', icon: Filter },
   { href: '/admin/monitor/alerts', labelKey: 'monitorAlerts', icon: AlertTriangle },
   // 会员管理
@@ -977,6 +979,7 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   oauthAudit: 'nav.oauthAudit',
   oauthTokens: 'nav.oauthTokens',
   monitorDashboard: 'nav.monitorDashboard',
+  monitorWallboard: 'nav.monitorWallboard',
   monitorFunnel: 'nav.monitorFunnel',
   monitorAlerts: 'nav.monitorAlerts',
   memberUsers: 'nav.memberUsers',

@@ -163,6 +163,64 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ success: true }))
   })
 
+  // ── 侧边栏「自定义」栏(2026-10-16 立)────────────────────────────────────────
+  // 用户自选的常用侧边栏功能键,有序。存 user_preferences 的独立 group 'sidebar',
+  // 与 'preferences'(主题/语言/时区)分开:两者生命周期与消费方完全不同 ——
+  // 混进 preferences 会让「设置页读偏好」把侧边栏配置一并带出,且键名空间互相挤占。
+  // 复用同一张表 + 同一组查询函数 ⇒ 零迁移、零新表。
+  // 上限 50:自定义栏是"常用"而非"全量",给个上界防止单行 value 无限增长
+  // (value 是 text 列,不设限时恶意客户端可写进任意长度)。
+  const SIDEBAR_NAV_GROUP = 'sidebar'
+  const SIDEBAR_NAV_KEY = 'customNav'
+  const SIDEBAR_NAV_MAX = 50
+
+  const sidebarNavBodySchema = z.object({
+    hrefs: z.array(z.string().min(1).max(200)).max(SIDEBAR_NAV_MAX),
+  })
+
+  server.get('/settings/sidebar-nav', async (request, reply) => {
+    const { list } = await findUserPreferences(request.userId!, SIDEBAR_NAV_GROUP)
+    const row = list.find((r) => r.key === SIDEBAR_NAV_KEY)
+    // 解析失败(脏数据/历史格式)按空处理:宁可回到默认态,也不把半个数组喂给前端渲染。
+    let hrefs: string[] = []
+    if (row?.value) {
+      try {
+        const parsed: unknown = JSON.parse(row.value)
+        if (Array.isArray(parsed)) {
+          hrefs = parsed.filter((h): h is string => typeof h === 'string').slice(0, SIDEBAR_NAV_MAX)
+        }
+      } catch {
+        hrefs = []
+      }
+    }
+    // exists 必须回:客户端要靠它区分「服务端被显式清空(exists=true, hrefs=[])」与
+    // 「从未设置过(exists=false)」。少了这个标记,两者在响应上完全同形,客户端只能把
+    // 「读到空」一律当成"没设过"从而把本地旧数据推上去 —— 用户在 A 设备删空的项
+    // 会被 B 设备的陈旧缓存原地复活。这是本仓"没判绝不写成判过"的同一型问题。
+    return reply.send(success({ hrefs, exists: row !== undefined }))
+  })
+
+  server.put('/settings/sidebar-nav', async (request, reply) => {
+    const parsed = sidebarNavBodySchema.safeParse(request.body ?? {})
+    if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
+    // 去重但保序:同一 href 出现两次会让 React key 冲突,而顺序本身是本接口的语义。
+    const seen = new Set<string>()
+    const hrefs = parsed.data.hrefs.filter((h) => {
+      if (seen.has(h)) return false
+      seen.add(h)
+      return true
+    })
+    await upsertUserPreference(
+      request.userId!,
+      SIDEBAR_NAV_GROUP,
+      SIDEBAR_NAV_KEY,
+      JSON.stringify(hrefs),
+    )
+    // 回写成功即 exists=true,与 GET 同形 —— 前端两处解析结果用同一套类型,
+    // 少一个字段就会让"写完后本地状态推断"分叉成两套判据。
+    return reply.send(success({ hrefs, exists: true }))
+  })
+
   server.get('/settings/devices', async (request, reply) => {
     const { list, total } = await findUserPreferences(request.userId!, 'devices')
     return reply.send(success({ list, total }))
@@ -284,10 +342,15 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/settings/clear-data', async (request, reply) => {
     const userId = request.userId!
+    // 2026-10-16 补齐:原清单漏了 'preferences'(主题/语言等)与本次新增的 'sidebar'
+    // (侧边栏自定义栏)。漏掉的表现是"清理数据"点完,偏好与侧边栏配置仍在 ——
+    // 用户以为清了、实际没清,是本仓明令禁止的"装饰性开关"形态。
     await Promise.all([
       deleteUserPreferencesByGroup(userId, 'notifications'),
       deleteUserPreferencesByGroup(userId, 'privacy'),
       deleteUserPreferencesByGroup(userId, 'devices'),
+      deleteUserPreferencesByGroup(userId, 'preferences'),
+      deleteUserPreferencesByGroup(userId, SIDEBAR_NAV_GROUP),
     ])
     return reply.send(success({ success: true }))
   })

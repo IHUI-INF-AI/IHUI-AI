@@ -110,7 +110,10 @@ test('T5 真仓现读:工作树面必须报出那一条开放项,且零违规', 
     `开放集不对(状态 ${conclusion.state},违规 ${conclusion.violations.join(' / ')})`,
   )
   assert.equal(conclusion.state, 'consistent', conclusion.violations.join('\n'))
-  assert.equal(conclusion.catalogAiService.length, 6, '目录里 host:ai-service 现读应为 6 条')
+  // 锚点是"定锚那枚的现读"(2026-10-16 现读 7:第 7 条 voice:stt 由 51cd9632e9d 公网转写通道
+  // 入目录,nginx 面未放开 ⇒ 走 X6 只报数通道被点名,结论仍 consistent)。新增一条目录项
+  // 不是违规(白名单与 nginx 面都没破),而是本锚过期 —— 同步改锚、不得为消红削 X6。
+  assert.equal(conclusion.catalogAiService.length, 7, '目录里 host:ai-service 现读应为 7 条')
   // docker 侧那条整棵子树必须被**点名**而不被"顺手放过" —— 只报数也要报得出名字
   assert.ok(
     conclusion.notices.some((n) => n.includes('/ai-service/')),

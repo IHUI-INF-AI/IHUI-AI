@@ -148,7 +148,11 @@ function ledgerWithWatermark(ledgerRel, text) {
 
 // 台账文件名必须带**本次运行日期**:整文件重写式,复用旧日期 = 抹掉旧台账的逐字记录 =
 // 门 71 在 60 提交窗口内把已清偿行判丢并回捞(对打循环复活)。见头注「台账」段。
-const LEDGER_REL = '.ihui-agent/archive/plan-pointer-purge-2026-10-14.md'
+// 2026-10-16 存档机制退役(机主令:完成即删):purge 台账落点随之迁出归档目录 ——
+// .ihui-agent/archive/ 已整体出版本控制并整目录忽略,新台账一律落 .ihui-agent/tmp/(gitignored,
+// 只作本机取证,不再入库;被删行原文凭 git 历史可查,无需入库台账)。门 71 已改为"已勾行不进
+// 保护集",清偿带走的行不再触发回捞,本台账从"防回捞凭据"降级为纯本机留痕。
+const LEDGER_REL = '.ihui-agent/tmp/plan-pointer-purge-2026-10-14.md'
 const GIT = process.env.GIT_BIN || 'git'
 /** 归档台账所在目录 —— 由 LEDGER_REL 自身推出,不另写第二份路径常量。 */
 const LEDGER_DIR_REL = LEDGER_REL.slice(0, LEDGER_REL.lastIndexOf('/'))
@@ -241,6 +245,29 @@ export function buildPlan(lines, opts = {}) {
     if (isRowLine(l) && !isProse(l)) rows.push({ i, line: l })
   })
   const candidates = rows.filter((r) => isCheckedRow(r.line) === false && isCandidate(r.line))
+  // 第三候选族(2026-10-16,机主令"一号一行"):同号多行组的漂开副本。上两族(指针/让位)只认
+  // 行内自述标记;union 反复带回的同号组两行都无标记 ⇒ 结构上永不进候选。正本 = 带租约者,
+  // 无租约组取行号靠前(早登记);非正本行进候选后走既有 L 吸收/承载档(零丢失断言照判)。
+  {
+    const byKey = new Map()
+    for (const r of rows) {
+      if (isCheckedRow(r.line)) continue
+      // 分族键 = 号本身(一号一行的"号"是身份键)。compositeKey=号+题面前缀,漂开组题面
+      // 已不同 ⇒ 键不同 ⇒ 永不成组(2026-10-16 实测 O88 组两行键各异)。号用 keyOfRow
+      // (主键窗口口径,plan-task-index 唯一出口)取;取不到号的行不进本族。
+      const k = idx.keyOfRow(r.line)
+      if (!k) continue
+      if (!byKey.has(k)) byKey.set(k, [])
+      byKey.get(k).push(r)
+    }
+    for (const [, grp] of byKey) {
+      if (grp.length < 2) continue
+      const holder = grp.find((r) => CLAIM_RE.test(stripMergeNotes(r.line))) || grp[0]
+      for (const r of grp) {
+        if (r !== holder && !candidates.includes(r)) candidates.push(r)
+      }
+    }
+  }
   const holders = rows.filter((r) => isCheckedRow(r.line) === false && !isCandidate(r.line))
   const bareOf = (l) => stripMergeNotes(stripMergeNotes(l).replace(CLAIM_RE, '')).trim()
   const claimOf = (l) => (CLAIM_RE.exec(stripMergeNotes(l)) || [null])[0]
@@ -381,8 +408,10 @@ export function buildPlan(lines, opts = {}) {
     // 吸收档(仅 --absorb):承载不成立时把候选行**归一化正文整段**挂到幸存行行尾,再由本器折并候选。
     const carried = (() => {
       if (!absorb || body.length < minBody || sLine.includes(body)) return null
-      if (claimOf(cLine) || claimOf(sLine)) return null
-      const seg = ` 〔副本正文并入·承载整段:${body}〕`
+      // 2026-10-16 收窄(机主令"一号一行"):候选行租约不再一票拒绝 —— 同号组的租约是
+      // 现场信息,随并入段原样保留(丢租约=丢现场);幸存行无租约时由 claimTransfers 转正。
+      const claimSeg = claimOf(cLine) && !claimOf(sLine) ? ` ${claimOf(cLine)}` : ''
+      const seg = ` 〔副本正文并入·承载整段:${body}${claimSeg}〕`
       if (DUP_POINTER_RE.test(sLine + seg) || SELF_DEDISPATCH_RE.test(sLine + seg)) return null
       return seg
     })()

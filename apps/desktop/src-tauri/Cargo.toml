@@ -73,6 +73,16 @@ indexmap = { version = "1.9.3", features = ["std"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
 
 [target.'cfg(windows)'.dependencies]
+# 2026-10-16 省内存:WebView2 的内存目标档位。wry 的 WebViewExtWindows 暴露了
+# set_memory_usage_level,但 Tauri 没转出来;而 PlatformWebview::controller() 直接
+# 返回 webview2-com 的 ICoreWebView2Controller ⇒ 用同一版 webview2-com 自己调
+# SetMemoryUsageTargetLevel(Runtime ≥114.0.1823.32;更旧版是 no-op)。
+# 版本与 wry 0.55.1 声明一致(0.38),避免双副本。官方指标:窗口失焦切 Low,
+# 非活动态内存可降约 95%(wry PR #1053 实测 149.8MB→7.8MB)。
+webview2-com = "0.38"
+# cast 到版本化接口 ICoreWebView2_19 需要 Interface trait(与 windows 0.61 /
+# webview2-com-sys 0.38 共用同一份 windows-core 0.61,不引第二副本)。
+windows-core = "0.61"
 # 2026-09-27 启动守护(startup_guard)新增:errhandlingapi=GetLastError,
 # tlhelp32=进程枚举,synchapi=CreateMutexW/WaitForSingleObject,winnt=PROCESS_* 常量。
 winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "winbase", "handleapi", "winnls", "errhandlingapi", "tlhelp32", "synchapi", "winnt"] }

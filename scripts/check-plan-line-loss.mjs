@@ -85,7 +85,7 @@
  * 一字未动 —— 把判据放宽/收紧都不解决"判据没在真跑它的那一刻成立",而那属于"为消红削判据"。
  */
 import { execFileSync, spawn } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { catBatch, FACE_LABEL, gitBinary, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
@@ -444,6 +444,12 @@ export function resolveRegistrationLoss(entries, targetSrc) {
 
 /** 登记行 → 编号标记(找不到返回 null) */
 export function markerOf(line) {
+  // 已勾行不进保护集(2026-10-16 机主令:完成即删,存档机制退役):`- [x]` 行(含 bullet 级
+  // `  - [x] ✅(日期) …`)在翻勾后可整行删除,回捞层同样不得把它捞回来 —— 否则"完成即删"
+  // 每删一行就被本门拦一次/被自愈还原一次,机制互咬空转(13d 与清偿器 2026-10-14 同型教训)。
+  // 未勾行(checkbox `- [ ]`、加粗 bullet、标题族)照旧受保护:防"旧基线整文件回写"
+  // 的事故防线保留,与存档退役无关。
+  if (/^\s*[-*]\s\[[xX]\]/.test(line)) return null
   const isBullet = /^\s*[-*]\s/.test(line)
   // 标题行只有"以批次序号开头"这一种受保护形态(见文件头判据 1c),正文标题不进基线
   const isHeading = /^#{2,4}\s/.test(line)
@@ -520,16 +526,37 @@ const ARCHIVE_REL = '.ihui-agent/archive'
  */
 const ARCHIVE_FILE_RE = /^(?:PROJECT_PLAN_|plan-pointer-purge-).*\.md$/
 
-/** 某一面里真实存在的归档副本路径(= 已入库的那些)。`staged` 读索引,其余读 HEAD 树。 */
+/** 某一面里真实存在的归档副本路径。归档件(archive/)读 HEAD/索引树(已入库事实);
+ *  清偿台账(tmp/,gitignored 常驻)2026-10-16 起从**盘上**读 —— 它们永不入版本控制,
+ *  树读射程结构上永远看不到 ⇒ 折并删行被本闸当"丢行"捞回(22:35-22:40 实测两轮对打)。
+ *  盘读的安全性:tmp/ 是 gitignored 固定落点,不像归档件会搬家;"原文在台账里找得到"
+ *  的实体条件(archivedCopy)一字不改 —— 台账在盘 ⇒ 豁免,台账也没了 ⇒ 照旧判丢。
+ *  staged 面加收索引里的归档件;tmp 盘读与面无关(盘只有一份)。
+ */
 function faceArchiveFiles(face, root = ROOT) {
   const args =
     face === 'staged'
       ? ['ls-files', '-z', '--', ARCHIVE_REL]
       : ['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ARCHIVE_REL]
-  return gitRaw(args, root, { timeout: GIT_TIMEOUT })
+  const treePaths = gitRaw(args, root, { timeout: GIT_TIMEOUT })
     .split('\0')
     .filter(Boolean)
     .filter((p) => ARCHIVE_FILE_RE.test(p.split('/').pop()))
+  // 清偿台账的现役落点(.ihui-agent/tmp/,gitignored):盘上枚举,射程正则同一把
+  // tmpRel 是**判据面路径**:必须保持 POSIX 正斜杠 —— faceArchiveBlobs 按
+  // `startsWith('.ihui-agent/tmp/')` 分拣磁盘族,这里若用 path.join 拼,Windows 上会得到
+  // 反斜杠 ⇒ 前缀一条都匹配不上 ⇒ 盘读族被静默丢空,豁免失效退回假红(且没人会红)。
+  const tmpRel = '.ihui-agent/tmp'
+  const tmpDir = path.join(root, '.ihui-agent', 'tmp')
+  let diskPaths = []
+  try {
+    diskPaths = readdirSync(tmpDir)
+      .filter((n) => ARCHIVE_FILE_RE.test(n))
+      .map((n) => `${tmpRel}/${n}`)
+  } catch {
+    diskPaths = [] // tmp 目录缺席 = 没有台账 = 无豁免凭据,照旧(§0.3 不冒充)
+  }
+  return [...treePaths, ...diskPaths]
 }
 
 /**
@@ -542,6 +569,26 @@ const ARCHIVE_BLOB_CACHE = new Map()
 function faceArchiveBlobs(face, root = ROOT) {
   const key = `${root}\u0000${face}`
   if (ARCHIVE_BLOB_CACHE.has(key)) return ARCHIVE_BLOB_CACHE.get(key)
+  const files = faceArchiveFiles(face, root)
+  const rev = face === 'staged' ? ':' : 'HEAD:'
+  // 盘读族(.ihui-agent/tmp/ 的清偿台账):不进 catBatch,直接 readFileSync(盘只有一份)
+  const treeFiles = files.filter((p) => !p.startsWith('.ihui-agent/tmp/'))
+  const diskFiles = files.filter((p) => p.startsWith('.ihui-agent/tmp/'))
+  const specs = treeFiles.map((p) => `${rev}${p}`)
+  const got = specs.length ? catBatch(root, specs, { timeout: GIT_TIMEOUT }) : new Map()
+  const map = new Map()
+  for (let i = 0; i < treeFiles.length; i++) {
+    const v = got.get(specs[i])
+    if (typeof v === 'string') map.set(treeFiles[i], v)
+  }
+  for (const p of diskFiles) {
+    try { map.set(p, readFileSync(path.join(root, ...p.split('/')), 'utf8')) } catch { /* 取不到 ⇒ 不计入凭据 */ }
+  }
+  ARCHIVE_BLOB_CACHE.set(`${root}\u0000${face}`, map)
+  return map
+}
+// ↓ 旧实现尾部(被上方改写替代,占位以保 replace 唯一性)
+function __oldFaceArchiveBlobsTail__() {
   const files = faceArchiveFiles(face, root)
   const rev = face === 'staged' ? ':' : 'HEAD:'
   const specs = files.map((p) => `${rev}${p}`)
@@ -1466,6 +1513,12 @@ const FIX_PLAN_NO_HEADING = FIX_PLAN_FULL.split('\n')
   .join('\n')
 const FIX_ARCHIVE_REL = '.ihui-agent/archive/PROJECT_PLAN_2099-01-01_selftest.md'
 const FIX_ARCHIVE_BODY = ['# 归档(自检夹具)', '', FIX_HEADING, ''].join('\n')
+/** 盘读族夹具:.ihui-agent/tmp/ 下的清偿台账 —— gitignored 常驻、**永不入版本控制**,
+ *  所以 HEAD 树与索引面都取不到它,只有 faceArchiveFiles 的盘读族认(06943c8c78 的射程)。
+ *  缺这一族的覆盖,那次提交把 join/readdirSync 两个未定义名带进 HEAD 都没人发现。 */
+const FIX_TMP_LEDGER_NAME = 'plan-pointer-purge-2026-10-16-selftest-ledger.md'
+const FIX_TMP_LEDGER_REL = `.ihui-agent/tmp/${FIX_TMP_LEDGER_NAME}`
+const FIX_TMP_LEDGER_BODY = ['# 清偿台账(自检夹具)', '', FIX_HEADING, ''].join('\n')
 
 function selfTest() {
   const base = [
@@ -1557,6 +1610,32 @@ function selfTest() {
     const dir = faceFixtureRepo({
       commits: [{ plan: FIX_PLAN_FULL }, { plan: FIX_PLAN_NO_HEADING, msg: '旧基线整文件提交' }],
       diskExtra: { [FIX_ARCHIVE_REL]: FIX_ARCHIVE_BODY },
+    })
+    try {
+      const head = runCheck(false, 'head', { root: dir })
+      return head.ok === false && head.lost.length === 1 && head.lost[0].id === 'O42'
+    } finally {
+      rmScratch(dir)
+    }
+  })
+  t('面③b:盘读族(tmp/ 清偿台账,结构上永不入库)也能出具归档凭据', () => {
+    const dir = faceFixtureRepo({
+      commits: [{ plan: FIX_PLAN_FULL }, { plan: FIX_PLAN_NO_HEADING, msg: '旧基线整文件提交' }],
+      diskExtra: { [FIX_TMP_LEDGER_REL]: FIX_TMP_LEDGER_BODY },
+    })
+    try {
+      const head = runCheck(false, 'head', { root: dir })
+      // 台账只在盘上:HEAD 树与索引都取不到,只有盘读族认。tmpRel 若被拼成反斜杠
+      // (Windows 上 path.join 的形态),这里会静默丢空 ⇒ 本档翻红,不给人蒙混过关。
+      return head.ok === true && head.lost.length === 0 && head.scanned > 0
+    } finally {
+      rmScratch(dir)
+    }
+  })
+  t('面③b反向对照:tmp/ 里找不到原文 ⇒ 照旧判丢(§0.3 不冒充,盘读不是免罪金牌)', () => {
+    const dir = faceFixtureRepo({
+      commits: [{ plan: FIX_PLAN_FULL }, { plan: FIX_PLAN_NO_HEADING, msg: '旧基线整文件提交' }],
+      diskExtra: { [FIX_TMP_LEDGER_REL]: '# 清偿台账(夹具里没有原文)' },
     })
     try {
       const head = runCheck(false, 'head', { root: dir })
@@ -1866,10 +1945,17 @@ function selfTest() {
       markerOf(
         '- [ ] D13 逐消息上下文可解释视图(G-10)。V2 深化口径(2026-09-19 晚):须含 auto_context 命中/RAG chunk 四类。',
       ) === 'D13 逐消息上下文可解释视图' &&
-      // 反例 1:编号后面紧跟 `**` 的行仍走加粗原文前缀(既有语义,别退化成裸编号)
+      // 反例 1:已勾行整行不进保护集(2026-10-16 机主令 faa560bf8a「完成即删」:
+      // `- [x]`(含 `✅(日期)` 前缀与加粗编号)翻勾后可整行删除,回捞层不得捞回 ——
+      // 否则"完成即删"每删一行就被本门拦一次,与 13d/清偿器 2026-10-14 同型互咬空转)
+      markerOf(
+        '- [x] ✅(2026-09-23) **D44 白名单兜底事件逐个补渲染位(G-62)**:WHITELIST 第 107 行起 10 事件逐个定渲染位。',
+      ) === null &&
+      // 加粗原文前缀路径的正例(未勾行):`**编号` 仍走"原文前缀"语义,不重拼、遇下一个 `*` 即停
+      // —— 这一档是 markerOf 内 `\\*\\*(${ID}|第N步)` 那条分支的唯一覆盖,别退化
       String(
         markerOf(
-          '- [x] ✅(2026-09-23) **D44 白名单兜底事件逐个补渲染位(G-62)**:WHITELIST 第 107 行起 10 事件逐个定渲染位。',
+          '- **D44 白名单兜底事件逐个补渲染位(G-62)**:WHITELIST 第 107 行起 10 事件逐个定渲染位。',
         ),
       ).startsWith('D44 白名单兜底事件') &&
       // 反例 2:两处都够不着的行不算登记行(正文段落 / 编号不在内容开头)

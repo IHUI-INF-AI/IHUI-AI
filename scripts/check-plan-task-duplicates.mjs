@@ -39,7 +39,6 @@
  * 取不到面 ⇒ exit 2 拒绝出合格证,不回落、不记绿。
  */
 import { Undetermined, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
-import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
@@ -120,6 +119,20 @@ export function findDuplicateGroups(content) {
     // 只在**全组都无号**时成组;混合组(有号 + 无号)仍属"同号多行"那一档(F4 地盘),本门不抢名额。
     if (members.length > 1 && distinctIds.size === 0 && members.every((m) => !m.selfId)) {
       groups.push({ fingerprint: fp, members, distinctIds: [], kind: 'unnumbered' })
+    }
+    // 第四类(2026-10-16 立,机主令"一号一行彻底根治"):**同号多行**(同一 selfId 出现 ≥2 行)。
+    // 此前刻意排除(注释称"归 F4/F10"),但 F4/F10 是修法出口不是提交链拦截闸 —— 同号新增
+    // (union 回潮/取号竞态/手写撞号)从产生到被发现之间零拦截,只能事后折。变异实测:
+    // 复制一行同号追加 ⇒ ratchetAdded 0 枚。本类让差值棘轮看见它:锚点里没有的键 = 新增 ⇒ 拦;
+    // 锚点已有的存量组不拦(§12e)。fingerprint 前缀 S: 与跨号 F:/无号族区分。
+    const bySelfId = new Map()
+    for (const m of members) {
+      if (!m.selfId) continue
+      if (!bySelfId.has(m.selfId)) bySelfId.set(m.selfId, [])
+      bySelfId.get(m.selfId).push(m)
+    }
+    for (const [sid, grp] of bySelfId) {
+      if (grp.length > 1) groups.push({ fingerprint: `S:${sid}`, members: grp, distinctIds: [sid], kind: 'same-key' })
     }
   }
   return groups
@@ -285,7 +298,7 @@ function runSelfTest() {
   const cases = [
     { name: '同题不同号必命中', lines: ['- [ ] G-100 **修复登录超时问题** 详情甲', '- [ ] G-999 **修复登录超时问题。** 详情乙(2026-10-13)'], expect: 1 },
     { name: '不同题不命中', lines: ['- [ ] G-100 **修复登录超时问题**', '- [ ] G-101 **新增导出报表功能**'], expect: 0 },
-    { name: '同号多行不算本门(F4地盘)', lines: ['- [ ] G-100 **修复登录超时问题**', '- [ ] G-100 **修复登录超时问题**'], expect: 0 },
+    { name: '同号多行成组(第四类,2026-10-16 机主令一号一行)', lines: ['- [ ] G-100 **修复登录超时问题**', '- [ ] G-100 **修复登录超时问题**'], expect: 1 },
     { name: '指针行豁免', lines: ['- [ ] G-100 **修复登录超时问题**', '- [ ]〔【归并】重复登记副本:本行与 G-100 同题,派单以那条为准〕'], expect: 0 },
     { name: '编号引用不污染指纹', lines: ['- [ ] G-100 **修复 G-99 引起的登录超时**', '- [ ] G-101 **修复 G-88 引起的登录超时**'], expect: 1 },
     { name: '前置状语归一', lines: ['- [ ]（进行中@2026-10-05/g1-main）G-401 **MCP 工具免批准重跑（需拍板）**', '- [ ]G-768 **MCP 工具免批准重跑（需拍板）**'], expect: 1 },

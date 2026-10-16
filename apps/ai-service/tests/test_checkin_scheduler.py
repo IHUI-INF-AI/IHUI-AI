@@ -6,12 +6,19 @@
 
 Qoder 领取窗口每日 10:00(UTC+8)开放 ⇒ 调度器把 qoder 账号拆到 10:05 独立
 job;这里只测拆分语义(不触 store / 引擎,纯函数无 IO)。
+
+风控第五件套增补(2026-10-16):积分快照跳过活跃冷却账号;Challenge 结果
+触发出站全局暂停(store 打桩,不触 DB)。
 """
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from app.services import checkin_scheduler as cs
+from app.services import checkin_store
+from app.services.checkin_outbound import checkin_outbound_gate
 from app.services.checkin_scheduler import partition_platforms
 
 
@@ -65,5 +72,184 @@ def test_partition_unknown_platform_goes_main():
     main_side, qoder_side = partition_platforms(accounts)
     assert len(main_side) == 2
     assert qoder_side == []
+
+
+# ---------------------------------------------------------------------------
+# 风控第五件套(2026-10-16):积分快照跳冷却 / Challenge 全局暂停
+# ---------------------------------------------------------------------------
+
+
+def _full_acc(aid: int, name: str) -> dict[str, Any]:
+    return {
+        "id": aid,
+        "owner_user_id": "o1",
+        "name": name,
+        "jwt": f"j{aid}",
+        "platform": "trae",
+        "device_map": {},
+    }
+
+
+async def test_credits_snapshot_skips_cooled_accounts(monkeypatch):
+    """冷却中的账号(如 401 死号 10 年冷却)不再被查余额——天天拿死 token
+    打平台鉴权点是最典型的封号前兆,快照缺一天只是趋势少一格。"""
+    accounts = [_full_acc(1, "dead"), _full_acc(2, "alive")]
+    cooled_until = datetime.now(UTC) + timedelta(hours=2)
+    queried: list[str] = []
+
+    async def fake_list_full() -> list[dict[str, Any]]:
+        return accounts
+
+    async def fake_cooldowns() -> dict[int, datetime]:
+        return {1: cooled_until}
+
+    async def fake_query(jwt: str) -> dict[str, Any]:
+        queried.append(jwt)
+        return {"remaining": 42}
+
+    async def fake_sum(*_a: Any, **_k: Any) -> int:
+        return 0
+
+    async def fake_upsert(*_a: Any, **_k: Any) -> None:
+        return None
+
+    monkeypatch.setattr(checkin_store, "list_enabled_accounts_full", fake_list_full)
+    monkeypatch.setattr(checkin_store, "get_active_cooldowns", fake_cooldowns)
+    monkeypatch.setattr(checkin_store, "sum_credits_delta_for_day", fake_sum)
+    monkeypatch.setattr(checkin_store, "upsert_credits_daily", fake_upsert)
+    monkeypatch.setattr(cs.checkin_credits, "query_remaining_credits", fake_query)
+
+    await cs.checkin_scheduler._daily_credits_snapshot()
+    assert queried == ["j2"]  # 冷却账号 1 一发都没打
+
+
+async def test_credits_snapshot_queries_all_when_no_cooldown(monkeypatch):
+    """无冷却时全量查询(回归护栏:跳过逻辑不误伤正常账号)。"""
+    accounts = [_full_acc(1, "a"), _full_acc(2, "b")]
+    queried: list[str] = []
+
+    async def fake_list_full() -> list[dict[str, Any]]:
+        return accounts
+
+    async def fake_cooldowns() -> dict[int, datetime]:
+        return {}
+
+    async def fake_query(jwt: str) -> dict[str, Any]:
+        queried.append(jwt)
+        return {"remaining": 7}
+
+    async def fake_sum(*_a: Any, **_k: Any) -> int:
+        return 0
+
+    async def fake_upsert(*_a: Any, **_k: Any) -> None:
+        return None
+
+    monkeypatch.setattr(checkin_store, "list_enabled_accounts_full", fake_list_full)
+    monkeypatch.setattr(checkin_store, "get_active_cooldowns", fake_cooldowns)
+    monkeypatch.setattr(checkin_store, "sum_credits_delta_for_day", fake_sum)
+    monkeypatch.setattr(checkin_store, "upsert_credits_daily", fake_upsert)
+    monkeypatch.setattr(cs.checkin_credits, "query_remaining_credits", fake_query)
+
+    await cs.checkin_scheduler._daily_credits_snapshot()
+    assert sorted(queried) == ["j1", "j2"]
+
+
+async def test_record_result_challenge_cools_and_pauses(monkeypatch):
+    """Challenge 结果:单账号即时落 30min 冷却 + 出站全局暂停(整批停手)。"""
+    checkin_outbound_gate.reset()
+    captured: dict[str, Any] = {}
+
+    async def fake_insert(account_id: int, **kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {"id": 1}
+
+    async def fake_reset_all(account_id: int) -> None:
+        return None
+
+    monkeypatch.setattr(checkin_store, "insert_record", fake_insert)
+    monkeypatch.setattr(checkin_store, "reset_all_error_counts", fake_reset_all)
+
+    result = {
+        "ok": False,
+        "classified_error": {"type": "Challenge", "cooldown_seconds": 1800},
+    }
+    await cs.checkin_scheduler.record_result(1, result)
+
+    assert captured["cooldown_until"] is not None
+    remaining = (captured["cooldown_until"] - datetime.now(UTC)).total_seconds()
+    assert 1700 < remaining <= 1800
+    assert checkin_outbound_gate.paused_remaining() > 0  # 全局暂停已触发
+    checkin_outbound_gate.reset()
+
+
+# ---------------------------------------------------------------------------
+# 重启恢复出站暂停(第五件套配套,2026-10-16)
+# ---------------------------------------------------------------------------
+
+
+async def test_restore_outbound_pause_within_window(monkeypatch):
+    """重启恢复:最近 SoftRate 记录在窗口内 → 按剩余时间补暂停(丢状态不丢停手)。"""
+    checkin_outbound_gate.reset()
+    monkeypatch.setenv("CHECKIN_RATE_LIMIT_PAUSE", "60")
+
+    async def fake_signal() -> tuple[str, datetime]:
+        return "SoftRate", datetime.now(UTC) - timedelta(seconds=10)  # 10s 前,窗口剩 50s
+
+    monkeypatch.setattr(checkin_store, "latest_outbound_pause_signal", fake_signal)
+    await cs.checkin_scheduler._restore_outbound_pause()
+    remaining = checkin_outbound_gate.paused_remaining()
+    assert 40 < remaining <= 50
+    checkin_outbound_gate.reset()
+
+
+async def test_restore_outbound_pause_challenge_uses_longer_window(monkeypatch):
+    """Challenge 信号按 300s 窗口恢复(比 SoftRate 的 60s 长)。"""
+    checkin_outbound_gate.reset()
+    monkeypatch.setenv("CHECKIN_CHALLENGE_PAUSE", "300")
+
+    async def fake_signal() -> tuple[str, datetime]:
+        return "Challenge", datetime.now(UTC) - timedelta(seconds=20)  # 窗口剩 280s
+
+    monkeypatch.setattr(checkin_store, "latest_outbound_pause_signal", fake_signal)
+    await cs.checkin_scheduler._restore_outbound_pause()
+    assert 260 < checkin_outbound_gate.paused_remaining() <= 280
+    checkin_outbound_gate.reset()
+
+
+async def test_restore_outbound_pause_expired_window_noop(monkeypatch):
+    """窗口已走完 → 不补暂停(不误伤)。"""
+    checkin_outbound_gate.reset()
+    monkeypatch.setenv("CHECKIN_RATE_LIMIT_PAUSE", "60")
+
+    async def fake_signal() -> tuple[str, datetime]:
+        return "SoftRate", datetime.now(UTC) - timedelta(seconds=120)  # 早过 60s 窗口
+
+    monkeypatch.setattr(checkin_store, "latest_outbound_pause_signal", fake_signal)
+    await cs.checkin_scheduler._restore_outbound_pause()
+    assert checkin_outbound_gate.paused_remaining() == 0
+
+
+async def test_restore_outbound_pause_no_signal_noop(monkeypatch):
+    """无历史信号 → 不补暂停(全新部署零行为变化)。"""
+    checkin_outbound_gate.reset()
+
+    async def fake_signal() -> None:
+        return None
+
+    monkeypatch.setattr(checkin_store, "latest_outbound_pause_signal", fake_signal)
+    await cs.checkin_scheduler._restore_outbound_pause()
+    assert checkin_outbound_gate.paused_remaining() == 0
+
+
+async def test_restore_outbound_pause_query_failure_fail_open(monkeypatch):
+    """读信号失败 → fail-open(不阻塞启动;每账号冷却仍持久兜底)。"""
+    checkin_outbound_gate.reset()
+
+    async def fake_signal() -> tuple[str, datetime]:
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(checkin_store, "latest_outbound_pause_signal", fake_signal)
+    await cs.checkin_scheduler._restore_outbound_pause()  # 不抛
+    assert checkin_outbound_gate.paused_remaining() == 0
 # [IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

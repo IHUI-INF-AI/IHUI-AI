@@ -120,6 +120,20 @@ jobs:
       - name: Build mobile-rn's workspace deps (topological closure — their exports point at dist)
         run: pnpm --filter "@ihui/mobile-rn^..." run build
 
+      # 2026-10-17 起:版本号自动派生 —— 每次构建都按构建时刻算出一个必然比上次大的版本号。
+      #   IHUI_MOBILE_VERSION              → app.config.js → build.gradle 的 versionName(原生)
+      #   EXPO_PUBLIC_IHUI_MOBILE_VERSION  → metro/babel 内联进 JS bundle(src/lib/config.ts)
+      # 两个变量由**同一次计算**产出 ⇒ 界面显示与用户实际安装的包号永远一致。
+      # 为什么不用 "git commit 计数":本仓主干会被并行会话整谱系重写,计数会缩,
+      # 缩一次就等于给用户发一个版本倒退的包 —— Android 降级保护会直接拒绝覆盖安装
+      # (2026-10-12 实测:CI 包 vc=1 覆盖手机上 vc=4 时 install -r 连拒)。
+      - name: Resolve mobile version (auto-derived from build time)
+        run: |
+          KIND=nightly
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then KIND=release; fi
+          # tee 到 stdout 的同时写进 $GITHUB_ENV ⇒ 后续 prebuild / gradle 两步都能读到
+          node scripts/resolve-mobile-version.mjs --app mobile-rn --kind "$KIND" --emit github | tee -a "$GITHUB_ENV"
+
       - name: Generate Android project (expo prebuild)
         working-directory: apps/mobile-rn
         # EXPO_PUBLIC_* 见 job 级 env(2026-10-13):必须覆盖到 gradle 打包那一步,不能只挂在 prebuild。

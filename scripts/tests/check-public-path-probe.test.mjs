@@ -222,24 +222,30 @@ test('⑦ 慢样本按跳分账且总额不丢;旧取证(没有 stage 字段)按
   assert.equal(l.stallSlow, 1)
 })
 
-test('⑧ 定位到"哪一段"必须**随对照组翻**(同一份公网读数,换对照即换段 —— 变异取证)', () => {
-  const pub = probe.summarizeSequence(
-    Array.from({ length: 10 }, (_, i) => mkSample({ status: 200, ms: i < 6 ? 9000 : 500 }, i)),
-    { slowMs: 8000 },
-  )
-  const localFast = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mkSample({ status: 200, ms: 20 }, i)), { slowMs: 8000 })
-  const localSlow = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mkSample({ status: 200, ms: 9000 }, i)), { slowMs: 8000 })
+test('⑧ 定位到"哪一段"必须**随对照组与握手分界翻**(变异取证:换输入即换段)', () => {
+  // 新传输层每条样本都带 stageReached/stages ⇒ 生产形态的夹具也必须带(否则测的是旧取证那一支)
+  const stg = (over) => ({ stageReached: 'body', stages: { dns: 2, tcp: 270, tls: 510, head: 700, body: over.ms }, ...over })
+  const mk2 = (raw, atSec) => ({ at: iso(atSec), ...raw, ...probe.classifySample(raw) })
+  const pub = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mk2(stg({ status: 200, ms: i < 6 ? 9000 : 500 }), i)), { slowMs: 8000 })
+  const localFast = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mk2(stg({ status: 200, ms: 20 }), 100 + i)), { slowMs: 8000 })
+  const localSlow = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mk2(stg({ status: 200, ms: 9000 }), 200 + i)), { slowMs: 8000 })
   const entry = probe.classifyPublicLeg(pub, localFast)
   assert.equal(entry.leg, 'entry')
-  assert.equal(entry.tag, '入口段', '公网 6/10 条 ≥8s 而对照 20ms ⇒ 只能是 CF 边缘/隧道/上行那一段')
+  assert.equal(entry.tag, '入口段', '公网 6/10 条 ≥8s(握手后拿到响应)而对照 20ms ⇒ 只能是 CF 边缘/隧道/上行')
   const service = probe.classifyPublicLeg(pub, localSlow)
   assert.equal(service.leg, 'service')
   assert.equal(service.tag, '服务段', '对照同轮也慢 ⇒ 洞在 web 本体,再让人去查公网链路就是误导')
   assert.notEqual(entry.tag, service.tag, '两段的身份必须不同(dedupKey 按身份,换段该重新起一轮)')
-  // 三态:任一侧没样本 ⇒ 不猜
+  // 停在握手中那一型:同一条越阈读数,段名必须翻成"本机出口段"(2026-10-16 那封邮件的真身)
+  const handShakeStall = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mk2({ bucket: 'tlsStall', stage: 'stall', stageReached: 'tcp', stages: { dns: 2, tcp: 300, tls: null, head: null, body: null }, indeterminate: true, preTls: true, unavailable: false, status: null, ms: 10_700 }, 300 + i)), { slowMs: 8000 })
+  assert.equal(probe.classifyPublicLeg(handShakeStall, localFast).tag, '本机出口段')
+  // 三态:任一侧没样本 / 没有分阶段读数 ⇒ 不猜
   assert.equal(probe.classifyPublicLeg(pub, probe.summarizeSequence([])).leg, 'undetermined')
   assert.equal(probe.classifyPublicLeg(pub, probe.summarizeSequence([])).tag, null, '拿不到定位时身份里不许凭空多一档段名')
   assert.equal(probe.classifyPublicLeg(probe.summarizeSequence([]), localFast).leg, 'undetermined')
+  const legacy = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mk2({ status: 200, ms: i < 6 ? 9000 : 500 }, 400 + i)), { slowMs: 8000 })
+  assert.equal(legacy.stageEvidence, false, '旧取证(无 stageReached)必须被判成"分界证据不全"')
+  assert.equal(probe.classifyPublicLeg(legacy, localFast).leg, 'unlocated', '拿旧取证冒认某一段 = 让人去查一个可能健康的组件')
   // 公网自己没越阈 ⇒ clear(段名只用于真有坏点时)
   assert.equal(probe.classifyPublicLeg(localFast, localSlow).leg, 'clear')
 })
