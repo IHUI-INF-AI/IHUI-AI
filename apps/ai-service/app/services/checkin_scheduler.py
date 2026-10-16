@@ -49,7 +49,7 @@ from app.services import (
     checkin_store,
     checkin_workbuddy,
 )
-from app.services.checkin_engine import client_for
+from app.services.checkin_engine import client_for, status_check
 from app.services.checkin_outbound import (
     OutboundPaused,
     challenge_pause_seconds,
@@ -79,6 +79,10 @@ _CREDITS_JOB_ID = "checkin_credits_daily"
 # /events/100credits),08:05 主 job 对 Qoder 账号必然「活动未下发」且当天不再重试
 # ⇒ Qoder 账号独立 10:05 job,主 job 排除 qoder 账号。
 _JOB_ID_QODER = "checkin_daily_qoder"
+# 状态探针(2026-10-16 李总需求):每日 06:00 先把平台侧「今日已签到」同步落库
+# —— 半夜 0 点平台重置后用户常已在对应程序里手动签完,等 08:05 主窗口才落
+# 记录 = UI 一早上都亮着可点按钮。探针只读不 claim,未签账号不落任何记录。
+_JOB_ID_PROBE = "checkin_daily_status_probe"
 
 # 日级起批漂移(2026-10-16 风控第四件套):CronTrigger jitter = uniform(0, jitter)
 # 加到触发时刻,每天起批时间在窗口内随机(08:05~08:12 / 10:05~10:10 / 08:10~08:15),
@@ -178,6 +182,13 @@ class CheckinScheduler:
             id=_JOB_ID_QODER,
             replace_existing=True,
         )
+        # 06:00 状态探针:先于主窗口同步平台侧「已签」状态(见 _JOB_ID_PROBE 注)
+        self._scheduler.add_job(
+            self._daily_status_probe,
+            trigger=CronTrigger(hour=6, minute=0, timezone=_CN_TZ, jitter=_CRON_JITTER),
+            id=_JOB_ID_PROBE,
+            replace_existing=True,
+        )
         # WP-B(2026-10-09):每日积分快照 job,与签到 job 同一启用开关
         self._scheduler.add_job(
             self._daily_credits_snapshot,
@@ -188,7 +199,7 @@ class CheckinScheduler:
         self._scheduler.start()
         self._started = True
         logger.info(
-            "[checkin_scheduler] 已启动每日调度(08:05 签到 / 10:05 Qoder 签到 / 08:10 积分快照,起批漂移 ≤%ds)",
+            "[checkin_scheduler] 已启动每日调度(06:00 状态探针 / 08:05 签到 / 10:05 Qoder 签到 / 08:10 积分快照,起批漂移 ≤%ds)",
             _CRON_JITTER,
         )
 
@@ -247,6 +258,7 @@ class CheckinScheduler:
         """
         next_run: str | None = None
         next_run_qoder: str | None = None
+        next_run_probe: str | None = None
         if self._started and self._scheduler is not None:
             job = self._scheduler.get_job(_JOB_ID)
             if job is not None:
@@ -260,11 +272,18 @@ class CheckinScheduler:
                 next_run_qoder = (
                     next_run_time_q.isoformat() if next_run_time_q is not None else None
                 )
+            job_probe = self._scheduler.get_job(_JOB_ID_PROBE)
+            if job_probe is not None:
+                next_run_time_p: datetime | None = job_probe.next_run_time
+                next_run_probe = (
+                    next_run_time_p.isoformat() if next_run_time_p is not None else None
+                )
         return {
             "enabled": _cron_enabled(),
             "started": self._started,
             "next_run": next_run,
             "next_run_qoder": next_run_qoder,
+            "next_run_probe": next_run_probe,
         }
 
     # ===== 每日任务 =====
@@ -350,6 +369,78 @@ class CheckinScheduler:
             return
         main_side, _ = partition_platforms(loaded[0])
         await self._run_batch(main_side, loaded[1], "主窗口")
+
+    async def _daily_status_probe(self) -> None:
+        """06:00 状态探针(2026-10-16 李总需求):把平台侧「今日已签到」提前同步落库。
+
+        半夜 0 点平台重置后,用户常已在对应程序里手动签完;等 08:05 主窗口才落
+        记录,意味着 UI 一整个早上亮着可点按钮、一键签到还会对已签账号多打一次
+        status 请求。探针在主窗口前只读查询(status 无副作用),已签才落
+        skip_already 记录 —— UI 即时亮「今日已签到」,主窗口 status 预检命中
+        直接跳过,不重复签。
+
+        仅 TRAE 有无副作用的 status 端点;Qoder/WorkBuddy/MiniMax 引擎本身
+        幂等且无独立查询口,主窗口照常处理。未签账号不落任何记录(留给主窗口签)。
+        """
+        if checkin_outbound_gate.paused_remaining() > 0:
+            logger.info("[checkin_scheduler] 出站限流暂停中,状态探针本轮跳过")
+            return
+        loaded = await self._load_accounts_and_cooldowns("状态探针")
+        if loaded is None:
+            return
+        accounts, cooldowns = loaded
+        targets = [acc for acc in accounts if acc.get("platform") == "trae"]
+        if not targets:
+            return
+        now = datetime.now(UTC)
+        synced = 0
+        for acc in targets:
+            cd_end = cooldowns.get(acc["id"])
+            if cd_end is not None and cd_end > now:
+                continue  # 冷却中(死号/限流)不探,与积分快照跳冷却同口径
+            device_map = dict(acc.get("device_map") or {})
+            client, owned = client_for(device_map)
+            try:
+                ok_s, checked_in, credits, _code_s, msg_s = await status_check(
+                    acc.get("name") or str(acc["id"]),
+                    acc["jwt"],
+                    device_map,
+                    client=client,
+                )
+            except Exception as e:
+                logger.warning(
+                    "[checkin_scheduler] 状态探针异常 account=%s: %s", acc["id"], e
+                )
+                continue
+            finally:
+                if owned:
+                    await client.aclose()
+            if ok_s and checked_in:
+                result: dict[str, Any] = {
+                    "ok": True,
+                    "status": "already",
+                    "action": "skip_already",
+                    "code": 0,
+                    "message": msg_s or "已签到",
+                    "http_status": 200,
+                    "credits": credits if isinstance(credits, int) else None,
+                    "credits_delta": None,
+                    "classified_error": None,
+                }
+                try:
+                    await self.record_result(acc["id"], result)
+                    synced += 1
+                except Exception as e:
+                    logger.warning(
+                        "[checkin_scheduler] 探针落记录失败 account=%s: %s", acc["id"], e
+                    )
+            if len(targets) > 1:
+                await asyncio.sleep(random.uniform(0.5, 2.0))
+        logger.info(
+            "[checkin_scheduler] 06:00 状态探针完成:TRAE 账号 %d 个,同步「已签到」%d 个",
+            len(targets),
+            synced,
+        )
 
     async def _daily_run_qoder(self) -> None:
         """10:05 Qoder 窗口:官方领取活动每日 10:00(UTC+8)开放,08:05 跑必然空手。"""
