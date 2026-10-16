@@ -3,7 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 跨端「同一端点:后端形状 ↔ 各端读法」契约对账(常驻回归,不在提交链)。
-// 立因:探针按"调用点邻近行出现的字段名"比两端,抽样 12 条里逐条读代码后已坐实四族 ——
+// 立因:探针按"调用点邻近行出现的字段名"比两端,抽样 12 条里逐条读代码后坐实四族；随后按同一
+// 反模式(端内 `fetchApi<X[]>` + 直接把 data 喂列表)扫出剩余 44 处候选，又逐条读后端收口六族
+// (activities、announcements、certificates、coupons、feedbacks、help/articles)共十族 ——
 //   · apps/mobile-rn/src/screens/HistoryScreen.tsx 曾把 GET /api/browse-history 的整个信封
 //     {list,total,page,pageSize} 当数组用 ⇒ FlatList 拿到对象不报错,只是永远空列表;
 //   · apps/extension/.../ChatFavoritesPage.tsx 曾按 PageData 读 .list,而后端回的是 {favorites,…}
@@ -25,7 +27,10 @@ import { dirname, join } from 'node:path'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const read = (rel) => {
-  assert.ok(existsSync(join(ROOT, rel)), `契约面点名文件 ${rel} 不在盘上 ⇒ 判据失明,不得读成"已通过"`)
+  assert.ok(
+    existsSync(join(ROOT, rel)),
+    `契约面点名文件 ${rel} 不在盘上 ⇒ 判据失明,不得读成"已通过"`,
+  )
   const t = readFileSync(join(ROOT, rel), 'utf8')
   assert.ok(t.trim().length > 0, `契约面点名文件 ${rel} 是空文件 ⇒ 判据失明`)
   return t
@@ -44,7 +49,9 @@ const REGISTRY = [
       {
         end: 'web',
         file: 'apps/web/app/(main)/member/history/page.tsx',
-        reads: (src) => /\.list\b/.test(src) && !/fetchApi<HistoryItem\[\]>|fetchApi<\w+\[\]>\('\/api\/browse-history/.test(src),
+        reads: (src) =>
+          /\.list\b/.test(src) &&
+          !/fetchApi<HistoryItem\[\]>|fetchApi<\w+\[\]>\('\/api\/browse-history/.test(src),
       },
       {
         end: 'mobile-rn',
@@ -56,7 +63,8 @@ const REGISTRY = [
   {
     ep: 'GET /api/chat/favorites',
     backend: 'apps/api/src/routes/chat.ts',
-    backendProves: (src) => /server\.get\('\/favorites'[\s\S]{0,900}?success\(\{\s*favorites:/m.test(src),
+    backendProves: (src) =>
+      /server\.get\('\/favorites'[\s\S]{0,900}?success\(\{\s*favorites:/m.test(src),
     consumers: [
       {
         end: 'web',
@@ -114,12 +122,148 @@ const REGISTRY = [
       },
     ],
   },
+  {
+    // 这一族与第④族同形：**RN 与小程序两侧都**按数组读，而 web 早就读 d.list ⇒ 用户看到的
+    // 就是"移动端列表空白、网页有数据"。注册是多行形态(server.get( 换行 '/activities')，
+    // 所以 backendProves 必须跨行匹配 —— 单行 grep 会把它读成"没有这个路由"。
+    ep: 'GET /api/activities',
+    backend: 'apps/api/src/routes/promotions.ts',
+    backendProves: (src) =>
+      /server\.get\(\s*'\/activities',[\s\S]{0,700}?success\(\{ list \}\)/.test(src),
+    consumers: [
+      {
+        end: 'web',
+        file: 'apps/web/app/(main)/activities/page.tsx',
+        reads: (src) => /d\.list \?\? \[\]/.test(src),
+      },
+      {
+        end: 'mobile-rn',
+        file: 'apps/mobile-rn/src/screens/ActivityScreen.tsx',
+        reads: (src) => /res\.data\?\.list/.test(src) && !/fetchApi<ActivityItem\[\]>/.test(src),
+      },
+      {
+        end: 'miniapp-taro',
+        file: 'apps/miniapp-taro/src/pkg-content/activity/index.tsx',
+        reads: (src) => /res\.data\?\.list/.test(src) && !/fetchApi<ActivityItem\[\]>/.test(src),
+      },
+    ],
+  },
+  {
+    ep: 'GET /api/announcements',
+    backend: 'apps/api/src/routes/content.ts',
+    backendProves: (src) =>
+      /server\.get\(\s*'\/announcements',[\s\S]{0,1200}?success\(\{ list:/.test(src),
+    consumers: [
+      {
+        end: 'web',
+        file: 'apps/web/app/(main)/announcements/page.tsx',
+        reads: (src) => /d\.list \?\? \[\]/.test(src),
+      },
+      {
+        end: 'mobile-rn',
+        file: 'apps/mobile-rn/src/screens/AnnouncementScreen.tsx',
+        reads: (src) =>
+          /res\.data\?\.list/.test(src) && !/fetchApi<AnnouncementItem\[\]>/.test(src),
+      },
+      {
+        end: 'miniapp-taro',
+        file: 'apps/miniapp-taro/src/pkg-content/announcement/index.tsx',
+        reads: (src) =>
+          /res\.data\?\.list/.test(src) && !/fetchApi<AnnouncementItem\[\]>/.test(src),
+      },
+    ],
+  },
+  {
+    // 第七、八族的新意：**同一端在同一 App 里两个屏各写各的** —— 一个读 .list(对)，
+    // 一个把信封当数组(错)。这种"端内自我分叉"是"移动端跟 web 不一致"的下半段。
+    ep: 'GET /api/certificates',
+    backend: 'apps/api/src/routes/certificate.ts',
+    backendProves: (src) =>
+      /server\.get\('\/certificates',[\s\S]{0,320}?success\(result\)/.test(src),
+    backendAlso: {
+      file: 'apps/api/src/db/certificate-queries.ts',
+      proves: (src) =>
+        /Promise<\{\s*list: CertificateWithUser\[\];\s*total: number;\s*page: number;\s*pageSize: number\s*\}>/.test(
+          src,
+        ),
+    },
+    consumers: [
+      {
+        end: 'mobile-rn/CertificateScreen',
+        file: 'apps/mobile-rn/src/screens/CertificateScreen.tsx',
+        reads: (src) => /res\.data\.list \?\? \[\]/.test(src),
+      },
+      {
+        end: 'mobile-rn/CertListScreen',
+        file: 'apps/mobile-rn/src/screens/CertListScreen.tsx',
+        reads: (src) => /res\.data\?\.list/.test(src) && !/fetchApi<CertListItem\[\]>/.test(src),
+      },
+    ],
+  },
+  {
+    ep: 'GET /api/coupons',
+    backend: 'apps/api/src/routes/promotions.ts',
+    backendProves: (src) =>
+      /'\/coupons',[\s\S]{0,900}?success\(\{ list, total, page, pageSize \}\)/.test(src),
+    consumers: [
+      {
+        end: 'mobile-rn/CouponScreen',
+        file: 'apps/mobile-rn/src/screens/CouponScreen.tsx',
+        reads: (src) => /res\.data\?\.list/.test(src),
+      },
+      {
+        end: 'mobile-rn/PromotionScreen',
+        file: 'apps/mobile-rn/src/screens/PromotionScreen.tsx',
+        reads: (src) =>
+          /resp\.data\?\.list/.test(src) && !/fetchApi<PromotionCoupon\[\]>/.test(src),
+      },
+    ],
+  },
+  {
+    ep: 'GET /api/feedbacks',
+    backend: 'apps/api/src/routes/comments.ts',
+    backendProves: (src) =>
+      /'\/feedbacks',[\s\S]{0,900}?success\(\{ list, total, page, pageSize \}\)/.test(src),
+    consumers: [
+      {
+        end: 'mobile-rn',
+        file: 'apps/mobile-rn/src/screens/FeedbackHistoryScreen.tsx',
+        reads: (src) =>
+          /res\.data\?\.list/.test(src) && !/fetchApi<FeedbackHistoryItem\[\]>/.test(src),
+      },
+    ],
+  },
+  {
+    ep: 'GET /api/help/articles',
+    backend: 'apps/api/src/routes/content.ts',
+    backendProves: (src) =>
+      /server\.get\('\/help\/articles'[\s\S]{0,320}?success\(\{ list \}\)/.test(src),
+    consumers: [
+      {
+        end: 'mobile-rn',
+        file: 'apps/mobile-rn/src/screens/HelpScreen.tsx',
+        reads: (src) => /res\.data\?\.list/.test(src) && !/fetchApi<HelpListItem\[\]>/.test(src),
+      },
+    ],
+  },
 ]
 
 test('K1 后端形状在位:契约的每一条都由路由侧自证,而不是由调用端互相印证', () => {
   for (const c of REGISTRY) {
     const src = read(c.backend)
-    assert.ok(c.backendProves(src), `${c.ep} 的后端形状与契约不符 —— 要么路由改了(那两端必须同批改),要么本契约过期(那删这条)`)
+    assert.ok(
+      c.backendProves(src),
+      `${c.ep} 的后端形状与契约不符 —— 要么路由改了(那两端必须同批改),要么本契约过期(那删这条)`,
+    )
+    // 有些端点的形状证据不在路由文件里，而在它调用的 db 查询类型声明里 ⇒ 第二处同样由后端自证，
+    // 不由"调用端都这么读"来反推。
+    if (c.backendAlso) {
+      const also = read(c.backendAlso.file)
+      assert.ok(
+        c.backendAlso.proves(also),
+        `${c.ep} 的第二处后端证据(${c.backendAlso.file})已不支持这个形状 ⇒ 契约过期或后端改了`,
+      )
+    }
   }
 })
 
@@ -127,7 +271,10 @@ test('K2 每个消费端读的是后端真正回的那个键(静默空列表这�
   for (const c of REGISTRY) {
     for (const k of c.consumers) {
       const src = read(k.file)
-      assert.ok(k.reads(src), `${c.ep} 在 ${k.end}(${k.file})的读法与后端形状不符 —— 该端会拿到 undefined 而界面只显示空列表,不抛错`)
+      assert.ok(
+        k.reads(src),
+        `${c.ep} 在 ${k.end}(${k.file})的读法与后端形状不符 —— 该端会拿到 undefined 而界面只显示空列表,不抛错`,
+      )
     }
   }
 })
@@ -145,7 +292,11 @@ test('K3 阳性对照:把读法退回"信封当数组"必须让判据红(否则 
   const mutatedExt = realExt.replace(/res\.data\?\.favorites/g, 'res.data.list')
   assert.notEqual(mutatedExt, realExt)
   const k2 = REGISTRY[1].consumers.find((x) => x.end === 'extension')
-  assert.equal(k2.reads(mutatedExt), false, '把 .favorites 换回 .list 必须红:那是本契约立因的那一型')
+  assert.equal(
+    k2.reads(mutatedExt),
+    false,
+    '把 .favorites 换回 .list 必须红:那是本契约立因的那一型',
+  )
   assert.equal(k2.reads(realExt), true)
 
   // 第三条族:同一型第三站(RN 考试历史)。变异 = 把 `.list` 摘掉,即入库前的错形。
@@ -171,6 +322,43 @@ test('K3 阳性对照:把读法退回"信封当数组"必须让判据红(否则 
   const kRuntime = REGISTRY[3].consumers.find((x) => x.end === 'web')
   assert.equal(kRuntime.reads(mutatedRuntime), false, 'web 运行时页退回数组读必须红')
   assert.equal(kRuntime.reads(realRuntime), true)
+
+  // 第五、六族(activities / announcements):RN 与小程序两侧原本都按数组读，web 一直读 d.list。
+  // 逐端变异，不是"抽一端代表全端"。
+  for (const idx of [4, 5]) {
+    const fam = REGISTRY[idx]
+    for (const k of fam.consumers.filter(
+      (c) => c.end === 'mobile-rn' || c.end === 'miniapp-taro',
+    )) {
+      const real = read(k.file)
+      const mutated = real.replace(/res\.data\?\.list/g, 'res.data')
+      assert.notEqual(mutated, real, `${k.file} 变异未命中 ⇒ 契约与写法脱节`)
+      assert.equal(k.reads(mutated), false, `${fam.ep} 在 ${k.end} 退回"信封当数组"必须红`)
+      assert.equal(k.reads(real), true)
+    }
+    for (const k of fam.consumers.filter((c) => c.end === 'web')) {
+      const real = read(k.file)
+      const mutated = real.replace(/d\.list \?\? \[\]/g, 'd ?? []')
+      assert.notEqual(mutated, real, `${k.file} 变异未命中 ⇒ 契约与写法脱节`)
+      assert.equal(k.reads(mutated), false, `${fam.ep} 在 web 摘掉 .list 必须红`)
+      assert.equal(k.reads(real), true)
+    }
+  }
+
+  // 第七到十族：同一 App 里两个屏对同一端点各写各的(一个读 .list、一个把信封当数组)，
+  // 所以逐消费端变异 —— 只钉"读对的那个"等于没钉。
+  for (const idx of [6, 7, 8, 9]) {
+    const fam = REGISTRY[idx]
+    for (const k of fam.consumers) {
+      const real = read(k.file)
+      const mutated = real
+        .replace(/data\?\.list/g, 'data')
+        .replace(/data\.list \?\? \[\]/g, 'data ?? []')
+      assert.notEqual(mutated, real, `${k.file} 变异未命中 ⇒ 契约与写法脱节`)
+      assert.equal(k.reads(mutated), false, `${fam.ep} 在 ${k.end} 摘掉 .list 必须红`)
+      assert.equal(k.reads(real), true)
+    }
+  }
 })
 
 test('K4 覆盖面自证:契约确实覆盖了它点名的每一条,而非静默少跑', () => {
@@ -185,6 +373,6 @@ test('K4 覆盖面自证:契约确实覆盖了它点名的每一条,而非静默
   }
   const total = REGISTRY.reduce((n, c) => n + 1 + c.consumers.length, 0)
   assert.equal(checked, total, `应核 ${total} 个文件而实核 ${checked} ⇒ 有静默跳过的端点`)
-  assert.ok(total >= 13, '契约面退化到不足 13 个(4 族)⇒ 有族被删,本文件已不再覆盖当初那条分叉')
+  assert.ok(total >= 31, '契约面退化到不足 31 个(10 族)⇒ 有族被删,本文件已不再覆盖当初那条分叉')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
