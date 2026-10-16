@@ -667,6 +667,8 @@ export interface EmbeddedBrowserState {
   url: string | null
   tabs: Array<{ id: number; url: string; title: string }>
   active: number | null
+  /** true = 走了单 webview 降级路径(unstable 多 webview 不可用),多标签不可用。 */
+  degraded?: boolean
 }
 
 /** 查询内嵌浏览器状态(窗口在不在、标签列表、当前标签)。 */
