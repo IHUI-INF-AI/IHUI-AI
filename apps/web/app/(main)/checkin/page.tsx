@@ -445,7 +445,9 @@ export default function CheckinPage() {
         await createCheckinAccount({
           name: item.nickname || item.user_id,
           jwt: item.jwt,
-          device_map: {},
+          // account 原始 profile 落库(含 phone/email/username):服务端按
+          // 「手机>邮箱>账号>用户名」重取名用;无则空对象(tc 通道才有)
+          device_map: traeDeviceMap(item),
           group: groupFilter !== 'all' ? groupFilter : '',
         })
         okCount += 1
@@ -485,6 +487,16 @@ export default function CheckinPage() {
     if (s.machine_type) cosy.machine_type = s.machine_type
     if (s.version) cosy.version = s.version
     dm.cosy = cosy
+    return dm
+  }
+
+  // TRAE → device_map(2026-10-16 立):tc 通道捕获的 account 原始对象整体落库。
+  // 服务端首次录入若 name 为 UUID 编码形态,会优先从这里按「手机>邮箱>账户名>
+  // 用户名」重取名;非 tc 通道(account=null)保持空对象,行为与旧版一致。
+  const traeDeviceMap = (a: CapturedTraeAccount): Record<string, unknown> => {
+    const dm: Record<string, unknown> = {}
+    if (a.account && typeof a.account === 'object') dm.account = a.account
+    if (a.nickname) dm.nickname = a.nickname
     return dm
   }
 
@@ -1035,7 +1047,11 @@ export default function CheckinPage() {
     for (const item of scanTrae) {
       if (!scanTraeSel.has(item.user_id)) continue
       if (!item.jwt) continue // opaque 账号无凭据,录入必被服务端拒(400),跳过
-      jobs.push({ name: item.nickname || item.user_id, jwt: item.jwt, device_map: {} })
+      jobs.push({
+        name: item.nickname || item.user_id,
+        jwt: item.jwt,
+        device_map: traeDeviceMap(item),
+      })
     }
     for (const item of scanQoder) {
       const key = item.uid || item.app_dir
