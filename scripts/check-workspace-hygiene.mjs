@@ -45,9 +45,8 @@
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, relative, extname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { execSync } from 'node:child_process';
 import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs';
-import { gitRaw } from './lib/face-reader.mjs';
+import { gitRaw, catBatch } from './lib/face-reader.mjs';
 import { createLogger } from './lib/logger.mjs';
 import { flagValue } from './lib/flag-value.mjs';
 
@@ -171,17 +170,9 @@ function isLineWhitelisted(line) {
   return false;
 }
 
-function scanFile(filePath) {
+export function scanContent(relPath, content) {
   // 文件级白名单跳过
-  const relPath = relative(ROOT, filePath).replace(/\\/g, '/');
   if (FILE_WHITELIST.some(re => re.test(relPath))) return [];
-
-  let content;
-  try {
-    content = readFileSync(filePath, 'utf8');
-  } catch {
-    return [];
-  }
 
   const violations = [];
   const lines = content.split(/\r?\n/);
@@ -202,6 +193,49 @@ function scanFile(filePath) {
     }
   });
   return violations;
+}
+
+/** 磁盘适配器:只服务"被审面上不存在"的两类对象 —— .ihui-agent/tmp 的未跟踪脏件与 --root 测试树。 */
+function scanFileFromDisk(filePath, root = ROOT) {
+  const relPath = relative(root, filePath).replace(/\\/g, '/');
+  let content;
+  try {
+    content = readFileSync(filePath, 'utf8');
+  } catch {
+    return { violations: [], unreadable: 1 };
+  }
+  return { violations: scanContent(relPath, content), unreadable: 0 };
+}
+
+
+/** 旧出口保留(镜像测试在用):磁盘读 + 判据本体。 */
+function scanFile(filePath) {
+  return scanFileFromDisk(filePath).violations;
+}
+
+
+/** 被审面的 rev 规格:head = HEAD:rel;staged = :rel(索引 blob)。 */
+export function faceSpecOf(face, rel) {
+  return (face === 'staged' ? ':' : 'HEAD:') + rel;
+}
+
+
+/**
+ * 在册件一律按被审面取内容(§0.4 同面同轮:一次 catBatch,绝不逐文件回落磁盘)。
+ * 取不到 = 未判定,单列计数,既不记绿也不冒红(§0.3)—— 共享工作树的磁盘副本常年滞后 HEAD,
+ * 按磁盘判会把别人没提交的旧态钉成本次的红(本仓记过多次的那一型)。
+ */
+export function scanSetFromFace(root, face, relPaths) {
+  const specs = new Set(relPaths.map((r) => faceSpecOf(face, r)));
+  const got = catBatch(root, specs);
+  const out = { violations: [], scanned: 0, unreadable: [] };
+  for (const r of relPaths) {
+    const v = got.get(faceSpecOf(face, r));
+    if (v === null || v === undefined) { out.unreadable.push(r); continue; }
+    out.scanned++;
+    out.violations.push(...scanContent(r, v));
+  }
+  return out;
 }
 
 function scanDir(dir, allFiles = []) {
@@ -232,10 +266,10 @@ function scanDir(dir, allFiles = []) {
 function getStagedFiles() {
   try {
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    const out = execSync('git diff --cached --name-only --diff-filter=ACM', { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', windowsHide: true });
-    return out.split(/\r?\n/).filter(Boolean)
-      .filter(f => SCRIPT_EXTS.has(extname(f).toLowerCase()))
-      .map(f => join(ROOT, f));
+    const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT);
+    return String(out).split(/\r?\n/).filter(Boolean)
+      .filter(f => SCRIPT_EXTS.has(extname(f).toLowerCase()));
+
   } catch {
     return [];
   }
@@ -261,13 +295,12 @@ function getFullFaceFiles() {
     return { ok: false, reason: `git ls-files 取不到被审面:${e?.message ?? e}` };
   }
   const tracked = String(raw).split('\0').filter(Boolean)
-    .filter(f => SCRIPT_EXTS.has(extname(f).toLowerCase()))
-    .map(f => join(ROOT, f));
+    .filter(f => SCRIPT_EXTS.has(extname(f).toLowerCase()));
   if (tracked.length === 0) {
     // §0.3:枚举到 0 个候选判死不记绿
     return { ok: false, reason: '在册文件清单枚举结果为 0 个脚本文件(判不出"没有违规",只判"没量到")' };
   }
-  return { ok: true, files: [...tracked, ...scanDir(TMP_LANDING_DIR)], trackedCount: tracked.length };
+  return { ok: true, faceFiles: tracked, diskFiles: scanDir(TMP_LANDING_DIR), trackedCount: tracked.length };
 }
 
 function main() {
@@ -275,35 +308,47 @@ function main() {
   const isStaged = args.includes('--staged');
   const isWarn = args.includes('--warn');
 
-  let filesToScan;
+  // 三面各走各的取材通道:staged = 索引 blob;全量 = HEAD blob;
+  // --root 测试树与 .ihui-agent/tmp 的未跟踪脏件 = 磁盘(它们在面路上没有 blob)。
+  let faceFiles = [];
+  let diskFiles = [];
+  let faceKind = 'head';
   if (isStaged) {
-    filesToScan = getStagedFiles();
-    if (filesToScan.length === 0) {
+    faceFiles = getStagedFiles();
+    faceKind = 'staged';
+    if (faceFiles.length === 0) {
       log.info('✅ workspace-hygiene: 无 staged 脚本文件,跳过');
       process.exit(0);
     }
   } else if (EXPLICIT_ROOT) {
-    // 测试通道:显式指定的树不是 git 仓,沿用磁盘递归(判据本体不变)
-    filesToScan = scanDir(ROOT);
+    diskFiles = scanDir(ROOT);
+    faceKind = 'disk(--root 测试通道)';
   } else {
-    const face = getFullFaceFiles();
-    if (!face.ok) {
-      log.error(`❌ workspace-hygiene: 未判定(取材失败)—— ${face.reason}`);
+    const got = getFullFaceFiles();
+    if (!got.ok) {
+      log.error('❌ workspace-hygiene: 未判定(取材失败)—— ' + got.reason);
       process.exit(2);
     }
-    filesToScan = face.files;
+    faceFiles = got.faceFiles;
+    diskFiles = got.diskFiles;
   }
 
-  const allViolations = [];
-  for (const f of filesToScan) {
-    allViolations.push(...scanFile(f));
+
+  const faceRes = scanSetFromFace(ROOT, isStaged ? 'staged' : 'head', faceFiles);
+  const diskRes = { violations: [], unreadable: 0 };
+  for (const f of diskFiles) {
+    const r = scanFileFromDisk(f);
+    diskRes.violations.push(...r.violations);
+    diskRes.unreadable += r.unreadable;
   }
+  const allViolations = [...faceRes.violations, ...diskRes.violations];
+  const scannedCount = faceRes.scanned + (diskFiles.length - diskRes.unreadable);
 
   const blockingViolations = allViolations.filter(v => v.level === 'blocking');
   const warningViolations = allViolations.filter(v => v.level === 'warning');
 
   if (allViolations.length === 0) {
-    log.info(`✅ workspace-hygiene: 扫描 ${filesToScan.length} 个文件,无违规`);
+    log.info(`✅ workspace-hygiene: 面=${faceKind} ⊕ 未跟踪磁盘件 ${diskFiles.length} 个;扫描 ${scannedCount} 个文件,无违规` + (faceRes.unreadable.length ? `;另 ${faceRes.unreadable.length} 个在册件在该面取不到内容 ⇒ 该部分未判定,不记绿` : ''));
     process.exit(0);
   }
 
@@ -366,6 +411,9 @@ if (isDirectRun) {
 // main()、scanDir、getStagedFiles 不是判据形式,故不导 —— 一旦导出即成为本门的契约面,
 // 不得为好看而全导。导入本模块(经 isDirectRun 守卫)不再产生副作用、不再 process.exit。
 export const __test__ = {
+  scanContent,
+  faceSpecOf,
+  scanSetFromFace,
   SCRIPT_EXTS,
   EXCLUDED_DIRS,
   FILE_WHITELIST,
