@@ -28,6 +28,9 @@ const MIN_VIEWPORT_COVERAGE = 0.98
 const DIM_MARKER_SELECTOR = '[data-window-controls-dim]'
 const FIXED_LAYER_SELECTOR = '[class~="fixed"][class~="inset-0"]'
 const ABSOLUTE_LAYER_SELECTOR = '[class~="absolute"][class~="inset-0"]'
+/** 标记为 wc-dim-exempt 的全屏遮罩对压暗层豁免:它本身就是窗口控制自身的交互
+ *  (关闭询问弹窗),其遮罩不该回压触发它的控件(否则点 × 闪一下灰又复原)。 */
+const EXEMPT_CLASS = 'wc-dim-exempt'
 
 interface QueryableRoot {
   querySelectorAll(selectors: string): ArrayLike<Element>
@@ -110,6 +113,10 @@ export function detectModalOverlayColor(root?: Document | DocumentFragment): str
 
   for (const layer of Array.from(scope.querySelectorAll(FIXED_LAYER_SELECTOR))) {
     if (isOwnDimLayer(layer)) continue
+    // 关闭询问弹窗的遮罩显式豁免:它自身的全屏 z-modal 遮罩若被当普通模态处理,
+    // 会瞬间把触发它的三按钮压暗,再被 desktop-close-ask 抑制 → 取消方向 1000ms 灰化淡出
+    // (用户可见闪灰)。豁免后压暗层永不激活,从根上消除该闪灰。
+    if (layer.classList.contains(EXEMPT_CLASS)) continue
     const style = computedOf(layer)
     if (!style || style.position !== 'fixed') continue
     const z = readZIndex(style.zIndex)
