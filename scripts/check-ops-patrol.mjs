@@ -246,10 +246,12 @@ export function measureDir(path, { maxEntries = 120000, byTop = false } = {}) {
  *
  * 纯函数 + 注入 `env`/`exists`:判据要能在非 Windows runner 上被成对夹具判,而不是靠当次机器态。
  */
+export const SYSTEM32_SUBDIR = 'System32'
+
 export function systemExePaths(name, env = process.env) {
   const root = env.SystemRoot || env.windir || env.WINDIR || ''
   const out = []
-  if (root) out.push(join(root, 'System32', name))
+  if (root) out.push(join(root, SYSTEM32_SUBDIR, name))
   out.push(name)
   return out
 }
@@ -3143,6 +3145,7 @@ export const __test__ = {
   measureDir,
   growthRow,
   SCRUB_TEMP_FIXTURES_ROUTE,
+  SYSTEM32_SUBDIR,
   systemExePaths,
   resolveSystemExe,
   heartbeatRecord,
