@@ -188,7 +188,9 @@ _UUID_RE: Final = re.compile(
 # preferred_username / phone_number;故宽键表覆盖,与桌面端 checkin_capture.rs
 # 的 display_name_pick 同口径(那里是 user 对象,这里是 JWT payload)。
 _DISPLAY_NAME_KEY_GROUPS: Final[tuple[tuple[str, ...], ...]] = (
-    ("phone", "phone_number", "phoneNumber", "mobile", "telephone"),
+    # nonPlainTextMobile:TRAE account 里客户端脱敏存储的手机号("186******08",
+    # 真机实证 —— TRAE 本地无明文手机号,打码串即其"手机号"形态)
+    ("phone", "phone_number", "phoneNumber", "mobile", "telephone", "nonPlainTextMobile"),
     ("email", "mail", "email_address", "emailAddress"),
     (
         "username",
