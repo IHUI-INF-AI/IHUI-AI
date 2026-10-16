@@ -1,7 +1,4 @@
 #!/usr/bin/env node
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /* eslint-disable no-console -- 巡检工具,诊断输出就是它的产品 */
 /**
@@ -229,6 +226,38 @@ export function measureDir(path, { maxEntries = 120000, byTop = false } = {}) {
   }
 }
 
+/**
+ * 外部系统程序必须**先按绝对路径取**,取不到才回落裸名(2026-10-16 立)。
+ *
+ * 立因是实测,不是预防:`auditOpsPatrol()` 每轮稳定报「2 格未判定 —— P3, P5·网盘同步客户端」,
+ * 而同一条命令在交互 shell 里这两格都是绿的 —— 这两格是全巡检里**仅有的两处靠裸名派生外部程序**的
+ * (`w32tm.exe` / `tasklist.exe`),裸名解析依赖调用方的 PATH,而守护那两个执行体的环境块未必含
+ * system32 ⇒ ENOENT 被 catch 吞成"未判定",这两格在**唯一的调度器**里永久瞎掉。
+ * 根一律取 `%SystemRoot%`(AGENTS §26:不得硬编码 C 盘);量不到根就只剩裸名一档,
+ * 并把"试过哪些路径"写进未判定原因 —— 失明必须说得清为什么瞎(§0.3),不得只报格名。
+ *
+ * 纯函数 + 注入 `env`/`exists`:判据要能在非 Windows runner 上被成对夹具判,而不是靠当次机器态。
+ */
+export function systemExePaths(name, env = process.env) {
+  const root = env.SystemRoot || env.windir || env.WINDIR || ''
+  const out = []
+  if (root) out.push(join(root, 'System32', name))
+  out.push(name)
+  return out
+}
+
+export function resolveSystemExe(name, { env = process.env, exists = existsSync } = {}) {
+  const tried = systemExePaths(name, env)
+  for (const c of tried) {
+    try {
+      if (exists(c)) return { exe: c, tried, via: '绝对路径' }
+    } catch {
+      /* 单条探测失败不终结整轮:继续试下一档 */
+    }
+  }
+  return { exe: tried[tried.length - 1], tried, via: '裸名兜底(绝对路径一档都没命中)' }
+}
+
 /** 年龄判定三态:量不到 → undetermined;超阈 → finding;否则 ok。 */
 export function ageVerdict(ageMs, maxAgeMinutes) {
   if (typeof ageMs !== 'number' || !Number.isFinite(ageMs)) return 'undetermined'
@@ -252,12 +281,41 @@ export function parseLastSync(text) {
   for (const line of lines) {
     if (!want.test(line)) continue
     const m = line.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})[ T]?(\d{1,2}):(\d{2}):(\d{2})/)
-    if (!m) continue
-    const pad = (s) => String(s).padStart(2, '0')
-    const t = Date.parse(`${m[1]}-${pad(m[2])}-${pad(m[3])}T${pad(m[4])}:${m[5]}:${m[6]}`)
-    if (Number.isFinite(t)) return t
+    if (m) {
+      const pad = (s) => String(s).padStart(2, '0')
+      const t = Date.parse(`${m[1]}-${pad(m[2])}-${pad(m[3])}T${pad(m[4])}:${m[5]}:${m[6]}`)
+      if (Number.isFinite(t)) return t
+    }
+    // 月在前一档(`9/28/2026 7:52:42 PM`)—— 2026-10-16 立,立因是实测的形状差而不是想象:
+    // 跑巡检的那个执行体身份是 **NT AUTHORITY\SYSTEM**(nssm 服务 IHUI-GIT-GUARD,现读 pid 27512),
+    // SYSTEM 用默认用户配置的区域设置(en-US),而交互 shell 那一档是 Administrator/zh-CN ——
+    // 这正是"守护每轮 P3 未判定、手工跑却绿"的两档分歧。原先只认年份在前,月在前一律解不出。
+    // 取值口径按 en-US 的 **月/日/年**;若某台机真是 日/月/年,月份位会 >12 ⇒ Date.parse 得 NaN ⇒
+    // 继续往下掉到"未判定",**失效方向是多要一次说明,绝不会把时钟读成"刚同步过"**(§0.3/§0.10)。
+    const alt = line.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})[ T](\d{1,2}):(\d{2}):(\d{2})\s*([AP]M)/i)
+    if (alt) {
+      let h = Number(alt[4])
+      const mer = alt[7].toUpperCase()
+      if (mer === 'PM' && h < 12) h += 12
+      if (mer === 'AM' && h === 12) h = 0
+      const pad = (s) => String(s).padStart(2, '0')
+      const t = Date.parse(`${alt[3]}-${pad(alt[1])}-${pad(alt[2])}T${pad(h)}:${alt[5]}:${alt[6]}`)
+      if (Number.isFinite(t)) return t
+    }
   }
   return null
+}
+
+/** 未判定时必须给"看见了什么"(遮掉数字只留形状),否则下一轮还是同一条无名盲区。 */
+function rawShapeSample(text, limit = 200) {
+  const s = String(text || '')
+    .split(/\r?\n/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(' ⏎ ')
+    .replace(/\d/g, 'N')
+  return s.slice(0, limit) || '(无输出)'
 }
 
 /**
@@ -287,10 +345,11 @@ export function parseSyncQuality(text) {
   }
 }
 
-function runW32tm() {
+function runW32tm({ env = process.env, exists = existsSync } = {}) {
+  const { exe, tried, via } = resolveSystemExe('w32tm.exe', { env, exists })
   let buf
   try {
-    buf = execFileSync('w32tm.exe', ['/query', '/status'], {
+    buf = execFileSync(exe, ['/query', '/status'], {
       windowsHide: true,
       timeout: 15000,
       maxBuffer: 1 << 20,
@@ -298,11 +357,11 @@ function runW32tm() {
       encoding: 'buffer',
     })
   } catch (e) {
-    return { text: null, why: `w32tm 派生失败:${e?.code || e?.message || '未知'}` }
+    return { text: null, why: `w32tm 派生失败:${e?.code || e?.message || '未知'}(取用档=${via};试过 ${tried.join(' | ')})` }
   }
   const asUtf8 = Buffer.from(buf).toString('utf8')
   const text = parseLastSync(asUtf8) === null ? new TextDecoder('gbk').decode(buf) : asUtf8
-  return { text, why: null }
+  return { text, why: null, via }
 }
 
 function newestMatching(dir, pattern) {
@@ -952,20 +1011,24 @@ export function heartbeatRows({ now, devEnv, databases, execCands = EXEC_CANDIDA
   return rows
 }
 
-export function baiduSyncRunning() {
+export function baiduSyncRunning({ env = process.env, exists = existsSync } = {}) {
+  // 2026-10-07 实测:客户端已升级为 Unite 架构,同步组件进程族 = BaiduNetdiskUnite /
+  // baidunetdiskhost(旧 BaiduNetbox.exe 不再存在);判"客户端在跑"按进程族并判。
+  // 2026-10-16 改**绝对路径优先**并带上失败原因:原先裸名在守护那一档 ENOENT ⇒ 返回 null,
+  // 而 P5 那一行只印「tasklist 派生失败 ⇒ 未判定」,既不说试过哪条路径也不说为什么瞎(§0.3)。
+  const { exe, tried, via } = resolveSystemExe('tasklist.exe', { env, exists })
+  let out
   try {
-    // 2026-10-07 实测:客户端已升级为 Unite 架构,同步组件进程族 = BaiduNetdiskUnite /
-    // baidunetdiskhost(旧 BaiduNetbox.exe 不再存在);判"客户端在跑"按进程族并判。
-    const out = execFileSync('tasklist.exe', ['/FO', 'CSV', '/NH'], {
+    out = execFileSync(exe, ['/FO', 'CSV', '/NH'], {
       windowsHide: true,
       timeout: 15000,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     })
-    return /"?BaiduNetbox\.exe"?|"?BaiduNetdiskUnite\.exe"?|"?baidunetdiskhost\.exe"?/i.test(String(out))
-  } catch {
-    return null
+  } catch (e) {
+    return { running: null, why: `tasklist 派生失败:${e?.code || e?.message || '未知'}(取用档=${via};试过 ${tried.join(' | ')})` }
   }
+  return { running: /"?BaiduNetbox\.exe"?|"?BaiduNetdiskUnite\.exe"?|"?baidunetdiskhost\.exe"?/i.test(String(out)), why: null, via }
 }
 
 /**
@@ -1065,7 +1128,15 @@ export function checkClock({ now }) {
   const { text, why } = runW32tm()
   if (why) return { id: 'P3', state: 'undetermined', detail: why }
   const at = parseLastSync(text)
-  if (at === null) return { id: 'P3', state: 'undetermined', detail: '两种标签都没解出"上次成功同步"—— 不猜' }
+  if (at === null)
+    return {
+      id: 'P3',
+      state: 'undetermined',
+      // 盲区必须说得清"看见了什么形状",否则下一轮还是同一条无名未判定(§0.3)。
+      // 数字一律遮成 N 只留形状:这一格每 15 分钟被量一次,逐轮变动的时刻进结论串会把去重打成每轮一封新信
+      // (本文件 P10 头注立过同一条禁令)。
+      detail: `两种标签都没解出"上次成功同步"—— 不猜 | 看到的形状:${rawShapeSample(text)}`,
+    }
   const ageH = (now - at) / 3600000
   const q = parseSyncQuality(text)
   // 判红时必须带**可执行出口**(AGENTS §5e-1 出口 1):只报"上次同步 9 小时前"而不给
@@ -3027,4 +3098,3 @@ export const __test__ = {
   patrolAssemblyText,
   patrolWiringGaps,
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
