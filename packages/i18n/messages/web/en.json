@@ -19701,14 +19701,14 @@
     "sms": "SMS Templates",
     "customGroup": "Custom",
     "customAddTitle": "Custom Shortcuts",
-    "customAddDesc": "Select and add your frequently used sidebar items below",
-    "customEmptyHint": "Click + at the top right to add your frequently used items",
+    "customEmptyHint": "Add favorites",
     "customSearchPlaceholder": "Search items",
     "customAdded": "Added",
     "customAdd": "Add",
     "customRemove": "Remove",
     "customManage": "Manage shortcuts",
-    "customDragHint": "Drag to reorder"
+    "customDragHint": "Drag to reorder",
+    "customNoResults": "No matching items"
   },
   "news": {
     "allCategories": "All Categories",
