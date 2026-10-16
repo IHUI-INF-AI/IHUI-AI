@@ -39,6 +39,9 @@ from ..middleware.llm_metrics import (
     classify_fallback_reason,
     describe_quota_error,
     is_quota_exhaustion_error,
+    llm_error_status,
+    llm_stream_interrupt_total,
+    record_llm_outcome,
 )
 from ..services.tls_stealth import create_stealth_client
 from .config import settings
@@ -521,6 +524,16 @@ def _explicit_provider_code_of(model: str) -> str:
 
 def _model_to_provider_code(model: str) -> str:
     return _explicit_provider_code_of(model) or "openai"
+
+
+def _metrics_provider(model: str) -> str:
+    """埋点用的 provider 标签。
+
+    刻意不复用 _model_to_provider_code:它把不认识的前缀兜底成 'openai',
+    那样一整家厂商的失败会记到 openai 头上(可用性判定同样的坑,见
+    _explicit_provider_code_of 的注释)。取不到显式前缀就归 'unknown'。
+    """
+    return _explicit_provider_code_of(model) or "unknown"
 
 
 # ============================================================================
@@ -2263,6 +2276,7 @@ class LLMGateway:
         else:
             api_key, api_base, real_model, current_key_pool_id = await self._resolve(used_model, owner_uuid)
 
+        _metrics_t0 = time.perf_counter()
         try:
             import litellm
 
@@ -2341,8 +2355,40 @@ class LLMGateway:
             # P0-5c:号池 key 调用成功 → 标记 healthy(恢复 degraded/unknown 状态)
             if current_key_pool_id:
                 await KeyPoolSelector.mark_key_healthy(current_key_pool_id)
+            # 观测收口(2026-10-17 立):此前 record_llm_call 定义了却零调用点,
+            # 生产 Prometheus 上 ihui_llm_* 全仓 30 天 0 条时序,AI 大屏整片 No data。
+            # 成本取不到时传 None(宁缺毋假),不影响业务。
+            _cost_usd: float | None = None
+            try:
+                _cost_usd = float(litellm.completion_cost(completion_response=response))
+            except Exception:
+                _cost_usd = None
+            record_llm_outcome(
+                _metrics_provider(used_model),
+                used_model,
+                status='ok',
+                usage=usage_dict,
+                duration_seconds=time.perf_counter() - _metrics_t0,
+                cost_usd=_cost_usd,
+            )
             return result
         except Exception as e:
+            # 观测收口:换 key 递归/换模型 fallback 会各自再记一次,所以
+            # ihui_llm_calls_total 的量纲是"上游尝试次数",不是会话次数。
+            _err_status = llm_error_status(e)
+            record_llm_outcome(
+                _metrics_provider(used_model),
+                used_model,
+                status=(
+                    'timeout'
+                    if _err_status == 'timeout'
+                    else 'connection'
+                    if _err_status == 'connection'
+                    else 'error'
+                ),
+                duration_seconds=time.perf_counter() - _metrics_t0,
+                error_status=_err_status,
+            )
             # P0-5c:号池故障转移 — 标记失败 + 递归重试(最多 3 次,换 key 再试)
             # 重试优先于 FallbackRouter/ComboRouter(同模型换 key < 换模型兜底)
             if current_key_pool_id is not None and _pool_retry < 3:
@@ -2916,6 +2962,8 @@ class LLMGateway:
         #  litellm import 失败或 api_key 校验 raise 时 except 引用未定义变量)
         accumulated_content = ""
         accumulated_reasoning = ""
+        _metrics_t0 = time.perf_counter()
+        _ttft_seconds: float | None = None
         try:
             import litellm
 
@@ -2979,6 +3027,11 @@ class LLMGateway:
                         # 极速API 流式+tools 降级:45s 后仅回超时占位块。
                         # 放弃该流(下方 finally 关闭底层连接),改走非流式回退。
                         _guard_fallback = True
+                        llm_stream_interrupt_total.labels(
+                            provider=_metrics_provider(used_model),
+                            model=used_model,
+                            reason='timeout_guard',
+                        ).inc()
                         logger.warning(
                             "[llm_gateway] %s 流式返回 timeout-guard 占位(上游流式降级),自动回退非流式",
                             used_model,
@@ -2993,6 +3046,8 @@ class LLMGateway:
                         token = getattr(delta, "content", None)
                         if token:
                             accumulated_content += token
+                            if _ttft_seconds is None:
+                                _ttft_seconds = time.perf_counter() - _metrics_t0
                             if _stream_debug:
                                 _stream_count += 1
                                 now = time.perf_counter()
@@ -3107,6 +3162,28 @@ class LLMGateway:
             # P0-5c:号池 key 调用成功 → 标记 healthy(恢复 degraded/unknown 状态)
             if current_key_pool_id:
                 await KeyPoolSelector.mark_key_healthy(current_key_pool_id)
+            # 观测收口(流式成功):TTFT 只在真流式首 token 处量,降级回退不冒充 TTFT。
+            _stream_cost: float | None = None
+            try:
+                if final_usage:
+                    _stream_cost = float(
+                        litellm.completion_cost(
+                            model=final_model,
+                            prompt_tokens=int(final_usage.get("prompt_tokens") or 0),
+                            completion_tokens=int(final_usage.get("completion_tokens") or 0),
+                        )
+                    )
+            except Exception:
+                _stream_cost = None
+            record_llm_outcome(
+                _metrics_provider(used_model),
+                used_model,
+                status='ok',
+                usage=final_usage,
+                duration_seconds=time.perf_counter() - _metrics_t0,
+                ttft_seconds=_ttft_seconds,
+                cost_usd=_stream_cost,
+            )
             yield {
                 "type": "done",
                 "model": final_model,
@@ -3117,6 +3194,25 @@ class LLMGateway:
                 **({"compaction": compaction_info} if compaction_info is not None else {}),
             }
         except Exception as e:
+            # 观测收口(流式失败):已发过 chunk 的失败同时是"流中断"(内容被截断),
+            # 与前端 partial_done 同一判据,不另立第二套口径。
+            _err_status_s = llm_error_status(e)
+            record_llm_outcome(
+                _metrics_provider(used_model),
+                used_model,
+                status=(
+                    'timeout'
+                    if _err_status_s == 'timeout'
+                    else 'connection'
+                    if _err_status_s == 'connection'
+                    else 'error'
+                ),
+                duration_seconds=time.perf_counter() - _metrics_t0,
+                error_status=_err_status_s,
+                interrupt_reason=(
+                    'upstream_error' if (accumulated_content or accumulated_reasoning) else None
+                ),
+            )
             safe_msg = str(e)
             err_code = "LLM_ERROR"
             if "API key 未配置" in safe_msg or "未配置" in safe_msg:
