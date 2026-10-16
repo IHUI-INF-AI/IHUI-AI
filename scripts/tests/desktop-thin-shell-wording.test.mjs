@@ -262,10 +262,22 @@ test('反向对照:同一行带历史标记或行内豁免时不得判红(否则
     '桌面端不打包本地 web 产物(V3 #72 拍板)。',
     '桌面端验证命令:`pnpm --filter @ihui/desktop typecheck`。 <!-- thin-shell-exempt: 仅叙述该命令已被删除 -->',
   ]
+  // 判据有牙的证据是「我注入的带历史标记/行内豁免的行没有给目标文件新增命中」,
+  // 不是「整仓零命中」—— 真仓 HEAD 面上另有存量旧口径(如 README 里带"旧口径:"标记前缀的
+  // A 套壳架构行,那是另一票的内容债,带标记本身就该被历史框架识别放过,但正文残留仍会被
+  // 其他判据命中),拿全仓零命中当反向对照会把两类缺陷耦合成一件事故:存量一红,
+  // 判据"有没有误伤豁免行"这件事反而看不见了。故本反向对照只量目标文件的新增命中。
+  const baseline = scanThinShellWording({ beforeBuildCommand: '', entries: real })
   for (const line of okLines) {
     const entries = real.map((e) => (e.path === target.path ? { path: e.path, text: `${e.text}\n${line}\n` } : e))
     const r = scanThinShellWording({ beforeBuildCommand: '', entries })
-    assert.equal(r.findings.length, 0, `这一行不该判红,却红了:\n${r.findings.map((f) => `${f.id} ${f.text}`).join('\n')}\n注入行:${line}`)
+    const baseTarget = baseline.findings.filter((f) => f.path === target.path)
+    const nowTarget = r.findings.filter((f) => f.path === target.path)
+    assert.equal(
+      nowTarget.length,
+      baseTarget.length,
+      `注入这行给 ${target.path} 新增了命中(判据误伤了历史标记/行内豁免行,判据本身假阳):\n${nowTarget.map((f) => `${f.id} ${f.text}`).join('\n')}\n注入行:${line}`,
+    )
   }
 })
 
