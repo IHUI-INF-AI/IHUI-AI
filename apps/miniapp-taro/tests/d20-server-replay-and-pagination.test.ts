@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, vi } from 'vitest'
-import { createElement } from 'react'
+import { createElement, type ReactNode } from 'react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -58,12 +58,14 @@ vi.mock('@/i18n', () => ({
     setLocale: () => {},
   }),
   t: (key: string) => key,
-  useTt: () => (key: string, fb: string) => fb,
+  // 端内 tt(key, fb) 在本 mock 下恒回落 fb(mock 的 t 原样回吐键名,取不到译文);
+  // 第一个槽位由调用方 arity 决定,刻意不读,故按 eslint argsIgnorePattern '^_' 命名
+  useTt: () => (_key: string, fb: string) => fb,
 }))
 
 vi.mock('@/components/ThemeRoot', () => {
-  const Stub = (props: Record<string, unknown>) =>
-    createElement('div', { className: props.className as string }, props.children)
+  const Stub = (props: { className?: string; children?: ReactNode }) =>
+    createElement('div', { className: props.className }, props.children)
   Stub.displayName = 'ThemeRootStub'
   return { default: Stub }
 })
@@ -101,6 +103,7 @@ import {
 } from '../src/pkg-ai/ai/history'
 import type { ConversationMessage, GetMessagesResult } from '@ihui/api-client'
 import type { ApiResult } from '@ihui/types'
+import type { ChatMessage } from '@/api'
 
 /** 造一条服务端消息行(只用 Partial 覆盖差异位) */
 function msg(over: Partial<ConversationMessage> & { role: string; content: string }) {
@@ -500,11 +503,14 @@ describe('⑤ parseEarlierPage —— 与回放同一条 fail-closed 判序', ()
 })
 
 describe('⑤ prependEarlierMessages —— 前插 + 按 id 去重', () => {
-  /** 造一条端内消息(id 可选,模拟流式占位) */
-  function uiMsg(id: string | undefined, content: string): ChatMessageLite {
-    return { ...(id ? { id } : {}), role: 'user', content } as ChatMessageLite
+  /**
+   * 造一条端内消息(id 可选,模拟流式占位)。
+   * 类型取端内契约 ChatMessage(@/api)本身:此前这里自造过一份 role 放宽成 string 的
+   * 形似类型,与被测函数入参不是同一份,漂移只在 tests 的 typecheck 射程外才看不见。
+   */
+  function uiMsg(id: string | undefined, content: string): ChatMessage {
+    return { ...(id ? { id } : {}), role: 'user', content }
   }
-  type ChatMessageLite = { id?: string; role: string; content: string }
 
   it('新页整体排在已有消息之前(时间正序不被打乱)', () => {
     const merged = prependEarlierMessages([uiMsg('m2', '新')], [uiMsg('m1', '更早')])

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useEffect, useState } from 'react'
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { ChevronDown, ChevronUp } from 'lucide-react-native'
 import {
   QUEUE_OPS_NAMESPACE,
@@ -21,7 +21,8 @@ import {
   type QueueDenyReason,
 } from '@ihui/shared/chat/input-notices'
 import { rnRadius } from '@ihui/design-tokens'
-import { tokens } from '../../theme/active-tokens'
+import { TextField } from '@ihui/rn-app'
+import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { useI18n } from '../../i18n'
 import { rpx } from '../../utils/rpx'
 
@@ -219,8 +220,13 @@ export function QueueInteractionBar({
             </Pressable>
             {editing ? (
               <>
-                <TextInput
+                {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);
+                    focusedStyle 对齐 LoginScreen/ImageGenCreateScreen 参照:聚焦 borderWidth 1→2。
+                    端内不再手写第二份聚焦状态(票面点名反模式),唯一实现在 packages/app。 */}
+                <TextField
+                  colorScheme={currentRnTheme()}
                   style={styles.editInput}
+                  focusedStyle={{ borderWidth: 2 }}
                   value={editDraft}
                   onChangeText={setEditDraft}
                   onSubmitEditing={confirmEdit}
