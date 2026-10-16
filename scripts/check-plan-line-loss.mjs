@@ -444,6 +444,11 @@ export function resolveRegistrationLoss(entries, targetSrc) {
 
 /** 登记行 → 编号标记(找不到返回 null) */
 export function markerOf(line) {
+  // 已勾行不进保护集(2026-10-16 机主令:完成即删,存档机制退役):`- [x]` 行(含 bullet 级
+  // `  - [x] ✅(日期) …`)在翻勾后可整行删除,回捞层同样不得把它捞回来 —— 否则"完成即删"
+  // 每删一行就被本门拦一次/被自愈还原一次,机制互咬空转。未勾行(checkbox `- [ ]`、加粗
+  // bullet、标题族)照旧受保护:防"旧基线整文件回写"的事故防线保留,与存档退役无关。
+  if (/^\s*[-*]\s\[[xX]\]/.test(line)) return null
   const isBullet = /^\s*[-*]\s/.test(line)
   // 标题行只有"以批次序号开头"这一种受保护形态(见文件头判据 1c),正文标题不进基线
   const isHeading = /^#{2,4}\s/.test(line)
