@@ -34,7 +34,7 @@
 - **新登记必须有交代**:一条 `- [ ]` 要么带租约、要么写明在等什么、要么带新鲜日期;三样皆无 = 无交代,提交链差值棘轮只拦本次带进来的(守门 130 F7/F8)。
 - **同题跨号禁止**:`{{NEXT_ID}}` 取号令牌 + 标题指纹查重(守门 203 `check-plan-task-duplicates.mjs` + `live-doc-edit` 写盘闸双接线);同号同题副本走 F4 归并。
 - **「重复登记副本」指针注记存量已清零、今后一条也不许再产生**(2026-10-13/14 收口):自动档已停产指针注记(F4/F10 只报数);守门 13d 差值棘轮拦注记变多;门 71 归档豁免射程已纳入清偿台账——**旁路落地(回捞器/自愈)不跑钩子,防它必须在判据源头接**。分族键指纹优先(与门 203 同源),不要按复合主键分族。
-- **归档机制**:已完成条目(含 bullet 级 `- [x]` 连续块)禁止直接删除,两步走——①完整条目移入 `.ihui-agent/archive/PROJECT_PLAN_YYYY-MM-DD.md`;②原位置留 HTML 注释占位,且**占位点名的文件必须真在审面里**(守门 13c A1/A2/A3)。块内有未勾行 ⇒ 先 `node scripts/ledger-strip-open-rows.mjs --apply` 移出块,不得改判据放过、不得随块搬走。自动档:`scripts/archive-completed-tasks.mjs`(post-commit 自动 `--auto-commit`,阈值 0=完成即归档;大批量按最旧优先贪心取前缀,单批 ≤500 段/256KB;假条目"标题已完成体内有未勾"一律不搬,`--allow-mass` 绕不过)。归档锚点必须受版本控制(`.gitignore` 的 `!.ihui-agent/archive/` 例外不得改);归档 commit 必须带 pathspec。手动:`pnpm archive` / `--days N` / `--dry-run`;跳过 `HUSKY_SKIP_ARCHIVE=1`。守门:`scripts/check-project-plan-archive.mjs`(13c)。
+- **完成即删,存档机制已退役(2026-10-16 机主令)**:任务翻勾后**整行删除,不留档、不归档、不写占位注释**。原归档机制(archive-completed-tasks / 13c 门 / pnpm archive)已拆除,`.ihui-agent/archive/` 不再承接台账存料;历史残余见 `backup/archive-removal-2026-10-16` tag。防误删防线仍在:未勾登记行照旧受守门 71 保护(已勾行不进保护集,删之合法);删行自由不豁免其他守门(130/203/71 未勾半照常判)。
 - **自动档写活文档的硬规矩**:底稿一律取被审面(`git show HEAD:<文档>` / `scripts/lib/face-reader.mjs`),落盘走对象空间(临时索引 + `commit-tree` + CAS,不写工作树);落地前自证"父提交里每条 `[x]` 复合主键本次仍为 `[x]`",不成立拒绝落地(实测 18 行翻勾被退回的事故即此型)。
 
 ## 2. 项目概览
