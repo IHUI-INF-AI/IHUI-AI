@@ -22,6 +22,8 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const RUNNER_SRC = readFileSync(join(ROOT, 'scripts/guardian-runner.mjs'), 'utf8')
+// 2026-10-16 执行段外置:执行循环相关锁改判外置层源(与 RUNNER_SRC 同磁盘口径)。
+const EXECUTOR_SRC = readFileSync(join(ROOT, 'scripts/lib/guardian-executor.mjs'), 'utf8')
 const NSI_REL = 'apps/desktop/src-tauri/windows/ihui-ui.nsi'
 
 /** 抠出注册表里指定 id 的对象字面量文本(id 行 → 最近的 `\n  },`)。 */
@@ -69,9 +71,11 @@ test('id 62 已注册为 blocking,触发含模板脚本与侧车补丁 JSON', ()
   ])
 })
 
-test('runner 执行循环确实消费 stagedTriggers(声明未生效=假绿)', () => {
-  assert.match(RUNNER_SRC, /function stagedPathsTouch\(/)
-  assert.match(RUNNER_SRC, /check\.stagedTriggers && passStaged && !stagedPathsTouch/)
+test('执行循环确实消费 stagedTriggers(声明未生效=假绿)', () => {
+  // 2026-10-16 执行段外置:stagedPathsTouch 定义与主循环消费点逐字搬到
+  // scripts/lib/guardian-executor.mjs,本锁跟着落点走(runner → executor 链由本文件其它注册断言兜住)。
+  assert.match(EXECUTOR_SRC, /function stagedPathsTouch\(/)
+  assert.match(EXECUTOR_SRC, /check\.stagedTriggers && passStaged && !stagedPathsTouch/)
 })
 
 test('注册表 id 全局唯一(防 61/62 与后续条目撞号)', () => {

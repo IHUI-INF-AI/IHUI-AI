@@ -32,6 +32,9 @@ const git = (args, cwd) =>
   })
 
 const RUNNER = readFileSync(new URL('../guardian-runner.mjs', import.meta.url), 'utf8')
+// 2026-10-16 执行段外置:assertSubstrateUsable 与调度循环逐字搬到 scripts/lib/guardian-executor.mjs,
+// 装车锁(S4a/S4b)跟着落点走;链路 runner → executor → 本层,运行时仍是同一份实现。
+const EXECUTOR = readFileSync(new URL('../lib/guardian-executor.mjs', import.meta.url), 'utf8')
 
 test('S1 健康面:git 答 true ⇒ 可用,且不编理由', () => {
   const v = substrateVerdict(() => 'true\n')
@@ -80,24 +83,25 @@ test('S5 probeSubstrate 只问一次(不在热路径上重复派生 git)', () =>
   assert.equal(calls, 1)
 })
 
-test('S4a 装车:runner 必须 import 本层并在跑批之前调用', () => {
-  assert.match(RUNNER, /from '\.\/lib\/substrate-probe\.mjs'/)
+test('S4a 装车:runner 链路必须 import 本层并在跑批之前调用', () => {
+  assert.match(RUNNER, /from '\.\/lib\/guardian-executor\.mjs'/, 'runner 没接执行器外置层(链断 = 双份实现)')
+  assert.match(EXECUTOR, /from '\.\/substrate-probe\.mjs'/)
   /**
    * 调用点必须按**独立一行**认,不能 `indexOf('assertSubstrateUsable()')` ——
    * 那样函数定义行 `function assertSubstrateUsable() {` 里就含这个子串,
    * 把调用整行注释掉测试照样绿(本票实测:突变后 8/8 仍绿,牙齿是假的)。
    */
-  const called = /^\s*assertSubstrateUsable\(\)\s*$/m.test(RUNNER)
+  const called = /^\s*assertSubstrateUsable\(\)\s*$/m.test(EXECUTOR)
   assert.ok(called, 'assertSubstrateUsable 定义了却无人调用 = 没有(守门 70/76/81 同型)')
-  const loopAt = RUNNER.indexOf('for (const check of effectiveChecks)')
-  const callAt = RUNNER.search(/^\s*assertSubstrateUsable\(\)\s*$/m)
+  const loopAt = EXECUTOR.indexOf('for (const check of effectiveChecks)')
+  const callAt = EXECUTOR.search(/^\s*assertSubstrateUsable\(\)\s*$/m)
   assert.ok(loopAt > 0)
   assert.ok(callAt > 0 && callAt < loopAt, '探针必须在跑批**之前**,排在循环之后就等于让五道门各自去红')
 })
 
-test('S4b 结论走 75(临时失败),不得记成"结论失败"逼全队跳门', () => {  const start = RUNNER.indexOf('function assertSubstrateUsable()')
+test('S4b 结论走 75(临时失败),不得记成"结论失败"逼全队跳门', () => {  const start = EXECUTOR.indexOf('function assertSubstrateUsable()')
   assert.ok(start > 0)
-  const body = RUNNER.slice(start, RUNNER.indexOf('\n}\n', start) + 2)
+  const body = EXECUTOR.slice(start, EXECUTOR.indexOf('\n}\n', start) + 2)
   assert.match(body, /process\.exit\(TEMPFAIL_EXIT_CODE\)/)
   assert.ok(
     !/process\.exit\(1\)/.test(body),
