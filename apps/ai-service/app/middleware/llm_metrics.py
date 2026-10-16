@@ -46,6 +46,37 @@ llm_active_sessions = Gauge(
     'Number of active LLM sessions',
 )
 
+# LLM 调用次数(按 provider/model/status)—— 2026-10-17 立。
+# status 是**每次尝试**的结果(号池换 key / fallback 换模型会各计一次),
+# 故成功率 = ok / (ok + error + timeout + interrupted),不要当成"会话成功率"。
+llm_calls_total = Counter(
+    'ihui_llm_calls_total',
+    'LLM call attempts by provider, model and outcome',
+    ['provider', 'model', 'status'],  # ok | error | timeout | connection | interrupted
+)
+
+# 首 token 耗时(TTFT,流式专用)—— 仅在有内容 token 产出时记录
+llm_ttft_seconds = Histogram(
+    'ihui_llm_ttft_seconds',
+    'Time to first token in seconds (streaming)',
+    ['provider', 'model'],
+    buckets=(0.1, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0, 20.0, 40.0, 80.0),
+)
+
+# 流式中断(客户端断开 / 上游断流 / 异常终止)
+llm_stream_interrupt_total = Counter(
+    'ihui_llm_stream_interrupt_total',
+    'Streaming responses that terminated before the upstream finished',
+    ['provider', 'model', 'reason'],  # client_disconnect | upstream_error | timeout_guard | unknown
+)
+
+# LLM 花费(USD)—— 取不到成本的调用不计数(宁缺毋假)
+llm_cost_usd_total = Counter(
+    'ihui_llm_cost_usd_total',
+    'Total LLM spend in USD (only when the provider reported a price)',
+    ['provider', 'model'],
+)
+
 
 def record_llm_call(
     provider: str,
@@ -84,6 +115,86 @@ def record_llm_call(
             llm_provider_errors_total.labels(provider=provider, status=error).inc()
     except Exception as e:
         logger.warning("LLM 指标记录失败(忽略,不阻塞业务): %s", e)
+
+
+def record_llm_outcome(
+    provider: str,
+    model: str,
+    *,
+    status: str,
+    usage: dict[str, object] | None = None,
+    duration_seconds: float | None = None,
+    ttft_seconds: float | None = None,
+    cost_usd: float | None = None,
+    error_status: str | None = None,
+    interrupt_reason: str | None = None,
+) -> None:
+    """一次 LLM 调用尝试的**统一收口埋点**(2026-10-17 立,供 llm_gateway 调用)。
+
+    与 record_llm_call 的分工:record_llm_call 只记 token/延迟/错误三件事且没有
+    "调用次数"这一维(大屏因此无从算成功率);本函数是接线后的唯一入口,
+    gateway 的成功、失败、流式三条路径都只调它一次。
+
+    任何一步抛异常都只 warn 不上抛 —— 观测层坏了不能把对话业务带崩。
+    """
+    try:
+        llm_calls_total.labels(
+            provider=provider, model=model, status=status
+        ).inc()
+
+        if status == 'ok' and usage:
+            input_tokens = _as_non_negative_int(usage.get('prompt_tokens'))
+            output_tokens = _as_non_negative_int(usage.get('completion_tokens'))
+            if input_tokens:
+                llm_tokens_total.labels(
+                    provider=provider, model=model, direction='input'
+                ).inc(input_tokens)
+            if output_tokens:
+                llm_tokens_total.labels(
+                    provider=provider, model=model, direction='output'
+                ).inc(output_tokens)
+            # 缓存读写 token 是计费大项(Anthropic cache_read 可达输入的 80%),
+            # 单独成 direction 值,大屏据此算"缓存命中率"而不是把它混进 input。
+            cache_read = _as_non_negative_int(usage.get('cached_tokens'))
+            if cache_read:
+                llm_tokens_total.labels(
+                    provider=provider, model=model, direction='cache_read'
+                ).inc(cache_read)
+            cache_write = _as_non_negative_int(usage.get('cache_creation_tokens'))
+            if cache_write:
+                llm_tokens_total.labels(
+                    provider=provider, model=model, direction='cache_creation'
+                ).inc(cache_write)
+
+        if status == 'ok' and duration_seconds is not None and duration_seconds >= 0:
+            llm_request_duration_seconds.labels(provider=provider, model=model).observe(
+                duration_seconds
+            )
+        if ttft_seconds is not None and ttft_seconds >= 0:
+            llm_ttft_seconds.labels(provider=provider, model=model).observe(ttft_seconds)
+        if cost_usd is not None and cost_usd > 0:
+            llm_cost_usd_total.labels(provider=provider, model=model).inc(cost_usd)
+        if error_status:
+            llm_provider_errors_total.labels(provider=provider, status=error_status).inc()
+        if interrupt_reason:
+            llm_stream_interrupt_total.labels(
+                provider=provider, model=model, reason=interrupt_reason
+            ).inc()
+    except Exception as e:
+        logger.warning("LLM 结果指标记录失败(忽略,不阻塞业务): %s", e)
+
+
+def _as_non_negative_int(raw: object) -> int:
+    """usage 字段可能是 None / str / int(各厂商返回不齐),取不到就当 0。"""
+    if isinstance(raw, int) and not isinstance(raw, bool):
+        return raw if raw > 0 else 0
+    if isinstance(raw, str):
+        try:
+            value = int(raw)
+        except ValueError:
+            return 0
+        return value if value > 0 else 0
+    return 0
 
 
 # =============================================================================
@@ -168,6 +279,29 @@ def _upstream_status_code(exc: BaseException | str) -> int | None:
     if raw is None:
         raw = getattr(exc, "status", None)
     return raw if isinstance(raw, int) else None
+
+
+def llm_error_status(exc: BaseException | str) -> str:
+    """把一次失败归成 ihui_llm_provider_errors_total{status} 的四个取值之一。
+
+    '4xx' | '5xx' | 'timeout' | 'connection'。有状态码就按码段;没有则退到文案
+    (LiteLLM 的超时/连接异常不一定带 status_code,这类若只按码判会全部漏成 5xx)。
+    """
+    status = _upstream_status_code(exc) if isinstance(exc, BaseException) else None
+    if status is None and isinstance(exc, str):
+        status = _upstream_status_code(exc)
+    if status is not None:
+        if 400 <= status < 500:
+            return '4xx'
+        if 500 <= status < 600:
+            return '5xx'
+        return '4xx' if status < 500 else '5xx'
+    text = _error_text(exc)
+    if 'timeout' in text or 'timed out' in text:
+        return 'timeout'
+    if 'connect' in text or 'connection' in text or 'dns' in text:
+        return 'connection'
+    return '5xx'
 
 
 def first_quota_marker(exc: BaseException | str | None) -> str:
