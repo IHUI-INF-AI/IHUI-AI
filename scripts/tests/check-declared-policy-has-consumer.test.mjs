@@ -272,6 +272,36 @@ test('T9 C6 i18n 三验收(G-816043):零发射必报、发射齐必绿、动态�
   )
   assert.equal(imp.i18n.emitted, 1)
   assert.equal(imp.i18n.byFolder.web.unwired, 2, 'import 的 t(全键) 必须接线,否则 cli 面板是假 100% 孤儿')
+  // C6 第三族:静态键表(NAV_LABEL_KEY 治理模式,d72e9ccf42)⇒ 表索引调用把表内全键接线
+  const tabSrc =
+    'const t = useTranslations()\nconst CHAT_LABEL_KEY: Record<string, string> = {\n  hi: \'chat.hi\',\n  bye: \'chat.bye\',\n}\nexport function L(x: string): string { return t(CHAT_LABEL_KEY[x]) }\n'
+  const tab = gate.judge(new Map([['apps/web/src/a.tsx', tabSrc]]), { lexicon: lexMap() })
+  assert.equal(tab.i18n.emitted, 2, '表内两个键都必须算发射')
+  assert.equal(tab.i18n.dynamic, 0, '认得出表不得再计动态')
+  assert.deepEqual(tab.i18n.byFolder.web.samples, ['items.count'], '只剩表外键未接线')
+  // 反向:表声明零索引取用 ⇒ 不算接线;表值非字面量 ⇒ 整表不认(假表不得成捷径)
+  const tabIdle = gate.judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "const CHAT_LABEL_KEY: Record<string, string> = {\n  hi: 'chat.hi',\n  bye: 'chat.bye',\n}\nexport function L(x: string): string { return x }\n",
+      ],
+    ]),
+    { lexicon: lexMap() },
+  )
+  assert.equal(tabIdle.i18n.emitted, 0, '表本身不是发射点')
+  assert.equal(tabIdle.i18n.byFolder.web.unwired, 3, '零取用的表不得接线')
+  const tabBad = gate.judge(
+    new Map([
+      [
+        'apps/web/src/a.tsx',
+        "const t = useTranslations()\nconst BAD = {\n  hi: makeKey(),\n  bye: 'chat.bye',\n}\nexport function L(x: string): string { return t(BAD[x]) }\n",
+      ],
+    ]),
+    { lexicon: lexMap() },
+  )
+  assert.equal(tabBad.i18n.dynamic, 1, '假表的调用照旧计动态')
+  assert.equal(tabBad.i18n.byFolder.web.unwired, 3, '假表不得接线任何键')
   // C6 计数并入 perFile ⇒ 与 C1~C5 共用同一 decide 棘轮
   assert.equal(
     gate.decide({

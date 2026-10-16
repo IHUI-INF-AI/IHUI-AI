@@ -19352,6 +19352,7 @@
   },
   "nav": {
     "checkin": "출석",
+    "monitorWallboard": "모니터링 월보",
     "ecosystemHub": "생태 마켓",
     "adminRelayInsights": "인사이트",
     "adminRelayEnterprise": "기업 컴플라이언스",

@@ -19349,6 +19349,7 @@
   },
   "nav": {
     "checkin": "Check-in",
+    "monitorWallboard": "Ops Wallboard",
     "ecosystemHub": "Ecosystem Market",
     "adminRelayInsights": "Insights",
     "adminRelayEnterprise": "Enterprise Compliance",

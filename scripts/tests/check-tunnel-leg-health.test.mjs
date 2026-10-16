@@ -3,6 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 镜像测试:scripts/check-tunnel-leg-health.mjs(§22c —— 判据只在源脚本一份,本文件只 import 使用,不复制)
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -86,11 +88,31 @@ test('netstat 解析:多 pid 集合同收,无关进程的行不收', () => {
   assert.equal(legs[3].source, DEPRECATED)
 })
 
-test('getPids:powershell 空输出 ⇒ [](进程不在),非数字行被吃掉', () => {
-  assert.deepEqual(kit.getPids(''), [])
-  assert.deepEqual(kit.getPids('\r\n'), [])
-  assert.deepEqual(kit.getPids('abc\n1484\n'), ['1484'])
+test('parseTasklistPids:只认 cloudflared.exe 行的第二列,提示行与其他映像行一律不吃', () => {
+  assert.deepEqual(kit.parseTasklistPids(''), [], '空输出 = 进程不在(不是"解析失败")')
+  assert.deepEqual(kit.parseTasklistPids('\r\n'), [])
+  assert.deepEqual(kit.parseTasklistPids('"cloudflared.exe","1484","Console","1","39,780 K"'), ['1484'])
+  assert.deepEqual(
+    kit.parseTasklistPids('"notepad.exe","7","Console","1","1,000 K"\n"cloudflared.exe","42","RDP-Tcp#0","2","12,345 K"'),
+    ['42'],
+    '内存列带千分位逗号 ⇒ 全局抓数字会抓到 7/1/1000 这些无关数(这条就是防那个)',
+  )
+  assert.deepEqual(kit.parseTasklistPids('INFO: No tasks are running which match the specified criteria.'), [], '提示行不吃')
+  assert.deepEqual(kit.parseTasklistPids('"cloudflared.exe","42","Console","1","1 K"\n"cloudflared.exe","42","Console","1","1 K"'), ['42'], '同 pid 重复行去重')
 })
+
+test('tasklist 采集失败/被杀 ⇒ 三格 unjudged 并点名 tasklist(不得洗成"没问题",也不得冒红)', () => {
+  const d = kit.judge(mkInput({ processProbe: 'failed', pids: [], legs: [] }))
+  assert.equal(d['leg-count'].verdict, 'unjudged')
+  assert.match(d['leg-count'].reason, /tasklist/, '文案必须指对生产者 —— 上一版写的是 powershell,查错方向会去查解释器而不是取号方式')
+})
+
+test('形状锁:采集热路径不得再出现 PowerShell(守护身份下冷启动超时 ⇒ 哨永久未判定)', () => {
+  const src = readFileSync(fileURLToPath(new URL('../check-tunnel-leg-health.mjs', import.meta.url)), 'utf8')
+  assert.equal(/powershell\.exe|PWSH|Get-Process/.test(src), false, '取 pid 必须走原生命令行工具(tasklist)')
+  assert.ok(/tasklist\.exe/.test(src), '必须显式给绝对路径 —— 守护/计划任务身份的 PATH 不可信')
+})
+
 
 test('leg-count 正色:进程在而 0 腿 ⇒ breach(隧道断了)', () => {
   const d = kit.judge(mkInput({ legs: [] }))

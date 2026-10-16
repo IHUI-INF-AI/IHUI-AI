@@ -77,6 +77,20 @@
 //     这族全按**根 ns**处理:字符串实参本身即全键;specifier 认 "i18n" 字样
 //     (next-intl 不含,不撞)。残余不可见形(如 extension 里"本地包装函数再转 translate"
 //     的中转层、未绑定接收者的 `deps.translate('key')`)如实登记为已知限制。
+//   - **C6 的第三族发射形态**(静态键表,2026-10-16 补):`const NAV_LABEL_KEY: Record<…, string> = { x: 'nav.x', … }`
+//     这类**表值全是全键字符串字面量**的常量表,被 `t(表[表达式] …)` 索引调用 ⇒ 表内每个键
+//     算接线。这是 d72e9ccf42 钦定的治理模式(NAV_LABEL_KEY 枚举 124 键 / NAV_GROUP_KEY /
+//     THEME_LABEL_KEY / VALIDATION_I18N_KEY / COMMAND_LABEL_KEY 全族),此前判据只认
+//     `t('字面量')`,把该族一律计"动态" ⇒ 门漏认真实发射点,新增 nav 键被误判未接线。
+//     接线要两条都在:① 表声明行 `const NAME: … = {` 且对象体**逐个值**都是字符串字面量
+//     (非字面量值整表不认,防 `= Math.random()` 这类假表);② 同文件有 `NAME[表达式]` 作
+//     next-intl t/rich/raw/markup 或根 ns 取词函数的实参(表值按**全键**记,与第二族同口径)。
+//     模板/字符串里的
+//     伪提及不可见(同一台扫描器,数据区天然排除)。遮噪面与第一族同源:表值是 ' / " 字符串,
+//     会被提取为数据区 ⇒ 内嵌伪调用同样不可见。已知限制:表值用模板串(含常量拼接
+//     `` `${VALIDATION_NS}.min` ``)时不计入静态键(只认 ' / " 字面量);跨文件表
+//     (COMMAND_LABEL_KEY 在 lib/、消费在组件)同文件判定不了 —— 两型都归"计动态报数"
+//     的老路,方向仍是漏报不假绿,由棘轮与全量档只报数兜住。
 //
 // 判据不会恒红(本仓反复付学费换来的一条):存量走**棘轮**,锚点 = 该文件在 HEAD 自身的
 // 未接线数 —— 只拦"这次改动把未接线加回来了",不追仓库既有债。与改动无关的 blocking 红
@@ -365,6 +379,45 @@ export function extractI18nUsages(text) {
     if (!nsByLocal.has(m[1])) nsByLocal.set(m[1], new Set())
     nsByLocal.get(m[1]).add(ns)
   }
+  // 第三族前置:静态键表(const NAME: … = { k: '全键', … })—— d72e9ccf42 治理模式。
+  // 表体逐行必须**逐个值都是字符串字面量**(读不出即整表不认,防 `= Math.random()` 假表);
+  // 表声明本身不发射,只有 `NAME[表达式]` 被取词函数索引取用时表内键才算接线。
+  const keyTables = new Map() // 表名 → 全键数组
+  const TABLE_DECL_RE = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*\{/g
+  while ((m = TABLE_DECL_RE.exec(code))) {
+    if (inData(m.index)) continue
+    const open = m.index + m[0].length - 1
+    // 括号配平:数据区(字符串内容)里的花括号不算
+    let depth = 0
+    let close = -1
+    for (let p = open; p < n; p++) {
+      if (inData(p)) continue
+      if (code[p] === '{') depth++
+      else if (code[p] === '}' && --depth === 0) {
+        close = p
+        break
+      }
+    }
+    if (close < 0) continue
+    const keys = []
+    let allLiteral = true
+    for (const rawLine of code.slice(open + 1, close).split('\n')) {
+      const line = rawLine.trim()
+      if (!line) continue
+      const vm = /^(?:[A-Za-z_$][\w$]*|'[^']*'|"[^"]*"|\d+)\s*:\s*(['"])((?:\\.|(?!\1).)*)\1\s*,?$/.exec(line)
+      if (!vm || !/^[A-Za-z0-9_$]+(?:\.[A-Za-z0-9_$]+)*$/.test(vm[2])) {
+        allLiteral = false
+        break
+      }
+      keys.push(vm[2])
+    }
+    if (allLiteral && keys.length) keyTables.set(m[1], keys)
+  }
+  /** 实参开头是 `表名[表达式]` 且该表已认 ⇒ 返回表内全键;否则 null(走原判据)。 */
+  const tableIndexKeys = (rest) => {
+    const im = /^\s*([A-Za-z_$][\w$]*)\s*\[/.exec(rest)
+    return (im && keyTables.get(im[1])) || null
+  }
   const fullKeys = []
   const prefixes = []
   let dynamic = 0
@@ -385,8 +438,15 @@ export function extractI18nUsages(text) {
         dynamic++
         continue
       }
-      const arg = parseCallArg(code.slice(m.index + m[0].length, m.index + m[0].length + 400))
+      const rest = code.slice(m.index + m[0].length, m.index + m[0].length + 400)
+      const arg = parseCallArg(rest)
       if (arg.kind === 'dynamic') {
+        // 第三族:t(KEY_TABLE[x] …) 静态键表索引 ⇒ 表内全键接线;无表才计动态
+        const tabKeys = tableIndexKeys(rest)
+        if (tabKeys) {
+          for (const k of tabKeys) fullKeys.push(k)
+          continue
+        }
         dynamic++
         continue
       }
@@ -454,6 +514,12 @@ export function extractI18nUsages(text) {
           // messages-first 形:键在第二实参;第一实参近似为"到第一个顶层逗号为止"
           const m2 = /^\s*[^,)]*,\s*(?:(['"])((?:\\.|(?!\1).)*)\1|`([^`]*)`)/.exec(rest)
           if (!m2) {
+            // 第三族:第二实参是静态键表索引 `KEY_TABLE[x]` 时表内全键接线
+            const tabKeys = tableIndexKeys(rest.slice(rest.indexOf(',') + 1))
+            if (tabKeys) {
+              for (const k of tabKeys) fullKeys.push(k)
+              continue
+            }
             dynamic++
             continue
           }
@@ -470,6 +536,12 @@ export function extractI18nUsages(text) {
         }
       } else arg = parseCallArg(rest)
       if (arg.kind === 'dynamic') {
+        // 第三族:根 ns 取词函数同样认静态键表索引
+        const tabKeys = tableIndexKeys(rest)
+        if (tabKeys) {
+          for (const k of tabKeys) fullKeys.push(k)
+          continue
+        }
         dynamic++
         continue
       }
@@ -1292,6 +1364,24 @@ function selfTest() {
   eq('I13 translate 双形:单参键与双参第二实参都接线,双参变量键 ⇒ 计动态(3 发射 2 接线 1 动态)', [iTr.i18n.emitted, iTr.i18n.dynamic, iTr.i18n.byFolder.web.unwired], [2, 1, 1])
   const iHook = judge(new Map([['apps/mobile-rn/src/s.ts', "import { useTt, useI18n } from '@/i18n'\nexport function A(): string { const tt = useTt(); return tt('chat.hi') }\nexport function B(): string { const { t } = useI18n(); return t('chat.bye') }\n"]]), { lexicon: lexMap })
   eq('I14 useTt()/useI18n() 钩子(直收与解构)⇒ 返回的取词函数按根 ns 接线', [iHook.i18n.emitted, iHook.i18n.byFolder.web.unwired], [2, 1])
+  // 第三族:静态键表(d72e9ccf42 治理模式,NAV_LABEL_KEY 全族的判据形态)
+  const KEY_TABLE_SRC = [
+    'const t = useTranslations()',
+    'const CHAT_LABEL_KEY: Record<string, string> = {',
+    "  hi: 'chat.hi',",
+    "  bye: 'chat.bye',",
+    '}',
+    'export function L(x: string): string { return t(CHAT_LABEL_KEY[x] ?? "chat.hi") }',
+    '',
+  ].join('\n')
+  const iTab = judge(new Map([['apps/web/src/a.tsx', KEY_TABLE_SRC]]), { lexicon: lexMap })
+  eq('I15 静态键表 + 表索引调用 ⇒ 表内全键接线(与 d72e9ccf42 治理模式同形)', [iTab.i18n.emitted, iTab.i18n.dynamic, iTab.i18n.byFolder.web.unwired, iTab.i18n.byFolder.web.samples], [2, 0, 1, ['items.count']])
+  const iTabNoUse = judge(new Map([['apps/web/src/a.tsx', "const CHAT_LABEL_KEY: Record<string, string> = {\n  hi: 'chat.hi',\n  bye: 'chat.bye',\n}\nexport function L(x: string): string { return x }\n"]]), { lexicon: lexMap })
+  eq('I16 表声明了但零索引取用 ⇒ 不算接线(表本身不是发射点)', [iTabNoUse.i18n.emitted, iTabNoUse.i18n.byFolder.web.unwired], [0, 3])
+  const iTabBad = judge(new Map([['apps/web/src/a.tsx', "const t = useTranslations()\nconst BAD = {\n  hi: makeKey(),\n  bye: 'chat.bye',\n}\nexport function L(x: string): string { return t(BAD[x]) }\n"]]), { lexicon: lexMap })
+  eq('I17 表值非字面量 ⇒ 整表不认,调用照旧计动态(假表不得成接线捷径)', [iTabBad.i18n.dynamic, iTabBad.i18n.byFolder.web.unwired], [1, 3])
+  const iTabRoot = judge(new Map([['apps/cli/src/run.ts', "import { t } from '../i18n/index.js'\nconst KEY_MAP: Record<string, string> = {\n  hi: 'chat.hi',\n  bye: 'chat.bye',\n}\nexport function M(x: string): string { return t(KEY_MAP[x]) }\n"]]), { lexicon: lexMap })
+  eq('I18 根 ns 取词函数同样认静态键表索引(cli 形状)', [iTabRoot.i18n.emitted, iTabRoot.i18n.byFolder.web.unwired], [2, 1])
 
   // ⑰ C7 工厂族(G-816034 ①②):候选族扩到导出 create*Handler / create*Transport
   //   成对用例:命中必红 / 接线必绿 / 只 import 不取用仍红 / 注释与字符串提及不算消费者 /
@@ -1367,7 +1457,7 @@ function selfTest() {
     judge(new Map([[HF_DECL_FILE, HF_SRC], [HF_USE_FILE, HF_IN_BODY(false)]])).factory.unwired.length,
   ], [3, 2])
 
-  console.log(fail ? `\n❌ 自检 ${fail}/${ran} 例失败` : `\n全部 ${ran} 例通过(正向证明双夹具 + 双变异对照 + 测试面/re-export/注释/specifier 四排除 + 契约闭包 + 棘轮四向 + 空扫判死 + i18n 码表三验收 + C7 工厂族五验收)`)
+  console.log(fail ? `\n❌ 自检 ${fail}/${ran} 例失败` : `\n全部 ${ran} 例通过(正向证明双夹具 + 双变异对照 + 测试面/re-export/注释/specifier 四排除 + 契约闭包 + 棘轮四向 + 空扫判死 + i18n 码表三验收 + 静态键表族四验收 + C7 工厂族五验收)`)
   process.exit(fail ? 1 : 0)
 }
 
