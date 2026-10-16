@@ -178,6 +178,57 @@ export function parseNetstatLegs(text, pids, ports = REMOTE_TUNNEL_PORTS) {
 }
 
 /**
+ * 第五维的取材点:cloudflared 自带 metrics 端点在本机回环上 LISTENING(实测 127.0.0.1:20241,
+ * 端口**每次启动可能变** ⇒ 一律从 netstat 里按 pid 现读,绝不硬编码)。
+ * 只认本 pid 的 LISTENING + 回环地址,避免把别的服务的端口当成隧道的。
+ */
+export function parseMetricsListenPort(text, pids) {
+  const pidSet = new Set((pids || []).map(String))
+  if (pidSet.size === 0) return null
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const cols = line.trim().split(/\s+/)
+    if (cols.length < 5 || cols[0].toUpperCase() !== 'TCP') continue
+    if (!pidSet.has(cols[cols.length - 1])) continue
+    if (cols[3].toUpperCase() !== 'LISTENING') continue
+    const m = /^\[?([^\]:]+)\]?:(\d+)$/.exec(cols[1])
+    if (!m) continue
+    const host = m[1]
+    if (host === '127.0.0.1' || host === '::1') return Number(m[2])
+  }
+  return null
+}
+
+/**
+ * metrics 文本 → 隧道腿落点。value=1 = 当前在用,value=0 = 上一次的落点(换 PoP 的痕迹)。
+ * 解析不出任何一条 ⇒ 交给上层判"落点不可测"(把"读不出"说成"落点近"是本仓禁止的那一型)。
+ */
+export function parseServerLocations(text) {
+  const current = []
+  const previous = []
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const m = /^cloudflared_tunnel_server_locations\{connection_id="[^"]+",edge_location="([^"]+)"\}\s+(\d+)/.exec(line.trim())
+    if (!m) continue
+    ;(m[2] === '1' ? current : previous).push(m[1])
+  }
+  return { current: [...new Set(current)], previous: [...new Set(previous)] }
+}
+
+/**
+ * 亚太近端 PoP 前缀表(IATA 三字码)。为什么只认这张表而不拍 RTT 阈值:本机在国内、
+ * Cloudflare 无大陆 PoP ⇒ 落点在境外是**常态**,拿 RTT 阈值判红就是 §12e 的恒红门;
+ * 而"落点是不是在亚太"是地理事实,可直接从 metrics 读,不随抖动漂移。
+ */
+const APAC_POP_PREFIXES = ['nrt', 'kix', 'itm', 'ngo', 'fuk', 'icn', 'sin', 'hkg', 'tpe', 'khh', 'bkk', 'cgk', 'mnl', 'syd', 'mel', 'akl', 'blr', 'bom', 'del', 'maa']
+
+export function classifyEdgeLocations(pops) {
+  const list = (Array.isArray(pops) ? pops : []).filter(Boolean).map(String)
+  if (list.length === 0) return { pops: [], near: [], far: [] }
+  const near = list.filter((p) => APAC_POP_PREFIXES.includes((/^([a-z]+)/.exec(p) || [])[1]))
+  const far = list.filter((p) => !near.includes(p))
+  return { pops: list, near, far }
+}
+
+/**
  * tasklist 的 CSV 行 → pid 列表。只认映像名逐字等于 cloudflared.exe 的行。
  * 为什么按列取而不是"抓任意数字":CSV 的内存列本身带千分位逗号("39,780 K"),
  * 全局抓数字会把无关数字当成 pid。提示行(INFO: No tasks…)⇒ 空集 = 进程不在。
@@ -233,7 +284,7 @@ export function summarizeRestarts(events, opt = {}) {
  * processProbe: 'ok'(拿到 pid 列表) | 'failed'(探测本身失败 ⇒ 进程存在性未知)
  * netshProbe / netstatProbe: 'ok' | 'failed'
  */
-export function judge({ processProbe, pids, netshProbe, netstatProbe, legs, addresses, eventsProbe = 'absent', restarts = null }) {
+export function judge({ processProbe, pids, netshProbe, netstatProbe, legs, addresses, eventsProbe = 'absent', restarts = null, metricsProbe = 'absent', locations = null }) {
   const dims = {}
   const processPresent = processProbe === 'ok' ? pids.length > 0 : null
 
@@ -315,6 +366,31 @@ export function judge({ processProbe, pids, netshProbe, netstatProbe, legs, addr
     dims['single-source-point'] = { verdict: 'ok', reading: { legs: legs.length, sources: sources.length } }
   }
 
+  // 第五维:隧道腿落点 PoP(2026-10-16 立,当天实测立案)。
+  // 立案事实:公网入口 TTFB 1.3s~16.4s、约一半请求 25s 超时,而 127.0.0.1:8801 同轮 3~17ms;
+  // 上行仅 198KB/s(非拥塞)、ICMP 0 丢包、MTU 1500 通、重启 Cloudflared 后 4 分钟依旧 ⇒
+  // 慢不在服务、也不在隧道进程,而在"本机 ↔ CF 边缘"这条跨境段(实测到 1.1.1.1 RTT ≈300ms、
+  // 到站点 IP ≈700ms、对照阿里 DNS 19ms,TCP 重传率 27%,4 条腿全落 lax05/09/12/13)。
+  // 这一维**只报数不判红**:本机在国内而 CF 无大陆 PoP ⇒ 落点在境外是常态,判红即恒红门(§12e)。
+  // 它的价值是把"入口慢"的归因钉死在跨境段,让收信人不用再去查 web/api。
+  if (metricsProbe === 'absent') {
+    // 调用方没采这一路(旧夹具/第三方调用)⇒ 整维不产出,不得凭空多出一格 unjudged 把退出码拖成 3
+  } else if (metricsProbe === 'failed') {
+    dims['edge-location'] = { verdict: 'unjudged', reason: 'cloudflared metrics 端点取不到(netstat 未枚举到本 pid 的回环监听端口,或 HTTP 失败)⇒ 落点不可测' }
+  } else if (!locations || locations.pops.length === 0) {
+    dims['edge-location'] = { verdict: 'unjudged', reason: 'metrics 里没有 server_locations 读数 ⇒ 落点不判定(不得记成"近")' }
+  } else if (locations.near.length === 0) {
+    dims['edge-location'] = {
+      verdict: 'warn',
+      reason:
+        `隧道 ${locations.pops.length} 条腿全部落在非亚太 PoP(${locations.pops.join('/')})—— 本机在国内而 CF 无大陆 PoP,这是常态形态 ⇒ 只报数不判红(§12e);` +
+        '入口慢时先归因**跨境段**(RTT/丢包),别去查 web/api(本地对照通常 <20ms);真要动只有两条路:换出口(代理/中转机)或提高边缘缓存命中率以减少回源',
+      reading: locations,
+    }
+  } else {
+    dims['edge-location'] = { verdict: 'ok', reading: locations }
+  }
+
   return dims
 }
 
@@ -362,13 +438,27 @@ async function collect() {
   const restarts = eventsProbe === 'failed' ? null : summarizeRestarts(events)
   const addresses = netshProbe === 'ok' ? parseNetshAddresses(netsh.stdout) : new Map()
   const { legs, unparseableTcp } = netstatProbe === 'ok' ? parseNetstatLegs(netstat.stdout, pids) : { legs: [], unparseableTcp: [] }
+  // 第五维取材:端口现读(不硬编码),HTTP 只给 5 秒,取不到就如实记 failed(不折成"落点近")。
+  const metricsPort = netstatProbe === 'ok' ? parseMetricsListenPort(netstat.stdout, pids) : null
+  let metricsProbe = 'failed'
+  let locations = null
+  if (metricsPort !== null) {
+    try {
+      const res = await fetch(`http://127.0.0.1:${metricsPort}/metrics`, { signal: AbortSignal.timeout(5000) })
+      locations = classifyEdgeLocations(parseServerLocations(await res.text()).current)
+      metricsProbe = 'ok'
+    } catch {
+      metricsProbe = 'failed'
+    }
+  }
   const failedNames = [
     processProbe === 'failed' ? `tasklist(${ps.err || '无输出'})` : null,
     netshProbe === 'failed' ? `netsh(${netsh.err || '输出异常'})` : null,
     netstatProbe === 'failed' ? `netstat(${netstat.err || '输出异常'})` : null,
     eventsProbe === 'failed' ? `wevtutil(${ev.err || '输出异常或解析不出事件'})` : null,
+    metricsProbe === 'failed' ? `cloudflared-metrics(${metricsPort === null ? '未枚举到本 pid 的回环监听端口' : 'HTTP 失败或超时'})` : null,
   ].filter(Boolean)
-  return { processProbe, pids, netshProbe, netstatProbe, eventsProbe, restarts, eventTotal: events.length, legs, addresses, unparseableTcp, failedNames, evidenceAt: new Date().toISOString() }
+  return { processProbe, pids, netshProbe, netstatProbe, eventsProbe, restarts, eventTotal: events.length, legs, addresses, unparseableTcp, metricsProbe, locations, metricsPort, failedNames, evidenceAt: new Date().toISOString() }
 }
 
 function formatHuman(dims, exitCode, evidenceAt, extra) {
@@ -415,6 +505,8 @@ async function main() {
         evidenceAt: collected.evidenceAt,
         pids: collected.pids,
         legs: collected.legs.length,
+        metricsPort: collected.metricsPort ?? null,
+        edgeLocations: collected.locations ?? null,
         failedCollectSources: collected.failedNames,
         positiveControl: control.passed ? 'pass' : 'FAIL',
         dims,
@@ -440,6 +532,12 @@ function selfTest() {
   }
   const eq = (a, b, msg) => {
     if (a !== b) throw new Error(`${msg || ''} 期望 ${b} 实得 ${a}`)
+  }
+  // 报数格也必须答得出"收信人能干什么"(§5e-1),否则就是只会喊、不会指路的噪声。
+  const assertWarnHasExit = (reason) => {
+    const s = String(reason || '')
+    if (!/跨境段/.test(s)) throw new Error('落点报数必须点名归因是跨境段')
+    if (!/换出口/.test(s) || !/提高边缘缓存/.test(s)) throw new Error('落点报数必须给出可动手的两条路')
   }
   const addrText = [
     '地址类型   DAD 状态    有效寿命   首选寿命   地址',
@@ -511,6 +609,43 @@ function selfTest() {
     eq(decideExit(unj, true), 3, '全未判定')
     eq(decideExit(warn, false), 3, '对照失手')
   })
+  const metricsText = [
+    '# HELP cloudflared_tunnel_server_locations Where each tunnel is connected to.',
+    'cloudflared_tunnel_server_locations{connection_id="0",edge_location="lax09"} 1',
+    'cloudflared_tunnel_server_locations{connection_id="0",edge_location="lax12"} 0',
+    'cloudflared_tunnel_server_locations{connection_id="1",edge_location="lax13"} 1',
+    'cloudflared_tunnel_server_locations{connection_id="2",edge_location="lax05"} 1',
+  ].join('\n')
+  t('metrics 端口:只认本 pid 的回环 LISTENING,别的服务端口不许被当成隧道的', () => {
+    eq(parseMetricsListenPort(nsText, ['1484']), 20241, '回环 LISTENING')
+    eq(parseMetricsListenPort('  TCP    192.168.1.37:5000     0.0.0.0:0   LISTENING   1484', ['1484']), null, '非回环不认')
+    eq(parseMetricsListenPort(nsText, ['777']), null, '别的 pid 不认')
+  })
+  t('server_locations:只收 value=1 的当前落点,0 归到 previous(换 PoP 的痕迹)', () => {
+    const r = parseServerLocations(metricsText)
+    eq(r.current.length, 3, '当前落点数')
+    eq(r.previous.length, 1, '上一次落点')
+    eq(parseServerLocations('').current.length, 0, '空文本 ⇒ 0(不是"近")')
+  })
+  t('落点分档:全在非亚太 ⇒ near 空;含亚太 ⇒ near 非空', () => {
+    eq(classifyEdgeLocations(['lax09', 'lax13']).near.length, 0, 'lax 不在亚太表')
+    eq(classifyEdgeLocations(['nrt01', 'hkg02']).near.length, 2, 'nrt/hkg 在亚太表')
+    eq(classifyEdgeLocations([]).pops.length, 0, '空 ⇒ 空(交给上层判不可测)')
+  })
+  t('edge-location:全落境外只报数不判红(§12e,常态形态判红即恒红);取不到 ⇒ unjudged 点名', () => {
+    const far = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [{ source: '2408:8234::60a3', sourcePort: 1, dest: '::', destPort: 7844 }], addresses: parseNetshAddresses(addrText), metricsProbe: 'ok', locations: classifyEdgeLocations(['lax09', 'lax13']) })
+    eq(far['edge-location'].verdict, 'warn', '境外落点')
+    assertWarnHasExit(far['edge-location'].reason)
+    const nearP = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [{ source: '2408:8234::60a3', sourcePort: 1, dest: '::', destPort: 7844 }], addresses: parseNetshAddresses(addrText), metricsProbe: 'ok', locations: classifyEdgeLocations(['nrt01']) })
+    eq(nearP['edge-location'].verdict, 'ok', '亚太落点')
+    const failed = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [{ source: '2408:8234::60a3', sourcePort: 1, dest: '::', destPort: 7844 }], addresses: parseNetshAddresses(addrText), metricsProbe: 'failed' })
+    eq(failed['edge-location'].verdict, 'unjudged', 'metrics 取不到')
+    eq(/落点不可测/.test(String(failed['edge-location'].reason)), true, 'unjudged 必须点名,不得折成"近"')
+    const empty = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [{ source: '2408:8234::60a3', sourcePort: 1, dest: '::', destPort: 7844 }], addresses: parseNetshAddresses(addrText), metricsProbe: 'ok', locations: classifyEdgeLocations([]) })
+    eq(empty['edge-location'].verdict, 'unjudged', '无 server_locations 读数')
+    const absent = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [{ source: '2408:8234::60a3', sourcePort: 1, dest: '::', destPort: 7844 }], addresses: parseNetshAddresses(addrText) })
+    eq(absent['edge-location'], undefined, '调用方没采这一路 ⇒ 不得凭空多一格 unjudged 拖 exit 3')
+  })
   t('解析失败形态:空文本/乱表头 ⇒ 枚举 0 地址/0 腿,配合 judge 落 unjudged', () => {
     eq(parseNetshAddresses('').size, 0, '空')
     eq(parseNetshAddresses('nothing useful').size, 0, '无地址形态')
@@ -538,6 +673,10 @@ export const __test__ = {
   parseNetstatLegs,
   isDeprecatedRecord,
   parseTasklistPids,
+  parseMetricsListenPort,
+  parseServerLocations,
+  classifyEdgeLocations,
+  APAC_POP_PREFIXES,
   parseEventLogXml,
   summarizeRestarts,
   judge,
