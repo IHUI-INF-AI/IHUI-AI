@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { GripVertical, Plus, Search, X } from 'lucide-react'
+import { GripVertical, Plus, X } from 'lucide-react'
 import {
   DndContext,
   KeyboardSensor,
@@ -289,7 +289,7 @@ const CustomNavSection = React.memo(function CustomNavSection({
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           )}
         >
-          <Search className="h-5 w-5 shrink-0" />
+          <Plus className="h-5 w-5 shrink-0" />
           <span className="min-w-0 whitespace-nowrap text-left">{t('customEmptyHint')}</span>
         </button>
       ) : (
