@@ -30,10 +30,29 @@
  *   `lineMatchesMarker` 一份实现,单串与数组两形态共用(旧自测夹具仍走单串,不必改语义)。
  *
  * 「探测失败=目标坏了」与「探测失败=我自己没跑到」怎么分开(本门的第二判据):
- *   ① 单次样本按**错误形态归桶**:拒连/复位/5xx 是"对端可归因";DNS 解析失败、TLS 握手失败、
- *      超过探测上限被我方主动中止 ⇒ 落 **indeterminate**(不得据此判对端坏 —— §5d 那条
- *      "网络不可达不等于 key 无效"的同一条禁令);解析不出形态的异常 ⇒ 落 **probeError**(我方坏了)。
- *   ② 整轮"跑完没有"用仓里那把常驻取证包装器 `scripts/run-evidence.mjs` 的**同一份判据**
+ *   ① 单次样本按**错误形态归桶**,并记 `stage` = 这一跳走到哪儿就断了(`http` 拿到状态行 /
+ *      `conn` TCP 到了对端但被拒或被复位 / `stall` 连对端都没到):
+ *      拒连、复位、5xx ⇒ "对端可归因"(只有这三型能算对端坏);
+ *      DNS 解析失败、TLS 握手失败、超过探测上限被我方主动中止、**连接阶段超时/网络不可达
+ *      (`connStall`)** ⇒ 落 **indeterminate**(不得据此判对端坏 —— §5d 那条"网络不可达不等于
+ *      key 无效"的同一条禁令);
+ *      解析不出形态的异常 ⇒ 落 **probeError**(我方坏了,20% 失明线使本轮不出结论)。
+ *      ⚠️ `connStall` 是 2026-10-16 补的一格:旧稿不认识 `UND_ERR_CONNECT_TIMEOUT`,把它记成
+ *      "尺子自己失明"⇒ 一次真的链路故障会被 20% 失明线洗成"本轮不出结论"(当天实测那型就是
+ *      12 样本里的 1 条 10735ms)。它既不是对端坏,也不是尺子坏,所以必须具名。
+ *   ② 越阈之后还要答"是**哪一段**坏了"(2026-10-16 立,当天那封"公网慢 60%"的邮件答不上这句):
+ *      `classifyPublicLeg` 拿两把尺子 —— 同轮**本地对照组**(绕过 CF 边缘与隧道的 `127.0.0.1:8801`)
+ *      与**分阶段读数**(DNS→TCP→TLS→响应)—— 把坏点定成四档之一:
+ *        `服务段`(对照同轮也越阈 ⇒ web 本体) / `入口段`(对照健康且有握手完成后才慢的样本 ⇒ 访客同经此路)
+ *        / `本机出口段`(对照健康而坏点全停在握手前或握手中 ⇒ 只关于本机出口链路,**真实访客不经此路**;
+ *                         同日实测:本机 v4 握手失败 36%、v6 18%,而经节点打同一 URL 20/20 全成)
+ *        / 不给段名(`unlocated` 分阶段读数不全、`undetermined` 任一侧没样本 ⇒ **只报数不冒认**)。
+ *      定位结果进身份键(`B/公网·常态·入口段`)与正文 `[定位]` 行。**门槛与发信不在本门**:本门只量与判;
+ *      寄信的持续性门槛(同一身份连几轮才到人、轮次按**时间**计量、恢复即清零)住在派发侧
+ *      `scripts/git-guardian.mjs` 的 `auditPublicPathProbe()`。
+ *      采样因此从 `fetch`(只有总耗时)换成 `node:http/https` 自持 socket 事件 —— 分界必须来自
+ *      "真到过哪一跳",不是从文案里猜(文案随运行时版本漂,跳不会)。
+ *   ③ 整轮"跑完没有"用仓里那把常驻取证包装器 `scripts/run-evidence.mjs` 的**同一份判据**
  *      (import judgeEvidence / RC_MARK,不另立第二份标记语法):证据末行没有 `#EVIDENCE-RC=`
  *      就判 INCOMPLETE ⇒ **exit 3**,既不记通过也不记失败。
  *
@@ -43,10 +62,16 @@
  * 定级:**warn / 纯告警**。本门刻意**不接提交链**(不在 guardian-runner、不在 pre-commit、不在 CI 必跑):
  * 它判的是**对端与本机出口此刻的可达性**,提交者结构上满足不了;挂 blocking 就是每台每次被逼
  * `--no-verify`,连带让链上全部对账作废(§12e 那型)。
- * 它的**建议**派发点是既有守护 `scripts/git-guardian.mjs` 的巡检轮(每 2 分钟一趟):该文件**工作树**
- * 副本已含 `auditPublicPathProbe()` 定义(节流、三态、告警一律经 `notifyGuardRed()` 按 alert 身份去重、
- * 无每日封顶),**但巡检轮里还没有它的调用点,且那整段定义也未入库** —— 即截至本票交付,本门**零调度器**,
- * 现役问责方式只有手跑。接线与挂点取舍归主协调者(见交付报告的函数位建议);
+ * 它的派发点是既有守护 `scripts/git-guardian.mjs` 的巡检轮。**〔更正@2026-10-16,取代下面那句
+ * 2026-09-28 的旧登记;旧句原文逐字保留,只作改判留痕读,不得当口径引用〕**:旧句写"巡检轮里还没有
+ * 它的调用点,且那整段定义也未入库 ⇒ 本门零调度器,现役问责方式只有手跑"——今天现读已不成立:
+ * `auditPublicPathProbe()` 既在 `git-guardian.mjs` 里且已入库,调用点在巡检轮的"健康轮次早退之前 +
+ * `!CHECK_ONLY`"那一格,现读派发节律 03:17/03:47/04:19/04:50/05:20/05:52/06:24/06:54Z(约 30 分钟
+ * 一趟,与节流戳一致),告警经 `notifyGuardRed()` 按身份去重、无每日封顶;持续性门槛(同一身份连几轮
+ * 才到人、轮次按**时间**计量、恢复即清零、脏账本自卫)也住在派发侧那一份实现里,不在本门。
+ * 旧句(2026-09-28 交付时的现场,当时确实如此):该文件**工作树**副本已含 `auditPublicPathProbe()`
+ * 定义(节流、三态、告警一律经 `notifyGuardRed()` 按 alert 身份去重、无每日封顶),**但巡检轮里
+ * 还没有它的调用点,且那整段定义也未入库** —— 即截至本票交付,本门**零调度器**,现役问责方式只有手跑。
  * 本门自身不发信、不自拼 SMTP、不新建通道(守门 81 硬拦的就是这个)。
  *
  * 用法:
@@ -61,6 +86,9 @@
  * 阳性对照未命中 ⇒ 无论其余读数如何一律降 3(一把抓不到已知必坏目标的尺子,不配出具合格证)。
  */
 import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs'
+// 分阶段计时必须自己掌握 socket 事件(undici 的 fetch 只给总耗时,拿不到 DNS/TCP/TLS 的分界)。
+import http from 'node:http'
+import https from 'node:https'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // **复用**仓里那把常驻取证包装器的判据,不另立第二套标记语法(§22c 的 __test__ 出口就是为此而设)。
@@ -132,6 +160,24 @@ export function classifySample(r) {
     if (r.status >= 300) return { stage: 'http', bucket: 'redirected', unavailable: false, note: `HTTP ${r.status}` }
     return { stage: 'http', bucket: 'ok', unavailable: false, note: `HTTP ${r.status}` }
   }
+  // 有分阶段读数时**先看走到了哪一跳**,再看错误文案(文案随运行时版本漂,跳不会漂)。
+  // 这一支存在的理由:今天那封邮件的实体是"TCP 连上了但 TLS 握手没完成"(本机↔CF 链路丢包),
+  // 它既不是"对端不可用",也不是"服务响应慢"—— 混进"公网慢"就会让人去查根本健康的隧道与 web。
+  const reached = typeof r.stageReached === 'string' ? r.stageReached : null
+  const tlsDone = reached === 'tlsDone' || reached === 'response' || reached === 'body'
+  if (reached !== null && !tlsDone && !/ECONNREFUSED|ECONNRESET|socket hang up|EPIPE|ERR_SOCKET|SocketClosed/i.test(code)) {
+    // **位置优先于"谁停的表"**:TCP 连上了而 TLS 没完成,不管中止是我方上限还是链路自己断,
+    // 事实都是"停在握手中" ⇒ 归 tlsStall(上限那一层写进 note,不另起一桶)。
+    if (reached === 'tcp') {
+      const byUs = r.aborted === true || /PROBE_CEILING|PROBE_INACTIVITY|ABORT_ERR|AbortError/i.test(code)
+      return { stage: 'stall', bucket: 'tlsStall', unavailable: false, indeterminate: true, preTls: true, note: `TCP 连上但 TLS 握手未完成${byUs ? '(被我方上限中止)' : '(链路侧断开)'} ⇒ 本机出口到 CF 边缘这一跳在丢包,真实访客不经本机出口` }
+    }
+    if (r.aborted || /PROBE_CEILING|PROBE_INACTIVITY|ABORT_ERR|AbortError/i.test(code)) {
+      return { stage: 'stall', bucket: 'overCeiling', unavailable: false, indeterminate: true, preTls: true, note: '到上限仍未完成握手 ⇒ 只知"比上限慢",不得记成对端不可用' }
+    }
+    if (/ENOTFOUND|EAI_AGAIN/i.test(code)) return { stage: 'stall', bucket: 'dns', unavailable: false, indeterminate: true, preTls: true, note: 'DNS 解析失败 ⇒ 分不清对端与我方出口,计未判定' }
+    return { stage: 'stall', bucket: 'connStall', unavailable: false, indeterminate: true, preTls: true, note: '连 TCP 都没通 ⇒ 属本机出口与链路这一跳,不得记成对端不可用' }
+  }
   if (r.aborted || /PROBE_CEILING|ABORT_ERR|AbortError/i.test(code)) {
     return { stage: 'stall', bucket: 'overCeiling', unavailable: false, indeterminate: true, note: '超过探测上限被我方中止 ⇒ 只知"比上限还慢",不得记成对端不可用' }
   }
@@ -172,7 +218,7 @@ export function sampleStage(s) {
 export function summarizeSequence(samples, opt = {}) {
   const slowMs = opt.slowMs ?? DEFAULTS.slowMs
   const n = samples.length
-  const buckets = { ok: 0, redirected: 0, http4xx: 0, http5xx: 0, connRefused: 0, connReset: 0, overCeiling: 0, connStall: 0, dns: 0, tls: 0, proxy: 0, probeError: 0 }
+  const buckets = { ok: 0, redirected: 0, http4xx: 0, http5xx: 0, connRefused: 0, connReset: 0, overCeiling: 0, connStall: 0, tlsStall: 0, dns: 0, tls: 0, proxy: 0, probeError: 0 }
   let unavailable = 0
   let indeterminate = 0
   let probeSideBroken = 0
@@ -185,12 +231,25 @@ export function summarizeSequence(samples, opt = {}) {
   let stallN = 0
   let httpSlow = 0
   let stallSlow = 0
+  // 分阶段读数(2026-10-16 补):`tlsDoneN` = 握手完成的样本数,`preTlsStall` = 卡在握手前/中的样本数。
+  // `stageEvidence` 必须显式记:旧取证行没有这些字段 ⇒ 定位时**不许冒认**是哪一段。
+  let tlsDoneN = 0
+  let preTlsStall = 0
+  let postTlsStall = 0
+  let stageSamples = 0
   for (const s of samples) {
     buckets[s.bucket] = (buckets[s.bucket] || 0) + 1
     const st = sampleStage(s)
     if (st === 'http') httpN += 1
     else if (st === 'conn') connN += 1
     else stallN += 1
+    if (typeof s.stageReached === 'string') stageSamples += 1
+    const tl = s.stages && typeof s.stages === 'object' ? s.stages : null
+    const done = s.stageReached === 'tlsDone' || s.stageReached === 'response' || s.stageReached === 'body' || (tl && typeof tl.tls === 'number') || (typeof s.status === 'number' && s.status > 0)
+    if (done) tlsDoneN += 1
+    if (typeof s.stageReached === 'string' && !done) preTlsStall += 1
+    // 握手**完成之后**没等到完整响应 ⇒ 这是访客也会经过的那一段的事实(与"停在握手中"互斥)
+    if (done && typeof s.status !== 'number') postTlsStall += 1
     if (s.unavailable) unavailable += 1
     if (s.indeterminate) indeterminate += 1
     if (s.probeSideBroken) probeSideBroken += 1
@@ -214,6 +273,12 @@ export function summarizeSequence(samples, opt = {}) {
     stallN,
     httpSlow,
     stallSlow,
+    tlsDoneN,
+    preTlsStall,
+    postTlsStall,
+    stageSamples,
+    // 定位只准在"每条样本都有分阶段读数"时冒认某一段;混入无读数的旧取证 ⇒ 只报数不定位。
+    stageEvidence: n > 0 && stageSamples === n,
     maxMs,
     failRatio: n ? unavailable / n : null,
     slowRatio: n ? slow / n : null,
@@ -227,13 +292,18 @@ export function summarizeSequence(samples, opt = {}) {
 }
 
 /**
- * 公网侧越阈了 —— **是哪一段坏了?** 拿同轮本地对照组(127.0.0.1:8801,绕过 CF 边缘与隧道)定位:
- *   `service` 对照组同轮也越阈 ⇒ web 本体慢,公网那条路只是把它透出来;
- *   `entry`   对照组同轮不越阈 ⇒ 服务段是快的,洞在"公网入口 ↔ 本机隧道"这一跳;
- *   `undetermined` 任一侧没采到样本 ⇒ **不猜**。这一档必须存在:把"没量到"写成"入口段没问题"
- *              就是本仓反复禁止的"把失明说成平静"。
- * 只读两侧已有的比率,不自立新阈值(2026-10-16 现读的实测:健康轮公网也会 1/10 条 ≥8s,
- * 而对照组始终 9–47ms ⇒ 定位真身靠的是对照,不是再拍一条线)。
+ * 公网侧越阈了 —— **是哪一段坏了?** 拿两把尺子:同轮本地对照组(127.0.0.1:8801,绕过 CF 边缘与隧道)
+ * 排除/坐实服务段,分阶段读数(DNS→TCP→TLS→响应)区分"本机出口在丢包"与"访客同经的入口段慢"。
+ *   `service`     对照组同轮也越阈 ⇒ web 本体慢,公网那条路只是把它透出来;
+ *   `entry`       对照组健康 **且** 有握手完成后才慢的样本 ⇒ 访客也会走这一段(CF 边缘 / 隧道 / 上行);
+ *   `egress`      对照组健康 **且** 坏点全部停在握手前或握手中 ⇒ 事实只关于**本机出口链路**,
+ *                 真实访客不经本机出口(2026-10-16 同日实测:本机 v4 握手失败 36%、v6 18%,
+ *                 而经节点打同一 URL 20/20 全成、最慢 2641ms ⇒ 那封"公网慢 60%"的邮件实体是这一型);
+ *   `unlocated`   越阈但分阶段读数不全(旧取证 / 采样档没带 stages)⇒ **只报数不给段名**,
+ *                 绝不冒认某一段 —— 猜错方向的代价是让人去查健康的组件;
+ *   `undetermined` 任一侧没采到样本 ⇒ 不猜(把"没量到"写成"没问题"是本仓最高频失效型)。
+ * 不自立新阈值:只用两侧已有的比率与"坏点停在握手前/后"这一构造事实(现读实测:健康轮公网也会有
+ * 1/10 条 ≥8s,而对照组始终 9–47ms ⇒ 定位靠对照与分界,不是再拍一条线)。
  */
 export function classifyPublicLeg(pub, local, opt = {}) {
   const slowRatio = opt.slowRatio ?? DEFAULTS.slowRatio
@@ -242,9 +312,12 @@ export function classifyPublicLeg(pub, local, opt = {}) {
   if (!pub || pub.n === 0) return { leg: 'undetermined', tag: null, note: '公网侧本轮无样本 ⇒ 不定位(不得读成"入口段没问题")' }
   if (!local || local.n === 0) return { leg: 'undetermined', tag: null, note: '本地对照组本轮没采到样本 ⇒ 分不清"入口段慢"与"服务段慢",不得冒认定位' }
   if (!over(pub)) return { leg: 'clear', tag: null, note: `公网侧本轮未越阈(对照 ${local.n} 样本、最慢 ${Math.round(local.maxMs)}ms)` }
-  const stallNote = pub.stallSlow > 0 ? `;其中 ${pub.stallSlow}/${pub.n} 条连对端都没到(TCP/DNS/TLS 阶段就卡住)` : `;${pub.httpSlow}/${pub.httpN} 条是走到对端之后才慢`
-  if (over(local)) return { leg: 'service', tag: '服务段', note: `本地对照组同轮也越阈(慢 ${local.slow}/${local.n},最慢 ${Math.round(local.maxMs)}ms)⇒ 洞在**服务段**(web 本体),不是公网入口${stallNote}` }
-  return { leg: 'entry', tag: '入口段', note: `本地对照组同轮 ${local.n} 样本最慢仅 ${Math.round(local.maxMs)}ms ⇒ 服务段是快的,洞在**公网入口 ↔ 本机隧道**这一跳(CF 边缘 / cloudflared / 上行)${stallNote}` }
+  const split = `握手完成 ${pub.tlsDoneN}/${pub.n},停在握手前或中 ${pub.preTlsStall},慢样本里走到对端之后 ${pub.httpSlow}、没走到对端 ${pub.stallSlow}`
+  if (over(local)) return { leg: 'service', tag: '服务段', note: `本地对照组同轮也越阈(慢 ${local.slow}/${local.n},最慢 ${Math.round(local.maxMs)}ms)⇒ 洞在**服务段**(web 本体),不是公网入口;${split}` }
+  if (!pub.stageEvidence) return { leg: 'unlocated', tag: null, note: `越阈但分阶段读数不全(${pub.stageSamples}/${pub.n} 条有)⇒ 无法区分"本机出口在丢包"与"访客同经的入口段慢",本条只报数不指段` }
+  const postTlsBad = pub.httpSlow + (pub.postTlsStall ?? 0)
+  if (postTlsBad > 0) return { leg: 'entry', tag: '入口段', note: `本地对照同轮 ${local.n} 样本最慢仅 ${Math.round(local.maxMs)}ms ⇒ 服务段是快的;有 ${postTlsBad} 条**握手完成后**才慢/没等到完整响应 ⇒ 洞在访客同经的**公网入口 ↔ 本机隧道**这一段(CF 边缘 / cloudflared / 上行);${split}` }
+  return { leg: 'egress', tag: '本机出口段', note: `本地对照同轮 ${local.n} 样本最慢仅 ${Math.round(local.maxMs)}ms ⇒ 服务段是快的;坏点全部停在握手前或握手中(${pub.preTlsStall}/${pub.n})⇒ 事实只关于**本机出口到 CF 边缘**这一跳,真实访客不经本机出口,不该据此查隧道或 web;${split}` }
 }
 
 /** 最长连续"对端可归因失败"的墙钟跨度(不是次数 × 间隔 —— 间隔会漂)。 */
@@ -284,7 +357,7 @@ export function judgeSequence(id, stat, opt = {}) {
   const stallN = stat.stallN ?? 0
   const httpSlow = stat.httpSlow ?? 0
   const stallSlow = stat.stallSlow ?? 0
-  const numbers = `样本 ${stat.n} 次;走到对端并拿到响应 ${httpN},没走到对端 ${stallN};对端可归因失败 ${stat.unavailable};慢(≥${slowMs}ms)${stat.slow}(响应之后 ${httpSlow} / 连对端都没到 ${stallSlow});DNS/TLS/连接超时/超上限等不可归因 ${stat.indeterminate};本地探测故障 ${stat.probeSideBroken};最长连续不可用 ${Math.round(stat.longestRunMs / 100) / 10}s;最慢单次 ${Math.round(stat.maxMs)}ms`
+  const numbers = `样本 ${stat.n} 次;走到对端并拿到响应 ${httpN},没走到对端 ${stallN};握手完成 ${stat.tlsDoneN ?? 0}/${stat.n},卡在握手前或握手中 ${stat.preTlsStall ?? 0};对端可归因失败 ${stat.unavailable};慢(≥${slowMs}ms)${stat.slow}(响应之后 ${httpSlow} / 连对端都没到 ${stallSlow});DNS/TLS/连接超时/超上限等不可归因 ${stat.indeterminate};本地探测故障 ${stat.probeSideBroken};最长连续不可用 ${Math.round(stat.longestRunMs / 100) / 10}s;最慢单次 ${Math.round(stat.maxMs)}ms${stat.stageEvidence === false && stat.n > 0 ? ';分阶段读数不全(仅 ' + (stat.stageSamples ?? 0) + '/' + stat.n + ' 条有)⇒ 不得据此定段' : ''}`
   if (stat.n === 0) return { verdict: 'unjudged', reasons: [`${id}:一个样本都没采到 ⇒ **未判定**,不得读成"0 次失败"`], numbers: `${id} 样本 0` }
   if (stat.probeSideBroken > 0 && stat.probeSideBroken / stat.n > 0.2) {
     return { verdict: 'unjudged', reasons: [`${id}:${stat.probeSideBroken}/${stat.n} 次是**本地**异常(无法归类)⇒ 这台尺子该目标本轮失明,不出结论`], numbers }
@@ -452,37 +525,100 @@ export function splitBySwapWindow(samples, events, opt = {}) {
 
 // ───────────────────────── 采样(真网络) ─────────────────────────
 
+/**
+ * 一次采样,并把**每一跳的时刻**记下来(2026-10-16 立)。
+ *
+ * 为什么不再用 `fetch` 一把梭:当天那封"公网慢 60%"的邮件量到的是**总耗时**,而总耗时分不清
+ * "TLS 握手没完成(本机↔CF 链路在丢包,访客不走这条出口)"与"握手完成后响应慢(CF 边缘→隧道→
+ * origin,访客同经此路)"—— 这两型的出路完全不同,混在一个身份里既产误报,又会在真隧道坏时被
+ * 本机噪声淹没(同日实测:本机直连 v4 握手失败 36%、v6 18%,而经节点打同一 URL 20/20 全成、
+ * 最慢 2641ms ⇒ 那封邮件实体是前者)。
+ *
+ * `stages` 全是相对毫秒、到不了那一步就留 null(不是 0):`dns`/`tcp`/`tls`/`head`/`body`。
+ * 显式 `keepAlive:false` 的 agent:探测档故意每条都新建连接,不留挂起句柄(本文件末尾那条
+ * "不能用 process.exit"的 Windows libuv 教训就是被 keep-alive 句柄绊的)。
+ *
+ * @returns {Promise<{status:number|null, ms:number, errorName?:string, errorCode?:string,
+ *   aborted?:boolean, causeCode?:string, stages:object, stageReached:string, bytes?:number}>}
+ */
 async function sampleOnce(url, ceilingMs) {
-  const started = Date.now()
-  const ac = new AbortController()
-  const t = setTimeout(() => ac.abort(new Error('PROBE_CEILING')), ceilingMs)
-  try {
-    const res = await fetch(url, { method: 'GET', redirect: 'manual', signal: ac.signal, headers: { 'user-agent': 'ihui-check-public-path-probe/1.0' } })
-    return { status: res.status, ms: Date.now() - started }
-  } catch (e) {
-    // 超时由**我方主动中止**造成:这既不是"对端不可用"(只知它比上限还慢),也不是
-    // "本地坏了"。所以看 aborted 标志,而不是看异常字符串(undici 在不同版本里把 abort
-    // 包装成 AbortError / DOMException / TypeError 好几种形态,靠文案分会漂)。
-    const cause = e && e.cause
-    // 候选串按**空白切 token**再拼(不是全局去空白,那会把 "connectECONNREFUSED" 粘出来)。
-    // 为什么把 message/name 也喂进候选:真机实测不同失败形态带的字段不一样 —— 有的 cause 只带
-    // message 不带 code。⚠️ 另有一型**根本不该被算成对端失败**:WHATWG URL 对端口 1 在 TCP 出发前
-    // 就抛 `Error: bad port`(无 code、message 无连接语义)⇒ 它正确地落 probeError(我方输入坏);
-    // 阳性对照的靶因此换成合法形状的关闭端口(见 DEFAULTS.controlUrl 注释)。
-    const toks = []
-    for (const cand of [cause && cause.code, cause && cause.message, e && e.code, e && e.message, e && e.name]) {
-      if (typeof cand === 'string' && cand) toks.push(...cand.split(/\s+/).filter(Boolean))
+  const t0 = Date.now()
+  const mark = { dns: null, tcp: null, tls: null, head: null, body: null }
+  const stages = () => {
+    const rel = (v) => (v === null ? null : v - t0)
+    return { dns: rel(mark.dns), tcp: rel(mark.tcp), tls: rel(mark.tls), head: rel(mark.head), body: rel(mark.body) }
+  }
+  // 走到哪一跳:优先看真到过的最后一跳,而不是猜
+  const reached = () => (mark.body !== null ? 'body' : mark.head !== null ? 'response' : mark.tls !== null ? 'tlsDone' : mark.tcp !== null ? 'tcp' : mark.dns !== null ? 'dns' : 'none')
+  return await new Promise((resolvePromise) => {
+    let settled = false
+    const finish = (o) => {
+      if (settled) return
+      settled = true
+      clearTimeout(watchdog)
+      resolvePromise({ ...o, ms: Date.now() - t0, stages: stages(), stageReached: reached() })
     }
-    return {
-      status: null,
-      ms: Date.now() - started,
-      errorName: e && e.name,
-      errorCode: e && e.code,
-      aborted: ac.signal.aborted === true,
-      causeCode: toks.join(',').slice(0, 160),
+    let u
+    try {
+      u = new URL(url)
+    } catch (e) {
+      // 输入坏(不是网络坏):落 probeError 那一型,由 classifySample 归"我方"
+      finish({ status: null, errorName: e && e.name, causeCode: String((e && e.message) || e).split(/\s+/).join(',').slice(0, 160) })
+      return
     }
-  } finally {
-    clearTimeout(t)
+    const mod = u.protocol === 'https:' ? https : http
+    const watchdog = setTimeout(() => {
+      try {
+        req.destroy(Object.assign(new Error('PROBE_CEILING'), { code: 'PROBE_CEILING' }))
+      } catch {
+        /* 已经结束了 */
+      }
+    }, ceilingMs)
+    const req = mod.request(url, { method: 'GET', redirect: 'manual', agent: new mod.Agent({ keepAlive: false }), headers: { 'user-agent': 'ihui-check-public-path-probe/1.0' }, timeout: Math.min(ceilingMs, 10_000) }, (res) => {
+      mark.head = Date.now()
+      let bytes = 0
+      res.on('data', (c) => {
+        bytes += c.length
+      })
+      res.on('end', () => {
+        mark.body = Date.now()
+        finish({ status: res.statusCode, bytes })
+      })
+      res.on('error', (e) => finish({ status: res.statusCode ?? null, ...errShape(e) }))
+      res.resume()
+    })
+    req.on('socket', (sock) => {
+      if (sock.address() && sock.address().family) mark.tcp = Date.now()
+      sock.on('lookup', () => {
+        if (mark.dns === null) mark.dns = Date.now()
+      })
+      sock.on('connect', () => {
+        if (mark.tcp === null) mark.tcp = Date.now()
+      })
+      sock.on('secureConnect', () => {
+        if (mark.tls === null) mark.tls = Date.now()
+      })
+    })
+    req.on('timeout', () => {
+      req.destroy(Object.assign(new Error('PROBE_INACTIVITY'), { code: 'PROBE_INACTIVITY' }))
+    })
+    req.on('error', (e) => finish({ status: null, ...errShape(e) }))
+    req.end()
+  })
+}
+
+/** 把 error 归一成旧稿那三个候选串字段(归类判据读它们,不读堆栈)。 */
+function errShape(e) {
+  const cause = e && e.cause
+  const toks = []
+  for (const cand of [cause && cause.code, cause && cause.message, e && e.code, e && e.message, e && e.name]) {
+    if (typeof cand === 'string' && cand) toks.push(...cand.split(/\s+/).filter(Boolean))
+  }
+  return {
+    errorName: e && e.name,
+    errorCode: e && e.code,
+    aborted: e && (e.code === 'PROBE_CEILING' || e.name === 'AbortError' || /PROBE_CEILING/.test(String((e && e.message) || ''))) ? true : undefined,
+    causeCode: toks.join(',').slice(0, 160),
   }
 }
 
@@ -694,10 +830,13 @@ function selfTest() {
     const l = summarizeSequence(legacy, { slowMs: 8000 })
     return l.httpN === 1 && l.stallN === 1 && l.httpSlow === 1 && l.stallSlow === 1
   })())
-  // 定位:同一份公网读数,结论必须**随对照组翻** —— 这就是"定位真读了对照"的变异取证
-  const pubBad = summarizeSequence(Array.from({ length: 10 }, (_, i) => S({ status: 200, ms: i < 6 ? 9000 : 500, at: new Date(t0 + i * 1000).toISOString() })), { slowMs: 8000 })
-  const localFast = summarizeSequence(Array.from({ length: 10 }, (_, i) => S({ status: 200, ms: 20, at: new Date(t0 + i * 1000).toISOString() })), { slowMs: 8000 })
-  const localSlow = summarizeSequence(Array.from({ length: 10 }, (_, i) => S({ status: 200, ms: 9000, at: new Date(t0 + i * 1000).toISOString() })), { slowMs: 8000 })
+  // 定位:同一份公网读数,结论必须**随对照组与握手分界翻** —— 这就是"定位真读了输入"的变异取证
+  const staged = (over) => S({ stageReached: 'body', stages: { dns: 2, tcp: 260, tls: 520, head: 700, body: over.ms }, ...over })
+  const pubBad = summarizeSequence(Array.from({ length: 10 }, (_, i) => staged({ status: 200, ms: i < 6 ? 9000 : 500, at: new Date(t0 + i * 1000).toISOString() })), { slowMs: 8000 })
+  const localFast = summarizeSequence(Array.from({ length: 10 }, (_, i) => staged({ status: 200, ms: 20, at: new Date(t0 + i * 1000).toISOString() })), { slowMs: 8000 })
+  const localSlow = summarizeSequence(Array.from({ length: 10 }, (_, i) => staged({ status: 200, ms: 9000, at: new Date(t0 + i * 1000).toISOString() })), { slowMs: 8000 })
+  // 全停在握手中(TCP 通、TLS 没完成)—— 2026-10-16 那封邮件的真身
+  const pubHandshake = summarizeSequence(Array.from({ length: 10 }, (_, i) => S({ bucket: 'tlsStall', stage: 'stall', stageReached: 'tcp', stages: { dns: 2, tcp: 310, tls: null, head: null, body: null }, indeterminate: true, preTls: true, unavailable: false, status: null, ms: 10_700, at: new Date(t0 + i * 1000).toISOString() })), { slowMs: 8000 })
   ok('L1 公网越阈 + 对照同轮健康 ⇒ 定位入口段(洞在 CF 边缘/隧道/上行,不是 web)', (() => {
     const g = classifyPublicLeg(pubBad, localFast)
     return g.leg === 'entry' && g.tag === '入口段' && /最慢仅 20ms/.test(g.note)
@@ -714,6 +853,37 @@ function selfTest() {
   ok('L5 公网未越阈 ⇒ clear 且不给段名(段名只用于真有坏点时,否则身份里凭空多一档)', (() => {
     const g = classifyPublicLeg(localFast, localFast)
     return g.leg === 'clear' && g.tag === null
+  })())
+  // ── 握手分界(2026-10-16 补:今天那封"公网慢 60%"的实体是本机出口 TLS 丢包,与访客无关)
+  ok('L6 对照组健康 + 坏点全停在握手中 ⇒ 本机出口段(不得据此查隧道/web)', (() => {
+    const g = classifyPublicLeg(pubHandshake, localFast)
+    return g.leg === 'egress' && g.tag === '本机出口段' && /不经本机出口/.test(g.note) && /10\/10/.test(g.note)
+  })())
+  ok('L7 变异对照:公网越阈的构成从"停在握手中"改成"握手完成后才慢",段名必须翻成入口段', (() => {
+    const a = classifyPublicLeg(pubHandshake, localFast).tag
+    const b = classifyPublicLeg(pubBad, localFast).tag
+    return a === '本机出口段' && b === '入口段' && a !== b
+  })())
+  ok('L8 没有分阶段读数 ⇒ unlocated 且不给段名(不得冒认某一段)', (() => {
+    const legacy = summarizeSequence(Array.from({ length: 10 }, (_, i) => S({ status: 200, ms: i < 6 ? 9000 : 500, at: new Date(t0 + i * 1000).toISOString() })), { slowMs: 8000 })
+    const g = classifyPublicLeg(legacy, localFast)
+    return g.leg === 'unlocated' && g.tag === null && /分阶段读数不全/.test(g.note) && legacy.stageEvidence === false && legacy.stageSamples === 0
+  })())
+  ok('L9 分界计数:停在握手中 / 握手后没等到完整响应 / 握手完成数,三者互斥且可相加核对', (() => {
+    const mixed = summarizeSequence([
+      S({ bucket: 'tlsStall', stage: 'stall', stageReached: 'tcp', stages: { dns: 2, tcp: 300, tls: null, head: null, body: null }, preTls: true, indeterminate: true, unavailable: false, status: null, ms: 9000, at: new Date(t0).toISOString() }),
+      S({ bucket: 'overCeiling', stage: 'stall', stageReached: 'tlsDone', stages: { dns: 2, tcp: 280, tls: 520, head: null, body: null }, indeterminate: true, unavailable: false, status: null, ms: 15001, at: new Date(t0 + 1000).toISOString() }),
+      S({ stageReached: 'body', stages: { dns: 2, tcp: 270, tls: 500, head: 9200, body: 9300 }, status: 200, ms: 9300, at: new Date(t0 + 2000).toISOString() }),
+    ], { slowMs: 8000 })
+    return mixed.n === 3 && mixed.tlsDoneN === 2 && mixed.preTlsStall === 1 && mixed.postTlsStall === 1 && mixed.stageEvidence === true && mixed.httpSlow === 1 && mixed.stallSlow === 2
+  })())
+  ok('L10 归类以"走到哪一跳"优先于错误文案:TCP 通而握手没完成 ⇒ tlsStall(不可归因,不是对端坏,不是尺子坏)', (() => {
+    const r = classifySample({ status: null, ms: 10700, errorName: 'Error', errorCode: 'PROBE_INACTIVITY', causeCode: 'PROBE_INACTIVITY,Socket', stageReached: 'tcp', stages: { dns: 2, tcp: 300, tls: null, head: null, body: null } })
+    return r.bucket === 'tlsStall' && r.stage === 'stall' && r.preTls === true && r.indeterminate === true && r.unavailable === false && r.probeSideBroken !== true
+  })())
+  ok('L11 反向:拒连即使在"没走到任何一跳"时也必须仍算对端可归因(分界不许洗白对端坏)', (() => {
+    const r = classifySample({ status: null, ms: 3, errorCode: 'ECONNREFUSED', causeCode: 'ECONNREFUSED,connect,127.0.0.1:47801', stageReached: 'none', stages: { dns: null, tcp: null, tls: null, head: null, body: null } })
+    return r.bucket === 'connRefused' && r.stage === 'conn' && r.unavailable === true
   })())
   // 取证三态:复用 run-evidence 的判据,不另立标记语法
   ok('V1 有 RC 行 ⇒ complete(跑完)', judgeEvidence('{}\n{}\n' + RC_MARK + '0\n').kind === 'complete')
