@@ -390,7 +390,7 @@ export default function PlazaIndex() {
                   onClick={() => setShowCenter(false)}
                 />
               </View>
-              <ScrollView scrollY className="pza-center-body">
+              <ScrollView scrollY className="pza-center-body pb-[calc(140rpx+env(safe-area-inset-bottom))]">
                 {detail.coverUrl ? (
                   <Image className="pza-center-cover" src={detail.coverUrl} mode="widthFix" />
                 ) : null}
