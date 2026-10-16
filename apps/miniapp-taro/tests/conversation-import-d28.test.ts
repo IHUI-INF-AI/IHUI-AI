@@ -210,9 +210,7 @@ describe('④ buildCommitPayload —— 空会话不发请求', () => {
   it('空会话(无消息 / 全空白 content)⇒ null,交给编排层计失败', () => {
     expect(buildCommitPayload(undefined, base)).toBeNull()
     expect(buildCommitPayload({ messages: [] }, base)).toBeNull()
-    expect(
-      buildCommitPayload({ messages: [{ role: 'user', content: '   ' }] }, base),
-    ).toBeNull()
+    expect(buildCommitPayload({ messages: [{ role: 'user', content: '   ' }] }, base)).toBeNull()
   })
 
   it('过滤空消息后仍有内容 ⇒ 正常产出,并带上 fileName 与截断后的 title', () => {
@@ -277,7 +275,7 @@ describe('④ runImportCommit —— 失败不中断 + 进度回吐', () => {
       source: 'wechat',
       conversations: convs,
       rowIds: [0, 1, 2],
-      commit: async () => ({ success: true, data: {} } as ApiResult<unknown>),
+      commit: async () => ({ success: true, data: {} }) as ApiResult<unknown>,
       emptyContentReason: '空',
     })
     expect(out.imported).toBe(3)
@@ -289,7 +287,7 @@ describe('④ runImportCommit —— 失败不中断 + 进度回吐', () => {
       source: 'wechat',
       conversations: convs,
       rowIds: [0, 1, 2],
-      commit: async () => ({ success: false, error: '落库失败' } as ApiResult<unknown>),
+      commit: async () => ({ success: false, error: '落库失败' }) as ApiResult<unknown>,
       emptyContentReason: '空',
     })
     expect(out.imported).toBe(0)
@@ -317,9 +315,7 @@ describe('④ runImportCommit —— 失败不中断 + 进度回吐', () => {
       conversations: convs,
       rowIds: [0, 1, 2],
       commit: async () =>
-        Math.random() < 0.5
-          ? ok()
-          : ({ success: false, error: 'conflict' } as ApiResult<unknown>),
+        Math.random() < 0.5 ? ok() : ({ success: false, error: 'conflict' } as ApiResult<unknown>),
       emptyContentReason: '空',
     })
     expect(out.imported + out.failed).toBe(3)
@@ -454,7 +450,9 @@ describe('⑥ pickImportFile —— 用户取消不是错误', () => {
     const got = await pickImportFile({
       extensions: ['.zip'],
       choose: () =>
-        Promise.resolve({ tempFiles: [{ path: 'wxfile://tmp_a.zip', name: 'chat.zip', size: 12 }] }),
+        Promise.resolve({
+          tempFiles: [{ path: 'wxfile://tmp_a.zip', name: 'chat.zip', size: 12 }],
+        }),
     })
     expect(got.error).toBeNull()
     expect(got.file).toEqual({ path: 'wxfile://tmp_a.zip', name: 'chat.zip', size: 12 })
@@ -520,15 +518,15 @@ describe('⑥ uploadAndParse —— /parse 走 uploadFile 且沿用现成 URL/�
   })
 
   it('走 Taro.uploadFile:带 Bearer 头、multipart 字段名 file、source 走 formData', async () => {
-    const spy = vi
-      .spyOn(Taro, 'uploadFile')
-      .mockImplementation((opts: Record<string, unknown>) => {
-        ;(opts.success as (r: unknown) => void)({
-          statusCode: 200,
-          data: JSON.stringify({ conversations: [], truncated: false, warnings: [] }),
-        })
-        return {} as never
-      })
+    const spy = vi.spyOn(Taro, 'uploadFile').mockImplementation((opts) => {
+      opts.success?.({
+        statusCode: 200,
+        data: JSON.stringify({ conversations: [], truncated: false, warnings: [] }),
+        errMsg: 'uploadFile:ok',
+        progress: 100,
+      } as never)
+      return {} as never
+    })
 
     await uploadAndParse({
       file: { path: 'wxfile://tmp_a.zip', name: 'chat.zip', size: 1 },
@@ -537,7 +535,7 @@ describe('⑥ uploadAndParse —— /parse 走 uploadFile 且沿用现成 URL/�
     })
 
     expect(spy).toHaveBeenCalledTimes(1)
-    const arg = spy.mock.calls[0]?.[0] as Record<string, unknown>
+    const arg = spy.mock.calls[0]?.[0] as unknown as Record<string, unknown>
     expect(arg.url).toBe(PARSE_URL)
     expect(arg.filePath).toBe('wxfile://tmp_a.zip')
     expect(arg.name).toBe('file')
@@ -549,8 +547,8 @@ describe('⑥ uploadAndParse —— /parse 走 uploadFile 且沿用现成 URL/�
   })
 
   it('传输失败(fail)⇒ 抛出 errMsg,不当成空预览', async () => {
-    const spy = vi.spyOn(Taro, 'uploadFile').mockImplementation((opts: Record<string, unknown>) => {
-      ;(opts.fail as (r: unknown) => void)({ errMsg: 'uploadFile:fail exceed max' })
+    const spy = vi.spyOn(Taro, 'uploadFile').mockImplementation((opts) => {
+      opts.fail?.({ errMsg: 'uploadFile:fail exceed max' } as never)
       return {} as never
     })
     await expect(
@@ -571,7 +569,10 @@ describe('⑥ uploadAndParse —— /parse 走 uploadFile 且沿用现成 URL/�
 const LANGS = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW'] as const
 const packOf = (lang: string) =>
   JSON.parse(
-    readFileSync(resolve(__dirname, `../../../packages/i18n/messages/miniapp-taro/${lang}.json`), 'utf8'),
+    readFileSync(
+      resolve(__dirname, `../../../packages/i18n/messages/miniapp-taro/${lang}.json`),
+      'utf8',
+    ),
   ) as { conversationImport: Record<string, string> }
 
 describe('⑤ 五语言包:词条齐备', () => {
@@ -672,7 +673,7 @@ describe('⑤ 五语言包:词条齐备', () => {
   it('微信源在每种语言里都被点名(不是只在中文里译出来)', () => {
     for (const lang of LANGS) {
       const ci = packOf(lang).conversationImport
-      expect(ci.sourceWechat.length).toBeGreaterThan(0)
+      expect((ci.sourceWechat ?? '').trim().length).toBeGreaterThan(0)
       expect(ci.sourceWechatHint).toMatch(/zip/i)
     }
   })
