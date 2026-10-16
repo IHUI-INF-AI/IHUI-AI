@@ -71,6 +71,9 @@ def test_classify_error_tiers():
     assert mm.minimax_classify_error(429) == ("SoftRate", 60)
     assert mm.minimax_classify_error(503) == ("Server", 600)
     assert mm.minimax_classify_error(None) == ("Unknown", 0)
+    # 第五件套(2026-10-16)钉死:本平台 403 保持 SessionDead 永久冷却,
+    # 比 Challenge(30min)更保守 —— WAF 误伤时 fail-closed 停手,不自动恢复
+    assert mm.minimax_classify_error(403) == ("SessionDead", -1)
 
 
 def test_device_map_uid_keys():

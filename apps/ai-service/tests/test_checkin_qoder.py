@@ -18,6 +18,7 @@ import time
 import httpx
 import pytest
 
+from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
 from app.services.checkin_qoder import (
     CLIENT_TYPE_DEFAULT,
     PATH_CAMPAIGNS,
@@ -257,6 +258,10 @@ class TestClassify:
         assert qoder_classify_error(400, None) == ("Client", 600)
         assert qoder_classify_error(None, "x") == ("Unknown", 0)
 
+    def test_challenge_403(self):
+        """第五件套:403 拦截墙 → Challenge 即时熔断(不再走 4xx 三连击)。"""
+        assert qoder_classify_error(403, None) == ("Challenge", CHALLENGE_COOLDOWN_SECONDS)
+
 
 # ---------------------------------------------------------------------------
 # 编排流程(MockTransport)
@@ -291,6 +296,29 @@ class TestCheckinFlow:
         assert camp_headers["cosy-machineid"] == "mid"  # httpx 头名小写
         assert camp_headers["authorization"].startswith("Bearer ")
         assert camp_headers["cosy-clienttype"] == CLIENT_TYPE_DEFAULT
+
+    @pytest.mark.asyncio
+    async def test_challenge_page_non_json_fuses(self, jwt):
+        """第五件套:活动查询拿到 2xx 非 JSON(WAF 挑战页)→ Challenge 熔断
+        + 出站全局暂停,绝不继续 claim。"""
+        calls = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request.url.path)
+            if request.url.path == PATH_CAMPAIGNS:
+                return httpx.Response(200, text="<html>请完成安全验证</html>")
+            return httpx.Response(404)
+
+        dm = {"cosy": {"machine_id": "mid"}}
+        result = await qoder_checkin_account("acc1", jwt, dm, client=make_client(handler))
+        assert result["ok"] is False
+        assert result["classified_error"] == {
+            "type": "Challenge",
+            "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+        }
+        assert calls == [PATH_CAMPAIGNS]  # 未继续 claim
+        assert checkin_outbound_gate.paused_remaining() > 0  # 全局暂停已触发
+        checkin_outbound_gate.reset()
 
     @pytest.mark.asyncio
     async def test_already_claimed(self, jwt):

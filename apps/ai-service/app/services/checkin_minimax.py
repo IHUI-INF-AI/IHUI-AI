@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import time
 import urllib.parse
 from typing import Any, Final
@@ -38,7 +37,7 @@ import httpx
 
 from app.core.logging import get_logger
 from app.services.checkin_engine import DEFAULT_TIMEOUT, get_http_client
-from app.services.checkin_outbound import checkin_outbound_gate
+from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
 
 logger = get_logger(__name__)
 
@@ -295,6 +294,13 @@ async def minimax_checkin_account(
         return result
     if not isinstance(data, dict):
         result["message"] = f"签到失败: 响应非 JSON(HTTP {status})"
+        # 第五件套(2026-10-16):2xx 非 JSON = WAF/挑战页插页,即时熔断
+        # (403 保持本平台既有 SessionDead 永久冷却语义,比 Challenge 更保守)
+        result["classified_error"] = {
+            "type": "Challenge",
+            "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+        }
+        checkin_outbound_gate.note_challenge("minimax")
         return result
 
     ok, action, credits = parse_claim_result(data)
