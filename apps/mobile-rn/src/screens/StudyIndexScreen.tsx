@@ -70,6 +70,7 @@ import { rpx } from '../utils/rpx'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
+import type { StudyVideoItem } from '@ihui/types'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -99,20 +100,6 @@ const TRACK_CATEGORIES: readonly TrackCategory[] = [
   { id: 'content', name: '内容创作' },
   { id: 'data', name: '数据分析' },
 ] as const
-
-interface StudyVideoItem {
-  id: string | number
-  courseId?: string | number
-  title: string
-  /** 下方标题(对齐 Uniapp study_list item.name,封面图下方的课程名) */
-  name?: string
-  cover?: string
-  /** 作者昵称(对齐 Uniapp study_list item.nickname,缺省'智汇社区-官方') */
-  teacherName?: string
-  /** 作者头像(对齐 Uniapp study_list item.avatar) */
-  avatar?: string
-  createdAt?: string
-}
 
 interface StudyVideoResponse {
   list: StudyVideoItem[]
