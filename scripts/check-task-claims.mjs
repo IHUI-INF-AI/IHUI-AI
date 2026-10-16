@@ -16,7 +16,7 @@
  *   node scripts/check-task-claims.mjs --json      # JSON 输出
  *   node scripts/check-task-claims.mjs --unclaimed  # 只列无人认领
  *   node scripts/check-task-claims.mjs --in-progress # 只列进行中(含持有者/年龄列)
- *   node scripts/check-task-claims.mjs --twins     # 列已闭环孪生旧行与逐字重复组
+ *   node scripts/check-task-claims.mjs --twins     # 列已闭环孪生旧行与"正文骨架相同"的未勾行组(不等同整行逐字节,见 DUP_GROUP_HEADING)
  *   node scripts/check-task-claims.mjs --check-gate [--json]  # 租约判据 CL1/CL2/CL3,违规 exit 1
  *   node scripts/check-task-claims.mjs --self-test # 纯函数夹具自检,不碰真 PROJECT_PLAN
  *   node scripts/check-task-claims.mjs --plan <file>   # 只读注入:改判指定文件(取证/多租约场景用,**磁盘直读**)
@@ -613,8 +613,22 @@ function findClosedTwins(rows, completed) {
 /**
  * 同一件事被写了好几遍的**未勾**行(与上面的"已闭环孪生"是两种形态):三条一模一样的
  * `- [ ]（进行中）` 会被数成三件活。这里只按**正文骨架逐字相同**归组,不做模糊匹配 ——
- * 误判成本是把两件活并成一件,所以宁可只认逐字相同。
+ * 误判成本是把两件活并成一件,所以宁可只认骨架逐字相同。注意口径边界:骨架 = 剥掉行首状态与
+ * 认领/租约标记及空白之后的正文,**两行整行可以并不相等**(差的那几枚字节正是租约),
+ * 所以报名不得自称"整行逐字重复" —— 文案与出路见下面的 `DUP_GROUP_HEADING`(S17 钉这一条)。
  */
+/**
+ * `--twins` 第二段与汇总行共用的报名文案(2026-10-16 改正,取证见 S17)。
+ *
+ * 旧文案写"逐字重复的未勾行组",而判据 `findDuplicateGroups` 的键是 `squash(bodyOf(row))`:
+ * 行首状态、认领/租约标记与空白**都被剥掉**。真仓 HEAD 面现读被归组的 15 组里 14 组两行并不
+ * 逐字节相同,差的字节正是 `（进行中…）` 租约 ⇒ 文案比判据强一档。危害不是难看:有人照着"逐字
+ * 重复"去删行,就会把别人的租约删掉,而 §1 明令"门绝不自动摘除任何人的认领"。
+ * 所以报名只说"正文骨架逐字相同",并把**整行逐字节**那条真出路(`--fold-identical-open-rows`)点名。
+ */
+export const DUP_GROUP_HEADING =
+  '正文骨架逐字相同的未勾行组(键已剥行首状态与认领/租约标记及空白 ⇒ **不等于整行逐字节相同**,差的那几枚字节常是别人的租约,§1 明令不得代摘;整行逐字节相同的折叠走 `node scripts/plan-tasks-merge.mjs --fold-identical-open-rows`) —— 会把一件事数成多件:'
+
 function findDuplicateGroups(rows) {
   const byKey = new Map()
   for (const r of rows) {
@@ -992,6 +1006,32 @@ function selfTest(realNow = Date.now()) {
     eq(mix.violations.length, 1, '混合行里结构位的租约牌被码段里的叙述顶掉了')
     eq(mix.violations[0].kind, 'CL3')
   })
+  /**
+   * S17(2026-10-16 补):`--twins` 第二段旧文案自称"**逐字重复**的未勾行组",而判据
+   * `findDuplicateGroups` 归组用的键是 `squash(bodyOf(row))` —— 行首状态、认领/租约标记与空白
+   * 都被剥掉了。真仓 HEAD 面现读:被归组的 15 组里 **14 组两行并不逐字节相同**,差的字节正是
+   * `（进行中…）` 租约。谎称"逐字相同"的代价是有人照着这句话去删行,而 §1 明令"门绝不自动摘除
+   * 任何人的认领" —— 租约字节正是要害证据。成对断言:骨架同而字节异 ⇒ **照归组**(证明文案不得
+   * 自称整行逐字),骨架异 ⇒ 不归组(证明归组不是恒真);再锁报名本身含骨架口径与逐字节档的出路。
+   */
+  check('S17 骨架相同组不得谎称整行逐字相同(租约字节是 §1 活证据)', () => {
+    // 正文必须长过容器下界 CONTAIN_MIN(现读 20 个非空白字符)—— 短正文被下界挡掉是**设计**,
+    // 拿它当夹具只会量到下界而不是量到归组判据(2026-10-16 首轮就踩在这上面:期望 1 实得 0)。
+    const BODY = '冷启动抢跑全仓盘点余量甲任务的正文骨架需要长过容器下界'
+    const OTHER = '冷启动抢跑全仓盘点余量乙任务的正文骨架需要长过容器下界'
+    eq(BODY.replace(/\s/g, '').length >= 20, true, '夹具长度不足容器下界,本臂无牙')
+    const same = scanTasks(`- [ ] ${BODY}\n- [ ]（进行中） ${BODY}\n`)
+    const groups = findDuplicateGroups([...same.unclaimed, ...same.inProgress])
+    eq(groups.length, 1, '骨架相同而一枚带裸标记的两行未被归组')
+    const fulls = [...same.unclaimed, ...same.inProgress].map((r) => r.full)
+    eq(fulls.length, 2, '夹具两行都得被 scanTasks 认出来')
+    eq(fulls[0] === fulls[1], false, '夹具本身必须确实不等字节,否则本臂无牙')
+    const diff = scanTasks(`- [ ] ${BODY}\n- [ ] ${OTHER}\n`)
+    eq(findDuplicateGroups([...diff.unclaimed, ...diff.inProgress]).length, 0, '不同正文竟被归成一组')
+    eq(DUP_GROUP_HEADING.includes('骨架'), true, '报名未说明量的是正文骨架')
+    eq(DUP_GROUP_HEADING.includes('fold-identical-open-rows'), true, '报名未点名整行逐字节相同那条出路')
+    eq(DUP_GROUP_HEADING.includes('逐字重复的未勾行组'), false, '那句谎话仍在报名文案里')
+  })
   for (const r of results) console.log(r)
   console.log(`--self-test: ${results.length - failures}/${results.length} 通过`)
   return failures
@@ -1095,7 +1135,7 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
       )
     }
     console.log(
-      `\n逐字重复的未勾行组 (${dupGroups.length} 组,多出 ${dupExtra} 条) —— 会把一件事数成多件:`,
+      `\n${DUP_GROUP_HEADING} (${dupGroups.length} 组,多出 ${dupExtra} 条)`,
     )
     for (const g of dupGroups) console.log(`  ${g.map((l) => `L${l}`).join(' = ')}`)
     console.log(`判定面:${faceLabel}`)
@@ -1151,7 +1191,7 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   console.log('='.repeat(60))
   console.log()
   console.log(
-    `  无人认领:  ${unclaimed.length}(其中 ${unclaimed.length - claimable.length} 条是已闭环 [x] 行的孪生旧行 ⇒ **可认领 ${claimable.length}**;逐字重复组 ${dupGroups.length})`,
+    `  无人认领:  ${unclaimed.length}(其中 ${unclaimed.length - claimable.length} 条是已闭环 [x] 行的孪生旧行 ⇒ **可认领 ${claimable.length}**;正文骨架相同组 ${dupGroups.length},不等同整行逐字节 —— 见 --twins)`,
   )
   console.log(
     `  进行中:    ${inProgress.length}(旧格式无租约 ${leaseCounts.legacy} / 形态不可辨 ${leaseCounts.unknown} / 有持有者无日期 ${leaseCounts.holderNoDate};租约到期判红见 --check-gate)`,
@@ -1201,6 +1241,8 @@ export const __test__ = {
   scanTasks,
   findClosedTwins,
   findDuplicateGroups,
+  /** S17 锁的是"报名文案不得比判据强一档",镜像测试要读同一份文案,不许在测试里另写一句。 */
+  DUP_GROUP_HEADING,
   bodyOf,
   parseClaim,
   analyzeLeases,
