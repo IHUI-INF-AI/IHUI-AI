@@ -677,17 +677,11 @@ export function verifyContractEntries({
         evidenceProblems.push(`${ev.file}:${ev.line} 依据文件在 ${faceLabel} 中不存在`)
         continue
       }
-      const lines = content.split(/\r?\n/)
-      if (ev.line > lines.length) {
+      // §1 证据指针禁止行号(行号一次 append 就挪位)⇒ 依据按「内容锚点」核验:contains 必须在该文件
+      // HEAD blob 里真出现,但不再钉死它落在第几行 —— 钉死行号会造"被引文件上方一改即翻红"的结构性恒红(§12e)。
+      if (!content.includes(ev.contains)) {
         evidenceProblems.push(
-          `${ev.file}:${ev.line} 行号越界(${faceLabel} 该文件共 ${lines.length} 行)`,
-        )
-        continue
-      }
-      const text = lines[ev.line - 1] ?? ''
-      if (!text.includes(ev.contains)) {
-        evidenceProblems.push(
-          `${ev.file}:${ev.line} 该行不含被引用的标识符 ${JSON.stringify(ev.contains)}(依据已漂移)`,
+          `${ev.file}:${ev.line} HEAD 该文件未出现被引用的标识符 ${JSON.stringify(ev.contains)}(依据已漂移)`,
         )
       }
     }
