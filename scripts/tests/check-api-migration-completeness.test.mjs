@@ -86,6 +86,15 @@ test('输出 [1/6]: 审计报告文件存在性 (4 类: D盘Python/Java/Schema/�
   assert.match(NORMAL_RUN.stdout, /审计报告存在: db_schema_audit_report\.txt/)
 })
 
+// 回归锁:审计报告的搜索必须同时覆盖两处归档根。
+// 2026-09-13 头注就写明报告分居 .ihui-agent 与 .trae-cn;2026-10-16 归档退役清空了
+// .ihui-agent/archive/ ⇒ 若代码退回单搜 .ihui-agent,门 15 会因报告只剩 .trae-cn 而复发阻断红(§12e)。
+test('回归锁: 审计报告搜索覆盖 .ihui-agent + .trae-cn 两处归档根(防单路径回归)', () => {
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.match(src, /\.ihui-agent\/archive\/audit-reports-2026-07-21/, '应搜 .ihui-agent 归档根')
+  assert.match(src, /\.trae-cn\/archive\/audit-reports-2026-07-21/, '应搜 .trae-cn 归档根(归档退役后报告只剩此处)')
+})
+
 // ─── 4. [2/7] Schema 表完整性 (5 表 + index.ts 导出) ──────────
 test('输出 [2/7]: OAuth 私钥表 + 计费表 + zhs-full 字段对齐 (5 表)', () => {
   assert.match(NORMAL_RUN.stdout, /\[2\/7\] OAuth 私钥表/)
