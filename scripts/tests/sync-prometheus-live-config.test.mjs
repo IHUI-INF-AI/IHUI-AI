@@ -30,11 +30,20 @@ test('T2 找不到 rule_files 段 ⇒ 拒绝产出(而不是给出一份无规�
   )
 })
 
-test('T3 多条列表项必须收敛成一条,且后面的顶层键不被吃掉', () => {
-  const src = "rule_files:\n  - 'a.yml'\n  - 'b.yml'\nalerting:\n  alertmanagers:\n    - static_configs:\n        - targets: ['x:9093']\n"
+test('T3 多条规则文件必须逐条映射成绝对路径(旧写法收敛成一条 = 第二份规则静默不装载),且后面的顶层键不被吃掉', () => {
+  // 立因(2026-10-17 实测):仓库里加了 alerts-ai.yml 之后,老派生逻辑把 rule_files 整段
+  // 替换成单条 alerts.yml 绝对路径 ⇒ 运行副本里第二条是**相对路径**,Prometheus 在
+  // D:\DevEnv\monitor\prometheus\ 下找不到它 ⇒ AI 告警组一条都不装载,而 POST /-/reload
+  // 仍返回 200、账面"热加载成功"。判据"只应剩一条"把这个缺陷钉成了规矩,现予更正:
+  // 列表长度必须与仓库同源,顺序保留,块内缩进注释保留。
+  const src = "rule_files:\n  - 'a.yml'\n  # 组说明(块内注释必须留着)\n  - 'b.yml'\nalerting:\n  alertmanagers:\n    - static_configs:\n        - targets: ['x:9093']\n"
   const out = deriveLiveConfig(src, 'D:\\r\\alerts.yml')
   const listed = out.split('\n').filter((l) => /^\s*- /.test(l) && l.includes('yml'))
-  assert.equal(listed.length, 1, '规则列表只应剩一条')
+  assert.equal(listed.length, 2, '规则列表条数必须与仓库同源(第二条被吃掉 = 该组静默不装载)')
+  assert.ok(listed[0].includes('D:\\r\\a.yml'), `第一条须为仓库绝对路径,实得:${listed[0]}`)
+  assert.ok(listed[1].includes('D:\\r\\b.yml'), `第二条须为仓库绝对路径,实得:${listed[1]}`)
+  assert.ok(out.includes('组说明'), '块内缩进注释必须逐字保留(它记的是这条规则为什么存在)')
+  assert.ok(!/^\s*-\s+'b\.mls?'/m.test(out), '不得残留相对路径的第二条')
   assert.ok(out.includes('alerting:'), 'rule_files 之后的顶层键不得被当列表项吞掉')
   assert.ok(out.includes("'x:9093'"), 'alertmanager 目标必须还在')
 })
