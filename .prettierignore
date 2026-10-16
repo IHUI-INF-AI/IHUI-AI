@@ -58,3 +58,9 @@ packages/types/generated/capabilities.json
 # 会把跨行空数组折回单行 "entries": [] —— 那正是祖先销账版 5c38c62e1 的已删行,
 # R1r 每次都判"复活祖先行" ⇒ 销账提交死锁。格式化对这份守门判据数据没有价值,退出格式门禁。
 scripts/data/no-nested-git-exemptions.json
+
+# i18n 共享语言包(七端单一来源,人工 + 脚本 JSON.stringify(obj, null, 2) 写出,
+# 刻意保持「数组元素多行展开」形态;prettier 默认会把短数组折成单行(<= printWidth),
+# 每次 lint-staged 提交都整文件重排成巨型假 diff。与上方 miniapp 生成物同策略:
+# 退出格式门禁,prettier 永不再碰这些文件。加键只产生极小的 +2 行 diff)
+packages/i18n/messages/
