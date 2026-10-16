@@ -7,8 +7,21 @@ android {
         applicationId "top.aizhs.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // 2026-10-17 起不再写死版本号(此前是 versionCode 1 / versionName "1.0",
+        // 与 apps/mobile-cap/package.json 长期不一致且永远不涨,属"看起来有版本"的假号):
+        //   versionName —— CI 注入 IHUI_MOBILE_VERSION 时用它(与 RN 端同源,由
+        //     scripts/resolve-mobile-version.mjs 派生);未注入则自动跟随本端 package.json,
+        //     不再需要在两个文件里各写一份。
+        //   versionCode —— 同样优先取注入值;缺省时按 UTC YYMMDDHH 现算(天然单调递增),
+        //     避免"号段永远停在 1"导致 Android 拒绝覆盖安装。
+        versionCode Integer.parseInt(
+            System.getenv('IHUI_VERSION_CODE')
+                ?: new Date().format('yyMMddHH', TimeZone.getTimeZone('UTC'))
+        )
+        versionName(
+            System.getenv('IHUI_MOBILE_VERSION')
+                ?: new groovy.json.JsonSlurper().parseText(file('../../package.json').text).version
+        )
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
