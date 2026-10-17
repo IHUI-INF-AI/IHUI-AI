@@ -336,7 +336,7 @@ function funcBody(src, name) {
 test('装车证明:三类"只有守护看得见"的红都真接了 notifyGuardRed', () => {
   const src = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
   assert.match(funcBody(src, 'auditMergeAdditionLoss'), /notifyGuardRed\(\s*\n?\s*'合并吞并对账判红/)
-  assert.match(funcBody(src, 'auditMergeAdditionLoss'), /notifyGuardRed\([\s\S]*?合并吞并对账自身异常/)
+  assert.match(funcBody(src, 'auditMergeAdditionLoss'), /notifyGuardRed\([\s\S]*?合并吞并对账持续取不到结论/)
   assert.match(funcBody(src, 'healHomeJunctions'), /notifyGuardRed\(\s*\n?\s*'家目录改道修复后仍判红/)
   assert.match(funcBody(src, 'refreshRecoverySource'), /notifyGuardRed\(\s*\n?\s*'本地恢复源刷新失败/)
 })
@@ -452,6 +452,46 @@ test('V6 真探针端到面:把现读那把 rc=1 的 stdout 喂给判读器,必�
   const r = N.readProbeVerdict({ status: out.status, stdout: out.stdout, stderr: out.stderr })
   assert.ok(r.parsed, `真探针 rc=${out.status} 的结论被丢了:${r.why}`)
   assert.ok(r.parsed.axes && typeof r.parsed.axes === 'object', 'axes 必须在位')
+})
+
+// ── ⑥ 合并吞并对账(2026-10-17 立):"取不到输入"不得冒"对账层坏了"那封 critical ────
+// 立因:上午共享 git 争用让该对账连续取不到输入,守护当场寄出 severity=critical 的"自身异常",
+// 而同一枚对账手工复跑 0.46 秒即绿(审计 0 枚吞并)。信里没有病名(stdio 把 stderr 丢了),
+// 收信人唯一能做的动作就是把尺子再跑一遍 —— 那正是本层该替他做完的事。
+test('classifyMergeLossOutcome:绿/判红/未判定三档成对;exit2 与超时都是未判定,不是判红', () => {
+  assert.deepEqual(N.classifyMergeLossOutcome(null), { kind: 'ok' })
+  assert.equal(N.classifyMergeLossOutcome({ status: 1 }).kind, 'breach', 'exit 1 = 业务判红')
+  assert.equal(N.classifyMergeLossOutcome({ status: 1 }).code, 1)
+  assert.equal(N.classifyMergeLossOutcome({ status: 2 }).kind, 'undetermined', 'exit 2 = 取不到输入,不得读成坏了也不得读成没问题')
+  assert.equal(N.classifyMergeLossOutcome({ status: 3 }).kind, 'breach', '非 0 非 2 的退出码按业务失败交上去,不许被折成未判定放行')
+  assert.equal(N.classifyMergeLossOutcome({ code: 'ETIMEDOUT', killed: true }).kind, 'undetermined', '派生超时')
+  assert.equal(N.classifyMergeLossOutcome({ signal: 'SIGKILL' }).kind, 'undetermined', '被杀')
+  assert.equal(N.classifyMergeLossOutcome({ message: '模块找不到' }).kind, 'undetermined', '归因不明一律未判定(交持续性门槛判,不在此处放行)')
+  assert.match(N.classifyMergeLossOutcome({ code: 'ETIMEDOUT' }).why, /ETIMEDOUT/, '未判定必须带病名,信里不能只有结论')
+})
+
+test('未判定的持续性起点:首轮 held 0 ⇒ 不到人;连满窗才算;取到绿之后必须清零', () => {
+  const dir = mkScratch('gg-merge-loss-')
+  const file = join(dir, 'undetermined-first.json')
+  const T0 = 1_760_000_000_000
+  const a = N.noteMergeLossUndetermined(T0, file)
+  assert.equal(a.heldMs, 0, '首轮以本次为起点')
+  const b = N.noteMergeLossUndetermined(T0 + 31 * 60 * 1000, file)
+  assert.equal(b.firstMs, T0, '起点必须沿用,不能每轮重记(否则永远攒不到窗)')
+  assert.ok(b.heldMs >= 30 * 60 * 1000, '连满 30 分钟才够格按结构性故障喊人')
+  N.clearMergeLossUndetermined(file)
+  assert.equal(existsSync(file), false, '取到结论后必须清起点')
+  const c = N.noteMergeLossUndetermined(T0 + 60 * 60 * 1000, file)
+  assert.equal(c.heldMs, 0, '清零后重新起算,不得拿上一场故障的账续命')
+  rmScratch(dir)
+})
+
+test('形状锁:auditMergeAdditionLoss 体内仍调 notifyGuardRed,且 stderr 必须接(第三态 pipe)', () => {
+  const src = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
+  const body = funcBody(src, 'auditMergeAdditionLoss')
+  assert.ok(body.includes('notifyGuardRed('), '判红与持续取不到都得有到人出口')
+  assert.match(body, /stdio:\s*\['ignore',\s*'pipe',\s*'pipe'\]/, "stderr 再被丢弃 = 信里没有病名(2026-10-17 那一型)")
+  assert.match(body, /classifyMergeLossOutcome/, '结论分档必须走导出的那一格,不得在派发层另抄一份')
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
