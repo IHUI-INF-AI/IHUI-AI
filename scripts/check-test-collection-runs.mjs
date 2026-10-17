@@ -50,6 +50,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { flagValue, describeFlagToken } from './lib/flag-value.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -436,11 +437,6 @@ async function selfTest() {
   return fail === 0 ? 0 : 1
 }
 
-function parseArg(argv, name) {
-  const i = argv.indexOf(name)
-  return i >= 0 && i + 1 < argv.length ? argv[i + 1] : null
-}
-
 async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) {
@@ -456,9 +452,32 @@ async function main() {
     }
   }
   const ends = []
-  for (let i = 0; i < argv.length; i += 1) if (argv[i] === '--end' && argv[i + 1]) ends.push(argv[++i])
+  // G-322:--end 给旗标不给值(结尾漏值)一律 exit 2 点名 —— 旧写法只查 truthy,漏值静默退
+  // DEFAULT_ENDS;`--end --strict` 会把 "--strict" 吞成端目录名。多次给 --end 仍全部收进。
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] !== '--end') continue
+    const next = argv[i + 1]
+    if (next === undefined || next === '' || next.startsWith('-')) {
+      console.error(
+        `❌ --end 需要一个端目录 —— 紧邻的 token 实得:${next === undefined ? '(其后没有任何参数)' : JSON.stringify(next)}(不得静默退回默认端)`,
+      )
+      process.exitCode = 2
+      return
+    }
+    ends.push(next)
+    i += 1
+  }
   const targets = (ends.length > 0 ? ends : DEFAULT_ENDS).map((e) => resolve(ROOT, e))
-  const rawTimeout = parseArg(argv, '--timeout')
+  // G-322:--timeout 给旗标不给值(结尾漏值/被下一旗标顶值)一律 exit 2 点名,不静默落默认超时。
+  const timeoutFlag = flagValue(argv, '--timeout')
+  if (timeoutFlag.present && !timeoutFlag.valid) {
+    console.error(
+      `❌ --timeout 需要一个正整数毫秒 —— 紧邻的 token 实得:${describeFlagToken(timeoutFlag)}(不得静默退回默认)`,
+    )
+    process.exitCode = 2
+    return
+  }
+  const rawTimeout = timeoutFlag.present ? timeoutFlag.value : null
   const timeoutMs = rawTimeout === null ? DEFAULT_TIMEOUT_MS : Number(rawTimeout)
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     console.error(`❌ --timeout 必须是正整数毫秒,收到:${rawTimeout}`)

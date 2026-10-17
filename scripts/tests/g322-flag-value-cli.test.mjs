@@ -381,6 +381,134 @@ test('G-322 第六批:check-staged-deletions 的 --allowlist 三支坏值必须�
   }
 })
 
+// ─── 第十六批(2026-10-17)───
+// 本批射程 = HEAD 面只读尺重扫后仍为 **A 档(静默吞值)** 的 9 处 + **B 档(非零但形态不佳)** 的 4 处。
+// 三支坏值(顶值 / 缺值 / 空串)在本批各站**不等价**,故逐支断言:有的站缺值走 `(其后没有任何参数)`,
+// 有的站缺值走 `(缺)`,只测一支必留洞(census「三支坏值不等价」)。
+test('G-322 第十六批:A 档 9 处 —— --root/--rev/--limit/--end/--timeout/--locale/--copy-assets 各自三支坏值大声拒绝', () => {
+  // ① 走共享出口 / describeFlagToken 的六站:三支坏值文案与全仓标准同形。
+  assertBadRoot(S('check-exemption-expiry.mjs'), '目录参数')
+  assertBadRoot(S('check-orphan-deletion-refs.mjs'), '目录参数')
+  assertBadRoot(S('c-disk-breakdown.mjs'), '参数')
+
+  // ② --locale:旧写法空格形直接吞下一个 token(含下一个旗标)并静默回落默认语言集。
+  const bg = S('apply-brand-glossary.mjs')
+  for (const { args, expect } of [
+    { args: ['--locale', '--dry-run'], expect: '"--dry-run"' },
+    { args: ['--locale'], expect: '(其后没有任何参数)' },
+    { args: ['--locale', ''], expect: '""' },
+  ]) {
+    const r = spawnSync(process.execPath, [bg, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2:静默回落默认语言集 = 把"我指定了语言"写成"我按默认跑"\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, /--locale 需要一个语言代码/, out.slice(0, 200))
+    assert.match(out, new RegExp(expect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), out.slice(0, 200))
+  }
+
+  // ③ --rev/--limit:审计窗口型。--limit 另有数值域一支(abc 不是"被吞",是"读成 NaN ⇒ 回看 0 枚").
+  const mal = S('check-merge-addition-loss.mjs')
+  for (const flag of ['--rev', '--limit']) {
+    for (const { args, expect } of [
+      { args: [flag, '--all-new'], expect: '"--all-new"' },
+      { args: [flag], expect: '(其后没有任何参数)' },
+      { args: [flag, ''], expect: '""' },
+    ]) {
+      const r = spawnSync(process.execPath, [mal, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      assert.equal(r.status, 2, `${flag} ${JSON.stringify(args)} 必须 exit 2\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+      const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+      assert.match(out, new RegExp(`${flag} 需要一个`), out.slice(0, 200))
+      assert.match(out, new RegExp(expect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), out.slice(0, 200))
+    }
+  }
+  for (const script of [mal, S('check-merge-deletion-resurrection.mjs')]) {
+    const r = spawnSync(process.execPath, [script, '--limit', 'abc'], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.equal(r.status, 2, `${script.split('/').pop()} --limit abc 必须 exit 2(旧写法 Number('abc')=NaN ⇒ 回看 0 枚仍出结论)`)
+    assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, /必须是正整数/)
+  }
+
+  // ④ --end/--timeout:该文件用 process.exitCode 而非 process.exit ⇒ 探针必须量 rc(点名却 rc=0 = 看着拦了其实放行)。
+  const tcr = S('check-test-collection-runs.mjs')
+  for (const { args, expect } of [
+    { args: ['--end', '--strict'], expect: '"--strict"' },
+    { args: ['--end'], expect: '(其后没有任何参数)' },
+    { args: ['--end', ''], expect: '""' },
+    { args: ['--timeout', '--strict'], expect: '"--strict"' },
+    { args: ['--timeout'], expect: '(其后没有任何参数)' },
+    { args: ['--timeout', ''], expect: '""' },
+  ]) {
+    const r = spawnSync(process.execPath, [tcr, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2(旧写法 --end 吞掉下一旗标 = 扫另一个端;\n` +
+      `--timeout 读成 NaN ⇒ 超时判定恒假 = 慢套件静默放行)\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, /--(end|timeout) 需要一个/, out.slice(0, 200))
+    assert.match(out, new RegExp(expect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), out.slice(0, 200))
+  }
+
+  // ⑤ --copy-assets:漏值时 copyAssets=undefined ⇒ 整步拷贝静默跳过,构建照报成功(产物缺资产却"绿")。
+  const ab = S('lib/atomic-build.mjs')
+  for (const { args, expect } of [
+    { args: ['--outDir', 'dist', '--copy-assets', '-x'], expect: '"-x"' },
+    { args: ['--outDir', 'dist', '--copy-assets'], expect: '(其后没有任何参数)' },
+    { args: ['--outDir', 'dist', '--copy-assets', ''], expect: '""' },
+  ]) {
+    const r = spawnSync(process.execPath, [ab, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2,不得静默跳过拷贝步骤\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, /--copy-assets 需要一个脚本路径/, out.slice(0, 200))
+    assert.match(out, new RegExp(expect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), out.slice(0, 200))
+  }
+})
+
+test('G-322 第十六批:B 档 4 处 —— 非零但形态不佳(裸栈 rc=1 / 只查在场 / 点名后退默认照跑)', () => {
+  // ① 两站旧写法在模块顶层 throw ⇒ rc=1 且**无点名**(读者只看到 Node 栈),调用方分不清"用法错"与"门自身炸了"。
+  for (const f of ['check-root-dir-clean.mjs', 'check-test-paths.mjs']) {
+    assertBadRoot(S(f), '目录参数')
+  }
+
+  // ② hook-window-guard:旧写法只查旗标在场(i>=0/j>=0),值被顶掉时把 `--repo` 当基线文件路径往下传。
+  const hw = S('lib/hook-window-guard.mjs')
+  for (const { args, expect, flag } of [
+    { args: ['--check', '--baseline', '--repo', 'x'], expect: '"--repo"', flag: '--baseline' },
+    { args: ['--check', '--baseline', 'a', '--repo'], expect: '(其后没有任何参数)', flag: '--repo' },
+    { args: ['--check', '--baseline', '', '--repo', 'x'], expect: '""', flag: '--baseline' },
+  ]) {
+    const r = spawnSync(process.execPath, [hw, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, new RegExp(`${flag} 需要一个参数`), out.slice(0, 200))
+    assert.match(out, new RegExp(expect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), out.slice(0, 200))
+  }
+
+  // ③ plan-id-face:旧写法点名后退默认 HEAD 照跑 **exit 0** —— 对取号器而言等于把"我问的是另一个面"写成"我问的就是这个面"。
+  //    纯函数 resolveSource 的「退默认 + notice」语义由镜像自检锁住(库内复用),判死只发生在 CLI 入口。
+  const pf = S('lib/plan-id-face.mjs')
+  for (const { args, expect } of [
+    { args: ['--source', '--json'], expect: '"--json"' },
+    { args: ['--source'], expect: '(其后没有任何参数)' },
+    { args: ['--source', ''], expect: '""' },
+  ]) {
+    const r = spawnSync(process.execPath, [pf, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2(旧写法 exit 0 并给出 HEAD 面的号)\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, /--source 在场时值必须有效/, out.slice(0, 200))
+    assert.match(out, new RegExp(expect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), out.slice(0, 200))
+  }
+
+  // ④ --threshold-min:纯函数 resolveThresholdMin 的「非法值回落默认」语义被自检钉住,判死在 CLI 层。
+  const ua = S('check-uncommitted-age.mjs')
+  for (const { args, expect } of [
+    { args: ['--threshold-min', '--json'], expect: '"--json"' },
+    { args: ['--threshold-min'], expect: '(其后没有任何参数)' },
+    { args: ['--threshold-min', ''], expect: '""' },
+  ]) {
+    const r = spawnSync(process.execPath, [ua, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2:静默回落默认阈值 = 超龄判定按另一把尺子出结论\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, /--threshold-min 需要一个正整数分钟数/, out.slice(0, 200))
+    assert.match(out, new RegExp(expect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), out.slice(0, 200))
+  }
+})
+
 test('G-322 第五批:scan-hardcoded-zh 的 --exit blocking 腿不得把坏值读成"非严格档"(§0.10)', () => {
   const script = S('scan-hardcoded-zh.mjs')
   for (const args of [['--exit'], ['--exit', ''], ['--exit', '--staged'], ['--exit', '2']]) {

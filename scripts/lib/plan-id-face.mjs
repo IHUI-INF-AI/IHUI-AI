@@ -683,7 +683,13 @@ function main() {
     }
   }
   const { source, notice } = resolveSource(argv)
-  if (notice) console.error(`ℹ ${notice}`)
+  if (notice) {
+    // G-322 第十六批(B 档收口):--source 给了旗标但值无效时 CLI 层判死 exit 2,
+    // 不再「点名后退默认照跑 exit 0」。纯函数 resolveSource 的「退默认+notice」语义
+    // 被镜像自检钉住(供库内复用),判死只发生在 CLI 入口这一层。
+    console.error(`❌ ${notice}(--source 在场时值必须有效,不得静默退回默认 HEAD)`)
+    return 2
+  }
   let face
   try {
     face = collectIdFace({ root: REPO_ROOT, source })

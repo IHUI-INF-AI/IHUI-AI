@@ -5,11 +5,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, cleanup, act } from '@testing-library/react'
 
-import {
-  computeOverflowEdges,
-  overflowEdgeState,
-  OverflowShadow,
-} from '../overflow-shadow'
+import { computeOverflowEdges, overflowEdgeState, OverflowShadow } from '../overflow-shadow'
 
 /**
  * G-827 —— 横向溢出的方向阴影线索。
@@ -31,12 +27,20 @@ const setMetrics = (
   Object.defineProperty(el, 'scrollWidth', { configurable: true, value: m.scrollWidth })
   Object.defineProperty(el, 'clientWidth', { configurable: true, value: m.clientWidth })
   if (m.scrollLeft !== undefined) {
-    Object.defineProperty(el, 'scrollLeft', { configurable: true, writable: true, value: m.scrollLeft })
+    Object.defineProperty(el, 'scrollLeft', {
+      configurable: true,
+      writable: true,
+      value: m.scrollLeft,
+    })
   }
 }
 
 /** render + 注入尺寸 + 触发一次 scroll 同步(jsdom 无布局,尺寸必须显式给)。 */
-const renderWithMetrics = (m: { scrollLeft?: number; scrollWidth: number; clientWidth: number }) => {
+const renderWithMetrics = (m: {
+  scrollLeft?: number
+  scrollWidth: number
+  clientWidth: number
+}) => {
   const view = render(
     <OverflowShadow>
       <span data-testid="inner">内容</span>
@@ -93,9 +97,13 @@ describe('computeOverflowEdges(判据表,对齐上游四态)', () => {
 
   it('边界容差:滚到 1px 内视为到边,不亮对应侧', () => {
     // 距最右 1px ⇒ 右向不亮(阈值 EDGE_EPSILON)
-    expect(computeOverflowEdges({ scrollLeft: 299, scrollWidth: 600, clientWidth: 300 }).right).toBe(false)
+    expect(
+      computeOverflowEdges({ scrollLeft: 299, scrollWidth: 600, clientWidth: 300 }).right,
+    ).toBe(false)
     // 滚过 1px ⇒ 左向亮
-    expect(computeOverflowEdges({ scrollLeft: 2, scrollWidth: 600, clientWidth: 300 }).left).toBe(true)
+    expect(computeOverflowEdges({ scrollLeft: 2, scrollWidth: 600, clientWidth: 300 }).left).toBe(
+      true,
+    )
   })
 })
 
@@ -123,5 +131,28 @@ describe('OverflowShadow 组件行为(票面验收两条)', () => {
     // 最左 ⇒ 左向不渲染
     expect(screen.queryByTestId('overflow-shadow-left')).toBeNull()
     expect(container.firstElementChild?.getAttribute('data-overflow-shadow')).toBe('right')
+  })
+
+  it('滚到最右后右向消失、左向出现(真实 scrollLeft 驱动,验 scroll 监听同步)', () => {
+    const { container } = renderWithMetrics({ scrollLeft: 0, scrollWidth: 600, clientWidth: 300 })
+    expect(screen.getByTestId('overflow-shadow-right')).toBeTruthy()
+
+    const scroller = container.querySelector('.overflow-x-auto') as HTMLElement
+    // 模拟用户把内容拖到最右:改 scrollLeft 后派发 scroll,组件须同步四态
+    setMetrics(scroller, { scrollLeft: 300, scrollWidth: 600, clientWidth: 300 })
+    act(() => {
+      scroller.dispatchEvent(new Event('scroll'))
+    })
+
+    expect(screen.queryByTestId('overflow-shadow-right')).toBeNull()
+    expect(screen.getByTestId('overflow-shadow-left')).toBeTruthy()
+    expect(container.firstElementChild?.getAttribute('data-overflow-shadow')).toBe('left')
+  })
+
+  it('滚到中间 ⇒ 两向线索同时存在(四态 both)', () => {
+    renderWithMetrics({ scrollLeft: 150, scrollWidth: 600, clientWidth: 300 })
+
+    expect(screen.getByTestId('overflow-shadow-left')).toBeTruthy()
+    expect(screen.getByTestId('overflow-shadow-right')).toBeTruthy()
   })
 })

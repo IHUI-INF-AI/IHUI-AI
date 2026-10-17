@@ -29,6 +29,7 @@ import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { describeFlagToken, flagValue } from './flag-value.mjs'
 
 function main(argv) {
   const pkgRoot = process.cwd()
@@ -55,8 +56,15 @@ function main(argv) {
   })
 
   const sep = argv.indexOf('--copy-assets')
+  // G-322 第十六批:--copy-assets 在场但缺值/被顶值时必须大声判死,
+  // 不得让 copyAssets=undefined 静默跳过拷贝步骤照报成功。
+  const copyFlag = flagValue(argv, '--copy-assets')
+  if (copyFlag.present && !copyFlag.valid) {
+    console.error(`[atomic-build] --copy-assets 需要一个脚本路径 —— 紧邻的 token 实得:${describeFlagToken(copyFlag)}(不得静默跳过拷贝步骤)`)
+    process.exit(2)
+  }
   const tscArgs = sep === -1 ? argv : argv.slice(0, sep)
-  const copyAssets = sep === -1 ? null : argv[sep + 1]
+  const copyAssets = copyFlag.present ? copyFlag.value : null
 
   if (tscArgs.length === 0) {
     console.error('[atomic-build] 缺少 tsc 参数，用法: atomic-build.mjs <tsc 参数...> [--copy-assets <脚本路径>]')
