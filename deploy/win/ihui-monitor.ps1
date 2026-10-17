@@ -9,7 +9,8 @@
 #   1. 本地端口 8801/8802/8803 是否监听
 #   2. 公网 aizhs.top / api.aizhs.top 是否可达
 #   3. 磁盘剩余(阈值 10GB)
-#   4. 数据库备份新鲜度(< 26h 视为正常)
+#   4. 数据库备份新鲜度(< 26h 视为正常;逐类各判各的:ihui_dev 与 keycloak 同轮产出,
+#      两类各出一条身份,一类没备份与"读不到"分两格写 —— 见巡检段第 4 维注释)
 # 异常写入 D:\DevEnv\logs\monitor-alerts.log(带时间戳)
 #
 # 2026-08-09 增强:报警消息自动附带【原因诊断】——
@@ -250,7 +251,7 @@ function Get-DiskFreeTier {
 
 function Get-BackupMissedShifts {
   # 备份超龄小时数 → "已错过几班每日备份"(整数档号)。边界同样只用现读数:
-  #   · 26h = 本文件既有阈值(文件头 :12「数据库备份新鲜度(< 26h 视为正常)」)
+  #   · 26h = 本文件既有阈值(文件头 :12「数据库备份新鲜度(< 26h 视为正常;逐类各判各的…)」)
   #   · 24h = 备份节奏「启动即备份一次 → 每天 03:00 执行一次备份」
   #           (deploy/win/ihui-pg-backup-scheduler.ps1:8 现读;失败轮 30 分钟重试最多 4 次
   #            ≈2 小时后"仍失败则等下一班 03:00",同文件 :9 ⇒ 一轮缺失的判定粒度是一班,不是一小时)
@@ -289,6 +290,16 @@ function Get-BackupAlertSig {
   # 备份超龄告警身份:只含 类别+缺几班(都不随轮次抖)。备份文件名与实测小时数进 $alertDetail。
   param([string]$Kind, [int]$Shifts)
   return "备份超龄 类别=$Kind 档=缺$Shifts 班(>26h)"
+}
+
+function Get-BackupAbsentAlertSig {
+  # 某一类备份"一个文件都没有"的告警身份:只含类别(常量,不随轮次抖)。备份目录与匹配式进
+  # $alertDetail。它与 Get-BackupAlertSig 是**两格判据**,不得并成一格:
+  #   本函数 = 枚举成功且结果为零个文件 ⇒ 真没备份(红);
+  #   "目录取不到 / 枚举抛错 / 最新时刻读不出" = 判不出 ⇒ 只落日志喊「未判定」,既不红也不绿。
+  # 身份必须带类别:两类共用一条常量时,一类没备份会被另一类顶掉(去重只认一个身份)。
+  param([string]$Kind)
+  return "无数据库备份文件 类别=$Kind"
 }
 
 function Write-Undelivered {
@@ -631,22 +642,53 @@ while ($true) {
   # 也换名)⇒ 同一条断链每轮都是新身份,与第 3 维同型。现在身份只带**类别 + 缺几班**(边界出处见
   # Get-BackupMissedShifts 头注:26h 既有阈值 + 每日 03:00 一班的备份节奏),文件名与实测小时数
   # 进正文。类别取本行既有 glob 的前缀(常量,不是文件名);逐类各出一条身份,不并成一条。
-  # 现读 D:\DevEnv\backups\pg\ 里另有 keycloak_*.dump 从未进本维射程 —— 本轮不扩面(新能力),
-  # 登记在交付物"未做项"。
+  # [2026-10-17 扩面] 射程从"只 glob ihui_dev"改为**逐类枚举**(ihui_dev + keycloak)。立因:
+  #   本机 D:\DevEnv\backups\pg\ 现读 keycloak_20261017_030003.dump 存在且每日 03:00 一轮,而旧
+  #   写法只看 ihui_dev ⇒ keycloak 停更永远不会喊。两类**同一轮备份节律**,故阈值一律复用
+  #   Get-BackupMissedShifts(26h/24h 那两档的唯一实现),这里不新造第二个数:
+  #     · 同轮出处 = deploy/win/ihui-pg-backup.ps1:353 `$backupDatabases = @($dbName, 'keycloak')`
+  #       (文件头 :9「清单 = ihui_dev + keycloak」;逐库产出同一时间戳)
+  #     · 班次出处 = deploy/win/ihui-pg-backup-scheduler.ps1:8「每天 03:00 执行一次备份」
+  #   三态分格(不得混成一格,§0.3):①超龄 ⇒ 逐类一条"备份超龄 类别=X 档=缺N 班";
+  #   ②该类枚举成功而文件为零 ⇒ 逐类一条"无数据库备份文件 类别=X"(红,真没备份);
+  #   ③目录取不到 / 枚举抛错 / 最新时刻读不出 ⇒ 逐类落日志「未判定」并点名类别与原因,既不冒红
+  #   也不冒绿。旧写法是 `Get-ChildItem ... -ErrorAction SilentlyContinue`,把③读成②(判不出
+  #   被当成"没备份"寄红信,或反过来被当成"正常");并且整维只有一个 catch —— 一类抛错会把
+  #   另一类一起带走(那类当轮压根没判)。现在每类各一个 catch,一类判不出不影响另一类。
   try {
-    $bakTargets = @(@{ kind = 'ihui_dev'; glob = 'D:\DevEnv\backups\pg\ihui_dev_*.dump' })
+    $bakTargets = @(
+      @{ kind = 'ihui_dev'; dir = 'D:\DevEnv\backups\pg'; pattern = 'ihui_dev_*.dump' },
+      @{ kind = 'keycloak'; dir = 'D:\DevEnv\backups\pg'; pattern = 'keycloak_*.dump' }
+    )
     foreach ($t in $bakTargets) {
-      $latest = Get-ChildItem $t.glob -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-      if (-not $latest) { $alerts += "无数据库备份文件"; continue }
-      $ageH = ((Get-Date) - $latest.LastWriteTime).TotalHours
-      if ($ageH -gt 26) {
-        $shifts = Get-BackupMissedShifts -AgeHours $ageH
-        $alerts += (Get-BackupAlertSig -Kind $t.kind -Shifts $shifts)
-        $alertDetail += "备份类别=$($t.kind) 最新 $($latest.Name) 距今 $([math]::Round($ageH, 1))h(=缺 $shifts 班)"
+      try {
+        if (-not (Test-Path -LiteralPath $t.dir)) {
+          Log "备份新鲜度维 未判定(类别=$($t.kind) 备份目录取不到:$($t.dir))——不等于该类无备份,也不等于正常"
+          continue
+        }
+        $files = @(Get-ChildItem -LiteralPath $t.dir -Filter $t.pattern -File -ErrorAction Stop)
+        if ($files.Count -eq 0) {
+          $alerts += (Get-BackupAbsentAlertSig -Kind $t.kind)
+          $alertDetail += "备份类别=$($t.kind) 在 $($t.dir) 按 $($t.pattern) 枚举到 0 个文件(枚举成功=真没备份,不是判不出)"
+          continue
+        }
+        $latest = $files | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if (-not $latest -or -not $latest.LastWriteTime) {
+          Log "备份新鲜度维 未判定(类别=$($t.kind) 有 $($files.Count) 个文件但最新时刻读不出)——超龄与否本轮不判"
+          continue
+        }
+        $ageH = ((Get-Date) - $latest.LastWriteTime).TotalHours
+        if ($ageH -gt 26) {
+          $shifts = Get-BackupMissedShifts -AgeHours $ageH
+          $alerts += (Get-BackupAlertSig -Kind $t.kind -Shifts $shifts)
+          $alertDetail += "备份类别=$($t.kind) 最新 $($latest.Name) 距今 $([math]::Round($ageH, 1))h(=缺 $shifts 班)"
+        }
+      } catch {
+        Log "备份新鲜度维 未判定(类别=$($t.kind) 读数取不出):$($_.Exception.Message)"
       }
     }
   } catch {
-    Log "备份新鲜度维 未判定(读数取不出):$($_.Exception.Message)"
+    Log "备份新鲜度维 未判定(本维整轮未跑起来):$($_.Exception.Message)"
   }
 
   # 汇总
