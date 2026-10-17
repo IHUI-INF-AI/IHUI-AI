@@ -954,6 +954,47 @@
     },
     "welcomeDesc": "何かお手伝いしましょうか?",
     "welcomeTitle": "こんにちは、IHUI AIアシスタントです",
+    "businessForms": {
+      "ariaLabel": "業務フォームカード",
+      "aria": {
+        "email": "メール作成カード",
+        "calendarEvent": "カレンダーフォームカード"
+      },
+      "fields": {
+        "to": "宛先",
+        "cc": "CC",
+        "bcc": "BCC",
+        "subject": "件名",
+        "replyTo": "返信先",
+        "body": "本文",
+        "start": "開始",
+        "end": "終了",
+        "attendees": "出席者"
+      },
+      "action": {
+        "approve": "承認",
+        "reject": "却下",
+        "create": "作成",
+        "save": "保存"
+      },
+      "error": {
+        "required": "この項目は必須です",
+        "invalidEmail": "メールアドレスの形式が正しくありません",
+        "endBeforeStart": "終了時刻は開始時刻より後にしてください",
+        "noAttendees": "出席者を少なくとも1名追加してください"
+      },
+      "reason": "拒否理由(任意)",
+        "fold": {
+        "expand": "全 {count} 名の出席者を表示",
+        "collapse": "出席者を折りたたむ"
+      },
+      "status": {
+        "submitting": "送信中…",
+        "approved": "承認済み",
+        "rejected": "却下済み",
+        "failed": "送信に失敗しました。再試行してください"
+      }
+    },
     "cards": {
       "steer": {
         "title": "{count} 回誘導済み",
