@@ -6,6 +6,7 @@ import * as React from 'react'
 import type { ChatMessage } from '@/stores/chat'
 import type { SubAgentActivity } from '@/components/ai/types'
 import type { PlanStep } from '@/hooks/use-agent-progress'
+import { stabilizeListItems } from '@ihui/shared/ui/list-stabilization'
 import { useChatStore } from '@/stores/chat'
 import { useTimelineStore, type TimelineEvent } from '@/stores/timeline-store'
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
@@ -54,6 +55,11 @@ export function useMessageListDerivations({
   // - 语言切换时 next-intl 返回新 t 引用 → 触发 useMemo 重算 → prevTRef 检测到变化清空缓存,避免旧翻译残留
   const completedPlanStepsRef = React.useRef<Map<string, PlanStep[]>>(new Map())
   const prevTRef = React.useRef<typeof t | null>(null)
+  // G-108(2026-10-18 立):两张派生列表各自记住上一帧那份数组 —— 内容逐元素结构等值时
+  // 复用旧引用(整表等值则复用数组本身),否则每个 token 到达都换新引用,
+  // 订阅方(ProgressJumpStore 链接效应 / timeline 消费组件)整列表重跑 = 「闪一下」那一型。
+  const lastPlanStepsRef = React.useRef<PlanStep[]>([])
+  const lastDerivedEventsRef = React.useRef<TimelineEvent[]>([])
 
   // PlanStepsCard 数据源(2026-07-31 深度优化,对标 Codex /plan + 折叠态摘要设计):
   // W1(2026-09-12 立):真实 SSE 事件优先,伪派生为兜底。
@@ -170,7 +176,9 @@ export function useMessageListDerivations({
 
       steps.push(...msgSteps)
     })
-    return steps
+    const stableSteps = stabilizeListItems(lastPlanStepsRef.current, steps)
+    lastPlanStepsRef.current = stableSteps
+    return stableSteps
     // W1(2026-09-12 立):依赖数组中的 messages 即 msg.planSteps 的等价依赖 ——
     // setMessagePlanSteps 走 `s.messages.slice()` 生成新数组引用,真实事件落地后
     // messages 引用变化即触发本 useMemo 重算,无需额外依赖。
@@ -227,7 +235,9 @@ export function useMessageListDerivations({
         meta: { agentId: sa.agentId },
       })
     }
-    return events
+    const stableEvents = stabilizeListItems(lastDerivedEventsRef.current, events)
+    lastDerivedEventsRef.current = stableEvents
+    return stableEvents
   }, [messages, subAgentActivities, t])
   // deferred 值:urgent render 返回旧值,空闲时再更新 → 减少 effect 写 store 频率
   const derivedEvents = React.useDeferredValue(derivedEventsValue)
