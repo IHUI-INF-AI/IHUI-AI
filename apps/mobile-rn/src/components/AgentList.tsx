@@ -17,7 +17,7 @@
  * 平台特有:依赖 react-native Animated/ScrollView,不适合共享层。
  */
 import { useEffect, useRef } from 'react'
-import { Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import { Check } from 'lucide-react-native'
 
@@ -57,6 +57,8 @@ export interface AgentListProps {
   hasMore?: boolean
   /** 空态文案 */
   emptyText?: string
+  /** 外层容器样式(调用方布局用,如 `{ flex: 1, minHeight: 0 }`) */
+  style?: ViewStyle
 }
 
 function keyExtractor(item: AgentListItem): string {
@@ -131,6 +133,7 @@ export default function AgentList({
   isLoading = false,
   hasMore = true,
   emptyText = '暂无 Agent',
+  style,
 }: AgentListProps): React.JSX.Element {
   const slide = useRef(new Animated.Value(60)).current
   const opacity = useRef(new Animated.Value(0)).current
@@ -143,7 +146,7 @@ export default function AgentList({
   }, [slide, opacity])
 
   return (
-    <Animated.View style={[styles.container, { opacity, transform: [{ translateY: slide }] }]}>
+    <Animated.View style={[styles.container, style, { opacity, transform: [{ translateY: slide }] }]}>
       <View style={styles.inner}>
         <ScrollView style={styles.content} contentContainerStyle={styles.contentBody}>
           {items.map((item) => (
