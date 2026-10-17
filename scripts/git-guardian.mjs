@@ -1972,41 +1972,108 @@ function auditDiskRootHygiene() {
   }
 }
 
+const MERGE_LOSS_UNDET_FILE = join(WORKTREE, '.workbuddy', 'merge-loss-undetermined-first.json')
+// "这一轮取不到结论"与"对账层真的坏了"在到人信上必须是两件事。2026-10-17 上午共享 git 争用让该
+// 对账连续几趟取不到,守护当场寄出一封 critical 说"对账层自己没在跑"——而同一枚对账手工复跑
+// 0.46 秒即绿(审计 0 枚吞并)。持续性门槛取现读量纲:正常一趟 0.46s、派生上限 240s、守护 2 分钟
+// 一趟 ⇒ 连满 30 分钟(≈15 趟)全部取不到才够格按结构性故障喊人;单轮只报名(方向是"多要一次
+// 说明",绝不是"多放一次跳门":§0.3)。
+const MERGE_LOSS_UNDET_HORIZON_MS = Number(process.env.IHUI_MERGE_LOSS_UNDET_HORIZON_MS || 30 * 60 * 1000)
+
+/**
+ * 一趟派生的结论分档(纯函数,镜像测试钉契约)。三档:绿 / 判红 / 未判定。
+ * "未判定"既不得读成"对账层坏了",也不得读成"没问题"(§0.3)——它只说明这一轮没有可采信的输入,
+ * 该不该喊人由上面那个持续性门槛判。
+ */
+export function classifyMergeLossOutcome(e) {
+  if (!e) return { kind: 'ok' }
+  if (typeof e.status === 'number') {
+    if (e.status === 2) return { kind: 'undetermined', why: '尺子自报 exit 2(取不到输入/自身异常)' }
+    return { kind: 'breach', code: e.status }
+  }
+  const shape = `${e.code || ''} ${e.signal || ''} ${e.killed ? 'killed' : ''}`.trim()
+  if (shape) return { kind: 'undetermined', why: `派生超时/被杀(${shape})` }
+  return { kind: 'undetermined', why: String(e.message || e).slice(0, 160) }
+}
+
+/** 记"未判定"的起点并返回已持续时长;起点件读写失败都不许影响判定本身。 */
+function noteMergeLossUndetermined(nowMs = Date.now(), file = MERGE_LOSS_UNDET_FILE) {
+  let firstMs = NaN
+  try {
+    firstMs = Number(JSON.parse(readFileSync(file, 'utf8')).firstMs)
+  } catch {
+    /* 没有起点 ⇒ 以本次为新起点 */
+  }
+  if (!Number.isFinite(firstMs)) firstMs = nowMs
+  try {
+    writeFileSync(file, JSON.stringify({ firstMs, firstAt: new Date(firstMs).toISOString(), lastSeenAt: new Date(nowMs).toISOString() }), 'utf8')
+  } catch {
+    /* 状态件写不掉只影响下一轮的持续性判定 */
+  }
+  return { firstMs, heldMs: nowMs - firstMs }
+}
+
+function clearMergeLossUndetermined(file = MERGE_LOSS_UNDET_FILE) {
+  try {
+    rmSync(file, { force: true })
+  } catch {
+    /* 同上 */
+  }
+}
+
 function auditMergeAdditionLoss() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'check-merge-addition-loss.mjs')
   if (!existsSync(script)) return
-  let res
+  let res = ''
+  let outcome
+  let errFirst = ''
   try {
     const out = execFileSync(process.execPath, [script, '--all-new'], {
       cwd: WORKTREE,
       encoding: 'utf8',
       windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
       timeout: 240000, // 守门 80:热路径派生一律带上限
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: ['ignore', 'pipe', 'pipe'], // §12g;stderr 也必须接:否则"取不到输入"的信里连病名都没有(2026-10-17 那封只有结论没有原因)
     })
-    res = { code: 0, out: String(out || '') }
+    res = String(out || '')
+    outcome = classifyMergeLossOutcome(null)
   } catch (e) {
-    res = { code: typeof e.status === 'number' ? e.status : 2, out: String(e.stdout || '') }
+    res = String((e && e.stdout) || '')
+    errFirst = String((e && e.stderr) || '')
+      .split(/[\r\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)[0] || ''
+    outcome = classifyMergeLossOutcome(e)
   }
-  if (res.code === 0) return
-  if (res.code === 2) {
-    log('⚠️ 合并吞并对账自身异常(exit 2)⇒ 不重试,需人工跑 node scripts/check-merge-addition-loss.mjs')
+  if (outcome.kind === 'ok') {
+    clearMergeLossUndetermined()
+    return
+  }
+  if (outcome.kind === 'breach') {
+    clearMergeLossUndetermined()
+    const n = (res.match(/丢失新增路径\s+(\d+)/) || [])[1] || '?'
+    log(
+      `⚠️ 合并吞并对账判红:发现合并抹掉对侧独有新增共 ${n} 个路径 —— 修法:node scripts/union-converge.mjs --apply(文件面零丢失 union,先不带 --apply 看报告)`,
+    )
     notifyGuardRed(
-      '合并吞并对账自身异常',
-      'check-merge-addition-loss.mjs --all-new exit 2 ⇒ 对账层自己没在跑(与"判据存在但永不被调用"同型),需人工:node scripts/check-merge-addition-loss.mjs',
+      '合并吞并对账判红',
+      `发现合并抹掉对侧独有新增共 ${n} 个路径 —— 后果是已入库功能被静默回滚,且这枚合并不产生冲突也不进 diff 报告。修法:node scripts/union-converge.mjs --apply(文件面零丢失 union,先不带 --apply 看报告)`,
       { severity: 'critical' },
     )
     return
   }
-  const n = (res.out.match(/丢失新增路径\s+(\d+)/) || [])[1] || '?'
-  log(
-    `⚠️ 合并吞并对账判红:发现合并抹掉对侧独有新增共 ${n} 个路径 —— 修法:node scripts/union-converge.mjs --apply(文件面零丢失 union,先不带 --apply 看报告)`,
-  )
-  notifyGuardRed(
-    '合并吞并对账判红',
-    `发现合并抹掉对侧独有新增共 ${n} 个路径 —— 后果是已入库功能被静默回滚,且这枚合并不产生冲突也不进 diff 报告。修法:node scripts/union-converge.mjs --apply(文件面零丢失 union,先不带 --apply 看报告)`,
-    { severity: 'critical' },
-  )
+  const { heldMs } = noteMergeLossUndetermined()
+  const why = [outcome.why, errFirst].filter(Boolean).join(' ⊕ ').slice(0, 240)
+  if (heldMs >= MERGE_LOSS_UNDET_HORIZON_MS) {
+    log(`⚠️ 合并吞并对账已连续 ${Math.round(heldMs / 60000)} 分钟取不到结论(${why})⇒ 按结构性故障喊人`)
+    notifyGuardRed(
+      '合并吞并对账持续取不到结论',
+      `check-merge-addition-loss.mjs --all-new 连续 ${Math.round(heldMs / 60000)} 分钟没有可采信的结论 ⇒ 这一层现在是瞎的(别人机器上推来的合并只有这里判得到,提交链那道门不跑 commit-tree 旁路)。\n最近一次原因:${why}\n手工复跑取证:node scripts/check-merge-addition-loss.mjs --all-new`,
+      { severity: 'warning', dedupKey: `bucket=${Math.floor(heldMs / MERGE_LOSS_UNDET_HORIZON_MS)}` },
+    )
+  } else {
+    log(`ℹ️ 合并吞并对账未判定(${why})⇒ 单轮不冒"尺子坏了"的信;连满 ${Math.round(MERGE_LOSS_UNDET_HORIZON_MS / 60000)} 分钟(≈15 趟)才到人,当前已持续 ${Math.round(heldMs / 60000)} 分钟`)
+  }
 }
 
 /** 本地恢复源的增量刷新层(§5b 里那条"唯一空白层")。
@@ -4821,6 +4888,12 @@ export const __test__ = {
   redactChildOutput,
   judgeDryRunChannel,
   notifyGuardRed,
+  // 合并吞并对账的派生结论分档(2026-10-17 立):"取不到输入"必须与"对账层坏了"分家,
+  // 而分家之后"该不该喊人"落在持续性起点件上 —— 这三格都是判据,不导出的话镜像测试只能
+  // import 整模块起巡检(§22d 禁止)。
+  classifyMergeLossOutcome,
+  noteMergeLossUndetermined,
+  clearMergeLossUndetermined,
   shouldAlertAlignStall,
   checkConvergeAlignStall,
   // 对齐停摆的自动修复(2026-10-04):与 checkConvergeAlignStall 配套导出,镜像测试据此
