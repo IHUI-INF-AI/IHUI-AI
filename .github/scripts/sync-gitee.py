@@ -137,7 +137,15 @@ def main():
         ("windows-x86_64", "-setup.exe"),
         ("darwin-aarch64", "universal.app.tar.gz"),
         ("darwin-x86_64", "universal.app.tar.gz"),
-        ("linux-x86_64", ".AppImage"),
+        # ⚠️ linux-x86_64 已从 Gitee 镜像范围**移除**(2026-10-17 实测定,勿加回):
+        #   AppImage 82MB,从 Actions runner 上传到 Gitee 会 `The write operation timed out`
+        #   (实测 0.1.75 连试三轮:一次写超时、两次跑到 30-40 分钟被 cancelled),
+        #   而它是**偶发**的 —— 0.1.74 那份侥幸传成功过,所以曾误以为"能传"。
+        #   失败的真实代价不是"少一个文件",而是:feed 里 linux 那条仍写成 gitee.com 直链
+        #   ⇒ 指向 404 ⇒ **Linux 用户的自动更新直接坏掉**(比"没有国内镜像"严重得多)。
+        #   ⇒ 现在 linux 不进 Gitee feed,Gitee 侧那份存档不再含 linux 键;
+        #     站点 feed(真源)本就给 linux 走 github.com,客户端也只认 aizhs.top。
+        #   Linux 用户照常更新,只是没有国内加速 —— 这是明确的取舍,不是遗漏。
     ]:
         mains = [n for n in assets if n.endswith(suffix)]
         if not mains:
@@ -150,11 +158,20 @@ def main():
     # 3--extra. 镜像 GH release 全部安装包资产(不只 feed 四键)——下载页的
     # dmg/deb/rpm 也走 Gitee 优先合并(0.1.51 曾因此回指 GitHub,backfill 兜底
     # 属人工通道,这里补成 CI 自动)。latest.json 排除(GH 版 url 指 github.com)。
+    #
+    # 2026-10-17:AppImage 一并排除(与上面 need 里的移除同因)——它 82MB,
+    # 从 runner 传到 Gitee 会写超时,连试三轮都不稳(一次 write timeout、
+    # 两次 30-40 分钟被 cancelled)。**留着它只会让整个 job 陪跑然后失败**,
+    # 连带 Windows 那份也传不完。Linux 走 GitHub 直链即可。
+    SKIP_MIRROR_SUFFIXES = (".AppImage",)
     upload_set = set()
     for plat, (main, sig) in need.items():
         upload_set.update(x for x in (main, sig) if x)
     for name in assets:
         if name == "latest.json" or name.endswith((".zip", ".tar.gz")):
+            continue
+        if name.endswith(SKIP_MIRROR_SUFFIXES):
+            print(f"[gitee] {name} 属不镜像类型(AppImage 体积大且上传不稳),跳过")
             continue
         upload_set.add(name)
 
