@@ -71,16 +71,25 @@ export function snapshotWorkspace(
 }
 
 /**
- * 比对两份快照 → **发生了变化**的绝对路径列表。
+ * 详细比对:把"确证变了"与"读不出来"分开 —— 二者不是一回事。
  *
- * 变化的三型 + 一型不可判定:
- * - 一侧 present 一侧 absent ⇒ 变了(新建或删除);
- * - 两侧 present 而内容不同 ⇒ 变了;
- * - 仅出现在某一侧(路径集不同)⇒ 变了;
- * - 任一侧 unknown ⇒ **按"变了"报**(拿不到的信息不许当"没变"的证据)。
+ * 失败方(给动作)要的是保守清单,所以 `diffWorkspaceSnapshots` 把两者都算"变了";
+ * 而说给人听的承诺句必须区分它们,否则就是把谎换了方向。
  */
-export function diffWorkspaceSnapshots(before: WorkspaceSnapshot, after: WorkspaceSnapshot): string[] {
+export interface WorkspaceDiff {
+  /** 逐文件逐字节确证变了(含一侧 absent 一侧 present) */
+  readonly changed: readonly string[];
+  /** 任一侧 unknown ⇒ 这一份比对不作数(没事实,不许声称) */
+  readonly unverifiable: readonly string[];
+}
+
+/** 比对两份快照 → 确证变化 / 不可判定 两份清单(两个出口的唯一实现)。 */
+export function diffWorkspaceSnapshotsDetailed(
+  before: WorkspaceSnapshot,
+  after: WorkspaceSnapshot,
+): WorkspaceDiff {
   const changed: string[] = [];
+  const unverifiable: string[] = [];
   const keys = new Set<string>([...before.keys(), ...after.keys()]);
   for (const key of keys) {
     const a = before.get(key);
@@ -90,7 +99,7 @@ export function diffWorkspaceSnapshots(before: WorkspaceSnapshot, after: Workspa
       continue;
     }
     if (a.kind === 'unknown' || b.kind === 'unknown') {
-      changed.push(key);
+      unverifiable.push(key);
       continue;
     }
     if (a.kind === 'present' && b.kind === 'present') {
@@ -99,16 +108,62 @@ export function diffWorkspaceSnapshots(before: WorkspaceSnapshot, after: Workspa
     }
     if (a.kind !== b.kind) changed.push(key);
   }
-  return [...changed].sort();
+  return { changed: [...changed].sort(), unverifiable: [...unverifiable].sort() };
+}
+
+/** 三态判定:不变 / 确证变了 / 判不了(与 web 侧 `classifyUndoWorkspace` 同名同义)。 */
+export type UndoVerdict = 'unchanged' | 'changed' | 'unknown';
+
+/**
+ * 「工作区未发生变化」的三态判据(D163 收口刀)。
+ *
+ * 优先级写死,不许反过来:
+ *   1. 有**确证**变化 ⇒ 'changed'(真变了就明说,不因别处有 unknown 而降级);
+ *   2. 没有确证变化但有读不出来的 ⇒ 'unknown'(没事实就不许声称);
+ *   3. 逐文件逐字节全都等价 ⇒ 'unchanged'。
+ *
+ * 反向锁:把 unknown 一律判成 'changed'(旧的两值化)会让第 2 档永假,
+ * 于是"无法核实"这句话永远说不出口 —— 那只是把谎换了方向(D163 票面铁律:
+ * 不许只改文案,也不许把"没事实"说成"变了")。
+ */
+export function classifyUndoVerdict(
+  before: WorkspaceSnapshot,
+  after: WorkspaceSnapshot,
+): UndoVerdict {
+  const { changed, unverifiable } = diffWorkspaceSnapshotsDetailed(before, after);
+  if (changed.length > 0) return 'changed';
+  if (unverifiable.length > 0) return 'unknown';
+  return 'unchanged';
 }
 
 /**
- * 「工作区未发生变化」的唯一判据。
+ * 比对两份快照 → **发生了变化**的绝对路径列表。
  *
- * 只有当两份快照**逐文件逐字节等价**时才为真;任何读不出来的文件都让它为假
- * (fail-closed)。回退的调用方拿到 false 时,**不许**渲染"工作区未发生变化"。
+ * 变化的三型 + 一型不可判定:
+ * - 一侧 present 一侧 absent ⇒ 变了(新建或删除);
+ * - 两侧 present 而内容不同 ⇒ 变了;
+ * - 仅出现在某一侧(路径集不同)⇒ 变了;
+ * - 任一侧 unknown ⇒ **按"变了"报**(拿不到的信息不许当"没变"的证据)。
+ *
+ * 这是 fail-closed 的报法,给"要动手的人"一张最保守的清单。但**说给人听**的
+ * 那句必须比它更细:把"读不出来"说成"已发生变化"也是谎(方向相反的谎)。
+ * 要区分,用 `diffWorkspaceSnapshotsDetailed` / `classifyUndoVerdict`。
+ *
+ * 实现只此一份,两个详略出口都由它派生(§0.6 单一真相源)。
+ */
+export function diffWorkspaceSnapshots(before: WorkspaceSnapshot, after: WorkspaceSnapshot): string[] {
+  const { changed, unverifiable } = diffWorkspaceSnapshotsDetailed(before, after);
+  return [...changed, ...unverifiable].sort();
+}
+
+/**
+ * 「工作区未发生变化」的唯一判据(两值出口,供只要布尔的老调用方)。
+ *
+ * 只有当 verdict 为 'unchanged' 时才为真。'unknown' 一律为假:
+ * fail-closed,拿不到的信息不当证据。**语义与三态版完全一致** ——
+ * 本函数只是 `classifyUndoVerdict(...) === 'unchanged'` 的别名,不另写一份判据。
  */
 export function isWorkspaceUnchanged(before: WorkspaceSnapshot, after: WorkspaceSnapshot): boolean {
-  return diffWorkspaceSnapshots(before, after).length === 0;
+  return classifyUndoVerdict(before, after) === 'unchanged';
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

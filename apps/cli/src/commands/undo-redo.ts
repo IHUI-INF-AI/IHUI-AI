@@ -26,10 +26,14 @@ import * as path from 'node:path';
 // fs.writeFileSync/unlinkSync,中途任一文件写失败就整段抛出,返回面里
 // 一个字都没提"工作区到底被改成什么样了"。于是"工作区未发生变化"这句话
 // 当前既无处可说、也无事实可依。现在它由前后两份快照的比对结果驱动。
+// D163 收口刀(2026-10-18 第二轮):比对结论不再只躺在布尔里,而是升成三态
+// `verdict`(unchanged / changed / unknown)并由 `undo-claim-copy.ts` 分派到
+// 七句文案 —— "判不了"与"未变化"从此说不同的话(详见该文件头注)。
 import {
+  classifyUndoVerdict,
   diffWorkspaceSnapshots,
-  isWorkspaceUnchanged,
   snapshotWorkspace,
+  type UndoVerdict,
 } from './undo-workspace-state.js';
 
 /** 单次工具调用产生的文件改动 */
@@ -63,7 +67,20 @@ export interface UndoResult {
    * 读不出来的文件一律判 false(fail-closed,拿不到的信息不当证据)。
    */
   workspaceUnchanged: boolean;
-  /** D163:确实发生了变化的文件(绝对路径),供上层给具体动作而非只报失败。 */
+  /**
+   * D163 收口刀:三态判据,驱动"用户看到的那一句"。
+   *
+   * `workspaceUnchanged` 是它的两值别名(为只要布尔的老调用方留着);
+   * 新代码一律读这个字段 —— 因为"判不了"与"未变化"必须说不同的话,
+   * 压成布尔就只能把其中一种谎说出来。
+   */
+  verdict: UndoVerdict;
+  /**
+   * D163:确实发生了变化的文件(绝对路径),供上层给具体动作而非只报失败。
+   *
+   * 注意与 `verdict` 的分工:本清单含"读不出来"的条目(fail-closed 报法,
+   * 与 web 侧不同,这里刻意保守);要区分确证/不可判定,读 `verdict`。
+   */
   changedFiles: string[];
   /** D163:部分失败 ⇒ 撤销结果不完整(对应票面 undoPartialWarning 那一态)。 */
   partial: boolean;
@@ -75,6 +92,18 @@ export interface RedoResult {
   changes: FileChange[];
   /** 剩余可 redo 的步数 */
   remaining: number;
+}
+
+/**
+ * D163 收口刀:`--dry-run` 的计划 —— 将恢复多少文件、影响多少轮。
+ *
+ * **不弹栈、不写文件、不 persist**:预览与执行共用同一套取数(undoStack 栈顶
+ * N 条),否则"预览说 3 个文件、真跑恢复 2 个"就又造出一句不可信的话。
+ */
+export interface UndoPlan {
+  readonly fileCount: number;
+  readonly turnCount: number;
+  readonly files: readonly string[];
 }
 
 /** /undo list 单条条目 */
@@ -159,6 +188,7 @@ export class UndoRedoManager {
         failedFiles: [],
         failedReasons: [],
         workspaceUnchanged: true,
+        verdict: 'unchanged',
         changedFiles: [],
         partial: false,
       };
@@ -199,16 +229,34 @@ export class UndoRedoManager {
     }
     this.persist(sessionId);
     const after = snapshotWorkspace(watchPaths, this.workspacePath);
+    const verdict = classifyUndoVerdict(before, after);
     return {
       undoneSteps: undone.length,
       changes: undone,
       remaining: history.undoStack.length,
       failedFiles,
       failedReasons,
-      workspaceUnchanged: isWorkspaceUnchanged(before, after),
+      workspaceUnchanged: verdict === 'unchanged',
+      verdict,
       changedFiles: diffWorkspaceSnapshots(before, after),
       partial: failed.length > 0,
     };
+  }
+
+  /**
+   * D163:`/undo --dry-run` 的计划(只读,不动栈)。
+   *
+   * 与 `undo()` 取同一批数:`undoStack` 栈顶 `min(steps, len)` 条,文件数按
+   * 去重后的路径算 —— 同一条文件被两步各改一次,恢复它算一次而非两次。
+   */
+  async previewUndo(sessionId: string, steps: number = 1): Promise<UndoPlan> {
+    this.load(sessionId);
+    const history = this.cache.get(sessionId)!;
+    const actualSteps = Math.min(steps, history.undoStack.length);
+    if (actualSteps <= 0) return { fileCount: 0, turnCount: 0, files: [] };
+    const pending = history.undoStack.slice(-actualSteps);
+    const files = [...new Set(pending.map((c) => c.filePath))].sort();
+    return { fileCount: files.length, turnCount: actualSteps, files };
   }
 
   /**
