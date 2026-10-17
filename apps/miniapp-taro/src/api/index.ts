@@ -700,7 +700,7 @@ export const chatStream = async (
 /* ============ 用户设置 ============ */
 
 /** 更新用户资料 */
-export const updateProfile = (data: Partial<UserInfo>) => put<UserInfo>('/user/profile', data)
+export const updateProfile = (data: Partial<UserInfo>) => put<UserInfo>('/api/auth/profile', data)
 
 /* ============ VIP / 会员 ============ */
 
@@ -1098,18 +1098,19 @@ export const getExamSignups = (params?: {
     pageSize: number
   }>('/exam/signups', params)
 export const createExamSignup = (data: { examId: string; userId: string }) =>
-  post<{ id: string; paperId: string; userId: string }>('/exam/signups', data)
+  post<{ id: string; paperId: string; userId: string }>('/api/legacy/exam/signups', data)
 export const getExamSignup = (id: string) =>
   get<{ id: string; paperId: string; userId: string }>(`/exam/signups/${id}`)
-export const cancelExamSignup = (id: string) => del<{ deleted: boolean }>(`/exam/signups/${id}`)
+export const cancelExamSignup = (id: string) =>
+  del<{ deleted: boolean }>(`/api/legacy/exam/signups/${id}`)
 export const checkExamSignup = (params: { examId: string; userId: string }) =>
-  get<{ signed: boolean; signup: { id: string } | null }>('/exam/signups/check', params)
-export const getExamRecommend = () => get<{ list: Exam[] }>('/exam/recommend')
-export const getExamHot = () => get<{ list: Exam[] }>('/exam/hot')
+  get<{ signed: boolean; signup: { id: string } | null }>('/api/legacy/exam/signups/check', params)
+export const getExamRecommend = () => get<{ list: Exam[] }>('/api/legacy/exam/recommend')
+export const getExamHot = () => get<{ list: Exam[] }>('/api/legacy/exam/hot')
 export const getExamFavorites = (userId: string) =>
-  get<{ list: Exam[] }>('/exam/favorites', { userId })
+  get<{ list: Exam[] }>('/api/legacy/exam/favorites', { userId })
 export const deleteExamWrongQuestion = (id: string) =>
-  del<{ deleted: boolean }>(`/exam/wrong-questions/${id}`)
+  del<{ deleted: boolean }>(`/api/legacy/exam/wrong-questions/${id}`)
 
 /* ============ AI 模块 ============ */
 
@@ -1121,7 +1122,9 @@ export const getChatHistory = (params?: { page?: number; pageSize?: number }) =>
 export const generateImage = (data: { prompt: string; size?: string }) =>
   post<{ url: string }>('/ai/image', data)
 export const voiceChat = (data: { audio: string }) =>
-  post<{ reply: string; audio?: string }>('/ai/voice', data)
+  post<{ ai_text?: string; reply?: string; audio?: string }>('/api/ai/audio/chat', {
+    audio_base64: data.audio,
+  }).then((r) => ({ reply: r.ai_text ?? r.reply ?? '', audio: r.audio }))
 /** 后端 agents 表原始字段(用于内部映射,不对外暴露) */
 interface AgentRawRow {
   agentId: string
@@ -1198,7 +1201,7 @@ export const getTeacherDetail = (id: string | number) => get<Teacher>(`/teacher/
 export const getAbout = () =>
   get<{ name: string; version: string; intro: string; logo?: string }>('/about')
 export const getHelp = () =>
-  get<{ list: Array<{ id: string; title: string; content: string }> }>('/help')
+  get<{ list: Array<{ id: string; title: string; content: string }> }>('/api/help/articles')
 export const getPrivacy = () => get<{ content: string }>('/privacy')
 export const getContact = () =>
   get<{ phone: string; email: string; address: string; qq?: string }>('/contact')
@@ -1364,7 +1367,12 @@ export const getN8nWorkflows = () => get('/workflows/n8n')
 export const createN8nAgent = (data: unknown) => post('/workflows/n8n/create', data)
 
 /* ============ 名片 ============ */
-export const getBusinessCard = () => get('/user/business-card')
+export const getBusinessCard = async () => {
+  const res = await get<{ list?: Array<Record<string, unknown>> }>('/api/business-card/mine')
+  const card = res.list?.[0] ?? {}
+  return { ...card, qrcode: (card['qrCode'] as string) ?? '' }
+}
+
 export const updateBusinessCard = (data: unknown) => put('/user/business-card', data)
 
 /* ============ 知识星球 ============ */
@@ -1493,9 +1501,9 @@ export const agentCreationShare = (data: unknown) => post('/agent/creation/share
 /** 首次分享状态查询 */
 export const checkFirstShareStatus = () => get('/agent/creation/share/first-status')
 /** 首次分享 */
-export const firstShare = (data: unknown) => post('/agent/creation/share/first', data)
+export const firstShare = (data: unknown) => post('/api/share/first-claim', data)
 /** 根据分享码获取内容 */
-export const getShareContentByCode = (code: string) => get(`/agent/creation/share/third/${code}`)
+export const getShareContentByCode = (code: string) => get(`/api/share/content/${code}`)
 
 /* ============ 其他扩展 API ============ */
 /** 绑定用户 */
@@ -1504,7 +1512,8 @@ export const bindUser = (data: unknown) => post('/auth/bind-user', data)
 export const getPhoneNumber = (data: { code: string; phoneCode?: string }) =>
   post('/auth/wechat/mini/phone', data)
 /** 查询是否已设置密码 */
-export const pwdExist = (phone: string) => get(`/auth/pwd-exist?phone=${phone}`)
+export const pwdExist = (phone: string) =>
+  get<{ exists?: boolean }>(`/api/auth/exist/${phone}`).then((r) => !!r.exists)
 /** 关闭订单 — 对接后端 POST /orders/:id/cancel(参数 :id 必须是 UUID) */
 export const closeOrder = (orderId: string) => post(`/orders/${orderId}/cancel`, {})
 /** 微信支付 JSAPI — 对齐后端 POST /payments/wechat/create(query 传参) */
@@ -1550,9 +1559,9 @@ export const getZntList = (params: ApiParams) => get('/agents/charge/list', para
 
 /* ============ 开发者收入明细 ============ */
 /** 收入详情 */
-export const getBuyInfo = (params: ApiParams) => get('/developer/income/detail', params)
+export const getBuyInfo = (params: ApiParams) => get('/api/developer/income', params)
 /** 收入列表 */
-export const getBuyList = (params: ApiParams) => get('/developer/income/list', params)
+export const getBuyList = (params: ApiParams) => get('/api/developer/income', params)
 
 /* ============ 广场发布管理 ============ */
 /** 发布广场列表 */
@@ -1572,7 +1581,7 @@ export const getMyCreation = (params: ApiParams) => get('/ai/my-creation', param
 /** 获取 AI 团队智能体类型 */
 export const getAgentType = () => get('/agents/types')
 /** 获取模型列表（统一接口） */
-export const getCozeApiList = (params?: ApiParams) => get('/coze/api-list', params)
+export const getCozeApiList = (params?: ApiParams) => get('/api/llm/models', params)
 
 /* ============ 音频 / Sora ============ */
 /** Sora 请求结束 */
@@ -1595,9 +1604,6 @@ export const getZHZDMX = (params: ApiParams) => get('/agents/zhz-detail', params
 /* ============ 登录变体 ============ */
 /** 微信小程序登录(获取 openId)— 对齐后端 GET /auth/wechat/mini/login */
 export const openId = (code: string) => get('/auth/wechat/mini/login', { code })
-/** 充值 */
-export const recharge = (params: ApiParams) => get('/member/recharge', params)
-
 /* ============ 学习 / 视频管理扩展 ============ */
 /** 获取智能体列表（学习用） */
 export const getAgentsAlllist = (params: ApiParams) => get('/agents/all-list-study', params)
