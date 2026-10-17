@@ -41,17 +41,7 @@ import {
 import { Badge } from '@/components/data/Badge'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
-
-interface WrongQuestion {
-  id: string
-  questionId: string
-  paperId: string
-  paperTitle: string | null
-  questionTitle: string | null
-  wrongCount: number
-  isMastered: boolean
-  createdAt: string
-}
+import type { WrongQuestionListItem as WrongQuestion } from '@ihui/types'
 
 interface WrongQuestionListData {
   list: WrongQuestion[]
