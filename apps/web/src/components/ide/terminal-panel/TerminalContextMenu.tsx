@@ -32,9 +32,9 @@ export function TerminalContextMenu({
     <div
       className="fixed z-popover min-w-36 overflow-hidden rounded-md border border-border bg-popover py-0.5 shadow-md"
       style={{
-        // 视口 clamp:6 项约 200px 高,防止贴近屏幕边缘时溢出
-        left: Math.min(state.x, window.innerWidth - 160),
-        top: Math.min(state.y, window.innerHeight - 208),
+        // 视口 clamp:6 项约 200px 高;2026-10-17 根治为四边 clamp(原只防右/下,左/上贴边)
+        left: Math.max(8, Math.min(state.x, window.innerWidth - 160)),
+        top: Math.max(8, Math.min(state.y, window.innerHeight - 208)),
       }}
       onClick={(e) => e.stopPropagation()}
     >

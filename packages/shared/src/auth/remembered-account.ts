@@ -18,10 +18,10 @@
  * - `decodeRememberedAccount()` 负责认出旧形态并用 `carriedPlaintextPassword` 点名,
  *   让调用端把它**就地抹掉**(迁移而非"新写入才干净")。
  *
- * 纯度:纯函数 + 常量,不 import `node:` 内建、不触 DOM / RN / Taro API
- * (守门 126:packages/shared 的非 Node 宿主可达闭包内禁止 node: 内建)。
- * storage 读写一律留在端内,由调用方以"文本"形式喂进来 —— 端的差异是**运输方式**
- * (base64 / 原生 storage),不是**记录里允许有什么**。
+ * 2026-10-17 用户决策:在支持浏览器自带记住密码的前提下,项目自身也要"记住密码"
+ * 免重填 —— 因此本出口新增**显式开关** `encodeRememberedCredentials()`,仅当调用方
+ * 把口令交进来时才写出口令字段;`encodeRememberedAccount()` 默认路径保持不变,
+ * 不显式交口令就永远不会有口令落盘。安全性由调用方负责(见 web 端注释)。
  */
 
 import { LOGIN_HISTORY_MAX } from '../constants/storage-keys'
@@ -31,8 +31,18 @@ export interface RememberedAccount {
   account: string
 }
 
+/** 显式"记住密码"开关:账号 + 口令一起落盘(仅调用方明确要求时使用)。 */
+export interface RememberedAccountWithPassword extends RememberedAccount {
+  password: string
+}
+
 /** 解码结果:`carriedPlaintextPassword` 为真 ⇒ 盘上那份旧记录带着明文口令,调用方必须抹掉它。 */
 export interface DecodedRememberedAccount extends RememberedAccount {
+  carriedPlaintextPassword: boolean
+}
+
+/** 显式"记住密码"形态的解码结果:带口令字段(调用方自行决定是否抹掉)。 */
+export interface DecodedRememberedAccountWithPassword extends RememberedAccountWithPassword {
   carriedPlaintextPassword: boolean
 }
 
@@ -55,9 +65,25 @@ function readRecord(raw: unknown): Record<string, unknown> | null {
 /**
  * 写出「记住登录」记录。唯一写法:值域里没有 `password` 这个属性,
  * 所以"手滑把口令一起存了"在本出口上不可能发生 —— 这就是它存在的理由。
+ *
+ * 仅当调用方**显式**要存口令时,用 `encodeRememberedCredentials()`,而不是这个。
  */
 export function encodeRememberedAccount(account: string): string {
   const record: RememberedAccount = { account }
+  return JSON.stringify(record)
+}
+
+/**
+ * 2026-10-17:显式"记住密码"写入出口 —— 账号 + 口令一起写进记录。
+ *
+ * 与 `encodeRememberedAccount()` 的差别:本函数在调用方把口令交进来时才
+ * 把口令字段写进 JSON;不交口令时调用方应改用 `encodeRememberedAccount()`。
+ * 安全性:本出口不做加密(base64 是编码不是加密,同 origin 存密文+密钥 ≈ 不加密),
+ * 调用方应自行评估 localStorage / storage 暴露面(XSS、同源脚本、磁盘读取),
+ * 并按需在传输层叠加额外保护。
+ */
+export function encodeRememberedCredentials(account: string, password: string): string {
+  const record: RememberedAccountWithPassword = { account, password }
   return JSON.stringify(record)
 }
 
@@ -77,6 +103,29 @@ export function decodeRememberedAccount(raw: unknown): DecodedRememberedAccount 
   return {
     account,
     carriedPlaintextPassword: typeof password === 'string' && password.length > 0,
+  }
+}
+
+/**
+ * 2026-10-17:显式"记住密码"读取出口 —— 把盘上记录里的口令字段交回调用方。
+ *
+ * 调用方据此决定:
+ * - 自动登录时直接拿这份口令回放登录(配合 `canAutoSubmitCredentials` 闸门);
+ * - 或仅做账号回填,口令继续走浏览器自带记忆(autoComplete)。
+ *
+ * 与 `decodeRememberedAccount()` 的区别:本函数**保留**口令字段而非抹掉它;
+ * 读出的口令在内存里,调用方用完即弃,不应再写回存储以外的任何地方。
+ */
+export function decodeRememberedCredentials(raw: unknown): DecodedRememberedAccountWithPassword | null {
+  const record = readRecord(raw)
+  if (!record) return null
+  const account = record.account
+  if (typeof account !== 'string' || account.length === 0) return null
+  const password = typeof record.password === 'string' ? record.password : ''
+  return {
+    account,
+    password,
+    carriedPlaintextPassword: password.length > 0,
   }
 }
 

@@ -22,9 +22,9 @@ export function FileContextMenu({ x, y, onRename, onDelete }: FileContextMenuPro
     <div
       className="fixed z-popover min-w-32 rounded-md border border-border bg-popover p-1 text-xs shadow-md"
       style={{
-        // 视口 clamp:2 项约 72px 高,防止贴近屏幕边缘时溢出
-        left: Math.min(x, window.innerWidth - 144),
-        top: Math.min(y, window.innerHeight - 88),
+        // 视口 clamp:2 项约 72px 高;2026-10-17 根治为四边 clamp(原只防右/下,左/上贴边)
+        left: Math.max(8, Math.min(x, window.innerWidth - 144)),
+        top: Math.max(8, Math.min(y, window.innerHeight - 88)),
       }}
       onClick={(e) => e.stopPropagation()}
     >

@@ -857,6 +857,8 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
         <DropdownMenu.Content
           align="end"
           sideOffset={6}
+          // 2026-10-17 根治:钳制时留 8px,不贴死视口边缘
+          collisionPadding={8}
           className={cn(
             'z-popover max-h-[60vh] w-fit max-w-[320px] overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-md',
             ' [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',

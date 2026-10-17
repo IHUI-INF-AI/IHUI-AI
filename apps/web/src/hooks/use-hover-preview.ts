@@ -81,10 +81,19 @@ export function useHoverPreview<T>({
           const vh = window.innerHeight
           if (x + 240 > vw) x = Math.max(8, rect.left - 240 - offsetX)
           if (y + 140 > vh) y = Math.max(8, vh - 140 - 8)
+          // 2026-10-17 根治:四边 clamp(原只防右/下溢出;anchor 在屏幕左缘时卡片
+          // 翻转后仍可能为负、上缘时 y<0,贴死屏幕边缘)
+          x = Math.max(8, Math.min(x, vw - 240 - 8))
+          y = Math.max(8, Math.min(y, vh - 140 - 8))
         }
       } else if ('clientX' in e) {
         x = e.clientX + offsetX
         y = e.clientY + offsetY
+        if (typeof window !== 'undefined') {
+          // 同上:鼠标路径也补四边 clamp
+          x = Math.max(8, Math.min(x, window.innerWidth - 240 - 8))
+          y = Math.max(8, Math.min(y, window.innerHeight - 140 - 8))
+        }
       }
       // 2026-08-02 修复:即使 visible 也重新计算 position
       // (anchor 可能因滚动/布局变化移动了位置)

@@ -13,27 +13,15 @@ import {
   Trash2,
   MessageCirclePlus,
   MoreVertical,
-  Download,
   Archive,
   ArchiveRestore,
-  Pencil,
-  FileText,
   FileCode,
-  FileJson,
-  FileDown,
-  Camera,
-  Image as ImageIcon,
   Link2,
   LogIn,
   ListFilter,
   FolderOpen,
-  // D165:侧栏「移动到分组」入口图标(文件夹 + 入箭头)
-  FolderInput,
-  Tags,
   Pin,
   PinOff,
-  // D187:侧栏「标记为未读」菜单图标(信封=未读语义)
-  Mail,
   // D189:侧栏排序切换器图标
   ArrowUpDown,
   // V3 #62:侧栏会话搜索开关图标(放大镜=收起态,X=激活态,点击收起并清空)
@@ -49,8 +37,6 @@ import {
   archiveConversation,
   unarchiveConversation,
   exportConversation,
-  compressConversation,
-  setConversationPinned,
   // V3 #62:侧栏批量动作走 api-client 唯一出口(§3 禁止端内裸 fetch 调后端)
   batchOperateConversations,
   type BatchConversationAction,
@@ -80,22 +66,11 @@ import {
   useConversationUnreadMarkStore,
 } from '@/stores/conversation-unread-mark'
 import {
-  ConversationOrgDialog,
-  type ConversationOrgSubmitValue,
-} from '@/components/chat/conversation-org-dialog'
-import {
   ConversationAttentionBadges,
   type ConversationAttentionById,
 } from '@/components/chat/conversation-list'
 import { isWaitingForConversation, resolveConversationAttention } from '@/hooks/use-sidebar'
-import {
-  downloadConversationJson,
-  downloadConversationSnapshot,
-  downloadConversationShareCard,
-  copyConversationShareLink,
-  printConversationPdf,
-  type ExportRoleLabel,
-} from '@/components/chat/conversation-export'
+import { copyConversationShareLink } from '@/components/chat/conversation-export'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useAuthStore } from '@/stores/auth'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
@@ -110,15 +85,6 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Input,
-  Button,
-  // D191:重命名对话框 helper 描述行(对齐 Dialog a11y 语义,关联 title)
-  DialogDescription,
   // V3 #62:侧栏搜索框复用全项目统一搜索井(/chat/history 页同款)
   SearchInput,
   // V3 #62:批量选择复选框(与 /chat/history 同一控件)
@@ -129,8 +95,8 @@ import { useConversationSelection } from '@/components/sidebar/use-conversation-
 import { ConversationBatchBar } from '@/components/sidebar/conversation-batch-bar'
 // D186:归档「不再提示」偏好(勾选后持久化到 localStorage,后续归档跳过二次确认)
 import { useArchivePrefsStore } from '@/stores/archive-prefs'
-// D179:会话绑定 Issue(搜索对话框 + 行徽章 + metadata.issueBinding 解析)
-import { IssueBindDialog, LinkedIssueBadge, resolveIssueBinding } from '@/components/chat/issue-bind-dialog'
+// D179:行内 Issue 绑定徽章 + metadata.issueBinding 解析(绑定对话框入口已随菜单精简移除)
+import { LinkedIssueBadge, resolveIssueBinding } from '@/components/chat/issue-bind-dialog'
 
 interface ConversationItem {
   id: string
@@ -221,9 +187,8 @@ export function filterConversationsByKeyword<T extends SearchableConversation>(
  * - 列表 max-h-220px 滚动
  * - hover/active 用 ::before 伪元素 inset-x-2 实现悬浮胶囊效果
  * - active 左侧 2px 高亮条
- * - 操作按钮:MoreVertical 三点菜单 + DropdownMenu(重命名 / 归档 / 导出 / 压缩 / 删除)
+ * - 操作按钮:MoreVertical 三点菜单 + DropdownMenu(分享 / 导出 MD / 归档 / 删除)
  * - 删除确认:用 ConfirmDialog,删除成功/失败用 sonner toast 反馈
- * - 重命名:用 Dialog + Input
  * - 按时间分组:今天 / 本周(7天内)/ 本月(30天内)
  * - 空状态:图标 + 文案 + "新建任务"引导按钮
  * - 折叠态完全不渲染(避免无文字宽度)
@@ -260,17 +225,13 @@ export function SidebarChatHistory({
   const openPanel = useAiPanelStore((s) => s.openPanel)
 
   const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(null)
-  const [pendingRenameId, setPendingRenameId] = React.useState<string | null>(null)
-  const [renameValue, setRenameValue] = React.useState<string>('')
   const [busyId, setBusyId] = React.useState<string | null>(null)
-  const renameInputRef = React.useRef<HTMLInputElement>(null)
   const isNavigatingRef = React.useRef(false)
 
   // D20 会话组织(G-11):文件夹/标签客户端元数据 store(v1,localStorage 按 userId 分桶)
   const userId = useAuthStore((s) => s.user?.id ?? null)
   const orgMap = useConversationOrgMap(userId)
   const setOrgFolder = useConversationOrgStore((s) => s.setFolder)
-  const setOrgTags = useConversationOrgStore((s) => s.setTags)
   const orgFolders = React.useMemo(() => listFolderNames(orgMap), [orgMap])
   // D165:已置顶分组(只读快照)。置顶顺序由 orderFoldersWithPinned 决定,
   // 分组本身仍以 orgMap 派生 —— 置顶记录里已不存在的分组不会凭空长出来。
@@ -284,17 +245,13 @@ export function SidebarChatHistory({
   // D165:移动到分组对话框的宿主态。ids 为空数组=不打开;单选与批量走同一个对话框。
   // 目标分组的选择态归对话框自己所有(它每次 open 重置),宿主只在提交那一刻取回目标。
   const [pendingMoveIds, setPendingMoveIds] = React.useState<string[]>([])
-  // D187:当前用户的「标记为未读」集合(只读快照;动作经 store 单独取,引用稳定)
+  // D187:当前用户的「标记为未读」集合(只读快照;打开会话即清除,菜单入口已精简移除)
   const unreadMarks = useConversationUnreadMarks(userId)
-  const markUnread = useConversationUnreadMarkStore((s) => s.markUnread)
   const clearUnreadMark = useConversationUnreadMarkStore((s) => s.clearMark)
   /** 文件夹筛选:undefined=全部,null=未分组,字符串=指定文件夹 */
   const [folderFilter, setFolderFilter] = React.useState<string | null | undefined>(undefined)
   // D189:排序方式(pinnedFirst=置顶优先=既有默认行为;byTime=后端返回序=按时间)
   const [sortMode, setSortMode] = React.useState<'pinnedFirst' | 'byTime'>('pinnedFirst')
-  const [pendingOrgItem, setPendingOrgItem] = React.useState<ConversationItem | null>(null)
-  // D179:「绑定 Issue」对话框宿主行(绑定/换绑/解绑都在对话框内完成)
-  const [issueDialogFor, setIssueDialogFor] = React.useState<ConversationItem | null>(null)
 
   // V3 #62:侧栏会话搜索(收起态=放大镜按钮,展开态=SearchInput;纯本地过滤,无后端接口)
   const [searchOpen, setSearchOpen] = React.useState(false)
@@ -310,16 +267,6 @@ export function SidebarChatHistory({
     setSearchOpen(false)
     setSearchQuery('')
   }, [])
-
-  React.useEffect(() => {
-    if (pendingRenameId) {
-      const id = requestAnimationFrame(() => {
-        renameInputRef.current?.focus()
-        renameInputRef.current?.select()
-      })
-      return () => cancelAnimationFrame(id)
-    }
-  }, [pendingRenameId])
 
   const {
     data,
@@ -383,41 +330,9 @@ export function SidebarChatHistory({
     },
   })
 
-  // D20 置顶/取消置顶(G-11;后端 2026-08-30 已支持 pinned 排序,侧栏补齐入口)
-  const pinMutation = useMutation({
-    mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) =>
-      setConversationPinned(id, pinned),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
-    },
-    onError: () => error(tc('toast.pinFailed')),
-  })
-
   const exportMutation = useMutation({
-    mutationFn: ({ id, format }: { id: string; format: 'txt' | 'md' }) =>
+    mutationFn: ({ id, format }: { id: string; format: 'md' }) =>
       exportConversation(id, format),
-  })
-
-  const compressMutation = useMutation({
-    mutationFn: async ({ id, targetChars }: { id: string; targetChars: 200000 | 1000000 }) => {
-      const res = await compressConversation(id, targetChars)
-      if (!res.success) throw new Error(res.error)
-      return res.data
-    },
-  })
-
-  const renameMutation = useMutation({
-    mutationFn: async ({ id, title }: { id: string; title: string }) => {
-      const res = await fetchApi<{ conversation: ConversationItem }>(
-        `/api/chat/conversations/${encodeURIComponent(id)}`,
-        { method: 'PATCH', body: JSON.stringify({ title }) },
-      )
-      if (!res.success) throw new Error(res.error)
-      return res.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
-    },
   })
 
   const dateFmt = React.useMemo(
@@ -556,32 +471,6 @@ export function SidebarChatHistory({
     }
   }
 
-  const handleRename = (item: ConversationItem) => {
-    setPendingRenameId(item.id)
-    setRenameValue(item.title)
-  }
-
-  const confirmRename = () => {
-    if (!pendingRenameId) return
-    const title = renameValue.trim()
-    if (!title) {
-      error(tc('toast.renameEmpty'))
-      return
-    }
-    setBusyId(pendingRenameId)
-    renameMutation.mutate(
-      { id: pendingRenameId, title },
-      {
-        onSettled: () => setBusyId(null),
-        onSuccess: () => {
-          setPendingRenameId(null)
-          success(tc('toast.renamed'))
-        },
-        onError: () => error(tc('toast.renameFailed')),
-      },
-    )
-  }
-
   // D186:归档/取消归档的执行体(从确认弹层与行内菜单两条路径收敛到这里)
   const runArchiveToggle = (item: ConversationItem, onSettledExtra?: () => void) => {
     setBusyId(item.id)
@@ -619,34 +508,6 @@ export function SidebarChatHistory({
       setPendingArchive(null)
       setArchiveNoAsk(false)
     })
-  }
-
-  // D20 置顶切换(G-11):成功文案区分 pinned/unpinned
-  const handlePinToggle = (item: ConversationItem) => {
-    setBusyId(item.id)
-    pinMutation.mutate(
-      { id: item.id, pinned: !item.pinned },
-      {
-        onSettled: () => setBusyId(null),
-        onSuccess: () => success(item.pinned ? tc('toast.unpinned') : tc('toast.pinned')),
-      },
-    )
-  }
-
-  // D187:侧栏「标记为未读」入口(成功 toast 文案即竞品 nav.markUnreadSuccess 对标串)
-  const handleMarkUnread = (item: ConversationItem) => {
-    if (!userId) return
-    markUnread(userId, item.id)
-    success(t('markUnreadSuccess'))
-  }
-
-  // D20 文件夹/标签提交(G-11):写客户端元数据 store(v1),关对话框 + toast
-  const handleOrgSubmit = (next: ConversationOrgSubmitValue) => {
-    if (!pendingOrgItem || !userId) return
-    setOrgFolder(userId, pendingOrgItem.id, next.folder)
-    setOrgTags(userId, pendingOrgItem.id, next.tags)
-    setPendingOrgItem(null)
-    success(tc('toast.orgSaved'))
   }
 
   // D165:打开移动对话框(单选与批量共用)。进入多选态不清选中集 ——
@@ -706,7 +567,7 @@ export function SidebarChatHistory({
     toggleGroupPin(userId, folder)
   }
 
-  const handleExport = (item: ConversationItem, format: 'txt' | 'md') => {
+  const handleExport = (item: ConversationItem, format: 'md') => {
     setBusyId(item.id)
     exportMutation.mutate(
       { id: item.id, format },
@@ -716,37 +577,13 @@ export function SidebarChatHistory({
           downloadText(
             content,
             `${slugifyForFilename(item.title)}-${buildTimestamp()}.${format}`,
-            format === 'md' ? 'text/markdown' : 'text/plain',
+            'text/markdown',
           )
           success(tc('toast.exported'))
         },
         onError: () => error(tc('toast.exportFailed')),
       },
     )
-  }
-
-  const handleCompress = (item: ConversationItem, targetChars: 200000 | 1000000) => {
-    setBusyId(item.id)
-    compressMutation.mutate(
-      { id: item.id, targetChars },
-      {
-        onSettled: () => setBusyId(null),
-        onSuccess: (data) => {
-          downloadText(
-            data.content,
-            `${slugifyForFilename(item.title)}-compressed-${targetChars}-${buildTimestamp()}.md`,
-            'text/markdown',
-          )
-          success(tc('toast.compressed'))
-        },
-        onError: () => error(tc('toast.compressFailed')),
-      },
-    )
-  }
-
-  const exportRoleLabel: ExportRoleLabel = {
-    user: te('roleUser'),
-    assistant: te('roleAssistant'),
   }
 
   // 导出/分享动作:按会话 ID 拉全量消息后本地生成,不依赖面板当前加载的会话
@@ -762,34 +599,9 @@ export function SidebarChatHistory({
       .finally(() => setBusyId(null))
   }
 
-  const handleExportJson = (item: ConversationItem) => {
-    runExportAction(item.id, te('exportStarted'), () =>
-      downloadConversationJson(item.id, item.title),
-    )
-  }
-
-  const handleSnapshot = (item: ConversationItem) => {
-    runExportAction(item.id, te('exportStarted'), () =>
-      downloadConversationSnapshot(item.id, item.title, exportRoleLabel),
-    )
-  }
-
-  const handleShareCard = (item: ConversationItem) => {
-    runExportAction(item.id, te('exportStarted'), () =>
-      downloadConversationShareCard(item.id, item.title, te('shareCardUser')),
-    )
-  }
-
   const handleShareLink = (item: ConversationItem) => {
     runExportAction(item.id, te('shareLinkCopied'), () =>
       copyConversationShareLink(item.id, te('shareFailed')).then(() => true),
-    )
-  }
-
-  // D20(G-11):导出 PDF —— 打印通道(隐藏 iframe 调起系统打印,用户选"另存为 PDF")
-  const handleExportPdf = (item: ConversationItem) => {
-    runExportAction(item.id, te('exportStarted'), () =>
-      printConversationPdf(item.id, item.title, exportRoleLabel),
     )
   }
 
@@ -952,85 +764,26 @@ export function SidebarChatHistory({
               )}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuContent side="right" align="start" sideOffset={4} className="w-44">
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation()
-                handleRename(item)
+                handleShareLink(item)
               }}
               disabled={busyId === item.id}
-            >
-              <Pencil className="mr-2 h-3.5 w-3.5" />
-              <span>{tc('actions.rename')}</span>
-            </DropdownMenuItem>
-            {/* D20(G-11):置顶/取消置顶 —— 与会话历史页同款语义,复用既有 toast 键 */}
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handlePinToggle(item)
-              }}
-              disabled={busyId === item.id}
-              data-testid="conversation-pin-action"
-            >
-              {item.pinned ? (
-                <>
-                  <PinOff className="mr-2 h-3.5 w-3.5" />
-                  <span>{tc('actions.unpin')}</span>
-                </>
-              ) : (
-                <>
-                  <Pin className="mr-2 h-3.5 w-3.5" />
-                  <span>{tc('actions.pin')}</span>
-                </>
-              )}
-            </DropdownMenuItem>
-            {/* D187:标记为未读(客户端标记,打开该会话即清除) */}
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleMarkUnread(item)
-              }}
-              disabled={busyId === item.id || !userId}
-              data-testid="conversation-mark-unread-action"
-            >
-              <Mail className="mr-2 h-3.5 w-3.5" />
-              <span>{t('markUnread')}</span>
-            </DropdownMenuItem>
-            {/* D20(G-11):文件夹/标签编辑(客户端元数据 v1) */}
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                setPendingOrgItem(item)
-              }}
-              disabled={busyId === item.id || !userId}
-              data-testid="conversation-org-action"
-            >
-              <Tags className="mr-2 h-3.5 w-3.5" />
-              <span>{tc('org.title')}</span>
-            </DropdownMenuItem>
-            {/* D165:移动到分组(单选入口;批量入口在多选态动作条上) */}
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                openMoveToGroup([item.id])
-              }}
-              disabled={busyId === item.id || !userId}
-              data-testid="conversation-move-to-group-action"
-            >
-              <FolderInput className="mr-2 h-3.5 w-3.5" />
-              <span>{t('moveToGroup')}</span>
-            </DropdownMenuItem>
-            {/* D179:「绑定 Issue」(竞品 bindIssue;已绑定时同入口可换绑,解绑在对话框内) */}
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                setIssueDialogFor(item)
-              }}
-              disabled={busyId === item.id}
-              data-testid="conversation-issue-bind-action"
             >
               <Link2 className="mr-2 h-3.5 w-3.5" />
-              <span>{tc('bindIssue')}</span>
+              <span>{te('share')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleExport(item, 'md')
+              }}
+              disabled={busyId === item.id}
+            >
+              <FileCode className="mr-2 h-3.5 w-3.5" />
+              <span>{tc('actions.exportMd')}</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => {
@@ -1051,98 +804,6 @@ export function SidebarChatHistory({
                   <span>{tc('actions.archive')}</span>
                 </>
               )}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleExport(item, 'md')
-              }}
-              disabled={busyId === item.id}
-            >
-              <FileCode className="mr-2 h-3.5 w-3.5" />
-              <span>{tc('actions.exportMd')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleExport(item, 'txt')
-              }}
-              disabled={busyId === item.id}
-            >
-              <FileText className="mr-2 h-3.5 w-3.5" />
-              <span>{tc('actions.exportTxt')}</span>
-            </DropdownMenuItem>
-            {/* D20(G-11):导出 PDF(打印通道,用户侧"另存为 PDF") */}
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleExportPdf(item)
-              }}
-              disabled={busyId === item.id}
-              data-testid="conversation-export-pdf"
-            >
-              <FileDown className="mr-2 h-3.5 w-3.5" />
-              <span>{te('exportPdf')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleExportJson(item)
-              }}
-              disabled={busyId === item.id}
-            >
-              <FileJson className="mr-2 h-3.5 w-3.5" />
-              <span>{te('exportJson')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleSnapshot(item)
-              }}
-              disabled={busyId === item.id}
-            >
-              <Camera className="mr-2 h-3.5 w-3.5" />
-              <span>{te('snapshot')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleShareCard(item)
-              }}
-              disabled={busyId === item.id}
-            >
-              <ImageIcon className="mr-2 h-3.5 w-3.5" />
-              <span>{te('exportCard')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleShareLink(item)
-              }}
-              disabled={busyId === item.id}
-            >
-              <Link2 className="mr-2 h-3.5 w-3.5" />
-              <span>{te('share')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleCompress(item, 200000)
-              }}
-              disabled={busyId === item.id}
-            >
-              <Download className="mr-2 h-3.5 w-3.5" />
-              <span>{tc('actions.compressTo200k')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleCompress(item, 1000000)
-              }}
-              disabled={busyId === item.id}
-            >
-              <Download className="mr-2 h-3.5 w-3.5" />
-              <span>{tc('actions.compressTo1m')}</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => {
@@ -1222,7 +883,7 @@ export function SidebarChatHistory({
                     <ListFilter className="h-3 w-3" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent side="right" align="start">
                   <DropdownMenuItem
                     onClick={() => setFolderFilter(undefined)}
                     data-testid="conversation-folder-filter-all"
@@ -1283,7 +944,7 @@ export function SidebarChatHistory({
                   <ArrowUpDown className="h-3 w-3" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent side="right" align="start">
                 <DropdownMenuItem
                   onClick={() => setSortMode('pinnedFirst')}
                   data-testid="conversation-sort-pinned-first"
@@ -1457,44 +1118,7 @@ export function SidebarChatHistory({
         onCancel={() => setPendingArchive(null)}
       />
 
-      <Dialog
-        open={pendingRenameId !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingRenameId(null)
-        }}
-      >
-        <DialogContent className="min-[640px]:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{tc('renameDialog.title')}</DialogTitle>
-            {/* D191:helper 描述行(对标竞品 nav.renameChatDescription"保持简短且易于识别") */}
-            <DialogDescription>{tc('renameDialog.description')}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">
-              {tc('renameDialog.label')}
-            </label>
-            <Input
-              ref={renameInputRef}
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              placeholder={tc('renameDialog.placeholder')}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') confirmRename()
-              }}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" className="bg-muted" onClick={() => setPendingRenameId(null)}>
-              {tc('renameDialog.cancel')}
-            </Button>
-            <Button onClick={confirmRename} disabled={renameMutation.isPending}>
-              {tc('renameDialog.save')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* D165:移动到分组对话框(单选/批量共用;受控组件,判据与写入都在宿主侧)。
+      {/* D165:移动到分组对话框(批量入口在多选态动作条;受控组件,判据与写入都在宿主侧)。
           失败三态下弹层刻意不关:改一个目标就能原地重试。 */}
       <MoveToGroupDialog
         open={pendingMoveIds.length > 0}
@@ -1505,28 +1129,6 @@ export function SidebarChatHistory({
         pinnedFolders={pinnedFolders}
         onTogglePin={handleGroupPinToggle}
         onSubmit={submitMoveToGroup}
-      />
-
-      {/* D20(G-11):文件夹/标签编辑对话框(受控组件,读写客户端元数据 store) */}
-      <ConversationOrgDialog
-        open={pendingOrgItem !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingOrgItem(null)
-        }}
-        conversationTitle={pendingOrgItem?.title ?? ''}
-        meta={pendingOrgItem ? getOrgMeta(orgMap, pendingOrgItem.id) : {}}
-        folders={orgFolders}
-        onSubmit={handleOrgSubmit}
-      />
-
-      {/* D179:「绑定 Issue」对话框(搜索→选中绑定/换绑;已绑定时展示+解绑「改为独立任务」) */}
-      <IssueBindDialog
-        conversationId={issueDialogFor?.id ?? null}
-        open={issueDialogFor !== null}
-        onOpenChange={(open) => {
-          if (!open) setIssueDialogFor(null)
-        }}
-        binding={issueDialogFor ? resolveIssueBinding(issueDialogFor.metadata) : null}
       />
     </>
   )

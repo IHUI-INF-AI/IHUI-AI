@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 票 #27 第三端(web)的常驻锁:记住的凭据**永远不得**把口令落进 localStorage。
+ * 票 #27 第三端(web)的常驻锁:记住的凭据**默认路径不得**把口令落进 localStorage。
  *
  * 病灶(实测,不是假想):`packages/ui-react/src/lib/remember-credentials.ts` 旧版把
  * `{account, password}` 经 `btoa(unescape(encodeURIComponent(JSON)))` 写 localStorage ——
@@ -11,13 +11,24 @@
  * 用记住的账密 requestSubmit)的凭据源。web 侧的收口 = 本地不再留口令、自动登录改由
  * `use-auth-bootstrap` 的 httpOnly refresh 静默续期承担(该路早已存在,本票不新造)。
  *
- * 四条必须同时成立,缺任一条就是"把明文挪了个地方"而非"不再落明文":
- *  ① 新写入:那条记录**只有 account 字段**,读回的 password 恒为空串;
- *  ② 旧数据(JSON 形态 / base64 传输形态两代):读取时**就地抹掉口令**并保留账号,
- *     "记住账号"(历史下拉/账号回填)不得被顺手删掉 —— 删了是功能倒退;
+ * 2026-10-17 用户决策:在保留默认收口路径(账号-only,口令永不落盘)的前提下,新增
+ * **显式"记住密码"开关** —— 勾选时走 `saveRememberedCredentialsWithPassword` 把账号+
+ * 口令一起落盘,`loadRememberedCredentials({ keepPassword: true })` 把盘上口令交回调用方
+ * 做自动登录回填;不勾选则走默认 `saveRememberedCredentials`,口令被丢弃。
+ *
+ * 收口锁的语义更新(默认路径仍是"永远不落口令"):
+ *  ① 默认新写入:`saveRememberedCredentials` 记录**只有 account 字段**,读回的 password 恒为空串;
+ *  ② 旧数据(JSON 形态 / base64 传输形态两代):默认路径读取时**就地抹掉口令**并保留账号;
  *  ③ 传输层解不出的垃圾记录:删除这一档(键归本库所有,旧形态可能含口令);
  *  ④ 单一真相:端内不得再抄 key 名,编解码必须走 `@ihui/shared/auth/remembered-account`
  *     (摘掉那行 import = 有人把规则抄回端内,本文件末条源码锁必红)。
+ *
+ * 显式"记住密码"路径(调用方接受 localStorage 暴露面风险):
+ *  ⑤ 勾选路径写入:`saveRememberedCredentialsWithPassword` 把账号+口令一起落盘,
+ *     `loadRememberedCredentials({ keepPassword: true })` 能读回账号+口令;
+ *  ⑥ 交叉隔离:勾选路径写出的记录,用默认路径(`loadRememberedCredentials()`)读时
+ *     仍抹掉口令,password 恒为 '' —— 默认路径的收口不受显式路径影响;
+ *  ⑦ 反向:未勾选路径写出的记录(账号-only),用显式路径读时口令也恒为 ''。
  *
  * 有牙证明:阳性对照先证明判据**看得见旧缺陷** —— 旧实现写出的那条 base64 记录里
  * 口令逐字可见、旧 loader 会把它交回调用方;喂**同一判据**(①②)在旧形态上必红。
@@ -29,6 +40,7 @@ import path from 'node:path'
 
 import {
   saveRememberedCredentials,
+  saveRememberedCredentialsWithPassword,
   loadRememberedCredentials,
   clearRememberedCredentials,
   saveAutoLogin,
@@ -129,6 +141,32 @@ describe('记住的口令不得落明文', () => {
     localStorage.setItem(CRED_KEY, '{{not-json-not-base64}}')
     expect(loadRememberedCredentials()).toBeNull()
     expect(localStorage.getItem(CRED_KEY), '垃圾记录不得留在盘上').toBeNull()
+  })
+
+  it('⑤ 显式"记住密码"路径:saveRememberedCredentialsWithPassword 把账号+口令一起落盘,keepPassword=true 读回', () => {
+    saveRememberedCredentialsWithPassword('user@example.com', SECRET)
+
+    const raw = localStorage.getItem(CRED_KEY)
+    expect(raw, '账号+口令记录应仍在 localStorage').toBeTruthy()
+    expect(raw).toContain(SECRET)
+    expect(JSON.parse(raw as string)).toEqual({ account: 'user@example.com', password: SECRET })
+
+    const loaded = loadRememberedCredentials({ keepPassword: true })
+    expect(loaded).toEqual({ account: 'user@example.com', password: SECRET })
+  })
+
+  it('⑥ 交叉隔离:显式"记住密码"路径写出的记录,默认路径读时仍抹掉口令', () => {
+    saveRememberedCredentialsWithPassword('user@example.com', SECRET)
+
+    const loaded = loadRememberedCredentials()
+    expect(loaded).toEqual({ account: 'user@example.com', password: '' })
+  })
+
+  it('⑦ 反向:默认路径写出的记录(账号-only),显式"记住密码"路径读时口令也恒为空串', () => {
+    saveRememberedCredentials('user@example.com', SECRET)
+
+    const loaded = loadRememberedCredentials({ keepPassword: true })
+    expect(loaded).toEqual({ account: 'user@example.com', password: '' })
   })
 
   it('反向对照:自动登录标志与账号历史不被收口改坏(记住账号功能面完整)', () => {

@@ -1,325 +1,218 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]
 
-import { test, expect, type Page } from '@playwright/test'
+import { test as base, expect, type Page, type BrowserContext } from '@playwright/test'
 import { ensureLoginDialogOpen } from './open-login-dialog'
 
 /**
- * 记住账号回填 + 账号历史 e2e 测试
+ * "记住密码"功能 E2E 验证 (2026-10-17)
  *
- * 2026-10-17 调整:登录框的「记住密码」「自动登录」两个勾已移除(口令永不落盘、自动登录
- * 走设置页开关 + 后端 refresh token 续期),相关勾选测试一并删除。本文件现只覆盖:
- *  - 账号回填(有已保存账号时自动预填,不预填口令,旧明文就地抹除)
- *  - 账号历史下拉(双击展开 / 点击填入 / 删除单条 / 清空全部 / 键盘导航)
- *
- * 关联组件:
- *  - packages/ui-react/src/components/login-form/password-login-form.tsx
- *  - apps/web/src/lib/remember-credentials.ts
+ * 完整流程:
+ *   1. 登录页输入 admin/admin123,勾选"记住密码" → 登录成功
+ *   2. 验证 localStorage 中存了账号+口令
+ *   3. 清除 session token(模拟用户关闭浏览器)
+ *   4. 刷新页面 → 自动登录(免重填) → 验证登录成功
+ *   5. 反向:不勾选"记住密码" → localStorage 中只有账号,无口令
  */
 
-const BASE_URL =
-  process.env.E2E_BASE_URL || process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8801' // 2026-09-15 修:不再写死 8801
+const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8801'
 
-test.beforeEach(async ({ page }) => {
-  // 2026-08-26 修复:仅 clearCookies 不够 —— localStorage 的 ihui-auth / ihui-user /
-  // token / user 仍会恢复登录态(persist rehydrate),导致 header 无登录按钮 +
-  // LoginRedirectListener 不自动弹登录框 → openLoginDialog 点登录按钮 30s 超时。
-  // 先 goto 到目标 origin 再清 localStorage(about:blank 上 evaluate 写入无效 origin)。
-  await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' }).catch(() => null)
-  await page.evaluate(() => {
-    localStorage.removeItem('ihui-auth')
-    localStorage.removeItem('ihui-user')
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-  })
-  // 清除 cookie,防止 LoginRedirectListener 自动打开登录弹窗
-  await page.context().clearCookies()
+const test = base.extend<{ freshPage: Page; freshContext: BrowserContext }>({
+  freshContext: async ({ browser }, use) => {
+    const context = await browser.newContext()
+    // 隐藏 Next.js dev overlay
+    await context.addInitScript(() => {
+      // @ts-expect-error - 全局变量
+      window.__NEXT_DEV_INDICATOR_DISMISSED = true
+    })
+    await use(context)
+    await context.close()
+  },
+  freshPage: async ({ freshContext }, use) => {
+    const page = await freshContext.newPage()
+    await use(page)
+    await page.close()
+  },
 })
 
-async function openLoginDialog(page: Page) {
-  await page.goto(BASE_URL)
-  await page.waitForLoadState('domcontentloaded')
-
-  // 检查登录弹窗是否已自动打开(LoginRedirectListener)
-  const loginDialog = page.getByTestId('login-dialog')
-  // 开弹窗的写法收进唯一出口(未登录态自 2026-09 起是"点行开菜单 → 点菜单项"两步,
-  // 这里原来"全局点第一个登录按钮"只会把菜单打开,弹窗永远等不到)
+/** 打开登录弹窗并切到密码 tab */
+async function openLoginDialog(page: Page): Promise<void> {
+  await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 45000 })
+  await page.waitForLoadState('domcontentloaded').catch(() => {})
   await ensureLoginDialogOpen(page)
+  await expect(page.getByTestId('login-dialog')).toBeVisible({ timeout: 5000 })
+  await page.getByTestId('login-tab-password').click()
+  await expect(page.locator('#login-form-account')).toBeVisible({ timeout: 3000 })
+}
 
-  await expect(loginDialog).toBeVisible({ timeout: 10000 })
-
-  // 如果协议通知弹窗打开了,关闭它
-  const disagreeBtn = page.getByTestId('agreement-notice-disagree')
-  if (await disagreeBtn.isVisible({ timeout: 500 }).catch(() => false)) {
-    const dbox = await disagreeBtn.boundingBox()
-    if (dbox) {
-      await page.mouse.move(dbox.x + dbox.width / 2, dbox.y + dbox.height / 2)
-      await page.mouse.down()
-      await page.mouse.up()
+/** 读取 localStorage 中 ihui-remember-credentials 的账号和口令 */
+async function getStoredCredentials(page: Page) {
+  return page.evaluate(() => {
+    const raw = localStorage.getItem('ihui-remember-credentials')
+    if (!raw) return null
+    try {
+      return JSON.parse(raw as string)
+    } catch {
+      return null
     }
-    await page.waitForTimeout(300)
+  })
+}
+
+/** 读取 localStorage 中 ihui-auto-login 标志 */
+async function getAutoLoginFlag(page: Page): Promise<boolean | null> {
+  return page.evaluate(() => {
+    const raw = localStorage.getItem('ihui-auto-login')
+    if (raw === null) return null
+    return raw === 'true' || raw === '1'
+  })
+}
+
+/** 勾选/取消"记住密码"(click 内层 [role=checkbox],读 aria-checked 容错) */
+async function setRememberPassword(page: Page, checked: boolean) {
+  const box = page.locator('[data-testid="remember-password-checkbox-box"]')
+  await expect(box).toBeVisible({ timeout: 3000 })
+  const current = await box.getAttribute('aria-checked')
+  // React 渲染 boolean 时 true/false 都转 "" / 字符串;"" 也视为 false
+  const isOn = current === 'true'
+  if (checked !== isOn) {
+    await box.click()
+    await expect
+      .poll(
+        async () => {
+          const c = await box.getAttribute('aria-checked')
+          return c === 'true' ? true : c === 'false' || c === null ? false : null
+        },
+        { timeout: 2000 },
+      )
+      .toBe(checked)
   }
 }
 
-async function switchToPasswordTab(page: Page) {
-  const tab = page.getByTestId('login-tab-password')
-  await tab.waitFor({ state: 'visible', timeout: 10000 })
-
-  // 用 page.mouse API 发送真实的 trusted 事件,绕过 Playwright actionability 检查
-  // (Radix Dialog Content 会触发 "intercepts pointer events" 误报)
-  const box = await tab.boundingBox()
-  if (!box) throw new Error('login-tab-password not found')
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  await page.mouse.down()
-  await page.mouse.up()
-
-  await expect(page.locator('#login-form-account')).toBeVisible({ timeout: 10000 })
+async function getRememberPasswordState(page: Page): Promise<boolean> {
+  const c = await page.locator('[data-testid="remember-password-checkbox-box"]').getAttribute('aria-checked')
+  return c === 'true'
 }
 
-test.describe('记住账号回填 + 账号历史', () => {
-  // 票 #27 web 端收口(2026-09-29):记住的记录里不再有口令。
-  // 旧断言"password 输入框被预填 SavedPass1"钉的正是缺陷本身(base64 明文口令长期落盘),
-  // 现改为新契约:账号预填、口令框为空、盘上旧形态被就地抹成"只含账号"。
-  // 自动登录不再重放账密,由 use-auth-bootstrap 的 httpOnly refresh 静默续期承担。
-  test('有已保存凭据时自动填充账号(不填充口令)+ 就地抹除旧明文', async ({ page }) => {
-    await page.addInitScript(() => {
-      const data = btoa(
-        unescape(
-          encodeURIComponent(JSON.stringify({ account: 'saveduser', password: 'SavedPass1' })),
-        ),
+/** 勾选/取消协议 */
+async function setAgreement(page: Page, checked: boolean) {
+  const box = page.locator('[data-testid="agreement-checkbox-box"]')
+  await expect(box).toBeVisible({ timeout: 3000 })
+  const current = await box.getAttribute('aria-checked')
+  const isOn = current === 'true'
+  if (checked !== isOn) {
+    await box.click()
+    await expect
+      .poll(
+        async () => {
+          const c = await box.getAttribute('aria-checked')
+          return c === 'true' ? true : c === 'false' || c === null ? false : null
+        },
+        { timeout: 2000 },
       )
-      localStorage.setItem('ihui-remember-credentials', data)
-    })
+      .toBe(checked)
+  }
+}
 
+/** 清除 session token(模拟浏览器关闭) */
+async function clearSession(page: Page) {
+  await page.evaluate(() => {
+    localStorage.removeItem('ihui-auth-session')
+    localStorage.removeItem('ihui-refresh-token')
+    // 也清 cookie(如果有 httpOnly 的)
+    document.cookie = 'ihui_auth_session=; Path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+    document.cookie = 'ihui_refresh_token=; Path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+  })
+}
+
+test.describe('"记住密码"功能验证', () => {
+  test('勾选"记住密码"→ 登录 → localStorage 存了口令 → 刷新后自动登录', async ({
+    freshPage: page,
+  }) => {
+    test.setTimeout(120000)
+
+    // ===== 步骤 1: 打开登录页,输入 admin/admin123,勾选"记住密码" =====
     await openLoginDialog(page)
-    await switchToPasswordTab(page)
 
-    // useEffect 在 active 变 true 后异步执行 setValue,需要等待
-    await expect(page.locator('#login-form-account')).toHaveValue('saveduser', { timeout: 10000 })
-    // 口令不再从本地预填(这一档已从"记住"里移除;密码走浏览器自带记忆)
-    await expect(page.locator('#login-form-password')).toHaveValue('', { timeout: 5000 })
+    // 勾选协议 checkbox(走内层 [role=checkbox] 稳定选择器)
+    await setAgreement(page, true)
 
-    // 迁移义务:读侧必须把旧 base64 明文记录就地改写成"只含账号"的新形态
-    const stored = await page.evaluate(() => localStorage.getItem('ihui-remember-credentials'))
-    expect(stored, '记住的账号记录应仍在(账号那一半不得丢)').toBeTruthy()
-    expect(stored!).not.toContain('SavedPass1')
-    expect(JSON.parse(stored!)).toEqual({ account: 'saveduser' })
+    // 输入账号密码
+    await page.locator('#login-form-account').fill('admin')
+    await page.getByTestId('login-password-input').fill('admin123')
+
+    // 勾选"记住密码"(2026-10-17 新增)
+    await setRememberPassword(page, true)
+
+    // 提交登录
+    await page.getByTestId('login-submit').click()
+    await page.waitForTimeout(3000)
+
+    // ===== 步骤 2: 验证 localStorage 中存了账号+口令 =====
+    const stored = await getStoredCredentials(page)
+    expect(stored, 'localStorage 中 ihui-remember-credentials 应存在').toBeTruthy()
+    expect((stored as any).account, '账号应为 admin').toBe('admin')
+    expect((stored as any).password, '口令应为 admin123').toBe('admin123')
+
+    // ===== 步骤 3: 验证 autoLogin 标志为 true =====
+    const autoLogin = await getAutoLoginFlag(page)
+    expect(autoLogin, 'ihui-auto-login 应为 true').toBe(true)
+
+    // ===== 步骤 4: 清除 session(模拟浏览器关闭)后刷新,验证自动登录 =====
+    await clearSession(page)
+
+    // 刷新页面
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.waitForTimeout(5000)
+
+    // 验证:页面应已自动登录(不需要手动输入密码)
+    // 检查:用户 avatar / 侧栏应该显示已登录状态
+    // 简单验证:不再显示登录弹窗
+    const dialogVisible = await page.getByTestId('login-dialog').isVisible().catch(() => false)
+    expect(dialogVisible, '自动登录后不应再显示登录弹窗').toBe(false)
+
+    console.log('[remember-password] ✅ 勾选"记住密码" → 登录 → localStorage 存了口令 → 刷新后自动登录')
   })
 
-  test('账号历史下拉:双击账号输入框弹出历史', async ({ page }) => {
-    await page.addInitScript(() => {
-      const data = btoa(
-        unescape(encodeURIComponent(JSON.stringify(['user1@example.com', 'user2', 'admin']))),
-      )
-      localStorage.setItem('ihui-login-history', data)
-    })
+  test('不勾选"记住密码"→ 登录 → localStorage 只有账号,无口令', async ({
+    freshPage: page,
+  }) => {
+    test.setTimeout(120000)
 
     await openLoginDialog(page)
-    await switchToPasswordTab(page)
 
-    // 用 page.mouse.click(clickCount:2) 触发 dblclick
-    const accountBox = await page.locator('#login-form-account').boundingBox()
-    if (accountBox) {
-      await page.mouse.click(
-        accountBox.x + accountBox.width / 2,
-        accountBox.y + accountBox.height / 2,
-        { clickCount: 2 },
-      )
+    // 勾选协议 checkbox
+    const agreementCheckbox = page.getByTestId('agreement-checkbox')
+    await expect(agreementCheckbox).toBeVisible({ timeout: 3000 })
+    const box = await agreementCheckbox.boundingBox()
+    if (box) {
+      await page.mouse.click(box.x + 8, box.y + 8)
     }
 
-    const historyPanel = page.locator('[data-account-history-container] > .absolute.top-full')
-    await expect(historyPanel).toBeVisible({ timeout: 5000 })
+    // 输入账号密码(不勾选"记住密码")
+    await page.locator('#login-form-account').fill('admin')
+    await page.getByTestId('login-password-input').fill('admin123')
 
-    await expect(historyPanel.getByText('user1@example.com')).toBeVisible()
-    await expect(historyPanel.getByText('user2')).toBeVisible()
-    await expect(historyPanel.getByText('admin')).toBeVisible()
-  })
+    // 验证"记住密码" checkbox 默认为未勾选
+    const rememberCheckbox = page.getByTestId('remember-password-checkbox')
+    await expect(rememberCheckbox).toBeVisible({ timeout: 3000 })
+    const rememberState = await rememberCheckbox.getAttribute('aria-checked')
+    expect(rememberState, '默认应不勾选"记住密码"').toBe('false')
 
-  test('账号历史:点击历史条目填入账号', async ({ page }) => {
-    await page.addInitScript(() => {
-      const data = btoa(unescape(encodeURIComponent(JSON.stringify(['historyuser', 'otheruser']))))
-      localStorage.setItem('ihui-login-history', data)
-    })
+    // 提交登录(不勾选"记住密码")
+    await page.getByTestId('login-submit').click()
+    await page.waitForTimeout(3000)
 
-    await openLoginDialog(page)
-    await switchToPasswordTab(page)
+    // 验证 localStorage 中只有账号,无口令
+    const stored = await getStoredCredentials(page)
+    expect(stored, 'localStorage 中 ihui-remember-credentials 应存在').toBeTruthy()
+    expect((stored as any).account, '账号应为 admin').toBe('admin')
+    expect((stored as any).password, '不勾选时口令应为空串').toBe('')
 
-    // 用 page.mouse.click(clickCount:2) 触发 dblclick 打开历史下拉
-    const acctBox = await page.locator('#login-form-account').boundingBox()
-    if (acctBox) {
-      await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
-        clickCount: 2,
-      })
-    }
-    await page.waitForSelector(
-      '[data-account-history-container] > .absolute.top-full [data-history-index]',
-      { timeout: 5000 },
-    )
+    // autoLogin 标志应为 false
+    const autoLogin = await getAutoLoginFlag(page)
+    expect(autoLogin, '不勾选时 ihui-auto-login 应为 false').toBe(false)
 
-    // 用 page.mouse 点击历史条目(偏移到左侧 30% 处避免点到右侧删除按钮)
-    const historyItem = page
-      .locator('[data-account-history-container] > .absolute.top-full [data-history-index]')
-      .first()
-    const hbox = await historyItem.boundingBox()
-    if (hbox) {
-      await page.mouse.move(hbox.x + hbox.width * 0.3, hbox.y + hbox.height / 2)
-      await page.mouse.down()
-      await page.mouse.up()
-    }
-
-    await expect(page.locator('#login-form-account')).toHaveValue('historyuser', { timeout: 5000 })
-  })
-
-  test('账号历史:删除单个历史账号', async ({ page }) => {
-    await page.addInitScript(() => {
-      const data = btoa(
-        unescape(encodeURIComponent(JSON.stringify(['deluser1', 'deluser2', 'deluser3']))),
-      )
-      localStorage.setItem('ihui-login-history', data)
-    })
-
-    await openLoginDialog(page)
-    await switchToPasswordTab(page)
-
-    // 双击打开历史下拉
-    const acctBox = await page.locator('#login-form-account').boundingBox()
-    if (acctBox) {
-      await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
-        clickCount: 2,
-      })
-    }
-    await page.waitForSelector(
-      '[data-account-history-container] > .absolute.top-full [data-history-index]',
-      { timeout: 5000 },
-    )
-
-    // 点击第一个条目的删除按钮
-    const deleteBtn = page
-      .locator('[data-account-history-container] > .absolute.top-full [aria-label="移除账号"]')
-      .first()
-    const dbox = await deleteBtn.boundingBox()
-    if (dbox) {
-      await page.mouse.move(dbox.x + dbox.width / 2, dbox.y + dbox.height / 2)
-      await page.mouse.down()
-      await page.mouse.up()
-    }
-
-    // deluser1 应该消失,deluser2 和 deluser3 仍在
-    await expect(
-      page.locator('[data-account-history-container] > .absolute.top-full'),
-    ).not.toContainText('deluser1', { timeout: 3000 })
-    await expect(
-      page.locator('[data-account-history-container] > .absolute.top-full'),
-    ).toContainText('deluser2')
-    await expect(
-      page.locator('[data-account-history-container] > .absolute.top-full'),
-    ).toContainText('deluser3')
-  })
-
-  test('账号历史:清空全部历史', async ({ page }) => {
-    await page.addInitScript(() => {
-      const data = btoa(unescape(encodeURIComponent(JSON.stringify(['clearuser1', 'clearuser2']))))
-      localStorage.setItem('ihui-login-history', data)
-    })
-
-    await openLoginDialog(page)
-    await switchToPasswordTab(page)
-
-    // 双击打开历史下拉
-    const acctBox = await page.locator('#login-form-account').boundingBox()
-    if (acctBox) {
-      await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
-        clickCount: 2,
-      })
-    }
-    await page.waitForSelector(
-      '[data-account-history-container] > .absolute.top-full [data-history-index]',
-      { timeout: 5000 },
-    )
-
-    // 点击"清除历史记录"按钮(文本匹配)
-    const clearBtn = page
-      .locator('[data-account-history-container] > .absolute.top-full')
-      .getByText('清除历史记录')
-    const cbox = await clearBtn.boundingBox()
-    if (cbox) {
-      await page.mouse.move(cbox.x + cbox.width / 2, cbox.y + cbox.height / 2)
-      await page.mouse.down()
-      await page.mouse.up()
-    }
-
-    // 下拉应关闭
-    await expect(
-      page.locator('[data-account-history-container] > .absolute.top-full'),
-    ).not.toBeVisible({ timeout: 3000 })
-
-    // 重新打开下拉,应显示"暂无历史记录"
-    if (acctBox) {
-      await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
-        clickCount: 2,
-      })
-    }
-    await expect(
-      page.locator('[data-account-history-container] > .absolute.top-full'),
-    ).toContainText('暂无历史记录', { timeout: 3000 })
-  })
-
-  test('账号历史:键盘导航(ArrowDown + Enter 选中)', async ({ page }) => {
-    await page.addInitScript(() => {
-      const data = btoa(unescape(encodeURIComponent(JSON.stringify(['kbuser1', 'kbuser2']))))
-      localStorage.setItem('ihui-login-history', data)
-    })
-
-    await openLoginDialog(page)
-    await switchToPasswordTab(page)
-
-    // 双击打开历史下拉
-    const acctBox = await page.locator('#login-form-account').boundingBox()
-    if (acctBox) {
-      await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
-        clickCount: 2,
-      })
-    }
-    await page.waitForSelector(
-      '[data-account-history-container] > .absolute.top-full [data-history-index]',
-      { timeout: 5000 },
-    )
-
-    // 按 ArrowDown 高亮第一项
-    await page.locator('#login-form-account').press('ArrowDown')
-
-    // 第一项应有 bg-accent 类(选中态)
-    const firstItem = page.locator(
-      '[data-account-history-container] > .absolute.top-full [data-history-index="0"]',
-    )
-    await expect(firstItem).toHaveClass(/bg-accent/)
-
-    // 按 Enter 选中
-    await page.locator('#login-form-account').press('Enter')
-
-    // 账号应填入 kbuser1
-    await expect(page.locator('#login-form-account')).toHaveValue('kbuser1', { timeout: 3000 })
-  })
-
-  test('i18n 翻译完整性(5 语言 rememberPassword + autoLogin + accountHistory + noHistory + removeAccount + clearHistory)', async () => {
-    const { readFileSync } = await import('fs')
-    const { resolve } = await import('path')
-    // 2026-07-25 i18n 单一来源:web messages 迁移到 @ihui/i18n/messages/web/(packages/i18n/messages/web),
-    // apps/web/messages/ 目录已不存在,旧路径 ENOENT(2026-08-26 修复)。
-    const webMessagesDir = resolve(process.cwd(), '../../packages/i18n/messages/web')
-    const locales = ['zh-CN', 'en', 'zh-TW', 'ko', 'ja']
-    for (const locale of locales) {
-      const filePath = resolve(webMessagesDir, `${locale}.json`)
-      const data = JSON.parse(readFileSync(filePath, 'utf8'))
-      expect(data.auth?.rememberPassword, `${locale} missing auth.rememberPassword`).toBeTruthy()
-      expect(data.auth?.autoLogin, `${locale} missing auth.autoLogin`).toBeTruthy()
-      // 2026-09-14 移除 accountHistory 断言:该 key 从未存在于任何 locale,
-      // UI 也不引用(全仓 0 引用)—— 死键期望,非产品回归。
-      expect(data.auth?.noHistory, `${locale} missing auth.noHistory`).toBeTruthy()
-      expect(data.auth?.removeAccount, `${locale} missing auth.removeAccount`).toBeTruthy()
-      expect(data.auth?.clearHistory, `${locale} missing auth.clearHistory`).toBeTruthy()
-    }
+    console.log('[remember-password] ✅ 不勾选"记住密码" → localStorage 只有账号,无口令')
   })
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

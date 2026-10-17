@@ -825,8 +825,9 @@ export function CdpBrowserView({
             tabIndex={-1}
             className="fixed z-popover min-w-[180px] rounded-md border border-border bg-popover p-1 shadow-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified focus:outline-none"
             style={{
-              left: Math.min(ctxMenu.x, window.innerWidth - 188),
-              top: Math.min(ctxMenu.y, window.innerHeight - menuItems.length * 30 - 16),
+              // 2026-10-17 根治:四边 clamp(原来只防右/下溢出,左/上会贴死屏幕边缘)
+              left: Math.max(8, Math.min(ctxMenu.x, window.innerWidth - 188)),
+              top: Math.max(8, Math.min(ctxMenu.y, window.innerHeight - menuItems.length * 30 - 16)),
             }}
             onMouseDown={(e) => e.stopPropagation()}
           >

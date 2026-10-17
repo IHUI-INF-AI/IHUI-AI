@@ -591,9 +591,12 @@ describe('HoverPreviewCard — Phase 19/20 a11y + 边界', () => {
         />,
       )
       const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
-      // inline style 应保留原始数值(px 单位)
-      expect(card.style.left).toBe(`${pos.x}px`)
-      expect(card.style.top).toBe(`${pos.y}px`)
+      // 2026-10-17 根治后:卡片在渲染前做四边视口 clamp(8px pad,卡 240x140),
+      // 越界坐标被钳进视口内,不再原样透传 —— 贴边/越界坐标也应落回安全区
+      const clampedX = Math.max(8, Math.min(pos.x, window.innerWidth - 240 - 8))
+      const clampedY = Math.max(8, Math.min(pos.y, window.innerHeight - 140 - 8))
+      expect(card.style.left).toBe(`${clampedX}px`)
+      expect(card.style.top).toBe(`${clampedY}px`)
       cleanup()
     }
   })
