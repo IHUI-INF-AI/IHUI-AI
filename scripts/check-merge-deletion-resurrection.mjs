@@ -84,6 +84,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, assertRepoRoot, catBatch, catBatchOids, gitRaw, readWorktreeFile, resolveRemoteHead, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { ALLOWLIST_FILE, entryDefect, hasIntentionalMarker, parseAllowlist, rotEntries } from './lib/deletion-intent.mjs'
 
@@ -804,6 +805,17 @@ async function main() {
   const today = new Date().toISOString().slice(0, 10)
   const revIdx = argv.indexOf('--rev')
   const limitIdx = argv.indexOf('--limit')
+  // G-322:--limit 给旗标不给值一律 exit 2 点名 —— 旧写法 Number(undefined)=NaN 把"回看 N 枚"
+  // 窗口静默吞成"审计全部",scope 行还照印"回看 NaN 枚"。(漏值非空但被顶值时同样死在域校验。)
+  const limitFlag = requireFlagValue(argv, '--limit', { noun: '正整数' })
+  if (limitFlag.error) {
+    console.error(`❌ ${limitFlag.error}`)
+    process.exit(2)
+  }
+  if (limitFlag.present && (!/^\d+$/.test(limitFlag.value) || Number(limitFlag.value) <= 0)) {
+    console.error(`❌ --limit 必须是正整数,实得:${JSON.stringify(limitFlag.value)}`)
+    process.exit(2)
+  }
   let res
   if (revIdx >= 0) {
     const sha = argv[revIdx + 1]
@@ -820,12 +832,12 @@ async function main() {
     res = { scope: { note: `单枚 ${sha}` }, face, allow, merged: parents.length >= 2 ? 1 : 0, skippedByLedger: 0, rows: [one], today, enumeration: 'ok', ...d }
   } else {
     res = runAudit(ROOT, face, {
-      limit: limitIdx >= 0 ? Number(argv[limitIdx + 1]) : DEFAULT_WINDOW,
+      limit: limitFlag.present ? Number(limitFlag.value) : DEFAULT_WINDOW,
       strict,
       // `--limit` 是人工取证档 ⇒ **不**走去重(要能反复回看同一批历史);默认档与 --all-new 按台账去重,
       // 免得已入库的复活把之后每一次提交都钉红(§12e/§12f)。
       dedupe: limitIdx < 0,
-      scope: limitIdx >= 0 ? { range: 'HEAD', bounded: false, note: `人工回看最近 ${argv[limitIdx + 1]} 枚(含已入库历史)` } : undefined,
+      scope: limitFlag.present ? { range: 'HEAD', bounded: false, note: `人工回看最近 ${limitFlag.value} 枚(含已入库历史)` } : undefined,
     })
   }
   report(res, { json: argv.includes('--json') })

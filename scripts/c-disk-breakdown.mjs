@@ -39,11 +39,25 @@ import { lstatSync, readdirSync, statfsSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { flagValue, describeFlagToken } from './lib/flag-value.mjs'
 
 const argv = process.argv.slice(2)
+// G-322:给了旗标就必须给值 —— 结尾漏值/值被下一旗标顶值(--root --json 等)一律 exit 2 点名,
+// 不静默回落默认扫描面(旧写法会把 "--json" 当 C:/ 的根或把缺值折回默认档,门照常出具"✅ 分解完成")。
 const flag = (name, dflt) => {
-  const i = argv.indexOf(`--${name}`)
-  return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : dflt
+  const nameFull = `--${name}`
+  if (argv.some((a) => a.startsWith(`${nameFull}=`))) {
+    const eq = argv.find((a) => a.startsWith(`${nameFull}=`))
+    return eq.slice(nameFull.length + 1) || dflt
+  }
+  const f = flagValue(argv, nameFull)
+  if (f.present && !f.valid) {
+    console.error(
+      `❌ ${nameFull} 需要一个参数 —— 紧邻的 token 实得:${describeFlagToken(f)}(不得静默退回默认 ${dflt})`,
+    )
+    process.exit(2)
+  }
+  return f.present ? f.value : dflt
 }
 const ROOT = flag('root', 'C:/').replace(/\\/g, '/')
 const MAX_DEPTH = Number(flag('depth', 4))

@@ -76,6 +76,7 @@ import { gitRaw } from './lib/face-reader.mjs'
 // 临时夹具唯一落点(§26):裸 `mkdtempSync` 在本仓被镜像测试当反向锁钉过 —— 仓库树内的夹具会被
 // `git rev-parse --show-toplevel` 向上逃逸到真仓,夹具就证不了"这是个独立仓"。
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 // 唯一一把匹配尺(守门 99 的实现),不得在此重述"什么算 import"
 import { collectHits } from './check-staged-deletions.mjs'
@@ -308,7 +309,14 @@ function selfTest() {
 function main(argv = process.argv.slice(2)) {
   if (argv.includes('--self-test')) return selfTest()
   const quiet = argv.includes('--quiet')
-  const r = auditOrphanDeletionRefs(argv.includes('--root') ? argv[argv.indexOf('--root') + 1] : ROOT)
+  // G-322:--root 给旗标不给值一律 exit 2 点名 —— 旧写法把 undefined 直传 auditOrphanDeletionRefs,
+  // 其内部 git() 的 cwd 落空回退 process.cwd(),会**静默审错仓**(审到真仓而非夹具)。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    return 2
+  }
+  const r = auditOrphanDeletionRefs(rootFlag.present ? rootFlag.value : ROOT)
   if (argv.includes('--json')) {
     console.log(JSON.stringify(r))
     return r.hits.length ? 1 : 0
