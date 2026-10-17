@@ -954,6 +954,47 @@
     },
     "welcomeDesc": "무엇을 도와드릴까요?",
     "welcomeTitle": "안녕하세요, IHUI AI 어시스턴트입니다",
+    "businessForms": {
+      "ariaLabel": "업무 폼 카드",
+      "aria": {
+        "email": "메일 작성 카드",
+        "calendarEvent": "캘린더 폼 카드"
+      },
+      "fields": {
+        "to": "받는 사람",
+        "cc": "참조",
+        "bcc": "숨은 참조",
+        "subject": "제목",
+        "replyTo": "회신 주소",
+        "body": "본문",
+        "start": "시작",
+        "end": "종료",
+        "attendees": "참석자"
+      },
+      "action": {
+        "approve": "승인",
+        "reject": "거부",
+        "create": "만들기",
+        "save": "저장"
+      },
+      "error": {
+        "required": "필수 항목을 입력해 주세요",
+        "invalidEmail": "이메일 형식이 올바르지 않습니다",
+        "endBeforeStart": "종료 시간은 시작 시간 이후여야 합니다",
+        "noAttendees": "참석자를 1명 이상 추가해 주세요"
+      },
+      "reason": "거절 사유(선택)",
+        "fold": {
+        "expand": "전체 {count}명 참석자 펼치기",
+        "collapse": "참석자 접기"
+      },
+      "status": {
+        "submitting": "제출 중…",
+        "approved": "승인됨",
+        "rejected": "거부됨",
+        "failed": "제출에 실패했습니다. 다시 시도해 주세요"
+      }
+    },
     "cards": {
       "steer": {
         "title": "{count}회 유도됨",
