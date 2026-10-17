@@ -10,7 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { UserPlus, UserMinus, Loader2, AlertCircle, MessageCircle } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@ihui/ui-react'
 import { Avatar } from '@/components/data'
@@ -40,12 +40,6 @@ interface CreateConversationResult {
   conversation: { id: string }
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function PublicUserProfilePage() {
   const params = useParams<{ id: string }>()
   const id = params?.id
@@ -56,7 +50,7 @@ export default function PublicUserProfilePage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['user', 'public', id],
-    queryFn: () => api<UserResponse>(`/api/users/${id}`),
+    queryFn: () => apiOrThrow<UserResponse>(`/api/users/${id}`),
     enabled: !!id,
   })
 
@@ -65,23 +59,23 @@ export default function PublicUserProfilePage() {
 
   const { data: statusData } = useQuery({
     queryKey: ['follows', 'status', id],
-    queryFn: () => api<{ following: boolean }>(`/api/follows/${id}/status`),
+    queryFn: () => apiOrThrow<{ following: boolean }>(`/api/follows/${id}/status`),
     enabled: canFollow,
   })
 
   const followMut = useMutation({
-    mutationFn: () => api(`/api/follows/${id}`, { method: 'POST' }),
+    mutationFn: () => apiOrThrow(`/api/follows/${id}`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['follows', 'status', id] }),
   })
 
   const unfollowMut = useMutation({
-    mutationFn: () => api(`/api/follows/${id}`, { method: 'DELETE' }),
+    mutationFn: () => apiOrThrow(`/api/follows/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['follows', 'status', id] }),
   })
 
   const startDmMut = useMutation({
     mutationFn: () =>
-      api<CreateConversationResult>(`/api/messages/conversations`, {
+      apiOrThrow<CreateConversationResult>(`/api/messages/conversations`, {
         method: 'POST',
         body: JSON.stringify({ peerId: id }),
       }),

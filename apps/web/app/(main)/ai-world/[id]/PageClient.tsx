@@ -11,7 +11,7 @@ import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Eye, Calendar, Tag, Sparkles, Star } from 'lucide-react'
 import Image from 'next/image'
 
-import { fetchApi } from '@/lib/api'
+import { fetchApi, apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { Card, CardContent } from '@ihui/ui-react'
@@ -41,12 +41,6 @@ interface AiWorldHotApp {
   href: string
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function AiWorldDetailPage() {
   const params = useParams<{ id: string }>()
   const locale = useLocale()
@@ -59,7 +53,8 @@ export default function AiWorldDetailPage() {
     error,
   } = useQuery({
     queryKey: ['ai-world', 'detail', params.id],
-    queryFn: () => api<{ world: AiWorldItem }>(`/api/ai-world/${params.id}`).then((d) => d.world),
+    queryFn: () =>
+      apiOrThrow<{ world: AiWorldItem }>(`/api/ai-world/${params.id}`).then((d) => d.world),
     enabled: !!params.id,
   })
 
@@ -67,7 +62,7 @@ export default function AiWorldDetailPage() {
   const { data: favData } = useQuery({
     queryKey: ['ai-world', 'favorite', params.id],
     queryFn: () =>
-      api<{ favorited: boolean }>(`/api/favorites/check/aiworld/${params.id}`).then(
+      apiOrThrow<{ favorited: boolean }>(`/api/favorites/check/aiworld/${params.id}`).then(
         (d) => d.favorited,
       ),
     enabled: !!params.id && isAuthed,
@@ -103,13 +98,13 @@ export default function AiWorldDetailPage() {
 
   const { data: catData } = useQuery({
     queryKey: ['ai-world', 'categories'],
-    queryFn: () => api<{ list: AiWorldCategory[] }>('/api/ai-world/categories'), // method: GET
+    queryFn: () => apiOrThrow<{ list: AiWorldCategory[] }>('/api/ai-world/categories'), // method: GET
   })
 
   const { data: worldListData } = useQuery({
     queryKey: ['ai-world'],
     queryFn: () =>
-      api<{ hotApps: AiWorldHotApp[] } | unknown>('/api/ai-world').then(
+      apiOrThrow<{ hotApps: AiWorldHotApp[] } | unknown>('/api/ai-world').then(
         (d) => (d as { hotApps?: AiWorldHotApp[] }).hotApps ?? [],
       ),
   })

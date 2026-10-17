@@ -20,7 +20,7 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Card, CardContent } from '@ihui/ui-react'
@@ -49,12 +49,6 @@ interface InviteeStatsData {
   vipInvitees: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
 
 export default function DistributionHomePage() {
@@ -65,22 +59,22 @@ export default function DistributionHomePage() {
   const { allow } = useAuthGate()
   const teamQ = useQuery({
     queryKey: ['distribution', 'team-center'],
-    queryFn: () => api<TeamCenterData>('/api/finance/distribution/team/center'),
+    queryFn: () => apiOrThrow<TeamCenterData>('/api/finance/distribution/team/center'),
     enabled: allow,
   })
   const summaryQ = useQuery({
     queryKey: ['distribution', 'commission-summary'],
-    queryFn: () => api<CommissionSummaryData>('/api/finance/commission/summary'),
+    queryFn: () => apiOrThrow<CommissionSummaryData>('/api/finance/commission/summary'),
     enabled: allow,
   })
   const availableQ = useQuery({
     queryKey: ['distribution', 'withdrawal-available'],
-    queryFn: () => api<AvailableData>('/api/finance/withdrawal/available'),
+    queryFn: () => apiOrThrow<AvailableData>('/api/finance/withdrawal/available'),
     enabled: allow,
   })
   const inviteeQ = useQuery({
     queryKey: ['distribution', 'invitee-stats'],
-    queryFn: () => api<InviteeStatsData>('/api/finance/distribution/invitee-stats'),
+    queryFn: () => apiOrThrow<InviteeStatsData>('/api/finance/distribution/invitee-stats'),
     enabled: allow,
   })
 
@@ -151,63 +145,71 @@ export default function DistributionHomePage() {
         <AuthGatePrompt message="请先登录后查看分销中心" />
       ) : (
         <>
-      <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
-        {stats.map((s) => (
-          <StatCard key={s.label} title={s.label} value={s.value} icon={s.icon} loading={loading} />
-        ))}
-      </div>
-
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('quickEntry')}</h2>
-        <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-5">
-          {entries.map((e) => {
-            const Icon = e.icon
-            return (
-              <Link key={e.href} href={e.href}>
-                <Card className="transition-colors hover:bg-accent">
-                  <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-2 p-3 text-center">
-                    <Icon className="h-6 w-6 text-primary" />
-                    <span className="text-sm font-medium">{e.label}</span>
-                  </CardContent>
-                </Card>
-              </Link>
-            )
-          })}
-        </div>
-      </div>
-
-      <Card>
-        <CardContent className="min-[640px]:p-3 space-y-4 p-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">{t('inviteStats')}</h2>
-            <Link
-              href="/distribution/team"
-              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-            >
-              {tc('back')}
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+          <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
+            {stats.map((s) => (
+              <StatCard
+                key={s.label}
+                title={s.label}
+                value={s.value}
+                icon={s.icon}
+                loading={loading}
+              />
+            ))}
           </div>
-          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
-            <div className="rounded-lg bg-muted/40 px-4 py-3">
-              <div className="text-xs text-muted-foreground">{t('totalInvitees')}</div>
-              {inviteeQ.isLoading ? (
-                <Loader2 className="mt-1 h-5 w-5 animate-spin text-muted-foreground" />
-              ) : (
-                <div className="mt-1 text-2xl font-bold">{inviteeQ.data?.totalInvitees ?? 0}</div>
-              )}
-            </div>
-            <div className="rounded-lg bg-muted/40 px-4 py-3">
-              <div className="text-xs text-muted-foreground">{t('vipInvitees')}</div>
-              {inviteeQ.isLoading ? (
-                <Loader2 className="mt-1 h-5 w-5 animate-spin text-muted-foreground" />
-              ) : (
-                <div className="mt-1 text-2xl font-bold">{inviteeQ.data?.vipInvitees ?? 0}</div>
-              )}
+
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold">{t('quickEntry')}</h2>
+            <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-5">
+              {entries.map((e) => {
+                const Icon = e.icon
+                return (
+                  <Link key={e.href} href={e.href}>
+                    <Card className="transition-colors hover:bg-accent">
+                      <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-2 p-3 text-center">
+                        <Icon className="h-6 w-6 text-primary" />
+                        <span className="text-sm font-medium">{e.label}</span>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                )
+              })}
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          <Card>
+            <CardContent className="min-[640px]:p-3 space-y-4 p-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold">{t('inviteStats')}</h2>
+                <Link
+                  href="/distribution/team"
+                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                >
+                  {tc('back')}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+              <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
+                <div className="rounded-lg bg-muted/40 px-4 py-3">
+                  <div className="text-xs text-muted-foreground">{t('totalInvitees')}</div>
+                  {inviteeQ.isLoading ? (
+                    <Loader2 className="mt-1 h-5 w-5 animate-spin text-muted-foreground" />
+                  ) : (
+                    <div className="mt-1 text-2xl font-bold">
+                      {inviteeQ.data?.totalInvitees ?? 0}
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-lg bg-muted/40 px-4 py-3">
+                  <div className="text-xs text-muted-foreground">{t('vipInvitees')}</div>
+                  {inviteeQ.isLoading ? (
+                    <Loader2 className="mt-1 h-5 w-5 animate-spin text-muted-foreground" />
+                  ) : (
+                    <div className="mt-1 text-2xl font-bold">{inviteeQ.data?.vipInvitees ?? 0}</div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </>
       )}
     </div>

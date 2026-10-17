@@ -9,7 +9,7 @@ import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { GraduationCap, PlayCircle, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { SELECT_CLASS } from '@/lib/select-class'
 import {
   Button,
@@ -45,12 +45,6 @@ interface LessonsData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function fetchLessons(params: {
   page: number
   categoryId: string
@@ -59,7 +53,7 @@ function fetchLessons(params: {
   const qs = new URLSearchParams({ page: String(params.page), pageSize: String(PAGE_SIZE) })
   if (params.categoryId !== 'all') qs.set('categoryId', params.categoryId)
   if (params.search) qs.set('search', params.search)
-  return api<LessonsData>(`/api/learn/lessons?${qs.toString()}`)
+  return apiOrThrow<LessonsData>(`/api/learn/lessons?${qs.toString()}`)
 }
 
 export default function LearnPage() {
@@ -81,7 +75,8 @@ export default function LearnPage() {
 
   const { data: categories } = useQuery({
     queryKey: ['learn', 'categories'],
-    queryFn: () => api<{ list: Category[] }>(`/api/learn/categories`).then((d) => d.list ?? []),
+    queryFn: () =>
+      apiOrThrow<{ list: Category[] }>(`/api/learn/categories`).then((d) => d.list ?? []),
   })
 
   const { data, isLoading, error } = useQuery({

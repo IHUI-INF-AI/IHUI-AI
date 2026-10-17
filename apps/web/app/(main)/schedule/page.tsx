@@ -21,7 +21,7 @@ import {
   XCircle,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Input, Button } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { formatDate } from '@/lib/date-utils'
@@ -48,12 +48,6 @@ interface TasksData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function SchedulePage() {
   const t = useTranslations('schedule')
   // 2026-10-15 登录态门(与 settings/notifications 同型):未就绪/未登录不发注定 401 的请求,改显登录引导
@@ -77,7 +71,7 @@ export default function SchedulePage() {
     queryFn: () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (debounced) qs.set('name', debounced)
-      return api<TasksData>(`/api/schedule/tasks?${qs.toString()}`)
+      return apiOrThrow<TasksData>(`/api/schedule/tasks?${qs.toString()}`)
     },
     enabled: allow,
   })

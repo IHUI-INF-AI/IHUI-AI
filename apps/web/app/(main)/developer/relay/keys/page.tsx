@@ -20,7 +20,7 @@ import {
   Power,
   Wallet,
 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Button,
   Input,
@@ -71,12 +71,6 @@ const SCOPES: Array<{ value: string; labelKey: string }> = [
   { value: 'audio:write', labelKey: 'scopeAudio' },
   { value: 'videos:write', labelKey: 'scopeVideos' },
 ]
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 function maskKey(k: string): string {
   if (k.length <= 8) return k
@@ -156,7 +150,7 @@ export default function RelayKeysPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['developer', 'relay', 'keys'],
     queryFn: () =>
-      api<KeysData>('/api/developer/relay/keys').catch(() => ({ list: [] }) as KeysData),
+      apiOrThrow<KeysData>('/api/developer/relay/keys').catch(() => ({ list: [] }) as KeysData),
     enabled: allow,
   })
   const list = data?.list ?? []
@@ -165,7 +159,7 @@ export default function RelayKeysPage() {
   // 改为中转站端点 /api/developer/relay/keys + permissions 字段
   const createMut = useMutation({
     mutationFn: () =>
-      api<{ apiKey: { id: string; name: string; key: string }; secret: string }>(
+      apiOrThrow<{ apiKey: { id: string; name: string; key: string }; secret: string }>(
         '/api/developer/relay/keys',
         {
           method: 'POST',
@@ -185,7 +179,8 @@ export default function RelayKeysPage() {
   // 2026-09-16 升级:改用专用吊销端点 POST /keys/:id/revoke(软操作/幂等/单向迁移,
   // 服务端保留 Key 记录与调用日志);恢复仍走 PATCH status='active'。
   const revokeMut = useMutation({
-    mutationFn: (id: string) => api(`/api/developer/relay/keys/${id}/revoke`, { method: 'POST' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/developer/relay/keys/${id}/revoke`, { method: 'POST' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
       toast.success(t('revokedToast'))
@@ -195,7 +190,7 @@ export default function RelayKeysPage() {
   // 2026-09-13 新增:误吊销可恢复,避免一次性不可逆操作
   const restoreMut = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/developer/relay/keys/${id}`, {
+      apiOrThrow(`/api/developer/relay/keys/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ status: 'active' }),
       }),
@@ -209,7 +204,7 @@ export default function RelayKeysPage() {
   // 改为 relay 侧新增的 reset 端点,新 secret 仅此一次返回,复用创建成功弹窗展示
   const resetMut = useMutation({
     mutationFn: (id: string) =>
-      api<{ apiKey: { id: string; name: string; key: string }; secret: string }>(
+      apiOrThrow<{ apiKey: { id: string; name: string; key: string }; secret: string }>(
         `/api/developer/relay/keys/${id}/reset`,
         { method: 'POST' },
       ),
@@ -224,7 +219,7 @@ export default function RelayKeysPage() {
   // 2026-09-16 新增:重置当前 Key 的限流窗口用量计数(清空窗口统计,非重置 secret)
   const resetWindowsMut = useMutation({
     mutationFn: (id: string) =>
-      api<{ cleared: number }>(`/api/developer/relay/keys/${id}/reset-windows`, {
+      apiOrThrow<{ cleared: number }>(`/api/developer/relay/keys/${id}/reset-windows`, {
         method: 'POST',
       }),
     onSuccess: (data) => {
@@ -237,14 +232,14 @@ export default function RelayKeysPage() {
   // 钱包余额(打开充值弹窗时拉一次)
   React.useEffect(() => {
     if (!rechargeTarget) return
-    api<{ balance: number }>('/api/wallet/balance')
+    apiOrThrow<{ balance: number }>('/api/wallet/balance')
       .then((d) => setWalletBalance(d.balance))
       .catch(() => setWalletBalance(null))
   }, [rechargeTarget])
 
   const rechargeMut = useMutation({
     mutationFn: (input: { id: string; cents: number }) =>
-      api<{ tokenBalance: number; costBalanceCents: number }>(
+      apiOrThrow<{ tokenBalance: number; costBalanceCents: number }>(
         `/api/developer/relay/keys/${input.id}/recharge`,
         {
           method: 'POST',

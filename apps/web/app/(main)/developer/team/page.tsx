@@ -10,7 +10,7 @@ import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -18,12 +18,6 @@ import { useAuthGate } from '@/hooks/use-auth-gate'
 import { TeamList } from './TeamList'
 import { TeamDialog } from './TeamDialog'
 import type { TeamMember } from './types'
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 export default function TeamPage() {
   const locale = useLocale()
@@ -48,13 +42,13 @@ export default function TeamPage() {
     error,
   } = useQuery({
     queryKey: ['developer', 'team'],
-    queryFn: () => api<TeamMember[]>('/api/developer/team').catch(() => [] as TeamMember[]),
+    queryFn: () => apiOrThrow<TeamMember[]>('/api/developer/team').catch(() => [] as TeamMember[]),
     enabled: allow,
   })
 
   const inviteMut = useMutation({
     mutationFn: () =>
-      api('/api/developer/team/invite', {
+      apiOrThrow('/api/developer/team/invite', {
         method: 'POST',
         body: JSON.stringify({ email, role }),
       }),
@@ -68,7 +62,7 @@ export default function TeamPage() {
 
   const updateRoleMut = useMutation({
     mutationFn: (m: TeamMember) =>
-      api(`/api/developer/team/${m.id}`, {
+      apiOrThrow(`/api/developer/team/${m.id}`, {
         method: 'PUT',
         body: JSON.stringify({ role }),
       }),
@@ -81,7 +75,7 @@ export default function TeamPage() {
   })
 
   const removeMut = useMutation({
-    mutationFn: (id: string) => api(`/api/developer/team/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/developer/team/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['developer', 'team'] })
       toast.success('成员已移除')

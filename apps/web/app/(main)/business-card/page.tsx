@@ -11,7 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { CreditCard, Plus, Star, Share2, Loader2, Pencil, Trash2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Button, Card, CardContent } from '@ihui/ui-react'
@@ -39,12 +39,6 @@ interface CardListData {
 
 interface FavCardListData {
   list: (BusinessCard & { favoriteId: string })[]
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 function CardItem({ card, footer }: { card: BusinessCard; footer?: React.ReactNode }) {
@@ -97,7 +91,7 @@ export default function BusinessCardPage() {
     // 2026-10-04:原先打 /api/business-card(后端无此空路径端点,恒 404),
     // 且语义也不对 —— /api/business-card/list 是 isPublic=true 的全体公开卡(广场)。
     // 本页是"我的名片"且每卡带 edit/delete/share,改指按 userId 归属过滤的 /mine。
-    queryFn: () => api<CardListData>(`/api/business-card/mine`).then((d) => d.list ?? []),
+    queryFn: () => apiOrThrow<CardListData>(`/api/business-card/mine`).then((d) => d.list ?? []),
     enabled: allow, // 2026-09-30 登录态门
   })
 
@@ -107,12 +101,13 @@ export default function BusinessCardPage() {
     error: favErr,
   } = useQuery({
     queryKey: ['business-card', 'favorites'],
-    queryFn: () => api<FavCardListData>(`/api/business-card/favorites`).then((d) => d.list ?? []),
+    queryFn: () =>
+      apiOrThrow<FavCardListData>(`/api/business-card/favorites`).then((d) => d.list ?? []),
     enabled: allow, // 2026-09-30 登录态门
   })
 
   const removeMut = useMutation({
-    mutationFn: (id: string) => api(`/api/business-card/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/business-card/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['business-card'] }),
   })
 

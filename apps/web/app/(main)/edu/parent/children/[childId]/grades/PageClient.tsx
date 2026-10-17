@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
 import { Award, Loader2, TrendingUp, TrendingDown } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -25,12 +25,6 @@ interface GradeItem {
   examDate: string
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function ChildGradesPage() {
   const t = useTranslations('parentPortal')
   const tc = useTranslations('common')
@@ -43,7 +37,7 @@ export default function ChildGradesPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'grades'],
     queryFn: () =>
-      api<{ list: GradeItem[] }>(`/api/edu-ai-management/parent/children/${childId}/grades`),
+      apiOrThrow<{ list: GradeItem[] }>(`/api/edu-ai-management/parent/children/${childId}/grades`),
     enabled: allow,
   })
 

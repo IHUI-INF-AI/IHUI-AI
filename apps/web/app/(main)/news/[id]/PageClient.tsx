@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, ChevronRight, Loader2, Eye, Bookmark, Heart, MessageSquare } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { Badge } from '@/components/data'
 import { BackButton, SafeHtml } from '@/components/common'
@@ -43,19 +43,13 @@ interface ArticleDetail {
   article: NewsArticle
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function NewsDetailPage() {
   const { id } = useParams<{ id: string }>()
   const t = useTranslations('news')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['news', 'article', id],
-    queryFn: () => api<ArticleDetail>(`/api/news/articles/${id}`),
+    queryFn: () => apiOrThrow<ArticleDetail>(`/api/news/articles/${id}`),
   })
 
   const fmtDate = (v?: string | null) => formatDateOnly(v)

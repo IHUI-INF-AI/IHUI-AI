@@ -13,7 +13,7 @@ import { Loader2, Crown, Check, X } from 'lucide-react'
 import { toast } from '@/components/common/Toaster'
 import { useTranslations } from 'next-intl'
 
-import { fetchApi } from '@/lib/api'
+import { fetchApi, apiOrThrow } from '@/lib/api'
 import { pushError } from '@/stores/error-banner'
 import { formatDate } from '@/lib/date-utils'
 import { useSubscriptionStatus, useSignContract } from '@/hooks/use-subscription'
@@ -54,12 +54,6 @@ interface SubscriptionStatus {
   plans?: SubscriptionPlan[]
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function formatPrice(cents: number): string {
   return new Intl.NumberFormat('zh-CN', {
     style: 'currency',
@@ -85,7 +79,7 @@ export default function SubscriptionPage() {
 
   const { data: status, isLoading } = useQuery({
     queryKey: ['payments', 'subscription', 'status'],
-    queryFn: () => api<SubscriptionStatus>('/api/payments/subscription/status'),
+    queryFn: () => apiOrThrow<SubscriptionStatus>('/api/payments/subscription/status'),
     enabled: allow,
   })
 

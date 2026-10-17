@@ -11,7 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { FileText, Loader2, Trash2, ChevronLeft, ChevronRight, Eye, Download } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
 import { AuthGatePrompt, BackButton } from '@/components/common'
@@ -38,12 +38,6 @@ interface ResourcesData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const STATUS_STYLE: Record<number, string> = {
   0: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   1: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
@@ -62,12 +56,13 @@ export default function MyResourcesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['student', 'my-resources', page],
-    queryFn: () => api<ResourcesData>(`/api/resources/mine?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: () =>
+      apiOrThrow<ResourcesData>(`/api/resources/mine?page=${page}&pageSize=${PAGE_SIZE}`),
     enabled: allow,
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/resources/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/resources/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['student', 'my-resources'] }),
   })
 

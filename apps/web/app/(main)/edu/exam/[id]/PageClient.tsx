@@ -11,7 +11,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Clock, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { AuthGatePrompt } from '@/components/common'
@@ -33,12 +33,6 @@ interface ExamDetail {
   questions: Question[]
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function EduExamTakePage() {
   const t = useTranslations('eduExamPage')
   const { id } = useParams<{ id: string }>()
@@ -51,13 +45,13 @@ export default function EduExamTakePage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'exam', id],
-    queryFn: () => api<{ exam: ExamDetail }>(`/api/edu/exam/${id}`).then((d) => d.exam),
+    queryFn: () => apiOrThrow<{ exam: ExamDetail }>(`/api/edu/exam/${id}`).then((d) => d.exam),
     enabled: allow,
   })
 
   const submitMut = useMutation({
     mutationFn: () =>
-      api<{ recordId: string }>(`/api/edu/exam/${id}/submit`, {
+      apiOrThrow<{ recordId: string }>(`/api/edu/exam/${id}/submit`, {
         method: 'POST',
         body: JSON.stringify({
           answers: Object.fromEntries(

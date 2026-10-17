@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
 import { ClipboardList, Loader2, CalendarDays, Clock } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -25,12 +25,6 @@ interface StudyPlanItem {
   endDate: string
   description: string | null
   status: string
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 /** 计划状态码 → eduParent 取词键;未知码回退原码(与后端比对的全是英文码) */
@@ -69,7 +63,7 @@ export default function ChildStudyPlansPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'study-plans'],
     queryFn: () =>
-      api<{ list: StudyPlanItem[] }>(
+      apiOrThrow<{ list: StudyPlanItem[] }>(
         `/api/edu-ai-management/parent/children/${childId}/study-plans`,
       ),
     enabled: allow,

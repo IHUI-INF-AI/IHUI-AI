@@ -23,7 +23,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton, toast, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
@@ -86,12 +86,6 @@ interface ScheduleEntry {
 }
 
 /* ─── API helper ─── */
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 /* ─── Constants ─── */
 
@@ -572,7 +566,7 @@ export default function SchedulePage() {
   } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
     enabled: allow,
-    queryFn: () => api<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
   })
 
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
@@ -588,7 +582,7 @@ export default function SchedulePage() {
   const { data: classesData, isLoading: classesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
     queryFn: () =>
-      api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+      apiOrThrow<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
     enabled: allow && !!selectedTermId,
   })
 
@@ -604,7 +598,7 @@ export default function SchedulePage() {
   const { data: schedulesData, isLoading: schedulesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'schedule', selectedTermId, selectedClassId],
     queryFn: () =>
-      api<{ list: ScheduleEntry[] }>(
+      apiOrThrow<{ list: ScheduleEntry[] }>(
         `/api/edu-ai-management/schedule?termId=${selectedTermId}&classId=${selectedClassId}`,
       ),
     enabled: allow && !!selectedTermId && !!selectedClassId,
@@ -619,7 +613,7 @@ export default function SchedulePage() {
 
   const createSchedule = useMutation({
     mutationFn: (data: ScheduleFormData) =>
-      api('/api/edu-ai-management/schedule', {
+      apiOrThrow('/api/edu-ai-management/schedule', {
         method: 'POST',
         body: JSON.stringify({
           termId: selectedTermId,
@@ -638,7 +632,7 @@ export default function SchedulePage() {
 
   const updateSchedule = useMutation({
     mutationFn: ({ id, data }: { id: string; data: ScheduleFormData }) =>
-      api(`/api/edu-ai-management/schedule/${id}`, {
+      apiOrThrow(`/api/edu-ai-management/schedule/${id}`, {
         method: 'PUT',
         body: JSON.stringify({
           courseName: data.courseName,
@@ -654,18 +648,19 @@ export default function SchedulePage() {
   })
 
   const deleteSchedule = useMutation({
-    mutationFn: (id: string) => api(`/api/edu-ai-management/schedule/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/edu-ai-management/schedule/${id}`, { method: 'DELETE' }),
     onSuccess: invalidate,
   })
 
   const saveTerm = useMutation({
     mutationFn: (data: Partial<Term>) =>
       data.id
-        ? api(`/api/edu-ai-management/term/${data.id}`, {
+        ? apiOrThrow(`/api/edu-ai-management/term/${data.id}`, {
             method: 'PUT',
             body: JSON.stringify(data),
           })
-        : api('/api/edu-ai-management/term', {
+        : apiOrThrow('/api/edu-ai-management/term', {
             method: 'POST',
             body: JSON.stringify(data),
           }),
@@ -674,7 +669,7 @@ export default function SchedulePage() {
 
   const saveClass = useMutation({
     mutationFn: (data: { name: string; grade: string }) =>
-      api('/api/edu-ai-management/class', {
+      apiOrThrow('/api/edu-ai-management/class', {
         method: 'POST',
         body: JSON.stringify({ ...data, termId: selectedTermId }),
       }),
@@ -689,7 +684,7 @@ export default function SchedulePage() {
     if (!selectedClassId) return
     setCopyingLastWeek(true)
     try {
-      const result = await api<{ count: number }>(
+      const result = await apiOrThrow<{ count: number }>(
         '/api/edu-ai-management/schedule/copy-last-week',
         {
           method: 'POST',
@@ -712,7 +707,7 @@ export default function SchedulePage() {
     if (!selectedClassId) return
     setExporting(true)
     try {
-      const data = await api<{
+      const data = await apiOrThrow<{
         schedules: ScheduleEntry[]
         class: { name: string } | null
         dateRange: { startDate: string; endDate: string }

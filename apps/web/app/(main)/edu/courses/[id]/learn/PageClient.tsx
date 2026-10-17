@@ -20,7 +20,7 @@ import {
   Clock,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { AuthGatePrompt } from '@/components/common'
@@ -43,12 +43,6 @@ interface QAItem {
   createdAt: string
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function EduCourseLearnPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -64,19 +58,21 @@ export default function EduCourseLearnPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'course', id, 'learn'],
-    queryFn: () => api<{ sections: Section[]; title: string }>(`/api/edu/courses/${id}/sections`),
+    queryFn: () =>
+      apiOrThrow<{ sections: Section[]; title: string }>(`/api/edu/courses/${id}/sections`),
     enabled: allow,
   })
 
   const { data: qaList } = useQuery({
     queryKey: ['edu', 'course', id, 'qa'],
-    queryFn: () => api<{ list: QAItem[] }>(`/api/edu/courses/${id}/qa`).then((d) => d.list ?? []),
+    queryFn: () =>
+      apiOrThrow<{ list: QAItem[] }>(`/api/edu/courses/${id}/qa`).then((d) => d.list ?? []),
     enabled: allow,
   })
 
   const noteMut = useMutation({
     mutationFn: () =>
-      api(`/api/edu/courses/${id}/notes`, {
+      apiOrThrow(`/api/edu/courses/${id}/notes`, {
         method: 'POST',
         body: JSON.stringify({ content: noteText, sectionId: currentSec?.id }),
       }),
@@ -88,7 +84,7 @@ export default function EduCourseLearnPage() {
 
   const qaMut = useMutation({
     mutationFn: () =>
-      api(`/api/edu/courses/${id}/qa`, {
+      apiOrThrow(`/api/edu/courses/${id}/qa`, {
         method: 'POST',
         body: JSON.stringify({ question: qaText }),
       }),

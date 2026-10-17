@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { MessageSquare, Loader2, Send } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, Button, Input, Label } from '@ihui/ui-react'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -32,12 +32,6 @@ const STATUS_CLS: Record<FeedbackItem['status'], string> = {
   pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
   resolved: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
   closed: 'bg-muted text-muted-foreground',
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 export default function MemberFeedbackPage() {
@@ -68,7 +62,7 @@ export default function MemberFeedbackPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'feedback'],
     queryFn: () =>
-      api<{ list: FeedbackItem[] }>('/api/feedbacks')
+      apiOrThrow<{ list: FeedbackItem[] }>('/api/feedbacks')
         .then((d) => d.list ?? [])
         .catch(() => [] as FeedbackItem[]),
     enabled: allow,
@@ -76,7 +70,7 @@ export default function MemberFeedbackPage() {
 
   const createMut = useMutation({
     mutationFn: (input: { type: FeedbackType; title: string; content: string; contact?: string }) =>
-      api<{ feedback: FeedbackItem }>('/api/feedbacks', {
+      apiOrThrow<{ feedback: FeedbackItem }>('/api/feedbacks', {
         method: 'POST',
         body: JSON.stringify(input),
       }),
