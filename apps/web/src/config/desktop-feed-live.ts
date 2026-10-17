@@ -300,6 +300,104 @@ export async function resolveLiveDesktopFeed(): Promise<LiveDesktopResolution> {
 }
 
 /**
+ * 安卓 APK 的**运行期**解析(2026-10-17 立,与桌面同因)。
+ *
+ * 历史形态:下载页的 APK 版本号靠 `NEXT_PUBLIC_DOWNLOAD_APK_VERSION` 人手填 env,
+ * 不填就什么都不显示。这与"版本号必须自动"直接冲突 —— 而 APK 的发布侧本来就是自动的:
+ * `.github/workflows/mobile-apk-build.yml` 每次构建都发一个 Release,资产**固定命名为**
+ * `ihui-ai-latest.apk`,并带 `make_latest: true`。
+ *
+ * 于是格子可以被彻底关掉:下载页运行期读「最新 release(排除 tag 里带 desktop-v 的那个)」,
+ * 就能同时拿到版本号(从 APK 文件名解析)与下载直链。
+ *
+ * 版本号的来源要说清:文件名是 `ihui-ai-latest.apk`(不带版本号),所以版本号取自
+ * **release tag**。tag 形如 `nightly-<run_id>`(CI 自建)或语义版本(手工发版)。
+ * 两者都不是给人看的版本号 —— 真正的用户可见版本号在包内(见 scripts/resolve-mobile-version.mjs)。
+ * 因此这里遵循同一条纪律:**取不到可读版本号就只给链接、不编造数字**,宁缺不假。
+ */
+export interface LiveAndroidSource {
+  /** release tag(如 nightly-38704094092);没有可读语义版本时,页面据此识别为 nightly 构建 */
+  tag: string
+  /** 从 tag 或资产名里解析出的语义版本;解析不出时为 null */
+  version: string | null
+  releaseDate: string
+  /** APK 直链(release 资产,文件名固定) */
+  apkUrl: string
+  sizeBytes: number
+  notesUrl: string
+}
+
+export type LiveAndroidResolution =
+  { source: 'live'; data: LiveAndroidSource } | { source: 'unavailable'; reason: string }
+
+/** 固定资产名(发布侧定义,双方共用的那一个字面量) */
+const APK_ASSET_NAME = 'ihui-ai-latest.apk'
+
+/** 从 nightly 之外的地方找语义版本:`v1.2.3` / `mobile-v1.2.3` / 资产名里的 `_1.2.3_` */
+export function extractSemver(...candidates: (string | null | undefined)[]): string | null {
+  for (const c of candidates) {
+    if (!c) continue
+    const m = String(c).match(/(\d+\.\d+\.\d+)/)
+    if (m && m[1]) return m[1]
+  }
+  return null
+}
+
+/** 在 releases 里挑出「带 APK 固定资产名的最新一个」(与桌面解析器同样的排除思路) */
+export function pickLatestApkRelease(
+  releases: readonly UpstreamRelease[],
+): { release: UpstreamRelease; asset: UpstreamReleaseAsset } | null {
+  const candidates = (releases || [])
+    .filter((r) => !r.draft)
+    .map((r) => ({
+      release: r,
+      asset: (r.assets || []).find((a) => a.name === APK_ASSET_NAME),
+    }))
+    .filter((x): x is { release: UpstreamRelease; asset: UpstreamReleaseAsset } => Boolean(x.asset))
+  if (candidates.length === 0) return null
+  // 按发布时间倒序取最新 —— APK 的 tag 是 nightly-<run_id>,不是 semver,没法比大小
+  candidates.sort((a, b) =>
+    String(b.release.published_at || '').localeCompare(String(a.release.published_at || '')),
+  )
+  return candidates[0] as { release: UpstreamRelease; asset: UpstreamReleaseAsset }
+}
+
+export async function resolveLiveAndroid(): Promise<LiveAndroidResolution> {
+  const repo = process.env.GITHUB_REPOSITORY || DEFAULT_REPO
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  }
+  const token = process.env.GITHUB_TOKEN
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  const releases = await fetchJson<UpstreamRelease[]>(
+    `https://api.github.com/repos/${repo}/releases?per_page=100`,
+    headers,
+  )
+  if (!releases || releases.length === 0) {
+    return { source: 'unavailable', reason: 'releases api unreachable' }
+  }
+  const picked = pickLatestApkRelease(releases)
+  if (!picked) {
+    return { source: 'unavailable', reason: `找不到带 ${APK_ASSET_NAME} 的已发布 release` }
+  }
+  const { release, asset } = picked
+  const tag = String(release.tag_name || '')
+  return {
+    source: 'live',
+    data: {
+      tag,
+      version: extractSemver(tag, asset.name),
+      releaseDate: String(release.published_at || '').slice(0, 10),
+      apkUrl: asset.browser_download_url || '',
+      sizeBytes: Number(asset.size || 0),
+      notesUrl: release.html_url || '',
+    },
+  }
+}
+
+/**
  * 更新器 feed 专用入口。
  *
  * 与下载页的区别只有一条:**这里要求 payload 完整**。原因是两端对"不完整"的代价不对等:

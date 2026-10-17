@@ -19,6 +19,8 @@ import {
   pickLatestDesktopRelease,
   buildLiveSource,
   liveToDesktopFeed,
+  pickLatestApkRelease,
+  extractSemver,
   type UpstreamRelease,
 } from './desktop-feed-live'
 
@@ -116,6 +118,58 @@ describe('buildLiveSource + liveToDesktopFeed', () => {
     const src = buildLiveSource(pick, null, 'o/r')
     expect(src.assets.map((a) => a.href)).toEqual(['https://h/a.exe'])
     expect(src.assets[0]?.format).toBe('Windows NSIS exe')
+  })
+})
+
+describe('extractSemver', () => {
+  it('能从 tag 或资产名里取出版本号,取不到返回 null(不编造)', () => {
+    expect(extractSemver('v1.2.3')).toBe('1.2.3')
+    expect(extractSemver('mobile-v0.0.5')).toBe('0.0.5')
+    expect(extractSemver('ihui-ai-1.0.0.apk')).toBe('1.0.0')
+    expect(extractSemver('nightly-38704094092')).toBeNull()
+    expect(extractSemver(null, undefined)).toBeNull()
+  })
+})
+
+describe('pickLatestApkRelease', () => {
+  it('只认带固定 APK 资产的 release —— 桌面 release 自然被排除(它没有这个资产)', () => {
+    const picked = pickLatestApkRelease([
+      rel('desktop-v0.1.58', {
+        assets: [{ name: 'AI_0.1.58_x64-setup.exe', browser_download_url: 'https://h/a.exe' }],
+      }),
+      rel('nightly-1', {
+        published_at: '2026-10-15T00:00:00Z',
+        assets: [{ name: 'ihui-ai-latest.apk', size: 42, browser_download_url: 'https://h/a.apk' }],
+      }),
+    ])
+    expect(picked?.release.tag_name).toBe('nightly-1')
+    expect(picked?.asset.browser_download_url).toBe('https://h/a.apk')
+  })
+
+  it('多个候选时取发布时间最新的一个(APK 的 tag 是 nightly-<run_id>,比不了大小只能比时间)', () => {
+    const picked = pickLatestApkRelease([
+      rel('nightly-1', {
+        published_at: '2026-10-10T00:00:00Z',
+        assets: [{ name: 'ihui-ai-latest.apk', browser_download_url: 'https://h/old.apk' }],
+      }),
+      rel('nightly-2', {
+        published_at: '2026-10-15T00:00:00Z',
+        assets: [{ name: 'ihui-ai-latest.apk', browser_download_url: 'https://h/new.apk' }],
+      }),
+    ])
+    expect(picked?.asset.browser_download_url).toBe('https://h/new.apk')
+  })
+
+  it('草稿不算,一个都没有时返回 null', () => {
+    expect(
+      pickLatestApkRelease([
+        rel('nightly-x', {
+          draft: true,
+          assets: [{ name: 'ihui-ai-latest.apk', browser_download_url: 'https://h/a.apk' }],
+        }),
+      ]),
+    ).toBeNull()
+    expect(pickLatestApkRelease([])).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
