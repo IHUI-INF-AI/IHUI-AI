@@ -80,7 +80,9 @@ test('① 源码里不得存在"对 EBWebView 根整棵删除"的调用点', () 
 })
 
 test('② 两处清理入口必须都走白名单辅助函数(装车证明)', () => {
-  const cmd = src.slice(src.indexOf('fn clear_webview_cache()'), src.indexOf('#[cfg(test)]'))
+  // 窗口须从函数起点截到「其后的下一枚 #[cfg(test)]」;直接 indexOf('#[cfg(test)]') 命中的是文件早期(157 行)那枚,
+  // 早于本函数(1754)⇒ slice 起>止返空串、判据恒假(自伤)。取函数之后的 cfg(test) 才真验到 1762 行那次 helper 调用。
+  const cmd = src.slice(src.indexOf('fn clear_webview_cache()'), src.indexOf('#[cfg(test)]', src.indexOf('fn clear_webview_cache()')))
   assert.ok(
     cmd.includes('clear_webview_caches('),
     '设置项"清理缓存"命令未走辅助函数(可能退回整树删)',
