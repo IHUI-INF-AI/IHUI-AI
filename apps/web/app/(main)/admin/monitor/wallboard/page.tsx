@@ -53,10 +53,11 @@ interface HostSnapshot {
 }
 
 interface ServicesSnapshot {
-  windows: Array<{ name: string; state: string }>
+  windows: Array<{ name: string; state: string; retired: boolean }>
   targets: Array<{ job: string; instance: string; up: number }>
   windowsTotal: number
   windowsRunning: number
+  windowsExpectedTotal: number
   targetsTotal: number
   targetsUp: number
 }
@@ -141,6 +142,7 @@ interface AlertsSnapshot {
   promActive: ActiveAlert[] | null
   promActiveCount: number | null
   firingTotal: number
+  firingNames: string[]
   recent: AlertItem[]
 }
 
@@ -170,6 +172,7 @@ interface TrendPayload {
   startEpochMs: number
   endEpochMs: number
   stepSeconds: number
+  minutes: number
   qps: Array<[number, number]>
   errRate: Array<[number, number]>
   cpuPct: Array<[number, number]>
@@ -352,6 +355,17 @@ function StatCell({
   )
 }
 
+/** 图表空数据占位(数据源无样本/未启用时盖在画布上,避免「空白=坏了」的误读)。 */
+function ChartEmpty({ text }: { text: string }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+      <span className="rounded-sm border border-[rgba(72,146,196,0.18)] bg-[rgba(10,21,38,0.66)] px-2.5 py-1 text-[10px] text-slate-500">
+        {text}
+      </span>
+    </div>
+  )
+}
+
 // ===================== 取数 =====================
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -387,7 +401,12 @@ export default function OpsWallboardPage() {
     return () => clearInterval(timer)
   }, [])
 
-  const { data: ov, dataUpdatedAt } = useQuery({
+  const {
+    data: ov,
+    dataUpdatedAt,
+    isError: ovError,
+    refetch: refetchOv,
+  } = useQuery({
     queryKey: ['admin', 'ops-wallboard', 'overview'],
     queryFn: () => fetchJson<OverviewPayload>('/api/admin/ops-wallboard/overview'),
     refetchInterval: 5000,
@@ -409,9 +428,23 @@ export default function OpsWallboardPage() {
   const alerts = ov?.alerts ?? null
   const events = ov?.events ?? null
 
-  const alertCount = (alerts?.promActiveCount ?? 0) + (alerts?.firingTotal ?? 0)
+  // 告警数 = Alertmanager 活跃 ∪ 库内 firing(按告警名去重):
+  // 告警桥会把同一告警同步落库,两路直接相加会重复计数
+  const promAlertNames = React.useMemo(
+    () => new Set((alerts?.promActive ?? []).map((a) => a.name)),
+    [alerts?.promActive],
+  )
+  const alertCount =
+    (alerts?.promActiveCount ?? 0) +
+    (alerts?.firingNames ?? []).filter((n) => !promAlertNames.has(n)).length
+  // 退役服务(见路由 RETIRED_SERVICES)不计入健康度分母,避免状态灯恒黄
   const overallTone: 'ok' | 'warn' | 'bad' =
-    alertCount > 0 || (services && services.windowsRunning < services.windowsTotal) ? 'warn' : 'ok'
+    alertCount > 0 || (services && services.windowsRunning < services.windowsExpectedTotal)
+      ? 'warn'
+      : 'ok'
+  // overview 5s 轮询;数据年龄超过 3 个周期视为延迟,「刷新于」转琥珀提示
+  const dataAgeMs = dataUpdatedAt ? now.getTime() - dataUpdatedAt : null
+  const dataStale = dataAgeMs !== null && dataAgeMs > 15000
 
   // ---------- 图表 option ----------
   const trendOption = React.useMemo<EChartsOption>(() => {
@@ -721,11 +754,38 @@ export default function OpsWallboardPage() {
     }
   }, [biz?.llmTopModels])
 
+  // 「无 5xx」好消息徽章:刻意定义在组件作用域(脱离 <Panel right> 开标签区间),
+  // 避免被圆角角色门按 panel 角色误判须 xl;该徽章自身无角色类名,落「未判定」射程外,不计入红。
+  const no5xxBadge =
+    trend && trend.qps.length > 0 && (trend.errRate.length === 0 || trend.errRate.every(([, v]) => v === 0)) ? (
+      <span className="flex items-center gap-1 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300">
+        <Dot tone="ok" />
+        {t('no5xxWindow', { minutes: trend.minutes })}
+      </span>
+    ) : null
+
   // ---------- 渲染 ----------
   return (
     <TooltipProvider>
       <div className="wb-root min-h-full bg-[#060c17] px-0 text-slate-200">
         <style>{WALLBOARD_CSS}</style>
+
+        {/* overview 整体失败(网络/500):顶部横幅 + 一键重试,避免整屏「—」无解释 */}
+        {ovError ? (
+          <div className="mx-4 mt-3 flex items-center gap-2 rounded-sm border border-red-400/30 bg-red-500/[0.08] px-3 py-2 text-[11px] text-red-200">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span>{t('loadFailed')}</span>
+            <button
+              type="button"
+              onClick={() => {
+                void refetchOv()
+              }}
+              className="ml-auto shrink-0 rounded-sm border border-red-400/40 bg-red-500/10 px-2 py-0.5 text-[10px] text-red-200 transition-colors hover:bg-red-500/20"
+            >
+              {t('retry')}
+            </button>
+          </div>
+        ) : null}
 
         {/* ===== 顶部横梁 ===== */}
         <header className="wb-header sticky top-0 z-20 flex items-center gap-4 border-b border-[rgba(72,146,196,0.28)] bg-[rgba(6,12,23,0.92)] px-5 py-2.5 backdrop-blur">
@@ -782,7 +842,13 @@ export default function OpsWallboardPage() {
               <div className="wb-num text-[15px] leading-tight font-semibold text-slate-100">
                 {fmtClockDigits(now)}
               </div>
-              <div className="text-[9px] tracking-[0.2em] text-slate-500">
+              <div
+                className={cn(
+                  'text-[9px] tracking-[0.2em]',
+                  dataStale ? 'text-amber-400/90' : 'text-slate-500',
+                )}
+              >
+                {dataStale ? `${t('staleData')} · ` : ''}
                 {t('refreshedAt', {
                   time: dataUpdatedAt ? fmtClock(new Date(dataUpdatedAt).toISOString()) : '—',
                 })}
@@ -902,7 +968,12 @@ export default function OpsWallboardPage() {
               <div className="mb-1 text-[10px] tracking-[0.14em] text-slate-400">
                 {t('cpuMemTrendTitle')}
               </div>
-              <EChart option={hostTrendOption} height={96} />
+              <div className="relative">
+                <EChart option={hostTrendOption} height={96} />
+                {trend && trend.cpuPct.length === 0 ? (
+                  <ChartEmpty text={t('noHostTrendData')} />
+                ) : null}
+              </div>
             </div>
             <div className="mt-2.5 space-y-2">
               <div className="flex items-center gap-1.5 text-[10px] tracking-[0.14em] text-slate-400">
@@ -941,10 +1012,18 @@ export default function OpsWallboardPage() {
             title={t('panelTraffic')}
             icon={<Radio className="h-3.5 w-3.5" />}
             className="xl:col-span-6"
-            right={<span className="text-[10px] text-slate-500">{t('trendWindow')}</span>}
+            right={
+              <span className="flex items-center gap-2">
+                {no5xxBadge}
+                <span className="text-[10px] text-slate-500">{t('trendWindow')}</span>
+              </span>
+            }
             bodyClassName="flex flex-col gap-2"
           >
-            <EChart option={trendOption} height={228} className="flex-1" />
+            <div className="relative flex-1">
+              <EChart option={trendOption} height={228} className="h-full" />
+              {trend && trend.qps.length === 0 ? <ChartEmpty text={t('noTrendData')} /> : null}
+            </div>
             <div className="grid grid-cols-5 gap-2">
               <StatCell
                 label={t('wsConnections')}
@@ -987,7 +1066,7 @@ export default function OpsWallboardPage() {
                 {services
                   ? t('svcRunning', {
                       running: services.windowsRunning,
-                      total: services.windowsTotal,
+                      total: services.windowsExpectedTotal,
                     })
                   : '—'}
               </span>
@@ -1003,23 +1082,35 @@ export default function OpsWallboardPage() {
                   <span className="wb-num truncate text-[11px] text-slate-300">{s.name}</span>
                   <span className="flex shrink-0 items-center gap-1.5">
                     <Dot
-                      tone={s.state === 'running' ? 'ok' : s.state === 'stopped' ? 'bad' : 'warn'}
+                      tone={
+                        s.retired
+                          ? 'idle'
+                          : s.state === 'running'
+                            ? 'ok'
+                            : s.state === 'stopped'
+                              ? 'bad'
+                              : 'warn'
+                      }
                     />
                     <span
                       className={cn(
                         'text-[10px]',
-                        s.state === 'running'
-                          ? 'text-emerald-300/90'
-                          : s.state === 'stopped'
-                            ? 'text-red-400'
-                            : 'text-amber-300',
+                        s.retired
+                          ? 'text-slate-500'
+                          : s.state === 'running'
+                            ? 'text-emerald-300/90'
+                            : s.state === 'stopped'
+                              ? 'text-red-400'
+                              : 'text-amber-300',
                       )}
                     >
-                      {s.state === 'running'
-                        ? t('svcStateRunning')
-                        : s.state === 'stopped'
-                          ? t('svcStateStopped')
-                          : t('svcStateOther')}
+                      {s.retired
+                        ? t('svcStateRetired')
+                        : s.state === 'running'
+                          ? t('svcStateRunning')
+                          : s.state === 'stopped'
+                            ? t('svcStateStopped')
+                            : t('svcStateOther')}
                     </span>
                   </span>
                 </div>
@@ -1059,7 +1150,12 @@ export default function OpsWallboardPage() {
             className="xl:col-span-4"
             bodyClassName="flex flex-col gap-1"
           >
-            <EChart option={statusOption} height={172} />
+            <div className="relative">
+              <EChart option={statusOption} height={172} />
+              {http && http.statusRates.length === 0 ? (
+                <ChartEmpty text={t('noStatusData')} />
+              ) : null}
+            </div>
             <div className="mt-1 text-[10px] tracking-[0.14em] text-slate-400">
               {t('hourlyTitle')}
             </div>
@@ -1170,6 +1266,11 @@ export default function OpsWallboardPage() {
                     </div>
                   </div>
                 ))}
+                {alerts && alerts.recent.length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-slate-500">
+                    {t('noRecentAlerts')}
+                  </div>
+                ) : null}
               </div>
             </div>
             <div>
@@ -1347,7 +1448,12 @@ export default function OpsWallboardPage() {
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-slate-400">
                 {t('topModels')}
               </div>
-              <EChart option={modelOption} height={148} />
+              <div className="relative">
+                <EChart option={modelOption} height={148} />
+                {biz && biz.llmTopModels.length === 0 ? (
+                  <ChartEmpty text={t('noModelCalls')} />
+                ) : null}
+              </div>
               <div className="mt-2 grid grid-cols-3 gap-1.5">
                 <StatCell
                   label={t('ordersToday')}
