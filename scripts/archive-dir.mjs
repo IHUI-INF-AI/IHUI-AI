@@ -25,6 +25,7 @@
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 import { gitArchiveDir } from './lib/gitdir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -64,12 +65,15 @@ export function archiveDirFor(kind, worktree = ROOT) {
 
 function main() {
   const args = process.argv.slice(2)
-  const ki = args.indexOf('--kind')
-  const kind = ki >= 0 ? args[ki + 1] : 'image-source-migration'
-  if (ki >= 0 && !kind) {
-    console.error('用法:--kind <image-source-migration|sql|git|pg|deploy|env>(缺省 image-source-migration)')
+  // G-322(备份目录的"族名"):旧写法只挡"后面没有参数";`--kind --apply` 这类把旗标名当族名,
+  // 会得到一个**新目录**当备份落点(破坏性动作前的归档写到没人期望的位置,§5b 要求归档必须可回查)。
+  // 缺省档不变(不传 --kind 仍是 image-source-migration)。
+  const kindFlag = requireFlagValue(args, '--kind', { noun: '族名(image-source-migration|sql|git|pg|deploy|env)' })
+  if (kindFlag.error) {
+    console.error(`用法错:${kindFlag.error}`)
     process.exit(2)
   }
+  const kind = kindFlag.value ?? 'image-source-migration'
   let res
   try {
     res = archiveDirFor(kind, resolve(ROOT))

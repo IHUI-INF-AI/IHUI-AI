@@ -169,12 +169,40 @@ def main():
               f"预期跳过(不影响其余资产与更新链路)")
     upload_set -= oversize
 
-    # 3a. 先下载全部所需文件到本地(feed 生成也需要 sig——即使 Gitee 已有同名资产)
+    # 3a. 下载所需文件到本地。
+    #
+    # 2026-10-17 改为**按需下载**(实测立因,这是本脚本最大的时间黑洞):
+    #   原实现无条件下载 upload_set 里的**全部**资产,注释理由是"feed 生成也需要 sig"。
+    #   但事实是:
+    #     · 主包体**只在需要上传到 Gitee 时**才需要本地副本;
+    #     · feed 只用 sig 的**文本内容**,sig 都是几百字节;
+    #     · Gitee 已存在的资产不下载也得。
+    #   于是 desktop-v0.1.75 那次:为了传 Windows exe(9.6MB)和写 feed,
+    #   硬先把 79MB AppImage + 13MB dmg + 13MB app.tar.gz 全拉一遍(约 128MB),
+    #   海外 runner 拉 GitHub 又是慢链路 ⇒ 单是下载就吃掉大半小时,feed 迟迟写不出去。
+    #   ⇒ 现在只下"要上传的"+"sig 文本",大包已有就跳过。
     # 2026-10-12:临时目录按 TAG 分子目录 —— 跨 tag 平铺会让无版本号资产名
     # (AI_universal.app.tar.gz 等)把上一版内容当本版上传(backfill 实锤的冒名形态)。
     tmpdir = f"/tmp/backfill-gitee/{TAG}"
     os.makedirs(tmpdir, exist_ok=True)
-    for fname in sorted(upload_set):
+
+    needed = set()
+    for fname in upload_set:
+        # 要上传且 Gitee 还没有 ⇒ 必须下载
+        if fname not in gitee_assets:
+            needed.add(fname)
+    for _plat, (_main, _sig) in need.items():
+        # sig 的文本内容 feed 要用,几百字节,一律取
+        if _sig:
+            needed.add(_sig)
+    # 超限资产本来就被剔除过,这里再兜一层:永远不下载超限文件
+    needed -= oversize
+
+    skipped = sorted(set(upload_set) - needed)
+    if skipped:
+        print(f"[gh→tmp] 跳过下载(Gitee 已有且 feed 不需要正文): {skipped}")
+
+    for fname in sorted(needed):
         local = f"{tmpdir}/{fname}"
         if os.path.exists(local):
             continue
@@ -219,13 +247,26 @@ def main():
         if fname in gitee_assets:
             print(f"[gitee] {fname} 已存在,跳过上传")
             continue
+        # 按需下载后,不在 needed 里的文件没有本地副本 —— 这种情况只可能是"Gitee 已有"
+        # (上面已 continue),所以走到这里的必然已下载。仍显式判一次:
+        # 宁可记进失败清单让人看见,也不让 FileNotFoundError 把整批掐死。
+        if not os.path.exists(f"{tmpdir}/{fname}"):
+            print(f"[gitee] {fname} 本地无副本(按需下载未取),跳过(下一轮幂等补齐)")
+            upload_failed.append(fname)
+            continue
         if not gitee_upload(rid, f"{tmpdir}/{fname}", fname):
             upload_failed.append(fname)
             continue
         gitee_assets.add(fname)
     if upload_failed:
-        sys.exit(f"[gitee] 以下资产重试 3 次后仍上传失败: {sorted(upload_failed)}"
-                 f"(重跑本 job 可幂等补齐)")
+        # 两种成因要分清,别混成一句含糊的"上传失败":
+        #   · 没本地副本 ⇒ 3a 的按需下载漏了该文件(真异常,该红);
+        #   · 上传 3 次仍失败 ⇒ Gitee 侧拒绝/网络问题(重跑幂等可补)。
+        missing = [n for n in upload_failed if not os.path.exists(f"{tmpdir}/{n}")]
+        detail = f"上传失败: {sorted(set(upload_failed) - set(missing))}"
+        if missing:
+            detail += f";3a 未下载到: {sorted(missing)}"
+        sys.exit(f"[gitee] {detail}(重跑本 job 可幂等补齐)")
 
     # 4. 生成 latest.json(url → Gitee 直链)
     # 超限资产(Gitee 无该文件)不得进 feed:否则 platforms 里那条 URL 指向不存在的
@@ -237,6 +278,12 @@ def main():
             continue
         if main in oversize:
             print(f"[feed] {plat} 主包 {main} 未镜像 Gitee(超限),跳过该平台(不写死链)")
+            continue
+        # 第二道:主包可能因上传失败/被跳而未真正落到 Gitee —— 这时写进 feed 就是死链。
+        # 原实现只看 oversize,是个洞(实测 0.1.74 的 windows 是超限被跳过,侥幸对了;
+        # 但换成"上传失败"就会写出 404 地址)。以 gitee_assets 为准再判一次。
+        if main not in gitee_assets:
+            print(f"[feed] {plat} 主包 {main} 未成功落到 Gitee,跳过该平台(不写死链)")
             continue
         sig_content = open(f"{tmpdir}/{sig}").read().strip()
         platforms[plat] = {

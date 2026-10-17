@@ -248,6 +248,63 @@ test('G-322 第十二批:守护巡检(check-env-drift)、ps1 门(check-pwsh-vers
   }
 })
 
+test('G-322 第十三批:数值与落点型四站 —— --top / --hours+--days / 取证 --report / 备份 --kind', () => {
+  // 共同形状:旧写法要么把坏值 `|| 默认` 折掉(0 与"被吞"同形),要么只挡"后面没有参数"一支。
+  // --top 0 单独锁:旧写法 `Number('0')||10` 静默改写成 10(覆写用户输入);直接接受 0 又会交出一份
+  // **零行清单**读成"没有发现" ⇒ 两支都拒,理由写进文案。
+  const arms = [
+    [
+      S('check-plan-sha-resolvable.mjs'),
+      [['--top'], ['--top', ''], ['--top', '--json'], ['--top', '0'], ['--top', '-3']],
+      /--top 需要/,
+    ],
+    [S('alert-volume-report.mjs'), [['--hours'], ['--hours', ''], ['--hours', '--json'], ['--days'], ['--days', 'x']], /需要(一个正数|正数)/],
+    [S('check-public-path-probe.mjs'), [['--report'], ['--report', ''], ['--report', '--json']], /--report 需要一个取证文件路径/],
+    [S('archive-dir.mjs'), [['--kind'], ['--kind', ''], ['--kind', '--apply']], /--kind 需要一个族名/],
+  ]
+  for (const [script, list, re] of arms) {
+    for (const args of list) {
+      const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      assert.notEqual(r.status, 0, `${script.split('/').pop()} ${JSON.stringify(args)} 不得静默按默认档出结论`)
+      const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+      assert.match(out, re, out.slice(0, 200))
+      assert.doesNotMatch(out, /ERR_INVALID_ARG_TYPE|at ModuleJob/, '不得以裸栈当用法错出口')
+    }
+  }
+})
+
+test('G-322 第十四批:观测/编码/台账类五站的 --root / --manifest / --ticket+--out', () => {
+  // 观测档(只报名不判红)最容易被漏:它不拦任何东西,但**观测面错了就等于没观测**,而输出照常好看。
+  for (const f of [
+    'check-bpe-encoding-parity.mjs',
+    'check-mrn-vitest-mock-alias-surface.mjs',
+    'check-sequence-null-bucket.mjs',
+  ]) {
+    assertBadRoot(S(f), '目录')
+  }
+  const sdk = S('check-sdk-release-channels.mjs')
+  for (const { args, expect } of [
+    { args: ['--manifest', '--json'], expect: '"--json"' },
+    { args: ['--manifest'], expect: '(其后没有任何参数)' },
+    { args: ['--manifest', ''], expect: '""' },
+  ]) {
+    const r = spawnSync(process.execPath, [sdk, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2:该文件顶层 main().catch() 丢返回码,` +
+      `本站的守卫必须 process.exit —— 旧写法会把"少打一个值"冒成"台账不可读"的判红(红记错人)\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, /--manifest 需要一个文件路径/, out.slice(0, 200))
+    assert.match(out, new RegExp(expect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), out.slice(0, 200))
+  }
+  const dp = S('check-dispatch-premise.mjs')
+  for (const flag of ['--ticket', '--out']) {
+    for (const args of [[flag], [flag, ''], [flag, '--json']]) {
+      const r = spawnSync(process.execPath, [dp, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      assert.notEqual(r.status, 0, `${flag} ${JSON.stringify(args)} 不得静默出结论(派单前提判错的票=给别人派错活)`)
+      assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, new RegExp(`${flag} 需要一个`))
+    }
+  }
+})
+
 test('G-322 第七批:另八道 blocking 门的 --root 三支坏值各自大声拒绝', () => {
   for (const f of [
     'check-api-client-utf8.mjs',

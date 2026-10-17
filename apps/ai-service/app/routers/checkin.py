@@ -9,7 +9,9 @@ Depends(require_request_user_id)(端点级身份依赖,JWT 中间件注入
 request.state.user_id,解析不到且全局鉴权未启用时回落 dev 身份)。
 
 端点:
-- POST   /accounts              录入账号(jwt 校验可解析 + 过期即拒)
+- POST   /accounts              录入账号(jwt 校验可解析 + 过期即拒;同一真实账号
+                                (owner+platform+身份uid)重复录入自动合并刷新既有行,
+                                身份派生不出时退回同名 409)
 - GET    /accounts              列表(jwt 永不出库,附 jwt_exp 与当前冷却 cooldown_until)
 - PATCH  /accounts/{id}/jwt     更换 jwt(可解析 + 未过期校验后重加密落库)
 - DELETE /accounts/{id}         删除(级联 records / error_counts)
