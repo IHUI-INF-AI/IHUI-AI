@@ -147,10 +147,14 @@ export default defineConfig(async (merge) => {
     },
     mini: {
       es5: true,
-      // PayPopup/CategoryBar/LessonListItem 这类共享组件在各 tab 页的 import 次序天然分叉,
-      // mini-css-extract 把 "Conflicting order" 当 error 抛 ⇒ 生产档 `build:weapp` 整轮不出产物
-      // (h5 段 251 行早已设同一项,mini 段漏设)。顺序对这批组件样式无实际影响,按 h5 同档忽略。
-      miniCssExtractPluginOption: { ignoreOrder: true },
+      // ⚠️ 这一项刻意保持 false:设为 true 会把 mini-css-extract 的 "Conflicting order"
+      // 整族吞掉,而它是跨 chunk group 的 CSS 相对次序不可满足 —— 掩住它等于让构建报绿而
+      // 产物顺序仍是未定义(票 G-948)。真因已修:各入口对 `@/components` 桶文件(带出
+      // PayPopup.css / LessonListItem.css)与 SkillsPopup(带出 CategoryBar.css)的 import
+      // 次序已统一为「桶文件在前」,入口侧次序相反才是冲突源,不是选择器碰撞
+      // (实测三份 CSS 彼此选择器零碰撞,插件只比 module 次序、不看声明内容)。
+      // ⇒ 想再动这一项,先 `pnpm run build` 复跑并留证 Conflicting order 命中 0。
+      miniCssExtractPluginOption: { ignoreOrder: false },
       // 2026-10-01 react 双实例白屏修复:workspace 同时存在 react@18.3.1(miniapp)与
       // react@19.2.8(shared 自带依赖)。@ihui/shared 的 TS 源码经 compile.include 编入
       // 小程序包,其 `import 'react'` 从 packages/shared 目录解析到 react@19,而 Taro
@@ -214,10 +218,14 @@ export default defineConfig(async (merge) => {
                 } catch {
                   // 解析失败(无 junction 的非常规布局)只保留字面根,与改前一致
                 }
-                return [...new Set(pkgs.flatMap((p) => [
-                  path.join(literalRoot, p, 'src'),
-                  path.join(realRoot, p, 'src'),
-                ]))]
+                return [
+                  ...new Set(
+                    pkgs.flatMap((p) => [
+                      path.join(literalRoot, p, 'src'),
+                      path.join(realRoot, p, 'src'),
+                    ]),
+                  ),
+                ]
               })(),
             },
             webpackChain: (chain: any) => {
@@ -256,7 +264,8 @@ export default defineConfig(async (merge) => {
       staticDirectory: 'static',
       output: { filename: 'js/[name].[hash:8].js', chunkFilename: 'js/[name].[chunkhash:8].js' },
       miniCssExtractPluginOption: {
-        ignoreOrder: true,
+        // 同 mini 段:保持 false,理由见 mini 段那组注释(票 G-948)。
+        ignoreOrder: false,
         filename: 'css/[name].[hash].css',
         chunkFilename: 'css/[name].[chunkhash].css',
       },
