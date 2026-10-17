@@ -43,7 +43,7 @@ vi.mock('@/stores/auth', () => ({
 
 vi.mock('@/lib/api-base-url', () => ({ resolveApiBaseUrl: () => 'http://api.test' }))
 
-/** 每个用例重新加载模块,拿到干净的 pendingSsoChrome / lastProcessedCode。 */
+/** 每个用例重新加载模块,拿到干净的 pendingSsoEmbeddedWindow / lastProcessedCode。 */
 async function loadBridge() {
   vi.resetModules()
   return await import('@/lib/sso-desktop-bridge')

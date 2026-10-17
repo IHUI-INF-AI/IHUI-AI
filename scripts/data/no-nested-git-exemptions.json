@@ -1,5 +1,24 @@
 {
-  "$comment": "守门 208 (check-no-nested-git.mjs) 的具名豁免台账。AGENTS §0.7:豁免必须「验过才免」且会到期 —— 只有容器目录 rel 与条目**逐字等值**才放行(不做前缀/同名匹配);缺 owner/why 或到期日不是 YYYY-MM-DD ⇒ 整条作废;到期 ⇒ 自动翻红需重新 ack;审面不再命中 ⇒ 按清单腐烂判红。放行的每一处都由门自己逐条打印,不静默。‖ 2026-10-16 销账记录:commit 27e3bbdfcc 所登三条(.DevEnv/cache/userhome/.codex/.tmp/plugins / .ihui-agent/desktop-feed-clone / outputs/ihui-bench-release)经审面三处现场均已消失(Test-Path 全 False,[208] 门清单腐烂判红),按门自身指示随现场销账 —— 非回退他席登记,是 §0.7『豁免必须随现场一起销』的必然处置;三处若复现在飞,由持有席按带 owner/why/到期日的完整格式重新登记。",
-  "entries": [],
+  "$comment": "守门 208 (check-no-nested-git.mjs) 的具名豁免台账。AGENTS §0.7:豁免必须「验过才免」且会到期 —— 只有容器目录 rel 与条目**逐字等值**才放行(不做前缀/同名匹配);缺 owner/why 或到期日不是 YYYY-MM-DD ⇒ 整条作废;到期 ⇒ 自动翻红需重新 ack;审面不再命中 ⇒ 按清单腐烂判红。放行的每一处都由门自己逐条打印,不静默。‖ 2026-10-16 销账记录:commit 27e3bbdfcc 所登三条(.DevEnv/cache/userhome/.codex/.tmp/plugins / .ihui-agent/desktop-feed-clone / outputs/ihui-bench-release)经审面三处现场均已消失(Test-Path 全 False,[208] 门清单腐烂判红),按门自身指示随现场销账 —— 非回退他席登记,是 §0.7『豁免必须随现场一起销』的必然处置;三处若复现在飞,由持有席按带 owner/why/到期日的完整格式重新登记。‖ 2026-10-17 复现重登记:三处现场在门 208 现读均复现(无豁免即红),按上句指令补登;三条的 owner/why/到期日已由独立复核重写(证据见本枚提交信息),到期日沿用前任 72h/72h/96h 口径而**不**给 3 个月长期豁免。",
+  "entries": [
+    {
+      "rel": ".DevEnv/cache/userhome/.codex/.tmp/plugins",
+      "owner": "本机 Codex CLI 自身的插件缓存(第三方工具,非本仓产物)",
+      "why": "§26 家目录工具态改道落点里 Codex 的 .tmp/plugins 检出(gitignore 忽略的机器态,非演练夹具/测试夹具)。2026-10-17 独立复核:该浅克隆对上游 openai/plugins 的 99 项「未提交修改」经 git diff --shortstat 现读为 0 insertions/0 deletions —— 只是 Windows 检出把可执行位/换行归一化的纯 mode 差异,独有内容 = 0、内容完全可复现。§7 三问:等价实现存在(重新 clone),但 codex-windows-sandbox-service.exe 现读在运行,删它会打断在用中的 Codex 插件安装,且删完即被工具重建 ⇒ 是否代删归机主,本轮不动。该路径随工具运行**闪断** ⇒ 只给 72h:到期或它不再命中都翻红,逼届时做真正的决定(把 .DevEnv 落点挪出工作树,或在 208 走面里按 §15b 批准落点排除),而不是长期挂一张不销的豁免。",
+      "expires": "2026-10-20"
+    },
+    {
+      "rel": ".ihui-agent/desktop-feed-clone",
+      "owner": "桌面端 feed 线的在飞会话(本席不代其落地)",
+      "why": "桌面更新 feed 的手工在飞发布副本(gitignore 忽略),不是「0 commit 且 0 脏」的中止夹具(那一类才是唯一可删形态)。2026-10-17 独立复核:6 枚提交 + 34 项未提交(net 85+/53-,是真实内容改动而非 mode 差异);本地 HEAD 2072082「desktop updater feed 0.1.28」不在其 origin(Gitee)任何 ref 上,主仓 GitHub 面亦无 refs/heads/desktop-feed(只有 refs/tags/restore/desktop-feed)⇒ 很可能是该分支唯一存活载体。§7 三问:无等价实现 ⇒ 不许代删。豁免只给 72h,到期逼持有席收口(推上去或摘 .git),不是长期通行证。",
+      "expires": "2026-10-20"
+    },
+    {
+      "rel": "outputs/ihui-bench-release",
+      "owner": "发布基准线(outputs/ 在册目录,评测产物对拍用)",
+      "why": "IHUI-Bench 独立发布仓(https://github.com/IHUI-INF-AI/ihui-bench.git)的本机克隆(gitignore 忽略)。2026-10-17 独立复核:工作树 0 脏 / 0 未跟踪 / 0 stash;相对本地 origin/main 领先 1 枚提交 00089ae「docs: 回填已发布仓库链接」。该提交**是否已在远端 = 未判定**(点名原因:本机到 github.com 两次 ls-remote 均连接被重置/超时,无法 fetch 验真)⇒ 保守不删。§7 三问:若 00089ae 已在 origin ⇒ clone 等价可删;未在 ⇒ 独有不可删;结论随该未判定项。到期前须由持有席复核:要么推到远端,要么把 .git 摘成普通目录。",
+      "expires": "2026-10-21"
+    }
+  ],
   "$note": "2026-10-15 清空:此前 3 条(.DevEnv/cache/userhome/.codex/.tmp/plugins、.ihui-agent/desktop-feed-clone、outputs/ihui-bench-release)的容器目录实测都已不存在 ⇒ 门按\"审面不再命中 ⇒ 清单腐烂\"判红。判据未改:新出现的嵌套仓仍直接红,需要长期豁免者必须按 schema 补 owner/why/expires 的具名条目。"
 }
