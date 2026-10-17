@@ -38,6 +38,7 @@ import { writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, assertRepoRoot, gitRaw, readWorktreeFile, resolveRemoteHead, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -355,18 +356,30 @@ async function main() {
     process.exit(2)
   }
   assertRepoRoot(ROOT, '本门')
-  const revIdx = argv.indexOf('--rev')
-  const limitIdx = argv.indexOf('--limit')
-  const rows =
-    revIdx >= 0
-      ? [auditOne(argv[revIdx + 1])]
-      : limitIdx >= 0
-        ? auditRecent(Number(argv[limitIdx + 1]))
-        : argv.includes('--all-new')
-          ? auditUnseen()
-          : pendingMerges()
-  const scope =
-    revIdx >= 0 ? `单枚 ${argv[revIdx + 1]}` : limitIdx >= 0 ? `回看 ${argv[limitIdx + 1]} 枚` : argv.includes('--all-new') ? '增量台账新判' : '未入 origin/main 的合并'
+  // G-322:--rev / --limit 给旗标不给值一律 exit 2 点名 —— 旧写法漏值时把 undefined 当提交规格
+  // 直取(空结论照出)、--limit 缺值得 NaN 使"回看 N 枚"窗口被吞成"审计全部"。
+  const revFlag = requireFlagValue(argv, '--rev', { noun: '提交规格' })
+  if (revFlag.error) {
+    console.error(`❌ ${revFlag.error}`)
+    process.exit(2)
+  }
+  const limitFlag = requireFlagValue(argv, '--limit', { noun: '正整数' })
+  if (limitFlag.error) {
+    console.error(`❌ ${limitFlag.error}`)
+    process.exit(2)
+  }
+  if (limitFlag.present && (!/^\d+$/.test(limitFlag.value) || Number(limitFlag.value) <= 0)) {
+    console.error(`❌ --limit 必须是正整数,实得:${JSON.stringify(limitFlag.value)}`)
+    process.exit(2)
+  }
+  const rows = revFlag.present
+    ? [auditOne(revFlag.value)]
+    : limitFlag.present
+      ? auditRecent(Number(limitFlag.value))
+      : argv.includes('--all-new')
+        ? auditUnseen()
+        : pendingMerges()
+  const scope = revFlag.present ? `单枚 ${revFlag.value}` : limitFlag.present ? `回看 ${limitFlag.value} 枚` : argv.includes('--all-new') ? '增量台账新判' : '未入 origin/main 的合并'
   const bad = rows.filter((r) => r.lost.length)
   const nLost = bad.reduce((s, r) => s + r.lost.length, 0)
   console.log(

@@ -108,6 +108,7 @@ export {
   writeIndexPendingLedger,
 }
 import { analyze as analyzeIndexRevert, resolveBlobs, MAX_FILES } from './check-stale-revert.mjs'
+import { flagValue, describeFlagToken } from './lib/flag-value.mjs'
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -981,6 +982,13 @@ async function main() {
   const json = argv.includes('--json')
   const strict = argv.includes('--strict')
   const stagedMode = argv.includes('--staged')
+  // G-322 第十六批:--threshold-min 在场但缺值/被顶值时必须大声判死,
+  // 不得静默沿 env/默认档(resolveThresholdMin 纯函数自身保持「非法值回落」语义,由自检钉住)。
+  const thresholdFlag = flagValue(argv, '--threshold-min')
+  if (thresholdFlag.present && !thresholdFlag.valid) {
+    console.error(`❌ --threshold-min 需要一个正整数分钟数 —— 紧邻的 token 实得:${describeFlagToken(thresholdFlag)}(不得静默回落默认阈值)`)
+    process.exit(2)
+  }
   const thresholdMin = resolveThresholdMin(argv, process.env)
 
   // 一次 status 读,两面共用同一份清单(不得各读一次:那会拿到两面不一致的索引快照)

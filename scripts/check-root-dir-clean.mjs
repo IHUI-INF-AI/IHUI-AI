@@ -24,6 +24,7 @@
 import { readdirSync, statSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join, resolve } from 'node:path'
+import { describeFlagToken, flagValue } from './lib/flag-value.mjs'
 
 /**
  * 仓库根。生产路径 = 调用方所在目录(与本门历史上完全一致,不改语义);
@@ -32,11 +33,14 @@ import { join, resolve } from 'node:path'
  * 测试其实全在审真仓,账面绿而结论与夹具无关。
  */
 function resolveRoot(argv) {
-  const i = argv.indexOf('--root')
-  if (i >= 0) {
-    const p = argv[i + 1]
-    if (!p || p.startsWith('--')) throw new Error('--root 需要一个目录参数')
-    return resolve(p)
+  // G-322 第十六批(B 档收口):--root 缺值/被顶值时点名判死(exit 2),不再裸 throw(rc=1 无点名)。
+  const flag = flagValue(argv, '--root')
+  if (flag.present) {
+    if (!flag.valid) {
+      console.error(`❌ --root 需要一个目录参数 —— 紧邻的 token 实得:${describeFlagToken(flag)}`)
+      process.exit(2)
+    }
+    return resolve(flag.value)
   }
   return process.cwd()
 }
