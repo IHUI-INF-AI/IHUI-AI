@@ -47,7 +47,7 @@
  *   3. **只读**:不写盘、不改任何 ref、不跑构建;派生一律带 timeout(守门 80)与 windowsHide(守门 52)。
  *
  * 用法:node scripts/plan-bypass-ledger-report.mjs [--days N|--since YYYY-MM-DD [--until YYYY-MM-DD]]
- *                                                  [--json] [--root DIR] [--self-test] [--limit N]
+ *                                                  [--json] [--root DIR] [--self-test] [--limit N] [--digest-cap N]
  * 退出码:0 = 报告已产出(有未判定也是 0 —— 它是量算仪,不阻断任何东西);1 = --self-test 有失败例;
  *         2 = 脚本自身异常(取数层抛出,不是业务结论)。
  */
@@ -57,6 +57,7 @@ import { StringDecoder } from 'node:string_decoder'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { git } from './lib/bypass-git.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { BYPASS_KIND, COMMITTED_KIND, readLedgerRecords } from './lib/commit-attestation.mjs'
 // G-1059139:批次留痕(kind=gate-batch-run)的读侧与同一份 treeDigest 归一出口。
 // 刻意不复用 readLedgerRecords —— 它有字段白名单,会整块丢掉本 kind 的 treeDigest/selfSkipped;
@@ -728,14 +729,33 @@ function resolveWindow(argv) {
 }
 
 async function run({ argv }) {
-  const root = argv.includes('--root') ? resolve(argv[argv.indexOf('--root') + 1]) : REPO_ROOT
+  // G-322(本器三处带值旗标):旧写法 `argv[indexOf(flag)+1]` 把"被下一枚旗标顶值"与"结尾无值"
+  // 都当成一个普通值交出去 —— `--root --json` 会去读一个不存在的仓根并交出"留痕 0 条"的**空报告**
+  // (读起来像"这一轮真的没有跳门留痕"),而 `--limit --staged` / `--digest-cap --json` 喂进
+  // Number() 得 NaN ⇒ slice(0,NaN)=[] 与 digested>=NaN 恒假 = 取数静默变空、上限静默失效。
+  // 判据单源在 lib/flag-value.mjs(§22c),数值域校验留在本器(与 --days 那一档同一风格)。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    return 2
+  }
+  const root = rootFlag.value ? resolve(rootFlag.value) : REPO_ROOT
   const asJson = argv.includes('--json')
   const win = resolveWindow(argv)
   if (win.error) {
     console.error(`❌ ${win.error}`)
     return 2
   }
-  const limit = argv.includes('--limit') ? Number(argv[argv.indexOf('--limit') + 1]) : LOG_LIMIT_DEFAULT
+  const limitFlag = requireFlagValue(argv, '--limit', { noun: '正整数' })
+  if (limitFlag.error) {
+    console.error(`❌ ${limitFlag.error}`)
+    return 2
+  }
+  const limit = limitFlag.value ? Number(limitFlag.value) : LOG_LIMIT_DEFAULT
+  if (!Number.isInteger(limit) || limit <= 0) {
+    console.error(`❌ --limit 必须是正整数,实得:${JSON.stringify(limitFlag.value)}`)
+    return 2
+  }
 
   const ledger = readLedgerRecords(root)
   // G-1059139:批次留痕走它自己的读出口(字段白名单会丢 treeDigest/selfSkipped)。
@@ -782,7 +802,16 @@ async function run({ argv }) {
   const digestBySha = new Map()
   const reasonBySha = new Map()
   const treeCache = new Map()
-  const cap = argv.includes('--digest-cap') ? Number(argv[argv.indexOf('--digest-cap') + 1]) : DIGEST_CAP_DEFAULT
+  const capFlag = requireFlagValue(argv, '--digest-cap', { noun: '正整数' })
+  if (capFlag.error) {
+    console.error(`❌ ${capFlag.error}`)
+    return 2
+  }
+  const cap = capFlag.value ? Number(capFlag.value) : DIGEST_CAP_DEFAULT
+  if (!Number.isInteger(cap) || cap <= 0) {
+    console.error(`❌ --digest-cap 必须是正整数,实得:${JSON.stringify(capFlag.value)}`)
+    return 2
+  }
   let digested = 0
   let capped = 0
   const commitCountByTree = new Map()
@@ -1212,7 +1241,7 @@ async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--help') || argv.includes('-h')) {
     console.log(
-      '用法:node scripts/plan-bypass-ledger-report.mjs [--days N|--since YYYY-MM-DD [--until YYYY-MM-DD]] [--json] [--root DIR] [--limit N] [--self-test]',
+      '用法:node scripts/plan-bypass-ledger-report.mjs [--days N|--since YYYY-MM-DD [--until YYYY-MM-DD]] [--json] [--root DIR] [--limit N] [--digest-cap N] [--self-test]',
     )
     return 0
   }

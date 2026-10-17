@@ -188,6 +188,32 @@ class TestCheckinFlow:
         assert result["credits"] is None
 
     @pytest.mark.asyncio
+    async def test_already_claimed_http_400_idempotent(self, jwt):
+        """2026-10-17 生产实证:官方「今天已签到」返回 **HTTP 400 + code 10001**,
+        响应体 {"code":10001,"msg":"今天已签到，请明天再来"}。
+
+        修复前:status>=400 分支先返回「签到失败: HTTP 400」⇒ 幂等成功被误报失败
+        (李总报的「WorkBuddy 一键签到失败」根因)。修复后:先掏 code,命中 10001
+        即幂等成功 —— 本用例钉死该行为。
+        """
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                400, json={"code": 10001, "msg": "今天已签到，请明天再来"}
+            )
+
+        result = await workbuddy_checkin_account(
+            "wb-1", jwt, {"uid": UID}, client=make_client(handler)
+        )
+        assert result["ok"] is True
+        assert result["status"] == "already"
+        assert result["action"] == "skip_already"
+        assert result["code"] == 10001
+        assert result["http_status"] == 400
+        # 关键:不落 Client 冷却(400 未被误分类为业务失败)
+        assert result["classified_error"] is None
+
+    @pytest.mark.asyncio
     async def test_business_fail_code(self, jwt):
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, json=_wb_response(10002, msg="活动未开始"))
@@ -354,6 +380,28 @@ class TestQueryCredits:
 
         result = await workbuddy_query_credits(jwt, {"uid": UID}, client=make_client(handler))
         assert result == {"remaining": 3200, "error": None}
+
+    @pytest.mark.asyncio
+    async def test_status_with_total_credits_field(self, jwt):
+        """2026-10-17 生产实证:官方余额字段名是 `total_credits`(下划线+复数)。
+
+        修复前:候选键只有 total_credit/totalCredit/credits 三个错形 ⇒ 永远解析
+        不到 ⇒ 官方积分列全报「状态响应不含积分余额字段」(李总报障根因)。
+        """
+        real_payload = {
+            "active": False,
+            "today_checked_in": False,
+            "streak_days": 0,
+            "daily_credit": 0,
+            "today_credit": 0,
+            "total_credits": 450,
+        }
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"code": 0, "msg": "OK", "data": real_payload})
+
+        result = await workbuddy_query_credits(jwt, {"uid": UID}, client=make_client(handler))
+        assert result == {"remaining": 450, "error": None}
 
     @pytest.mark.asyncio
     async def test_status_without_balance_honest_error(self, jwt):

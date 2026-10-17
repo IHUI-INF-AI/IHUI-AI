@@ -130,9 +130,12 @@ jobs:
       - name: Resolve mobile version (auto-derived from build time)
         run: |
           KIND=nightly
-          if [ "$GITHUB_REF_TYPE" = "tag" ]; then KIND=release; fi
+          TAG=""
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then KIND=release; TAG="$GITHUB_REF_NAME"; fi
+          # tag 构建必须把 tag 传进去:否则会算出"下载页显示 v0.1.74、装到手机上 App 内显示 0.0.5"
+          # 那种两号对不上(实测到过)。对外发布的构建,版本号必须与发布它的那个 tag 同源。
           # tee 到 stdout 的同时写进 $GITHUB_ENV ⇒ 后续 prebuild / gradle 两步都能读到
-          node scripts/resolve-mobile-version.mjs --app mobile-rn --kind "$KIND" --emit github | tee -a "$GITHUB_ENV"
+          node scripts/resolve-mobile-version.mjs --app mobile-rn --kind "$KIND" --tag "$TAG" --emit github | tee -a "$GITHUB_ENV"
 
       - name: Generate Android project (expo prebuild)
         working-directory: apps/mobile-rn
