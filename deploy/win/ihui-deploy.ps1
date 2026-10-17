@@ -1523,10 +1523,41 @@ function Test-MigrateOrphans {
     } catch { return $null }
 }
 
+function Get-MigratePendingTier {
+    # 纯判据(2026-10-17 立):待应用迁移数的实时读数 → **档位标签**,供告警身份取用。
+    # 不打日志、不连库、无副作用,便于离线夹具从本文件抽出直接跑(与 Get-MigrateOutcome 同形态,
+    # 抽取法见 scripts/tests/deploy-migrate-exitcode.test.mjs)。
+    # 为什么必须档位化:身份里放实时抖动的量 ⇒ 每轮换身份 ⇒ 重发窗结构上永不命中
+    # (alert-dedup.ps1 头注的"48h/47 封"已证伪型;本仓 2026-10-05 为同型付过学费)。
+    # 边界不新造数,取值集合是现读生产档案得到的:
+    #   · 「未判定」= 旧文案「未知」,即 $pend 取不出来(Get-PendingMigrationCount 返回 $null);
+    #     实测在案 deploy\win\.migrate-alert-state.json 现读 sig="exit 1|未知"
+    #   · 「0」单列一档:migrate 失败(exit≠0)但一条没落后也走这里,与"仍有待应用"是两件事
+    #   · 中位断点 3:去重档案 deploy\win\.alert-notify-state.json 现读的三条迁移身份取值为
+    #     {未知, 5, 1}(label 文案"仍待应用 5 个"/"仍待应用 1 个"/"仍待应用 未知")⇒ 非零集合
+    #     {1,5} 的中位断点 = 3;deploy-loop.log 现读 1192 行"待应用迁移=0 个" + 1 行"未知",
+    #     0 不告警故不入非零集合。任务书举例的 4-9/10+ 在仓内没有出处,故不采。
+    param([string]$PendingTxt)
+    $s = ($PendingTxt -replace '\s+', '')
+    if ($s -notmatch '^\d') { return '未判定' }
+    $n = [int]($s -replace '^(\d+).*$', '$1')
+    if ($n -le 0) { return '0' }
+    if ($n -le 3) { return '1-3' }
+    return '4+'
+}
+
 function Note-MigrateFailure {
     param([string]$reason, [string]$pendingTxt)
     $script:DbMigrateDegraded = $true
-    $sig = "$reason|$pendingTxt"
+    # [2026-10-17 身份档位化] 旧身份 "$reason|$pendingTxt" 把**实时待应用条数**放进签名:
+    # 条数随每次迁移抖动 ⇒ 每轮新身份 ⇒ 本函数 12h 窗与 Invoke-FailNotify 的 4h 分槽窗双双
+    # 结构上永不命中(同 alert-dedup.ps1 头注的 48h/47 封失效型,也同 ihui-monitor.ps1 磁盘格)。
+    # 取证(现读 .alert-notify-state.json):同一件事"exit 1"因条数不同占了 3 个独立槽
+    # (未知/5 个/1 个),而 5 与 1 的 repeatNo 都是 0 —— 去重从未发生过。
+    # 现在:身份只留档位(见 Get-MigratePendingTier),实时读数经 Invoke-FailNotify 的 $Detail
+    # 进正文(该参数头注:"$Detail 只能进正文、绝不进签名"),收信人看到的账一字未少。
+    $pendTier = Get-MigratePendingTier -PendingTxt $pendingTxt
+    $sig = "$reason|pend=$pendTier"
     $prevSig = ''; $prevTs = [datetime]::MinValue
     try {
         if (Test-Path $MigAlertStateFile) {
@@ -1546,9 +1577,10 @@ function Note-MigrateFailure {
     try {
         # severity=warning(2026-10-13):迁移未落地但部署按设计继续,属警告级 —— 夜间静默窗
         # 内只记台账不寄信;critical(如 fetch/切流失败)不受影响,照寄。
-        $migMsg = "DB 迁移未落地(原因:$reason;仍待应用 $pendingTxt)。部署循环按设计继续发布,但生产库结构已落后代码 —— 逐文件复现办法:BEGIN;<迁移文件>;ROLLBACK(零写生产)。详见 deploy\win\deploy-loop.log 的 MIG 行"
+        # ⚠ 本行文案就是 Invoke-FailNotify 那边算身份的那段文字,所以它只能含档位,不许含实时条数。
+        $migMsg = "DB 迁移未落地(原因:$reason;仍待应用 $pendTier 档)。部署循环按设计继续发布,但生产库结构已落后代码 —— 逐文件复现办法:BEGIN;<迁移文件>;ROLLBACK(零写生产)。详见 deploy\win\deploy-loop.log 的 MIG 行"
         if ($script:MigRetryNote) { $migMsg = "$migMsg`n$($script:MigRetryNote)" }
-        Invoke-FailNotify -m $migMsg -Severity warning
+        Invoke-FailNotify -m $migMsg -Detail "待应用迁移实时读数: $pendingTxt(身份按档位 $pendTier 计,档位边界出处见 Get-MigratePendingTier)" -Severity warning
     } catch { Log "MIG   告警推送异常: $_" }
 }
 

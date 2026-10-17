@@ -50,6 +50,10 @@
  *      定位结果进身份键(`B/公网·常态·入口段`)与正文 `[定位]` 行。**门槛与发信不在本门**:本门只量与判;
  *      寄信的持续性门槛(同一身份连几轮才到人、轮次按**时间**计量、恢复即清零)住在派发侧
  *      `scripts/git-guardian.mjs` 的 `auditPublicPathProbe()`。
+ *      〔2026-10-17 补〕派发侧的**去重身份**由本文件 `classifyAlertIdentity(targetKey, stat, opt)` 一枚
+ *      供给(成因/严重度/持续三档归一,**身份里不含任何原始计数**;未判定 ⇒ sev=0,与 breach 档不同形)——
+ *      派发侧只准 import 它填 `dedupKey`,不得自行再写一份档位判据(§22c 单一真相源;旧 detail 直入
+ *      `alertFingerprint` 因含计数而每轮变身份,即 2026-10-05"去重身份里放原始计数 = 没有去重"同型)。
  *      采样因此从 `fetch`(只有总耗时)换成 `node:http/https` 自持 socket 事件 —— 分界必须来自
  *      "真到过哪一跳",不是从文案里猜(文案随运行时版本漂,跳不会)。
  *   ③ 整轮"跑完没有"用仓里那把常驻取证包装器 `scripts/run-evidence.mjs` 的**同一份判据**
@@ -377,6 +381,109 @@ export function judgeSequence(id, stat, opt = {}) {
   }
   if (stat.indeterminate > 0) reasons.push(`(附)${id}:${stat.indeterminate} 次不可归因(DNS/TLS/连接超时/超上限)—— 只报数,不参与判红`)
   return { verdict: reasons.some((r) => !r.startsWith('(附)')) ? 'breach' : 'ok', reasons, numbers }
+}
+
+// ───────────────────────── 告警身份归一(纯函数,2026-10-17 立) ─────────────────────────
+
+/**
+ * target 名里**已有的段标签** → 成因档。段标签由派发侧从 classifyPublicLeg 的 tag 拼进 key
+ * (见 main() 的 `B/${label}·常态·${leg.tag}`),这里只做**既有输出的映射**,不新立归因规则。
+ * 成因档语义:`entry`=公网入口↔本机隧道(访客同经此路) / `origin`=回源·服务段(web 本体与换流洞;
+ * 依据 = classifyPublicLeg「本地对照同轮也越阈 ⇒ 洞在服务段」与 main() 里「窗口段归 A 语义 = 换流的既定代价」) /
+ * `local`=本机侧(出口链路坏[egress]或探测自身失明[probeSideBroken]) / `mixed`=同一轮两条既有定位
+ * 读数不清一致 / `unknown`=既有判据给不出段 ⇒ **不冒认**(§0.3:给不出就点名给不出)。
+ */
+const ALERT_CAUSE_BY_TAG = { 入口段: 'entry', 服务段: 'origin', 本机出口段: 'local' }
+const ALERT_CAUSE_BY_LEG = { entry: 'entry', service: 'origin', egress: 'local' }
+const ALERT_CAUSE_WORD = {
+  entry: '公网入口↔本机隧道段',
+  origin: '回源/服务段',
+  local: '本机侧(出口链路或探测自身)',
+  mixed: '多段并存(两条既有定位读数不清一致,不折成单因)',
+  unknown: '未定位(既有判据给不出段)',
+}
+const ALERT_SEV_WORD = ['未判定或无告警级读数', '轻度(少量慢样本)', '中度(过半慢样本)', '重度(几乎全慢)', '断流级(对端可归因失败或真断流)']
+const ALERT_HELD_WORD = ['不足六小时', '六到廿四小时', '一到三日', '三日以上']
+
+/**
+ * 把"同一段坏"归一成**与计数无关**的告警身份,供派发层(`scripts/git-guardian.mjs` 的
+ * `auditPublicPathProbe`)填进 `notifyGuardRed` 的 `dedupKey`。
+ *
+ * 立项原因:旧派发把含样本计数与百分比的 detail 原文喂进 `alertFingerprint` ⇒ 每轮读数都变 ⇒
+ * 去重窗口到点就重寄同一句话(本仓 2026-10-05 已为同型缺陷付过学费:"去重身份里放原始计数 = 没有
+ * 去重",正解 = **档位化**;git-guardian 里 `home-heal-exit` / `service-heal` 两处 dedupKey 同此法)。
+ *
+ * 纪律:
+ *  · 三态只问 `judgeSequence` 那一份实现(未判定 = 其 `verdict:'unjudged'`,含零样本与 probeSideBroken
+ *    两类);本函数**不自立第二份失明线**(§22c 单一真相源)。未判定 ⇒ `sevTier: 0`,身份与任何 breach
+ *    档(1–4)**不同形** —— 未判定既不替 breach 顶账,也不得被读成合规。
+ *  · 严重度只按**比率与"是否有对端可归因失败/真断流"**分四档,边界含在高档(`>=0.9`、`>=0.5`)。
+ *  · 持续档的起点时刻由**调用方传入**(`opt.firstBreachAtMs` / `opt.nowMs`),本函数零 IO、可全夹具测;
+ *    起点取不到 ⇒ 按最短档(held=0)**并在 `why` 里点名"不得据此静音"** —— 失效方向是多要一次说明,
+ *    绝不是多放一次静音(§0.10)。
+ *  · `identity` 里**绝不许混入任何原始计数**;计数仍归派发层写进正文,只是不进身份。
+ *
+ * @param {string} targetKey 派发侧用的目标键(如 `B/公网·常态·入口段`、`A/公网`、`B/本地·常态`)
+ * @param {object} stat `summarizeSequence(...)` 的输出(常态侧应传**剔除换流窗口之后**的那份)
+ * @param {{firstBreachAtMs?:number, nowMs?:number, leg?:string, localStat?:object,
+ *   slowMs?:number, failRatio?:number, slowRatio?:number, outageMs?:number}} [opt]
+ *   `leg`/`localStat` 二选一给"同轮 classifyPublicLeg 的既有输出":传 `leg`(派发层已持有的字符串)
+ *   或传 `localStat`(本函数现场调 classifyPublicLeg —— 仍是那一份实现)。都不给 ⇒ 只认 target 名段标签。
+ * @returns {{causeKey:string, sevTier:number, heldTier:number, identity:string, why:string}}
+ */
+export function classifyAlertIdentity(targetKey, stat, opt = {}) {
+  const key = String(targetKey ?? '')
+  const s = stat && typeof stat === 'object' ? stat : {}
+  const nowMs = Number.isFinite(opt.nowMs) ? opt.nowMs : Date.now()
+
+  // ① 三态:问 judgeSequence 那一份实现(A 序列与窗口段按其立项口径走洞长档,其余走比率档)。
+  const rule = /^A\//.test(key) || key.includes('窗口段') ? 'outage' : 'ratio'
+  const judge = judgeSequence(key || '(无名目标)', s, {
+    rule,
+    slowMs: opt.slowMs ?? DEFAULTS.slowMs,
+    failRatio: opt.failRatio ?? DEFAULTS.failRatio,
+    slowRatio: opt.slowRatio ?? DEFAULTS.slowRatio,
+    outageMs: opt.outageMs ?? DEFAULTS.outageMs,
+  })
+  const unjudged = judge.verdict === 'unjudged'
+
+  // ② 成因:段标签(名字里已有的)+ 同轮 classifyPublicLeg 输出(opt.leg 或现场用 localStat 调它)。
+  const tagCause = key.split('·').map((p) => ALERT_CAUSE_BY_TAG[p]).find(Boolean) ?? null
+  let legCause = null
+  if (typeof opt.leg === 'string' && ALERT_CAUSE_BY_LEG[opt.leg]) legCause = ALERT_CAUSE_BY_LEG[opt.leg]
+  else if (opt.localStat && typeof opt.localStat === 'object' && !key.includes('本地')) {
+    const g = classifyPublicLeg(s, opt.localStat, { slowRatio: opt.slowRatio ?? DEFAULTS.slowRatio, failRatio: opt.failRatio ?? DEFAULTS.failRatio })
+    if (ALERT_CAUSE_BY_LEG[g.leg]) legCause = ALERT_CAUSE_BY_LEG[g.leg]
+  }
+  let causeKey
+  if (unjudged) causeKey = (Number(s.probeSideBroken) || 0) > 0 ? 'local' : 'unknown'
+  else if (tagCause && legCause && tagCause !== legCause) causeKey = 'mixed'
+  else causeKey = legCause || tagCause || (/本地/.test(key) || /^A\//.test(key) || key.includes('窗口段') ? 'origin' : 'unknown')
+
+  // ③ 严重度档:断流优先,再按慢样本率三档;未判定恒 0(与 breach 档 1–4 不同形)。
+  const slowRatioNum = typeof s.slowRatio === 'number' ? s.slowRatio : null
+  let sevTier
+  if (unjudged) sevTier = 0
+  else if ((Number(s.unavailable) || 0) > 0 || (Number(s.longestRunMs) || 0) > 0 || (Array.isArray(s.runs) && s.runs.length > 0)) sevTier = 4
+  else if (slowRatioNum === null || slowRatioNum <= 0) sevTier = 0
+  else if (slowRatioNum >= 0.9) sevTier = 3
+  else if (slowRatioNum >= 0.5) sevTier = 2
+  else sevTier = 1
+
+  // ④ 持续档:起点由调用方传入;取不到或时刻倒挂 ⇒ 最短档 + why 点名不得据此静音。
+  const first = Number.isFinite(opt.firstBreachAtMs) ? opt.firstBreachAtMs : null
+  const heldBroken = first === null || !(nowMs - first >= 0)
+  let heldTier = 0
+  if (!heldBroken) {
+    const heldMs = nowMs - first
+    heldTier = heldMs >= 72 * 3_600_000 ? 3 : heldMs >= 24 * 3_600_000 ? 2 : heldMs >= 6 * 3_600_000 ? 1 : 0
+  }
+
+  const identity = `${causeKey};sev=${sevTier};held=${heldTier}`
+  const parts = [`成因=${ALERT_CAUSE_WORD[causeKey]}`, `严重度=档${sevTier}(${ALERT_SEV_WORD[sevTier]})`, `已持续=档${heldTier}(${ALERT_HELD_WORD[heldTier]})`]
+  if (unjudged) parts.push('本轮未判定 ⇒ 该身份不替 breach 顶账,也不得被读成合规')
+  if (heldBroken) parts.push('起点取不到(或时刻倒挂)⇒ 按最短档,不得据此静音')
+  return { causeKey, sevTier, heldTier, identity, why: parts.join(';') }
 }
 
 // ───────────────────────── 换流事件 oracle(纯函数) ─────────────────────────
@@ -901,6 +1008,66 @@ function selfTest() {
     rmSync(f, { force: true })
     return r.completion.kind === 'truncated' && r.exit === 3
   })())
+  // ── 告警身份归一(2026-10-17 立:同因不同计数必须同身份;跨档必须换身份;身份里绝不许有原始计数)
+  const rateStat = (n, slow) => summarizeSequence(Array.from({ length: n }, (_, i) => S({ status: 200, ms: i < slow ? 9000 : 20, at: new Date(t0 + i * 1000).toISOString() })), { slowMs: 8000 })
+  const NOW = Date.parse('2026-10-17T00:00:00.000Z')
+  ok('I1 变异自证(本票的存在理由):只在**计数**上不同的两轮(20/12 与 40/24,同为 60%)身份必须逐字节相等 ⇒ 把 sevTier 换成原始计数即破坏去重稳定性', (() => {
+    const a = classifyAlertIdentity('B/公网·常态', rateStat(20, 12), { nowMs: NOW })
+    const b = classifyAlertIdentity('B/公网·常态', rateStat(40, 24), { nowMs: NOW })
+    return a.identity === b.identity && a.identity === 'unknown;sev=2;held=0'
+  })())
+  ok('I2 严重度边界钉死:89% ⇒ 档2,90% ⇒ 档3(边界含高档,夹具必须各打一次)', (() => {
+    const lo = classifyAlertIdentity('B/公网·常态', rateStat(100, 89), { nowMs: NOW })
+    const hi = classifyAlertIdentity('B/公网·常态', rateStat(100, 90), { nowMs: NOW })
+    return lo.sevTier === 2 && hi.sevTier === 3 && lo.identity !== hi.identity
+  })())
+  ok('I3 严重度边界钉死:49% ⇒ 档1,50% ⇒ 档2', (() => {
+    const lo = classifyAlertIdentity('B/公网·常态', rateStat(100, 49), { nowMs: NOW })
+    const hi = classifyAlertIdentity('B/公网·常态', rateStat(100, 50), { nowMs: NOW })
+    return lo.sevTier === 1 && hi.sevTier === 2 && lo.identity !== hi.identity
+  })())
+  ok('I4 断流级:有对端可归因失败(全拒连、慢样本率 0)⇒ 档4,不因"没有慢样本"而降档', (() => {
+    const broke = summarizeSequence(Array.from({ length: 6 }, (_, i) => S({ bucket: 'connRefused', unavailable: true, status: null, causeCode: 'ECONNREFUSED', ms: 3, at: new Date(t0 + i * 1000).toISOString() })), { slowMs: 8000 })
+    return classifyAlertIdentity('B/公网·常态', broke, { nowMs: NOW }).sevTier === 4
+  })())
+  ok('I5 未判定与 breach 不同形:零样本 ⇒ sev=0/cause=unknown,probeSideBroken ⇒ sev=0/cause=local;两者都不与同目标的 breach 身份相等(未判定不得替 breach 顶账,也不得被读成 ok)', (() => {
+    const breach = classifyAlertIdentity('B/公网·常态·入口段', pubBad, { nowMs: NOW })
+    const zero = classifyAlertIdentity('B/公网·常态·入口段', summarizeSequence([]), { nowMs: NOW })
+    const blind = classifyAlertIdentity('B/公网·常态·入口段', summarizeSequence([S({ bucket: 'probeError', probeSideBroken: true, status: null, ms: 1, at: new Date(t0).toISOString() }), S({ bucket: 'probeError', probeSideBroken: true, status: null, ms: 1, at: new Date(t0 + 1000).toISOString() }), S({ at: new Date(t0 + 2000).toISOString() })]), { nowMs: NOW })
+    return breach.sevTier >= 1 && zero.sevTier === 0 && zero.causeKey === 'unknown' && zero.identity !== breach.identity && blind.sevTier === 0 && blind.causeKey === 'local' && blind.identity !== breach.identity && blind.identity !== zero.identity
+  })())
+  ok('I6 跨档必换身份 / 同档持续不换:held 从 0h 漂到 5h 身份不变(同因同档不重报),跨过 6h 身份必须变(到期升级的终态保证)', (() => {
+    const s6 = rateStat(20, 12)
+    const a = classifyAlertIdentity('B/公网·常态', s6, { nowMs: NOW, firstBreachAtMs: NOW - 3_600_000 })
+    const b = classifyAlertIdentity('B/公网·常态', s6, { nowMs: NOW, firstBreachAtMs: NOW - 5 * 3_600_000 })
+    const c = classifyAlertIdentity('B/公网·常态', s6, { nowMs: NOW, firstBreachAtMs: NOW - 6 * 3_600_000 })
+    return a.identity === b.identity && a.identity !== c.identity && c.heldTier === 1
+  })())
+  ok('I7 持续档边界:<6h⇒0、6h⇒1、24h⇒2、72h⇒3(含在高档)', (() => {
+    const s6 = rateStat(20, 12)
+    const h = (ms) => classifyAlertIdentity('B/公网·常态', s6, { nowMs: NOW, firstBreachAtMs: NOW - ms }).heldTier
+    return h(5 * 3_600_000) === 0 && h(6 * 3_600_000) === 1 && h(24 * 3_600_000) === 2 && h(72 * 3_600_000) === 3
+  })())
+  ok('I8 起点取不到 ⇒ heldTier 必须按最短档 0,且 why 点名"不得据此静音"(失效方向是多要一次说明,不是多放一次静音)', (() => {
+    const r = classifyAlertIdentity('B/公网·常态', rateStat(20, 12), { nowMs: NOW })
+    const inv = classifyAlertIdentity('B/公网·常态', rateStat(20, 12), { nowMs: NOW, firstBreachAtMs: NOW + 60_000 })
+    return r.heldTier === 0 && /起点取不到.*不得据此静音/.test(r.why) && inv.heldTier === 0
+  })())
+  ok('I9 成因只映射既有输出:段标签 入口段/服务段/本机出口段 ⇒ entry/origin/local;A 序列与窗口段与对照组越阈 ⇒ origin(依 classifyPublicLeg"本地也越阈⇒服务段"与"窗口段归 A 语义"两条原文);无段可引 ⇒ unknown,不折成任何一档', (() => {
+    const s6 = rateStat(20, 12)
+    const c = (k) => classifyAlertIdentity(k, s6, { nowMs: NOW }).causeKey
+    return c('B/公网·常态·入口段') === 'entry' && c('B/公网·常态·服务段') === 'origin' && c('B/公网·常态·本机出口段') === 'local' && c('A/公网') === 'origin' && c('B/本地·常态') === 'origin' && c('B/公网·窗口段(归A语义)') === 'origin' && c('B/公网·常态') === 'unknown'
+  })())
+  ok('I10 同轮 localStat 走 classifyPublicLeg 那一份实现:一致 ⇒ 采信段名;两条既有读数打架 ⇒ mixed(不冒认单因)', (() => {
+    const agree = classifyAlertIdentity('B/公网·常态·入口段', pubBad, { nowMs: NOW, localStat: localFast })
+    const clash = classifyAlertIdentity('B/公网·常态·入口段', pubBad, { nowMs: NOW, localStat: localSlow })
+    const viaLeg = classifyAlertIdentity('B/公网·常态·入口段', pubBad, { nowMs: NOW, leg: 'service' })
+    return agree.causeKey === 'entry' && clash.causeKey === 'mixed' && viaLeg.causeKey === 'mixed'
+  })())
+  ok('I11 why 给收信人看成因+严重度档+持续档,且**不含本轮原始计数**(计数只归派发层写正文)', (() => {
+    const r = classifyAlertIdentity('B/公网·常态', rateStat(15, 8), { nowMs: NOW })
+    return /成因=/.test(r.why) && /严重度=档/.test(r.why) && /已持续=档/.test(r.why) && !/15/.test(r.why) && !/8/.test(r.why) && !/15/.test(r.identity) && !/8/.test(r.identity)
+  })())
   let pass = 0
   for (const [n, p] of cases) {
     console.log(`${p ? '  ✅' : '  ❌'} ${n}`)
@@ -1088,7 +1255,7 @@ async function main(argv) {
         samples.length === 0 && out.A.skipReason
           ? { verdict: 'unjudged', reasons: [`A/${label}:${out.A.skipReason}`], numbers: `A/${label} 样本 0` }
           : judgeSequence(`A/${label}`, stat, { rule: 'outage', slowMs: opt.slowMs, outageMs: opt.outageMs })
-      emit(`A/${label}`, url, j)
+      emit(`A/${label}`, url, { ...j, stat })
     }
   }
   if (wantB) {
@@ -1193,6 +1360,7 @@ export const __test__ = {
   classifyPublicLeg,
   longestUnavailableRun,
   judgeSequence,
+  classifyAlertIdentity,
   findLatestSwapEvent,
   findSwapEvents,
   lineMatchesMarker,
