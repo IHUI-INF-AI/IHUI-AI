@@ -31,6 +31,8 @@ import {
 } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { env } from 'node:process'
+// ihui_oss_download_bytes_total:storage-service 不持有 fastify 实例,走模块级桥接
+import { recordOssDownloadBytes } from '../plugins/business-metrics.js'
 
 const BASE_DIR = env.STORAGE_DIR ?? 'storage'
 const UPLOADS_DIR = join(BASE_DIR, 'uploads')
@@ -115,7 +117,10 @@ export function saveFile(
 export function readFile(fileId: string): Buffer | null {
   const path = filePath(fileId)
   if (!existsSync(path)) return null
-  return readFileSync(path)
+  const content = readFileSync(path)
+  // ihui_oss_download_bytes_total:文件读取成功后计 downloaded bytes(字节)
+  recordOssDownloadBytes(content.length)
+  return content
 }
 
 /** 删除文件（含元数据与缩略图）。返回是否删除了主文件。 */

@@ -108,7 +108,7 @@ function Read-AlertDedupState {
             if (-not $p.Value) { continue }
             $stall = $false
             if ($null -ne $p.Value.stall) { [void]([bool]::TryParse([string]$p.Value.stall, [ref]$stall)) }
-            $map[$p.Name] = @{ sigTs = ConvertTo-AlertTimestampText -Value $p.Value.sigTs; firstTs = ConvertTo-AlertTimestampText -Value $p.Value.firstTs; repeatNo = [int]$p.Value.repeatNo; lastSend = ConvertTo-AlertTimestampText -Value $p.Value.lastSend; label = [string]$p.Value.label; stall = $stall }
+            $map[$p.Name] = @{ sigTs = ConvertTo-AlertTimestampText -Value $p.Value.sigTs; firstTs = ConvertTo-AlertTimestampText -Value $p.Value.firstTs; repeatNo = [int]$p.Value.repeatNo; lastSend = ConvertTo-AlertTimestampText -Value $p.Value.lastSend; label = [string]$p.Value.label; stall = $stall; recoveredTs = ConvertTo-AlertTimestampText -Value $p.Value.recoveredTs }
         }
         return @{ Found = $true; Map = $map; Error = $null }
     }
@@ -155,6 +155,10 @@ function Write-AlertDedupState {
             label    = [string]$Map[$k].label
             stall    = [bool]$Map[$k].stall
         }
+        # recoveredTs 只在在场时写(它是 Clear-AlertRecoveredIdentities 的"已见恢复、待到期销账"标记):
+        # 常规条目档案里不带这个键,schema 不膨胀;Test-AlertDueByIdentity 重记该身份时整格重建、
+        # 标记自动剥掉(告警中的条目不该挂着"已恢复")。
+        if ($Map[$k].recoveredTs) { $alerts[$k].recoveredTs = ConvertTo-AlertTimestampText -Value $Map[$k].recoveredTs }
     }
     $doc = [ordered]@{ version = 2; alerts = $alerts }
     $dir = Split-Path $StateFile -Parent
@@ -349,5 +353,87 @@ function Clear-AlertStallIdentities {
         return @{ Ok = $false; Cleared = 0; Labels = $labels; Error = "清偿写不回去: $($_.Exception.Message)" }
     }
     return @{ Ok = $true; Cleared = $stallKeys.Count; Labels = $labels; Error = $null }
+}
+
+function Clear-AlertRecoveredIdentities {
+    <#
+      监控侧告警身份的**恢复清偿档**(2026-10-17 立)。
+      为什么必须新增这一档:监控侧所有告警身份都是 stall=false(调用适配器 Test-AlertDue 从不传
+      -Stall),而部署侧的终态由 Clear-AlertStallIdentities 只认 stall=true、且两边各用各的状态
+      档案 ⇒ 监控台账**结构上没有出口**:故障恢复后条目永久滞留(与 ihui-deploy.ps1:2217 注释
+      记的"同一身份 repeatNo=40 而期间完成过 92 次切流"同一条病,只是宿主换成了监控)。
+      监控没有"成功切流"那样的强确认事件,唯一可用的终态判据是**该身份缺席本轮异常清单**。
+      四态不得互折(AGENTS §0.3/§0.10):
+        Active        身份在本轮异常清单里 ⇒ 台账不动(该不该寄由 Test-AlertDueByIdentity 判,
+                      本档不替它判;在场但带 recoveredTs 残标的条目剥掉残标——告警中不叫已恢复);
+        Pending       缺席,且 sigTs 还在 RepeatHours 窗口内 ⇒ 只打 recoveredTs 标记、**保留条目**——
+                      直接删会让"报一轮、歇一轮"的间歇故障每轮都 due-new 重寄(消噪以造噪为代价,
+                      alert-dedup 头注的同一禁令);窗口未到时保留条目恰好维持 4h 抑制;
+        Cleared       缺席,且 (now - sigTs) ≥ RepeatHours ⇒ 删除:窗口已走完,条目既压不住任何信
+                      也重发不出任何信,纯滞留。此后若再犯按新故障重计(与部署侧清偿同语义);
+        Undetermined  档案读不出 / 条目时刻解析不出 ⇒ 不删不折,点名原因(把"没判"写成"判过"
+                      是本仓最高频失效型)。
+      stall=true 条目不归本档管(部署侧自持终态,越界清偿会把别人的 4h 重发打断);
+      `grace:` 抑制锚点与身份同生共死:缺席身份的锚点按同一 Pending/Cleared 两档处理 —— 只清
+      身份不清锚点会造出"恢复后秒寄"的更坏形态(harness T4c/部署侧 2026-10-10 实测教训)。
+      ActiveSig 为空数组 = 本轮零异常,合法输入([AllowEmptyCollection]);档案不存在 = 无历史,
+      判 Ok 且各计数为 0,不报错。
+      返回 @{ Ok; Active; Pending; NewlyMarked; Cleared; Undetermined; PendingLabels; ClearedLabels; Error }
+      调用方**必须**把 Cleared/Pending/Undetermined 逐条落到日志(哪条身份、因什么判恢复)。
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$StateFile,
+        [AllowEmptyCollection()][string[]]$ActiveSig,
+        [Parameter(Mandatory = $true)][double]$RepeatHours,
+        [int]$MaxEntries = 50
+    )
+    $state = Read-AlertDedupState -StateFile $StateFile
+    if ($state.Error) {
+        return @{ Ok = $false; Active = 0; Pending = 0; NewlyMarked = 0; Cleared = 0; Undetermined = 0; PendingLabels = @(); ClearedLabels = @(); Error = $state.Error }
+    }
+    $map = $state.Map
+    $now = Get-Date
+    $activeKeys = @{}
+    foreach ($s in @($ActiveSig)) {
+        if ($null -eq $s) { continue }
+        $clean = ($s -replace '\s+', ' ').Trim()
+        if (-not $clean) { continue }
+        # 归一化与 Send-Alert 逐项身份同形(折叠空白+Trim);grace 锚点键按 Test-AlertSuppressionGrace
+        # 同一构造('grace:' + 归一化 sig)反推,缺席身份的锚点才会进入本档射程。
+        $activeKeys[(Get-AlertDedupKey -Sig $clean)] = $true
+        $activeKeys[(Get-AlertDedupKey -Sig ('grace:' + $clean))] = $true
+    }
+    $active = 0; $pending = 0; $newlyMarked = 0; $cleared = 0; $undetermined = 0
+    $pendingLabels = @(); $clearedLabels = @()
+    $dirty = $false
+    foreach ($k in @($map.Keys)) {
+        $e = $map[$k]
+        if ($e.stall) { continue }
+        if ($activeKeys.ContainsKey($k)) {
+            $active++
+            if ($e.recoveredTs) { $e.recoveredTs = $null; $dirty = $true }
+            continue
+        }
+        $prev = $null
+        if ($e.sigTs) { $prev = ConvertTo-AlertInstant -Value $e.sigTs }
+        if (-not $prev) { $undetermined++; continue }
+        $label = [string]$e.label
+        if ($label.Length -gt 120) { $label = $label.Substring(0, 120) }
+        if (($now - $prev).TotalHours -ge $RepeatHours) {
+            $map.Remove($k); $cleared++; $dirty = $true
+            $clearedLabels += "$label | 身份=$k"
+        } elseif (-not $e.recoveredTs) {
+            $e.recoveredTs = $now.ToString('o'); $pending++; $newlyMarked++; $dirty = $true
+            $pendingLabels += "$label | 身份=$k"
+        } else { $pending++ }
+    }
+    if ($dirty) {
+        try {
+            Write-AlertDedupState -StateFile $StateFile -Map $map -MaxEntries $MaxEntries | Out-Null
+        } catch {
+            return @{ Ok = $false; Active = $active; Pending = $pending; NewlyMarked = $newlyMarked; Cleared = 0; Undetermined = $undetermined; PendingLabels = @(); ClearedLabels = @(); Error = "恢复清偿写不回去: $($_.Exception.Message)" }
+        }
+    }
+    return @{ Ok = $true; Active = $active; Pending = $pending; NewlyMarked = $newlyMarked; Cleared = $cleared; Undetermined = $undetermined; PendingLabels = $pendingLabels; ClearedLabels = $clearedLabels; Error = $null }
 }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

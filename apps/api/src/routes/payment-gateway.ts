@@ -63,6 +63,13 @@ import { zhsCourseVideo, vipLevels, developerPricing } from '@ihui/database'
 import { eq, sql, and } from 'drizzle-orm'
 import { calculateTopupBonus } from '../services/topup-discount-service.js'
 import { getWechatMiniOpenId } from '../services/wechat-subscribe-message.js'
+// ihui_payment_wxpay_callback_* / ihui_payment_exception_*:回调三指标 + 异常分类
+import {
+  recordWxpayCallback,
+  recordWxpayCallbackSuccess,
+  recordWxpayCallbackFailed,
+  recordPaymentException,
+} from '../plugins/business-metrics.js'
 
 const notifyUrl = (type?: string): string => {
   if (type === 'course') return env.WX_PAY_COURSE_NOTIFY_URL ?? env.WX_PAY_NOTIFY_URL ?? ''
@@ -607,6 +614,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       }),
     },
     async (request, reply) => {
+      // ihui_payment_wxpay_callback_total:每次微信回调进入(验签前)
+      recordWxpayCallback()
       const body = request.body as Record<string, unknown>
       const timestamp = request.headers['wechatpay-timestamp'] as string
       const nonce = request.headers['wechatpay-nonce'] as string
@@ -616,6 +625,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const rawBody =
         (request as FastifyRequest & { rawBody?: string }).rawBody ?? JSON.stringify(body)
       if (!verifyCallbackSignature(timestamp, nonce, rawBody, signature)) {
+        recordWxpayCallbackFailed()
+        recordPaymentException('wechat', 'sign_verify')
         return reply.code(400).send({ code: 'FAIL', message: '签名验证失败' })
       }
       const resource = (
@@ -637,6 +648,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         // 2026-07-24 安全防护:校验回调金额与订单金额一致(防金额篡改)
         const localOrder = await getOrder(out_trade_no)
         if (!localOrder) {
+          recordWxpayCallbackFailed()
+          recordPaymentException('wechat', 'order_missing')
           return reply.code(400).send({ code: 'FAIL', message: '订单不存在' })
         }
         const callbackAmount = decrypted.amount?.total
@@ -645,20 +658,26 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             { orderNo: out_trade_no, callbackAmount, orderAmount: localOrder.amount },
             '回调金额与订单金额不一致',
           )
+          recordWxpayCallbackFailed()
+          recordPaymentException('wechat', 'amount_mismatch')
           return reply.code(400).send({ code: 'FAIL', message: '金额不匹配' })
         }
         // 2026-07-24 安全加固:必须用 transaction_id 作幂等键,缺失则拒绝(防重复支付)
         if (!transaction_id) {
           request.log.warn({ orderNo: out_trade_no }, 'wechat callback missing transaction_id')
+          recordWxpayCallbackFailed()
+          recordPaymentException('wechat', 'missing_txn_id')
           return reply.code(400).send({ code: 'FAIL', message: '缺少 transaction_id 参数' })
         }
         const idemKey = transaction_id
         const idem = await server.paymentIdempotency.acquire(out_trade_no, idemKey)
         if (idem.status === 'completed') {
+          recordWxpayCallbackSuccess()
           return reply.send({ code: 'SUCCESS', message: 'OK (duplicate)' })
         }
         if (idem.status === 'processing') {
           // 上次回调仍在处理，ack SUCCESS 让微信停止重试
+          recordWxpayCallbackSuccess()
           return reply.send({ code: 'SUCCESS', message: 'OK (processing)' })
         }
         try {
@@ -705,6 +724,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             }
             if (sideEffectFailed) {
               await server.paymentIdempotency.fail(out_trade_no, idemKey, 'side effect failed')
+              recordWxpayCallbackFailed()
+              recordPaymentException('wechat', 'side_effect_failed')
               return reply.code(500).send({ code: 'FAIL', message: '副作用处理失败,待重试' })
             }
           }
@@ -714,9 +735,12 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
           })
         } catch (e) {
           await server.paymentIdempotency.fail(out_trade_no, idemKey, (e as Error).message)
+          recordWxpayCallbackFailed()
+          recordPaymentException('wechat', 'saga_failed')
           return reply.code(400).send({ code: 'FAIL', message: '处理失败' })
         }
       }
+      recordWxpayCallbackSuccess()
       return reply.send({ code: 'SUCCESS', message: 'OK' })
     },
   )
@@ -846,6 +870,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       })
       if (risk.action === 'DENY') {
         request.log.warn({ userId: order.userId, hits: risk.hits }, '微信退款被风控拒绝')
+        recordPaymentException('wechat', 'risk_denied')
         return reply.status(403).send(error(403, '退款请求被风控拦截,请联系客服'))
       }
       if (risk.action === 'REVIEW') {

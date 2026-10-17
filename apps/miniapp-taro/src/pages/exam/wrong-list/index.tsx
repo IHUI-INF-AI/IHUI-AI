@@ -9,18 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post, deleteExamWrongQuestion } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-
-/** 错题行(对齐 web 端 wrong-questions 页的 WrongQuestion 形状子集,最小可用只取渲染所需字段) */
-interface WrongQuestionItem {
-  id: string
-  questionId: string
-  paperId: string
-  paperTitle: string | null
-  questionTitle: string | null
-  wrongCount: number
-  isMastered: boolean
-  createdAt: string
-}
+import type { WrongQuestionListItem as WrongQuestionItem } from '@ihui/types'
 
 interface WrongListData {
   list: WrongQuestionItem[]

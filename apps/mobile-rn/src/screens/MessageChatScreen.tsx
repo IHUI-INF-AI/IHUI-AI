@@ -12,6 +12,15 @@ import { MessageChatScreen as SharedMessageChatScreen, type MessageChatMessage }
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+interface PrivateLetterRow {
+  id: number
+  senderId: string
+  receiverId: string
+  content: string
+  isRead: boolean
+  createdAt?: string | Date
+}
+
 type Route = RouteProp<RootStackParamList, 'MessageChat'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -32,12 +41,22 @@ export function MessageChatScreen() {
     void (async () => {
       setLoading(true)
       setError('')
-      const res = await fetchApi<MessageChatMessage[]>(
-        `/api/messages/chat/${encodeURIComponent(peerId)}`,
+      const res = await fetchApi<{ list: Array<PrivateLetterRow> }>(
+        `/messages/private/list?peerId=${encodeURIComponent(peerId)}`,
       )
       if (cancelled) return
-      if (res.success) setMessages(res.data ?? [])
-      else setError(apiFailureToText(res, t('messageChat.loadFailed')))
+      if (res.success) {
+        const rows = res.data?.list ?? []
+        setMessages(
+          rows.map((m) => ({
+            id: String(m.id),
+            senderId: m.senderId,
+            isMine: m.senderId !== peerId,
+            content: m.content,
+            createdAt: m.createdAt ? new Date(m.createdAt).toLocaleString() : '',
+          })),
+        )
+      } else setError(apiFailureToText(res, t('messageChat.loadFailed')))
       setLoading(false)
     })()
     return () => {
@@ -49,16 +68,23 @@ export function MessageChatScreen() {
     const text = input.trim()
     if (!text) return
     setSending(true)
-    const res = await fetchApi<MessageChatMessage>(
-      `/api/messages/chat/${encodeURIComponent(peerId)}`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ content: text }),
-      },
-    )
+    const res = await fetchApi<{ message?: PrivateLetterRow }>('/messages/private', {
+      method: 'POST',
+      body: JSON.stringify({ receiverId: peerId, content: text }),
+    })
     setSending(false)
-    if (res.success && res.data) {
-      setMessages((prev) => [...prev, res.data])
+    if (res.success && res.data?.message) {
+      const m = res.data.message
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: String(m.id),
+          senderId: m.senderId,
+          isMine: true,
+          content: m.content,
+          createdAt: m.createdAt ? new Date(m.createdAt).toLocaleString() : '',
+        },
+      ])
       setInput('')
     } else if (!res.success) {
       setError(apiFailureToText(res, t('messageChat.sendFailed')))

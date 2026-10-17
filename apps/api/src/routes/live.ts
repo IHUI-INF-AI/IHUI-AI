@@ -292,6 +292,8 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    // ihui_live_stream_disconnected_total:腾讯云推流断开事件计数
+    server.recordLiveStreamDisconnected()
     return reply.send(success({ ok: true, event: 'stream-end', data: parsed.data }))
   })
 
