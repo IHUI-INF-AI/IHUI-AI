@@ -49,6 +49,12 @@ import {
   verifyCode,
 } from '../utils/code-store.js'
 import { signChallengeToken, CHALLENGE_TOKEN_TTL_SECONDS } from '../services/totp-service.js'
+// G-192:验证码回显收敛闸 + 按「标识 + IP」的发送频控(详见 utils/code-echo-guard.ts)
+import {
+  buildSendCodePayload,
+  consumeSendQuota,
+  sendCodePreSerialization,
+} from '../utils/code-echo-guard.js'
 import {
   evaluateLoginRisk,
   evaluateRisk,
@@ -363,6 +369,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       config: {
         rateLimit: { max: 5, timeWindow: '1 minute' },
       },
+      // G-192:回显判据不成立时,序列化层再剥一次 `data.code`(回归锁钉在响应体这一层)
+      preSerialization: sendCodePreSerialization,
     },
     async (request, reply) => {
       const parsed = sendCodeSchema.safeParse(request.body)
@@ -370,6 +378,15 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { phone } = parsed.data
+
+      // G-192:按「手机号 + IP」频控(计数覆盖取码尝试,含后续 60 秒重发拦截)
+      const quota = consumeSendQuota(phone, request.ip)
+      if (!quota.allowed) {
+        return reply
+          .header('Retry-After', String(quota.retryAfterSec))
+          .status(429)
+          .send(error(429, '验证码请求过于频繁,请稍后再试'))
+      }
 
       cleanupExpiredCodes()
       const existing = codeStore.get(phone)
@@ -384,15 +401,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       // 生产环境应接入短信服务商;当前开发模式记录日志
       request.log.info({ phone, scene: parsed.data.scene }, '验证码已生成')
 
-      // 开发模式(NODE_ENV !== production)返回验证码便于测试
-      const isDev = process.env.NODE_ENV !== 'production'
-      return reply.send(
-        success(
-          isDev
-            ? { sent: true, code, expiresIn: CODE_TTL_MS / 1000 }
-            : { sent: true, expiresIn: CODE_TTL_MS / 1000 },
-        ),
-      )
+      // G-192:默认不回显验证码;仅显式调试开关 + development 档 + loopback/内网三条件同时成立才回显
+      return reply.send(success(buildSendCodePayload(request, code, CODE_TTL_MS / 1000)))
     },
   )
 

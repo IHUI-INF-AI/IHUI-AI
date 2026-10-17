@@ -47,6 +47,7 @@ from ..services.tls_stealth import create_stealth_client
 from .config import settings
 from .context_compaction import estimate_messages_tokens
 from .db_pool import get_shared_pool
+from .model_pricing import estimate_cost_usd, is_model_price_known
 from .provider_caps import (
     apply_provider_headers,
     apply_provider_overrides,
@@ -534,6 +535,43 @@ def _metrics_provider(model: str) -> str:
     _explicit_provider_code_of 的注释)。取不到显式前缀就归 'unknown'。
     """
     return _explicit_provider_code_of(model) or "unknown"
+
+
+def _estimate_cost_usd(model: str, usage: dict[str, Any] | None) -> float | None:
+    """litellm 价表算不出成本时的第二档来源(项目自己的价目单一来源)。
+
+    为什么必须补这一档:litellm 的公开价表只覆盖它有适配器的厂商,本机在用的
+    agnes/stepfun/lmstudio 全部 "This model isn't mapped yet" —— completion_cost
+    当场抛异常、成本恒为 None,于是 Prometheus 上 ihui_llm_cost_usd_total 保留
+    30 天 0 时序,大屏按它算成本的 8 块面板整片 No data。
+    model_pricing 是 ai-cost 扣费 / usageDetail / cost_ledger 共用的同一口径,
+    不是另起一套估算。
+
+    provider 必须显式传:价目解析的第三档是厂商级兜底,不传 provider 就退到
+    全局默认价(1.0/3.0 per 1M),把 ollama/lmstudio 这类零价本地运行时算出
+    根本不存在的成本。零价估出 0.0 → 返回 None,调用方的 cost_usd > 0 闸门
+    照旧把它挡在计数之外(宁缺毋假)。
+
+    第四道闸门同向:模型级价目没命中、厂商又认不出来(_metrics_provider 归
+    unknown)时,价目源只能落到全局默认价 —— 那是给一个来路不明的厂商编单价,
+    不记。带前缀的裸名(如 gpt-4o)命中模型级价目,不受这条影响。
+    """
+    usage = usage or {}
+    provider = _metrics_provider(model)
+    if provider == "unknown" and not is_model_price_known(model):
+        return None
+    try:
+        cost = estimate_cost_usd(
+            model,
+            int(usage.get("prompt_tokens") or 0),
+            int(usage.get("completion_tokens") or 0),
+            provider,
+        )
+    except Exception as e:  # 观测层不许把业务带崩
+        logger.warning("成本估算失败(忽略): %s", e)
+        return None
+    value = float(cost.get("cost_usd") or 0.0)
+    return value if value > 0 else None
 
 
 # ============================================================================
@@ -2363,6 +2401,8 @@ class LLMGateway:
                 _cost_usd = float(litellm.completion_cost(completion_response=response))
             except Exception:
                 _cost_usd = None
+            if not _cost_usd:
+                _cost_usd = _estimate_cost_usd(used_model, usage_dict)
             record_llm_outcome(
                 _metrics_provider(used_model),
                 used_model,
@@ -3079,6 +3119,19 @@ class LLMGateway:
                             logger.debug("chunk usage 序列化失败: %s", e)
                     if hasattr(chunk, "model") and chunk.model:
                         final_model = chunk.model
+            except GeneratorExit:
+                # 客户端断开:消费者 aclose() 本生成器,GeneratorExit 抛在上面 yield 处。
+                # 它不是 Exception,下面流式失败的 except Exception 抓不到 ⇒ 声明里
+                # 的 client_disconnect 一档从来没有过样本(ihui_llm_stream_interrupt_total
+                # 保留窗内 0 时序)。这里只加计数再原样 raise,不改 aclose 语义;
+                # 落在本 try 内 = 上游流尚未跑完,与"terminated before the upstream
+                # finished"的字面定义一致,done 事件已发出后的收流不会计到这里。
+                llm_stream_interrupt_total.labels(
+                    provider=_metrics_provider(used_model),
+                    model=used_model,
+                    reason='client_disconnect',
+                ).inc()
+                raise
             finally:
                 # 显式关闭流式响应,释放底层 httpx 连接(优先 aclose,降级 close)
                 try:
@@ -3175,6 +3228,8 @@ class LLMGateway:
                     )
             except Exception:
                 _stream_cost = None
+            if not _stream_cost:
+                _stream_cost = _estimate_cost_usd(used_model, final_usage)
             record_llm_outcome(
                 _metrics_provider(used_model),
                 used_model,

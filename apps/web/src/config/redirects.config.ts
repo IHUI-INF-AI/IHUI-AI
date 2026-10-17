@@ -12,7 +12,13 @@ export const vueToNextRedirects = [
   { source: '/admin/faq-management', destination: '/admin/help', permanent: true },
   { source: '/admin/fund-management', destination: '/admin/user-margin', permanent: true },
   { source: '/admin/errors', destination: '/admin/error-dashboard', permanent: true },
-  { source: '/admin/monitoring-dashboard', destination: '/admin/monitor', permanent: true },
+  // 目的地必须是有 page.tsx 的route:`/admin/monitor` 这一级只有 alerts/dashboard/funnel/wallboard
+  // 四个子目录,没有页 ⇒ 旧链接 308 到一个 404。
+  {
+    source: '/admin/monitoring-dashboard',
+    destination: '/admin/monitor/dashboard',
+    permanent: true,
+  },
   { source: '/admin/product-management', destination: '/admin/shop/products', permanent: true },
   { source: '/admin/activity-management', destination: '/admin/events', permanent: true },
   { source: '/agent-examine-management', destination: '/admin/agents/examine', permanent: true },
