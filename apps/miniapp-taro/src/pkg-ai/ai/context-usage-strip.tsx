@@ -14,6 +14,7 @@ import {
   type AttributionKey,
   type AttributionMessage,
 } from '@ihui/shared/utils'
+import type { SegmentLabelKey } from '@ihui/types'
 
 /**
  * 上下文占用归因条(小程序消费端)— 消费共享引擎 computeContextAttribution,
@@ -22,15 +23,6 @@ import {
  *
  * 词表键一律是 `ai.contextUsage.*` 下的静态字面量(不拼字符串)。
  */
-type SegmentLabelKey =
-  | 'segSystem'
-  | 'segToolSchema'
-  | 'segSkill'
-  | 'segRoleUser'
-  | 'segRoleAssistant'
-  | 'segRoleToolCall'
-  | 'segRoleToolResult'
-
 const SEGMENT_LABEL_KEYS: Record<AttributionKey, `ai.contextUsage.${SegmentLabelKey}`> = {
   system: 'ai.contextUsage.segSystem',
   toolSchema: 'ai.contextUsage.segToolSchema',

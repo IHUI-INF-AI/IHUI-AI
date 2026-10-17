@@ -18,6 +18,8 @@ global:
 # 告警规则(可选,后续可扩展)
 rule_files:
   - 'alerts.yml'
+  # AI 链路组(2026-10-17):每条都过 §5e-1 可整改性准入,低流量保护靠"宽窗口 + and on() 样本量门槛"
+  - 'alerts-ai.yml'
 
 # Prometheus → Alertmanager 告警路由通知
 # Alertmanager 负责分组/抑制/路由,出口唯一:webhook → 本机 alert-webhook-bridge(9096) → 品牌邮件

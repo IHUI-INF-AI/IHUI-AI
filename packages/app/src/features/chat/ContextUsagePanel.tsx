@@ -16,6 +16,7 @@ import {
   type AttributionKey,
   type AttributionMessage,
 } from '@ihui/shared/utils'
+import type { SegmentLabelKey } from '@ihui/types'
 
 /**
  * 上下文占用归因面板(RN 消费端)— 消费共享引擎 computeContextAttribution,
@@ -25,15 +26,6 @@ import {
  * 词表键静态列举在 SEGMENT_LABEL_KEYS(守门要求 useTranslations 命名空间可静态解析
  * 的同款纪律,RN 侧是注入式 t,同样不拼字符串)。
  */
-type SegmentLabelKey =
-  | 'segSystem'
-  | 'segToolSchema'
-  | 'segSkill'
-  | 'segRoleUser'
-  | 'segRoleAssistant'
-  | 'segRoleToolCall'
-  | 'segRoleToolResult'
-
 const SEGMENT_LABEL_KEYS: Record<AttributionKey, `chat.contextUsage.${SegmentLabelKey}`> = {
   system: 'chat.contextUsage.segSystem',
   toolSchema: 'chat.contextUsage.segToolSchema',

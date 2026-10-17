@@ -41,6 +41,7 @@ import {
   type AttributionKey,
   type AttributionMessage,
 } from '@ihui/shared/utils/context-attribution'
+import type { SegmentLabelKey } from '@ihui/types'
 
 /** 层栈 id(见 @/lib/overlay-stack):本弹层的 Esc 只在栈顶时被消费 */
 const CONTEXT_USAGE_OVERLAY_ID = 'context-usage-ring'
@@ -113,16 +114,10 @@ function mergeBudgetLevel(usage: UsageLevel, budget: BudgetEvent | null): UsageL
  *
  * 词表键一律是 `chat.contextUsage` 下的静态字面量(守门要求 useTranslations 的
  * 命名空间/键可静态解析),所以这里显式列出联合类型而不是拼字符串。
+ *
+ * 档位联合类型单源见 @ihui/types(context-usage.ts);本端把裸键名交给
+ * `useTranslations('chat.contextUsage')`,命名空间在调用点,不做字符串拼接。
  */
-type SegmentLabelKey =
-  | 'segSystem'
-  | 'segToolSchema'
-  | 'segSkill'
-  | 'segRoleUser'
-  | 'segRoleAssistant'
-  | 'segRoleToolCall'
-  | 'segRoleToolResult'
-
 const SEGMENT_META: Record<AttributionKey, { colorClass: string; labelKey: SegmentLabelKey }> = {
   system: { colorClass: 'bg-sky-500', labelKey: 'segSystem' },
   toolSchema: { colorClass: 'bg-amber-500', labelKey: 'segToolSchema' },
