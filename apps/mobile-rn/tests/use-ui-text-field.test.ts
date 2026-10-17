@@ -24,6 +24,8 @@ import {
 } from '../src/lib/ui-field-registry'
 import { useUiTextField } from '../src/lib/use-ui-text-field'
 import { InputArea } from '../src/components/InputArea'
+// InputArea 现内部取 t() ⇒ 裸渲染必须挂 Provider(useI18n 在 Provider 外即抛)
+import { I18nProvider } from '../src/i18n'
 
 interface HarnessProps {
   label?: string
@@ -135,13 +137,25 @@ describe('useUiTextField — 敏感面与无写入通道', () => {
     expect(snapshotFields().elements).toEqual([])
   })
 
+  // 2026-10-17:标签原本写「邮箱」,但个人信息值回传打码随判据下沉一并落地后,
+  // 该标签的值不再明文可断言(见下一条用例)。本条测的是「只读框入表且 fill 如实失败」,
+  // 与标签是不是个人信息无关 ⇒ 换用中性标签,原意图与断言强度都不降。
   it('只读框(组件交出 setter 前 state 不可写):入表但 writable:false,fill 如实失败', () => {
-    render(createElement(Harness, { label: '邮箱', readonly: true, initial: 'a@b.c' }))
+    render(createElement(Harness, { label: '备注', readonly: true, initial: '只读内容' }))
     const el = firstField()
-    expect(el).toMatchObject({ label: '邮箱', value: 'a@b.c', writable: false })
+    expect(el).toMatchObject({ label: '备注', value: '只读内容', writable: false })
     const res = setValueOnField(el?.id ?? '', '改成别的')
     expect(res.ok).toBe(false)
     expect(res.errorCode).toBe('UNSUPPORTED_ACTION')
+  })
+
+  // 2026-10-17 随 `@ihui/shared/ui-control` 判据下沉新增:个人信息字段**仍可填**
+  // (填手机号是正常需求),但 describe 回传的值必须打码 —— 合并前这套只在小程序端有,
+  // RN 侧会把手机号/邮箱/证件原值直接送进 AI 上下文。
+  it('个人信息字段:入表可填,但 describe 回传的值打码(与小程序端同口径)', () => {
+    render(createElement(Harness, { label: '邮箱', initial: 'a@b.c' }))
+    const el = firstField()
+    expect(el).toMatchObject({ label: '邮箱', value: '***', writable: true })
   })
 
   it('disabled 为真时 fill 失败,且读回的是当下 disabled 而不是首帧', () => {
@@ -192,7 +206,7 @@ describe('业务真组件:InputArea 的裸 TextInput 接入后对 AI 可见可�
         onSubmit: () => {},
       })
     }
-    const { container } = render(createElement(Host))
+    const { container } = render(createElement(I18nProvider, null, createElement(Host)))
     const el = firstField()
     expect(el).toMatchObject({ label: '请输入您的问题', writable: true, kind: 'input' })
 
