@@ -31,7 +31,7 @@ use windows::Win32::Foundation::HWND;
 #[cfg(target_os = "windows")]
 use windows::Win32::Graphics::Dwm::DwmExtendFrameIntoClientArea;
 #[cfg(target_os = "windows")]
-use windows::Win32::Foundation::{HWND, MARGINS};
+use windows::Win32::UI::Controls::MARGINS;
 #[cfg(target_os = "windows")]
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_STYLE, SWP_FRAMECHANGED,
