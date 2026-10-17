@@ -64,6 +64,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(process.env.OPENAPI_CHECK_ROOT || resolve(__dirname, '..'))
@@ -528,11 +529,31 @@ const OPTS = {
   help: argv.includes('--help') || argv.includes('-h'),
   freshIdx: argv.indexOf('--fresh'),
 }
+// G-322(本站,CI 契约门的 D 维阈值):旧写法两支都能把阈值变成 NaN —— `--min-coverage=` 等号后为空、
+// 以及 `--min-coverage --fresh` 被下一枚旗标顶值。下游是 `覆盖率 < MIN_COVERAGE` 型比较,**NaN 让比较恒假**
+// ⇒ 覆盖率门静默放行(§0.10:失效方向绝不能是"多放一次跳门")。现在给了旗标就必须是数字,否则未判定。
 const MIN_COVERAGE = (() => {
-  const flag = argv.find((a) => a.startsWith('--min-coverage='))
-  if (flag) return Number(flag.split('=')[1])
-  const bare = argv.indexOf('--min-coverage')
-  if (bare >= 0 && argv[bare + 1]) return Number(argv[bare + 1])
+  const die = (got) => {
+    console.error(
+      `[openapi-check] ❌ --min-coverage 需要一个数字,实得:${JSON.stringify(got)}(未判定:NaN 会让覆盖率比较恒假 = 静默放行)`,
+    )
+    process.exit(2)
+  }
+  const eq = argv.find((a) => a.startsWith('--min-coverage='))
+  if (eq) {
+    const raw = eq.slice('--min-coverage='.length)
+    if (!/^\d+(\.\d+)?$/.test(raw)) die(raw)
+    return Number(raw)
+  }
+  const vf = requireFlagValue(argv, '--min-coverage', { noun: '数字' })
+  if (vf.error) {
+    console.error(`[openapi-check] ❌ ${vf.error}`)
+    process.exit(2)
+  }
+  if (vf.value) {
+    if (!/^\d+(\.\d+)?$/.test(vf.value)) die(vf.value)
+    return Number(vf.value)
+  }
   return MIN_COVERAGE_PERCENT
 })()
 

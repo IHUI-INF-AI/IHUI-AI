@@ -37,11 +37,16 @@ import { maskComments, maskCommentsAndStrings } from './lib/code-mask.mjs'
  * 就是双根分裂,产出自洽而基准错位的尺子 ⇒ 直接判死(参照守门 2e-dupns 的同一口径)。
  */
 const HERE = dirname(fileURLToPath(import.meta.url))
-const ARG_ROOT_IDX = process.argv.indexOf('--root')
-const ARG_ROOT =
-  ARG_ROOT_IDX !== -1 && process.argv[ARG_ROOT_IDX + 1]
-    ? resolve(process.cwd(), process.argv[ARG_ROOT_IDX + 1])
-    : null
+// G-322(本站):`--root` 走本文件唯一的带值旗标出口 `dumpFlagValue`(它已同时认
+// `--root <值>` 与 `--root=<值>`,并对"被下一枚旗标顶值 / 等号后为空"点名)。
+// 但旧站点只取返回值:给了 `--root` 却没有有效值时它会**静默按默认根继续判**,
+// 而那面正是调用方以为判过的东西 ⇒ 这里补一句"给了却没值 ⇒ 未判定",不猜根、不静默降级。
+const rootRaw = dumpFlagValue('--root')
+if (rootRaw === null && process.argv.some((a) => a === '--root' || a.startsWith('--root='))) {
+  console.error('[API 路由比对] ❌ 给了 --root 却没拿到有效值 ⇒ 未判定(不得静默退回仓内默认根;原因见上一行)')
+  process.exit(2)
+}
+const ARG_ROOT = rootRaw ? resolve(process.cwd(), rootRaw) : null
 const ROOT = ARG_ROOT || resolve(HERE, '..')
 const GIT_BATCH_TIMEOUT = 120000
 
@@ -3793,14 +3798,17 @@ function dumpFlagValue(flag) {
       if (typeof v === 'string' && v !== '') {
         if (!v.startsWith('-')) return v
         console.error(`[API 路由比对] 忽略无效的 ${flag} 值: ${v}`)
-      } else if (flag === '--dump-backend') {
+      } else if (flag === '--dump-backend' || flag === '--root') {
         // 漏值/空串两支:上面只点名了"以 - 开头"那一支(枚 636c28f58),这两支原先一声不响。
         // `--dump-missing` 另有布尔 stdout 档(裸形态是合法用法,不点名,免得对合法用法报警);
         // `--dump-backend` 没有那一档 —— 不给有效路径就静默不落盘,正是本族的静默型,必须点名。
+        // `--root`(G-322 本站补)同理:漏值/空串都落到调用点的"未判定"档,那一行要能指出现得的
+        // 到底是"没打值"还是"打了空串",否则三态在报错文案里被抹成一态(§22c 三态分开)。
+        const need = flag === '--root' ? '必须给一个目录' : '必须给文件路径,不落盘'
         console.error(
           v === ''
-            ? `[API 路由比对] 忽略无效的 ${flag} 值: ""(空串,该旗标必须给文件路径,不落盘)`
-            : `[API 路由比对] 忽略无效的 ${flag} 值: (其后没有任何参数,该旗标必须给文件路径,不落盘)`,
+            ? `[API 路由比对] 忽略无效的 ${flag} 值: ""(空串,该旗标${need})`
+            : `[API 路由比对] 忽略无效的 ${flag} 值: (其后没有任何参数,该旗标${need})`,
         )
       }
       return null
