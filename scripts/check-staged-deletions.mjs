@@ -54,6 +54,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // git 派生与 `cat-file --batch` 取材一律走共用层 scripts/lib/face-reader.mjs(绝对路径 git、
 // safe.directory、quotepath、显式 stdio、批量读)。本门不再自带 `gitOut()` / 那份 batch 解析器。
 import { Undetermined, catBatch, gitRaw } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SELF_SKIP = 'HUSKY_SKIP_STAGED_DELETIONS'
@@ -469,12 +470,26 @@ function collectDeletions(root, mode) {
 async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTest()
-  const rootIdx = argv.indexOf('--root')
-  const root = rootIdx >= 0 ? resolve(argv[rootIdx + 1]) : resolve(HERE, '..')
+  // G-322(本站两处):`--root` 与 `--allowlist` 都是"路径型旗标",旧写法把紧邻的下一枚旗标当成路径。
+  // 后果分两档 —— `--root --staged` 在一个不存在的根上得出"没有暂存删除";`--allowlist --staged`
+  // 则读一个不存在的豁免清单 ⇒ 把**该豁免的行判成违规**(方向相反,但两支都不该由一个少打的值决定)。
+  // 现一律走单源出口:给了旗标没拿到值 ⇒ 未判定 exit 2(§22c,判据不在本文件复制)。
+  // 本文件 main() 的返回码被顶层 `main().catch()` 丢掉(红档一直靠 process.exit 落),所以这里
+  // 必须 process.exit(2) 而不是 return 2 —— 照抄别处的 return 会得到一个"点了名却 rc=0"的门。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    process.exit(2)
+  }
+  const root = rootFlag.value ? resolve(rootFlag.value) : resolve(HERE, '..')
   const mode = argv.includes('--all') ? 'all' : 'staged'
   const asJson = argv.includes('--json')
-  const allowIdx = argv.indexOf('--allowlist')
-  const allowFile = allowIdx >= 0 ? resolve(argv[allowIdx + 1]) : join(root, ALLOWLIST_REL)
+  const allowFlag = requireFlagValue(argv, '--allowlist', { noun: '文件路径' })
+  if (allowFlag.error) {
+    console.error(`❌ ${allowFlag.error}`)
+    process.exit(2)
+  }
+  const allowFile = allowFlag.value ? resolve(allowFlag.value) : join(root, ALLOWLIST_REL)
   if (process.env[SELF_SKIP] === '1') {
     console.log(`⏭️  已跳过(${SELF_SKIP}=1):暂存删除存续性对账未执行`)
     return

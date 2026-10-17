@@ -38,6 +38,7 @@ import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatchBinary, gitRaw, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT_DEFAULT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const TARGET_DIR_REL = join('packages', 'api-client', 'src', 'endpoints')
@@ -266,8 +267,14 @@ const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process
 if (isDirectRun) {
   const argv = process.argv.slice(2)
   try {
-    const rootIdx = argv.indexOf('--root')
-    const repoRoot = rootIdx >= 0 && argv[rootIdx + 1] ? resolve(argv[rootIdx + 1]) : undefined
+    // G-322(本站):`--root` 是本门的测试通道,旧写法把紧邻的下一枚旗标(如 runner 追加的 --staged)
+    // 当路径 ⇒ 在一个不存在的"仓根"上照常出结论。给了旗标就必须拿到值,否则未判定。
+    const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+    if (rootFlag.error) {
+      console.error(`❌ ${rootFlag.error}`)
+      process.exit(2)
+    }
+    const repoRoot = rootFlag.value ? resolve(rootFlag.value) : undefined
     process.exit(argv.includes('--self-test') ? selfTest() : run({ staged: argv.includes('--staged'), strict: argv.includes('--strict'), repoRoot }))
   } catch (e) {
     console.error(`❌ 工具自身失败(不记为通过):${e?.message ?? e}`)

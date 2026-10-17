@@ -52,6 +52,7 @@
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符) */
@@ -449,8 +450,14 @@ export function analyze(root, face) {
 
 export function main(argv = process.argv.slice(2)) {
   if (argv.includes('--self-test')) return selfTest()
-  const ri = argv.indexOf('--root')
-  const root = ri >= 0 && argv[ri + 1] ? resolve(argv[ri + 1]) : ROOT
+  // G-322(本站):`--root` 顶值/无值旧写法都当路径用 ⇒ assertRepoRoot 打在错根上(或直接崩),
+  // 判据却在调用方眼里"跑过了"。现走单源出口,给了旗标没值 ⇒ 未判定 return 2。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录' })
+  if (rootFlag.error) {
+    console.error(`❌ 无法判定: ${rootFlag.error}`)
+    return 2
+  }
+  const root = rootFlag.value ? resolve(rootFlag.value) : ROOT
   assertRepoRoot(root, '本门')
   const { face, error } = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
   if (error) {

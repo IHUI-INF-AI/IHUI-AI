@@ -59,6 +59,7 @@ import {
   selectFace,
 } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -580,8 +581,13 @@ function main(argv) {
   const staged = argv.includes('--staged')
   const worktree = argv.includes('--worktree')
   const strict = argv.includes('--strict')
-  const rootIdx = argv.indexOf('--root')
-  const root = rootIdx >= 0 && argv[rootIdx + 1] ? resolve(argv[rootIdx + 1]) : DEFAULT_ROOT
+  // G-322(本站):`--root` 被旗标顶值 / 结尾无值时旧写法都退回默认根照常出结论(调用方以为换了根)。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    return 2
+  }
+  const root = rootFlag.value ? resolve(rootFlag.value) : DEFAULT_ROOT
 
   const { face, error } = selectFace({ staged, worktree, def: 'head' })
   if (error) {
