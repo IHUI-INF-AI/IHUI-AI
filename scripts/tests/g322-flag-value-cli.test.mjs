@@ -201,6 +201,31 @@ test('G-322 第十批:落点/表名型吞值(analyze-hook-log-unknown 五旗标�
   assert.match(`${plain.stdout ?? ''}${plain.stderr ?? ''}`, /SKIP/)
 })
 
+test('G-322 第十一批:派单入口 plan-tasks 的 --since/--max-commits 吞值必须未判定(正例窗口仍可用)', () => {
+  const script = S('plan-tasks.mjs')
+  for (const args of [
+    ['--reopened-flips', '--since', '--json'],
+    ['--reopened-flips', '--since', ''],
+    ['--reopened-flips', '--max-commits', '--json'],
+    ['--reopened-flips', '--max-commits', ''],
+    ['--reopened-flips', '--max-commits', 'abc'],
+    ['--reopened-flips', '--max-commits='],
+    ['--reopened-flips', '--max-commits=x'],
+  ]) {
+    const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2(旧写法:--max-commits 静默退回默认 900,而"已截断"那行照打 = 读数自洽却与调用方要的不是同一件事)\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+    assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, /无法判定 —— --(since|max-commits)/)
+    assert.doesNotMatch(`${r.stdout ?? ''}${r.stderr ?? ''}`, /ERR_INVALID_ARG_TYPE|at ModuleJob/, '不得以裸栈当用法错出口')
+  }
+  // 阳性对照:显式窗口 + 显式上限仍按原语义出结论(没把判据收紧成"这道档不能用")
+  const ok = spawnSync(process.execPath, [script, '--reopened-flips', '--since=2026-09-08', '--max-commits=5'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+  })
+  assert.equal(ok.status, 0, `${ok.stdout ?? ''}${ok.stderr ?? ''}`)
+})
+
 test('G-322 第七批:另八道 blocking 门的 --root 三支坏值各自大声拒绝', () => {
   for (const f of [
     'check-api-client-utf8.mjs',
