@@ -86,10 +86,6 @@
     "claimFailed": "領取失敗",
     "loadFailed": "載入任務失敗"
   },
-  "nav": {
-    "profile": "我的",
-    "community": "社群"
-  },
   "common": {
     "hint": "提示",
     "goSettings": "去設定",

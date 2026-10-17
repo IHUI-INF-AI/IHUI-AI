@@ -86,10 +86,6 @@
     "claimFailed": "受取に失敗しました",
     "loadFailed": "タスクの読み込みに失敗しました"
   },
-  "nav": {
-    "profile": "マイページ",
-    "community": "コミュニティ"
-  },
   "common": {
     "hint": "ヒント",
     "goSettings": "設定へ",
