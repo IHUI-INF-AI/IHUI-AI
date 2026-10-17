@@ -37,6 +37,12 @@
 //   ALERT-CLEARED 形态记日志(与 deploy/win/ihui-deploy.ps1 的 ALERT-CLEARED 同形态),
 //   **绝不进故障邮件**;status 缺失/其它取值 ⇒ fail-open 照旧到人(失效方向必须是
 //   "多报一次",绝不能是"多静音一条")。
+//   日志状态维(同日补):审计同时留下一格 —— 此前每行都不落 status ⇒ "过去到底有没有把恢复
+//   当故障寄过信"今天无人可答。现在本批每条既有日志行的尾部都带
+//   ` status=<档> queued=<n> cleared=<m>`(档 ∈ firing/resolved/missing/other,混合批按固定序
+//   以 + 连接;空批不落判据 = status=empty)。它落在**既有行**上:写日志的落点仍只有 writeLog
+//   那一处(一条通道),行首形状一字未动,按行 grep 的下游照旧读得动。
+//   取值实现唯一 = alertStatusOf,分流与日志共用同一把尺子(§0.6,第二份必然漂开)。
 //
 // 自监控端点(2026-09-27 起,两个端点各服务一个读者,**不可互换**):
 //   GET /health   → application/json,给人和「生产值守巡检」班次读(契约一字未改)
@@ -626,6 +632,19 @@ function planDelivery(alerts, anchor, store, nowMs, windowMs) {
 }
 
 /**
+ * 单条告警的状态档(唯一取值实现,2026-10-17 立):
+ * `splitAlertsByStatus` 的去向判定与日志状态维共用这一把尺子 —— 两处各写一遍必然漂开(§0.6)。
+ * 词表:firing / resolved / missing(字段缺失或全空白)/ other(陌生取值)。
+ * 本函数**只描述、不决定去向**;fail-open 的方向锁在 splitAlertsByStatus 那一格。
+ */
+function alertStatusOf(alert) {
+  const st = String((alert && alert.status) || '').trim().toLowerCase()
+  if (!st) return 'missing'
+  if (st === 'firing' || st === 'resolved') return st
+  return 'other'
+}
+
+/**
  * 按 Alertmanager 的 `status` 字段分流(纯函数,--self-test 成对钉):
  * 只有**显式** status=resolved 进清偿支;缺失/firing/其它取值一律 fail-open 留到人支
  * —— 失效方向必须是"多报一次",绝不能是"多静音一条"(AGENTS §5e-1/§0.10 同一条禁令)。
@@ -634,11 +653,24 @@ function splitAlertsByStatus(alerts) {
   const paging = []
   const resolved = []
   for (const a of Array.isArray(alerts) ? alerts : []) {
-    const st = String((a && a.status) || '').trim().toLowerCase()
-    if (st === 'resolved') resolved.push(a)
+    if (alertStatusOf(a) === 'resolved') resolved.push(a)
     else paging.push(a)
   }
   return { paging, resolved }
+}
+
+/**
+ * 日志状态维(纯函数):` status=<档> queued=<n> cleared=<m>`,由调用点拼进**既有**日志行尾部
+ * (不新增通道、不改行首形状)。补的是审计留下的那一格:历史日志从不记 status,所以
+ * "过去有没有把恢复当故障寄过信"无法证明;从这一维起,任何一次投递/跳过/清偿都能在日志里对上。
+ * queued/cleared 一律取调用点已经得出的分流结论(本函数不参与判定,只如实落账)。
+ * 一批里多种档同时出现按 firing→resolved→missing→other 固定序以 + 连接(与输入顺序无关,
+ * 否则同一批的两轮读数会写成两种形状);没有可判的对象 ⇒ status=empty,不折成任何一档(§0.3)。
+ */
+function statusDimension(alerts, queued, cleared) {
+  const seen = new Set((Array.isArray(alerts) ? alerts : []).map(alertStatusOf))
+  const kinds = ['firing', 'resolved', 'missing', 'other'].filter((k) => seen.has(k))
+  return `status=${kinds.length ? kinds.join('+') : 'empty'} queued=${Number(queued) || 0} cleared=${Number(cleared) || 0}`
 }
 
 /**
@@ -671,11 +703,16 @@ async function handleAlert(reqBody) {
   // ⓪ 状态分流(2026-10-17):显式 resolved ⇒ 清偿 + ALERT-CLEARED 记账,绝不冒充故障寄邮件;
   //    其余(含 status 缺失)照旧走下方到人链路(fail-open,故障照寄不被静音)。
   const { paging, resolved } = splitAlertsByStatus(alerts)
+  // 状态维只在本批**每一条既有日志行**的尾部落一次(行首形状与通道一字未动):分流结论与
+  // 状态档必须同处一行,否则"这一封是哪一档寄出去的"还是得靠猜(历史日志正是这样丢的那格)。
+  // queued 一律取**该条那一行的真实去向**:恢复支那一行取进入人链路的条数(paging),
+  // 投递/跳过那几行取实际交到投递腿的条数(toPush) —— 一个数字糊两行就是把两件事写成一件。
+  const statusDimOf = (queued) => statusDimension(alerts, queued, resolved.length)
   if (resolved.length) {
     counters.alertsCleared += resolved.length
     applyResolvedClears(dedup, resolved)
     const shown = resolved.slice(0, 3).map((a) => formatAlert(a).replace(/\n/g, ' / ')).join(' ;; ')
-    writeLog(`ALERT-CLEARED 收到恢复 ${resolved.length} 条(不计故障、不寄邮件;同身份去重档已清偿,下次 firing 立即可再报;前 3 条:${shown})`)
+    writeLog(`ALERT-CLEARED 收到恢复 ${resolved.length} 条(不计故障、不寄邮件;同身份去重档已清偿,下次 firing 立即可再报;前 3 条:${shown}) ${statusDimOf(paging.length)}`)
   }
   if (!paging.length) {
     // 本批全是恢复:摘除的去重档同样必须回响应前落盘(跨重启延续,同下方纪律)
@@ -693,7 +730,7 @@ async function handleAlert(reqBody) {
     // "只报不炸"不等于"没记":逐条留一行(外部文本一律过 formatAlert 的脱敏+形状归一),
     // 并计入 /metrics 的那个 counter ⇒ 静默变短在这里结构上不可能发生。
     for (const a of selfReportOnly) {
-      writeLog(`[alert][selfscope] 只报不炸(来源分区 ${anchor.ok ? `${anchor.label}=${(a.labels || {})[anchor.label]}` : '未判定'}): ${formatAlert(a).replace(/\n/g, ' / ')}`)
+      writeLog(`[alert][selfscope] 只报不炸(来源分区 ${anchor.ok ? `${anchor.label}=${(a.labels || {})[anchor.label]}` : '未判定'}): ${formatAlert(a).replace(/\n/g, ' / ')} ${statusDimOf(toPush.length)}`)
     }
   }
   // 回响应前同步落盘(含 decideDedup 刚刷新过的时间戳)⇒ 跨重启延续,杜绝重启后重寄。
@@ -701,10 +738,10 @@ async function handleAlert(reqBody) {
 
   if (!toPush.length) {
     if (!page.length && selfReportOnly.length) {
-      writeLog(`[alert] 本批 ${alerts.length} 条全部按来源判为只报不炸,未寄邮件(去重命中 ${dedupedCount} 条)`)
+      writeLog(`[alert] 本批 ${alerts.length} 条全部按来源判为只报不炸,未寄邮件(去重命中 ${dedupedCount} 条) ${statusDimOf(toPush.length)}`)
       return { skipped: dedupedCount, reported: selfReportOnly.length, cleared: resolved.length }
     }
-    writeLog(`[alert] 到人那一支全部命中去重窗口(${page.length}条/${dedupedCount}条),跳过投递`)
+    writeLog(`[alert] 到人那一支全部命中去重窗口(${page.length}条/${dedupedCount}条),跳过投递 ${statusDimOf(toPush.length)}`)
     return { skipped: dedupedCount, reported: selfReportOnly.length, cleared: resolved.length }
   }
 
@@ -718,11 +755,11 @@ async function handleAlert(reqBody) {
       else if (m.skipped) counters.batchesSkipped += 1
       else counters.batchesFailed += 1
       const tag = m.ok ? '已送达' : m.skipped ? '跳过' : '失败'
-      writeLog(`[mail] ${tag}: ${redact(m.why || '')}(本批 ${toPush.length} 条,身份去重窗口 ${DEDUP_WINDOW_MIN} 分钟)`)
+      writeLog(`[mail] ${tag}: ${redact(m.why || '')}(本批 ${toPush.length} 条,身份去重窗口 ${DEDUP_WINDOW_MIN} 分钟) ${statusDimOf(toPush.length)}`)
     })
     .catch((e) => {
       // deliverMail 内部已把投递异常收敛成结论;走到这里只能是结论链路自身异常 —— 同样必须响。
-      writeLog(`[mail][ERROR] 投递腿未收敛异常: ${redact(e && e.message ? e.message : e)}`)
+      writeLog(`[mail][ERROR] 投递腿未收敛异常: ${redact(e && e.message ? e.message : e)} ${statusDimOf(toPush.length)}`)
     })
   return { queued: toPush.length, reported: selfReportOnly.length, cleared: resolved.length }
 }
@@ -804,6 +841,9 @@ function usageText() {
     '只按告警身份去重、无每日总量封顶;寄不出去会留 UNDELIVERED 标记并在 /health 可见。',
     '状态分流:显式 status=resolved ⇒ 清偿去重档 + ALERT-CLEARED 记账,不冒充故障寄邮件;',
     '          status 缺失/其它取值 ⇒ fail-open 照旧到人(故障照寄,绝不顺手静音)。',
+    '日志行状态维:本批每条既有日志行尾部带 status=<firing|resolved|missing|other> queued=<n> cleared=<m>;',
+    '            通道仍只有一条(LOG_FILE 单点 append)、行首形状一字未动 ⇒ 以后"有没有把恢复当故障',
+    '            寄过信"这类问题能用日志回答(此前每行都不落 status,历史无从证明)。',
   ].join('\n')
 }
 
@@ -1093,6 +1133,24 @@ async function runSelfTest() {
   cCleared.alertsCleared = 5
   eq('⑨e 清偿指标行真出现在样本行上(不在名单里就是静默丢弃)', /^ihui_alertbridge_alerts_cleared_total 5$/m.test(renderMetrics({ ...sample, counters: cCleared })), true)
   eq('⑨f 分流判据挂在生产路径上(handleAlert 真调 splitAlertsByStatus,不是只写了个函数)', /const \{ paging, resolved \} = splitAlertsByStatus\(alerts\)/.test(fs.readFileSync(__filename, 'utf8')), true)
+
+  // ⑩ 日志状态维(2026-10-17 补)。审计留下一格:此前每行都不落 status ⇒ "过去到底有没有把恢复
+  //    当故障寄过信"今天无人可答。此后每条既有日志行尾部都带 ` status=<档> queued=<n> cleared=<m>`,
+  //    下次任何人都能用日志回答。断言一律喂生产实现 statusDimension / alertStatusOf /
+  //    splitAlertsByStatus(§22c:测试内不抄第二份判据)。三条成对 + 方向锁 + 单一尺子 + 接线锁。
+  const dimFiring = statusDimension([firingA], 1, 0)
+  eq('⑩a firing 批的行里有 status=firing 且计入 queued、不计入 cleared', [/\bstatus=firing\b/.test(dimFiring), /\bqueued=1\b/.test(dimFiring), /\bcleared=0\b/.test(dimFiring)], [true, true, true])
+  const dimResolved = statusDimension([resolvedA], 0, 1)
+  eq('⑩b resolved 批的行里有 status=resolved 且计入 cleared、不进 queued(投递腿结构上拿不到它)', [/\bstatus=resolved\b/.test(dimResolved), /\bqueued=0\b/.test(dimResolved), /\bcleared=1\b/.test(dimResolved)], [true, true, true])
+  const dimMissing = statusDimension([noStatusA], 1, 0)
+  eq('⑩c status 缺失 ⇒ 行里记 status=missing,且 fail-open 照寄(到人支 1 条 / 清偿支 0 条)', [/status=missing/.test(dimMissing), splitAlertsByStatus([noStatusA]).paging.length, splitAlertsByStatus([noStatusA]).resolved.length], [true, 1, 0])
+  const dimOther = statusDimension([pendingA], 1, 0)
+  eq('⑩d 陌生取值 ⇒ 行里如实记 status=other(不得冒充 firing/missing),去向仍 fail-open 到人', [/status=other/.test(dimOther), splitAlertsByStatus([pendingA]).paging.length], [true, 1])
+  eq('⑩e 混合批按固定序拼接(与输入顺序无关)而空批不落任何状态档(§0.3:没有输入就不落判据)', [statusDimension([resolvedA, firingA, noStatusA], 2, 1), statusDimension([firingA, noStatusA, resolvedA], 2, 1), statusDimension([], 0, 0)], ['status=firing+resolved+missing queued=2 cleared=1', 'status=firing+resolved+missing queued=2 cleared=1', 'status=empty queued=0 cleared=0'])
+  eq('⑩f 单一把尺子:状态档与分流去向逐条同源 alertStatusOf(第二份分类必然漂开)', [firingA, resolvedA, noStatusA, pendingA].every((a) => (alertStatusOf(a) === 'resolved') === (splitAlertsByStatus([a]).resolved.length === 1)), true)
+  const bridgeSrc = fs.readFileSync(__filename, 'utf8')
+  eq('⑩g 接线锁:handleAlert 真造状态维并拼进既有行(清偿行 1 处 + 投递/跳过行 ≥4 处),不是只写了个函数', [bridgeSrc.includes('const statusDimOf = (queued) => statusDimension(alerts, queued, resolved.length)'), bridgeSrc.includes('${statusDimOf(paging.length)}'), (bridgeSrc.match(/\$\{statusDimOf\(toPush\.length\)\}/g) || []).length >= 4], [true, true, true])
+  eq('⑩h 通道唯一:全文件只有一处写日志的落点(补维度不得开出第二套日志通道)', (bridgeSrc.match(/appendFileSync\(LOG_FILE/g) || []).length, 1)
 
   let bad = 0
   for (const [label, pass, why] of cases) {
