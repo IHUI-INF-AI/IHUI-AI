@@ -6,6 +6,8 @@ import { eq, or, isNull, and } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 import { db } from './index.js'
 import { users, refreshTokens, type User, type RefreshToken } from '@ihui/database'
+// ihui_auth_token_revoked_total:queries 层不持有 fastify 实例,走模块级桥接函数打点
+import { recordAuthTokenRevoked } from '../plugins/business-metrics.js'
 
 export interface CreateUserInput {
   phone?: string
@@ -217,23 +219,34 @@ export async function findRefreshToken(token: string): Promise<RefreshToken | un
  * 2026-09-27:回报**库侧确认改动的那批 id**。旧形态 Promise&lt;void&gt; 让调用方(如
  * /auth/logout)只能在写链之外猜布尔 —— "UPDATE 命中 0 行"与"吊销成功"在响应上同形。
  */
-export async function revokeRefreshToken(token: string): Promise<string[]> {
+export async function revokeRefreshToken(
+  token: string,
+  // 吊销原因(进 ihui_auth_token_revoked_total 的 reason 标签):
+  // refresh_rotation(轮转,默认)/ logout / reuse_detected / force_logout / session_revoke
+  reason = 'refresh_rotation',
+): Promise<string[]> {
   const rows = await db
     .update(refreshTokens)
     .set({ revokedAt: new Date() })
     .where(eq(refreshTokens.token, token))
     .returning({ id: refreshTokens.id })
+  if (rows.length > 0) recordAuthTokenRevoked(reason)
   return rows.map((r) => r.id)
 }
 
 /**
  * 吊销某用户所有未过期的 refresh token（用于 SSO 统一登出/踢下线）。
  */
-export async function revokeAllUserRefreshTokens(userId: string): Promise<void> {
+export async function revokeAllUserRefreshTokens(
+  userId: string,
+  // 默认 force_logout(密码重置/修改后强制全端下线);SSO logout 等场景由调用点传入
+  reason = 'force_logout',
+): Promise<void> {
   await db
     .update(refreshTokens)
     .set({ revokedAt: new Date() })
     .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)))
+  recordAuthTokenRevoked(reason)
 }
 
 /**
@@ -247,12 +260,17 @@ export async function revokeAllUserRefreshTokens(userId: string): Promise<void> 
  * @param familyId token family UUID
  * @returns 吊销的 token 数量
  */
-export async function revokeRefreshTokenFamily(familyId: string): Promise<number> {
+export async function revokeRefreshTokenFamily(
+  familyId: string,
+  // 默认 reuse_detected(RFC 6749 §10.4 重放即全族失效)
+  reason = 'reuse_detected',
+): Promise<number> {
   const result = await db
     .update(refreshTokens)
     .set({ revokedAt: new Date() })
     .where(and(eq(refreshTokens.familyId, familyId), isNull(refreshTokens.revokedAt)))
     .returning({ id: refreshTokens.id })
+  if (result.length > 0) recordAuthTokenRevoked(reason)
   return result.length
 }
 

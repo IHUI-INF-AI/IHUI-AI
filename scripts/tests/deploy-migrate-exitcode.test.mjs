@@ -31,7 +31,13 @@ import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const PS1_PATH = join(ROOT, 'deploy', 'win', 'ihui-deploy.ps1')
+// 被测源文件路径。默认取仓库工作树那份;IHUI_DEPLOY_PS1_PATH 只为"改前/改后对照跑"
+// 提供显式指向(例如指向 HEAD blob 的导出的副本),指向不存在的文件 ⇒ 当场判红,
+// 绝不静默回落到默认路径(§0.3:取不到输入就是未判定,不得冒判"验过了")。
+const PS1_PATH = process.env.IHUI_DEPLOY_PS1_PATH
+  ? resolve(process.env.IHUI_DEPLOY_PS1_PATH)
+  : join(ROOT, 'deploy', 'win', 'ihui-deploy.ps1')
+assert.ok(existsSync(PS1_PATH), `被测 .ps1 不存在: ${PS1_PATH}`)
 const src = readFileSync(PS1_PATH, 'utf8')
 
 // ─── 通用小工具(只服务本测试;不 import 生产逻辑,故不存在镜像漂移)─────────────
@@ -249,4 +255,92 @@ test('有界等待与预算出口在位:默认 180s、env 覆写、生效值打�
   const callIdx = regionCode.indexOf('Invoke-MigrateWithBudget -BudgetSec')
   assert.ok(budgetLogIdx >= 0 && budgetLogIdx < callIdx, '生效预算值必须在调用**之前**打进日志(账后可读)')
 })
+
+// ─── 身份稳定性尺(2026-10-26 票 G-43 第②格,离线静态)──────────────────────────
+//
+// 钉住的失效型:超时那一格的 reason 里写了生效预算 ${migBudgetSec}s。reason 同时进**两层身份**
+// —— Note-MigrateFailure 自己 12h 窗那层 `$sig = "$reason|pend=$pendTier"`,以及
+// Invoke-FailNotify 4h 分槽那层(它按传进来的 $m 重算,而 $m 由含 reason 的 $migMsg 拼成)。
+// ⇒ env IHUI_DEPLOY_MIGRATE_TIMEOUT_SEC 改一次,两层同时换身份、两扇去重双双失效(同
+// ihui-monitor.ps1 磁盘格 / 本文件上面的实时条数那一型)。
+// 口径:身份只由**从真实源码抽出的模板**驱动(§22c 不复制实现,抽取即 import);
+// 模板里出现本尺子认不出的变量 ⇒ 判"未建模"直接红,不许当常量放过。
+
+function extractVarTemplates(noteFnSrc) {
+  const lines = codeLines(noteFnSrc)
+  const layer1 = lines.find((l) => /^\s*\$sig = "\$reason\|pend=/.test(l))
+  assert.ok(layer1, 'Note-MigrateFailure 的 12h 层签名模板($sig = "$reason|pend=$pendTier")不见了 —— 摘线即红')
+  const msg = lines.find((l) => /^\s*\$migMsg = "/.test(l))
+  assert.ok(msg, 'Note-MigrateFailure 的告警文案行($migMsg = "…")不见了 —— 它就是 4h 层算身份的那段字')
+  return {
+    layer1Tpl: /(\$sig = "([^"]*)")/.exec(layer1)[2],
+    msgTpl: /\$migMsg = "([^"]*)"/.exec(msg)[1],
+  }
+}
+
+/** 按 vars 表把模板里的 PowerShell 插值展开;展开后仍残留 `$` ⇒ 判"未建模"(不记绿也不记红之外的第三种,直接fail) */
+function expand(tpl, vars) {
+  let out = tpl
+  for (const [k, v] of Object.entries(vars)) out = out.split(`\${${k}}`).join(v).split(`$${k}`).join(v)
+  assert.match(out, /^[^$]*$/, `身份模板留有未建模的插值,本尺子判不了(不得当常量放过): ${out}`)
+  return out
+}
+
+function timeoutReasonLiteral(codeText) {
+  const br = /'TIMEOUT' \{([\s\S]*?)\n {12}\}/.exec(codeText)
+  assert.ok(br, '找不到 TIMEOUT 分支')
+  const call = br[1].split('\n').find((l) => /Note-MigrateFailure/.test(l))
+  assert.ok(call, 'TIMEOUT 分支必须走 Note-MigrateFailure 记账')
+  const reason = /-reason "([^"]*)"/.exec(call)
+  assert.ok(reason, 'TIMEOUT 那记调用必须显式给 -reason(身份类就写在这里)')
+  return { reason: reason[1], call }
+}
+
+function failNotifyLayer2(fnSrc, mText) {
+  // 4h 层的身份规则从 Invoke-FailNotify 源码抽:$sig = ($m -replace '\s+', ' ').Trim()
+  const rule = codeLines(fnSrc).find((l) => /^\s*\$sig = \(\$m -replace/.test(l))
+  assert.ok(rule, "Invoke-FailNotify 的分槽身份规则($sig = ($m -replace '\\s+', ' ').Trim())不见了 —— 摘线即红")
+  assert.match(rule, /-replace '\\s\+', ' '\)\.Trim\(\)/, '4h 层身份 = 空白归一 + 去首尾空白,规则变了本尺子必须同步')
+  return mText.replace(/\s+/g, ' ').trim()
+}
+
+test('⑤身份稳定性:超时那一格的两层签名在 migBudgetSec 取不同值时必须逐字节相同', () => {
+  const noteFn = extractFunction(src, 'Note-MigrateFailure')
+  const { layer1Tpl, msgTpl } = extractVarTemplates(noteFn)
+  const { reason, call } = timeoutReasonLiteral(regionCode)
+  const budgets = ['180', '60', '300', '1'] // env 覆写前后的候选生效值(档位无关,只验身份不吃它)
+  const layer1 = budgets.map((b) => expand(layer1Tpl, { reason: expand(reason, { migBudgetSec: b }), pendTier: 'TIER' }))
+  const layer2 = budgets.map((b) =>
+    failNotifyLayer2(extractFunction(src, 'Invoke-FailNotify'), expand(msgTpl, { reason: expand(reason, { migBudgetSec: b }), pendTier: 'TIER' })),
+  )
+  assert.ok(new Set(layer1).size === 1, `12h 层身份随 migBudgetSec 漂移(${new Set(layer1).size} 种)⇒ env 一改就换身份,去重失效`)
+  assert.ok(new Set(layer2).size === 1, `4h 层身份随 migBudgetSec 漂移(${new Set(layer2).size} 种)⇒ 同上,两层双双失效`)
+  assert.doesNotMatch(reason, /\$/, '超时那一格的 reason 不得含任何插值 —— 身份只留固定类')
+  assert.match(reason, /未判定/, '固定类仍须写明"未判定"(AGENTS 0.3:超时不得冒充失败或成功)')
+  // 实时数值必须**只进正文**:它得出现在 -RealtimeDetail 实参上,并在 Note-MigrateFailure 里
+  // 只被 -Detail 那条路消费(写进 $sig 或 $migMsg 就是把刚修好的那一格原地复原)。
+  assert.match(call, /-RealtimeDetail "[^"]*\$\{migBudgetSec\}s/, '生效预算数值必须经 -RealtimeDetail 传给正文')
+  const rtLines = codeLines(noteFn).filter((l) => /RealtimeDetail/.test(l))
+  assert.ok(rtLines.length > 0, '$RealtimeDetail 在 Note-MigrateFailure 里无人消费 = 参数是死的(正文照样看不到数值)')
+  for (const l of rtLines) {
+    assert.doesNotMatch(l, /\$sig = |\$migMsg = /, `$RealtimeDetail 混进了身份面: ${l.trim()}`)
+  }
+  assert.match(noteFn, /-Detail \$migDetail|-Detail "[^"]*\$RealtimeDetail/, '$RealtimeDetail 必须经 -Detail 进正文')
+})
+
+test('⑤阳性对照:把预算数值写回 reason(改前形态)⇒ 同一尺子必须量出两层身份漂移', () => {
+  // 夹具 = 改前那行 reason 逐字(HEAD 面 deploy/win/ihui-deploy.ps1 的 TIMEOUT 调用),
+  // 用来证明 ⑤ 不是恒真:判据换了形态,尺子当场翻脸。
+  const oldReason = '超时 ${migBudgetSec}s(未判定,无退出码)'
+  const noteFn = extractFunction(src, 'Note-MigrateFailure')
+  const { layer1Tpl, msgTpl } = extractVarTemplates(noteFn)
+  const budgets = ['180', '60']
+  const layer1 = budgets.map((b) => expand(layer1Tpl, { reason: expand(oldReason, { migBudgetSec: b }), pendTier: 'TIER' }))
+  const layer2 = budgets.map((b) =>
+    failNotifyLayer2(extractFunction(src, 'Invoke-FailNotify'), expand(msgTpl, { reason: expand(oldReason, { migBudgetSec: b }), pendTier: 'TIER' })),
+  )
+  assert.notEqual(layer1[0], layer1[1], '旧形态下 12h 层身份必须随预算变 —— 不变说明本尺子恒真(假尺子)')
+  assert.notEqual(layer2[0], layer2[1], '旧形态下 4h 层身份同样必须变(两层同时失效才是当初那 84 封的成因)')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

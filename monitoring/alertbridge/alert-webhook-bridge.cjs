@@ -28,6 +28,22 @@
 //     并写 [mail][ERROR] 日志;/health 暴露 mailUndelivered=true。标记在下一次成功投递时
 //     清除(参照 scripts/check-credential-health.mjs 的 UNDELIVERED 机制)。
 //
+// 状态分流(2026-10-17 立,根治"已恢复被当故障寄信"的假警报型):
+//   现役 Alertmanager 配置 send_resolved: true(tmpl 现读),恢复事件同样 POST 进本桥。
+//   此前本文件全文不读 alert.status ⇒ 一条恢复与一条新故障走同一条邮件流水线,
+//   标题都是"基础设施告警 — X";故障持续 >去重窗口后才恢复的,那封"恢复"就会以
+//   故障面目到人(§5e-1 要杜绝的正是这种把人训回"忽略告警"的假警报)。
+//   现在:显式 status=resolved ⇒ 只清偿(摘该身份去重档,下次 firing 立即可再报)+
+//   ALERT-CLEARED 形态记日志(与 deploy/win/ihui-deploy.ps1 的 ALERT-CLEARED 同形态),
+//   **绝不进故障邮件**;status 缺失/其它取值 ⇒ fail-open 照旧到人(失效方向必须是
+//   "多报一次",绝不能是"多静音一条")。
+//   日志状态维(同日补):审计同时留下一格 —— 此前每行都不落 status ⇒ "过去到底有没有把恢复
+//   当故障寄过信"今天无人可答。现在本批每条既有日志行的尾部都带
+//   ` status=<档> queued=<n> cleared=<m>`(档 ∈ firing/resolved/missing/other,混合批按固定序
+//   以 + 连接;空批不落判据 = status=empty)。它落在**既有行**上:写日志的落点仍只有 writeLog
+//   那一处(一条通道),行首形状一字未动,按行 grep 的下游照旧读得动。
+//   取值实现唯一 = alertStatusOf,分流与日志共用同一把尺子(§0.6,第二份必然漂开)。
+//
 // 自监控端点(2026-09-27 起,两个端点各服务一个读者,**不可互换**):
 //   GET /health   → application/json,给人和「生产值守巡检」班次读(契约一字未改)
 //   GET /metrics  → text/plain; version=0.0.4,Prometheus 抓取专用(指标见 METRIC_SPECS)
@@ -241,6 +257,7 @@ const counters = {
   statePersistFailures: 0,   // 去重态落盘失败 ⇒ 重启后去重重置(本文件注释里那个"重寄"洞的前置信号)
   undeliveredMarks: 0,       // 写下 UNDELIVERED 标记的次数
   selfScopeReported: 0,      // 按来源锚点判为"采集器/监控自身造成"、只记账不炸到人的条数
+  alertsCleared: 0,          // 显式 status=resolved 被清偿(ALERT-CLEARED 记账、未冒充故障寄信)的条数
 }
 /** 日志来源锚点的活性(1=两侧名字对得上、分流在跑;0=失明 ⇒ 本桥已 fail-open 全照旧到人)。 */
 let logAnchorOk = false
@@ -284,6 +301,7 @@ const METRIC_SPECS = [
   ['ihui_alertbridge_alerts_received_total', 'counter', 'Alerts received before dedup.', (s) => s.counters.alertsReceived],
   ['ihui_alertbridge_alerts_dedup_suppressed_total', 'counter', 'Alerts suppressed by identity (alertname+instance) inside the dedup window.', (s) => s.counters.dedupSuppressed],
   ['ihui_alertbridge_alerts_selfscope_reported_total', 'counter', 'Alerts whose log-source anchor says "collector / monitoring self noise": recorded here (log + this counter) instead of waking a human. Zero when the split is blind.', (s) => s.counters.selfScopeReported],
+  ['ihui_alertbridge_alerts_cleared_total', 'counter', 'Alerts with explicit status=resolved: the dedup identity was cleared and an ALERT-CLEARED log line written; never mailed as an incident.', (s) => s.counters.alertsCleared],
   ['ihui_alertbridge_log_anchor_ok', 'gauge', '1 = the log-source anchor label agrees between promtail and the alert rules, so the collector/business split is live; 0 = blind (bridge fails open and pages everything) — alerts.yml rule LogSourceSplitBlind reads this.', (s) => (s.logAnchorOk ? 1 : 0)],
   ['ihui_alertbridge_mail_batches_delivered_total', 'counter', 'Mail batches delivered on either the branded or the plain-text path.', (s) => s.counters.batchesDelivered],
   ['ihui_alertbridge_mail_batches_failed_total', 'counter', 'Mail batches where BOTH the branded and the plain-text path failed (alerts never reached a human).', (s) => s.counters.batchesFailed],
@@ -613,6 +631,64 @@ function planDelivery(alerts, anchor, store, nowMs, windowMs) {
   return { toPush, dedupedCount, selfReportOnly, page }
 }
 
+/**
+ * 单条告警的状态档(唯一取值实现,2026-10-17 立):
+ * `splitAlertsByStatus` 的去向判定与日志状态维共用这一把尺子 —— 两处各写一遍必然漂开(§0.6)。
+ * 词表:firing / resolved / missing(字段缺失或全空白)/ other(陌生取值)。
+ * 本函数**只描述、不决定去向**;fail-open 的方向锁在 splitAlertsByStatus 那一格。
+ */
+function alertStatusOf(alert) {
+  const st = String((alert && alert.status) || '').trim().toLowerCase()
+  if (!st) return 'missing'
+  if (st === 'firing' || st === 'resolved') return st
+  return 'other'
+}
+
+/**
+ * 按 Alertmanager 的 `status` 字段分流(纯函数,--self-test 成对钉):
+ * 只有**显式** status=resolved 进清偿支;缺失/firing/其它取值一律 fail-open 留到人支
+ * —— 失效方向必须是"多报一次",绝不能是"多静音一条"(AGENTS §5e-1/§0.10 同一条禁令)。
+ */
+function splitAlertsByStatus(alerts) {
+  const paging = []
+  const resolved = []
+  for (const a of Array.isArray(alerts) ? alerts : []) {
+    if (alertStatusOf(a) === 'resolved') resolved.push(a)
+    else paging.push(a)
+  }
+  return { paging, resolved }
+}
+
+/**
+ * 日志状态维(纯函数):` status=<档> queued=<n> cleared=<m>`,由调用点拼进**既有**日志行尾部
+ * (不新增通道、不改行首形状)。补的是审计留下的那一格:历史日志从不记 status,所以
+ * "过去有没有把恢复当故障寄过信"无法证明;从这一维起,任何一次投递/跳过/清偿都能在日志里对上。
+ * queued/cleared 一律取调用点已经得出的分流结论(本函数不参与判定,只如实落账)。
+ * 一批里多种档同时出现按 firing→resolved→missing→other 固定序以 + 连接(与输入顺序无关,
+ * 否则同一批的两轮读数会写成两种形状);没有可判的对象 ⇒ status=empty,不折成任何一档(§0.3)。
+ */
+function statusDimension(alerts, queued, cleared) {
+  const seen = new Set((Array.isArray(alerts) ? alerts : []).map(alertStatusOf))
+  const kinds = ['firing', 'resolved', 'missing', 'other'].filter((k) => seen.has(k))
+  return `status=${kinds.length ? kinds.join('+') : 'empty'} queued=${Number(queued) || 0} cleared=${Number(cleared) || 0}`
+}
+
+/**
+ * 清偿(纯函数):恢复事件摘掉该身份的去重档 ⇒ 下一次真 firing 立刻可再报,
+ * 不被旧窗口压住(清偿语义与 deploy/win/ihui-deploy.ps1 的 ALERT-CLEARED 同一形态)。
+ * 返回本次摘除的身份键列表(含"窗口内本无"的,逐键如实报数)。
+ */
+function applyResolvedClears(store, resolved) {
+  const cleared = []
+  for (const a of resolved || []) {
+    const labels = (a && a.labels) || {}
+    const key = `${labels.alertname || ''}|${labels.instance || ''}`
+    store.delete(key)
+    cleared.push(key)
+  }
+  return cleared
+}
+
 // ── webhook 处理 ───────────────────────────────────────────────────────────────
 async function handleAlert(reqBody) {
   counters.webhooksReceived += 1 // 纯观测:以下判定链路一字未改
@@ -623,19 +699,38 @@ async function handleAlert(reqBody) {
   }
 
   const now = Date.now()
+  counters.alertsReceived += alerts.length
+  // ⓪ 状态分流(2026-10-17):显式 resolved ⇒ 清偿 + ALERT-CLEARED 记账,绝不冒充故障寄邮件;
+  //    其余(含 status 缺失)照旧走下方到人链路(fail-open,故障照寄不被静音)。
+  const { paging, resolved } = splitAlertsByStatus(alerts)
+  // 状态维只在本批**每一条既有日志行**的尾部落一次(行首形状与通道一字未动):分流结论与
+  // 状态档必须同处一行,否则"这一封是哪一档寄出去的"还是得靠猜(历史日志正是这样丢的那格)。
+  // queued 一律取**该条那一行的真实去向**:恢复支那一行取进入人链路的条数(paging),
+  // 投递/跳过那几行取实际交到投递腿的条数(toPush) —— 一个数字糊两行就是把两件事写成一件。
+  const statusDimOf = (queued) => statusDimension(alerts, queued, resolved.length)
+  if (resolved.length) {
+    counters.alertsCleared += resolved.length
+    applyResolvedClears(dedup, resolved)
+    const shown = resolved.slice(0, 3).map((a) => formatAlert(a).replace(/\n/g, ' / ')).join(' ;; ')
+    writeLog(`ALERT-CLEARED 收到恢复 ${resolved.length} 条(不计故障、不寄邮件;同身份去重档已清偿,下次 firing 立即可再报;前 3 条:${shown}) ${statusDimOf(paging.length)}`)
+  }
+  if (!paging.length) {
+    // 本批全是恢复:摘除的去重档同样必须回响应前落盘(跨重启延续,同下方纪律)
+    if (!persistState(STATE_FILE, dedup, now, writeLog)) counters.statePersistFailures += 1
+    return { cleared: resolved.length }
+  }
   // ① 按日志来源分流:采集器/监控自身造成的 → 只记账;其余 → 照旧走身份去重 + 邮件。
   //    锚点对不上时 splitAlertsByLogSource 把所有告警放进"照旧到人"那一支(fail-open),
   //    所以这一层在失明态下与分流接入前的行为逐字一致(不会顺手压掉任何一条)。
   const anchor = currentLogAnchor(now)
-  const { toPush, dedupedCount, selfReportOnly, page } = planDelivery(alerts, anchor, dedup, now, MAX_DEDUP_AGE_MS)
-  counters.alertsReceived += alerts.length
+  const { toPush, dedupedCount, selfReportOnly, page } = planDelivery(paging, anchor, dedup, now, MAX_DEDUP_AGE_MS)
   counters.dedupSuppressed += dedupedCount
   if (selfReportOnly.length) {
     counters.selfScopeReported += selfReportOnly.length
     // "只报不炸"不等于"没记":逐条留一行(外部文本一律过 formatAlert 的脱敏+形状归一),
     // 并计入 /metrics 的那个 counter ⇒ 静默变短在这里结构上不可能发生。
     for (const a of selfReportOnly) {
-      writeLog(`[alert][selfscope] 只报不炸(来源分区 ${anchor.ok ? `${anchor.label}=${(a.labels || {})[anchor.label]}` : '未判定'}): ${formatAlert(a).replace(/\n/g, ' / ')}`)
+      writeLog(`[alert][selfscope] 只报不炸(来源分区 ${anchor.ok ? `${anchor.label}=${(a.labels || {})[anchor.label]}` : '未判定'}): ${formatAlert(a).replace(/\n/g, ' / ')} ${statusDimOf(toPush.length)}`)
     }
   }
   // 回响应前同步落盘(含 decideDedup 刚刷新过的时间戳)⇒ 跨重启延续,杜绝重启后重寄。
@@ -643,11 +738,11 @@ async function handleAlert(reqBody) {
 
   if (!toPush.length) {
     if (!page.length && selfReportOnly.length) {
-      writeLog(`[alert] 本批 ${alerts.length} 条全部按来源判为只报不炸,未寄邮件(去重命中 ${dedupedCount} 条)`)
-      return { skipped: dedupedCount, reported: selfReportOnly.length }
+      writeLog(`[alert] 本批 ${alerts.length} 条全部按来源判为只报不炸,未寄邮件(去重命中 ${dedupedCount} 条) ${statusDimOf(toPush.length)}`)
+      return { skipped: dedupedCount, reported: selfReportOnly.length, cleared: resolved.length }
     }
-    writeLog(`[alert] 到人那一支全部命中去重窗口(${page.length}条/${dedupedCount}条),跳过投递`)
-    return { skipped: dedupedCount, reported: selfReportOnly.length }
+    writeLog(`[alert] 到人那一支全部命中去重窗口(${page.length}条/${dedupedCount}条),跳过投递 ${statusDimOf(toPush.length)}`)
+    return { skipped: dedupedCount, reported: selfReportOnly.length, cleared: resolved.length }
   }
 
   // 每批待投递告警直接寄一封(不同身份一律照寄,无任何计数闸/队列丢弃)
@@ -660,13 +755,13 @@ async function handleAlert(reqBody) {
       else if (m.skipped) counters.batchesSkipped += 1
       else counters.batchesFailed += 1
       const tag = m.ok ? '已送达' : m.skipped ? '跳过' : '失败'
-      writeLog(`[mail] ${tag}: ${redact(m.why || '')}(本批 ${toPush.length} 条,身份去重窗口 ${DEDUP_WINDOW_MIN} 分钟)`)
+      writeLog(`[mail] ${tag}: ${redact(m.why || '')}(本批 ${toPush.length} 条,身份去重窗口 ${DEDUP_WINDOW_MIN} 分钟) ${statusDimOf(toPush.length)}`)
     })
     .catch((e) => {
       // deliverMail 内部已把投递异常收敛成结论;走到这里只能是结论链路自身异常 —— 同样必须响。
-      writeLog(`[mail][ERROR] 投递腿未收敛异常: ${redact(e && e.message ? e.message : e)}`)
+      writeLog(`[mail][ERROR] 投递腿未收敛异常: ${redact(e && e.message ? e.message : e)} ${statusDimOf(toPush.length)}`)
     })
-  return { queued: toPush.length, reported: selfReportOnly.length }
+  return { queued: toPush.length, reported: selfReportOnly.length, cleared: resolved.length }
 }
 
 function parseBody(req) {
@@ -744,6 +839,11 @@ function usageText() {
     '邮件出口唯一实现: apps/api/scripts/notify-deploy-failure.ts(版式= renderSystemAlertEmail);',
     '本文件不得出现 SMTP/Resend 传输层或模板字符串(守门 81「品牌邮件通道对账」)。',
     '只按告警身份去重、无每日总量封顶;寄不出去会留 UNDELIVERED 标记并在 /health 可见。',
+    '状态分流:显式 status=resolved ⇒ 清偿去重档 + ALERT-CLEARED 记账,不冒充故障寄邮件;',
+    '          status 缺失/其它取值 ⇒ fail-open 照旧到人(故障照寄,绝不顺手静音)。',
+    '日志行状态维:本批每条既有日志行尾部带 status=<firing|resolved|missing|other> queued=<n> cleared=<m>;',
+    '            通道仍只有一条(LOG_FILE 单点 append)、行首形状一字未动 ⇒ 以后"有没有把恢复当故障',
+    '            寄过信"这类问题能用日志回答(此前每行都不落 status,历史无从证明)。',
   ].join('\n')
 }
 
@@ -1011,6 +1111,46 @@ async function runSelfTest() {
   eq('⑥k-1 抽掉一条规则的 for ⇒ 必红(漏写不是"少一行"而是整份被 promtool 拒收)', logAnchor.validateAlertRules(oneRule).ok, false)
   eq('⑥k-2 标量收尾的引号丢了 ⇒ 必红(YAML 会把后半行连同下一行吃进标量)', logAnchor.validateAlertRules(rulesNow.replace("description: 'grafana(127.0.0.1:8816)无指标超过 10 分钟;只影响人工查看,告警链不经它,故窗口放宽'", "description: 'grafana 无指标超过 10 分钟;窗口放宽")).ok, false)
   eq('⑥k-3 把失明 gauge 多写一遍 ⇒ 必红(两份真相 = 改一处漏一处)', logAnchor.validateAlertRules(rulesNow + '\n      - alert: LogSourceSplitBlind\n        expr: ihui_alertbridge_log_anchor_ok == 0\n        for: 10m\n        labels:\n          severity: critical\n        annotations:\n          summary: s\n          description: d\n').ok, false)
+
+  // ⑨ 状态分流(2026-10-17,"恢复被当故障寄信"的假警报型)。四条成对,全走纯函数铰链:
+  //    a) resolved 不进到人支(阳性)  b) firing/缺 status 照旧到人(反向,故障不静音)
+  //    c) 清偿语义:恢复摘档后同身份下次 firing 立即可再报  d) 指标行真渲染(只报不炸≠没记)
+  const sStore = new Map()
+  const firingA = { status: 'firing', labels: { alertname: 'ApiDown', instance: 'api:1', severity: 'critical' } }
+  const resolvedA = { status: 'resolved', labels: { alertname: 'PgDown', instance: 'pg:1', severity: 'critical' } }
+  const noStatusA = { labels: { alertname: 'Weird', instance: 'w:1' } }
+  const pendingA = { status: 'pending', labels: { alertname: 'AlsoReal', instance: 'r:1' } }
+  // 先建立"窗口内活跃身份"(模拟故障已寄出过一封)
+  partitionAlerts([resolvedA], sStore, 1000, HOUR)
+  const tri9 = splitAlertsByStatus([firingA, resolvedA, noStatusA, pendingA])
+  eq('⑨a 只有显式 resolved 进清偿支(阳性对照:恢复不被当故障)', tri9.resolved.map((x) => x.labels.alertname), ['PgDown'])
+  eq('⑨b firing/缺 status/其它取值全留在到人支(反向锁:故障照寄不被静音)', tri9.paging.map((x) => x.labels.alertname), ['ApiDown', 'Weird', 'AlsoReal'])
+  const clearedKeys = applyResolvedClears(sStore, tri9.resolved)
+  eq('⑨c 清偿摘档:同身份下一次 firing 立即再报(不被旧窗口压住)', [clearedKeys, partitionAlerts([{ labels: { alertname: 'PgDown', instance: 'pg:1' } }], sStore, 1500, HOUR)].map((v) => (Array.isArray(v) ? v.length : v.toPush.length)), [1, 1])
+  eq('⑨d 空/非数组输入不炸且全 fail-open 到人', [splitAlertsByStatus(undefined).paging.length, splitAlertsByStatus([]).resolved.length], [0, 0])
+  const cCleared = {}
+  for (const key of Object.keys(counters)) cCleared[key] = 0
+  cCleared.alertsCleared = 5
+  eq('⑨e 清偿指标行真出现在样本行上(不在名单里就是静默丢弃)', /^ihui_alertbridge_alerts_cleared_total 5$/m.test(renderMetrics({ ...sample, counters: cCleared })), true)
+  eq('⑨f 分流判据挂在生产路径上(handleAlert 真调 splitAlertsByStatus,不是只写了个函数)', /const \{ paging, resolved \} = splitAlertsByStatus\(alerts\)/.test(fs.readFileSync(__filename, 'utf8')), true)
+
+  // ⑩ 日志状态维(2026-10-17 补)。审计留下一格:此前每行都不落 status ⇒ "过去到底有没有把恢复
+  //    当故障寄过信"今天无人可答。此后每条既有日志行尾部都带 ` status=<档> queued=<n> cleared=<m>`,
+  //    下次任何人都能用日志回答。断言一律喂生产实现 statusDimension / alertStatusOf /
+  //    splitAlertsByStatus(§22c:测试内不抄第二份判据)。三条成对 + 方向锁 + 单一尺子 + 接线锁。
+  const dimFiring = statusDimension([firingA], 1, 0)
+  eq('⑩a firing 批的行里有 status=firing 且计入 queued、不计入 cleared', [/\bstatus=firing\b/.test(dimFiring), /\bqueued=1\b/.test(dimFiring), /\bcleared=0\b/.test(dimFiring)], [true, true, true])
+  const dimResolved = statusDimension([resolvedA], 0, 1)
+  eq('⑩b resolved 批的行里有 status=resolved 且计入 cleared、不进 queued(投递腿结构上拿不到它)', [/\bstatus=resolved\b/.test(dimResolved), /\bqueued=0\b/.test(dimResolved), /\bcleared=1\b/.test(dimResolved)], [true, true, true])
+  const dimMissing = statusDimension([noStatusA], 1, 0)
+  eq('⑩c status 缺失 ⇒ 行里记 status=missing,且 fail-open 照寄(到人支 1 条 / 清偿支 0 条)', [/status=missing/.test(dimMissing), splitAlertsByStatus([noStatusA]).paging.length, splitAlertsByStatus([noStatusA]).resolved.length], [true, 1, 0])
+  const dimOther = statusDimension([pendingA], 1, 0)
+  eq('⑩d 陌生取值 ⇒ 行里如实记 status=other(不得冒充 firing/missing),去向仍 fail-open 到人', [/status=other/.test(dimOther), splitAlertsByStatus([pendingA]).paging.length], [true, 1])
+  eq('⑩e 混合批按固定序拼接(与输入顺序无关)而空批不落任何状态档(§0.3:没有输入就不落判据)', [statusDimension([resolvedA, firingA, noStatusA], 2, 1), statusDimension([firingA, noStatusA, resolvedA], 2, 1), statusDimension([], 0, 0)], ['status=firing+resolved+missing queued=2 cleared=1', 'status=firing+resolved+missing queued=2 cleared=1', 'status=empty queued=0 cleared=0'])
+  eq('⑩f 单一把尺子:状态档与分流去向逐条同源 alertStatusOf(第二份分类必然漂开)', [firingA, resolvedA, noStatusA, pendingA].every((a) => (alertStatusOf(a) === 'resolved') === (splitAlertsByStatus([a]).resolved.length === 1)), true)
+  const bridgeSrc = fs.readFileSync(__filename, 'utf8')
+  eq('⑩g 接线锁:handleAlert 真造状态维并拼进既有行(清偿行 1 处 + 投递/跳过行 ≥4 处),不是只写了个函数', [bridgeSrc.includes('const statusDimOf = (queued) => statusDimension(alerts, queued, resolved.length)'), bridgeSrc.includes('${statusDimOf(paging.length)}'), (bridgeSrc.match(/\$\{statusDimOf\(toPush\.length\)\}/g) || []).length >= 4], [true, true, true])
+  eq('⑩h 通道唯一:全文件只有一处写日志的落点(补维度不得开出第二套日志通道)', (bridgeSrc.match(/appendFileSync\(LOG_FILE/g) || []).length, 1)
 
   let bad = 0
   for (const [label, pass, why] of cases) {

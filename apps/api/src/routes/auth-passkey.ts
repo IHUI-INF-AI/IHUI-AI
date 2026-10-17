@@ -39,6 +39,8 @@ import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { setAuthCookies } from '../utils/auth-cookies.js'
 import { findUserById, saveRefreshToken } from '../db/queries.js'
+// ihui_auth_jwt_issued_total:passkey 副本 buildTokenPair 与 auth-extended 同口径打点
+import { recordAuthJwtIssued } from '../plugins/business-metrics.js'
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -138,6 +140,8 @@ async function buildTokenPair(
   ])
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000)
   await saveRefreshToken(refreshToken, user.id, familyId, expiresAt)
+  // ihui_auth_jwt_issued_total:与 auth-extended buildTokenPair 同口径
+  recordAuthJwtIssued()
   // P2-18:签发成功设置 httpOnly auth cookie(浏览器场景)
   if (reply) setAuthCookies(reply, { accessToken, refreshToken }, true)
   return {
