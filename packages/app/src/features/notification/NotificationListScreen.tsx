@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { View, Text, ScrollView, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, RefreshControl, TouchableOpacity, StyleSheet } from 'react-native'
+import { rnRadius } from '@ihui/design-tokens'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { NotificationCard, createCardStyles } from '../../components/NotificationCard'
 import { BackChevron } from '../../components/BackChevron'
@@ -32,10 +33,16 @@ export function NotificationListScreen({
   onPressItem,
   onBack,
   colorScheme = 'light',
+  partition = 'active',
+  onPartitionChange,
+  onArchive,
+  onRestore,
+  rowStatus,
 }: NotificationListScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const cardStyles = useMemo(() => createCardStyles(tk), [tk])
+  const isArchivedView = partition === 'archived'
 
   const typeLabel = (type: NotificationType) => {
     switch (type) {
@@ -59,6 +66,28 @@ export function NotificationListScreen({
         <Text style={styles.title}>{t('notificationList.title')}</Text>
       </View>
 
+      {/* D195 分区开关:隐藏必须可撤销,所以「返回动态 / 已归档」常驻在同一屏面上。 */}
+      {onPartitionChange ? (
+        <View style={styles.segment}>
+          <TouchableOpacity
+            style={[styles.segmentItem, !isArchivedView && styles.segmentActive]}
+            onPress={() => onPartitionChange('active')}
+          >
+            <Text style={[styles.segmentText, !isArchivedView && styles.segmentTextActive]}>
+              {t('notificationList.viewActive')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.segmentItem, isArchivedView && styles.segmentActive]}
+            onPress={() => onPartitionChange('archived')}
+          >
+            <Text style={[styles.segmentText, isArchivedView && styles.segmentTextActive]}>
+              {t('notificationList.archived')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
@@ -72,18 +101,30 @@ export function NotificationListScreen({
         >
           {items.length === 0 ? (
             <View style={styles.center}>
-              <Text style={styles.muted}>{t('notificationList.empty')}</Text>
+              <Text style={styles.muted}>
+                {t(isArchivedView ? 'notificationList.emptyArchived' : 'notificationList.empty')}
+              </Text>
             </View>
           ) : (
-            items.map((item: NotificationListItem) => (
-              <NotificationCard
-                key={item.id}
-                item={item}
-                typeLabel={typeLabel}
-                onPress={onPressItem}
-                styles={cardStyles}
-              />
-            ))
+            items.map((item: NotificationListItem) => {
+              const st = rowStatus?.[item.id]
+              return (
+                <NotificationCard
+                  key={item.id}
+                  item={item}
+                  typeLabel={typeLabel}
+                  onPress={onPressItem}
+                  styles={cardStyles}
+                  actionLabel={t(
+                    isArchivedView ? 'notificationList.restore' : 'notificationList.hide',
+                  )}
+                  actionPending={st?.pending === true}
+                  onAction={() => (isArchivedView ? onRestore?.(item) : onArchive?.(item))}
+                  statusText={st?.text}
+                  statusTone={st?.tone}
+                />
+              )
+            })
           )}
         </ScrollView>
       )}
@@ -106,6 +147,29 @@ function createStyles(tk: AppThemeTokens) {
     center: { alignItems: 'center', paddingVertical: 48 },
     muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 10 },
+    segment: {
+      flexDirection: 'row',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingBottom: 8,
+    },
+    segmentItem: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.surface.light,
+    },
+    segmentActive: {
+      backgroundColor: tk.surface.card,
+    },
+    segmentText: {
+      fontSize: 13,
+      color: tk.text.secondary,
+    },
+    segmentTextActive: {
+      color: tk.text.primary,
+      fontWeight: '600',
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

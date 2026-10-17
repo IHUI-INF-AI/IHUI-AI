@@ -22,13 +22,30 @@ interface NotificationCardProps {
   typeLabel: (type: string) => string
   onPress?: (item: CardItemLike) => void
   styles: ReturnType<typeof createCardStyles>
+  /** D195 行尾操作文案(隐藏/恢复);不传即整块操作区不渲染,MessageCenter 等调用方零影响。 */
+  actionLabel?: string
+  onAction?: () => void
+  actionPending?: boolean
+  /** D195 行级状态回显(正在隐藏… / 这条动态未隐藏,请重试。) */
+  statusText?: string
+  statusTone?: 'muted' | 'destructive'
 }
 
 /**
  * 消息卡片(2026-08-12 从 MessageCenterScreen / NotificationListScreen 抽取,
  * 两屏原各有 ~60L 完全相同的卡片渲染 + 样式)。
  */
-export function NotificationCard({ item, typeLabel, onPress, styles }: NotificationCardProps) {
+export function NotificationCard({
+  item,
+  typeLabel,
+  onPress,
+  styles,
+  actionLabel,
+  onAction,
+  actionPending,
+  statusText,
+  statusTone,
+}: NotificationCardProps) {
   const inner = (
     <View style={[styles.card, !item.read && styles.unread]}>
       <View style={styles.cardHead}>
@@ -44,20 +61,41 @@ export function NotificationCard({ item, typeLabel, onPress, styles }: Notificat
       <Text style={styles.cardContent} numberOfLines={2}>
         {item.content}
       </Text>
+      {statusText ? (
+        <Text style={[styles.status, statusTone === 'destructive' && styles.statusDestructive]}>
+          {statusText}
+        </Text>
+      ) : null}
     </View>
   )
-  if (onPress) {
-    return (
-      <TouchableOpacity
-        key={item.id}
-        onPress={() => onPress(item)}
-        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-      >
-        {inner}
-      </TouchableOpacity>
-    )
-  }
-  return <View key={item.id}>{inner}</View>
+  // 操作区与卡片体是兄弟,不是嵌套 TouchableOpacity:嵌套可点在 RN 上内层吞事件、外层仍响应,
+  // "点隐藏却把这条标成已读"就是这么来的。
+  const body = onPress ? (
+    <TouchableOpacity
+      onPress={() => onPress(item)}
+      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+      style={styles.rowMain}
+    >
+      {inner}
+    </TouchableOpacity>
+  ) : (
+    <View style={styles.rowMain}>{inner}</View>
+  )
+  return (
+    <View key={item.id} style={styles.rowWrap}>
+      {body}
+      {actionLabel ? (
+        <TouchableOpacity
+          style={[styles.action, actionPending && styles.actionDisabled]}
+          onPress={onAction}
+          disabled={actionPending === true}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+        >
+          <Text style={styles.actionText}>{actionLabel}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  )
 }
 
 export function createCardStyles(tk: AppThemeTokens) {
@@ -113,6 +151,37 @@ export function createCardStyles(tk: AppThemeTokens) {
       marginTop: 4,
       fontSize: 13,
       color: tk.text.medium,
+    },
+    rowWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    rowMain: {
+      flex: 1,
+      minWidth: 0,
+    },
+    status: {
+      marginTop: 4,
+      fontSize: 12,
+      color: tk.text.secondary,
+    },
+    statusDestructive: {
+      color: tk.danger.DEFAULT,
+    },
+    action: {
+      alignSelf: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.surface.card,
+    },
+    actionDisabled: {
+      opacity: 0.5,
+    },
+    actionText: {
+      fontSize: 13,
+      color: tk.text.secondary,
     },
   })
 }

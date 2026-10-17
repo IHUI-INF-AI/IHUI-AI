@@ -2192,6 +2192,15 @@
     "title": "ノート"
   },
   "notificationList": {
+    "viewActive": "アクティブ",
+    "archived": "アーカイブ",
+    "hide": "非表示",
+    "hiding": "非表示にしています…",
+    "hideFailed": "このアクティビティを非表示にできませんでした。もう一度お試しください。",
+    "restore": "復元",
+    "restoring": "復元しています…",
+    "restoreFailed": "このアクティビティを復元できませんでした。もう一度お試しください。",
+    "emptyArchived": "非表示にしたアクティビティはここに保存され、いつでも復元できます。",
     "empty": "通知がありません",
     "loadFailed": "読み込みに失敗",
     "title": "通知",

@@ -2192,6 +2192,15 @@
     "title": "노트"
   },
   "notificationList": {
+    "viewActive": "활성",
+    "archived": "보관됨",
+    "hide": "숨기기",
+    "hiding": "숨기는 중…",
+    "hideFailed": "이 업데이트를 숨기지 않았습니다. 다시 시도해 주세요.",
+    "restore": "복원",
+    "restoring": "복원 중…",
+    "restoreFailed": "이 업데이트를 복원하지 않았습니다. 다시 시도해 주세요.",
+    "emptyArchived": "숨긴 업데이트는 여기에 보관되며 언제든지 복원할 수 있습니다.",
     "empty": "알림이 없습니다",
     "loadFailed": "불러오기 실패",
     "title": "알림",
