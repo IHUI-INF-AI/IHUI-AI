@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import { Calendar, DollarSign, Loader2, Search, TrendingUp } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import {
   Button,
@@ -58,12 +58,6 @@ interface HistoryData {
   pageSize: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function formatValue(v: string | null): string {
   if (v === null) return '-'
   const n = Number(v)
@@ -86,7 +80,7 @@ export default function FundDataPage() {
     queryFn: () => {
       const qs = new URLSearchParams({ page: '1', pageSize: '50' })
       if (debounced) qs.set('search', debounced)
-      return api<FundListData>(`/api/fund?${qs.toString()}`)
+      return apiOrThrow<FundListData>(`/api/fund?${qs.toString()}`)
     },
   })
 
@@ -94,7 +88,7 @@ export default function FundDataPage() {
     queryKey: ['fund-data', 'history', selectedCode],
     queryFn: () => {
       if (!selectedCode) throw new Error('missing code')
-      return api<HistoryData>(
+      return apiOrThrow<HistoryData>(
         `/api/fund/${encodeURIComponent(selectedCode)}/history?page=1&pageSize=100`,
       )
     },

@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, RotateCw, Share2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -19,12 +19,6 @@ interface QrCodeItem {
   content: string
   url: string
   inviteCode: string
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 /** 极简二维码占位(生产可换 qrcode 库渲染 content) */
@@ -57,7 +51,7 @@ export default function QrCodePage() {
 
   const q = useQuery({
     queryKey: ['user', 'qr-code'],
-    queryFn: () => api<QrCodeItem>('/user/qr-code'),
+    queryFn: () => apiOrThrow<QrCodeItem>('/user/qr-code'),
     enabled: allow,
   })
 

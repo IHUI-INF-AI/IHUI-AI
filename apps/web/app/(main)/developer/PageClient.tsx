@@ -25,7 +25,7 @@ import {
   KeyRound,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { Alert } from '@/components/feedback'
@@ -42,12 +42,6 @@ interface DevSummary {
   planName?: string
   quotaUsed?: number
   quotaTotal?: number
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 /** 用量接口返回结构(复用 /api/developer/relay/usage)。 */
@@ -94,7 +88,7 @@ export default function DeveloperHomePageClient() {
 
   const summaryQ = useQuery({
     queryKey: ['developer', 'summary'],
-    queryFn: () => api<DevSummary>('/api/developer/summary').catch(() => ({}) as DevSummary),
+    queryFn: () => apiOrThrow<DevSummary>('/api/developer/summary').catch(() => ({}) as DevSummary),
     enabled: allow,
   })
 
@@ -122,7 +116,7 @@ export default function DeveloperHomePageClient() {
   const todayUsageQ = useQuery({
     queryKey: ['developer', 'dashboard', 'usage', 'today', today],
     queryFn: () =>
-      api<DashboardUsage>(`/api/developer/relay/usage?groupBy=day&startDate=${today}`).catch(
+      apiOrThrow<DashboardUsage>(`/api/developer/relay/usage?groupBy=day&startDate=${today}`).catch(
         () => null,
       ),
     enabled: allow,

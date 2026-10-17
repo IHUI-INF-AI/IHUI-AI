@@ -32,7 +32,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { CHART_BLUE } from '@ihui/design-tokens'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -127,12 +127,6 @@ interface GradeItem {
 }
 
 /* ─── API Helper ─── */
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 /* ─── Constants ─── */
 
@@ -232,7 +226,7 @@ export default function ParentPortalPage() {
   /* ── Children Query ── */
   const childrenQuery = useQuery({
     queryKey: ['parent', 'children'],
-    queryFn: () => api<{ children: ChildInfo[] }>('/api/edu-ai-management/parent/children'),
+    queryFn: () => apiOrThrow<{ children: ChildInfo[] }>('/api/edu-ai-management/parent/children'),
     enabled: allow,
   })
 
@@ -461,7 +455,7 @@ function CoursesView({ childId }: { childId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'courses'],
     queryFn: () =>
-      api<{ list: CourseItem[] }>(`/api/edu-ai-management/parent/child/${childId}/schedule`),
+      apiOrThrow<{ list: CourseItem[] }>(`/api/edu-ai-management/parent/child/${childId}/schedule`),
     enabled: allow,
   })
 
@@ -548,7 +542,7 @@ function MealsView({ childId }: { childId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'meals'],
     queryFn: () =>
-      api<{ list: MealItem[] }>(`/api/edu-ai-management/parent/children/${childId}/meals`),
+      apiOrThrow<{ list: MealItem[] }>(`/api/edu-ai-management/parent/children/${childId}/meals`),
     enabled: allow,
   })
 
@@ -627,7 +621,7 @@ function BillsView({ childId }: { childId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'bills'],
     queryFn: () =>
-      api<{
+      apiOrThrow<{
         bills: Array<{
           enrollmentId: string
           className: string
@@ -725,12 +719,12 @@ function BillsView({ childId }: { childId: string }) {
                       </span>
                       <span
                         className={
-                          s.overdueDays > 0 ? 'font-medium text-destructive' : 'text-muted-foreground'
+                          s.overdueDays > 0
+                            ? 'font-medium text-destructive'
+                            : 'text-muted-foreground'
                         }
                       >
-                        {s.overdueDays > 0
-                          ? `${t('overdueLabel')} ${s.overdueDays}`
-                          : s.status}
+                        {s.overdueDays > 0 ? `${t('overdueLabel')} ${s.overdueDays}` : s.status}
                       </span>
                     </div>
                   ))}
@@ -750,7 +744,7 @@ function StudyPlansView({ childId }: { childId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'study-plans'],
     queryFn: () =>
-      api<{ list: StudyPlanItem[] }>(
+      apiOrThrow<{ list: StudyPlanItem[] }>(
         `/api/edu-ai-management/parent/children/${childId}/study-plans`,
       ),
     enabled: allow,
@@ -824,7 +818,7 @@ function GradesView({ childId }: { childId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'grades'],
     queryFn: () =>
-      api<{ list: GradeItem[] }>(`/api/edu-ai-management/parent/child/${childId}/grades`),
+      apiOrThrow<{ list: GradeItem[] }>(`/api/edu-ai-management/parent/child/${childId}/grades`),
     enabled: allow,
   })
 
@@ -958,7 +952,7 @@ function AttendanceView({ childId }: { childId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'attendance'],
     queryFn: () =>
-      api<{ list: AttendanceRecord[] }>(
+      apiOrThrow<{ list: AttendanceRecord[] }>(
         `/api/edu-ai-management/parent/child/${childId}/attendance`,
       ),
     enabled: allow,
@@ -1093,7 +1087,7 @@ function BindingsManagement() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['parent', 'bindings'],
-    queryFn: () => api<{ list: BindingRecord[] }>('/api/edu-ai-management/parent/binding'),
+    queryFn: () => apiOrThrow<{ list: BindingRecord[] }>('/api/edu-ai-management/parent/binding'),
     enabled: allow,
   })
 
@@ -1101,7 +1095,7 @@ function BindingsManagement() {
 
   const createMutation = useMutation({
     mutationFn: (body: { parentId: string; studentId: string; relationship: string }) =>
-      api('/api/edu-ai-management/parent-binding', {
+      apiOrThrow('/api/edu-ai-management/parent-binding', {
         method: 'POST',
         body: JSON.stringify(body),
         headers: { 'Content-Type': 'application/json' },
@@ -1116,7 +1110,7 @@ function BindingsManagement() {
 
   const confirmMutation = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/parent/binding/${id}`, {
+      apiOrThrow(`/api/edu-ai-management/parent/binding/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ status: 'confirmed' }),
       }),
@@ -1128,7 +1122,7 @@ function BindingsManagement() {
 
   const rejectMutation = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/parent/binding/${id}`, {
+      apiOrThrow(`/api/edu-ai-management/parent/binding/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ status: 'rejected' }),
       }),
@@ -1139,7 +1133,7 @@ function BindingsManagement() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/parent-binding/${id}`, { method: 'DELETE' }),
+      apiOrThrow(`/api/edu-ai-management/parent-binding/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['parent', 'bindings'] })
       queryClient.invalidateQueries({ queryKey: ['parent', 'children'] })

@@ -10,7 +10,7 @@ import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, ChevronLeft, ChevronRight, FileText } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
 import {
@@ -83,12 +83,6 @@ const STATUS_ORDER: InvoiceAppStatus[] = [
   'canceled',
 ]
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function AdminInvoiceApplicationsPage() {
   const locale = useLocale()
   const qc = useQueryClient()
@@ -103,14 +97,14 @@ export default function AdminInvoiceApplicationsPage() {
     queryFn: () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (status !== 'all') qs.set('status', status)
-      return api<AppsData>(`/api/admin/invoices/applications?${qs.toString()}`)
+      return apiOrThrow<AppsData>(`/api/admin/invoices/applications?${qs.toString()}`)
     },
     retry: false,
   })
 
   const mut = useMutation({
     mutationFn: () =>
-      api(`/api/admin/invoices/applications/${target!.id}/status`, {
+      apiOrThrow(`/api/admin/invoices/applications/${target!.id}/status`, {
         method: 'PUT',
         body: JSON.stringify({ status: newStatus }),
       }),

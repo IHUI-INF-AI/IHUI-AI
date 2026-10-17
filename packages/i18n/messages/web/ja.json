@@ -23436,7 +23436,20 @@
       "viewTimeline": "タイムラインビュー",
       "unreadCount": "{count} 件の未読",
       "loading": "読み込み中...",
-      "noData": "メッセージはありません"
+      "noData": "メッセージはありません",
+      "important": "重要",
+      "viewActive": "アクティブ",
+      "archived": "アーカイブ",
+      "hide": "非表示",
+      "hiding": "非表示にしています…",
+      "hideFailed": "このアクティビティを非表示にできませんでした。もう一度お試しください。",
+      "restore": "復元",
+      "restoring": "復元しています…",
+      "restoreFailed": "このアクティビティを復元できませんでした。もう一度お試しください。",
+      "markAllReadFailed": "アクティビティを既読にできませんでした。もう一度お試しください。",
+      "emptyDescription": "コメント、メンション、購読の変化がここに表示されます。",
+      "emptyArchivedDescription": "非表示にしたアクティビティはここに保存され、いつでも復元できます。",
+      "unavailable": "読み込めません"
     },
     "profile": {
       "accountInfo": "アカウント",

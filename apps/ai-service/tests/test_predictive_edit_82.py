@@ -452,3 +452,149 @@ async def test_live_channel_produces_structured_or_undetermined() -> None:  # pr
     if resp["data"]["disposition"] == "undetermined":
         assert resp["data"]["reason"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# =============================================================================
+# 82 号票第二刀(2026-10-18 立):区间冲突与锚点比对两格判据
+#
+# 钉的是四件事,方向两两相反,缺一即只是把功能改坏了:
+#   1. 重叠/同点插入 ⇒ 丢后到的那条并点名(收紧);
+#   2. 不重叠、锚点对得上 ⇒ 一条不丢(否则本门只是在削功能);
+#   3. 锚点对不上 ⇒ 丢弃并点名"实际是什么 / 模型说是什么";
+#   4. 没声明 anchor、或调用方不传 document ⇒ **不做**锚点比对
+#      (旧模型输出与旧调用路径逐字同,零行为变化)。
+# 另有两条"判据有牙"的锁:换掉判据本身 ⇒ 拦截必须消失;
+# 契约文本的条数上限必须与 MAX_ACTIONS 逐字一致(注释与代码不一致 = 缺陷信号)。
+# =============================================================================
+
+
+def _run(actions: list[dict[str, Any]], *, doc: str = DOC) -> edit_intent.EditIntentOutcome:
+    """经唯一判定出口跑一遍(带文档原文 ⇒ 两格新判据都生效)。"""
+    return edit_intent.interpret_model_output(
+        _payload(actions), document_length=len(doc), document=doc
+    )
+
+
+def test_overlapping_ranges_drop_the_later_one():
+    out = _run(
+        [
+            {"kind": "replace", "start": 4, "end": 7, "text": "sum"},
+            {"kind": "delete", "start": 5, "end": 9, "text": ""},
+        ]
+    )
+    assert out.disposition == "suggested"
+    assert [(a.start, a.end) for a in out.actions] == [(4, 7)]
+    assert [d.index for d in out.dropped] == [1]
+    assert out.dropped[0].reason == "overlapping_range"
+    assert "相交" in (out.dropped[0].detail or "")
+
+
+def test_disjoint_ranges_are_all_kept():
+    """不重叠 ⇒ 一条不丢。这一条不在,上面那条就只能证明"本门会删东西"。 """
+    out = _run(
+        [
+            {"kind": "replace", "start": 4, "end": 7, "text": "sum"},
+            {"kind": "delete", "start": 19, "end": 25, "text": ""},
+        ]
+    )
+    assert out.disposition == "suggested"
+    assert len(out.actions) == 2
+    assert out.dropped == []
+
+
+def test_duplicate_insert_point_dropped():
+    """两条 insert 落在同一点:区间按定义不相交,但先后顺序模型没承诺过。"""
+    out = _run(
+        [
+            {"kind": "insert", "start": 15, "end": 15, "text": "x"},
+            {"kind": "insert", "start": 15, "end": 15, "text": "y"},
+        ]
+    )
+    assert len(out.actions) == 1
+    assert out.actions[0].text == "x"
+    assert out.dropped[0].reason == "overlapping_range"
+    assert "重复插入" in (out.dropped[0].detail or "")
+
+
+def test_anchor_mismatch_dropped_with_both_sides():
+    out = _run([{"kind": "replace", "start": 4, "end": 7, "text": "sum", "anchor": "zzz"}])
+    assert out.disposition == "undetermined"
+    assert out.reason == "all_actions_rejected"
+    reason = out.dropped[0].reason
+    assert "anchor_mismatch" in reason
+    assert "add" in reason and "zzz" in reason
+
+
+def test_anchor_matching_kept():
+    out = _run([{"kind": "replace", "start": 4, "end": 7, "text": "sum", "anchor": "add"}])
+    assert out.disposition == "suggested"
+    assert out.actions[0].text == "sum"
+
+
+def test_delete_anchor_mismatch_dropped():
+    out = _run([{"kind": "delete", "start": 26, "end": 31, "text": "", "anchor": "nope"}])
+    assert out.disposition == "undetermined"
+    assert "anchor_mismatch" in out.dropped[0].reason
+
+
+def test_missing_anchor_skips_the_check():
+    """没声明 anchor ⇒ 不比对。旧模型输出的行为必须逐字不变。"""
+    out = _run([{"kind": "replace", "start": 4, "end": 7, "text": "sum"}])
+    assert out.disposition == "suggested"
+    assert len(out.actions) == 1
+    assert out.actions[0].anchor is None
+
+
+def test_without_document_anchor_check_never_runs():
+    """调用方不传 document(旧路径)⇒ 锚点那一格根本不跑 ⇒ 逐字同旧行为。"""
+    out = edit_intent.interpret_model_output(
+        _payload([{"kind": "replace", "start": 4, "end": 7, "text": "sum", "anchor": "zzz"}]),
+        document_length=len(DOC),
+    )
+    assert out.disposition == "suggested"
+    assert len(out.actions) == 1
+
+
+def test_anchor_gate_has_teeth(monkeypatch: pytest.MonkeyPatch):
+    """把锚点判定换成恒通过 ⇒ 锚点错误必须不再被丢(证明丢的是这个出口)。"""
+    monkeypatch.setattr(edit_intent, "validate_anchor", lambda _a, _d: None)
+    out = _run([{"kind": "replace", "start": 4, "end": 7, "text": "sum", "anchor": "zzz"}])
+    assert out.disposition == "suggested"
+    assert len(out.actions) == 1
+
+
+def test_overlap_gate_has_teeth(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(edit_intent, "find_range_conflict", lambda _a, _acc: None)
+    out = _run(
+        [
+            {"kind": "replace", "start": 4, "end": 7, "text": "sum"},
+            {"kind": "delete", "start": 5, "end": 9, "text": ""},
+        ]
+    )
+    assert len(out.actions) == 2
+    assert out.dropped == []
+
+
+def test_explicit_null_anchor_skips_check():
+    """显式 null 与"省略"同义(契约第 8 条承诺的跳过档)。"""
+    out = _run([{"kind": "replace", "start": 4, "end": 7, "text": "sum", "anchor": None}])
+    assert out.disposition == "suggested"
+    assert len(out.actions) == 1
+
+
+def test_non_string_anchor_dropped():
+    """anchor 给了却不是字符串 ⇒ 丢弃:契约只承诺了"跳过"这一种豁免。"""
+    out = _run([{"kind": "replace", "start": 4, "end": 7, "text": "sum", "anchor": 123}])
+    assert out.disposition == "undetermined"
+    assert "anchor 不是字符串" in out.dropped[0].reason
+
+
+def test_prompt_ceiling_matches_max_actions():
+    """契约文本的条数上限必须与 MAX_ACTIONS 逐字一致。
+
+    原本手写 "At most 3" 而 MAX_ACTIONS 是 5 —— 注释承诺 3 条而实现收 5 条,
+    契约与实现各说各话,哪天任一侧被调都无人知晓。现在 prompt 由常量插进去。
+    """
+    assert f"At most {edit_intent.MAX_ACTIONS} actions" in edit_intent.EDIT_INTENT_SYSTEM_PROMPT
+    assert "At most 3 actions" not in edit_intent.EDIT_INTENT_SYSTEM_PROMPT
+    # 契约必须真的向模型要锚点,否则"要求了却没人守"会变成新的空承诺
+    assert "anchor" in edit_intent.EDIT_INTENT_SYSTEM_PROMPT

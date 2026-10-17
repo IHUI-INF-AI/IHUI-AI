@@ -9,7 +9,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import { Users, AlertTriangle, Crown, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatNumber as fmtNum } from '@/lib/date-utils'
@@ -54,11 +54,6 @@ interface VipQuota {
 }
 
 // ---- 通用 fetch ----
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 // ---- 显示名 ----
 function displayName(u: {
@@ -105,7 +100,7 @@ export function TopUsersSection({ startDate, endDate }: { startDate: string; end
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'ai-cost', 'top-users', startDate, endDate],
     queryFn: () =>
-      api<TopUser[]>(
+      apiOrThrow<TopUser[]>(
         `/api/admin/ai/cost/top-users?startDate=${startDate}&endDate=${endDate}&limit=10`,
       ).catch(() => [] as TopUser[]),
     retry: false,
@@ -171,7 +166,9 @@ export function BudgetAlertsSection() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'ai-cost', 'budget-alerts'],
     queryFn: () =>
-      api<BudgetAlert[]>('/api/admin/ai/cost/budget-alerts').catch(() => [] as BudgetAlert[]),
+      apiOrThrow<BudgetAlert[]>('/api/admin/ai/cost/budget-alerts').catch(
+        () => [] as BudgetAlert[],
+      ),
     retry: false,
   })
 
@@ -255,7 +252,8 @@ export function VipQuotasSection() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'ai-cost', 'vip-quotas'],
-    queryFn: () => api<VipQuota[]>('/api/admin/ai/cost/vip-quotas').catch(() => [] as VipQuota[]),
+    queryFn: () =>
+      apiOrThrow<VipQuota[]>('/api/admin/ai/cost/vip-quotas').catch(() => [] as VipQuota[]),
     retry: false,
   })
 

@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Loader2, BarChart3, TrendingUp, Zap, Clock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Card,
   CardContent,
@@ -49,12 +49,6 @@ interface UsageSummary {
   avgLatency: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
@@ -64,13 +58,13 @@ export default function AdminApiPlatformUsagePage() {
 
   const { data: summary } = useQuery({
     queryKey: ['admin', 'api-platform', 'usage', 'summary', range],
-    queryFn: () => api<UsageSummary>(`/api/admin/api-platform/usage/summary?range=${range}`),
+    queryFn: () => apiOrThrow<UsageSummary>(`/api/admin/api-platform/usage/summary?range=${range}`),
   })
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ['admin', 'api-platform', 'usage', range],
     queryFn: () =>
-      api<{ list: UsageRow[] }>(`/api/admin/api-platform/usage?range=${range}`).then(
+      apiOrThrow<{ list: UsageRow[] }>(`/api/admin/api-platform/usage?range=${range}`).then(
         (d) => d.list ?? [],
       ),
   })

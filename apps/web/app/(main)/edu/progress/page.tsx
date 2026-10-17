@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { BarChart3, Loader2, Clock, BookOpen, Award, TrendingUp } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert, Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -26,12 +26,6 @@ interface ProgressData {
   recentMilestones: { id: string; title: string; type: string; achievedAt: string }[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function EduProgressPage() {
   const locale = useLocale()
   const t = useTranslations('eduProgressPage')
@@ -39,7 +33,7 @@ export default function EduProgressPage() {
   const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'progress'],
-    queryFn: () => api<ProgressData>('/api/edu/progress'),
+    queryFn: () => apiOrThrow<ProgressData>('/api/edu/progress'),
     enabled: allow,
   })
 

@@ -19,7 +19,7 @@ import {
   Loader2,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { fetchApi, apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
@@ -39,12 +39,6 @@ interface HealthEvent {
   time: string
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   API: Server,
   DB: Database,
@@ -59,7 +53,7 @@ export default function BackendHealthPage() {
   const { data: services, isLoading } = useQuery({
     queryKey: ['admin', 'backend-health'],
     queryFn: async () => {
-      return await api<ServiceStatus[]>('/api/health')
+      return await apiOrThrow<ServiceStatus[]>('/api/health')
     },
   })
   const { data: events } = useQuery({

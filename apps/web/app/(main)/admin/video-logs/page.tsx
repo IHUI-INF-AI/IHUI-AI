@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, Video } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton } from '@/components/common'
 
 interface VideoLog {
@@ -20,12 +20,6 @@ interface VideoLog {
   watchedAt: string
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const th = 'px-4 py-2.5 font-medium'
 
 export default function VideoLogsPage() {
@@ -34,7 +28,7 @@ export default function VideoLogsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'video-logs', currentPage],
-    queryFn: () => api<{ list: VideoLog[] }>('/api/admin/video-logs'),
+    queryFn: () => apiOrThrow<{ list: VideoLog[] }>('/api/admin/video-logs'),
   })
 
   const list = data?.list ?? []

@@ -15,6 +15,10 @@ interface NotificationItemProps {
   read?: boolean
   onClick?: () => void
   className?: string
+  /** D195 行尾操作区(隐藏/恢复入口)。点击不会冒泡触发整行 onClick。 */
+  action?: React.ReactNode
+  /** D195 行级状态回显(正在隐藏…/这条动态未恢复,请重试。);不传则不占位。 */
+  status?: { text: string; tone: 'muted' | 'destructive' }
 }
 
 export function NotificationItem({
@@ -25,6 +29,8 @@ export function NotificationItem({
   read = false,
   onClick,
   className,
+  action,
+  status,
 }: NotificationItemProps) {
   return (
     <div
@@ -56,7 +62,18 @@ export function NotificationItem({
         </div>
         {content && <p className="mt-0.5 text-sm text-muted-foreground">{content}</p>}
         <span className="mt-0.5 text-xs text-muted-foreground">{time}</span>
+        {status && (
+          <p
+            className={cn(
+              'mt-0.5 text-xs',
+              status.tone === 'destructive' ? 'text-destructive' : 'text-muted-foreground',
+            )}
+          >
+            {status.text}
+          </p>
+        )}
       </div>
+      {action && <div className="flex shrink-0 items-center self-stretch">{action}</div>}
     </div>
   )
 }

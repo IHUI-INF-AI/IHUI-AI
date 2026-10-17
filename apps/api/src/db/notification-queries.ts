@@ -2,7 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, or, desc, asc, sql, inArray } from 'drizzle-orm'
+import { eq, and, or, desc, asc, sql, inArray, isNull, isNotNull } from 'drizzle-orm'
+import type { NotificationPartition } from '@ihui/types'
 import { db } from './index.js'
 import {
   notifications,
@@ -23,13 +24,28 @@ import {
 // Notifications
 // =============================================================================
 
+/** D195 分区契约的声明在 @ihui/types(跨端唯一类型源),本文件只取用不再另写一份。 */
+
 export async function findNotificationsByUser(
   userId: string,
-  opts: { page: number; pageSize: number; type?: string; unreadOnly?: boolean },
+  opts: {
+    page: number
+    pageSize: number
+    type?: string
+    unreadOnly?: boolean
+    partition?: NotificationPartition
+  },
 ): Promise<{ list: Notification[]; total: number }> {
   const conds = [eq(notifications.userId, userId)]
   if (opts.type) conds.push(eq(notifications.type, opts.type))
   if (opts.unreadOnly) conds.push(eq(notifications.isRead, false))
+  // 缺省 active:归档的语义是"从打扰我的流里收走",默认视图若混入归档行就等于没隐藏。
+  const partition = opts.partition ?? 'active'
+  conds.push(
+    partition === 'archived'
+      ? isNotNull(notifications.archivedAt)
+      : isNull(notifications.archivedAt),
+  )
   const where = and(...conds)
 
   const [list, totalRows] = await Promise.all([
@@ -84,7 +100,15 @@ export async function countUnread(userId: string): Promise<number> {
   const rows = await db
     .select({ count: sql<number>`COUNT(*)` })
     .from(notifications)
-    .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)))
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        eq(notifications.isRead, false),
+        // D195:已归档行不再计入红点 —— "隐藏一条动态"的语义就是它不该继续打扰我;
+        // 若计数仍含归档行,"全部已读"与红点会互相掩盖对方的存在。
+        isNull(notifications.archivedAt),
+      ),
+    )
   return Number(rows[0]?.count ?? 0)
 }
 
@@ -104,6 +128,37 @@ export async function markAllAsRead(userId: string): Promise<number> {
     .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)))
     .returning()
   return rows.length
+}
+
+/**
+ * D195 隐藏(归档)一条动态:写 archived_at,不删行 —— 归档必须可撤销,删了就无可追认。
+ * 归属条件与 markAsRead/deleteNotification 同口径:userId 由承载层显式入参传入,
+ * 不从被操作记录反推。查不到行(非本人或不存在)由路由层判 404。
+ * 重复归档幂等:COALESCE 保住首次归档时刻,再点一次不会把它刷成新值。
+ */
+export async function archiveNotification(
+  id: string,
+  userId: string,
+): Promise<Notification | undefined> {
+  const rows = await db
+    .update(notifications)
+    .set({ archivedAt: sql`COALESCE(${notifications.archivedAt}, now())` })
+    .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
+    .returning()
+  return rows[0]
+}
+
+/** D195 恢复一条动态:清掉 archived_at 即回到 active 分区(位置按 createdAt 重排,不额外记状态)。 */
+export async function restoreNotification(
+  id: string,
+  userId: string,
+): Promise<Notification | undefined> {
+  const rows = await db
+    .update(notifications)
+    .set({ archivedAt: null })
+    .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
+    .returning()
+  return rows[0]
 }
 
 export async function deleteNotification(

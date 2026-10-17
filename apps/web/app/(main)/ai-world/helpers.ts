@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import type {
   AiWorldData,
   AiCategory,
@@ -13,18 +13,12 @@ import type {
   ItemKind,
 } from './types'
 
-async function api<T>(url: string): Promise<T> {
-  const res = await fetchApi<T>(url)
-  if (!res.success) throw new Error(res.error)
-  return res.data
-}
-
 export async function fetchAiWorld(): Promise<AiWorldData> {
-  return api<AiWorldData>('/api/ai-world')
+  return apiOrThrow<AiWorldData>('/api/ai-world')
 }
 
 export async function fetchAiWorldCategories(): Promise<AiCategory[]> {
-  return api<AiCategory[]>('/api/ai-world/categories')
+  return apiOrThrow<AiCategory[]>('/api/ai-world/categories')
 }
 
 export interface FetchItemsParams {
@@ -47,7 +41,7 @@ export async function fetchAiWorldItems(params: FetchItemsParams): Promise<Pagin
   // 2026-08-06 修复:后端 news 路由为单数 /ai-world/news,统一 `${kind}s` 会拼成
   // newss(500)。news 特判不加 s;后端已注册 newss 别名兜底。
   const resource = params.kind === 'news' ? 'news' : `${params.kind}s`
-  return api<PaginatedItems>(`/api/ai-world/${resource}${suffix ? `?${suffix}` : ''}`)
+  return apiOrThrow<PaginatedItems>(`/api/ai-world/${resource}${suffix ? `?${suffix}` : ''}`)
 }
 
 export interface FetchRankingsParams {
@@ -66,11 +60,11 @@ export async function fetchAiWorldRankings(
   if (params.limit) qs.set('limit', String(params.limit))
   if (params.offset) qs.set('offset', String(params.offset))
   const suffix = qs.toString()
-  return api<PaginatedRankings>(`/api/ai-world/rankings${suffix ? `?${suffix}` : ''}`)
+  return apiOrThrow<PaginatedRankings>(`/api/ai-world/rankings${suffix ? `?${suffix}` : ''}`)
 }
 
 export async function fetchLeaderboards(): Promise<LeaderboardInfo[]> {
-  const res = await api<{ leaderboards: LeaderboardInfo[]; total: number }>(
+  const res = await apiOrThrow<{ leaderboards: LeaderboardInfo[]; total: number }>(
     '/api/ai-world/rankings/leaderboards',
   )
   return res.leaderboards
@@ -88,6 +82,6 @@ export async function fetchTrendingItems(params: FetchTrendingParams): Promise<P
   if (params.limit) qs.set('limit', String(params.limit))
   if (params.offset) qs.set('offset', String(params.offset))
   const suffix = qs.toString()
-  return api<PaginatedItems>(`/api/ai-world/trending${suffix ? `?${suffix}` : ''}`)
+  return apiOrThrow<PaginatedItems>(`/api/ai-world/trending${suffix ? `?${suffix}` : ''}`)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

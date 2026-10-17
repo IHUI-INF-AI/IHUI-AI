@@ -22,7 +22,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2, Network, Sparkles, Trash2, AlertCircle } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardHeader, CardTitle, CardContent, CardFooter } from '@ihui/ui-react'
 import { Textarea } from '@/components/form'
 import { AuthGatePrompt } from '@/components/common'
@@ -58,12 +58,6 @@ interface BuildResult {
   stub: boolean
 }
 
-async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 /** 圆形布局(半径按 entity 数量自适应) */
 function layoutCircle(entities: GraphEntity[]): Map<number, { x: number; y: number }> {
   const map = new Map<number, { x: number; y: number }>()
@@ -96,14 +90,14 @@ export default function KnowledgeGraphPage() {
 
   const graphQuery = useQuery({
     queryKey: ['knowledgeGraph', 'data'],
-    queryFn: () => api<GraphData>('/api/ai/knowledge-graph/data'),
+    queryFn: () => apiOrThrow<GraphData>('/api/ai/knowledge-graph/data'),
     refetchOnWindowFocus: false,
     enabled: allow,
   })
 
   const buildMutation = useMutation({
     mutationFn: (input: string) =>
-      api<BuildResult>('/api/ai/knowledge-graph/build', {
+      apiOrThrow<BuildResult>('/api/ai/knowledge-graph/build', {
         method: 'POST',
         body: JSON.stringify({ text: input }),
         headers: { 'Content-Type': 'application/json' },
@@ -122,7 +116,7 @@ export default function KnowledgeGraphPage() {
   })
 
   const clearMutation = useMutation({
-    mutationFn: () => api<unknown>('/api/ai/knowledge-graph/data', { method: 'DELETE' }),
+    mutationFn: () => apiOrThrow<unknown>('/api/ai/knowledge-graph/data', { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['knowledgeGraph', 'data'] })
       setFeedback({ type: 'success', msg: t('feedbackClearSuccess') })
@@ -264,7 +258,9 @@ export default function KnowledgeGraphPage() {
             ) : graphQuery.isError ? (
               <div className="py-8 text-center text-sm text-destructive">{tCommon('error')}</div>
             ) : entities.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">{t('emptyState')}</div>
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                {t('emptyState')}
+              </div>
             ) : (
               <div className="overflow-auto rounded-md border bg-muted/30">
                 <svg

@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { CheckCircle2, Loader2, RotateCw, UserPlus } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { toast } from '@/components/common/Toaster'
 import { AuthGatePrompt, BackButton } from '@/components/common'
@@ -21,12 +21,6 @@ interface ReferrerInfo {
   code: string
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function ReferrerPage() {
   const t = useTranslations('referrer')
   const qc = useQueryClient()
@@ -36,13 +30,13 @@ export default function ReferrerPage() {
   const { allow } = useAuthGate()
   const q = useQuery({
     queryKey: ['user', 'referrer'],
-    queryFn: () => api<ReferrerInfo>('/user/referrer'),
+    queryFn: () => apiOrThrow<ReferrerInfo>('/user/referrer'),
     enabled: allow,
   })
 
   const bindQ = useMutation({
     mutationFn: (inviteCode: string) =>
-      api<unknown>('/user/referrer', {
+      apiOrThrow<unknown>('/user/referrer', {
         method: 'POST',
         body: JSON.stringify({ code: inviteCode }),
       }),
