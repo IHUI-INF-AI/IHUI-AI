@@ -30,6 +30,9 @@
  *   E 下载页不得有"假号":web/mobile/extension/cli 四端不得写死语义版本字面量
  *   F 更新器 feed 必须走运行期解析(不得退回读静态快照)
  *   G 不得再出现 bot 裸 push 到 main 的 workflow 步骤(那条路是 GH006 死锁,只会制造假红)
+ *   H 桌面安装包不得回到 offlineInstaller —— 那会把 ≈205MB 的 WebView2 运行时塞进包,
+ *     使 exe 超过 Gitee 单文件 100MB 硬上限,国内用户从此拿不到 Windows 安装包
+ *     (2026-10-17 实测:0.1.74 的 Gitee release 只有 .exe.sig、没有 .exe)。
  *
  * 用法:
  *   node scripts/check-version-drift.mjs           # 检查,失败 exit 1
@@ -171,6 +174,27 @@ export function findVersionDrift(input) {
           '只会制造每天一次的假红',
       )
     }
+  }
+
+  // H 桌面安装包不得回到 offlineInstaller(分发能力守门)
+  //
+  // 这一条守的不是"版本号"本身,而是**版本号背后的包还能不能被国内用户拿到**。
+  // 立因是实测:2026-10-16 改成 offlineInstaller 后,exe 从 ~8MB 涨到 225,269,867 字节
+  // (内嵌的 WebView2 运行时本机实测 214,131,448 字节),结构性超过 Gitee 单文件 100MB
+  // 硬上限 ⇒ 0.1.74 的 Gitee release 里**只有 `.exe.sig`、没有 `.exe` 本体**,
+  // 而 Windows 是国内主力平台。embedBootstrapper 只内嵌 ≈1.8MB 引导器,包回到 10MB 量级。
+  //
+  // 显式豁免(真要恢复"完全离线可装"时用):在 tauri.conf.json 的 `_comment` 同级写不下
+  // (严格 schema),改为在本文件行内以 `ALLOW_OFFLINE_INSTALLER` 注明分发方案 —— 没有方案
+  // 就豁免不成立,正是因为"离线可装"的代价是"国内下载不了",必须是有意识的选择。
+  const mode = tauriConf?.bundle?.windows?.webviewInstallMode?.type
+  if (mode === 'offlineInstaller') {
+    v.push(
+      'H bundle.windows.webviewInstallMode 回到 offlineInstaller —— 会把 ≈205MB 的 WebView2 ' +
+        '运行时打进安装包,exe 结构性超过 Gitee 单文件 100MB 硬上限(实测 225,269,867 字节),' +
+        '国内用户从此拿不到 Windows 安装包。改回前必须先给出替代分发方案(自建 CDN / 生产机中转),' +
+        '并在此处行内注明 ALLOW_OFFLINE_INSTALLER + 方案。',
+    )
   }
 
   return v
