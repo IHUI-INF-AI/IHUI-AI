@@ -347,7 +347,7 @@ export function parseSSEChunk(
  * 迟早有一处漏掉某条规矩,而漂开的表现不是报错,是"trace 取不到"这种静默丢字段。
  * 返回 `null` = 这一行不承载 data(空行 / `:` 注释行 / `event:`|`id:`|`retry:` 控制行)。
  */
-function dataPayloadOfLine(line: string): string | null {
+export function dataPayloadOfLine(line: string): string | null {
   if (!line || line.startsWith(':')) return null
   if (line.startsWith('data:')) return line.slice(5).replace(/^\s/, '')
   if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) return null
