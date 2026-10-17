@@ -2192,6 +2192,15 @@
     "title": "笔记"
   },
   "notificationList": {
+    "viewActive": "返回动态",
+    "archived": "已归档",
+    "hide": "隐藏",
+    "hiding": "正在隐藏…",
+    "hideFailed": "这条动态未隐藏，请重试。",
+    "restore": "恢复",
+    "restoring": "正在恢复…",
+    "restoreFailed": "这条动态未恢复，请重试。",
+    "emptyArchived": "你隐藏的动态会保留在这里，随时可以恢复。",
     "empty": "暂无通知",
     "loadFailed": "加载通知失败",
     "title": "通知",

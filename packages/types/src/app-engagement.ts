@@ -12,6 +12,7 @@
  */
 
 import type { TFunction } from './app-shared.js'
+import type { NotificationPartition } from './notification.js'
 
 /** 反馈类型(与后端 /api/feedbacks 契约对齐) */
 export type FeedbackType = 'bug' | 'suggestion' | 'question' | 'other'
@@ -107,7 +108,16 @@ export interface NotificationListItem {
   content: string
   /** 是否已读(未读用 success 色 border + 浅色背景) */
   read: boolean
+  /** D195 归档时刻:有值 = 已归档分区;缺省/null = 动态流。取自 @ihui/types 的同名字段。 */
+  archivedAt?: string | null
   createdAt: string
+}
+
+/** D195 行级状态:在飞/失败的回显,`pending` 为真时该行操作钮禁用(不叠第二次迁移)。 */
+export interface NotificationRowStatus {
+  text: string
+  tone: 'muted' | 'destructive'
+  pending?: boolean
 }
 
 /** NotificationList 屏 props */
@@ -123,6 +133,14 @@ export interface NotificationListScreenProps {
   onBack: () => void
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
+  /** D195 当前分区;缺省 active(动态流),与后端 partition 缺省同档 */
+  partition?: NotificationPartition
+  onPartitionChange?: (partition: NotificationPartition) => void
+  /** D195 隐藏(归档)一条:wrapper 打 POST /api/notifications/:id/archive */
+  onArchive?: (item: NotificationListItem) => void
+  /** D195 恢复一条:wrapper 打 POST /api/notifications/:id/restore */
+  onRestore?: (item: NotificationListItem) => void
+  rowStatus?: Record<string, NotificationRowStatus | undefined>
 }
 
 /** 浏览历史对象类型(与后端 /api/browse-history 契约对齐) */
