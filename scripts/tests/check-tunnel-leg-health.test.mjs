@@ -261,13 +261,45 @@ test('summarizeRestarts:两次 starting 相隔 21 秒 ⇒ doubleStart;正常一�
 
 test('restart-churn 五向:双启 breach / 非信息级 breach / 4 次 warn / 真 0 ok / 采集失败 unjudged', () => {
   const t0 = 1_760_000_000_000
-  const mk = (restarts, eventsProbe = 'ok') => kit.judge(mkInput({ restarts, eventsProbe }))
-  assert.equal(mk(kit.summarizeRestarts([{ level: 4, timeMs: t0, msg: 'Cloudflared service starting' }, { level: 4, timeMs: t0 + 21_000, msg: 'Cloudflared service starting' }]))['restart-churn'].verdict, 'breach')
+  const mk = (restarts, eventsProbe = 'ok', nowMs = undefined) => kit.judge(mkInput(nowMs === undefined ? { restarts, eventsProbe } : { restarts, eventsProbe, nowMs }))
+  // 双启夹具必须把"此刻"钉在事件之后几秒 —— 否则它量的是"窗口里的历史",落进停抖那一档
+  assert.equal(
+    mk(kit.summarizeRestarts([{ level: 4, timeMs: t0, msg: 'Cloudflared service starting' }, { level: 4, timeMs: t0 + 21_000, msg: 'Cloudflared service starting' }]), 'ok', t0 + 26_000)['restart-churn'].verdict,
+    'breach',
+  )
   assert.equal(mk({ total: 3, starts: 1, stops: 1, nonInfo: 1, doubleStart: false })['restart-churn'].verdict, 'breach', '出现 Warning/Error 级事件必须喊')
   assert.equal(mk({ total: 8, starts: 4, stops: 4, nonInfo: 0, doubleStart: false })['restart-churn'].verdict, 'warn', '4 次/24h(基线 0.5)只报数')
   assert.equal(mk({ total: 2, starts: 1, stops: 1, nonInfo: 0, doubleStart: false })['restart-churn'].verdict, 'ok')
   assert.equal(mk(null, 'failed')['restart-churn'].verdict, 'unjudged')
   assert.match(mk(null, 'failed')['restart-churn'].reason, /wevtutil/, '未判定必须点名生产者')
+})
+
+// 2026-10-17 现场:02:26:56→02:32:48 崩了 15 轮,02:33:50 起来后再没断过,而 06:33 又寄出一封信。
+// 这一族成对夹具钉住的就是"现行犯"与"窗口里的历史"必须分家(机主被这封重复信叫起来过一次)。
+test('restart-churn 现行犯与历史分家:停抖满一个 tick ⇒ 只报数;仍在抖 ⇒ breach;时刻取不到 ⇒ 照拦', () => {
+  const last = 1_760_667_230_000
+  const churn = { total: 65, starts: 15, stops: 15, graceful: 5, nonInfo: 10, minStartGapMs: 4904, lastEventMs: last, doubleStart: true }
+  const mk = (restarts, nowMs) => kit.judge(mkInput({ restarts, eventsProbe: 'ok', nowMs }))['restart-churn']
+  const stale = mk(churn, last + 8 * 60 * 60 * 1000)
+  assert.equal(stale.verdict, 'warn', '停抖 8 小时后不得再判现行犯')
+  assert.match(stale.reason, /循环已停抖/, '报数必须写明这是"已停"而不是"没发生"')
+  assert.match(stale.reason, /wevtutil/, '报数必须给下一步取证出口(§5e-1:收信人能干什么)')
+  assert.equal(mk(churn, last + 2 * 60 * 1000).verdict, 'breach', '2 分钟前还在抖 ⇒ 现行犯')
+  // 反向锁:把 lastEventMs 摘掉(= 旧夹具/尺子读不出时刻)必须回到 breach,不得被读成"已停"
+  const { lastEventMs, ...noStamp } = churn
+  assert.equal(mk(noStamp, last + 8 * 60 * 60 * 1000).verdict, 'breach', '取不到时刻 ⇒ 按现行论,绝不放行')
+})
+
+test('summarizeRestarts:lastEventMs 取全部事件的最大时刻(乱序输入也一样;无时刻 ⇒ null)', () => {
+  const t0 = 1_760_000_000_000
+  const r = kit.summarizeRestarts([
+    { level: 4, timeMs: t0 + 90_000, msg: 'Cloudflared service stopped' },
+    { level: 4, timeMs: t0, msg: 'Cloudflared service starting' },
+    { level: 4, timeMs: t0 + 45_000, msg: 'Cloudflared service starting' },
+  ])
+  assert.equal(r.lastEventMs, t0 + 90_000, '最大时刻')
+  assert.equal(kit.summarizeRestarts([]).lastEventMs, null, '空表 ⇒ null(不是 0)')
+  assert.equal(kit.summarizeRestarts([{ level: 4, timeMs: NaN, msg: 'Cloudflared service starting' }]).lastEventMs, null, '残缺时刻不吃')
 })
 
 test('restart-churn 真 0 与"读不出"分家;调用方不采这一路时整维不产出(旧夹具不得被拖成 3)', () => {

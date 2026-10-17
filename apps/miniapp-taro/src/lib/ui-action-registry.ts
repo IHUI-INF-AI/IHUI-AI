@@ -4,6 +4,7 @@
 
 // 平台特有:依赖 Taro API(小程序运行时),不适合共享
 import Taro from '@tarojs/taro'
+import { maskParams } from '@ihui/shared/ui-control'
 import type { AgentActionErrorCode, AppUiSnapshot, TaroUiActionType } from '@ihui/types'
 
 import {
@@ -84,27 +85,13 @@ function splitQuery(name: string): { path: string; query: string } {
 /* ────────────────────────── 敏感信息打码 ────────────────────────── */
 
 /**
- * 参数键命中即打码:小程序页面 query 常见 token/code,注册表与回传都不得带出真值。
- * 除协议要求的凭据类(token/password/secret/code)外,再并一层个人身份信息(手机号/邮箱/证件),
- * 因为 read/describe 只是"给 AI 看现状",打码不损失任何可执行能力。
+ * 参数打码已下沉 `@ihui/shared/ui-control/security-policy`(2026-10-17)。
+ *
+ * 合并前两端口径不同:RN 侧还屏蔽 uuid / ticket 两类凭据键,并把函数值也归一成占位符
+ * (RN 路由 params 允许塞回调),小程序侧两条都没有 ⇒ 取并集由 shared 统一提供。
+ * 本端保留 re-export,让既有 import 路径与调用点一字不改。
  */
-const CREDENTIAL_KEY_RE = /token|password|secret|code/i
-const PII_KEY_RE = /phone|mobile|email|idcard|passport|身份/i
-const MASKED_VALUE = '***'
-
-export function maskParams(params: Record<string, unknown> | undefined): Record<string, unknown> {
-  const masked: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(params ?? {})) {
-    if (CREDENTIAL_KEY_RE.test(key) || PII_KEY_RE.test(key)) {
-      masked[key] = MASKED_VALUE
-      continue
-    }
-    // 对象/数组不回传:页面参数结构由实现决定,可能裹着用户数据,只回传原始类型
-    masked[key] =
-      value === null || value === undefined ? '' : typeof value === 'object' ? '[complex]' : value
-  }
-  return masked
-}
+export { maskParams }
 
 /* ────────────────────────── 当前页面 ────────────────────────── */
 
