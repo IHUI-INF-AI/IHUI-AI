@@ -50,6 +50,7 @@ import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { gitRaw, catBatchOids, gitBinary } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { readLedgerRecords, BYPASS_KIND, LEDGER_REL } from './lib/commit-attestation.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
@@ -477,8 +478,14 @@ function selfTest() {
 function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) process.exit(selfTest())
-  const rootArg = argv.includes('--root') ? argv[argv.indexOf('--root') + 1] : null
-  const root = rootArg ? resolve(rootArg) : DEFAULT_ROOT
+  // G-322:`--root` 的实参必须是一个真 token。旧写法 `argv[indexOf('--root')+1]` 在被下一枚旗标顶值时
+  // (如 runner 追加的 `--root --staged`)会把 "--staged" 当根目录,整道门就在一个不存在的路径上跑出结论。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    process.exit(2)
+  }
+  const root = rootFlag.value ? resolve(rootFlag.value) : DEFAULT_ROOT
   const strict = argv.includes('--strict')
   // --staged:runner 统一追加;本门判的是已落地提交与留痕日志,与暂存面无关,接受并忽略。
   const r = audit(root, { strict })

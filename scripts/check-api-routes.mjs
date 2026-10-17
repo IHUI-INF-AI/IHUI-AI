@@ -37,11 +37,16 @@ import { maskComments, maskCommentsAndStrings } from './lib/code-mask.mjs'
  * 就是双根分裂,产出自洽而基准错位的尺子 ⇒ 直接判死(参照守门 2e-dupns 的同一口径)。
  */
 const HERE = dirname(fileURLToPath(import.meta.url))
-const ARG_ROOT_IDX = process.argv.indexOf('--root')
-const ARG_ROOT =
-  ARG_ROOT_IDX !== -1 && process.argv[ARG_ROOT_IDX + 1]
-    ? resolve(process.cwd(), process.argv[ARG_ROOT_IDX + 1])
-    : null
+// G-322(本站):`--root` 走本文件唯一的带值旗标出口 `dumpFlagValue`(它已同时认
+// `--root <值>` 与 `--root=<值>`,并对"被下一枚旗标顶值 / 等号后为空"点名)。
+// 但旧站点只取返回值:给了 `--root` 却没有有效值时它会**静默按默认根继续判**,
+// 而那面正是调用方以为判过的东西 ⇒ 这里补一句"给了却没值 ⇒ 未判定",不猜根、不静默降级。
+const rootRaw = dumpFlagValue('--root')
+if (rootRaw === null && process.argv.some((a) => a === '--root' || a.startsWith('--root='))) {
+  console.error('[API 路由比对] ❌ 给了 --root 却没拿到有效值 ⇒ 未判定(不得静默退回仓内默认根;原因见上一行)')
+  process.exit(2)
+}
+const ARG_ROOT = rootRaw ? resolve(process.cwd(), rootRaw) : null
 const ROOT = ARG_ROOT || resolve(HERE, '..')
 const GIT_BATCH_TIMEOUT = 120000
 
