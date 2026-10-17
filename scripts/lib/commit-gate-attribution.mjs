@@ -43,6 +43,23 @@
  * ⚠️ 同样刻意**不建**"哪些门可差分"的门 id 清单:可差分区由"基线面这一次跑得出跑不出"现读,
  * 清单必然腐烂(见上)。
  *
+ * ── 差分的第二条通用前提:两侧必须读自同一份外部状态快照(2026-10-17 立)──────────
+ * `baselineUsable()` 只管"基线面那一次跑没跑出读数",它管不到**两跑之间的世界有没有动**。
+ * 实测载体(2026-10-17 凌晨,提交一枚 `.husky/post-commit`):门 29 `check-push-sync` 判的是
+ * "本地 HEAD 是否领先/落后远端"这种**远端态**,而差分两侧各跑一次、中间那台并发机把远端头
+ * 推前了 ⇒ 基线面 exit 0、我的面 exit 1 ⇒ 差分喊"这枚提交把跑绿的东西改红了"并把唯一合法
+ * 出路写成"去改内容"。两枚 exit 码的差**不是内容差**,是外部状态差,而差分档把它读成了因果。
+ * 所以态②(introduced)在落笔之前必须先过 `externalsDiffUsable()`:调用方在**每一跑的前后**
+ * 各现读一次外部状态(共四枚读数),四枚必须都取得到且逐字相等,差分才配用来定责。
+ *   - 四枚里有取不到的 ⇒ 未判定(点名"取不到",**绝不**折算成"没变");
+ *   - 四枚不相等(远端在两跑之间前移)⇒ 未判定,措辞必须明写这一型;
+ *   - 两者都落 ④ undetermined-red:**不得**落 introduced(那是假红死锁,§12e 型伤害 ——
+ *     一道门把别人堵死的结局就是逼人 --no-verify、连带废掉全部守门),也**不得**落 not-ours
+ *     (它同样没证明"与本次无关")。失效方向仍然只是"多要一次定向说明"(§0.10)。
+ * ⚠️ 这一前提只管态②:③(stock,"HEAD 面亦红")的结论不指向提交者,拿它当拦截对象就会
+ *    顺手改掉 ③ 的既有语义(明令不动)。同样**不建**门清单 —— "外部状态动没动"是按当次实测
+ *    读出来的,与"这道门判的是不是远端态"无关,后者另有门源自声明标记([judges-remote-state])。
+ *
  * 本模块是纯判定 + 注入式复跑(`runGate` / `runGateBaseline`),因此可在不 spawn git 的前提下自测。
  */
 
@@ -498,6 +515,81 @@ export function baselineUsable(b) {
 }
 
 /**
+ * 差分两侧的**外部状态**是不是同一份快照 —— 态②(introduced)的第二条通用前提(2026-10-17 立)。
+ *
+ * 与 `baselineUsable()` 同层、同形状(都是"这一次读数能不能当证据"的现读闸门,都返回
+ * `{ok, why}`),因为两者判的是同一件事的两半:`baselineUsable` 管"基线面有没有跑出读数",
+ * 这一条管"两跑之间的世界有没有动"。缺了它,差分会把**远端头前移**读成**本枚内容改红了**
+ * (实测载体见文件头:门 29 两跑之间被并发机推前 ⇒ 零风险改动被判 mine)。
+ *
+ * 入参就是两侧那一跑的结果对象(`runGate` / `runGateBaseline` 的返回值):调用方必须在
+ * **每一跑的前后**各现读一次外部状态,写成 `externals: { before, after }` 一起交回来。
+ * 本模块**不碰 git、不解释快照内容**,只做逐字等值比较(快照值对它是不透明字符串)。
+ * 四枚读数必须:①都取得到(非空字符串);②彼此逐字相等。
+ * 三态分开、不得合并:
+ *   'same'          ⇒ 差分可用(四枚全等);
+ *   'moved'         ⇒ 外部状态在两跑之间变过(远端前移 / 单跑前后就不一致);
+ *   'unobtainable'  ⇒ 取不到快照(调用方未提供 externals、或某一枚是 null/空 —— 含"问不到远端")。
+ * `moved` 与 `unobtainable` 都必须落 ④ undetermined-red:前者是"差分的两侧根本不是同一份外部
+ * 状态",后者是"没有任何证据能排除外部状态动过"。**绝不**把"取不到"折算成"没变"(§0.3)。
+ */
+const EXTERNALS_WHEN_LABEL = { before: '那一跑之前', after: '那一跑之后' }
+
+function externalsBrief(v) {
+  const first = String(v).split(/\r?\n/)[0].trim()
+  return first.length > 72 ? `${first.slice(0, 72)}…` : first
+}
+
+export function externalsDiffUsable(myFace, baseline) {
+  for (const [label, side] of [
+    ['我的面', myFace],
+    ['基线面(HEAD)', baseline],
+  ]) {
+    const ext = side?.externals
+    if (!ext || typeof ext !== 'object')
+      return {
+        ok: false,
+        state: 'unobtainable',
+        why: `${label}未提供外部状态快照(externals)⇒ 无从证明差分两跑之间外部状态没动`,
+      }
+    for (const when of ['before', 'after']) {
+      const v = ext[when]
+      if (typeof v !== 'string' || v.trim() === '')
+        return {
+          ok: false,
+          state: 'unobtainable',
+          why: `${label}${EXTERNALS_WHEN_LABEL[when]}取不到外部状态快照${
+            ext.why ? `(${ext.why})` : '(调用方未给值)'
+          }—— "取不到"不得折算成"没变"`,
+        }
+    }
+  }
+  const my = myFace.externals
+  const base = baseline.externals
+  if (my.before !== my.after)
+    return {
+      ok: false,
+      state: 'moved',
+      why: `我的面那一跑前后外部状态就变了(${externalsBrief(my.before)} → ${externalsBrief(my.after)})`,
+    }
+  if (base.before !== base.after)
+    return {
+      ok: false,
+      state: 'moved',
+      why: `基线面那一跑前后外部状态就变了(${externalsBrief(base.before)} → ${externalsBrief(base.after)})`,
+    }
+  if (base.before !== my.before)
+    return {
+      ok: false,
+      state: 'moved',
+      why:
+        `远端在两跑之间前移(基线面读到 ${externalsBrief(base.before)}/ 我的面读到 ${externalsBrief(my.before)})` +
+        '⇒ 两枚退出码的差不是内容差',
+    }
+  return { ok: true, state: 'same', why: null }
+}
+
+/**
  * 解析 guardian-runner 的汇总块。
  * 返回 { batchReported, executed, total, earlyAbort, failed:[{id,label,script}] }
  *
@@ -637,6 +729,10 @@ export const EXTERNAL_FS_MARK = '[judges-external-fs-state]'
  * @param runGateBaseline 可选:(script) => {ran:boolean, status:number|null, output:string, why:string|null}
  *        —— **基线面(HEAD)**的同一道门读数。缺这一个出口时,"仍红未点名"这一支只能落
  *        `undetermined-red`(态④),因为没有任何证据能区分"本枚引入"与"HEAD 早就红"。
+ *        ⚠️ 两个出口都必须在返回值里带上 `externals: {before, after}`(2026-10-17 立):调用方在
+ *        **那一跑的前**与**那一跑的后**各现读一次外部状态(远端分支头等),四枚读数交给
+ *        `externalsDiffUsable()` 比较。取不到/不相等 ⇒ 差分不得落 introduced,只能落态④。
+ *        本模块不碰 git,快照内容由调用方决定,这里只做逐字等值比较。
  * @param foreignStaged 可选:**不属于本次声明**的"他人现场"路径清单(态①c 取材面)。
  *        ⚠ 必须**三路齐全**,由调用方现读:别人的暂存(`diff --cached`)/ 别人的未跟踪新文件
  *        (`ls-files --others --exclude-standard`)/ 别人**已跟踪但未暂存**的工作树改动
@@ -838,6 +934,10 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
   let foreignFace = 0
   let remoteState = 0
   let externalFs = 0
+  // 差分第二前提的两个亚型(2026-10-17 立,详见 externalsDiffUsable 头注):
+  // 外部状态在两跑之间变过 / 快照取不到 —— 两者都不得落 introduced,都必须落 ④。
+  let externalsMoved = 0
+  let externalsUnobtainable = 0
   let noBaselineOutlet = false
   for (const g of parsed.failed) {
     let r = null
@@ -982,10 +1082,31 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
       continue
     }
     if (b.status === 0) {
+      // ── 差分第二前提(2026-10-17):两侧必须读自同一份外部状态快照 ──
+      // 只在**即将落 introduced(把红定责给提交者)** 之前问一次:③(stock)的结论不指向提交者,
+      // 拿它当拦截对象就会顺手改掉 ③ 的既有语义(明令不动)。
+      // 失效方向 = 多要一次定向说明(④ undetermined-red),绝不是"多放一次跳门":这一支**不**给
+      // not-ours,红照旧报、留痕照旧写、并明写"不得据此判本枚引入"。
+      const ext = externalsDiffUsable(r, b)
+      if (!ext.ok) {
+        deltaUnknown++
+        if (ext.state === 'moved') externalsMoved++
+        else externalsUnobtainable++
+        const ev = (
+          lines.length ? lines : String(r.output ?? '').split(/\r?\n/).filter((x) => x.trim() !== '')
+        ).slice(0, 2)
+        detail.push(
+          `[${g.id}] ${g.label} —— 未能差分:基线面(HEAD)exit 0 / 我的面 exit ${r.status} 这两枚读数` +
+            `未读自同一份外部状态快照(${ext.why})⇒ 差分的因果前提不成立,` +
+            `禁止落"这枚提交把跑绿的东西改红了",也不得读成"与本次无关"(归属未知);` +
+            `红照旧有名可查(取证行:${ev.join(' ⏎ ')})`,
+        )
+        continue
+      }
       introduced++
       detail.push(
         `[${g.id}] ${g.label} —— 差分:基线面(HEAD)不红(exit 0)/ 我的面 exit ${r.status}` +
-          ` ⇒ 这枚提交把它原本跑绿的东西改红了`,
+          ` ⇒ 这枚提交把它原本跑绿的东西改红了(外部状态快照两侧一致,差分前提成立)`,
       )
       continue
     }
@@ -1011,6 +1132,20 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
       ranFullBatch: !parsed.earlyAbort,
       failed: parsed.failed,
       detail,
+      // delta 一并带上:正向臂(introduced=1 ∧ 两个外部状态亚型=0)必须可机读,
+      // 否则"快照一致 ⇒ 照判引入红"这一格只能靠读措辞核对(与态④那一支同一条取证纪律)。
+      delta: {
+        introduced,
+        stock,
+        deltaUnknown,
+        noBaselineOutlet,
+        myFaceUndetermined,
+        foreignFace,
+        remoteState,
+        externalFs,
+        externalsMoved,
+        externalsUnobtainable,
+      },
       reason:
         `${introduced} 道失败门在基线面(HEAD)不红、而在我这个面上红 —— 差分证明这枚提交引入了红,` +
         `即使门没有点名文件也必须修,禁止 --no-verify`,
@@ -1032,7 +1167,18 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
       ranFullBatch: !parsed.earlyAbort,
       failed: parsed.failed,
       detail,
-      delta: { introduced, stock, deltaUnknown, noBaselineOutlet, myFaceUndetermined, foreignFace, remoteState, externalFs },
+      delta: {
+        introduced,
+        stock,
+        deltaUnknown,
+        noBaselineOutlet,
+        myFaceUndetermined,
+        foreignFace,
+        remoteState,
+        externalFs,
+        externalsMoved,
+        externalsUnobtainable,
+      },
       reason:
         (remoteState === deltaUnknown
           ? `${deltaUnknown} 道失败门自声明判「远端态」([judges-remote-state]):` +
@@ -1041,7 +1187,14 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
             ? `${deltaUnknown} 道失败门自声明判「仓库外文件系统状态」([judges-external-fs-state]):` +
               '红点在本仓之外(项目父目录 / 盘根 / 他席探针),差分档在这道门上证明不了因果关系' +
               '(基线面与我的面读的是同一块盘,差别只在两跑之间别人写了什么)⇒ 归属未知,修法是把外部现场的归属查清,不是改本枚内容'
-            : `${deltaUnknown} 道失败门仍红但未点名本次文件,而` +
+            : externalsMoved + externalsUnobtainable === deltaUnknown
+              ? `${deltaUnknown} 道失败门仍红但未点名本次文件,而差分两侧未读自同一份外部状态快照:` +
+                (externalsMoved > 0
+                  ? `远端在两跑之间前移(或某一跑前后就不一致)⇒ 基线面 exit 0 / 我的面 exit 1 这两枚读数之间世界动过,` +
+                    '差分的因果前提不成立,'
+                  : '调用方取不到外部状态快照(未注入 / 问不到远端)⇒ 没有任何证据证明两跑之间世界没动,') +
+                '未能差分,归属未知 —— 不得据此判"本枚引入",也不得读成"与本次无关"(修法=在同一份外部状态下复跑差分)'
+              : `${deltaUnknown} 道失败门仍红但未点名本次文件,而` +
             (myFaceUndetermined > 0
               ? `其中 ${myFaceUndetermined} 道**在本枚提交的面上就判"无法判定"(exit 2)**、基线面(HEAD)`
               : '基线面(HEAD)') +
@@ -1054,6 +1207,12 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
           : '') +
         (externalFs > 0 && externalFs !== deltaUnknown
           ? `;其中 ${externalFs} 道自声明判「仓库外文件系统状态」([judges-external-fs-state],红点在本仓之外,差分档对它不成立)`
+          : '') +
+        (externalsMoved > 0 && externalsMoved !== deltaUnknown
+          ? `;其中 ${externalsMoved} 道的差分两侧外部状态在两跑之间变过(远端前移 ⇒ 两枚退出码的差不是内容差)`
+          : '') +
+        (externalsUnobtainable > 0 && externalsUnobtainable !== deltaUnknown
+          ? `;其中 ${externalsUnobtainable} 道取不到外部状态快照(未注入 / 问不到远端 ⇒ "取不到"不折算成"没变")`
           : '') +
         (foreignFace > 0
           ? `;其中 ${foreignFace} 道的结论行点名了**他人挂在共享索引/工作树里**的路径(本枚带 pathspec,进不了本次内容)`
@@ -1351,6 +1510,17 @@ const MY_FILES = ['scripts/foo.mjs', 'PROJECT_PLAN.md']
  * 住在模块级而不是某个用例里:多个用例共用(声明在前的用例也要能拿到,否则 const 有 TDZ)。
  */
 const stockBaseline = () => ({ ran: true, status: 1, output: 'HEAD 面同样红(存量)', why: null })
+
+/**
+ * 外部状态快照夹具(2026-10-17 立,差分第二前提)。
+ * 语义:同一份外部状态(远端分支头没动)⇒ 两侧四枚读数逐字相等 ⇒ 差分可用。
+ * 值刻意取 `remote=alpha` 这种**非 sha 形态**的记号:本仓禁止把短 sha 当证据指针(AGENTS §1),
+ * 夹具也不该长得像真 sha 让人误以为可以拿它对账。
+ * ⚠️ 经 `__test__` 导出给镜像测试复用 —— 判据只许一份,夹具也只许一份(§22c / §0.6)。
+ */
+const EXTERNALS_STABLE = Object.freeze({ before: 'remote=alpha', after: 'remote=alpha' })
+/** 远端在两跑之间前移:我的面两枚读到 beta,基线面两枚读到 alpha ⇒ 差分两侧不是同一份快照。 */
+const externalsAdvanced = () => Object.freeze({ before: 'remote=beta', after: 'remote=beta' })
 
 /**
  * 真仓格式取样:锚点必须与 guardian-runner 的实际打印同源。
@@ -1764,13 +1934,21 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
   缺 i18n 值(5):taskStatus.toolGenerateReport
   修法:在 packages/shared/src/chat/tool-display.ts 的 TOOL_DISPLAY_KEYS 补 name → toolXxx,并给五语言补文案。`
   const DECL_MCP = ['apps/ai-service/app/services/mcp_server.py', 'PROJECT_PLAN.md']
-  const greenBaseline = () => ({ ran: true, status: 0, output: '✅ 覆盖率 87/87', why: null })
+  const greenBaseline = () => ({
+    ran: true,
+    status: 0,
+    output: '✅ 覆盖率 87/87',
+    why: null,
+    externals: EXTERNALS_STABLE,
+  })
+  /** 我的面复跑桩:红、不点名、外部状态快照与基线面同一份(= 差分前提齐备)。 */
+  const myRedStable = () => ({ status: 1, output: GATE55_REAL, externals: EXTERNALS_STABLE })
 
   // --- D1 端到端可达性回归:门不点名 + 基线绿 + 我的面红 ⇒ **必须 mine**(这就是修复的证明) ---
   const d1 = classifyHookFailure({
     text: SUMMARY + FAIL_29,
     stagedFiles: DECL_MCP,
-    runGate: () => ({ status: 1, output: GATE55_REAL }),
+    runGate: myRedStable,
     runGateBaseline: greenBaseline,
   })
   assert(d1.kind === 'mine', `D1 基线面绿而我的面红时必须判 mine,实得 ${d1.kind}`)
@@ -1831,7 +2009,11 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
   const d4 = classifyHookFailure({
     text: SUMMARY + FAIL_29,
     stagedFiles: DECL_MCP,
-    runGate: () => ({ status: 1, output: '❌ apps/web/src/other.tsx:3 类型错误' }),
+    runGate: () => ({
+      status: 1,
+      output: '❌ apps/web/src/other.tsx:3 类型错误',
+      externals: EXTERNALS_STABLE,
+    }),
     runGateBaseline: greenBaseline,
   })
   assert(d4.kind === 'mine', `D4 基线绿而我的面红 ⇒ 即使门点的是别人文件也应判 mine,实得 ${d4.kind}`)
@@ -1865,9 +2047,133 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
   assert(baselineUsable({ ran: false, status: 0, output: '', why: '抽取失败' }).ok === false, 'D6f ran:false 时 exit 0 也不算数')
 
   // --- D7 反向锁:不得为差分建"机器态门 id 清单"(AGENTS 明文:豁免清单必然腐烂) ---
+  // ⚠️ 三个禁用名**只许以拼接形态**出现在本文件里:镜像测试 R5 的源码级 doesNotMatch 扫的是
+  // 整个模块的**代码面**,若这里写出连续字面量,那条反向锁就会把**这条锁自己的取证行**读成违规
+  // (2026-10-17 实测撞上 —— 判据不许读到自己,与 AGENTS §11「门不得读自己」同一条纪律)。
+  // 拼接只改字面形态,不改判定:下面 RegExp 匹配的仍是同样那三个名字。
+  const D7_FORBIDDEN_LIST_NAMES = [
+    'MACHINE_STATE' + '_GATES',
+    'STOCK_ONLY' + '_GATES',
+    'BASELINE' + '_EXEMPT',
+  ]
   assert(
-    !/MACHINE_STATE_GATES|STOCK_ONLY_GATES|BASELINE_EXEMPT/.test(String(classifyHookFailure)),
+    !new RegExp(D7_FORBIDDEN_LIST_NAMES.join('|')).test(String(classifyHookFailure)),
     'D7 出现了按门 id 写死的清单 ⇒ 本判据改回"现读差分"的实现,不得留清单',
+  )
+  assert(
+    D7_FORBIDDEN_LIST_NAMES.length === 3 &&
+      D7_FORBIDDEN_LIST_NAMES.every((n) => /^[A-Z][A-Z_]+$/.test(n)),
+    'D7 的三个禁用名必须仍是三条完整大写名(拼接不得把名字切坏)',
+  )
+
+  // ── D8 差分第二前提(2026-10-17 立):两侧必须读自同一份外部状态快照 ──────────────
+  // 现场:一枚 `.husky/post-commit` 的修改,safe-commit 逐道复跑算归因,门 29(check-push-sync,
+  // 判"本地⇄远端同步态")在两跑之间被另一台机推前的远端头改了输入 ⇒ 基线面 exit 0 / 我的面
+  // exit 1 ⇒ 差分写下"这枚提交把它原本跑绿的东西改红了"并拒绝跳门。两枚退出码的差**不是内容差**。
+  // 正控就是上面的 D1(同一份快照 ⇒ introduced 照判 mine,堵住原型的那一态不得被削弱);
+  // 这里钉的是另外四格:两跑之间前移 / 单跑前后就变了 / 取不到 / 未注入 —— 一律不得落
+  // introduced,**也一律不得落 not-ours**(它同样没证明"与本次无关"),只能落态④ undetermined-red。
+  const myRedStableSnapshot = myRedStable
+  const movedBetweenRuns = () => ({ status: 1, output: GATE55_REAL, externals: externalsAdvanced() })
+  const driftWithinRun = () => ({
+    ran: true,
+    status: 0,
+    output: '✅ 覆盖率 87/87',
+    why: null,
+    externals: { before: 'remote=alpha', after: 'remote=beta' },
+  })
+  const unobtainableSnapshot = () => ({
+    status: 1,
+    output: GATE55_REAL,
+    externals: { before: null, after: null, why: 'ls-remote 不可用(离线)' },
+  })
+  const noSnapshotFieldAtAll = () => ({ status: 1, output: GATE55_REAL })
+  const baselineNoSnapshotField = () => ({ ran: true, status: 0, output: '绿', why: null })
+  const d8Arms = [
+    ['远端在两跑之间前移', movedBetweenRuns, greenBaseline, 'moved'],
+    ['基线面那一跑前后就变了', myRedStableSnapshot, driftWithinRun, 'moved'],
+    ['取不到快照(问不到远端)', unobtainableSnapshot, greenBaseline, 'unobtainable'],
+    ['调用方未注入快照', noSnapshotFieldAtAll, baselineNoSnapshotField, 'unobtainable'],
+  ]
+  for (const [name, my, base, sub] of d8Arms) {
+    const v = classifyHookFailure({
+      text: SUMMARY + FAIL_29,
+      stagedFiles: DECL_MCP,
+      runGate: my,
+      runGateBaseline: base,
+    })
+    assert(
+      v.kind === 'undetermined-red',
+      `D8[${name}] 差分两侧未读自同一份外部状态时必须落未差分(既不得判 mine 也不得判 not-ours),实得 ${v.kind}`,
+    )
+    assert(v.delta.introduced === 0, `D8[${name}] 禁止落 introduced —— 那正是本型要杀死的假红定责`)
+    assert(
+      sub === 'moved' ? v.delta.externalsMoved === 1 : v.delta.externalsUnobtainable === 1,
+      `D8[${name}] 两个亚型必须可机读分开(实得 moved=${v.delta.externalsMoved} unobtainable=${v.delta.externalsUnobtainable})`,
+    )
+    const det = v.detail.join('\n')
+    assert(/未能差分/.test(det), `D8[${name}] 明细必须落"未能差分",不得静默`)
+    assert(/外部状态/.test(det), `D8[${name}] 明细必须点名这一型的真实成因,不得只写"归属未知"`)
+    const line = verdictLine(v)
+    assert(
+      !/不在本次提交内容里/.test(line),
+      `D8[${name}] 反向锁:未差分不得冒充实证过的"与本次无关",实得:${line}`,
+    )
+    assert(/未经差分证明/.test(line), `D8[${name}] 必须明写"归属未经差分证明"`)
+    assert(sub === 'moved' ? /前移|前后就变了|两跑之间/.test(line) : /取不到/.test(line),
+      `D8[${name}] 措辞必须按亚型说清(${sub}),实得:${line}`)
+  }
+  // D8-正 有牙对照:同一批输入**只**把快照换回"同一份" ⇒ 必须翻成 mine。
+  // 少了这一条,D8 四格可以靠"恒落未差分"空转 —— 那等于把态②整条拆掉(§12e 明令禁止削判据)。
+  const d8Back = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: DECL_MCP,
+    runGate: myRedStableSnapshot,
+    runGateBaseline: greenBaseline,
+  })
+  assert(d8Back.kind === 'mine', `D8-正 同一份快照时必须回到 introduced ⇒ mine,实得 ${d8Back.kind}`)
+  assert(
+    d8Back.delta.introduced === 1 && d8Back.delta.externalsMoved === 0,
+    'D8-正 introduced 计数必须为 1 且未差分计数为 0,否则正控与 D8 四格不是同一把尺',
+  )
+  // D8-③ 语义不动锁:外部状态变了**不影响存量档**(HEAD 面亦红不指向提交者,拦它就是把 ③ 改掉)
+  const d8Stock = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: DECL_MCP,
+    runGate: movedBetweenRuns,
+    runGateBaseline: stockBaseline,
+  })
+  assert(
+    d8Stock.kind === 'not-ours',
+    `D8-③ 基线同红 ⇒ 仍走存量档,不得被新前提吃掉,实得 ${d8Stock.kind}`,
+  )
+  // D9 externalsDiffUsable 的分支必须成对(与 D6 同一条纪律:"跑过"不等于"能用")
+  assert(
+    externalsDiffUsable({ externals: EXTERNALS_STABLE }, { externals: EXTERNALS_STABLE }).ok === true,
+    'D9a 四枚逐字相等 ⇒ 差分可用',
+  )
+  assert(
+    externalsDiffUsable({}, {}).state === 'unobtainable',
+    'D9b 未提供 externals ⇒ 未判定,不得折算成"没变"',
+  )
+  assert(
+    externalsDiffUsable(
+      { externals: { before: 'remote=alpha', after: '' } },
+      { externals: EXTERNALS_STABLE },
+    ).state === 'unobtainable',
+    'D9c 空串同样算取不到(空值不是"快照内容一致")',
+  )
+  assert(
+    externalsDiffUsable({ externals: externalsAdvanced() }, { externals: EXTERNALS_STABLE }).state ===
+      'moved',
+    'D9d 跨侧不等 ⇒ moved(远端在两跑之间前移)',
+  )
+  assert(
+    externalsDiffUsable(
+      { externals: { before: 'remote=alpha', after: 'remote=beta' } },
+      { externals: EXTERNALS_STABLE },
+    ).state === 'moved',
+    'D9e 单侧前后不等 ⇒ moved(那一跑之间世界就动了,两侧读数无从比较)',
   )
   return { parsedFixture: p }
 }
@@ -1878,6 +2184,7 @@ export const __test__ = {
   normGatePath,
   lineNamesFile,
   baselineUsable,
+  externalsDiffUsable,
   findingLines,
   parseGateSummary,
   pickLastSummaryRun,
@@ -1898,6 +2205,8 @@ export const __test__ = {
   SUMMARY,
   FAIL_29,
   MY_FILES,
+  EXTERNALS_STABLE,
+  externalsAdvanced,
   REMOTE_STATE_MARK,
   EXTERNAL_FS_MARK,
   SELF_HEAL_FIXED_MARK,

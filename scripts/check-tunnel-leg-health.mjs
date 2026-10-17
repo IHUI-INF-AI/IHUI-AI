@@ -30,6 +30,12 @@
  *   判红即恒红门(§12e)⇒ warn-only 报数,仅当与 deprecated 同时成立时在结论里升级为
  *   "放大因子"(4 腿一起断的乘数),不另立 breach。
  * - 远端口认 7843/7844 两档(Cloudflare 隧道端口,实测现值为 7844)。
+ * - 〔2026-10-17 补第二路取材〕**腿的源地址也可以是 IPv4**:现读 4 条腿 = 1 条 v4 源 `192.168.1.37` +
+ *   3 条 v6 源,`D:\DevEnv\logs\cloudflared.log` 自述 `ICMP proxy will use 192.168.1.37 as source for IPv4`。
+ *   此前这一格只查 IPv6 表 ⇒ v4 源恒"查不到"、恒 unjudged、退出码恒 3 —— 立项要防的那一型在 v4 形态下
+ *   一轮都判不出来(等于没装车)。故按**地址族分流**:v6 源走 ipv6 寿命表(判据一字不改),v4 源走
+ *   `netsh interface ipv4 show addresses`(该表实测**没有**寿命/退化字段 ⇒ 在册即健康;
+ *   **两表皆无**且两路采集都成功 ⇒ breach:在用源地址已不在任何接口上,腿随时整组断)。
  *
  * ## 三态纪律(§0.3)
  *
@@ -47,7 +53,7 @@
  *
  * ## 取材面(守门 118 口径声明)
  *
- * 本器判的是**机器运行时状态**(netsh/netstat/tasklist 三路现读,全是原生命令行工具 —— PowerShell 在守护身份下冷启动超时会把三格洗成永久未判定),不读任何仓库内容 ⇒
+ * 本器判的是**机器运行时状态**(netsh 地址表(ipv6 寿命表 + ipv4 地址表)/netstat/tasklist 多路现读,全是原生命令行工具 —— PowerShell 在守护身份下冷启动超时会把三格洗成永久未判定),不读任何仓库内容 ⇒
  * 没有 HEAD/索引/--staged 档,也不出现 readFileSync + resolve(ROOT…) 组合;输入取不到时
  * 一律落到对应维的 unjudged,不回落、不猜。
  */
@@ -149,6 +155,49 @@ export function isDeprecatedRecord(rec) {
   if (!rec) return false
   if (String(rec.preferredLifetime).trim().toLowerCase() === '0s') return true
   return /反对|deprecated/i.test(String(rec.state || ''))
+}
+
+/**
+ * 第二路取材:`netsh interface ipv4 show addresses`(2026-10-17 立,补 IPv4 源地址的盲区)。
+ *
+ * 为什么这张表要单独一把尺子:它是**逐接口的键值块**,不是 ipv6 那种五行列表 —— 本机现读
+ * `接口 "以太网" 的配置 / DHCP 已启用: 否 / IP 地址: 192.168.1.37 / 子网前缀: 192.168.1.0/24 (掩码 255.255.255.0)
+ * / 默认网关: 192.168.1.1 / 网关跃点数: 256 / InterfaceMetric: 25`。守护身份 SYSTEM=en-US 时同一命令的
+ * 表头是英文(`IP address` / `Subnet prefix` / `Default gateway`),Administrator=zh-CN 时是中文 ⇒
+ * **解析只认 ASCII 形状**:两档身份的"IP 地址"行都以 ASCII 的 `IP` 起头(中文只译了"地址"两字),
+ * 而其它带四段点分数字的行(子网前缀/默认网关/掩码括号)都不以 `IP` 起头 ⇒ 中文表头一律不吃,
+ * 也不许去匹配"地址/address"这类会随身份换词的文案。
+ *
+ * 该表实测**没有**寿命/退化字段 ⇒ 在册即健康;`state` 只从行尾括号里捡 ASCII 退化词(为"存在且状态非
+ * deprecated"这一条留的口子,当前本机读不到 ⇒ 恒空,不影响在册判 ok)。
+ */
+const IPV4_LINE_SHAPE = /^IP(?![A-Za-z0-9])[^\r\n]*:/
+const IPV4_QUAD_SHAPE = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/
+
+export function isIPv4AddressText(v) {
+  const m = IPV4_QUAD_SHAPE.exec(String(v).trim())
+  if (!m || m[1] !== String(v).trim()) return false
+  return m[1].split('.').every((o) => Number(o) <= 255)
+}
+
+export function parseNetshV4Addresses(text) {
+  const out = new Map()
+  if (typeof text !== 'string' || text.length === 0) return out
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!IPV4_LINE_SHAPE.test(line)) continue
+    const after = line.slice(line.indexOf(':') + 1)
+    const m = IPV4_QUAD_SHAPE.exec(after)
+    if (!m || !isIPv4AddressText(m[1])) continue
+    const paren = /\(([^()]*)\)/.exec(after.slice(m.index + m[1].length))
+    out.set(m[1], { address: m[1], state: paren ? paren[1].trim() : '', line })
+  }
+  return out
+}
+
+export function isDeprecatedV4Record(rec) {
+  if (!rec) return false
+  return /deprecated|反对|弃用/i.test(String(rec.state || ''))
 }
 
 export function parseNetstatLegs(text, pids, ports = REMOTE_TUNNEL_PORTS) {
@@ -293,11 +342,112 @@ export function summarizeRestarts(events, opt = {}) {
 }
 
 /**
+ * 源地址族分流(2026-10-17 立)。三态纪律在族内独立成立,再取最坏档合流:
+ * breach > unjudged > ok —— breach 排在最坏是因为"该喊的时候不喊"才是本仓最高频失效型(§12f),
+ * 而两族的读数在 reason 里始终分开点名,谁也不替谁顶账。
+ */
+const VERDICT_RANK = { ok: 0, warn: 1, unjudged: 2, breach: 3 }
+const UNSPECIFIED_V4 = new Set(['0.0.0.0'])
+
+/**
+ * v6 族:既有判据**一字未改**(取 netsh interface ipv6 show addresses 的寿命表)。
+ * 返回 { verdict, reason, okNote, reading };reason 在 ok 档为 ''(只在合流文案里用 okNote)。
+ */
+export function judgeV6Family(v6Sources, ctx) {
+  if (v6Sources.length === 0) return null
+  const { netshProbe, addresses } = ctx
+  if (netshProbe !== 'ok') {
+    return { verdict: 'unjudged', reason: 'netsh 采集失败,源地址寿命表取不到', okNote: '', reading: null }
+  }
+  const deprecated = v6Sources.filter((s) => isDeprecatedRecord(addresses.get(s)))
+  const missing = v6Sources.filter((s) => !addresses.has(s))
+  if (deprecated.length > 0) {
+    return {
+      verdict: 'breach',
+      reason: `在用源地址已退化:${deprecated.map((s) => `${s}(首选寿命 ${addresses.get(s).preferredLifetime},状态 ${addresses.get(s).state})`).join('; ')}`,
+      okNote: '',
+      reading: { deprecated },
+    }
+  }
+  if (missing.length > 0) {
+    return { verdict: 'unjudged', reason: `腿的源地址在 netsh 地址表里查不到,无法判退化:${missing.join(', ')}`, okNote: '', reading: null }
+  }
+  return {
+    verdict: 'ok',
+    reason: '',
+    okNote: `${v6Sources.length} 枚在册且未退化`,
+    reading: { sources: v6Sources.map((s) => ({ addr: s, preferredLifetime: addresses.get(s).preferredLifetime, state: addresses.get(s).state })) },
+  }
+}
+
+/**
+ * v4 族逐地址判。三条结论各自都要有成对夹具:
+ * - 在册且状态非退化 ⇒ ok;
+ * - **两张表都查不到** ⇒ breach(在用 v4 源地址已不在任何接口上,腿随时整组断)。这一档必须
+ *   netsh ipv4 与 netsh ipv6 两路采集都 ok 才允许判 —— 少任一路仍是 unjudged(§0.3:没判绝不写成判过);
+ * - ipv4 那一路采集失败/未采集 ⇒ unjudged 并点名 `netsh ipv4`(绝不折成 ok,也绝不折成 breach)。
+ * 未指定地址 0.0.0.0(套接字没绑具体源)单列 unjudged,不给它造出假 breach。
+ */
+export function classifyV4Source(src, ctx) {
+  if (UNSPECIFIED_V4.has(src)) return { src, verdict: 'unjudged', note: `${src}(v4 未指定地址,套接字未绑到具体源地址 ⇒ 无法判退化,不判 breach)` }
+  if (ctx.netshV4Probe !== 'ok') {
+    return { src, verdict: 'unjudged', note: `${src}(netsh ipv4 ${ctx.netshV4Probe === 'failed' ? '采集失败' : '未采集'},v4 地址表取不到)` }
+  }
+  const rec = ctx.v4Addresses.get(src)
+  if (rec) {
+    return isDeprecatedV4Record(rec)
+      ? { src, verdict: 'breach', note: `${src}(ipv4 地址表在册但状态为 ${rec.state})` }
+      : { src, verdict: 'ok', note: `${src}(ipv4 地址表在册;该表实测无寿命/退化字段 ⇒ 在册即健康)` }
+  }
+  if (ctx.netshProbe !== 'ok') {
+    return { src, verdict: 'unjudged', note: `${src}(ipv4 表查无,而 netsh ipv6 采集失败 ⇒ 两表未齐,不许判 breach)` }
+  }
+  // ipv6 地址表的形态判据要求含冒号 ⇒ v4 点分地址结构上不可能在册,"ipv4 表查无"即"两表皆无"
+  return { src, verdict: 'breach', note: `${src}(在 netsh ipv4 与 ipv6 两张地址表里都查不到 ⇒ 在用 v4 源地址已不在本机任何接口上,吊在它上面的腿随时整组断)` }
+}
+
+/** v4 族合流:逐地址取最坏档。 */
+export function judgeV4Family(v4Sources, ctx) {
+  if (v4Sources.length === 0) return null
+  const items = v4Sources.map((s) => classifyV4Source(s, ctx))
+  const speak = items.filter((i) => i.verdict !== 'ok')
+  const verdict = speak.length === 0 ? 'ok' : speak.reduce((a, b) => (VERDICT_RANK[b.verdict] > VERDICT_RANK[a.verdict] ? b : a)).verdict
+  const reading = { sources: items.map((i) => ({ addr: i.src, verdict: i.verdict })) }
+  if (verdict === 'ok') return { verdict, reason: '', okNote: `${v4Sources.length} 枚在册`, reading }
+  const reason = speak.map((i) => i.note).join('; ')
+  return { verdict, reason, okNote: '', reading: verdict === 'breach' ? { bad: items.filter((i) => i.verdict === 'breach').map((i) => i.src) } : null }
+}
+
+/**
+ * deprecated-source 两族合流。单族时文案与分流前逐字相同(不许顺手改已有维度的文案),
+ * 混合源才走"族分判 + 取最坏档",并把两族读数分开点名。
+ */
+function combineDeprecatedFamilyParts(parts, amplifying) {
+  if (parts.length === 1) {
+    const only = parts[0]
+    return {
+      verdict: only.verdict,
+      reason: only.verdict === 'ok' ? undefined : only.reason + (only.verdict === 'breach' && amplifying ? ' —— 且全部腿吊在这一个源地址上,退化即 4 腿同断的乘数(放大因子)' : ''),
+      reading: only.verdict === 'breach' || only.verdict === 'ok' ? only.reading : undefined,
+    }
+  }
+  const worst = parts.reduce((a, b) => (VERDICT_RANK[b.verdict] > VERDICT_RANK[a.verdict] ? b : a))
+  const body = parts.map((p) => `${p.family}族=${p.verdict}(${p.verdict === 'ok' ? p.okNote : p.reason})`).join(' | ')
+  return {
+    verdict: worst.verdict,
+    reason: `混合源族分判(取最坏档)${body}${worst.verdict === 'breach' && amplifying ? ' —— 且全部腿吊在这一个源地址上,退化即 4 腿同断的乘数(放大因子)' : ''}`,
+    reading: { v6: parts.find((p) => p.family === 'v6')?.reading ?? null, v4: parts.find((p) => p.family === 'v4')?.reading ?? null },
+  }
+}
+
+/**
  * 核心判定:输入是采集层给出的原始事实(或测试夹具),输出每维独立结论。
  * processProbe: 'ok'(拿到 pid 列表) | 'failed'(探测本身失败 ⇒ 进程存在性未知)
- * netshProbe / netstatProbe: 'ok' | 'failed'
+ * netshProbe / netstatProbe: 'ok' | 'failed'(netshProbe = netsh interface **ipv6** 寿命表那一路)
+ * netshV4Probe: 'ok' | 'failed' | 'blind'(命令成功却解析不出任何 v4 地址 ⇒ 采集失明) | 'absent'(调用方没采)
+ * v4Addresses: netsh interface ipv4 show addresses 解析出的地址表
  */
-export function judge({ processProbe, pids, netshProbe, netstatProbe, legs, addresses, eventsProbe = 'absent', restarts = null, metricsProbe = 'absent', locations = null, nowMs = Date.now() }) {
+export function judge({ processProbe, pids, netshProbe, netshV4Probe = 'absent', netstatProbe, legs, addresses, v4Addresses = new Map(), eventsProbe = 'absent', restarts = null, metricsProbe = 'absent', locations = null, nowMs = Date.now() }) {
   const dims = {}
   const processPresent = processProbe === 'ok' ? pids.length > 0 : null
 
@@ -365,28 +515,16 @@ export function judge({ processProbe, pids, netshProbe, netstatProbe, legs, addr
       verdict: 'unjudged',
       reason: dims['leg-count'].verdict === 'breach' ? '无腿可查在用源地址(腿已全断)' : '没有可判的在用腿,源地址枚举为 0 ⇒ 不记绿',
     }
-  } else if (netshProbe !== 'ok') {
-    dims['deprecated-source'] = { verdict: 'unjudged', reason: 'netsh 采集失败,源地址寿命表取不到' }
   } else {
-    const deprecated = sources.filter((s) => isDeprecatedRecord(addresses.get(s)))
-    const missing = sources.filter((s) => !addresses.has(s))
-    if (deprecated.length > 0) {
-      const amplifying = sources.length === 1 && legs.length >= 2
-      dims['deprecated-source'] = {
-        verdict: 'breach',
-        reason:
-          `在用源地址已退化:${deprecated.map((s) => `${s}(首选寿命 ${addresses.get(s).preferredLifetime},状态 ${addresses.get(s).state})`).join('; ')}` +
-          (amplifying ? ' —— 且全部腿吊在这一个源地址上,退化即 4 腿同断的乘数(放大因子)' : ''),
-        reading: { deprecated },
-      }
-    } else if (missing.length > 0) {
-      dims['deprecated-source'] = { verdict: 'unjudged', reason: `腿的源地址在 netsh 地址表里查不到,无法判退化:${missing.join(', ')}` }
-    } else {
-      dims['deprecated-source'] = {
-        verdict: 'ok',
-        reading: { sources: sources.map((s) => ({ addr: s, preferredLifetime: addresses.get(s).preferredLifetime, state: addresses.get(s).state })) },
-      }
-    }
+    const amplifying = sources.length === 1 && legs.length >= 2
+    const v6Sources = sources.filter((s) => !isIPv4AddressText(s))
+    const v4Sources = sources.filter((s) => isIPv4AddressText(s))
+    const parts = []
+    const f6 = judgeV6Family(v6Sources, { netshProbe, addresses })
+    if (f6) parts.push({ family: 'v6', ...f6 })
+    const f4 = judgeV4Family(v4Sources, { netshProbe, netshV4Probe, v4Addresses })
+    if (f4) parts.push({ family: 'v4', ...f4 })
+    dims['deprecated-source'] = combineDeprecatedFamilyParts(parts, amplifying)
   }
 
   if (!legsKnown) {
@@ -439,9 +577,22 @@ export function positiveControl() {
     ],
     addresses,
   })
+  // 第二路对照(2026-10-17 立):v6 表采集成功、v4 表也采集成功而在用 v4 源地址两表皆无 ⇒ 必须 breach。
+  // 这一枚是新增分支的"有牙证明"——每天真跑前都量一次,新支被摘则整轮降 exit 3(不是放行)。
+  const v4Dims = judge({
+    processProbe: 'ok',
+    pids: ['999'],
+    netshProbe: 'ok',
+    netshV4Probe: 'ok',
+    netstatProbe: 'ok',
+    legs: [{ source: '10.99.99.88', sourcePort: 1, dest: '198.41.192.37', destPort: 7844 }],
+    addresses: new Map([['2408::ok', { kind: '公用', state: '首选项', validLifetime: '2d', preferredLifetime: '1d' }]]),
+    v4Addresses: new Map([['10.0.0.1', { address: '10.0.0.1', state: '', line: 'IP address: 10.0.0.1' }]]),
+  })
   return {
-    passed: dims['deprecated-source'].verdict === 'breach' && dims['leg-count'].verdict === 'ok',
+    passed: dims['deprecated-source'].verdict === 'breach' && dims['leg-count'].verdict === 'ok' && v4Dims['deprecated-source'].verdict === 'breach',
     dims,
+    v4Dims,
   }
 }
 
@@ -454,9 +605,10 @@ export function decideExit(dims, controlPassed) {
 }
 
 async function collect() {
-  const [ps, netsh, netstat, ev] = await Promise.all([
+  const [ps, netsh, netshV4, netstat, ev] = await Promise.all([
     runCapture(TASKLIST, ['/NH', '/FO', 'CSV', '/FI', 'IMAGENAME eq cloudflared.exe'], TASKLIST_TIMEOUT_MS),
     runCapture('netsh', ['interface', 'ipv6', 'show', 'addresses']),
+    runCapture('netsh', ['interface', 'ipv4', 'show', 'addresses']),
     runCapture('netstat', ['-ano']),
     runCapture(WEVTUTIL, ['qe', 'Application', `/q:*[System[Provider[@Name=\'Cloudflared\'] and TimeCreated[timediff(@SystemTime) <= ${RESTART_EVENT_WINDOW_MS}]]]`, '/f:XML', '/c:200'], SPAWN_TIMEOUT_MS),
   ])
@@ -468,6 +620,11 @@ async function collect() {
   const eventsProbe = ev.ok && !ev.killed && events.length > 0 ? 'ok' : events.length === 0 && ev.ok && !ev.killed ? 'empty' : 'failed'
   const restarts = eventsProbe === 'failed' ? null : summarizeRestarts(events)
   const addresses = netshProbe === 'ok' ? parseNetshAddresses(netsh.stdout) : new Map()
+  // v4 那一路独立结账:'failed'(命令本身挂) / 'blind'(命令成功却一枚地址都没解析出来 —— Loopback
+  // 恒有 127.0.0.1,一枚都读不出只能是判据被换了表头吃掉,不是"本机没有 v4 地址") / 'ok'。
+  const v4Parsed = netshV4.ok && !netshV4.killed ? parseNetshV4Addresses(netshV4.stdout) : new Map()
+  const netshV4Probe = !netshV4.ok || netshV4.killed ? 'failed' : v4Parsed.size === 0 ? 'blind' : 'ok'
+  const v4Addresses = v4Parsed
   const { legs, unparseableTcp } = netstatProbe === 'ok' ? parseNetstatLegs(netstat.stdout, pids) : { legs: [], unparseableTcp: [] }
   // 第五维取材:端口现读(不硬编码),HTTP 只给 5 秒,取不到就如实记 failed(不折成"落点近")。
   const metricsPort = netstatProbe === 'ok' ? parseMetricsListenPort(netstat.stdout, pids) : null
@@ -484,12 +641,14 @@ async function collect() {
   }
   const failedNames = [
     processProbe === 'failed' ? `tasklist(${ps.err || '无输出'})` : null,
-    netshProbe === 'failed' ? `netsh(${netsh.err || '输出异常'})` : null,
+    netshProbe === 'failed' ? `netsh ipv6(${netsh.err || '输出异常'})` : null,
+    netshV4Probe === 'failed' ? `netsh ipv4(${netshV4.err || '输出异常'})` : null,
+    netshV4Probe === 'blind' ? 'netsh ipv4(命令成功但解析不出任何 v4 地址 ⇒ 采集失明)' : null,
     netstatProbe === 'failed' ? `netstat(${netstat.err || '输出异常'})` : null,
     eventsProbe === 'failed' ? `wevtutil(${ev.err || '输出异常或解析不出事件'})` : null,
     metricsProbe === 'failed' ? `cloudflared-metrics(${metricsPort === null ? '未枚举到本 pid 的回环监听端口' : 'HTTP 失败或超时'})` : null,
   ].filter(Boolean)
-  return { processProbe, pids, netshProbe, netstatProbe, eventsProbe, restarts, eventTotal: events.length, legs, addresses, unparseableTcp, metricsProbe, locations, metricsPort, failedNames, evidenceAt: new Date().toISOString() }
+  return { processProbe, pids, netshProbe, netshV4Probe, netstatProbe, eventsProbe, restarts, eventTotal: events.length, legs, addresses, v4Addresses, unparseableTcp, metricsProbe, locations, metricsPort, failedNames, evidenceAt: new Date().toISOString() }
 }
 
 function formatHuman(dims, exitCode, evidenceAt, extra) {
@@ -536,6 +695,8 @@ async function main() {
         evidenceAt: collected.evidenceAt,
         pids: collected.pids,
         legs: collected.legs.length,
+        netshV4Probe: collected.netshV4Probe,
+        v4AddressCount: collected.v4Addresses.size,
         metricsPort: collected.metricsPort ?? null,
         edgeLocations: collected.locations ?? null,
         failedCollectSources: collected.failedNames,
@@ -630,6 +791,112 @@ function selfTest() {
   t('阳性对照夹具必须 breach(摘掉 deprecated 支即翻红的形状锁)', () => {
     eq(positiveControl().passed, true, '对照')
   })
+  // ───────── IPv4 源地址那一路(2026-10-17 立,补"v6 表判不出 v4 源"的永久未判定盲区)─────────
+  const v4TextZh = [
+    '接口 "以太网" 的配置',
+    '    DHCP 已启用:                          否',
+    '    IP 地址:                           192.168.1.37',
+    '    子网前缀:                        192.168.1.0/24 (掩码 255.255.255.0)',
+    '    默认网关:                         192.168.1.1',
+    '    网关跃点数:                       256',
+    '    InterfaceMetric:                      25',
+    '接口 "Loopback Pseudo-Interface 1" 的配置',
+    '    IP 地址:                           127.0.0.1',
+    '    子网前缀:                        127.0.0.0/8 (掩码 255.0.0.0)',
+  ].join('\n')
+  const v4TextEn = [
+    'Configuration interface Ethernet (Ethernet)',
+    '    DHCP enabled:                          No',
+    '    IP address:                         10.8.9.10',
+    '    Subnet prefix:                10.8.9.0/24 (mask 255.255.255.0)',
+    '    Default gateway:                   10.8.9.1',
+    '    InterfaceMetric:                      25',
+  ].join('\n')
+  const v4In = parseNetshV4Addresses(v4TextZh)
+  t('netsh v4 解析:只认 ASCII 形 `IP…:` 起头的行;中文表头不吃、子网/网关/掩码括号一枚都不收', () => {
+    eq(v4In.size, 2, 'zh 档地址数')
+    eq(v4In.has('192.168.1.37'), true, '在册 v4 源')
+    eq(v4In.has('192.168.1.1'), false, '默认网关不是本机地址')
+    eq(v4In.has('255.255.255.0'), false, '掩码括号里的数字不是地址')
+    const en = parseNetshV4Addresses(v4TextEn)
+    eq(en.size, 1, 'en 档地址数(守护身份 SYSTEM=en-US)')
+    eq(en.has('10.8.9.10'), true, 'en 档在册')
+    eq(parseNetshV4Addresses('').size, 0, '空文本 ⇒ 0 枚(上层落 blind,不判 breach)')
+    eq(isIPv4AddressText('192.168.1.301'), false, '八位组越界不当地址')
+  })
+  const mkV4 = (src, over = {}) =>
+    judge({
+      processProbe: 'ok',
+      pids: ['1'],
+      netshProbe: 'ok',
+      netshV4Probe: 'ok',
+      netstatProbe: 'ok',
+      legs: [{ source: src, sourcePort: 5, dest: '198.41.192.37', destPort: 7844 }],
+      addresses: parseNetshAddresses(addrText),
+      v4Addresses: v4In,
+      ...over,
+    })
+  t('v4 族成对夹具:在册 ⇒ ok;两表皆无且两路采集齐 ⇒ breach', () => {
+    eq(mkV4('192.168.1.37')['deprecated-source'].verdict, 'ok', '在册即健康')
+    const gone = mkV4('192.168.9.99')['deprecated-source']
+    eq(gone.verdict, 'breach', '两表皆无')
+    eq(/两张地址表里都查不到/.test(String(gone.reason)), true, 'breach 必须说清依据是两表皆无')
+  })
+  t('v4 族缺一路采集 ⇒ unjudged 点名 netsh ipv4(绝不折成 ok/breach)', () => {
+    for (const probe of ['failed', 'blind', 'absent']) {
+      const d = mkV4('192.168.9.99', { netshV4Probe: probe })['deprecated-source']
+      eq(d.verdict, 'unjudged', `netshV4Probe=${probe}`)
+      eq(/netsh ipv4/.test(String(d.reason)), true, `netshV4Probe=${probe} 必须点名 netsh ipv4`)
+    }
+    eq(mkV4('192.168.1.37', { netshV4Probe: 'failed' })['deprecated-source'].verdict, 'unjudged', '采集挂时在册也不给绿')
+    eq(mkV4('192.168.9.99', { netshProbe: 'failed' })['deprecated-source'].verdict, 'unjudged', 'ipv6 那一路未齐 ⇒ 不许判 breach')
+  })
+  t('0.0.0.0 这类未指定源地址 ⇒ unjudged 点名,不许造出"两表皆无"的假 breach', () => {
+    eq(mkV4('0.0.0.0')['deprecated-source'].verdict, 'unjudged', '未指定地址')
+  })
+  t('变异自证:同一枚 breach 夹具摘掉新增分支(只喂 v6 表)即翻红 ⇒ breach 确实来自 v4 支', () => {
+    const withBoth = mkV4('192.168.9.99')
+    eq(withBoth['deprecated-source'].verdict, 'breach', '两表齐 ⇒ breach(分支被摘则本断言翻红)')
+    const v6Only = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [{ source: '192.168.9.99', sourcePort: 5, dest: '198.41.192.37', destPort: 7844 }], addresses: parseNetshAddresses(addrText) })
+    eq(v6Only['deprecated-source'].verdict, 'unjudged', '没采 netsh ipv4 ⇒ 只能未判定')
+  })
+  const mkMix = (over = {}) =>
+    judge({
+      processProbe: 'ok',
+      pids: ['1'],
+      netshProbe: 'ok',
+      netshV4Probe: 'ok',
+      netstatProbe: 'ok',
+      legs: [
+        { source: '2408:8234::60a3', sourcePort: 1, dest: '2606::1', destPort: 7844 },
+        { source: '192.168.1.37', sourcePort: 2, dest: '198.41.192.37', destPort: 7844 },
+      ],
+      addresses: parseNetshAddresses(addrText),
+      v4Addresses: v4In,
+      ...over,
+    })
+  t('混合源两族都判到 ⇒ ok,reason 不硬凑(单族形态仍走既有文案)', () => {
+    eq(mkMix()['deprecated-source'].verdict, 'ok', 'v6 在册 + v4 在册')
+    const pure6 = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [{ source: '2408:8234::bb3', sourcePort: 1, dest: '::', destPort: 7844 }], addresses: parseNetshAddresses(addrText) })
+    eq(/^在用源地址已退化:/.test(String(pure6['deprecated-source'].reason)), true, '纯 v6 夹具文案必须与分流前逐字相同')
+  })
+  t('混合源取最坏档并分族点名:v6 健康 + v4 已消失 ⇒ breach', () => {
+    const d = mkMix({ legs: [{ source: '2408:8234::60a3', sourcePort: 1, dest: '2606::1', destPort: 7844 }, { source: '192.168.9.99', sourcePort: 2, dest: '198.41.192.37', destPort: 7844 }] })['deprecated-source']
+    eq(d.verdict, 'breach', '最坏档')
+    eq(/v6族=ok/.test(String(d.reason)), true, 'v6 读数必须单独点名')
+    eq(/v4族=breach/.test(String(d.reason)), true, 'v4 读数必须单独点名')
+  })
+  t('族间不顶账:v6 失明不折成 v4 的绿;v4 失明不折成 v6 的红', () => {
+    const v6Blind = mkMix({ netshProbe: 'failed' })['deprecated-source']
+    eq(v6Blind.verdict, 'unjudged', 'v6 采集挂 ⇒ 整格不得记绿')
+    eq(/v4族=ok/.test(String(v6Blind.reason)), true, 'v4 判到了什么要照实写出来')
+    const v4Blind = mkMix({ netshV4Probe: 'failed', legs: [{ source: '2408:8234::bb3', sourcePort: 1, dest: '2606::1', destPort: 7844 }, { source: '192.168.1.37', sourcePort: 2, dest: '198.41.192.37', destPort: 7844 }] })['deprecated-source']
+    eq(v4Blind.verdict, 'breach', 'v6 退化是真 breach,不因 v4 未判定而消音')
+    eq(/v4族=unjudged/.test(String(v4Blind.reason)), true, 'v4 那一路的失明必须一起点名')
+  })
+  t('阳性对照第二路(新增 v4 支)自身必须 breach —— 新支被摘则整轮降 3,不是放行', () => {
+    eq(positiveControl().v4Dims['deprecated-source'].verdict, 'breach', 'v4 对照')
+  })
   t('退出码映射:breach=1 / 仅warn=0 / 未判定=3 / 对照失手=3', () => {
     const addresses = parseNetshAddresses(addrText)
     const breach = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [{ source: '2408:8234::bb3', sourcePort: 1, dest: '::', destPort: 7844 }], addresses })
@@ -701,6 +968,12 @@ if (isDirectRun) {
 export const __test__ = {
   normalizeAddr,
   parseNetshAddresses,
+  parseNetshV4Addresses,
+  isIPv4AddressText,
+  isDeprecatedV4Record,
+  classifyV4Source,
+  judgeV4Family,
+  judgeV6Family,
   parseNetstatLegs,
   isDeprecatedRecord,
   parseTasklistPids,
