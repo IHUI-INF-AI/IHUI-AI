@@ -19,18 +19,18 @@
  *   T5 装车锁:挂点必须在 `!CHECK_ONLY` 分支,且阈值可由 env 覆盖但默认 24h。
  */
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import test from 'node:test'
 
 import { auditTempLanding } from '../git-guardian.mjs'
+import { mkScratch } from '../lib/scratch-dir.mjs'
 
 const GUARDIAN = resolve(import.meta.dirname, '..', 'git-guardian.mjs')
 const SRC = readFileSync(GUARDIAN, 'utf8')
 
 const fixture = () => {
-  const dir = mkdtempSync(join(tmpdir(), 'temp-landing-'))
+  const dir = mkScratch('temp-landing-')
   return { tickFile: join(dir, 'tick.ts') }
 }
 
