@@ -5012,6 +5012,25 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- mjs 语法对账(1 项,blocking)---
+  {
+    id: '221',
+    label:
+      '🧾 .mjs 语法对账(被审面全量纯解析,只解析不执行;--staged 差值棘轮只拦本次带进来的,存量只报数——上线当刻 HEAD 面实测 1 枚存量,定级与清偿见门体头注)',
+    script: 'check-mjs-syntax.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MJS_SYNTAX',
+    onFailHint: [
+      '',
+      '  修法:对点名文件跑 node --check <file> 看行(事故型 = 块注释/字符串被劈成孤残行),修完复跑 node scripts/check-mjs-syntax.mjs --staged 确认转绿。',
+      '  存量报数(不拦提交)= node scripts/check-mjs-syntax.mjs;清偿后要问责存量加 --strict;禁止为消红改判据。',
+      '  自检:node scripts/check-mjs-syntax.mjs --self-test(11 例,含哨兵反证"绝不执行顶层代码");镜像:node --test scripts/tests/check-mjs-syntax.test.mjs',
+      '  应急跳过(不推荐):HUSKY_SKIP_MJS_SYNTAX=1 git commit ...(须在提交信息写明理由)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
