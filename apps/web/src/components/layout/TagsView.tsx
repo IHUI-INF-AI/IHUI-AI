@@ -482,13 +482,20 @@ export function TagsView() {
   // ctxMenu 位置越界修正:贴 viewport 边缘(避免菜单出框)
   const menuStyle = ctxMenu
     ? {
-        left: Math.min(
-          ctxMenu.x,
-          typeof window !== 'undefined' ? window.innerWidth - 160 : ctxMenu.x,
+        // 2026-10-17 根治:四边 clamp(原只防右/下溢出,左/上贴死屏幕边缘)
+        left: Math.max(
+          8,
+          Math.min(
+            ctxMenu.x,
+            typeof window !== 'undefined' ? window.innerWidth - 160 : ctxMenu.x,
+          ),
         ),
-        top: Math.min(
-          ctxMenu.y,
-          typeof window !== 'undefined' ? window.innerHeight - 140 : ctxMenu.y,
+        top: Math.max(
+          8,
+          Math.min(
+            ctxMenu.y,
+            typeof window !== 'undefined' ? window.innerHeight - 140 : ctxMenu.y,
+          ),
         ),
       }
     : null
@@ -517,10 +524,14 @@ export function TagsView() {
         //   active 态 outline-2 外描边上下各出 2px(GlobalTopBar 2026-08-12 定稿"必须真外露")。
         //   行盒向上下各扩 4px(落在顶栏 pt/pb 的 padding 里,不可见),标签锁定 h-9=36px 居中,
         //   描边恰好完整落在裁剪盒(padding box)内,视觉与修复前逐像素一致;
-        // - ③ 左侧 2px 描边预留放在外层 wrap(GlobalTopBar)的 pl-0.5,不放本行:
-        //   行盒是滚动容器,必须能被 wrap 0 宽完全压到 0,否则行自身 padding 会形成
-        //   最小 border-box(padding > 0 ⇒ min 2px)水平溢出 wrap(2026-10-12 e2e 实测)。
-        className="hover-scroll -my-1 flex h-[calc(100%_+_8px)] min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap"
+        // - ③ 左右 2px 描边预留必须放在本行 padding(pl-0.5 pr-0.5):
+        //   裁剪边界 = 本行 padding box。2026-10-12 曾把预留放在外层 wrap(GlobalTopBar)
+        //   的 pl-0.5,但裁剪发生在行盒自身,wrap 留白救不了 —— 首个标签的 outline 仍画在
+        //   行盒内容起点之外,左描边恒被裁(2026-10-17 用户截图实证「首页标签左边描边缺失」)。
+        //   预留移入行内 padding 后 outline 落进裁剪盒;pr-0.5 同理保右端(滚到最右不裁)。
+        //   代价:行盒最小 border-box 4px,极限压缩时最多溢出 wrap 4px(有界),
+        //   远小于本文件 2026-10-12 修复前 972px 的无界溢出,e2e 重叠守门各宽度档不受影响。
+        className="hover-scroll -my-1 flex h-[calc(100%_+_8px)] min-w-0 flex-1 items-center gap-1 overflow-x-auto pl-0.5 pr-0.5 whitespace-nowrap"
         onWheel={(e) => {
           // 2026-08-13 立 / 2026-10-12 复活:把垂直滚轮转为横向滚动,滚动标签行。
           // 2026-08-12 曾为放开 outline 去掉 overflow-x:auto,副作用是行不再是滚动容器、
