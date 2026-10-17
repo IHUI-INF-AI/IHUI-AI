@@ -226,6 +226,28 @@ test('G-322 第十一批:派单入口 plan-tasks 的 --since/--max-commits 吞�
   assert.equal(ok.status, 0, `${ok.stdout ?? ''}${ok.stderr ?? ''}`)
 })
 
+test('G-322 第十二批:守护巡检(check-env-drift)、ps1 门(check-pwsh-version)、取号入口(next-plan-id --source)', () => {
+  // 这三站的选点尺同一条:静默换面/换根 ⇒ 出的是"看起来正常的错结论"。
+  // env-drift 旧写法 `resolve(argv[i+1] || '.')` 落在 **cwd**,守护进程 cwd ≠ 仓根 ⇒ 巡另一棵树还报"无漂移";
+  // pwsh 门旧写法把 "--staged" 当根 ⇒ 由 existsSync 冒成**判红**,红记在本次提交头上(§12e);
+  // next-plan-id 的 `--source` 是**发号依据的那一面**,吞值后走的是"rev 无效"或"按更宽的面发号"两支,后者=跨机撞号。
+  assertBadRoot(S('check-env-drift.mjs'), '目录')
+  assertBadRoot(S('check-pwsh-version.mjs'), '目录')
+  const np = S('next-plan-id.mjs')
+  for (const { args, expect } of [
+    { args: ['--source', '--check'], expect: '"--check"' },
+    { args: ['--source'], expect: '(其后没有任何参数)' },
+    { args: ['--source', ''], expect: '""' },
+  ]) {
+    const r = spawnSync(process.execPath, [np, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.notEqual(r.status, 0, `${JSON.stringify(args)} 不得带着被吞的 rev 继续取号`)
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, /--source 需要一个git rev/, out.slice(0, 200))
+    assert.match(out, new RegExp(expect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), out.slice(0, 200))
+    assert.doesNotMatch(out, /ERR_INVALID_ARG_TYPE|at ModuleJob/, '不得以裸栈当用法错出口')
+  }
+})
+
 test('G-322 第七批:另八道 blocking 门的 --root 三支坏值各自大声拒绝', () => {
   for (const f of [
     'check-api-client-utf8.mjs',

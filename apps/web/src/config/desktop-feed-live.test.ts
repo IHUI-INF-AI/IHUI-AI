@@ -21,6 +21,7 @@ import {
   liveToDesktopFeed,
   pickLatestApkRelease,
   extractSemver,
+  preferGiteeWindows,
   type UpstreamRelease,
 } from './desktop-feed-live'
 
@@ -173,3 +174,63 @@ describe('pickLatestApkRelease', () => {
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+describe('preferGiteeWindows —— 国内可达偏好,但绝不盲钉', () => {
+  const payload = {
+    version: '0.1.75',
+    notes: 'n',
+    pub_date: '2026-10-17T00:00:00.000Z',
+    platforms: {
+      'windows-x86_64': {
+        url: 'https://github.com/o/r/releases/download/desktop-v0.1.75/AI_0.1.75_x64-setup.exe',
+        signature: 'SIG',
+      },
+    },
+  }
+
+  it('Gitee 确实持有同名资产时才改用它', async () => {
+    // 用 globalThis.fetch 打桩:Gitee tags 接口返回带该资产的 release
+    const real = globalThis.fetch
+    globalThis.fetch = (async () => ({
+      ok: true,
+      json: async () => ({
+        assets: [{ name: 'AI_0.1.75_x64-setup.exe', browser_download_url: 'x' }],
+      }),
+    })) as unknown as typeof fetch
+    try {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75')
+      expect(out?.platforms['windows-x86_64']?.url).toContain('gitee.com')
+      // 签名必须原样保留 —— minisign 是对包体字节签的,换 host 不影响验签
+      expect(out?.platforms['windows-x86_64']?.signature).toBe('SIG')
+    } finally {
+      globalThis.fetch = real
+    }
+  })
+
+  it('Gitee 没有该资产时保持 release 原生 URL(0.1.74 全量 404 的教训)', async () => {
+    const real = globalThis.fetch
+    globalThis.fetch = (async () => ({
+      ok: true,
+      json: async () => ({ assets: [] }),
+    })) as unknown as typeof fetch
+    try {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75')
+      expect(out?.platforms['windows-x86_64']?.url).toContain('github.com')
+    } finally {
+      globalThis.fetch = real
+    }
+  })
+
+  it('Gitee 接口不可达时也不动 URL(宁走可达的 GitHub,不给死链)', async () => {
+    const real = globalThis.fetch
+    globalThis.fetch = (async () => {
+      throw new Error('ETIMEDOUT')
+    }) as unknown as typeof fetch
+    try {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75')
+      expect(out?.platforms['windows-x86_64']?.url).toContain('github.com')
+    } finally {
+      globalThis.fetch = real
+    }
+  })
+})

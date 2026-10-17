@@ -52,6 +52,7 @@
 import { resolve } from 'node:path'
 
 import { usedIdsOfPrefix } from './lib/plan-task-index.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { collectIdFace } from './lib/plan-id-face.mjs'
 // 远端那一维与 live-doc-edit.mjs(第一发号出口)**同一把尺**:transport(含有界自补救 fetch)、
 // 基准读取与硬闸门都只住在那一份实现里 —— 这里只做出口接线,不抄任何判据。
@@ -68,8 +69,16 @@ const FAMILY = 'O'
 
 const argv = process.argv.slice(2)
 const flags = new Set(argv.filter((a) => a.startsWith('--')))
-const srcIdx = argv.indexOf('--source')
-const SOURCE = srcIdx >= 0 && argv[srcIdx + 1] ? argv[srcIdx + 1] : 'HEAD'
+// G-322(**取号入口**):`--source` 指定的是"发号依据的那一面"。旧写法 `srcIdx >= 0 && argv[srcIdx+1] ? ...`
+// 被下一枚旗标顶值时把旗标名当 rev ⇒ 走的是既有两条处置之外的第三条:rev 读不到时一档报"rev 无效"、
+// 一档(离线)**警告着按更宽的面发号**,两支都不是调用方以为的那一面,后果是跨机撞号(记忆:取号令牌遇
+// 远端面缺失会撞号)。现:给了旗标就要有值,判死在任何取号动作之前。
+const srcFlag = requireFlagValue(argv, '--source', { noun: 'git rev(如 HEAD / origin/main)' })
+if (srcFlag.error) {
+  console.error(`❌ ${srcFlag.error}`)
+  process.exit(2)
+}
+const SOURCE = srcFlag.value ?? 'HEAD'
 
 if (flags.has('--help') || flags.has('-h')) {
   console.log(
