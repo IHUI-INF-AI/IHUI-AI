@@ -9,6 +9,8 @@ import { db, dbRead } from '../db/index.js'
 import { liveGift, liveGiftCatalog, users, type LiveGift } from '@ihui/database'
 import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { error, paginatedSuccess, success } from '../utils/response.js'
+// ihui_live_gift_income_total:单位 = 平台币(扣 user_token_balance 余额)
+import { recordLiveGiftIncome } from '../plugins/business-metrics.js'
 
 // =============================================================================
 // 礼物目录表(2026-08-31 已纳入共享 schema live-extended.ts 的 liveGiftCatalog,
@@ -316,6 +318,8 @@ export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
       if (result.code !== 0) {
         return reply.status(result.code).send(error(result.code, result.message))
       }
+      // ihui_live_gift_income_total:扣款+写 live_gift 事务成功后累加(平台币,room_id=liveId)
+      recordLiveGiftIncome(String(parsed.data.liveId ?? 0), totalPrice)
       return reply.send(
         success({ record: result.record, balanceAfter: Math.max(0, currentBalance - totalPrice) }),
       )

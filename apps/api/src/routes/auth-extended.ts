@@ -149,6 +149,14 @@ import {
 } from '../services/oauth-providers.js'
 import { buildResponseSchema } from '../utils/api-schemas.js'
 import { sanitizeUgcInput } from '../db/sensitive-words-queries.js'
+// ihui_auth_* 指标:buildTokenPair 是模块级函数(不持 server),走模块级桥接
+import {
+  recordAuthJwtIssued,
+  recordAuthLoginAttempt,
+  recordAuthLoginSuccess,
+  recordAuthLoginFailed,
+  recordAuth2faUsed,
+} from '../plugins/business-metrics.js'
 
 // Token TTL 复用 @ihui/auth 的统一常量(2026-07-22 修复一致性)
 // - ACCESS_TOKEN_TTL_SECONDS 默认 15min(env.JWT_ACCESS_TTL_SECONDS 可覆盖)
@@ -188,6 +196,8 @@ export async function buildTokenPair(
   ])
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000)
   await saveRefreshToken(refreshToken, user.id, familyId, expiresAt)
+  // ihui_auth_jwt_issued_total:全部 token 对签发(登录/刷新/SSO/OIDC/M2M)集中收口于此
+  recordAuthJwtIssued()
   // P2-18:签发成功后设置 httpOnly auth cookie(浏览器场景;OAuth 客户端/非浏览器调用不传 reply)
   if (reply) setAuthCookies(reply, { accessToken, refreshToken }, true)
   return {
@@ -646,13 +656,16 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
+      recordAuthLoginAttempt()
       const parsed = loginByEmailSchema.safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const { email, code } = parsed.data
       const { verifyCode } = await import('../utils/code-store.js')
-      if (!(await verifyCode(email, code)))
+      if (!(await verifyCode(email, code))) {
+        recordAuthLoginFailed(request.ip)
         return reply.status(400).send(error(400, '验证码错误或已过期'))
+      }
       let user = await findUserByEmail(email)
       if (!user) {
         const emailPrefix = email.split('@')[0] ?? 'user'
@@ -663,9 +676,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           status: 1,
         })
       } else if (user.status !== 1) {
+        recordAuthLoginFailed(request.ip)
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
       const { accessToken, refreshToken } = await buildTokenPair(user, reply)
+      recordAuthLoginSuccess()
       return reply.send(
         success({ userId: user.id, accessToken, refreshToken, tokenType: 'Bearer' }),
       )
@@ -679,6 +694,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
+      recordAuthLoginAttempt()
       const parsed = loginByUsernameSchema.safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -687,6 +703,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
       const lockRemaining = await getLockRemainingMs(username, ip)
       if (lockRemaining > 0) {
+        recordAuthLoginFailed(ip)
         return reply
           .status(429)
           .header('Retry-After', String(Math.ceil(lockRemaining / 1000)))
@@ -701,6 +718,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const user = await findUserByUsername(username)
       if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
         const remaining = await recordLoginFailure(username, ip)
+        recordAuthLoginFailed(ip)
         if (remaining === 0) {
           const lockDurationMs = ACCOUNT_LOCKOUT_CONFIG.lockDurationSec * 1000
           return reply
@@ -717,9 +735,13 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           .status(401)
           .send(error(401, `用户名或密码错误（剩余 ${remaining} 次重试机会）`))
       }
-      if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+      if (user.status !== 1) {
+        recordAuthLoginFailed(ip)
+        return reply.status(403).send(error(403, '账号已被禁用'))
+      }
       await clearLoginFailures(username, ip)
       const { accessToken, refreshToken } = await buildTokenPair(user, reply)
+      recordAuthLoginSuccess()
       return reply.send(
         success({ userId: user.id, accessToken, refreshToken, tokenType: 'Bearer' }),
       )
@@ -3212,6 +3234,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
+      recordAuthLoginAttempt()
       const parsed = z
         .object({
           challengeToken: z.string().min(1),
@@ -3264,8 +3287,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       }
 
       if (!verified) {
+        recordAuthLoginFailed(request.ip)
         return reply.status(401).send(error(401, '2FA 验证失败:token 或 backup code 错误'))
       }
+      // ihui_auth_2fa_used_total:TOTP/backup code 校验通过
+      recordAuth2faUsed()
 
       // 校验通过 → 签发完整 access + refresh token 对(与正常登录响应一致,含 user 信息)
       request.skipResponseSanitization = true
@@ -3280,6 +3306,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         reply,
       )
       const permissions = await resolveUserPermissions(user.id, user.roleId)
+      recordAuthLoginSuccess()
 
       return reply.send(
         success({

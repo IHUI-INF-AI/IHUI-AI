@@ -6,7 +6,6 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import { monitorEventLoopDelay } from 'node:perf_hooks'
 import { normalizeHeader } from '../utils/http-normalize.js'
-
 /**
  * 分布式限流插件。
  *
@@ -256,6 +255,11 @@ const distributedRateLimitPlugin: FastifyPluginAsync = async (server) => {
       const result = await check(ruleName, request)
       reply.header('X-RateLimit-Limit', String(result.limit))
       if (!result.allowed) {
+        // ihui_tenant_ratelimit_total:429 且该规则 scope 为 tenant 时按租户计数
+        // (scope 由规则配置决定,无 tenant 规则时恒为 0,属预期口径)
+        if (rules.get(ruleName)?.scope === 'tenant') {
+          server.recordTenantRateLimit(normalizeHeader(request.headers['x-tenant-id']) ?? '0')
+        }
         reply.header('Retry-After', String(Math.ceil(result.retryAfterMs / 1000)))
         reply.header('X-RateLimit-Remaining', '0')
         reply.code(429).send({ code: 429, message: '请求过于频繁，请稍后再试' })
