@@ -52,6 +52,8 @@ vi.mock('@ihui/api-client', () => ({ refreshAccessTokenOnce: vi.fn(async () => n
 vi.mock('@ihui/shared', () => ({
   buildSsoRedirectUrl: (target: string, code: string) =>
     `${target}${target.includes('?') ? '&' : '?'}sso_code=${code}`,
+  // PageClient 用 SSO_CLIENT_IDS 判桌面深链;vitest v4 的 mock 对未导出键会硬抛,须同笔列出
+  SSO_CLIENT_IDS: { DESKTOP: 'desktop', WEB: 'web' },
 }))
 vi.mock('@ihui/ui-react', () => ({
   Button: (props: any) => <button onClick={props.onClick}>{props.children}</button>,
@@ -155,7 +157,10 @@ describe('/sso/login 的 redirect 落点(OIDC 自动回跳)', () => {
     queryRef.current = 'redirect=%2F%5Cevil.example.com%2Fcb&client_id=web'
     restoreLocation = captureLocationHref()
     // 守卫探测用的是同源 HEAD —— 这里桩掉,断言不依赖"探测恰好失败"
-    vi.stubGlobal('fetch', vi.fn(async () => ({ type: 'basic', ok: true, status: 200 }) as unknown as Response))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ type: 'basic', ok: true, status: 200 }) as unknown as Response),
+    )
     const { getByRole } = render(<SsoLoginPage />)
     getByRole('button').click()
 
