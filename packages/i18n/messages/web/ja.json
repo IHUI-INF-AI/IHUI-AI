@@ -19390,6 +19390,7 @@
     "captureWbWebTitle": "ブラウザ QR ログイン(推奨・トークン不要)",
     "captureWbWebDescription": "「ブラウザでログイン」をクリックし、開いた 埋め込みブラウザウィンドウで WorkBuddy に普段どおりサインイン(電話番号/QR コード)してください。サインインが完了するとアカウントを自動取り込みします。トークンのコピーは不要です。",
     "captureWbWebOpen": "ブラウザでログイン",
+    "captureWbWebToolbar": "ブラウザで WorkBuddy にログイン",
     "captureWbWebWaiting": "ブラウザを開きました。サインインを待っています…完了すると自動取り込みされます",
     "captureWbWebImporting": "サインインを検出、アカウントを取り込み中…",
     "captureWbWebDone": "Web ログインの取り込みが完了しました({count} 件)",
