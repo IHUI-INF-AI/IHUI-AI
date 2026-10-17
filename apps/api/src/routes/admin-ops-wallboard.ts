@@ -37,6 +37,20 @@ const FETCH_TIMEOUT_MS = 5000
 /** 业务库聚合口径的主库名(PG exporter 的 datname 标签值)。 */
 const PRIMARY_DB_LABEL = 'ihui_dev'
 
+/**
+ * 已退役停用的 IHUI 服务名单(逗号分隔,大小写不敏感)。
+ * 2026-10 僵尸服务清理时 IHUI-OLLAMA 已 Disabled,但 windows_exporter 的
+ * windows_service_state 只反映运行状态(停用服务同样上报 stopped),无法从指标
+ * 区分「主动停用」与「异常停止」。若不排除,健康度分母恒含停用服务 ⇒ 大屏状态灯
+ * 与「存在告警」判定恒黄。名单按实际拓扑经环境变量覆盖。
+ */
+const RETIRED_SERVICES = new Set(
+  (process.env.OPS_WALLBOARD_RETIRED_SERVICES ?? 'IHUI-OLLAMA')
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean),
+)
+
 // ===== Prometheus 读取封装(取不到一律 null,禁止抛出拖垮整块)=====
 interface PromSample {
   metric: Record<string, string>
@@ -192,10 +206,12 @@ async function buildHost(): Promise<HostSnapshot | null> {
 }
 
 interface ServicesSnapshot {
-  windows: Array<{ name: string; state: string }>
+  windows: Array<{ name: string; state: string; retired: boolean }>
   targets: Array<{ job: string; instance: string; up: number }>
   windowsTotal: number
   windowsRunning: number
+  /** 非退役服务总数(健康度分母;退役服务见 RETIRED_SERVICES) */
+  windowsExpectedTotal: number
   targetsTotal: number
   targetsUp: number
 }
@@ -208,7 +224,11 @@ async function buildServices(): Promise<ServicesSnapshot | null> {
       promQuery('up'),
     ])
     const windows = (svc ?? [])
-      .map((s) => ({ name: s.metric?.name ?? '', state: s.metric?.state ?? 'unknown' }))
+      .map((s) => ({
+        name: s.metric?.name ?? '',
+        state: s.metric?.state ?? 'unknown',
+        retired: RETIRED_SERVICES.has((s.metric?.name ?? '').toUpperCase()),
+      }))
       .filter((s) => s.name)
       .sort((a, b) => a.name.localeCompare(b.name))
     const targetList = (targets ?? [])
@@ -223,7 +243,8 @@ async function buildServices(): Promise<ServicesSnapshot | null> {
       windows,
       targets: targetList,
       windowsTotal: windows.length,
-      windowsRunning: windows.filter((w) => w.state === 'running').length,
+      windowsRunning: windows.filter((w) => w.state === 'running' && !w.retired).length,
+      windowsExpectedTotal: windows.filter((w) => !w.retired).length,
       targetsTotal: targetList.length,
       targetsUp: targetList.filter((t) => t.up === 1).length,
     }
@@ -541,6 +562,8 @@ interface AlertsSnapshot {
   promActive: ActiveAlert[] | null
   promActiveCount: number | null
   firingTotal: number
+  /** 库内 firing 告警的去重名(与 promActive 按名并集,防双源重复计数) */
+  firingNames: string[]
   recent: AlertItem[]
 }
 
@@ -556,13 +579,16 @@ async function buildAlerts(): Promise<AlertsSnapshot | null> {
           labels?: Record<string, string>
           annotations?: Record<string, string>
           startsAt?: string
+          /** AM v1 顶层字段(v2 已移除,保留兼容) */
           state?: string
+          /** AM v2 起 state 迁到 status.state */
+          status?: { state?: string }
         }>
         promActive = raw
           .map((a) => ({
             name: a.labels?.alertname ?? 'unknown',
             severity: a.labels?.severity ?? 'warning',
-            state: a.state ?? 'active',
+            state: a.status?.state ?? a.state ?? 'active',
             since: a.startsAt ?? '',
             summary: a.annotations?.summary ?? a.annotations?.description ?? null,
           }))
@@ -588,10 +614,15 @@ async function buildAlerts(): Promise<AlertsSnapshot | null> {
       .select({ n: sql<number>`count(*)::int` })
       .from(monitorAlerts)
       .where(sql`${monitorAlerts.status} = 'firing'`)
+    const firingNameRows = await dbRead
+      .select({ names: sql<string[]>`array_agg(distinct ${monitorAlerts.name})` })
+      .from(monitorAlerts)
+      .where(sql`${monitorAlerts.status} = 'firing'`)
     return {
       promActive,
       promActiveCount: promActive ? promActive.length : null,
       firingTotal: firingRows[0]?.n ?? 0,
+      firingNames: firingNameRows[0]?.names ?? [],
       recent: recentRows.map((r) => ({
         ...r,
         firedAt: r.firedAt.toISOString(),
@@ -638,6 +669,8 @@ interface TrendSnapshot {
   startEpochMs: number
   endEpochMs: number
   stepSeconds: number
+  /** 请求的区间分钟数(前端「无 5xx」徽章等按此展示,避免与实取参数脱节) */
+  minutes: number
   qps: Array<[number, number]>
   errRate: Array<[number, number]>
   cpuPct: Array<[number, number]>
@@ -690,6 +723,7 @@ async function buildTrend(minutes: number, step: number): Promise<TrendSnapshot>
     startEpochMs: start * 1000,
     endEpochMs: end * 1000,
     stepSeconds: step,
+    minutes,
     qps: rangeToSeries(qps),
     errRate: rangeToSeries(errRate),
     cpuPct: rangeToSeries(cpu),
