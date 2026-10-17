@@ -248,6 +248,31 @@ test('G-322 第十二批:守护巡检(check-env-drift)、ps1 门(check-pwsh-vers
   }
 })
 
+test('G-322 第十三批:数值与落点型四站 —— --top / --hours+--days / 取证 --report / 备份 --kind', () => {
+  // 共同形状:旧写法要么把坏值 `|| 默认` 折掉(0 与"被吞"同形),要么只挡"后面没有参数"一支。
+  // --top 0 单独锁:旧写法 `Number('0')||10` 静默改写成 10(覆写用户输入);直接接受 0 又会交出一份
+  // **零行清单**读成"没有发现" ⇒ 两支都拒,理由写进文案。
+  const arms = [
+    [
+      S('check-plan-sha-resolvable.mjs'),
+      [['--top'], ['--top', ''], ['--top', '--json'], ['--top', '0'], ['--top', '-3']],
+      /--top 需要/,
+    ],
+    [S('alert-volume-report.mjs'), [['--hours'], ['--hours', ''], ['--hours', '--json'], ['--days'], ['--days', 'x']], /需要(一个正数|正数)/],
+    [S('check-public-path-probe.mjs'), [['--report'], ['--report', ''], ['--report', '--json']], /--report 需要一个取证文件路径/],
+    [S('archive-dir.mjs'), [['--kind'], ['--kind', ''], ['--kind', '--apply']], /--kind 需要一个族名/],
+  ]
+  for (const [script, list, re] of arms) {
+    for (const args of list) {
+      const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      assert.notEqual(r.status, 0, `${script.split('/').pop()} ${JSON.stringify(args)} 不得静默按默认档出结论`)
+      const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+      assert.match(out, re, out.slice(0, 200))
+      assert.doesNotMatch(out, /ERR_INVALID_ARG_TYPE|at ModuleJob/, '不得以裸栈当用法错出口')
+    }
+  }
+})
+
 test('G-322 第七批:另八道 blocking 门的 --root 三支坏值各自大声拒绝', () => {
   for (const f of [
     'check-api-client-utf8.mjs',
