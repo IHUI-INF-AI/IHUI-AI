@@ -491,6 +491,11 @@ async def _new_v2_loop(
     current_user: str,
     user_role: int,
     permission_mode: str | None = None,
+    # 79 号票(2026-10-18 立):权限双轴解析结果;None = 不携带双轴 ⇒ 循环内裁决门
+    # 整段跳过(与旧 resume 构造同语义,零行为变化)。类型标注为 object:
+    # 真类型 AxisResolution 属 core.permission_axis_gate,本模块刻意不 import 它
+    # (路由层只做解析与传递,不参与判定 —— 判定权归执行面一个出口)。
+    axis_resolution: object | None = None,
     durable_horizon_seconds: int | None = None,
 ) -> "AgentLoopV2":
     """构造 AgentLoopV2 的**唯一**入口(D144③ 2026-09-29 从 execute/stream 抽出)。
@@ -513,6 +518,10 @@ async def _new_v2_loop(
         current_user: **令牌主体**(O19:审批属主登记与记忆隔离都据此),不得取请求体自报值。
         user_role: V3 #47 的角色桥;取不到 = 0 = 普通用户。
         permission_mode: G-161 权限档;None 时沿用 env 默认(与旧 resume 构造同语义)。
+        axis_resolution: 79 号票双轴解析结果;None = 不携带 ⇒ 裁决门跳过。**必须经由
+            本函数传入** —— 三处调用点若各自把双轴接进循环,就会长出第二个真相
+            (与 D144③ 抽本函数的同一条理由:permission_mode 就是在 resume 那份
+            参数表里被漏掉才复发的)。
         durable_horizon_seconds: V3 #84 生产者侧的视野声明(秒);None = 非耐久,
             构造出的循环不写耐久键(与现状逐零差异)。
 
@@ -533,6 +542,8 @@ async def _new_v2_loop(
         # G-161:此前根本没把请求里的 permission_mode 传进来 →
         # 端上选的权限档在这条主执行链上永远是 default。
         permission_mode=permission_mode,
+        # 79 号票:双轴解析结果透传进执行面(与 permission_mode 同位置、同失效方向)。
+        axis_resolution=axis_resolution,
         # O19:principal 贯通到执行路径 —— 高危工具审批条目据此登记属主
         # (agent_loop_v2._request_approval → self._user_id),并启用 P1-6
         # 记忆闭环的用户隔离。
@@ -935,6 +946,21 @@ class AgentExecuteRequest(BaseModel):
         description="权限模式:default / acceptEdits / bypassPermissions / plan / manual"
         "(历史别名 auto / accept-edits / accept-all / read-only / plan-only 自动归一)",
     )
+    # 79 号票(2026-10-18 立):权限双轴的两轴。与 permission_mode 是**同一个域的两代
+    # 表示**(双轴 = 单轴的语义分解,经 PERMISSION_MODE_TO_AXIS 显式映射),不是两个开关:
+    # 同时给时以双轴为准(单轴只作为 Legacy 兜底),因为双轴能表达单轴表达不了的
+    # 组合(如 workspace-write × on-failure)。
+    # 未声明 = 不携带双轴 ⇒ 裁决门整段跳过(旧客户端零行为变化)。
+    # 非法值**拒 400 而不是静默丢弃**:G-161 那一课的原话是"发了必须与生效同义",
+    # 静默丢弃会让"我选了 read-only"变成"按默认跑",是方向相反的失真。
+    sandbox_mode: str | None = Field(
+        None,
+        description="沙箱轴:read-only / workspace-write / danger-full-access",
+    )
+    approval_policy: str | None = Field(
+        None,
+        description="审批轴:untrusted / on-failure / on-request / never",
+    )
     # AGENTS.md §8 第 3 步的调用点(2026-09-25 立):执行**前**声明的硬性指标。
     # 声明了才启用独立校验闸门;不声明 = 非 goal 模式,done 帧行为与接线前逐零差异。
     hard_criteria: list[GoalCriterionIn] | None = Field(
@@ -976,6 +1002,42 @@ def _resolved_permission_mode(raw: str | None) -> str | None:
     if mode is None:
         raise HTTPException(status_code=400, detail=permission_mode_error(raw))
     return mode
+
+
+def _resolved_axis_resolution(
+    sandbox_mode: str | None,
+    approval_policy: str | None,
+    permission_mode: str | None = None,
+) -> object | None:
+    """双轴 wire 三输入 → AxisResolution;**两个轴字段都不给返回 None**(整段跳过)。
+
+    与 _resolved_permission_mode 同一条规矩:认不出拒 400,绝不静默丢弃。
+    区别只在失效形状 —— 双轴允许"只给一轴"(另一轴保持未指定,由上层/全局
+    配置决定),而**不允许"给了但认不出"**:后者会把用户明确写的 read-only
+    静默降级成"未指定"(方向相反的失真,与 G-161 同型)。
+
+    返回类型写成 object(避免本模块 import 执行面类型):真正的类型是
+    core.permission_axis_gate.AxisResolution,唯一的消费方是 AgentLoopV2。
+    """
+    if sandbox_mode is None and approval_policy is None:
+        return None
+    from ..core.permission_axis_gate import resolve_axis_resolution
+
+    res = resolve_axis_resolution(
+        sandbox_mode=sandbox_mode,
+        approval_policy=approval_policy,
+        permission_mode=permission_mode,
+    )
+    if res is None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "非法权限双轴: sandbox_mode=%r / approval_policy=%r / permission_mode=%r"
+                "(取值须取自 @ihui/types 的 SANDBOX_MODES × APPROVAL_POLICIES)"
+            )
+            % (sandbox_mode, approval_policy, permission_mode),
+        )
+    return res
 
 
 class AgentResumeRequest(BaseModel):
@@ -1198,6 +1260,20 @@ async def execute_agent(
             )
             % resolved_mode,
         )
+    # 79 号票(2026-10-18 立):同一条拒答对双轴的**审批轴**继续成立且只针对一档 ——
+    # approval_policy=untrusted 是双轴里唯一会产出 REQUIRE_APPROVAL 的档,本端点
+    # 没有审批投递通道 ⇒ 选了它就只会撞 approval_timeout 判**不执行**,
+    # 用户在界面上只看到"工具没跑",看不出是被自己选的档卡住的(G-161 同型)。
+    # 沙箱轴**不拒**:read-only 只产出 FORBID(直接拒绝,不需要人在场),
+    # 在本端点同样成立且语义完整。失效方向一律是拒绝,不是放行。
+    if (req.approval_policy or "").strip().lower() == "untrusted":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "approvalPolicy=untrusted 仅在 POST /agents/execute/stream 生效"
+                "(非流式端点没有审批投递通道,选了也没人能够得着)"
+            ),
+        )
     # 同一条"发了≠生效就不许发"的规矩(§8 第 3 步):独立校验闸门只接在流式端点上,
     # 因为它是唯一留下 iterations 当机器事实入口的执行路径。此处若不拒,声明了
     # hard_criteria 的调用方会拿到一个"从没被校验过却写着 success"的结果 —— 那正是
@@ -1231,6 +1307,10 @@ async def execute_agent(
                 current_user=current_user,
                 user_role=resolve_request_role_id(request),
                 permission_mode=resolved_mode,
+                # 79 号票:双轴经唯一构造入口传入(与 permission_mode 同位置)。
+                axis_resolution=_resolved_axis_resolution(
+                    req.sandbox_mode, req.approval_policy, req.permission_mode
+                ),
                 # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
                 durable_horizon_seconds=req.durable_horizon_seconds,
             )
@@ -1425,6 +1505,11 @@ async def execute_agent_stream(
                     current_user=current_user,
                     user_role=user_role,
                     permission_mode=_resolved_permission_mode(req.permission_mode),
+                    # 79 号票:双轴经唯一构造入口传入(流式端点有审批投递通道,
+                    # 故这里是双轴唯一真正能生效的入口)。
+                    axis_resolution=_resolved_axis_resolution(
+                        req.sandbox_mode, req.approval_policy, req.permission_mode
+                    ),
                     # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
                     durable_horizon_seconds=req.durable_horizon_seconds,
                 )
@@ -1639,6 +1724,13 @@ async def _resume_run_from_checkpoint(
         current_user=current_user,
         user_role=resumed_role,
         permission_mode=permission_mode,
+        # 79 号票(如实登记,**不是遗漏**):断点续跑链本轮**不接**双轴
+        # (axis_resolution 走默认 None ⇒ 循环内裁决门整段跳过 ⇒ 零行为变化)。
+        # 为什么不做:这三条 resume 出口(/agents/execute/resume、
+        # /agents/{session_id}/resume 与冷恢复)共用的参数是逐个位置传进来的,
+        # 要接双轴就得给 AgentResumeRequest 与两条端点各补一份同形字段,
+        # 而 permission_mode 就是在其中一份参数表里被漏掉才有了 b76-11 那一课 ——
+        # 半新半旧比不改更糟。留作下一格,不做半成品。
         # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
         durable_horizon_seconds=durable_horizon_seconds,
     )
