@@ -6,7 +6,18 @@
   "editable": true,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "返回 AI 总览",
+      "type": "link",
+      "url": "/d/ihui-ai-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "tags": ["ihui-ai"]
+    }
+  ],
   "panels": [
     {
       "title": "进行中考试数",
@@ -225,7 +236,7 @@
       "targets": [
         {
           "expr": "topk(10, sum by (category) (increase(ihui_exam_question_used_total{instance=~\"$instance\"}[1h])))",
-          "legendFormat": "{{question_bank}}",
+          "legendFormat": "{{category}}",
           "refId": "A",
           "format": "table",
           "instant": true
