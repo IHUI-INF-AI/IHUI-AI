@@ -419,6 +419,68 @@ async def test_fusion_merge_mode_basic_returns_judge_answer():
     assert "gpt-4o-mini" in call_log
 
 
+def _prom_sample(name: str, labels: dict[str, str]) -> float:
+    """从默认注册表按标签取样本值(取不到按 0 计 == 从未产生过样本)。"""
+    from prometheus_client import REGISTRY
+
+    return REGISTRY.get_sample_value(name, labels) or 0.0
+
+
+@pytest.mark.asyncio
+async def test_fusion_route_advances_prometheus_counters():
+    """fusion 真跑一次:四枚 Prometheus 计数必须落地,而不是只有 # HELP。
+
+    为什么钉这一条:`llm_fusion_*` 在大屏上整片 No data,而声明与埋点都在
+    (labels 与 labelnames 逐一对齐),缺的是生产 COMBO_CHAINS 里没有一枚
+    strategy=fusion 的链。本用例把"配置缺"与"接线断"这两件事分开钉死:
+    只要 _route_fusion 真被执行,计数就一定前进。
+    """
+    router = _build_fusion_router(judge_mode="merge")
+
+    async def _complete(messages, model=None, **kwargs):
+        proposers = {
+            "gpt-4o": "answer A",
+            "claude-3.5-sonnet": "answer B",
+            "gemini-2.5-pro": "answer C",
+        }
+        if model in proposers:
+            return {"content": proposers[model], "model": model, "usage": {}, "stub": False}
+        return {"content": "merged best answer", "model": model, "usage": {}, "stub": False}
+
+    mock_gateway = MagicMock()
+    mock_gateway.complete = _complete
+
+    ok = {"combo_name": "f1"}
+    before = {
+        "proposers": _prom_sample(
+            "llm_fusion_proposers_called_total", {"combo_name": "f1", "proposer_count": "3"}
+        ),
+        "judge": _prom_sample(
+            "llm_fusion_judge_called_total",
+            {"combo_name": "f1", "judge_model": "gpt-4o-mini", "judge_mode": "merge"},
+        ),
+        "success": _prom_sample("llm_fusion_success_total", ok),
+        "failure": _prom_sample("llm_fusion_failure_total", {"combo_name": "f1", "reason": "judge_call_failed"}),
+    }
+
+    with patch("app.core.llm_gateway.llm_gateway", mock_gateway):
+        await router.route_with_combo(
+            messages=[{"role": "user", "content": "Q"}], combo_name="f1"
+        )
+
+    assert _prom_sample(
+        "llm_fusion_proposers_called_total", {"combo_name": "f1", "proposer_count": "3"}
+    ) == before["proposers"] + 1, "proposers_called 没前进 —— labels 与 labelnames 对不上时就是这样"
+    assert _prom_sample(
+        "llm_fusion_judge_called_total",
+        {"combo_name": "f1", "judge_model": "gpt-4o-mini", "judge_mode": "merge"},
+    ) == before["judge"] + 1
+    assert _prom_sample("llm_fusion_success_total", ok) == before["success"] + 1
+    assert _prom_sample(
+        "llm_fusion_failure_total", {"combo_name": "f1", "reason": "judge_call_failed"}
+    ) == before["failure"], "judge 成功的用例不该同时记一次 failure"
+
+
 @pytest.mark.asyncio
 async def test_fusion_vote_mode_basic_returns_best_proposal():
     """vote 模式:judge 返回裸 JSON,选出 best_index=2 的 proposal(claude)。"""
