@@ -66,6 +66,22 @@ import { logger } from '../utils/logger.js'
  * 路由通过 server.recordFunnel / recordApiCall / recordOrder / recordPayment / recordAiCall
  * 及新增的 record* 系列装饰器上报。
  *
+ * 2026-10-18 埋点实接核对(现读,不是宣称):上面那句"路由通过 …上报"对这三族曾经只是
+ * 契约文字、全仓零调用点。现已接到真实链路,射程如下 ——
+ * - `business_funnel_total`：`register` 由自助注册端点上报(`routes/auth.ts` 的
+ *   POST /auth/register、`routes/auth-extended.ts` 的 POST /auth/register/email 与
+ *   POST /sms-proxy/register)。`channel` 这些入口没有真实渠道入参 ⇒ 一律落
+ *   `FUNNEL_DEFAULT_CHANNEL`,不编渠道名。**`activate` 无任何代码路径可报**:
+ *   `users` 表没有激活列(`packages/database/src/schema/users.ts` 的 status 只有
+ *   0=禁用/1=正常/3=注销,且创建即 1),不存在"激活"这一迁移 ⇒ 该 stage 恒为 0 是
+ *   "没有这个事件源",不是"没发生过"。**`paid` 未接**:漏斗按人头计,而支付回调
+ *   链上判"该用户是否首次付费"要新增一次 DB 读(= 给资金链路添新的失效模式),
+ *   不在"只观察、不改控制流"的额度内 ⇒ 该 stage 同样没有埋点。
+ * - `business_orders_total` / `business_payments_total`：见
+ *   `recordFunnelSample` 一段的写入实现与 `services/order-service.ts` 的五个调用点
+ *   (pending / paid / cancelled / refunded 四个状态迁移 + attempt / success / refund
+ *   三个支付档口)。
+ *
  * AI 那一族的真实收口不在路由里,而在 `plugins/ai-cost.ts` 的 `recordAiCost()`(所有 AI
  * 成本调用方都汇到它),因此由它单点桥接到本文件的模块级 AI 采样入口
  * `recordAiCallSample()` —— 装饰器 `recordAiCall` 与桥接走的是同一个实现、同一份状态,
@@ -665,6 +681,75 @@ function seedIhuiClosedEnumBaseline(): void {
 // 只在这里开一次 + 在 resetIhuiState 末尾重开,即可保证任何时刻都有样本。
 seedIhuiClosedEnumBaseline()
 
+// ============================== 漏斗 / 订单 / 支付(business_* 三族) ==============================
+
+/**
+ * `business_funnel_total` / `business_orders_total` / `business_payments_total` 三族的
+ * 唯一写入实现(2026-10-18 接线)。
+ *
+ * 立因:此前这三个族**只有装饰器定义、declare-module 条目和头注那句"路由通过
+ * …recordFunnel/recordOrder/recordPayment… 上报",全仓零调用点** ——
+ * `business-funnel.json` 的 stage/type/status 三块面板读到的 0 是"埋点压根没人调",
+ * 与"这段时间没发生过"在面板上同形,运维分不出来。本次把这些声明的埋点接到真实链路。
+ *
+ * 为什么沿用回调槽注入(`recordHlsTranscodeSample` 那套既有范式,不是新发明第四种机制):
+ * 订单/支付三处的真实收口在 `services/order-service.ts` 的 `placeOrder` /
+ * `completeOrder` / `completeOrderWithSaga` / `cancelOrder` / `refundOrder` ——
+ * service 层不持有 fastify 实例(与 aiState/ihuiState/hls 的架构决策同型),
+ * 而这三族的状态本身是插件闭包 `m` 的字段、`resetAllMetrics` 靠遍历
+ * `Object.values(m)` 清零,把状态上移模块级要动 interface,改动面大于收益。
+ * ⇒ 插件注册时把自己的写入实现赋给槽,装饰器与桥接**都只调下面这一个实现**,
+ * 所以"基线开出的键"与"真实事件写出的键"必然同源(钩子那处 2026-10-17 的教训注记)。
+ *
+ * 标签纪律(与 ihui_* 同一把尺子,不另立标准):
+ * - 标签值一律经本文件唯一洗法 `sanitizeIhuiLabel`:`orders.payType` 是用户可写的
+ *   50 字符字符串(`routes/order.ts:152`),一个未转义引号会把**整次 scrape** 打回
+ *   (见 `sanitizeAiLabel` 头注同型失效),洗过同时保证 `|` 分隔符不被值里的竖线劈坏;
+ * - 序列数走 `ihuiCounterInc` 的 512 上限护栏(超限计入 `ihui_series_dropped_total`)。
+ *   注:该 dropped 计数器的 HELP 文案写的是 `ihui_*`,本三族共用它属已知口径外溢,
+ *   宁可用同一具计数器,也不复刻第二份基数上限(AGENTS §0.6)。
+ * - `safeRecord` 兜底 ⇒ 永不抛(观测层坏了不能把下单/支付回调带崩)。
+ */
+let funnelRecorder: ((key: string) => void) | null = null
+let orderRecorder: ((key: string) => void) | null = null
+let paymentRecorder: ((key: string) => void) | null = null
+
+/**
+ * 上报一次漏斗事件。`stage` 由 `FUNNEL_STAGES` 收窄(封闭集,唯一真相源);
+ * `channel` 是开放集 ⇒ 缺省落 `FUNNEL_DEFAULT_CHANNEL`(调用方没有真实渠道就不要编)。
+ */
+export function recordFunnelSample(
+  stage: FunnelStage,
+  channel: string = FUNNEL_DEFAULT_CHANNEL,
+): void {
+  safeRecord('recordFunnelSample', () => {
+    funnelRecorder?.(`${stage}|${sanitizeIhuiLabel(channel)}`)
+  })
+}
+
+/**
+ * 上报一次订单事件。`type` 取 `orders.order_type` 的**原值**(整数码转字符串):
+ * 全仓没有覆盖全部码值的封闭枚举(`db/payment-queries.ts:32` 的取值只写在注释里,
+ * `services/commission-service.ts:26-29` 仅私有地登记了 1/2/3/4 四枚)⇒ 抄任何一份
+ * 都是第二份清单且必然不全,原值才是不撒谎的标签。
+ */
+export function recordOrderSample(type: string, status: string): void {
+  safeRecord('recordOrderSample', () => {
+    orderRecorder?.(`${sanitizeIhuiLabel(type)}|${sanitizeIhuiLabel(status)}`)
+  })
+}
+
+/**
+ * 上报一次支付事件。`status` 词汇不自立:只用 `services/order-service.ts` 在
+ * 该处已经写进库的状态迁移档口(attempt / success / refund),与同处已接线的
+ * `ihui_payment_attempt|success|refund_total` 三个计数器一一对应。
+ */
+export function recordPaymentSample(channel: string, status: string): void {
+  safeRecord('recordPaymentSample', () => {
+    paymentRecorder?.(`${sanitizeIhuiLabel(channel)}|${sanitizeIhuiLabel(status)}`)
+  })
+}
+
 // ============================== auth 7 ==============================
 
 export function recordAuthLoginAttempt(): void {
@@ -1130,14 +1215,20 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
   })
 
   // ===== 现有业务上报装饰器 =====
-  server.decorate('recordFunnel', (stage: FunnelStage, channel = 'default') => {
-    counterInc(m.funnel, `${stage}|${channel}`)
+  // 三个装饰器一律**委托给模块级唯一写入实现**(见 recordFunnelSample 那一段注记),
+  // 这样持有 server 的路由链与不持有 server 的 service 链写的是同一份 m、同一份键拼装。
+  // 回调槽在注册时赋值:运行期(下单/回调/退款)插件必已注册。
+  funnelRecorder = (key) => ihuiCounterInc(m.funnel, key)
+  orderRecorder = (key) => ihuiCounterInc(m.orders, key)
+  paymentRecorder = (key) => ihuiCounterInc(m.payments, key)
+  server.decorate('recordFunnel', (stage: FunnelStage, channel = FUNNEL_DEFAULT_CHANNEL) => {
+    recordFunnelSample(stage, channel)
   })
   server.decorate('recordOrder', (type: string, status: string) => {
-    counterInc(m.orders, `${type}|${status}`)
+    recordOrderSample(type, status)
   })
   server.decorate('recordPayment', (channel: string, status: string) => {
-    counterInc(m.payments, `${channel}|${status}`)
+    recordPaymentSample(channel, status)
   })
   server.decorate(
     'recordAiCall',
@@ -1441,13 +1532,15 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     }
 
     // 3. 自定义业务指标
-    // 不开 0 基线的两个理由(2026-10-17 现读):① type/status 在源码里没有封闭枚举声明
-    // —— 订单类型是整数码(billing.ts:71 注释 1=membership 2=token …),edu_orders 另有
+    // 不开 0 基线的理由(2026-10-17 立,2026-10-18 埋点实接后复核仍成立):
+    // ① type/status 在源码里没有封闭枚举声明 —— 订单类型是整数码
+    // (`db/payment-queries.ts:32` 的 1=membership 2=token …只写在注释里,
+    // `services/commission-service.ts:26-29` 只私有登记了 4 枚),edu_orders 另有
     // course|card,各表 status 词表还互不相同(pending|paid|cancelled|refunded / created|paying
     // |paid|failed|cancelled / 6 档退款状态),按哪一份开线都是替全部开一份假集合;
-    // ② 更硬的事实:`server.recordOrder` 装饰器全仓零调用点(只有装饰器定义、declare-module
-    // 条目与本文件头注那句"路由通过 …recordOrder… 上报"),这条族结构上不可能有真实写入
-    // ⇒ 开线也只是把"埋点没接"伪装成"业务没发生"。
+    // channel 同理 —— payType 是用户可写字符串,开不出封闭集。
+    // ②(原第 ② 条"`server.recordOrder` 装饰器全仓零调用点"已于 2026-10-18 消解:
+    // 三族都有真实写入点了 ⇒ 有事件就有线,没有就是真没发生过。)
     lines.push('# HELP business_orders_total Business orders counter')
     lines.push('# TYPE business_orders_total counter')
     for (const [k, v] of m.orders) {
@@ -2016,11 +2109,22 @@ export const __test__ = {
 
 declare module 'fastify' {
   interface FastifyInstance {
-    /** 上报转化漏斗事件（register → activate → paid）。 */
+    /**
+     * 上报转化漏斗事件(文档第 1 条)。
+     * 射程以本文件头注 2026-10-18 那段现读核对为准:目前只有 `register` 有真实调用点,
+     * `activate` 无事件源、`paid` 未接;`channel` 缺省落 FUNNEL_DEFAULT_CHANNEL,
+     * 调用方没有真实渠道值时不要传(开放集 ⇒ 编一个比 "No data" 更坏)。
+     */
     recordFunnel: (stage: FunnelStage, channel?: string) => void
-    /** 上报订单事件。 */
+    /**
+     * 上报订单事件。真实调用点在 `services/order-service.ts` 的四个状态迁移处;
+     * `type` 传 `orders.order_type` 原值(整数码转字符串),不自立第二份类型清单。
+     */
     recordOrder: (type: string, status: string) => void
-    /** 上报支付事件。 */
+    /**
+     * 上报支付事件。真实调用点与 `recordOrder` 同处;`status` 只用该处已写进库的
+     * 档口(attempt / success / refund),与 `ihui_payment_attempt|success|refund_total` 对应。
+     */
     recordPayment: (channel: string, status: string) => void
     /**
      * 上报 AI 调用事件（含 token 与成本）。
