@@ -29,6 +29,8 @@ import { useAuthStore } from '@/stores/auth'
 useAuthStore.setState({ token: 'test-access-token', isAuthenticated: true })
 import {
   checkinAuditTraeResidual,
+  checkinCaptureMinimax,
+  type CapturedMinimaxSession,
   checkinCaptureQoder,
   checkinCaptureJwts,
   checkinCaptureWorkbuddy,
@@ -440,6 +442,18 @@ describe('签到助手页面 · 账号列表与记录', () => {
     expect(screen.getByText('deleteDescription:主账号')).toBeTruthy()
     fireEvent.click(screen.getByText('confirmDelete'))
     await waitFor(() => expect(deleteAccount).toHaveBeenCalledWith(1))
+  })
+
+  it('行内重命名:点名称后输入框自动获得焦点(等价 autoFocus,不留裸 lint 抑制)', async () => {
+    // 2026-10-17:该输入框的 autoFocus 被换成 ref + effect 的命令式聚焦
+    // (守门 103 DC 棘轮把本文件新增抑制判红,108 E5 要求带到期豁免)⇒ 用例钉住行为等价,
+    // 否则将来谁"顺手改回去"或删掉聚焦,失焦自动存的交互就无声退化了。
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByRole('button', { name: 'rename' }))
+    const input = (await waitFor(() => screen.getByLabelText('rename'))) as HTMLInputElement
+    await waitFor(() => expect(document.activeElement).toBe(input))
+    expect(input.value).toBe('主账号')
   })
 
   it('录入:合法提交解析 device_map JSON;非法 JSON 阻断', async () => {
@@ -998,6 +1012,24 @@ describe('Qoder 平台化(2026-10-10)', () => {
     fireEvent.click(trigger)
   }
 
+  /** MiniMax 本机登录态夹具:8 字段与 Rust CapturedMinimaxSession 逐字段对齐,用例只写差异项 ——
+   *  少给字段就测不出「空字段被 minimaxDeviceMap 静默跳过」这类回归(引擎侧签名恰恰吃这几个字段)。 */
+  function minimaxSessionFixture(
+    overrides: Partial<CapturedMinimaxSession>,
+  ): CapturedMinimaxSession {
+    return {
+      auth_file: 'C:/Users/x/.minimax/auth/prod/cn/mcode-public/auth.json',
+      uid: 'mm-uid-1',
+      nickname: '李总',
+      access_token: 'mmoat_tok-1',
+      refresh_token: 'mmort_rt-1',
+      expires_at: 1794225169,
+      uuid: 'uu-1',
+      device_id: 'dev-1',
+      ...overrides,
+    }
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
     mockLoadSuccess()
@@ -1152,6 +1184,82 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(second.device_map.uid).toBe('wb-2')
     expect(second.device_map.domain).toBe('www.workbuddy.cn')
     expect(second.device_map.expires_at).toBe(1794225169)
+  })
+
+  it('MiniMax 捕获:下拉入口点一下即入库(无对话框),带 platform=minimax 与设备指纹', async () => {
+    // 显式 true:桌面入口(含「从本机捕获」下拉)只在 IPC 就绪时渲染,clearAllMocks 不清 mockReturnValue
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinCaptureMinimax).mockResolvedValueOnce([minimaxSessionFixture({})])
+    createAccount.mockResolvedValue({ id: 9 })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    openCaptureMenu()
+    // 单账号零选择:没有对话框/勾选/导入按钮三件套,点菜单项即捕获即入库
+    fireEvent.click(screen.getByRole('menuitem', { name: 'MiniMax Code' }))
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
+    const arg = createAccount.mock.calls[0]![0]
+    expect(arg.platform).toBe('minimax')
+    expect(arg.jwt).toBe('mmoat_tok-1')
+    expect(arg.name).toBe('李总')
+    // 分组筛选停在「全部」时不上送 group(空组入服务端默认组)
+    expect(arg.group).toBe('')
+    // 引擎侧 uid 必填 + 过期时间供预检 + 每账号独立设备指纹(与独立 IP 组合成画像)
+    expect(arg.device_map.uid).toBe('mm-uid-1')
+    expect(arg.device_map.expires_at).toBe(1794225169)
+    expect(arg.device_map.uuid).toBe('uu-1')
+    expect(arg.device_map.device_id).toBe('dev-1')
+    // 直采无对话框 ⇒ 成功提示只能落页面级 batchNotice(role=status)
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('captureImported'))
+  })
+
+  it('MiniMax 捕获:展示名为空时回落 uid 作账号名', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    // 展示名(sharedUser.userName)可能为空,账号名不许空着入库 —— 回落 uid 才排得掉同名冲突
+    // 用 ...Once 而非 ...Value:clearAllMocks 不清实现,常驻实现会漏给后续用例的
+    // 「智能导入」智能扫描(同走这条 IPC 通道),让它们误判成「捕获到登录态」。
+    vi.mocked(checkinCaptureMinimax).mockResolvedValueOnce([
+      minimaxSessionFixture({ nickname: '', uid: 'mm-uid-2' }),
+    ])
+    createAccount.mockResolvedValue({ id: 9 })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    openCaptureMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'MiniMax Code' }))
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
+    expect(createAccount.mock.calls[0]![0].name).toBe('mm-uid-2')
+  })
+
+  it('MiniMax 捕获:未登录(Rust 抛 not_found)原因照原样上屏且不入库', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinCaptureMinimax).mockRejectedValueOnce(
+      new Error('未找到已登录的 MiniMax Code 登录态(需本机已安装并登录 MiniMax Code)'),
+    )
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    openCaptureMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'MiniMax Code' }))
+    // 不另兜文案:Rust 带的中文原因直接进页面级 actionError(直采没有 captureError 可落)
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toContain('未找到已登录的 MiniMax Code 登录态'),
+    )
+    expect(createAccount).not.toHaveBeenCalled()
+    expect(screen.queryByText('captureImported')).toBeNull()
+  })
+
+  it('MiniMax 捕获:捕获到但没有 token 时提示 captureMinimaxNoToken 且不入库', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    // 读到 auth.json 但 access_token 为空(未完成 OAuth):挡在入库之前,不给服务端塞废账号
+    vi.mocked(checkinCaptureMinimax).mockResolvedValueOnce([
+      minimaxSessionFixture({ access_token: '' }),
+    ])
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    openCaptureMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'MiniMax Code' }))
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toContain('captureMinimaxNoToken'),
+    )
+    expect(createAccount).not.toHaveBeenCalled()
   })
 
   it('WorkBuddy 网页登录:探测 ok 自动入库(login_type=web,jwt 字段=Cookie)', async () => {

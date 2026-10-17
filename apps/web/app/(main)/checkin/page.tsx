@@ -180,6 +180,14 @@ export default function CheckinPage() {
   const [renamingId, setRenamingId] = React.useState<number | null>(null)
   const [renameDraft, setRenameDraft] = React.useState('')
   const [renaming, setRenaming] = React.useState(false)
+  // 行内重命名输入框的焦点用 ref + effect,不用 autoFocus:后者在本文件属「新增裸 lint
+  // 抑制」(守门 103 DC 棘轮 = 该文件 HEAD 存量 0,守门 108 E5 要求带到期豁免),而这一路
+  // 输入框只在用户点名称之后才挂载 —— 焦点随之移入是交互预期、不是页面加载抢焦点,
+  // 因此用等价的命令式聚焦替代,行为不变且不留豁免债。
+  const renameInputRef = React.useRef<HTMLInputElement>(null)
+  React.useEffect(() => {
+    if (renamingId !== null) renameInputRef.current?.focus()
+  }, [renamingId])
   const [deleteTarget, setDeleteTarget] = React.useState<CheckinAccount | null>(null)
   const [deleting, setDeleting] = React.useState(false)
   const [actionError, setActionError] = React.useState<string | null>(null)
@@ -577,6 +585,56 @@ export default function CheckinPage() {
     if (m.uuid) dm.uuid = m.uuid
     if (m.device_id) dm.device_id = m.device_id
     return dm
+  }
+
+  // ================== MiniMax Code 本机捕获(2026-10-17 补齐下拉入口)==================
+  // 与「添加账号」智能扫描(runSmartScan)同一条 IPC 通道、同一份 device_map 契约,只换入口。
+  // 这里刻意**不开对话框**:第四平台的本机登录态是单账号单文件形态
+  // (~/.minimax/auth/prod/<region>/<client>/auth.json + %APPDATA%\MiniMax\*.json 的
+  // sharedUser),既没有多账号可选,也不需要勾选,点一下捕获即入库(傻瓜式零选择);
+  // Qoder/WorkBuddy 那套「列表 + 勾选 + 导入」对它纯属多余一次点击。
+  // 未登录不另兜文案:MiniMax 命令在捕获为空时直接抛 not_found(带中文原因),照原样上屏。
+  // 直采没有对话框 ⇒ 失败必须落页面级出口(actionError/batchNotice),captureError 只在
+  // 三个捕获对话框内渲染,用它等于静默吞掉失败原因。
+  const runMinimaxCapture = async () => {
+    setImporting(true)
+    setActionError(null)
+    setBatchNotice(null)
+    try {
+      const found = await checkinCaptureMinimax()
+      const usable = found.filter((m) => m.access_token)
+      if (usable.length === 0) {
+        setActionError(t('captureMinimaxNoToken'))
+        return
+      }
+      let okCount = 0
+      const failures: string[] = []
+      for (const item of usable) {
+        try {
+          await createCheckinAccount({
+            name: item.nickname || item.uid || item.auth_file,
+            jwt: item.access_token,
+            device_map: minimaxDeviceMap(item),
+            group: groupFilter !== 'all' ? groupFilter : '',
+            platform: 'minimax',
+          })
+          okCount += 1
+        } catch (e) {
+          // 重复导入同名账号由服务端唯一约束 409 兜住(账号名已存在),这里逐条照实报
+          failures.push(`${item.nickname || item.uid || item.auth_file}: ${(e as Error).message}`)
+        }
+      }
+      if (failures.length > 0) {
+        setActionError(failures.join('；'))
+      } else {
+        setBatchNotice(t('captureImported', { count: okCount }))
+      }
+      await loadAll()
+    } catch (e) {
+      setActionError((e as Error).message)
+    } finally {
+      setImporting(false)
+    }
   }
 
   const openWbCapture = () => {
@@ -1766,8 +1824,35 @@ export default function CheckinPage() {
           </Button>
           {desktop && (
             <>
-              {/* 2026-10-15 收敛为下拉(机主口径):三个平台各自平铺按钮占一排,
-                  改成单一「从本机捕获」下拉,菜单项按平台名直列;三个对话框本体不动 */}
+              {/* 2026-10-15 收敛为下拉(机主口径):各平台平铺按钮占一排,改成单一
+                  「从本机捕获」下拉,菜单项按平台名直列;TRAE/Qoder/WorkBuddy 三个对话框
+                  本体不动。2026-10-17 补第四平台 MiniMax Code:单账号零选择,点一下
+                  捕获即入库(无对话框),故这里只有它不是 openXxxCapture 形态。 */}
+              {/* 2026-10-17 恢复独立显眼入口(用户反馈"找不到网页登录"):
+                  「从本机捕获」下拉对普通用户藏得太深,「浏览器登录 WorkBuddy」
+                  (零 token 主路径)提为工具栏一级按钮 —— 打开捕获对话框即自动
+                  进入内嵌浏览器登录流程,不再需要两步。 */}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={wbWebLoginState === 'importing'}
+                onClick={() => {
+                  // waiting 态再点 = 改主意取消(与对话框内取消同语义);否则开启流程
+                  if (wbWebLoginState === 'waiting') {
+                    void cancelWbWebLogin()
+                    return
+                  }
+                  openWbCapture()
+                  void startWbWebLogin()
+                }}
+              >
+                {wbWebLoginState === 'importing' && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                {wbWebLoginState === 'waiting' ? (
+                  <>{t('captureWbWebCancel')}</>
+                ) : (
+                  t('captureWbWebToolbar')
+                )}
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">
@@ -1780,6 +1865,9 @@ export default function CheckinPage() {
                   <DropdownMenuItem onClick={() => void openCapture()}>TRAE</DropdownMenuItem>
                   <DropdownMenuItem onClick={openWbCapture}>WorkBuddy</DropdownMenuItem>
                   <DropdownMenuItem onClick={openQoderCapture}>Qoder</DropdownMenuItem>
+                  <DropdownMenuItem disabled={importing} onClick={() => void runMinimaxCapture()}>
+                    MiniMax Code
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <Button variant="outline" size="sm" onClick={() => void openMaint()}>
@@ -1930,7 +2018,7 @@ export default function CheckinPage() {
                           {/* UUID-shaped account name: truncate + hover;点击即行内重命名 */}
                           {renamingId === account.id ? (
                             <Input
-                              autoFocus
+                              ref={renameInputRef}
                               value={renameDraft}
                               aria-label={t('rename')}
                               onChange={(e) => setRenameDraft(e.target.value)}
