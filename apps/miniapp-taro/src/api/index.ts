@@ -91,7 +91,10 @@ import {
 } from '@ihui/api-client'
 // D49① + D111:评价(rateChatMessage)/审批(sendToolApprovalResponse)共享端点 re-export(§3 共享层优先,
 // 端内经 @ihui/api-client,不另起传输层);与 web / mobile-rn / extension 三端共用同一把函数。
-import { rateChatMessage as _rateChatMessage, sendToolApprovalResponse as _sendToolApprovalResponse } from '@ihui/api-client'
+import {
+  rateChatMessage as _rateChatMessage,
+  sendToolApprovalResponse as _sendToolApprovalResponse,
+} from '@ihui/api-client'
 // HTTP 方法助手(get/post/put/patch/del)与 unwrapApi 统一来自 api-bridge,
 // 替代原 utils/request.ts,内部走 @ihui/api-client fetchApi + Taro transport。
 import { unwrapApi, get, post, put, patch, del } from '../utils/api-bridge'
@@ -402,6 +405,14 @@ export interface StreamEventCallbacks {
    * 决议回传走 re-export 的 postToolApprovalResponse(端内不另起传输层)。
    */
   onToolApproval?: (evt: ToolApprovalEvent) => void
+  /**
+   * G-248 R2(2026-10-16 立):帧级 traceId 的端内投影出口。
+   * 值由共享解析层(@ihui/shared/utils/sse-parse 的唯一认领点)挂在 SSEEvent 信封上,
+   * 本层只透传不另判 —— 键名/合法性口径与 @ihui/api-client 的 streamChat.onTraceId 同名同义:
+   * 本轮首次见到合法值时回调一次,之后同值帧不再重复回调;从未见过 ⇒ 一次都不回调
+   * (消费侧保持"未知",不得折成空串顶掉这一态)。
+   */
+  onTraceId?: (traceId: string) => void
 }
 
 /** SSE 错误对象携带的元信息(字段名与 @ihui/api-client client.ts attachErrorMeta 一致) */
@@ -446,6 +457,7 @@ export const chatStream = async (
   let receivedContent = ''
   let dedupeBuffer = ''
   let dedupeActive = false
+  let seenTraceId: string | undefined
 
   const emitDelta = (delta: string): void => {
     if (!dedupeActive) {
@@ -476,6 +488,12 @@ export const chatStream = async (
 
   // W5:统一事件分发(6 类既有 + 12 类新增 = 18 类,字段名严格对齐 client.ts 契约)
   const dispatch = (evt: SSEEvent) => {
+    // G-248 R2:帧级 traceId 的透传挂在认领链最外层(与共享 sse-parse 的挂法同形)——
+    // 本层的 switch 会把多数帧折进窄载荷,放在分支里就会漏掉被折掉的那些。
+    if (seenTraceId === undefined && evt.traceId) {
+      seenTraceId = evt.traceId
+      callbacks?.onTraceId?.(evt.traceId)
+    }
     switch (evt.type) {
       case 'chunk':
         if (evt.content) emitDelta(evt.content)
@@ -644,6 +662,8 @@ export const chatStream = async (
     onReconnect: (attempt, delayMs) => {
       // 断点续传去重:重连后服务端可能从断点重发,跳过已渲染前缀
       dedupeActive = receivedContent.length > 0
+      // 重连是一条新请求 ⇒ 新一轮的 trace 归新一轮(与 api-client 的 onAttemptStart 复位同口径)
+      seenTraceId = undefined
       callbacks?.onReconnect?.(attempt, delayMs)
     },
     readTimeoutMs: STREAM_READ_TIMEOUT_MS,
