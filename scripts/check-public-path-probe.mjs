@@ -94,6 +94,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // **复用**仓里那把常驻取证包装器的判据,不另立第二套标记语法(§22c 的 __test__ 出口就是为此而设)。
 // 只取 judgeEvidence / exitCodeForVerdict 与两枚标记;run-evidence 自身仍是"是否跑完"的唯一判据面。
 import { judgeEvidence, exitCodeForVerdict, __test__ as evidenceKit } from './run-evidence.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 const { RC_MARK, KILLED_MARK } = evidenceKit
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -921,13 +922,15 @@ function pickOpt(argv, k, d) {
 
 async function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
-  const reportIdx = argv.indexOf('--report')
-  if (reportIdx >= 0) {
-    const f = argv[reportIdx + 1]
-    if (!f) {
-      console.log('用法错:--report 需要一个取证文件路径')
-      return 2
-    }
+  const reportFlag = requireFlagValue(argv, '--report', { noun: '取证文件路径' })
+  // G-322(取证封缄落点):旧写法只挡"后面没有参数";`--report --json` 会把 "--json" 当取证文件读,
+  // 得到的结论与该门"取证必须经 run-evidence 封缄"的纪律脱钩(读不到 ≠ 没有问题)。给了就要有值。
+  if (reportFlag.error) {
+    console.log(`用法错:${reportFlag.error}`)
+    return 2
+  }
+  if (reportFlag.value !== null) {
+    const f = reportFlag.value
     const r = readLedger(f)
     console.log(`取证:${f}`)
     console.log(`  跑完没有:${r.completion.kind} —— ${r.completion.reason}`)
