@@ -11,6 +11,8 @@ export interface TimelineItem {
   time?: string
   icon?: React.ComponentType<{ className?: string }>
   color?: string
+  /** D195 行尾操作槽(时间线视图也要能撤销一次状态迁移,不能只在列表视图可达) */
+  action?: React.ReactNode
 }
 
 interface TimelineProps {
@@ -49,6 +51,7 @@ export function Timeline({ items, mode = 'left', className }: TimelineProps) {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{item.title}</span>
                   {item.time && <span className="text-xs text-muted-foreground">{item.time}</span>}
+                  {item.action && <div className="ml-auto shrink-0">{item.action}</div>}
                 </div>
                 {item.description && (
                   <p className="mt-0.5 text-sm text-muted-foreground">{item.description}</p>

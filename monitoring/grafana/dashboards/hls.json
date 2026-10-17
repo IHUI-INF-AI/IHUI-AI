@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "IHUI-AI HLS 直播流监控",
+  "description": "HLS 直播流转码:转码平均耗时(按 video_id)。数据源是 api 手拼 /business-metrics 的 business_hls_transcode_seconds{video_id}。该族标签值是开放集(视频 id 由真实转码事件产生),因此**本机尚未发生过转码时面板为 No data 是事实**,不是采集坏掉 —— 与\"注册了却零样本\"那一型不同,这里没有可开的封闭枚举基线。",
   "editable": true,
   "graphTooltip": 1,
   "id": null,
@@ -19,21 +19,6 @@
     }
   ],
   "panels": [
-    {
-      "gridPos": {
-        "h": 3,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "id": 9000,
-      "options": {
-        "content": "本次删除 7 个面板,原因:无流媒体服务器/播放器上报,全仓 0 命中;转码延迟面板保留(埋点入口存在)。\n\n这些面板引用的指标在代码里**没有发射点**,面板从建出来那天起就永远是 No data。埋点入口补齐后可以按 `scripts/data/grafana-external-metrics.json` 台账或新增发射点把它们请回来。",
-        "mode": "markdown"
-      },
-      "title": "面板调整说明",
-      "type": "text"
-    },
     {
       "title": "转码延迟 (ms)",
       "type": "timeseries",
@@ -59,7 +44,8 @@
           "unit": "ms"
         },
         "overrides": []
-      }
+      },
+      "id": 1
     }
   ],
   "refresh": "30s",
