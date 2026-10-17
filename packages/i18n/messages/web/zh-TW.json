@@ -23437,7 +23437,20 @@
       "viewTimeline": "時間線視圖",
       "unreadCount": "{count} 則未讀",
       "loading": "載入中...",
-      "noData": "暫無訊息"
+      "noData": "暫無訊息",
+      "important": "需要了解",
+      "viewActive": "返回動態",
+      "archived": "已歸檔",
+      "hide": "隱藏",
+      "hiding": "正在隱藏…",
+      "hideFailed": "這條動態未隱藏，請重試。",
+      "restore": "恢復",
+      "restoring": "正在恢復…",
+      "restoreFailed": "這條動態未恢復，請重試。",
+      "markAllReadFailed": "未能把動態標為已讀，請重試。",
+      "emptyDescription": "評論、提及和訂閱的變化會出現在這裡。",
+      "emptyArchivedDescription": "你隱藏的動態會保留在這裡，隨時可以恢復。",
+      "unavailable": "載入失敗"
     },
     "profile": {
       "accountInfo": "賬號信息",

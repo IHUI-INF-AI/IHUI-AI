@@ -2227,6 +2227,13 @@
       "when": 1791936000000,
       "tag": "20261014100000_chat_element_packs",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 319,
+      "when": 1792285200000,
+      "tag": "20261018090000_notifications_archived_at",
+      "breakpoints": true
     }
   ]
 }

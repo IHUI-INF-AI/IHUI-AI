@@ -23436,7 +23436,20 @@
       "viewTimeline": "타임라인 보기",
       "unreadCount": "{count}개의 안 읽음",
       "loading": "로딩 중...",
-      "noData": "메시지 없음"
+      "noData": "메시지 없음",
+      "important": "중요",
+      "viewActive": "활성",
+      "archived": "보관됨",
+      "hide": "숨기기",
+      "hiding": "숨기는 중…",
+      "hideFailed": "이 업데이트를 숨기지 않았습니다. 다시 시도해 주세요.",
+      "restore": "복원",
+      "restoring": "복원 중…",
+      "restoreFailed": "이 업데이트를 복원하지 않았습니다. 다시 시도해 주세요.",
+      "markAllReadFailed": "업데이트를 읽은 상태로 표시하지 않았습니다. 다시 시도해 주세요.",
+      "emptyDescription": "댓글, 언급, 구독 변경이 여기에 표시됩니다.",
+      "emptyArchivedDescription": "숨긴 업데이트는 여기에 보관되며 언제든지 복원할 수 있습니다.",
+      "unavailable": "불러올 수 없음"
     },
     "profile": {
       "accountInfo": "계정 정보",
