@@ -15,8 +15,9 @@ import json
 import os
 import sys
 import time
-import urllib.request
 import urllib.error
+import urllib.parse
+import urllib.request
 
 GH_TOKEN = os.environ["GH_TOKEN"]
 GITEE_TOKEN = os.environ["GITEE_TOKEN"]
@@ -107,6 +108,46 @@ def gitee_upload(release_id, filepath, filename):
     return False
 
 
+def gitee_dl_url(name):
+    """Gitee 附件直链(与 feed 里写出去的形态一致)。"""
+    return (f"https://gitee.com/{GITEE_OWNER}/{GITEE_REPO}/releases/download/"
+            f"{TAG}/{urllib.parse.quote(name)}")
+
+
+def head_len(url):
+    """量远端 Content-Length;量不到返回 None。⚠️ None 是「未判定」,既不叫对得上也不叫对不上。"""
+    try:
+        r = urllib.request.urlopen(urllib.request.Request(url, method="HEAD"), timeout=45)
+        return int(r.headers.get("Content-Length") or 0) or None
+    except Exception as e:
+        print(f"[parity] HEAD {url} 未取得长度: {e}")
+        return None
+
+
+def judge_parity(gh_size, gitee_size):
+    """三档:同 / 不同 / 未判定。失败方向是「未判定」,绝不因量不出就把冒名包当已核对。"""
+    if not gh_size or not gitee_size:
+        return "undetermined"
+    return "same" if gh_size == gitee_size else "different"
+
+
+def gitee_delete_named(release_id, name):
+    """按附件 id 删除同名附件,返回删掉的个数。
+
+    删除接口形态沿用本文件 latest.json 那处的实证(2026-09-24:DELETE 返回 204 即真删)。
+    Gitee 的「同名直链永取第一个附件」 ⇒ 只要旧附件还在,重传也不会改变用户拿到的字节,
+    所以删除不成就必须让调用方把该平台从 feed 里剔出去,而不是留着死链/冒名链。
+    """
+    listed = gitee_api(
+        f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases/{release_id}/attach_files") or []
+    hits = [a for a in listed if a.get("name") == name and a.get("id")]
+    for a in hits:
+        gitee_api(
+            f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases/{release_id}"
+            f"/attach_files/{a['id']}", "DELETE")
+    return len(hits)
+
+
 def main():
     # 1. GitHub release 资产清单
     rel = gh_api(f"/repos/{GH_REPO}/releases/tags/{TAG}")
@@ -186,6 +227,35 @@ def main():
               f"预期跳过(不影响其余资产与更新链路)")
     upload_set -= oversize
 
+    # 3--extra-3. 同名 ≠ 同字节(2026-10-17 立,根因级对账)。
+    # desktop-v0.1.75 实锤:Gitee 上的 AI_0.1.75_x64-setup.exe 是 02:28:50Z 那份
+    # (10,118,299 字节),CI 在 03:53:54Z 重新构建并用真钥匙签的是 10,122,472 字节;
+    # 旧实现只按**文件名**判"已存在,跳过"⇒ 冒名旧包永久占位,而 feed 写出去的是 CI 的
+    # 签名 ⇒ 客户端下载到的字节与签名覆盖的字节不是同一份,验签必挂,自动更新静默失效。
+    # 同一件事在下载页解析器 scripts/resolve-desktop-download.mjs 的 giteeTrustable 里
+    # 早就按 size 防了(注释还留着 0.1.51 的 size 冒名实锤),唯独这条同步链没有。
+    parity_blocked = set()
+    for fname in sorted(upload_set & gitee_assets):
+        gh_size = int(assets.get(fname, {}).get("size") or 0) or None
+        gsize = head_len(gitee_dl_url(fname))
+        verdict = judge_parity(gh_size, gsize)
+        if verdict == "same":
+            print(f"[parity] {fname} Gitee {gsize} == GH {gh_size} 字节 → 同名同物,跳过")
+            continue
+        if verdict == "undetermined":
+            print(f"[parity] ⚠️ {fname} 量不出字节(GH={gh_size} / Gitee={gsize})⇒ 未判定,"
+                  f"沿用旧的按名字跳过 —— 这一格没被核对过,别记成已核对")
+            continue
+        print(f"[parity] ❌ {fname} 同名不同物:Gitee {gsize} ≠ GH {gh_size} → 删旧附件后重挂")
+        gitee_assets.discard(fname)
+        if gitee_delete_named(rid, fname):
+            continue  # 删干净了:下面按"缺失资产"正常下载并上传
+        # 删不掉 ⇒ 同名直链仍会解析到那份冒名包,重传只会多塞一份,不解决问题。
+        # 唯一不骗人的出路是让它不进 feed(见第 4 步以 gitee_assets 为准那道闸),
+        # 并把这个平台记进失败清单吼出来 —— 需要人去 Gitee 后台清附件。
+        parity_blocked.add(fname)
+        print(f"[parity] ❌ {fname} 同名附件删不掉 ⇒ 该平台本轮不写进 feed,等人工清理")
+
     # 3a. 下载所需文件到本地。
     #
     # 2026-10-17 改为**按需下载**(实测立因,这是本脚本最大的时间黑洞):
@@ -205,8 +275,9 @@ def main():
 
     needed = set()
     for fname in upload_set:
-        # 要上传且 Gitee 还没有 ⇒ 必须下载
-        if fname not in gitee_assets:
+        # 要上传且 Gitee 还没有 ⇒ 必须下载(对账判成"同名不同物且删不掉"的不下载:
+        # 那份字节传上去也不会被同名直链选中,白拉一次大包)
+        if fname not in gitee_assets and fname not in parity_blocked:
             needed.add(fname)
     for _plat, (_main, _sig) in need.items():
         # sig 的文本内容 feed 要用,几百字节,一律取
@@ -261,6 +332,11 @@ def main():
     print(f"[gitee] 上传顺序(按国内下载价值排): {ordered}")
     upload_failed = []
     for fname in ordered:
+        if fname in parity_blocked:
+            print(f"[gitee] {fname} 同名冒名附件删不掉 ⇒ 不上传(传了也不会被同名直链选中),"
+                  f"并记进失败清单等人工清 Gitee 附件")
+            upload_failed.append(fname)
+            continue
         if fname in gitee_assets:
             print(f"[gitee] {fname} 已存在,跳过上传")
             continue
@@ -279,10 +355,14 @@ def main():
         # 两种成因要分清,别混成一句含糊的"上传失败":
         #   · 没本地副本 ⇒ 3a 的按需下载漏了该文件(真异常,该红);
         #   · 上传 3 次仍失败 ⇒ Gitee 侧拒绝/网络问题(重跑幂等可补)。
-        missing = [n for n in upload_failed if not os.path.exists(f"{tmpdir}/{n}")]
-        detail = f"上传失败: {sorted(set(upload_failed) - set(missing))}"
+        missing = [n for n in upload_failed
+                   if n not in parity_blocked and not os.path.exists(f"{tmpdir}/{n}")]
+        rest = [n for n in upload_failed if n not in parity_blocked and n not in missing]
+        detail = f"上传失败: {sorted(rest)}"
         if missing:
             detail += f";3a 未下载到: {sorted(missing)}"
+        if parity_blocked:
+            detail += f";同名冒名附件删不掉(需人工在 Gitee 后台清附件): {sorted(parity_blocked)}"
         sys.exit(f"[gitee] {detail}(重跑本 job 可幂等补齐)")
 
     # 4. 生成 latest.json(url → Gitee 直链)
