@@ -13,6 +13,7 @@ import { useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { buildMainDomainUrl, isAuthSubdomainHost } from '@/lib/auth-domains'
+import { resolvePostLoginLanding, type PostLoginUser } from '@/lib/post-login-landing'
 
 type Status = 'loading' | 'success' | 'error'
 
@@ -115,20 +116,24 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
         setToken(res.data.token, res.data.refreshToken)
         setUser(res.data.user as never)
         setStatus('success')
+        // admin 账号(roleId ≥ 1)经第三方登录完成后默认落到生产在线监控大屏,与主站
+        // LoginDialog 共用同一落点判据(@/lib/post-login-landing);非 admin / 身份缺失
+        // 时回落到原有的根路径语义。
+        const landing = resolvePostLoginLanding(res.data.user as PostLoginUser) ?? '/'
         // 分域 SSO (2026-07-21):当前在认证子域,Cookie 已写在 .aizhs.top,
-        // 跨域生效后跳回主域根路径,主域 useAuthBootstrap 自动读 Cookie 恢复登录态
+        // 跨域生效后跳回主域,主域 useAuthBootstrap 自动读 Cookie 恢复登录态
         if (isAuthSubdomainHost()) {
           timers.push(
             setTimeout(() => {
               if (cancelled) return
-              window.location.href = buildMainDomainUrl('/')
+              window.location.href = buildMainDomainUrl(landing)
             }, 800),
           )
         } else {
           timers.push(
             setTimeout(() => {
               if (cancelled) return
-              router.push('/')
+              router.push(landing)
             }, 800),
           )
         }
