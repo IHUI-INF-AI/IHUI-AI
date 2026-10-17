@@ -175,7 +175,7 @@ describe('pickLatestApkRelease', () => {
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-describe('preferGiteeWindows —— 国内可达偏好,但绝不盲钉', () => {
+describe('preferGiteeWindows —— 国内可达偏好,但只认字节对账(2026-10-18 由"看名字"改判)', () => {
   const payload = {
     version: '0.1.75',
     notes: 'n',
@@ -187,50 +187,76 @@ describe('preferGiteeWindows —— 国内可达偏好,但绝不盲钉', () => {
       },
     },
   }
+  // CI 签名覆盖的那份字节数(desktop-v0.1.75 实测);事故型冒名包是 10118299。
+  const GH_SIZE = 10122472
 
-  it('Gitee 确实持有同名资产时才改用它', async () => {
-    // 用 globalThis.fetch 打桩:Gitee tags 接口返回带该资产的 release
+  const withFetch = (stub: typeof fetch, run: () => Promise<void>) => {
     const real = globalThis.fetch
-    globalThis.fetch = (async () => ({
-      ok: true,
-      json: async () => ({
-        assets: [{ name: 'AI_0.1.75_x64-setup.exe', browser_download_url: 'x' }],
-      }),
+    globalThis.fetch = stub
+    return run().finally(() => {
+      globalThis.fetch = real
+    })
+  }
+  const head = (init: { ok?: boolean; len?: number | null }) =>
+    (async () => ({
+      ok: init.ok !== false,
+      headers: new Headers(
+        init.ok === false || init.len === null || init.len === undefined
+          ? {}
+          : { 'content-length': String(init.len) },
+      ),
     })) as unknown as typeof fetch
-    try {
-      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75')
+
+  it('Gitee 那份与 GitHub 原件等长 ⇒ 改用 Gitee,签名原样保留', async () => {
+    await withFetch(head({ len: GH_SIZE }), async () => {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75', GH_SIZE)
       expect(out?.platforms['windows-x86_64']?.url).toContain('gitee.com')
-      // 签名必须原样保留 —— minisign 是对包体字节签的,换 host 不影响验签
+      // minisign 是对包体字节签的,同一份字节换 host 不影响验签
       expect(out?.platforms['windows-x86_64']?.signature).toBe('SIG')
-    } finally {
-      globalThis.fetch = real
-    }
+    })
   })
 
-  it('Gitee 没有该资产时保持 release 原生 URL(0.1.74 全量 404 的教训)', async () => {
-    const real = globalThis.fetch
-    globalThis.fetch = (async () => ({
-      ok: true,
-      json: async () => ({ assets: [] }),
-    })) as unknown as typeof fetch
-    try {
-      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75')
+  it('反例(2026-10-18 事故实锤):同名但字节不同 ⇒ 保持 GitHub,不给验不过的快链', async () => {
+    await withFetch(head({ len: 10118299 }), async () => {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75', GH_SIZE)
       expect(out?.platforms['windows-x86_64']?.url).toContain('github.com')
-    } finally {
-      globalThis.fetch = real
-    }
+      expect(out?.platforms['windows-x86_64']?.signature).toBe('SIG')
+    })
   })
 
-  it('Gitee 接口不可达时也不动 URL(宁走可达的 GitHub,不给死链)', async () => {
-    const real = globalThis.fetch
-    globalThis.fetch = (async () => {
+  it('Gitee 没有该资产(HEAD 非 200)⇒ 保持 GitHub(0.1.74 全量 404 的教训)', async () => {
+    await withFetch(head({ ok: false }), async () => {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75', GH_SIZE)
+      expect(out?.platforms['windows-x86_64']?.url).toContain('github.com')
+    })
+  })
+
+  it('未判定两条都得保持 GitHub:Gitee 量不出 content-length / GitHub 侧没有 size', async () => {
+    await withFetch(head({ len: null }), async () => {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75', GH_SIZE)
+      expect(out?.platforms['windows-x86_64']?.url).toContain('github.com')
+    })
+    await withFetch(head({ len: GH_SIZE }), async () => {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75', null)
+      expect(out?.platforms['windows-x86_64']?.url).toContain('github.com')
+    })
+  })
+
+  it('Gitee 接口整个不可达 ⇒ 不动 URL(宁走可达的 GitHub,不给死链)', async () => {
+    const boom = (async () => {
       throw new Error('ETIMEDOUT')
     }) as unknown as typeof fetch
-    try {
-      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75')
+    await withFetch(boom, async () => {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75', GH_SIZE)
       expect(out?.platforms['windows-x86_64']?.url).toContain('github.com')
-    } finally {
-      globalThis.fetch = real
-    }
+    })
+  })
+
+  it('变异自证:把"等长"判据摘成"同名"(不量字节)就会放过 10,118,299 那份冒名包', async () => {
+    // 这条钉住判据本身有牙:同名+不同字节必须落到 github.com,而不是 gitee.com。
+    await withFetch(head({ len: 10118299 }), async () => {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75', GH_SIZE)
+      expect(out?.platforms['windows-x86_64']?.url).not.toContain('gitee.com')
+    })
   })
 })
