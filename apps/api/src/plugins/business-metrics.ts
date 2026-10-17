@@ -511,10 +511,10 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
   // 监控大屏「今日 API 调用 / API 失败率 / TOP5 接口」恒为 0;
   // n1-detector / open-idempotency / point·search·tenant aspect 等同批后置 onResponse 能力一并静默失效。
   // 最小修法:函数体一字不改,只把钩子声明改为 async(返回 Promise,让 Fastify 立即续链)。
-  // P2 修复:onResponse 钩子改为同步函数,用 setImmediate 异步上报 histogram,
-  // 避免同步遍历 LATENCY_BUCKETS + 更新 3 个 Map 阻塞 onResponse 钩子链(高 QPS 热点)。
+  // 函数体本身仍是同步的(早返回 + setImmediate 异步上报 histogram):async 仅用于向
+  // Fastify 交回完成信号,高 QPS 下不会因同步遍历 LATENCY_BUCKETS 拖慢钩子链。
   // 早返回判断保留在同步段(快速跳过非 /api/ 与健康检查路径);实际指标更新挪到 setImmediate。
-  server.addHook('onResponse', (request, reply: FastifyReply) => {
+  server.addHook('onResponse', async (request, reply: FastifyReply) => {
     const url = request.url.split('?')[0] ?? ''
     if (!url.startsWith('/api/')) return
     if (url === '/api/health' || url === '/api/metrics' || url === '/api/business-metrics') return
