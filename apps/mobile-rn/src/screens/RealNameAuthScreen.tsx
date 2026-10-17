@@ -7,9 +7,23 @@ import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import { RealNameAuthScreen as SharedRealNameAuthScreen, type RealNameAuthItem } from '@ihui/rn-app'
+import { RealNameAuthScreen as SharedRealNameAuthScreen, type RealNameAuthItem, type RealNameAuthStatus } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+
+interface RealNameAuthMyResponse {
+  authStatus?: 'unverified' | 'pending' | 'approved' | 'rejected'
+  realName?: string | null
+  idCard?: string | null
+  rejectReason?: string | null
+}
+
+const REALNAME_STATUS_MAP: Record<string, RealNameAuthStatus> = {
+  unverified: 'unverified',
+  pending: 'pending',
+  approved: 'verified',
+  rejected: 'rejected',
+}
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -28,10 +42,16 @@ export function RealNameAuthScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const resp = await fetchApi<RealNameAuthItem>('/user/real-name')
+        const resp = await fetchApi<RealNameAuthMyResponse>('/auth/realname/my')
         if (cancelled) return
         if (!resp.success) throw new Error('http')
-        setStatus(resp.data ?? { status: 'unverified' })
+        const d = resp.data
+        setStatus({
+          status: REALNAME_STATUS_MAP[d?.authStatus ?? 'unverified'] ?? 'unverified',
+          name: d?.realName ?? undefined,
+          idNumber: d?.idCard ?? undefined,
+          reason: d?.rejectReason ?? undefined,
+        })
       } catch {
         if (!cancelled) setError(t('realNameAuth.loadFailed'))
       } finally {
@@ -51,9 +71,9 @@ export function RealNameAuthScreen() {
     setSubmitting(true)
     setError('')
     try {
-      const resp = await fetchApi<unknown>('/user/real-name', {
+      const resp = await fetchApi<unknown>('/auth/realname/submit', {
         method: 'POST',
-        body: JSON.stringify({ name, idNumber }),
+        body: JSON.stringify({ realName: name, idCard: idNumber, authSource: 'manual' }),
       })
       if (!resp.success) throw new Error('http')
       setStatus({ status: 'pending', name, idNumber })

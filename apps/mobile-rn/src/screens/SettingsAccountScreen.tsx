@@ -27,9 +27,16 @@ export function SettingsAccountScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetchApi<SettingsAccountItem>('/account')
+      const r = await fetchApi<{ user?: { nickname?: string; email?: string; phone?: string } }>(
+        '/auth/me',
+      )
       if (!r.success) throw new Error()
-      setAccount(r.data ?? { name: '', email: '', phone: '' })
+      const u = r.data?.user
+      setAccount({
+        name: u?.nickname ?? '',
+        email: u?.email ?? '',
+        phone: u?.phone ?? '',
+      })
     } catch {
       setError(t('settingsAccount.loadFailed'))
     } finally {
@@ -47,9 +54,9 @@ export function SettingsAccountScreen() {
     setError('')
     setToast('')
     try {
-      const r = await fetchApi<unknown>('/account', {
+      const r = await fetchApi<unknown>('/auth/me', {
         method: 'PUT',
-        body: JSON.stringify(account),
+        body: JSON.stringify({ nickname: account.name, email: account.email }),
       })
       if (!r.success) throw new Error()
       setToast(t('settingsAccount.saved'))
