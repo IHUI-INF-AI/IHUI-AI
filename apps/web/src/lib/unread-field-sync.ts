@@ -19,6 +19,7 @@
  * 本模块不直接依赖 store:行表/overlay/角标/脏标记由工厂内部持有,
  * 调用方(未来的接线层)把 store 读写搬进来即可,测试用 mock service 注入。
  */
+import { createListVersionGate } from '@ihui/shared/ui/list-stabilization'
 
 /** 未读同步涉及的行字段(只保留对账需要的最小面)。 */
 export interface UnreadSyncRow {
@@ -116,36 +117,19 @@ export function createUnreadFieldSync(deps: UnreadSyncDeps) {
   const overlayByEntityKey: Record<string, number> = {}
   const badgeByEntityKey: Record<string, boolean> = {}
   const dirtyWorkspaceKeys = new Set<string>()
-  const recentUnreadByKey = new Map<string, number>()
   let membershipVersion = 0
-  let noContentKeyPassThrough = 0
 
   const now = deps.now ?? (() => Date.now())
   const warn = deps.warn ?? (() => {})
 
-  /**
-   * 去重窗口:同一条事件(同实体+同状态+同更新时间)在窗口内只放行首个订阅者。
-   * 有界 256,过期键惰性清理。
-   */
-  function shouldSkipRecentUnread(key: string): boolean {
-    const at = now()
-    for (const [recentKey, seenAt] of recentUnreadByKey) {
-      if (at - seenAt > UNREAD_DEDUPE_WINDOW_MS) {
-        recentUnreadByKey.delete(recentKey)
-      }
-    }
-    if (recentUnreadByKey.has(key)) {
-      return true
-    }
-    recentUnreadByKey.set(key, at)
-    if (recentUnreadByKey.size > UNREAD_DEDUPE_MAX_KEYS) {
-      const oldestKey = recentUnreadByKey.keys().next().value
-      if (oldestKey !== undefined) {
-        recentUnreadByKey.delete(oldestKey)
-      }
-    }
-    return false
-  }
+  // G-108(2026-10-18 立):去重窗口与「构造不出可靠内容 key 就放行并计数」这两维不再在本文件
+  // 各写一份,统一走 @ihui/shared/ui/list-stabilization 的版本网关 —— 内容 key 的构造由此与
+  // 列表引用稳定化同源(键序无关、`undefined` ≡ 键缺失都由那一份实现说了算)。
+  const versionGate = createListVersionGate({
+    windowMs: UNREAD_DEDUPE_WINDOW_MS,
+    maxKeys: UNREAD_DEDUPE_MAX_KEYS,
+    now,
+  })
 
   /** 服务端回包**只对账 unreadAt 字段**,禁止整份 meta 覆盖其他字段。 */
   function reconcileUnreadField(entityKey: string, unreadAt: number): void {
@@ -194,7 +178,9 @@ export function createUnreadFieldSync(deps: UnreadSyncDeps) {
     const pendingOverlay = overlayByEntityKey[entityKey]
     // 未读事实优先级:行字段 → 事件携带 → 乐观 overlay。
     const persistedUnreadAt =
-      cachedRow?.unreadAt ?? event.meta?.unreadAt ?? (typeof pendingOverlay === 'number' ? pendingOverlay : undefined)
+      cachedRow?.unreadAt ??
+      event.meta?.unreadAt ??
+      (typeof pendingOverlay === 'number' ? pendingOverlay : undefined)
     if (typeof persistedUnreadAt === 'number') {
       // 同一条状态事件会被多个列表订阅收到:首个订阅者已写 overlay 后,
       // 后续只补角标。若未读是事件直接携带的(行/overlay 都没有),
@@ -211,17 +197,20 @@ export function createUnreadFieldSync(deps: UnreadSyncDeps) {
     // 事件不带 meta/updatedAt ⇒ **判不出**是否与窗口内某条重复 ⇒ 一律放行不去重并计数,
     // 绝不把"判不出"当成"已去重"(否则快速真实 mutation 会被静默吞掉)。
     if (hasReliableContentKey(event)) {
-      const dedupeKey = [
-        buildUnreadWorkspaceKey(event.workspacePath, event.workspaceIdentity),
-        event.sessionId,
-        event.status ?? '',
-        event.updatedAt,
-      ].join('::')
-      if (shouldSkipRecentUnread(dedupeKey)) {
+      const bump = versionGate.bump({
+        content: {
+          workspaceKey: buildUnreadWorkspaceKey(event.workspacePath, event.workspaceIdentity),
+          sessionId: event.sessionId,
+          status: event.status,
+          updatedAt: event.updatedAt,
+        },
+      })
+      if (bump.outcome === 'deduped') {
         return 'deduped'
       }
     } else {
-      noContentKeyPassThrough += 1
+      // 判不出重复 ⇒ 交给网关"放行不去重"那一档(它会把版本号加一并计入计数,见 snapshot)
+      versionGate.bump()
     }
 
     const previousUnreadAt = cachedRow?.unreadAt
@@ -251,7 +240,9 @@ export function createUnreadFieldSync(deps: UnreadSyncDeps) {
           delete overlayByEntityKey[entityKey]
         }
         badgeByEntityKey[entityKey] = previousBadge
-        dirtyWorkspaceKeys.add(buildUnreadWorkspaceKey(event.workspacePath, event.workspaceIdentity))
+        dirtyWorkspaceKeys.add(
+          buildUnreadWorkspaceKey(event.workspacePath, event.workspaceIdentity),
+        )
         membershipVersion += 1
         warn('[unread-field-sync] 持久化后台终态未读失败', error)
       })
@@ -276,7 +267,7 @@ export function createUnreadFieldSync(deps: UnreadSyncDeps) {
       badgeByEntityKey: { ...badgeByEntityKey },
       dirtyWorkspaceKeys: [...dirtyWorkspaceKeys],
       membershipVersion,
-      noContentKeyPassThrough,
+      noContentKeyPassThrough: versionGate.snapshot().noContentKeyPassThrough,
     }
   }
 
