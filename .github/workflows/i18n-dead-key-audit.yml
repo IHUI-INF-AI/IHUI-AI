@@ -120,21 +120,43 @@ jobs:
 
     steps:
       - name: Checkout
+        id: checkout
         uses: actions/checkout@v4
 
       - name: Setup Node
+        id: setup-node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: 扫描死 key(失败即阻塞 PR;五端全扫,不再只跑 web)
+        id: scan
         run: node scripts/scan-dead-i18n-keys.mjs --target all --exit 1
 
       - name: 上传死 key 审计报告
+        id: upload-report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: i18n-dead-key-report
           path: .ihui-agent/tmp/i18n-dead-keys-*.md
           if-no-files-found: ignore
+
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      # 立因:本 job 是唯一真判红的那一格,而分诊此前只挂在 unit-tests 上 ⇒ 它红了 runner 只留
+      # 一行 "Process completed with exit code 1",失败命令原文进不了 annotations,只能靠人拿
+      # check-runs API 考古(2026-10-17 实测走的就是这条弯路)。契约与边界同 ci.yml:只在
+      # failure() 分支跑,不碰上面任何步骤的判据严格程度(无 continue-on-error、不删步骤、
+      # 不扩 permissions、不新增 secret)。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/i18n-dead-key-audit.yml
+          TRIAGE_IDS: checkout setup-node scan upload-report
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_SETUP_NODE: ${{ steps.setup-node.outcome }}
+          O_SCAN: ${{ steps.scan.outcome }}
+          O_UPLOAD_REPORT: ${{ steps.upload-report.outcome }}
+        run: bash scripts/ci-failure-triage.sh
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
