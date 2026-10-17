@@ -19,7 +19,18 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "返回 AI 总览",
+      "type": "link",
+      "url": "/d/ihui-ai-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "tags": ["ihui-ai"]
+    }
+  ],
   "liveNow": false,
   "panels": [
     {
@@ -201,7 +212,7 @@
     {
       "id": 104,
       "type": "gauge",
-      "title": "超时占比",
+      "title": "错误占比(含超时)",
       "datasource": {
         "type": "prometheus",
         "uid": "Prometheus"
@@ -214,7 +225,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(ihui_llm_calls_total{job=\"ai-service\",status=\"timeout\"}[$__range])) / sum(increase(ihui_llm_calls_total{job=\"ai-service\"}[$__range]))",
+          "expr": "sum(increase(ihui_llm_calls_total{job=\"ai-service\",status=\"error\"}[$__range])) / sum(increase(ihui_llm_calls_total{job=\"ai-service\",provider=~\"$provider\"}[$__range]))",
           "legendFormat": "timeout",
           "refId": "A"
         }
@@ -250,7 +261,8 @@
         },
         "showThresholdLabels": false,
         "showThresholdStats": true
-      }
+      },
+      "description": "ihui_llm_calls_total 的 status 取值只有 ok / error,\"timeout\" 这个值发射点从不产生 ⇒ 原面板恒 No data。"
     },
     {
       "id": 105,
@@ -381,7 +393,7 @@
       },
       "targets": [
         {
-          "expr": "topk(10, sum by (model) (rate(ihui_llm_calls_total{job=\"ai-service\"}[1h])))",
+          "expr": "topk(10, sum by (model) (rate(ihui_llm_calls_total{job=\"ai-service\",provider=~\"$provider\"}[1h])))",
           "legendFormat": "{{model}}",
           "refId": "A"
         }
@@ -466,7 +478,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (provider) (rate(ihui_llm_provider_errors_total{job=\"ai-service\"}[1h]))",
+          "expr": "sum by (provider) (rate(ihui_llm_provider_errors_total{job=\"ai-service\",provider=~\"$provider\"}[1h]))",
           "legendFormat": "{{provider}}",
           "refId": "A"
         }
@@ -545,27 +557,24 @@
       {
         "name": "provider",
         "label": "厂商",
-        "query": {
-          "cloudCommand": null,
-          "cloudDuration": null,
-          "expression": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, provider)",
-          "range": false
-        },
+        "query": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, provider)",
         "current": {
-          "selectedText": "All",
+          "selected": true,
           "text": "All",
           "value": "$__all"
         },
         "includeAll": true,
         "multi": true,
         "refresh": 1,
-        "regex": "",
-        "sort": 1,
         "type": "query",
         "hide": 0,
         "definition": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, provider)",
         "options": [],
-        "allValue": ".*"
+        "allValue": ".*",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        }
       }
     ]
   },
@@ -585,5 +594,6 @@
   },
   "uid": "ihui-ai-ai-latency",
   "version": 1,
-  "weekStart": ""
+  "weekStart": "",
+  "description": "AI 时延:首字 TTFT 与整请求耗时的 P50/P95/P99、错误与流式中断。数据源 ai-service 的 ihui_llm_ttft_seconds 与 ihui_llm_request_duration_seconds。"
 }
