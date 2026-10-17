@@ -124,6 +124,9 @@ export function isChatMessage(
 
 // ===================== 通知业务类型 =====================
 
+/** D195 通知的两个分区:active = 动态流(未归档),archived = 已归档(可逐条恢复)。跨端唯一声明。 */
+export type NotificationPartition = 'active' | 'archived'
+
 /** 通知列表项 */
 export interface NotificationItem {
   id: string
@@ -132,6 +135,8 @@ export interface NotificationItem {
   /** content 可选:后端返回时必填,前端从 WS 推送构造时可能为 undefined */
   content?: string
   isRead: boolean
+  /** D195 归档时刻:ISO 串 = 已归档,null/缺失 = 在动态流(active 分区) */
+  archivedAt?: string | null
   createdAt: string
   link?: string
   extra?: Record<string, unknown>

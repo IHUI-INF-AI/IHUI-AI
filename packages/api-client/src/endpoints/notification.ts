@@ -13,6 +13,7 @@ import type { ApiResult } from '@ihui/types'
 import type {
   MessageItem,
   NotificationItem,
+  NotificationPartition,
   CustomerServiceSession,
   CustomerServiceMessage,
   UnreadCount,
@@ -76,7 +77,7 @@ export async function deleteMessage(id: string): Promise<ApiResult<{ success: bo
 
 /** 获取通知列表 */
 export async function getNotifications(
-  query: PageQuery & { type?: string; isRead?: boolean } = {},
+  query: PageQuery & { type?: string; isRead?: boolean; partition?: NotificationPartition } = {},
 ): Promise<ApiResult<PageData<NotificationItem>>> {
   return fetchApi<PageData<NotificationItem>>(`/api/notifications${buildQs(query)}`)
 }
@@ -98,6 +99,24 @@ export async function markNotificationRead(id: string): Promise<ApiResult<{ succ
 /** 批量标记通知已读 */
 export async function markAllNotificationsRead(): Promise<ApiResult<{ success: boolean }>> {
   return fetchApi<{ success: boolean }>('/api/notifications/read-all', { method: 'POST' })
+}
+
+/** D195 隐藏(归档)一条通知:写归档时刻,不删行 */
+export async function archiveNotification(
+  id: string,
+): Promise<ApiResult<{ notification: NotificationItem }>> {
+  return fetchApi<{ notification: NotificationItem }>(`/api/notifications/${id}/archive`, {
+    method: 'POST',
+  })
+}
+
+/** D195 恢复一条已归档通知 */
+export async function restoreNotification(
+  id: string,
+): Promise<ApiResult<{ notification: NotificationItem }>> {
+  return fetchApi<{ notification: NotificationItem }>(`/api/notifications/${id}/restore`, {
+    method: 'POST',
+  })
 }
 
 /** 删除通知 */
