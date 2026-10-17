@@ -1029,22 +1029,54 @@ program
   .command('undo [steps]')
   .description(t('cliEntry.undoDesc'))
   .option('-s, --session <id>', t('cliEntry.sessionOptDesc'))
-  .action(async (stepsArg: string | undefined, opts: { session?: string }) => {
+  .option('--dry-run', t('cliEntry.undoDryRunDesc'))
+  .action(async (stepsArg: string | undefined, opts: { session?: string; dryRun?: boolean }) => {
     const { UndoRedoManager } = await import('./commands/undo-redo.js');
+    const { selectUndoClaimKey, renderUndoClaim } = await import('./commands/undo-claim-copy.js');
     const steps = Number(stepsArg) || 1;
     const sessionId =
       opts.session ?? getMostRecentSession()?.id ?? 'adhoc';
     const mgr = new UndoRedoManager(process.cwd());
-    const result = await mgr.undo(sessionId, steps);
-    if (result.undoneSteps === 0) {
-      console.info(chalk.yellow(t('cliEntry.undoNothing')));
+    // D163 收口刀:`--dry-run` 只出计划 —— 不弹栈、不写文件、不 persist。
+    // 破坏性动作之前先让人看见"将恢复多少文件、影响多少轮"(票面 undoConfirm 态)。
+    if (opts.dryRun) {
+      const plan = await mgr.previewUndo(sessionId, steps);
+      if (plan.turnCount === 0) {
+        console.info(chalk.yellow(t('cliEntry.undoNothing')));
+        return;
+      }
+      console.info(chalk.dim(t('cliEntry.undoPreparing')));
+      console.info(
+        chalk.yellow(
+          t('cliEntry.undoConfirm', { fileCount: plan.fileCount, turnCount: plan.turnCount }),
+        ),
+      );
+      for (const f of plan.files) {
+        console.info(chalk.dim(`  · ${f}`));
+      }
       return;
     }
+    const result = await mgr.undo(sessionId, steps);
+    // D163:那句"工作区未发生变化"由 verdict 驱动,不由"回滚应该会成功"这个
+    // 假设驱动 —— 半途失败的撤回已经把工作区改了一部分,照旧说就是安慰话。
+    const claimInput = {
+      verdict: result.verdict,
+      partial: result.partial,
+      undoneSteps: result.undoneSteps,
+    };
+    const claimKey = selectUndoClaimKey(claimInput);
     console.info(
-      chalk.green(t('cliEntry.undoDone', { undoneSteps: result.undoneSteps, remaining: result.remaining })),
+      claimKey === 'undoSucceeded'
+        ? chalk.green(renderUndoClaim(claimInput, t))
+        : chalk.yellow(renderUndoClaim(claimInput, t)),
     );
-    for (const c of result.changes) {
-      console.info(chalk.dim(`  · ${c.toolName} → ${c.filePath}`));
+    if (result.undoneSteps > 0) {
+      console.info(
+        chalk.dim(t('cliEntry.undoDone', { undoneSteps: result.undoneSteps, remaining: result.remaining })),
+      );
+      for (const c of result.changes) {
+        console.info(chalk.dim(`  · ${c.toolName} → ${c.filePath}`));
+      }
     }
   });
 
