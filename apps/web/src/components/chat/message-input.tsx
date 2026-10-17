@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils'
 import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import { VoiceToolbar } from './voice-toolbar'
+import { VoiceNote } from './voice-note'
 import { readHandsFree } from '@/components/chat/voice-stream-speaker'
 import { ModelSelector } from '@/components/chat/model-selector'
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
@@ -1358,6 +1359,10 @@ export function MessageInput({
                 />
                 {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
                 <VoiceToolbar onTranscript={handleVoiceTranscript} disabled={isStreaming} />
+                {/* D43 会话内快捷笔记(G-51)装车(2026-10-18):组件与 12 相状态机、归档/插入
+                    早在 HEAD,但生产零渲染 ⇒ 票面"笔记可一键插入对话"在界面上拿不到。
+                    conversationId 传当前会话,归档记录按会话标注;无会话时为 null(仍可用)。 */}
+                <VoiceNote conversationId={conversationId} />
                 {/* 发送/停止(2026-09-30 修订,用户规则:项目禁止圆形发送按钮,改方形 rounded-sm;
                     空输入禁用(灰),有内容 bg-cta 主色 + ArrowUp;
                     流式中切 Steer(琥珀,中途引导)+ Stop(天蓝),同规格方形。
