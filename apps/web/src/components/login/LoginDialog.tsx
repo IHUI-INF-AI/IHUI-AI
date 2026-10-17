@@ -11,9 +11,11 @@ import { Button, Dialog, DialogContent, DialogTitle, DialogDescription } from '@
 import { useTranslations } from 'next-intl'
 import { ExternalLink } from 'lucide-react'
 import { useLoginDialogStore } from '@/stores/login-dialog'
+import { useAuthStore } from '@/stores/auth'
 import { toast } from 'sonner'
 import { AuthShell } from '@/components/auth/AuthShell'
 import { resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
+import { resolvePostLoginLanding } from '@/lib/post-login-landing'
 import { openEmbeddedBrowser, openExternalUrl } from '@/lib/tauri-bridge'
 import { rememberSsoEmbeddedWindow } from '@/lib/sso-desktop-bridge'
 import { buildSsoLoginUrl, SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared'
@@ -89,7 +91,18 @@ export function LoginDialog() {
   const handleLoginSuccess = React.useCallback(() => {
     const redirectUrl = useLoginDialogStore.getState().redirectUrl
     close()
-    if (!redirectUrl) return
+    // 2026-10-17(用户要求"admin 账号登录时第一时间切换到监控大屏"):没被登录守卫带回具体目标
+    // (redirectUrl 为空)的分支此前只是静默关弹窗 —— 管理员在此改为默认落到生产在线监控大屏。
+    // 带明确目标的登录(如 /chat/history 的守卫带回)仍按下方的安全判据跳转,不被此处旁路。
+    if (!redirectUrl) {
+      const landing = resolvePostLoginLanding(useAuthStore.getState().user)
+      if (!landing) return
+      if (landing === window.location.pathname + window.location.search) return
+      setTimeout(() => {
+        router.push(landing)
+      }, 250)
+      return
+    }
     // G-413②:redirectUrl 的来源是 `?redirect=`(客户端可整写的查询参数),裸喂 router.push 会让
     // `/\evil.com`(WHATWG 解析成外站)、`javascript:` 一族与跨站绝对地址在"会话刚落地"那一刻
     // 被执行。判据走 sso-redirect-guard 的 allowedOrigins 档(与 /sso/* 同一份实现,端内不再写
