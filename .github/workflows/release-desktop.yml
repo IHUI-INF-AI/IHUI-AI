@@ -14,6 +14,21 @@ on:
         description: 'Release tag (e.g. desktop-v0.1.0)'
         required: true
 
+# 并发锁(2026-10-17 加,实测立因):同一个 tag 的发布**绝不允许并行跑两遍**。
+#   实测事故:desktop-v0.1.75 期间先后触发了两轮,两个 job 同时执行
+#   "查 Gitee 缺哪些资产 → 上传",彼此看不到对方**正在上传**的中间态
+#   ⇒ 同一文件被传了两份(Gitee 允许同名附件共存):实测 deb 出现
+#   id 3413135(7,749,880B) 与 3413217(7,749,884B)、dmg 出现
+#   id 3413214(13,187,848B) 与 3413251(13,187,859B) —— 字节数只差几十,
+#   正是两次上传的分块差异。后果是每轮都白传 20MB、job 拖到一两个小时。
+#   ⇒ 按 tag 串行化:后到的不取消前面的(发布不能被打断),排队等它跑完;
+#     同一 tag 的重复触发只会多排一次队、不会并发上传。
+#   注意:这治的是"重复触发",治不了"单轮本来就慢"(那是传输量的账,已由
+#   按需下载 + Windows 优先上传两处改动去治)。
+concurrency:
+  group: release-desktop-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
 

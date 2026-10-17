@@ -99,6 +99,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -920,9 +921,17 @@ export async function evaluate({
 async function main() {
   const argv = process.argv.slice(2)
   const root = (() => {
-    const i = argv.indexOf('--root')
-    return i >= 0 && argv[i + 1] ? path.resolve(argv[i + 1]) : ROOT
+    // G-322(本站):旧写法 `i >= 0 && argv[i+1]` 只要求"有个非 undefined 的下一枚 token",于是
+    // `--root --staged` 把 "--staged" 当根 ⇒ 在一棵不存在的树上比 BPE 编码一致性(两支编码器都"读不到"
+    // 时结论看起来完全自洽)。判据交单源出口:给了旗标就要有值,否则未判定。
+    const f = requireFlagValue(argv, '--root', { noun: '目录' })
+    if (f.error) {
+      console.error(`❌ ${f.error}`)
+      return null
+    }
+    return f.value ? path.resolve(f.value) : ROOT
   })()
+  if (root === null) return 2
 
   if (argv.includes('--self-test')) return selfTest(root)
 

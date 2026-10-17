@@ -35,6 +35,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
@@ -221,8 +222,14 @@ const C = {
 
 /** 主入口:观测档恒 0(只报名,绝不判红 —— §12e/§12f)。 */
 export function main(argv = process.argv.slice(2)) {
-  const rootIdx = argv.indexOf('--root')
-  const root = rootIdx >= 0 ? resolve(argv[rootIdx + 1]) : REPO_ROOT
+  // G-322(本站):`--root` 被下一枚旗标顶值 ⇒ 在一棵不存在的树上"报名清单为空";裸形态 resolve(undefined)
+  // 崩裸栈。本门是观测档(只报名不判红),但**观测面错了就等于没观测**,而输出看起来照样正常。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    return 2
+  }
+  const root = rootFlag.value ? resolve(rootFlag.value) : REPO_ROOT
   console.log(
     `${C.bold}[mrn 替身面] mobile-rn vitest alias→mocks 观测清单(只报名不判红)${C.reset} ${C.dim}root=${root}${C.reset}`,
   )
