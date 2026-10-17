@@ -2,37 +2,32 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import type { SkillMarketListResponse, SkillInstallResponse } from '@ihui/shared/skills/market'
 import type { UserSkill, UserSkillListResponse, BatchUpdateForm, ImportResult } from './types'
 
 /** 统一 API 调用(throw on error) */
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 /** 获取用户技能列表 */
 export function fetchUserSkills(): Promise<UserSkillListResponse> {
-  return api<UserSkillListResponse>('/api/skills')
+  return apiOrThrow<UserSkillListResponse>('/api/skills')
 }
 
 /** 获取市场技能列表 */
 export function fetchMarketSkills(): Promise<SkillMarketListResponse> {
-  return api<SkillMarketListResponse>('/api/skills/market?page=1&pageSize=200')
+  return apiOrThrow<SkillMarketListResponse>('/api/skills/market?page=1&pageSize=200')
 }
 
 /** 安装单个市场技能 */
 export function installSkill(name: string): Promise<SkillInstallResponse> {
-  return api<SkillInstallResponse>(`/api/skills/${encodeURIComponent(name)}/install`, {
+  return apiOrThrow<SkillInstallResponse>(`/api/skills/${encodeURIComponent(name)}/install`, {
     method: 'POST',
   })
 }
 
 /** 删除单个用户技能 */
 export function deleteSkill(name: string): Promise<{ name: string; deleted: boolean }> {
-  return api<{ name: string; deleted: boolean }>(`/api/skills/${encodeURIComponent(name)}`, {
+  return apiOrThrow<{ name: string; deleted: boolean }>(`/api/skills/${encodeURIComponent(name)}`, {
     method: 'DELETE',
   })
 }
@@ -42,7 +37,7 @@ export function updateSkill(
   name: string,
   data: { version: string; tags?: string[]; description?: string },
 ): Promise<{ name: string; updated: boolean }> {
-  return api<{ name: string; updated: boolean }>('/api/skills', {
+  return apiOrThrow<{ name: string; updated: boolean }>('/api/skills', {
     method: 'POST',
     body: JSON.stringify({
       name,
@@ -169,7 +164,7 @@ export async function importSkillsFromJson(
       continue
     }
     try {
-      await api('/api/skills', {
+      await apiOrThrow('/api/skills', {
         method: 'POST',
         body: JSON.stringify({
           name,

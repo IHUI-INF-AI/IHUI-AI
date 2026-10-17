@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, Filter, TrendingDown } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -29,12 +29,6 @@ interface FunnelData {
   conversionRate: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
@@ -43,7 +37,7 @@ export default function AdminMonitorFunnelPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'monitor', 'funnel', funnel],
-    queryFn: () => api<FunnelData>(`/api/admin/monitor/funnel/${funnel}`),
+    queryFn: () => apiOrThrow<FunnelData>(`/api/admin/monitor/funnel/${funnel}`),
   })
 
   const stages = data?.stages ?? []

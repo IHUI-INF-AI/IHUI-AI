@@ -17,7 +17,7 @@ import {
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { LayoutGrid, Save, RotateCcw, Loader2, Eye, Upload, Trash2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   DEFAULT_HOME_SCHEMA,
   safeGetHomeSchema,
@@ -39,11 +39,6 @@ interface AdminConfig {
 }
 
 /** fetchApi 包装:失败抛异常(适配 react-query) */
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 function normList(d: unknown): AdminConfig[] {
   return Array.isArray(d) ? (d as AdminConfig[]) : ((d as { list?: AdminConfig[] })?.list ?? [])
@@ -73,7 +68,7 @@ export default function HomeSchemaEditorPage() {
   const { isLoading } = useQuery({
     queryKey: ['admin', 'configs', 'home-schema'],
     queryFn: async () => {
-      const list = normList(await api('/api/admin/configs'))
+      const list = normList(await apiOrThrow('/api/admin/configs'))
       const prodCfg = list.find((c) => c.key === PROD_KEY)
       const draftCfg = list.find((c) => c.key === DRAFT_KEY)
 
@@ -145,7 +140,7 @@ export default function HomeSchemaEditorPage() {
       if (!draft) return
       const value = JSON.stringify(draft)
       if (draftConfigId) {
-        await api(`/api/admin/configs/${draftConfigId}`, {
+        await apiOrThrow(`/api/admin/configs/${draftConfigId}`, {
           method: 'PUT',
           body: JSON.stringify({
             key: DRAFT_KEY,
@@ -157,7 +152,7 @@ export default function HomeSchemaEditorPage() {
           }),
         })
       } else {
-        const created = await api<AdminConfig>('/api/admin/configs', {
+        const created = await apiOrThrow<AdminConfig>('/api/admin/configs', {
           method: 'POST',
           body: JSON.stringify({
             key: DRAFT_KEY,
@@ -197,7 +192,7 @@ export default function HomeSchemaEditorPage() {
       if (!draft) return
       const value = JSON.stringify(draft)
       if (prodConfigId) {
-        await api(`/api/admin/configs/${prodConfigId}`, {
+        await apiOrThrow(`/api/admin/configs/${prodConfigId}`, {
           method: 'PUT',
           body: JSON.stringify({
             key: PROD_KEY,
@@ -210,7 +205,7 @@ export default function HomeSchemaEditorPage() {
         })
       } else {
         // 生产配置不存在(理论上 migration 已 seed,兜底 POST)
-        const created = await api<AdminConfig>('/api/admin/configs', {
+        const created = await apiOrThrow<AdminConfig>('/api/admin/configs', {
           method: 'POST',
           body: JSON.stringify({
             key: PROD_KEY,
@@ -238,7 +233,7 @@ export default function HomeSchemaEditorPage() {
   const discardDraftMut = useMutation({
     mutationFn: async () => {
       if (!draftConfigId) return
-      await api(`/api/admin/configs/${draftConfigId}`, { method: 'DELETE' })
+      await apiOrThrow(`/api/admin/configs/${draftConfigId}`, { method: 'DELETE' })
     },
     onSuccess: () => {
       setDraft(production)

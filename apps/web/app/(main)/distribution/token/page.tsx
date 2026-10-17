@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Wallet, Loader2, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 import {
@@ -59,12 +59,6 @@ const OP_TYPE_KEY: Record<number, string> = {
 
 const OP_TYPE_OPTIONS = [0, 1, 2]
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function TokenWalletPage() {
   const t = useTranslations('distribution')
   const tc = useTranslations('common')
@@ -76,13 +70,13 @@ export default function TokenWalletPage() {
 
   const balanceQ = useQuery({
     queryKey: ['distribution', 'token-balance'],
-    queryFn: () => api<BalanceData>('/api/finance/margin/balance'),
+    queryFn: () => apiOrThrow<BalanceData>('/api/finance/margin/balance'),
     enabled: allow,
   })
   const flowsQ = useQuery({
     queryKey: ['distribution', 'token-flows', page, opType],
     queryFn: () =>
-      api<ListData>(
+      apiOrThrow<ListData>(
         `/api/finance/margin/flows?page=${page}&limit=${PAGE_SIZE}${opType !== 'all' ? `&opType=${opType}` : ''}`,
       ),
     enabled: allow,
@@ -129,132 +123,138 @@ export default function TokenWalletPage() {
       {/* 2026-09-30 登录态门 */}
       {allow ? (
         <>
-      <Card>
-        <CardContent className="min-[640px]:p-3 space-y-1 p-3">
-          <div className="text-sm text-muted-foreground">{t('tokenBalance')}</div>
-          {balanceQ.isLoading ? (
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          ) : balanceQ.error ? (
-            <div className="text-sm text-destructive">{(balanceQ.error as Error).message}</div>
-          ) : (
-            <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
-              {balanceQ.data?.balance ?? 0}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{t('tokenFlows')}</h2>
-          <Select value={opType} onValueChange={onOpTypeChange}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('opTypeAll')}</SelectItem>
-              {OP_TYPE_OPTIONS.map((o) => (
-                <SelectItem key={o} value={String(o)}>
-                  {t(OP_TYPE_KEY[o] ?? String(o))}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="overflow-hidden rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="px-4 py-2.5">{t('flowType')}</TableHead>
-                <TableHead className="px-4 py-2.5 text-right">{t('flowAmount')}</TableHead>
-                <TableHead className="px-4 py-2.5 text-right">{t('flowBalance')}</TableHead>
-                <TableHead className="px-4 py-2.5">{t('flowTime')}</TableHead>
-                <TableHead className="px-4 py-2.5">{t('flowRemark')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {flowsQ.isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                    <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                    {t('loading')}
-                  </TableCell>
-                </TableRow>
-              ) : flowsQ.error ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="px-4 py-10 text-center text-destructive">
-                    {(flowsQ.error as Error).message}
-                  </TableCell>
-                </TableRow>
-              ) : items.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                    <Wallet className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                    {t('empty')}
-                  </TableCell>
-                </TableRow>
+          <Card>
+            <CardContent className="min-[640px]:p-3 space-y-1 p-3">
+              <div className="text-sm text-muted-foreground">{t('tokenBalance')}</div>
+              {balanceQ.isLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              ) : balanceQ.error ? (
+                <div className="text-sm text-destructive">{(balanceQ.error as Error).message}</div>
               ) : (
-                items.map((it) => {
-                  const positive = it.opType === 0
-                  return (
-                    <TableRow key={it.id}>
-                      <TableCell className="px-4 py-2.5 font-medium">
-                        {t(OP_TYPE_KEY[it.opType] ?? 'flowRecharge')}
-                      </TableCell>
+                <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+                  {balanceQ.data?.balance ?? 0}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">{t('tokenFlows')}</h2>
+              <Select value={opType} onValueChange={onOpTypeChange}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('opTypeAll')}</SelectItem>
+                  {OP_TYPE_OPTIONS.map((o) => (
+                    <SelectItem key={o} value={String(o)}>
+                      {t(OP_TYPE_KEY[o] ?? String(o))}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="overflow-hidden rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="px-4 py-2.5">{t('flowType')}</TableHead>
+                    <TableHead className="px-4 py-2.5 text-right">{t('flowAmount')}</TableHead>
+                    <TableHead className="px-4 py-2.5 text-right">{t('flowBalance')}</TableHead>
+                    <TableHead className="px-4 py-2.5">{t('flowTime')}</TableHead>
+                    <TableHead className="px-4 py-2.5">{t('flowRemark')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {flowsQ.isLoading ? (
+                    <TableRow>
                       <TableCell
-                        className={cn(
-                          'px-4 py-2.5 text-right font-medium',
-                          positive
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-red-600 dark:text-red-400',
-                        )}
+                        colSpan={5}
+                        className="px-4 py-10 text-center text-muted-foreground"
                       >
-                        {positive ? '+' : ''}
-                        {it.quantity}
-                      </TableCell>
-                      <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
-                        {it.balanceAfter}
-                      </TableCell>
-                      <TableCell className="px-4 py-2.5 text-muted-foreground">
-                        {fmtDate(it.createdAt)}
-                      </TableCell>
-                      <TableCell className="px-4 py-2.5 text-muted-foreground">
-                        {it.remark ?? '-'}
+                        <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                        {t('loading')}
                       </TableCell>
                     </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {total > PAGE_SIZE && (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                {page} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+                  ) : flowsQ.error ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="px-4 py-10 text-center text-destructive">
+                        {(flowsQ.error as Error).message}
+                      </TableCell>
+                    </TableRow>
+                  ) : items.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={5}
+                        className="px-4 py-10 text-center text-muted-foreground"
+                      >
+                        <Wallet className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                        {t('empty')}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    items.map((it) => {
+                      const positive = it.opType === 0
+                      return (
+                        <TableRow key={it.id}>
+                          <TableCell className="px-4 py-2.5 font-medium">
+                            {t(OP_TYPE_KEY[it.opType] ?? 'flowRecharge')}
+                          </TableCell>
+                          <TableCell
+                            className={cn(
+                              'px-4 py-2.5 text-right font-medium',
+                              positive
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : 'text-red-600 dark:text-red-400',
+                            )}
+                          >
+                            {positive ? '+' : ''}
+                            {it.quantity}
+                          </TableCell>
+                          <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
+                            {it.balanceAfter}
+                          </TableCell>
+                          <TableCell className="px-4 py-2.5 text-muted-foreground">
+                            {fmtDate(it.createdAt)}
+                          </TableCell>
+                          <TableCell className="px-4 py-2.5 text-muted-foreground">
+                            {it.remark ?? '-'}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+                  )}
+                </TableBody>
+              </Table>
             </div>
-          </div>
-        )}
+
+            {total > PAGE_SIZE && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {page} / {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </>
       ) : (

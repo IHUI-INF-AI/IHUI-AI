@@ -24,7 +24,7 @@ import {
   Radar,
 } from 'recharts'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   CHART_GREEN,
   CHART_AMBER,
@@ -70,12 +70,6 @@ interface WeaknessItem {
 
 /* ─── API helper ─── */
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 /* ─── Color palette ─── */
 
 const SUBJECT_COLORS = [
@@ -104,7 +98,7 @@ export default function TrendPage() {
     queryFn: () => {
       const params = new URLSearchParams()
       if (selectedSubject) params.set('subject', selectedSubject)
-      return api<{ list: TrendEntry[] }>(
+      return apiOrThrow<{ list: TrendEntry[] }>(
         `/api/edu-ai-management/exam-score/trend/${studentId}?${params}`,
       )
     },
@@ -114,7 +108,9 @@ export default function TrendPage() {
   const { data: weaknessData, isLoading: weaknessLoading } = useQuery({
     queryKey: ['edu-ai-management', 'exam-score', 'weakness', studentId],
     queryFn: () =>
-      api<{ weakness: WeaknessItem[] }>(`/api/edu-ai-management/exam-score/weakness/${studentId}`),
+      apiOrThrow<{ weakness: WeaknessItem[] }>(
+        `/api/edu-ai-management/exam-score/weakness/${studentId}`,
+      ),
     enabled: !!studentId,
   })
 

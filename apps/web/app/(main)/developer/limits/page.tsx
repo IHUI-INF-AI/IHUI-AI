@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Gauge, Loader2, ArrowUp } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -28,12 +28,6 @@ interface LimitItem {
 interface LimitsData {
   planName?: string
   items: LimitItem[]
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 function UsageBar({ used, total }: { used: number; total: number }) {
@@ -56,7 +50,7 @@ export default function LimitsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['developer', 'limits'],
     queryFn: () =>
-      api<LimitsData>('/api/developer/limits').catch(() => ({ items: [] }) as LimitsData),
+      apiOrThrow<LimitsData>('/api/developer/limits').catch(() => ({ items: [] }) as LimitsData),
     enabled: allow,
   })
 
@@ -86,60 +80,63 @@ export default function LimitsPage() {
       {/* 2026-09-30 登录态门:未登录时用登录引导替换数据区 */}
       {allow ? (
         <>
-      {data?.planName && (
-        <Card>
-          <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3">
-            <div>
-              <p className="text-xs text-muted-foreground">当前套餐</p>
-              <p className="mt-0.5 text-lg font-semibold">{data.planName}</p>
-            </div>
-            <Link href="/developer/subscription" className="text-sm text-primary hover:underline">
-              管理订阅
-            </Link>
-          </CardContent>
-        </Card>
-      )}
+          {data?.planName && (
+            <Card>
+              <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">当前套餐</p>
+                  <p className="mt-0.5 text-lg font-semibold">{data.planName}</p>
+                </div>
+                <Link
+                  href="/developer/subscription"
+                  className="text-sm text-primary hover:underline"
+                >
+                  管理订阅
+                </Link>
+              </CardContent>
+            </Card>
+          )}
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8 text-muted-foreground">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          加载中...
-        </div>
-      ) : items.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">暂无限额数据</p>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
-          {items.map((item) => {
-            const pct = item.total > 0 ? (item.used / item.total) * 100 : 0
-            return (
-              <Card key={item.key}>
-                <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">{item.label}</p>
-                    <span
-                      className={cn(
-                        'text-xs font-medium',
-                        pct >= 90
-                          ? 'text-rose-600 dark:text-rose-400'
-                          : pct >= 70
-                            ? 'text-amber-600 dark:text-amber-400'
-                            : 'text-muted-foreground',
-                      )}
-                    >
-                      {pct.toFixed(0)}%
-                    </span>
-                  </div>
-                  <UsageBar used={item.used} total={item.total} />
-                  <p className="text-xs text-muted-foreground">
-                    {numFmt.format(item.used)} / {numFmt.format(item.total)}
-                    {item.unit ? ` ${item.unit}` : ''}
-                  </p>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              加载中...
+            </div>
+          ) : items.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">暂无限额数据</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
+              {items.map((item) => {
+                const pct = item.total > 0 ? (item.used / item.total) * 100 : 0
+                return (
+                  <Card key={item.key}>
+                    <CardContent className="min-[640px]:p-3 space-y-2 p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">{item.label}</p>
+                        <span
+                          className={cn(
+                            'text-xs font-medium',
+                            pct >= 90
+                              ? 'text-rose-600 dark:text-rose-400'
+                              : pct >= 70
+                                ? 'text-amber-600 dark:text-amber-400'
+                                : 'text-muted-foreground',
+                          )}
+                        >
+                          {pct.toFixed(0)}%
+                        </span>
+                      </div>
+                      <UsageBar used={item.used} total={item.total} />
+                      <p className="text-xs text-muted-foreground">
+                        {numFmt.format(item.used)} / {numFmt.format(item.total)}
+                        {item.unit ? ` ${item.unit}` : ''}
+                      </p>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
         </>
       ) : (
         <AuthGatePrompt message="请先登录后查看限额与配额用量" />

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton, TruncatedText } from '@/components/common'
 import {
   Card,
@@ -83,12 +83,6 @@ interface HomeworkStats {
 }
 
 /* ─── API helper ─── */
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 /* ─── Constants ─── */
 
@@ -211,7 +205,7 @@ export default function HomeworkPage() {
   /* ── Queries ── */
   const { data: termsData } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
-    queryFn: () => api<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
   })
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
 
@@ -225,7 +219,7 @@ export default function HomeworkPage() {
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
     queryFn: () =>
-      api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+      apiOrThrow<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
     enabled: !!selectedTermId,
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
@@ -239,7 +233,7 @@ export default function HomeworkPage() {
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ['edu-ai-management', 'homework-submission', 'stats', selectedClassId],
     queryFn: () =>
-      api<HomeworkStats>(
+      apiOrThrow<HomeworkStats>(
         `/api/edu-ai-management/homework-submission/stats?classId=${selectedClassId}`,
       ),
     enabled: !!selectedClassId,
@@ -250,7 +244,7 @@ export default function HomeworkPage() {
     queryFn: () => {
       let url = `/api/edu-ai-management/homework-submission?classId=${selectedClassId}`
       if (statusFilter) url += `&status=${statusFilter}`
-      return api<{ list: HomeworkSubmission[] }>(url)
+      return apiOrThrow<{ list: HomeworkSubmission[] }>(url)
     },
     enabled: !!selectedClassId,
   })
@@ -263,7 +257,7 @@ export default function HomeworkPage() {
 
   const gradeMutation = useMutation({
     mutationFn: ({ id, score, comment }: { id: string; score: number; comment: string }) =>
-      api(`/api/edu-ai-management/homework-submission/${id}/grade`, {
+      apiOrThrow(`/api/edu-ai-management/homework-submission/${id}/grade`, {
         method: 'PUT',
         body: JSON.stringify({ score, comment: comment || null }),
       }),

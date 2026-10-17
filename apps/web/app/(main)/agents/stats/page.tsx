@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ArrowLeft, BarChart3, Users, Star, Phone } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -21,12 +21,6 @@ interface Stats {
   avgRating?: number
   publishedCount?: number
   pendingCount?: number
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 type StatKey = 'totalAgents' | 'published' | 'pending' | 'totalCalls' | 'totalUsers' | 'avgRating'
@@ -50,7 +44,7 @@ export default function AgentStatsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['agents', 'stats'],
-    queryFn: () => api<Stats>('/api/agents/stats'),
+    queryFn: () => apiOrThrow<Stats>('/api/agents/stats'),
     enabled: allow,
   })
 
@@ -138,9 +132,7 @@ export default function AgentStatsPage() {
               <Card key={card.key}>
                 <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      {t(STAT_KEY[card.key])}
-                    </span>
+                    <span className="text-xs text-muted-foreground">{t(STAT_KEY[card.key])}</span>
                     <Icon className={`h-4 w-4 ${card.color}`} />
                   </div>
                   <p className={`text-2xl font-bold ${card.color}`}>

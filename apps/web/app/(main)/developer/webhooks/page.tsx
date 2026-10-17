@@ -10,19 +10,13 @@ import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { Webhook, Plus } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
 import { WebhooksList } from './WebhooksList'
 import { WebhookDialog } from './WebhookDialog'
 import type { WebhookItem } from './types'
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 export default function WebhooksPage() {
   const locale = useLocale()
@@ -47,15 +41,20 @@ export default function WebhooksPage() {
   } = useQuery({
     queryKey: ['developer', 'webhooks'],
     queryFn: () =>
-      api<WebhookItem[]>('/api/developer/webhooks/subscriptions').catch(() => [] as WebhookItem[]),
+      apiOrThrow<WebhookItem[]>('/api/developer/webhooks/subscriptions').catch(
+        () => [] as WebhookItem[],
+      ),
   })
 
   const saveMut = useMutation({
     mutationFn: () => {
       const body = JSON.stringify({ url, events })
       return editing
-        ? api(`/api/developer/webhooks/subscriptions/${editing.id}`, { method: 'PATCH', body })
-        : api('/api/developer/webhooks/subscriptions', { method: 'POST', body })
+        ? apiOrThrow(`/api/developer/webhooks/subscriptions/${editing.id}`, {
+            method: 'PATCH',
+            body,
+          })
+        : apiOrThrow('/api/developer/webhooks/subscriptions', { method: 'POST', body })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['developer', 'webhooks'] })
@@ -67,7 +66,7 @@ export default function WebhooksPage() {
 
   const delMut = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/developer/webhooks/subscriptions/${id}`, { method: 'DELETE' }),
+      apiOrThrow(`/api/developer/webhooks/subscriptions/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['developer', 'webhooks'] })
       toast.success('Webhook 已删除')
@@ -77,7 +76,7 @@ export default function WebhooksPage() {
 
   const toggleMut = useMutation({
     mutationFn: (wh: WebhookItem) =>
-      api(`/api/developer/webhooks/subscriptions/${wh.id}`, {
+      apiOrThrow(`/api/developer/webhooks/subscriptions/${wh.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ enabled: !wh.enabled }),
       }),
@@ -87,7 +86,7 @@ export default function WebhooksPage() {
 
   const testMut = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/developer/webhooks/subscriptions/${id}/test`, { method: 'POST' }),
+      apiOrThrow(`/api/developer/webhooks/subscriptions/${id}/test`, { method: 'POST' }),
     onSuccess: () => toast.success('测试消息已发送'),
     onError: (e: Error) => toast.error(e.message),
   })

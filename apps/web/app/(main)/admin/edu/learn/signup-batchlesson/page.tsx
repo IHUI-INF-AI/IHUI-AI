@@ -10,7 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { BookCopy, ChevronLeft, ChevronRight, Download, Loader2, Upload } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { exportToExcel } from '@/lib/export-utils'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
@@ -59,12 +59,6 @@ function statusOf(s: number) {
   return STATUS_CFG[s] ?? { label: String(s), cls: 'bg-muted text-muted-foreground' }
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function AdminLearnSignupBatchLessonPage() {
   const locale = useLocale()
   const qc = useQueryClient()
@@ -87,14 +81,14 @@ export default function AdminLearnSignupBatchLessonPage() {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (debounced) qs.set('search', debounced)
       if (status !== 'all') qs.set('status', status)
-      return api<BatchLessonData>(`/api/admin/learn/signup-batchlesson?${qs.toString()}`)
+      return apiOrThrow<BatchLessonData>(`/api/admin/learn/signup-batchlesson?${qs.toString()}`)
     },
     retry: false,
   })
 
   const retryMut = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/admin/learn/signup-batchlesson/${id}/retry`, { method: 'POST' }),
+      apiOrThrow(`/api/admin/learn/signup-batchlesson/${id}/retry`, { method: 'POST' }),
     onSuccess: () => {
       toast.success('已重新提交')
       qc.invalidateQueries({ queryKey: ['admin', 'learn', 'signup-batchlesson'] })
