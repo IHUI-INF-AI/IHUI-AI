@@ -9,6 +9,7 @@
  */
 import { createHistoryStorage } from '@ihui/shared/utils/storage'
 import { createUseHistoryStorage } from '@ihui/shared/hooks/use-storage'
+import type { UseSearchHistoryResult } from '@ihui/types'
 import { createAsyncStorageTransport } from '../stores/storage-adapter'
 
 const SEARCH_HISTORY_KEY = 'searchHistory'
@@ -22,12 +23,6 @@ const searchHistoryStorage = createHistoryStorage<string>({
   maxItems: MAX_ITEMS,
 })
 const useSearchHistoryStorage = createUseHistoryStorage<string>({ storage: searchHistoryStorage })
-
-export interface UseSearchHistoryResult {
-  history: string[]
-  addHistory: (item: string) => void
-  clearHistory: () => void
-}
 
 export function useSearchHistory(): UseSearchHistoryResult {
   const { list, push, clear } = useSearchHistoryStorage()
