@@ -670,7 +670,10 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
               gap={4}
               role="menu"
               testId="global-topbar-plus-menu"
-              zIndexClassName="z-header"
+              // 2026-10-17 根治:顶栏下拉 portal 到 body,与侧栏(z-sticky=990)同层竞争;
+              // 原 z-header(100) < 990,菜单向左展开越过硬栏左缘即被侧栏遮挡。
+              // 改用 header 下拉专用 token 语义 z-max(=10003,tokens.css --header-dropdown-z-index 同源)。
+              zIndexClassName="z-max"
               className={cn(
                 'rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-md',
                 // 移动端:弹窗宽度约束为视口宽度减去边距,最大 288px
@@ -759,11 +762,12 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
             2026-08-12 去掉 overflow-hidden:配套 TagsView active 态改用 outline 外描边,
             1px outline 上下方向会被 overflow-hidden 裁掉,必须放开让 outline 真外露
             2026-10-12:溢出裁剪已移入 TagsView 行内(overflow-x-auto 滚动容器,行盒上下各扩
-            4px 容纳 2px 外描边),本 wrap 保持无 overflow 裁剪,详见 TagsView 行内注释;
-            pl-0.5 = 首个标签左侧 2px 外描边预留(放 wrap 不放行盒:行盒需被 0 宽 wrap
-            完全压到 0,行自身 padding 会形成 2px 最小 border-box 溢出) */}
+            4px 容纳 2px 外描边),本 wrap 保持无 overflow 裁剪,详见 TagsView 行内注释。
+            2026-10-17:原 pl-0.5 预留证伪移除 —— 裁剪边界在 TagsView 行盒自身 padding box,
+            wrap 留白救不了首个标签左描边被裁(用户截图实证),描边预留已移入行内
+            pl-0.5 pr-0.5,详见 TagsView.tsx 行盒注释 ③ */}
           <React.Suspense fallback={null}>
-            <div className="flex h-full min-w-0 flex-1 items-center pl-0.5">
+            <div className="flex h-full min-w-0 flex-1 items-center">
               <TagsView />
             </div>
           </React.Suspense>
@@ -1016,7 +1020,8 @@ function TopBarEcosystemMenu() {
         role="menu"
         overlayId={ECOSYSTEM_POPOVER_OVERLAY_ID}
         testId="global-topbar-ecosystem-menu"
-        zIndexClassName="z-header"
+        // 2026-10-17 根治:同 Plus 菜单,z-header(100) 会被侧栏 z-sticky(990) 遮挡,改 z-max
+        zIndexClassName="z-max"
         className={cn(
           'w-60 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-md',
         )}
