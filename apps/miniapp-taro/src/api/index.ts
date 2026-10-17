@@ -66,6 +66,14 @@ import type { GoalUpdateEvent } from '@ihui/api-client'
 import type { ToolApprovalEvent } from '@ihui/api-client'
 // D136:tool-approval 帧的端内认领层(共享解析面不认领该帧族,见该文件头注)。
 import { parseToolApprovalLine } from '@/lib/tool-approval-frame'
+// D77(2026-10-17 落地小程序腿):form_request 帧的**认领层 + 投影**单源在共享层
+// (@ihui/shared/chat/form-request-frame),端内只接线不重实现(AGENTS §0.6 判据单源)。
+// 认领走本文件 streamSSE 的 onRawLine 旁路(与 D136 tool-approval 同先例)——
+// 共享解析面(@ihui/shared/utils/sse-parse)在本票禁改面内,不替跨端裁决改共享解析面;
+// 不走旁路该帧族会滑到 `⇒ {type:'meta', sessionId}` 泛化兜底被折成一条 meta,
+// kind/fields/actions 全丢(D151 terminal_interaction 同型缺陷)。
+import { parseFormRequestLine } from '@ihui/shared/chat/form-request-frame'
+import type { FormRequestFramePayload } from '@ihui/shared'
 import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
 import type {
   PlanUpdateEvent,
@@ -407,6 +415,16 @@ export interface StreamEventCallbacks {
    */
   onToolApproval?: (evt: ToolApprovalEvent) => void
   /**
+   * D77(2026-10-17 落地小程序腿):对话流业务表单请求帧(form_request)。
+   * 载荷由本文件 streamSSE 的 onRawLine 旁路经 parseFormRequestLine 认领解析
+   * (字段口径与 @ihui/api-client 的 tryParseFormRequest 逐字同,镜像锁见
+   * pkg-ai/ai/__tests__/business-form-wiring.test.ts);不注册回调 ⇒ 该帧族照旧
+   * 走共享解析面的 meta 兜底静默折叠(与 D136 同纪律:注册了才有通道)。
+   * 应答回传走 @ihui/api-client 导出的 buildFormResponseEvent + postFormResponse
+   * (端内不另起传输层;渲染/填写态在 pkg-ai/ai/business-form-card.tsx)。
+   */
+  onFormRequest?: (evt: FormRequestFramePayload) => void
+  /**
    * G-248 R2(2026-10-16 立):帧级 traceId 的端内投影出口。
    * 值由共享解析层(@ihui/shared/utils/sse-parse 的唯一认领点)挂在 SSEEvent 信封上,
    * 本层只透传不另判 —— 键名/合法性口径与 @ihui/api-client 的 streamChat.onTraceId 同名同义:
@@ -655,10 +673,18 @@ export const chatStream = async (
     onEvent: dispatch,
     // D136(2026-10-01 立,承 V4 #94/D84):tool-approval 帧认领。共享解析面不认领该帧族
     // ⇒ 不走旁路它就一路静默丢弃(D113 tool-delta 同型缺陷);认领层对非本族行零成本直返。
+    // D77(2026-10-17):form_request 同一旁路追加认领(同一纪律:共享解析面在禁改面内,
+    // 两族各自认领、互不串门 —— tool-approval 命中即 return,form_request 只在其后补问一次)。
     onRawLine: (line) => {
       const evt = parseToolApprovalLine(line)
-      if (!evt || !callbacks || typeof callbacks.onToolApproval !== 'function') return
-      callbacks.onToolApproval(evt)
+      if (evt && callbacks && typeof callbacks.onToolApproval === 'function') {
+        callbacks.onToolApproval(evt)
+        return
+      }
+      const form = parseFormRequestLine(line)
+      if (form && callbacks && typeof callbacks.onFormRequest === 'function') {
+        callbacks.onFormRequest(form)
+      }
     },
     onReconnect: (attempt, delayMs) => {
       // 断点续传去重:重连后服务端可能从断点重发,跳过已渲染前缀
@@ -969,15 +995,6 @@ export const createAskComment = (id: string | number, data: { content: string; p
 export const updateAskAnswer = (id: string, data: { content: string }) =>
   patch(`/asks/answers/${id}`, data)
 export const deleteAskAnswer = (id: string) => del(`/asks/answers/${id}`)
-export const getAskMemberQuestionCount = (userId: string) =>
-  get<{ count: number }>('/asks/member/question-count', { userId })
-export const getAskMemberAnswerCount = (userId: string) =>
-  get<{ count: number }>('/asks/member/answer-count', { userId })
-export const getAskMemberQuestions = (params: {
-  userId: string
-  page?: number
-  pageSize?: number
-}) => get<{ list: Ask[]; page: number; pageSize: number }>('/asks/member/questions', params)
 export const getAskMemberAnswers = (params: { userId: string; page?: number; pageSize?: number }) =>
   get<{
     list: Array<{ id: string; content: string; askId: string; createdAt: string }>
@@ -1182,7 +1199,6 @@ export const getAbout = () =>
   get<{ name: string; version: string; intro: string; logo?: string }>('/about')
 export const getHelp = () =>
   get<{ list: Array<{ id: string; title: string; content: string }> }>('/help')
-export const getProtocol = () => get<{ content: string }>('/protocol')
 export const getPrivacy = () => get<{ content: string }>('/privacy')
 export const getContact = () =>
   get<{ phone: string; email: string; address: string; qq?: string }>('/contact')
@@ -1306,7 +1322,6 @@ export const getTokenBalance = () => get('/token/balance')
 export const getTokenRecords = (page = 1) => get('/token/records', { page })
 
 /* ============ 开发者 ============ */
-export const getDeveloperAgents = () => get('/developer/agents')
 export const getDeveloperIncome = () => get('/developer/income')
 export const getDeveloperWithdrawalList = () => get('/developer/withdrawals')
 
@@ -1361,7 +1376,6 @@ export const getCoursePlanet = () => get('/course-planet')
 
 /* ============ 多登录方式 ============ */
 export const loginByAlipay = (code: string) => post('/auth/alipay/login', { code })
-export const loginByGoogle = (code: string) => post('/auth/google/login', { code })
 export const register = (data: unknown) => post('/auth/register', data)
 export const changePassword = (data: unknown) => put('/auth/password', data)
 export const accountCancel = () => del('/auth/account')
@@ -1421,8 +1435,6 @@ export const editImageDashscope = (data: unknown) => post('/ai/dashscope/image-e
 export const generateVideoDashscope = (data: unknown) => post('/ai/dashscope/video', data)
 /** 腾讯混元3D - 提交生成（POST /api/ai/tencent/hunyuan3d/submit） */
 export const generate3dTencent = (data: unknown) => post('/ai/tencent/hunyuan3d/submit', data)
-/** 腾讯混元3D - 查询结果（GET /api/ai/tencent/hunyuan3d/query） */
-export const query3dTencent = (taskId: string) => get(`/ai/tencent/hunyuan3d/query`, { taskId })
 /** 豆包 - 图片生成（POST /api/ai/doubao/image） */
 export const generateImageDoubao = (data: unknown) => post('/ai/doubao/image', data)
 /** 豆包 - 图片编辑（POST /api/ai/doubao/image-edit） */
@@ -1478,8 +1490,6 @@ export const getWithdrawalStatus = (id: string) => get(`/distribution/withdrawal
 /* ============ 分享功能 ============ */
 /** 智能体创建分享 */
 export const agentCreationShare = (data: unknown) => post('/agent/creation/share', data)
-/** 第三方分享 */
-export const agentCreationShareThird = (data: unknown) => post('/agent/creation/share/third', data)
 /** 首次分享状态查询 */
 export const checkFirstShareStatus = () => get('/agent/creation/share/first-status')
 /** 首次分享 */
@@ -1490,21 +1500,13 @@ export const getShareContentByCode = (code: string) => get(`/agent/creation/shar
 /* ============ 其他扩展 API ============ */
 /** 绑定用户 */
 export const bindUser = (data: unknown) => post('/auth/bind-user', data)
-/** 绑定用户（新版） */
-export const bindUserNew = (data: unknown) => post('/auth/bind-user-new', data)
 /** 微信手机号登录 — 对齐后端 POST /auth/wechat/mini/phone */
 export const getPhoneNumber = (data: { code: string; phoneCode?: string }) =>
   post('/auth/wechat/mini/phone', data)
 /** 查询是否已设置密码 */
 export const pwdExist = (phone: string) => get(`/auth/pwd-exist?phone=${phone}`)
-/** 修改手机号 */
-export const editPhone = (data: unknown) => put('/auth/phone', data)
 /** 关闭订单 — 对接后端 POST /orders/:id/cancel(参数 :id 必须是 UUID) */
 export const closeOrder = (orderId: string) => post(`/orders/${orderId}/cancel`, {})
-/** 批量关闭订单 — 对接后端 POST /orders/batch-cancel(body: { ids: string[] },每个 id 必须是 UUID) */
-export const closeOrders = (orderIds: string[]) => post('/orders/batch-cancel', { ids: orderIds })
-/** 支付宝新支付 */
-export const zfbNewPay = (data: unknown) => post('/pay/zfb-new', data)
 /** 微信支付 JSAPI — 对齐后端 POST /payments/wechat/create(query 传参) */
 export const wechatPay = (params: {
   amount: number
@@ -1521,20 +1523,10 @@ export const wechatPay = (params: {
   if (params.description !== undefined) qs.append('description', params.description)
   return post(`/payments/wechat/create?${qs.toString()}`)
 }
-/** Token 智汇值总数 */
-export const getTokenCount = () => get('/token/count')
-/** Token 智汇值返还 */
-export const getTokenReturn = () => get('/token/return')
-/** N8N 智能体处理 */
-export const processN8nAgent = (data: unknown) => post('/n8n/agent/process', data)
 /** Base64 上传文件 */
 export const uploadByBase64 = (data: unknown) => post('/files/upload/base64', data)
-/** 添加水印 */
-export const addWatermark = (data: unknown) => post('/files/watermark', data)
 /** 资讯分类 */
 export const getInformationCategory = () => get('/news/categories')
-/** 每日资讯 */
-export const getDailyNews = (params: ApiParams) => get('/news/daily', params)
 /** 商品选择列表 */
 export const selectGoods = (params: ApiParams) => get('/goods/select', params)
 /** 支付活动 */
@@ -1561,60 +1553,30 @@ export const getZntList = (params: ApiParams) => get('/agents/charge/list', para
 export const getBuyInfo = (params: ApiParams) => get('/developer/income/detail', params)
 /** 收入列表 */
 export const getBuyList = (params: ApiParams) => get('/developer/income/list', params)
-/** 明细列表 */
-export const getMxList = (params: ApiParams) => get('/developer/income/mx', params)
 
 /* ============ 广场发布管理 ============ */
 /** 发布广场列表 */
 export const getPlazaList = (params: ApiParams) => get('/plaza/list', params)
-/** 发布广场模型 */
-export const addPlazaModel = (data: unknown) => post('/plaza/add', data)
 /** 发布广场详情 */
 export const getPlazaInfoById = (id: string | number) => get(`/plaza/${id}`)
 
 /* ============ 视频分片上传 ============ */
-/** 分片上传 */
-export const uploadChunkedFile = (data: unknown) => post('/upload/chunked', data)
-/** 分片上传（PC） */
-export const uploadChunkedFilePC = (data: unknown) => post('/upload/chunked-pc', data)
-/** 获取分片视频完整地址 */
-export const uploadChunkedFileJoint = (data: unknown) => post('/upload/chunked-joint', data)
 
 /* ============ 操盘手数据统计 ============ */
 /** 获取操盘手个人信息卡数据 */
 export const getOperatorDataCardData = (params: ApiParams) => get('/operator/data-card', params)
-/** 获取用户邀请人订单统计 */
-export const getUserInviteeOrderStats = (params: ApiParams) =>
-  get('/operator/invitee-order-stats', params)
-/** 获取用户佣金明细 */
-export const getUserCommissionDetail = (params: ApiParams) =>
-  get('/operator/commission-detail', params)
 
 /* ============ AI 模型扩展 ============ */
 /** 获取我的创作内容 */
 export const getMyCreation = (params: ApiParams) => get('/ai/my-creation', params)
 /** 获取 AI 团队智能体类型 */
 export const getAgentType = () => get('/agents/types')
-/** 获取分类字典 */
-export const categoryDictionary = () => get('/category/dictionary')
-/** 智能体移除（购买） */
-export const aiRemoveAgent = (data: unknown) => post('/agents/remove', data)
 /** 获取模型列表（统一接口） */
 export const getCozeApiList = (params?: ApiParams) => get('/coze/api-list', params)
-/** 搜索模型工作流运行 */
-export const searchModelWorkflowRun = (params: ApiParams) =>
-  get('/model/workflow-run/search', params)
-
-/** 按 URL 代理 POST 请求 */
-export const postByUrl = (url: string, data: unknown) => post('/proxy/post-by-url', { url, data })
 
 /* ============ 音频 / Sora ============ */
-/** 阿里生成音色 */
-export const aliGenerateTimbre = (data: unknown) => post('/audio/generate-timbre', data)
 /** Sora 请求结束 */
-export const soraRequestEnd = (data: unknown) => post('/sora/request-end', data)
-/** 音频会话开始（会话级管理） */
-export const audioStart = (data: unknown) => post('/audio/start', data)
+export const soraRequestEnd = (data: unknown) => post('/api/ai/sora/request/end', data)
 
 /* ============ 智能体列表变体 ============ */
 /** 获取智能体列表（base1） */
@@ -1635,36 +1597,16 @@ export const getZHZDMX = (params: ApiParams) => get('/agents/zhz-detail', params
 export const openId = (code: string) => get('/auth/wechat/mini/login', { code })
 /** 充值 */
 export const recharge = (params: ApiParams) => get('/member/recharge', params)
-/** 发送短信验证码（新版） */
-export const sendTextMsg_new = (phone: string) => post('/sms/send-new', { phone })
-/** 发送短信验证码（修改版） */
-export const sendTextMsg_edit = (phone: string) => post('/sms/send-edit', { phone })
 
 /* ============ 学习 / 视频管理扩展 ============ */
-/** 根据子赛道 id 获取主赛道 */
-export const parentquery = (params: ApiParams) => get('/study/parent-query', params)
-/** 视频日志查询 */
-export const userVideoLog = (params: ApiParams) => get('/study/video-log', params)
 /** 获取智能体列表（学习用） */
 export const getAgentsAlllist = (params: ApiParams) => get('/agents/all-list-study', params)
-/** 视频列表 */
-export const getVideoList = (params: ApiParams) => get('/study/video-list', params)
-/** 视频预加载 */
-export const videoPreload = (params: ApiParams) => get('/study/video-preload', params)
-/** 用户反馈列表 */
-export const userFeedbackList = (params: ApiParams) => get('/user/feedback-list', params)
 
 /* ============ 名片变体 ============ */
 /** 上传名片（变体 a） */
 export const uploadBusinessCarda = (data: unknown) => post('/business-card/upload-a', data)
-/** Base64 上传（变体 a） */
-export const uploadBybase64a = (data: unknown) => post('/upload/base64-a', data)
 
 /* ============ 其他 ============ */
-/** 排行榜分组列表 */
-export const getGroupList = (params: ApiParams) => get('/rankings/group-list', params)
-/** 更新标记 */
-export const updateMark = (data: unknown) => put('/user/update-mark', data)
 
 /* ============ 连续包月/自动续费(已迁移到 @ihui/api-client 共享端点) ============= */
 // WechatPayContract 类型已 re-export 自 @ihui/api-client(见文件顶部)
