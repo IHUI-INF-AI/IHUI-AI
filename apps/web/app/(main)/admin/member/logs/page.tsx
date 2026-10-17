@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, ScrollText } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import {
   SearchInput,
@@ -35,12 +35,6 @@ interface LogRow {
   createdAt: string
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
@@ -54,7 +48,7 @@ export default function AdminMemberLogsPage() {
       const qs = new URLSearchParams()
       if (search) qs.set('search', search)
       if (status !== 'all') qs.set('status', status)
-      return api<{ list: LogRow[] }>(`/api/admin/member/logs?${qs.toString()}`).then(
+      return apiOrThrow<{ list: LogRow[] }>(`/api/admin/member/logs?${qs.toString()}`).then(
         (d) => d.list ?? [],
       )
     },

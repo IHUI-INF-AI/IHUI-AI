@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { ChevronLeft, ChevronRight, Download, Layers, Loader2, Upload } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { exportToExcel } from '@/lib/export-utils'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
@@ -52,12 +52,6 @@ function statusOf(s: string) {
   return STATUS_CFG[s] ?? { label: s || '未知', cls: 'bg-muted text-muted-foreground' }
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function AdminLearnSignupBatchPage() {
   const locale = useLocale()
   const [page, setPage] = React.useState(1)
@@ -77,7 +71,7 @@ export default function AdminLearnSignupBatchPage() {
     queryFn: () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (debounced) qs.set('search', debounced)
-      return api<BatchData>(`/api/admin/learn/signup-batch?${qs.toString()}`)
+      return apiOrThrow<BatchData>(`/api/admin/learn/signup-batch?${qs.toString()}`)
     },
     retry: false,
   })

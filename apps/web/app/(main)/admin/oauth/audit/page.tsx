@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, ScrollText, ShieldAlert } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   SearchInput,
   Select,
@@ -38,12 +38,6 @@ interface AuthRecord {
   expiresAt: string | null
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const STATUS_LABEL: Record<AuthRecord['status'], string> = {
@@ -67,7 +61,7 @@ export default function AdminOAuthAuditPage() {
       const qs = new URLSearchParams()
       if (search) qs.set('search', search)
       if (status !== 'all') qs.set('status', status)
-      return api<{ list: AuthRecord[] }>(`/api/admin/oauth/audit?${qs.toString()}`).then(
+      return apiOrThrow<{ list: AuthRecord[] }>(`/api/admin/oauth/audit?${qs.toString()}`).then(
         (d) => d.list ?? [],
       )
     },

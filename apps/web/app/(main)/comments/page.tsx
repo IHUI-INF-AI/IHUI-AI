@@ -18,7 +18,7 @@ import {
   Newspaper,
   BookOpen,
 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { ConfirmDialog } from '@/components/feedback'
 import { CommentItem } from '@/components/business'
@@ -42,12 +42,6 @@ interface CommentsData {
 }
 
 const PAGE_SIZE = 20
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 const TARGET_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   article: Newspaper,
@@ -88,12 +82,13 @@ export default function MyCommentsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['comments', 'mine', page],
-    queryFn: () => api<CommentsData>(`/api/comments/mine?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: () =>
+      apiOrThrow<CommentsData>(`/api/comments/mine?page=${page}&pageSize=${PAGE_SIZE}`),
     enabled: allow,
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/comments/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/comments/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['comments'] }),
   })
 

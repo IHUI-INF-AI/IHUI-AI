@@ -12,7 +12,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ArrowLeft, Tag, Calendar, CreditCard, Sparkles } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -46,12 +46,6 @@ interface AgentsData {
   total: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function AgentCategoryDetailPage() {
   const params = useParams<{ id: string }>()
   const locale = useLocale()
@@ -63,14 +57,14 @@ export default function AgentCategoryDetailPage() {
     error,
   } = useQuery({
     queryKey: ['agents', 'category', params.id],
-    queryFn: () => api<Category>(`/api/categories/${params.id}`),
+    queryFn: () => apiOrThrow<Category>(`/api/categories/${params.id}`),
     enabled: !!params.id,
   })
 
   const { data: agentsData } = useQuery({
     queryKey: ['agents', 'list', params.id],
     queryFn: () =>
-      api<AgentsData>(
+      apiOrThrow<AgentsData>(
         `/api/agents/list?categoryId=${params.id}&status=published&page=1&pageSize=100`,
       ),
     enabled: !!params.id,

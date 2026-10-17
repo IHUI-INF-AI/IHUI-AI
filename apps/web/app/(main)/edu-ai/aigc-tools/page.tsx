@@ -18,7 +18,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Button,
   Card,
@@ -100,12 +100,6 @@ const CATEGORY_KEY: Record<string, string> = {
   agent: 'agent',
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function isFreeTool(tool: AigcTool): boolean {
   const p = (tool.pricingModel ?? '').toLowerCase()
   if (p.includes('free') || p.includes('免费')) return true
@@ -177,7 +171,7 @@ export default function EduAiAigcToolsPage() {
       })
       if (debounced) qs.set('keyword', debounced)
       if (category !== 'all') qs.set('category', category)
-      return api<AigcToolListData>(`/api/ai-education/aigc-tool?${qs.toString()}`)
+      return apiOrThrow<AigcToolListData>(`/api/ai-education/aigc-tool?${qs.toString()}`)
     },
   })
 
@@ -185,7 +179,7 @@ export default function EduAiAigcToolsPage() {
     queryKey: ['edu-ai', 'aigc-tool', selectedId],
     queryFn: () => {
       if (selectedId === null) throw new Error('missing tool id')
-      return api<AigcTool>(`/api/ai-education/aigc-tool/${selectedId}`)
+      return apiOrThrow<AigcTool>(`/api/ai-education/aigc-tool/${selectedId}`)
     },
     enabled: selectedId !== null,
   })

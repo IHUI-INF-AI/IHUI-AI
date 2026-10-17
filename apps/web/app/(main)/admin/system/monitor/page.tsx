@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/date-utils'
@@ -42,12 +42,6 @@ interface ServiceStatus {
   cpu: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 /** Maps service status to { dot, text, label: i18n key } */
 const SERVICE_STYLE: Record<ServiceStatus['status'], { dot: string; text: string; label: string }> =
   {
@@ -64,13 +58,13 @@ export default function AdminSystemMonitorPage() {
   const t = useTranslations('admin.system')
   const { data: metrics } = useQuery({
     queryKey: ['admin', 'system', 'monitor', 'metrics'],
-    queryFn: () => api<SystemMetrics>('/api/admin/system/monitor/metrics'),
+    queryFn: () => apiOrThrow<SystemMetrics>('/api/admin/system/monitor/metrics'),
     refetchInterval: 5000,
   })
   const { data: services = [], isLoading } = useQuery({
     queryKey: ['admin', 'system', 'monitor', 'services'],
     queryFn: () =>
-      api<{ list: ServiceStatus[] }>('/api/admin/system/monitor/services').then(
+      apiOrThrow<{ list: ServiceStatus[] }>('/api/admin/system/monitor/services').then(
         (d) => d.list ?? [],
       ),
     refetchInterval: 5000,

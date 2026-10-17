@@ -10,7 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Star, Loader2, ArrowLeft, Trash2, Share2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { AuthGatePrompt } from '@/components/common'
@@ -41,12 +41,6 @@ interface FavListData {
   list: FavoriteEntry[]
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function CardFavoritesPage() {
   const locale = useLocale()
   const qc = useQueryClient()
@@ -56,13 +50,14 @@ export default function CardFavoritesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['business-card', 'favorites', 'list'],
-    queryFn: () => api<FavListData>(`/api/business-card/favorites`).then((d) => d.list ?? []),
+    queryFn: () =>
+      apiOrThrow<FavListData>(`/api/business-card/favorites`).then((d) => d.list ?? []),
     enabled: allow,
   })
 
   const removeMut = useMutation({
     mutationFn: (favId: string) =>
-      api(`/api/business-card/favorites/${favId}`, { method: 'DELETE' }),
+      apiOrThrow(`/api/business-card/favorites/${favId}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['business-card'] }),
   })
 

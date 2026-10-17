@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { BadgeCheck, Loader2, Search, ShieldCheck } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 
@@ -23,12 +23,6 @@ interface CertInfo {
   } | null
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function CertVerifyPage() {
   const t = useTranslations('certVerify')
   const [no, setNo] = React.useState('')
@@ -41,7 +35,9 @@ export default function CertVerifyPage() {
     setLoading(true)
     setResult(null)
     try {
-      const data = await api<CertInfo>(`/certificates/verify?no=${encodeURIComponent(certNo)}`)
+      const data = await apiOrThrow<CertInfo>(
+        `/certificates/verify?no=${encodeURIComponent(certNo)}`,
+      )
       setResult(data.certificate ?? null)
     } catch {
       setResult('notfound')

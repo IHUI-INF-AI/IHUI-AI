@@ -41,7 +41,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { fetchApi, fetchRaw } from '@/lib/api'
+import { fetchRaw, apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { BackButton, toast } from '@/components/common'
 import {
@@ -200,12 +200,6 @@ interface Paged<T> {
 }
 
 /* ─── API helper ─── */
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 /* ─── Constants ─── */
 
@@ -397,7 +391,7 @@ function StatsTab() {
     queryKey: ['edu-canteen-stats', applied],
     enabled: allow,
     queryFn: () =>
-      api<StatsResp>(
+      apiOrThrow<StatsResp>(
         `/api/edu-canteen/statistics${buildQuery({
           scope: applied.scope,
           startDate: applied.startDate || undefined,
@@ -601,7 +595,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
 
   const analyze = useMutation({
     mutationFn: () =>
-      api<{ procurement: ProcurementRow; items: ProcurementItem[] }>(
+      apiOrThrow<{ procurement: ProcurementRow; items: ProcurementItem[] }>(
         '/api/edu-canteen/procurement/ai-analyze',
         {
           method: 'POST',
@@ -956,7 +950,7 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
   const supplierOptions = useQuery({
     queryKey: [OPT_KEY],
     enabled: allow,
-    queryFn: () => api<{ options: SupplierOption[] }>('/api/edu-canteen/supplier/options'),
+    queryFn: () => apiOrThrow<{ options: SupplierOption[] }>('/api/edu-canteen/supplier/options'),
     staleTime: 60_000,
   })
 
@@ -964,7 +958,7 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
     queryKey: [PROC_KEY, 'list', applied, page],
     enabled: allow,
     queryFn: () =>
-      api<Paged<ProcurementRow>>(
+      apiOrThrow<Paged<ProcurementRow>>(
         `/api/edu-canteen/procurement${buildQuery({
           startDate: applied.startDate || undefined,
           endDate: applied.endDate || undefined,
@@ -992,14 +986,17 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
       row: ProcurementRow
     }): Promise<'confirm' | 'void' | 'delete'> => {
       if (kind === 'delete') {
-        await api<{ deleted: boolean }>(`/api/edu-canteen/procurement/${row.id}`, {
+        await apiOrThrow<{ deleted: boolean }>(`/api/edu-canteen/procurement/${row.id}`, {
           method: 'DELETE',
         })
         return kind
       }
-      await api<{ procurement: ProcurementRow }>(`/api/edu-canteen/procurement/${row.id}/${kind}`, {
-        method: 'POST',
-      })
+      await apiOrThrow<{ procurement: ProcurementRow }>(
+        `/api/edu-canteen/procurement/${row.id}/${kind}`,
+        {
+          method: 'POST',
+        },
+      )
       return kind
     },
     onSuccess: (done) => {
@@ -1304,7 +1301,7 @@ function ReceiptDetailDialog({
   const detail = useQuery({
     queryKey: [PROC_KEY, 'detail', id],
     queryFn: () =>
-      api<{ procurement: ProcurementRow; items: ProcurementItem[] }>(
+      apiOrThrow<{ procurement: ProcurementRow; items: ProcurementItem[] }>(
         `/api/edu-canteen/procurement/${id}`,
       ),
     enabled: open,
@@ -1312,7 +1309,7 @@ function ReceiptDetailDialog({
 
   const verifyMut = useMutation({
     mutationFn: () =>
-      api<{ procurement: ProcurementRow; verification: VerificationFull }>(
+      apiOrThrow<{ procurement: ProcurementRow; verification: VerificationFull }>(
         `/api/edu-canteen/procurement/${id}/ai-verify`,
         {
           method: 'POST',
@@ -1335,7 +1332,7 @@ function ReceiptDetailDialog({
 
   const arbitrateMut = useMutation({
     mutationFn: () =>
-      api<{ procurement: ProcurementRow; verification: VerificationFull }>(
+      apiOrThrow<{ procurement: ProcurementRow; verification: VerificationFull }>(
         `/api/edu-canteen/procurement/${id}/ai-arbitrate`,
         { method: 'POST' },
       ),
@@ -1656,14 +1653,14 @@ function ProcurementEditDialog({
 
   const supplierOptions = useQuery({
     queryKey: [OPT_KEY],
-    queryFn: () => api<{ options: SupplierOption[] }>('/api/edu-canteen/supplier/options'),
+    queryFn: () => apiOrThrow<{ options: SupplierOption[] }>('/api/edu-canteen/supplier/options'),
     staleTime: 60_000,
   })
 
   const detail = useQuery({
     queryKey: [PROC_KEY, 'detail', id],
     queryFn: () =>
-      api<{ procurement: ProcurementRow; items: ProcurementItem[] }>(
+      apiOrThrow<{ procurement: ProcurementRow; items: ProcurementItem[] }>(
         `/api/edu-canteen/procurement/${id}`,
       ),
     enabled: open,
@@ -1737,7 +1734,7 @@ function ProcurementEditDialog({
     const sum = items.reduce((acc, it) => acc + (it.amount ?? 0), 0)
     setSaving(true)
     try {
-      await api<{ procurement: ProcurementRow }>(`/api/edu-canteen/procurement/${id}`, {
+      await apiOrThrow<{ procurement: ProcurementRow }>(`/api/edu-canteen/procurement/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1951,7 +1948,7 @@ function SupplierTab() {
     queryKey: [SUP_KEY, 'list', applied, page],
     enabled: allow,
     queryFn: () =>
-      api<Paged<SupplierRow>>(
+      apiOrThrow<Paged<SupplierRow>>(
         `/api/edu-canteen/supplier${buildQuery({
           keyword: applied || undefined,
           page,
@@ -1965,7 +1962,7 @@ function SupplierTab() {
 
   const deleteMut = useMutation({
     mutationFn: (id: string) =>
-      api<{ deleted: boolean }>(`/api/edu-canteen/supplier/${id}`, { method: 'DELETE' }),
+      apiOrThrow<{ deleted: boolean }>(`/api/edu-canteen/supplier/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('toast.supplierDeleted'))
       setDeleting(null)
@@ -2182,13 +2179,13 @@ function SupplierEditDialog({
     setSaving(true)
     try {
       if (initial) {
-        await api(`/api/edu-canteen/supplier/${initial.id}`, {
+        await apiOrThrow(`/api/edu-canteen/supplier/${initial.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         })
       } else {
-        await api('/api/edu-canteen/supplier', {
+        await apiOrThrow('/api/edu-canteen/supplier', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),

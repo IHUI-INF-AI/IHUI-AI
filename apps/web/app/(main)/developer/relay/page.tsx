@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import Link from 'next/link'
 import { Zap, Key, Activity, Coins, TrendingUp, Loader2, ArrowRight, Bot } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -40,12 +40,6 @@ interface UsageSummary {
 
 interface KeysData {
   list: RelayKey[]
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 function formatBalance(cents: number): string {
@@ -94,12 +88,13 @@ export default function RelayOverviewPage() {
   } = useQuery({
     queryKey: ['developer', 'relay', 'keys'],
     queryFn: () =>
-      api<KeysData>('/api/developer/relay/keys').catch(() => ({ list: [] }) as KeysData),
+      apiOrThrow<KeysData>('/api/developer/relay/keys').catch(() => ({ list: [] }) as KeysData),
     enabled: allow,
   })
   const { data: usageData, isLoading: usageLoading } = useQuery({
     queryKey: ['developer', 'relay', 'usage', 'overview'],
-    queryFn: () => api<UsageSummary>('/api/developer/relay/usage?groupBy=model').catch(() => null),
+    queryFn: () =>
+      apiOrThrow<UsageSummary>('/api/developer/relay/usage?groupBy=model').catch(() => null),
     enabled: allow,
   })
 

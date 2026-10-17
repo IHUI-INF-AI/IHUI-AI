@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Activity, Download, Gauge, Loader2, TrendingUp, Zap } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { neutralizeFormulaCell } from '@/lib/export-utils'
 import {
   Button,
@@ -57,12 +57,6 @@ interface UsageData {
 }
 
 type ModeFilter = 'all' | 'relay' | 'byok'
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 /**
  * 表头由调用方(组件内)取好词再传入:模块层无法取词。
@@ -195,7 +189,7 @@ export default function RelayUsagePage() {
   if (startDate) baseQs.set('startDate', startDate)
   const { data, isLoading, error } = useQuery({
     queryKey: ['developer', 'relay', 'usage', groupBy, mode, startDate],
-    queryFn: () => api<UsageData>(`/api/developer/relay/usage?${baseQs.toString()}`),
+    queryFn: () => apiOrThrow<UsageData>(`/api/developer/relay/usage?${baseQs.toString()}`),
     enabled: allow,
   })
   const rows = data?.rows ?? []
@@ -204,7 +198,7 @@ export default function RelayUsagePage() {
   // --- API Key 下拉(用于分析筛选)---
   const { data: keysData } = useQuery({
     queryKey: ['developer', 'relay', 'keys'],
-    queryFn: () => api<{ list: ApiKeyOption[] }>('/api/developer/relay/keys'),
+    queryFn: () => apiOrThrow<{ list: ApiKeyOption[] }>('/api/developer/relay/keys'),
     enabled: allow,
   })
   const keyOptions = keysData?.list ?? []
@@ -217,7 +211,8 @@ export default function RelayUsagePage() {
   if (apiKeyId) anaQs.set('apiKeyId', apiKeyId)
   const { data: analytics, isLoading: anaLoading } = useQuery({
     queryKey: ['developer', 'relay', 'usage', 'analytics', startDate, endDate, model, apiKeyId],
-    queryFn: () => api<AnalyticsData>(`/api/developer/relay/usage/analytics?${anaQs.toString()}`),
+    queryFn: () =>
+      apiOrThrow<AnalyticsData>(`/api/developer/relay/usage/analytics?${anaQs.toString()}`),
     enabled: allow,
   })
 

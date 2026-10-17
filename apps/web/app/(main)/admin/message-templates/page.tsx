@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, Mail } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton } from '@/components/common'
 
 interface MessageTemplate {
@@ -20,12 +20,6 @@ interface MessageTemplate {
   status: number
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const th = 'px-4 py-2.5 font-medium'
 
 export default function MessageTemplatesPage() {
@@ -34,7 +28,7 @@ export default function MessageTemplatesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'message-templates', currentPage],
-    queryFn: () => api<{ list: MessageTemplate[] }>('/api/admin/message-templates'),
+    queryFn: () => apiOrThrow<{ list: MessageTemplate[] }>('/api/admin/message-templates'),
   })
 
   const list = data?.list ?? []
