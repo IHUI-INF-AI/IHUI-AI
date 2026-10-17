@@ -954,6 +954,47 @@
     },
     "welcomeDesc": "How can I help you?",
     "welcomeTitle": "Hi, I'm your IHUI AI assistant",
+    "businessForms": {
+      "ariaLabel": "Business form card",
+      "aria": {
+        "email": "Email compose card",
+        "calendarEvent": "Calendar form card"
+      },
+      "fields": {
+        "to": "To",
+        "cc": "Cc",
+        "bcc": "Bcc",
+        "subject": "Subject",
+        "replyTo": "Reply to",
+        "body": "Body",
+        "start": "Start",
+        "end": "End",
+        "attendees": "Attendees"
+      },
+      "action": {
+        "approve": "Approve",
+        "reject": "Reject",
+        "create": "Create",
+        "save": "Save"
+      },
+      "error": {
+        "required": "This field is required",
+        "invalidEmail": "Invalid email address",
+        "endBeforeStart": "End time must be after start time",
+        "noAttendees": "Add at least one attendee"
+      },
+      "reason": "Reject reason (optional)",
+        "fold": {
+        "expand": "Show all {count} attendees",
+        "collapse": "Collapse attendees"
+      },
+      "status": {
+        "submitting": "Submitting…",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "failed": "Submission failed, please retry"
+      }
+    },
     "cards": {
       "steer": {
         "title": "Steered {count} times",

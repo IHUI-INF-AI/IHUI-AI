@@ -70,10 +70,13 @@ llm_stream_interrupt_total = Counter(
     ['provider', 'model', 'reason'],  # client_disconnect | upstream_error | timeout_guard | unknown
 )
 
-# LLM 花费(USD)—— 取不到成本的调用不计数(宁缺毋假)
+# LLM 花费(USD)—— 取不到成本的调用不计数(宁缺毋假)。
+# 成本来源两档(2026-10-17 补第二档):provider 自报价(litellm 价表)优先,
+# 取不到时退回 core.model_pricing 的价目单一来源(与 ai-cost 扣费、cost_ledger
+# 同一口径);零价运行时(ollama/lmstudio/stub)估出 0 仍然不计数。
 llm_cost_usd_total = Counter(
     'ihui_llm_cost_usd_total',
-    'Total LLM spend in USD (only when the provider reported a price)',
+    'Total LLM spend in USD (provider-reported price, else the project price table)',
     ['provider', 'model'],
 )
 

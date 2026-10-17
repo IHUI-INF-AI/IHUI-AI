@@ -59,6 +59,8 @@ import {
 } from '@/stores/cost-guard'
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
+// G-248/G-916415 R1 web 腿:帧级 traceId 的错误上报消费点(onError → crash-reports 发射面)
+import { buildStreamErrorReport, reportStreamError } from './stream-error-report'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
 import { isContextAtCompactionThreshold } from '@/lib/token-estimate'
 import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
@@ -1227,6 +1229,10 @@ export function createSendMessage(
           // 出现在屏幕上的状态档)。重连机会由 api-client 内部用尽后才走到这里,
           // 所以"还能自己恢复"的情况不会误报成断开。
           markStreamDisconnected(errMsg)
+          // G-248/G-916415 R1 web 腿(2026-10-17 立):帧级 traceId 随流错误进上报体。
+          // 纪律在 stream-error-report.ts:info.traceId 缺席 ⇒ 上报体无 frameTraceId 键,
+          // 绝不写 undefined;字段名 frameTraceId 与动作链 traceId(user-action-telemetry)区分。
+          reportStreamError(buildStreamErrorReport({ message: errMsg, info }))
           // #9 错误前先 flush 累积 token,避免最后一批内容丢失
           contentBatcher.flush()
           reasoningBatcher.flush()

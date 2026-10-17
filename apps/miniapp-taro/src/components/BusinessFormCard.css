@@ -1,0 +1,143 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+/* © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top */
+/* Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。 */
+
+/*
+ * D77 业务表单卡样式(2026-10-17 立)。
+ * 纪律(与 tool-approval-card.css 同):半径只取 var(--radius-*) 单一真源;
+ * 静态描边一律取 --color-border / --color-border-medium,不取墨档;
+ * 主操作实底与前景成对(--color-cta / --color-cta-foreground)。
+ * 几何档逐档对齐 web `business-form-card.tsx`(g2=8 / g1=4 / p3=12 / px1.5=6 /
+ * py0.5=2 / h9=36 / h20=80 / text-sm=14 / text-xs=12 / text-[11px]=11)——
+ * 守门 128 配对判据要求两腿几何档集合相等(diffCount=0);改档先改 web 那一份。
+ */
+
+.bfc-card {
+  margin: 0 16rpx;
+  padding: 24rpx;
+  border: 1rpx solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  background: var(--color-card);
+}
+
+.bfc-kind {
+  display: block;
+  margin-bottom: 16rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--color-muted-foreground);
+}
+
+.bfc-field {
+  margin-bottom: 16rpx;
+}
+
+.bfc-label {
+  display: block;
+  margin-bottom: 8rpx;
+  font-size: 24rpx;
+  color: var(--color-text-tertiary);
+}
+
+.bfc-input {
+  width: 100%;
+  min-height: 72rpx;
+  padding: 8rpx 24rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-background);
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  box-sizing: border-box;
+}
+
+.bfc-textarea {
+  min-height: 160rpx;
+}
+
+.bfc-error {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--color-danger);
+}
+
+.bfc-attendees {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: 16rpx;
+}
+
+.bfc-attendee {
+  padding: 4rpx 12rpx;
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+
+.bfc-fold-btn {
+  padding: 4rpx 12rpx;
+  border-radius: var(--radius-sm);
+  font-size: 24rpx;
+  color: var(--color-text-tertiary);
+}
+
+.bfc-reason {
+  margin-bottom: 16rpx;
+}
+
+.bfc-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.bfc-approve,
+.bfc-reject {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 8rpx 0;
+  border-radius: var(--radius-md);
+  font-size: 28rpx;
+}
+
+.bfc-reject {
+  border: 1rpx solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-danger);
+}
+
+.bfc-approve {
+  background: var(--color-cta);
+  color: var(--color-cta-foreground);
+}
+
+.bfc-hover {
+  opacity: 0.72;
+}
+
+.bfc-status {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+.bfc-status.is-ok {
+  color: var(--color-success);
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

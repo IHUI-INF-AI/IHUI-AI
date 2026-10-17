@@ -47,7 +47,7 @@ const QUICK_LINKS = [
   { href: '/admin/statistics', label: '综合统计', desc: '运营数据大盘', icon: BarChart3 },
   { href: '/admin/online-users', label: '在线用户', desc: '实时在线会话', icon: Users },
   {
-    href: '/admin/monitoring-dashboard',
+    href: '/admin/monitor/dashboard',
     label: '系统监控',
     desc: '服务 / 隧道 / 资源',
     icon: Activity,
