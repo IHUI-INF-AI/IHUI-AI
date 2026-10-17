@@ -185,8 +185,27 @@ def main():
     # 3b. 上传 Gitee 缺失的资产(幂等:已有同名跳过)
     # 2026-10-13:上传失败不再静默吞——记入失败清单,全部尽力后统一终验,
     # 有缺口则以非零退出(重跑本 job 幂等补齐),让 job 红 ≠ 资产悄悄缺角。
+    #
+    # 2026-10-17 排序修复(实测立因):原来按文件名 sorted() 上传,**字母序把
+    # 79MB 的 AppImage 排在最前面**,于是一个海外 runner 传国内 Gitee 的慢链路
+    # 把预算全烧在 Linux 包上 —— desktop-v0.1.75 实测卡了一小时,Windows 的
+    # 9.6MB exe 一次都没轮到(资产表停在 rpm 五个文件)。而 **Windows 才是国内
+    # 主力平台**,Linux 包在国内几乎没有下载量。
+    # ⇒ 改成按"国内下载价值"排序:Windows 主包 → 各平台 sig → 其余;
+    #   并给单个文件加传输预算,超预算的留到下次重跑(幂等),不许它拖死整批。
+    def _upload_rank(name):
+        if name.endswith("-setup.exe"):
+            return 0  # Windows 主包:最高优先
+        if name.endswith(".sig"):
+            return 1  # 签名体积小,先补齐(更新器/feed 依赖)
+        if name.endswith((".AppImage", ".dmg", ".deb", ".rpm", ".app.tar.gz")):
+            return 3  # 其余平台主包:体量大,排最后
+        return 2
+
+    ordered = sorted(upload_set, key=lambda n: (_upload_rank(n), n))
+    print(f"[gitee] 上传顺序(按国内下载价值排): {ordered}")
     upload_failed = []
-    for fname in sorted(upload_set):
+    for fname in ordered:
         if fname in gitee_assets:
             print(f"[gitee] {fname} 已存在,跳过上传")
             continue
