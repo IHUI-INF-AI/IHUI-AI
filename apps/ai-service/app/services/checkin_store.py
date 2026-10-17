@@ -33,8 +33,18 @@ from cryptography.fernet import Fernet, InvalidToken
 
 from app.core.db_pool import get_shared_pool
 from app.core.logging import get_logger
-from app.services.checkin_engine import extract_display_name, get_jwt_exp, uuid_shaped_name
-from app.services.checkin_qoder import qoder_session_expiry
+from app.services.checkin_engine import (
+    extract_display_name,
+    extract_user_id,
+    get_jwt_exp,
+    uuid_shaped_name,
+)
+from app.services.checkin_minimax import minimax_device_map_uid
+from app.services.checkin_qoder import qoder_device_map_uid, qoder_extract_uid, qoder_session_expiry
+from app.services.checkin_workbuddy import (
+    workbuddy_device_map_uid,
+    workbuddy_extract_uid,
+)
 
 if TYPE_CHECKING:
     # 只为标注 ensure_tables_conn 的连接参数而引;本文件有 `from __future__ import
@@ -143,6 +153,22 @@ ALTER TABLE checkin_accounts
     ADD COLUMN IF NOT EXISTS platform text NOT NULL DEFAULT 'trae'
 """
 
+# 账号去重(2026-10-17 李总报障「名不一样但实际是一个号」):identity_key 存
+# 平台侧真实身份 uid(见 derive_account_identity),与展示名解耦 —— 唯一约束
+# 只有 (owner_user_id, name) 时换个名就能把同一账号重复录入(旧 UUID 名账号
+# 自愈改名后再重新捕获是最常见形态)。身份派生不出的行保持 ''(部分唯一索引
+# 不覆盖,行为退回旧的名字约束,不影响录入)。
+_ALTER_ACCOUNTS_IDENTITY_SQL = """
+ALTER TABLE checkin_accounts
+    ADD COLUMN IF NOT EXISTS identity_key text NOT NULL DEFAULT ''
+"""
+
+_CREATE_IDENTITY_INDEX_SQL = """
+CREATE UNIQUE INDEX IF NOT EXISTS uq_checkin_accounts_identity
+    ON checkin_accounts (owner_user_id, platform, identity_key)
+    WHERE identity_key <> ''
+"""
+
 _ensure_failed = False
 
 
@@ -164,15 +190,148 @@ async def ensure_tables_conn(conn: asyncpg.Connection) -> None:
     await conn.execute(_CREATE_CREDITS_DAILY_SQL)
     await conn.execute(_ALTER_ACCOUNTS_GROUP_SQL)
     await conn.execute(_ALTER_ACCOUNTS_PLATFORM_SQL)
+    await conn.execute(_ALTER_ACCOUNTS_IDENTITY_SQL)
+    await conn.execute(_CREATE_IDENTITY_INDEX_SQL)
     await conn.execute(_CREATE_INDEXES_SQL)
     _ensure_failed = False
 
 
 async def ensure_tables() -> None:
-    """幂等建表(三张表 + account_group 幂等加列 + 查询索引)。失败抛出,由调用方决定 fail-open/fail-closed。"""
+    """幂等建表(三张表 + account_group/platform/identity_key 幂等加列 + 查询索引)。
+
+    建表后跑一次存量身份补键与重复账号归并(见 backfill_identity_and_dedup,
+    幂等且失败不抛 —— 迁移是增强,不得阻断建表与启动)。
+    """
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
         await ensure_tables_conn(conn)
+    await backfill_identity_and_dedup()
+
+
+async def backfill_identity_and_dedup() -> None:
+    """存量身份补键 + 重复账号归并(ensure_tables 每次启动调用,幂等)。
+
+    顺序敏感:先在 Python 侧算好身份、就地归并重复组,**之后**才落
+    identity_key —— 反过来先落键,重复组第二行 UPDATE 就撞部分唯一索引
+    (uq_checkin_accounts_identity)。分组时必须带上「已带键行」(前次启动
+    补过键的存量):唯一索引只保证它们组内唯一,与本次补键行之间仍可能成组。
+
+    归并规则(同一 owner + platform + 身份 uid 的多行):
+    - 保留最小 id(签到记录 / 冷却历史的挂靠点);凭证与设备态取 updated_at
+      最新一行(最新捕获),展示名保保留行(列表自愈兜底);
+    - 重复行的 records 就地并到保留行再删行(error_counts / credits_daily
+      随行级联,快照诊断序列少一段可接受);
+    - 密文解不开或派生不出身份的行保持 identity_key='',不参与去重
+      (坏密文留给用户重录,不阻塞其余账号)。
+
+    迁移是增强:任何失败只记 warning 下次启动重试,绝不抛出阻断启动。
+    """
+    try:
+        pool = await get_shared_pool()
+        backfilled = 0
+        merged = 0
+        async with pool.acquire() as conn:
+            legacy = await conn.fetch(
+                """
+                SELECT id, owner_user_id, platform, jwt_enc, device_map
+                FROM checkin_accounts
+                WHERE identity_key = ''
+                ORDER BY id
+                """
+            )
+            # id → (owner, platform, key);派生失败/密文不可解的行不进表(保持 '')
+            derived_map: dict[int, tuple[str, str, str]] = {}
+            for r in legacy:
+                try:
+                    jwt = _decrypt_jwt(r["jwt_enc"])
+                except Exception as e:  # noqa: BLE001 — 单账号坏密文不得阻断迁移
+                    logger.warning(
+                        "[checkin_store] 账号 %s 密文不可解,跳过身份补键(需重录凭证): %s",
+                        r["id"],
+                        e,
+                    )
+                    continue
+                dm = r["device_map"]
+                if isinstance(dm, str):
+                    try:
+                        dm = json.loads(dm or "{}")
+                    except ValueError:
+                        dm = {}
+                key = derive_account_identity(r["platform"], jwt, dm or {}) or ""
+                if key:
+                    derived_map[r["id"]] = (r["owner_user_id"], r["platform"], key)
+
+            keyed = await conn.fetch(
+                """
+                SELECT id, owner_user_id, platform, identity_key
+                FROM checkin_accounts
+                WHERE identity_key <> ''
+                """
+            )
+            groups: dict[tuple[str, str, str], list[int]] = {
+                (r["owner_user_id"], r["platform"], r["identity_key"]): [r["id"]] for r in keyed
+            }
+            for aid, gk in derived_map.items():
+                groups.setdefault(gk, []).append(aid)
+
+            for gk, ids in groups.items():
+                if len(ids) <= 1:
+                    continue
+                keep = min(ids)
+                dup_ids = [i for i in ids if i != keep]
+                fresh = await conn.fetchrow(
+                    """
+                    SELECT id, jwt_enc, device_map
+                    FROM checkin_accounts
+                    WHERE id = ANY($1::bigint[])
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                    """,
+                    ids,
+                )
+                if fresh is not None and fresh["id"] != keep:
+                    dm = fresh["device_map"]
+                    if not isinstance(dm, str):
+                        dm = json.dumps(dm or {}, ensure_ascii=False)
+                    await conn.execute(
+                        """
+                        UPDATE checkin_accounts
+                        SET jwt_enc = $2, device_map = $3::jsonb, updated_at = now()
+                        WHERE id = $1
+                        """,
+                        keep,
+                        fresh["jwt_enc"],
+                        dm,
+                    )
+                for dup_id in dup_ids:
+                    await conn.execute(
+                        "UPDATE checkin_records SET account_id = $2 WHERE account_id = $1",
+                        dup_id,
+                        keep,
+                    )
+                    await conn.execute("DELETE FROM checkin_accounts WHERE id = $1", dup_id)
+                    derived_map.pop(dup_id, None)
+                merged += len(dup_ids)
+                logger.info(
+                    "[checkin_store] 重复账号归并 platform=%s identity=%s 保留 id=%s 删除 %s",
+                    gk[1],
+                    gk[2],
+                    keep,
+                    dup_ids,
+                )
+
+            # 重复已清,落键不会撞唯一索引;WHERE identity_key='' 防并发窗口重复写
+            for aid, (_owner, _platform, key) in derived_map.items():
+                await conn.execute(
+                    "UPDATE checkin_accounts SET identity_key = $2 WHERE id = $1 AND identity_key = ''",
+                    aid,
+                    key,
+                )
+                backfilled += 1
+        if backfilled or merged:
+            logger.info("[checkin_store] 身份补键 %s 行,重复账号归并 %s 行", backfilled, merged)
+    except Exception as e:  # noqa: BLE001 — 迁移失败不阻断启动
+        logger.warning("[checkin_store] 存量身份补键/去重失败(下次启动重试): %s", e)
 
 
 # ---------------------------------------------------------------------------
@@ -256,6 +415,34 @@ def generate_fernet_key_b64() -> str:
 
 
 # ---------------------------------------------------------------------------
+# 账号真实身份(去重键,2026-10-17 立)
+# ---------------------------------------------------------------------------
+
+
+def derive_account_identity(
+    platform: str, jwt: str, device_map: dict[str, Any] | None
+) -> str | None:
+    """按平台解析账号真实身份 uid(去重键);解析不出返回 None(退回名字约束)。
+
+    - trae:JWT payload data.id / auth_id / sub(extract_user_id);
+    - qoder:token 是 JWT 时取 sub 等,opaque 时退 device_map.uid(桌面捕获落库);
+    - workbuddy:JWT sub 等,网页 Cookie 模式退 device_map.uid;
+    - minimax:token 是 opaque(mmoat_),uid 只在 device_map。
+
+    纯函数无 IO,可直接单测。跨平台同名是正常形态(同一手机号在 TRAE/Qoder
+    各有一个账号),身份键必含 platform,绝不跨平台合并。
+    """
+    dm = device_map if isinstance(device_map, dict) else {}
+    if platform == "qoder":
+        return qoder_extract_uid(jwt) or qoder_device_map_uid(dm)
+    if platform == "workbuddy":
+        return workbuddy_extract_uid(jwt) or workbuddy_device_map_uid(dm)
+    if platform == "minimax":
+        return minimax_device_map_uid(dm)
+    return extract_user_id(jwt)
+
+
+# ---------------------------------------------------------------------------
 # 账号 CRUD
 # ---------------------------------------------------------------------------
 
@@ -268,12 +455,14 @@ async def create_account(
     account_group: str = "",
     platform: str = "trae",
 ) -> dict[str, Any]:
-    """录入账号(jwt 加密落库)。同名账号已存在时抛 ValueError。
+    """录入账号(jwt 加密落库)。
 
-    2026-10-16 李总定档:展示名一律按「手机>邮箱>账户名>用户名」派生优先 ——
-    桌面端 tc 通道把 account 原始 profile 落进 device_map.account(含 phone),
-    这里**首次录入即取用**,不再等到列表加载才自愈(避免 UUID 兜底名先落库)。
-    派不出名时才退回调用方传入的 name。
+    去重(2026-10-17 李总报障「名不一样但实际是一个号」):同一真实账号
+    (owner + platform + 身份 uid,见 derive_account_identity)重复录入时
+    **合并刷新既有行** —— 凭证与设备态以本次为准,不建新行;展示名仅在
+    既有名为 UUID 编码形态且本次派生出更好名时才换(尊重用户手动改名)。
+
+    身份派生不出的账号退回旧语义:同名已存在时抛 ValueError(23505 → 409)。
     """
     pool = await get_shared_pool()
     jwt_enc = _encrypt_jwt(jwt)
@@ -283,13 +472,68 @@ async def create_account(
     elif uuid_shaped_name(name):
         # 派不出且传入的是 UUID 编码名 ⇒ 留待列表自愈(用户仍可行内改名)
         logger.info("[checkin_store] 录入名 %s 为 UUID 形态且派不出展示名,保持原名", name)
+    identity_key = derive_account_identity(platform, jwt, device_map) or ""
     async with pool.acquire() as conn:
+        if identity_key:
+            existing = await conn.fetchrow(
+                """
+                SELECT id, name FROM checkin_accounts
+                WHERE owner_user_id = $1 AND platform = $2 AND identity_key = $3
+                """,
+                owner_user_id,
+                platform,
+                identity_key,
+            )
+            if existing is not None:
+                # 同一真实账号 ⇒ 刷新凭证合并,绝不重复建行
+                new_name = existing["name"]
+                if derived and uuid_shaped_name(new_name):
+                    new_name = derived
+                try:
+                    row = await conn.fetchrow(
+                        """
+                        UPDATE checkin_accounts
+                        SET jwt_enc = $3, device_map = $4::jsonb, name = $5, updated_at = now()
+                        WHERE id = $1 AND owner_user_id = $2
+                        RETURNING id, owner_user_id, name, device_map, enabled, account_group, platform,
+                                  created_at, updated_at
+                        """,
+                        existing["id"],
+                        owner_user_id,
+                        jwt_enc,
+                        json.dumps(device_map, ensure_ascii=False),
+                        new_name,
+                    )
+                except Exception as e:
+                    # 名字换新撞 (owner_user_id, name) 唯一约束 ⇒ 保旧名重试
+                    if getattr(e, "sqlstate", None) != "23505" and "duplicate key" not in str(e).lower():
+                        raise
+                    row = await conn.fetchrow(
+                        """
+                        UPDATE checkin_accounts
+                        SET jwt_enc = $3, device_map = $4::jsonb, updated_at = now()
+                        WHERE id = $1 AND owner_user_id = $2
+                        RETURNING id, owner_user_id, name, device_map, enabled, account_group, platform,
+                                  created_at, updated_at
+                        """,
+                        existing["id"],
+                        owner_user_id,
+                        jwt_enc,
+                        json.dumps(device_map, ensure_ascii=False),
+                    )
+                logger.info(
+                    "[checkin_store] 同账号重复录入,已合并刷新既有行 id=%s platform=%s identity=%s",
+                    existing["id"],
+                    platform,
+                    identity_key,
+                )
+                return _account_row(row)
         try:
             row = await conn.fetchrow(
                 """
                 INSERT INTO checkin_accounts
-                    (owner_user_id, name, jwt_enc, device_map, enabled, account_group, platform)
-                VALUES ($1, $2, $3, $4::jsonb, true, $5, $6)
+                    (owner_user_id, name, jwt_enc, device_map, enabled, account_group, platform, identity_key)
+                VALUES ($1, $2, $3, $4::jsonb, true, $5, $6, $7)
                 RETURNING id, owner_user_id, name, device_map, enabled, account_group, platform,
                           created_at, updated_at
                 """,
@@ -299,9 +543,10 @@ async def create_account(
                 json.dumps(device_map, ensure_ascii=False),
                 account_group,
                 platform,
+                identity_key,
             )
         except Exception as e:
-            # asyncpg 唯一约束冲突 → 23505
+            # asyncpg 唯一约束冲突 → 23505(名字约束;身份键冲突在上面已合并,走不到这)
             if getattr(e, "sqlstate", None) == "23505" or "duplicate key" in str(e).lower():
                 raise ValueError(f"账号名已存在: {name}") from e
             raise
