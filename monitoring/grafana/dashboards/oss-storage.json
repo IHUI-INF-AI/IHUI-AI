@@ -6,7 +6,18 @@
   "editable": true,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "返回 AI 总览",
+      "type": "link",
+      "url": "/d/ihui-ai-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "tags": ["ihui-ai"]
+    }
+  ],
   "panels": [
     {
       "title": "存储用量 (GB)",
@@ -153,7 +164,7 @@
       "targets": [
         {
           "expr": "sum by (driver) (ihui_oss_storage_used_bytes{instance=~\"$instance\"}) / 1024 / 1024 / 1024",
-          "legendFormat": "{{bucket}}",
+          "legendFormat": "{{driver}}",
           "refId": "A"
         }
       ],
@@ -212,7 +223,7 @@
       "targets": [
         {
           "expr": "sum by (driver) (ihui_oss_file_count{instance=~\"$instance\"})",
-          "legendFormat": "{{bucket}}",
+          "legendFormat": "{{driver}}",
           "refId": "A"
         }
       ],

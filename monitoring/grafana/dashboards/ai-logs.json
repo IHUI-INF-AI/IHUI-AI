@@ -19,30 +19,65 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "返回 AI 总览",
+      "type": "link",
+      "url": "/d/ihui-ai-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "tags": ["ihui-ai"]
+    }
+  ],
   "liveNow": true,
   "panels": [
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "id": 200,
       "panels": [],
       "title": "日志吞吐与错误趋势(数据源:Loki / promtail 采集)",
       "type": "row"
     },
     {
-      "datasource": { "type": "loki", "uid": "Loki" },
+      "datasource": {
+        "type": "loki",
+        "uid": "Loki"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "logs/s",
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green" }] }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
       "id": 201,
       "options": {
-        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true }
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
       },
       "targets": [
         {
@@ -55,19 +90,38 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "loki", "uid": "Loki" },
+      "datasource": {
+        "type": "loki",
+        "uid": "Loki"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "text" }] }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text"
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
       "id": 202,
       "description": "AI 错误是突发型(实测 6h 内 4827 行但近 5 分钟 0 行),所以这里用 15 分钟滚动**计数**而不是 rate —— 按每秒速率画低流量机只会看到一条贴地的零线。",
       "options": {
-        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true }
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
       },
       "targets": [
         {
@@ -91,25 +145,49 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
       "id": 203,
       "panels": [],
       "title": "AI 关键事件(降级 / 超时 / 总量)",
       "type": "row"
     },
     {
-      "datasource": { "type": "loki", "uid": "Loki" },
+      "datasource": {
+        "type": "loki",
+        "uid": "Loki"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "orange" }] }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange"
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 10 },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 10
+      },
       "id": 204,
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
       },
       "targets": [
         {
@@ -122,18 +200,37 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "loki", "uid": "Loki" },
+      "datasource": {
+        "type": "loki",
+        "uid": "Loki"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "red" }] }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red"
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 10 },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 10
+      },
       "id": 205,
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
       },
       "targets": [
         {
@@ -146,25 +243,46 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "loki", "uid": "Loki" },
+      "datasource": {
+        "type": "loki",
+        "uid": "Loki"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 1000 },
-              { "color": "red", "value": 10000 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1000
+              },
+              {
+                "color": "red",
+                "value": 10000
+              }
             ]
           }
         },
         "overrides": []
       },
-      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 10 },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 10
+      },
       "id": 206,
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
         "textMode": "auto"
       },
       "targets": [
@@ -179,15 +297,28 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
       "id": 207,
       "panels": [],
       "title": "原始日志(可下钻 —— 与上方时序同一时间窗)",
       "type": "row"
     },
     {
-      "datasource": { "type": "loki", "uid": "Loki" },
-      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 18 },
+      "datasource": {
+        "type": "loki",
+        "uid": "Loki"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
       "id": 208,
       "options": {
         "dedupStrategy": "none",
@@ -210,8 +341,16 @@
       "type": "logs"
     },
     {
-      "datasource": { "type": "loki", "uid": "Loki" },
-      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 30 },
+      "datasource": {
+        "type": "loki",
+        "uid": "Loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
       "id": 209,
       "options": {
         "dedupStrategy": "none",
@@ -234,8 +373,16 @@
       "type": "logs"
     },
     {
-      "datasource": { "type": "loki", "uid": "Loki" },
-      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 30 },
+      "datasource": {
+        "type": "loki",
+        "uid": "Loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      },
       "id": 210,
       "options": {
         "dedupStrategy": "none",
@@ -258,8 +405,16 @@
       "type": "logs"
     },
     {
-      "datasource": { "type": "loki", "uid": "Loki" },
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 40 },
+      "datasource": {
+        "type": "loki",
+        "uid": "Loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
       "id": 211,
       "options": {
         "dedupStrategy": "none",
@@ -286,8 +441,13 @@
   "schemaVersion": 38,
   "style": "dark",
   "tags": ["ihui", "ai", "logs", "loki"],
-  "templating": { "list": [] },
-  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
   "title": "IHUI-AI 智能体与模型日志(可下钻)",
