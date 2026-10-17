@@ -146,6 +146,45 @@ test('G-322 第五批:数值档坏值不再被读成 NaN(plan-bypass-ledger-repo
   }
 })
 
+// ─── 第六批(2026-10-17)───
+// 选点尺是"失效方向",不是行号:HEAD 面重扫(两把只读尺)得 113 处候选,其中
+// **注册为 blocking 且这一支没有任何 '-' 守卫**的 28 处才是本批射程;本批收其中的 --root 七站。
+test('G-322 第六批:七道 blocking 门的 --root 三支坏值各自大声拒绝', () => {
+  for (const f of [
+    'check-admin-gate-consistency.mjs',
+    'check-authorization-column-isolation.mjs',
+    'check-digest-name-reality.mjs',
+    'check-readme-table-integrity.mjs',
+    'check-statusbar-single-source.mjs',
+    'check-subagent-permission-inherited.mjs',
+    'check-staged-deletions.mjs',
+  ]) {
+    assertBadRoot(S(f), '目录')
+  }
+})
+
+test('G-322 第六批:check-staged-deletions 的 --allowlist 三支坏值必须真非零(该文件顶层 main().catch() 丢弃返回码)', () => {
+  // 这一站的形状教训:`return 2` 在这个文件里等于没退出(红档一直靠 process.exit 落)。
+  // 探针因此不能只看 stderr 有没有点名,必须量 rc —— 点名却 rc=0 = "看着拦了其实放行"。
+  const script = S('check-staged-deletions.mjs')
+  const arms = [
+    { args: ['--allowlist', '--staged'], expect: '"--staged"' },
+    { args: ['--allowlist'], expect: '(其后没有任何参数)' },
+    { args: ['--allowlist', ''], expect: '""' },
+  ]
+  for (const { args, expect } of arms) {
+    const r = spawnSync(process.execPath, [script, ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+    })
+    assert.notEqual(r.status, 0, `--allowlist ${JSON.stringify(args)} 不得 rc=0`)
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, /--allowlist 需要一个文件路径/, out.slice(0, 200))
+    assert.match(out, new RegExp(expect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), out.slice(0, 200))
+  }
+})
+
 test('G-322 第五批:scan-hardcoded-zh 的 --exit blocking 腿不得把坏值读成"非严格档"(§0.10)', () => {
   const script = S('scan-hardcoded-zh.mjs')
   for (const args of [['--exit'], ['--exit', ''], ['--exit', '--staged'], ['--exit', '2']]) {
