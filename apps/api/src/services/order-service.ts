@@ -32,12 +32,15 @@ import { outboxEvents, pointTransactions, eduEnrollment, eduPaymentRecord } from
 import { isNull } from 'drizzle-orm'
 import { calculateTopupBonus } from './topup-discount-service.js'
 import { config } from '../config/index.js'
-// ihui_payment_* 指标:service 层不持有 fastify 实例,走模块级桥接函数打点
+// ihui_payment_* 与 business_orders_total / business_payments_total 指标:
+// service 层不持有 fastify 实例,走模块级桥接函数打点(与 recordPaymentAttempt 同范式)
 import {
   recordPaymentAttempt,
   recordPaymentSuccess,
   recordPaymentRefund,
   recordPaymentAmount,
+  recordOrderSample,
+  recordPaymentSample,
 } from '../plugins/business-metrics.js'
 
 export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
@@ -65,7 +68,13 @@ export async function placeOrder(
 ): Promise<Order> {
   const order = await createOrderRow(input, operatorId)
   // ihui_payment_attempt_total:下单成功后按渠道计数(渠道中立收口)
-  recordPaymentAttempt(order.paymentMethod ?? 'unknown')
+  const payChannel = order.paymentMethod ?? 'unknown'
+  recordPaymentAttempt(payChannel)
+  // business_orders_total{type,status} / business_payments_total{channel,status}:
+  // 与上面同一处收口(订单落库成功后),type 取 order_type 原值(整数码,不自立清单),
+  // status/channel 档口与既有 ihui_payment_attempt_total 同源 ⇒ 不新增第二份词表。
+  recordOrderSample(String(order.orderType), 'pending')
+  recordPaymentSample(payChannel, 'attempt')
   return order
 }
 
@@ -104,6 +113,13 @@ export async function completeOrder(
     await rechargeIfTokenOrder(updated)
     // B4: 学费订单(orderType=9)自动入账(幂等:receiptNo=orderNo 查重)
     await applyEduTuitionOrder(updated)
+    // business_orders_total{type,status="paid"} / business_payments_total{channel,status="success"}:
+    // 只在**真实发生的那一次** pending→paid 条件 UPDATE 之后计(上方 `!updated` 的并发竞态
+    // 与下面 status 已是 paid 的幂等重放分支都不计)——与 completeOrderWithSaga 里
+    // recordPaymentSuccess 的"幂等重放不计数"口径一致,否则重复回调会把分母虚增。
+    const payChannel = updated.paymentMethod ?? 'unknown'
+    recordOrderSample(String(updated.orderType), 'paid')
+    recordPaymentSample(payChannel, 'success')
     // Phase 4: updateOrderStatus 内部已事务同步 eduOrders，无需额外同步
     return { success: true, order: updated }
   }
@@ -457,6 +473,10 @@ export async function completeOrderWithSaga(
   const payChannel = order.paymentMethod ?? 'unknown'
   recordPaymentSuccess(payChannel)
   recordPaymentAmount(payChannel, order.amount)
+  // business_orders_total / business_payments_total:同一条"saga 真实完成后才计数"的
+  // 收口(重放分支已在上方 return 掉),标签档口与紧邻这两行同源。
+  recordOrderSample(String(order.orderType), 'paid')
+  recordPaymentSample(payChannel, 'success')
 
   // WS 实时通知：outbox 'order.paid' 已写入，推送 WS 'payment.paid' 给用户所有在线端
   if (server) {
@@ -579,6 +599,10 @@ export async function cancelOrder(orderNo: string): Promise<OrderOperationResult
     }
     return { success: false, reason: '订单状态已变更,不可取消' }
   }
+  // business_orders_total{type,status="cancelled"}:同样只在条件 UPDATE 真的改到行之后计
+  // (0 行影响的并发分支已在上面 return 掉)。取消 pending 订单不是支付事件 ⇒
+  // 不写 business_payments_total,免得给支付面板添一个不存在的档口。
+  recordOrderSample(String(order.orderType), 'cancelled')
   return { success: true, order: updated }
 }
 
@@ -602,6 +626,10 @@ export async function refundOrder(orderNo: string): Promise<OrderOperationResult
   await updateOrderStatus(orderNo, 'refunded')
   // ihui_payment_refund_total:退款状态落库成功后按渠道计数
   recordPaymentRefund(order.paymentMethod ?? 'unknown')
+  // business_orders_total{type,status="refunded"} / business_payments_total{channel,status="refund"}:
+  // 与上一行同一处收口(退款状态已落库),档口沿用既有 ihui_payment_refund_total 的语义。
+  recordOrderSample(String(order.orderType), 'refunded')
+  recordPaymentSample(order.paymentMethod ?? 'unknown', 'refund')
   // B2: 退款时扣回 token 余额(token 充值订单/活动订单)
   if ((order.orderType === 2 || order.orderType === 3) && order.userId) {
     try {

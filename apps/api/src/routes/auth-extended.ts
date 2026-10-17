@@ -815,6 +815,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         roleId: 0,
         status: 1,
       })
+      // business_funnel_total{stage="register"}:邮箱注册端点(验证码已在上面验过)。
+      server.recordFunnel('register')
       // 欢迎邮件(异步入队,失败静默 — 绝不阻断注册主流程)
       try {
         const { queueWelcomeEmail } = await import('../services/email-service.js')
@@ -1419,6 +1421,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         roleId: 0,
         status: 1,
       })
+      // business_funnel_total{stage="register"}:短信代注册端点。
+      server.recordFunnel('register')
       return reply.status(201).send(
         success({
           id: user.id,

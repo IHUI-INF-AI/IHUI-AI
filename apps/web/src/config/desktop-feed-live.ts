@@ -296,8 +296,11 @@ export async function resolveLiveDesktopFeed(): Promise<LiveDesktopResolution> {
     : null
   const usable =
     payload && typeof payload.version === 'string' && payload.platforms ? payload : null
-  // Windows 主包优先走 Gitee(国内可达);Gitee 没有该资产时保持 release 原生 URL。
-  const preferred = usable ? await preferGiteeWindows(usable, pick.tag) : null
+  // Windows 主包优先走 Gitee(国内可达),但**按字节对账**才准改用:同名不同字节
+  // (0.1.75 实锤)会叫客户端下到一份签名验不过的包。权威字节数取 GitHub API 的资产元数据。
+  const winName = usable?.platforms?.['windows-x86_64']?.url?.split('/').pop() ?? null
+  const winSize = Number(pick.downloadAssets.find((a) => a.name === winName)?.size || 0) || null
+  const preferred = usable ? await preferGiteeWindows(usable, pick.tag, winSize) : null
   const base = buildLiveSource(pick, preferred, repo)
   return {
     source: 'live',
@@ -343,52 +346,81 @@ const APK_ASSET_NAME = 'ihui-ai-latest.apk'
 const GITEE_OWNER = process.env.GITEE_OWNER || 'JLSLSSZWHYXGS_0'
 const GITEE_REPO = process.env.GITEE_REPO || 'IHUI-AI'
 
-interface GiteeReleaseAsset {
-  name?: string
-  browser_download_url?: string
-}
-interface GiteeRelease {
-  assets?: GiteeReleaseAsset[]
-}
-
 /**
- * Windows 安装包的**国内可达性偏好**(2026-10-17 立)。
+ * Windows 安装包的**国内可达性偏好**(2026-10-17 立;2026-10-18 由"看名字"改成"量字节")。
  *
  * 为什么需要它:站点 feed 与下载页此前一律给 GitHub 直链 —— 那是 release 的原生产物、
- * 签名配对无歧义,但国内访问 GitHub 资产域名常直连超时(本机实测 ETIMEDOUT)。
- * 而 Gitee 是国内可达的镜像,`scripts/sync-gitee.py` 每个版本都在往那儿同步。
- * 只在 **Gitee 确实有同名资产** 时才改用它 —— 不能盲钉:0.1.74 的教训就是生成侧
- * 无条件把 URL 钉到 Gitee,而当时 Gitee 上根本没有 exe(超 100MB 传不上)⇒ 全量 404。
+ * 签名配对无歧义,但国内访问 GitHub 资产域名常直连超时(本机实测 ETIMEDOUT;注意
+ * `api.github.com` 是可达的,所以权威 size 从 API 拿,不需要探 GitHub 资产域名)。
+ * 而 Gitee 是国内可达的镜像,`.github/scripts/sync-gitee.py` 每个版本都在往那儿同步。
  *
- * 签名不受影响:minisign 是对**包体字节**签的,同一份包放哪个 host 验签都成立
- * (与 scripts/lib/tauri-updater-platforms.mjs 的 host 白名单口径一致:github/gitee 均允许)。
+ * 为什么"同名即改"不够(2026-10-18 实锤,原判据就是这么漏的):desktop-v0.1.75 的
+ * Gitee 附件是 02:28:50Z 那份 10,118,299 字节,CI 03:53:54Z 重新构建并由真钥匙签的是
+ * 10,122,472 字节;旧 `giteeHasAsset` 只比 `a.name === assetName` ⇒ 冒名旧包占着同名,
+ * feed 把 CI 的签名配 Gitee 的旧字节发给客户端 ⇒ **下载成功但验签必失败**,自动更新
+ * 静默失效(比 404 更难发现:全部门禁不响)。所以这一格现在只认 Content-Length 相等,
+ * 量不出 ⇒ 未判定 ⇒ 保持 GitHub(失败方向给"慢而正确",不给"快而验不过")。
+ *
+ * 签名本身不受 host 影响:minisign 是对**包体字节**签的,**同一份字节**放哪个 host 都验得过
+ * (与 scripts/lib/tauri-updater-platforms.mjs 的 host 白名单口径一致) —— 前提就是"同一份字节"。
  */
-async function giteeHasAsset(tag: string, assetName: string): Promise<boolean> {
-  const rel = await fetchJson<GiteeRelease>(
-    `https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/tags/${tag}`,
-    { Accept: 'application/json' },
-  )
-  const assets = rel?.assets || []
-  return assets.some((a) => a.name === assetName)
+export type GiteeParity = 'same' | 'different' | 'undetermined'
+
+async function headContentLength(url: string): Promise<number | null> {
+  try {
+    const r = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!r.ok) return null
+    const n = Number(r.headers.get('content-length') || 0)
+    return n > 0 ? n : null
+  } catch {
+    return null
+  }
 }
 
-/** 把 windows-x86_64 的 URL 换成 Gitee 直链(仅当 Gitee 确实持有同名资产) */
+function giteeDownloadUrl(tag: string, assetName: string): string {
+  return `https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/${tag}/${assetName}`
+}
+
+/** 按 Content-Length 对账 Gitee 那份附件是否就是 `expectedSize` 这么多字节的原件。 */
+export async function giteeByteParity(
+  tag: string,
+  assetName: string,
+  expectedSize: number | null,
+): Promise<{ verdict: GiteeParity; giteeLen: number | null }> {
+  const giteeLen = await headContentLength(giteeDownloadUrl(tag, assetName))
+  if (!expectedSize || expectedSize <= 0 || !giteeLen) return { verdict: 'undetermined', giteeLen }
+  return { verdict: giteeLen === expectedSize ? 'same' : 'different', giteeLen }
+}
+
+/** 把 windows-x86_64 的 URL 换成 Gitee 直链(仅当 Gitee 那份字节与 GitHub 原件等长) */
 export async function preferGiteeWindows(
   payload: DesktopFeedPayload | null,
   tag: string,
+  expectedSize: number | null,
 ): Promise<DesktopFeedPayload | null> {
   const win = payload?.platforms?.['windows-x86_64']
   if (!payload || !win) return payload
   const fileName = win.url.split('/').pop()
   if (!fileName) return payload
-  if (!(await giteeHasAsset(tag, fileName))) return payload
+  const { verdict, giteeLen } = await giteeByteParity(tag, fileName, expectedSize)
+  if (verdict !== 'same') {
+    console.warn(
+      `[desktop-feed] windows 直链保持 GitHub 原生产物:Gitee 字节对账=${verdict}` +
+        `(GH=${expectedSize} / Gitee=${giteeLen})`,
+    )
+    return payload
+  }
   return {
     ...payload,
     platforms: {
       ...payload.platforms,
       'windows-x86_64': {
         ...win,
-        url: `https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/${tag}/${fileName}`,
+        url: giteeDownloadUrl(tag, fileName),
       },
     },
   }
@@ -467,15 +499,17 @@ async function preferGiteeInAssets(
   if (!exe) return assets
   const fileName = exe.href.split('/').pop()
   if (!fileName) return assets
-  if (!(await giteeHasAsset(tag, fileName))) return assets
-  return assets.map((a) =>
-    a === exe
-      ? {
-          ...a,
-          href: `https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/${tag}/${fileName}`,
-        }
-      : a,
-  )
+  // 与更新器 feed 同一把尺子:名字命中不等于字节相同(见 giteeByteParity 头注的 0.1.75 实锤)。
+  // sizeBytes 来自 GitHub API 的资产元数据,就是 CI 签名覆盖那份的字节数。
+  const { verdict, giteeLen } = await giteeByteParity(tag, fileName, exe.sizeBytes || null)
+  if (verdict !== 'same') {
+    console.warn(
+      `[desktop-feed] 下载页 Windows 直链保持 GitHub 原生产物:Gitee 字节对账=${verdict}` +
+        `(GH=${exe.sizeBytes} / Gitee=${giteeLen})`,
+    )
+    return assets
+  }
+  return assets.map((a) => (a === exe ? { ...a, href: giteeDownloadUrl(tag, fileName) } : a))
 }
 
 /**

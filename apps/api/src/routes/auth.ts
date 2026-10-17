@@ -541,6 +541,12 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         roleId: 0,
         status: 1,
       })
+      // business_funnel_total{stage="register"}:用户行创建成功即注册事件成立。
+      // 只观察,不参与任何分支/返回值;装饰器委托到 business-metrics.ts 的 recordFunnelSample,
+      // 那一层有 safeRecord 兜底 ⇒ 埋点内部抛异常只会记 warn,不可能把注册带崩
+      // (该容错型在 apps/api/tests/business-metrics-instrumentation.test.ts T5 上被真的造出来验过)。
+      // channel 不传:本端点没有渠道入参 ⇒ 落 FUNNEL_DEFAULT_CHANNEL,不编渠道名。
+      server.recordFunnel('register')
 
       // 处理邀请码奖励（失败不阻塞注册）
       if (parsed.data.invitationCode) {
