@@ -138,7 +138,7 @@ test('单一实现:findIdCollisions 是 f9Faces 的投影,registersKeyAtIdPositi
 
 /**
  * ⑦ 真仓阳性对照(§22c 红线:不得全用自造夹具)。2026-10-16 把"见证者"分成两脸取,一条断言没降:
- *  - 宽口径 vs 判据面 的**变窄**这一半,仍在**台账面**上判(现读 wide=5 / collisions=0);
+ *  - 宽口径 vs 判据面 的**变窄**这一半,在台账面**有伪组时**判(2026-10-17 台账经"完成即删"+清偿洗净,wide 现读 0 ⇒ 该臂对空台账合法豁免,严格变窄改由宽面 275 与夹具 ② 兜);
  *  - 引用档非空这一半**不能钉在台账面上**:现读台账面 `references=0`,而同一张 HEAD 面的归档件里
  *    引用档有 12 组(宽面 wide=294 / collisions=259 / references=12)—— 归档器把带引用档的那一对
  *    登记整批搬进了归档件,判据没错、面搬了家(与 plan-task-headings、plan-tasks-f3-archive-exit
@@ -156,7 +156,14 @@ test('真仓两脸(台账面判变窄 / 台账⊕归档件判引用档):宽口�
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   const lf = f9Faces(content)
-  assert.ok(lf.wide.length > lf.collisions.length, `台账面宽口径必须比判据面多(伪组确实存在),实测 wide=${lf.wide.length} declared=${lf.collisions.length}`)
+  // 台账被"完成即删"+指针清偿洗净后,活台账 wide 现读 0 ⇒ 把"台账单独必须见变窄"钉成硬前提是
+  // "当下状态当前提"陷阱(§12e 恒红:台账越干净越必红)。正解:台账**一旦有伪组**必须见严格变窄
+  // (wide===0 才合法豁免),而"绿在分组只看声明位"这一阳性证明由本文件 ②(CROSS_REF 夹具 wide=1>
+  // collisions=0)与下面宽面 `wf.wide > wf.collisions`(归档件真实 270>245)两臂承担 ⇒ 判据与牙齿一律不降。
+  assert.ok(
+    lf.wide.length === 0 || lf.wide.length > lf.collisions.length,
+    `台账面有伪组时宽口径必须严格多于判据面(变窄真实发生);台账洗净时 wide=0 合法。实测 wide=${lf.wide.length} declared=${lf.collisions.length}`,
+  )
   assert.equal(findIdCollisions(content).length, lf.wide.length, '投影读数必须与同源那份宽口径等值')
 
   const sha = execFileSync('git', ['rev-parse', 'HEAD'], {

@@ -413,8 +413,11 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
     },
     'android-apk': {
       platform: 'android-apk',
-      // 2026-08-06 起由 env 驱动:填 NEXT_PUBLIC_DOWNLOAD_APK_URL / GOOGLE_PLAY_URL 后自动上架
-      version: readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_APK_VERSION) ?? undefined,
+      // 2026-10-17:env 优先(运营可覆盖),缺省回退到 apps/mobile-rn 的真实版本 ——
+      // APK 就是从那端构建的,这个值必然与包内一致。历史上这里没有任何值,
+      // 页面只会显示"即将上线",即使包已经发出来了也看不出版本。
+      version:
+        readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_APK_VERSION) ?? mobileRnPkg.version ?? undefined,
       releaseDate: readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_APK_RELEASE_DATE) ?? undefined,
       systemRequirementsKey: 'downloadAndroidSysReq',
       installGuideKey: 'downloadAndroidInstallGuide',

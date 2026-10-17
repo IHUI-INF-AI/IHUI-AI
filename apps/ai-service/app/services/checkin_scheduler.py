@@ -370,12 +370,13 @@ class CheckinScheduler:
         device_map: dict[str, Any],
         client: httpx.AsyncClient | None,
     ) -> tuple[bool, bool | None, int | None, str]:
-        """按平台分发只读探针,统一返回 (ok, checked_in|None, credits|None, message)。
+        """按平台分发探针,统一返回 (ok, checked_in|None, credits|None, message)。
 
         四型入口(2026-10-17 李总点名:官方没有查询口不是借口,各平台都要覆盖):
         - trae      : status 接口(checked_in 位)              —— 只读
-        - workbuddy : checkin-status 的 today_checked_in        —— 只读
         - qoder     : GET campaigns 按 claimStatus 判已领       —— 只读(不 claim)
+        - workbuddy : checkin-status 的 today_checked_in **实测不可靠**(已签仍报
+                      false)⇒ 走 daily-checkin 幂等 claim(已签自报 10001,未签顺带领)
         - minimax   : 官方 status 只有 7 天进度环、无日期 ⇒ 走幂等 claim 兜底,
                       已领自报 skip_already,未领会顺手领掉(官方幂等不重复发分)
         """
@@ -416,9 +417,11 @@ class CheckinScheduler:
         直接跳过,不重复签。
 
         全平台覆盖(2026-10-17 李总点名「官方没有不是借口」):_probe_platform
-        按平台分发 —— TRAE/WorkBuddy/Qoder 走只读查询口零副作用;MiniMax 官方
-        status 只有无日期的 7 天进度环 ⇒ 走幂等 claim 兜底(已领自报 skip_already,
-        未领会顺手领掉,官方幂等不重复发分)。未签账号不落任何记录(留给主窗口签)。
+        按平台分发 —— TRAE/Qoder 走只读查询口零副作用;WorkBuddy 的
+        today_checked_in 实测不可靠(已签仍报 false)故走 daily-checkin 幂等 claim;
+        MiniMax 官方 status 只有无日期的 7 天进度环 ⇒ 同样走幂等 claim 兜底
+        (已领自报 skip_already,未领会顺手领掉,官方幂等不重复发分)。
+        未签账号不落任何记录(留给主窗口签)。
         """
         if checkin_outbound_gate.paused_remaining() > 0:
             logger.info("[checkin_scheduler] 出站限流暂停中,状态探针本轮跳过")

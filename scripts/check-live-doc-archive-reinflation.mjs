@@ -4,7 +4,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 活文档归档回灌对账(守门 216,AGENTS.md §1「两步归档」第②步的机器锁)
+ * 活文档归档回灌对账(守门 216;原为 AGENTS.md §1「两步归档」第②步的机器锁,
+ * 2026-10-16 两步走退役后,本门守的是仍然成立的那一型:**已进归档件的正文被重新抄回活文档**）
  *
  * ── 立因(为什么非要有这一道)──────────────────────────────────────────
  * §1 定的归档规矩是两步:①把整区正文**逐字**移进 `.ihui-agent/archive/AGENTS*`;②原位置只留
@@ -18,9 +19,11 @@
  * ── 判什么(三条口径都写死,不给"看起来像"留余地)──────────────────────────
  * 被审面(谁的正文被判)= 根 `AGENTS.md` + 根 `README.md`。这两份是逐字注入每轮对话的活文档,
  *   回灌的实际代价就落在这里。
- * 对照面(从哪儿算"已归档")= `.ihui-agent/archive/AGENTS*` 全部跟踪件。只认 AGENTS 族,
- *   不拿 `PROJECT_PLAN_*` 顶账 —— 台账归档件与活文档归档件是两本账,混了就等于用一本的
- *   正文给另一本发通行证。
+ * 对照面(从哪儿算"已归档")= `.ihui-agent/archive/` 目录下**全部** `.md` 跟踪件。
+ *   刻意不再限定 `AGENTS*` 族:2026-10-16 存档机制退役后该目录里没有 AGENTS 族归档件,
+ *   而真出过的回灌事故(枚 01bcde1141e)其正文来源是台账侧归档件 ⇒ 限定族名等于对本型全盲。
+ *   反向风险(拿一本的正文给另一本发通行证)在这里不成立:本门的判定方向是"命中即报",
+ *   面越宽只会多报不会漏报,而误报由"连续 RUN_MIN 行 + 逐行有信息量 + 逐字等值"三条件挡住。
  * 命中判据 = 从被审面取**连续行段**,段内每一行都同时满足:
  *   ① 有信息量(剥空白后 ≥ MIN_SUBSTANTIVE_CHARS 字符,且含字母/数字);
  *   ② 逐字等值于对照面某一行的归一形态(trimEnd + 去 CRLF,刻意**不**做大小写/空白模糊 ——
@@ -37,11 +40,13 @@
  * 不记绿也不冒红(§0.3;拿不到归档面就说"没回灌"是最高频的假绿那一型)。
  *
  * ── 定级与注册(本文件**尚未**接入提交链)────────────────────────────────
- * §12e 的硬前置没满足:2026-10-16 机主令「存档机制退役」后,`.ihui-agent/archive/` 已不再承接归档件,
- * 现读 HEAD 面该目录下 `AGENTS*` 形态 = 0 个文件 ⇒ 本门按 §0.3 落 **exit 2 未判定**(既不冒绿也不冒红)。
- * 因此**禁止**把它注册成 blocking —— 对照面为空的机上它会拦下每一条提交(恒红门那一型)。
- * 接线条件写死在这里,两条都到才算:①对照面重新枚举到 ≥1 份 `AGENTS*` 归档件;②`scripts/guardian-runner.mjs`
- * 净面后由该文件持有人加条目,并**同批**把本头注改成与注册条目现值一致(mode/skipEnv 一律以 runner 现读为准)。
+ * §12e 的前置:2026-10-16 机主令「存档机制退役」后该目录不再承接 `AGENTS*` 族归档件,当时本门
+ * 按 §0.3 只能落 exit 2 未判定(既不冒绿也不冒红),也**禁止**注册成 blocking —— 对照面为空的机上
+ * 它会拦下每一条提交(恒红门那一型)。对照面改为"全部 .md"后此格已解除:现读 HEAD 面该目录 4 份
+ * .md ⇒ 本门能真判。仍**不得**注册,因为第二条前置没到:`scripts/guardian-runner.mjs` 自 2026-10-16
+ * 起持续为他席在飞(` M`),往在飞注册表加块正是 §12 记过的"整文件回退洗掉他人条目"那一型。
+ * 接线条件(两条都到才算,缺一不可):①本门全量档在当次 HEAD 面现读**零违规**(升 blocking 的前置是存量归零);
+ * ②runner 净面后由该文件持有人加条目,并**同批**把本头注改成与注册条目现值一致(mode/skipEnv 一律以 runner 现读为准)。
  * 在此之前本门只供人工与 CI 只读跑:node scripts/check-live-doc-archive-reinflation.mjs [--staged|--worktree|--self-test|--json]
  *
  * 用法:node scripts/check-live-doc-archive-reinflation.mjs [--staged|--worktree|--self-test|--json]
@@ -55,7 +60,12 @@ export const RUN_MIN = 12
 export const MIN_SUBSTANTIVE_CHARS = 24
 export const DOC_PATHS = ['AGENTS.md', 'README.md']
 export const ARCHIVE_DIR = '.ihui-agent/archive'
-export const ARCHIVE_FILE_RE = /^AGENTS(?:_[^/]*)?\.md$/
+// 对照面 = 归档目录下**全部** .md 跟踪件。2026-10-16 存档机制退役后,该目录不再承接 `AGENTS*`
+// 族归档件(现读 HEAD 面 `AGENTS*` = 0 份),而真把归档正文灌回活文档的那次事故
+// (枚 01bcde1141e:两枚 Merge 灌回 2526 行,后被可证明零丢失地剥掉)其来源正是台账侧归档件 ⇒
+// 只认 AGENTS 族会让本门永久落 exit 2(有对照面却看不见),等于这一型再次没有尺子。
+// 误报由"连续 RUN_MIN 行 + 每行有信息量 + 逐字等值"三条件合取挡住,不做模糊匹配。
+export const ARCHIVE_FILE_RE = /[^/]\.md$/
 
 const WATERMARK_MARK = 'IHUI-AI-PROVENANCE'
 
@@ -163,7 +173,7 @@ export function buildArchiveSet(root, face, files) {
 
 export function audit(root, face) {
   const files = listArchiveFace(root, face)
-  if (files.length === 0) return { state: 'undetermined', why: `对照面(${ARCHIVE_DIR}/AGENTS*)在该面枚举到 0 个文件 ⇒ 不判(§0.3)` }
+  if (files.length === 0) return { state: 'undetermined', why: `对照面(${ARCHIVE_DIR}/*.md)在该面枚举到 0 个文件 ⇒ 不判(§0.3)` }
   const archiveSet = buildArchiveSet(root, face, files)
   if (archiveSet.size === 0) return { state: 'undetermined', why: '对照面一行"有信息量"正文都取不到 ⇒ 不判' }
   const read = (p) => readAtFace(root, face, p)

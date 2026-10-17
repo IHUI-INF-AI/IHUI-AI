@@ -25,6 +25,18 @@ TAG = os.environ["TAG"]
 GH_REPO = os.environ["GITHUB_REPOSITORY"]
 GITEE_REPO = "IHUI-AI"
 
+# Gitee Release 附件的单文件硬上限(2026-10-17 实测实证:超限直接 400
+#   {"message":"验证失败：文件大小已超出限制：100 MB"})。
+# 这不是偶发故障、也不是 token 问题:桌面端自 0.1.68 起 webviewInstallMode 用
+# offlineInstaller 内嵌 WebView2 运行时,Windows 安装包从 ~8MB 涨到 ~225MB,
+# 于是「AI_x.y.z_x64-setup.exe」**结构性永远**传不上 Gitee。
+# 后果:原实现把它计入 upload_failed ⇒ sys.exit(1) ⇒ 每次桌面发版该 job 恒红
+# (AGENTS.md §12e 恒红门:与提交内容无关的红会逼人 --no-verify、连带废掉守门)。
+# 而该 job 对用户零影响——Gitee 侧只是附件存档,**不是**更新器端点(见本文件末尾
+# 第 5 节:客户端只认 aizhs.top 单端点)。故超限资产按「预期跳过」处理:不下载、
+# 不重试、不记红,也不写进 feed(避免给出下载不了的地址)。
+GITEE_ATTACH_LIMIT_BYTES = 100 * 1024 * 1024
+
 # 2026-10-12:模块级 PLATFORM_MAP 已删除 —— 旧映射后缀与 tauri-action 实际产物名
 # 对不上(两次实锤 mac/linux 全漏),正确映射已内联到 main()(带注释),勿在此复活。
 
@@ -136,6 +148,17 @@ def main():
             continue
         upload_set.add(name)
 
+    # 3--extra-2. Gitee 单文件 100MB 硬上限:超限资产按「预期跳过」处理。
+    # 判定用 GitHub API 给出的 size,避免白白下载 ~225MB 包体再被 Gitee 400 拒。
+    oversize = {
+        n for n in upload_set
+        if int(assets.get(n, {}).get("size") or 0) > GITEE_ATTACH_LIMIT_BYTES
+    }
+    for n in sorted(oversize):
+        print(f"[gitee] {n} ({assets[n]['size']} 字节) 超 Gitee 100MB 上限,"
+              f"预期跳过(不影响其余资产与更新链路)")
+    upload_set -= oversize
+
     # 3a. 先下载全部所需文件到本地(feed 生成也需要 sig——即使 Gitee 已有同名资产)
     # 2026-10-12:临时目录按 TAG 分子目录 —— 跨 tag 平铺会让无版本号资产名
     # (AI_universal.app.tar.gz 等)把上一版内容当本版上传(backfill 实锤的冒名形态)。
@@ -176,10 +199,15 @@ def main():
                  f"(重跑本 job 可幂等补齐)")
 
     # 4. 生成 latest.json(url → Gitee 直链)
+    # 超限资产(Gitee 无该文件)不得进 feed:否则 platforms 里那条 URL 指向不存在的
+    # 附件 ⇒ 客户端下载 404。跳过它的平台,而不是给一条死链。
     platforms = {}
     for plat, (main, sig) in need.items():
         if sig is None:
             print(f"[feed] {plat} 无 .sig,跳过")
+            continue
+        if main in oversize:
+            print(f"[feed] {plat} 主包 {main} 未镜像 Gitee(超限),跳过该平台(不写死链)")
             continue
         sig_content = open(f"{tmpdir}/{sig}").read().strip()
         platforms[plat] = {
@@ -187,7 +215,10 @@ def main():
             "url": f"https://gitee.com/{GITEE_OWNER}/{GITEE_REPO}/releases/download/{TAG}/{main}",
         }
     if not platforms:
-        sys.exit("无任何平台可写入 feed")
+        # 全部平台都被跳过(理论上只有单平台且其主包超限时才发生)。这不是失败:
+        # Gitee feed 只是附件存档,用户更新走 aizhs.top/GitHub,缺一份存档不该判红。
+        print("[feed] 无任何平台可写入 Gitee feed(全部超限跳过),跳过 feed 写入(非失败)")
+        return
     latest = {
         "version": TAG.replace("desktop-v", ""),
         "notes": f"IHUI AI Desktop {TAG} — 国内直连更新(Gitee)",
