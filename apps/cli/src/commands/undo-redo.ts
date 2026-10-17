@@ -21,6 +21,16 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+// D163 回退臂(2026-10-18 立):撤回前后的工作区快照与比对。
+// 接进来的唯一理由:/undo 现在的失败路径是**异常冒泡**——applyChange 用
+// fs.writeFileSync/unlinkSync,中途任一文件写失败就整段抛出,返回面里
+// 一个字都没提"工作区到底被改成什么样了"。于是"工作区未发生变化"这句话
+// 当前既无处可说、也无事实可依。现在它由前后两份快照的比对结果驱动。
+import {
+  diffWorkspaceSnapshots,
+  isWorkspaceUnchanged,
+  snapshotWorkspace,
+} from './undo-workspace-state.js';
 
 /** 单次工具调用产生的文件改动 */
 export interface FileChange {
@@ -42,6 +52,21 @@ export interface UndoResult {
   changes: FileChange[];
   /** 剩余可 undo 的步数 */
   remaining: number;
+  /** D163:回滚**失败**的文件(记录时用的路径写法)。空 = 全部成功。 */
+  failedFiles: string[];
+  /** D163:撤销失败原因(与 failedFiles 一一对应,逐条点名,不合并成一个大桶)。 */
+  failedReasons: string[];
+  /**
+   * D163:这句话是**承诺**,必须由比对驱动 —— 只有撤销前后两份快照逐文件
+   * 逐字节等价才为真。调用方拿到 false 时**不许**渲染"工作区未发生变化":
+   * 半途失败的撤回已经把工作区改了一部分,那句话会变成安慰话。
+   * 读不出来的文件一律判 false(fail-closed,拿不到的信息不当证据)。
+   */
+  workspaceUnchanged: boolean;
+  /** D163:确实发生了变化的文件(绝对路径),供上层给具体动作而非只报失败。 */
+  changedFiles: string[];
+  /** D163:部分失败 ⇒ 撤销结果不完整(对应票面 undoPartialWarning 那一态)。 */
+  partial: boolean;
 }
 
 /** /redo 返回 */
@@ -125,22 +150,64 @@ export class UndoRedoManager {
     const history = this.cache.get(sessionId)!;
     const actualSteps = Math.min(steps, history.undoStack.length);
     if (actualSteps <= 0) {
-      return { undoneSteps: 0, changes: [], remaining: history.undoStack.length };
+      // 无步可撤:一个字节都没动过(连失败的写入都没发生)⇒ 那句承诺成立。
+      // 这一格不能省:省了,"什么都没做"就会被上层读成"不知道有没有变"。
+      return {
+        undoneSteps: 0,
+        changes: [],
+        remaining: history.undoStack.length,
+        failedFiles: [],
+        failedReasons: [],
+        workspaceUnchanged: true,
+        changedFiles: [],
+        partial: false,
+      };
     }
-    const undone: FileChange[] = [];
+    // 先取出待撤销的 N 条(栈顶 → 栈底),**刻意先不逐条 pop 再 catch**:
+    // 边 pop 边 catch 会把失败的那几条直接丢掉,用户连"再试一次"的机会都没有。
+    const pending: FileChange[] = [];
     for (let i = 0; i < actualSteps; i++) {
-      const change = history.undoStack.pop();
-      if (!change) break;
-      // 反向应用:beforeContent → 文件
-      this.applyChange(change, true);
-      history.redoStack.push(change);
-      undone.push(change);
+      const top = history.undoStack.pop();
+      if (!top) break;
+      pending.push(top);
+    }
+    // D163 第一刀:撤销**前**的快照。之后那句"工作区未发生变化"由这一份与
+    // 撤销后的那一份比对得出,而不是由"回滚应该会成功"这个假设得出。
+    const watchPaths = pending.map((c) => c.filePath);
+    const before = snapshotWorkspace(watchPaths, this.workspacePath);
+    const undone: FileChange[] = [];
+    const failed: FileChange[] = [];
+    const failedFiles: string[] = [];
+    const failedReasons: string[] = [];
+    for (const change of pending) {
+      try {
+        this.applyChange(change, true);
+        history.redoStack.push(change);
+        undone.push(change);
+      } catch (err) {
+        failed.push(change);
+        failedFiles.push(change.filePath);
+        failedReasons.push(
+          `${(err as NodeJS.ErrnoException).code ?? 'ERROR'}: ${(err as Error).message}`,
+        );
+      }
+    }
+    // 失败的按**原顺序**放回 undoStack 栈顶(逆序 push 才还原原来的栈顶优先),
+    // 工作量没白记 —— 否则这一次撤回就等于把改动历史删掉了。
+    for (const change of [...failed].reverse()) {
+      history.undoStack.push(change);
     }
     this.persist(sessionId);
+    const after = snapshotWorkspace(watchPaths, this.workspacePath);
     return {
       undoneSteps: undone.length,
       changes: undone,
       remaining: history.undoStack.length,
+      failedFiles,
+      failedReasons,
+      workspaceUnchanged: isWorkspaceUnchanged(before, after),
+      changedFiles: diffWorkspaceSnapshots(before, after),
+      partial: failed.length > 0,
     };
   }
 
