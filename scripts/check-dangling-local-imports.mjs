@@ -74,6 +74,10 @@ const SKIP_DIR = /(^|\/)(node_modules|dist|\.next|\.expo|build|android|ios|cover
 const FIXTURE_ROOT = /^(benchmarks|testdata|fixtures)\//
 const GIT_TIMEOUT = 120000
 
+// G-322:CLI 取值走共享出口 —— 手解 argv[i+1] 的三支坏值(被下一旗标顶值 / 漏值 / 空串)
+// 都会静默退回默认面,而那面恰好是"看起来判过了"的假绿来源。
+import { describeFlagToken, flagValue, requireFlagValue } from './lib/flag-value.mjs'
+
 // ── 内容取材:HEAD blob / 索引 blob / 工作区,三种口径共用一条批量读取通道 ──────────────
 /** 层的 catBatch 把 maxBuffer 钉死在 64MB(lib/face-reader.mjs 的 GIT_MAX_BUFFER),而本门全量一次
  *  要读**全部**跟踪源文件(HEAD 内容实测约 85MB)⇒ 单次 batch 必然 ENOBUFS,且它会被层折成"取不到
@@ -952,17 +956,41 @@ async function revMain(rev, anchorOpt, conflicts) {
 }
 
 // ── CLI ───────────────────────────────────────────────────────────────────────────────
+/**
+ * CLI 取值(G-322 族):`--rev` / `--anchor` 各吃一个 token,`--files` 吃其后所有非旗标 token。
+ * 坏值不在这里猜默认 —— 收集成 errors 交调用方 exit 2,因为"退默认面"会让调用方以为判过了。
+ */
+export function parseCliArgs(argv) {
+  const rev = requireFlagValue(argv, '--rev', { noun: '修订号' })
+  const anchor = requireFlagValue(argv, '--anchor', { noun: '锚点 sha' })
+  const fi = argv.indexOf('--files')
+  const files = flagValue(argv, '--files')
+  const list = fi >= 0 ? argv.slice(fi + 1).filter((a) => !a.startsWith('--')) : null
+  const errors = []
+  if (rev.error) errors.push(rev.error)
+  if (anchor.error) errors.push(anchor.error)
+  if (fi >= 0 && (!files.valid || list.length === 0))
+    errors.push(`--files 需要至少一个路径 —— 其后紧邻的 token 实得:${describeFlagToken(files)}`)
+  return {
+    REV: rev.value,
+    ANCHOR_OPT: anchor.value,
+    isStaged: argv.includes('--staged'),
+    SHOW_ALL: argv.includes('--all'),
+    FILES_MODE: list,
+    errors,
+  }
+}
+
 async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTest()
-  const ri = argv.indexOf('--rev')
-  const REV = ri >= 0 ? argv[ri + 1] : null
-  const an = argv.indexOf('--anchor')
-  const ANCHOR_OPT = an >= 0 ? argv[an + 1] : null
-  const isStaged = argv.includes('--staged')
-  const SHOW_ALL = argv.includes('--all')
-  const fi = argv.indexOf('--files')
-  const FILES_MODE = fi >= 0 ? argv.slice(fi + 1).filter((a) => !a.startsWith('--')) : null
+  const cli = parseCliArgs(argv)
+  if (cli.errors.length > 0) {
+    // 值给错却照旧按默认面跑 = 把"没判"写成"判过"(§0.3)⇒ 大声点名后落 exit 2 未判定。
+    for (const e of cli.errors) console.error('❌ ' + e)
+    process.exit(2)
+  }
+  const { REV, ANCHOR_OPT, isStaged, SHOW_ALL, FILES_MODE } = cli
   if (REV) return revMain(REV, ANCHOR_OPT, { isStaged, filesMode: FILES_MODE })
   if (process.env[SELF_SKIP] === '1') {
     console.log(`⏭️  已跳过(${SELF_SKIP}=1):悬空具名导入对账未执行`)
@@ -1606,6 +1634,29 @@ function selfTest() {
     if (!ok) fail++
     console.log(
       `${ok ? '✅' : '❌'} ${c.name} (悬空 ${n} 处/期望 ${c.red};影子 ${d4} 处/期望 ${c.d4 ?? 0};只报数 ${dead}/期望 ${c.dead ?? 0};未判定 ${undet}/期望 ${c.undet ?? 0};落点 ${shadow.scanned}/期望 ${c.scanned ?? '不限'};判死 ${blind}/期望 ${c.blind ?? '不限'})`,
+    )
+  }
+  {
+    // G-322 族:CLI 三支坏值各自成对(正例四值逐字不变;反例各 1 错并点名实得 token)。
+    const good = parseCliArgs(['--rev', 'abc123', '--anchor', 'def456', '--staged', '--files', 'a.ts', 'b.ts'])
+    const hijacked = parseCliArgs(['--rev', '--staged'])
+    const missing = parseCliArgs(['--rev'])
+    const empty = parseCliArgs(['--files', '', '--staged'])
+    const ok =
+      good.errors.length === 0 &&
+      good.REV === 'abc123' &&
+      good.ANCHOR_OPT === 'def456' &&
+      good.isStaged === true &&
+      JSON.stringify(good.FILES_MODE) === JSON.stringify(['a.ts', 'b.ts']) &&
+      hijacked.errors.length === 1 &&
+      hijacked.REV === null &&
+      hijacked.isStaged === true &&
+      hijacked.errors[0].includes('"--staged"') &&
+      missing.errors.length === 1 &&
+      empty.errors.length === 1
+    if (!ok) fail++
+    console.log(
+      `${ok ? '✅' : '❌'} G-322 CLI 取值:正例四值齐 / 顶值·漏值·空串各 1 错并点名实得 token(顶值那支 --staged 不再被吞)`,
     )
   }
   {
