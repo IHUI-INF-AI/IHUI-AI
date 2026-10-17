@@ -4,7 +4,11 @@
 
 import type { Metadata } from 'next'
 import { DownloadDetailContent } from './DownloadDetailContent'
-import { liveToDesktopFeed, resolveLiveDesktopFeed } from '@/config/desktop-feed-live'
+import {
+  liveToDesktopFeed,
+  resolveLiveAndroid,
+  resolveLiveDesktopFeed,
+} from '@/config/desktop-feed-live'
 
 interface DownloadPageProps {
   params: Promise<{ platform: string }>
@@ -49,6 +53,14 @@ export default async function DownloadPage({ params }: DownloadPageProps) {
   const { platform } = await params
   const resolved = await resolveLiveDesktopFeed()
   const liveDesktopFeed = resolved.source === 'live' ? liveToDesktopFeed(resolved.data) : null
-  return <DownloadDetailContent platform={platform} liveDesktopFeed={liveDesktopFeed} />
+  // 安卓端只在详情页需要时才去解析 APK(AGP 那类"顺带拉一次"的写法会平白多一次上游请求)
+  const liveAndroid = platform === 'android-apk' ? await resolveLiveAndroid() : null
+  return (
+    <DownloadDetailContent
+      platform={platform}
+      liveDesktopFeed={liveDesktopFeed}
+      liveAndroid={liveAndroid?.source === 'live' ? liveAndroid.data : null}
+    />
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

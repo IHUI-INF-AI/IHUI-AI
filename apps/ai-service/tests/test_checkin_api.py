@@ -591,37 +591,52 @@ async def test_daily_status_probe_all_platforms(client, fake_store, monkeypatch)
 
 
 async def test_probe_platform_parsers(monkeypatch):
-    """四平台只读探针解析层(2026-10-17):命中已签的判据与「宁缺勿假」的
-    失败形态 —— HTTP 异常/字段缺失一律 ok=False + checked_in=None。"""
+    """四平台探针解析层(2026-10-17):命中已签的判据与「宁缺勿假」的
+    失败形态 —— HTTP 异常/字段缺失一律 ok=False + checked_in=None。
+
+    WorkBuddy 已于 2026-10-17 改为幂等 claim 判定(checkin-status 的
+    today_checked_in 生产实测不可靠:已签仍报 false)。
+    """
     from app.services import (
         checkin_minimax as mm_mod,
         checkin_qoder as qoder_mod,
         checkin_workbuddy as wb_mod,
     )
 
-    # WorkBuddy:data.today_checked_in 已签 / 未签 / 字段缺失
-    async def wb_checked(path, token, timeout, client=None):
-        return 200, {"data": {"today_checked_in": True, "remaining": 30}}
+    # WorkBuddy:walk daily-checkin 幂等语义
+    #   code=10001(HTTP 400)=今天已签 ⇒ ok=True/checked_in=True
+    #   code=0  =未签→顺带领取成功   ⇒ ok=True/checked_in=True
+    #   401/403 =会话失效            ⇒ ok=False/checked_in=None
+    #   网络异常/非 JSON/未知 code    ⇒ ok=False/checked_in=None(宁缺勿假)
+    async def wb_already(path, token, timeout, client=None):
+        return 400, {"code": 10001, "msg": "今天已签到，请明天再来"}
 
-    async def wb_unchecked(path, token, timeout, client=None):
-        return 200, {"data": {"today_checked_in": False}}
+    async def wb_claimed(path, token, timeout, client=None):
+        return 200, {"code": 0, "data": {"credit": 5, "streak_days": 1}}
 
-    async def wb_missing(path, token, timeout, client=None):
-        return 200, {"data": {}}
+    async def wb_dead(path, token, timeout, client=None):
+        return 401, {"code": 401}
 
-    async def wb_http_fail(path, token, timeout, client=None):
-        return 500, {}
+    async def wb_net(path, token, timeout, client=None):
+        return 0, None
 
-    monkeypatch.setattr(wb_mod, "_wb_post", wb_checked)
-    assert await wb_mod.workbuddy_probe_status("tok", {}) == (True, True, 30, "今日已签到")
-    monkeypatch.setattr(wb_mod, "_wb_post", wb_unchecked)
-    assert await wb_mod.workbuddy_probe_status("tok", {}) == (True, False, None, "")
-    monkeypatch.setattr(wb_mod, "_wb_post", wb_missing)
-    ok, checked, _c, _m = await wb_mod.workbuddy_probe_status("tok", {})
-    assert ok is False and checked is None  # 字段缺失宁缺勿假
-    monkeypatch.setattr(wb_mod, "_wb_post", wb_http_fail)
-    ok, checked, _c, _m = await wb_mod.workbuddy_probe_status("tok", {})
-    assert ok is False and checked is None
+    async def wb_unknown_code(path, token, timeout, client=None):
+        return 200, {"code": 50000, "msg": "活动已结束"}
+
+    monkeypatch.setattr(wb_mod, "_wb_post", wb_already)
+    ok, chk, _c, _m = await wb_mod.workbuddy_probe_status("tok", {})
+    assert ok is True and chk is True  # HTTP 400 + code 10001 = 幂等已签(核心修复点)
+    monkeypatch.setattr(wb_mod, "_wb_post", wb_claimed)
+    assert await wb_mod.workbuddy_probe_status("tok", {}) == (True, True, 5, "签到成功")
+    monkeypatch.setattr(wb_mod, "_wb_post", wb_dead)
+    ok, chk, _c, _m = await wb_mod.workbuddy_probe_status("tok", {})
+    assert ok is False and chk is None
+    monkeypatch.setattr(wb_mod, "_wb_post", wb_net)
+    ok, chk, _c, _m = await wb_mod.workbuddy_probe_status("tok", {})
+    assert ok is False and chk is None
+    monkeypatch.setattr(wb_mod, "_wb_post", wb_unknown_code)
+    ok, chk, _c, _m = await wb_mod.workbuddy_probe_status("tok", {})
+    assert ok is False and chk is None  # 未知 code 不误报已签
     assert await wb_mod.workbuddy_probe_status("", {}) == (False, None, None, "未配置 token")
 
     # Qoder:campaigns 已领(CLAIMED 落窗口内)/ 未领 / 活动未下发
