@@ -152,6 +152,7 @@ vi.mock('lucide-react', () => {
     CheckCheck: Icon,
     ChevronDown: Icon,
     FolderPen: Icon,
+    Globe: Icon,
     KeyRound: Icon,
     Laptop: Icon,
     Loader2: Icon,
@@ -838,7 +839,7 @@ describe('签到助手页面 · 桌面端专属入口(WP-C)', () => {
   it('浏览器环境(IPC 未注入)不渲染本机捕获/维护入口', async () => {
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
-    expect(screen.queryByText('captureTitle')).toBeNull()
+    expect(screen.queryByText('captureWebLogin')).toBeNull()
     expect(screen.queryByText('maintTitle')).toBeNull()
   })
 })
@@ -1058,7 +1059,7 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 describe('Qoder 平台化(2026-10-10)', () => {
   /** 2026-10-15 捕获入口收敛为下拉:先开「从本机捕获」菜单再点平台项(Radix happy-dom 键盘路径,与 sidebar 同款) */
   function openCaptureMenu() {
-    const trigger = screen.getByText('captureTitle')
+    const trigger = screen.getByText('captureWebLogin')
     fireEvent.keyDown(trigger, { key: 'Enter' })
     fireEvent.click(trigger)
   }
@@ -1246,7 +1247,7 @@ describe('Qoder 平台化(2026-10-10)', () => {
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     openCaptureMenu()
     // 单账号零选择:没有对话框/勾选/导入按钮三件套,点菜单项即捕获即入库
-    fireEvent.click(screen.getByRole('menuitem', { name: 'MiniMax Code' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /MiniMax Code/ }))
     await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
     const arg = createAccount.mock.calls[0]![0]
     expect(arg.platform).toBe('minimax')
@@ -1275,7 +1276,7 @@ describe('Qoder 平台化(2026-10-10)', () => {
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     openCaptureMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'MiniMax Code' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /MiniMax Code/ }))
     await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
     expect(createAccount.mock.calls[0]![0].name).toBe('mm-uid-2')
   })
@@ -1288,7 +1289,7 @@ describe('Qoder 平台化(2026-10-10)', () => {
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     openCaptureMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'MiniMax Code' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /MiniMax Code/ }))
     // 不另兜文案:Rust 带的中文原因直接进页面级 actionError(直采没有 captureError 可落)
     await waitFor(() =>
       expect(screen.getByRole('alert').textContent).toContain('未找到已登录的 MiniMax Code 登录态'),
@@ -1306,7 +1307,7 @@ describe('Qoder 平台化(2026-10-10)', () => {
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     openCaptureMenu()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'MiniMax Code' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /MiniMax Code/ }))
     await waitFor(() =>
       expect(screen.getByRole('alert').textContent).toContain('captureMinimaxNoToken'),
     )
@@ -1694,11 +1695,14 @@ describe('签到助手页面 · 内嵌浏览器嵌入模式(WB 登录哨兵)', (
     mockLoadSuccess()
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
-    expect(screen.getByText('captureWbWebToolbar')).toBeTruthy()
-    // 嵌入模式下桌面专属区块(本机捕获下拉/维护)不渲染:invoke 在内容页全被拒
-    expect(screen.queryByText('captureTitle')).toBeNull()
+    expect(screen.getByText('captureWebLogin')).toBeTruthy()
+    // 嵌入模式下桌面专属通道(本机捕获项/维护)不渲染:invoke 在内容页全被拒
+    const embedTrigger = screen.getByText('captureWebLogin')
+    fireEvent.keyDown(embedTrigger, { key: 'Enter' })
+    fireEvent.click(embedTrigger)
+    expect(screen.queryByText('captureMethodLocal')).toBeNull()
     expect(screen.queryByText('maintTitle')).toBeNull()
-    fireEvent.click(screen.getByText('captureWbWebToolbar'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /WorkBuddy/ }))
     const navMock = (window as unknown as { __ihuiNav: ReturnType<typeof vi.fn> }).__ihuiNav
     await waitFor(() => expect(navMock).toHaveBeenCalledWith('wb-checkin-login'))
     // 进入等待态:按钮换成等待文案并禁用(嵌入模式没有「取消」IPC 通道)

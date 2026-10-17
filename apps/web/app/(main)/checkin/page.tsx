@@ -26,6 +26,7 @@ import {
   CheckCheck,
   ChevronDown,
   FolderPen,
+  Globe,
   KeyRound,
   Laptop,
   Loader2,
@@ -85,6 +86,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -804,6 +806,18 @@ export default function CheckinPage() {
     }, 390_000)
     return () => clearTimeout(timer)
   }, [embedBrowser, wbWebLoginState, t])
+
+  // 工具栏「网页登录」下拉的 WorkBuddy 项入口(2026-10-18 四平台收口):
+  // 桌面主窗 = 开捕获对话框 + 唤起默认浏览器登录页;嵌入模式 = 走哨兵导航
+  // (无 IPC),把流程归到一处,免得两个入口各写一份分支。
+  const openWbWebLoginEntry = () => {
+    if (embedBrowser) {
+      startWbWebLoginEmbed()
+      return
+    }
+    openWbCapture()
+    void startWbWebLogin()
+  }
 
   // 嵌入模式结果接收(2026-10-17):Rust 登录成功后把登录标签导航到
   // /checkin#wb_import=<percent-encoded JSON>(fragment 不发往服务端,纯页面内
@@ -1852,78 +1866,83 @@ export default function CheckinPage() {
             {creditsRefreshing.size > 0 && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
             {t('creditRefreshAll')}
           </Button>
-          {/* 2026-10-17 恢复独立显眼入口(用户反馈"找不到网页登录"):
-              「从本机捕获」下拉对普通用户藏得太深,「网页登录 WorkBuddy」
-              提为工具栏一级按钮 —— 打开捕获对话框即在系统默认浏览器进入
-              登录流程,不再需要两步。
-              嵌入模式(内嵌浏览器内容页)同样给出该入口:走哨兵导航流程
-              (startWbWebLoginEmbed),与桌面主窗的 IPC 轮询流程共用状态机。 */}
-          {(desktop || embedBrowser) && (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={
-                wbWebLoginState === 'importing' ||
+          {/* 四平台总入口(2026-10-18 李总口径:「网页登录」下拉要能选平台)。
+              一个下拉收口全部添加通道,菜单项右侧标注该平台实际走的通道 ——
+              WorkBuddy 走网页登录(系统默认浏览器打开登录页 → 粘 Cookie 导入),
+              TRAE/Qoder/MiniMax Code 走各自的本机捕获。
+              **为什么不给那三家也做网页登录**:它们的签到凭据是客户端本地的
+              设备级 token(TRAE 的 Cloud-IDE-JWT 存在客户端库、Qoder 的 device
+              token 在 auth.v1.dat、MiniMax 的 access_token 在客户端 auth 文件),
+              网页端登录不产生同款凭据 ⇒ 网页登录那条路对它们根本不成立。
+              与其给三个点进去才发现走不通的死按钮,不如在菜单里就把真实
+              通道标出来(失效方向必须是「多要一次定向说明」,不能是「多放一次
+              跳门」)。waiting 态不展开菜单:整条入口收束成一个「取消」按钮,
+              与对话框内的取消同语义(嵌入模式无 IPC 取消通道 ⇒ 禁用)。 */}
+          {(desktop || embedBrowser) &&
+            (wbWebLoginState === 'waiting' ? (
+              <Button
+                variant="outline"
+                size="sm"
                 // 嵌入模式 waiting 不可再点:没有「取消」IPC 通道(见 startWbWebLoginEmbed)
-                (embedBrowser && wbWebLoginState === 'waiting')
-              }
-              onClick={() => {
-                if (embedBrowser) {
-                  startWbWebLoginEmbed()
-                  return
-                }
-                // waiting 态再点 = 改主意取消(与对话框内取消同语义);否则开启流程
-                if (wbWebLoginState === 'waiting') {
-                  void cancelWbWebLogin()
-                  return
-                }
-                openWbCapture()
-                void startWbWebLogin()
-              }}
-            >
-              {(wbWebLoginState === 'importing' ||
-                (embedBrowser && wbWebLoginState === 'waiting')) && (
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              )}
-              {wbWebLoginState === 'waiting' ? (
-                embedBrowser ? (
-                  <>{t('captureWbWebWaiting')}</>
-                ) : (
-                  <>{t('captureWbWebCancel')}</>
-                )
-              ) : (
-                t('captureWbWebToolbar')
-              )}
-            </Button>
-          )}
-          {desktop && !embedBrowser && (
-            <>
-              {/* 2026-10-15 收敛为下拉(机主口径):各平台平铺按钮占一排,改成单一
-                  「从本机捕获」下拉,菜单项按平台名直列;TRAE/Qoder/WorkBuddy 三个对话框
-                  本体不动。2026-10-17 补第四平台 MiniMax Code:单账号零选择,点一下
-                  捕获即入库(无对话框),故这里只有它不是 openXxxCapture 形态。 */}
+                disabled={embedBrowser}
+                onClick={() => void cancelWbWebLogin()}
+              >
+                {embedBrowser ? t('captureWbWebWaiting') : t('captureWbWebCancel')}
+              </Button>
+            ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Laptop className="mr-1 h-4 w-4" />
-                    {t('captureTitle')}
+                  <Button variant="outline" size="sm" disabled={wbWebLoginState === 'importing'}>
+                    {wbWebLoginState === 'importing' && (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    )}
+                    <Globe className="mr-1 h-4 w-4" />
+                    {t('captureWebLogin')}
                     <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-60" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="p-1">
-                  <DropdownMenuItem onClick={() => void openCapture()}>TRAE</DropdownMenuItem>
-                  <DropdownMenuItem onClick={openWbCapture}>WorkBuddy</DropdownMenuItem>
-                  <DropdownMenuItem onClick={openQoderCapture}>Qoder</DropdownMenuItem>
-                  <DropdownMenuItem disabled={importing} onClick={() => void runMinimaxCapture()}>
-                    MiniMax Code
+                  {/* 平台名是品牌名,与平台徽章同规矩:不进 i18n(见 renderPlatformBadge) */}
+                  <DropdownMenuItem onClick={openWbWebLoginEntry}>
+                    <span>WorkBuddy</span>
+                    <span className="ml-auto pl-3 text-xs text-muted-foreground">
+                      {t('captureMethodWeb')}
+                    </span>
                   </DropdownMenuItem>
+                  {desktop && !embedBrowser && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => void openCapture()}>
+                        <span>TRAE</span>
+                        <span className="ml-auto pl-3 text-xs text-muted-foreground">
+                          {t('captureMethodLocal')}
+                        </span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={openQoderCapture}>
+                        <span>Qoder</span>
+                        <span className="ml-auto pl-3 text-xs text-muted-foreground">
+                          {t('captureMethodLocal')}
+                        </span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={importing}
+                        onClick={() => void runMinimaxCapture()}
+                      >
+                        <span>MiniMax Code</span>
+                        <span className="ml-auto pl-3 text-xs text-muted-foreground">
+                          {t('captureMethodLocal')}
+                        </span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button variant="outline" size="sm" onClick={() => void openMaint()}>
-                <Wrench className="mr-1 h-4 w-4" />
-                {t('maintTitle')}
-              </Button>
-            </>
+            ))}
+          {desktop && !embedBrowser && (
+            <Button variant="outline" size="sm" onClick={() => void openMaint()}>
+              <Wrench className="mr-1 h-4 w-4" />
+              {t('maintTitle')}
+            </Button>
           )}
         </div>
       </div>
