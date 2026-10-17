@@ -1756,7 +1756,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 
 #### B4f 第 10 轮补证追加任务(G-106~G-111;**按本块自定约定从 D77 起号**)
 
-- [ ] **D77 对话流业务表单卡(G-106)**:在消息流内完成业务动作的可填表单——邮件撰写卡(收件人/抄送/密送/主题/回复至/正文 + **批准操作/拒绝操作**成对动作)、日历创建/更新卡(创建/保存 + 时间区间与多出席人折叠)。数据面需新事件 `form_request`{kind,fields[],actions[]} 与 `form_response`(进 D34 契约双份);渲染走 `question-dialog` 同族弹层还是内联卡由方案定,但**必须复用 `packages/ui-react` 表单件**(共享层优先,禁止端内自绘)。端覆盖按 §9 矩阵执行,miniapp/mobile-rn 若需豁免必须显式写理由。**验收**:两表单端到端(填→批准→后端落→状态回显)+ 拒绝路径不产生副作用 + 五语言词表 **对账进度(2026-09-24,HEAD 取证)**:business-forms.ts + 测试已在 HEAD;§9 端覆盖矩阵未逐端重证,保持未勾。
+- [ ]（进行中@2026-10-18/goal-d77） **D77 对话流业务表单卡(G-106)**:在消息流内完成业务动作的可填表单——邮件撰写卡(收件人/抄送/密送/主题/回复至/正文 + **批准操作/拒绝操作**成对动作)、日历创建/更新卡(创建/保存 + 时间区间与多出席人折叠)。数据面需新事件 `form_request`{kind,fields[],actions[]} 与 `form_response`(进 D34 契约双份);渲染走 `question-dialog` 同族弹层还是内联卡由方案定,但**必须复用 `packages/ui-react` 表单件**(共享层优先,禁止端内自绘)。端覆盖按 §9 矩阵执行,miniapp/mobile-rn 若需豁免必须显式写理由。**验收**:两表单端到端(填→批准→后端落→状态回显)+ 拒绝路径不产生副作用 + 五语言词表 **对账进度(2026-09-24,HEAD 取证)**:business-forms.ts + 测试已在 HEAD;§9 端覆盖矩阵未逐端重证,保持未勾。
 <!-- 已归档(2026-09-28:✅(2026-09-24 渲染面) **D78 连接器授权卡(G-107)**:对话流内 `连接到 {connector,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 - **收口(2026-09-23)**:`packages/shared/src/chat/waiting-pool.ts`(15 池×5 变体×五语言 375 串，seed/turnId 取模，`Math.random` 禁用，人格开关默认保守可关)+`TypingIndicator` 可选 `waitSeed/waitQuadrant/waitPhase`(不传零影响)+读屏双保险(`aria-hidden`+`shouldAnnounceWaitingText`)。shared typecheck/web typecheck 双 0 错，47 例全绿。剩余：`waiting.*` 76 键待插入词表(目标位置待定，代码内联中文 fallback 可独立跑)。
 <!-- 已归档(2026-09-28:✅(2026-09-24 定档) **D80 两条待自证定档(G-110/G-111)**:①Codex `widget,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
