@@ -44,6 +44,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..')
@@ -1042,10 +1043,22 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     })
   } else {
     try {
+      // G-322(本器两支数值旗标):旧写法 `Number(argv[indexOf+1])` 得 NaN 后由 `Number.isFinite` 折回**默认档**,
+      // 于是 `--hours --json` 出一份"近 24 小时"的报表,而调用方以为自己要的是别的窗口 —— 报表本身看起来完全
+      // 自洽(这正是记忆记过的 NaN 型:判据静默变空/失效)。现:给了旗标就要有合法数值,否则点名后未判定。
       const flagNum = (name, dflt) => {
-        const i = argv.indexOf(`--${name}`)
-        const v = i >= 0 ? Number(argv[i + 1]) : NaN
-        return Number.isFinite(v) && v > 0 ? v : dflt
+        const f = requireFlagValue(argv, `--${name}`, { noun: '正数' })
+        if (f.error) {
+          console.error(`❌ ${f.error}`)
+          process.exit(2)
+        }
+        if (f.value === null) return dflt
+        const v = Number(f.value)
+        if (!Number.isFinite(v) || v <= 0) {
+          console.error(`❌ --${name} 需要正数,实得:${JSON.stringify(f.value)}(不得静默退回默认 ${dflt})`)
+          process.exit(2)
+        }
+        return v
       }
       const rep = collect({ argv, hours: flagNum('hours', 24), days: flagNum('days', 7) })
       if (argv.includes('--json')) console.log(JSON.stringify(rep, null, 2))

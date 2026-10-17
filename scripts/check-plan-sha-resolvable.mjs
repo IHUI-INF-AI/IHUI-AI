@@ -555,8 +555,25 @@ async function main(argv) {
   }
   const root = rootArg.value !== null ? path.resolve(rootArg.value) : DEFAULT_ROOT
   const strict = argv.includes('--strict')
-  const ti = argv.indexOf('--top')
-  const topN = ti >= 0 ? Number(argv[ti + 1]) || 10 : 10
+  // G-322(本站第二支):`--top` 旧写法 `Number(argv[ti+1]) || 10` —— NaN/0 都被 `||` 折成"退回 10",
+  // 而 `--top 0`(要全量清单)与 `--top --json`(值被吞)在这支**完全同形**,报数却差一个数量级。
+  // 本文件 `--root` 已走单源出口,`--top` 不得留在第二套写法里(§22c 同一件事只许一份实现)。
+  const topFlag = requireFlagValue(argv, '--top', { noun: '正整数' })
+  if (topFlag.error) {
+    console.error(`❌ ${topFlag.error}`)
+    return 2
+  }
+  let topN = 10
+  if (topFlag.value !== null) {
+    const n = Number(topFlag.value)
+    // 0 也被拒(旧写法 `Number(x)||10` 会把 0 静默折成 10,那是"覆写用户输入";但照字面接受 0 会交出一份
+    // **零行清单**,而零行清单在人读起来等于"没有发现"= 假绿方向)。要"全量"请给一个足够大的正整数。
+    if (!Number.isInteger(n) || n <= 0) {
+      console.error(`❌ --top 需要正整数,实得:${JSON.stringify(topFlag.value)}(不得静默退回 10,也不得交出零行清单)`)
+      return 2
+    }
+    topN = n
+  }
 
   let res = null
   let tookFailure = null
