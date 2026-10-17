@@ -466,13 +466,15 @@ function RecommendSection() {
     queryFn: () => getAiSkillRecommendations({ top_k: 6 }),
   })
 
-  // 未登录不渲染本区块(取数已被 enabled: allow 挡住,避免空转 loading)
-  if (!allow) return null
-
+  // Hook 必须每次渲染同序调用,所以放在早退之前(取数已被 enabled: allow 挡住,
+  // 未登录时 response 为 undefined ⇒ 这里只算出空数组,不发请求也不多做渲染)。
   const recommendations = React.useMemo(() => {
     if (!response?.success || !response.data) return []
     return response.data.filter((s) => s.available)
   }, [response])
+
+  // 未登录不渲染本区块(取数已被 enabled: allow 挡住,避免空转 loading)
+  if (!allow) return null
 
   // loading: 显示旋转加载图标
   if (isLoading) {
