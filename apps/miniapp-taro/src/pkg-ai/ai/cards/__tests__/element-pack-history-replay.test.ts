@@ -62,10 +62,6 @@ describe('读侧守卫:parseElementPackFrames', () => {
     ['elementPack 键缺席', {}],
     ['elementPack 非对象', { [ELEMENT_PACK_METADATA_KEY]: 'x' }],
     ['frames 非数组', { [ELEMENT_PACK_METADATA_KEY]: { [ELEMENT_PACK_FRAMES_KEY]: 1 } }],
-    [
-      'frames 含非对象元素(落库 JSON 里的字符串/null/数字)',
-      { [ELEMENT_PACK_METADATA_KEY]: { [ELEMENT_PACK_FRAMES_KEY]: ['junk', null, 42] } },
-    ],
   ])('%s ⇒ 空数组(不抛)', (_name, metadata) => {
     expect(parseElementPackFrames(metadata)).toEqual([])
   })
@@ -78,9 +74,7 @@ describe('读侧守卫:parseElementPackFrames', () => {
       { kind: 'subagent_progress', id: 'x', phase: 'bogus', timestamp: 't' }, // phase 非契约值
       { kind: 'subagent_end', id: 'x', status: 'nope', timestamp: 't' }, // status 非法
     ]
-    expect(parseElementPackFrames({ [ELEMENT_PACK_METADATA_KEY]: { frames } })).toEqual([
-      spawnFrame,
-    ])
+    expect(parseElementPackFrames({ [ELEMENT_PACK_METADATA_KEY]: { frames } })).toEqual([spawnFrame])
   })
 })
 
@@ -130,9 +124,7 @@ describe('水合出口:mapServerMessage 消费 metadata.elementPack', () => {
   it('带 elementPack 的历史消息重放出 aiCards.subagentTasks', () => {
     const msg = mapServerMessage({
       ...base,
-      metadata: {
-        [ELEMENT_PACK_METADATA_KEY]: { [ELEMENT_PACK_FRAMES_KEY]: [spawnFrame, endFrame] },
-      },
+      metadata: { [ELEMENT_PACK_METADATA_KEY]: { [ELEMENT_PACK_FRAMES_KEY]: [spawnFrame, endFrame] } },
     })
     expect(msg?.aiCards?.subagentTasks).toEqual([
       {
@@ -153,9 +145,10 @@ describe('水合出口:mapServerMessage 消费 metadata.elementPack', () => {
   it('elementPack 全坏帧 ⇒ 同「无元素包」处理', () => {
     const msg = mapServerMessage({
       ...base,
+      // 坏帧=非对象元素(string);frames 槽位类型是 Record<string,unknown>[],用断言表达"脏数据回放"场景
       metadata: {
         [ELEMENT_PACK_METADATA_KEY]: {
-          [ELEMENT_PACK_FRAMES_KEY]: [{ kind: 'not_a_frame', id: 'x' }],
+          [ELEMENT_PACK_FRAMES_KEY]: ['junk'] as unknown as Record<string, unknown>[],
         },
       },
     })

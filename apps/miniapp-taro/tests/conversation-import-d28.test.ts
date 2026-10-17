@@ -518,13 +518,11 @@ describe('⑥ uploadAndParse —— /parse 走 uploadFile 且沿用现成 URL/�
   })
 
   it('走 Taro.uploadFile:带 Bearer 头、multipart 字段名 file、source 走 formData', async () => {
-    const spy = vi.spyOn(Taro, 'uploadFile').mockImplementation((opts) => {
-      opts.success?.({
+    const spy = vi.spyOn(Taro, 'uploadFile').mockImplementation((opts: Record<string, unknown>) => {
+      ;(opts.success as (r: unknown) => void)({
         statusCode: 200,
         data: JSON.stringify({ conversations: [], truncated: false, warnings: [] }),
-        errMsg: 'uploadFile:ok',
-        progress: 100,
-      } as never)
+      })
       return {} as never
     })
 
@@ -535,7 +533,7 @@ describe('⑥ uploadAndParse —— /parse 走 uploadFile 且沿用现成 URL/�
     })
 
     expect(spy).toHaveBeenCalledTimes(1)
-    const arg = spy.mock.calls[0]?.[0] as unknown as Record<string, unknown>
+    const arg = spy.mock.calls[0]?.[0] as Record<string, unknown>
     expect(arg.url).toBe(PARSE_URL)
     expect(arg.filePath).toBe('wxfile://tmp_a.zip')
     expect(arg.name).toBe('file')
@@ -547,8 +545,8 @@ describe('⑥ uploadAndParse —— /parse 走 uploadFile 且沿用现成 URL/�
   })
 
   it('传输失败(fail)⇒ 抛出 errMsg,不当成空预览', async () => {
-    const spy = vi.spyOn(Taro, 'uploadFile').mockImplementation((opts) => {
-      opts.fail?.({ errMsg: 'uploadFile:fail exceed max' } as never)
+    const spy = vi.spyOn(Taro, 'uploadFile').mockImplementation((opts: Record<string, unknown>) => {
+      ;(opts.fail as (r: unknown) => void)({ errMsg: 'uploadFile:fail exceed max' })
       return {} as never
     })
     await expect(
@@ -673,7 +671,7 @@ describe('⑤ 五语言包:词条齐备', () => {
   it('微信源在每种语言里都被点名(不是只在中文里译出来)', () => {
     for (const lang of LANGS) {
       const ci = packOf(lang).conversationImport
-      expect((ci.sourceWechat ?? '').trim().length).toBeGreaterThan(0)
+      expect(ci.sourceWechat.length).toBeGreaterThan(0)
       expect(ci.sourceWechatHint).toMatch(/zip/i)
     }
   })

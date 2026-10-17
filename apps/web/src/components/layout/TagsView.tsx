@@ -482,13 +482,20 @@ export function TagsView() {
   // ctxMenu 位置越界修正:贴 viewport 边缘(避免菜单出框)
   const menuStyle = ctxMenu
     ? {
-        left: Math.min(
-          ctxMenu.x,
-          typeof window !== 'undefined' ? window.innerWidth - 160 : ctxMenu.x,
+        // 2026-10-17 根治:四边 clamp(原只防右/下溢出,左/上贴死屏幕边缘)
+        left: Math.max(
+          8,
+          Math.min(
+            ctxMenu.x,
+            typeof window !== 'undefined' ? window.innerWidth - 160 : ctxMenu.x,
+          ),
         ),
-        top: Math.min(
-          ctxMenu.y,
-          typeof window !== 'undefined' ? window.innerHeight - 140 : ctxMenu.y,
+        top: Math.max(
+          8,
+          Math.min(
+            ctxMenu.y,
+            typeof window !== 'undefined' ? window.innerHeight - 140 : ctxMenu.y,
+          ),
         ),
       }
     : null

@@ -68,6 +68,13 @@ export interface CredentialStorage {
   removeFromLoginHistory?: (account: string) => string[]
   /** 清空全部账号历史,返回空列表(可选;供历史下拉"清空全部") */
   clearLoginHistory?: () => string[]
+  /**
+   * 显式"记住密码"开关:账号 + 口令一起落盘(可选;2026-10-17 票 #27 收口后扩展)。
+   *
+   * - 未注入时 `useLoginForm` 回退到 `saveRemembered`(账号-only,默认路径保持收口)。
+   * - web 端注入 `saveRememberedCredentialsWithPassword`;移动端可后续按需接入。
+   */
+  saveRememberedWithPassword?: (account: string, password: string) => void
 }
 
 export interface UseLoginFormOptions {
@@ -225,7 +232,13 @@ export function useLoginForm(options: UseLoginFormOptions): UseLoginFormReturn {
       // 保存/清除凭据 + 账号历史 + 自动登录标志(仅在启用记住密码时)
       if (enableRemember) {
         if (rememberPassword) {
-          storage.saveRemembered(account, password)
+          // 显式"记住密码"开关:优先走带口令的显式路径(2026-10-17 扩展),
+          // 未注入 saveRememberedWithPassword 时回退到账号-only 的默认路径(保持收口)。
+          if (storage.saveRememberedWithPassword) {
+            storage.saveRememberedWithPassword(account, password)
+          } else {
+            storage.saveRemembered(account, password)
+          }
         } else {
           storage.clearRemembered()
           if (autoLogin) {

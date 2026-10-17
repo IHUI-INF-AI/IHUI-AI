@@ -5,7 +5,7 @@
 /**
  * 记住账号 + 账号历史 + 自动登录 凭据管理(票 #27 web 端收口,2026-09-29)
  *
- * 本文件**不再持久化口令**。旧版把 `{account, password}` 经
+ * 本文件**不再持久化口令**(默认路径)。旧版把 `{account, password}` 经
  * `base64(encodeURIComponent(JSON))` 写 localStorage —— base64 是编码不是加密,
  * 一步可还原。而浏览器没有能给普通网页"任意保存第三方站点口令、事后再静默取回"的
  * OS 级安全存储(Web Credentials / PasswordCredential 只服务于浏览器自动填充与
@@ -18,8 +18,16 @@
  * `/auth/refresh`;运行中 401 由 `@ihui/api-client` 的 fetchApi 自动续期)。
  * 口令在换到 token 之后就没有存在本地的理由,于是本地也不该留它。
  *
+ * 2026-10-17 用户决策:在支持浏览器自带记住密码的前提下,项目自身也要"记住密码"
+ * 免重填 —— 因此本文件新增**显式开关** `saveRememberedCredentials(account, password, rememberPassword)`
+ * 与 `loadRememberedCredentials({ keepPassword })`:
+ * - 默认(rememberPassword=false / keepPassword=false):走"只记账号"路径,口令被丢弃;
+ * - rememberPassword=true:把账号+口令一起写进 localStorage(调用方接受暴露面风险);
+ * - keepPassword=true:从盘上读出账号+口令,交给调用方做自动登录回填。
+ *
  * 记录形态 / key 名 / 历史上限的唯一真相在 `@ihui/shared`(RN / 小程序用同一份实现):
- * - 编解码:`@ihui/shared/auth/remembered-account`(纯函数,结构上写不出口令字段)
+ * - 编解码:`@ihui/shared/auth/remembered-account`(纯函数;默认形态写不出口令字段,
+ *   显式"记住密码"形态走 `encodeRememberedCredentials` / `decodeRememberedCredentials`)
  * - key 名:`@ihui/shared/constants/storage-keys`(端内禁止再抄字面量)
  * 本文件只保留 web/extension 的平台运输层:localStorage 读写 + 认出**历史 base64
  * 传输形态**并把它就地改写成"只含账号"的 JSON(迁移义务 —— 不是"新写入才干净")。
@@ -28,14 +36,17 @@
  * 删掉的只有口令那一半。
  *
  * 存储格式(localStorage,btoa/atob 可用)
- * - ihui-remember-credentials: {"account"} —— **永远不含 password**(历史 base64 形态读到即抹)
+ * - ihui-remember-credentials: 默认 {"account"};显式记住密码 {"account","password"}
+ *   (历史 base64 形态读到即抹掉,除非调用方传 keepPassword=true)
  * - ihui-auto-login: '1' / '0'
  * - ihui-login-history: string[](最多 LOGIN_HISTORY_MAX 个,不含口令;历史 base64 形态仍可读)
  */
 
 import {
   decodeRememberedAccount,
+  decodeRememberedCredentials,
   encodeRememberedAccount,
+  encodeRememberedCredentials,
   normalizeLoginHistory,
   pushLoginHistory,
 } from '@ihui/shared/auth/remembered-account'
@@ -48,6 +59,16 @@ import {
 export interface RememberedCredentials {
   account: string
   password: string
+}
+
+/** 显式"记住密码"读取选项:keepPassword=true 时保留盘上口令字段交回调用方。 */
+export interface LoadRememberedOptions {
+  /**
+   * 2026-10-17:是否从盘上保留口令字段交回调用方。
+   * - false(默认):只回账号,口令一律抹掉(走默认收口路径)
+   * - true:回账号 + 口令,调用方据此做自动登录回填(需自行评估存储暴露面)
+   */
+  keepPassword?: boolean
 }
 
 /** 解出历史传输形态 `btoa(unescape(encodeURIComponent(text)))`;非 base64 ⇒ null。 */
@@ -74,26 +95,57 @@ function readItem(key: string): string | null {
 /**
  * 写盘的只有账号。`_password` 入参只为保留调用方与跨端 `CredentialStorage` 接口的形状,
  * 值被**丢弃**:web 没有任何可放它的地方(见文件头),自动登录由 token 续期承担。
+ *
+ * 显式"记住密码"用 `saveRememberedCredentialsWithPassword(account, password)`。
  */
 export function saveRememberedCredentials(account: string, _password: string): void {
+  persistRememberedAccount(account)
+}
+
+/**
+ * 2026-10-17:显式"记住密码"写入 —— 账号 + 口令一起落盘。
+ *
+ * 调用方(登录表单)在用户勾选"记住密码"时调用本函数;调用方接受 localStorage
+ * 的暴露面风险(同 origin 脚本、XSS、磁盘读取),本函数不做加密。
+ * 不勾选"记住密码"时调用方应改用 `saveRememberedCredentials()`,口令被丢弃。
+ */
+export function saveRememberedCredentialsWithPassword(account: string, password: string): void {
   try {
-    localStorage.setItem(REMEMBERED_ACCOUNT_STORAGE_KEY, encodeRememberedAccount(account))
+    localStorage.setItem(REMEMBERED_ACCOUNT_STORAGE_KEY, encodeRememberedCredentials(account, password))
   } catch {
     // 静默失败
   }
 }
 
 /**
- * 读回记住的账号;读到旧形态(带口令的记录或 base64 传输)时**就地抹掉口令**。
+ * 读回记住的账号(默认路径:口令恒为空)。
  *
- * 返回值的 `password` 恒为 '' —— 这不是"没找到口令",是"这一端不再提供口令"。
+ * 读到旧形态(带口令的记录或 base64 传输)时**就地抹掉口令**;
+ * 读到的 `password` 字段恒为 '' —— 这不是"没找到口令",是"这一端默认不再提供口令"。
  * PasswordLoginForm 的自动提交 effect 据此自然短路,自动登录走 use-auth-bootstrap
  * 的静默续期,不再重放账密。
+ *
+ * 需要"记住密码"形态(口令交回调用方)时用 `loadRememberedCredentials({ keepPassword: true })`。
  */
-export function loadRememberedCredentials(): RememberedCredentials | null {
+export function loadRememberedCredentials(options?: LoadRememberedOptions): RememberedCredentials | null {
   const raw = readItem(REMEMBERED_ACCOUNT_STORAGE_KEY)
   if (!raw) return null
-  // 新传输 = JSON 文本;旧传输 = base64(encodeURIComponent(JSON))
+  // 显式"记住密码"路径:保留盘上口令字段交回调用方
+  if (options?.keepPassword) {
+    const withPassword = decodeRememberedCredentials(raw)
+    if (withPassword) {
+      // 盘上记录是"只有账号"的默认形态 ⇒ 口令为空,直接回
+      if (!withPassword.carriedPlaintextPassword) {
+        return { account: withPassword.account, password: '' }
+      }
+      // 显式记住密码形态:账号 + 口令交回
+      return { account: withPassword.account, password: withPassword.password }
+    }
+    // 解不出的垃圾记录(显式路径下):删除是唯一安全方向
+    clearRememberedCredentials()
+    return null
+  }
+  // 默认路径:只回账号,口令一律抹掉
   const direct = decodeRememberedAccount(raw)
   const decoded = direct ?? decodeRememberedAccount(decodeLegacyTransport(raw) ?? '')
   if (decoded) {

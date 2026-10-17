@@ -451,8 +451,9 @@ function FileRow({
         <div
           className="fixed z-popover min-w-36 rounded-md border border-border bg-popover py-1 text-xs shadow-md"
           style={{
-            left: Math.min(menuPos.x, window.innerWidth - 180),
-            top: Math.min(menuPos.y, window.innerHeight - 170),
+            // 2026-10-17 根治:四边 clamp(原只防右/下溢出,左/上贴死屏幕边缘)
+            left: Math.max(8, Math.min(menuPos.x, window.innerWidth - 180)),
+            top: Math.max(8, Math.min(menuPos.y, window.innerHeight - 170)),
           }}
           onClick={(e) => e.stopPropagation()}
           data-testid={`diff-row-menu-${file.id}`}

@@ -172,9 +172,12 @@ export type {
   AccountHistoryInputProps,
 } from './components/login-form'
 // 记住账号 / 账号历史 / 自动登录 凭据管理(2026-07-30 抽到共享包;2026-09-29 票 #27
-// web 端收口:不再持久化口令,记录形态唯一真相在 @ihui/shared/auth/remembered-account)
+// web 端收口:默认路径不再持久化口令,记录形态唯一真相在 @ihui/shared/auth/remembered-account;
+// 2026-10-17 用户决策:显式"记住密码"开关 saveRememberedCredentialsWithPassword +
+// loadRememberedCredentials({ keepPassword }) 把盘上口令交回调用方做自动登录回填)
 export {
   saveRememberedCredentials,
+  saveRememberedCredentialsWithPassword,
   loadRememberedCredentials,
   clearRememberedCredentials,
   saveAutoLogin,
@@ -185,7 +188,7 @@ export {
   clearLoginHistory,
   removeFromLoginHistory,
 } from './lib/remember-credentials'
-export type { RememberedCredentials } from './lib/remember-credentials'
+export type { RememberedCredentials, LoadRememberedOptions } from './lib/remember-credentials'
 // PageShell Web 系三端共用页面级布局外壳(2026-08-01 抽取到共享包,P3-2.3,
 // web + extension + desktop 共用 header/sidebar/main/footer app shell 结构)
 export { PageShell } from './page-shell'

@@ -13,6 +13,7 @@
 import type { CredentialStorage } from '@ihui/shared/hooks'
 import {
   saveRememberedCredentials,
+  saveRememberedCredentialsWithPassword,
   loadRememberedCredentials,
   clearRememberedCredentials,
   saveAutoLogin,
@@ -23,10 +24,12 @@ import {
   clearLoginHistory,
   removeFromLoginHistory,
   type RememberedCredentials,
+  type LoadRememberedOptions,
 } from '@ihui/ui-react'
 
 export {
   saveRememberedCredentials,
+  saveRememberedCredentialsWithPassword,
   loadRememberedCredentials,
   clearRememberedCredentials,
   saveAutoLogin,
@@ -37,6 +40,7 @@ export {
   clearLoginHistory,
   removeFromLoginHistory,
   type RememberedCredentials,
+  type LoadRememberedOptions,
 }
 
 /* ========== 跨端共享 storage 接口实现(2026-07-29) ========== */
@@ -53,5 +57,7 @@ export const credentialStorage: CredentialStorage = {
   clearAutoLogin,
   saveLoginHistory,
   loadLoginHistory,
+  // 显式"记住密码"开关(2026-10-17 扩展):账号 + 口令一起落盘。
+  saveRememberedWithPassword: saveRememberedCredentialsWithPassword,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

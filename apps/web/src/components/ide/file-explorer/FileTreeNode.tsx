@@ -313,9 +313,9 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
         <div
           className="fixed z-popover min-w-36 rounded-md border border-border bg-popover py-1 text-xs shadow-md"
           style={{
-            // 视口 clamp:最多 4 项约 130px 高,防止贴近屏幕边缘时溢出
-            left: Math.min(menuPos.x, window.innerWidth - 160),
-            top: Math.min(menuPos.y, window.innerHeight - 140),
+            // 视口 clamp:最多 4 项约 130px 高;2026-10-17 根治为四边 clamp(原只防右/下,左/上贴边)
+            left: Math.max(8, Math.min(menuPos.x, window.innerWidth - 160)),
+            top: Math.max(8, Math.min(menuPos.y, window.innerHeight - 140)),
           }}
           onClick={(e) => e.stopPropagation()}
         >

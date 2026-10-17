@@ -670,7 +670,10 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
               gap={4}
               role="menu"
               testId="global-topbar-plus-menu"
-              zIndexClassName="z-header"
+              // 2026-10-17 根治:顶栏下拉 portal 到 body,与侧栏(z-sticky=990)同层竞争;
+              // 原 z-header(100) < 990,菜单向左展开越过硬栏左缘即被侧栏遮挡。
+              // 改用 header 下拉专用 token 语义 z-max(=10003,tokens.css --header-dropdown-z-index 同源)。
+              zIndexClassName="z-max"
               className={cn(
                 'rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-md',
                 // 移动端:弹窗宽度约束为视口宽度减去边距,最大 288px
@@ -1016,7 +1019,8 @@ function TopBarEcosystemMenu() {
         role="menu"
         overlayId={ECOSYSTEM_POPOVER_OVERLAY_ID}
         testId="global-topbar-ecosystem-menu"
-        zIndexClassName="z-header"
+        // 2026-10-17 根治:同 Plus 菜单,z-header(100) 会被侧栏 z-sticky(990) 遮挡,改 z-max
+        zIndexClassName="z-max"
         className={cn(
           'w-60 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-md',
         )}

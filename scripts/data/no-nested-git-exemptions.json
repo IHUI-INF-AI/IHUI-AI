@@ -1,5 +1,24 @@
 {
-  "$comment": "守门 208 (check-no-nested-git.mjs) 的具名豁免台账。AGENTS §0.7:豁免必须「验过才免」且会到期 —— 只有容器目录 rel 与条目**逐字等值**才放行(不做前缀/同名匹配);缺 owner/why 或到期日不是 YYYY-MM-DD ⇒ 整条作废;到期 ⇒ 自动翻红需重新 ack;审面不再命中 ⇒ 按清单腐烂判红。放行的每一处都由门自己逐条打印,不静默。‖ 2026-10-16 销账记录:commit 27e3bbdfcc 所登三条(.DevEnv/cache/userhome/.codex/.tmp/plugins / .ihui-agent/desktop-feed-clone / outputs/ihui-bench-release)经审面三处现场均已消失(Test-Path 全 False,[208] 门清单腐烂判红),按门自身指示随现场销账 —— 非回退他席登记,是 §0.7『豁免必须随现场一起销』的必然处置;三处若复现在飞,由持有席按带 owner/why/到期日的完整格式重新登记。",
-  "entries": [],
-  "$note": "2026-10-15 清空:此前 3 条(.DevEnv/cache/userhome/.codex/.tmp/plugins、.ihui-agent/desktop-feed-clone、outputs/ihui-bench-release)的容器目录实测都已不存在 ⇒ 门按\"审面不再命中 ⇒ 清单腐烂\"判红。判据未改:新出现的嵌套仓仍直接红,需要长期豁免者必须按 schema 补 owner/why/expires 的具名条目。"
+  "$comment": "守门 208 (check-no-nested-git.mjs) 的具名豁免台账。AGENTS §0.7:豁免必须「验过才免」且会到期 —— 只有容器目录 rel 与条目**逐字等值**才放行(不做前缀/同名匹配);缺 owner/why 或到期日不是 YYYY-MM-DD ⇒ 整条作废;到期 ⇒ 自动翻红需重新 ack;审面不再命中 ⇒ 按清单腐烂判红。放行的每一处都由门自己逐条打印,不静默。‖ 销账记录:2026-10-16 曾销账一次(commit 27e3bbdfcc 所登三条经 Test-Path 全 False,随现场销);2026-10-17 三枚在飞现场复现(逐一实测 ①codex 插件缓存检出 1 枚 commit/99 脏 ②desktop-feed-clone 6 枚本地提交/34 脏 ③ihui-bench-release 2 枚本地提交/0 脏未证已在 origin),均不满足 §7 三问『0 commit 且 0 脏』唯一可代删形态,按门自身处置指引第三档重新登记如下,各带 owner/why/到期日。",
+  "entries": [
+    {
+      "rel": ".DevEnv/cache/userhome/.codex/.tmp/plugins",
+      "owner": "codex 席(第三方工具自有检出)",
+      "why": "codex 插件缓存检出在飞:2026-10-17 复现实测 1 枚 commit/99 项未提交,§7 三问不满足 0commit0脏唯一可代删形态 ⇒ 不得代删,按 208 处置指引第三档走具名台账",
+      "expires": "2026-10-24"
+    },
+    {
+      "rel": ".ihui-agent/desktop-feed-clone",
+      "owner": "desktop-feed 席",
+      "why": "desktop feed 仓克隆在飞:2026-10-17 复现实测 6 枚本地提交/34 脏文件未推,§7 三问不可代删,按 208 处置指引第三档走具名台账",
+      "expires": "2026-11-16"
+    },
+    {
+      "rel": "outputs/ihui-bench-release",
+      "owner": "bench-release 席",
+      "why": "bench 发布工作区在飞:2026-10-17 复现实测 2 枚本地提交(未证已在 origin,不可弃),§7 三问不可代删,按 208 处置指引第三档走具名台账",
+      "expires": "2026-10-24"
+    }
+  ],
+  "$note": "2026-10-17 重登三枚在飞现场(10-16 销账后的复现),判据未动:新出现的嵌套仓仍直接红;到期日 2026-10-24/2026-11-16 届满自动翻红,需持有席重新 ack。条目失去命中 ⇒ 按清单腐烂判红,届时随现场销账。"
 }

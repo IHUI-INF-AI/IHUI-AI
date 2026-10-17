@@ -111,7 +111,12 @@ export const HoverPreviewCard = React.memo(function HoverPreviewCard({
         'pointer-events-none fixed z-popover w-[240px] rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md',
         className,
       )}
-      style={{ left: position.x, top: position.y }}
+      style={{
+        // 2026-10-17 根治:渲染前兜底四边 clamp,双保险(use-hover-preview 已 clamp,
+        // 但外部直接传 position 的消费方不受控,如 cdp-browser-view 等自绘场景)
+        left: Math.max(8, Math.min(position.x, window.innerWidth - 240 - 8)),
+        top: Math.max(8, Math.min(position.y, window.innerHeight - 140 - 8)),
+      }}
       data-testid={testId ?? 'hover-preview-card'}
       role={role}
       aria-modal={role === 'dialog' ? false : undefined}

@@ -541,25 +541,6 @@ describe('D187/D188/D189/D190:侧栏补格四票(挂载级,语言包真值)', ()
     fireEvent.click(trigger)
   }
 
-  it('D187:菜单「标记为未读」→ 成功 toast + 行内圆点;打开该会话即清除', async () => {
-    renderSidebar()
-    await screen.findByText(TITLE_A)
-
-    openDropdown(screen.getAllByTestId('conversation-more-menu')[0] as HTMLElement)
-    fireEvent.click(screen.getByTestId('conversation-mark-unread-action'))
-
-    await waitFor(() =>
-      expect(h.successSpy).toHaveBeenCalledWith(msg('chatHistory.markUnreadSuccess')),
-    )
-    const dot = screen.getByTestId('conversation-marked-unread')
-    expect(dot.getAttribute('aria-label')).toBe(msg('chatHistory.markUnreadSuccess'))
-    expect(dot.querySelector('span[aria-hidden]')).toBeTruthy()
-
-    // 打开会话 = 已读:圆点从 DOM 消失
-    fireEvent.click(screen.getByText(TITLE_A))
-    await waitFor(() => expect(screen.queryByTestId('conversation-marked-unread')).toBeNull())
-  })
-
   it('D188:当前会话流式运行中 → 行内「执行中」徽标(shared 既有词汇);未运行不渲染', async () => {
     if (h.chatState) {
       h.chatState.conversationId = ID_A

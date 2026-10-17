@@ -63,14 +63,14 @@
 
 ## 是什么
 
-| 维度 | 说法 |
-| ---- | ---- |
-| 一句话 | 自托管的全栈 AI 平台:模型网关 + Agent 编排 + 多租户业务后端 + 8 端前端 |
-| 后端 | `apps/api` — Fastify 5 + Drizzle ORM + PostgreSQL + Zod(TypeScript) |
-| AI 服务 | `apps/ai-service` — FastAPI + LangGraph + LiteLLM + MCP(Python) |
-| 前端 | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui(web),Taro 4(小程序),React Native + NativeWind(App),Tauri 2(桌面),WXT(扩展),Node.js(CLI) |
-| 数据 | PostgreSQL(行级安全 RLS 多租户)+ pgvector 向量检索 + Redis |
-| 许可 | Apache-2.0(须保留版权与 NOTICE;源码带可溯源水印,见[许可](#许可与版权)) |
+| 维度    | 说法                                                                                                                                   |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 一句话  | 自托管的全栈 AI 平台:模型网关 + Agent 编排 + 多租户业务后端 + 8 端前端                                                                 |
+| 后端    | `apps/api` — Fastify 5 + Drizzle ORM + PostgreSQL + Zod(TypeScript)                                                                    |
+| AI 服务 | `apps/ai-service` — FastAPI + LangGraph + LiteLLM + MCP(Python)                                                                        |
+| 前端    | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui(web),Taro 4(小程序),React Native + NativeWind(App),Tauri 2(桌面),WXT(扩展),Node.js(CLI) |
+| 数据    | PostgreSQL(行级安全 RLS 多租户)+ pgvector 向量检索 + Redis                                                                             |
+| 许可    | Apache-2.0(须保留版权与 NOTICE;源码带可溯源水印,见[许可](#许可与版权))                                                                 |
 
 **不是什么**:不是一个「给 LLM 套壳的聊天页」(它有租户、权限、计费、内容、教育等完整业务域);
 不是「一套代码编译到 8 端」(各端是独立代码,共享的是设计令牌、契约与组件工厂,不是运行时适配层)。
@@ -105,30 +105,31 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 5 语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
-| 指标 | 现值 | 取数键 |
-| ---- | ---- | ------ |
-| 数据库表 | 590 | `dbTables` |
-| schema 文件 | 225 | `dbSchemaFiles` |
-| API 路由 | 4386 | `apiRoutes` |
-| 路由文件 | 583 | `apiRouteFiles` |
-| AI 服务路由 | 557 | `aiServiceRoutes` |
-| WebSocket 端点 | 25 | `wsEndpoints` |
-| 入库模型清单 | 118 | `llmModels` |
-| 发布平台 | 38 | `publishPlatforms` |
-| 端应用包 | 9 | `appPackages` |
-| 共享包 | 16 | `sharedPackages` |
-| CLI 命令文件 | 62 | `cliCommandFiles` |
-| CLI 工具文件 | 69 | `cliToolFiles` |
-| 语言 | 5 | `i18nLanguages` |
-| i18n 作用域 | 7 | `i18nScopes` |
-| 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 2432 | `testFiles` |
-| CI 工作流 | 46 | `ciWorkflows` |
-| Compose 服务 | 15 | `composeServices` |
-| 工程守门 | 203 | `guardianGates` |
-| — blocking | 184 | `guardianBlocking` |
-| — warn | 19 | `guardianWarn` |
-| 跟踪文件 | 14191 | `trackedFiles` |
+
+| 指标           | 现值  | 取数键             |
+| -------------- | ----- | ------------------ |
+| 数据库表       | 590   | `dbTables`         |
+| schema 文件    | 225   | `dbSchemaFiles`    |
+| API 路由       | 4386  | `apiRoutes`        |
+| 路由文件       | 583   | `apiRouteFiles`    |
+| AI 服务路由    | 557   | `aiServiceRoutes`  |
+| WebSocket 端点 | 25    | `wsEndpoints`      |
+| 入库模型清单   | 118   | `llmModels`        |
+| 发布平台       | 38    | `publishPlatforms` |
+| 端应用包       | 9     | `appPackages`      |
+| 共享包         | 16    | `sharedPackages`   |
+| CLI 命令文件   | 62    | `cliCommandFiles`  |
+| CLI 工具文件   | 69    | `cliToolFiles`     |
+| 语言           | 5     | `i18nLanguages`    |
+| i18n 作用域    | 7     | `i18nScopes`       |
+| 语言包 JSON    | 35    | `i18nMessageFiles` |
+| 测试文件       | 2432  | `testFiles`        |
+| CI 工作流      | 46    | `ciWorkflows`      |
+| Compose 服务   | 15    | `composeServices`  |
+| 工程守门       | 203   | `guardianGates`    |
+| — blocking     | 184   | `guardianBlocking` |
+| — warn         | 19    | `guardianWarn`     |
+| 跟踪文件       | 14191 | `trackedFiles`     |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-09-30。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -141,17 +142,17 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 
 ## 九份主题文档(从根 README 拆出的原文收纳件)
 
-| 文件 | 题域 | 收纳的重写前 README 主要章节 |
-| ---- | ---- | ---- |
-| [`readme-01-positioning`](./docs/engineering/readme-01-positioning.md) | 定位与宣称 | 头部横幅与对标宣言 · 一键部署 · 技术栈与规模速览 · 项目宣言 · GEO 优化 · 目录 · 项目定位 · 特性总览 |
-| [`readme-02-ux-and-ai-control`](./docs/engineering/readme-02-ux-and-ai-control.md) | 交互与 AI 控制 | AI 流式输出体验(Phase 19) · AI 全量操控桥接 · 全局顶栏 + Plus 弹窗 · Use Cases · AI 对话决策面与运行时事实 |
-| [`readme-03-why-comparison-scenarios`](./docs/engineering/readme-03-why-comparison-scenarios.md) | 卖点与场景 | 为什么选择 · 对标矩阵 · 谁在使用 · 5 个典型场景 · 联系我们 |
-| [`readme-04-architecture-and-modules`](./docs/engineering/readme-04-architecture-and-modules.md) | 架构与模块 | 技术栈 · 8 端架构 · 跨端共享架构 · 维护倍数 · 应用层级图 · 项目结构 · 15 大模块能力详解 |
-| [`readme-05-quickstart-api-data`](./docs/engineering/readme-05-quickstart-api-data.md) | 快速开始 / API / 数据 | 快速开始 · REST/WebSocket API 与能力目录 · 模型自动同步 · IM 多平台远程控制 · 数据库 |
-| [`readme-06-security-observability-gates`](./docs/engineering/readme-06-security-observability-gates.md) | 安全 / 可观测 / 守门 | 可观测性 · 安全设计 · 根目录守门服务 · 工程守门全表 · Commit 丢失防护 · 工程质量证据 · AI 编程协作声明 · 测试 · 部署 · CI 工作流 · 国际化 · LLM 字典化 · 守门补登与对账登记 |
-| [`readme-07-faq-roadmap-commerce`](./docs/engineering/readme-07-faq-roadmap-commerce.md) | FAQ / 路线图 / 商业 | FAQ · 贡献 · 文档导航 · 路线图(已交付/最近更新/能力清单) · 盈利模式 · Star 历史 · 多语言 README · 联系我们 |
-| [`readme-08-seo-keywords-story`](./docs/engineering/readme-08-seo-keywords-story.md) | SEO 与品牌故事 | 高密度曝光与 AI 引擎适配 · 我们的故事 · 开源共建愿景 · License · 加入我们 · 致谢 · Quick FAQ · Keywords 全表 |
-| [`readme-09-ops-tools`](./docs/engineering/readme-09-ops-tools.md) | 运维工具与留档 | 发布线收口新增对外能力与运维入口 · 运维与生产监控工具 · 守门补登(服务二进制路径等) · 尾部悬空表行留档 |
+| 文件                                                                                                     | 题域                  | 收纳的重写前 README 主要章节                                                                                                                                                |
+| -------------------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`readme-01-positioning`](./docs/engineering/readme-01-positioning.md)                                   | 定位与宣称            | 头部横幅与对标宣言 · 一键部署 · 技术栈与规模速览 · 项目宣言 · GEO 优化 · 目录 · 项目定位 · 特性总览                                                                         |
+| [`readme-02-ux-and-ai-control`](./docs/engineering/readme-02-ux-and-ai-control.md)                       | 交互与 AI 控制        | AI 流式输出体验(Phase 19) · AI 全量操控桥接 · 全局顶栏 + Plus 弹窗 · Use Cases · AI 对话决策面与运行时事实                                                                  |
+| [`readme-03-why-comparison-scenarios`](./docs/engineering/readme-03-why-comparison-scenarios.md)         | 卖点与场景            | 为什么选择 · 对标矩阵 · 谁在使用 · 5 个典型场景 · 联系我们                                                                                                                  |
+| [`readme-04-architecture-and-modules`](./docs/engineering/readme-04-architecture-and-modules.md)         | 架构与模块            | 技术栈 · 8 端架构 · 跨端共享架构 · 维护倍数 · 应用层级图 · 项目结构 · 15 大模块能力详解                                                                                     |
+| [`readme-05-quickstart-api-data`](./docs/engineering/readme-05-quickstart-api-data.md)                   | 快速开始 / API / 数据 | 快速开始 · REST/WebSocket API 与能力目录 · 模型自动同步 · IM 多平台远程控制 · 数据库                                                                                        |
+| [`readme-06-security-observability-gates`](./docs/engineering/readme-06-security-observability-gates.md) | 安全 / 可观测 / 守门  | 可观测性 · 安全设计 · 根目录守门服务 · 工程守门全表 · Commit 丢失防护 · 工程质量证据 · AI 编程协作声明 · 测试 · 部署 · CI 工作流 · 国际化 · LLM 字典化 · 守门补登与对账登记 |
+| [`readme-07-faq-roadmap-commerce`](./docs/engineering/readme-07-faq-roadmap-commerce.md)                 | FAQ / 路线图 / 商业   | FAQ · 贡献 · 文档导航 · 路线图(已交付/最近更新/能力清单) · 盈利模式 · Star 历史 · 多语言 README · 联系我们                                                                  |
+| [`readme-08-seo-keywords-story`](./docs/engineering/readme-08-seo-keywords-story.md)                     | SEO 与品牌故事        | 高密度曝光与 AI 引擎适配 · 我们的故事 · 开源共建愿景 · License · 加入我们 · 致谢 · Quick FAQ · Keywords 全表                                                                |
+| [`readme-09-ops-tools`](./docs/engineering/readme-09-ops-tools.md)                                       | 运维工具与留档        | 发布线收口新增对外能力与运维入口 · 运维与生产监控工具 · 守门补登(服务二进制路径等) · 尾部悬空表行留档                                                                       |
 
 ---
 
@@ -161,17 +162,17 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 共享 **16 个 packages**。各端是独立代码,跨端一致由设计令牌单一源
 ([`packages/design-tokens`](./packages/design-tokens))与契约对账保证。
 
-| 端 | 目录 | 技术栈 | 说明 |
-| --- | --- | --- | --- |
-| Web | `apps/web` | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui | 主站点 + 管理后台 + IDE 面板 |
-| API | `apps/api` | Fastify 5 + Drizzle ORM + PostgreSQL + Zod | 业务后端:认证/租户/计费/内容/WebSocket |
-| AI 服务 | `apps/ai-service` | FastAPI + LangGraph + LiteLLM + MCP | 模型网关、Agent 引擎、RAG、工作流 |
-| 小程序 | `apps/miniapp-taro` | Taro 4 + React + NativeWind(v3 类名) | 微信端,微信支付原生集成 |
-| 移动 App | `apps/mobile-rn` | React Native + Expo + NativeWind | 与共享屏层 `packages/app` 同源 |
-| 桌面 | `apps/desktop` | Tauri 2(Rust 薄壳)+ web 前端 | 打包态不内嵌前端产物,复用 Web 全部能力;系统托盘、自动更新 |
-| 浏览器扩展 | `apps/extension` | WXT + Chrome MV3 | Side Panel 工具集 |
-| CLI | `apps/cli` | Node.js + TypeScript | 终端助手、工具集、规范/漂移检查、Agent 引擎客户端 |
-| Capacitor 壳 | `apps/mobile-cap` | Capacitor 7 | 复用 `apps/web` 的 `out/` 静态导出打原生包 |
+| 端           | 目录                | 技术栈                                         | 说明                                                      |
+| ------------ | ------------------- | ---------------------------------------------- | --------------------------------------------------------- |
+| Web          | `apps/web`          | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui | 主站点 + 管理后台 + IDE 面板                              |
+| API          | `apps/api`          | Fastify 5 + Drizzle ORM + PostgreSQL + Zod     | 业务后端:认证/租户/计费/内容/WebSocket                    |
+| AI 服务      | `apps/ai-service`   | FastAPI + LangGraph + LiteLLM + MCP            | 模型网关、Agent 引擎、RAG、工作流                         |
+| 小程序       | `apps/miniapp-taro` | Taro 4 + React + NativeWind(v3 类名)           | 微信端,微信支付原生集成                                   |
+| 移动 App     | `apps/mobile-rn`    | React Native + Expo + NativeWind               | 与共享屏层 `packages/app` 同源                            |
+| 桌面         | `apps/desktop`      | Tauri 2(Rust 薄壳)+ web 前端                   | 打包态不内嵌前端产物,复用 Web 全部能力;系统托盘、自动更新 |
+| 浏览器扩展   | `apps/extension`    | WXT + Chrome MV3                               | Side Panel 工具集                                         |
+| CLI          | `apps/cli`          | Node.js + TypeScript                           | 终端助手、工具集、规范/漂移检查、Agent 引擎客户端         |
+| Capacitor 壳 | `apps/mobile-cap`   | Capacitor 7                                    | 复用 `apps/web` 的 `out/` 静态导出打原生包                |
 
 共享层:`packages/`(database / auth / types / ui-react / shared / api-client / design-tokens / i18n / config / …)。
 跨端契约与「改了手机端 web 没改」这一型的防治,见 [`AGENTS.md` §4 跨端样式同步铁律](./AGENTS.md);
@@ -183,14 +184,14 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 
 ### 环境要求
 
-| 依赖 | 版本 | 备注 |
-| ---- | ---- | ---- |
-| Node.js | ≥ 20(实测 24) | `packageManager` 锁 pnpm |
-| pnpm | ≥ 9 | `corepack enable` 即可 |
-| PostgreSQL | ≥ 15 + pgvector | 或直接用 compose 起 |
-| Redis | ≥ 7 | 缓存与队列 |
-| Python | ≥ 3.12 | 仅 `apps/ai-service` |
-| Docker | ≥ 24 | 推荐路径 |
+| 依赖       | 版本            | 备注                     |
+| ---------- | --------------- | ------------------------ |
+| Node.js    | ≥ 20(实测 24)   | `packageManager` 锁 pnpm |
+| pnpm       | ≥ 9             | `corepack enable` 即可   |
+| PostgreSQL | ≥ 15 + pgvector | 或直接用 compose 起      |
+| Redis      | ≥ 7             | 缓存与队列               |
+| Python     | ≥ 3.12          | 仅 `apps/ai-service`     |
+| Docker     | ≥ 24            | 推荐路径                 |
 
 ### 一条命令起全栈(Docker,推荐)
 
@@ -223,15 +224,15 @@ Windows 一键启动(9 个启动脚本)、环境变量逐项说明、REST/WebSoc
 
 ## 部署
 
-| 主题 | 入口 |
-| ---- | ---- |
-| 生产运行手册(蓝绿、回滚、证书) | [`docs/DEPLOYMENT_RUNBOOK.md`](./docs/DEPLOYMENT_RUNBOOK.md) |
-| Compose / IaC 决策与理由 | [`docs/INFRASTRUCTURE_DECISION.md`](./docs/INFRASTRUCTURE_DECISION.md) |
-| 监控与告警(邮件单通道) | [`docs/MONITORING.md`](./docs/MONITORING.md) |
-| 数据库备份与只读备份角色 | [`docs/DATABASE.md`](./docs/DATABASE.md) |
-| 凭据轮换 | [`docs/CREDENTIAL_ROTATION_RUNBOOK.md`](./docs/CREDENTIAL_ROTATION_RUNBOOK.md) |
-| CI 工作流清单与触发条件 | [`.github/workflows/`](./.github/workflows) + 本页生成块的工作流计数 |
-| 部署/构建全局锁(禁止并发构建) | [`AGENTS.md` §12 部署/构建全局锁](./AGENTS.md) |
+| 主题                           | 入口                                                                           |
+| ------------------------------ | ------------------------------------------------------------------------------ |
+| 生产运行手册(蓝绿、回滚、证书) | [`docs/DEPLOYMENT_RUNBOOK.md`](./docs/DEPLOYMENT_RUNBOOK.md)                   |
+| Compose / IaC 决策与理由       | [`docs/INFRASTRUCTURE_DECISION.md`](./docs/INFRASTRUCTURE_DECISION.md)         |
+| 监控与告警(邮件单通道)         | [`docs/MONITORING.md`](./docs/MONITORING.md)                                   |
+| 数据库备份与只读备份角色       | [`docs/DATABASE.md`](./docs/DATABASE.md)                                       |
+| 凭据轮换                       | [`docs/CREDENTIAL_ROTATION_RUNBOOK.md`](./docs/CREDENTIAL_ROTATION_RUNBOOK.md) |
+| CI 工作流清单与触发条件        | [`.github/workflows/`](./.github/workflows) + 本页生成块的工作流计数           |
+| 部署/构建全局锁(禁止并发构建)  | [`AGENTS.md` §12 部署/构建全局锁](./AGENTS.md)                                 |
 
 详细部署叙述(端口管理规则、生产部署 10 项硬性门禁、IaC 决策)在
 [`readme-06-security-observability-gates`](./docs/engineering/readme-06-security-observability-gates.md)。
@@ -275,38 +276,26 @@ node scripts/check-gate-wiring.mjs            # 「门造好了但没装车」�
 不得手填编号;并同步在 `AGENTS.md` 点名。守门全表、执行语义与补登台账见
 [`readme-06`](./docs/engineering/readme-06-security-observability-gates.md)。
 
-**版本号漂移守门** `scripts/check-version-drift.mjs`(已接 `ci.yml`):判据不是"版本号是多少",
-而是**每个对外可见的版本号都必须可追溯到某个源头** —— A 桌面 `tauri.conf.json` 与
-`apps/desktop/package.json` 双写一致;B/C `apps/mobile-rn` 的原生 `versionName` 与界面
-`APP_VERSION` 都必须取自环境变量或 `package.json`;D Capacitor 壳不得出现字面量
-`versionName`/`versionCode`;E 下载页 web/mobile/extension/cli 四端不得写死语义版本字面量;
-F 两条更新器 feed route 必须走 `resolveDesktopFeedForUpdater`(不得退回读静态快照);
-G 不得再出现 bot 裸 `git push` 到 main(该路径在 protected main 上恒被 GH006 拒,
-GITHUB_TOKEN 推送不触发 workflow ⇒ required check 永不出现,只会制造每天一次的假红)。
-自检 `node --test scripts/tests/check-version-drift.test.mjs`(13/13,每条判据都配了能被它抓住的反例)。
-立因:桌面下载页与更新器 feed 曾静默停在 0.1.54 四天,而仓库已发到 0.1.58;
-同一时期安卓侧三处版本号互相矛盾、Capacitor 壳写死 `"1.0"` 从不跟真实版本走。
-
 ---
 
 ## 文档导航
 
-| 想知道 | 去哪 |
-| ------ | ---- |
-| README 拆出的九份原文收纳件 | [`docs/engineering/`](./docs/engineering)(readme-01 ~ readme-09,见上文总表) |
-| 架构总览 | [`docs/architecture.md`](./docs/architecture.md) |
-| API 参考 / 认证 | [`docs/API_REFERENCE.md`](./docs/API_REFERENCE.md) · [`docs/AUTHENTICATION.md`](./docs/AUTHENTICATION.md) |
-| 数据库与迁移 | [`docs/DATABASE.md`](./docs/DATABASE.md) |
-| AI 服务与模型接入 | [`docs/AI_SERVICE.md`](./docs/AI_SERVICE.md) · [`docs/LLM_SETUP.md`](./docs/LLM_SETUP.md) |
-| 多端与共享层 | [`docs/MULTI_END.md`](./docs/MULTI_END.md) · [`docs/PACKAGES.md`](./docs/PACKAGES.md) |
-| UI 规范 | [`docs/UI_GUIDELINES.md`](./docs/UI_GUIDELINES.md) |
-| i18n 治理 | [`docs/I18N.md`](./docs/I18N.md) |
-| 测试 / 性能 / 安全 | [`docs/TESTING.md`](./docs/TESTING.md) · [`docs/PERFORMANCE.md`](./docs/PERFORMANCE.md) · [`docs/SECURITY.md`](./docs/SECURITY.md) |
-| 监控 / 发布 / 事故复盘 | [`docs/MONITORING.md`](./docs/MONITORING.md) · [`docs/RELEASE.md`](./docs/RELEASE.md) · [`docs/INCIDENTS.md`](./docs/INCIDENTS.md) |
-| SDK 与 CLI | [`docs/SDK.md`](./docs/SDK.md) · [`docs/CLI.md`](./docs/CLI.md) |
-| 贡献流程 | [`docs/CONTRIBUTING.md`](./docs/CONTRIBUTING.md) · [`CONTRIBUTING.md`](./CONTRIBUTING.md) |
-| 常见问题 | [`docs/FAQ.md`](./docs/FAQ.md) · [`docs/TROUBLESHOOTING.md`](./docs/TROUBLESHOOTING.md) |
-| 学习资产(工作流反馈来源) | [`docs/learning-assets.md`](./docs/learning-assets.md) |
+| 想知道                      | 去哪                                                                                                                               |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| README 拆出的九份原文收纳件 | [`docs/engineering/`](./docs/engineering)(readme-01 ~ readme-09,见上文总表)                                                        |
+| 架构总览                    | [`docs/architecture.md`](./docs/architecture.md)                                                                                   |
+| API 参考 / 认证             | [`docs/API_REFERENCE.md`](./docs/API_REFERENCE.md) · [`docs/AUTHENTICATION.md`](./docs/AUTHENTICATION.md)                          |
+| 数据库与迁移                | [`docs/DATABASE.md`](./docs/DATABASE.md)                                                                                           |
+| AI 服务与模型接入           | [`docs/AI_SERVICE.md`](./docs/AI_SERVICE.md) · [`docs/LLM_SETUP.md`](./docs/LLM_SETUP.md)                                          |
+| 多端与共享层                | [`docs/MULTI_END.md`](./docs/MULTI_END.md) · [`docs/PACKAGES.md`](./docs/PACKAGES.md)                                              |
+| UI 规范                     | [`docs/UI_GUIDELINES.md`](./docs/UI_GUIDELINES.md)                                                                                 |
+| i18n 治理                   | [`docs/I18N.md`](./docs/I18N.md)                                                                                                   |
+| 测试 / 性能 / 安全          | [`docs/TESTING.md`](./docs/TESTING.md) · [`docs/PERFORMANCE.md`](./docs/PERFORMANCE.md) · [`docs/SECURITY.md`](./docs/SECURITY.md) |
+| 监控 / 发布 / 事故复盘      | [`docs/MONITORING.md`](./docs/MONITORING.md) · [`docs/RELEASE.md`](./docs/RELEASE.md) · [`docs/INCIDENTS.md`](./docs/INCIDENTS.md) |
+| SDK 与 CLI                  | [`docs/SDK.md`](./docs/SDK.md) · [`docs/CLI.md`](./docs/CLI.md)                                                                    |
+| 贡献流程                    | [`docs/CONTRIBUTING.md`](./docs/CONTRIBUTING.md) · [`CONTRIBUTING.md`](./CONTRIBUTING.md)                                          |
+| 常见问题                    | [`docs/FAQ.md`](./docs/FAQ.md) · [`docs/TROUBLESHOOTING.md`](./docs/TROUBLESHOOTING.md)                                            |
+| 学习资产(工作流反馈来源)    | [`docs/learning-assets.md`](./docs/learning-assets.md)                                                                             |
 
 英文版见 [`README.en.md`](./README.en.md);日文/韩文版在 `README.ja.md` / `README.ko.md`
 (数字以本页与 `pnpm doc:numbers` 为准)。
@@ -5657,7 +5646,17 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4415 API 路由 / 595 数
 - **顶层敏感文档仅管理员可见**(14 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend / I18N-COMPLETION-PLAN
 | [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国际化完成计划(历史规划)                                             |
 **11 个 i18n 工具链脚本**(`scripts/`): apply-brand-glossary.mjs / apply-i18n-translations.mjs / apply-translation-fallback.mjs / deep-i18n-audit.mjs / export-untranslated-i18n.mjs / fix-i18n-deep.mjs / scan-hardcoded-zh.mjs / scan-i18n-zh-residue.mjs / translate-i18n-batch.mjs / analyze-unique-i18n-values.mjs / verify-i18n.mjs
+**版本号漂移守门** `scripts/check-version-drift.mjs`(已接 `ci.yml`):判据不是"版本号是多少",
+而是**每个对外可见的版本号都必须可追溯到某个源头** —— A 桌面 `tauri.conf.json` 与
+`apps/desktop/package.json` 双写一致;B/C `apps/mobile-rn` 的原生 `versionName` 与界面
+`APP_VERSION` 都必须取自环境变量或 `package.json`;D Capacitor 壳不得出现字面量
+`versionName`/`versionCode`;E 下载页 web/mobile/extension/cli 四端不得写死语义版本字面量;
+F 两条更新器 feed route 必须走 `resolveDesktopFeedForUpdater`(不得退回读静态快照);
+G 不得再出现 bot 裸 `git push` 到 main(该路径在 protected main 上恒被 GH006 拒,
 GITHUB_TOKEN 推送不触发 workflow ⇒ required check 永不出现,只会制造每天一次的假红);
 H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号,而是**版本号背后的包还能不能被
 国内用户拿到**:该档把 ≈205MB 的 WebView2 运行时打进安装包(实测 exe 225,269,867 字节),
 结构性超过 Gitee 单文件 100MB 硬上限 ⇒ 0.1.74 的 Gitee release 里只有 `.exe.sig`、没有 `.exe`。
+自检 `node --test scripts/tests/check-version-drift.test.mjs`(13/13,每条判据都配了能被它抓住的反例)。
+立因:桌面下载页与更新器 feed 曾静默停在 0.1.54 四天,而仓库已发到 0.1.58;
+同一时期安卓侧三处版本号互相矛盾、Capacitor 壳写死 `"1.0"` 从不跟真实版本走。

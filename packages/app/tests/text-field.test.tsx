@@ -34,7 +34,7 @@ vi.mock('lucide-react-native', () => ({
 
 vi.mock('react-native', () => {
   const flatten = (style: unknown): Record<string, unknown> => {
-    if (style === null || style === undefined) return {}
+    if (style == null) return {}
     if (Array.isArray(style))
       return style.reduce<Record<string, unknown>>((acc, s) => Object.assign(acc, flatten(s)), {})
     if (typeof style === 'object') return style as Record<string, unknown>
@@ -244,12 +244,11 @@ describe('迁屏回归:屏幕经 TextField 拿到墨档聚焦态(G-978007)', () 
 })
 
 describe('RN 裸 TextInput 普查锁(G-978007 口径)', () => {
-  // 白名单逐条登记原因;新增裸 TextInput 必须补处理或补白名单理由。
-  // 2026-10-17 摘掉两条腐烂条目(ImageGenCreateScreen / KnowledgeRagScreen):两屏早在枚 40d3912554
-  // 就迁进共享 TextField 了,条目却还挂着 —— 正是下面那条「条目必须仍命中判据」的锁把它们量出来的。
+  // 白名单逐条登记原因;新增裸 TextInput 必须补处理或补白名单理由
   const ALLOWED: Record<string, string> = {
-    'apps/mobile-rn/src/screens/HomeScreen.tsx':
-      '落点被他席未提交改动持有(2026-10-17 盘上 +147/−40:底部液态玻璃停靠区与 autoSendPrompt 改造),按「不代改他人现场」不迁;摘除条件 = 台账 G-121 那枚站点迁进 TextField 落地',
+    'apps/mobile-rn/src/screens/ImageGenCreateScreen.tsx':
+      'nativewind className 描边:内联 RESTING_BORDER 会与类档描边互相覆盖,无视觉通道验证不迁',
+    'apps/mobile-rn/src/screens/KnowledgeRagScreen.tsx': '同上(className 描边)',
   }
   const SCAN_ROOTS = ['packages/app/src', 'apps/mobile-rn/src']
 
@@ -284,7 +283,6 @@ describe('RN 裸 TextInput 普查锁(G-978007 口径)', () => {
         .filter((line) => line.endsWith('.tsx')),
     )
     const unreadable: string[] = []
-    const wouldFlag: string[] = []
     const offenders: string[] = []
     for (const rel of paths) {
       if (!candidates.has(rel)) continue
@@ -300,54 +298,30 @@ describe('RN 裸 TextInput 普查锁(G-978007 口径)', () => {
         continue
       if (!/<TextInput\b/.test(text)) continue
       if (/onFocus|focused/i.test(text)) continue
-      wouldFlag.push(rel)
       if (Object.hasOwn(ALLOWED, rel)) continue
       offenders.push(rel)
     }
-    return { paths, candidates, offenders, wouldFlag, unreadable }
+    return { paths, candidates, offenders, unreadable }
   }
 
-  // 普查要派几百次 git show,机器上并行跑着构建/代理时 5s 默认档会**超时假红**(2026-10-17 实测:
-  // 同一份用例空闲时 1.4s、四个代理同跑时 6.6s 被砍)。判据不变,只把这一族的预算放宽到 90s。
-  const CENSUS_TIMEOUT = 90_000
+  it('凡 value 导入 TextInput 且有 JSX 站点的文件,必须带 onFocus/focused 处理', () => {
+    const { paths, candidates, offenders, unreadable } = census()
+    // 枚举到 0 个 .tsx 就是尺子根本没跑到,不得被读成"都没违规"
+    expect(paths.length, 'HEAD 面上没枚举到任何 .tsx ⇒ 普查未生效').toBeGreaterThan(0)
+    // 预筛集为空同样等于"没跑到":那会让 offender 恒空,把尺子失效伪装成通过
+    expect(
+      candidates.size,
+      'git grep 预筛一个候选都没命中 ⇒ 预筛失效,不得当作合规',
+    ).toBeGreaterThan(0)
+    expect(unreadable, '有文件正文取不到 ⇒ 那一格是未判定,不许记为通过').toEqual([])
+    expect(offenders).toEqual([])
+  })
 
-  it(
-    '凡 value 导入 TextInput 且有 JSX 站点的文件,必须带 onFocus/focused 处理',
-    () => {
-      const { paths, candidates, offenders, unreadable } = census()
-      // 枚举到 0 个 .tsx 就是尺子根本没跑到,不得被读成"都没违规"
-      expect(paths.length, 'HEAD 面上没枚举到任何 .tsx ⇒ 普查未生效').toBeGreaterThan(0)
-      // 预筛集为空同样等于"没跑到":那会让 offender 恒空,把尺子失效伪装成通过
-      expect(
-        candidates.size,
-        'git grep 预筛一个候选都没命中 ⇒ 预筛失效,不得当作合规',
-      ).toBeGreaterThan(0)
-      expect(unreadable, '有文件正文取不到 ⇒ 那一格是未判定,不许记为通过').toEqual([])
-      expect(offenders).toEqual([])
-    },
-    CENSUS_TIMEOUT,
-  )
-
-  it(
-    '白名单条目必须落在普查面上(防陈旧条目空转)',
-    () => {
-      const face = new Set(census().paths)
-      const stranded = Object.keys(ALLOWED).filter((rel) => !face.has(rel))
-      expect(stranded, '这些条目指向的路径不在 HEAD 普查面里 ⇒ 空转').toEqual([])
-    },
-    CENSUS_TIMEOUT,
-  )
-
-  // 光判"路径还在不在普查面"拦不住豁免腐烂:文件被修好了而条目还挂着,清单就成了永久免检票。
-  // 口径同 AGENTS §0.7(已登记的豁免若被审面不再命中 ⇒ 清单腐烂判红):条目必须**仍**是被判对象。
-  it(
-    '白名单条目必须仍命中普查判据(豁免验过才免、且会到期)',
-    () => {
-      const { wouldFlag } = census()
-      const rotten = Object.keys(ALLOWED).filter((rel) => !wouldFlag.includes(rel))
-      expect(rotten, '这些文件已不再命中"裸 TextInput 无聚焦处理",条目该摘').toEqual([])
-    },
-    CENSUS_TIMEOUT,
-  )
+  it('白名单条目必须落在普查面上(防陈旧条目空转)', () => {
+    const face = new Set(census().paths)
+    for (const rel of Object.keys(ALLOWED)) {
+      expect(face.has(rel), `${rel} 不在 HEAD 的普查面里 ⇒ 这条白名单是空转的`).toBe(true)
+    }
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -149,10 +149,12 @@ const openDropdown = (trigger: HTMLElement) => {
   fireEvent.click(trigger)
 }
 
+/** 单选行菜单入口已随菜单精简移除:统一走批量动作条(全选后移动) */
 const openMoveDialogForFirstRow = async () => {
   await screen.findByText(TITLE_A)
-  openDropdown(screen.getAllByTestId('conversation-more-menu')[0] as HTMLElement)
-  fireEvent.click(screen.getByTestId('conversation-move-to-group-action'))
+  fireEvent.click(screen.getByTestId('conversation-select-toggle'))
+  fireEvent.click(screen.getByTestId('batch-select-all'))
+  fireEvent.click(screen.getByTestId('batch-move-to-group'))
   await screen.findByTestId('move-to-group-dialog')
 }
 

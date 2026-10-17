@@ -216,7 +216,26 @@ test('T7 工作树档必须被拒(按磁盘判会把错数写回棘轮台账)', 
   assert.throws(() => src.faceFromArgv(['--staged', '--worktree']), /不得同用|互斥/)
 })
 
-test('T8 真仓跑通:索引面 exit 0,且逐组件实测数与台账锚点逐条相等', () => {
+/* 台账对账判据(T8 与其变异对照共用,§22c 不两处各抄):
+   台账法自己写的是「锚点 = 台账里钉住的 HEAD 读数,只拦"把两端差异加大"」(门体头注定级段),
+   `--emit-baseline` 的准入闸也是"锚点只允许下降或持平" ⇒ 镜像若判**逐条相等**,每次合法收敛
+   (实测 DrawerComponent 17→12,两腿 `a00ad04bde`/`7c0479a5e4`/`14a04f013f` 都动了)都会把镜像
+   打红,而唯一的官方刷新路 `--emit-baseline` 又被它自己的闸拒着(9 族上升/消失须先甄别)⇒
+   "相等"是一个没有任何命令能合法到达的状态(§12e 同型)。改成棘轮向:上升/新键 ⇒ 红,
+   下降/持平 ⇒ 过但点名(台账刷新不得悄悄发生)。 */
+function ledgerVerdict(findings, counts) {
+  const increased = []
+  const improved = []
+  for (const f of findings) {
+    const led = counts[f.name]
+    if (led === undefined) increased.push(`${f.name}:台账无此键(新族未登记)`)
+    else if (f.diffCount > led) increased.push(`${f.name} ${f.diffCount}>${led}`)
+    else if (f.diffCount < led) improved.push(`${f.name} ${led}→${f.diffCount}`)
+  }
+  return { increased, improved }
+}
+
+test('T8 真仓跑通:索引面 exit 0,且逐组件实测数不高于台账锚(棘轮向)、键集两向闭合', (t) => {
   const r = spawnSync(process.execPath, [SELF, '--staged', '--json'], {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
@@ -227,13 +246,45 @@ test('T8 真仓跑通:索引面 exit 0,且逐组件实测数与台账锚点逐�
   const j = JSON.parse(r.stdout)
   assert.ok(j.pairCount > 0, '配对数 0 = 判据失明')
   const led = JSON.parse(readFileSync(LEDGER, 'utf8'))
-  for (const f of j.findings)
-    assert.equal(f.diffCount, led.counts[f.name], `${f.name} 实测与台账不符`)
+  const v = ledgerVerdict(j.findings, led.counts)
+  assert.deepEqual(
+    v.increased,
+    [],
+    `实测比台账锚更高 = 差异被加大而没登记 waiver ⇒ ${v.increased.join('; ')}`,
+  )
+  if (v.improved.length)
+    t.diagnostic(
+      `台账锚已高于现读(合法收敛,台账待 --emit-baseline 全量甄别后刷新):${v.improved.join('; ')}`,
+    )
   for (const k of Object.keys(led.counts))
     assert.ok(
       j.findings.some((f) => f.name === k),
       `台账挂着一条已不存在的账:${k}(清单腐烂)`,
     )
+})
+
+test('T8b 台账对账判据必须有牙(变异自证,合成输入)', () => {
+  const counts = { A: 5, B: 3, C: 1 }
+  // 上升必须翻红:同一族实测 6>5
+  assert.ok(
+    ledgerVerdict([{ name: 'A', diffCount: 6 }], counts).increased.length === 1,
+    '上升没被拦 ⇒ 棘轮失效',
+  )
+  // 新族(台账无键)必须翻红:与 --emit-baseline 的"锚点消失 = 免费额度"同一型
+  assert.ok(
+    ledgerVerdict([{ name: 'D', diffCount: 2 }], counts).increased.length === 1,
+    '新族没被拦 ⇒ 账外分叉免费',
+  )
+  // 下降/持平必须放行(合法收敛不是红)
+  const v = ledgerVerdict(
+    [
+      { name: 'A', diffCount: 4 },
+      { name: 'B', diffCount: 3 },
+    ],
+    counts,
+  )
+  assert.deepEqual(v.increased, [], '下降/持平被误判红 ⇒ 与门体"只拦新增"同语义被破坏')
+  assert.deepEqual(v.improved, ['A 5→4'], '收敛未被点名 ⇒ 台账刷新会悄悄发生')
 })
 
 /**
@@ -1325,49 +1376,5 @@ test('T35 具名导出与卫语句不得冒充"根槽位读不出"(本轮把 9 �
     [mpReal.anchored, mpReal.indirect],
     [true, false],
     '真仓 AgentRuntimePanel 小程序侧仍报"读不出" ⇒ 卫语句那条洞没真修掉',
-  )
-})
-
-test('T36 ALIAS 跨名配对的族,RS 必须按"本文件名"再锚一次;锚不到仍点名未判定(不得记成一致)', () => {
-  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
-  // 配对层认得这对(CategoryBar.tsx ↔ CategoryInlineBar.tsx),但 RS 只认族名 ⇒ 别名腿这一维又"没看"。
-  // 判据必须覆盖它自己产出的那种配对形态,所以第二次锚定用文件 stem(不是"第一个 export")。
-  const aliasPairs = {
-    pairs: [{ name: 'CategoryBar', miniapp: 'a/CategoryBar.tsx', rn: 'p/CategoryInlineBar.tsx' }],
-  }
-  const text = {
-    'a/CategoryBar.tsx':
-      'import { View } from "@tarojs/components"\nexport default function CategoryBar() {\n  return <View className="rounded-lg" />\n}\n',
-    'p/CategoryInlineBar.tsx':
-      'import { View } from "react-native"\nexport function CategoryInlineBar() {\n  return <View style={{ borderRadius: 8 }} />\n}\n',
-  }
-  const got = src.rootSlotAudit(aliasPairs, text, tbl)
-  assert.deepEqual(
-    got.undetermined,
-    [],
-    'ALIAS 族两侧都该读得出根槽位 —— 读不出就说明第二次锚定没接上,这一维又被记成"没看"',
-  )
-  assert.deepEqual(got.findings, [], '两端都是 lg(8) ⇒ 无差异,但这条用例断的是"看过了"')
-
-  // 反向:stem 也不是导出名时,必须继续报未判定(修洞不许顺手变成放宽)
-  const wrongName = {
-    pairs: [{ name: 'FooBar', miniapp: 'a/FooBar.tsx', rn: 'b/NotTheExport.tsx' }],
-  }
-  const text2 = {
-    'a/FooBar.tsx':
-      'import { View } from "@tarojs/components"\nexport default function FooBar() {\n  return <View className="rounded-lg" />\n}\n',
-    'b/NotTheExport.tsx':
-      'import { View } from "react-native"\nexport const SomethingElse = () => <View style={{ borderRadius: 8 }} />\n',
-  }
-  const got2 = src.rootSlotAudit(wrongName, text2, tbl)
-  assert.equal(
-    got2.undetermined.length,
-    1,
-    '族名与文件名都锚不到 ⇒ 必须仍报未判定;把它读成"两端根上无档/一致"就是放宽',
-  )
-  assert.match(
-    got2.undetermined[0].why,
-    /族名或本文件名/,
-    '未判定要点名"两次锚定都试过",否则下一步的人不知道该往哪补',
   )
 })

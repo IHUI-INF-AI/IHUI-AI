@@ -65,6 +65,8 @@ function DropdownItems({ items }: { items: DropdownItem[] }) {
               <DropdownMenu.Portal>
                 <DropdownMenu.SubContent
                   sideOffset={4}
+                  // 与 ui/dropdown-menu 同款根治:钳制时留 8px,不贴死视口边缘
+                  collisionPadding={8}
                   className={cn(
                     'z-popover min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md',
                     'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-(--duration-unified) ease-unified',
@@ -114,6 +116,8 @@ export function Dropdown({
           align={align}
           side={side}
           sideOffset={4}
+          // 与 ui/dropdown-menu 同款根治:钳制时留 8px,不贴死视口边缘
+          collisionPadding={8}
           className={cn(
             'z-popover min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md',
             'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-(--duration-unified) ease-unified',

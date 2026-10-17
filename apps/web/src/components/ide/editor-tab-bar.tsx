@@ -224,9 +224,9 @@ export function EditorTabBar() {
         <div
           className="fixed z-popover min-w-[160px] rounded-md border border-border bg-popover py-1 text-xs shadow-md"
           style={{
-            // 视口 clamp:右键菜单 5 项约 170px 高,防止贴近屏幕边缘时溢出
-            left: Math.min(menu.x, window.innerWidth - 176),
-            top: Math.min(menu.y, window.innerHeight - 180),
+            // 视口 clamp:右键菜单 5 项约 170px 高;2026-10-17 根治为四边 clamp(原只防右/下,左/上贴边)
+            left: Math.max(8, Math.min(menu.x, window.innerWidth - 176)),
+            top: Math.max(8, Math.min(menu.y, window.innerHeight - 180)),
           }}
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => {

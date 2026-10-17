@@ -33,7 +33,8 @@ import { execFileSync } from 'node:child_process'
 // DevEnv 根的唯一出口(§15b;`re-home-junctions.mjs` / `check-c-drive-pollution.mjs` /
 // `pg-restore-drill.mjs` 复用同一份)。**不再**由本文件自取工作树盘符首字符拼 `X:\DevEnv`:
 // 那是同一件事的第三份独立实现 —— 它碰巧与工作树深度无关,但"碰巧对"不等于"按同一个出口推"。
-// 未设 `IHUI_DEVENV_ROOT` 时两者逐字同值(本机同为 `G:\DevEnv\monitor\prometheus`)。
+// 未设 `IHUI_DEVENV_ROOT` 时落点按共用出口的双形态推导(G-814433):仓内 `.DevEnv` 存在则用仓内,
+// 否则回落 `<盘根>\DevEnv` —— 搬迁前后两条机器各自同值,机器布局是现读事实,不写死盘符。
 import { devEnvRoot } from './seal-c-root-stray.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -64,6 +65,7 @@ function parseArgs(argv) {
  * 导出为纯函数,使"改写是否只动了那一处"可被构造面证明,而不必真去改生产文件。
  */
 export function deriveLiveConfig(srcYaml, repoRulesPath) {
+  const abs = repoRulesPath.replace(/\\/g, '\\')
   // 占位符守卫:本派生器"逐字搬",曾经把仓库里一行 `password: __REPLACE_WITH_DEPLOY_SECRET__`
   // 原样烘进线上抓取配置 ⇒ 带占位符当口令去访问启用 basic_auth 的 exporter ⇒ 恒 401,
   // 而主机磁盘/内存告警长期哑、账面全绿。派生器只搬不看内容,就是这一型的成因。
@@ -84,34 +86,21 @@ export function deriveLiveConfig(srcYaml, repoRulesPath) {
   }
   const lines = srcYaml.split(/\r?\n/)
   const out = []
-  // 派生器的老写法把 rule_files **整段替换成一条**绝对路径 —— 于是仓库里一加第二个
-  // 规则文件(alerts-ai.yml)就被打回相对路径,Prometheus 在运行副本目录找不到它,
-  // 而 reload 仍返回 200、账面"热加载成功",规则组却静默不装载(比报错更贵:没人知道)。
-  // 现在逐条映射成绝对路径,列表长度与仓库同源;注释与其余文本逐字保留。
-  const rulesDir = repoRulesPath.replace(/[\\/][^\\/]+$/, '')
-  const absolutize = (p) => (/^[A-Za-z]:[\\/]/.test(p) || p.startsWith('/') ? p : `${rulesDir}\\${p.replace(/\//g, '\\')}`)
-  const mapped = []
   let inBlock = false
-  let blockAt = -1
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     if (/^rule_files:\s*$/.test(line)) {
       inBlock = true
-      blockAt = out.length
-      out.push(line)
+      out.push(line, `  - '${abs}'`)
       continue
     }
     if (inBlock) {
-      const item = line.match(/^\s*-\s+['"]([^'"]+)['"]\s*$/)
-      if (item) { mapped.push(absolutize(item[1])); continue }
-      if (/^\s+#/.test(line)) { out.push(line); continue } // 块内缩进注释:保留,不算出块
+      if (/^\s*-\s/.test(line)) continue // 吃掉原列表项
       inBlock = false
     }
     out.push(line)
   }
-  for (let k = 0; k < mapped.length; k++) out.splice(blockAt + 1 + k, 0, `  - '${mapped[k]}'`)
-  const missing = mapped.length === 0 || blockAt < 0
-  if (missing) throw new Error('prometheus.yml 里找不到 rule_files 列表 —— 拒绝产出一份没有规则的文件')
+  if (!out.some((l) => l.includes(abs))) throw new Error('prometheus.yml 里找不到 rule_files: 段 —— 拒绝产出一份没有规则的文件')
   return out.join('\n') + (srcYaml.endsWith('\n') ? '\n' : '')
 }
 

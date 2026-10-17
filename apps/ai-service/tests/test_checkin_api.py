@@ -81,6 +81,19 @@ class FakeStore:
     # --- 账号 ---
 
     async def create_account(self, owner, name, jwt, device_map, account_group="", platform="trae"):
+        # 镜像真实现去重语义(2026-10-17):同 owner+platform+身份uid ⇒ 合并刷新既有行
+        identity = checkin_store.derive_account_identity(platform, jwt, device_map) or ""
+        if identity:
+            for acc in self.accounts.values():
+                if (
+                    acc["owner_user_id"] == owner
+                    and acc["platform"] == platform
+                    and acc.get("identity_key") == identity
+                ):
+                    acc["jwt"] = jwt
+                    acc["device_map"] = dict(device_map)
+                    acc["updated_at"] = datetime.now(UTC)
+                    return self._account_out(acc)
         for acc in self.accounts.values():
             if acc["owner_user_id"] == owner and acc["name"] == name:
                 raise ValueError(f"账号名已存在: {name}")
@@ -94,6 +107,7 @@ class FakeStore:
             "device_map": dict(device_map),
             "group": account_group,
             "platform": platform,
+            "identity_key": identity,
             "enabled": True,
             "created_at": datetime.now(UTC),
             "updated_at": datetime.now(UTC),
@@ -451,11 +465,54 @@ async def test_create_and_list_masked(client, fake_store):
 
 
 async def test_create_duplicate_name_conflict(client, fake_store):
-    jwt = make_jwt()
-    resp1 = await client.post("/api/checkin/accounts", json={"name": "dup", "jwt": jwt})
+    """身份不同的同名录入仍 409(名字约束兜底);同身份不同名走合并(见下)。"""
+    resp1 = await client.post(
+        "/api/checkin/accounts", json={"name": "dup", "jwt": make_jwt(user_id="u-1001")}
+    )
     assert resp1.status_code == 200
-    resp2 = await client.post("/api/checkin/accounts", json={"name": "dup", "jwt": jwt})
+    resp2 = await client.post(
+        "/api/checkin/accounts", json={"name": "dup", "jwt": make_jwt(user_id="u-9999")}
+    )
     assert resp2.status_code == 409
+
+
+async def test_create_same_account_different_name_merges(client, fake_store):
+    """去重(2026-10-17 李总报障):同一真实账号(同身份 uid)换个名重复录入
+    ⇒ 合并刷新既有行(id 不变、设备态以本次为准),绝不建第二行。"""
+    jwt = make_jwt()
+    resp1 = await client.post("/api/checkin/accounts", json={"name": "旧名", "jwt": jwt})
+    assert resp1.status_code == 200
+    first = resp1.json()
+
+    resp2 = await client.post(
+        "/api/checkin/accounts",
+        json={"name": "另一个名字", "jwt": jwt, "device_map": {"nickname": "fresh"}},
+    )
+    assert resp2.status_code == 200
+    second = resp2.json()
+    assert second["id"] == first["id"]
+    assert second["device_map"] == {"nickname": "fresh"}
+
+    body = (await client.get("/api/checkin/accounts")).json()
+    assert body["count"] == 1
+    assert body["accounts"][0]["id"] == first["id"]
+
+
+def test_derive_account_identity_platforms():
+    """身份派生纯函数:各平台 uid 真源与兜底顺序(去重键的真源)。"""
+    # trae:jwt payload data.id
+    assert checkin_store.derive_account_identity("trae", make_jwt(user_id="u-77"), {}) == "u-77"
+    # qoder:JWT sub 优先,opaque token 退 device_map.uid(桌面捕获落库)
+    qjwt = f"{_b64url(b'{}')}.{_b64url(json.dumps({'sub': 'q-1'}).encode())}.sig"
+    assert checkin_store.derive_account_identity("qoder", qjwt, {}) == "q-1"
+    assert checkin_store.derive_account_identity("qoder", "opaque-token", {"uid": "q-2"}) == "q-2"
+    # workbuddy:网页 Cookie 串(非 JWT)退 device_map.uid
+    assert checkin_store.derive_account_identity("workbuddy", "cookie-str", {"uid": "w-1"}) == "w-1"
+    # minimax:token opaque,uid 只在 device_map
+    assert checkin_store.derive_account_identity("minimax", "mmoat_x", {"user_id": 42}) == "42"
+    # 派生不出 ⇒ None(退回名字约束,不影响录入)
+    assert checkin_store.derive_account_identity("trae", "not-a-jwt", {}) is None
+    assert checkin_store.derive_account_identity("minimax", "mmoat_x", {}) is None
 
 
 async def test_create_import_probe_records_already_checked(client, fake_store, monkeypatch):
@@ -507,7 +564,7 @@ async def test_daily_status_probe_syncs_already_checked(client, fake_store, monk
         "owner-a", "已签号", make_jwt(), {"u-1001": {"device_id": "d1"}}, platform="trae"
     )
     acc2 = await store.create_account(
-        "owner-a", "未签号", make_jwt(), {"u-2002": {"device_id": "d2"}}, platform="trae"
+        "owner-a", "未签号", make_jwt(user_id="u-2002"), {"u-2002": {"device_id": "d2"}}, platform="trae"
     )
     acc3 = await store.create_account(
         "owner-a", "Qoder号", "opaque-token", {}, platform="qoder"
@@ -599,7 +656,11 @@ async def test_probe_platform_parsers(monkeypatch):
     """
     from app.services import (
         checkin_minimax as mm_mod,
+    )
+    from app.services import (
         checkin_qoder as qoder_mod,
+    )
+    from app.services import (
         checkin_workbuddy as wb_mod,
     )
 
