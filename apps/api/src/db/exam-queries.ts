@@ -17,6 +17,8 @@ import {
   type ExamQuestion,
   type ExamRecord,
 } from '@ihui/database'
+// ihui_exam_score_sum/count:db 层不持有 fastify 实例,走模块级桥接函数打点
+import { recordExamScore } from '../plugins/business-metrics.js'
 
 // =============================================================================
 // Exam Categories
@@ -606,6 +608,8 @@ export async function gradeSubjectiveAnswers(
     })
     .where(eq(examRecords.id, recordId))
 
+  // ihui_exam_score_sum/score_count:与路由层判分收口同口径成对累加
+  recordExamScore(totalScore)
   return { score: totalScore, isPassed, status: 'submitted' }
 }
 

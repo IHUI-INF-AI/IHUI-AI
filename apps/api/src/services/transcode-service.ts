@@ -20,6 +20,7 @@ import { existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { env } from 'node:process'
 import { randomUUID } from 'node:crypto'
+import { recordHlsTranscodeSample } from '../plugins/business-metrics.js'
 
 // =============================================================================
 // 类型定义
@@ -275,6 +276,14 @@ export async function startTranscodeJob(jobId: string): Promise<TranscodeJob> {
           job.outputSize = stats.size
           job.status = 'completed'
           job.progress = 100
+          // 观测接线(2026-10-17):转码耗时进 business_hls_transcode_seconds 直方图
+          // (此前定义齐全零调用;桥接内部 safeRecord 永不抛,不会带崩转码收口)
+          if (job.startedAt) {
+            recordHlsTranscodeSample(
+              jobId,
+              (job.completedAt.getTime() - job.startedAt.getTime()) / 1000,
+            )
+          }
         } catch {
           job.status = 'failed'
           job.error = '输出文件不存在'
