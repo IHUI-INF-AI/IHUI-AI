@@ -14,14 +14,6 @@ rust-version = "1.77"
 name = "ihui_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
-[features]
-# CDP 自动化测试专用(默认关,生产 release 不带):配合 TAURI_CONFIG 给 main 窗口
-# 与动态创建的窗口注入同一组 browser args —— WebView2 同一 user-data-folder 下
-# 第二个环境的 options 与运行中 browser 不一致会 0x8007139F 拒建(2026-10-13 实
-# 锤),测试实例必须让所有窗口 env args 逐字节一致才能驱动 CDP 自测。
-# 用法:IHUI_CDP_TEST_BROWSER_ARGS="<args>" cargo build --features cdp-test
-cdp-test = []
-
 [build-dependencies]
 tauri-build = { version = "2.6", features = [] }
 # 2026-10-09 本机故障规避(同 [dependencies] 内注释):tauri-build ⇒ schemars 0.8.x
