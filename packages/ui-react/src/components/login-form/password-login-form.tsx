@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, RefreshCw, Eye, EyeOff, AlertTriangle } from 'lucide-react'
+import { Loader2, RefreshCw, Eye, EyeOff, AlertTriangle, Check } from 'lucide-react'
 
 import { Button } from '../button'
 import { IconButton } from '../icon-button'
@@ -17,8 +17,10 @@ import { AccountHistoryInput } from './account-history-input'
 import type { ApiResult, LoginApiClient, LoginResult } from './types'
 import {
   saveRememberedCredentials,
+  saveRememberedCredentialsWithPassword,
   loadRememberedCredentials,
   loadAutoLogin,
+  saveAutoLogin,
   saveLoginHistory,
 } from '../../lib/remember-credentials'
 
@@ -111,17 +113,28 @@ export function PasswordLoginForm({
   enableCredentialPersistence = false,
   canAutoSubmitCredentials,
 }: PasswordLoginFormProps) {
-  // 启用持久化时,从 localStorage 预读记住的账号密码 + 自动登录标志
+  // 2026-10-17 用户决策:在支持浏览器自带记住密码的前提下,项目自身也要"记住密码"免重填。
+  // 启用持久化时,从 localStorage 预读记住的账号 + 口令(keepPassword=true 把盘上
+  // 口令字段交回调用方,自动登录回填;用户未勾选"记住密码"时盘上口令为空,
+  // 账号回填仍走默认路径保证历史下拉可用)。
   const remembered = React.useMemo(
-    () => (enableCredentialPersistence ? loadRememberedCredentials() : null),
+    () => (enableCredentialPersistence ? loadRememberedCredentials({ keepPassword: true }) : null),
     [enableCredentialPersistence],
   )
   const [account, setAccount] = React.useState(remembered?.account ?? '')
   const [password, setPassword] = React.useState(remembered?.password ?? '')
-  // 记住账号回填恒开:每次登录成功都写 ihui-remember-credentials(只含账号),与"记住密码"
-  // 彻底解耦 —— 旧实现里 rememberPassword 未勾选就 clearRememberedCredentials(),会把回填
-  // 记录清掉,导致账号回填"有时不存"。口令永不落盘(安全收口),所以这里只读账号回填。
-  // autoLogin 标志仅供下方自动提交闸门读取:口令不落盘使其恒短路,保留作跨端判据落点。
+  // "记住密码"勾选:默认值取自盘上口令是否存在(显式记住密码形态 = 盘上有口令),
+  // 让勾选状态与落盘内容保持一致。用户取消勾选时不删盘上口令(避免把账号历史下拉
+  // 数据源清掉,账号回填"有时不存"的旧 bug 不复现);勾选则下次登录成功后
+  // 调 `saveRememberedCredentialsWithPassword` 把口令一起写盘。
+  const [rememberPassword, setRememberPassword] = React.useState(
+    remembered?.password ? true : false,
+  )
+  // 记住账号回填恒开:每次登录成功都写 ihui-remember-credentials(默认只含账号),
+  // 勾选"记住密码"时改走显式口令写入路径;与账号历史下拉完全解耦(下拉读
+  // ihui-login-history,与账号回填互不影响)。
+  // autoLogin 标志仅供下方自动提交闸门读取:口令落盘后本 effect 不再短路,
+  // 自动登录重新"有血有肉"。
   const autoLogin = enableCredentialPersistence ? loadAutoLogin() : false
   const [showPassword, setShowPassword] = React.useState(false)
   const [captcha, setCaptcha] = React.useState('')
@@ -157,12 +170,15 @@ export function PasswordLoginForm({
   // 自动登录:加载时 autoLogin 为 true 且已有记住的凭据,则自动提交表单。
   // canAutoSubmitCredentials 排在最前:持久标志只说明"用户勾过自动登录",它压不过
   // "用户刚刚主动点了退出"——后者必须由调用方那侧的登出标记回答(见 props 注释)。
-  // 票 #27 web 端收口(2026-09-29)后的实态:loadRememberedCredentials() 返回的
-  // password 恒为 ''(本地不再持久化口令,自动登录由 use-auth-bootstrap 的 refresh
-  // 静默续期承担),下面 `!remembered?.password` 一条天然短路,本 effect 不再可能
-  // 重放账密。effect 与判据位序**刻意保留** —— 它是 canAutoSubmitCredentials 必填
-  // 契约的落点(apps/web auto-submit-gate-wiring 钉住),也是"未来任何人重新给这里
-  // 喂一个口令源"时必然路过的闸口。
+  //
+  // 2026-09-29 票 #27 收口后:loadRememberedCredentials({ keepPassword: true }) 的盘上
+  // 口令只在用户勾选"记住密码" + saveRememberedCredentialsWithPassword 时才非空,
+  // 不勾选路径盘上口令恒为 '',下面 `!remembered?.password` 一条天然短路,本 effect
+  // 不再可能重放账密。用户勾选后,盘上有口令 + autoLogin=true 本 effect 自动提交账密。
+  //
+  // effect 与判据位序**刻意保留** —— 它是 canAutoSubmitCredentials 必填契约的落点
+  // (apps/web auto-submit-gate-wiring 钉住),也是"未来任何人重新给这里喂一个口令源"
+  // 时必然路过的闸口。
   React.useEffect(() => {
     if (!canAutoSubmitCredentials()) return
     if (!enableCredentialPersistence) return
@@ -214,13 +230,22 @@ export function PasswordLoginForm({
         if (captchaEnabled) await refreshCaptcha()
         return
       }
-      // 记住账号(2026-10-17 解耦):每次登录成功都落盘账号(只含账号,口令永不落盘),
-      // 回填恒可靠;不再与"记住密码"勾选耦合(旧实现未勾选即 clearRememberedCredentials,
-      // 导致回填偶发丢失)。"记住密码"勾已移除 —— 密码走浏览器自带记忆(表单 autoComplete
-      // 已接好),自动登录走设置页开关 + 后端 refresh token 续期。
+      // 记住账号(2026-10-17 解耦 + 显式"记住密码"开关):
+      // - 每次登录成功都写账号历史(ihui-login-history,含去重/置顶/截断)
+      // - 勾选"记住密码":账号 + 口令一起落盘(saveRememberedCredentialsWithPassword),
+      //   同时 saveAutoLogin(true) 把自动登录标志写盘,下次加载时自动提交 effect
+      //   读到盘上口令(keepPassword=true)即自动回填账密,不再短路
+      // - 不勾选:只记账号,口令永不落盘(saveRememberedCredentials 默认路径丢弃口令),
+      //   saveAutoLogin(false) 清掉自动登录标志,自动登录由 refresh token 静默续期承担
       if (enableCredentialPersistence) {
         saveLoginHistory(account)
-        saveRememberedCredentials(account, password)
+        if (rememberPassword) {
+          saveRememberedCredentialsWithPassword(account, password)
+          saveAutoLogin(true)
+        } else {
+          saveRememberedCredentials(account, password)
+          saveAutoLogin(false)
+        }
       }
       await onSuccess?.(result.data)
     } catch {
@@ -387,6 +412,57 @@ export function PasswordLoginForm({
             )}
           </div>
         </div>
+      )}
+
+      {enableCredentialPersistence && (
+        <label
+          data-testid="remember-password-checkbox"
+          className="group flex cursor-pointer items-center gap-2 select-none rounded-sm"
+        >
+          <span
+            role="checkbox"
+            aria-checked={rememberPassword}
+            aria-label={t('auth.rememberPassword')}
+            tabIndex={0}
+            data-testid="remember-password-checkbox-box"
+            onClick={(e) => {
+              // preventDefault 掐掉 label 的默认转发(避免 sr-only input 被再点一次 → 双切换),
+              // 同时避免焦点被交给隐藏 input(与 AgreementCheckbox 同款处理)。
+              e.preventDefault()
+              setRememberPassword((v) => !v)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === ' ') {
+                e.preventDefault()
+                setRememberPassword((v) => !v)
+              } else if (e.key === 'Enter') {
+                // Enter:提交所在表单(与 AgreementCheckbox 行为一致)
+                e.preventDefault()
+                const form = e.currentTarget.closest('form')
+                if (form instanceof HTMLFormElement) form.requestSubmit()
+              }
+            }}
+            className={cn(
+              'flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm border outline-none transition-all duration-200',
+              'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+              rememberPassword
+                ? 'border-transparent bg-cta text-cta-foreground'
+                : 'border-input bg-background group-hover:border-foreground/60',
+            )}
+          >
+            {rememberPassword && <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} />}
+          </span>
+          <input
+            type="checkbox"
+            className="sr-only"
+            tabIndex={-1}
+            checked={rememberPassword}
+            onChange={(e) => setRememberPassword(e.target.checked)}
+          />
+          <span className="text-xs leading-5 text-muted-foreground">
+            {t('auth.rememberPassword')}
+          </span>
+        </label>
       )}
 
       <AgreementCheckbox
