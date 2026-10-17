@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { PlayCircle, Eye, Loader2, ArrowLeft, Radio, Calendar } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@ihui/ui-react'
 import { LivePlayer } from '@/components/media'
@@ -36,12 +36,6 @@ interface ChannelResp {
   channel: ChannelDetail | null
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function LiveDetailPage() {
   const { id } = useParams<{ id: string }>()
   const t = useTranslations('live')
@@ -49,7 +43,7 @@ export default function LiveDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['live', 'channel', id, 'detail'],
-    queryFn: () => api<ChannelResp>(`/api/live/channels/${id}`),
+    queryFn: () => apiOrThrow<ChannelResp>(`/api/live/channels/${id}`),
   })
 
   const channel = data?.channel ?? null

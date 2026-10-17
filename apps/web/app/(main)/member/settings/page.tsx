@@ -9,7 +9,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Settings, Loader2, Bell, Shield, Save } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Card, CardContent, Button, Label } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
@@ -58,12 +58,6 @@ const PRIVACY_KEY: Record<string, string> = {
   allowInvites: 'privacy.allowInvites',
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
@@ -97,7 +91,7 @@ export default function MemberSettingsPage() {
       setLoaded(true)
       return
     }
-    api<{ settings: { notifications?: NotificationPrefs; privacy?: PrivacyPrefs } }>(
+    apiOrThrow<{ settings: { notifications?: NotificationPrefs; privacy?: PrivacyPrefs } }>(
       '/api/member/settings',
     )
       .then((d) => {
@@ -110,7 +104,7 @@ export default function MemberSettingsPage() {
 
   const saveMut = useMutation({
     mutationFn: () =>
-      api('/api/member/settings', {
+      apiOrThrow('/api/member/settings', {
         method: 'PUT',
         body: JSON.stringify({ notifications: notif, privacy }),
       }),

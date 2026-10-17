@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Loader2, Tag, ArrowLeft, CreditCard, Calendar } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -29,18 +29,12 @@ interface CategoriesData {
   total: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function AgentCategoriesPage() {
   const locale = useLocale()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['agents', 'categories', 'all'],
-    queryFn: () => api<CategoriesData>('/api/categories/list?page=1&pageSize=100&status=1'),
+    queryFn: () => apiOrThrow<CategoriesData>('/api/categories/list?page=1&pageSize=100&status=1'),
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {

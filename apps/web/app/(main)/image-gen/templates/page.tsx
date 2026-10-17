@@ -14,7 +14,7 @@ import { Loader2, ArrowLeft, LayoutTemplate, Sparkles } from 'lucide-react'
 
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -38,12 +38,6 @@ interface TemplatesData {
   categories?: Category[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function ImageGenTemplatesPage() {
   const router = useRouter()
   const locale = useLocale()
@@ -53,7 +47,7 @@ export default function ImageGenTemplatesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['image-gen', 'templates'],
-    queryFn: () => api<TemplatesData>('/api/image-gen/templates'),
+    queryFn: () => apiOrThrow<TemplatesData>('/api/image-gen/templates'),
     enabled: allow,
   })
 

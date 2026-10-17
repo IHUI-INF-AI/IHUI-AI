@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { MapPin, Loader2, Plus } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { AddressForm } from './AddressForm'
@@ -17,12 +17,6 @@ import { EMPTY_ADDRESS } from './types'
 import type { Address, AddressInput } from './types'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 export default function MemberAddressesPage() {
   const qc = useQueryClient()
@@ -35,7 +29,7 @@ export default function MemberAddressesPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'addresses'],
     queryFn: () =>
-      api<{ list: Address[] }>('/api/addresses')
+      apiOrThrow<{ list: Address[] }>('/api/addresses')
         .then((d) => d.list ?? [])
         .catch(() => [] as Address[]),
     enabled: allow,
@@ -45,8 +39,8 @@ export default function MemberAddressesPage() {
     mutationFn: (input: AddressInput) => {
       const body = JSON.stringify(input)
       return editId
-        ? api(`/api/addresses/${editId}`, { method: 'PUT', body })
-        : api('/api/addresses', { method: 'POST', body })
+        ? apiOrThrow(`/api/addresses/${editId}`, { method: 'PUT', body })
+        : apiOrThrow('/api/addresses', { method: 'POST', body })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['member', 'addresses'] })
@@ -55,11 +49,11 @@ export default function MemberAddressesPage() {
     },
   })
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/addresses/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/addresses/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['member', 'addresses'] }),
   })
   const defaultMut = useMutation({
-    mutationFn: (id: string) => api(`/api/addresses/${id}/default`, { method: 'POST' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/addresses/${id}/default`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['member', 'addresses'] }),
   })
 

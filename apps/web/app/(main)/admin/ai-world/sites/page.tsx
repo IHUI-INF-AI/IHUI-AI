@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { Globe, Loader2, ExternalLink, Info } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
@@ -30,12 +30,6 @@ interface HotApp {
 interface AiWorldData {
   categories: AiCategory[]
   hotApps: HotApp[]
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const ICON_KEYS = [
@@ -71,7 +65,7 @@ export default function AdminAiWorldSitesPage() {
   const t = useTranslations('aiWorld.admin.sites')
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['admin', 'ai-world'],
-    queryFn: () => api<AiWorldData>('/api/ai-world'),
+    queryFn: () => apiOrThrow<AiWorldData>('/api/ai-world'),
   })
 
   const categories = data?.categories ?? []

@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, CheckCircle2, TrendingUp, Users, Award, Target, ArrowRight } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
@@ -34,17 +34,11 @@ interface RecruitmentPlan {
   stats: { label: string; value: string }[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function RecruitmentPage() {
   const t = useTranslations('recruitmentPage')
   const { data, isLoading, error } = useQuery({
     queryKey: ['recruitment'],
-    queryFn: () => api<RecruitmentPlan>('/api/recruitment'),
+    queryFn: () => apiOrThrow<RecruitmentPlan>('/api/recruitment'),
   })
 
   if (isLoading) {

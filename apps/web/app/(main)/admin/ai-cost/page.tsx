@@ -22,7 +22,7 @@ import {
   Wallet,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatNumber as fmtNum } from '@/lib/date-utils'
@@ -71,12 +71,6 @@ interface Budget {
   dailyCostLimit: string
   monthlyCostLimit: string
   updatedAt: string
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const EMPTY: AiCostDashboard = {
@@ -236,7 +230,7 @@ export default function AiCostPage() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['admin', 'ai-cost', days],
     queryFn: () =>
-      api<AiCostDashboard>(
+      apiOrThrow<AiCostDashboard>(
         `/api/admin/ai/cost/dashboard?startDate=${startDateISO}&endDate=${endDateISO}`,
       ).catch(() => EMPTY),
     retry: false,
@@ -244,7 +238,7 @@ export default function AiCostPage() {
 
   const { data: budgets } = useQuery({
     queryKey: ['admin', 'ai-cost', 'budgets'],
-    queryFn: () => api<Budget[]>('/api/admin/ai/cost/budgets').catch(() => [] as Budget[]),
+    queryFn: () => apiOrThrow<Budget[]>('/api/admin/ai/cost/budgets').catch(() => [] as Budget[]),
     retry: false,
   })
 

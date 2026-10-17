@@ -21,7 +21,7 @@ import {
   XCircle,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
@@ -85,12 +85,6 @@ const STEP_ICON: Record<ComposeStepName, React.ComponentType<{ className?: strin
   material: Images,
   compose: Film,
   subtitle: Subtitles,
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetchApi<T>(url, options)
-  if (!res.success) throw new Error(res.error)
-  return res.data
 }
 
 function isUrl(value: string): boolean {
@@ -235,7 +229,7 @@ export default function EduAiVideoComposePage() {
       if (inFlight || disposed) return
       inFlight = true
       try {
-        const latest = await api<ComposeTask>(`/api/ai-video-compose/${activeTask.id}`)
+        const latest = await apiOrThrow<ComposeTask>(`/api/ai-video-compose/${activeTask.id}`)
         if (disposed) return
         setTasks((prev) => prev.map((task) => (task.id === latest.id ? latest : task)))
       } catch {
@@ -260,7 +254,7 @@ export default function EduAiVideoComposePage() {
     setCreating(true)
     setCreateError(null)
     try {
-      const task = await api<ComposeTask>('/api/ai-video-compose', {
+      const task = await apiOrThrow<ComposeTask>('/api/ai-video-compose', {
         method: 'POST',
         body: JSON.stringify({ prompt: content, model: model.trim() || undefined }),
       })
@@ -279,7 +273,7 @@ export default function EduAiVideoComposePage() {
     setRegenerating({ taskId, step })
     setRegenerateError(null)
     try {
-      const task = await api<ComposeTask>(`/api/ai-video-compose/${taskId}/regenerate`, {
+      const task = await apiOrThrow<ComposeTask>(`/api/ai-video-compose/${taskId}/regenerate`, {
         method: 'POST',
         body: JSON.stringify({ step }),
       })

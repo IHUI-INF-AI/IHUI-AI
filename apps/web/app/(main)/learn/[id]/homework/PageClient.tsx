@@ -11,7 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2, ClipboardList, Clock, Upload } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -26,12 +26,6 @@ interface HomeworkItem {
 }
 interface HomeworkListData {
   list: HomeworkItem[]
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 /** i18n 静态映射表 — 用于消除 `t(`status.${var}`)` 动态拼接 */
@@ -54,13 +48,13 @@ export default function CourseHomeworkPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['learn', 'homework', id],
-    queryFn: () => api<HomeworkListData>(`/api/learn/${id}/homework`),
+    queryFn: () => apiOrThrow<HomeworkListData>(`/api/learn/${id}/homework`),
     enabled: allow,
   })
 
   const submitMut = useMutation({
     mutationFn: (hwId: string) =>
-      api(`/api/learn/${id}/homework/${hwId}/submit`, { method: 'POST' }),
+      apiOrThrow(`/api/learn/${id}/homework/${hwId}/submit`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['learn', 'homework', id] }),
   })
 

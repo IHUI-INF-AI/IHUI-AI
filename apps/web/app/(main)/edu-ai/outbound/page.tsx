@@ -17,7 +17,7 @@ import {
   Plus,
   Square,
 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { formatDateOnly } from '@/lib/date-utils'
 import {
   Badge,
@@ -92,12 +92,6 @@ const STATUS_BADGE: Record<CampaignStatus, string> = {
   completed: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function OutboundPage() {
   const t = useTranslations('eduAi.outbound')
   const tc = useTranslations('common')
@@ -110,13 +104,13 @@ export default function OutboundPage() {
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['outbound-campaigns'],
-    queryFn: () => api<CampaignListData>('/api/outbound/campaign'),
+    queryFn: () => apiOrThrow<CampaignListData>('/api/outbound/campaign'),
   })
   const statsQuery = useQuery({
     queryKey: ['outbound-campaigns', 'stats', statsId],
     queryFn: () => {
       if (!statsId) throw new Error('missing id')
-      return api<CampaignStats>(`/api/outbound/campaign/${statsId}/stats`)
+      return apiOrThrow<CampaignStats>(`/api/outbound/campaign/${statsId}/stats`)
     },
     enabled: statsId !== null,
   })
@@ -126,7 +120,7 @@ export default function OutboundPage() {
         .split(/[,\n]/)
         .map((s) => s.trim())
         .filter(Boolean)
-      return api<Campaign>('/api/outbound/campaign', {
+      return apiOrThrow<Campaign>('/api/outbound/campaign', {
         method: 'POST',
         body: JSON.stringify({ name: values.name, script: values.script, phoneList }),
       })
@@ -138,12 +132,12 @@ export default function OutboundPage() {
   })
   const startMutation = useMutation({
     mutationFn: (id: string) =>
-      api<Campaign>(`/api/outbound/campaign/${id}/start`, { method: 'POST' }),
+      apiOrThrow<Campaign>(`/api/outbound/campaign/${id}/start`, { method: 'POST' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['outbound-campaigns'] }),
   })
   const stopMutation = useMutation({
     mutationFn: (id: string) =>
-      api<Campaign>(`/api/outbound/campaign/${id}/stop`, { method: 'POST' }),
+      apiOrThrow<Campaign>(`/api/outbound/campaign/${id}/stop`, { method: 'POST' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['outbound-campaigns'] }),
   })
   const campaigns = data?.list ?? []

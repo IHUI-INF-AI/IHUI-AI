@@ -11,7 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Calendar, Check, Flame, Gift, Loader2, ArrowLeft } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 import { Button, Card, CardContent } from '@ihui/ui-react'
@@ -27,12 +27,6 @@ interface SignInHistoryItem {
   signInDate: string
   rewardPoints: number
   consecutiveDays: number
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] // 0=日 ... 6=六
@@ -57,21 +51,24 @@ export default function SignInPage() {
 
   const todayQ = useQuery({
     queryKey: ['sign-in', 'today'],
-    queryFn: () => api<SignInToday>('/api/sign-in/today'),
+    queryFn: () => apiOrThrow<SignInToday>('/api/sign-in/today'),
     enabled: allow,
   })
   const historyQ = useQuery({
     queryKey: ['sign-in', 'history'],
     queryFn: () =>
-      api<{ list: SignInHistoryItem[] }>('/api/sign-in/history').then((d) => d.list ?? []),
+      apiOrThrow<{ list: SignInHistoryItem[] }>('/api/sign-in/history').then((d) => d.list ?? []),
     enabled: allow,
   })
 
   const signMut = useMutation({
     mutationFn: () =>
-      api<{ record: { consecutiveDays: number }; points: { points: number } }>('/api/sign-in', {
-        method: 'POST',
-      }).then((d) => ({ points: d.points.points, consecutiveDays: d.record.consecutiveDays })),
+      apiOrThrow<{ record: { consecutiveDays: number }; points: { points: number } }>(
+        '/api/sign-in',
+        {
+          method: 'POST',
+        },
+      ).then((d) => ({ points: d.points.points, consecutiveDays: d.record.consecutiveDays })),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sign-in'] })
       qc.invalidateQueries({ queryKey: ['points'] })

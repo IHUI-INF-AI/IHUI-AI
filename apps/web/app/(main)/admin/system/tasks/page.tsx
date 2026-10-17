@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Button,
   Select,
@@ -47,12 +47,6 @@ interface Task {
   nextRunAt: string | null
   lastDuration: number | null
   lastStatus: 'success' | 'failed' | null
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const selectClass =
@@ -87,7 +81,7 @@ export default function AdminSystemTasksPage() {
     queryFn: () => {
       const qs = new URLSearchParams()
       if (status !== 'all') qs.set('status', status)
-      return api<{ list: Task[] }>(`/api/admin/system/tasks?${qs.toString()}`).then(
+      return apiOrThrow<{ list: Task[] }>(`/api/admin/system/tasks?${qs.toString()}`).then(
         (d) => d.list ?? [],
       )
     },
@@ -95,14 +89,17 @@ export default function AdminSystemTasksPage() {
 
   const toggleMut = useMutation({
     mutationFn: (task: Task) =>
-      api(`/api/admin/system/tasks/${task.id}/${task.status === 'paused' ? 'resume' : 'pause'}`, {
-        method: 'POST',
-      }),
+      apiOrThrow(
+        `/api/admin/system/tasks/${task.id}/${task.status === 'paused' ? 'resume' : 'pause'}`,
+        {
+          method: 'POST',
+        },
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'system', 'tasks'] }),
   })
 
   const runMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/system/tasks/${id}/run`, { method: 'POST' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/system/tasks/${id}/run`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'system', 'tasks'] }),
   })
 

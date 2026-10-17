@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, LayoutTemplate, Sparkles } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { AuthGatePrompt } from '@/components/common'
@@ -36,12 +36,6 @@ interface TemplatesData {
   categories?: Category[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function ChatTemplatesPage() {
   const router = useRouter()
   const locale = useLocale()
@@ -52,7 +46,7 @@ export default function ChatTemplatesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['chat', 'templates'],
-    queryFn: () => api<TemplatesData>('/api/chat/templates'),
+    queryFn: () => apiOrThrow<TemplatesData>('/api/chat/templates'),
     enabled: allow,
   })
 

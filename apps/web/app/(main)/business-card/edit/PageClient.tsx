@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, CreditCard, Loader2, Save, User } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 
@@ -85,12 +85,6 @@ const EMPTY_FORM: CardForm = {
   template: 'minimal',
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function BusinessCardEditPage() {
   const t = useTranslations('businessCardEditPage')
   const router = useRouter()
@@ -104,7 +98,7 @@ export default function BusinessCardEditPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['business-card', editId],
-    queryFn: () => api<BusinessCard>(`/api/business-card/${editId}`),
+    queryFn: () => apiOrThrow<BusinessCard>(`/api/business-card/${editId}`),
     enabled: !!editId,
   })
 
@@ -141,7 +135,10 @@ export default function BusinessCardEditPage() {
       // 路径里的 id 解析后被完全忽略 ⇒ 统一 POST 到 /business-card/me 即可,
       // 'me' 过 idParamSchema 的 /^[a-zA-Z0-9_-]+$/,语义 = "当前登录用户的名片"。
       // 与 GET /business-card/mine(列表)同域不同 method、不同路径,互不影响。
-      return api(`/api/business-card/${editId ?? 'me'}`, { method: 'POST', body: JSON.stringify(body) })
+      return apiOrThrow(`/api/business-card/${editId ?? 'me'}`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['business-card'] })

@@ -11,7 +11,7 @@ import { toast } from 'sonner'
 import { MessageSquare, Trash2, ChevronDown, ChevronUp, Pencil, Loader2 } from 'lucide-react'
 
 import { useAuthGate } from '@/hooks/use-auth-gate'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -51,12 +51,6 @@ interface Paginated<T> {
   pageSize: number
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const PAGE_SIZE = 20
 
 /** 层栈 id(见 @/lib/overlay-stack):行内改标题输入框的 Esc 只在栈顶时被消费 */
@@ -89,7 +83,7 @@ export default function ConversationsPage() {
     queryKey: ['developer', 'conversations', page],
     enabled: allow,
     queryFn: () =>
-      api<Paginated<Conversation>>(
+      apiOrThrow<Paginated<Conversation>>(
         `/api/developer/conversations?page=${page}&pageSize=${PAGE_SIZE}`,
       ).catch(
         () => ({ items: [], total: 0, page, pageSize: PAGE_SIZE }) as Paginated<Conversation>,
@@ -99,7 +93,7 @@ export default function ConversationsPage() {
   const { data: messagesData, isLoading: messagesLoading } = useQuery({
     queryKey: ['developer', 'conversations', expandedId, 'messages'],
     queryFn: () =>
-      api<Paginated<RelayMessage>>(
+      apiOrThrow<Paginated<RelayMessage>>(
         `/api/developer/conversations/${expandedId}/messages?pageSize=100`,
       ).catch(() => ({ items: [], total: 0, page: 1, pageSize: 100 }) as Paginated<RelayMessage>),
     enabled: allow && !!expandedId,
@@ -107,7 +101,7 @@ export default function ConversationsPage() {
 
   const delMut = useMutation({
     mutationFn: (conversationId: string) =>
-      api(`/api/developer/conversations/${conversationId}`, { method: 'DELETE' }),
+      apiOrThrow(`/api/developer/conversations/${conversationId}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['developer', 'conversations'] })
       toast.success('会话已删除')
@@ -118,7 +112,7 @@ export default function ConversationsPage() {
 
   const titleMut = useMutation({
     mutationFn: ({ conversationId, title }: { conversationId: string; title: string }) =>
-      api(`/api/developer/conversations/${conversationId}`, {
+      apiOrThrow(`/api/developer/conversations/${conversationId}`, {
         method: 'PATCH',
         body: JSON.stringify({ title }),
       }),

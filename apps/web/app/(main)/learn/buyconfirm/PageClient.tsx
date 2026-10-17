@@ -10,7 +10,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2, ShoppingCart, Tag, Check } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Input } from '@/components/form'
 import { cn } from '@/lib/utils'
@@ -32,12 +32,6 @@ interface OrderCreateResp {
   payAmount: number
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 type PayMethod = 'wechat' | 'alipay'
 
 function BuyConfirmContent() {
@@ -54,7 +48,8 @@ function BuyConfirmContent() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['learn', 'course', 'buy', courseId],
-    queryFn: () => api<{ course: CourseDetail } | CourseDetail>(`/api/learn/lessons/${courseId}`),
+    queryFn: () =>
+      apiOrThrow<{ course: CourseDetail } | CourseDetail>(`/api/learn/lessons/${courseId}`),
     enabled: !!courseId,
   })
 
@@ -84,7 +79,7 @@ function BuyConfirmContent() {
         targetId: courseId,
       }
       if (couponCode.trim()) body.couponId = couponCode.trim()
-      return api<OrderCreateResp>('/api/orders', {
+      return apiOrThrow<OrderCreateResp>('/api/orders', {
         method: 'POST',
         body: JSON.stringify(body),
       })

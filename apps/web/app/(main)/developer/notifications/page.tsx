@@ -19,7 +19,7 @@ import {
   CreditCard,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, Button, Label, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { AuthGatePrompt } from '@/components/common'
@@ -74,12 +74,6 @@ const PREF_DESC_KEY: Record<string, string> = {
   billingReminder: 'billingReminderDesc',
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function NotificationsPage() {
   const t = useTranslations('developer.notifications')
   // 2026-10-15 登录态门:GET/PUT /api/developer/notifications 后端 requireAuth,
@@ -91,7 +85,7 @@ export default function NotificationsPage() {
 
   React.useEffect(() => {
     if (!allow) return
-    api<{ preferences?: NotificationPrefs }>('/api/developer/notifications')
+    apiOrThrow<{ preferences?: NotificationPrefs }>('/api/developer/notifications')
       .then((d) => {
         if (d.preferences) setPrefs({ ...DEFAULT_PREFS, ...d.preferences })
       })
@@ -101,7 +95,7 @@ export default function NotificationsPage() {
 
   const saveMut = useMutation({
     mutationFn: () =>
-      api('/api/developer/notifications', {
+      apiOrThrow('/api/developer/notifications', {
         method: 'PUT',
         body: JSON.stringify({ preferences: prefs }),
       }),

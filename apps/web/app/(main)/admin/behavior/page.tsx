@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Eye, Users, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Heatmap } from '@/components/charts/Heatmap'
 import { BackButton } from '@/components/common'
@@ -27,12 +27,6 @@ interface WatchRecord {
   watchDuration: number
   lastPosition: number
   createdAt: string
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const HEATMAP_X_LABELS = [
@@ -80,14 +74,14 @@ export default function BehaviorPage() {
   const { data: statistics, isLoading: loadingStats } = useQuery({
     queryKey: ['behavior', 'statistics'],
     queryFn: () =>
-      api<{ statistics: BehaviorStatistics }>(`/api/admin/behavior/statistics`).then(
+      apiOrThrow<{ statistics: BehaviorStatistics }>(`/api/admin/behavior/statistics`).then(
         (d) => d.statistics,
       ),
   })
   const { data: watchData, isLoading: loadingList } = useQuery({
     queryKey: ['behavior', 'watch-list', page],
     queryFn: () =>
-      api<{ list: WatchRecord[]; total: number }>(
+      apiOrThrow<{ list: WatchRecord[]; total: number }>(
         `/api/admin/behavior/watch/list?page=${page}&pageSize=${pageSize}`,
       ),
   })

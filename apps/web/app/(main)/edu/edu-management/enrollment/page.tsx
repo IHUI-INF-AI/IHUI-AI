@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton } from '@/components/common'
 import {
   Card,
@@ -130,12 +130,6 @@ interface RosterItem {
 }
 
 /* ─── API helper ─── */
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 /* ─── Constants ─── */
 
@@ -740,13 +734,13 @@ export default function EnrollmentPage() {
   /* ── Queries ── */
   const { data: termsData } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
-    queryFn: () => api<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
   })
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
 
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class'],
-    queryFn: () => api<{ list: EduClass[] }>('/api/edu-ai-management/class'),
+    queryFn: () => apiOrThrow<{ list: EduClass[] }>('/api/edu-ai-management/class'),
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
 
@@ -757,13 +751,14 @@ export default function EnrollmentPage() {
       if (leadStatusFilter) params.set('status', leadStatusFilter)
       if (leadSourceFilter) params.set('source', leadSourceFilter)
       const qs = params.toString()
-      return api<{ list: Lead[] }>(`/api/edu-ai-management/lead${qs ? `?${qs}` : ''}`)
+      return apiOrThrow<{ list: Lead[] }>(`/api/edu-ai-management/lead${qs ? `?${qs}` : ''}`)
     },
   })
 
   const trialQuery = useQuery({
     queryKey: ['edu-ai-management', 'trial-reservation'],
-    queryFn: () => api<{ list: TrialReservation[] }>('/api/edu-ai-management/trial-reservation'),
+    queryFn: () =>
+      apiOrThrow<{ list: TrialReservation[] }>('/api/edu-ai-management/trial-reservation'),
   })
 
   const enrollQuery = useQuery({
@@ -780,7 +775,7 @@ export default function EnrollmentPage() {
       if (enrollTermFilter) params.set('termId', enrollTermFilter)
       if (enrollStatusFilter) params.set('status', enrollStatusFilter)
       const qs = params.toString()
-      return api<{ list: EnrollmentRecord[] }>(
+      return apiOrThrow<{ list: EnrollmentRecord[] }>(
         `/api/edu-ai-management/enrollment${qs ? `?${qs}` : ''}`,
       )
     },
@@ -810,7 +805,7 @@ export default function EnrollmentPage() {
       if (rosterArrearsOnly) params.set('arrearsOnly', '1')
       params.set('page', String(rosterPage))
       params.set('pageSize', '20')
-      return api<{ list: RosterItem[]; total: number; page: number; totalPages: number }>(
+      return apiOrThrow<{ list: RosterItem[]; total: number; page: number; totalPages: number }>(
         `/api/edu-ai-management/student-roster?${params.toString()}`,
       )
     },
@@ -825,7 +820,7 @@ export default function EnrollmentPage() {
 
   const createLead = useMutation({
     mutationFn: (data: LeadFormData) =>
-      api('/api/edu-ai-management/lead', {
+      apiOrThrow('/api/edu-ai-management/lead', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -834,7 +829,7 @@ export default function EnrollmentPage() {
 
   const updateLeadStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api(`/api/edu-ai-management/lead/${id}`, {
+      apiOrThrow(`/api/edu-ai-management/lead/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ status }),
       }),
@@ -843,7 +838,7 @@ export default function EnrollmentPage() {
 
   const createTrial = useMutation({
     mutationFn: (data: TrialFormData) =>
-      api('/api/edu-ai-management/trial-reservation', {
+      apiOrThrow('/api/edu-ai-management/trial-reservation', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -852,7 +847,7 @@ export default function EnrollmentPage() {
 
   const updateTrialStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api(`/api/edu-ai-management/trial-reservation/${id}`, {
+      apiOrThrow(`/api/edu-ai-management/trial-reservation/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ status }),
       }),
@@ -861,7 +856,7 @@ export default function EnrollmentPage() {
 
   const createEnrollment = useMutation({
     mutationFn: (data: EnrollmentFormData) =>
-      api('/api/edu-ai-management/enrollment', {
+      apiOrThrow('/api/edu-ai-management/enrollment', {
         method: 'POST',
         body: JSON.stringify(data),
       }),

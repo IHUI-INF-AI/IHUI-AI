@@ -12,7 +12,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, ArrowLeft, Share2, Copy, User, Bot } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
@@ -44,12 +44,6 @@ interface ConversationDetail {
   messages: Message[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function ChatSharePage() {
   const params = useParams<{ id: string }>()
   const locale = useLocale()
@@ -62,10 +56,10 @@ export default function ChatSharePage() {
       // 判断是否为token模式（16位字母数字）
       const isToken = /^[a-zA-Z0-9]{16}$/.test(params.id)
       if (isToken) {
-        return api<ConversationDetail>(`/api/chat/conversations/share/${params.id}`)
+        return apiOrThrow<ConversationDetail>(`/api/chat/conversations/share/${params.id}`)
       }
       // 原有逻辑：需要登录
-      return api<ConversationDetail>(`/api/chat/conversations/${params.id}/messages`)
+      return apiOrThrow<ConversationDetail>(`/api/chat/conversations/${params.id}/messages`)
     },
     enabled: !!params.id,
   })

@@ -24,7 +24,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { getInitials } from '@/components/data/Avatar'
@@ -41,12 +41,6 @@ interface BusinessCard {
   avatar?: string | null
   bio?: string | null
   template?: string
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const TPL_STYLES: Record<string, string> = {
@@ -67,11 +61,11 @@ export default function CardSharePage() {
     error,
   } = useQuery({
     queryKey: ['business-card', 'share', id],
-    queryFn: () => api<BusinessCard>(`/api/business-card/${id}`),
+    queryFn: () => apiOrThrow<BusinessCard>(`/api/business-card/${id}`),
   })
 
   const favMut = useMutation({
-    mutationFn: () => api(`/api/business-card/${id}/favorite`, { method: 'POST' }),
+    mutationFn: () => apiOrThrow(`/api/business-card/${id}/favorite`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['business-card'] }),
   })
 

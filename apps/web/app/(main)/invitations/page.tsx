@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, UserPlus, Copy, Gift, Clock, Check, Users } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data/Avatar'
@@ -48,12 +48,6 @@ const STATUS_STYLE: Record<Invitation['status'], string> = {
   used: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function InvitationsPage() {
   const t = useTranslations('invitations')
   const locale = useLocale()
@@ -63,18 +57,19 @@ export default function InvitationsPage() {
 
   const codesQ = useQuery({
     queryKey: ['invitations'],
-    queryFn: () => api<{ list: Invitation[] }>('/api/invitations').then((d) => d.list ?? []),
+    queryFn: () => apiOrThrow<{ list: Invitation[] }>('/api/invitations').then((d) => d.list ?? []),
     enabled: allow,
   })
   const inviteesQ = useQuery({
     queryKey: ['invitations', 'invitees'],
-    queryFn: () => api<{ list: Invitee[] }>('/api/invitations/invitees').then((d) => d.list ?? []),
+    queryFn: () =>
+      apiOrThrow<{ list: Invitee[] }>('/api/invitations/invitees').then((d) => d.list ?? []),
     enabled: allow,
   })
 
   const genMut = useMutation({
     mutationFn: () =>
-      api<{ invitation: Invitation }>('/api/invitations', { method: 'POST' }).then(
+      apiOrThrow<{ invitation: Invitation }>('/api/invitations', { method: 'POST' }).then(
         (d) => d.invitation,
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['invitations'] }),

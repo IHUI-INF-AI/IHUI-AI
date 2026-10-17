@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Ban, Loader2, RotateCcw, Trash2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Button,
   Select,
@@ -48,12 +48,6 @@ interface BlacklistItem {
   nonDiscriminationNote?: string | null
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const TYPE_LABEL: Record<BlacklistItem['type'], string> = { user: '用户', ip: 'IP', device: '设备' }
@@ -69,19 +63,21 @@ export default function AdminMemberBlacklistPage() {
       const qs = new URLSearchParams()
       if (search) qs.set('search', search)
       if (type !== 'all') qs.set('type', type)
-      return api<{ list: BlacklistItem[] }>(`/api/admin/member/blacklist?${qs.toString()}`).then(
-        (d) => d.list ?? [],
-      )
+      return apiOrThrow<{ list: BlacklistItem[] }>(
+        `/api/admin/member/blacklist?${qs.toString()}`,
+      ).then((d) => d.list ?? [])
     },
   })
 
   const removeMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/member/blacklist/${id}/remove`, { method: 'POST' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/admin/member/blacklist/${id}/remove`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'member', 'blacklist'] }),
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/member/blacklist/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/admin/member/blacklist/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'member', 'blacklist'] }),
   })
 

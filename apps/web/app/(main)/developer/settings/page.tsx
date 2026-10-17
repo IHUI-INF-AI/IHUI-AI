@@ -10,7 +10,7 @@ import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Settings, Loader2, Save, AlertTriangle, Trash2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, Button, Input, Label, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { AuthGatePrompt } from '@/components/common'
@@ -41,12 +41,6 @@ const DEFAULT_PREFS: DevPreferences = {
   errorReport: true,
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function SettingsPage() {
   const t = useTranslations('developer.settings')
   // 2026-10-15 登录态门:GET/PUT/DELETE /api/developer/settings 后端 requireAuth,
@@ -59,7 +53,7 @@ export default function SettingsPage() {
 
   React.useEffect(() => {
     if (!allow) return
-    api<DevSettings>('/api/developer/settings')
+    apiOrThrow<DevSettings>('/api/developer/settings')
       .then((d) => {
         if (d.info) setInfo(d.info)
         if (d.preferences) setPrefs({ ...DEFAULT_PREFS, ...d.preferences })
@@ -70,7 +64,7 @@ export default function SettingsPage() {
 
   const saveInfoMut = useMutation({
     mutationFn: () =>
-      api('/api/developer/settings', {
+      apiOrThrow('/api/developer/settings', {
         method: 'PUT',
         body: JSON.stringify({ info }),
       }),
@@ -80,7 +74,7 @@ export default function SettingsPage() {
 
   const savePrefsMut = useMutation({
     mutationFn: () =>
-      api('/api/developer/settings', {
+      apiOrThrow('/api/developer/settings', {
         method: 'PUT',
         body: JSON.stringify({ preferences: prefs }),
       }),
@@ -89,7 +83,7 @@ export default function SettingsPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: () => api('/api/developer/settings', { method: 'DELETE' }),
+    mutationFn: () => apiOrThrow('/api/developer/settings', { method: 'DELETE' }),
     onSuccess: () => toast.success(t('accountDeleted')),
     onError: (e: Error) => toast.error(e.message),
   })

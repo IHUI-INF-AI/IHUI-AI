@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Layers, Search, Loader2, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 
@@ -30,12 +30,6 @@ interface TopicsData {
 }
 
 const PAGE_SIZE = 20
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 export default function TopicsPage() {
   const t = useTranslations('topics')
@@ -57,7 +51,7 @@ export default function TopicsPage() {
     queryFn: () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (debounced) qs.set('title', debounced)
-      return api<TopicsData>(`/api/topics?${qs.toString()}`)
+      return apiOrThrow<TopicsData>(`/api/topics?${qs.toString()}`)
     },
   })
 

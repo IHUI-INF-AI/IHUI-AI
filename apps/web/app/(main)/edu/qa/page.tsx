@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { HelpCircle, Loader2, Send, MessageCircle } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Button,
   Card,
@@ -37,12 +37,6 @@ interface QAItem {
   createdAt: string
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const selectClass =
   'h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
@@ -68,14 +62,16 @@ export default function EduQAPage() {
       const qs = new URLSearchParams()
       if (debounced) qs.set('search', debounced)
       if (status !== 'all') qs.set('status', status)
-      return api<{ list: QAItem[] }>(`/api/edu/qa?${qs.toString()}`).then((d) => d.list ?? [])
+      return apiOrThrow<{ list: QAItem[] }>(`/api/edu/qa?${qs.toString()}`).then(
+        (d) => d.list ?? [],
+      )
     },
     enabled: allow,
   })
 
   const askMut = useMutation({
     mutationFn: () =>
-      api('/api/edu/qa', { method: 'POST', body: JSON.stringify({ question: askText }) }),
+      apiOrThrow('/api/edu/qa', { method: 'POST', body: JSON.stringify({ question: askText }) }),
     onSuccess: () => {
       setAskText('')
       qc.invalidateQueries({ queryKey: ['edu', 'qa'] })

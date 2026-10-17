@@ -20,7 +20,7 @@ import {
   Loader2,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 
 interface TagDetail {
   id: string
@@ -60,12 +60,6 @@ const GROUP_KEY: Record<string, string> = {
   comment: 'groupComment',
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function TagDetailPageClient() {
   const { slug } = useParams<{ slug: string }>()
   const t = useTranslations('tags')
@@ -73,14 +67,14 @@ export default function TagDetailPageClient() {
 
   const tagQuery = useQuery({
     queryKey: ['tags', 'detail', slug],
-    queryFn: () => api<{ tag: TagDetail }>(`/api/tags/${slug}`),
+    queryFn: () => apiOrThrow<{ tag: TagDetail }>(`/api/tags/${slug}`),
   })
 
   const tag = tagQuery.data?.tag ?? null
 
   const resourcesQuery = useQuery({
     queryKey: ['tags', 'resources', tag?.id],
-    queryFn: () => api<{ list: TagResource[] }>(`/api/tags/${tag!.id}/resources`),
+    queryFn: () => apiOrThrow<{ list: TagResource[] }>(`/api/tags/${tag!.id}/resources`),
     enabled: !!tag?.id,
   })
 

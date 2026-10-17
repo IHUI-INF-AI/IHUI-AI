@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { TrendingUp, Loader2, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Button,
   Card,
@@ -66,12 +66,6 @@ const STATUS_CLS: Record<string, string> = {
 
 const STATUS_OPTIONS = ['pending', 'paid', 'cancelled', 'refunded']
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
 
 export default function CommissionOrdersPage() {
@@ -86,7 +80,7 @@ export default function CommissionOrdersPage() {
   const listQ = useQuery({
     queryKey: ['distribution', 'commission-orders', page, status],
     queryFn: () =>
-      api<ListData>(
+      apiOrThrow<ListData>(
         `/api/finance/commission/orders?page=${page}&limit=${PAGE_SIZE}${status !== 'all' ? `&status=${status}` : ''}`,
       ),
     enabled: allow,
@@ -136,113 +130,113 @@ export default function CommissionOrdersPage() {
         <AuthGatePrompt message="请先登录后查看佣金订单" />
       ) : (
         <>
-      <Card>
-        <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
-          <span className="text-sm text-muted-foreground">{t('colStatus')}</span>
-          <Select value={status} onValueChange={onStatusChange}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('statusAll')}</SelectItem>
-              {STATUS_OPTIONS.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {t(STATUS_KEY[s] ?? s)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+          <Card>
+            <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
+              <span className="text-sm text-muted-foreground">{t('colStatus')}</span>
+              <Select value={status} onValueChange={onStatusChange}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('statusAll')}</SelectItem>
+                  {STATUS_OPTIONS.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {t(STATUS_KEY[s] ?? s)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
 
-      <div className="overflow-hidden rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead className="px-4 py-2.5">{t('colOrderNo')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colOrderType')}</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">{t('colAmount')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colTime')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {listQ.isLoading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  {t('loading')}
-                </TableCell>
-              </TableRow>
-            ) : listQ.error ? (
-              <TableRow>
-                <TableCell colSpan={5} className="px-4 py-10 text-center text-destructive">
-                  {(listQ.error as Error).message}
-                </TableCell>
-              </TableRow>
-            ) : items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                  <TrendingUp className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  {t('empty')}
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((it) => (
-                <TableRow key={it.id}>
-                  <TableCell className="px-4 py-2.5 font-medium">{it.orderNo}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">
-                    {it.paymentMethod ?? '-'}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-right font-medium">
-                    {fmtYuan(it.amount)}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
-                        STATUS_CLS[it.status] ?? 'bg-muted text-muted-foreground',
-                      )}
-                    >
-                      {t(STATUS_KEY[it.status] ?? 'orderStatusPending')}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">
-                    {fmtDate(it.createdAt)}
-                  </TableCell>
+          <div className="overflow-hidden rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="px-4 py-2.5">{t('colOrderNo')}</TableHead>
+                  <TableHead className="px-4 py-2.5">{t('colOrderType')}</TableHead>
+                  <TableHead className="px-4 py-2.5 text-right">{t('colAmount')}</TableHead>
+                  <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
+                  <TableHead className="px-4 py-2.5">{t('colTime')}</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {total > PAGE_SIZE && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              {page} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+              </TableHeader>
+              <TableBody>
+                {listQ.isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                      <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                      {t('loading')}
+                    </TableCell>
+                  </TableRow>
+                ) : listQ.error ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="px-4 py-10 text-center text-destructive">
+                      {(listQ.error as Error).message}
+                    </TableCell>
+                  </TableRow>
+                ) : items.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                      <TrendingUp className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                      {t('empty')}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  items.map((it) => (
+                    <TableRow key={it.id}>
+                      <TableCell className="px-4 py-2.5 font-medium">{it.orderNo}</TableCell>
+                      <TableCell className="px-4 py-2.5 text-muted-foreground">
+                        {it.paymentMethod ?? '-'}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-right font-medium">
+                        {fmtYuan(it.amount)}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5">
+                        <span
+                          className={cn(
+                            'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                            STATUS_CLS[it.status] ?? 'bg-muted text-muted-foreground',
+                          )}
+                        >
+                          {t(STATUS_KEY[it.status] ?? 'orderStatusPending')}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-muted-foreground">
+                        {fmtDate(it.createdAt)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
-        </div>
-      )}
+
+          {total > PAGE_SIZE && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  {page} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

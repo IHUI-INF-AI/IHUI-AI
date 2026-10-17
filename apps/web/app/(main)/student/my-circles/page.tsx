@@ -12,7 +12,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Users, Loader2, Trash2, ChevronLeft, ChevronRight, Eye } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
 import { AuthGatePrompt, BackButton } from '@/components/common'
@@ -39,12 +39,6 @@ interface CirclesData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function MyCirclesPage() {
   const t = useTranslations('student')
   const tc = useTranslations('myCircles')
@@ -56,12 +50,12 @@ export default function MyCirclesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['student', 'my-circles', page],
-    queryFn: () => api<CirclesData>(`/api/circles/mine?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: () => apiOrThrow<CirclesData>(`/api/circles/mine?page=${page}&pageSize=${PAGE_SIZE}`),
     enabled: allow,
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/circles/${id}/leave`, { method: 'POST' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/circles/${id}/leave`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['student', 'my-circles'] }),
   })
 
