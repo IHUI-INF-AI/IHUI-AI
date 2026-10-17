@@ -6,12 +6,16 @@ import { test, expect, type Page } from '@playwright/test'
 import { ensureLoginDialogOpen } from './open-login-dialog'
 
 /**
- * 记住密码 + 自动登录 + 账号历史 e2e 测试
+ * 记住账号回填 + 账号历史 e2e 测试
+ *
+ * 2026-10-17 调整:登录框的「记住密码」「自动登录」两个勾已移除(口令永不落盘、自动登录
+ * 走设置页开关 + 后端 refresh token 续期),相关勾选测试一并删除。本文件现只覆盖:
+ *  - 账号回填(有已保存账号时自动预填,不预填口令,旧明文就地抹除)
+ *  - 账号历史下拉(双击展开 / 点击填入 / 删除单条 / 清空全部 / 键盘导航)
  *
  * 关联组件:
- *  - apps/web/src/components/login/PasswordLoginForm.tsx
+ *  - packages/ui-react/src/components/login-form/password-login-form.tsx
  *  - apps/web/src/lib/remember-credentials.ts
- *  - apps/web/messages/{zh-CN,en,zh-TW,ko,ja}.json
  */
 
 const BASE_URL =
@@ -73,124 +77,12 @@ async function switchToPasswordTab(page: Page) {
   await expect(page.locator('#login-form-account')).toBeVisible({ timeout: 10000 })
 }
 
-/** 用 page.mouse 发送真实事件,绕过 overlay actionability 检查 */
-async function clickCheckbox(page: Page, testId: string) {
-  const el = page.getByTestId(testId)
-  const box = await el.boundingBox()
-  if (!box) throw new Error(`${testId} not found`)
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  await page.mouse.down()
-  await page.mouse.up()
-}
-
-test.describe('记住密码 + 自动登录 + 账号历史', () => {
-  test('记住密码复选框在验证码下方(不在密码和验证码之间)', async ({ page }) => {
-    await openLoginDialog(page)
-    await switchToPasswordTab(page)
-
-    // 2026-08-26 修复:captchaEnabled 默认 false(密码表单无验证码,login-form.tsx:82),
-    // 原断言"验证码下方"与实现矛盾。改为验证记住密码行位于密码输入框下方(布局语义保留)。
-    const passwordLabel = page.locator('label[for="login-form-password"]')
-    const rememberCheckbox = page.getByTestId('remember-password-checkbox')
-
-    await expect(passwordLabel).toBeVisible()
-    await expect(rememberCheckbox).toBeVisible()
-
-    // 验证记住密码在密码行下方(Y 坐标大于密码输入框)
-    const passwordBox = await passwordLabel.boundingBox()
-    const rememberBox = await rememberCheckbox.boundingBox()
-    expect(rememberBox!.y).toBeGreaterThan(passwordBox!.y)
-  })
-
-  test('记住密码和自动登录在同一排', async ({ page }) => {
-    await openLoginDialog(page)
-    await switchToPasswordTab(page)
-
-    const rememberCheckbox = page.getByTestId('remember-password-checkbox')
-    const autoLoginCheckbox = page.getByTestId('auto-login-checkbox')
-
-    await expect(rememberCheckbox).toBeVisible()
-    await expect(autoLoginCheckbox).toBeVisible()
-
-    // 验证两者 Y 坐标相同(同一排)
-    const rememberBox = await rememberCheckbox.boundingBox()
-    const autoLoginBox = await autoLoginCheckbox.boundingBox()
-    expect(Math.abs(rememberBox!.y - autoLoginBox!.y)).toBeLessThan(2)
-  })
-
-  test('记住密码复选框样式(16x16 方形)', async ({ page }) => {
-    await openLoginDialog(page)
-    await switchToPasswordTab(page)
-
-    const checkbox = page.getByTestId('remember-password-checkbox')
-    const box = await checkbox.boundingBox()
-    expect(box).not.toBeNull()
-    expect(box!.width).toBeCloseTo(16, 0)
-    expect(box!.height).toBeCloseTo(16, 0)
-
-    const borderRadius = await checkbox.evaluate((el) => {
-      return window.getComputedStyle(el).borderRadius
-    })
-    expect(parseFloat(borderRadius)).toBeLessThanOrEqual(4)
-  })
-
-  test('记住密码勾选/取消状态正确', async ({ page }) => {
-    await openLoginDialog(page)
-    await switchToPasswordTab(page)
-
-    const checkbox = page.getByTestId('remember-password-checkbox')
-    await clickCheckbox(page, 'remember-password-checkbox')
-    await expect(checkbox).toHaveAttribute('aria-checked', 'true')
-
-    await clickCheckbox(page, 'remember-password-checkbox')
-    await expect(checkbox).toHaveAttribute('aria-checked', 'false')
-  })
-
-  test('自动登录依赖记住密码(remember 未勾时 auto 禁用,先勾 remember 后 auto 可勾)', async ({
-    page,
-  }) => {
-    await openLoginDialog(page)
-    await switchToPasswordTab(page)
-
-    const autoLoginCheckbox = page.getByTestId('auto-login-checkbox')
-    const rememberCheckbox = page.getByTestId('remember-password-checkbox')
-
-    await expect(rememberCheckbox).toHaveAttribute('aria-checked', 'false')
-    // 2026-08-26 修复:实现为"auto-login 依赖 remember-password"(disabled 防绕过),
-    // 原测试期望"勾 auto 自动勾 remember"与实现矛盾。验证真实依赖链:
-    // remember 未勾 → auto disabled;先勾 remember → auto 可勾。
-    await expect(autoLoginCheckbox).toBeDisabled()
-
-    await clickCheckbox(page, 'remember-password-checkbox')
-    await expect(rememberCheckbox).toHaveAttribute('aria-checked', 'true')
-
-    await clickCheckbox(page, 'auto-login-checkbox')
-    await expect(autoLoginCheckbox).toHaveAttribute('aria-checked', 'true')
-  })
-
-  test('取消记住密码时自动取消自动登录', async ({ page }) => {
-    await openLoginDialog(page)
-    await switchToPasswordTab(page)
-
-    const rememberCheckbox = page.getByTestId('remember-password-checkbox')
-    const autoLoginCheckbox = page.getByTestId('auto-login-checkbox')
-
-    await clickCheckbox(page, 'remember-password-checkbox')
-    await clickCheckbox(page, 'auto-login-checkbox')
-    await expect(autoLoginCheckbox).toHaveAttribute('aria-checked', 'true')
-
-    await clickCheckbox(page, 'remember-password-checkbox')
-    await expect(rememberCheckbox).toHaveAttribute('aria-checked', 'false')
-    await expect(autoLoginCheckbox).toHaveAttribute('aria-checked', 'false')
-  })
-
+test.describe('记住账号回填 + 账号历史', () => {
   // 票 #27 web 端收口(2026-09-29):记住的记录里不再有口令。
   // 旧断言"password 输入框被预填 SavedPass1"钉的正是缺陷本身(base64 明文口令长期落盘),
   // 现改为新契约:账号预填、口令框为空、盘上旧形态被就地抹成"只含账号"。
   // 自动登录不再重放账密,由 use-auth-bootstrap 的 httpOnly refresh 静默续期承担。
-  test('有已保存凭据时自动填充账号(不填充口令)+ 就地抹除旧明文 + 复选框默认勾选', async ({
-    page,
-  }) => {
+  test('有已保存凭据时自动填充账号(不填充口令)+ 就地抹除旧明文', async ({ page }) => {
     await page.addInitScript(() => {
       const data = btoa(
         unescape(
@@ -205,17 +97,12 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
 
     // useEffect 在 active 变 true 后异步执行 setValue,需要等待
     await expect(page.locator('#login-form-account')).toHaveValue('saveduser', { timeout: 10000 })
-    // 口令不再从本地预填(这一档已从"记住"里移除)
+    // 口令不再从本地预填(这一档已从"记住"里移除;密码走浏览器自带记忆)
     await expect(page.locator('#login-form-password')).toHaveValue('', { timeout: 5000 })
 
-    const checkbox = page.getByTestId('remember-password-checkbox')
-    await expect(checkbox).toHaveAttribute('aria-checked', 'true')
-
     // 迁移义务:读侧必须把旧 base64 明文记录就地改写成"只含账号"的新形态
-    const stored = await page.evaluate(() =>
-      localStorage.getItem('ihui-remember-credentials'),
-    )
-    expect(stored, '记住的记录应仍在(账号那一半不得丢)').toBeTruthy()
+    const stored = await page.evaluate(() => localStorage.getItem('ihui-remember-credentials'))
+    expect(stored, '记住的账号记录应仍在(账号那一半不得丢)').toBeTruthy()
     expect(stored!).not.toContain('SavedPass1')
     expect(JSON.parse(stored!)).toEqual({ account: 'saveduser' })
   })

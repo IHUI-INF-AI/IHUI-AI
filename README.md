@@ -5657,3 +5657,7 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4415 API 路由 / 595 数
 - **顶层敏感文档仅管理员可见**(14 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend / I18N-COMPLETION-PLAN
 | [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国际化完成计划(历史规划)                                             |
 **11 个 i18n 工具链脚本**(`scripts/`): apply-brand-glossary.mjs / apply-i18n-translations.mjs / apply-translation-fallback.mjs / deep-i18n-audit.mjs / export-untranslated-i18n.mjs / fix-i18n-deep.mjs / scan-hardcoded-zh.mjs / scan-i18n-zh-residue.mjs / translate-i18n-batch.mjs / analyze-unique-i18n-values.mjs / verify-i18n.mjs
+GITHUB_TOKEN 推送不触发 workflow ⇒ required check 永不出现,只会制造每天一次的假红);
+H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号,而是**版本号背后的包还能不能被
+国内用户拿到**:该档把 ≈205MB 的 WebView2 运行时打进安装包(实测 exe 225,269,867 字节),
+结构性超过 Gitee 单文件 100MB 硬上限 ⇒ 0.1.74 的 Gitee release 里只有 `.exe.sig`、没有 `.exe`。

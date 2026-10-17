@@ -59,6 +59,7 @@ import {
   selectFace,
 } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_REL = 'scripts/readme-table-integrity-baseline.json'
@@ -700,8 +701,15 @@ function main() {
     process.exitCode = 2
     return
   }
-  const ri = argv.indexOf('--root')
-  const root = ri >= 0 && argv[ri + 1] ? resolve(argv[ri + 1]) : ROOT
+  // G-322(本站):`--root` 顶值/无值旧写法都当路径用 ⇒ assertRepoRoot 在错根上报"无法判定",
+  // 看起来像门的缺陷、其实是调用方少打了一个值;现由单源出口点名实得 token。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    process.exitCode = 2
+    return
+  }
+  const root = rootFlag.value ? resolve(rootFlag.value) : ROOT
   try {
     assertRepoRoot(root, 'check-readme-table-integrity')
   } catch (e) {
