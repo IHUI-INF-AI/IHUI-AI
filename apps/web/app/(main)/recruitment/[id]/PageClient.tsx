@@ -19,7 +19,7 @@ import {
   UserCheck,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -42,12 +42,6 @@ interface RecruitmentPlan {
   stats: { label: string; value: string }[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function RecruitmentDetailPage() {
   const params = useParams<{ id: string }>()
   const locale = useLocale()
@@ -55,7 +49,7 @@ export default function RecruitmentDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['recruitment', params.id],
-    queryFn: () => api<RecruitmentPlan>('/api/recruitment'),
+    queryFn: () => apiOrThrow<RecruitmentPlan>('/api/recruitment'),
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {

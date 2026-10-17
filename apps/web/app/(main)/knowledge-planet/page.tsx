@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { Globe, Loader2, RotateCw, Users } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 
@@ -27,23 +27,19 @@ interface PlanetNews {
   publishedAt: string | null
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function KnowledgePlanetPage() {
   const t = useTranslations('knowledgePlanet')
 
   const infoQ = useQuery({
     queryKey: ['knowledge-planet', 'info'],
-    queryFn: () => api<PlanetInfo>('/knowledge-planet/info'),
+    queryFn: () => apiOrThrow<PlanetInfo>('/knowledge-planet/info'),
   })
   const newsQ = useQuery({
     queryKey: ['knowledge-planet', 'news'],
     queryFn: () =>
-      api<{ list: PlanetNews[]; total: number }>('/knowledge-planet/news?page=1&pageSize=20'),
+      apiOrThrow<{ list: PlanetNews[]; total: number }>(
+        '/knowledge-planet/news?page=1&pageSize=20',
+      ),
   })
 
   const info = infoQ.data

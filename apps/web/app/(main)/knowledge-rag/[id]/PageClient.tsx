@@ -20,7 +20,7 @@ import {
   Hash,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 
 interface DocDetail {
@@ -41,12 +41,6 @@ interface SearchHit {
   chunkIndex: number
 }
 
-async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function KnowledgeRagDetailPage() {
   const { id } = useParams<{ id: string }>()
   const t = useTranslations('knowledgeRag.detail')
@@ -56,14 +50,14 @@ export default function KnowledgeRagDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['knowledgeRag', 'doc', id],
-    queryFn: () => api<DocDetail>(`/api/knowledge/docs/${id}`),
+    queryFn: () => apiOrThrow<DocDetail>(`/api/knowledge/docs/${id}`),
     enabled: Boolean(id),
   })
 
   const { data: hits } = useQuery({
     queryKey: ['knowledgeRag', 'related', id, data?.title],
     queryFn: () =>
-      api<SearchHit[]>('/api/knowledge/search', {
+      apiOrThrow<SearchHit[]>('/api/knowledge/search', {
         method: 'POST',
         body: JSON.stringify({ query: data?.title ?? '', topK: 6 }),
       }),

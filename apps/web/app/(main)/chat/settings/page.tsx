@@ -13,7 +13,7 @@ import { fetchProvidersV2 } from '../../settings/llm/helpers-v2'
 import { toast } from 'sonner'
 import { ArrowLeft, Loader2, Settings } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { FALLBACK_MODELS } from '@/components/chat/fallback-models'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
@@ -25,12 +25,6 @@ interface ChatSettings {
   temperature: string
   maxTokens: string
   systemPrompt: string
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 // 用户已配置的模型列表(settings/llm v2-providers)。
@@ -77,7 +71,7 @@ export default function ChatSettingsPage() {
         maxTokens: Number(form.maxTokens) || 2048,
         systemPrompt: form.systemPrompt.trim() || undefined,
       }
-      return api<unknown>('/api/chat/settings', {
+      return apiOrThrow<unknown>('/api/chat/settings', {
         method: 'PUT',
         body: JSON.stringify(body),
       })
@@ -131,80 +125,80 @@ export default function ChatSettingsPage() {
         <AuthGatePrompt message="请先登录后配置对话设置" />
       ) : (
         <form onSubmit={submit} className="space-y-4">
-        <Card>
-          <CardContent className="min-[640px]:p-3 space-y-4 p-3">
-            <div className="space-y-2">
-              <Label htmlFor="cs-model">{t('model')}</Label>
-              <select
-                id="cs-model"
-                value={form.model}
-                onChange={(e) => update('model', e.target.value)}
-                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                {MODELS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
+          <Card>
+            <CardContent className="min-[640px]:p-3 space-y-4 p-3">
               <div className="space-y-2">
-                <Label htmlFor="cs-temp">{t('temperature')}</Label>
-                <Input
-                  id="cs-temp"
-                  type="number"
-                  min={0}
-                  max={2}
-                  step={0.1}
-                  value={form.temperature}
-                  onChange={(e) => update('temperature', e.target.value)}
+                <Label htmlFor="cs-model">{t('model')}</Label>
+                <select
+                  id="cs-model"
+                  value={form.model}
+                  onChange={(e) => update('model', e.target.value)}
+                  className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {MODELS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="cs-temp">{t('temperature')}</Label>
+                  <Input
+                    id="cs-temp"
+                    type="number"
+                    min={0}
+                    max={2}
+                    step={0.1}
+                    value={form.temperature}
+                    onChange={(e) => update('temperature', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cs-max">{t('maxTokens')}</Label>
+                  <Input
+                    id="cs-max"
+                    type="number"
+                    min={1}
+                    max={32768}
+                    value={form.maxTokens}
+                    onChange={(e) => update('maxTokens', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cs-prompt">{t('systemPrompt')}</Label>
+                <textarea
+                  id="cs-prompt"
+                  value={form.systemPrompt}
+                  onChange={(e) => update('systemPrompt', e.target.value)}
+                  placeholder={t('systemPromptPlaceholder')}
+                  rows={5}
+                  className={inputClass}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="cs-max">{t('maxTokens')}</Label>
-                <Input
-                  id="cs-max"
-                  type="number"
-                  min={1}
-                  max={32768}
-                  value={form.maxTokens}
-                  onChange={(e) => update('maxTokens', e.target.value)}
-                />
-              </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            <div className="space-y-2">
-              <Label htmlFor="cs-prompt">{t('systemPrompt')}</Label>
-              <textarea
-                id="cs-prompt"
-                value={form.systemPrompt}
-                onChange={(e) => update('systemPrompt', e.target.value)}
-                placeholder={t('systemPromptPlaceholder')}
-                rows={5}
-                className={inputClass}
-              />
-            </div>
-          </CardContent>
-        </Card>
+          {err && <Alert variant="danger" description={err} />}
 
-        {err && <Alert variant="danger" description={err} />}
-
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push('/chat')}
-            disabled={saveMut.isPending}
-          >
-            {t('cancel')}
-          </Button>
-          <Button type="submit" disabled={saveMut.isPending}>
-            {saveMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {saveMut.isPending ? t('saving') : t('save')}
-          </Button>
-        </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push('/chat')}
+              disabled={saveMut.isPending}
+            >
+              {t('cancel')}
+            </Button>
+            <Button type="submit" disabled={saveMut.isPending}>
+              {saveMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {saveMut.isPending ? t('saving') : t('save')}
+            </Button>
+          </div>
         </form>
       )}
     </div>

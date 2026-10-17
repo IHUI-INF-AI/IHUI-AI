@@ -9,7 +9,7 @@ import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Bell, Heart, Star, MessageSquare, Users, Mail } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Avatar } from '@/components/data'
 import { cn } from '@/lib/utils'
 import type { NotificationItem } from '@ihui/types'
@@ -76,12 +76,6 @@ interface UnifiedItem {
   createdAt: string
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function MessageTypePage() {
   const params = useParams()
   const rawType = Array.isArray(params.type) ? params.type[0] : params.type
@@ -101,7 +95,9 @@ export default function MessageTypePage() {
     enabled: allow && isValid,
     queryFn: async (): Promise<UnifiedItem[]> => {
       if (isPrivateLetter) {
-        const res = await api<{ list: Conversation[] }>(`/api/messages/list?page=1&pageSize=10`)
+        const res = await apiOrThrow<{ list: Conversation[] }>(
+          `/api/messages/list?page=1&pageSize=10`,
+        )
         return (res.list ?? []).map((c): UnifiedItem => ({
           id: c.id,
           title: c.peerName,
@@ -112,7 +108,7 @@ export default function MessageTypePage() {
         }))
       }
       const apiType = NOTI_API_TYPE[type as Exclude<MessageType, 'private-letter'>]
-      const res = await api<{ list: NotificationItem[] }>(
+      const res = await apiOrThrow<{ list: NotificationItem[] }>(
         `/api/notifications?type=${apiType}&page=1&pageSize=10`,
       )
       return (res.list ?? []).map((n): UnifiedItem => ({
@@ -129,9 +125,9 @@ export default function MessageTypePage() {
   const readMut = useMutation({
     mutationFn: (id: string) => {
       if (isPrivateLetter) {
-        return api(`/api/messages/${id}/read`, { method: 'POST' })
+        return apiOrThrow(`/api/messages/${id}/read`, { method: 'POST' })
       }
-      return api(`/api/notifications/${id}/read`, { method: 'PATCH' })
+      return apiOrThrow(`/api/notifications/${id}/read`, { method: 'PATCH' })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['messages-type', type] })

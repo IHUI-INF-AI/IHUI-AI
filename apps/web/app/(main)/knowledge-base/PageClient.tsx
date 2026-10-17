@@ -12,7 +12,7 @@ import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 import { BookOpen, Search, FileText, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter, Input } from '@ihui/ui-react'
 
@@ -39,12 +39,6 @@ interface KBListData {
 
 const PAGE_SIZE = 10
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function KnowledgeBasePageClient() {
   const locale = useLocale()
   const t = useTranslations('knowledgeBase.list')
@@ -70,7 +64,9 @@ export default function KnowledgeBasePageClient() {
     queryKey: ['kb', 'categories'],
     enabled: allow,
     queryFn: () =>
-      api<{ list: KBCategory[] }>(`/api/knowledge-base/categories`).then((d) => d.list ?? []),
+      apiOrThrow<{ list: KBCategory[] }>(`/api/knowledge-base/categories`).then(
+        (d) => d.list ?? [],
+      ),
   })
 
   const { data, isLoading, error } = useQuery({
@@ -80,7 +76,7 @@ export default function KnowledgeBasePageClient() {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (categoryId !== 'all') qs.set('categoryId', categoryId)
       if (debounced) qs.set('search', debounced)
-      return api<KBListData>(`/api/knowledge-base?${qs.toString()}`)
+      return apiOrThrow<KBListData>(`/api/knowledge-base?${qs.toString()}`)
     },
   })
 

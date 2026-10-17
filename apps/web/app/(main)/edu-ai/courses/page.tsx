@@ -18,7 +18,7 @@ import {
   Search,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
 import { Alert } from '@/components/feedback'
@@ -86,12 +86,6 @@ const ENDPOINTS: Record<Tab, string> = {
   university: '/api/ai-education/university-course',
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function isTruthy(v?: boolean | number | string | null): boolean {
   return v === true || v === 1 || v === '1' || v === 'true'
 }
@@ -133,7 +127,9 @@ export default function EduAICoursesPage() {
         status: 'active',
       })
       if (debounced) qs.set('keyword', debounced)
-      return api<ListResult<K12Course | UniversityCourse>>(`${ENDPOINTS[tab]}?${qs.toString()}`)
+      return apiOrThrow<ListResult<K12Course | UniversityCourse>>(
+        `${ENDPOINTS[tab]}?${qs.toString()}`,
+      )
     },
   })
 
@@ -143,8 +139,10 @@ export default function EduAICoursesPage() {
       const id = detailId
       if (!id) throw new Error('missing id')
       return tab === 'k12'
-        ? api<{ curriculum: K12Course }>(`${ENDPOINTS.k12}/${id}`).then((d) => d.curriculum)
-        : api<{ course: UniversityCourse }>(`${ENDPOINTS.university}/${id}`).then((d) => d.course)
+        ? apiOrThrow<{ curriculum: K12Course }>(`${ENDPOINTS.k12}/${id}`).then((d) => d.curriculum)
+        : apiOrThrow<{ course: UniversityCourse }>(`${ENDPOINTS.university}/${id}`).then(
+            (d) => d.course,
+          )
     },
     enabled: !!detailId,
   })

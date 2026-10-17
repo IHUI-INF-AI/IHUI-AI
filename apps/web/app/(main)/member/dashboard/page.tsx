@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { Crown, Coins, Ticket, ShoppingBag, Loader2, ArrowRight } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -35,12 +35,6 @@ interface OrderRow {
   createdAt: string
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const STAT_KEY: Record<string, string> = {
   level: 'stats.level',
   points: 'stats.points',
@@ -55,12 +49,13 @@ export default function MemberDashboardPage() {
   const { allow } = useAuthGate()
   const summaryQ = useQuery({
     queryKey: ['member', 'summary'],
-    queryFn: () => api<MemberSummary>('/api/members/me').catch(() => ({}) as MemberSummary),
+    queryFn: () => apiOrThrow<MemberSummary>('/api/members/me').catch(() => ({}) as MemberSummary),
     enabled: allow,
   })
   const ordersQ = useQuery({
     queryKey: ['member', 'recent-orders'],
-    queryFn: () => api<{ list: OrderRow[] }>('/api/orders/me?pageSize=5').then((d) => d.list ?? []),
+    queryFn: () =>
+      apiOrThrow<{ list: OrderRow[] }>('/api/orders/me?pageSize=5').then((d) => d.list ?? []),
     enabled: allow,
   })
 

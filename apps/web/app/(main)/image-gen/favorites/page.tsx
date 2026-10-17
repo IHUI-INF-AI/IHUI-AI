@@ -10,7 +10,7 @@ import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Heart } from 'lucide-react'
 import Image from 'next/image'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -26,12 +26,6 @@ interface ListData {
   list: FavItem[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function ImageGenFavoritesPage() {
   const locale = useLocale()
 
@@ -40,7 +34,7 @@ export default function ImageGenFavoritesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['image-gen', 'favorites'],
-    queryFn: () => api<ListData>('/api/image-gen/favorites'),
+    queryFn: () => apiOrThrow<ListData>('/api/image-gen/favorites'),
     enabled: allow,
   })
 

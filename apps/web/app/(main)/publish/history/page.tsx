@@ -12,7 +12,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Loader2, BarChart3 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { BackButton } from '@/components/common'
 import { StatsCards } from './StatsCards'
@@ -59,12 +59,6 @@ interface Stats {
   }
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function HistoryPage() {
   const t = useTranslations('publish')
   const toast = useToast()
@@ -79,8 +73,8 @@ export default function HistoryPage() {
     setLoading(true)
     try {
       const [histRes, statsRes] = await Promise.all([
-        api<{ items?: Task[]; list?: Task[] } | Task[]>('/api/publish/tasks?limit=50'),
-        api<Stats>('/api/publish/stats').catch(() => ({})),
+        apiOrThrow<{ items?: Task[]; list?: Task[] } | Task[]>('/api/publish/tasks?limit=50'),
+        apiOrThrow<Stats>('/api/publish/stats').catch(() => ({})),
       ])
       const list = Array.isArray(histRes) ? histRes : (histRes.items ?? histRes.list ?? [])
       setTasks(list)

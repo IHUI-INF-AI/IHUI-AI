@@ -14,6 +14,11 @@ import type {
   // D130(2026-09-30 立):推理强度档位封闭集 —— 值域唯一源在 packages/types/reasoning-effort.ts,
   // 本包不得抄第二份字面量(守门 check-model-capacity-parity C6 已把它登记为第四落点)。
   ReasoningEffort,
+  // 79 号票(2026-10-18 立):权限双轴两轴档位封闭集 —— 值域唯一源在
+  // packages/types/permission-axis.ts(SANDBOX_MODES / APPROVAL_POLICIES),
+  // 本包不得抄第二份字面量(G-164 同课:各端自抄一份 ⇒ 总有一份少一档并静默归 null)。
+  SandboxModeId,
+  ApprovalPolicyId,
 } from '@ihui/types'
 // #11 Citations 全链路(2026-09-13 立):类型已迁至 @ihui/types(与 PlanUpdateEvent 等一致),
 // 本地不再重复定义,消除 import 与本地声明的 TS2440 冲突。
@@ -1512,6 +1517,14 @@ export interface StreamChatOptions {
    *  permission_mode,工具审批门据此决定高危工具是否弹审批
    *  (bypass-permissions 不拦截;accept-edits 放行文件编辑类)。 */
   permissionMode?: string
+  /** 79 号票(2026-10-18 立):权限双轴的两轴档位,经网关透传为 ai-service 的
+   *  sandbox_mode / approval_policy(与 permissionMode / reasoningEffort 同区同形,
+   *  camel 入 / snake 出),双轴裁决门据此判定工具调用的审批与放行。
+   *  值域 = @ihui/types 的封闭联合,端内不得再写字面量数组。
+   *  undefined = 不发该字段 ⇒ 后端按"未携带双轴"处理 —— 裁决门整段跳过,
+   *  旧客户端零行为变化(这条是接线能安全落地的前置,不是保守偏好)。 */
+  sandboxMode?: SandboxModeId
+  approvalPolicy?: ApprovalPolicyId
   /** D130(2026-09-30 立):推理强度档位(输入区第三轴)。camel 入网关,网关转 snake 出到 ai-service
    *  (与 temperature/topP 同区、与 ai-chat-stream.ts 的 camel-in/snake-out 先例同形)。
    *  值域 = @ihui/types 的封闭联合,端内不得再写字面量数组。undefined = 不发该字段,
@@ -3240,6 +3253,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // 网关 schema 已声明 permissionMode(否则 zod strip 静默丢弃,链路掐断),
   // 网关再以 permission_mode(snake_case)透传到 ai-service 审批门。
   if (opts.permissionMode) body.permissionMode = opts.permissionMode
+  // 79 号票(2026-10-18 立):权限双轴两轴档位透传。与 permissionMode / reasoningEffort
+  // 同形:仅字段存在时写入,undefined 不进 body ⇒ 旧客户端零行为变化。
+  // 票第 8 栏点名的静默失效就在这一行:删掉它,前端选了档而上游收不到,界面仍一切正常
+  // (但双轴裁决门会把它读成"未携带"而整段跳过 ⇒ 选了等于没选)。
+  if (opts.sandboxMode !== undefined) body.sandboxMode = opts.sandboxMode
+  if (opts.approvalPolicy !== undefined) body.approvalPolicy = opts.approvalPolicy
   // D130(2026-09-30 立):推理强度档位。仅字段存在时写入(与 permissionMode 同形):
   // undefined 不进 body ⇒ 后端走默认档,旧客户端零行为变化。
   if (opts.reasoningEffort !== undefined) body.reasoningEffort = opts.reasoningEffort

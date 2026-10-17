@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 
@@ -33,12 +33,6 @@ interface CategoriesData {
   list: Category[]
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function AiWorldEditPage() {
   const t = useTranslations('aiWorldEditPage')
   const params = useParams<{ id: string }>()
@@ -46,13 +40,14 @@ export default function AiWorldEditPage() {
 
   const { data: world, isLoading } = useQuery({
     queryKey: ['ai-world', 'detail', params.id],
-    queryFn: () => api<{ world: AiWorldItem }>(`/api/ai-world/${params.id}`).then((d) => d.world),
+    queryFn: () =>
+      apiOrThrow<{ world: AiWorldItem }>(`/api/ai-world/${params.id}`).then((d) => d.world),
     enabled: !!params.id,
   })
 
   const { data: catData } = useQuery({
     queryKey: ['ai-world', 'categories'],
-    queryFn: () => api<CategoriesData>('/api/ai-world/categories'),
+    queryFn: () => apiOrThrow<CategoriesData>('/api/ai-world/categories'),
   })
 
   const [form, setForm] = React.useState({
@@ -87,7 +82,7 @@ export default function AiWorldEditPage() {
         coverImage: form.coverImage.trim() || undefined,
         config: form.config.trim() || undefined,
       }
-      return api<unknown>(`/api/ai-world/${params.id}`, {
+      return apiOrThrow<unknown>(`/api/ai-world/${params.id}`, {
         method: 'PUT',
         body: JSON.stringify(body),
       })

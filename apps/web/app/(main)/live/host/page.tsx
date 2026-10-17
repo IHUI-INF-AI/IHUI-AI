@@ -9,7 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Copy, Loader2, Play, Square, Video } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { toast } from '@/components/common/Toaster'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -28,12 +28,6 @@ interface StreamItem {
   createdAt: string
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function LiveHostPage() {
   const t = useTranslations('liveHost')
   const qc = useQueryClient()
@@ -46,14 +40,14 @@ export default function LiveHostPage() {
 
   const myStreamsQ = useQuery({
     queryKey: ['srs', 'streams'],
-    queryFn: () => api<{ list: StreamItem[] }>('/srs/streams?page=1&pageSize=50'),
+    queryFn: () => apiOrThrow<{ list: StreamItem[] }>('/srs/streams?page=1&pageSize=50'),
     select: (d) => d.list.filter((s) => (s.userId ? s.userId === currentUserId : false)),
     enabled: allow,
   })
 
   const createQ = useMutation({
     mutationFn: () =>
-      api<StreamItem>('/srs/streams', {
+      apiOrThrow<StreamItem>('/srs/streams', {
         method: 'POST',
         body: JSON.stringify({ title: title.trim() }),
       }),
@@ -68,7 +62,7 @@ export default function LiveHostPage() {
 
   const endQ = useMutation({
     mutationFn: (id: string) =>
-      api<StreamItem>(`/srs/streams/${id}`, {
+      apiOrThrow<StreamItem>(`/srs/streams/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ status: 'inactive' }),
       }),
@@ -153,55 +147,55 @@ export default function LiveHostPage() {
         <AuthGatePrompt message="请先登录后查看我的直播" />
       ) : (
         <>
-      <h3 className="mb-3 text-sm font-medium">{t('myStreams')}</h3>
+          <h3 className="mb-3 text-sm font-medium">{t('myStreams')}</h3>
 
-      {myStreamsQ.isLoading ? (
-        <div className="flex items-center justify-center py-8 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          <span>{t('loading')}</span>
-        </div>
-      ) : (myStreamsQ.data ?? []).length === 0 ? (
-        <Card>
-          <CardContent className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-            {t('empty')}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {(myStreamsQ.data ?? []).map((stream) => (
-            <Card key={stream.id}>
-              <CardContent className="min-[640px]:p-3 flex items-center justify-between gap-3 p-3">
-                <div className="min-w-0">
-                  <h4 className="truncate text-sm font-medium">{stream.title}</h4>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {stream.status === 'active' ? t('statusActive') : t('statusInactive')}
-                  </p>
-                </div>
-                {stream.status === 'active' ? (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    disabled={endQ.isPending}
-                    onClick={() => endQ.mutate(stream.id)}
-                  >
-                    {endQ.isPending ? (
-                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Square className="mr-1.5 h-4 w-4" />
-                    )}
-                    {t('endBtn')}
-                  </Button>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-                    <Play className="h-4 w-4" />
-                    {t('statusInactive')}
-                  </span>
-                )}
+          {myStreamsQ.isLoading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              <span>{t('loading')}</span>
+            </div>
+          ) : (myStreamsQ.data ?? []).length === 0 ? (
+            <Card>
+              <CardContent className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                {t('empty')}
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="space-y-3">
+              {(myStreamsQ.data ?? []).map((stream) => (
+                <Card key={stream.id}>
+                  <CardContent className="min-[640px]:p-3 flex items-center justify-between gap-3 p-3">
+                    <div className="min-w-0">
+                      <h4 className="truncate text-sm font-medium">{stream.title}</h4>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {stream.status === 'active' ? t('statusActive') : t('statusInactive')}
+                      </p>
+                    </div>
+                    {stream.status === 'active' ? (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={endQ.isPending}
+                        onClick={() => endQ.mutate(stream.id)}
+                      >
+                        {endQ.isPending ? (
+                          <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Square className="mr-1.5 h-4 w-4" />
+                        )}
+                        {t('endBtn')}
+                      </Button>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                        <Play className="h-4 w-4" />
+                        {t('statusInactive')}
+                      </span>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>

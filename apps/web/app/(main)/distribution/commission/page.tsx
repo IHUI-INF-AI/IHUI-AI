@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { DollarSign, Loader2, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Button,
   Card,
@@ -66,12 +66,6 @@ const TYPE_KEY: Record<number, string> = {
   2: 'commissionType2',
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
 
 export default function MyCommissionPage() {
@@ -84,22 +78,23 @@ export default function MyCommissionPage() {
   const { allow } = useAuthGate()
   const summaryQ = useQuery({
     queryKey: ['distribution', 'commission-summary'],
-    queryFn: () => api<CommissionSummaryData>('/api/finance/commission/summary'),
+    queryFn: () => apiOrThrow<CommissionSummaryData>('/api/finance/commission/summary'),
     enabled: allow,
   })
   const availableQ = useQuery({
     queryKey: ['distribution', 'withdrawal-available'],
-    queryFn: () => api<AvailableData>('/api/finance/withdrawal/available'),
+    queryFn: () => apiOrThrow<AvailableData>('/api/finance/withdrawal/available'),
     enabled: allow,
   })
   const withdrawnQ = useQuery({
     queryKey: ['distribution', 'withdrawal-summary'],
-    queryFn: () => api<WithdrawalSummaryData>('/api/finance/withdrawal/summary'),
+    queryFn: () => apiOrThrow<WithdrawalSummaryData>('/api/finance/withdrawal/summary'),
     enabled: allow,
   })
   const listQ = useQuery({
     queryKey: ['distribution', 'commission-list', page],
-    queryFn: () => api<ListData>(`/api/finance/commission/list?page=${page}&limit=${PAGE_SIZE}`),
+    queryFn: () =>
+      apiOrThrow<ListData>(`/api/finance/commission/list?page=${page}&limit=${PAGE_SIZE}`),
     enabled: allow,
   })
 
@@ -147,115 +142,121 @@ export default function MyCommissionPage() {
         <AuthGatePrompt message="请先登录后查看佣金" />
       ) : (
         <>
-      <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
-        {stats.map((s) => (
-          <Card key={s.label}>
-            <CardContent className="min-[640px]:p-3 space-y-1 p-3">
-              <div className="text-xs text-muted-foreground">{s.label}</div>
-              {summaryQ.isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              ) : (
-                <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
-                  {s.value}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('commissionFlows')}</h2>
-        <div className="overflow-hidden rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="px-4 py-2.5">{t('colType')}</TableHead>
-                <TableHead className="px-4 py-2.5 text-right">{t('colAmount')}</TableHead>
-                <TableHead className="px-4 py-2.5 text-right">{t('colToken')}</TableHead>
-                <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
-                <TableHead className="px-4 py-2.5">{t('colTime')}</TableHead>
-                <TableHead className="px-4 py-2.5">{t('colRemark')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {listQ.isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                    <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                    {t('loading')}
-                  </TableCell>
-                </TableRow>
-              ) : listQ.error ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="px-4 py-10 text-center text-destructive">
-                    {(listQ.error as Error).message}
-                  </TableCell>
-                </TableRow>
-              ) : items.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                    <DollarSign className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                    {t('empty')}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((it) => (
-                  <TableRow key={it.id}>
-                    <TableCell className="px-4 py-2.5 font-medium">
-                      {t(TYPE_KEY[it.type] ?? 'commissionType0')}
-                    </TableCell>
-                    <TableCell className="px-4 py-2.5 text-right font-medium text-emerald-600 dark:text-emerald-400">
-                      {fmtYuan(it.amount)}
-                    </TableCell>
-                    <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
-                      {it.token}
-                    </TableCell>
-                    <TableCell className="px-4 py-2.5">
-                      <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                        {it.status === 1 ? t('commissionActive') : t('commissionInvalid')}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-4 py-2.5 text-muted-foreground">
-                      {fmtDate(it.createdAt)}
-                    </TableCell>
-                    <TableCell className="px-4 py-2.5 text-muted-foreground">
-                      {it.remark ?? '-'}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {total > PAGE_SIZE && (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                {page} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+          <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
+            {stats.map((s) => (
+              <Card key={s.label}>
+                <CardContent className="min-[640px]:p-3 space-y-1 p-3">
+                  <div className="text-xs text-muted-foreground">{s.label}</div>
+                  {summaryQ.isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : (
+                    <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+                      {s.value}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
           </div>
-        )}
-      </div>
+
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold">{t('commissionFlows')}</h2>
+            <div className="overflow-hidden rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="px-4 py-2.5">{t('colType')}</TableHead>
+                    <TableHead className="px-4 py-2.5 text-right">{t('colAmount')}</TableHead>
+                    <TableHead className="px-4 py-2.5 text-right">{t('colToken')}</TableHead>
+                    <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
+                    <TableHead className="px-4 py-2.5">{t('colTime')}</TableHead>
+                    <TableHead className="px-4 py-2.5">{t('colRemark')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {listQ.isLoading ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="px-4 py-10 text-center text-muted-foreground"
+                      >
+                        <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                        {t('loading')}
+                      </TableCell>
+                    </TableRow>
+                  ) : listQ.error ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="px-4 py-10 text-center text-destructive">
+                        {(listQ.error as Error).message}
+                      </TableCell>
+                    </TableRow>
+                  ) : items.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="px-4 py-10 text-center text-muted-foreground"
+                      >
+                        <DollarSign className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                        {t('empty')}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    items.map((it) => (
+                      <TableRow key={it.id}>
+                        <TableCell className="px-4 py-2.5 font-medium">
+                          {t(TYPE_KEY[it.type] ?? 'commissionType0')}
+                        </TableCell>
+                        <TableCell className="px-4 py-2.5 text-right font-medium text-emerald-600 dark:text-emerald-400">
+                          {fmtYuan(it.amount)}
+                        </TableCell>
+                        <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
+                          {it.token}
+                        </TableCell>
+                        <TableCell className="px-4 py-2.5">
+                          <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                            {it.status === 1 ? t('commissionActive') : t('commissionInvalid')}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-4 py-2.5 text-muted-foreground">
+                          {fmtDate(it.createdAt)}
+                        </TableCell>
+                        <TableCell className="px-4 py-2.5 text-muted-foreground">
+                          {it.remark ?? '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {total > PAGE_SIZE && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {page} / {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>

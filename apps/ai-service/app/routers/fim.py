@@ -517,7 +517,15 @@ async def fim_predict_edit(req: PredictiveEditRequest) -> dict[str, Any]:
     if failure is not None:
         return finish("undetermined", failure, model=used_model, stub=stub)
 
-    outcome = interpret_model_output(str(result.get("content") or ""), document_length=document_length)
+    # 82 号票第二刀(2026-10-18 立):把文档原文交给判定出口,才谈得上锚点比对。
+    # 传的是**完整原文**(与 document_length 同源 = req.content),而不是喂给模型的
+    # 那个窗口 —— 动作区间是**文档绝对偏移**,拿窗口去比对等于拿错坐标系去判,
+    # 会把每条合法动作误判成 anchor_mismatch。
+    outcome = interpret_model_output(
+        str(result.get("content") or ""),
+        document_length=document_length,
+        document=req.content,
+    )
     return finish(
         outcome.disposition,
         outcome.reason,

@@ -14,7 +14,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { BackButton } from '@/components/common'
 import {
@@ -34,12 +34,6 @@ interface OverviewResponse {
   failureReasons: ReadonlyArray<{ reason: string; count: number }>
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function AnalyticsPage() {
   const t = useTranslations('publish')
   const toast = useToast()
@@ -53,8 +47,12 @@ export default function AnalyticsPage() {
       setLoading(true)
       try {
         const [ovRes, acRes] = await Promise.all([
-          api<OverviewResponse>(`/api/publish/analytics/overview?period=${p}`).catch(() => null),
-          api<AccountHealth[]>(`/api/publish/analytics/accounts?period=${p}`).catch(() => []),
+          apiOrThrow<OverviewResponse>(`/api/publish/analytics/overview?period=${p}`).catch(
+            () => null,
+          ),
+          apiOrThrow<AccountHealth[]>(`/api/publish/analytics/accounts?period=${p}`).catch(
+            () => [],
+          ),
         ])
         if (ovRes) {
           setOverview({

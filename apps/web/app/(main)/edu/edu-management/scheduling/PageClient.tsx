@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton, TruncatedText } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
@@ -124,12 +124,6 @@ interface ScheduleChange {
 }
 
 /* ─── API helper ─── */
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 /* ─── Constants ─── */
 
@@ -564,7 +558,7 @@ export default function SchedulingPage() {
   const { data: termsData } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
     enabled: allow,
-    queryFn: () => api<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
   })
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
 
@@ -578,7 +572,7 @@ export default function SchedulingPage() {
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
     queryFn: () =>
-      api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+      apiOrThrow<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
     enabled: !!selectedTermId,
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
@@ -586,7 +580,7 @@ export default function SchedulingPage() {
   const { data: rulesData, isLoading: rulesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'scheduling', 'rule', selectedTermId],
     queryFn: () =>
-      api<{ list: SchedulingRule[] }>(
+      apiOrThrow<{ list: SchedulingRule[] }>(
         `/api/edu-ai-management/scheduling-rule?termId=${selectedTermId}`,
       ),
     enabled: !!selectedTermId,
@@ -596,14 +590,14 @@ export default function SchedulingPage() {
   const { data: teachersData } = useQuery({
     queryKey: ['edu-ai-management', 'teachers'],
     enabled: allow,
-    queryFn: () => api<{ list: EduTeacher[] }>('/api/edu-ai-management/teachers'),
+    queryFn: () => apiOrThrow<{ list: EduTeacher[] }>('/api/edu-ai-management/teachers'),
   })
   const teachers = React.useMemo(() => teachersData?.list ?? [], [teachersData])
 
   const { data: teacherSchedulesData, isLoading: teacherSchedulesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'scheduling', 'teacher-schedule', selectedTermId],
     queryFn: () =>
-      api<{ list: TeacherSchedule[] }>(
+      apiOrThrow<{ list: TeacherSchedule[] }>(
         `/api/edu-ai-management/teacher-schedule?termId=${selectedTermId}`,
       ),
     enabled: !!selectedTermId,
@@ -613,7 +607,7 @@ export default function SchedulingPage() {
   const { data: changesData, isLoading: changesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'scheduling', 'change', selectedTermId],
     queryFn: () =>
-      api<{ list: ScheduleChange[] }>(
+      apiOrThrow<{ list: ScheduleChange[] }>(
         `/api/edu-ai-management/schedule-change?termId=${selectedTermId}`,
       ),
     enabled: !!selectedTermId,
@@ -627,7 +621,7 @@ export default function SchedulingPage() {
 
   const createRule = useMutation({
     mutationFn: (data: RuleFormData) =>
-      api('/api/edu-ai-management/scheduling-rule', {
+      apiOrThrow('/api/edu-ai-management/scheduling-rule', {
         method: 'POST',
         body: JSON.stringify({ ...data, termId: selectedTermId }),
       }),
@@ -636,7 +630,7 @@ export default function SchedulingPage() {
 
   const updateRule = useMutation({
     mutationFn: ({ id, data }: { id: string; data: RuleFormData }) =>
-      api(`/api/edu-ai-management/scheduling-rule/${id}`, {
+      apiOrThrow(`/api/edu-ai-management/scheduling-rule/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
@@ -645,13 +639,13 @@ export default function SchedulingPage() {
 
   const deleteRule = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/scheduling-rule/${id}`, { method: 'DELETE' }),
+      apiOrThrow(`/api/edu-ai-management/scheduling-rule/${id}`, { method: 'DELETE' }),
     onSuccess: invalidate,
   })
 
   const autoGenerate = useMutation({
     mutationFn: () =>
-      api<{ success: boolean; message: string }>(
+      apiOrThrow<{ success: boolean; message: string }>(
         '/api/edu-ai-management/scheduling/auto-generate',
         {
           method: 'POST',
@@ -663,7 +657,7 @@ export default function SchedulingPage() {
 
   const checkConflicts = useMutation({
     mutationFn: () =>
-      api<{ conflicts: string[] }>('/api/edu-ai-management/scheduling/check-conflicts', {
+      apiOrThrow<{ conflicts: string[] }>('/api/edu-ai-management/scheduling/check-conflicts', {
         method: 'POST',
         body: JSON.stringify({ termId: selectedTermId }),
       }),
@@ -675,7 +669,7 @@ export default function SchedulingPage() {
 
   const createTeacherSchedule = useMutation({
     mutationFn: (data: TeacherScheduleFormData) =>
-      api('/api/edu-ai-management/teacher-schedule', {
+      apiOrThrow('/api/edu-ai-management/teacher-schedule', {
         method: 'POST',
         body: JSON.stringify({ ...data, termId: selectedTermId }),
       }),
@@ -684,7 +678,7 @@ export default function SchedulingPage() {
 
   const updateTeacherSchedule = useMutation({
     mutationFn: ({ id, data }: { id: string; data: TeacherScheduleFormData }) =>
-      api(`/api/edu-ai-management/teacher-schedule/${id}`, {
+      apiOrThrow(`/api/edu-ai-management/teacher-schedule/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
@@ -693,13 +687,13 @@ export default function SchedulingPage() {
 
   const deleteTeacherSchedule = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/teacher-schedule/${id}`, { method: 'DELETE' }),
+      apiOrThrow(`/api/edu-ai-management/teacher-schedule/${id}`, { method: 'DELETE' }),
     onSuccess: invalidate,
   })
 
   const approveChange = useMutation({
     mutationFn: ({ id, action }: { id: string; action: 'approve' | 'reject' }) =>
-      api(`/api/edu-ai-management/schedule-change/${id}/${action}`, {
+      apiOrThrow(`/api/edu-ai-management/schedule-change/${id}/${action}`, {
         method: 'PUT',
         body: JSON.stringify({}),
       }),

@@ -11,17 +11,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Edit, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import type { ArticleDetail } from '../types'
 import { ArticleEditForm } from './ArticleEditForm'
 import { EMPTY_FORM } from './types'
 import type { ArticleForm, ArticleCategoryOption } from './types'
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 export default function ArticleEditPage() {
   const t = useTranslations('articles')
@@ -37,12 +31,14 @@ export default function ArticleEditPage() {
   const { data: categories = [] } = useQuery({
     queryKey: ['articles', 'categories'],
     queryFn: () =>
-      api<{ list: ArticleCategoryOption[] }>(`/api/article/categories`).then((d) => d.list ?? []),
+      apiOrThrow<{ list: ArticleCategoryOption[] }>(`/api/article/categories`).then(
+        (d) => d.list ?? [],
+      ),
   })
 
   const { data: existing, isLoading: loadingDetail } = useQuery({
     queryKey: ['article', 'detail', editId],
-    queryFn: () => api<ArticleDetail>(`/api/article/detail/${editId}`),
+    queryFn: () => apiOrThrow<ArticleDetail>(`/api/article/detail/${editId}`),
     enabled: isEdit,
   })
 
@@ -67,12 +63,12 @@ export default function ArticleEditPage() {
         coverImage: form.coverImage.trim() || undefined,
       }
       if (isEdit && editId) {
-        return api(`/api/article/${editId}`, {
+        return apiOrThrow(`/api/article/${editId}`, {
           method: 'PUT',
           body: JSON.stringify(body),
         })
       }
-      return api(`/api/article/publish`, {
+      return apiOrThrow(`/api/article/publish`, {
         method: 'POST',
         body: JSON.stringify(body),
       })

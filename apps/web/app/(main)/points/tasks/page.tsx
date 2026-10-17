@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Check, Gift, Loader2, RotateCw } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -30,12 +30,6 @@ interface TaskItem {
   actionUrl: string | null
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const TABS: TaskType[] = ['daily', 'weekly', 'newbie']
 
 export default function PointsTasksPage() {
@@ -47,13 +41,14 @@ export default function PointsTasksPage() {
 
   const tasksQ = useQuery({
     queryKey: ['points', 'tasks', tab],
-    queryFn: () => api<{ list: TaskItem[] }>(`/points/tasks?type=${tab}`).then((d) => d.list ?? []),
+    queryFn: () =>
+      apiOrThrow<{ list: TaskItem[] }>(`/points/tasks?type=${tab}`).then((d) => d.list ?? []),
     enabled: allow,
   })
 
   const claimQ = useMutation({
     mutationFn: (code: string) =>
-      api<{ reward: number }>(`/points/tasks/${code}/claim`, { method: 'POST' }),
+      apiOrThrow<{ reward: number }>(`/points/tasks/${code}/claim`, { method: 'POST' }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['points', 'tasks'] })
       void qc.invalidateQueries({ queryKey: ['points'] })
@@ -72,105 +67,107 @@ export default function PointsTasksPage() {
       {/* 2026-09-30 登录态门 */}
       {allow ? (
         <>
-      <div className="mb-4 flex gap-2">
-        {TABS.map((key) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setTab(key)}
-            className={cn(
-              'rounded-sm px-3 py-1.5 text-sm transition-colors',
-              tab === key
-                ? 'bg-cta text-cta-foreground'
-                : 'bg-secondary text-secondary-foreground hover:bg-secondary/70',
-            )}
-          >
-            {t(`tab.${key}`)}
-          </button>
-        ))}
-      </div>
+          <div className="mb-4 flex gap-2">
+            {TABS.map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTab(key)}
+                className={cn(
+                  'rounded-sm px-3 py-1.5 text-sm transition-colors',
+                  tab === key
+                    ? 'bg-cta text-cta-foreground'
+                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/70',
+                )}
+              >
+                {t(`tab.${key}`)}
+              </button>
+            ))}
+          </div>
 
-      {tasksQ.isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
-          <span>{t('loading')}</span>
-        </div>
-      ) : tasksQ.isError ? (
-        <div className="rounded-lg border border-border bg-card p-3 text-center">
-          <p className="mb-3 text-sm text-muted-foreground">{t('loadFailed')}</p>
-          <Button variant="outline" size="sm" onClick={() => void tasksQ.refetch()}>
-            <RotateCw className="mr-2 h-4 w-4" />
-            {t('retry')}
-          </Button>
-        </div>
-      ) : (tasksQ.data ?? []).length === 0 ? (
-        <Card>
-          <CardContent className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-            {t('empty')}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {(tasksQ.data ?? []).map((task) => {
-            const pct =
-              task.target > 0 ? Math.min(100, Math.round((task.progress / task.target) * 100)) : 0
-            return (
-              <Card key={task.id}>
-                <CardContent className="min-[640px]:p-3 p-3">
-                  <div className="mb-1 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="truncate text-sm font-medium">{task.title}</h3>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{task.description}</p>
-                    </div>
-                    <span className="shrink-0 rounded-md bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground">
-                      +{task.reward}
-                    </span>
-                  </div>
+          {tasksQ.isLoading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
+              <span>{t('loading')}</span>
+            </div>
+          ) : tasksQ.isError ? (
+            <div className="rounded-lg border border-border bg-card p-3 text-center">
+              <p className="mb-3 text-sm text-muted-foreground">{t('loadFailed')}</p>
+              <Button variant="outline" size="sm" onClick={() => void tasksQ.refetch()}>
+                <RotateCw className="mr-2 h-4 w-4" />
+                {t('retry')}
+              </Button>
+            </div>
+          ) : (tasksQ.data ?? []).length === 0 ? (
+            <Card>
+              <CardContent className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                {t('empty')}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {(tasksQ.data ?? []).map((task) => {
+                const pct =
+                  task.target > 0
+                    ? Math.min(100, Math.round((task.progress / task.target) * 100))
+                    : 0
+                return (
+                  <Card key={task.id}>
+                    <CardContent className="min-[640px]:p-3 p-3">
+                      <div className="mb-1 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-sm font-medium">{task.title}</h3>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{task.description}</p>
+                        </div>
+                        <span className="shrink-0 rounded-md bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground">
+                          +{task.reward}
+                        </span>
+                      </div>
 
-                  <div className="mt-3 flex items-center gap-3">
-                    <div className="h-2 flex-1 overflow-hidden rounded-xs bg-secondary">
-                      <div
-                        className={cn(
-                          'h-full rounded-sm transition-all',
-                          task.completed ? 'bg-green-600' : 'bg-primary',
-                        )}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {task.progress}/{task.target}
-                    </span>
-                  </div>
+                      <div className="mt-3 flex items-center gap-3">
+                        <div className="h-2 flex-1 overflow-hidden rounded-xs bg-secondary">
+                          <div
+                            className={cn(
+                              'h-full rounded-sm transition-all',
+                              task.completed ? 'bg-green-600' : 'bg-primary',
+                            )}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {task.progress}/{task.target}
+                        </span>
+                      </div>
 
-                  <div className="mt-3 flex justify-end">
-                    {task.claimed ? (
-                      <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-                        <Check className="h-4 w-4" />
-                        {t('claimed')}
-                      </span>
-                    ) : task.completed ? (
-                      <Button
-                        size="sm"
-                        disabled={claimQ.isPending && claimQ.variables === task.id}
-                        onClick={() => claimQ.mutate(task.id)}
-                      >
-                        {claimQ.isPending && claimQ.variables === task.id ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <div className="mt-3 flex justify-end">
+                        {task.claimed ? (
+                          <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                            <Check className="h-4 w-4" />
+                            {t('claimed')}
+                          </span>
+                        ) : task.completed ? (
+                          <Button
+                            size="sm"
+                            disabled={claimQ.isPending && claimQ.variables === task.id}
+                            onClick={() => claimQ.mutate(task.id)}
+                          >
+                            {claimQ.isPending && claimQ.variables === task.id ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Gift className="mr-2 h-4 w-4" />
+                            )}
+                            {t('claim')}
+                          </Button>
                         ) : (
-                          <Gift className="mr-2 h-4 w-4" />
+                          <span className="text-sm text-muted-foreground">{t('notCompleted')}</span>
                         )}
-                        {t('claim')}
-                      </Button>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">{t('notCompleted')}</span>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
         </>
       ) : (
         <AuthGatePrompt message="请先登录后查看积分任务" />

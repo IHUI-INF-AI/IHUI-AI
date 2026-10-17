@@ -18,7 +18,7 @@ import {
   Code2,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Card,
   CardContent,
@@ -68,12 +68,6 @@ interface FimModelMetrics {
   alertReason: string | null
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const hitRate = (h: number, m: number): string => {
   const total = h + m
   return total === 0 ? '—' : `${((h / total) * 100).toFixed(1)}%`
@@ -110,13 +104,13 @@ export default function AiMetricsPage() {
   const refresh = React.useCallback(async () => {
     try {
       const [sseData, costData, vipData, fimData] = await Promise.all([
-        api<SseMetrics>('/api/ai/admin/ai/chat/metrics'),
-        api<{ promptCacheMetrics?: PromptCacheMetrics }>(
+        apiOrThrow<SseMetrics>('/api/ai/admin/ai/chat/metrics'),
+        apiOrThrow<{ promptCacheMetrics?: PromptCacheMetrics }>(
           '/api/admin/ai/cost/dashboard?startDate=&endDate=',
         ),
-        api<VipMetrics>('/api/admin/token-balance/metrics'),
+        apiOrThrow<VipMetrics>('/api/admin/token-balance/metrics'),
         // FIM 补全接受率:ai-service 端点。单独 catch 兜底,避免其不可用拖垮整页看板
-        api<{ models: FimModelMetrics[] }>('/api/llm/fim/metrics/summary').catch(() => ({
+        apiOrThrow<{ models: FimModelMetrics[] }>('/api/llm/fim/metrics/summary').catch(() => ({
           models: [] as FimModelMetrics[],
         })),
       ])

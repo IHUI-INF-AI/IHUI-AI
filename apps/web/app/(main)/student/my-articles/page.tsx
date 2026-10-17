@@ -12,7 +12,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Newspaper, Loader2, Trash2, ChevronLeft, ChevronRight, Eye, Edit } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
 import { AuthGatePrompt, BackButton } from '@/components/common'
@@ -38,12 +38,6 @@ interface ArticlesData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const STATUS_STYLE: Record<number, string> = {
   0: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   1: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
@@ -62,12 +56,12 @@ export default function MyArticlesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['student', 'my-articles', page],
-    queryFn: () => api<ArticlesData>(`/api/article/my?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: () => apiOrThrow<ArticlesData>(`/api/article/my?page=${page}&pageSize=${PAGE_SIZE}`),
     enabled: allow,
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/article/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/article/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['student', 'my-articles'] }),
   })
 

@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
 import { BookOpen, Loader2, Clock, MapPin } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { CHART_BLUE } from '@ihui/design-tokens'
 import { Alert } from '@/components/feedback'
@@ -26,12 +26,6 @@ interface CourseItem {
   endTime: string
   classroom: string | null
   color: string | null
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 /** 周序(数组下标 +1 = weekday,1=周一 … 7=周日)→ eduParent 取词键;渲染处 tParent(key) 取词 */
@@ -58,7 +52,9 @@ export default function ChildCoursesPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'courses'],
     queryFn: () =>
-      api<{ list: CourseItem[] }>(`/api/edu-ai-management/parent/children/${childId}/courses`),
+      apiOrThrow<{ list: CourseItem[] }>(
+        `/api/edu-ai-management/parent/children/${childId}/courses`,
+      ),
     enabled: allow,
   })
 

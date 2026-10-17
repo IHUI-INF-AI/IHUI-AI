@@ -9,7 +9,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Activity, Brain, Clock, Loader2, Zap } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { formatShortDateTime } from '@/lib/date-utils'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
@@ -60,12 +60,6 @@ interface AgentFailuresData {
   toolFailures: { total: number; byType: Record<string, number> }
   failedCheckpoints: number
   recent: Array<{ kind: string; errorType: string; error: string; time: string }>
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const LESSON_BADGE: Record<LessonType, string> = {
@@ -120,23 +114,24 @@ export default function MetaLearnerPage() {
 
   const statusQuery = useQuery({
     queryKey: ['meta-learner', 'status'],
-    queryFn: () => api<StatusData>('/api/admin/meta-learner/status'),
+    queryFn: () => apiOrThrow<StatusData>('/api/admin/meta-learner/status'),
   })
   const lessonsQuery = useQuery({
     queryKey: ['meta-learner', 'lessons'],
-    queryFn: () => api<{ lessons: MetaLesson[] }>('/api/admin/meta-learner/lessons'),
+    queryFn: () => apiOrThrow<{ lessons: MetaLesson[] }>('/api/admin/meta-learner/lessons'),
   })
   const historyQuery = useQuery({
     queryKey: ['meta-learner', 'history'],
-    queryFn: () => api<{ history: HistoryEntry[] }>('/api/admin/meta-learner/history?limit=20'),
+    queryFn: () =>
+      apiOrThrow<{ history: HistoryEntry[] }>('/api/admin/meta-learner/history?limit=20'),
   })
   const failuresQuery = useQuery({
     queryKey: ['meta-learner', 'agent-failures'],
-    queryFn: () => api<AgentFailuresData>('/api/admin/meta-learner/agent-failures'),
+    queryFn: () => apiOrThrow<AgentFailuresData>('/api/admin/meta-learner/agent-failures'),
   })
   const triggerMutation = useMutation({
     mutationFn: () =>
-      api<{ status: string }>('/api/admin/meta-learner/trigger', { method: 'POST' }),
+      apiOrThrow<{ status: string }>('/api/admin/meta-learner/trigger', { method: 'POST' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meta-learner'] }),
   })
 

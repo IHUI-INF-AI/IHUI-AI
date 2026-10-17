@@ -10,7 +10,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Receipt, Loader2, Download, CreditCard, Plus } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -46,12 +46,6 @@ interface BillingData {
   paymentMethods: PaymentMethod[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const STATUS_CLASS: Record<BillItem['status'], string> = {
   paid: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
@@ -80,7 +74,7 @@ export default function BillingPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['developer', 'billing'],
     queryFn: () =>
-      api<BillingData>('/api/developer/billing').catch(
+      apiOrThrow<BillingData>('/api/developer/billing').catch(
         () => ({ bills: [], paymentMethods: [] }) as BillingData,
       ),
     enabled: allow,

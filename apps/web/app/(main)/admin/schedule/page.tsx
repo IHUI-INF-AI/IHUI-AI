@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Clock, Calendar, Play, Pause, Edit, Plus, Loader2 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -24,12 +24,6 @@ interface ScheduleTask {
   nextRunAt: string | null
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function AdminSchedulePage() {
   const locale = useLocale()
   const [cron, setCron] = React.useState('0 9 * * 1-5')
@@ -43,7 +37,9 @@ export default function AdminSchedulePage() {
     queryKey: ['admin', 'schedule'],
     queryFn: async () => {
       try {
-        const d = await api<{ list?: ScheduleTask[] } | ScheduleTask[]>('/api/admin/schedule')
+        const d = await apiOrThrow<{ list?: ScheduleTask[] } | ScheduleTask[]>(
+          '/api/admin/schedule',
+        )
         return Array.isArray(d) ? d : (d.list ?? [])
       } catch {
         return []

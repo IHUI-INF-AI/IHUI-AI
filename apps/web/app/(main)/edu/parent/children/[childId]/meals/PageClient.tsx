@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
 import { UtensilsCrossed, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -24,12 +24,6 @@ interface MealItem {
   ingredients: string | null
   nutrition: string | null
   imageUrl: string | null
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 /** 餐次码 → eduParent 取词键;未知码回退原码(与后端比对的全是英文码,中文只是展示侧) */
@@ -61,7 +55,7 @@ export default function ChildMealsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'meals'],
     queryFn: () =>
-      api<{ list: MealItem[] }>(`/api/edu-ai-management/parent/children/${childId}/meals`),
+      apiOrThrow<{ list: MealItem[] }>(`/api/edu-ai-management/parent/children/${childId}/meals`),
     enabled: allow,
   })
 

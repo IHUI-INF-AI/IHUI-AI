@@ -5,55 +5,23 @@
 'use client'
 
 import * as React from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import {
-  Bell,
-  User,
-  ShoppingCart,
-  FolderGit,
-  MessageSquare,
-  AtSign,
-  AlertCircle,
-  CheckCheck,
-  Loader2,
-} from 'lucide-react'
-import {
-  getNotifications,
-  getUnreadCount,
-  markNotificationRead,
-  markAllNotificationsRead,
-} from '@ihui/api-client'
+import { Archive, Bell, CheckCheck, Loader2 } from 'lucide-react'
+import { getUnreadCount, markAllNotificationsRead } from '@ihui/api-client'
+import type { NotificationPartition } from '@ihui/types'
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { NotificationItem } from '@/components/business'
-import { Timeline } from '@/components/data/Timeline'
-import { formatDateOnly } from '@/lib/date-utils'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
-
-type NotificationType = 'system' | 'order' | 'project' | 'comment' | 'mention' | 'follow'
-
-interface Notification {
-  id: string
-  type: NotificationType
-  title: string
-  content: string | null
-  isRead: boolean
-  createdAt: string
-}
-
-const TYPE_ICON: Record<NotificationType, React.ComponentType<{ className?: string }>> = {
-  system: Bell,
-  order: ShoppingCart,
-  project: FolderGit,
-  comment: MessageSquare,
-  mention: AtSign,
-  follow: User,
-}
+import {
+  NotificationFeed,
+  type NotificationTabType,
+  type NotificationView,
+} from '@/components/business/NotificationFeed'
 
 const TABS: {
-  value: 'all' | NotificationType
+  value: 'all' | NotificationTabType
   labelKey: 'all' | 'system' | 'order' | 'project' | 'comment' | 'follow'
 }[] = [
   { value: 'all', labelKey: 'all' },
@@ -73,19 +41,6 @@ const TAB_KEY: Record<string, string> = {
   comment: 'tab.comment',
 }
 
-function relativeTime(iso: string, t: ReturnType<typeof useTranslations>): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const sec = Math.floor(diff / 1000)
-  if (sec < 60) return t('justNow')
-  const min = Math.floor(sec / 60)
-  if (min < 60) return t('minutesAgo', { min })
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return t('hoursAgo', { hr })
-  const day = Math.floor(hr / 24)
-  if (day < 30) return t('daysAgo', { day })
-  return formatDateOnly(iso)
-}
-
 async function unwrap<T>(p: Promise<{ success: boolean; data?: T; error?: string }>): Promise<T> {
   const r = await p
   if (!r.success) throw new Error(r.error)
@@ -94,41 +49,32 @@ async function unwrap<T>(p: Promise<{ success: boolean; data?: T; error?: string
 
 export default function NotificationsPage() {
   const t = useTranslations('user.notifications')
-  const tn = useTranslations('notifications')
   const qc = useQueryClient()
-  const [tab, setTab] = React.useState<'all' | NotificationType>('all')
-  const [view, setView] = React.useState<'list' | 'timeline'>('list')
+  const [tab, setTab] = React.useState<'all' | NotificationTabType>('all')
+  const [view, setView] = React.useState<NotificationView>('list')
+  const [partition, setPartition] = React.useState<NotificationPartition>('active')
+  const [readAllFailed, setReadAllFailed] = React.useState(false)
 
   // 2026-09-30 登录态门:未登录不发注定 401 的请求
   const { allow } = useAuthGate()
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['notifications', tab],
-    queryFn: () => {
-      const query: Record<string, string | number> = { page: 1, pageSize: 10 }
-      if (tab !== 'all') query.type = tab
-      return unwrap(getNotifications(query))
-    },
-    enabled: allow,
-  })
-
+  // 红点只数"未归档且未读"(与后端 countUnread 同口径):隐藏一条动态后角标必须随之退掉,
+  // 否则"隐藏"只挪走了列表里的一行,该消失的红点还亮着。
   const { data: unreadData } = useQuery({
     queryKey: ['notifications', 'unread-count'],
     queryFn: () => unwrap(getUnreadCount()),
     enabled: allow,
   })
 
-  const readMut = useMutation({
-    mutationFn: (id: string) => unwrap(markNotificationRead(id)),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
-  })
-
   const readAllMut = useMutation({
     mutationFn: () => unwrap(markAllNotificationsRead()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+    onSuccess: () => {
+      setReadAllFailed(false)
+      qc.invalidateQueries({ queryKey: ['notifications'] })
+    },
+    onError: () => setReadAllFailed(true),
   })
 
-  const notifications = (data?.list ?? []) as unknown as Notification[]
   const unread = unreadData?.count ?? 0
 
   return (
@@ -143,6 +89,9 @@ export default function NotificationsPage() {
           <p className="mt-1 whitespace-nowrap text-sm tabular-nums text-muted-foreground">
             {unread > 0 ? t('unreadCount', { count: unread }) : t('allRead')}
           </p>
+          {readAllFailed && (
+            <p className="mt-1 text-xs text-destructive">{t('markAllReadFailed')}</p>
+          )}
         </div>
         <Button
           variant="outline"
@@ -151,12 +100,34 @@ export default function NotificationsPage() {
           disabled={unread === 0 || readAllMut.isPending}
           className="shrink-0 whitespace-nowrap"
         >
-          <CheckCheck className="mr-1.5 h-4 w-4 shrink-0" />
+          {readAllMut.isPending ? (
+            <Loader2 className="mr-1.5 h-4 w-4 shrink-0 animate-spin" />
+          ) : (
+            <CheckCheck className="mr-1.5 h-4 w-4 shrink-0" />
+          )}
           {t('markAllRead')}
         </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {/* D195 分区开关:动态流 ↔ 已归档。归档不是删除,撤销入口必须和入口常驻在同一个门面上。 */}
+        <div className="flex shrink-0 flex-nowrap gap-1 rounded-lg border bg-muted/30 p-1">
+          {(['active', 'archived'] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPartition(p)}
+              className={cn(
+                'shrink-0 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
+                partition === p
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {p === 'archived' && <Archive className="mr-1.5 h-4 w-4 shrink-0" />}
+              <span>{p === 'archived' ? t('archived') : t('viewActive')}</span>
+            </button>
+          ))}
+        </div>
         <div className="flex flex-1 flex-nowrap gap-1 overflow-x-auto rounded-lg border bg-muted/30 p-1">
           {TABS.map((tabItem) => (
             <button
@@ -201,51 +172,8 @@ export default function NotificationsPage() {
 
       {!allow ? (
         <AuthGatePrompt message="请先登录后查看消息通知" />
-      ) : isLoading ? (
-        <div className="whitespace-nowrap py-10 text-center text-muted-foreground">
-          <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-          {t('loading')}
-        </div>
-      ) : error ? (
-        <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
-      ) : notifications.length === 0 ? (
-        <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
-          <Bell className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('noData')}</p>
-        </div>
-      ) : view === 'timeline' ? (
-        <div className="rounded-lg border p-3">
-          <Timeline
-            items={notifications.map((n) => {
-              const Icon = TYPE_ICON[n.type] ?? AlertCircle
-              return {
-                title: n.title,
-                description: n.content ?? undefined,
-                time: relativeTime(n.createdAt, tn),
-                icon: Icon,
-                color: n.isRead ? 'var(--muted-foreground)' : 'var(--primary)',
-              }
-            })}
-          />
-        </div>
       ) : (
-        <div className="space-y-1 rounded-lg border">
-          {notifications.map((n) => {
-            const Icon = TYPE_ICON[n.type] ?? AlertCircle
-            return (
-              <NotificationItem
-                key={n.id}
-                icon={Icon}
-                title={n.title}
-                content={n.content ?? undefined}
-                time={relativeTime(n.createdAt, tn)}
-                read={n.isRead}
-                onClick={() => !n.isRead && readMut.mutate(n.id)}
-                className="rounded-none first:rounded-t-lg last:rounded-b-lg"
-              />
-            )
-          })}
-        </div>
+        <NotificationFeed tab={tab} partition={partition} view={view} />
       )}
     </div>
   )

@@ -19,7 +19,7 @@ import {
   Users,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Button,
   Card,
@@ -69,12 +69,6 @@ interface CertDetailData {
   certification: CertificationItem
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const selectClass =
   'h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
@@ -116,7 +110,7 @@ export default function EduAiCertificationPage() {
       qs.set('status', 'active')
       if (debouncedKeyword) qs.set('keyword', debouncedKeyword)
       if (level !== 'all') qs.set('level', level)
-      return api<CertListData>(`/api/ai-education/teacher-certification?${qs.toString()}`)
+      return apiOrThrow<CertListData>(`/api/ai-education/teacher-certification?${qs.toString()}`)
     },
   })
 
@@ -128,7 +122,7 @@ export default function EduAiCertificationPage() {
   } = useQuery({
     queryKey: ['edu-ai', 'certification', 'detail', selectedId],
     queryFn: () =>
-      api<CertDetailData>(`/api/ai-education/teacher-certification/${selectedId}`).then(
+      apiOrThrow<CertDetailData>(`/api/ai-education/teacher-certification/${selectedId}`).then(
         (d) => d.certification,
       ),
     enabled: !!selectedId,

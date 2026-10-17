@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 
@@ -22,12 +22,6 @@ interface Category {
 
 interface CategoriesData {
   list: Category[]
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 export default function AiWorldCreatePage() {
@@ -45,7 +39,7 @@ export default function AiWorldCreatePage() {
 
   const { data: catData } = useQuery({
     queryKey: ['ai-world', 'categories'],
-    queryFn: () => api<CategoriesData>('/api/ai-world/categories'),
+    queryFn: () => apiOrThrow<CategoriesData>('/api/ai-world/categories'),
   })
 
   const createMut = useMutation({
@@ -57,7 +51,7 @@ export default function AiWorldCreatePage() {
         coverImage: form.coverImage.trim() || undefined,
         config: form.config.trim() || undefined,
       }
-      return api<unknown>('/api/ai-world/create', {
+      return apiOrThrow<unknown>('/api/ai-world/create', {
         method: 'POST',
         body: JSON.stringify(body),
       })

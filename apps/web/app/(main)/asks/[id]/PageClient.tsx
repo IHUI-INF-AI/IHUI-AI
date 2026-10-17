@@ -10,7 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft, Loader2, MessageSquare, Eye, CheckCircle2, Send } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { generateArticleSchema } from '@/lib/seo/schema-article'
@@ -42,12 +42,6 @@ interface AnswersData {
   pageSize: number
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function AskDetailPage() {
   const t = useTranslations('asks')
   const tc = useTranslations('common')
@@ -62,13 +56,13 @@ export default function AskDetailPage() {
     error,
   } = useQuery({
     queryKey: ['ask', params.id],
-    queryFn: () => api<{ ask: AskDetail }>(`/api/asks/${params.id}`),
+    queryFn: () => apiOrThrow<{ ask: AskDetail }>(`/api/asks/${params.id}`),
     enabled: !!params.id,
   })
 
   const { data: answersData, isLoading: answersLoading } = useQuery({
     queryKey: ['ask-answers', params.id],
-    queryFn: () => api<AnswersData>(`/api/asks/${params.id}/answers?page=1&pageSize=10`),
+    queryFn: () => apiOrThrow<AnswersData>(`/api/asks/${params.id}/answers?page=1&pageSize=10`),
     enabled: !!params.id,
   })
 
@@ -77,7 +71,7 @@ export default function AskDetailPage() {
 
   const answerMut = useMutation({
     mutationFn: (payload: { content: string }) =>
-      api<{ answer: AnswerItem }>(`/api/asks/${params.id}/answers`, {
+      apiOrThrow<{ answer: AnswerItem }>(`/api/asks/${params.id}/answers`, {
         method: 'POST',
         body: JSON.stringify(payload),
       }),

@@ -20,7 +20,7 @@ import {
   Download,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton } from '@/components/common'
 import {
   Button,
@@ -60,12 +60,6 @@ const PAGE_SIZE = 20
 const selectClass =
   'h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function fetchResources(params: {
   page: number
   categoryId: string
@@ -74,7 +68,7 @@ function fetchResources(params: {
   const qs = new URLSearchParams({ page: String(params.page), pageSize: String(PAGE_SIZE) })
   if (params.categoryId !== 'all') qs.set('categoryId', params.categoryId)
   if (params.search) qs.set('title', params.search)
-  return api<ResourcesData>(`/api/resources?${qs.toString()}`)
+  return apiOrThrow<ResourcesData>(`/api/resources?${qs.toString()}`)
 }
 
 export default function ResourcesPage() {
@@ -95,7 +89,8 @@ export default function ResourcesPage() {
 
   const { data: categories } = useQuery({
     queryKey: ['resources', 'categories'],
-    queryFn: () => api<{ list: Category[] }>(`/api/resources/categories`).then((d) => d.list ?? []),
+    queryFn: () =>
+      apiOrThrow<{ list: Category[] }>(`/api/resources/categories`).then((d) => d.list ?? []),
   })
 
   const { data, isLoading, error } = useQuery({
