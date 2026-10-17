@@ -21,7 +21,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { toast } from 'sonner'
 import { BackButton, TruncatedText } from '@/components/common'
 import {
@@ -231,12 +231,6 @@ const DELIVERY_BUCKET_COLOR_MAP = new Map([
 ])
 
 /* ─── API helper ─── */
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 /* ─── Constants ─── */
 
@@ -570,10 +564,7 @@ function PaymentDialog({
         <div className="grid gap-3 py-2">
           <div className="grid gap-1.5">
             <Label>期次（报名）</Label>
-            <Select
-              value={form.enrollmentId}
-              onValueChange={(v) => update('enrollmentId', v)}
-            >
+            <Select value={form.enrollmentId} onValueChange={(v) => update('enrollmentId', v)}>
               <SelectTrigger>
                 <SelectValue placeholder="选择学员的某一期报名" />
               </SelectTrigger>
@@ -717,7 +708,7 @@ function SchedulePanel({ enrollments }: { enrollments: RosterItem[] }) {
     queryKey: ['edu-ai-management', 'fee-schedule', enrollmentId],
     enabled: !!enrollmentId,
     queryFn: () =>
-      api<{ list: ScheduleItem[]; total: number }>(
+      apiOrThrow<{ list: ScheduleItem[]; total: number }>(
         `/api/edu-ai-management/fee-schedule?enrollmentId=${enrollmentId}`,
       ),
   })
@@ -725,7 +716,7 @@ function SchedulePanel({ enrollments }: { enrollments: RosterItem[] }) {
 
   const generate = useMutation({
     mutationFn: (body: GenerateScheduleBody) =>
-      api<{
+      apiOrThrow<{
         createdCount: number
         replaced: boolean
         planTotal: number
@@ -766,7 +757,9 @@ function SchedulePanel({ enrollments }: { enrollments: RosterItem[] }) {
         res.planTotal === res.amountTotal
           ? `逐期相加 ${res.planTotal} 元与应缴一致`
           : `⚠️ 摊派不符:逐期合计 ${res.planTotal} ≠ 应缴 ${res.amountTotal}`
-      toast.success(`已生成 ${res.createdCount} 期账期${res.replaced ? '(已替换旧账期)' : ''} · ${sumTip}`)
+      toast.success(
+        `已生成 ${res.createdCount} 期账期${res.replaced ? '(已替换旧账期)' : ''} · ${sumTip}`,
+      )
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '账期生成失败')
     } finally {
@@ -853,14 +846,22 @@ function SchedulePanel({ enrollments }: { enrollments: RosterItem[] }) {
               </div>
             ) : null}
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={replace}
+                onChange={(e) => setReplace(e.target.checked)}
+              />
               已有账期时替换（会断开旧账期上的缴费归属）
             </label>
           </div>
         ) : null}
 
         <Button size="sm" onClick={onGenerate} disabled={!canSubmit || busy}>
-          {busy ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <CalendarDays className="mr-1 h-3.5 w-3.5" />}
+          {busy ? (
+            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <CalendarDays className="mr-1 h-3.5 w-3.5" />
+          )}
           生成账期
         </Button>
 
@@ -1164,19 +1165,20 @@ export default function FinancePage() {
   /* ── Queries ── */
   const { data: termsData } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
-    queryFn: () => api<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
   })
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
 
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class'],
-    queryFn: () => api<{ list: EduClass[] }>('/api/edu-ai-management/class'),
+    queryFn: () => apiOrThrow<{ list: EduClass[] }>('/api/edu-ai-management/class'),
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
 
   const tuitionQuery = useQuery({
     queryKey: ['edu-ai-management', 'tuition-standard'],
-    queryFn: () => api<{ list: TuitionStandard[] }>('/api/edu-ai-management/tuition-standard'),
+    queryFn: () =>
+      apiOrThrow<{ list: TuitionStandard[] }>('/api/edu-ai-management/tuition-standard'),
   })
   const tuitions = (tuitionQuery.data?.list ?? []).filter((t) => !t.deletedAt)
 
@@ -1187,9 +1189,10 @@ export default function FinancePage() {
       if (paymentClassFilter) params.set('classId', paymentClassFilter)
       if (paymentStatusFilter) params.set('status', paymentStatusFilter)
       const qs = params.toString()
-      return api<{ list: PaymentRecord[]; legacy?: { source: string; total: number; list: LegacyCoursePay[] } }>(
-        `/api/edu-ai-management/payment-record${qs ? `?${qs}` : ''}`,
-      )
+      return apiOrThrow<{
+        list: PaymentRecord[]
+        legacy?: { source: string; total: number; list: LegacyCoursePay[] }
+      }>(`/api/edu-ai-management/payment-record${qs ? `?${qs}` : ''}`)
     },
   })
   const payments = (paymentQuery.data?.list ?? []).filter((p) => !p.deletedAt)
@@ -1203,7 +1206,7 @@ export default function FinancePage() {
       const params = new URLSearchParams()
       if (paymentClassFilter) params.set('classId', paymentClassFilter)
       const qs = params.toString()
-      return api<PaymentSummary>(
+      return apiOrThrow<PaymentSummary>(
         `/api/edu-ai-management/payment-record/summary${qs ? `?${qs}` : ''}`,
       )
     },
@@ -1214,7 +1217,7 @@ export default function FinancePage() {
   const unattributedQuery = useQuery({
     queryKey: ['edu-ai-management', 'payment-record', 'unattributed'],
     queryFn: () =>
-      api<{ list: UnattributedPayment[]; total: number }>(
+      apiOrThrow<{ list: UnattributedPayment[]; total: number }>(
         '/api/edu-ai-management/payment-record/unattributed',
       ),
     enabled: activeTab === 'payments',
@@ -1223,7 +1226,7 @@ export default function FinancePage() {
 
   const refundQuery = useQuery({
     queryKey: ['edu-ai-management', 'refund'],
-    queryFn: () => api<{ list: RefundRecord[] }>('/api/edu-ai-management/refund'),
+    queryFn: () => apiOrThrow<{ list: RefundRecord[] }>('/api/edu-ai-management/refund'),
   })
   const refunds = (refundQuery.data?.list ?? []).filter((r) => !r.deletedAt)
 
@@ -1242,7 +1245,7 @@ export default function FinancePage() {
       if (reminderClassFilter) params.set('classId', reminderClassFilter)
       params.set('page', '1')
       params.set('pageSize', '100')
-      return api<{ list: RosterItem[]; total: number }>(
+      return apiOrThrow<{ list: RosterItem[]; total: number }>(
         `/api/edu-ai-management/student-roster?${params.toString()}`,
       )
     },
@@ -1258,7 +1261,7 @@ export default function FinancePage() {
   const payableRosterQuery = useQuery({
     queryKey: ['edu-ai-management', 'student-roster', 'payable'],
     queryFn: () =>
-      api<{ list: RosterItem[]; total: number }>(
+      apiOrThrow<{ list: RosterItem[]; total: number }>(
         '/api/edu-ai-management/student-roster?page=1&pageSize=100',
       ),
   })
@@ -1271,7 +1274,7 @@ export default function FinancePage() {
       if (reminderRecordChannel) params.set('channel', reminderRecordChannel)
       params.set('page', '1')
       params.set('pageSize', '50')
-      return api<{ list: FeeReminder[]; total: number }>(
+      return apiOrThrow<{ list: FeeReminder[]; total: number }>(
         `/api/edu-ai-management/fee-reminder?${params.toString()}`,
       )
     },
@@ -1281,7 +1284,7 @@ export default function FinancePage() {
   // 催缴触达统计(近30天):只有催缴 tab 打开才拉,不在其余四个 tab 上白付一次报表查询。
   const reminderStatsQuery = useQuery({
     queryKey: ['edu-ai-management', 'fee-reminder', 'stats'],
-    queryFn: () => api<ReminderStats>('/api/edu-ai-management/fee-reminder/stats?days=30'),
+    queryFn: () => apiOrThrow<ReminderStats>('/api/edu-ai-management/fee-reminder/stats?days=30'),
     enabled: activeTab === 'reminders',
   })
   const reminderStats = reminderStatsQuery.data
@@ -1293,7 +1296,7 @@ export default function FinancePage() {
 
   const createTuition = useMutation({
     mutationFn: (data: TuitionFormData) =>
-      api('/api/edu-ai-management/tuition-standard', {
+      apiOrThrow('/api/edu-ai-management/tuition-standard', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -1302,7 +1305,7 @@ export default function FinancePage() {
 
   const updateTuition = useMutation({
     mutationFn: ({ id, data }: { id: string; data: TuitionFormData }) =>
-      api(`/api/edu-ai-management/tuition-standard/${id}`, {
+      apiOrThrow(`/api/edu-ai-management/tuition-standard/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
@@ -1311,13 +1314,13 @@ export default function FinancePage() {
 
   const deleteTuition = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/tuition-standard/${id}`, { method: 'DELETE' }),
+      apiOrThrow(`/api/edu-ai-management/tuition-standard/${id}`, { method: 'DELETE' }),
     onSuccess: invalidate,
   })
 
   const createPayment = useMutation({
     mutationFn: (data: PaymentFormData) =>
-      api('/api/edu-ai-management/payment-record', {
+      apiOrThrow('/api/edu-ai-management/payment-record', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -1329,7 +1332,7 @@ export default function FinancePage() {
      (响应里还有 refundRecord/enrollmentId,前端只用 unattributed,类型只声明用到的。) */
   const createRefund = useMutation({
     mutationFn: (data: RefundFormData) =>
-      api<{ unattributed: boolean }>('/api/edu-ai-management/refund', {
+      apiOrThrow<{ unattributed: boolean }>('/api/edu-ai-management/refund', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -1340,7 +1343,7 @@ export default function FinancePage() {
      错录的流水只能永远挂着。响应 unattributed=true ⇒ 被撤流水本来就没挂期次。 */
   const voidPayment = useMutation({
     mutationFn: (id: string) =>
-      api<{ deleted: boolean; unattributed: boolean }>(
+      apiOrThrow<{ deleted: boolean; unattributed: boolean }>(
         `/api/edu-ai-management/payment-record/${id}`,
         { method: 'DELETE' },
       ),
@@ -1357,7 +1360,7 @@ export default function FinancePage() {
       status: 'approved' | 'rejected'
       remark: string
     }) =>
-      api(`/api/edu-ai-management/refund/${id}/approve`, {
+      apiOrThrow(`/api/edu-ai-management/refund/${id}/approve`, {
         method: 'PUT',
         body: JSON.stringify({ status, approveRemark: remark || null }),
       }),
@@ -1366,7 +1369,7 @@ export default function FinancePage() {
 
   const sendFeeReminder = useMutation({
     mutationFn: (data: { enrollmentIds: string[]; channel: string; message?: string }) =>
-      api<{
+      apiOrThrow<{
         sent: number
         total: number
         wxSent: number
@@ -1429,8 +1432,7 @@ export default function FinancePage() {
     try {
       const res = await voidPayment.mutateAsync(p.id)
       toast.success('缴费已撤销,账目已重算')
-      if (res.unattributed)
-        toast.warning('该流水原本就没有挂到期次,撤销不改变任何期次的账目')
+      if (res.unattributed) toast.warning('该流水原本就没有挂到期次,撤销不改变任何期次的账目')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '撤销缴费失败')
     }
@@ -1473,7 +1475,9 @@ export default function FinancePage() {
           ? [
               res.sms.sent > 0 ? `短信送达 ${res.sms.sent} 条` : '',
               res.sms.no_phone > 0 ? `${res.sms.no_phone} 条收件人未留手机号` : '',
-              res.sms.not_configured > 0 ? `${res.sms.not_configured} 条因短信服务未配置未发出` : '',
+              res.sms.not_configured > 0
+                ? `${res.sms.not_configured} 条因短信服务未配置未发出`
+                : '',
               res.sms.failed > 0 ? `${res.sms.failed} 条发送失败` : '',
             ].filter(Boolean)
           : []
@@ -1897,7 +1901,10 @@ export default function FinancePage() {
                       {legacyPayments.map((p) => (
                         <tr key={p.payId} className="border-b last:border-0 hover:bg-muted/30">
                           <td className="px-4 py-3">
-                            <Badge variant="secondary" className="text-[10px] bg-gray-500 text-white">
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] bg-gray-500 text-white"
+                            >
                               遗留
                             </Badge>
                           </td>
@@ -2237,7 +2244,11 @@ export default function FinancePage() {
                     {Object.entries(reminderStats.delivery.buckets)
                       .filter(([k]) => !DELIVERY_BUCKET_LABELS.some(([lk]) => lk === k))
                       .map(([k, n]) => (
-                        <Badge key={k} variant="secondary" className="text-[10px] text-white bg-gray-500">
+                        <Badge
+                          key={k}
+                          variant="secondary"
+                          className="text-[10px] text-white bg-gray-500"
+                        >
                           {k} {n}
                         </Badge>
                       ))}

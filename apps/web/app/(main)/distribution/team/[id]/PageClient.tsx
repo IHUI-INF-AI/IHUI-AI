@@ -12,7 +12,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ArrowLeft, Users, Crown, Calendar, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 import { Card, CardContent } from '@ihui/ui-react'
@@ -41,12 +41,6 @@ interface TreeData {
   totalLevels: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function findInTree(nodes: TreeNode[], id: string): TreeNode | null {
   for (const node of nodes) {
     if (node.id === id) return node
@@ -71,13 +65,13 @@ export default function DistributionTeamDetailPage() {
     error,
   } = useQuery({
     queryKey: ['distribution', 'invited-users'],
-    queryFn: () => api<InvitedUsersData>('/api/distribution/invited-users'),
+    queryFn: () => apiOrThrow<InvitedUsersData>('/api/distribution/invited-users'),
     enabled: allow,
   })
 
   const { data: treeData } = useQuery({
     queryKey: ['distribution', 'tree'],
-    queryFn: () => api<TreeData>('/api/distribution/tree'),
+    queryFn: () => apiOrThrow<TreeData>('/api/distribution/tree'),
     enabled: allow,
   })
 

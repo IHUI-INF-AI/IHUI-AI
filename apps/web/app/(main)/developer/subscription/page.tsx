@@ -10,7 +10,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { CreditCard, Loader2, ArrowUp, RefreshCw, Check } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -38,12 +38,6 @@ interface SubscriptionData {
   availablePlans?: PlanInfo[]
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function SubscriptionPage() {
   const locale = useLocale()
   const t = useTranslations('developerSubscriptionPage')
@@ -61,12 +55,14 @@ export default function SubscriptionPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['developer', 'subscription'],
     queryFn: () =>
-      api<SubscriptionData>('/api/developer/subscription').catch(() => ({}) as SubscriptionData),
+      apiOrThrow<SubscriptionData>('/api/developer/subscription').catch(
+        () => ({}) as SubscriptionData,
+      ),
     enabled: allow,
   })
 
   const renewMut = useMutation({
-    mutationFn: () => api('/api/developer/subscription/renew', { method: 'POST' }),
+    mutationFn: () => apiOrThrow('/api/developer/subscription/renew', { method: 'POST' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['developer', 'subscription'] })
       toast.success(t('renewSuccess'))
@@ -76,7 +72,7 @@ export default function SubscriptionPage() {
 
   const upgradeMut = useMutation({
     mutationFn: (planId: string) =>
-      api('/api/developer/subscription/upgrade', {
+      apiOrThrow('/api/developer/subscription/upgrade', {
         method: 'POST',
         body: JSON.stringify({ planId }),
       }),

@@ -20,7 +20,7 @@ import {
   Users,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Button,
   Card,
@@ -71,12 +71,6 @@ interface PolicyDetailData {
   policy: PolicyItem
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const selectClass =
   'h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
@@ -119,7 +113,7 @@ export default function EduAiPolicyPage() {
       qs.set('status', 'active')
       if (debouncedKeyword) qs.set('keyword', debouncedKeyword)
       if (level !== 'all') qs.set('policyLevel', level)
-      return api<PolicyListData>(`/api/ai-education/policy?${qs.toString()}`)
+      return apiOrThrow<PolicyListData>(`/api/ai-education/policy?${qs.toString()}`)
     },
   })
 
@@ -131,7 +125,7 @@ export default function EduAiPolicyPage() {
   } = useQuery({
     queryKey: ['edu-ai', 'policy', 'detail', selectedId],
     queryFn: () =>
-      api<PolicyDetailData>(`/api/ai-education/policy/${selectedId}`).then((d) => d.policy),
+      apiOrThrow<PolicyDetailData>(`/api/ai-education/policy/${selectedId}`).then((d) => d.policy),
     enabled: !!selectedId,
   })
 

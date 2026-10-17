@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { ArrowDownToLine, Loader2, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 import {
@@ -64,12 +64,6 @@ const METHOD_KEY: Record<string, string> = {
   bank: 'methodBank',
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
 
 export default function WithdrawRecordsPage() {
@@ -82,7 +76,8 @@ export default function WithdrawRecordsPage() {
 
   const listQ = useQuery({
     queryKey: ['distribution', 'withdrawal-list', page],
-    queryFn: () => api<ListData>(`/api/finance/withdrawal/list?page=${page}&limit=${PAGE_SIZE}`),
+    queryFn: () =>
+      apiOrThrow<ListData>(`/api/finance/withdrawal/list?page=${page}&limit=${PAGE_SIZE}`),
     enabled: allow,
   })
 
@@ -125,104 +120,104 @@ export default function WithdrawRecordsPage() {
       {/* 2026-09-30 登录态门 */}
       {allow ? (
         <>
-      <div className="overflow-hidden rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead className="px-4 py-2.5 text-right">{t('colOriginalAmount')}</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">{t('colActualAmount')}</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">{t('colFee')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colMethod')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colTime')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colProcessedAt')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {listQ.isLoading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  {t('loading')}
-                </TableCell>
-              </TableRow>
-            ) : listQ.error ? (
-              <TableRow>
-                <TableCell colSpan={7} className="px-4 py-10 text-center text-destructive">
-                  {(listQ.error as Error).message}
-                </TableCell>
-              </TableRow>
-            ) : items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  <ArrowDownToLine className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  {t('empty')}
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map((it) => (
-                <TableRow key={it.id}>
-                  <TableCell className="px-4 py-2.5 text-right font-medium">
-                    {fmtYuan(it.originalAmount)}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-right text-emerald-600 dark:text-emerald-400">
-                    {fmtYuan(it.amount)}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
-                    {fmtYuan(it.fee)}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    {t(METHOD_KEY[it.method] ?? 'methodWechat')}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
-                        STATUS_CLS[it.status] ?? 'bg-muted text-muted-foreground',
-                      )}
-                    >
-                      {t(STATUS_KEY[it.status] ?? 'withdrawStatusPending')}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">
-                    {fmtDate(it.createdAt)}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">
-                    {fmtDate(it.processedAt)}
-                  </TableCell>
+          <div className="overflow-hidden rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="px-4 py-2.5 text-right">{t('colOriginalAmount')}</TableHead>
+                  <TableHead className="px-4 py-2.5 text-right">{t('colActualAmount')}</TableHead>
+                  <TableHead className="px-4 py-2.5 text-right">{t('colFee')}</TableHead>
+                  <TableHead className="px-4 py-2.5">{t('colMethod')}</TableHead>
+                  <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
+                  <TableHead className="px-4 py-2.5">{t('colTime')}</TableHead>
+                  <TableHead className="px-4 py-2.5">{t('colProcessedAt')}</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {total > PAGE_SIZE && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              {page} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+              </TableHeader>
+              <TableBody>
+                {listQ.isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                      <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                      {t('loading')}
+                    </TableCell>
+                  </TableRow>
+                ) : listQ.error ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="px-4 py-10 text-center text-destructive">
+                      {(listQ.error as Error).message}
+                    </TableCell>
+                  </TableRow>
+                ) : items.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                      <ArrowDownToLine className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                      {t('empty')}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  items.map((it) => (
+                    <TableRow key={it.id}>
+                      <TableCell className="px-4 py-2.5 text-right font-medium">
+                        {fmtYuan(it.originalAmount)}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-right text-emerald-600 dark:text-emerald-400">
+                        {fmtYuan(it.amount)}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
+                        {fmtYuan(it.fee)}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5">
+                        {t(METHOD_KEY[it.method] ?? 'methodWechat')}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5">
+                        <span
+                          className={cn(
+                            'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                            STATUS_CLS[it.status] ?? 'bg-muted text-muted-foreground',
+                          )}
+                        >
+                          {t(STATUS_KEY[it.status] ?? 'withdrawStatusPending')}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-muted-foreground">
+                        {fmtDate(it.createdAt)}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-muted-foreground">
+                        {fmtDate(it.processedAt)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
-        </div>
-      )}
+
+          {total > PAGE_SIZE && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  {page} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <AuthGatePrompt message="请先登录后查看提现记录" />

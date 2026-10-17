@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Loader2, Star, ArrowLeft, Eye } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -27,12 +27,6 @@ interface ListData {
   list: AiWorldItem[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function AiWorldFavoritesPage() {
   const locale = useLocale()
 
@@ -41,7 +35,7 @@ export default function AiWorldFavoritesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['ai-world', 'favorites'],
-    queryFn: () => api<ListData>('/api/ai-world/favorites'),
+    queryFn: () => apiOrThrow<ListData>('/api/ai-world/favorites'),
     enabled: allow,
   })
 

@@ -11,7 +11,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Pencil, Sparkles, Tag } from 'lucide-react'
 import Image from 'next/image'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { Avatar, VipBadge } from '@/components/data'
@@ -51,12 +51,6 @@ interface Agent {
   remark: string | null
   createdAt: string
   updatedAt: string
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 // ---- Agent 详情页运行时数据(5 个 Tab:progress/swarm/checkpoint/plan/background) ----
@@ -144,7 +138,7 @@ export default function AgentDetailPage() {
     error,
   } = useQuery({
     queryKey: ['agents', 'detail', id],
-    queryFn: () => api<Agent>(`/api/agents/${id}`),
+    queryFn: () => apiOrThrow<Agent>(`/api/agents/${id}`),
     enabled: !!id,
   })
 
@@ -162,7 +156,7 @@ export default function AgentDetailPage() {
   const visible = usePageVisibility()
   const { data: runtime, refetch: refetchRuntime } = useQuery({
     queryKey: ['agents', 'runtime', id],
-    queryFn: () => api<AgentRuntimeSummary>(`/api/subagents/by-agent/${id}/summary`),
+    queryFn: () => apiOrThrow<AgentRuntimeSummary>(`/api/subagents/by-agent/${id}/summary`),
     enabled: !!id && allow,
     retry: false,
     refetchInterval: visible ? RUNTIME_POLL_MS : RUNTIME_POLL_HIDDEN_MS,

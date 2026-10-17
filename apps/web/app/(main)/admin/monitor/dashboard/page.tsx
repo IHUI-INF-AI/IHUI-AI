@@ -18,7 +18,7 @@ import {
   XCircle,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -39,12 +39,6 @@ interface PerfItem {
   diskUsage: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const SERVICE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   API: Server,
   DB: Database,
@@ -56,11 +50,11 @@ export default function AdminMonitorDashboardPage() {
   const { data: services = [], isLoading: svcLoading } = useQuery({
     queryKey: ['admin', 'monitor', 'dashboard', 'services'],
     queryFn: () =>
-      api<{ list: ServiceItem[] }>('/api/admin/monitor/services').then((d) => d.list ?? []),
+      apiOrThrow<{ list: ServiceItem[] }>('/api/admin/monitor/services').then((d) => d.list ?? []),
   })
   const { data: perf } = useQuery({
     queryKey: ['admin', 'monitor', 'dashboard', 'perf'],
-    queryFn: () => api<PerfItem>('/api/admin/monitor/perf'),
+    queryFn: () => apiOrThrow<PerfItem>('/api/admin/monitor/perf'),
   })
 
   const healthyCount = services.filter((s) => s.status === 'healthy').length

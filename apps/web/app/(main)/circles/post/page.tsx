@@ -10,7 +10,7 @@ import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Input, Textarea, Select } from '@/components/form'
 import { ImageUpload } from '@/components/form/ImageUpload'
@@ -22,12 +22,6 @@ interface CircleItem {
 interface CirclesData {
   list: CircleItem[]
   total: number
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 export default function CirclePostPage() {
@@ -43,7 +37,7 @@ export default function CirclePostPage() {
 
   const { data: circlesData } = useQuery({
     queryKey: ['circles', 'for-post'],
-    queryFn: () => api<CirclesData>(`/api/circles?page=1&pageSize=100`),
+    queryFn: () => apiOrThrow<CirclesData>(`/api/circles?page=1&pageSize=100`),
   })
 
   const createMut = useMutation({
@@ -57,7 +51,7 @@ export default function CirclePostPage() {
         setFormError(t('post.errorTitleContentRequired'))
         throw new Error(t('post.errorTitleContentRequired'))
       }
-      return api<{ post: { id: string } }>(`/api/circles/${circleId}/posts`, {
+      return apiOrThrow<{ post: { id: string } }>(`/api/circles/${circleId}/posts`, {
         method: 'POST',
         body: JSON.stringify({
           title: title.trim(),

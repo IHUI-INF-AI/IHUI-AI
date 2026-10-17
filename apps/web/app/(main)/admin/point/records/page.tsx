@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight, History, Loader2 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
 import {
@@ -51,12 +51,6 @@ const PAGE_SIZE = 20
 const selectClass =
   'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function fetchRecords(params: {
   page: number
   memberId: string
@@ -65,7 +59,7 @@ function fetchRecords(params: {
   const qs = new URLSearchParams({ page: String(params.page), pageSize: String(PAGE_SIZE) })
   if (params.memberId) qs.set('memberId', params.memberId)
   if (params.type) qs.set('type', params.type)
-  return api<RecordsData>(`/api/admin/edu-points/records?${qs.toString()}`)
+  return apiOrThrow<RecordsData>(`/api/admin/edu-points/records?${qs.toString()}`)
 }
 
 export default function AdminPointRecordsPage() {

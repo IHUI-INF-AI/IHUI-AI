@@ -10,7 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, Loader2, UserCheck, Users, UserX } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatDateOnly } from '@/lib/date-utils'
@@ -29,12 +29,6 @@ interface MemberUser {
 interface ListData {
   list: MemberUser[]
   total: number
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const PAGE_SIZE = 10
@@ -62,13 +56,13 @@ export default function AdminMemberUnauditedPage() {
         status: 'pending',
       })
       if (debounced) qs.set('search', debounced)
-      return api<ListData>(`/api/admin/users?${qs.toString()}`)
+      return apiOrThrow<ListData>(`/api/admin/users?${qs.toString()}`)
     },
   })
 
   const auditMut = useMutation({
     mutationFn: (p: { id: string; action: 'approve' | 'reject' }) =>
-      api(`/api/admin/users/${p.id}/audit`, {
+      apiOrThrow(`/api/admin/users/${p.id}/audit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: p.action }),

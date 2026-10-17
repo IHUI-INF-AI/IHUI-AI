@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, Search } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton } from '@/components/common'
 
 interface HotWord {
@@ -18,12 +18,6 @@ interface HotWord {
   word: string
   searchCount?: number
   status: number
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const th = 'px-4 py-2.5 font-medium'
@@ -36,12 +30,12 @@ export default function AdminSearchHotWordsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'search-hot-words', currentPage],
-    queryFn: () => api<{ list: HotWord[] }>('/api/search/hot-words'),
+    queryFn: () => apiOrThrow<{ list: HotWord[] }>('/api/search/hot-words'),
   })
 
   const addMut = useMutation({
     mutationFn: (word: string) =>
-      api<void>('/api/search/hot-words', {
+      apiOrThrow<void>('/api/search/hot-words', {
         method: 'POST',
         body: JSON.stringify({ word }),
       }),
@@ -54,7 +48,7 @@ export default function AdminSearchHotWordsPage() {
 
   const toggleMut = useMutation({
     mutationFn: (item: { id: string; status: number }) =>
-      api<void>(`/api/search/hot-words/${item.id}`, {
+      apiOrThrow<void>(`/api/search/hot-words/${item.id}`, {
         method: 'PUT',
         body: JSON.stringify({ status: item.status === 1 ? 0 : 1 }),
       }),
@@ -65,7 +59,8 @@ export default function AdminSearchHotWordsPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api<void>(`/api/search/hot-words/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow<void>(`/api/search/hot-words/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'search-hot-words'] })
       toast.success(t('deleteSuccess'))

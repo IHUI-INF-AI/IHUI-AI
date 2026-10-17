@@ -28,7 +28,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton, toast } from '@/components/common'
 import {
   Card,
@@ -82,12 +82,6 @@ interface MealTemplate {
 }
 
 /* ─── API helper ─── */
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 /* ─── Constants ─── */
 
@@ -783,7 +777,7 @@ export default function MealPage() {
   } = useQuery({
     queryKey: ['edu-ai-management', 'meal', dateRange.startDate, dateRange.endDate],
     queryFn: () =>
-      api<{ list: MealRecipe[] }>(
+      apiOrThrow<{ list: MealRecipe[] }>(
         `/api/edu-ai-management/meal?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`,
       ),
   })
@@ -792,14 +786,14 @@ export default function MealPage() {
 
   const { data: templatesData } = useQuery({
     queryKey: ['edu-ai-management', 'meal', 'template'],
-    queryFn: () => api<{ list: MealTemplate[] }>('/api/edu-ai-management/meal/template'),
+    queryFn: () => apiOrThrow<{ list: MealTemplate[] }>('/api/edu-ai-management/meal/template'),
   })
 
   const templates = templatesData?.list ?? []
 
   const { data: templateNamesData } = useQuery({
     queryKey: ['edu-ai-management', 'meal', 'template-names'],
-    queryFn: () => api<{ list: string[] }>('/api/edu-ai-management/meal/template-names'),
+    queryFn: () => apiOrThrow<{ list: string[] }>('/api/edu-ai-management/meal/template-names'),
   })
 
   const templateNames = templateNamesData?.list ?? []
@@ -811,7 +805,7 @@ export default function MealPage() {
 
   const createMeal = useMutation({
     mutationFn: (data: MealFormData) =>
-      api('/api/edu-ai-management/meal', {
+      apiOrThrow('/api/edu-ai-management/meal', {
         method: 'POST',
         body: JSON.stringify({
           date: data.date,
@@ -828,7 +822,7 @@ export default function MealPage() {
 
   const updateMeal = useMutation({
     mutationFn: ({ id, data }: { id: string; data: MealFormData }) =>
-      api(`/api/edu-ai-management/meal/${id}`, {
+      apiOrThrow(`/api/edu-ai-management/meal/${id}`, {
         method: 'PUT',
         body: JSON.stringify({
           date: data.date,
@@ -844,7 +838,8 @@ export default function MealPage() {
   })
 
   const deleteMeal = useMutation({
-    mutationFn: (id: string) => api(`/api/edu-ai-management/meal/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/edu-ai-management/meal/${id}`, { method: 'DELETE' }),
     onSuccess: invalidate,
   })
 
@@ -853,11 +848,11 @@ export default function MealPage() {
       // Delete existing entries with same name, then create new ones
       const existingIds = templates.filter((tpl) => tpl.name === name).map((tpl) => tpl.id)
       const deletePromises = existingIds.map((id) =>
-        api(`/api/edu-ai-management/meal/template/${id}`, { method: 'DELETE' }),
+        apiOrThrow(`/api/edu-ai-management/meal/template/${id}`, { method: 'DELETE' }),
       )
       const filledEntries = entries.filter((e) => e.dishName.trim())
       const createPromises = filledEntries.map((e) =>
-        api('/api/edu-ai-management/meal/template', {
+        apiOrThrow('/api/edu-ai-management/meal/template', {
           method: 'POST',
           body: JSON.stringify({
             name,
@@ -881,7 +876,9 @@ export default function MealPage() {
     mutationFn: (name: string) => {
       const ids = templates.filter((tpl) => tpl.name === name).map((tpl) => tpl.id)
       return Promise.all(
-        ids.map((id) => api(`/api/edu-ai-management/meal/template/${id}`, { method: 'DELETE' })),
+        ids.map((id) =>
+          apiOrThrow(`/api/edu-ai-management/meal/template/${id}`, { method: 'DELETE' }),
+        ),
       )
     },
     onSuccess: () => {
@@ -892,7 +889,7 @@ export default function MealPage() {
 
   const applyTemplateMutation = useMutation({
     mutationFn: ({ name, startDate }: { name: string; startDate: string }) =>
-      api('/api/edu-ai-management/meal/apply-template', {
+      apiOrThrow('/api/edu-ai-management/meal/apply-template', {
         method: 'POST',
         body: JSON.stringify({ name, startDate }),
       }),
@@ -917,7 +914,7 @@ export default function MealPage() {
       dateRange.endDate,
     ],
     queryFn: () =>
-      api<{
+      apiOrThrow<{
         totalMeals: number
         summary: { totalCalories: number; totalProtein: number; totalCarbs: number }
         byType: Array<{
@@ -937,7 +934,7 @@ export default function MealPage() {
   const handleGenerateShoppingList = async () => {
     setGeneratingShopping(true)
     try {
-      const data = await api<{
+      const data = await apiOrThrow<{
         shoppingList: Array<{ ingredient: string; count: number; dishes: string[] }>
         totalIngredients: number
       }>('/api/edu-ai-management/meal/generate-shopping-list', {

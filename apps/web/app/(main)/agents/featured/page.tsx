@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Sparkles, Star } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -32,19 +32,13 @@ interface AgentsData {
   total: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function FeaturedAgentsPage() {
   const locale = useLocale()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['agents', 'featured'],
     queryFn: () =>
-      api<AgentsData>('/api/agents/list?featured=1&status=published&page=1&pageSize=20'),
+      apiOrThrow<AgentsData>('/api/agents/list?featured=1&status=published&page=1&pageSize=20'),
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
