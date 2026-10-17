@@ -33,6 +33,9 @@ import {
   MAX_MULTIPART_UPLOAD_SIZE,
 } from '../utils/file-type-validator.js'
 
+// ihui_oss_upload_bytes_total:上传字节(单位 = 字节),真实落盘点在 files.ts 三个上传端点
+import { recordOssUploadBytes } from '../plugins/business-metrics.js'
+
 const ADMIN_ROLE_ID = 1
 
 // P2 修复(2026-08-25):上传接口返回的 path 由磁盘绝对路径改为公开可访问 URL。
@@ -235,6 +238,8 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         const fileId = randomUUID()
         const filePath = join(UPLOAD_DIR, fileId)
         writeFileSync(filePath, finalBuffer)
+        // ihui_oss_upload_bytes_total:文件写入成功后计 written bytes
+        recordOssUploadBytes(finalBuffer.length)
 
         return reply.status(201).send(
           success({
@@ -763,6 +768,8 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         const fileId = randomUUID()
         const filePath = join(UPLOAD_DIR, fileId)
         writeFileSync(filePath, buffer)
+        // ihui_oss_upload_bytes_total:multipart 上传字节
+        recordOssUploadBytes(buffer.length)
 
         return reply.status(201).send(
           success({
@@ -838,6 +845,8 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         const fileId = randomUUID()
         const filePath = join(UPLOAD_DIR, fileId)
         writeFileSync(filePath, buffer)
+        // ihui_oss_upload_bytes_total:octet-stream 原始流上传字节
+        recordOssUploadBytes(buffer.length)
 
         return reply.status(201).send(
           success({

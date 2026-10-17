@@ -53,6 +53,8 @@ import { logger } from '../utils/logger.js'
  * 10. WebSocket 连接指标（gauge）：
  *     - business_ws_connections
  *     - business_ws_notice_subscriptions
+ *     - business_ws_rooms                          (live-chat 活跃房间数)
+ *     - business_ws_message_latency_ms (histogram) (live-chat 消息处理延迟)
  * 11. 业务异常指标：
  *     - business_errors_total{endpoint,error_type} (counter)
  * 12. TTFT (Time To First Token) 指标：
@@ -120,6 +122,11 @@ interface BusinessMetrics {
   wsMessageReceivedTotal: number
   wsMessageSentTotal: number
   wsDisconnectTotal: number
+  // 新增：live-chat 房间数（Gauge）与消息处理延迟（Histogram，单一系列）
+  wsRooms: number
+  wsMessageLatencyBuckets: Map<string, number> // key: le
+  wsMessageLatencySum: number
+  wsMessageLatencyCount: number
   // 新增：业务异常指标
   errorsTotal: Map<string, number> // key: endpoint|error_type
   // 新增：TTFT 指标
@@ -161,6 +168,18 @@ function observeHistogram(metrics: BusinessMetrics, baseKey: string, valueMs: nu
   counterInc(metrics.apiDurationBuckets, `${baseKey}|le=+Inf`)
 }
 
+/** 观察 live-chat 消息处理耗时（毫秒）到直方图（单一系列，无维度标签） */
+function observeWsMessageLatency(metrics: BusinessMetrics, valueMs: number): void {
+  metrics.wsMessageLatencyCount++
+  metrics.wsMessageLatencySum += valueMs
+  for (const le of LATENCY_BUCKETS) {
+    if (valueMs <= le) {
+      counterInc(metrics.wsMessageLatencyBuckets, String(le))
+    }
+  }
+  counterInc(metrics.wsMessageLatencyBuckets, '+Inf')
+}
+
 /** 观察 HLS 转码耗时（秒）到直方图 */
 function observeHlsTranscode(metrics: BusinessMetrics, videoId: string, seconds: number): void {
   counterInc(metrics.hlsTranscodeCount, videoId)
@@ -171,6 +190,23 @@ function observeHlsTranscode(metrics: BusinessMetrics, videoId: string, seconds:
     }
   }
   counterInc(metrics.hlsTranscodeBuckets, `${videoId}|le=+Inf`)
+}
+
+/**
+ * 模块级桥接:HLS 转码耗时采样(2026-10-17 接线,此前为定义齐全零调用的空壳)。
+ * transcode-service 的 ffmpeg close 回调不持 fastify 实例,与 recordAiCallSample 同范式;
+ * 与 aiState 不同,hls 直方图 state 在插件闭包 m 里,故这里用**回调槽注入**:插件注册
+ * 装饰器时把自己的实现赋给槽,桥接与装饰器走同一实现、同一份状态。
+ * videoId 经 sanitizeIhuiLabel 白名单洗 + 基数上限;永不抛(观测层异常不得带崩转码)。
+ */
+let hlsTranscodeRecorder: ((videoId: string, seconds: number) => void) | null = null
+export function recordHlsTranscodeSample(videoId: string, seconds: number): void {
+  safeRecord('recordHlsTranscodeSample', () => {
+    if (hlsTranscodeRecorder) {
+      hlsTranscodeRecorder(sanitizeIhuiLabel(videoId) || 'unknown', seconds)
+    }
+    // 插件未注册时样本丢弃:转码完成只出现在服务运行期,彼时插件必已注册
+  })
 }
 
 /** 观察任务执行耗时（秒）到直方图 */
@@ -409,6 +445,449 @@ function resetAiState(): void {
   aiState.seriesDroppedTotal = 0
 }
 
+/**
+ * ============================================================================
+ * 业务域指标单例(ihui_* Prometheus 大屏族)
+ * ============================================================================
+ *
+ * 状态放模块级(而非插件闭包)的架构决策与 aiState 完全同型:本族指标的真实
+ * 调用点横跨路由层 / DB 层 / service 层 / scheduler-worker,其中
+ * db/queries.ts、db/certificate-queries.ts、db/exam-queries.ts、
+ * services/order-service.ts、services/storage-service.ts、websocket/chat-server.ts
+ * 均**不持有 fastify 实例**。若把状态留在插件闭包,桥接就得把 server 一路穿透
+ * 传参(改动面炸开且有漏接风险);装饰器 `server.recordXxx` 与下面的模块级
+ * `recordXxx` 写的是**同一份状态**,只是两个入口。
+ *
+ * 横切纪律(录入指标层铁律):
+ * - 所有写入函数 try/catch 兜底 logger.warn,**永不抛**(safeRecord 统一兜);
+ * - 用户可控标签(tenant_id/source_ip/room_id/category/channel/reason)写入前
+ *   一律 sanitizeIhuiLabel 白名单洗,标签族基数上限 IHUI_SERIES_CAP=512,
+ *   超限新序列丢弃并计入 seriesDroppedTotal;
+ * - 单位:live gift income = 平台币;payment amount = 分(最小货币单位);
+ *   oss bytes = 字节。
+ */
+
+const IHUI_SERIES_CAP = 512
+const IHUI_LABEL_MAX_LEN = 64
+
+const ihuiState = {
+  // ---- auth 7 ----
+  authLoginAttemptTotal: 0,
+  authLoginSuccessTotal: 0,
+  /** key: source_ip(用户可控,白名单洗 + 基数上限) */
+  authLoginFailedTotal: new Map<string, number>(),
+  authJwtIssuedTotal: 0,
+  /** key: reason(refresh_rotation/logout/reuse_detected/force_logout/session_revoke/...) */
+  authTokenRevokedTotal: new Map<string, number>(),
+  auth2faUsedTotal: 0,
+  /** key: reason(deny/challenge/review/lockout) */
+  authLoginAnomalyTotal: new Map<string, number>(),
+  // ---- exam 7 ----
+  examStartedTotal: 0,
+  examSubmittedTotal: 0,
+  /** Gauge:pending(近24h started)的 exam_records 数,scheduler 定时刷新 */
+  examActiveTotal: 0,
+  /** key: category(试卷分类) */
+  examQuestionUsedTotal: new Map<string, number>(),
+  examCertificateIssuedTotal: 0,
+  /** 成绩样本和(float)—— 面板 avg = sum/count */
+  examScoreSum: 0,
+  examScoreCount: 0,
+  // ---- live 4 ----
+  /** Gauge,per-room:set 语义(房间删除时 deleteKey);基数由 chat-server MAX_ROOMS 界定 */
+  liveOnlineByRoom: new Map<string, number>(),
+  /** key: room_id */
+  liveDanmakuTotal: new Map<string, number>(),
+  /** key: room_id;单位 = 平台币,float 累加 */
+  liveGiftIncomeTotal: new Map<string, number>(),
+  liveStreamDisconnectedTotal: 0,
+  // ---- oss 6 ----
+  /** 单位 = 字节 */
+  ossUploadBytesTotal: 0,
+  /** 单位 = 字节 */
+  ossDownloadBytesTotal: 0,
+  /** key: driver(local/aliyun-oss/tencent-cos/...) */
+  ossRequestsTotal: new Map<string, number>(),
+  /** key: driver|error_type */
+  ossErrorsTotal: new Map<string, number>(),
+  /** Gauge:磁盘扫描总量(字节),scheduler 定时刷新 */
+  ossStorageUsedBytes: 0,
+  /** Gauge:文件数,scheduler 定时刷新 */
+  ossFileCount: 0,
+  // ---- payment 8 ----
+  /** key: channel(wechat/alipay/usdt/mock/...) */
+  paymentAttemptTotal: new Map<string, number>(),
+  paymentSuccessTotal: new Map<string, number>(),
+  paymentRefundTotal: new Map<string, number>(),
+  /** key: channel|reason */
+  paymentExceptionTotal: new Map<string, number>(),
+  /** key: channel;单位 = 分(最小货币单位) */
+  paymentAmountTotal: new Map<string, number>(),
+  wxpayCallbackTotal: 0,
+  wxpayCallbackSuccessTotal: 0,
+  wxpayCallbackFailedTotal: 0,
+  // ---- tenant 4 ----
+  /** key: tenant_id(白名单洗 + 基数上限,防恶意 header 炸基数) */
+  tenantApiCallsTotal: new Map<string, number>(),
+  /** key: tenant_id */
+  tenantRatelimitTotal: new Map<string, number>(),
+  /** Gauge,key: tenant_id|resource(api_calls|storage_mb|users) */
+  tenantResourceUsed: new Map<string, number>(),
+  /** Gauge,key: tenant_id|resource */
+  tenantResourceQuota: new Map<string, number>(),
+  // ---- 横切:基数上限丢弃计数(单族超 512 条序列后每次新序列写入 +1) ----
+  seriesDroppedTotal: 0,
+}
+
+/** 标签值白名单洗(复用 sanitizeAiLabel 同型实现;引号/换行等会打爆整次 scrape)。 */
+function sanitizeIhuiLabel(value: string | undefined | null, maxLen = IHUI_LABEL_MAX_LEN): string {
+  if (typeof value !== 'string') return 'unknown'
+  const cleaned = value.replace(/[^A-Za-z0-9_.:/@+-]/g, '_').slice(0, maxLen)
+  return cleaned.length > 0 ? cleaned : 'unknown'
+}
+
+/** 基数护栏:超上限的新序列不录(计入 seriesDroppedTotal)。 */
+function ihuiCounterInc(map: Map<string, number>, key: string, by = 1): void {
+  if (map.has(key)) {
+    map.set(key, (map.get(key) ?? 0) + by)
+    return
+  }
+  if (map.size >= IHUI_SERIES_CAP) {
+    ihuiState.seriesDroppedTotal++
+    return
+  }
+  map.set(key, by)
+}
+
+/** 非负有限数(否则 0)。 */
+function ihuiNonNegativeNumber(value: number | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+}
+
+/** 写入函数统一 try/catch 兜底:观测层异常不得带崩业务链路。 */
+function safeRecord(name: string, fn: () => void): void {
+  try {
+    fn()
+  } catch (err) {
+    logger.warn(`[business-metrics] ${name} 异常,已跳过: ${String(err)}`)
+  }
+}
+
+// ============================== auth 7 ==============================
+
+export function recordAuthLoginAttempt(): void {
+  safeRecord('recordAuthLoginAttempt', () => {
+    ihuiState.authLoginAttemptTotal++
+  })
+}
+
+export function recordAuthLoginSuccess(): void {
+  safeRecord('recordAuthLoginSuccess', () => {
+    ihuiState.authLoginSuccessTotal++
+  })
+}
+
+export function recordAuthLoginFailed(sourceIp: string): void {
+  safeRecord('recordAuthLoginFailed', () => {
+    ihuiCounterInc(ihuiState.authLoginFailedTotal, sanitizeIhuiLabel(sourceIp))
+  })
+}
+
+export function recordAuthJwtIssued(): void {
+  safeRecord('recordAuthJwtIssued', () => {
+    ihuiState.authJwtIssuedTotal++
+  })
+}
+
+export function recordAuthTokenRevoked(reason: string): void {
+  safeRecord('recordAuthTokenRevoked', () => {
+    ihuiCounterInc(ihuiState.authTokenRevokedTotal, sanitizeIhuiLabel(reason))
+  })
+}
+
+export function recordAuth2faUsed(): void {
+  safeRecord('recordAuth2faUsed', () => {
+    ihuiState.auth2faUsedTotal++
+  })
+}
+
+export function recordAuthLoginAnomaly(reason: string): void {
+  safeRecord('recordAuthLoginAnomaly', () => {
+    ihuiCounterInc(ihuiState.authLoginAnomalyTotal, sanitizeIhuiLabel(reason))
+  })
+}
+
+// ============================== exam 7 ==============================
+
+export function recordExamStarted(): void {
+  safeRecord('recordExamStarted', () => {
+    ihuiState.examStartedTotal++
+  })
+}
+
+export function recordExamSubmitted(): void {
+  safeRecord('recordExamSubmitted', () => {
+    ihuiState.examSubmittedTotal++
+  })
+}
+
+/** Gauge:set 语义(整数,负值归 0)。scheduler 定时刷新。 */
+export function setExamActive(count: number): void {
+  safeRecord('setExamActive', () => {
+    const n = Math.max(0, Math.floor(ihuiNonNegativeNumber(count)))
+    ihuiState.examActiveTotal = n
+  })
+}
+
+export function recordExamQuestionUsed(category: string, by = 1): void {
+  safeRecord('recordExamQuestionUsed', () => {
+    ihuiCounterInc(
+      ihuiState.examQuestionUsedTotal,
+      sanitizeIhuiLabel(category),
+      ihuiNonNegativeNumber(by),
+    )
+  })
+}
+
+export function recordExamCertificateIssued(): void {
+  safeRecord('recordExamCertificateIssued', () => {
+    ihuiState.examCertificateIssuedTotal++
+  })
+}
+
+/** 成绩样本(float,sum/count 成对累加,保证 avg 口径一致)。 */
+export function recordExamScore(score: number): void {
+  safeRecord('recordExamScore', () => {
+    if (typeof score !== 'number' || !Number.isFinite(score) || score < 0) return
+    ihuiState.examScoreSum += score
+    ihuiState.examScoreCount++
+  })
+}
+
+// ============================== live 4 ==============================
+
+/** per-room 在线数 Gauge(set 语义)。 */
+export function setLiveOnline(roomId: string, count: number): void {
+  safeRecord('setLiveOnline', () => {
+    ihuiState.liveOnlineByRoom.set(sanitizeIhuiLabel(roomId), Math.max(0, Math.floor(count)))
+  })
+}
+
+/** 房间清空/删除时移除对应序列,防 per-room gauge 无界累积。 */
+export function deleteLiveOnline(roomId: string): void {
+  safeRecord('deleteLiveOnline', () => {
+    ihuiState.liveOnlineByRoom.delete(sanitizeIhuiLabel(roomId))
+  })
+}
+
+export function recordLiveDanmaku(roomId: string): void {
+  safeRecord('recordLiveDanmaku', () => {
+    ihuiCounterInc(ihuiState.liveDanmakuTotal, sanitizeIhuiLabel(roomId))
+  })
+}
+
+/** 打赏收入(单位 = 平台币,float 累加)。 */
+export function recordLiveGiftIncome(roomId: string, amount: number): void {
+  safeRecord('recordLiveGiftIncome', () => {
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return
+    ihuiCounterInc(ihuiState.liveGiftIncomeTotal, sanitizeIhuiLabel(roomId), amount)
+  })
+}
+
+export function recordLiveStreamDisconnected(): void {
+  safeRecord('recordLiveStreamDisconnected', () => {
+    ihuiState.liveStreamDisconnectedTotal++
+  })
+}
+
+// ============================== oss 6 ==============================
+
+/** 上传字节数(单位 = 字节)。 */
+export function recordOssUploadBytes(bytes: number): void {
+  safeRecord('recordOssUploadBytes', () => {
+    if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes <= 0) return
+    ihuiState.ossUploadBytesTotal += bytes
+  })
+}
+
+/** 下载字节数(单位 = 字节)。 */
+export function recordOssDownloadBytes(bytes: number): void {
+  safeRecord('recordOssDownloadBytes', () => {
+    if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes <= 0) return
+    ihuiState.ossDownloadBytesTotal += bytes
+  })
+}
+
+export function recordOssRequest(driver: string): void {
+  safeRecord('recordOssRequest', () => {
+    ihuiCounterInc(ihuiState.ossRequestsTotal, sanitizeIhuiLabel(driver))
+  })
+}
+
+export function recordOssError(driver: string, errorType: string): void {
+  safeRecord('recordOssError', () => {
+    ihuiCounterInc(
+      ihuiState.ossErrorsTotal,
+      `${sanitizeIhuiLabel(driver)}|${sanitizeIhuiLabel(errorType)}`,
+    )
+  })
+}
+
+/** Gauge:一次扫描 set 两个(存储字节 + 文件数)。scheduler 定时刷新。 */
+export function setOssStorageStats(totalBytes: number, totalFiles: number): void {
+  safeRecord('setOssStorageStats', () => {
+    ihuiState.ossStorageUsedBytes = Math.max(0, Math.floor(ihuiNonNegativeNumber(totalBytes)))
+    ihuiState.ossFileCount = Math.max(0, Math.floor(ihuiNonNegativeNumber(totalFiles)))
+  })
+}
+
+// ============================== payment 8 ==============================
+
+export function recordPaymentAttempt(channel: string): void {
+  safeRecord('recordPaymentAttempt', () => {
+    ihuiCounterInc(ihuiState.paymentAttemptTotal, sanitizeIhuiLabel(channel))
+  })
+}
+
+export function recordPaymentSuccess(channel: string): void {
+  safeRecord('recordPaymentSuccess', () => {
+    ihuiCounterInc(ihuiState.paymentSuccessTotal, sanitizeIhuiLabel(channel))
+  })
+}
+
+export function recordPaymentRefund(channel: string): void {
+  safeRecord('recordPaymentRefund', () => {
+    ihuiCounterInc(ihuiState.paymentRefundTotal, sanitizeIhuiLabel(channel))
+  })
+}
+
+export function recordPaymentException(channel: string, reason: string): void {
+  safeRecord('recordPaymentException', () => {
+    ihuiCounterInc(
+      ihuiState.paymentExceptionTotal,
+      `${sanitizeIhuiLabel(channel)}|${sanitizeIhuiLabel(reason)}`,
+    )
+  })
+}
+
+/** 支付金额(单位 = 分,最小货币单位,float 累加)。 */
+export function recordPaymentAmount(channel: string, amountMinorUnits: number): void {
+  safeRecord('recordPaymentAmount', () => {
+    if (
+      typeof amountMinorUnits !== 'number' ||
+      !Number.isFinite(amountMinorUnits) ||
+      amountMinorUnits <= 0
+    )
+      return
+    ihuiCounterInc(ihuiState.paymentAmountTotal, sanitizeIhuiLabel(channel), amountMinorUnits)
+  })
+}
+
+export function recordWxpayCallback(): void {
+  safeRecord('recordWxpayCallback', () => {
+    ihuiState.wxpayCallbackTotal++
+  })
+}
+
+export function recordWxpayCallbackSuccess(): void {
+  safeRecord('recordWxpayCallbackSuccess', () => {
+    ihuiState.wxpayCallbackSuccessTotal++
+  })
+}
+
+export function recordWxpayCallbackFailed(): void {
+  safeRecord('recordWxpayCallbackFailed', () => {
+    ihuiState.wxpayCallbackFailedTotal++
+  })
+}
+
+// ============================== tenant 4 ==============================
+
+export function recordTenantApiCall(tenantId: string): void {
+  safeRecord('recordTenantApiCall', () => {
+    ihuiCounterInc(ihuiState.tenantApiCallsTotal, sanitizeIhuiLabel(tenantId, 32))
+  })
+}
+
+export function recordTenantRateLimit(tenantId: string): void {
+  safeRecord('recordTenantRateLimit', () => {
+    ihuiCounterInc(ihuiState.tenantRatelimitTotal, sanitizeIhuiLabel(tenantId, 32))
+  })
+}
+
+/** Gauge:set 语义。resource ∈ api_calls|storage_mb|users。 */
+export function setTenantResourceUsed(
+  tenantId: string,
+  resource: 'api_calls' | 'storage_mb' | 'users',
+  value: number,
+): void {
+  safeRecord('setTenantResourceUsed', () => {
+    if (!Number.isFinite(value) || value < 0) return
+    ihuiState.tenantResourceUsed.set(
+      `${sanitizeIhuiLabel(tenantId, 32)}|${sanitizeIhuiLabel(resource, 32)}`,
+      value,
+    )
+  })
+}
+
+/** Gauge:set 语义。与 resource_used 同源成对刷新。 */
+export function setTenantResourceQuota(
+  tenantId: string,
+  resource: 'api_calls' | 'storage_mb' | 'users',
+  value: number,
+): void {
+  safeRecord('setTenantResourceQuota', () => {
+    if (!Number.isFinite(value) || value < 0) return
+    ihuiState.tenantResourceQuota.set(
+      `${sanitizeIhuiLabel(tenantId, 32)}|${sanitizeIhuiLabel(resource, 32)}`,
+      value,
+    )
+  })
+}
+
+// ============================== 重置 ==============================
+
+/** 清业务域单例状态(resetAllMetrics 与测试各自要用)。 */
+export function resetIhuiState(): void {
+  ihuiState.authLoginAttemptTotal = 0
+  ihuiState.authLoginSuccessTotal = 0
+  ihuiState.authLoginFailedTotal.clear()
+  ihuiState.authJwtIssuedTotal = 0
+  ihuiState.authTokenRevokedTotal.clear()
+  ihuiState.auth2faUsedTotal = 0
+  ihuiState.authLoginAnomalyTotal.clear()
+  ihuiState.examStartedTotal = 0
+  ihuiState.examSubmittedTotal = 0
+  ihuiState.examActiveTotal = 0
+  ihuiState.examQuestionUsedTotal.clear()
+  ihuiState.examCertificateIssuedTotal = 0
+  ihuiState.examScoreSum = 0
+  ihuiState.examScoreCount = 0
+  ihuiState.liveOnlineByRoom.clear()
+  ihuiState.liveDanmakuTotal.clear()
+  ihuiState.liveGiftIncomeTotal.clear()
+  ihuiState.liveStreamDisconnectedTotal = 0
+  ihuiState.ossUploadBytesTotal = 0
+  ihuiState.ossDownloadBytesTotal = 0
+  ihuiState.ossRequestsTotal.clear()
+  ihuiState.ossErrorsTotal.clear()
+  ihuiState.ossStorageUsedBytes = 0
+  ihuiState.ossFileCount = 0
+  ihuiState.paymentAttemptTotal.clear()
+  ihuiState.paymentSuccessTotal.clear()
+  ihuiState.paymentRefundTotal.clear()
+  ihuiState.paymentExceptionTotal.clear()
+  ihuiState.paymentAmountTotal.clear()
+  ihuiState.wxpayCallbackTotal = 0
+  ihuiState.wxpayCallbackSuccessTotal = 0
+  ihuiState.wxpayCallbackFailedTotal = 0
+  ihuiState.tenantApiCallsTotal.clear()
+  ihuiState.tenantRatelimitTotal.clear()
+  ihuiState.tenantResourceUsed.clear()
+  ihuiState.tenantResourceQuota.clear()
+  ihuiState.seriesDroppedTotal = 0
+}
+
 const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   const m: BusinessMetrics = {
     // 现有指标
@@ -457,6 +936,11 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     wsMessageReceivedTotal: 0,
     wsMessageSentTotal: 0,
     wsDisconnectTotal: 0,
+    // live-chat 房间数与消息延迟
+    wsRooms: 0,
+    wsMessageLatencyBuckets: new Map(),
+    wsMessageLatencySum: 0,
+    wsMessageLatencyCount: 0,
     // 业务异常指标
     errorsTotal: new Map(),
     // 新增：TTFT 指标
@@ -478,6 +962,8 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     // AI 四族的状态在模块级单例上(m 里存的是同一批 Map 引用),含一个不在 m 上的
     // seriesDroppedTotal 计数,故显式走单例的重置出口。
     resetAiState()
+    // 业务域指标族(ihui_*)状态同样在模块级单例 ihuiState 上,走独立重置出口。
+    resetIhuiState()
     for (const value of Object.values(m)) {
       if (value instanceof Map) {
         value.clear()
@@ -493,6 +979,9 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     m.wsMessageReceivedTotal = 0
     m.wsMessageSentTotal = 0
     m.wsDisconnectTotal = 0
+    m.wsRooms = 0
+    m.wsMessageLatencySum = 0
+    m.wsMessageLatencyCount = 0
     m.ttftAlertsTotal = 0
     m.recurringChargeDueGauge = 0
   }
@@ -524,6 +1013,18 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     setImmediate(() => {
       counterInc(m.apiCallTotal, key)
       observeHistogram(m, key, Math.round(reply.elapsedTime))
+      // oss 请求/错误计数:过滤 /api/files、/api/oss 前缀(真实字节面)。
+      // driver 标签取配置值(本地存储默认 local);错误按响应码粗分 error_type。
+      if (url.startsWith('/api/files/') || url.startsWith('/api/oss')) {
+        const driver = sanitizeIhuiLabel(process.env.OSS_DRIVER_TYPE ?? 'local', 32)
+        ihuiCounterInc(ihuiState.ossRequestsTotal, driver)
+        if (reply.statusCode >= 400) {
+          ihuiCounterInc(
+            ihuiState.ossErrorsTotal,
+            `${driver}|status_${Math.floor(reply.statusCode / 100)}xx`,
+          )
+        }
+      }
     })
   })
 
@@ -582,6 +1083,11 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
   server.decorate('recordHlsTranscode', (videoId: string, seconds: number) => {
     observeHlsTranscode(m, videoId, seconds)
   })
+  // 回调槽注入:让模块级桥接 recordHlsTranscodeSample 也走同一实现同一状态
+  // (transcode-service 的 ffmpeg close 回调不持 fastify 实例,见模块级注释)
+  hlsTranscodeRecorder = (videoId: string, seconds: number) => {
+    observeHlsTranscode(m, videoId, seconds)
+  }
   server.decorate('recordHlsSegment', (bitrate: string) => {
     counterInc(m.hlsSegmentsTotal, bitrate)
   })
@@ -652,6 +1158,12 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
   server.decorate('recordWsDisconnect', () => {
     m.wsDisconnectTotal++
   })
+  server.decorate('recordWsRooms', (count: number) => {
+    m.wsRooms = count
+  })
+  server.decorate('recordWsMessageLatency', (valueMs: number) => {
+    observeWsMessageLatency(m, valueMs)
+  })
 
   // ===== 新增：业务异常指标装饰器 =====
   server.decorate('recordBusinessError', (endpoint: string, errorType: string) => {
@@ -700,6 +1212,61 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
   server.decorate('recordRecurringWebhookDeprecated', (eventType: string) => {
     counterInc(m.recurringWebhookDeprecatedTotal, eventType)
   })
+
+  // ===== 新增：业务域指标(ihui_*)装饰器 =====
+  // 与模块级 record* 导出写同一份 ihuiState(装饰器只服务持有 server 的请求链,
+  // db/service/scheduler 层直接 import 模块级函数,不穿透 server 实例)。
+  server.decorate('recordAuthLoginAttempt', () => recordAuthLoginAttempt())
+  server.decorate('recordAuthLoginSuccess', () => recordAuthLoginSuccess())
+  server.decorate('recordAuthLoginFailed', (sourceIp: string) => recordAuthLoginFailed(sourceIp))
+  server.decorate('recordAuthJwtIssued', () => recordAuthJwtIssued())
+  server.decorate('recordAuthTokenRevoked', (reason: string) => recordAuthTokenRevoked(reason))
+  server.decorate('recordAuth2faUsed', () => recordAuth2faUsed())
+  server.decorate('recordAuthLoginAnomaly', (reason: string) => recordAuthLoginAnomaly(reason))
+  server.decorate('recordExamStarted', () => recordExamStarted())
+  server.decorate('recordExamSubmitted', () => recordExamSubmitted())
+  server.decorate('setExamActive', (count: number) => setExamActive(count))
+  server.decorate('recordExamQuestionUsed', (category: string, by = 1) =>
+    recordExamQuestionUsed(category, by),
+  )
+  server.decorate('recordExamCertificateIssued', () => recordExamCertificateIssued())
+  server.decorate('recordExamScore', (score: number) => recordExamScore(score))
+  server.decorate('setLiveOnline', (roomId: string, count: number) => setLiveOnline(roomId, count))
+  server.decorate('deleteLiveOnline', (roomId: string) => deleteLiveOnline(roomId))
+  server.decorate('recordLiveDanmaku', (roomId: string) => recordLiveDanmaku(roomId))
+  server.decorate('recordLiveGiftIncome', (roomId: string, amount: number) =>
+    recordLiveGiftIncome(roomId, amount),
+  )
+  server.decorate('recordLiveStreamDisconnected', () => recordLiveStreamDisconnected())
+  server.decorate('recordOssUploadBytes', (bytes: number) => recordOssUploadBytes(bytes))
+  server.decorate('recordOssDownloadBytes', (bytes: number) => recordOssDownloadBytes(bytes))
+  server.decorate('recordOssRequest', (driver: string) => recordOssRequest(driver))
+  server.decorate('recordOssError', (driver: string, errorType: string) =>
+    recordOssError(driver, errorType),
+  )
+  server.decorate('setOssStorageStats', (totalBytes: number, totalFiles: number) =>
+    setOssStorageStats(totalBytes, totalFiles),
+  )
+  server.decorate('recordPaymentAttempt', (channel: string) => recordPaymentAttempt(channel))
+  server.decorate('recordPaymentSuccess', (channel: string) => recordPaymentSuccess(channel))
+  server.decorate('recordPaymentRefund', (channel: string) => recordPaymentRefund(channel))
+  server.decorate('recordPaymentException', (channel: string, reason: string) =>
+    recordPaymentException(channel, reason),
+  )
+  server.decorate('recordPaymentAmount', (channel: string, amountMinorUnits: number) =>
+    recordPaymentAmount(channel, amountMinorUnits),
+  )
+  server.decorate('recordWxpayCallback', () => recordWxpayCallback())
+  server.decorate('recordWxpayCallbackSuccess', () => recordWxpayCallbackSuccess())
+  server.decorate('recordWxpayCallbackFailed', () => recordWxpayCallbackFailed())
+  server.decorate('recordTenantApiCall', (tenantId: string) => recordTenantApiCall(tenantId))
+  server.decorate('recordTenantRateLimit', (tenantId: string) => recordTenantRateLimit(tenantId))
+  server.decorate('setTenantResourceUsed', (tenantId: string, resource: string, value: number) =>
+    setTenantResourceUsed(tenantId, resource as 'api_calls' | 'storage_mb' | 'users', value),
+  )
+  server.decorate('setTenantResourceQuota', (tenantId: string, resource: string, value: number) =>
+    setTenantResourceQuota(tenantId, resource as 'api_calls' | 'storage_mb' | 'users', value),
+  )
 
   // P2 修复:运行时手动重置路由(仅 admin),用于长期运行后内存释放
   server.post(
@@ -977,6 +1544,18 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     lines.push('# TYPE business_ws_disconnect_total counter')
     lines.push(`business_ws_disconnect_total ${m.wsDisconnectTotal}`)
 
+    lines.push('# HELP business_ws_rooms Current live-chat rooms')
+    lines.push('# TYPE business_ws_rooms gauge')
+    lines.push(`business_ws_rooms ${m.wsRooms}`)
+
+    lines.push('# HELP business_ws_message_latency_ms live-chat message handling latency in ms')
+    lines.push('# TYPE business_ws_message_latency_ms histogram')
+    for (const [le, v] of m.wsMessageLatencyBuckets) {
+      lines.push(`business_ws_message_latency_ms_bucket{le="${le}"} ${v}`)
+    }
+    lines.push(`business_ws_message_latency_ms_sum ${m.wsMessageLatencySum}`)
+    lines.push(`business_ws_message_latency_ms_count ${m.wsMessageLatencyCount}`)
+
     // 11. 业务异常指标
     lines.push('# HELP business_errors_total Business errors by endpoint and error type')
     lines.push('# TYPE business_errors_total counter')
@@ -1053,6 +1632,219 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
       )
     }
 
+    // 15. 业务域指标族(ihui_*):auth / exam / live / oss / payment / tenant
+    // 写入侧标签值一律 sanitizeIhuiLabel 洗过,这里只做竖线 key 反拆。
+    // auth 7
+    lines.push('# HELP ihui_auth_login_attempt_total Auth login attempts counter')
+    lines.push('# TYPE ihui_auth_login_attempt_total counter')
+    lines.push(`ihui_auth_login_attempt_total ${ihuiState.authLoginAttemptTotal}`)
+
+    lines.push('# HELP ihui_auth_login_success_total Auth login success counter')
+    lines.push('# TYPE ihui_auth_login_success_total counter')
+    lines.push(`ihui_auth_login_success_total ${ihuiState.authLoginSuccessTotal}`)
+
+    lines.push('# HELP ihui_auth_login_failed_total Auth login failures by source_ip')
+    lines.push('# TYPE ihui_auth_login_failed_total counter')
+    for (const [ip, v] of ihuiState.authLoginFailedTotal) {
+      lines.push(`ihui_auth_login_failed_total{source_ip="${ip}"} ${v}`)
+    }
+
+    lines.push('# HELP ihui_auth_jwt_issued_total JWT token pairs issued counter')
+    lines.push('# TYPE ihui_auth_jwt_issued_total counter')
+    lines.push(`ihui_auth_jwt_issued_total ${ihuiState.authJwtIssuedTotal}`)
+
+    lines.push(
+      '# HELP ihui_auth_token_revoked_total Refresh tokens revoked by reason (rotation counts toward the 1h increase panel)',
+    )
+    lines.push('# TYPE ihui_auth_token_revoked_total counter')
+    for (const [reason, v] of ihuiState.authTokenRevokedTotal) {
+      lines.push(`ihui_auth_token_revoked_total{reason="${reason}"} ${v}`)
+    }
+
+    lines.push('# HELP ihui_auth_2fa_used_total 2FA login-verify passed counter')
+    lines.push('# TYPE ihui_auth_2fa_used_total counter')
+    lines.push(`ihui_auth_2fa_used_total ${ihuiState.auth2faUsedTotal}`)
+
+    lines.push('# HELP ihui_auth_login_anomaly_total Login risk-engine hits by reason')
+    lines.push('# TYPE ihui_auth_login_anomaly_total counter')
+    for (const [reason, v] of ihuiState.authLoginAnomalyTotal) {
+      lines.push(`ihui_auth_login_anomaly_total{reason="${reason}"} ${v}`)
+    }
+
+    // exam 7
+    lines.push('# HELP ihui_exam_started_total Exam sessions started counter')
+    lines.push('# TYPE ihui_exam_started_total counter')
+    lines.push(`ihui_exam_started_total ${ihuiState.examStartedTotal}`)
+
+    lines.push('# HELP ihui_exam_submitted_total Exam papers submitted counter')
+    lines.push('# TYPE ihui_exam_submitted_total counter')
+    lines.push(`ihui_exam_submitted_total ${ihuiState.examSubmittedTotal}`)
+
+    lines.push(
+      '# HELP ihui_exam_active_total Exam records in progress (pending, started in last 24h) gauge',
+    )
+    lines.push('# TYPE ihui_exam_active_total gauge')
+    lines.push(`ihui_exam_active_total ${ihuiState.examActiveTotal}`)
+
+    lines.push('# HELP ihui_exam_question_used_total Exam questions served by paper category')
+    lines.push('# TYPE ihui_exam_question_used_total counter')
+    for (const [category, v] of ihuiState.examQuestionUsedTotal) {
+      lines.push(`ihui_exam_question_used_total{category="${category}"} ${v}`)
+    }
+
+    lines.push('# HELP ihui_exam_certificate_issued_total Certificates issued counter')
+    lines.push('# TYPE ihui_exam_certificate_issued_total counter')
+    lines.push(`ihui_exam_certificate_issued_total ${ihuiState.examCertificateIssuedTotal}`)
+
+    lines.push('# HELP ihui_exam_score_sum Exam score sample sum (avg = sum / count)')
+    lines.push('# TYPE ihui_exam_score_sum gauge')
+    lines.push(`ihui_exam_score_sum ${ihuiState.examScoreSum}`)
+
+    lines.push('# HELP ihui_exam_score_count Exam score sample count (paired with score_sum)')
+    lines.push('# TYPE ihui_exam_score_count gauge')
+    lines.push(`ihui_exam_score_count ${ihuiState.examScoreCount}`)
+
+    // live 4
+    lines.push('# HELP ihui_live_online_total Live-chat online connections per room (gauge)')
+    lines.push('# TYPE ihui_live_online_total gauge')
+    for (const [roomId, v] of ihuiState.liveOnlineByRoom) {
+      lines.push(`ihui_live_online_total{room_id="${roomId}"} ${v}`)
+    }
+
+    lines.push('# HELP ihui_live_danmaku_total Live-chat messages (danmaku) per room')
+    lines.push('# TYPE ihui_live_danmaku_total counter')
+    for (const [roomId, v] of ihuiState.liveDanmakuTotal) {
+      lines.push(`ihui_live_danmaku_total{room_id="${roomId}"} ${v}`)
+    }
+
+    lines.push(
+      '# HELP ihui_live_gift_income_total Live gift income per room (unit = platform coins)',
+    )
+    lines.push('# TYPE ihui_live_gift_income_total counter')
+    for (const [roomId, v] of ihuiState.liveGiftIncomeTotal) {
+      lines.push(`ihui_live_gift_income_total{room_id="${roomId}"} ${v}`)
+    }
+
+    lines.push('# HELP ihui_live_stream_disconnected_total Tencent cloud stream-end callbacks')
+    lines.push('# TYPE ihui_live_stream_disconnected_total counter')
+    lines.push(`ihui_live_stream_disconnected_total ${ihuiState.liveStreamDisconnectedTotal}`)
+
+    // oss 6
+    lines.push('# HELP ihui_oss_upload_bytes_total OSS upload bytes total (bytes)')
+    lines.push('# TYPE ihui_oss_upload_bytes_total counter')
+    lines.push(`ihui_oss_upload_bytes_total ${ihuiState.ossUploadBytesTotal}`)
+
+    lines.push('# HELP ihui_oss_download_bytes_total OSS download bytes total (bytes)')
+    lines.push('# TYPE ihui_oss_download_bytes_total counter')
+    lines.push(`ihui_oss_download_bytes_total ${ihuiState.ossDownloadBytesTotal}`)
+
+    lines.push('# HELP ihui_oss_requests_total OSS requests by storage driver')
+    lines.push('# TYPE ihui_oss_requests_total counter')
+    for (const [driver, v] of ihuiState.ossRequestsTotal) {
+      lines.push(`ihui_oss_requests_total{driver="${driver}"} ${v}`)
+    }
+
+    lines.push('# HELP ihui_oss_errors_total OSS errors by storage driver and error_type')
+    lines.push('# TYPE ihui_oss_errors_total counter')
+    for (const [k, v] of ihuiState.ossErrorsTotal) {
+      const [driver, errorType] = k.split('|')
+      lines.push(`ihui_oss_errors_total{driver="${driver}",error_type="${errorType}"} ${v}`)
+    }
+
+    lines.push('# HELP ihui_oss_storage_used_bytes Storage used bytes (gauge, scheduler scan)')
+    lines.push('# TYPE ihui_oss_storage_used_bytes gauge')
+    lines.push(`ihui_oss_storage_used_bytes ${ihuiState.ossStorageUsedBytes}`)
+
+    lines.push('# HELP ihui_oss_file_count Storage file count (gauge, scheduler scan)')
+    lines.push('# TYPE ihui_oss_file_count gauge')
+    lines.push(`ihui_oss_file_count ${ihuiState.ossFileCount}`)
+
+    // payment 8
+    lines.push('# HELP ihui_payment_attempt_total Payment order attempts by channel')
+    lines.push('# TYPE ihui_payment_attempt_total counter')
+    for (const [channel, v] of ihuiState.paymentAttemptTotal) {
+      lines.push(`ihui_payment_attempt_total{channel="${channel}"} ${v}`)
+    }
+
+    lines.push('# HELP ihui_payment_success_total Payment successes by channel')
+    lines.push('# TYPE ihui_payment_success_total counter')
+    for (const [channel, v] of ihuiState.paymentSuccessTotal) {
+      lines.push(`ihui_payment_success_total{channel="${channel}"} ${v}`)
+    }
+
+    lines.push('# HELP ihui_payment_refund_total Completed refunds by channel')
+    lines.push('# TYPE ihui_payment_refund_total counter')
+    for (const [channel, v] of ihuiState.paymentRefundTotal) {
+      lines.push(`ihui_payment_refund_total{channel="${channel}"} ${v}`)
+    }
+
+    lines.push('# HELP ihui_payment_exception_total Payment exceptions by channel and reason')
+    lines.push('# TYPE ihui_payment_exception_total counter')
+    for (const [k, v] of ihuiState.paymentExceptionTotal) {
+      const [channel, reason] = k.split('|')
+      lines.push(`ihui_payment_exception_total{channel="${channel}",reason="${reason}"} ${v}`)
+    }
+
+    lines.push(
+      '# HELP ihui_payment_amount_total Paid amount by channel (unit = minor currency units, 1 CNY = 100)',
+    )
+    lines.push('# TYPE ihui_payment_amount_total counter')
+    for (const [channel, v] of ihuiState.paymentAmountTotal) {
+      lines.push(`ihui_payment_amount_total{channel="${channel}"} ${v}`)
+    }
+
+    lines.push('# HELP ihui_payment_wxpay_callback_total WeChat pay callbacks received')
+    lines.push('# TYPE ihui_payment_wxpay_callback_total counter')
+    lines.push(`ihui_payment_wxpay_callback_total ${ihuiState.wxpayCallbackTotal}`)
+
+    lines.push(
+      '# HELP ihui_payment_wxpay_callback_success_total WeChat pay callbacks replied SUCCESS',
+    )
+    lines.push('# TYPE ihui_payment_wxpay_callback_success_total counter')
+    lines.push(`ihui_payment_wxpay_callback_success_total ${ihuiState.wxpayCallbackSuccessTotal}`)
+
+    lines.push('# HELP ihui_payment_wxpay_callback_failed_total WeChat pay callbacks replied FAIL')
+    lines.push('# TYPE ihui_payment_wxpay_callback_failed_total counter')
+    lines.push(`ihui_payment_wxpay_callback_failed_total ${ihuiState.wxpayCallbackFailedTotal}`)
+
+    // tenant 4
+    lines.push('# HELP ihui_tenant_api_calls_total API calls by tenant')
+    lines.push('# TYPE ihui_tenant_api_calls_total counter')
+    for (const [tenantId, v] of ihuiState.tenantApiCallsTotal) {
+      lines.push(`ihui_tenant_api_calls_total{tenant_id="${tenantId}"} ${v}`)
+    }
+
+    lines.push('# HELP ihui_tenant_ratelimit_total Rate-limited (429) requests by tenant')
+    lines.push('# TYPE ihui_tenant_ratelimit_total counter')
+    for (const [tenantId, v] of ihuiState.tenantRatelimitTotal) {
+      lines.push(`ihui_tenant_ratelimit_total{tenant_id="${tenantId}"} ${v}`)
+    }
+
+    lines.push(
+      '# HELP ihui_tenant_resource_used Tenant resource usage gauge (resource=api_calls|storage_mb|users)',
+    )
+    lines.push('# TYPE ihui_tenant_resource_used gauge')
+    for (const [k, v] of ihuiState.tenantResourceUsed) {
+      const [tenantId, resource] = k.split('|')
+      lines.push(`ihui_tenant_resource_used{tenant_id="${tenantId}",resource="${resource}"} ${v}`)
+    }
+
+    lines.push(
+      '# HELP ihui_tenant_resource_quota Tenant resource quota gauge (resource=api_calls|storage_mb|users)',
+    )
+    lines.push('# TYPE ihui_tenant_resource_quota gauge')
+    for (const [k, v] of ihuiState.tenantResourceQuota) {
+      const [tenantId, resource] = k.split('|')
+      lines.push(`ihui_tenant_resource_quota{tenant_id="${tenantId}",resource="${resource}"} ${v}`)
+    }
+
+    // 横切:基数上限丢弃计数
+    lines.push(
+      '# HELP ihui_series_dropped_total ihui_* metric series writes dropped at the label cardinality cap',
+    )
+    lines.push('# TYPE ihui_series_dropped_total counter')
+    lines.push(`ihui_series_dropped_total ${ihuiState.seriesDroppedTotal}`)
+
     reply.type('text/plain').send(lines.join('\n'))
   })
 
@@ -1078,6 +1870,10 @@ export const __test__ = {
   AI_SERIES_CAP,
   recordAiCallSample,
   recordAiCostWriteFailure,
+  ihuiState,
+  resetIhuiState,
+  sanitizeIhuiLabel,
+  IHUI_SERIES_CAP,
 }
 
 declare module 'fastify' {
@@ -1150,6 +1946,10 @@ declare module 'fastify' {
     recordWsMessageSent: () => void
     /** 上报 WS 连接断开（Counter）。 */
     recordWsDisconnect: () => void
+    /** 设置当前 live-chat 活跃房间数（Gauge）。 */
+    recordWsRooms: (count: number) => void
+    /** 上报 live-chat 消息处理耗时（毫秒，Histogram）。 */
+    recordWsMessageLatency: (valueMs: number) => void
     /** 上报业务异常（Counter，按 endpoint + error_type）。 */
     recordBusinessError: (endpoint: string, errorType: string) => void
     /** 上报 TTFT 首 token 延迟（秒，Histogram，按 model + endpoint）。 */
@@ -1181,6 +1981,50 @@ declare module 'fastify' {
      * 仍兼容处理,但调用此装饰器记录埋点用于后续移除决策。
      */
     recordRecurringWebhookDeprecated: (eventType: string) => void
+    // ===== 业务域指标(ihui_*)装饰器:写同一份模块级 ihuiState =====
+    recordAuthLoginAttempt: () => void
+    recordAuthLoginSuccess: () => void
+    recordAuthLoginFailed: (sourceIp: string) => void
+    recordAuthJwtIssued: () => void
+    recordAuthTokenRevoked: (reason: string) => void
+    recordAuth2faUsed: () => void
+    recordAuthLoginAnomaly: (reason: string) => void
+    recordExamStarted: () => void
+    recordExamSubmitted: () => void
+    setExamActive: (count: number) => void
+    recordExamQuestionUsed: (category: string, by?: number) => void
+    recordExamCertificateIssued: () => void
+    recordExamScore: (score: number) => void
+    setLiveOnline: (roomId: string, count: number) => void
+    deleteLiveOnline: (roomId: string) => void
+    recordLiveDanmaku: (roomId: string) => void
+    recordLiveGiftIncome: (roomId: string, amount: number) => void
+    recordLiveStreamDisconnected: () => void
+    recordOssUploadBytes: (bytes: number) => void
+    recordOssDownloadBytes: (bytes: number) => void
+    recordOssRequest: (driver: string) => void
+    recordOssError: (driver: string, errorType: string) => void
+    setOssStorageStats: (totalBytes: number, totalFiles: number) => void
+    recordPaymentAttempt: (channel: string) => void
+    recordPaymentSuccess: (channel: string) => void
+    recordPaymentRefund: (channel: string) => void
+    recordPaymentException: (channel: string, reason: string) => void
+    recordPaymentAmount: (channel: string, amountMinorUnits: number) => void
+    recordWxpayCallback: () => void
+    recordWxpayCallbackSuccess: () => void
+    recordWxpayCallbackFailed: () => void
+    recordTenantApiCall: (tenantId: string) => void
+    recordTenantRateLimit: (tenantId: string) => void
+    setTenantResourceUsed: (
+      tenantId: string,
+      resource: 'api_calls' | 'storage_mb' | 'users',
+      value: number,
+    ) => void
+    setTenantResourceQuota: (
+      tenantId: string,
+      resource: 'api_calls' | 'storage_mb' | 'users',
+      value: number,
+    ) => void
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

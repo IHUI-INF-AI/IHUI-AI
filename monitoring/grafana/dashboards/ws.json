@@ -13,7 +13,7 @@
       "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
       "targets": [
         {
-          "expr": "sum(ws_connections{instance=~\"$instance\"})",
+          "expr": "sum(business_ws_connections{instance=~\"$instance\"})",
           "legendFormat": "连接",
           "refId": "A"
         }
@@ -28,7 +28,7 @@
       "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
       "targets": [
         {
-          "expr": "sum(rate(ws_messages_per_sec{instance=~\"$instance\"}[1m]))",
+          "expr": "sum(rate(business_ws_message_received_total{instance=~\"$instance\"}[1m]))",
           "legendFormat": "QPS",
           "refId": "A"
         }
@@ -43,7 +43,7 @@
       "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
       "targets": [
         {
-          "expr": "avg(ws_disconnect_rate{instance=~\"$instance\"})",
+          "expr": "sum(rate(business_ws_disconnect_total{instance=~\"$instance\"}[5m])) / sum(rate(business_ws_connect_total{instance=~\"$instance\"}[5m]))",
           "legendFormat": "断连率",
           "refId": "A"
         }
@@ -72,7 +72,11 @@
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
       "targets": [
-        { "expr": "sum(ws_rooms{instance=~\"$instance\"})", "legendFormat": "房间", "refId": "A" }
+        {
+          "expr": "sum(business_ws_rooms{instance=~\"$instance\"})",
+          "legendFormat": "房间",
+          "refId": "A"
+        }
       ],
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
@@ -84,7 +88,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
       "targets": [
         {
-          "expr": "sum(ws_connections{instance=~\"$instance\"}) by (instance)",
+          "expr": "sum(business_ws_connections{instance=~\"$instance\"}) by (instance)",
           "legendFormat": "{{instance}}",
           "refId": "A"
         }
@@ -98,7 +102,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
       "targets": [
         {
-          "expr": "sum(rate(ws_messages_per_sec{instance=~\"$instance\"}[5m])) by (instance)",
+          "expr": "sum(rate(business_ws_message_received_total{instance=~\"$instance\"}[5m])) by (instance)",
           "legendFormat": "{{instance}}",
           "refId": "A"
         }
@@ -112,22 +116,22 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
       "targets": [
         {
-          "expr": "avg(ws_message_latency{instance=~\"$instance\"}) by (instance)",
-          "legendFormat": "{{instance}}",
+          "expr": "histogram_quantile(0.95, sum(rate(business_ws_message_latency_ms_bucket{instance=~\"$instance\"}[5m])) by (le, instance))",
+          "legendFormat": "{{instance}} p95",
           "refId": "A"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] }
     },
     {
-      "title": "房间数分布",
+      "title": "房间数(按实例)",
       "type": "table",
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
       "targets": [
         {
-          "expr": "sum by (instance, type) (ws_rooms{instance=~\"$instance\"})",
-          "legendFormat": "{{instance}}-{{type}}",
+          "expr": "sum by (instance) (business_ws_rooms{instance=~\"$instance\"})",
+          "legendFormat": "{{instance}}",
           "refId": "A",
           "format": "table",
           "instant": true
@@ -145,7 +149,7 @@
         "name": "instance",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "Prometheus" },
-        "query": "label_values(ws_connections, instance)",
+        "query": "label_values(business_ws_connections, instance)",
         "refresh": 2,
         "includeAll": true,
         "multi": true,
