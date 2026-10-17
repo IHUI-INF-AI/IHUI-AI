@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ArrowLeft, Sparkles, Plus } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { AuthGatePrompt } from '@/components/common'
@@ -32,12 +32,6 @@ interface Agent {
 interface AgentsData {
   list: Agent[]
   total: number
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const STATUS_FILTERS = [
@@ -77,7 +71,7 @@ export default function MyAgentsPage() {
     queryFn: () => {
       const qs = new URLSearchParams({ page: '1', pageSize: '100' })
       if (status !== 'all') qs.set('status', status)
-      return api<AgentsData>(`/api/agents/my?${qs.toString()}`)
+      return apiOrThrow<AgentsData>(`/api/agents/my?${qs.toString()}`)
     },
     enabled: allow,
   })

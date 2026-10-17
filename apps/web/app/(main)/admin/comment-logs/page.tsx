@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, MessageSquare } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton } from '@/components/common'
 
 interface CommentLog {
@@ -21,12 +21,6 @@ interface CommentLog {
   createdAt: string
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const th = 'px-4 py-2.5 font-medium'
 
 export default function CommentLogsPage() {
@@ -35,7 +29,7 @@ export default function CommentLogsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'comment-logs', currentPage],
-    queryFn: () => api<{ list: CommentLog[] }>('/api/admin/comment-logs'),
+    queryFn: () => apiOrThrow<{ list: CommentLog[] }>('/api/admin/comment-logs'),
   })
 
   const list = data?.list ?? []

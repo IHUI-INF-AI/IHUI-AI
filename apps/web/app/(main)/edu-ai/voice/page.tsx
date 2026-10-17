@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl'
 import { useMutation } from '@tanstack/react-query'
 import { Loader2, Mic, Phone, PhoneOff } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton } from '@/components/common'
 import { Alert } from '@/components/feedback'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
@@ -26,12 +26,6 @@ interface SignalResponse {
 }
 
 type CallStatus = 'idle' | 'pending' | 'ringing' | 'connected' | 'ended'
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 export default function VoicePage() {
   const t = useTranslations('eduAi.voice')
@@ -85,7 +79,7 @@ export default function VoicePage() {
 
       pc.onicecandidate = (e: RTCPeerConnectionIceEvent) => {
         if (e.candidate && sessionIdRef.current) {
-          api<SignalResponse>('/api/webrtc-voice/ice-candidate', {
+          apiOrThrow<SignalResponse>('/api/webrtc-voice/ice-candidate', {
             method: 'POST',
             body: JSON.stringify({
               sessionId: sessionIdRef.current,
@@ -106,7 +100,7 @@ export default function VoicePage() {
       await pc.setLocalDescription(offer)
 
       // 4. Create voice session via signaling server
-      const session = await api<SessionResponse>('/api/webrtc-voice/session', {
+      const session = await apiOrThrow<SessionResponse>('/api/webrtc-voice/session', {
         method: 'POST',
         body: JSON.stringify({ calleeId: id, offer }),
       })
@@ -114,7 +108,7 @@ export default function VoicePage() {
       setStatus('pending')
 
       // 5. Send offer to signaling server
-      const res = await api<SignalResponse>('/api/webrtc-voice/offer', {
+      const res = await apiOrThrow<SignalResponse>('/api/webrtc-voice/offer', {
         method: 'POST',
         body: JSON.stringify({ sessionId: session.sessionId, offer }),
       })
@@ -133,7 +127,7 @@ export default function VoicePage() {
     mutationFn: async () => {
       const sid = sessionIdRef.current
       if (!sid) return
-      await api<SignalResponse>('/api/webrtc-voice/end', {
+      await apiOrThrow<SignalResponse>('/api/webrtc-voice/end', {
         method: 'POST',
         body: JSON.stringify({ sessionId: sid }),
       })

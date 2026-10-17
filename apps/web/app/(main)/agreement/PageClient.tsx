@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { FileText, Loader2, Calendar, Tag } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { BackButton, SafeHtml } from '@/components/common'
 import { cn } from '@/lib/utils'
@@ -30,12 +30,6 @@ interface Agreement {
   version?: string | null
   effectiveDate?: string | null
   type?: string | null
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const TABS: { key: AgreementType; labelKey: string }[] = [
@@ -61,7 +55,7 @@ export default function AgreementPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['agreement', activeType],
-    queryFn: () => api<Agreement>(`/api/agreements/current?type=${TYPE_MAP[activeType]}`),
+    queryFn: () => apiOrThrow<Agreement>(`/api/agreements/current?type=${TYPE_MAP[activeType]}`),
     retry: false,
   })
 

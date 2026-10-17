@@ -13,7 +13,7 @@ import { toast } from 'sonner'
 import { Loader2, ArrowLeft, Share2, Copy, Eye, Calendar, Sparkles } from 'lucide-react'
 import Image from 'next/image'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 
 interface AiWorldItem {
@@ -23,12 +23,6 @@ interface AiWorldItem {
   coverImage: string | null
   viewCount: number
   createdAt: string
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 export default function AiWorldSharePage() {
@@ -43,7 +37,8 @@ export default function AiWorldSharePage() {
     error,
   } = useQuery({
     queryKey: ['ai-world', 'share', params.id],
-    queryFn: () => api<{ world: AiWorldItem }>(`/api/ai-world/${params.id}`).then((d) => d.world),
+    queryFn: () =>
+      apiOrThrow<{ world: AiWorldItem }>(`/api/ai-world/${params.id}`).then((d) => d.world),
     enabled: !!params.id,
   })
 

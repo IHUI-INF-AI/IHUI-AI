@@ -398,6 +398,12 @@ export function parseTsAxisRegistry(src) {
     presets: pairBlock('APPROVAL_PRESETS'),
     toAxis: pairBlock('PERMISSION_MODE_TO_AXIS'),
     granularKeys: tupleBlock('GRANULAR_APPROVAL_KEYS'),
+    // 79 号票第二刀(2026-10-18):config profiles 的顶层键子集。
+    // 为什么这一份也要进对账:profiles 是双轴的第三个来源(显式 > 预设 > 档案 >
+    // Legacy 单轴),键名单若在两侧漂开,TS 侧能用 approval_policy 而 Python 侧
+    // 只读到 sandbox_mode ⇒ 同一份 config 在两端解出不同的轴(又是一例跨语言
+    // 复刻造成的假"生效":phantom-bugs 那一课)。
+    configProfileKeys: tupleBlock('CONFIG_PROFILE_VALUE_KEYS'),
   }
 }
 
@@ -436,6 +442,12 @@ export function parsePyAxisRegistry(src) {
     presets: pairBlock('APPROVAL_PRESETS'),
     toAxis: pairBlock('PERMISSION_MODE_TO_AXIS'),
     granularKeys: tupleBlock('GRANULAR_APPROVAL_KEYS'),
+    // 79 号票第二刀(2026-10-18):config profiles 的顶层键子集。
+    // 为什么这一份也要进对账:profiles 是双轴的第三个来源(显式 > 预设 > 档案 >
+    // Legacy 单轴),键名单若在两侧漂开,TS 侧能用 approval_policy 而 Python 侧
+    // 只读到 sandbox_mode ⇒ 同一份 config 在两端解出不同的轴(又是一例跨语言
+    // 复刻造成的假"生效":phantom-bugs 那一课)。
+    configProfileKeys: tupleBlock('CONFIG_PROFILE_VALUE_KEYS'),
   }
 }
 
@@ -474,6 +486,12 @@ export function checkAxisMirror(ts, py, permissionMembers) {
   dictEq(ts.toAxis, py.toAxis, 'Legacy 映射')
   if (!eq(ts.granularKeys, py.granularKeys)) {
     problems.push(`R6 granular 键名单不一致 TS=[${ts.granularKeys}] Python=[${py.granularKeys}]`)
+  }
+  if (!eq(ts.configProfileKeys, py.configProfileKeys)) {
+    problems.push(
+      `R6 config profiles 顶层键子集不一致 TS=[${ts.configProfileKeys}] ` +
+        `Python=[${py.configProfileKeys}] —— 档案的两个来源会读出不同的轴`,
+    )
   }
   const modeKeys = sortKeys(ts.toAxis)
   if (JSON.stringify(modeKeys) !== JSON.stringify([...permissionMembers].sort())) {
@@ -917,6 +935,17 @@ function selfTest() {
     checkAxisMirror(baseTsAxis, basePyAxis, [...baseTs.members, 'yolo']).some((p) =>
       p.startsWith('R6 Legacy 映射键集'),
     ),
+  )
+  t(
+    'R6 咬住 config profiles 顶层键子集漂移(Python 侧少一个 approval_policy)',
+    checkAxisMirror(
+      baseTsAxis,
+      {
+        ...basePyAxis,
+        configProfileKeys: basePyAxis.configProfileKeys.filter((k) => k !== 'approval_policy'),
+      },
+      baseTs.members,
+    ).some((p) => p.startsWith('R6 config profiles 顶层键子集')),
   )
   t(
     'R6 两侧一致时放过(不是恒红判据)',

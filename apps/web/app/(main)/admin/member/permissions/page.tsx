@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Check, Copy, Key, Loader2, Lock } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   SearchInput,
   Table,
@@ -30,12 +30,6 @@ interface MemberPermission {
   createdAt: string
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function AdminMemberPermissionsPage() {
   const [keyword, setKeyword] = React.useState('')
   const [copiedId, setCopiedId] = React.useState<string | null>(null)
@@ -43,7 +37,9 @@ export default function AdminMemberPermissionsPage() {
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['admin', 'member', 'permissions'],
     queryFn: () =>
-      api<{ list: MemberPermission[] }>('/api/admin/member/permissions').then((d) => d.list ?? []),
+      apiOrThrow<{ list: MemberPermission[] }>('/api/admin/member/permissions').then(
+        (d) => d.list ?? [],
+      ),
   })
 
   const filtered = React.useMemo(() => {

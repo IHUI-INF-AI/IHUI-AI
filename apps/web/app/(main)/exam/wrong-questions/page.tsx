@@ -20,7 +20,7 @@ import {
   X,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Button,
   Card,
@@ -58,12 +58,6 @@ interface WrongQuestionStats {
 
 const PAGE_SIZE = 10
 
-async function api<T>(url: string, opts?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, opts)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function WrongQuestionsPage() {
   const t = useTranslations('exam.wrongQuestions')
   const locale = useLocale()
@@ -98,20 +92,20 @@ export default function WrongQuestionsPage() {
 
   const { data: statsEnvelope } = useQuery({
     queryKey: ['exam', 'wrong-questions', 'stats'],
-    queryFn: () => api<{ stats: WrongQuestionStats }>('/api/exam/wrong-questions/stats'),
+    queryFn: () => apiOrThrow<{ stats: WrongQuestionStats }>('/api/exam/wrong-questions/stats'),
     enabled: allow,
   })
   const stats = statsEnvelope?.stats
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['exam', 'wrong-questions', 'list', examId, filter, page],
-    queryFn: () => api<WrongQuestionListData>(`/api/exam/wrong-questions?${qs}`),
+    queryFn: () => apiOrThrow<WrongQuestionListData>(`/api/exam/wrong-questions?${qs}`),
     enabled: allow,
   })
 
   const resolveMut = useMutation({
     mutationFn: (questionId: string) =>
-      api(`/api/exam/wrong-questions/${questionId}/resolve`, { method: 'PUT' }),
+      apiOrThrow(`/api/exam/wrong-questions/${questionId}/resolve`, { method: 'PUT' }),
     onSuccess: () => {
       toast.success(t('markSuccess'))
       qc.invalidateQueries({ queryKey: ['exam', 'wrong-questions'] })
@@ -123,7 +117,7 @@ export default function WrongQuestionsPage() {
   const [explanation, setExplanation] = React.useState<{ title: string; text: string } | null>(null)
   const explainMut = useMutation({
     mutationFn: (wq: WrongQuestion) =>
-      api<{ explanation: string; cached: boolean }>(
+      apiOrThrow<{ explanation: string; cached: boolean }>(
         `/api/exam/wrong-questions/${wq.questionId}/explain`,
         { method: 'POST' },
       ),

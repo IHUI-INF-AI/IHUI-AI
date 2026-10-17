@@ -24,7 +24,7 @@ import {
   ToggleRight,
   Info,
 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
@@ -67,12 +67,6 @@ interface Instance {
   error?: string
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const STATUS_BADGE: Record<InstStatus, string> = {
   pending: 'bg-muted text-muted-foreground',
   running: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
@@ -98,14 +92,15 @@ export default function WorkflowDetailPage() {
 
   const wfQ = useQuery({
     queryKey: ['workflows', id],
-    queryFn: () => api<{ workflow: Workflow }>(`/api/workflows/${id}`).then((d) => d.workflow),
+    queryFn: () =>
+      apiOrThrow<{ workflow: Workflow }>(`/api/workflows/${id}`).then((d) => d.workflow),
     enabled: allow,
   })
 
   const instQ = useQuery({
     queryKey: ['workflows', id, 'instances', instPage],
     queryFn: () =>
-      api<{ list: Instance[]; total: number }>(
+      apiOrThrow<{ list: Instance[]; total: number }>(
         `/api/workflows/instances?workflowId=${id}&page=${instPage}&pageSize=${INST_PAGE_SIZE}`,
       ).then((d) => d),
     enabled: allow,
@@ -116,21 +111,23 @@ export default function WorkflowDetailPage() {
   const instTotalPages = Math.ceil(instTotal / INST_PAGE_SIZE)
 
   const triggerMut = useMutation({
-    mutationFn: () => api(`/api/workflows/${id}/trigger`, { method: 'POST' }),
+    mutationFn: () => apiOrThrow(`/api/workflows/${id}/trigger`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows', id, 'instances'] }),
   })
   const cancelMut = useMutation({
-    mutationFn: (iId: string) => api(`/api/workflows/instances/${iId}/cancel`, { method: 'POST' }),
+    mutationFn: (iId: string) =>
+      apiOrThrow(`/api/workflows/instances/${iId}/cancel`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows', id, 'instances'] }),
   })
   const retryMut = useMutation({
-    mutationFn: (iId: string) => api(`/api/workflows/instances/${iId}/retry`, { method: 'POST' }),
+    mutationFn: (iId: string) =>
+      apiOrThrow(`/api/workflows/instances/${iId}/retry`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows', id, 'instances'] }),
   })
 
   const saveStepsMut = useMutation({
     mutationFn: (steps: WorkflowStep[]) =>
-      api(`/api/workflows/${id}`, {
+      apiOrThrow(`/api/workflows/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ steps }),
       }),
@@ -142,7 +139,7 @@ export default function WorkflowDetailPage() {
 
   const toggleActiveMut = useMutation({
     mutationFn: (isActive: boolean) =>
-      api(`/api/workflows/${id}`, {
+      apiOrThrow(`/api/workflows/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ isActive }),
       }),
@@ -152,7 +149,7 @@ export default function WorkflowDetailPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: () => api(`/api/workflows/${id}`, { method: 'DELETE' }),
+    mutationFn: () => apiOrThrow(`/api/workflows/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['workflows'] })
       router.push('/workflows')
@@ -161,7 +158,7 @@ export default function WorkflowDetailPage() {
 
   const saveInfoMut = useMutation({
     mutationFn: (data: { name: string; description: string; triggerType: TriggerType }) =>
-      api(`/api/workflows/${id}`, {
+      apiOrThrow(`/api/workflows/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),

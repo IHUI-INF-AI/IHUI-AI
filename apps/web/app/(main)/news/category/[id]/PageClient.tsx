@@ -22,7 +22,7 @@ import {
   Loader2,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
 
@@ -54,12 +54,6 @@ interface ArticlesData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function NewsCategoryPageClient() {
   const { id } = useParams<{ id: string }>()
   const searchParams = useSearchParams()
@@ -68,7 +62,7 @@ export default function NewsCategoryPageClient() {
 
   const categoriesQuery = useQuery({
     queryKey: ['news', 'categories'],
-    queryFn: () => api<{ list: NewsCategory[] }>(`/api/news/categories`),
+    queryFn: () => apiOrThrow<{ list: NewsCategory[] }>(`/api/news/categories`),
   })
 
   const category = React.useMemo(
@@ -79,7 +73,7 @@ export default function NewsCategoryPageClient() {
   const articlesQuery = useQuery({
     queryKey: ['news', 'articles', 'category', id, page],
     queryFn: () =>
-      api<ArticlesData>(
+      apiOrThrow<ArticlesData>(
         `/api/news/articles?${new URLSearchParams({
           page: String(page),
           pageSize: String(PAGE_SIZE),

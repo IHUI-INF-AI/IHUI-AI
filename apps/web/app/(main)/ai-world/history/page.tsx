@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Loader2, History, ArrowLeft, Eye, Calendar } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -30,12 +30,6 @@ interface ListData {
   total?: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function AiWorldHistoryPage() {
   const locale = useLocale()
 
@@ -44,7 +38,7 @@ export default function AiWorldHistoryPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['ai-world', 'history'],
-    queryFn: () => api<ListData>('/api/ai-world/history'),
+    queryFn: () => apiOrThrow<ListData>('/api/ai-world/history'),
     enabled: allow,
   })
 

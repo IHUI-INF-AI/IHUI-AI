@@ -11,7 +11,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Users, Loader2, ChevronLeft, ChevronRight, ArrowLeft, Crown } from 'lucide-react'
 import Image from 'next/image'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 import {
@@ -50,12 +50,6 @@ interface ListData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const fmtYuan = (cents: number) => `¥${(cents / 100).toFixed(2)}`
 
 export default function DistributionTeamPage() {
@@ -68,13 +62,15 @@ export default function DistributionTeamPage() {
 
   const teamQ = useQuery({
     queryKey: ['distribution', 'team-center'],
-    queryFn: () => api<TeamCenterData>('/api/finance/distribution/team/center'),
+    queryFn: () => apiOrThrow<TeamCenterData>('/api/finance/distribution/team/center'),
     enabled: allow,
   })
   const listQ = useQuery({
     queryKey: ['distribution', 'subordinates', page],
     queryFn: () =>
-      api<ListData>(`/api/finance/distribution/subordinates?page=${page}&limit=${PAGE_SIZE}`),
+      apiOrThrow<ListData>(
+        `/api/finance/distribution/subordinates?page=${page}&limit=${PAGE_SIZE}`,
+      ),
     enabled: allow,
   })
 
@@ -121,130 +117,136 @@ export default function DistributionTeamPage() {
       {/* 2026-09-30 登录态门 */}
       {allow ? (
         <>
-      <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
-        {stats.map((s) => {
-          const Icon = s.icon
-          return (
-            <Card key={s.label}>
-              <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{s.label}</span>
-                  <Icon className="h-4 w-4 text-primary" />
-                </div>
-                {teamQ.isLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                ) : (
-                  <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
-                    {s.value}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
-
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('subordinates')}</h2>
-        <div className="overflow-hidden rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="px-4 py-2.5">{t('colNickname')}</TableHead>
-                <TableHead className="px-4 py-2.5">{t('colLevel')}</TableHead>
-                <TableHead className="px-4 py-2.5">{t('colJoinedAt')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {listQ.isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="px-4 py-10 text-center text-muted-foreground">
-                    <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                    {t('loading')}
-                  </TableCell>
-                </TableRow>
-              ) : listQ.error ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="px-4 py-10 text-center text-destructive">
-                    {(listQ.error as Error).message}
-                  </TableCell>
-                </TableRow>
-              ) : items.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="px-4 py-10 text-center text-muted-foreground">
-                    <Users className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                    {t('empty')}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((it) => (
-                  <TableRow key={it.id}>
-                    <TableCell className="px-4 py-2.5">
-                      <div className="flex items-center gap-2">
-                        {it.avatar ? (
-                          <Image
-                            src={it.avatar}
-                            alt=""
-                            width={24}
-                            height={24}
-                            className="h-6 w-6 rounded-md"
-                          />
-                        ) : (
-                          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-xs font-medium">
-                            {(it.nickname ?? 'U')[0]?.toUpperCase()}
-                          </div>
-                        )}
-                        <span className="font-medium">{it.nickname ?? '-'}</span>
+          <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
+            {stats.map((s) => {
+              const Icon = s.icon
+              return (
+                <Card key={s.label}>
+                  <CardContent className="min-[640px]:p-3 space-y-2 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">{s.label}</span>
+                      <Icon className="h-4 w-4 text-primary" />
+                    </div>
+                    {teamQ.isLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    ) : (
+                      <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+                        {s.value}
                       </div>
-                    </TableCell>
-                    <TableCell className="px-4 py-2.5">
-                      <span
-                        className={cn(
-                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
-                          it.isVip >= 1
-                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-500'
-                            : 'bg-muted text-muted-foreground',
-                        )}
-                      >
-                        {it.isVip >= 1 ? t('levelVip') : t('levelNormal')}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-4 py-2.5 text-muted-foreground">
-                      {fmtDate(it.createdAt)}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {total > PAGE_SIZE && (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                {page} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
-        )}
+
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold">{t('subordinates')}</h2>
+            <div className="overflow-hidden rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="px-4 py-2.5">{t('colNickname')}</TableHead>
+                    <TableHead className="px-4 py-2.5">{t('colLevel')}</TableHead>
+                    <TableHead className="px-4 py-2.5">{t('colJoinedAt')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {listQ.isLoading ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={3}
+                        className="px-4 py-10 text-center text-muted-foreground"
+                      >
+                        <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                        {t('loading')}
+                      </TableCell>
+                    </TableRow>
+                  ) : listQ.error ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="px-4 py-10 text-center text-destructive">
+                        {(listQ.error as Error).message}
+                      </TableCell>
+                    </TableRow>
+                  ) : items.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={3}
+                        className="px-4 py-10 text-center text-muted-foreground"
+                      >
+                        <Users className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                        {t('empty')}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    items.map((it) => (
+                      <TableRow key={it.id}>
+                        <TableCell className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            {it.avatar ? (
+                              <Image
+                                src={it.avatar}
+                                alt=""
+                                width={24}
+                                height={24}
+                                className="h-6 w-6 rounded-md"
+                              />
+                            ) : (
+                              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-xs font-medium">
+                                {(it.nickname ?? 'U')[0]?.toUpperCase()}
+                              </div>
+                            )}
+                            <span className="font-medium">{it.nickname ?? '-'}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-4 py-2.5">
+                          <span
+                            className={cn(
+                              'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                              it.isVip >= 1
+                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-500'
+                                : 'bg-muted text-muted-foreground',
+                            )}
+                          >
+                            {it.isVip >= 1 ? t('levelVip') : t('levelNormal')}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-4 py-2.5 text-muted-foreground">
+                          {fmtDate(it.createdAt)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {total > PAGE_SIZE && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {page} / {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </>
       ) : (

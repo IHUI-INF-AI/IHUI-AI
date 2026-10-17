@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { CalendarDays, Loader2, Clock } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -27,12 +27,6 @@ interface ScheduleItem {
   type: string
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function EduSchedulePage() {
   const t = useTranslations('eduSchedulePage')
   const tc = useTranslations('common')
@@ -40,7 +34,8 @@ export default function EduSchedulePage() {
   const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'schedule'],
-    queryFn: () => api<{ list: ScheduleItem[] }>('/api/edu/schedule').then((d) => d.list ?? []),
+    queryFn: () =>
+      apiOrThrow<{ list: ScheduleItem[] }>('/api/edu/schedule').then((d) => d.list ?? []),
     enabled: allow,
   })
 

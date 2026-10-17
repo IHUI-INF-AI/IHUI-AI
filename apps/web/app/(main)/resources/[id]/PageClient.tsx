@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, BookOpen, Download, Eye, FileText, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { SafeHtml } from '@/components/common'
 import { ImageViewer, CodeViewer } from '@/components/media'
@@ -76,19 +76,13 @@ interface DetailResponse {
   related?: RelatedResource[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function ResourceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const t = useTranslations('resources')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['resources', 'detail', id],
-    queryFn: () => api<DetailResponse>(`/api/resources/${id}`),
+    queryFn: () => apiOrThrow<DetailResponse>(`/api/resources/${id}`),
   })
 
   const fmtDate = (v?: string | null) => formatDateOnly(v)

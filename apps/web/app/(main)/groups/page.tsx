@@ -22,7 +22,7 @@ import {
   UsersRound,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { formatDate } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
@@ -81,12 +81,6 @@ interface FeedbackState {
 // API 辅助
 // =============================================================================
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetchApi<T>(url, options)
-  if (!res.success) throw new Error(res.error)
-  return res.data
-}
-
 function jsonOptions(method: string, body: unknown): RequestInit {
   return {
     method,
@@ -110,7 +104,7 @@ function MemberPanel({ group }: { group: Group }) {
 
   const addMember = useMutation({
     mutationFn: async (id: string) => {
-      await api<{ member: GroupMember }>(
+      await apiOrThrow<{ member: GroupMember }>(
         `/api/groups/${group.id}/members`,
         jsonOptions('POST', { userId: id }),
       )
@@ -365,13 +359,13 @@ export default function GroupsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['groups'],
-    queryFn: () => api<GroupListData>('/api/groups'),
+    queryFn: () => apiOrThrow<GroupListData>('/api/groups'),
     enabled: allow,
   })
 
   const createGroup = useMutation({
     mutationFn: async (payload: { name: string; description?: string }) => {
-      const res = await api<{ group: Group }>('/api/groups', jsonOptions('POST', payload))
+      const res = await apiOrThrow<{ group: Group }>('/api/groups', jsonOptions('POST', payload))
       return res.group
     },
     onSuccess: () => {
@@ -386,7 +380,7 @@ export default function GroupsPage() {
   const updateGroup = useMutation({
     mutationFn: async (payload: { id: string; name: string; description?: string }) => {
       const { id, ...rest } = payload
-      await api<{ group: Group }>(`/api/groups/${id}`, jsonOptions('PATCH', rest))
+      await apiOrThrow<{ group: Group }>(`/api/groups/${id}`, jsonOptions('PATCH', rest))
     },
     onSuccess: () => {
       setFeedback({ type: 'success', message: t('success') })
@@ -397,7 +391,7 @@ export default function GroupsPage() {
 
   const deleteGroup = useMutation({
     mutationFn: async (id: string) => {
-      await api<{ ok: boolean }>(`/api/groups/${id}`, { method: 'DELETE' })
+      await apiOrThrow<{ ok: boolean }>(`/api/groups/${id}`, { method: 'DELETE' })
     },
     onSuccess: () => {
       setFeedback({ type: 'success', message: t('success') })

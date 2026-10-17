@@ -21,7 +21,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton, TruncatedText } from '@/components/common'
 import {
   Card,
@@ -95,12 +95,6 @@ interface AttendanceStats {
 }
 
 /* ─── API helper ─── */
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 /* ─── Constants ─── */
 
@@ -587,7 +581,7 @@ export default function AttendancePage() {
   const attendanceQuery = useQuery({
     queryKey: ['edu-ai-management', 'attendance', attendanceDate, attendanceStatusFilter],
     queryFn: () =>
-      api<{ list: AttendanceRecord[] }>(
+      apiOrThrow<{ list: AttendanceRecord[] }>(
         `/api/edu-ai-management/attendance?date=${attendanceDate}${attendanceStatusFilter ? `&status=${attendanceStatusFilter}` : ''}`,
       ),
   })
@@ -595,7 +589,7 @@ export default function AttendancePage() {
   const statsQuery = useQuery({
     queryKey: ['edu-ai-management', 'attendance-stats', statsPeriod, statsStartDate, statsEndDate],
     queryFn: () =>
-      api<AttendanceStats>(
+      apiOrThrow<AttendanceStats>(
         `/api/edu-ai-management/attendance/stats?period=${statsPeriod}&startDate=${statsStartDate}&endDate=${statsEndDate}`,
       ),
   })
@@ -610,7 +604,7 @@ export default function AttendancePage() {
       if (leaveEndDate) params.set('endDate', leaveEndDate)
       const qs = params.toString()
       if (qs) url += `?${qs}`
-      return api<{ list: LeaveRequest[] }>(url)
+      return apiOrThrow<{ list: LeaveRequest[] }>(url)
     },
   })
 
@@ -629,7 +623,7 @@ export default function AttendancePage() {
 
   const checkInMutation = useMutation({
     mutationFn: (data: CheckInFormData) =>
-      api('/api/edu-ai-management/attendance/check-in', {
+      apiOrThrow('/api/edu-ai-management/attendance/check-in', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -646,7 +640,7 @@ export default function AttendancePage() {
       classId: string
       date: string
     }) =>
-      api('/api/edu-ai-management/attendance/check-out', {
+      apiOrThrow('/api/edu-ai-management/attendance/check-out', {
         method: 'PUT',
         body: JSON.stringify({ studentId, classId, date, checkOutMethod: 'manual' }),
       }),
@@ -655,13 +649,13 @@ export default function AttendancePage() {
 
   const deleteAttendanceMutation = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/attendance/${id}`, { method: 'DELETE' }),
+      apiOrThrow(`/api/edu-ai-management/attendance/${id}`, { method: 'DELETE' }),
     onSuccess: invalidateAttendance,
   })
 
   const createLeaveMutation = useMutation({
     mutationFn: (data: LeaveFormData) =>
-      api('/api/edu-ai-management/leave', {
+      apiOrThrow('/api/edu-ai-management/leave', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -678,7 +672,7 @@ export default function AttendancePage() {
       status: 'approved' | 'rejected'
       remark: string
     }) =>
-      api(`/api/edu-ai-management/leave/${id}/approve`, {
+      apiOrThrow(`/api/edu-ai-management/leave/${id}/approve`, {
         method: 'PUT',
         body: JSON.stringify({ status, approveRemark: remark || null }),
       }),
@@ -686,7 +680,8 @@ export default function AttendancePage() {
   })
 
   const deleteLeaveMutation = useMutation({
-    mutationFn: (id: string) => api(`/api/edu-ai-management/leave/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/edu-ai-management/leave/${id}`, { method: 'DELETE' }),
     onSuccess: invalidateLeave,
   })
 

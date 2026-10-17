@@ -12,19 +12,13 @@ import { useTranslations } from 'next-intl'
 import { Loader2, Plus, Pencil, Trash2, Eye, Heart } from 'lucide-react'
 import { toast } from '@/components/common/Toaster'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { pushError } from '@/stores/error-banner'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import type { ArticleItem, MyArticlesData } from '../../articles/types'
 import { formatDateOnly } from '@/lib/date-utils'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 const STATUS_STYLE: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -47,7 +41,7 @@ export default function MyArticlesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['articles', 'my', page],
-    queryFn: () => api<MyArticlesData>(`/api/article/my?page=${page}&pageSize=20`),
+    queryFn: () => apiOrThrow<MyArticlesData>(`/api/article/my?page=${page}&pageSize=20`),
     enabled: allow,
   })
 
@@ -58,7 +52,7 @@ export default function MyArticlesPage() {
 
   const deleteMut = useMutation({
     mutationFn: (id: string) =>
-      api<{ success: boolean }>(`/api/article/${id}`, { method: 'DELETE' }),
+      apiOrThrow<{ success: boolean }>(`/api/article/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess', { default: '已删除' }))
       qc.invalidateQueries({ queryKey: ['articles', 'my'] })

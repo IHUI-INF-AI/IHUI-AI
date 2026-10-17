@@ -8,6 +8,10 @@ import { z } from 'zod'
 import {
   PERMISSION_MODE_WIRE_VALUES,
   REASONING_EFFORT_VALUES,
+  // 79 号票(2026-10-18 立):权限双轴两轴的封闭值域。清单从注册表派生
+  // (G-164:路由不得再抄第二份字面量,`packages/types/permission-axis.ts` 是唯一定义处)。
+  SANDBOX_MODES,
+  APPROVAL_POLICIES,
   type ReasoningEffort,
   repairMessages,
 } from '@ihui/types'
@@ -182,6 +186,13 @@ const chatStreamSchema = z.object({
    *  清单从注册表派生(G-164:路由不得再抄第二份字面量,`packages/types/permission-mode.ts`
    *  是唯一定义处);本端点只收 wire(kebab)拼写,与 workspace.ts 的 ACP 入参面刻意不同形。 */
   permissionMode: z.enum(PERMISSION_MODE_WIRE_VALUES).optional(),
+  /** 79 号票(2026-10-18 立):权限双轴两轴档位。清单从注册表派生(G-164 同课),
+   *  本路由不得写字面量清单 —— 未在此声明会被 zod strip 静默丢弃
+   *  (与 workspaceContext/mode/permissionMode 同型断链:前端选了档而上游收不到)。
+   *  camel 入 / snake 出:转发行见 streamToClient 的 sandbox_mode / approval_policy。
+   *  两轴都 optional 且互不依赖:只给一轴时由 ai-service 侧补该轴默认。 */
+  sandboxMode: z.enum(SANDBOX_MODES).optional(),
+  approvalPolicy: z.enum(APPROVAL_POLICIES).optional(),
   /** D130(2026-09-30 立):推理强度档位(输入区第三轴)。值域取 @ihui/types 的封闭联合,
    *  本路由不得写字面量清单(G-164 同课:各路由自抄一份 ⇒ 总有一份少一档并静默归 null)。
    *  未在此声明会被 zod strip 静默丢弃 —— 与 workspaceContext/mode/permissionMode 同型断链。
@@ -601,6 +612,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // Pydantic 字段名 permission_mode)。undefined 时 JSON.stringify 自动省略,
           // ai-service 端按 default 档处理(高危工具需审批)。
           permission_mode: opts.permissionMode,
+          // 79 号票(2026-10-18 立):权限双轴两轴档位透传(camel 入 / snake 出,
+          // 与 permission_mode、reasoning_effort 同区同规)。undefined 时 JSON.stringify
+          // 省略该 key ⇒ ai-service 侧 resolve 得到 None ⇒ 裁决门整段跳过,旧客户端零变化。
+          sandbox_mode: opts.sandboxMode,
+          approval_policy: opts.approvalPolicy,
           // D130(2026-09-30 立):推理强度档位 camel 入 / snake 出(与 permission_mode、top_p 同区同规)。
           // undefined 时 JSON.stringify 省略该 key ⇒ 不发字段,ai-service 按默认档处理。
           // 票第 8 栏点名的静默失效就在这一行:删掉它,前端选了档而上游收不到,界面仍一切正常。

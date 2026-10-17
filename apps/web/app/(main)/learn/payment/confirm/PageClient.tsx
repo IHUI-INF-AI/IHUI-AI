@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, CheckCircle2, XCircle, Clock, ArrowLeft } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { fetchApi, apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -32,12 +32,6 @@ interface PayStatus {
   paid?: boolean
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function PaymentConfirmContent() {
   const tCommon = useTranslations('common')
   const t = useTranslations('learnPaymentConfirmPage')
@@ -49,7 +43,7 @@ function PaymentConfirmContent() {
 
   const { data: order, isLoading: orderLoading } = useQuery({
     queryKey: ['order', orderNo],
-    queryFn: () => api<OrderInfo>(`/api/orders/${orderNo}`),
+    queryFn: () => apiOrThrow<OrderInfo>(`/api/orders/${orderNo}`),
     enabled: allow && !!orderNo,
     retry: false,
   })

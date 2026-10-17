@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { PlayCircle, Eye, ArrowLeft, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Avatar } from '@/components/data/Avatar'
 
@@ -43,12 +43,6 @@ interface ChannelsResp {
   pageSize: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function LecturerDetailPageClient() {
   const { id } = useParams<{ id: string }>()
   const t = useTranslations('lecturer')
@@ -56,14 +50,15 @@ export default function LecturerDetailPageClient() {
 
   const lecturerQuery = useQuery({
     queryKey: ['live', 'lecturer', id],
-    queryFn: () => api<LecturerResp>(`/api/live/lecturers/${id}`),
+    queryFn: () => apiOrThrow<LecturerResp>(`/api/live/lecturers/${id}`),
   })
 
   const lecturer = lecturerQuery.data?.lecturer ?? null
 
   const channelsQuery = useQuery({
     queryKey: ['live', 'channels', 'lecturer', id],
-    queryFn: () => api<ChannelsResp>(`/api/live/channels?lecturerId=${encodeURIComponent(id)}`),
+    queryFn: () =>
+      apiOrThrow<ChannelsResp>(`/api/live/channels?lecturerId=${encodeURIComponent(id)}`),
   })
 
   const channels = channelsQuery.data?.list ?? []

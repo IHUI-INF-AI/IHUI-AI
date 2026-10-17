@@ -19,7 +19,7 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -44,12 +44,6 @@ interface RecentCourse {
   lastLearnAt?: string
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function EduDashboardPage() {
   const t = useTranslations('eduDashboardPage')
   const tc = useTranslations('common')
@@ -58,7 +52,7 @@ export default function EduDashboardPage() {
   const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'dashboard'],
-    queryFn: () => api<DashboardData>('/api/edu/dashboard'),
+    queryFn: () => apiOrThrow<DashboardData>('/api/edu/dashboard'),
     enabled: allow,
   })
 

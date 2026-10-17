@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import type {
   Rule,
   RuleInput,
@@ -30,17 +30,11 @@ import type {
 
 const QUERY_KEY = ['rules'] as const
 
-async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 /** 列出全部规则 */
 export function useRulesList() {
   return useQuery({
     queryKey: QUERY_KEY,
-    queryFn: () => api<RuleListResponse>('/api/rules').then((res) => res.rules),
+    queryFn: () => apiOrThrow<RuleListResponse>('/api/rules').then((res) => res.rules),
   })
 }
 
@@ -49,7 +43,7 @@ export function useCreateRule() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: RuleInput) =>
-      api<Rule>('/api/rules', {
+      apiOrThrow<Rule>('/api/rules', {
         method: 'POST',
         body: JSON.stringify(input),
       }),
@@ -62,7 +56,7 @@ export function useUpdateRule() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: RuleUpdate }) =>
-      api<Rule>(`/api/rules/${encodeURIComponent(id)}`, {
+      apiOrThrow<Rule>(`/api/rules/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         body: JSON.stringify(patch),
       }),
@@ -75,7 +69,7 @@ export function useDeleteRule() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) =>
-      api<{ id: string; deleted: boolean }>(`/api/rules/${encodeURIComponent(id)}`, {
+      apiOrThrow<{ id: string; deleted: boolean }>(`/api/rules/${encodeURIComponent(id)}`, {
         method: 'DELETE',
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
@@ -87,7 +81,7 @@ export function useToggleRuleEnabled() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
-      api<Rule>(`/api/rules/${encodeURIComponent(id)}`, {
+      apiOrThrow<Rule>(`/api/rules/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         body: JSON.stringify({ enabled }),
       }),
@@ -110,7 +104,7 @@ export function useToggleRuleEnabled() {
 export function useTestRule() {
   return useMutation({
     mutationFn: ({ id, message }: { id: string } & RuleTestRequest) =>
-      api<RuleTestResult>(`/api/rules/${encodeURIComponent(id)}/test`, {
+      apiOrThrow<RuleTestResult>(`/api/rules/${encodeURIComponent(id)}/test`, {
         method: 'POST',
         body: JSON.stringify({ message }),
       }),

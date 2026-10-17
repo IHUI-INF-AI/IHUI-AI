@@ -89,6 +89,20 @@ from ..core.permission_mode import (
 from ..core.permission_mode import (
     tool_allowed_by_policy as _tool_allowed_by_policy,
 )
+# 79 号票(2026-10-18 立):权限双轴消费面的**唯一**接线点。三个名字都取进来:
+# 解析在路由层做(routers/agents.py),执行面只负责判定,判定权不落两处。
+from ..core.permission_axis_gate import (
+    AxisDecision as _AxisDecision,
+)
+from ..core.permission_axis_gate import (
+    axis_dims_from_mcp_annotations as _axis_dims_from_mcp_annotations,
+)
+from ..core.permission_axis_gate import (
+    axis_gate_decision as _axis_gate_decision,
+)
+from ..core.permission_axis_gate import (
+    axis_gate_hint as _axis_gate_hint,
+)
 from ..core.usage_cache import normalize_usage
 from ..core.turn_stop_reason import TurnStopReason
 from .agent_checkpoint import (
@@ -1907,6 +1921,11 @@ class AgentLoopV2:
         # default=与现状完全一致(回归红线);plan=循环层强制只读;auto=只读工具免审批。
         # 默认 None 时取自 env AGENT_PERMISSION_MODE,再回退 "default";构造参数优先于 env。
         permission_mode: str | None = None,
+        # 79 号票(2026-10-18 立):权限双轴解析结果(**路由层解析、执行面判定**)。
+        # None = 未携带双轴 ⇒ 下面工具审批链里的双轴层整段跳过 ⇒ 现网零行为变化。
+        # 类型用 object 标注:真类型是 core.permission_axis_gate.AxisResolution,
+        # 本处刻意不 import 该类型 —— 循环只判定不构造,构造权归路由层一个出口。
+        axis_resolution: object | None = None,
         # 1-6 token 治理:LLM 预算硬约束接入主循环(2026-09-02 立)。
         # budget_enabled:总开关,默认 None 时取 env AGENT_BUDGET_ENABLED(默认 off);
         #   构造参数优先于 env。on 时每轮 check_budget 硬停止 + record_usage 记录。
@@ -2075,6 +2094,11 @@ class AgentLoopV2:
         if _resolved_mode is None:
             raise ValueError(_permission_mode_error(_resolved_raw))
         self._permission_mode: _PermissionModeId = _resolved_mode
+
+        # 79 号票:双轴解析结果。None ⇒ 工具审批链整段跳过(零行为变化)。
+        # 不做 env 兜底:双轴只能由请求自己声明(与 #84 耐久视野同一条理由 ——
+        # "这一轮要什么权限"只能由点名的这一次请求说,服务端不代决定)。
+        self._axis_resolution: object | None = axis_resolution
 
         # 工具级审批策略(构造期校验,非法值 fail-fast)
         _VALID_APPROVAL_POLICIES = ("never", "on-request", "always")
@@ -5666,6 +5690,41 @@ class AgentLoopV2:
                             "mcp_annotations_require_approval",
                             "auto 模式:MCP 工具注解按保守语义判定需人工审批",
                         )
+
+        # 79 号票(2026-10-18 立):权限双轴裁决层。位置刻意放在工具级审批策略
+        # **之前**,两个方向各自有理由:
+        # - 结构性禁止(FORBID)必须压过本地"never 免审"配置 —— 那条配置说的是
+        #   "这个工具不用问人",而 FORBID 说的是"这个操作不该发生",后者是更强的结论;
+        # - 抬升审批(REQUIRE_APPROVAL)放在前面,则仍可被后面的本地显式配置翻回:
+        #   本地配置是管理员意图,请求级双轴是外部输入,两者冲突时外部输入不压本地。
+        # 未携带双轴(self._axis_resolution is None)⇒ 整段跳过 ⇒ 现网零行为变化。
+        if self._axis_resolution is not None:
+            _axis_tool = self._tools.get(tc.name)
+            _axis_ann = getattr(_axis_tool, "mcp_annotations", None) if _axis_tool else None
+            _axis_writes, _axis_network = _axis_dims_from_mcp_annotations(_axis_ann)
+            _axis_d = _axis_gate_decision(
+                self._axis_resolution, writes=_axis_writes, network=_axis_network
+            )
+            _axis_hint = _axis_gate_hint(self._axis_resolution, _axis_d)
+            if _axis_hint is not None:
+                self._decision_hints[tc.id] = _axis_hint
+            if _axis_d is _AxisDecision.FORBID:
+                logger.info(
+                    "工具 %s 未执行(双轴禁止): hint=%s, session=%s",
+                    tc.name,
+                    _axis_hint[0] if _axis_hint else "axis_forbid",
+                    self._session_id or "",
+                )
+                return ToolResult(
+                    tool_call_id=tc.id,
+                    name=tc.name,
+                    result={"approved": False, "reason": "axis_forbid"},
+                    error=_axis_hint[1] if _axis_hint else "双轴裁决禁止该操作",
+                    duration_ms=(time.time() - start) * 1000,
+                    error_type="axis_forbid",
+                )
+            if _axis_d is _AxisDecision.REQUIRE_APPROVAL:
+                needs_approval = True
 
         # 工具级审批策略覆盖(显式配置 > 模式隐含 > 高危清单,2026-09-18 立):
         # always 强制每次必审(auto 只读免审也被覆盖);never 强制免审(高危清单也放行);

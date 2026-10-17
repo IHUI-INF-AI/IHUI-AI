@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, Mail } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton } from '@/components/common'
 import {
   Button,
@@ -30,12 +30,6 @@ interface PrivateLetter {
   createdAt: string
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const th = 'px-4 py-2.5 font-medium'
 
 export default function PrivateLettersPage() {
@@ -46,7 +40,7 @@ export default function PrivateLettersPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'private-letters', currentPage],
-    queryFn: () => api<{ list: PrivateLetter[] }>('/api/admin/private-letters'),
+    queryFn: () => apiOrThrow<{ list: PrivateLetter[] }>('/api/admin/private-letters'),
   })
 
   const list = data?.list ?? []

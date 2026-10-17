@@ -7,7 +7,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Award, Loader2, Check, Crown } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Card, CardContent } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
@@ -22,18 +22,12 @@ interface Benefit {
   current?: boolean
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function MemberBenefitsPage() {
   const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'benefits'],
     queryFn: () =>
-      api<{ items: Benefit[] } | Benefit[]>('/api/member/benefits')
+      apiOrThrow<{ items: Benefit[] } | Benefit[]>('/api/member/benefits')
         .then((d) => ('items' in d ? d.items : d))
         .catch(() => [] as Benefit[]),
     enabled: allow,

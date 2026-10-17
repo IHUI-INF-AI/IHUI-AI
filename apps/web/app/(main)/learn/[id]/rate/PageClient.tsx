@@ -11,7 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Star, Loader2, MessageSquare } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { formatDate } from '@/lib/date-utils'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -33,12 +33,6 @@ interface RateListData {
   total?: number
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function CourseRatePage() {
   const t = useTranslations('learnRatePage')
   const { id } = useParams<{ id: string }>()
@@ -50,7 +44,7 @@ export default function CourseRatePage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['learn', 'rate', id],
-    queryFn: () => api<RateListData>(`/api/learn/${id}/rates`),
+    queryFn: () => apiOrThrow<RateListData>(`/api/learn/${id}/rates`),
     enabled: allow,
   })
 
@@ -60,7 +54,7 @@ export default function CourseRatePage() {
 
   const submitMut = useMutation({
     mutationFn: () =>
-      api(`/api/learn/${id}/rates`, {
+      apiOrThrow(`/api/learn/${id}/rates`, {
         method: 'POST',
         body: JSON.stringify({ rating, content }),
       }),
