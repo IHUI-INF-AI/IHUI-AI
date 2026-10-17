@@ -6,7 +6,18 @@
   "editable": true,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "返回 AI 总览",
+      "type": "link",
+      "url": "/d/ihui-ai-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "tags": ["ihui-ai"]
+    }
+  ],
   "panels": [
     {
       "gridPos": {
@@ -39,7 +50,7 @@
       "targets": [
         {
           "expr": "sum(rate(business_hls_transcode_seconds_sum{instance=~\"$instance\"}[5m])) / sum(rate(business_hls_transcode_seconds_count{instance=~\"$instance\"}[5m])) * 1000",
-          "legendFormat": "{{stream}}",
+          "legendFormat": "{{video_id}}",
           "refId": "A"
         }
       ],
@@ -64,7 +75,7 @@
           "type": "prometheus",
           "uid": "Prometheus"
         },
-        "query": "label_values(hls_active_streams, instance)",
+        "query": "label_values(up{job=\"business-metrics\"}, instance)",
         "refresh": 2,
         "includeAll": true,
         "multi": true,

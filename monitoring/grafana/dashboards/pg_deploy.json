@@ -1,66 +1,127 @@
 {
-  "annotations": { "list": [] },
-  "description": "IHUI-AI PG 部署与迁移监控",
+  "annotations": {
+    "list": []
+  },
+  "description": "数据库运行态。原盘的 pg_migration_success / pg_migration_duration / pg_rollback_count / pg_schema_drift 四个名字由谁发射:无人(postgres_exporter 没有这些采集器,仓里也没有发射点),整盘 8 个面板恒 No data。2026-10-17 改指本机真在采的采集器健康、WAL 归档、复制延迟、库体积与死锁。",
   "editable": true,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "返回 AI 总览",
+      "type": "link",
+      "url": "/d/ihui-ai-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "tags": ["ihui-ai"]
+    }
+  ],
   "panels": [
     {
-      "title": "迁移成功率",
+      "title": "采集器健康度 (%)",
       "type": "gauge",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
       "targets": [
         {
-          "expr": "sum(pg_migration_success{instance=~\"$instance\"}) / sum(pg_migration_success{instance=~\"$instance\", status=\"total\"})",
-          "legendFormat": "成功率",
-          "refId": "A"
+          "expr": "100 * (sum(pg_scrape_collector_success{instance=~\"$instance\"}) / count(pg_scrape_collector_success{instance=~\"$instance\"}))",
+          "refId": "A",
+          "legendFormat": "采集成功率"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "percent",
           "min": 0,
           "max": 1,
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "red" },
-              { "color": "yellow", "value": 0.85 },
-              { "color": "green", "value": 0.95 }
+              {
+                "color": "red"
+              },
+              {
+                "color": "yellow",
+                "value": 0.85
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
             ]
           }
         },
         "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "id": 1,
+      "description": "迁移没有导出器指标可依据;能证明\"数据库这一侧监控本身是否可信\"的是 postgres_exporter 的 9 个采集器健康度。"
     },
     {
-      "title": "迁移耗时 (秒)",
+      "title": "exporter 最近一次抓取耗时 (s)",
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
       "targets": [
         {
-          "expr": "avg(pg_migration_duration{instance=~\"$instance\"})",
-          "legendFormat": "平均耗时",
-          "refId": "A"
+          "expr": "pg_exporter_last_scrape_duration_seconds{instance=~\"$instance\"}",
+          "refId": "A",
+          "legendFormat": "抓取耗时"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "id": 2
     },
     {
-      "title": "回滚次数",
+      "title": "WAL 归档失败数",
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
       "targets": [
         {
-          "expr": "sum(pg_rollback_count{instance=~\"$instance\"})",
-          "legendFormat": "回滚",
-          "refId": "A"
+          "expr": "sum(pg_stat_archiver_failed_count{instance=~\"$instance\"})",
+          "refId": "A",
+          "legendFormat": "归档失败"
         }
       ],
       "fieldConfig": {
@@ -69,95 +130,189 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green" },
-              { "color": "yellow", "value": 1 },
-              { "color": "red", "value": 5 }
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
             ]
           }
         },
         "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
-    },
-    {
-      "title": "迁移耗时分布",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
-      "targets": [
-        {
-          "expr": "avg(pg_migration_duration{instance=~\"$instance\"}) by (migration)",
-          "legendFormat": "{{migration}}",
-          "refId": "A"
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
         }
-      ],
-      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+      },
+      "id": 3,
+      "description": "\"回滚次数\"在 PG 侧无对应导出指标;归档失败数是备份真正坏掉时唯一会动的信号。"
     },
     {
-      "title": "Schema 漂移检测",
+      "title": "各库活动连接数",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
       "targets": [
         {
-          "expr": "sum(pg_schema_drift{instance=~\"$instance\"}) by (database)",
-          "legendFormat": "{{database}}",
-          "refId": "A"
+          "expr": "sum by (datname) (pg_stat_database_numbackends{instance=~\"$instance\"})",
+          "refId": "A",
+          "legendFormat": "{{datname}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "id": 4
+    },
+    {
+      "title": "复制延迟 (s)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "targets": [
+        {
+          "expr": "pg_replication_lag_seconds{instance=~\"$instance\"}",
+          "refId": "A",
+          "legendFormat": "复制延迟"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
           "thresholds": {
             "mode": "absolute",
-            "steps": [{ "color": "green" }, { "color": "red", "value": 1 }]
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
           }
+        },
+        "overrides": []
+      },
+      "id": 5,
+      "description": "本机单实例 ⇒ 该值恒 0 是正常形态,不是缺陷;一旦出现非 0 说明接了备库。"
+    },
+    {
+      "title": "各库占用明细",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 0,
+        "y": 14
+      },
+      "targets": [
+        {
+          "expr": "sum by (datname) (pg_database_size_bytes{instance=~\"$instance\"})",
+          "refId": "A",
+          "legendFormat": "{{datname}}"
+        }
+      ],
+      "id": 6,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
         },
         "overrides": []
       }
     },
     {
-      "title": "迁移记录明细",
-      "type": "table",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 14 },
+      "title": "WAL 归档速率",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 14
+      },
       "targets": [
         {
-          "expr": "pg_migration_duration{instance=~\"$instance\"}",
-          "legendFormat": "{{migration}}",
+          "expr": "sum(rate(pg_stat_archiver_archived_count{instance=~\"$instance\"}[$__rate_interval]))",
           "refId": "A",
-          "format": "table",
-          "instant": true
-        }
-      ]
-    },
-    {
-      "title": "回滚次数趋势",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 14 },
-      "targets": [
-        {
-          "expr": "sum(rate(pg_rollback_count{instance=~\"$instance\"}[5m])) by (instance)",
-          "legendFormat": "{{instance}}",
-          "refId": "A"
+          "legendFormat": "归档速率"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "id": 7
     },
     {
-      "title": "迁移成功率趋势",
+      "title": "死锁与冲突速率",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 22 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
       "targets": [
         {
-          "expr": "sum by (instance) (pg_migration_success{instance=~\"$instance\", status=\"success\"}) / sum by (instance) (pg_migration_success{instance=~\"$instance\", status=\"total\"})",
-          "legendFormat": "{{instance}} 成功率",
-          "refId": "A"
+          "expr": "sum(rate(pg_stat_database_deadlocks{instance=~\"$instance\"}[5m]))",
+          "refId": "A",
+          "legendFormat": "死锁"
+        },
+        {
+          "expr": "sum(rate(pg_stat_database_conflicts{instance=~\"$instance\"}[5m]))",
+          "refId": "B",
+          "legendFormat": "冲突"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "id": 8
     }
   ],
   "refresh": "30s",
@@ -169,19 +324,29 @@
       {
         "name": "instance",
         "type": "query",
-        "datasource": { "type": "prometheus", "uid": "Prometheus" },
-        "query": "label_values(pg_migration_success, instance)",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        },
+        "query": "label_values(pg_scrape_collector_success, instance)",
         "refresh": 2,
         "includeAll": true,
         "multi": true,
-        "current": { "selected": true, "text": "All", "value": "$__all" }
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        }
       }
     ]
   },
-  "time": { "from": "now-1h", "to": "now" },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
-  "title": "IHUI-AI PG 部署与迁移监控",
+  "title": "IHUI-AI 数据库运行态",
   "uid": "ihui-ai-pg-deploy",
   "version": 1,
   "weekStart": ""
