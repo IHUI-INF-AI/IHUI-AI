@@ -954,6 +954,47 @@
     },
     "welcomeDesc": "一站式 AI 能力聚合,对话、绘图、视频、语音、智能体,一切尽在掌握",
     "welcomeTitle": "欢迎使用智汇 AI",
+    "businessForms": {
+      "ariaLabel": "业务表单卡",
+      "aria": {
+        "email": "邮件撰写卡",
+        "calendarEvent": "日历表单卡"
+      },
+      "fields": {
+        "to": "收件人",
+        "cc": "抄送",
+        "bcc": "密送",
+        "subject": "主题",
+        "replyTo": "回复至",
+        "body": "正文",
+        "start": "开始",
+        "end": "结束",
+        "attendees": "出席人"
+      },
+      "action": {
+        "approve": "批准",
+        "reject": "拒绝",
+        "create": "创建",
+        "save": "保存"
+      },
+      "error": {
+        "required": "请填写必填项",
+        "invalidEmail": "邮箱格式不正确",
+        "endBeforeStart": "结束时间需晚于开始时间",
+        "noAttendees": "请至少添加一位出席人"
+      },
+      "reason": "拒绝理由(可选)",
+        "fold": {
+        "expand": "展开全部 {count} 位出席人",
+        "collapse": "收起出席人"
+      },
+      "status": {
+        "submitting": "提交中…",
+        "approved": "已批准",
+        "rejected": "已拒绝",
+        "failed": "提交失败，请重试"
+      }
+    },
     "cards": {
       "steer": {
         "title": "已引导 {count} 次",

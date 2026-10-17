@@ -1381,3 +1381,15 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+/* D77(2026-10-17):业务表单卡锚定块(卡内样式住 BusinessFormCard.css;
+   此处只放宿主级 wrapper 与 failed 留痕文本)。 */
+.business-form-block {
+  margin-top: 8rpx;
+}
+.business-form-send-failed {
+  display: block;
+  margin: 6rpx 20rpx 0;
+  font-size: 20rpx;
+  color: var(--color-danger);
+}
