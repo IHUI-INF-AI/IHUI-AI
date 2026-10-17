@@ -84,6 +84,15 @@ class EditAction(BaseModel):
     start: int = Field(..., ge=0, description="区间起点(含),文档绝对字符偏移")
     end: int = Field(..., ge=0, description="区间终点(不含);insert 时必须等于 start")
     text: str = Field("", description="insert/replace 的插入内容;delete 必须为空串")
+    # 82 号票第二刀(2026-10-18 立)的锚点:模型认为该区间**当前**的原文。
+    # 关键的可选性:**None = 模型没给 ⇒ 不做锚点比对**(与上面对齐 —— 旧模型输出
+    # 与旧调用方的行为逐字不变)。给了才比对,比对不上就丢弃并点名:
+    # 区间算错位置是最难归因的一类脏数据 —— 它不越界、结构全合法,
+    # 顺着执行下去就把改动打到文档的另一处,事后只能看到"改错了地方"。
+    anchor: str | None = Field(
+        None,
+        description="模型认为 [start,end) 当前的原文;replace/delete 必给,给了就被比对",
+    )
 
 
 class DroppedAction(BaseModel):
@@ -103,12 +112,22 @@ class EditIntentOutcome(BaseModel):
     dropped: list[DroppedAction] = []
 
 
+# 82 号票第二刀(2026-10-18 立):契约文本与实现取齐,两处订正。
+#   ① 条数上限原本手写 "At most 3 actions" 而 MAX_ACTIONS 是 5 —— 注释与代码
+#      不一致就是缺陷信号:契约承诺 3 条而实现收 5 条,第 4、5 条在契约上根本没有
+#      被要求过,模型按契约只给 3 条时那条上限形同虚设,反过来若哪天有人把
+#      MAX_ACTIONS 调小,prompt 仍拿 3 去要,两边各自漂移。现在 prompt 直接
+#      从 MAX_ACTIONS 插进去,上限只有一个真相源。
+#   ② 第 7 条早就承诺了 "disjoint range",而校验侧**从来没有判过重叠**
+#      (validate_action 是逐条独立的,天然看不见另一条)—— 契约承诺了却没人守,
+#      等于没承诺。这两格(重叠 + 锚点)的判据就在下面,由测试钉住。
 EDIT_INTENT_SYSTEM_PROMPT: Final[str] = (
     "You are an edit-intent predictor for a code editor. "
     "Given the document text, an absolute cursor offset and the file type, "
     "predict the single most likely edit the developer wants to make next. "
     "Reply with a JSON object and NOTHING else, exactly of this shape:\n"
-    '{"actions":[{"kind":"insert","start":<int>,"end":<int>,"text":"<string>"}]}\n'
+    '{"actions":[{"kind":"insert","start":<int>,"end":<int>,"text":"<string>"'
+    ',"anchor":"<string|null>"}]}\n'
     "Rules:\n"
     "1. kind is one of insert | replace | delete. Offsets are ABSOLUTE character "
     "positions in the document you were given, 0-based, end-exclusive.\n"
@@ -117,7 +136,12 @@ EDIT_INTENT_SYSTEM_PROMPT: Final[str] = (
     "4. delete: start < end and text must be the empty string.\n"
     '5. If there is no confident edit, reply exactly {"actions":[]} — do not invent one.\n'
     "6. Never output explanations, markdown fences, or raw code outside the text field.\n"
-    "7. At most 3 actions, each touching a disjoint range."
+    f"7. At most {MAX_ACTIONS} actions, each touching a disjoint range.\n"
+    "8. For replace and delete you MUST also send anchor = the exact text you "
+    "believe is currently inside [start,end); the server compares it against the "
+    "real document and discards the action when they differ. Omit anchor (or null) "
+    "to skip that check — an action whose range you are not sure about is worse "
+    "than no action."
 )
 
 
@@ -282,7 +306,67 @@ def validate_action(raw: object, *, document_length: int) -> tuple[EditAction | 
             return None, "replace 的 text 为空"
         if kind_typed == "delete" and text_value:
             return None, "delete 不应带 text"
-    return EditAction(kind=kind_typed, start=start, end=end, text=text_value), None
+    # 锚点三态,刻意分开:
+    # - 缺失或显式 null ⇒ None = "我不比对"(契约第 8 条承诺的跳过档,旧输出零变化);
+    # - 字符串 ⇒ 收下,交给后面与文档切片比对;
+    # - 其他类型(数字/布尔/对象)⇒ 丢弃本条:契约只承诺了"跳过"这一种豁免,
+    #   把"模型给了个不可比对的 anchor"当成"没给"是把契约违规静默吞掉,
+    #   而它本该和其它非法字段一样被逐条丢弃并点名。
+    raw_anchor = raw.get("anchor")
+    if raw_anchor is None:
+        anchor_value: str | None = None
+    elif isinstance(raw_anchor, str):
+        anchor_value = raw_anchor
+    else:
+        return None, f"anchor 不是字符串: {raw_anchor!r}"
+    return EditAction(
+        kind=kind_typed, start=start, end=end, text=text_value, anchor=anchor_value
+    ), None
+
+
+def validate_anchor(action: EditAction, document: str) -> str | None:
+    """锚点比对:模型声明的 [start,end) 当前原文 vs 文档实际切片;不等返回丢弃原因。
+
+    **anchor 为 None ⇒ 不比对**(模型没声明,就不替它猜)—— 这是旧调用方与旧
+    模型输出零行为变化的那一格:不声明 anchor 的输入路径与接线前逐字同。
+
+    为什么这条值得单独立一格:区间算错位置是最难归因的一类脏数据 —— 它不越界、
+    结构全合法、单条校验百分之百通过,顺着执行下去就把改动打到文档的另一处,
+    事后只能看到"改错了地方"。拿模型自己声明的原文去对文档切片,是把"区间对不对"
+    从**凭信任**变成**可证**;对不上就丢弃并点名,而不是静默按它执行。
+
+    insert 不参与:它的区间是空区间,切片恒为空串,比对没有信息量。
+    """
+    if action.anchor is None or action.kind == "insert":
+        return None
+    actual = document[action.start : action.end]
+    if actual != action.anchor:
+        return (
+            f"anchor_mismatch(区间内实际是 {actual!r},模型声明的是 {action.anchor!r})"
+        )
+    return None
+
+
+def find_range_conflict(action: EditAction, accepted: list[EditAction]) -> str | None:
+    """本条与**已接受**动作的区间冲突;无冲突返回 None。
+
+    契约(prompt 第 7 条)向模型要的是 "disjoint ranges",而单条校验是逐条独立的
+    —— 它结构上不可能看见另一条。契约承诺了却无人守,等于没承诺(这也是本票
+    票面点名"判据缺重叠区间"那一格的成因)。
+
+    两型冲突,各有理由,分开点名便于事后归因:
+    - 区间相交:两条各自合法,但执行结果**依赖执行顺序**(先删后替 与 先替后删
+      落点不同),而模型给的数组顺序不是它承诺过的语义 ⇒ 照单执行就是在赌一个
+      没有定义的顺序;
+    - 两条 insert 落在同一点:空区间按定义不相交,但同点插入谁先谁后得到的
+      文本不同,同样是未定义顺序。
+    """
+    for other in accepted:
+        if max(action.start, other.start) < min(action.end, other.end):
+            return f"与已接受动作 [{other.start},{other.end}) 区间相交"
+        if action.kind == "insert" and other.kind == "insert" and action.start == other.start:
+            return f"与已接受动作在 {action.start} 处重复插入"
+    return None
 
 
 def cast_kind(kind: object) -> EditActionKind:
@@ -298,8 +382,17 @@ def cast_kind(kind: object) -> EditActionKind:
     return "delete"
 
 
-def interpret_model_output(raw: str, *, document_length: int) -> EditIntentOutcome:
-    """模型原文 → 三态判定(本模块唯一对外判定出口)。"""
+def interpret_model_output(
+    raw: str, *, document_length: int, document: str | None = None
+) -> EditIntentOutcome:
+    """模型原文 → 三态判定(本模块唯一对外判定出口)。
+
+    ``document`` 是本票新加的**可选**入参:给了才做第二轮判据(区间冲突 + 锚点
+    比对),不给 ⇒ 行为与接线前逐字同(现网凡是不传的调用方零行为变化)。
+    为什么必须是可选而不是必填:本判定出口的调用方不止一个,强改签名会让"拿不到
+    文档原文"的那一路要么传空串(那会把每条动作都误判成锚点不符)要么就地崩;
+    宁可不判,也不许拿错的文档去判 —— 与 UndeterminedReason 那一族同一条失效方向。
+    """
     payload, parse_reason = extract_json_payload(raw)
     if payload is None:
         logger.info("edit-intent 解析失败: %s", parse_reason)
@@ -324,6 +417,17 @@ def interpret_model_output(raw: str, *, document_length: int) -> EditIntentOutco
         if action is None:
             dropped.append(DroppedAction(index=index, reason=reject_reason or "invalid_action"))
             continue
+        # 第二轮:区间冲突(契约第 7 条 promise 了 disjoint,校验侧此前从未判过)
+        conflict = find_range_conflict(action, actions)
+        if conflict is not None:
+            dropped.append(DroppedAction(index=index, reason="overlapping_range", detail=conflict))
+            continue
+        # 第三轮:锚点比对(仅在拿得到文档原文、且模型声明了 anchor 时)
+        if document is not None:
+            anchor_reason = validate_anchor(action, document)
+            if anchor_reason is not None:
+                dropped.append(DroppedAction(index=index, reason=anchor_reason))
+                continue
         actions.append(action)
 
     if not actions:
