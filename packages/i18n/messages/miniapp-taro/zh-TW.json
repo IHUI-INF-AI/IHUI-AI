@@ -954,6 +954,47 @@
     },
     "welcomeDesc": "有什麼可以幫你的嗎?",
     "welcomeTitle": "你好,我是智匯 AI 助手",
+    "businessForms": {
+      "ariaLabel": "業務表單卡",
+      "aria": {
+        "email": "郵件撰寫卡",
+        "calendarEvent": "日曆表單卡"
+      },
+      "fields": {
+        "to": "收件人",
+        "cc": "副本",
+        "bcc": "密件副本",
+        "subject": "主旨",
+        "replyTo": "回覆至",
+        "body": "內文",
+        "start": "開始",
+        "end": "結束",
+        "attendees": "出席人"
+      },
+      "action": {
+        "approve": "批准",
+        "reject": "拒絕",
+        "create": "建立",
+        "save": "儲存"
+      },
+      "error": {
+        "required": "請填寫必填欄位",
+        "invalidEmail": "電子郵件格式不正確",
+        "endBeforeStart": "結束時間需晚於開始時間",
+        "noAttendees": "請至少新增一位出席人"
+      },
+      "reason": "拒絕理由(可選)",
+        "fold": {
+        "expand": "展開全部 {count} 位出席人",
+        "collapse": "收合出席人"
+      },
+      "status": {
+        "submitting": "提交中…",
+        "approved": "已批准",
+        "rejected": "已拒絕",
+        "failed": "提交失敗，請重試"
+      }
+    },
     "cards": {
       "steer": {
         "title": "已引導 {count} 次",
