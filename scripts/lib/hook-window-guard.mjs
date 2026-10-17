@@ -30,6 +30,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { diffForeignIndexEntries, foreignEntryAdvice } from './commit-payload-attribution.mjs'
 import { gitStagedPaths } from './git-paths.mjs'
+import { describeFlagToken, flagValue } from './flag-value.mjs'
 
 const norm = (p) => String(p).replaceAll('\\', '/')
 
@@ -168,6 +169,14 @@ function main() {
     if (i < 0 || j < 0) {
       console.error('用法:node scripts/lib/hook-window-guard.mjs --check --baseline <file> --repo <root>')
       return 2
+    }
+    // G-322 第十六批(B 档收口):旗标在场但缺值/被顶值时点名判死,不得把 undefined 静默往下传。
+    for (const name of ['--baseline', '--repo']) {
+      const flag = flagValue(args, name)
+      if (!flag.valid) {
+        console.error(`❌ ${name} 需要一个参数 —— 紧邻的 token 实得:${describeFlagToken(flag)}`)
+        return 2
+      }
     }
     // 与 .husky/pre-commit 同一张去污处方(GIT_DIR 注入会让复量 git 读错仓)。
     for (const k of [
