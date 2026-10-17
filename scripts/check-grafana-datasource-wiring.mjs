@@ -249,12 +249,72 @@ function selfTest() {
   for (const rootCandidate of ['deploy', 'monitoring']) scan(join(ROOT, rootCandidate))
   req(covered.has('deploy/saas/grafana/dashboards'), 'S5a deploy/saas 树必须在覆盖面清单里(2026-10-18 失明案)')
   req(strays.length === 0, `S5b 盘面存在未登记的 grafana/dashboards 目录: ${strays.join(', ')}`)
+
+  // S6 版面坐标档:成对正反 + 一条"不同原点不得互比"的反证(它比漏判更贵,误咬会逼人跳门)
+  const mkGrid = (y2) => [{ file: 'g.json', json: { panels: [{ type: 'stat', title: 'A', gridPos: { h: 3, w: 24, x: 0, y: 0 } }, { type: 'timeseries', title: 'B', gridPos: { h: 8, w: 12, x: 0, y: y2 } }] } }]
+  req(auditGrid(mkGrid(0)).some((s) => s.why.includes('重叠')), 'S6a 同层两板相交必须判出重叠')
+  req(auditGrid(mkGrid(3)).length === 0, 'S6b 错开 3 格后必须一条不判(反证不乱咬)')
+  req(
+    auditGrid([{ file: 'r.json', json: { panels: [{ type: 'row', title: 'R', id: 1, gridPos: { h: 1, w: 24, x: 0, y: 0 }, panels: [{ type: 'stat', title: 'C', gridPos: { h: 4, w: 12, x: 0, y: 1 } }] }, { type: 'stat', title: 'D', gridPos: { h: 4, w: 12, x: 0, y: 0 } }] } }]).every((s) => !s.why.includes('重叠')),
+    'S6c 折叠行内子板(行内相对坐标)不得与行外板互比'
+  )
+  req(auditGrid([{ file: 'o.json', json: { panels: [{ type: 'stat', title: 'E', gridPos: { h: 4, w: 20, x: 8, y: 0 } }] } }]).some((s) => s.why.includes('24 列')), 'S6d 超出 24 列必须判出')
+  req(auditGrid([{ file: 'n.json', json: { panels: [{ type: 'stat', title: 'F' }] } }]).some((s) => s.why.includes('没有 gridPos')), 'S6e 缺 gridPos 必须判出')
+  req(
+    auditGrid([{ file: 'v.json', json: { panels: [{ type: 'row', gridPos: { h: 1, w: 30, x: 0, y: 0 } }] } }]).length === 0,
+    'S6f row 容器自身不参与格子判'
+  )
+  // 真面自证:仓里现存 24 张盘必须 0 异常 —— 存量没归零就不许占这个拦门档(§12e)
+  req(auditGrid(readFromWorktree()).length === 0, 'S6g 现读仓内全部大盘必须 0 版面异常(存量归零才配占 blocking)')
   if (fails.length) {
     for (const f of fails) console.error(`❌ self-test 失败: ${f}`)
     return 1
   }
-  console.info('✅ self-test 通过:uid 提取、块切分、dangling 阳性对照、树覆盖锁')
+  console.info('✅ self-test 通过:uid 提取、块切分、dangling 阳性对照、树覆盖锁、版面坐标成对正反')
   return 0
+}
+
+const GRID_COLS = 24
+
+function overlaps(a, b) {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+}
+
+/**
+ * 判据 C:版面坐标对账(纯函数,镜像测试与核验器直接取用,不许有第二份实现)。
+ * 两型错:同层兄弟矩形相交 ⇒ 其中一块被压住,打开盘就是"面板不见了";x+w>24 ⇒ 右侧被裁出栅格。
+ * **比只发生在同一容器内**,且 row 自身不参与 —— 折叠行里子板的 gridPos 是行内相对坐标,
+ * 拿它跟行外的板比等于用两把不同原点的尺子对量,必然误咬(误咬的红比漏判更贵,它逼人跳门)。
+ * 立因(2026-10-18 实测):hls 盘那块"面板调整说明"文本板 24×3@y0 正压在唯一图表 12×8@y0 上面;
+ * 盘 JSON 合法、uid 对、指标名不幽灵 ⇒ 判据 A/B 一路绿灯,而肉眼看到的是"这盘只剩一段道歉"。
+ */
+function auditGrid(dashboards) {
+  const out = []
+  for (const { file, json } of dashboards) {
+    const containers = [{ owner: `${file}`, panels: json.panels || [] }]
+    for (const row of (json.panels || []).filter((p) => p.type === 'row')) {
+      if (Array.isArray(row.panels) && row.panels.length)
+        containers.push({ owner: `${file}#row:${row.title || row.id}`, panels: row.panels })
+    }
+    for (const { owner, panels } of containers) {
+      const cells = []
+      for (const p of panels) {
+        if (p.type === 'row') continue
+        const g = p.gridPos
+        if (!g || typeof g !== 'object') {
+          out.push({ file: owner, why: `「${p.title || '(无标题)'}」没有 gridPos` })
+          continue
+        }
+        if (g.x + g.w > GRID_COLS) out.push({ file: owner, why: `「${p.title}」超出 ${GRID_COLS} 列(x=${g.x} w=${g.w})` })
+        cells.push({ title: p.title || '(无标题)', x: g.x, y: g.y, w: g.w, h: g.h })
+      }
+      for (let i = 0; i < cells.length; i++)
+        for (let k = i + 1; k < cells.length; k++)
+          if (overlaps(cells[i], cells[k]))
+            out.push({ file: owner, why: `「${cells[i].title}」与「${cells[k].title}」重叠(其中一块被压住看不见)` })
+    }
+  }
+  return out
 }
 
 /**
@@ -282,6 +342,7 @@ function main() {
   const fromFace = face === 'worktree' ? { dashboards: [], provisioning: new Map() } : readFromFace(face)
   const dashboards = face === 'worktree' ? readFromWorktree() : fromFace.dashboards
   let danglingTotal = 0
+  let gridTotal = 0
 
   for (const tree of DASHBOARD_TREES) {
     let provText
@@ -328,9 +389,19 @@ function main() {
     } else {
       console.info('✅ 判据 B:本树已声明的数据源全部有面板在用')
     }
+
+    // 判据 C:版面坐标(静态确定的错 ⇒ 判红)。存量已现读归零(24 张盘 0 处),按 §12e 才可占拦门档。
+    const grid = auditGrid(treeDashboards)
+    gridTotal += grid.length
+    if (grid.length) {
+      console.error(`❌ 判据 C[${tree.label}]:${grid.length} 处版面坐标异常(重叠=有面板被压住;超 24 列=右侧被裁)`)
+      for (const g of grid) console.error(`   · [${g.file}] ${g.why}`)
+    } else {
+      console.info('✅ 判据 C:本树面板版面坐标无重叠、无栅格溢出')
+    }
   }
 
-  return danglingTotal ? 1 : 0
+  return danglingTotal || gridTotal ? 1 : 0
 }
 
 // 直接用 `file://${argv[1]}` 拼会在 Windows 上少一个斜杠(file://D:/… ≠ file:///D:/…),
@@ -341,6 +412,6 @@ if (isDirect) process.exit(main())
 // 镜像测试 scripts/tests/check-grafana-datasource-wiring.test.mjs 一律从这里取判据
 // (§22c:同一份判据不许有第二份实现)。DASHBOARD_TREES 一并导出:覆盖面清单本身也是判据,
 // 测试要能对账"树是否真的在扫",不许测试另抄一份树清单。
-export const __test__ = { collectProvisionedUids, collectPanelRefs, auditTree, DASHBOARD_TREES }
-export { collectProvisionedUids, collectPanelRefs, auditTree }
+export const __test__ = { collectProvisionedUids, collectPanelRefs, auditTree, auditGrid, DASHBOARD_TREES }
+export { collectProvisionedUids, collectPanelRefs, auditTree, auditGrid }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

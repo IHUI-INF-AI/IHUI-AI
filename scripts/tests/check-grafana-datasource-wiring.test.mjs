@@ -154,4 +154,51 @@ test('D9 新树真被扫:坏 uid 夹具走 saas 树同一判据链必须判 dang
   assert.ok(realRefs.length >= 10, 'saas 树面板引用应现读 ≥10 处(取材失效反证)')
   assert.equal(GATE.auditTree(provisioned, realRefs).dangling.length, 0, '修复后的 saas 大屏不得再有悬空 uid')
 })
+
+test('D10 判据 C 成对:同层两板相交必须判出,错开一格必须不判(摘掉判据=压住的面板无人拦)', () => {
+  const mk = (y2) => [
+    {
+      file: 'g.json',
+      json: {
+        panels: [
+          { type: 'stat', title: 'A', gridPos: { h: 3, w: 24, x: 0, y: 0 } },
+          { type: 'timeseries', title: 'B', gridPos: { h: 8, w: 12, x: 0, y: y2 } },
+        ],
+      },
+    },
+  ]
+  assert.ok(GATE.auditGrid(mk(0)).some((r) => r.why.includes('重叠')), 'y=0 时两块必须重叠并判出')
+  assert.equal(GATE.auditGrid(mk(3)).length, 0, 'B 挪到 y=3 后一条都不该判')
+  assert.ok(
+    GATE.auditGrid([{ file: 'o.json', json: { panels: [{ type: 'stat', title: 'C', gridPos: { h: 4, w: 20, x: 8, y: 0 } }] } }]).some((r) => r.why.includes('24 列')),
+    'x+w 超出 24 列必须判出'
+  )
+})
+
+test('D11 判据 C 不跨容器比:折叠行内子板的行内相对坐标不得与行外板互量(误咬比漏判贵)', () => {
+  const nested = [
+    {
+      file: 'r.json',
+      json: {
+        panels: [
+          { type: 'row', title: 'R', id: 1, gridPos: { h: 1, w: 24, x: 0, y: 0 }, panels: [{ type: 'stat', title: 'E', gridPos: { h: 4, w: 12, x: 0, y: 1 } }] },
+          { type: 'stat', title: 'F', gridPos: { h: 4, w: 12, x: 0, y: 0 } },
+        ],
+      },
+    },
+  ]
+  assert.ok(GATE.auditGrid(nested).every((r) => !r.why.includes('重叠')), '行内子板与行外板不能判成重叠')
+  assert.equal(GATE.auditGrid([{ file: 'w.json', json: { panels: [{ type: 'row', gridPos: { h: 1, w: 30, x: 0, y: 0 } }] } }]).length, 0, 'row 容器自身不参与格子判')
+})
+
+test('D12 存量归零锁:现读仓内全部大盘必须零版面异常(有人再压一块板,这枚就红)', () => {
+  const all = GATE.DASHBOARD_TREES.flatMap((tree) =>
+    readdirSync(resolve(ROOT, tree.dashboards))
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => ({ file: `${tree.label}/${f}`, json: JSON.parse(readFileSync(resolve(ROOT, tree.dashboards, f), 'utf8')) }))
+  )
+  assert.ok(all.length >= 20, `应现读到 ≥20 张大盘(实际 ${all.length} ⇒ 取材失效,不得当绿)`)
+  const issues = GATE.auditGrid(all)
+  assert.equal(issues.length, 0, `版面坐标异常:${issues.map((i) => `${i.file} ${i.why}`).join(' | ')}`)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

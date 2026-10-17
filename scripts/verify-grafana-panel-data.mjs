@@ -36,6 +36,8 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // 指标名取形只认一份实现(§22c 单一真相源):门 220 的形状表改了就自动跟,不留第二份会漂移的副本。
 import { __test__ as metricGate } from './check-grafana-metric-exists.mjs'
+// 版面坐标判据同源:门 222 是它的唯一实现,本器物只是消费方。
+import { __test__ as wiringGate } from './check-grafana-datasource-wiring.mjs'
 
 const metricNames = metricGate.extractMetricNames
 
@@ -278,27 +280,12 @@ function varNames(json) {
 }
 
 /**
- * 版面坐标对账(与"有没有数"是两件事,但都属于"这张盘打开来看是对的"):
- * 两块面板 gridPos 相交 ⇒ 其中一块被压在下面,肉眼看就是"面板不见了";
- * x+w>24 ⇒ Grafana 24 列栅格溢出,右侧被裁。2026-10-17 实测 24 张盘里 hls 盘的流水账文本板
- * 正是压住了唯一图表(24×3@y0 覆 12×8@y0),而全部静态门对此一无所觉。
+ * 版面坐标对账一律取门 222 的 auditGrid(§22c:同一份判据不许有第二份实现)。
+ * 我第一版把子板拍平与行外板互比,那是错的 —— 折叠行里的 gridPos 是行内相对坐标,
+ * 两把不同原点的尺子对量必然误咬;门 222 按容器分层比,才是对的形状。
  */
-function gridPosIssues(json) {
-  const cells = (json.panels || []).filter((p) => p.type !== 'row' && p.gridPos)
-  const out = []
-  for (const p of cells) {
-    const g = p.gridPos
-    if (g.x + g.w > 24) out.push(`「${p.title}」超出 24 列(x=${g.x} w=${g.w})`)
-  }
-  for (let i = 0; i < cells.length; i++)
-    for (let k = i + 1; k < cells.length; k++) {
-      const a = cells[i].gridPos
-      const b = cells[k].gridPos
-      if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h)
-        out.push(`「${cells[i].title}」与「${cells[k].title}」重叠(a=[${a.x},${a.y},${a.w},${a.h}] b=[${b.x},${b.y},${b.w},${b.h}])`)
-    }
-  const noPos = (json.panels || []).filter((p) => p.type !== 'row' && !p.gridPos).map((p) => `「${p.title || '(无标题)'}」没有 gridPos`)
-  return [...out, ...noPos]
+function gridIssuesFor(file, json) {
+  return wiringGate.auditGrid([{ file, json }])
 }
 
 async function run(opts) {
@@ -339,7 +326,7 @@ async function run(opts) {
     const vars = varNames(d.json)
     const targets = collectTargets(d.json)
     const allExprs = targets.map((t) => t.expr).join('\n')
-    const entry = { file: d.file, title: d.json.title, vars: [], panels: [], gridIssues: gridPosIssues(d.json) }
+    const entry = { file: d.file, title: d.json.title, vars: [], panels: [], gridIssues: gridIssuesFor(d.file, d.json) }
 
     for (const v of vars) {
       const referenced = usesVar(allExprs, v.name)
@@ -467,7 +454,7 @@ function printReport(report, tally) {
   )
   if (gridTotal) {
     console.info('\n版面坐标异常(重叠=有面板被压住看不见;溢出 24 列=右侧被裁):')
-    for (const d of report.dashboards) for (const g of d.gridIssues || []) console.info(`  · [${d.file}] ${g}`)
+    for (const d of report.dashboards) for (const g of d.gridIssues || []) console.info(`  · [${d.file}] ${g.why}`)
   }
   if (tally.empty) {
     console.info('\n空板明细(序列一条都没匹配到 —— 标签名/正则/指标族出了问题):')
@@ -520,13 +507,22 @@ function selfTest() {
   {
     // 版面档成对正反:证明它真能判出,也证明它不乱咬(hls 盘那块流水账文本板压住唯一图表即此型)
     const mkPanels = (y2) => ({ panels: [{ type: 'stat', title: 'A', gridPos: { h: 3, w: 24, x: 0, y: 0 } }, { type: 'timeseries', title: 'B', gridPos: { h: 8, w: 12, x: 0, y: y2 } }] })
-    const hit = gridPosIssues(mkPanels(0))
-    const miss = gridPosIssues(mkPanels(3))
-    ok('版面档能判出重叠(正控)', hit.some((s) => s.includes('重叠')), JSON.stringify(hit))
+    const hit = gridIssuesFor('x.json', mkPanels(0))
+    const miss = gridIssuesFor('x.json', mkPanels(3))
+    ok('版面档能判出重叠(正控,判据取自门 222)', hit.some((r) => r.why.includes('重叠')), JSON.stringify(hit))
     ok('版面档在错开后不咬人(反控)', miss.length === 0, JSON.stringify(miss))
-    ok('版面档判出超出 24 列', gridPosIssues({ panels: [{ type: 'stat', title: 'C', gridPos: { h: 4, w: 20, x: 8, y: 0 } }] }).some((s) => s.includes('24 列')))
-    ok('版面档判出缺 gridPos', gridPosIssues({ panels: [{ type: 'stat', title: 'D' }] }).some((s) => s.includes('没有 gridPos')))
-    ok('row 容器不参与逐格判(子板坐标是行内相对值)', gridPosIssues({ panels: [{ type: 'row', gridPos: { h: 1, w: 24, x: 0, y: 0 } }] }).length === 0)
+    ok('版面档判出超出 24 列', gridIssuesFor('x.json', { panels: [{ type: 'stat', title: 'C', gridPos: { h: 4, w: 20, x: 8, y: 0 } }] }).some((r) => r.why.includes('24 列')))
+    ok('版面档判出缺 gridPos', gridIssuesFor('x.json', { panels: [{ type: 'stat', title: 'D' }] }).some((r) => r.why.includes('没有 gridPos')))
+    ok('row 容器自身不参与格子判', gridIssuesFor('x.json', { panels: [{ type: 'row', gridPos: { h: 1, w: 24, x: 0, y: 0 } }] }).length === 0)
+    ok(
+      '折叠行内子板不得与行外板互比(不同原点)',
+      gridIssuesFor('x.json', {
+        panels: [
+          { type: 'row', title: 'R', id: 1, gridPos: { h: 1, w: 24, x: 0, y: 0 }, panels: [{ type: 'stat', title: 'E', gridPos: { h: 4, w: 12, x: 0, y: 1 } }] },
+          { type: 'stat', title: 'F', gridPos: { h: 4, w: 12, x: 0, y: 0 } },
+        ],
+      }).every((r) => !r.why.includes('重叠'))
+    )
   }
   {
     // 报表翻倍这一型:printReport 曾对调用方传进来的 tally 再累加一遍 ⇒ 人读的汇总永远是真数×2。
@@ -585,7 +581,7 @@ export const __test__ = {
   varQueryText,
   isMetricQuery,
   classifyMatrix,
-  gridPosIssues,
+  gridIssuesFor,
   tallyPanels,
   collectTargets,
   varNames,
