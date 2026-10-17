@@ -11,7 +11,6 @@ import { Button } from '../button'
 import { IconButton } from '../icon-button'
 import { Input } from '../input'
 import { Label } from '../label'
-import { Checkbox } from '../checkbox'
 import { cn } from '../../lib/utils'
 import { AgreementCheckbox } from './agreement-checkbox'
 import { AccountHistoryInput } from './account-history-input'
@@ -19,10 +18,7 @@ import type { ApiResult, LoginApiClient, LoginResult } from './types'
 import {
   saveRememberedCredentials,
   loadRememberedCredentials,
-  clearRememberedCredentials,
-  saveAutoLogin,
   loadAutoLogin,
-  clearAutoLogin,
   saveLoginHistory,
 } from '../../lib/remember-credentials'
 
@@ -122,10 +118,11 @@ export function PasswordLoginForm({
   )
   const [account, setAccount] = React.useState(remembered?.account ?? '')
   const [password, setPassword] = React.useState(remembered?.password ?? '')
-  const [rememberPassword, setRememberPassword] = React.useState(!!remembered)
-  const [autoLogin, setAutoLogin] = React.useState(
-    enableCredentialPersistence ? loadAutoLogin() && !!remembered : false,
-  )
+  // 记住账号回填恒开:每次登录成功都写 ihui-remember-credentials(只含账号),与"记住密码"
+  // 彻底解耦 —— 旧实现里 rememberPassword 未勾选就 clearRememberedCredentials(),会把回填
+  // 记录清掉,导致账号回填"有时不存"。口令永不落盘(安全收口),所以这里只读账号回填。
+  // autoLogin 标志仅供下方自动提交闸门读取:口令不落盘使其恒短路,保留作跨端判据落点。
+  const autoLogin = enableCredentialPersistence ? loadAutoLogin() : false
   const [showPassword, setShowPassword] = React.useState(false)
   const [captcha, setCaptcha] = React.useState('')
   const [captchaToken, setCaptchaToken] = React.useState<string | null>(null)
@@ -217,16 +214,13 @@ export function PasswordLoginForm({
         if (captchaEnabled) await refreshCaptcha()
         return
       }
-      // 凭据持久化(2026-07-30 恢复):登录成功后保存账号历史 + 记住密码 + 自动登录
+      // 记住账号(2026-10-17 解耦):每次登录成功都落盘账号(只含账号,口令永不落盘),
+      // 回填恒可靠;不再与"记住密码"勾选耦合(旧实现未勾选即 clearRememberedCredentials,
+      // 导致回填偶发丢失)。"记住密码"勾已移除 —— 密码走浏览器自带记忆(表单 autoComplete
+      // 已接好),自动登录走设置页开关 + 后端 refresh token 续期。
       if (enableCredentialPersistence) {
         saveLoginHistory(account)
-        if (rememberPassword) {
-          saveRememberedCredentials(account, password)
-        } else {
-          clearRememberedCredentials()
-          clearAutoLogin()
-        }
-        saveAutoLogin(autoLogin && rememberPassword)
+        saveRememberedCredentials(account, password)
       }
       await onSuccess?.(result.data)
     } catch {
@@ -392,47 +386,6 @@ export function PasswordLoginForm({
               </Button>
             )}
           </div>
-        </div>
-      )}
-
-      {enableCredentialPersistence && (
-        <div className="flex items-center justify-between pt-1">
-          <label
-            className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground"
-            onMouseDown={(e) => e.preventDefault()}
-          >
-            <Checkbox
-              checked={rememberPassword}
-              onCheckedChange={(v) => {
-                const checked = v === true
-                setRememberPassword(checked)
-                if (!checked) setAutoLogin(false)
-              }}
-              aria-label={t('auth.rememberPassword')}
-              // e2e 契约(2026-08-26):remember-password.spec.ts 依赖此 testid
-              data-testid="remember-password-checkbox"
-            />
-            {t('auth.rememberPassword')}
-          </label>
-          <label
-            className={cn(
-              'flex items-center gap-2 text-xs',
-              rememberPassword
-                ? 'cursor-pointer text-muted-foreground'
-                : 'cursor-not-allowed text-muted-foreground/50',
-            )}
-            onMouseDown={(e) => e.preventDefault()}
-          >
-            <Checkbox
-              checked={autoLogin}
-              disabled={!rememberPassword}
-              onCheckedChange={(v) => setAutoLogin(v === true)}
-              aria-label={t('auth.autoLogin')}
-              // e2e 契约(2026-08-26):remember-password.spec.ts 依赖此 testid
-              data-testid="auto-login-checkbox"
-            />
-            {t('auth.autoLogin')}
-          </label>
         </div>
       )}
 
