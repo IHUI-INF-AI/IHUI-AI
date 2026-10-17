@@ -76,6 +76,39 @@ def test_classify_error_tiers():
     assert mm.minimax_classify_error(403) == ("SessionDead", -1)
 
 
+async def test_checkin_4xx_with_claim_result_already_is_idempotent_success(monkeypatch):
+    """2026-10-17 加固:官方若对「今日已领」返 4xx + claim_result=2,
+    旧逻辑被 status>=400 抢先误报「签到失败: HTTP 400」—— 与 WorkBuddy 同型
+    缺陷面。修复:已签幂等判定优先于 status>=400。本用例钉死该行为。"""
+
+    async def fake_request(path, token, user_id, *, method="POST", body=None,
+                           host=None, timeout=30, client=None, device_id="", uuid_str=""):
+        return 400, {"data": {"claim_result": 2, "message": "今日已领取"}}
+
+    monkeypatch.setattr(mm, "_mm_request", fake_request)
+    res = await mm.minimax_checkin_account(
+        "mm-1", "tok", {"uid": "314069474482810883"}
+    )
+    assert res["ok"] is True
+    assert res["status"] == "already"
+    assert res["action"] == "skip_already"
+
+
+async def test_checkin_4xx_without_already_still_fails(monkeypatch):
+    """反向对照:4xx 且业务体非「已领」时仍按失败(不被加固误放行)。"""
+
+    async def fake_request(path, token, user_id, *, method="POST", body=None,
+                           host=None, timeout=30, client=None, device_id="", uuid_str=""):
+        return 400, {"data": {"claim_result": 9, "message": "活动未开始"}}
+
+    monkeypatch.setattr(mm, "_mm_request", fake_request)
+    res = await mm.minimax_checkin_account(
+        "mm-1", "tok", {"uid": "314069474482810883"}
+    )
+    assert res["ok"] is False
+    assert "400" in str(res["message"])
+
+
 def test_device_map_uid_keys():
     assert mm.minimax_device_map_uid({"uid": " 123 "}) == "123"
     assert mm.minimax_device_map_uid({"user_id": 456}) == "456"
