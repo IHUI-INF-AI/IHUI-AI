@@ -138,3 +138,59 @@ export const PERMISSION_MODE_TO_AXIS: Readonly<
   acceptEdits: null,
   manual: null,
 }
+
+// ---------------------------------------------------------------------------
+// config profiles(79 号票第二刀,2026-10-18 立):[profiles.NAME] 顶层键子集。
+//
+// 取证(2026-10-01,与上方取证同批):config.toml 的 [profiles.NAME] 可覆盖
+// model / approval_policy / sandbox_mode 等顶层键子集,经 --profile 或顶层
+// profile= 选择。本模块只收**键名单 + 取值解析**,不复制继承语义。
+//
+// 边界声明(与 permission-mode.ts 的 CHAT_MODE × PERMISSION_MODE、与 ai-service
+// 侧 core/permission_profiles.py 的 PermissionsToml 档案族,三者互不顶账):
+// - permission_profiles.py 是"档案声明面 + filesystem/network 的解析语义"
+//   (extends 链、normalize_host),是 Codex PermissionsToml 那一族;
+// - 本族是"顶层键子集的取值覆盖",没有 extends 链、没有档案继承。
+//   两族同源于 Codex 但落点不同,把 [profiles.NAME] 的键塞进 PermissionsToml
+//   的档案解析会把"顶层键覆盖"误读成"档案继承",属于跨族顶账。
+// ---------------------------------------------------------------------------
+
+export const CONFIG_PROFILE_VALUE_KEYS = [
+  'approval_policy',
+  'sandbox_mode',
+  'model',
+] as const
+
+/** config profile 的顶层键名(与 Python 侧逐字对账)。 */
+export type ConfigProfileValueKey = (typeof CONFIG_PROFILE_VALUE_KEYS)[number]
+
+/**
+ * config profile 映射 → 双轴取值对;**解析不出返回 null,不回退默认**。
+ *
+ * 两件事必须分开(2026-10-18 实测订正,起因是外卖那一版把"没给"当成"默认档"):
+ * - 某轴**没给** ⇒ 该轴缺席(不出现在结果里),由上层/全局配置决定。
+ *   刻意**不**填 SANDBOX_MODE_DEFAULT:只声明 approval_policy 的档案如果被
+ *   自动补成 read-only,那么"我只要不弹审批"就被读成"禁止一切写操作" ——
+ *   方向相反的失真,且用户看不出来。
+ * - 某轴**给了但认不出**(拼错 / 本族不支持的档)⇒ 整段 null。
+ *   "认不出"绝不当成"没给":那会把用户明确写的 read-only 静默降级成缺席。
+ *
+ * model 键按 Codex 只属顶层键子集,不参与双轴判定,故解析时只做存在性放行、
+ * **不校验取值**(模型清单另有真源,本模块不抄第二份)。
+ */
+export function resolveConfigProfileAxis(profile: unknown): Partial<AxisPair> | null {
+  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) return null
+  const rec = profile as Record<string, unknown>
+  const rawSandbox = rec.sandbox_mode
+  const rawApproval = rec.approval_policy
+  const sandbox = rawSandbox === undefined ? undefined : normalizeSandboxMode(rawSandbox) ?? undefined
+  const approval =
+    rawApproval === undefined ? undefined : normalizeApprovalPolicy(rawApproval) ?? undefined
+  // 给了但认不出 ⇒ 整段失败(绝不当成"没给")
+  if ((rawSandbox !== undefined && sandbox === undefined) || (rawApproval !== undefined && approval === undefined))
+    return null
+  const out: Partial<AxisPair> = {}
+  if (sandbox !== undefined) out.sandboxMode = sandbox
+  if (approval !== undefined) out.approvalPolicy = approval
+  return out
+}

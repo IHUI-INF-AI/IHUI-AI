@@ -13,6 +13,8 @@ import {
   countUnread,
   markAsRead,
   markAllAsRead,
+  archiveNotification,
+  restoreNotification,
   deleteNotification,
   deleteAllNotifications,
   findConversations,
@@ -49,6 +51,11 @@ const listNotificationsQuery = z.object({
   unread: z
     .transform((v) => (v === null || v === undefined || v === '' ? undefined : v === 'true'))
     .pipe(z.boolean().optional()),
+  // D195 分区:closed enum + 缺省 active。缺省值必须是成员本身(不得把默认放宽成"全部"),
+  // 否则不带参数的老客户端会突然看见归档行,"隐藏"这一维在默认视图里就失效了。
+  partition: z
+    .transform((v) => (v === null || v === '' ? undefined : v))
+    .pipe(z.enum(['active', 'archived']).default('active')),
 })
 
 const listMessagesQuery = z.object(paginationQuery)
@@ -59,7 +66,9 @@ const adminListNotificationsQuery = z.object({
   userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
-const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
+// .strict():Fastify 的 params 只可能带路由声明的那一个键,收紧不改变任何行为,
+// 但让"同一裸契约多一个消费点"这一型不再随新路由累积(门 161 判的正是消费点数)。
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) }).strict()
 const userIdParamSchema = z.object({ userId: z.uuid({ error: '无效的用户 ID' }) })
 
 const sendMessageSchema = z.object({
@@ -126,6 +135,12 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
               description: '通知类型筛选(可选)',
             },
             unread: { type: 'boolean', description: '仅查看未读(可选)' },
+            partition: {
+              type: 'string',
+              enum: ['active', 'archived'],
+              description: '分区:active=动态流(缺省),archived=已归档(可选)',
+              default: 'active',
+            },
           },
         },
         response: buildResponseSchema(400, 401),
@@ -136,12 +151,13 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { page, pageSize, type, unread } = parsed.data
+      const { page, pageSize, type, unread, partition } = parsed.data
       const { list, total } = await findNotificationsByUser(request.userId!, {
         page,
         pageSize,
         type,
         unreadOnly: unread,
+        partition,
       })
       const unreadCount = await countUnread(request.userId!)
       const listWithTopic = await attachTopicToList(list)
@@ -184,6 +200,56 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const updatedCount = await markAllAsRead(request.userId!)
       return reply.send(success({ updatedCount }))
+    },
+  )
+
+  // POST /notifications/:id/archive - D195 隐藏(归档)一条动态(仅本人)
+  // 与 DELETE /notifications/:id 的分工:删除是物理移除、不可撤销;归档是可追认的一次状态迁移,
+  // 因此这里只写 archived_at。红点随即不含该行(见 countUnread 的 isNull 维)。
+  server.post(
+    '/notifications/:id/archive',
+    {
+      schema: {
+        summary: '隐藏(归档)一条通知',
+        description: '为当前用户的一条通知写归档时刻;不删行,可用 /notifications/:id/restore 撤销',
+        tags: ['notifications'],
+        response: buildResponseSchema(400, 401, 404),
+      },
+    },
+    async (request, reply) => {
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const archived = await archiveNotification(parsed.data.id, request.userId!)
+      if (!archived) {
+        return reply.status(404).send(error(404, '通知不存在'))
+      }
+      return reply.send(success({ notification: archived }))
+    },
+  )
+
+  // POST /notifications/:id/restore - D195 从已归档分区恢复一条动态(仅本人)
+  server.post(
+    '/notifications/:id/restore',
+    {
+      schema: {
+        summary: '恢复一条已归档通知',
+        description: '清掉当前用户一条通知的归档时刻,使其回到动态流(active 分区)',
+        tags: ['notifications'],
+        response: buildResponseSchema(400, 401, 404),
+      },
+    },
+    async (request, reply) => {
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const restored = await restoreNotification(parsed.data.id, request.userId!)
+      if (!restored) {
+        return reply.status(404).send(error(404, '通知不存在'))
+      }
+      return reply.send(success({ notification: restored }))
     },
   )
 
