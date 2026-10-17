@@ -149,6 +149,34 @@ test('G-322 第五批:数值档坏值不再被读成 NaN(plan-bypass-ledger-repo
 // ─── 第六/七批(2026-10-17)───
 // 选点尺是"失效方向",不是行号:HEAD 面重扫(两把只读尺)得 113 处候选,其中
 // **注册为 blocking 且这一支没有任何 '-' 守卫**的 28 处才是射程;第六批收 --root 七站,第七批再收八站。
+test('G-322 第九批:落点/封口型旗标 —— seal-c-root-stray 的 --root/--devenv 与认证书的 --out-dir', () => {
+  // 这两站选进来是因为**方向**:seal-c-root-stray 是本仓唯一会改盘根结构(junction 封口)的工具,
+  // `--apply --root --devenv D:/DevEnv` 旧写法会静默按默认 C: 封口 = 调用方以为在验另一块盘(§26 递归穿透);
+  // 认证书是要给人签收的凭证,`--out-dir --json` 旧写法把它写进 outputs/--json/ 却照报已写出。
+  assertBadRoot(S('seal-c-root-stray.mjs'), '目录')
+  for (const args of [['--devenv', '--apply'], ['--devenv'], ['--devenv', '']]) {
+    const r = spawnSync(process.execPath, [S('seal-c-root-stray.mjs'), ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+    })
+    assert.notEqual(r.status, 0, `${JSON.stringify(args)} 不得静默退回 devEnvRoot()(它是封口的**目标根**)`)
+    assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, /--devenv 需要一个目录/)
+  }
+  const cert = S('run-8end-consistency-cert.mjs')
+  for (const { args, expect } of [
+    { args: ['--out-dir', '--json'], expect: '"--json"' },
+    { args: ['--out-dir'], expect: '(其后没有任何参数)' },
+    { args: ['--out-dir', ''], expect: '""' },
+  ]) {
+    const r = spawnSync(process.execPath, [cert, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.notEqual(r.status, 0, `${JSON.stringify(args)} 不得把认证书写进一个由吞值造出来的目录`)
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, /--out-dir 需要一个目录/, out.slice(0, 200))
+    assert.match(out, new RegExp(expect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), out.slice(0, 200))
+  }
+})
+
 test('G-322 第七批:另八道 blocking 门的 --root 三支坏值各自大声拒绝', () => {
   for (const f of [
     'check-api-client-utf8.mjs',
