@@ -55,10 +55,20 @@ export const liveChatWsRoutes: FastifyPluginAsync = async (server) => {
 
       const chatServer = getLiveChatServer()
       const room = chatServer.join(roomId, socket)
+      /** 同步 live-chat 房间数 gauge（join/leave 后调用；采集失败不影响业务） */
+      const syncRoomGauge = (): void => {
+        try {
+          server.recordWsRooms(chatServer.roomCount())
+        } catch {
+          /* ignore */
+        }
+      }
+      syncRoomGauge()
       try {
         socket.send(JSON.stringify({ type: 'system', content: 'joined', roomId }))
       } catch {
         chatServer.leave(roomId, socket)
+        syncRoomGauge()
         return
       }
 
@@ -70,27 +80,40 @@ export const liveChatWsRoutes: FastifyPluginAsync = async (server) => {
             socket.send('pong')
           } catch {
             chatServer.leave(roomId, socket)
+            syncRoomGauge()
           }
           return
         }
-        void chatServer.handleMessage(room, socket, raw, userId!).catch((err) => {
-          request.log.warn({ err, roomId }, 'live-chat handleMessage error')
-          try {
-            socket.send(JSON.stringify({ type: 'error', code: 500, message: '服务器内部错误' }))
-          } catch {
-            /* ignore */
-          }
-        })
+        const t0 = Date.now()
+        void chatServer
+          .handleMessage(room, socket, raw, userId!)
+          .catch((err) => {
+            request.log.warn({ err, roomId }, 'live-chat handleMessage error')
+            try {
+              socket.send(JSON.stringify({ type: 'error', code: 500, message: '服务器内部错误' }))
+            } catch {
+              /* ignore */
+            }
+          })
+          .finally(() => {
+            try {
+              server.recordWsMessageLatency(Date.now() - t0)
+            } catch {
+              /* ignore */
+            }
+          })
       })
 
       socket.on('close', () => {
         chatServer.leave(roomId, socket)
+        syncRoomGauge()
         // P2 修复(2026-08-06):断开时清除用户消息频率窗口,防内存累积
         chatServer.resetUserRateLimit(userId!)
       })
 
       socket.on('error', () => {
         chatServer.leave(roomId, socket)
+        syncRoomGauge()
         // P2 修复(2026-08-06):断开时清除用户消息频率窗口,防内存累积
         chatServer.resetUserRateLimit(userId!)
       })
