@@ -48,7 +48,8 @@
 #             (发一封【核验信】标题的品牌邮件;通知路径的唯一真凭据是"信到了且带版式")
 #   环境变量 :IHUI_MONITOR_ALERT_LOG / IHUI_MONITOR_STATE_FILE / IHUI_MONITOR_UNDEL_FILE /
 #             IHUI_MONITOR_BUILD_LOG_DIR / IHUI_MONITOR_REPEAT_HOURS /
-#             IHUI_MONITOR_EXPECTED_WINDOW_GRACE_MIN / IHUI_MONITOR_MAIL_DRY_RUN
+#             IHUI_MONITOR_EXPECTED_WINDOW_GRACE_MIN / IHUI_MONITOR_MAIL_DRY_RUN /
+#             IHUI_MONITOR_DISK_LETTER
 #             —— 存在意义是让 -Once 自检与常驻服务**各写各的状态**;共用一份会互相吞告警
 #             (自检把 sig 记进档案,服务随后巡检即判"已寄过",于是真故障静默)。
 # =============================================================================
@@ -112,6 +113,24 @@ $AlertRepeatHours    = [double](EnvOr 'IHUI_MONITOR_REPEAT_HOURS' '4')
 # Test-AlertSuppressionGrace)。默认 20 分钟 = 4 轮巡检:一次正常换流窗口实测 6-9 秒拒连,
 # 最慢的整包重建也远短于此,所以连续 20 分钟仍报"部署重启中"只可能是别的东西坏了。
 $ExpectedWindowGraceMinutes = [int](EnvOr 'IHUI_MONITOR_EXPECTED_WINDOW_GRACE_MIN' '20')
+
+# 被检盘卷按配置定(2026-10-17 立,替换旧 `(Get-Location).Drive.Name`)。
+# 取证(2026-10-17 本机现读 `nssm get IHUI-MONITOR`,只读未改):
+#   Application   = C:\windows\System32\WindowsPowerShell\v1.0\powershell.exe
+#   AppParameters = -NoProfile -ExecutionPolicy Bypass -File D:\DevEnv\ihui-prod\deploy\prod-bundle\monitor.ps1
+#   AppDirectory  = D:\DevEnv\ihui-prod\deploy\prod-bundle   (NSSM 把服务 cwd 设到这里)
+# 旧实现的"检哪个卷"由进程当前目录决定:服务在跑时恰好等于 AppDirectory 所在盘(本机 D),
+# 而人工 -Once 验一轮取的是终端 cwd —— 启动形态不同 ⇒ 身份里的 `卷=` 字段不同 ⇒ 同一次满盘
+# 占多个身份槽、4h 去重结构上失效(与 Get-DiskFreeTier 头注那族"实时抖动量进身份"同型缺陷,
+# 这一格的抖动量是"盘符随 cwd 漂")。AppDirectory=D 是部署现状,不是配置语义,不能当判据。
+# 配置语义 = 告警落点所在卷:alertLog / 去重档案 / 备份归档所在卷满了,监控自己先哑。
+# 默认取 $alertLog 的盘符,可用 IHUI_MONITOR_DISK_LETTER 显式覆盖;两者都取不到 ⇒ 磁盘维
+# 在巡检段显式落"未判定"(§0.3,不回落进程 cwd,也不折成"磁盘正常")。
+$MonitoredDrive = EnvOr 'IHUI_MONITOR_DISK_LETTER' ''
+if (-not $MonitoredDrive) {
+  $q = Split-Path $alertLog -Qualifier   # 形如 'D:'
+  if ($q) { $MonitoredDrive = ($q -replace '[:\\]', '') }
+}
 
 function Log($m) { "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $m" | Add-Content $alertLog -Encoding utf8 }
 
@@ -240,6 +259,36 @@ function Get-BackupMissedShifts {
   # 用"缺几班"而不是小时数当身份:班号在小范围内是整数常量,同一次断链的连续几轮读数不再产生新身份。
   param([double]$AgeHours)
   return [int](1 + [math]::Floor(($AgeHours - 26) / 24))
+}
+
+# ── 身份串拼装唯一出口(2026-10-17 立;与上面两枚档位函数同一条纯函数纪律:不取盘、不打
+#    日志、无副作用)。镜像测试按 §22c 从本文件源码抽出这些函数体离线喂输入,测试内不得手抄判据。
+#    共同规矩:实时抖动的量只进 Send-Alert 的 $detail(正文),身份里只留固定类别/档位。──────
+function Get-DiskAlertSig {
+  # 磁盘告警身份:只含 档位+卷标(两者都不随轮次抖)。实时剩余量进 $alertDetail。
+  param([string]$Tier, [string]$Volume)
+  return "磁盘剩余 档=$Tier 卷=$Volume"
+}
+
+function Get-UrlAlertSig {
+  # 公网 URL 告警身份:同一 URL 恒为一个身份"访问异常"。旧形 "$u → $code2" 把状态码进身份,
+  # 实测同一条 URL 因 ERR 与 502 两种读数同时占着两个身份槽(去重档案现读),每轮换读数措辞
+  # 就换身份 ⇒ 4h 窗结构上永不命中。4xx/5xx/ERR 对收信人是同一个事实"这条 URL 的公网访问
+  # 坏了",成因差异归正文($alertDetail 带首次/重测原始码),不归身份。
+  param([string]$Url)
+  return "$Url → 档=访问异常(连续2次确认)"
+}
+
+function Get-CloudflaredAlertSig {
+  # 隧道服务告警身份:固定类别"非Running"。旧形把状态词进身份(实时 $($cf.Status):Stopped /
+  # Paused / StartPending 随取样时机漂,一次宕动可占多槽)。实时状态词只进 $alertDetail。
+  return "Cloudflared 服务 档=非Running(公网入口将不可达)"
+}
+
+function Get-BackupAlertSig {
+  # 备份超龄告警身份:只含 类别+缺几班(都不随轮次抖)。备份文件名与实测小时数进 $alertDetail。
+  param([string]$Kind, [int]$Shifts)
+  return "备份超龄 类别=$Kind 档=缺$Shifts 班(>26h)"
 }
 
 function Write-Undelivered {
@@ -512,7 +561,10 @@ while ($true) {
   #     可达性由第 2 组 URL 探测负责,两段互补,不再用端口冒充链路状态。
   try {
     $cf = Get-Service -Name 'Cloudflared' -ErrorAction Stop
-    if ($cf.Status -ne 'Running') { $alerts += "Cloudflared 服务状态 $($cf.Status)(公网入口将不可达)" }
+    if ($cf.Status -ne 'Running') {
+      $alerts += Get-CloudflaredAlertSig
+      $alertDetail += "Cloudflared 服务实测状态=$($cf.Status)(状态词只进正文,不进身份)"
+    }
   } catch { $alerts += 'Cloudflared 服务不存在(本机未装或已改名,公网入口无进程)' }
 
   # 2. 公网(2026-08-09 加"连续 2 次确认":单次瞬时失败不报警,重测一次仍失败才记录,
@@ -549,7 +601,8 @@ while ($true) {
       Write-Host "$(Get-Date -Format 'HH:mm:ss') 瞬时抖动已恢复(仅记录): $u 首次$code1 → 重测正常" -ForegroundColor DarkYellow
       Add-Content $alertLog "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [INFO] 瞬时抖动已恢复(不推送): $u 首次$code1 → 重测正常" -Encoding utf8
     } else {
-      $alerts += "$u → $code2 (连续2次确认)"
+      $alerts += (Get-UrlAlertSig -Url $u)
+      $alertDetail += "URL $u 实测状态码=$code2 (首次=$code1 重测=$code2;原始状态码只进正文,不进身份)"
     }
   }
 
@@ -559,10 +612,11 @@ while ($true) {
   # 现在身份只带**档位 + 卷标**(两者都不抖),实时读数交给 Send-Alert 的 $detail 进正文。
   # 档位边界出处见 Get-DiskFreeTier 的头注(10GB = 本行原有阈值;<1GB = git-push-guard.mjs:414)。
   try {
-    $d = Get-PSDrive (Get-Location).Drive.Name
+    if (-not $MonitoredDrive) { throw "被检卷取不到盘符(IHUI_MONITOR_DISK_LETTER 未设且 $alertLog 解析不出盘符)" }
+    $d = Get-PSDrive $MonitoredDrive
     $freeGB = [math]::Round($d.Free / 1GB, 1)
     if ($freeGB -lt 10) {
-      $alerts += "磁盘剩余 档=$(Get-DiskFreeTier $freeGB) 卷=$($d.Name)"
+      $alerts += (Get-DiskAlertSig -Tier (Get-DiskFreeTier $freeGB) -Volume $d.Name)
       $alertDetail += "磁盘卷$($d.Name) 实测剩余 ${freeGB}GB(告警阈值<10GB)"
     }
   } catch {
@@ -587,7 +641,7 @@ while ($true) {
       $ageH = ((Get-Date) - $latest.LastWriteTime).TotalHours
       if ($ageH -gt 26) {
         $shifts = Get-BackupMissedShifts -AgeHours $ageH
-        $alerts += "备份超龄 类别=$($t.kind) 档=缺$shifts 班(>26h)"
+        $alerts += (Get-BackupAlertSig -Kind $t.kind -Shifts $shifts)
         $alertDetail += "备份类别=$($t.kind) 最新 $($latest.Name) 距今 $([math]::Round($ageH, 1))h(=缺 $shifts 班)"
       }
     }
@@ -602,6 +656,35 @@ while ($true) {
     Write-Host "$(Get-Date -Format 'HH:mm:ss') 异常: $($alerts -join '; ')" -ForegroundColor Red
   } else {
     Write-Host "$(Get-Date -Format 'HH:mm:ss') 全部正常" -ForegroundColor Green
+  }
+
+  # ── 身份终态/恢复清偿档(2026-10-17 立;判据在 alert-dedup.ps1 的 Clear-AlertRecoveredIdentities,
+  #    本处只接线并落日志)──每轮都跑,**包括零异常轮**。
+  # 立因:监控侧所有告警身份都是 stall=false(Test-AlertDue 适配器从不传 -Stall),而部署侧的
+  # Clear-AlertStallIdentities 只认 stall=true 一族、且只管部署自己的档案 ⇒ 监控台账结构上没有
+  # 出口:故障恢复后条目永久滞留(repeatNo=40 那型事故的监控宿主版)。
+  # 本档**不发"已恢复"信**,出处与理由:
+  #   ① 部署侧同类终态先例 ihui-deploy.ps1:2224(ALERT-CLEARED)= 清偿只写日志、不发信;
+  #   ② 仓内发"已恢复"信的先例 check-credential-health.mjs:1412(「凭据巡检已恢复」)前提是
+  #      **同一轮复验拿到鉴权通过**(主动验证),而本档"恢复"判据只是"身份缺席本轮异常清单"
+  #      —— 一次 5 分钟采样,撑不起一封结论性正面信(§0.3:弱证据不得折成强判据的另一半);
+  #   ③ 间歇故障会"清一轮、报一轮"交替 ⇒ 恢复信+新故障信交替轰炸,消噪变成造噪
+  #      (alert-dedup.ps1 头注同一禁令)。信面沉默、账目有出口:缺席未超窗只打 recoveredTs
+  #      标记(抑制间歇重寄),超窗才删条目(真终态)。
+  $activeSigs = @($alerts | ForEach-Object { ($_ -replace '\s+', ' ').Trim() } | Where-Object { $_ })
+  $rc = Clear-AlertRecoveredIdentities -StateFile $MonitorStateFile -ActiveSig $activeSigs -RepeatHours $AlertRepeatHours
+  if (-not $rc.Ok) {
+    Log "身份恢复清偿 未判定:$($rc.Error)(本轮台账未动——不等于已清,下一轮继续判)"
+  } else {
+    if (@($rc.ClearedLabels).Count -gt 0) {
+      Log "身份恢复清偿 删除$($rc.Cleared)条:身份缺席本轮异常清单且距最后登记已≥${AlertRepeatHours}小时(判恢复)|明细: $(@($rc.ClearedLabels | Select-Object -First 5) -join ' ;; ')"
+    }
+    if (@($rc.PendingLabels).Count -gt 0) {
+      Log "身份恢复清偿 新标已恢复$($rc.NewlyMarked)条:身份缺席本轮但重发窗未走完,保留条目以抑制间歇性重寄|明细: $(@($rc.PendingLabels | Select-Object -First 5) -join ' ;; ')"
+    }
+    if ($rc.Undetermined -gt 0) {
+      Log "身份恢复清偿 未判定$($rc.Undetermined)条:台账里的时刻解析不出,原样保留(既不折成恢复也不折成告警)"
+    }
   }
 
   if ($Once) { break }
