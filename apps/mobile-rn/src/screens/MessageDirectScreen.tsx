@@ -28,9 +28,20 @@ export function MessageDirectScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<MessageDirectItem[]>('/message/direct')
+      const res = await fetchApi<{ list: Array<{ peer_id: string }> }>(
+        '/messages/private/conversation/list',
+      )
       if (!res.success) throw new Error()
-      setItems(res.data ?? [])
+      const list = res.data?.list ?? []
+      setItems(
+        list.map((row) => ({
+          memberId: row.peer_id,
+          nickname: row.peer_id,
+          lastMessage: '',
+          lastMessageTime: '',
+          unreadCount: 0,
+        })),
+      )
     } catch {
       setError(t('messageDirect.loadFailed'))
     } finally {

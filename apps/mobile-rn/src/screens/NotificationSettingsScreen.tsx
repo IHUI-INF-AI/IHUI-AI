@@ -30,10 +30,10 @@ export function NotificationSettingsScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetchApi<NotificationSettingsItem>('/user/notification-settings')
+        const res = await fetchApi<{ settings?: NotificationSettingsItem }>('/settings/notifications')
         if (!res.success) throw new Error('http')
         if (cancelled) return
-        setSettings(res.data ?? null)
+        setSettings(res.data?.settings ?? null)
       } catch {
         if (!cancelled) setError(t('notificationSettings.loadFailed'))
       } finally {
@@ -55,7 +55,7 @@ export function NotificationSettingsScreen() {
     setError('')
     setSuccess('')
     try {
-      const res = await fetchApi<NotificationSettingsItem>('/user/notification-settings', {
+      const res = await fetchApi<unknown>('/settings/notifications', {
         method: 'PUT',
         body: JSON.stringify(settings),
       })
