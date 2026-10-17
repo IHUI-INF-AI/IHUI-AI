@@ -100,6 +100,7 @@
  */
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, resolve } from 'node:path'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import {
   Undetermined,
   assertRepoRoot,
@@ -210,8 +211,6 @@ const OWNER_GUARD_RE = new RegExp(
 )
 /** 写链的回报口径:改了几行问库。`changes` / `rowCount` / `affectedRows` / `RETURNING`。 */
 const LIB_CONFIRMED_RE = /\b(?:changes|rowCount|affectedRows)\b|\bRETURNING\b/i
-/** 函数体内一条读链(找预查询用)。 */
-const READ_VERB_RE = /\.(select|execute)\s*\(/g
 
 const USAGE = `用法:
   node scripts/check-write-owner-predicate.mjs [--staged|--worktree] [--strict]
@@ -2319,14 +2318,17 @@ function runSelfTest() {
 function main(argv) {
   if (argv.includes('--help') || argv.includes('-h')) return void console.log(USAGE)
   if (argv.includes('--self-test')) return runSelfTest()
-  const ri = argv.indexOf('--root')
-  if (ri >= 0) {
-    const dir = argv[ri + 1]
-    if (!dir) {
-      console.error(`[${GATE}] ❌ --root 需要一个目录参数`)
+  // G-322(本站三处):`--root` 只挡了"后面没有参数",顶值那支把 "--staged" 当根换掉(下一行
+  // assertRepoRoot 报的是"根不对"而不是"你少打了一个值");`--files` 顶值 ⇒ 清单变成一个永不命中
+  // 的 token ⇒ "扫到 0 个文件"报绿;`--limit` 走 Number() 得 NaN ⇒ 比较恒假 = 限量静默失效。
+  // 三支一律交单源出口(§22c),数值域校验留在本门。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootFlag.present) {
+    if (rootFlag.error) {
+      console.error(`[${GATE}] ❌ ${rootFlag.error}`)
       return 2
     }
-    ROOT = resolve(dir)
+    ROOT = resolve(rootFlag.value)
     assertRepoRoot(ROOT, GATE)
   }
   const picked = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
@@ -2334,16 +2336,27 @@ function main(argv) {
     console.error(`[${GATE}] ❌ 无法判定:${picked.error}`)
     return 2
   }
-  const fi = argv.indexOf('--files')
-  const only =
-    fi >= 0 && argv[fi + 1]
-      ? argv[fi + 1]
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : null
-  const li = argv.indexOf('--limit')
-  const limit = li >= 0 && argv[li + 1] ? Number(argv[li + 1]) : 12
+  const filesFlag = requireFlagValue(argv, '--files', { noun: '逗号分隔的路径清单' })
+  if (filesFlag.error) {
+    console.error(`[${GATE}] ❌ ${filesFlag.error}`)
+    return 2
+  }
+  const only = filesFlag.value
+    ? filesFlag.value
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : null
+  const limitFlag = requireFlagValue(argv, '--limit', { noun: '正整数' })
+  if (limitFlag.error) {
+    console.error(`[${GATE}] ❌ ${limitFlag.error}`)
+    return 2
+  }
+  const limit = limitFlag.value ? Number(limitFlag.value) : 12
+  if (!Number.isInteger(limit) || limit <= 0) {
+    console.error(`[${GATE}] ❌ --limit 必须是正整数,实得:${JSON.stringify(limitFlag.value)}(未判定)`)
+    return 2
+  }
   let out
   try {
     out = analyze(ROOT, picked.face, { strict: argv.includes('--strict'), onlyFiles: only })
