@@ -63,7 +63,7 @@ the Chinese README, and blocks any stale value.
 
 Headline claims (same source as the table below, all live-computed): **596 tables · 4,418 API routes ·
 25 WebSocket endpoints · 118 catalogued LLMs · 38 platforms auto-publishing · 2,864 test files ·
-238 engineering gates · 47 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
+238 engineering gates · 48 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 15 compose services**.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
@@ -86,12 +86,12 @@ Headline claims (same source as the table below, all live-computed): **596 table
 | i18n 作用域    | 7     | `i18nScopes`       |
 | 语言包 JSON    | 35    | `i18nMessageFiles` |
 | 测试文件       | 2864  | `testFiles`        |
-| CI 工作流      | 47    | `ciWorkflows`      |
+| CI 工作流      | 48    | `ciWorkflows`      |
 | Compose 服务   | 15    | `composeServices`  |
 | 工程守门       | 256   | `guardianGates`    |
 | — blocking     | 233   | `guardianBlocking` |
 | — warn         | 26    | `guardianWarn`     |
-| 跟踪文件       | 14865 | `trackedFiles`     |
+| 跟踪文件       | 14866 | `trackedFiles`     |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-17。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。

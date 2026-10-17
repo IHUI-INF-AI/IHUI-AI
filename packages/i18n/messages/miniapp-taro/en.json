@@ -86,10 +86,6 @@
     "claimFailed": "Failed to claim",
     "loadFailed": "Failed to load tasks"
   },
-  "nav": {
-    "profile": "Profile",
-    "community": "Community"
-  },
   "common": {
     "hint": "Notice",
     "goSettings": "Go to Settings",
