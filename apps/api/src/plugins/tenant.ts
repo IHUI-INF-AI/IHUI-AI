@@ -8,6 +8,8 @@ import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { tenants, tenantQuotas, type Tenant } from '@ihui/database'
 import { normalizeHeaderStrict, matchesAnyPrefix, parsePath } from '../utils/http-normalize.js'
+// ihui_tenant_api_calls_total:与配额自增同一 onResponse 收口(setImmediate 内,标签白名单洗)
+import { recordTenantApiCall } from './business-metrics.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -145,6 +147,8 @@ const tenantPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const url = request.url.split('?')[0] ?? ''
     if (!url.startsWith('/api/')) return
     setImmediate(() => {
+      // ihui_tenant_api_calls_total:tenant_id 白名单洗 + 基数上限(防恶意 header 炸基数)
+      recordTenantApiCall(request.tenantId!)
       db.update(tenantQuotas)
         .set({ apiCallsUsed: sql`${tenantQuotas.apiCallsUsed} + 1` })
         .where(eq(tenantQuotas.tenantId, request.tenantId!))

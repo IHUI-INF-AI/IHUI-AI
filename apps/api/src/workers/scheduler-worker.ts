@@ -55,6 +55,11 @@ import {
 } from '../services/edu-arrear-remind-service.js'
 // O5(2026-09-21):llm_call_logs 到期原文清除(只清 prompt/response,计费/归因列保留)
 import { purgeAllExpiredLlmCallLogRawText } from '../services/audit-log-service.js'
+// ihui_* 业务域 Gauge 刷新(exam 进行中数 / oss 存储占用 / tenant 资源用量与配额)
+import { db } from '../db/index.js'
+import { examRecords, tenantQuotas } from '@ihui/database'
+import { sql } from 'drizzle-orm'
+import { getStorageStats } from '../services/storage-service.js'
 
 // ============================================================================
 // 不可信外部文本 → 告警正文(AGENTS.md §5e:邮件是运维到人的**唯一**通道)
@@ -929,6 +934,62 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               /* 指标采集失败不影响业务 */
             }
             return result
+          }
+          case 'exam-active-monitor': {
+            // ihui_exam_active_total(Gauge):pending 且近 24h started 的答题记录数。
+            // 24h 窗口防僵尸 pending 抬高基线(brief §2 同口径)。
+            const [row] = await db
+              .select({
+                count: sql<number>`count(*)::int`,
+              })
+              .from(examRecords)
+              .where(
+                sql`${examRecords.status} = 'pending' AND ${examRecords.startedAt} > now() - interval '24 hours'`,
+              )
+            const active = row?.count ?? 0
+            server.setExamActive(active)
+            server.log.info({ active }, 'exam active gauge refreshed')
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return { active }
+          }
+          case 'oss-storage-stats': {
+            // ihui_oss_storage_used_bytes / ihui_oss_file_count(Gauge):一次磁盘扫描 set 两个
+            const stats = getStorageStats()
+            server.setOssStorageStats(stats.totalSize, stats.totalFiles)
+            server.log.info(
+              { totalSize: stats.totalSize, totalFiles: stats.totalFiles },
+              'oss storage gauge refreshed',
+            )
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return { totalSize: stats.totalSize, totalFiles: stats.totalFiles }
+          }
+          case 'tenant-resource-gauge': {
+            // ihui_tenant_resource_used / ihui_tenant_resource_quota(Gauge):
+            // 一条 SELECT 刷两组序列,resource ∈ api_calls|storage_mb|users
+            const rows = await db.select().from(tenantQuotas)
+            for (const q of rows) {
+              server.setTenantResourceUsed(q.tenantId, 'api_calls', Number(q.apiCallsUsed ?? 0))
+              server.setTenantResourceUsed(q.tenantId, 'storage_mb', Number(q.storageUsedMb ?? 0))
+              server.setTenantResourceUsed(q.tenantId, 'users', Number(q.userCount ?? 0))
+              server.setTenantResourceQuota(q.tenantId, 'api_calls', Number(q.apiCallsLimit ?? 0))
+              server.setTenantResourceQuota(q.tenantId, 'storage_mb', Number(q.storageLimitMb ?? 0))
+              server.setTenantResourceQuota(q.tenantId, 'users', Number(q.userLimit ?? 0))
+            }
+            server.log.info({ tenants: rows.length }, 'tenant resource gauge refreshed')
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return { tenants: rows.length }
           }
           default:
             server.log.warn({ jobName: name }, 'unknown scheduled job')

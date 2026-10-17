@@ -1547,7 +1547,7 @@ function Get-MigratePendingTier {
 }
 
 function Note-MigrateFailure {
-    param([string]$reason, [string]$pendingTxt)
+    param([string]$reason, [string]$pendingTxt, [string]$RealtimeDetail = '')
     $script:DbMigrateDegraded = $true
     # [2026-10-17 身份档位化] 旧身份 "$reason|$pendingTxt" 把**实时待应用条数**放进签名:
     # 条数随每次迁移抖动 ⇒ 每轮新身份 ⇒ 本函数 12h 窗与 Invoke-FailNotify 的 4h 分槽窗双双
@@ -1556,6 +1556,15 @@ function Note-MigrateFailure {
     # (未知/5 个/1 个),而 5 与 1 的 repeatNo 都是 0 —— 去重从未发生过。
     # 现在:身份只留档位(见 Get-MigratePendingTier),实时读数经 Invoke-FailNotify 的 $Detail
     # 进正文(该参数头注:"$Detail 只能进正文、绝不进签名"),收信人看到的账一字未少。
+    # [2026-10-26 同型第二格收口] $reason 自己也进**两层身份**(本函数里 "$reason|pend=…"
+    # 那层签名,与 Invoke-FailNotify 按 $migMsg 另算的 4h 分槽签名),故它同样只许含固定类。
+    # 旧 TIMEOUT 调用把生效预算 ${migBudgetSec}s 写进 reason ⇒ env
+    # IHUI_DEPLOY_MIGRATE_TIMEOUT_SEC 改一次,两层身份同时换、12h 与 4h 两扇去重双双失效
+    # (与上面条数那一型同因,只是这次是 12:00 实测的 84 封里那格超时)。这里不需要给预算
+    # 分档 —— 默认值分档反而让 env 跨界又翻身份;固定类即达标,实际数值经新增的
+    # $RealtimeDetail 只进正文(与 $Detail 同一条纪律:绝不进签名)。
+    # ⚠ $RealtimeDetail 只许出现在下面 Invoke-FailNotify 的 -Detail 参数上;写进 $sig 或
+    #   $migMsg 就是把刚修好的那一格原地复原(自检尺:scripts/tests/deploy-migrate-exitcode.test.mjs ⑤)。
     $pendTier = Get-MigratePendingTier -PendingTxt $pendingTxt
     $sig = "$reason|pend=$pendTier"
     $prevSig = ''; $prevTs = [datetime]::MinValue
@@ -1577,10 +1586,13 @@ function Note-MigrateFailure {
     try {
         # severity=warning(2026-10-13):迁移未落地但部署按设计继续,属警告级 —— 夜间静默窗
         # 内只记台账不寄信;critical(如 fetch/切流失败)不受影响,照寄。
-        # ⚠ 本行文案就是 Invoke-FailNotify 那边算身份的那段文字,所以它只能含档位,不许含实时条数。
+        # ⚠ 本行文案就是 Invoke-FailNotify 那边算身份的那段文字,所以它只能含档位与固定类,
+        #   不许含实时条数、也不许含生效预算数值(后者经下面 -Detail 只进正文)。
         $migMsg = "DB 迁移未落地(原因:$reason;仍待应用 $pendTier 档)。部署循环按设计继续发布,但生产库结构已落后代码 —— 逐文件复现办法:BEGIN;<迁移文件>;ROLLBACK(零写生产)。详见 deploy\win\deploy-loop.log 的 MIG 行"
         if ($script:MigRetryNote) { $migMsg = "$migMsg`n$($script:MigRetryNote)" }
-        Invoke-FailNotify -m $migMsg -Detail "待应用迁移实时读数: $pendingTxt(身份按档位 $pendTier 计,档位边界出处见 Get-MigratePendingTier)" -Severity warning
+        $migDetail = "待应用迁移实时读数: $pendingTxt(身份按档位 $pendTier 计,档位边界出处见 Get-MigratePendingTier)"
+        if ($RealtimeDetail) { $migDetail = "$migDetail | $RealtimeDetail" }
+        Invoke-FailNotify -m $migMsg -Detail $migDetail -Severity warning
     } catch { Log "MIG   告警推送异常: $_" }
 }
 
@@ -1722,7 +1734,9 @@ function Invoke-DbMigrate {
             'TIMEOUT' {
                 # 超时不改写退出码语义(根本没有码)、不静默继续:按既有失败记账器记,标注未判定
                 Log "WARN  db:migrate 超 ${migBudgetSec}s 被终止 —— **超时未判定**(成败未知,无退出码可引用),本轮记 degraded"
-                Note-MigrateFailure -reason "超时 ${migBudgetSec}s(未判定,无退出码)" -pendingTxt $pendTxt
+                # reason 只留固定类(它会进两层身份);生效预算的实时数值只进正文 —— 见
+                # Note-MigrateFailure 头注 [2026-10-26] 那一格。
+                Note-MigrateFailure -reason "超时被终止(未判定,无退出码)" -pendingTxt $pendTxt -RealtimeDetail "db:migrate 生效超时预算 ${migBudgetSec}s(env IHUI_DEPLOY_MIGRATE_TIMEOUT_SEC 可覆写;生效值以 deploy-loop.log 的 MIG 行为准)"
             }
             'UNDET' {
                 # 显式"无法判定"分支:既不得记成功,也不得记失败(两回事);打印取不到的原因。

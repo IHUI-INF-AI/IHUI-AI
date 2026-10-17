@@ -32,6 +32,13 @@ import { outboxEvents, pointTransactions, eduEnrollment, eduPaymentRecord } from
 import { isNull } from 'drizzle-orm'
 import { calculateTopupBonus } from './topup-discount-service.js'
 import { config } from '../config/index.js'
+// ihui_payment_* 指标:service 层不持有 fastify 实例,走模块级桥接函数打点
+import {
+  recordPaymentAttempt,
+  recordPaymentSuccess,
+  recordPaymentRefund,
+  recordPaymentAmount,
+} from '../plugins/business-metrics.js'
 
 export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
 
@@ -56,7 +63,10 @@ export async function placeOrder(
   input: PlaceOrderInput,
   operatorId: string | null = null,
 ): Promise<Order> {
-  return createOrderRow(input, operatorId)
+  const order = await createOrderRow(input, operatorId)
+  // ihui_payment_attempt_total:下单成功后按渠道计数(渠道中立收口)
+  recordPaymentAttempt(order.paymentMethod ?? 'unknown')
+  return order
 }
 
 /** 查询订单详情。 */
@@ -441,6 +451,13 @@ export async function completeOrderWithSaga(
     }
   }
 
+  // ihui_payment_success_total + amount_total: saga 真实完成(状态迁移)后计数。
+  // 幂等重放路径(上方 status==='paid' 分支)不计,防重复回调虚增成功率分母。
+  // amount 单位 = 分(最小货币单位,orders.amount)。
+  const payChannel = order.paymentMethod ?? 'unknown'
+  recordPaymentSuccess(payChannel)
+  recordPaymentAmount(payChannel, order.amount)
+
   // WS 实时通知：outbox 'order.paid' 已写入，推送 WS 'payment.paid' 给用户所有在线端
   if (server) {
     try {
@@ -583,6 +600,8 @@ export async function refundOrder(orderNo: string): Promise<OrderOperationResult
   if (order.status !== 'paid')
     return { success: false, reason: `订单状态(${order.status})不可退款` }
   await updateOrderStatus(orderNo, 'refunded')
+  // ihui_payment_refund_total:退款状态落库成功后按渠道计数
+  recordPaymentRefund(order.paymentMethod ?? 'unknown')
   // B2: 退款时扣回 token 余额(token 充值订单/活动订单)
   if ((order.orderType === 2 || order.orderType === 3) && order.userId) {
     try {

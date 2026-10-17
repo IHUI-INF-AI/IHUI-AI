@@ -259,11 +259,17 @@ test('T9 守护层:漂移/未判定各自成一条 alert;全绿不发信;尺子�
   const payload = (counts, verdicts) =>
     JSON.stringify({ face: '磁盘运行态', backupDir: '/b', counts, verdicts })
 
+  // 起点件必须走夹具目录:auditEnvDrift 现在会读写"取不到输入"的持续起点台账(也会在取到确定
+  // 结论时清零),测试若用默认路径就是往**生产台账**里写测试数据。
+  const envUndetFile = join(mkScratch('gg-env-undet-'), 'first.json')
+
   // ① 漂移 ⇒ 一条 alert,severity critical,正文点名键名、不点名长度
   calls.length = 0
   let r = GUARD.auditEnvDrift({
     notify,
     logger,
+    undetFile: envUndetFile,
+    horizonMs: 0,
     run: () => ({
       code: 1,
       stdout: payload(
@@ -281,10 +287,16 @@ test('T9 守护层:漂移/未判定各自成一条 alert;全绿不发信;尺子�
   if (/backupLen/.test(calls[0].detail)) throw new Error('alert 正文不该带值长度')
 
   // ② 未判定 ⇒ 另一条 alert 身份(窗口各自去重,绝不与"漂移"共用一个名字)
+  //   2026-10-17 补:这一格与"不可判定/矛盾"三格现在都过**持续性门槛**(单轮取不到只报名)。
+  //   本例要验的是"到了人以后的身份形状",故显式把门槛设 0(= 无门槛)并把起点件放进夹具目录,
+  //   **绝不许碰真 .workbuddy 的台账**(测试写真账会污染生产判据自己的起点)。门槛本身的两条分支
+  //   由下面 T11 成对钉住。
   calls.length = 0
   r = GUARD.auditEnvDrift({
     notify,
     logger,
+    undetFile: envUndetFile,
+    horizonMs: 0,
     run: () => ({
       code: 2,
       stdout: payload(
@@ -304,6 +316,8 @@ test('T9 守护层:漂移/未判定各自成一条 alert;全绿不发信;尺子�
   r = GUARD.auditEnvDrift({
     notify,
     logger,
+    undetFile: envUndetFile,
+    horizonMs: 0,
     run: () => ({
       code: 0,
       stdout: payload(
@@ -319,18 +333,23 @@ test('T9 守护层:漂移/未判定各自成一条 alert;全绿不发信;尺子�
   }
 
   // ④ 尺子坏了(输出不是 JSON / 文件不在位)⇒ 必须喊,不得静默
+  //   (第一路同样过持续性门槛,本例验的是"到了人以后的样子",故 horizon=0;起点件走夹具,不碰真台账)
   calls.length = 0
-  GUARD.auditEnvDrift({ notify, logger, run: () => ({ code: 2, stdout: 'not json at all' }) })
+  GUARD.auditEnvDrift({ notify, logger, run: () => ({ code: 2, stdout: 'not json at all' }), undetFile: envUndetFile, horizonMs: 0 })
   if (calls.length !== 1) throw new Error('尺子坏了却一声不响 ⇒ 故障形态又变回"安静"')
   calls.length = 0
-  GUARD.auditEnvDrift({ notify, logger, run: () => ({ missing: true, code: 2, stdout: '' }) })
+  GUARD.auditEnvDrift({ notify, logger, run: () => ({ missing: true, code: 2, stdout: '' }), undetFile: envUndetFile, horizonMs: 0 })
   if (calls.length !== 1) throw new Error('判据被摘线却不喊 ⇒ 摘线本身成了隐形事件')
+  if (calls[0].name !== '.env 漂移巡检没装车(尺子文件不在这台机上)')
+    throw new Error('摘线那一格必须是**独立身份**,且不许被持续性门槛压住(判据被删不是争用)')
 
   // ⑤ 退出码与结论不符(尺子自报 0 漂移却 exit 1)⇒ 也喊,不得当成"没有漂移"
   calls.length = 0
   r = GUARD.auditEnvDrift({
     notify,
     logger,
+    undetFile: envUndetFile,
+    horizonMs: 0,
     run: () => ({
       code: 1,
       stdout: payload(
@@ -341,6 +360,68 @@ test('T9 守护层:漂移/未判定各自成一条 alert;全绿不发信;尺子�
   })
   if (r.state !== 'inconsistent' || calls.length !== 1)
     throw new Error('矛盾结论必须点名,不能被读成绿')
+})
+
+test('T11 取不到输入的持续性门槛:单轮只报名、连满窗才到人、跨档重报、取到确定结论即清账', () => {
+  const dir = mkScratch('gg-env-gate-')
+  const file = join(dir, 'first.json')
+  const calls = []
+  const logs = []
+  const notify = (name, detail, opts) => calls.push({ name, detail, opts })
+  const logger = (s) => logs.push(String(s))
+  const HOR = 30 * 60 * 1000
+  const badProbe = () => ({ code: 2, stdout: 'not json at all' })
+
+  // ① 单轮取不到 ⇒ 一声不响地只报名(寄信就是把本机争用冒充成故障)
+  calls.length = 0
+  logs.length = 0
+  const g1 = GUARD.auditEnvDrift({ notify, logger, run: badProbe, undetFile: file, horizonMs: HOR })
+  if (g1.state !== 'unreadable') throw new Error(`分流应为 unreadable,实得 ${g1.state}`)
+  if (calls.length !== 0) throw new Error(`单轮就发信 ⇒ 门槛没生效:${JSON.stringify(calls.map((c) => c.name))}`)
+  if (!/只报名不寄信/.test(logs.join('\n'))) throw new Error('抑制必须是**可见**的:日志要点名"本轮不发信"与已持续多久')
+  if (!/连满 30 分钟/.test(logs.join('\n'))) throw new Error('日志必须写明门槛,收信人/看日志的人才能判断还要等多久')
+
+  // ② 连满窗 ⇒ 到人,且带上"这已经是第几个窗"的档位身份
+  const seeded = Date.now() - 31 * 60 * 1000
+  writeFileSync(file, JSON.stringify({ firstMs: seeded }), 'utf8')
+  calls.length = 0
+  GUARD.auditEnvDrift({ notify, logger, run: badProbe, undetFile: file, horizonMs: HOR })
+  if (calls.length !== 1) throw new Error('连满 30 分钟仍取不到 ⇒ 这一格是瞎的,必须到人')
+  if (!/tier=/.test(String(calls[0].opts && calls[0].opts.dedupKey))) throw new Error('身份必须带持续档(跨档要能重报)')
+
+  // ③ 反向锁:把门槛摘掉(horizon=0)同一枚输入必须立刻到人 ⇒ 证明压住它的是门槛,不是分支写错
+  const dir2 = mkScratch('gg-env-gate2-')
+  const file2 = join(dir2, 'first.json')
+  calls.length = 0
+  GUARD.auditEnvDrift({ notify, logger, run: badProbe, undetFile: file2, horizonMs: 0 })
+  if (calls.length !== 1) throw new Error('horizon=0 时不寄 ⇒ 上面那条"抑制"其实是这一支根本没接到人出口')
+
+  // ④ 取到确定结论(全绿)⇒ 起点必须清零,下一场争用重新从 0 计
+  calls.length = 0
+  writeFileSync(file, JSON.stringify({ firstMs: seeded }), 'utf8')
+  GUARD.auditEnvDrift({
+    notify,
+    logger,
+    undetFile: file,
+    horizonMs: HOR,
+    run: () => ({
+      code: 0,
+      stdout: JSON.stringify({
+        face: '磁盘运行态',
+        counts: { targets: 1, drift: 0, driftKeys: 0, undetermined: 0, clean: 1, registeredOnly: 0 },
+        verdicts: [{ id: 'api', state: 'clean', reason: 'r', currentPath: '/p/.env', drift: [] }],
+      }),
+    }),
+  })
+  let alive = true
+  try {
+    JSON.parse(readFileSync(file, 'utf8'))
+  } catch {
+    alive = false
+  }
+  if (alive) throw new Error('取到绿之后起点件还在 ⇒ 下一场争用会拿上一场的账直接落到最高档(= 提前寄信)')
+  rmScratch(dir)
+  rmScratch(dir2)
 })
 
 test('T10 alert 正文的唯一拼装处:只拼键名,绝不回读值', () => {

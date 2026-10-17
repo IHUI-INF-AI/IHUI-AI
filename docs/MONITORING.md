@@ -208,18 +208,17 @@ enabled = true                 # Grafana 自身指标暴露
 | Business Funnel | `business-funnel.json` | 业务漏斗(注册→激活→付费转化) |
 | Cache | `cache.json` | 缓存命中率 + Redis 操作延迟 |
 | Exam Usage | `exam-usage.json` | 考试使用统计(并发/提交/阅卷) |
-| HLS | `hls.json` | 直播流媒体(HLS 切片/延迟/带宽) |
-| Jaeger | `jaeger.json` | 分布式追踪(span 数/耗时/错误率) |
-| Live Room | `live-room.json` | 直播间监控(在线人数/消息 QPS/礼物) |
-| Monitor Health | `monitor_health.json` | 监控栈自身健康(各组件存活) |
-| Nginx | `nginx.json` | Nginx 反代指标(请求/带宽/upstream) |
-| OSS Storage | `oss-storage.json` | 对象存储用量(桶大小/请求/费用) |
+| HLS | `hls.json` | HLS 转码延迟(埋点入口在仓,2026-10-17 清掉 7 个无上报的流媒体面板) |
+| Live Room | `live-room.json` | 直播间监控(在线人数/消息 QPS/礼物;2026-10-17 清掉推拉流码率/延迟面板) |
+| Monitor Health | `monitor_health.json` | 监控栈自身健康(Prometheus 抓取/Grafana 响应/告警数;2026-10-17 清掉 OTel 采样率面板) |
+| OSS Storage | `oss-storage.json` | 对象存储用量(桶大小/请求/费用;2026-10-17 清掉生命周期/跨区流量面板) |
 | Payment Flow | `payment-flow.json` | 支付流程(下单/回调/退款) |
 | PG Deploy | `pg_deploy.json` | PostgreSQL 部署状态(复制/连接/锁) |
 | PostgreSQL | `postgresql.json` | PostgreSQL 性能(查询/事务/锁/缓存) |
 | Redis Cluster | `redis-cluster.json` | Redis 集群(内存/键/命令/持久化) |
 | Tenant Usage | `tenant-usage.json` | 多租户用量(API 调用/存储/Token 配额) |
-| WebSocket | `ws.json` | WebSocket 连接(活跃数/消息 QPS/断开) |
+| WebSocket | `ws.json` | WebSocket 连接(活跃数/消息 QPS/房间数/断连率;2026-10-17 由 5 个无发射点的裸 `ws_*` 名改指到 `business_ws_*` 真指标) |
+| AI Logs | `ai-logs.json` | AI 链路日志(Loki LogQL:错误检索/LLM 调用/慢请求/ws 事件,2026-10-17 立) |
 
 ### Dashboard Provisioning
 

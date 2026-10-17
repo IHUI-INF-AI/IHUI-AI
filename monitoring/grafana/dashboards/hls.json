@@ -1,5 +1,7 @@
 {
-  "annotations": { "list": [] },
+  "annotations": {
+    "list": []
+  },
   "description": "IHUI-AI HLS 直播流监控",
   "editable": true,
   "graphTooltip": 1,
@@ -7,135 +9,46 @@
   "links": [],
   "panels": [
     {
-      "title": "活跃流数",
-      "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
-      "targets": [
-        {
-          "expr": "sum(hls_active_streams{instance=~\"$instance\"})",
-          "legendFormat": "活跃流",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 9000,
+      "options": {
+        "content": "本次删除 7 个面板,原因:无流媒体服务器/播放器上报,全仓 0 命中;转码延迟面板保留(埋点入口存在)。\n\n这些面板引用的指标在代码里**没有发射点**,面板从建出来那天起就永远是 No data。埋点入口补齐后可以按 `scripts/data/grafana-external-metrics.json` 台账或新增发射点把它们请回来。",
+        "mode": "markdown"
+      },
+      "title": "面板调整说明",
+      "type": "text"
     },
     {
-      "title": "当前带宽 (Mbps)",
-      "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "title": "转码延迟 (ms)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
       "targets": [
         {
-          "expr": "sum(hls_bandwidth{instance=~\"$instance\"}) * 8 / 1000000",
-          "legendFormat": "带宽",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "Mbps" }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
-    },
-    {
-      "title": "在线观众数",
-      "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
-      "targets": [
-        {
-          "expr": "sum(hls_viewers{instance=~\"$instance\"})",
-          "legendFormat": "观众",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
-    },
-    {
-      "title": "卡顿率",
-      "type": "gauge",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
-      "targets": [
-        {
-          "expr": "avg(hls_stutter_rate{instance=~\"$instance\"})",
-          "legendFormat": "卡顿率",
+          "expr": "sum(rate(business_hls_transcode_seconds_sum{instance=~\"$instance\"}[5m])) / sum(rate(business_hls_transcode_seconds_count{instance=~\"$instance\"}[5m])) * 1000",
+          "legendFormat": "{{stream}}",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
-          "min": 0,
-          "max": 1,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green" },
-              { "color": "yellow", "value": 0.05 },
-              { "color": "red", "value": 0.15 }
-            ]
-          }
+          "unit": "ms"
         },
         "overrides": []
-      },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
-    },
-    {
-      "title": "带宽趋势 (按流)",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
-      "targets": [
-        {
-          "expr": "sum(hls_bandwidth{instance=~\"$instance\"}) by (stream)",
-          "legendFormat": "{{stream}}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "Bps" }, "overrides": [] }
-    },
-    {
-      "title": "转码延迟 (ms)",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
-      "targets": [
-        {
-          "expr": "avg(hls_transcode_latency{instance=~\"$instance\"}) by (stream)",
-          "legendFormat": "{{stream}}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] }
-    },
-    {
-      "title": "观众数趋势",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
-      "targets": [
-        {
-          "expr": "sum(hls_viewers{instance=~\"$instance\"}) by (stream)",
-          "legendFormat": "{{stream}}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
-    },
-    {
-      "title": "卡顿率趋势",
-      "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
-      "targets": [
-        {
-          "expr": "avg(hls_stutter_rate{instance=~\"$instance\"}) by (stream)",
-          "legendFormat": "{{stream}}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
+      }
     }
   ],
   "refresh": "30s",
@@ -147,16 +60,26 @@
       {
         "name": "instance",
         "type": "query",
-        "datasource": { "type": "prometheus", "uid": "Prometheus" },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        },
         "query": "label_values(hls_active_streams, instance)",
         "refresh": 2,
         "includeAll": true,
         "multi": true,
-        "current": { "selected": true, "text": "All", "value": "$__all" }
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        }
       }
     ]
   },
-  "time": { "from": "now-1h", "to": "now" },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
   "title": "IHUI-AI HLS 直播流监控",
