@@ -259,6 +259,14 @@ export type { SearchInputProps } from './components'
 export { TextField } from './components'
 export type { TextFieldProps } from './components'
 
+/**
+ * 容器级(WRAP)聚焦描边 —— 描边画在整行/整井容器上(搜索框、输入行)时的唯一状态与取值出口。
+ * `TextField` 只覆盖描边在裸输入框身上的情形;容器级若各写一份 `useState(focused)` 再各挑一次
+ * 墨档色值,「三端取同一档」就退回散文约束(票 G-42 ② 记的正是这一型)。
+ */
+export { useWrapFocus, wrapFocusBorder, wrapFocusInk } from './hooks/use-wrap-focus'
+export type { WrapFocus, WrapFocusOptions } from './hooks/use-wrap-focus'
+
 /** 区块头「更多」入口:RN 端唯一实现,箭头走 lucide 矢量(勿在端内再用 `›` 字符自拼) */
 export { MoreLink } from './components'
 export type { MoreLinkProps } from './components'
