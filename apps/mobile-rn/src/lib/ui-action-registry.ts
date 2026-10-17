@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 平台特有:依赖 react-navigation 容器 ref 与 RN 端 zustand themeStore,不适合共享
+import { maskParams } from '@ihui/shared/ui-control'
 import type { AgentActionErrorCode, AppUiActionType, AppUiSnapshot } from '@ihui/types'
 
 import { themeStore } from '../context/ThemeContext'
@@ -80,31 +81,12 @@ function readString(raw: unknown): string {
 }
 
 /**
- * 参数键命中即打码:路由 params 里可能带着 token / 手机号 / 邮箱(如 ChangePhone: { uuid }
- * 之后回跳带的联系方式),而 read/describe 只是"给 AI 看现状",打码不损失任何可执行能力。
+ * 参数打码已下沉 `@ihui/shared/ui-control/security-policy`(2026-10-17)。
+ *
+ * 本端原有的 uuid / ticket 凭据键与「函数值归一成占位符」两条,小程序端都没有;
+ * 下沉后取并集由 shared 统一提供,两端同口径。本端保留 re-export,调用点一字不改。
  */
-const CREDENTIAL_KEY_RE = /token|password|secret|code|uuid|ticket/i
-const PII_KEY_RE = /phone|mobile|email|idcard|passport|身份/i
-const MASKED_VALUE = '***'
-
-export function maskParams(params: Record<string, unknown> | undefined): Record<string, unknown> {
-  const masked: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(params ?? {})) {
-    if (CREDENTIAL_KEY_RE.test(key) || PII_KEY_RE.test(key)) {
-      masked[key] = MASKED_VALUE
-      continue
-    }
-    // 对象/数组/函数不回传:RN 路由参数允许塞回调(如 PostCreate.onPickTopic),序列化出去
-    // 既无意义也可能带走用户数据(JSON.stringify 会直接丢掉函数),统一归一成占位符
-    masked[key] =
-      value === null || value === undefined
-        ? ''
-        : typeof value === 'object' || typeof value === 'function'
-          ? '[complex]'
-          : value
-  }
-  return masked
-}
+export { maskParams }
 
 function describeError(err: unknown): string {
   if (err instanceof Error && err.message) return err.message
