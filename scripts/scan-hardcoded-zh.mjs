@@ -195,7 +195,19 @@ function notice(msg) {
   else console.log(msg)
 }
 if (TOP_INVALID) notice('[scan-hardcoded-zh] 忽略无效的 --top 值(需要一个纯数字,紧邻的下一个 token 不是数字),已退回默认 30')
-const STRICT = args.has('--exit') && argv[argv.indexOf('--exit') + 1] === '1'
+// G-322(本站,blocking 腿):旧写法 `args.has('--exit') && argv[indexOf('--exit')+1] === '1'`
+// 把"实得的不是 1"与"根本没给 --exit"读成同一件事 ⇒ `--exit --staged`、`--exit 2`、`--exit`
+// 落在末尾这三型都会**静默关掉棘轮**,而调用方以为自己跑的是拒绝档(§0.10:失效方向绝不能是
+// "多放一次跳门")。现在:给了 --exit 就必须是 0/1,否则未判定 exit 2;没给才按非严格档走。
+const EXIT_VAL = flagValue('--exit')
+const EXIT_BAD = args.has('--exit') && EXIT_VAL !== '1' && EXIT_VAL !== '0'
+if (EXIT_BAD) {
+  console.error(
+    `[scan-hardcoded-zh] ❌ --exit 需要 0 或 1 —— 紧邻的 token 实得:${JSON.stringify(argv[argv.indexOf('--exit') + 1] ?? null)}(不得静默退回非严格档)`,
+  )
+  process.exit(2)
+}
+const STRICT = EXIT_VAL === '1'
 const STAGED = args.has('--staged')
 const UPDATE_BASELINE = args.has('--update-baseline')
 const WORKTREE_FLAG = args.has('--worktree')

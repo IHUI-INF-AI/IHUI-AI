@@ -37,6 +37,7 @@ import {
 } from '@/config/downloads.config'
 import { useDownloadTrack } from '@ihui/shared/hooks'
 import type { DesktopFeed } from '@/config/desktop-feed.generated'
+import type { LiveAndroidSource } from '@/config/desktop-feed-live'
 
 /** platform → 图标组件映射(与 downloads.tsx 的 DOWNLOADS 数组同源) */
 const PLATFORM_ICON: Record<DownloadPlatform, LucideIcon | React.FC<{ className?: string }>> = {
@@ -73,9 +74,11 @@ const PLATFORM_LABEL_KEY: Record<DownloadPlatform, string> = {
 export function DownloadDetailContent({
   platform: platformParam,
   liveDesktopFeed,
+  liveAndroid,
 }: {
   platform: string
   liveDesktopFeed?: DesktopFeed | null
+  liveAndroid?: LiveAndroidSource | null
 }) {
   const t = useTranslations('nav')
   const router = useRouter()
@@ -98,15 +101,33 @@ export function DownloadDetailContent({
   // 构建期快照为底,运行期解析到新版本才覆盖 —— 覆盖只动「版本/日期/安装包」三个展示面,
   // installGuideKey 等静态文案仍走快照,避免把两种来源混成一个类型。
   const staticMeta: PlatformMeta = getPlatformMeta(platform)
-  const meta: PlatformMeta =
-    platform === 'desktop' && liveDesktopFeed
-      ? {
-          ...staticMeta,
-          version: liveDesktopFeed.version,
-          releaseDate: liveDesktopFeed.releaseDate || staticMeta.releaseDate,
-          assets: liveDesktopFeed.assets.length > 0 ? liveDesktopFeed.assets : staticMeta.assets,
-        }
-      : staticMeta
+  let meta: PlatformMeta = staticMeta
+  if (platform === 'desktop' && liveDesktopFeed) {
+    meta = {
+      ...staticMeta,
+      version: liveDesktopFeed.version,
+      releaseDate: liveDesktopFeed.releaseDate || staticMeta.releaseDate,
+      assets: liveDesktopFeed.assets.length > 0 ? liveDesktopFeed.assets : staticMeta.assets,
+    }
+  } else if (platform === 'android-apk' && liveAndroid) {
+    // 版本号取不到时(如 nightly-<run_id> 这种 tag)保持快照值,**不编造**:
+    // 页面上写一个猜出来的版本号,比不写更糟。链接与体积仍用运行期真值。
+    meta = {
+      ...staticMeta,
+      version: liveAndroid.version ?? staticMeta.version,
+      releaseDate: liveAndroid.releaseDate || staticMeta.releaseDate,
+      assets:
+        liveAndroid.apkUrl.length > 0
+          ? [
+              {
+                href: liveAndroid.apkUrl,
+                sizeBytes: liveAndroid.sizeBytes,
+                format: 'Android APK',
+              },
+            ]
+          : staticMeta.assets,
+    }
+  }
   const Icon = PLATFORM_ICON[platform]
   const label = t(PLATFORM_LABEL_KEY[platform])
   const hasAssets = meta.assets.length > 0

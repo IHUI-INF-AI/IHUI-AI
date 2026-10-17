@@ -335,9 +335,22 @@ jobs:
           echo "产物已同步到 apps/web/public/downloads/(desktop + extension)" >> $GITHUB_STEP_SUMMARY
           echo "下载页/更新器版本号:站点运行期直读发布源,发版即生效(无需快照入库)" >> $GITHUB_STEP_SUMMARY
 
-  # 2026-09-17:国内发行(Gitee)自动化——安装包+更新签名镜像到 Gitee release,
-  # latest.json(url 全部指向 Gitee 直链)更新 desktop-feed 分支 raw 直链。
-  # 更新器第一端点即该 raw 链接(薄壳化 exe 内嵌),GitHub feed 仅兜底。
+  # 2026-09-17 立 / 2026-10-17 校正:国内发行(Gitee)自动化——安装包+更新签名
+  # 尽力镜像到 Gitee release。**Gitee 侧不是更新器端点**:客户端只认
+  # aizhs.top 单端点(见 sync-gitee.py 末尾第 5 节),此处作国内手动下载的附件存档。
+  #
+  # 2026-10-17 修掉"Windows 包永远传不上"的结构性缺口(用户报「Gitee 怎么能从来不工作」):
+  #   实测链条 —— 0.1.74 的 Gitee release 里 mac/linux 资产齐全,但 **只有
+  #   `AI_0.1.74_x64-setup.exe.sig`,没有 `.exe` 本体**。原因是 2026-10-16 把
+  #   webviewInstallMode 改成 offlineInstaller,把完整 WebView2 运行时(本机实测缓存
+  #   `MicrosoftEdgeWebView2RuntimeInstallerX64.exe` = 214,131,448 字节 ≈205MB)
+  #   整个打进安装包 ⇒ exe 从 ~8MB 涨到 225,269,867 字节 ⇒ **结构性超过 Gitee
+  #   单文件 100MB 硬上限**(超限直接 400),而 Windows 是国内主力平台。
+  #   ⇒ 已把档位改为 embedBootstrapper(只内嵌 ≈1,867,984 字节的引导器,缺运行时才联网装,
+  #     且 Win11/绝大多数 Win10 本就预装 WebView2)⇒ 安装包回到 10MB 量级,Gitee 可传。
+  #   ⚠️ 不许把档位改回 offlineInstaller 了事 —— 那等于用"国内用户下载不了"换"离线可装";
+  #     真要恢复完全离线,必须先另解决分发通道。守门 scripts/check-version-drift.mjs 的
+  #     H 判据会在 offlineInstaller 回归时判红(需显式豁免并写明分发方案)。
   sync-gitee:
     name: Sync release to Gitee (国内发行)
     needs: [build, publish-updater-json]
@@ -369,7 +382,7 @@ jobs:
         run: |
           echo "### Gitee 国内发行同步完成" >> $GITHUB_STEP_SUMMARY
           echo "tag: ${{ inputs.tag || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "安装包+签名已镜像 Gitee release;latest.json 已更新 desktop-feed 分支" >> $GITHUB_STEP_SUMMARY
-          echo "更新器端点(Gitee 优先): https://gitee.com/${{ secrets.GITEE_OWNER }}/IHUI-AI/raw/desktop-feed/latest.json" >> $GITHUB_STEP_SUMMARY
+          echo "安装包+签名已尽力镜像 Gitee release(超 Gitee 单文件 100MB 上限的资产,如 Windows exe,自动跳过)" >> $GITHUB_STEP_SUMMARY
+          echo "注:Gitee 侧仅为附件存档,**不是**更新器端点;客户端只认 https://aizhs.top/desktop-feed.json" >> $GITHUB_STEP_SUMMARY
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
