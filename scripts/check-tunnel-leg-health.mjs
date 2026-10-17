@@ -76,6 +76,12 @@ const TASKLIST_TIMEOUT_MS = 10_000
 const RESTART_EVENT_WINDOW_MS = 24 * 60 * 60 * 1000
 const DOUBLE_START_SKEW_MS = 90_000
 const STARTS_WARN_24H = 4
+// "还在抖"与"窗口里抖过、早就停了"的分界,同样取现读量纲:崩溃循环期间 SCM 每 ~20 秒重启一次
+// (2026-10-17 02:26:56→02:32:48 实测 15 起 15 停,间隔恒为 20–40s),而守护派发本尺子的节律是 15 分钟
+// (`git-guardian.mjs` 的 `TUNNEL_LEG_INTERVAL_MS` 默认值)。还在抖 ⇒ 最新一条生命周期事件必落在最近一个
+// tick 之内;超过 15 分钟没有新事件 ⇒ 循环已停。这一格不分家就会把"八小时前恢复"的状态量当成现行犯,
+// 每 4 小时(§5e 身份去重窗)重寄一封信,而收信人拿到信能做的动作早就已经做完了。
+const CHURN_LIVE_HORIZON_MS = 15 * 60 * 1000
 
 function runCapture(cmd, args, timeoutMs = SPAWN_TIMEOUT_MS) {
   return new Promise((resolve) => {
@@ -276,7 +282,14 @@ export function summarizeRestarts(events, opt = {}) {
     const gap = starts[i] - starts[i - 1]
     if (minGapMs === null || gap < minGapMs) minGapMs = gap
   }
-  return { total: list.length, starts: starts.length, stops, graceful, nonInfo: nonInfo.length, minStartGapMs: minGapMs, doubleStart: minGapMs !== null && minGapMs < skew }
+  // 最新一条 provider=Cloudflared 事件的时刻:用来分"还在抖"与"窗口里抖过但已停"。
+  // 一条都取不到时刻 ⇒ null,由判定层按现行论处理(取不到 ⇒ 照拦,不放行)。
+  let lastEventMs = null
+  for (const e of list) {
+    const ms = Number(e?.timeMs)
+    if (Number.isFinite(ms) && (lastEventMs === null || ms > lastEventMs)) lastEventMs = ms
+  }
+  return { total: list.length, starts: starts.length, stops, graceful, nonInfo: nonInfo.length, minStartGapMs: minGapMs, lastEventMs, doubleStart: minGapMs !== null && minGapMs < skew }
 }
 
 /**
@@ -284,7 +297,7 @@ export function summarizeRestarts(events, opt = {}) {
  * processProbe: 'ok'(拿到 pid 列表) | 'failed'(探测本身失败 ⇒ 进程存在性未知)
  * netshProbe / netstatProbe: 'ok' | 'failed'
  */
-export function judge({ processProbe, pids, netshProbe, netstatProbe, legs, addresses, eventsProbe = 'absent', restarts = null, metricsProbe = 'absent', locations = null }) {
+export function judge({ processProbe, pids, netshProbe, netstatProbe, legs, addresses, eventsProbe = 'absent', restarts = null, metricsProbe = 'absent', locations = null, nowMs = Date.now() }) {
   const dims = {}
   const processPresent = processProbe === 'ok' ? pids.length > 0 : null
 
@@ -312,10 +325,28 @@ export function judge({ processProbe, pids, netshProbe, netstatProbe, legs, addr
   } else if (restarts.total === 0) {
     // 真 0 与「读不出」必须分家:24h 内一条生命周期事件都没有 = 服务没动过(已判定的好态)。
     dims['restart-churn'] = { verdict: 'ok', reading: { starts: 0, stops: 0, note: '24h 内 0 条 Cloudflared 事件(已判定的真 0)' } }
-  } else if (restarts.doubleStart) {
-    dims['restart-churn'] = { verdict: 'breach', reason: `24h 内两次 service starting 相隔 ${Math.round((restarts.minStartGapMs || 0) / 1000)}s(双启窗口上限 ${Math.round(DOUBLE_START_SKEW_MS / 1000)}s)= 崩溃循环签名;starting=${restarts.starts} stopped=${restarts.stops}`, reading: restarts }
-  } else if (restarts.nonInfo > 0) {
-    dims['restart-churn'] = { verdict: 'breach', reason: `事件日志里出现 ${restarts.nonInfo} 条非信息级(Level≠4)Cloudflared 事件`, reading: restarts }
+  } else if (restarts.doubleStart || restarts.nonInfo > 0) {
+    // 崩溃循环签名(双启过近 / 非信息级事件)是**现行犯**才需要喊人;同一件事在 24h 窗口里躺着的
+    // 历史,循环停 8 小时后照原样每 4 小时重寄一封信 —— 那是把恢复掉的状态当报警(机主 2026-10-17
+    // 就是被这样一封信叫起来的:02:33 已恢复,06:33 又寄一封)。取不到最新时刻 ⇒ 按现行论(照拦)。
+    const sig = restarts.doubleStart
+      ? `24h 内两次 service starting 相隔 ${Math.round((restarts.minStartGapMs || 0) / 1000)}s(双启窗口上限 ${Math.round(DOUBLE_START_SKEW_MS / 1000)}s)= 崩溃循环签名;starting=${restarts.starts} stopped=${restarts.stops}`
+      : `事件日志里出现 ${restarts.nonInfo} 条非信息级(Level≠4)Cloudflared 事件`
+    const lastMs = Number(restarts.lastEventMs)
+    const sinceMs = Number.isFinite(lastMs) ? Number(nowMs) - lastMs : null
+    if (sinceMs === null || sinceMs <= CHURN_LIVE_HORIZON_MS) {
+      dims['restart-churn'] = {
+        verdict: 'breach',
+        reason: `${sig};最新一条 Cloudflared 事件在 ${sinceMs === null ? '(时刻取不到)' : `${Math.round(sinceMs / 1000)}s 前`}⇒ 仍在抖或刚刚才抖(上限 ${Math.round(CHURN_LIVE_HORIZON_MS / 60000)} 分钟 = 守护一个 tick)`,
+        reading: restarts,
+      }
+    } else {
+      dims['restart-churn'] = {
+        verdict: 'warn',
+        reason: `${sig};但最新一条事件在 ${(Math.round((sinceMs / 60000) * 10) / 10).toFixed(1)} 分钟前(超出 ${Math.round(CHURN_LIVE_HORIZON_MS / 60000)} 分钟一个 tick)⇒ **循环已停抖**,24h 窗口内只报数不再寄人。要查成因:wevtutil qe Application "/q:*[System[Provider[@Name='Cloudflared']]]" /f:XML /rd /c:40,再看 D:\\DevEnv\\logs\\cloudflared.log 同一时刻附近`,
+        reading: restarts,
+      }
+    }
   } else if (restarts.starts >= STARTS_WARN_24H) {
     dims['restart-churn'] = {
       verdict: 'warn',
