@@ -34,8 +34,9 @@ vi.mock('lucide-react-native', () => ({
 
 vi.mock('react-native', () => {
   const flatten = (style: unknown): Record<string, unknown> => {
-    if (style == null) return {}
-    if (Array.isArray(style)) return style.reduce<Record<string, unknown>>((acc, s) => Object.assign(acc, flatten(s)), {})
+    if (style === null || style === undefined) return {}
+    if (Array.isArray(style))
+      return style.reduce<Record<string, unknown>>((acc, s) => Object.assign(acc, flatten(s)), {})
     if (typeof style === 'object') return style as Record<string, unknown>
     return {}
   }
@@ -51,7 +52,8 @@ vi.mock('react-native', () => {
   const View = (p: Record<string, unknown>) => createElement('div', p)
   const Text = (p: Record<string, unknown>) => createElement('span', p)
   // 迁屏回归用桩:按下/列表/加载指示,只保结构不保视觉
-  const Pressable = (p: Record<string, unknown>) => createElement('div', { onClick: p.onPress as never }, p.children as never)
+  const Pressable = (p: Record<string, unknown>) =>
+    createElement('div', { onClick: p.onPress as never }, p.children as never)
   const TouchableOpacity = Pressable
   const ActivityIndicator = (p: Record<string, unknown>) => createElement('div', p)
   const FlatList = (p: Record<string, unknown>) =>
@@ -61,7 +63,10 @@ vi.mock('react-native', () => {
       (p.ListEmptyComponent ?? null) as never,
       ...(Array.isArray(p.data)
         ? (p.data as unknown[]).map((item, i) =>
-            (p.renderItem as (a: { item: unknown; index: number }) => React.ReactNode)({ item, index: i }),
+            (p.renderItem as (a: { item: unknown; index: number }) => React.ReactNode)({
+              item,
+              index: i,
+            }),
           )
         : []),
     )
@@ -80,10 +85,13 @@ vi.mock('react-native', () => {
   }
 })
 
-const styleOf = (el: HTMLElement) => JSON.parse(el.getAttribute('data-style') || '{}') as Record<string, string>
+const styleOf = (el: HTMLElement) =>
+  JSON.parse(el.getAttribute('data-style') || '{}') as Record<string, string>
 
 const renderField = (props: Record<string, unknown> = {}) => {
-  const r = render(createElement(TextField, { colorScheme: 'light', placeholder: 'p', ...props } as never))
+  const r = render(
+    createElement(TextField, { colorScheme: 'light', placeholder: 'p', ...props } as never),
+  )
   // 取容器内节点而不是全局 testId:该包的 vitest 配置未开 globals,RTL 的自动 cleanup
   // 不会在每个用例后拆 DOM,同名 testId 会在第二个用例上撞成"multiple elements"。
   const input = r.container.querySelector('[data-testid="rn-textinput"]') as HTMLElement
@@ -173,21 +181,18 @@ describe('迁屏回归:屏幕经 TextField 拿到墨档聚焦态(G-978007)', () 
 
   it('CourseScreen 浅色:聚焦描边逐字 #000000,换色不换宽', () => {
     const r = render(
-      createElement(
-        CourseScreen,
-        {
-          t,
-          items: [],
-          keyword: '',
-          loading: false,
-          page: 1,
-          totalPages: 1,
-          onKeywordChange: () => {},
-          onPageChange: () => {},
-          onPressItem: () => {},
-          colorScheme: 'light',
-        } as never,
-      ),
+      createElement(CourseScreen, {
+        t,
+        items: [],
+        keyword: '',
+        loading: false,
+        page: 1,
+        totalPages: 1,
+        onKeywordChange: () => {},
+        onPageChange: () => {},
+        onPressItem: () => {},
+        colorScheme: 'light',
+      } as never),
     )
     const input = inputOf(r)
     expect(input).toBeTruthy()
@@ -199,21 +204,18 @@ describe('迁屏回归:屏幕经 TextField 拿到墨档聚焦态(G-978007)', () 
 
   it('CourseScreen 深色:聚焦描边逐字 #FFFFFF', () => {
     const r = render(
-      createElement(
-        CourseScreen,
-        {
-          t,
-          items: [],
-          keyword: '',
-          loading: false,
-          page: 1,
-          totalPages: 1,
-          onKeywordChange: () => {},
-          onPageChange: () => {},
-          onPressItem: () => {},
-          colorScheme: 'dark',
-        } as never,
-      ),
+      createElement(CourseScreen, {
+        t,
+        items: [],
+        keyword: '',
+        loading: false,
+        page: 1,
+        totalPages: 1,
+        onKeywordChange: () => {},
+        onPageChange: () => {},
+        onPressItem: () => {},
+        colorScheme: 'dark',
+      } as never),
     )
     fireEvent.focus(inputOf(r))
     expect(styleOf(inputOf(r)).borderColor).toBe('#FFFFFF')
@@ -221,21 +223,18 @@ describe('迁屏回归:屏幕经 TextField 拿到墨档聚焦态(G-978007)', () 
 
   it('AgentChatScreen 浅色:输入行走 TextField,聚焦墨档生效', () => {
     const r = render(
-      createElement(
-        AgentChatScreen,
-        {
-          t,
-          title: 'agent',
-          messages: [],
-          loading: false,
-          input: 'hi',
-          sending: false,
-          onInputChange: () => {},
-          onSend: () => {},
-          onBack: () => {},
-          colorScheme: 'light',
-        } as never,
-      ),
+      createElement(AgentChatScreen, {
+        t,
+        title: 'agent',
+        messages: [],
+        loading: false,
+        input: 'hi',
+        sending: false,
+        onInputChange: () => {},
+        onSend: () => {},
+        onBack: () => {},
+        colorScheme: 'light',
+      } as never),
     )
     const input = inputOf(r)
     expect(input).toBeTruthy()
@@ -245,11 +244,12 @@ describe('迁屏回归:屏幕经 TextField 拿到墨档聚焦态(G-978007)', () 
 })
 
 describe('RN 裸 TextInput 普查锁(G-978007 口径)', () => {
-  // 白名单逐条登记原因;新增裸 TextInput 必须补处理或补白名单理由
+  // 白名单逐条登记原因;新增裸 TextInput 必须补处理或补白名单理由。
+  // 2026-10-17 摘掉两条腐烂条目(ImageGenCreateScreen / KnowledgeRagScreen):两屏早在枚 40d3912554
+  // 就迁进共享 TextField 了,条目却还挂着 —— 正是下面那条「条目必须仍命中判据」的锁把它们量出来的。
   const ALLOWED: Record<string, string> = {
-    'apps/mobile-rn/src/screens/ImageGenCreateScreen.tsx':
-      'nativewind className 描边:内联 RESTING_BORDER 会与类档描边互相覆盖,无视觉通道验证不迁',
-    'apps/mobile-rn/src/screens/KnowledgeRagScreen.tsx': '同上(className 描边)',
+    'apps/mobile-rn/src/screens/HomeScreen.tsx':
+      '落点被他席未提交改动持有(2026-10-17 盘上 +147/−40:底部液态玻璃停靠区与 autoSendPrompt 改造),按「不代改他人现场」不迁;摘除条件 = 台账 G-121 那枚站点迁进 TextField 落地',
   }
   const SCAN_ROOTS = ['packages/app/src', 'apps/mobile-rn/src']
 
@@ -284,6 +284,7 @@ describe('RN 裸 TextInput 普查锁(G-978007 口径)', () => {
         .filter((line) => line.endsWith('.tsx')),
     )
     const unreadable: string[] = []
+    const wouldFlag: string[] = []
     const offenders: string[] = []
     for (const rel of paths) {
       if (!candidates.has(rel)) continue
@@ -295,30 +296,58 @@ describe('RN 裸 TextInput 普查锁(G-978007 口径)', () => {
         continue
       }
       // 只盯 value 导入(import type 的 TextInput 是纯类型位,不渲染)
-      if (!new RegExp("import \\{[^}]*\\bTextInput\\b[^}]*\\} from 'react-native'").test(text)) continue
+      if (!new RegExp("import \\{[^}]*\\bTextInput\\b[^}]*\\} from 'react-native'").test(text))
+        continue
       if (!/<TextInput\b/.test(text)) continue
       if (/onFocus|focused/i.test(text)) continue
+      wouldFlag.push(rel)
       if (Object.hasOwn(ALLOWED, rel)) continue
       offenders.push(rel)
     }
-    return { paths, candidates, offenders, unreadable }
+    return { paths, candidates, offenders, wouldFlag, unreadable }
   }
 
-  it('凡 value 导入 TextInput 且有 JSX 站点的文件,必须带 onFocus/focused 处理', () => {
-    const { paths, candidates, offenders, unreadable } = census()
-    // 枚举到 0 个 .tsx 就是尺子根本没跑到,不得被读成"都没违规"
-    expect(paths.length, 'HEAD 面上没枚举到任何 .tsx ⇒ 普查未生效').toBeGreaterThan(0)
-    // 预筛集为空同样等于"没跑到":那会让 offender 恒空,把尺子失效伪装成通过
-    expect(candidates.size, 'git grep 预筛一个候选都没命中 ⇒ 预筛失效,不得当作合规').toBeGreaterThan(0)
-    expect(unreadable, '有文件正文取不到 ⇒ 那一格是未判定,不许记为通过').toEqual([])
-    expect(offenders).toEqual([])
-  })
+  // 普查要派几百次 git show,机器上并行跑着构建/代理时 5s 默认档会**超时假红**(2026-10-17 实测:
+  // 同一份用例空闲时 1.4s、四个代理同跑时 6.6s 被砍)。判据不变,只把这一族的预算放宽到 90s。
+  const CENSUS_TIMEOUT = 90_000
 
-  it('白名单条目必须落在普查面上(防陈旧条目空转)', () => {
-    const face = new Set(census().paths)
-    for (const rel of Object.keys(ALLOWED)) {
-      expect(face.has(rel), `${rel} 不在 HEAD 的普查面里 ⇒ 这条白名单是空转的`).toBe(true)
-    }
-  })
+  it(
+    '凡 value 导入 TextInput 且有 JSX 站点的文件,必须带 onFocus/focused 处理',
+    () => {
+      const { paths, candidates, offenders, unreadable } = census()
+      // 枚举到 0 个 .tsx 就是尺子根本没跑到,不得被读成"都没违规"
+      expect(paths.length, 'HEAD 面上没枚举到任何 .tsx ⇒ 普查未生效').toBeGreaterThan(0)
+      // 预筛集为空同样等于"没跑到":那会让 offender 恒空,把尺子失效伪装成通过
+      expect(
+        candidates.size,
+        'git grep 预筛一个候选都没命中 ⇒ 预筛失效,不得当作合规',
+      ).toBeGreaterThan(0)
+      expect(unreadable, '有文件正文取不到 ⇒ 那一格是未判定,不许记为通过').toEqual([])
+      expect(offenders).toEqual([])
+    },
+    CENSUS_TIMEOUT,
+  )
+
+  it(
+    '白名单条目必须落在普查面上(防陈旧条目空转)',
+    () => {
+      const face = new Set(census().paths)
+      const stranded = Object.keys(ALLOWED).filter((rel) => !face.has(rel))
+      expect(stranded, '这些条目指向的路径不在 HEAD 普查面里 ⇒ 空转').toEqual([])
+    },
+    CENSUS_TIMEOUT,
+  )
+
+  // 光判"路径还在不在普查面"拦不住豁免腐烂:文件被修好了而条目还挂着,清单就成了永久免检票。
+  // 口径同 AGENTS §0.7(已登记的豁免若被审面不再命中 ⇒ 清单腐烂判红):条目必须**仍**是被判对象。
+  it(
+    '白名单条目必须仍命中普查判据(豁免验过才免、且会到期)',
+    () => {
+      const { wouldFlag } = census()
+      const rotten = Object.keys(ALLOWED).filter((rel) => !wouldFlag.includes(rel))
+      expect(rotten, '这些文件已不再命中"裸 TextInput 无聚焦处理",条目该摘').toEqual([])
+    },
+    CENSUS_TIMEOUT,
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
