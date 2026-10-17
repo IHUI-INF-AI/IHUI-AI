@@ -68,13 +68,16 @@
 //! (内嵌完整 WebView2 运行时,离线可装;安装包 +~127MB)。想瘦身可改
 //! `embedBootstrapper`(+1.8MB,装时联网下运行时)或 `downloadBootstrapper`(默认,最小)。
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use tauri::webview::Color;
 use tauri::{
     AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Url, WebviewBuilder, WebviewUrl,
 };
 
+use crate::checkin_web_login::{WebLoginProbe, WB_WEB_LOGIN_URL, checkin_workbuddy_web_login_probe};
 use crate::IpcError;
 
 /// 浏览器窗口 label(全仓唯一)。
@@ -96,6 +99,10 @@ const BAR_HEIGHT: u32 = 72;
 
 /// 单窗最多标签数(防御性上限,避免无限建 webview)。
 const MAX_TABS: usize = 12;
+
+/// `wb-checkin-login` 看护轮询的防重入闸(2026-10-17):进行中再触发直接忽略,
+/// 用户在签到页狂点按钮不叠加看护任务。所有退出路径(ok/超时/关窗)都复位。
+static WB_LOGIN_POLLING: AtomicBool = AtomicBool::new(false);
 
 /// Chrome UA。WebView2 默认 UA 带 `Edg/` 标识,登录类站点可能据 UA 走不同分支
 /// (也会把"内嵌"这件事暴露给站点);显式伪装成 Chrome,与内核事实自洽。
@@ -355,6 +362,9 @@ pub enum SentinelAction {
     Pick(bool),
     Picked(String),
     CloseWindow,
+    /// 签到页(内嵌 tab 里的 aizhs.top/checkin)请求「浏览器登录 WorkBuddy」:
+    /// 内容页无 IPC,只能借哨兵导航把意图带出来(2026-10-17 立)。
+    WbCheckinLogin,
 }
 
 /// 把哨兵 URL 解析成动作;非哨兵(host 不符)返回 `None`。
@@ -386,6 +396,7 @@ pub fn parse_sentinel(url: &Url) -> Option<SentinelAction> {
         "pick" => SentinelAction::Pick(q("on").as_deref() == Some("1")),
         "picked" => SentinelAction::Picked(q("d").unwrap_or_default()),
         "close-window" => SentinelAction::CloseWindow,
+        "wb-checkin-login" => SentinelAction::WbCheckinLogin,
         _ => return None,
     })
 }
@@ -916,6 +927,63 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
             let decoded = percent_decode(&payload);
             let _ = app.emit_to("main", "embedded-browser://element-picked", decoded);
         }
+        SentinelAction::WbCheckinLogin => {
+            // 签到页(内容页无 IPC)请求「浏览器登录 WorkBuddy」(2026-10-17 立):
+            // 建登录页标签 + 起看护轮询,结果经 #wb_import= 导航回签到页
+            // (见 run_wb_checkin_login_watch)。防重入:进行中再触发直接忽略。
+            if WB_LOGIN_POLLING.swap(true, Ordering::SeqCst) {
+                return;
+            }
+            let Ok(login_url) = WB_WEB_LOGIN_URL.parse::<Url>() else {
+                WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
+                return;
+            };
+            // 降级窗(单 webview)没有"新标签"可开:当前页直接导航去登录页 ——
+            // 签到页会被顶掉,但登录完成后看护会把这一页导航回带 #wb_import=
+            // 的签到页自然恢复。标签满时同走此退化路。
+            let login_tab: Option<u64> = if app.state::<BrowserManager>().with(|s| s.degraded) {
+                if let Some(wv) = active_wv() {
+                    let _ = wv.navigate(login_url.clone());
+                }
+                None
+            } else {
+                let count = app.state::<BrowserManager>().with(|s| s.tabs.len());
+                if count >= MAX_TABS {
+                    if let Some(wv) = active_wv() {
+                        let _ = wv.navigate(login_url.clone());
+                    }
+                    None
+                } else {
+                    let id = app.state::<BrowserManager>().with(|s| {
+                        s.next_id += 1;
+                        s.next_id
+                    });
+                    if let Err(e) = add_tab_webview(&window, &app, id, &login_url) {
+                        log::warn!("[embedded-browser] wb-checkin-login 建登录标签失败: {e}");
+                        WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
+                        return;
+                    }
+                    let prev = app.state::<BrowserManager>().with(|s| {
+                        s.tabs.push(TabInfo {
+                            id,
+                            url: login_url.to_string(),
+                            title: login_url.to_string(),
+                        });
+                        let prev = s.active;
+                        s.active = Some(id);
+                        prev
+                    });
+                    if let Some(prev_id) = prev {
+                        if let Some(wv) = app.get_webview(&tab_label(prev_id)) {
+                            let _ = wv.hide();
+                        }
+                    }
+                    refresh_active_bar(&app);
+                    Some(id)
+                }
+            };
+            run_wb_checkin_login_watch(app, login_tab).await;
+        }
         SentinelAction::NewTab(u) => {
             // 降级模式(单 webview 窗)无多标签可言:把"新建标签"退化为"当前页导航"。
             let degraded = app.state::<BrowserManager>().with(|s| s.degraded);
@@ -1037,6 +1105,76 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
     }
 }
 
+/// `wb-checkin-login` 哨兵的登录看护(2026-10-17)。
+///
+/// 为什么轮询在 Rust 而不是前端:签到页跑在内嵌浏览器内容 webview 里,
+/// **没有 IPC**(见模块头「安全边界」)—— 既调不了 probe 命令,也收不到事件。
+/// 「浏览器登录 WorkBuddy」这条流程只能在 Rust 侧闭环:轮询共享 cookie jar 的
+/// 登录态;ok 后把**登录标签**导航回签到页,URL fragment 充当结果通道
+/// (`#wb_import=<percent-encoded JSON>`;fragment 不发往服务端,纯页面内消费),
+/// 页面解析后入库并清 hash。超时静默放弃:不打断可能正在登录的用户,签到页
+/// 自己的时钟(6.5 分钟)负责复位按钮态。
+async fn run_wb_checkin_login_watch(app: AppHandle, login_tab: Option<u64>) {
+    /// 轮询节奏(与主窗口流程的 2.5s 前端轮询同拍)。
+    const INTERVAL: Duration = Duration::from_millis(2500);
+    /// 总超时:登录超过 6 分钟按放弃处理(登录页留在原地,用户可继续用浏览器)。
+    const TIMEOUT: Duration = Duration::from_secs(360);
+    let started = Instant::now();
+    loop {
+        tokio::time::sleep(INTERVAL).await;
+        if started.elapsed() >= TIMEOUT {
+            WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
+            return;
+        }
+        let probe = match checkin_workbuddy_web_login_probe(app.clone()).await {
+            Ok(p) => p,
+            Err(_) => continue, // IPC 层错误视为瞬态,下一轮再试
+        };
+        match probe {
+            WebLoginProbe::Ok {
+                cookie,
+                accounts,
+                cookie_checkin_ok,
+            } => {
+                WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
+                // 负载与主窗口流程消费的 probe 契约同形,签到页两条路共用一个入库函数
+                let payload = serde_json::json!({
+                    "cookie": cookie,
+                    "accounts": accounts,
+                    "cookie_checkin_ok": cookie_checkin_ok,
+                });
+                let Ok(parsed) = Url::parse(&format!(
+                    "https://aizhs.top/checkin#wb_import={}",
+                    percent_encode(&payload.to_string())
+                )) else {
+                    return;
+                };
+                // 登录标签没了(用户关了它):退回活动标签;降级窗登录页就占着
+                // 窗体 webview,`get_webview(BROWSER_WINDOW_LABEL)` 直接命中。
+                let wv = match login_tab {
+                    Some(id) => app
+                        .get_webview(&tab_label(id))
+                        .or_else(|| active_webview(&app)),
+                    None => app
+                        .get_webview(BROWSER_WINDOW_LABEL)
+                        .or_else(|| active_webview(&app)),
+                };
+                if let Some(wv) = wv {
+                    let _ = wv.navigate(parsed);
+                }
+                return;
+            }
+            // 窗口被整个关掉:签到页同样没了,本轮流程结束
+            WebLoginProbe::NoWindow => {
+                WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
+                return;
+            }
+            // 未登录/暂态错误:继续等
+            _ => {}
+        }
+    }
+}
+
 /// 最小 percent-decode(`%XX` + `+`),用于解点选负载。
 fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
@@ -1066,6 +1204,25 @@ fn percent_decode(s: &str) -> String {
         }
     }
     String::from_utf8_lossy(&out).into_owned()
+}
+
+/// 最小 percent-encode(非 unreserved 字节全编码),用于 `#wb_import=` 负载
+/// (2026-10-17)。为什么从紧编码:负载是 JSON(cookie 串含 `;`/空格,昵称可含
+/// CJK/引号),fragment 里 `#` 会提前截断、`%` 会被误当转义,全量编码最不易
+/// 踩坑;接收端(签到页)用 `decodeURIComponent` 一把解回。
+fn percent_encode(s: &str) -> String {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    let mut out = String::with_capacity(s.len() * 3);
+    for &b in s.as_bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~') {
+            out.push(b as char);
+        } else {
+            out.push('%');
+            out.push(HEX[(b >> 4) as usize] as char);
+            out.push(HEX[(b & 0x0F) as usize] as char);
+        }
+    }
+    out
 }
 
 // ==================== Tauri 命令 ====================
@@ -1219,6 +1376,11 @@ mod tests {
             parse_sentinel(&u("https://browser.ihui.invalid/close-window")),
             Some(SentinelAction::CloseWindow)
         );
+        // 2026-10-17:签到页借哨兵发起「浏览器登录 WorkBuddy」
+        assert_eq!(
+            parse_sentinel(&u("https://browser.ihui.invalid/wb-checkin-login")),
+            Some(SentinelAction::WbCheckinLogin)
+        );
     }
 
     #[test]
@@ -1235,6 +1397,18 @@ mod tests {
         assert_eq!(percent_decode("a+b"), "a b");
         assert_eq!(percent_decode("plain"), "plain");
         assert_eq!(percent_decode("%ZZ"), "%ZZ");
+    }
+
+    #[test]
+    fn percent_encode_roundtrip_with_decode() {
+        // #wb_import= 负载往返:JSON 里的关键字符(`#` 截断 / `%` 转义歧义 /
+        // `+` 被解码成空格的歧义 / CJK)全部编码,且能被 percent_decode 解回。
+        // 编码器把 `+` 也编码 ⇒ 解码端"裸 + → 空格"的规则不会误伤负载。
+        let raw = r#"{"cookie":"a=b; c+d","accounts":[{"uid":"u1","nickname":"李总#1%"}]}"#;
+        let enc = percent_encode(raw);
+        assert!(!enc.contains('#'));
+        assert!(!enc.contains('+'));
+        assert_eq!(percent_decode(&enc), raw);
     }
 
     #[test]
