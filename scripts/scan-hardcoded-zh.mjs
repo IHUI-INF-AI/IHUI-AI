@@ -46,7 +46,7 @@ import { fileURLToPath } from 'node:url'
 // 现在一律经 scripts/lib/face-reader.mjs:绝对 git + stdio[0]=pipe + **一次 cat-file --batch 读完整批**
 // + maxBuffer 给足 + 取不到 ⇒ 抛 Undetermined ⇒ 对外 exit 2「无法判定」。
 import { Undetermined, catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
-import { flagValue as libFlagValue } from './lib/flag-value.mjs'
+import { describeFlagToken, flagValue as libFlagValue } from './lib/flag-value.mjs'
 // ROOT 由脚本自身位置推导:守门链偶发从子包 cwd 调用,写死 process.cwd() 会静默扫不到文件而"恒绿"
 // 唯一例外是集成测试:--root 显式注入临时夹具根(测试只改 cwd 时,脚本仍会去扫真仓,
 // 于是 14 例断言全在比对真仓数据 → 13 例恒红且无人跑;2026-09-24 实测)。
@@ -202,8 +202,10 @@ if (TOP_INVALID) notice('[scan-hardcoded-zh] 忽略无效的 --top 值(需要一
 const EXIT_VAL = flagValue('--exit')
 const EXIT_BAD = args.has('--exit') && EXIT_VAL !== '1' && EXIT_VAL !== '0'
 if (EXIT_BAD) {
+  // 三态分开点名:少打值 / 打了空串 / 被下一枚旗标顶值,是三种不同的错(§22c 三态锁)。
+  const got = describeFlagToken(libFlagValue(argv, '--exit'))
   console.error(
-    `[scan-hardcoded-zh] ❌ --exit 需要 0 或 1 —— 紧邻的 token 实得:${JSON.stringify(argv[argv.indexOf('--exit') + 1] ?? null)}(不得静默退回非严格档)`,
+    `[scan-hardcoded-zh] ❌ --exit 需要 0 或 1 —— 紧邻的 token 实得:${got}(不得静默退回非严格档)`,
   )
   process.exit(2)
 }

@@ -149,6 +149,83 @@ test('G-322 第五批:数值档坏值不再被读成 NaN(plan-bypass-ledger-repo
 // ─── 第六/七批(2026-10-17)───
 // 选点尺是"失效方向",不是行号:HEAD 面重扫(两把只读尺)得 113 处候选,其中
 // **注册为 blocking 且这一支没有任何 '-' 守卫**的 28 处才是射程;第六批收 --root 七站,第七批再收八站。
+test('G-322 第九批:落点/封口型旗标 —— seal-c-root-stray 的 --root/--devenv 与认证书的 --out-dir', () => {
+  // 这两站选进来是因为**方向**:seal-c-root-stray 是本仓唯一会改盘根结构(junction 封口)的工具,
+  // `--apply --root --devenv D:/DevEnv` 旧写法会静默按默认 C: 封口 = 调用方以为在验另一块盘(§26 递归穿透);
+  // 认证书是要给人签收的凭证,`--out-dir --json` 旧写法把它写进 outputs/--json/ 却照报已写出。
+  assertBadRoot(S('seal-c-root-stray.mjs'), '目录')
+  for (const args of [['--devenv', '--apply'], ['--devenv'], ['--devenv', '']]) {
+    const r = spawnSync(process.execPath, [S('seal-c-root-stray.mjs'), ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+    })
+    assert.notEqual(r.status, 0, `${JSON.stringify(args)} 不得静默退回 devEnvRoot()(它是封口的**目标根**)`)
+    assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, /--devenv 需要一个目录/)
+  }
+  const cert = S('run-8end-consistency-cert.mjs')
+  for (const { args, expect } of [
+    { args: ['--out-dir', '--json'], expect: '"--json"' },
+    { args: ['--out-dir'], expect: '(其后没有任何参数)' },
+    { args: ['--out-dir', ''], expect: '""' },
+  ]) {
+    const r = spawnSync(process.execPath, [cert, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.notEqual(r.status, 0, `${JSON.stringify(args)} 不得把认证书写进一个由吞值造出来的目录`)
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, /--out-dir 需要一个目录/, out.slice(0, 200))
+    assert.match(out, new RegExp(expect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), out.slice(0, 200))
+  }
+})
+
+test('G-322 第十批:落点/表名型吞值(analyze-hook-log-unknown 五旗标、migration-ledger-drift --ledger-table)', () => {
+  const ah = S('analyze-hook-log-unknown.mjs')
+  for (const flag of ['--root', '--limit', '--window-min', '--sample', '--report']) {
+    for (const args of [[flag], [flag, ''], [flag, '--json']]) {
+      const r = spawnSync(process.execPath, [ah, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      assert.equal(r.status, 2, `${flag} ${JSON.stringify(args)} 必须 exit 2(旧写法:数字旗标喂进 Number() 得 NaN ⇒ slice(0,NaN)=[] 抽样静默变空;路径旗标吞成假路径)\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+      assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, new RegExp(`${flag} 需要`))
+    }
+  }
+  const md = S('check-migration-ledger-drift.mjs')
+  for (const args of [['--ledger-table'], ['--ledger-table', ''], ['--ledger-table', '--dsn']]) {
+    const r = spawnSync(process.execPath, [md, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2(旧写法 ?? 静默换成默认表去比漂移)\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+    assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, /--ledger-table 需要/)
+  }
+  const bogus = spawnSync(process.execPath, [md, '--ledger-table', 'bogus'], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+  assert.equal(bogus.status, 2, '域名不合法也不得换成默认表')
+  assert.match(`${bogus.stdout ?? ''}${bogus.stderr ?? ''}`, /不是合法 "schema.table"/)
+  // 阳性对照:默认档的既有语义(SKIP 且非 strict 退 0)不得因新校验被改成判红 —— 校验只准拦"给了旗标却没值"
+  const plain = spawnSync(process.execPath, [md], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+  assert.equal(plain.status, 0, `${plain.stdout ?? ''}${plain.stderr ?? ''}`)
+  assert.match(`${plain.stdout ?? ''}${plain.stderr ?? ''}`, /SKIP/)
+})
+
+test('G-322 第十一批:派单入口 plan-tasks 的 --since/--max-commits 吞值必须未判定(正例窗口仍可用)', () => {
+  const script = S('plan-tasks.mjs')
+  for (const args of [
+    ['--reopened-flips', '--since', '--json'],
+    ['--reopened-flips', '--since', ''],
+    ['--reopened-flips', '--max-commits', '--json'],
+    ['--reopened-flips', '--max-commits', ''],
+    ['--reopened-flips', '--max-commits', 'abc'],
+    ['--reopened-flips', '--max-commits='],
+    ['--reopened-flips', '--max-commits=x'],
+  ]) {
+    const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2(旧写法:--max-commits 静默退回默认 900,而"已截断"那行照打 = 读数自洽却与调用方要的不是同一件事)\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+    assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, /无法判定 —— --(since|max-commits)/)
+    assert.doesNotMatch(`${r.stdout ?? ''}${r.stderr ?? ''}`, /ERR_INVALID_ARG_TYPE|at ModuleJob/, '不得以裸栈当用法错出口')
+  }
+  // 阳性对照:显式窗口 + 显式上限仍按原语义出结论(没把判据收紧成"这道档不能用")
+  const ok = spawnSync(process.execPath, [script, '--reopened-flips', '--since=2026-09-08', '--max-commits=5'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+  })
+  assert.equal(ok.status, 0, `${ok.stdout ?? ''}${ok.stderr ?? ''}`)
+})
+
 test('G-322 第七批:另八道 blocking 门的 --root 三支坏值各自大声拒绝', () => {
   for (const f of [
     'check-api-client-utf8.mjs',

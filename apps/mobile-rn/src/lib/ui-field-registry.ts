@@ -4,6 +4,7 @@
 
 // 平台特有:RN 无 DOM,click/fill 只能靠组件挂载时交出 onPress/setValue,故注册表活在端内
 
+import { isDestructiveText, isSensitiveText, maskSnapshotValue } from '@ihui/shared/ui-control'
 import type { AgentActionErrorCode, AppUiElement } from '@ihui/types'
 
 /**
@@ -72,34 +73,18 @@ export interface RnFieldOpResult {
 export const RN_FIELD_MAX_ELEMENTS = 60
 
 /**
- * 敏感面永不注册:密码 / 验证码 / token / secret 类输入框连 describe 都不出现。
- * 结构性判据(secureTextEntry / visible-password)由组件自己报,文本判据统一在这里,
- * 免得规则在 ui-native 与端内各写一份而漂移。
+ * 敏感 / 破坏性判定已下沉 `@ihui/shared/ui-control/security-policy`(2026-10-17)。
+ *
+ * 下沉的起因不是整理代码,而是两端各写一份时**词表已经漂开**:本端词表是小程序侧的
+ * 真子集 —— 「发布 / 发送 / 分享 / 转发 / 充值 / 续费 / 退货 / 举报 / 登出 / 重置」
+ * 与凭证类(pwd / passcode / credential / 密钥 / 证书 / 短信码)原本在本端**不屏蔽**,
+ * 也就是说 AI 在 RN 侧能触发小程序侧已被拦下的不可逆操作。判据零平台依赖,按 AGENTS §3
+ * 归共享层;本端只保留别名 re-export,既有调用点一字不改。
+ *
+ * 结构性判据(secureTextEntry / visible-password)仍由组件自己报 —— 那是只有组件才知道的事。
  */
-const SENSITIVE_TEXT_RE = /密码|验证码|校验码|动态码|password|passwd|secret|令牌|api[-_]?key/i
-
-/**
- * `token` 不能裸判敏感:它是**计量单位**也是**凭据名**两种身份共用一个词。
- * 「Max Tokens」「tokens 上限」这类模型参数被当成凭据吞掉,后果是 AI 对着一个
- * 根本不存在的字段(实测 ModelConfigDialog 因此少 1/4 个可填项),而漏放凭据的代价才是不可逆的。
- * 所以凭据语境的 token 判敏感,计量语境放行 —— 计量语境用词组判据,不靠单字。
- */
-const TOKEN_WORD_RE = /token/i
-const TOKEN_MEASURE_RE =
-  /max[\s_-]*tokens|tokens?\s*(数|量|上限|预算|长度|成本)|上下文(长度|窗口|预算)|每秒|per[\s_-]?second/i
-
-/** 删除 / 注销 / 支付 / 提现类按钮不暴露:一次误触就是不可逆的资金或账号损失,收益为零 */
-const DESTRUCTIVE_TEXT_RE =
-  /注销|删除|移除|解除|退款|提现|转账|支付|付款|下单|购买|清空|退出登录|logout|sign\s*-?\s*out|delete|remove|refund|withdraw|checkout|\bpurchase\b|\bpay\b/i
-
-export function isSensitiveFieldText(text: string): boolean {
-  if (SENSITIVE_TEXT_RE.test(text)) return true
-  return TOKEN_WORD_RE.test(text) && !TOKEN_MEASURE_RE.test(text)
-}
-
-export function isDestructiveFieldText(text: string): boolean {
-  return DESTRUCTIVE_TEXT_RE.test(text)
-}
+export const isSensitiveFieldText = isSensitiveText
+export const isDestructiveFieldText = isDestructiveText
 
 interface RegistryEntry {
   id: string
@@ -198,11 +183,14 @@ export function snapshotFields(max: number = RN_FIELD_MAX_ELEMENTS): {
     const group = groupOf(spec)
     const pressable =
       spec.kind === 'form' ? typeof spec.submit === 'function' : typeof spec.press === 'function'
+    const label = safeLabel(spec)
     const element: AppUiElement = {
       id,
       kind: spec.kind,
-      label: safeLabel(spec),
-      ...(typeof value === 'string' ? { value } : {}),
+      label,
+      // 值回传前统一打码(个人信息整段打码 + 超长截断)。合并前这套只存在于小程序端,
+      // RN 侧 describe 会把手机号 / 邮箱 / 证件原值直接送进 AI 上下文(2026-10-17 随判据下沉一并修复)
+      ...(typeof value === 'string' ? { value: maskSnapshotValue(value, label) } : {}),
       ...(constraint ? { constraint } : {}),
       ...(group ? { group } : {}),
       ...(disabled ? { disabled: true } : {}),

@@ -4,6 +4,7 @@
 
 // 平台特有:小程序真机是 WXML,无同源 DOM 可枚举,控件定位只能靠端内注册表,不适合共享
 import { useEffect, useRef } from 'react'
+import { isDestructiveText, isSensitiveText, maskSnapshotValue } from '@ihui/shared/ui-control'
 import type { AgentActionErrorCode, AppUiElement } from '@ihui/types'
 
 /**
@@ -82,41 +83,22 @@ const failResult = (errorCode: AgentActionErrorCode, error: string): UiRegistryR
 /* ────────────────────────── 安全面判定 ────────────────────────── */
 
 /**
- * 敏感输入:密码 / 验证码 / 动态码 / token / secret / 各类密钥 / 证书。
- * 判定面 = inputType + password 属性 + label/placeholder 关键词(三者取并,宁严勿松)。
+ * 敏感 / 破坏性判定已下沉 `@ihui/shared/ui-control/security-policy`(2026-10-17)。
+ *
+ * 下沉的起因不是"整理代码",而是两端各写一份时**词表已经漂开**:同一类控件在小程序端
+ * 被屏蔽、在 RN 端却对 AI 可见且可执行(反向亦有)。这类漏放凭据 / 误触发不可逆操作的
+ * 后果不可逆,而判据本身零平台依赖 —— 按 AGENTS §3 必须单一真相源。
+ *
+ * 端内保留的只有 spec → 检索串的拼接:小程序 spec 是属性式(label/placeholder 是值),
+ * RN spec 是访问器式(label()/value() 是函数),拼串方式本就不同,不该强融。
  */
-const SENSITIVE_RE =
-  /password|passwd|pwd|passcode|secret|api[_\s-]?key|private[_\s-]?key|access[_\s-]?key|credential|密码|验证码|动态码|短信码|校验码|密钥|证书|令牌/i
-
-/**
- * `token` 一词有两种身份:凭据名与**计量单位**。裸判会让「Max Tokens」「tokens 上限」这类
- * 模型参数被当密钥吞掉(AI 侧表现为"这框不存在"),而漏放凭据的代价才是不可逆的 ——
- * 故 token 只在非计量语境下算敏感。与 apps/mobile-rn/src/lib/ui-field-registry.ts 同一口径。
- */
-const TOKEN_RE = /token/i
-const TOKEN_MEASURE_RE =
-  /max[\s_-]*tokens|tokens?\s*(数|量|上限|预算|长度|成本)|上下文(长度|窗口|预算)|每秒|per[\s_-]?second/i
-
-/** 个人信息:仍允许操作(填手机号是正常需求),但 describe 回传的值必须打码 */
-const PII_RE =
-  /phone|mobile|email|mail|idcard|id[_\s-]?card|passport|手机|电话|邮箱|身份|证件|银行/i
-
-/**
- * 破坏性 / 对外发声控件:一律不进表(比"进表后拒绝执行"更严 —— 模型看不见就不会试)。
- * 与 ui-action-registry 的 invoke 白名单同一套价值判断:不可逆、花钱、对外发声的一律不代客操作。
- */
-const DESTRUCTIVE_RE =
-  /删除|移除|注销|解约|退款|退货|提现|转账|付款|支付|下单|充值|续费|分享|转发|发布|发送|举报|退出登录|登出|清空|重置|delete|remove|destroy|unsubscribe|refund|withdraw|transfer|pay(?:ment)?|purchase|checkout|recharge|share|publish|post|send|report|logout|sign\s?out/i
-
 export function isSensitiveField(spec: UiFieldSpec): boolean {
   if (spec.password === true) return true
-  const haystack = `${spec.inputType ?? ''} ${spec.label} ${spec.placeholder ?? ''}`
-  if (SENSITIVE_RE.test(haystack)) return true
-  return TOKEN_RE.test(haystack) && !TOKEN_MEASURE_RE.test(haystack)
+  return isSensitiveText(`${spec.inputType ?? ''} ${spec.label} ${spec.placeholder ?? ''}`)
 }
 
 export function isDestructiveControl(spec: UiFieldSpec | UiFormSpec): boolean {
-  return DESTRUCTIVE_RE.test(spec.label)
+  return isDestructiveText(spec.label)
 }
 
 /* ────────────────────────── 内部存储 ────────────────────────── */
@@ -139,8 +121,6 @@ interface FormEntry {
 
 /** 快照里 elements 的上限:页面元素多的列表页也不要把回传撑爆 */
 export const MAX_SNAPSHOT_ELEMENTS = 60
-
-const SNAPSHOT_VALUE_MAX = 80
 
 const fields = new Map<number, FieldEntry>()
 const forms = new Map<number, FormEntry>()
@@ -245,15 +225,6 @@ export function useUiForm(spec: UiFormSpec | null): void {
 
 /* ────────────────────────── 快照 ────────────────────────── */
 
-function maskValue(raw: string, haystack: string): string {
-  const collapsed = raw.replace(/\s+/g, ' ').trim()
-  if (!collapsed) return ''
-  if (PII_RE.test(haystack)) return '***'
-  return collapsed.length > SNAPSHOT_VALUE_MAX
-    ? `${collapsed.slice(0, SNAPSHOT_VALUE_MAX)}…`
-    : collapsed
-}
-
 function buildConstraint(spec: UiFieldSpec): string | undefined {
   const parts: string[] = []
   if (spec.inputType) parts.push(`type=${spec.inputType}`)
@@ -304,7 +275,7 @@ export function snapshotUiFields(): UiFieldSnapshot {
       writable: typeof spec.setValue === 'function',
       pressable: typeof spec.onPress === 'function',
     }
-    if (spec.readValue) element.value = maskValue(String(spec.readValue() ?? ''), haystack)
+    if (spec.readValue) element.value = maskSnapshotValue(String(spec.readValue() ?? ''), haystack)
     const constraint = buildConstraint(spec)
     if (constraint) element.constraint = constraint
     elements.push(element)
@@ -386,7 +357,7 @@ export function setFieldValue(id: string, raw: unknown): UiRegistryResult {
   } catch (err) {
     return failResult('EXECUTION_FAILED', `控件「${spec.label}」写入失败:${describeError(err)}`)
   }
-  const after = spec.readValue ? maskValue(String(spec.readValue() ?? ''), spec.label) : ''
+  const after = spec.readValue ? maskSnapshotValue(String(spec.readValue() ?? ''), spec.label) : ''
   return okResult({
     filled: target,
     label: spec.label,

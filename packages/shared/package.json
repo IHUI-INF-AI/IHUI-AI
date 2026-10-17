@@ -20,6 +20,18 @@
       "types": "./src/ui/*.ts",
       "import": "./src/ui/*.ts"
     },
+    "./ui-control": {
+      "types": "./src/ui-control/index.ts",
+      "import": "./src/ui-control/index.ts"
+    },
+    "./ui-control/index": {
+      "types": "./src/ui-control/index.ts",
+      "import": "./src/ui-control/index.ts"
+    },
+    "./ui-control/*": {
+      "types": "./src/ui-control/*.ts",
+      "import": "./src/ui-control/*.ts"
+    },
     "./auth": {
       "types": "./src/auth/index.ts",
       "import": "./src/auth/index.ts"
