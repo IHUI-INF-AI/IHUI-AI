@@ -977,7 +977,60 @@ if (hookFailed && commitResult.status !== 0) {
       // 缺哪一份都不算失败(活动文件在、归档不在是常态),但也**不静默说成读到了**。
     }
   }
+  /**
+   * 外部状态快照(2026-10-17 立,差分第二前提)—— **由调用方现读**,归因层自己不碰 git。
+   *
+   * 要修的那一型(当天凌晨实测):提交一枚 `.husky/post-commit` 的修改,safe-commit 首次 commit
+   * 失败后逐道复跑算归因,门 29(check-push-sync)判的是"本地 ⇄ 远端同步态"。基线面那一跑与
+   * 我的面那一跑**之间**,另一台机把远端头推前了 ⇒ 基线面 exit 0 / 我的面 exit 1 ⇒ 差分写下
+   * "这枚提交把它原本跑绿的东西改红了"并拒绝跳门。两枚退出码的差**不是内容差**,是外部状态差;
+   * 归因层据此定责,零风险改动就被一道门堵死(§12e 型伤害:结局是逼人 --no-verify)。
+   *
+   * 读数取三件(合起来才叫"这一跑时远端在哪"):
+   *  ① 本分支的上游名(`rev-parse --abbrev-ref @{u}`)—— 取不到 ⇒ 快照不成立;
+   *  ② 该上游分支的**网络真值 tip**(`ls-remote <remote> refs/heads/<branch>`)—— 与门 29 自己
+   *     读的同一件东西同源。这里**不回退**本地 remote-tracking ref:本地那份只在有人 fetch 时才动,
+   *     拿它冒充"远端 tip"就等于把"问不到"折算成"没变"(AGENTS §0.3 明令禁止的正是这一步);
+   *  ③ 本地 `refs/remotes/*` 全量清单(`for-each-ref`)—— 它不是 ② 的兜底,是**额外的漂移探针**:
+   *     守护进程每 2 分钟 `git fetch origin main`,刷新本身就说明远端动过。
+   * 任何一件取不到、或枚举到 0 条 ⇒ 返回 null,归因层落 undetermined 并点名"取不到"。
+   * ⚠️ 每一跑**前后各读一次**(共四枚),不在归因层里 spawn(它保持纯判定 + 注入式复跑)。
+   */
+  const EXTERNALS_UNAVAILABLE_WHY =
+    '外部状态快照现读失败(rev-parse @{u} / ls-remote / for-each-ref 任一取不到或枚举为 0)'
+  const readGateExternals = () => {
+    try {
+      const upstream = String(
+        gitRaw(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], repoRoot) ?? '',
+      ).trim()
+      const slash = upstream.indexOf('/')
+      if (slash <= 0 || slash === upstream.length - 1) return null
+      const remote = upstream.slice(0, slash)
+      const branch = upstream.slice(slash + 1)
+      const norm = (s) =>
+        String(s ?? '')
+          .split(/\r?\n/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .sort()
+      const tip = norm(gitRaw(['ls-remote', remote, `refs/heads/${branch}`], repoRoot, { timeout: 30000 }))
+      const tracked = norm(
+        gitRaw(['for-each-ref', '--format=%(refname) %(objectname)', 'refs/remotes'], repoRoot),
+      )
+      if (tip.length === 0 || tracked.length === 0) return null
+      return `upstream=${upstream}\nremoteTip=${tip.join(' | ')}\nremoteRefs=${tracked.join(' | ')}`
+    } catch {
+      return null
+    }
+  }
+  /** 把某一跑的前后两枚读数打包成归因层认的形状(取不到就照实给 null + 原因)。 */
+  const externalsOf = (before, after) => ({
+    before,
+    after,
+    why: before === null || after === null ? EXTERNALS_UNAVAILABLE_WHY : null,
+  })
   const runGate = (script) => {
+    const externalsBefore = readGateExternals()
     const g = spawnSync(process.execPath, [join(repoRoot, 'scripts', script), '--staged'], {
       encoding: 'utf8',
       cwd: repoRoot,
@@ -988,7 +1041,12 @@ if (hookFailed && commitResult.status !== 0) {
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       stdio: ['ignore', 'pipe', 'pipe'],
     })
-    return { status: g.status ?? 1, output: `${g.stdout || ''}${g.stderr || ''}` }
+    return {
+      status: g.status ?? 1,
+      output: `${g.stdout || ''}${g.stderr || ''}`,
+      // 差分第二前提的取证:这一跑**前后**各现读一次外部状态(归因层比较四枚读数,不解释内容)
+      externals: externalsOf(externalsBefore, readGateExternals()),
+    }
   }
   /**
    * **基线面(本次提交之前的 HEAD)**的同一道门读数 —— 差分四态的取证出口(2026-09-27 立)。
@@ -1066,6 +1124,9 @@ if (hookFailed && commitResult.status !== 0) {
     if (!existsSync(gatePath))
       return { ran: false, status: null, output: '', why: `基线面里没有该门脚本:${script}` }
     const timeoutMs = Number(process.env.IHUI_SAFE_COMMIT_BASELINE_TIMEOUT_MS || 600000)
+    // 外部状态快照同样**前后各读一次**(基线面那一跑的那一侧)。早退的那几支(ran:false)压根
+    // 没派生门,不给快照是对的 —— 归因层由 baselineUsable 先拦下,不会走到差分第二前提。
+    const externalsBefore = readGateExternals()
     const g = spawnSync(process.execPath, [gatePath, '--staged'], {
       encoding: 'utf8',
       cwd: tree.dir,
@@ -1096,6 +1157,7 @@ if (hookFailed && commitResult.status !== 0) {
       status: g.status ?? 1,
       output: `${g.stdout || ''}${g.stderr || ''}`,
       why: null,
+      externals: externalsOf(externalsBefore, readGateExternals()),
     }
   }
   /**
