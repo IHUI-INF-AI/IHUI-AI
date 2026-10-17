@@ -13,6 +13,7 @@ import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { fetchApi } from '@/lib/api'
 import { buildSsoRedirectUrl, SSO_CLIENT_IDS } from '@ihui/shared'
 import { ensureSsoRedirectAllowed, resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
+import { resolvePostLoginLanding } from '@/lib/post-login-landing'
 import { Button } from '@ihui/ui-react'
 import { Loader2, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
@@ -58,6 +59,15 @@ export default function SsoLoginPage() {
   const searchParams = useSearchParams()
   const redirectUrl = searchParams.get('redirect') || '/'
   const clientId = searchParams.get('client_id') || 'web'
+
+  // 登录完成后的默认落点:带显式 redirect(子项目/桌面深链跳来的授权页)时原样返回该目标,
+  // 否则对 admin 账号落到生产在线监控大屏(与主站 LoginDialog 共用同一判据)。取 raw 参数
+  // (而非上面 `|| '/'` 的默认值),以免把"没带 redirect"误当成"显式要首页"。
+  const resolveLoginTarget = React.useCallback(
+    () =>
+      resolvePostLoginLanding(useAuthStore.getState().user, searchParams.get('redirect')) ?? '/',
+    [searchParams],
+  )
 
   const { token, user } = useAuthStore()
   // 取全局 auth bootstrap 的 ready(根 layout 的 GlobalHooksProvider 已触发副作用,此处仅读状态;
@@ -127,7 +137,7 @@ export default function SsoLoginPage() {
       // 在那条规则下成立、在浏览器里却解析成 https://evil.com(WHATWG 把 special scheme 下的
       // 反斜杠等值当斜杠),于是"过了服务端校验的 code"会被送到外站。落点判据统一走
       // @/lib/sso-redirect-guard 这一把尺子,不在此另写一份 origin 判断(AGENTS §3)。
-      const target = resolveSafeRedirectTarget(redirectUrl, { allowDeepLink: true })
+      const target = resolveSafeRedirectTarget(resolveLoginTarget(), { allowDeepLink: true })
       // 2026-09-22:先确认回跳目标能被守卫放行(必要时静默续种 cookie)——
       // 否则生成的 sso_code 还没被消费就被 307 打回本页,用户感知即"按钮没反应"。
       if (!(await ensureSsoRedirectAllowed(target))) {
@@ -169,7 +179,7 @@ export default function SsoLoginPage() {
     } finally {
       setExchanging(false)
     }
-  }, [clientId, redirectUrl, router, tSso, isDesktopDeepLink])
+  }, [clientId, resolveLoginTarget, router, tSso, isDesktopDeepLink])
 
   const handleLoginSuccess = React.useCallback(() => {
     void generateCodeAndRedirect()
@@ -183,9 +193,9 @@ export default function SsoLoginPage() {
       // 票 A3/G-413 的"那一处裸用":这一跳此前**不经过任何判据**(既不走 ensureSsoRedirectAllowed
       // 的守卫探测,也不走导航安全判据),redirect 参数由客户端整条可控 —— 而它正发生在
       // "刚完成企业 SSO、会话已落 cookie"的那一刻。现与其余落点共用同一把尺子。
-      router.push(resolveSafeRedirectTarget(redirectUrl, { allowDeepLink: true }))
+      router.push(resolveSafeRedirectTarget(resolveLoginTarget(), { allowDeepLink: true }))
     }
-  }, [fromOidc, token, user, redirectUrl, router])
+  }, [fromOidc, token, user, resolveLoginTarget, router])
 
   // 桌面深链"已登录自动签发"(2026-10-13,用户要求:已登录直接获取,不再手点授权)。
   // 桌面端"在浏览器中登录"打开的就是本页(client_id=desktop + redirect=ihui://sso):
@@ -210,7 +220,11 @@ export default function SsoLoginPage() {
     if (handedOff) {
       return (
         <AuthShellPage onClose={handleClose}>
-          <AuthShell title={tSso('desktopHandoffTitle')} subtitle={tSso('desktopHandoffHint')} onClose={handleClose}>
+          <AuthShell
+            title={tSso('desktopHandoffTitle')}
+            subtitle={tSso('desktopHandoffHint')}
+            onClose={handleClose}
+          >
             <Button
               size="lg"
               variant="outline"

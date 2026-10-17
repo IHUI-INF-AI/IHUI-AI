@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { Loader2, RefreshCw, CheckCircle2, XCircle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
@@ -13,6 +14,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
+import { resolvePostLoginLanding } from '@/lib/post-login-landing'
 
 interface AppQrPanelProps {
   /** 父组件传入,变化时重新生成二维码 */
@@ -52,7 +54,9 @@ const QR_SIZE = 184
 export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
   const t = useTranslations('auth')
   const qc = useQueryClient()
+  const router = useRouter()
   const setToken = useAuthStore((s) => s.setToken)
+  const setUser = useAuthStore((s) => s.setUser)
   const closeDialog = useLoginDialogStore((s) => s.close)
 
   const [status, setStatus] = React.useState<QrStatus>('loading')
@@ -125,10 +129,21 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
                 setToken(data.accessToken, data.refreshToken)
                 qc.invalidateQueries({ queryKey: ['header'] })
                 qc.invalidateQueries({ queryKey: ['announcements'] })
+                // 扫码接口只回 token(不带 roleId),补拉一次身份供落点判据使用;
+                // 取不到时按当前身份(通常为 null,非 admin)判定,保留"仅关弹窗"的既有行为。
+                try {
+                  const me = await fetchApi<{ user: unknown }>('/auth/me')
+                  if (!cancelled && me.success && me.data?.user) setUser(me.data.user as never)
+                } catch {
+                  // 身份补拉失败不影响登录完成
+                }
               }
+              const landing = resolvePostLoginLanding(useAuthStore.getState().user)
               setStatus('confirmed')
               window.setTimeout(() => {
-                if (!cancelled) closeDialog()
+                if (cancelled) return
+                closeDialog()
+                if (landing) router.push(landing)
               }, SUCCESS_CLOSE_DELAY_MS)
             } else if (data.status === 'expired') {
               if (pollTimer) {
@@ -159,7 +174,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
       cancelled = true
       if (pollTimer) clearInterval(pollTimer)
     }
-  }, [refreshKey, localRefresh, setToken, qc, closeDialog])
+  }, [refreshKey, localRefresh, setToken, setUser, qc, closeDialog, router])
 
   const handleRetry = React.useCallback(() => {
     setLocalRefresh((n) => n + 1)
