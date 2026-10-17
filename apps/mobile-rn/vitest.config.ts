@@ -150,6 +150,25 @@ export default defineConfig({
         __dirname,
         '../../packages/shared/src/hooks/use-connectivity.ts',
       ),
+      // 2026-10-15 搜索弹窗(SearchOverlay):深路径三连 —— use-search-history.ts 引
+      // '@ihui/shared/utils/storage' + '@ihui/shared/hooks/use-storage',SearchOverlay.tsx 引
+      // '@ihui/shared/utils/search-suggestions'。不配则被下方父别名按 startsWith 吞进
+      // <mock ihui-shared-utils/hooks>.xxx(收集期 MODULE_NOT_FOUND,同 connectivity 那两条)。
+      // 指真实源码:storage.ts 除 type+logger 外零平台依赖、use-storage.ts 只依赖 React、
+      // search-suggestions.ts 零 import,均为纯实现 —— 给它写 mock 测的就是 mock。
+      // 子路径别名必须排在 '@ihui/shared/utils' / '@ihui/shared/hooks' 父别名之前(最长匹配优先)。
+      '@ihui/shared/utils/search-suggestions': resolve(
+        __dirname,
+        '../../packages/shared/src/utils/search-suggestions.ts',
+      ),
+      '@ihui/shared/utils/storage': resolve(
+        __dirname,
+        '../../packages/shared/src/utils/storage.ts',
+      ),
+      '@ihui/shared/hooks/use-storage': resolve(
+        __dirname,
+        '../../packages/shared/src/hooks/use-storage.ts',
+      ),
       '@ihui/shared/utils': resolve(__dirname, 'tests/__mocks__/ihui-shared-utils.ts'),
       '@ihui/shared/hooks': resolve(__dirname, 'tests/__mocks__/ihui-shared-hooks.ts'),
       // 2026-09-27 收口:stores 从"手写替身"改为直指真实工厂。
@@ -226,6 +245,18 @@ export default defineConfig({
       // 派生表见文件头 SHARED_UI_SPEC_ALIASES;必须整体排在 '@ihui/shared/ui' 与 '@ihui/shared'
       // 之前(最长匹配优先)。
       ...SHARED_UI_SPEC_ALIASES,
+      // 2026-10-17 收口:UI 控件注册表的**安全判据**已下沉 @ihui/shared/ui-control
+      // (两端各写一份时词表已经漂开:发布/发送/分享/充值 与 pwd/credential/密钥 等在本端
+      // 原本不屏蔽,小程序端屏蔽 ⇒ 同一控件两端暴露面不同)。
+      // 与上方 '@ihui/shared/ui' 同型:漏配别名 ⇒ 父别名 '@ihui/shared' 按 startsWith 吞成
+      // <mock ihui-shared.ts>/ui-control,收集期即炸(实测 ui-field-registry / ui-action-registry
+      // 两个套件 0 条跑,报 "Failed to resolve import")。
+      // 指真实源码而非 mock:判据零平台依赖,且本票的全部价值就是"两端同源"——
+      // 给它写 mock 测的就是 mock(同 app-control-intent / app-control-intent 各条的规矩)。
+      '@ihui/shared/ui-control': resolve(
+        __dirname,
+        '../../packages/shared/src/ui-control/index.ts',
+      ),
       '@ihui/shared/ui': resolve(__dirname, '../../packages/shared/src/ui/index.ts'),
       // D28 补齐层(2026-10-03):「用场景分析」的判据与场景目录已从 web 下沉到
       // @ihui/shared/import-analysis{,/scenarios}。两条都必须排在下面的
