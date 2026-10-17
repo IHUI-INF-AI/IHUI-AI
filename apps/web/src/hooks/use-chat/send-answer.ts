@@ -25,6 +25,8 @@ import {
   type WorkspacePermissionMode,
 } from '@ihui/api-client'
 import { logger } from '@/lib/logger'
+// G-248/G-916415 R1 web 腿:帧级 traceId 的错误上报消费点(与 send-message.ts 对称)
+import { buildStreamErrorReport, reportStreamError } from './stream-error-report'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
 import { isContextAtCompactionThreshold } from '@/lib/token-estimate'
 import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
@@ -472,6 +474,9 @@ export function createSendAnswer(
         onError: (errMsg, info) => {
           // D131(2026-09-29 立):与主流同形 —— 续答以错误收场时落"已断开"并占位
           markStreamDisconnected(errMsg)
+          // G-248/G-916415 R1 web 腿(2026-10-17 立):与 sendMessage 对称 ——
+          // 帧级 traceId 随流错误进上报体(缺席 = 无键纪律见 stream-error-report.ts)
+          reportStreamError(buildStreamErrorReport({ message: errMsg, info }))
           // #9 错误前先 flush 累积 token,避免最后一批内容丢失
           contentBatcher.flush()
           reasoningBatcher.flush()
