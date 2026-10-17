@@ -19380,6 +19380,7 @@
     "captureWbWebTitle": "브라우저 QR 로그인(권장·토큰 불필요)",
     "captureWbWebDescription": "\"브라우저에서 로그인\"을 누르고 열린 내장 브라우저 창에서 WorkBuddy에 평소처럼 로그인(전화번호/QR)하세요. 로그인이 완료되면 계정이 자동으로 추가됩니다. 토큰을 복사할 필요가 없습니다.",
     "captureWbWebOpen": "브라우저에서 로그인",
+    "captureWbWebToolbar": "브라우저로 WorkBuddy 로그인",
     "captureWbWebWaiting": "브라우저를 열었습니다. 로그인을 기다리는 중… 완료되면 자동으로 추가됩니다",
     "captureWbWebImporting": "로그인 감지됨, 계정 가져오는 중…",
     "captureWbWebDone": "웹 로그인 가져오기 완료({count}개 계정)",
