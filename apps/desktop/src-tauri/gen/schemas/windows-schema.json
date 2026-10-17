@@ -2475,12 +2475,6 @@
           "markdownDescription": "Enables the clipboard_set command without any pre-configured scope."
         },
         {
-          "description": "Enables the close_in_chrome command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-close-in-chrome",
-          "markdownDescription": "Enables the close_in_chrome command without any pre-configured scope."
-        },
-        {
           "description": "Enables the embedded_browser_close command without any pre-configured scope.",
           "type": "string",
           "const": "allow-embedded-browser-close",
@@ -2653,12 +2647,6 @@
           "type": "string",
           "const": "allow-open-admin-window",
           "markdownDescription": "Enables the open_admin_window command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the open_in_chrome command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-open-in-chrome",
-          "markdownDescription": "Enables the open_in_chrome command without any pre-configured scope."
         },
         {
           "description": "Enables the qoder_quarantine_delete command without any pre-configured scope.",
@@ -3015,12 +3003,6 @@
           "markdownDescription": "Denies the clipboard_set command without any pre-configured scope."
         },
         {
-          "description": "Denies the close_in_chrome command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-close-in-chrome",
-          "markdownDescription": "Denies the close_in_chrome command without any pre-configured scope."
-        },
-        {
           "description": "Denies the embedded_browser_close command without any pre-configured scope.",
           "type": "string",
           "const": "deny-embedded-browser-close",
@@ -3193,12 +3175,6 @@
           "type": "string",
           "const": "deny-open-admin-window",
           "markdownDescription": "Denies the open_admin_window command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the open_in_chrome command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-open-in-chrome",
-          "markdownDescription": "Denies the open_in_chrome command without any pre-configured scope."
         },
         {
           "description": "Denies the qoder_quarantine_delete command without any pre-configured scope.",

@@ -18,19 +18,19 @@
  *   T6 阈值必须来自派发周期而不是另写一个数(3× 周期),否则两处会漂开。
  */
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import test from 'node:test'
 
 import { watchPatrolHeartbeat } from '../git-guardian.mjs'
+import { mkScratch } from '../lib/scratch-dir.mjs'
 
 const GUARDIAN = resolve(import.meta.dirname, '..', 'git-guardian.mjs')
 const SRC = readFileSync(GUARDIAN, 'utf8')
 
 /** 造一对临时心跳/起跳文件路径。 */
 function fixture() {
-  const dir = mkdtempSync(join(tmpdir(), 'patrol-hb-'))
+  const dir = mkScratch('patrol-hb-')
   return { heartbeatFile: join(dir, 'hb.json'), kickFile: join(dir, 'kick.ts') }
 }
 

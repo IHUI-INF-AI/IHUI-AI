@@ -42,11 +42,12 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
-import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 // "该停哪个桌面端实例"的判据与它的镜像测试共用这一份实现(纯函数,零副作用)
 import { selectDesktopVictims } from './lib/desktop-victims.mjs'
+// 临时物唯一落点(§15b/§26):不得走 os.tmpdir()(活进程 %TEMP% 可能仍钉 C 盘)
+import { mkScratch } from './lib/scratch-dir.mjs'
 // 包管理器执行器判据同样单源(与 desktop-build-saas.mjs 共用,不得各抄一份)
 import { planPackageManagerSpawn } from './lib/npm-execpath.mjs'
 
@@ -310,7 +311,7 @@ const configOverride = JSON.stringify({
 // 层层剥掉,tauri 收到的是 `{build:{beforeDevCommand:},app:...}` 这种非法串 ⇒
 // `failed to parse config ... key must be a string at line 1 column 2` 直接退出 2
 // (整条 `pnpm dev:desktop:saas` 入口在 Windows 上一直是坏的)。路径不含引号,不受影响。
-const configOverridePath = path.join(os.tmpdir(), `ihui-desktop-dev-${process.pid}.json`)
+const configOverridePath = path.join(mkScratch('desktop-dev-'), `ihui-desktop-dev-${process.pid}.json`)
 writeFileSync(configOverridePath, configOverride, 'utf8')
 // ⚠ npm_execpath **不保证是 JS 入口**:pnpm 11/Windows 下它是 `pnpm.exe` 本体路径,
 // 交给 process.execPath 当模块加载会直接 `ERR_UNKNOWN_FILE_EXTENSION ".exe"` ⇒
