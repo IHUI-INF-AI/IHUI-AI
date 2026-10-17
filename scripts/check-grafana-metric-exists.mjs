@@ -46,7 +46,7 @@ const DASHBOARD_DIRS = [
 ]
 
 /** 扫发射点的代码根(相对仓库根)。 */
-const EMISSION_ROOTS = ['apps/ai-service/app', 'apps/api/src', 'packages']
+const EMISSION_ROOTS = ['apps/ai-service/app', 'apps/api/src', 'packages', 'monitoring/alertbridge']
 
 /** Prometheus 自己产生、不需要仓库发射的名字前缀。 */
 const CORE_PREFIXES = ['up', 'scrape_', 'prometheus_', 'target_info']
@@ -111,10 +111,15 @@ function normalizedNameVariants(name) {
   ])
 }
 
-/** 发射点源文件筛选:只要源码,且绝不进 node_modules/dist/.venv(junction 会递归穿透)。 */
+/**
+ * 发射点源文件筛选:只要源码,且绝不进 node_modules/dist/.venv(junction 会递归穿透)。
+ * `cjs` 必须在表里:monitoring/alertbridge/alert-webhook-bridge.cjs 是常驻生产服务,
+ * 它手拼 ihui_alertbridge_* 的 HELP/样本行。少了这一档,桥的全部指标在门眼里都是幽灵,
+ * 而它们在本机 Prometheus 里天天有序列 ⇒ 逼人来一句"这名字明明是活的"。
+ */
 function isSourceFile(p) {
   if (/(^|\/)(node_modules|dist|build|\.venv|venv|__pycache__|\.next|coverage)(\/|$)/.test(p)) return false
-  return /\.(py|ts|tsx|mjs|js)$/.test(p)
+  return /\.(py|ts|tsx|mjs|cjs|js)$/.test(p)
 }
 
 function readExternalLedger(faceRead) {
@@ -144,7 +149,9 @@ function emittedViaGitGrep(face) {
   const rev = face === 'staged' ? [] : ['HEAD']
   const calls = [
     { args: ['grep', '-h', '-E', '-A', '1', ...opts, '(Counter|Histogram|Gauge|Summary|Info|Enum)\\(', ...rev, '--', 'apps/ai-service/app'], re: PY_METRIC_RE },
-    { args: ['grep', '-h', '-E', ...opts, "\\bname:\\s*['\"][a-z_][a-z0-9_]*['\"]|['\"][a-z][a-z0-9_]{3,}_(total|seconds|bytes|ms|info|ratio)['\"]|#\\s*HELP\\s+[a-z_][a-z0-9_]*", ...rev, '--', 'apps/api/src', 'packages'], re: null, res: [TS_NAME_RE, TS_LITERAL_RE, TS_HELP_RE, TS_SERIES_RE] },
+    // 路径清单唯一来源 = EMISSION_ROOTS(去掉 python 那一格,它有自己的调用);
+    // 在这里再手抄一遍就是第二份真相,加根目录时必漏(2026-10-17 monitoring/alertbridge 漏了一整天)。
+    { args: ['grep', '-h', '-E', ...opts, "\\bname:\\s*['\"][a-z_][a-z0-9_]*['\"]|['\"][a-z][a-z0-9_]{3,}_(total|seconds|bytes|ms|info|ratio)['\"]|#\\s*HELP\\s+[a-z_][a-z0-9_]*", ...rev, '--', ...EMISSION_ROOTS.filter((r) => r !== 'apps/ai-service/app')], re: null, res: [TS_NAME_RE, TS_LITERAL_RE, TS_HELP_RE, TS_SERIES_RE] },
   ]
   const set = new Set()
   let scanned = 0
@@ -418,6 +425,14 @@ function selfTest(_argv) {
   const ghostNames = extractMetricNames(exprs[0])
   add('幽灵名能被抓出(判据有牙的正向证明)', ghostNames.includes('ihui_ai_ghost_seconds_bucket'))
   add('job 标签名不被当指标', !ghostNames.includes('job'))
+  // 覆盖面正控(2026-10-17):桥是 .cjs 手拼渲染,曾因 isSourceFile 不认 cjs + 根目录不含
+  // monitoring/alertbridge 而在门里整体失明;摘掉任一档,下面第一条立刻翻红。
+  const em = emittedViaGitGrep('head')
+  add('发射点取材面可读(git grep 没失败)', em.set !== null && em.scanned === 2)
+  add('.cjs 手拼的桥指标算发射点(ihui_alertbridge_mail_batches_failed_total 在集里)', em.set !== null && em.set.has('ihui_alertbridge_mail_batches_failed_total'))
+  add('凭空名字仍然不在集里(扩面没有把判据扩成万能)', em.set !== null && !em.set.has('ihui_alertbridge_ghost_total'))
+  const roots = EMISSION_ROOTS.join(' ')
+  add('取材根目录含监控桥(第二份手抄路径已并回单一清单)', roots.includes('monitoring/alertbridge'))
   const fails = cases.filter((c) => !c.pass)
   for (const c of cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
   if (fails.length > 0) {

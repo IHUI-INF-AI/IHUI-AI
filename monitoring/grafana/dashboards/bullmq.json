@@ -1,65 +1,126 @@
 {
-  "annotations": { "list": [] },
-  "description": "IHUI-AI BullMQ 队列深度监控 (延迟/失败/重试/dead letter)",
+  "annotations": {
+    "list": []
+  },
+  "description": "原盘查的 bullmq_* 六个指标全仓无发射点、本机无采集器(台账 scripts/data/grafana-external-metrics.json 已如实记\"队列采集线上未接线\")⇒ 14 条表达式恒 No data。2026-10-17 改指 api 真在发的 business_job_executions_total{job_name,status} 与 business_job_duration_seconds_bucket{job_name,le},这两族本机有 27 个作业名、success/failed/unknown 三态齐备。",
   "editable": true,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "返回 AI 总览",
+      "type": "link",
+      "url": "/d/ihui-ai-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "tags": ["ihui-ai"]
+    }
+  ],
   "panels": [
     {
-      "title": "队列总长度",
+      "title": "任务执行速率",
       "type": "gauge",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
       "targets": [
         {
-          "expr": "sum(bullmq_waiting_total{instance=~\"$instance\"}) + sum(bullmq_active_total{instance=~\"$instance\"}) + sum(bullmq_delayed_total{instance=~\"$instance\"})",
-          "legendFormat": "队列长度",
-          "refId": "A"
+          "expr": "sum by (status) (rate(business_job_executions_total{instance=~\"$instance\"}[5m]))",
+          "refId": "A",
+          "legendFormat": "{{status}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "reqps",
           "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green" },
-              { "color": "yellow", "value": 1000 },
-              { "color": "red", "value": 5000 }
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 1000
+              },
+              {
+                "color": "red",
+                "value": 5000
+              }
             ]
           }
         },
         "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "description": "队列深度需要 BullMQ 采集器,本机没有;作业侧真在发的是执行计数(27 个作业名 × success/failed/unknown),按状态给速率。",
+      "id": 1
     },
     {
-      "title": "活跃 Worker 数",
+      "title": "在跑作业数 (15m 内有执行)",
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
       "targets": [
         {
-          "expr": "sum(bullmq_workers_active{instance=~\"$instance\"})",
-          "legendFormat": "Workers",
-          "refId": "A"
+          "expr": "count(count by (job_name) (increase(business_job_executions_total{instance=~\"$instance\"}[15m])))",
+          "refId": "A",
+          "legendFormat": "作业数"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "id": 2
     },
     {
-      "title": "失败任务数",
+      "title": "失败任务数 (1h)",
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
       "targets": [
         {
-          "expr": "sum(bullmq_failed_total{instance=~\"$instance\"})",
-          "legendFormat": "Failed",
-          "refId": "A"
+          "expr": "sum(increase(business_job_executions_total{instance=~\"$instance\", status=\"failed\"}[1h]))",
+          "refId": "A",
+          "legendFormat": "失败"
         }
       ],
       "fieldConfig": {
@@ -68,26 +129,47 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green" },
-              { "color": "yellow", "value": 50 },
-              { "color": "red", "value": 200 }
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 200
+              }
             ]
           }
         },
         "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "id": 3
     },
     {
-      "title": "Dead Letter 队列长度",
+      "title": "状态未知任务数 (1h)",
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
       "targets": [
         {
-          "expr": "sum(bullmq_deadletter_total{instance=~\"$instance\"})",
-          "legendFormat": "DLQ",
-          "refId": "A"
+          "expr": "sum(increase(business_job_executions_total{instance=~\"$instance\", status=\"unknown\"}[1h]))",
+          "refId": "A",
+          "legendFormat": "状态未知"
         }
       ],
       "fieldConfig": {
@@ -96,120 +178,210 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green" },
-              { "color": "yellow", "value": 100 },
-              { "color": "red", "value": 500 }
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
             ]
           }
         },
         "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "description": "没有 DLQ 指标;status=\"unknown\" 是\"跑完但没回报结果\"那一族,功能上最接近死信的关注点。",
+      "id": 4
     },
     {
-      "title": "队列长度趋势 (按队列)",
+      "title": "执行速率 Top 10 (按作业)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
       "targets": [
         {
-          "expr": "sum by (queue) (bullmq_waiting_total{instance=~\"$instance\"})",
-          "legendFormat": "waiting {{queue}}",
-          "refId": "A"
-        },
-        {
-          "expr": "sum by (queue) (bullmq_active_total{instance=~\"$instance\"})",
-          "legendFormat": "active {{queue}}",
-          "refId": "B"
-        },
-        {
-          "expr": "sum by (queue) (bullmq_delayed_total{instance=~\"$instance\"})",
-          "legendFormat": "delayed {{queue}}",
-          "refId": "C"
+          "expr": "topk(10, sum by (job_name) (rate(business_job_executions_total{instance=~\"$instance\"}[5m])))",
+          "refId": "A",
+          "legendFormat": "{{job_name}}"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "id": 5
     },
     {
       "title": "处理速度 (jobs/s)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
       "targets": [
         {
-          "expr": "sum by (queue) (rate(bullmq_completed_total{instance=~\"$instance\"}[5m]))",
-          "legendFormat": "completed {{queue}}",
-          "refId": "A"
+          "expr": "sum(rate(business_job_executions_total{instance=~\"$instance\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "总处理速率"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "id": 6
     },
     {
       "title": "失败率趋势",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
       "targets": [
         {
-          "expr": "sum by (queue) (rate(bullmq_failed_total{instance=~\"$instance\"}[5m])) / (sum by (queue) (rate(bullmq_completed_total{instance=~\"$instance\"}[5m])) + sum by (queue) (rate(bullmq_failed_total{instance=~\"$instance\"}[5m])))",
-          "legendFormat": "失败率 {{queue}}",
-          "refId": "A"
+          "expr": "sum(rate(business_job_executions_total{instance=~\"$instance\", status=\"failed\"}[5m])) / sum(rate(business_job_executions_total{instance=~\"$instance\"}[5m]))",
+          "refId": "A",
+          "legendFormat": "失败率"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "description": "分母不 clamp:窗口内没有任何执行时比值取不出来 ⇒ No data。clamp 会把\"没跑作业\"报成\"失败率 0%\",那是两个不同的事实。",
+      "id": 7
     },
     {
-      "title": "重试次数 (按队列)",
+      "title": "状态未知任务分布 (按作业)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
       "targets": [
         {
-          "expr": "sum by (queue) (increase(bullmq_retry_total{instance=~\"$instance\"}[5m]))",
-          "legendFormat": "retry {{queue}}",
-          "refId": "A"
+          "expr": "topk(10, sum by (job_name) (increase(business_job_executions_total{instance=~\"$instance\", status=\"unknown\"}[1h])))",
+          "refId": "A",
+          "legendFormat": "{{job_name}}"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "description": "BullMQ 侧重试计数本机无采集器;这里给真正能追责的\"作业跑完但状态未回报\"分布。",
+      "id": 8
     },
     {
       "title": "延迟分布 (P50/P95/P99)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
       "targets": [
         {
-          "expr": "histogram_quantile(0.5, sum by (le, queue) (bullmq_duration_seconds_bucket{instance=~\"$instance\"}))",
-          "legendFormat": "P50 {{queue}}",
-          "refId": "A"
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(business_job_duration_seconds_bucket{instance=~\"$instance\"}[5m])))",
+          "refId": "A",
+          "legendFormat": "P50"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le, queue) (bullmq_duration_seconds_bucket{instance=~\"$instance\"}))",
-          "legendFormat": "P95 {{queue}}",
-          "refId": "B"
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(business_job_duration_seconds_bucket{instance=~\"$instance\"}[5m])))",
+          "refId": "B",
+          "legendFormat": "P95"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le, queue) (bullmq_duration_seconds_bucket{instance=~\"$instance\"}))",
-          "legendFormat": "P99 {{queue}}",
-          "refId": "C"
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(business_job_duration_seconds_bucket{instance=~\"$instance\"}[5m])))",
+          "refId": "C",
+          "legendFormat": "P99"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "description": "business_job_duration_seconds_bucket 本机有 278 条序列、le 档位齐备,这三档是真算得出来的。",
+      "id": 9
     },
     {
-      "title": "Worker 状态表",
+      "title": "作业执行台账 (按作业/状态)",
       "type": "table",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
       "targets": [
         {
-          "expr": "bullmq_workers_active{instance=~\"$instance\"}",
-          "legendFormat": "{{instance}} {{queue}}",
+          "expr": "sum by (job_name, status) (increase(business_job_executions_total{instance=~\"$instance\"}[$__range]))",
           "refId": "A",
-          "format": "table",
-          "instant": true
+          "legendFormat": "{{job_name}} / {{status}}"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "id": 10
     }
   ],
   "refresh": "30s",
@@ -221,19 +393,29 @@
       {
         "name": "instance",
         "type": "query",
-        "datasource": { "type": "prometheus", "uid": "Prometheus" },
-        "query": "label_values(bullmq_waiting_total, instance)",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        },
+        "query": "label_values(business_job_executions_total, instance)",
         "refresh": 2,
         "includeAll": true,
         "multi": true,
-        "current": { "selected": true, "text": "All", "value": "$__all" }
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        }
       }
     ]
   },
-  "time": { "from": "now-1h", "to": "now" },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
-  "title": "IHUI-AI BullMQ 队列监控",
+  "title": "IHUI-AI 任务队列监控",
   "uid": "ihui-ai-bullmq",
   "version": 1,
   "weekStart": ""

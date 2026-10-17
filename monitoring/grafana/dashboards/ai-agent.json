@@ -15,11 +15,23 @@
       }
     ]
   },
+  "description": "智能体循环与融合策略:循环收尾原因、错误与重试分布、融合链成功率。数据源 ai-service 的 ihui_agent_loop_* 与 llm_fusion_*。",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "返回 AI 总览",
+      "type": "link",
+      "url": "/d/ihui-ai-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "tags": ["ihui-ai"]
+    }
+  ],
   "liveNow": false,
   "panels": [
     {
