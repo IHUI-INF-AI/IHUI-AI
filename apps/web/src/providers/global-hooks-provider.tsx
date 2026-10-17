@@ -312,6 +312,11 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
       {showHelpPanel && (
         <div
           role="presentation"
+          // className 的 fixed/inset-0 是给 modal-overlay-watcher 的选择器认的:
+          // 该 watcher 只遍历 [class~="fixed"][class~="inset-0"] 候选,纯内联 style 写的全屏遮罩
+          // 会被漏检 ⇒ 本面板打开期间三按钮不被等效压暗(全站模态都压、唯独它不压,视觉不一致)。
+          // 值与下方内联 style 同源(position:fixed / inset:0),内联值仍权威,此处仅补选择器标记。
+          className="fixed inset-0"
           onClick={(e) => {
             if (e.target === e.currentTarget) toggleHelpPanel()
           }}
