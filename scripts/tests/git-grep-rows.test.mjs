@@ -12,7 +12,7 @@
  */
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
@@ -86,11 +86,16 @@ test('形状锁:scripts/ 下不得再出现第二处该格式的拆解(共用层
   )
     .split(/\r?\n/)
     .filter((p) => p.endsWith('.mjs'))
+  // 清单取自 `git ls-files -co`(索引/HEAD 面),内容却按工作树读 ⇒ 两面不同形(§0.4「同面同轮」)。
+  // "已入库但被工作树删除"(他人删而未提交 / 任何 `rm` 未 commit)的文件仍留在 -c 清单里,直接 readFileSync 会
+  // ENOENT 崩掉整条锁。本锁扫的是「工作树上真实存在的 .mjs」(取 -co 是为逮住刚新增、尚未提交的门体),故按盘上
+  // 存在性过滤;被删文件本无内容,跳过不藏任何真拆解 ⇒ 覆盖面守卫改判过滤后的真实扫描集,牙齿仍由下面 scanNeedle 阳性夹具兜。
+  const onDisk = listed.filter((p) => existsSync(join(ROOT, p)))
   assert.ok(
-    listed.length > 100,
-    `scripts/.mjs 只列出 ${listed.length} 个 ⇒ 覆盖面不成立,这条锁无从判`,
+    onDisk.length > 100,
+    `scripts/.mjs 只列出 ${onDisk.length} 个 ⇒ 覆盖面不成立,这条锁无从判`,
   )
-  const entries = listed.map((p) => [p, readFileSync(join(ROOT, p), 'utf8')])
+  const entries = onDisk.map((p) => [p, readFileSync(join(ROOT, p), 'utf8')])
   const hits = scanNeedle(entries)
   // 共用层自己也**不该**含那串字面(它按 prefix 切片 + 窄正则),所以整面应为 0 处;
   // 一旦 >0,清单会点名,读的人不必再猜是哪一处。
