@@ -28,6 +28,16 @@
 //     并写 [mail][ERROR] 日志;/health 暴露 mailUndelivered=true。标记在下一次成功投递时
 //     清除(参照 scripts/check-credential-health.mjs 的 UNDELIVERED 机制)。
 //
+// 状态分流(2026-10-17 立,根治"已恢复被当故障寄信"的假警报型):
+//   现役 Alertmanager 配置 send_resolved: true(tmpl 现读),恢复事件同样 POST 进本桥。
+//   此前本文件全文不读 alert.status ⇒ 一条恢复与一条新故障走同一条邮件流水线,
+//   标题都是"基础设施告警 — X";故障持续 >去重窗口后才恢复的,那封"恢复"就会以
+//   故障面目到人(§5e-1 要杜绝的正是这种把人训回"忽略告警"的假警报)。
+//   现在:显式 status=resolved ⇒ 只清偿(摘该身份去重档,下次 firing 立即可再报)+
+//   ALERT-CLEARED 形态记日志(与 deploy/win/ihui-deploy.ps1 的 ALERT-CLEARED 同形态),
+//   **绝不进故障邮件**;status 缺失/其它取值 ⇒ fail-open 照旧到人(失效方向必须是
+//   "多报一次",绝不能是"多静音一条")。
+//
 // 自监控端点(2026-09-27 起,两个端点各服务一个读者,**不可互换**):
 //   GET /health   → application/json,给人和「生产值守巡检」班次读(契约一字未改)
 //   GET /metrics  → text/plain; version=0.0.4,Prometheus 抓取专用(指标见 METRIC_SPECS)
@@ -241,6 +251,7 @@ const counters = {
   statePersistFailures: 0,   // 去重态落盘失败 ⇒ 重启后去重重置(本文件注释里那个"重寄"洞的前置信号)
   undeliveredMarks: 0,       // 写下 UNDELIVERED 标记的次数
   selfScopeReported: 0,      // 按来源锚点判为"采集器/监控自身造成"、只记账不炸到人的条数
+  alertsCleared: 0,          // 显式 status=resolved 被清偿(ALERT-CLEARED 记账、未冒充故障寄信)的条数
 }
 /** 日志来源锚点的活性(1=两侧名字对得上、分流在跑;0=失明 ⇒ 本桥已 fail-open 全照旧到人)。 */
 let logAnchorOk = false
@@ -284,6 +295,7 @@ const METRIC_SPECS = [
   ['ihui_alertbridge_alerts_received_total', 'counter', 'Alerts received before dedup.', (s) => s.counters.alertsReceived],
   ['ihui_alertbridge_alerts_dedup_suppressed_total', 'counter', 'Alerts suppressed by identity (alertname+instance) inside the dedup window.', (s) => s.counters.dedupSuppressed],
   ['ihui_alertbridge_alerts_selfscope_reported_total', 'counter', 'Alerts whose log-source anchor says "collector / monitoring self noise": recorded here (log + this counter) instead of waking a human. Zero when the split is blind.', (s) => s.counters.selfScopeReported],
+  ['ihui_alertbridge_alerts_cleared_total', 'counter', 'Alerts with explicit status=resolved: the dedup identity was cleared and an ALERT-CLEARED log line written; never mailed as an incident.', (s) => s.counters.alertsCleared],
   ['ihui_alertbridge_log_anchor_ok', 'gauge', '1 = the log-source anchor label agrees between promtail and the alert rules, so the collector/business split is live; 0 = blind (bridge fails open and pages everything) — alerts.yml rule LogSourceSplitBlind reads this.', (s) => (s.logAnchorOk ? 1 : 0)],
   ['ihui_alertbridge_mail_batches_delivered_total', 'counter', 'Mail batches delivered on either the branded or the plain-text path.', (s) => s.counters.batchesDelivered],
   ['ihui_alertbridge_mail_batches_failed_total', 'counter', 'Mail batches where BOTH the branded and the plain-text path failed (alerts never reached a human).', (s) => s.counters.batchesFailed],
@@ -613,6 +625,38 @@ function planDelivery(alerts, anchor, store, nowMs, windowMs) {
   return { toPush, dedupedCount, selfReportOnly, page }
 }
 
+/**
+ * 按 Alertmanager 的 `status` 字段分流(纯函数,--self-test 成对钉):
+ * 只有**显式** status=resolved 进清偿支;缺失/firing/其它取值一律 fail-open 留到人支
+ * —— 失效方向必须是"多报一次",绝不能是"多静音一条"(AGENTS §5e-1/§0.10 同一条禁令)。
+ */
+function splitAlertsByStatus(alerts) {
+  const paging = []
+  const resolved = []
+  for (const a of Array.isArray(alerts) ? alerts : []) {
+    const st = String((a && a.status) || '').trim().toLowerCase()
+    if (st === 'resolved') resolved.push(a)
+    else paging.push(a)
+  }
+  return { paging, resolved }
+}
+
+/**
+ * 清偿(纯函数):恢复事件摘掉该身份的去重档 ⇒ 下一次真 firing 立刻可再报,
+ * 不被旧窗口压住(清偿语义与 deploy/win/ihui-deploy.ps1 的 ALERT-CLEARED 同一形态)。
+ * 返回本次摘除的身份键列表(含"窗口内本无"的,逐键如实报数)。
+ */
+function applyResolvedClears(store, resolved) {
+  const cleared = []
+  for (const a of resolved || []) {
+    const labels = (a && a.labels) || {}
+    const key = `${labels.alertname || ''}|${labels.instance || ''}`
+    store.delete(key)
+    cleared.push(key)
+  }
+  return cleared
+}
+
 // ── webhook 处理 ───────────────────────────────────────────────────────────────
 async function handleAlert(reqBody) {
   counters.webhooksReceived += 1 // 纯观测:以下判定链路一字未改
@@ -623,12 +667,26 @@ async function handleAlert(reqBody) {
   }
 
   const now = Date.now()
+  counters.alertsReceived += alerts.length
+  // ⓪ 状态分流(2026-10-17):显式 resolved ⇒ 清偿 + ALERT-CLEARED 记账,绝不冒充故障寄邮件;
+  //    其余(含 status 缺失)照旧走下方到人链路(fail-open,故障照寄不被静音)。
+  const { paging, resolved } = splitAlertsByStatus(alerts)
+  if (resolved.length) {
+    counters.alertsCleared += resolved.length
+    applyResolvedClears(dedup, resolved)
+    const shown = resolved.slice(0, 3).map((a) => formatAlert(a).replace(/\n/g, ' / ')).join(' ;; ')
+    writeLog(`ALERT-CLEARED 收到恢复 ${resolved.length} 条(不计故障、不寄邮件;同身份去重档已清偿,下次 firing 立即可再报;前 3 条:${shown})`)
+  }
+  if (!paging.length) {
+    // 本批全是恢复:摘除的去重档同样必须回响应前落盘(跨重启延续,同下方纪律)
+    if (!persistState(STATE_FILE, dedup, now, writeLog)) counters.statePersistFailures += 1
+    return { cleared: resolved.length }
+  }
   // ① 按日志来源分流:采集器/监控自身造成的 → 只记账;其余 → 照旧走身份去重 + 邮件。
   //    锚点对不上时 splitAlertsByLogSource 把所有告警放进"照旧到人"那一支(fail-open),
   //    所以这一层在失明态下与分流接入前的行为逐字一致(不会顺手压掉任何一条)。
   const anchor = currentLogAnchor(now)
-  const { toPush, dedupedCount, selfReportOnly, page } = planDelivery(alerts, anchor, dedup, now, MAX_DEDUP_AGE_MS)
-  counters.alertsReceived += alerts.length
+  const { toPush, dedupedCount, selfReportOnly, page } = planDelivery(paging, anchor, dedup, now, MAX_DEDUP_AGE_MS)
   counters.dedupSuppressed += dedupedCount
   if (selfReportOnly.length) {
     counters.selfScopeReported += selfReportOnly.length
@@ -644,10 +702,10 @@ async function handleAlert(reqBody) {
   if (!toPush.length) {
     if (!page.length && selfReportOnly.length) {
       writeLog(`[alert] 本批 ${alerts.length} 条全部按来源判为只报不炸,未寄邮件(去重命中 ${dedupedCount} 条)`)
-      return { skipped: dedupedCount, reported: selfReportOnly.length }
+      return { skipped: dedupedCount, reported: selfReportOnly.length, cleared: resolved.length }
     }
     writeLog(`[alert] 到人那一支全部命中去重窗口(${page.length}条/${dedupedCount}条),跳过投递`)
-    return { skipped: dedupedCount, reported: selfReportOnly.length }
+    return { skipped: dedupedCount, reported: selfReportOnly.length, cleared: resolved.length }
   }
 
   // 每批待投递告警直接寄一封(不同身份一律照寄,无任何计数闸/队列丢弃)
@@ -666,7 +724,7 @@ async function handleAlert(reqBody) {
       // deliverMail 内部已把投递异常收敛成结论;走到这里只能是结论链路自身异常 —— 同样必须响。
       writeLog(`[mail][ERROR] 投递腿未收敛异常: ${redact(e && e.message ? e.message : e)}`)
     })
-  return { queued: toPush.length, reported: selfReportOnly.length }
+  return { queued: toPush.length, reported: selfReportOnly.length, cleared: resolved.length }
 }
 
 function parseBody(req) {
@@ -744,6 +802,8 @@ function usageText() {
     '邮件出口唯一实现: apps/api/scripts/notify-deploy-failure.ts(版式= renderSystemAlertEmail);',
     '本文件不得出现 SMTP/Resend 传输层或模板字符串(守门 81「品牌邮件通道对账」)。',
     '只按告警身份去重、无每日总量封顶;寄不出去会留 UNDELIVERED 标记并在 /health 可见。',
+    '状态分流:显式 status=resolved ⇒ 清偿去重档 + ALERT-CLEARED 记账,不冒充故障寄邮件;',
+    '          status 缺失/其它取值 ⇒ fail-open 照旧到人(故障照寄,绝不顺手静音)。',
   ].join('\n')
 }
 
@@ -1011,6 +1071,28 @@ async function runSelfTest() {
   eq('⑥k-1 抽掉一条规则的 for ⇒ 必红(漏写不是"少一行"而是整份被 promtool 拒收)', logAnchor.validateAlertRules(oneRule).ok, false)
   eq('⑥k-2 标量收尾的引号丢了 ⇒ 必红(YAML 会把后半行连同下一行吃进标量)', logAnchor.validateAlertRules(rulesNow.replace("description: 'grafana(127.0.0.1:8816)无指标超过 10 分钟;只影响人工查看,告警链不经它,故窗口放宽'", "description: 'grafana 无指标超过 10 分钟;窗口放宽")).ok, false)
   eq('⑥k-3 把失明 gauge 多写一遍 ⇒ 必红(两份真相 = 改一处漏一处)', logAnchor.validateAlertRules(rulesNow + '\n      - alert: LogSourceSplitBlind\n        expr: ihui_alertbridge_log_anchor_ok == 0\n        for: 10m\n        labels:\n          severity: critical\n        annotations:\n          summary: s\n          description: d\n').ok, false)
+
+  // ⑨ 状态分流(2026-10-17,"恢复被当故障寄信"的假警报型)。四条成对,全走纯函数铰链:
+  //    a) resolved 不进到人支(阳性)  b) firing/缺 status 照旧到人(反向,故障不静音)
+  //    c) 清偿语义:恢复摘档后同身份下次 firing 立即可再报  d) 指标行真渲染(只报不炸≠没记)
+  const sStore = new Map()
+  const firingA = { status: 'firing', labels: { alertname: 'ApiDown', instance: 'api:1', severity: 'critical' } }
+  const resolvedA = { status: 'resolved', labels: { alertname: 'PgDown', instance: 'pg:1', severity: 'critical' } }
+  const noStatusA = { labels: { alertname: 'Weird', instance: 'w:1' } }
+  const pendingA = { status: 'pending', labels: { alertname: 'AlsoReal', instance: 'r:1' } }
+  // 先建立"窗口内活跃身份"(模拟故障已寄出过一封)
+  partitionAlerts([resolvedA], sStore, 1000, HOUR)
+  const tri9 = splitAlertsByStatus([firingA, resolvedA, noStatusA, pendingA])
+  eq('⑨a 只有显式 resolved 进清偿支(阳性对照:恢复不被当故障)', tri9.resolved.map((x) => x.labels.alertname), ['PgDown'])
+  eq('⑨b firing/缺 status/其它取值全留在到人支(反向锁:故障照寄不被静音)', tri9.paging.map((x) => x.labels.alertname), ['ApiDown', 'Weird', 'AlsoReal'])
+  const clearedKeys = applyResolvedClears(sStore, tri9.resolved)
+  eq('⑨c 清偿摘档:同身份下一次 firing 立即再报(不被旧窗口压住)', [clearedKeys, partitionAlerts([{ labels: { alertname: 'PgDown', instance: 'pg:1' } }], sStore, 1500, HOUR)].map((v) => (Array.isArray(v) ? v.length : v.toPush.length)), [1, 1])
+  eq('⑨d 空/非数组输入不炸且全 fail-open 到人', [splitAlertsByStatus(undefined).paging.length, splitAlertsByStatus([]).resolved.length], [0, 0])
+  const cCleared = {}
+  for (const key of Object.keys(counters)) cCleared[key] = 0
+  cCleared.alertsCleared = 5
+  eq('⑨e 清偿指标行真出现在样本行上(不在名单里就是静默丢弃)', /^ihui_alertbridge_alerts_cleared_total 5$/m.test(renderMetrics({ ...sample, counters: cCleared })), true)
+  eq('⑨f 分流判据挂在生产路径上(handleAlert 真调 splitAlertsByStatus,不是只写了个函数)', /const \{ paging, resolved \} = splitAlertsByStatus\(alerts\)/.test(fs.readFileSync(__filename, 'utf8')), true)
 
   let bad = 0
   for (const [label, pass, why] of cases) {
