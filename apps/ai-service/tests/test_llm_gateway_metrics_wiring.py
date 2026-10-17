@@ -280,4 +280,113 @@ async def test_astream_midstream_failure_marks_interrupt(real_mode, monkeypatch)
         model=model,
         reason="upstream_error",
     ) == (before_interrupt + 1), "半截流没被记成中断 —— 中断率面板永远是 0"
+
+
+# =============================================================================
+# 成本与"客户端断开"两档(2026-10-17 立)
+#
+# ihui_llm_cost_usd_total 在保留窗内 0 时序:成本唯一来源 litellm.completion_cost
+# 对本机在用的 agnes/stepfun/lmstudio 一律 "This model isn't mapped yet" ⇒ 当场抛
+# 异常、成本恒 None。假 litellm 模块压根没有 completion_cost 属性,正好复现这个形状。
+# ihui_llm_stream_interrupt_total 的 client_disconnect 一档同样是 0 时序:
+# GeneratorExit 不是 Exception,流式失败的 except 抓不到它。
+# =============================================================================
+
+
+async def test_complete_success_advances_cost_usd(real_mode, monkeypatch):
+    """非流式成功:litellm 没价表时必须落到项目价目源,把成本计进 Prometheus。"""
+    model = "stepfun/step-3.7-flash"
+    p = _provider_of(model)
+    _install_fake_litellm(monkeypatch, _FakeResponse("真实回复", 10, 5))
+
+    labels = {"provider": p, "model": model}
+    before = _sample(llm_metrics.llm_cost_usd_total, **labels)
+
+    gw = LLMGateway()
+    result = await gw.complete([{"role": "user", "content": "test"}], model=model)
+
+    assert result["stub"] is False
+    after = _sample(llm_metrics.llm_cost_usd_total, **labels)
+    assert 0 < after - before < 1, (
+        "ihui_llm_cost_usd_total 没有前进 —— 大屏按它算成本的整片面板 No data;"
+        "第二档价目源被摘掉,或 provider 参数没传(退成全局默认价)"
+    )
+
+
+async def test_astream_success_advances_cost_usd(real_mode, monkeypatch):
+    """流式成功:成本同样必须落到 Prometheus(流式的用量来自 usage 帧)。"""
+    model = "agnes/gpt-4o"
+    p = _provider_of(model)
+    stream = _FakeStream(
+        [_FakeStreamChunk(content="你好"), _FakeStreamChunk(usage=_FakeUsage(7, 3))]
+    )
+
+    fake = ModuleType("litellm")
+
+    async def fake_acompletion(**kwargs: object) -> object:
+        return stream
+
+    fake.acompletion = fake_acompletion  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "litellm", fake)
+
+    labels = {"provider": p, "model": model}
+    before = _sample(llm_metrics.llm_cost_usd_total, **labels)
+
+    gw = LLMGateway()
+    events = [e async for e in gw.astream([{"role": "user", "content": "hi"}], model=model)]
+
+    assert any(e.get("type") == "done" for e in events)
+    after = _sample(llm_metrics.llm_cost_usd_total, **labels)
+    assert 0 < after - before < 1, "流式成功没把成本计进 Prometheus(大屏成本面板按流式用量空板)"
+
+
+def test_local_runtime_price_is_not_invented() -> None:
+    """零价本地运行时(ollama/lmstudio)必须估出"无成本",不得退到全局默认价。
+
+    这条是上一条的对照组:价目源不传 provider 时 ollama 会命中 DEFAULT_PRICE(1.0/3.0
+    per 1M),给本机分文未花的本地推理凭空造出一笔 USD 开销 —— 那比 No data 更糟。
+    """
+    from app.core.llm_gateway import _estimate_cost_usd
+
+    usage = {"prompt_tokens": 1000, "completion_tokens": 500}
+    assert _estimate_cost_usd("ollama/llama3.3:70b", usage) is None
+    assert _estimate_cost_usd("lmstudio/llama-3.3-70b", usage) is None
+    assert _estimate_cost_usd("stub/stub-model", usage) is None
+    # 付费厂商同形状下必须估出正数(证明上面三条是"价目真为 0",不是整条链没跑)
+    assert _estimate_cost_usd("stepfun/step-3.7-flash", usage) is not None
+    assert _estimate_cost_usd("agnes/gpt-4o", usage) is not None
+
+
+async def test_astream_client_disconnect_marks_interrupt(real_mode, monkeypatch):
+    """客户端中途收流(aclose → GeneratorExit):必须计成 client_disconnect 中断。"""
+    model = "agnes/gpt-4o"
+    p = _provider_of(model)
+    stream = _FakeStream(
+        [
+            _FakeStreamChunk(content="第"),
+            _FakeStreamChunk(content="一"),
+            _FakeStreamChunk(content="段"),
+        ]
+    )
+
+    fake = ModuleType("litellm")
+
+    async def fake_acompletion(**kwargs: object) -> object:
+        return stream
+
+    fake.acompletion = fake_acompletion  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "litellm", fake)
+
+    labels = {"provider": p, "model": model, "reason": "client_disconnect"}
+    before = _sample(llm_metrics.llm_stream_interrupt_total, **labels)
+
+    gw = LLMGateway()
+    agen = gw.astream([{"role": "user", "content": "hi"}], model=model)
+    assert (await agen.__anext__())["type"] == "chunk"
+    await agen.aclose()  # 消费者提前收流:GeneratorExit 抛在 yield 处
+
+    assert _sample(llm_metrics.llm_stream_interrupt_total, **labels) == (before + 1), (
+        "客户端断开没被记成流中断 —— GeneratorExit 不是 Exception,"
+        "摘掉这个 except 后 ihui_llm_stream_interrupt_total{reason=\"client_disconnect\"} 回到 0 时序"
+    )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
