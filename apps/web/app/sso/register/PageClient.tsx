@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
 import { buildSsoRedirectUrl } from '@ihui/shared'
 import { ensureSsoRedirectAllowed, resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
+import { resolvePostLoginLanding } from '@/lib/post-login-landing'
 import { Button, Input, Label } from '@ihui/ui-react'
 import { Loader2, ArrowRight, Check } from 'lucide-react'
 import { toast } from 'sonner'
@@ -149,7 +150,12 @@ export default function SsoRegisterPage() {
       // 2026-09-28 票 A3/G-413:与 /sso/login 同一把尺子 —— 服务端 isSafeRedirectUri 认
       // `startsWith('/') && !startsWith('//')`,而 `/\evil.com` 在那条规则下成立、在浏览器里
       // 却解析成 https://evil.com ⇒ 一枚"过了服务端校验"的 sso_code 会被送到外站。
-      const target = resolveSafeRedirectTarget(redirectUrl, { allowDeepLink: true })
+      // 落点:带显式 redirect(子项目/深链跳来)时原样返回,否则 admin 落到监控大屏
+      // (与主站 LoginDialog、/sso/login 共用 @/lib/post-login-landing 判据)。
+      const target = resolveSafeRedirectTarget(
+        resolvePostLoginLanding(useAuthStore.getState().user, searchParams.get('redirect')) ?? '/',
+        { allowDeepLink: true },
+      )
       // 2026-09-22:先确认回跳目标能被登录守卫放行(必要时静默续种 cookie),
       // 否则生成的 sso_code 还没被消费就被 307 打回本页,用户感知即"按钮没反应"。
       if (!(await ensureSsoRedirectAllowed(target))) {
