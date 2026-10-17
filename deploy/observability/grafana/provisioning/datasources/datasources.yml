@@ -9,6 +9,10 @@ apiVersion: 1
 
 datasources:
   - name: Prometheus
+    # 显式 uid(2026-10-18):本树大屏(agent-runtime.json)按 "Prometheus" 引用;
+    # 原先无 uid 行、只靠 name 回落,与下面 tracesToMetrics 的小写 "prometheus" 是两套,
+    # 小写那侧在 Grafana 里解析不到任何数据源(死链,点击报 Datasource not found)。
+    uid: Prometheus
     type: prometheus
     access: proxy
     url: http://prometheus:9090
@@ -18,11 +22,13 @@ datasources:
       timeInterval: '15s'
 
   - name: Jaeger
+    uid: Jaeger
     type: jaeger
     access: proxy
     url: http://jaeger:16686
     editable: true
     jsonData:
       tracesToMetrics:
-        datasourceUid: prometheus
+        # 必须等于上面声明的 uid(大小写敏感),否则 traces→metrics 跳转是死链
+        datasourceUid: Prometheus
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

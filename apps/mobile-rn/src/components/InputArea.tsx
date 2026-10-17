@@ -55,10 +55,12 @@ import {
 import type { TextInput } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useUiTextField } from '../lib/use-ui-text-field'
+import { useI18n } from '../i18n'
 import { tokens , currentRnTheme} from '../theme/active-tokens'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { PlusButton } from './AddPanel'
 import {
+  ChevronDown,
   FileText,
   Film,
   Image as ImageIcon,
@@ -67,6 +69,7 @@ import {
   Play,
   Plus,
   Send,
+  Settings,
   X,
 } from 'lucide-react-native'
 
@@ -223,6 +226,20 @@ export interface InputAreaProps {
   onPlusToggle?: () => void
   /** 「+」按钮激活态(底部菜单展开时高亮 + 旋转 45°) */
   plusActive?: boolean
+
+  // ── 模型选择(可选,四枚全可选;调用方一枚都不传时整族不渲染,输出与补这四处之前逐字一致)──
+  /** 点击模型按钮 → 打开全量模型列表(弹层由调用方承载)。
+   *  提供后在大输入框「+」之前渲染模型按钮,语义对齐 web 端输入卡的 ModelSelector trigger
+   *  (`apps/web/src/components/chat/model-selector.tsx` 的 DropdownMenu.Trigger:
+   *   当前模型名 + ChevronDown,点击开列表)。 */
+  onOpenModelSelect?: () => void
+  /** 当前所选模型名;null/undefined = 未选,按 web 端 AUTO_OPTION 同义显示「自动」 */
+  selectedModelName?: string | null
+  /** 清除所选、回到「自动」(对齐 web 选回 value='auto')。
+   *  保守取窄:只有"已有所选"时才有可清除对象,未选态不渲染这枚钮(否则点了没任何变化)。 */
+  onClearModel?: () => void
+  /** 打开模型参数配置(温度/推理强度等采样参数,弹层由调用方承载) */
+  onOpenModelConfig?: () => void
 }
 
 const DEFAULT_MAX_LENGTH = 500
@@ -344,6 +361,10 @@ export function InputArea({
   onVoiceEnd,
   onPlusToggle,
   plusActive = false,
+  onOpenModelSelect,
+  selectedModelName = null,
+  onClearModel,
+  onOpenModelConfig,
 }: InputAreaProps) {
   const insets = useSafeAreaInsets()
   useUiTextField({
@@ -353,6 +374,7 @@ export function InputArea({
     multiline: true,
     maxLength,
   })
+  const { t } = useI18n()
   const isSendBlocked = disabled || loading
   const canSend = value.trim().length > 0 && !isSendBlocked
   const isOverWarning = value.length >= Math.floor(maxLength * WARNING_RATIO)
@@ -385,6 +407,16 @@ export function InputArea({
   const showVoiceBtn = onVoiceToggle !== null
   const showAddBtn = onImageAdd !== undefined
   const showExpandBtn = onExpandToggle !== null && value.length > 0
+  // 模型按钮族:一枚回调都没传 ⇒ 整族不渲染(输出与补这四处之前逐字一致)。
+  // 「自动」态没有可清除的对象,所以清除钮只在"已有所选"时出现(保守取窄,见 props 注释)。
+  const modelLabel = selectedModelName || t('chat.modelAuto')
+  const hasSelectedModel = !!selectedModelName
+  const showModelChip =
+    onOpenModelSelect !== undefined ||
+    onClearModel !== undefined ||
+    onOpenModelConfig !== undefined
+  const showModelClear = onClearModel !== undefined && hasSelectedModel
+  const showModelConfig = onOpenModelConfig !== undefined
 
   const handleSubmit = useCallback((): void => {
     if (!canSend) return
@@ -620,6 +652,61 @@ export function InputArea({
               >
                 <Text style={styles.expandBtnIcon}>{isExpanded ? '⤡' : '⤢'}</Text>
               </TouchableOpacity>
+            ) : null}
+
+            {/* 模型按钮族(2026-10-17 补,语义参照 web 端输入卡 ModelSelector 的 trigger):
+                展开钮 → 模型 → 「+」→ 发送,模型钮排在「+」之前(与 web 底栏"模型 chip 在附件钮
+                左侧"同序)。四枚 props 全可选,一枚都不传时 showModelChip=false ⇒ 这里落 {null},
+                渲染结果与补这一族之前逐字一致。 */}
+            {showModelChip ? (
+              <View style={styles.modelGroup}>
+                {onOpenModelSelect !== undefined ? (
+                  <Pressable
+                    style={styles.modelChip}
+                    onPress={onOpenModelSelect}
+                    hitSlop={INPUT_AREA_CONTROL_HIT_SLOP_PX}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('chat.selectModel')}
+                    accessibilityState={{ selected: hasSelectedModel }}
+                  >
+                    <Text
+                      style={[
+                        styles.modelChipText,
+                        hasSelectedModel ? styles.modelChipTextActive : null,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {modelLabel}
+                    </Text>
+                    <ChevronDown
+                      size={INPUT_AREA_CONTROL_GLYPH_PX}
+                      color={tokens.text.secondary}
+                    />
+                  </Pressable>
+                ) : null}
+                {showModelClear ? (
+                  <Pressable
+                    style={styles.modelActionBtn}
+                    onPress={onClearModel}
+                    hitSlop={INPUT_AREA_CONTROL_HIT_SLOP_PX}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('chat.clearModel')}
+                  >
+                    <X size={INPUT_AREA_CONTROL_GLYPH_PX} color={tokens.text.secondary} />
+                  </Pressable>
+                ) : null}
+                {showModelConfig ? (
+                  <Pressable
+                    style={styles.modelActionBtn}
+                    onPress={onOpenModelConfig}
+                    hitSlop={INPUT_AREA_CONTROL_HIT_SLOP_PX}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('chat.modelConfig')}
+                  >
+                    <Settings size={INPUT_AREA_CONTROL_GLYPH_PX} color={tokens.text.secondary} />
+                  </Pressable>
+                ) : null}
+              </View>
             ) : null}
 
             {/* 「+」按钮(对齐 Uniapp functionHandle → 底部滑出菜单;视觉统一走共享 PlusButton,
@@ -1031,6 +1118,46 @@ const styles = StyleSheet.create({
     // 旧写法取 gray[900]=#171717 是端内自造的第三个色源 —— 它把"深色纯白刺眼"换成了
     // "浅色一大片黑"(用户实拍的那一处),两态各错一半,且不与 web/小程序同源。
     backgroundColor: tokens.brand.cta, // 图标钮,前景在同一元素的 <Plus color={tokens.brand.ctaForeground}/>
+  },
+
+  // ── 模型按钮族(showVoiceMic 大输入框内,排在「+」之前;四枚 props 全不传时整族不渲染)──
+  // 尺寸全部复用本文件既有档位,不自创中间值:盒高 = 同排框内钮 INPUT_AREA_IN_SHELL_BTN_PX,
+  // 图标墨迹 = 展开钮同款 INPUT_AREA_CONTROL_GLYPH_PX,组内/组边间距 = 同排 sendInShell 的 4,
+  // 清除/配置两枚的盒形 = expandBtnInShell 的 22×22。
+  modelGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 4,
+  },
+  modelChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: INPUT_AREA_IN_SHELL_BTN_PX,
+    // 模型名长短不可控:让位给同排控件(发送钮/「+」恒在右侧),超宽时文字自己截断
+    flexShrink: 1,
+    paddingHorizontal: 4,
+    gap: 2,
+    // 角色档 chip(选择型小胶囊/标签)→ md(6);AGENTS §4 圆角单一源头,不写 px 字面量
+    borderRadius: rnRadiusFor.chip,
+    borderWidth: 1,
+    // 描边取中性档,不得取墨档(守门 83 R8)
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+  },
+  modelChipText: {
+    fontSize: INPUT_AREA_SECONDARY_FONT_PX,
+    color: tokens.text.secondary,
+    flexShrink: 1,
+  },
+  modelChipTextActive: {
+    color: tokens.text.primary,
+  },
+  modelActionBtn: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   voiceBtn: {

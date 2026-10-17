@@ -8,7 +8,7 @@
   "liveNow": false,
   "panels": [
     {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -51,7 +51,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -102,6 +102,7 @@
   "timepicker": {},
   "timezone": "",
   "title": "SaaS 租户对比",
+  "description": "数据源固定为本树 provisioning(deploy/saas/grafana/provisioning/datasources/prometheus.yml)声明的 Prometheus(uid=Prometheus)。container_* 面板依赖 saas 编排随附的 cadvisor 服务(deploy/saas/docker-compose.yml)与 prometheus 的 cadvisor 抓取任务;宿主机未起 cadvisor 时显示 No data。",
   "uid": "saas-tenant-comparison",
   "version": 1,
   "weekStart": ""
