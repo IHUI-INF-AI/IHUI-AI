@@ -48,6 +48,23 @@ describe('resolveMobileVersion', () => {
       '1.2.3',
     )
   })
+
+  it('release kind 且给了 tag 时,tag 里的版本号优先于 base', () => {
+    // 实测到过的真实形态:APK 的 release tag 是 v0.1.74(仓库级版本),而 base 是 package.json
+    // 的 0.0.5 —— 不取 tag 就会"下载页显示 0.1.74、装到手机上 App 内显示 0.0.5"。
+    assert.equal(resolveMobileVersion({ base: '0.0.5', tag: 'v0.1.74', kind: 'release' }), '0.1.74')
+    assert.equal(
+      resolveMobileVersion({ base: '0.0.5', tag: 'mobile-v2.3.4', kind: 'release' }),
+      '2.3.4',
+    )
+  })
+
+  it('tag 里取不到语义版本时回退 base,不产出半个号', () => {
+    assert.equal(
+      resolveMobileVersion({ base: '0.0.5', tag: 'nightly-38704094092', kind: 'release' }),
+      '0.0.5',
+    )
+  })
 })
 
 describe('parseArgs', () => {
