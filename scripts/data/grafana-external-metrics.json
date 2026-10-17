@@ -32,12 +32,6 @@
       "until": "2027-04-01"
     },
     {
-      "prefix": "ws_",
-      "owner": "apps/api/src/plugins 手写渲染",
-      "reason": "WebSocket 族由仓内手写 PromQL 文本渲染,名字以模板串出现",
-      "until": "2027-04-01"
-    },
-    {
       "prefix": "bullmq",
       "owner": "队列采集(线上未接线)",
       "reason": "如实登记:bullmq.json 查询的族当前无采集器 ⇒ 面板恒 No data,属存量,清理前不得再扩",

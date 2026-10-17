@@ -537,7 +537,9 @@ const newStyles = StyleSheet.create({
   inviteRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    // 与上一行的间距:与 tokenRow / growthRow / unsubscribeBtn 同一属性同一档,那三处早已引用
+    // spec 常量,这一处是同一角色漏改的第三个裸数字(值等值 8,渲染字节不变;改档只改 spec 一处)。
+    marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
     paddingHorizontal: 8,
     paddingVertical: 6,
     backgroundColor: tokens.surface.muted,

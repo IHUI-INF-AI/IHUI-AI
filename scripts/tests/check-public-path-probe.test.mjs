@@ -251,7 +251,7 @@ test('⑧ 定位到"哪一段"必须**随对照组与握手分界翻**(变异取
 })
 
 test('⑨ 形状锁:新判据符号必须从 __test__ 出口可达(实现了但调不到 = 没实现,§0.9)', () => {
-  for (const k of ['classifySample', 'sampleStage', 'summarizeSequence', 'classifyPublicLeg', 'judgeSequence']) {
+  for (const k of ['classifySample', 'sampleStage', 'summarizeSequence', 'classifyPublicLeg', 'judgeSequence', 'classifyAlertIdentity']) {
     assert.equal(typeof probe[k], 'function', `__test__ 出口缺 ${k} —— 镜像测试就只能靠复制判据(§22c 禁止)`)
   }
   // numbers 必须真带出分账读数(否则邮件里仍然只有"慢 6"这一句话,收信人无从下手)
@@ -259,5 +259,88 @@ test('⑨ 形状锁:新判据符号必须从 __test__ 出口可达(实现了但�
   const j = probe.judgeSequence('B/公网·常态·入口段', stat, { rule: 'ratio', slowMs: 8000 })
   assert.match(j.numbers, /走到对端并拿到响应 1,没走到对端 1/, `读数必须把两跳分开:${j.numbers}`)
   assert.match(j.numbers, /响应之后 1 \/ 连对端都没到 1/)
+})
+
+// ───────────── 2026-10-17 新增:告警身份归一(classifyAlertIdentity,派发层 dedupKey 的唯一供给) ─────────────
+
+/** 造一份"纯慢、不断流"的统计:n 样本里 slow 条 ≥8s(全部走到对端)。 */
+const rate = (n, slow) => probe.summarizeSequence(Array.from({ length: n }, (_, i) => mkSample({ status: 200, ms: i < slow ? 9_000 : 20 }, i)), { slowMs: 8_000 })
+
+test('⑩ 身份与计数无关(本票存在理由的变异自证)+ 严重度边界钉死', () => {
+  // 变异自证:两轮读数只在**计数**上不同(20/12 与 40/24,同为 60%)⇒ 身份必须逐字节相等。
+  // 若把 sevTier 换成原始计数(旧 alertFingerprint(name, detail) 那一型),这两行当场分叉、4h 窗口形同虚设。
+  const a = probe.classifyAlertIdentity('B/公网·常态', rate(20, 12), { nowMs: T0 })
+  const b = probe.classifyAlertIdentity('B/公网·常态', rate(40, 24), { nowMs: T0 })
+  assert.equal(a.identity, b.identity)
+  assert.equal(a.identity, 'unknown;sev=2;held=0')
+  // 边界夹具:89% vs 90%、49% vs 50%(边界含高档)
+  assert.equal(probe.classifyAlertIdentity('B/公网·常态', rate(100, 89), { nowMs: T0 }).sevTier, 2)
+  assert.equal(probe.classifyAlertIdentity('B/公网·常态', rate(100, 90), { nowMs: T0 }).sevTier, 3)
+  assert.equal(probe.classifyAlertIdentity('B/公网·常态', rate(100, 49), { nowMs: T0 }).sevTier, 1)
+  assert.equal(probe.classifyAlertIdentity('B/公网·常态', rate(100, 50), { nowMs: T0 }).sevTier, 2)
+  // 断流级优先:全拒连(0 慢样本)也是档 4 —— "有对端可归因失败/真断流"不许被慢样本率降档
+  const broke = probe.summarizeSequence(Array.from({ length: 6 }, (_, i) => mkSample({ status: null, ms: 3, causeCode: 'ECONNREFUSED' }, i)), { slowMs: 8_000 })
+  assert.equal(probe.classifyAlertIdentity('B/公网·常态', broke, { nowMs: T0 }).sevTier, 4)
+  // why/identity 均不含本轮原始计数(计数只归派发层正文)
+  const r = probe.classifyAlertIdentity('B/公网·常态', rate(15, 8), { nowMs: T0 })
+  assert.ok(!/15/.test(r.identity) && !/8/.test(r.identity) && !/15/.test(r.why) && !/8/.test(r.why), `身份与 why 里混进了原始计数:${r.identity} / ${r.why}`)
+  assert.match(r.why, /成因=.*严重度=档.*已持续=档/s)
+})
+
+test('⑪ 三态与档位:未判定与 breach 不同形 / 跨档换身份 / 同档不换 / 起点取不到按最短档并点名不得静音', () => {
+  const s = rate(20, 12)
+  // 未判定:零样本 ⇒ sev=0、cause=unknown;probeSideBroken ⇒ sev=0、cause=local;
+  // 与同目标 breach 身份不同形 ⇒ 既替不了 breach 的账,也不会被派发层读成"合规"。
+  const breach = probe.classifyAlertIdentity('B/公网·常态·入口段', s, { nowMs: T0 })
+  const zero = probe.classifyAlertIdentity('B/公网·常态·入口段', probe.summarizeSequence([]), { nowMs: T0 })
+  const blind = probe.classifyAlertIdentity('B/公网·常态·入口段', probe.summarizeSequence([mkSample({ status: null, ms: 1, errorName: 'Error', causeCode: 'ERR_INTERNAL_WEIRD' }, 0), mkSample({ status: null, ms: 1, errorName: 'Error', causeCode: 'ERR_INTERNAL_WEIRD' }, 1), mkSample({ status: 200, ms: 20 }, 2)]), { nowMs: T0 })
+  assert.ok(breach.sevTier >= 1)
+  assert.equal(zero.sevTier, 0)
+  assert.equal(zero.causeKey, 'unknown')
+  assert.notEqual(zero.identity, breach.identity)
+  assert.equal(blind.sevTier, 0)
+  assert.equal(blind.causeKey, 'local')
+  assert.notEqual(blind.identity, breach.identity)
+  assert.notEqual(blind.identity, zero.identity)
+  // 持续档:<6h⇒0、6h⇒1、24h⇒2、72h⇒3(边界含高档)
+  const H = 3_600_000
+  const held = (ms) => probe.classifyAlertIdentity('B/公网·常态', s, { nowMs: T0, firstBreachAtMs: T0 - ms }).heldTier
+  assert.equal(held(5 * H), 0)
+  assert.equal(held(6 * H), 1)
+  assert.equal(held(24 * H), 2)
+  assert.equal(held(72 * H), 3)
+  // 同因同档不重报(3h 与 5h 同 held=0)/ 跨档必换身份(6h 起 held=1 ⇒ 派发层立刻重寄 = 到期升级的终态保证)
+  assert.equal(probe.classifyAlertIdentity('B/公网·常态', s, { nowMs: T0, firstBreachAtMs: T0 - 3 * H }).identity, probe.classifyAlertIdentity('B/公网·常态', s, { nowMs: T0, firstBreachAtMs: T0 - 5 * H }).identity)
+  assert.notEqual(probe.classifyAlertIdentity('B/公网·常态', s, { nowMs: T0, firstBreachAtMs: T0 - 6 * H }).identity, probe.classifyAlertIdentity('B/公网·常态', s, { nowMs: T0 }).identity)
+  // 起点取不到/时刻倒挂 ⇒ 最短档 + why 点名"不得据此静音"(§0.10:失效方向是多要一次说明)
+  const noStart = probe.classifyAlertIdentity('B/公网·常态', s, { nowMs: T0 })
+  assert.equal(noStart.heldTier, 0)
+  assert.match(noStart.why, /起点取不到.*不得据此静音/)
+  assert.equal(probe.classifyAlertIdentity('B/公网·常态', s, { nowMs: T0, firstBreachAtMs: T0 + 60_000 }).heldTier, 0)
+})
+
+test('⑫ 成因段只映射既有输出:段标签/A/窗口段/对照组 ⇒ 档;两条既有定位读数打架 ⇒ mixed;给不出 ⇒ unknown 不折档', async () => {
+  const s = rate(20, 12)
+  const cause = (k) => probe.classifyAlertIdentity(k, s, { nowMs: T0 }).causeKey
+  assert.equal(cause('B/公网·常态·入口段'), 'entry')
+  assert.equal(cause('B/公网·常态·服务段'), 'origin')
+  assert.equal(cause('B/公网·常态·本机出口段'), 'local')
+  assert.equal(cause('A/公网'), 'origin', '换流洞按 classifyPublicLeg"本地也越阈⇒服务段"与窗口段归 A 语义的既有口径,不新立规则')
+  assert.equal(cause('B/本地·常态'), 'origin')
+  assert.equal(cause('B/公网·窗口段(归A语义)'), 'origin')
+  assert.equal(cause('B/公网·常态'), 'unknown', '既有判据给不出段 ⇒ 不冒认(§0.3)')
+  // opt.leg / opt.localStat 都走 classifyPublicLeg 那一份实现:一致则采信,打架则 mixed
+  assert.equal(probe.classifyAlertIdentity('B/公网·常态·入口段', s, { nowMs: T0, leg: 'entry' }).causeKey, 'entry')
+  assert.equal(probe.classifyAlertIdentity('B/公网·常态·入口段', s, { nowMs: T0, leg: 'service' }).causeKey, 'mixed')
+  const stg = (over) => ({ stageReached: 'body', stages: { dns: 2, tcp: 270, tls: 510, head: 700, body: over.ms }, ...over })
+  const pub = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => ({ at: iso(i), ...stg({ status: 200, ms: i < 6 ? 9000 : 500 }), ...probe.classifySample(stg({ status: 200, ms: i < 6 ? 9000 : 500 })) })), { slowMs: 8000 })
+  const localFast = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => ({ at: iso(100 + i), ...stg({ status: 200, ms: 20 }), ...probe.classifySample(stg({ status: 200, ms: 20 })) })), { slowMs: 8000 })
+  const localSlow = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => ({ at: iso(200 + i), ...stg({ status: 200, ms: 9000 }), ...probe.classifySample(stg({ status: 200, ms: 9000 })) })), { slowMs: 8000 })
+  assert.equal(probe.classifyAlertIdentity('B/公网·常态·入口段', pub, { nowMs: T0, localStat: localFast }).causeKey, 'entry')
+  assert.equal(probe.classifyAlertIdentity('B/公网·常态·入口段', pub, { nowMs: T0, localStat: localSlow }).causeKey, 'mixed')
+  // 派发层按**具名导出** import(不靠 __test__):具名缺失 = 接线当场失明(§0.9)
+  const mod = await import('../check-public-path-probe.mjs')
+  assert.equal(typeof mod.classifyAlertIdentity, 'function')
+  assert.equal(mod.classifyAlertIdentity, probe.classifyAlertIdentity, '具名导出与 __test__ 出口必须是同一枚实现')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

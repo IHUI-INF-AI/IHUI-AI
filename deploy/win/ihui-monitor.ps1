@@ -208,6 +208,40 @@ function Test-AlertDue {
   return Test-AlertDueByIdentity -Sig $Sig -StateFile $MonitorStateFile -RepeatHours $AlertRepeatHours
 }
 
+# ── 告警身份的档位判据(2026-10-17 立,纯函数:不打日志、不取盘、无副作用)────────────
+# 为什么必须有这一层:本脚本每 300 秒一轮(见扫描段 Start-Sleep),而磁盘剩余读数**每轮都在变**;
+# 把实时读数写进身份串 = 每轮一个新身份 = $AlertRepeatHours(4h)结构上永不命中 —— 与
+# alert-dedup.ps1 头注记的"48h 寄出 47 封"、ihui-deploy.ps1 的 Note-MigrateFailure
+# (旧 `$sig = "$reason|$pendingTxt"`)是同一条缺陷(第三型:去重身份里放实时抖动的量)。
+# 正解只有档位化:身份只留"落到哪一档",实时读数进正文
+# (见 Send-Alert 的 $detail)。跨档 ⇒ 新身份当场重报;同档持续 ⇒ 由 4h 窗压住。
+function Get-DiskFreeTier {
+  # 磁盘剩余(GB)→ 阈值档位标签。边界**不新造数**,两处都是现读既有阈值:
+  #   · 10GB = 本文件巡检阈值(扫描段 "<10GB";文件头 :11「磁盘剩余(阈值 10GB)」;
+  #     同值另见 deploy/scripts/prod-bundle/health-check.ps1:156「磁盘剩余 < 10GB(危险…)」)
+  #     —— 10GB 这一档留在调用点当**闸门**(与改动前逐字同判),不在这函数里重复。
+  #   · 1GB  = scripts/git-push-guard.mjs:414 `DISK_MIN_FREE_BYTES = 1 * 1024 * 1024 * 1024`
+  #     (:427 现读文案「磁盘剩余空间仅 XGB(<1GB),拒绝推送:满盘环境会让 worker 无声崩死」)
+  #     —— 同一条生产链上"磁盘剩余"这一维已有的第二档,即"满盘级"。
+  # ⇒ 告警面档 = 'lt1GB' / '1-10GB';任务书举例的 20GB/50GB 在本仓没有出处,故不采。
+  param([double]$FreeGB)
+  if ($FreeGB -lt 1) { return 'lt1GB' }
+  return '1-10GB'
+}
+
+function Get-BackupMissedShifts {
+  # 备份超龄小时数 → "已错过几班每日备份"(整数档号)。边界同样只用现读数:
+  #   · 26h = 本文件既有阈值(文件头 :12「数据库备份新鲜度(< 26h 视为正常)」)
+  #   · 24h = 备份节奏「启动即备份一次 → 每天 03:00 执行一次备份」
+  #           (deploy/win/ihui-pg-backup-scheduler.ps1:8 现读;失败轮 30 分钟重试最多 4 次
+  #            ≈2 小时后"仍失败则等下一班 03:00",同文件 :9 ⇒ 一轮缺失的判定粒度是一班,不是一小时)
+  # ⇒ 档 = 1 + floor((ageH - 26) / 24);26+24=50h 这一"最坏空窗"本就是仓内既有表述
+  #   (PROJECT_PLAN.md:4355「阈值本身(最坏 ~50h 无备份的空窗)属生产 RPO 取向,归用户定,本票不动」)。
+  # 用"缺几班"而不是小时数当身份:班号在小范围内是整数常量,同一次断链的连续几轮读数不再产生新身份。
+  param([double]$AgeHours)
+  return [int](1 + [math]::Floor(($AgeHours - 26) / 24))
+}
+
 function Write-Undelivered {
   # 两条通道都失败时必须**留下响声**:过去 Server酱静默失败 5.5 万行,期间没有任何人收到告警。
   param([string]$Subject, [string]$BodyText, [string]$Why)
@@ -374,7 +408,10 @@ function Get-Diagnosis {
   return ($lines -join "`n")
 }
 
-function Send-Alert($msg) {
+function Send-Alert($msg, $detail = '') {
+  # [2026-10-17 身份档位化] 新增可选第二参数 $detail:**实时读数只进正文,绝不进身份**
+  # (与 ihui-deploy.ps1:422 那条"$Detail 只能进正文、绝不进签名"同一条规矩;身份里放抖动量
+  #  = 每轮换身份 = 下面 Test-AlertDue 的 4h 窗结构上永不命中)。逐项身份仍取 $msg 拆出来的条目。
   # [2026-10-16 根治] 去重身份从"全清单组合签名"改为**逐项独立身份**(机主明令:重复告警
   # 本身就是缺陷)。旧形:身份 = 所有异常项 join 后的单一签名,组合一变(一项恢复/一项新增)
   # 就生成新身份绕过 4h 去重 → 持续故障期间每个新组合都寄一封(10-15 一天 20+ 封的机制根源)。
@@ -414,13 +451,17 @@ function Send-Alert($msg) {
     }
   }
   if ($dueItems.Count -eq 0) {
-    "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [INFO] 逐项身份判定,全部命中抑制/去重,不推送: $msg | $($itemNotes -join ' | ')" | Add-Content $alertLog -Encoding utf8
+    # 全项被压时也要把实时读数留在日志里(身份里没有它,压信的理由才经得起复查)。
+    $detailTail = if ($detail) { " | 实时读数(不进身份): $detail" } else { '' }
+    "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [INFO] 逐项身份判定,全部命中抑制/去重,不推送: $msg | $($itemNotes -join ' | ')$detailTail" | Add-Content $alertLog -Encoding utf8
     return
   }
   $subject = $dueItems -join ' | '
   if ($subject.Length -gt 140) { $subject = $subject.Substring(0, 140) + '…' }
   $full = "$msg`n--------------------------------`n[本次放行身份] $subject`n[逐项判定] $(($itemNotes -join "`n"))`n[原因诊断] $diag"
   if ($graceNotes.Count) { $full = "$full`n[抑制到期] $($graceNotes -join "`n")" }
+  # 实时读数进正文(收信人照旧看得到账,只是它不参与身份判定)
+  if ($detail) { $full = "$full`n[实时读数(不进身份)] $detail" }
   "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [ALERT] 放行($($dueItems.Count)/$($items.Count)项): $subject | 诊断: $($diag -replace "`r?`n", ' | ')" | Add-Content $alertLog -Encoding utf8
   Send-MailAlert -Subject "[IHUI-AI 监控告警] $subject" -BodyText $full | Out-Null
 }
@@ -441,6 +482,8 @@ if ($ProbeMail) {
 # -Once:跑满一轮即退出(巡检 + 必要的告警发送),供人工/CI 验证通知链路,不停服务。
 while ($true) {
   $alerts = @()
+  # 实时读数(每轮都在变的那些量)只进正文与日志,不进身份 —— 见 Send-Alert 的 $detail 参数。
+  $alertDetail = @()
 
   # 1. 本地端口
   #    cdn(80) 曾于 2026-09-27 被摘出本清单,理由是"本机公网入口是 token 模式的 Cloudflared
@@ -511,22 +554,51 @@ while ($true) {
   }
 
   # 3. 磁盘
+  # [2026-10-17 身份档位化] 旧身份 = "磁盘剩余 ${freeGB}GB(<10GB)",把每轮都在变的实时读数写进
+  # 签名 ⇒ 每轮新身份 ⇒ 4h 重发窗(Get-AlertDedupKey 的分槽档案)结构上永不命中。
+  # 现在身份只带**档位 + 卷标**(两者都不抖),实时读数交给 Send-Alert 的 $detail 进正文。
+  # 档位边界出处见 Get-DiskFreeTier 的头注(10GB = 本行原有阈值;<1GB = git-push-guard.mjs:414)。
   try {
     $d = Get-PSDrive (Get-Location).Drive.Name
     $freeGB = [math]::Round($d.Free / 1GB, 1)
-    if ($freeGB -lt 10) { $alerts += "磁盘剩余 ${freeGB}GB(<10GB)" }
-  } catch {}
+    if ($freeGB -lt 10) {
+      $alerts += "磁盘剩余 档=$(Get-DiskFreeTier $freeGB) 卷=$($d.Name)"
+      $alertDetail += "磁盘卷$($d.Name) 实测剩余 ${freeGB}GB(告警阈值<10GB)"
+    }
+  } catch {
+    # 读数取不出来 ⇒ 显式在日志里产出"未判定"并点名原因(§0.10:不得折成 ok,也不得折成 breach)。
+    # 旧写法是 `catch {}`,把"这一维压根没量到"静默读成"磁盘正常"。本轮不把它升级成告警身份
+    # (那会在邮件面新增一型信,属新能力,需另行授权 —— 见交付物"未做项")。
+    Log "磁盘剩余维 未判定(读数取不出):$($_.Exception.Message)"
+  }
 
   # 4. 备份新鲜度
+  # [2026-10-17 身份档位化] 旧身份含最新备份**文件名**(每成功备份一轮就换名,机器重启/手工补跑
+  # 也换名)⇒ 同一条断链每轮都是新身份,与第 3 维同型。现在身份只带**类别 + 缺几班**(边界出处见
+  # Get-BackupMissedShifts 头注:26h 既有阈值 + 每日 03:00 一班的备份节奏),文件名与实测小时数
+  # 进正文。类别取本行既有 glob 的前缀(常量,不是文件名);逐类各出一条身份,不并成一条。
+  # 现读 D:\DevEnv\backups\pg\ 里另有 keycloak_*.dump 从未进本维射程 —— 本轮不扩面(新能力),
+  # 登记在交付物"未做项"。
   try {
-    $latest = Get-ChildItem "D:\DevEnv\backups\pg\ihui_dev_*.dump" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if (-not $latest) { $alerts += "无数据库备份文件" }
-    elseif (((Get-Date) - $latest.LastWriteTime).TotalHours -gt 26) { $alerts += "备份已超过 26h 未更新(最新:$($latest.Name))" }
-  } catch {}
+    $bakTargets = @(@{ kind = 'ihui_dev'; glob = 'D:\DevEnv\backups\pg\ihui_dev_*.dump' })
+    foreach ($t in $bakTargets) {
+      $latest = Get-ChildItem $t.glob -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+      if (-not $latest) { $alerts += "无数据库备份文件"; continue }
+      $ageH = ((Get-Date) - $latest.LastWriteTime).TotalHours
+      if ($ageH -gt 26) {
+        $shifts = Get-BackupMissedShifts -AgeHours $ageH
+        $alerts += "备份超龄 类别=$($t.kind) 档=缺$shifts 班(>26h)"
+        $alertDetail += "备份类别=$($t.kind) 最新 $($latest.Name) 距今 $([math]::Round($ageH, 1))h(=缺 $shifts 班)"
+      }
+    }
+  } catch {
+    Log "备份新鲜度维 未判定(读数取不出):$($_.Exception.Message)"
+  }
 
   # 汇总
   if ($alerts.Count -gt 0) {
-    Send-Alert ($alerts -join " | ")
+    $detailTxt = ($alertDetail -join ' | ')
+    Send-Alert ($alerts -join " | ") $detailTxt
     Write-Host "$(Get-Date -Format 'HH:mm:ss') 异常: $($alerts -join '; ')" -ForegroundColor Red
   } else {
     Write-Host "$(Get-Date -Format 'HH:mm:ss') 全部正常" -ForegroundColor Green
