@@ -168,6 +168,7 @@ import {
   sameDir,
 } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DEP_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']
@@ -2088,13 +2089,15 @@ async function main() {
     process.exit(runSelfTest())
   }
   let root = DEFAULT_ROOT
-  const ri = argv.indexOf('--root')
-  if (ri !== -1) {
-    const arg = argv[ri + 1]
-    if (!arg) {
-      console.error('❌ --root 需要一个目录参数')
+  // G-322:旧写法只挡"后面没有参数";`--root --staged` 那支会 resolve 出一个不存在的根,
+  // 再被下面 existsSync 拒成"目录不存在"—— 报的是错因(调用方少打了一个值,不是根选错了)。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootFlag.present) {
+    if (rootFlag.error) {
+      console.error(`❌ ${rootFlag.error}`)
       process.exit(2)
     }
+    const arg = rootFlag.value
     root = resolve(arg)
     if (!existsSync(root)) {
       console.error(`❌ --root 指向的目录不存在: ${root}`)

@@ -47,6 +47,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, assertRepoRoot, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { blankStrings, maskComments, scanSpans } from './lib/code-mask.mjs'
 
 let ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -569,9 +570,16 @@ function selfTest() {
 function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTest()
-  const ri = argv.indexOf('--root')
-  if (ri >= 0 && argv[ri + 1]) {
-    ROOT = resolve(argv[ri + 1])
+  // G-322(本站):裸 `--root` 旧写法是**静默忽略**(连换根都没发生,调用方以为判的是那棵树);
+  // 顶值那支把旗标名当根交给 assertRepoRoot ⇒ 报"根不对"而不是"少打了一个值"。两支都交单源出口。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    process.exitCode = 2
+    return
+  }
+  if (rootFlag.value) {
+    ROOT = resolve(rootFlag.value)
     assertRepoRoot(ROOT, GATE_LABEL)
   }
   const picked = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })

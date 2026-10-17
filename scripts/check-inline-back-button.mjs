@@ -34,6 +34,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT_MS = 120_000
@@ -254,7 +255,15 @@ function main(argv) {
     }
     return fail > 0 ? 1 : 0
   }
-  const root = argv.includes('--root') ? resolve(argv[argv.indexOf('--root') + 1]) : ROOT
+  // G-322(本站):旧写法 resolve(argv[indexOf('--root')+1]) 在被下一枚旗标顶值时(如
+  // `--worktree --root --staged`)会把 "--staged" 当成根,于是扫一个不存在的目录得出"0 个文件、
+  // 无违规"= 假绿。给了旗标却没拿到值 ⇒ 未判定(exit 2),不猜根也不按默认根继续判。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    return 2
+  }
+  const root = rootFlag.value ? resolve(rootFlag.value) : ROOT
   const sel = selectFace({
     staged: argv.includes('--staged'),
     worktree: argv.includes('--worktree'),

@@ -57,6 +57,7 @@ import {
   selectFace,
 } from './lib/face-reader.mjs'
 import { mkScratch } from './lib/scratch-dir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const SELF_PATH = fileURLToPath(import.meta.url)
 const DEFAULT_ROOT = path.resolve(path.dirname(SELF_PATH), '..')
@@ -589,15 +590,13 @@ function main(argv) {
   }
   if (args.includes('--self-test')) return runSelfTest()
   let root = DEFAULT_ROOT
-  const ri = args.indexOf('--root')
-  if (ri >= 0) {
-    const v = args[ri + 1]
-    if (!v) {
-      console.error('❌ --root 需要一个目录参数')
-      return 2
-    }
-    root = path.resolve(v)
+  // G-322(本站):旧写法只挡"后面没有参数"一支;`--root --staged` 会把 "--staged" 当根继续判。
+  const rootFlag = requireFlagValue(args, '--root', { noun: '目录参数' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    return 2
   }
+  if (rootFlag.value) root = path.resolve(rootFlag.value)
   const { face, error } = selectFace({
     staged: args.includes('--staged'),
     worktree: args.includes('--worktree'),

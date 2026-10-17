@@ -65,6 +65,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..')
 const SELF = fileURLToPath(import.meta.url)
@@ -646,8 +647,15 @@ function main() {
     console.log(`❌ 无法判定:${error}`)
     return 2
   }
-  const rootIdx = argv.indexOf('--root')
-  const root = rootIdx >= 0 && argv[rootIdx + 1] ? resolve(argv[rootIdx + 1]) : ROOT
+  // G-322(本站):`--root` 被下一枚旗标顶值 / 结尾无值时,旧写法把那个 token 当路径用
+  // ⇒ 在一个不存在的根上出结论(它还是提交链里的 blocking 门)。给了旗标就必须拿到值,
+  // 否则未判定 return 2(判据单源 = scripts/lib/flag-value.mjs,§22c)。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录' })
+  if (rootFlag.error) {
+    console.log(`❌ 无法判定:${rootFlag.error}`)
+    return 2
+  }
+  const root = rootFlag.value ? resolve(rootFlag.value) : ROOT
 
   const anchorFace = face === 'staged' ? 'head' : 'head^'
   /**

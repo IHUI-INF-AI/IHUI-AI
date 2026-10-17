@@ -16,8 +16,11 @@ import { findVersionDrift } from '../check-version-drift.mjs'
 /** 一份"全绿"的基线输入,各用例只改其中一项 */
 function baseline(over = {}) {
   return {
-    tauriConf: { version: '0.1.74' },
-    desktopPkg: { version: '0.1.74' },
+    tauriConf: {
+      version: '0.1.75',
+      bundle: { windows: { webviewInstallMode: { type: 'embedBootstrapper' } } },
+    },
+    desktopPkg: { version: '0.1.75' },
     appConfigJs: 'const v = process.env.IHUI_MOBILE_VERSION || pkg.version',
     rnConfigTs:
       'export const APP_VERSION = process.env.EXPO_PUBLIC_IHUI_MOBILE_VERSION || PKG_VERSION',
@@ -123,6 +126,33 @@ describe('G 不得再有 bot 裸 push 到 main', () => {
       workflows: { 'x.yml': 'run: git push origin HEAD:refs/heads/bot/foo\n' },
     })
     assert.deepEqual(findVersionDrift(ok), [])
+  })
+})
+
+describe('H 桌面安装包不得回到 offlineInstaller', () => {
+  it('offlineInstaller 要被抓(它让 exe 超 Gitee 100MB 硬上限,国内下载不到)', () => {
+    const v = findVersionDrift(
+      baseline({
+        tauriConf: {
+          version: '0.1.75',
+          bundle: { windows: { webviewInstallMode: { type: 'offlineInstaller' } } },
+        },
+      }),
+    )
+    assert.ok(v.some((x) => /回到 offlineInstaller/.test(x)))
+  })
+
+  it('embedBootstrapper / downloadBootstrapper 不得被误伤', () => {
+    for (const type of ['embedBootstrapper', 'downloadBootstrapper']) {
+      const ok = baseline({
+        tauriConf: { version: '0.1.75', bundle: { windows: { webviewInstallMode: { type } } } },
+      })
+      assert.deepEqual(findVersionDrift(ok), [], `${type} 被误伤`)
+    }
+  })
+
+  it('配置缺 bundle 段时不得崩(旧形态快照)', () => {
+    assert.deepEqual(findVersionDrift(baseline({ tauriConf: { version: '0.1.75' } })), [])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
