@@ -146,9 +146,24 @@ test('G-322 第五批:数值档坏值不再被读成 NaN(plan-bypass-ledger-repo
   }
 })
 
-// ─── 第六批(2026-10-17)───
+// ─── 第六/七批(2026-10-17)───
 // 选点尺是"失效方向",不是行号:HEAD 面重扫(两把只读尺)得 113 处候选,其中
-// **注册为 blocking 且这一支没有任何 '-' 守卫**的 28 处才是本批射程;本批收其中的 --root 七站。
+// **注册为 blocking 且这一支没有任何 '-' 守卫**的 28 处才是射程;第六批收 --root 七站,第七批再收八站。
+test('G-322 第七批:另八道 blocking 门的 --root 三支坏值各自大声拒绝', () => {
+  for (const f of [
+    'check-api-client-utf8.mjs',
+    'check-crash-report-redaction.mjs',
+    'check-lock-manifest-consistency.mjs',
+    'check-no-nested-git.mjs',
+    'check-slash-command-wired.mjs',
+    'check-stale-dist.mjs',
+    'check-token-sync-registry.mjs',
+    'check-v3-62-conversation-mount.mjs',
+  ]) {
+    assertBadRoot(S(f))
+  }
+})
+
 test('G-322 第六批:七道 blocking 门的 --root 三支坏值各自大声拒绝', () => {
   for (const f of [
     'check-admin-gate-consistency.mjs',

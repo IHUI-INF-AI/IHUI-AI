@@ -53,6 +53,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
@@ -440,14 +441,16 @@ function runSelfTest() {
 function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return runSelfTest()
-  const ri = argv.indexOf('--root')
-  if (ri >= 0) {
-    const dir = argv[ri + 1]
-    if (!dir) {
-      console.error('❌ --root 需要一个目录参数')
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootFlag.present) {
+    // G-322:旧写法只挡"后面没有参数"一支,被下一枚旗标顶值那支(`--root --staged`)会把 "--staged"
+    // 当成 ROOT 换掉 —— 换根后的 assertRepoRoot 虽会拒,但报的是"根不对"而不是"你少打了一个值"。
+    if (rootFlag.error) {
+      console.error(`❌ ${rootFlag.error}`)
       process.exitCode = 2
       return
     }
+    const dir = rootFlag.value
     ROOT = resolve(dir)
     // 换根后必须确认它确实是该仓 toplevel:root 若是子目录,`git grep` 的路径与拼接基准会错位,
     // 产出的正是"看起来自洽、实则混面"的绿(assertRepoRoot 是全链门的统一做法)。
