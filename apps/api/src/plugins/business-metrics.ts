@@ -53,6 +53,8 @@ import { logger } from '../utils/logger.js'
  * 10. WebSocket 连接指标（gauge）：
  *     - business_ws_connections
  *     - business_ws_notice_subscriptions
+ *     - business_ws_rooms                          (live-chat 活跃房间数)
+ *     - business_ws_message_latency_ms (histogram) (live-chat 消息处理延迟)
  * 11. 业务异常指标：
  *     - business_errors_total{endpoint,error_type} (counter)
  * 12. TTFT (Time To First Token) 指标：
@@ -120,6 +122,11 @@ interface BusinessMetrics {
   wsMessageReceivedTotal: number
   wsMessageSentTotal: number
   wsDisconnectTotal: number
+  // 新增：live-chat 房间数（Gauge）与消息处理延迟（Histogram，单一系列）
+  wsRooms: number
+  wsMessageLatencyBuckets: Map<string, number> // key: le
+  wsMessageLatencySum: number
+  wsMessageLatencyCount: number
   // 新增：业务异常指标
   errorsTotal: Map<string, number> // key: endpoint|error_type
   // 新增：TTFT 指标
@@ -159,6 +166,18 @@ function observeHistogram(metrics: BusinessMetrics, baseKey: string, valueMs: nu
     }
   }
   counterInc(metrics.apiDurationBuckets, `${baseKey}|le=+Inf`)
+}
+
+/** 观察 live-chat 消息处理耗时（毫秒）到直方图（单一系列，无维度标签） */
+function observeWsMessageLatency(metrics: BusinessMetrics, valueMs: number): void {
+  metrics.wsMessageLatencyCount++
+  metrics.wsMessageLatencySum += valueMs
+  for (const le of LATENCY_BUCKETS) {
+    if (valueMs <= le) {
+      counterInc(metrics.wsMessageLatencyBuckets, String(le))
+    }
+  }
+  counterInc(metrics.wsMessageLatencyBuckets, '+Inf')
 }
 
 /** 观察 HLS 转码耗时（秒）到直方图 */
@@ -457,6 +476,11 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     wsMessageReceivedTotal: 0,
     wsMessageSentTotal: 0,
     wsDisconnectTotal: 0,
+    // live-chat 房间数与消息延迟
+    wsRooms: 0,
+    wsMessageLatencyBuckets: new Map(),
+    wsMessageLatencySum: 0,
+    wsMessageLatencyCount: 0,
     // 业务异常指标
     errorsTotal: new Map(),
     // 新增：TTFT 指标
@@ -493,6 +517,9 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     m.wsMessageReceivedTotal = 0
     m.wsMessageSentTotal = 0
     m.wsDisconnectTotal = 0
+    m.wsRooms = 0
+    m.wsMessageLatencySum = 0
+    m.wsMessageLatencyCount = 0
     m.ttftAlertsTotal = 0
     m.recurringChargeDueGauge = 0
   }
@@ -651,6 +678,12 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
   })
   server.decorate('recordWsDisconnect', () => {
     m.wsDisconnectTotal++
+  })
+  server.decorate('recordWsRooms', (count: number) => {
+    m.wsRooms = count
+  })
+  server.decorate('recordWsMessageLatency', (valueMs: number) => {
+    observeWsMessageLatency(m, valueMs)
   })
 
   // ===== 新增：业务异常指标装饰器 =====
@@ -977,6 +1010,18 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     lines.push('# TYPE business_ws_disconnect_total counter')
     lines.push(`business_ws_disconnect_total ${m.wsDisconnectTotal}`)
 
+    lines.push('# HELP business_ws_rooms Current live-chat rooms')
+    lines.push('# TYPE business_ws_rooms gauge')
+    lines.push(`business_ws_rooms ${m.wsRooms}`)
+
+    lines.push('# HELP business_ws_message_latency_ms live-chat message handling latency in ms')
+    lines.push('# TYPE business_ws_message_latency_ms histogram')
+    for (const [le, v] of m.wsMessageLatencyBuckets) {
+      lines.push(`business_ws_message_latency_ms_bucket{le="${le}"} ${v}`)
+    }
+    lines.push(`business_ws_message_latency_ms_sum ${m.wsMessageLatencySum}`)
+    lines.push(`business_ws_message_latency_ms_count ${m.wsMessageLatencyCount}`)
+
     // 11. 业务异常指标
     lines.push('# HELP business_errors_total Business errors by endpoint and error type')
     lines.push('# TYPE business_errors_total counter')
@@ -1150,6 +1195,10 @@ declare module 'fastify' {
     recordWsMessageSent: () => void
     /** 上报 WS 连接断开（Counter）。 */
     recordWsDisconnect: () => void
+    /** 设置当前 live-chat 活跃房间数（Gauge）。 */
+    recordWsRooms: (count: number) => void
+    /** 上报 live-chat 消息处理耗时（毫秒，Histogram）。 */
+    recordWsMessageLatency: (valueMs: number) => void
     /** 上报业务异常（Counter，按 endpoint + error_type）。 */
     recordBusinessError: (endpoint: string, errorType: string) => void
     /** 上报 TTFT 首 token 延迟（秒，Histogram，按 model + endpoint）。 */
