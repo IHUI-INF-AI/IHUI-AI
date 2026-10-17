@@ -23433,7 +23433,20 @@
       "viewTimeline": "Timeline View",
       "unreadCount": "{count} unread",
       "loading": "Loading...",
-      "noData": "No messages"
+      "noData": "No messages",
+      "important": "Important",
+      "viewActive": "Active",
+      "archived": "Archived",
+      "hide": "Hide",
+      "hiding": "Hiding…",
+      "hideFailed": "This update couldn’t be hidden. Please try again.",
+      "restore": "Restore",
+      "restoring": "Restoring…",
+      "restoreFailed": "This update couldn’t be restored. Please try again.",
+      "markAllReadFailed": "Updates couldn’t be marked as read. Please try again.",
+      "emptyDescription": "Comments, mentions and subscription changes show up here.",
+      "emptyArchivedDescription": "Updates you hide are kept here and can be restored anytime.",
+      "unavailable": "Unavailable"
     },
     "profile": {
       "accountInfo": "Account Info",

@@ -23437,7 +23437,20 @@
       "viewTimeline": "时间线视图",
       "unreadCount": "{count} 条未读",
       "loading": "加载中...",
-      "noData": "暂无消息"
+      "noData": "暂无消息",
+      "important": "需要了解",
+      "viewActive": "返回动态",
+      "archived": "已归档",
+      "hide": "隐藏",
+      "hiding": "正在隐藏…",
+      "hideFailed": "这条动态未隐藏，请重试。",
+      "restore": "恢复",
+      "restoring": "正在恢复…",
+      "restoreFailed": "这条动态未恢复，请重试。",
+      "markAllReadFailed": "未能把动态标为已读，请重试。",
+      "emptyDescription": "评论、提及和订阅的变化会出现在这里。",
+      "emptyArchivedDescription": "你隐藏的动态会保留在这里，随时可以恢复。",
+      "unavailable": "加载失败"
     },
     "profile": {
       "accountInfo": "账号信息",
