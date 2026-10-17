@@ -59,6 +59,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 // 遮噪只许用这一份实现(§3 共享层优先;镜像测试 T1 反向锁"门里不得再写一份注释剥离")。
 // 用 maskCommentsAndStrings 而不是自写正则:仓库的注释与 usage 帮助文本里大量写着
 // `powershell -ExecutionPolicy Bypass -File deploy\win\...` 例子,先剥注释**与字符串**再判,
@@ -79,9 +80,17 @@ const args = process.argv.slice(2)
 const STAGED = args.includes('--staged')
 const WORKTREE = args.includes('--worktree')
 const STRICT = args.includes('--strict')
-const rootIdx = args.indexOf('--root')
-const ROOT =
-  rootIdx >= 0 ? resolve(args[rootIdx + 1]) : resolve(dirname(fileURLToPath(import.meta.url)), '..')
+// G-322(本门,提交链里):`--root` 被下一枚旗标顶值时旧写法 resolve('--staged') ⇒ 由下面 existsSync 拒成
+// 「root path does not exist」的**判红**,红被归到本次提交头上,而真因是调用方少打了一个值(§12e 说的
+// "与提交内容无关的红")。形态错该走"未判定 exit 2",不该冒红。
+const rootFlag = requireFlagValue(args, '--root', { noun: '目录' })
+if (rootFlag.error) {
+  console.error(`❌ 无法判定:${rootFlag.error}`)
+  process.exit(2)
+}
+const ROOT = rootFlag.value
+  ? resolve(rootFlag.value)
+  : resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 if (!existsSync(ROOT)) {
   console.error(`[FAIL] root path does not exist: ${ROOT}`)
@@ -99,7 +108,7 @@ if (FACE_SEL.error) {
 }
 let face = FACE_SEL.face
 let faceNote = ''
-if (rootIdx >= 0) {
+if (rootFlag.present) {
   if (face === 'head') {
     face = 'worktree'
     faceNote = ';--root 夹具通道 ⇒ 全量档强制走工作树面(临时目录未必是 git 仓,判 HEAD 结构上取不到)'
