@@ -50,6 +50,10 @@ export type ScheduledJobName =
   // 明文 + 向量,写入即带 expires_at(默认 90 天),本任务负责物理删除过期行。
   | 'codebase-index-purge-daily'
   | 'outbox-drain-every-30s'
+  // ihui_* 业务域 Gauge 刷新(exam 进行中数 / oss 存储占用 / tenant 资源用量与配额)
+  | 'exam-active-monitor'
+  | 'oss-storage-stats'
+  | 'tenant-resource-gauge'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -204,6 +208,22 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     every: 30_000,
     description: 'Outbox pending 事件排空补报（每30秒,挂既有轮询,不新增计时器）',
   },
+  // ihui_* 业务域 Gauge 刷新(三族数据源:exam_records 计数 / 磁盘扫描 / tenant_quotas)
+  {
+    name: 'exam-active-monitor',
+    every: 60_000,
+    description: '考试进行中(ihui_exam_active_total)Gauge 刷新（每60秒）',
+  },
+  {
+    name: 'oss-storage-stats',
+    pattern: '*/10 * * * *',
+    description: '存储占用 ihui_oss_storage_used_bytes/file_count Gauge 刷新（每10分钟）',
+  },
+  {
+    name: 'tenant-resource-gauge',
+    pattern: '*/5 * * * *',
+    description: '租户资源 used/quota Gauge 刷新（每5分钟,查 tenant_quotas）',
+  },
 ]
 
 interface SchedulerJobData {
@@ -251,10 +271,7 @@ export function createOutboxLogDispatcher(log: OutboxDrainLog): {
  */
 export async function runOutboxDrain(server: { log: OutboxDrainLog }) {
   const result = await processOutbox(createOutboxLogDispatcher(server.log))
-  server.log.info(
-    { processed: result.processed, failed: result.failed },
-    'outbox drain done',
-  )
+  server.log.info({ processed: result.processed, failed: result.failed }, 'outbox drain done')
   return result
 }
 

@@ -57,6 +57,12 @@ import {
 import { verifyTurnstile } from '../services/turnstile-service.js'
 import { db } from '../db/index.js'
 import { userDevices } from '@ihui/database'
+import {
+  recordAuthLoginAttempt,
+  recordAuthLoginSuccess,
+  recordAuthLoginFailed,
+  recordAuthLoginAnomaly,
+} from '../plugins/business-metrics.js'
 
 /**
  * G-642(2026-09-29):设备指纹落库前归一 —— trim 首尾空白;归一后为空(如 " ")视为
@@ -648,6 +654,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
+      // ihui_auth_login_attempt_total:登录入口打点(参数校验前)
+      recordAuthLoginAttempt()
       const parsed = loginSchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -659,6 +667,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const lockRemaining = await getLockRemainingMs(account, ip)
       if (lockRemaining > 0) {
         const retryAfterSec = Math.ceil(lockRemaining / 1000)
+        recordAuthLoginFailed(ip)
+        recordAuthLoginAnomaly('lockout')
         return reply
           .status(429)
           .header('Retry-After', String(retryAfterSec))
@@ -673,6 +683,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const user = await findUserByAccount(account)
       if (!user || !user.passwordHash) {
         await recordLoginFailure(account, ip)
+        recordAuthLoginFailed(ip)
         return reply.status(401).send(error(401, '用户不存在或密码错误'))
       }
 
@@ -681,6 +692,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (!ok) {
         const remaining = await recordLoginFailure(account, ip)
         if (remaining === 0) {
+          recordAuthLoginFailed(ip)
+          recordAuthLoginAnomaly('lockout')
           return reply
             .status(429)
             .header('Retry-After', String(ACCOUNT_LOCKOUT_CONFIG.lockDurationSec))
@@ -693,12 +706,14 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
               ),
             )
         }
+        recordAuthLoginFailed(ip)
         return reply
           .status(401)
           .send(error(401, `用户不存在或密码错误（剩余 ${remaining} 次重试机会）`))
       }
 
       if (user.status !== 1) {
+        recordAuthLoginFailed(ip)
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
 
@@ -728,10 +743,12 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         ip: request.ip,
       })
       if (risk.action === 'DENY') {
+        recordAuthLoginAnomaly('deny')
         request.log.warn({ userId: user.id, ip: request.ip, hits: risk.hits }, '登录被风控拒绝')
         return reply.status(403).send(error(403, '登录请求被风控拦截，请联系客服'))
       }
       if (risk.action === 'CHALLENGE' || risk.action === 'REVIEW') {
+        recordAuthLoginAnomaly(risk.action === 'CHALLENGE' ? 'challenge' : 'review')
         request.log.info(
           { userId: user.id, ip: request.ip, action: risk.action, hits: risk.hits },
           '登录风控触发',
@@ -803,6 +820,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         }
       }
 
+      recordAuthLoginSuccess()
       return reply.send(
         success({
           ...tokens,
@@ -832,6 +850,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
+      recordAuthLoginAttempt()
       const parsed = phoneLoginSchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -842,6 +861,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const lockRemaining = await getLockRemainingMs(phone, ip)
       if (lockRemaining > 0) {
         const retryAfterSec = Math.ceil(lockRemaining / 1000)
+        recordAuthLoginFailed(ip)
+        recordAuthLoginAnomaly('lockout')
         return reply
           .status(429)
           .header('Retry-After', String(retryAfterSec))
@@ -856,6 +877,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const user = await findUserByPhone(phone)
       if (!user || !user.passwordHash) {
         await recordLoginFailure(phone, ip)
+        recordAuthLoginFailed(ip)
         return reply.status(401).send(error(401, '用户不存在或密码错误'))
       }
 
@@ -864,6 +886,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (!ok) {
         const remaining = await recordLoginFailure(phone, ip)
         if (remaining === 0) {
+          recordAuthLoginFailed(ip)
+          recordAuthLoginAnomaly('lockout')
           return reply
             .status(429)
             .header('Retry-After', String(ACCOUNT_LOCKOUT_CONFIG.lockDurationSec))
@@ -876,12 +900,14 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
               ),
             )
         }
+        recordAuthLoginFailed(ip)
         return reply
           .status(401)
           .send(error(401, `用户不存在或密码错误（剩余 ${remaining} 次重试机会）`))
       }
 
       if (user.status !== 1) {
+        recordAuthLoginFailed(ip)
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
 
@@ -893,6 +919,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         ip: request.ip,
       })
       if (risk.action === 'DENY') {
+        recordAuthLoginAnomaly('deny')
         request.log.warn({ userId: user.id, ip: request.ip, hits: risk.hits }, '登录被风控拒绝')
         return reply.status(403).send(error(403, '登录请求被风控拦截，请联系客服'))
       }
@@ -927,6 +954,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       const permissions = await resolveUserPermissions(user.id, user.roleId)
       setAuthCookies(reply, tokens, true)
+      recordAuthLoginSuccess()
       return reply.send(
         success({
           ...tokens,
@@ -956,6 +984,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
+      recordAuthLoginAttempt()
       const parsed = smsLoginSchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -965,6 +994,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       cleanupExpiredCodes()
       const stored = codeStore.get(phone)
       if (!stored || stored.code !== code || Date.now() > stored.expiresAt) {
+        recordAuthLoginFailed(request.ip)
         return reply.status(401).send(error(401, '验证码错误或已过期'))
       }
 
@@ -972,9 +1002,11 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (!user) {
         // 2026-07-24 安全加固:统一返回"验证码错误"防用户枚举(CWE-204)
         // 攻击者无法通过响应区分"用户未注册"和"验证码错误"
+        recordAuthLoginFailed(request.ip)
         return reply.status(401).send(error(401, '验证码错误或已过期'))
       }
       if (user.status !== 1) {
+        recordAuthLoginFailed(request.ip)
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
 
@@ -991,6 +1023,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       const permissions = await resolveUserPermissions(user.id, user.roleId)
       setAuthCookies(reply, tokens, true)
+      recordAuthLoginSuccess()
       return reply.send(
         success({
           ...tokens,
@@ -1345,7 +1378,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (token) {
         const record = await findRefreshToken(token)
         if (record && !record.revokedAt) {
-          revokedIds = await revokeRefreshToken(token)
+          revokedIds = await revokeRefreshToken(token, 'logout')
         }
       }
 

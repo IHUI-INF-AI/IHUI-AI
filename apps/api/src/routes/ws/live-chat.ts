@@ -55,10 +55,17 @@ export const liveChatWsRoutes: FastifyPluginAsync = async (server) => {
 
       const chatServer = getLiveChatServer()
       const room = chatServer.join(roomId, socket)
-      /** 同步 live-chat 房间数 gauge（join/leave 后调用；采集失败不影响业务） */
+      /** 同步 live-chat 房间数 gauge(join/leave 后调用;采集失败不影响业务) */
       const syncRoomGauge = (): void => {
         try {
           server.recordWsRooms(chatServer.roomCount())
+          // ihui_live_online_total(Gauge,per-room set 语义):房间清空时删序列防无界累积
+          const online = chatServer.getRoomSize(roomId)
+          if (online > 0) {
+            server.setLiveOnline(roomId, online)
+          } else {
+            server.deleteLiveOnline(roomId)
+          }
         } catch {
           /* ignore */
         }

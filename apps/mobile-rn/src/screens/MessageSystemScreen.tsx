@@ -28,9 +28,20 @@ export function MessageSystemScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<MessageSystemItem[]>('/message/system')
+      const res = await fetchApi<{
+        list: Array<{ id: number; content: string; createdAt?: string | Date }>
+      }>('/messages/system-notice/list')
       if (!res.success) throw new Error()
-      setItems(res.data ?? [])
+      const list = res.data?.list ?? []
+      setItems(
+        list.map((row) => ({
+          id: String(row.id),
+          title: (row.content ?? '').slice(0, 24),
+          content: row.content ?? '',
+          time: row.createdAt ? new Date(row.createdAt).toLocaleString() : '',
+          read: true,
+        })),
+      )
     } catch {
       setError(t('messageSystem.loadFailed'))
     } finally {

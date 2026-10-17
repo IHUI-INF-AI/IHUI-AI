@@ -2864,8 +2864,44 @@ export function checkConvergeAlignStall(opts = {}) {
  * run/notify/logger 全部可注入 —— 与 checkConvergeAlignStall 同一套取证形状(§22c:镜像测试
  * 直接 import 本函数,用假派发器断言"哪种结论发哪种 alert",绝不在测试里真发信)。
  */
+/**
+ * `.env` 那一族"这一轮取不到输入"的信(不可判定 / 未判定 / 退出码与结论不符)必须有持续性门槛。
+ *
+ * 为什么(2026-10-17 同族审计点名的型②残留格):守护每 2 分钟一趟(任务 `IHUI-AI git-guardian`,
+ * 本文件 :36/:107 现读),而这把尺子的正常一趟是秒级读数 ⇒ **单轮**取不到输入最常见的成因就是本机
+ * 并发争用(别席正在重写 env / 派生被抢),它不是"这一格瞎了",寄信只会把人叫来看一个已经好了的东西。
+ * 连满 30 分钟(≈15 趟)全是取不到,才够格按结构性故障到人。方向照 §0.10:短窗只报名并写明已持续多久,
+ * 绝不是放行;跨持续档(`alertHeldTier`)即新身份立刻重报,不会被压成静音。
+ */
+const ENV_UNDET_FILE = join(WORKTREE, '.workbuddy', 'env-drift-undetermined-first.json')
+const ENV_UNDET_HORIZON_MS = Number(process.env.IHUI_ENV_UNDET_HORIZON_MS || 30 * 60 * 1000)
+
+function notifyEnvUndetermined(name, detail, notify, logger, file = ENV_UNDET_FILE, horizonMs = ENV_UNDET_HORIZON_MS) {
+  const { firstMs, heldMs } = noteUndeterminedStreak(file)
+  const held = alertHeldTier(firstMs)
+  if (heldMs >= horizonMs) {
+    notify(
+      name,
+      `${detail}\n这已连到 ${Math.round(heldMs / 60000)} 分钟(门槛 ${Math.round(horizonMs / 60000)} 分钟 ≈ 守护 15 趟)⇒ 这一格现在是**瞎的**,不再只是"这一轮抢不到"。\n持续档=${held.tier}(跨档即刻重报;起点件 .workbuddy/env-drift-undetermined-first.json,取到任一确定结论即清零)`,
+      { dedupKey: `env-undet;name=${name};tier=${held.tier}` },
+    )
+    logger(`⚠️ ${name}:连续 ${Math.round(heldMs / 60000)} 分钟取不到结论 ⇒ 已派发到邮件通道`)
+    return { mailed: true, heldMs, tier: held.tier }
+  }
+  logger(`ℹ️ ${name}:单轮取不到输入 ⇒ 只报名不寄信(连满 ${Math.round(horizonMs / 60000)} 分钟才到人;当前已持续 ${Math.round(heldMs / 60000)} 分钟)`)
+  return { mailed: false, heldMs, tier: held.tier }
+}
+
 export function auditEnvDrift(opts = {}) {
-  const { notify = notifyGuardRed, run = runEnvDriftProbe, logger = log } = opts
+  const {
+    notify = notifyGuardRed,
+    run = runEnvDriftProbe,
+    logger = log,
+    // 这两枚只为准成对夹具而开(测试不得碰真 .workbuddy 的台账、也不得等真 30 分钟):
+    // 生产调用一律走默认值,语义与不带参数逐字相同。
+    undetFile = ENV_UNDET_FILE,
+    horizonMs = ENV_UNDET_HORIZON_MS,
+  } = opts
   const probe = run()
   if (probe.missing) {
     // 判据被摘线的形态必须能被发现:尺子不在位 ≠ 一切正常(守门 70/76/81 同型)。
@@ -2887,10 +2923,14 @@ export function auditEnvDrift(opts = {}) {
     logger(
       `⚠️ .env 漂移巡检不可判定(exit ${probe.code},输出不是可解析 JSON)⇒ 手动:node scripts/check-env-drift.mjs`,
     )
-    notify(
+    notifyEnvUndetermined(
       '.env 漂移巡检不可判定(尺子输出不是 JSON)',
       `派生 exit ${probe.code} 而 stdout 不可解析 ⇒ 判据本身坏了,不得当作"已通过"。` +
         `\nstdout 前 400 字符:${String(probe.stdout || '').slice(0, 400)}\n手动:node scripts/check-env-drift.mjs`,
+      notify,
+      logger,
+      undetFile,
+      horizonMs,
     )
     return { state: 'unreadable', code: probe.code }
   }
@@ -2904,9 +2944,17 @@ export function auditEnvDrift(opts = {}) {
     )
     notify('.env 键值漂移(有键从非空变成空/整键缺失)', envDriftDetail(parsed, '漂移'), {
       severity: 'critical',
+      // 键集漂移是**状态量**(§5e-1 可整改:收信人能干的事就是回填那一枚键),照旧一轮即到人。
+      // 身份只放"漂掉的键名集合",实时条数进正文。
+      dedupKey: `env-drift;keys=${parsed.verdicts
+        .filter((v) => v.state === 'drift')
+        .flatMap((v) => v.drift || [])
+        .sort()
+        .join('+')
+        .slice(0, 600)}`,
     })
-    return { state: 'drift', counts: c }
-  }
+    clearUndeterminedStreak(undetFile)
+    return { state: 'drift', counts: c }  }
   if (Number(c.undetermined || 0) > 0) {
     logger(
       `❓ 受管 .env 巡检未判定:${parsed.verdicts
@@ -2914,16 +2962,18 @@ export function auditEnvDrift(opts = {}) {
         .map((v) => v.id)
         .join(', ')}(不记为通过)`,
     )
-    notify('.env 漂移巡检未判定(现文件缺失或无同目标备份可比)', envDriftDetail(parsed, '未判定'))
+    notifyEnvUndetermined('.env 漂移巡检未判定(现文件缺失或无同目标备份可比)', envDriftDetail(parsed, '未判定'), notify, logger, undetFile, horizonMs)
     return { state: 'undetermined', counts: c }
   }
   if (Number(probe.code) !== 0) {
     logger(
       `⚠️ .env 漂移巡检退出码与结论不符(exit ${probe.code} 却零漂移零未判定)⇒ 尺子坏了,手动:node scripts/check-env-drift.mjs`,
     )
-    notify('.env 漂移巡检自身异常(退出码与结论不符)', envDriftDetail(parsed, '结论与退出码矛盾'))
+    notifyEnvUndetermined('.env 漂移巡检自身异常(退出码与结论不符)', envDriftDetail(parsed, '结论与退出码矛盾'), notify, logger, undetFile, horizonMs)
     return { state: 'inconsistent', code: probe.code }
   }
+  // 取到任何**确定结论**(绿 / 真漂移)⇒ 清掉"取不到"的起点:不得拿上一场争用的账续命。
+  clearUndeterminedStreak(undetFile)
   return { state: 'clean', counts: c }
 }
 

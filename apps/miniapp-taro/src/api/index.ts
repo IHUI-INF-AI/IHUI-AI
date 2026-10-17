@@ -91,7 +91,10 @@ import {
 } from '@ihui/api-client'
 // D49① + D111:评价(rateChatMessage)/审批(sendToolApprovalResponse)共享端点 re-export(§3 共享层优先,
 // 端内经 @ihui/api-client,不另起传输层);与 web / mobile-rn / extension 三端共用同一把函数。
-import { rateChatMessage as _rateChatMessage, sendToolApprovalResponse as _sendToolApprovalResponse } from '@ihui/api-client'
+import {
+  rateChatMessage as _rateChatMessage,
+  sendToolApprovalResponse as _sendToolApprovalResponse,
+} from '@ihui/api-client'
 // HTTP 方法助手(get/post/put/patch/del)与 unwrapApi 统一来自 api-bridge,
 // 替代原 utils/request.ts,内部走 @ihui/api-client fetchApi + Taro transport。
 import { unwrapApi, get, post, put, patch, del } from '../utils/api-bridge'
@@ -402,6 +405,14 @@ export interface StreamEventCallbacks {
    * 决议回传走 re-export 的 postToolApprovalResponse(端内不另起传输层)。
    */
   onToolApproval?: (evt: ToolApprovalEvent) => void
+  /**
+   * G-248 R2(2026-10-16 立):帧级 traceId 的端内投影出口。
+   * 值由共享解析层(@ihui/shared/utils/sse-parse 的唯一认领点)挂在 SSEEvent 信封上,
+   * 本层只透传不另判 —— 键名/合法性口径与 @ihui/api-client 的 streamChat.onTraceId 同名同义:
+   * 本轮首次见到合法值时回调一次,之后同值帧不再重复回调;从未见过 ⇒ 一次都不回调
+   * (消费侧保持"未知",不得折成空串顶掉这一态)。
+   */
+  onTraceId?: (traceId: string) => void
 }
 
 /** SSE 错误对象携带的元信息(字段名与 @ihui/api-client client.ts attachErrorMeta 一致) */
@@ -446,6 +457,7 @@ export const chatStream = async (
   let receivedContent = ''
   let dedupeBuffer = ''
   let dedupeActive = false
+  let seenTraceId: string | undefined
 
   const emitDelta = (delta: string): void => {
     if (!dedupeActive) {
@@ -476,6 +488,12 @@ export const chatStream = async (
 
   // W5:统一事件分发(6 类既有 + 12 类新增 = 18 类,字段名严格对齐 client.ts 契约)
   const dispatch = (evt: SSEEvent) => {
+    // G-248 R2:帧级 traceId 的透传挂在认领链最外层(与共享 sse-parse 的挂法同形)——
+    // 本层的 switch 会把多数帧折进窄载荷,放在分支里就会漏掉被折掉的那些。
+    if (seenTraceId === undefined && evt.traceId) {
+      seenTraceId = evt.traceId
+      callbacks?.onTraceId?.(evt.traceId)
+    }
     switch (evt.type) {
       case 'chunk':
         if (evt.content) emitDelta(evt.content)
@@ -644,6 +662,8 @@ export const chatStream = async (
     onReconnect: (attempt, delayMs) => {
       // 断点续传去重:重连后服务端可能从断点重发,跳过已渲染前缀
       dedupeActive = receivedContent.length > 0
+      // 重连是一条新请求 ⇒ 新一轮的 trace 归新一轮(与 api-client 的 onAttemptStart 复位同口径)
+      seenTraceId = undefined
       callbacks?.onReconnect?.(attempt, delayMs)
     },
     readTimeoutMs: STREAM_READ_TIMEOUT_MS,
@@ -800,11 +820,23 @@ export const getCommissionRecords = (params?: { page?: number; pageSize?: number
     total: number
   }>('/distribution/commission', params)
 export const withdraw = (data: { amount: number; type: string }) =>
-  post('/distribution/withdraw', data)
+  post('/distribution/withdraw', { amount: data.amount, method: data.type })
 export const getDistributionRank = () =>
-  get<{ list: Array<{ id: string; nickname: string; avatar?: string; commission: number }> }>(
-    '/distribution/rank',
-  )
+  get<
+    Array<{
+      userId: string | null
+      nickname: string | null
+      avatar: string | null
+      totalCommission: number
+    }>
+  >('/distribution/ranking').then((rows) => ({
+    list: (rows ?? []).map((r) => ({
+      id: r.userId ?? '',
+      nickname: r.nickname ?? '',
+      avatar: r.avatar ?? undefined,
+      commission: Number(r.totalCommission),
+    })),
+  }))
 
 /* ============ 用户中心扩展 ============ */
 
@@ -862,7 +894,8 @@ export interface Circle {
 }
 export const getCircleList = (params?: { page?: number; pageSize?: number }) =>
   get<{ list: Circle[]; total: number }>('/circles', params)
-export const getCircleDetail = (id: string | number) => get<Circle>(`/circles/${id}`)
+export const getCircleDetail = (id: string | number) =>
+  get<{ circle: Circle }>(`/circles/${id}`).then((r) => r.circle)
 export const createCircle = (data: { title: string; content: string; images?: string[] }) =>
   post('/circles', data)
 
@@ -878,7 +911,8 @@ export interface Ask {
 }
 export const getAskList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
   get<{ list: Ask[]; total: number }>('/asks', params)
-export const getAskDetail = (id: string | number) => get<Ask>(`/asks/${id}`)
+export const getAskDetail = (id: string | number) =>
+  get<{ ask: Ask }>(`/asks/${id}`).then((r) => r.ask)
 export const createAsk = (data: { title: string; content: string }) => post('/asks', data)
 
 /* Ask 模块扩展（M-64 + D7/D8 端点） */
@@ -972,7 +1006,9 @@ export type QuestionType =
 // QuestionType 保留本地定义:answer.tsx 使用旧枚举值 'multi_choice'/'fill_blank'/'subjective',迁移需联动修改 answer.tsx(超出 P2-1 范围)
 export const getExamPaper = (id: string) => get<{ paper: ExamPaper }>(`/exam/papers/${id}`)
 export const getExamQuestions = (id: string) =>
-  get<{ list: ExamQuestion[] }>(`/exam/papers/${id}/questions`)
+  get<{ exam: ExamPaper; questions: ExamQuestion[] }>(`/exam/papers/${id}/questions`).then(
+    (r) => ({ list: r.questions ?? [] }),
+  )
 // ExamRecord 已下沉到 @ihui/api-client(endpoints/exam.ts),上方 re-export
 export const getExamRecords = (params?: { page?: number; pageSize?: number }) =>
   get<{ list: ExamRecord[]; total: number }>('/exam/records', params)
@@ -1119,7 +1155,7 @@ export const updateNotificationSettings = (data: Record<string, boolean>) =>
   put('/settings/notification', data)
 export const clearCache = () => post('/settings/cache/clear')
 export const clearCacheSize = () => get<{ size: string }>('/settings/cache/size')
-export const setLanguage = (lang: string) => post('/settings/language', { lang })
+export const setLanguage = (lang: string) => post('/settings/language', { language: lang })
 export const setTheme = (theme: string) => post('/settings/theme', { theme })
 
 /* ============ 智能体市场 ============ */
