@@ -308,6 +308,7 @@ export type {
   NotificationType,
   NotificationListItem,
   NotificationListScreenProps,
+  NotificationRowStatus,
   HistoryTargetType,
   HistoryItem,
   HistoryScreenProps,
