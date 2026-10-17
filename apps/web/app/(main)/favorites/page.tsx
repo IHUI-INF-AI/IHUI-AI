@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Star, Folder, FileText, Trash2, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -47,12 +47,6 @@ const TAB_KEY: Record<string, string> = {
   file: 'tabs.file',
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function FavoritesPage() {
   const t = useTranslations('favorites')
   const locale = useLocale()
@@ -65,7 +59,7 @@ export default function FavoritesPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['favorites', tab],
     queryFn: () =>
-      api<{ list: Favorite[] }>(
+      apiOrThrow<{ list: Favorite[] }>(
         `/api/favorites?pageSize=100${tab !== 'all' ? `&resourceType=${tab}` : ''}`,
       ).then((d) => d.list ?? []),
     enabled: allow,
@@ -73,7 +67,7 @@ export default function FavoritesPage() {
 
   const removeMut = useMutation({
     mutationFn: (f: Favorite) =>
-      api(`/api/favorites/${f.resourceType}/${f.resourceId}`, { method: 'DELETE' }),
+      apiOrThrow(`/api/favorites/${f.resourceType}/${f.resourceId}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['favorites'] }),
   })
 

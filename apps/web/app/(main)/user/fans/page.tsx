@@ -28,7 +28,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Users, UserPlus, UserCheck } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { fetchApi } from '@/lib/api'
+import { fetchApi, apiOrThrow } from '@/lib/api'
 import { Avatar } from '@/components/data'
 import { Button } from '@ihui/ui-react'
 import { pushError } from '@/stores/error-banner'
@@ -42,12 +42,6 @@ interface FanUser {
   avatar?: string | null
   bio?: string | null
   createdAt?: string | null
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 export default function FansPage() {
@@ -79,7 +73,7 @@ export default function FansPage() {
   const { data: myFollowing } = useQuery({
     queryKey: ['follows', 'following'],
     queryFn: () =>
-      api<{ list: { userId: string }[] }>(`/api/follows/following?pageSize=200`).then(
+      apiOrThrow<{ list: { userId: string }[] }>(`/api/follows/following?pageSize=200`).then(
         (d) => d.list ?? [],
       ),
     enabled: allow,
@@ -91,7 +85,7 @@ export default function FansPage() {
   )
 
   const followMut = useMutation({
-    mutationFn: (userId: string) => api(`/api/follows/${userId}`, { method: 'POST' }),
+    mutationFn: (userId: string) => apiOrThrow(`/api/follows/${userId}`, { method: 'POST' }),
     onSuccess: () => {
       toast.success(t('followSuccess'))
       qc.invalidateQueries({ queryKey: ['follows', 'following'] })

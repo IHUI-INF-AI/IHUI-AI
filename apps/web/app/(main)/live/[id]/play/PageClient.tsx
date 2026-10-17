@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft, Loader2, Radio, Send, Heart, Share2, Bell } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, Button, Input } from '@ihui/ui-react'
 import { LivePlayer } from '@/components/media'
 
@@ -40,12 +40,6 @@ interface Danmu {
   content: string
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function LivePlayPage() {
   const { id } = useParams<{ id: string }>()
   const t = useTranslations('livePlayPage')
@@ -53,7 +47,7 @@ export default function LivePlayPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['live', 'channel', id, 'play'],
-    queryFn: () => api<ChannelResp>(`/api/live/channels/${id}`),
+    queryFn: () => apiOrThrow<ChannelResp>(`/api/live/channels/${id}`),
   })
 
   const channel = data?.channel ?? null

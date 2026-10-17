@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Button,
   Card,
@@ -70,12 +70,6 @@ interface LiveCategoryListData {
 
 const PAGE_SIZE = 12
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function formatTime(value: string | null, locale: string): string {
   if (!value) return '-'
   const d = new Date(value)
@@ -100,7 +94,7 @@ export default function LivePage() {
 
   const { data: categoriesData, error: categoriesError } = useQuery({
     queryKey: ['eduAi', 'live', 'categories'],
-    queryFn: () => api<LiveCategoryListData>(`/api/live/categories`),
+    queryFn: () => apiOrThrow<LiveCategoryListData>(`/api/live/categories`),
   })
   const categories = categoriesData?.list ?? []
 
@@ -109,7 +103,7 @@ export default function LivePage() {
     queryFn: () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (category !== null) qs.set('categoryId', category)
-      return api<LiveChannelListData>(`/api/live/channels?${qs.toString()}`)
+      return apiOrThrow<LiveChannelListData>(`/api/live/channels?${qs.toString()}`)
     },
   })
 

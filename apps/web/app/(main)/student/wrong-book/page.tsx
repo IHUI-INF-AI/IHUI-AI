@@ -9,7 +9,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { XCircle, Loader2, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { AuthGatePrompt, BackButton } from '@/components/common'
@@ -29,12 +29,6 @@ interface WrongBookData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string, opts?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, opts)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function WrongBookPage() {
   const t = useTranslations('student')
   const [page, setPage] = React.useState(1)
@@ -44,7 +38,8 @@ export default function WrongBookPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['student', 'wrong-book', page],
-    queryFn: () => api<WrongBookData>(`/api/edu/wrong-book?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: () =>
+      apiOrThrow<WrongBookData>(`/api/edu/wrong-book?page=${page}&pageSize=${PAGE_SIZE}`),
     enabled: allow,
   })
 
@@ -56,7 +51,7 @@ export default function WrongBookPage() {
   const [explain, setExplain] = React.useState<{ questionId: string; text: string } | null>(null)
   const explainMut = useMutation({
     mutationFn: (questionId: string) =>
-      api<{ explanation: string }>(`/api/exam/wrong-questions/${questionId}/explain`, {
+      apiOrThrow<{ explanation: string }>(`/api/exam/wrong-questions/${questionId}/explain`, {
         method: 'POST',
       }),
     onSuccess: (d, questionId) => setExplain({ questionId, text: d.explanation }),

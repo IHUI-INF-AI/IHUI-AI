@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Users, UserPlus, UserMinus, Loader2 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { UserCard } from '@/components/business'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -20,12 +20,6 @@ interface FollowUser {
   nickname: string | null
   avatar: string | null
   createdAt: string
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 /**
@@ -56,14 +50,18 @@ function FollowingContent() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['follows', tab],
     queryFn: () =>
-      api<{ list: FollowUser[] }>(`/api/follows/${tab}?pageSize=100`).then((d) => d.list ?? []),
+      apiOrThrow<{ list: FollowUser[] }>(`/api/follows/${tab}?pageSize=100`).then(
+        (d) => d.list ?? [],
+      ),
     enabled: allow,
   })
 
   const { data: myFollowing } = useQuery({
     queryKey: ['follows', 'following'],
     queryFn: () =>
-      api<{ list: FollowUser[] }>(`/api/follows/following?pageSize=100`).then((d) => d.list ?? []),
+      apiOrThrow<{ list: FollowUser[] }>(`/api/follows/following?pageSize=100`).then(
+        (d) => d.list ?? [],
+      ),
     enabled: allow,
   })
 
@@ -73,12 +71,12 @@ function FollowingContent() {
   )
 
   const followMut = useMutation({
-    mutationFn: (userId: string) => api(`/api/follows/${userId}`, { method: 'POST' }),
+    mutationFn: (userId: string) => apiOrThrow(`/api/follows/${userId}`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['follows'] }),
   })
 
   const unfollowMut = useMutation({
-    mutationFn: (userId: string) => api(`/api/follows/${userId}`, { method: 'DELETE' }),
+    mutationFn: (userId: string) => apiOrThrow(`/api/follows/${userId}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['follows'] }),
   })
 
