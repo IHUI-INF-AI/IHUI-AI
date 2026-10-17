@@ -32,15 +32,9 @@
       "until": "2027-04-01"
     },
     {
-      "prefix": "bullmq",
-      "owner": "队列采集(线上未接线)",
-      "reason": "如实登记:bullmq.json 查询的族当前无采集器 ⇒ 面板恒 No data,属存量,清理前不得再扩",
-      "until": "2027-04-01"
-    },
-    {
       "prefix": "container_",
-      "owner": "cAdvisor(未部署)",
-      "reason": "有面板引用该族但线上无容器采集器,登记为待定性存量",
+      "owner": "cAdvisor(仅 deploy/saas 画像部署)",
+      "reason": "引用面只在 deploy/saas/grafana 树:该画像的 docker-compose.yml:115-134 起 cadvisor:v0.49.1:8808 且 prometheus.yml:21-25 抓它;本机 monitoring 画像没有容器采集器 ⇒ 那一侧面板恒 No data 属预期",
       "until": "2027-04-01"
     }
   ]

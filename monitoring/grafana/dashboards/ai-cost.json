@@ -19,7 +19,18 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "返回 AI 总览",
+      "type": "link",
+      "url": "/d/ihui-ai-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "tags": ["ihui-ai"]
+    }
+  ],
   "liveNow": false,
   "panels": [
     {
@@ -52,7 +63,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(ihui_llm_cost_usd_total{job=\"ai-service\"}[$__range]))",
+          "expr": "sum(increase(ihui_llm_cost_usd_total{job=\"ai-service\",provider=~\"$provider\"}[$__range]))",
           "legendFormat": "total",
           "refId": "A"
         }
@@ -95,7 +106,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(ihui_llm_cost_usd_total{job=\"ai-service\"}[1h]))",
+          "expr": "sum(increase(ihui_llm_cost_usd_total{job=\"ai-service\",provider=~\"$provider\"}[1h]))",
           "legendFormat": "per-hour",
           "refId": "A"
         }
@@ -138,7 +149,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(ihui_llm_cost_usd_total{job=\"ai-service\"}[1h])) / clamp_min(sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=~\"input|output\"}[1h])),0.0001) * 1000",
+          "expr": "sum(rate(ihui_llm_cost_usd_total{job=\"ai-service\",provider=~\"$provider\"}[1h])) / clamp_min(sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=~\"input|output\"}[1h])),0.0001) * 1000",
           "legendFormat": "k",
           "refId": "A"
         }
@@ -181,7 +192,7 @@
       },
       "targets": [
         {
-          "expr": "count(ihui_llm_cost_usd_total{job=\"ai-service\"})",
+          "expr": "count(ihui_llm_cost_usd_total{job=\"ai-service\",provider=~\"$provider\"})",
           "legendFormat": "series",
           "refId": "A"
         }
@@ -245,7 +256,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (provider) (rate(ihui_llm_cost_usd_total{job=\"ai-service\"}[1h]))",
+          "expr": "sum by (provider) (rate(ihui_llm_cost_usd_total{job=\"ai-service\",provider=~\"$provider\"}[1h]))",
           "legendFormat": "{{provider}}",
           "refId": "A"
         }
@@ -288,7 +299,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (model) (rate(ihui_llm_cost_usd_total{job=\"ai-service\"}[1h]))",
+          "expr": "sum by (model) (rate(ihui_llm_cost_usd_total{job=\"ai-service\",provider=~\"$provider\"}[1h]))",
           "legendFormat": "{{model}}",
           "refId": "A"
         }
@@ -346,7 +357,7 @@
           "refId": "A"
         },
         {
-          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"cache_creation\"}[1h]))",
+          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"cache_read\"}[1h]))",
           "legendFormat": "cache_creation",
           "refId": "A"
         }
@@ -388,7 +399,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (model, provider) (increase(ihui_llm_cost_usd_total{job=\"ai-service\"}[$__range]))",
+          "expr": "sum by (model, provider) (increase(ihui_llm_cost_usd_total{job=\"ai-service\",provider=~\"$provider\"}[$__range]))",
           "legendFormat": "m",
           "refId": "A"
         }
@@ -445,7 +456,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(business_ai_cost_minor_units_total{job=\"business-metrics\"}[$__range])) / 100",
+          "expr": "sum(increase(business_ai_cost_minor_units_total{job=\"business-metrics\",vendor=~\"$provider\"}[$__range])) / 100",
           "legendFormat": "cost",
           "refId": "A"
         }
@@ -488,7 +499,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (call_type, status) (rate(business_ai_calls_total{job=\"business-metrics\"}[1h]))",
+          "expr": "sum by (call_type, status) (rate(business_ai_calls_total{job=\"business-metrics\",vendor=~\"$provider\"}[1h]))",
           "legendFormat": "{{call_type}} {{status}}",
           "refId": "A"
         }
@@ -530,7 +541,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (direction) (rate(business_ai_tokens_total{job=\"business-metrics\"}[1h]))",
+          "expr": "sum by (direction) (rate(business_ai_tokens_total{job=\"business-metrics\",vendor=~\"$provider\"}[1h]))",
           "legendFormat": "{{direction}}",
           "refId": "A"
         }
@@ -719,7 +730,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (vendor, model) (increase(business_ai_cost_minor_units_total{job=\"business-metrics\"}[$__range])) / 100",
+          "expr": "sum by (vendor, model) (increase(business_ai_cost_minor_units_total{job=\"business-metrics\",vendor=~\"$provider\"}[$__range])) / 100",
           "legendFormat": "m",
           "refId": "A"
         }
@@ -756,27 +767,24 @@
       {
         "name": "provider",
         "label": "厂商",
-        "query": {
-          "cloudCommand": null,
-          "cloudDuration": null,
-          "expression": "label_values(ihui_llm_cost_usd_total{job=\"ai-service\"}, provider)",
-          "range": false
-        },
+        "query": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, provider)",
         "current": {
-          "selectedText": "All",
+          "selected": true,
           "text": "All",
           "value": "$__all"
         },
         "includeAll": true,
         "multi": true,
         "refresh": 1,
-        "regex": "",
-        "sort": 1,
         "type": "query",
         "hide": 0,
-        "definition": "label_values(ihui_llm_cost_usd_total{job=\"ai-service\"}, provider)",
+        "definition": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, provider)",
         "options": [],
-        "allValue": ".*"
+        "allValue": ".*",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        }
       }
     ]
   },
@@ -796,5 +804,6 @@
   },
   "uid": "ihui-ai-ai-cost",
   "version": 1,
-  "weekStart": ""
+  "weekStart": "",
+  "description": "AI 成本:USD 与人民币分两套口径的支出、每千 token 单价、落账失败数。数据源 ai-service 的 ihui_llm_cost_usd_total/ihui_llm_tokens_total 与 api 落账侧 business_ai_*。"
 }
