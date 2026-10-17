@@ -13,6 +13,10 @@ mod checkin_web_login;
 // 2026-10-16 立:项目内嵌浏览器(自绘工具条 + 地址栏 + Chrome UA 的 WebView2 窗口)。
 // 签到网页登录、SSO 兜底窗等"需要在浏览器里走一趟"的场景统一用它,不再外部拉 Chrome。
 mod embedded_browser;
+// 2026-10-17 立:内嵌浏览器「完整浏览器」能力——书签管理/最近历史/从 Chrome/Edge 导入书签。
+// 数据落 app_data_dir(持久化,区别于内存标签会话);纯函数(Chrome 书签解析/去重/历史)
+// 判据可单测,I/O 走薄 Tauri 命令胶水。
+mod browser_bookmarks;
 // 2026-09-28 立:托盘/关窗/启动/角标的「行为偏好」——判定与持久化都在模块内,本文件只做接线。
 mod desktop_prefs;
 // 本地 git/diff 通道（2026-09-27）：纯判据 / 执行层 / tauri 胶水三件套。
@@ -30,6 +34,9 @@ mod workbuddy_reset;
 // 2026-10-16 立:MiniMax 程序一键重置——补齐第四平台风控面(此前 MiniMax 只有捕获、零重置零审计)。
 // 双根 ~/.minimax + %APPDATA%/MiniMax;架构与 qoder_reset 同构(维护/登出/出厂 + 隔离区可逆 + 残留审计)。
 mod minimax_reset;
+// 2026-10-17 立:Windows DWM sheet-of-glass 原生窗控按钮——让右上角最小化/最大化/
+// 关闭随窗口壳即时出现(OS 绘制),不再等网页 React 渲染。配套注入 CSS 隐藏 HTML 窗控。
+mod window_chrome;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -537,8 +544,12 @@ async fn open_admin_window(app: tauri::AppHandle) -> Result<(), String> {
     .center()
     .decorations(false)
     .shadow(true)
+    // 2026-10-17:页面加载前注入 CSS 隐藏 HTML 窗控(原生 DWM 按钮在右上角,避免重叠/闪现)。
+    .initialization_script(window_chrome::HIDE_HTML_WINDOW_CONTROLS_JS)
     .build()
     .map_err(|e| e.to_string())?;
+    // 2026-10-17:admin 窗同样启用 DWM 原生窗控按钮(与 main 窗一致)。
+    window_chrome::enable_native_caption_buttons(&_admin_window);
     // 创建后恢复 admin 窗口上次位置/尺寸(若有保存)
     let _ = restore_window_state(Some("admin".to_string()), app.clone());
     Ok(())
@@ -2898,6 +2909,9 @@ pub fn run() {
             if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
                 if let Some(win) = wv.app_handle().get_webview_window("main") {
                     log::info!("[window-show] site=page_load_finished trigger=主文档加载完成 ⇒ 点亮(chrome 第一帧可见,替代探活点亮)");
+                    // 2026-10-17:隐藏网页侧 HTML 窗控按钮(原生 DWM 按钮已在右上角,避免重叠)。
+                    // eval 是 fire-and-forget;失败不影响窗口显示。
+                    let _ = win.eval(window_chrome::HIDE_HTML_WINDOW_CONTROLS_JS);
                     let _ = win.show();
                 }
             }
@@ -3242,6 +3256,10 @@ pub fn run() {
             let app_name = localized_app_name();
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_title(app_name);
+                // 2026-10-17 立:Windows DWM sheet-of-glass 原生窗控按钮。
+                // 必须在窗口首次 show() 之前调 —— 窗口一亮右上角三按钮就在(OS 绘制),
+                // 不等网页 React 渲染。失败只 warn,退回 HTML 按钮,不阻塞启动。
+                window_chrome::enable_native_caption_buttons(&window);
             }
             // 应用启动时恢复上次窗口状态(位置/尺寸/最大化)
             // 2026-07-27 立:仅恢复 main 窗口,admin 窗口在 open_admin_window 时恢复
@@ -3370,6 +3388,12 @@ pub fn run() {
             embedded_browser::embedded_browser_state,
             embedded_browser::embedded_browser_new_tab,
             embedded_browser::embedded_browser_devtools,
+            browser_bookmarks::embedded_browser_data,
+            browser_bookmarks::embedded_browser_add_bookmark,
+            browser_bookmarks::embedded_browser_delete_bookmark,
+            browser_bookmarks::embedded_browser_clear_history,
+            browser_bookmarks::embedded_browser_import_system_bookmarks,
+            browser_bookmarks::embedded_browser_record_history,
             get_admin_window_info,
             toggle_devtools,
             quit_app,
