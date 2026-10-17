@@ -66,6 +66,7 @@ import {
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 /** 仓库根(磁盘运行态之根)。命名刻意避开大写 ROOT,理由见头注"判定面"一段。 */
@@ -775,8 +776,15 @@ function main() {
     return 0
   }
   if (argv.includes('--self-test')) return selfTest()
-  const rootIdx = argv.indexOf('--root')
-  const root = rootIdx >= 0 ? resolve(argv[rootIdx + 1] || '.') : STATE_ROOT
+  // G-322(守护巡检档,无人值守跑):旧写法 `resolve(argv[rootIdx+1] || '.')` —— 给了 `--root` 却没拿到值时
+  // 落回 **'.' = 当前 cwd**,而守护进程/服务账户的 cwd 与交互终端不通(§15 ROOT 定根同型),于是它巡的是
+  // 另一棵树却报"无漂移"= 静默的假绿。给了旗标就要有值,否则未判定 return 2。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录' })
+  if (rootFlag.error) {
+    console.error(`❌ 无法判定:${rootFlag.error}`)
+    return 2
+  }
+  const root = rootFlag.value ? resolve(rootFlag.value) : STATE_ROOT
   let out
   try {
     out = analyze({ root })
