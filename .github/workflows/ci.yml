@@ -225,7 +225,7 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci.yml
-          TRIAGE_IDS: checkout watermark conflict-markers install-pnpm setup-node install build-shared-deps shared-typecheck build-database build-auth build-api-client wxt-prepare assert-web-build-script build assert-web-artifact typecheck schema-drift migration-bookkeeping api-routes port-registry lint test assert-sw-stamped
+          TRIAGE_IDS: checkout watermark conflict-markers install-pnpm setup-node install build-shared-deps shared-typecheck build-database build-auth build-api-client wxt-prepare assert-web-build-script build assert-web-artifact typecheck schema-drift migration-bookkeeping api-routes port-registry lint test assert-sw-stamped version-drift
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_WATERMARK: ${{ steps.watermark.outcome }}
           O_CONFLICT_MARKERS: ${{ steps.conflict-markers.outcome }}
@@ -249,6 +249,7 @@ jobs:
           O_LINT: ${{ steps.lint.outcome }}
           O_TEST: ${{ steps.test.outcome }}
           O_ASSERT_SW_STAMPED: ${{ steps.assert-sw-stamped.outcome }}
+          O_VERSION_DRIFT: ${{ steps.version-drift.outcome }}
         # 唯一实现:scripts/ci-failure-triage.sh(脚本头注即行为契约;禁止在此重新内联判据)。
         run: bash scripts/ci-failure-triage.sh
 
