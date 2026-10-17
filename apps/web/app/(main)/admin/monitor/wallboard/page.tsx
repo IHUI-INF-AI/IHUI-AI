@@ -27,6 +27,7 @@ import {
   Server,
   ShieldAlert,
   Sparkles,
+  Unplug,
   Users,
   Wallet,
 } from 'lucide-react'
@@ -291,7 +292,7 @@ function Panel({
   )
 }
 
-function Dot({ tone }: { tone: 'ok' | 'warn' | 'bad' | 'idle' }) {
+function Dot({ tone }: { tone: StatusTone | 'idle' }) {
   const color =
     tone === 'ok'
       ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]'
@@ -299,7 +300,9 @@ function Dot({ tone }: { tone: 'ok' | 'warn' | 'bad' | 'idle' }) {
         ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.9)]'
         : tone === 'bad'
           ? 'bg-red-500 shadow-[0_0_6px_rgba(248,113,113,0.9)]'
-          : 'bg-slate-500'
+          : tone === 'unknown'
+            ? 'bg-slate-600'
+            : 'bg-slate-500'
   return <span className={cn('inline-block h-1.5 w-1.5 rounded-full', color)} />
 }
 
@@ -331,7 +334,7 @@ function StatCell({
   label: string
   value: string
   unit?: string
-  tone?: 'ok' | 'warn' | 'bad' | 'accent'
+  tone?: StatusTone | 'accent'
 }) {
   return (
     <div className="rounded-sm border border-[rgba(72,146,196,0.16)] bg-[rgba(20,36,60,0.5)] px-2.5 py-2">
@@ -345,7 +348,9 @@ function StatCell({
               ? 'text-amber-300'
               : tone === 'accent'
                 ? 'text-cyan-300'
-                : 'text-slate-100',
+                : tone === 'unknown'
+                  ? 'text-slate-500'
+                  : 'text-slate-100',
         )}
       >
         {value}
@@ -363,6 +368,42 @@ function ChartEmpty({ text }: { text: string }) {
         {text}
       </span>
     </div>
+  )
+}
+
+/**
+ * 展示层判定态(§0.3「没判」绝不渲染成「判过」):
+ * 'unknown' = 数据源不可达 / 字段缺失。后端每路独立降级留 null(admin-ops-wallboard.ts),
+ * 前端任何 null→数字兜底或 null→'ok' 阈值染色都是把「不可达」谎报成「健康」。
+ */
+type StatusTone = 'ok' | 'warn' | 'bad' | 'unknown'
+
+/** 阈值着色:null/非有限值一律返回 'unknown',不得伪造默认值通过阈值。 */
+function thresholdTone(
+  v: number | null | undefined,
+  classify: (n: number) => 'ok' | 'warn' | 'bad',
+): StatusTone {
+  return isNum(v) ? classify(v) : 'unknown'
+}
+
+/** 数值可用性:NaN/Infinity 不算"测到了"(面板会把它们画成空白或 0,两种都误导)。 */
+function isNum(v: number | null | undefined): v is number {
+  return typeof v === 'number' && Number.isFinite(v)
+}
+
+/** 未置值:boolean 档位取不到时是 null(后端降级)或 undefined(整块不可达),两者都得走"未知"。 */
+function isUnset(v: boolean | null | undefined): v is null | undefined {
+  return v === null || v === undefined
+}
+
+/** 未知态唯一展示原语:暗色「—」+ Unplug 字形 + 不可达注记。 */
+function SourceGap({ text, className }: { text: string; className?: string }) {
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 text-[10px] text-slate-500', className)}>
+      <span className="wb-num leading-none">—</span>
+      <Unplug className="h-3 w-3 shrink-0 opacity-70" />
+      <span className="leading-none">{text}</span>
+    </span>
   )
 }
 
@@ -412,7 +453,12 @@ export default function OpsWallboardPage() {
     refetchInterval: 5000,
     refetchOnWindowFocus: true,
   })
-  const { data: trend } = useQuery({
+  const {
+    data: trend,
+    isError: trendError,
+    dataUpdatedAt: trendUpdatedAt,
+    refetch: refetchTrend,
+  } = useQuery({
     queryKey: ['admin', 'ops-wallboard', 'trend'],
     queryFn: () => fetchJson<TrendPayload>('/api/admin/ops-wallboard/trend?minutes=90&step=30'),
     refetchInterval: 20000,
@@ -434,17 +480,29 @@ export default function OpsWallboardPage() {
     () => new Set((alerts?.promActive ?? []).map((a) => a.name)),
     [alerts?.promActive],
   )
-  const alertCount =
-    (alerts?.promActiveCount ?? 0) +
-    (alerts?.firingNames ?? []).filter((n) => !promAlertNames.has(n)).length
-  // 退役服务(见路由 RETIRED_SERVICES)不计入健康度分母,避免状态灯恒黄
-  const overallTone: 'ok' | 'warn' | 'bad' =
-    alertCount > 0 || (services && services.windowsRunning < services.windowsExpectedTotal)
-      ? 'warn'
-      : 'ok'
+  const alertCount: number | null =
+    alerts === null
+      ? null
+      : (alerts.promActiveCount ?? 0) +
+        (alerts.firingNames ?? []).filter((n) => !promAlertNames.has(n)).length
+  // 退役服务(见路由 RETIRED_SERVICES)不计入健康度分母,避免状态灯恒黄。
+  // alerts 块或 services 块不可达 ⇒ 'unknown'(§0.3:「没判」不得渲染成「全域正常 / 0 告警」)。
+  const overallTone: StatusTone =
+    ov === undefined || alerts === null
+      ? 'unknown'
+      : alertCount !== null && alertCount > 0
+        ? 'warn'
+        : services === null
+          ? 'unknown'
+          : services.windowsRunning < services.windowsExpectedTotal
+            ? 'warn'
+            : 'ok'
   // overview 5s 轮询;数据年龄超过 3 个周期视为延迟,「刷新于」转琥珀提示
   const dataAgeMs = dataUpdatedAt ? now.getTime() - dataUpdatedAt : null
   const dataStale = dataAgeMs !== null && dataAgeMs > 15000
+  // trend 20s 轮询;查询已坏或最后快照年龄 >3 个周期,面板必须挂「数据延迟」,
+  // 不能让坏掉的趋势查询把旧快照一直渲染成实时
+  const trendStale = trendError || (trendUpdatedAt !== 0 && now.getTime() - trendUpdatedAt > 60_000)
 
   // ---------- 图表 option ----------
   const trendOption = React.useMemo<EChartsOption>(() => {
@@ -524,8 +582,13 @@ export default function OpsWallboardPage() {
     }
   }, [trend, locale, t])
 
-  const gaugeOption = React.useMemo<EChartsOption>(
-    () => ({
+  const gaugeOption = React.useMemo<EChartsOption>(() => {
+    // 仪表读数:null(数据源不可达)显示「—」而不是 0%(0% 会被读成「空闲且健康」)
+    const cpuValue =
+      typeof host?.cpuPct === 'number' && Number.isFinite(host.cpuPct) ? host.cpuPct : null
+    const memValue =
+      typeof host?.memPct === 'number' && Number.isFinite(host.memPct) ? host.memPct : null
+    return {
       series: [
         {
           type: 'gauge',
@@ -546,12 +609,12 @@ export default function OpsWallboardPage() {
           detail: {
             valueAnimation: true,
             offsetCenter: [0, '2%'],
-            color: '#e6f2ff',
+            color: cpuValue === null ? '#64748b' : '#e6f2ff',
             fontSize: 22,
             fontFamily: 'Bahnschrift, DIN Alternate, sans-serif',
-            formatter: '{value}%',
+            formatter: cpuValue === null ? () => '—' : '{value}%',
           },
-          data: [{ value: host?.cpuPct ?? 0, name: t('gaugeCpu') }],
+          data: [{ value: cpuValue ?? 0, name: t('gaugeCpu') }],
         },
         {
           type: 'gauge',
@@ -572,17 +635,16 @@ export default function OpsWallboardPage() {
           detail: {
             valueAnimation: true,
             offsetCenter: [0, '2%'],
-            color: '#e6f2ff',
+            color: memValue === null ? '#64748b' : '#e6f2ff',
             fontSize: 22,
             fontFamily: 'Bahnschrift, DIN Alternate, sans-serif',
-            formatter: '{value}%',
+            formatter: memValue === null ? () => '—' : '{value}%',
           },
-          data: [{ value: host?.memPct ?? 0, name: t('gaugeMem') }],
+          data: [{ value: memValue ?? 0, name: t('gaugeMem') }],
         },
       ],
-    }),
-    [host?.cpuPct, host?.memPct, t],
-  )
+    }
+  }, [host?.cpuPct, host?.memPct, t])
 
   const statusOption = React.useMemo<EChartsOption>(() => {
     const klassColor: Record<string, string> = {
@@ -757,7 +819,9 @@ export default function OpsWallboardPage() {
   // 「无 5xx」好消息徽章:刻意定义在组件作用域(脱离 <Panel right> 开标签区间),
   // 避免被圆角角色门按 panel 角色误判须 xl;该徽章自身无角色类名,落「未判定」射程外,不计入红。
   const no5xxBadge =
-    trend && trend.qps.length > 0 && (trend.errRate.length === 0 || trend.errRate.every(([, v]) => v === 0)) ? (
+    trend &&
+    trend.qps.length > 0 &&
+    (trend.errRate.length === 0 || trend.errRate.every(([, v]) => v === 0)) ? (
       <span className="flex items-center gap-1 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300">
         <Dot tone="ok" />
         {t('no5xxWindow', { minutes: trend.minutes })}
@@ -770,8 +834,8 @@ export default function OpsWallboardPage() {
       <div className="wb-root min-h-full bg-[#060c17] px-0 text-slate-200">
         <style>{WALLBOARD_CSS}</style>
 
-        {/* overview 整体失败(网络/500):顶部横幅 + 一键重试,避免整屏「—」无解释 */}
-        {ovError ? (
+        {/* overview/trend 整体失败(网络/500):顶部横幅 + 一键重试,避免整屏「—」或旧快照无解释 */}
+        {ovError || trendError ? (
           <div className="mx-4 mt-3 flex items-center gap-2 rounded-sm border border-red-400/30 bg-red-500/[0.08] px-3 py-2 text-[11px] text-red-200">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             <span>{t('loadFailed')}</span>
@@ -779,6 +843,7 @@ export default function OpsWallboardPage() {
               type="button"
               onClick={() => {
                 void refetchOv()
+                void refetchTrend()
               }}
               className="ml-auto shrink-0 rounded-sm border border-red-400/40 bg-red-500/10 px-2 py-0.5 text-[10px] text-red-200 transition-colors hover:bg-red-500/20"
             >
@@ -828,15 +893,30 @@ export default function OpsWallboardPage() {
                 'flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-[11px]',
                 overallTone === 'ok'
                   ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300'
-                  : 'border-amber-400/40 bg-amber-400/10 text-amber-300',
+                  : overallTone === 'warn'
+                    ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
+                    : 'border-[rgba(72,146,196,0.30)] bg-[rgba(20,36,60,0.55)] text-slate-400',
               )}
             >
               <Dot tone={overallTone} />
-              {overallTone === 'ok' ? t('statusOk') : t('statusWarn')}
+              {overallTone === 'ok'
+                ? t('statusOk')
+                : overallTone === 'warn'
+                  ? t('statusWarn')
+                  : t('statusUnknown')}
             </span>
-            <span className="flex items-center gap-1.5 rounded-sm border border-red-400/30 bg-red-500/10 px-2.5 py-1 text-[11px] text-red-300">
+            <span
+              className={cn(
+                'flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-[11px]',
+                alertCount === null
+                  ? 'border-[rgba(72,146,196,0.30)] bg-[rgba(20,36,60,0.55)] text-slate-400'
+                  : 'border-red-400/30 bg-red-500/10 text-red-300',
+              )}
+            >
               <Bell className="h-3 w-3" />
-              {t('alertCount', { count: alertCount })}
+              {alertCount === null
+                ? t('alertCountUnknown')
+                : t('alertCount', { count: alertCount })}
             </span>
             <div className="text-right">
               <div className="wb-num text-[15px] leading-tight font-semibold text-slate-100">
@@ -850,7 +930,11 @@ export default function OpsWallboardPage() {
               >
                 {dataStale ? `${t('staleData')} · ` : ''}
                 {t('refreshedAt', {
-                  time: dataUpdatedAt ? fmtClock(new Date(dataUpdatedAt).toISOString()) : '—',
+                  time: ov?.generatedAt
+                    ? fmtClock(ov.generatedAt)
+                    : dataUpdatedAt
+                      ? fmtClock(new Date(dataUpdatedAt).toISOString())
+                      : '—',
                 })}
               </div>
             </div>
@@ -872,7 +956,7 @@ export default function OpsWallboardPage() {
               label: t('kpiErrRate'),
               value: typeof http?.errRate === 'number' ? fmtPct(http.errRate * 100, 3) : '—',
               sub: t('errRateWindow'),
-              tone: (http?.errRate ?? 0) > 0.01 ? ('bad' as const) : ('ok' as const),
+              tone: thresholdTone(http?.errRate, (n) => (n > 0.01 ? 'bad' : 'ok')),
             },
             {
               icon: <Clock3 className="h-4 w-4" />,
@@ -882,14 +966,14 @@ export default function OpsWallboardPage() {
               sub: t('kpiApiP95Sub', {
                 value: typeof http?.p95AiMs === 'number' ? fmtInt(http.p95AiMs) : '—',
               }),
-              tone: 'ok' as const,
+              tone: http === null ? ('unknown' as const) : ('ok' as const),
             },
             {
               icon: <Users className="h-4 w-4" />,
               label: t('kpiUsers'),
               value: fmtInt(biz?.usersTotal),
               sub: t('kpiUsersSub', { count: fmtInt(biz?.usersTodayNew) }),
-              tone: 'accent' as const,
+              tone: biz ? ('accent' as const) : ('unknown' as const),
             },
             {
               icon: <Wallet className="h-4 w-4" />,
@@ -897,14 +981,14 @@ export default function OpsWallboardPage() {
               value: biz ? (biz.ordersTodayAmountCents / 100).toLocaleString(locale) : '—',
               unit: t('unitYuan'),
               sub: t('kpiTurnoverSub', { count: fmtInt(biz?.ordersTodayPaid) }),
-              tone: 'ok' as const,
+              tone: biz ? ('ok' as const) : ('unknown' as const),
             },
             {
               icon: <Sparkles className="h-4 w-4" />,
               label: t('kpiAiCalls'),
               value: fmtCompact(biz?.llmCallsToday),
               sub: t('kpiAiCallsSub', { count: fmtCompact(biz?.llmTokensToday) }),
-              tone: 'accent' as const,
+              tone: biz ? ('accent' as const) : ('unknown' as const),
             },
           ].map((k) => (
             <div
@@ -922,7 +1006,9 @@ export default function OpsWallboardPage() {
                     ? 'text-red-400'
                     : k.tone === 'accent'
                       ? 'text-cyan-300'
-                      : 'text-emerald-300',
+                      : k.tone === 'unknown'
+                        ? 'text-slate-500'
+                        : 'text-emerald-300',
                 )}
               >
                 {k.value}
@@ -944,14 +1030,21 @@ export default function OpsWallboardPage() {
               <span className="text-[10px] text-slate-500">
                 {t('hostUptime', {
                   duration: fmtDuration(
-                    host ? Date.now() / 1000 - (host.bootTimeEpochSec ?? 0) : null,
+                    isNum(host?.bootTimeEpochSec)
+                      ? Date.now() / 1000 - host.bootTimeEpochSec
+                      : null,
                   ),
                 })}
               </span>
             }
             bodyClassName="overflow-y-auto"
           >
-            <EChart option={gaugeOption} height={150} />
+            <div className="relative">
+              <EChart option={gaugeOption} height={150} />
+              {ov !== undefined && !isNum(host?.cpuPct) && !isNum(host?.memPct) ? (
+                <ChartEmpty text={t('sourceUnreachable')} />
+              ) : null}
+            </div>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <StatCell
                 label={t('memPhysical')}
@@ -970,8 +1063,8 @@ export default function OpsWallboardPage() {
               </div>
               <div className="relative">
                 <EChart option={hostTrendOption} height={96} />
-                {trend && trend.cpuPct.length === 0 ? (
-                  <ChartEmpty text={t('noHostTrendData')} />
+                {!trend || trend.cpuPct.length === 0 ? (
+                  <ChartEmpty text={trendError ? t('trendLoadFailed') : t('noHostTrendData')} />
                 ) : null}
               </div>
             </div>
@@ -1016,13 +1109,21 @@ export default function OpsWallboardPage() {
               <span className="flex items-center gap-2">
                 {no5xxBadge}
                 <span className="text-[10px] text-slate-500">{t('trendWindow')}</span>
+                {trendStale ? (
+                  <span className="flex items-center gap-1 text-[10px] text-amber-400/90">
+                    <Dot tone="warn" />
+                    {t('staleData')}
+                  </span>
+                ) : null}
               </span>
             }
             bodyClassName="flex flex-col gap-2"
           >
             <div className="relative flex-1">
               <EChart option={trendOption} height={228} className="h-full" />
-              {trend && trend.qps.length === 0 ? <ChartEmpty text={t('noTrendData')} /> : null}
+              {!trend || trend.qps.length === 0 ? (
+                <ChartEmpty text={trendError ? t('trendLoadFailed') : t('noTrendData')} />
+              ) : null}
             </div>
             <div className="grid grid-cols-5 gap-2">
               <StatCell
@@ -1040,18 +1141,18 @@ export default function OpsWallboardPage() {
               <StatCell
                 label={t('apiCallsToday')}
                 value={fmtCompact(biz?.apiCallsToday)}
-                tone="ok"
+                tone={biz ? 'ok' : 'unknown'}
               />
               <StatCell
                 label={t('apiAvgLatency')}
                 value={fmtInt(biz?.apiAvgLatencyMs)}
                 unit={t('unitMs')}
-                tone="ok"
+                tone={biz ? 'ok' : 'unknown'}
               />
               <StatCell
                 label={t('apiErrRateLabel')}
                 value={typeof biz?.apiErrRate === 'number' ? fmtPct(biz.apiErrRate, 2) : '—'}
-                tone={(biz?.apiErrRate ?? 0) > 5 ? 'bad' : 'ok'}
+                tone={thresholdTone(biz?.apiErrRate, (n) => (n > 5 ? 'bad' : 'ok'))}
               />
             </div>
           </Panel>
@@ -1062,18 +1163,25 @@ export default function OpsWallboardPage() {
             icon={<Server className="h-3.5 w-3.5" />}
             className="xl:col-span-3"
             right={
-              <span className="text-[10px] text-slate-500">
-                {services
-                  ? t('svcRunning', {
-                      running: services.windowsRunning,
-                      total: services.windowsExpectedTotal,
-                    })
-                  : '—'}
-              </span>
+              services ? (
+                <span className="text-[10px] text-slate-500">
+                  {t('svcRunning', {
+                    running: services.windowsRunning,
+                    total: services.windowsExpectedTotal,
+                  })}
+                </span>
+              ) : (
+                <SourceGap text={t('sourceUnreachable')} />
+              )
             }
             bodyClassName="overflow-y-auto"
           >
             <div className="space-y-1">
+              {ov !== undefined && services === null ? (
+                <div className="flex justify-center py-3">
+                  <SourceGap text={t('sourceUnreachable')} />
+                </div>
+              ) : null}
               {(services?.windows ?? []).map((s) => (
                 <div
                   key={s.name}
@@ -1152,14 +1260,29 @@ export default function OpsWallboardPage() {
           >
             <div className="relative">
               <EChart option={statusOption} height={172} />
-              {http && http.statusRates.length === 0 ? (
-                <ChartEmpty text={t('noStatusData')} />
+              {!http || http.statusRates.length === 0 ? (
+                <ChartEmpty
+                  text={ov !== undefined && !http ? t('sourceUnreachable') : t('noStatusData')}
+                />
               ) : null}
             </div>
             <div className="mt-1 text-[10px] tracking-[0.14em] text-slate-400">
               {t('hourlyTitle')}
             </div>
-            <EChart option={hourlyOption} height={116} />
+            <div className="relative">
+              <EChart option={hourlyOption} height={116} />
+              {trendError ? (
+                <ChartEmpty text={t('trendLoadFailed')} />
+              ) : trend && trend.hourlyCalls.length === 0 ? (
+                /* 分时数据来自业务库聚合(后端失败降级为 []);库不可达时不得把
+                   全零柱渲染成「今日无流量」(§0.3) */
+                <ChartEmpty
+                  text={
+                    ov?.sources.database === 'down' ? t('sourceUnreachable') : t('noCallsToday')
+                  }
+                />
+              ) : null}
+            </div>
           </Panel>
 
           {/* 告警与事件 */}
@@ -1169,7 +1292,13 @@ export default function OpsWallboardPage() {
             className="xl:col-span-5"
             right={
               <span className="flex items-center gap-2 text-[10px] text-slate-500">
-                <span>{bridge?.mailUndelivered === false ? t('mailOk') : t('mailWarn')}</span>
+                <span>
+                  {isUnset(bridge?.mailUndelivered)
+                    ? t('statusUnknown')
+                    : bridge.mailUndelivered === false
+                      ? t('mailOk')
+                      : t('mailWarn')}
+                </span>
                 <span>{t('dedupSuppressed', { count: fmtInt(bridge?.dedupSuppressed) })}</span>
               </span>
             }
@@ -1266,7 +1395,11 @@ export default function OpsWallboardPage() {
                     </div>
                   </div>
                 ))}
-                {alerts && alerts.recent.length === 0 ? (
+                {alerts === null ? (
+                  <div className="flex justify-center rounded-sm border border-[rgba(72,146,196,0.20)] bg-[rgba(20,36,60,0.42)] px-2 py-3">
+                    <SourceGap text={t('sourceUnreachable')} />
+                  </div>
+                ) : alerts.recent.length === 0 ? (
                   <div className="px-2 py-3 text-center text-[11px] text-slate-500">
                     {t('noRecentAlerts')}
                   </div>
@@ -1305,7 +1438,11 @@ export default function OpsWallboardPage() {
                     </div>
                   </div>
                 ))}
-                {events && events.length === 0 ? (
+                {events === null ? (
+                  <div className="flex justify-center rounded-sm border border-[rgba(72,146,196,0.20)] bg-[rgba(20,36,60,0.42)] px-2 py-3">
+                    <SourceGap text={t('sourceUnreachable')} />
+                  </div>
+                ) : events.length === 0 ? (
                   <div className="px-2 py-3 text-center text-[11px] text-slate-500">
                     {t('noEvents')}
                   </div>
@@ -1324,16 +1461,20 @@ export default function OpsWallboardPage() {
             <div>
               <div className="mb-1 flex items-center justify-between text-[10px] tracking-[0.14em] text-slate-400">
                 <span>{t('pgLabel')}</span>
-                <span className="text-slate-500">
-                  {t('pgConnections', { count: fmtInt(pg?.backends) })}
-                </span>
+                {pg === null && ov !== undefined ? (
+                  <SourceGap text={t('sourceUnreachable')} />
+                ) : (
+                  <span className="text-slate-500">
+                    {t('pgConnections', { count: fmtInt(pg?.backends) })}
+                  </span>
+                )}
               </div>
               <div className="grid grid-cols-3 gap-1.5">
                 <StatCell label={t('dbSize')} value={fmtBytes(pg?.sizeBytes)} tone="accent" />
                 <StatCell
                   label={t('bufferHit')}
                   value={typeof pg?.hitRatio === 'number' ? fmtPct(pg.hitRatio * 100, 1) : '—'}
-                  tone={(pg?.hitRatio ?? 1) >= 0.95 ? 'ok' : 'warn'}
+                  tone={thresholdTone(pg?.hitRatio, (n) => (n >= 0.95 ? 'ok' : 'warn'))}
                 />
                 <StatCell label={t('txnPerSec')} value={fmtInt(pg?.commitPerSec)} />
                 <StatCell label={t('rowsPerSec')} value={fmtInt(pg?.tupReturnedPerSec)} />
@@ -1343,11 +1484,15 @@ export default function OpsWallboardPage() {
             <div>
               <div className="mb-1 flex items-center justify-between text-[10px] tracking-[0.14em] text-slate-400">
                 <span>{t('redisLabel')}</span>
-                <span className="text-slate-500">
-                  {t('memUsage', {
-                    used: `${fmtBytes(redis?.memUsedBytes)}${redis?.memMaxBytes ? ` / ${fmtBytes(redis.memMaxBytes)}` : ''}`,
-                  })}
-                </span>
+                {redis === null && ov !== undefined ? (
+                  <SourceGap text={t('sourceUnreachable')} />
+                ) : (
+                  <span className="text-slate-500">
+                    {t('memUsage', {
+                      used: `${fmtBytes(redis?.memUsedBytes)}${redis?.memMaxBytes ? ` / ${fmtBytes(redis.memMaxBytes)}` : ''}`,
+                    })}
+                  </span>
+                )}
               </div>
               <div className="grid grid-cols-3 gap-1.5">
                 <StatCell label={t('redisClients')} value={fmtInt(redis?.clients)} tone="accent" />
@@ -1357,7 +1502,7 @@ export default function OpsWallboardPage() {
                   value={
                     typeof redis?.hitRatio === 'number' ? fmtPct(redis.hitRatio * 100, 1) : '—'
                   }
-                  tone={(redis?.hitRatio ?? 1) >= 0.8 ? 'ok' : 'warn'}
+                  tone={thresholdTone(redis?.hitRatio, (n) => (n >= 0.8 ? 'ok' : 'warn'))}
                 />
                 <StatCell label={t('redisOps')} value={fmtInt(redis?.opsPerSec)} />
                 <StatCell label={t('redisEvicted')} value={fmtInt(redis?.evicted)} />
@@ -1377,7 +1522,7 @@ export default function OpsWallboardPage() {
                 <StatCell
                   label={t('llmErrRate')}
                   value={biz ? fmtPct(biz.llmErrRate, 2) : '—'}
-                  tone={(biz?.llmErrRate ?? 0) > 5 ? 'bad' : 'ok'}
+                  tone={thresholdTone(biz?.llmErrRate, (n) => (n > 5 ? 'bad' : 'ok'))}
                 />
                 <StatCell
                   label={t('llmP95')}
@@ -1428,7 +1573,11 @@ export default function OpsWallboardPage() {
                     </span>
                   </div>
                 ))}
-                {biz && biz.topEndpoints.length === 0 ? (
+                {biz === null ? (
+                  <div className="flex justify-center px-2 py-3">
+                    <SourceGap text={t('sourceUnreachable')} />
+                  </div>
+                ) : biz.topEndpoints.length === 0 ? (
                   <div className="px-2 py-3 text-center text-[11px] text-slate-500">
                     {t('noCallsToday')}
                   </div>
@@ -1450,8 +1599,10 @@ export default function OpsWallboardPage() {
               </div>
               <div className="relative">
                 <EChart option={modelOption} height={148} />
-                {biz && biz.llmTopModels.length === 0 ? (
-                  <ChartEmpty text={t('noModelCalls')} />
+                {!biz || biz.llmTopModels.length === 0 ? (
+                  <ChartEmpty
+                    text={ov !== undefined && !biz ? t('sourceUnreachable') : t('noModelCalls')}
+                  />
                 ) : null}
               </div>
               <div className="mt-2 grid grid-cols-3 gap-1.5">
@@ -1470,7 +1621,13 @@ export default function OpsWallboardPage() {
                   label={t('bridgeMail')}
                   value={fmtInt(bridge?.mailDelivered)}
                   unit={t('unitMail')}
-                  tone={bridge?.mailUndelivered ? 'bad' : 'ok'}
+                  tone={
+                    isUnset(bridge?.mailUndelivered)
+                      ? 'unknown'
+                      : bridge.mailUndelivered
+                        ? 'bad'
+                        : 'ok'
+                  }
                 />
               </div>
             </div>
