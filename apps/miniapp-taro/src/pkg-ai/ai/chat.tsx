@@ -47,6 +47,7 @@ import {
 } from '@/components'
 import { useUserStore } from '@/stores/user'
 import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
+import { logger } from '@/utils/logger'
 import ChatMessageItem from './ChatMessageItem'
 import ContextUsageStrip from './context-usage-strip'
 import McpStatusStrip from './mcp-status-strip'
@@ -245,6 +246,8 @@ export default function ChatPage() {
   const [agents, setAgents] = useState<AgentItem[]>([])
   const [agentsLoading, setAgentsLoading] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  // G-248 R2:本轮帧级 traceId(undefined = 本轮没见过,这一态不得折成空串)
+  const roundTraceIdRef = useRef<string | undefined>(undefined)
   // 票 68:档位「最新值」的两个出口。`currentModelRef` 给 sendMessage 在把 payload 交出去之前
   // 复核一次(web 同一条竞态收口:入口取到的是快照,而 chatStream 触达网关前还有 await);
   // `previousModelRef` 给换档 effect 判「这一次是真的换了档,还是首帧/持久化回填」。
@@ -696,6 +699,7 @@ export default function ChatPage() {
       setStreamActivities([])
       // G-403:新一轮开始,重置上一轮的缓存读数(旧账不得挂到新消息上)
       setLatestCacheTokens({ cacheReadTokens: null, cacheWriteTokens: null })
+      roundTraceIdRef.current = undefined
       startThinkingProgress()
       scrollToBottom()
       const controller = new AbortController()
@@ -1037,6 +1041,13 @@ export default function ChatPage() {
               pushStreamActivity(
                 t('ai.stream.reconnect', { attempt, seconds: Math.round(delayMs / 1000) }),
               ),
+            // G-248 R2:帧级 traceId 进客户端日志(非视觉消费,不上屏)。
+            // 值由共享 sse-parse 认领、api/index 的 dispatch 透传,端内不再解帧、不再判合法性。
+            onTraceId: (traceId) => {
+              if (roundTraceIdRef.current !== undefined) return
+              roundTraceIdRef.current = traceId
+              logger.info('pkg-ai/ai/chat', 'stream traceId', traceId)
+            },
           },
           // G-815976:partial_done(流异常中断且已发过 chunk 的标记帧)→ 截断告知。
           // 半截回答与完整回答完全同形会让用户误以为回答完整,用与 onCompaction 同款 toast 提示。
@@ -1047,6 +1058,16 @@ export default function ChatPage() {
       } catch (e) {
         if ((e as Error)?.name !== 'AbortError') {
           const formatted = formatSSEError(e, t('ai.serviceUnavailable') || 'AI 服务异常')
+          // G-248 R2:失败轮把本轮帧级 trace 一起进日志(与 api-client 错误上报体同纪律:
+          // 没见过 ⇒ 不写这个键,绝不写空串/unknown 顶掉"无键"这一态)
+          const roundTraceId = roundTraceIdRef.current
+          logger.error(
+            'pkg-ai/ai/chat',
+            'stream failed',
+            roundTraceId === undefined
+              ? { code: formatted.code, message: formatted.message }
+              : { code: formatted.code, message: formatted.message, traceId: roundTraceId },
+          )
           // 失败轮要"可辨认":标 error + 保留已产出的部分内容(共享层同一标记规则,与 web 端一致)
           setMessages((prev) => applyStreamError(prev, formatted.message))
           Taro.showToast({ title: formatted.title, icon: 'none', duration: 2500 })
