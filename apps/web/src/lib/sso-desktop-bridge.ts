@@ -43,18 +43,18 @@ let lastProcessedCode: string | null = null
  * 开过内嵌窗"这一件事,不需要端口与前缀;走系统默认浏览器登录的路径不置位 ⇒ 无从关起,
  * 静默跳过。
  */
-let pendingSsoChrome = false
+let pendingSsoEmbeddedWindow = false
 
 /** 记住刚开的 SSO 内嵌浏览器窗,供登录成功后关闭(2026-10-16 改内嵌形态)。 */
 export function rememberSsoEmbeddedWindow(): void {
-  pendingSsoChrome = true
+  pendingSsoEmbeddedWindow = true
 }
 
 /** 关掉记住的 SSO 内嵌浏览器窗;失败(窗口已经被用户关掉)只记一行 warn,不冒泡。 */
-async function closeRememberedSsoChrome(): Promise<void> {
-  if (!pendingSsoChrome) return
+async function closeRememberedSsoEmbeddedWindow(): Promise<void> {
+  if (!pendingSsoEmbeddedWindow) return
   // 先清账再关:重复派发的 deep-link 走到这里不该再开第二次关窗请求。
-  pendingSsoChrome = false
+  pendingSsoEmbeddedWindow = false
   try {
     await closeEmbeddedBrowser()
   } catch (e) {
@@ -75,7 +75,7 @@ export async function handleDesktopDeepLink(url: string): Promise<boolean> {
   // 去重:OS 可能重复派发同一 deep-link,跳过已处理的 sso_code(2026-08-01 P1-1)。
   // 但重复派发同样意味着"浏览器那一侧已经交付过了"——照样把窗收掉(会话已清账,幂等)。
   if (code === lastProcessedCode) {
-    await closeRememberedSsoChrome()
+    await closeRememberedSsoEmbeddedWindow()
     return true
   }
 
@@ -92,8 +92,8 @@ export async function handleDesktopDeepLink(url: string): Promise<boolean> {
   }
   setUser(user)
   lastProcessedCode = code
-  // 登录态已落地,收尾:关掉 Chrome --app 的 SSO 登录窗(失败只 warn,不影响登录结果)。
-  await closeRememberedSsoChrome()
+  // 登录态已落地,收尾:关掉内嵌浏览器 SSO 登录窗(失败只 warn,不影响登录结果)。
+  await closeRememberedSsoEmbeddedWindow()
   return true
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
