@@ -3798,14 +3798,17 @@ function dumpFlagValue(flag) {
       if (typeof v === 'string' && v !== '') {
         if (!v.startsWith('-')) return v
         console.error(`[API 路由比对] 忽略无效的 ${flag} 值: ${v}`)
-      } else if (flag === '--dump-backend') {
+      } else if (flag === '--dump-backend' || flag === '--root') {
         // 漏值/空串两支:上面只点名了"以 - 开头"那一支(枚 636c28f58),这两支原先一声不响。
         // `--dump-missing` 另有布尔 stdout 档(裸形态是合法用法,不点名,免得对合法用法报警);
         // `--dump-backend` 没有那一档 —— 不给有效路径就静默不落盘,正是本族的静默型,必须点名。
+        // `--root`(G-322 本站补)同理:漏值/空串都落到调用点的"未判定"档,那一行要能指出现得的
+        // 到底是"没打值"还是"打了空串",否则三态在报错文案里被抹成一态(§22c 三态分开)。
+        const need = flag === '--root' ? '必须给一个目录' : '必须给文件路径,不落盘'
         console.error(
           v === ''
-            ? `[API 路由比对] 忽略无效的 ${flag} 值: ""(空串,该旗标必须给文件路径,不落盘)`
-            : `[API 路由比对] 忽略无效的 ${flag} 值: (其后没有任何参数,该旗标必须给文件路径,不落盘)`,
+            ? `[API 路由比对] 忽略无效的 ${flag} 值: ""(空串,该旗标${need})`
+            : `[API 路由比对] 忽略无效的 ${flag} 值: (其后没有任何参数,该旗标${need})`,
         )
       }
       return null
