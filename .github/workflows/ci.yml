@@ -174,6 +174,17 @@ jobs:
         id: port-registry
         run: node scripts/check-port-registry.mjs
 
+      # 版本号漂移守门(2026-10-17 接)。
+      # 立这道门的直接原因:桌面下载页与更新器 feed 曾**静默**停在 0.1.54 四天 ——
+      # 自动刷新机制每天在跑、每天被 protected main 拒(GH006),产出的却只是一条没人看的
+      # failure;同一时期安卓侧是三处版本号互相矛盾、Capacitor 壳写死 "1.0" 从不跟真实版本走。
+      # 判据不是"版本号是多少",而是"每个对外可见的版本号都能追溯到某个源头":
+      # 桌面双写一致 / RN 原生与界面同源 / Capacitor 不写死 / 下载页无假号 /
+      # 更新器 feed 走运行期解析 / 不得再有 bot 裸 push 到 main。
+      - name: Version drift check (每个可见版本号都必须可追溯)
+        id: version-drift
+        run: node scripts/check-version-drift.mjs
+
       - name: Lint
         id: lint
         run: pnpm turbo run lint
