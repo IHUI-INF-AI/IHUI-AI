@@ -10,7 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ShoppingCart, Loader2, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { fetchApi, apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { ConfirmDialog } from '@/components/feedback'
@@ -66,12 +66,6 @@ const STATUS_STYLE: Record<string, string> = {
   cancelled: 'bg-slate-400/10 text-slate-500',
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function formatPrice(price: string | null | undefined, isFree?: boolean): string {
   if (isFree) return '¥0.00'
   const n = Number(price ?? '0')
@@ -104,7 +98,7 @@ export default function EduShopPage() {
         page: String(coursesPage),
         pageSize: String(COURSES_PAGE_SIZE),
       })
-      return api<CourseListData>(`/api/edu/courses?${qs.toString()}`)
+      return apiOrThrow<CourseListData>(`/api/edu/courses?${qs.toString()}`)
     },
   })
 
@@ -115,7 +109,7 @@ export default function EduShopPage() {
         page: String(ordersPage),
         pageSize: String(ORDERS_PAGE_SIZE),
       })
-      return api<OrderListData>(`/api/edu/orders/my?${qs.toString()}`)
+      return apiOrThrow<OrderListData>(`/api/edu/orders/my?${qs.toString()}`)
     },
     enabled: allow,
   })

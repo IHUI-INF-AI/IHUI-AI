@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Crown, Check, Loader2, Sparkles } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Badge } from '@/components/data'
@@ -46,12 +46,6 @@ interface BillingPlan {
   trialDays?: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const formatCNY = (cents: number) =>
   new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(cents / 100)
 
@@ -70,16 +64,16 @@ export default function VipPage() {
     error,
   } = useQuery({
     queryKey: ['vip-levels'],
-    queryFn: () => api<{ items: VipLevel[] }>('/api/vip/levels'),
+    queryFn: () => apiOrThrow<{ items: VipLevel[] }>('/api/vip/levels'),
   })
   const { data: myData } = useQuery({
     queryKey: ['vip-my'],
-    queryFn: () => api<{ vip: MyVip | null }>('/api/vip/my'),
+    queryFn: () => apiOrThrow<{ vip: MyVip | null }>('/api/vip/my'),
     enabled: allow, // 2026-09-30 登录态门
   })
   const { data: plansData } = useQuery({
     queryKey: ['billing-plans'],
-    queryFn: () => api<{ plans: BillingPlan[] }>('/api/plans'),
+    queryFn: () => apiOrThrow<{ plans: BillingPlan[] }>('/api/plans'),
   })
 
   const levels = levelsData?.items ?? []

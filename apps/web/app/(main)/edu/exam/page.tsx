@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { FileCheck, Clock, ListChecks, Target, Loader2, ArrowRight, Award } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -34,19 +34,13 @@ interface ExamsData {
   total: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function EduExamPage() {
   const t = useTranslations('eduExamListPage')
   // 2026-09-30 登录态门:未登录不发注定 401 的请求
   const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'exams'],
-    queryFn: () => api<ExamsData>('/api/edu/exam'),
+    queryFn: () => apiOrThrow<ExamsData>('/api/edu/exam'),
     enabled: allow,
   })
 

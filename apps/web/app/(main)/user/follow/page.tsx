@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, UserMinus, UserPlus } from 'lucide-react'
 import { toast } from '@/components/common/Toaster'
-import { fetchApi } from '@/lib/api'
+import { fetchApi, apiOrThrow } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { pushError } from '@/stores/error-banner'
@@ -23,12 +23,6 @@ interface FollowUser {
   avatar?: string | null
   bio?: string | null
   createdAt?: string | null
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 export default function FollowPage() {
@@ -61,7 +55,7 @@ export default function FollowPage() {
   }, [error])
 
   const unfollowMut = useMutation({
-    mutationFn: (userId: string) => api(`/api/follows/${userId}`, { method: 'DELETE' }),
+    mutationFn: (userId: string) => apiOrThrow(`/api/follows/${userId}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('unfollowSuccess', { default: '已取消关注' }))
       qc.invalidateQueries({ queryKey: ['user', 'follow', user?.id] })

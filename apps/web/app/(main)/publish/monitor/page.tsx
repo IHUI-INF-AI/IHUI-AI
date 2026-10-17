@@ -15,17 +15,11 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { RefreshCw, BarChart3, Loader2, Plus } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { BackButton } from '@/components/common'
 import { Button, StatCard, StatGrid } from '@ihui/ui-react'
 import { MonitorCard, type MonitorItem } from './MonitorCard'
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 export default function MonitorPage() {
   const t = useTranslations('publishMonitor')
@@ -36,7 +30,9 @@ export default function MonitorPage() {
   const load = React.useCallback(async () => {
     setLoading(true)
     try {
-      const data = await api<{ items?: MonitorItem[] }>('/api/publish/monitor/overview?limit=20')
+      const data = await apiOrThrow<{ items?: MonitorItem[] }>(
+        '/api/publish/monitor/overview?limit=20',
+      )
       setItems(data.items ?? [])
     } catch (e) {
       toast.error((e as Error).message)

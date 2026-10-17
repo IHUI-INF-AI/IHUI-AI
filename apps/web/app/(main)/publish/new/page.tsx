@@ -14,7 +14,7 @@ import * as React from 'react'
 import { Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { useAnalytics } from '@/hooks/use-analytics'
@@ -34,12 +34,6 @@ interface Account {
   platform: string
   displayName: string
   status: 'active' | 'disabled' | 'expired'
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 function uploadWithProgress(file: File, onProgress: (pct: number) => void): Promise<UploadResult> {
@@ -112,7 +106,7 @@ function NewPublishPage() {
     if (!allow) return
     void (async () => {
       try {
-        const data = await api<{ items?: Account[]; list?: Account[] } | Account[]>(
+        const data = await apiOrThrow<{ items?: Account[]; list?: Account[] } | Account[]>(
           '/api/publish/accounts/me',
         )
         const list = Array.isArray(data) ? data : (data.items ?? data.list ?? [])
@@ -192,7 +186,7 @@ function NewPublishPage() {
         summary: summary || undefined,
         scheduled_at: scheduleMode === 'schedule' ? new Date(scheduledAt).toISOString() : undefined,
       })
-      const resp = await api<{ id?: number; task_id?: string }>('/api/publish/tasks', {
+      const resp = await apiOrThrow<{ id?: number; task_id?: string }>('/api/publish/tasks', {
         method: 'POST',
         body,
         headers: { 'Content-Type': 'application/json' },

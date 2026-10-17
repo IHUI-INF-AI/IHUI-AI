@@ -13,7 +13,7 @@ import { Loader2, ShieldCheck, Clock, XCircle } from 'lucide-react'
 import { toast } from '@/components/common/Toaster'
 import { useTranslations } from 'next-intl'
 
-import { fetchApi } from '@/lib/api'
+import { fetchApi, apiOrThrow } from '@/lib/api'
 import { pushError } from '@/stores/error-banner'
 import { formatDate } from '@/lib/date-utils'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -49,12 +49,6 @@ interface RealnameInfo {
   createdAt?: string
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function RealnamePage() {
   const t = useTranslations('user')
   const qc = useQueryClient()
@@ -74,7 +68,7 @@ export default function RealnamePage() {
 
   const { data: info, isLoading } = useQuery({
     queryKey: ['auth', 'realname', 'my'],
-    queryFn: () => api<RealnameInfo>('/api/auth/realname/my'),
+    queryFn: () => apiOrThrow<RealnameInfo>('/api/auth/realname/my'),
     enabled: allow,
   })
 

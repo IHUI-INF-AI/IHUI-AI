@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Bell, BellOff, User, Folder, Tag, FolderTree, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -60,12 +60,6 @@ const TABS: { value: 'all' | TargetType }[] = [
   { value: 'tag' },
 ]
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function SubscriptionsPage() {
   const t = useTranslations('subscriptions')
   const locale = useLocale()
@@ -78,7 +72,7 @@ export default function SubscriptionsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['subscriptions', tab],
     queryFn: () =>
-      api<{ list: Subscription[] }>(
+      apiOrThrow<{ list: Subscription[] }>(
         `/api/subscriptions?pageSize=100${tab !== 'all' ? `&targetType=${tab}` : ''}`,
       ).then((d) => d.list ?? []),
     enabled: allow,
@@ -86,7 +80,7 @@ export default function SubscriptionsPage() {
 
   const cancelMut = useMutation({
     mutationFn: (s: { targetType: TargetType; targetId: string }) =>
-      api(`/api/subscriptions/${s.targetType}/${s.targetId}`, { method: 'DELETE' }),
+      apiOrThrow(`/api/subscriptions/${s.targetType}/${s.targetId}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['subscriptions'] }),
   })
 

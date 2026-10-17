@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
 import { CalendarCheck, Loader2, Clock, LogOut } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -25,12 +25,6 @@ interface AttendanceRecord {
   checkOutTime: string | null
   checkInMethod: string | null
   checkOutMethod: string | null
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 /** 考勤状态码 → eduParent 取词键;未知码回退原码(与后端比对的全是英文码) */
@@ -71,7 +65,7 @@ export default function ChildAttendancePage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'attendance'],
     queryFn: () =>
-      api<{ list: AttendanceRecord[] }>(
+      apiOrThrow<{ list: AttendanceRecord[] }>(
         `/api/edu-ai-management/parent/children/${childId}/attendance`,
       ),
     enabled: allow,

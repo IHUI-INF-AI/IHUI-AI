@@ -10,7 +10,7 @@ import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Layers, BookOpen, Loader2, Users, Sparkles, Info } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Card,
   CardContent,
@@ -83,12 +83,6 @@ interface PremiumTopicListData {
   list: PremiumTopic[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function normalizeLessonTopic(t: LessonTopic): UnifiedTopic {
   return {
     type: 'lesson',
@@ -127,11 +121,11 @@ export default function LearnTopicPage() {
 
   const lessonQ = useQuery({
     queryKey: ['learn', 'topics', 'lesson'],
-    queryFn: () => api<LessonTopicListData>(`/api/topics`),
+    queryFn: () => apiOrThrow<LessonTopicListData>(`/api/topics`),
   })
   const premiumQ = useQuery({
     queryKey: ['learn', 'topics', 'premium'],
-    queryFn: () => api<PremiumTopicListData>(`/api/learn/topics`),
+    queryFn: () => apiOrThrow<PremiumTopicListData>(`/api/learn/topics`),
     enabled: allow, // 2026-09-30 登录态门
   })
 

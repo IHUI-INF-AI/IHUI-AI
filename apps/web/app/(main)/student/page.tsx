@@ -23,7 +23,7 @@ import {
   FileJson,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Button } from '@ihui/ui-react'
 import {
@@ -43,12 +43,6 @@ interface Report {
   certificates: { total: number }
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function StudentCenterPage() {
   const t = useTranslations('student')
   const { exportReport, generating } = useReportGenerator()
@@ -62,7 +56,7 @@ export default function StudentCenterPage() {
     error,
   } = useQuery({
     queryKey: ['student', 'report'],
-    queryFn: () => api<Report>('/api/edu/my-report'),
+    queryFn: () => apiOrThrow<Report>('/api/edu/my-report'),
     enabled: allow,
   })
 

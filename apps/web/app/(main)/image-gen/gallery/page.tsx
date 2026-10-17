@@ -12,7 +12,7 @@ import Image from 'next/image'
 
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 
 interface GalleryItem {
@@ -28,12 +28,6 @@ interface ListData {
   list: GalleryItem[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function ImageGenGalleryPage() {
   const locale = useLocale()
   const tGate = useTranslations('chatHistory')
@@ -41,7 +35,7 @@ export default function ImageGenGalleryPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['image-gen', 'gallery'],
-    queryFn: () => api<ListData>('/api/image-gen/gallery'),
+    queryFn: () => apiOrThrow<ListData>('/api/image-gen/gallery'),
     enabled: allow,
   })
 
