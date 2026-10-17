@@ -267,7 +267,9 @@ test('装车:两条站点 feed route 共用 desktop-feed-payload,且不再自带
   ]) {
     const src = read(rel)
     assert.match(src, /from '@\/config\/desktop-feed-payload'/, `${rel} 必须 import 共享拼装器`)
-    assert.match(src, /buildDesktopFeedPayload\(DESKTOP_FEED\)/, `${rel} 必须调用共享拼装器`)
+    // 不变量是"route 必须调用共享拼装器 buildDesktopFeedPayload";实参名(DESKTOP_FEED 常量 → 已入库的 resolved feed)非被检对象。
+    // 两枚 route 现均调 buildDesktopFeedPayload(feed)(2026-10-17 有意改),锁死旧实参字面量=陈旧;#1 import、#3 禁 /Windows/i、拼装器 updaterPlatforms 三判据原样保留。
+    assert.match(src, /buildDesktopFeedPayload\(/, `${rel} 必须调用共享拼装器`)
     assert.ok(!/\/Windows\/i\.test\(/.test(src), `${rel} 不得再自己按 /Windows/i 挑资产`)
   }
   const builder = read('apps/web/src/config/desktop-feed-payload.ts')
