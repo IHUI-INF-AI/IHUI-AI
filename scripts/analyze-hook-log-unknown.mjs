@@ -42,10 +42,11 @@
  *         2 = 脚本自身异常(取数层抛出,不是业务结论)。
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { git } from './lib/bypass-git.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { readLedgerRecords } from './lib/commit-attestation.mjs'
 import {
   classifyAll,
@@ -65,7 +66,6 @@ const HOOK_LOG_REL = '.workbuddy/hook-logs'
 const DEFAULT_SINCE = '2026-09-29'
 const DEFAULT_WINDOW_MIN = 30
 const LOG_LIMIT_DEFAULT = 20_000
-const DAY_MS = 86_400_000
 
 const MARKER_RE = /^==== (.+?) :: (.*?) ====$/
 const ECHO_RE = /staged 文件清单\((\d+) 个\)[:：]\s*$/
@@ -470,18 +470,49 @@ function localDay(ms) {
 }
 
 async function run({ argv }) {
-  const root = argv.includes('--root') ? resolve(argv[argv.indexOf('--root') + 1]) : REPO_ROOT
+  // G-322(本器五处带值旗标):旧写法 `argv[indexOf(flag)+1]` / 本地 get() 一律把"紧邻下一枚旗标"当值。
+  // 危害分两型 —— `--root --json` / `--report --staged` 会去读/写一个由吞值造出来的路径(读侧交出
+  // "0 条留痕"的空报告,写侧把报告落到 `--staged` 这个名字上却照报已写出);
+  // `--limit/--window-min/--sample` 喂进 Number() 得 NaN ⇒ `slice(0,NaN)=[]` 与 `n*60_000=NaN` 使
+  // 抽样与窗口**静默变空**(报告看起来正常)。三支坏值一律未判定 return 2(该文件顶层是
+  // `.then(code => process.exit(code))`,return 真能落到退出码)。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    return 2
+  }
+  const root = rootFlag.value ? resolve(rootFlag.value) : REPO_ROOT
   const asJson = argv.includes('--json')
+  const numFlag = (name, dflt) => {
+    const f = requireFlagValue(argv, name, { noun: '正整数' })
+    if (f.error) {
+      console.error(`❌ ${f.error}`)
+      return null
+    }
+    if (!f.value) return dflt
+    const n = Number(f.value)
+    if (!Number.isInteger(n) || n <= 0) {
+      console.error(`❌ ${name} 必须是正整数,实得:${JSON.stringify(f.value)}(不得让 NaN 把抽样/窗口静默变空)`)
+      return null
+    }
+    return n
+  }
+  const limit = numFlag('--limit', LOG_LIMIT_DEFAULT)
+  const windowMin = numFlag('--window-min', DEFAULT_WINDOW_MIN)
+  const sampleN = numFlag('--sample', 5)
+  if (limit === null || windowMin === null || sampleN === null) return 2
+  const reportFlag = requireFlagValue(argv, '--report', { noun: '文件路径' })
+  if (reportFlag.error) {
+    console.error(`❌ ${reportFlag.error}`)
+    return 2
+  }
+  const reportPath = reportFlag.value ? resolve(reportFlag.value) : null
   const get = (name, dflt) => {
     const i = argv.indexOf(name)
     return i >= 0 ? argv[i + 1] : dflt
   }
   const since = get('--since', DEFAULT_SINCE)
   const until = get('--until', null)
-  const limit = Number(get('--limit', LOG_LIMIT_DEFAULT))
-  const windowMin = Number(get('--window-min', DEFAULT_WINDOW_MIN))
-  const sampleN = Number(get('--sample', 5))
-  const reportPath = argv.includes('--report') ? resolve(argv[argv.indexOf('--report') + 1]) : null
   const today = localDay(Date.now())
   if (!DAY_RE.test(since)) {
     console.error(`❌ --since 不是 YYYY-MM-DD:${since}`)

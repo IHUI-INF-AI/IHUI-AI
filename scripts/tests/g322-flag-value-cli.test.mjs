@@ -177,6 +177,30 @@ test('G-322 第九批:落点/封口型旗标 —— seal-c-root-stray 的 --root
   }
 })
 
+test('G-322 第十批:落点/表名型吞值(analyze-hook-log-unknown 五旗标、migration-ledger-drift --ledger-table)', () => {
+  const ah = S('analyze-hook-log-unknown.mjs')
+  for (const flag of ['--root', '--limit', '--window-min', '--sample', '--report']) {
+    for (const args of [[flag], [flag, ''], [flag, '--json']]) {
+      const r = spawnSync(process.execPath, [ah, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      assert.equal(r.status, 2, `${flag} ${JSON.stringify(args)} 必须 exit 2(旧写法:数字旗标喂进 Number() 得 NaN ⇒ slice(0,NaN)=[] 抽样静默变空;路径旗标吞成假路径)\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+      assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, new RegExp(`${flag} 需要`))
+    }
+  }
+  const md = S('check-migration-ledger-drift.mjs')
+  for (const args of [['--ledger-table'], ['--ledger-table', ''], ['--ledger-table', '--dsn']]) {
+    const r = spawnSync(process.execPath, [md, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2(旧写法 ?? 静默换成默认表去比漂移)\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+    assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, /--ledger-table 需要/)
+  }
+  const bogus = spawnSync(process.execPath, [md, '--ledger-table', 'bogus'], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+  assert.equal(bogus.status, 2, '域名不合法也不得换成默认表')
+  assert.match(`${bogus.stdout ?? ''}${bogus.stderr ?? ''}`, /不是合法 "schema.table"/)
+  // 阳性对照:默认档的既有语义(SKIP 且非 strict 退 0)不得因新校验被改成判红 —— 校验只准拦"给了旗标却没值"
+  const plain = spawnSync(process.execPath, [md], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+  assert.equal(plain.status, 0, `${plain.stdout ?? ''}${plain.stderr ?? ''}`)
+  assert.match(`${plain.stdout ?? ''}${plain.stderr ?? ''}`, /SKIP/)
+})
+
 test('G-322 第七批:另八道 blocking 门的 --root 三支坏值各自大声拒绝', () => {
   for (const f of [
     'check-api-client-utf8.mjs',

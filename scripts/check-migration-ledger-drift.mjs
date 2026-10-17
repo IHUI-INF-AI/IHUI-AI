@@ -63,6 +63,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = resolve(fileURLToPath(import.meta.url), '..', '..')
 const JOURNAL_REL = 'packages/database/drizzle/meta/_journal.json'
@@ -202,6 +203,25 @@ async function main() {
   }
   journal.entries.sort((a, b) => a.idx - b.idx)
 
+  // G-322(本站):`--ledger-table` 的域名校验由 parseLedgerTable 做(非法返回 null),旧写法写成
+  // `parseLedgerTable(args[indexOf+1]) ?? parseLedgerTable(DEFAULT)` ⇒ **给了一个不认识的表名时静默换成默认表**
+  // 去比漂移:调用方以为审的是自己点的那张表,实际审的是另一张(两表的 hash 序本就不同);
+  // `--ledger-table --dsn …` 这一支连"给了值"都判不出来。
+  // 位置必须在锚点 2 之前:skip() 会直接 process.exit(0/1),放在它后面时用法错**永远跑不到**(实测 RC=0),
+  // 少打/打错表名的人拿不到任何指向。
+  const tableFlag = requireFlagValue(args, '--ledger-table', { noun: 'schema.table' })
+  if (tableFlag.error) {
+    console.error(`[ledger-drift] ❌ ${tableFlag.error}`)
+    process.exit(2)
+  }
+  const ledger = tableFlag.value ? parseLedgerTable(tableFlag.value) : parseLedgerTable(DEFAULT_LEDGER_TABLE)
+  if (tableFlag.value && !ledger) {
+    console.error(
+      `[ledger-drift] ❌ --ledger-table 实得:${JSON.stringify(tableFlag.value)} 不是合法 "schema.table" —— 不得静默换成默认表 ${DEFAULT_LEDGER_TABLE}`,
+    )
+    process.exit(2)
+  }
+
   // 锚点 2:DSN
   const dsn = resolveDsn(args, process.env)
   if (!dsn) skip('未提供 DSN(--dsn / IHUI_LEDGER_DSN / DATABASE_URL 均为空)')
@@ -209,8 +229,6 @@ async function main() {
   // 驱动:postgres-js(与 apps/api 同款),两级回退
   const pg = await loadPostgresDriver()
   if (!pg) skip('postgres 驱动不可用(monorepo 内未找到 postgres-js)')
-
-  const ledger = parseLedgerTable(args[args.indexOf('--ledger-table') + 1]) ?? parseLedgerTable(DEFAULT_LEDGER_TABLE)
 
   const sql = pg.default(dsn, { max: 1, connect_timeout: 10, idle_timeout: 5 })
   let ledgerRows
