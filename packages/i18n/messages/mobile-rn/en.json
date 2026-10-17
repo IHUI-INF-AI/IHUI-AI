@@ -2192,6 +2192,15 @@
     "title": "Notes"
   },
   "notificationList": {
+    "viewActive": "Active",
+    "archived": "Archived",
+    "hide": "Hide",
+    "hiding": "Hiding…",
+    "hideFailed": "This update couldn’t be hidden. Please try again.",
+    "restore": "Restore",
+    "restoring": "Restoring…",
+    "restoreFailed": "This update couldn’t be restored. Please try again.",
+    "emptyArchived": "Updates you hide are kept here and can be restored anytime.",
     "empty": "No notifications",
     "loadFailed": "Failed to load",
     "title": "Notifications",
