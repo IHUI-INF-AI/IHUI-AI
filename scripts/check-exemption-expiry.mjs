@@ -74,6 +74,7 @@ import {
   selectFace,
 } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const GIT_BIN = gitBinary()
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -1352,7 +1353,13 @@ function runGate(gatePath, dir, extraArgs) {
 const isoToday = () => new Date().toISOString().slice(0, 10)
 
 function parseArgs(argv) {
-  const i = argv.indexOf('--root')
+  // G-322:给了 --root 就必须给值,漏值/被顶值 exit 2 点名,不静默折回当前工作目录
+  // (旧写法 `argv[i + 1] || '.'` 会把漏值读成 cwd,把下一旗标当路径 resolve)
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数', fallback: ROOT })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    process.exit(2)
+  }
   const { face, error } = selectFace({
     staged: argv.includes('--staged'),
     worktree: argv.includes('--worktree'),
@@ -1360,7 +1367,7 @@ function parseArgs(argv) {
   const json = argv.includes('--json')
   const all = argv.includes('--all')
   const update = argv.includes('--update-baseline')
-  const root = i >= 0 ? path.resolve(argv[i + 1] || '.') : ROOT
+  const root = path.resolve(rootFlag.value)
   return { root, face, faceError: error, json, all, update }
 }
 
