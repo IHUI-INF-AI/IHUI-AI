@@ -57,6 +57,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveGitBin } from './lib/gitdir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 // §26:临时夹具唯一落点(工作树同盘、不落 C 盘，且 Windows EPERM 有重试)
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
@@ -612,8 +613,14 @@ function selfTest() {
 }
 
 function main(argv) {
-  const ri = argv.indexOf('--root')
-  const root = ri >= 0 ? resolve(argv[ri + 1]) : ROOT
+  // G-322(本站):`--root` 被旗标顶值 ⇒ 在一个不存在的根上"扫到 0 文件"并报 ✅;结尾无值则
+  // resolve(undefined) 崩裸栈。两支都交给单源出口:给了旗标没值 ⇒ 未判定 return 2。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    return 2
+  }
+  const root = rootFlag.value ? resolve(rootFlag.value) : ROOT
   if (argv.includes('--self-test')) return selfTest()
   // --all = 显式全量(与缺省同义，但必须被接受：runner/CI 传这个参数时若被无声忽略，
   // 就会把"我以为跑了全量"当成结论)
