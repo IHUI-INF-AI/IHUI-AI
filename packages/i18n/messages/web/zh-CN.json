@@ -19381,6 +19381,7 @@
     "captureWbWebTitle": "浏览器扫码登录(推荐·免 token)",
     "captureWbWebDescription": "点「打开浏览器登录」,在弹出的内嵌浏览器窗口里正常登录 WorkBuddy(手机号/扫码),登录成功后自动导入账号,全程无需复制任何 token。",
     "captureWbWebOpen": "打开浏览器登录",
+    "captureWbWebToolbar": "浏览器登录 WorkBuddy",
     "captureWbWebWaiting": "已打开浏览器,等待登录完成…登录成功后会自动导入",
     "captureWbWebImporting": "已检测到登录,正在自动导入账号…",
     "captureWbWebDone": "网页登录导入完成(共 {count} 个账号)",

@@ -19377,6 +19377,7 @@
     "captureWbWebTitle": "Browser QR login (recommended, no token)",
     "captureWbWebDescription": "Click \"Open browser to sign in\", then sign in to WorkBuddy in the embedded browser window that opens (phone/QR). Accounts are imported automatically once sign-in completes — no token copying needed.",
     "captureWbWebOpen": "Open browser to sign in",
+    "captureWbWebToolbar": "Sign in to WorkBuddy via browser",
     "captureWbWebWaiting": "Browser opened. Waiting for sign-in… accounts are imported automatically once you sign in",
     "captureWbWebImporting": "Sign-in detected, importing accounts…",
     "captureWbWebDone": "Web login import complete ({count} account(s))",
