@@ -160,6 +160,27 @@ export function inScanRoot(p) {
   return SCAN_ROOT_RE.test(p) && SRC_EXT_RE.test(p) && !TEST_FACE_RE.test(p)
 }
 
+/**
+ * i18n **发射点**扫描根(2026-10-16 补):在 `apps|packages/<端>/src/` 之外再认
+ * `apps|packages/<端>/app/`。
+ *
+ * 为什么必须另开一根:C6 的消费者面原先与 C1~C5 候选面共用 `inScanRoot`,而 Next.js
+ * App Router 的页面源码住在 `apps/web/app/**`(不是 `apps/web/src/**`)⇒ 整目录被排除在
+ * 发射点扫描之外。后果是把**真实接线**判成未接线:页面里 `const t = useTranslations('ns')`
+ * + `t('键')` 明明在发射,门一个数都不认,于是「往语言包加键」这一正当动作被棘轮判红
+ * (实测:监控大屏 `admin.wallboard.*` 116 键全部被计为未接线)。这与门头注自认的失误
+ * 方向一致 —— 只能改判据,不得靠跳门。
+ *
+ * 只放宽**消费者**面:候选声明(C1~C5)仍走 `inScanRoot`,避免把 App Router 目录里的
+ * 页面级导出误收成"策略/契约声明"而抬高候选数。
+ */
+const I18N_SCAN_ROOT_RE = /^(?:apps|packages)\/[^/]+\/(?:src|app)\//
+
+/** i18n 发射点入面判定(与 inScanRoot 同排除规则,只换根目录那一段)。 */
+export function inI18nScanRoot(p) {
+  return I18N_SCAN_ROOT_RE.test(p) && SRC_EXT_RE.test(p) && !TEST_FACE_RE.test(p)
+}
+
 // ==================== 候选声明的形态(C1~C5 + C7,宁窄不误报)====================
 
 /** C1 策略常量:大写-下划线族的 MAX_AGE / MAXAGE / TTL / RETENTION */
@@ -564,7 +585,8 @@ export function judgeI18n(files, lexicon) {
   let dynamic = 0
   let ambiguous = 0
   for (const [rel, text] of files) {
-    if (!inScanRoot(rel) || typeof text !== 'string') continue
+    // 发射点面比候选面宽:含 Next.js App Router 的 apps/web/app/**(见 inI18nScanRoot 注)
+    if (!inI18nScanRoot(rel) || typeof text !== 'string') continue
     const u = extractI18nUsages(text)
     dynamic += u.dynamic
     ambiguous += u.ambiguous
@@ -1079,22 +1101,24 @@ export function analyze(root, face, opts = {}) {
     const changed = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z'], root, { timeout: GIT_TIMEOUT })
       .split('\0')
       .filter(Boolean)
-      .filter((p) => inScanRoot(p) || isLexiconPath(p))
+      .filter((p) => inI18nScanRoot(p) || isLexiconPath(p))
     if (changed.length === 0) {
       effFace = 'head'
       fellBack = true
     }
   }
   const allPaths = listFace(root, effFace)
-  const sources = allPaths.filter(inScanRoot)
+  // 入面文件集按**发射点面**取(宽于候选面):候选声明在 judge() 内再用 inScanRoot 收窄,
+  // 这样 apps/web/app/** 这类 App Router 页面能作为发射点被 C6 认到,又不会被当成候选声明。
+  const sources = allPaths.filter(inI18nScanRoot)
   if (sources.length === 0)
-    throw new Undetermined(`${FACE_NAME[effFace]} 面枚举到 0 个扫描根源文件(apps|packages/*/src 源码) —— 空扫不记绿`)
+    throw new Undetermined(`${FACE_NAME[effFace]} 面枚举到 0 个扫描根源文件(apps|packages/*/{src,app} 源码) —— 空扫不记绿`)
   const lexPaths = allPaths.filter(isLexiconPath)
   const judged = judge(readFace(root, effFace, sources), { face: effFace, lexicon: readFace(root, effFace, lexPaths) })
   let headJudged = null
   if (effFace === 'staged') {
     const headAll = listFace(root, 'head')
-    const headSources = headAll.filter(inScanRoot)
+    const headSources = headAll.filter(inI18nScanRoot)
     if (headSources.length === 0) throw new Undetermined('HEAD 面枚举到 0 个扫描根源文件 ⇒ 棘轮锚点无从取得(不记绿)')
     headJudged = judge(readFace(root, 'head', headSources), { face: 'head', lexicon: readFace(root, 'head', headAll.filter(isLexiconPath)) })
   }
@@ -1311,6 +1335,9 @@ function selfTest() {
   eq('K1 非导出的 pruneZombie 与 artifactRetentionDays 都不是候选', judge(new Map([['apps/x/src/y.ts', 'function pruneZombie(): void {}\nconst artifactRetentionDays = 7\nexport function useIt(): void {}\n']])).unwired.length, 0)
   eq('K2 大写族命中:CACHE_TTL_MS 是候选(policy-const)', judge(new Map([['apps/api/src/z.ts', 'export const CACHE_TTL_MS = 100\n']])).unwired.map((u) => u.kinds[0]), ['policy-const'])
   eq('K3 scripts/ 与测试路径都不入扫描面', [inScanRoot('scripts/check-x.mjs'), inScanRoot('apps/web/src/a.tsx'), inScanRoot('apps/cli/tests/a.test.ts'), inScanRoot('packages/types/src/tool-contract.ts')], [false, true, false, true])
+  // K4(2026-10-16):i18n 发射点面比候选面宽 —— App Router 页面目录 apps/*/app/** 必须入面,
+  //     否则整页 t('键') 不被认作发射点,「往语言包加键」被棘轮误判为未接线。
+  eq('K4 app/ 目录只入发射点面、不入候选面', [inI18nScanRoot('apps/web/app/(main)/admin/x/page.tsx'), inScanRoot('apps/web/app/(main)/admin/x/page.tsx'), inI18nScanRoot('apps/web/a.test.tsx'), inI18nScanRoot('packages/i18n/src/x.ts')], [true, false, false, true])
   // ⑫ specCompat 的三种链形
   eq('S1 @ihui/<pkg> 对 packages/<pkg>/src/** 兼容;父目录段/基名兼容;无关路径不兼容', [specCompat('@ihui/types', 'packages/types/src/tool-contract.ts'), specCompat('../sessions/index.js', 'apps/cli/src/sessions/state-store.ts'), specCompat('../other/store.js', 'apps/cli/src/sessions/state-store.ts')], [true, true, false])
   // ⑬ 棘轮四向(staged vs HEAD 锚点)
@@ -1481,6 +1508,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   inScanRoot,
+  inI18nScanRoot,
   isPolicyConstName,
   isBudgetContractName,
   isHandlerFactoryName,
