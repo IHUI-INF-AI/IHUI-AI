@@ -262,7 +262,11 @@ export function buildPlan(lines, opts = {}) {
     }
     for (const [, grp] of byKey) {
       if (grp.length < 2) continue
-      const holder = grp.find((r) => CLAIM_RE.test(stripMergeNotes(r.line))) || grp[0]
+      // 正本 = 剥注记/租约后正文最长那行(最实质),**不是**"带租约优先"、也不是 grp[0] 任意取:
+      // 实测 P5(副本带租约、真持有行无租约)若用 grp.find(CLAIM) 会把短副本当正本、把真持有行降候选删掉 = 净丢活账。
+      // 非正此行进候选后,其租记由下游 L1/L2 的 claimTransfers 转移到正本(认领守恒);精确等长时保留靠前(早登记)那条,与原意同向。
+      const bareLen = (r) => stripMergeNotes(stripMergeNotes(r.line).replace(CLAIM_RE, '')).trim().length
+      const holder = grp.reduce((a, b) => (bareLen(b) > bareLen(a) ? b : a))
       for (const r of grp) {
         if (r !== holder && !candidates.includes(r)) candidates.push(r)
       }
