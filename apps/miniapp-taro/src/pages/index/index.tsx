@@ -58,8 +58,15 @@ import BottomActionBar, { type ToggleButtonItem } from '@/components/BottomActio
 import ModelConfigDialog from '@/components/ModelConfigDialog'
 import type { ModelConfig } from '@/components/ModelConfigDialog'
 import AgentListPanel, { type AgentInfo } from '@/components/AgentListPanel'
-import SkillsPopup, { type AgentItem } from '@/components/SkillsPopup'
+// 导入顺序即 CSS 打包顺序,改动前请看:mini-css-extract 对 chunk `common` 里的
+// PayPopup.css / LessonListItem.css(由 `@/components` 桶文件带出)与 CategoryBar.css
+// (由 SkillsPopup 带出)两两比较各 chunk group 的相对次序。全站 18 个同时引用这两者的
+// 入口(community/user/share/chat/agent/…)都是「桶文件在前、CategoryBar 在后」,
+// 只有本入口此前把 SkillsPopup 写在桶文件之前 ⇒ 相对次序相反 ⇒ 生产构建抛
+// `Error: chunk common [mini-css-extract-plugin] Conflicting order`(票 G-948)。
+// ⇒ 这两行的先后是判据,不是风格:任何 import 排序工具把它们换回去都会让构建重新冒红。
 import { FloatBox, ModelTypeButtonGroup } from '@/components'
+import SkillsPopup, { type AgentItem } from '@/components/SkillsPopup'
 import VoiceInput from '@/components/VoiceInput'
 
 import { rnRadius } from '@ihui/design-tokens'
