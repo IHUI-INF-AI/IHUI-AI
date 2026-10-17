@@ -20,7 +20,6 @@ import {
   renderVipExpireEmail,
   renderInvoiceResultEmail,
   renderWalletRechargeEmail,
-  renderDispatchEmail,
   BRAND_LOGO_PATH,
   FOUNDER_QR_PATH,
   FOUNDER_WECHAT_ID,
