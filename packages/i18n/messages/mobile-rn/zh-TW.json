@@ -2192,6 +2192,15 @@
     "title": "筆記"
   },
   "notificationList": {
+    "viewActive": "返回動態",
+    "archived": "已歸檔",
+    "hide": "隱藏",
+    "hiding": "正在隱藏…",
+    "hideFailed": "這條動態未隱藏，請重試。",
+    "restore": "恢復",
+    "restoring": "正在恢復…",
+    "restoreFailed": "這條動態未恢復，請重試。",
+    "emptyArchived": "你隱藏的動態會保留在這裡，隨時可以恢復。",
     "empty": "暫無通知",
     "loadFailed": "載入通知失敗",
     "title": "通知",
