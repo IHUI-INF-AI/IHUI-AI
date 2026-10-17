@@ -14,7 +14,7 @@ const fileIcon = aizhsUrl('remote-images/file.png')
 // 主包不再承载(实测 36,542 B)。图片字节逐字未变(md5 97fef424f841ab997b161bc4ead93cbe)。
 const recordBackIcon = '/pkg-ai/assets/record_back.png'
 import Taro, { useRouter, useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo, Fragment } from 'react'
 import { rnRadius } from '@ihui/design-tokens'
 import {
   chatStream,
@@ -31,9 +31,18 @@ import {
   getWorkspacePermissionDefault,
   // D20 服务端会话回放:消息体唯一出口(端内不得裸 Taro.request,守门 73)
   getMessages,
+  // D77(2026-10-17):业务表单应答上行 —— 唯一装配/传输出口(buildFormResponseEvent +
+  // postFormResponse 从 @ihui/api-client 导出,端内不另起传输层)。
+  buildFormResponseEvent,
+  postFormResponse,
 } from '@ihui/api-client'
 import { formatTokenCount } from '@ihui/shared/utils'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
+// D77(2026-10-17 落地小程序腿):form_request 帧的投影纯函数单源在共享层
+// (@ihui/shared/chat/form-request-frame,由 apps/web 迁入共用,端内不抄第二份)。
+import { projectFormRequestFrame } from '@ihui/shared/chat/form-request-frame'
+import type { BusinessFormFrameEntry } from '@ihui/shared/chat/form-request-frame'
+import type { BusinessFormActionPayload } from '@ihui/shared/chat/business-forms'
 import type { Agent } from '@ihui/api-client'
 import {
   type ModelItem,
@@ -69,6 +78,9 @@ import {
   type ApprovalRecord,
   type ApprovalRequestView,
 } from './tool-approval-text'
+// D77(2026-10-17 落地小程序腿):业务表单卡(可填表单 + 批准/拒绝 + 拒绝理由),
+// 判定层/状态机/字段表全走 @ihui/shared/chat/business-forms(端内零自判)。
+import BusinessFormCard from '@/components/BusinessFormCard'
 import TaskStatusBar from './task-status-bar'
 import {
   applyToolCallStart,
@@ -161,6 +173,18 @@ export default function ChatPage() {
   const [approvalQueue, setApprovalQueue] = useState<readonly ApprovalRequestView[]>([])
   const [approvalRecords, setApprovalRecords] = useState<readonly ApprovalRecord[]>([])
   const [approvalSending, setApprovalSending] = useState(false)
+  // ── D77(2026-10-17 落地小程序腿):对话流业务表单(form_request → 可填卡 → form_response)──
+  // 形状 = 共享投影的 BusinessFormFrameEntry + 宿主级 status/error(web store 同构,
+  // 本端用页级 useState 承载 —— 表单是会话内状态,不进消息体也不另起全局 store)。
+  // 会话级收口:resetEarlierPaging(会话切换/清空)一并清掉,旧会话的待填卡不得挂到新会话。
+  // 用 Omit 而非交叉:FrameEntry.status 恒 'pending',直接 & 会把联合收窄回 'pending'。
+  type BusinessFormView = Omit<BusinessFormFrameEntry, 'status'> & {
+    status: 'pending' | 'sent' | 'failed'
+    error?: string
+  }
+  const [businessForms, setBusinessForms] = useState<readonly BusinessFormView[]>([])
+  // 上行在途标记(防重复提交;与 approvalSending 同纪律,按条目 requestId 标记)
+  const [formSendingRequestId, setFormSendingRequestId] = useState<string | null>(null)
   // ── G-403(2026-10-07):消息级 usage 缓存两维(onUsage 帧 → 归因条)──
   // 三态口径与 web 端 store 一致:数字(含 0)= 上游真回报;null = 没采到(未知),
   // 归因条据此显示"不可得"而非 0(G-394 同令)。发送新流时重置 null —— 上一轮
@@ -217,6 +241,55 @@ export default function ChatPage() {
     },
     [approvalSending, approvalQueue, approvalRecords],
   )
+  /**
+   * D77:业务表单应答上行(卡片 onAction 的唯一出口,对标 web business-form-section)。
+   * 装配走 api-client 的 buildFormResponseEvent(snake 上行口径唯一源),传输走
+   * postFormResponse(失败必抛)。无 sessionId = 无回传通道 ⇒ 如实置 failed,
+   * 绝不"本地当成已批准"(那是把用户应答丢掉)。
+   */
+  const handleBusinessFormAction = useCallback(
+    async (entry: BusinessFormView, payload: BusinessFormActionPayload & { reason?: string }) => {
+      if (formSendingRequestId) return
+      if (!entry.sessionId) {
+        setBusinessForms((prev) =>
+          prev.map((f) =>
+            f.requestId === entry.requestId
+              ? { ...f, status: 'failed' as const, error: 'form-response-no-session-channel' }
+              : f,
+          ),
+        )
+        return
+      }
+      const event = buildFormResponseEvent({
+        requestId: entry.requestId,
+        kind: entry.kind,
+        action: payload.action,
+        ...(payload.values ? { values: { ...payload.values } } : {}),
+        ...(payload.reason ? { reason: payload.reason } : {}),
+        messageId: entry.messageId,
+      })
+      setFormSendingRequestId(entry.requestId)
+      try {
+        await postFormResponse(entry.sessionId, event)
+        setBusinessForms((prev) =>
+          prev.map((f) =>
+            f.requestId === entry.requestId ? { ...f, status: 'sent' as const } : f,
+          ),
+        )
+      } catch (e) {
+        setBusinessForms((prev) =>
+          prev.map((f) =>
+            f.requestId === entry.requestId
+              ? { ...f, status: 'failed' as const, error: (e as Error).message }
+              : f,
+          ),
+        )
+      } finally {
+        setFormSendingRequestId(null)
+      }
+    },
+    [formSendingRequestId],
+  )
   /** 会话切换/清空/本机快照恢复时重置向前翻页态 —— 防旧会话游标把别的会话的消息前插进来 */
   const resetEarlierPaging = useCallback(() => {
     setEarlierHasMore(false)
@@ -224,6 +297,9 @@ export default function ChatPage() {
     // D152:目标态是**会话级**的 —— 会话切换/清空时必须一起收掉,否则上一会话的「进行中」
     // 会挂在下一会话头上,而那正是本票要消灭的分叉形态(声明见 goalNotice 上方注释)。
     setGoalNotice(null)
+    // D77:表单待填/终态同样是会话级 —— 旧会话的卡不得挂到新会话头上。
+    setBusinessForms([])
+    setFormSendingRequestId(null)
     earlierCursorRef.current = null
   }, [])
   const [currentModel, setCurrentModel] = useState('')
@@ -1016,6 +1092,26 @@ export default function ChatPage() {
               }
               setApprovalQueue((prev) => enqueueApprovalRequest(prev, view))
             },
+            // D77(2026-10-17 落地小程序腿):form_request 帧 → 投影 → 消息流内可填卡。
+            // 投影判据单源在共享层(projectFormRequestFrame);本端 buildBody 不发 metadata
+            // ⇒ ai-service 不带 messageId ⇒ fallbackMessageId = 本轮流消息锚点(与 web
+            // assistantId 同构)。同 requestId 幂等覆盖(断线重连回放不重复渲染两张卡)。
+            onFormRequest: (frame) => {
+              const entry = projectFormRequestFrame(frame, String(assistantMsg.timestamp))
+              if (!entry) return
+              setBusinessForms((prev) => {
+                const existing = prev.find((f) => f.requestId === entry.requestId)
+                if (existing) {
+                  // 幂等覆盖:保留宿主已写入的 status/error(上行在途/已终态不被回放帧打回 pending)
+                  return prev.map((f) =>
+                    f.requestId === entry.requestId
+                      ? { ...entry, status: f.status, ...(f.error ? { error: f.error } : {}) }
+                      : f,
+                  )
+                }
+                return [...prev, entry]
+              })
+            },
             onRetryScheduled: (evt) =>
               pushStreamActivity(
                 t('ai.stream.gatewayRetry', {
@@ -1580,34 +1676,90 @@ export default function ChatPage() {
         ) : null}
 
         {messages.map((msg, idx) => (
-          <ChatMessageItem
-            key={idx}
-            msg={msg}
-            onReuse={handleReuse}
-            onRegenerate={msg.role === 'assistant' ? handleRegenerate : undefined}
-            onLongPress={() => handleLongPress(msg, idx)}
-            onEdit={msg.role === 'user' ? () => handleEdit(msg, idx) : undefined}
-            isFavorited={
-              msg.role === 'assistant' && !msg.error && msg.timestamp
-                ? favoritedMsgs.has(String(msg.timestamp))
-                : undefined
-            }
-            onToggleFavorite={
-              msg.role === 'assistant' && !msg.error && msg.timestamp
-                ? () => toggleFavorite(msg)
-                : undefined
-            }
-            onSpeak={msg.role === 'assistant' && !msg.error ? handleSpeak : undefined}
-            onOpenReasoning={
-              msg.role === 'assistant' && msg.reasoning
-                ? () => {
-                    setReasoningPopupContent(msg.reasoning || '')
-                    setReasoningPopupVisible(true)
-                  }
-                : undefined
-            }
-          />
+          <Fragment key={idx}>
+            <ChatMessageItem
+              msg={msg}
+              onReuse={handleReuse}
+              onRegenerate={msg.role === 'assistant' ? handleRegenerate : undefined}
+              onLongPress={() => handleLongPress(msg, idx)}
+              onEdit={msg.role === 'user' ? () => handleEdit(msg, idx) : undefined}
+              isFavorited={
+                msg.role === 'assistant' && !msg.error && msg.timestamp
+                  ? favoritedMsgs.has(String(msg.timestamp))
+                  : undefined
+              }
+              onToggleFavorite={
+                msg.role === 'assistant' && !msg.error && msg.timestamp
+                  ? () => toggleFavorite(msg)
+                  : undefined
+              }
+              onSpeak={msg.role === 'assistant' && !msg.error ? handleSpeak : undefined}
+              onOpenReasoning={
+                msg.role === 'assistant' && msg.reasoning
+                  ? () => {
+                      setReasoningPopupContent(msg.reasoning || '')
+                      setReasoningPopupVisible(true)
+                    }
+                  : undefined
+              }
+            />
+            {/* D77:业务表单卡锚定在对应 assistant 消息之后(messageId =
+                msg.id ?? timestamp;仅 assistant 侧匹配,防同毫秒时间戳撞上 user 消息) */}
+            {msg.role === 'assistant'
+              ? businessForms
+                  .filter((f) => f.messageId === String(msg.id ?? msg.timestamp))
+                  .map((entry) => (
+                    <View
+                      key={entry.requestId}
+                      className="business-form-block"
+                      data-form-request={entry.requestId}
+                    >
+                      <BusinessFormCard
+                        kind={entry.kind}
+                        requestId={entry.requestId}
+                        sending={formSendingRequestId === entry.requestId}
+                        onAction={(payload) => void handleBusinessFormAction(entry, payload)}
+                      />
+                      {entry.status === 'failed' ? (
+                        <Text
+                          className="business-form-send-failed"
+                          data-form-send-failed={entry.requestId}
+                        >
+                          {tt('ai.businessForms.status.failed', '提交失败,请重试')}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ))
+              : null}
+          </Fragment>
         ))}
+        {/* D77:未锚定任何消息的表单(帧带了本端认不出的 messageId)兜底渲染在列表尾,
+            不丢弃 —— 与 web BusinessFormSection 的 per-message 宿主不同,本端按消息身份
+            锚定;锚不上的落尾比消失诚实。 */}
+        {(() => {
+          const messageIds = new Set(messages.map((m) => String(m.id ?? m.timestamp)))
+          const orphanForms = businessForms.filter((f) => !messageIds.has(f.messageId))
+          if (orphanForms.length === 0) return null
+          return orphanForms.map((entry) => (
+            <View
+              key={entry.requestId}
+              className="business-form-block"
+              data-form-request={entry.requestId}
+            >
+              <BusinessFormCard
+                kind={entry.kind}
+                requestId={entry.requestId}
+                sending={formSendingRequestId === entry.requestId}
+                onAction={(payload) => void handleBusinessFormAction(entry, payload)}
+              />
+              {entry.status === 'failed' ? (
+                <Text className="business-form-send-failed" data-form-send-failed={entry.requestId}>
+                  {tt('ai.businessForms.status.failed', '提交失败,请重试')}
+                </Text>
+              ) : null}
+            </View>
+          ))
+        })()}
 
         {/* W5:流式执行事件最小可视化(工具调用 / subagent / 计划 / 终端等),简化列表 + 可折叠 */}
         {streamActivities.length > 0 ? (
