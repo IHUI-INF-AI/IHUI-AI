@@ -16,6 +16,7 @@ import { execSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { planArtifactInvariant } from './lib/desktop-artifact-invariant.mjs';
+import { judgeUpdaterKeyPairing } from './lib/updater-key-pairing.mjs';
 
 const cwd0 = process.cwd();
 const ROOT = /apps[\\/]desktop$/.test(cwd0) ? path.resolve(cwd0, '../..') : cwd0;
@@ -79,6 +80,18 @@ if (!existsSync(keyPath)) {
   process.exit(1);
 }
 const key = readFileSync(keyPath, 'utf8').trim();
+// 签之前先问"这把私钥是不是配置信任的那把"。只判 existsSync 会让流程照样走完,
+// 产出"构建绿、.sig 存在、但没有一个客户端验得过"的死链包 —— 2026-10-17 本机实测:
+// 私钥内嵌公钥、同目录 .pub、conf 里的 pubkey 三方互不配对。判据住在
+// scripts/lib/updater-key-pairing.mjs(纯函数,单测钉住三种失效形态)。
+const pairing = judgeUpdaterKeyPairing({ confPubkey: conf.plugins?.updater?.pubkey, secretText: key });
+if (pairing.verdict !== 'ok') {
+  const what = pairing.verdict === 'orphan' ? '不是配置信任的那把钥匙' : '无法判定是否配对';
+  console.error(`ERROR: 更新签名密钥与 ${CONF} 的 plugins.updater.pubkey ${what}\n  ${pairing.reason}`);
+  console.error('  出路:换成与信任锚配对的私钥(在用的那把只在 CI secrets.DESKTOP_TAURI_PRIVATE_KEY),或修正配置里的 pubkey;别用孤儿钥匙出包。');
+  process.exit(pairing.verdict === 'orphan' ? 1 : 2);
+}
+console.log(`✓ 签名钥匙配对自证:${pairing.reason}`);
 const pwd = readFileSync(path.join(process.env.USERPROFILE || '', '.tauri/ihui-updater-password.txt'), 'utf8').trim();
 const buildEnv = {
   ...process.env,
