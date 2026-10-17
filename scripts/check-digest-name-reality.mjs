@@ -68,6 +68,7 @@ import {
 } from './lib/face-reader.mjs'
 
 import { createExclusionPredicate } from './lib/third-party-roots.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,禁止 `process.cwd()`,禁止写死盘符) */
@@ -1499,15 +1500,17 @@ export async function main(argv) {
   const strict = argv.includes('--strict')
   const onlyIdx = argv.indexOf('--files')
   const onlyFiles = onlyIdx >= 0 ? argv.slice(onlyIdx + 1).filter((a) => !a.startsWith('--')) : []
-  const rootIdx = argv.indexOf('--root')
-  const root = rootIdx >= 0 ? resolve(argv[rootIdx + 1]) : ROOT
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录' })
   // `--root` 是测试通道:枚举与取材都用**同一个** root(analyze(root, face) 内部一路传),
   // 所以 `--root <夹具> --staged` 判的是那棵夹具仓的索引,不存在"换根却按别的树读"的双根分裂。
   // (守门 70 的 `--root` 只在 worktree 档有效,是因为它另有一批 ROOT 派生路径;本门没有。)
-  if (rootIdx >= 0 && !(argv[rootIdx + 1] || '').length) {
-    console.error('❌ 无法判定:--root 后面没有参数')
+  // G-322:旧写法只挡"后面没有参数"一支,被旗标顶值那支会把 "--staged" 当根 ⇒ 在不存在的根上
+  // 出结论。判据交给单源出口,三态各自点名(§22c)。
+  if (rootFlag.error) {
+    console.error(`❌ 无法判定:${rootFlag.error}`)
     return 2
   }
+  const root = rootFlag.value ? resolve(rootFlag.value) : ROOT
 
   let out
   try {

@@ -41,6 +41,7 @@
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GATE_LABEL = '[check-no-nested-git]'
@@ -252,8 +253,15 @@ export async function main(argv = process.argv.slice(2)) {
     return 0
   }
   let root = REPO_ROOT
-  const ri = argv.indexOf('--root')
-  if (ri !== -1 && argv[ri + 1]) root = resolve(argv[ri + 1])
+  // G-322(守门 208,blocking):旧写法 `ri !== -1 && argv[ri+1]` 在被旗标顶值时把 "--staged" 当扫描根
+  // (扫一个不存在的目录 ⇒ "无嵌套仓"报绿),裸 `--root` 更是**静默按默认根**继续判 —— 调用方以为换了根。
+  // 现在:给了旗标就要有值,否则未判定(判据单源 = lib/flag-value.mjs,§22c)。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    return 2
+  }
+  if (rootFlag.value) root = resolve(rootFlag.value)
 
   const scan = scanForNestedGit(root)
   const ledger = loadNamedExemptions()
