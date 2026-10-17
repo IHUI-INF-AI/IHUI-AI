@@ -920,8 +920,23 @@ export function checkUndeliveredAlertDebt({
  * 故这里解析生产 checkout 的那一份(`devEnvRoot` 即 `D:\DevEnv`,再进 `ihui-prod`)。
  * 语义守恒:文件存在但陈旧 ⇒ 仍正确报红(活环真停了);文件不存在 ⇒ undetermined(不冒充"没问题")。
  */
+/**
+ * 部署环所跑的**生产 checkout 根**(2026-10-17 抽出,原先只在这条日志路径里内联一次)。
+ *
+ * 与上面那条注记同一条事实:nssm 的 `IHUI-DEPLOYLOOP` / `IHUI-WEB` 跑的是 `<DevEnv>\ihui-prod`
+ * 那一份,不是仓内这份 checkout。所以凡是问"**线上此刻**是什么状态"的判据(部署环心跳台账、
+ * `.next/IHUI_BUILD_SHA` 线上构建标记、回滚点)一律从这里取根 —— 读仓内那份 `.next` 会拿到
+ * 上一次本地构建留下的旧 sha(2026-10-17 实测:仓内标记停在 10-13 10:32,而线上标记 11:36 刚写过
+ * `cf3d5fc6e0`,凭据巡检据此起寄了连续四天的"部署停摆 97.7 小时"假警报)。
+ *
+ * 语义守恒:根不存在(别人那台机没有这个形态)⇒ 调用方必须落**未判定**并点名,不得折成红或绿。
+ */
+export function prodCheckoutRoot(repoRoot = REPO) {
+  return join(devEnvRoot(repoRoot), 'ihui-prod')
+}
+
 export function prodDeployLoopLog(repoRoot = REPO) {
-  return join(devEnvRoot(repoRoot), 'ihui-prod', 'deploy/win/deploy-loop.log')
+  return join(prodCheckoutRoot(repoRoot), 'deploy/win/deploy-loop.log')
 }
 
 export function heartbeatRows({ now, devEnv, databases, execCands = EXEC_CANDIDATES }) {
