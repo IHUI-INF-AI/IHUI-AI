@@ -21,11 +21,20 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = process.cwd()
 const args = process.argv.slice(2)
-const outDirIdx = args.indexOf('--out-dir')
-const OUT_DIR = outDirIdx >= 0 ? args[outDirIdx + 1] : 'outputs'
+// G-322(本站,认证书的落点):旧写法 `args[indexOf('--out-dir')+1]` 在被下一枚旗标顶值时
+// (如 `--out-dir --json`)会把 "--json" 当目录 ⇒ 认证书写进 `outputs/--json/` 而 stdout 照报"已写出"
+// = 落点错却读起来成功;裸形态则把 undefined 交给 join ⇒ 崩裸栈。认证书是要给人签收的凭证,
+// 落点必须要么明确、要么按默认档,不能"自己猜一个"。
+const outDirFlag = requireFlagValue(args, '--out-dir', { noun: '目录' })
+if (outDirFlag.error) {
+  console.error(`❌ ${outDirFlag.error}`)
+  process.exit(2)
+}
+const OUT_DIR = outDirFlag.value ?? 'outputs'
 
 const ENDS = ['web', 'api', 'ai-service', 'desktop', 'extension', 'mobile-rn', 'miniapp-taro', 'cli']
 
