@@ -335,9 +335,10 @@ jobs:
           echo "产物已同步到 apps/web/public/downloads/(desktop + extension)" >> $GITHUB_STEP_SUMMARY
           echo "下载页/更新器版本号:站点运行期直读发布源,发版即生效(无需快照入库)" >> $GITHUB_STEP_SUMMARY
 
-  # 2026-09-17:国内发行(Gitee)自动化——安装包+更新签名镜像到 Gitee release,
-  # latest.json(url 全部指向 Gitee 直链)更新 desktop-feed 分支 raw 直链。
-  # 更新器第一端点即该 raw 链接(薄壳化 exe 内嵌),GitHub feed 仅兜底。
+  # 2026-09-17 立 / 2026-10-17 校正:国内发行(Gitee)自动化——安装包+更新签名
+  # 尽力镜像到 Gitee release(超单文件 100MB 上限的资产自动跳过,如内嵌 WebView2
+  # 运行时的 Windows exe ≈225MB)。**Gitee 侧不是更新器端点**:客户端只认
+  # aizhs.top 单端点(见 sync-gitee.py 末尾第 5 节),此处仅作国内手动下载的附件存档。
   sync-gitee:
     name: Sync release to Gitee (国内发行)
     needs: [build, publish-updater-json]
@@ -369,7 +370,7 @@ jobs:
         run: |
           echo "### Gitee 国内发行同步完成" >> $GITHUB_STEP_SUMMARY
           echo "tag: ${{ inputs.tag || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "安装包+签名已镜像 Gitee release;latest.json 已更新 desktop-feed 分支" >> $GITHUB_STEP_SUMMARY
-          echo "更新器端点(Gitee 优先): https://gitee.com/${{ secrets.GITEE_OWNER }}/IHUI-AI/raw/desktop-feed/latest.json" >> $GITHUB_STEP_SUMMARY
+          echo "安装包+签名已尽力镜像 Gitee release(超 Gitee 单文件 100MB 上限的资产,如 Windows exe,自动跳过)" >> $GITHUB_STEP_SUMMARY
+          echo "注:Gitee 侧仅为附件存档,**不是**更新器端点;客户端只认 https://aizhs.top/desktop-feed.json" >> $GITHUB_STEP_SUMMARY
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
