@@ -315,6 +315,20 @@ async def minimax_checkin_account(
         result["classified_error"] = {"type": etype, "cooldown_seconds": secs}
         result["message"] = "token 无效或过期(HTTP 401/403),请打开 MiniMax Code 刷新后重新捕获"
         return result
+    # 已签幂等优先于 HTTP>=400 判定(2026-10-17 加固,与 WorkBuddy 同型防御):
+    # 官方若对「今日已领」返 4xx + claim_result=2(已领标志),旧逻辑会被
+    # status>=400 抢先误报「签到失败」;此处先掏业务体判幂等成功。
+    if isinstance(data, dict):
+        _ok_pre, _action_pre, _credits_pre = parse_claim_result(data)
+        if _ok_pre and _action_pre == "skip_already":
+            result["code"] = data.get("code") if isinstance(data.get("code"), int) else None
+            result.update(
+                ok=True,
+                status="already",
+                action="skip_already",
+                message="今日已签到,无需重复领取",
+            )
+            return result
     if status >= 400:
         etype, secs = minimax_classify_error(status)
         result["classified_error"] = {"type": etype, "cooldown_seconds": secs}
