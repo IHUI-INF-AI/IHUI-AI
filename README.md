@@ -282,7 +282,10 @@ node scripts/check-gate-wiring.mjs            # 「门造好了但没装车」�
 `versionName`/`versionCode`;E 下载页 web/mobile/extension/cli 四端不得写死语义版本字面量;
 F 两条更新器 feed route 必须走 `resolveDesktopFeedForUpdater`(不得退回读静态快照);
 G 不得再出现 bot 裸 `git push` 到 main(该路径在 protected main 上恒被 GH006 拒,
-GITHUB_TOKEN 推送不触发 workflow ⇒ required check 永不出现,只会制造每天一次的假红)。
+GITHUB_TOKEN 推送不触发 workflow ⇒ required check 永不出现,只会制造每天一次的假红);
+H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号,而是**版本号背后的包还能不能被
+国内用户拿到**:该档把 ≈205MB 的 WebView2 运行时打进安装包(实测 exe 225,269,867 字节),
+结构性超过 Gitee 单文件 100MB 硬上限 ⇒ 0.1.74 的 Gitee release 里只有 `.exe.sig`、没有 `.exe`。
 自检 `node --test scripts/tests/check-version-drift.test.mjs`(13/13,每条判据都配了能被它抓住的反例)。
 立因:桌面下载页与更新器 feed 曾静默停在 0.1.54 四天,而仓库已发到 0.1.58;
 同一时期安卓侧三处版本号互相矛盾、Capacitor 壳写死 `"1.0"` 从不跟真实版本走。
