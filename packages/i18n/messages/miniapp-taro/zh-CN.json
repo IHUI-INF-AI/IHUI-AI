@@ -86,10 +86,6 @@
     "claimFailed": "领取失败",
     "loadFailed": "加载任务失败"
   },
-  "nav": {
-    "profile": "我的",
-    "community": "社区"
-  },
   "common": {
     "hint": "提示",
     "goSettings": "去设置",
