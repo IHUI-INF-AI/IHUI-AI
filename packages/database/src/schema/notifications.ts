@@ -31,12 +31,17 @@ export const notifications = pgTable(
     content: text('content'),
     data: jsonb('data'),
     isRead: boolean('is_read').default(false).notNull(),
+    // D195 隐藏=归档而非删除:null = 在动态流里,有值 = 已归档(值为归档时刻)。
+    // 用可空时间戳而不是布尔,是因为"什么时候收走的"要在已归档分区回显,而布尔表达不了这一维。
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     // P1 索引补全(2026-08-06):按 userId 查询通知列表 + createdAt 排序是高频路径,
     // 原表无索引导致大表全表扫描,补 (user_id, created_at) 复合索引。
     userCreatedIdx: index('notifications_user_created_idx').on(t.userId, t.createdAt),
+    // D195:两个分区各自按时间翻页,归档判据是 where 的第一维,不建索引就是每次全表扫。
+    userArchivedIdx: index('notifications_user_archived_idx').on(t.userId, t.archivedAt),
   }),
 )
 
