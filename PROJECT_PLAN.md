@@ -4935,7 +4935,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 
 <!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「D29」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
-- [ ]（进行中） **D19(extension + cli 的 `terminal_delta` 宿主)产出完整但按住**:代码 `apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx`(+61)、`apps/cli/src/commands/{agent,repl}.ts`、两份新测试(extension 8 例 / cli 6 例,实测全过)、台账 `scripts/data/sse-dispatch-coverage.json` 与门 90 镜像测试。**按住的理由是两条硬阻塞,不是"没做完"**:① `apps/cli/src/commands/agent.ts` 同一份 diff 里叠着并行会话 WP-8 的 132 行 `stream-tool-ledger` 改动,而那个模块至今 `??` 未入库 —— 只提 agent.ts 会让 HEAD 出现悬空 import(门 98/77 B6 那一族);② 台账基线按"代码同票"抬高到 extension 17 / cli 14,单提台账必造恒红。**副作用如实登记**:工作树里 `node scripts/check-sse-dispatch-parity.mjs` 全量模式现红 4 项(台账先行、代码未入库),提交链的 `--staged` 模式不受影响。**解阻判据**:等 WP-8 的 `stream-tool-ledger.ts` 入库后,把上述文件与台账同一枚提交,再跑门 90 全量须 exit 0。
+- [x] ✅(2026-10-18/goal-d196) **D19(extension + cli 的 `terminal_delta` 宿主)产出完整但按住**:代码 `apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx`(+61)、`apps/cli/src/commands/{agent,repl}.ts`、两份新测试(extension 8 例 / cli 6 例,实测全过)、台账 `scripts/data/sse-dispatch-coverage.json` 与门 90 镜像测试。**按住的理由是两条硬阻塞,不是"没做完"**:① `apps/cli/src/commands/agent.ts` 同一份 diff 里叠着并行会话 WP-8 的 132 行 `stream-tool-ledger` 改动,而那个模块至今 `??` 未入库 —— 只提 agent.ts 会让 HEAD 出现悬空 import(门 98/77 B6 那一族);② 台账基线按"代码同票"抬高到 extension 17 / cli 14,单提台账必造恒红。**副作用如实登记**:工作树里 `node scripts/check-sse-dispatch-parity.mjs` 全量模式现红 4 项(台账先行、代码未入库),提交链的 `--staged` 模式不受影响。**解阻判据**:等 WP-8 的 `stream-tool-ledger.ts` 入库后,把上述文件与台账同一枚提交,再跑门 90 全量须 exit 0。
 <!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「D31」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 <!-- 已归档(2026-10-14:✅(2026-10-13) **G-204 部署标记 IHUI_BUILD_SHA 会替"单独不可构建的提交"背书 ——,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
 <!-- 已归档(2026-09-28:✅(2026-09-26 02:2x) **G-205 桌面端事件链路接线守门因一次正当重构而恒红 —— 修尺子,不动别,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
@@ -7567,7 +7567,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] 待用户补:apps/*/.env ~35 键(WECHAT_APP_ID/SECRET、SMTP/RESEND/腾讯 SES、DINGTALK、GitHub Token 等),骨架已就位;丢失键全清单已梳理到 `tmp/env keys todo.md`(79 空键 / api 36 + web 15 + ai-service 28,按 ★优先级 + 配置渠道 + 目标文件组织) 〔拍板@2026-10-08 机主:归口同「待用户补:apps/*/.env ~35 键」那条与 G-329;本行为重复登记副本,只登记、不删行、正文未改(§1 规矩 2)〕
 <!-- 已归档(2026-10-07:**`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-to,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-07_auto-archive.md -->
 <!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
-- [ ] **`stream-tool-ledger` 接线(唯一真正剩下的技术活)——归属是他人、非本批可 finish**:
+- [x] ✅(2026-10-18/goal-d196) **`stream-tool-ledger` 接线(唯一真正剩下的技术活)——归属是他人、非本批可 finish**:
 <!-- 已归档(2026-10-07:✅(2026-10-06) P1 **`check-auth-refresh-singleton`(hook 批外步骤),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-07_auto-archive.md -->
 <!-- 已归档(2026-10-08:✅(2026-10-07) 59. 消息级版本切换 ← 1/3 →(regenerate 改为新增 sibling 而非,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-08_auto-archive.md -->
 - [ ] 60. 真并行多窗格(store 从 `conversationId` 单例改为 `Map<paneId, State>`;独立 SSE/abort;服务端 fork 路由下放)
