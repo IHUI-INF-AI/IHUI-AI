@@ -12,6 +12,8 @@ import {
   type Certificate,
 } from '@ihui/database'
 import { generateCertificateNumber } from '../utils/crypto-random.js'
+// ihui_exam_certificate_issued_total:db 层不持有 fastify 实例,走模块级桥接函数打点
+import { recordExamCertificateIssued } from '../plugins/business-metrics.js'
 
 // =============================================================================
 // Templates
@@ -238,6 +240,8 @@ export async function createCertificate(data: CreateCertificateInput): Promise<C
     .returning()
   const row = rows[0]
   if (!row) throw new Error('创建证书失败')
+  // ihui_exam_certificate_issued_total:证书创建唯一底层写点,模块级桥接打点
+  recordExamCertificateIssued()
   return row
 }
 
@@ -248,7 +252,7 @@ export async function updateCertificateStatus(
   const rows = await db
     .update(certificates)
     .set({ status })
-  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
+    // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(certificates.id, id))
     .returning()
   return rows[0]

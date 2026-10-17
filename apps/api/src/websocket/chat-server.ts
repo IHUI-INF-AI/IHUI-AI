@@ -18,6 +18,8 @@ import { desc, eq, sql } from 'drizzle-orm'
 import { liveComment, type LiveComment } from '@ihui/database'
 import { db } from '../db/index.js'
 import { WsRateLimiter } from '../plugins/ws-helpers.js'
+// ihui_live_danmaku_total:chat-server 不持有 fastify 实例,走模块级桥接函数打点
+import { recordLiveDanmaku } from '../plugins/business-metrics.js'
 
 export const HISTORY_PAGE_SIZE = 50
 const MAX_CONTENT_LENGTH = 2000
@@ -144,6 +146,11 @@ export class LiveChatServer {
     return this.rooms.size
   }
 
+  /** 指定房间当前连接数(房间不存在返回 0)。供 live-chat 路由同步 per-room gauge。 */
+  getRoomSize(roomId: string): number {
+    return this.rooms.get(roomId)?.size ?? 0
+  }
+
   /**
    * P2 修复(2026-08-06):用户断开时清除其消息频率窗口,防止内存累积。
    * 连接关闭/出错时由调用方(live-chat 路由)触发。
@@ -240,6 +247,8 @@ export class LiveChatServer {
       if (!row) return
       const data: ChatMessage = toChatMessage(row)
       room.broadcast(JSON.stringify({ type: 'chat', data }))
+      // ihui_live_danmaku_total:消息落库+广播成功后按房间计数
+      recordLiveDanmaku(room.roomId)
       return
     }
 

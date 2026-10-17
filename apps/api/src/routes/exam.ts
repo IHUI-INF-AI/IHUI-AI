@@ -597,6 +597,9 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     }
     const userId = request.userId!
     const record = await createExamRecord(parsed.data.id, userId)
+    // ihui_exam_started_total + question_used(按试卷分类,question_bank 无实体,标签用 category)
+    server.recordExamStarted()
+    server.recordExamQuestionUsed(String(paper.categoryId ?? 'uncategorized'), paper.questionCount)
     return reply.status(201).send(success({ record }))
   })
 
@@ -618,6 +621,9 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
         userId,
         bodyParsed.data.answers as Array<{ questionId: string; answer: unknown }>,
       )
+      // ihui_exam_submitted_total + score_sum/score_count(成对累加,avg=sum/count)
+      server.recordExamSubmitted()
+      server.recordExamScore(result.score)
       return reply.send(success({ result }))
     } catch (e) {
       const msg = (e as Error).message
@@ -1192,6 +1198,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     }
     try {
       const record = await startAnswering(parsed.data.recordId)
+      server.recordExamStarted()
       return reply.send(success({ record }))
     } catch (e) {
       if (isAppError(e)) {
@@ -1211,6 +1218,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     }
     try {
       const record = await submitExam(parsed.data.recordId)
+      server.recordExamSubmitted()
       return reply.send(success({ record }))
     } catch (e) {
       if (isAppError(e)) {
@@ -1249,6 +1257,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       }
       try {
         const record = await gradeExam(parsed.data.recordId, bodyParsed.data.score)
+        server.recordExamScore(Number(record.score))
         return reply.send(success({ record }))
       } catch (e) {
         if (isAppError(e)) {
