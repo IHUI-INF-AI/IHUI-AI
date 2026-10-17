@@ -1,21 +1,42 @@
 {
-  "annotations": { "list": [] },
-  "description": "IHUI-AI 告警历史与趋势分析",
+  "annotations": {
+    "list": []
+  },
+  "description": "告警面(Alertmanager + 运维到人的邮件桥)。原面板引用的 alertmanager_alerts_total / _by_severity / _mttr / _storm_detection / _top_rules 五个名字在本机一条序列都没有(Alertmanager 从不导出它们),2026-10-17 整盘改指真在采的 alertmanager_alerts{state} / alerts_received_total{status} / dispatcher_* 与自研 ihui_alertbridge_*。",
   "editable": true,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "返回 AI 总览",
+      "type": "link",
+      "url": "/d/ihui-ai-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "tags": ["ihui-ai"]
+    }
+  ],
   "panels": [
     {
       "title": "24h 告警总数",
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
       "targets": [
         {
-          "expr": "sum(increase(alertmanager_alerts_total{instance=~\"$instance\"}[24h]))",
-          "legendFormat": "24h 告警",
-          "refId": "A"
+          "expr": "sum(increase(alertmanager_alerts_received_total{instance=~\"$instance\"}[$__range]))",
+          "refId": "A",
+          "legendFormat": "接收告警数"
         }
       ],
       "fieldConfig": {
@@ -24,68 +45,126 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green" },
-              { "color": "yellow", "value": 100 },
-              { "color": "red", "value": 500 }
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
             ]
           }
         },
         "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
-    },
-    {
-      "title": "告警分级分布",
-      "type": "piechart",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
-      "targets": [
-        {
-          "expr": "sum by (severity) (alertmanager_alerts_by_severity{instance=~\"$instance\"})",
-          "legendFormat": "{{severity}}",
-          "refId": "A"
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
         }
-      ],
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+      },
+      "id": 1
     },
     {
-      "title": "平均恢复时间 MTTR (分钟)",
-      "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "title": "告警状态分布",
+      "type": "piechart",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
       "targets": [
         {
-          "expr": "avg(alertmanager_mttr{instance=~\"$instance\"}) / 60",
-          "legendFormat": "MTTR",
-          "refId": "A"
+          "expr": "sum by (state) (alertmanager_alerts{instance=~\"$instance\"})",
+          "refId": "A",
+          "legendFormat": "{{state}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "m",
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "id": 2,
+      "description": "Alertmanager 只按 state(active/suppressed/unprocessed)计数;severity 是规则侧标签,不在该指标上,故不再谎称\"分级\"。"
+    },
+    {
+      "title": "告警平均处理耗时 (ms)",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "1000 * sum(rate(alertmanager_dispatcher_alert_processing_duration_seconds_sum{instance=~\"$instance\"}[5m])) / sum(rate(alertmanager_dispatcher_alert_processing_duration_seconds_count{instance=~\"$instance\"}[5m]))",
+          "refId": "A",
+          "legendFormat": "平均处理耗时"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green" },
-              { "color": "yellow", "value": 15 },
-              { "color": "red", "value": 60 }
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 15
+              },
+              {
+                "color": "red",
+                "value": 60
+              }
             ]
           }
         },
         "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "id": 3,
+      "description": "MTTR 需要\"告警恢复时刻\"这一事实源,Alertmanager 不导出;此处给可得的 dispatcher 处理耗时。无告警时分母为 0 ⇒ No data,是诚实结果。"
     },
     {
-      "title": "告警风暴检测",
+      "title": "聚合组数量",
       "type": "gauge",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
       "targets": [
         {
-          "expr": "max(alertmanager_storm_detection{instance=~\"$instance\"})",
-          "legendFormat": "风暴",
-          "refId": "A"
+          "expr": "max(alertmanager_dispatcher_aggregation_groups{instance=~\"$instance\"})",
+          "refId": "A",
+          "legendFormat": "聚合组"
         }
       ],
       "fieldConfig": {
@@ -96,73 +175,178 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green" },
-              { "color": "yellow", "value": 20 },
-              { "color": "red", "value": 50 }
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 20
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
             ]
           }
         },
         "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "id": 4,
+      "description": "\"风暴检测\"无对应导出器指标;改看真实存在的聚合组数量,持续增高即告警风暴的可用信号。"
     },
     {
-      "title": "Top 10 告警规则",
+      "title": "告警投递台账(窗口内增量)",
       "type": "table",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
       "targets": [
         {
-          "expr": "topk(10, sum by (alertname) (increase(alertmanager_top_rules{instance=~\"$instance\"}[24h])))",
-          "legendFormat": "{{alertname}}",
+          "expr": "sum(increase(alertmanager_alerts_received_total{instance=~\"$instance\", status=\"firing\"}[$__range]))",
           "refId": "A",
-          "format": "table",
-          "instant": true
+          "legendFormat": "收到(触发)"
+        },
+        {
+          "expr": "sum(increase(alertmanager_alerts_received_total{instance=~\"$instance\", status=\"resolved\"}[$__range]))",
+          "refId": "B",
+          "legendFormat": "收到(恢复)"
+        },
+        {
+          "expr": "sum(increase(ihui_alertbridge_alerts_dedup_suppressed_total{instance=~\"$instance\"}[$__range]))",
+          "refId": "C",
+          "legendFormat": "去重抑制"
+        },
+        {
+          "expr": "sum(increase(ihui_alertbridge_mail_alerts_delivered_total{instance=~\"$instance\"}[$__range]))",
+          "refId": "D",
+          "legendFormat": "投递到人"
+        },
+        {
+          "expr": "sum(increase(ihui_alertbridge_mail_batches_failed_total{instance=~\"$instance\"}[$__range]))",
+          "refId": "E",
+          "legendFormat": "投递失败"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "id": 5,
+      "description": "从\"收到\"到\"到人\"整条链各自的窗口增量。原来的写法 {__name__=~\"多指标\"} 在本机实测 HTTP 422(vector cannot contain metrics with the same labelset)——多指标并扫在标签集相同处必炸,故改逐条具名 target。"
     },
     {
-      "title": "告警分级趋势",
+      "title": "告警接收速率 (按状态)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
       "targets": [
         {
-          "expr": "sum(rate(alertmanager_alerts_by_severity{instance=~\"$instance\"}[5m])) by (severity)",
-          "legendFormat": "{{severity}}",
-          "refId": "A"
+          "expr": "sum by (status) (rate(alertmanager_alerts_received_total{instance=~\"$instance\"}[5m]))",
+          "refId": "A",
+          "legendFormat": "{{status}}"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "id": 6
     },
     {
-      "title": "MTTR 趋势",
+      "title": "邮件桥投递速率",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
       "targets": [
         {
-          "expr": "avg(alertmanager_mttr{instance=~\"$instance\"}) by (alertname)",
-          "legendFormat": "{{alertname}}",
-          "refId": "A"
+          "expr": "sum(rate(ihui_alertbridge_alerts_received_total{instance=~\"$instance\"}[5m]))",
+          "refId": "A",
+          "legendFormat": "收到"
+        },
+        {
+          "expr": "sum(rate(ihui_alertbridge_alerts_dedup_suppressed_total{instance=~\"$instance\"}[5m]))",
+          "refId": "B",
+          "legendFormat": "去重抑制"
+        },
+        {
+          "expr": "sum(rate(ihui_alertbridge_mail_alerts_delivered_total{instance=~\"$instance\"}[5m]))",
+          "refId": "C",
+          "legendFormat": "投递到人"
+        },
+        {
+          "expr": "sum(rate(ihui_alertbridge_mail_batches_failed_total{instance=~\"$instance\"}[5m]))",
+          "refId": "D",
+          "legendFormat": "投递失败"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "id": 7,
+      "description": "到人通道的真实计数(自研桥发射):收到→抑制→投递→失败四条线并排,才是\"告警到底有没有到人\"的证据链。"
     },
     {
-      "title": "告警风暴趋势",
+      "title": "活跃与抑制告警数趋势",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 22 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
       "targets": [
         {
-          "expr": "max(alertmanager_storm_detection{instance=~\"$instance\"}) by (instance)",
-          "legendFormat": "{{instance}}",
-          "refId": "A"
+          "expr": "sum by (state) (alertmanager_alerts{instance=~\"$instance\"})",
+          "refId": "A",
+          "legendFormat": "{{state}}"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "id": 8
     }
   ],
   "refresh": "30s",
@@ -174,16 +358,26 @@
       {
         "name": "instance",
         "type": "query",
-        "datasource": { "type": "prometheus", "uid": "Prometheus" },
-        "query": "label_values(alertmanager_alerts_total, instance)",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        },
+        "query": "label_values(up{job=~\"alertmanager|alertbridge\"}, instance)",
         "refresh": 2,
         "includeAll": true,
         "multi": true,
-        "current": { "selected": true, "text": "All", "value": "$__all" }
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        }
       }
     ]
   },
-  "time": { "from": "now-1h", "to": "now" },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
   "title": "IHUI-AI 告警历史与趋势",

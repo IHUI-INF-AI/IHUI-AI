@@ -2,11 +2,22 @@
   "annotations": {
     "list": []
   },
-  "description": "IHUI-AI 监控系统自身健康",
+  "description": "监控链路自健康。原 prometheus_scrape_success / grafana_response_time 两个名字全仓无发射点、本机无序列(靠 grafana_/prometheus_ 前缀台账混过静态幽灵门),2026-10-17 改指 up 与 grafana_http_request_duration_seconds_*。",
   "editable": true,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "返回 AI 总览",
+      "type": "link",
+      "url": "/d/ihui-ai-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "tags": ["ihui-ai"]
+    }
+  ],
   "panels": [
     {
       "title": "Prometheus 抓取成功率",
@@ -23,14 +34,14 @@
       },
       "targets": [
         {
-          "expr": "avg(prometheus_scrape_success{instance=~\"$instance\"})",
-          "legendFormat": "抓取成功率",
-          "refId": "A"
+          "expr": "100 * (sum(up{instance=~\"$instance\"}) / count(up{instance=~\"$instance\"}))",
+          "refId": "A",
+          "legendFormat": "抓取成功率"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "percent",
           "min": 0,
           "max": 1,
           "thresholds": {
@@ -56,7 +67,9 @@
         "reduceOptions": {
           "calcs": ["lastNotNull"]
         }
-      }
+      },
+      "id": 1,
+      "description": "抓取成功率的正解是 up(每个目标一条,值 1/0);prometheus_scrape_success 这个指标名不存在。"
     },
     {
       "title": "Grafana 响应时间 (ms)",
@@ -73,9 +86,9 @@
       },
       "targets": [
         {
-          "expr": "avg(grafana_response_time{instance=~\"$instance\"})",
-          "legendFormat": "响应时间",
-          "refId": "A"
+          "expr": "1000 * sum(rate(grafana_http_request_duration_seconds_sum{instance=~\"$instance\"}[5m])) / sum(rate(grafana_http_request_duration_seconds_count{instance=~\"$instance\"}[5m]))",
+          "refId": "A",
+          "legendFormat": "平均响应"
         }
       ],
       "fieldConfig": {
@@ -104,7 +117,8 @@
         "reduceOptions": {
           "calcs": ["lastNotNull"]
         }
-      }
+      },
+      "id": 2
     },
     {
       "title": "Alertmanager 活跃告警数",
@@ -121,9 +135,9 @@
       },
       "targets": [
         {
-          "expr": "sum(alertmanager_alerts{instance=~\"$instance\"})",
-          "legendFormat": "告警",
-          "refId": "A"
+          "expr": "sum(alertmanager_alerts{instance=~\"$instance\", state=\"active\"})",
+          "refId": "A",
+          "legendFormat": "活跃告警"
         }
       ],
       "fieldConfig": {
@@ -152,7 +166,8 @@
         "reduceOptions": {
           "calcs": ["lastNotNull"]
         }
-      }
+      },
+      "id": 3
     },
     {
       "title": "抓取成功率趋势",
@@ -169,17 +184,18 @@
       },
       "targets": [
         {
-          "expr": "avg(prometheus_scrape_success{instance=~\"$instance\"}) by (job)",
-          "legendFormat": "{{job}}",
-          "refId": "A"
+          "expr": "100 * avg by (job) (up{instance=~\"$instance\"})",
+          "refId": "A",
+          "legendFormat": "{{job}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit"
+          "unit": "percent"
         },
         "overrides": []
-      }
+      },
+      "id": 4
     },
     {
       "title": "Grafana 响应时间趋势",
@@ -196,9 +212,9 @@
       },
       "targets": [
         {
-          "expr": "avg(grafana_response_time{instance=~\"$instance\"}) by (endpoint)",
-          "legendFormat": "{{endpoint}}",
-          "refId": "A"
+          "expr": "1000 * sum by (handler) (rate(grafana_http_request_duration_seconds_sum{instance=~\"$instance\"}[5m])) / sum by (handler) (rate(grafana_http_request_duration_seconds_count{instance=~\"$instance\"}[5m]))",
+          "refId": "A",
+          "legendFormat": "{{handler}}"
         }
       ],
       "fieldConfig": {
@@ -206,7 +222,9 @@
           "unit": "ms"
         },
         "overrides": []
-      }
+      },
+      "id": 5,
+      "description": "Grafana 侧可用的分组标签是 handler/method/status_code,没有 endpoint;按 handler 分组。"
     },
     {
       "title": "告警数趋势",
@@ -223,9 +241,9 @@
       },
       "targets": [
         {
-          "expr": "sum(alertmanager_alerts{instance=~\"$instance\"}) by (severity)",
-          "legendFormat": "{{severity}}",
-          "refId": "A"
+          "expr": "sum by (state) (alertmanager_alerts{instance=~\"$instance\"})",
+          "refId": "A",
+          "legendFormat": "{{state}}"
         }
       ],
       "fieldConfig": {
@@ -233,7 +251,9 @@
           "unit": "short"
         },
         "overrides": []
-      }
+      },
+      "id": 6,
+      "description": "alertmanager_alerts 上没有 severity 标签(只有 state),原来的 by (severity) 永远聚不出序列。"
     }
   ],
   "refresh": "30s",
@@ -249,7 +269,7 @@
           "type": "prometheus",
           "uid": "Prometheus"
         },
-        "query": "label_values(prometheus_scrape_success, instance)",
+        "query": "label_values(up, instance)",
         "refresh": 2,
         "includeAll": true,
         "multi": true,

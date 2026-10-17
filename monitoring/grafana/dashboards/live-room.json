@@ -6,7 +6,18 @@
   "editable": true,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "返回 AI 总览",
+      "type": "link",
+      "url": "/d/ihui-ai-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "tags": ["ihui-ai"]
+    }
+  ],
   "panels": [
     {
       "title": "在线总人数",
@@ -160,7 +171,7 @@
       }
     },
     {
-      "title": "礼物收入趋势 (按房间)",
+      "title": "礼物收入趋势 (按房间 · 平台币)",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -181,10 +192,11 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyCNY"
+          "unit": "short"
         },
         "overrides": []
-      }
+      },
+      "description": "发射点自述单位是 platform coins(# HELP 原文:unit = platform coins),不是人民币;原来挂 currencyCNY 会把虚拟币读成钱。"
     },
     {
       "title": "断流次数趋势",
@@ -227,7 +239,7 @@
           "type": "prometheus",
           "uid": "Prometheus"
         },
-        "query": "label_values(ihui_live_online_total, instance)",
+        "query": "label_values(business_ws_rooms, instance)",
         "refresh": 2,
         "includeAll": true,
         "multi": true,

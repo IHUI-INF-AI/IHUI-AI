@@ -26,6 +26,7 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
+import type * as ssrfGuardModule from '@ihui/shared/utils/ssrf-guard';
 import {
   classifySseStreamExit,
   connectMcpServer,
@@ -39,10 +40,10 @@ import {
 // SSRF 守卫本身由 ssrf-outbound-surface.test.ts 单独钉住,这里只把它换成常 safe。
 vi.mock('@ihui/shared/utils/ssrf-guard', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('@ihui/shared/utils/ssrf-guard')>();
+    await importOriginal<typeof ssrfGuardModule>();
   return {
     ...actual,
-    assertSafeFetchUrl: async () => ({ safe: true }) as import('@ihui/shared/utils/ssrf-guard').SsrfDecision,
+    assertSafeFetchUrl: async () => ({ safe: true }) as ssrfGuardModule.SsrfDecision,
   };
 });
 
