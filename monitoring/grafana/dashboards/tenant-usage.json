@@ -6,7 +6,18 @@
   "editable": true,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "返回 AI 总览",
+      "type": "link",
+      "url": "/d/ihui-ai-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "tags": ["ihui-ai"]
+    }
+  ],
   "panels": [
     {
       "title": "活跃租户数",
@@ -23,7 +34,7 @@
       },
       "targets": [
         {
-          "expr": "count(count by (tenant_id) (ihui_tenant_api_calls_total{instance=~\"$instance\"}[5m]))",
+          "expr": "count(count by (tenant_id) (increase(ihui_tenant_api_calls_total{instance=~\"$instance\"}[1h])))",
           "legendFormat": "活跃租户",
           "refId": "A"
         }
@@ -207,7 +218,7 @@
       },
       "targets": [
         {
-          "expr": "count(count by (tenant_id) (ihui_tenant_api_calls_total{instance=~\"$instance\"}[5m]))",
+          "expr": "count(count by (tenant_id) (increase(ihui_tenant_api_calls_total{instance=~\"$instance\"}[1h])))",
           "legendFormat": "活跃租户",
           "refId": "A"
         }
@@ -283,7 +294,7 @@
           "type": "prometheus",
           "uid": "Prometheus"
         },
-        "query": "label_values(ihui_tenant_api_calls_total, instance)",
+        "query": "label_values(up{job=\"business-metrics\"}, instance)",
         "refresh": 2,
         "includeAll": true,
         "multi": true,

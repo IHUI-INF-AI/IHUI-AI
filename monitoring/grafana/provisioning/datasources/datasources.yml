@@ -8,7 +8,11 @@ apiVersion: 1
 # Prometheus（指标默认数据源）+ Jaeger（分布式追踪）+ Loki（日志聚合）
 
 datasources:
+  # uid 一律显式写死:大屏引用的就是这些 uid。省略时 Grafana 拿 name 当 uid 用,
+  # 于是"改个显示名"就会静默打断全部面板(2026-10-17 实测 deploy/saas 那棵树正是
+  # 因为一个 Grafana 样例默认 uid 悬空而 10 处引用全瞎)。
   - name: Prometheus
+    uid: Prometheus
     type: prometheus
     access: proxy
     url: http://prometheus:9090
@@ -18,13 +22,15 @@ datasources:
       timeInterval: '15s'
 
   - name: Jaeger
+    uid: Jaeger
     type: jaeger
     access: proxy
     url: http://jaeger:16686
     editable: true
     jsonData:
       tracesToMetrics:
-        datasourceUid: prometheus
+        # 大小写敏感:上面声明的是 Prometheus,写 prometheus 就是一条指不到任何数据源的链接
+        datasourceUid: Prometheus
         spanStartTimeShift: '1h'
         spanEndTimeShift: '-1h'
         tags:
@@ -33,16 +39,19 @@ datasources:
 
   # Loki 日志聚合(由 promtail 采集 docker 容器/系统日志推送)
   - name: Loki
+    uid: Loki
     type: loki
     access: proxy
     url: http://loki:3100
     editable: true
     jsonData:
       maxLines: 1000
-      # 链路-日志关联:在 Jaeger trace 详情中可跳转查询同时间窗的 Loki 日志
+      # 链路-日志关联:在 Jaeger trace 详情中可跳转查询同时间窗的 Loki 日志。
+      # 现状如实登记:本机 24h 内没有任何一行日志含 `trace_id=`(2026-10-17 现读 Loki
+      # query_range 计数 0),所以这条派生字段当前永不触发;等 OTel 注入 trace_id 后自动生效。
       derivedFields:
-        - datasourceUid: prometheus
+        - datasourceUid: Prometheus
           name: TraceMetrics
           matcherRegex: 'trace_id=(\w+)'
-          url: '/explore?orgId=1&left={"datasource":"prometheus","queries":[{"expr":"{$${__value.raw}}"}]}'
+          url: '/explore?orgId=1&left={"datasource":"Prometheus","queries":[{"expr":"{$${__value.raw}}"}]}'
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -25,6 +25,7 @@
  */
 import { useEffect, useRef } from 'react'
 import { tokens } from '../theme/active-tokens'
+import { BrandIcon } from './brand-icon'
 import { Bot, Check as CheckIcon, type LucideIcon } from 'lucide-react-native'
 import type { ModelTier, ModelUsageCategory } from '@ihui/types'
 import {
@@ -80,6 +81,8 @@ export interface ModelListItem {
   description: string
   /** emoji 字符 或 lucide 图标组件引用(统一图标) */
   icon: LucideIcon | string
+  /** 厂商代码(如 'openai');有值时优先渲染 BrandIcon 真实矢量,RNW 走 lobeHub,原生走字母兜底 */
+  vendor?: string
   isFree: boolean
   /** NEW 角标(对齐 Uniapp is_new == 1) */
   isNew?: boolean
@@ -196,7 +199,9 @@ function Row({
         accessibilityLabel={item.name}
       >
         <View style={styles.iconWrap}>
-          {typeof item.icon === 'string' ? (
+          {item.vendor ? (
+            <BrandIcon vendor={item.vendor} size={20} color={tokens.text.secondary} />
+          ) : typeof item.icon === 'string' ? (
             <Text style={styles.iconEmoji}>{item.icon}</Text>
           ) : (
             <item.icon size={20} color={tokens.text.secondary} />

@@ -52,7 +52,7 @@
       },
       "targets": [
         {
-          "expr": "count(ihui_llm_calls_total{job=\"ai-service\"})",
+          "expr": "count(ihui_llm_calls_total{job=\"ai-service\",provider=~\"$provider\",model=~\"$model\"})",
           "legendFormat": "series",
           "refId": "A"
         }
@@ -270,7 +270,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (status) (rate(ihui_llm_calls_total{job=\"ai-service\"}[1h]))",
+          "expr": "sum by (status) (rate(ihui_llm_calls_total{job=\"ai-service\",provider=~\"$provider\",model=~\"$model\"}[1h]))",
           "legendFormat": "{{status}}",
           "refId": "A"
         }
@@ -312,7 +312,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(ihui_llm_calls_total{job=\"ai-service\",status=\"ok\"}[$__range])) / sum(increase(ihui_llm_calls_total{job=\"ai-service\"}[$__range]))",
+          "expr": "sum(increase(ihui_llm_calls_total{job=\"ai-service\",status=\"ok\"}[$__range])) / sum(increase(ihui_llm_calls_total{job=\"ai-service\",provider=~\"$provider\",model=~\"$model\"}[$__range]))",
           "legendFormat": "success",
           "refId": "A"
         }
@@ -542,7 +542,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (direction) (rate(ihui_llm_tokens_total{job=\"ai-service\"}[1h]))",
+          "expr": "sum by (direction) (rate(ihui_llm_tokens_total{job=\"ai-service\",provider=~\"$provider\",model=~\"$model\"}[1h]))",
           "legendFormat": "{{direction}}",
           "refId": "A"
         }
@@ -585,7 +585,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(ihui_llm_cost_usd_total{job=\"ai-service\"}[$__range]))",
+          "expr": "sum(increase(ihui_llm_cost_usd_total{job=\"ai-service\",provider=~\"$provider\",model=~\"$model\"}[$__range]))",
           "legendFormat": "cost",
           "refId": "A"
         }
@@ -692,7 +692,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (provider) (rate(ihui_llm_calls_total{job=\"ai-service\"}[1h]))",
+          "expr": "sum by (provider) (rate(ihui_llm_calls_total{job=\"ai-service\",provider=~\"$provider\",model=~\"$model\"}[1h]))",
           "legendFormat": "{{provider}}",
           "refId": "A"
         }
@@ -734,7 +734,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (provider, status) (rate(ihui_llm_provider_errors_total{job=\"ai-service\"}[1h]))",
+          "expr": "sum by (provider, status) (rate(ihui_llm_provider_errors_total{job=\"ai-service\",provider=~\"$provider\"}[1h]))",
           "legendFormat": "{{provider}} {{status}}",
           "refId": "A"
         }
@@ -981,7 +981,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (call_type) (rate(business_ai_calls_total{job=\"business-metrics\"}[1h]))",
+          "expr": "sum by (call_type) (rate(business_ai_calls_total{job=\"business-metrics\",vendor=~\"$provider\",model=~\"$model\"}[1h]))",
           "legendFormat": "{{call_type}}",
           "refId": "A"
         }
@@ -1023,7 +1023,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(business_ai_cost_minor_units_total{job=\"business-metrics\"}[$__range])) / 100",
+          "expr": "sum(increase(business_ai_cost_minor_units_total{job=\"business-metrics\",vendor=~\"$provider\",model=~\"$model\"}[$__range])) / 100",
           "legendFormat": "cost",
           "refId": "A"
         }
@@ -1066,7 +1066,7 @@
       },
       "targets": [
         {
-          "expr": "count(business_ai_calls_total{job=\"business-metrics\"})",
+          "expr": "count(business_ai_calls_total{job=\"business-metrics\",vendor=~\"$provider\",model=~\"$model\"})",
           "legendFormat": "series",
           "refId": "A"
         }
@@ -1110,52 +1110,46 @@
       {
         "name": "provider",
         "label": "厂商",
-        "query": {
-          "cloudCommand": null,
-          "cloudDuration": null,
-          "expression": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, provider)",
-          "range": false
-        },
+        "query": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, provider)",
         "current": {
-          "selectedText": "All",
+          "selected": true,
           "text": "All",
           "value": "$__all"
         },
         "includeAll": true,
         "multi": true,
         "refresh": 1,
-        "regex": "",
-        "sort": 1,
         "type": "query",
         "hide": 0,
         "definition": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, provider)",
         "options": [],
-        "allValue": ".*"
+        "allValue": ".*",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        }
       },
       {
         "name": "model",
         "label": "模型",
-        "query": {
-          "cloudCommand": null,
-          "cloudDuration": null,
-          "expression": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, model)",
-          "range": false
-        },
+        "query": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, model)",
         "current": {
-          "selectedText": "All",
+          "selected": true,
           "text": "All",
           "value": "$__all"
         },
         "includeAll": true,
         "multi": true,
         "refresh": 1,
-        "regex": "",
-        "sort": 1,
         "type": "query",
         "hide": 0,
         "definition": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, model)",
         "options": [],
-        "allValue": ".*"
+        "allValue": ".*",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        }
       }
     ]
   },
@@ -1175,5 +1169,6 @@
   },
   "uid": "ihui-ai-overview",
   "version": 1,
-  "weekStart": ""
+  "weekStart": "",
+  "description": "AI 总览:调用量、成功率、Token、成本、TTFT 与业务落账口径并排,是其余 AI 盘的入口。"
 }

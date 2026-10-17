@@ -72,7 +72,19 @@ import { logger } from '../utils/logger.js'
  * 不另立第二套标签形状(AGENTS §0.6 单一真相源)。
  */
 
-type FunnelStage = 'register' | 'activate' | 'paid'
+/**
+ * 漏斗阶段封闭枚举 —— 文档第 1 条的 `register|activate|paid` 即这一份。
+ * 必须是**运行时数组**而非纯类型:渲染侧要逐枚举值开零基线(见
+ * `seedFunnelClosedEnumBaseline`),类型编译期就没了。`FunnelStage` 由它派生,
+ * 不得再抄第二份(AGENTS §0.6 单一真相源)。
+ */
+export const FUNNEL_STAGES = ['register', 'activate', 'paid'] as const
+export type FunnelStage = (typeof FUNNEL_STAGES)[number]
+/**
+ * `recordFunnel` 未显式传 channel 时的落点。渠道本身是**开放集**(入参是任意串,
+ * 全仓无封闭声明)⇒ 基线只开这个源码里已知存在的缺省档,不编造渠道名。
+ */
+export const FUNNEL_DEFAULT_CHANNEL = 'default'
 
 interface BusinessMetrics {
   // 现有指标
@@ -155,6 +167,23 @@ const TTFT_SECONDS_BUCKETS = [0.05, 0.1, 0.25, 0.5, 1, 2, 3, 5, 10, 30] as const
 
 function counterInc(map: Map<string, number>, key: string, by = 1): void {
   map.set(key, (map.get(key) ?? 0) + by)
+}
+
+/**
+ * 封闭枚举零基线(2026-10-17 立)。本端点是**进程内存快照**,重启即清空:某个枚举值
+ * 在还没发生任何事件之前(含刚重启、含埋点压根没人调)只有 `# HELP`/`# TYPE` 两行、
+ * 零条样本 ⇒ Prometheus 里 series=0 ⇒ Grafana 面板恒显 "No data",而"没人发生过"与
+ * "指标坏了"在面板上同形(实测 business_funnel_total 等族即此型)。
+ * 对**标签值封闭且已在源码里声明**的族,逐枚举值开一条 0 样本 —— 0 才是"没发生"的真相。
+ * 基线走真实自增用的同一条计数器路径(`counterInc` / `ihuiCounterInc`,`by=0`),
+ * 所以后续真实事件是把这条 0 顶成 1,不是再开一条 ⇒ 不重复计数。
+ * 标签值为**开放集**的族(tenant_id / source_ip / 试卷 category / vendor+model)
+ * 一律不开基线:编造 `tenant_id="unknown"` 比 "No data" 更坏。
+ */
+function seedFunnelClosedEnumBaseline(metrics: BusinessMetrics): void {
+  for (const stage of FUNNEL_STAGES) {
+    counterInc(metrics.funnel, `${stage}|${FUNNEL_DEFAULT_CHANNEL}`, 0)
+  }
 }
 
 function observeHistogram(metrics: BusinessMetrics, baseKey: string, valueMs: number): void {
@@ -470,24 +499,65 @@ function resetAiState(): void {
 const IHUI_SERIES_CAP = 512
 const IHUI_LABEL_MAX_LEN = 64
 
+/**
+ * 存储驱动封闭枚举 —— 全仓唯一一份。`routes/oss.ts` 的 `ossDriverTypeSchema`
+ * 与 `/oss/drivers` 文档 schema 都从这里派生(原先是同一串字面量抄两处,必漂)。
+ * 住在指标文件是因为只有渲染侧需要"逐枚举值开零基线";它不引任何应用模块,
+ * 由 oss 路由反向 import ⇒ 不形成循环依赖。
+ */
+export const OSS_DRIVER_TYPES = [
+  'local',
+  'aliyun-oss',
+  'tencent-cos',
+  'qiniu',
+  's3',
+  'minio',
+] as const
+export type OssDriverType = (typeof OSS_DRIVER_TYPES)[number]
+
+/**
+ * OSS `error_type` 标签口径:HTTP 状态码族 → 标签值。onResponse 钩子写样本与
+ * 零基线开样本都走 `ossErrorTypeFor`,这样"基线列出的值"与"真实会写出的值"同源
+ * (用例 B6 用真请求把这条锁上)。
+ */
+const OSS_ERROR_TYPES = ['status_4xx', 'status_5xx'] as const
+
+function ossErrorTypeFor(statusCode: number): string {
+  return `status_${Math.floor(statusCode / 100)}xx`
+}
+
+/**
+ * 登录风控命中原因封闭集。出处两条同向:本文件 `authLoginAnomalyTotal` 的键注释
+ * (deny/challenge/review/lockout,四个,无省略号)与 `routes/auth.ts` 里
+ * `recordAuthLoginAnomaly(...)` 仅有的四个字面量。写入函数入参用它收窄,
+ * 新增原因必须改这份数组才编得过 ⇒ 基线与标签集不会各活各的。
+ * 对照 `authTokenRevokedTotal`(注释带 `...`,原因值由调用方按业务随意传)—— 那是开放集。
+ */
+export const AUTH_LOGIN_ANOMALY_REASONS = ['deny', 'challenge', 'review', 'lockout'] as const
+export type AuthLoginAnomalyReason = (typeof AUTH_LOGIN_ANOMALY_REASONS)[number]
+
 const ihuiState = {
   // ---- auth 7 ----
   authLoginAttemptTotal: 0,
   authLoginSuccessTotal: 0,
-  /** key: source_ip(用户可控,白名单洗 + 基数上限) */
+  /** key: source_ip(开放集:每个来源 IP 都不同,无封闭枚举 ⇒ 不开零基线) */
   authLoginFailedTotal: new Map<string, number>(),
   authJwtIssuedTotal: 0,
-  /** key: reason(refresh_rotation/logout/reuse_detected/force_logout/session_revoke/...) */
+  /**
+   * key: reason(refresh_rotation/logout/reuse_detected/force_logout/session_revoke/...)
+   * —— 出处注释自带省略号,且 `revokeRefreshToken(token, reason = string)` 收任意串,
+   * 属开放集 ⇒ 不开零基线(编造原因值比 "No data" 更坏)。
+   */
   authTokenRevokedTotal: new Map<string, number>(),
   auth2faUsedTotal: 0,
-  /** key: reason(deny/challenge/review/lockout) */
+  /** key: reason —— 封闭集,唯一真相源见 `AUTH_LOGIN_ANOMALY_REASONS`(逐值开零基线) */
   authLoginAnomalyTotal: new Map<string, number>(),
   // ---- exam 7 ----
   examStartedTotal: 0,
   examSubmittedTotal: 0,
   /** Gauge:pending(近24h started)的 exam_records 数,scheduler 定时刷新 */
   examActiveTotal: 0,
-  /** key: category(试卷分类) */
+  /** key: category —— 试卷 categoryId 由库里的行决定,是开放集,不开零基线 */
   examQuestionUsedTotal: new Map<string, number>(),
   examCertificateIssuedTotal: 0,
   /** 成绩样本和(float)—— 面板 avg = sum/count */
@@ -506,9 +576,9 @@ const ihuiState = {
   ossUploadBytesTotal: 0,
   /** 单位 = 字节 */
   ossDownloadBytesTotal: 0,
-  /** key: driver(local/aliyun-oss/tencent-cos/...) */
+  /** key: driver —— 封闭集,唯一真相源见 `OSS_DRIVER_TYPES`(逐值开零基线) */
   ossRequestsTotal: new Map<string, number>(),
-  /** key: driver|error_type */
+  /** key: driver|error_type —— driver 封闭(OSS_DRIVER_TYPES),error_type 封闭(OSS_ERROR_TYPES) */
   ossErrorsTotal: new Map<string, number>(),
   /** Gauge:磁盘扫描总量(字节),scheduler 定时刷新 */
   ossStorageUsedBytes: 0,
@@ -573,6 +643,28 @@ function safeRecord(name: string, fn: () => void): void {
   }
 }
 
+/**
+ * ihui_* 侧的封闭枚举零基线(口径与设计理由见 `seedFunnelClosedEnumBaseline` 头注):
+ * 只给"标签值在源码里已声明为封闭集"的族逐值开 0 —— auth 风控原因、oss 驱动、
+ * oss 驱动×错误类型。走 `ihuiCounterInc`(与写入函数同一个入口,含基数护栏),
+ * `by=0` ⇒ 真实事件顶替这条 0,不另开序列、不重复计数。
+ */
+function seedIhuiClosedEnumBaseline(): void {
+  for (const reason of AUTH_LOGIN_ANOMALY_REASONS) {
+    ihuiCounterInc(ihuiState.authLoginAnomalyTotal, reason, 0)
+  }
+  for (const driver of OSS_DRIVER_TYPES) {
+    ihuiCounterInc(ihuiState.ossRequestsTotal, driver, 0)
+    for (const errorType of OSS_ERROR_TYPES) {
+      ihuiCounterInc(ihuiState.ossErrorsTotal, `${driver}|${errorType}`, 0)
+    }
+  }
+}
+
+// 模块加载即开基线:本族状态是模块级单例(不随插件注册/关闭而重建),
+// 只在这里开一次 + 在 resetIhuiState 末尾重开,即可保证任何时刻都有样本。
+seedIhuiClosedEnumBaseline()
+
 // ============================== auth 7 ==============================
 
 export function recordAuthLoginAttempt(): void {
@@ -611,7 +703,7 @@ export function recordAuth2faUsed(): void {
   })
 }
 
-export function recordAuthLoginAnomaly(reason: string): void {
+export function recordAuthLoginAnomaly(reason: AuthLoginAnomalyReason): void {
   safeRecord('recordAuthLoginAnomaly', () => {
     ihuiCounterInc(ihuiState.authLoginAnomalyTotal, sanitizeIhuiLabel(reason))
   })
@@ -886,6 +978,9 @@ export function resetIhuiState(): void {
   ihuiState.tenantResourceUsed.clear()
   ihuiState.tenantResourceQuota.clear()
   ihuiState.seriesDroppedTotal = 0
+  // 清零后必须把封闭枚举的 0 基线重新开回去,否则一次 admin reset / onClose 就把
+  // 面板打回 "No data"(与本次要根治的形态同形)。
+  seedIhuiClosedEnumBaseline()
 }
 
 const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
@@ -956,6 +1051,9 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     recurringWebhookDeprecatedTotal: new Map(),
   }
 
+  // 漏斗阶段的 0 基线:标签值封闭(FUNNEL_STAGES),注册即开线,面板读 0 而非 "No data"。
+  seedFunnelClosedEnumBaseline(m)
+
   // P2 修复:统一重置所有 metrics Map 与 number gauge,防止长期运行内存累积。
   // 触发场景:① 进程 onClose 释放内存;② admin 手动 POST /business-metrics/reset。
   function resetAllMetrics(): void {
@@ -984,6 +1082,9 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     m.wsMessageLatencyCount = 0
     m.ttftAlertsTotal = 0
     m.recurringChargeDueGauge = 0
+    // 封闭枚举 0 基线必须在清零后重开(resetIhuiState 自己末尾重开 ihui_* 那三份),
+    // 否则 admin reset / onClose 一次就把面板打回 "No data"。
+    seedFunnelClosedEnumBaseline(m)
   }
 
   // 自动采集 API 调用成功率与延迟（按路由+状态码）
@@ -1015,14 +1116,14 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
       observeHistogram(m, key, Math.round(reply.elapsedTime))
       // oss 请求/错误计数:过滤 /api/files、/api/oss 前缀(真实字节面)。
       // driver 标签取配置值(本地存储默认 local);错误按响应码粗分 error_type。
+      // 2026-10-17:改走 recordOssRequest/recordOssError 这两个写入出口(此前钩子内
+      // 联 ihuiCounterInc,与出口各写一份标签拼装式 ⇒ 零基线列出的键和钩子写出的键
+      // 可能不是同一个)。error_type 口径同样收口到 ossErrorTypeFor,与基线同源。
       if (url.startsWith('/api/files/') || url.startsWith('/api/oss')) {
-        const driver = sanitizeIhuiLabel(process.env.OSS_DRIVER_TYPE ?? 'local', 32)
-        ihuiCounterInc(ihuiState.ossRequestsTotal, driver)
+        const driver = process.env.OSS_DRIVER_TYPE ?? 'local'
+        recordOssRequest(driver)
         if (reply.statusCode >= 400) {
-          ihuiCounterInc(
-            ihuiState.ossErrorsTotal,
-            `${driver}|status_${Math.floor(reply.statusCode / 100)}xx`,
-          )
+          recordOssError(driver, ossErrorTypeFor(reply.statusCode))
         }
       }
     })
@@ -1222,7 +1323,9 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
   server.decorate('recordAuthJwtIssued', () => recordAuthJwtIssued())
   server.decorate('recordAuthTokenRevoked', (reason: string) => recordAuthTokenRevoked(reason))
   server.decorate('recordAuth2faUsed', () => recordAuth2faUsed())
-  server.decorate('recordAuthLoginAnomaly', (reason: string) => recordAuthLoginAnomaly(reason))
+  server.decorate('recordAuthLoginAnomaly', (reason: AuthLoginAnomalyReason) =>
+    recordAuthLoginAnomaly(reason),
+  )
   server.decorate('recordExamStarted', () => recordExamStarted())
   server.decorate('recordExamSubmitted', () => recordExamSubmitted())
   server.decorate('setExamActive', (count: number) => setExamActive(count))
@@ -1299,6 +1402,8 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     const lines: string[] = []
 
     // 1. 漏斗
+    // stage 为封闭集(FUNNEL_STAGES),注册时已逐值开 0 基线 ⇒ 面板读 0 而不是 "No data";
+    // channel 只开了缺省档 'default'(渠道是开放集,不编造)。
     lines.push('# HELP business_funnel_total Business conversion funnel counter')
     lines.push('# TYPE business_funnel_total counter')
     for (const [k, v] of m.funnel) {
@@ -1336,6 +1441,13 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     }
 
     // 3. 自定义业务指标
+    // 不开 0 基线的两个理由(2026-10-17 现读):① type/status 在源码里没有封闭枚举声明
+    // —— 订单类型是整数码(billing.ts:71 注释 1=membership 2=token …),edu_orders 另有
+    // course|card,各表 status 词表还互不相同(pending|paid|cancelled|refunded / created|paying
+    // |paid|failed|cancelled / 6 档退款状态),按哪一份开线都是替全部开一份假集合;
+    // ② 更硬的事实:`server.recordOrder` 装饰器全仓零调用点(只有装饰器定义、declare-module
+    // 条目与本文件头注那句"路由通过 …recordOrder… 上报"),这条族结构上不可能有真实写入
+    // ⇒ 开线也只是把"埋点没接"伪装成"业务没发生"。
     lines.push('# HELP business_orders_total Business orders counter')
     lines.push('# TYPE business_orders_total counter')
     for (const [k, v] of m.orders) {
@@ -1351,6 +1463,11 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     }
 
     // AI 族:标签值一律来自 sanitizeAiLabel(写入侧洗过),这里只做 4/3 段反拆。
+    // **不开 0 基线**:vendor/model 是开放集(取自 ai_cost_records.provider/model,
+    // 用户自带模型配置可控),编一个 vendor 出来等于往大屏里灌一条永不增长的假序列;
+    // call_type/status/direction 虽然封闭,但主键 vendor|model 不在就整条键都不存在。
+    // 真实写入出口 = ai-cost.ts 的 recordAiCost() 桥接(用例见 business-metrics-ai-bridge.test.ts,
+    // 其中 T2 正依赖"没事件时该族零样本"这一条)。
     lines.push(
       '# HELP business_ai_calls_total AI model invocation counter (labels: vendor, model, call_type, status)',
     )
@@ -1643,6 +1760,8 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     lines.push('# TYPE ihui_auth_login_success_total counter')
     lines.push(`ihui_auth_login_success_total ${ihuiState.authLoginSuccessTotal}`)
 
+    // source_ip 是开放集(每个来源一个值,无封闭声明)⇒ 不开 0 基线:第一条真实失败
+    // 才会开出该 IP 的序列,这是有 IP 维度的计数器应有的形态。
     lines.push('# HELP ihui_auth_login_failed_total Auth login failures by source_ip')
     lines.push('# TYPE ihui_auth_login_failed_total counter')
     for (const [ip, v] of ihuiState.authLoginFailedTotal) {
@@ -1653,6 +1772,8 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     lines.push('# TYPE ihui_auth_jwt_issued_total counter')
     lines.push(`ihui_auth_jwt_issued_total ${ihuiState.authJwtIssuedTotal}`)
 
+    // reason 为开放集(revokeRefreshToken 的 reason 形参是 string,db/queries.ts 的
+    // 出处注释自带省略号)⇒ 不开 0 基线,只由真实吊销写线。
     lines.push(
       '# HELP ihui_auth_token_revoked_total Refresh tokens revoked by reason (rotation counts toward the 1h increase panel)',
     )
@@ -1665,6 +1786,7 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     lines.push('# TYPE ihui_auth_2fa_used_total counter')
     lines.push(`ihui_auth_2fa_used_total ${ihuiState.auth2faUsedTotal}`)
 
+    // reason 封闭(AUTH_LOGIN_ANOMALY_REASONS,四值)⇒ 已逐值开 0 基线,面板读 0 而非 No data。
     lines.push('# HELP ihui_auth_login_anomaly_total Login risk-engine hits by reason')
     lines.push('# TYPE ihui_auth_login_anomaly_total counter')
     for (const [reason, v] of ihuiState.authLoginAnomalyTotal) {
@@ -1686,6 +1808,9 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     lines.push('# TYPE ihui_exam_active_total gauge')
     lines.push(`ihui_exam_active_total ${ihuiState.examActiveTotal}`)
 
+    // category 是开放集(埋点在 routes/exam.ts 的 POST /exam/papers/:id/start,取
+    // paper.categoryId,值由试卷表里的行决定)⇒ 不开 0 基线。该族埋点本身是活的,
+    // 开过一场试就有线。
     lines.push('# HELP ihui_exam_question_used_total Exam questions served by paper category')
     lines.push('# TYPE ihui_exam_question_used_total counter')
     for (const [category, v] of ihuiState.examQuestionUsedTotal) {
@@ -1738,12 +1863,16 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     lines.push('# TYPE ihui_oss_download_bytes_total counter')
     lines.push(`ihui_oss_download_bytes_total ${ihuiState.ossDownloadBytesTotal}`)
 
+    // driver 封闭(OSS_DRIVER_TYPES,六值)⇒ 已逐值开 0 基线。本部署实际只会自增
+    // env OSS_DRIVER_TYPE 那一档,其余档读 0 是"没发生过",不是假数据。
     lines.push('# HELP ihui_oss_requests_total OSS requests by storage driver')
     lines.push('# TYPE ihui_oss_requests_total counter')
     for (const [driver, v] of ihuiState.ossRequestsTotal) {
       lines.push(`ihui_oss_requests_total{driver="${driver}"} ${v}`)
     }
 
+    // 两维都封闭(OSS_DRIVER_TYPES × OSS_ERROR_TYPES)⇒ 已开 12 条 0 基线;
+    // error_type 口径与 onResponse 钩子共用 ossErrorTypeFor,不会开出钩子写不出的键。
     lines.push('# HELP ihui_oss_errors_total OSS errors by storage driver and error_type')
     lines.push('# TYPE ihui_oss_errors_total counter')
     for (const [k, v] of ihuiState.ossErrorsTotal) {
@@ -1808,6 +1937,8 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     lines.push(`ihui_payment_wxpay_callback_failed_total ${ihuiState.wxpayCallbackFailedTotal}`)
 
     // tenant 4
+    // tenant_id 是开放集(每租户一个,埋点在 plugins/tenant.ts 的 onResponse,
+    // 值来自 header/subdomain 解析出的真实租户)⇒ 不开 0 基线:编造 tenant_id 比 No data 更坏。
     lines.push('# HELP ihui_tenant_api_calls_total API calls by tenant')
     lines.push('# TYPE ihui_tenant_api_calls_total counter')
     for (const [tenantId, v] of ihuiState.tenantApiCallsTotal) {
@@ -1874,6 +2005,13 @@ export const __test__ = {
   resetIhuiState,
   sanitizeIhuiLabel,
   IHUI_SERIES_CAP,
+  // 封闭枚举零基线用测试从源文件取清单(§22c:判据不得在测试里抄第二份)
+  FUNNEL_STAGES,
+  FUNNEL_DEFAULT_CHANNEL,
+  OSS_DRIVER_TYPES,
+  OSS_ERROR_TYPES,
+  AUTH_LOGIN_ANOMALY_REASONS,
+  ossErrorTypeFor,
 }
 
 declare module 'fastify' {
@@ -1988,7 +2126,8 @@ declare module 'fastify' {
     recordAuthJwtIssued: () => void
     recordAuthTokenRevoked: (reason: string) => void
     recordAuth2faUsed: () => void
-    recordAuthLoginAnomaly: (reason: string) => void
+    /** 风控命中原因:入参类型即封闭集 `AuthLoginAnomalyReason`(值来自 AUTH_LOGIN_ANOMALY_REASONS)。 */
+    recordAuthLoginAnomaly: (reason: AuthLoginAnomalyReason) => void
     recordExamStarted: () => void
     recordExamSubmitted: () => void
     setExamActive: (count: number) => void

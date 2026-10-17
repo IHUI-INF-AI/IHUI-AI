@@ -29,12 +29,15 @@ import {
   abortMultipartUpload,
 } from '../services/storage-service.js'
 import { getOssStsProvider } from '../services/oss-sts-service.js'
+import { OSS_DRIVER_TYPES } from '../plugins/business-metrics.js'
 
 // =============================================================================
 // Zod schemas
 // =============================================================================
 
-const ossDriverTypeSchema = z.enum(['local', 'aliyun-oss', 'tencent-cos', 'qiniu', 's3', 'minio'])
+// 驱动清单唯一真相源 = plugins/business-metrics.ts 的 OSS_DRIVER_TYPES(指标侧要按枚举
+// 逐值开 0 基线,这里入参校验与 /oss/drivers 文档 schema 都从同一份派生,不再抄字面量)。
+const ossDriverTypeSchema = z.enum(OSS_DRIVER_TYPES)
 
 const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
@@ -580,7 +583,7 @@ export const adminOssRoutes: FastifyPluginAsync = async (server) => {
           properties: {
             driver: {
               type: 'string',
-              enum: ['local', 'aliyun-oss', 'tencent-cos', 'qiniu', 's3', 'minio'],
+              enum: [...OSS_DRIVER_TYPES],
             },
           },
         },
