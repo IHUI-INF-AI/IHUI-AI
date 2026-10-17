@@ -144,6 +144,8 @@ vi.mock('../src/config/index.js', () => ({
 
 import { authRoutes } from '../src/routes/auth.js'
 import { codeStore } from '../src/utils/code-store.js'
+import { resetSendQuotaForTests } from '../src/utils/code-echo-guard.js'
+import { config } from '../src/config/index.js'
 
 const NOW = new Date('2026-07-23T00:00:00Z')
 
@@ -201,6 +203,9 @@ describe('auth routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     codeStore.clear()
+    resetSendQuotaForTests()
+    delete process.env.AUTH_DEBUG_ECHO_CODE
+    config.isDevelopmentRuntime = false
     // 默认鉴权失败(401)
     mockAuthenticate.mockImplementation(() => {
       const err = new Error('Authentication required')
@@ -226,7 +231,7 @@ describe('auth routes', () => {
       expect(res.statusCode).toBe(400)
     })
 
-    it('合法手机号返回 200 并在 dev 模式返回 code', async () => {
+    it('合法手机号返回 200,响应体不含 code(G-192:默认不回显验证码)', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/send-code',
@@ -236,7 +241,64 @@ describe('auth routes', () => {
       const body = res.json()
       expect(body.code).toBe(0)
       expect(body.data.sent).toBe(true)
-      expect(body.data.code).toMatch(/^\d{6}$/)
+      // G-192 回归锁:钉在响应体序列化层 —— 生产/测试档 data 里不得出现 code 键
+      expect(body.data).not.toHaveProperty('code')
+    })
+
+    it('G-192:显式调试开关 + development 档 + loopback 三条件同时成立才回显 code', async () => {
+      process.env.AUTH_DEBUG_ECHO_CODE = '1'
+      config.isDevelopmentRuntime = true
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/send-code',
+        payload: { phone: '13800000002', scene: 'login' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.code).toMatch(/^\d{6}$/)
+    })
+
+    it('G-192:开关打开但非 development 档 ⇒ 仍不回显 code', async () => {
+      process.env.AUTH_DEBUG_ECHO_CODE = '1'
+      config.isDevelopmentRuntime = false
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/send-code',
+        payload: { phone: '13800000003', scene: 'login' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data).not.toHaveProperty('code')
+    })
+
+    it('G-192:/sms/send 同款不回显(小程序别名走同一闸)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sms/send',
+        payload: { phone: '13800000004', scene: 'login' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data).not.toHaveProperty('code')
+    })
+
+    it('G-192:同一手机号+IP 超出取码配额返回 429 + Retry-After', async () => {
+      // 每次换 codeStore 的 60 秒重发键,只让频控这一层生效
+      for (let i = 0; i < 5; i += 1) {
+        codeStore.clear()
+        const ok = await app.inject({
+          method: 'POST',
+          url: '/api/auth/send-code',
+          payload: { phone: '13800000005', scene: 'login' },
+        })
+        expect(ok.statusCode).toBe(200)
+      }
+      codeStore.clear()
+      const blocked = await app.inject({
+        method: 'POST',
+        url: '/api/auth/send-code',
+        payload: { phone: '13800000005', scene: 'login' },
+      })
+      expect(blocked.statusCode).toBe(429)
+      expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0)
+      expect(blocked.json().message).toContain('过于频繁')
     })
 
     it('60 秒内重发返回 429', async () => {
