@@ -56,7 +56,10 @@ def gh_api(path):
 
 def gitee_api(path, method="GET", data=None):
     url = f"https://gitee.com/api/v5{path}"
-    if data is not None and method == "POST":
+    # token 必须挂在所有需要鉴权的方法上 —— 原实现只给 POST 加,于是 DELETE 会被当匿名
+    # 请求(401),而下面的调用方只能看到 None、以为"啥也没发生"。GET 也一并带上(token
+    # 存在时提高限流额度;Gitee 对公开读不拒绝带 token 的请求)。
+    if GITEE_TOKEN:
         url += ("&" if "?" in url else "?") + f"access_token={GITEE_TOKEN}"
     req = urllib.request.Request(url, method=method)
     body = None
@@ -65,7 +68,14 @@ def gitee_api(path, method="GET", data=None):
         req.add_header("Content-Type", "application/json")
     req.data = body
     try:
-        return json.load(urllib.request.urlopen(req, timeout=120))
+        resp = urllib.request.urlopen(req, timeout=120)
+        # DELETE 成功是 204 空体:json.load 会抛异常,别让"删成功"变成异常分支。
+        # 只 read 一次并存到 raw —— 先 read 再 read 会拿到空串(原写法会在
+        # 204 分支里把 body 判成空、或让 json.loads 抛)。
+        raw = resp.read()
+        if resp.status in (204, 205) or not raw.strip():
+            return {}
+        return json.loads(raw)
     except urllib.error.HTTPError as e:
         print(f"[gitee] {method} {path} -> {e.code}: {e.read()[:200]}")
         return None
@@ -258,30 +268,67 @@ def main():
             json.dumps(latest, indent=2, ensure_ascii=False).encode()).decode()
         FEED_TAG = "desktop-updater-feed"
         rel = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases/tags/{FEED_TAG}")
-        if rel and rel.get("id"):
-            print("[gitee] feed release 已存在(非更新器端点,跳过)")
-        else:
+        if not (rel and rel.get("id")):
             rel = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases", "POST", {
                 "tag_name": FEED_TAG, "name": "Desktop updater feed(更新 feed 固定端点)",
                 "body": "自动化维护:latest.json 随每次桌面端发版更新。请勿手动删除。",
                 "target_commitish": "main", "prerelease": False})
-            if rel and rel.get("id"):
-                boundary = "ihui" + str(int(__import__("time").time() * 1000))
-                # multipart 组装与 gitee-release-attach.py 的 upload() 同款(\r\n 转义)
-                header = (
-                    "--%s\r\nContent-Disposition: form-data; name=\"file\"; "
-                    "filename=\"latest.json\"\r\nContent-Type: application/json\r\n\r\n"
-                    % boundary
-                )
-                body = header.encode() + json.dumps(
-                    latest, indent=2, ensure_ascii=False).encode() + (
-                    "\r\n--%s--\r\n" % boundary).encode()
-                req = urllib.request.Request(
-                    f"https://gitee.com/api/v5/repos/{GITEE_OWNER}/{GITEE_REPO}/releases/{rel['id']}/attach_files?access_token={GITEE_TOKEN}",
-                    data=body, method="POST")
-                req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
-                r = urllib.request.urlopen(req, timeout=300)
-                print(f"[gitee] feed release latest.json 更新: {r.status}")
+        if not (rel and rel.get("id")):
+            print("[gitee] feed release 创建失败(feed 附件跳过)")
+            raise SystemExit(0)
+
+        # 2026-10-17 修(实测立因):原实现只在 **feed release 首次创建时** 才 attach
+        # latest.json,已存在就 `print("已存在,跳过")` 直接走人 ——
+        # 于是这个附件从创建那天起**内容永远冻结**。实测:desktop-updater-feed 里
+        # 的 latest.json 停在 version=0.1.74、且 platforms 里**没有 windows-x86_64**
+        # (因为 0.1.74 的 exe 超 100MB 传不上 Gitee,写 feed 时被跳过)。
+        # 而它正是"国内可达的那份 feed",冻结等于国内用户永远看不到新版本。
+        # ⇒ 改成:先 POST attach(新增同名附件),再删掉所有**旧**同名附件,保证只剩一份最新。
+        #   Gitee 允许同名附件共存(所以不能只 attach,否则越积越多、客户端可能取到旧的);
+        #   DELETE /releases/{id}/attach_files/{file_id} 返回 204 即真删(2026-09-24 已实证)。
+        existing = {a.get("name"): a.get("id") for a in (rel.get("assets") or [])}
+        boundary = "ihui" + str(int(__import__("time").time() * 1000))
+        header = (
+            "--%s\r\nContent-Disposition: form-data; name=\"file\"; "
+            "filename=\"latest.json\"\r\nContent-Type: application/json\r\n\r\n" % boundary
+        )
+        body = header.encode() + json.dumps(
+            latest, indent=2, ensure_ascii=False).encode() + (
+            "\r\n--%s--\r\n" % boundary).encode()
+        req = urllib.request.Request(
+            f"https://gitee.com/api/v5/repos/{GITEE_OWNER}/{GITEE_REPO}/releases/{rel['id']}/attach_files?access_token={GITEE_TOKEN}",
+            data=body, method="POST")
+        req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+        r = urllib.request.urlopen(req, timeout=300)
+        print(f"[gitee] feed latest.json 已更新(v{latest.get('version')}): {r.status}")
+
+        # 删掉旧同名附件(刚上传的那份除外),只留最新一份。
+        # 为什么必须删:同名附件在 Gitee 可共存,`/releases/download/<tag>/latest.json`
+        # 这个固定 URL 会解析到其中之一 —— 留着旧的等于"更新了但可能还是读到旧版"。
+        #
+        # ⚠️ 关键细节(2026-10-17 实测定):release 对象里的 assets **只有 name 和
+        # browser_download_url,没有 id**(实测字段就这两个),所以不能按 release.assets 删。
+        # 真正带 id 的是 `/releases/{id}/attach_files` 这个接口(实测返回
+        # {"id":3412225,"name":"latest.json",...}) —— 删除必须走它列出来的 id。
+        # 失败不阻塞(下一轮幂等再清),但会把数量打出来便于对账。
+        try:
+            listed = gitee_api(
+                f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases/{rel['id']}/attach_files") or []
+            dup = [a for a in listed if a.get("name") == "latest.json" and a.get("id")]
+            if len(dup) > 1:
+                # 保留 id 最大的那份(刚上传的),其余删除
+                dup.sort(key=lambda a: a.get("id") or 0)
+                for stale in dup[:-1]:
+                    gitee_api(
+                        f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases/{rel['id']}"
+                        f"/attach_files/{stale['id']}",
+                        "DELETE",
+                    )
+                    print(f"[gitee] 已清旧 feed 附件 id={stale['id']}")
+            else:
+                print(f"[gitee] feed 附件只剩 1 份(id={dup[0]['id'] if dup else '无'}),无需清理")
+        except Exception as e:
+            print(f"[gitee] 清旧 feed 附件异常(不阻塞): {e}")
         print("[done] Gitee feed 附件已处理(非更新器端点,仅存档)")
     except Exception as e:
         print(f"[gitee] feed 更新异常(不阻塞): {e}")

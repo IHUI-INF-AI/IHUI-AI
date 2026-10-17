@@ -296,7 +296,13 @@ export async function resolveLiveDesktopFeed(): Promise<LiveDesktopResolution> {
     : null
   const usable =
     payload && typeof payload.version === 'string' && payload.platforms ? payload : null
-  return { source: 'live', data: buildLiveSource(pick, usable, repo) }
+  // Windows 主包优先走 Gitee(国内可达);Gitee 没有该资产时保持 release 原生 URL。
+  const preferred = usable ? await preferGiteeWindows(usable, pick.tag) : null
+  const base = buildLiveSource(pick, preferred, repo)
+  return {
+    source: 'live',
+    data: { ...base, assets: await preferGiteeInAssets(base.assets, pick.tag) },
+  }
 }
 
 /**
@@ -332,6 +338,61 @@ export type LiveAndroidResolution =
 
 /** 固定资产名(发布侧定义,双方共用的那一个字面量) */
 const APK_ASSET_NAME = 'ihui-ai-latest.apk'
+
+/** Gitee 镜像仓坐标(与 scripts/sync-gitee.py 的 GITEE_OWNER/GITEE_REPO 默认值同源) */
+const GITEE_OWNER = process.env.GITEE_OWNER || 'JLSLSSZWHYXGS_0'
+const GITEE_REPO = process.env.GITEE_REPO || 'IHUI-AI'
+
+interface GiteeReleaseAsset {
+  name?: string
+  browser_download_url?: string
+}
+interface GiteeRelease {
+  assets?: GiteeReleaseAsset[]
+}
+
+/**
+ * Windows 安装包的**国内可达性偏好**(2026-10-17 立)。
+ *
+ * 为什么需要它:站点 feed 与下载页此前一律给 GitHub 直链 —— 那是 release 的原生产物、
+ * 签名配对无歧义,但国内访问 GitHub 资产域名常直连超时(本机实测 ETIMEDOUT)。
+ * 而 Gitee 是国内可达的镜像,`scripts/sync-gitee.py` 每个版本都在往那儿同步。
+ * 只在 **Gitee 确实有同名资产** 时才改用它 —— 不能盲钉:0.1.74 的教训就是生成侧
+ * 无条件把 URL 钉到 Gitee,而当时 Gitee 上根本没有 exe(超 100MB 传不上)⇒ 全量 404。
+ *
+ * 签名不受影响:minisign 是对**包体字节**签的,同一份包放哪个 host 验签都成立
+ * (与 scripts/lib/tauri-updater-platforms.mjs 的 host 白名单口径一致:github/gitee 均允许)。
+ */
+async function giteeHasAsset(tag: string, assetName: string): Promise<boolean> {
+  const rel = await fetchJson<GiteeRelease>(
+    `https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/tags/${tag}`,
+    { Accept: 'application/json' },
+  )
+  const assets = rel?.assets || []
+  return assets.some((a) => a.name === assetName)
+}
+
+/** 把 windows-x86_64 的 URL 换成 Gitee 直链(仅当 Gitee 确实持有同名资产) */
+export async function preferGiteeWindows(
+  payload: DesktopFeedPayload | null,
+  tag: string,
+): Promise<DesktopFeedPayload | null> {
+  const win = payload?.platforms?.['windows-x86_64']
+  if (!payload || !win) return payload
+  const fileName = win.url.split('/').pop()
+  if (!fileName) return payload
+  if (!(await giteeHasAsset(tag, fileName))) return payload
+  return {
+    ...payload,
+    platforms: {
+      ...payload.platforms,
+      'windows-x86_64': {
+        ...win,
+        url: `https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/${tag}/${fileName}`,
+      },
+    },
+  }
+}
 
 /** 从 nightly 之外的地方找语义版本:`v1.2.3` / `mobile-v1.2.3` / 资产名里的 `_1.2.3_` */
 export function extractSemver(...candidates: (string | null | undefined)[]): string | null {
@@ -395,6 +456,26 @@ export async function resolveLiveAndroid(): Promise<LiveAndroidResolution> {
       notesUrl: release.html_url || '',
     },
   }
+}
+
+/** 把下载页资产里的 Windows exe 换成 Gitee 直链(同样只在 Gitee 确有该资产时) */
+async function preferGiteeInAssets(
+  assets: DesktopFeedAsset[],
+  tag: string,
+): Promise<DesktopFeedAsset[]> {
+  const exe = assets.find((a) => a.format === 'Windows NSIS exe')
+  if (!exe) return assets
+  const fileName = exe.href.split('/').pop()
+  if (!fileName) return assets
+  if (!(await giteeHasAsset(tag, fileName))) return assets
+  return assets.map((a) =>
+    a === exe
+      ? {
+          ...a,
+          href: `https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/${tag}/${fileName}`,
+        }
+      : a,
+  )
 }
 
 /**
