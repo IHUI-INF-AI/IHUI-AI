@@ -41,6 +41,7 @@
 // 已随之删除 —— 留着会变成第二处真相,且 `bin` 变量无人再用。
 import { execFileSync, spawnSync } from 'node:child_process'
 import { gitRaw } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { dirname, join, resolve } from 'node:path'
@@ -336,8 +337,16 @@ async function main() {
   if (args.includes('--self-test')) return runSelfTest()
   const json = args.includes('--json')
   const offline = args.includes('--offline')
-  const mIdx = args.indexOf('--manifest')
-  const manifestPath = mIdx >= 0 && args[mIdx + 1] ? resolve(args[mIdx + 1]) : DEFAULT_MANIFEST
+  // G-322(本站):`--manifest` 顶值 ⇒ 读一个不存在的台账,由下面的 catch 冒成"台账不可读"的**判红**
+  // (红记在本次提交头上,真因是调用方少打了一个值);缺省档不变。
+  // 注意本文件顶层是 `main().catch(...)`(main 为 async,**丢弃返回码**),所以这里必须 process.exit(2)
+  // —— 照抄别处的 `return 2` 会得到一个"点了名却 rc=0"的门(同型先例:check-staged-deletions)。
+  const manifestFlag = requireFlagValue(args, '--manifest', { noun: '文件路径' })
+  if (manifestFlag.error) {
+    console.error(`❌ ${manifestFlag.error}`)
+    process.exit(2)
+  }
+  const manifestPath = manifestFlag.value ? resolve(manifestFlag.value) : DEFAULT_MANIFEST
 
   let raw
   try {
