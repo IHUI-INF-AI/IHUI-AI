@@ -97,12 +97,30 @@ export function parseArgs(argv) {
   // F10 `--reopened-flips` 的**显式窗口**参数。窗口必须有:取证要遍历提交 diff,无窗口无法定界
   // (见 scanReopenedFlipEvidence 头注)。`--since` 与 `--max-commits` 都收等号与空格两种写法。
   const sinceEq = argv.find((x) => x.startsWith('--since='))
-  const sinceIdx = argv.indexOf('--since')
-  const sinceRaw = sinceEq !== undefined ? sinceEq.slice('--since='.length) : sinceIdx >= 0 ? argv[sinceIdx + 1] : null
-  const since = typeof sinceRaw === 'string' && sinceRaw !== '' && !sinceRaw.startsWith('-') ? sinceRaw : null
+  const sinceFlag = flagValue(argv, '--since')
+  const sinceRaw = sinceEq !== undefined ? sinceEq.slice('--since='.length) : sinceFlag.value
+  const since = typeof sinceRaw === 'string' && sinceRaw !== '' ? sinceRaw : null
+  // G-322(派单入口本身):旧写法 `argv[indexOf('--since')+1]` / `[...+1]` 把"被下一枚旗标顶值"读成
+  // 一个普通值或 null —— `--since` 那一支侥幸还会被后面的窗口校验拦住,但报的是"你没给窗口",
+  // 而调用方明明给了(只是值被吞);`--max-commits` 那一支则**静默退回默认 900**:同一道 `--reopened-flips`
+  // 在不同 argv 顺序下扫深浅不同,而"⚠ 已截断"那行照样按默认上限打出来,读数看起来完全自洽。
+  // 判据交单源出口(§22c),错误先收进 flagIssues,由 CLI 侧在任何输出之前统一 exit 2。
+  const flagIssues = []
+  if (sinceFlag.present && !sinceFlag.valid)
+    flagIssues.push(
+      `--since 需要一个 YYYY-MM-DD —— 紧邻的 token 实得:${describeFlagToken(sinceFlag)}(不得静默当成"没给窗口")`,
+    )
   const mcEq = argv.find((x) => x.startsWith('--max-commits='))
-  const mcIdx = argv.indexOf('--max-commits')
-  const mcRaw = mcEq !== undefined ? mcEq.slice('--max-commits='.length) : mcIdx >= 0 ? argv[mcIdx + 1] : null
+  const mcFlag = flagValue(argv, '--max-commits')
+  const mcRaw = mcEq !== undefined ? mcEq.slice('--max-commits='.length) : mcFlag.value
+  if (mcFlag.present && !mcFlag.valid)
+    flagIssues.push(
+      `--max-commits 需要一个正整数 —— 紧邻的 token 实得:${describeFlagToken(mcFlag)}(不得静默退回默认 ${F10_DEFAULT_MAX_COMMITS})`,
+    )
+  if (mcEq === undefined && mcFlag.valid && !/^\d+$/.test(mcFlag.value))
+    flagIssues.push(`--max-commits 必须是正整数,实得:${JSON.stringify(mcFlag.value)}`)
+  if (mcEq !== undefined && !/^\d+$/.test(mcEq.slice('--max-commits='.length)))
+    flagIssues.push(`--max-commits= 必须是正整数,实得:${JSON.stringify(mcEq.slice('--max-commits='.length))}`)
   const maxCommits = Number.isFinite(Number(mcRaw)) && Number(mcRaw) > 0 ? Number(mcRaw) : F10_DEFAULT_MAX_COMMITS
   return {
     json: has('--json'),
@@ -114,6 +132,7 @@ export function parseArgs(argv) {
     pointers: has('--pointers'),
     reopenedFlips: has('--reopened-flips'),
     since,
+    flagIssues,
     maxCommits,
     gate: has('--gate'),
     strict: has('--strict'),
@@ -2374,6 +2393,12 @@ function main() {
   // F10 判定面锚定的那枚提交(结论面与史证扫描面必须同一枚,见 scanReopenedFlipEvidence 头注)
   let f10HeadSha = null
   if (o.selfTest) return selfTest()
+  // G-322:被吞的 `--since` / `--max-commits` 先于任何输出判死(放在 self-test 之后 —— 自检不吃这两个旗标,
+  // 不该因调用方少打一个值就跑不起来)。逐条点名实得 token,不静默退回默认窗口/默认上限。
+  if (o.flagIssues?.length) {
+    for (const m of o.flagIssues) console.log(`⚠️ 无法判定 —— ${m}`)
+    return 2
+  }
   if (o.faceError) {
     console.log(`⚠️ 无法判定 —— ${o.faceError}`)
     return 2
