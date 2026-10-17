@@ -288,6 +288,19 @@ export default function CheckinPage() {
 
   React.useEffect(() => stopWbWebLoginPoll, [stopWbWebLoginPoll])
 
+  // 内嵌浏览器内容页检测(2026-10-17):内嵌浏览器的工具条注入脚本(BAR_JS)只
+  // 注入内容 webview,它定义的 window.__ihuiNav 是「本页跑在内嵌浏览器里」的
+  // 权威判据 —— 主窗/普通浏览器都没有它。不能用 desktop 区分:Tauri 会给内容
+  // webview 注入 __TAURI_INTERNALS__(只是 capability 未放行,invoke 全被拒),
+  // useTauriIpcReady 在嵌入页里可能仍为 true。注入脚本是 document-start 执行,
+  // 早于本组件水合,effect 里判一次即为终值。
+  const [embedBrowser, setEmbedBrowser] = React.useState(false)
+  React.useEffect(() => {
+    if (typeof (window as unknown as { __ihuiNav?: unknown }).__ihuiNav === 'function') {
+      setEmbedBrowser(true)
+    }
+  }, [])
+
   // 本机 TRAE 维护(设备重置 + 快照管理,桌面端专属)
   const [maintOpen, setMaintOpen] = React.useState(false)
   const [maintBusy, setMaintBusy] = React.useState(false)
@@ -703,6 +716,48 @@ export default function CheckinPage() {
     }
   }
 
+  // WorkBuddy probe 导入共用体(2026-10-17 抽出):主窗口轮询 ok 与嵌入模式
+  // hash 导入(#wb_import=)两条路径的入库逻辑同款,抽成一处防分叉漂移。
+  // 返回是否全部成功,调用方据此收尾(关登录窗/关对话框)。
+  const importWbProbeAccounts = async (probe: {
+    cookie: string
+    accounts: { uid: string; nickname: string }[]
+    cookie_checkin_ok?: boolean
+  }) => {
+    setWbWebLoginState('importing')
+    setWbWebLoginMsg(t('captureWbWebImporting'))
+    const failures: string[] = []
+    let okCount = 0
+    for (const acc of probe.accounts) {
+      try {
+        await createCheckinAccount({
+          name: acc.nickname || acc.uid.slice(0, 8),
+          jwt: probe.cookie,
+          device_map: { login_type: 'web', uid: acc.uid, nickname: acc.nickname },
+          group: groupFilter !== 'all' ? groupFilter : '',
+          platform: 'workbuddy',
+        })
+        okCount += 1
+      } catch (e) {
+        failures.push(`${acc.nickname || acc.uid}: ${(e as Error).message}`)
+      }
+    }
+    if (failures.length > 0) {
+      setWbWebLoginState('closed')
+      setWbWebLoginMsg(failures.join('；'))
+      return false
+    }
+    setWbWebLoginState('done')
+    setWbWebLoginMsg('')
+    setBatchNotice(
+      probe.cookie_checkin_ok === false
+        ? `${t('captureWbWebDone', { count: okCount })} ${t('captureWbWebCheckinUncertain')}`
+        : t('captureWbWebDone', { count: okCount }),
+    )
+    await loadAll()
+    return true
+  }
+
   // WorkBuddy 网页登录自动导入(2026-10-12):ok 后逐账号入库,普通用户全程零 token。
   // 先立即探测一轮(浏览器已登录过时秒导入),未登录再进 2.5s 轮询。
   const startWbWebLogin = async () => {
@@ -761,45 +816,12 @@ export default function CheckinPage() {
         setWbWebLoginMsg(t('captureWbWebWindowClosed'))
         return true
       }
-      // ok:自动逐账号入库(若签到接口不认 Cookie,如实告知但不阻断 —— 失败由冷却/提示兜底)
-      if (probe.cookie_checkin_ok === false) {
-        setWbWebLoginMsg(t('captureWbWebCheckinUncertain'))
-      }
-      setWbWebLoginState('importing')
-      setWbWebLoginMsg(t('captureWbWebImporting'))
-      const failures: string[] = []
-      let okCount = 0
-      for (const acc of probe.accounts) {
-        try {
-          await createCheckinAccount({
-            name: acc.nickname || acc.uid.slice(0, 8),
-            jwt: probe.cookie,
-            device_map: { login_type: 'web', uid: acc.uid, nickname: acc.nickname },
-            group: groupFilter !== 'all' ? groupFilter : '',
-            platform: 'workbuddy',
-          })
-          okCount += 1
-        } catch (e) {
-          failures.push(`${acc.nickname || acc.uid}: ${(e as Error).message}`)
-        }
-      }
+      // ok:自动逐账号入库(共用导入体;若签到接口不认 Cookie,「不确定」提示
+      // 由导入体带进 batchNotice,不阻断导入 —— 失败由冷却/提示兜底)
+      const imported = await importWbProbeAccounts(probe)
       // 收尾:关掉内嵌浏览器里的登录窗(尽力而为);失败/成功路径都关,避免残留
-      if (failures.length > 0) {
-        setWbWebLoginState('closed')
-        setWbWebLoginMsg(failures.join('；'))
-        closeWbBrowserWindow()
-        return true
-      }
-      setWbWebLoginState('done')
-      setWbWebLoginMsg('')
       closeWbBrowserWindow()
-      setWbCaptureOpen(false)
-      setBatchNotice(
-        probe.cookie_checkin_ok === false
-          ? `${t('captureWbWebDone', { count: okCount })} ${t('captureWbWebCheckinUncertain')}`
-          : t('captureWbWebDone', { count: okCount }),
-      )
-      await loadAll()
+      if (imported) setWbCaptureOpen(false)
       return true
     }
     if (await tick()) return
@@ -807,6 +829,63 @@ export default function CheckinPage() {
       void tick()
     }, 2500)
   }
+
+  // 嵌入模式启动(2026-10-17):签到页跑在内嵌浏览器内容 webview 里,没有 IPC,
+  // 走哨兵导航把「浏览器登录 WorkBuddy」的意图带给 Rust —— 由 Rust 建登录页
+  // 标签 + 轮询 cookie jar,登录成功后把登录标签导航回本页(#wb_import=<json>),
+  // 由下方 hash 导入收尾。waiting 态不提供「取消」:取消命令也是 IPC(嵌入页调
+  // 不动),且 Rust 看护已在跑、本地复位是假象(登录成功后结果照样送回来)。
+  const startWbWebLoginEmbed = () => {
+    setCaptureError(null)
+    setWbWebLoginState('waiting')
+    setWbWebLoginMsg(t('captureWbWebWaiting'))
+    const nav = (window as unknown as { __ihuiNav?: (action: string) => void }).__ihuiNav
+    nav?.('wb-checkin-login')
+  }
+
+  // 嵌入模式等待超时:Rust 看护 6 分钟静默放弃且无法通知本页(无 IPC),
+  // 页面等 6.5 分钟仍无下文就复位按钮态,避免永远卡在「等待登录」。
+  React.useEffect(() => {
+    if (!embedBrowser || wbWebLoginState !== 'waiting') return
+    const timer = setTimeout(() => {
+      setWbWebLoginState('closed')
+      setWbWebLoginMsg(t('captureWbWebSlowHint'))
+    }, 390_000)
+    return () => clearTimeout(timer)
+  }, [embedBrowser, wbWebLoginState, t])
+
+  // 嵌入模式结果接收(2026-10-17):Rust 登录成功后把登录标签导航到
+  // /checkin#wb_import=<percent-encoded JSON>(fragment 不发往服务端,纯页面内
+  // 消费),这里解析后走共用导入体入库,再清 hash 防刷新重导。
+  // ready/allow 门:导入走 Web 会话鉴权,压到登录态确定之后,别撞 bootstrap 空窗。
+  React.useEffect(() => {
+    if (!ready || !allow) return
+    const importFromHash = async () => {
+      const raw = window.location.hash
+      if (!raw.startsWith('#wb_import=')) return
+      const clearHash = () =>
+        history.replaceState(null, '', window.location.pathname + window.location.search)
+      let probe: {
+        cookie: string
+        accounts: { uid: string; nickname: string }[]
+        cookie_checkin_ok?: boolean
+      }
+      try {
+        probe = JSON.parse(decodeURIComponent(raw.slice('#wb_import='.length)))
+      } catch {
+        clearHash()
+        return
+      }
+      // 先清 hash 再入库:导入中途再触发(importing 重渲染等)不会重复导入
+      clearHash()
+      await importWbProbeAccounts(probe)
+    }
+    void importFromHash()
+    window.addEventListener('hashchange', importFromHash)
+    return () => window.removeEventListener('hashchange', importFromHash)
+    // importFromHash 闭包随渲染取最新的 importWbProbeAccounts;hash 即清 ⇒
+    // 重复执行空转,依赖从宽不致错。
+  }, [ready, allow, t, groupFilter, loadAll, importWbProbeAccounts])
 
   // ================== 本机 TRAE 维护(桌面端专属,WP-C) ==================
 
@@ -1822,37 +1901,56 @@ export default function CheckinPage() {
             {creditsRefreshing.size > 0 && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
             {t('creditRefreshAll')}
           </Button>
-          {desktop && (
+          {/* 2026-10-17 恢复独立显眼入口(用户反馈"找不到网页登录"):
+              「从本机捕获」下拉对普通用户藏得太深,「浏览器登录 WorkBuddy」
+              (零 token 主路径)提为工具栏一级按钮 —— 打开捕获对话框即自动
+              进入内嵌浏览器登录流程,不再需要两步。
+              嵌入模式(内嵌浏览器内容页)同样给出该入口:走哨兵导航流程
+              (startWbWebLoginEmbed),与桌面主窗的 IPC 轮询流程共用状态机。 */}
+          {(desktop || embedBrowser) && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={
+                wbWebLoginState === 'importing' ||
+                // 嵌入模式 waiting 不可再点:没有「取消」IPC 通道(见 startWbWebLoginEmbed)
+                (embedBrowser && wbWebLoginState === 'waiting')
+              }
+              onClick={() => {
+                if (embedBrowser) {
+                  startWbWebLoginEmbed()
+                  return
+                }
+                // waiting 态再点 = 改主意取消(与对话框内取消同语义);否则开启流程
+                if (wbWebLoginState === 'waiting') {
+                  void cancelWbWebLogin()
+                  return
+                }
+                openWbCapture()
+                void startWbWebLogin()
+              }}
+            >
+              {(wbWebLoginState === 'importing' ||
+                (embedBrowser && wbWebLoginState === 'waiting')) && (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              )}
+              {wbWebLoginState === 'waiting' ? (
+                embedBrowser ? (
+                  <>{t('captureWbWebWaiting')}</>
+                ) : (
+                  <>{t('captureWbWebCancel')}</>
+                )
+              ) : (
+                t('captureWbWebToolbar')
+              )}
+            </Button>
+          )}
+          {desktop && !embedBrowser && (
             <>
               {/* 2026-10-15 收敛为下拉(机主口径):各平台平铺按钮占一排,改成单一
                   「从本机捕获」下拉,菜单项按平台名直列;TRAE/Qoder/WorkBuddy 三个对话框
                   本体不动。2026-10-17 补第四平台 MiniMax Code:单账号零选择,点一下
                   捕获即入库(无对话框),故这里只有它不是 openXxxCapture 形态。 */}
-              {/* 2026-10-17 恢复独立显眼入口(用户反馈"找不到网页登录"):
-                  「从本机捕获」下拉对普通用户藏得太深,「浏览器登录 WorkBuddy」
-                  (零 token 主路径)提为工具栏一级按钮 —— 打开捕获对话框即自动
-                  进入内嵌浏览器登录流程,不再需要两步。 */}
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={wbWebLoginState === 'importing'}
-                onClick={() => {
-                  // waiting 态再点 = 改主意取消(与对话框内取消同语义);否则开启流程
-                  if (wbWebLoginState === 'waiting') {
-                    void cancelWbWebLogin()
-                    return
-                  }
-                  openWbCapture()
-                  void startWbWebLogin()
-                }}
-              >
-                {wbWebLoginState === 'importing' && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-                {wbWebLoginState === 'waiting' ? (
-                  <>{t('captureWbWebCancel')}</>
-                ) : (
-                  t('captureWbWebToolbar')
-                )}
-              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">

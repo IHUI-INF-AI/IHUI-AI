@@ -52,6 +52,11 @@ use crate::IpcError;
 /// redirect_uri=…,扫码/账号密码);裸 origin 是产品营销首页,没有登录入口
 /// (2026-10-15 实证修正)。
 pub const WB_WEB_ORIGIN: &str = "https://www.workbuddy.cn";
+/// WorkBuddy 网页登录**真实登录页**(扫码/账号密码)。与前端 tauri-bridge.ts 的
+/// `WB_WEB_LOGIN_URL` 逐字同值(一处语义两处定义:前端给主窗口流程开窗用,
+/// Rust 给内嵌浏览器哨兵 `wb-checkin-login` 建窗用)。redirect_uri 指回本站首页,
+/// 登录成功后落地;/login/ 之外的裸 origin 是营销首页,没有登录入口(2026-10-15 实证)。
+pub const WB_WEB_LOGIN_URL: &str = "https://www.workbuddy.cn/login/?platform=website&state=2&product=workbuddy&redirect_uri=https%3A%2F%2Fwww.workbuddy.cn%2F";
 /// /console/accounts 响应里取账号的 JSON 路径:data.accounts[]。
 const ACCOUNTS_PATH: &str = "/console/accounts";
 /// 轮询时把 cookie 换登录态的 HTTP 超时。

@@ -19381,6 +19381,7 @@
     "captureWbWebTitle": "瀏覽器掃碼登入(推薦·免 token)",
     "captureWbWebDescription": "點「開啟瀏覽器登入」,在彈出的內嵌瀏覽器視窗裡正常登入 WorkBuddy(手機號/掃碼),登入成功後自動匯入帳號,全程無需複製任何 token。",
     "captureWbWebOpen": "開啟瀏覽器登入",
+    "captureWbWebToolbar": "瀏覽器登入 WorkBuddy",
     "captureWbWebWaiting": "已開啟瀏覽器,等待登入完成…登入成功後會自動匯入",
     "captureWbWebImporting": "已偵測到登入,正在自動匯入帳號…",
     "captureWbWebDone": "網頁登入匯入完成(共 {count} 個帳號)",
