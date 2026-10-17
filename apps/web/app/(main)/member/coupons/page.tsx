@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { Ticket, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { AuthGatePrompt, BackButton } from '@/components/common'
@@ -42,12 +42,6 @@ const TAB_KEY: Record<string, string> = {
   expired: 'tab.expired',
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function MemberCouponsPage() {
   const locale = useLocale()
   const t = useTranslations('memberCouponsPage')
@@ -59,7 +53,7 @@ export default function MemberCouponsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'coupons', tab],
     queryFn: () =>
-      api<{ list: Coupon[] }>(`/api/coupons?status=${tab}`)
+      apiOrThrow<{ list: Coupon[] }>(`/api/coupons?status=${tab}`)
         .then((d) => d.list ?? [])
         .catch(() => [] as Coupon[]),
     enabled: allow,

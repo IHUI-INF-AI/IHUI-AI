@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Award, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
@@ -34,12 +34,6 @@ interface CertsData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const STATUS_STYLE: Record<number, string> = {
   1: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   2: 'bg-destructive/10 text-destructive',
@@ -53,7 +47,7 @@ export default function MyCertificatesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['student', 'my-certificates'],
-    queryFn: () => api<CertsData>(`/api/edu/my-certificates?page=1&pageSize=${PAGE_SIZE}`),
+    queryFn: () => apiOrThrow<CertsData>(`/api/edu/my-certificates?page=1&pageSize=${PAGE_SIZE}`),
     enabled: allow,
   })
 

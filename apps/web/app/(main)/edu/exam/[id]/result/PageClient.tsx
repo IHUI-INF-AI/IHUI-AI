@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { ArrowLeft, Check, X, Loader2, Award, RotateCcw } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { AuthGatePrompt } from '@/components/common'
@@ -35,12 +35,6 @@ interface ExamResult {
   results: QuestionResult[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function EduExamResultPage() {
   const t = useTranslations('eduExamResultPage')
   const { id } = useParams<{ id: string }>()
@@ -55,7 +49,7 @@ export default function EduExamResultPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'exam', id, 'result', recordId],
     queryFn: () =>
-      api<{ result: ExamResult }>(
+      apiOrThrow<{ result: ExamResult }>(
         `/api/edu/exam/${id}/result${recordId && recordId.length > 0 ? `?recordId=${recordId}` : ''}`,
       ).then((d) => d.result),
     enabled: allow,

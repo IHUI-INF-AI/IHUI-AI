@@ -13,7 +13,7 @@ import { useTranslations } from 'next-intl'
 import { QRCodeCanvas } from 'qrcode.react'
 import { Crown, Check, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -53,12 +53,6 @@ interface PayStatusResult {
 
 type PaymentMethod = 'wechat' | 'alipay'
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const formatCNY = (cents: number) =>
   new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(cents / 100)
 
@@ -81,7 +75,7 @@ function DetailsContent() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['vip-levels'],
-    queryFn: () => api<{ items: VipLevel[] }>('/api/vip/levels'),
+    queryFn: () => apiOrThrow<{ items: VipLevel[] }>('/api/vip/levels'),
   })
 
   const levels = data?.items ?? []
@@ -89,7 +83,7 @@ function DetailsContent() {
 
   const orderMut = useMutation({
     mutationFn: (vipLevelId: string) =>
-      api<OrderResult>('/api/vip/order', {
+      apiOrThrow<OrderResult>('/api/vip/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -110,7 +104,7 @@ function DetailsContent() {
         await new Promise((r) => setTimeout(r, 3000))
         if (stop) break
         try {
-          const r = await api<PayStatusResult>(`/api/vip/order/${order.orderNo}/payinfo`)
+          const r = await apiOrThrow<PayStatusResult>(`/api/vip/order/${order.orderNo}/payinfo`)
           if (r.status === 'paid') {
             setPaid(true)
             // 埋点:VIP 支付成功

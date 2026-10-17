@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, ImageIcon, Sparkles, Download } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
@@ -19,12 +19,6 @@ import { BackButton } from '@/components/common'
 interface GenResult {
   imageUrl: string
   revisedPrompt?: string
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const SIZES = ['1024x1024', '1024x1792', '1792x1024']
@@ -42,7 +36,7 @@ export default function ImageGenPage() {
         prompt: prompt.trim(),
         size,
       }
-      return api<GenResult>('/api/image-gen/generate', {
+      return apiOrThrow<GenResult>('/api/image-gen/generate', {
         method: 'POST',
         body: JSON.stringify(body),
       })

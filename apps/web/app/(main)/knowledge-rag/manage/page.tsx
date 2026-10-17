@@ -10,7 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2, Trash2, Settings, AlertCircle } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Checkbox,
   Button,
@@ -37,12 +37,6 @@ interface DocSummary {
 interface BatchDeleteResult {
   success: number[]
   failed: number[]
-}
-
-async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 export default function KnowledgeRagManagePage() {
@@ -78,7 +72,7 @@ export default function KnowledgeRagManagePage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['knowledgeRag', 'docs'],
-    queryFn: () => api<DocSummary[]>('/api/knowledge/docs'),
+    queryFn: () => apiOrThrow<DocSummary[]>('/api/knowledge/docs'),
     enabled: allow,
   })
 
@@ -101,7 +95,7 @@ export default function KnowledgeRagManagePage() {
 
   const singleDeleteMut = useMutation({
     mutationFn: (docId: number) =>
-      api<{ deleted: boolean }>(`/api/knowledge/docs/${docId}`, { method: 'DELETE' }),
+      apiOrThrow<{ deleted: boolean }>(`/api/knowledge/docs/${docId}`, { method: 'DELETE' }),
     onSuccess: (_d, docId) => {
       qc.invalidateQueries({ queryKey: ['knowledgeRag', 'docs'] })
       setSelected((p) => {
@@ -116,7 +110,7 @@ export default function KnowledgeRagManagePage() {
 
   const batchDeleteMut = useMutation({
     mutationFn: (docIds: number[]) =>
-      api<BatchDeleteResult>('/api/knowledge/docs/batch-delete', {
+      apiOrThrow<BatchDeleteResult>('/api/knowledge/docs/batch-delete', {
         method: 'POST',
         body: JSON.stringify({ docIds, ownerUuid: '' }),
       }),

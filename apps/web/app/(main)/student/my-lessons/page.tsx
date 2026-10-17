@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { BookOpen, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
@@ -36,12 +36,6 @@ interface LessonsData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const STATUS_STYLE: Record<number, string> = {
   1: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   2: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
@@ -57,7 +51,8 @@ export default function MyLessonsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['student', 'my-lessons', page],
-    queryFn: () => api<LessonsData>(`/api/edu/my-lessons?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: () =>
+      apiOrThrow<LessonsData>(`/api/edu/my-lessons?page=${page}&pageSize=${PAGE_SIZE}`),
     enabled: allow,
   })
 

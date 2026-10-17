@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { GraduationCap, Search, Loader2, ArrowRight } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
 import { Avatar } from '@/components/data/Avatar'
 import { BackButton } from '@/components/common'
@@ -28,19 +28,13 @@ interface LecturersResp {
   list: Lecturer[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function LecturersPage() {
   const t = useTranslations('lecturer')
   const [search, setSearch] = React.useState('')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['lecturers'],
-    queryFn: () => api<LecturersResp>('/api/live/lecturers').then((d) => d.list ?? []),
+    queryFn: () => apiOrThrow<LecturersResp>('/api/live/lecturers').then((d) => d.list ?? []),
   })
 
   const list = data ?? []

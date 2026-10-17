@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2, ChevronDown, ChevronUp, Hash } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -32,12 +32,6 @@ interface ChunkItem {
 const PREVIEW_LEN = 200
 const PAGE_LIMIT = 20
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function KnowledgeRagChunksPage() {
   const { id } = useParams<{ id: string }>()
   const t = useTranslations('knowledgeRag.chunks')
@@ -49,7 +43,7 @@ export default function KnowledgeRagChunksPage() {
     error: docError,
   } = useQuery({
     queryKey: ['knowledgeRag', 'doc', id],
-    queryFn: () => api<DocSummary>(`/api/knowledge/docs/${id}`),
+    queryFn: () => apiOrThrow<DocSummary>(`/api/knowledge/docs/${id}`),
     enabled: Boolean(id),
   })
 
@@ -59,7 +53,7 @@ export default function KnowledgeRagChunksPage() {
     error,
   } = useQuery({
     queryKey: ['knowledgeRag', 'chunks', id],
-    queryFn: () => api<ChunkItem[]>(`/api/knowledge/docs/${id}/chunks?limit=${PAGE_LIMIT}`),
+    queryFn: () => apiOrThrow<ChunkItem[]>(`/api/knowledge/docs/${id}/chunks?limit=${PAGE_LIMIT}`),
     enabled: Boolean(id),
   })
 

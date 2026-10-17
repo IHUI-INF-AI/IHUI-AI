@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { BookMarked, Search, FileText, Loader2, Settings, Upload } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter, Input, Button } from '@ihui/ui-react'
 import { UploadDialog } from './UploadDialog'
 import { BackButton } from '@/components/common'
@@ -29,12 +29,6 @@ interface SearchHit {
   content: string
   score: number
   chunkIndex: number
-}
-
-async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 export default function KnowledgeRagPageClient() {
@@ -56,14 +50,14 @@ export default function KnowledgeRagPageClient() {
 
   const listQuery = useQuery({
     queryKey: ['knowledgeRag', 'docs'],
-    queryFn: () => api<DocSummary[]>('/api/knowledge/docs'),
+    queryFn: () => apiOrThrow<DocSummary[]>('/api/knowledge/docs'),
     enabled: !isSearchMode,
   })
 
   const searchQuery = useQuery({
     queryKey: ['knowledgeRag', 'search', debounced],
     queryFn: () =>
-      api<SearchHit[]>('/api/knowledge/search', {
+      apiOrThrow<SearchHit[]>('/api/knowledge/search', {
         method: 'POST',
         body: JSON.stringify({ query: debounced, topK: 20 }),
       }),

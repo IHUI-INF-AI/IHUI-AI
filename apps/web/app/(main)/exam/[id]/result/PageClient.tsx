@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft, Check, X, Loader2, Clock, Award } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -43,12 +43,6 @@ interface RecordsData {
   total: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const normalizeAnswer = (v: string | string[]): string => {
   if (Array.isArray(v)) return v.length > 0 ? v.join('、') : '-'
   return v && v.trim() ? v : '-'
@@ -61,7 +55,7 @@ export default function ExamResultPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['exam', 'records', 'by-paper', id],
-    queryFn: () => api<RecordsData>(`/api/exam/records?examId=${id}&page=1&pageSize=1`),
+    queryFn: () => apiOrThrow<RecordsData>(`/api/exam/records?examId=${id}&page=1&pageSize=1`),
     enabled: !!id,
   })
 

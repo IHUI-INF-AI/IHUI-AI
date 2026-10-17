@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { Tag, Hash, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { CHART_BLUE, CHART_GREEN, CHART_AMBER, CHART_RED, CHART_VIOLET } from '@ihui/design-tokens'
 import { BackButton } from '@/components/common'
@@ -21,12 +21,6 @@ interface TagItem {
   name: string
   usageCount: number
   description?: string
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const TAG_COLORS = [
@@ -45,7 +39,7 @@ export default function TagsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['tags'],
-    queryFn: () => api<{ tags: TagItem[] }>('/api/tags').then((d) => d.tags ?? []),
+    queryFn: () => apiOrThrow<{ tags: TagItem[] }>('/api/tags').then((d) => d.tags ?? []),
   })
 
   const tags = data ?? []

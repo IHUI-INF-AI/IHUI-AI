@@ -10,7 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Clock, Users, PlayCircle, Check, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { ProgressBar } from '@/components/common'
 import { cn } from '@/lib/utils'
@@ -41,12 +41,6 @@ interface LessonDetail {
   progress?: number
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const formatCNY = (n: number) =>
   new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(n)
 
@@ -58,11 +52,12 @@ export default function CourseDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['learn', 'lesson', id],
-    queryFn: () => api<{ lesson: LessonDetail }>(`/api/learn/lessons/${id}`).then((d) => d.lesson),
+    queryFn: () =>
+      apiOrThrow<{ lesson: LessonDetail }>(`/api/learn/lessons/${id}`).then((d) => d.lesson),
   })
 
   const signUpMut = useMutation({
-    mutationFn: () => api(`/api/learn/lessons/${id}/sign-up`, { method: 'POST' }),
+    mutationFn: () => apiOrThrow(`/api/learn/lessons/${id}/sign-up`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['learn', 'lesson', id] }),
   })
 

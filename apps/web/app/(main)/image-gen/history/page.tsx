@@ -10,7 +10,7 @@ import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, History } from 'lucide-react'
 import Image from 'next/image'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -27,12 +27,6 @@ interface ListData {
   list: GenItem[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function ImageGenHistoryPage() {
   const locale = useLocale()
 
@@ -41,7 +35,7 @@ export default function ImageGenHistoryPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['image-gen', 'history'],
-    queryFn: () => api<ListData>('/api/image-gen/history'),
+    queryFn: () => apiOrThrow<ListData>('/api/image-gen/history'),
     enabled: allow,
   })
 
