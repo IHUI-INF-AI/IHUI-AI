@@ -336,7 +336,7 @@ function funcBody(src, name) {
 test('装车证明:三类"只有守护看得见"的红都真接了 notifyGuardRed', () => {
   const src = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
   assert.match(funcBody(src, 'auditMergeAdditionLoss'), /notifyGuardRed\(\s*\n?\s*'合并吞并对账判红/)
-  assert.match(funcBody(src, 'auditMergeAdditionLoss'), /notifyGuardRed\([\s\S]*?合并吞并对账自身异常/)
+  assert.match(funcBody(src, 'auditMergeAdditionLoss'), /notifyGuardRed\([\s\S]*?合并吞并对账持续取不到结论/)
   assert.match(funcBody(src, 'healHomeJunctions'), /notifyGuardRed\(\s*\n?\s*'家目录改道修复后仍判红/)
   assert.match(funcBody(src, 'refreshRecoverySource'), /notifyGuardRed\(\s*\n?\s*'本地恢复源刷新失败/)
 })
@@ -452,6 +452,128 @@ test('V6 真探针端到面:把现读那把 rc=1 的 stdout 喂给判读器,必�
   const r = N.readProbeVerdict({ status: out.status, stdout: out.stdout, stderr: out.stderr })
   assert.ok(r.parsed, `真探针 rc=${out.status} 的结论被丢了:${r.why}`)
   assert.ok(r.parsed.axes && typeof r.parsed.axes === 'object', 'axes 必须在位')
+})
+
+// ── ⑦ 到人节奏的通用尺子(2026-10-17 立:型③计数折档 + 型②未判定持续门槛 + 部署停摆高频档)────
+test('alertCountTier:边界成对(0/1/2-3/4-7/8+),非数字一律落 0 档不冒充"很多"', () => {
+  assert.equal(N.alertCountTier(0), '0')
+  assert.equal(N.alertCountTier(1), '1')
+  assert.equal(N.alertCountTier(2), '2-3')
+  assert.equal(N.alertCountTier(3), '2-3')
+  assert.equal(N.alertCountTier(4), '4-7')
+  assert.equal(N.alertCountTier(7), '4-7')
+  assert.equal(N.alertCountTier(8), '8+')
+  assert.equal(N.alertCountTier(99), '8+')
+  assert.equal(N.alertCountTier(undefined), '0', '取不到数 ⇒ 0 档,不得折成一个会刷屏的新身份')
+  // 反向锁:同一档内不同计数必须给出**同一个**档位(这就是"计数不许进身份"的可执行表述)
+  assert.equal(N.alertCountTier(5), N.alertCountTier(6), '档内抖动不得变成新身份')
+  assert.notEqual(N.alertCountTier(3), N.alertCountTier(4), '跨档必须是新身份(恶化要喊人)')
+})
+
+test('alertHeldTier:6h/24h/72h 三处跨档,起点取不到 ⇒ 最短档 + undetermined 标记(不得据此静音)', () => {
+  const T = 1_760_000_000_000
+  assert.equal(N.alertHeldTier(T, T + 60_000).tier, 'lt6h')
+  assert.equal(N.alertHeldTier(T, T + 7 * 3600_000).tier, '6-24h')
+  assert.equal(N.alertHeldTier(T, T + 25 * 3600_000).tier, '24-72h')
+  assert.equal(N.alertHeldTier(T, T + 73 * 3600_000).tier, '72h+')
+  const broken = N.alertHeldTier(undefined, T)
+  assert.equal(broken.tier, 'lt6h', '起点取不到 ⇒ 按最短档')
+  assert.equal(broken.undetermined, true, '但必须带上"这是未判定"的标记,调用方不得拿 lt6h 当静音依据')
+})
+
+test('未判定起点台账:首轮 0、次轮沿用、清零后重新起算(通用件,合并吞并只是它的一个 caller)', () => {
+  const dir = mkScratch('gg-streak-')
+  const file = join(dir, 'first.json')
+  const T = 1_760_000_000_000
+  assert.equal(N.noteUndeterminedStreak(file, T).heldMs, 0)
+  assert.equal(N.noteUndeterminedStreak(file, T + 40 * 60_000).firstMs, T, '起点必须沿用')
+  N.clearUndeterminedStreak(file)
+  assert.equal(existsSync(file), false)
+  assert.equal(N.noteUndeterminedStreak(file, T + 90 * 60_000).heldMs, 0, '清零后不得续上一场的账')
+  rmScratch(dir)
+})
+
+/** 注入 runner/notify,零子进程零发信地跑一遍部署停摆派发点 */
+function stallHarness(payload, extra = {}) {
+  const calls = []
+  const lines = []
+  const r = N.auditDeployStall({
+    now: Date.parse('2026-10-17T04:00:00.000Z'),
+    intervalMs: 1,
+    tickFile: join(mkScratch('gg-stall-'), 'tick.ts'),
+    logger: (s) => lines.push(String(s)),
+    notify: (name, detail, opts) => calls.push({ name, detail, opts }),
+    runner: () => ({ status: extra.status ?? 0, stdout: typeof payload === 'string' ? payload : JSON.stringify(payload), stderr: extra.stderr || '', killed: Boolean(extra.killed) }),
+  })
+  return { r, calls, lines }
+}
+
+test('auditDeployStall 三态:ok 不寄 / fail 寄且身份含 tip+成功时刻 / unjudged 与超时只报名', () => {
+  const okRun = stallHarness({ level: 'ok', liveSha: 'a'.repeat(40), tipSha: 'a'.repeat(40), tipSource: 'ls-remote(当次服务器真值)', lastSuccessIso: '2026-10-17T03:59:00+08:00', thresholdMin: 45, behindHours: 0 })
+  assert.equal(okRun.calls.length, 0, '绿档不得寄信')
+  assert.equal(okRun.r.ok, true)
+  const failPayload = { level: 'fail', liveSha: 'b'.repeat(40), tipSha: 'c'.repeat(40), tipSource: 'ls-remote(当次服务器真值)', lastSuccessIso: '2026-10-17T01:00:00+08:00', thresholdMin: 45, behindHours: 3.2, why: '线上落后 3.2 小时(阈值 45 分钟)' }
+  const failRun = stallHarness(failPayload)
+  assert.equal(failRun.calls.length, 1, '停摆必须到人')
+  assert.match(failRun.calls[0].opts.dedupKey, /tip=c{12}/, '身份必须含 tip 前缀')
+  assert.match(failRun.calls[0].opts.dedupKey, /lastSuccess=2026-10-17T01:00:00\+08:00/, '身份必须含最近一次成功部署时刻(环又成功一次 ⇒ 新事实立刻重报)')
+  assert.equal(stallHarness({ level: 'unjudged', why: '线上根不存在' }).calls.length, 0, '未判定不得寄信(§0.3)')
+  const timedOut = stallHarness('', { status: null, killed: true, stderr: 'spawnSync ETIMEDOUT' })
+  assert.equal(timedOut.calls.length, 0, '派生超时是未判定,不是停摆也不是"尺子坏了"')
+  assert.equal(timedOut.r.judged, false)
+  assert.match(timedOut.lines.join('\n'), /未判定/, '超时必须在日志里点名')
+  assert.equal(stallHarness('这不是 JSON', { status: 1 }).calls.length, 0, '读数不可解析 ⇒ 未判定')
+})
+
+test('形状锁:聚合告警的名字里不许再带计数,公网身份必须走尺子那侧的归一(型③的装车证明)', () => {
+  const src = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
+  assert.doesNotMatch(src, /`元运维巡检红\(\$\{/, '名字带 N 格 = 每轮新身份(实测 34 封/5 天)')
+  assert.doesNotMatch(src, /`服务自愈动作\(\$\{/, '同型:拉起/失败台数进名字')
+  assert.match(src, /dedupKey: `cells=\$\{[^`]+\};tier=\$\{alertCountTier/, '元运维巡检身份 = 格子集合 + 档位')
+  assert.match(src, /dedupKey: `service-heal;svcs=[^`]+;acted=\$\{alertCountTier/, '服务自愈身份 = 服务集合 + 两档')
+  assert.match(src, /classifyAlertIdentity\(key,/, '公网探测身份只准调归一那一份实现,不得在派发层另拼')
+  assert.doesNotMatch(src, /legs=\$\{Number\(parsed\.legs\)/, '隧道腿数不得以原始值进身份')
+  assert.match(src, /legs=\$\{alertCountTier\(parsed\.legs\)\}/)
+  assert.match(src, /if \(!CHECK_ONLY\) auditDeployStall\(\)/, '高频档必须真挂在守护 tick 上(判据存在但不被调用=没有)')
+})
+
+// 立因:上午共享 git 争用让该对账连续取不到输入,守护当场寄出 severity=critical 的"自身异常",
+// 而同一枚对账手工复跑 0.46 秒即绿(审计 0 枚吞并)。信里没有病名(stdio 把 stderr 丢了),
+// 收信人唯一能做的动作就是把尺子再跑一遍 —— 那正是本层该替他做完的事。
+test('classifyMergeLossOutcome:绿/判红/未判定三档成对;exit2 与超时都是未判定,不是判红', () => {
+  assert.deepEqual(N.classifyMergeLossOutcome(null), { kind: 'ok' })
+  assert.equal(N.classifyMergeLossOutcome({ status: 1 }).kind, 'breach', 'exit 1 = 业务判红')
+  assert.equal(N.classifyMergeLossOutcome({ status: 1 }).code, 1)
+  assert.equal(N.classifyMergeLossOutcome({ status: 2 }).kind, 'undetermined', 'exit 2 = 取不到输入,不得读成坏了也不得读成没问题')
+  assert.equal(N.classifyMergeLossOutcome({ status: 3 }).kind, 'breach', '非 0 非 2 的退出码按业务失败交上去,不许被折成未判定放行')
+  assert.equal(N.classifyMergeLossOutcome({ code: 'ETIMEDOUT', killed: true }).kind, 'undetermined', '派生超时')
+  assert.equal(N.classifyMergeLossOutcome({ signal: 'SIGKILL' }).kind, 'undetermined', '被杀')
+  assert.equal(N.classifyMergeLossOutcome({ message: '模块找不到' }).kind, 'undetermined', '归因不明一律未判定(交持续性门槛判,不在此处放行)')
+  assert.match(N.classifyMergeLossOutcome({ code: 'ETIMEDOUT' }).why, /ETIMEDOUT/, '未判定必须带病名,信里不能只有结论')
+})
+
+test('未判定的持续性起点:首轮 held 0 ⇒ 不到人;连满窗才算;取到绿之后必须清零', () => {
+  const dir = mkScratch('gg-merge-loss-')
+  const file = join(dir, 'undetermined-first.json')
+  const T0 = 1_760_000_000_000
+  const a = N.noteMergeLossUndetermined(T0, file)
+  assert.equal(a.heldMs, 0, '首轮以本次为起点')
+  const b = N.noteMergeLossUndetermined(T0 + 31 * 60 * 1000, file)
+  assert.equal(b.firstMs, T0, '起点必须沿用,不能每轮重记(否则永远攒不到窗)')
+  assert.ok(b.heldMs >= 30 * 60 * 1000, '连满 30 分钟才够格按结构性故障喊人')
+  N.clearMergeLossUndetermined(file)
+  assert.equal(existsSync(file), false, '取到结论后必须清起点')
+  const c = N.noteMergeLossUndetermined(T0 + 60 * 60 * 1000, file)
+  assert.equal(c.heldMs, 0, '清零后重新起算,不得拿上一场故障的账续命')
+  rmScratch(dir)
+})
+
+test('形状锁:auditMergeAdditionLoss 体内仍调 notifyGuardRed,且 stderr 必须接(第三态 pipe)', () => {
+  const src = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
+  const body = funcBody(src, 'auditMergeAdditionLoss')
+  assert.ok(body.includes('notifyGuardRed('), '判红与持续取不到都得有到人出口')
+  assert.match(body, /stdio:\s*\['ignore',\s*'pipe',\s*'pipe'\]/, "stderr 再被丢弃 = 信里没有病名(2026-10-17 那一型)")
+  assert.match(body, /classifyMergeLossOutcome/, '结论分档必须走导出的那一格,不得在派发层另抄一份')
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

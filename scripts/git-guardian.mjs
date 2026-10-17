@@ -88,6 +88,9 @@ import {
 // 两份实现必漂移是本仓记过最多次的失效型,而这一族的失败形态是安静的 —— 漂了的一侧只会让
 // 某些告警少打码或多打码,没有任何门会喊。`redactChildOutput` 在本文件里已不再有实现。
 import { redactChildOutput } from './lib/secret-shape-redact.mjs'
+// 公网探测的**告警身份归一**住在尺子那侧(§0.6 单一真相源,2026-10-17 立):派发层只负责把它填进
+// dedupKey,不再自己拼含计数的身份。模块有 §22d 直跑守卫,import 不会触发采样。
+import { classifyAlertIdentity } from './check-public-path-probe.mjs'
 
 // 工作树 / 真实 gitdir / 备份目录动态解析(不再硬编码 D: 盘;见 scripts/lib/gitdir.mjs 2026-09-15)
 const WORKTREE = resolveWorktree()
@@ -1830,7 +1833,9 @@ function auditHostTimezone() {
           `最近一次时区变更归属:${(h2.events || []).slice(0, 2).map((x) => `${x.utc} ← ${x.proc || '?'}`).join(' / ') || '(未取到)'}\n` +
           `H3 落地维逐条:${(parsed.h3 && parsed.h3.rows ? parsed.h3.rows.map((r) => `${r.file}=${r.state}${r.gapHours !== undefined ? `(${r.gapHours}h)` : ''}`).join(', ') : '(无)')}\n` +
           `若是 stale-cache:改完时区必须重启对应常驻服务(进程在启动时就把区读进缓存)。取证:node scripts/check-host-timezone.mjs`,
-        { severity: 'warning' },
+        // 身份取"实测到的那对时区",这是状态量:同一条漂移持续多久都是同一身份(4h 窗生效);
+        // 时钟真的换了一个值才算新事实。此前无 key ⇒ detail 里 `changedAt`/逐文件 gapHours 每分钟在变。
+        { severity: 'warning', dedupKey: `tz=${String((parsed.measured && parsed.measured.registry) || '?')};node=${String((parsed.measured && parsed.measured.nodeIana) || '?')}` },
       )
       logger(`⚠️ 主机时区对账判红:${lines}`)
       return
@@ -1972,41 +1977,93 @@ function auditDiskRootHygiene() {
   }
 }
 
+const MERGE_LOSS_UNDET_FILE = join(WORKTREE, '.workbuddy', 'merge-loss-undetermined-first.json')
+// "这一轮取不到结论"与"对账层真的坏了"在到人信上必须是两件事。2026-10-17 上午共享 git 争用让该
+// 对账连续几趟取不到,守护当场寄出一封 critical 说"对账层自己没在跑"——而同一枚对账手工复跑
+// 0.46 秒即绿(审计 0 枚吞并)。持续性门槛取现读量纲:正常一趟 0.46s、派生上限 240s、守护 2 分钟
+// 一趟 ⇒ 连满 30 分钟(≈15 趟)全部取不到才够格按结构性故障喊人;单轮只报名(方向是"多要一次
+// 说明",绝不是"多放一次跳门":§0.3)。
+const MERGE_LOSS_UNDET_HORIZON_MS = Number(process.env.IHUI_MERGE_LOSS_UNDET_HORIZON_MS || 30 * 60 * 1000)
+
+/**
+ * 一趟派生的结论分档(纯函数,镜像测试钉契约)。三档:绿 / 判红 / 未判定。
+ * "未判定"既不得读成"对账层坏了",也不得读成"没问题"(§0.3)——它只说明这一轮没有可采信的输入,
+ * 该不该喊人由上面那个持续性门槛判。
+ */
+export function classifyMergeLossOutcome(e) {
+  if (!e) return { kind: 'ok' }
+  if (typeof e.status === 'number') {
+    if (e.status === 2) return { kind: 'undetermined', why: '尺子自报 exit 2(取不到输入/自身异常)' }
+    return { kind: 'breach', code: e.status }
+  }
+  const shape = `${e.code || ''} ${e.signal || ''} ${e.killed ? 'killed' : ''}`.trim()
+  if (shape) return { kind: 'undetermined', why: `派生超时/被杀(${shape})` }
+  return { kind: 'undetermined', why: String(e.message || e).slice(0, 160) }
+}
+
+/** 记"未判定"的起点并返回已持续时长(实现归 `noteUndeterminedStreak`,本格只绑定自己的状态件)。 */
+function noteMergeLossUndetermined(nowMs = Date.now(), file = MERGE_LOSS_UNDET_FILE) {
+  return noteUndeterminedStreak(file, nowMs)
+}
+
+function clearMergeLossUndetermined(file = MERGE_LOSS_UNDET_FILE) {
+  clearUndeterminedStreak(file)
+}
+
 function auditMergeAdditionLoss() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'check-merge-addition-loss.mjs')
   if (!existsSync(script)) return
-  let res
+  let res = ''
+  let outcome
+  let errFirst = ''
   try {
     const out = execFileSync(process.execPath, [script, '--all-new'], {
       cwd: WORKTREE,
       encoding: 'utf8',
       windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
       timeout: 240000, // 守门 80:热路径派生一律带上限
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: ['ignore', 'pipe', 'pipe'], // §12g;stderr 也必须接:否则"取不到输入"的信里连病名都没有(2026-10-17 那封只有结论没有原因)
     })
-    res = { code: 0, out: String(out || '') }
+    res = String(out || '')
+    outcome = classifyMergeLossOutcome(null)
   } catch (e) {
-    res = { code: typeof e.status === 'number' ? e.status : 2, out: String(e.stdout || '') }
+    res = String((e && e.stdout) || '')
+    errFirst = String((e && e.stderr) || '')
+      .split(/[\r\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)[0] || ''
+    outcome = classifyMergeLossOutcome(e)
   }
-  if (res.code === 0) return
-  if (res.code === 2) {
-    log('⚠️ 合并吞并对账自身异常(exit 2)⇒ 不重试,需人工跑 node scripts/check-merge-addition-loss.mjs')
+  if (outcome.kind === 'ok') {
+    clearMergeLossUndetermined()
+    return
+  }
+  if (outcome.kind === 'breach') {
+    clearMergeLossUndetermined()
+    const n = (res.match(/丢失新增路径\s+(\d+)/) || [])[1] || '?'
+    log(
+      `⚠️ 合并吞并对账判红:发现合并抹掉对侧独有新增共 ${n} 个路径 —— 修法:node scripts/union-converge.mjs --apply(文件面零丢失 union,先不带 --apply 看报告)`,
+    )
     notifyGuardRed(
-      '合并吞并对账自身异常',
-      'check-merge-addition-loss.mjs --all-new exit 2 ⇒ 对账层自己没在跑(与"判据存在但永不被调用"同型),需人工:node scripts/check-merge-addition-loss.mjs',
-      { severity: 'critical' },
+      '合并吞并对账判红',
+      `发现合并抹掉对侧独有新增共 ${n} 个路径 —— 后果是已入库功能被静默回滚,且这枚合并不产生冲突也不进 diff 报告。修法:node scripts/union-converge.mjs --apply(文件面零丢失 union,先不带 --apply 看报告)`,
+      // 身份带**路径数的档位**(型③):多一个少一个路径不算新故障,跨档(含清到 0)才算。
+      { severity: 'critical', dedupKey: `merge-loss-breach;tier=${alertCountTier(n)}` },
     )
     return
   }
-  const n = (res.out.match(/丢失新增路径\s+(\d+)/) || [])[1] || '?'
-  log(
-    `⚠️ 合并吞并对账判红:发现合并抹掉对侧独有新增共 ${n} 个路径 —— 修法:node scripts/union-converge.mjs --apply(文件面零丢失 union,先不带 --apply 看报告)`,
-  )
-  notifyGuardRed(
-    '合并吞并对账判红',
-    `发现合并抹掉对侧独有新增共 ${n} 个路径 —— 后果是已入库功能被静默回滚,且这枚合并不产生冲突也不进 diff 报告。修法:node scripts/union-converge.mjs --apply(文件面零丢失 union,先不带 --apply 看报告)`,
-    { severity: 'critical' },
-  )
+  const { heldMs } = noteMergeLossUndetermined()
+  const why = [outcome.why, errFirst].filter(Boolean).join(' ⊕ ').slice(0, 240)
+  if (heldMs >= MERGE_LOSS_UNDET_HORIZON_MS) {
+    log(`⚠️ 合并吞并对账已连续 ${Math.round(heldMs / 60000)} 分钟取不到结论(${why})⇒ 按结构性故障喊人`)
+    notifyGuardRed(
+      '合并吞并对账持续取不到结论',
+      `check-merge-addition-loss.mjs --all-new 连续 ${Math.round(heldMs / 60000)} 分钟没有可采信的结论 ⇒ 这一层现在是瞎的(别人机器上推来的合并只有这里判得到,提交链那道门不跑 commit-tree 旁路)。\n最近一次原因:${why}\n手工复跑取证:node scripts/check-merge-addition-loss.mjs --all-new`,
+      { severity: 'warning', dedupKey: `bucket=${Math.floor(heldMs / MERGE_LOSS_UNDET_HORIZON_MS)}` },
+    )
+  } else {
+    log(`ℹ️ 合并吞并对账未判定(${why})⇒ 单轮不冒"尺子坏了"的信;连满 ${Math.round(MERGE_LOSS_UNDET_HORIZON_MS / 60000)} 分钟(≈15 趟)才到人,当前已持续 ${Math.round(heldMs / 60000)} 分钟`)
+  }
 }
 
 /** 本地恢复源的增量刷新层(§5b 里那条"唯一空白层")。
@@ -2042,6 +2099,8 @@ function refreshRecoverySource() {
   if (applied.code === 0) {
     const to = (applied.out.match(/→\s*([0-9a-f]{7,})/) || [])[1]
     log(`✅ 本地恢复源已增量追平(§5b 空白层)${to ? ` → ${to}` : ''}`)
+    // 追平即清偿"这场故障已经多久"的起点,否则下一场失败会拿上一场的账直接落到最高档。
+    clearUndeterminedStreak(join(WORKTREE, '.workbuddy', 'backup-refresh-fail-first.json'))
     return
   }
   log(`⚠️ 本地恢复源刷新失败(exit ${applied.code})⇒ 下次 tick 自动重试;手动:node scripts/git-backup-refresh.mjs`)
@@ -2054,7 +2113,11 @@ function refreshRecoverySource() {
     // (exit 码已被数字归一),这一格是"稳定指纹 × 零有效出口":出口那条命令本身不含
     // 任何创建备份的代码,重跑 = 同一段代码重跑同一个失败(2026-10-03 审计)。
     // 身份带上出口形态,便于将来判据换出口时能分辨"还是那个故障"vs "换了个出口"。
-    { severity: 'critical', dedupKey: `backup-refresh-fail;exit=${applied.code}` },
+    // 身份带上**已持续档**(2026-10-17):这一格是"稳定指纹 × 零有效出口",原形态是每 4 小时
+    // 平铺一封同样的话(实测 21 封,间隔均值 4.05h)——既不打扰到新人,也不告诉收信人"已经拖多久了"。
+    // 带档之后:6h / 24h / 72h 各升级一次(跨档即新身份 ⇒ 立即到人),同档内由窗口压住。
+    // 起点件在追平成功时清除,不会拿上一场故障的账续命。
+    { severity: 'critical', dedupKey: `backup-refresh-fail;exit=${applied.code};held=${alertHeldTier(noteUndeterminedStreak(join(WORKTREE, '.workbuddy', 'backup-refresh-fail-first.json')).firstMs).tier}` },
   )
 }
 
@@ -2159,6 +2222,65 @@ function notifyWindowMs() {
 function notifyFailCooldownMs() {
   const n = Number(process.env.GIT_GUARDIAN_NOTIFY_FAIL_COOLDOWN_MS)
   return Number.isFinite(n) && n >= 0 ? n : NOTIFY_DEFAULT_FAIL_COOLDOWN_MS
+}
+
+/**
+ * 计数折档(型③通用尺子)。边界 0 / 1 / 2-3 / 4-7 / 8+ 沿用本仓 2026-10-05 已验证过的那一档
+ * (盘根卫生那格从"原始计数进指纹"改成档位即此边界),**不另拍新数**。
+ * 规矩:凡会随并发抖动而变的量(命中条数、红了几个格、拉起几台、腿几条)一律不许直接进
+ * 告警名或去重身份 —— 名称里带计数 = 每轮新身份 = 窗口形同虚设(实测:元运维巡检 34 封/5 天、
+ * 服务自愈与隧道腿同型)。实时数字照旧进正文,它属于诊断,不属于身份。
+ */
+export function alertCountTier(n) {
+  const v = Number(n)
+  if (!Number.isFinite(v) || v <= 0) return '0'
+  if (v === 1) return '1'
+  if (v <= 3) return '2-3'
+  if (v <= 7) return '4-7'
+  return '8+'
+}
+
+/**
+ * 持续多久折档 —— 给"稳定指纹 × 零有效出口"那一格(本地恢复源、长期成立的入口慢)当**终态**用:
+ * 同档持续由窗口压住不重复轰炸,跨档(6h/24h/72h)即新身份 ⇒ 报警只会越拖越响,不会被压成静音。
+ * 起点取不到 ⇒ 落最短档并在 `undetermined` 里点名(§0.10:方向是多要一次说明,绝不是静音)。
+ */
+export function alertHeldTier(firstMs, nowMs = Date.now()) {
+  const f = Number(firstMs)
+  const h = Number.isFinite(f) ? (Number(nowMs) - f) / 3_600_000 : NaN
+  if (!Number.isFinite(h) || h < 6) return { tier: 'lt6h', hours: Number.isFinite(h) ? Math.round(h * 10) / 10 : null, undetermined: !Number.isFinite(h) }
+  if (h < 24) return { tier: '6-24h', hours: Math.round(h), undetermined: false }
+  if (h < 72) return { tier: '24-72h', hours: Math.round(h), undetermined: false }
+  return { tier: '72h+', tierEscalated: true, hours: Math.round(h), undetermined: false }
+}
+
+/**
+ * "这一轮取不到结论"的持续起点台账(型②通用件,`auditMergeAdditionLoss` 首用)。
+ * 读写失败一律不影响判定本身:状态件坏了最多让下一轮重新起算(顶多多等一个窗),
+ * 反过来"写不进就不判"会把瞎掉的那一格读成没问题,那才是贵的那种失效。
+ */
+export function noteUndeterminedStreak(file, nowMs = Date.now()) {
+  let firstMs = NaN
+  try {
+    firstMs = Number(JSON.parse(readFileSync(file, 'utf8')).firstMs)
+  } catch {
+    /* 没有起点 ⇒ 以本次为新起点 */
+  }
+  if (!Number.isFinite(firstMs)) firstMs = nowMs
+  try {
+    writeFileSync(file, JSON.stringify({ firstMs, firstAt: new Date(firstMs).toISOString(), lastSeenAt: new Date(nowMs).toISOString() }), 'utf8')
+  } catch {
+    /* 状态件写不掉只影响下一轮的持续性判定 */
+  }
+  return { firstMs, heldMs: nowMs - firstMs }
+}
+
+export function clearUndeterminedStreak(file) {
+  try {
+    rmSync(file, { force: true })
+  } catch {
+    /* 同上 */
+  }
 }
 
 /**
@@ -2993,6 +3115,93 @@ function watchWatchdog() {
 }
 
 /**
+ * 元运维巡检的**心跳消费者**(2026-10-17 立)。
+ *
+ * 盲区:巡检由本文件的 `auditOpsPatrol()` 派发,并每轮落 `.workbuddy/ops-patrol-last.json`。
+ * 但那份心跳**一直只有写入者、没有读者** —— 巡检自己停摆时(调度器瞎了、auditOpsPatrol
+ * 被并发提交整份写回而静默消失、脚本抛错早退),账面没有任何一格会红:它判的是"别的任务
+ * 没在跑",而"它自己没在跑"没有任何判据。这正是本仓反复记的那一型:故障形态是**安静**。
+ *
+ * 与 watchWatchdog 同一条挂点语义、同一套处置:心跳超时(3× 派发周期 = 45 分钟,
+ * 避开机器休眠/夜间空档误报)⇒ 写日志 + 当场起跳一轮 `--json`(它自己会决定报不报红),
+ * 起跳标记落盘做 6h 冷却,避免每 2 分钟重复拉起。
+ *
+ * 三态纪律(与 §12 同规矩,**不从"读不到"推"坏了"**):
+ *   - 文件不存在 / 内容不可解析 / `at` 不是合法时间 ⇒ 记「未判定」并点名原因,**不喊人**
+ *     (新装的机器还没跑过第一轮,那是"没发生"而非"坏了";喊了就是噪音);
+ *   - 判定为超时 ⇒ 日志 + 起跳自愈,同样**不直接发信**(起跳那一轮跑完会自己按尺度报);
+ *   - 任何异常只写日志,不改本守护退出码(它是调度层,不是判据)。
+ */
+const PATROL_HEARTBEAT = join(WORKTREE, '.workbuddy', 'ops-patrol-last.json')
+const PATROL_KICK = join(WORKTREE, '.workbuddy', 'ops-patrol-kick.ts')
+// 阈值在**函数内**按 `OPS_PATROL_INTERVAL_MS` 惰性求值:那个常量定义在本文件更下方(派发点那一节),
+// 在模块顶层这里直接引用会踩 TDZ(`Cannot access before initialization`)—— 实测导入即崩。
+const PATROL_STALL_FACTOR = 3
+const PATROL_KICK_COOLDOWN_MS = 6 * 3600 * 1000
+
+export function watchPatrolHeartbeat(opts = {}) {
+  const {
+    now = Date.now(),
+    heartbeatFile = PATROL_HEARTBEAT,
+    kickFile = PATROL_KICK,
+    stallMs = OPS_PATROL_INTERVAL_MS * PATROL_STALL_FACTOR,
+    cooldownMs = PATROL_KICK_COOLDOWN_MS,
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-ops-patrol.mjs')
+  if (!existsSync(script)) return { ok: false, why: '尺子脚本不在位' }
+  if (!existsSync(heartbeatFile)) {
+    logger('ℹ️ 巡检心跳消费者:还没有 ops-patrol-last.json(尚未跑过第一轮)⇒ 未判定,不喊人')
+    return { ok: false, why: '心跳未生成' }
+  }
+  let atRaw
+  try {
+    atRaw = JSON.parse(readFileSync(heartbeatFile, 'utf8'))?.at
+  } catch (e) {
+    logger(`ℹ️ 巡检心跳消费者:心跳内容不可解析(${String(e?.message || e).slice(0, 60)})⇒ 未判定,不喊人`)
+    return { ok: false, why: '心跳不可解析' }
+  }
+  const at = Date.parse(String(atRaw ?? ''))
+  if (!Number.isFinite(at)) {
+    logger(`ℹ️ 巡检心跳消费者:心跳里没有可解析的 at(${String(atRaw).slice(0, 40)})⇒ 未判定,不喊人`)
+    return { ok: false, why: 'at 不可解析' }
+  }
+  const ageMs = now - at
+  if (ageMs < stallMs) return { ok: true, ageMs }
+  if (existsSync(kickFile)) {
+    const k = Date.parse(String(readFileSync(kickFile, 'utf8')).trim())
+    if (Number.isFinite(k) && now - k < cooldownMs)
+      return { ok: false, why: '冷却窗口内,已起跳过', ageMs }
+  }
+  try {
+    mkdirSync(dirname(kickFile), { recursive: true })
+    writeFileSync(kickFile, new Date(now).toISOString(), 'utf8')
+    logger(
+      `⚠️ 元运维巡检心跳已 ${(ageMs / 3600000).toFixed(1)} 小时未更新(派发周期 ${(OPS_PATROL_INTERVAL_MS / 60000).toFixed(0)} 分钟,阈值 ${(stallMs / 60000).toFixed(0)} 分钟)⇒ 调度器可能瞎了,就地起跳一轮`,
+    )
+    const call =
+      runner ??
+      ((args) =>
+        execFileSync(process.execPath, [script, ...args], {
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+          stdio: ['ignore', 'pipe', 'pipe'],
+          cwd: WORKTREE,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 300000,
+          maxBuffer: 1 << 22,
+        }))
+    call(['--json'])
+    logger('✅ 巡检心跳消费者:已起跳一轮(结果由该轮自身按尺度决定是否报红)')
+    return { ok: true, kicked: true, ageMs }
+  } catch (e) {
+    logger('巡检心跳自愈失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ok: false, why: '起跳失败', ageMs }
+  }
+}
+
+/**
  * 公网路径与换流窗口的**常驻**探测派发点(台账票 G-301;尺子本体 = `scripts/check-public-path-probe.mjs`)。
  *
  * 为什么挂在这里而不是新建计划任务:该机有明令"注册计划任务属影响全机的自动动作,须机主授权",
@@ -3124,15 +3333,17 @@ export function healUnresponsiveServices(opts = {}) {
     if (acted.length > 0 || failed.length > 0) {
       const body = [...acted, ...failed].map((x) => `· ${x.name} ${x.kind} — ${x.why}`).join('\n')
       notify(
-        `服务自愈动作(${acted.length} 拉起 / ${failed.length} 失败)`,
-        `${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`,
+        // 名字里不许带计数(型③,同元运维巡检那一格):原先每轮拉起/失败台数一变就是新身份,
+        // 4 小时窗口形同虚设。计数进正文,身份里只留档位与服务名集合。
+        '服务自愈动作',
+        `本轮拉起 ${acted.length} 台 / 失败 ${failed.length} 台(实时计数只进正文,不进身份):\n${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`,
         // 2026-10-04 复核补:原写 `{ alertName: … }`,而 notifyGuardRed 的 opts 解构里
         // **没有 alertName 这个键**(见其签名:severity/now/dispatch/stateFile/undFile/
         // windowMs/failCooldownMs/dedupKey/force/logger)⇒ 该值被**静默丢弃**,这一格
         // 实际只吃了默认的内容指纹去重。症状:同一个"服务 A 重启失败"与"服务 B 重启失败"
         // 归成同一身份,B 恢复了 A 还在失败时,B 的新事实被压成旧指纹不重报。
         // 改传 dedupKey(那才是真正被消费的字段),身份取"哪些服务"集合、有序无关。
-        { dedupKey: `service-heal;svcs=${[...acted, ...failed].map((x) => x.name).sort().join('+') || 'fail'}` },
+        { dedupKey: `service-heal;svcs=${[...acted, ...failed].map((x) => x.name).sort().join('+') || 'fail'};acted=${alertCountTier(acted.length)};failed=${alertCountTier(failed.length)}` },
       )
     }
     if (c.undetermined > 0 || c.planned > 0) {
@@ -3293,16 +3504,18 @@ export function auditOpsPatrol(opts = {}) {
         )
       } else {
       notify(
-        `元运维巡检红(${findings.length} 格)`,
-        `${body}\n\n同一身份连续第 ${due.map((x) => `${x.id}=${bump.info[x.id].streak}`).join('、')} 轮越阈(门槛 ${effRequired} 轮,单轮尖峰不寄信)。` +
+        // 名字里**不许带计数**(型③):原先 `元运维巡检红(N 格)` 每轮红格数一变就是新身份,
+        // 实测 09-30~10-05 同一件事寄了 34 封。计数进正文,身份里只留档位。
+        '元运维巡检红',
+        `本次红 ${findings.length} 格(实时计数只进正文,不进身份):\n${body}\n\n同一身份连续第 ${due.map((x) => `${x.id}=${bump.info[x.id].streak}`).join('、')} 轮越阈(门槛 ${effRequired} 轮,单轮尖峰不寄信)。` +
           `\n手动复现:node scripts/check-ops-patrol.mjs(只读) / --apply(顺手修可修的)` +
           `\n连击账本:.workbuddy/ops-patrol-streak.json;盲区与逐格读数:.workbuddy/ops-patrol-last.json`,
         {
           severity: 'warning',
           // dedupKey(§5e-1 配套,24 封):聚合告警的正文是**逐格 detail 清单**,而每格 detail
           // 都含实时读数(条目数 67595、时钟距今 N 小时)⇒ 指纹逐轮变 ⇒ 窗口失效。
-          // 身份只取"哪几格红了"(集合,有序无关),实时读数仍进正文。
-          dedupKey: `cells=${findings.map((x) => x.id).sort().join('+')}`,
+          // 身份只取"哪几格红了"(集合,有序无关)+ 红格数的**档位**,实时读数仍进正文。
+          dedupKey: `cells=${findings.map((x) => x.id).sort().join('+')};tier=${alertCountTier(findings.length)}`,
         },
       )
       }
@@ -3552,9 +3765,18 @@ export function auditPublicPathProbe(opts = {}) {
                   : leg === 'undetermined'
                     ? '出路:本轮**定位拿不到**(对照组没样本)⇒ 先问对照组为什么没采到(尺子被掐/8801 未监听/取证未跑完),别按"公网坏了"动手。'
                     : '出路:先用 --report 确认是**目标端**慢/失败(而非探针机抖动);目标真不可用时查该服务自身健康' + '(本机 web/api/ai-service 由 heal-unresponsive-services 自愈;外部目标查其服务端与链路)。'
+        // 身份 = **成因 × 严重度档 × 已持续档**(归一住在尺子那侧,§0.6),而不是"序列+结论"。
+        // 原写法 `seq;verdict` 仍会每 4 小时重寄同一句话:这件事的成因(跨境段 + 全落 lax 边缘 PoP)
+        // 机主短期不会动 ⇒ 同因同档持续 = 同一身份 ⇒ 由下面的日级窗口压住;一旦跨档(恶化到断流级、
+        // 或成因从入口段换成服务段)身份即变 ⇒ 立刻重报。绝不靠静音,只靠"没有新事实就别刷屏"。
+        const alertId = classifyAlertIdentity(key, r?.stat || {}, {
+          firstBreachAtMs: Date.parse(String(st.firstAt || '')),
+          nowMs: now,
+          leg,
+        })
         notify(
           `公网路径探测越阈值:${key}`,
-          `同一身份连续第 ${st.streak}/${st.required} 轮越阈(门槛 ${st.required} 轮,单轮尖峰不寄信)。\n${String(r?.numbers || '(无读数控)')}\n${reasons.join('\n')}\n` +
+          `成因与档位:${alertId.why}\n同一身份连续第 ${st.streak}/${st.required} 轮越阈(门槛 ${st.required} 轮,单轮尖峰不寄信)。\n${String(r?.numbers || '(无读数控)')}\n${reasons.join('\n')}\n` +
             `尺子:scripts/check-public-path-probe.mjs 序列 ${key}。取证回读:node scripts/check-public-path-probe.mjs --report .ihui-agent/tmp/probers/public-path-burst.jsonl\n` +
             exitLine,
           {
@@ -3562,8 +3784,10 @@ export function auditPublicPathProbe(opts = {}) {
             // dedupKey(§5e-1 配套):numbers 里 `最长连续不可用 13.5s` 这类**带小数点**的值,
             // 数字归一 `\d+ → #` 吃不掉小数点 ⇒ 13s 与 13.5s 撞成两个身份,4 小时窗口被绕成虚设
             // (实测 B/公网 12 封里 7 个间隔短于 4h,最短 0.53h = 两倍 30 分钟节流 = 刚跑完又寄)。
-            // 身份只取"序列 + 结论",实时读数仍进正文。
-            dedupKey: `seq=${key};verdict=${verdict}`,
+            // 身份只取"序列 + 成因档",实时读数仍进正文。
+            dedupKey: `seq=${key};verdict=${verdict};${alertId.identity}`,
+            // 同因同档的持续态:日级最多一封(跨档即刻重报,不受本窗口约束 —— 那是另一个身份)。
+            windowMs: Math.max(notifyWindowMs(), 24 * 60 * 60 * 1000),
           },
         )
       } else if (verdict === 'unjudged') {
@@ -3776,7 +4000,7 @@ export function auditTunnelLegHealth(opts = {}) {
         notify(
           `公网入口隧道腿异常:${dim}`,
           `读数:${reading}\n原因:${String(d?.reason || '(尺子未给原因)')}\n尺子:scripts/check-tunnel-leg-health.mjs(netsh 地址寿命 + netstat 腿 + 进程三路现读,只读)。\n取证:node scripts/check-tunnel-leg-health.mjs --json(或读 .workbuddy/tunnel-leg-health-last.json)\n${exit}`,
-          { severity: 'warning', dedupKey: `dim=${dim};verdict=${verdict};legs=${Number(parsed.legs) || 0}` },
+          { severity: 'warning', dedupKey: `dim=${dim};verdict=${verdict};legs=${alertCountTier(parsed.legs)}` },
         )
       } else if (verdict === 'warn') {
         warns += 1
@@ -3790,6 +4014,109 @@ export function auditTunnelLegHealth(opts = {}) {
     return { ran: true, judged: true, breaches, warns, unjudged, legs: parsed.legs }
   } catch (e) {
     logger('⚠️ 隧道腿健康派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
+/**
+ * 部署停摆的**高频**派发点(尺子本体 = `scripts/check-credential-health.mjs --stall-only --json`)。
+ *
+ * 为什么必须挂在这里(2026-10-17 现读两件事):
+ *  ① 节律:判据写的是 45 分钟阈值,而整支凭据巡检只由计划任务 `IHUI credential-health` 每 6 小时
+ *     自跑(现读 Last Run 09:37 / Next 15:37 +08:00)⇒ "45 分钟"这个数从来没有按 45 分钟量过,
+ *     节律与阈值差两个数量级等于没有判据。
+ *  ② 同一天还量出更糟的一半:那封信里的**小时数本身是假的** —— 取材读的是仓内这份 checkout 的
+ *     `.next/IHUI_BUILD_SHA` 与 `deploy/win/deploy-loop.log`,而活环根本不写这两处(线上标记
+ *     11:36 已是 `cf3d5fc6e0`,仓内那份还停在 10-13 的 `2822437d8`)。根已改到 `prodCheckoutRoot`,
+ *     节律由本格补上;两半缺一半都算没修。
+ *
+ * 三态纪律照 `auditTunnelLegHealth`:节流而非封量、发信一律经 `notifyGuardRed()`、未判定只写日志
+ * 并点名原因(发一封"我什么都没量到"的信是把噪音冒充成告警)。尺子那一档**零写盘零发信**,
+ * 本格是它唯一的人到出口。
+ *
+ * 身份 = `tip + 最近一次成功部署时刻`:停摆期间同一枚 tip、同一个成功时刻 ⇒ 同一身份,由 4 小时窗
+ * 压住;环又成功部署了一次而线上仍落后 ⇒ 那是**新事实**,立刻重报。清偿 = `level` 回到 `ok`
+ * (线上追平),此后这一身份不再产生。
+ */
+const DEPLOY_STALL_TICK = join(WORKTREE, '.workbuddy', 'deploy-stall-tick.ts')
+const DEPLOY_STALL_INTERVAL_MS = Number(process.env.IHUI_DEPLOY_STALL_INTERVAL_MS || 15 * 60 * 1000)
+const DEPLOY_STALL_TIMEOUT_MS = Number(process.env.IHUI_DEPLOY_STALL_TIMEOUT_MS || 120_000)
+
+export function auditDeployStall(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = DEPLOY_STALL_INTERVAL_MS,
+    tickFile = DEPLOY_STALL_TICK,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-credential-health.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 部署停摆:尺子脚本不在位(scripts/check-credential-health.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--stall-only', '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b
+                timeout: DEPLOY_STALL_TIMEOUT_MS, // 守门 80
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return { status: typeof e.status === 'number' ? e.status : null, stdout: String(e.stdout || ''), stderr: String(e.stderr || e.message || ''), killed: Boolean(e && (e.killed || e.code === 'ETIMEDOUT')) }
+            }
+          })()
+    // 超时被读成**未判定**,不是"停摆",也不是"尺子坏了"(型②同一条纪律)。
+    if (call.killed === true || call.status === null) {
+      logger(`ℹ️ 部署停摆:未判定 —— 派生超时/被杀(${String(call.stderr || '无原因').split(/[\r\n]+/)[0].slice(0, 140)})⇒ 不寄信也不记绿`)
+      return { ran: true, judged: false, why: '派生超时' }
+    }
+    const lines = String(call.stdout || '').split(/[\r\n]+/).filter((x) => x.trim())
+    let p = null
+    try {
+      p = JSON.parse(lines[lines.length - 1] || '')
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!p || !['ok', 'fail', 'unjudged'].includes(p.level)) {
+      logger(`ℹ️ 部署停摆:未判定(rc=${call.status},读数不可解析)—— ${String(call.stderr || call.stdout || '(无输出)').split(/[\r\n]+/)[0].slice(0, 140)}`)
+      return { ran: true, judged: false, why: '读数不可解析' }
+    }
+    if (p.level === 'unjudged') {
+      logger(`ℹ️ 部署停摆:未判定 —— ${String(p.why || '(尺子未给原因)').slice(0, 200)}`)
+      return { ran: true, judged: false, why: '尺子自报未判定' }
+    }
+    if (p.level === 'ok') {
+      logger(`✅ 部署停摆:绿(线上 ${String(p.liveSha || '(无)').slice(0, 9)},最近成功 ${p.lastSuccessIso || '?'})`)
+      return { ran: true, judged: true, ok: true }
+    }
+    notify(
+      '部署停摆(线上构建 vs origin/main)',
+      `${String(p.why || '')}\n线上 ${String(p.liveSha || '(无标记)').slice(0, 12)} / tip ${String(p.tipSha || '?').slice(0, 12)}(来源 ${p.tipSource || '未标注'})\n最近一次成功部署 ${p.lastSuccessIso || '(取不到)'};阈值 ${p.thresholdMin} 分钟;本轮已落后 ${p.behindHours ?? '?'} 小时\n取证:node scripts/check-credential-health.mjs --stall-only --json(只读、零写盘、零发信)`,
+      { severity: 'critical', dedupKey: `stall;tip=${String(p.tipSha || '').slice(0, 12)};lastSuccess=${p.lastSuccessIso || '-'}` },
+    )
+    logger(`❌ 部署停摆:已派发到邮件通道 —— ${String(p.why || '').slice(0, 140)}`)
+    return { ran: true, judged: true, ok: false, behindHours: p.behindHours }
+  } catch (e) {
+    logger('⚠️ 部署停摆派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
     return { ran: false, why: '派发异常' }
   }
 }
@@ -3906,7 +4233,10 @@ export function auditOrphanDeletionRefs(opts = {}) {
       notify(
         '孤儿删除引用巡检命中',
         `HEAD 树里还有这些路径,而索引与磁盘都没有它们,且源码仍 import 它们 ⇒ 任何一次干净检出/CI 构建都会 Module not found。\n${list}${more}\n\n尺子:node scripts/check-orphan-deletion-refs.mjs(只读;修法是把该文件补回索引,或改掉那处引用 —— 二者由该路径的持有人定)`,
-        { severity: 'warning' },
+        // 身份 = 命中数的档位 + **路径集合本身**(排序后拼)。原写法没有 key ⇒ 正文里的
+        // "另有 N 条"与 12 条截断清单每轮抖 ⇒ 每次巡检都像新故障(型③)。集合进身份是有意的:
+        // 多出一个孤儿路径确实是新事实,该重报;单纯计数抖动不该。
+        { severity: 'warning', dedupKey: `orphan-hits;tier=${alertCountTier(parsed.hits.length)};set=${parsed.hits.map((h) => (h && h.path) || '(无名)').sort().join('+').slice(0, 600)}` },
       )
       logger(`❌ 孤儿删除引用巡检:命中 ${parsed.hits.length} 条(已派发到邮件通道)`)
     } else if (undet.length) {
@@ -4538,6 +4868,10 @@ function main() {
     // 元运维巡检(尺子 = scripts/check-ops-patrol.mjs):判"没发生"的那一族。它按设计不能进提交链
     // (判机器状态 ⇒ 恒红 ⇒ 每台每次 --no-verify),而本行就是它唯一的调度器。
     if (!CHECK_ONLY) auditOpsPatrol()
+    // 巡检**自己**也要有人看(2026-10-17 立):上面那行派发它,而它一旦停摆,账面没有任何一格会红
+    // —— 它判的是"别的任务没在跑", "它自己没在跑"没有任何判据。挂点与上面各层同格(健康轮次
+    // 早退之前 + !CHECK_ONLY),读它每轮落的 ops-patrol-last.json,超 3 期未更新即就地起跳一轮。
+    if (!CHECK_ONLY) watchPatrolHeartbeat()
     // 不响应服务的自愈(三层方案第三层,台账 G-978121):nssm 包装的服务 SCM 看不死,
     // 这一层是"进程在但端口不应答 / 子进程起不来"唯一的动作器。节流与发信见函数头注。
     if (!CHECK_ONLY) healUnresponsiveServices()
@@ -4546,11 +4880,18 @@ function main() {
     if (!CHECK_ONLY) auditPublicPathProbe()
     if (!CHECK_ONLY) auditTunnelLegHealth()
     if (!CHECK_ONLY) auditTunnelMetrics()
+    // 部署停摆:判据写 45 分钟阈值,而凭据巡检那支班每 6 小时才量一趟(现读 09:37/15:37)⇒ 阈值与
+    // 节律差两个数量级等于没有判据。本格按 15 分钟量,身份 = tip + 最近一次成功部署时刻。
+    if (!CHECK_ONLY) auditDeployStall()
     // 不能进提交链,而"手动问责"等于只有人在跑 —— 本行是它唯一的调度器。挂进 CHECK_ONLY 分支等于永不执行。
     if (!CHECK_ONLY) auditOrphanDeletionRefs()
     // TEMP 夹具清扫器同理:判据/保护面/镜像测试全在,唯独没人调度 ⇒ 本项目命名的残留过完账龄就永久留着。
     // 节流 24h、失败只写 ⚠️ 不改本守护退出码(它是动作层不是判据),挂点语义与上面各层同格。
     if (!CHECK_ONLY) scrubTempFixtures()
+    // 活 TEMP 落点回潮哨兵(尺子 = check-temp-landing.mjs)。那份尺子的文件头早就写着"唯一调度器
+    // = 本文件的 auditTempLanding()",而那个函数**从来不存在** —— 判据齐全却无人在调度,
+    // 失效形态是安静。与 scrubTempFixtures 同格(健康轮次早退之前 + !CHECK_ONLY),节流 24h。
+    if (!CHECK_ONLY) auditTempLanding()
     // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
@@ -4789,6 +5130,113 @@ export function scrubTempFixtures(opts = {}) {
   return { ran: true, ok: true, ...p }
 }
 
+/**
+ * 活 TEMP 落点回潮哨兵的**唯一调度器**(尺子本体 = `scripts/check-temp-landing.mjs`)。
+ *
+ * 为什么必须补这一格(2026-10-17):那份尺子的文件头早就写下"派生出面的唯一调度器 =
+ * 本文件健康轮次 `!CHECK_ONLY` 巡检格(auditTempLanding())",而这个函数**从来不存在** ——
+ * 判据、声明表、镜像测试全在,脚本却没有任何人调度 ⇒ 典型"造好没装车"。它的失效形态与
+ * 元运维巡检同一类:安静(不是报错,是根本不跑)。
+ *
+ * 为什么不能进提交链:它读的是**本机注册表 + 本机进程环境**(TEMP/TMP 指向哪),提交者
+ * 结构上满足不了 ⇒ 挂 blocking 就是每台每次被逼 `--no-verify`,连带废掉全部守门(§12e/§12f)。
+ * 它的文件头也是这么定级的(warn/告警档)。
+ *
+ * 三态纪律:尺子 exit 3 / JSON 取不到 / 字段缺失 ⇒ 写日志点名、**不发信**(发一封"我什么都
+ * 没量到"是把噪音冒充成告警);只有真 drift 或近窗内仍在往旧落点写 >0 才喊人。
+ * 节流 24h:落点配置一天也不会变两次,每 2 分钟读一遍注册表纯属白烧。
+ */
+const TEMP_LANDING_INTERVAL_MS = Number(
+  process.env.IHUI_TEMP_LANDING_INTERVAL_MS || 24 * 60 * 60 * 1000,
+)
+const TEMP_LANDING_TIMEOUT_MS = 60_000
+const TEMP_LANDING_TICK = join(WORKTREE, '.workbuddy', 'temp-landing-tick.ts')
+
+export function auditTempLanding(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = TEMP_LANDING_INTERVAL_MS,
+    tickFile = TEMP_LANDING_TICK,
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-temp-landing.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ TEMP 落点哨兵:尺子脚本不在位(scripts/check-temp-landing.mjs)⇒ 本轮跳过')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(lastTick) && now - lastTick < intervalMs) return { ran: false, why: '未到节流窗口' }
+  const call =
+    typeof runner === 'function'
+      ? runner()
+      : (() => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+              timeout: TEMP_LANDING_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { status: 0, stdout: String(out || ''), stderr: '' }
+          } catch (e) {
+            return {
+              status: typeof e.status === 'number' ? e.status : 2,
+              stdout: String(e.stdout || ''),
+              stderr: String(e.stderr || e?.message || ''),
+            }
+          }
+        })()
+  let parsed
+  try {
+    parsed = JSON.parse(String(call.stdout || '').trim())
+  } catch (e) {
+    logger(
+      `⚠️ TEMP 落点哨兵未判定(rc=${call.status},JSON 取不到):` +
+        `${String(call.stderr || call.stdout || e?.message).replace(/\s+/g, ' ').slice(0, 160)}` +
+        ' —— 未判定不等于合规,下轮重试(不改本守护退出码)',
+    )
+    return { ran: true, ok: false, why: '未判定' }
+  }
+  // 判定有效才推进节流戳:取不到读数时不能把 24h 窗口白占掉(否则一次失败就瞎一整天)。
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+  } catch {
+    /* 戳写失败只意味着下轮多跑一遍,不影响判定 */
+  }
+  const c = parsed.counts || {}
+  const drift = Number(c.drift ?? 0)
+  const undetermined = Number(c.undetermined ?? 0)
+  const recentWrites = Number(c.recentWrites ?? c.probeHits ?? 0)
+  if (drift > 0) {
+    const names = (parsed.tiers || [])
+      .filter((t) => t.judged && t.state === 'drift')
+      .map((t) => t.label || t.name)
+      .join(' / ')
+    logger(
+      `🚨 TEMP 落点回潮:${drift} 层与声明表(config/temp-landing.json)不一致 —— ${names}` +
+        ' · 清理归既有清扫器(scrubTempFixtures,24h 档),本格只判不动手',
+    )
+  } else if (recentWrites > 0) {
+    logger(
+      `🚨 TEMP 落点回潮证据:近窗内有 ${recentWrites} 个条目仍写在非批准落点(注册表看着对,进程照旧在写)` +
+        ' —— 清理归既有清扫器',
+    )
+  } else if (undetermined > 0) {
+    logger(`ℹ️ TEMP 落点哨兵:${undetermined} 层未判定(注册表取不到)⇒ 不记通过,下轮重试`)
+  }
+  return { ran: true, ok: drift === 0 && recentWrites === 0, drift, undetermined, recentWrites }
+}
+
+
 // §22d isDirectRun:本模块需要"双形态"——CLI 直接跑守护 / 镜像测试 import 纯判据。
 // 不守卫的话 `node --test` 一 import 就会把整轮巡检(含真发信)跑起来,这正是 §22d 立的禁忌。
 const isDirectRun = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -4821,6 +5269,19 @@ export const __test__ = {
   redactChildOutput,
   judgeDryRunChannel,
   notifyGuardRed,
+  // 合并吞并对账的派生结论分档(2026-10-17 立):"取不到输入"必须与"对账层坏了"分家,
+  // 而分家之后"该不该喊人"落在持续性起点件上 —— 这三格都是判据,不导出的话镜像测试只能
+  // import 整模块起巡检(§22d 禁止)。
+  classifyMergeLossOutcome,
+  noteMergeLossUndetermined,
+  clearMergeLossUndetermined,
+  // 到人节奏的通用尺子(2026-10-17 立):计数折档 + 持续档 + 未判定起点台账。
+  // 不导出的话镜像测试只能读源码字符串,钉不住"同一件事不再每 4 小时刷屏"这条行为。
+  alertCountTier,
+  alertHeldTier,
+  noteUndeterminedStreak,
+  clearUndeterminedStreak,
+  auditDeployStall,
   shouldAlertAlignStall,
   checkConvergeAlignStall,
   // 对齐停摆的自动修复(2026-10-04):与 checkConvergeAlignStall 配套导出,镜像测试据此

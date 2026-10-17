@@ -73,10 +73,31 @@ def gitee_upload(rid, filepath, filename):
     body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; "
             f"filename=\"{filename}\"\r\nContent-Type: application/octet-stream\r\n\r\n").encode() \
         + data + f"\r\n--{boundary}--\r\n".encode()
-    req = urllib.request.Request(url, data=body, method="POST")
-    req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
-    r = urllib.request.urlopen(req, timeout=1800)
-    print(f"[gitee] 上传 {filename}: {r.status}")
+    # 2026-10-17 加重试(实测立因):原实现**一次就放弃**,于是 79MB 的 AppImage
+    # 只要撞上一次写超时就整批失败 —— 实测 desktop-v0.1.75 的补齐就是这么挂的:
+    #   TimeoutError: The write operation timed out
+    #   urllib.error.URLError: <urlopen error The write operation timed out>
+    # 而**这不是大小限制**:0.1.74 的同名 AssetImage 在 Gitee 上完整存在(82,901,496 字节,
+    # 与 GitHub 逐字节同值)⇒ 79MB 是能传的,只是偶发写超时。
+    # ⇒ 与 sync-gitee.py 的 gitee_upload 对齐:3 次指数退避,并如实回报失败。
+    last = ""
+    for attempt in range(1, 4):
+        req = urllib.request.Request(url, data=body, method="POST")
+        req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+        try:
+            r = urllib.request.urlopen(req, timeout=1800)
+            print(f"[gitee] 上传 {filename}: {r.status}")
+            return True
+        except urllib.error.HTTPError as e:
+            last = f"{e.code} {e.read()[:150]}"
+            print(f"[gitee] 上传 {filename} 第{attempt}/3次失败: {last}")
+        except Exception as e:
+            last = str(e)
+            print(f"[gitee] 上传 {filename} 第{attempt}/3次异常: {e}")
+        if attempt < 3:
+            time.sleep(20 * attempt)
+    print(f"[gitee] 上传 {filename} 最终失败: {last}")
+    return False
 
 
 def download(url, dest):
@@ -173,11 +194,20 @@ def main():
         local[name] = dest
 
     # 5. 上传 Gitee(local 的键即上传用名(--map 时为 dst 新名);同名跳过)
+    #
+    # 2026-10-17:原实现**不看返回值**,上传失败也照样往下走并以 0 退出 ——
+    # 于是"缺了文件但 job 是绿的",下一次没人知道要补。现在收集失败清单,
+    # 全部尽力后统一终验:有缺口就非零退出(重跑幂等补齐)。
+    upload_failed = []
     for name, path in sorted(local.items()):
         if name in have:
             print(f"[gitee] {name} 已存在,跳过")
             continue
-        gitee_upload(rid, path, name)
+        if not gitee_upload(rid, path, name):
+            upload_failed.append(name)
+    if upload_failed:
+        sys.exit(f"[gitee] 以下资产重试 3 次后仍上传失败: {sorted(upload_failed)}"
+                 f"(重跑本 workflow 可幂等补齐)")
         have.add(name)
         time.sleep(2)
     print(f"[done] {args.tag} 补齐完成,当前 Gitee 资产 {len(have)} 个")

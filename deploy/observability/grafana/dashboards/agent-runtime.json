@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "IHUI-AI Agent 运行时可观测性仪表盘:LLM 延迟 / Token 消耗 / 工具调用 / 错误率",
+  "description": "IHUI-AI Agent 运行时可观测性仪表盘:LLM 延迟 / Token 消耗 / Agent Loop 运行 / LLM 错误率",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -26,7 +26,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -110,9 +110,9 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
-          "expr": "histogram_quantile(0.99, sum(rate(ihui_http_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.99, sum(rate(ihui_llm_request_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "p99 延迟",
           "refId": "A"
         }
@@ -123,7 +123,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -199,7 +199,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
           "expr": "sum(rate(ihui_llm_tokens_total[5m])) by (model)",
           "legendFormat": "{{model}}",
@@ -212,7 +212,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -284,20 +284,20 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
-          "expr": "sum(increase(ihui_agent_tool_calls_total[1h])) by (tool_name)",
-          "legendFormat": "{{tool_name}}",
+          "expr": "sum(increase(ihui_agent_loop_runs_total[1h])) by (status)",
+          "legendFormat": "{{status}}",
           "refId": "A"
         }
       ],
-      "title": "Agent 工具调用次数 (近 1h)",
+      "title": "Agent Loop 运行次数 (近 1h, 按状态)",
       "type": "piechart"
     },
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "Prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -383,14 +383,14 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "Prometheus"
           },
-          "expr": "sum(rate(ihui_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(ihui_http_requests_total[5m]))",
-          "legendFormat": "5xx 错误率",
+          "expr": "sum(rate(ihui_llm_provider_errors_total[5m])) / sum(rate(ihui_llm_calls_total[5m]))",
+          "legendFormat": "错误率",
           "refId": "A"
         }
       ],
-      "title": "错误率 (5xx / 总请求)",
+      "title": "LLM 错误率 (失败 / 总调用)",
       "type": "timeseries"
     }
   ],
