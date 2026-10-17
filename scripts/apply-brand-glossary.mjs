@@ -35,6 +35,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import * as OpenCC from 'opencc-js'
+import { flagValue, describeFlagToken } from './lib/flag-value.mjs'
 
 const DIR = path.resolve('apps/web/messages')
 const GLOSSARY = JSON.parse(fs.readFileSync(path.resolve('scripts/brand-glossary.json'), 'utf8'))
@@ -133,15 +134,21 @@ function main() {
   const args = process.argv.slice(2)
   const dryRun = args.includes('--dry-run')
   // 支持 --locale <value> 和 --locale=<value> 两种语法(文档声明 --locale=en,需兼容)
+  // G-322:给了 --locale 就必须给值 —— 结尾漏值/被下一旗标顶值一律 exit 2 点名,不静默回落默认语言集
   let localeVal = null
-  const localeEqIdx = args.findIndex(a => a.startsWith('--locale='))
-  if (localeEqIdx >= 0) {
-    localeVal = args[localeEqIdx].slice('--locale='.length)
-  } else {
-    const localeSpIdx = args.indexOf('--locale')
-    if (localeSpIdx >= 0 && args[localeSpIdx + 1]) {
-      localeVal = args[localeSpIdx + 1]
-    }
+  const localeEq = args.find(a => a.startsWith('--locale='))
+  if (localeEq !== undefined) {
+    localeVal = localeEq.slice('--locale='.length)
+  }
+  const localeFlag = flagValue(args, '--locale')
+  if (localeFlag.present && !localeFlag.valid) {
+    console.error(
+      `❌ --locale 需要一个语言代码 —— 紧邻的 token 实得:${describeFlagToken(localeFlag)}(不得静默回落默认语言集)`,
+    )
+    process.exit(2)
+  }
+  if (localeFlag.valid) {
+    localeVal = localeFlag.value
   }
   const locales = localeVal ? [localeVal] : LOCALE_DEFAULT
 

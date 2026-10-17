@@ -63,6 +63,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { assertRepoRoot, gitRaw } from './lib/face-reader.mjs'
+import { describeFlagToken, flagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
@@ -74,11 +75,14 @@ const HERE = dirname(fileURLToPath(import.meta.url))
  * 全在审真仓,账面绿而结论与夹具无关。
  */
 function resolveRoot(argv) {
-  const i = argv.indexOf('--root')
-  if (i >= 0) {
-    const p = argv[i + 1]
-    if (!p || p.startsWith('--')) throw new Error('--root 需要一个目录参数')
-    return resolve(p)
+  // G-322 第十六批(B 档收口):--root 缺值/被顶值时点名判死(exit 2),不再裸 throw(rc=1 无点名)。
+  const flag = flagValue(argv, '--root')
+  if (flag.present) {
+    if (!flag.valid) {
+      console.error(`❌ --root 需要一个目录参数 —— 紧邻的 token 实得:${describeFlagToken(flag)}`)
+      process.exit(2)
+    }
+    return resolve(flag.value)
   }
   return resolve(HERE, '..')
 }

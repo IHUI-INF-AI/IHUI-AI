@@ -8,6 +8,7 @@
 import { BASE_URL } from '../utils/api-config'
 import { type UserInfo, type LoginResult } from '../utils/auth'
 import type { SSEEvent } from '../utils/sse-parse'
+import { formatDateByTemplate } from '@ihui/shared'
 // #12 小程序 AI 增强,D138(承 V4 #96)收口:传输层收敛到 src/lib/sse.ts 薄壳 +
 // @ihui/api-client 的 runResumableSSEStream(重连/退避/读超时/续传游标的唯一实现);
 // 仅本端保留读超时常量传参。
@@ -697,16 +698,52 @@ export const getVipOrderPayInfo = (orderNo: string) =>
   get<{ status: string; payInfo?: VipPayInfo }>(`/vip/order/${orderNo}/payinfo`)
 
 // MemberInfo 已下沉到 @ihui/api-client(endpoints/member.ts),上方 re-export
-export const getMemberInfo = () => get<MemberInfo>('/member/info')
+// 旧端点 member/info 两后端零注册(2026-10-17 现读)⇒ 会员页三统计与积分页余额全落 404。
+// 改打活端点 api/levels/current(gamification 注册,需登录;响应 = findCurrentLevel 的
+// {current,next,experience,progress} + points 行),一次带回等级/成长/积分,契约不变、
+// 调用方零改动:integral ← points.points、growth ← experience、level ← current.name,
+// 与 web points/page.tsx 的 levelQ 同源;coupons 后端无用户侧查询端点(现读零命中)⇒ 恒 0,
+// 与调用方 catch 空对象的既有显示一致。
+export const getMemberInfo = (): Promise<MemberInfo> =>
+  get<{
+    current?: { name: string }
+    experience?: number
+    points?: { points: number }
+  }>('/api/levels/current').then((r) => ({
+    level: r.current?.name ?? '',
+    integral: r.points?.points ?? 0,
+    growth: r.experience ?? 0,
+    coupons: 0,
+  }))
 export const getMemberBenefits = () =>
   get<{ list: Array<{ id: string; title: string; desc: string; icon?: string }> }>(
     '/member/benefits',
   )
+// 旧端点 member/integral 同为两后端零注册(2026-10-17 现读)。改打活端点
+// api/points/transactions(gamification 注册,success({list,total,page,pageSize})),逐字段
+// 映射成调用方 IntegralItem 契约(页内零改动,同 RN PointHistoryScreen 口径):
+// type ← description ?? source(description 可空回落 source,不读空串)、
+// amount ← type=spend 取负(后端 amount 恒正)、time ← createdAt 格式化。
 export const getIntegral = (params?: { page?: number; pageSize?: number }) =>
-  get<{ list: Array<{ id: string; type: string; amount: number; time: string }>; total: number }>(
-    '/member/integral',
-    params,
-  )
+  get<{
+    list: Array<{
+      id: string
+      type: string
+      source: string
+      amount: number
+      description: string | null
+      createdAt: string
+    }>
+    total: number
+  }>('/api/points/transactions', params).then((r) => ({
+    list: (r.list ?? []).map((row) => ({
+      id: row.id,
+      type: row.description ?? row.source,
+      amount: row.type === 'spend' ? -Math.abs(row.amount) : row.amount,
+      time: formatDateByTemplate(row.createdAt, 'YYYY-MM-DD HH:mm:ss'),
+    })),
+    total: r.total,
+  }))
 export const getCouponList = (params?: { status?: string }) =>
   get<{
     list: Array<{
