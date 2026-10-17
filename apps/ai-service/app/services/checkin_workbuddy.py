@@ -13,10 +13,14 @@
 1. 鉴权是 Bearer token(WorkBuddy 桌面端登录态,本机
    %LOCALAPPDATA%\\CodeBuddyExtension\\Data\\Public\\auth\\workbuddy-desktop.info);
 2. 查状态 POST https://copilot.tencent.com/billing/meter/checkin-status,空体 {},
-   响应 data.today_checked_in(实测 v5.3.8 不可靠,仅作短路,幂等兜底在下);
+   响应 data.today_checked_in(**实测不可靠**:2026-10-17 生产实证账号实际已签
+   —— daily-checkin 返回 code=10001 —— 该字段仍报 false;active=false 时该响应
+   为默认空态)。余额字段为 data.**total_credits**(下划线+复数);
 3. 领取 POST https://copilot.tencent.com/billing/meter/daily-checkin,空体 {},
    响应 {code, msg, data}:code==0 成功(data.credit / data.streak_days),
-   code==10001 今日已签(幂等,视为成功);每日 00:00(UTC+8)后随时可领。
+   code==10001 今日已签(幂等,视为成功;**实测 HTTP 状态码为 400**,
+   响应体 {"code":10001,"msg":"今天已签到，请明天再来"} —— 必须按 code 判,
+   不能按 HTTP>=400 一律判失败);每日 00:00(UTC+8)后随时可领。
 4. 鉴权失败一律按 HTTP 状态码判定(401/403),不扫响应体(响应体含随机
    requestId,子串匹配会随机误判 —— 上游 issue 实证)。
 
@@ -68,6 +72,21 @@ PATH_WEB_DAILY_CHECKIN: Final = "/v2/billing/meter/daily-checkin"
 # 业务码:0=成功;10001=今日已签(幂等成功)。其余非零按失败分类。
 _CODE_OK: Final = 0
 _CODE_ALREADY: Final = 10001
+
+# 余额字段候选键(checkin-status 响应 data 内)。**顺序即优先级**。
+# 2026-10-17 生产实测:官方字段名是 `total_credits`(下划线+复数),
+# 此前只列了 total_credit/totalCredit/credits 三个错形 ⇒ 永远解析不到 ⇒ 官方积分列全报
+# 「状态响应不含积分余额字段」。穷举 /billing/meter/{credits,balance,quota,...} 全 404,
+# checkin-status 是唯一余额来源,故 total_credits 必须列首位。
+_BALANCE_KEYS: Final = (
+    "total_credits",
+    "total_credit",
+    "totalCredit",
+    "remaining",
+    "credit",
+    "balance",
+    "credits",
+)
 EXPIRY_WARN_HOURS: Final = 24  # token 剩余有效期低于该值时发出告警(与 TRAE/Qoder 一致)
 
 
@@ -270,6 +289,19 @@ async def _wb_post_web(
 # ---------------------------------------------------------------------------
 
 
+def _pick_balance(payload: dict[str, Any]) -> int | None:
+    """从 checkin-status 响应的 data 里按 _BALANCE_KEYS 顺序取积分余额。
+
+    2026-10-17:官方字段名 `total_credits`(下划线+复数)列首位 —— 此前漏列导致
+    官方积分列全报「状态响应不含积分余额字段」。返回首个 int 值,全缺返回 None。
+    """
+    for key in _BALANCE_KEYS:
+        val = payload.get(key)
+        if isinstance(val, int):
+            return val
+    return None
+
+
 def _base_result(name: str, user_id: str | None) -> dict[str, Any]:
     return {
         "name": name,
@@ -366,6 +398,15 @@ async def workbuddy_checkin_account(
             )
         result["classified_error"] = {"type": error_type, "cooldown_seconds": cooldown_secs}
         return result
+    # 已签幂等:官方 daily-checkin 对「今天已签到」返回 **HTTP 400 + code 10001**
+    # (2026-10-17 生产实测:400 响应体 {"code":10001,"msg":"今天已签到，请明天再来"})。
+    # 必须在 status>=400 分支**之前**识别 —— 否则幂等成功被误报成「签到失败: HTTP 400」,
+    # 正是李总报的「一键签到失败」根因。此处先掏 code,命中 10001 即幂等成功。
+    if isinstance(data, dict) and data.get("code") == _CODE_ALREADY:
+        result["code"] = _CODE_ALREADY
+        result["http_status"] = status if status > 0 else None
+        result.update(ok=True, status="already", action="skip_already", message="今日已签到,无需重复领取")
+        return result
     if status >= 400:
         # 其余 4xx/5xx:HTTP 层即失败,不进业务码解析(响应体可能非我们的契约)
         error_type, cooldown_secs = workbuddy_classify_error(status)
@@ -417,44 +458,52 @@ async def workbuddy_probe_status(
     timeout: float = DEFAULT_TIMEOUT,
     client: httpx.AsyncClient | None = None,
 ) -> tuple[bool, bool | None, int | None, str]:
-    """只读探针:查 checkin-status 的 data.today_checked_in ⇒ 今日是否已签。
+    """探针:判定「今日是否已签」,供 06:00 状态探针在主窗口前同步。
 
-    返回 (ok, checked_in|None, credits|None, message)。**不调 daily-checkin,
-    零领取副作用** —— 供 06:00 状态探针在主窗口前同步「今日已签到」。
+    2026-10-17 生产实证:官方 checkin-status 的 `today_checked_in` **不可靠** ——
+    账号实际今日已签(daily-checkin 返回 code=10001),该字段仍报 false
+    (active=false 时该响应为默认空态)。故唯一可靠的已签判定 = daily-checkin 的
+    幂等语义:已签 ⇒ code=10001(HTTP 400),未签 ⇒ code=0 并顺带领取(官方幂等,
+    不重复发分)。本探针因此走幂等 claim(与 MiniMax 同策略),而非只读 status。
 
-    契约:HTTP 非 200 / 非 JSON / 字段缺失 ⇒ ok=False 且 checked_in=None
-    (宁缺勿假,探针据此跳过,不打平台也不误报)。
+    返回 (ok, checked_in|None, credits|None, message):
+    - ok=True,  checked_in=True : 今日已签(含顺带领取);
+    - ok=False, checked_in=None : 网络/会话/契约异常,判定失败(宁缺勿假,不误报)。
     """
     tok = (token or "").strip()
     web_mode = workbuddy_is_web_mode(device_map)
     if not tok:
         return False, None, None, "未配置网页登录 Cookie" if web_mode else "未配置 token"
-    if not web_mode:
-        exp_dt, remaining = workbuddy_session_expiry(device_map)
-        if remaining is not None and remaining < 0:
-            return False, None, None, f"会话已过期({exp_dt:%Y-%m-%d %H:%M})"
     if web_mode:
-        status, data = await _wb_post_web(PATH_WEB_CHECKIN_STATUS, tok, timeout, client)
+        status, data = await _wb_post_web(PATH_WEB_DAILY_CHECKIN, tok, timeout, client)
     else:
-        status, data = await _wb_post(PATH_CHECKIN_STATUS, tok, timeout, client)
+        status, data = await _wb_post(PATH_DAILY_CHECKIN, tok, timeout, client)
     if status in (0, -1):
         return False, None, None, "网络异常"
-    if status != 200 or not isinstance(data, dict):
-        return False, None, None, f"状态查询失败(HTTP {status})"
-    payload = data.get("data")
-    payload = payload if isinstance(payload, dict) else {}
-    # today_checked_in 顶层/内层都找(实测两型都出现过)
-    for bucket in (data, payload):
-        raw = bucket.get("today_checked_in")
-        if isinstance(raw, bool):
-            credits: int | None = None
-            for key in ("remaining", "credit", "balance", "total_credit", "totalCredit", "credits"):
-                val = payload.get(key)
-                if isinstance(val, int):
-                    credits = val
-                    break
-            return True, raw, credits, "今日已签到" if raw else ""
-    return False, None, None, "状态响应不含 today_checked_in"
+    if status in (401, 403):
+        return (
+            False,
+            None,
+            None,
+            f"网页登录已过期(HTTP {status})" if web_mode else f"token 已过期或无权限(HTTP {status})",
+        )
+    if not isinstance(data, dict):
+        if status == 200:
+            checkin_outbound_gate.note_challenge("workbuddy")
+            return False, None, None, "签到响应非 JSON(挑战页,已熔断)"
+        return False, None, None, f"签到判定失败(HTTP {status})"
+    code = data.get("code")
+    if code == _CODE_ALREADY:
+        # HTTP 400 + code 10001(实测):今天已签 —— 幂等成功,零副作用
+        return True, True, None, "今日已签到,无需重复领取"
+    if code == _CODE_OK:
+        # 未签 ⇒ 顺带领取成功(daily-checkin 官方幂等,不重复发分)
+        payload = data.get("data")
+        payload = payload if isinstance(payload, dict) else {}
+        credit = payload.get("credit")
+        return True, True, credit if isinstance(credit, int) else None, "签到成功"
+    msg = data.get("msg") or data.get("message") or ""
+    return False, None, None, f"签到判定失败: code={code}" + (f" {msg}" if msg else "")
 
 
 async def workbuddy_query_credits(
@@ -464,12 +513,17 @@ async def workbuddy_query_credits(
     timeout: float = DEFAULT_TIMEOUT,
     client: httpx.AsyncClient | None = None,
 ) -> dict[str, Any]:
-    """查询签到状态(POST checkin-status),返回 {"remaining": int|None, "error": str|None}。
+    """查询账号积分余额(POST checkin-status 的 data),返回
+    {"remaining": int|None, "error": str|None}。
 
     契约对齐 checkin_credits.query_remaining_credits / qoder_query_credits:
     调度器积分快照按 result["remaining"] 是否为 int 判成败。
-    status 响应实测可能不含余额字段(仅 today_checked_in)⇒ 缺字段如实报
-    error,不编造数值(2026-10-12 立此契约:宁缺勿假)。
+
+    2026-10-17 修正:官方字段名是 `total_credits`(下划线+复数),此前只列
+    total_credit/totalCredit/credits 三个错形 ⇒ 永远解析不到 ⇒ 官方积分列
+    全报「状态响应不含积分余额字段」。现按 _BALANCE_KEYS 顺序取,首位即
+    total_credits。穷举 /billing/meter/{credits,balance,quota,usage,...} 全 404,
+    checkin-status 是唯一余额来源。缺字段仍如实报 error,不编造(宁缺勿假)。
     """
     token = (jwt or "").strip()
     web_mode = workbuddy_is_web_mode(device_map)
@@ -512,9 +566,8 @@ async def workbuddy_query_credits(
         return {"remaining": None, "error": f"状态查询失败(HTTP {status})"}
     payload = data.get("data")
     payload = payload if isinstance(payload, dict) else {}
-    for key in ("remaining", "credit", "balance", "total_credit", "totalCredit", "credits"):
-        val = payload.get(key)
-        if isinstance(val, int):
-            return {"remaining": val, "error": None}
+    val = _pick_balance(payload)
+    if isinstance(val, int):
+        return {"remaining": val, "error": None}
     return {"remaining": None, "error": "状态响应不含积分余额字段"}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

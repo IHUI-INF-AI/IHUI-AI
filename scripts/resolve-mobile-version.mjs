@@ -34,6 +34,7 @@
  * 用法:
  *   node scripts/resolve-mobile-version.mjs --base 0.0.5             # 打印派生版本
  *   node scripts/resolve-mobile-version.mjs --app mobile-rn           # 自动读该端 package.json
+ *   node scripts/resolve-mobile-version.mjs --app mobile-rn --kind release --tag v0.1.74
  *   node scripts/resolve-mobile-version.mjs --app mobile-rn --emit github  # 输出 GITHUB_ENV 行
  */
 import { readFileSync } from 'node:fs'
@@ -51,6 +52,13 @@ function utcStamp(at) {
   return `${yyyy}${mm}${dd}`
 }
 
+/** 从发布 tag 里取语义版本:`v0.1.74` / `mobile-v0.1.74` / `0.1.74` 都命中;取不到返回 null */
+export function extractVersionFromTag(tag) {
+  if (!tag) return null
+  const m = String(tag).match(/(\d+\.\d+\.\d+)/)
+  return m && m[1] ? m[1] : null
+}
+
 /**
  * 纯判据:由基准 semver + 构建时刻派生显示版本号。
  *
@@ -58,13 +66,21 @@ function utcStamp(at) {
  * 由人按节奏推进;后面那截日期是每次构建必然不同的部分。于是用户看到的串**每次更新都会变**,
  * 而里程碑又能自己说了算 —— 两种语义各归各位,不该揉进同一个数字互相绑架。
  *
- * @param {{ base?: string|null, at?: Date, kind?: 'nightly'|'release' }} p
- * @returns {string} 例 `0.0.5.20261017`;kind='release' 时返回原样 base(正式发版不再加日期戳)
+ * 2026-10-17 补第二格(**发布 tag 优先**):`kind='release'` 时若给了 tag,版本号取 tag 里的
+ *   语义版本而不是 package.json 的 base。原因是实测出来的不一致 —— APK 的 release tag 是
+ *   `v0.1.74`(仓库级版本),而 base 是 package.json 的 0.0.5;不修的话**下载页显示 0.1.74、
+ *   装到手机上 App 内显示 0.0.5**,正是本轮要消灭的那类"两个号对不上"。
+ *   ⇒ 对外发布的构建,版本号必须与发布它的那个 tag 同源;只有日常构建才用日期戳。
+ *
+ * @param {{ base?: string|null, tag?: string|null, at?: Date, kind?: 'nightly'|'release' }} p
+ * @returns {string} nightly 例 `0.0.5.20261017`;release 例 `0.1.74`
  */
-export function resolveMobileVersion({ base, at = new Date(), kind = 'nightly' } = {}) {
+export function resolveMobileVersion({ base, tag, at = new Date(), kind = 'nightly' } = {}) {
   const cleaned = String(base ?? '').trim()
+  if (kind === 'release') {
+    return extractVersionFromTag(tag) ?? (cleaned || '0.0.0')
+  }
   if (!cleaned) return '0.0.0'
-  if (kind === 'release') return cleaned
   return `${cleaned}.${utcStamp(at)}`
 }
 
@@ -76,13 +92,14 @@ export function readAppVersion(app) {
 
 /** @param {string[]} argv */
 export function parseArgs(argv) {
-  const out = { app: null, base: null, emit: 'stdout', kind: 'nightly' }
+  const out = { app: null, base: null, emit: 'stdout', kind: 'nightly', tag: null }
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
     if (a === '--app') out.app = argv[++i]
     else if (a === '--base') out.base = argv[++i]
     else if (a === '--emit') out.emit = argv[++i]
     else if (a === '--kind') out.kind = argv[++i]
+    else if (a === '--tag') out.tag = argv[++i]
     else if (a === '--help' || a === '-h') out.help = true
     else return { error: `未知参数: ${a}` }
   }
@@ -93,7 +110,14 @@ export function parseArgs(argv) {
 }
 
 /** 计算当次构建要用的版本号并产出输出行(IO 与判据分离,便于测试) */
-export function mainCore({ app, base, emit = 'stdout', kind = 'nightly', at = new Date() } = {}) {
+export function mainCore({
+  app,
+  base,
+  emit = 'stdout',
+  kind = 'nightly',
+  tag = null,
+  at = new Date(),
+} = {}) {
   let resolvedBase = base
   if (!resolvedBase && app) {
     try {
@@ -104,7 +128,7 @@ export function mainCore({ app, base, emit = 'stdout', kind = 'nightly', at = ne
       }
     }
   }
-  const version = resolveMobileVersion({ base: resolvedBase, at, kind })
+  const version = resolveMobileVersion({ base: resolvedBase, tag, at, kind })
   if (emit === 'github') {
     return {
       version,
@@ -123,6 +147,7 @@ export function mainCore({ app, base, emit = 'stdout', kind = 'nightly', at = ne
 const HELP_TEXT = `用法:
   node scripts/resolve-mobile-version.mjs --base 0.0.5
   node scripts/resolve-mobile-version.mjs --app mobile-rn
+  node scripts/resolve-mobile-version.mjs --app mobile-rn --kind release --tag v0.1.74
   node scripts/resolve-mobile-version.mjs --app mobile-rn --emit github
 `
 

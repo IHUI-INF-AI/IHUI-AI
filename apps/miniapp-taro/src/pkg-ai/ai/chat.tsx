@@ -51,6 +51,13 @@ import ChatMessageItem from './ChatMessageItem'
 import ContextUsageStrip from './context-usage-strip'
 import McpStatusStrip from './mcp-status-strip'
 import { resolvePermissionTierText } from './permission-tier-text'
+// 台账票 68:流式中切换模型 → 先终止当前这一轮,再让本轮/下一轮自动带入新模型。
+// 终止动作只允许一份实现(「停止」按钮与换档 effect 共用 ./model-switch 的出口),判据表照 web。
+import {
+  resolveRoundModel,
+  shouldTerminateForModelSwitch,
+  terminateActiveStream,
+} from './model-switch'
 // D136(2026-10-01 立,承 V4 #94/D84):高危工具审批 —— 卡片(三档/批准/拒绝/人工放行)
 // 与纯逻辑层(队列/记录/决议载荷)都在端内同目录,三档口径逐档对齐 web。
 import ToolApprovalCard, { type ApprovalDecisionPayload } from './tool-approval-card'
@@ -238,6 +245,11 @@ export default function ChatPage() {
   const [agents, setAgents] = useState<AgentItem[]>([])
   const [agentsLoading, setAgentsLoading] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  // 票 68:档位「最新值」的两个出口。`currentModelRef` 给 sendMessage 在把 payload 交出去之前
+  // 复核一次(web 同一条竞态收口:入口取到的是快照,而 chatStream 触达网关前还有 await);
+  // `previousModelRef` 给换档 effect 判「这一次是真的换了档,还是首帧/持久化回填」。
+  const currentModelRef = useRef(currentModel)
+  const previousModelRef = useRef(currentModel)
   // 待分享消息(对标原 ai_assistant.vue 分享对话,长按消息后存入,useShareAppMessage 动态读取)
   const shareMsgRef = useRef<ChatMessage | null>(null)
   // 复用问题到输入框(对标原 ai_assistant.vue copyToInput)
@@ -688,16 +700,19 @@ export default function ChatPage() {
       scrollToBottom()
       const controller = new AbortController()
       abortRef.current = controller
+      // 票 68:把 payload 交出去之前复核一次档位 —— chatStream 内部在触达网关前仍有 await,
+      // 这期间用户换了档就得跟到新档(而不是拿入口快照发新一轮);最新档为空则退回入口档。
+      const roundModel = resolveRoundModel(currentModel, currentModelRef.current)
       try {
         await chatStream(
           history,
           sessionId,
           {
-            model: currentModel || undefined,
+            model: roundModel || undefined,
             agentId: activeAgentId || undefined,
             materialContent: selectedMaterial?.content || undefined,
             // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,后端压缩后通过 SSE 回调提示用户
-            contextLimit: currentModel ? getModelContextCapacity(currentModel) : 0,
+            contextLimit: roundModel ? getModelContextCapacity(roundModel) : 0,
           },
           (delta) => {
             setMessages((prev) =>
@@ -1066,10 +1081,36 @@ export default function ChatPage() {
     sendMessageRef.current = sendMessage
   })
 
+  // 票 68:终止在途流的唯一出口。「停止」按钮与下面的换档 effect 都走这里,
+  // 差别只在要不要给用户一个看得见的理由(notice)—— 用户自己点停止不需要解释。
+  // 注意:此处刻意不把 abortRef 置 null,控制器由该流自己的 finally 回收(见 sendMessage)。
+  const terminateStream = useCallback(
+    (): boolean => terminateActiveStream({ abortRef, clearThinkingProgress: stopThinkingProgress }),
+    [stopThinkingProgress],
+  )
+
   const stopGeneration = useCallback(() => {
-    abortRef.current?.abort()
-    stopThinkingProgress()
-  }, [stopThinkingProgress])
+    terminateStream()
+  }, [terminateStream])
+
+  // 票 68(语义照 web `use-chat.ts` 的换档 effect):流式中切换模型 → 终止当前这一轮,
+  // 并让本轮/下一轮自动带入新模型(用户不必重发、也不必重开对话)。
+  // 首帧与持久化回填时 previous/current 相同 ⇒ 判据不成立 ⇒ 什么都不做(不该凭空打断)。
+  useEffect(() => {
+    const previousModel = previousModelRef.current
+    currentModelRef.current = currentModel
+    previousModelRef.current = currentModel
+    if (
+      !shouldTerminateForModelSwitch({
+        previousModel,
+        currentModel,
+        hasLiveStream: Boolean(abortRef.current),
+      })
+    ) {
+      return
+    }
+    terminateStream()
+  }, [currentModel, terminateStream])
 
   const handleSuggestion = useCallback(
     (text: string) => {
