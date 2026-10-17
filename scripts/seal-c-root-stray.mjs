@@ -38,6 +38,7 @@ import {
 import { basename, dirname, join, parse, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { countScratchSegments } from './lib/scratch-dir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 // 搬完再删源的对账 = 与 §26 改道修复器共用**同一份**内容校验链(守门/台账 G-1018197):
 // 此前本工具自己只比"路径清单在不在",配上 cpSync 的 force:false,目标已有同名文件时
 // 保留的是目标侧旧字节,而源紧接着就被 rmSync 删掉了。
@@ -684,10 +685,23 @@ function selfTest() {
 function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
   const mode = argv.includes('--apply') ? 'apply' : argv.includes('--dry-run') ? 'dry-run' : 'check'
-  const rootIdx = argv.indexOf('--root')
-  const root = rootIdx >= 0 && argv[rootIdx + 1] ? resolve(argv[rootIdx + 1]) : 'C:'
-  const devIdx = argv.indexOf('--devenv')
-  const devEnv = devIdx >= 0 && argv[devIdx + 1] ? resolve(argv[devIdx + 1]) : devEnvRoot()
+  // G-322(本站 = 本仓**唯一会改盘根结构**的工具):`--root` 缺省是 `'C:'`,`--devenv` 缺省是 devEnvRoot()。
+  // 旧写法 `rootIdx >= 0 && argv[rootIdx+1]` 只认"值不以 - 开头的字符串"以外的一切 —— 于是
+  // `--apply --root --devenv D:/DevEnv` 这类写法会把默认盘根 C: 当成"调用方指定的根"去**封口**,
+  // 而调用方以为自己在验另一块盘;§26 的递归穿透教训说明这种错方向的代价不是一次红,是 D 盘被清空。
+  // 判据交单源出口:给了旗标就必须拿到值,否则未判定(不猜根、不把默认档当成"你指定的根")。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    return 2
+  }
+  const root = rootFlag.value ? resolve(rootFlag.value) : 'C:'
+  const devFlag = requireFlagValue(argv, '--devenv', { noun: '目录' })
+  if (devFlag.error) {
+    console.error(`❌ ${devFlag.error}`)
+    return 2
+  }
+  const devEnv = devFlag.value ? resolve(devFlag.value) : devEnvRoot()
   const r = run({ root, devEnv, mode })
 
   console.log(`盘根写歪项封口 —— 模式 ${mode}(盘根 ${root} → 外置根 ${r.devEnv})`)
