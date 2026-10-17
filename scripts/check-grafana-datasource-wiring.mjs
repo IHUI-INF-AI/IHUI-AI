@@ -24,9 +24,13 @@
  * 判据复用:数据源块的切分与 uid 推导一律 import `sync-grafana-live-provisioning.mjs`
  * 的 splitBlocks(§22c 同一件事只许一份实现)。本文件不复制第二份 YAML 解析。
  *
- * 覆盖面(2026-10-17 扩面):仓里有两棵 Grafana 树,都要对账 ——
+ * 覆盖面(2026-10-17 扩面;2026-10-17 补齐第三棵树):仓里全部三棵 Grafana 树(现读
+ * `git ls-files | grep grafana/dashboards/` 目录集合,自检 S5 做覆盖锁),都要对账 ——
  *   · monitoring/grafana(本机 Grafana 直载,含 Loki 数据源)
  *   · deploy/observability/grafana(部署环,只有 Prometheus + Jaeger)
+ *   · deploy/saas/grafana(SaaS 托管环,P1-2.3;**曾因不在覆盖面而对 CI 失明**:
+ *     两份大屏共 10 处硬编码 Grafana 样例数据源 uid "PBFA97CFB590B2093",
+ *     该 uid 在全仓任何 provisioning 里都不存在,这 10 处引用无一能解析)
  * 对账按**树**分组:每棵树的面板只对本树的 provisioning 负责。合并成一个大池会
  * 假放行 —— 部署环根本没配 Loki,它的面板若引 Loki 就是悬空的,拿 monitoring 的
  * Loki 配置给它背书等于放死配置过关(2026-10-17 实测:agent-runtime.json 8 处
@@ -46,7 +50,7 @@
  *   node scripts/check-grafana-datasource-wiring.mjs --self-test
  */
 import { readdirSync, existsSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 import { splitBlocks } from './sync-grafana-live-provisioning.mjs'
@@ -54,8 +58,9 @@ import { splitBlocks } from './sync-grafana-live-provisioning.mjs'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 /**
- * 两棵 Grafana 树。dashboards = 面板目录(仓库内相对路径前缀);
+ * 三棵 Grafana 树。dashboards = 面板目录(仓库内相对路径前缀);
  * provisioning = 该树自己的数据源 provisioning(相对路径)。
+ * 覆盖锁见 selfTest S5 与镜像测试(仓里任何 grafana/dashboards 目录都必须在此登记)。
  */
 const DASHBOARD_TREES = [
   {
@@ -67,6 +72,11 @@ const DASHBOARD_TREES = [
     label: 'deploy/observability',
     dashboards: 'deploy/observability/grafana/dashboards',
     provisioning: 'deploy/observability/grafana/provisioning/datasources/datasources.yml',
+  },
+  {
+    label: 'deploy/saas',
+    dashboards: 'deploy/saas/grafana/dashboards',
+    provisioning: 'deploy/saas/grafana/provisioning/datasources/prometheus.yml',
   },
 ]
 
@@ -123,7 +133,7 @@ function listFacePaths(face) {
 }
 
 /**
- * 一次 batch 读齐两棵树的面板与 provisioning(取材层 `catBatch` 单次派生,
+ * 一次 batch 读齐各棵树的面板与 provisioning(取材层 `catBatch` 单次派生,
  * 不做 N 次逐文件 git 调用 —— 那是 §5b 的 fork 风暴同型)。
  *
  * @param {string} face 'head' | 'staged'
@@ -178,6 +188,12 @@ function readProvisioning(face, tree) {
 }
 
 function selfTest() {
+  // 断言必须"有牙":console.assert 只打日志不改退出码,失败照样 exit 0 —— 这里收拢成
+  // 失败清单,任一不过即 return 1(否则覆盖锁就是装饰)。
+  const fails = []
+  const req = (cond, msg) => {
+    if (!cond) fails.push(msg)
+  }
   const yaml = [
     'apiVersion: 1',
     'datasources:',
@@ -191,10 +207,53 @@ function selfTest() {
     '',
   ].join('\n')
   const uids = collectProvisionedUids(yaml)
-  console.assert(uids.has('Prometheus'), 'S1 显式 uid 必须取到')
-  console.assert(uids.has('Loki'), 'S2 无显式 uid 时回落到 name')
-  console.assert(uids.size === 2, 'S3 块数必须是 2(不能把嵌套键认成数据源)')
-  console.info('✅ self-test 通过:uid 提取与块切分')
+  req(uids.has('Prometheus'), 'S1 显式 uid 必须取到')
+  req(uids.has('Loki'), 'S2 无显式 uid 时回落到 name')
+  req(uids.size === 2, 'S3 块数必须是 2(不能把嵌套键认成数据源)')
+  // S4 阳性对照:坏 uid 夹具必须被 auditTree 判成 dangling(判据本身有牙的证明)
+  {
+    const prov = collectProvisionedUids(yaml)
+    const bad = collectPanelRefs(() => [
+      { file: 'bad.json', json: { panels: [{ title: '坏板', datasource: { uid: 'PBFA97CFB590B2093' } }] } },
+    ])
+    req(auditTree(prov, bad).dangling.length === 1, 'S4 样例/未声明 uid 夹具必须判 dangling')
+    const good = collectPanelRefs(() => [
+      { file: 'ok.json', json: { panels: [{ title: '好板', datasource: { uid: 'Prometheus' } }] } },
+    ])
+    req(auditTree(prov, good).dangling.length === 0, 'S4b 已声明 uid 夹具不得误判')
+  }
+  // S5 覆盖锁:盘上(deploy/ 与 monitoring/ 两棵候选根下)凡是含 .json 面板的
+  // grafana/dashboards 目录,必须在 DASHBOARD_TREES 里有登记 —— "清单静默漏掉一棵树"
+  // 正是本次要闭的失明:saas 树曾带着 10 处悬空 uid 在 CI 视野外活了好久。
+  const covered = new Set(DASHBOARD_TREES.map((t) => t.dashboards.replace(/\\/g, '/')))
+  const strays = []
+  const scan = (dir) => {
+    let ents
+    try {
+      ents = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const e of ents) {
+      if (!e.isDirectory()) continue
+      const p = join(dir, e.name)
+      if (p.replace(/\\/g, '/').endsWith('grafana/dashboards')) {
+        const hasJson = readdirSync(p).some((f) => f.endsWith('.json'))
+        const rel = relative(ROOT, p).replace(/\\/g, '/')
+        if (hasJson && !covered.has(rel)) strays.push(rel)
+      } else {
+        scan(p)
+      }
+    }
+  }
+  for (const rootCandidate of ['deploy', 'monitoring']) scan(join(ROOT, rootCandidate))
+  req(covered.has('deploy/saas/grafana/dashboards'), 'S5a deploy/saas 树必须在覆盖面清单里(2026-10-18 失明案)')
+  req(strays.length === 0, `S5b 盘面存在未登记的 grafana/dashboards 目录: ${strays.join(', ')}`)
+  if (fails.length) {
+    for (const f of fails) console.error(`❌ self-test 失败: ${f}`)
+    return 1
+  }
+  console.info('✅ self-test 通过:uid 提取、块切分、dangling 阳性对照、树覆盖锁')
   return 0
 }
 
@@ -280,7 +339,8 @@ const isDirect = process.argv[1] && import.meta.url === pathToFileURL(process.ar
 if (isDirect) process.exit(main())
 
 // 镜像测试 scripts/tests/check-grafana-datasource-wiring.test.mjs 一律从这里取判据
-// (§22c:同一份判据不许有第二份实现)。
-export const __test__ = { collectProvisionedUids, collectPanelRefs, auditTree }
+// (§22c:同一份判据不许有第二份实现)。DASHBOARD_TREES 一并导出:覆盖面清单本身也是判据,
+// 测试要能对账"树是否真的在扫",不许测试另抄一份树清单。
+export const __test__ = { collectProvisionedUids, collectPanelRefs, auditTree, DASHBOARD_TREES }
 export { collectProvisionedUids, collectPanelRefs, auditTree }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
