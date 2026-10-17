@@ -86,10 +86,6 @@
     "claimFailed": "수령 실패",
     "loadFailed": "미션 로딩 실패"
   },
-  "nav": {
-    "profile": "마이페이지",
-    "community": "커뮤니티"
-  },
   "common": {
     "hint": "알림",
     "goSettings": "설정으로",
