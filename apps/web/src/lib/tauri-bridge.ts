@@ -111,12 +111,7 @@ export class DesktopIpcError extends Error {
   /** 原始 rejection(仅用于排查与日志,不得参与判据、不得渲染给用户)。 */
   readonly raw: unknown
 
-  constructor(
-    code: IpcErrorCode,
-    message: string,
-    codeSource: 'wire' | 'fallback',
-    raw: unknown,
-  ) {
+  constructor(code: IpcErrorCode, message: string, codeSource: 'wire' | 'fallback', raw: unknown) {
     super(message)
     this.name = 'DesktopIpcError'
     this.code = code
@@ -557,6 +552,9 @@ export async function getDesktopAppInfo(): Promise<DesktopAppInfo | null> {
  *
  * Rust 端 tauri_plugin_shell 已在 lib.rs 注册,
  * capabilities/default.json 已授权 shell:allow-open。
+ *
+ * 桌面端失败(IPC 异常 / 5s 无响应)返回 false,由调用方给出可见提示;
+ * 不回落 window.open —— 那会在应用内开窗,不是用户的默认浏览器。
  */
 export async function openExternalUrl(url: string, windowName = '_blank'): Promise<boolean> {
   if (!isTauri()) {
@@ -566,12 +564,10 @@ export async function openExternalUrl(url: string, windowName = '_blank'): Promi
     return window.open(url, windowName) !== null
   }
   try {
-    // 2026-10-13 实证(dev+cdp 真机):shell 插件 v2 的 open 命令参数名是 `path`,传 `{url}` 必报
-    // "invalid args: command open missing required key path" ⇒ 默认浏览器路径自桥接手写以来
-    // 一直是坏的(失败落 window.open,在 Tauri webview 里 = 静默无反应,用户感知"按钮没反应")。
-    // 2026-10-13 二轮(实测"按钮又没反应"期间立):invoke 若挂起(IPC 通道死/webview 半死态),
-    // await 永不返回,连下面的 window.open 兜底都进不去 —— 也是"点了没反应"的形态之一。
-    // 竞速 5s 超时:超时按失败走兜底,绝不把用户留在"无反馈"里。
+    // shell 插件 v2 的 open 命令参数名是 `path`,传 `{url}` 必报
+    // "invalid args: command open missing required key path"。
+    // invoke 若挂起(IPC 通道死/webview 半死态)则 await 永不返回,
+    // 竞速 5s 超时:超时按失败返回 false,绝不把用户留在"无反馈"里。
     await Promise.race([
       invoke('plugin:shell|open', { path: url }),
       new Promise((_, reject) =>
@@ -581,59 +577,16 @@ export async function openExternalUrl(url: string, windowName = '_blank'): Promi
     return true
   } catch (e) {
     console.warn('[shell] open failed:', e)
-    return window.open(url, '_blank') !== null
+    return false
   }
 }
 
-/**
- * 用系统 Google Chrome 打开 URL(2026-08-17 立,用户要求"内置浏览器要谷歌")。
- *
- * - 桌面端:调 Rust 端 open_in_chrome(command 已注册)——100% Google Chrome 本体,
- *   登录/点击/输入/视频全支持,不受网站 X-Frame-Options / 反自动化拦截。
- * - `mode`(2026-10-15 立第二档,用户反馈"打开的窗口不是完整的浏览器窗口"):
- *   · `'app'`(缺省)= Chrome `--app=` 无边框应用窗(无地址栏/无标签栏),"内置浏览器"观感;
- *   · `'window'` = **完整浏览器窗口**(地址栏 + 标签栏 + 书签栏全在),需要用户看得见地址
- *     /自主导航的登录场景走这档(签到助手网页登录)。
- *   两档都带 CDP 调试端口 + 专用 profile,登录态回收机制不受窗口形态影响。
- * - web 端(普通浏览器):降级为 window.open 新标签页(浏览器沙箱无法启动本机程序)。
- *
- * @returns 桌面端返回 CDP 端口号,失败返回错误消息;web 端恒返回 null
- */
-export async function openInGoogleChrome(
-  url: string,
-  mode: 'app' | 'window' = 'app',
-): Promise<number | string | null> {
-  if (!isTauri()) {
-    window.open(url, '_blank')
-    return null
-  }
-  try {
-    return await invokeIpc<number>('open_in_chrome', { url, mode })
-  } catch (e) {
-    const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
-    // 带上档名再喊:Chrome 没装(not_found)/ 端口没抢到(network)/ 别的(internal)是三种处置。
-    console.warn('[chrome] open_in_chrome failed:', err.code, err.message)
-    return err.message
-  }
-}
-
-/**
- * 关掉 `openInGoogleChrome` 打开的那个窗口(2026-10-13 立,桌面端"在浏览器中登录"闭环收尾)。
- *
- * Rust 端 close_in_chrome 走 CDP(端口即 open_in_chrome 的返回值)只关 `urlPrefix` 命中的
- * 那一个 page target —— 同一 Chrome 实例(--user-data-dir 固定)里工作台等其它 --app 窗口不受影响。
- *
- * @param port openInGoogleChrome 返回的 CDP 端口号
- * @param urlPrefix 目标窗口的地址前缀(桌面 SSO 即 `{webBase}/sso/login`)
- * @returns 实际关掉的 target 数;失败(端口已掉/Chrome 已退)返回 0 —— 关窗是登录成功后的
- *          收尾动作,失败只由调用方记一行 warn,不影响已落地的登录态。
- */
 /**
  * 在项目内嵌浏览器窗里打开地址(与 Rust `embedded_browser_open` 逐参对齐)。
  *
  * 2026-10-16 立:桌面端"浏览器里登录"统一走项目内嵌 WebView2 窗(不再依赖本机
  * Chrome 与 CDP 端口),同 label 复用已建窗并导航;非桌面环境回落到 window.open。
- * 失败返回错误文案(与 openInGoogleChrome 同口径:不抛,交给调用方提示)。
+ * 失败返回错误文案(不抛,交给调用方提示)。
  */
 export async function openEmbeddedBrowser(url: string, title?: string): Promise<string | null> {
   if (!isTauri()) {
@@ -733,17 +686,6 @@ export async function onEmbeddedBrowserElementPicked(
   }
 }
 
-export async function closeChromeWindow(port: number, urlPrefix: string): Promise<number> {
-  if (!isTauri()) return 0
-  try {
-    return await invokeIpc<number>('close_in_chrome', { port, urlPrefix })
-  } catch (e) {
-    const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
-    console.warn('[chrome] close_in_chrome failed:', err.code, err.message)
-    return 0
-  }
-}
-
 // ================== 应用菜单(2026-07-25 立) ==================
 
 /** 原生菜单 ID 联合类型(HTML 顶栏 + web 端快捷键共用,前端 dispatcher 严格 switch)。 */
@@ -773,7 +715,6 @@ export async function quitApp(): Promise<void> {
   if (!isTauri()) return
   await invoke('quit_app')
 }
-
 
 /**
  * 发送系统原生通知(标题 + 正文)。
@@ -1743,8 +1684,7 @@ export type WorkbuddyWebLoginProbe =
     }
   | { status: 'error'; message: string }
 
-/** WorkBuddy 站点根(仅作 closeChromeWindow 的 urlPrefix 收尾:登录成功后页面会从
- *  /login/ 跳走,前缀必须留 origin 才能同时命中登录页与登录后的落地页)。 */
+/** WorkBuddy 站点根(登录成功后页面会从 /login/ 跳走,匹配登录态时用 origin 而非路径)。 */
 export const WB_WEB_LOGIN_ORIGIN = 'https://www.workbuddy.cn'
 
 /** WorkBuddy 网页登录**真实登录页**(2026-10-15 修:WB_WEB_LOGIN_ORIGIN 是产品营销
@@ -2157,7 +2097,6 @@ export async function checkinAuditQoderResidual(): Promise<QoderResidualAuditRep
   requireTauri()
   return await invokeIpc<QoderResidualAuditReport>('checkin_audit_qoder_residual')
 }
-
 
 /** 备份指定账号的 9 类 TRAE 现场文件到应用数据目录快照区。 */
 export async function checkinSnapshotBackup(userId: string): Promise<CheckinBackupReport> {
