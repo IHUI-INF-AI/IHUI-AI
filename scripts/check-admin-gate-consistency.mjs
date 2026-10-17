@@ -58,6 +58,7 @@ import {
   selectFace,
 } from './lib/face-reader.mjs'
 import { __test__ as catalogParser } from './check-capability-catalog.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = resolve(fileURLToPath(import.meta.url), '..', '..')
 const API_SRC_REL = 'apps/api/src'
@@ -482,8 +483,15 @@ export function decideExit(out) {
 
 function main() {
   const args = process.argv.slice(2)
-  const ri = args.indexOf('--root')
-  const root = ri >= 0 && args[ri + 1] ? resolve(args[ri + 1]) : ROOT
+  // G-322(本站):`--root` 被下一枚旗标顶值(guardian-runner 每道门都追加 `--staged`)或结尾无值时,
+  // 旧写法把那个 token 当成路径 ⇒ 在一个不存在的根上扫出"0 违规"还报通过。给了旗标就必须拿到值,
+  // 否则未判定 exit 2(单源判据见 scripts/lib/flag-value.mjs,§22c 不得在此复制一份)。
+  const rootFlag = requireFlagValue(args, '--root', { noun: '目录' })
+  if (rootFlag.error) {
+    console.error(`[admin-gate] ❌ ${rootFlag.error}`)
+    process.exit(2)
+  }
+  const root = rootFlag.value ? resolve(rootFlag.value) : ROOT
   if (args.includes('--self-test')) {
     process.exit(runSelfTest(root, 'head') ? 0 : 1)
   }
