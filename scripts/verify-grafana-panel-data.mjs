@@ -277,6 +277,30 @@ function varNames(json) {
   return (json.templating?.list || []).filter((v) => v && v.name)
 }
 
+/**
+ * 版面坐标对账(与"有没有数"是两件事,但都属于"这张盘打开来看是对的"):
+ * 两块面板 gridPos 相交 ⇒ 其中一块被压在下面,肉眼看就是"面板不见了";
+ * x+w>24 ⇒ Grafana 24 列栅格溢出,右侧被裁。2026-10-17 实测 24 张盘里 hls 盘的流水账文本板
+ * 正是压住了唯一图表(24×3@y0 覆 12×8@y0),而全部静态门对此一无所觉。
+ */
+function gridPosIssues(json) {
+  const cells = (json.panels || []).filter((p) => p.type !== 'row' && p.gridPos)
+  const out = []
+  for (const p of cells) {
+    const g = p.gridPos
+    if (g.x + g.w > 24) out.push(`「${p.title}」超出 24 列(x=${g.x} w=${g.w})`)
+  }
+  for (let i = 0; i < cells.length; i++)
+    for (let k = i + 1; k < cells.length; k++) {
+      const a = cells[i].gridPos
+      const b = cells[k].gridPos
+      if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h)
+        out.push(`「${cells[i].title}」与「${cells[k].title}」重叠(a=[${a.x},${a.y},${a.w},${a.h}] b=[${b.x},${b.y},${b.w},${b.h}])`)
+    }
+  const noPos = (json.panels || []).filter((p) => p.type !== 'row' && !p.gridPos).map((p) => `「${p.title || '(无标题)'}」没有 gridPos`)
+  return [...out, ...noPos]
+}
+
 async function run(opts) {
   const windowSec = parseWindow(opts.window)
   if (!windowSec) throw new Error(`--window 格式不对: ${opts.window}(示例 30m / 6h / 24h)`)
@@ -315,7 +339,7 @@ async function run(opts) {
     const vars = varNames(d.json)
     const targets = collectTargets(d.json)
     const allExprs = targets.map((t) => t.expr).join('\n')
-    const entry = { file: d.file, title: d.json.title, vars: [], panels: [] }
+    const entry = { file: d.file, title: d.json.title, vars: [], panels: [], gridIssues: gridPosIssues(d.json) }
 
     for (const v of vars) {
       const referenced = usesVar(allExprs, v.name)
@@ -437,9 +461,14 @@ function printReport(report, tally) {
     }
   }
   const total = Object.values(tally).reduce((a, b) => a + b, 0)
+  const gridTotal = report.dashboards.reduce((a, d) => a + (d.gridIssues || []).length, 0)
   console.info(
-    `\n汇总:${report.dashboards.length} 张盘 · ${total} 条表达式 —— 有数 ${tally.data} · 全零 ${tally.allzero} · 空板 ${tally.empty} · 失败 ${tally.failed} · 未判定 ${tally.unjudged}${deadControls.length ? ` · 死控件 ${deadControls.length}` : ''}`
+    `\n汇总:${report.dashboards.length} 张盘 · ${total} 条表达式 —— 有数 ${tally.data} · 全零 ${tally.allzero} · 空板 ${tally.empty} · 失败 ${tally.failed} · 未判定 ${tally.unjudged}${deadControls.length ? ` · 死控件 ${deadControls.length}` : ''}${gridTotal ? ` · 版面异常 ${gridTotal}` : ''}`
   )
+  if (gridTotal) {
+    console.info('\n版面坐标异常(重叠=有面板被压住看不见;溢出 24 列=右侧被裁):')
+    for (const d of report.dashboards) for (const g of d.gridIssues || []) console.info(`  · [${d.file}] ${g}`)
+  }
   if (tally.empty) {
     console.info('\n空板明细(序列一条都没匹配到 —— 标签名/正则/指标族出了问题):')
     for (const d of report.dashboards)
@@ -469,7 +498,7 @@ function printReport(report, tally) {
 
 function selfTest() {
   const cases = []
-  const ok = (name, cond) => cases.push({ name, pass: !!cond })
+  const ok = (name, cond, detail) => cases.push({ name, pass: !!cond, detail })
 
   ok('parseWindow 合法', parseWindow('6h') === 21600 && parseWindow('30m') === 1800)
   ok('parseWindow 非法返回 null', parseWindow('6x') === null)
@@ -489,6 +518,17 @@ function selfTest() {
   ok('classifyMatrix 有非零=有数', classifyMatrix([{ values: [[1, '0'], [2, '3']] }]).verdict === 'data')
   ok('loki 聚合型判定', isMetricQuery('sum by (job) (rate({job="a"}[5m]))') === true && isMetricQuery('{job="a"}') === false)
   {
+    // 版面档成对正反:证明它真能判出,也证明它不乱咬(hls 盘那块流水账文本板压住唯一图表即此型)
+    const mkPanels = (y2) => ({ panels: [{ type: 'stat', title: 'A', gridPos: { h: 3, w: 24, x: 0, y: 0 } }, { type: 'timeseries', title: 'B', gridPos: { h: 8, w: 12, x: 0, y: y2 } }] })
+    const hit = gridPosIssues(mkPanels(0))
+    const miss = gridPosIssues(mkPanels(3))
+    ok('版面档能判出重叠(正控)', hit.some((s) => s.includes('重叠')), JSON.stringify(hit))
+    ok('版面档在错开后不咬人(反控)', miss.length === 0, JSON.stringify(miss))
+    ok('版面档判出超出 24 列', gridPosIssues({ panels: [{ type: 'stat', title: 'C', gridPos: { h: 4, w: 20, x: 8, y: 0 } }] }).some((s) => s.includes('24 列')))
+    ok('版面档判出缺 gridPos', gridPosIssues({ panels: [{ type: 'stat', title: 'D' }] }).some((s) => s.includes('没有 gridPos')))
+    ok('row 容器不参与逐格判(子板坐标是行内相对值)', gridPosIssues({ panels: [{ type: 'row', gridPos: { h: 1, w: 24, x: 0, y: 0 } }] }).length === 0)
+  }
+  {
     // 报表翻倍这一型:printReport 曾对调用方传进来的 tally 再累加一遍 ⇒ 人读的汇总永远是真数×2。
     const fake = { window: '6h', start: 0, end: 1, step: 60, prometheus: null, loki: null, dashboards: [{ file: 'x.json', title: 'x', vars: [], panels: [{ verdict: 'data', panel: 'a', panelType: 'stat', detail: 'd' }, { verdict: 'empty', panel: 'b', panelType: 'stat', detail: 'd' }] }] }
     const t = tallyPanels(fake)
@@ -502,7 +542,7 @@ function selfTest() {
 
   let pass = 0
   for (const c of cases) {
-    console.info(`${c.pass ? '✅' : '❌'} ${c.name}`)
+    console.info(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : c.detail ? `\n      读数:${c.detail}` : ''}`)
     if (c.pass) pass++
   }
   console.info(`自检 ${pass}/${cases.length}`)
@@ -523,8 +563,9 @@ async function main() {
   if (opts.json) console.info(JSON.stringify({ ...report, tally }, null, 2))
   else printReport(report, tally)
   const dead = report.dashboards.flatMap((d) => (d.vars || []).filter((v) => v.status === 'dead-control'))
-  // 空板/失败/未判定/死控件 ⇒ 1(有待处置);全零只报数不算缺陷。
-  process.exit(tally.empty || tally.failed || tally.unjudged || dead.length ? 1 : 0)
+  const grid = report.dashboards.reduce((a, d) => a + (d.gridIssues || []).length, 0)
+  // 空板/失败/未判定/死控件/版面异常 ⇒ 1(有待处置);全零只报数不算缺陷。
+  process.exit(tally.empty || tally.failed || tally.unjudged || dead.length || grid ? 1 : 0)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -544,6 +585,8 @@ export const __test__ = {
   varQueryText,
   isMetricQuery,
   classifyMatrix,
+  gridPosIssues,
+  tallyPanels,
   collectTargets,
   varNames,
 }
