@@ -27,7 +27,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import Link from 'next/link'
 
 import { cn } from '@/lib/utils'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { neutralizeFormulaCell } from '@/lib/export-utils'
 import { BackButton } from '@/components/common'
 import {
@@ -98,12 +98,6 @@ interface RankingEntry {
 }
 
 /* ─── API helper ─── */
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 /* ─── Score Entry Dialog ─── */
 
@@ -369,7 +363,7 @@ export default function GradesPage() {
   /* ── Queries ── */
   const { data: termsData } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
-    queryFn: () => api<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
   })
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
 
@@ -383,7 +377,7 @@ export default function GradesPage() {
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
     queryFn: () =>
-      api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+      apiOrThrow<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
     enabled: !!selectedTermId,
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
@@ -401,7 +395,7 @@ export default function GradesPage() {
       if (selectedClassId) params.set('classId', selectedClassId)
       if (filterSubject) params.set('subject', filterSubject)
       if (filterExamName) params.set('examName', filterExamName)
-      return api<{ list: EduExamScore[] }>(`/api/edu-ai-management/exam-score?${params}`)
+      return apiOrThrow<{ list: EduExamScore[] }>(`/api/edu-ai-management/exam-score?${params}`)
     },
     enabled: !!selectedClassId,
   })
@@ -412,7 +406,7 @@ export default function GradesPage() {
     queryFn: () => {
       const params = new URLSearchParams()
       if (selectedClassId) params.set('classId', selectedClassId)
-      return api<ScoreStats>(`/api/edu-ai-management/exam-score/stats?${params}`)
+      return apiOrThrow<ScoreStats>(`/api/edu-ai-management/exam-score/stats?${params}`)
     },
     enabled: !!selectedClassId,
   })
@@ -423,7 +417,7 @@ export default function GradesPage() {
       const params = new URLSearchParams()
       if (selectedClassId) params.set('classId', selectedClassId)
       if (selectedExamName) params.set('examName', selectedExamName)
-      return api<{ ranking: RankingEntry[]; totalStudents: number }>(
+      return apiOrThrow<{ ranking: RankingEntry[]; totalStudents: number }>(
         `/api/edu-ai-management/exam-score/ranking?${params}`,
       )
     },
@@ -457,7 +451,7 @@ export default function GradesPage() {
 
   const createScore = useMutation({
     mutationFn: (data: ScoreFormData) =>
-      api('/api/edu-ai-management/exam-score', {
+      apiOrThrow('/api/edu-ai-management/exam-score', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -468,7 +462,7 @@ export default function GradesPage() {
     mutationFn: (entries: Array<{ studentId: string; subject: string; score: number }>) =>
       Promise.all(
         entries.map((e) =>
-          api('/api/edu-ai-management/exam-score', {
+          apiOrThrow('/api/edu-ai-management/exam-score', {
             method: 'POST',
             body: JSON.stringify({
               ...e,
@@ -484,13 +478,13 @@ export default function GradesPage() {
 
   const deleteScore = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/exam-score/${id}`, { method: 'DELETE' }),
+      apiOrThrow(`/api/edu-ai-management/exam-score/${id}`, { method: 'DELETE' }),
     onSuccess: invalidate,
   })
 
   const createSnapshot = useMutation({
     mutationFn: () =>
-      api('/api/edu-ai-management/exam-score/snapshot', {
+      apiOrThrow('/api/edu-ai-management/exam-score/snapshot', {
         method: 'POST',
         body: JSON.stringify({ classId: selectedClassId, examName: selectedExamName }),
       }),

@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { NotebookPen, Loader2, Trash2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, SearchInput } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -22,12 +22,6 @@ interface Note {
   courseName?: string
   createdAt: string
   isPublic?: boolean
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 export default function EduNotesPage() {
@@ -50,13 +44,15 @@ export default function EduNotesPage() {
     queryFn: () => {
       const qs = new URLSearchParams()
       if (debounced) qs.set('search', debounced)
-      return api<{ list: Note[] }>(`/api/edu/notes?${qs.toString()}`).then((d) => d.list ?? [])
+      return apiOrThrow<{ list: Note[] }>(`/api/edu/notes?${qs.toString()}`).then(
+        (d) => d.list ?? [],
+      )
     },
     enabled: allow,
   })
 
   const delMut = useMutation({
-    mutationFn: (nid: string) => api(`/api/edu/notes/${nid}`, { method: 'DELETE' }),
+    mutationFn: (nid: string) => apiOrThrow(`/api/edu/notes/${nid}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['edu', 'notes'] }),
   })
 

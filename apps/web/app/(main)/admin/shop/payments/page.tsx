@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, ShoppingCart } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Button,
   SearchInput,
@@ -36,12 +36,6 @@ interface Order {
   amount: number
   status: 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunded'
   createdAt: string
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const selectClass =
@@ -77,12 +71,15 @@ export default function AdminShopPaymentsPage() {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (search) qs.set('search', search)
       if (status !== 'all') qs.set('status', status)
-      return api<{ list: Order[]; total: number }>(`/api/admin/shop/payments?${qs.toString()}`)
+      return apiOrThrow<{ list: Order[]; total: number }>(
+        `/api/admin/shop/payments?${qs.toString()}`,
+      )
     },
   })
 
   const shipMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/shop/payments/${id}/ship`, { method: 'POST' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/admin/shop/payments/${id}/ship`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'shop', 'payments'] }),
   })
 

@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Heart, Loader2, Trash2, Folder, FileText } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -41,12 +41,6 @@ const TABS: { value: 'all' | ResourceType; label: string }[] = [
   { value: 'doc', label: '文档' },
 ]
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function MemberFavoritesPage() {
   const locale = useLocale()
   const qc = useQueryClient()
@@ -58,7 +52,7 @@ export default function MemberFavoritesPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'favorites', tab],
     queryFn: () =>
-      api<{ list: Favorite[] }>(
+      apiOrThrow<{ list: Favorite[] }>(
         `/api/favorites?pageSize=100${tab !== 'all' ? `&resourceType=${tab}` : ''}`,
       )
         .then((d) => d.list ?? [])
@@ -68,7 +62,7 @@ export default function MemberFavoritesPage() {
 
   const removeMut = useMutation({
     mutationFn: (f: Favorite) =>
-      api(`/api/favorites/${f.resourceType}/${f.resourceId}`, { method: 'DELETE' }),
+      apiOrThrow(`/api/favorites/${f.resourceType}/${f.resourceId}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['member', 'favorites'] }),
   })
 

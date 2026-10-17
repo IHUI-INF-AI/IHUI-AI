@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { Coins, Loader2, Search, Database, Tag } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Input, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -49,12 +49,6 @@ interface AiPricingStats {
   vendors: Array<{ vendor: string; label: string; count: number }>
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const CURRENCY_SYMBOL: Record<string, string> = {
   CNY: '¥',
   USD: '$',
@@ -79,13 +73,13 @@ export function PricingContent(): React.JSX.Element {
       const params = new URLSearchParams()
       params.set('pageSize', '200')
       if (activeVendor && activeVendor !== 'all') params.set('vendor', activeVendor)
-      return api<AiPricingListResponse>(`/api/ai-pricing?${params.toString()}`)
+      return apiOrThrow<AiPricingListResponse>(`/api/ai-pricing?${params.toString()}`)
     },
   })
 
   const statsQ = useQuery({
     queryKey: ['ai-pricing', 'stats'],
-    queryFn: () => api<AiPricingStats>('/api/ai-pricing/stats'),
+    queryFn: () => apiOrThrow<AiPricingStats>('/api/ai-pricing/stats'),
   })
 
   const vendors = statsQ.data?.vendors ?? []

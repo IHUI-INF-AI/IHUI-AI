@@ -40,7 +40,7 @@ import {
   TableRow,
   Trash2,
 } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 
@@ -70,12 +70,6 @@ const fmt = new Intl.DateTimeFormat('zh-CN', {
   hour: '2-digit',
   minute: '2-digit',
 })
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 function StatusBadge({ enabled }: { enabled: boolean }) {
   return (
@@ -123,7 +117,7 @@ export default function AdminLearnTopicCategoryPage() {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (debounced) qs.set('keyword', debounced)
       if (statusFilter !== 'all') qs.set('status', statusFilter)
-      return api<ListData>(`/api/learn/topics/categories?${qs.toString()}`)
+      return apiOrThrow<ListData>(`/api/learn/topics/categories?${qs.toString()}`)
     },
   })
 
@@ -137,7 +131,7 @@ export default function AdminLearnTopicCategoryPage() {
       const url = editing
         ? `/api/learn/topics/categories/${editing.id}`
         : '/api/learn/topics/categories'
-      return api<{ category: Category }>(url, {
+      return apiOrThrow<{ category: Category }>(url, {
         method: editing ? 'PUT' : 'POST',
         body: JSON.stringify(body),
       })
@@ -151,7 +145,8 @@ export default function AdminLearnTopicCategoryPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/learn/topics/categories/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/learn/topics/categories/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success('删除成功')
       qc.invalidateQueries({ queryKey: ['admin', 'learn', 'topic', 'category'] })

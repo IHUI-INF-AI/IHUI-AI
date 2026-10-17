@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { GitBranch, Loader2, CheckCircle, AlertTriangle, XCircle } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -31,12 +31,6 @@ interface ApiVersion {
   deprecateDate?: string
   sunsetDate?: string
   changelog?: string
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const STATUS_ICON = {
@@ -71,7 +65,8 @@ export default function VersionsPage() {
     error,
   } = useQuery({
     queryKey: ['developer', 'versions'],
-    queryFn: () => api<ApiVersion[]>('/api/developer/versions').catch(() => [] as ApiVersion[]),
+    queryFn: () =>
+      apiOrThrow<ApiVersion[]>('/api/developer/versions').catch(() => [] as ApiVersion[]),
     enabled: allow,
   })
 

@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2, Eye, ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { extractToc } from '@/lib/content'
 import { MarkdownViewer } from '@/components/media'
@@ -34,12 +34,6 @@ interface KBDetailData {
   next?: { id: string; title: string }
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function KBDetailPage() {
   const { id } = useParams<{ id: string }>()
   const locale = useLocale()
@@ -49,7 +43,7 @@ export default function KBDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['kb', 'detail', id],
-    queryFn: () => api<KBDetailData>(`/api/knowledge-base/${id}`),
+    queryFn: () => apiOrThrow<KBDetailData>(`/api/knowledge-base/${id}`),
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {

@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Users, MessageSquare, Loader2, Circle, Plus } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { BackButton } from '@/components/common'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
 
@@ -32,19 +32,13 @@ interface CirclesData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function CirclesPageClient() {
   const t = useTranslations('circles')
   const [page] = React.useState(1)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['circles', page],
-    queryFn: () => api<CirclesData>(`/api/circles?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: () => apiOrThrow<CirclesData>(`/api/circles?page=${page}&pageSize=${PAGE_SIZE}`),
   })
 
   const circles = data?.list ?? []

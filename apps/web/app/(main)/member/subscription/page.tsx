@@ -9,7 +9,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { CreditCard, Loader2, CheckCircle, XCircle } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -32,12 +32,6 @@ interface Subscription {
   autoRenew: boolean
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 const STATUS_CLS: Record<Subscription['status'], string> = {
   active: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
   cancelled: 'bg-muted text-muted-foreground',
@@ -56,18 +50,18 @@ export default function MemberSubscriptionPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'subscription'],
     queryFn: () =>
-      api<{ subscription: Subscription | null }>('/api/subscriptions')
+      apiOrThrow<{ subscription: Subscription | null }>('/api/subscriptions')
         .then((d) => d.subscription)
         .catch(() => null),
     enabled: allow,
   })
 
   const cancelMut = useMutation({
-    mutationFn: () => api('/api/subscriptions/cancel', { method: 'POST' }),
+    mutationFn: () => apiOrThrow('/api/subscriptions/cancel', { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['member', 'subscription'] }),
   })
   const renewMut = useMutation({
-    mutationFn: () => api('/api/subscriptions/renew', { method: 'POST' }),
+    mutationFn: () => apiOrThrow('/api/subscriptions/renew', { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['member', 'subscription'] }),
   })
 

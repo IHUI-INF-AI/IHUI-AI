@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { FileText, Loader2, ArrowLeft, Calendar, Tag } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { SafeHtml } from '@/components/common'
 
@@ -22,12 +22,6 @@ interface Agreement {
   version?: string | null
   effectiveDate?: string | null
   type?: string | null
-}
-
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const TYPE_MAP: Record<string, string> = {
@@ -58,7 +52,8 @@ export default function AgreementTypePage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['agreement', apiType],
-    queryFn: () => api<Agreement>(`/api/agreements/current?type=${encodeURIComponent(apiType)}`),
+    queryFn: () =>
+      apiOrThrow<Agreement>(`/api/agreements/current?type=${encodeURIComponent(apiType)}`),
     retry: false,
   })
 

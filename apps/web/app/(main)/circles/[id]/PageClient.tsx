@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft, Loader2, Users, MessageSquare, Circle } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent } from '@ihui/ui-react'
 import { generateArticleSchema } from '@/lib/seo/schema-article'
 
@@ -41,12 +41,6 @@ interface PostsData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function CircleDetailPage() {
   const t = useTranslations('circles')
   const tc = useTranslations('common')
@@ -60,13 +54,14 @@ export default function CircleDetailPage() {
     error: circleError,
   } = useQuery({
     queryKey: ['circle', params.id],
-    queryFn: () => api<{ circle: CircleDetail }>(`/api/circles/${params.id}`),
+    queryFn: () => apiOrThrow<{ circle: CircleDetail }>(`/api/circles/${params.id}`),
     enabled: !!params.id,
   })
 
   const { data: postsData, isLoading: postsLoading } = useQuery({
     queryKey: ['circle-posts', params.id],
-    queryFn: () => api<PostsData>(`/api/circles/${params.id}/posts?page=1&pageSize=${PAGE_SIZE}`),
+    queryFn: () =>
+      apiOrThrow<PostsData>(`/api/circles/${params.id}/posts?page=1&pageSize=${PAGE_SIZE}`),
     enabled: !!params.id,
   })
 

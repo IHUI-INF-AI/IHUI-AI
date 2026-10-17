@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { FolderTree, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { TruncatedText, BackButton } from '@/components/common'
 
 interface ApiGroup {
@@ -17,12 +17,6 @@ interface ApiGroup {
   description: string
   apiCount: number
   createdAt: string
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const th = 'px-4 py-2.5 font-medium'
@@ -34,7 +28,7 @@ export default function ApiGroupsPage() {
   const { data: list, isLoading } = useQuery({
     queryKey: ['admin', 'api-groups'],
     queryFn: async () => {
-      const d = await api<{ list?: ApiGroup[] } | ApiGroup[]>('/api/admin/api-groups')
+      const d = await apiOrThrow<{ list?: ApiGroup[] } | ApiGroup[]>('/api/admin/api-groups')
       const arr = Array.isArray(d) ? d : (d.list ?? [])
       return arr
     },

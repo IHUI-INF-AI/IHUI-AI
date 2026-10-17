@@ -13,7 +13,7 @@ import { Search, Loader2, FileText, ArrowLeft } from 'lucide-react'
 
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter, Input } from '@ihui/ui-react'
 
@@ -48,12 +48,6 @@ function Highlight({ text, kw }: { text: string; kw: string }) {
   )
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function SearchContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -73,7 +67,7 @@ function SearchContent() {
     queryFn: () => {
       const qs = new URLSearchParams({ search: q, pageSize: '50' })
       if (category !== 'all') qs.set('categoryId', category)
-      return api<KBSearchData>(`/api/knowledge-base?${qs.toString()}`)
+      return apiOrThrow<KBSearchData>(`/api/knowledge-base?${qs.toString()}`)
     },
     enabled: allow && q.trim().length > 0,
   })

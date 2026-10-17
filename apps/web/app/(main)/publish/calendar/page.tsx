@@ -15,7 +15,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { BackButton } from '@/components/common'
 import { PublishCalendar, type ScheduledTask } from '@/components/publish/PublishCalendar'
@@ -31,12 +31,6 @@ interface Task {
   targets?: ReadonlyArray<{ platform: string; accountId?: number }>
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function CalendarPage() {
   const t = useTranslations('publish')
   const toast = useToast()
@@ -48,7 +42,7 @@ export default function CalendarPage() {
   const load = React.useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api<{ items?: Task[]; list?: Task[] } | Task[]>(
+      const res = await apiOrThrow<{ items?: Task[]; list?: Task[] } | Task[]>(
         '/api/publish/tasks?limit=200',
       )
       const list = Array.isArray(res) ? res : (res.items ?? res.list ?? [])

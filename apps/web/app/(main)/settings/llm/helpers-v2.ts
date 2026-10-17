@@ -7,7 +7,7 @@
  *
  * 端点前缀:/api/v2/user(后端 server.ts 注册的 prefix)
  */
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import type { PlatformTemplate, TestResult, UpstreamModel } from './types'
 import type {
   UserLlmProvider,
@@ -34,11 +34,6 @@ export { EMPTY_PROVIDER_FORM, EMPTY_MODEL_FORM } from './types-v2'
 const BASE = '/api/v2/user'
 
 /** 通用 API 包装 */
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 interface TemplatesResponse {
   templates: PlatformTemplate[]
@@ -49,7 +44,7 @@ interface TemplatesResponse {
 // =============================================================================
 
 export function fetchTemplatesV2() {
-  return api<TemplatesResponse>(`${BASE}/llm-providers/templates`)
+  return apiOrThrow<TemplatesResponse>(`${BASE}/llm-providers/templates`)
 }
 
 // =============================================================================
@@ -57,44 +52,46 @@ export function fetchTemplatesV2() {
 // =============================================================================
 
 export function fetchProvidersV2() {
-  return api<ProviderListData>(`${BASE}/llm-providers`)
+  return apiOrThrow<ProviderListData>(`${BASE}/llm-providers`)
 }
 
 export function fetchProviderV2(id: number) {
-  return api<UserLlmProvider>(`${BASE}/llm-providers/${id}`)
+  return apiOrThrow<UserLlmProvider>(`${BASE}/llm-providers/${id}`)
 }
 
 export function createProviderV2(f: ProviderFormState) {
-  return api<{ id: number; created: boolean; name: string }>(`${BASE}/llm-providers`, {
+  return apiOrThrow<{ id: number; created: boolean; name: string }>(`${BASE}/llm-providers`, {
     method: 'POST',
     body: JSON.stringify(providerFormToBody(f)),
   })
 }
 
 export function updateProviderV2(id: number, f: ProviderFormState) {
-  return api<{ id: number; updated: boolean }>(`${BASE}/llm-providers/${id}`, {
+  return apiOrThrow<{ id: number; updated: boolean }>(`${BASE}/llm-providers/${id}`, {
     method: 'PUT',
     body: JSON.stringify(providerFormToUpdateBody(f)),
   })
 }
 
 export function deleteProviderV2(id: number) {
-  return api<{ id: number; deleted: boolean }>(`${BASE}/llm-providers/${id}`, { method: 'DELETE' })
+  return apiOrThrow<{ id: number; deleted: boolean }>(`${BASE}/llm-providers/${id}`, {
+    method: 'DELETE',
+  })
 }
 
 export function toggleProviderV2(id: number, enabled: boolean) {
-  return api<{ id: number; enabled: boolean }>(`${BASE}/llm-providers/${id}/toggle`, {
+  return apiOrThrow<{ id: number; enabled: boolean }>(`${BASE}/llm-providers/${id}/toggle`, {
     method: 'POST',
     body: JSON.stringify({ enabled }),
   })
 }
 
 export function testProviderV2(id: number) {
-  return api<TestResult>(`${BASE}/llm-providers/${id}/test`, { method: 'POST' })
+  return apiOrThrow<TestResult>(`${BASE}/llm-providers/${id}/test`, { method: 'POST' })
 }
 
 export function fetchUpstreamModelsV2(id: number) {
-  return api<{ total: number; models: UpstreamModel[]; message?: string }>(
+  return apiOrThrow<{ total: number; models: UpstreamModel[]; message?: string }>(
     `${BASE}/llm-providers/${id}/fetch-models`,
     { method: 'POST' },
   )
@@ -105,32 +102,34 @@ export function fetchUpstreamModelsV2(id: number) {
 // =============================================================================
 
 export function fetchModelsV2(providerId: number) {
-  return api<{ list: UserLlmModel[]; total: number }>(`${BASE}/llm-providers/${providerId}/models`)
+  return apiOrThrow<{ list: UserLlmModel[]; total: number }>(
+    `${BASE}/llm-providers/${providerId}/models`,
+  )
 }
 
 export function createModelV2(providerId: number, f: ModelFormState) {
-  return api<{ id: number; created: boolean; modelId: string }>(
+  return apiOrThrow<{ id: number; created: boolean; modelId: string }>(
     `${BASE}/llm-providers/${providerId}/models`,
     { method: 'POST', body: JSON.stringify(modelFormToBody(f)) },
   )
 }
 
 export function updateModelV2(providerId: number, modelId: number, f: ModelFormState) {
-  return api<{ id: number; updated: boolean }>(
+  return apiOrThrow<{ id: number; updated: boolean }>(
     `${BASE}/llm-providers/${providerId}/models/${modelId}`,
     { method: 'PUT', body: JSON.stringify(modelFormToUpdateBody(f)) },
   )
 }
 
 export function deleteModelV2(providerId: number, modelId: number) {
-  return api<{ id: number; deleted: boolean }>(
+  return apiOrThrow<{ id: number; deleted: boolean }>(
     `${BASE}/llm-providers/${providerId}/models/${modelId}`,
     { method: 'DELETE' },
   )
 }
 
 export function testModelV2(providerId: number, modelId: number) {
-  return api<TestResult>(`${BASE}/llm-providers/${providerId}/models/${modelId}/test`, {
+  return apiOrThrow<TestResult>(`${BASE}/llm-providers/${providerId}/models/${modelId}/test`, {
     method: 'POST',
   })
 }
@@ -140,25 +139,27 @@ export function testModelV2(providerId: number, modelId: number) {
 // =============================================================================
 
 export function fetchGroupsV2() {
-  return api<GroupListData>(`${BASE}/llm-groups`)
+  return apiOrThrow<GroupListData>(`${BASE}/llm-groups`)
 }
 
 export function createGroupV2(label: string, sortOrder = 0) {
-  return api<{ id: number; created: boolean; label: string }>(`${BASE}/llm-groups`, {
+  return apiOrThrow<{ id: number; created: boolean; label: string }>(`${BASE}/llm-groups`, {
     method: 'POST',
     body: JSON.stringify({ label, sortOrder }),
   })
 }
 
 export function updateGroupV2(id: number, label: string) {
-  return api<{ id: number; updated: boolean }>(`${BASE}/llm-groups/${id}`, {
+  return apiOrThrow<{ id: number; updated: boolean }>(`${BASE}/llm-groups/${id}`, {
     method: 'PUT',
     body: JSON.stringify({ label }),
   })
 }
 
 export function deleteGroupV2(id: number) {
-  return api<{ id: number; deleted: boolean }>(`${BASE}/llm-groups/${id}`, { method: 'DELETE' })
+  return apiOrThrow<{ id: number; deleted: boolean }>(`${BASE}/llm-groups/${id}`, {
+    method: 'DELETE',
+  })
 }
 
 // =============================================================================

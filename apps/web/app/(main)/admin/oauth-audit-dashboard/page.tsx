@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ShieldCheck, KeyRound, Activity, AlertTriangle, Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { fetchApi, apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/date-utils'
@@ -29,12 +29,6 @@ interface AuditLog {
   event: string
   status: 'success' | 'failed' | 'warning'
   ip: string
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const STATUS_STYLE: Record<AuditLog['status'], { bg: string; text: string; label: string }> = {
@@ -58,7 +52,9 @@ export default function OauthAuditDashboardPage() {
   const { data: logs } = useQuery({
     queryKey: ['admin', 'oauth-audit', 'logs'],
     queryFn: async () => {
-      const d = await api<{ list?: AuditLog[] } | AuditLog[]>('/api/agents/oauth-apps/audit-logs')
+      const d = await apiOrThrow<{ list?: AuditLog[] } | AuditLog[]>(
+        '/api/agents/oauth-apps/audit-logs',
+      )
       return Array.isArray(d) ? d : (d.list ?? [])
     },
   })

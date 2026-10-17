@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { LogOut, Monitor, Smartphone, Users } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, SearchInput } from '@ihui/ui-react'
 import { DataTable, type Column, Badge } from '@/components/data'
 import { BackButton } from '@/components/common'
@@ -32,12 +32,6 @@ interface OnlineUsersData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function DeviceIcon({ device }: { device: string }) {
   const isMobile = /mobile|android|iphone|ipad/i.test(device)
   const Icon = isMobile ? Smartphone : Monitor
@@ -57,7 +51,7 @@ export default function OnlineUsersPage() {
         pageSize: String(PAGE_SIZE),
         keyword: search,
       })
-      const res = await api<OnlineUsersData | OnlineUser[]>(`/api/admin/online-users?${qs}`)
+      const res = await apiOrThrow<OnlineUsersData | OnlineUser[]>(`/api/admin/online-users?${qs}`)
       const list = Array.isArray(res) ? res : (res.list ?? [])
       const total = Array.isArray(res) ? res.length : (res.total ?? 0)
       return { list, total }
@@ -66,7 +60,7 @@ export default function OnlineUsersPage() {
 
   const forceLogoutMut = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/admin/online-users/${id}/force-logout`, { method: 'POST' }),
+      apiOrThrow(`/api/admin/online-users/${id}/force-logout`, { method: 'POST' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'online-users'] })
       toast.success('已强制下线')

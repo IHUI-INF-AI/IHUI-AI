@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Gift, Loader2, RotateCw } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { toast } from '@/components/common/Toaster'
 import { AuthGatePrompt, BackButton } from '@/components/common'
@@ -24,12 +24,6 @@ interface RedeemItem {
   cover: string | null
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function PointsMallPage() {
   const t = useTranslations('points')
   const qc = useQueryClient()
@@ -38,14 +32,15 @@ export default function PointsMallPage() {
 
   const mallQ = useQuery({
     queryKey: ['points', 'redeem'],
-    queryFn: () => api<{ list: RedeemItem[]; total: number; balance?: number }>('/points/redeem'),
+    queryFn: () =>
+      apiOrThrow<{ list: RedeemItem[]; total: number; balance?: number }>('/points/redeem'),
     enabled: allow,
   })
   const balance = mallQ.data?.balance
 
   const redeemQ = useMutation({
     mutationFn: (id: string) =>
-      api<{ redeemed: number }>(`/points/redeem/${id}`, { method: 'POST' }),
+      apiOrThrow<{ redeemed: number }>(`/points/redeem/${id}`, { method: 'POST' }),
     onSuccess: () => {
       toast.success(t('redeemSuccess'))
       void qc.invalidateQueries({ queryKey: ['points', 'redeem'] })

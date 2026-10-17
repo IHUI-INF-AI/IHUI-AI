@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Flame, Loader2, Eye, ChevronLeft, ChevronRight, Newspaper, ArrowLeft } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 
 interface HotArticle {
@@ -34,12 +34,6 @@ interface ArticlesData {
 
 const PAGE_SIZE = 20
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export default function HotArticlesPage() {
   const t = useTranslations('articles')
   const locale = useLocale()
@@ -47,7 +41,7 @@ export default function HotArticlesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['articles', 'hot', page],
-    queryFn: () => api<ArticlesData>(`/api/article/hot?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: () => apiOrThrow<ArticlesData>(`/api/article/hot?page=${page}&pageSize=${PAGE_SIZE}`),
   })
 
   const total = data?.total ?? 0
