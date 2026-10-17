@@ -800,11 +800,23 @@ export const getCommissionRecords = (params?: { page?: number; pageSize?: number
     total: number
   }>('/distribution/commission', params)
 export const withdraw = (data: { amount: number; type: string }) =>
-  post('/distribution/withdraw', data)
+  post('/distribution/withdraw', { amount: data.amount, method: data.type })
 export const getDistributionRank = () =>
-  get<{ list: Array<{ id: string; nickname: string; avatar?: string; commission: number }> }>(
-    '/distribution/rank',
-  )
+  get<
+    Array<{
+      userId: string | null
+      nickname: string | null
+      avatar: string | null
+      totalCommission: number
+    }>
+  >('/distribution/ranking').then((rows) => ({
+    list: (rows ?? []).map((r) => ({
+      id: r.userId ?? '',
+      nickname: r.nickname ?? '',
+      avatar: r.avatar ?? undefined,
+      commission: Number(r.totalCommission),
+    })),
+  }))
 
 /* ============ 用户中心扩展 ============ */
 
@@ -862,7 +874,8 @@ export interface Circle {
 }
 export const getCircleList = (params?: { page?: number; pageSize?: number }) =>
   get<{ list: Circle[]; total: number }>('/circles', params)
-export const getCircleDetail = (id: string | number) => get<Circle>(`/circles/${id}`)
+export const getCircleDetail = (id: string | number) =>
+  get<{ circle: Circle }>(`/circles/${id}`).then((r) => r.circle)
 export const createCircle = (data: { title: string; content: string; images?: string[] }) =>
   post('/circles', data)
 
@@ -878,7 +891,8 @@ export interface Ask {
 }
 export const getAskList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
   get<{ list: Ask[]; total: number }>('/asks', params)
-export const getAskDetail = (id: string | number) => get<Ask>(`/asks/${id}`)
+export const getAskDetail = (id: string | number) =>
+  get<{ ask: Ask }>(`/asks/${id}`).then((r) => r.ask)
 export const createAsk = (data: { title: string; content: string }) => post('/asks', data)
 
 /* Ask 模块扩展（M-64 + D7/D8 端点） */
@@ -972,7 +986,9 @@ export type QuestionType =
 // QuestionType 保留本地定义:answer.tsx 使用旧枚举值 'multi_choice'/'fill_blank'/'subjective',迁移需联动修改 answer.tsx(超出 P2-1 范围)
 export const getExamPaper = (id: string) => get<{ paper: ExamPaper }>(`/exam/papers/${id}`)
 export const getExamQuestions = (id: string) =>
-  get<{ list: ExamQuestion[] }>(`/exam/papers/${id}/questions`)
+  get<{ exam: ExamPaper; questions: ExamQuestion[] }>(`/exam/papers/${id}/questions`).then(
+    (r) => ({ list: r.questions ?? [] }),
+  )
 // ExamRecord 已下沉到 @ihui/api-client(endpoints/exam.ts),上方 re-export
 export const getExamRecords = (params?: { page?: number; pageSize?: number }) =>
   get<{ list: ExamRecord[]; total: number }>('/exam/records', params)
@@ -1119,7 +1135,7 @@ export const updateNotificationSettings = (data: Record<string, boolean>) =>
   put('/settings/notification', data)
 export const clearCache = () => post('/settings/cache/clear')
 export const clearCacheSize = () => get<{ size: string }>('/settings/cache/size')
-export const setLanguage = (lang: string) => post('/settings/language', { lang })
+export const setLanguage = (lang: string) => post('/settings/language', { language: lang })
 export const setTheme = (theme: string) => post('/settings/theme', { theme })
 
 /* ============ 智能体市场 ============ */
