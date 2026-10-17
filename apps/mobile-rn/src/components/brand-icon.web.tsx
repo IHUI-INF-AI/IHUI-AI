@@ -18,17 +18,11 @@ import { Text, View, type ViewStyle } from 'react-native'
 
 import { tokens } from '../theme/active-tokens'
 import type { VendorCode } from '../lib/vendor-infer'
+import type { BrandIconProps } from './brand-icon'
 
-/** web 变体的入参档。`./brand-icon` 那份实现与本机这份同形,但它在被审面上还不存在,
- *  从那里具名导入会让干净检出与 CI 在编译期才炸(守门 D 拦的就是这一型)。 */
-export interface BrandIconProps {
-  /** 厂商代码(如 'openai'、'deepseek') */
-  vendor?: string | null
-  /** 像素尺寸,默认 16 */
-  size?: number
-  /** 图标颜色 */
-  color?: string
-}
+/** 入参档唯一源 = 同基名的 `./brand-icon`(那份现在已在被审面上存在,不再是悬空具名导入);
+ *  web 变体只 re-export,不抄第二份同形定义(§0.6 同类声明全仓只许一份)。 */
+export type { BrandIconProps }
 
 // === 国际原厂 ===
 import OpenAI from '@lobehub/icons/es/OpenAI/components/Mono'
