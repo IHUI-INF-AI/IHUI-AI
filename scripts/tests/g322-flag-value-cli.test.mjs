@@ -146,6 +146,85 @@ test('G-322 第五批:数值档坏值不再被读成 NaN(plan-bypass-ledger-repo
   }
 })
 
+// ─── 第六/七批(2026-10-17)───
+// 选点尺是"失效方向",不是行号:HEAD 面重扫(两把只读尺)得 113 处候选,其中
+// **注册为 blocking 且这一支没有任何 '-' 守卫**的 28 处才是射程;第六批收 --root 七站,第七批再收八站。
+test('G-322 第七批:另八道 blocking 门的 --root 三支坏值各自大声拒绝', () => {
+  for (const f of [
+    'check-api-client-utf8.mjs',
+    'check-crash-report-redaction.mjs',
+    'check-lock-manifest-consistency.mjs',
+    'check-no-nested-git.mjs',
+    'check-slash-command-wired.mjs',
+    'check-stale-dist.mjs',
+    'check-token-sync-registry.mjs',
+    'check-v3-62-conversation-mount.mjs',
+  ]) {
+    assertBadRoot(S(f))
+  }
+})
+
+test('G-322 第六批:七道 blocking 门的 --root 三支坏值各自大声拒绝', () => {
+  for (const f of [
+    'check-admin-gate-consistency.mjs',
+    'check-authorization-column-isolation.mjs',
+    'check-digest-name-reality.mjs',
+    'check-readme-table-integrity.mjs',
+    'check-statusbar-single-source.mjs',
+    'check-subagent-permission-inherited.mjs',
+    'check-staged-deletions.mjs',
+  ]) {
+    assertBadRoot(S(f), '目录')
+  }
+})
+
+test('G-322 第八批:check-write-owner-predicate 的 --root/--files/--limit 三支坏值各自非零', () => {
+  const script = S('check-write-owner-predicate.mjs')
+  assertBadRoot(script)
+  for (const flag of ['--files', '--limit']) {
+    for (const args of [[flag], [flag, ''], [flag, '--staged']]) {
+      const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      assert.notEqual(r.status, 0, `${JSON.stringify(args)} 不得静默出结论(旧写法 --files 顶值 = 扫 0 个文件报绿;--limit 顶值 = NaN)`)
+      const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+      assert.match(out, new RegExp(`${flag} 需要一个`), out.slice(0, 220))
+    }
+  }
+  // 数值域那一支:token 形态合法但不是正整数(`--files abc` 不算这一型 —— 那是一张合法的窄清单)
+  const bad = spawnSync(process.execPath, [script, '--limit', 'abc'], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+  assert.match(`${bad.stdout ?? ''}${bad.stderr ?? ''}`, /必须是正整数/)
+})
+
+test('G-322 第八批:openapi-check 的 --min-coverage 不得把阈值折成 NaN(CI 契约门 D 维比较恒假=静默放行)', () => {
+  const script = S('openapi-check.mjs')
+  for (const args of [['--min-coverage'], ['--min-coverage', ''], ['--min-coverage', '--fresh'], ['--min-coverage='], ['--min-coverage', 'abc']]) {
+    const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2,不得让 NaN 把覆盖率门放行:\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+    assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, /--min-coverage 需要一个数字/)
+  }
+})
+
+test('G-322 第六批:check-staged-deletions 的 --allowlist 三支坏值必须真非零(该文件顶层 main().catch() 丢弃返回码)', () => {
+  // 这一站的形状教训:`return 2` 在这个文件里等于没退出(红档一直靠 process.exit 落)。
+  // 探针因此不能只看 stderr 有没有点名,必须量 rc —— 点名却 rc=0 = "看着拦了其实放行"。
+  const script = S('check-staged-deletions.mjs')
+  const arms = [
+    { args: ['--allowlist', '--staged'], expect: '"--staged"' },
+    { args: ['--allowlist'], expect: '(其后没有任何参数)' },
+    { args: ['--allowlist', ''], expect: '""' },
+  ]
+  for (const { args, expect } of arms) {
+    const r = spawnSync(process.execPath, [script, ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+    })
+    assert.notEqual(r.status, 0, `--allowlist ${JSON.stringify(args)} 不得 rc=0`)
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    assert.match(out, /--allowlist 需要一个文件路径/, out.slice(0, 200))
+    assert.match(out, new RegExp(expect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), out.slice(0, 200))
+  }
+})
+
 test('G-322 第五批:scan-hardcoded-zh 的 --exit blocking 腿不得把坏值读成"非严格档"(§0.10)', () => {
   const script = S('scan-hardcoded-zh.mjs')
   for (const args of [['--exit'], ['--exit', ''], ['--exit', '--staged'], ['--exit', '2']]) {

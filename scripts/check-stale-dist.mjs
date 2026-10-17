@@ -53,6 +53,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // blob,所以"它陈旧吗"只能判本机。这一维不假装审过 —— 报告里明写 dist 口径是本机,
 // 与"读按设计只存在于部署机的 gitignore 副本"是同一条道理。
 import { catBatch, gitRaw, selectFace, readWorktreeFile } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 // 遮罩只引这一份实现(守门 131/135 同规:两处实现必漂移)。判"声明内容"必须先剥注释与字符串 ——
 // 注释里出现的 `export interface X {}` 若不剥掉,门会给自己写出的说明判红,甚至给假象发合格证。
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
@@ -890,8 +891,14 @@ function main() {
   const staged = argv.includes('--staged')
   const worktree = argv.includes('--worktree')
   const strict = argv.includes('--strict')
-  const rootIdx = argv.indexOf('--root')
-  if (rootIdx >= 0 && argv[rootIdx + 1]) setRoot(argv[rootIdx + 1])
+  // G-322(本站):`--root --staged` 旧写法 setRoot('--staged') ⇒ 在一个不存在的根上比"dist 是否陈旧",
+  // 结论恒为"没有陈旧";裸 `--root` 则静默不换根。给了旗标就要有值,否则未判定。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootFlag.error) {
+    console.error(`❌ 无法判定:${rootFlag.error}`)
+    process.exit(2)
+  }
+  if (rootFlag.value) setRoot(rootFlag.value)
   // selectFace 返回 {face, error}(层的对外形状);两面同给必须判死,不能任选一面开工。
   const faceSel = selectFace({ staged, worktree, def: 'head' })
   if (faceSel.error) {
