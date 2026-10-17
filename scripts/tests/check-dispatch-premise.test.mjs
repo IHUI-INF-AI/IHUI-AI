@@ -209,9 +209,13 @@ test('P4b 门不读自己:本门与它的镜像测试里写满反例 token,作�
   )
   assert.ok(!DEFAULT_SCOPE.includes('docs'), '默认作用域含 docs ⇒ 文档引用会让标识自证存在')
   // 强制排除项必须显式含门自身与镜像测试(即便 scope 被传成 `scripts`)。
+  // 2026-10-17:另加 `scripts/tests` 整面 —— 别的门拿幻影名当 ghost 夹具(现读
+  // `check-workspace-hygiene.test.mjs:467` 用 `scripts/check-virtualization-coverage.mjs`,该门不存在)
+  // 会让 P4/P4b 恒红:那属于"别人的反例材料替本票断言前提",与"门不得读自己"同类,不是放宽判据。
   for (const p of [
     'scripts/check-dispatch-premise.mjs',
     'scripts/tests/check-dispatch-premise.test.mjs',
+    'scripts/tests',
   ]) {
     assert.ok(effectiveScope(['scripts']).includes(`:(exclude)${p}`), `强制排除项缺 ${p}`)
   }

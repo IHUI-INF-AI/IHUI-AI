@@ -32,6 +32,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
@@ -181,8 +182,14 @@ const C = {
 /** 主入口:返回退出码(0 绿 / 1 红);--report-only 恒 0。 */
 export function main(argv = process.argv.slice(2)) {
   const reportOnly = argv.includes('--report-only')
-  const rootIdx = argv.indexOf('--root')
-  const root = rootIdx >= 0 ? resolve(argv[rootIdx + 1]) : REPO_ROOT
+  // G-322(本站):旧写法 `rootIdx >= 0 ? resolve(argv[rootIdx+1]) : REPO_ROOT` —— 顶值那支得到假根,
+  // 下面 `listMigrationSqlFiles(root)` 扫空目录 ⇒ "新 NULL 产不出来"报绿;裸形态 resolve(undefined) 崩。
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    return 2
+  }
+  const root = rootFlag.value ? resolve(rootFlag.value) : REPO_ROOT
   const face = reportOnly ? '--report-only(只报数,不判红)' : '正式档(有回填无兜底判红)'
   console.log(`${C.bold}[序号兜底] 可空排序列"新 NULL 产不出来"盘点${C.reset} ${C.dim}root=${root} ${face}${C.reset}`)
 

@@ -77,6 +77,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { scratchRoot } from './lib/scratch-dir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import { dirname, isAbsolute, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -119,6 +120,12 @@ export const MANDATORY_EXCLUDES = [
   ':(exclude)docs',
   ':(exclude)scripts/check-dispatch-premise.mjs',
   ':(exclude)scripts/tests/check-dispatch-premise.test.mjs',
+  // 2026-10-17 现读补:别的门的**镜像测试/夹具**按设计写满幻影名反例素材(实测本仓 `check-workspace-hygiene.test.mjs:467`
+  // 就拿 `scripts/check-virtualization-coverage.mjs` 当 ghost 夹具,而该门从未存在 ⇒ P4/P4b 当场恒红:
+  // 别人的反例材料替本票断言"前提仍成立")。这与"门不得读自己"是同一条纪律的同一类,不是放宽判据:
+  // 前提探的是**产品代码面 + 活账**是否还引用该标识,不是测试素材里出现过没有。
+  // 排除整个 `scripts/tests` 而不是逐文件点名 —— 下一位随时会再加一个 ghost 名,逐条列等于永远慢一拍。
+  ':(exclude)scripts/tests',
 ]
 
 /**
@@ -429,10 +436,21 @@ async function main() {
   if (argv.includes('--self-test')) {
     process.exit(runSelfTest())
   }
-  const tIdx = argv.indexOf('--ticket')
-  const ticketFile = tIdx >= 0 ? argv[tIdx + 1] : ''
-  const oIdx = argv.indexOf('--out')
-  const outArg = oIdx >= 0 ? argv[oIdx + 1] : ''
+  // G-322(派单前提对账):`--ticket` / `--out` 旧写法把"下一枚 token"无条件当值。这张票的前提判据
+  // 是给**派单的人**用的 —— 指错文件时 loadTicket 会报"读不到",看起来像门的缺陷而不是用法错;
+  // `--out` 被吞则把报告写进一个由旗标名组成的文件(违反 §15/§28 落点卫生)。
+  const ticketFlag = requireFlagValue(argv, '--ticket', { noun: '票据文件路径' })
+  if (ticketFlag.error) {
+    console.error(`❌ ${ticketFlag.error}`)
+    process.exit(2)
+  }
+  const ticketFile = ticketFlag.value ?? ''
+  const outFlag = requireFlagValue(argv, '--out', { noun: '输出文件路径' })
+  if (outFlag.error) {
+    console.error(`❌ ${outFlag.error}`)
+    process.exit(2)
+  }
+  const outArg = outFlag.value ?? ''
 
   const loaded = loadTicket(ticketFile)
   if (loaded.error) {
