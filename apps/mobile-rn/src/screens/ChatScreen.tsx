@@ -63,6 +63,8 @@ import {
   AlertTriangle,
   Bot,
   BookOpen,
+  Bookmark,
+  BookmarkCheck,
   Clapperboard,
   Copy,
   Cpu,
@@ -75,6 +77,8 @@ import {
   MessageSquare,
   Music,
   Paperclip,
+  Pin,
+  PinOff,
   QrCode,
   RefreshCw,
   Share2,
@@ -107,6 +111,7 @@ import {
   listConversations,
   rateChatMessage,
   resolveFileUrl,
+  setMessageFlags,
   streamChat,
   uploadFileMultipart,
   type Agent,
@@ -310,6 +315,11 @@ const toChatScreenMessage = (m: ChatMessageWithSteer): ChatScreenMessageWithReas
   id: m.id,
   role: m.role as 'user' | 'assistant',
   content: m.content,
+  // 票64:标记时刻与"不含显示后缀的真实 id"一并透传 —— 少了这一对,live 帧刷新前
+  // 那两把标记在本屏就是隐形的(与本屏 reasoning/citations 的透传纪律同型)。
+  pinnedAt: m.pinnedAt ?? null,
+  bookmarkedAt: m.bookmarkedAt ?? null,
+  flagTargetId: m.id,
   // 推理过程随消息一起透传(历史/流式消息均可能带 reasoning,渲染思考过程展开块用)
   reasoning: m.reasoning,
   // G-166:交代字段同样透传(历史消息由 metadata 水合,流式消息由 SSE 回调累积)
@@ -1868,6 +1878,32 @@ export function ChatScreen() {
     }
   }, [])
 
+  // 票64(2026-10-18 立):消息级钉选/收藏。两把标记各发各的维度(一次点击只动它点的那一把),
+  // 成功态取服务端回写的时刻而不是本地翻转;回填按 item.id 匹配 —— 历史回放那批 id 带
+  // `-${idx}` 显示后缀,而那个后缀正是本屏 state 里这条消息的键,写接口却要不带后缀的 flagTargetId。
+  const toggleMessageFlag = useCallback(
+    async (item: ChatScreenMessage, kind: 'pinned' | 'bookmarked'): Promise<void> => {
+      const targetId = item.flagTargetId ?? item.id
+      const res = await setMessageFlags({
+        messageId: targetId,
+        ...(kind === 'pinned' ? { pinned: !item.pinnedAt } : { bookmarked: !item.bookmarkedAt }),
+      })
+      if (!res.success) {
+        showToast('error', t('chat.flagFailed'))
+        return
+      }
+      const written = res.data?.message
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === item.id
+            ? { ...m, pinnedAt: written?.pinnedAt ?? null, bookmarkedAt: written?.bookmarkedAt ?? null }
+            : m,
+        ),
+      )
+    },
+    [showToast, t],
+  )
+
   const renderMessage = useCallback(
     (item: ChatScreenMessage, _index: number): React.ReactNode => {
       const isUser = item.role === 'user'
@@ -2073,6 +2109,40 @@ export function ChatScreen() {
                   <Copy size={16} color={tokens.text.secondary} />
                   <Text style={styles.msgActionText}>复制</Text>
                 </TouchableOpacity>
+                {/* 票64(2026-10-18 立):钉选 / 收藏 —— 图标形态按服务端盖章的时刻切,
+                    文案与无障碍标签一律取词(§19 禁止端内新增硬编码中文)。 */}
+                <TouchableOpacity
+                  style={styles.msgActionBtn}
+                  hitSlop={8}
+                  onPress={() => void toggleMessageFlag(item, 'pinned')}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.pinnedAt ? t('chat.unpin') : t('chat.pin')}
+                >
+                  {item.pinnedAt ? (
+                    <PinOff size={16} color={tokens.text.primary} />
+                  ) : (
+                    <Pin size={16} color={tokens.text.secondary} />
+                  )}
+                  <Text style={styles.msgActionText}>
+                    {item.pinnedAt ? t('chat.unpin') : t('chat.pin')}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.msgActionBtn}
+                  hitSlop={8}
+                  onPress={() => void toggleMessageFlag(item, 'bookmarked')}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.bookmarkedAt ? t('chat.unbookmark') : t('chat.bookmark')}
+                >
+                  {item.bookmarkedAt ? (
+                    <BookmarkCheck size={16} color={tokens.text.primary} />
+                  ) : (
+                    <Bookmark size={16} color={tokens.text.secondary} />
+                  )}
+                  <Text style={styles.msgActionText}>
+                    {item.bookmarkedAt ? t('chat.unbookmark') : t('chat.bookmark')}
+                  </Text>
+                </TouchableOpacity>
                 {/* 失败轮不给"分享"(它不是内容);复制保留 —— 报错排查要用那段文字 */}
                 {isFailed ? null : (
                   <TouchableOpacity
@@ -2169,6 +2239,7 @@ export function ChatScreen() {
       handleLongPressMessage,
       rateMessage,
       retryLastTurn,
+      toggleMessageFlag,
       t,
     ],
   )
@@ -2533,6 +2604,11 @@ export function ChatScreen() {
             id: `${m.id}-${idx}`,
             role: m.role,
             content: m.content,
+            // 票64:标记时刻读回;写入口径另存不含 `-${idx}` 后缀的真实 id
+            // (这个后缀是给 FlatList 防撞 key 用的,拿去调标记接口会打不存在的行)。
+            pinnedAt: m.pinnedAt ?? null,
+            bookmarkedAt: m.bookmarkedAt ?? null,
+            flagTargetId: m.id,
             // 历史消息思考过程透传(chat_messages.reasoning,供思考过程展开块渲染)
             reasoning: m.reasoning,
             ...(citations && citations.length > 0 ? { citations } : {}),

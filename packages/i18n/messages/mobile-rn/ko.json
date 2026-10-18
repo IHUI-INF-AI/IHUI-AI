@@ -309,7 +309,12 @@
     "modelCategoryGuard": "안전 필터",
     "modelCategoryOcr": "문자 인식",
     "modelCategoryOther": "기타",
-    "partialDoneTitle": "응답이 중단되었습니다. 아래 내용은 불완전할 수 있습니다"
+    "partialDoneTitle": "응답이 중단되었습니다. 아래 내용은 불완전할 수 있습니다",
+    "pin": "고정",
+    "unpin": "고정 해제",
+    "bookmark": "북마크",
+    "unbookmark": "북마크 해제",
+    "flagFailed": "표시 저장 실패"
   },
   "settings": {
     "title": "설정",

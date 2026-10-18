@@ -160,6 +160,13 @@ export interface ChatScreenMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
+  /** 票64(2026-10-18 立):消息级钉选/收藏时刻,由服务端盖章下发(null = 未标记)。
+   *  渲染态取这一维,不另立本地布尔 —— 本地布尔会把"库没写进去"显示成"已经钉上了"。 */
+  pinnedAt?: string | null
+  bookmarkedAt?: string | null
+  /** 票64:服务端真实消息 id。历史回放路径的 `id` 带 `-${idx}` 显示后缀(防 FlatList 撞 key),
+   *  拿它去调标记接口会打不存在的行,故单独留一条不含后缀的写入口径。 */
+  flagTargetId?: string
 }
 
 /** AI 模型选项(平台无关镜像,字段对齐 @ihui/api-client LlmModel) */
