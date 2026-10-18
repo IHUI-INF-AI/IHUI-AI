@@ -9,6 +9,7 @@ import LineIcon from '@/components/LineIcon'
 import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getExamResult, get } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
 import './result.css'
@@ -43,7 +44,13 @@ export default function ExamResult() {
   const [info, setInfo] = useState<ExamResultInfo>({ score: 0, pass: false })
   const [reviews, setReviews] = useState<ReviewQuestion[]>([])
   const [loading, setLoading] = useState(true)
+  const { waitUntilReady } = useAuthReadyGate()
 
+  // G-933 冷启动抢跑门控:成绩两支请求都需鉴权 ——
+  // GET /api/exam/:id/result(apps/api/src/routes/exam.ts:756)与
+  // GET /api/exam/:id/review(exam.ts:806),两支都是 handler 内
+  // `if (!(await checkAuth(request, reply))) return`(注册前缀 /api 见 routes/index.ts:598)。
+  // 走查询参数(score=…)的那一支不发任何请求,原样照走,不挡。
   useEffect(() => {
     const params = router.params
     if (params.score) {
@@ -59,22 +66,25 @@ export default function ExamResult() {
       return
     }
     if (!params.id) return
-    setLoading(true)
-    getExamResult(params.id)
-      .then((res) => {
-        setInfo(res)
-        // 加载题目回顾
-        get<{ list: ReviewQuestion[] }>(`/exam/${params.id}/review`)
-          .then((r) => setReviews(r.list || []))
-          .catch(() => setReviews([]))
-          .finally(() => setLoading(false))
-      })
-      .catch((e) => {
-        logger.error('exam/result', '考试结果加载', e)
-        Taro.showToast({ title: tt('exam.result.loadFailed', '成绩加载失败'), icon: 'none' })
-        setLoading(false)
-      })
-  }, [router.params, tt])
+    const id = params.id
+    return waitUntilReady(() => {
+      setLoading(true)
+      getExamResult(id)
+        .then((res) => {
+          setInfo(res)
+          // 加载题目回顾
+          get<{ list: ReviewQuestion[] }>(`/exam/${id}/review`)
+            .then((r) => setReviews(r.list || []))
+            .catch(() => setReviews([]))
+            .finally(() => setLoading(false))
+        })
+        .catch((e) => {
+          logger.error('exam/result', '考试结果加载', e)
+          Taro.showToast({ title: tt('exam.result.loadFailed', '成绩加载失败'), icon: 'none' })
+          setLoading(false)
+        })
+    })
+  }, [router.params, tt, waitUntilReady])
 
   useShareAppMessage(() => ({
     title: tt('exam.result.shareTitle', '我的考试成绩: {n} 分', { n: info.score }),

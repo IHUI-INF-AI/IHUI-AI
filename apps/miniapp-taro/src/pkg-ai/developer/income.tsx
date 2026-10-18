@@ -9,6 +9,7 @@ import { useState, useCallback } from 'react'
 import { rnRadius } from '@ihui/design-tokens'
 import { useDidShow, useReachBottom, showToast } from '@tarojs/taro'
 import { getBuyInfo, getBuyList, getDeveloperWithdrawalList, post } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { getUserInfo } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
 import './income.css'
@@ -69,6 +70,7 @@ const PAGE_SIZE = 10
 
 export default function DeveloperIncome() {
   const tt = useTt()
+  const gate = useAuthReadyGate()
 
   const [title, setTitle] = useState<'income' | 'detail'>('income')
   const [settlement, setSettlement] = useState('')
@@ -132,9 +134,21 @@ export default function DeveloperIncome() {
     }
   }, [])
 
+  // G-933 冷启动抢跑门控:挂载那两支 GET /api/developer/income(loadBuyInfo 与
+  // fetchIncomeList 同一端点,apps/api/src/routes/developer.ts:334)整组开发者路由由
+  // 统一 preHandler 守(developer.ts:152 `server.addHook('preHandler', requireAuth)`,
+  // 注册前缀 /api/developer 见 routes/index.ts:794)⇒ 需鉴权,整块挡到门后。
+  // setLoading(true) 一并挪进门后:落定时同步执行,序列与原来逐字相同;
+  // 未落定期间不去翻加载态(该枚 loading 初值本就是 true,等待期仍显示既有"加载中"文案)。
+  // loadCashList(GET /api/developer/withdrawals,同组 requireAuth)由点击"提现明细"触发,
+  // 不属挂载抢跑,原样不动。
   useDidShow(() => {
-    setLoading(true)
-    Promise.all([loadBuyInfo(), fetchIncomeList(1, '', false)]).finally(() => setLoading(false))
+    gate.waitUntilReady(() => {
+      setLoading(true)
+      Promise.all([loadBuyInfo(), fetchIncomeList(1, '', false)]).finally(() =>
+        setLoading(false),
+      )
+    })
   })
 
   useReachBottom(() => {

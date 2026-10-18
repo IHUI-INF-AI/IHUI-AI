@@ -9,6 +9,7 @@ import { View, Text, Switch } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getNotificationSettings, updateNotificationSettings } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 
@@ -20,6 +21,7 @@ interface NotificationSettingItem {
 
 export default function NotificationPage() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [list, setList] = useState<NotificationSettingItem[]>([])
   const [loading, setLoading] = useState(true)
   const tt = useCallback(
@@ -43,8 +45,15 @@ export default function NotificationPage() {
     }
   }, [tt])
 
+  // G-933 冷启动抢跑门控:挂载唯一一支 GET /api/settings/notification 需鉴权
+  // (apps/api/src/routes/miniapp-compat-routes.ts:2516 handler 内
+  // `if (!(await checkAuth(request, reply))) return`,注册前缀 /api 见 routes/index.ts:1045)
+  // ⇒ 挡到门后。等待期间由既有 loading 分支(加载中)承载;
+  // 开关那一支 PUT /api/settings/notification 由用户点击触发,不属挂载抢跑,原样不动。
   useDidShow(() => {
-    load()
+    gate.waitUntilReady(() => {
+      void load()
+    })
   })
 
   const onToggle = useCallback(
