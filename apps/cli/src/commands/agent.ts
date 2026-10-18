@@ -163,6 +163,7 @@ import {
 import type { GoalHardCriterion, GoalVerification } from '@ihui/api-client';
 // G-815977 收编:AgentStopReason 与回合终态封闭集同族的档位从 canonical 派生(见下方联合)
 import type { AgentTurnStopReason } from '@ihui/types';
+import type { ToolResultDisplaySource } from '@ihui/types';
 import {
   renderMermaid,
   extractMermaidBlocks,
@@ -539,7 +540,11 @@ export interface RunToolLoopOptions {
   sessionId?: string;
   onDelta?: (delta: string) => void | Promise<void>;
   onToolCall?: (name: string, args: Record<string, unknown>) => void | Promise<void>;
-  onToolResult?: (name: string, success: boolean, output: string) => void | Promise<void>;
+  /**
+   * G-109:第三个入参是**已有**的有界 display 投影(未触发裁剪时为 undefined)。
+   * 它只供人读面与持久化 metadata 使用;`output` 仍是喂模型的那一份,一字未动。
+   */
+  onToolResult?: (name: string, success: boolean, output: string, display?: ToolResultDisplaySource) => void | Promise<void>;
   /**
    * WP-8③ —— 执行**前**声明的硬性指标。非空即进入 goal 模式:循环自宣完成
    * (`end_turn`)必须先过一次独立校验,未通过 / 未判定的档会被改写,
@@ -2461,7 +2466,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             );
           }
         }
-        await opts.onToolResult?.(call.name, result.success, result.output);
+        await opts.onToolResult?.(call.name, result.success, result.output, result.display);
         // WP-8③ 采集面:goal 校验只认"本轮真跑过什么"。这里记的是**调用与结果**,
         // 模型的自述(final_response)不进这一列 —— §8 禁止执行者自证完成。
         goalCallRecords.push({
@@ -2944,7 +2949,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
           });
         }
       },
-      onToolResult: (name, success, output) => {
+      onToolResult: (name, success, output, display) => {
         if (isStructured) {
           // 终态先清预览再落结果:消费方按 toolCallId 撤下流中预览之后才看到最终 diff,
           // 顺序反过来会出现"结果与预览同屏"(repl.ts 同一纪律,靠 settle 而不是再追加一条)。
@@ -2952,7 +2957,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
           if (settled) {
             emit({ type: 'tool_delta_clear', name: settled.toolName, toolCallId: settled.toolCallId });
           }
-          emit({ type: 'tool_result', name, success, output });
+          emit({ type: 'tool_result', name, success, output, ...(display ? { display } : {}) });
         } else {
           const icon = success ? '✓' : '✗';
           console.info(chalk.dim(`  ${icon} ${output.slice(0, 200)}`));

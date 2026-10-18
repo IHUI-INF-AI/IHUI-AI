@@ -12,6 +12,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { setBaseUrl, setTokenProvider, type ToolDeltaEvent } from '@ihui/api-client';
+import type { ToolResultDisplaySource } from '@ihui/types';
 import {
   createToolDeltaBridge,
   setupAgentTools,
@@ -44,7 +45,17 @@ export interface AgentCoreOptions {
 export type AgentEvent =
   | { type: 'token'; text: string }
   | { type: 'tool_call'; name: string; args: Record<string, unknown> }
-  | { type: 'tool_result'; name: string; success: boolean; output: string }
+  | {
+      type: 'tool_result';
+      name: string;
+      success: boolean;
+      output: string;
+      /**
+       * G-109 三条独立投影之「给人看的」那一维:有界 display + serialization 四数。
+       * 缺省 = 本次没触发裁剪。绝不得用它替换 `output`(那才是模型侧权威)。
+       */
+      display?: ToolResultDisplaySource;
+    }
   /**
    * D113(2026-09-27)文件写类工具的**流中 diff 预览**帧。载荷字段沿用
    * `@ihui/api-client` 的 `ToolDeltaEvent`(toolCallId / seq / partialText / truncated?),
@@ -222,13 +233,19 @@ export class AgentCore {
             });
           }
         },
-        onToolResult: async (name, success, output) => {
+        onToolResult: async (name, success, output, display) => {
           // 先清预览再落结果(顺序反过来就是"结果与预览同屏")。
           const settled = d113Bridge.settle(name);
           if (settled) {
             await onEvent({ type: 'tool_delta_clear', name: settled.toolName, toolCallId: settled.toolCallId });
           }
-          await onEvent({ type: 'tool_result', name, success, output });
+          await onEvent({
+            type: 'tool_result',
+            name,
+            success,
+            output,
+            ...(display ? { display } : {}),
+          });
         },
         onIteration: async (count, max) => {
           await onEvent({ type: 'iteration', count, max });
