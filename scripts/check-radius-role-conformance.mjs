@@ -95,6 +95,7 @@ import { unitCoefficientsOfSources } from './lib/length-units.mjs'
 import { radiusExemptMarkerAt } from './lib/radius-exempt-marker.mjs'
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 import { scanJsx, hasJsxShape } from './lib/jsx-scope.mjs'
 import { boxDims, objectDims, boxDimsOwn, halvedSideVerdict } from './lib/box-geometry.mjs'
 import {
@@ -1372,19 +1373,9 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
 
 /** 自检:构造面 + 真仓 HEAD 阳性对照(两条同时成立才叫"遮罩关掉的是误报、不是判据")。 */
 export async function selfTest(repoRoot = ROOT) {
-  const results = []
-  const t = (name, cond, extra = '') => {
-    /**
-     * 断言必须已经被求值。`t('...', () => {...})` 传进来的是**函数**,`!!fn` 恒真 ⇒ 这条用例
-     * 从上线起就没判过任何东西,而账面永远 ✅(本会话就造出过 5 条这样的空断言)。
-     * 与其修一次,不如把这条路堵死:传函数直接判失败并点名,谁再写这种形态都会当场红。
-     */
-    if (typeof cond === 'function') {
-      results.push({ name, ok: false, extra: 'cond 是函数 ⇒ 断言从未求值(应写成 (() => {...})() )' })
-      return
-    }
-    results.push({ name, ok: !!cond, extra })
-  }
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值,
+  // 函数形态用例在 report() 里被真实求值,不再靠本地"传函数即判失败"的守门位。
+  const { t, report } = makeRegistrar()
   const got = catBatch(repoRoot, [`HEAD:${RADIUS_TABLE_REL}`], { maxBuffer: 1 << 26 })
   const tableSrc = got.get(`HEAD:${RADIUS_TABLE_REL}`)
   const table = tableSrc ? radiusLookup(tableSrc) : null
@@ -1392,8 +1383,9 @@ export async function selfTest(repoRoot = ROOT) {
   const A5 = (src, rel) => auditFileText(rel || 'x/T.tsx', src, table)
   t('00 档位表从被审面解析得到(自检不得靠手抄数字跑)', !!table && table.lg === 8 && table.xl === 12)
   if (!table) {
-    for (const r of results) console.log(`${r.ok ? '✅' : '❌'} ${r.name}${r.extra ? ` —— ${r.extra}` : ''}`)
-    console.log('--self-test: 1 条,失败 1 条')
+    const { fail, cases } = report()
+    for (const r of cases) console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.pass ? '' : ` —— ${r.got}`}`)
+    console.log(`--self-test: ${cases.length} 条,失败 ${fail} 条`)
     return 1
   }
   const F = (line) => radiusFormsInLine(line, table)
@@ -2269,10 +2261,10 @@ export default function P() {
   )
   // "两处算同一件事必漂移"是本仓记过最多次的失败型:回退判定只有一份(门 135 的
   // `shouldRetreatToHead`),本门不得再写一个 —— 那条反向源码锁由镜像 T35 钉。
-  const bad = results.filter((r) => !r.ok)
-  for (const r of results) console.log(`${r.ok ? '✅' : '❌'} ${r.name}${r.extra ? ` —— ${r.extra}` : ''}`)
-  console.log(`--self-test: ${results.length} 条,失败 ${bad.length} 条`)
-  return bad.length ? 1 : 0
+  const { pass, fail, cases } = report()
+  for (const r of cases) console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.pass ? '' : ` —— ${r.got}`}`)
+  console.log(`--self-test: ${cases.length} 条,失败 ${fail} 条`)
+  return fail ? 1 : 0
 }
 
 // §22d:双形态入口守护 —— 镜像测试 import 判据时不得触发 CLI(它会派生 git)。

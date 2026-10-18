@@ -55,6 +55,7 @@
 import { pathToFileURL } from 'node:url'
 
 import { gitRaw, gitErrText, Undetermined, catBatch, readWorktreeFile } from './lib/face-reader.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 export const RUN_MIN = 12
 export const MIN_SUBSTANTIVE_CHARS = 24
@@ -196,8 +197,9 @@ export function audit(root, face) {
 }
 
 function selfTest() {
-  const cases = []
-  const t = (name, ok, detail) => cases.push({ name, ok, detail })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `cases.push({ name, ok })` 裸存结论 —— 已由共用出口结构封死,用例调用一字不动。
+  const { t, report } = makeRegistrar()
   const body = (n, tag) => Array.from({ length: n }, (_, i) => `第 ${tag} 段第 ${i + 1} 行 —— 这一段是搬进归档件后又抄回活文档的正文,长度足够有信息量`).join('\n')
   const archiveLines = Array.from({ length: 40 }, (_, i) => `第 A 段第 ${i + 1} 行 —— 这一段是搬进归档件后又抄回活文档的正文,长度足够有信息量`)
   const set = new Set(archiveLines.map((l) => normalizeLine(l)))
@@ -213,10 +215,10 @@ function selfTest() {
   t('⑧ CRLF 与行尾空格归一后仍逐字命中', findReinflation('AGENTS.md', archiveLines.map((l) => l + '  \r').join('\n'), set).length === 1, '归一只剥换行与行尾空白,不做模糊')
   t('⑨ 一行之差(键名被改)不再命中 ⇒ 刻意不放宽', findReinflation('AGENTS.md', archiveLines.map((l) => l.replace('第 ', '第')).join('\n'), set).length === 0, '归一化一旦模糊,引用与抄回就分不开')
   t('⑩ 段长常量与两侧用例一致', RUN_MIN === 12, '门槛改动必须同步改 ①② 两格,否则两侧反证失效')
-  let fail = 0
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { fail, cases } = report()
   for (const c of cases) {
-    if (!c.ok) fail++
-    console.log(`${c.ok ? '✅' : '❌'} ${c.name}${c.ok ? '' : ' —— ' + c.detail}`)
+    console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ' —— ' + c.got}`)
   }
   console.log(`—— 自检 ${cases.length - fail}/${cases.length}`)
   return fail === 0 ? 0 : 1
