@@ -148,7 +148,7 @@ export interface UploadMergeGateFacts {
  * G-998089:一条 stop-failed 隔离记录 —— 释放资格 = 本次拉起的子资源全部终态(∧ 通道已关),
  * 任一不成立就保锁并留这条记录等人工收口;收口放锁后 `state` 推进为 'released'。
  */
-export interface UploadMergeStopFailedRecord {
+interface UploadMergeStopFailedRecord {
   /** 持有者 owner token 前缀(哪个闸实例/进程)。 */
   readonly owner: string
   /** 失败发生时正在跑的临界区标签。 */

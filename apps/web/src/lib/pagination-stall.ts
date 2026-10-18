@@ -83,7 +83,7 @@ export type PageAdvanceReason =
   | 'row-count-unknown'
 
 /** 参与首行复核的行形状:只需要一个稳定 id,不关心其余字段。 */
-export interface PageAdvanceRow {
+interface PageAdvanceRow {
   readonly id: string
 }
 
@@ -91,7 +91,7 @@ export interface PageAdvanceRow {
  * 窗口首行的两次**权威侧**读数。`fromAuthority: true` 是调用方的书面担保(字面量类型,
  * 编译器拒绝从变量顺手填) —— 拿不出这条担保就不要传这个对象。
  */
-export interface WindowFrontReread {
+interface WindowFrontReread {
   readonly before: string | null
   readonly after: string | null
   readonly fromAuthority: true

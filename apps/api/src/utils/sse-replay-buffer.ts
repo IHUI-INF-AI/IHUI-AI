@@ -73,7 +73,7 @@ export type SaturationEdge = 'entered' | 'exited' | null
  * 放弃触发条件(G-714 双放弃条件 + 窗口字节维)。三个来源都是**字节 / 时间**,
  * 没有「条数超了所以放弃」那一条 —— 条数越界仍走 FIFO 裁头 + droppedCount 留痕。
  */
-export type ReplayAbandonReason = 'unacked-bytes' | 'unacked-grace' | 'window-bytes'
+type ReplayAbandonReason = 'unacked-bytes' | 'unacked-grace' | 'window-bytes'
 
 const MAX_STREAMS = 200
 const MAX_EVENTS_PER_STREAM = 2000
