@@ -32,8 +32,8 @@
  *       探测每轮各 1 次请求(登录限流 max:10/min,不可自撞)。
  */
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync, rmSync } from 'node:fs'
-import { join, resolve, dirname } from 'node:path'
+import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync, rmSync, readdirSync, statSync, openSync, readSync, closeSync, fstatSync } from 'node:fs'
+import { join, resolve, dirname, basename } from 'node:path'
 import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 // §22d 的守卫要 pathToFileURL 把 process.argv[1] 归一成 file:// URL(Windows 反斜杠与
@@ -581,6 +581,72 @@ export function judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs, thresholdMi
  *   已知边界(如实登记,不假装周全):`IHUI_BUILD_SHA` **不存在**与"存在而读失败"不可分(读层把两者
  *   都归成空串,沿用日级档现状),故按"线上无构建标记"这一**真实部署态**判红,不当缺输入。
  */
+
+/**
+ * 在滚动件里找回最后一次真实部署完成(2026-10-18 立:当天一次轮转把 16:37 那次完成冲出了活动件,
+ * 于是"最近成功部署"退化成"未知"—— 未知是诚实的(§0.3),但收信人需要"到底停了多少小时"
+ * 才能判断这是不是同一场,所以诚实之外还得真去找)。
+ *
+ * 命名认两族:`deploy-loop.log.1`(git-guardian `rotateAppendLog` 那族)与
+ * `deploy-loop.log.YYYYMMDD-HHMMSS` / `log-01`(IHUI log-prune 那族)⇒ 前缀同 + 分隔符 `[._-]`。
+ * 按 mtime 从新到旧最多看 `maxFiles` 个,每个只读尾部 `tailBytes`(默认 8MB;滚动段现读约 20MB)。
+ * 取所有候选里**时间戳最大**的一条,不靠文件顺序猜(时钟序与轮转序是两回事)。
+ * 读不到/解不开 ⇒ 返回空 + 逐件点名,由调用方落"未知"(不冒充,也不冒红)。
+ */
+export function scanRotatedLoopLogs(dir, activeName, isoFrom, { maxFiles = 3, tailBytes = 8 * 1024 * 1024 } = {}) {
+  const out = { lastOkIso: '', from: '', candidates: 0, unreadable: [] }
+  let entries = []
+  try {
+    entries = readdirSync(dir)
+  } catch {
+    return out
+  }
+  const base = String(activeName).replace(/\.log$/, '')
+  const files = []
+  for (const name of entries) {
+    if (name === activeName || !name.startsWith(base)) continue
+    if (!/^[._-]/.test(name.slice(base.length))) continue
+    let st = null
+    try {
+      st = statSync(join(dir, name))
+    } catch {
+      out.unreadable.push(name)
+      continue
+    }
+    if (!st.isFile()) continue
+    files.push({ name, mtimeMs: st.mtimeMs })
+  }
+  files.sort((a, b) => b.mtimeMs - a.mtimeMs)
+  for (const f of files.slice(0, maxFiles)) {
+    out.candidates++
+    let text = ''
+    let fd = null
+    try {
+      fd = openSync(join(dir, f.name), 'r')
+      const size = fstatSync(fd).size
+      const len = Math.min(size, tailBytes)
+      const buf = Buffer.allocUnsafe(len)
+      readSync(fd, buf, 0, len, size - len)
+      text = buf.toString('utf8')
+    } catch {
+      out.unreadable.push(f.name)
+      continue
+    } finally {
+      if (fd !== null) closeSync(fd)
+    }
+    for (const line of text.split(/\r?\n/)) {
+      if (!/部署完成,HEAD=[0-9a-f]{7,40}/.test(line)) continue
+      const iso = isoFrom(line)
+      if (!iso) continue
+      if (!out.lastOkIso || Date.parse(iso) > Date.parse(out.lastOkIso)) {
+        out.lastOkIso = iso
+        out.from = f.name
+      }
+    }
+  }
+  return out
+}
+
 export function collectStallInputs({
   repo = REPO,
   nowMs = Date.now(),
@@ -646,10 +712,23 @@ export function collectStallInputs({
   // 而尺子报的"最近成功"是 17:06 那一行跳过。两笔代价:①信里"已落后 N 小时"是假的;
   // ②任何把成功时刻写进告警身份的档位,都会每轮拿到新身份 ⇒ 去重窗形同虚设(实测 18 封/天)。
   const lines = log.split(/\r?\n/).filter((l) => /部署完成,HEAD=[0-9a-f]{7,40}/.test(l))
-  let lastOkIso = ''
-  if (lines.length) {
-    const m = String(lines[lines.length - 1]).match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([+-]\d{2}:\d{2})\]/)
-    if (m) lastOkIso = `${m[1].replace(' ', 'T')}${m[2]}`
+  const isoFrom = (l) => {
+    const m = String(l).match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([+-]\d{2}:\d{2})\]/)
+    return m ? `${m[1].replace(' ', 'T')}${m[2]}` : ''
+  }
+  let lastOkIso = lines.length ? isoFrom(lines[lines.length - 1]) : ''
+  let lastOkFrom = lines.length ? 'deploy-loop.log' : ''
+  // 完成史要从**滚动件**找回来(2026-10-18 补)。活环每 60 秒往 deploy-loop.log 追加,轮转把旧段
+  // 变成 deploy-loop.log.1/(另有 `log.NN` 那一形态,正则一并认);而一次真停摆可以长过整个轮转周期
+  // —— 当天 16:37 那次完成落到 .1,活动件里 0 条完成行,于是"最近成功部署"退化成"未知"。
+  // 未知是诚实的(§0.3),但对收信人没用:他需要知道"到底停了多少小时"才知道这是不是同一场。
+  // 开销严格受控:**只有活动件一条完成行都没有**时才去翻滚动件,且每件只读尾部、最多几件。
+  if (!lastOkIso) {
+    const scanned = scanRotatedLoopLogs(dirname(logPath), basename(logPath), isoFrom)
+    if (scanned.lastOkIso) {
+      lastOkIso = scanned.lastOkIso
+      lastOkFrom = scanned.from
+    }
   }
   // 本轮是否"在飞":日志最后一行仍是轮次中间产物(未出现 轮询结束/部署完成 这类轮次边界),
   // 且写于 20 分钟内。边界之后一律照判(冷却/失败都属于真停摆)。
@@ -676,6 +755,10 @@ export function collectStallInputs({
     // 祖先版本逐字节相同,被门 84 的行级"复活"判据读成混合体回写(它是这么设计对的 ——
     // 今天真被它抓到过一次),所以让新代码的文本自带区别,不去占用跳门出口。
     lastSuccessIso: lastOkIso,
+    // 完成时刻是从哪一份读出来的:`deploy-loop.log` 或某个滚动件 —— 收信人据此知道
+    // "这台机的活动日志已经轮转过,N 小时前的那次成功只存在于旧段"(不写就等于让人以为
+    // 活动件里真的有这一行)。
+    lastSuccessFrom: lastOkFrom,
     inFlight,
     thresholdMin: stallThresholdMin,
     nowMs,
