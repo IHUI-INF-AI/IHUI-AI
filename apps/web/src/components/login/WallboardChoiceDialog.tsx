@@ -26,10 +26,22 @@ type WallboardChoiceListener = (landing: string | null) => void
 const listeners = new Set<WallboardChoiceListener>()
 
 /**
+ * 「先不用」的回落落点(模块级,随每次请求刷新):
+ * - LoginDialog 主站场景不传 —— 用户点了「先不用」就留在当前页;
+ * - OAuth 回调页等**无法停留的中间页**场景传 '/' —— 停在回调页没有意义,选完直接去首页。
+ */
+let stayFallback: string | undefined
+
+/**
  * 登录链路调用:请求弹出「要不要看数据大屏」选择窗。
  * @param landing 建议落点(生产监控大屏路径);传 null 仅收起已打开的选择窗。
+ * @param opts.stayFallback 选「先不用」后跳往的回落路径(中间页场景传 '/',见上)。
  */
-export function requestWallboardChoice(landing: string | null): void {
+export function requestWallboardChoice(
+  landing: string | null,
+  opts?: { stayFallback?: string },
+): void {
+  stayFallback = opts?.stayFallback
   for (const notify of listeners) notify(landing)
 }
 
@@ -56,7 +68,13 @@ export function WallboardChoiceDialog() {
     }, 250)
   }, [landing, router])
 
-  const handleStay = React.useCallback(() => setLanding(null), [])
+  const handleStay = React.useCallback(() => {
+    setLanding(null)
+    // OAuth 回调页等中间页:停留无意义,按调用方声明的回落路径离开(通常是 '/')。
+    const fallback = stayFallback
+    stayFallback = undefined
+    if (fallback) router.push(fallback)
+  }, [router])
 
   return (
     <ConfirmDialog
