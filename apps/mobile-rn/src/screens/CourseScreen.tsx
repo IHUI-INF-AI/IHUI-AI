@@ -26,6 +26,7 @@ import {
 } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { CourseTabScreen, type CourseTabScreenProps } from '@ihui/rn-app'
+import type { ProgressOverview } from '@ihui/types'
 import TabBar, { type TabBarKey } from '../components/TabBar'
 import { tabBarScrollReserve } from '../components/TabBar.styles'
 import { useI18n } from '../i18n'
@@ -47,13 +48,6 @@ const CATEGORY_ID_MAP: Readonly<Record<string, string>> = {
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'CourseMain'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
-
-/** 学习进度概览(对齐 getStudyStatistics 返回,totalDuration 视为秒) */
-interface ProgressOverview {
-  totalCourses: number
-  completedCourses: number
-  learningHours: number
-}
 
 /** Course → PopularCourses 卡片项,VIP 标识用 tags 启发式判断(后端未提供 isVip 字段) */
 function toPopularCourses(items: Course[]): CourseTabScreenProps['popularItems'][number][] {
