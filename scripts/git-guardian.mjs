@@ -4207,7 +4207,7 @@ export function auditDeployStall(opts = {}) {
     const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
     const outcome = notify(
       '部署停摆(线上构建 vs origin/main)',
-      `${String(p.why || '')}\n线上 ${String(p.liveSha || '(无标记)').slice(0, 12)} / tip ${String(p.tipSha || '?').slice(0, 12)}(来源 ${p.tipSource || '未标注'})\n最近一次成功部署 ${p.lastSuccessIso || '(取不到)'};阈值 ${p.thresholdMin} 分钟;本轮已落后 ${p.behindHours ?? '?'} 小时;本段停摆已持续 ${held.hours ?? '?'} 小时(档 ${held.tier})\n取证:node scripts/check-credential-health.mjs --stall-only --json(只读、零写盘、零发信)`,
+      `${String(p.why || '')}\n线上 ${String(p.liveSha || '(无标记)').slice(0, 12)} / tip ${String(p.tipSha || '?').slice(0, 12)}(来源 ${p.tipSource || '未标注'})\n最近一次成功部署 ${p.lastSuccessIso || '(取不到)'}${p.lastSuccessFrom ? `(取自 ${p.lastSuccessFrom};活动件里没有完成行 ⇒ 已跨过一轮日志轮转)` : ''};阈值 ${p.thresholdMin} 分钟;本轮已落后 ${p.behindHours ?? '?'} 小时;本段停摆已持续 ${held.hours ?? '?'} 小时(档 ${held.tier})\n取证:node scripts/check-credential-health.mjs --stall-only --json(只读、零写盘、零发信)`,
       { severity: 'critical', dedupKey: `stall;class=${stallClass};held=${held.tier}` },
     )
     // 日志必须分得出"真寄了"与"窗口内压住" —— 原先两支都写"已派发到邮件通道",
