@@ -214,6 +214,24 @@ scrape_configs:
           service: 'rsshub'
           layer: 'backend'
 
+  # Cloudflare 隧道(cloudflared,公网唯一入口)。
+  # 立因(2026-10-19 监控覆盖率审计):公网链路 aizhs.top 的可用性此前完全没有指标——隧道
+  #   进程一直活着、metrics 端口 127.0.0.1:20241 一直在监听,而 Prometheus 里从来没有这个 job,
+  #   于是"公网打不开"这一格只能靠人肉 curl 发现。实测该端点吐出 222 行合法 Prometheus 文本
+  #   (cloudflared_tunnel_total_requests / _request_errors / _ha_connections /
+  #    _response_by_code / _server_locations / _concurrent_requests_per_tunnel 等),
+  #   属"数据在、采集没接"型缺口,补一个 job 即可,零代码。
+  # ⚠ 该端口默认只听 127.0.0.1(LISTEN_INADDR_ANY=false),本 job 按回环抓取,不构成新暴露面;
+  #   若日后隧道改绑 0.0.0.0,需重新评估。
+  - job_name: 'cloudflared'
+    metrics_path: '/metrics'
+    scheme: 'http'
+    static_configs:
+      - targets: ['127.0.0.1:20241']
+        labels:
+          service: 'cloudflared'
+          layer: 'edge'
+
   # Node Exporter（主机指标，可选）— 原生环境暂未安装，需启用时注释放开并将 target 改为 localhost:9100
   # - job_name: 'node'
   #   static_configs:
