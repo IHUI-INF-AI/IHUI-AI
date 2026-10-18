@@ -7,6 +7,7 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { getVipPrivilege, getVipInfo, type VipInfo } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import './privilege.css'
@@ -108,7 +109,14 @@ export default function PrivilegePage() {
     }
   }, [])
 
-  useDidShow(() => load())
+  // G-933 冷启动门控：load 内 getVipInfo(需鉴权) 与 getVipPrivilege 共用一次状态事务，
+  // 拆支会改加载态语义 ⇒ 整块延后到鉴权判定落定；游客在落定后仍会走一次（终态与改前一致）。
+  const { waitUntilReady } = useAuthReadyGate()
+  useDidShow(() => {
+    waitUntilReady(() => {
+      void load()
+    })
+  })
 
   /** 进入页面时根据 ?type= 自动弹起对应弹窗 */
   useEffect(() => {

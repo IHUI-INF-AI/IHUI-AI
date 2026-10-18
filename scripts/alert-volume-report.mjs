@@ -838,7 +838,7 @@ function fmtKinds(kinds) {
 
 /** 射程边界必须**报名**,不得只报数(本仓"报数不报名"记过多次:守门 70/76/81 同族)。 */
 const NOT_COVERED = [
-  '发信面本身已无盲区(2026-10-18 收口):投递台账记在**唯一出口** `apps/api/scripts/notify-deploy-failure.ts` 上,而 alert-bridge / IHUI-MONITOR / 部署环 ps1 / CI / ai-service 全都经它发 ⇒ 真寄一封就有账,不再依赖"每个生产者记得写"。仍然看不到的只有:不经该出口的自拼 SMTP 写手(由守门 81 拦)、以及"SMTP 侧回执"这半段(本仓无回执 oracle)',
+  '发信面覆盖到"本机这一路"已闭合(2026-10-18/19 收口):投递台账记在**唯一出口** `apps/api/scripts/notify-deploy-failure.ts`,alert-bridge / IHUI-MONITOR / 部署环 ps1 / ai-service 都经它发 ⇒ 真寄一封就有账,不再依赖"每个生产者记得写"。三条硬边界:① **CI 在本机无账** —— 出口把行写在它自己那份 checkout 的 .workbuddy/ 下,临时 runner 随 run 销毁;② 各生产者**自己窗口压住**的轮次走不到出口,不进"压住"桶(那一桶只量出口 --alert-id 窗口);③ 不经出口的自拼 SMTP 写手(守门 81 拦;今天抓到一支 `alert-notification-service.ts` 自建 transport,已登记进 alert-mail-faces.json 并标 inScope:false)',
   '被轮转/被删/被清空的旧日志:窗口内计数只反映文件现存部分',
   '手工 `git commit --no-verify`(不经 safe-commit 就不写台账 ⇒ 账面一次都没跳,现实可能跳了)',
   '邮件是否真的到达:只有日志侧留痕,SMTP/Resend 的回执不在这个面内',

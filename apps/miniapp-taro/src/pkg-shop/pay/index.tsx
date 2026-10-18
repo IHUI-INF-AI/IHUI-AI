@@ -5,6 +5,7 @@
 import { useTt, useI18n } from '@/i18n'
 import { View, Text, Button } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useRef } from 'react'
 import {
@@ -71,6 +72,8 @@ export default function PayIndex() {
   const couponDiscount = selectedCoupon?.amount ?? 0
   const finalAmount = Math.max(0, amount - couponDiscount)
   const balanceInsufficient = balance < finalAmount
+  // G-933 冷启动门控用就绪位（见下方 effect 内的 return 说明）
+  const { ready } = useAuthReadyGate()
 
   useEffect(() => {
     const no = router.params.orderNo || ''
@@ -78,6 +81,11 @@ export default function PayIndex() {
     setOrderNo(no)
     setAmount(amt)
     if (!no) return
+    // G-933：这一支的 getProfile 需鉴权（miniapp-compat-routes.ts:2247 checkAuth），
+    // 与 /vip/order/:no、/coupons/available 三支共用同一个 Promise.all 与同一次状态事务，
+    // 拆支会改该页的加载/回填语义 ⇒ 未落定时整支不出门，ready 翻真后本 effect 重跑一次。
+    // waitUntilReady 语义等价：只等「判定落定」，不等登录 ⇒ 游客仍会在落定后走一次，终态与改前一致。
+    if (!ready) return
 
     Promise.all([
       getProfile().catch(() => null),
@@ -100,7 +108,7 @@ export default function PayIndex() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [router.params.orderNo, router.params.amount])
+  }, [router.params.orderNo, router.params.amount, ready])
 
   const onSelectMethod = (m: PayMethod) => {
     if (m === 'balance' && balanceInsufficient) {

@@ -4,6 +4,7 @@
 
 import { useTt, useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { View, Text, Button, Image } from '@tarojs/components'
 import LineIcon, { type IconName } from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
@@ -250,7 +251,16 @@ export default function VipIndexPage() {
     setShowBenefits(true)
   }, [])
 
-  useDidShow(load)
+  // G-933 冷启动门控：load 内是 Promise.all([getVipInfo(需鉴权，routes/vip.ts 处理器 await authenticate)、
+  // getVipPrivilege、getVipLevels(公开)]) 且共用同一次 showLoading/hideLoading —— 拆支会改该页加载态语义，
+  // 故整块延后到「鉴权判定落定」。注意 waitUntilReady 只等落定、不等登录 ⇒ 游客在落定后照样走一次
+  // (各支自带 .catch/兜底)，所以这是消掉冷启动那一拍，不是把抢跑换成游客白屏。
+  const { waitUntilReady } = useAuthReadyGate()
+  useDidShow(() => {
+    waitUntilReady(() => {
+      void load()
+    })
+  })
 
   const currentPrice = selectedPlan?.price ?? 0
 
