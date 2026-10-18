@@ -26,6 +26,7 @@ import { tokens, currentRnTheme } from '../theme/active-tokens'
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
   Keyboard,
   Pressable,
@@ -39,6 +40,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useI18n } from '../i18n'
+import { formatShortDuration } from '@ihui/shared/utils'
 import { TextField } from '@ihui/rn-app'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { AddPanel, PlusButton } from './AddPanel'
@@ -109,6 +111,13 @@ export interface BottomActionBarProps {
   onRemoveImage?: (index: number) => void
   onStartLongPress?: () => void
   onEndLongPress?: () => void
+  /**
+   * 录音中(2026-10-16 录音消息):输入行覆盖录音态(黑白波形 + 时长 + 「松开结束」)。
+   * 覆盖层 pointerEvents="none",触摸仍穿到麦克风钮,onPressOut 正常收尾。
+   */
+  recording?: boolean
+  /** 录音时长(秒,录音态覆盖层显示) */
+  recordingDuration?: number
   onInputFocus?: () => void
   onInputBlur?: () => void
   onInputClick?: () => void
@@ -198,6 +207,50 @@ const INPUT_MAX_HEIGHT = 100 // 多行输入的自然生长上限(键盘避让�
 
 /** 语音按钮命中方块:取共享几何表档(小程序端本文件里没有这枚方块)。 */
 const VOICE_BTN_SIZE = rnGeometry.tapBox
+
+/** 录音态覆盖层:波形指示条数(纯前端 UI,与 InputArea VoiceWave 同族) */
+const RECORDING_WAVE_BARS = 7
+
+/**
+ * 录音态波形(黑白):7 条 Animated 循环 scaleY。
+ * 2026-10-16 用户定档「简约黑白大气」:条色取 text.primary(明暗主题自适应),
+ * 不用红色 danger 档。
+ */
+function RecordingWave() {
+  const bars = useRef(
+    Array.from({ length: RECORDING_WAVE_BARS }, () => new Animated.Value(0.25)),
+  ).current
+  useEffect(() => {
+    const loops = bars.map((v, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(v, {
+            toValue: 1,
+            duration: 260,
+            delay: i * 60,
+            useNativeDriver: true,
+          }),
+          Animated.timing(v, { toValue: 0.25, duration: 260, useNativeDriver: true }),
+        ]),
+      ),
+    )
+    loops.forEach((l) => l.start())
+    return () => loops.forEach((l) => l.stop())
+  }, [bars])
+  return (
+    <View style={styles.recordingWave}>
+      {bars.map((v, i) => (
+        <Animated.View
+          key={i}
+          style={[
+            styles.recordingWaveBar,
+            { transform: [{ scaleY: v }] },
+          ]}
+        />
+      ))}
+    </View>
+  )
+}
 
 /** 辅助按钮命中方块:同上,tapBox 档。 */
 const SECONDARY_BTN_SIZE = rnGeometry.tapBox
@@ -412,6 +465,8 @@ function ChatInputBar(props: BottomActionBarProps) {
     modelName,
     isLoading = false,
     isShowIcon = false,
+    recording = false,
+    recordingDuration = 0,
   } = props
   useUiTextField({
     label: t('chat.inputPlaceholder'),
@@ -568,7 +623,10 @@ function ChatInputBar(props: BottomActionBarProps) {
       <View style={styles.inputRow}>
         {onToggleVoiceInput !== undefined ? (
           <Pressable
-            style={[styles.voiceBtn, voiceInputEnabled ? styles.voiceBtnActive : null]}
+            style={[
+              styles.voiceBtn,
+              voiceInputEnabled || recording ? styles.voiceBtnActive : null,
+            ]}
             onPress={onToggleVoiceInput}
             onLongPress={onStartLongPress}
             onPressOut={onEndLongPress}
@@ -576,7 +634,10 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityRole="button"
             accessibilityLabel="语音输入"
           >
-            <Mic size={rnGeometry.glyphMd} color={tokens.text.secondary} />
+            <Mic
+              size={rnGeometry.glyphMd}
+              color={recording ? tokens.brand.ctaForeground : tokens.text.secondary}
+            />
           </Pressable>
         ) : null}
 
@@ -597,8 +658,19 @@ function ChatInputBar(props: BottomActionBarProps) {
           placeholder={t('chat.inputPlaceholder')}
           placeholderTextColor={tokens.text.tertiary}
           multiline
-          editable={!isLoading}
+          editable={!isLoading && !recording}
         />
+
+        {/* 2026-10-16 录音态覆盖层(微信式按住说话):黑白波形 + 时长 + 松开结束。
+            pointerEvents="none" ⇒ 触摸穿到麦克风钮,onPressOut 照常收尾;
+            TextField 已在录音态禁用,不会抢焦点弹键盘。 */}
+        {recording ? (
+          <View style={styles.recordingOverlay} pointerEvents="none">
+            <RecordingWave />
+            <Text style={styles.recordingDuration}>{formatShortDuration(recordingDuration)}</Text>
+            <Text style={styles.recordingHint}>松开结束</Text>
+          </View>
+        ) : null}
 
         {/* 「+」按钮(对齐 Uniapp InputArea search-box2:functionHandle → isShowIcon 切换滑出区;
             视觉统一走共享 PlusButton,面板统一走共享 AddPanel) */}
@@ -987,6 +1059,42 @@ const styles = StyleSheet.create({
   voiceEmoji: {
     fontSize: 18,
     lineHeight: 22,
+  } as TextStyle,
+  // ── 2026-10-16 录音态覆盖层(简约黑白:surface.card 底 + text.primary 波形)──
+  recordingOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: tokens.surface.card,
+    borderRadius: INPUT_BORDER_RADIUS,
+  } as ViewStyle,
+  recordingWave: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    height: 18,
+  } as ViewStyle,
+  recordingWaveBar: {
+    width: 3,
+    height: 14,
+    borderRadius: rnRadiusFor.tiny,
+    backgroundColor: tokens.text.primary,
+  } as ViewStyle,
+  recordingDuration: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    fontVariant: ['tabular-nums'],
+  } as TextStyle,
+  recordingHint: {
+    fontSize: 12,
+    color: tokens.text.secondary,
   } as TextStyle,
   input: {
     flex: 1,

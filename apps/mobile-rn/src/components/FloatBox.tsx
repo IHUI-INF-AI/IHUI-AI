@@ -17,7 +17,6 @@
 import { useEffect, useRef } from 'react'
 import {
   Animated,
-  Dimensions,
   Easing,
   StyleSheet,
   Text,
@@ -39,6 +38,9 @@ import {
 } from '@ihui/shared/ui/float-box-spec'
 
 import { rnRadius } from '@ihui/design-tokens'
+// toast 上限按应用框架实际宽(430 壳)取(2026-10-15 修溢出):原用视口宽 586×0.8=450,
+// 超长文案时 toast 横跨出 #root 被裁右侧;原生无 #root 回退窗口宽行为不变(与 SearchOverlay 同轨)。
+import { useAppFrameWidth } from './Carousel'
 
 export type FloatBoxType = 'success' | 'error' | 'warning' | 'info'
 
@@ -182,7 +184,7 @@ export function FloatBox({
     }
   }, [shown, duration, opacity])
 
-  const screenWidth = Dimensions.get('window').width
+  const screenWidth = useAppFrameWidth()
   const maxWidth = Math.round(screenWidth * MAX_WIDTH_RATIO)
   const iconColor = TYPE_ICON_COLORS[type]
   const Icon = TYPE_ICONS[type]

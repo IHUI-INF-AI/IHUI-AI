@@ -64,6 +64,8 @@ export interface UseChatInputResult {
   inputFiles: MessageInputFile[]
   isVoiceMode: boolean
   isRecording: boolean
+  /** 录音时长(秒,长按期间每秒 +1;松开清零) */
+  recordingDuration: number
   isInputFullscreen: boolean
   isInputFocused: boolean
   agentVariables: MessageInputAgentVariable[]
@@ -89,21 +91,40 @@ export interface UseChatInputOptions {
    * 调用方(ChatScreen)接 showToast;回调缺省时保留 Alert 兜底(原生端行为不变)。
    */
   onVoiceUnavailable?: (reason: 'permission-denied' | 'record-failed', message: string) => void
+  /**
+   * 录音完成回调(2026-10-16 录音消息上线):松手拿到本地录音 uri + 时长(秒),
+   * 由调用方上传服务器并作为语音气泡消息发送。替代原「占位 inputFiles」方案
+   * (那个方案只把本地 uri 挂成 document 附件,发不出去也回听不了)。
+   */
+  onVoiceRecorded?: (uri: string, durationSec: number) => void
 }
 
 export function useChatInput(options?: UseChatInputOptions): UseChatInputResult {
   const [inputFiles, setInputFiles] = useState<MessageInputFile[]>([])
   const [isVoiceMode, setIsVoiceMode] = useState<boolean>(false)
   const [isRecording, setIsRecording] = useState<boolean>(false)
+  const [recordingDuration, setRecordingDuration] = useState<number>(0)
   const [isInputFullscreen, setIsInputFullscreen] = useState<boolean>(false)
   const [isInputFocused, setIsInputFocused] = useState<boolean>(false)
   const [agentVariables, setAgentVariables] = useState<MessageInputAgentVariable[]>([])
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY!)
   const recordingRef = useRef<boolean>(false)
+  // 录音计时:ref 镜像供回调读「松手这一瞬」的时长(state 版供 UI 显示)
+  const durationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const durationRef = useRef(0)
   // 回调走 ref 持有(useCallback 依赖零抖动,recorder 不会因调用方每次渲染传新箭头而重挂)
   const onVoiceUnavailableRef = useRef(options?.onVoiceUnavailable)
   onVoiceUnavailableRef.current = options?.onVoiceUnavailable
+  const onVoiceRecordedRef = useRef(options?.onVoiceRecorded)
+  onVoiceRecordedRef.current = options?.onVoiceRecorded
+
+  const clearDurationTimer = (): void => {
+    if (durationTimerRef.current) {
+      clearInterval(durationTimerRef.current)
+      durationTimerRef.current = null
+    }
+  }
 
   // 首次进入:申请麦克风权限 + 配置音频模式(静默模式 + 允许录音)
   useEffect(() => {
@@ -131,6 +152,7 @@ export function useChatInput(options?: UseChatInputOptions): UseChatInputResult 
         recordingRef.current = false
         void recorder.stop().catch(() => undefined)
       }
+      if (durationTimerRef.current) clearInterval(durationTimerRef.current)
     },
     [recorder],
   )
@@ -185,6 +207,7 @@ export function useChatInput(options?: UseChatInputOptions): UseChatInputResult 
         recordingRef.current = false
         void recorder.stop().catch(() => undefined)
         setIsRecording(false)
+        clearDurationTimer()
       }
       return !prev
     })
@@ -208,10 +231,20 @@ export function useChatInput(options?: UseChatInputOptions): UseChatInputResult 
     // "已松开"守卫恒真 ⇒ 全平台长按永不开始录音且无任何反馈(2026-10-15 web 实测静默)。
     // prepare 期间松开由 onInputVoiceEnd 清掉本标记,守卫据实判定。
     recordingRef.current = true
+    // 计时与按住同帧启动:UI 从第一帧就走时长(微信同感),ref 镜像供松手时读取
+    durationRef.current = 0
+    setRecordingDuration(0)
+    clearDurationTimer()
+    durationTimerRef.current = setInterval(() => {
+      durationRef.current += 1
+      setRecordingDuration(durationRef.current)
+    }, 1000)
     try {
       const status = await AudioModule.requestRecordingPermissionsAsync()
       if (!status.granted) {
         recordingRef.current = false
+        clearDurationTimer()
+        setIsRecording(false)
         const message = '无法访问麦克风,请检查权限设置'
         if (onVoiceUnavailableRef.current) {
           onVoiceUnavailableRef.current('permission-denied', message)
@@ -223,6 +256,7 @@ export function useChatInput(options?: UseChatInputOptions): UseChatInputResult 
       await recorder.prepareToRecordAsync()
       // prepare 期间用户可能已松开 → 不再开始
       if (!recordingRef.current) {
+        clearDurationTimer()
         return
       }
       recorder.record()
@@ -230,6 +264,7 @@ export function useChatInput(options?: UseChatInputOptions): UseChatInputResult 
     } catch (err: unknown) {
       recordingRef.current = false
       setIsRecording(false)
+      clearDurationTimer()
       const msg = err instanceof Error ? err.message : 'unknown'
       if (onVoiceUnavailableRef.current) {
         onVoiceUnavailableRef.current('record-failed', msg || '录音启动失败,请重试')
@@ -243,6 +278,8 @@ export function useChatInput(options?: UseChatInputOptions): UseChatInputResult 
     if (!recordingRef.current) return
     recordingRef.current = false
     setIsRecording(false)
+    clearDurationTimer()
+    const durationSec = durationRef.current
     let uri = ''
     try {
       await recorder.stop()
@@ -251,16 +288,9 @@ export function useChatInput(options?: UseChatInputOptions): UseChatInputResult 
       uri = ''
     }
     if (!uri) return
-    // 录音暂存为占位附件(类型=image 不可,语音非图片/视频,采用 'document' 占位)
-    // 实际项目应上传服务器,这里只做本地 uri 占位 + console.log
-    const placeholder: MessageInputFile = {
-      id: nextFileId(),
-      url: uri,
-      filename: 'voice.m4a',
-      type: 'document',
-    }
-    setInputFiles((prev) => [...prev, placeholder])
-    // 上传接入点:此处可调 uploadFileMultipart 上传到服务器,获得 CDN URL 后替换 placeholder.url
+    // 2026-10-16 录音消息:本地录音交给调用方上传并作为语音气泡发送。
+    // 原「占位 document 附件」方案已废 —— 那条路既发不出去,也没有回听入口。
+    onVoiceRecordedRef.current?.(uri, durationSec)
   }, [recorder])
 
   const onInputAgentVariableTextChange = useCallback((index: number, value: string): void => {
@@ -303,6 +333,7 @@ export function useChatInput(options?: UseChatInputOptions): UseChatInputResult 
     inputFiles,
     isVoiceMode,
     isRecording,
+    recordingDuration,
     isInputFullscreen,
     isInputFocused,
     agentVariables,
