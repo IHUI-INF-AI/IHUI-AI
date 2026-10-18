@@ -10,14 +10,17 @@
  * - 双 Tab:官方资讯 / 星球社区(popular-courses-tab,selectedTab 驱动列表切换)
  * - 卡片:封面图(左)+ 内容列(标题 / 作者徽章 / 相对时间 / 摘要)
  * - 卡片社交计数:分类标签 + 浏览 / 评论 / 点赞 / 转发(图标 + 数字,line-box)
+ * - 下拉刷新(RefreshControl,refreshing/onRefresh 由父级驱动)
  * - 空态提示
  * - 浅色优雅风,主题 token 入口;圆角守门(AGENTS.md §4,无 rounded-full);无分割线(列表 gap 间距)
  * - 配色仅走 brand 黑 / success 绿 / warning 橙 / danger 红(禁用 purple/indigo)
  */
 import { useState } from 'react'
 import {
+  FlatList,
   Image,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
@@ -54,6 +57,8 @@ export interface KnowledgePlanetItem {
 export interface KnowledgePlanetProps {
   items: KnowledgePlanetItem[]
   onItemClick: (id: string) => void
+  onRefresh?: () => void
+  refreshing?: boolean
   /** 「进入星球」回调(对齐原项目 popular-courses-more) */
   onEnter?: () => void
   /** 「星球社区」Tab 列表(对齐原项目 kList2);缺省时社区 Tab 复用 items */
@@ -120,6 +125,8 @@ function Stat({ icon: Icon, value }: StatProps) {
 export function KnowledgePlanet({
   items,
   onItemClick,
+  onRefresh,
+  refreshing = false,
   onEnter,
   communityItems,
   onTabChange,
@@ -244,22 +251,28 @@ export function KnowledgePlanet({
         ))}
       </View>
 
-      {/* 资讯 / 社区列表(随 Tab 切换)。静态渲染(G-194):两个调用方(首页/更多课程页)都把本组件
-          嵌在页面级 ScrollView 里,自带可滚 FlatList 在 Android 上吞竖向手势且不触发宿主重测量
-          —— 症状即「首页滚不动,旋屏后能滚」;数据有界,虚拟化无收益。item 间距与原形态逐值对齐。 */}
-      <View style={styles.listContent}>
-        {activeItems.length === 0 ? (
+      {/* 资讯 / 社区列表(随 Tab 切换) */}
+      <FlatList
+        data={activeItems}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        contentContainerStyle={styles.listContent}
+        ItemSeparatorComponent={() => <View style={{ height: ITEM_GAP }} />}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={tokens.text.secondary}
+            />
+          ) : undefined
+        }
+        ListEmptyComponent={
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyText}>暂无内容</Text>
           </View>
-        ) : (
-          activeItems.map((item) => (
-            <View key={item.id}>
-              {renderItem({ item })}
-            </View>
-          ))
-        )}
-      </View>
+        }
+      />
     </View>
   )
 }
@@ -317,7 +330,6 @@ const styles = StyleSheet.create({
   } as TextStyle,
   listContent: {
     padding: LIST_PADDING,
-    gap: ITEM_GAP,
   } as ViewStyle,
   // 卡片原本挂在 Pressable 自身盒上,而该盒由父容器拉伸得到整行宽;按压态下移到子 View 后,
   // 外层退化为按内容收拢,故在这一层显式撑满父槽位,取的是百分比而非新数值。

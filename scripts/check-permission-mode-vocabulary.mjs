@@ -28,7 +28,6 @@ import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -661,9 +660,8 @@ export function runChecks({ root = ROOT } = {}) {
 
 /** 注入违规自证:证明每条规则各自真的咬得住(不靠脚本自述)。 */
 function selfTest() {
-  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
-  // 旧本地写法 `cases.push({ name, ok })` 裸存结论 —— 已由共用出口结构封死,用例调用一字不动。
-  const { t, report } = makeRegistrar()
+  const cases = []
+  const t = (name, ok) => cases.push({ name, ok })
 
   const baseTs = parseTsRegistry(readFileSync(join(ROOT, TS_REGISTRY), 'utf8'))
   const basePy = parsePyRegistry(readFileSync(join(ROOT, PY_REGISTRY), 'utf8'))
@@ -1048,10 +1046,8 @@ function selfTest() {
   }
   t('当前工作区零违规', live.problems.length === 0)
 
-  // 消费点:求值只发生在这里(共用出口的报告函数)。
-  const { fail, cases } = report()
-  for (const c of cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
-  return fail === 0 ? 0 : 1
+  for (const c of cases) console.log(`${c.ok ? '✅' : '❌'} ${c.name}`)
+  return cases.every((c) => c.ok) ? 0 : 1
 }
 
 function main() {
