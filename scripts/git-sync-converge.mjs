@@ -38,7 +38,15 @@
  *   ③ 回归网: --self-test(真仓库演练,正反用例) + scripts/tests/ 下镜像测试(§22c)。
  */
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, openSync, closeSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  openSync,
+  closeSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { resolveRemoteHead } from './lib/face-reader.mjs'
@@ -64,7 +72,9 @@ export async function ensureUnionModule() {
     unionGate.mod = await import('./union-converge.mjs')
   } catch (e) {
     // execFileSync 的教训同款:第一行才是起因,堆栈只是尸检报告。
-    unionGate.error = String((e && e.message) || e || '未知原因').split('\n')[0].trim()
+    unionGate.error = String((e && e.message) || e || '未知原因')
+      .split('\n')[0]
+      .trim()
   }
   return unionGate
 }
@@ -136,12 +146,17 @@ function backupOrphanMerge(sha, why) {
     return { ok: false, ref: null }
   }
   try {
-    if (git(['rev-parse', '--verify', '--quiet', `refs/tags/${ref}`], { allowFail: true }) !== null) {
+    if (
+      git(['rev-parse', '--verify', '--quiet', `refs/tags/${ref}`], { allowFail: true }) !== null
+    ) {
       return { ok: true, ref, already: true }
     }
-    const tagged = git(['tag', ref, sha, '-m', `孤儿合并提交(${why}):CAS 未抢到 HEAD,按 §29 零损失备份`], {
-      allowFail: true,
-    })
+    const tagged = git(
+      ['tag', ref, sha, '-m', `孤儿合并提交(${why}):CAS 未抢到 HEAD,按 §29 零损失备份`],
+      {
+        allowFail: true,
+      },
+    )
     if (tagged === null) return { ok: false, ref }
     // 嵌套 tag 不 pack 就会被宿主清理层删掉(§5b),而 tag 消失 = 30a 重新判红
     git(['pack-refs', '--all', '--prune'], { allowFail: true })
@@ -224,28 +239,24 @@ function attemptUnionConverge(freshRemote, repoRoot) {
   const args = ['scripts/union-converge.mjs', '--apply', '--theirs', freshRemote]
   for (const r of strict ? [] : acceptDims) args.push('--accept-state-growth', r)
   try {
-    const out = execFileSync(
-      process.execPath,
-      args,
-      {
-        cwd: repoRoot,
-        encoding: 'utf8',
-        windowsHide: true, // §5b:漏此参数在钩子/守护派生下必弹控制台窗
-        // 根治(2026-09-30):stdin 设 ignore,避开交互会话 Node 建子进程 stdin 管道 EBUSY
-        // (union-converge 经 argv 吃参数、经临时文件通道写 blob,不吃 stdin;同 git() 助手修法)。
-        stdio: ['ignore', 'pipe', 'pipe'],
-        // 300s 在这台机上跑不完一次归并:实测一次 --apply(取对侧 9 路径 + 活文档并集 + 台账
-        // 逐行解析)要 2–13 分钟 ⇒ 超时等于自动收敛永不成功。与"落地闸不可满足"是同一次停摆的
-        // 两半,只修判据不修这里的封顶,部署环仍会每轮白等。守门 80 的"热路径一律封顶"保留。
-        timeout: Number(process.env.IHUI_UNION_CONVERGE_TIMEOUT_MS || 1500000),
-      },
-    )
+    const out = execFileSync(process.execPath, args, {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      windowsHide: true, // §5b:漏此参数在钩子/守护派生下必弹控制台窗
+      // 根治(2026-09-30):stdin 设 ignore,避开交互会话 Node 建子进程 stdin 管道 EBUSY
+      // (union-converge 经 argv 吃参数、经临时文件通道写 blob,不吃 stdin;同 git() 助手修法)。
+      stdio: ['ignore', 'pipe', 'pipe'],
+      // 300s 在这台机上跑不完一次归并:实测一次 --apply(取对侧 9 路径 + 活文档并集 + 台账
+      // 逐行解析)要 2–13 分钟 ⇒ 超时等于自动收敛永不成功。与"落地闸不可满足"是同一次停摆的
+      // 两半,只修判据不修这里的封顶,部署环仍会每轮白等。守门 80 的"热路径一律封顶"保留。
+      timeout: Number(process.env.IHUI_UNION_CONVERGE_TIMEOUT_MS || 1500000),
+    })
     // 退出码必须与裁决文本一起走:execFileSync 只在子进程退 0 时返回 stdout,非零走下面那条出口。
     // 少了这一个数,"它退 0 却没报落地"(= 它压根没判人工)就与"它判了人工"在下游完全同形。
     return String(out) + unionExitMark(0)
-  // stdout 优先(它是 union-converge 自己的裁决文本);但**必须把 stderr 接上** —— 子进程死在
-  // import 期时 stdout 是空的,只回吐 `Command failed: <argv>` 那一行 message 就等于让下一个人
-  // 重新去猜"到底是内容裁决还是通道断了"(本文件下方 alignFailureNote 头注记过同一型)。
+    // stdout 优先(它是 union-converge 自己的裁决文本);但**必须把 stderr 接上** —— 子进程死在
+    // import 期时 stdout 是空的,只回吐 `Command failed: <argv>` 那一行 message 就等于让下一个人
+    // 重新去猜"到底是内容裁决还是通道断了"(本文件下方 alignFailureNote 头注记过同一型)。
   } catch (ue) {
     return String(ue.stdout || ue.message || '') + stderrTail(ue) + unionExitMark(ue && ue.status)
   }
@@ -458,7 +469,9 @@ export function capText(text, opts = {}) {
     total: { lines: all.length, bytes: totalBytes },
     kept: { lines: kept.length, bytes },
     truncated:
-      dropped > 0 || bytes < totalBytes ? { lines: dropped, bytes: Math.max(0, totalBytes - bytes) } : null,
+      dropped > 0 || bytes < totalBytes
+        ? { lines: dropped, bytes: Math.max(0, totalBytes - bytes) }
+        : null,
   }
 }
 
@@ -828,7 +841,10 @@ function lsTreeLines(treeish, cwd) {
  */
 function mktree(cwd, lines) {
   // 落在 cwd 内(而非 os.tmpdir):mktree 的 base 是仓库根,同盘临时文件避免跨卷与权限歧义。
-  const tmp = resolve(cwd, `.ihui-mktree-${process.pid}-${Math.random().toString(36).slice(2, 8)}.tmp`)
+  const tmp = resolve(
+    cwd,
+    `.ihui-mktree-${process.pid}-${Math.random().toString(36).slice(2, 8)}.tmp`,
+  )
   let fd = null
   try {
     writeFileSync(tmp, lines.join('\n') + '\n', 'utf8')
@@ -1293,7 +1309,8 @@ function selfTest() {
     ok(
       '用例 16:备份 ref 名 = lost-commit/wip-conv-<sha7>(§29 命名族,30a 才认它是"已备份");' +
         'SHA 形状不对必须返回 null 而不是造出一个坏 ref',
-      orphanBackupRefName('947ef34a88a2b4c1d2e3f4a5b6c7d8e9f0a1b2c3') === 'lost-commit/wip-conv-947ef34' &&
+      orphanBackupRefName('947ef34a88a2b4c1d2e3f4a5b6c7d8e9f0a1b2c3') ===
+        'lost-commit/wip-conv-947ef34' &&
         orphanBackupRefName(''.padStart(40, 'a')) === `lost-commit/wip-conv-${'a'.repeat(7)}` &&
         orphanBackupRefName('') === null &&
         orphanBackupRefName('zxcvbn') === null &&
@@ -1332,6 +1349,45 @@ function main() {
   if (!repoRoot) {
     log(C.red, '❌ 不在 git 仓库中')
     process.exit(2)
+  }
+
+  // ── `--status`(2026-10-18 立):只读回报收尾对齐停摆台账,零副作用 ────────────────
+  // 立因不是"缺一个查询档",而是**告警正文写了这条出路却从没人实现它**:`scripts/git-guardian.mjs`
+  // 的 converge-align-stall 邮件里印着「node scripts/git-sync-converge.mjs --status(只读看对齐状态)」,
+  // 而本器的 argv 从未认过这个旗号。未识别的旗号在这里被静默忽略 ⇒ 收信人照信里那一行回车,
+  // 实际执行的是**整轮收敛**(clean stale lock / fetch / merge-tree / commit-tree / update-ref / 推送)。
+  // 一条自称只读、动手却改共享面的指令,比"根本没有这条出路"更坏(§0.8:给用户的每条命令必须
+  // 真跑得通**且语义相符**)。本档补的就是那句承诺的语义:读状态、报数,然后原样退出。
+  // 刻意不在这里复刻"该不该喊人"的阈值判据 —— 那份判据只有一份实现
+  // (`git-guardian.mjs` 的 `shouldAlertAlignStall`,§22c),这里只报原始读数与它住在哪。
+  if (argv.includes('--status')) {
+    const st = readAlignState(resolve(repoRoot, ALIGN_STATE_FILE))
+    log(C.dim, `── --status:收尾对齐停摆台账(只读,不 fetch、不合并、不推送)──`)
+    log(C.dim, `  状态文件:${resolve(repoRoot, ALIGN_STATE_FILE)}`)
+    if (!st || !Number.isFinite(st.consecutiveFailures)) {
+      log(
+        C.yellow,
+        '  读数:无法判定(状态文件不在位、坏 JSON 或 consecutiveFailures 非有限数)' +
+          ' ⇒ 守护这一族按"未判定 ⇒ 不喊"处理,不代表对齐成功过',
+      )
+    } else {
+      const ageMs = Number.isFinite(st.lastFailAt) ? Date.now() - st.lastFailAt : null
+      log(
+        C.dim,
+        `  consecutiveFailures=${st.consecutiveFailures}` +
+          ` | lastFailAt=${Number.isFinite(st.lastFailAt) ? new Date(st.lastFailAt).toISOString() : '(缺失)'}${
+            ageMs === null ? '' : ` (距今 ${Math.round(ageMs / 60000)} 分钟)`
+          }`,
+      )
+      log(C.dim, `  最后真因:${String(st.lastNote ?? '(无)').slice(0, 200)}`)
+      log(
+        C.dim,
+        '  该不该喊人由守护那一档判(阈值判据只有一份:scripts/git-guardian.mjs 的 shouldAlertAlignStall,' +
+          '默认连续失败 ≥3 且距今 ≥10 分钟,env IHUI_ALIGN_STALL_FAILS / IHUI_ALIGN_STALL_AGE_MS 可覆盖)',
+      )
+      log(C.dim, '  要归零台账:node scripts/git-sync-converge.mjs --align-only(只跑收尾对齐,幂等)')
+    }
+    process.exit(0)
   }
 
   // 2026-09-19:收敛前清理 stale 锁(根治 index.lock 卡死)。

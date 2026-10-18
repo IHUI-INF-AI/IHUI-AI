@@ -57,13 +57,13 @@ def interval_seconds_from_env() -> float:
         value = float(raw)
     except ValueError:
         logger.warning(
-            "[expiry_janitor] EXPIRY_JANITOR_INTERVAL_SECONDS=%r 读不出数 ⇒ 回落默认 %ss",
+            "[expiry_janitor] EXPIRY_JANITOR_INTERVAL_SECONDS=%r 读不出数 => 回落默认 %ss",
             raw,
             DEFAULT_INTERVAL_SECONDS,
         )
         return DEFAULT_INTERVAL_SECONDS
     if value != value or value <= 0:  # NaN / 非正值
-        logger.warning("[expiry_janitor] 间隔=%r 不是正数 ⇒ 回落默认 %ss", value, DEFAULT_INTERVAL_SECONDS)
+        logger.warning("[expiry_janitor] 间隔=%r 不是正数 => 回落默认 %ss", value, DEFAULT_INTERVAL_SECONDS)
         return DEFAULT_INTERVAL_SECONDS
     if value < MIN_INTERVAL_SECONDS:
         logger.info("[expiry_janitor] 间隔 %.1fs 抬到下限 %.1fs", value, MIN_INTERVAL_SECONDS)
@@ -112,7 +112,7 @@ def ensure_started() -> asyncio.Task[Any] | None:
     """幂等装载:已开 ⇒ 返回同一个任务;关档 ⇒ None(no-op)。"""
     global _task
     if not _enabled_from_env():
-        logger.info("[expiry_janitor] EXPIRY_JANITOR_ENABLED 关档 ⇒ 不装载(未判定为已运行)")
+        logger.info("[expiry_janitor] EXPIRY_JANITOR_ENABLED 关档 => 不装载(未判定为已运行)")
         return None
     existing = _running_task()
     if existing is not None:

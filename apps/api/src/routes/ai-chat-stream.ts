@@ -12,6 +12,8 @@ import {
   // (G-164:路由不得再抄第二份字面量,`packages/types/permission-axis.ts` 是唯一定义处)。
   SANDBOX_MODES,
   APPROVAL_POLICIES,
+  type SandboxModeId,
+  type ApprovalPolicyId,
   type ReasoningEffort,
   repairMessages,
 } from '@ihui/types'
@@ -358,6 +360,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       mode?: 'ask' | 'build' | 'plan' | 'review' | 'spec'
       /** V3 #58(2026-09-26 立):权限模式档位,透传为 ai-service 的 permission_mode(工具审批门) */
       permissionMode?: 'default' | 'accept-edits' | 'bypass-permissions' | 'plan'
+      /** 79 号票(权限双轴):沙箱档与审批档,透传为 ai-service 的 sandbox_mode / approval_policy。
+       *  值域唯一源 = @ihui/types/permission-axis.ts,本文件不写第二份清单(G-164)。
+       *  两档都 optional:未携带 ⇒ ai-service 侧裁决门整段跳过 ⇒ 现网零行为变化。 */
+      sandboxMode?: SandboxModeId
+      approvalPolicy?: ApprovalPolicyId
       /** D130(2026-09-30 立):推理强度档位,透传为 ai-service 的 reasoning_effort(上游采样档)。
        *  值域唯一源 = @ihui/types/reasoning-effort.ts,本文件不写第二份清单。 */
       reasoningEffort?: ReasoningEffort
@@ -868,6 +875,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         mode,
         // V3 #58(2026-09-26 立):权限模式档位(工具审批门),透传到 ai-service
         permissionMode,
+        // 79 号票:权限双轴两轴档位 —— 与 permissionMode 同区同规。schema 已声明这两键,
+        // 不在这里解构就会被静默留在 parsed.data 里 ⇒ 上游收不到而界面看着正常(同 D130 那型)。
+        sandboxMode,
+        approvalPolicy,
         // D130(2026-09-30 立):推理强度档位(chatAnswerSchema extends chatStreamSchema,
         // 续答同样支持 —— 不在这里解构就会被静默留在 parsed.data 里,链路掐断)。
         reasoningEffort,
@@ -1052,6 +1063,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           mode,
           // V3 #58(2026-09-26 立):权限模式档位,经上游请求体 permission_mode 字段透传
           permissionMode,
+          // 79 号票:权限双轴两轴档位 —— 与 permissionMode 同区同规。schema 已声明这两键,
+          // 不在这里解构就会被静默留在 parsed.data 里 ⇒ 上游收不到而界面看着正常(同 D130 那型)。
+          sandboxMode,
+          approvalPolicy,
           // D130(2026-09-30 立):推理强度档位,经上游请求体 reasoning_effort 字段透传
           reasoningEffort,
           tools,
@@ -1111,6 +1126,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         mode,
         // V3 #58(2026-09-26 立):权限模式档位(工具审批门),透传到 ai-service
         permissionMode,
+        // 79 号票:权限双轴两轴档位 —— 与 permissionMode 同区同规。schema 已声明这两键,
+        // 不在这里解构就会被静默留在 parsed.data 里 ⇒ 上游收不到而界面看着正常(同 D130 那型)。
+        sandboxMode,
+        approvalPolicy,
         // D130(2026-09-30 立):推理强度档位(chatAnswerSchema extends chatStreamSchema,
         // 续答同样支持 —— 不在这里解构就会被静默留在 parsed.data 里,链路掐断)。
         reasoningEffort,
@@ -1324,6 +1343,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           mode,
           // V3 #58(2026-09-26 立):权限模式档位,经上游请求体 permission_mode 字段透传
           permissionMode,
+          // 79 号票:权限双轴两轴档位 —— 与 permissionMode 同区同规。schema 已声明这两键,
+          // 不在这里解构就会被静默留在 parsed.data 里 ⇒ 上游收不到而界面看着正常(同 D130 那型)。
+          sandboxMode,
+          approvalPolicy,
           // D130(2026-09-30 立):推理强度档位,经上游请求体 reasoning_effort 字段透传
           reasoningEffort,
           tools,

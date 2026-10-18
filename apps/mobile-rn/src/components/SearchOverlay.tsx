@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     // 阴影(web ui-popover shadow-md 的 RN 档:elevation 平台 + shadow* 跨平台)
-    shadowColor: '#000000',
+    shadowColor: tokens.gray.black,
     shadowOpacity: 0.12,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },

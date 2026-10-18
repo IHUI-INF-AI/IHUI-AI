@@ -61,6 +61,9 @@ import {
   setConversationShareToken,
   findConversationByShareToken,
   regenerateConversationMessages,
+  setMessageFlags,
+  editAiMessageAsVersion,
+  MessageEditRejectedError,
   editMessageAndTruncateAfter,
   branchConversationFrom,
   replaceMessages,
@@ -369,6 +372,10 @@ function serializeMessage(m: {
   tokens: number | null
   metadata: unknown
   createdAt: Date
+  pinnedAt?: Date | null
+  bookmarkedAt?: Date | null
+  parentMessageId?: string | null
+  siblingIndex?: number | null
 }) {
   return {
     id: m.id,
@@ -379,6 +386,11 @@ function serializeMessage(m: {
     tokens: m.tokens,
     metadata: m.metadata,
     createdAt: m.createdAt,
+    // 票64:标记与版本族坐标必须从读面出来,否则客户端只能靠本地猜测渲染钉选/书签态。
+    pinnedAt: m.pinnedAt ?? null,
+    bookmarkedAt: m.bookmarkedAt ?? null,
+    parentMessageId: m.parentMessageId ?? null,
+    siblingIndex: m.siblingIndex ?? null,
   }
 }
 
@@ -387,7 +399,9 @@ function serializeMessage(m: {
 // =============================================================================
 
 export const chatRoutes: FastifyPluginAsync = async (server) => {
-  const idParam = z.object({ id: z.string() })
+  // .strict():Fastify 的 request.params 只可能来自路径模板,多出来的键没有合法来源,
+  // 因此对全部单 `:id` 路由是零行为变化的一档显式表态(门 161 的裸契约存量随之减一枚)。
+  const idParam = z.object({ id: z.string() }).strict()
   // G-261(2026-09-27):/messages 与 /history 两路把 uuid 校验从 ajv(format:'uuid')迁到本 schema。
   // 迁出后非法 uuid 不再被 ajv 先拒(那会因 400 响应 schema 的 code:number 序列化不匹配而掩盖成 500),
   // 改由 safeParse 产统一错误信封。刻意不复用 idParam(z.string()):那会把非法 uuid 放进 DB 查询。
@@ -1233,6 +1247,80 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     // deleted 由库侧 RETURNING 派生,不是代码常量(2026-09-27)
     const removed = await deleteMessage(id)
     return reply.send(success({ deleted: removed.length > 0 }))
+  })
+
+  // ── 票64(消息级 pin/书签 + AI 消息可编辑)的入站契约 ──
+  // .strict():两把入口都只认这两个/一个具名维度,多给键一律拒(不得静默剥掉后放行);
+  // 标记入口还要求"至少给一个维度"—— 空 body 若被当成"两个都清",点一下就把收藏顺手取消。
+  const messageFlagsSchema = z
+    .object({
+      pinned: z.boolean().optional(),
+      bookmarked: z.boolean().optional(),
+    })
+    .strict()
+    .refine((v) => v.pinned !== undefined || v.bookmarked !== undefined, {
+      message: '至少给出一个标记维度',
+    })
+  const editAiMessageSchema = z.object({ content: z.string().trim().min(1).max(200_000) }).strict()
+
+  // PATCH /messages/:id/flags - 钉选/收藏一条消息(可撤销;仅本人会话内的消息)
+  // 归属判据住在库层写链之前的预查询里(chat-queries 的 setMessageFlags),
+  // 承载层只把请求主体显式入参传下去 —— 不丢弃、不从被操作记录反推、不信客户端自报。
+  server.patch('/messages/:id/flags', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const parsed = messageFlagsSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const updated = await setMessageFlags({ messageId: id, userId, ...parsed.data })
+    if (!updated) {
+      const exists = await findMessageById(id)
+      return reply
+        .status(exists ? 403 : 404)
+        .send(error(exists ? 403 : 404, exists ? '无权修改该消息' : '消息不存在'))
+    }
+    return reply.send(success({ message: serializeMessage(updated) }))
+  })
+
+  // POST /messages/:id/edit - 编辑一条 AI 消息 = 在同一版本族里落一个新 sibling 版本
+  // 刻意不覆写原行(票59 定的存储模型):覆写就把"可回退的多版本"这一维抹成了单点历史。
+  server.post('/messages/:id/edit', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const parsed = editAiMessageSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const result = await editAiMessageAsVersion({
+        messageId: id,
+        userId,
+        content: parsed.data.content,
+      })
+      return reply.send(
+        success({
+          message: serializeMessage(result.message),
+          rootId: result.rootId,
+          siblingIndex: result.siblingIndex,
+        }),
+      )
+    } catch (err) {
+      // 拒绝身份按 code 分流(门 206):角色不符是调用方的输入错(400),主体不符是不存在(404),
+      // 服务端故障才是 500 —— 三型不得混在一个码里,也不得靠错误文本互相认。
+      if (err instanceof MessageEditRejectedError) {
+        const status = err.code === 'not_assistant' ? 400 : 404
+        return reply.status(status).send(error(status, err.message))
+      }
+      request.log.error({ err }, '编辑 AI 消息失败')
+      return reply.status(500).send(error(500, '编辑失败'))
+    }
   })
 
   // POST /conversations/:id/regenerate - 重新生成

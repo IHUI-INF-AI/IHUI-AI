@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "智能体循环与融合策略:循环收尾原因、错误与重试分布、融合链成功率。数据源 ai-service 的 ihui_agent_loop_* 与 llm_fusion_*。",
+  "description": "智能体循环与融合策略:循环收尾原因、错误与重试分布、融合链成功率。数据源 ai-service 的 ihui_agent_loop_* 与 llm_fusion_*。观板口径:本机等值验证过(仓内 apps/ai-service/.env 与生产 /d/DevEnv/ihui-prod/apps/ai-service/.env)的 COMBO_CHAINS 只有 strategy:\"priority\" 一条组合链 ⇒ fusion 执行路径(_route_fusion)永不运行,多模型融合与压缩行的面板恒无序列是**配置事实,不是埋点坏了**;融合链一旦配置即自动出数,面板保留。禁止为消 No data 给这些面板 clamp 或挂假标签凑 0。",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -29,7 +29,9 @@
       "includeVars": true,
       "keepTime": true,
       "icon": "external link",
-      "tags": ["ihui-ai"]
+      "tags": [
+        "ihui-ai"
+      ]
     }
   ],
   "liveNow": false,
@@ -224,7 +226,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -278,7 +282,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "showThresholdLabels": false,
         "showThresholdStats": true
@@ -302,6 +308,7 @@
       "id": 308,
       "type": "timeseries",
       "title": "融合提案/评审调用速率",
+      "description": "llm_fusion_proposers_called_total / llm_fusion_judge_called_total 只在 combo_router 的 fusion 执行路径(_route_fusion)里发射。本机 COMBO_CHAINS(仓内 apps/ai-service/.env 与生产 /d/DevEnv/ihui-prod/apps/ai-service/.env 两侧现读均只有 strategy:\"priority\" 一条组合)⇒ fusion 策略从未被路由到,这两条序列恒缺是配置事实,不是埋点坏了。配置 fusion 链后自动出数,保留面板等待真实读数;禁止用假标签凑 0。",
       "datasource": {
         "type": "prometheus",
         "uid": "Prometheus"
@@ -349,6 +356,7 @@
       "id": 309,
       "type": "gauge",
       "title": "融合成功率",
+      "description": "分子 llm_fusion_success_total、分母 llm_fusion_success_total+llm_fusion_failure_total,全部只在 combo_router._route_fusion(fusion 策略)执行路径发射。本机 COMBO_CHAINS 只有 strategy:\"priority\" 一条链 ⇒ fusion 永不执行、两指标无序列,表盘空白是配置事实,不是埋点坏了。配好 fusion 链后自动出数。禁止 clamp/假标签凑读数。",
       "datasource": {
         "type": "prometheus",
         "uid": "Prometheus"
@@ -389,7 +397,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "showThresholdLabels": false,
         "showThresholdStats": true
@@ -399,6 +409,7 @@
       "id": 310,
       "type": "stat",
       "title": "压缩后 token 比 P95",
+      "description": "llm_token_compaction_ratio_bucket 在组合链(combo)执行路径上发射;本机 COMBO_CHAINS 现读只有 strategy:\"priority\" 一条(仓内与生产 .env 两侧同),该档恒无序列是配置事实,不是埋点坏了——禁止把空白读成'压缩率在恶化'或'采集断了',也禁止 clamp/假标签凑 0。combo/fusion 配置一旦生效此板自动出数,故面板保留。",
       "datasource": {
         "type": "prometheus",
         "uid": "Prometheus"
@@ -431,7 +442,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -534,12 +547,50 @@
           "showLegend": true
         }
       }
+    },
+    {
+      "id": 314,
+      "title": "Combo 策略配置构成(本机生效值)",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 35
+      },
+      "description": "生产 COMBO_CHAINS 里每种策略各配了几条组合 —— 这是本盘 fusion 四块面板与\"压缩后 token 比\"恒无序列的**现场证据**,不用再靠描述文字推断。读法:`strategy=fusion` 的值为 0 ⇒ 生产配置里根本没有融合组合,`_route_fusion` 结构上不会被执行(这与\"埋点坏了\"是两件事);把它配成 ≥1 之后,下游 llm_fusion_* 四块面板随之出数。发射点每次装载按策略全枚举整体置值,撤档归 0 不滞留旧值。",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "expr": "sum by (strategy) (llm_combo_strategy_configs{job=\"ai-service\"})",
+          "refId": "A",
+          "legendFormat": "{{strategy}}",
+          "format": "table",
+          "instant": true
+        }
+      ]
     }
   ],
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["ihui-ai", "ai", "agent"],
+  "tags": [
+    "ihui-ai",
+    "ai",
+    "agent"
+  ],
   "templating": {
     "list": []
   },
@@ -548,7 +599,14 @@
     "to": "now"
   },
   "timepicker": {
-    "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "1h"]
+    "refresh_intervals": [
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "1h"
+    ]
   },
   "timezone": "",
   "title": "IHUI-AI · Agent 与工具链路",

@@ -356,7 +356,7 @@ class LspClient:
                             "[lsp] stdout 头部出现超预算单行(>%d 字节,实读 %d 字节,"
                             "累计 %d 次)—— 多半是语言服务器把日志写进了协议通道。"
                             "该行的残余已读到行尾,但本条消息的 Content-Length 已无从"
-                            "确定 ⇒ 帧边界无法复原,只能停读该客户端;原因不是"
+                            "确定 => 帧边界无法复原,只能停读该客户端;原因不是"
                             "\"服务器掉了\",排查请从这条日志起",
                             PROTOCOL_FRAME_LIMIT_BYTES,
                             frame.dropped_bytes,
@@ -485,7 +485,7 @@ class LspClient:
             LspClient._instances.pop(self.workspace_path, None)
         logger.warning(
             "[lsp] 请求连续超时判连接不可信,淘汰实例: method=%s 连续超时=%d"
-            "(阈值=%d) workspace=%s ⇒ 已从单例表移除,下次请求重新 spawn 新 client",
+            "(阈值=%d) workspace=%s => 已从单例表移除,下次请求重新 spawn 新 client",
             method,
             streak,
             _REQUEST_TIMEOUT_EVICT_AFTER,

@@ -1038,7 +1038,40 @@ export function makeCrossFileResolver(texts) {
   }
 }
 
-export function judgeDelivery(unit, lang, allUnits, depth = 0, external = null) {
+/**
+ * 输入侧构词(2026-10-18 立;真仓一枚假阳性读出这个形状)。
+ *
+ * 现场:`apps/api/src/jobs/audit-evidence-retention.ts` 的 `hashInputOf` 体内只把行字段投影成对象,
+ * 调用点是 `computeAuditHash(newPrev, hashInputOf(row, metadata ?? null))`,而真摘要住在
+ * `apps/api/src/services/audit-log-service.ts` 的 `computeAuditHash` 体内
+ * (`canonicalStringify([...])` → `hmacSHA256(getAuditSecret(), payload)`)。⇒ 这名字承诺的是
+ * "**喂给**哈希的输入",不是"不可逆产物";按不可逆承诺判红 = 门对自己产出的正当写法发不出合格证,
+ * 而它的失效方向更坏:人会为了消红把投影改成 sha256,从此链断时打印不出原文(门头注禁令同型)。
+ *
+ * 刻意**不判 pass**:被调者在本文件外,那一环有没有真散列本门看不见 ⇒ 只能"未判定"
+ * (§0.3 既不猜合规也不猜撒谎)。形状不认识的一律照旧走原路,一格判据未放宽。
+ */
+const INPUT_SIDE_TOKEN_RE = /(?:^|[_$])(?:input|inputs|payload|preimage|canonical|fields|source|seed)(?:[_$]|$)/i
+const HASH_NAMED_PRODUCER_RE = /(?:hash|digest|fingerprint|signature|checksum|mac|sha\d*)/i
+
+export function isInputSideProjection(name) {
+  const n = String(name ?? '')
+  if (!HASH_NAMED_PRODUCER_RE.test(n)) return false
+  return INPUT_SIDE_TOKEN_RE.test(`_${n.replace(/([a-z0-9])([A-Z])/g, '$1_$2')}_`)
+}
+
+/** 本名被当作**实参**喂进一个名字本身就是哈希形态的被调者 ⇒ 返回那个被调者名,否则 null */
+export function fedIntoHashNamedCall(name, text) {
+  if (!text) return null
+  const callRe = new RegExp(String.raw`([A-Za-z_$][\w$]*)\s*\((?:[^()]|\([^()]*\))*?\b${escapeRe(name)}\s*\(`, 'g')
+  for (const m of iterMatches(callRe, text)) {
+    const callee = m[1]
+    if (callee !== name && HASH_NAMED_PRODUCER_RE.test(callee)) return callee
+  }
+  return null
+}
+
+export function judgeDelivery(unit, lang, allUnits, depth = 0, external = null, fileText = null) {
   const surf = reachableSurface(unit.body || '')
   const whole = surf.whole
   const cls = classifyName(unit.name)
@@ -1147,6 +1180,16 @@ export function judgeDelivery(unit, lang, allUnits, depth = 0, external = null) 
     return { state: 'undetermined', why: `体内有无法定性的调用:${unknown.slice(0, 4).join(', ')}` }
   if (!/\b(?:return|yield)\b/.test(whole) && unit.kind === 'fn')
     return { state: 'undetermined', why: '可达返回面取不到(体被截断或非函数)' }
+  // 输入侧投影名 + 值被当实参喂进具名哈希生产者 ⇒ 未判定(那一环在本文件外,看不见有无真散列)。
+  // 不猜合规、也不猜撒谎;形状不认识的一律照旧判红(镜像 T11 与自检 37b/37c 各钉一边)。
+  if (fileText && isInputSideProjection(unit.name)) {
+    const producer = fedIntoHashNamedCall(unit.name, fileText)
+    if (producer)
+      return {
+        state: 'undetermined',
+        why: `输入侧投影名:值被当实参喂进具名生产者 ${producer}(),而那一环在本文件外(看不见有无真散列)⇒ 不猜合规也不猜撒谎`,
+      }
+  }
   return { state: 'undelivered', why: '只做字符串拼接/序列化,却命名成不可逆摘要' }
 }
 
@@ -1252,7 +1295,7 @@ export function scanFile(relPath, text, external = null) {
   for (const u of units) u.file = relPath
   const res = { file: relPath, hits: [], passes: [], undetermined: [], units: units.length }
   for (const u of units) {
-    const d = judgeDelivery(u, lang, units, 0, external)
+    const d = judgeDelivery(u, lang, units, 0, external, noComment)
     if (u.exempt) {
       res.passes.push({ file: relPath, line: u.line, name: u.name, why: `行内 ${EXEMPT_MARK} 已带原因` })
       continue
@@ -1793,6 +1836,61 @@ fs.writeFileSync(p, SAMPLE)
   const t29 = scanFile('x/q.ts', `const rows = await db.select()\nfor (const r of rows) {\n  const c_hash = r.get('content_hash')\n  index[c_hash] = r\n}\nawait db.insert({ c_hash })\n`)
   t('29 c_hash = r.get(...) 是读取面 ⇒ 未判定(生产者在本文件外)', t29.hits.length === 0)
 
+  // 29b 输入侧投影名 + 值被当实参喂进**具名哈希生产者**(真仓 hashInputOf 的逐字形状):
+  //     那一环住在本文件外(真摘要 = 另一模块里 canonicalStringify → hmacSHA256)⇒ 必须"未判定"。
+  //     判红的实际后果是逼人把投影改成 sha256 来消红,从此链断时打印不出原文(本票最大危害方向)。
+  const FP29 = `function hashInputOf(row, metadata) {
+  return { timestamp: row.timestamp, userId: row.userId, action: row.action, metadata }
+}
+function planChain(rows, prevHash) {
+  const out = []
+  for (const row of rows) {
+    const newHash = computeAuditHash(prevHash, hashInputOf(row, null))
+    out.push({ currentHash: newHash })
+  }
+  return out
+}
+`
+  const t29b = scanFile('x/fp29b.ts', FP29)
+  t(
+    '29b 输入侧投影喂给具名哈希生产者 ⇒ 未判定(不猜合规也不猜撒谎),不得判红',
+    t29b.hits.length === 0 &&
+      t29b.undetermined.some((u) => u.name === 'hashInputOf' && /输入侧投影名/.test(u.why)),
+    JSON.stringify({ h: t29b.hits.map((x) => x.name), u: t29b.undetermined.map((x) => x.name) }),
+  )
+  // 29c 反向锁:同为输入侧构词,但值没被喂进任何具名哈希生产者,而是直接进落盘出口 ⇒ 照旧判红。
+  const RED29C = `function hashInputOf(row) {
+  return [row.a, row.b].join('|')
+}
+function persist(conn, row) {
+  const payload = hashInputOf(row)
+  return conn.insert({ currentHash: payload })
+}
+`
+  const t29c = scanFile('x/red29c.ts', RED29C)
+  t(
+    '29c 反向锁:输入侧构词但未被具名哈希生产者消费 ⇒ 仍判红(判据一格未放宽)',
+    t29c.hits.length === 1 && t29c.hits.some((x) => x.name === 'hashInputOf'),
+    JSON.stringify({ h: t29c.hits.map((x) => x.name), u: t29c.undetermined.map((x) => x.name) }),
+  )
+  // 29d 反向锁:消费形状与 29b 逐字相同,但名字**不是**输入侧构词 ⇒ 仍判红(拦"整族放行")。
+  //     名字刻意避开 digest/摘要 那一族 —— 它按既有规则先落"两义同形 ⇒ 未判定",测不到这里。
+  const RED29D = `function fingerprintOf(row) {
+  return [row.a, row.b].join('|')
+}
+function plan(rows, prev) {
+  const h = computeAuditHash(prev, fingerprintOf(rows[0]))
+  return insert(h)
+}
+`
+  const t29d = scanFile('x/red29d.ts', RED29D)
+  t(
+    '29d 反向锁:同消费形状但名字非输入侧构词 ⇒ 仍判红(29b 认的是名字形状,不是消费点)',
+    t29d.hits.length === 1 && t29d.hits.some((x) => x.name === 'fingerprintOf'),
+    JSON.stringify({ h: t29d.hits.map((x) => x.name), u: t29d.undetermined.map((x) => x.name) }),
+  )
+
+
   // 30 兜底 return 原值 + 主路径掩码 = 正当(log-sanitizer 三族),而死代码不得判活敞口
   t('30 反向锁:同一形状把主路径也改成原样返回 ⇒ 必须命中',
     scanFile('x/r.ts', `function maskTail(v) {\n  if (!v) return v\n  return v.slice(0, 2) + '**'\n}\nfs.writeFileSync(p, maskTail(x))\n`).hits.length === 0 &&
@@ -1961,6 +2059,9 @@ export const __test__ = {
   OUTLET_RE,
   maskFaces,
   normName,
+  // 输入侧投影收窄(2026-10-18):镜像测试据此证明"什么算输入侧构词/具名哈希生产者"只有一份实现
+  isInputSideProjection,
+  fedIntoHashNamedCall,
   tokenize,
   tokenHits,
   classifyName,

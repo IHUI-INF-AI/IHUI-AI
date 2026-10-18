@@ -41,7 +41,7 @@ import {
   statfsSync,
 } from 'node:fs'
 import { resolve } from 'node:path'
-import { catBatchCheck } from './lib/face-reader.mjs'
+import { catBatchCheck, resolveRemoteHead } from './lib/face-reader.mjs'
 import { isAncestor } from './lib/bypass-git.mjs'
 import { triagePushAttempt, describeVerdict, CONVERGE_COMMAND } from './lib/push-attempt-triage.mjs'
 
@@ -196,26 +196,30 @@ if (!localHead) {
   process.exit(2)
 }
 
-// 远端 tip 必须以 ls-remote(网络真值)为准(2026-09-12 修)
+// 远端 tip 的唯一取法住在 `scripts/lib/face-reader.mjs` 的 `resolveRemoteHead()`(§22c 单一真相源;
+// 2026-10-18 收口,本文件与 check-push-sync.mjs 过去各写了一份同族判据)。
 // 背景:本机存在「宿主清理 gitdir 嵌套目录」病理 → `refs/remotes/<remote>/<branch>` 会被静默清除,
 //   而 packed-refs 里可能残留**旧值**,于是 `git rev-parse origin/<branch>` 返回过期 sha。
 //   旧逻辑「优先本地 tracking ref、仅缺失时才 ls-remote」在这台机器上**必然取到旧值**,已真实造成两类误判:
 //     ① push 明明成功(远端已是新 sha),却报「push 报告成功但验证失败」→ 让 agent 以为没推上去;
 //     ② 本地已与远端同步,却报「本地落后 N 个 commit」→ 诱导执行 pull --rebase(本机禁用,曾两次删库)。
-//   现改为:先 ls-remote(权威),失败才回退本地 tracking ref。
-let remoteHead = null
-const lsRemoteOut = run(`git ls-remote origin refs/heads/${branch}`, { allowFail: true })
-if (lsRemoteOut) {
-  // ls-remote 输出格式: "<sha>\trefs/heads/<branch>"
-  remoteHead = lsRemoteOut.split('\t')[0].trim() || null
-}
-if (!remoteHead) {
-  log('info', `ls-remote 不可用,回退本地 origin/${branch} 引用(本机可能过期)`)
-  remoteHead = run(`git rev-parse origin/${branch}`, { allowFail: true })
+//   2026-09-12 那一版把顺序倒过来(ls-remote 优先,失败才回退本地 ref),但**回退那一步仍然拿残值落槌**:
+//   残值恰好等于本地时,下面「已同步」那一档会写出 done 状态并跳过推送(= 提交堆在本地被当成完成,§20)。
+//   现按 lib 的三档纪律取:① ls-remote 当次真值 → ② 本轮 fetch 的 FETCH_HEAD → ③ 残值**不参与结论**,
+//   只作为"有没有东西要推"的保守线索,且每一处"已同步/无需推送"的结论都要求 `remoteAuthoritative`。
+const remoteResolution = resolveRemoteHead(branch, { root: repoRoot })
+const remoteAuthoritative = remoteResolution.sha !== null
+let remoteHead = remoteResolution.sha
+if (!remoteHead && remoteResolution.stale) {
+  log(
+    'warn',
+    `远端 tip 无法判定(${remoteResolution.reason})⇒ 残值只用来算 ahead,不参与"已同步"结论`,
+  )
+  remoteHead = remoteResolution.stale
 }
 
 if (!remoteHead) {
-  log('err', `远端 origin/${branch} 不存在,无法 push(可能需要先 git fetch 或在远端创建分支)`)
+  log('err', `远端 origin/${branch} 不存在或取不到(无网络且无跟踪 ref)⇒ 本轮不推,不做任何同步结论`)
   process.exit(2)
 }
 
@@ -248,7 +252,13 @@ const checkDanglingRefs = () => {
       'git',
       ['-c', 'safe.directory=*', 'for-each-ref', '--format=%(refname)%09%(objectname)'],
       // 根治:同 run() —— 无 input,stdin 设 ignore 避开本会话子进程 stdin 管道 EBUSY。
-      { encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024, timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] },
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        maxBuffer: 64 * 1024 * 1024,
+        timeout: 120_000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
     )
     listed = { stdout: String(r.stdout || ''), stderr: String(r.stderr || '') }
   } catch {
@@ -309,7 +319,9 @@ if (!process.env.GUARD_SKIP_DANGLING_REF_CHECK) {
 }
 
 // ─── 3. 对比 + 决定是否 push ────────────────────────────────
-if (localHead === remoteHead) {
+// ⚠️ "已同步"是一条**结论**,只能由当次真值落槌(§0.3:没判绝不写成判过)。
+// 拿残值判"已同步"会把 done 状态写给本轮并跳过推送 ⇒ 提交堆在本地被当成完成(§20 交付定义)。
+if (remoteAuthoritative && localHead === remoteHead) {
   log('ok', `本地与 origin/${branch} 已同步,无需 push`)
   writePushState('done', localHead)
   process.exit(0)
@@ -654,7 +666,10 @@ if (isWorkerMode) {
     existingState.headSha === localHead &&
     Date.now() - existingState.ts < 10 * 60 * 1000
   if (recentSameHeadWorkerFailure) {
-    log('warn', '上一只后台 worker 刚失败(同 HEAD,10 分钟内)⇒ 本次改同步推送,不再 spawn 必死的 worker')
+    log(
+      'warn',
+      '上一只后台 worker 刚失败(同 HEAD,10 分钟内)⇒ 本次改同步推送,不再 spawn 必死的 worker',
+    )
   }
   // 磁盘水位自检(主模式):满盘直接拒绝,不 spawn worker(它会无声崩死)
   if (!recentSameHeadWorkerFailure && !assertDiskOk()) {
@@ -662,75 +677,91 @@ if (isWorkerMode) {
   }
   if (!recentSameHeadWorkerFailure) {
     writePushState('running', localHead)
-  const logFile = resolve(process.cwd(), '.workbuddy/git-push-guard-async.log')
-  let spawned = false
-  try {
-    const out = openSync(logFile, 'a')
-    // 注意:openSync 返回 fd 整数,必须用 closeSync 关闭——此前误用 out.close()
-    // 必抛 TypeError → 误判"spawn 失败"回退同步推送(commit 被推送+270s typecheck
-    // 死阻塞),且此时 detached 子进程已 spawn,造成后台+同步双重推送竞态。
-    const child = spawn(
-      process.execPath,
-      [resolve(process.cwd(), 'scripts/git-push-guard.mjs'), `--branch=${branch}`, '--worker'],
-      // windowsHide 必须带:Windows 下 detached+控制台程序会弹新 cmd 窗口(用户实测"莫名弹窗"根因)
-      {
-        detached: true,
-        windowsHide: true,
-        stdio: ['ignore', out, out],
-        env: { ...process.env, GUARD_WORKER: '1' },
-      },
-    )
-    child.unref()
+    const logFile = resolve(process.cwd(), '.workbuddy/git-push-guard-async.log')
+    let spawned = false
     try {
-      closeSync(out)
-    } catch {
-      /* fd 由父进程退出兜底回收 */
-    }
-    spawned = true
-  } catch (e) {
-    log('warn', `后台 spawn 失败(${e instanceof Error ? e.message : e}),回退同步推送`)
-  }
-  if (spawned) {
-    // WMI 脱离进程树兜底(2026-09-19 猝死根治):worker 被宿主 job-object 清树
-    // 强杀时连退出钩子都不跑;watchdog 经 Win32_Process.Create 建在 WMI 服务
-    // 上下文(父=WmiPrvSE),不在本会话进程树内,清树杀不到——它会自动续推。
-    if (process.platform === 'win32') {
+      const out = openSync(logFile, 'a')
+      // 注意:openSync 返回 fd 整数,必须用 closeSync 关闭——此前误用 out.close()
+      // 必抛 TypeError → 误判"spawn 失败"回退同步推送(commit 被推送+270s typecheck
+      // 死阻塞),且此时 detached 子进程已 spawn,造成后台+同步双重推送竞态。
+      const child = spawn(
+        process.execPath,
+        [resolve(process.cwd(), 'scripts/git-push-guard.mjs'), `--branch=${branch}`, '--worker'],
+        // windowsHide 必须带:Windows 下 detached+控制台程序会弹新 cmd 窗口(用户实测"莫名弹窗"根因)
+        {
+          detached: true,
+          windowsHide: true,
+          stdio: ['ignore', out, out],
+          env: { ...process.env, GUARD_WORKER: '1' },
+        },
+      )
+      child.unref()
       try {
-        // 命令行里含空格路径 → 整体加双引号;嵌入 PS 单引号字符串前转义单引号
-        const cmdLine = `"${process.execPath}" "${resolve(process.cwd(), 'scripts/git-push-guard.mjs')}" --branch=${branch} --watchdog`
-        // 2026-09-20 弹窗根治(用户反馈"git 上传时总弹 cmd 窗口,应后台静默"):
-        // WMI Win32_Process.Create 默认给新进程分配**可见的新控制台**(node.exe 是
-        // 控制台程序),watchdog 一活 40 分钟 → 每次 commit 后弹一个黑窗且久挂不退。
-        // 修法:传 Win32_ProcessStartup 启动参数,与 worker/watchdog 的 node 层
-        // windowsHide:true 对齐 ——
-        //   CreateFlags = CREATE_NO_WINDOW (0x08000000) → 新进程不分配可见控制台
-        //   ShowWindow  = SW_HIDE (0)                  → 双保险
-        // 派生结果落盘 .workbuddy/wmi-watchdog-last.txt(ret/pid/alive),失败也留痕。
-        const wdOutFile = resolve(process.cwd(), '.workbuddy/wmi-watchdog-last.txt')
-        const wdScript =
-          `try { ` +
-          `$s = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{CreateFlags=[uint32]2147483648; ShowWindow=[uint16]0}; ` +
-          `$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create ` +
-          `-Arguments @{CommandLine='${cmdLine.replace(/'/g, "''")}'; ProcessStartupInformation=$s}; ` +
-          `$alive = if ($r.ProcessId) { [bool](Get-Process -Id $r.ProcessId -ErrorAction SilentlyContinue) } else { $false }; ` +
-          `Set-Content -Path '${wdOutFile.replace(/'/g, "''")}' -Value ("ret=" + $r.ReturnValue + " pid=" + $r.ProcessId + " alive=" + $alive + " ts=" + (Get-Date -Format o)); ` +
-          `} catch { Set-Content -Path '${wdOutFile.replace(/'/g, "''")}' -Value ("error=" + $_.Exception.Message) }`
-        const wd = spawn(
-          'powershell.exe',
-          ['-NoProfile', '-NonInteractive', '-Command', wdScript],
-          { detached: true, windowsHide: true, stdio: 'ignore' },
-        )
-        wd.unref()
+        closeSync(out)
       } catch {
-        /* 兜底派生失败不阻塞主流程:worker 自身兜底 + converge --heal 仍可用 */
+        /* fd 由父进程退出兜底回收 */
       }
+      spawned = true
+    } catch (e) {
+      log('warn', `后台 spawn 失败(${e instanceof Error ? e.message : e}),回退同步推送`)
     }
-    log('ok', `推送已转入后台(HEAD ${localShort});核验: node scripts/git-push-converge.mjs`)
-    process.exit(0)
-  }
+    if (spawned) {
+      // WMI 脱离进程树兜底(2026-09-19 猝死根治):worker 被宿主 job-object 清树
+      // 强杀时连退出钩子都不跑;watchdog 经 Win32_Process.Create 建在 WMI 服务
+      // 上下文(父=WmiPrvSE),不在本会话进程树内,清树杀不到——它会自动续推。
+      if (process.platform === 'win32') {
+        try {
+          // 命令行里含空格路径 → 整体加双引号;嵌入 PS 单引号字符串前转义单引号
+          const cmdLine = `"${process.execPath}" "${resolve(process.cwd(), 'scripts/git-push-guard.mjs')}" --branch=${branch} --watchdog`
+          // 2026-09-20 弹窗根治(用户反馈"git 上传时总弹 cmd 窗口,应后台静默"):
+          // WMI Win32_Process.Create 默认给新进程分配**可见的新控制台**(node.exe 是
+          // 控制台程序),watchdog 一活 40 分钟 → 每次 commit 后弹一个黑窗且久挂不退。
+          // 修法:传 Win32_ProcessStartup 启动参数,与 worker/watchdog 的 node 层
+          // windowsHide:true 对齐 ——
+          //   CreateFlags = CREATE_NO_WINDOW (0x08000000) → 新进程不分配可见控制台
+          //   ShowWindow  = SW_HIDE (0)                  → 双保险
+          // 派生结果落盘 .workbuddy/wmi-watchdog-last.txt(ret/pid/alive),失败也留痕。
+          const wdOutFile = resolve(process.cwd(), '.workbuddy/wmi-watchdog-last.txt')
+          const wdScript =
+            `try { ` +
+            `$s = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{CreateFlags=[uint32]2147483648; ShowWindow=[uint16]0}; ` +
+            `$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create ` +
+            `-Arguments @{CommandLine='${cmdLine.replace(/'/g, "''")}'; ProcessStartupInformation=$s}; ` +
+            `$alive = if ($r.ProcessId) { [bool](Get-Process -Id $r.ProcessId -ErrorAction SilentlyContinue) } else { $false }; ` +
+            `Set-Content -Path '${wdOutFile.replace(/'/g, "''")}' -Value ("ret=" + $r.ReturnValue + " pid=" + $r.ProcessId + " alive=" + $alive + " ts=" + (Get-Date -Format o)); ` +
+            `} catch { Set-Content -Path '${wdOutFile.replace(/'/g, "''")}' -Value ("error=" + $_.Exception.Message) }`
+          const wd = spawn(
+            'powershell.exe',
+            ['-NoProfile', '-NonInteractive', '-Command', wdScript],
+            { detached: true, windowsHide: true, stdio: 'ignore' },
+          )
+          wd.unref()
+        } catch {
+          /* 兜底派生失败不阻塞主流程:worker 自身兜底 + converge --heal 仍可用 */
+        }
+      }
+      log('ok', `推送已转入后台(HEAD ${localShort});核验: node scripts/git-push-converge.mjs`)
+      process.exit(0)
+    }
   }
   // spawn 失败,或 recentSameHeadWorkerFailure(环境不利,不再派 worker)→ 都不退出,
   // 继续走下方同步推送(此时状态已是 running,推送完写 done/failed)
+}
+
+// 走到这里说明要么未同步、要么开头那一档不是当次真值。再问一次服务器:本轮 push 可能已把
+// 跟踪 ref 推着走、网络也可能已恢复 ⇒ 让"核验"这一步也吃真值,而不是继续吃残值(§0.4 同面同轮)。
+if (!remoteAuthoritative) {
+  const again = resolveRemoteHead(branch, { root: repoRoot })
+  if (again.sha) {
+    remoteHead = again.sha
+    log('info', `远端 tip 复核取到当次真值(${again.source}),ahead/behind 按它算`)
+  } else {
+    if (again.stale) remoteHead = again.stale
+    log(
+      'warn',
+      `远端 tip 复核仍无法判定:${again.reason} ⇒ 下面 ahead/behind 只是残值线索,不作同步合格证`,
+    )
+  }
 }
 
 // 检查 ahead/behind
@@ -762,7 +793,10 @@ if (ahead === 0) {
   const remoteObjType = run(`git cat-file -t ${remoteHead}`, { allowFail: true })
   if (!remoteObjType) {
     log('warn', `未判定:远端 ${remoteShort} 的对象不在本机(ls-remote 只问引用,不下载对象)`)
-    log('warn', `  出路:git fetch --no-tags origin ${remoteHead} 后重跑核验;或直接跑 node scripts/git-sync-converge.mjs(它先 fetch 再合)`)
+    log(
+      'warn',
+      `  出路:git fetch --no-tags origin ${remoteHead} 后重跑核验;或直接跑 node scripts/git-sync-converge.mjs(它先 fetch 再合)`,
+    )
     process.exit(1)
   }
   log('warn', `本地与 origin/${branch} HEAD 不同但无 ahead commit(可能是 shallow clone 等异常状态)`)
@@ -1082,13 +1116,14 @@ if (pushResult.status !== 0) {
 
 // ─── 5. 再次验证(终态一律由这里落,不在上面替它下结论) ────────
 const newLocalHead = run('git rev-parse HEAD', { allowFail: true })
-const newRemoteLs = run(`git ls-remote origin refs/heads/${branch}`, { allowFail: true })
-const newRemoteHead = run(`git rev-parse origin/${branch}`, { allowFail: true })
-// 同前述:ls-remote 是网络真值,优先级高于本地 tracking ref(本机后者可能过期,会造成"假失败")
-const verifiedRemote = newRemoteLs ? newRemoteLs.split('\t')[0].trim() : newRemoteHead
+// 远端位置一律走唯一取法,且这一档**只认当次真值**:残值住在本机 tracking ref,而它恰是本次
+// push 试图改动的那个值 —— 拿它做验证等于用待证命题证明自己(§0.4 同面同轮的反面形态)。
+// 读不到 ⇒ 落 failed(不是 done):未判定不等于成功,下一轮 converge/watchdog 会重试。
+const verification = resolveRemoteHead(branch, { root: repoRoot })
+const verifiedRemote = verification.sha
 
 if (!verifiedRemote) {
-  log('err', 'push 后无法验证远端状态(请手动检查)—— 未判定不等于成功,落 failed')
+  log('err', `push 后无法验证远端状态:${verification.reason} —— 未判定不等于成功,落 failed`)
   writePushState('failed', localHead, {
     kind: attempt.kind,
     reason: '验证段取不到远端 tip(未判定)',
@@ -1101,7 +1136,9 @@ if (!verifiedRemote) {
 // 于是等值判据在**完全成功**的一趟上读出 false —— 实测把 `8dbacd2322..61f6fdc9d0 main -> main`
 // 报成"push 报告成功但验证失败",并把 push-state 写成 failed,下游(converge / 部署环)
 // 据此以为通道坏了。祖先测才是那条问题的答案;等值继续当"什么都没推"那一档的证据用。
-const containedInRemote = localHead ? isAncestor(localHead, verifiedRemote, { root: process.cwd() }) : null
+const containedInRemote = localHead
+  ? isAncestor(localHead, verifiedRemote, { root: process.cwd() })
+  : null
 const verifiedEqual = newLocalHead === verifiedRemote
 const verifiedLanded = verifiedEqual || containedInRemote === true
 
@@ -1123,7 +1160,10 @@ if (verifiedLanded) {
   } else if (verifiedEqual) {
     log('ok', `push 成功 + 验证通过!local HEAD === origin/${branch} HEAD`)
   } else {
-    log('ok', `push 成功 + 验证通过(祖先测):本次推的 ${localHead.substring(0, 7)} 已在远端 tip ${verifiedRemote.substring(0, 7)} 的历史里`)
+    log(
+      'ok',
+      `push 成功 + 验证通过(祖先测):本次推的 ${localHead.substring(0, 7)} 已在远端 tip ${verifiedRemote.substring(0, 7)} 的历史里`,
+    )
     log(
       'warn',
       `  local HEAD 此刻已是 ${newLocalHead?.substring(0, 7)} —— 验证窗口内有并发提交推进,这**不是**推送失败,别再去跑收敛器`,

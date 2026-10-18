@@ -11182,7 +11182,12 @@
       "shareLinkCopied": "내용과 링크를 복사했습니다",
       "showContent": "콘텐츠 표시",
       "stopReadAloud": "읽기 중지",
-      "toggleMetadata": "메타데이터 전환"
+      "toggleMetadata": "메타데이터 전환",
+      "pin": "고정",
+      "unpin": "고정 해제",
+      "bookmark": "북마크",
+      "unbookmark": "북마크 해제",
+      "flagFailed": "표시 저장 실패"
     },
     "messageDeleted": "메시지 삭제됨",
     "modeAlreadyActive": "현재 이미 {mode} 모드입니다",

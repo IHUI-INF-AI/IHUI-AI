@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "IHUI-AI 支付漏斗监控 (成功率 / 渠道 / 退款 / 异常 / 微信回调)",
+  "description": "IHUI-AI 支付漏斗监控 (成功率 / 渠道 / 退款 / 异常 / 微信回调)。给值班:本盘计数器(ihui_payment_* 与 business_payments_total{channel,status})的发射手真实接在 order-service 支付路径上,但 channel / status / reason 是开放集标签——序列只在真实支付事件发生时出现。本机没有发生过任何支付/退款/异常事件,相关面板 No data 是事实,不是埋点坏了;'微信回调成功率'读到全零则是回调计数器活着且没有失败(健康)。要验采集:走一笔真实小额支付再看渠道是否出现。严禁用 clamp 或假标签凑 0。",
   "editable": true,
   "graphTooltip": 1,
   "id": null,
