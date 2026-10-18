@@ -356,7 +356,20 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
   })
 
-  server.post('/chat', async (request, reply) => {
+  // POST /chat - 用户自带模型配置对话
+  // 租户级限频(2026-10-18):多租户公平配额——单租户 30 次/分钟(按 x-tenant-id 分桶;
+  // 无头的请求归 '0' 桶)。是 distributed-rate-limit 插件的第二个 scope:'tenant'
+  // 真实规则,大屏 tenant-usage 的"限流命中"指标由此产生真实数据面。
+  server.distributedRateLimit.addRule({
+    name: 'ai-chat-tenant',
+    limit: 30,
+    windowSec: 60,
+    scope: 'tenant',
+  })
+  server.post(
+    '/chat',
+    { preHandler: [server.distributedRateLimit.preHandler('ai-chat-tenant')] },
+    async (request, reply) => {
     const parsed = chatSchemaFrontend.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

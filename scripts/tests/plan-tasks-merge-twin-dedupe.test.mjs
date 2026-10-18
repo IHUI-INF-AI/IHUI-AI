@@ -138,7 +138,7 @@ const planTasksJson = (dir, extra) =>
     execFileSync(
       process.execPath,
       [path.resolve(SCRIPTS, 'plan-tasks.mjs'), '--root', dir, '--open', '--json', ...extra],
-      { stdio: ['ignore', 'pipe', 'pipe'],
+      {
         windowsHide: true,
         maxBuffer: 1 << 26,
         encoding: 'utf8',

@@ -9,6 +9,7 @@ import { requireAdmin } from '../plugins/require-permission.js'
 import {
   findChannels,
   findAllActiveChannels,
+  findActivePointRules,
   findChannelById,
   createChannel,
   updateChannel,
@@ -165,6 +166,14 @@ export const pointRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ list }))
     },
   )
+  // GET /point-rule - 积分规则列表(启用档)
+  // 刻意不挂 responseSchema:本文件那份把 `data` 定成 type:'object',而本端点载荷是**数组**
+  // (消费端 apps/mobile-rn/src/screens/PointRuleScreen.tsx 按 `res.data ?? []` 取),
+  // 挂上去会被序列化层按对象 schema 裁掉。同形态先例 = apps/api/src/routes/articles.ts:35。
+  server.get('/point-rule', async (_request, reply) => {
+    const rules = await findActivePointRules()
+    return reply.send(success(rules))
+  })
 
   // GET /edu-points/channels/:id - 渠道详情
   server.get(
