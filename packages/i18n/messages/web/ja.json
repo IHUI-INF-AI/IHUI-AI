@@ -10867,7 +10867,8 @@
         "saveFailed": "録音を保存できませんでした",
         "recognitionFailed": "音声認識が中断されました",
         "emptyTranscript": "認識された内容がありません",
-        "sttPending": "現在文字起こしは利用できません。あとで再試行するか、音声のみを保存してください。"
+        "sttPending": "現在文字起こしは利用できません。あとで再試行するか、音声のみを保存してください。",
+        "loadFailed": "ノート一覧の読み込みに失敗しました。もう一度お試しください。"
       },
       "action": {
         "start": "録音を開始",
@@ -10876,7 +10877,9 @@
         "saveAudioOnly": "音声のみ保存",
         "insertToInput": "入力欄に挿入",
         "dismiss": "閉じる"
-      }
+      },
+      "searchPlaceholder": "ノートを検索",
+      "groupAll": "すべて"
     },
     "connectorAuth": {
       "title": "{connectorName} に接続",
@@ -19372,6 +19375,9 @@
     "selectAllVisible": "表示中をすべて選択",
     "selectAccount": "アカウント {name} を選択",
     "captureTitle": "ローカルから取得",
+    "captureWebLogin": "Web ログイン",
+    "captureMethodWeb": "Web ログイン",
+    "captureMethodLocal": "ローカル取得",
     "platformAll": "すべてのプラットフォーム",
     "platformTrae": "TRAE",
     "platformQoder": "Qoder",
@@ -19391,16 +19397,18 @@
     "captureWbEncrypted": "トークンが必要",
     "captureWbTokenPlaceholder": "WorkBuddy トークン(accessToken)を貼り付け",
     "captureWbTokenRequired": "トークンが空です:このアカウントの認証情報は暗号化されているため、先にトークンを貼り付けてから取り込んでください",
-    "captureWbWebTitle": "Web ログイン(推奨)",
-    "captureWbWebDescription": "「Web ログイン」をクリックすると、システムの既定ブラウザで WorkBuddy のログインページが開きます。サインイン後、ブラウザ内のログイン Cookie を下の欄に貼り付けて「取り込み」をクリックしてください。",
-    "captureWbWebOpen": "Web ログイン",
+    "captureWbWebTitle": "Web ログイン(自動)",
+    "captureWbWebDescription": "アプリ内蔵ブラウザで WorkBuddy のログインページを開きます。サインイン後、認証とアカウント情報(uid/ニックネーム)が自動的に取得され、このページに戻って取り込まれます。手動貼り付けは不要です。",
+    "captureWbWebOpen": "システムブラウザで開く",
+    "captureWbWebEmbed": "内蔵ブラウザ(自動)",
     "captureWbWebToolbar": "WorkBuddy に Web ログイン",
-    "captureWbWebWaiting": "既定ブラウザでログインページを開きました。サインイン後:F12 → Network → 任意のリクエストをクリック → Cookie リクエストヘッダーをコピーし、下に貼り付けて「取り込み」をクリック。",
+    "captureWbWebWaiting": "内蔵ブラウザでログインページを開きました。ウィンドウでサインイン(電話番号/QR)してください。ログイン状態を検出すると、アカウントが自動的に取り込まれチェックインページに戻ります。",
     "captureWbWebImporting": "アカウントを取り込み中…",
     "captureWbWebDone": "Web ログインの取り込みが完了しました({count} 件)",
     "captureWbWebPastePlaceholder": "ログイン Cookie を貼り付け(Cookie ヘッダー全体でも k=v; k2=v2 形式でも可)",
     "captureWbWebPasteImport": "取り込み",
     "captureWbWebPasteRequired": "先にログイン Cookie を貼り付けてください",
+    "captureWbWebPasteInvalid": "Cookie が無効または期限切れです。ブラウザからログイン Cookie を再度コピーしてください。",
     "captureWbPasteName": "WorkBuddy Web ログイン",
     "captureWbWebCancel": "キャンセル",
     "captureWbWebCancelled": "Web ログインをキャンセルしました。もう一度「Web ログイン」をクリックしてください。",
@@ -19408,6 +19416,7 @@
     "captureWbWebOpenFailed": "既定のブラウザを開けませんでした。既定ブラウザの設定を確認して再試行してください。",
     "captureWbManualDivider": "またはデスクトップのログイン情報を手動で取得",
     "captureWbWebCheckinUncertain": "注意:チェックイン API が Web ログイン状態を受け付けるか未確認です。チェックインが失敗した場合(401)はトークン方式に切り替え、お知らせください。",
+    "captureWbWebAccountMissing": "取り込みましたが、アカウント情報(uid/ニックネーム)を取得できませんでした。チェックインが失敗する場合は内蔵ブラウザの自動ログインをお使いください。",
     "captureDirFound": "ローカルの TRAE データディレクトリを検出しました：{dir}",
     "captureDirMissing": "ローカルの TRAE データディレクトリが見つかりません（環境変数 IHUI_TRAE_DIR で指定できます）",
     "captureEmpty": "ローカルのデータディレクトリから利用可能な JWT を検出できませんでした",

@@ -15,6 +15,11 @@ export * from './mcp-tool-activity'
 export * from './tool-category'
 // 流式失败的跨端标记规则(error 词汇单一真相:标记 / 尾位定位 / 失败轮判定 / 重发目标)
 export * from './stream-error'
+// G-102(2026-10-18 接线):内容失败与传输失败分档 —— 三态判据 + flight 追踪 +
+// 恢复决策 + 编排面便捷判定(shouldSkipResumeLadder)。此前它连本 index 都没导出,
+// 端侧拿不到 ⇒ "判据全绿、消费者为 0"的那一型;挂载落齐由
+// apps/web 侧 use-agent-stream.ts 的 tryReconnect 与 wiring 测试双向钉住。
+export * from './stream-fault-tier'
 // 工作区权限档展示(D111:档位行取词,web/extension/miniapp-taro/mobile-rn 共用)
 export * from './permission-tier'
 // D79 等待态文案池(分象限×分阶段轮换,seed 取模确定性,跨端共用)

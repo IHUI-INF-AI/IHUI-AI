@@ -10867,7 +10867,8 @@
         "saveFailed": "녹음을 저장할 수 없습니다",
         "recognitionFailed": "음성 인식이 중단되었습니다",
         "emptyTranscript": "인식된 내용이 없습니다",
-        "sttPending": "현재 텍스트 변환을 사용할 수 없습니다. 나중에 다시 시도하거나 오디오만 저장하세요."
+        "sttPending": "현재 텍스트 변환을 사용할 수 없습니다. 나중에 다시 시도하거나 오디오만 저장하세요.",
+        "loadFailed": "노트 목록을 불러오지 못했습니다. 다시 시도해 주세요."
       },
       "action": {
         "start": "녹음 시작",
@@ -10876,7 +10877,9 @@
         "saveAudioOnly": "오디오만 저장",
         "insertToInput": "입력창에 삽입",
         "dismiss": "닫기"
-      }
+      },
+      "searchPlaceholder": "노트 검색",
+      "groupAll": "전체"
     },
     "connectorAuth": {
       "title": "{connectorName}에 연결",
@@ -19372,6 +19375,9 @@
     "selectAllVisible": "목록 전체 선택",
     "selectAccount": "계정 {name} 선택",
     "captureTitle": "로컬에서 가져오기",
+    "captureWebLogin": "웹 로그인",
+    "captureMethodWeb": "웹 로그인",
+    "captureMethodLocal": "로컬에서 가져오기",
     "platformAll": "전체 플랫폼",
     "platformTrae": "TRAE",
     "platformQoder": "Qoder",
@@ -19391,16 +19397,18 @@
     "captureWbEncrypted": "토큰 필요",
     "captureWbTokenPlaceholder": "WorkBuddy 토큰(accessToken) 붙여넣기",
     "captureWbTokenRequired": "토큰이 비어 있습니다: 이 계정의 자격 증명은 암호화되어 있으므로 먼저 토큰을 붙여넣은 후 가져오세요",
-    "captureWbWebTitle": "웹 로그인(권장)",
-    "captureWbWebDescription": "\"웹 로그인\"을 누르면 시스템 기본 브라우저에서 WorkBuddy 로그인 페이지가 열립니다. 로그인 후 브라우저의 로그인 Cookie를 아래 입력란에 붙여넣고 \"가져오기\"를 누르세요.",
-    "captureWbWebOpen": "웹 로그인",
+    "captureWbWebTitle": "웹 로그인(자동)",
+    "captureWbWebDescription": "앱 내장 브라우저에서 WorkBuddy 로그인 페이지를 엽니다. 로그인 후 인증과 계정 정보(uid/닉네임)가 자동으로 수집되어 이 페이지로 돌아와 가져오기됩니다. 수동 붙여넣기가 필요 없습니다.",
+    "captureWbWebOpen": "시스템 브라우저로 열기",
+    "captureWbWebEmbed": "내장 브라우저(자동)",
     "captureWbWebToolbar": "WorkBuddy 웹 로그인",
-    "captureWbWebWaiting": "기본 브라우저에서 로그인 페이지를 열었습니다. 로그인 후: F12 → Network → 아무 요청 클릭 → Cookie 요청 헤더를 복사해 아래에 붙여넣고 \"가져오기\"를 누르세요.",
+    "captureWbWebWaiting": "내장 브라우저에서 로그인 페이지를 열었습니다. 창에서 로그인(전화번호/QR)하세요. 로그인 상태가 감지되면 계정이 자동으로 가져오기되고 체크인 페이지로 돌아갑니다.",
     "captureWbWebImporting": "계정 가져오는 중…",
     "captureWbWebDone": "웹 로그인 가져오기 완료({count}개 계정)",
     "captureWbWebPastePlaceholder": "로그인 Cookie 붙여넣기(Cookie 헤더 전체 또는 k=v; k2=v2 형식 모두 가능)",
     "captureWbWebPasteImport": "가져오기",
     "captureWbWebPasteRequired": "먼저 로그인 Cookie를 붙여넣으세요",
+    "captureWbWebPasteInvalid": "Cookie가 유효하지 않거나 만료되었습니다. 브라우저에서 로그인 Cookie를 다시 복사하세요.",
     "captureWbPasteName": "WorkBuddy 웹 로그인",
     "captureWbWebCancel": "취소",
     "captureWbWebCancelled": "웹 로그인이 취소되었습니다. \"웹 로그인\"을 다시 눌러 재시도하세요.",
@@ -19408,6 +19416,7 @@
     "captureWbWebOpenFailed": "시스템 기본 브라우저를 열지 못했습니다. 기본 브라우저 설정을 확인한 후 재시도하세요.",
     "captureWbManualDivider": "또는 데스크톱 로그인 정보를 수동으로 가져오기",
     "captureWbWebCheckinUncertain": "안내: 체크인 API가 웹 로그인 상태를 허용하는지 아직 확인되지 않았습니다. 체크인이 실패하면(401) 토큰 방식으로 전환하고 알려주세요.",
+    "captureWbWebAccountMissing": "가져왔지만 계정 정보(uid/닉네임)를 가져오지 못했습니다. 체크인이 실패하면 내장 브라우저 자동 로그인을 사용하세요.",
     "captureDirFound": "로컬 TRAE 데이터 디렉터리를 감지했습니다: {dir}",
     "captureDirMissing": "로컬 TRAE 데이터 디렉터리를 찾을 수 없습니다(환경 변수 IHUI_TRAE_DIR로 지정 가능)",
     "captureEmpty": "로컬 데이터 디렉터리에서 사용 가능한 JWT를 찾지 못했습니다",

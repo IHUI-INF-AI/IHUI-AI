@@ -2887,5 +2887,49 @@
   },
   "notification": {
     "pushBannerTitle": "New message"
+  },
+  "ai": {
+    "pane": {
+      "businessForms": {
+        "ariaLabel": "Business form card",
+        "aria": {
+          "email": "Email compose card",
+          "calendarEvent": "Calendar form card"
+        },
+        "fields": {
+          "to": "To",
+          "cc": "Cc",
+          "bcc": "Bcc",
+          "subject": "Subject",
+          "replyTo": "Reply to",
+          "body": "Body",
+          "start": "Start",
+          "end": "End",
+          "attendees": "Attendees"
+        },
+        "action": {
+          "approve": "Approve",
+          "reject": "Reject",
+          "create": "Create",
+          "save": "Save"
+        },
+        "error": {
+          "required": "This field is required",
+          "invalidEmail": "Invalid email address",
+          "endBeforeStart": "End time must be after start time",
+          "noAttendees": "Add at least one attendee"
+        },
+        "fold": {
+          "expand": "Show all {count} attendees",
+          "collapse": "Collapse attendees"
+        },
+        "status": {
+          "submitting": "Submitting…",
+          "approved": "Approved",
+          "rejected": "Rejected",
+          "failed": "Submission failed, please retry"
+        }
+      }
+    }
   }
 }
