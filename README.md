@@ -5730,6 +5730,18 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 数据源 `point_rule` 表(`packages/database/src/schema/relation-tables.ts`),只出 `status = 1` 的启用档,按 `code → id` 稳定序;投影固定四键 `id/action/points/desc`(`id` 在库层一次转成字符串,`description` 为空落 `''`),不把 `code/type/max_per_day` 外泄成第三种形状。
 - 该端点**刻意不挂** `point.ts` 里那份通用 `responseSchema`——它把 `data` 定成 `type: 'object'`,而本端点载荷是数组,挂上会被序列化层裁掉(同形态先例 `apps/api/src/routes/articles.ts`)。
 - 这条路径原先的状态:RN 屏打的是裸路径 `/point-rule`,由 transport 的 `normalizeUrl` 补成 `/api/point-rule`,而后端两引擎都没注册过它 ⇒ 界面恒空且不报错。客户端字面量已同时改成显式 `/api/point-rule` 形态,让门 8(`check-api-routes.mjs`)能看见这条调用——它此前只认引号紧邻 `/api/` 的字面量,裸路径调用整体在射程外。
+**我的优惠券端点(2026-10-18 立,补三端共用的用户侧出口):**
+
+| 端点            | 方法 | 鉴权                     | 响应形状                                                                                                              | 消费端                                                             |
+| --------------- | ---- | ------------------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `/api/coupons`  | GET  | 需登录(承载层注入身份) | `{ code:0, message:'success', data: { list: MyCouponRow[], total, page, pageSize } }`                                  | web `member/coupons`、RN `CouponScreen`、小程序 `pages/member/coupon` |
+
+- `MyCouponRow` 九键:`id/code/name/amount/discountRate/type/minSpend/status/expiresAt`。`status` 用**库内词汇** `unused|used|expired`——web 与小程序本来就按它发与渲染,RN 的 `available` 只是本屏 tab 词汇,映射只发生在端上那一次。
+- `amount` 是满减/裂变券的面额(分);**折扣券没有固定面额 ⇒ `amount=0`,真折扣看 `discountRate`**(解释口径同 `coupon-service.ts` 的 `redeemCoupon` 分档数学,不在服务端二次发明)。
+- 库里 `unused` 而券已过期 ⇒ 投影读成 `expired`,且 `status=unused` 的筛选发生在投影之后(清扫任务还没落状态时,"未使用"页不会显示过期券)。
+- 归属主体只取 `request.userId`;查询 schema 是 `strict`,客户端塞 `userId` 连同任何未知键一律 400(不是"塞了被忽略",而是"塞了不通过")。`total` 是全集条数而不是本页条数。
+- 这条路径原先的状态:RN 打 `/coupons`、小程序打 `/member/coupon`、web 打 `/api/coupons`,三端字面量互不相同而**后端一条都没注册**(库里 `user_coupons` 有写入链路:领券/裂变/核销都真在写,admin 侧也有列表,唯独用户侧没有出口)⇒ 三端会员券页都只会拿到错误态。移动两端字面量已统一成显式 `/api/coupons` 形态,好让门 8(`check-api-routes.mjs`)看得见这两处调用。
+
 **小程序兼容设置端点(2026-10-18 收口单/复数分叉):**
 | 端点                    | 方法 | 鉴权 | 响应形状 | 消费端 |
 | ----------------------- | ---- | ---- | -------- | ------ |
