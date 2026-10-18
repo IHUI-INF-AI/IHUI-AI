@@ -635,6 +635,28 @@ const MessageItem = React.memo(function MessageItem({
     setEditDraft('')
   }, [editDraft, m.content, m.id, isStreaming, hasFileChangesAfter, editRollbackFiles])
 
+  // 票64(2026-10-18 立):AI 消息编辑 —— 语义是「保存为新版本」,不是用户消息的「保存并重跑」。
+  // 保存时派发 ihui:edit-ai-message,由 MessageList → editAiMessageAsVersion 闭环:
+  // 服务端在同一版本族落新 sibling,读投影(lib/message-version-family.ts)只显示激活版本。
+  const [aiEditDialogOpen, setAiEditDialogOpen] = React.useState(false)
+  const [aiEditDraft, setAiEditDraft] = React.useState('')
+  const handleAiEdit = React.useCallback(() => {
+    if (isStreaming) return
+    setAiEditDraft(m.content)
+    setAiEditDialogOpen(true)
+  }, [m.content, isStreaming])
+  const handleAiEditSave = React.useCallback(() => {
+    const text = aiEditDraft.trim()
+    if (!text || text === m.content || isStreaming) return
+    window.dispatchEvent(
+      new CustomEvent('ihui:edit-ai-message', {
+        detail: { messageId: m.id, content: text },
+      }),
+    )
+    setAiEditDialogOpen(false)
+    setAiEditDraft('')
+  }, [aiEditDraft, m.content, m.id, isStreaming])
+
   // 2026-08-02:补建原项目 AIChat.vue 4 个缺失 AI 消息按钮
   // 1. 内容可见性切换(Eye/EyeOff)— 原项目 toggleAssistantContentVisibility
   const [contentVisible, setContentVisible] = React.useState(true)
@@ -1596,6 +1618,24 @@ const MessageItem = React.memo(function MessageItem({
                 </button>
               </Tooltip>
             )}
+            {/* AI 消息:Edit(编辑为新版本)— 票64,保存后不重跑、不截断,只多一个可切换的版本 */}
+            {!isUser && !isSystem && (
+              <Tooltip content={t('message.editAiReply')} side="top">
+                <button
+                  type="button"
+                  onClick={handleAiEdit}
+                  disabled={isStreaming}
+                  data-testid={`message-ai-edit-${m.id}`}
+                  aria-label={t('message.editAiReply')}
+                  className={cn(
+                    ACTION_BTN_CLASS,
+                    'disabled:opacity-40 disabled:cursor-not-allowed',
+                  )}
+                >
+                  <Pencil className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
+            )}
             {/* Reply(回复)— AI + 用户,原项目 replyToMessage */}
             <Tooltip content={t('message.reply')} side="top">
               <button
@@ -1787,6 +1827,61 @@ const MessageItem = React.memo(function MessageItem({
                 data-testid={`message-edit-save-${m.id}`}
               >
                 {t('message.editAndRerun')}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+      {/* 票64(2026-10-18 立):AI 消息编辑 Dialog(保存为新版本)。
+          保存 → 派发 ihui:edit-ai-message → MessageList → editAiMessageAsVersion:
+          服务端在版本族里落新 sibling,原版本保留可切换;不重跑、不截断后续消息。 */}
+      {!isUser && !isSystem && (
+        <Dialog
+          open={aiEditDialogOpen}
+          onOpenChange={(open) => {
+            setAiEditDialogOpen(open)
+            if (!open) setAiEditDraft('')
+          }}
+        >
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>{t('message.editAiReply')}</DialogTitle>
+            </DialogHeader>
+            <textarea
+              value={aiEditDraft}
+              onChange={(e) => setAiEditDraft(e.target.value)}
+              onKeyDown={(e) => {
+                // Ctrl/Cmd+Enter 快捷保存;Escape 由 Dialog 默认关闭行为处理
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                  e.preventDefault()
+                  handleAiEditSave()
+                }
+              }}
+              rows={8}
+              data-testid={`message-ai-edit-textarea-${m.id}`}
+              className={cn(
+                'w-full resize-y rounded-sm border border-border bg-background px-3 py-2 text-sm',
+                'text-foreground placeholder:text-muted-foreground',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+              )}
+              placeholder={t('message.editAiReply')}
+            />
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAiEditDialogOpen(false)}
+                data-testid={`message-ai-edit-cancel-${m.id}`}
+              >
+                {t('cancel')}
+              </Button>
+              <Button
+                size="sm"
+                disabled={!aiEditDraft.trim() || aiEditDraft.trim() === m.content || isStreaming}
+                onClick={handleAiEditSave}
+                data-testid={`message-ai-edit-save-${m.id}`}
+              >
+                {t('message.saveAsNewVersion')}
               </Button>
             </div>
           </DialogContent>
