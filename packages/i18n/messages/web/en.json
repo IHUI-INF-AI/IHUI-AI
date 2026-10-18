@@ -19623,7 +19623,7 @@
     "downloadBack": "Back",
     "downloadCli": "CLI Tool",
     "downloadCliDesc": "One-click terminal, scriptable",
-    "downloadCliInstallGuide": "Install the @ihui/cli package globally via npm, then run the ihui command in your terminal to start the CLI tool.",
+    "downloadCliInstallGuide": "Install the ihui-cli package globally via npm, then run the ihui command in your terminal to start the CLI tool.",
     "downloadCliSysReq": "Node.js 20.10 or later",
     "downloadCliUsageHint": "After install, run",
     "downloadClient": "Download App",

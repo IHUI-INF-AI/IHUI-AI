@@ -1426,7 +1426,7 @@ cd IHUI-AI && docker compose up -d
 | 端              | 下载形态                   | 版本   | 大小             | 状态        |
 | --------------- | -------------------------- | ------ | ---------------- | ----------- |
 | **Desktop**     | Windows NSIS `.exe` + MSI  | 0.1.15 | 226.8 / 234.9 MB | 🟢 已接入   |
-| **CLI**         | `npm install -g @ihui/cli` | 1.0.0  | -                | 🟢 已接入   |
+| **CLI**         | `npm install -g ihui-cli`  | 1.0.0  | -                | 🟢 已接入   |
 | **Extension**   | Chrome MV3 `.zip`          | 1.0.0  | 1.31 MB          | 🟢 已接入   |
 | **Mobile RN**   | 源码构建(GitHub)           | -      | -                | 🟢 已接入   |
 | **Web**         | PWA / 浏览器访问           | -      | -                | 🟢 已接入   |
@@ -2247,7 +2247,7 @@ IHUI-AI/
 | 后端单元   | Vitest        | 322 文件,~14839+ 用例        | `pnpm --filter @ihui/api test`    |
 | 前端 E2E   | Playwright    | 17 spec 文件                 | `pnpm test:e2e`                   |
 | AI 服务    | pytest        | 13 文件,400+ 用例            | `cd apps/ai-service && pytest`    |
-| CLI 单元   | Vitest        | 13 文件                      | `pnpm --filter @ihui/cli test`    |
+| CLI 单元   | Vitest        | 13 文件                      | `pnpm --filter ihui-cli test`     |
 | 压测       | Locust        | `scripts/locustfile.py`      | `locust -f scripts/locustfile.py` |
 | 性能预算   | Lighthouse CI | `apps/web/lighthouserc.json` | CI 自动跑                         |
 | 未使用代码 | Knip          | `knip.jsonc` + CI workflow   | `pnpm knip`                       |

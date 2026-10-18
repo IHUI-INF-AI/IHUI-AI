@@ -37,7 +37,7 @@ const PORTS_CONFIG = {
   mobile: { port: 8805, cmd: 'pnpm --filter @ihui/mobile-rn start' },
   desktop: { port: 8801, cmd: 'pnpm --filter @ihui/desktop dev' },
   extension: { port: 8808, cmd: 'pnpm --filter @ihui/extension dev' },
-  cli: { port: 8841, cmd: 'pnpm --filter @ihui/cli dev' },
+  cli: { port: 8841, cmd: 'pnpm --filter ihui-cli dev' },
 }
 
 // 从注册表读取期望端口(权威来源)
