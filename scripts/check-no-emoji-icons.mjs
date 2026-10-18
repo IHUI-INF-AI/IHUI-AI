@@ -36,6 +36,7 @@ import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -253,8 +254,10 @@ function judgeLine(line, lineNumber, file) {
 function runSelfTest() {
   const PANEL = 'apps/miniapp-taro/src/components/InputArea.tsx'
   const OTHER = 'apps/web/src/components/demo.tsx'
-  const cases = []
-  const t = (name, ok, extra = '') => cases.push({ name, ok: !!ok, extra })
+  // 用例登记走共用出口(scripts/lib/selftest-registrant.mjs):thunk 在消费循环里**必被调用**,
+  // 值形态即算即得 —— 结构上封死"登记侧写 !!ok 而用例传箭头函数 ⇒ 恒真"的老洞(守门 41 同型)。
+  // 第三参 detail 与旧 extra 同位:失败时进 got,成功时不打印。
+  const { t, report } = makeRegistrar()
 
   // ① 面板**数据行**仍然豁免(收窄后不能把合法内容文案判红)
   t('面板文件里的数组元素行豁免', isExempt("      '😀',", PANEL))
@@ -296,15 +299,12 @@ function runSelfTest() {
   t('带引号的裸数据形态不被违规 3 命中', judgeLine("  '😊',", 1, OTHER)?.label !== 'bare emoji JSX child')
   t('普通赋值行不被违规 3 命中', judgeLine('const x = a ? 1 : 2', 1, OTHER) === null)
 
-  let pass = 0
-  let fail = 0
-  for (const c of cases) {
-    if (c.ok) pass++
-    else fail++
-    console.log(`${c.ok ? '  ✅' : '  ❌'} ${c.name}${c.extra && !c.ok ? ` — ${c.extra}` : ''}`)
+  const r = report()
+  for (const c of r.cases) {
+    console.log(`${c.pass ? '  ✅' : '  ❌'} ${c.name}${!c.pass && c.got && c.got !== 'false' ? ` — ${c.got}` : ''}`)
   }
-  console.log(`自检 ${pass} 通过 / ${fail} 失败(共 ${cases.length} 条)`)
-  process.exit(fail === 0 ? 0 : 1)
+  console.log(`自检 ${r.pass} 通过 / ${r.fail} 失败(共 ${r.cases.length} 条)`)
+  process.exit(r.fail === 0 ? 0 : 1)
 }
 
 if (process.argv.includes('--self-test')) runSelfTest()

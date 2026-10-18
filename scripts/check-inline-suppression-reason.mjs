@@ -47,6 +47,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, resolve } from 'node:path'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 import {
   Undetermined,
@@ -191,8 +192,9 @@ const byEnd = (rel) =>
         : 'other'
 
 export function selfTest() {
-  const cases = []
-  const ok = (name, cond) => cases.push([name, !!cond])
+  // 用例登记走共用出口(scripts/lib/selftest-registrant.mjs):thunk 在消费循环里**必被调用**,
+  // 值形态即算即得 —— 结构上封死"登记侧写 !!ok 而用例传箭头函数 ⇒ 恒真"的老洞(守门 41 同型)。
+  const { t: ok, report } = makeRegistrar()
 
   ok('裸 eslint-disable 必拦', scanSource(['// eslint-disable-next-line no-console', 'x()'].join('\n')).length === 1)
   ok(
@@ -242,10 +244,10 @@ export function selfTest() {
   ok('worktree 分支必须走磁盘入口', /readWorktreeFile\(root, rel\)/.test(body))
   ok('两面旗同给必须落 exit 2(不静默选一面)', /face.error/.test(selfSrc) && /return 2/.test(selfSrc))
 
-  const bad = cases.filter(([, pass]) => !pass)
-  for (const [n, pass] of cases) console.info(`${pass ? '✓' : '✗'} ${n}`)
-  console.info(`[inline-suppression-reason] --self-test ${cases.length - bad.length}/${cases.length} 通过`)
-  return bad.length ? 1 : 0
+  const r = report()
+  for (const c of r.cases) console.info(`${c.pass ? '✓' : '✗'} ${c.name}`)
+  console.info(`[inline-suppression-reason] --self-test ${r.pass}/${r.cases.length} 通过`)
+  return r.fail ? 1 : 0
 }
 
 function usage() {
