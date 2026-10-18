@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
 import { Loader2, RefreshCw, CheckCircle2, XCircle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
@@ -15,6 +14,7 @@ import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { resolvePostLoginLanding } from '@/lib/post-login-landing'
+import { requestWallboardChoice } from '../WallboardChoiceDialog'
 
 interface AppQrPanelProps {
   /** 父组件传入,变化时重新生成二维码 */
@@ -54,7 +54,6 @@ const QR_SIZE = 184
 export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
   const t = useTranslations('auth')
   const qc = useQueryClient()
-  const router = useRouter()
   const setToken = useAuthStore((s) => s.setToken)
   const setUser = useAuthStore((s) => s.setUser)
   const closeDialog = useLoginDialogStore((s) => s.close)
@@ -143,7 +142,10 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
               window.setTimeout(() => {
                 if (cancelled) return
                 closeDialog()
-                if (landing) router.push(landing)
+                // 2026-10-18(用户要求"让我自己选择"):不再自动跳大屏,交给常驻
+                // WallboardChoiceDialog 二选一(「看大屏」/「先不用」);选择窗挂在
+                // LoginDialog(常驻根布局)里,不随本面板因登录弹窗 close() 卸载而丢失。
+                if (landing) requestWallboardChoice(landing)
               }, SUCCESS_CLOSE_DELAY_MS)
             } else if (data.status === 'expired') {
               if (pollTimer) {
@@ -174,7 +176,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
       cancelled = true
       if (pollTimer) clearInterval(pollTimer)
     }
-  }, [refreshKey, localRefresh, setToken, setUser, qc, closeDialog, router])
+  }, [refreshKey, localRefresh, setToken, setUser, qc, closeDialog])
 
   const handleRetry = React.useCallback(() => {
     setLocalRefresh((n) => n + 1)
