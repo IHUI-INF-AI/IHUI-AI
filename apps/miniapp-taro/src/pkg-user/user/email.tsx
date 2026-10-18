@@ -11,11 +11,13 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { getProfile, bindEmail, post } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import './email.css'
 
 export default function Email() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [currentEmail, setCurrentEmail] = useState('')
   const [email, setEmail] = useState('')
   // AI 操控通道(2026-09-21):只登记新邮箱(PII,回传值会被注册表打码);
@@ -53,17 +55,22 @@ export default function Email() {
     return head + '***' + e.slice(atIdx)
   })()
 
-  useDidShow(async () => {
-    try {
-      const profile = await getProfile()
-      const e = profile.email || ''
-      setCurrentEmail(e)
-      // 已绑定邮箱时清空输入,等用户主动输入新邮箱
-      setEmail(e ? '' : e)
-    } catch (e) {
-      logger.error('user/email', '获取用户信息', e)
-      Taro.showToast({ title: tt('common.failed', '操作失败'), icon: 'none' })
-    }
+  useDidShow(() => {
+    // G-933 冷启动门控:GET /user/profile(checkAuth)需鉴权,落定前不发
+    gate.waitUntilReady(() => {
+      void (async () => {
+        try {
+          const profile = await getProfile()
+          const e = profile.email || ''
+          setCurrentEmail(e)
+          // 已绑定邮箱时清空输入,等用户主动输入新邮箱
+          setEmail(e ? '' : e)
+        } catch (e) {
+          logger.error('user/email', '获取用户信息', e)
+          Taro.showToast({ title: tt('common.failed', '操作失败'), icon: 'none' })
+        }
+      })()
+    })
   })
 
   function startCountdown() {
