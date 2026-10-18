@@ -3610,12 +3610,29 @@ export function auditOpsPatrol(opts = {}) {
           severity: 'warning',
           // dedupKey(§5e-1 配套,24 封):聚合告警的正文是**逐格 detail 清单**,而每格 detail
           // 都含实时读数(条目数 67595、时钟距今 N 小时)⇒ 指纹逐轮变 ⇒ 窗口失效。
-          // 身份只取"哪几格红了"(集合,有序无关)+ 红格数的**档位**,实时读数仍进正文。
-          dedupKey: `cells=${findings.map((x) => x.id).sort().join('+')};tier=${alertCountTier(findings.length)}`,
+          // 2026-10-19 再收一格:**"哪几格红了"这个集合本身也是会抖的量**。现读 17:49 / 18:05 / 18:35
+          // 三封在 46 分钟内,起因是 P4a 与 P5b 里有一格先愈合了 ⇒ 集合从 `P4a+P5b` 变 `P5b`
+          // ⇒ 旧窗口作废、当场再寄一封。"好了一半"不是新故障,按 §5e-1 不该重报。
+          // 新身份 = 本段**起点**的格集合(钉住,先到先得)× 起点与本轮里**较坏**的那档计数 × 持续档;
+          // 只有"起点里没有的新格红了"(`new=`)才会立刻另开身份 —— 那才是真新增的一一个问题。
+          // 逐格明细照旧全量进正文(信息量不降),实时读数照旧不进身份。
+          dedupKey: (() => {
+            const epFile = join(WORKTREE, '.workbuddy', 'ops-patrol-episode-first.json')
+            const idsArr = findings.map((x) => x.id).sort()
+            const ep = noteUndeterminedStreak(epFile, now, { cells: idsArr.join('+'), count: findings.length })
+            const pinnedArr = String(ep.meta.cells || idsArr.join('+')).split('+').filter(Boolean)
+            const newIds = idsArr.filter((id) => !pinnedArr.includes(id)).sort()
+            const tier = alertCountTier(Math.max(Number(ep.meta.count) || 0, findings.length))
+            const held = alertHeldTier(ep.firstMs, now)
+            return `cells0=${pinnedArr.join('+')};new=${newIds.join('+') || '-'};tier=${tier};held=${held.tier}`
+          })(),
         },
       )
       }
     } else {
+      // 零红 ⇒ 这一段结束:摘掉起点件,下一场故障从新起点算(不摘会把上一段的时长算到下一头上,
+      // 而那是"刚冒头就直接进高档"的成因 —— 与"愈合半格就重寄"是同一枚硬币的两面)。
+      clearUndeterminedStreak(join(WORKTREE, '.workbuddy', 'ops-patrol-episode-first.json'))
       logger(`✅ 元运维巡检:${parsed.counts.ok} 格绿,无红(${undet.length} 格未判定)`)
     }
     return { ran: true, ok: true, findings: findings.length, undetermined: undet.length }
