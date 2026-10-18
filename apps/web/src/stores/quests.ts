@@ -4,7 +4,7 @@
 
 // 票77(2026-10-18)独立切片:Goal-driven 自评估闭环 + My Quests 跨 workspace 全局看板。
 // D152 口径:goal 主副本在 threads.metadata.goalState,端内 goal store 只是**单会话**缓存。
-// 服务端跨会话聚合端点已落地(`GET /sessions/goals`,api-client `listMyGoals`),
+// 服务端跨会话聚合端点已落地(`GET /api/sessions/goals`,api-client `listMyGoals`),
 // 看板挂载时经 `hydrateFromServer` 灌入真实 workspaceId 与跨会话目标;
 // 本表仍是端内登记表:goal 生命周期每次变化经 attachGoalQuestRecorder 自动登记快照,
 // 自评估条目双腿:status 变迁自动记(auto)+ 看板手动记(manual)。
@@ -13,7 +13,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { GOAL_STATUSES, type GoalStatus as CanonicalGoalStatus } from '@ihui/types'
-import type { MyGoalRow } from '@ihui/api-client'
+import type { MyGoalAssessment, MyGoalRow } from '@ihui/api-client'
 
 import { ssrStorage } from './persist-helpers'
 import { createGoalPersistStorage } from '@/lib/chat-persist-crypto'
@@ -59,6 +59,31 @@ function genAssessmentId(): string {
   return `qa-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+/** 服务端引擎轨迹 → 端内轨迹:六档词汇外剔除、按 id 去重、按 at 升序、封顶 */
+function ingestServerAssessments(
+  prev: QuestAssessment[],
+  incoming: MyGoalAssessment[] | undefined,
+): QuestAssessment[] {
+  if (!incoming || incoming.length === 0) return prev
+  const byId = new Map<string, QuestAssessment>()
+  for (const a of prev) byId.set(a.id, a)
+  for (const a of incoming) {
+    if (!(GOAL_STATUSES as readonly string[]).includes(a.status)) continue
+    byId.set(a.id, {
+      id: a.id,
+      at: a.at,
+      status: a.status as QuestStatus,
+      progress: Math.max(0, Math.min(100, Math.round(a.progress))),
+      summary: a.summary,
+      // 端内来源词汇只有 auto/manual:引擎轨迹归自动评估腿
+      source: 'auto',
+    })
+  }
+  return Array.from(byId.values())
+    .sort((x, y) => x.at - y.at)
+    .slice(-MAX_QUEST_ASSESSMENTS)
+}
+
 interface QuestsState {
   entries: Record<string, QuestEntry>
   /** goal store 快照变化时的登记口(recorder 自动调用;同一 goal 幂等) */
@@ -71,7 +96,7 @@ interface QuestsState {
     input: { summary: string; status?: QuestStatus; progress?: number },
   ) => boolean
   /**
-   * 服务端跨会话聚合(票77 GET /sessions/goals)灌入本地登记表。
+   * 服务端跨会话聚合(票77 GET /api/sessions/goals)灌入本地登记表。
    * sessionId 命中的本地条目沿用原 key(保 progress/assessments),
    * 未命中的以 `srv-<threadId>` 登记;服务端状态词汇非法/形状不符的行跳过。
    */
@@ -196,52 +221,61 @@ export const useQuestsStore = create<QuestsState>()(
             const prev = entries[key]
             const createdAt = Math.round(row.createdAt * 1000)
             const updatedAt = Math.round(row.updatedAt * 1000)
+            const server = ingestServerAssessments([], row.assessments)
+            const serverLatest = server.at(-1)
             if (!prev) {
+              const assessments =
+                server.length > 0
+                  ? server
+                  : [
+                      {
+                        id: genAssessmentId(),
+                        at: now,
+                        status,
+                        progress: 0,
+                        summary: '',
+                        source: 'auto' as const,
+                      },
+                    ]
               entries[key] = {
                 goalId: key,
                 text: row.goal.objective || row.title,
                 status,
-                progress: 0,
+                progress: serverLatest?.progress ?? 0,
                 workspaceId: row.workspaceId,
                 ...(row.sessionId ? { sessionId: row.sessionId } : {}),
                 createdAt,
                 updatedAt,
-                assessments: [
-                  {
-                    id: genAssessmentId(),
-                    at: now,
-                    status,
-                    progress: 0,
-                    summary: '',
-                    source: 'auto' as const,
-                  },
-                ],
+                assessments,
               }
               continue
             }
-            // 本地已是同一 status ⇒ 不重复记 auto 条目(每次刷新都灌入会刷屏)
-            const statusChanged = prev.status !== status
+            const merged = ingestServerAssessments(prev.assessments, row.assessments)
+            // 引擎轨迹已带同一 status ⇒ 不重复记本地 auto 条目(每次刷新都灌入会刷屏)
+            const serverCarriesStatus = server.some((a) => a.status === status)
+            const statusChanged = prev.status !== status && !serverCarriesStatus
             entries[key] = {
               ...prev,
               text: row.goal.objective || prev.text || row.title,
               status,
+              progress: serverLatest?.progress ?? prev.progress,
               workspaceId: row.workspaceId,
               ...(row.sessionId ? { sessionId: row.sessionId } : {}),
               createdAt: Math.min(prev.createdAt, createdAt),
               updatedAt: Math.max(prev.updatedAt, updatedAt),
               assessments: statusChanged
                 ? [
-                    ...prev.assessments,
+                    ...merged,
                     {
                       id: genAssessmentId(),
                       at: now,
                       status,
-                      progress: prev.progress,
+                      progress: serverLatest?.progress ?? prev.progress,
                       summary: '',
                       source: 'auto' as const,
                     },
                   ].slice(-MAX_QUEST_ASSESSMENTS)
-                : prev.assessments,
+                : merged,
             }
           }
           return { entries }

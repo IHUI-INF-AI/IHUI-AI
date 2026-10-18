@@ -96,6 +96,7 @@ export type {
   GoalUpdateEvent,
   // 票77(2026-10-18):跨会话目标聚合行类型 —— 与 listMyGoals 同批入入口。
   MyGoalRow,
+  MyGoalAssessment,
   UsageEvent,
   // Budget 用量分档提醒事件(2026-09-19 立,网关发,前端 onBudget toast 提示用量进度)
   BudgetEvent,
