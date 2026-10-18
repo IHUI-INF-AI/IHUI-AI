@@ -841,7 +841,10 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         icon: MonitorCog,
         dynamicLabel: '监控大屏',
       },
-      // 2026-10-18 新增监控面板页:Grafana 21 张盘的项目内入口(kiosk 内嵌只读),
+      // 2026-10-18 新增监控面板页:21 张盘的项目内原生入口(EChart 直读仓内
+      // monitoring/grafana/dashboards/*.json 转译出的面板配置,经
+      // /api/admin/monitor-panels/query 代理 Prometheus/Loki,运行时不接触
+      // Grafana;2026-10-18 晚 Grafana 服务整体退役后本页即唯一监控入口)。
       // 与 wallboard(自研 HUD 总览)互补 —— 本页是全量明细下钻。
       {
         href: '/admin/monitor/panels',
