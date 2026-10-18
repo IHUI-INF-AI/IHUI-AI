@@ -22,8 +22,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { fileURLToPath } from 'node:url';
 import { isRecord } from './util/json.js';
+import { readCliPackage } from './util/pkg-version.js';
 import { createApiRequest, resolveBaseUrl } from './commands/http-utils.js';
 
 /**
@@ -31,9 +31,8 @@ import { createApiRequest, resolveBaseUrl } from './commands/http-utils.js';
  * 旧写法 `path.join(__dirname, ...)` 被外层 try/catch 吞成 `'0.0.0'` / `undefined`,
  * 于是 `getCurrentVersion()` 在 dist 里长期返回哨兵值(实测 `dist/updater.js` 仍写 `__dirname`)。
  * 这一条对闸门是致命的:版本读成 `0.0.0` ⇒ 只要服务端设了最低版本就挡住所有人。
- * 故按 index.ts:110 的既有形态用 `import.meta.url` 推导,并对"读不到版本"另设放行出口。
+ * 故版本/最低版本读取统一走 util/pkg-version.js,并对"读不到版本"另设放行出口。
  */
-const PKG_DIR = path.dirname(fileURLToPath(import.meta.url));
 /** 版本自识别失败时的哨兵;闸门见到它一律放行(见 enforceServerMinimumVersion 的 UNKNOWN_VERSION 分支)。 */
 export const UNKNOWN_VERSION = '0.0.0';
 
@@ -61,18 +60,11 @@ export interface UpdateCheckResult {
 }
 
 /**
- * 读取当前包版本(从 package.json dist 路径推断)。
+ * 读取当前包版本。
  * 不能用 import.meta.resolve(包不一定是 ESM 导入路径)。
  */
 export function getCurrentVersion(): string {
-  // src/updater.ts → dist/updater.js → package.json
-  const pkgPath = path.join(PKG_DIR, '..', 'package.json');
-  try {
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-    return String(pkg.version ?? UNKNOWN_VERSION);
-  } catch {
-    return UNKNOWN_VERSION;
-  }
+  return readCliPackage(import.meta.url)?.version ?? UNKNOWN_VERSION;
 }
 
 /**
@@ -80,14 +72,7 @@ export function getCurrentVersion(): string {
  * 与 registry 无关,由本项目维护。
  */
 export function getMinimumVersion(): string | undefined {
-  const pkgPath = path.join(PKG_DIR, '..', 'package.json');
-  try {
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-    const v = pkg?.engines?.minimumVersion;
-    return typeof v === 'string' ? v : undefined;
-  } catch {
-    return undefined;
-  }
+  return readCliPackage(import.meta.url)?.minimumVersion;
 }
 
 /**
