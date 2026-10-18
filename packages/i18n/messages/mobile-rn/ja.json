@@ -2504,7 +2504,12 @@
       "knowledgeTools": "知識グラフとツール",
       "models": "モデルプラットフォーム",
       "more": "その他",
-      "workspace": "AI ワークスペース"
+      "workspace": "AI ワークスペース",
+      "admin": "管理コンソール",
+      "analytics": "分析ダッシュボード",
+      "docs": "ドキュメントとヘルプ",
+      "workflows": "ワークフローと自動化",
+      "openPlatform": "オープンプラットフォーム"
     },
     "eduAi": {
       "policy": "政策解説",
@@ -2571,7 +2576,56 @@
       "authorized": "認可管理"
     },
     "enterprise": "エンタープライズ",
-    "featureCenter": "機能センター"
+    "featureCenter": "機能センター",
+    "admin": {
+      "home": "管理コンソール ホーム",
+      "dashboardStat": "ダッシュボード",
+      "users": "ユーザー管理",
+      "memberUsers": "会員管理",
+      "orders": "注文管理",
+      "refund": "返金管理",
+      "wallet": "ウォレット管理",
+      "withdrawal": "出金管理",
+      "articles": "記事審査",
+      "eduCourse": "コース審査",
+      "eduExam": "試験審査",
+      "live": "ライブ管理",
+      "point": "ポイント管理",
+      "news": "ニュース管理",
+      "agents": "エージェント管理",
+      "feedbacks": "フィードバック",
+      "ticket": "チケット管理",
+      "configs": "システム設定"
+    },
+    "analytics": {
+      "dashboard": "ダッシュボード",
+      "bi": "BI ダッシュボード",
+      "cost": "コストダッシュボード"
+    },
+    "docs": {
+      "home": "ドキュメント",
+      "quickstart": "クイックスタート",
+      "gettingStarted": "はじめてのガイド",
+      "faq": "よくある質問",
+      "help": "ヘルプセンター"
+    },
+    "openPlatform": {
+      "mcpStore": "MCP ストア",
+      "mcpProjects": "MCP プロジェクト",
+      "connectors": "コネクタエコシステム",
+      "registry": "ケイパビリティレジストリ",
+      "apiTest": "API テスト",
+      "capabilityMarket": "ケイパビリティマーケット"
+    },
+    "workflows": {
+      "home": "ワークフロー",
+      "editor": "ワークフローエディタ",
+      "automations": "自動化タスク",
+      "orchestration": "オーケストレーション",
+      "schedule": "スケジュールタスク"
+    },
+    "knowledgeCards": "ナレッジカード",
+    "knowledgePlanet": "ナレッジプラネット"
   },
   "knowledgeRag": {
     "title": "RAG 知識ベース",

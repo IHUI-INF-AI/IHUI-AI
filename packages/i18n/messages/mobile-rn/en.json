@@ -2548,7 +2548,12 @@
       "knowledgeTools": "Knowledge & Tools",
       "models": "Model Platform",
       "more": "More",
-      "workspace": "AI Workspace"
+      "workspace": "AI Workspace",
+      "admin": "Admin Console",
+      "analytics": "Analytics",
+      "docs": "Docs & Help",
+      "workflows": "Workflows & Automation",
+      "openPlatform": "Open Platform"
     },
     "eduAi": {
       "policy": "Policy",
@@ -2615,7 +2620,56 @@
     },
     "enterprise": "Enterprise",
     "featureCenter": "Feature Center",
-    "workspacePermissions": "Workspace Permissions"
+    "workspacePermissions": "Workspace Permissions",
+    "admin": {
+      "home": "Admin Home",
+      "dashboardStat": "Dashboard",
+      "users": "Users",
+      "memberUsers": "Members",
+      "orders": "Orders",
+      "refund": "Refunds",
+      "wallet": "Wallet",
+      "withdrawal": "Withdrawals",
+      "articles": "Article Review",
+      "eduCourse": "Course Review",
+      "eduExam": "Exam Review",
+      "live": "Live",
+      "point": "Points",
+      "news": "News",
+      "agents": "Agents",
+      "feedbacks": "Feedbacks",
+      "ticket": "Tickets",
+      "configs": "System Config"
+    },
+    "analytics": {
+      "dashboard": "Dashboard",
+      "bi": "BI Dashboard",
+      "cost": "Cost Dashboard"
+    },
+    "docs": {
+      "home": "Docs",
+      "quickstart": "Quick Start",
+      "gettingStarted": "Getting Started",
+      "faq": "FAQ",
+      "help": "Help Center"
+    },
+    "openPlatform": {
+      "mcpStore": "MCP Store",
+      "mcpProjects": "MCP Projects",
+      "connectors": "Connectors",
+      "registry": "Capability Registry",
+      "apiTest": "API Testing",
+      "capabilityMarket": "Capability Market"
+    },
+    "workflows": {
+      "home": "Workflows",
+      "editor": "Workflow Editor",
+      "automations": "Automations",
+      "orchestration": "Orchestration",
+      "schedule": "Scheduled Tasks"
+    },
+    "knowledgeCards": "Knowledge Cards",
+    "knowledgePlanet": "Knowledge Planet"
   },
   "knowledgeRag": {
     "title": "RAG Knowledge Base",
