@@ -612,6 +612,11 @@ export interface PlazaScreenProps {
   onPressItem: (item: PlazaItem) => void
   onPublish: () => void
   onBack?: () => void
+  /**
+   * 滚动内容区底部预留(px,默认 80)。mobile-rn 各屏 TabBar 改绝对悬浮胶囊后
+   * (2026-10-16),由调用方传 tabBarScrollReserve(insets.bottom) 让内容可滚到胶囊底下。
+   */
+  contentBottomPadding?: number
 }
 
 /** 需求广场 Screen Props */
@@ -669,5 +674,10 @@ export interface SquareScreenProps {
   /** 暴露内部 FlatList ref(wrapper 用于返回顶部 scrollToOffset,对齐 ChatScreen onListRef 模式) */
   onListRef?: (ref: unknown) => void
   onBack?: () => void
+  /**
+   * 滚动内容区底部预留(px,默认 12)。mobile-rn 各屏 TabBar 改绝对悬浮胶囊后
+   * (2026-10-16),由调用方传 tabBarScrollReserve(insets.bottom) 让内容可滚到胶囊底下。
+   */
+  contentBottomPadding?: number
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
