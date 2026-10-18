@@ -33,7 +33,7 @@ export class D1jiemaError extends Error {
   }
 }
 
-export type CardType = '实卡' | '虚卡' | '全部'
+type CardType = '实卡' | '虚卡' | '全部'
 
 export interface GetPhoneParams {
   /** 短信关键词,一般是短信黑括号里的名字,如【毛竹】验证码9876 → keyWord=毛竹 */
