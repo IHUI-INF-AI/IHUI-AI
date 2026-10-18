@@ -5,8 +5,8 @@
 /**
  * WebSocket 实时事件桥 — 升级 /ws 连接,推送 onEvent 流式事件。
  *
- * 用 createRequire 动态加载 ws 包(Node 内置无 WebSocketServer),避免静态 import 导致
- * typecheck 失败。运行时若 ws 包未安装,attachWsBridge 抛出友好错误。
+ * ws 为硬依赖,静态导入(运行时 createRequire(import.meta.url) 中转在 SEA 单文件
+ * 形态下锚定 exe 目录且经变量中转,esbuild 无法解析,必抛误导性错误)。
  *
  * 协议:client 发送 JSON {type:'message', text, sessionId?},server 流式推送 AgentEvent,
  * 最终推送 {type:'result', ...} 或 {type:'error', message, errorCode?}。
@@ -19,8 +19,8 @@
  *   而不是只拿到一个 4001 关闭码。
  */
 
-import { createRequire } from 'node:module';
 import type { IncomingHttpHeaders, Server } from 'node:http';
+import wsModule from 'ws';
 import type { AgentCore, AgentEvent } from './agent-core.js';
 import {
   authenticateInbound,
@@ -29,8 +29,6 @@ import {
   type MachineKeyEntry,
 } from '../config/credentials.js';
 import type { ApiKeyPermission } from '@ihui/types';
-
-const dynamicRequire = createRequire(import.meta.url);
 
 /** /ws 只做消息驱动,所需能力与 POST /message 一致。 */
 const WS_REQUIRED_SCOPE: ApiKeyPermission = 'chat:write';
@@ -69,15 +67,12 @@ export interface WsBridgeHandle {
 }
 
 function loadWsServer(): WsServerCtor | null {
-  try {
-    const mod = dynamicRequire('ws') as {
-      WebSocketServer?: WsServerCtor;
-      default?: WsServerCtor;
-    };
-    return mod.WebSocketServer ?? mod.default ?? null;
-  } catch {
-    return null;
-  }
+  // ws 为硬依赖,静态导入(createRequire(import.meta.url) 中转在 SEA 形态下必失败,见文件头)
+  const mod = wsModule as unknown as {
+    WebSocketServer?: WsServerCtor;
+    default?: WsServerCtor;
+  };
+  return mod.WebSocketServer ?? mod.default ?? null;
 }
 
 /** 取单值请求头(重复头时 node:http 给数组)。 */
