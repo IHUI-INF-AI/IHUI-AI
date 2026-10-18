@@ -4375,7 +4375,7 @@ export function auditOrphanDeletionRefs(opts = {}) {
         .slice(0, 12)
         .map(
           (h) =>
-            `  · ${h && h.path ? h.path : '(无名)'} ← 仍被引用于 ${h && h.via ? h.via : '(出处未判定)'}`,
+            `  · ${h && h.path ? h.path : '(无名)'} ← 仍被引用于 ${h && h.via ? h.via : '(出处未判定)'}${h && h.kind ? ` [型:${h.kind}]` : ''}`,
         )
         .join('\n')
       const more =
