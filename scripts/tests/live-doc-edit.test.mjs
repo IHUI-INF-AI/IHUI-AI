@@ -2177,4 +2177,122 @@ test('DU-19 源码锁:同题判据必须 import 权威那份,本器不得再抄�
   assert.ok(!/weight\s*<\s*16/.test(body), '指纹实现(权重门槛等)不得在本器里再抄一份')
 })
 
+// ── RS 族:残留取号令牌字面量闸(G-15107 格①,2026-10-19 立)──────────────────────────
+// 立因(现读,不是设想):规定形状是带族 `{{NEXT_ID:G}}`,由本器每轮 CAS 现算;而台账被反复抄的是
+// 裸写与全角 ｛｛NEXT_ID｝｝ 两型(HEAD 面 `PROJECT_PLAN.md` 实测 18 行存量,最早追到 2026-09-29),
+// 它们不被任何展开步骤消费、原样入库,再被下一个会话照抄 —— 多会话共用一个不存在的写法。
+// 本族刻意不新造提交链门(存量直接升档就是 §12e 恒红门),只钉工具侧这一格:
+//  正控 = 活占位符必须被拒(exit 2 并点名所在行);反证 = 反引号引述/非编号位必须放过,
+//  否则本闸自己就长成"与任何提交都无关的恒红工具"。判据一律从 __test__ 出去(§22c,本文件不得
+//  再抄一条匹配式 —— 下面出现的都是夹具字符串,不是判据)。
+const RS = __test__
+
+test('RS1 §22c 导出面:残留令牌闸的四个出口必须在 __test__ 里(否则测试只能重抄判据)', () => {
+  for (const k of ['judgeResidualIdTokens', 'residualIdTokenReport', 'inlineCodeSpansOf', 'RESIDUAL_ID_TOKEN_RE'])
+    assert.ok(RS[k], `__test__.${k} 缺失`)
+})
+
+test('RS2 正控·单元:裸写与全角在代码段外 ⇒ violation,且点名行号与字面量', () => {
+  const bare = RS.judgeResidualIdTokens([{ after: '- [ ] {{NEXT_ID}} 端到端裸写登记' }])
+  assert.equal(bare.status, 'violation')
+  assert.equal(bare.violations.length, 1)
+  assert.equal(bare.violations[0].literal, '{{NEXT_ID}}')
+  const wide = RS.judgeResidualIdTokens([{ after: '正文里 ｛｛NEXT_ID｝｝ 是全角裸写' }])
+  assert.equal(wide.status, 'violation')
+  assert.equal(wide.violations[0].literal, '｛｛NEXT_ID｝｝')
+  const rep = RS.residualIdTokenReport(bare).map((l) => l.text).join('\n')
+  assert.match(rep, /G-15107/, '拒绝必须点名票号(可归因)')
+  assert.match(rep, /声明内容第 1 行/, '必须点名所在行')
+})
+
+test('RS3 反证·单元:反引号引述(ASCII 与全角)与合法带族令牌一律放过 —— 拒引述即恒红工具', () => {
+  const v = RS.judgeResidualIdTokens([
+    { after: '实测 `{{NEXT_ID}}` 与 `｛｛NEXT_ID｝｝` 两种引述形态都在说明句里' },
+    { after: '- [ ] {{NEXT_ID:G}} 这是会被 resolveIdTokens 消费的合法形状' },
+    { after: '令牌 `｛｛NEXT_ID:G｝｝` 的头注引述' },
+  ])
+  assert.equal(v.status, 'ok', `正当引述/合法令牌被拦了(实得 ${v.violations.length} 处):${JSON.stringify(v.violations)}`)
+})
+
+test('RS4 窄档③:登记行编号声明位内即便带反引号仍判(封"补一枚反引号绕过放过"的通道)', () => {
+  const v = RS.judgeResidualIdTokens([{ after: '- [ ] `{{NEXT_ID}}` 试图用反引号洗成活占位符的豁免' }])
+  assert.equal(v.status, 'violation')
+  assert.equal(v.violations[0].inSlot, true)
+})
+
+test('RS5 差值语义:存量行携带的裸令牌不担账(格②的事),after 新引入的必判', () => {
+  const before = '- [ ] {{NEXT_ID}} 存量行(HEAD 面实测有此形态)'
+  const carry = RS.judgeResidualIdTokens([{ before, after: before + ' 〔补注记〕' }])
+  assert.equal(carry.status, 'ok', '携带存量被拒 ⇒ 每一次对存量行的正当结清都被钉红(§12e)')
+  assert.equal(carry.carriedOver.length, 1)
+  const introduced = RS.judgeResidualIdTokens([{ before: '- [ ] G-123 干净行', after: '- [ ] G-123 干净行 承 {{NEXT_ID}}' }])
+  assert.equal(introduced.status, 'violation', 'after 新引入裸令牌必须拦住')
+})
+
+test('RS6 三态纪律:取不到判定输入 ⇒ undetermined(不记绿也不冒红)', () => {
+  const a = RS.judgeResidualIdTokens([])
+  const b = RS.judgeResidualIdTokens([{ after: 42 }])
+  assert.equal(a.status, 'undetermined')
+  assert.equal(b.status, 'undetermined')
+  assert.equal(b.violations.length, 0, '未判定不得冒红')
+  assert.ok(RS.residualIdTokenReport(b).some((l) => /未判定/.test(l.text)), '未判定必须点名')
+})
+
+test('RS7 端到端·插入档两臂:裸写/全角 ⇒ rc=2 且点名行、HEAD 一枚不长;反引号引述 ⇒ rc=0 正常落地', (t) => {
+  const { dir, inputs } = makeDocRepo(t, DOC_BASE.join('\n'))
+  const head0 = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const docAtHead = () => String(runGit(dir, ['show', 'HEAD:DOC.md']))
+  const af = join(inputs, 'a.txt')
+  writeFileSync(af, '@@ANCHOR@@\n')
+  const bf = join(inputs, 'b.txt')
+  for (const [name, line] of [
+    ['裸写', '- [ ] {{NEXT_ID}} 端到端裸写登记必须被拒'],
+    ['全角', '- [ ] ｛｛NEXT_ID｝｝ 端到端全角登记必须被拒'],
+  ]) {
+    writeFileSync(bf, line + '\n')
+    const r = runLive(dir, { blockFile: bf, anchorFile: af })
+    assert.equal(r.status, 2, `${name}:残留令牌必须是用法错 exit 2,rc=${r.status} out=${String(r.stdout + r.stderr).slice(0, 300)}`)
+    assert.match(`${r.stdout}${r.stderr}`, /G-15107/, `${name}:必须点名这一格`)
+    assert.match(`${r.stdout}${r.stderr}`, /声明内容第 1 行/, `${name}:必须点名所在行`)
+    assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head0, `${name}:拦下后 HEAD 不许前进`)
+    assert.equal(docAtHead().includes('端到端'), false, `${name}:一行都不许落`)
+  }
+  const quoted = '说明句:`{{NEXT_ID}}` 与 `｛｛NEXT_ID｝｝` 都是被反引号包起的引述,必须放过'
+  writeFileSync(bf, quoted + '\n')
+  const okRun = runLive(dir, { blockFile: bf, anchorFile: af })
+  assert.equal(okRun.status, 0, `引述行被拦 = 恒红工具(§12e),rc=${okRun.status} out=${String(okRun.stdout + okRun.stderr).slice(0, 300)}`)
+  assert.equal(docAtHead().includes('都是被反引号包起的引述'), true, '引述行必须真落地')
+  assert.notEqual(runGit(dir, ['rev-parse', 'HEAD']).trim(), head0, '落地后 HEAD 必须前进(正向对照)')
+})
+
+test('RS8 端到端·改写档两臂:before 干净而 after 带裸令牌 ⇒ rc=2;携带存量改写 ⇒ rc=0(存量不担)', (t) => {
+  const LEDGER = '- [ ] {{NEXT_ID}} 存量行(实测 HEAD 面有此形态)'
+  const { dir, inputs } = makeDocRepo(t, ['# 标题', '段落一', '@@ANCHOR@@', '段落二', '', LEDGER, ''].join('\n'))
+  const head0 = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const rp1 = join(inputs, 'r1.json')
+  writeFileSync(rp1, JSON.stringify([{ before: '段落二', after: '段落二 承 {{NEXT_ID}} 新引入裸令牌' }]), 'utf8')
+  const rej = runLive(dir, { replaceFile: rp1 })
+  assert.equal(rej.status, 2, `改写档新引入必须拒,rc=${rej.status} out=${String(rej.stdout + rej.stderr).slice(0, 300)}`)
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head0, '拦下后 HEAD 不许前进')
+  const rp2 = join(inputs, 'r2.json')
+  writeFileSync(rp2, JSON.stringify([{ before: LEDGER, after: LEDGER + ' 〔补注记,令牌仍原样携带(格②另票)〕' }]), 'utf8')
+  const acc = runLive(dir, { replaceFile: rp2 })
+  assert.equal(acc.status, 0, `携带存量行改写被拒 ⇒ 存量行的每次正当结清被钉红(§12e),rc=${acc.status} out=${String(acc.stdout + acc.stderr).slice(0, 300)}`)
+  assert.match(`${acc.stdout}${acc.stderr}`, /携带存量/, '放过必须喊出来,不得静默')
+})
+
+test('RS9 接线锁 + 单一实现锁:闸必须真挂在 CAS 循环之前,匹配式全器只许一份', () => {
+  const src = readFileSync(join(HERE, '..', 'live-doc-edit.mjs'), 'utf8')
+  const call = src.indexOf('judgeResidualIdTokens(rsEntries)')
+  assert.ok(call > 0, 'main 里必须真的调用本闸(函数在而无人调 = 账面绿)')
+  const loop = src.indexOf('for (let attempt = 1; attempt <= MAX_CAS_ATTEMPTS')
+  assert.ok(call < loop, '必须在第一次 CAS 尝试之前判(落盘之后再拒就是把已入库谎报成没落地)')
+  const decls = (src.match(/RESIDUAL_ID_TOKEN_RE =/g) || []).length
+  assert.equal(decls, 1, '匹配式声明只许一份(§0.6:第二份必然漂移)')
+  // 本测试文件自身也不得抄判据:夹具是字符串,不是第二条正则(§22c / 守门 191 所盯之型)。
+  const self = readFileSync(join(HERE, 'live-doc-edit.test.mjs'), 'utf8')
+  const rsSection = self.slice(self.indexOf('// ── RS 族'))
+  assert.ok(!/new RegExp\(/.test(rsSection), 'RS 段自造 new RegExp = 在本文件里写第二份匹配式(判据复制)')
+})
+
 
