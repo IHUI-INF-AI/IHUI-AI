@@ -83,6 +83,9 @@ export type BaseToolCall = TypesBaseToolCall
  */
 export interface ChatMessage {
   id: string
+  /** 票64:钉选/收藏时刻(ISO 串)= 已标记;null/缺失 = 未标记。可撤销,不存布尔。 */
+  pinnedAt?: string | null
+  bookmarkedAt?: string | null
   role: ChatRole
   content: string
   /** 2026-09-13 立,W16 消息树地基:父消息 id。
