@@ -1296,6 +1296,14 @@ function parseWorkerStdout(stdout: string): {
  * 优先用 dist 编译产物(worker-entry.js);dev 场景(tsx)用源码 worker-entry.ts。
  */
 function resolveWorkerEntryPath(): string {
+  // SEA 单文件形态(bundle 内 IHUI_BUNDLED=1,见 util/main-module.ts):worker-entry
+  // 无法作为独立文件 fork —— 与其让 child_process.fork 抛晦涩的 ENOENT,不如在此
+  // 给一句能看懂的话。npm/dist 形态不受影响(该常量仅在 esbuild 打包时被注入)。
+  if (process.env.IHUI_BUNDLED === '1') {
+    throw new Error(
+      'SEA 单文件形态不支持并行子代理(worker entry 未随包携带);请改用 npm 形态(npm install -g @ihui/cli)或将 --max-workers 设为 0 走进程内执行',
+    );
+  }
   const hereDir = path.dirname(fileURLToPath(import.meta.url));
   const distCandidate = path.join(hereDir, 'worker-entry.js');
   if (fs.existsSync(distCandidate)) return distCandidate;
