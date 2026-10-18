@@ -14,6 +14,7 @@
  */
 
 import type { AgentStopReason, TokenUsage } from './commands/agent.js'
+import type { ToolResultDisplaySource } from '@ihui/types'
 
 export type OutputFormat = 'text' | 'json' | 'markdown' | 'yaml'
 
@@ -21,7 +22,17 @@ export type HeadlessEvent =
   | { type: 'start'; prompt: string; model: string; workspace: string }
   | { type: 'message_delta'; text: string }
   | { type: 'tool_call'; name: string; arguments: Record<string, unknown> }
-  | { type: 'tool_result'; name: string; success: boolean; output: string }
+  | {
+      type: 'tool_result';
+      name: string;
+      success: boolean;
+      output: string;
+      /**
+       * G-109 三条独立投影之「给人看的」那一维(有界 display + serialization 四数)。
+       * 缺省 = 本次未触发裁剪;绝不得用它替换 `output`(模型侧权威)。
+       */
+      display?: ToolResultDisplaySource;
+    }
   /**
    * D113(2026-09-27)流中 diff 预览帧 —— 载荷字段沿用 `@ihui/api-client` 的
    * `ToolDeltaEvent`(toolCallId / seq / partialText / truncated?),`partialText` 是
@@ -114,7 +125,10 @@ export function eventToMarkdown(event: HeadlessEvent): string {
     case 'tool_result': {
       const icon = event.success ? '✓' : '✗'
       const status = event.success ? '成功' : '失败'
-      const truncated = event.output.length > 1000 ? event.output.slice(0, 1000) + '\n...(truncated)' : event.output
+      // G-109:人读排版优先用**有界 display 投影**(它保留的是被 output 裁掉的那一段),
+      // 没有 display(未触发裁剪)时回落到 output —— 两条路径的展示上限与散文注记一字不变。
+      const source = event.display?.text ?? event.output
+      const truncated = source.length > 1000 ? source.slice(0, 1000) + '\n...(truncated)' : source
       return `\n#### ${icon} 工具结果 [${status}]\n\n\`\`\`\n${truncated}\n\`\`\`\n`
     }
     case 'iteration':
