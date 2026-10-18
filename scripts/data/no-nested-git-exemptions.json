@@ -1,24 +1,5 @@
 {
-  "$comment": "守门 208 (check-no-nested-git.mjs) 的具名豁免台账。AGENTS §0.7:豁免必须「验过才免」且会到期 —— 只有容器目录 rel 与条目**逐字等值**才放行(不做前缀/同名匹配);缺 owner/why 或到期日不是 YYYY-MM-DD ⇒ 整条作废;到期 ⇒ 自动翻红需重新 ack;审面不再命中 ⇒ 按清单腐烂判红。放行的每一处都由门自己逐条打印,不静默。‖ 2026-10-16 销账记录:commit 27e3bbdfcc 所登三条(.DevEnv/cache/userhome/.codex/.tmp/plugins / .ihui-agent/desktop-feed-clone / outputs/ihui-bench-release)经审面三处现场均已消失(Test-Path 全 False,[208] 门清单腐烂判红),按门自身指示随现场销账 —— 非回退他席登记,是 §0.7『豁免必须随现场一起销』的必然处置;三处若复现在飞,由持有席按带 owner/why/到期日的完整格式重新登记。‖ 2026-10-17 复现重登记:三处现场在门 208 现读均复现(无豁免即红),按上句指令补登;三条的 owner/why/到期日已由独立复核重写(证据见本枚提交信息),到期日沿用前任 72h/72h/96h 口径而**不**给 3 个月长期豁免。‖ 2026-10-18 销账:三条豁免(.DevEnv/cache/userhome/.codex/.tmp/plugins / .ihui-agent/desktop-feed-clone / outputs/ihui-bench-release)的容器目录经现读全部消失(`[ -e <path> ]` 三处均无、`[ -e <path>/.git ]` 三处均无,全树 find -maxdepth 4 -name .git 只剩主仓自身)⇒ 门 208 按「审面不再命中 ⇒ 清单腐烂」blocking 红,按门自身指示随现场销账(entries 置空)。这不是回退他席登记:f73b5a3294b 那条重登记写明了\"到期或它不再命中都翻红,逼届时做真正的决定\",而\"真决定\"之一就是现场已没就摘册。其中 .ihui-agent/desktop-feed-clone 那条当初担心的「唯一存活载体」已另面复核:origin 上有 refs/tags/restore/desktop-feed 与 backup/cleanup-2026-09-17-desktop-feed、backup/cleanup-20260923-desktop-feed 三枚标签,内容不孤。三处若复现在飞,由持有席按带 owner/why/到期日的完整格式重新登记(判据未改,新出现的嵌套仓仍直接红)。 ‖ 2026-10-18 19:35 第四次复现复登记(本次在真实工作树面现读):三条容器目录用 [ -d <path>/.git ] + git -C <path> rev-parse 实测全部为真 —— ①Codex 插件缓存是 openai/plugins 独立克隆;②desktop-feed-clone 现读 ahead 1(20720828)且另有 2 个未提交修改;③ihui-bench-release 现读 ahead 1(00089ae)。故 15:21 那次「六问全否」的销账前提在 19:35 的现读已不成立(三处现场重新出现);此处不裁前次测量对错,只按当下现读与台账自身硬前置复登记,2026-10-25 到期再裁。三条均属 §7 删除三问不过的独立仓现场,一律不删。",
-  "entries": [
-    {
-      "rel": ".DevEnv/cache/userhome/.codex/.tmp/plugins",
-      "owner": "Codex 工具链(用户级插件缓存,§26 userhome 落点)",
-      "why": "github.com/openai/plugins 的独立克隆,属工具态不属于本仓工作树;删除会毁工具缓存",
-      "expires": "2026-10-25"
-    },
-    {
-      "rel": ".ihui-agent/desktop-feed-clone",
-      "owner": "desktop updater feed 发布线",
-      "why": "Gitee 镜像仓工作副本,现读 ahead 1 且有未提交修改,删除=丢未推送工作",
-      "expires": "2026-10-25"
-    },
-    {
-      "rel": "outputs/ihui-bench-release",
-      "owner": "ihui-bench 发布仓线",
-      "why": "IHUI-INF-AI/ihui-bench 独立克隆,HEAD 现读 ahead 1 未推送",
-      "expires": "2026-10-25"
-    }
-  ],
+  "$comment": "守门 208 (check-no-nested-git.mjs) 的具名豁免台账。AGENTS §0.7:豁免必须「验过才免」且会到期 —— 只有容器目录 rel 与条目**逐字等值**才放行(不做前缀/同名匹配);缺 owner/why 或到期日不是 YYYY-MM-DD ⇒ 整条作废;到期 ⇒ 自动翻红需重新 ack;审面不再命中 ⇒ 按清单腐烂判红。放行的每一处都由门自己逐条打印,不静默。‖ 2026-10-16 销账记录:commit 27e3bbdfcc 所登三条(.DevEnv/cache/userhome/.codex/.tmp/plugins / .ihui-agent/desktop-feed-clone / outputs/ihui-bench-release)经审面三处现场均已消失(Test-Path 全 False,[208] 门清单腐烂判红),按门自身指示随现场销账 —— 非回退他席登记,是 §0.7『豁免必须随现场一起销』的必然处置;三处若复现在飞,由持有席按带 owner/why/到期日的完整格式重新登记。‖ 2026-10-17 复现重登记:三处现场在门 208 现读均复现(无豁免即红),按上句指令补登;三条的 owner/why/到期日已由独立复核重写(证据见本枚提交信息),到期日沿用前任 72h/72h/96h 口径而**不**给 3 个月长期豁免。‖ 2026-10-18 销账:三条豁免(.DevEnv/cache/userhome/.codex/.tmp/plugins / .ihui-agent/desktop-feed-clone / outputs/ihui-bench-release)的容器目录经现读全部消失(`[ -e <path> ]` 三处均无、`[ -e <path>/.git ]` 三处均无,全树 find -maxdepth 4 -name .git 只剩主仓自身)⇒ 门 208 按「审面不再命中 ⇒ 清单腐烂」blocking 红,按门自身指示随现场销账(entries 置空)。这不是回退他席登记:f73b5a3294b 那条重登记写明了\"到期或它不再命中都翻红,逼届时做真正的决定\",而\"真决定\"之一就是现场已没就摘册。其中 .ihui-agent/desktop-feed-clone 那条当初担心的「唯一存活载体」已另面复核:origin 上有 refs/tags/restore/desktop-feed 与 backup/cleanup-2026-09-17-desktop-feed、backup/cleanup-20260923-desktop-feed 三枚标签,内容不孤。三处若复现在飞,由持有席按带 owner/why/到期日的完整格式重新登记(判据未改,新出现的嵌套仓仍直接红)。 ‖ 2026-10-18 19:35 第四次复现复登记(本次在真实工作树面现读):三条容器目录用 [ -d <path>/.git ] + git -C <path> rev-parse 实测全部为真 —— ①Codex 插件缓存是 openai/plugins 独立克隆;②desktop-feed-clone 现读 ahead 1(20720828)且另有 2 个未提交修改;③ihui-bench-release 现读 ahead 1(00089ae)。故 15:21 那次「六问全否」的销账前提在 19:35 的现读已不成立(三处现场重新出现);此处不裁前次测量对错,只按当下现读与台账自身硬前置复登记,2026-10-25 到期再裁。三条均属 §7 删除三问不过的独立仓现场,一律不删。 ‖ 2026-10-18 21:25 第六轮销账(entries 置空,本次现读逐字留档):19:51 复登记所依据的三处现场在本次现读**再次全部消失** —— `[ -d <容器目录> ]` 三处皆假 ∧ `[ -e <容器目录>/.git ]` 三处皆假,`find . -maxdepth 5 -name .git -not -path './.git' -not -path './node_modules/*'` 零命中(只剩主仓自身),而门 208 自己就按「审面不再命中 ⇒ 清单腐烂」把这条判成 blocking 红。`.DevEnv/` 连父目录都不在了(§15b 那条「仓树内的第二份工作副本必须移出工作区」的限期处置目标已由他席达成)。**本枚不裁 19:51 那次测量对错,只按当下现读随现场销账** —— 台账留着不会让现场回来,只会让每一个碰 `scripts/` 的人替一条与自己提交无关的红去跳门(§12e,而这正是本门头注自己禁的形态)。三处若再复现,按下面那条硬前置(先现读 `[ -e <容器目录>/.git ]`,不为真不许入册)重新登记。",
+  "entries": [],
   "$note": "2026-10-15 清空:此前 3 条(.DevEnv/cache/userhome/.codex/.tmp/plugins、.ihui-agent/desktop-feed-clone、outputs/ihui-bench-release)的容器目录实测都已不存在 ⇒ 门按\"审面不再命中 ⇒ 清单腐烂\"判红。判据未改:新出现的嵌套仓仍直接红,需要长期豁免者必须按 schema 补 owner/why/expires 的具名条目。 ‖ 2026-10-18 二次清空(同一组路径第四轮\"登记→现场消失→blocking 红\"):三条容器目录本次现读 `[ -e <path> ]` 与 `[ -e <path>/.git ]` 六问全否,`find -maxdepth 4 -name .git` 只剩主仓自身 ⇒ 按门体第 22 行指示随现场摘册,把 entries 置空,使其与本文件 $comment 里那条『2026-10-18 销账(entries 置空)』自述重新一致 —— 此前叙事说已置空、数组却仍挂着三条,这个自相矛盾本身就是门 208 天天判红的原因。摘册前逐条验过\"不孤\":`.ihui-agent/desktop-feed-clone` 的内容有标签 restore/desktop-feed(4494b5dcb28)与 desktop-updater-feed(eb9a29cfc5c)在本仓保底;`.DevEnv/` 那 2.5G 仓内副本的消失正是该条目自己写的限期处置目标(§15b 禁止仓树内落点)。⚠️ 一处遗留不归本枚:`outputs/ihui-bench-release` 条目当初点名的那枚未推送提交 `00089ae docs: 回填已发布仓库链接`,在主仓对象库(`git cat-file -t` 失败)与 origin 上都查不到,而它是自带独立 origin 的发布仓 —— 目录已随会话清理消失 ⇒ 是否已推到它自己的 origin,只有该发布线持有者能确认;此问按 §1『修不掉的写进提交信息交后手』登记于此,不作为摘册的前置条件(不为一笔查不到归属的疑点把一条 blocking 门长期留给所有人)。 ‖ 再登记这三条之前的硬前置:先现读 `[ -e <容器目录>/.git ]`,不为真 ⇒ 不许入册(这组路径已四次把门做成恒红)。判据本体未改:新出现的嵌套仓仍直接红。"
 }
