@@ -138,6 +138,9 @@ describe('子进程 env 边界', () => {
     });
 
     it('deny 形态集逐字钉死 —— 增删模式必须显式改本例并写下理由', () => {
+      // 2026-10-18 票2 拍板扩面:补 `*_CREDENTIAL*`(GOOGLE_APPLICATION_CREDENTIALS 等
+      // credential 族)—— 拍板口径"token/password/secret/key/credential 等一切凭据形态"
+      // 里此前缺 credential 一族;匹配顺序仍在 `*_KEY` 兜底之前。
       expect([...CREDENTIAL_SHAPE_BLOCKED_PATTERNS]).toEqual([
         '*_API_KEY',
         '*_SECRET',
@@ -152,10 +155,68 @@ describe('子进程 env 边界', () => {
         '*_TOKEN_FILE',
         '*_KEY_PATH',
         '*_KEY_FILE',
+        '*_CREDENTIAL*',
         '*_KEY',
       ]);
       // 默认表必须包含全部形态模式(同源拼装,不得漏拼)
       expect(DEFAULT_BLOCKED_ENV_VARS).toEqual(expect.arrayContaining([...CREDENTIAL_SHAPE_BLOCKED_PATTERNS]));
+    });
+
+    it('credential 形态收编(票2 拍板):*_CREDENTIAL* 族必须被剥(值不进子进程 env)', () => {
+      const CREDENTIAL_KEYS = [
+        'GOOGLE_APPLICATION_CREDENTIALS', // gcloud SDK 凭据文件路径
+        'DEPLOY_CREDENTIALS_FILE', // 中段形态(*_CREDENTIALS_FILE)
+        'MYAPP_CREDENTIAL', // 单数形态
+      ];
+      const previous = new Map<string, string | undefined>();
+      try {
+        for (const k of CREDENTIAL_KEYS) {
+          previous.set(k, process.env[k]);
+          process.env[k] = 'sentinel-value-not-a-real-credential';
+        }
+        const filtered = buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS);
+        for (const k of CREDENTIAL_KEYS) {
+          expect(filtered[k], `${k} 应当被宽 deny 剥除`).toBeUndefined();
+        }
+      } finally {
+        for (const [k, v] of previous) {
+          if (v === undefined) delete process.env[k];
+          else process.env[k] = v;
+        }
+      }
+    });
+
+    it('变异自证:把 *_CREDENTIAL* 模式从 deny 里摘掉,GOOGLE_APPLICATION_CREDENTIALS 必须幸存(证明剥除非恒真)', () => {
+      const SENTINEL = 'sentinel-value-not-a-real-credential';
+      const previous = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      try {
+        process.env.GOOGLE_APPLICATION_CREDENTIALS = SENTINEL;
+        const narrowed = buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS.filter((p) => p !== '*_CREDENTIAL*'));
+        expect(narrowed.GOOGLE_APPLICATION_CREDENTIALS).toBe(SENTINEL);
+        const current = buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS);
+        expect(current.GOOGLE_APPLICATION_CREDENTIALS).toBeUndefined();
+      } finally {
+        if (previous === undefined) delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+        else process.env.GOOGLE_APPLICATION_CREDENTIALS = previous;
+      }
+    });
+
+    it('豁免通道反证:交互终端白名单里 GOOGLE_* 越过 deny,credential 形态凭据在终端仍可用;我方 IHUI_* 不在豁免列,照剥', () => {
+      const previous = new Map<string, string | undefined>();
+      try {
+        for (const k of ['GOOGLE_APPLICATION_CREDENTIALS', 'IHUI_API_KEY']) {
+          previous.set(k, process.env[k]);
+          process.env[k] = 'sentinel-value-not-a-real-credential';
+        }
+        const filtered = buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS, TERMINAL_CLI_CREDENTIAL_ALLOWLIST);
+        expect(filtered.GOOGLE_APPLICATION_CREDENTIALS).toBe('sentinel-value-not-a-real-credential');
+        expect(filtered.IHUI_API_KEY).toBeUndefined();
+      } finally {
+        for (const [k, v] of previous) {
+          if (v === undefined) delete process.env[k];
+          else process.env[k] = v;
+        }
+      }
     });
 
     it('变异自证:把 *_KEY 模式从 deny 里摘掉,LIBTV_ACCESS_KEY 必须幸存(证明剥除非恒真)', () => {

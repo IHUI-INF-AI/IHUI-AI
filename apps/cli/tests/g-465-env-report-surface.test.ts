@@ -70,6 +70,9 @@ describe('G-465 报名面识别(detectSuspiciousEnvVars)', () => {
   });
 
   it('报名模式清单逐字钉死 —— 增删模式必须显式改本例并写下理由', () => {
+    // 2026-10-18 票2 拍板扩面:补 `*_CREDENTIAL*`(GOOGLE_APPLICATION_CREDENTIALS 等
+    // credential 族)—— 拍板口径"token/password/secret/key/credential 等一切凭据形态"
+    // 里此前缺 credential 一族;匹配顺序仍在 `*_KEY` 兜底之前。
     expect([...SUSPICIOUS_CREDENTIAL_ENV_PATTERNS]).toEqual([
       '*_SENDKEY',
       '*_AUTH_PAYLOAD_FILE',
@@ -80,6 +83,7 @@ describe('G-465 报名面识别(detectSuspiciousEnvVars)', () => {
       '*_TOKEN_FILE',
       '*_KEY_PATH',
       '*_KEY_FILE',
+      '*_CREDENTIAL*',
       '*_KEY',
     ]);
   });

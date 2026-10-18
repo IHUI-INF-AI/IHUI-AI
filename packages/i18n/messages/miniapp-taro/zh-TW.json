@@ -540,7 +540,8 @@
     "notifOff": "已關閉訊息通知",
     "accountSecurity": "賬號與安全",
     "goSetting": "前往設定",
-    "notificationEntry": "訊息通知"
+    "notificationEntry": "訊息通知",
+    "webPortal": "網頁版功能"
   },
   "bill": {
     "title": "學費帳單",
@@ -984,7 +985,7 @@
         "noAttendees": "請至少新增一位出席人"
       },
       "reason": "拒絕理由(可選)",
-        "fold": {
+      "fold": {
         "expand": "展開全部 {count} 位出席人",
         "collapse": "收合出席人"
       },
@@ -4434,5 +4435,139 @@
   },
   "VoiceInput": {
     "p1": "錄音啟動失敗"
+  },
+  "webViewPortal": {
+    "title": "Web 功能入口",
+    "hint": "以下為網頁版功能入口，將於內建瀏覽器開啟",
+    "sections": {
+      "eduAi": "教育 AI",
+      "edu": "教務管理 / 家長端",
+      "developer": "開發者平臺",
+      "selfMedia": "自媒體運營",
+      "knowledgeTools": "知識圖譜與工具",
+      "models": "模型平臺",
+      "more": "更多功能",
+      "workspace": "AI 工作臺",
+      "admin": "管理後台",
+      "analytics": "數據看板",
+      "docs": "文件與幫助",
+      "workflows": "工作流程與自動化",
+      "openPlatform": "開放平臺"
+    },
+    "eduAi": {
+      "policy": "政策解讀",
+      "certification": "認證中心",
+      "courses": "課程中心",
+      "aigcTools": "AIGC 工具",
+      "map": "學習地圖",
+      "marking": "AI 批改",
+      "outbound": "智能外呼",
+      "tbox": "T-Box",
+      "videoCompose": "影片合成",
+      "voice": "AI 語音"
+    },
+    "eduManagement": {
+      "schedule": "排課管理",
+      "attendance": "考勤管理",
+      "grades": "成績管理",
+      "homework": "作業管理",
+      "canteenProcurement": "食堂採購記帳"
+    },
+    "eduParent": "家長端",
+    "eduSchedule": "課表",
+    "developer": {
+      "keys": "API 金鑰",
+      "apiDocs": "API 文件",
+      "webhooks": "Webhook",
+      "logs": "呼叫日誌",
+      "billing": "帳單",
+      "relay": "Relay 閘道"
+    },
+    "selfMedia": {
+      "koubo": "口播稿",
+      "wechat": "公眾號",
+      "automation": "自動化"
+    },
+    "publish": {
+      "analytics": "發布分析",
+      "calendar": "發布日曆"
+    },
+    "knowledgeGraph": "知識圖譜",
+    "tools": {
+      "voiceStt": "語音轉文字",
+      "pdf": "PDF 工具"
+    },
+    "resources": "資源庫",
+    "stock": "股票行情",
+    "fundData": "基金行情",
+    "models": {
+      "overview": "模型總覽",
+      "keys": "模型金鑰",
+      "usage": "用量統計",
+      "prompts": "Prompt 管理",
+      "eval": "模型評測"
+    },
+    "workspace": "工作區",
+    "workspacePermissions": "工作區權限",
+    "tags": "標籤",
+    "topics": "話題",
+    "context": "上下文管理",
+    "traders": "交易員",
+    "members": "會員列表",
+    "lecturers": "講師",
+    "oauth": {
+      "authorized": "授權管理"
+    },
+    "enterprise": "企業服務",
+    "featureCenter": "能力中心",
+    "admin": {
+      "home": "管理後台首頁",
+      "dashboardStat": "數據概覽",
+      "users": "使用者管理",
+      "memberUsers": "會員管理",
+      "orders": "訂單管理",
+      "refund": "退款管理",
+      "wallet": "錢包管理",
+      "withdrawal": "提現管理",
+      "articles": "文章審核",
+      "eduCourse": "課程審核",
+      "eduExam": "試卷審核",
+      "live": "直播管理",
+      "point": "積分管理",
+      "news": "資訊管理",
+      "agents": "智慧代理人管理",
+      "feedbacks": "使用者反饋",
+      "ticket": "工單管理",
+      "configs": "系統設定"
+    },
+    "analytics": {
+      "dashboard": "數據看板",
+      "bi": "BI 看板",
+      "cost": "成本看板"
+    },
+    "docs": {
+      "home": "文件中心",
+      "quickstart": "快速上手",
+      "gettingStarted": "新手指南",
+      "faq": "常見問題",
+      "help": "幫助中心"
+    },
+    "openPlatform": {
+      "mcpStore": "MCP 市集",
+      "mcpProjects": "MCP 專案",
+      "connectors": "連接器生態",
+      "registry": "能力註冊表",
+      "apiTest": "API 偵錯",
+      "capabilityMarket": "能力市場"
+    },
+    "workflows": {
+      "home": "工作流程",
+      "editor": "工作流程編輯器",
+      "automations": "自動化任務",
+      "orchestration": "編排中心",
+      "schedule": "定時任務"
+    },
+    "knowledgeCards": "知識卡片",
+    "knowledgePlanet": "知識星球"
   }
 }
