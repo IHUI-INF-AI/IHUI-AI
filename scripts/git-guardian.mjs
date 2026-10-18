@@ -4170,12 +4170,18 @@ export function auditDeployStall(opts = {}) {
     // 其余一切读数(tip、live sha、成功时刻、落后小时数)都只进正文。
     const stallClass = String(p.liveSha || '').trim() ? 'behind' : 'no-marker'
     const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
-    notify(
+    const outcome = notify(
       '部署停摆(线上构建 vs origin/main)',
       `${String(p.why || '')}\n线上 ${String(p.liveSha || '(无标记)').slice(0, 12)} / tip ${String(p.tipSha || '?').slice(0, 12)}(来源 ${p.tipSource || '未标注'})\n最近一次成功部署 ${p.lastSuccessIso || '(取不到)'};阈值 ${p.thresholdMin} 分钟;本轮已落后 ${p.behindHours ?? '?'} 小时;本段停摆已持续 ${held.hours ?? '?'} 小时(档 ${held.tier})\n取证:node scripts/check-credential-health.mjs --stall-only --json(只读、零写盘、零发信)`,
       { severity: 'critical', dedupKey: `stall;class=${stallClass};held=${held.tier}` },
     )
-    logger(`❌ 部署停摆:已派发到邮件通道 —— ${String(p.why || '').slice(0, 140)}`)
+    // 日志必须分得出"真寄了"与"窗口内压住" —— 原先两支都写"已派发到邮件通道",
+    // 于是"这一轮有没有多寄一封"在日志里读不出来,而这正是本格改完之后唯一要看的那件事。
+    logger(
+      outcome && outcome.suppressed
+        ? `ℹ️ 部署停摆:同一场停摆窗口内已通报,本轮压住 —— ${String(p.why || '').slice(0, 140)}`
+        : `❌ 部署停摆:已派发到邮件通道 —— ${String(p.why || '').slice(0, 140)}`,
+    )
     return { ran: true, judged: true, ok: false, behindHours: p.behindHours }
   } catch (e) {
     logger('⚠️ 部署停摆派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
