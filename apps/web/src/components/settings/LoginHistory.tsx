@@ -11,6 +11,7 @@ import { History, Loader2, ChevronRight } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { buildQs, type PageData } from '@/lib/edu'
 
 interface SecurityLogItem {
@@ -27,8 +28,13 @@ export function LoginHistory() {
   const t = useTranslations('settings')
   const [recent, setRecent] = React.useState<SecurityLogItem | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const { allow } = useAuthGate()
 
   React.useEffect(() => {
+    if (!allow) {
+      setLoading(false)
+      return
+    }
     fetchApi<PageData<SecurityLogItem>>(
       '/settings/security-logs' + buildQs({ page: 1, pageSize: 1 }),
     )
@@ -39,7 +45,7 @@ export function LoginHistory() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [allow])
 
   return (
     <Card>

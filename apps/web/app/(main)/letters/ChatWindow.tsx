@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, MessageSquare, Send, Trash2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Button, Input } from '@ihui/ui-react'
 import { Alert, ConfirmDialog, Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -28,6 +29,7 @@ export function ChatWindow({ memberId, memberName }: ChatWindowProps) {
   const t = useTranslations('eduAi.letters')
   const tc = useTranslations('common')
   const queryClient = useQueryClient()
+  const { allow } = useAuthGate()
 
   const [draft, setDraft] = React.useState('')
   const [sending, setSending] = React.useState(false)
@@ -41,6 +43,7 @@ export function ChatWindow({ memberId, memberName }: ChatWindowProps) {
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey,
+    enabled: allow,
     queryFn: async () => {
       const qs = new URLSearchParams({
         page: '1',

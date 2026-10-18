@@ -11,6 +11,7 @@ import { Users, Loader2, ChevronRight } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import type { PageData } from '@/lib/edu'
 
 interface SessionInfo {
@@ -25,15 +26,20 @@ export function SessionManager() {
   const t = useTranslations('settings')
   const [count, setCount] = React.useState(0)
   const [loading, setLoading] = React.useState(true)
+  const { allow } = useAuthGate()
 
   React.useEffect(() => {
+    if (!allow) {
+      setLoading(false)
+      return
+    }
     fetchApi<PageData<SessionInfo>>('/settings/authorizations?page=1&pageSize=1')
       .then((res) => {
         if (res.success) setCount(res.data.total ?? 0)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [allow])
 
   return (
     <Card>
