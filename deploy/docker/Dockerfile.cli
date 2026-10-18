@@ -22,6 +22,8 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
 # cli 的 tsconfig extends 根 tsconfig.base.json,漏了它 typecheck/build 必挂(TS5083)
 COPY tsconfig.base.json ./
+# workspace 包 build 脚本经 scripts/lib/atomic-build.mjs 原子构建(其内部依赖 flag-value.mjs)
+COPY scripts/lib/atomic-build.mjs scripts/lib/flag-value.mjs scripts/lib/
 # 根 package.json 的 postinstall 要跑这个脚本;镜像只 COPY 清单文件,漏了它 pnpm install 必挂
 COPY scripts/fix-expo-metro-junction.mjs scripts/
 
