@@ -192,30 +192,13 @@ jobs:
             .loop-tmp/
           if-no-files-found: ignore
 
-      - name: 通知钉钉
-        if: failure()
-        env:
-          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
-        run: |
-          if [ -z "$DINGTALK_WEBHOOK" ]; then
-            echo "DINGTALK_WEBHOOK 未配置, 跳过"
-            exit 0
-          fi
-          curl -X POST "$DINGTALK_WEBHOOK" \
-            -H 'Content-Type: application/json' \
-            -d "{\"msgtype\":\"markdown\",\"markdown\":{\"title\":\"Loop L1 失败\",\"text\":\"## Loop L1 daily-triage 失败\n- 仓库: ${{ github.repository }}\n- 详情: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}}"
-
-      - name: 通知飞书
-        if: failure()
-        env:
-          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
-        run: |
-          if [ -z "$FEISHU_WEBHOOK" ]; then
-            echo "FEISHU_WEBHOOK 未配置, 跳过"
-            exit 0
-          fi
-          curl -X POST "$FEISHU_WEBHOOK" \
-            -H 'Content-Type: application/json' \
-            -d "{\"msg_type\":\"interactive\",\"card\":{\"header\":{\"title\":{\"tag\":\"plain_text\",\"content\":\"Loop L1 失败\"},\"template\":\"red\"},\"elements\":[{\"tag\":\"div\",\"text\":{\"tag\":\"lark_md\",\"content\":\"**仓库:** ${{ github.repository }}\"}}]}}"
+      # 2026-10-18 摘除「通知钉钉」「通知飞书」两步(原 195-219 行)。
+      # 依据是机主已定的 §5e:「告警/运维到人只有邮件一条通道,第三方推送腿已整体摘除」——
+      # 这两条腿是那次收口的**残余**,而且不是死代码:只要本 workflow 失败 ∧ 对应 secret 非空,
+      # 就会真往钉钉/飞书 POST(secret 是否已登记本机无从取证:匿名 GET /actions/secrets → 401)。
+      # 两步各自还带"secret 为空即 exit 0"的分支 ⇒ "跳过了"与"发了"在 CI 结论上同形,
+      # 这正是本仓记过最多次的失效型(安静)。摘除后本 workflow 的失败由 GitHub Actions 自身的
+      # 通知 + 下面这个缺口台账条目承担;要给这一面装邮件腿,按 AGENTS §24 先要机主点头。
+      # 登记:scripts/data/alert-mail-faces.json(loop-daily-triage 面,inScope:false,带到期日)。
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
