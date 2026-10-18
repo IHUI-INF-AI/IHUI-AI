@@ -405,3 +405,5 @@ export * from './endpoints/patrol.js'
 
 // GitHub App 管理端点(2026-09-26 立,D15④:admin 安装台账 + 配置状态)
 export * from './endpoints/admin-github-app.js'
+// D43 语音笔记端点(2026-10-18,第②格):各端不得再在端内裸 fetch /api/voice-notes。
+export * from './endpoints/voice-note.js'
