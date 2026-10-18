@@ -621,7 +621,14 @@ test('形状锁:聚合告警的名字里不许再带计数,公网身份必须走
   const src = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
   assert.doesNotMatch(src, /`元运维巡检红\(\$\{/, '名字带 N 格 = 每轮新身份(实测 34 封/5 天)')
   assert.doesNotMatch(src, /`服务自愈动作\(\$\{/, '同型:拉起/失败台数进名字')
-  assert.match(src, /dedupKey: `cells=\$\{[^`]+\};tier=\$\{alertCountTier/, '元运维巡检身份 = 格子集合 + 档位')
+  assert.match(
+    src,
+    /cells0=\$\{pinnedArr\.join\('\+'\)\};new=\$\{newIds\.join\('\+'\)/,
+    '元运维巡检身份 = 本段**起点**格集合 + 起点外新格(集合本身会随愈合而变,2026-10-19 实测 46 分钟 3 封)',
+  )
+  assert.match(src, /const tier = alertCountTier\(Math\.max\(Number\(ep\.meta\.count\) \|\| 0, findings\.length\)\)/, '计数档取起点与本轮里较坏的那一档:恶化必报,愈合不重报')
+  assert.doesNotMatch(src, /dedupKey: `cells=\$\{findings\.map/, '身份里带"本轮红格集合"= 好了一半就再寄一封')
+  assert.match(src, /clearUndeterminedStreak\(join\(WORKTREE, '\.workbuddy', 'ops-patrol-episode-first\.json'\)\)/, '零红必须摘起点,否则下一场刚冒头就进高档')
   assert.match(src, /dedupKey: `service-heal;svcs=[^`]+;acted=\$\{alertCountTier/, '服务自愈身份 = 服务集合 + 两档')
   assert.match(src, /classifyAlertIdentity\(key,/, '公网探测身份只准调归一那一份实现,不得在派发层另拼')
   assert.doesNotMatch(src, /legs=\$\{Number\(parsed\.legs\)/, '隧道腿数不得以原始值进身份')
