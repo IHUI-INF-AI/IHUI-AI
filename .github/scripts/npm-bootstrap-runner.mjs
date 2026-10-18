@@ -53,31 +53,46 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 async function waitPastCloudflare(page, maxMs = 150000) {
   const t0 = Date.now()
   let clicked = 0
+  let dumped = false
   while (Date.now() - t0 < maxMs) {
     const title = await page.title().catch(() => '')
     if (!/just a moment|请稍候|performing security|attention required/i.test(title)) return true
-    // 1) iframe 内选择器点击(Turnstile 自绘控件,勾选框是 label 不是 input)
+    // 0) 拦截页组件在【主文档】内(非 iframe):#challenge-stage / .ctp-checkbox-label
+    for (const sel of [
+      'label.ctp-checkbox-label',
+      '#challenge-stage label',
+      '#challenge-form label',
+      '#challenge-stage .ctp-checkbox-label',
+      'input[type="checkbox"]',
+    ]) {
+      try {
+        const loc = page.locator(sel).first()
+        if (await loc.isVisible({ timeout: 500 })) {
+          await loc.click({ timeout: 2000, force: true })
+          clicked++
+          console.log(`CF-CLICK main sel=${sel} round=${clicked}`)
+          break
+        }
+      } catch {}
+    }
+    // 1) iframe 内兜底
     for (const fr of page.frames()) {
       if (fr.url().includes('challenges.cloudflare')) {
-        for (const sel of ['.ctp-checkbox-label', 'label.ctp-checkbox-label', '#challenge-stage', 'body']) {
+        for (const sel of ['.ctp-checkbox-label', 'label.ctp-checkbox-label', 'body']) {
           try {
             const loc = fr.locator(sel).first()
-            if (await loc.isVisible({ timeout: 800 })) {
-              const box = await loc.boundingBox()
-              if (box && clicked < 12) {
-                // iframe 内坐标 → 页面坐标由 playwright 处理(frame.click 语义)
-                await fr.locator(sel).first().click({ timeout: 2000, force: true })
-                clicked++
-                console.log(`CF-CLICK frame sel=${sel} round=${clicked}`)
-                break
-              }
+            if (await loc.isVisible({ timeout: 500 })) {
+              await loc.click({ timeout: 2000, force: true })
+              clicked++
+              console.log(`CF-CLICK frame sel=${sel} round=${clicked}`)
+              break
             }
           } catch {}
         }
       }
     }
-    // 2) 页面级坐标兜底(截实证:勾选框在视口 ~16.5%,39.2% 处)
-    if (clicked < 12) {
+    // 2) 页面级坐标兜底
+    if (clicked < 8) {
       const vp = page.viewportSize()
       const cx = Math.round(vp.width * 0.165)
       const cy = Math.round(vp.height * 0.392)
@@ -88,7 +103,21 @@ async function waitPastCloudflare(page, maxMs = 150000) {
         console.log(`CF-CLICK viewport(${cx},${cy}) round=${clicked}`)
       } catch {}
     }
-    await sleep(5000)
+    // 3) 取证:主文档挑战组件结构(只 dump 一次)
+    if (!dumped && clicked >= 4) {
+      try {
+        const html = await page.evaluate(() => {
+          const el =
+            document.querySelector('#challenge-stage') ||
+            document.querySelector('#challenge-form') ||
+            document.querySelector('#challenge-errors')
+          return el ? el.outerHTML.slice(0, 1200) : 'NO-STAGE: ' + document.body.innerHTML.slice(0, 600)
+        })
+        console.log('CF-DOM=' + html.replace(/\s+/g, ' '))
+      } catch {}
+      dumped = true
+    }
+    await sleep(6000)
   }
   return false
 }
