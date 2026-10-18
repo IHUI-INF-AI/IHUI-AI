@@ -89,12 +89,12 @@ export const JSON_KEY_TO_FIELD = {
  * - navFront ← --color-primary:AGENTS §4 明文 primary 在 web 端兼任墨色(亮 hsl(0 0% 0%) /
  *   暗 hsl(0 0% 100%)),与两份副本现值逐位同。
  * - windowBg(light)← --color-background:theme.ts 头注原文即「background hsl(0 0% 96.1%) = #f5f5f5」。
- * - tabColor(light)← --color-text-tertiary(#a3a3a3)、tabColor(dark)← .dark --color-muted-foreground
- *   (hsl(0 0% 63.9%) = #a3a3a3):两侧现值同为灰 400 但**语义不同档** —— 亮档"三级文字"、暗档
- *   "弱化前景",这正是 theme.ts 注释各自写明的一侧;不得并成一个 token(亮 muted-foreground=#666666、
- *   暗 text-tertiary=#737373,任选一边都会改掉一份在端上的色)。
- * - tabSelected ← --color-brand-accent:亮 #8fb8cc / 暗 #a3c4d6,即 2026-09-14 用户定稿的全项目
- *   统一强调色(commit 861ea43e27「跨端强调色定稿高级灰蓝(#8fb8cc/#a3c4d6)」)。
+ * - tabColor ← --color-text-tertiary(亮 #a3a3a3 / 暗 #737373)、tabSelected ← --color-foreground
+ *   (亮 hsl(0 0% 3.9%) = #0a0a0a / 暗 hsl(0 0% 98%) = #fafafa):2026-10-16 用户定稿
+ *   「底部菜单液态玻璃 + 深色中性配色」(浅紫方案同轮作废)。tabColor 是 tabBar 未选中
+ *   图标/文字的渲染色,tabSelected 是选中态渲染色 —— 与 mobile-rn/TabBar.tsx 同两档
+ *   (未选中 text.tertiary / 选中 text.primary),也与小程序 custom-tab-bar 的
+ *   var(--color-text-tertiary) / var(--color-foreground) 同源。
  */
 export const CHROME_DERIVATION = {
   light: {
@@ -102,13 +102,13 @@ export const CHROME_DERIVATION = {
     navFront: '--color-primary',
     windowBg: '--color-background',
     tabColor: '--color-text-tertiary',
-    tabSelected: '--color-brand-accent',
+    tabSelected: '--color-foreground',
     tabBg: '--color-card',
   },
   dark: {
     navFront: '--color-primary',
-    tabColor: '--color-muted-foreground',
-    tabSelected: '--color-brand-accent',
+    tabColor: '--color-text-tertiary',
+    tabSelected: '--color-foreground',
     tabBg: '--color-card',
   },
 }
@@ -459,6 +459,7 @@ function selfTest() {
   --color-card: hsl(0 0% 100%);
   --color-primary: hsl(0 0% 0%);
   --color-background: hsl(0 0% 96.1%);
+  --color-foreground: hsl(0 0% 3.9%);
   --color-text-tertiary: #a3a3a3;
   --color-brand-accent: #8fb8cc;
 }
@@ -467,8 +468,10 @@ function selfTest() {
   --color-card: hsl(0 0% 10%);
   --color-primary: hsl(0 0% 100%);
   --color-background: hsl(0 0% 14%);
+  --color-foreground: hsl(0 0% 98%);
   --color-muted-foreground: hsl(0 0% 63.9%);
   --color-brand-accent: #a3c4d6;
+  --color-text-tertiary: #737373;
 }`
   const themeJson = `{
   "light": {
@@ -477,7 +480,7 @@ function selfTest() {
     "bgColor": "#f5f5f5",
     "bgTxtStyle": "light",
     "tabColor": "#A3A3A3",
-    "tabSelectedColor": "#8fb8cc",
+    "tabSelectedColor": "#0A0A0A",
     "tabBgColor": "#ffffff",
     "tabBorderStyle": "white"
   },
@@ -486,8 +489,8 @@ function selfTest() {
     "navTxtStyle": "white",
     "bgColor": "#262626",
     "bgTxtStyle": "dark",
-    "tabColor": "#a3a3a3",
-    "tabSelectedColor": "#a3c4d6",
+    "tabColor": "#737373",
+    "tabSelectedColor": "#fafafa",
     "tabBgColor": "#1a1a1a",
     "tabBorderStyle": "black"
   }
@@ -501,7 +504,7 @@ function selfTest() {
     navFront: '#000000',
     windowBg: '#f5f5f5',
     tabColor: '#A3A3A3',
-    tabSelected: '#8fb8cc',
+    tabSelected: '#0A0A0A',
     tabBg: '#ffffff',
     tabBorder: 'white',
   },
@@ -509,8 +512,8 @@ function selfTest() {
     navBg: '#262626',
     navFront: '#ffffff',
     windowBg: '#262626',
-    tabColor: '#a3a3a3',
-    tabSelected: '#a3c4d6',
+    tabColor: '#737373',
+    tabSelected: '#fafafa',
     tabBg: '#1a1a1a',
     tabBorder: 'black',
   },
@@ -523,10 +526,10 @@ function selfTest() {
   ok('S3 派生 18 处 / 登记 4 处(JSON 色键 5+3 面、TS 6+6 面)', base.counts.derived + base.counts.registered === 22, `derived=${base.counts.derived} registered=${base.counts.registered}`)
 
   // S4 阳性对照:改一个 token ⇒ 两份副本都该跟着改(syncCopies 精确点名)
-  const movedTokens = tokens.replace('--color-brand-accent: #8fb8cc;', '--color-brand-accent: #135799;')
+  const movedTokens = tokens.replace('--color-foreground: hsl(0 0% 3.9%);', '--color-foreground: #135799;')
   const s4 = syncCopies({ tokensCss: movedTokens, themeJson, themeTs })
   ok(
-    'S4 改 --color-brand-accent 后两份副本各恰 1 处待写回',
+    'S4 改 --color-foreground 后两份副本各恰 1 处待写回',
     s4.jsonRewrites.length === 1 && s4.tsRewrites.length === 1 && s4.blocking.length === 0,
     JSON.stringify(s4.jsonRewrites) + JSON.stringify(s4.tsRewrites)
   )
@@ -540,7 +543,7 @@ function selfTest() {
   ok('S8 #A3A3A3 vs 派生 #a3a3a3:同色不同字节 ⇒ 保留原字节,首次运行 0 改动', s_base_noop(s4, themeJson, themeTs, tokens))
 
   // S9 手改副本 ⇒ drifted 点名文件与字段
-  const tampered = themeJson.replace('"tabSelectedColor": "#8fb8cc"', '"tabSelectedColor": "#ff0000"')
+  const tampered = themeJson.replace('"tabSelectedColor": "#0A0A0A"', '"tabSelectedColor": "#ff0000"')
   const s9 = checkChrome({ tokensCss: tokens, themeJson: tampered, themeTs })
   ok('S9 手改 theme.json 派生字段 ⇒ 判漂移且点名文件+字段', s9.failures.length === 1 && s9.failures[0].kind === 'drifted' && s9.failures[0].target === THEME_JSON_REL && s9.failures[0].where === 'light.tabSelectedColor', JSON.stringify(s9.failures))
 
@@ -577,12 +580,12 @@ function selfTest() {
   ok('S14 theme.json 冒出新色键 ⇒ unregistered 点名', s14.failures.length === 1 && s14.failures[0].kind === 'unregistered' && s14.failures[0].where === 'dark.searchBgColor', JSON.stringify(s14.failures))
 
   // S15 源头缺档 ⇒ 无法判定(undetermined 计数,不冒红也不记绿)
-  const starved = tokens.replace('--color-text-tertiary: #a3a3a3;', '')
+  const starved = tokens.replaceAll('--color-text-tertiary: #a3a3a3;', '')
   const s15 = checkChrome({ tokensCss: starved, themeJson, themeTs })
   ok('S15 源头档缺失 ⇒ undetermined 而非静默通过', s15.failures.some((f) => f.kind === 'undeterminedInfo') && s15.counts.undetermined >= 1, JSON.stringify(s15.failures.map((f) => f.kind)))
 
   // S16 rgba 类不可表达 ⇒ undetermined(原生 chrome 只能 #rrggbb)
-  const rgba = tokens.replace('--color-brand-accent: #8fb8cc;', '--color-brand-accent: rgba(143, 184, 204, 0.5);')
+  const rgba = tokens.replace('--color-foreground: hsl(0 0% 3.9%);', '--color-foreground: rgba(143, 184, 204, 0.5);')
   const s16 = checkChrome({ tokensCss: rgba, themeJson, themeTs })
   ok('S16 归一后不是 #rrggbb ⇒ undetermined,绝不静默写入', s16.failures.some((f) => f.kind === 'undeterminedInfo'), JSON.stringify(s16.failures.map((f) => f.kind)))
 
