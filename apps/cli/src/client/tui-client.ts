@@ -11,7 +11,7 @@
  * 交互模式:startTuiInteractive 启动 readline 循环,输入 /quit 退出。
  */
 
-import wsModule from 'ws';
+import { WebSocket as WsClientNamed } from 'ws';
 import * as readline from 'node:readline';
 import chalk from 'chalk';
 import type { AgentEvent } from '../server/agent-core.js';
@@ -93,15 +93,22 @@ function nextStreamId(): string {
 }
 
 function loadWsClient(): WsClientCtor | null {
-  const mod = wsModule as unknown as { WebSocket?: WsClientCtor };
-  return mod.WebSocket ?? null;
+  /**
+   * 取具名档,不取"默认导出的 .WebSocket":ws 的 `exports.import` 指向 wrapper.mjs,它只
+   * `export default WebSocket`(裸类),`.WebSocket` 那枚别名是 CJS 档 index.js 才挂上去的 ——
+   * 于是默认档在 ESM / tsx / vitest 这一路恒拿不到属性,曾被当成「ws 包未安装」喊出去
+   * (依赖其实既在 package.json 也在 lock 里)。具名档四条路都验证过:ESM wrapper、CJS index 别名、
+   * esbuild `--format=cjs` 的 SEA 产物、CI 现用形态。缺包走不到这一行(静态导入在加载期就报错),
+   * 所以这里的 null 只可能是"载入形态不认识",文案不得再教人去 pnpm add 一枚已声明的依赖。
+   */
+  return typeof WsClientNamed === 'function' ? (WsClientNamed as unknown as WsClientCtor) : null;
 }
 
 export async function connectToServer(opts: TuiClientOptions): Promise<TuiClient> {
   const WsCtor = loadWsClient();
   if (!WsCtor) {
     throw new Error(
-      'ws 包未安装,TUI client 无法启动。请运行:pnpm --filter ihui-cli add ws && pnpm --filter ihui-cli add -D @types/ws',
+      'ws 载入形态不认识:具名 WebSocket 不是构造函数(不是"没装"—— ws 已在 apps/cli 的 dependencies 与 lock 里;缺包会在加载期就报 ERR_MODULE_NOT_FOUND)',
     );
   }
 

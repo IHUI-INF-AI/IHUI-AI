@@ -5,140 +5,614 @@
 'use client'
 
 /**
- * 监控面板(/admin/monitor/panels)—— Grafana 21 张监控大屏的项目内入口。
+ * 监控面板(/admin/monitor/panels)—— 21 张监控大屏的原生项目内渲染页。
  *
- * 背景(2026-10-18):Grafana 原生(127.0.0.1:8816)承载 21 张监控盘的详细面板;
- * 本页把它们嵌进管理后台(管理 → 数据看板 → 监控面板),与自研 HUD 页
- * /admin/monitor/wallboard(生产监控大屏)互补:wallboard 是单页总览,
- * 本页是全量明细下钻。
- *
- * 数据面:iframe 内嵌 Grafana kiosk 模式(只读,匿名 Viewer 已在
- * D:/DevEnv/monitor/grafana/grafana.ini 开启 enabled + allow_embedding)。
- * Grafana 地址解析优先级:NEXT_PUBLIC_GRAFANA_BASE 环境变量 > 当前页面
- * hostname + :8816(同机与 LAN 访问均成立,依赖 Grafana 监听 0.0.0.0)。
+ * 2026-10-18 按李总指示「彻底融合进项目,不可以单独搞出一个程序」重写:
+ * 不再 iframe 内嵌 Grafana,改为
+ *   页面(本文件,项目自己的 EChart 组件) → /api/admin/monitor-panels/query
+ *   → Prometheus(8815) / Loki(3100) 直查出图。
+ * Grafana 降级为 headless 配置源:表达式由 scripts/generate-monitor-panels.mjs
+ * 从 monitoring/grafana/dashboards/*.json 转译进 dashboard-config.generated.ts,
+ * 运行时用户完全不接触 Grafana。零假数据:所有曲线/数字都来自真实指标。
  */
 import * as React from 'react'
-import { ExternalLink, PanelLeft } from 'lucide-react'
+import { RefreshCw, AlertTriangle } from 'lucide-react'
+import type { EChartsOption } from 'echarts'
 
 import { cn } from '@/lib/utils'
+import { fetchApi } from '@/lib/api'
+import { EChart } from '@/components/charts/EChart'
+import {
+  MONITOR_DASHBOARDS,
+  PANEL_GROUPS,
+  type NativePanel,
+  type PanelTarget,
+} from './dashboard-config.generated'
 
-interface PanelDef {
-  uid: string
-  title: string
-  group: string
+// ---------- 数据形状(与 /api/admin/monitor-panels/query 响应对齐) ----------
+
+interface QueryResult {
+  ref: string
+  series: Array<{ labels: Record<string, string>; points: Array<[number, number]> }>
+  logs?: Array<{ ts: number; line: string; labels: Record<string, string> }>
+  error?: string
 }
 
-const PANELS: PanelDef[] = [
-  { uid: 'ihui-ai-overview', title: 'AI 运行全景', group: 'AI 可观测' },
-  { uid: 'ihui-ai-ai-agent', title: 'Agent 与工具链路', group: 'AI 可观测' },
-  { uid: 'ihui-ai-ai-cost', title: '模型成本与用量', group: 'AI 可观测' },
-  { uid: 'ihui-ai-ai-latency', title: '模型延迟分布', group: 'AI 可观测' },
-  { uid: 'ihui-ai-ai-logs', title: '智能体与模型日志', group: 'AI 可观测' },
-  { uid: 'ihui-ai-alert-history', title: '告警历史与趋势', group: 'AI 可观测' },
-  { uid: 'ihui-ai-business-funnel', title: '业务漏斗', group: '业务' },
-  { uid: 'ihui-ai-payment-flow', title: '支付漏斗监控', group: '业务' },
-  { uid: 'ihui-ai-tenant-usage', title: '多租户业务监控', group: '业务' },
-  { uid: 'ihui-ai-exam-usage', title: '考试业务监控', group: '业务' },
-  { uid: 'ihui-ai-live-room', title: '直播业务监控', group: '业务' },
-  { uid: 'ihui-ai-auth-security', title: '认证安全监控', group: '业务' },
-  { uid: 'ihui-ai-ws', title: 'WebSocket 监控', group: '业务' },
-  { uid: 'ihui-ai-bullmq', title: '任务队列监控', group: '基础设施' },
-  { uid: 'ihui-ai-cache', title: '缓存监控', group: '基础设施' },
-  { uid: 'ihui-ai-hls', title: 'HLS 直播流监控', group: '基础设施' },
-  { uid: 'ihui-ai-oss-storage', title: '对象存储监控', group: '基础设施' },
-  { uid: 'ihui-ai-postgresql', title: 'PostgreSQL 监控', group: '基础设施' },
-  { uid: 'ihui-ai-pg-deploy', title: '数据库运行态', group: '基础设施' },
-  { uid: 'ihui-ai-redis-cluster', title: 'Redis 实例监控', group: '基础设施' },
-  { uid: 'ihui-ai-monitor-health', title: '监控系统健康', group: '基础设施' },
-]
+// ---------- 时间窗与步长 ----------
 
-const GROUPS = Array.from(new Set(PANELS.map((p) => p.group)))
+const RANGES = [
+  { label: '1小时', seconds: 3600 },
+  { label: '3小时', seconds: 3 * 3600 },
+  { label: '6小时', seconds: 6 * 3600 },
+  { label: '24小时', seconds: 24 * 3600 },
+  { label: '7天', seconds: 7 * 86400 },
+] as const
 
-export default function MonitorPanelsPage() {
-  const [base, setBase] = React.useState('')
-  const [activeUid, setActiveUid] = React.useState<string>(PANELS[0]!.uid)
-  const [navOpen, setNavOpen] = React.useState(true)
+const AUTO_REFRESH_MS = 30_000
 
-  React.useEffect(() => {
-    setBase(
-      process.env.NEXT_PUBLIC_GRAFANA_BASE ||
-        `${window.location.protocol}//${window.location.hostname}:8816`,
-    )
-  }, [])
+/** Grafana 模板占位符按时间窗换算($__interval/$__range;generator 已把 $__rate_interval 归一为 $__interval)。 */
+function materializeExpr(expr: string, rangeSec: number, stepSec: number): string {
+  return expr
+    .replace(/\$__range/g, `${rangeSec}s`)
+    .replace(/\$__interval/g, `${stepSec}s`)
+}
 
-  const active = PANELS.find((p) => p.uid === activeUid) ?? PANELS[0]!
-  const iframeSrc = base ? `${base}/d/${active.uid}/?kiosk&theme=dark&refresh=30s` : undefined
+function stepFor(rangeSec: number): number {
+  return Math.max(15, Math.round(rangeSec / 180))
+}
+
+// ---------- 数值格式化(Grafana unit 语义子集) ----------
+
+function fmtCompact(v: number): string {
+  const a = Math.abs(v)
+  if (a >= 1e9) return `${(v / 1e9).toFixed(2)}B`
+  if (a >= 1e6) return `${(v / 1e6).toFixed(2)}M`
+  if (a >= 1e3) return `${(v / 1e3).toFixed(1)}k`
+  if (a === 0) return '0'
+  if (a < 0.01) return v.toExponential(1)
+  if (a < 1) return v.toFixed(3)
+  return a < 100 ? v.toFixed(2) : v.toFixed(0)
+}
+
+function fmtBytes(v: number): string {
+  const u = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+  let i = 0
+  let n = Math.abs(v)
+  while (n >= 1024 && i < u.length - 1) {
+    n /= 1024
+    i++
+  }
+  return `${n.toFixed(i === 0 ? 0 : 1)} ${u[i]}`
+}
+
+function fmtDuration(v: number): string {
+  if (v < 1) return `${(v * 1000).toFixed(0)}ms`
+  if (v < 90) return `${v.toFixed(1)}s`
+  if (v < 5400) return `${(v / 60).toFixed(1)}m`
+  if (v < 172800) return `${(v / 3600).toFixed(1)}h`
+  return `${(v / 86400).toFixed(1)}d`
+}
+
+function fmtValue(v: number | null | undefined, unit?: string): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return '—'
+  switch (unit) {
+    case 'percent':
+      return `${v.toFixed(1)}%`
+    case 'percentunit':
+      return `${(v * 100).toFixed(1)}%`
+    case 'bytes':
+      return fmtBytes(v)
+    case 'seconds':
+    case 's':
+      return fmtDuration(v)
+    case 'ms':
+      return `${v.toFixed(v < 10 ? 2 : 0)}ms`
+    case 'currencyCNY':
+      return `¥${fmtCompact(v)}`
+    case 'bool':
+      return v > 0 ? '是' : '否'
+    default:
+      return fmtCompact(v)
+  }
+}
+
+/** Grafana legendFormat 的 {{label}} 替换;空模板回退为标签串。 */
+function legendOf(target: PanelTarget, labels: Record<string, string>): string {
+  const named = target.legend.replace(/\{\{([^}]+)\}\}/g, (_, k: string) => labels[k.trim()] ?? '?')
+  if (target.legend && !named.includes('{{') && named !== target.legend) return named
+  if (target.legend && named === target.legend) {
+    // 模板变量未命中(标签缺失),回退拼接
+    const parts = Object.entries(labels)
+      .filter(([k]) => k !== 'job' && k !== 'instance' && k !== '__name__')
+      .map(([k, v]) => `${k}=${v}`)
+    if (parts.length) return parts.join(', ')
+  }
+  if (!target.legend) {
+    const v = labels.__name__ ?? Object.values(labels)[0] ?? ''
+    return v
+  }
+  return named
+}
+
+// ---------- 图表配色(HUD 青色系为主) ----------
+
+const PALETTE = ['#22d3ee', '#a78bfa', '#34d399', '#fbbf24', '#f87171', '#60a5fa', '#f472b6', '#4ade80']
+const AXIS = '#3f4c63'
+const TEXT = '#94a3b8'
+
+function baseTimeOption(): EChartsOption {
+  return {
+    backgroundColor: 'transparent',
+    grid: { left: 8, right: 12, top: 24, bottom: 4, containLabel: true },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: '#111a2c',
+      borderColor: '#1e3a5f',
+      textStyle: { color: '#cbd5e1', fontSize: 11 },
+    },
+    xAxis: {
+      type: 'time',
+      axisLine: { lineStyle: { color: AXIS } },
+      axisLabel: { color: TEXT, fontSize: 10, hideOverlap: true },
+      splitLine: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { color: TEXT, fontSize: 10 },
+      splitLine: { lineStyle: { color: '#16213a' } },
+    },
+  }
+}
+
+// ---------- 单面板渲染 ----------
+
+/** 结果键:panelIdx*1000+targetIdx,保证跨面板唯一(targetIdx 仅面板内唯一)。 */
+const rkey = (panelIdx: number, targetIdx: number) => panelIdx * 1000 + targetIdx
+
+function PanelCard({
+  panel,
+  panelIdx,
+  results,
+  loading,
+}: {
+  panel: NativePanel
+  panelIdx: number
+  results: Map<number, QueryResult>
+  loading: boolean
+}) {
+  const errs = panel.targets.map((_, i) => results.get(rkey(panelIdx, i))?.error).filter(Boolean) as string[]
+  const hasData = panel.targets.some((_, i) => {
+    const r = results.get(rkey(panelIdx, i))
+    return panel.kind === 'logs' ? (r?.logs?.length ?? 0) > 0 : (r?.series?.length ?? 0) > 0
+  })
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-[#0b1220] text-slate-100">
-      {/* 顶栏 */}
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-white/10 px-4">
-        <PanelLeft
-          className="size-4 cursor-pointer text-slate-400 hover:text-slate-100"
-          onClick={() => setNavOpen((v) => !v)}
+    <div
+      className={cn(
+        'rounded-lg border border-[#1b2a45] bg-[#0b1220] p-3',
+        panel.span === 'full' ? 'md:col-span-2' : 'md:col-span-1',
+      )}
+    >
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <h3 className="truncate text-[13px] font-medium text-slate-200">{panel.title}</h3>
+        {errs.length > 0 && (
+          <span className="shrink-0 text-[10px] text-amber-400" title={errs.join('; ')}>
+            <AlertTriangle className="mr-0.5 inline h-3 w-3" />
+            查询异常
+          </span>
+        )}
+      </div>
+      {loading && !hasData ? (
+        <div className="flex h-[220px] items-center justify-center text-xs text-slate-500">加载中…</div>
+      ) : !hasData ? (
+        <div className="flex h-[220px] items-center justify-center text-xs text-slate-500">
+          {errs[0] ? '上游查询失败' : '当前时间窗内暂无数据'}
+        </div>
+      ) : (
+        <PanelBody panel={panel} panelIdx={panelIdx} results={results} />
+      )}
+    </div>
+  )
+}
+
+function PanelBody({ panel, panelIdx, results }: { panel: NativePanel; panelIdx: number; results: Map<number, QueryResult> }) {
+  if (panel.kind === 'logs') return <LogsBody panel={panel} panelIdx={panelIdx} results={results} />
+  if (panel.kind === 'stat') return <StatBody panel={panel} panelIdx={panelIdx} results={results} unit={panel.unit} />
+  if (panel.kind === 'table') return <TableBody panel={panel} panelIdx={panelIdx} results={results} unit={panel.unit} />
+  if (panel.kind === 'gauge') return <GaugeBody panel={panel} panelIdx={panelIdx} results={results} unit={panel.unit} />
+  if (panel.kind === 'pie') return <PieBody panel={panel} panelIdx={panelIdx} results={results} />
+
+  // timeseries(含 barchart 转译)
+  const series: Array<{ name: string; type: 'line'; showSymbol: boolean; data: Array<[number, number]>; lineStyle: { width: number }; areaStyle?: Record<string, string> }> = []
+  panel.targets.forEach((t, ti) => {
+    const r = results.get(rkey(panelIdx, ti))
+    r?.series.forEach((s) => {
+      series.push({
+        name: legendOf(t, s.labels),
+        type: 'line',
+        showSymbol: false,
+        data: s.points.map(([ts, v]) => [ts * 1000, v] as [number, number]),
+        lineStyle: { width: 1.5 },
+        areaStyle: { color: 'rgba(34,211,238,0.06)' },
+      })
+    })
+  })
+  if (!series.length) return <EmptyBody />
+  const option: EChartsOption = {
+    ...baseTimeOption(),
+    legend: { show: series.length > 1, top: 0, left: 'right', textStyle: { color: TEXT, fontSize: 10 }, itemWidth: 12, itemHeight: 8 },
+    color: PALETTE,
+    series,
+  }
+  return <EChart option={option} height={panel.span === 'full' ? 260 : 220} />
+}
+
+function EmptyBody() {
+  return <div className="flex h-[220px] items-center justify-center text-xs text-slate-500">当前时间窗内暂无数据</div>
+}
+
+function StatBody({ panel, panelIdx, results, unit }: { panel: NativePanel; panelIdx: number; results: Map<number, QueryResult>; unit?: string }) {
+  const stats: Array<{ name: string; value: number }> = []
+  panel.targets.forEach((t, ti) => {
+    const r = results.get(rkey(panelIdx, ti))
+    r?.series.forEach((s) => {
+      const last = s.points[s.points.length - 1]
+      if (last) stats.push({ name: legendOf(t, s.labels), value: last[1] })
+    })
+  })
+  if (!stats.length) return <EmptyBody />
+  const shown = stats.slice(0, 4)
+  return (
+    <div className={cn('grid gap-2', shown.length > 1 ? 'grid-cols-2' : 'grid-cols-1')}>
+      {shown.map((s, i) => (
+        <div key={i} className="rounded-md bg-[#0f1a30] px-3 py-2">
+          <div className="truncate text-[11px] text-slate-500">{s.name}</div>
+          <div className="mt-0.5 font-mono text-2xl font-semibold text-cyan-300">{fmtValue(s.value, unit)}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function GaugeBody({ panel, panelIdx, results, unit }: { panel: NativePanel; panelIdx: number; results: Map<number, QueryResult>; unit?: string }) {
+  const gauges: Array<{ name: string; value: number; max: number }> = []
+  panel.targets.forEach((t, ti) => {
+    const r = results.get(rkey(panelIdx, ti))
+    r?.series.forEach((s) => {
+      const last = s.points[s.points.length - 1]
+      if (!last) return
+      const peak = Math.max(...s.points.map((p) => p[1]))
+      const max = unit === 'percent' || unit === 'percentunit' ? (unit === 'percentunit' ? 1 : 100) : Math.max(peak * 1.25, last[1] * 1.25, 1e-9)
+      gauges.push({ name: legendOf(t, s.labels), value: last[1], max })
+    })
+  })
+  if (!gauges.length) return <EmptyBody />
+  const shown = gauges.slice(0, 2)
+  return (
+    <div className={cn('grid gap-2', shown.length > 1 ? 'grid-cols-2' : 'grid-cols-1')}>
+      {shown.map((g, i) => (
+        <EChart
+          key={i}
+          height={200}
+          option={
+            {
+              backgroundColor: 'transparent',
+              series: [
+                {
+                  type: 'gauge',
+                  startAngle: 210,
+                  endAngle: -30,
+                  min: 0,
+                  max: g.max,
+                  radius: '95%',
+                  axisLine: { lineStyle: { width: 10, color: [[1, '#16213a']] } },
+                  pointer: { length: '55%', width: 4, itemStyle: { color: '#22d3ee' } },
+                  axisTick: { show: false },
+                  splitLine: { show: false },
+                  axisLabel: { show: false },
+                  title: { show: true, offsetCenter: [0, '70%'], color: TEXT, fontSize: 10 },
+                  detail: {
+                    valueAnimation: false,
+                    offsetCenter: [0, '35%'],
+                    formatter: () => fmtValue(g.value, unit),
+                    color: '#67e8f9',
+                    fontSize: 18,
+                    fontWeight: 600,
+                  },
+                  data: [{ value: g.value, name: g.name }],
+                },
+              ],
+            } as EChartsOption
+          }
         />
-        <h1 className="text-sm font-semibold tracking-wide">监控面板 · {active.title}</h1>
-        <span className="rounded bg-cyan-500/15 px-2 py-0.5 text-[11px] text-cyan-300">
-          Grafana 只读
-        </span>
-        <div className="flex-1" />
-        {iframeSrc ? (
-          <a
-            href={`${base}/d/${active.uid}/`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-100"
-          >
-            <ExternalLink className="size-3.5" />
-            新窗口打开
-          </a>
-        ) : null}
-      </header>
+      ))}
+    </div>
+  )
+}
 
-      <div className="flex min-h-0 flex-1">
-        {/* 左侧盘面选择 */}
-        {navOpen ? (
-          <nav className="w-56 shrink-0 overflow-y-auto border-r border-white/10 p-2">
-            {GROUPS.map((group) => (
-              <div key={group} className="mb-3">
-                <div className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wider text-slate-500">
-                  {group}
-                </div>
-                {PANELS.filter((p) => p.group === group).map((p) => (
-                  <button
-                    key={p.uid}
-                    type="button"
-                    onClick={() => setActiveUid(p.uid)}
-                    className={cn(
-                      'block w-full rounded px-2 py-1.5 text-left text-[13px] transition-colors',
-                      p.uid === activeUid
-                        ? 'bg-cyan-500/20 text-cyan-200'
-                        : 'text-slate-300 hover:bg-white/5',
-                    )}
-                  >
-                    {p.title}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </nav>
-        ) : null}
+function PieBody({ panel, panelIdx, results }: { panel: NativePanel; panelIdx: number; results: Map<number, QueryResult> }) {
+  const slices: Array<{ name: string; value: number }> = []
+  panel.targets.forEach((t, ti) => {
+    const r = results.get(rkey(panelIdx, ti))
+    r?.series.forEach((s) => {
+      const last = s.points[s.points.length - 1]
+      if (last) slices.push({ name: legendOf(t, s.labels), value: last[1] })
+    })
+  })
+  if (!slices.length) return <EmptyBody />
+  return (
+    <EChart
+      height={220}
+      option={
+        {
+          backgroundColor: 'transparent',
+          color: PALETTE,
+          tooltip: { trigger: 'item', backgroundColor: '#111a2c', borderColor: '#1e3a5f', textStyle: { color: '#cbd5e1', fontSize: 11 } },
+          legend: { orient: 'vertical', right: 4, top: 'middle', textStyle: { color: TEXT, fontSize: 10 }, itemWidth: 10, itemHeight: 7 },
+          series: [
+            {
+              type: 'pie',
+              radius: ['45%', '72%'],
+              center: ['38%', '50%'],
+              label: { show: false },
+              data: slices,
+            },
+          ],
+        } as EChartsOption
+      }
+    />
+  )
+}
 
-        {/* Grafana kiosk 内嵌 */}
-        <main className="min-h-0 min-w-0 flex-1">
-          {iframeSrc ? (
-            <iframe
-              key={activeUid}
-              src={iframeSrc}
-              title={`Grafana - ${active.title}`}
-              className="size-full border-0"
-            />
-          ) : (
-            <div className="flex size-full items-center justify-center text-sm text-slate-500">
-              正在连接 Grafana…
+function TableBody({ panel, panelIdx, results, unit }: { panel: NativePanel; panelIdx: number; results: Map<number, QueryResult>; unit?: string }) {
+  const rows: Array<{ name: string; value: string }> = []
+  panel.targets.forEach((t, ti) => {
+    const r = results.get(rkey(panelIdx, ti))
+    r?.series.forEach((s) => {
+      const last = s.points[s.points.length - 1]
+      if (last) rows.push({ name: legendOf(t, s.labels), value: fmtValue(last[1], unit) })
+    })
+  })
+  if (!rows.length) return <EmptyBody />
+  return (
+    <div className="max-h-[220px] overflow-auto">
+      <table className="w-full text-left text-[11px]">
+        <thead>
+          <tr className="text-slate-500">
+            <th className="px-2 py-1 font-normal">序列</th>
+            <th className="px-2 py-1 text-right font-normal">当前值</th>
+          </tr>
+        </thead>
+        <tbody className="font-mono">
+          {rows.slice(0, 40).map((r, i) => (
+            <tr key={i} className="border-t border-[#16213a] text-slate-300">
+              <td className="max-w-[280px] truncate px-2 py-1">{r.name}</td>
+              <td className="px-2 py-1 text-right text-cyan-300">{r.value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function LogsBody({ panel, panelIdx, results }: { panel: NativePanel; panelIdx: number; results: Map<number, QueryResult> }) {
+  const lines: Array<{ ts: number; line: string }> = []
+  panel.targets.forEach((_, ti) => {
+    const r = results.get(rkey(panelIdx, ti))
+    r?.logs?.forEach((l) => lines.push({ ts: l.ts, line: l.line }))
+  })
+  if (!lines.length) return <EmptyBody />
+  lines.sort((a, b) => b.ts - a.ts)
+  const t0 = new Date(lines[0]!.ts)
+  return (
+    <div className="max-h-[240px] space-y-0.5 overflow-auto font-mono text-[11px] leading-relaxed">
+      {lines.slice(0, 120).map((l, i) => {
+        const d = new Date(l.ts)
+        const sameDay = d.toDateString() === t0.toDateString()
+        return (
+          <div key={i} className="flex gap-2 border-b border-[#101a2e] pb-0.5">
+            <span className="shrink-0 text-slate-600">
+              {sameDay ? d.toLocaleTimeString('zh-CN', { hour12: false }) : d.toLocaleString('zh-CN', { hour12: false })}
+            </span>
+            <span className="whitespace-pre-wrap break-all text-slate-300">{l.line}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ---------- 页面主体 ----------
+
+export default function MonitorPanelsPage() {
+  const [activeUid, setActiveUid] = React.useState<string>(MONITOR_DASHBOARDS[0]!.uid)
+  const [rangeSec, setRangeSec] = React.useState<number>(RANGES[1].seconds)
+  const [autoRefresh, setAutoRefresh] = React.useState(true)
+  const [loading, setLoading] = React.useState(false)
+  const [pageError, setPageError] = React.useState('')
+  const [results, setResults] = React.useState<Map<number, QueryResult>>(new Map())
+  const [updatedAt, setUpdatedAt] = React.useState<Date | null>(null)
+  const [navOpen, setNavOpen] = React.useState(true)
+
+  const dashboard = MONITOR_DASHBOARDS.find((d) => d.uid === activeUid) ?? MONITOR_DASHBOARDS[0]!
+
+  const load = React.useCallback(
+    async (uid: string, rSec: number) => {
+      const dash = MONITOR_DASHBOARDS.find((d) => d.uid === uid)
+      if (!dash) return
+      setLoading(true)
+      setPageError('')
+      const queries: Array<{
+        ref: string
+        expr: string
+        backend: 'prometheus' | 'loki'
+        rangeSeconds?: number
+        stepSeconds?: number
+      }> = []
+      const flat: Array<{ panelIdx: number; targetIdx: number }> = []
+      const stepSec = stepFor(rSec)
+      dash.panels.forEach((p, pi) => {
+        // stat/gauge 用即时查询(最新值);其余走区间查询
+        const instant = p.kind === 'stat' || p.kind === 'gauge' || p.kind === 'table'
+        p.targets.forEach((t, ti) => {
+          queries.push({
+            ref: `q${queries.length}`,
+            expr: materializeExpr(t.expr, rSec, stepSec),
+            backend: p.backend,
+            ...(instant ? {} : { rangeSeconds: rSec, stepSeconds: stepSec }),
+          })
+          flat.push({ panelIdx: pi, targetIdx: ti })
+        })
+      })
+      const next = new Map<number, QueryResult>()
+      try {
+        // API 单次上限 96 条,分批
+        for (let i = 0; i < queries.length; i += 96) {
+          const batch = queries.slice(i, i + 96)
+          const res = await fetchApi<{ results: QueryResult[] }>('/api/admin/monitor-panels/query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ queries: batch }),
+            timeoutMs: 60_000,
+          })
+          if (!res.success || !res.data) {
+            setPageError(res.error || '查询失败')
+            break
+          }
+          res.data.results.forEach((r, bi) => {
+            const f = flat[i + bi]
+            if (f) next.set(rkey(f.panelIdx, f.targetIdx), r)
+          })
+        }
+        setResults(next)
+        setUpdatedAt(new Date())
+      } finally {
+        setLoading(false)
+      }
+    },
+    [],
+  )
+
+  React.useEffect(() => {
+    void load(activeUid, rangeSec)
+  }, [activeUid, rangeSec, load])
+
+  React.useEffect(() => {
+    if (!autoRefresh) return
+    const t = setInterval(() => void load(activeUid, rangeSec), AUTO_REFRESH_MS)
+    return () => clearInterval(t)
+  }, [autoRefresh, activeUid, rangeSec, load])
+
+  return (
+    <div className="flex h-[calc(100vh-64px)] overflow-hidden rounded-lg border border-[#1b2a45] bg-[#070d1a]">
+      {/* 左侧导航:21 张盘,按分组 */}
+      <aside
+        className={cn(
+          'shrink-0 overflow-y-auto border-r border-[#16213a] bg-[#0a101f] transition-all',
+          navOpen ? 'w-56' : 'w-12',
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setNavOpen((v) => !v)}
+          className="w-full px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 hover:text-cyan-300"
+        >
+          {navOpen ? '监控大屏 (21)' : '»'}
+        </button>
+        {PANEL_GROUPS.map((group) => {
+          const boards = MONITOR_DASHBOARDS.filter((d) => d.group === group)
+          if (!boards.length) return null
+          return (
+            <div key={group} className="mb-2">
+              {navOpen && (
+                <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-600">{group}</div>
+              )}
+              {boards.map((d) => (
+                <button
+                  key={d.uid}
+                  type="button"
+                  onClick={() => setActiveUid(d.uid)}
+                  className={cn(
+                    'block w-full truncate px-3 py-1.5 text-left text-xs transition-colors',
+                    navOpen ? '' : 'px-3',
+                    d.uid === activeUid
+                      ? 'border-l-2 border-cyan-400 bg-[#0f1a30] text-cyan-300'
+                      : 'border-l-2 border-transparent text-slate-400 hover:bg-[#0d1626] hover:text-slate-200',
+                  )}
+                  title={d.title}
+                >
+                  {navOpen ? d.title : d.title.slice(0, 2)}
+                </button>
+              ))}
             </div>
-          )}
-        </main>
+          )
+        })}
+      </aside>
+
+      {/* 主区域 */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* 顶栏 */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#16213a] bg-[#0a101f] px-4 py-2.5">
+          <h2 className="text-sm font-semibold text-slate-100">{dashboard.title}</h2>
+          <span className="rounded bg-[#0f1a30] px-1.5 py-0.5 text-[10px] text-slate-500">
+            {dashboard.panels.length} 面板
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="flex overflow-hidden rounded border border-[#1b2a45]">
+              {RANGES.map((r) => (
+                <button
+                  key={r.seconds}
+                  type="button"
+                  onClick={() => setRangeSec(r.seconds)}
+                  className={cn(
+                    'px-2.5 py-1 text-[11px] transition-colors',
+                    rangeSec === r.seconds ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-400 hover:text-slate-200',
+                  )}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setAutoRefresh((v) => !v)}
+              className={cn(
+                'flex items-center gap-1 rounded border px-2 py-1 text-[11px]',
+                autoRefresh
+                  ? 'border-cyan-500/40 text-cyan-300'
+                  : 'border-[#1b2a45] text-slate-500 hover:text-slate-300',
+              )}
+            >
+              <RefreshCw className={cn('h-3 w-3', autoRefresh && 'animate-spin')} style={autoRefresh ? { animationDuration: '3s' } : undefined} />
+              30s 自动
+            </button>
+            <button
+              type="button"
+              onClick={() => void load(activeUid, rangeSec)}
+              disabled={loading}
+              className="rounded border border-[#1b2a45] px-2 py-1 text-[11px] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-50"
+            >
+              刷新
+            </button>
+            {updatedAt && (
+              <span className="text-[10px] text-slate-600">更新于 {updatedAt.toLocaleTimeString('zh-CN', { hour12: false })}</span>
+            )}
+          </div>
+        </div>
+
+        {pageError && (
+          <div className="border-b border-amber-500/20 bg-amber-500/5 px-4 py-1.5 text-[11px] text-amber-400">{pageError}</div>
+        )}
+
+        {/* 面板网格 */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {dashboard.panels.map((p, pi) => (
+              <PanelCard key={p.id} panel={p} panelIdx={pi} results={results} loading={loading} />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
