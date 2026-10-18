@@ -60,8 +60,9 @@ import {
   TEMPFAIL_EXIT_CODE,
 } from './lib/signal-exit.mjs'
 // G-406 ②:反向依赖闭包的门 103 已有那份文件级图(边解析只有这一份实现),
-// 本门只**消费** widenOverDependents,不自己再实现一遍边判定。
-import { buildFileGraph, widenOverDependents } from './lib/import-graph.mjs'
+// 本门只**消费** lib 的反向依赖闭包判据,不自己再实现一遍边判定(2026-10-18 L14546 后,
+// 通用判据 widenFilesOverDependents 已提升到 lib,本门固定 face='worktree' 薄封装)。
+import { buildFileGraph, widenFilesOverDependents } from './lib/import-graph.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -159,39 +160,10 @@ function getHeadDiffFiles() {
 //     建图要 4~25 秒且只认真仓,不许单元测试里真建一次图。生产调用不传该参,
 //     走默认值 —— 缝只开在"怎么建图"这一层,判据本身(闭包/退回/可见理由)无可绕。
 function widenScopeOverDependents(files, { buildGraph = buildFileGraph } = {}) {
-  if (!Array.isArray(files) || files.length === 0) {
-    return { files, added: [], widened: false, reason: 'scope 为空,无需加宽' }
-  }
-  let graph
-  try {
-    graph = buildGraph({ face: 'worktree', root: ROOT })
-  } catch (e) {
-    return {
-      files,
-      added: [],
-      widened: false,
-      reason: `建图失败(${(e && e.message) || e})——退回未加宽 scope(=改前行为)`,
-    }
-  }
-  try {
-    const w = widenOverDependents(files, graph)
-    return {
-      files: w.closure,
-      added: w.added,
-      widened: w.added.length > 0,
-      reason:
-        w.added.length > 0
-          ? `闭包 seed=${w.seedCount} → ${w.closure.length}(新增消费者 ${w.added.length})`
-          : '闭包为空(本次改动无人 import),scope 逐字不变',
-    }
-  } catch (e) {
-    return {
-      files,
-      added: [],
-      widened: false,
-      reason: `闭包计算失败(${(e && e.message) || e})——退回未加宽 scope(=改前行为)`,
-    }
-  }
+  // 通用判据在 lib/import-graph.mjs::widenFilesOverDependents(2026-10-18 L14546 守门触发
+  // 全量铺开反向依赖闭包时同源提升);本门判工作树**要编译**的范围 ⇒ 固定 face='worktree',
+  // 经此薄封装保持原返回形状(files/added/widened/reason)与失败语义不变。
+  return widenFilesOverDependents(files, { face: 'worktree', root: ROOT, buildGraph })
 }
 
 /** 从 tsc/mypy 错误输出中提取报错文件路径(tsc 为 package 相对路径,mypy 可能为绝对路径),去重 */
