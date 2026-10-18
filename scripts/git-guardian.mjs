@@ -4084,11 +4084,17 @@ export function auditTunnelLegHealth(opts = {}) {
  * 并点名原因(发一封"我什么都没量到"的信是把噪音冒充成告警)。尺子那一档**零写盘零发信**,
  * 本格是它唯一的人到出口。
  *
- * 身份 = `tip + 最近一次成功部署时刻`:停摆期间同一枚 tip、同一个成功时刻 ⇒ 同一身份,由 4 小时窗
- * 压住;环又成功部署了一次而线上仍落后 ⇒ 那是**新事实**,立刻重报。清偿 = `level` 回到 `ok`
- * (线上追平),此后这一身份不再产生。
+ * 身份 = **故障类别**(线上无构建标记 / 线上落后)× **拖了多久折档**(见 `alertHeldTier`)。
+ * 2026-10-18 改:原写法把 `tip 前缀 + 最近一次成功部署时刻` 拼进身份,两个分量在这台机上每轮都变
+ * —— 当日 361 枚提交推进 origin/main,而成功时刻又被尺子读成环自己的"距上次部署完成 N 分钟,本轮
+ * 跳过"节流行(见 `collectStallInputs` 里那条注释)⇒ 每量一轮都是新故障,4 小时窗从没生效过,
+ * 实测 18 封/天。这正是本文件 `alertCountTier` 头注与 §5e-1 明令禁止的形态("实时读数进正文,
+ * 不进身份")。判据一个字没动:线上确实落后 origin/main,该红照红;改的只是**同一段红寄几封**。
+ * 清偿 = `level` 回到 `ok`(线上追平)并清掉起点;起点件由 `noteUndeterminedStreak`/
+ * `clearUndeterminedStreak` 这一份通用件维护,未判定不续命也不清零。
  */
 const DEPLOY_STALL_TICK = join(WORKTREE, '.workbuddy', 'deploy-stall-tick.ts')
+const DEPLOY_STALL_FIRST = join(WORKTREE, '.workbuddy', 'deploy-stall-first.json')
 const DEPLOY_STALL_INTERVAL_MS = Number(process.env.IHUI_DEPLOY_STALL_INTERVAL_MS || 15 * 60 * 1000)
 const DEPLOY_STALL_TIMEOUT_MS = Number(process.env.IHUI_DEPLOY_STALL_TIMEOUT_MS || 120_000)
 
@@ -4097,6 +4103,7 @@ export function auditDeployStall(opts = {}) {
     now = Date.now(),
     intervalMs = DEPLOY_STALL_INTERVAL_MS,
     tickFile = DEPLOY_STALL_TICK,
+    firstFile = DEPLOY_STALL_FIRST,
     logger = log,
     notify = notifyGuardRed,
     runner = null,
@@ -4155,13 +4162,18 @@ export function auditDeployStall(opts = {}) {
       return { ran: true, judged: false, why: '尺子自报未判定' }
     }
     if (p.level === 'ok') {
+      clearUndeterminedStreak(firstFile)
       logger(`✅ 部署停摆:绿(线上 ${String(p.liveSha || '(无)').slice(0, 9)},最近成功 ${p.lastSuccessIso || '?'})`)
       return { ran: true, judged: true, ok: true }
     }
+    // 类别只取"人能做的动作"不同的那两种:标记缺失要先查线上产物,落后要先查环为什么不切流。
+    // 其余一切读数(tip、live sha、成功时刻、落后小时数)都只进正文。
+    const stallClass = String(p.liveSha || '').trim() ? 'behind' : 'no-marker'
+    const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
     notify(
       '部署停摆(线上构建 vs origin/main)',
-      `${String(p.why || '')}\n线上 ${String(p.liveSha || '(无标记)').slice(0, 12)} / tip ${String(p.tipSha || '?').slice(0, 12)}(来源 ${p.tipSource || '未标注'})\n最近一次成功部署 ${p.lastSuccessIso || '(取不到)'};阈值 ${p.thresholdMin} 分钟;本轮已落后 ${p.behindHours ?? '?'} 小时\n取证:node scripts/check-credential-health.mjs --stall-only --json(只读、零写盘、零发信)`,
-      { severity: 'critical', dedupKey: `stall;tip=${String(p.tipSha || '').slice(0, 12)};lastSuccess=${p.lastSuccessIso || '-'}` },
+      `${String(p.why || '')}\n线上 ${String(p.liveSha || '(无标记)').slice(0, 12)} / tip ${String(p.tipSha || '?').slice(0, 12)}(来源 ${p.tipSource || '未标注'})\n最近一次成功部署 ${p.lastSuccessIso || '(取不到)'};阈值 ${p.thresholdMin} 分钟;本轮已落后 ${p.behindHours ?? '?'} 小时;本段停摆已持续 ${held.hours ?? '?'} 小时(档 ${held.tier})\n取证:node scripts/check-credential-health.mjs --stall-only --json(只读、零写盘、零发信)`,
+      { severity: 'critical', dedupKey: `stall;class=${stallClass};held=${held.tier}` },
     )
     logger(`❌ 部署停摆:已派发到邮件通道 —— ${String(p.why || '').slice(0, 140)}`)
     return { ran: true, judged: true, ok: false, behindHours: p.behindHours }
