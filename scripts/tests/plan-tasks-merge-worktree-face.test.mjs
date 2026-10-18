@@ -99,7 +99,7 @@ function mkFixture(opts = {}) {
 }
 
 function runHeal(scripts, args = []) {
-  return spawnSync(process.execPath, [join(scripts, 'plan-tasks-merge.mjs'), ...args], { stdio: ['ignore', 'pipe', 'pipe'],
+  return spawnSync(process.execPath, [join(scripts, 'plan-tasks-merge.mjs'), ...args], {
     encoding: 'utf8',
     timeout: 180000,
     windowsHide: true,

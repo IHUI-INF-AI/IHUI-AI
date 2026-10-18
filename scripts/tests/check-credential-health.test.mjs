@@ -285,9 +285,11 @@ const stamp = (minAgo) => {
   const d = new Date(NOW - minAgo * 60000)
   return `[${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} +00:00]`
 }
-const successLine = (minAgo) => `${stamp(minAgo)} [deploy] === 部署完成,HEAD=x 活跃组=win(8801/8802/8803) ===`
+const successLine = (minAgo) => `${stamp(minAgo)} [deploy] === 部署完成,HEAD=abcdef0123 活跃组=win(8801/8802/8803) ===`
 const roundEndLine = (minAgo) => `${stamp(minAgo)} ———— 部署轮询结束(exit=0) ————`
 const midRoundLine = (minAgo) => `${stamp(minAgo)} [deploy] next build 进行中…`
+// 环在攒批窗口内每 60 秒写一行这一型(2026-10-18 实测它把裸"部署完成"的取法骗成"刚刚成功过")
+const throttleSkipLine = (minAgo) => `${stamp(minAgo)} [loop] 距上次部署完成 ${minAgo.toFixed(1)} 分钟 < 最小间隔 30 分钟,本轮跳过(攒批,等下一轮)`
 
 /** 造一枚只含停摆取材所需两路输入的最小仓(线上标记 + 部署流水) */
 function makeStallRepo({ buildSha, logLines, withLog = true } = {}) {
@@ -561,6 +563,23 @@ test('T18 源码锁:deployStallCheck 走 judgeStallReadout 一份裁定,且不�
   assert.doesNotMatch(coll, /join\(repo,\s*'apps',\s*'web',\s*'\.next'/, '线上标记不得再从仓内根取')
   assert.doesNotMatch(coll, /join\(repo,\s*'deploy',\s*'win'/, '心跳台账不得再从仓内根取')
   assert.match(coll, /prodCheckoutRoot\(|prodDeployLoopLog\(/, '两个 oracle 必须都走生产根解析器')
+})
+
+// T19(2026-10-18 立):成功史只认真实完成行。
+// 立因:当天 16:37 之后环被 WIP 挡住再没成功过,而尺子报的"最近成功部署"是 17:06 —— 那一行原文
+// 是「[loop] 距上次部署完成 29.0 分钟 < 最小间隔 30 分钟,本轮跳过」。裸"部署完成"把攒批跳过读成
+// 成功 ⇒ ①信里的落后小时数是假的,②每分钟前移的成功时刻一旦进告警身份就是每轮新故障(实测 18 封/天)。
+test('T19 攒批跳过节流行不得冒充成功史;真实完成行的取法必须成对钉住', () => {
+  const onlySkip = readoutAt(makeStallRepo({ buildSha: SHA_LIVE, logLines: [throttleSkipLine(1), roundEndLine(0)] }))
+  assert.equal(onlySkip.input.lastSuccessIso, '', '跳过节流行不是成功史 ⇒ 留空,不得冒充"刚刚成功过"')
+  assert.equal(onlySkip.readout.level, 'fail', '线上落后 + 日志里找不到一次真实完成 ⇒ 停摆,不得被假成功史压成绿')
+  assert.match(onlySkip.readout.why, /找不到一次成功部署/, '结论必须点名"没有成功史"而不是给个 0 小时冒充没落后')
+  const withReal = readoutAt(
+    makeStallRepo({ buildSha: SHA_LIVE, logLines: [successLine(120), throttleSkipLine(60), roundEndLine(59)] }),
+  )
+  assert.match(withReal.input.lastSuccessIso, /^\d{4}-\d{2}-\d{2}T/, '反向对照:同一夹具补一行真实完成 ⇒ 必须读得到时刻')
+  assert.equal(withReal.readout.behindHours, 2, '落后小时数按真实完成时刻算(2 小时),不是按节流行的分钟数算')
+  assert.match(withReal.readout.why, /2\.0 小时/)
 })
 
 function askedHasRepoNext(askedList) {
