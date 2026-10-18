@@ -51,6 +51,7 @@ import { CheckpointManager } from '../checkpoints/index.js';
 import {
   listManagedClients,
   getManagedClient,
+  reconnectManagedClient,
 } from '../tools/mcp-runtime.js';
 
 /** 审批选项入参(kind 收敛为 ACP PermissionOptionKind 子集) */
@@ -486,6 +487,13 @@ interface McpCallToolParams {
   arguments?: Record<string, unknown>;
 }
 
+/** P1-6 `x.ai/mcp/reconnect` 请求参数(O46 拍板 B:命令层手动重连) */
+interface McpReconnectParams {
+  sessionId?: string;
+  /** 要强制重连的 MCP server 名称 */
+  serverName: string;
+}
+
 /** P1-6 单个 MCP server 状态快照(对齐 ManagedMcpClient.getStatus() 返回值) */
 interface McpServerStatus {
   serverName: string;
@@ -512,6 +520,15 @@ interface McpCallToolResponse {
   /** tool 输出(content 数组中的 text 拼接) */
   output: string;
   /** 失败时的错误消息 */
+  error?: string;
+}
+
+/** `x.ai/mcp/reconnect` 响应(O46 命令层手动重连) */
+interface McpReconnectResponse {
+  /** 重连后(或重连失败当时)的状态快照;server 未注册时为 null */
+  server: McpServerStatus | null;
+  success: boolean;
+  /** 重连失败时的错误消息(原样回传,不静默吞、不自动 Retry) */
   error?: string;
 }
 
@@ -1039,6 +1056,34 @@ export class IhuiAcpAgent {
     }
   }
 
+  /**
+   * `x.ai/mcp/reconnect` — 命令层手动重连(O46 拍板 B,非自动 Retry):
+   * 强制断开并立即重建指定 server 的连接,返回重连后状态。
+   * - server 未注册 → success=false + error(对调用方友好降级)
+   * - 重连失败 → success=false + error + 当时状态(不抛异常,也不静默吞红)
+   * - 成功 → success=true + 重连后状态
+   */
+  async mcpReconnect(params: McpReconnectParams): Promise<McpReconnectResponse> {
+    const client = getManagedClient(params.serverName);
+    if (!client) {
+      return {
+        server: null,
+        success: false,
+        error: `MCP server 未注册: ${params.serverName}`,
+      };
+    }
+    try {
+      await reconnectManagedClient(params.serverName);
+      return { server: client.getStatus(), success: true };
+    } catch (err) {
+      return {
+        server: client.getStatus(),
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
   /** 内部:根据 sessionId 查找 AcpSessionState,不存在则抛错 */
   private requireSession(sessionId: string): AcpSessionState {
     const state = this.sessions.get(sessionId);
@@ -1156,6 +1201,11 @@ function createAcpAgent(opts: AcpServerOptions): acp.AgentApp {
       castParams<McpCallToolParams>(),
       (ctx) => agent.mcpCallTool(ctx.params),
     )
+    .onRequest<McpReconnectParams, McpReconnectResponse>(
+      'x.ai/mcp/reconnect',
+      castParams<McpReconnectParams>(),
+      (ctx) => agent.mcpReconnect(ctx.params),
+    )
     .onNotification('session/cancel', (ctx) => agent.cancel(ctx.params));
 }
 
@@ -1181,6 +1231,8 @@ export type {
   McpServerStatusResponse,
   McpCallToolParams,
   McpCallToolResponse,
+  McpReconnectParams,
+  McpReconnectResponse,
   McpServerStatus,
 };
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

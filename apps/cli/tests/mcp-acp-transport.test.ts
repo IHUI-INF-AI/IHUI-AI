@@ -21,6 +21,7 @@ import {
   type McpListServersResponse,
   type McpServerStatusResponse,
   type McpCallToolResponse,
+  type McpReconnectResponse,
 } from '../src/acp/server.js';
 import {
   ManagedMcpClient,
@@ -280,6 +281,77 @@ describe('ACP x.ai/mcp/callTool', () => {
       'tools/call',
       { name: 'noargs', arguments: {} },
     );
+  });
+});
+
+describe('ACP x.ai/mcp/reconnect', () => {
+  let agent: IhuiAcpAgent;
+
+  beforeEach(() => {
+    clearManagedClients();
+    agent = new IhuiAcpAgent({
+      apiUrl: 'http://localhost:8803',
+      modelId: 'test',
+      maxIterations: 10,
+    });
+  });
+
+  afterEach(() => {
+    clearManagedClients();
+  });
+
+  it('未注册 server → success=false + server=null + 未注册提示', async () => {
+    const resp: McpReconnectResponse = await agent.mcpReconnect({
+      serverName: 'not-exist',
+    });
+    expect(resp.success).toBe(false);
+    expect(resp.server).toBeNull();
+    expect(resp.error).toContain('未注册');
+  });
+
+  it('已注册 server → 强制断开并重建(connectFn 第二次被调用,不只是复用旧连接)', async () => {
+    // 每次返回新连接对象(真实 connectFn 语义);断开会把旧对象 connected 置 false,
+    // 若复用同一单例,重连读到的就是被降档的旧桩 —— 故这里必须每次新造。
+    const connectFn = vi.fn().mockImplementation(() => makeMockConn('srv1'));
+    const client = new ManagedMcpClient(makeServer('srv1'), {
+      connectFn,
+      callFn: vi.fn().mockResolvedValue({}),
+      initialBackoffMs: 0,
+      pingIntervalMs: 60_000,
+    });
+    registerManagedClient(client);
+    await client.ensureConnected();
+    expect(connectFn).toHaveBeenCalledTimes(1);
+
+    const resp = await agent.mcpReconnect({ serverName: 'srv1' });
+    expect(resp.success).toBe(true);
+    expect(resp.server).not.toBeNull();
+    expect(resp.server!.serverName).toBe('srv1');
+    expect(resp.server!.connected).toBe(true);
+    // 手动命令必须强制重建:即使原连接健康,connectFn 也被再调一次
+    expect(connectFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('重建失败 → success=false + error(不抛到协议层、不自动退避狂重试),connectFn 仅再试一次', async () => {
+    const connectFn = vi
+      .fn()
+      .mockResolvedValueOnce(makeMockConn('srv1'))
+      .mockRejectedValueOnce(new Error('reconnect boom'));
+    const client = new ManagedMcpClient(makeServer('srv1'), {
+      connectFn,
+      callFn: vi.fn().mockResolvedValue({}),
+      initialBackoffMs: 0,
+      pingIntervalMs: 60_000,
+    });
+    registerManagedClient(client);
+    await client.ensureConnected();
+
+    const resp = await agent.mcpReconnect({ serverName: 'srv1' });
+    expect(resp.success).toBe(false);
+    // 失败如实回报(包装后仍含根因),不被静默吞成成功
+    expect(resp.error).toContain('手动重连失败');
+    // 初次 + 手动这一次,无自动指数退避连环重试(禁为吞错加 Retry)
+    expect(connectFn).toHaveBeenCalledTimes(2);
   });
 });
 
