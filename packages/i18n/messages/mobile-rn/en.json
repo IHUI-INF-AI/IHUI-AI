@@ -309,7 +309,12 @@
     "modelCategoryGuard": "Safety guard",
     "modelCategoryOcr": "OCR",
     "modelCategoryOther": "Other",
-    "partialDoneTitle": "Response interrupted, the content below may be incomplete"
+    "partialDoneTitle": "Response interrupted, the content below may be incomplete",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "bookmark": "Bookmark",
+    "unbookmark": "Remove bookmark",
+    "flagFailed": "Failed to save marker"
   },
   "settings": {
     "title": "Settings",
