@@ -765,6 +765,25 @@ function Invoke-WorktreeAlign {
             foreach ($l in (Get-Content $f -ErrorAction SilentlyContinue)) { if ($l.Trim()) { Log "  [align] $($l.Trim())" } }
         }
         if ($p.ExitCode -ne 0) { Log "WARN  现场对齐退出码 $($p.ExitCode)(不阻断本轮,仍会照常尝试 ff-only)" }
+        # ── 生成物让位(2026-10-19 立,票「部署停摆每 4h 一封而无人能整改」)──────────
+        # 上面那层只治幻影漂移(盘上内容==该路径某**祖先**版本);构建每轮重写的 sw.js / next-env.d.ts
+        # 与"上游已同名跟踪而本地是未跟踪派生副本"的大屏,内容比 HEAD **更新**,结构上永不命中那条判据
+        # ⇒ 生产签出被自己刚跑完的那一轮挡死在下一次 ff 上,一停就是几十轮、每 4h 寄一封。
+        # 器物只按 scripts/data/deploy-generated-paths.json 的封闭清单逐条动盘,且动手前逐字节备份到
+        # D:\DevEnv\backups\deploy-generated\;备份失败即不动。它不是销毁未提交内容的 git 写法,
+        # 判据与授权都在那个脚本里(本节仍受 o6 静态判据约束)。
+        $yieldScript = Join-Path $Root 'scripts\restore-deploy-generated.mjs'
+        if (Test-Path $yieldScript) {
+            $y = Start-Process -FilePath $nodeExe -ArgumentList @("`"$yieldScript`"", '--repo', "`"$Root`"", '--apply') `
+                    -WorkingDirectory $Root -NoNewWindow -Wait -PassThru `
+                    -RedirectStandardOutput "$outFile.yield" -RedirectStandardError "$outFile.yield.err" -ErrorAction Stop
+            foreach ($f in @("$outFile.yield", "$outFile.yield.err")) {
+                foreach ($l in (Get-Content $f -ErrorAction SilentlyContinue)) { if ($l.Trim()) { Log "  [gen-yield] $($l.Trim())" } }
+            }
+            if ($y.ExitCode -ne 0) { Log "WARN  生成物让位退出码 $($y.ExitCode)(不阻断本轮;挡 ff 的条目会照旧进 BLOCKED-WIP 清单)" }
+        } else {
+            Log "WARN  生成物让位脚本缺失:$yieldScript —— 跳过(不因此判失败)"
+        }
         return ($p.ExitCode -eq 0)
     } catch {
         Log "WARN  现场对齐调用异常: $($_.Exception.Message)"

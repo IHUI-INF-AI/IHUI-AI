@@ -37,10 +37,19 @@ const RANGES = [
 
 const AUTO_REFRESH_MS = 30_000
 
-// 配置体积 3000+ 行(213 条表达式),静态 import 会进首屏 bundle;运行期动态
+// 配置体积 3000+ 行(已 331 条表达式),静态 import 会进首屏 bundle;运行期动态
 // import 让 Next 把它切成独立 chunk,本页打开时才拉取(类型仍静态导入,零成本)。
 // 类型用 ReturnType<typeof loadConfig> 推导(规避 `import()` 字面量,过 consistent-type-imports 门)。
-function loadConfig(): Promise<ConfigModule> {
+//
+// ⚠ 2026-10-19 修:这里原来是「返回类型注解写 ConfigModule」+「ConfigModule 又由
+//   ReturnType<typeof loadConfig> 推导」——**自我循环**。TS 在配置规模小时能靠推断链
+//   兜过去,盘从 21 张加到 29 张(331 条表达式)后推断链断裂,`next build` 直接挂:
+//     TS2577 Return type annotation circularly references itself(43,24)
+//     TS2456 Type alias 'ConfigModule' circularly references itself(46,6)
+//     连带 6 条 TS7006(ConfigModule 解析失败 ⇒ 下游参数全部退化成隐式 any)
+//   修法只拿掉显式返回类型注解 —— 依赖变成单向(ConfigModule ← loadConfig),
+//   循环消失,且不写 `import()` 字面量这一条(comment 42 行)原样保住。
+async function loadConfig() {
   return import('./dashboard-config.generated')
 }
 type ConfigModule = Awaited<ReturnType<typeof loadConfig>>
