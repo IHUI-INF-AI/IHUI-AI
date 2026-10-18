@@ -7,7 +7,7 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Loader2, Mic, X } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 
 /** TTS 语音类型选项(P1.1 转语音 Modal,真实 TTS 已接入) */
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   listDialogTitle: {
-    fontSize: 15,
+    fontSize: rnGeometry.textStrong,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ttsLoadingText: {
-    fontSize: 14,
+    fontSize: rnGeometry.textBody,
     color: tokens.text.secondary,
   },
   ttsOptions: {
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ttsOptionText: {
-    fontSize: 15,
+    fontSize: rnGeometry.textStrong,
     color: tokens.text.primary,
   },
   // ── FF(D126)实时语音对话区 ──
@@ -126,8 +126,25 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   realtimeBtnText: {
-    fontSize: 15,
+    fontSize: rnGeometry.textStrong,
     color: tokens.text.primary,
+  },
+  // ── D126 语音回合「按住说话」──
+  talkBtn: {
+    marginTop: rpx(16),
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(32),
+    backgroundColor: tokens.surface.muted,
+    borderRadius: rnRadius.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rpx(8),
+  },
+  turnNoteText: {
+    marginTop: rpx(8),
+    fontSize: 13,
+    color: tokens.text.secondary,
   },
   // ── 功能面板/来源面板(BottomPops 子内容样式) ──
   panelCancelBtn: {
@@ -147,7 +164,7 @@ const styles = StyleSheet.create({
     marginBottom: rpx(32),
   },
   panelCancelText: {
-    fontSize: 16,
+    fontSize: rnGeometry.textBody,
     fontWeight: '500',
     color: tokens.text.primary,
   },
@@ -171,6 +188,16 @@ interface VoicePanelProps {
   realtimeState?: RealtimeVoiceState
   /** FF(D126)实时语音失败文案(缺省「连接失败,请重试」) */
   realtimeErrorText?: string
+  /**
+   * D126 语音回合「按住说话」按压回调(可选)。
+   * 按下 onPressIn→true、松开 onPressOut→false;录音由上层 use-voice-recorder
+   * 体系管理,面板只发按压事件,不在面板内做录音。
+   */
+  onTalkPress?: (pressed: boolean) => void
+  /** D126 语音回合处理中(true 时「按住说话」禁用并显示「思考中…」) */
+  turnBusy?: boolean
+  /** D126 服务端备注(turn 结果 note,非空显示一行灰字) */
+  turnNote?: string
 }
 
 /**
@@ -185,6 +212,9 @@ export function VoicePanel({
   onStartRealtimeVoice,
   realtimeState = 'idle',
   realtimeErrorText = DEFAULT_REALTIME_ERROR_TEXT,
+  onTalkPress,
+  turnBusy = false,
+  turnNote,
 }: VoicePanelProps) {
   if (!visible) return null
   // connecting/live 期间禁止重复发起;error 态允许再点重试
@@ -249,6 +279,41 @@ export function VoicePanel({
                 </View>
               )}
             </Pressable>
+            {/* D126 语音回合:live 态下在三态区下渲染「按住说话」按压入口。
+                只发按压事件(onPressIn/onPressOut),录音/回合调用都由上层接线。 */}
+            {realtimeState === 'live' ? (
+              <>
+                <Pressable
+                  onPressIn={() => onTalkPress?.(true)}
+                  onPressOut={() => onTalkPress?.(false)}
+                  disabled={turnBusy}
+                  accessibilityRole="button"
+                  accessibilityLabel={turnBusy ? '思考中' : '按住说话'}
+                >
+                  {({ pressed }) => (
+                    <View
+                      style={[
+                        styles.talkBtn,
+                        pressed && !turnBusy ? styles.panelItemPressed : undefined,
+                        turnBusy ? styles.realtimeBtnDisabled : undefined,
+                      ]}
+                    >
+                      {turnBusy ? (
+                        <Loader2 size={18} color={tokens.text.secondary} />
+                      ) : (
+                        <Mic size={18} color={tokens.text.primary} />
+                      )}
+                      <Text style={styles.realtimeBtnText}>
+                        {turnBusy ? '思考中…' : '按住说话'}
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
+                {turnNote != null && turnNote.trim() !== '' ? (
+                  <Text style={styles.turnNoteText}>{turnNote}</Text>
+                ) : null}
+              </>
+            ) : null}
           </View>
           {loading ? (
             <View style={styles.ttsLoadingWrap}>

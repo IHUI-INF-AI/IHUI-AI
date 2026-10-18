@@ -117,6 +117,8 @@ import agentExtendedRoutes from './agent-extended.js'
 import eduExtendedRoutes from './edu-extended.js'
 import systemExtendedRoutes, { adminCategoryDictionaryRoutes } from './system-extended.js'
 import aiExtendedRoutes from './ai-extended.js'
+// D126 铺路:engine-voice 用户态代理(语音会话,上游 ai-service /api/engine/voice/*)
+import engineVoiceRoutes from './engine-voice.js'
 import { mcpExtendedRoutes } from './mcp-extended.js'
 import miscExtendedRoutes from './misc-extended.js'
 import aiGenerationRoutes from './ai-generation.js'
@@ -776,6 +778,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(adminCategoryDictionaryRoutes, { prefix: '/api/admin' })
   // AI 扩展（capabilities/model_info/outbound_routes/video_routes/developer model_test）
   server.register(aiExtendedRoutes, { prefix: '/api/ai-ext' })
+  // 语音会话用户态代理(上游 ai-service /engine/voice,requireAuth 后透传用户 JWT)
+  server.register(engineVoiceRoutes, { prefix: '/api/engine/voice' })
   // MCP 项目管理与集成扩展（projects/integrations）
   server.register(mcpExtendedRoutes, { prefix: '/api' })
   // 其他扩展（remote/user_agent_context/docs）
