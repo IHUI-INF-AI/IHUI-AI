@@ -116,6 +116,7 @@ import { resurrectAnalysis, resurrectInputPath } from './lib/stale-content-analy
 // 嵌套闸保护,也会被 post-commit 的 `--auto-clean` 按名字波及;os.tmpdir() 同样禁用,
 // 活进程的 TEMP 可能仍钉在 C 盘)。
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 export const SKIP_ENV = 'HUSKY_SKIP_STALE_REVERT_GUARD'
 export const ANCESTOR_WINDOW = 40
@@ -1227,8 +1228,8 @@ function selfTestRun() {
     g(['add', '--', rel])
     g(['commit', '-qm', msg, '--', rel])
   }
-  const results = []
-  const check = (name, ok) => results.push({ name, ok })
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t: check, report } = makeRegistrar()
   try {
     g(['init', '-q', '--initial-branch=main'])
     // 演练仓必须关掉 autocrlf,否则全局配置会把 LF 改写并在 stderr 刷噪音
@@ -1576,15 +1577,12 @@ function selfTestRun() {
         pureNoFace.generatedInputOnFace === 0,
     )
 
-    let fail = 0
-    for (const r of results) {
-      console.log(`${r.ok ? '✅' : '❌'} ${r.name}`)
-      if (!r.ok) fail++
-    }
+    const { pass, fail, cases } = report()
+    for (const r of cases) console.log(`${r.pass ? '✅' : '❌'} ${r.name}`)
     console.log(
       fail
-        ? `self-test FAILED ${fail}/${results.length}`
-        : `✅ check-stale-revert self-test 全部通过(${results.length} 例)`,
+        ? `self-test FAILED ${fail}/${cases.length}`
+        : `✅ check-stale-revert self-test 全部通过(${cases.length} 例)`,
     )
     return fail ? 1 : 0
   } finally {

@@ -64,6 +64,7 @@ import {
   firstContentMismatch,
   diffFingerprint,
 } from './lib/mirror-verify.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 // 再导出:外部消费者(check-home-junctions / git-guardian / 镜像测试)按本模块名取用多年,
 // 摘掉再导出等于替它们卸闸;实现只有一份 = ./lib/mirror-verify.mjs。
 // 刻意不再导出 readdirSyncSafe / eachSameSizeFile —— 它们是链内的取材细节,原来也不是本模块的出口。
@@ -494,8 +495,8 @@ export function pruneStashes(srcPath, dstPath, { apply = false } = {}) {
 }
 
 function selfTest() {
-  const cases = []
-  const push = (name, ok, note = '') => cases.push({ name, ok, note })
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t: push, report } = makeRegistrar()
 
   // 目标命名:与 §26 已落地形态逐字一致
   const home = 'C:\\Users\\x'
@@ -786,11 +787,9 @@ function selfTest() {
   push('清单复用门 96 的 registryOf()', /registryOf\(\)/.test(src) && !/\.cargo',\s*why/.test(src))
   push('盘符经 devEnvRoot() 推导,不写死', /devEnvRoot\(\)/.test(src))
 
-  let fail = 0
-  for (const c of cases) {
-    if (!c.ok) fail++
-    console.log(`${c.ok ? '✅' : '❌'} ${c.name}${c.ok ? '' : ` —— ${c.note}`}`)
-  }
+  const { fail, cases } = report()
+  for (const c of cases)
+    console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ` —— ${c.got}`}`)
   console.log(`\n${fail ? `❌ ${fail} 例失败` : `全部 ${cases.length} 例通过`}`)
   process.exit(fail ? 1 : 0)
 }

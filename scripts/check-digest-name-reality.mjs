@@ -69,6 +69,7 @@ import {
 
 import { createExclusionPredicate } from './lib/third-party-roots.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,禁止 `process.cwd()`,禁止写死盘符) */
@@ -1631,8 +1632,9 @@ function updateBaseline(root, out) {
 /* -------------------------------- self-test -------------------------------- */
 
 function runSelfTest() {
-  const R = []
-  const t = (name, pass, note = '') => R.push({ name, pass, note })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `R.push({ name, pass })` 裸存结论 —— 已由共用出口结构封死,用例调用一字不动。
+  const { t, report } = makeRegistrar()
 
   const FP_PLAIN = `
 def _fingerprint_hash(fp) -> str:
@@ -2027,10 +2029,11 @@ function plan(rows, prev) {
     )
   }
 
-  const failed = R.filter((r) => !r.pass)
-  for (const r of R) console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.note ? ` — ${r.note}` : ''}`)
-  console.log(`\n--self-test:${R.length} 条断言,失败 ${failed.length} 条`)
-  return failed.length === 0 ? 0 : 1
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { fail, cases: R } = report()
+  for (const r of R) console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.got !== 'true' && r.got !== 'false' ? ` — ${r.got}` : ''}`)
+  console.log(`\n--self-test:${R.length} 条断言,失败 ${fail} 条`)
+  return fail === 0 ? 0 : 1
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

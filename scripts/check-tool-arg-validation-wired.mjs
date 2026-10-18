@@ -52,6 +52,7 @@ import {
 } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -523,8 +524,8 @@ export function formatCoverage(cov) {
 }
 
 function runSelfTest() {
-  const results = []
-  const ok = (name, cond, detail = '') => results.push({ name, pass: !!cond, detail })
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t: ok, report } = makeRegistrar()
 
   const DEFINITION = `export function validateToolArguments(args: unknown, schema: unknown) { return { valid: true, coerced: args as Record<string, unknown>, errors: [], coercedFields: [] } }\n`
   const MODES_OK = `export const TOOL_ARG_VALIDATION_MODES = ['off', 'shadow', 'enforce'] as const\nexport const DEFAULT_TOOL_ARG_VALIDATION_MODE = 'off'\n`
@@ -818,13 +819,11 @@ function runSelfTest() {
     }
   }
 
-  let failed = 0
-  for (const r of results) {
-    if (!r.pass) failed += 1
-    console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.pass ? '' : ` → ${r.detail}`}`)
-  }
-  console.log(`--self-test:${results.length - failed}/${results.length} 条断言通过`)
-  return failed === 0 ? 0 : 1
+  const { pass, fail, cases } = report()
+  for (const r of cases)
+    console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.pass ? '' : ` → ${r.got}`}`)
+  console.log(`--self-test:${pass}/${cases.length} 条断言通过`)
+  return fail === 0 ? 0 : 1
 }
 
 function main(argv) {

@@ -39,6 +39,7 @@ import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { resolveGitBin, resolveWorktree } from './lib/gitdir.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT_MS = 20000
@@ -434,8 +435,9 @@ function printReport(result, asJson) {
 
 export function selfTest() {
   const { consts, persistKeys, identifier } = loadConstants()
-  const checks = []
-  const A = (name, pass, detail = '') => checks.push({ name, pass, detail })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `checks.push({ name, pass })` 裸存结论 —— 已由共用出口结构封死,用例调用一字不动。
+  const { t: A, report } = makeRegistrar()
   const scratch = mkScratch('desktop-cache-plaintext')
   try {
     // 造一棵假数据树:EBWebView/Default/Local Storage/leveldb + roaming *.json
@@ -499,13 +501,14 @@ export function selfTest() {
   } finally {
     rmScratch(scratch)
   }
-  let fails = 0
+  // 消费点:求值只发生在这里(共用出口的报告函数,仍在 rmScratch 之前、夹具在世时)。
+  const { fail, cases: checks } = report()
   for (const c of checks) {
-    if (!c.pass) fails += 1
-    console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.detail ? ` — ${c.detail}` : ''}`)
+    const diag = c.got !== 'true' && c.got !== 'false' ? ` — ${c.got}` : ''
+    console.log(`${c.pass ? '✅' : '❌'} ${c.name}${diag}`)
   }
-  console.log(`--self-test: ${checks.length - fails}/${checks.length} 通过`)
-  return fails === 0 ? 0 : 1
+  console.log(`--self-test: ${checks.length - fail}/${checks.length} 通过`)
+  return fail === 0 ? 0 : 1
 }
 
 // ==================== CLI 入口(§22d isDirectRun) ====================

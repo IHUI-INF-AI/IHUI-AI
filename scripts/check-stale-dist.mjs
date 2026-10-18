@@ -57,6 +57,7 @@ import { requireFlagValue } from './lib/flag-value.mjs'
 // 遮罩只引这一份实现(守门 131/135 同规:两处实现必漂移)。判"声明内容"必须先剥注释与字符串 ——
 // 注释里出现的 `export interface X {}` 若不剥掉,门会给自己写出的说明判红,甚至给假象发合格证。
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 // ROOT 默认由脚本自身位置推导(§15,不依赖 cwd —— 守门 70 的"测试靠 cwd 定位夹具而脚本按定义
 // 忽略 cwd ⇒ 13/14 恒红"那一型)。`--root <dir>` 是**测试通道**:镜像测试要在临时 git 仓里
@@ -1097,8 +1098,8 @@ function main() {
  * 成对用例,缺任何一条都说明"收紧"只是写了个表达式。
  */
 function runSelfTest() {
-  const results = []
-  const check = (name, ok) => results.push({ name, ok })
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t: check, report } = makeRegistrar()
 
   // ① 通配包的声明入口这一维:挑得出来、缺了能点名、都在位不凭空造红
   const declared = declaredDistEntries({ main: './dist/index.js', types: './dist/index.d.ts' })
@@ -1261,14 +1262,14 @@ function runSelfTest() {
     )
   }
 
-  const failed = results.filter((r) => !r.ok)
-  for (const r of results) console.log(`${r.ok ? '✅' : '❌'} ${r.name}`)
+  const { pass, fail, cases } = report()
+  for (const r of cases) console.log(`${r.pass ? '✅' : '❌'} ${r.name}`)
   console.log(
-    failed.length
-      ? `\n❌ check-stale-dist self-test ${failed.length}/${results.length} 条失败`
-      : `\n✅ check-stale-dist self-test 全部通过(${results.length} 条)`,
+    fail
+      ? `\n❌ check-stale-dist self-test ${fail}/${cases.length} 条失败`
+      : `\n✅ check-stale-dist self-test 全部通过(${cases.length} 条)`,
   )
-  process.exit(failed.length ? 1 : 0)
+  process.exit(fail ? 1 : 0)
 }
 
 export const __test__ = {
