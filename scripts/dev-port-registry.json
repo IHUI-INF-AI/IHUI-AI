@@ -80,7 +80,7 @@
     },
     "cli": {
       "cmd": "pnpm",
-      "args": ["--filter", "@ihui/cli", "dev"],
+      "args": ["--filter", "ihui-cli", "dev"],
       "cwd": "apps/cli",
       "port": 8841,
       "health": "http://localhost:8841/health",
