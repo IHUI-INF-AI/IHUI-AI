@@ -85,7 +85,7 @@ const sseMetrics = {
  * null 才是缺席语义(消费端按"未知"渲染)。不可信样本由 elapsed-ms 出口计入
  * elapsedClockStats(观测面可回答"标了几条")。
  */
-export interface StreamOpenTiming {
+interface StreamOpenTiming {
   /** 分段字段集版本(字段集变更时 +1) */
   version: 1
   /** host 前置:网关入口 → 发起上游连接前(字面含下方 storage 读;storageReadMs 是
