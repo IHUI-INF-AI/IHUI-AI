@@ -2861,35 +2861,6 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         ]
       },
       {
-        "id": "2",
-        "title": "Grafana 响应时间 (ms)",
-        "kind": "stat",
-        "backend": "prometheus",
-        "unit": "ms",
-        "thresholds": [
-          {
-            "color": "green",
-            "value": null
-          },
-          {
-            "color": "yellow",
-            "value": 200
-          },
-          {
-            "color": "red",
-            "value": 500
-          }
-        ],
-        "span": "half",
-        "targets": [
-          {
-            "ref": "A",
-            "expr": "1000 * sum(rate(grafana_http_request_duration_seconds_sum{instance=~\".*\"}[5m])) / sum(rate(grafana_http_request_duration_seconds_count{instance=~\".*\"}[5m]))",
-            "legend": "平均响应"
-          }
-        ]
-      },
-      {
         "id": "3",
         "title": "Alertmanager 活跃告警数",
         "kind": "stat",
@@ -2930,21 +2901,6 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
             "ref": "A",
             "expr": "100 * avg by (job) (up{instance=~\".*\"})",
             "legend": "{{job}}"
-          }
-        ]
-      },
-      {
-        "id": "5",
-        "title": "Grafana 响应时间趋势",
-        "kind": "timeseries",
-        "backend": "prometheus",
-        "unit": "ms",
-        "span": "full",
-        "targets": [
-          {
-            "ref": "A",
-            "expr": "1000 * sum by (handler) (rate(grafana_http_request_duration_seconds_sum{instance=~\".*\"}[5m])) / sum by (handler) (rate(grafana_http_request_duration_seconds_count{instance=~\".*\"}[5m]))",
-            "legend": "{{handler}}"
           }
         ]
       },
