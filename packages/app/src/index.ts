@@ -816,6 +816,17 @@ export type {
 export { SpecScreen } from './features/spec/SpecScreen'
 export type { SpecTemplateItem, SpecScreenProps } from './features/spec/SpecScreen'
 export { ImageGenHistoryScreen } from './features/image-gen-history/ImageGenHistoryScreen'
+/** 2026-10-19 迁移批(P3-3.3 独立 screen 实现清零的最后三屏):RN 端 Automations/Dashboard/Workflows
+ *  的纯 UI 收进共享层,端内只留 API/导航/主题与数据映射(判据 = `check-rn-app-migration.mjs`)。 */
+export { AutomationsScreen } from './features/automations/AutomationsScreen'
+export type {
+  AutomationItem,
+  AutomationScheduleType,
+} from './features/automations/AutomationsScreen'
+export { DashboardScreen } from './features/dashboard/DashboardScreen'
+export type { DashboardMetricItem } from './features/dashboard/DashboardScreen'
+export { WorkflowsScreen } from './features/workflows/WorkflowsScreen'
+export type { WorkflowItem, WorkflowStatus } from './features/workflows/WorkflowsScreen'
 export type {
   ImageGenTaskStatus,
   ImageGenHistoryGridItem,
