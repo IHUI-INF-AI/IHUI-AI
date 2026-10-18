@@ -5077,7 +5077,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_ALERT_IDENTITY',
-    stagedTriggers: ['scripts/', 'deploy/win/', 'apps/api/src/'],
+    stagedTriggers: ['scripts/', 'deploy/win/', 'apps/api/src/', 'apps/api/scripts/'],
     onFailHint: [
       '',
       '',

@@ -82,25 +82,20 @@ test('② 判据既不咬解释文字,也不被遮罩做瞎(成对夹具)', () =
   assert.ok(G.judgeFile('scripts/x.mjs', realCase).length, '真模板字面量读不到 = 门失明(blankStrings 那一型)')
 })
 
-test('③ 发信台账:每一支投递结论都写账(成功/失败 × 真实/自测 = 4 支),漏一支就有一型发信无人记账', () => {
-  const src = headBlob('scripts/git-guardian.mjs')
-  assert.equal(typeof src, 'string', 'HEAD 面取不到 git-guardian ⇒ 未判定')
-  const body = funcBody(String(src), 'notifyGuardRed')
-  assert.ok(body.length > 2000, `函数体只抽出 ${body.length} 字符 ⇒ 提取器失效,不得继续判`)
-  const calls = (body.match(/appendMailSendLedger/g) || []).length
-  assert.equal(calls, 4, `notifyGuardRed 里应有 4 处写账(真实成功/真实失败/自测成功/自测失败),实测 ${calls}`)
-  // 逐支锚定:凡出现"送达"结论处,前后 700 字符内必须有账 —— 防止四支都写成只覆盖同一支
-  for (const anchor of [
-    'withAlertMark(state, name, fp, now, true)',
-    'withAlertMark(state, name, fp, now, false)',
-    '通知自测已送达',
-    '通知自测失败',
-  ]) {
-    const at = body.indexOf(anchor)
-    assert.ok(at > 0, `找不到锚点「${anchor}」⇒ 本用例失效(结构变了要同步改这里,不能默默放行)`)
-    const win = body.slice(Math.max(0, at - 700), at + 700)
-    assert.match(win, /appendMailSendLedger/, `「${anchor}」这一支不写账 ⇒ 量算仪会把它读成"没寄过"`)
-  }
+test('③ 发信台账只记在唯一出口,生产者一侧一律不写(两边都写=把一封数成两封)', () => {
+  const exit = headBlob('apps/api/scripts/notify-deploy-failure.ts')
+  assert.equal(typeof exit, 'string', 'HEAD 面取不到发信出口 ⇒ 未判定')
+  const mainBody = funcBody(String(exit), 'main')
+  const calls = (mainBody.match(/recordMailAttempt\(/g) || []).length
+  assert.equal(calls, 1, `出口里应有且只有 1 处记账(单一记录点),实测 ${calls} —— 多支各写一遍就会漏记某一支,这正是今天那一型`)
+  // 记账点必须排在任何终态分支之前:分支会被人增加,而"少记一支"的表现形式永远是安静
+  const firstBranch = mainBody.search(/if \(outcome\.(help|probe|dryRun|suppressed|sent)\)/)
+  assert.ok(firstBranch > 0, '找不到终态分支 ⇒ 结构变了,本用例要同步改而不是放过')
+  assert.ok(mainBody.indexOf('recordMailAttempt(') < firstBranch, '记账排在分支之后 ⇒ 先 return 的那一支会漏账')
+  assert.match(mainBody, /if \(ledgerProblem\) console\.error/, '写不进必须报名(静默丢账就是又一格安静)')
+
+  const producer = String(headBlob('scripts/git-guardian.mjs'))
+  assert.equal((producer.match(/appendMailSendLedger|mail-send-ledger/g) || []).length, 0, '生产侧还在自己写台账 ⇒ 与出口重复计数')
 })
 
 test('④ 豁免台账:每条都必须指向 HEAD 面存在的路径,到期日必须可解', () => {
