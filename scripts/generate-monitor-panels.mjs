@@ -47,6 +47,13 @@ const GROUP_OF = {
   'ihui-ai-pg-deploy': '基础设施',
   'ihui-ai-redis-cluster': '基础设施',
   'ihui-ai-monitor-health': '基础设施',
+  // 2026-10-19 覆盖率审计补的四张盘:此前 Windows 主机层 123 族 / 日志栈 362 族 /
+  // 公网隧道 / 应用层黄金信号全是"数据在库里、面板一块没有"的缺口。
+  'ihui-ai-windows-host': '基础设施',
+  'ihui-ai-cloudflared-tunnel': '基础设施',
+  'ihui-ai-log-stack-health': '基础设施',
+  'ihui-ai-app-golden-signals': '基础设施',
+  'ihui-ai-deep-pipeline': 'AI 可观测',
 };
 
 const KIND_MAP = {
@@ -134,11 +141,14 @@ for (const f of fs.readdirSync(DASH_DIR).filter((f) => f.endsWith('.json')).sort
   });
 }
 
+// 表达式条数由本次实际转译结果算出,不写死 —— 写死过一次(216),加盘后立刻变成假数字,
+// 而这类"注释里的存量数字"正是最容易骗住后来人的那一种(见 AGENTS §0.1 凡数字一律现读)。
+const totalTargetsNow = dashboards.reduce((n, d) => n + d.panels.reduce((m, p) => m + p.targets.length, 0), 0);
 const banner = `/**
  * 监控面板原生配置(自动生成,请勿手改)。
  *
  * 由 scripts/generate-monitor-panels.mjs 从 monitoring/grafana/dashboards/*.json 转译;
- * 表达式与 Grafana 盘逐条同源(216 条),模板变量已归一为 All 档(.*)。
+ * 表达式与 Grafana 盘逐条同源(${totalTargetsNow} 条),模板变量已归一为 All 档(.*)。
  * $__interval / $__range 为占位符,由 /admin/monitor/panels 页面按时间窗替换。
  */
 `;

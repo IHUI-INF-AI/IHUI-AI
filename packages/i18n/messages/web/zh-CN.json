@@ -16001,7 +16001,8 @@
   },
   "connectivity": {
     "deviceOffline": "本机已断网,部分功能不可用",
-    "apiUnreachable": "无法连接服务器,正在自动重试",
+    "slow": "网络较慢,响应耗时偏高",
+    "unconfirmed": "无法连接服务器,正在自动重试",
     "hostLocalAvailable": "本地 Git 通道仍可用"
   },
   "ide": {

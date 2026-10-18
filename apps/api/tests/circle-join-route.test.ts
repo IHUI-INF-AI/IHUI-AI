@@ -166,6 +166,32 @@ describe('POST /api/circles/:id/join —— 加入圈子(与既有 leave 成对;
     expect(writesNamed()).toEqual([{ op: 'insert', table: 'circleMembers' }])
   })
 
+  it('真退出(status=1 ⇒ 0):成员行与成员数两笔写按序点名', async () => {
+    state.queue.items.push(
+      [{ id: 'm1', circleId: CIRCLE_ID, userId: USER_ID, role: 'member', status: 1 }],
+      [{ id: 'm1', status: 0 }],
+      [{ id: CIRCLE_ID }],
+    )
+    const res = await server.inject({ method: 'POST', url: `${PREFIX}/circles/${CIRCLE_ID}/leave` })
+    expect(res.statusCode).toBe(201)
+    expect(res.json().data).toMatchObject({ left: true })
+    expect(writesNamed()).toEqual([
+      { op: 'update', table: 'circleMembers' },
+      { op: 'update', table: 'circles' },
+    ])
+  })
+
+  it('重复点"退出"不是第二次退出:already=true 且一笔写都没发生(成员数不再 -1、updatedAt 不被盖)', async () => {
+    state.queue.items.push([
+      { id: 'm-left', circleId: CIRCLE_ID, userId: USER_ID, role: 'member', status: 0 },
+    ])
+    const res = await server.inject({ method: 'POST', url: `${PREFIX}/circles/${CIRCLE_ID}/leave` })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toMatchObject({ left: true, already: true })
+    // 与上一条成对做阳性对照:同样的夹具形状,差别只在 status 已是 0 ⇒ 这里必须零写
+    expect(writesNamed()).toEqual([])
+  })
+
   it('在册且与 leave 成对(printRoutes 前缀树叶子 + 同插件既有路由做阳性对照)', async () => {
     const tree = server.printRoutes()
     expect(tree).toMatch(/join \(POST/)

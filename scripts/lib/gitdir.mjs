@@ -2,7 +2,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
- 
 
 /**
  * gitdir.mjs — 真实 gitdir / 工作树动态解析共享库(2026-09-15 立)。
@@ -40,7 +39,8 @@ import { devEnvRoot } from '../seal-c-root-stray.mjs'
 // 改为三层候选:① IHUI_PORTABLE_GIT 环境变量;② versions/ 目录多版本扫描(current 文件优先,
 // 语义版本倒序);③ 旧 1.2.0 路径仅作最后兜底。
 const PORTABLE_VERSIONS_ROOT = 'C:/Users/Administrator/.workbuddy/binaries/PortableGit/versions'
-const LEGACY_PORTABLE_GIT = 'C:/Users/Administrator/.workbuddy/binaries/PortableGit/versions/1.2.0/cmd/git.exe'
+const LEGACY_PORTABLE_GIT =
+  'C:/Users/Administrator/.workbuddy/binaries/PortableGit/versions/1.2.0/cmd/git.exe'
 export const GIT_CANDIDATES = [
   process.env.GIT_BIN,
   'git',
@@ -382,10 +382,31 @@ export function gitdirArchivePath(baseName, worktree) {
   return `${root}/${baseName}`
 }
 
+/**
+ * 本地恢复源镜像的**批准落点根**(恒在工作区之外)。
+ *
+ * 为什么不复用 `devEnvRoot()`(G-930,2026-10-19 落点裁决):G-814433 把 DevEnv 实体迁进
+ * 仓内 `G:/IHUI-AI/.DevEnv` 之后,`devEnvRoot()` 双形态优先给**仓内**路径 —— 对"现场归档"
+ * 成立(那是字节搬运,树内树外同值),对"恢复源"不成立:
+ *  · §5b 原文要求恢复源在工作区外(`D:\DevEnv\backups\git`);
+ *  · 守门 208(blocking,`stagedTriggers=scripts/`)判**工作树内嵌套 git 仓零容忍** ⇒
+ *    在仓树里长出一棵 bare 镜像,等于给此后每一次提交造一道与提交内容无关的恒红门(§12e);
+ *  · 恢复源放进它所恢复的对象内部,恰好对该对象被误删/被 clean 的那一类事故失效。
+ * 锚定沿用 `gitArchiveRootFor()` 的盘根写法(与工作树深度无关):工作树 `X:/…` ⇒ `X:/DevEnv`。
+ * 夹具闸同条:`ihui-scratch` 段 ⇒ null(不替演练现场交出生产落点)。
+ * @param {string} [worktree]
+ * @returns {string|null} 归一化(正斜杠)根,不含镜像名
+ */
+export function backupMirrorRoot(worktree) {
+  const wt = normalizePath(worktree || resolveWorktree())
+  if (countScratchSegments(wt) > 0) return null
+  return normalizePath(join(parse(wt).root, 'DevEnv', 'backups', 'git'))
+}
 
 /**
- * 本地 gitdir 备份目录(兜底恢复用)。优先级:§15b 唯一备份目录下的新位置 →
- * 仓根同级推导(迁移前的旧位置);任一处存在 `HEAD` 即采用。
+ * 本地 gitdir 备份目录(兜底恢复用)。优先级(G-930 起):**工作区外的盘根 DevEnv** →
+ * §15b 归档根(仓内 `.DevEnv`,只为兼容既有镜像,不再作为新建落点)→ 仓根同级推导。
+ * 任一处存在 `HEAD` 即采用;三处都没有 ⇒ 返回第一候选,使报错指向"应当建在哪里"。
  * 旧版只查写死的 `D:/IHUI-AI.git-backup-20260912`,而该目录 2026-09-23 已迁入 §15b 目录
  * ⇒ 旧代码会解析到一个不存在的路径,使 git-guardian 报 `backupOk:false`(本地恢复源形同失效)。
  */
@@ -393,9 +414,12 @@ export function resolveBackupDir(worktree) {
   const wt = worktree || resolveWorktree()
   const name = `${basename(wt)}.git-backup-20260912`
   const cands = []
-  // 把 wt 传下去:本函数收 worktree 却不传,等于"注入的工作树只用来算名字、不用来算落点"
-  // —— 与 `git-backup-refresh.mjs:198` 那处被静默丢弃的入参同一条缺陷的第二格。
-  // 夹具工作树经此处一律解析不到生产归档根(夹具闸 ⇒ null),候选只剩仓根同级。
+  // G-930(2026-10-19 落点裁决):恢复源镜像**优先取工作区外**的盘根 DevEnv 落点。
+  // 顺序即判据:先问树外,再问树内 legacy(G-814433 迁入的仓内 .DevEnv 里若已有旧镜像,
+  // 仍然认它 —— 只读兼容,不把已有恢复源判成丢失),最后问仓根同级。
+  // 报错/新建都指向 cands[0],所以缺恢复源时提示的就是"应当建在哪儿"的那个路径。
+  const mirrorRoot = backupMirrorRoot(wt)
+  if (mirrorRoot) cands.push(`${mirrorRoot}/${name}`)
   const root = gitArchiveDir(wt)
   if (root) cands.push(`${root}/${name}`)
   cands.push(join(dirname(wt), name))
