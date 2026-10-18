@@ -88,22 +88,9 @@ jobs:
       # 2026-09-10 根因修复:原 `drizzle-kit push --force` 只按 schema 现状建表,不执行
       # drizzle/*.sql 迁移 —— 0010_fulltext_search_indexes.sql 的 search_vector 列 +
       # GIN 触发器永远不生效,全文检索相关测试必挂。改用与 e2e.yml 一致的权威迁移路径。
-      # 2026-10-18 根修:journal idx 179/184 建的 agent_meta_lessons /
-      # agent_federated_lessons 的 id 是 uuid(federated 还带 gen_random_uuid() 默认值),
-      # 而 idx 325(20261018160000,按生产库现状写成 no-op)要把它们 ALTER TYPE bigint
-      # → PG 42804 "default for column id cannot be cast automatically to type bigint",
-      # 且 drizzle-kit migrate 只 exit 1 不打原因(dev/生产不踩,CI 从零库必踩)。
-      # 迁移文件与 journal 不可变 ⇒ 两遍迁移:第一遍把 1..324 落库(325 预期失败回滚),
-      # 守卫脚本把两张 uuid id 收敛成迁移与 TS schema 共同期望的 bigserial 形状,
-      # 第二遍 325 变 no-op 通过。生产形状(bigint)上守卫为零动作 no-op,三步全幂等。
-      - name: Apply migrations to test DB (with fresh-DB shape guard)
+      - name: Apply migrations to test DB
         working-directory: packages/database
-        run: |
-          if ! npx drizzle-kit migrate; then
-            echo "::notice::第一遍 migrate 在 idx 325 处失败(从零库预期行为,错误被 drizzle-kit spinner 吞掉;1..324 已逐条提交)"
-          fi
-          node scripts/pre-migrate-fresh-db-guard.mjs
-          npx drizzle-kit migrate
+        run: npx drizzle-kit migrate
 
       - name: Seed baseline data
         working-directory: packages/database

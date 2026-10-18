@@ -23,7 +23,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
 const SCRIPT = join(ROOT, 'scripts', 'check-ci-failure-triage-wiring.mjs')
 
-const run = (args = []) => spawnSync(process.execPath, [SCRIPT, ...args], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024 })
+const run = (args = []) => spawnSync(process.execPath, [SCRIPT, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024 })
 
 // §12g:派生 git 必须显式接管 stdio;取不到 ⇒ 当场判"未判定",不得当成空清单冒绿
 const gitOut = (args) => {

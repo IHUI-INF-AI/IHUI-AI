@@ -2,58 +2,15 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * 票60(2026-10-18 立,第一切片):多窗格 chat store 实例注册表。
- *
- * 真并行多窗格的第一格:会话承载状态从 `conversationId` 单例(useChatStore)
- * 走向 `Map<paneId, Store>`。每个窗格从本表取独立实例(独立 messages/isStreaming/
- * abort 域),互不串话;默认单例 useChatStore 不动,既有消费面零回归。
- *
- * 本切片只交付注册表与隔离性证明(单测);把 AISidePanel/MessageList/send-message
- * 按 paneId 寻址是后续切片(见 PROJECT_PLAN 票 60 实施方案的步序表)。
- *
- * persist name 按窗格隔离(`ihui-chat-pane-<paneId>`):两条实例共用一个
- * localStorage key 会互相覆盖快照 —— 单测里有这一格的断言。
- */
+import type { Metadata } from 'next'
 
-import { useChatStore, createChatStore, type ChatState } from './chat'
-import type { StoreApi, UseBoundStore } from 'zustand'
-
-type ChatStore = UseBoundStore<StoreApi<ChatState>>
-
-/** paneId → 独立 store 实例;默认单例不进表(它不是任何窗格的财产) */
-const paneStores = new Map<string, ChatStore>()
-
-/**
- * 取某窗格的 store 实例(懒建:第一次取时创建,之后复用同一实例)。
- * paneId 空串/空白按调用方 bug 处理:直接抛 —— 静默回落单例会把两窗格
- * 的状态悄悄并到一份,那正是本票要消灭的缺陷形态。
- */
-export function getChatStoreForPane(paneId: string): ChatStore {
-  const key = paneId.trim()
-  if (!key) throw new Error('getChatStoreForPane: paneId 不能为空(静默回落单例 = 两窗格共用一份状态)')
-  const existing = paneStores.get(key)
-  if (existing) return existing
-  const created = createChatStore(`ihui-chat-pane-${key}`)
-  paneStores.set(key, created)
-  return created
+// 监控面板(Grafana 内嵌)是后台管理实时页,不需要 (main) 布局的 SEO 资产;
+// 用 absolute 直接替换浏览器标签标题(避免根 layout template "%s | IHUI AI" 双重拼接)。
+export const metadata: Metadata = {
+  title: { absolute: '监控面板 — IHUI AI' },
 }
 
-/** 关闭窗格时回收实例(不回收 = 长会话内存只增不减;persist 快照留在 localStorage) */
-export function disposeChatStoreForPane(paneId: string): void {
-  paneStores.delete(paneId.trim())
+export default function MonitorPanelsLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
 }
-
-/** 测试/宿主重置:清空全部窗格实例(默认单例不受影响) */
-export function resetChatPaneStores(): void {
-  paneStores.clear()
-}
-
-/** 当前窗格实例数(测试断言用,不进生产判定) */
-export function chatPaneStoreCount(): number {
-  return paneStores.size
-}
-
-/** 兼容导出:未按窗格寻址的既有消费面仍从单例取(后续切片逐面迁移) */
-export { useChatStore }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -493,30 +493,55 @@ test('未判定起点台账:首轮 0、次轮沿用、清零后重新起算(通�
   rmScratch(dir)
 })
 
-/** 注入 runner/notify,零子进程零发信地跑一遍部署停摆派发点 */
+/** 注入 runner/notify,零子进程零发信地跑一遍部署停摆派发点(`one()` 可续跑多轮、共用起点台账) */
 function stallHarness(payload, extra = {}) {
   const calls = []
   const lines = []
-  const r = N.auditDeployStall({
-    now: Date.parse('2026-10-17T04:00:00.000Z'),
-    intervalMs: 1,
-    tickFile: join(mkScratch('gg-stall-'), 'tick.ts'),
-    logger: (s) => lines.push(String(s)),
-    notify: (name, detail, opts) => calls.push({ name, detail, opts }),
-    runner: () => ({ status: extra.status ?? 0, stdout: typeof payload === 'string' ? payload : JSON.stringify(payload), stderr: extra.stderr || '', killed: Boolean(extra.killed) }),
+  const dir = mkScratch('gg-stall-')
+  const firstFile = join(dir, 'deploy-stall-first.json')
+  const tickFile = join(dir, 'tick.ts')
+  const one = (p = payload, x = extra, over = {}) => ({
+    r: N.auditDeployStall({
+      now: over.now ?? extra.now ?? Date.parse('2026-10-17T04:00:00.000Z'),
+      intervalMs: over.intervalMs ?? 1,
+      tickFile,
+      firstFile,
+      logger: (s) => lines.push(String(s)),
+      notify: (name, detail, opts) => calls.push({ name, detail, opts }),
+      runner: () => ({ status: x.status ?? 0, stdout: typeof p === 'string' ? p : JSON.stringify(p), stderr: x.stderr || '', killed: Boolean(x.killed) }),
+    }),
+    calls,
+    lines,
+    firstFile,
+    dir,
   })
-  return { r, calls, lines }
+  const ret = { one, calls, lines, firstFile, dir }
+  return Object.assign(one(), ret)
 }
 
-test('auditDeployStall 三态:ok 不寄 / fail 寄且身份含 tip+成功时刻 / unjudged 与超时只报名', () => {
+const stallPayload = (o = {}) => ({
+  level: 'fail',
+  liveSha: 'b'.repeat(40),
+  tipSha: 'c'.repeat(40),
+  tipSource: 'ls-remote(当次服务器真值)',
+  lastSuccessIso: '2026-10-17T01:00:00+08:00',
+  thresholdMin: 45,
+  behindHours: 3.2,
+  why: '线上落后 3.2 小时(阈值 45 分钟)',
+  ...o,
+})
+
+test('auditDeployStall 三态:ok 不寄 / fail 寄且身份=类别×持续档 / unjudged 与超时只报名', () => {
   const okRun = stallHarness({ level: 'ok', liveSha: 'a'.repeat(40), tipSha: 'a'.repeat(40), tipSource: 'ls-remote(当次服务器真值)', lastSuccessIso: '2026-10-17T03:59:00+08:00', thresholdMin: 45, behindHours: 0 })
   assert.equal(okRun.calls.length, 0, '绿档不得寄信')
   assert.equal(okRun.r.ok, true)
-  const failPayload = { level: 'fail', liveSha: 'b'.repeat(40), tipSha: 'c'.repeat(40), tipSource: 'ls-remote(当次服务器真值)', lastSuccessIso: '2026-10-17T01:00:00+08:00', thresholdMin: 45, behindHours: 3.2, why: '线上落后 3.2 小时(阈值 45 分钟)' }
-  const failRun = stallHarness(failPayload)
+  const failRun = stallHarness(stallPayload())
   assert.equal(failRun.calls.length, 1, '停摆必须到人')
-  assert.match(failRun.calls[0].opts.dedupKey, /tip=c{12}/, '身份必须含 tip 前缀')
-  assert.match(failRun.calls[0].opts.dedupKey, /lastSuccess=2026-10-17T01:00:00\+08:00/, '身份必须含最近一次成功部署时刻(环又成功一次 ⇒ 新事实立刻重报)')
+  assert.match(failRun.calls[0].opts.dedupKey, /class=behind;held=lt6h/, '身份 = 类别 × 持续折档')
+  assert.match(failRun.calls[0].detail, /tip c{12}/, 'tip 只准进正文(诊断),不得进身份')
+  assert.match(failRun.calls[0].detail, /2026-10-17T01:00:00\+08:00/, '成功时刻同上:实时读数进正文')
+  const noMarker = stallHarness(stallPayload({ liveSha: '', why: '线上无构建标记' }))
+  assert.match(noMarker.calls[0].opts.dedupKey, /class=no-marker/, '标记缺失与落后是两种动作,类别必须分开')
   assert.equal(stallHarness({ level: 'unjudged', why: '线上根不存在' }).calls.length, 0, '未判定不得寄信(§0.3)')
   const timedOut = stallHarness('', { status: null, killed: true, stderr: 'spawnSync ETIMEDOUT' })
   assert.equal(timedOut.calls.length, 0, '派生超时是未判定,不是停摆也不是"尺子坏了"')
@@ -524,6 +549,46 @@ test('auditDeployStall 三态:ok 不寄 / fail 寄且身份含 tip+成功时刻 
   assert.match(timedOut.lines.join('\n'), /未判定/, '超时必须在日志里点名')
   assert.equal(stallHarness('这不是 JSON', { status: 1 }).calls.length, 0, '读数不可解析 ⇒ 未判定')
 })
+
+// 立因(2026-10-18 改完当场):日志两支都写"已派发到邮件通道",而 notifyGuardRed 压住时也走到这一行
+// ⇒ "这一轮到底多寄了没有"在读日志的人眼里永远是"寄了"。修完的验收只能靠这条区分。
+test('停摆的日志分得出"真寄了"与"窗口内压住"(成对夹具)', () => {
+  const mk = (ret) => {
+    const lines = []
+    const h = stallHarness(stallPayload())
+    const one = N.auditDeployStall({
+      now: Date.parse('2026-10-17T04:00:00.000Z'),
+      intervalMs: 1,
+      tickFile: join(h.dir, 't2.ts'),
+      firstFile: join(h.dir, 'f2.json'),
+      logger: (s) => lines.push(String(s)),
+      notify: () => ret,
+      runner: () => ({ status: 0, stdout: JSON.stringify(stallPayload()), stderr: '', killed: false }),
+    })
+    void one
+    return lines.join('\n')
+  }
+  assert.match(mk({ sent: true }), /已派发到邮件通道/, '真投递必须写派发')
+  assert.doesNotMatch(mk({ sent: false, suppressed: true }), /已派发到邮件通道/, '压住却写"已派发"= 读不出这一轮有没有多寄一封')
+  assert.match(mk({ sent: false, suppressed: true }), /窗口内已通报,本轮压住/)
+})
+// 立因(2026-10-18 现读):当天 28 封里 18 封是同一场停摆 —— 身份写的是 `tip 前缀 + 最近一次成功
+// 部署时刻`,而这台机当日 361 枚提交推进 origin/main,成功时刻又被尺子读成环每 60 秒写的攒批节流行
+// (见 check-credential-health T19)⇒ 每量一轮都是"新故障",4 小时窗从没生效过。
+test('停摆身份必须压得住 tip 与成功时刻的逐轮抖动;拖过一档才许换身份重报', () => {
+  const T0 = Date.parse('2026-10-18T04:00:00.000Z')
+  const h = stallHarness(stallPayload({ liveSha: '', tipSha: 'a'.repeat(40), lastSuccessIso: '2026-10-18T11:35:43+08:00' }), { now: T0 })
+  h.one(stallPayload({ liveSha: '', tipSha: 'b'.repeat(40), lastSuccessIso: '2026-10-18T11:51:02+08:00' }), {}, { now: T0 + 16 * 60_000 })
+  h.one(stallPayload({ liveSha: '', tipSha: 'c'.repeat(40), lastSuccessIso: '2026-10-18T12:07:44+08:00' }), {}, { now: T0 + 32 * 60_000 })
+  const keys = [...new Set(h.calls.map((c) => c.opts.dedupKey))]
+  assert.equal(keys.length, 1, `tip 换两枚、成功时刻前移两轮 ⇒ 同一场停摆必须还是同一个身份,实测 ${keys.join(' | ')}`)
+  assert.match(keys[0], /class=no-marker;held=lt6h/)
+  h.one(stallPayload({ liveSha: '', tipSha: 'd'.repeat(40) }), {}, { now: T0 + 6 * 3_600_000 + 60_000 })
+  assert.equal(h.calls.at(-1).opts.dedupKey, 'stall;class=no-marker;held=6-24h', '拖过 6 小时必须换档重报 —— 报警越拖越响,不会被压成静音')
+  h.one({ level: 'ok', liveSha: 'e'.repeat(40), tipSha: 'e'.repeat(40), lastSuccessIso: '2026-10-18T18:00:00+08:00', thresholdMin: 45, behindHours: 0 }, {}, { now: T0 + 7 * 3_600_000 })
+  assert.equal(existsSync(h.firstFile), false, '线上追平必须清掉停摆起点,不得拿上一场的账续命')
+})
+
 
 test('形状锁:聚合告警的名字里不许再带计数,公网身份必须走尺子那侧的归一(型③的装车证明)', () => {
   const src = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
@@ -534,6 +599,8 @@ test('形状锁:聚合告警的名字里不许再带计数,公网身份必须走
   assert.match(src, /classifyAlertIdentity\(key,/, '公网探测身份只准调归一那一份实现,不得在派发层另拼')
   assert.doesNotMatch(src, /legs=\$\{Number\(parsed\.legs\)/, '隧道腿数不得以原始值进身份')
   assert.match(src, /legs=\$\{alertCountTier\(parsed\.legs\)\}/)
+  assert.doesNotMatch(src, /dedupKey: `stall;tip=/, '停摆身份再含 tip/成功时刻 = 每轮新身份(实测 18 封/天)')
+  assert.match(src, /dedupKey: `stall;class=\$\{stallClass\};held=\$\{held\.tier\}`/, '停摆身份 = 类别 × 持续档(§5e-1)')
   assert.match(src, /if \(!CHECK_ONLY\) auditDeployStall\(\)/, '高频档必须真挂在守护 tick 上(判据存在但不被调用=没有)')
 })
 
