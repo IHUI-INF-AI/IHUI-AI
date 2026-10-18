@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "IHUI-AI 业务转化漏斗与 API 健康度",
+  "description": "IHUI-AI 业务转化漏斗与 API 健康度。漏斗只画有真实事件源的档:register 档(business_funnel_total{stage=\"register\"},封闭枚举带 0 基线,生产埋点 = auth 注册链路 server.recordFunnel('register'),全仓唯一调用点)。【摘档说明】stage=\"activate\" 与 stage=\"paid\" 虽然在 FUNNEL_STAGES 封闭枚举里注册了 0 基线,但生产代码没有任何事件源——users.status 只有 0/1/3 且建号即为 1,全仓无激活/认证/首登列;'首次付费'同样无打点。把它们画成恒零线是把'概念在本产品里不存在'伪装成'发生了 0 次激活/付费',对值班是两种完全不同的结论,故:①'激活用户数'统计板整体移除(无真值,不造假);②'付费用户数'统计板换成'支付成功数',真值改从支付侧真计数器 business_payments_total{channel,status}(status∈attempt|success|refund)与 ihui_payment_success_total{channel} 来(发射手 = order-service 支付路径);③转化率只保留真值可算的 注册→支付成功 一段。本机没发生过支付事件时支付档与转化率为 No data 是事实,禁止用 clamp 或假标签凑 0。",
   "editable": true,
   "graphTooltip": 1,
   "id": null,
@@ -22,13 +22,14 @@
     {
       "title": "注册用户数",
       "type": "stat",
+      "description": "business_funnel_total{stage=\"register\"}:封闭枚举三档里唯一有生产调用点的一档(auth 注册链路)。该档有 0 基线,读 0 = 本进程启动窗口内没有新注册,是事实;此档不造假。",
       "datasource": {
         "type": "prometheus",
         "uid": "Prometheus"
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
+        "w": 12,
         "x": 0,
         "y": 0
       },
@@ -52,23 +53,29 @@
       }
     },
     {
-      "title": "激活用户数",
+      "title": "支付成功数",
       "type": "stat",
+      "description": "顶替原'付费用户数'(funnel stage=\"paid\" 档,已摘除——paid 无事件源,'付费 0 次'不是事实、概念缺席才是)。真值来自支付侧真计数器:A = business_payments_total{status=\"success\"},B = ihui_payment_success_total,发射点在 order-service 支付路径(模块级桥接 recordPaymentSuccess / recordPayment)。本机没支付成功事件时任一序列都不存在 = No data,这是事实,禁止 clamp 成 0 或用假标签凑线。",
       "datasource": {
         "type": "prometheus",
         "uid": "Prometheus"
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
-        "x": 8,
+        "w": 12,
+        "x": 12,
         "y": 0
       },
       "targets": [
         {
-          "expr": "sum(business_funnel_total{stage=\"activate\"})",
-          "legendFormat": "激活",
+          "expr": "sum(business_payments_total{status=\"success\"})",
+          "legendFormat": "success(business_payments_total)",
           "refId": "A"
+        },
+        {
+          "expr": "sum(ihui_payment_success_total)",
+          "legendFormat": "ihui_payment_success_total",
+          "refId": "B"
         }
       ],
       "fieldConfig": {
@@ -84,40 +91,9 @@
       }
     },
     {
-      "title": "付费用户数",
-      "type": "stat",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "Prometheus"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 0
-      },
-      "targets": [
-        {
-          "expr": "sum(business_funnel_total{stage=\"paid\"})",
-          "legendFormat": "付费",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"]
-        }
-      }
-    },
-    {
-      "title": "转化漏斗（注册→激活→付费）",
+      "title": "转化漏斗（注册→支付成功）",
       "type": "bargauge",
+      "description": "两档真值漏斗。原三档里的 activate 已摘除:它查的是 sum(business_funnel_total{stage=\"activate\"}),该档在封闭枚举里带 0 基线但生产无事件源,画出来是一条把'概念不存在'伪装成'0 次激活'的假档;paid 档同理摘除,支付档真值改用 business_payments_total{status=\"success\"}(发射手在 order-service 支付路径)。支付事件未发生时 B 条无序列,不凑 0。",
       "datasource": {
         "type": "prometheus",
         "uid": "Prometheus"
@@ -135,14 +111,9 @@
           "refId": "A"
         },
         {
-          "expr": "sum(business_funnel_total{stage=\"activate\"})",
-          "legendFormat": "激活",
+          "expr": "sum(business_payments_total{status=\"success\"})",
+          "legendFormat": "支付成功",
           "refId": "B"
-        },
-        {
-          "expr": "sum(business_funnel_total{stage=\"paid\"})",
-          "legendFormat": "付费",
-          "refId": "C"
         }
       ],
       "fieldConfig": {
@@ -157,8 +128,9 @@
       }
     },
     {
-      "title": "转化率",
+      "title": "转化率（注册→支付成功）",
       "type": "stat",
+      "description": "真值可算的转化率只剩这一段:支付成功 / 注册。原三 target 全部摘除:'注册→激活'与'激活→付费'用了无事件源的 activate 假档,'激活→付费'分母还是假档(除出来是 NaN 冒充有读数);'注册→付费'原式 sum(business_funnel_total{stage=\"paid\"})/… 的 paid 档无事件源,分子改从支付侧真计数器 business_payments_total{status=\"success\"} 来。分母 register 档带 0 基线恒有序列,分子无支付事件时无序列 ⇒ 整板 No data,这是事实,禁止 clamp 凑 0%。",
       "datasource": {
         "type": "prometheus",
         "uid": "Prometheus"
@@ -171,19 +143,9 @@
       },
       "targets": [
         {
-          "expr": "sum(business_funnel_total{stage=\"activate\"}) / sum(business_funnel_total{stage=\"register\"})",
-          "legendFormat": "注册→激活",
+          "expr": "sum(business_payments_total{status=\"success\"}) / sum(business_funnel_total{stage=\"register\"})",
+          "legendFormat": "注册→支付成功",
           "refId": "A"
-        },
-        {
-          "expr": "sum(business_funnel_total{stage=\"paid\"}) / sum(business_funnel_total{stage=\"activate\"})",
-          "legendFormat": "激活→付费",
-          "refId": "B"
-        },
-        {
-          "expr": "sum(business_funnel_total{stage=\"paid\"}) / sum(business_funnel_total{stage=\"register\"})",
-          "legendFormat": "注册→付费",
-          "refId": "C"
         }
       ],
       "fieldConfig": {

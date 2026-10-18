@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "IHUI-AI 认证安全监控 (登录 / JWT / 异常 / 2FA / token 撤销)",
+  "description": "IHUI-AI 认证安全监控 (登录 / JWT / 异常 / 2FA / token 撤销)。给值班:登录/JWT/撤销族本机有真实流量,正常应能看到曲线;'异常登录数'与'2FA 使用率'读到全零 = 计数器活着且确实没发生(健康,不是坏了)。'失败登录 Top10 IP' 的 source_ip 是开放集标签,只有真实失败登录才会把某个 IP 顶上榜,当前榜单全零 = 没有失败登录发生,是事实。判读口径:全零 ≠ 空板 —— 前者是采集正常的零事件,后者才需要查接线;严禁用 clamp 或假标签凑读数。",
   "editable": true,
   "graphTooltip": 1,
   "id": null,
