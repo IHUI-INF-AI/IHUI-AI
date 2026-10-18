@@ -40,6 +40,13 @@ inhibit_rules:
     target_matchers: ['alertname="LlmProviderUnhealthy"']
     equal: ['instance']
 
+  # ===== LLM 同根因抑制(2026-10-18 立)=====
+  # AiLlmHighFailureRate(critical)抑制 LlmProviderErrorBurst(warning):同源于 provider 报错,
+  # 而 route 按 alertname 分组 ⇒ 不抑制必然两封邮件。两条告警都由 sum() 聚合、无 instance/service
+  # 标签(bridge 日志实例位恒为 `-`)⇒ **不写 equal**,写了永不命中。时序靠 for 对齐(均 15m)。
+  - source_matchers: ['alertname="AiLlmHighFailureRate"']
+    target_matchers: ['alertname="LlmProviderErrorBurst"']
+
   # ===== 待接入占位（勿删除，供后续维护参考）=====
   # PostgresDown / RedisDown / WindowsDiskSpaceLow 目前 alerts.yml 无“衍生明细告警”可抑制，
   # 待新增 PG/Redis 明细指标告警时，按真实 alertname 在此追加级联即可（如

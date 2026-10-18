@@ -34,6 +34,35 @@ logger = logging.getLogger(__name__)
 # ai-service 代码根目录(用于扫描 SQL 表名)
 _APP_DIR = Path(__file__).resolve().parent.parent  # apps/ai-service/app
 
+# 有意**不**并入 packages/database(Drizzle TS schema)、由 ai-service 用原生 SQL
+# 自建自管的表。2026-10-18 立 —— 此前每次启动都刷 7 条
+# "表未在 TS schema 中管理(数据孤岛风险)" 的 WARNING。逐张确认过:
+#   ① TS schema 里**均无**声明(grep packages/database/src/schema 零命中);
+#   ② 均由 ai-service 的 `CREATE TABLE IF NOT EXISTS` 自建(自建源见下)。
+# 这是既有设计(签到 / 媒体 / 发布 / RAG 四组表由各自 service 原生 SQL 管),
+# 不是字段漂移。记在这里的意义是**显式承认现状**,而不是假装它们受 Drizzle
+# 管理(那才是说谎);同时把噪音从 WARNING 降为 INFO —— 狼来了会让真正的
+# 孤岛告警被淹没。
+# 新增"非 Drizzle 管理表"必须在此登记并注明自建源;未登记的一律仍按 WARNING 报出。
+#
+# 自建源(便于回溯,2026-10-18 逐张核实):
+#   checkin_accounts / checkin_records / checkin_credits_daily / checkin_error_counts
+#       -> app/services/checkin_store.py(与桌面端签到协议对齐)
+#   media_tasks      -> app/services/media_tasks.py
+#   publish_metrics / publish_style_check
+#                    -> app/services/publish/metrics_collector.py
+#   rag_chunks       -> app/services/pgvector_store.py
+KNOWN_NON_DRIZZLE_TABLES: frozenset[str] = frozenset({
+    "checkin_accounts",
+    "checkin_records",
+    "checkin_credits_daily",
+    "checkin_error_counts",
+    "media_tasks",
+    "publish_metrics",
+    "publish_style_check",
+    "rag_chunks",
+})
+
 # packages/database/src/schema 目录(用于解析 TS schema)
 # 从 apps/ai-service/app/core/ 回溯到 monorepo 根,再进入 packages/database
 # 容器部署时 ai-service 镜像只 COPY app/,没有 monorepo 完整结构,parents[4] 会 IndexError
@@ -649,7 +678,14 @@ def log_report(result: dict[str, Any]) -> None:
             logger.info("[schema_check] %s: 字段对照一致 (源: %s)", table, source)
 
         if not info.get("in_ts_schema", True):
-            logger.warning("[schema_check] %s: 表未在 TS schema 中管理(数据孤岛风险)", table)
+            # 登记在册的非 Drizzle 表:降为 INFO 并说明归属,不再冒充孤岛告警
+            if table in KNOWN_NON_DRIZZLE_TABLES:
+                logger.info(
+                    "[schema_check] %s: 由 ai-service 原生 SQL 自建自管(非 Drizzle,已知设计)",
+                    table,
+                )
+            else:
+                logger.warning("[schema_check] %s: 表未在 TS schema 中管理(数据孤岛风险)", table)
 
 
 def decide_exit_code(result: dict[str, Any]) -> int:

@@ -314,7 +314,7 @@ def read_upstream_sources(env: dict[str, str] | None = None) -> dict[str, Any]:
                 }
                 degraded_this_read[name] = governed
                 logger.warning(
-                    "[provider_capability_snapshot] 上游源 %s 读取失败 ⇒ 为其所辖 %d 个"
+                    "[provider_capability_snapshot] 上游源 %s 读取失败 => 为其所辖 %d 个"
                     " provider 合成 entitled:false(fail-closed,不静默当有权限),"
                     "其余层照常装配: %s: %s",
                     name,
@@ -514,7 +514,7 @@ def seed_uninitialized(
     outcome = target.publish_round(target.solve_round_sync())
     if outcome.get("status") != "published":
         logger.warning(
-            "[provider_capability_snapshot] 播种轮未落地:%s ⇒ 快照仍为未初始化"
+            "[provider_capability_snapshot] 播种轮未落地:%s => 快照仍为未初始化"
             "(栅栏照判,不为'有快照'绕开);reasons=%s",
             outcome.get("status"),
             outcome.get("reasons"),
