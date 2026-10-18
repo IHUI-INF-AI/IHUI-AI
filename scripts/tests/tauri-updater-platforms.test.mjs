@@ -71,14 +71,18 @@ test('① 入库快照的 windows-x86_64 键必须与"快照自己的版本号"�
   // 于是按记忆里的同一课(建门当时的状态锁会在第一次合规时变成禁止合规),它只能被换掉。
   // 换后的判据更强:它同时钉住 host 归属、tag 与版本一致、文件名与版本一致、签名可解码且
   // 解码内容确实指向同一个 exe —— 任何一环漂移都红,而正常发版不再红。
+  // 2026-10-18:host 不再钉死 gitee —— 快照里的 Windows 直链现在由**字节对账**决定
+  // (量过且与 GH 等长才用 Gitee,否则保持 GitHub)。把 host 钉成单值正是上一版盲钉把
+  // 0.1.54 快照钉到 Gitee 未镜像的 tag(实测 404)的成因,所以这里两 host 都合法,
+  // 而"tag/文件名/签名互相对应"这几维一条都没放松。
   assert.match(feed.version, /^\d+\.\d+\.\d+$/, `快照 version 形态异常: ${feed.version}`)
   const m =
-    /^https:\/\/gitee\.com\/[^/]+\/[^/]+\/releases\/download\/desktop-v([\d.]+)\/(.+_x64-setup\.exe)$/.exec(
+    /^https:\/\/(?:gitee|github)\.com\/[^/]+\/[^/]+\/releases\/download\/desktop-v([\d.]+)\/(.+_x64-setup\.exe)$/.exec(
       win.url,
     )
   assert.ok(
     m,
-    `windows url 必须是 Gitee 上 desktop-v<version>/AI_<version>_x64-setup.exe 形态,实得 ${win.url}`,
+    `windows url 必须是 desktop-v<version>/<...>_x64-setup.exe 形态(gitee 或 github),实得 ${win.url}`,
   )
   assert.equal(m[1], feed.version, 'url 里的 release tag 必须等于快照 version')
   assert.ok(
@@ -95,9 +99,17 @@ test('① 入库快照的 windows-x86_64 键必须与"快照自己的版本号"�
     decoded.includes('trusted comment: timestamp:'),
     '签名缺少 timestamp 段(该 .sig 不是本次构建产物)',
   )
-  assert.ok(
-    /file:.+_x64-setup\.exe/.test(decoded),
-    '签名内声明的 file 与被下载 exe 文件名不同 ⇒ 签名与资产不配对',
+  const fileDecl = /file:(.+_x64-setup\.exe)/.exec(decoded)
+  assert.ok(fileDecl, '签名里没有 file:<...>_x64-setup.exe 声明 ⇒ 不是这个包的签名')
+  // 不逐字比文件名:CI 把 tauri 构建名 `智汇AI_<ver>_x64-setup.exe` 改名上传成
+  // `AI_<ver>_x64-setup.exe`,而 minisign 签的是**内容**不是名字 —— 按字面相等会造出
+  // 每版必红的恒红门(§12e)。该比的是**版本段**:签名来自别次构建时这里就红。
+  const sigVer = /_(\d+\.\d+\.\d+)_x64-setup\.exe$/.exec(fileDecl[1].trim())
+  assert.ok(sigVer, `签名 file 段里没有 x.y.z 版本段: ${fileDecl[1]}`)
+  assert.equal(
+    sigVer[1],
+    feed.version,
+    `签名来自 ${sigVer[1]} 的构建,而快照 version 是 ${feed.version} ⇒ 签名与资产不配对`,
   )
   // 与旧 route 的消费对象(assets 里第一条 Windows)同源同值 —— 两形态并读不相悖
   const legacyWin = feed.assets.find((a) => /Windows/i.test(a.format))
