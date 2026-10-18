@@ -2241,6 +2241,13 @@
       "when": 1792300800000,
       "tag": "20261018132000_chat_voice_notes",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 321,
+      "when": 1792304400000,
+      "tag": "20261018142000_chat_messages_pin_bookmark",
+      "breakpoints": true
     }
   ]
 }
