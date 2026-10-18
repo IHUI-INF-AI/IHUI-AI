@@ -8,6 +8,7 @@ import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getDistributionInfo, getDistributionTeam } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
 interface CompanyInfo {
@@ -36,6 +37,7 @@ const DEFAULT_INFO: CompanyInfo = {
 
 export default function CompanyPage() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [info, setInfo] = useState<CompanyInfo>(DEFAULT_INFO)
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
@@ -63,7 +65,12 @@ export default function CompanyPage() {
     }
   }, [])
 
-  useDidShow(load)
+  // G-933 冷启动抢跑门控:load 两发 GET /api/distribution/overview 与
+  // /api/distribution/invited-users 全在 distributionRoutes 统一 preHandler 之下
+  // (`apps/api/src/routes/distribution.ts:24` addHook authenticate)⇒ 需鉴权,整块挡到门后。
+  useDidShow(() => {
+    gate.waitUntilReady(load)
+  })
 
   const navigateTo = (url: string) => Taro.navigateTo({ url })
 

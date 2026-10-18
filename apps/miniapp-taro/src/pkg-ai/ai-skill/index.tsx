@@ -12,6 +12,7 @@ import { listAiSkills, type AiSkillMeta } from '@ihui/api-client'
 import { useTt } from '@/i18n'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
@@ -170,6 +171,7 @@ export default function AiSkillList() {
   const [items, setItems] = useState<AiSkillMeta[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const gate = useAuthReadyGate()
 
   const load = useCallback(async () => {
     setError('')
@@ -186,7 +188,11 @@ export default function AiSkillList() {
   }, [tt])
 
   useDidShow(() => {
-    void load()
+    // G-933 冷启动抢跑门:listAiSkills → GET /api/ai-skills(ai-skills-proxy.ts:38 组级
+    // authenticate)需鉴权;判定落定前不发。下拉刷新是用户动作,不挡。
+    gate.waitUntilReady(() => {
+      void load()
+    })
   })
 
   usePullDownRefresh(() => {
