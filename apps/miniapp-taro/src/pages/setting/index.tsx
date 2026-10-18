@@ -8,6 +8,7 @@ import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, logout, type UserInfo } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { markSessionLoggedOut } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
@@ -16,6 +17,7 @@ const VERSION = '1.0.0'
 
 export default function SettingIndexPage() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [user, setUser] = useState<Partial<UserInfo>>({})
 
   // 本地 fallback:t(key) 未命中时返回 fb,保证页面可用(主 agent 补 i18n key 后自动切换)
@@ -62,7 +64,15 @@ export default function SettingIndexPage() {
     })
   }, [tt])
 
-  useDidShow(() => load())
+  // G-933 冷启动抢跑门控:load 唯一一支 GET /api/user/profile 需鉴权
+  // (apps/api/src/routes/miniapp-compat-routes.ts:2247 handler 内
+  // `if (!(await checkAuth(request, reply))) return`,注册前缀 /api 见 routes/index.ts:1045)
+  // ⇒ 挡到门后。未登录卡面由既有 `user.nickname ? … : null` 分支自然不渲染,不新增文案。
+  useDidShow(() => {
+    gate.waitUntilReady(() => {
+      void load()
+    })
+  })
 
   return (
     <ThemeRoot>
