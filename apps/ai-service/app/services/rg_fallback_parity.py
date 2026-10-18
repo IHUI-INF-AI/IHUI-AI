@@ -32,15 +32,6 @@
 不加 `--follow` 的理由:加了会顺着链接目录递归,而 §26 记过"junction 被递归穿透"
 把改道机制变成自毁机制的那一型;链接**文件**少列一个不构成检索语义破损。
 对账函数把这一型差异归入 `symlink_only`,**如实计数、不判为不一致**。
-
-第二处(2026-10-18 实测补齐):**junction 目录**。`os.path.islink` 对 Windows
-junction 判 False,所以 `os.walk(followlinks=False)` 挡不住它、照穿不误;而 rg 把
-junction 按 symlink 处理、不加 `--follow` 一律不穿。实测分叉项
-`.DevEnv/cache/userhome/.codex/.../latest/docs/confirmations.md` 的 `latest` 组件
-就是 junction ⇒ 降级通道会把环境重定向树(假 userhome)整片索引进去,与 rg 通道
-答出两套结果。修法:walk 通道在 dirnames 里显式剔除 reparse point(symlink 与
-junction 一并),两通道在"不穿链接家族"上**同语义**;§26 的穿透风险在降级通道
-同样成立,这里是同一句话的落实,不是新策略。
 """
 
 from __future__ import annotations
@@ -356,23 +347,6 @@ def _to_rel_posix(raw: str, root: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _is_reparse_dir(path: str) -> bool:
-    """目录组件是否 reparse point(symlink 目录或 junction)。
-
-    判据本体:rg 不加 `--follow` 时对这两类一律不穿入;Python 通道必须同语义,
-    否则两条通道对"同一棵树"答出两套结果(实测根源见模块 docstring 第二处)。
-    `os.path.isjunction` 需要 Python ≥3.12(本服务 requires-python 同版本);
-    缺名时按 False 处理,行为退回 os.walk 原状,不新增失败形态。
-    """
-    try:
-        if os.path.islink(path):
-            return True
-        isjunction = getattr(os.path, "isjunction", None)
-        return bool(isjunction and isjunction(path))
-    except OSError:
-        return False
-
-
 def enumerate_with_walk(
     root: Path,
     *,
@@ -399,19 +373,14 @@ def enumerate_with_walk(
     至少不比被替换的实现慢,故用回 `os.walk`。留这段数字是为了让下一个人不必
     再花两小时重新发明同一个错误。
 
-    与 `os.walk(followlinks=False)` 的既有语义对齐(它就是原实现),**唯一一处刻意
-    偏离**是目录组件上的 reparse point(symlink/junction)一律剪枝 —— 理由见
-    `_is_reparse_dir` 与模块 docstring:rg 侧同语义,不剪就是两套答案。
+    与 `os.walk(followlinks=False)` 的既有语义逐字对齐(它就是原实现),因此
+    接入既有调用方不需要任何"新通道"分支。
     """
     t0 = time.perf_counter()
     suffix_set = normalize_suffixes(suffixes)
     results: set[str] = set()
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [
-            d
-            for d in dirnames
-            if d not in ignored_dirs and not _is_reparse_dir(os.path.join(dirpath, d))
-        ]
+        dirnames[:] = [d for d in dirnames if d not in ignored_dirs]
         for fname in filenames:
             if not _matches_suffix(fname, suffix_set):
                 continue
