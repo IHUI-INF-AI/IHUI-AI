@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { useAuthStore } from '@/stores/auth'
 import { GlobalErrorBanner } from '@/components/common/GlobalErrorBanner'
+import { ConnectivityBanner } from '@/components/layout/ConnectivityBanner'
 
 /**
  * MainShell — (main) 路由组的工作区卡片容器(2026-07-30 第十四次修订:精简)
@@ -80,6 +81,8 @@ export function MainShell({ children }: { children: React.ReactNode }) {
           {/* 2026-08-01 全局错误通知条:从顶部滑下,常驻直到用户关闭
               (用户需求:internet server error 这种错误提示应该从页面上面滑下来,常驻直到错误解决) */}
           <GlobalErrorBanner />
+          {/* 2026-10-18 票85③ 连通性横幅:四态各画各的格,在线/没结论时不出现 */}
+          <ConnectivityBanner />
           {children}
         </main>
       </div>

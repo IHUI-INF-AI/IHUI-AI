@@ -8303,6 +8303,10 @@
           "title": "현재 채팅 모드에서는 이 작업이 차단됩니다",
           "action": "빌드 모드로 전환 후 재시도"
         },
+        "CONCURRENT_MODIFICATION": {
+          "title": "파일이 동시에 수정되었습니다",
+          "action": "다시 불러온 후 작성하거나, 강제 덮어쓰기를 확인하세요"
+        },
         "CONCURRENCY_LIMIT_EXCEEDED": {
           "title": "요청이 너무 잦습니다",
           "action": "나중에 재시도"
@@ -15993,6 +15997,11 @@
     "logsEmptyDescription": "이 Hook은 아직 실행된 적이 없습니다",
     "logSuccess": "성공",
     "logFailure": "실패"
+  },
+  "connectivity": {
+    "deviceOffline": "기기가 오프라인 상태이며 일부 기능을 사용할 수 없습니다",
+    "apiUnreachable": "서버에 연결할 수 없습니다, 자동으로 재시도 중",
+    "hostLocalAvailable": "로컬 Git 채널은 계속 사용 가능"
   },
   "ide": {
     "activityBar": {

@@ -8303,6 +8303,10 @@
           "title": "当前对话模式已拦截该操作",
           "action": "切换到构建模式后重试"
         },
+        "CONCURRENT_MODIFICATION": {
+          "title": "文件已被并发修改",
+          "action": "重新读取后再写，或确认后强制覆盖"
+        },
         "CONCURRENCY_LIMIT_EXCEEDED": {
           "title": "请求过于频繁",
           "action": "稍后重试"
@@ -15994,6 +15998,11 @@
     "logsEmptyDescription": "该 Hook 还未被触发过",
     "logSuccess": "成功",
     "logFailure": "失败"
+  },
+  "connectivity": {
+    "deviceOffline": "本机已断网,部分功能不可用",
+    "apiUnreachable": "无法连接服务器,正在自动重试",
+    "hostLocalAvailable": "本地 Git 通道仍可用"
   },
   "ide": {
     "activityBar": {
