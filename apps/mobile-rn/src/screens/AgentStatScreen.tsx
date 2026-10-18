@@ -24,7 +24,7 @@ export function AgentStatScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<AgentStatData>('/agent-stat')
+      const res = await fetchApi<AgentStatData>('/agents/stats')
       if (!res.success) throw new Error()
       setStat(res.data ?? null)
     } catch {

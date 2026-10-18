@@ -54,8 +54,8 @@ import {
 } from 'react-native'
 import type { TextInput } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useUiTextField } from '../lib/use-ui-text-field'
 import { useI18n } from '../i18n'
+import { useUiTextField } from '../lib/use-ui-text-field'
 import { tokens , currentRnTheme} from '../theme/active-tokens'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { PlusButton } from './AddPanel'
@@ -69,7 +69,7 @@ import {
   Play,
   Plus,
   Send,
-  Settings,
+  SlidersHorizontal,
   X,
 } from 'lucide-react-native'
 
@@ -227,19 +227,22 @@ export interface InputAreaProps {
   /** 「+」按钮激活态(底部菜单展开时高亮 + 旋转 45°) */
   plusActive?: boolean
 
-  // ── 模型选择(可选,四枚全可选;调用方一枚都不传时整族不渲染,输出与补这四处之前逐字一致)──
-  /** 点击模型按钮 → 打开全量模型列表(弹层由调用方承载)。
-   *  提供后在大输入框「+」之前渲染模型按钮,语义对齐 web 端输入卡的 ModelSelector trigger
-   *  (`apps/web/src/components/chat/model-selector.tsx` 的 DropdownMenu.Trigger:
-   *   当前模型名 + ChevronDown,点击开列表)。 */
+  // ── 框内模型选择(2026-10-15 用户定:对齐 web 输入卡 ModelSelector 形态 ──
+  /** 模型选择触发钮(「+」左侧):显示当前模型名(未选时兜底「自动」),点击回调;
+   *  模型列表面板由调用方渲染(HomeScreen 走既有模型选择 Modal,单选+选中高亮) */
   onOpenModelSelect?: () => void
-  /** 当前所选模型名;null/undefined = 未选,按 web 端 AUTO_OPTION 同义显示「自动」 */
+  /** 已选模型名(按钮上显示;未选时按钮显示「自动」兜底,对齐 web AUTO_OPTION) */
   selectedModelName?: string | null
-  /** 清除所选、回到「自动」(对齐 web 选回 value='auto')。
-   *  保守取窄:只有"已有所选"时才有可清除对象,未选态不渲染这枚钮(否则点了没任何变化)。 */
+  /** 清除已选模型(按钮内「×」,selectedModelName 存在时显示) */
   onClearModel?: () => void
-  /** 打开模型参数配置(温度/推理强度等采样参数,弹层由调用方承载) */
+  /** 打开模型参数配置(按钮旁滑杆钮) */
   onOpenModelConfig?: () => void
+  /**
+   * 透明底模式(2026-10-16 HomeScreen 液态玻璃底部停靠区用):去掉容器自身的
+   * surface.card 底色与顶描边,由外层玻璃停靠区统一提供背景与分隔线。
+   * 默认 false = 原实心卡底行为(其余调用方不受影响)。
+   */
+  transparentBackground?: boolean
 }
 
 const DEFAULT_MAX_LENGTH = 500
@@ -365,8 +368,10 @@ export function InputArea({
   selectedModelName = null,
   onClearModel,
   onOpenModelConfig,
+  transparentBackground = false,
 }: InputAreaProps) {
   const insets = useSafeAreaInsets()
+  const { t } = useI18n()
   useUiTextField({
     label: placeholder ?? '',
     value,
@@ -374,7 +379,6 @@ export function InputArea({
     multiline: true,
     maxLength,
   })
-  const { t } = useI18n()
   const isSendBlocked = disabled || loading
   const canSend = value.trim().length > 0 && !isSendBlocked
   const isOverWarning = value.length >= Math.floor(maxLength * WARNING_RATIO)
@@ -391,6 +395,15 @@ export function InputArea({
   const inputHeight = isExpanded
     ? Math.max(MIN_INPUT_HEIGHT, contentHeight)
     : Math.min(Math.max(MIN_INPUT_HEIGHT, contentHeight), MAX_INPUT_HEIGHT)
+  // 单/多行态同一阈值(与字数统计共用):内容高比单行最小高多出 10(≈一行余量)才算多行。
+  // 取 MIN+10 而非 MIN:单行删到剩一行时 scrollHeight≈50(多行底距 24 撑的),按 MIN 判会
+  // 卡在多行态 —— 文字比中轴偏上 6px 且底部空 24 不显示计数(2026-10-16 修)
+  const isMultiLineState = inputHeight > MIN_INPUT_HEIGHT + 10
+  // 单行态在 inputBare 之上只覆盖纵向:此前整表替换单写 paddingBottom,把 paddingTop(归 0
+  // ⇒ 文字贴顶)、横向留白、字号、墨色一并丢掉,占位与同排控件(麦克风/模型钮/加号/发送)
+  // 中轴实测差 14px(2026-10-16 修);多行态换回 inputBare 的 24 底距,留给右下角字数统计,
+  // 否则计数压住末行文字
+  const inputBareStyle = isMultiLineState ? styles.inputBare : [styles.inputBare, styles.inputBareSingle]
 
   // collapsible 折叠态:非受控(defaultCollapsed 默认 true → 首屏折叠)
   const [internalCollapsed, setInternalCollapsed] = useState(defaultCollapsed)
@@ -404,19 +417,15 @@ export function InputArea({
 
   const hasImages = (images?.length ?? 0) > 0
   const hasParams = (pageAgentVariables?.length ?? 0) > 0
+  const hasModelSelect = onOpenModelSelect !== undefined
   const showVoiceBtn = onVoiceToggle !== null
   const showAddBtn = onImageAdd !== undefined
-  const showExpandBtn = onExpandToggle !== null && value.length > 0
-  // 模型按钮族:一枚回调都没传 ⇒ 整族不渲染(输出与补这四处之前逐字一致)。
-  // 「自动」态没有可清除的对象,所以清除钮只在"已有所选"时出现(保守取窄,见 props 注释)。
-  const modelLabel = selectedModelName || t('chat.modelAuto')
-  const hasSelectedModel = !!selectedModelName
-  const showModelChip =
-    onOpenModelSelect !== undefined ||
-    onClearModel !== undefined ||
-    onOpenModelConfig !== undefined
-  const showModelClear = onClearModel !== undefined && hasSelectedModel
-  const showModelConfig = onOpenModelConfig !== undefined
+  // 2026-10-15 修错位:原判 `onExpandToggle !== null` 对未传(undefined)恒真 —— 而全项目
+  // 无一处调用方传 onExpandToggle(prop 本就可选),于是有文字时这枚「⤢」必然渲染,以
+  // position:absolute 钉在 right:44 处压住单排的「+」(CDP 实测重叠 22×12)。
+  // 语义上「显不显示放大钮」应由调用方显式决定,与 hasModelSelect 同一判定形(undefined=不传=不出);
+  // 全项目调用方均不传 ⇒ 两端(框内/框外)的放大钮一并消失,⤢/⤡ 自动撑高(inputHeight)则原样保留。
+  const showExpandBtn = onExpandToggle !== undefined && value.length > 0
 
   const handleSubmit = useCallback((): void => {
     if (!canSend) return
@@ -515,8 +524,45 @@ export function InputArea({
     )
   }
 
+  // 框内发送钮(showVoiceMic 单行/两行两种布局同一渲染,提取一次避免重复 JSX)
+  const sendInShellNode =
+    loading && onStop ? (
+      <TouchableOpacity
+        style={[styles.sendInShell, styles.stopButton]}
+        onPress={onStop}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={stopLabel ?? 'stop'}
+      >
+        <Text style={styles.sendIcon}>{stopLabel ?? '停止'}</Text>
+      </TouchableOpacity>
+    ) : (
+      <TouchableOpacity
+        style={[styles.sendInShell, isSendBlocked ? styles.sendButtonDisabled : null]}
+        onPress={handleSubmit}
+        activeOpacity={0.7}
+        disabled={!canSend}
+        accessibilityRole="button"
+        accessibilityLabel={sendLabel ?? 'send'}
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
+        ) : (
+          <Send size={16} color={tokens.brand.ctaForeground} />
+        )}
+      </TouchableOpacity>
+    )
+
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        transparentBackground && {
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+        },
+      ]}
+    >
       {/* collapsible=true 时,完整态右上角加「×」按钮,折叠回 FAB 态 */}
       {collapsible ? (
         <TouchableOpacity
@@ -552,7 +598,7 @@ export function InputArea({
               voiceRecording || voiceTranscribing ? styles.fieldShellRecording : null,
             ]}
           >
-            {/* 麦克风:长按开始录音,松开结束并转写 */}
+            {/* 麦克风:长按开始录音,松开结束(2026-10-16 起由调用方上传发语音消息) */}
             <Pressable
               style={styles.micInShell}
               onLongPress={onVoiceStart}
@@ -568,13 +614,14 @@ export function InputArea({
               ) : (
                 <Mic
                   size={INPUT_AREA_GLYPH_MD_PX}
-                  color={voiceRecording ? tokens.danger.DEFAULT : tokens.text.secondary}
+                  // 2026-10-16 黑白定档:录音中麦克风随主题取墨档(原红色 danger)
+                  color={voiceRecording ? tokens.text.primary : tokens.text.secondary}
                 />
               )}
             </Pressable>
 
             {/* 中部(恒挂载 Pressable 持有触摸):短按聚焦输入,长按开始录音,
-                录音态显示波形+时长,转写态显示「转写中…」;松开结束并转写 */}
+                录音态显示波形+时长「松开结束」;松开由调用方上传并发语音气泡消息 */}
             <Pressable
               style={styles.voiceTouchArea}
               delayLongPress={450}
@@ -592,7 +639,8 @@ export function InputArea({
                 <View style={styles.voiceAreaInShell}>
                   {voiceTranscribing ? (
                     <View style={styles.transcribingRow}>
-                      <ActivityIndicator size="small" color={tokens.danger.DEFAULT} />
+                      {/* 2026-10-16 黑白定档:转写 spinner 取中性灰,不用红色 */}
+                      <ActivityIndicator size="small" color={tokens.text.secondary} />
                       <Text style={styles.voiceAreaText}>转写中…</Text>
                     </View>
                   ) : (
@@ -609,7 +657,7 @@ export function InputArea({
                   <TextField
                     colorScheme={currentRnTheme()}
                     ref={inputRef}
-                    style={[styles.inputBare, { height: inputHeight }]}
+                    style={[inputBareStyle, { height: inputHeight }]}
                     value={value}
                     onChangeText={onChangeText}
                     onContentSizeChange={(e) =>
@@ -625,8 +673,8 @@ export function InputArea({
                     textAlignVertical="top"
                     editable={!disabled}
                   />
-                  {/* 字数统计:仅输入框被多行内容拉开(两行及以上)时显示,单行不显示 */}
-                  {inputHeight > MIN_INPUT_HEIGHT + 10 ? (
+                  {/* 字数统计:与样式同判据(仅输入框被多行内容拉开时显示,单行不显示) */}
+                  {isMultiLineState ? (
                     <Text style={[styles.counter, isOverWarning ? styles.counterWarning : null]}>
                       {value.length}/{maxLength}
                     </Text>
@@ -654,94 +702,75 @@ export function InputArea({
               </TouchableOpacity>
             ) : null}
 
-            {/* 模型按钮族(2026-10-17 补,语义参照 web 端输入卡 ModelSelector 的 trigger):
-                展开钮 → 模型 → 「+」→ 发送,模型钮排在「+」之前(与 web 底栏"模型 chip 在附件钮
-                左侧"同序)。四枚 props 全可选,一枚都不传时 showModelChip=false ⇒ 这里落 {null},
-                渲染结果与补这一族之前逐字一致。 */}
-            {showModelChip ? (
-              <View style={styles.modelGroup}>
-                {onOpenModelSelect !== undefined ? (
-                  <Pressable
-                    style={styles.modelChip}
-                    onPress={onOpenModelSelect}
-                    hitSlop={INPUT_AREA_CONTROL_HIT_SLOP_PX}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('chat.selectModel')}
-                    accessibilityState={{ selected: hasSelectedModel }}
+            {/* 模型钮 + 配置 + 「+」+ 发送:单排收齐(2026-10-15 用户定:一行,不换行排)。
+                模型钮镜像 web ModelSelector 触发钮形态(model-selector.tsx 内 h-8 rounded-sm
+                border border-input bg-card px-2 text-sm font-medium):32px 高与加号/发送同档,
+                圆角取 control 档(与 web rounded-sm 同值);截断上限 96=web max-w-6rem;
+                点击回调 onOpenModelSelect,模型列表面板由调用方渲染(既有模型选择 Modal)。
+                ⚠️ 「× 清除」必须与模型钮**同级并列**,不得嵌进模型钮内 —— 嵌套会让点 × 时
+                触摸信号冒泡到父级 TouchableOpacity,既清除了模型又弹出选择面板(2026-10-18)。 */}
+            {hasModelSelect ? (
+              <View style={styles.modelRow}>
+                <TouchableOpacity
+                  style={styles.catChip}
+                  onPress={onOpenModelSelect}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('chat.selectModel')}
+                  accessibilityState={{ selected: !!selectedModelName }}
+                >
+                  <Text
+                    style={[
+                      styles.catChipText,
+                      selectedModelName ? null : styles.catChipTextAuto,
+                    ]}
+                    numberOfLines={1}
                   >
-                    <Text
-                      style={[
-                        styles.modelChipText,
-                        hasSelectedModel ? styles.modelChipTextActive : null,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {modelLabel}
-                    </Text>
-                    <ChevronDown
-                      size={INPUT_AREA_CONTROL_GLYPH_PX}
-                      color={tokens.text.secondary}
-                    />
-                  </Pressable>
-                ) : null}
-                {showModelClear ? (
+                    {selectedModelName ?? t('chat.modelAuto')}
+                  </Text>
+                  <ChevronDown
+                    size={INPUT_AREA_CONTROL_GLYPH_PX}
+                    color={tokens.text.secondary}
+                  />
+                </TouchableOpacity>
+                {selectedModelName && onClearModel ? (
                   <Pressable
-                    style={styles.modelActionBtn}
                     onPress={onClearModel}
-                    hitSlop={INPUT_AREA_CONTROL_HIT_SLOP_PX}
+                    hitSlop={4}
                     accessibilityRole="button"
                     accessibilityLabel={t('chat.clearModel')}
                   >
                     <X size={INPUT_AREA_CONTROL_GLYPH_PX} color={tokens.text.secondary} />
                   </Pressable>
                 ) : null}
-                {showModelConfig ? (
-                  <Pressable
-                    style={styles.modelActionBtn}
-                    onPress={onOpenModelConfig}
-                    hitSlop={INPUT_AREA_CONTROL_HIT_SLOP_PX}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('chat.modelConfig')}
-                  >
-                    <Settings size={INPUT_AREA_CONTROL_GLYPH_PX} color={tokens.text.secondary} />
-                  </Pressable>
-                ) : null}
               </View>
             ) : null}
-
-            {/* 「+」按钮(对齐 Uniapp functionHandle → 底部滑出菜单;视觉统一走共享 PlusButton,
-                激活旋转 45° + 品牌高亮,面板由调用方渲染共享 AddPanel) */}
-            {onPlusToggle !== undefined ? (
-              <PlusButton active={plusActive} onPress={onPlusToggle} />
+            {hasModelSelect && selectedModelName && onOpenModelConfig ? (
+              <Pressable
+                onPress={onOpenModelConfig}
+                hitSlop={4}
+                style={styles.configBtnInShell}
+                accessibilityRole="button"
+                accessibilityLabel={t('chat.modelConfig')}
+              >
+                <SlidersHorizontal
+                  size={INPUT_AREA_CONTROL_GLYPH_PX}
+                  color={tokens.text.secondary}
+                />
+              </Pressable>
             ) : null}
-
+            {/* 「+」按钮(对齐 Uniapp functionHandle → 底部滑出菜单;视觉统一走共享 PlusButton,
+                激活旋转 45° + 品牌高亮,面板由调用方渲染共享 AddPanel)。
+                2026-10-15 修错位:单排控件间距全靠各自 marginLeft(模型钮/配置钮/发送均 4),
+                而 PlusButton 是共享组件无左距 —— 实测模型钮右缘紧贴「+」左缘 gap=0;
+                不改共享组件 API,本地包一层补同档左距 */}
+            {onPlusToggle !== undefined ? (
+              <View style={styles.plusInShellGap}>
+                <PlusButton active={plusActive} onPress={onPlusToggle} />
+              </View>
+            ) : null}
             {/* 发送按钮(框内右侧) */}
-            {loading && onStop ? (
-              <TouchableOpacity
-                style={[styles.sendInShell, styles.stopButton]}
-                onPress={onStop}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityLabel={stopLabel ?? 'stop'}
-              >
-                <Text style={styles.sendIcon}>{stopLabel ?? '停止'}</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.sendInShell, isSendBlocked ? styles.sendButtonDisabled : null]}
-                onPress={handleSubmit}
-                activeOpacity={0.7}
-                disabled={!canSend}
-                accessibilityRole="button"
-                accessibilityLabel={sendLabel ?? 'send'}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
-                ) : (
-                  <Send size={16} color={tokens.brand.ctaForeground} />
-                )}
-              </TouchableOpacity>
-            )}
+            {sendInShellNode}
           </View>
         ) : (
           <View style={styles.inputRow}>
@@ -1040,15 +1069,18 @@ const styles = StyleSheet.create({
   // ── showVoiceMic 大输入框(麦克风+文本/语音+发送同框)──
   fieldShell: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    // 角色档 control(输入框)→ sm(4):此前写 xl(12),与小程序端同槽输入框的 rounded-2xl(16)
-    // 各拧一档 —— 两端都不是 panel/hero,所以正确解是双双收到 control 档而不是取其一。
-    borderRadius: rnRadiusFor.control,
+    // 中轴对齐:单排内各元素高度不一(输入 48+ / 其余控件 32),
+    // 居中后全部元素共享一条垂直中轴,多行撑高时控件随中轴同步下移
+    alignItems: 'center',
+    // 2026-10-15 用户定档:原 control(4) 实拍「圆角生硬」→ 收 panel(xl=12),
+    // 与 web 输入壳 rounded-xl(message-input.tsx 'ai-input-shell')同档
+    borderRadius: rnRadiusFor.panel,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
+    // 8/6 = web 壳内 px-2(8)档;原 4/2 实拍「太拥挤」,控件统一 32 高后同步放宽
+    paddingHorizontal: INPUT_AREA_STACK_GAP_PX,
+    paddingVertical: 6,
   },
   micInShell: {
     // 36 = rnGeometry.tapBox 同档,且小程序端 `w-9` 也是 36:两端共享这一档,收进表反而会把
@@ -1061,9 +1093,18 @@ const styles = StyleSheet.create({
   inputBare: {
     paddingHorizontal: 4,
     paddingTop: INPUT_AREA_INPUT_PADDING_TOP_PX,
+    // 24 = 多行态给右下角字数统计预留的底带(单行态由 inputBareSingle 覆盖为对称值)
     paddingBottom: 24,
     fontSize: INPUT_AREA_INPUT_FONT_PX,
     color: tokens.text.primary,
+  },
+  // 单行态:上下对称(与顶距同档 10),行盒钉满内容盒(48 − 上下边框 2 − 上下留白 20 = 26)
+  // ⇒ 文字中心恰落 48 框中轴(fieldShell 中轴),与同排 32 高控件共轴。行盒不钉则取字体
+  // 度量的 normal(≈16),顶对齐后文字中轴仍偏上;边框 1×2 即 TextField 常态描边恒占位档
+  inputBareSingle: {
+    paddingTop: INPUT_AREA_INPUT_PADDING_TOP_PX,
+    paddingBottom: INPUT_AREA_INPUT_PADDING_TOP_PX,
+    lineHeight: INPUT_AREA_INPUT_MIN_HEIGHT_PX - INPUT_AREA_INPUT_PADDING_TOP_PX * 2 - 2,
   },
   voiceAreaInShell: {
     flex: 1,
@@ -1084,13 +1125,65 @@ const styles = StyleSheet.create({
   },
   voiceAreaDuration: {
     fontSize: INPUT_AREA_SECONDARY_FONT_PX,
-    color: tokens.danger.DEFAULT,
+    // 2026-10-16 黑白定档:时长文字随主题取墨档,不用红色
+    color: tokens.text.primary,
     fontWeight: '500',
   },
+  // 录音/转写态外壳:中性灰底 + 中性描边(亮 #EBEBEB / 暗 #262626,主题自适应)。
+  // 2026-10-16 用户定档「简约黑白大气」:原 danger.light 红晕全部移除。
   fieldShellRecording: {
     alignItems: 'center',
-    backgroundColor: tokens.danger.light,
-    borderColor: tokens.danger.light,
+    backgroundColor: tokens.surface.muted,
+    borderColor: tokens.border.medium,
+  },
+  // 模型钮(单排内联:与加号/发送同一行,位于「+」左侧)。
+  // 2026-10-15 重构:镜像 web ModelSelector 触发钮(h-8/rounded-sm/border-input/bg-card/
+  // px-2/text-sm font-medium)—— 32 高与加号/发送同档,模型名即状态(不加选中底色),
+  // 截断上限 96=web max-w-6rem
+  // 模型钮与「× 清除」的同行容器(两者并列,× 不嵌进钮内 —— 防止点 × 冒泡出选择面板)
+  modelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 1,
+  },
+  catChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    // 单端档·RN:左距 4 与 sendInShell marginLeft 同档
+    marginLeft: 4,
+    maxWidth: 96,
+    flexShrink: 1,
+    paddingHorizontal: INPUT_AREA_STACK_GAP_PX,
+    borderRadius: rnRadiusFor.control,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    height: INPUT_AREA_IN_SHELL_BTN_PX,
+  },
+  catChipText: {
+    // web 触发钮 text-sm(14) 同源档,取输入字号表;font-medium → 500
+    fontSize: INPUT_AREA_INPUT_FONT_PX,
+    fontWeight: '500',
+    color: tokens.text.primary,
+  },
+  // 「自动」态取次要档:已选模型与否必须看得出区别(web 侧不区分、由本端补的可见状态档)
+  catChipTextAuto: {
+    color: tokens.text.secondary,
+  },
+  // 配置入口:幽灵图标钮(32×32 透明,与 web 参数入口一致),原品牌色描边盒实拍「配色不搭」
+  configBtnInShell: {
+    marginLeft: 4,
+    width: INPUT_AREA_IN_SHELL_BTN_PX,
+    height: INPUT_AREA_IN_SHELL_BTN_PX,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // 框内「+」左距(与模型钮/配置钮/发送的 marginLeft 4 同档;共享 PlusButton 本体不留距,
+  // 由本层在单排内补齐,不动共享组件)
+  plusInShellGap: {
+    marginLeft: 4,
   },
   voiceTouchArea: {
     flex: 1,
@@ -1118,46 +1211,6 @@ const styles = StyleSheet.create({
     // 旧写法取 gray[900]=#171717 是端内自造的第三个色源 —— 它把"深色纯白刺眼"换成了
     // "浅色一大片黑"(用户实拍的那一处),两态各错一半,且不与 web/小程序同源。
     backgroundColor: tokens.brand.cta, // 图标钮,前景在同一元素的 <Plus color={tokens.brand.ctaForeground}/>
-  },
-
-  // ── 模型按钮族(showVoiceMic 大输入框内,排在「+」之前;四枚 props 全不传时整族不渲染)──
-  // 尺寸全部复用本文件既有档位,不自创中间值:盒高 = 同排框内钮 INPUT_AREA_IN_SHELL_BTN_PX,
-  // 图标墨迹 = 展开钮同款 INPUT_AREA_CONTROL_GLYPH_PX,组内/组边间距 = 同排 sendInShell 的 4,
-  // 清除/配置两枚的盒形 = expandBtnInShell 的 22×22。
-  modelGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginLeft: 4,
-  },
-  modelChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: INPUT_AREA_IN_SHELL_BTN_PX,
-    // 模型名长短不可控:让位给同排控件(发送钮/「+」恒在右侧),超宽时文字自己截断
-    flexShrink: 1,
-    paddingHorizontal: 4,
-    gap: 2,
-    // 角色档 chip(选择型小胶囊/标签)→ md(6);AGENTS §4 圆角单一源头,不写 px 字面量
-    borderRadius: rnRadiusFor.chip,
-    borderWidth: 1,
-    // 描边取中性档,不得取墨档(守门 83 R8)
-    borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.card,
-  },
-  modelChipText: {
-    fontSize: INPUT_AREA_SECONDARY_FONT_PX,
-    color: tokens.text.secondary,
-    flexShrink: 1,
-  },
-  modelChipTextActive: {
-    color: tokens.text.primary,
-  },
-  modelActionBtn: {
-    width: 22,
-    height: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 
   voiceBtn: {
@@ -1213,7 +1266,9 @@ const styles = StyleSheet.create({
     // 角色档 tiny(波形指示条 = 极小元素)→ xs(2);§4 明令装饰条不得方档化成直角,
     // 而 3px 宽的条取任何大于 2 的档就会变成胶囊(本项目不允许胶囊)。
     borderRadius: rnRadiusFor.tiny,
-    backgroundColor: tokens.danger.DEFAULT,
+    // 2026-10-16 用户定档「简约黑白大气」:波形条随主题取墨档(亮近黑/暗近白),
+    // 不再用红色 danger 档。
+    backgroundColor: tokens.text.primary,
   },
   voiceHint: {
     fontSize: INPUT_AREA_INPUT_FONT_PX,

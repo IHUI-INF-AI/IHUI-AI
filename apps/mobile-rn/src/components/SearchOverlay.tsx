@@ -41,7 +41,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Clock, Flame, Search } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { COLOR_BLACK, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadiusFor } from '@ihui/design-tokens'
 import { POPULAR_SEARCHES } from '@ihui/shared/utils/search-suggestions'
 import { SearchInput, type SearchScreenItem } from '@ihui/rn-app'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -49,6 +49,7 @@ import { useI18n, getValueByPath, messages } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { tokens } from '../theme/active-tokens'
 import { useSearchHistory } from '../hooks/use-search-history'
+import { useAppFrameWidth } from './Carousel'
 
 /** 面板水平留白(对应 web `calc(100% - 2rem)` 的 2×16px) */
 const PANEL_SCREEN_MARGIN = 16
@@ -151,7 +152,13 @@ export const SearchOverlay = memo(function SearchOverlay({
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<NavigationProp | null>()
   const insets = useSafeAreaInsets()
-  const { width: winW, height: winH } = useWindowDimensions()
+  // 面板宽按**应用框架实际宽**取,不用视口宽(2026-10-15 修溢出):web 预览下 #root 被壳
+  // 约束为 430,而 useWindowDimensions 返回整窗宽(IDE webview ~586)—— 按视口算出的 554 面板
+  // 居中于视口,左右越出手机壳(用户实拍「滑出窗口超出屏幕边界」的一处);本组件走 RN Modal
+  // portal,portal 已被 web-shell 按壳封顶,面板再按框架宽算才与封顶同轨。
+  // 原生端无 #root,useAppFrameWidth 回退窗口宽,行为不变。
+  const frameW = useAppFrameWidth()
+  const { height: winH } = useWindowDimensions()
 
   const [value, setValue] = useState('')
   const [results, setResults] = useState<SearchScreenItem[]>([])
@@ -236,7 +243,7 @@ export const SearchOverlay = memo(function SearchOverlay({
     [runSearch],
   )
 
-  const panelWidth = Math.min(PANEL_MAX_WIDTH, winW - PANEL_SCREEN_MARGIN * 2)
+  const panelWidth = Math.min(PANEL_MAX_WIDTH, frameW - PANEL_SCREEN_MARGIN * 2)
   const panelMaxHeight = Math.max(PANEL_MIN_HEIGHT, winH * PANEL_MAX_HEIGHT_RATIO)
   const hasInput = value.trim().length > 0
   const showHistory = history.length > 0
@@ -414,7 +421,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     // 阴影(web ui-popover shadow-md 的 RN 档:elevation 平台 + shadow* 跨平台)
-    shadowColor: COLOR_BLACK,
+    shadowColor: '#000000',
     shadowOpacity: 0.12,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },

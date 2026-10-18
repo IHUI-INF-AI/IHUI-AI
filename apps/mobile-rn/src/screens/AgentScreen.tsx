@@ -48,6 +48,7 @@ import FloatBox, { type FloatBoxType } from '../components/FloatBox'
 // 对齐 Uniapp tools/index.vue float-box:悬浮导航(赚米/客服/反馈),原页面 5 个核心 Tab 页均有,补齐 AgentScreen
 // 底部导航(对齐原 customTabBar 5 主 Tab,AgentScreen 对应「AI」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
+import { tabBarScrollReserve } from '../components/TabBar.styles'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import NavBar from '../components/NavBar'
 import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
@@ -633,6 +634,7 @@ export function AgentScreen() {
       <ScrollView
         ref={contentScrollRef}
         style={styles.contentScroll}
+        contentContainerStyle={{ paddingBottom: tabBarScrollReserve(insets.bottom) }}
         onScroll={handleContentScroll}
         scrollEventThrottle={16}
         refreshControl={

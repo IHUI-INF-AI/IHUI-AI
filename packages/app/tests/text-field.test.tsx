@@ -247,10 +247,10 @@ describe('RN 裸 TextInput 普查锁(G-978007 口径)', () => {
   // 白名单逐条登记原因;新增裸 TextInput 必须补处理或补白名单理由。
   // 2026-10-17 摘掉两条腐烂条目(ImageGenCreateScreen / KnowledgeRagScreen):两屏早在枚 40d3912554
   // 就迁进共享 TextField 了,条目却还挂着 —— 正是下面那条「条目必须仍命中判据」的锁把它们量出来的。
-  const ALLOWED: Record<string, string> = {
-    'apps/mobile-rn/src/screens/HomeScreen.tsx':
-      '落点被他席未提交改动持有(2026-10-17 盘上 +147/−40:底部液态玻璃停靠区与 autoSendPrompt 改造),按「不代改他人现场」不迁;摘除条件 = 台账 G-121 那枚站点迁进 TextField 落地',
-  }
+  // 2026-10-18 摘掉最后一条(HomeScreen):模型搜索井(图标 + 输入 + 清除,带边框的容器件)接上容器级唯一实现
+  // `useWrapFocus`(同 SearchInput / MessageInput 那两口的形态 —— 它是 §4「描边不得取墨档」唯一例外位的
+  // 取值出口)。白名单因此为空:任何新出现的裸 TextInput 都必须当场补聚焦处理,不再有免检位。
+  const ALLOWED: Record<string, string> = {}
   const SCAN_ROOTS = ['packages/app/src', 'apps/mobile-rn/src']
 
   const repoRoot = () => join(dirname(fileURLToPath(import.meta.url)), '../../..')

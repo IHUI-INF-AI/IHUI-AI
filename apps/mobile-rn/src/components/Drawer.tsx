@@ -26,7 +26,7 @@
  * 平台特有:依赖 RN Animated/PanResponder/Modal/SafeAreaContext,不适合共享。
  */
 import { tokens } from '../theme/active-tokens'
-import { rnGeometry, rnRadiusFor } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
@@ -1332,7 +1332,11 @@ const styles = StyleSheet.create({
   userAvatar: {
     width: USER_AVATAR_SIZE,
     height: USER_AVATAR_SIZE,
-    borderRadius: rnRadiusFor.chip,
+    // 抽屉头部头像:与小程序端 `DrawerComponent.tsx` 的头像同档(2xl=16,取 RADIUS_STEPS,
+    // 不写 px 字面量)。原写 `rnRadiusFor.chip`(md=6)是"导航项/chip"那一档,与小程序端
+    // 同一枚元素差两档 ⇒ 守门 128 的 RD 维实测为"圆角 3 > 锚点 2"那一笔红的来源。
+    // 定档依据:仓内头像族(UserInfoCard 两端)逐档同值取 2xl,本端照抄同一档而不是各取直觉。
+    borderRadius: rnRadius['2xl'],
   },
   userAvatarFallback: {
     alignItems: 'center',

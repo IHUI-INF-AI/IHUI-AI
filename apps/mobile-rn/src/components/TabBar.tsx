@@ -131,22 +131,23 @@ interface TabBarIconProps {
 
 function TabBarIcon({ tab, isActive }: TabBarIconProps) {
   // 双图模式:各自独立 inactive/active 资源(对齐原 tabbar_1~5 图标)。
-  // 2026-09-23 修复 P1:选中态加 tintColor 品牌强调色,让图标也呈现品牌色高亮。
+  // 2026-10-16 用户定稿:图标着色走深色中性档 —— 未选中 text.tertiary(中性灰)、
+  // 选中 text.primary(深色中性),与标签文字同色;明暗两档随主题自适应(原紫/灰蓝/灰黑均不对)。
   return (
     <Image
       source={isActive ? tab.iconActive : tab.iconInactive}
       style={tabBarStyleSheet.icon}
-      tintColor={isActive ? tokens.brandAccent.deep : undefined}
+      tintColor={isActive ? tokens.text.primary : tokens.text.tertiary}
     />
   )
 }
 
 /**
- * 本地内联样式(覆盖 TabBar.styles.ts 中无法修改的 labelActive)。
- * TabBar.styles.ts 不在本任务可修改文件清单,故在此覆盖。
+ * 本地内联样式:在 TabBar.styles.ts 的 labelActive(深色中性)之上补粗体,
+ * 选中态「色 + 重」双重区分(2026-09-23 P1 修复引入,2026-10-16 随深色中性定稿保留)。
  */
 const localStyles = StyleSheet.create({
-  /** 选中态顶部指示条:3px 高,品牌强调色,左右各留 12dp 边距,小圆角 */
+  /** 选中态顶部指示条:3px 高,深色中性(text.primary),左右各留 12dp 边距,小圆角 */
   activeIndicator: {
     position: 'absolute',
     top: 0,
@@ -154,11 +155,11 @@ const localStyles = StyleSheet.create({
     right: 12,
     height: 3,
     borderRadius: rnRadius.xs,
-    backgroundColor: tokens.brandAccent.deep,
+    backgroundColor: tokens.text.primary,
   },
-  /** 选中态文字覆盖:品牌强调色 + 粗体,替代原白色 brand.DEFAULT */
+  /** 选中态文字覆盖:深色中性 + 粗体,与选中图标同色(2026-10-16 用户定稿:整栏深色中性两档) */
   labelActiveOverride: {
-    color: tokens.brandAccent.deep,
+    color: tokens.text.primary,
     fontWeight: '600',
   },
 })
