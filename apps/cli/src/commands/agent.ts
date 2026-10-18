@@ -42,6 +42,7 @@ import {
   type ParsedToolCall,
   clearTools,
   getTool,
+  getHubRemoteToolDangerLevel,
   enableToolHub,
   setHubRemoteRegistry,
   type Tool,
@@ -418,7 +419,6 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
               hub: remoteRegistry,
               mcpConnection: conn,
               serverName: conn.server.name,
-              enableDangerous: settings.allowDangerous,
             });
           }
           setHubRemoteRegistry(remoteRegistry);
@@ -2375,7 +2375,12 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         toolCalls.map(async (call) => {
           const startTime = Date.now();
           const tool = getTool(call.name);
-          const dangerLevel = tool?.dangerLevel ?? 'read';
+          // G-401 拍板②:remote(MCP 适配层)工具没有本地 Tool 对象,此前在这里只能拿到
+          // `undefined ⇒ 'read'` 缺省,整族 remote 工具在 mode 矩阵里被当只读放行(default
+          // 不问人、plan 不拒)。现补一跳:本地查不到时查 hub remote 的自述档位(缺省
+          // 'dangerous',白名单内 'read',见 hub/mcp-adapter.ts 的 MCP_READONLY_TOOL_ALLOWLIST)。
+          // 末位 `?? 'read'` 是本函数对"两面都查不到"的既有缺省,本票不动(翻缺省属另一票)。
+          const dangerLevel = tool?.dangerLevel ?? getHubRemoteToolDangerLevel(call.name) ?? 'read';
           const decision = checkPermission(call.name, opts.ctx.permissions, mode, dangerLevel, undefined, tool?.nameAliases);
           if (decision === 'deny') {
             return {
