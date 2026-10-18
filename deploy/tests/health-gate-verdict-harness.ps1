@@ -99,6 +99,17 @@ $v11 = Get-HealthGateVerdict -Rounds @((Round 'fail' 'pass' 'unknown'))
 T '11a Decision=fail(没有源站证据就不许免回滚)' ($v11.Decision -eq 'fail') $v11.Decision
 T '11b OriginOk=false' ($v11.OriginOk -eq $false) "$($v11.OriginOk)"
 
+Write-Output '[12] 输入形状锁:同一条数据用 Hashtable 与 OrderedDictionary 各喂一次,结论必须一致'
+# 立因:2026-10-19 拿真实生产数据干跑时发现 .ContainsKey() 只有 Hashtable 有,
+# OrderedDictionary 调它抛 InvalidOperation ⇒ $originOk 停在 false ⇒ 把好构建判成 fail 回滚。
+$ht = RoundP 'fail' 'fail' 'unknown' 'pass' 'pass'
+$od = [ordered]@{ web = 'fail'; api = 'fail'; llm = 'unknown'; webOrigin = 'pass'; apiOrigin = 'pass'; fails = @('web(HTTP 502)', 'api(HTTP 502)'); unknown = @('llm') }
+$vh = Get-HealthGateVerdict -Rounds @($ht)
+$vo = Get-HealthGateVerdict -Rounds @($od)
+T '12a Hashtable 形状 ⇒ entry-broken' ($vh.Decision -eq 'entry-broken') $vh.Decision
+T '12b OrderedDictionary 形状不抛异常且同结论(形状锁)' ($vo.Decision -eq 'entry-broken') "$($vo.Decision)"
+T '12c 两种形状的 OriginOk 一致' ($vh.OriginOk -eq $vo.OriginOk -and $vo.OriginOk -eq $true) "h=$($vh.OriginOk) od=$($vo.OriginOk)"
+
 Write-Output ''
 Write-Output ("结果: pass=$pass fail=$fail")
 if ($fail -gt 0) { exit 1 }
