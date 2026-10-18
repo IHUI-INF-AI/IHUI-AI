@@ -181,6 +181,7 @@ pnpm dev                                      # 启动所有服务(端口见 doc
 - **12e 恒红门优先级(强制)**:与提交内容无关的红门唯一结局是人人 `--no-verify` 连带废掉全部守门——**修红不得顺手削判据**;存量未清时上 blocking = 恒红门;升档前置 = 存量归零。
 - **12f 恒红门优先级(同日三道实测)**:同型。判据失效的表现永远是安静;凡"文档写了出路"必须实测真跑得通。
 - **12g 派生 git 必须显式接管 stdio(2026-10-03 立,EBUSY 实测)**:本机任何派生 git 必须显式写 `stdio`(不写稳定 EBUSY;`shell:true` 经 cmd.exe 100% 复现;绝对路径不是豁免)。样板:`const stdio = opts.input === undefined ? ['ignore','pipe','pipe'] : ['pipe','pipe','pipe']`(带 input 必须 `['pipe','pipe','pipe']`)。判据门:`check-git-stdio-discipline.mjs`(193,括号配平取整个调用、只判属性名不判取值、禁行内豁免,豁免走具名台账)。反向门 `check-spawn-output-channel.mjs`(199):stdio 丢 stdout 又去读 ⇒ 结论恒 null,拦。任何"这行是否必要"的判断必须 ≥20 次成组对照,单次成功不构成"不需要"的证据。
+  〔补登@2026-10-18,原句"只判属性名不判取值"按当次实现更正,原句逐字保留在上行只作改判留痕〕同一枚门 193 现另判 **input↔stdin 取值维**:同一 options 里带 `input` 而 stdin 首元素不是 `'pipe'` ⇒ 判红(实测 10/10:`hash-object --stdin` 读到空 stdin 不报错、安静产出 0 字节空 blob,那串"看着像 sha"曾把 1.67MB 的 lock 落进 main);取值取不到字面量 ⇒ 判不出、既不记绿也不冒红;该维按 §12e 走差值棘轮(锚点=该文件 HEAD 面自身命中数,存量只报数,`--strict` 才问责)。
 
 ## 13. 文件修改持久化强制规则(强制)
 
