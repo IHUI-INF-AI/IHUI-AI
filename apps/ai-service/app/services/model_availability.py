@@ -400,14 +400,14 @@ class ModelAvailabilityService:
         """
         # 收集需要 ping 的 provider 列表
         providers_to_ping: list[tuple[str, str, str]] = []  # [(code, api_key, api_base)]
+        local_to_probe: list[tuple[str, str]] = []  # [(code, base_override)]
         for p in free_provider_registry.list_all():
-            # 本地 LLM 不 ping,直接标记 LOCAL
+            # 本地 LLM:2026-10-18(票85①)起不再"不 ping 直接标 LOCAL"——改走本地探针
+            # 三态实证(available/unavailable/undetermined)。历史缺陷:没在跑的 ollama
+            # 照样在模型列表里显示,用户选中才报错。undetermined(没探过/判不了)保持
+            # 旧态 LOCAL,不冒充实证。
             if p.category == ProviderCategory.LOCAL:
-                async with self._lock:
-                    self._health[p.provider_code] = ProviderHealth(
-                        status=ProviderHealthStatus.LOCAL,
-                        last_check=time.time(),
-                    )
+                local_to_probe.append((p.provider_code, p.default_base_url))
                 continue
             # zero_cost provider(无需 key):也纳入 ping 验证真实可用性
             # (aihorde 404 / opencode_zen 429 等调不通的自动过滤;pollinations/llm7 通过则正常显示)
@@ -456,6 +456,35 @@ class ModelAvailabilityService:
         if providers_to_ping:
             await asyncio.gather(
                 *[_ping_one(c, k, b) for c, k, b in providers_to_ping],
+                return_exceptions=True,
+            )
+
+        # 本地探针(票85①):available→HEALTHY / unavailable→DOWN / undetermined→LOCAL
+        # (LOCAL 态 = "没实证",显示宽松、auto 不选 —— 三态各走各的,不折叠)。
+        if local_to_probe:
+            # 延迟导入避免循环(local_provider_health ← settings;与本模块无环)
+            from .local_provider_health import LocalProbeVerdict, local_provider_health
+
+            async def _probe_local(code: str, base_override: str) -> None:
+                async with semaphore:
+                    result = await local_provider_health.probe(
+                        code, base_override=base_override
+                    )
+                    if result.verdict == LocalProbeVerdict.AVAILABLE:
+                        status = ProviderHealthStatus.HEALTHY
+                    elif result.verdict == LocalProbeVerdict.UNAVAILABLE:
+                        status = ProviderHealthStatus.DOWN
+                    else:
+                        status = ProviderHealthStatus.LOCAL
+                    async with self._lock:
+                        self._health[code] = ProviderHealth(
+                            status=status,
+                            last_check=time.time(),
+                            error=result.detail if status == ProviderHealthStatus.DOWN else "",
+                        )
+
+            await asyncio.gather(
+                *[_probe_local(c, b) for c, b in local_to_probe],
                 return_exceptions=True,
             )
 
@@ -944,9 +973,23 @@ class ModelAvailabilityService:
         if not code:
             return False  # 未知 provider,不显示
 
-        # LOCAL provider(本地 LLM,无需 key,直接显示)
+        # LOCAL provider(本地 LLM):票85①起按探针实证分格——
+        # DOWN(连接拒绝/HTTP 错)不显示;HEALTHY/LOCAL(在跑或没实证)显示。
+        # 旧缺陷:恒 True,"没在跑"装作可用,用户选中才报错。
         provider = free_provider_registry.get_by_code(code)
         if provider and provider.category == ProviderCategory.LOCAL:
+            from .local_provider_health import local_provider_health
+
+            health = self._health.get(code)
+            if health is not None and health.status == ProviderHealthStatus.DOWN:
+                return False  # 探针实证不可用:调不通的不进列表(与 DOWN 同一纪律)
+            # 没刷新过(_health 空)时看探针快照,避免"服务确实没跑但还没轮到刷新"的窗口
+            if health is None and local_provider_health.snapshot(code) is not None:
+                snap = local_provider_health.snapshot(code)
+                from .local_provider_health import LocalProbeVerdict
+
+                if snap is not None and snap.verdict == LocalProbeVerdict.UNAVAILABLE:
+                    return False
             return True
 
         # 已配置 key 检查(zero_cost 无需 key,跳过):优先 LLM_PROVIDERS JSON,降级 free_provider_registry(查 os.environ)
