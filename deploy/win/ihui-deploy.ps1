@@ -172,6 +172,12 @@ $AdminPwdFile = if ($env:IHUI_ADMIN_PASSWORD_FILE) { $env:IHUI_ADMIN_PASSWORD_FI
 $ActiveFile = "$Root\deploy\win\active-env"   # active-env 标记,当前恒 'win'
 $PublicWeb  = 'https://aizhs.top'
 $ApiHealth  = "$PublicWeb/api/health"
+# 源站直探端点(不经 Cloudflare)。加这一条腿的理由见 health-gate-verdict.ps1 头注:
+# 公网那一路把"新构建坏了"和"入口(隧道/边缘)坏了"读成同一个 fail,于是前者该回滚时
+# 可能放行、后者不该回滚时反而回滚一个好版本。web 必须带真 Host —— 中间件按 host 分流,
+# 不带 Host 探到的是另一条代码路径,那第二条腿就是假的。
+$OriginWeb  = 'http://127.0.0.1:8801'
+$OriginApi  = 'http://127.0.0.1:8802/api/health'
 # ai-service 健康端点(2026-09-14 ai-service 重启步骤引入;直连本机端口,无 JWT)
 $AiServiceHealth = "http://127.0.0.1:8803/health"
 
@@ -258,6 +264,10 @@ function Ok    { param([string]$m) Log "OK    $m" }
 # 签名",同故障两条措辞交替时互相抹时间戳 ⇒ 48h 寄出 47 封同一件事。两处各写一遍必漂,
 # 修法只能是一份实现(与「两处算同一件事必须共用一份实现」那条同族)。
 . (Join-Path $PSScriptRoot 'alert-dedup.ps1')
+# 健康门禁的结论判据(纯函数,零副作用)。抽出来的理由与上面同族:判"这一轮到底算不算绿"
+# 只能有一份实现 —— 2026-10-19 现读到 `$lastFails` 每轮被覆盖,导致"前 5 轮明确 502、末轮
+# 只剩 unknown"绕过回滚判据并被打印成「健康门禁通过,部署成功」,而函数注释声称不会这样。
+. (Join-Path $PSScriptRoot 'health-gate-verdict.ps1')
 
 # ── 运维告警邮件(AGENTS.md §5e;2026-09-24 起为唯一到人通道)──────────────────────
 #    部署失败自动寄品牌运维邮件。此前并行的第三方推送腿(免费额度 5 条/天的推送网关)已
@@ -627,7 +637,7 @@ function Get-HcToken {
 }
 
 function Invoke-Probe {
-    param([string]$Url, [string]$Contains = '', [string]$Token = '')
+    param([string]$Url, [string]$Contains = '', [string]$Token = '', [string]$HostHeader = '')
     # 三态探测:pass = 服务确实在正常应答;fail = 应答了但不健康(4xx/5xx 或内容不符);
     # unknown = 被限流(429)或传输层不可达 —— 后者不足以判定部署失败,由调用方按"未知"放行,
     # 因为把限流当失败会造成无谓回滚(2026-09-23 实测:探针自身打爆登录限流后误判过一次)。
@@ -635,6 +645,7 @@ function Invoke-Probe {
     try {
         $hdr = @{}
         if ($Token) { $hdr['Authorization'] = "Bearer $Token" }
+        if ($HostHeader) { $hdr['Host'] = $HostHeader }
         # -OperationTimeoutSeconds 是给"连上了但不回应"封顶的那一道(见本文件上方
         # $ProbeOpSec / $LoginOpSec 那段实测注释:
         # -TimeoutSec 实为 ConnectionTimeoutSeconds 的别名,只管连接段)。异常一律落
@@ -687,7 +698,10 @@ function Test-HealthGate {
     if ($env:IHUI_DEPLOY_GATE_ITER_BUDGET_SEC -and $env:IHUI_DEPLOY_GATE_ITER_BUDGET_SEC -match '^\d+$') {
         $IterBudgetSec = [int]$env:IHUI_DEPLOY_GATE_ITER_BUDGET_SEC
     }
-    $lastFails = @(); $lastUnknown = @()
+    # 逐轮留底交给纯函数出结论(旧写法只留"最后一轮",于是更早几轮的明确失败被覆盖掉)
+    $rounds = @()
+    $script:HealthGateProven = $false
+    $script:HealthGateUnproven = $false
     for ($i = 1; $i -le $Tries; $i++) {
         Update-DeployLockHeartbeat   # 门禁每轮续心跳(8 轮 × 12s + 探测超时,最长约 9.6 分钟)
         $iterStart = Get-Date       # 本轮起点(含 12s 退避),用于 GATE-ITER elapsed 与预算判定
@@ -695,20 +709,24 @@ function Test-HealthGate {
         $w = Invoke-Probe -Url $PublicWeb -Contains '<!DOCTYPE html'
         $a = Invoke-Probe -Url $ApiHealth -Contains '"status":"ok"'
         $l = Test-LlmGateway
+        # 第二条腿:源站直探(带真 Host)。它不参与"绿不绿"的判定(绿仍然只认公网三项全绿),
+        # 只用来在公网报 fail 时回答一个问题:**是构建坏了,还是入口坏了**。
+        $wo = Invoke-Probe -Url $OriginWeb -Contains '<!DOCTYPE html' -HostHeader 'aizhs.top'
+        $ao = Invoke-Probe -Url $OriginApi -Contains '"status":"ok"'
         $fails = @(); $unknown = @()
         if ($w.Verdict -eq 'fail') { $fails += "web(HTTP $($w.Status) $($w.Reason))" } elseif ($w.Verdict -ne 'pass') { $unknown += 'web' }
         if ($a.Verdict -eq 'fail') { $fails += "api(HTTP $($a.Status) $($a.Reason))" } elseif ($a.Verdict -ne 'pass') { $unknown += 'api' }
         if ($l -eq 'fail') { $fails += 'llm(网关接口未就绪)' } elseif ($l -ne 'pass') { $unknown += 'llm' }
-        $lastFails = $fails; $lastUnknown = $unknown
+        $rounds += @{ web = $w.Verdict; api = $a.Verdict; llm = $l; webOrigin = $wo.Verdict; apiOrigin = $ao.Verdict; fails = $fails; unknown = $unknown }
         $tail = ''
         if ($fails.Count)   { $tail += " 失败=[$($fails -join ' ')]" }
         if ($unknown.Count) { $tail += " 未知=[$($unknown -join ' ')]" }
-        Log "健康门禁 第 $i/$Tries 轮: web=$($w.Verdict) api=$($a.Verdict) llm=$l$tail"
+        Log "健康门禁 第 $i/$Tries 轮: web=$($w.Verdict) api=$($a.Verdict) llm=$l 源站直探=web:$($wo.Verdict)/api:$($ao.Verdict)$tail"
         # ASCII 标记:每完成一轮都打一行(含通过那一轮),便于事后按秒数复原分布、定位卡在哪一轮
         $iterSec = [int]((Get-Date) - $iterStart).TotalSeconds
         Log ("GATE-ITER {0}/{1} elapsed={2}s budget={3}s" -f $i, $Tries, $iterSec, $IterBudgetSec)
         # 成功条件不放宽:三项全部真绿才算通过("未知"也不算绿,继续下一轮重试)
-        if ($fails.Count -eq 0 -and $unknown.Count -eq 0) { return $true }
+        if ($fails.Count -eq 0 -and $unknown.Count -eq 0) { $script:HealthGateProven = $true; return $true }
         if ($iterSec -gt $IterBudgetSec) {
             # 方向性要求:超预算**不**判失败、**不**判健康 —— 跳出到下方既有的
             # "无明确失败项 ⇒ unknown ⇒ 放行、不回滚"返回。若此前某轮拿得出明确失败项,
@@ -718,13 +736,29 @@ function Test-HealthGate {
             break
         }
     }
-    if ($lastFails.Count -gt 0) {
-        Log "健康门禁 ${Tries} 轮未全绿,最后一轮存在明确失败项:[$($lastFails -join ' ')] → 判定失败"
+    # 结论交给那一份纯函数判(判序:末轮明确失败 > 曾全绿 > 只剩未知)。
+    # 旧写法在这里读的是 `$lastFails` —— 它每轮被覆盖,所以"前几轮明确 502、末轮只剩 unknown"
+    # 会绕过下面的 return $false,一路走到 return $true,调用方随即打印「健康门禁通过,部署成功」;
+    # 而本函数 2026-09-27 那段注释白纸黑字写着这种情形"既有判据仍先 return $false"。
+    $v = Get-HealthGateVerdict -Rounds $rounds
+    $script:HealthGateProven = [bool]$v.Proven
+    $script:HealthGateUnproven = ($v.Decision -eq 'pass-unproven')
+    $script:HealthGateEntryBroken = ($v.Decision -eq 'entry-broken')
+    foreach ($mk in @($v.Markers)) { if ("$mk".Trim()) { Log "$mk" } }
+    if ($v.Decision -eq 'fail') {
+        Log "健康门禁 ${Tries} 轮未全绿,最后一轮存在明确失败项且源站直探也不应答:[$($v.LastFails -join ' ')] → 判定失败"
         return $false
+    }
+    if ($v.Decision -eq 'entry-broken') {
+        # 公网读不到、源站直探两端都正常 ⇒ 坏的是入口。回滚一个健康构建只会让访客侧故障更长,
+        # 所以不回滚;但这**不是通过**:调用方据此不得打印"部署成功",且必须单独响一次。
+        Log "WARN  按'入口故障'放行本轮门禁、不回滚(源站直探正常而公网入口读不到;GATE-ENTRY-BROKEN 已打)"
+        return $true
     }
     # 耗尽仍拿不出明确失败项 ⇒ 全程只被限流/网络不可达挡住。按约定记 warn 并以"未知"放行该子项,
     # 不据此回滚;但 warn 必须留在日志里 —— 此时线上是否真的好,只有人工核查能定。
-    Log "WARN  健康门禁 ${Tries} 轮未取得全绿,但无明确失败项,仅[$($lastUnknown -join ' ')]无法判定(限流或网络不可达)"
+    # 放行 ≠ 通过:上面 Markers 已打 GATE-UNPROVEN,调用方据此不得打印"部署成功"。
+    Log "WARN  健康门禁 ${Tries} 轮未取得全绿,但无明确失败项,仅[$($v.LastUnknown -join ' ')]无法判定(限流或网络不可达)"
     Log "WARN  按'未知'放行本轮门禁、不回滚;请人工核查上述项:deploy\win\ihui-deploy.ps1 -diagnose"
     return $true
 }
@@ -2164,7 +2198,21 @@ if (-not (Test-HealthGate)) {
         exit 0
     }
 } else {
-    Ok "健康门禁通过,部署成功"
+    # 放行 ≠ 通过(2026-10-19):门禁从未拿到过一次三项全绿时,本轮发布"是否活着"没人证明过。
+    # 旧写法在这里无条件打印「健康门禁通过,部署成功」,把 §0.3 禁的"没判"记成了"判过"——
+    # 现读一次真实发布:8 轮里 web pass=0 / fail=5 / unknown=3,末轮只剩 unknown 就够走到这一行。
+    # 只加响、不改流:Clear-BuildCooldown、摘 .rollback、重启 api/ai-service 与退出码逐字不动
+    # (把"未证明"升成回滚等于给发布链加一道恒红门,§12e —— 探测走的是经 Cloudflare 的公网 URL,
+    #  隧道一抖就好发布也会被读成 502;要收那一格得先加一条不经隧道的源站直探,那是另一张票)。
+    if ($script:HealthGateUnproven) {
+        Log "WARN  本轮已切流但健康未经证明:没有任何一轮拿到三项全绿(见上方 GATE-UNPROVEN)⇒ 此处不打印「部署成功」"
+        try { Invoke-FailNotify -Severity warning -m "健康门禁未取得全绿证明:本轮发布已放行,但线上是否活着无人证明(需人工核查 deploy\win\ihui-deploy.ps1 -diagnose)" -Detail "逐维 pass/fail/unknown 计数见部署日志的 GATE-UNPROVEN 行(计数不进身份,理由见门 224)" } catch { Log "ALERT 未证明告警发信异常(不影响已切流):$_" }
+    } elseif ($script:HealthGateEntryBroken) {
+        Log "WARN  本轮已切流但公网入口读不到(源站直探正常)⇒ 判为入口故障,不回滚好构建;此处不打印「部署成功」"
+        try { Invoke-FailNotify -Severity warning -m "公网入口不可达而源站健康:本轮发布未回滚(回滚只会延长访客侧故障),需人工核查 Cloudflared 隧道腿与 DNS" -Detail "逐维 pass/fail/unknown 计数见部署日志的 GATE-ENTRY-BROKEN 行(计数不进身份,理由见门 224)" } catch { Log "ALERT 入口故障告警发信异常(不影响已切流):$_" }
+    } else {
+        Ok "健康门禁通过,部署成功"
+    }
     Clear-BuildCooldown
     Remove-Item "$WebDir\.rollback" -Recurse -Force -ErrorAction SilentlyContinue
 
