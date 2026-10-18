@@ -16,18 +16,20 @@
  * 运行时用户完全不接触 Grafana。零假数据:所有曲线/数字都来自真实指标。
  */
 import * as React from 'react'
-import { RefreshCw, AlertTriangle } from 'lucide-react'
+import { RefreshCw, AlertTriangle, Search } from 'lucide-react'
 import type { EChartsOption } from 'echarts'
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { EChart } from '@/components/charts/EChart'
-import {
-  MONITOR_DASHBOARDS,
-  PANEL_GROUPS,
-  type NativePanel,
-  type PanelTarget,
-} from './dashboard-config.generated'
+import type { NativeDashboard, NativePanel, PanelTarget } from './dashboard-config.generated'
+
+// 配置体积 3000+ 行(213 条表达式),静态 import 会进首屏 bundle;运行期动态
+// import 让 Next 把它切成独立 chunk,本页打开时才拉取(类型仍静态导入,零成本)。
+type ConfigModule = typeof import('./dashboard-config.generated')
+function loadConfig(): Promise<ConfigModule> {
+  return import('./dashboard-config.generated')
+}
 
 // ---------- 数据形状(与 /api/admin/monitor-panels/query 响应对齐) ----------
 
@@ -111,6 +113,14 @@ function fmtValue(v: number | null | undefined, unit?: string): string {
       return `¥${fmtCompact(v)}`
     case 'bool':
       return v > 0 ? '是' : '否'
+    case 'ops':
+    case 'reqps':
+    case 'cps':
+    case 'wps':
+    case 'pps':
+      return `${fmtCompact(v)}/s`
+    case 'logs/s':
+      return `${fmtCompact(v)}/s`
     default:
       return fmtCompact(v)
   }
@@ -140,7 +150,7 @@ const PALETTE = ['#22d3ee', '#a78bfa', '#34d399', '#fbbf24', '#f87171', '#60a5fa
 const AXIS = '#3f4c63'
 const TEXT = '#94a3b8'
 
-function baseTimeOption(): EChartsOption {
+function baseTimeOption(unit?: string): EChartsOption {
   return {
     backgroundColor: 'transparent',
     grid: { left: 8, right: 12, top: 24, bottom: 4, containLabel: true },
@@ -149,6 +159,7 @@ function baseTimeOption(): EChartsOption {
       backgroundColor: '#111a2c',
       borderColor: '#1e3a5f',
       textStyle: { color: '#cbd5e1', fontSize: 11 },
+      valueFormatter: (v) => fmtValue(typeof v === 'number' ? v : Number(v), unit),
     },
     xAxis: {
       type: 'time',
@@ -158,7 +169,11 @@ function baseTimeOption(): EChartsOption {
     },
     yAxis: {
       type: 'value',
-      axisLabel: { color: TEXT, fontSize: 10 },
+      axisLabel: {
+        color: TEXT,
+        fontSize: 10,
+        formatter: (v: number) => (unit === 'percent' || unit === 'percentunit' ? `${v}%` : fmtValue(v, unit)),
+      },
       splitLine: { lineStyle: { color: '#16213a' } },
     },
   }
@@ -239,8 +254,18 @@ function PanelBody({ panel, panelIdx, results }: { panel: NativePanel; panelIdx:
   })
   if (!series.length) return <EmptyBody />
   const option: EChartsOption = {
-    ...baseTimeOption(),
-    legend: { show: series.length > 1, top: 0, left: 'right', textStyle: { color: TEXT, fontSize: 10 }, itemWidth: 12, itemHeight: 8 },
+    ...baseTimeOption(panel.unit),
+    legend: {
+      show: series.length > 1,
+      type: 'scroll',
+      top: 0,
+      left: 'right',
+      textStyle: { color: TEXT, fontSize: 10 },
+      itemWidth: 12,
+      itemHeight: 8,
+      pageIconColor: '#22d3ee',
+      pageTextStyle: { color: TEXT },
+    },
     color: PALETTE,
     series,
   }
@@ -261,11 +286,12 @@ function StatBody({ panel, panelIdx, results, unit }: { panel: NativePanel; pane
     })
   })
   if (!stats.length) return <EmptyBody />
-  const shown = stats.slice(0, 4)
+  const shown = stats.slice(0, 6)
+  const cols = shown.length <= 1 ? 'grid-cols-1' : shown.length <= 4 ? 'grid-cols-2' : 'grid-cols-3'
   return (
-    <div className={cn('grid gap-2', shown.length > 1 ? 'grid-cols-2' : 'grid-cols-1')}>
+    <div className={cn('grid gap-2', cols)}>
       {shown.map((s, i) => (
-        <div key={i} className="rounded-md bg-[#0f1a30] px-3 py-2">
+        <div key={i} className="rounded-md bg-[#0f1a30] px-3 py-2" title={stats.length > 6 ? `共 ${stats.length} 项` : undefined}>
           <div className="truncate text-[11px] text-slate-500">{s.name}</div>
           <div className="mt-0.5 font-mono text-2xl font-semibold text-cyan-300">{fmtValue(s.value, unit)}</div>
         </div>
@@ -287,9 +313,10 @@ function GaugeBody({ panel, panelIdx, results, unit }: { panel: NativePanel; pan
     })
   })
   if (!gauges.length) return <EmptyBody />
-  const shown = gauges.slice(0, 2)
+  const shown = gauges.slice(0, 3)
+  const cols = shown.length <= 1 ? 'grid-cols-1' : shown.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
   return (
-    <div className={cn('grid gap-2', shown.length > 1 ? 'grid-cols-2' : 'grid-cols-1')}>
+    <div className={cn('grid gap-2', cols)}>
       {shown.map((g, i) => (
         <EChart
           key={i}
@@ -340,6 +367,7 @@ function PieBody({ panel, panelIdx, results }: { panel: NativePanel; panelIdx: n
     })
   })
   if (!slices.length) return <EmptyBody />
+  slices.sort((a, b) => b.value - a.value)
   return (
     <EChart
       height={220}
@@ -347,8 +375,14 @@ function PieBody({ panel, panelIdx, results }: { panel: NativePanel; panelIdx: n
         {
           backgroundColor: 'transparent',
           color: PALETTE,
-          tooltip: { trigger: 'item', backgroundColor: '#111a2c', borderColor: '#1e3a5f', textStyle: { color: '#cbd5e1', fontSize: 11 } },
-          legend: { orient: 'vertical', right: 4, top: 'middle', textStyle: { color: TEXT, fontSize: 10 }, itemWidth: 10, itemHeight: 7 },
+          tooltip: {
+            trigger: 'item',
+            backgroundColor: '#111a2c',
+            borderColor: '#1e3a5f',
+            textStyle: { color: '#cbd5e1', fontSize: 11 },
+            valueFormatter: (v) => fmtValue(typeof v === 'number' ? v : Number(v), panel.unit),
+          },
+          legend: { orient: 'vertical', right: 4, top: 'middle', type: 'scroll', textStyle: { color: TEXT, fontSize: 10 }, itemWidth: 10, itemHeight: 7, pageIconColor: '#22d3ee', pageTextStyle: { color: TEXT } },
           series: [
             {
               type: 'pie',
@@ -365,15 +399,17 @@ function PieBody({ panel, panelIdx, results }: { panel: NativePanel; panelIdx: n
 }
 
 function TableBody({ panel, panelIdx, results, unit }: { panel: NativePanel; panelIdx: number; results: Map<number, QueryResult>; unit?: string }) {
-  const rows: Array<{ name: string; value: string }> = []
+  const rows: Array<{ name: string; value: string; raw: number }> = []
   panel.targets.forEach((t, ti) => {
     const r = results.get(rkey(panelIdx, ti))
     r?.series.forEach((s) => {
       const last = s.points[s.points.length - 1]
-      if (last) rows.push({ name: legendOf(t, s.labels), value: fmtValue(last[1], unit) })
+      if (last) rows.push({ name: legendOf(t, s.labels), value: fmtValue(last[1], unit), raw: last[1] })
     })
   })
   if (!rows.length) return <EmptyBody />
+  // 值降序:监控表格的使用动作是"找最大的那个序列",排序后一眼定位
+  rows.sort((a, b) => b.raw - a.raw)
   return (
     <div className="max-h-[220px] overflow-auto">
       <table className="w-full text-left text-[11px]">
@@ -426,7 +462,8 @@ function LogsBody({ panel, panelIdx, results }: { panel: NativePanel; panelIdx: 
 // ---------- 页面主体 ----------
 
 export default function MonitorPanelsPage() {
-  const [activeUid, setActiveUid] = React.useState<string>(MONITOR_DASHBOARDS[0]!.uid)
+  const [config, setConfig] = React.useState<ConfigModule | null>(null)
+  const [activeUid, setActiveUid] = React.useState<string>('')
   const [rangeSec, setRangeSec] = React.useState<number>(RANGES[1].seconds)
   const [autoRefresh, setAutoRefresh] = React.useState(true)
   const [loading, setLoading] = React.useState(false)
@@ -434,75 +471,113 @@ export default function MonitorPanelsPage() {
   const [results, setResults] = React.useState<Map<number, QueryResult>>(new Map())
   const [updatedAt, setUpdatedAt] = React.useState<Date | null>(null)
   const [navOpen, setNavOpen] = React.useState(true)
+  const [filter, setFilter] = React.useState('')
+  const [countdown, setCountdown] = React.useState(AUTO_REFRESH_MS / 1000)
 
-  const dashboard = MONITOR_DASHBOARDS.find((d) => d.uid === activeUid) ?? MONITOR_DASHBOARDS[0]!
+  // 配置 chunk 懒加载(首次进入拉取一次,随后走模块缓存)
+  React.useEffect(() => {
+    let alive = true
+    void loadConfig().then((m) => {
+      if (!alive) return
+      setConfig(m)
+      setActiveUid((u) => u || m.MONITOR_DASHBOARDS[0]!.uid)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
 
-  const load = React.useCallback(
-    async (uid: string, rSec: number) => {
-      const dash = MONITOR_DASHBOARDS.find((d) => d.uid === uid)
-      if (!dash) return
-      setLoading(true)
-      setPageError('')
-      const queries: Array<{
-        ref: string
-        expr: string
-        backend: 'prometheus' | 'loki'
-        rangeSeconds?: number
-        stepSeconds?: number
-      }> = []
-      const flat: Array<{ panelIdx: number; targetIdx: number }> = []
-      const stepSec = stepFor(rSec)
-      dash.panels.forEach((p, pi) => {
-        // stat/gauge 用即时查询(最新值);其余走区间查询
-        const instant = p.kind === 'stat' || p.kind === 'gauge' || p.kind === 'table'
-        p.targets.forEach((t, ti) => {
-          queries.push({
-            ref: `q${queries.length}`,
-            expr: materializeExpr(t.expr, rSec, stepSec),
-            backend: p.backend,
-            ...(instant ? {} : { rangeSeconds: rSec, stepSeconds: stepSec }),
-          })
-          flat.push({ panelIdx: pi, targetIdx: ti })
+  const dashboard = config?.MONITOR_DASHBOARDS.find((d) => d.uid === activeUid) ?? null
+
+  const load = React.useCallback(async (dash: NativeDashboard, rSec: number) => {
+    setLoading(true)
+    setPageError('')
+    const queries: Array<{
+      ref: string
+      expr: string
+      backend: 'prometheus' | 'loki'
+      rangeSeconds?: number
+      stepSeconds?: number
+    }> = []
+    const flat: Array<{ panelIdx: number; targetIdx: number }> = []
+    const stepSec = stepFor(rSec)
+    dash.panels.forEach((p, pi) => {
+      // stat/gauge/table 用即时查询(最新值);其余走区间查询
+      const instant = p.kind === 'stat' || p.kind === 'gauge' || p.kind === 'table'
+      p.targets.forEach((t, ti) => {
+        queries.push({
+          ref: `q${queries.length}`,
+          expr: materializeExpr(t.expr, rSec, stepSec),
+          backend: p.backend,
+          ...(instant ? {} : { rangeSeconds: rSec, stepSeconds: stepSec }),
         })
+        flat.push({ panelIdx: pi, targetIdx: ti })
       })
-      const next = new Map<number, QueryResult>()
-      try {
-        // API 单次上限 96 条,分批
-        for (let i = 0; i < queries.length; i += 96) {
-          const batch = queries.slice(i, i + 96)
-          const res = await fetchApi<{ results: QueryResult[] }>('/api/admin/monitor-panels/query', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ queries: batch }),
-            timeoutMs: 60_000,
-          })
-          if (!res.success || !res.data) {
-            setPageError(res.error || '查询失败')
-            break
-          }
-          res.data.results.forEach((r, bi) => {
-            const f = flat[i + bi]
-            if (f) next.set(rkey(f.panelIdx, f.targetIdx), r)
-          })
+    })
+    const next = new Map<number, QueryResult>()
+    try {
+      // API 单次上限 96 条,分批(服务端已并发执行,批间串行即可)
+      for (let i = 0; i < queries.length; i += 96) {
+        const batch = queries.slice(i, i + 96)
+        const res = await fetchApi<{ results: QueryResult[] }>('/api/admin/monitor-panels/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queries: batch }),
+          timeoutMs: 60_000,
+        })
+        if (!res.success || !res.data) {
+          setPageError(res.error || '查询失败')
+          break
         }
-        setResults(next)
-        setUpdatedAt(new Date())
-      } finally {
-        setLoading(false)
+        res.data.results.forEach((r, bi) => {
+          const f = flat[i + bi]
+          if (f) next.set(rkey(f.panelIdx, f.targetIdx), r)
+        })
       }
-    },
-    [],
-  )
+      setResults(next)
+      setUpdatedAt(new Date())
+      setCountdown(AUTO_REFRESH_MS / 1000)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   React.useEffect(() => {
-    void load(activeUid, rangeSec)
-  }, [activeUid, rangeSec, load])
+    if (dashboard) void load(dashboard, rangeSec)
+  }, [dashboard, rangeSec, load])
 
+  React.useEffect(() => {
+    if (!autoRefresh || !dashboard) return
+    const t = setInterval(() => void load(dashboard, rangeSec), AUTO_REFRESH_MS)
+    return () => clearInterval(t)
+  }, [autoRefresh, dashboard, rangeSec, load])
+
+  // 倒计时仅做显示(实际刷新由上面的 interval 驱动);每次数据落定即重置
   React.useEffect(() => {
     if (!autoRefresh) return
-    const t = setInterval(() => void load(activeUid, rangeSec), AUTO_REFRESH_MS)
-    return () => clearInterval(t)
-  }, [autoRefresh, activeUid, rangeSec, load])
+    const tick = setInterval(() => setCountdown((c) => (c <= 1 ? AUTO_REFRESH_MS / 1000 : c - 1)), 1000)
+    return () => clearInterval(tick)
+  }, [autoRefresh])
+  React.useEffect(() => {
+    setCountdown(AUTO_REFRESH_MS / 1000)
+  }, [updatedAt])
+
+  /** 切盘即清旧数据:避免新盘面板短暂显示上一盘的结果(键空间不同,语义上是脏数据)。 */
+  const switchDashboard = (uid: string) => {
+    if (uid === activeUid) return
+    setActiveUid(uid)
+    setResults(new Map())
+    setUpdatedAt(null)
+    setPageError('')
+  }
+
+  const groups = config?.PANEL_GROUPS ?? []
+  const boards = config?.MONITOR_DASHBOARDS ?? []
+  const panels = React.useMemo(() => {
+    if (!dashboard) return []
+    const q = filter.trim().toLowerCase()
+    return q ? dashboard.panels.filter((p) => p.title.toLowerCase().includes(q)) : dashboard.panels
+  }, [dashboard, filter])
 
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden rounded-lg border border-[#1b2a45] bg-[#070d1a]">
@@ -518,47 +593,61 @@ export default function MonitorPanelsPage() {
           onClick={() => setNavOpen((v) => !v)}
           className="w-full px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 hover:text-cyan-300"
         >
-          {navOpen ? '监控大屏 (21)' : '»'}
+          {navOpen ? `监控大屏 (${boards.length})` : '»'}
         </button>
-        {PANEL_GROUPS.map((group) => {
-          const boards = MONITOR_DASHBOARDS.filter((d) => d.group === group)
-          if (!boards.length) return null
-          return (
-            <div key={group} className="mb-2">
-              {navOpen && (
-                <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-600">{group}</div>
-              )}
-              {boards.map((d) => (
-                <button
-                  key={d.uid}
-                  type="button"
-                  onClick={() => setActiveUid(d.uid)}
-                  className={cn(
-                    'block w-full truncate px-3 py-1.5 text-left text-xs transition-colors',
-                    navOpen ? '' : 'px-3',
-                    d.uid === activeUid
-                      ? 'border-l-2 border-cyan-400 bg-[#0f1a30] text-cyan-300'
-                      : 'border-l-2 border-transparent text-slate-400 hover:bg-[#0d1626] hover:text-slate-200',
-                  )}
-                  title={d.title}
-                >
-                  {navOpen ? d.title : d.title.slice(0, 2)}
-                </button>
-              ))}
-            </div>
-          )
-        })}
+        {!config ? (
+          <div className="px-3 py-2 text-[11px] text-slate-600">配置加载中…</div>
+        ) : (
+          groups.map((group) => {
+            const groupBoards = boards.filter((d) => d.group === group)
+            if (!groupBoards.length) return null
+            return (
+              <div key={group} className="mb-2">
+                {navOpen && (
+                  <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-600">{group}</div>
+                )}
+                {groupBoards.map((d) => (
+                  <button
+                    key={d.uid}
+                    type="button"
+                    onClick={() => switchDashboard(d.uid)}
+                    className={cn(
+                      'block w-full truncate px-3 py-1.5 text-left text-xs transition-colors',
+                      d.uid === activeUid
+                        ? 'border-l-2 border-cyan-400 bg-[#0f1a30] text-cyan-300'
+                        : 'border-l-2 border-transparent text-slate-400 hover:bg-[#0d1626] hover:text-slate-200',
+                    )}
+                    title={d.title}
+                  >
+                    {navOpen ? d.title : d.title.slice(0, 2)}
+                  </button>
+                ))}
+              </div>
+            )
+          })
+        )}
       </aside>
 
       {/* 主区域 */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* 顶栏 */}
         <div className="flex flex-wrap items-center gap-2 border-b border-[#16213a] bg-[#0a101f] px-4 py-2.5">
-          <h2 className="text-sm font-semibold text-slate-100">{dashboard.title}</h2>
-          <span className="rounded bg-[#0f1a30] px-1.5 py-0.5 text-[10px] text-slate-500">
-            {dashboard.panels.length} 面板
-          </span>
-          <div className="ml-auto flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-slate-100">{dashboard?.title ?? '监控面板'}</h2>
+          {dashboard && (
+            <span className="rounded bg-[#0f1a30] px-1.5 py-0.5 text-[10px] text-slate-500">
+              {filter.trim() ? `${panels.length}/${dashboard.panels.length}` : dashboard.panels.length} 面板
+            </span>
+          )}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-600" />
+              <input
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="筛选面板…"
+                className="w-32 rounded border border-[#1b2a45] bg-[#0b1220] py-1 pl-7 pr-2 text-[11px] text-slate-200 placeholder:text-slate-600 focus:border-cyan-500/40 focus:outline-none"
+              />
+            </div>
             <div className="flex overflow-hidden rounded border border-[#1b2a45]">
               {RANGES.map((r) => (
                 <button
@@ -585,12 +674,12 @@ export default function MonitorPanelsPage() {
               )}
             >
               <RefreshCw className={cn('h-3 w-3', autoRefresh && 'animate-spin')} style={autoRefresh ? { animationDuration: '3s' } : undefined} />
-              30s 自动
+              {autoRefresh ? `${countdown}s` : '已暂停'}
             </button>
             <button
               type="button"
-              onClick={() => void load(activeUid, rangeSec)}
-              disabled={loading}
+              onClick={() => dashboard && void load(dashboard, rangeSec)}
+              disabled={loading || !dashboard}
               className="rounded border border-[#1b2a45] px-2 py-1 text-[11px] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-50"
             >
               刷新
@@ -607,11 +696,18 @@ export default function MonitorPanelsPage() {
 
         {/* 面板网格 */}
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {dashboard.panels.map((p, pi) => (
-              <PanelCard key={p.id} panel={p} panelIdx={pi} results={results} loading={loading} />
-            ))}
-          </div>
+          {!dashboard ? (
+            <div className="flex h-full items-center justify-center text-xs text-slate-500">配置加载中…</div>
+          ) : panels.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-xs text-slate-500">无匹配「{filter}」的面板</div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {panels.map((p) => {
+                const pi = dashboard.panels.indexOf(p)
+                return <PanelCard key={p.id} panel={p} panelIdx={pi} results={results} loading={loading} />
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
