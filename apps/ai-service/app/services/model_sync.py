@@ -100,6 +100,11 @@ MAX_PRICE_PER_1K_TOKENS = 100
 # F4.7 连续失败自动禁用阈值(N 次失败后标记 unhealthy,跳过后续同步)
 FAILURE_THRESHOLD = 3
 
+# 启动恢复:只认最近 N 小时内的 ai_model_sync_log 记录(默认 24h)。
+# 取 24h 是因为默认同步间隔 21600s(=6h),连续 FAILURE_THRESHOLD=3 次失败最慢要跨
+# 3 轮 = 18h;24h 留了余量又不至于把几天前的历史脏数据当成"当前仍坏"来误报。
+_RESTORE_WINDOW_HOURS = 24
+
 # F4.8 增量同步:429 长退避时间(秒)
 _RATE_LIMIT_BACKOFF_S = 60.0
 
@@ -300,13 +305,20 @@ class ModelSyncService:
         if self._initialized:
             return
         self._initialized = True
+        # 2026-10-18:先接回 DB 里的失败态并给 gauge 打点,再起定时任务。
+        # 顺序不可颠倒 —— 恢复依赖"两个集合仍为空"的冷启动前提(见其运行期保护)，
+        # 且必须赶在首轮同步前让 `model_sync_provider_health` 有样本,
+        # 否则 Prometheus 侧 LlmProviderUnhealthy 对无样本序列不成立,等于静默。
+        await self._restore_failure_state_from_db()
         self._refresh_task = asyncio.create_task(self._sync_loop())
         interval = self._sync_interval_s()
         logger.info(
             "[ModelSyncService] 后台定时同步任务已启动(每 %ds,首次延迟 %ds)",
             interval, INITIAL_DELAY_S,
         )
-        # v4 启动自愈:提示上次运行中被永久禁用的 provider(不自动重置,让 admin 显式调用 reset)
+        # v4 启动自愈:提示被永久禁用的 provider(不自动重置,让 admin 显式调用 reset)。
+        # 注:本段此前是死代码 —— 它读的是内存集合,而内存集合重启后必为空,永不打印。
+        #     现由上面的 _restore_failure_state_from_db() 从 DB 恢复后才真正可能非空。
         if self._permanently_disabled_providers:
             logger.warning(
                 "[ModelSyncService] 上次运行中以下 provider 被永久禁用,"
@@ -839,6 +851,121 @@ class ModelSyncService:
         self._provider_failure_counter[provider_code] = (
             self._provider_failure_counter.get(provider_code, 0) + 1
         )
+
+    # ------------------------------------------------------------------
+    # 启动恢复(2026-10-18 立):把"进程内存态"接回 DB
+    # ------------------------------------------------------------------
+
+    async def _restore_failure_state_from_db(self) -> dict[str, int]:
+        """冷启动时从 ai_model_sync_log 恢复 provider 连续失败态,并立刻给 gauge 打点。
+
+        为什么必须有这一段(不是锦上添花,是修两个真缺陷):
+        ① `_provider_failure_counter` / `_permanently_disabled_providers` / `PROVIDER_HEALTH`
+           三者**全是进程内存态**,ai-service 一重启就归零。而 Prometheus 侧
+           `LlmProviderUnhealthy` 的判据是 `model_sync_provider_health == 0`,
+           **序列无样本时不成立**(不是 0,是没有)⇒ 坏 provider 重启后最长要
+           3 轮 x 6h = 18h 才重新告警,告警出现长达大半天的静默盲区。
+        ② `initialize()` 里"启动自愈:提示上次运行中被永久禁用的 provider"那段是**死代码**:
+           它打印的是内存集合,而内存集合在重启后必然是空集 ⇒ 永不打印。
+        恢复后两处都真正生效:gauge 启动即有正确样本,禁用名单也能跨重启被提示。
+
+        误报防护(三条,缺一不可):
+        ① **只恢复本服务自己配置的 provider**。ai_model_sync_log 也会被 apps/api 的
+           relay-model-sync 写入 provider_code='swiftapi'(由 api 侧负责,本服务从不
+           同步它)。若不按本服务的配置清单收敛,就会凭空给 swiftapi 打 gauge=0,
+           造出一条本服务修不了的假告警。
+        ② 只看每个 provider 最近 FAILURE_THRESHOLD 条里的**尾部连续**失败,
+           遇到任意 success=true 立即截断(不把"失败-成功-失败"累计成 2)。
+        ③ 只认 `_RESTORE_WINDOW_HOURS` 小时内的记录,避免把几天前的历史当现状。
+
+        调用时机:只能冷启动调用。运行期(两个集合已有值)调用会直接跳过,
+        绝不覆盖运行期积累的真实状态。
+
+        Returns:
+            {provider_code: 恢复出的连续失败次数},只含 >0 的;DB 不可用时返回 {}。
+        """
+        # 运行期保护:非冷启动绝不覆盖内存里积累的真实状态
+        if self._provider_failure_counter or self._permanently_disabled_providers:
+            logger.debug(
+                "[ModelSyncService] 非冷启动(已有运行期失败态),跳过 DB 恢复"
+            )
+            return {}
+
+        try:
+            pool = await get_shared_pool()
+        except Exception as e:
+            logger.info(
+                "[ModelSyncService] DB 池不可用,跳过启动恢复(gauge 待首轮同步): %s",
+                e,
+            )
+            return {}
+
+        try:
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """SELECT provider_code, success
+                         FROM (
+                           SELECT provider_code, success, sync_finished_at,
+                                  ROW_NUMBER() OVER (
+                                    PARTITION BY provider_code
+                                    ORDER BY sync_finished_at DESC
+                                  ) AS rn
+                             FROM ai_model_sync_log
+                            WHERE sync_finished_at >= now() - make_interval(hours => $1)
+                         ) t
+                        WHERE rn <= $2
+                        ORDER BY provider_code, sync_finished_at DESC""",
+                    _RESTORE_WINDOW_HOURS,
+                    FAILURE_THRESHOLD,
+                )
+        except Exception as e:
+            # 表不存在 / 权限 / 连接问题 -> 与 _write_sync_log 一致,静默降级,不影响启动
+            logger.info(
+                "[ModelSyncService] 启动恢复查询失败(表可能不存在),按全新状态启动: %s",
+                e,
+            )
+            return {}
+
+        by_provider: dict[str, list[bool]] = {}
+        for r in rows:
+            by_provider.setdefault(r["provider_code"], []).append(bool(r["success"]))
+
+        # 收敛到"本服务实际会同步的 provider"。注意此刻两个集合仍为空,
+        # 所以 _get_configured_providers() 返回的是未剔除禁用项的完整清单。
+        configured = {code for code, _base, _key in self._get_configured_providers()}
+
+        restored: dict[str, int] = {}
+        for code in sorted(configured):
+            seq = by_provider.get(code, [])
+            streak = 0
+            for ok in seq:
+                if ok:
+                    break
+                streak += 1
+            # 关键:无论恢复出几,都给 gauge 打点 —— 这样重启后序列立刻有样本,
+            # 盲区(无样本 == 不告警)被彻底消除。
+            PROVIDER_HEALTH.labels(code).set(1 if streak < FAILURE_THRESHOLD else 0)
+            if streak:
+                restored[code] = min(streak, FAILURE_THRESHOLD)
+                self._provider_failure_counter[code] = min(streak, FAILURE_THRESHOLD)
+                if streak >= FAILURE_THRESHOLD:
+                    self._permanently_disabled_providers.add(code)
+
+        if restored:
+            logger.warning(
+                "[ModelSyncService] 启动恢复:从 ai_model_sync_log 恢复 %d 个 provider 的失败态 %s"
+                "(阈值 %d,窗口 %dh)。已置 unhealthy 的: %s;"
+                "修好后调用 POST /llm/models/sync/reset?provider=xxx 复位",
+                len(restored), restored, FAILURE_THRESHOLD, _RESTORE_WINDOW_HOURS,
+                sorted(self._permanently_disabled_providers) or "无",
+            )
+        else:
+            logger.info(
+                "[ModelSyncService] 启动恢复:近 %dh 内无连续失败记录,"
+                "%d 个 provider 全部按健康打点",
+                _RESTORE_WINDOW_HOURS, len(configured),
+            )
+        return restored
 
     # ------------------------------------------------------------------
     # F4.7 健康状态查询
@@ -1398,6 +1525,29 @@ class ModelSyncService:
         )
         if config_row:
             return int(config_row["id"])
+
+        # 2026-10-18 根治:没有 enabled 的行时,**不能直接 INSERT**。
+        # 原逻辑在这里只看 `enabled = true`,一旦管理员临时禁用或并发下该行短暂不可见,
+        # 查询落空就再插一行 —— 线上 token6688 就是这样长出 id=1 与 id=46 两条逐字节相同
+        # 的全局配置(id=46 之后再没被同步更新过,成了停在 2026-09-22 的僵尸行,
+        # 还让 8 个本已被下架的模型靠僵尸行继续错误上架)。
+        # 现改为:只要有同 provider_code 的既有行(无论 enabled),一律**复用**,
+        # 由管理员决定是否重新启用,同步服务绝不擅自新建第二行、也绝不擅自改 enabled。
+        fallback_row = await conn.fetchrow(
+            """SELECT id, enabled FROM ai_model_config
+               WHERE provider_code = $1
+               ORDER BY id LIMIT 1""",
+            provider_code,
+        )
+        if fallback_row:
+            logger.warning(
+                "[ModelSyncService] provider %s 无启用中的 config 行,"
+                "复用既有 id=%s(enabled=%s)而不是新建 -> 避免产生僵尸重复行;"
+                "如需恢复同步请由 admin 把该行置为 enabled",
+                provider_code, fallback_row["id"], fallback_row["enabled"],
+            )
+            return int(fallback_row["id"])
+
         if provider_code != "token6688":
             return None
         from ..core.config import settings
