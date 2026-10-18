@@ -33,6 +33,7 @@
  * `exam-signup-ownership.test.ts` 的取值纪律)。
  */
 
+import { readFileSync } from 'node:fs'
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { QueryBuilder } from 'drizzle-orm/pg-core'
@@ -652,6 +653,33 @@ describe('G-790 失败态条目不得从读面被筛掉(conversation-import 读�
       .where(cap.wheres[0] as SQL)
       .toSQL() as unknown as { sql: string }
     expect(ownerWhere.sql.toLowerCase()).not.toContain('"status"')
+  })
+})
+
+// A3(earnings-routes)的三处 byok 过滤是写死在 sql`…` 模板里的原样 SQL(经 dbRead.execute),
+// 不经过 QueryBuilder 的 where ⇒ 上面那套"编译 WHERE 来看"的取法对它无效,只能按语句面判:
+// **同一条语句里,按 JSON 内容判类别的条件必须与独立判别条件同现**。
+// 切句单位 = 文件里的每个 sql`…` 模板字面量(每个就是一条语句)。
+describe('G-790 A3 口径对齐(earnings-routes 的 byok 过滤)', () => {
+  const SRC = readFileSync(new URL('../earnings-routes.ts', import.meta.url), 'utf8')
+  const statements = SRC.match(/sql`[\s\S]*?`/g) ?? []
+  const byokStatements = statements.filter((s) => s.includes("metadata->>'byokMode'"))
+
+  it('取证面自证:量到 ≥3 条按 byokMode 判类别的语句(0 条就是尺子空转,不得当作通过)', () => {
+    expect(byokStatements.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('每条都同谓词带 api_key_id 判别条件(收入段/趋势/漏斗 byok 阶段)', () => {
+    for (const s of byokStatements) {
+      expect(s).toContain('api_key_id IS NOT NULL')
+    }
+  })
+
+  it('阳性对照:把判别条件摘掉后,上一条必须失效 ⇒ 证明排除来自判别列而不是尺子恒真', () => {
+    const first = byokStatements[0] ?? ''
+    const stripped = first.replace(/api_key_id IS NOT NULL/g, '')
+    expect(stripped).not.toContain('api_key_id IS NOT NULL')
+    expect(stripped).toContain("metadata->>'byokMode'")
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
