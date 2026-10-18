@@ -8,13 +8,14 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 7e9323e5869fe61a66903e5fa5da7689f84f06d5
-// inputsSha256: 57d6df0f62fc2de16856a4daf7551d01a43c408963521c0ef213f3c2f55580b0
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 9e8ef8c71d7196b87c1b21d5cfcc2081a24f4af3d088b514d6e8c0643e33cc08
+// sourceCommit: 2f8127bbcea456aba2cb99c38475f02bef3db1a9
+// inputsSha256: a353321717679cc821278c674cd14cecd41503aff4a3c721395f410c295eb48e
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx e8c7b3858dcced3d5735b4e8c9bce87755bf10bc81730577890296cc3049b7a7
 // input: apps/mobile-rn/src/navigation/linking.ts a837df56feae352828f449fb73b6635acf01e7a0601272c04c70ab9d8dc8c108
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-18T00:32:43.405Z
+// generatedAt: 2026-10-18T17:32:12.572Z
 // IHUI-GEN-PIN-END
+
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
 export interface RnUiRouteEntry {
@@ -28,7 +29,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 200 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 203 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -240,6 +241,9 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'TopicList', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'TopicDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'CircleIndex', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Workflows', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Automations', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Dashboard', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'HomeMain', tab: true, requiresParams: false, requiredParams: [] },
   { name: 'CourseMain', tab: true, requiresParams: false, requiredParams: [] },
   { name: 'AiMain', tab: true, requiresParams: false, requiredParams: [] },
