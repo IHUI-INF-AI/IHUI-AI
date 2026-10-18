@@ -57,6 +57,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { git } from './lib/bypass-git.mjs'
 import { DUP_POINTER_RE, compositeKeyOf, parseTaskRows } from './lib/plan-task-index.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
@@ -268,8 +269,8 @@ export function measureBlockMigration(content) {
 
 // ── 自检:合成台账夹具 ⇒ 确定性,不依赖真仓瞬时状态(§22c:判据的对象是"面"的形态,输入必须像真件) ──
 function selfTest() {
-  const results = []
-  const ok = (name, cond, detail = '') => results.push({ name, pass: !!cond, detail })
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t: ok, report } = makeRegistrar()
 
   // 夹具覆盖六种形态。⚠️ 每一条都按 `compositeKeyOf` 的**真实语义**造:复合主键 = 编号 +
   // `titleOf()` 的**24 字标题前缀**,而 `titleOf` 把粗体后的正文也吃进前缀里 ——
@@ -608,13 +609,13 @@ function selfTest() {
     )
   }
 
-  const fail = results.filter((x) => !x.pass)
-  for (const x of results)
+  const { pass, fail, cases } = report()
+  for (const x of cases)
     console.log(
-      `  ${x.pass ? '✅' : '❌'} ${x.name}${x.detail && !x.pass ? ` —— ${x.detail}` : ''}`,
+      `  ${x.pass ? '✅' : '❌'} ${x.name}${x.pass ? '' : ` —— ${x.got}`}`,
     )
-  console.log(`\n跨区块量表自检:${results.length - fail.length} 通过 / ${fail.length} 失败`)
-  return fail.length ? 1 : 0
+  console.log(`\n跨区块量表自检:${pass} 通过 / ${fail} 失败`)
+  return fail ? 1 : 0
 }
 
 const oneLine = (e) => String(e?.stderr ?? e?.message ?? e).split(/\r?\n/)[0].slice(0, 200)

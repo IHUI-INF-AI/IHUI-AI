@@ -119,6 +119,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveGitBin } from './lib/gitdir.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -762,8 +763,10 @@ export function audit(repoRoot, { staged = false, baseline } = {}) {
 // ══════════════ self-test(判据正反成对 + 临时仓模式取证,不触碰真实仓) ══════════════
 
 function selfTestRun() {
-  const results = []
-  const check = (name, ok) => results.push({ name, ok: Boolean(ok) })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `results.push({ name, ok: Boolean(ok) })` 收到 `() => {...}` 时求的是函数对象
+  // 真值(恒真)—— 已由共用出口结构封死,用例调用一字不动。
+  const { t: check, report } = makeRegistrar()
   const judge = (rel, text) => judgeText(rel, text, newStats()).violations
 
   // ── PS 抽取器 ──
@@ -1238,10 +1241,10 @@ function selfTestRun() {
       g(['commit', '-qm', 'am cleaned'])
     }
 
-    let fail = 0
+    // 消费点:求值只发生在这里(共用出口的报告函数,仍处 try 内、夹具在世时)。
+    const { fail, cases: results } = report()
     for (const r of results) {
-      console.log(`${r.ok ? '✅' : '❌'} ${r.name}`)
-      if (!r.ok) fail += 1
+      console.log(`${r.pass ? '✅' : '❌'} ${r.name}`)
     }
     console.log(
       fail

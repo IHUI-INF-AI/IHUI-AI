@@ -81,6 +81,7 @@ import {
   selectFace,
 } from './lib/face-reader.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 // 消费侧的 import 解析**复用守门 98 那一份实现**,不另写第二份:两处解析同一件事必漂移,
 // 而漂移的表现永远是"某一种写法只有一边看得见"(本仓记过多次)。98 有 §22d isDirectRun 守卫,
 // import 它不会触发 CLI 主流程。
@@ -1110,8 +1111,9 @@ export function main(argv = process.argv.slice(2)) {
 // ────────────────────────────────────────────────────────────────── 自检
 
 function selfTest() {
-  const cases = []
-  const t = (name, cond, extra = '') => cases.push({ name, ok: !!cond, extra })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `cases.push({ name, ok: !!cond })` 布尔强制(函数恒真)—— 已由共用出口封死。
+  const { t, report } = makeRegistrar()
 
   // ── 构造面:一个包 + 一个消费者,纯内存,不派生 git
   const mk = (over = {}) => {
@@ -1526,10 +1528,10 @@ function selfTest() {
     t('A18 真仓 HEAD 必须枚举到 workspace 包与消费者(空扫不算判过)', false, String(e && e.message))
   }
 
-  let fail = 0
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { fail, cases } = report()
   for (const c of cases) {
-    console.log(`${c.ok ? '✅' : '❌'} ${c.name}${c.ok ? '' : ` —— ${c.extra}`}`)
-    if (!c.ok) fail += 1
+    console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ` —— ${c.got}`}`)
   }
   console.log(realNote)
   console.log(fail ? `❌ ${fail} 例失败` : `\n全部 ${cases.length} 例通过`)
