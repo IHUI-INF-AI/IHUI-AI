@@ -43,6 +43,8 @@ export interface VoiceNoteListQuery {
   /** 关键词:服务端在 title/transcript 上走 SQL 谓词,不得前端拉全桶再 filter */
   q?: string
   conversationId?: string
+  /** 带上分组计数(面板顶上的分组档要用;不要时不传,省一次 groupBy) */
+  withGroups?: '1' | 'true'
 }
 
 export interface VoiceNoteListResult {
