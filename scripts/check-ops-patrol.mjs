@@ -1359,7 +1359,11 @@ export function growthRow(id, m, bytesLimit, entriesLimit, { now = Date.now() } 
   const owners = over ? attributionText(m, now) : ''
   const how = id.startsWith('P4a')
     ? ' | 出路:上面**标了"已闲置 N 天"的那几枚**才是可清的(按名逐个删,删前先改名验句柄);"近 24h 有动"的是 Trae/Node/tsx 这类在用缓存,' +
-      `整目录镜像清空会连正在跑的工具一起毁,不得照做;本项目自己的夹具走 \`${SCRUB_TEMP_FIXTURES_ROUTE}\`(名字围栏 + 账龄闸)`
+      `整目录镜像清空会连正在跑的工具一起毁,不得照做;本项目自己的夹具走 \`${SCRUB_TEMP_FIXTURES_ROUTE}\`(名字围栏 + 账龄闸)` +
+      '。**第三条(2026-10-19 实测,比删更该先做):把"整份产物副本"同盘改名让位到 D:\\DevEnv\\backups\\**' +
+      '(如 `next-artifact-<BUILD_ID>-<日期>`)—— 同盘 rename 秒完、数据一条不丢、回滚能力还在,而 Temp 那一维当场转绿。' +
+      '当晚的真型就是这样:一场部署停摆里有人把 `apps/web/.next` 整份 5.03GB/11584 项拷进 Temp 当保险,`P4a` 因此连红;' +
+      '这类"保险拷贝"的落点本来就不是 Temp(§15b 唯一批准根是 D:\\DevEnv),删它等于毁掉唯一那份旧构建。'
     : ''
   return {
     id,

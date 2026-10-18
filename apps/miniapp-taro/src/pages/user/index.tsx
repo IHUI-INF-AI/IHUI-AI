@@ -19,6 +19,7 @@ import {
 import { getShareInfo } from '@/utils/share'
 import { getSystemInfoCompat, getTopBarMetrics } from '@/utils/system-info'
 import * as api from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { icon } from '@/constants/remote-icons'
 import NavBar from '@/components/NavBar'
 import DrawerComponent, {
@@ -689,10 +690,16 @@ export default function UserIndex() {
     setShowLoginPopup(true)
   }, [isLogin])
 
+  // G-933 冷启动门控：loadHistoryChat → GET /api/ai/history(ai-user-model-chat.ts:448 用
+  // request.userId!，插件级 preHandler :246，前缀 /api/ai 见 routes/index.ts:828)需鉴权；
+  // refresh() 读的是本机存储、loadContentByTab(1) 是公开内容 tab，两支**照发**，只延后历史那支。
+  const { waitUntilReady } = useAuthReadyGate()
   useDidShow(() => {
     refresh()
     void loadContentByTab(1) // 默认加载文本 tab
-    void loadHistoryChat()
+    waitUntilReady(() => {
+      void loadHistoryChat()
+    })
   })
 
   // 对齐原项目 onShareAppMessage:用 getShareInfo 注入 inviteCode(从 storage 读取)

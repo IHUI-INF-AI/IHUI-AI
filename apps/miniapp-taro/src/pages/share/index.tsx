@@ -14,6 +14,7 @@ import Taro, {
 } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import * as api from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { NavBar, Ranking, DrawerComponent, FloatBox, type RankingItem } from '@/components'
 import LineIcon from '@/components/LineIcon'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
@@ -320,13 +321,19 @@ export default function ShareIndexPage() {
     void loadCategories()
   }, [loadRankList, loadCategories])
 
+  // G-933 冷启动门控：只挡 loadChatHistory → GET /api/ai/history
+  // (ai-user-model-chat.ts:448 用 request.userId!，插件级 preHandler :246，前缀 /api/ai 见 index.ts:828)。
+  // loadRef/loadModelList/loadHotList/loadCardList 属公开列表或取证不足，按票面口径原样照发。
+  const { waitUntilReady } = useAuthReadyGate()
   useDidShow(() => {
     if (activeNavbar) {
       void loadRef.current(true)
-      void loadChatHistory()
       void loadModelList()
       void loadHotList()
       void loadCardList()
+      waitUntilReady(() => {
+        void loadChatHistory()
+      })
     }
     // 首次进入显示兴趣赛道选择(对齐原项目备用组件)
     try {
