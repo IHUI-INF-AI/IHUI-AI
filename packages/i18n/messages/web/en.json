@@ -7350,6 +7350,7 @@
       "total": "Total"
     },
     "backgroundAgents": {
+      "omittedChars": "{count} chars omitted",
       "calls": "{count} calls",
       "cancel": "Cancel",
       "cancelledCount": "Cancelled {count}",

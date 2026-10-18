@@ -7350,6 +7350,7 @@
       "total": "합계"
     },
     "backgroundAgents": {
+      "omittedChars": "{count}자 생략",
       "calls": "{count}회 호출",
       "cancel": "취소",
       "cancelledCount": "취소 {count}",
