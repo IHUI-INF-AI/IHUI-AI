@@ -8,7 +8,12 @@ import * as React from 'react'
 import { useNavigateWithProgress } from '@/stores/navigation'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
+import {
+  ICON_BTN_36_WRAPPER,
+  SIDEBAR_ARROW_NUDGE_LEFT,
+  SIDEBAR_ARROW_NUDGE_RIGHT,
+  SIDEBAR_TOGGLE_BTN_CLASS,
+} from '@/lib/nav-styles'
 import { Button, ThemeLogo } from '@ihui/ui-react'
 import { useDesktop } from '@/hooks/use-desktop'
 import { armWindowDragOnFirstMove, isDraggableBlankArea } from '@/lib/window-drag'
@@ -22,12 +27,34 @@ interface SidebarHeaderProps {
   onCloseMobile?: () => void
 }
 
-/** 自定义侧边栏折叠/展开图标(对标设计稿):大圆角面板 + 左侧短竖线(两端不贴外框) + 方向箭头
- *  open=false 箭头朝左(收起);open=true 箭头朝右(展开) */
+/**
+ * 自定义侧边栏折叠/展开图标:大圆角面板(外框) + 左侧实心竖条(面板边) + 方向箭头。
+ * open=false → 箭头朝左(收起);open=true → 箭头朝右(展开)。
+ *
+ * 2026-10-18 美化(用户点名「还有这个箭头」),改前 → 改后:
+ *  ① 左侧竖条 2px 细线(与外框同重,顶到 y=8/16 像根钉在框里的针)
+ *     ⇒ 改为 2.5 宽圆头实心条、上下内收到 8.5/15.5。缩到 20px 时它就成了一枚
+ *       圆角实心竖条(≈2.1×8px),读起来是"面板的左侧边"而不是"一根分隔线";
+ *       与外框留出 2.4 的呼吸间距,不再顶住框。
+ *  ② 箭头 3×6、两态各写一条 d 且重心不同(切态时箭头会轻微"跳一下")
+ *     ⇒ 改为两态共用同一几何、仅方向镜像的 3.5×7 对称折角,竖直严格居中于 y=12,
+ *       切态时箭头位置恒定,只有方向翻转 —— 视觉上是"转向"而不是"挪动"。
+ *  ③ 箭头整体右移 0.75(13.75→17.25),与左侧竖条之间留出 5 的间距,
+ *     避免"箭头贴在竖条上"的拥挤感(改前间距 6.5 但箭头偏左,右侧空 4 更显不均)。
+ *  ④ 外框描边 2 → 1.75:24 viewBox 缩到 20px 后,2 的描边占 10% 偏重;
+ *     1.75 降到 8.75%,与导航项 20px 图标的观感更接近,箭头也用同重在三层里最轻。
+ *     三层重量分工:竖条 2.5(面) > 外框 1.75(框) = 箭头 1.75(细节),
+ *     一眼先看到"面板边",再看方向。
+ *
+ * hover 微位移(位移量见 SIDEBAR_ARROW_NUDGE_*)由按钮上的 group/toggle 驱动,
+ * 只位移本 svg 内的 <g>:svg 恒 20×20、按钮恒 36×36,位移不参与布局,
+ * 因此不影响 sidebar-visual / sidebar-height-verify 里任何一条盒子断言。
+ */
 function PanelLeftRounded({
   open = false,
+  nudge,
   ...props
-}: React.SVGProps<SVGSVGElement> & { open?: boolean }) {
+}: React.SVGProps<SVGSVGElement> & { open?: boolean; nudge?: string }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -36,15 +63,24 @@ function PanelLeftRounded({
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.75"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
       {...props}
     >
+      {/* 外框:面板 */}
       <rect width="18" height="18" x="3" y="3" rx={rnRadius.sm} />
-      <path d="M7.5 8v8" />
-      {open ? <path d="m14 9 3 3-3 3" /> : <path d="m16 15-3-3 3-3" />}
+      {/* 左侧竖条:面板边(比外框重一号 + 圆头内收,读成"实心条") */}
+      <path d="M7.5 8.5v7" strokeWidth="2.5" />
+      {/* 方向箭头:两态同几何、仅镜像,转向时不位移 */}
+      <g className={nudge}>
+        {open ? (
+          <path d="m13.75 8.5 3.5 3.5-3.5 3.5" />
+        ) : (
+          <path d="m17.25 8.5-3.5 3.5 3.5 3.5" />
+        )}
+      </g>
     </svg>
   )
 }
@@ -88,6 +124,8 @@ export function SidebarHeader({
           // 2026-09-05 修复:左侧 pl-12(48px) 避让 GlobalShell 悬浮的拉出/收回切换按钮
           // (z-popover,常驻 x=6-42),避免 logo 被按钮盖住;logo 允许收缩(flex-1 min-w-0)
           'flex h-[44px] shrink-0 items-center justify-between gap-1 pl-12 pr-2 pt-2 pb-0 mx-0',
+          // 与桌面端展开态同源:品牌区与下方导航之间的发丝分隔线(详见桌面展开态注释)
+          'border-b border-border/40',
         )}
       >
         <div className="min-w-0 flex-1">
@@ -118,21 +156,17 @@ export function SidebarHeader({
         {/* 2026-09-21 修复:36×36 定尺寸 wrapper(原生 div,Button 守门豁免)。
             TOPBAR_BTN_BASE 内置 h-full,直接放在 h-[44px] header 里会被拉成 36×44 长方形;
             wrapper 提供确定高度后 h-full 正确解析为 36px。ml-auto/shrink-0 随之上移到 wrapper。 */}
-        <div className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center">
+        <div className={cn(ICON_BTN_36_WRAPPER, 'ml-auto')}>
           <Button
             variant="ghost"
             size="icon"
             onClick={onCloseMobile}
-            className={cn(
-              // 跟顶栏按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致,改一处生效所有同源按钮
-              TOPBAR_BTN_BASE,
-              TOPBAR_BTN_W9,
-            )}
+            className={cn(SIDEBAR_TOGGLE_BTN_CLASS, 'group/toggle')}
             aria-label={tc('close')}
           >
             {/* 2026-09-05:图标 14px→20px(h-5 w-5),与桌面端折叠按钮 2026-08-01 用户要求"图标加大"对齐,
                 移动端触屏更易辨识/命中 */}
-            <PanelLeftRounded className="h-5 w-5" />
+            <PanelLeftRounded className="h-5 w-5" nudge={SIDEBAR_ARROW_NUDGE_LEFT} />
           </Button>
         </div>
       </div>
@@ -152,7 +186,10 @@ export function SidebarHeader({
       <div
         data-tauri-drag-region
         className={cn(
-          'flex shrink-0 flex-col items-center gap-1 px-1 pt-2 pb-1 mx-0',
+          // 与展开态同源:品牌区(方形 logo + 展开钮)与下方导航之间的发丝分隔线。
+          // 折叠态 header 高度由内容撑开(36+4+36 + pt/pb),border 只加 1px,不影响
+          // 「拉出按钮与用户行无重叠」那条守门(两者分处上下、间距以整屏计)。
+          'flex shrink-0 flex-col items-center gap-1 px-1 pt-2 pb-1 mx-0 border-b border-border/40',
           isDesktop && 'cursor-move',
         )}
         onMouseDown={handleLogoMouseDown}
@@ -178,7 +215,7 @@ export function SidebarHeader({
               navigate('/')
             }
           }}
-          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_img]:pointer-events-none"
+          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_img]:pointer-events-none"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- 与 EmptyState/ThemeLogo 同源,img 保证 SSR 一致 */}
           <img
@@ -195,21 +232,21 @@ export function SidebarHeader({
             被 Chrome 一次性解析成 60px 高 → 按钮变 36×60 长方形并压住下方 + 新建任务按钮。
             h-full 需要"确定高度"父容器才成立:包一层 36×36 定尺寸 wrapper(原生 div,
             Button 守门豁免),按钮 h-full/w-9 在其中正确解析为 36×36 正方形。 */}
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center">
+        {/* 注意:整条按钮类不得再挂 hidden min-[1024px]:flex —— 640-1023px 视口强制折叠时按钮必须可见 */}
+        <div className={ICON_BTN_36_WRAPPER}>
           <Tooltip content={t('expand')} side="right">
             <Button
               variant="ghost"
               size="icon"
               onClick={onToggleCollapse}
-              className={cn(
-                TOPBAR_BTN_BASE,
-                TOPBAR_BTN_W9,
-                // 注意:不再用 hidden min-[1024px]:flex —— 640-1023px 视口强制折叠时按钮必须可见
-                'p-0 flex bg-transparent [&>svg]:!h-5 [&>svg]:!w-5',
-              )}
+              className={cn(SIDEBAR_TOGGLE_BTN_CLASS, 'group/toggle')}
               aria-label={t('expand')}
             >
-              <PanelLeftRounded open className="h-5 w-5" />
+              <PanelLeftRounded
+                open
+                className="h-5 w-5"
+                nudge={SIDEBAR_ARROW_NUDGE_RIGHT}
+              />
             </Button>
           </Tooltip>
         </div>
@@ -232,6 +269,11 @@ export function SidebarHeader({
       data-tauri-drag-region
       className={cn(
         // header 高 44px(保持不变,新建任务按钮位置不动)。
+        // 2026-10-18 美化:发丝分隔线 —— 把品牌区(logo)与下方导航/快捷区在视觉上分层。
+        // 用 border-b 而非额外 flex 子元素:border 参与盒模型(Tailwind 默认 box-border),
+        // 44px 总高不变,内容区 44-1=43px,按钮仍 36px 且高度守门值不变;
+        // 40% 透明度是"看得见但不抢戏"的档位,深色模式下 border 自反转,无需另写 dark: 覆盖。
+        'border-b border-border/40',
         // pt-2 pb-0 + items-center:content-box = 44-8-0 = 36px(从 y=8 到 y=44),
         // 折叠按钮(36px)填满 content-box,logo(26px)在 content-box 内居中,
         // 两者中心都在 y=26,与 GlobalTopBar 按钮中心(pt-2+h-9/2=26)垂直对齐(2026-07-30 用户反馈)。
@@ -273,7 +315,9 @@ export function SidebarHeader({
           clickable
           width={80}
           height={26}
-          className="h-[26px] w-auto max-w-[80px] flex-shrink-0 transition-opacity hover:opacity-75"
+          // 2026-10-18 美化:75 → 80。原 25% 的透明度落差在纯白 logo 上会造成"闪一下"的
+          // 观感(尤其深色模式白图),80% 保留可感知的可点提示,又不把品牌图压灰。
+          className="h-[26px] w-auto max-w-[80px] flex-shrink-0 transition-opacity hover:opacity-80"
         />
       </span>
       <Tooltip content={t('collapse')} side="right">
@@ -293,15 +337,11 @@ export function SidebarHeader({
           //   (tailwind-merge 同 specificity 后定义胜出,确保 20px 生效)
           // 2026-09-07:去掉 hidden min-[1024px]:flex —— 展开态 header 只在侧边栏可见时渲染,
           // 按钮恒 flex(旧规则曾在 640-1023px 把按钮藏成空白)
-          className={cn(
-            TOPBAR_BTN_BASE,
-            TOPBAR_BTN_W9,
-            'h-9 p-0 flex bg-transparent [&>svg]:!h-5 [&>svg]:!w-5',
-          )}
+          className={cn(SIDEBAR_TOGGLE_BTN_CLASS, 'group/toggle')}
           aria-label={t('collapse')}
         >
           {/* 图标 20px (h-5 w-5),2026-08-01 用户要求加大 */}
-          <PanelLeftRounded className="h-5 w-5" />
+          <PanelLeftRounded className="h-5 w-5" nudge={SIDEBAR_ARROW_NUDGE_LEFT} />
         </Button>
       </Tooltip>
     </div>
