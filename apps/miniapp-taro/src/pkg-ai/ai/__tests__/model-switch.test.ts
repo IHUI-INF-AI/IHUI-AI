@@ -198,15 +198,28 @@ describe('装车证明:判据必须真接在 chat.tsx 主链路上', () => {
     expect(mod).not.toMatch(/@tarojs\/taro|from '@\/i18n'/)
   })
 
-  it('notice 通道在位但本端暂不传文案(五语言词包被在飞清单占住,新增文案另立票,不在这里硬造)', () => {
+  it('notice 通道现已接通:换档终止必须给得出看得见的理由,而停止按钮仍静默', () => {
     const probe = makeProbe()
     expect(terminateActiveStream(probe.deps)).toBe(true)
     expect(probe.calls.notice).toEqual([])
-    // 接线侧同理:chat.tsx 只给 abortRef + 思考态回收,不塞自造中文,也不 t() 一个不存在的键
-    expect(src).toContain(
-      'terminateActiveStream({ abortRef, clearThinkingProgress: stopThinkingProgress })',
-    )
-    expect(src).not.toMatch(/terminateStream\(\s*t\(/)
+    // 接线侧锁语义而非字节形(prettier 一折行,字面量锁就变成与正确性无关的假红):
+    // 换档 effect 走 t() 取键,不塞自造中文;停止按钮不传 notice。
+    expect(src).toMatch(/terminateStream\(\s*\n?\s*t\(\s*'chat\.modelSwitchStopped',\s*\{\s*model:\s*currentModel\s*\}\s*\)\s*\n?\s*\)/)
+    expect(src).toMatch(/const stopGeneration = useCallback\(\(\) => \{\s*\n\s*terminateStream\(\)/)
+    expect(src).not.toMatch(/terminateStream\(\s*'[^']*已终止/)
+  })
+
+  it('chat.modelSwitchStopped 在五语言词包里齐备(§19:新增状态词必须同批补齐五语言)', () => {
+    for (const l of ['en', 'ja', 'ko', 'zh-CN', 'zh-TW']) {
+      const pack = JSON.parse(
+        readFileSync(
+          path.resolve(__dirname, '../../../../../../packages/i18n/messages/miniapp-taro', `${l}.json`),
+          'utf8',
+        ),
+      )
+      expect(typeof pack.chat?.modelSwitchStopped, l).toBe('string')
+      expect(pack.chat.modelSwitchStopped, l).toContain('{model}')
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
