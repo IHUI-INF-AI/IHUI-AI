@@ -101,7 +101,7 @@ export async function connectToServer(opts: TuiClientOptions): Promise<TuiClient
   const WsCtor = loadWsClient();
   if (!WsCtor) {
     throw new Error(
-      'ws 包未安装,TUI client 无法启动。请运行:pnpm --filter @ihui/cli add ws && pnpm --filter @ihui/cli add -D @types/ws',
+      'ws 包未安装,TUI client 无法启动。请运行:pnpm --filter ihui-cli add ws && pnpm --filter ihui-cli add -D @types/ws',
     );
   }
 
