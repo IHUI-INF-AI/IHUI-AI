@@ -62,6 +62,20 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional, cast
 
+# 79 号票(2026-10-18 立):权限双轴消费面的**唯一**接线点。三个名字都取进来:
+# 解析在路由层做(routers/agents.py),执行面只负责判定,判定权不落两处。
+from ..core.permission_axis_gate import (
+    AxisDecision as _AxisDecision,
+)
+from ..core.permission_axis_gate import (
+    axis_dims_from_mcp_annotations as _axis_dims_from_mcp_annotations,
+)
+from ..core.permission_axis_gate import (
+    axis_gate_decision as _axis_gate_decision,
+)
+from ..core.permission_axis_gate import (
+    axis_gate_hint as _axis_gate_hint,
+)
 from ..core.permission_mode import (
     ModePolicy,
 )
@@ -89,22 +103,8 @@ from ..core.permission_mode import (
 from ..core.permission_mode import (
     tool_allowed_by_policy as _tool_allowed_by_policy,
 )
-# 79 号票(2026-10-18 立):权限双轴消费面的**唯一**接线点。三个名字都取进来:
-# 解析在路由层做(routers/agents.py),执行面只负责判定,判定权不落两处。
-from ..core.permission_axis_gate import (
-    AxisDecision as _AxisDecision,
-)
-from ..core.permission_axis_gate import (
-    axis_dims_from_mcp_annotations as _axis_dims_from_mcp_annotations,
-)
-from ..core.permission_axis_gate import (
-    axis_gate_decision as _axis_gate_decision,
-)
-from ..core.permission_axis_gate import (
-    axis_gate_hint as _axis_gate_hint,
-)
-from ..core.usage_cache import normalize_usage
 from ..core.turn_stop_reason import TurnStopReason
+from ..core.usage_cache import normalize_usage
 from .agent_checkpoint import (
     AgentCheckpointManager,
     AgentLoopCheckpoint,
@@ -113,7 +113,6 @@ from .agent_checkpoint import (
 from .agent_deliverables import DeliverablesCollector, save_deliverables
 from .approval_generation_cas import (
     REASON_SNAPSHOT_MISMATCH,
-    REASON_SUPERSEDED,
     STATE_RESOLVED,
     STATE_TIMED_OUT,
     ApprovalGenerationCas,
@@ -1930,7 +1929,7 @@ class AgentLoopV2:
         # .AxisResolution);运行时仍不 import、不构造 —— 构造权归路由层一个出口,这条
         # 设计约束不变。此前用 object 标注让 mypy 在 5706/5708 把实参读成 object,
         # 判 [arg-type] 红 ⇒ 整条 ai-service 提交链被这条存量堵住。
-        axis_resolution: "_AxisResolution | None" = None,
+        axis_resolution: "_AxisResolution | None" = None,  # noqa: UP037 -- 本模块没有 from __future__ import annotations,去引号会在 import 期求值并 NameError(实测 agents.py:498 同型);类型线索只走 TYPE_CHECKING-only import,运行时不构造
         # 1-6 token 治理:LLM 预算硬约束接入主循环(2026-09-02 立)。
         # budget_enabled:总开关,默认 None 时取 env AGENT_BUDGET_ENABLED(默认 off);
         #   构造参数优先于 env。on 时每轮 check_budget 硬停止 + record_usage 记录。
@@ -2103,7 +2102,7 @@ class AgentLoopV2:
         # 79 号票:双轴解析结果。None ⇒ 工具审批链整段跳过(零行为变化)。
         # 不做 env 兜底:双轴只能由请求自己声明(与 #84 耐久视野同一条理由 ——
         # "这一轮要什么权限"只能由点名的这一次请求说,服务端不代决定)。
-        self._axis_resolution: "_AxisResolution | None" = axis_resolution
+        self._axis_resolution: "_AxisResolution | None" = axis_resolution  # noqa: UP037 -- 同上:属性标注在运行期同样求值,去引号即 NameError
 
         # 工具级审批策略(构造期校验,非法值 fail-fast)
         _VALID_APPROVAL_POLICIES = ("never", "on-request", "always")
