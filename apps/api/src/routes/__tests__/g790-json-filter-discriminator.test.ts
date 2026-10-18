@@ -683,3 +683,39 @@ describe('G-790 A3 口径对齐(earnings-routes 的 byok 过滤)', () => {
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// A7(llm_call_logs.refunded)的回潮锁:2026-10-18 把退款资格判定从 JSON 内容迁到判别列。
+// 判的是三件事同时成立 —— 谓词走列、写侧同批盖列、迁移把旧真值回填进列。
+// 少任何一件都是半截:只改谓词 ⇒ 历史已退款行会被再退一次;只加列不改写侧 ⇒ 新退款读不出来。
+describe('G-790 A3/A7 迁移面(refunded 判别列)', () => {
+  const SVC = readFileSync(
+    new URL('../../services/relay-billing-service.ts', import.meta.url),
+    'utf8',
+  )
+  const SQL_FILE = readFileSync(
+    new URL(
+      '../../../../../packages/database/drizzle/20261018151000_llm_call_logs_refunded_column.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  )
+
+  it('资格谓词走列,且旧的 JSON 内容判定在该文件里已不存在', () => {
+    expect(SVC).toContain('eq(llmCallLogs.refunded, false)')
+    // 注释里可以提旧形态(留给下一个人看懂为什么改),但**判定表达式**里不得再出现
+    const codeOnly = SVC.split('\n')
+      .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
+      .join('\n')
+    expect(codeOnly).not.toMatch(/->>\s*'refunded'/)
+  })
+
+  it('写侧同批盖列(metadata 键保留给既有读者,但不再是判定来源)', () => {
+    expect(SVC).toMatch(/refunded:\s*true,\s*\n\s*metadata:\s*sql`jsonb_set/)
+  })
+
+  it('迁移把旧真值按同形判定回填进列(只认字符串 true,与旧谓词逐字同形)', () => {
+    expect(SQL_FILE).toContain('ADD COLUMN IF NOT EXISTS "refunded" boolean NOT NULL DEFAULT false')
+    expect(SQL_FILE).toContain("AND \"metadata\" ->> 'refunded' = 'true'")
+    expect(SQL_FILE).toContain('WHERE "refunded" = false')
+  })
+})
