@@ -35,11 +35,14 @@ import {
   checkinCaptureJwts,
   checkinCaptureWorkbuddy,
   openExternalUrl,
+  openEmbeddedBrowser,
+  closeEmbeddedBrowser,
+  checkinWorkbuddyWebLoginProbe,
+  checkinWorkbuddyWebLoginProbeCookie,
   checkinOneClickResetAll,
   checkinGetPublicIp,
   checkinSnapshotList,
   WB_WEB_LOGIN_URL,
-  WB_WEB_LOGIN_ORIGIN,
 } from '@/lib/tauri-bridge'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import type { CheckinAccount, CheckinRecord, CheckinCreditsHistoryItem } from '@ihui/api-client'
@@ -179,6 +182,14 @@ vi.mock('@/lib/tauri-bridge', () => ({
   WB_WEB_LOGIN_URL:
     'https://www.workbuddy.cn/login/?platform=website&state=2&product=workbuddy&redirect_uri=https%3A%2F%2Fwww.workbuddy.cn%2F',
   openExternalUrl: vi.fn(async () => true),
+  // 2026-10-18 主窗内嵌浏览器网页登录(自动闭环):开/关内嵌登录窗 + 两种 probe
+  openEmbeddedBrowser: vi.fn(async () => null),
+  closeEmbeddedBrowser: vi.fn(async () => {}),
+  checkinWorkbuddyWebLoginProbe: vi.fn(async () => ({ status: 'no_cookie' })),
+  checkinWorkbuddyWebLoginProbeCookie: vi.fn(async () => ({
+    status: 'not_logged_in',
+    message: 'Cookie 未登录或已过期',
+  })),
   checkinResetDeviceIds: vi.fn(),
   checkinOneClickResetAll: vi.fn(),
   checkinGetPublicIp: vi.fn(),
@@ -1314,36 +1325,44 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(createAccount).not.toHaveBeenCalled()
   })
 
-  it('WorkBuddy 网页登录:点击用系统默认浏览器打开真实登录页并进入等待', async () => {
-    // 2026-10-17 李总定档:「点击后要打开默认浏览器」——主窗口流程改 openExternalUrl
-    // (shell open 唤系统默认浏览器),不再开项目内嵌浏览器窗。登录页仍是真实
-    // /login/?platform=website&state=2&product=workbuddy&redirect_uri=…(扫码/账号密码),
-    // 不得退回裸 origin(营销首页,无登录入口,2026-10-15 实证)。
+  it('WorkBuddy 网页登录:主入口开项目内嵌浏览器(自动闭环),不再唤起系统默认浏览器', async () => {
+    // 2026-10-18 李总口径「登录后要自动获取授权与信息并跳回我们程序」:默认浏览器
+    // 登录后应用读不到它的 cookie jar(浏览器安全隔离),只能手动粘 Cookie,账号信息
+    // 也记不全 ⇒ 主入口改走项目内嵌浏览器(cookie jar 归应用,自动探测+自动入库)。
+    // 登录页仍是真实 /login/?platform=website&state=2&product=workbuddy&redirect_uri=…
+    // (扫码/账号密码),不得退回裸 origin(营销首页,无登录入口,2026-10-15 实证)。
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     openCaptureMenu()
     fireEvent.click(screen.getByText('WorkBuddy'))
-    fireEvent.click(screen.getByText('captureWbWebOpen'))
-    await waitFor(() => expect(openExternalUrl).toHaveBeenCalled())
-    const [openedUrl] = vi.mocked(openExternalUrl).mock.calls[0]!
-    expect(openedUrl).toBe(WB_WEB_LOGIN_URL)
-    expect(openedUrl).toContain('/login/')
-    expect(openedUrl).toContain('platform=website')
-    expect(openedUrl).toContain('product=workbuddy')
-    expect(openedUrl).not.toBe(WB_WEB_LOGIN_ORIGIN)
-    // 进入等待态:出现粘贴导入输入框(默认浏览器 Cookie 有隔离,收尾靠手动粘贴)
-    await waitFor(() => expect(screen.getByTestId('wb-paste-input')).toBeTruthy())
+    await waitFor(() =>
+      expect(openEmbeddedBrowser).toHaveBeenCalledWith(WB_WEB_LOGIN_URL, 'WorkBuddy 网页登录'),
+    )
+    // 主路径零默认浏览器:系统浏览器入口降为对话框内下级按钮
+    expect(openExternalUrl).not.toHaveBeenCalled()
+    // 进入等待态:取消按钮在(内嵌路径自动入库,不强制粘贴;系统浏览器入口并列保留)
+    await waitFor(() => expect(screen.getAllByText('captureWbWebCancel').length).toBeGreaterThan(0))
+    await waitFor(() => expect(screen.getAllByText('captureWbWebOpen').length).toBeGreaterThan(0))
   })
 
-  it('WorkBuddy 网页登录:粘贴 Cookie 导入(jwt=Cookie,login_type=web)', async () => {
+  it('WorkBuddy 网页登录:系统浏览器 + 粘贴 Cookie 导入(先探测账号,记录好账号)', async () => {
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
     createAccount.mockResolvedValue({ id: 11 })
+    // 2026-10-18:粘贴路径不再落无名账号 —— 先用该 Cookie 探测 uid/昵称再入库
+    vi.mocked(checkinWorkbuddyWebLoginProbeCookie).mockResolvedValue({
+      status: 'ok',
+      cookie: 'session_id=abc123; wb_uid=u-9',
+      accounts: [{ uid: '14f939c3-889b', nickname: '李总' }],
+      cookie_checkin_ok: true,
+    })
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     openCaptureMenu()
     fireEvent.click(screen.getByText('WorkBuddy'))
-    fireEvent.click(screen.getByText('captureWbWebOpen'))
+    // waiting 态切系统浏览器下级入口(内嵌自动路径并列保留)
+    await waitFor(() => expect(screen.getAllByText('captureWbWebOpen').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getAllByText('captureWbWebOpen')[0]!)
     await waitFor(() => expect(screen.getByTestId('wb-paste-input')).toBeTruthy())
     // 宽容清洗:用户可能连「Cookie:」前缀一起复制
     fireEvent.change(screen.getByTestId('wb-paste-input'), {
@@ -1355,6 +1374,10 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(payload.platform).toBe('workbuddy')
     expect(payload.jwt).toBe('session_id=abc123; wb_uid=u-9')
     expect(payload.device_map.login_type).toBe('web')
+    // 「记录好账号」:name=昵称,device_map 带 uid/nickname
+    expect(payload.name).toBe('李总')
+    expect(payload.device_map.uid).toBe('14f939c3-889b')
+    expect(payload.device_map.nickname).toBe('李总')
     // 对话框自动关闭 + 完成提示
     await waitFor(() => expect(screen.getByText(/captureWbWebDone/)).toBeTruthy())
   })
@@ -1366,9 +1389,13 @@ describe('Qoder 平台化(2026-10-10)', () => {
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     openCaptureMenu()
     fireEvent.click(screen.getByText('WorkBuddy'))
-    fireEvent.click(screen.getByText('captureWbWebOpen'))
+    // 主入口走内嵌浏览器(mock 成功);切对话框内系统浏览器下级入口才唤默认浏览器
+    await waitFor(() => expect(screen.getAllByText('captureWbWebOpen').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getAllByText('captureWbWebOpen')[0]!)
     await waitFor(() =>
-      expect(screen.getByTestId('wb-web-login-msg').textContent).toContain('captureWbWebOpenFailed'),
+      expect(screen.getByTestId('wb-web-login-msg').textContent).toContain(
+        'captureWbWebOpenFailed',
+      ),
     )
     expect(createAccount).not.toHaveBeenCalled()
   })
@@ -1379,7 +1406,8 @@ describe('Qoder 平台化(2026-10-10)', () => {
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     openCaptureMenu()
     fireEvent.click(screen.getByText('WorkBuddy'))
-    fireEvent.click(screen.getByText('captureWbWebOpen'))
+    await waitFor(() => expect(screen.getAllByText('captureWbWebOpen').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getAllByText('captureWbWebOpen')[0]!)
     await waitFor(() => expect(screen.getByTestId('wb-paste-input')).toBeTruthy())
     fireEvent.click(screen.getByText('captureWbWebPasteImport'))
     await waitFor(() =>
@@ -1396,8 +1424,7 @@ describe('Qoder 平台化(2026-10-10)', () => {
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     openCaptureMenu()
     fireEvent.click(screen.getByText('WorkBuddy'))
-    fireEvent.click(screen.getByText('captureWbWebOpen'))
-    // waiting 态:打开按钮换成取消按钮(2026-10-17 工具栏一级入口也在等待态显示
+    // 主入口(内嵌浏览器)即进入 waiting 态;取消按钮在对话框内
     // 同名取消按钮 ⇒ 文案有两份,取对话框内那份点击,语义与工具栏按钮等价)
     await waitFor(() => expect(screen.getAllByText('captureWbWebCancel').length).toBeGreaterThan(0))
     fireEvent.change(screen.getByTestId('wb-paste-input'), { target: { value: 'k=v' } })
@@ -1663,6 +1690,139 @@ describe('签到助手页面 · 编辑设备头对话框', () => {
     await waitFor(() => expect(screen.getByText('账号不存在')).toBeTruthy())
     expect(screen.getByText('editDeviceMapTitle')).toBeTruthy()
     expect(listAccounts).toHaveBeenCalledTimes(1)
+  })
+})
+
+// 主窗内嵌浏览器网页登录(2026-10-18 自动闭环版,李总口径「登录后要自动获取
+// 授权与信息并跳回我们程序」):默认浏览器登录后应用读不到它的 cookie jar
+// (浏览器安全隔离),旧版只能让用户手动粘 Cookie,账号信息也记不全。本版主入口
+// 改走项目内嵌浏览器(WebView2 cookie jar 归应用):开登录页 → 主窗轮询 probe
+// (2.5s)→ 服务端 /console/accounts 验登录态取 uid/昵称 → 自动关窗 + 入库
+// (device_map 带 uid/nickname,name=昵称)→ 回到签到页。系统浏览器路径保留下级
+// 入口(需手动粘 Cookie,粘贴时同样先探测账号再入库)。
+describe('签到助手页面 · 主窗内嵌浏览器网页登录(自动闭环)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // 主窗态:IPC 就绪(desktop=true),非嵌入(无 __ihuiNav)
+    delete (window as unknown as { __ihuiNav?: unknown }).__ihuiNav
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(openEmbeddedBrowser).mockResolvedValue(null)
+    vi.mocked(closeEmbeddedBrowser).mockResolvedValue(undefined)
+    vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({ status: 'no_cookie' })
+    vi.mocked(checkinWorkbuddyWebLoginProbeCookie).mockResolvedValue({
+      status: 'not_logged_in',
+      message: 'Cookie 未登录或已过期',
+    })
+    createAccount.mockResolvedValue(accountFixture)
+    deleteAccount.mockResolvedValue({ ok: true, id: 1 })
+    setEnabled.mockResolvedValue({ ok: true, id: 1, enabled: false })
+    manualCheckin.mockResolvedValue(recordFixture)
+    updateJwt.mockResolvedValue({ ok: true, id: 1, jwt_exp: null })
+    updateGroup.mockResolvedValue({ ok: true, id: 1, group: '' })
+    schedulerStatus.mockResolvedValue({ enabled: true, started: true, next_run: null })
+  })
+  afterEach(() => {
+    cleanup()
+    vi.mocked(useTauriIpcReady).mockReturnValue(false)
+    history.replaceState(null, '', window.location.pathname)
+  })
+
+  // 开主入口:工具栏「网页登录」下拉 → WorkBuddy 项 → 开捕获对话框 + 内嵌登录窗
+  const openWebLoginEntry = async () => {
+    mockLoadSuccess()
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    const trigger = screen.getByText('captureWebLogin')
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByRole('menuitem', { name: /WorkBuddy/ }))
+    await waitFor(() => expect(screen.getByText('captureWbTitle')).toBeTruthy())
+  }
+
+  it('点主入口:内嵌浏览器打开登录页(不再唤起系统默认浏览器),进入等待态', async () => {
+    await openWebLoginEntry()
+    await waitFor(() =>
+      expect(openEmbeddedBrowser).toHaveBeenCalledWith(WB_WEB_LOGIN_URL, 'WorkBuddy 网页登录'),
+    )
+    // 主入口不再走默认浏览器(读不到它的 cookie,自动闭环不成立)
+    expect(openExternalUrl).not.toHaveBeenCalled()
+    // waiting 态按钮区换成「取消 + 系统浏览器打开」:内嵌自动路径不需手动粘贴,
+    // 粘贴框仅服务系统浏览器下级入口(切过去后手动粘 Cookie)
+  })
+
+  it('轮询到登录态:自动关登录窗 + 按账号入库(uid/昵称记录齐全)并关闭对话框', async () => {
+    vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({
+      status: 'ok',
+      cookie: 'session_id=abc123; wb_uid=u-1',
+      accounts: [{ uid: '14f939c3-889b', nickname: '李总' }],
+      cookie_checkin_ok: true,
+    })
+    await openWebLoginEntry()
+    // 看护轮询 2.5s 一拍:等第一拍落地
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1), { timeout: 8000 })
+    const payload = createAccount.mock.calls[0]![0]
+    expect(payload.platform).toBe('workbuddy')
+    expect(payload.jwt).toBe('session_id=abc123; wb_uid=u-1')
+    // 「记录好账号」:name=昵称,device_map 带 uid/nickname
+    expect(payload.name).toBe('李总')
+    expect(payload.device_map.login_type).toBe('web')
+    expect(payload.device_map.uid).toBe('14f939c3-889b')
+    expect(payload.device_map.nickname).toBe('李总')
+    // 自动收尾:关登录窗 + 关捕获对话框 + 成功提示
+    await waitFor(() => expect(closeEmbeddedBrowser).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.queryByText('captureWbTitle')).toBeNull())
+    await waitFor(() => expect(screen.getByText(/captureWbWebDone/)).toBeTruthy())
+  })
+
+  it('用户关掉登录窗(no_window):结束等待并提示已取消,不入库', async () => {
+    vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({ status: 'no_window' })
+    await openWebLoginEntry()
+    await waitFor(() => expect(screen.getByText('captureWbWebCancelled')).toBeTruthy(), {
+      timeout: 8000,
+    })
+    expect(createAccount).not.toHaveBeenCalled()
+  })
+
+  it('系统浏览器下级入口:仍可打开默认浏览器(粘贴路径保留)', async () => {
+    await openWebLoginEntry()
+    // waiting 态对话框内切系统浏览器下级入口(openEmbeddedBrowser 的那一次调用
+    // 来自主入口本身,不与本断言矛盾)
+    fireEvent.click(screen.getAllByText('captureWbWebOpen')[0]!)
+    await waitFor(() => expect(openExternalUrl).toHaveBeenCalledWith(WB_WEB_LOGIN_URL))
+    expect(openExternalUrl).toHaveBeenCalledTimes(1)
+  })
+
+  it('粘贴 Cookie:先探测账号再入库(记录好账号),探测失败拒绝落无名账号', async () => {
+    vi.mocked(checkinWorkbuddyWebLoginProbeCookie).mockResolvedValue({
+      status: 'ok',
+      cookie: 'session_id=xyz; wb_uid=u-2',
+      accounts: [{ uid: 'uid-2', nickname: '二号' }],
+      cookie_checkin_ok: false,
+    })
+    await openWebLoginEntry()
+    // 走系统浏览器路径进入 waiting(粘贴框出现)
+    fireEvent.click(screen.getByText('captureWbWebOpen'))
+    const input = await waitFor(() => screen.getByTestId('wb-paste-input'))
+    fireEvent.change(input, { target: { value: 'session_id=xyz; wb_uid=u-2' } })
+    fireEvent.click(screen.getByText('captureWbWebPasteImport'))
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
+    const payload = createAccount.mock.calls[0]![0]
+    expect(payload.name).toBe('二号')
+    expect(payload.device_map.uid).toBe('uid-2')
+    expect(payload.device_map.nickname).toBe('二号')
+    // cookie_checkin_ok=false:如实提示签到可用性未确认
+    await waitFor(() => expect(screen.getByText(/captureWbWebCheckinUncertain/)).toBeTruthy())
+  })
+
+  it('粘贴 Cookie 探测不到账号(未登录/过期):拒绝入库并提示重新复制', async () => {
+    await openWebLoginEntry()
+    fireEvent.click(screen.getByText('captureWbWebOpen'))
+    const input = await waitFor(() => screen.getByTestId('wb-paste-input'))
+    fireEvent.change(input, { target: { value: 'session_id=dead' } })
+    fireEvent.click(screen.getByText('captureWbWebPasteImport'))
+    await waitFor(() => expect(screen.getByTestId('wb-web-login-msg')).toBeTruthy())
+    expect(screen.getByTestId('wb-web-login-msg').textContent).toContain('captureWbWebPasteInvalid')
+    expect(createAccount).not.toHaveBeenCalled()
   })
 })
 

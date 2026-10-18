@@ -1670,11 +1670,12 @@ export interface WorkbuddyWebLoginAccount {
   nickname: string
 }
 
-/** WorkBuddy 网页登录探测结果(与 Rust `WebLoginProbe` tag= status 逐态对齐)。 */
+/** WorkBuddy 网页登录探测结果(与 Rust `WebLoginProbe` tag= status 逐态对齐)。
+ *  2026-10-18:`not_logged_in` 带 message(Cookie 无效/已过期的原因,如实告知用户)。 */
 export type WorkbuddyWebLoginProbe =
   | { status: 'no_window' }
   | { status: 'no_cookie' }
-  | { status: 'not_logged_in' }
+  | { status: 'not_logged_in'; message?: string }
   | {
       status: 'ok'
       cookie: string
@@ -1704,6 +1705,20 @@ export const WB_WEB_LOGIN_URL =
 export async function checkinWorkbuddyWebLoginProbe(): Promise<WorkbuddyWebLoginProbe> {
   requireTauri()
   return await invokeIpc<WorkbuddyWebLoginProbe>('checkin_workbuddy_web_login_probe', {})
+}
+
+/**
+ * 用**用户粘贴的 Cookie**直探测(2026-10-18,主窗默认浏览器版收尾):
+ * 默认浏览器登录后应用读不到它的 cookie jar(浏览器安全隔离),用户把 Cookie 粘过来;
+ * 与内嵌路径共用同一个服务端探测 ⇒ 同样取到 uid/昵称,「记录好账号」不缺位。
+ */
+export async function checkinWorkbuddyWebLoginProbeCookie(
+  cookie: string,
+): Promise<WorkbuddyWebLoginProbe> {
+  requireTauri()
+  return await invokeIpc<WorkbuddyWebLoginProbe>('checkin_workbuddy_web_login_probe_cookie', {
+    cookie,
+  })
 }
 
 /** 十四层设备标识重置;includeMachineGuid=true 额外尝试注册表 MachineGuid(需 UAC);
