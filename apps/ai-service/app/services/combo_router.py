@@ -60,6 +60,7 @@ from ..middleware.llm_metrics import (
     LLM_FUSION_PROPOSERS_CALLED,
     LLM_FUSION_SUCCESS,
     classify_fallback_reason,
+    set_combo_strategy_configs,
 )
 
 logger = logging.getLogger(__name__)
@@ -199,22 +200,27 @@ class ComboRouter:
 
         示例 .env:
         COMBO_CHAINS={"maximize-free":{"strategy":"priority","chain":["kimi-k2","glm-4-flash"]}}
+
+        装载收口点:无论环境变量缺失/解析失败/解析成功,末尾都整体置一次
+        llm_combo_strategy_configs gauge(见 _publish_strategy_configs_metric),
+        保证进程启动后策略档序列必存在——大屏读到"值为 0"是"配置已装载且该档
+        0 条"的正陈述,而不是"埋点坏了/没装载"的缺序列。
         """
         raw = os.environ.get("COMBO_CHAINS", "").strip()
-        if not raw:
-            return
-        try:
-            data = json.loads(raw)
-            if not isinstance(data, dict):
-                logger.warning("COMBO_CHAINS 环境变量不是 JSON 对象,忽略")
-                return
-            for name, config in data.items():
-                if not isinstance(config, dict):
-                    continue
-                self.configure_combo(name, config)
-            logger.info("从 COMBO_CHAINS 环境变量加载 %d 个 combo 配置", len(self._combos))
-        except (json.JSONDecodeError, TypeError) as e:
-            logger.warning("COMBO_CHAINS 环境变量解析失败: %s", e)
+        if raw:
+            try:
+                data = json.loads(raw)
+                if not isinstance(data, dict):
+                    logger.warning("COMBO_CHAINS 环境变量不是 JSON 对象,忽略")
+                else:
+                    for name, config in data.items():
+                        if not isinstance(config, dict):
+                            continue
+                        self.configure_combo(name, config)
+                    logger.info("从 COMBO_CHAINS 环境变量加载 %d 个 combo 配置", len(self._combos))
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.warning("COMBO_CHAINS 环境变量解析失败: %s", e)
+        self._publish_strategy_configs_metric()
 
     def configure_combo(self, name: str, config: dict[str, Any]) -> None:
         """配置单个 combo 链。
@@ -273,6 +279,23 @@ class ComboRouter:
             judge_mode=judge_mode,
             max_concurrency=max_concurrency,
         )
+        self._publish_strategy_configs_metric()
+
+    def _publish_strategy_configs_metric(self) -> None:
+        """按当前 `_combos` 重算各策略的组合链条数,整体置值 llm_combo_strategy_configs。
+
+        这是纯观测置值(不改任何路由行为):
+        - **每次装载重算全集**,不是累加——先按 ComboStrategy 全枚举建 0,
+          再逐 combo 计数;配置里没出现的策略档留在 0(而非旧值),这样
+          改配置撤掉某策略后大屏不会长期显示过时的计数。
+        - 值 = 组合链条数(同一 strategy 多条链时值为 N,是计数不是布尔)。
+        - 写入层 set_combo_strategy_configs 吞掉一切异常,观测层故障不得把
+          configure_combo / _load_from_env 带崩。
+        """
+        counts: dict[str, int] = {strategy.value: 0 for strategy in ComboStrategy}
+        for combo in self._combos.values():
+            counts[combo.strategy.value] += 1
+        set_combo_strategy_configs(counts)
 
     def get_combo(self, name: str) -> ComboChain | None:
         """获取 combo 配置。"""
