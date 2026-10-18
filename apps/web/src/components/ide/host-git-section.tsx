@@ -4,15 +4,16 @@
 
 // 2026-09-28 V3 #72 —— 桌面宿主 git 通道的界面出口:授权当前 workspace → 列本地变更。
 //
-// 为什么要它:宿主侧三个 command(`git_authorize_workspace` / `git_workspace_status` /
-// `git_channel_info`)此前只存在于 Rust 与它自己的单测里,前端**零消费者** —— 机制在位、
-// 没有人能够得着(本仓"造好没装车"那一族的又一实例,见守门 64/70/81/115)。
+// 为什么要它:宿主侧 command 此前只存在于 Rust 与它自己的单测里,前端**零消费者** ——
+// 机制在位、没有人能够得着(本仓"造好没装车"那一族的又一实例,见守门 64/70/81/115)。
+// 票72①把余下两条 command(`git_workspace_diff` / `workspace_index_scan`)也接上车:
+// 条目点击看单路径差异;「扫索引」走增量索引,previous 快照由 hook 持有。
 //
 // **渲染纪律(票面硬性要求)**:宿主的结论有三格,`undetermined` 必须显式渲染成
 // 「取不到 / 判不了」并把宿主给的原因原样带出,**禁止与「没有改动」同形**。宿主刻意把
 // 两者分家、且在 undetermined 时返回空 entries —— 前端若按"数组为空 ⇒ 干净"折叠回去,
 // 就等于把它的判据废掉。因此下面每个分支都按 `state` 判,`entries.length` 只在
-// `state === 'facts'` 之内参与渲染。
+// `state === 'facts'` 之内参与渲染。diff / index 两格同纪律。
 
 'use client'
 
@@ -25,6 +26,8 @@ import {
   CircleSlash,
   TriangleAlert,
   FileDiff,
+  FolderTree,
+  X,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -76,7 +79,20 @@ function StateLine({
 export function HostGitSection() {
   const t = useTranslations('ide')
   const { workspacePath } = useIDEWorkspace()
-  const { inHost, status, info, error, busy, authorize, refresh } = useHostGitWorkspace()
+  const {
+    inHost,
+    status,
+    info,
+    error,
+    busy,
+    diff,
+    index,
+    authorize,
+    refresh,
+    getDiff,
+    scanIndex,
+    clearDiff,
+  } = useHostGitWorkspace()
 
   // 非桌面宿主 ⇒ 这条能力结构性不适用(不是"没有改动",也不是"判不了")。
   // 整块不渲染,以免浏览器里出现一个永远点不动的授权钮。
@@ -111,6 +127,16 @@ export function HostGitSection() {
         >
           <RefreshCw className="h-3 w-3" aria-hidden />
           <span>{t('hostGit.refresh')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => void scanIndex()}
+          disabled={busy !== null}
+          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          data-testid="host-git-index-btn"
+        >
+          <FolderTree className="h-3 w-3" aria-hidden />
+          <span>{t('hostGit.indexScan')}</span>
         </button>
       </div>
 
@@ -150,9 +176,11 @@ export function HostGitSection() {
             {facts.entries.map((entry) => (
               <li
                 key={`${entry.kind}:${entry.path}`}
-                className="flex items-center gap-1.5 text-muted-foreground"
+                className="flex cursor-pointer items-center gap-1.5 rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
                 data-testid="host-git-entry"
                 data-kind={entry.kind}
+                title={t('hostGit.diffTitle', { path: entry.path })}
+                onClick={() => void getDiff(entry.path)}
               >
                 <span className="w-16 shrink-0 font-mono text-[10px]">{entry.kind}</span>
                 <span className="flex-1 truncate">{entry.path}</span>
@@ -165,6 +193,83 @@ export function HostGitSection() {
             ))}
           </ul>
         </>
+      )}
+
+      {/* 差异面板:与 status 同一份三态纪律 —— 取不到(undetermined)/命令失败
+          (command_failed)必须显式分格,正文只在 facts+dirty 之内参与渲染。 */}
+      {diff && (
+        <div className="space-y-1 rounded-sm border border-border p-1.5" data-testid="host-git-diff-block">
+          <div className="flex items-center gap-1.5">
+            <span className="flex-1 truncate text-[10px] font-medium text-muted-foreground">
+              {t('hostGit.diffTitle', { path: diff.scope || '-' })}
+            </span>
+            <button
+              type="button"
+              onClick={clearDiff}
+              aria-label={t('hostGit.diffClose')}
+              className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              data-testid="host-git-diff-close"
+            >
+              <X className="h-3 w-3" aria-hidden />
+            </button>
+          </div>
+          {diff.state === 'facts' && diff.verdict === 'dirty' && (
+            <pre
+              className="max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-[10px] text-muted-foreground"
+              data-testid="host-git-diff-panel"
+              data-state="facts"
+            >
+              {diff.text}
+            </pre>
+          )}
+          {diff.state === 'facts' && diff.verdict !== 'dirty' && (
+            <StateLine state="facts" testId="host-git-diff-panel">
+              {t('hostGit.diffClean')}
+            </StateLine>
+          )}
+          {diff.state === 'undetermined' && (
+            <StateLine state="undetermined" testId="host-git-diff-panel">
+              {t('hostGit.diffUndetermined', { reason: diff.reason })}
+            </StateLine>
+          )}
+          {diff.state === 'command_failed' && (
+            <StateLine state="command_failed" testId="host-git-diff-panel">
+              {t('hostGit.diffCommandFailed', {
+                reason: diff.reason,
+                verdict: diff.verdict,
+              })}
+            </StateLine>
+          )}
+        </div>
+      )}
+
+      {/* 索引格:同理,facts 才谈数字;undetermined 把宿主原因原样带出。
+          delta 只在 hook 传过 previous 时存在 —— "没对比基准"不许说成"没变化"。 */}
+      {index && index.state === 'undetermined' && (
+        <StateLine state="undetermined" testId="host-git-index-line">
+          {t('hostGit.indexUndetermined', { reason: index.reason })}
+        </StateLine>
+      )}
+      {index && index.state === 'facts' && (
+        <StateLine state="facts" testId="host-git-index-line">
+          {index.delta
+            ? t('hostGit.indexDelta', {
+                total: index.total,
+                added: index.delta.added.length,
+                removed: index.delta.removed.length,
+                changed: index.delta.changed.length,
+                unchanged: index.delta.unchanged,
+              })
+            : t('hostGit.indexFirst', { total: index.total })}
+          {(index.symlink_dirs_skipped > 0 || index.non_utf8_skipped > 0) && (
+            <span className="ml-1 text-[10px] text-muted-foreground/70">
+              {t('hostGit.indexSkipped', {
+                symlink: index.symlink_dirs_skipped,
+                nonUtf8: index.non_utf8_skipped,
+              })}
+            </span>
+          )}
+        </StateLine>
       )}
 
       {commandFailed && (
