@@ -2360,14 +2360,29 @@ class LLMGateway:
             if provider is not None:
                 # TEMP-FIX(ai-feed): lazy import 绕过循环导入,跑完回退
                 from ..providers.base_provider import ProviderError
+                _native_metrics_t0 = time.perf_counter()
                 try:
                     # P1 修复(2026-08-06): 用浅拷贝再 pop,避免破坏原 kwargs,
                     # 防止 ProviderError fallback 到 LiteLLM 时 tools 丢失导致 function calling 失效。
                     provider_kwargs = dict(kwargs)
                     tools = provider_kwargs.pop("tools", None)
-                    return await provider.complete(
+                    result = await provider.complete(
                         trimmed_messages, used_model, tools=tools, **provider_kwargs
                     )
+                    # 观测收口(2026-10-18):原生适配器路径此前直接 return、零埋点——
+                    # 调用次数/token/延迟/成本全不入 ihui_llm_*,与 LiteLLM 路径双标。
+                    # 成本用 _estimate_cost_usd 第二档估算(与 LiteLLM 路径同口径),
+                    # 取不到传 None(宁缺毋假);失败仍 fallback LiteLLM 不受影响。
+                    _native_usage = result.get("usage") or {}
+                    record_llm_outcome(
+                        _metrics_provider(used_model),
+                        used_model,
+                        status='ok',
+                        usage=_native_usage,
+                        duration_seconds=time.perf_counter() - _native_metrics_t0,
+                        cost_usd=_estimate_cost_usd(used_model, _native_usage),
+                    )
+                    return result
                 except ProviderError as e:
                     logger.warning(
                         "厂商适配器调用失败(model=%s): %s, fallback LiteLLM",
@@ -3005,6 +3020,12 @@ class LLMGateway:
                 # 2026-08-29 修复:tool_calls 分片累积(此前把分片事件直接透传,
                 # 调用方拿不到完整参数)。分片不透传,循环结束后统一 yield。
                 native_tool_acc: dict[int, dict[str, Any]] = {}
+                # 观测收口(2026-10-18):原生流式路径此前零埋点(调用/token/成本
+                # 全不入 ihui_llm_*,与 LiteLLM 流式路径双标)。usage 由厂商适配器
+                # 的 done 事件携带(如 alibaba_dashscope yield {"type":"done","usage":...}),
+                # 取不到时以 litellm.token_counter 估算兜底(与 LiteLLM 流式路径同款)。
+                _native_metrics_t0 = time.perf_counter()
+                _native_final_usage: dict[str, Any] | None = None
                 # 借来的异步生成器必须"谁借谁关":下面 error→fallback 分支那句
                 # `yield …; return` 就是把 astream_iter 弃在半路的一型 —— 它此刻仍停在
                 # provider 的 `async with client.stream(...)` 内部(见
@@ -3037,6 +3058,8 @@ class LLMGateway:
                             continue
                         if isinstance(evt, dict) and evt.get("type") in ("chunk", "reasoning"):
                             native_sent_content = True
+                        if isinstance(evt, dict) and evt.get("usage"):
+                            _native_final_usage = evt["usage"]
                         yield evt
                 finally:
                     # return / 正常耗尽 / 消费者提前收流(GeneratorExit)三条出口都走这里;
@@ -3044,6 +3067,28 @@ class LLMGateway:
                     await aclose_async_gen(
                         astream_iter, label="llm_gateway.astream native provider"
                     )
+                # 观测收口(2026-10-18):正常耗尽的出口统一补埋点(错误出口已由
+                # fallback/外层 except 各自记账,不在此重复);usage 取不到时
+                # litellm.token_counter 估算兜底,成本走 _estimate_cost_usd 同口径。
+                if _native_final_usage is None:
+                    try:
+                        import litellm as _litellm_for_counter
+
+                        _native_final_usage = {
+                            "prompt_tokens": _litellm_for_counter.token_counter(
+                                messages=trimmed_messages
+                            ),
+                        }
+                    except Exception:
+                        _native_final_usage = {}
+                record_llm_outcome(
+                    _metrics_provider(used_model),
+                    used_model,
+                    status='ok',
+                    usage=_native_final_usage,
+                    duration_seconds=time.perf_counter() - _native_metrics_t0,
+                    cost_usd=_estimate_cost_usd(used_model, _native_final_usage),
+                )
                 # 2026-08-29 修复:流结束前统一产出累积后的完整 tool_calls(按 index 排序)
                 if native_tool_acc:
                     yield {

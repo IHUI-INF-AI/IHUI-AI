@@ -28,7 +28,9 @@
       "includeVars": true,
       "keepTime": true,
       "icon": "external link",
-      "tags": ["ihui-ai"]
+      "tags": [
+        "ihui-ai"
+      ]
     }
   ],
   "liveNow": false,
@@ -84,7 +86,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -127,7 +131,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -170,7 +176,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -220,7 +228,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -456,7 +466,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(business_ai_cost_minor_units_total{job=\"business-metrics\",vendor=~\"$provider\"}[$__range])) / 100",
+          "expr": "sum(increase(business_ai_cost_minor_units_total{job=\"business-metrics\",vendor=~\"$vendor\"}[$__range])) / 100",
           "legendFormat": "cost",
           "refId": "A"
         }
@@ -477,7 +487,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -499,7 +511,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (call_type, status) (rate(business_ai_calls_total{job=\"business-metrics\",vendor=~\"$provider\"}[1h]))",
+          "expr": "sum by (call_type, status) (rate(business_ai_calls_total{job=\"business-metrics\",vendor=~\"$vendor\"}[1h]))",
           "legendFormat": "{{call_type}} {{status}}",
           "refId": "A"
         }
@@ -541,7 +553,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (direction) (rate(business_ai_tokens_total{job=\"business-metrics\",vendor=~\"$provider\"}[1h]))",
+          "expr": "sum by (direction) (rate(business_ai_tokens_total{job=\"business-metrics\",vendor=~\"$vendor\"}[1h]))",
           "legendFormat": "{{direction}}",
           "refId": "A"
         }
@@ -583,7 +595,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(business_ai_record_failures_total{job=\"business-metrics\"}[$__range]))",
+          "expr": "(sum(increase(business_ai_record_failures_total{job=\"business-metrics\"}[$__range]))) or vector(0)",
           "legendFormat": "fail",
           "refId": "A"
         }
@@ -610,7 +622,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -659,7 +673,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -708,7 +724,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -730,7 +748,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (vendor, model) (increase(business_ai_cost_minor_units_total{job=\"business-metrics\",vendor=~\"$provider\"}[$__range])) / 100",
+          "expr": "sum by (vendor, model) (increase(business_ai_cost_minor_units_total{job=\"business-metrics\",vendor=~\"$vendor\"}[$__range])) / 100",
           "legendFormat": "m",
           "refId": "A"
         }
@@ -761,7 +779,11 @@
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["ihui-ai", "ai", "cost"],
+  "tags": [
+    "ihui-ai",
+    "ai",
+    "cost"
+  ],
   "templating": {
     "list": [
       {
@@ -785,6 +807,50 @@
           "type": "prometheus",
           "uid": "Prometheus"
         }
+      },
+      {
+        "name": "vendor",
+        "label": "厂商(业务落账)",
+        "query": "label_values(business_ai_calls_total{job=\"business-metrics\"}, vendor)",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "includeAll": true,
+        "multi": true,
+        "refresh": 1,
+        "type": "query",
+        "hide": 0,
+        "definition": "label_values(business_ai_calls_total{job=\"business-metrics\"}, vendor)",
+        "options": [],
+        "allValue": ".*",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        }
+      },
+      {
+        "name": "biz_model",
+        "label": "模型(业务落账)",
+        "query": "label_values(business_ai_calls_total{job=\"business-metrics\"}, model)",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "includeAll": true,
+        "multi": true,
+        "refresh": 1,
+        "type": "query",
+        "hide": 0,
+        "definition": "label_values(business_ai_calls_total{job=\"business-metrics\"}, model)",
+        "options": [],
+        "allValue": ".*",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        }
       }
     ]
   },
@@ -793,7 +859,14 @@
     "to": "now"
   },
   "timepicker": {
-    "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "1h"]
+    "refresh_intervals": [
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "1h"
+    ]
   },
   "timezone": "",
   "title": "IHUI-AI 模型成本与用量",
