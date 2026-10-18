@@ -92,7 +92,7 @@ export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Pr
   const WsServer = loadWsServer();
   if (!WsServer) {
     throw new Error(
-      'ws 包未安装,WebSocket 桥未启动。请运行:pnpm --filter @ihui/cli add ws && pnpm --filter @ihui/cli add -D @types/ws',
+      'ws 包未安装,WebSocket 桥未启动。请运行:pnpm --filter ihui-cli add ws && pnpm --filter ihui-cli add -D @types/ws',
     );
   }
 

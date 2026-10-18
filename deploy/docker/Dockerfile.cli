@@ -28,8 +28,8 @@ COPY packages/ ./packages/
 COPY apps/cli/ ./apps/cli/
 
 # 构建依赖包 + CLI
-RUN pnpm install --frozen-lockfile --filter @ihui/cli... \
-    && pnpm --filter @ihui/cli build
+RUN pnpm install --frozen-lockfile --filter ihui-cli... \
+    && pnpm --filter ihui-cli build
 
 # ---------- Stage 2: runner ----------
 # 供应链安全:同 builder 阶段,生产部署前应改为 digest pinning(见顶部注释)

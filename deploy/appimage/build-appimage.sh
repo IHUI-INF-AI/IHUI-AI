@@ -54,8 +54,8 @@ check_deps() {
 build_cli() {
     log "构建 CLI dist..."
     cd "$PROJECT_ROOT"
-    pnpm install --frozen-lockfile --filter @ihui/cli...
-    pnpm --filter @ihui/cli build
+    pnpm install --frozen-lockfile --filter ihui-cli...
+    pnpm --filter ihui-cli build
 
     if [ ! -f "apps/cli/dist/index.js" ]; then
         err "CLI 构建失败: dist/index.js 不存在"

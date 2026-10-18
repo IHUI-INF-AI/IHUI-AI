@@ -648,7 +648,7 @@ export function resolveLedgerPath(
 /**
  * 仓库根:**从本模块自身位置向上找** `pnpm-workspace.yaml`,而不是信 `process.cwd()`。
  *
- * 为什么不是 cwd:`pnpm --filter @ihui/cli exec …` 会把子进程 cwd 设成**包目录**,
+ * 为什么不是 cwd:`pnpm --filter ihui-cli exec …` 会把子进程 cwd 设成**包目录**,
  * 于是按 cwd 拼默认路径会指到 `apps/cli/.ihui-agent/tmp/` 这种根本不存在的位置,
  * 表现为"报告说台账找不到"而找不到原因是查法错了(§守门 70 的"靠 cwd 定位"同型失效)。
  * 找不到标记文件才退回 cwd(非 workspace 场景 / 单文件拷贝运行)。
