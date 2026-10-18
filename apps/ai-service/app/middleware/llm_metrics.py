@@ -422,6 +422,46 @@ LLM_FUSION_FAILURE = Counter(
 
 
 # =============================================================================
+# Combo 策略配置观测 gauge(2026-10-18 立,纯观测,不改任何路由行为)
+#
+# 立因:生产 COMBO_CHAINS 只有 strategy:"priority" 的组合(_route_fusion 永不
+# 执行),Grafana ai-agent 大屏的 llm_fusion_* 面板从建出来那天起恒 No data,
+# 而运维无法区分"配置没开"与"埋点坏了"。本 gauge 把"当前生效的 combo 配置里
+# 各策略有几个组合链"变成可读真数:值为 0 = 配置已装载且该策略确实 0 条(正
+# 陈述);序列缺失才是"埋点坏了/进程没装载"。
+#
+# 置值纪律(combo_router 的装载收口点 _load_from_env / configure_combo 调用):
+# - 每次装载重算全集后置值,不是累加;ComboStrategy 全部策略档都必须出现在
+#   counts 里,未出现的档写 0 而非留旧值(否则改配置撤掉某策略后大屏长期显示
+#   过时的计数)。
+# - 值 = 组合链条数(同一策略配两条链时值为 2,是计数不是布尔)。
+# =============================================================================
+
+llm_combo_strategy_configs = Gauge(
+    'llm_combo_strategy_configs',
+    'Number of combo chains per routing strategy in the currently active combo '
+    'configuration (unitless; value = chain count, recomputed as a full set on '
+    'every load, strategies absent from the configuration are set to 0)',
+    ['strategy'],  # priority | cheapest | fusion(全集来自 ComboStrategy 枚举)
+)
+
+
+def set_combo_strategy_configs(counts: dict[str, int]) -> None:
+    """整体置值 combo 策略计数 gauge(观测层,任何异常都不上抛)。
+
+    Args:
+        counts: 策略档 -> 组合链条数。调用方负责传**全集**(含值为 0 的档),
+            本函数逐档 set(不是 inc),因此撤档的旧值会被 0 覆盖而非滞留。
+            写入层吞掉一切异常 —— 观测层坏了不得把 configure_combo 带崩。
+    """
+    try:
+        for strategy, count in counts.items():
+            llm_combo_strategy_configs.labels(strategy=strategy).set(float(count))
+    except Exception as e:
+        logger.warning("combo 策略配置 gauge 写入失败(忽略,不影响业务): %s", e)
+
+
+# =============================================================================
 # Token 压缩指标(2026-07-30 立,token_compaction.py 集成到 llm_gateway 调用链)
 #
 # 触发场景(llm_gateway.LLMGateway._apply_token_compaction):
