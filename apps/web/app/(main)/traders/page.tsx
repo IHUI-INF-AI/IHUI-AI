@@ -18,7 +18,7 @@ import {
   UserRound,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow, type ApiFailure } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { formatDateOnly } from '@/lib/date-utils'
 import {
@@ -73,10 +73,6 @@ interface ApplyPayload {
   intro?: string
 }
 
-interface RequestError extends Error {
-  status?: number
-}
-
 const EMPTY_FORM: ApplyForm = { commissionRate: '', specialties: '', intro: '' }
 
 const CHIP_COLORS = [
@@ -89,16 +85,6 @@ const CHIP_COLORS = [
 
 const TEXTAREA_CLASS =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) {
-    const err = new Error(r.error) as RequestError
-    err.status = r.status
-    throw err
-  }
-  return r.data
-}
 
 function specialtyChips(specialties: string[] | undefined, className?: string) {
   const items = specialties?.filter(Boolean) ?? []
@@ -130,14 +116,14 @@ export default function TradersPage() {
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['traders'],
-    queryFn: () => api<TraderListData>('/api/trader'),
+    queryFn: () => apiOrThrow<TraderListData>('/api/trader'),
   })
 
   const detailQuery = useQuery({
     queryKey: ['traders', 'detail', selectedId],
     queryFn: () => {
       if (selectedId === null) throw new Error('missing trader id')
-      return api<TraderDetailData>(`/api/trader/${selectedId}`)
+      return apiOrThrow<TraderDetailData>(`/api/trader/${selectedId}`)
     },
     enabled: selectedId !== null,
   })
@@ -154,7 +140,7 @@ export default function TradersPage() {
       if (rate !== '') payload.commissionRate = Number(rate)
       const intro = values.intro.trim()
       if (intro !== '') payload.intro = intro
-      return api<{ trader: Trader }>('/api/trader/apply', {
+      return apiOrThrow<{ trader: Trader }>('/api/trader/apply', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
@@ -167,7 +153,7 @@ export default function TradersPage() {
 
   const traders = data?.list ?? []
   const detail = detailQuery.data?.trader
-  const applyError = applyMutation.error as RequestError | null
+  const applyError = applyMutation.error as ApiFailure | null
   const isDuplicate = applyError?.status === 409
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
