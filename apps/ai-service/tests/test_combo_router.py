@@ -1155,7 +1155,7 @@ async def test_fusion_metric_no_exception_propagates(caplog):
 # =============================================================================
 
 
-def _combo_strategy_gauge_sample(strategy: str) -> "float | None":
+def _combo_strategy_gauge_sample(strategy: str) -> float | None:
     """按 strategy 档取 gauge 样本值;返回 None = 该序列整体不存在(与 0 区分)。"""
     from app.middleware.llm_metrics import llm_combo_strategy_configs
 
@@ -1246,7 +1246,7 @@ def test_combo_strategy_gauge_failure_does_not_break_configure(monkeypatch):
     from app.middleware import llm_metrics
 
     class _BoomGauge:
-        def labels(self, **_labels: str) -> "_BoomGauge":
+        def labels(self, **_labels: str) -> _BoomGauge:
             raise RuntimeError("metric backend down")
 
         def set(self, _value: float) -> None:

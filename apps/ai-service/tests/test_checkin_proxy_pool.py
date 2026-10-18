@@ -51,4 +51,32 @@ def test_ensure_proxy_no_uid_returns_none():
 
     got = asyncio.run(pp.ensure_proxy({}))
     assert got is None
+
+
+def test_refresh_pool_end_to_end_without_network(monkeypatch):
+    """refresh_pool 必须真能跑完:抓源→测活→入池,且不碰真实网络。
+
+    回归型:该函数体内曾有一句 `import asyncio`,把 asyncio 变成**局部名**,
+    于是更早那行 `asyncio.Semaphore(…)` 每次必抛 UnboundLocalError ⇒ 免费代理池
+    整条功能一调就崩(单测面当时只覆盖纯函数,没兜住)。
+    """
+    import asyncio
+
+    async def fake_fetch(url: str, client: object) -> str:
+        return f"{url}\n1.2.3.4:8080\n5.6.7.8:3128\nnot-a-proxy\n"
+
+    async def fake_probe(proxy: str) -> str | None:
+        return proxy if proxy.endswith("3128") else None
+
+    monkeypatch.setattr(pp, "_fetch_source", fake_fetch)
+    monkeypatch.setattr(pp, "_probe_alive", fake_probe)
+    monkeypatch.setattr(pp, "_pool_cache", [])
+    monkeypatch.setattr(pp, "_pool_fetched_at", 0.0)
+
+    out = asyncio.run(pp.refresh_pool())
+
+    assert out == ["http://5.6.7.8:3128"], "测活通过的才入池"
+    assert pp._pool_cache == out, "结果必须写回进程级缓存"
+    assert pp._pool_fetched_at > 0.0, "刷新时刻必须落账,否则 1h 去重恒失效"
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

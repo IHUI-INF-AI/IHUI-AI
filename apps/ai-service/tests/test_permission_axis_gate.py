@@ -25,8 +25,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.core.permission_axis_gate import (
     AxisDecision,
     AxisSource,
@@ -35,7 +33,6 @@ from app.core.permission_axis_gate import (
     axis_gate_hint,
     resolve_axis_resolution,
 )
-
 
 # =============================================================================
 # 1. 解析:来源与 fail-closed
