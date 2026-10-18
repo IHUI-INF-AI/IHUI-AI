@@ -1,36 +1,21 @@
 {
   "$comment": "SSE 帧端内 dispatch 覆盖台账(守门 scripts/check-sse-dispatch-parity.mjs 读取,D107)。帧清单**不写在这里** —— 由守门每次从 packages/api-client/src/client.ts 的 onXxx 成员自动提取并减去 toolCallbacks,故本文件不可能与代码脱节。baseline[端] = 该端命中数下限(ratchet,只挡倒退不挡增长;新增接入后请同步上调);missing[端] = 该端**未命中**的帧,键集合必须**精确等于**实测未命中集合,值直接写理由或指向 groups 里的复用分组。口径:帧回调名在该端源码出现即算已处理(不按写法区分,精度靠'精确等于'兜)。",
-  "toolCallbacks": [
-    "onAbort",
-    "onAttemptStart",
-    "onLine"
-  ],
+  "toolCallbacks": ["onAbort", "onAttemptStart", "onLine"],
   "$commentFieldLevel": "字段级台账(b76-05 票1,守门 scripts/check-agent-event-parity.mjs [5/5] 读取)。fieldBaseline[事件名][键] = 该键'生产点写出、前端解析面不读'的豁免理由;键清单本身不写在这里 —— 由守门每次从生产侧(sse_contract.py 声明 / agents.py 与 apps/api/src/services 写出点)与解析侧(agent-events.ts parse*Event 读取点)现读,故本文件不可能与代码脱节。未登记的缺口 = 错误阻断。",
   "fieldBaseline": {},
   "baseline": {
     "web": 37,
     "extension": 22,
     "miniapp-taro": 29,
-    "mobile-rn": 32,
+    "mobile-rn": 33,
     "cli": 17
   },
   "endpoints": {
-    "web": [
-      "apps/web/src",
-      "apps/web/app"
-    ],
-    "extension": [
-      "apps/extension"
-    ],
-    "miniapp-taro": [
-      "apps/miniapp-taro/src"
-    ],
-    "mobile-rn": [
-      "apps/mobile-rn"
-    ],
-    "cli": [
-      "apps/cli"
-    ]
+    "web": ["apps/web/src", "apps/web/app"],
+    "extension": ["apps/extension"],
+    "miniapp-taro": ["apps/miniapp-taro/src"],
+    "mobile-rn": ["apps/mobile-rn"],
+    "cli": ["apps/cli"]
   },
   "groups": {
     "no-subagent-ui": "该端未实现子代理活动流水(SubAgentActivityFeed 族),故 spawn/progress/end 三帧无渲染位;补齐见 PROJECT_PLAN D40 / D103。",
@@ -91,8 +76,7 @@
       "onGoalUpdate": "D152(2026-09-29)立:本端没有目标卡位(GoalCard 只在 web `components/ai/ai-side-panel-tools.tsx:525` 挂载,现读),且 `/goal` 斜杠命令的拦截点在 web 的 slash-commands.ts —— 本端今天连**发起**目标都没有,接一条只读状态帧会造出「看得见不能改」的假 affordance(与本端 onTerminalInteraction 拒绝代答的同一口径)。解阻判据:端内先有 goal 发起入口(另计一票),再同笔接 onGoalUpdate + `chat.goal.status.*` 五语言;接入后删本行并把该端 baseline 由 21 上调。",
       "onConfigWarning": "no-stream-alert-producer",
       "onDeprecationNotice": "no-stream-alert-producer",
-      "onGuardianWarning": "no-stream-alert-producer",
-      "onTraceId": "no-trace-id-consumer"
+      "onGuardianWarning": "no-stream-alert-producer"
     },
     "cli": {
       "onFinishReason": "no-finish-reason-consumer",
