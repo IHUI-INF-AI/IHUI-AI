@@ -266,7 +266,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/ihui/ai-cli
+          images: ghcr.io/ihui-inf-ai/ai-cli
           tags: |
             type=raw,value=latest
             type=raw,value=${{ steps.vars.outputs.version }}
@@ -287,9 +287,9 @@ jobs:
       - name: Summary
         run: |
           echo "### Docker 镜像推送完成" >> $GITHUB_STEP_SUMMARY
-          echo "镜像: \`ghcr.io/ihui/ai-cli:${{ steps.vars.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "拉取: \`docker pull ghcr.io/ihui/ai-cli:${{ steps.vars.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "运行: \`docker run --rm -v \$(pwd):/workspace ghcr.io/ihui/ai-cli\`" >> $GITHUB_STEP_SUMMARY
+          echo "镜像: \`ghcr.io/ihui-inf-ai/ai-cli:${{ steps.vars.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "拉取: \`docker pull ghcr.io/ihui-inf-ai/ai-cli:${{ steps.vars.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "运行: \`docker run --rm -v \$(pwd):/workspace ghcr.io/ihui-inf-ai/ai-cli\`" >> $GITHUB_STEP_SUMMARY
 
   # ---------- Job 4: Generate changelog ----------
   release-summary:
