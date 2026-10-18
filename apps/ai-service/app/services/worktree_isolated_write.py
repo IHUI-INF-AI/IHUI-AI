@@ -24,9 +24,9 @@ from __future__ import annotations
 
 import subprocess
 import uuid
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
 
 
 class WorktreeIsolatedWriteError(RuntimeError):
