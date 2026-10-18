@@ -5,13 +5,15 @@
 /**
  * SEA 单文件二进制打包(esbuild bundle → Node SEA blob → postject 注入)。
  *
- * 产物 dist-sea/ihui.exe:无需 Node 运行时的单文件 CLI(exe 旁可随带 package.json,
- * 供版本/engines.minimumVersion 读取;缺省回退 0.0.0 哨兵,版本闸门按 UNKNOWN 放行)。
+ * 产物 dist-sea/ihui(.exe):无需 Node 运行时的单文件 CLI(旁随带 package.json +
+ * 内嵌构建期版本/10 份 i18n 语言包 assets,仓库外部署开箱即用)。
  *
- * 依赖:esbuild + postject(不在本包 devDependencies,按序探测 pnpm workspace 根、
- * WorkBuddy 隔离工作区;都没有时按提示安装后再跑)。
+ * 依赖:esbuild + postject(已入本包 devDependencies;亦可经 IHUI_ESBUILD_DIR /
+ * IHUI_POSTJECT_DIR 覆盖,版本下限 0.25)。
  *
  * 用法:node scripts/build-sea.mjs
+ *   IHUI_SEA_OUT=ihui-windows-x64 覆盖产物名(缺省 ihui,Windows 自动加 .exe);
+ *   CI 矩阵按平台各跑一次后打包成 ihui-<os>-<arch> 资产(release-cli.yml 消费)。
  */
 
 import { execFileSync } from 'node:child_process'
@@ -27,6 +29,8 @@ function resolveTool(name) {
   const envOverride = process.env[`IHUI_${name.toUpperCase()}_DIR`]
   const candidates = [
     ...(envOverride ? [envOverride] : []),
+    // 本包 devDependencies(pnpm add -D esbuild postject,CI 与本地同一来源)优先
+    join(pkgRoot, 'node_modules', name),
     join(repoRoot, 'node_modules', name),
     'C:/Users/Administrator/.workbuddy/binaries/node/workspace/node_modules/' + name,
   ]
@@ -50,6 +54,9 @@ function resolveTool(name) {
 const esbuildDir = resolveTool('esbuild')
 const postjectDir = resolveTool('postject')
 const nodeBin = process.execPath
+// 产物名:缺省 ihui(Windows 自动加 .exe);CI 矩阵经 IHUI_SEA_OUT 覆盖(如 ihui-windows-x64)
+const outBase = process.env.IHUI_SEA_OUT || 'ihui'
+const outBinary = process.platform === 'win32' ? `${outBase}.exe` : outBase
 
 function run(cmd, args, opts = {}) {
   execFileSync(cmd, args, { stdio: 'inherit', ...opts })
@@ -115,18 +122,18 @@ for (const locale of ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']) {
 writeFileSync(join(outDir, 'sea-config.json'), JSON.stringify(seaConfig, null, 2))
 run(nodeBin, ['--experimental-sea-config', 'sea-config.json'], { cwd: outDir })
 
-console.log('[build-sea] 4/5 复制 node.exe 为 ihui.exe')
-copyFileSync(nodeBin, join(outDir, 'ihui.exe'))
+console.log(`[build-sea] 4/5 复制 node 二进制为 ${outBinary}`)
+copyFileSync(nodeBin, join(outDir, outBinary))
 
 console.log('[build-sea] 5/5 postject 注入')
 run(nodeBin, [
   join(postjectDir, 'dist', 'cli.js'),
-  join(outDir, 'ihui.exe'),
+  join(outDir, outBinary),
   'NODE_SEA_BLOB',
   join(outDir, 'sea-prep.blob'),
   '--sentinel-fuse',
   'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2',
 ])
 
-console.log(`[build-sea] 完成:${join(outDir, 'ihui.exe')}(自验:ihui.exe --version)`)
+console.log(`[build-sea] 完成:${join(outDir, outBinary)}(自验:${outBinary} --version)`)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
