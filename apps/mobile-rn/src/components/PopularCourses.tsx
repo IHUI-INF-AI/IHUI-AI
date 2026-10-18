@@ -32,12 +32,15 @@ import {
   Text,
   TouchableOpacity,
   View,
-  useWindowDimensions,
   type ListRenderItem,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
 import { BookOpen } from 'lucide-react-native'
+// 卡宽按应用框架实际宽(430 壳)取而非视口宽(2026-10-15 修溢出):web 预览 #root 被壳约束
+// 430,useWindowDimensions 返回整窗 ~586 → 双卡行按 562 算总宽超壳被 #root 裁掉右侧一张;
+// 原生无 #root 回退窗口宽行为不变(与 SearchOverlay/ProfileScreen 同轨)。
+import { useAppFrameWidth } from './Carousel'
 
 /** 单门课程数据(对齐历史 PopularCourses 关键字段) */
 export interface PopularCourse {
@@ -165,7 +168,7 @@ export default function PopularCourses({
   featuredCourses,
   onTabChange,
 }: PopularCoursesProps): React.JSX.Element {
-  const { width: screenWidth } = useWindowDimensions()
+  const screenWidth = useAppFrameWidth()
   const cardWidth = (screenWidth - CONTAINER_PADDING * 2 - GRID_GAP) / 2
   const hasHeader = Boolean(title) || Boolean(subtitle) || Boolean(onMore)
 
