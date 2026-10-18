@@ -269,7 +269,7 @@ async def filter_unauthorized_page_tools(
     if _page_family_declared(await _online_endpoints(user_id)):
         return tools
     logger.info(
-        "[control_autonomy] 用户 %s 无申报页面句柄族的在线端 ⇒ 摘除 %s",
+        "[control_autonomy] 用户 %s 无申报页面句柄族的在线端 => 摘除 %s",
         str(user_id)[:8],
         [t for t in tools if str(t).startswith(_PAGE_FAMILY_PREFIX)],
     )
