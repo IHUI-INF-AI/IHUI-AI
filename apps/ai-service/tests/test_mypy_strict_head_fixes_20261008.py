@@ -490,7 +490,11 @@ async def test_ensure_tables_conn_runs_all_four_statements_on_given_conn(fake_po
     (2026-10-09)的积分每日快照表 `_CREATE_CREDITS_DAILY_SQL` 与平台化(2026-10-10)
     的 `_ALTER_ACCOUNTS_PLATFORM_SQL`('trae'|'qoder' 加列),建表面为**七段**;
     测试此前仍钉五段,是测试过期、源码正确 ⇒ 更新期望清单而不是回退产品。
-    这里**不数条数**,逐字钉"应当执行的就是这七段 DDL、按这个顺序、一条不多一条
+    2026-10-18 再对账:账号去重(李总报障「名不一样但实际是一个号」)又落两段 ——
+    `_ALTER_ACCOUNTS_IDENTITY_SQL`(identity_key 幂等加列)与
+    `_CREATE_IDENTITY_INDEX_SQL`(部分唯一索引 uq_checkin_accounts_identity),
+    建表面为**九段**;同口径更新期望清单。
+    这里**不数条数**,逐字钉"应当执行的就是这九段 DDL、按这个顺序、一条不多一条
     不少":按模块自己的 DDL 常量对账既抓得住"建表面被摘",
     也抓得住"顺序换了 / 塞进一条别的语句"。
     """
@@ -505,6 +509,8 @@ async def test_ensure_tables_conn_runs_all_four_statements_on_given_conn(fake_po
         checkin_store._CREATE_CREDITS_DAILY_SQL,
         checkin_store._ALTER_ACCOUNTS_GROUP_SQL,
         checkin_store._ALTER_ACCOUNTS_PLATFORM_SQL,
+        checkin_store._ALTER_ACCOUNTS_IDENTITY_SQL,
+        checkin_store._CREATE_IDENTITY_INDEX_SQL,
         checkin_store._CREATE_INDEXES_SQL,
-    ], "建表面被摘/被替换/被加料 —— 裸连接入口必须逐段执行这七份 DDL"
+    ], "建表面被摘/被替换/被加料 —— 裸连接入口必须逐段执行这九份 DDL"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

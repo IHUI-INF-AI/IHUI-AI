@@ -14,7 +14,7 @@
  * - secret 默认 20 字节(160 bits),满足 RFC 6238 推荐长度
  * - backup code 数据库只存 sha256 hash,明文只返回一次
  */
-import { createHmac, randomBytes, timingSafeEqual, createHash } from 'node:crypto'
+import { createHmac, randomBytes, createHash } from 'node:crypto'
 import { secretsEqual } from '../plugins/internal-service-token.js'
 
 // ============ Base32 编解码 (RFC 4648) ============
@@ -280,7 +280,7 @@ export function hashBackupCode(code: string): string {
 
 /**
  * 校验 backup code 是否匹配 hash 数组中的任一项。
- * 使用 timingSafeEqual 防时序攻击,逐项比较。
+ * 使用 secretsEqual(定长散列常数时间比较)防时序攻击,逐项比较。
  * 输入大小写不敏感:与 hashBackupCode 同步 normalize。
  *
  * @returns true=匹配(校验通过),false=不匹配
@@ -289,10 +289,8 @@ export function verifyBackupCode(code: string, hashes: string[]): boolean {
   if (!code || hashes.length === 0) return false
   const normalized = code.replace(/\s/g, '').toUpperCase()
   const inputHash = createHash('sha256').update(normalized, 'utf8').digest('hex')
-  const inputBuf = Buffer.from(inputHash, 'utf8')
   for (const h of hashes) {
-    const storedBuf = Buffer.from(h, 'utf8')
-    if (inputBuf.length === storedBuf.length && timingSafeEqual(inputBuf, storedBuf)) {
+    if (secretsEqual(inputHash, h)) {
       return true
     }
   }

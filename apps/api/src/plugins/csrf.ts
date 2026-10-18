@@ -2,7 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+import { createHmac, randomBytes } from 'node:crypto'
+import { secretsEqual } from './internal-service-token.js'
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import { config } from '../config/index.js'
@@ -243,17 +244,12 @@ function verifyCsrfToken(token: string | undefined, cookieValue: string | undefi
   const [sigB, expB, nonceB] = cookieParts as [string, string, string]
   if (expB !== expStr) return false
 
-  // constant-time 比较 nonce
-  const a = Buffer.from(nonce)
-  const b = Buffer.from(nonceB)
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return false
+  // constant-time 比较 nonce(经全仓唯一比较出口 secretsEqual:定长散列,无长度泄漏)
+  if (!secretsEqual(nonce, nonceB)) return false
 
   // 重算签名并比较
   const expected = createHmac('sha256', secret()).update(`${expiry}|${nonce}`).digest('hex')
-  const sigBuf = Buffer.from(sig)
-  const expBuf = Buffer.from(expected)
-  if (sigBuf.length !== expBuf.length) return false
-  return timingSafeEqual(sigBuf, expBuf) && timingSafeEqual(Buffer.from(sig), Buffer.from(sigB))
+  return secretsEqual(sig, expected) && secretsEqual(sig, sigB)
 }
 
 export interface CsrfPluginOptions {
