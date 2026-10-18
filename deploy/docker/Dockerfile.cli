@@ -20,6 +20,8 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # 复制 workspace 配置
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
+# cli 的 tsconfig extends 根 tsconfig.base.json,漏了它 typecheck/build 必挂(TS5083)
+COPY tsconfig.base.json ./
 # 根 package.json 的 postinstall 要跑这个脚本;镜像只 COPY 清单文件,漏了它 pnpm install 必挂
 COPY scripts/fix-expo-metro-junction.mjs scripts/
 
@@ -27,9 +29,10 @@ COPY scripts/fix-expo-metro-junction.mjs scripts/
 COPY packages/ ./packages/
 COPY apps/cli/ ./apps/cli/
 
-# 构建依赖包 + CLI
+# 构建依赖包 + CLI(filter 的 "..." 尾缀把 workspace 依赖包按拓扑序一起构建,
+# 否则 tsc 解析不到 @ihui/api-client 等未构建包的 dist 声明)
 RUN pnpm install --frozen-lockfile --filter ihui-cli... \
-    && pnpm --filter ihui-cli build
+    && pnpm --filter "ihui-cli..." build
 
 # ---------- Stage 2: runner ----------
 # 供应链安全:同 builder 阶段,生产部署前应改为 digest pinning(见顶部注释)
@@ -38,7 +41,7 @@ FROM node:22-alpine AS runner
 LABEL org.opencontainers.image.title="IHUI AI CLI" \
       org.opencontainers.image.description="IHUI AI Coding Agent CLI" \
       org.opencontainers.image.source="https://github.com/IHUI-INF-AI/IHUI-AI" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="Apache-2.0"
 
 # 安装最小运行时依赖(git 用于代码操作)
 RUN apk add --no-cache git ca-certificates tzdata \
