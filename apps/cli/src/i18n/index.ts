@@ -25,6 +25,12 @@ function findMessagesRoot(): string | null {
     if (existsSync(join(candidate, 'cli')) && existsSync(join(candidate, 'shared'))) {
       return candidate
     }
+    // npm 单文件发布包形态(第三条探测路径):语言包随包放在 dist/messages/{cli,shared},
+    // 模块 __dirname 即 dist,故同一层再探一次;判据仍要求 cli/ 与 shared/ 同时存在。
+    const bundled = join(dir, 'messages')
+    if (existsSync(join(bundled, 'cli')) && existsSync(join(bundled, 'shared'))) {
+      return bundled
+    }
     const parent = dirname(dir)
     if (parent === dir) break
     dir = parent

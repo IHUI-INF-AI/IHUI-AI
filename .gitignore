@@ -65,8 +65,10 @@ logs-*-restart*.txt
 # 构建产物
 # ============================================================================
 dist/
-# SEA 单文件二进制产物(96MB 级,严禁入库;构建:pnpm --filter @ihui/cli build:sea)
+# SEA 单文件二进制产物(96MB 级,严禁入库;构建:pnpm --filter ihui-cli build:sea)
 apps/cli/dist-sea/
+# npm 发布包产物(单文件 bundle + 语言包;构建:pnpm --filter ihui-cli build:npm,发布:cd apps/cli && npm publish npm-dist)
+apps/cli/npm-dist/
 build/
 *.egg-info/
 __pycache__/
