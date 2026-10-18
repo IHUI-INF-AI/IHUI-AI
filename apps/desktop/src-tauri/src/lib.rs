@@ -1776,12 +1776,15 @@ fn clear_webview_caches(root: &std::path::Path) -> Result<(usize, Vec<&'static s
 /// 2026-07-29 #6:prod 模式缓存子目录会无限增长(几个月可达数百 MB),供前端设置项"清理缓存"调用。
 /// 2026-09-25:由"整树删"改为"只删缓存白名单"——清理动作不再可能带走登录态与本地会话。
 #[tauri::command]
-fn clear_webview_cache() -> Result<OkResult, String> {
+fn clear_webview_cache(app: tauri::AppHandle) -> Result<OkResult, String> {
     #[cfg(target_os = "windows")]
     {
+        // identifier 取运行期配置(与 single-instance 锁名、预检等的取源同一枚),
+        // 清理动作因此永远只作用于本实例自己的数据目录,不会跨配置误清。
+        let identifier = app.config().identifier.clone();
         if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
             let webview_root = std::path::Path::new(&local_app_data)
-                .join("com.ihui.desktop")
+                .join(&identifier)
                 .join("EBWebView");
             if webview_root.is_dir() {
                 let (cleared, skipped) = clear_webview_caches(&webview_root)?;
@@ -2850,6 +2853,15 @@ mod deep_link_gate_tests {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // G-921(2026-10-19 立):identifier 一律取运行期配置,不得再写死任何一份。
+    // `generate_context!()` 携带的就是 tauri-build 编译期合并好的那一份配置
+    // (base `tauri.conf.json` ⊕ CLI 经 `TAURI_CONFIG` 传来的 `--config` 覆盖,见
+    // tauri-build 2.6.3 `try_build` 里的 `json_patch::merge`),与 single-instance 插件
+    // setup 里 `app.config().identifier` 是同一枚值 ⇒ 预检锁名 `{id}-sim`、AppUserModelID、
+    // WebView2 目录三者与插件同锁;写死一份的话,给 dev 配独立 identifier 会让预检与插件
+    // 劈叉成两把锁(模块头注警告的"守护整体失效")。
+    let context = tauri::generate_context!();
+    let app_identifier = context.config().identifier.clone();
     // 2026-09-02 修复:显式固定进程级 AppUserModelID,使 Windows 通知区(系统托盘)
     // 图标的"显示/隐藏"记忆在 dev 重编译 / 发布更新 / 安装版之间保持一致。
     // 根因:Tauri 2.11 不会为进程设置 AppUserModelID,Windows 改用 exe 路径自动派生,
@@ -2863,9 +2875,10 @@ pub fn run() {
         use std::os::windows::ffi::OsStrExt;
         use windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
 
-        let id = "com.ihui.desktop";
-        let wide: Vec<u16> =
-            std::ffi::OsStr::new(id).encode_wide().chain(std::iter::once(0)).collect();
+        let wide: Vec<u16> = std::ffi::OsStr::new(&app_identifier)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
         unsafe {
             let _ = SetCurrentProcessExplicitAppUserModelID(wide.as_ptr());
         }
@@ -2874,7 +2887,7 @@ pub fn run() {
     // 根治"双击打不开"(tauri-plugin-single-instance 2.4.3 无超时 SendMessage +
     // 隐藏窗口缺失时放行两个缺陷的组合,详见 startup_guard.rs 模块头注)。
     // 必须早于 tauri::Builder:此刻本进程还没建任何窗口,清理旧实例不会误伤自己。
-    startup_guard::preflight();
+    startup_guard::preflight(&app_identifier);
     // 2026-07-26 立:启动时清理 WebView2 缓存(Windows),彻底杜绝桌面端样式不同步问题
     // - 用户反馈"样式没同步":web dev 已更新,但 Tauri WebView2 缓存了旧 CSS chunk
     // - 2026-09-25 收窄:旧写法是 `remove_dir_all(EBWebView)`,而 `cfg(dev)` **确实会被编译**
@@ -2886,7 +2899,7 @@ pub fn run() {
     {
         if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
             let webview_root = std::path::Path::new(&local_app_data)
-                .join("com.ihui.desktop")
+                .join(&app_identifier)
                 .join("EBWebView");
             if webview_root.is_dir() {
                 match clear_webview_caches(&webview_root) {
@@ -3521,7 +3534,7 @@ pub fn run() {
     checkin_capture::checkin_one_click_reset_all,
     workbuddy_reset::workbuddy_reset_factory
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .unwrap_or_else(|e| {
             // 2026-07-22 P0 Round 5 鲁棒性加固:主入口 panic → 写 crash log + exit(1)
             // 原:.expect() 会 panic 导致"应用已停止运行"弹窗,无 crash log 落盘

@@ -138,9 +138,17 @@ export function registryOf(env = process.env, home = homedir()) {
     env.APPDATA
       ? { p: join(env.APPDATA, 'com.ihui.desktop'), why: '桌面端 Roaming 态(本仓产品)' }
       : null,
+    env.APPDATA
+      ? { p: join(env.APPDATA, 'com.ihui.desktop.dev'), why: '桌面端 dev 构建 Roaming 态(G-921 独立标识)' }
+      : null,
     env.LOCALAPPDATA ? { p: join(env.LOCALAPPDATA, 'pnpm-cache'), why: 'pnpm 元数据缓存' } : null,
     env.LOCALAPPDATA
       ? { p: join(env.LOCALAPPDATA, 'com.ihui.desktop'), why: '桌面端 Local 态(本仓产品)' }
+      : null,
+    // G-921(2026-10-19):dev 构建改用独立 identifier 后数据目录分家,新目录同样受 §26 管辖
+    // —— 不登记就是"代码在生产 C 盘开新落点而哨兵看不见"那一型。目录不存在时该项惰性。
+    env.LOCALAPPDATA
+      ? { p: join(env.LOCALAPPDATA, 'com.ihui.desktop.dev'), why: '桌面端 dev 构建 Local 态(G-921 独立标识)' }
       : null,
   ].filter(Boolean)
 }
