@@ -5391,6 +5391,38 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             yield _sse(SSE_ERROR, err)
             return
         finally:
+            # G-94(2026-10-18 立):用户按停止 ⇒ "已到达本进程的半截回答"必须显式落库。
+            # 为什么必须写在 finally 顶部:下面那段"流结束后异步回调"位于 try/finally
+            # **之后**,而 GeneratorExit / CancelledError 两条分支都是 raise 出去的 ⇒ 取消
+            # 路径整段走不到它(旧注释"客户端已断开则不触发 callback"其实拦的不是那条,
+            # 而是"正常跑完但客户端已走"那一型)。后果就是票面点名的那一型:重开会话时
+            # 那条回复比用户亲眼见过的短,且没有"被中断"的痕迹 —— assistant 落库权威在
+            # 这条回调上(web 侧 send-message 的 finally 明写前端持久化已删除)。
+            # 取消作用域内**只 fire 不 await**(与本文件既有的 cancel_all / shield 同一
+            # 纪律):create_task 不点燃二次 CancelledError,后面的四项清理与计量帧照跑。
+            # 判据由 _interrupted_callback_flush 单独成函数(可测),零字符不补发 ⇒ 不造
+            # 空 assistant 气泡;范围刻意收窄:工具载荷仍等终态路径,不在这里补写半截 result。
+            if _interrupted_callback_flush(
+                stream_exiting=_stream_exiting,
+                error=accumulated.get("error"),
+                content=accumulated.get("content"),
+            ) and req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId"):
+                _interrupted_cb_url = req.callback_url or f"{settings.api_service_url}/api/ai/callback"
+                _interrupted_cb_task = asyncio.create_task(_fire_callback(
+                    _interrupted_cb_url, accumulated, req.metadata,
+                    tool_calls_history=tool_calls_history,
+                    terminal_tasks_history=terminal_tasks_history,
+                    injections=injection_frames,
+                    compaction_info=compaction_info,
+                    retry_notice=retry_notices[-1] if retry_notices else None,
+                    usage_detail=_usage_detail,
+                    fallback=fallback_records[-1] if fallback_records else None,
+                    memory_updates=_mem_updates if _mem_updates else None,
+                    steer_applied=steer_applied or None,
+                    interrupted=True,
+                ))
+                _pending_callbacks.add(_interrupted_cb_task)
+                _interrupted_cb_task.add_done_callback(_pending_callbacks.discard)
             # 借来的异步生成器兜底关停:覆盖"流中途抛错 / GeneratorExit"两条被弃路径
             # (客户端断开那条已在 break 之前就关)。正常耗尽时 aclose 是合法 no-op,
             # 不构成二次回滚;出口自身吞错,绝不用关停异常掩盖正在传播的原异常。
@@ -6035,6 +6067,24 @@ def _build_persisted_tool_calls(
     return out
 
 
+def _interrupted_callback_flush(
+    *, stream_exiting: bool, error: Any, content: Any
+) -> bool:
+    """G-94:被"无消费者"关闭的流,是否仍要把已到达的半截回答交给回调落库。
+
+    三条判据同时成立才补发,缺一不补:
+    - stream_exiting:流正被 aclose/取消(GeneratorExit 或 CancelledError)——正常跑完
+      那一趟由 try 之后的原回调路径处理,不在这里发第二次(幂等键相同,但重复 POST
+      仍是无谓的额度与日志);
+    - not error:流内已判错(模型/供应商错)的不算"半截回答",那是另一条终态路径;
+    - content 非空白:一个字都没到达本进程时**不写**空 assistant 气泡(与
+      conversation.py 取消支路、上游 `if (!options.snapshot.text) return` 同一判据)。
+
+    刻意只看正文不看工具载荷:给在飞工具补写半截 result 会造出"调用无回复"的历史。
+    """
+    return bool(stream_exiting and not error and str(content or "").strip())
+
+
 async def _fire_callback(
     url: str,
     payload: dict[str, Any],
@@ -6049,6 +6099,7 @@ async def _fire_callback(
     fallback: dict[str, Any] | None = None,
     memory_updates: list[str] | None = None,
     steer_applied: list[dict[str, Any]] | None = None,
+    interrupted: bool = False,
 ) -> None:
     """异步 POST 推理结果到 callback_url。
 
@@ -6070,6 +6121,12 @@ async def _fire_callback(
     健壮性:
     - 若配置 ai_callback_secret,携带 X-Internal-Secret 头(与后端共享密钥校验)
     - 对 5xx / 网络错误重试 2 次(指数退避 0.5s → 1s),4xx 不重试(请求本身有问题)
+
+    G-94(2026-10-18 立):interrupted=True 时 body 追加 interrupted/interruptReason
+    两键,API 侧(ai-callback.ts)按显式列举把 `interrupted: true` 与
+    `interrupt_reason: "user_cancelled"` 并入 chat_messages.metadata —— 读回侧
+    (apps/web history-message)据此渲染"已中断"行。默认 False **不带这两个字段**
+    (与其余通道同一纪律:无内容不写键,免得浅合并把已落库的标记抹掉或造假阳性)。
     """
     import asyncio
     import logging
@@ -6131,6 +6188,13 @@ async def _fire_callback(
     # SteerNotice 对齐,刷新后「⚡ 引导已生效」badge 由读回侧灌回既有渲染位。
     if steer_applied:
         body["steerApplied"] = steer_applied
+    # G-94(2026-10-18 立):被停止的流补发时带中断标注,读回侧才有"这条是被中断的"
+    # 一句可显示 —— 只有半截正文而没有标注,用户看到的是"模型只说了这么多"的假完整回答。
+    # 两键名与 API 侧显式列举一一对应(落库后 metadata 用 snake_case 的
+    # interrupt_reason,与 conversation.py 取消支路写进会话记忆的同一对键名)。
+    if interrupted:
+        body["interrupted"] = True
+        body["interruptReason"] = "user_cancelled"
     # 2026-08-06 修复(配套):API 侧 /api/ai/callback 已改为 fail-closed
     # (未配置 AI_CALLBACK_SECRET 直接 401 拒绝)。此处未配置 ai_callback_secret
     # 时回调必然被拒,跳过发送并记录明确错误,避免无效网络请求 + 静默丢回调。
