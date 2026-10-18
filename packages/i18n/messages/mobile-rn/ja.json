@@ -237,6 +237,7 @@
     "runtimeSend": "送信"
   },
   "chat": {
+    "modelSwitchStopped": "{model} に切り替えたため、この回答を終了しました",
     "meta": {
       "pullOnly": "この会話は次回一覧を開いたときに同期されます"
     },

@@ -3513,6 +3513,7 @@
     "members": "멤버"
   },
   "chat": {
+    "modelSwitchStopped": "{model}(으)로 전환하여 이번 응답을 중단했습니다",
     "partialDoneTitle": "응답이 중단되었습니다. 아래 내용은 불완전할 수 있습니다",
     "send": "전송",
     "meta": {

@@ -1,10 +1,10 @@
 {
   "counts": {
     "AgentRuntimePanel": 1,
-    "BottomActionBar": 15,
+    "BottomActionBar": 16,
     "Carousel": 6,
     "DrawerComponent": 12,
-    "InputArea": 14,
+    "InputArea": 15,
     "IntelligentAssistant": 6,
     "LoginPopUp": 8,
     "ModelConfigDialog": 6,
