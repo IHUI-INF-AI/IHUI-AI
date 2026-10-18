@@ -5,6 +5,7 @@
 /**
  * API 接口定义 - 对接新架构后端 http://localhost:8801/api
  */
+import Taro from '@tarojs/taro'
 import { BASE_URL } from '../utils/api-config'
 import { t } from '../i18n'
 import { type UserInfo, type LoginResult } from '../utils/auth'
