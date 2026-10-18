@@ -10,6 +10,11 @@ name: Release SDK
 # 发布:npm(@ihui/sdk)+ PyPI(ihui-ai)+ Maven Central(com.ihui:ihui-ai-java)+ Go module(github.com/.../sdk/go)
 #       + NuGet(Ihui.AI)
 # 鉴权:优先 OIDC trusted publishing(npm/PyPI/Maven),无 OIDC 时回退 NPM_TOKEN/PYPI_TOKEN/MAVEN_TOKEN
+# npm 通道现状(2026-10-19 诚实登记):
+#   secrets.NPM_TOKEN **尚未配置** —— npm 账号仍未建成(npm-bootstrap.yml 首发引导最近 6 次全红:
+#   本机出口被 DataDome 封锁,GH runner Azure 出口被 Cloudflare Turnstile 拦截,自动化路径穷尽,
+#   待 owner 人工注册后在本 workflow 登记该 secret)。未配置时下方 real 模式 npm gate 判红
+#   (设计如此,不静默跳过);bootstrap 闭环前 CI 的 npm 发布通道不可用,不得虚假声称"已接线"。
 # .NET/NuGet 通道现状(2026-09-24 更正本文件此前的错误登记):
 #   工程文件 `packages/sdk/dotnet/Ihui.AI.csproj` **早已入库**(不是"仓库内无 dotnet 项目"),
 #   缺的一直是发布出口 —— 即下面这个 nuget-publish job。PackageId 由 csproj 文件名推导(= Ihui.AI),
