@@ -42,7 +42,21 @@ function readPackageAt(pkgPath: string): CliPackageInfo | null {
   }
 }
 
+// SEA 单文件形态的构建期注入(build-sea.mjs 经 esbuild --define 写成常量字面量):
+// exe 被拷进任意目录后,文件探测既可能落空(哨兵 0.0.0 ⇒ 版本闸门静默放行、UA 退化),
+// 也可能误邻到宿主项目的 package.json(读出别人的版本)—— 构建注入优先于一切文件探测。
+// dist(npm)形态不经 esbuild define,此处两值为 undefined,照走文件探测(tsc 产物不受影响)。
+const BUILD_VERSION: string | undefined =
+  typeof process.env.IHUI_BUILD_VERSION === 'string' ? process.env.IHUI_BUILD_VERSION : undefined
+const BUILD_MIN_VERSION: string | undefined =
+  typeof process.env.IHUI_BUILD_MIN_VERSION === 'string'
+    ? process.env.IHUI_BUILD_MIN_VERSION
+    : undefined
+
 export function readCliPackage(selfUrl: string): CliPackageInfo | null {
+  if (BUILD_VERSION) {
+    return { version: BUILD_VERSION, minimumVersion: BUILD_MIN_VERSION }
+  }
   const here = dirname(fileURLToPath(selfUrl))
   const candidates = [
     join(here, '..', 'package.json'),
