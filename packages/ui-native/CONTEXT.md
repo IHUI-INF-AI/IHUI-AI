@@ -24,7 +24,7 @@
 `src/index.ts` 逐名递出(不是整表 `export *`,除最后一条):
 
 - 基础件:`Button`/`buttonVariants`、`Input`、`Card`/`CardHeader`/`CardTitle`/`CardContent`/`CardFooter`、
-  `Loading`/`Spinner`、`VipBadge`、`Dialog`/`DialogHeader`/`DialogTitle`/`DialogDescription`/`DialogFooter`、
+  `Loading`、`VipBadge`、`Dialog`/`DialogHeader`/`DialogTitle`/`DialogDescription`/`DialogFooter`、
   `Avatar`、`Badge`/`badgeVariants`、`Tabs`、`Switch`、`Tooltip`、`Sheet`、`Collapsible`(含各自 Props 类型)
 - `export * from './business/types'` —— 这一条是**纯 re-export**:14 个跨端同名组件的 props 类型
   (`CarouselItem`、`MenuItem`、`AgentRuntimeStatus`、`AgentRuntimePermissionEvent`、`AgentRuntimePanelProps`、
