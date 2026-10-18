@@ -47,7 +47,24 @@ function harness(dispatchImpl) {
   }
 }
 
-// ── ① 指纹与去重窗口 ──────────────────────────────────────────────────────────
+test('发信台账:每次投递尝试落一行机读账,键名 ASCII、收件人只留脱敏形态', () => {
+  const h = harness()
+  const ledger = join(h.dir, 'mail-send-ledger.jsonl')
+  N.notifyGuardRed('部署停摆(线上构建 vs origin/main)', '线上无构建标记', { ...h.opts, now: 1_760_000_000_000, dedupKey: 'stall;class=no-marker;held=lt6h' })
+  N.notifyGuardRed('隧道腿异常', '投不出去', { ...h.opts, now: 1_760_000_000_001, dispatch: () => ({ ok: false, why: 'exit=1 smtp 拒收' }) })
+  const rows = readFileSync(ledger, 'utf8').split(/\r?\n/).filter(Boolean).map((l) => JSON.parse(l))
+  assert.equal(rows.length, 2, '成功与失败都要有账 —— 只记成功就等于"失败又变回安静"')
+  assert.equal(rows[0].delivered, true)
+  assert.equal(rows[1].delivered, false)
+  assert.match(rows[1].why, /smtp/, '失败必须带病名,否则量算仪只能报数量不能报成因')
+  assert.equal(new Set(rows.map((r) => r.fp)).size, 2, '身份指纹要落账:同一场停摆寄了几封就是按 fp 数出来的')
+  for (const r of rows) {
+    assert.equal(Object.keys(r).every((k) => /^[\x20-\x7e]+$/.test(k)), true, '键名必须纯 ASCII(量算仪的判据是 ASCII 关键字,中文键读不到)')
+    assert.match(r.to, /\*\*\*@/, '收件人只准留脱敏形态')
+    assert.doesNotMatch(JSON.stringify(r), /[0-9a-f]{20,}/, '台账里不得出现完整 sha/凭据(12 位前缀够定位身份)')
+  }
+  rmScratch(h.dir)
+})
 
 test('指纹对数字/哈希归一:计数与 sha 波动属同一故障,不构成新一轮轰炸', () => {
   const a = N.alertFingerprint('合并吞并对账判红', '抹掉 38 个路径 → 9f2ab1c0deadbeef 旧基线')
