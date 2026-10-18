@@ -83,6 +83,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveGitBin } from './lib/gitdir.mjs'
 // 配对判据的唯一实现(见头注"判据住在哪儿")。本文件只 re-export,不再各写一份正则。
 import { findMarkerPairs } from './lib/conflict-marker-triples.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 export {
   findMarkerPairs,
@@ -445,8 +446,9 @@ export function auditRev(repoRoot, rev) {
 // ══════════════ self-test(临时仓端到端取证,不触碰真实仓) ══════════════
 
 function selfTestRun() {
-  const results = []
-  const check = (name, ok) => results.push({ name, ok: Boolean(ok) })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `results.push({ name, ok: Boolean(ok) })` 装箱强制(函数恒真)—— 已由共用出口封死。
+  const { t: check, report } = makeRegistrar()
   const root = mkdtempSync(join(ROOT, '.ihui-agent', 'tmp', 'conflict-markers-drill-'))
   const repo = join(root, 'repo')
   mkdirSync(repo, { recursive: true })
@@ -744,10 +746,10 @@ function selfTestRun() {
     g(['commit', '-qm', 'clean again 2'])
     check('29 摘净单侧标记后 --rev HEAD 回到判绿(收紧后置条件可复核)', auditRev(repo, 'HEAD').code === 0)
 
-    let fail = 0
+    // 消费点:求值只发生在这里(共用出口的报告函数,仍处 try 内、临时仓在世时)。
+    const { fail, cases: results } = report()
     for (const r of results) {
-      console.log(`${r.ok ? '✅' : '❌'} ${r.name}`)
-      if (!r.ok) fail += 1
+      console.log(`${r.pass ? '✅' : '❌'} ${r.name}`)
     }
     console.log(
       fail

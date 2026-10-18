@@ -81,6 +81,7 @@ import {
 //     连字符串一起抹等于对 R4b 立项的那一格全盲而账面报"零违规"。
 // 两档共用同一台分词器(code-mask 里的 scanSpans),只是取的投影不同。
 import { maskComments, maskCommentsAndStrings } from './lib/code-mask.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -935,8 +936,9 @@ export function runChecks({ root = ROOT, face = 'head', extraFiles = [], strict 
 
 /** 注入违规自证:证明每条规则各自真的咬得住(不靠脚本自述)。 */
 function selfTest() {
-  const cases = []
-  const t = (name, ok) => cases.push({ name, ok })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `cases.push({ name, ok })` 裸存结论 —— 已由共用出口结构封死,用例调用一字不动。
+  const { t, report } = makeRegistrar()
 
   const reader = makeFaceReader('head', ROOT)
   const base = parseCatalog(reader.read(CATALOG_FILE))
@@ -1369,8 +1371,10 @@ function selfTest() {
     })(),
   )
 
-  for (const c of cases) console.log(`${c.ok ? '✅' : '❌'} ${c.name}`)
-  return cases.every((c) => c.ok) ? 0 : 1
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { fail, cases } = report()
+  for (const c of cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
+  return fail === 0 ? 0 : 1
 }
 
 /** --list:打印扫描到的 errorCode 全集(给测试里的冻结清单做输入)。 */

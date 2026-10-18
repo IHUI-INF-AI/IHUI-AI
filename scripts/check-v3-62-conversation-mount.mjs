@@ -60,6 +60,7 @@ import {
 } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -662,8 +663,9 @@ function makeFixtureRepo(label, files) {
 }
 
 export async function runSelfTest() {
-  const results = []
-  const ok = (name, pass, detail = '') => results.push({ name, pass, detail })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `results.push({ name, pass })` 裸存结论 —— 已由共用出口结构封死,用例调用一字不动。
+  const { t: ok, report } = makeRegistrar()
   const dirs = []
   const good = () => ({
     [SIDEBAR_DIR + 'conversation-batch-bar.tsx']: FIX.bar,
@@ -890,11 +892,12 @@ export async function runSelfTest() {
     }
   }
 
-  const passed = results.filter((r) => r.pass).length
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { pass, fail, cases: results } = report()
   for (const r of results)
-    console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.detail ? `  [${r.detail}]` : ''}`)
-  console.log(`--self-test: ${passed}/${results.length} 通过`)
-  return passed === results.length ? 0 : 1
+    console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.got !== 'true' && r.got !== 'false' ? `  [${r.got}]` : ''}`)
+  console.log(`--self-test: ${pass}/${results.length} 通过`)
+  return fail === 0 ? 0 : 1
 }
 
 async function entry() {
