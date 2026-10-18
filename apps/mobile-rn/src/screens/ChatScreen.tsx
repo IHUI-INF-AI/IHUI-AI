@@ -1896,7 +1896,11 @@ export function ChatScreen() {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === item.id
-            ? { ...m, pinnedAt: written?.pinnedAt ?? null, bookmarkedAt: written?.bookmarkedAt ?? null }
+            ? {
+                ...m,
+                pinnedAt: written?.pinnedAt ?? null,
+                bookmarkedAt: written?.bookmarkedAt ?? null,
+              }
             : m,
         ),
       )
@@ -1909,6 +1913,45 @@ export function ChatScreen() {
       const isUser = item.role === 'user'
       const isLastMessage = messages.length > 0 && item.id === messages[messages.length - 1]?.id
       const showActions = !isUser && item.content.trim() !== '' && !(isStreaming && isLastMessage)
+      // 票64(2026-10-18 立):钉选/收藏抽成一份,AI 行与用户行共用 —— 标记语义与"谁能被点赞"
+      // 不是一回事(web 端两枚按钮对 user+assistant 同渲染,这里对齐同一口径;分叉写两遍必然漂)。
+      // 图标按服务端盖章的时刻切,文案与无障碍标签一律取词(§19 禁止端内新增硬编码中文)。
+      const flagButtons: React.ReactNode = (
+        <>
+          <TouchableOpacity
+            style={styles.msgActionBtn}
+            hitSlop={8}
+            onPress={() => void toggleMessageFlag(item, 'pinned')}
+            accessibilityRole="button"
+            accessibilityLabel={item.pinnedAt ? t('chat.unpin') : t('chat.pin')}
+          >
+            {item.pinnedAt ? (
+              <PinOff size={16} color={tokens.text.primary} />
+            ) : (
+              <Pin size={16} color={tokens.text.secondary} />
+            )}
+            <Text style={styles.msgActionText}>
+              {item.pinnedAt ? t('chat.unpin') : t('chat.pin')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.msgActionBtn}
+            hitSlop={8}
+            onPress={() => void toggleMessageFlag(item, 'bookmarked')}
+            accessibilityRole="button"
+            accessibilityLabel={item.bookmarkedAt ? t('chat.unbookmark') : t('chat.bookmark')}
+          >
+            {item.bookmarkedAt ? (
+              <BookmarkCheck size={16} color={tokens.text.primary} />
+            ) : (
+              <Bookmark size={16} color={tokens.text.secondary} />
+            )}
+            <Text style={styles.msgActionText}>
+              {item.bookmarkedAt ? t('chat.unbookmark') : t('chat.bookmark')}
+            </Text>
+          </TouchableOpacity>
+        </>
+      )
       // 失败轮:渲染错误卡片而非正文;重试只在"确实有一条可重发的用户提问"时给
       const isFailed = !isUser && isErrorTurn(item)
       const retryable = isFailed && resendTargetText(messages) !== null
@@ -2109,40 +2152,7 @@ export function ChatScreen() {
                   <Copy size={16} color={tokens.text.secondary} />
                   <Text style={styles.msgActionText}>复制</Text>
                 </TouchableOpacity>
-                {/* 票64(2026-10-18 立):钉选 / 收藏 —— 图标形态按服务端盖章的时刻切,
-                    文案与无障碍标签一律取词(§19 禁止端内新增硬编码中文)。 */}
-                <TouchableOpacity
-                  style={styles.msgActionBtn}
-                  hitSlop={8}
-                  onPress={() => void toggleMessageFlag(item, 'pinned')}
-                  accessibilityRole="button"
-                  accessibilityLabel={item.pinnedAt ? t('chat.unpin') : t('chat.pin')}
-                >
-                  {item.pinnedAt ? (
-                    <PinOff size={16} color={tokens.text.primary} />
-                  ) : (
-                    <Pin size={16} color={tokens.text.secondary} />
-                  )}
-                  <Text style={styles.msgActionText}>
-                    {item.pinnedAt ? t('chat.unpin') : t('chat.pin')}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.msgActionBtn}
-                  hitSlop={8}
-                  onPress={() => void toggleMessageFlag(item, 'bookmarked')}
-                  accessibilityRole="button"
-                  accessibilityLabel={item.bookmarkedAt ? t('chat.unbookmark') : t('chat.bookmark')}
-                >
-                  {item.bookmarkedAt ? (
-                    <BookmarkCheck size={16} color={tokens.text.primary} />
-                  ) : (
-                    <Bookmark size={16} color={tokens.text.secondary} />
-                  )}
-                  <Text style={styles.msgActionText}>
-                    {item.bookmarkedAt ? t('chat.unbookmark') : t('chat.bookmark')}
-                  </Text>
-                </TouchableOpacity>
+                {flagButtons}
                 {/* 失败轮不给"分享"(它不是内容);复制保留 —— 报错排查要用那段文字 */}
                 {isFailed ? null : (
                   <TouchableOpacity
@@ -2184,6 +2194,8 @@ export function ChatScreen() {
                 )}
               </View>
             ) : null}
+            {/* 票64:用户消息也给这两枚(操作行其余按钮维持既有"只给 AI"的结构不动) */}
+            {isUser ? <View style={styles.msgActions}>{flagButtons}</View> : null}
             {/* G-166 交代区:本轮引用来源 + 带了哪些上下文(与 N8n 屏同一共享组件) */}
             {isFailed ? null : (
               <InjectionDisclosure
