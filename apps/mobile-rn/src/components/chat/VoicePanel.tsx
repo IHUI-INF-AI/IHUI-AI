@@ -3,13 +3,33 @@
 // 纯抽取:从 ChatScreen 抽出「转语音(TTS)」弹窗(D126)。零行为/视觉变更。
 
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
-import { X } from 'lucide-react-native'
+import { Loader2, Mic, X } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
 import { rnRadius } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 
 /** TTS 语音类型选项(P1.1 转语音 Modal,真实 TTS 已接入) */
 const TTS_VOICE_OPTIONS: readonly string[] = ['男声', '女声', '儿童'] as const
+
+/**
+ * 实时语音对话状态(FF/D126)。
+ *
+ * 取证结论:RN 端目前**没有**原生 WebRTC SDK(apps/mobile-rn/package.json 仅 expo-audio),
+ * `@ihui/api-client` 也无 realtime/webrtc 封装,故本组件只做**契约 + 三态 UI**,
+ * 真实连接由调用方(ChatScreen)拿到原生能力后接线,此处不臆造依赖。
+ */
+export type RealtimeVoiceState = 'idle' | 'connecting' | 'live' | 'error'
+
+/** 实时语音按钮文案(硬编码中文,与 TTS 口径一致;不新增 i18n key) */
+const REALTIME_BTN_LABEL: Record<RealtimeVoiceState, string> = {
+  idle: '开始实时语音',
+  connecting: '连接中...',
+  live: '实时语音进行中',
+  error: '重新连接',
+}
+
+/** 实时语音失败兜底文案(realtimeErrorText 缺省值) */
+const DEFAULT_REALTIME_ERROR_TEXT = '连接失败,请重试'
 
 const styles = StyleSheet.create({
   // ── 二维码弹窗 / 列表弹窗共用容器 ──
@@ -74,6 +94,39 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: tokens.text.primary,
   },
+  // ── FF(D126)实时语音对话区 ──
+  realtimeSection: {
+    paddingHorizontal: rpx(32),
+    paddingTop: rpx(12),
+    paddingBottom: rpx(12),
+  },
+  realtimeTitle: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+  },
+  realtimeErrorText: {
+    marginTop: rpx(6),
+    fontSize: 13,
+    color: tokens.error.text,
+  },
+  realtimeBtn: {
+    marginTop: rpx(10),
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(24),
+    backgroundColor: tokens.surface.muted,
+    borderRadius: rnRadius.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rpx(8),
+  },
+  realtimeBtnDisabled: {
+    opacity: 0.6,
+  },
+  realtimeBtnText: {
+    fontSize: 15,
+    color: tokens.text.primary,
+  },
   // ── 功能面板/来源面板(BottomPops 子内容样式) ──
   panelCancelBtn: {
     marginHorizontal: rpx(32),
@@ -107,14 +160,34 @@ interface VoicePanelProps {
   onSelect: (voiceType: string) => void
   /** 关闭弹窗(对齐 setTtsVisible(false);内部按 loading 守卫) */
   onClose: () => void
+  /**
+   * FF(D126)发起实时语音对话(可选)。未传时按钮点击为空操作。
+   * 返回值可为 Promise —— 连接状态由调用方通过 realtimeState 回传。
+   */
+  onStartRealtimeVoice?: () => void | Promise<void>
+  /** FF(D126)实时语音连接状态(缺省 'idle') */
+  realtimeState?: RealtimeVoiceState
+  /** FF(D126)实时语音失败文案(缺省「连接失败,请重试」) */
+  realtimeErrorText?: string
 }
 
 /**
  * 转语音(TTS)弹窗:语音类型选项 + 真实 TTS loading。
  * 关闭行为与原 ChatScreen 一致:loading 中仅取消按钮可关闭(其余关闭入口被 loading 守卫拦截)。
  */
-export function VoicePanel({ visible, loading, onSelect, onClose }: VoicePanelProps) {
+export function VoicePanel({
+  visible,
+  loading,
+  onSelect,
+  onClose,
+  onStartRealtimeVoice,
+  realtimeState = 'idle',
+  realtimeErrorText = DEFAULT_REALTIME_ERROR_TEXT,
+}: VoicePanelProps) {
   if (!visible) return null
+  // connecting/live 期间禁止重复发起;error 态允许再点重试
+  const realtimeBusy = realtimeState === 'connecting' || realtimeState === 'live'
+  const realtimeLabel = REALTIME_BTN_LABEL[realtimeState]
   return (
     <Modal
       visible={visible}
@@ -141,6 +214,38 @@ export function VoicePanel({ visible, loading, onSelect, onClose }: VoicePanelPr
               style={styles.listDialogClose}
             >
               <X size={20} color={tokens.text.primary} />
+            </Pressable>
+          </View>
+          {/* FF(D126)实时语音对话区:三态 UI 与回调契约(真实连接由调用方接线) */}
+          <View style={styles.realtimeSection}>
+            <Text style={styles.realtimeTitle}>实时语音对话</Text>
+            {realtimeState === 'error' ? (
+              <Text style={styles.realtimeErrorText}>{realtimeErrorText}</Text>
+            ) : null}
+            <Pressable
+              onPress={() => {
+                void onStartRealtimeVoice?.()
+              }}
+              disabled={realtimeBusy}
+              accessibilityRole="button"
+              accessibilityLabel={realtimeLabel}
+            >
+              {({ pressed }) => (
+                <View
+                  style={[
+                    styles.realtimeBtn,
+                    pressed && styles.panelItemPressed,
+                    realtimeBusy ? styles.realtimeBtnDisabled : undefined,
+                  ]}
+                >
+                  {realtimeState === 'connecting' ? (
+                    <Loader2 size={18} color={tokens.text.secondary} />
+                  ) : (
+                    <Mic size={18} color={tokens.text.primary} />
+                  )}
+                  <Text style={styles.realtimeBtnText}>{realtimeLabel}</Text>
+                </View>
+              )}
             </Pressable>
           </View>
           {loading ? (
