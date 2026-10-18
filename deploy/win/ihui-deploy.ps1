@@ -1206,12 +1206,13 @@ function Start-Web {
     try { sc.exe start IHUI-WEB | Out-Null } catch { throw "启动 IHUI-WEB 失败: $_" }
 }
 function Stop-Web {
-    try { sc.exe stop IHUI-WEB | Out-Null } catch { Fail "停止 IHUI-WEB 失败: $_" }
+    # 原文(sc.exe 的错误号随现场变:1056/1062/1073…)交 -Detail 进正文,身份只留固定类别
+    try { sc.exe stop IHUI-WEB | Out-Null } catch { Fail "停止 IHUI-WEB 失败" -Detail "原始报错:$_" }
 }
 function Restart-Web {
     try { sc.exe stop IHUI-WEB | Out-Null } catch {}
     Start-Sleep -Seconds 2
-    try { sc.exe start IHUI-WEB | Out-Null } catch { Fail "启动 IHUI-WEB 失败: $_" }
+    try { sc.exe start IHUI-WEB | Out-Null } catch { Fail "启动 IHUI-WEB 失败" -Detail "原始报错:$_" }
     Start-Sleep -Seconds 8
 }
 
@@ -2044,9 +2045,12 @@ try {
         # (红因是别人一份未提交的工作树副本),日志一片响而邮件零封。§5e「失败必须响」在这里没兑现。
         # 走 Fail 而不是另调一次 Send-EmailNotify:Fail 已含 Log + 去重发信 + 释放部署锁 + exit 1,
         # 在这台常年有并行会话的文件里留第二份收口路径就是留第二个真相。
-        # 签名稳定性:消息体只含 $_ 的固定措辞("next build 连续 N 次失败…"),不含时间戳/轮次号,
+        # 签名稳定性(2026-10-18 更正;原句"消息体只含 $_ 的固定措辞"当时**不成立**):`$_` 是 catch
+        # 到的异常原文,里面有路径/字节数/轮次,整串进 $m 就是每轮换一次身份 —— 与上面 48h/47 封
+        # 那一型同一条。现把原文交给 -Detail(只进正文),$m 恒为固定类别措辞,4h 分槽才真的生效。
+        # 原句逐字留档只作改判留痕:"消息体只含 $_ 的固定措辞("next build 连续 N 次失败…"),不含时间戳/轮次号"。
         # 所以按身份去重(4h)生效,不会每轮另发一封(:1381/:1453 那两条同型教训)。
-        Fail "构建失败($_) → 保持当前在线版本,不动 web,已记冷却(30 分钟后自动重试)"
+        Fail "构建失败 → 保持当前在线版本,不动 web,已记冷却(30 分钟后自动重试)" -Detail "原始报错:$_"
     }
 
 # 3) 秒级交换:停 web → 用新构建替换 .next → 起 web

@@ -64,5 +64,23 @@ export default async function globalSetup(): Promise<void> {
       err instanceof Error ? err.message : err,
     )
   }
+
+  // notification-archive.spec(D195 真 e2e)需要 test@aizhs.top 名下两条确定形状的通知
+  //(active 1 / archived 1),同机制 seed(幂等只重置种子行,失败只 warn 不阻塞)
+  try {
+    execSync('pnpm --filter @ihui/api run seed:e2e-notifications', {
+      cwd: repoRoot,
+      stdio: 'inherit',
+      env: { ...process.env },
+      timeout: 30000,
+      windowsHide: true,
+    })
+    console.log('[e2e:global-setup] notifications seed 完成')
+  } catch (err) {
+    console.warn(
+      '[e2e:global-setup] notifications seed 失败,notification-archive 相关用例可能失败:',
+      err instanceof Error ? err.message : err,
+    )
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
