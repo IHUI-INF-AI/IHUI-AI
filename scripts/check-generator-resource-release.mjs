@@ -527,41 +527,21 @@ export function judgeFunction(fn, consumers, ctx = {}) {
 /**
  * 在一个面里找生产消费点(排除测试面与自己)。定性逐候选做:前几处命中常是 docstring /
  * `__all__` / 同名定义,固定取第一条会把真消费行挤掉并把噪声行当消费点判红。
- *
- * G-77 残余面②(2026-10-17 票面注记钉死的卡点):消费点归因**按定义,不按裸名**——
- *  ① 枚举走**判据面**(maskForJudgement 遮后文本):docstring/注释里的名字提及
- *     (实测 llama_cpp_provider.py:12、ollama_provider.py:13 是文档行)不再生成消费点行;
- *  ② 同名**定义行**(`def astream(`/`class astream`/`function* astream`)是别的文件自己的
- *     定义,不是 fn 的消费者(实测 token6688_provider.py:251 的 def 行被当成消费点,
- *     其函数体的 yield 反过来把父生成器判成 forward);
- *  ③ 站点行号对齐窗口起点:consumer.start 必须传 blockWindow 的起点而不是命中行,
- *     否则 classifySites 的行号整体偏移(把注释行报成站点的那型错位)。
- * 三条各去掉一条,红的必须是不同的用例(见 selfTest 与镜像测试的成对臂)。
- * 方法名的真消费(`provider.astream(`)仍按名匹配 —— 无类型面时这是保守近似,
- * 同文件内多定义才需要再收窄,现读被审面无此形态。
  */
 export function findConsumers(fn, allFiles) {
-  const nm = fn.name.replace(/[^\w]/g, '_')
-  const re = new RegExp(`\\b${nm}\\b`)
-  const pyDefRe = new RegExp(`^\\s*(?:async\\s+)?def\\s+${nm}\\b|^\\s*class\\s+${nm}\\b`)
-  const tsDefRe = new RegExp(`^\\s*(?:export\\s+)?(?:async\\s+)?function\\s*\\*?\\s*${nm}\\b`)
+  const re = new RegExp(`\\b${fn.name.replace(/[^\w]/g, '_')}\\b`)
   const noise = []
   const real = []
   for (const [p, src] of allFiles) {
     if (isTestPath(p) || src === null) continue
-    // 枚举走判据面:docstring/注释里的名字提及不是消费点(窗口仍取原文,
-    // consumerOutcome 内部对窗口再遮一次 —— 从真语句起的窗口不存在 docstring 状态错位)
-    const judgeLines = maskForJudgement(p, src).split('\n')
-    const rawLines = src.split('\n')
+    const lines = src.split('\n')
     let taken = 0
-    for (let i = 0; i < judgeLines.length; i += 1) {
-      if (!re.test(judgeLines[i])) continue
+    for (let i = 0; i < lines.length; i += 1) {
+      if (!re.test(lines[i])) continue
       if (p === fn.file && Math.abs(i + 1 - fn.line) <= 1) continue // 声明行本身
-      // 同名定义行 = 该文件自己的定义,不是 fn 的消费者(归因按定义,不按裸名)
-      if (p.endsWith('.py') ? pyDefRe.test(judgeLines[i]) : tsDefRe.test(judgeLines[i])) continue
       if (taken++ >= 12) break // 窗口可达 400 行 ⇒ 每文件核候选数必须封顶
-      const win = blockWindow(rawLines, i)
-      const c = { file: p, line: i + 1, start: win.start, text: win.text, truncated: win.truncated }
+      const win = blockWindow(lines, i)
+      const c = { file: p, line: i + 1, start: i, text: win.text, truncated: win.truncated }
       c.outcome = consumerOutcome(c, fn.name)
       if (c.outcome.sites.length > 0 || c.outcome.state === 'closed') real.push(c)
       else noise.push(c)
@@ -763,12 +743,6 @@ function selfTest() {
   t('⑤ 拿到生成器对象却无关停 ⇒ violation', judgeFunction(b, [{ file: 'z.py', line: 1, text: 'it = g()\n    return it\n' }]).verdict === 'violation')
   t('docstring/`__all__`/同名重绑定不得算消费点', judgeFunction(b, [{ file: 'z.py', line: 1, text: 'g = await other()\n__all__ = ["g"]\n' }]).verdict === 'undetermined')
   t('循环之后的同级 return 不算提前退出(语句级,不是行级运气)', judgeFunction(b, [{ file: 'z.py', line: 1, text: 'async for x in g():\n    use(x)\nreturn done\n' }]).verdict === 'passed')
-  // G-77 残余面②:消费点归因**按定义** —— 成对正反例(去掉任一条,红的必须是不同的用例)
-  const consOf = (src) => findConsumers(b, new Map([['c.py', src]]))
-  t('归因①: 同族兄弟的同名定义行不得当消费点', consOf('class P:\n    async def g(\n        self,\n    ):\n        yield 1\n').length === 0)
-  t('归因②: docstring/注释里的名字提及不得当消费点(枚举走判据面)', consOf('"""use g() for streaming"""\n# also g()\n').length === 0)
-  const numCons = consOf('async def c9():\n    it = (\n        g()\n    )\n')
-  t('归因③: 站点行号 = 真实行号(窗口起点对齐,不把别的行报成站点)', numCons.length === 1 && numCons[0].outcome.sites[0]?.line === 3)
   // 真仓样本:跑在被审面上(不是夹具自证);面取不到 ⇒ 这几条红,不出合格证
   const HR = (() => { try { return auditFace(readFace('head', ROOT, listCandidatesFor('head', ROOT))).rows } catch { return [] } })()
   // 真仓臂一律**不钉行号**(§1 同一教训:行号一次 append 就挪位)。判据形状=「该文件里存在这样一处判定」,
