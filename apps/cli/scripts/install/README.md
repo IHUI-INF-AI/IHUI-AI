@@ -13,8 +13,8 @@ IHUI AI Coding Agent CLI 提供 9 种安装方式,覆盖主流包管理器与运
 ## 1. npm / pnpm 全局安装(跨平台,首选)
 
 ```bash
-npm install -g @ihui/cli        # 或
-pnpm add -g @ihui/cli
+npm install -g ihui-cli        # 或
+pnpm add -g ihui-cli
 ```
 
 ## 2. 一键脚本安装
@@ -99,9 +99,9 @@ ihui acp   # 启动 ACP server(stdio),供编辑器 LSP 风格接入
 git clone https://github.com/ihui/ai.git
 cd ai
 pnpm install
-pnpm --filter @ihui/cli build
+pnpm --filter ihui-cli build
 # 本地 dev 运行
-pnpm --filter @ihui/cli dev
+pnpm --filter ihui-cli dev
 ```
 
 ## 安装方式选择指南
@@ -129,8 +129,8 @@ ihui                 # 进入交互式 REPL
 ## 卸载
 
 ```bash
-npm uninstall -g @ihui/cli        # npm
-pnpm remove -g @ihui/cli          # pnpm
+npm uninstall -g ihui-cli        # npm
+pnpm remove -g ihui-cli          # pnpm
 brew uninstall ihui-ai            # Homebrew
 scoop uninstall ihui-ai           # Scoop
 choco uninstall ihui-ai           # Chocolatey

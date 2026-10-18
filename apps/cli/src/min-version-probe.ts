@@ -15,7 +15,7 @@
  * 与"服务端没要求"是两件事，不得混写成通过）。
  *
  * 用法：
- *   pnpm --filter @ihui/cli exec tsx src/min-version-probe.ts [--json] [--timeout=ms]
+ *   pnpm --filter ihui-cli exec tsx src/min-version-probe.ts [--json] [--timeout=ms]
  */
 
 import { isDirectRunMain } from './util/main-module.js';

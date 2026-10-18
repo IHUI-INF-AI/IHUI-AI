@@ -45,13 +45,13 @@ parts:
       corepack prepare pnpm@latest --activate
 
       # 安装依赖并构建
-      pnpm install --frozen-lockfile --filter @ihui/cli...
-      pnpm --filter @ihui/cli build
+      pnpm install --frozen-lockfile --filter ihui-cli...
+      pnpm --filter ihui-cli build
 
       # 安装到 snap 的 node_modules
       mkdir -p $CRAFT_PART_INSTALL/lib/node_modules
-      cp -r apps/cli/dist $CRAFT_PART_INSTALL/lib/node_modules/@ihui/cli/dist
-      cp apps/cli/package.json $CRAFT_PART_INSTALL/lib/node_modules/@ihui/cli/package.json
+      cp -r apps/cli/dist $CRAFT_PART_INSTALL/lib/node_modules/ihui-cli/dist
+      cp apps/cli/package.json $CRAFT_PART_INSTALL/lib/node_modules/ihui-cli/package.json
 
       # 复制 workspace 依赖
       cp -r node_modules/* $CRAFT_PART_INSTALL/lib/node_modules/ 2>/dev/null || true
@@ -62,7 +62,7 @@ parts:
       cat > $CRAFT_PART_INSTALL/bin/ihui << 'EOF'
       #!/bin/bash
       export NODE_PATH="$SNAP/lib/node_modules"
-      exec "$SNAP/usr/bin/node" "$SNAP/lib/node_modules/@ihui/cli/dist/index.js" "$@"
+      exec "$SNAP/usr/bin/node" "$SNAP/lib/node_modules/ihui-cli/dist/index.js" "$@"
       EOF
       chmod +x $CRAFT_PART_INSTALL/bin/ihui
 

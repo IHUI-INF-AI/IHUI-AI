@@ -6,7 +6,7 @@
 
 # CLI 工具指南
 
-> `apps/cli/`(`@ihui/cli`)是 IHUI-AI 平台的命令行 AI 编码代理,对标 Claude Code / Codex,提供交互式 REPL、自主多步 Agent、24 源配置导入、subagent 并行协作、skills/plugins 扩展、MCP 工具集成、ACP 协议嵌入等能力,跨平台运行(Windows / macOS / Linux)。
+> `apps/cli/`(`ihui-cli`)是 IHUI-AI 平台的命令行 AI 编码代理,对标 Claude Code / Codex,提供交互式 REPL、自主多步 Agent、24 源配置导入、subagent 并行协作、skills/plugins 扩展、MCP 工具集成、ACP 协议嵌入等能力,跨平台运行(Windows / macOS / Linux)。
 
 ---
 
@@ -52,17 +52,17 @@
 ```bash
 # 克隆仓库后
 pnpm install
-pnpm --filter @ihui/cli dev          # tsx 直跑源码,无需构建
+pnpm --filter ihui-cli dev          # tsx 直跑源码,无需构建
 
 # 或构建后运行
-pnpm --filter @ihui/cli build
+pnpm --filter ihui-cli build
 node apps/cli/dist/index.js
 ```
 
 ### 方式二:npm 全局安装
 
 ```bash
-npm install -g @ihui/cli
+npm install -g ihui-cli
 ihui --version
 ```
 
@@ -624,7 +624,7 @@ ihui serve --check-credential --json
 | updater | `updater.test.ts` | 升级检查 |
 | voice | `voice.test.ts` | 语音 |
 
-> 此外还有 `subagent-*.test.ts`(并行协作)、`plan-machine*.test.ts`(规划状态机)、`sessions.test.ts`(会话)、`sandbox-profile.test.ts`(沙箱)等细分测试。运行:`pnpm --filter @ihui/cli test`。
+> 此外还有 `subagent-*.test.ts`(并行协作)、`plan-machine*.test.ts`(规划状态机)、`sessions.test.ts`(会话)、`sandbox-profile.test.ts`(沙箱)等细分测试。运行:`pnpm --filter ihui-cli test`。
 
 ---
 

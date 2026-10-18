@@ -29,8 +29,14 @@
  * 本通道**全部**已定义的事件名。
  * D154(MCP 连接状态下行)按拍板与 D153 共用同一载体:`'mcp:status'` 已于 2026-09-30 追加,
  * 判别成员 + 一条 DATA_GUARDS 判据同笔落地。**不得**另建第二条 per-user 通道。
+ * D163 残余(检查点可用性上报)同型追加 `'checkpoint:availability'`(2026-10-18),
+ * 同笔进 api-client 的 `USER_BROADCAST_SUBSCRIBABLE_EVENTS`(d153 测试硬断言两表等值)。
  */
-export const USER_BROADCAST_EVENT_NAMES = ['conversation:updated', 'mcp:status'] as const
+export const USER_BROADCAST_EVENT_NAMES = [
+  'conversation:updated',
+  'mcp:status',
+  'checkpoint:availability',
+] as const
 
 export type UserBroadcastEventName = (typeof USER_BROADCAST_EVENT_NAMES)[number]
 
@@ -101,12 +107,7 @@ export interface ConversationUpdatedEvent {
  * 为什么是封闭集而不是字符串:消费端要为每一档给一句可操作的话(票第 1 栏),
  * 开放集会让"多出来的一档"静默渲染成空白,而这一族的缺陷形态恰恰是"什么都看不到"。
  */
-export const MCP_CONNECTION_STATES = [
-  'connecting',
-  'connected',
-  'failed',
-  'reconnecting',
-] as const
+export const MCP_CONNECTION_STATES = ['connecting', 'connected', 'failed', 'reconnecting'] as const
 
 export type McpConnectionState = (typeof MCP_CONNECTION_STATES)[number]
 
@@ -152,9 +153,60 @@ export interface McpStatusEvent {
   data: McpStatusData
 }
 
+// ===================== checkpoint:availability(D163 残余)=====================
+
+/**
+ * 检查点可用性的封闭状态集。
+ *
+ * 两档而不是三档是有意的:消费端要回答的是"别的设备上现在有没有一个可用的检查点",
+ * `available` 必须说得出**哪一个**(checkpointId),`unavailable` 必须说得出**为什么**,
+ * 中间态("正在建")没有对应的用户动作 —— 造一档没人能操作的词只会渲染成空白。
+ * 与 `MCP_CONNECTION_STATES` 同一条纪律:状态词是契约,新增须同笔进五语言词表。
+ */
+export const CHECKPOINT_AVAILABILITY_STATES = ['available', 'unavailable'] as const
+
+export type CheckpointAvailabilityState = (typeof CHECKPOINT_AVAILABILITY_STATES)[number]
+
+export function isCheckpointAvailabilityState(v: unknown): v is CheckpointAvailabilityState {
+  return typeof v === 'string' && (CHECKPOINT_AVAILABILITY_STATES as readonly string[]).includes(v)
+}
+
+/**
+ * `checkpoint:availability` 载荷。
+ *
+ * 为什么需要这条事件(而不是端上各自轮询):检查点的写链住在 apps/api(原子快照在服务端
+ * 工作区),而"另一台设备刚建了一个检查点 / 这台设备的检查点服务不可用"这两件事
+ * 端上不轮询就永远不知道。D163 要求撤销结论必须由事实驱动 —— 没有这条下行,
+ * 另一端的"可用"只能靠用户手动刷新碰运气。
+ *
+ * **没有 userId 成员**:主体只能从承载层进来(AGENTS §5),收信人由 token 钉死的
+ * userId 决定;载荷里出现身份键 ⇒ 整帧判「未判定」。
+ */
+export interface CheckpointAvailabilityData {
+  /** 哪个工作区的可用性(工作区 = 检查点的归属对象;跨端必须能对上是同一片盘) */
+  workspacePath: string
+  state: CheckpointAvailabilityState
+  /**
+   * `available` 必填:刚可用的那个检查点 id。
+   * 说不出 id 的"可用"消费端无法采取任何动作(它连去取哪个都不知道),
+   * 与"可用"这个断言本身矛盾 ⇒ 构造侧直接拒。
+   */
+  checkpointId?: string
+  /** 技术性原因(诊断用,不是界面文案);`unavailable` 时应尽量给 */
+  reason?: string
+  /** ISO 8601;生产面落库/建快照的完成时刻,同工作区以此做新旧判定 */
+  at: string
+}
+
+export interface CheckpointAvailabilityEvent {
+  event: 'checkpoint:availability'
+  data: CheckpointAvailabilityData
+}
+
 // ===================== 联合本体与线上帧形态 =====================
 
-export type UserBroadcastEvent = ConversationUpdatedEvent | McpStatusEvent
+export type UserBroadcastEvent =
+  ConversationUpdatedEvent | McpStatusEvent | CheckpointAvailabilityEvent
 
 /** 传输线上的裸帧形态:`/ws/broadcast` 推送的就是这个对象 */
 export interface UserBroadcastFrame {
@@ -214,10 +266,30 @@ function isPositiveInt(v: unknown): boolean {
   return typeof v === 'number' && Number.isInteger(v) && v > 0
 }
 
+/** `checkpoint:availability` 的字段判据(与 `checkpointAvailabilityEvent` 同源同规则) */
+function isCheckpointAvailabilityData(v: unknown): v is CheckpointAvailabilityData {
+  if (typeof v !== 'object' || v === null) return false
+  const d = v as Record<string, unknown>
+  if (typeof d.workspacePath !== 'string' || d.workspacePath.length === 0) return false
+  if (!isCheckpointAvailabilityState(d.state)) return false
+  if (typeof d.at !== 'string' || Number.isNaN(Date.parse(d.at))) return false
+  if (d.reason !== undefined && typeof d.reason !== 'string') return false
+  if (d.state === 'available') {
+    // 说不出 id 的"可用"消费端无从取用(见 CheckpointAvailabilityData 注释)
+    if (typeof d.checkpointId !== 'string' || d.checkpointId.length === 0) return false
+  } else if (d.checkpointId !== undefined) {
+    // 不可用却带着 id:两个断言互相矛盾,照用就会去取一个服务端刚说不可用的检查点
+    return false
+  }
+  if ('userId' in d || 'user_id' in d) return false
+  return true
+}
+
 /** 事件名 → 值判据的唯一映射(新增事件名而不在此登记 ⇒ TS 报错,联合不会静默扩宽) */
 const DATA_GUARDS: Record<UserBroadcastEventName, (v: unknown) => boolean> = {
   'conversation:updated': isConversationUpdatedData,
   'mcp:status': isMcpStatusData,
+  'checkpoint:availability': isCheckpointAvailabilityData,
 }
 
 /**
@@ -301,12 +373,15 @@ export function mcpStatusEvent(input: {
   const server = input.server.trim()
   if (!server) throw new Error('mcpStatusEvent: server 名不得为空')
   if (!isMcpConnectionState(input.state)) {
-    throw new Error(`mcpStatusEvent: 未知状态 ${String(input.state)}(封闭集见 MCP_CONNECTION_STATES)`)
+    throw new Error(
+      `mcpStatusEvent: 未知状态 ${String(input.state)}(封闭集见 MCP_CONNECTION_STATES)`,
+    )
   }
   const data: McpStatusData = { server, state: input.state }
   if (input.reason !== undefined) data.reason = input.reason
   if (input.attempt !== undefined) {
-    if (!isPositiveInt(input.attempt)) throw new Error(`mcpStatusEvent: attempt 非法:${String(input.attempt)}`)
+    if (!isPositiveInt(input.attempt))
+      throw new Error(`mcpStatusEvent: attempt 非法:${String(input.attempt)}`)
     if (input.maxAttempts === undefined) {
       throw new Error('mcpStatusEvent: 带 attempt 必须同时带 maxAttempts(否则文案只有分子)')
     }
@@ -324,6 +399,52 @@ export function mcpStatusEvent(input: {
     if (tools.length > 0) data.tools = tools
   }
   return { event: 'mcp:status', data }
+}
+
+// ===================== 生产侧构造 checkpoint:availability 的唯一出口 =====================
+
+/**
+ * 构造 `checkpoint:availability` 事件(生产侧唯一写法;路由内不得手拼 `{event,data}`)。
+ *
+ * 与另两个构造器同一条设计:**在构造点就拒坏值**。`available` 却说不出 checkpointId
+ * ⇒ 消费端取不到任何东西;`unavailable` 却带着 id ⇒ 两个断言互相矛盾。这两种都应在
+ * 生产面抛错(路由落 500/400 并留日志),而不是推上线让端上渲染成"什么都没发生"。
+ * `at` 缺省取调用时刻:生产面刚完成写链,这个时刻就是消费端判新旧的事实源。
+ */
+export function checkpointAvailabilityEvent(input: {
+  workspacePath: string
+  state: CheckpointAvailabilityState
+  checkpointId?: string
+  reason?: string
+  at?: Date | string
+}): CheckpointAvailabilityEvent {
+  const workspacePath = input.workspacePath.trim()
+  if (!workspacePath) throw new Error('checkpointAvailabilityEvent: workspacePath 不得为空')
+  if (!isCheckpointAvailabilityState(input.state)) {
+    throw new Error(
+      `checkpointAvailabilityEvent: 未知状态 ${String(input.state)}(封闭集见 CHECKPOINT_AVAILABILITY_STATES)`,
+    )
+  }
+  if (input.state === 'available') {
+    if (typeof input.checkpointId !== 'string' || input.checkpointId.length === 0) {
+      throw new Error('checkpointAvailabilityEvent: available 必须带 checkpointId')
+    }
+  } else if (input.checkpointId !== undefined) {
+    throw new Error('checkpointAvailabilityEvent: unavailable 不得携带 checkpointId')
+  }
+  const at =
+    input.at === undefined
+      ? new Date().toISOString()
+      : typeof input.at === 'string'
+        ? input.at
+        : input.at.toISOString()
+  if (Number.isNaN(Date.parse(at))) {
+    throw new Error(`checkpointAvailabilityEvent: at 不是时间:${at}`)
+  }
+  const data: CheckpointAvailabilityData = { workspacePath, state: input.state, at }
+  if (input.checkpointId !== undefined) data.checkpointId = input.checkpointId
+  if (input.reason !== undefined) data.reason = input.reason
+  return { event: 'checkpoint:availability', data }
 }
 
 // ===================== 同字段"以库为准"的新旧判定 =====================
