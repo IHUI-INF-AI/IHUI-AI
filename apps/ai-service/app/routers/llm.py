@@ -1472,7 +1472,8 @@ def _compaction_frame(info: dict[str, Any] | None) -> str | None:
     payload = _compaction_payload(info)
     if payload is None:
         return None
-    return f"data: {json.dumps({'compaction': payload}, ensure_ascii=False)}\n\n"
+    framed = _with_frame_trace_id("compaction", {"compaction": payload})
+    return f"data: {json.dumps(framed, ensure_ascii=False)}\n\n"
 
 
 def _format_citations_event(
