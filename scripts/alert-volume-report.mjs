@@ -49,12 +49,13 @@ import { requireFlagValue } from './lib/flag-value.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..')
 
-/** 四个数据源 + 一份注册表,路径全部由脚本自身位置推导(§15,不写死盘符)。 */
+/** 发信面之一:各生产者投递后落的机读台账(ASCII 键 + ISO 时刻,不经散文解码)。 */
 const SRC = {
   deployLog: join(ROOT, 'deploy', 'win', 'deploy-loop.log'),
   alertState: join(ROOT, 'deploy', 'win', '.alert-notify-state.json'),
   dedupeState: join(ROOT, '.workbuddy', 'notify-dedupe-state.json'),
   attest: join(ROOT, '.workbuddy', 'safe-commit-attestation.jsonl'),
+  mailLedger: join(ROOT, '.workbuddy', 'mail-send-ledger.jsonl'),
   runner: 'scripts/guardian-runner.mjs', // 注册表按"被审面"取,不读滞后的工作树副本
 }
 
@@ -207,6 +208,65 @@ export function scanMailLog(text, { nowMs, hours = 24, days = 7 }) {
     totals: { lines: lines.length, timestamped, untimestamped, keywordless, mail: mails.length, alertSkipped: alerts.length },
     keywordCounts,
     windows,
+    lastTsMs,
+  }
+}
+
+/**
+ * 发信面之二:`.workbuddy/mail-send-ledger.jsonl`(生产者投递后自己落的机读账)。
+ *
+ * 为什么必须有第二面(2026-10-18 现读):本工具的判据是"ASCII 关键字 + 时间戳,中文一律不解码",
+ * 而 git-guardian 这一层的人到留痕是中文散文行 —— 当天这台机寄出 **28 封**,本工具账面上
+ * `MAIL=0 封 / 0 个签名`。最大的发信面在量算仪里是隐形的,风暴判据结构上打不到它,
+ * 于是"同一件事一天 18 封"这种失效**没有任何器物会喊**。台账用 ASCII 键名,量得到的同时
+ * 也不破坏"不解码中文正文"这条既有纪律(邮件正文/告警名一律不进输出,只留 producer+fp)。
+ *
+ * 三态纪律:坏行单独计数,既不并入总数也不读成"没寄过";`delivered:false` 的行是**欠账**
+ * (§5e 失败必须响),与成功分桶报数,不混进风暴。
+ */
+export function scanSendLedger(text, { nowMs, hours = 24, days = 7 } = {}) {
+  const lines = String(text || '').split(/\r?\n/)
+  const mails = []
+  const bad = []
+  let delivered = 0
+  let failed = 0
+  let lastTsMs = null
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (!line.trim()) continue
+    let row
+    try {
+      row = JSON.parse(line)
+    } catch {
+      bad.push(i + 1)
+      continue
+    }
+    const ms = Date.parse(String(row.at || ''))
+    if (!Number.isFinite(ms)) {
+      bad.push(i + 1)
+      continue
+    }
+    if (lastTsMs === null || ms > lastTsMs) lastTsMs = ms
+    if (row.delivered) delivered++
+    else failed++
+    if (!row.delivered) continue
+    const sig = `${row.producer || '?'} ${row.fp || '?'}`
+    mails.push({ ms, sig, id: sigId(sig), ascii: asciiFragment(sig) })
+  }
+  const inWin = (fromMs) => mails.filter((e) => e.ms >= fromMs && e.ms <= nowMs)
+  const w24 = inWin(nowMs - 24 * HOUR)
+  const byFp = new Map()
+  for (const e of w24) byFp.set(e.id, (byFp.get(e.id) || 0) + 1)
+  const top = [...byFp.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([id, n]) => ({ id, n }))
+  return {
+    mails,
+    totals: { rows: delivered + failed + bad.length, delivered, failed, badLines: bad.length, badLineNos: bad.slice(0, 10) },
+    windows: {
+      [`${hours}h`]: windowStats(mails, [], nowMs - hours * HOUR, nowMs, 'hourly'),
+      '24h': windowStats(w24, [], nowMs - 24 * HOUR, nowMs, 'hourly'),
+      [`${days}d`]: windowStats(mails, [], nowMs - days * DAY, nowMs, 'daily'),
+    },
+    top24h: top,
     lastTsMs,
   }
 }
@@ -523,6 +583,17 @@ function buildReport(o) {
       : { source: `发信日志 ${rel(o.mailPath)}`, state: 'undetermined', note: o.mailRead.reason },
   )
 
+  const ledger = o.ledgerRead && o.ledgerRead.ok ? scanSendLedger(o.ledgerRead.text, { nowMs, hours, days }) : null
+  coverage.push(
+    o.ledgerRead && o.ledgerRead.ok
+      ? {
+          source: `发信台账 ${rel(o.ledgerPath)}`,
+          state: 'covered',
+          note: `${ledger.totals.rows} 行 / 送达 ${ledger.totals.delivered} / 未送达 ${ledger.totals.failed}(§5e 欠账,不计入风暴)/ 坏行 ${ledger.totals.badLines}`,
+        }
+      : { source: `发信台账 ${rel(o.ledgerPath || SRC.mailLedger)}`, state: 'undetermined', note: (o.ledgerRead && o.ledgerRead.reason) || '(未报原因)' },
+  )
+
   const att = o.attRead.ok ? parseAttestation(o.attRead.text, { nowMs, hours, days }) : null
   coverage.push(
     o.attRead.ok
@@ -591,10 +662,16 @@ function buildReport(o) {
     noBatchTotal: att ? att.all.noBatchCount : null,
     stormClustersWindow: mail ? mail.windows[hKey].storms.length : null,
     stormClusters24h: mail ? mail.windows['24h'].storms.length : null,
+    // 台账面(发信面之二)同一条纪律:取不到 ⇒ null,不得用 0 冒充"没寄过"(S6 用例逐键钉住)
+    ledgerTotalWindow: ledger ? ledger.windows[hKey].mailCount : null,
+    ledgerTotal24h: ledger ? ledger.windows['24h'].mailCount : null,
+    ledgerTotal7d: ledger ? ledger.windows['7d'].mailCount : null,
+    ledgerUndelivered: ledger ? ledger.totals.failed : null,
+    ledgerStorms24h: ledger ? ledger.windows['24h'].storms.length : null,
     sourcesCovered: coverage.filter((c) => c.state === 'covered').length,
     sourcesUndetermined: undetermined.length,
   }
-  return { nowMs, hours, days, mail, att, st, dd, gateRows, coverage, summary, unreadable: undetermined.map((c) => `${c.source}: ${c.note}`) }
+  return { nowMs, hours, days, mail, ledger, att, st, dd, gateRows, coverage, summary, unreadable: undetermined.map((c) => `${c.source}: ${c.note}`) }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -660,6 +737,25 @@ function renderHuman(rep) {
   p(dd.state === 'ok' ? `  发信出口去重台账:${dd.entries} 个标识(4h 内活跃 ${dd.within4h},ts 不可解 ${dd.malformedTs})` : `  发信出口去重台账:未判定 —— ${dd.reason}`)
 
   p('')
+  p('①b 发信面之二 —— 机读投递台账 `.workbuddy/mail-send-ledger.jsonl`(2026-10-18 立)')
+  if (!rep.ledger) {
+    p('  未判定:台账取不到 ⇒ "这个面寄了几封"给不出结论(不得读成 0 封;git-guardian 那一层的每一封都会在这里留一行)。')
+  } else {
+    const L = rep.ledger
+    p(`  [近 24h] 送达=${L.windows['24h'].mailCount} 封 / 全窗=${L.totals.delivered} 封 / 未送达欠账=${L.totals.failed} 条 / 坏行=${L.totals.badLines}`)
+    if (L.top24h.length) {
+      p('  同一身份(producer+fp)24h 内寄了几封 —— 这就是"重复发信"的直接读数,不再依赖散文解码:')
+      for (const r of L.top24h) p(`      ${String(r.n).padStart(4)} 封  sig=${r.id}`)
+    }
+    const ls = L.windows['24h'].storms
+    if (ls.length) {
+      p(`  ⚠️ 风暴 ${ls.length} 簇(同身份 60 分钟内 ≥2 封)—— 去重身份里嵌了会自增的量,处置见 check-alert-identity-volatility.mjs 的判据`)
+      for (const s of ls.slice(0, 3)) p(`      sig=${s.id} ${s.count} 封 / 跨 ${(s.spanMs / MINUTE).toFixed(0)} 分钟`)
+    }
+    if (L.totals.badLines) p(`  ⚠️ 坏行不并入任何计数(行号尾 10:${L.totals.badLineNos.join(',')}),也不等于"没寄过"`)
+  }
+
+  p('')
   p('② 跳门面 —— `.workbuddy/safe-commit-attestation.jsonl`(跳门次数的唯一真值来源)')
   if (!rep.att) {
     p('  未判定:台账取不到 ⇒ "0 次跳门"这个结论今天给不出。')
@@ -696,6 +792,8 @@ function renderHuman(rep) {
       `alertSkippedTotal=${rep.summary.alertSkippedTotal} skipTotalAllTime=${rep.summary.skipTotalAllTime} ` +
       `skipTotalWindow=${rep.summary.skipTotalWindow} skipTotal24h=${rep.summary.skipTotal24h} skipTotal7d=${rep.summary.skipTotal7d} ` +
       `noBatchTotal=${rep.summary.noBatchTotal} stormClustersWindow=${rep.summary.stormClustersWindow} stormClusters24h=${rep.summary.stormClusters24h} ` +
+      `ledgerTotalWindow=${rep.summary.ledgerTotalWindow} ledgerTotal24h=${rep.summary.ledgerTotal24h} ledgerTotal7d=${rep.summary.ledgerTotal7d} ` +
+      `ledgerUndelivered=${rep.summary.ledgerUndelivered} ledgerStorms24h=${rep.summary.ledgerStorms24h} ` +
       `sourcesCovered=${rep.summary.sourcesCovered} sourcesUndetermined=${rep.summary.sourcesUndetermined}`,
   )
   p('')
@@ -712,7 +810,7 @@ function fmtKinds(kinds) {
 
 /** 射程边界必须**报名**,不得只报数(本仓"报数不报名"记过多次:守门 70/76/81 同族)。 */
 const NOT_COVERED = [
-  '其他生产者写的日志:alert-bridge、IHUI-MONITOR、git-guardian 的派发、blue-green workflow 的邮件 —— 本工具只读 deploy-loop.log 一份',
+  '其他生产者写的日志:alert-bridge、IHUI-MONITOR、blue-green workflow 的邮件 —— 这三面还没有机读台账,只有散文留痕(git-guardian 的派发自 2026-10-18 起落 ①b 台账,已纳入射程)',
   '被轮转/被删/被清空的旧日志:窗口内计数只反映文件现存部分',
   '手工 `git commit --no-verify`(不经 safe-commit 就不写台账 ⇒ 账面一次都没跳,现实可能跳了)',
   '邮件是否真的到达:只有日志侧留痕,SMTP/Resend 的回执不在这个面内',
@@ -746,6 +844,8 @@ function collect(opts = {}) {
     attPath,
     alertRaw: 'alertRaw' in opts ? opts.alertRaw : readJsonFile(alertPath),
     alertPath,
+    ledgerPath: opts.ledgerPath ?? SRC.mailLedger,
+    ledgerRead: opts.ledgerRead ?? readTextTail(opts.ledgerPath ?? SRC.mailLedger),
     dedupeRaw: 'dedupeRaw' in opts ? opts.dedupeRaw : readJsonFile(dedupePath),
     dedupePath,
     registryOk: registry.ok === true,
@@ -833,6 +933,62 @@ async function selfTest() {
       if (r.windows['24h'].storms.length !== 0) throw new Error('把常态节奏喊成风暴 = 报告失去可信度')
     })
 
+    t('S12 台账面必须量得出"同一身份一天寄了几封"(2026-10-18 那 18 封就是这一格看不见)', () => {
+      const nowMs = Date.parse('2026-10-18T10:00:00Z')
+      const row = (i, fp) => JSON.stringify({ at: new Date(nowMs - i * 16 * MINUTE).toISOString(), producer: 'git-guardian', name: '部署停摆(线上构建 vs origin/main)', fp, severity: 'critical', to: '5***@qq.com', delivered: true })
+      const same = Array.from({ length: 18 }, (_, i) => row(i, 'aaaaaaaaaaaa')).join('\n') + '\n'
+      const rep = collect({
+        nowMs,
+        mailRead: okRead(''),
+        mailPath: join(box, 'l.log'),
+        ledgerRead: okRead(same),
+        ledgerPath: join(box, 'same.jsonl'),
+        attRead: okRead(''),
+        attPath: join(box, 'l.jsonl'),
+        alertRaw: null,
+        dedupeRaw: null,
+        registry: { ok: false, reason: '夹具不提供' },
+      })
+      if (rep.summary.ledgerTotal24h !== 18) throw new Error(`24h 应 18 封,实得 ${rep.summary.ledgerTotal24h}`)
+      if (!rep.summary.ledgerStorms24h) throw new Error('同身份 18 封/24h 没被读成风暴 ⇒ 这一面的判据是死的')
+      if (rep.ledger.top24h[0].n !== 18) throw new Error(`身份计数应 18,实得 ${rep.ledger.top24h[0].n}`)
+      if (renderHuman(rep).includes('MAIL=0 封') && !renderHuman(rep).includes('送达=18')) throw new Error('人读档只报旧面的 0,不报台账面的 18')
+      // 反向对照:18 封分属 18 个身份 ⇒ 总数照报,风暴必须为 0(不能把"多样"读成"重复")
+      const many = Array.from({ length: 18 }, (_, i) => row(i, `bbbbbbbbbb${String(i).padStart(2, '0')}`)).join('\n') + '\n'
+      const rep2 = collect({
+        nowMs,
+        mailRead: okRead(''),
+        mailPath: join(box, 'l2.log'),
+        ledgerRead: okRead(many),
+        ledgerPath: join(box, 'many.jsonl'),
+        attRead: okRead(''),
+        attPath: join(box, 'l2.jsonl'),
+        alertRaw: null,
+        dedupeRaw: null,
+        registry: { ok: false, reason: '夹具不提供' },
+      })
+      if (rep2.summary.ledgerTotal24h !== 18) throw new Error('反向对照总数不对')
+      if (rep2.summary.ledgerStorms24h !== 0) throw new Error('18 个不同身份被并成一簇 = 把量错了的东西拿去报警')
+      // 未送达是欠账,不是发信;坏行不并入任何计数
+      const mixed = okRead(
+        [row(0, 'cccccccccccc'), JSON.stringify({ at: new Date(nowMs - MINUTE).toISOString(), producer: 'git-guardian', name: 'x', fp: 'dddddddddddd', delivered: false, why: 'smtp 拒收' }), '{坏行'].join('\n') + '\n',
+      )
+      const rep3 = collect({
+        nowMs,
+        mailRead: okRead(''),
+        mailPath: join(box, 'l3.log'),
+        ledgerRead: mixed,
+        ledgerPath: join(box, 'mix.jsonl'),
+        attRead: okRead(''),
+        attPath: join(box, 'l3.jsonl'),
+        alertRaw: null,
+        dedupeRaw: null,
+        registry: { ok: false, reason: '夹具不提供' },
+      })
+      if (rep3.summary.ledgerUndelivered !== 1) throw new Error('未送达欠账没单独报(§5e:失败必须响,但它不是一封已送达的信)')
+      if (rep3.summary.ledgerTotal24h !== 1) throw new Error('坏行或未送达行被并进了发信数')
+    })
+
     t('S4 签名归一必须折掉自增计数(否则量风暴就用的是酿成风暴的那把错尺子)', () => {
       const log = [
         '[2026-09-27 04:10:00 +00:00] [deploy] [04:10:00 +00:00] MAIL  sent 0.7h ago total 3 x@y.com',
@@ -864,6 +1020,8 @@ async function selfTest() {
         nowMs: Date.parse('2026-09-27T03:00:00Z'),
         mailRead: miss,
         mailPath: join(box, 'nope', 'absent.log'),
+        ledgerRead: miss,
+        ledgerPath: join(box, 'nope', 'absent-ledger.jsonl'),
         attRead: miss,
         attPath: join(box, 'nope', 'absent.jsonl'),
         alertRaw: null,
@@ -871,11 +1029,11 @@ async function selfTest() {
         registry: { ok: false, reason: '夹具不提供注册表' },
       })
       if (rep.summary.skipTotalAllTime !== null) throw new Error('台账取不到却报出了跳门数')
-      for (const k of ['mailTotalWindow', 'mailTotal24h', 'mailTotal7d', 'stormClustersWindow', 'stormClusters24h'])
-        if (rep.summary[k] !== null) throw new Error(`发信日志取不到却报出了 ${k} ⇒ 新增计数字段必须一起进"取不到即为 null"这张清单,漏一个就能伪装成结论`)
+      for (const k of ['mailTotalWindow', 'mailTotal24h', 'mailTotal7d', 'stormClustersWindow', 'stormClusters24h', 'ledgerTotalWindow', 'ledgerTotal24h', 'ledgerTotal7d', 'ledgerUndelivered', 'ledgerStorms24h'])
+        if (rep.summary[k] !== null) throw new Error(`${k} 取不到却报出了读数 ⇒ 新增计数字段必须一起进"取不到即为 null"这张清单,漏一个就能伪装成结论`)
       for (const k of ['skipTotalWindow', 'skipTotal24h', 'skipTotal7d'])
         if (rep.summary[k] !== null) throw new Error(`跳门台账取不到却报出了 ${k}`)
-      if (rep.summary.sourcesUndetermined < 5) throw new Error(`五个源都没读到,却只报 ${rep.summary.sourcesUndetermined} 条未判定`)
+      if (rep.summary.sourcesUndetermined < 6) throw new Error(`六个源都没读到,却只报 ${rep.summary.sourcesUndetermined} 条未判定`)
       const human = renderHuman(rep)
       if (!/未判定/.test(human)) throw new Error('人读档没喊未判定')
     })
@@ -909,6 +1067,8 @@ async function selfTest() {
         nowMs: Date.parse('2026-09-27T03:00:00Z'),
         mailRead: okRead(''),
         mailPath: join(box, 'empty.log'),
+        ledgerRead: okRead(''),
+        ledgerPath: join(box, 'ledger-empty.jsonl'),
         attRead: okRead(JSON.stringify({ ts: '2026-09-27T01:00:00.000Z', kind: 'mine', ranFullBatch: true, failedGates: ['777'] }) + '\n'),
         attPath: join(box, 'a.jsonl'),
         alertRaw: null,
@@ -935,6 +1095,8 @@ async function selfTest() {
         nowMs: Date.parse('2026-09-27T05:00:00Z'),
         mailRead: okRead([gbkText, '[2026-09-27 04:30:00 +00:00] [deploy] [04:30:00 +00:00] ALERT dup skipped'].join('\n')),
         mailPath: join(box, 'gbk.log'),
+        ledgerRead: okRead(''),
+        ledgerPath: join(box, 'ledger-gbk.jsonl'),
         attRead: okRead(JSON.stringify({ ts: '2026-09-27T01:00:00.000Z', kind: 'not-ours', ranFullBatch: true, failedGates: ['104'] }) + '\n'),
         attPath: join(box, 'a.jsonl'),
         alertRaw: { value: { sig: 'git merge 失败 3 次', repeatNo: 7, sigTs: '2026-09-27T04:00:00Z' } },
@@ -972,6 +1134,8 @@ async function selfTest() {
           ].join('\n'),
         ),
         mailPath: join(box, 'w.log'),
+        ledgerRead: okRead(''),
+        ledgerPath: join(box, 'ledger-w.jsonl'),
         attRead: okRead(
           [
             JSON.stringify({ ts: '2026-09-27T04:00:00.000Z', kind: 'mine', ranFullBatch: true, failedGates: ['44'] }),
