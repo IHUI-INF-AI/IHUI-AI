@@ -197,14 +197,6 @@ scrape_configs:
           service: 'promtail'
           layer: 'infra'
 
-  - job_name: 'grafana'
-    metrics_path: '/metrics'
-    scheme: 'http'
-    static_configs:
-      - targets: ['localhost:8816']
-        labels:
-          service: 'grafana'
-          layer: 'infra'
 
   # RSSHub(自建国内媒体 RSS 聚合器,IHUI-RSSHUB 服务,监听 127.0.0.1:12000,LISTEN_INADDR_ANY=false)
   # 消费方:apps/api jobs/ai-world-sync 的 RSS_FEEDS_CHINA 五个国内源(每日 0/12 点)。
