@@ -32,8 +32,13 @@ const hookState = vi.hoisted((): UseHostGitWorkspaceResult => ({
   info: null,
   error: null,
   busy: null,
+  diff: null,
+  index: null,
   authorize: vi.fn(),
   refresh: vi.fn(),
+  getDiff: vi.fn(),
+  scanIndex: vi.fn(),
+  clearDiff: vi.fn(),
 }))
 
 vi.mock('@/hooks/use-host-git-workspace', () => ({
@@ -69,6 +74,9 @@ beforeEach(() => {
   hookState.info = null
   hookState.error = null
   hookState.busy = null
+  hookState.diff = null
+  hookState.index = null
+  vi.clearAllMocks()
 })
 
 describe('V3 #72 / HostGitSection 三态不得混形', () => {
@@ -150,6 +158,96 @@ describe('V3 #72 / HostGitSection 三态不得混形', () => {
     )
     expect(btn?.disabled).toBe(true)
     expect(line(container)?.textContent).toContain('hostGit.noWorkspace')
+  })
+})
+
+describe('V3 #72① / diff 与 index 两格同守三态纪律', () => {
+  it('点条目 ⇒ 以该条路径发 getDiff(不整根刷)', async () => {
+    hookState.status = reply({})
+    const { container } = render(<HostGitSection />)
+    const entry = container.querySelector('[data-testid="host-git-entry"]')
+    expect(entry).not.toBeNull()
+    entry!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(hookState.getDiff).toHaveBeenCalledWith('src/a.ts')
+  })
+
+  it('diff undetermined ⇒ 面板画"取不到"带原因,绝不出现 clean 档位', () => {
+    hookState.diff = {
+      state: 'undetermined',
+      verdict: 'no_root',
+      reason: '尚未授权工作区根',
+      scope: 'src/a.ts',
+      staged: false,
+      text: '',
+      total_bytes: 0,
+    }
+    const { container } = render(<HostGitSection />)
+    const panel = container.querySelector('[data-testid="host-git-diff-panel"]')
+    expect(panel?.getAttribute('data-state')).toBe('undetermined')
+    expect(panel?.textContent).toContain('尚未授权工作区根')
+    expect(panel?.textContent).not.toContain('hostGit.diffClean')
+  })
+
+  it('diff facts+dirty ⇒ 正文原样进 <pre>;关闭钮触发 clearDiff', async () => {
+    hookState.diff = {
+      state: 'facts',
+      verdict: 'dirty',
+      reason: '',
+      scope: 'src/a.ts',
+      staged: false,
+      text: 'diff --git a/src/a.ts b/src/a.ts',
+      total_bytes: 33,
+    }
+    const { container } = render(<HostGitSection />)
+    const panel = container.querySelector('pre[data-testid="host-git-diff-panel"]')
+    expect(panel?.textContent).toBe('diff --git a/src/a.ts b/src/a.ts')
+    container
+      .querySelector('[data-testid="host-git-diff-close"]')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(hookState.clearDiff).toHaveBeenCalled()
+  })
+
+  it('index undetermined ⇒ 独立一格带宿主原因,不与"空目录"同形', () => {
+    hookState.index = {
+      state: 'undetermined',
+      reason: '根目录不可读',
+      root: '',
+      total: 0,
+      entries: [],
+      symlink_dirs_skipped: 0,
+      non_utf8_skipped: 0,
+      delta: null,
+    }
+    const { container } = render(<HostGitSection />)
+    const el = container.querySelector('[data-testid="host-git-index-line"]')
+    expect(el?.getAttribute('data-state')).toBe('undetermined')
+    expect(el?.textContent).toContain('根目录不可读')
+  })
+
+  it('index facts + delta ⇒ 数字格;facts 无 delta ⇒ 明说"首次扫描,无对比基准"', () => {
+    hookState.index = {
+      state: 'facts',
+      reason: '',
+      root: 'D:/repo',
+      total: 12,
+      entries: [],
+      symlink_dirs_skipped: 2,
+      non_utf8_skipped: 1,
+      delta: { basis: 'rel+size+mtime_ms', added: ['a'], removed: ['b'], changed: ['c'], unchanged: 9 },
+    }
+    const { container } = render(<HostGitSection />)
+    let el = container.querySelector('[data-testid="host-git-index-line"]')
+    expect(el?.getAttribute('data-state')).toBe('facts')
+    expect(el?.textContent).toContain('12')
+    expect(el?.textContent).toContain('hostGit.indexDelta')
+    expect(el?.textContent).toContain('hostGit.indexSkipped')
+
+    hookState.index = { ...hookState.index, total: 7, symlink_dirs_skipped: 0, non_utf8_skipped: 0, delta: null }
+    const { container: c2, unmount } = render(<HostGitSection />)
+    el = c2.querySelector('[data-testid="host-git-index-line"]')
+    expect(el?.textContent).toContain('hostGit.indexFirst')
+    expect(el?.textContent).not.toContain('hostGit.indexSkipped')
+    unmount()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

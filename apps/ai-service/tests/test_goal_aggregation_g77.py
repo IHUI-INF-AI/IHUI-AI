@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
 from app.routers import sessions as sessions_router
 from app.routers.goal_verification import CriterionOut, _record_engine_assessment
 from app.services.session_store import (

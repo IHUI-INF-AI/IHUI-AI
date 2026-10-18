@@ -54,13 +54,18 @@ const KIND_MAP = {
   barchart: 'timeseries',
   stat: 'stat',
   gauge: 'gauge',
+  bargauge: 'gauge', // bargauge 也是最新值语义,与 gauge 同渲染
   table: 'table',
   piechart: 'pie',
   logs: 'logs',
+  heatmap: 'timeseries', // 热力图降级为多序列折线(逐档一条线),不留静默丢面板
 };
 
 function normalizeExpr(raw) {
   let e = raw
+    // 裸写的 $__rate_interval(不带花括号,如 bullmq/pg_deploy 盘)若落到下面的
+    // \$(\w+) 兜底会被替换成 .* 生成 [.*] 非法 PromQL —— 必须在兜底前先归一
+    .replace(/\$__rate_interval/g, '$__interval')
     .replace(/\$\{__rate_interval\}/g, '$__interval')
     .replace(/\$\{(\w+):[^}]*\}/g, '$$$1')
     .replace(/\$\{(\w+)\}/g, (m, v) => (v === '__range' || v === '__interval' ? `$${v}` : '.*'))
@@ -94,12 +99,21 @@ function walkPanels(panels, out) {
         .map((d) => (typeof d === 'string' ? d : d.type)),
     );
     const backend = dsTypes.has('loki') ? 'loki' : 'prometheus';
+    const fd = p.fieldConfig?.defaults ?? {};
+    const thresholds = Array.isArray(fd.thresholds?.steps)
+      ? fd.thresholds.steps
+          .filter((s) => s && typeof s.color === 'string')
+          .map((s) => ({ color: s.color, value: typeof s.value === 'number' ? s.value : null }))
+      : undefined;
     out.push({
       id: String(p.id ?? `${p.type}-${out.length}`),
       title: String(p.title ?? '(无标题)'),
       kind,
       backend,
-      unit: p.fieldConfig?.defaults?.unit || undefined,
+      unit: fd.unit || undefined,
+      min: typeof fd.min === 'number' ? fd.min : undefined,
+      max: typeof fd.max === 'number' ? fd.max : undefined,
+      thresholds: thresholds && thresholds.length ? thresholds : undefined,
       span: (p.gridPos?.w ?? 12) >= 12 ? 'full' : 'half',
       targets,
     });
@@ -144,6 +158,11 @@ export interface NativePanel {
   kind: PanelKind
   backend: PanelBackend
   unit?: string
+  /** Grafana fieldConfig.defaults 显式声明的量程(gauge 量程以此为准,不再自造) */
+  min?: number
+  max?: number
+  /** Grafana thresholds.steps(从 -Inf 起升序),gauge 渲染成轴色带 */
+  thresholds?: Array<{ color: string; value: number | null }>
   span: 'full' | 'half'
   targets: PanelTarget[]
 }
