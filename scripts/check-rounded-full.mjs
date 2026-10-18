@@ -327,7 +327,7 @@ function getStagedAddedLines() {
       encoding: 'utf8',
       cwd: ROOT,
       maxBuffer: 50 * 1024 * 1024,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
   } catch {
@@ -377,7 +377,7 @@ function getStagedFiles() {
     const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
       encoding: 'utf8',
       cwd: ROOT,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
     return output

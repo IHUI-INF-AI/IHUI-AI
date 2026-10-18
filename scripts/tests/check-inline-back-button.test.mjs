@@ -33,7 +33,7 @@ const run = (args, env = {}) =>
     cwd: REPO,
     encoding: 'utf8',
     // 2026-10-05:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['pipe', 'pipe', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe'],
     timeout: 300_000,
     maxBuffer: 1 << 26,
     windowsHide: true,
