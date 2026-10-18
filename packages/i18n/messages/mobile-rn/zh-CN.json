@@ -237,6 +237,7 @@
     "runtimeSend": "发送"
   },
   "chat": {
+    "modelSwitchStopped": "已切换到 {model},本轮回答已终止",
     "meta": {
       "pullOnly": "该会话的改动将在下次打开列表时同步"
     },
