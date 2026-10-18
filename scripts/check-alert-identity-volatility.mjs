@@ -22,8 +22,16 @@
  *        (`alertCountTier` / `alertHeldTier` / `classifyAlertIdentity` / ps1 的 `Get-*Tier`)
  *        ⇒ 判红。
  *      · 状态量(exit 码、类别标签、名称集合)不算抖动 ⇒ 放过。
+ *  - **V1b(明细进指纹)**:自带 `function fingerprint(...)` 那一层把 `detail` 并进身份而没有
+ *    稳定 `identity` 种子 ⇒ 判红(时刻/原因原文/"连续 N 次"都在 detail 里)。
  *  - **V2(第二份尺子)**:同一文件里既自定义计数折档(`function tier(`/`const tier =`)又有
  *    `alertCountTier` ⇒ 判红(§0.6/§22c:两副边界必然漂开)。
+ *  - **V3(射程声明对账,输入 = `scripts/data/alert-mail-faces.json`)**:每一面发信出口要么声明
+ *    `inScope:true` 且**真的落在 `SCOPE_PREFIXES` 里**(否则 = 拿没装好的尺子冒充覆盖 ⇒ 红),
+ *    要么声明 `inScope:false` 并写满 `gapReason`+`ticket`+`until`(缺一项 ⇒ 静默缺口红;
+ *    到期 ⇒ 回队列红;`until` 不可解 ⇒ 等于永久豁免,红);`producerPath` 在 HEAD 面已不存在 ⇒
+ *    清单腐烂红。这一维才是今天的真教训:**"覆盖了多少面"这件事本身没有器物对账**,所以一把
+ *    号称量发信量的尺子可以安静地漏掉最大那个面好几天(28 封在它账面上是 MAIL=0)。
  *
  * 定级:提交链走**该文件 HEAD 自身命中数**的差值棘轮(锚点 = 该文件 HEAD 面自己的 V1+V2 命中数,
  * 只拦"本次把抖动身份加回来");现读存量只报数,`--strict` 才问责。理由同 §12e:与本次提交内容
@@ -55,6 +63,8 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const EXEMPTION_LEDGER = 'scripts/data/alert-identity-exemptions.json'
+/** 发信面台账(V3 的输入):每一面要么在射程内,要么写明缺口理由+出处+到期日。 */
+const MAIL_FACES_LEDGER = 'scripts/data/alert-mail-faces.json'
 
 /**
  * 射程枚举:先问"哪些文件里有发信构造"(git grep 在**被审面**上问,不读工作区),再只把那几份
@@ -246,6 +256,51 @@ export function isExempted(hit, active) {
   return active.some((r) => r.file === hit.file && r.kind === hit.kind)
 }
 
+/**
+ * V3 —— 发信面台账对账(2026-10-18 立,这一维才是今天真正的教训)。
+ *
+ * 今天那 18 封不是我看不见才没修:量算仪 `alert-volume-report.mjs` 只读 `deploy-loop.log` 一份,
+ * 而 git-guardian 那一面寄了 28 封 —— 它的账面上写着 `MAIL=0`。**"覆盖了多少面"这件事本身没有
+ * 任何器物对账**,所以一把号称量发信量的尺子可以安静地漏掉最大那个面好几天。
+ * 于是本门不只判身份,还判"射程声明":台账里每一条声明 `inScope:true` 的生产者,必须真的落在
+ * 本门的 `SCOPE_PREFIXES` 里(否则就是"登了却扫不到"的假覆盖);声明 `inScope:false` 的必须写明
+ * 缺口理由 + 出处 + 到期日(否则就是静默缺口);路径在 HEAD 面已不存在 ⇒ 清单腐烂即红。
+ * @param {Array<object>} rows 台账解析结果(null ⇒ 由调用方落未判定)
+ * @param {Set<string>} headFiles HEAD 面的全部路径
+ * @param {{nowMs:number, prefixes?:string[]}} opts
+ */
+export function judgeMailFaces(rows, headFiles, { nowMs, prefixes = SCOPE_PREFIXES } = {}) {
+  const hits = []
+  for (const r of rows) {
+    const path = String(r?.producerPath || '')
+    if (!path) {
+      hits.push({ file: MAIL_FACES_LEDGER, line: 1, kind: 'V3/台账形状', detail: '有一条 producerPath 为空' })
+      continue
+    }
+    if (!headFiles.has(path)) {
+      hits.push({ file: MAIL_FACES_LEDGER, line: 1, kind: 'V3/清单腐烂', detail: `${path} 在被审面已不存在` })
+      continue
+    }
+    if (r.inScope === true) {
+      if (!prefixes.some((p) => path.startsWith(p)))
+        hits.push({ file: MAIL_FACES_LEDGER, line: 1, kind: 'V3/假覆盖', detail: `${path} 声明在射程内,但射程里没有它(= 拿没装好的尺子冒充覆盖)` })
+      continue
+    }
+    const gap = [!r.gapReason && '缺口理由', !r.ticket && '出处', !r.until && '到期日'].filter(Boolean)
+    if (gap.length) {
+      hits.push({ file: MAIL_FACES_LEDGER, line: 1, kind: 'V3/静默缺口', detail: `${path} 声明不在射程却缺 ${gap.join('/')}(§0.10:方向是多要一次说明,绝不是安静放行)` })
+      continue
+    }
+    const untilMs = Date.parse(String(r.until))
+    if (!Number.isFinite(untilMs)) {
+      hits.push({ file: MAIL_FACES_LEDGER, line: 1, kind: 'V3/到期日不可解', detail: `${path} 的 until=${r.until} ⇒ 等于永久豁免` })
+    } else if (untilMs < nowMs) {
+      hits.push({ file: MAIL_FACES_LEDGER, line: 1, kind: 'V3/缺口到期回队列', detail: `${path} 的射程缺口已于 ${r.until} 到期,须补判据或重登记` })
+    }
+  }
+  return hits
+}
+
 /** 差值棘轮锚点:该文件 HEAD 自身的命中数。 */
 export function ratchet(currentByFile, headByFile, newlyTouched) {
   const out = []
@@ -278,6 +333,26 @@ function collect(face, pathsForList) {
   return { hits, producers, undetermined }
 }
 
+/**
+ * V3 的取数:读被审面上的发信面台账 + HEAD 的路径全集。
+ * 台账取不到/解不开/枚举为空 ⇒ 一律落未判定(§0.3),不得读成"没有缺口"。
+ */
+function collectMailFaces(face, nowMs = Date.now()) {
+  const text = readFaceTexts(face, [MAIL_FACES_LEDGER])[0]?.text
+  if (!text) return { hits: [], undetermined: [`${MAIL_FACES_LEDGER} 在被审面取不到`] }
+  let rows
+  try {
+    rows = JSON.parse(text)
+  } catch {
+    return { hits: [], undetermined: [`${MAIL_FACES_LEDGER} 解不开(形状坏 ⇒ 既不放行也不冒红,与第三方台账同一条判序)`] }
+  }
+  if (!Array.isArray(rows) || !rows.length) return { hits: [], undetermined: [`${MAIL_FACES_LEDGER} 枚举到 0 条 ⇒ 判死不记绿`] }
+  const listed = String(gitRaw(['ls-tree', '-r', '--name-only', 'HEAD'], ROOT) || '').split(/\r?\n/)
+  if (!listed.length || (listed.length === 1 && !listed[0]))
+    return { hits: [], undetermined: ['HEAD 路径全集取不到 ⇒ 无从判"清单是否腐烂",不记绿'] }
+  return { hits: judgeMailFaces(rows, new Set(listed), { nowMs }), undetermined: [] }
+}
+
 function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) process.exit(runSelfTest())
@@ -293,6 +368,15 @@ function main() {
     process.exit(2)
   }
   const head = collect('head', listProducerPaths)
+  // V3 与 V1/V2 同一套棘轮与豁免:命中记在台账那个文件名下,锚点 = 该文件 HEAD 自身命中数,
+  // 所以"补台账时顺手把一条过期缺口带进来"会被拦,而"别人那格的历史缺口"不会挡住本次提交。
+  const facesNow = collectMailFaces(face)
+  if (facesNow.undetermined.length) {
+    console.log(`未判定:发信面台账这一维取不到 ⇒ ${facesNow.undetermined.join(' ; ')}(不记绿也不冒红)`)
+    process.exit(2)
+  }
+  if (Array.isArray(full.hits)) full.hits.push(...facesNow.hits)
+  if (Array.isArray(head.hits)) head.hits.push(...(face === 'head' ? facesNow.hits : collectMailFaces('head').hits))
   const { active, expired, badLedger } = readExemptions()
   if (badLedger) {
     console.log('未判定:豁免台账形状不可解(既不放行也不冒红)')
@@ -412,6 +496,31 @@ function runSelfTest() {
     const real = 'notifyGuardRed(n, d, { dedupKey: `x;tip=${p.tipSha}` })'
     if (!judgeFile('scripts/a.mjs', real).length) throw new Error('真模板字面量读不到 = 门被做瞎(用 blankStrings 就是这一型)')
   })
+  t('V3 射程声明对账:假覆盖/静默缺口/到期缺口/清单腐烂四型都红,合规条目不红', () => {
+    const files = new Set(['scripts/git-guardian.mjs', 'monitoring/x.cjs', 'monitoring/y.cjs', 'monitoring/z.cjs', 'monitoring/w.cjs', 'apps/ai-service/app/services/a.py'])
+    const now = Date.parse('2026-10-18T00:00:00.000Z')
+    const ok = [
+      { producerPath: 'scripts/git-guardian.mjs', inScope: true },
+      { producerPath: 'monitoring/x.cjs', inScope: false, gapReason: '词法未装', ticket: 'G-1', until: '2026-12-31' },
+    ]
+    if (judgeMailFaces(ok, files, { nowMs: now }).length) throw new Error('合规条目被误判')
+    const bad = [
+      // 文件在,却声明"在射程内"而射程里没有那个前缀 ⇒ 假覆盖(拿没装好的尺子冒充覆盖)
+      { producerPath: 'monitoring/y.cjs', inScope: true },
+      // 声明不在射程却不写理由/出处/到期 ⇒ 静默缺口
+      { producerPath: 'monitoring/z.cjs', inScope: false },
+      // 缺口到期 ⇒ 回队列
+      { producerPath: 'apps/ai-service/app/services/a.py', inScope: false, gapReason: 'x', ticket: 't', until: '2026-01-01' },
+      // 台账指向 HEAD 面已不存在的路径 ⇒ 清单腐烂
+      { producerPath: 'scripts/gone.mjs', inScope: true },
+    ]
+    const kinds = judgeMailFaces(bad, files, { nowMs: now }).map((h) => h.kind)
+    for (const want of ['V3/假覆盖', 'V3/静默缺口', 'V3/缺口到期回队列', 'V3/清单腐烂'])
+      if (!kinds.includes(want)) throw new Error(`漏判 ${want},实测 ${kinds.join(' | ')}`)
+    // 到期日写成人眼看不懂的形式(比如裸月份)⇒ 等于永久豁免,必须单独红
+    const unparse = judgeMailFaces([{ producerPath: 'monitoring/w.cjs', inScope: false, gapReason: 'x', ticket: 't', until: '31/12' }], new Set(['monitoring/w.cjs']), { nowMs: now })
+    if (!unparse.some((h) => h.kind === 'V3/到期日不可解')) throw new Error('不可解的到期日没被拦(=静默永久豁免)')
+  })
   let pass = 0
   for (const c of cases) {
     try {
@@ -439,7 +548,11 @@ export const __test__ = {
   readExemptions,
   isExempted,
   secondTierRuler,
+  judgeMailFaces,
+  collectMailFaces,
   listProducerPaths,
+  MAIL_FACES_LEDGER,
+  EXEMPTION_LEDGER,
   PRODUCER_RE,
   SKIP_PATH_RE,
   VOLATILE_RULES,

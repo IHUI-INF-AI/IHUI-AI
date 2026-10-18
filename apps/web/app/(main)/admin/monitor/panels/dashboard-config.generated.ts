@@ -24,6 +24,11 @@ export interface NativePanel {
   kind: PanelKind
   backend: PanelBackend
   unit?: string
+  /** Grafana fieldConfig.defaults 显式声明的量程(gauge 量程以此为准,不再自造) */
+  min?: number
+  max?: number
+  /** Grafana thresholds.steps(从 -Inf 起升序),gauge 渲染成轴色带 */
+  thresholds?: Array<{ color: string; value: number | null }>
   span: 'full' | 'half'
   targets: PanelTarget[]
 }
@@ -46,6 +51,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "循环执行速率(按收尾原因)",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -60,6 +71,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "循环错误速率(按错误类型)",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -74,6 +91,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "LLM 重试速率(按错误类型)",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -88,6 +111,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "工具重试次数(区间)",
         "kind": "stat",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -103,6 +132,24 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "percentunit",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.05
+          },
+          {
+            "color": "red",
+            "value": 0.2
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -117,6 +164,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "融合提案/评审调用速率",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -137,6 +190,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "percentunit",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 0.7
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -151,6 +218,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "压缩后 token 比 P95",
         "kind": "stat",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -165,6 +238,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "切换触发(主→备)",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -179,6 +258,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "切换失败(主→备)",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -216,6 +301,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "currencyUSD",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -231,6 +322,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "currencyUSD",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -246,6 +343,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "currencyUSD",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -260,6 +363,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "支出是否在被采集",
         "kind": "stat",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 0
+          },
+          {
+            "color": "green",
+            "value": 1
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -275,6 +392,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "timeseries",
         "backend": "prometheus",
         "unit": "currencyUSD",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -290,6 +413,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "timeseries",
         "backend": "prometheus",
         "unit": "currencyUSD",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -304,6 +433,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "Token 输入/输出速率",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -334,6 +469,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "table",
         "backend": "prometheus",
         "unit": "currencyUSD",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -349,6 +490,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "currencyCNY",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -363,6 +510,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "落账调用速率(按类型)",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -377,6 +530,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "Token 速率(按方向)",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -391,6 +550,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "成本落库失败(区间,应为 0)",
         "kind": "stat",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 1
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -405,6 +578,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "被基数护栏拒掉的序列写入(区间)",
         "kind": "stat",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 1
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -419,6 +606,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "端点抓取存活",
         "kind": "stat",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 1
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -434,6 +635,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "table",
         "backend": "prometheus",
         "unit": "currencyCNY",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -456,6 +663,24 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 3
+          },
+          {
+            "color": "red",
+            "value": 10
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -471,6 +696,24 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 5
+          },
+          {
+            "color": "red",
+            "value": 15
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -486,6 +729,24 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 10
+          },
+          {
+            "color": "red",
+            "value": 30
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -501,6 +762,24 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "percentunit",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.01
+          },
+          {
+            "color": "red",
+            "value": 0.05
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -516,6 +795,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "timeseries",
         "backend": "prometheus",
         "unit": "s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -530,6 +815,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "流式中断速率(按原因)",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -544,6 +835,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "模型调用速率 Top10",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -559,6 +856,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "timeseries",
         "backend": "prometheus",
         "unit": "s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -573,12 +876,39 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "厂商错误率",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
             "ref": "A",
             "expr": "sum by (provider) (rate(ihui_llm_provider_errors_total{job=\"ai-service\",provider=~\".*\"}[1h]))",
             "legend": "{{provider}}"
+          }
+        ]
+      },
+      {
+        "id": "112",
+        "title": "P95 延迟热区(厂商×模型)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "histogram_quantile(0.95, sum by (le, provider, model) (rate(ihui_llm_request_duration_seconds_bucket{job=\"ai-service\"}[1h])))",
+            "legend": "{{provider}}/{{model}}"
           }
         ]
       }
@@ -595,6 +925,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "timeseries",
         "backend": "loki",
         "unit": "logs/s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -610,6 +946,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "timeseries",
         "backend": "loki",
         "unit": "short",
+        "thresholds": [
+          {
+            "color": "text",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -635,6 +977,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "timeseries",
         "backend": "loki",
         "unit": "short",
+        "thresholds": [
+          {
+            "color": "orange",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -650,6 +998,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "timeseries",
         "backend": "loki",
         "unit": "short",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -665,6 +1019,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "loki",
         "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "orange",
+            "value": 1000
+          },
+          {
+            "color": "red",
+            "value": 10000
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -743,6 +1111,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 100
+          },
+          {
+            "color": "red",
+            "value": 500
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -773,6 +1155,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "ms",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 15
+          },
+          {
+            "color": "red",
+            "value": 60
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -788,6 +1184,22 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "short",
+        "min": 0,
+        "max": 100,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 20
+          },
+          {
+            "color": "red",
+            "value": 50
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -905,6 +1317,22 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "percentunit",
+        "min": 0,
+        "max": 1,
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.7
+          },
+          {
+            "color": "green",
+            "value": 0.9
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -935,6 +1363,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 20
+          },
+          {
+            "color": "red",
+            "value": 100
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1046,6 +1488,21 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "reqps",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 1000
+          },
+          {
+            "color": "red",
+            "value": 5000
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1076,6 +1533,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 50
+          },
+          {
+            "color": "red",
+            "value": 200
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1091,6 +1562,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 100
+          },
+          {
+            "color": "red",
+            "value": 500
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1125,7 +1610,7 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "targets": [
           {
             "ref": "A",
-            "expr": "sum(rate(business_job_executions_total{instance=~\".*\"}[.*]))",
+            "expr": "sum(rate(business_job_executions_total{instance=~\".*\"}[$__interval]))",
             "legend": "总处理速率"
           }
         ]
@@ -1243,11 +1728,45 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         ]
       },
       {
-        "id": "stat-2",
+        "id": "bargauge-2",
+        "title": "转化漏斗（注册→支付成功）",
+        "kind": "gauge",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(business_funnel_total{stage=\"register\"})",
+            "legend": "注册"
+          },
+          {
+            "ref": "B",
+            "expr": "sum(business_payments_total{status=\"success\"})",
+            "legend": "支付成功"
+          }
+        ]
+      },
+      {
+        "id": "stat-3",
         "title": "转化率（注册→支付成功）",
         "kind": "stat",
         "backend": "prometheus",
         "unit": "percentunit",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.1
+          },
+          {
+            "color": "green",
+            "value": 0.3
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -1258,11 +1777,13 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         ]
       },
       {
-        "id": "timeseries-3",
+        "id": "timeseries-4",
         "title": "API 调用成功率",
         "kind": "timeseries",
         "backend": "prometheus",
         "unit": "percentunit",
+        "min": 0,
+        "max": 1,
         "span": "full",
         "targets": [
           {
@@ -1273,7 +1794,7 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         ]
       },
       {
-        "id": "timeseries-4",
+        "id": "timeseries-5",
         "title": "API 延迟分位数 (p50/p95/p99)",
         "kind": "timeseries",
         "backend": "prometheus",
@@ -1298,7 +1819,7 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         ]
       },
       {
-        "id": "timeseries-5",
+        "id": "timeseries-6",
         "title": "订单量趋势",
         "kind": "timeseries",
         "backend": "prometheus",
@@ -1313,7 +1834,7 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         ]
       },
       {
-        "id": "piechart-6",
+        "id": "piechart-7",
         "title": "支付状态分布",
         "kind": "pie",
         "backend": "prometheus",
@@ -1339,6 +1860,22 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "percentunit",
+        "min": 0,
+        "max": 1,
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.7
+          },
+          {
+            "color": "green",
+            "value": 0.9
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1465,6 +2002,21 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "short",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 100
+          },
+          {
+            "color": "red",
+            "value": 500
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1480,6 +2032,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "percentunit",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.7
+          },
+          {
+            "color": "green",
+            "value": 0.9
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1495,6 +2061,22 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "short",
+        "min": 0,
+        "max": 100,
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 60
+          },
+          {
+            "color": "green",
+            "value": 80
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1597,6 +2179,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "LLM 调用指标时序数",
         "kind": "stat",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 0
+          },
+          {
+            "color": "green",
+            "value": 1
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1611,6 +2207,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "Agent 指标时序数",
         "kind": "stat",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 0
+          },
+          {
+            "color": "green",
+            "value": 1
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1625,6 +2235,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "AI 服务存活",
         "kind": "stat",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 0
+          },
+          {
+            "color": "green",
+            "value": 1
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1640,6 +2264,24 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 60
+          },
+          {
+            "color": "red",
+            "value": 300
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1654,6 +2296,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "调用尝试速率(次/秒)",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -1669,6 +2317,24 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "percentunit",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.9
+          },
+          {
+            "color": "green",
+            "value": 0.98
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1683,6 +2349,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "活跃 LLM 会话",
         "kind": "stat",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1698,6 +2370,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "timeseries",
         "backend": "prometheus",
         "unit": "s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -1723,6 +2401,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "timeseries",
         "backend": "prometheus",
         "unit": "s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -1748,6 +2432,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "timeseries",
         "backend": "prometheus",
         "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1763,6 +2453,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "currencyUSD",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1778,6 +2474,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "percentunit",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 0.2
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1792,6 +2502,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "按厂商调用速率",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1806,6 +2522,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "按厂商错误分布",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1821,6 +2543,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "timeseries",
         "backend": "prometheus",
         "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1835,6 +2563,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "备用切换触发速率(按原因)",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1850,6 +2584,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "percentunit",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 0.5
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1864,6 +2612,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "上下文压缩触发次数(区间)",
         "kind": "stat",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1878,6 +2632,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "落账调用速率(按调用类型)",
         "kind": "timeseries",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1893,6 +2653,12 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "currencyCNY",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1907,6 +2673,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "title": "业务口径时序数",
         "kind": "stat",
         "backend": "prometheus",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 0
+          },
+          {
+            "color": "green",
+            "value": 1
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1929,6 +2709,21 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "short",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 100
+          },
+          {
+            "color": "green",
+            "value": 1000
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -1944,6 +2739,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 5
+          },
+          {
+            "color": "red",
+            "value": 20
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2026,6 +2835,22 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "percent",
+        "min": 0,
+        "max": 1,
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.9
+          },
+          {
+            "color": "green",
+            "value": 0.99
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2041,6 +2866,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "ms",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 200
+          },
+          {
+            "color": "red",
+            "value": 500
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2056,6 +2895,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 10
+          },
+          {
+            "color": "red",
+            "value": 50
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2123,6 +2976,21 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "decgbytes",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 500
+          },
+          {
+            "color": "red",
+            "value": 1000
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2153,6 +3021,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "percentunit",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.01
+          },
+          {
+            "color": "red",
+            "value": 0.05
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2240,6 +3122,22 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "percentunit",
+        "min": 0,
+        "max": 1,
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.9
+          },
+          {
+            "color": "green",
+            "value": 0.97
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2255,6 +3153,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "percentunit",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.05
+          },
+          {
+            "color": "red",
+            "value": 0.1
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2270,6 +3182,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 10
+          },
+          {
+            "color": "red",
+            "value": 50
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2285,6 +3211,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "percentunit",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.9
+          },
+          {
+            "color": "green",
+            "value": 0.98
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2386,6 +3326,22 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "percent",
+        "min": 0,
+        "max": 1,
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.85
+          },
+          {
+            "color": "green",
+            "value": 0.95
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2416,6 +3372,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 1
+          },
+          {
+            "color": "red",
+            "value": 5
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2446,6 +3416,16 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "timeseries",
         "backend": "prometheus",
         "unit": "s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 1
+          }
+        ],
         "span": "full",
         "targets": [
           {
@@ -2480,7 +3460,7 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "targets": [
           {
             "ref": "A",
-            "expr": "sum(rate(pg_stat_archiver_archived_count{instance=~\".*\"}[.*]))",
+            "expr": "sum(rate(pg_stat_archiver_archived_count{instance=~\".*\"}[$__interval]))",
             "legend": "归档速率"
           }
         ]
@@ -2491,6 +3471,8 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "timeseries",
         "backend": "prometheus",
         "unit": "reqps",
+        "min": 0,
+        "max": 1,
         "span": "full",
         "targets": [
           {
@@ -2548,6 +3530,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 10
+          },
+          {
+            "color": "red",
+            "value": 50
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2563,6 +3559,21 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "short",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 5
+          },
+          {
+            "color": "red",
+            "value": 20
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2645,6 +3656,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "short",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 3
+          },
+          {
+            "color": "green",
+            "value": 6
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2690,6 +3715,22 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "percentunit",
+        "min": 0,
+        "max": 1,
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.7
+          },
+          {
+            "color": "green",
+            "value": 0.95
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2807,6 +3848,21 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "short",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 10
+          },
+          {
+            "color": "green",
+            "value": 50
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2837,6 +3893,20 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "stat",
         "backend": "prometheus",
         "unit": "ops",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 10
+          },
+          {
+            "color": "red",
+            "value": 100
+          }
+        ],
         "span": "half",
         "targets": [
           {
@@ -2962,6 +4032,22 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "kind": "gauge",
         "backend": "prometheus",
         "unit": "percentunit",
+        "min": 0,
+        "max": 1,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.05
+          },
+          {
+            "color": "red",
+            "value": 0.15
+          }
+        ],
         "span": "half",
         "targets": [
           {
