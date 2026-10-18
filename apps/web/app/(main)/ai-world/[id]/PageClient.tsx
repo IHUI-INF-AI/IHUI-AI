@@ -15,6 +15,7 @@ import { fetchApi, apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { Card, CardContent } from '@ihui/ui-react'
+import type { AiWorldCategory } from '@ihui/types'
 
 interface AiWorldItem {
   id: string
@@ -27,12 +28,6 @@ interface AiWorldItem {
   status: number
   createdAt: string
   updatedAt: string
-}
-
-interface AiWorldCategory {
-  id: string
-  name: string
-  icon: string | null
 }
 
 interface AiWorldHotApp {
