@@ -47,7 +47,7 @@ export default function AppTopupScreen() {
 
   const loadBalance = useCallback(async () => {
     try {
-      const res = await fetchApi<{ balance: number }>('/user/balance')
+      const res = await fetchApi<{ balance: number }>('/wallet/balance')
       if (res.success && res.data) {
         setBalance(res.data.balance)
       }

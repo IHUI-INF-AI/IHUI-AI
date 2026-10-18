@@ -20,6 +20,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Clipboard from '@react-native-clipboard/clipboard'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as MediaLibrary from 'expo-media-library'
@@ -148,6 +149,10 @@ import { rpx } from '../utils/rpx'
 import { inferVendor } from '../lib/vendor-infer'
 // 底部导航(对齐原 customTabBar 5 主 Tab,HomeScreen 对应「首页」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
+import {
+  glassBlurLayer,
+  tabBarDockSpacer,
+} from '../components/TabBar.styles'
 
 import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
@@ -775,6 +780,14 @@ export function HomeScreen() {
   const [showBackTop, setShowBackTop] = useState(false)
   const scrollRef = useRef<ScrollView>(null)
 
+  // ── 底部玻璃停靠区(2026-10-16 用户定稿:整个底部菜单栏液态玻璃,内容若隐若现)──
+  // 输入区 + 底部导航整块绝对定位悬浮;ScrollView 预留 = 停靠区实测高度 + 呼吸距。
+  // 首帧用估值兜底(输入区约 104dp + 胶囊让位区),onLayout 后按实测校正。
+  const insets = useSafeAreaInsets()
+  const [dockHeight, setDockHeight] = useState(
+    104 + tabBarDockSpacer(insets.bottom),
+  )
+
   // ── Drawer 回调(对齐 Uniapp gopage / gotocompany / lingqu / addNewChat) ──
   const closeDrawer = (): void => setDrawerVisible(false)
   const handleDrawerNavigate = (tab: DrawerTab): void => {
@@ -891,21 +904,45 @@ export function HomeScreen() {
 
   // ── InputArea 提交(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) ──
   // 携带选中模型信息(对齐 Uniapp modelType/modelName/modelId 跳参),未选模型时仅传 title
+  // 2026-10-16:改走 autoSendPrompt —— ChatScreen 只消费该字段(原 title 预留给后续接入,
+  // 首页输入的文字此前落不到会话里);登录/VIP/流式校验在 send() 内,不新造调用链。
   const handleInputSubmit = (text: string): void => {
     setInputValue('')
     rootNav?.navigate('Chat', {
-      title: text,
+      autoSendPrompt: text,
       modelName: selectedModel?.name,
       modelId: selectedModel?.id,
     })
   }
 
-  // 语音转文字回填(对齐 Uniapp ai_index2.vue 行 436-451/601-618 搜索输入区
-  // :isVoiceInput + @toggle-voice-input:语音结果写入 prompt,随发送跳 Chat)
-  // 2026-09-22:录音/STT 逻辑改由 useVoiceRecorder 提供,麦克风内嵌 InputArea 大输入框
-  const handleVoiceComplete = (text: string): void => {
-    if (text) setInputValue(text)
-  }
+  /**
+   * 2026-10-16 录音消息:首页大输入框长按录音 → 松手上传 → 跳 Chat 带 autoSendVoice,
+   * 由 ChatScreen 作为首条用户消息发出(语音气泡,可回听)。
+   * 上传走 uploadFileMultipart(后端白名单已开 m4a);失败 toast,不跳转。
+   */
+  const handleVoiceRecorded = useCallback(
+    async (uri: string, durationSec: number): Promise<void> => {
+      try {
+        const up = await uploadFileMultipart({
+          uri,
+          type: 'audio/m4a',
+          name: `voice-${Date.now()}.m4a`,
+        })
+        if (up.success && up.data?.path) {
+          rootNav?.navigate('Chat', {
+            autoSendVoice: { url: resolveFileUrl(up.data.path), durationSec },
+            modelName: selectedModel?.name,
+            modelId: selectedModel?.id,
+          })
+        } else {
+          showToast('warning', '语音上传失败,请重试')
+        }
+      } catch {
+        showToast('warning', '语音上传失败,请重试')
+      }
+    },
+    [rootNav, selectedModel?.name, selectedModel?.id, showToast],
+  )
   // 麦克风不可用反馈(2026-10-15:useVoiceRecorder 原先失败路径静默,web 预览长按无任何提示)
   const handleVoiceUnavailable = useCallback(
     (reason: 'permission-denied' | 'record-failed'): void => {
@@ -916,9 +953,14 @@ export function HomeScreen() {
     },
     [showToast],
   )
+  // 2026-10-16:原始录音模式(transcribe=false)—— 松手走 onRecorded 上传发语音消息,
+  // 不再 STT 转文字回填输入框(转写能力保留在 hook 内,VoiceInput 场景仍在用)。
   const voiceRecorder = useVoiceRecorder({
-    onComplete: handleVoiceComplete,
+    transcribe: false,
     onUnavailable: handleVoiceUnavailable,
+    onRecorded: (uri, durationSec) => {
+      void handleVoiceRecorded(uri, durationSec)
+    },
   })
 
   // ── 模型类型按钮(对齐 Uniapp handleModelTypeClick / toggleSkillsPopup / toggleMaterialPopup) ──
@@ -1646,7 +1688,11 @@ export function HomeScreen() {
       <ScrollView
         ref={scrollRef}
         style={shellStyles.scroll}
-        contentContainerStyle={shellStyles.scrollContent}
+        contentContainerStyle={[
+          shellStyles.scrollContent,
+          // 底部玻璃停靠区让位:内容可滚到输入区/胶囊底下若隐若现(2026-10-16)
+          { paddingBottom: dockHeight + 16 },
+        ]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
@@ -1798,7 +1844,7 @@ export function HomeScreen() {
        *  滚动 offsetY > 600 显示,点击 scrollTo 回顶 */}
       {showBackTop ? (
         <TouchableOpacity
-          style={shellStyles.backToTop}
+          style={[shellStyles.backToTop, { bottom: dockHeight + 12 }]}
           onPress={backToTop}
           activeOpacity={0.8}
           accessibilityRole="button"
@@ -1851,31 +1897,6 @@ export function HomeScreen() {
           </ScrollView>
         </View>
       ) : null}
-      {/* InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分,固定底部)
-       *  常驻输入栏(2026-09-22 用户明令去掉折叠 FAB 加号球:collapsible/defaultCollapsed 均不传,
-       *  组件默认 collapsible=false → 永久展开,无「×」回折按钮)。
-       *  大输入框(2026-09-22 用户定稿):麦克风+文本+发送同框,长按麦克风「按住说出你的问题」。
-       *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) */}
-      <InputArea
-        value={inputValue}
-        onChangeText={setInputValue}
-        placeholder="请输入您的问题,或长按说话"
-        onSubmit={handleInputSubmit}
-        showVoiceMic
-        voiceRecording={voiceRecorder.recording}
-        voiceTranscribing={voiceRecorder.transcribing}
-        voiceDuration={voiceRecorder.duration}
-        onVoiceStart={voiceRecorder.start}
-        onVoiceEnd={() => void voiceRecorder.stop()}
-        onPlusToggle={handlePlusToggle}
-        plusActive={plusPanelVisible}
-        // 模型选择收进大输入框(2026-10-15 用户定:对齐 web 输入卡 ModelSelector ——
-        // 单按钮显示当前模型/「自动」,点击直接弹全量模型列表;8 分类 chips 平铺已废)
-        onOpenModelSelect={() => openModelModal()}
-        selectedModelName={selectedModel?.name ?? null}
-        onClearModel={handleClearModel}
-        onOpenModelConfig={() => setShowModelConfig(true)}
-      />
       {/* 输入框「+」底部滑出菜单:统一走共享 AddPanel(图标按钮组:相机/相册/本地文件/微信文件,
           与 BottomActionBar/ChatScreen 同源),上传结果拼入输入框随提交发送 */}
       <AddPanel
@@ -2266,14 +2287,64 @@ export function HomeScreen() {
         visible={searchOverlayVisible}
         onClose={() => setSearchOverlayVisible(false)}
       />
-      {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
-      <TabBar activeTab="home" onChange={handleTabChange} />
+      {/* 底部玻璃停靠区(2026-10-16 用户定稿「整个底部菜单栏液态玻璃、内容若隐若现」):
+          输入区 + 底部导航胶囊整块绝对定位悬浮在内容之上,玻璃底(glass.bg 半透明 +
+          web 预览 backdrop blur);停靠区实测高度回灌 ScrollView 预留,内容滚到底下若隐若现。 */}
+      <View
+        style={shellStyles.bottomDock}
+        onLayout={(e) => setDockHeight(e.nativeEvent.layout.height)}
+      >
+        {/* InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分)
+         *  常驻输入栏(2026-09-22 用户明令去掉折叠 FAB 加号球:collapsible/defaultCollapsed 均不传,
+         *  组件默认 collapsible=false → 永久展开,无「×」回折按钮)。
+         *  大输入框(2026-09-22 用户定稿):麦克风+文本+发送同框,长按麦克风「按住说出你的问题」。
+         *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2)。
+         *  transparentBackground:底色/顶描边由停靠区玻璃统一提供(2026-10-16)。 */}
+        <InputArea
+          value={inputValue}
+          onChangeText={setInputValue}
+          placeholder="请输入您的问题,或长按说话"
+          onSubmit={handleInputSubmit}
+          showVoiceMic
+          voiceRecording={voiceRecorder.recording}
+          voiceTranscribing={voiceRecorder.transcribing}
+          voiceDuration={voiceRecorder.duration}
+          onVoiceStart={voiceRecorder.start}
+          onVoiceEnd={() => void voiceRecorder.stop()}
+          onPlusToggle={handlePlusToggle}
+          plusActive={plusPanelVisible}
+          // 模型选择收进大输入框(2026-10-15 用户定:对齐 web 输入卡 ModelSelector ——
+          // 单按钮显示当前模型/「自动」,点击直接弹全量模型列表;8 分类 chips 平铺已废)
+          onOpenModelSelect={() => openModelModal()}
+          selectedModelName={selectedModel?.name ?? null}
+          onClearModel={handleClearModel}
+          onOpenModelConfig={() => setShowModelConfig(true)}
+          transparentBackground
+        />
+        {/* 悬浮胶囊让位区:透明,停靠区玻璃透出;TabBar 绝对定位在其中浮起 */}
+        <View style={{ height: tabBarDockSpacer(insets.bottom) }} />
+        <TabBar activeTab="home" onChange={handleTabChange} />
+      </View>
     </View>
   )
 }
 
 const shellStyles = {
   root: { flex: 1, backgroundColor: tokens.surface.bg } as const,
+  // 底部玻璃停靠区(2026-10-16):输入区 + TabBar 胶囊整块悬浮,液态玻璃底 + web 预览模糊,
+  // 顶部圆角与细描边;内容区由 ScrollView 预留 paddingBottom 让位,可滚到玻璃底下若隐若现
+  bottomDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: tokens.glass.bg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tokens.border.light,
+    borderTopLeftRadius: rnRadius.xl,
+    borderTopRightRadius: rnRadius.xl,
+    ...glassBlurLayer,
+  } as const,
   // 顶栏行取白档,与 App.tsx 给 Home 的状态栏带同色;主体仍走 root 的 surface.bg
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(120) } as const,
@@ -2292,11 +2363,11 @@ const shellStyles = {
     marginBottom: rpx(20),
   } as const,
   // ── toodown 返回顶部按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 NewsScreen) ──
+  // bottom 运行时按底部玻璃停靠区实测高度上浮(样式内只留几何与外观)
   backToTop: {
     position: 'absolute',
     left: '50%',
     marginLeft: rpx(-34),
-    bottom: 150,
     width: 34,
     height: 34,
     borderRadius: rnRadius.sm,
