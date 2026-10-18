@@ -76,7 +76,7 @@ export function snapshotWorkspace(
  * 失败方(给动作)要的是保守清单,所以 `diffWorkspaceSnapshots` 把两者都算"变了";
  * 而说给人听的承诺句必须区分它们,否则就是把谎换了方向。
  */
-export interface WorkspaceDiff {
+interface WorkspaceDiff {
   /** 逐文件逐字节确证变了(含一侧 absent 一侧 present) */
   readonly changed: readonly string[];
   /** 任一侧 unknown ⇒ 这一份比对不作数(没事实,不许声称) */
