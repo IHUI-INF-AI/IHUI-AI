@@ -104,6 +104,15 @@ export const MOUNT_EXITS = [
     why: 'V3 #62 判据 2:批量动作条(不持选中集,只读 props)',
   },
   {
+    lane: 'ui',
+    // D77/G-106 的挂载锁。本条不是补登记,而是把 runner 里 onFailHint 早已声称
+    // ("钉 BusinessFormSection 必须真被 MessageList 挂载")从**散文**变成**判据**:
+    // 此前 lanes 里没有这个符号,谁把那张卡从 MessageList 摘掉,提交链上这道门照绿(§0.9 同型)。
+    symbol: 'BusinessFormSection',
+    ownFile: 'apps/web/src/components/ai/business-form-section.tsx',
+    why: 'D77 对话流业务表单卡的唯一宿主(挂载点 apps/web/src/components/chat/message-list/MessageList.tsx)',
+  },
+  {
     lane: 'service',
     symbol: 'build_form_request_frame',
     ownFile: 'apps/ai-service/app/services/mcp_server.py',
@@ -624,6 +633,9 @@ const FIX = {
   // Python 侧:只有 def 行 ⇒ 该符号**没有**装车点(W1 必须红);真装车点必须在别的文件。
   frameDef: `def build_form_request_frame(*, request_id, kind, session_id, message_id):\n    return None\n`,
   frameCall: `from app.services.mcp_server import build_form_request_frame\n\nframe = build_form_request_frame(request_id='frm_1', kind='x', session_id='s', message_id=None)\n`,
+  // D77 那条 lane 的成对夹具:只有定义 ⇒ W1 红;装载点必须在宿主之外的文件里(MessageList)。
+  formDef: `export function BusinessFormSection(){return null}\n`,
+  formCall: `import { BusinessFormSection } from '@/components/ai/business-form-section'\nexport function MessageList(){return BusinessFormSection()}\n`,
 }
 
 function writeFiles(root, map) {
@@ -661,6 +673,8 @@ export async function runSelfTest() {
     // 而在它新增的那一面上必须判红(A5)—— 两头都不对就说明棘轮没牙或造了恒红门。
     [SIDEBAR_DIR + 'Orphan.tsx']: `export const O=1\n`,
     'apps/web/src/components/sidebar-chat-history.tsx': FIX.host,
+    'apps/web/src/components/ai/business-form-section.tsx': FIX.formDef,
+    'apps/web/src/components/chat/message-list/MessageList.tsx': FIX.formCall,
     // service 车道:定义文件只含 `def`(定义行**不得**被算成装车),调用点在另一个文件。
     // 这一对是"Python 支有没有牙"的最小结构 —— 少了它,登记服务侧出口会被自己的 def 喂绿。
     'apps/ai-service/app/services/mcp_server.py': FIX.frameDef,
@@ -720,6 +734,19 @@ export async function runSelfTest() {
     )
 
     // A3 纯文本提及(串里)不算调用点 —— 靠"必须跟 ( 或 <"这条形状判据,不靠抹串
+    // A6c D77 lane 的牙:宿主挂载点被摘掉 ⇒ W1 必须点名 BusinessFormSection
+    // (没有这条反例,新增 lane 只是把名字写进台账,判据有没有牙无人证明)。
+    const noMount = good()
+    delete noMount['apps/web/src/components/chat/message-list/MessageList.tsx']
+    const r6c = makeFixtureRepo('no-form-mount', noMount)
+    dirs.push(r6c)
+    const red6c = w1Reds(runCheck({ root: r6c, face: 'head', strict: false }))
+    ok(
+      'A6c 反面:摘掉表单卡宿主挂载点 ⇒ W1 点名 BusinessFormSection',
+      red6c.length === 1 && red6c.some((l) => l.includes('BusinessFormSection')),
+      red6c.join(' | '),
+    )
+
     const strOnly = good()
     strOnly['apps/web/src/components/sidebar-chat-history.tsx'] =
       `export function filterConversationsByKeyword(items){return items}\n` +
