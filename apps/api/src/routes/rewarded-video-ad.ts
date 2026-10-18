@@ -21,6 +21,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { createHash } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import { awardAdPoints } from '../db/point-queries.js'
 import { success, error } from '../utils/response.js'
 
@@ -55,7 +56,9 @@ export const rewardedVideoAdRoutes: FastifyPluginAsync = async (server) => {
     const expected = createHash('sha256')
       .update(`${body.userId}${body.transactionId}${secret}`)
       .digest('hex')
-    if (body.signature !== expected) {
+    // 签名比较必须走常量时间(secretsEqual:定长散列后 timingSafeEqual),
+    // 严禁裸 `!==` 比 hex 摘要(逐字节计时差可外推签名)。
+    if (!secretsEqual(body.signature, expected)) {
       return reply.status(403).send(error(403, '签名校验失败'))
     }
 
