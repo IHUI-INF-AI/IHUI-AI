@@ -32,7 +32,7 @@ const RUNNER = join(SCRIPTS_DIR, 'guardian-runner.mjs')
 const SRC = join(SCRIPTS_DIR, GATE_REL)
 const GIT = resolveGitBin() || 'git'
 
-const gate = await import(`../${GATE_REL}`)
+const gate = await import('../check-package-barrel-export.mjs')
 
 /** 事故实形:入口是显式命名清单,少了一行;包内文件里那个函数一直都在 */
 const BARREL_OK = [
@@ -426,3 +426,54 @@ test('T13 形状锁:端内那一族不得只在判据里、而不在**取材面*
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/* ─── 空契约族(G-815991):显式判「未判定」,不判红不记绿 ─── */
+const EMPTY_CONTRACT_TS = ['// Provider and model capability descriptors for the runtime.', 'export {}', ''].join('\n')
+const PKG_MANIFEST = JSON.stringify({ name: '@t/pkg', exports: { '.': './dist/index.js' } })
+
+test('T14 空契约型(G-815991):头注声称用途 + 零导出 + 全仓零引用 ⇒ 显式未判定,不得假绿', () => {
+  const files = ['packages/pkg/package.json', 'packages/pkg/src/capabilities/descriptors.ts']
+  const text = {
+    'packages/pkg/package.json': PKG_MANIFEST,
+    'packages/pkg/src/capabilities/descriptors.ts': EMPTY_CONTRACT_TS,
+  }
+  const r = gate.__test__.analyze({ readFace: (p) => text[p] ?? null, files })
+  assert.equal(r.red.length, 0, '空契约不判红(为"看起来有门"造恒红门是票面明令禁止的)')
+  assert.equal(r.emptyContracts.length, 1, `应点名 1 处,实得 ${JSON.stringify(r.emptyContracts)}`)
+  assert.equal(r.emptyContracts[0].file, 'packages/pkg/src/capabilities/descriptors.ts')
+  assert.ok(
+    r.undetermined.some(
+      (u) => u.pkg === 'packages/pkg/src/capabilities/descriptors.ts' && /空契约型/.test(u.why),
+    ),
+    '该型必须并入未判定通道(--strict 据此拒出合格证),而不是静默绿',
+  )
+})
+
+test('T14b 阴性两臂:副作用导入即有消费者;仅水印头注无用途声称 —— 都不得点名', () => {
+  // 臂1:同一零导出文件被 `import './x.js'`(无 from 子句,parseImports 不收的副作用形态)消费
+  const files1 = [
+    'packages/pkg/package.json',
+    'packages/pkg/src/capabilities/descriptors.ts',
+    'packages/pkg/src/boot.ts',
+  ]
+  const text1 = {
+    'packages/pkg/package.json': PKG_MANIFEST,
+    'packages/pkg/src/capabilities/descriptors.ts': EMPTY_CONTRACT_TS,
+    'packages/pkg/src/boot.ts': "import './capabilities/descriptors.js'\n",
+  }
+  const r1 = gate.__test__.analyze({ readFace: (p) => text1[p] ?? null, files: files1 })
+  assert.equal(
+    r1.emptyContracts.length,
+    0,
+    `副作用导入即有消费者,不得点名:${JSON.stringify(r1.emptyContracts)}`,
+  )
+  // 臂2:仅水印/版权头注(无任何用途声称)——该文件根本不进候选
+  const files2 = ['packages/pkg/package.json', 'packages/pkg/src/capabilities/descriptors.ts']
+  const text2 = {
+    'packages/pkg/package.json': PKG_MANIFEST,
+    'packages/pkg/src/capabilities/descriptors.ts':
+      '// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan)\n// [IHUI-AI-PROVENANCE]:abc\nexport {}\n',
+  }
+  const r2 = gate.__test__.analyze({ readFace: (p) => text2[p] ?? null, files: files2 })
+  assert.equal(r2.emptyContracts.length, 0, '仅水印头注没有"用途声称"可判,不得点名')
+})

@@ -860,12 +860,113 @@ export function analyze({ readFace, files, consumerFilter = null, requireBarrels
     throw new Undetermined(
       `枚举到 ${barrels.length} 个目录 barrel,却没有一条相对/别名导入落到它们上 ⇒ 解析器失明,不记通过`,
     )
+  // ── 5) 空契约型显式判「未判定」(G-815991)──────────────────────────
+  // 守门 121 判的是"声明了必须被引用",而**零导出**文件没有任何可被引用的标识符
+  // ⇒ 结构上落在射程外,旧版对它完全沉默 —— 上一轮已实证该型判不了、只能登记
+  // (真·空契约 a 档 0 处 / 有消费者 b 档 5 处,核验在案)。本段把**机器可判的那一
+  // 子集**显式判出:头注带非水印描述 ∧ 文件零导出(值/类型/转发边全空且不 opaque)
+  // ∧ 全仓零引用(含 `import './x'` 副作用导入与平台后缀孪生)⇒ 报**未判定**,
+  // 不判红不记绿(默认档只打印;--strict 拒出合格证)。登记的重开触发条件"空契约
+  // 被下游当真实依赖引用"一旦发生,这一格就会从"沉默"变成"点名",而不是假绿。
+  //   刻意不做的两件事:① 不判"声称用途"的语义(那是人工裁决,机器只认"存在非水印
+  // 描述性头注"这个保守代理);② consumerFilter 面(staged 棘轮锚点第二趟)不跑本段
+  // —— 锚点只吃 red 计数,跑它白花一遍全仓读取。
+  const emptyContracts = []
+  if (!consumerFilter) {
+    // 零宽/不可见字符先剥:水印自段用它编码,不剥会把纯水印头注误读成"有描述"
+    const INVISIBLE_RE = /[\u200B-\u200F\u2060-\u2064\u206A-\u206F\uFEFF]/g
+    const WATERMARK_RE =
+      /IHUI-AI-PROVENANCE|版权所有|Provenance-watermarked|©\s*20\d\d|All rights reserved|Apache-2\.0/i
+    const headerClaimsOf = (text) => {
+      const claims = []
+      for (const raw of String(text).replace(INVISIBLE_RE, '').split('\n')) {
+        const s = raw.trim()
+        if (s === '') continue
+        // 头注 = 首条代码语句之前的连续注释块;碰到代码就停
+        if (!(s.startsWith('//') || s.startsWith('/*') || s.startsWith('*') || s.endsWith('*/')))
+          break
+        const body = s.replace(/^(\/\/+|\/\*+|\*+)|\*\/$/g, '').trim()
+        if (!body || WATERMARK_RE.test(body)) continue
+        if (body.replace(/[^\w\u4e00-\u9fa5]/g, '').length >= 12) claims.push(body)
+      }
+      return claims
+    }
+    // 射程:包/应用 `src/` 下的 .ts/.tsx(题本是"契约文件声称能力却零内容";
+    // seed/docs/monitoring/public/scripts 的零导出面是"被进程跑"不是"被 import",
+    // 不在契约语义里,整族不进候选)。排除族:.d.ts/.gen/生成目录与 `*.test.*`/`*.spec.*`
+    // 文件形态(NON_UNIVERSE 只认目录,文件形态在这补)。
+    const EMPTY_CONTRACT_SCOPE = /^(packages|apps)\/[^/]+\/src\/.+\.tsx?$/
+    const EMPTY_CONTRACT_EXCLUDE =
+      /\.d\.ts$|\.gen\.tsx?$|(^|\/)generated\/|\.(test|spec)\.[tj]sx?$/
+    const candPaths = new Set()
+    for (const f of files) {
+      if (!EMPTY_CONTRACT_SCOPE.test(f) || EMPTY_CONTRACT_EXCLUDE.test(f)) continue
+      if (pkgEntrySet.has(f) || barrelSet.has(f)) continue
+      const m = moduleOf(f)
+      if (!m || m.opaque) continue // 解析不动 ⇒ 不猜,不折进本型
+      if (m.value.size || m.type.size || m.edges.length) continue // 有任何导出 ⇒ 非空契约
+      const t = read(f)
+      if (t === null) continue
+      if (!headerClaimsOf(t).length) continue // 仅水印/无头注 ⇒ 无"用途声称"可判
+      candPaths.add(f)
+    }
+    if (candPaths.size) {
+      const resolveInbound = (fromRel, spec) => {
+        let base = null
+        if (spec.startsWith('./') || spec.startsWith('../')) base = resolveRelative(fromRel, spec)
+        else if (aliasIndex && aliasIndex.size) base = resolveAliasSpec(fromRel, spec, aliasIndex)
+        else {
+          const owner = [...pkgByName.keys()].find((k) => spec.startsWith(`${k}/`))
+          if (owner) base = normJoin(pkgByName.get(owner), spec.slice(owner.length + 1))
+        }
+        if (!base) return null
+        for (const c of REL_CANDS(base)) if (has(c)) return c
+        return null
+      }
+      // 平台后缀孪生(web-shell.web.ts 被对 web-shell.ts 的 Metro 平台解析消费):
+      // 引用面与候选面都归一到"剥平台后缀 + 剥扩展名"的键再比对,不认孪生就是假阳性
+      const normKey = (p) =>
+        p
+          .replace(/\.(web|native|android|ios)\.(ts|tsx|js|jsx|mjs|cjs)$/, '')
+          .replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '')
+      const referenced = new Set()
+      for (const f of files) {
+        if (!SRC_RE.test(f) || SKIP_DIR.test(f)) continue
+        const t = read(f)
+        if (t === null) continue
+        for (const imp of parseImports(t)) {
+          const r = resolveInbound(f, imp.spec)
+          if (r) referenced.add(normKey(r))
+        }
+        // 副作用导入(`import './x'`,无 from 子句):parseImports 只收带 from 的语句,这一型单独认
+        for (const line of maskComments(t).split('\n')) {
+          const m = /^\s*import\s*['"]([^'"]+)['"]\s*;?\s*$/.exec(line)
+          if (!m) continue
+          const r = resolveInbound(f, m[1])
+          if (r) referenced.add(normKey(r))
+        }
+      }
+      for (const f of candPaths) {
+        if (referenced.has(normKey(f))) continue
+        emptyContracts.push({ file: f, claim: headerClaimsOf(read(f))[0] })
+      }
+    }
+  }
+  for (const e of emptyContracts)
+    undetermined.push({
+      pkg: e.file,
+      why:
+        `空契约型(G-815991):头注声称用途("${e.claim}")而文件零导出、全仓零引用(含副作用导入)` +
+        `⇒ 契约面上不存在可引用实体,按未判定上报(不判红不记绿);` +
+        `若下游把它当真实依赖引用,该型立即升级为正式判据`,
+    })
   return {
     red,
     typeMiss,
     notFound,
     subpath,
     undetermined: [...new Map(undetermined.map((u) => [`${u.pkg}::${u.why}`, u])).values()],
+    emptyContracts,
     packages: pkgByName.size,
     consumerFiles,
     barrels: barrels.length,
@@ -1003,6 +1104,7 @@ export function main(argv = process.argv.slice(2)) {
       opaqueLookups: judged.notFound.filter((x) => x.opaque).length,
       subpath: judged.subpath,
       undetermined: judged.undetermined,
+      emptyContracts: judged.emptyContracts,
       perPackage: judged.perPackage,
       ratchetHits: face === 'staged' ? ratchetHits : null,
     }
@@ -1052,6 +1154,8 @@ export function main(argv = process.argv.slice(2)) {
     if (report.subpath.length > 10)
       console.log(`   … 另有 ${report.subpath.length - 10} 处子路径导入`)
     for (const u of report.undetermined) console.log(`   ⚠️ 未判定:${u.pkg} —— ${u.why}`)
+    for (const e of report.emptyContracts)
+      console.log(`   [空契约] ${e.file} —— 头注声称"${e.claim}"却零导出零引用(已并入未判定,不记绿)`)
     // 覆盖面自证:递出名单明显小于包内规模 ⇒ 是本门的解析器失明,不是仓库干净。
     // 没有这一行,"红 0"会被读成"全覆盖",而那正是判据失效最安静的样子。
     // **但这条启发只对包面成立**:包入口按定义该把对外能力几乎全递出来,而端内 barrel
