@@ -20,7 +20,8 @@ import { spawnSync } from 'node:child_process'
 // 候选序(以票面为准):
 //   ① $IHUI_PSQL(显式指路,最高优先)
 //   ② $PG_CLIENT_DIR/psql.exe(部署环境注入)
-//   ③ 自动探测 C:/Program Files/PostgreSQL/<版本>/bin/psql.exe(版本号数值取最大在位者)
+//   ③ 自动探测两处安装根下的 <版本>/bin/psql.exe(版本号数值取最大在位者):
+//        C:/Program Files/PostgreSQL 与 D:/ihui-pg(portable 安装位,2026-10-18 补)
 //   ④ D:\DevEnv\runtimes\pgsql\bin\psql.exe(本仓历史约定档)
 //   ⑤ PATH 上的 psql(最后回退;以 `psql --version` 实探,探不中不再假装命中 ——
 //     旧写法无条件把裸 'psql' 当命中,ENOENT 被推迟到真正的查询里才炸出来)
@@ -31,6 +32,17 @@ import { spawnSync } from 'node:child_process'
 
 const DEFAULT_PG_PROGRAM_FILES = 'C:/Program Files/PostgreSQL'
 const LEGACY_DEVENV_PSQL = 'D:\\DevEnv\\runtimes\\pgsql\\bin\\psql.exe'
+/**
+ * 自动探测根清单(2026-10-18 补第二档)。
+ *
+ * 为什么必须多这一档而不是靠 $IHUI_PSQL 记忆:本仓的开发/部署机把 PostgreSQL 以 **portable
+ * 安装位**放在盘根 `<盘>:/ihui-pg/<版本>/`(与 `ihui-redis-6.2` 同一套布局),而旧候选表只有
+ * `C:/Program Files/PostgreSQL/<版本>` 与 `D:\DevEnv\runtimes\pgsql` 两档 ⇒ 客户端明明在位,
+ * 两门的 `--db`/B6–B9/B11 维却整日记「未判定」。危害不是少判几维,是下游把"没判"读成"判过了"
+ * (§0.3),而 O44 这类"dev 库落后 journal 几枚"的票因此永远不可验收。
+ * 探测仍是**当次实测**(readdirSync + existsSync),不把任何具体版本号写死。
+ */
+export const AUTO_PROBE_PG_ROOTS = Object.freeze([DEFAULT_PG_PROGRAM_FILES, 'D:/ihui-pg'])
 
 /**
  * 枚举探测根下的 PostgreSQL 版本目录(目录名形如 `18` / `9.6`),按版本号**数值**降序排。
@@ -76,7 +88,11 @@ function psqlOnPath() {
  * tried = 逐条"候选(来源,结果)"的诊断清单,命中与落空都留痕。
  */
 export function locatePsqlClient(env = process.env, opts = {}) {
-  const pgRoot = opts.programFilesRoot ?? DEFAULT_PG_PROGRAM_FILES
+  const pgRoots = (() => {
+    const given = opts.programFilesRoot
+    if (given === undefined) return [...AUTO_PROBE_PG_ROOTS]
+    return Array.isArray(given) ? [...given] : [given]
+  })()
   const legacyPath = opts.legacyPath ?? LEGACY_DEVENV_PSQL
   const probePath = opts.pathProbe ?? psqlOnPath
   const tried = []
@@ -96,13 +112,16 @@ export function locatePsqlClient(env = process.env, opts = {}) {
     }
     tried.push(`${candidate}($PG_CLIENT_DIR,缺)`)
   }
-  const versions = pgVersionDirsDesc(pgRoot)
-  const best = versions.length ? join(pgRoot, versions[0], 'bin', 'psql.exe') : null
-  if (best && existsSync(best)) {
-    tried.push(`${best}(自动探测,在位)`)
-    return { psql: best, tried }
+  // 逐根探测,命中即返;每个落空的根都进 tried(清单必须说"探过哪几处",否则又是一句无凭据的"没有")。
+  for (const root of pgRoots) {
+    const versions = pgVersionDirsDesc(root)
+    const best = versions.length ? join(root, versions[0], 'bin', 'psql.exe') : null
+    if (best && existsSync(best)) {
+      tried.push(`${best}(自动探测,在位)`)
+      return { psql: best, tried }
+    }
+    tried.push(`${join(root, '<版本>', 'bin', 'psql.exe')}(自动探测,${versions.length ? '版本目录在位但二进制缺' : '根不在位'})`)
   }
-  tried.push(`${join(pgRoot, '<版本>', 'bin', 'psql.exe')}(自动探测,缺)`)
 
   if (existsSync(legacyPath)) {
     tried.push(`${legacyPath}(约定档,在位)`)

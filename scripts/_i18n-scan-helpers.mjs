@@ -118,7 +118,21 @@ export const TLIST_RE = /\btList\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0
 // 2026-09-23 与 STATIC_T_RE / TLIST_RE 的"四次增强"对齐:不再要求 `)` 闭合。
 // 原尾部 `\s*\)` 让 `t(\`chat.${key}\`, values)`(带 values 实参)整条不命中 ⇒ 该前缀既不记为动态提示、
 // 又不算静态引用,旗下键被误判死 key(extension 侧 `chat.injection*` 7 枚即此因,实测 dynamicHits=0 是最小复现)。
-export const DYNAMIC_T_RE = /\bt\(\s*['"`]([^'"`]*\$\{[^'"`]+}[^'"`]*)['"`]/g
+// 2026-10-18 五次增强:别名集与 STATIC_T_RE 对齐为 `(?:t|tt|tr)` —— 此前同一文件里静态档认 tt/tr、动态档只认 t。
+// 现场:miniapp-taro 的 tt(`ai.businessForms.fields.${field.key}`, field.key)(BusinessFormCard.tsx,
+// 该文件另有 tt(`ai.businessForms.${formFieldErrorKey(fieldError)}`) 并自带注释「前缀只接到 businessForms
+// 命名空间一层」)整条不命中 ⇒ 前缀进不了 usedNamespaces ⇒ 旗下 16 枚键全被判死。
+// 逐键核验(HEAD 面):16/16 有动态拼接消费点、0 枚有字面引用 ⇒ 红的不是语言包,是这把尺子的前提。
+// 反向自证:把别名集摘回 `\bt\(`,这 16 枚当场翻红;镜像用例 scripts/tests/i18n-scan-helpers.test.mjs 同批成对。
+export const DYNAMIC_T_RE = /\b(?:t|tt|tr)\(\s*['"`]([^'"`]*\$\{[^'"`]+}[^'"`]*)['"`]/g
+/**
+ * 动态模板的静态前缀:`ai.businessForms.fields.${field.key}` → `ai.businessForms.fields`;无点分前缀 → null。
+ * 逐行档与整文件档共用这一份(§0.6 单一真相源 —— 两把尺子不同形时,补的那一半永远和原的一半不一致)。
+ */
+export function dynamicPrefixOf(captured) {
+  const m = /^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*\.(?=\$\{)/.exec(captured)
+  return m ? m[0].replace(/\.$/, '') : null
+}
 // useTranslations('namespace') / getTranslations('namespace') - 命名空间下所有 key 视为潜在引用(启发式)
 // 2026-07-26 增强:getTranslations 是 next-intl/server 在 server component 使用的 API(等价于 useTranslations),
 // subagent-D commit 5ebb17915 仅识别 useTranslations 模式,导致 server component 引用 namespace 被误判为死 key。
@@ -470,9 +484,23 @@ export function scanTexts(items) {
         })
         // 提取动态模板静态前缀 t(`order.status.${var}`) → "order.status",作为已用命名空间
         // 使 order.status.* 等动态拼接引用的 key 不再被误判为死 key(2026-08-20 增强,对齐 DYNAMIC_PREFIX_RE 语义)
-        const prefixM = m[1].match(/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*\.(?=\$\{)/)
-        if (prefixM) usedNamespaces.add(prefixM[0].replace(/\.$/, ''))
+        const p = dynamicPrefixOf(m[1])
+        if (p) usedNamespaces.add(p)
       }
+    }
+    // 2026-10-18 二次增强:动态拼接也要跨行看 —— 整文件级(剥注释后)只补 usedNamespaces。
+    // 现场:miniapp-taro BusinessFormCard.tsx 把带插值的取词写成
+    //   tt(
+    //     `ai.businessForms.${formFieldErrorKey(fieldError)}`,
+    //     fieldError === 'required' ? … ,
+    //   )
+    // 逐行档里这一行只有 `tt(`,捕获不到模板串 ⇒ 前缀进不了 usedNamespaces ⇒ 旗下 error.* 4 枚(以及同命名
+    // 空间里仅由测试钉住的 ariaLabel)共 5 枚仍被判死。STATIC_T_RE / TLIST_RE 早在 2026-07-26「三次增强」就
+    // 改成整文件级(同一成因),动态档当时漏了;dynamicHits 的逐行计数保持不动,报告里"第几行"仍是给人看的。
+    DYNAMIC_T_RE.lastIndex = 0
+    while ((m = DYNAMIC_T_RE.exec(codeOnly)) !== null) {
+      const p = dynamicPrefixOf(m[1])
+      if (p) usedNamespaces.add(p)
     }
   }
   // 2026-09-03 增强:扫描 path-labels.ts 中的命名空间注册,

@@ -14,7 +14,7 @@ import assert from 'node:assert/strict'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { locatePsqlClient, psqlLocateMissText } from '../lib/psql-client-locate.mjs'
+import { locatePsqlClient, psqlLocateMissText, AUTO_PROBE_PG_ROOTS } from '../lib/psql-client-locate.mjs'
 
 /** 在 root 下造 `<版本>/bin/psql.exe` 结构(空文件即可,定位层只做 existsSync)。 */
 function makePgRoot(root, versions) {
@@ -113,4 +113,36 @@ test('真机态兜底:自动探测根不存在 + PATH 真探针,全程不抛异�
   assert.ok(r.psql === null || typeof r.psql === 'string')
   assert.ok(Array.isArray(r.tried) && r.tried.length >= 3)
 })
+
+test('候选③是多根清单:第一根落空必须继续探第二根(portable 安装位 D:/ihui-pg 那一档)', () => {
+  // 反的是这一型失效:候选表只写 C 盘一档 ⇒ 客户端明明在位却整日记「未判定」,
+  // 而下游把"没判"读成"判过了"(O44 的 dev 库落后因此永远不可验收)。
+  const dir = mkScratch('psql-locate-t8')
+  try {
+    const missRoot = join(dir, 'pf-missing')
+    const hitRoot = makePgRoot(join(dir, 'ihui-pg'), ['16'])
+    const r = locatePsqlClient(
+      {},
+      { programFilesRoot: [missRoot, hitRoot], legacyPath: join(dir, 'nope', 'psql.exe'), pathProbe: () => false },
+    )
+    assert.equal(r.psql, join(hitRoot, '16', 'bin', 'psql.exe'), '第一根没有不等于没有客户端:必须探到第二根')
+    assert.ok(
+      r.tried.some((t) => t.includes('根不在位')),
+      `落空的第一根也要留痕,实得 ${JSON.stringify(r.tried)}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('默认自动探测根含 portable 安装位(形状锁:清单不得缩回只剩 C 盘一档)', () => {
+  // 钉的是"默认清单"本身,不是某台机的安装态:哪天有人把第二档删回去,这条先红。
+  assert.ok(AUTO_PROBE_PG_ROOTS.length >= 2, `默认根只剩 ${AUTO_PROBE_PG_ROOTS.length} 档`)
+  assert.ok(
+    AUTO_PROBE_PG_ROOTS.some((r) => /ihui-pg/i.test(r)),
+    `默认根必须含本仓 portable PG 安装位,实得 ${AUTO_PROBE_PG_ROOTS.join(', ')}`,
+  )
+  assert.ok(AUTO_PROBE_PG_ROOTS[0].includes('PostgreSQL'), 'C 盘标准安装位必须仍在第一位(优先级不变)')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
