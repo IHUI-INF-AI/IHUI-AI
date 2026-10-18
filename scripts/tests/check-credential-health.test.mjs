@@ -617,6 +617,8 @@ test('镜像停摆的失败判词必须自带可做的出路:服务端 GC 直达
   assert.match(src, /const GITEE_REPO = /, 'GC 地址与取数路径必须同一个仓径来源(§0.6,改一半就是假出路)')
   assert.doesNotMatch(src, /\/api\/v5\/repos\/JLSLSSZWHYXGS_0/, 'API 路径不得再硬写第二份仓径')
   assert.doesNotMatch(src, /处置交给下面的 hint/, '旧注释把出路许诺给一个从不进正文的变量;注释必须与代码同代')
+  // 引号里的历史数字必须带日期并写明"本轮没重量" —— 否则一条 9 月的读数会被当成今天的实测值
+  assert.match(src, /2026-09-27 \/ 09-28 的 CI 作业日志[\s\S]{0,80}本轮没有重新量/, '体积数字没带日期与"本轮未重量"声明 ⇒ 9 月的读数会被当成今天的实测值')
 })
 
 function askedHasRepoNext(askedList) {

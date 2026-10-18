@@ -357,7 +357,7 @@ async function mirrorLivenessCheck() {
       {
         name: NAME,
         level: 'fail',
-        detail: `${head} 超阈值,且上一轮 conclusion=failure ⇒ 不补发(配额型失败补发多少次都还是失败,单轮实测要跑 69 分钟)。CI 侧曾装的「0 字节配额探针」**已于 2026-09-28 整块撤除**:逐轮日志取证证明它两个方向都证不了(被接受的推送照样打配额行;ref 一旦存在则每轮报 Everything up-to-date、一次都不联系服务端),留着的唯一效果是替一条已经不成立的机制背书。现判词只从**真实推送被拒的那一刻**逐字取(实测体积 1624.812MB→1715.750MB,超配额 ~692MB),并如实说明「本轮对象已上传、下一轮仍会再试」。差的是 Gitee 服务端体积回收:仓库设置里的「Git GC」/「压缩」(无 GC API,改判据/改触发器都无效)——**这一步只有仓库所有者能做**。直达地址(与镜像作业失败行里那条同源,不是另编的):https://gitee.com/${GITEE_REPO}/settings#git-gc 。顺手可清:服务端还留着分支 \`ci-quota-probe\`(与 main 同 sha,是 09-28 已撤除那套配额探针的残留,它让每轮有一次推送被判成 Everything up-to-date),删掉不影响镜像语义。GC 完成后要立刻验一次:gh api --method POST /repos/${GH_REPO}/actions/workflows/${MIRROR_WF}/dispatches -f ref=main;不 GC 只补发 = 白烧 69 分钟。`,
+        detail: `${head} 超阈值,且上一轮 conclusion=failure ⇒ 不补发(配额型失败补发多少次都还是失败,单轮实测要跑 69 分钟)。CI 侧曾装的「0 字节配额探针」**已于 2026-09-28 整块撤除**:逐轮日志取证证明它两个方向都证不了(被接受的推送照样打配额行;ref 一旦存在则每轮报 Everything up-to-date、一次都不联系服务端),留着的唯一效果是替一条已经不成立的机制背书。现判词只从**真实推送被拒的那一刻**逐字取(实测体积 1624.812MB→1715.750MB,超配额 ~692MB),并如实说明「本轮对象已上传、下一轮仍会再试」。⚠️ 上面那两个体积数字取自 **2026-09-27 / 09-28 的 CI 作业日志,本轮没有重新量** —— Gitee 仓库 API 不返回体积字段,唯一量法是读作业日志,而本格不下载日志(单轮 69 分钟量级的作业,日志几十 MB)。差的是 Gitee 服务端体积回收:仓库设置里的「Git GC」/「压缩」(无 GC API,改判据/改触发器都无效)——**这一步只有仓库所有者能做**。直达地址(与镜像作业失败行里那条同源,不是另编的):https://gitee.com/${GITEE_REPO}/settings#git-gc 。顺手可清:服务端还留着分支 \`ci-quota-probe\`(与 main 同 sha,是 09-28 已撤除那套配额探针的残留,它让每轮有一次推送被判成 Everything up-to-date),删掉不影响镜像语义。GC 完成后要立刻验一次:gh api --method POST /repos/${GH_REPO}/actions/workflows/${MIRROR_WF}/dispatches -f ref=main;不 GC 只补发 = 白烧 69 分钟。`,
       },
     ];
   }
