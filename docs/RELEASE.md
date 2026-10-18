@@ -53,7 +53,7 @@ IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actio
 | 产物 | 状态 | 回读命令 | 实测输出 |
 | --- | --- | --- | --- |
 | `@ihui/sdk`(npm) | ❌ 未发布 | `curl -s https://registry.npmjs.org/@ihui%2Fsdk` | `{"error":"Not found"}`(HTTP 404) |
-| `@ihui/cli`(npm) | ❌ 未发布 | `curl -s https://registry.npmjs.org/@ihui%2Fcli` | `{"error":"Not found"}` |
+| `ihui-cli`(npm) | ❌ 未发布 | `curl -s https://registry.npmjs.org/ihui-cli` | `{"error":"Not found"}` |
 | `@ihui/api-client`(npm) | ❌ 未发布(定位为内部包,见下) | `curl -s https://registry.npmjs.org/@ihui%2Fapi-client` | `{"error":"Not found"}` |
 | `ihui-ai`(PyPI) | ❌ 未发布 | `curl -s https://pypi.org/pypi/ihui-ai/json` | `{"message": "Not Found"}`(HTTP 404) |
 | SDK 发布 tag | ❌ 一个都没有 | `git tag -l 'sdk-v*'`(另测 `v*` / `cli-v*`) | 0 行 |
@@ -401,7 +401,7 @@ CLI 发版由 `release-cli.yml` 自动化,分两阶段:
 
 ```yaml
 # 阶段 1:npm publish
-- run: pnpm --filter @ihui/cli publish --no-git-checks --access public
+- run: pnpm --filter ihui-cli publish --no-git-checks --access public
   env:
     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -443,7 +443,7 @@ matrix:
 | `@ihui/sdk` | 对外唯一 TS 入口 | 已改为可发布形态:`main/types → dist`、`files` 白名单、`license: Apache-2.0`、`publishConfig.registry` 锁 npmjs.org、`@ihui/types` 移到 devDependencies(纯类型引用,发行包不需要) |
 | `@ihui/api-client` | **内部传输层,不对外发布** | 保留 `private: true`。理由:① 它被 8 端经 workspace 直接按源码消费,翻成 `dist` 入口会让 `pnpm dev` 依赖先构建,收益为零;② 对外契约由 `@ihui/sdk` 承担,同时发布两个高度重叠的客户端包只会让使用者困惑;③ 它 `dependencies: { "@ihui/types": "workspace:*" }`,而 `@ihui/types` 是 private —— 去 private 也发不出去。**注意:`build` 脚本(`tsc`)是好的,`packages/api-client/dist` 能正常产出**,只是不用于发布。 |
 | `@ihui/types` | 契约包 | 仍是 `private: true`。`@ihui/sdk` 的 `dist/*.d.ts` 有 13 处 `import type … from '@ihui/types'`,严格消费者(`skipLibCheck: false`)会报 13 个 TS2307 —— 见"SDK 类型面遗留问题" |
-| `@ihui/cli` | 名义上可发布(`private: false` + `publishConfig`),**实际装不上** | 它 `dependencies` 里有 5 个 `workspace:*` 的 private 包(api-client / context-compaction / design-tokens / shared / types)。发出去后 `npm i @ihui/cli` 会 404;即使绕过安装,运行时 `import '@ihui/shared'` 也会因为没打包而崩。要么发布这 5 个包,要么把 CLI 用 bundler 打成单文件(需新增构建依赖)。 |
+| `ihui-cli` | 名义上可发布(`private: false` + `publishConfig`),**实际装不上** | 它 `dependencies` 里有 5 个 `workspace:*` 的 private 包(api-client / context-compaction / design-tokens / shared / types)。发出去后 `npm i ihui-cli` 会 404;即使绕过安装,运行时 `import '@ihui/shared'` 也会因为没打包而崩。要么发布这 5 个包,要么把 CLI 用 bundler 打成单文件(需新增构建依赖)。 |
 
 ### SDK 类型面遗留问题(`@ihui/types` 未发布导致 d.ts 解析不到)
 

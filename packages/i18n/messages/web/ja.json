@@ -11169,6 +11169,7 @@
       "delete": "削除",
       "downloadImages": "画像をダウンロード",
       "edit": "編集",
+      "editAiReply": "この回答を編集",
       "editAndRerun": "保存して再実行",
       "editRollbackFiles": "ファイル変更もロールバック",
       "hideContent": "コンテンツを非表示",
@@ -11179,6 +11180,7 @@
       "readAloudTruncated": "テキストが長すぎるため、最初の {max} 文字のみ読み上げます",
       "regenerate": "再生成",
       "reply": "返信",
+      "saveAsNewVersion": "新しいバージョンとして保存",
       "share": "共有",
       "shareLinkCopied": "コンテンツとリンクをコピーしました",
       "showContent": "コンテンツを表示",
@@ -19628,6 +19630,7 @@
     "downloadCliSysReq": "Node.js 20.10 以上",
     "downloadCliUsageHint": "インストール後に実行",
     "downloadClient": "アプリをダウンロード",
+    "downloadCodeSigningNotice": "Windows 版のバイナリは、SignPath Foundation が提供する無償のコード署名証明書を用いて SignPath.io によりコード署名されています。",
     "downloadComingSoon": "近日公開",
     "downloadComingSoonHint": "{platform} クライアントは鋭意開発中です。しばらくお待ちください。それまでは Web 版で全機能をご利用いただけます。",
     "downloadComingSoonTitle": "{platform} 近日公開",
@@ -26847,7 +26850,9 @@
     "toastLoadFailed": "スナップショット一覧の取得に失敗",
     "toastPlanFailed": "プレビューに失敗",
     "toastRunOk": "ロールバックを実行しました",
-    "toastRunFail": "ロールバックに失敗しました"
+    "toastRunFail": "ロールバックに失敗しました",
+    "availabilityAvailable": "別のデバイスがチェックポイントを作成しました:{id}",
+    "availabilityUnavailable": "チェックポイントサービスを利用できません。しばらくしてから再試行してください。"
   },
   "traceReplay": {
     "title": "実行トレース再生",

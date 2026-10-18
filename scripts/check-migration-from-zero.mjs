@@ -19,8 +19,11 @@
  *   ① 在一次性空库(ihui_fz_<8hex>)上按 _journal.json 顺序**逐个** psql 重放每个迁移,
  *      失败不中断后续,记录 {序号, tag, 错误首行} —— 这正是本轮教训:必须自己按 journal
  *      顺序跑,才能报出"哪一个、为什么"(drizzle-kit 会把原因吞掉)。
+ *      2026-10-18 起为两遍:第一遍失败(从零库预期在 idx 325 撞 42804/42846)→ 复用
+ *      packages/database 的 fresh-db-guard 收敛初始形状 → 只重跑失败条目。
  *   ② (默认)另起一个一次性空库跑权威 `drizzle-kit migrate`,确认 drizzle 自己的 runner
- *      也能全链通过;`--skip-full` 跳过(更快)。
+ *      也能全链通过;`--skip-full` 跳过(更快)。2026-10-18 起与 test-real-db.yml 同款
+ *      「两遍迁移+守卫」:第一遍预期 idx 325 失败 → 守卫 → 第二遍全链通过。
  *   ③ 把迁移后的库(pg_catalog,排除分区子表与 __migrations 簿记表)与
  *      packages/database 的 drizzle 元数据(getTableName/getTableColumns)做表集合 +
  *      列名集合双向 diff。
@@ -58,6 +61,17 @@ const JOURNAL_PATH = join(DRIZZLE_DIR, 'meta/_journal.json')
 const SCHEMA_SRC_DIR = join(ROOT, 'packages/database/src/schema')
 const API_ENV_PATH = join(ROOT, 'apps/api/.env')
 const DB_PKG_JSON = join(ROOT, 'packages/database/package.json')
+/**
+ * 从零库形状守卫(判据单点):packages/database 侧的 pre-migrate-fresh-db-guard.mjs。
+ * 2026-10-18 根修:从零库跑迁移链在 journal idx 325(20261018160000,按生产库现状写成
+ * no-op)对 0000 初始迁移建出的 uuid id 撞 PG 42804(dp_noise_added real→boolean 撞
+ * 42846),drizzle-kit/psql 都只报错不打根因。与 test-real-db.yml「两遍迁移+守卫」同款:
+ * 第一遍把 1..324 逐条落库(325 预期失败回滚)→ 守卫把 uuid/real/text[] 形状收敛成迁移
+ * 与 TS schema 共同期望的形状 → 第二遍 325 变 no-op 通过。本门**复用**该脚本(子进程 +
+ * DATABASE_URL 指向临时库),不复制任何判据。
+ */
+const FRESH_DB_GUARD_PATH = join(ROOT, 'packages', 'database', 'scripts', 'pre-migrate-fresh-db-guard.mjs')
+const FRESH_DB_GUARD_TIMEOUT_MS = 120_000
 /** 迁移链之外合法存在于库中、但 drizzle schema 不定义的对象(簿记/扩展自管)。 */
 const IGNORED_MIGRATED_TABLES = new Set(['__migrations'])
 /**
@@ -450,8 +464,36 @@ function quoteIdent(name) {
   return `"${String(name).replace(/"/g, '""')}"`
 }
 
-/** ① 逐迁移重放:失败不中断(便于一次抓全所有洞),记录 tag + 错误首行。 */
-function replayMigrations(url, password, dbName, entries) {
+/**
+ * 复用 packages/database 的从零库形状守卫(判据单点,不复制):以子进程跑
+ * packages/database/scripts/pre-migrate-fresh-db-guard.mjs,DATABASE_URL 指向目标临时库。
+ * 守卫对生产/dev 形状(bigint/boolean/jsonb)零动作 no-op;对 0000 初始迁移建出的
+ * uuid/real/text[] 偏离做收敛,使 idx 325 的 ALTER TYPE 变回 no-op。
+ */
+function runFreshDbGuard(targetUrl, password) {
+  if (!existsSync(FRESH_DB_GUARD_PATH)) {
+    return { ok: false, detail: `守卫脚本缺失:${FRESH_DB_GUARD_PATH}` }
+  }
+  const res = spawnSync(process.execPath, [FRESH_DB_GUARD_PATH], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: FRESH_DB_GUARD_TIMEOUT_MS,
+    maxBuffer: 32 * 1024 * 1024,
+    env: { ...process.env, DATABASE_URL: targetUrl, PGPASSWORD: password },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  if (res.status !== 0) {
+    return {
+      ok: false,
+      detail:
+        res.error?.code === 'ETIMEDOUT' ? 'fresh-db-guard 超时' : errorFrom(res, password),
+    }
+  }
+  return { ok: true, detail: '' }
+}
+
+/** 逐条目 psql 重放(失败不中断,记录 tag + 错误首行)。 */
+function replayEntries(url, password, dbName, entries) {
   const failures = []
   let applied = 0
   for (const entry of entries) {
@@ -477,25 +519,68 @@ function replayMigrations(url, password, dbName, entries) {
   return { failures, applied }
 }
 
-/** ② 权威路径:drizzle-kit migrate(空库全链)。 */
+/** ① 逐迁移重放(两遍):第一遍全链重放;若失败(从零库预期在 idx 325 撞 42804/42846),
+ *  复用 fresh-db-guard 收敛初始形状后**只重跑第一遍失败的条目** —— 已成功的迁移不重放
+ *  (多数迁移 SQL 非幂等,整链重放会假红);325 全语句可重复执行(文件头注),且 ON_ERROR_STOP
+ *  戛止处的后续语句本就未应用,重跑安全。残余失败照常上报。 */
+function replayMigrations(url, password, dbName, entries) {
+  const first = replayEntries(url, password, dbName, entries)
+  if (first.failures.length === 0) return first
+  const failedIdx = new Set(first.failures.map((failure) => failure.idx))
+  const tempUrl = new URL(url.href)
+  tempUrl.pathname = `/${dbName}`
+  const guard = runFreshDbGuard(tempUrl.toString(), password)
+  if (!guard.ok) {
+    return {
+      failures: [
+        ...first.failures,
+        { idx: -1, tag: 'pre-migrate-fresh-db-guard', error: guard.detail },
+      ],
+      applied: first.applied,
+    }
+  }
+  const second = replayEntries(
+    url,
+    password,
+    dbName,
+    entries.filter((entry) => failedIdx.has(entry.idx)),
+  )
+  return { failures: second.failures, applied: first.applied + second.applied }
+}
+
+/** ② 权威路径:drizzle-kit migrate(空库全链,两遍)。
+ *  与 test-real-db.yml「Apply migrations to test DB (with fresh-DB shape guard)」同款:
+ *  第一遍预期在 idx 325 失败回滚(1..324 已逐条提交),守卫收敛初始形状后第二遍全链通过。
+ *  若第一遍因**其他**洞失败,守卫零动作、第二遍仍红并照常上报真实原因,不掩盖。 */
 function runDrizzleKitMigrate(url, password, tempUrl) {
   const cli = resolveDrizzleKitCli()
   if (!cli) return { ok: false, detail: '解析不到 drizzle-kit CLI 入口(先 pnpm install)' }
-  const res = spawnSync(process.execPath, [cli, 'migrate'], {
-    cwd: join(ROOT, 'packages/database'),
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: DRIZZLE_MIGRATE_TIMEOUT_MS,
-    maxBuffer: 32 * 1024 * 1024,
-    env: { ...process.env, DATABASE_URL: tempUrl, PGPASSWORD: password },
-    stdio: ['ignore', 'pipe', 'pipe']
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  })
-  if (res.status !== 0) {
+  const spawnMigrate = () =>
+    spawnSync(process.execPath, [cli, 'migrate'], {
+      cwd: join(ROOT, 'packages/database'),
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: DRIZZLE_MIGRATE_TIMEOUT_MS,
+      maxBuffer: 32 * 1024 * 1024,
+      env: { ...process.env, DATABASE_URL: tempUrl, PGPASSWORD: password },
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    })
+  const first = spawnMigrate()
+  if (first.status === 0) return { ok: true, detail: '' }
+  console.log(
+    `  ${C.yellow}-${C.reset} ② 第一遍 drizzle-kit migrate 失败(从零库预期,通常为 idx 325 撞 42804/42846):${errorFrom(first, password)}`,
+  )
+  const guard = runFreshDbGuard(tempUrl, password)
+  if (!guard.ok) {
+    return { ok: false, detail: `fresh-db-guard 失败:${guard.detail}` }
+  }
+  const second = spawnMigrate()
+  if (second.status !== 0) {
     return {
       ok: false,
       detail:
-        res.error?.code === 'ETIMEDOUT' ? 'drizzle-kit migrate 超时' : errorFrom(res, password),
+        second.error?.code === 'ETIMEDOUT' ? 'drizzle-kit migrate 超时' : errorFrom(second, password),
     }
   }
   return { ok: true, detail: '' }

@@ -30,6 +30,10 @@ jobs:
   npm-publish:
     name: Publish to npm
     runs-on: ubuntu-latest
+    # NPM_TOKEN 未配置前 publish 必败(匿名 PUT 404)—— continue-on-error 让二进制/Docker
+    # 链不被拖死;token 配好后(NPM_TOKEN secret)移除此行恢复硬门。
+    # 另:@ihui scope 已被第三方占用(2026-10-18 实证),npm 恢复前须先定新包名。
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,13 +56,13 @@ jobs:
         # 本仓已有 7 个包 exports 指 dist(cli/i18n/design-tokens/types/dom-actions/api-client/
         # context-compaction),**手工点名"要先建哪几个包"必然落后于新增** —— 落后一次的形态是
         # "CI 恒红而本地全绿"(守门 72/78 同族)。选择器由 pnpm 从包图算,加包不再需要改本文件。
-        run: pnpm --filter "@ihui/cli^..." run build && pnpm --filter @ihui/cli build
+        run: pnpm --filter "ihui-cli^..." run build && pnpm --filter ihui-cli build
 
       - name: Typecheck
-        run: pnpm --filter @ihui/cli typecheck
+        run: pnpm --filter ihui-cli typecheck
 
       - name: Publish to npm
-        run: pnpm --filter @ihui/cli publish --no-git-checks --access public --provenance
+        run: pnpm --filter ihui-cli publish --no-git-checks --access public --provenance
         # --provenance(2026-10-18):Sigstore keyless 免费供应链证明 —— npm 页面显示
         # "Verified from github.com/IHUI-INF-AI/IHUI-AI" 徽章,零费用零凭据
         # (public repo + GitHub Actions 即生效),与 Windows 侧 Authenticode 互补。
@@ -68,13 +72,14 @@ jobs:
       - name: Summary
         run: |
           echo "### npm 发布完成" >> $GITHUB_STEP_SUMMARY
-          echo "包名: \`@ihui/cli\`" >> $GITHUB_STEP_SUMMARY
-          echo "安装: \`npm install -g @ihui/cli\`" >> $GITHUB_STEP_SUMMARY
+          echo "包名: \`ihui-cli\`" >> $GITHUB_STEP_SUMMARY
+          echo "安装: \`npm install -g ihui-cli\`" >> $GITHUB_STEP_SUMMARY
 
   # ---------- Job 2: Build binaries ----------
   build-binary:
     name: Build Binaries (${{ matrix.os }}-${{ matrix.arch }})
-    needs: npm-publish
+    # 2026-10-18 起与 npm-publish 解耦:NPM_TOKEN 未配置/包名未定时二进制发布照常
+    needs: []
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -125,7 +130,7 @@ jobs:
         # 本仓已有 7 个包 exports 指 dist(cli/i18n/design-tokens/types/dom-actions/api-client/
         # context-compaction),**手工点名"要先建哪几个包"必然落后于新增** —— 落后一次的形态是
         # "CI 恒红而本地全绿"(守门 72/78 同族)。选择器由 pnpm 从包图算,加包不再需要改本文件。
-        run: pnpm --filter "@ihui/cli^..." run build && pnpm --filter @ihui/cli build
+        run: pnpm --filter "ihui-cli^..." run build && pnpm --filter ihui-cli build
 
       - name: Build SEA binary
         # 2026-10-18 起统一走 apps/cli/scripts/build-sea.mjs(esbuild bundle → SEA blob
@@ -134,7 +139,7 @@ jobs:
         # 不随包携带 package.json,产物有真实缺陷 —— 与本地构建分叉的形态一律
         # 收口到同一脚本。产物在 apps/cli/dist-sea/(Windows: ihui.exe;
         # 非 Windows: ihui),旁带 package.json。
-        run: pnpm --filter @ihui/cli build:sea
+        run: pnpm --filter ihui-cli build:sea
 
       - name: Package (Linux/macOS)
         if: matrix.os != 'windows'
@@ -201,7 +206,7 @@ jobs:
   # ---------- Job 3: Build Docker image ----------
   build-docker:
     name: Build & Push Docker Image
-    needs: npm-publish
+    needs: []
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -264,7 +269,7 @@ jobs:
   # ---------- Job 4: Generate changelog ----------
   release-summary:
     name: Release Summary
-    needs: [npm-publish, build-binary, build-docker]
+    needs: [build-binary, build-docker]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -308,7 +313,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 安装方式" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "npm install -g @ihui/cli" >> $GITHUB_STEP_SUMMARY
+          echo "npm install -g ihui-cli" >> $GITHUB_STEP_SUMMARY
           echo "curl -fsSL https://aizhs.top/install.sh | bash" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 

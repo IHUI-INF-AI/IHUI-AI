@@ -11169,6 +11169,7 @@
       "delete": "删除",
       "downloadImages": "下载图片",
       "edit": "编辑",
+      "editAiReply": "编辑此回复",
       "editAndRerun": "保存并重跑",
       "editRollbackFiles": "同时回滚文件改动",
       "hideContent": "隐藏内容",
@@ -11179,6 +11180,7 @@
       "readAloudTruncated": "内容过长,只朗读前 {max} 字",
       "regenerate": "重新生成",
       "reply": "回复",
+      "saveAsNewVersion": "保存为新版本",
       "share": "分享",
       "shareLinkCopied": "已复制内容与链接",
       "showContent": "显示内容",
@@ -19629,6 +19631,7 @@
     "downloadCliSysReq": "Node.js 20.10 或更高版本",
     "downloadCliUsageHint": "安装完成后运行",
     "downloadClient": "下载客户端",
+    "downloadCodeSigningNotice": "Windows 版本由 SignPath.io 使用 SignPath Foundation 提供的免费代码签名证书进行签名。",
     "downloadComingSoon": "即将上线",
     "downloadComingSoonHint": "{platform} 客户端正紧锣密鼓开发中,敬请期待。可先使用 Web 版体验完整功能。",
     "downloadComingSoonTitle": "{platform} 即将上线",
@@ -26848,7 +26851,9 @@
     "toastLoadFailed": "快照列表加载失败",
     "toastPlanFailed": "预演失败",
     "toastRunOk": "整栈回滚已执行",
-    "toastRunFail": "整栈回滚失败"
+    "toastRunFail": "整栈回滚失败",
+    "availabilityAvailable": "另一台设备刚创建了检查点:{id}",
+    "availabilityUnavailable": "检查点服务暂不可用,请稍后重试"
   },
   "traceReplay": {
     "title": "执行轨迹回放",
