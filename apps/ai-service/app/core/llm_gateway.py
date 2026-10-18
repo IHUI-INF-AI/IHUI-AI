@@ -2366,14 +2366,14 @@ class LLMGateway:
                     # 防止 ProviderError fallback 到 LiteLLM 时 tools 丢失导致 function calling 失效。
                     provider_kwargs = dict(kwargs)
                     tools = provider_kwargs.pop("tools", None)
-                    result = await provider.complete(
+                    native_result = await provider.complete(
                         trimmed_messages, used_model, tools=tools, **provider_kwargs
                     )
                     # 观测收口(2026-10-18):原生适配器路径此前直接 return、零埋点——
                     # 调用次数/token/延迟/成本全不入 ihui_llm_*,与 LiteLLM 路径双标。
                     # 成本用 _estimate_cost_usd 第二档估算(与 LiteLLM 路径同口径),
                     # 取不到传 None(宁缺毋假);失败仍 fallback LiteLLM 不受影响。
-                    _native_usage = result.get("usage") or {}
+                    _native_usage = native_result.get("usage") or {}
                     record_llm_outcome(
                         _metrics_provider(used_model),
                         used_model,
@@ -2382,7 +2382,7 @@ class LLMGateway:
                         duration_seconds=time.perf_counter() - _native_metrics_t0,
                         cost_usd=_estimate_cost_usd(used_model, _native_usage),
                     )
-                    return result
+                    return native_result
                 except ProviderError as e:
                     logger.warning(
                         "厂商适配器调用失败(model=%s): %s, fallback LiteLLM",
