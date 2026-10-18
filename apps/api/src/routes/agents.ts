@@ -4,7 +4,8 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { randomUUID, randomBytes, createHmac, timingSafeEqual } from 'crypto'
+import { randomUUID, randomBytes, createHmac } from 'crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import { eq, and, desc, sql, inArray, gte } from 'drizzle-orm'
 import { authenticate, checkAuth } from '../plugins/auth.js'
 import { config } from '../config/index.js'
@@ -1717,9 +1718,10 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     const expected = createHmac('sha256', runtimeWebhookSecret)
       .update(`${tsHeader}.${rawBody}`)
       .digest('hex')
-    const a = Buffer.from(expected, 'hex')
-    const b = Buffer.from(sigHeader, 'hex')
-    if (a.length !== b.length || a.length === 0 || !timingSafeEqual(a, b)) {
+    // 原实现是 hex 解码后比字节(hex 大小写不敏感),toString('hex') 归一保持该语义;
+    // 比较出口收敛到 secretsEqual(定长散列,无长度泄漏)。
+    const providedHex = Buffer.from(sigHeader, 'hex').toString('hex')
+    if (!secretsEqual(expected, providedHex)) {
       request.log.warn({ ip: request.ip }, 'Coze webhook 签名验证失败')
       return reply.status(401).send(error(401, 'webhook 签名验证失败'))
     }
@@ -2164,12 +2166,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       const secret = runtimeWebhookSecret
       const message = ts ? `${ts}.${payload}` : payload
       const expected = crypto.createHmac('sha256', secret).update(message).digest('hex')
-      // 2026-07-21 安全审计加固:用 timingSafeEqual 做常量时间字符串比较,
-      // 防止 CWE-208 时序攻击通过响应时间差异逐字节爆破签名
-      // (虽然此端点只读不接收实际生产流量,仍按最佳实践修复)
-      const a = Buffer.from(expected, 'hex')
-      const b = Buffer.from(signature, 'hex')
-      const isValid = a.length === b.length && a.length > 0 && crypto.timingSafeEqual(a, b)
+      // 2026-07-21 安全审计加固:常量时间字符串比较,防止 CWE-208 时序攻击
+      // 通过响应时间差异逐字节爆破签名(虽然此端点只读不接收实际生产流量,仍按最佳实践修复);
+      // 2026-10-18 收敛到全仓唯一比较出口 secretsEqual(定长散列,无长度泄漏),
+      // hex 归一保持原"hex 解码后比字节"的大小写不敏感语义。
+      const providedHex = Buffer.from(signature, 'hex').toString('hex')
+      const isValid = secretsEqual(expected, providedHex)
       return reply.send(
         success({
           isValid,
