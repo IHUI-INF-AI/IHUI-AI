@@ -14,7 +14,7 @@
 #      `ihui-src` 只命中本文件与 .ihui-agent 归档副本 → CI 永远不会上传这个名字。
 #   3) 即便补上同名资产,`git archive` 出的源码包也**不满足下方 install 块**:它只含
 #      apps/cli 源码(无 dist/、无 node_modules),而公式要执行 libexec/dist/index.js。
-#      → 必须挂"已构建的 bundle"(pnpm --filter @ihui/cli build + 生产依赖),不是源码 tar。
+#      → 必须挂"已构建的 bundle"(pnpm --filter ihui-cli build + 生产依赖),不是源码 tar。
 #
 # sha256 填法(不得提前猜):对**最终上传到那个 release 的同一个文件**执行
 #   `sha256sum ihui-src-1.0.0.tar.gz` 原样粘贴。本地产物名与 CI 产物名不重叠(CI 无此名),

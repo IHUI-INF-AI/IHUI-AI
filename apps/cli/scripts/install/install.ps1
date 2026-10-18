@@ -10,7 +10,7 @@
 $ErrorActionPreference = 'Stop'
 
 $GITHUB_REPO = 'IHUI-INF-AI/IHUI-AI'
-$NPM_PACKAGE = '@ihui/cli'
+$NPM_PACKAGE = 'ihui-cli'
 $INSTALL_DIR = Join-Path $env:LOCALAPPDATA 'IHUI\bin'
 $TEMP_DIR = $null
 
