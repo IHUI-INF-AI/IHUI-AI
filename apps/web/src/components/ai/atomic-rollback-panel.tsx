@@ -16,6 +16,7 @@ import { useTranslations } from 'next-intl'
 import { Button, Badge, Input, Label } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { useCheckpointAvailability } from '@/hooks/use-checkpoint-availability'
 
 interface SnapshotMeta {
   id: string
@@ -60,6 +61,11 @@ export function AtomicRollbackPanel() {
   const [executing, setExecuting] = React.useState(false)
   const [result, setResult] = React.useState<RollbackResult | null>(null)
   const [confirmed, setConfirmed] = React.useState(false)
+  // D163 残余:别的设备/会话刚建了检查点时,本面板不刷新也能看到 —— 由广播驱动,不轮询。
+  // 事件契约在 @ihui/types 的 checkpoint:availability;当前只有 web 有检查点面,
+  // RN/miniapp 无此 UI,不新立消费面。
+  const availability = useCheckpointAvailability(workspacePath)
+  const lastAvailabilityRef = React.useRef<string | null>(null)
 
   const loadSnapshots = React.useCallback(async () => {
     if (!workspacePath.trim()) return
@@ -85,6 +91,17 @@ export function AtomicRollbackPanel() {
       setLoading(false)
     }
   }, [workspacePath, t, toast])
+
+  // 广播说"当前工作区刚有可用检查点" ⇒ 自动拉一次列表(仍只走既有 GET,不新增通道)。
+  // 只在事件身份变化时触发;重复帧由 hook 的覆盖式落表挡住。
+  React.useEffect(() => {
+    const entry = availability.entry
+    if (!entry || entry.state !== 'available') return
+    const key = `${entry.checkpointId ?? ''}@${entry.at}`
+    if (lastAvailabilityRef.current === key) return
+    lastAvailabilityRef.current = key
+    void loadSnapshots()
+  }, [availability.entry, loadSnapshots])
 
   const runPlan = async (id: string) => {
     setPlanning(true)
@@ -156,6 +173,16 @@ export function AtomicRollbackPanel() {
             {t('loadList')}
           </Button>
         </div>
+        {availability.entry?.state === 'unavailable' && (
+          <p className="text-xs text-destructive">
+            {t('availabilityUnavailable')}
+          </p>
+        )}
+        {availability.entry?.state === 'available' && (
+          <p className="text-xs text-muted-foreground">
+            {t('availabilityAvailable', { id: availability.entry.checkpointId ?? '' })}
+          </p>
+        )}
       </div>
 
       {snapshots.length === 0 ? (

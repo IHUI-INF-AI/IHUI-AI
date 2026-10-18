@@ -26850,7 +26850,9 @@
     "toastLoadFailed": "스냅샷 목록 로드 실패",
     "toastPlanFailed": "미리보기 실패",
     "toastRunOk": "롤백이 실행되었습니다",
-    "toastRunFail": "롤백 실패"
+    "toastRunFail": "롤백 실패",
+    "availabilityAvailable": "다른 기기에서 체크포인트를 생성했습니다: {id}",
+    "availabilityUnavailable": "체크포인트 서비스를 사용할 수 없습니다. 잠시 후 다시 시도하세요."
   },
   "traceReplay": {
     "title": "실행 트레이스 재생",

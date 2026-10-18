@@ -26847,7 +26847,9 @@
     "toastLoadFailed": "Failed to load snapshots",
     "toastPlanFailed": "Dry-run failed",
     "toastRunOk": "Rollback executed",
-    "toastRunFail": "Rollback failed"
+    "toastRunFail": "Rollback failed",
+    "availabilityAvailable": "Another device just created a checkpoint: {id}",
+    "availabilityUnavailable": "Checkpoint service is unavailable. Please try again later."
   },
   "traceReplay": {
     "title": "Trace replay",
