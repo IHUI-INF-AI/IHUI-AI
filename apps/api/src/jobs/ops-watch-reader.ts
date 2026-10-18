@@ -58,6 +58,13 @@ export interface WatchFinding {
   key: string
   title: string
   detail: string
+  /**
+   * 稳定身份种子(§5e-1)。`detail` 是给人看的正文,里面有时刻、原因原文、"连续 N 次"这类
+   * 每轮都动的量 —— 让它进指纹等于每轮换一次身份,冷却窗结构上命中不了(2026-10-18 实测:
+   * 未送达标记每次重写都带新的 `at`,于是同一格反复重报)。给了 identity 就以它为准,
+   * `detail` 只进正文。
+   */
+  identity?: string
   severity: 'warning' | 'critical'
 }
 
@@ -181,6 +188,7 @@ export function scanUndeliveredDir(dir: string): WatchFinding[] {
       {
         key: `undelivered-dir:${dir}`,
         title: '未送达标记目录读不到',
+        identity: 'undelivered-dir-unreadable',
         detail: `${dir}: ${(e as NodeJS.ErrnoException)?.code ?? (e as Error)?.message ?? '未知错误'}(未判定,不读成"无未送达")`,
         severity: 'warning',
       },
@@ -196,6 +204,7 @@ export function scanUndeliveredDir(dir: string): WatchFinding[] {
       out.push({
         key: `undelivered-broken:${p}`,
         title: '未送达标记 JSON 坏',
+        identity: 'undelivered-marker-broken',
         detail: `${f}: ${(e as Error)?.message?.slice(0, 120) ?? '解析失败'}(未判定,不读成"无未送达")`,
         severity: 'warning',
       })
@@ -208,6 +217,9 @@ export function scanUndeliveredDir(dir: string): WatchFinding[] {
     out.push({
       key: `undelivered:${f}:${title ?? ''}`,
       title: `有告警从未到人:${f}`,
+      // 身份只到"哪一个标记文件从未到人"这一层;时刻与原因原文只进正文 —— 生产者每次投递失败
+      // 都会重写标记里的 `at`,把它并进指纹等于每轮一个新身份, :362 那道冷却就永远命中不了。
+      identity: `undelivered:${f}`,
       detail:
         `生产者=${cap(producer)} 身份/标题=${cap(title)} 未送达时刻=${cap(at)} 原因=${cap(reason)}(原因截断,永不外传正文;` +
         '标记被下一次成功投递自动清除)',
@@ -264,9 +276,10 @@ export function _resetDedupForTests(): void {
   getDedupStore().clear()
 }
 
-/** 内容指纹:同一 key 下内容变了 = 新故障,立即重报(不等冷却)。 */
+/** 内容指纹:同一 key 下**身份**变了 = 新故障,立即重报(不等冷却)。身份缺省时退到正文,但那是
+ * 会抖的量 —— 各 finding 都应显式给 `identity`(§5e-1:实时读数进正文,不进身份)。 */
 function fingerprint(f: WatchFinding): string {
-  return `${f.title}|${f.detail}`
+  return `${f.title}|${f.identity ?? f.detail}`
 }
 
 async function defaultPush(f: WatchFinding): Promise<void> {
@@ -327,6 +340,7 @@ export async function runOpsWatchTick(deps: OpsWatchDeps = {}): Promise<WatchFin
     findings.push({
       key: cdnKey,
       title: '图片 CDN 无应答',
+      identity: 'cdn-probe-fail',
       detail: `${cdnUrl} 连续 ${rec.failures} 次探测失败/超时(:80 不在传统值守端口清单内,由本读方兜住;进程载体=nssm 服务 IHUI-IMAGE-CDN)`,
       severity: 'critical',
     })
