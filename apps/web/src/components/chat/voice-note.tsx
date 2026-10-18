@@ -16,7 +16,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Mic, Square, RefreshCw, X, Trash2, ClipboardPaste } from 'lucide-react'
-import { Button } from '@ihui/ui-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
@@ -26,6 +26,7 @@ import {
   listVoiceNotes,
   voiceSttFromBlob,
 } from '@ihui/api-client'
+import type { VoiceNoteGroupFacet } from '@ihui/types'
 import { useWebAuthStore } from '@/stores/auth-store'
 import { useChatStore } from '@/stores/chat'
 import {
@@ -86,9 +87,18 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
   const archivedRef = React.useRef<VoiceNoteRecord[]>([])
   archivedRef.current = archived
   const [listError, setListError] = React.useState(false)
+  // 检索与分组都落在服务端(票面②「按分组检索→命中」):面板只持有查询条件,不持数据
+  const [query, setQuery] = React.useState('')
+  const [groupKey, setGroupKey] = React.useState<string | null>(null)
+  const [groups, setGroups] = React.useState<VoiceNoteGroupFacet[]>([])
 
   const loadArchive = React.useCallback(async () => {
-    const res = await listVoiceNotes({ pageSize: VOICE_NOTE_ARCHIVE_LIMIT })
+    const res = await listVoiceNotes({
+      pageSize: VOICE_NOTE_ARCHIVE_LIMIT,
+      withGroups: '1',
+      ...(query.trim() ? { q: query.trim() } : {}),
+      ...(groupKey ? { groupKey } : {}),
+    })
     if (!res.success) {
       // 读失败必须喊出来:静默兜空列表会让人以为"笔记都丢了"
       setListError(true)
@@ -96,10 +106,20 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
     }
     setListError(false)
     setArchived(res.data.list.map(toVoiceNoteRecord))
-  }, [])
+    setGroups(res.data.groups ?? [])
+  }, [groupKey, query])
 
+  // 输入即搜,但去抖 300ms:每敲一个字符打一次后端会把列表打抖。
+  // 首帧不去抖(打开就该看见已有笔记,不该先空 300ms)。
+  const firstLoadRef = React.useRef(true)
   React.useEffect(() => {
-    void loadArchive()
+    if (firstLoadRef.current) {
+      firstLoadRef.current = false
+      void loadArchive()
+      return
+    }
+    const timer = setTimeout(() => void loadArchive(), 300)
+    return () => clearTimeout(timer)
   }, [loadArchive])
 
   /**
@@ -433,6 +453,45 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
             )}
           </div>
 
+          {/* 检索与分组入口(票面②「按分组检索→命中」):条件交给服务端,列表按结果渲染 */}
+          <div className="mb-2 space-y-1.5" data-testid="voice-note-filters">
+            <SearchInput
+              size="sm"
+              clearable
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('searchPlaceholder')}
+              aria-label={t('searchPlaceholder')}
+              clearAriaLabel={t('action.dismiss')}
+              data-testid="voice-note-search"
+            />
+            {groups.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                <Button
+                  size="xs"
+                  variant={groupKey === null ? 'secondary' : 'ghost'}
+                  data-testid="voice-note-group-chip-all"
+                  onClick={() => setGroupKey(null)}
+                >
+                  {t('groupAll')}
+                </Button>
+                {groups.map((facet) => (
+                  <Button
+                    key={facet.groupKey}
+                    size="xs"
+                    variant={groupKey === facet.groupKey ? 'secondary' : 'ghost'}
+                    data-testid="voice-note-group-chip"
+                    onClick={() => setGroupKey(facet.groupKey)}
+                  >
+                    {facet.groupKey}
+                    <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-md bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums">
+                      {facet.count}
+                    </span>
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
           {/* 归档列表(服务端事实源:新建→落库→插入对话→删除) */}
           {listError && (
             <div

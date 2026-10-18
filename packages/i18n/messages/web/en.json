@@ -10877,7 +10877,9 @@
         "saveAudioOnly": "Save audio only",
         "insertToInput": "Insert into message",
         "dismiss": "Close"
-      }
+      },
+      "searchPlaceholder": "Search notes",
+      "groupAll": "All"
     },
     "connectorAuth": {
       "title": "Connect to {connectorName}",
