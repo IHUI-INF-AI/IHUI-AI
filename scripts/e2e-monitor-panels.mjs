@@ -64,6 +64,23 @@ const OUT = 'D:/IHUI-AI/.ihui-agent/tmp'
     await page.screenshot({ path: `${OUT}/e2e-05-logs-dash.png` })
     console.log('LOGS-OK')
   }
+  // 3.5 新增四盘抽查(2026-10-19 覆盖率补齐:主机/隧道/日志栈/应用运行时)
+  for (const [name, shot] of [
+    ['Windows 宿主机', 'e2e-07-windows-host'],
+    ['公网隧道', 'e2e-08-cloudflared'],
+    ['日志栈', 'e2e-09-log-stack'],
+    ['应用层黄金指标', 'e2e-10-app-golden'],
+    ['深度链路', 'e2e-11-ai-deep-pipeline'],
+  ]) {
+    const navItem = page.locator('aside button', { hasText: name }).first()
+    if (!(await navItem.count())) { console.log('NEWDASH-NAV-MISS', name); continue }
+    await navItem.click()
+    await page.waitForTimeout(8000)
+    await page.screenshot({ path: `${OUT}/${shot}.png` })
+    const txt = await page.locator('body').innerText()
+    console.log('NEWDASH', name, 'cards=', await page.locator('.rounded-lg.border').count(), 'nodata=', /暂无数据/.test(txt))
+  }
+
   // 4. SaaS 租户监控页:GrafanaFrame 原生替身(2026-10-18 退役收尾)
   //    判据:页面无指向 Grafana 的 iframe,且有真实渲染出的图表/面板
   await page.goto(`${BASE}/admin/saas/metrics`, { waitUntil: 'domcontentloaded', timeout: 60_000 })
