@@ -21,7 +21,7 @@
  * 用法见 --help。
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import nodemailer from 'nodemailer'
@@ -659,6 +659,92 @@ function pruneDedupeState(state: DedupeState, nowMs: number, windowMs: number): 
  *  ⚠️ 层级是实测过的:scripts →(1)apps/api →(2)apps →(3)仓库根。少写一层不会报错,
  *  只会让 readFileSync 恒 ENOENT ⇒ prevMs 恒 null ⇒ **去重静默失效、每轮照寄** ——
  *  与本仓"造好没装车"那一族同型,故由测试里"路径必须以 <根>\.workbuddy\ 结尾且不在 apps 下"钉住。 */
+/**
+ * 投递台账的落点(§5e-3,2026-10-18 立)。
+ *
+ * 为什么记在**这个文件**而不是各生产者里:发信到人只有这一个出口(AGENTS §5e,守门 81 硬拦自拼
+ * SMTP),而生产者有 20 多处(scripts/、deploy/win/*.ps1、monitoring 桥、CI、ai-service)。
+ * 记在生产者那一侧 = 每加一个发信点就要记得写一次账;今天 18 封同一件事之所以"没人看得见",
+ * 根子就是**量的器物只读了其中一个面的日志**。记在出口上,以后任何一路发信都自动有账,
+ * 结构性不再可能出现盲区。
+ */
+function defaultMailSendLedgerPath(): string {
+  return resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '..',
+    '..',
+    '..',
+    '.workbuddy',
+    'mail-send-ledger.jsonl',
+  )
+}
+
+/** 台账一行(schema 2)。键名全 ASCII;正文、地址原文、env 一律不进。 */
+interface MailLedgerRow {
+  at: string
+  schema: 2
+  source: string
+  subject: string
+  alertId: string
+  disposition: 'delivered' | 'suppressed' | 'failed' | 'probe'
+  channel: string | null
+  to: string
+  strict: boolean
+  why?: string
+}
+
+/**
+ * 从一次 runCore 结论 + 调用参数造台账行(纯函数,镜像测试直接钉形状)。
+ * 返回 null = 这一趟**没有任何投递动作**(help / dry-run / 零投递探针)⇒ 不写行,
+ * 否则一次演练会被发信量数成一封。
+ */
+function buildMailLedgerRow(
+  o: RunOutcome,
+  args: ReturnType<typeof parseCliArgs>,
+  nowMs: number,
+): MailLedgerRow | null {
+  if (o.help || o.dryRun) return null
+  let disposition: MailLedgerRow['disposition']
+  if (o.probe) {
+    if (!o.probe.delivered) return null
+    disposition = 'probe'
+  } else if (o.suppressed) disposition = 'suppressed'
+  else if (o.sent) disposition = 'delivered'
+  else disposition = 'failed'
+  const row: MailLedgerRow = {
+    at: new Date(nowMs).toISOString(),
+    schema: 2,
+    source: args.source || DEFAULT_SOURCE,
+    subject: o.subject || '(无 subject)',
+    alertId: (args.alertId ?? '').trim(),
+    disposition,
+    channel: o.channel ?? null,
+    to: (o.toMasked ?? []).join(','),
+    strict: args.strict,
+  }
+  if (disposition === 'failed') row.why = (o.reasons ?? []).join(' / ').slice(0, 160)
+  else if (disposition === 'suppressed') row.why = o.dedupeWhy ?? ''
+  return row
+}
+
+/** 写一行台账。写不进**不改变发信结果**,但必须把原因交回调用方报名 —— 静默丢账就是又一格安静。 */
+function recordMailAttempt(
+  o: RunOutcome,
+  argv: readonly string[],
+  nowMs: number,
+  file: string = defaultMailSendLedgerPath(),
+): string | null {
+  try {
+    const row = buildMailLedgerRow(o, parseCliArgs(argv), nowMs)
+    if (!row) return null
+    mkdirSync(dirname(file), { recursive: true })
+    appendFileSync(file, `${JSON.stringify(row)}\n`, 'utf8')
+    return null
+  } catch (e) {
+    return `投递台账写入失败(不影响本次发信,但发信量会少这一条): ${errText(e)}`
+  }
+}
+
 function defaultDedupeStatePath(): string {
   return resolve(
     dirname(fileURLToPath(import.meta.url)),
@@ -1143,6 +1229,10 @@ async function main(
 ): Promise<number> {
   try {
     const outcome = await runCore(argv, env, defaultRunDeps)
+    // 台账的唯一记录点放在这里,而不是塞进下面每个终态分支:分支会被人增加,而"少记一支"的表现
+    // 形式永远是安静(今天 28 封在量算仪账面上是 MAIL=0,就是这么来的)。
+    const ledgerProblem = recordMailAttempt(outcome, argv, Date.now())
+    if (ledgerProblem) console.error(`[alert-mail] 警告: ${ledgerProblem}`)
     for (const w of outcome.warnings) console.error(`[alert-mail] 警告: ${w}`)
     if (outcome.help) {
       console.log(HELP_TEXT)
@@ -1258,6 +1348,10 @@ export const __test__ = {
   computeExitCode,
   defaultEnvFilePath,
   defaultDedupeStatePath,
+  // 投递台账(§5e-3):形状与"哪一趟不写行"都必须被镜像钉住,不得只在真发信时顺手验证
+  defaultMailSendLedgerPath,
+  buildMailLedgerRow,
+  recordMailAttempt,
   decideDedupe,
   pruneDedupeState,
   parseDedupeState,

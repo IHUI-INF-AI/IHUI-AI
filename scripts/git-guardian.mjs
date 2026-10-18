@@ -120,13 +120,12 @@ const NOTIFY_STATE = join(WORKTREE, '.workbuddy', 'git-guardian-notify-state.jso
 /** 投递失败标记:邮件寄不出去必须留可诊断痕迹(§5e),下一次成功投递自动清除 */
 const NOTIFY_UNDEL = join(WORKTREE, '.workbuddy', 'git-guardian-notify-UNDELIVERED.json')
 /**
- * 每一次投递尝试落一行 JSONL(2026-10-18 立)。立因:量算仪 `alert-volume-report.mjs` 的
- * 判据是"ASCII 关键字 + 时间戳,中文一律不解码",而本层的人到留痕是中文散文行
- * (`✅ 判红通报已寄出: …`),于是**这台机最大的一个发信面在量算仪账面上是 MAIL=0**
- * —— 今天 18 封同一场停摆,量算仪一次都没看见,风暴判据结构上打不到它。
- * 台账用 ASCII 键名 + ISO 时刻,身份只存 fp 前缀(sha 不是凭据,可留痕;收件人只存脱敏形态)。
+ * 发信台账**不在这里写**(2026-10-18 收口):账记在唯一出口
+ * `apps/api/scripts/notify-deploy-failure.ts` 的 `recordMailAttempt` 上。
+ * 本层原先也写一份(4 支各一行)—— 那会让每一次经我寄的信在发信量里**被数两遍**,
+ * 用一个新谎替换掉旧的盲区;而生产侧的 `name`/`fp` 在出口行里已经有等价物
+ * (subject 与 --alert-id),没有信息损失。
  */
-const MAIL_SEND_LEDGER = join(WORKTREE, '.workbuddy', 'mail-send-ledger.jsonl')
 /** 去重窗:同 (alert 名 + 内容指纹) 在窗口内只寄一封。**没有**任何"每日 N 封"总量闸 —— 那是把"告警静默"再复制一遍 */
 const NOTIFY_DEFAULT_WINDOW_MS = 4 * 60 * 60 * 1000
 /** 投递失败后的重试间隔(反 spam 用的退避,不是配额:窗口照常重发,与"封顶 N 封"不同) */
@@ -2398,16 +2397,6 @@ function writeNotifyJson(file, obj) {
   writeFileSync(file, JSON.stringify(obj, null, 1), 'utf8')
 }
 
-/** 发信台账的一行:写不进**不影响投递**(人是收信方,台账是给机器的账),但量算仪会因此报未判定。 */
-export function appendMailSendLedger(row, file = MAIL_SEND_LEDGER) {
-  try {
-    appendFileSync(file, `${JSON.stringify(row)}\n`, 'utf8')
-    return true
-  } catch {
-    return false
-  }
-}
-
 /**
  * 守护判红时的唯一出口。**旁路通知,不改自愈行为本身**:整个函数体裹 try,
  * 落盘/派发/状态任一环节炸掉都只降级为日志一行,原调用方(三个自愈层)照常走完。
@@ -2421,9 +2410,6 @@ export function notifyGuardRed(name, detail, opts = {}) {
     dispatch = dispatchGuardMail,
     stateFile = NOTIFY_STATE,
     undelFile = NOTIFY_UNDEL,
-    // 台账默认落在去重状态件同一个目录(生产 = `.workbuddy/`);镜像测试注入 scratch 的
-    // stateFile 时,台账原地跟着进 scratch —— 否则"跑一次测试"会往真账上写一行假发信。
-    ledgerFile = join(dirname(stateFile), 'mail-send-ledger.jsonl'),
     windowMs = notifyWindowMs(),
     failCooldownMs = notifyFailCooldownMs(),
     dedupKey = '',
@@ -2480,34 +2466,23 @@ export function notifyGuardRed(name, detail, opts = {}) {
           /* 标记清不掉不影响"通道已验通"这个事实,下一轮真实投递还会再清 */
         }
         logger(`✅ 通知自测已送达: ${name} → ${maskEmail(resolveAlertTo())}`)
-        // 自测也是**真寄了一封到人邮箱**,所以必须进发信台账(`probe` 标注留给量算仪分桶)。
-        // 不写这一支,"人工核验"就成了一次无人记账的投递 —— 与 5e-3 立的那条"量的必须是每一封"相反。
-        appendMailSendLedger(
-          { at: new Date(now).toISOString(), producer: 'git-guardian', name, fp: fp.slice(0, 12), severity, to: maskEmail(resolveAlertTo()), delivered: true, probe: true },
-          ledgerFile,
-        )
+        // 投递台账由唯一出口 `notify-deploy-failure.ts` 记(`--probe-deliver` 那一趟也算),
+        // 本层不再另写一份 —— 两边都写就是把一封数成两封。
       } else {
         writeNotifyJson(undelFile, { ts: now, name, fp, why: r.why })
-        appendMailSendLedger(
-          { at: new Date(now).toISOString(), producer: 'git-guardian', name, fp: fp.slice(0, 12), severity, to: maskEmail(resolveAlertTo()), delivered: false, probe: true, why: String(r.why || '').slice(0, 120) },
-          ledgerFile,
-        )
         logger(`⚠️ 通知自测失败: ${name} — ${r.why}`)
       }
       return { sent: Boolean(r.ok), why: r.why }
     }
     const r = callDispatch()
-    const ledgerOpts = { at: new Date(now).toISOString(), producer: 'git-guardian', name, fp: fp.slice(0, 12), severity, to: maskEmail(resolveAlertTo()) }
     if (r.ok) {
       writeNotifyJson(stateFile, withAlertMark(state, name, fp, now, true))
       rmSync(undelFile, { force: true }) // 下一次成功投递自动清除失败标记(§5e)
-      appendMailSendLedger({ ...ledgerOpts, delivered: true }, ledgerFile)
       logger(`✅ 判红通报已寄出: ${name} → ${maskEmail(resolveAlertTo())}`)
     } else {
       // 失败不记"已送达"⇒ 下轮(退避后)还会重试;标记落盘让人在 --status/日志里看得见
       writeNotifyJson(stateFile, withAlertMark(state, name, fp, now, false))
       writeNotifyJson(undelFile, { ts: now, name, fp, why: r.why })
-      appendMailSendLedger({ ...ledgerOpts, delivered: false, why: String(r.why || '').slice(0, 120) }, ledgerFile)
       logger(`⚠️ 判红通报投递失败: ${name} — ${r.why}(已写 UNDELIVERED 标记,${Math.round(failCooldownMs / 60000)} 分钟后重试)`)
     }
     return { sent: Boolean(r.ok), why: r.why }
