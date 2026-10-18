@@ -31,6 +31,7 @@ import { gitRaw } from './face-reader.mjs'
 import { pushGateCacheEarlyExit, writePushGateCache } from './guardian-pushgate-cache.mjs'
 import { attestGateBatchRun as attestGateBatchRunImpl } from './guardian-batch-attest.mjs'
 import { normalizeTriggers, triggersTouch } from './guardian-triggers.mjs'
+import { widenFilesOverDependents } from './import-graph.mjs'
 import { resolveGitBin } from './gitdir.mjs'
 import { probeSubstrate } from './substrate-probe.mjs'
 // G-611:子门"被信号杀死"与"检查结论失败"的分界用共享尺子判(集合/分类唯一实现在该 lib;
@@ -176,10 +177,42 @@ function stagedFilesOrNull() {
   return stagedFilesCache
 }
 
+// L14546(2026-10-18 机主拍板全量铺开):--staged 触发面沿**反向依赖闭包**加宽。
+// 只做路径前缀时,改了被 N 处 import 的契约(packages/types、shared、design-tokens、
+// database schema…)却没动 importer,声明了 stagedTriggers 的门一个都不跑 = 净零逃逸
+// (换个写法就逃过门)。现把暂存文件集过 widenFilesOverDependents(face=index,与
+// git diff --cached 同面同轮),把所有(传递)依赖改动文件的 importer 一并算进"本次触及"。
+// 0 边 / 无源码扩展名时逐字不变;建图失败退回纯前缀并打可见告警(不崩、不静默假装成功 ——
+// 增强失效 == 改前行为,绝不把环境故障升级成硬拦)。一次 runner 进程只建一次图(缓存)。
+let stagedEffectiveCache = null
+let stagedWidenAnnounced = false
+function stagedEffectiveFilesOrNull() {
+  if (stagedEffectiveCache) return stagedEffectiveCache
+  const raw = stagedFilesOrNull()
+  if (raw === null) {
+    stagedEffectiveCache = null
+    return null
+  }
+  const w = widenFilesOverDependents(raw, { face: 'index' })
+  if (!stagedWidenAnnounced) {
+    stagedWidenAnnounced = true
+    if (w.widened) {
+      console.info(`🔗 [staged 触发] ${w.reason} —— 相关 importer 已并入本次触发面`)
+    } else if (w.reason.includes('失败')) {
+      console.warn(
+        `⚠️  [staged 触发] ${w.reason}(本轮仅按路径前缀触发,反向依赖增强未生效)`,
+      )
+    }
+  }
+  stagedEffectiveCache = w.files
+  return stagedEffectiveCache
+}
+
 function stagedPathsTouch(prefixes) {
   // 归一交给 lib/guardian-triggers.mjs:裸字符串注册(HEAD 实测 3 道)曾在此处
   // TypeError 崩掉整条守门链;空清单则抛错,不允许"永不运行"的隐形失踪。
-  return triggersTouch(stagedFilesOrNull(), prefixes)
+  // 文件集是经反向依赖闭包加宽后的 effective 集(L14546),不是裸暂存清单。
+  return triggersTouch(stagedEffectiveFilesOrNull(), prefixes)
 }
 
 /**
