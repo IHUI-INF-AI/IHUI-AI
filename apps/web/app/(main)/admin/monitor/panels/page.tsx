@@ -35,9 +35,19 @@ function loadConfig(): Promise<ConfigModule> {
 
 interface QueryResult {
   ref: string
-  series: Array<{ labels: Record<string, string>; points: Array<[number, number]> }>
+  /** points[1] 为 null = 上游 NaN/+Inf(断点,非 0;ECharts 自动断线) */
+  series: Array<{ labels: Record<string, string>; points: Array<[number, number | null]> }>
   logs?: Array<{ ts: number; line: string; labels: Record<string, string> }>
   error?: string
+}
+
+/** 取序列最后一个非 null 值(断点不算最新值)。 */
+function lastVal(points: Array<[number, number | null]>): number | null {
+  for (let i = points.length - 1; i >= 0; i--) {
+    const v = points[i]![1]
+    if (v !== null && Number.isFinite(v)) return v
+  }
+  return null
 }
 
 // ---------- 时间窗与步长 ----------
@@ -111,6 +121,10 @@ function fmtValue(v: number | null | undefined, unit?: string): string {
       return `${v.toFixed(v < 10 ? 2 : 0)}ms`
     case 'currencyCNY':
       return `¥${fmtCompact(v)}`
+    case 'currencyUSD':
+      return `$${fmtCompact(v)}`
+    case 'decgbytes':
+      return fmtBytes(v * 1e9)
     case 'bool':
       return v > 0 ? '是' : '否'
     case 'ops':
@@ -119,6 +133,8 @@ function fmtValue(v: number | null | undefined, unit?: string): string {
     case 'wps':
     case 'pps':
       return `${fmtCompact(v)}/s`
+    case 'bps':
+      return `${fmtCompact(v)}bps`
     case 'logs/s':
       return `${fmtCompact(v)}/s`
     default:
@@ -128,6 +144,9 @@ function fmtValue(v: number | null | undefined, unit?: string): string {
 
 /** Grafana legendFormat 的 {{label}} 替换;空模板回退为标签串。 */
 function legendOf(target: PanelTarget, labels: Record<string, string>): string {
+  // 静态 legend(P50/P95/API QPS 等,无模板)优先级最高 —— 原样保留,
+  // 否则会被下方标签拼接覆盖成 method=GET 之类,同盘 P50/P95/P99 撞名
+  if (target.legend && !target.legend.includes('{{')) return target.legend
   const named = target.legend.replace(/\{\{([^}]+)\}\}/g, (_, k: string) => labels[k.trim()] ?? '?')
   if (target.legend && !named.includes('{{') && named !== target.legend) return named
   if (target.legend && named === target.legend) {
@@ -238,8 +257,8 @@ function PanelBody({ panel, panelIdx, results }: { panel: NativePanel; panelIdx:
   if (panel.kind === 'gauge') return <GaugeBody panel={panel} panelIdx={panelIdx} results={results} unit={panel.unit} />
   if (panel.kind === 'pie') return <PieBody panel={panel} panelIdx={panelIdx} results={results} />
 
-  // timeseries(含 barchart 转译)
-  const series: Array<{ name: string; type: 'line'; showSymbol: boolean; data: Array<[number, number]>; lineStyle: { width: number }; areaStyle?: Record<string, string> }> = []
+  // timeseries(含 barchart/heatmap 转译);null 点原样透传,ECharts 自动断线
+  const series: Array<{ name: string; type: 'line'; showSymbol: boolean; data: Array<[number, number | null]>; lineStyle: { width: number }; areaStyle?: Record<string, string>; connectNulls: boolean }> = []
   panel.targets.forEach((t, ti) => {
     const r = results.get(rkey(panelIdx, ti))
     r?.series.forEach((s) => {
@@ -247,9 +266,10 @@ function PanelBody({ panel, panelIdx, results }: { panel: NativePanel; panelIdx:
         name: legendOf(t, s.labels),
         type: 'line',
         showSymbol: false,
-        data: s.points.map(([ts, v]) => [ts * 1000, v] as [number, number]),
+        data: s.points.map(([ts, v]) => [ts * 1000, v] as [number, number | null]),
         lineStyle: { width: 1.5 },
         areaStyle: { color: 'rgba(34,211,238,0.06)' },
+        connectNulls: false,
       })
     })
   })
@@ -282,8 +302,8 @@ function StatBody({ panel, panelIdx, results, unit }: { panel: NativePanel; pane
   panel.targets.forEach((t, ti) => {
     const r = results.get(rkey(panelIdx, ti))
     r?.series.forEach((s) => {
-      const last = s.points[s.points.length - 1]
-      if (last) stats.push({ name: legendOf(t, s.labels), value: last[1] })
+      const last = lastVal(s.points)
+      if (last !== null) stats.push({ name: legendOf(t, s.labels), value: last })
     })
   })
   if (!stats.length) return <EmptyBody />
@@ -301,16 +321,39 @@ function StatBody({ panel, panelIdx, results, unit }: { panel: NativePanel; pane
   )
 }
 
+/** Grafana thresholds.steps → ECharts gauge 轴色带 [[fraction, color],...](value:null = 从量程起点起) */
+function gaugeBands(panel: NativePanel, g: { min: number; max: number }): Array<[number, string]> {
+  const steps = panel.thresholds
+  if (!steps || !steps.length) return [[1, '#16213a']]
+  const span = g.max - g.min || 1
+  const clamp = (v: number) => Math.min(1, Math.max(0, v))
+  const bands: Array<[number, string]> = []
+  steps.forEach((s, i) => {
+    if (s.value === null) {
+      if (i === 0) bands.push([0, s.color])
+      return
+    }
+    const f = clamp((s.value - g.min) / span)
+    if (bands.length === 0 && f > 0) bands.push([0, '#16213a']) // 首档声明值之前是底色
+    if (bands.length === 0 || f > bands[bands.length - 1]![0]) bands.push([f, s.color])
+  })
+  return bands.length ? bands : [[1, '#16213a']]
+}
+
 function GaugeBody({ panel, panelIdx, results, unit }: { panel: NativePanel; panelIdx: number; results: Map<number, QueryResult>; unit?: string }) {
-  const gauges: Array<{ name: string; value: number; max: number }> = []
+  const gauges: Array<{ name: string; value: number; max: number; min: number }> = []
   panel.targets.forEach((t, ti) => {
     const r = results.get(rkey(panelIdx, ti))
     r?.series.forEach((s) => {
-      const last = s.points[s.points.length - 1]
-      if (!last) return
-      const peak = Math.max(...s.points.map((p) => p[1]))
-      const max = unit === 'percent' || unit === 'percentunit' ? (unit === 'percentunit' ? 1 : 100) : Math.max(peak * 1.25, last[1] * 1.25, 1e-9)
-      gauges.push({ name: legendOf(t, s.labels), value: last[1], max })
+      const last = lastVal(s.points)
+      if (last === null) return
+      const vals = s.points.map((p) => p[1]).filter((v): v is number => v !== null)
+      const peak = vals.length ? Math.max(...vals) : last
+      // 量程:Grafana fieldConfig 显式声明优先,否则百分比固定档,最后才按数据自造
+      const declared = panel.max ?? (unit === 'percent' ? 100 : unit === 'percentunit' ? 1 : undefined)
+      const max = declared ?? Math.max(peak * 1.25, last * 1.25, 1e-9)
+      const min = panel.min ?? 0
+      gauges.push({ name: legendOf(t, s.labels), value: last, max, min })
     })
   })
   if (!gauges.length) return <EmptyBody />
@@ -330,10 +373,10 @@ function GaugeBody({ panel, panelIdx, results, unit }: { panel: NativePanel; pan
                   type: 'gauge',
                   startAngle: 210,
                   endAngle: -30,
-                  min: 0,
+                  min: g.min,
                   max: g.max,
                   radius: '95%',
-                  axisLine: { lineStyle: { width: 10, color: [[1, '#16213a']] } },
+                  axisLine: { lineStyle: { width: 10, color: gaugeBands(panel, g) } },
                   pointer: { length: '55%', width: 4, itemStyle: { color: '#22d3ee' } },
                   axisTick: { show: false },
                   splitLine: { show: false },
@@ -363,8 +406,8 @@ function PieBody({ panel, panelIdx, results }: { panel: NativePanel; panelIdx: n
   panel.targets.forEach((t, ti) => {
     const r = results.get(rkey(panelIdx, ti))
     r?.series.forEach((s) => {
-      const last = s.points[s.points.length - 1]
-      if (last) slices.push({ name: legendOf(t, s.labels), value: last[1] })
+      const last = lastVal(s.points)
+      if (last !== null) slices.push({ name: legendOf(t, s.labels), value: last })
     })
   })
   if (!slices.length) return <EmptyBody />
@@ -400,17 +443,17 @@ function PieBody({ panel, panelIdx, results }: { panel: NativePanel; panelIdx: n
 }
 
 function TableBody({ panel, panelIdx, results, unit }: { panel: NativePanel; panelIdx: number; results: Map<number, QueryResult>; unit?: string }) {
-  const rows: Array<{ name: string; value: string; raw: number }> = []
+  const rows: Array<{ name: string; value: string; raw: number | null }> = []
   panel.targets.forEach((t, ti) => {
     const r = results.get(rkey(panelIdx, ti))
     r?.series.forEach((s) => {
-      const last = s.points[s.points.length - 1]
-      if (last) rows.push({ name: legendOf(t, s.labels), value: fmtValue(last[1], unit), raw: last[1] })
+      const last = lastVal(s.points)
+      if (last !== null) rows.push({ name: legendOf(t, s.labels), value: fmtValue(last, unit), raw: last })
     })
   })
   if (!rows.length) return <EmptyBody />
-  // 值降序:监控表格的使用动作是"找最大的那个序列",排序后一眼定位
-  rows.sort((a, b) => b.raw - a.raw)
+  // 值降序:监控表格的使用动作是"找最大的那个序列",排序后一眼定位(null 断点沉底)
+  rows.sort((a, b) => (b.raw ?? -Infinity) - (a.raw ?? -Infinity))
   return (
     <div className="max-h-[220px] overflow-auto">
       <table className="w-full text-left text-[11px]">
@@ -498,6 +541,7 @@ export default function MonitorPanelsPage() {
   const [navOpen, setNavOpen] = React.useState(true)
   const [filter, setFilter] = React.useState('')
   const [countdown, setCountdown] = React.useState(AUTO_REFRESH_MS / 1000)
+  const inFlight = React.useRef(false)
 
   // 配置 chunk 懒加载(首次进入拉取一次,随后走模块缓存)
   React.useEffect(() => {
@@ -515,6 +559,10 @@ export default function MonitorPanelsPage() {
   const dashboard = config?.MONITOR_DASHBOARDS.find((d) => d.uid === activeUid) ?? null
 
   const load = React.useCallback(async (dash: NativeDashboard, rSec: number) => {
+    // 在飞防护:30s interval 不看上一次是否完成,批间慢于 30s 时新旧两次 load
+    // 会竞争 setResults(旧响应可覆盖新响应)。ref 跨闭包共享状态。
+    if (inFlight.current) return
+    inFlight.current = true
     setLoading(true)
     setPageError('')
     const queries: Array<{
@@ -560,12 +608,19 @@ export default function MonitorPanelsPage() {
       // API 单次上限 96 条,分批(服务端已并发执行,批间串行即可)
       for (let i = 0; i < uniq.length; i += 96) {
         const batch = uniq.slice(i, i + 96)
-        const res = await fetchApi<{ results: QueryResult[] }>('/api/admin/monitor-panels/query', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queries: batch }),
-          timeoutMs: 60_000,
-        })
+        let res
+        try {
+          res = await fetchApi<{ results: QueryResult[] }>('/api/admin/monitor-panels/query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ queries: batch }),
+            timeoutMs: 60_000,
+          })
+        } catch (e) {
+          // 网络异常/请求中止:不静默,给出行内提示(数据保留旧值)
+          setPageError(`网络异常:${String((e as Error).message).slice(0, 120)}`)
+          break
+        }
         if (!res.success || !res.data) {
           setPageError(res.error || '查询失败')
           break
@@ -590,6 +645,7 @@ export default function MonitorPanelsPage() {
       setUpdatedAt(new Date())
       setCountdown(AUTO_REFRESH_MS / 1000)
     } finally {
+      inFlight.current = false
       setLoading(false)
     }
   }, [])
