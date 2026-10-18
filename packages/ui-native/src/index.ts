@@ -13,7 +13,7 @@ export {
   type CardProps,
   type CardTitleProps,
 } from './card'
-export { Loading, Spinner, type LoadingProps } from './loading'
+export { Loading, type LoadingProps } from './loading'
 export { VipBadge } from './vip-badge'
 export {
   Dialog,
