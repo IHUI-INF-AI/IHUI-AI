@@ -82,8 +82,13 @@ const TONE_HINT_CLASS: Record<ElementPackTone, string> = {
   danger: 'text-red-600',
 }
 
-function truncate(text: string, max: number) {
-  return text.length > max ? `${text.slice(0, max)}...` : text
+/**
+ * 人读截断必须**报出省略量**(票 G-109 验收臂④:只加省略号 = 用户看不出到底丢了什么,
+ * 与模型侧的预算截断叠成"二次静默截断")。文案由调用方经 i18n 注入,这里不硬编码语言。
+ */
+function truncate(text: string, max: number, omitted: (count: number) => string) {
+  if (text.length <= max) return text
+  return `${text.slice(0, max)}... ${omitted(text.length - max)}`
 }
 
 /**
@@ -244,18 +249,22 @@ export function BackgroundAgentsPanel({
                     </div>
 
                     <Tooltip content={agent.prompt} side="bottom">
-                      <p className="mt-0.5 break-words text-sm">{truncate(agent.prompt, 80)}</p>
+                      <p className="mt-0.5 break-words text-sm">
+                        {truncate(agent.prompt, 80, (n) => t('omittedChars', { count: n }))}
+                      </p>
                     </Tooltip>
 
                     {agent.status === 'running' && agent.progress?.text_preview && (
                       <p className="mt-0.5 break-words text-xs text-muted-foreground">
-                        {truncate(agent.progress.text_preview, 100)}
+                        {truncate(agent.progress.text_preview, 100, (n) =>
+                          t('omittedChars', { count: n }),
+                        )}
                       </p>
                     )}
 
                     {agent.result?.output && agent.status === 'completed' && (
                       <p className="mt-0.5 break-words text-xs text-emerald-600">
-                        {truncate(agent.result.output, 100)}
+                        {truncate(agent.result.output, 100, (n) => t('omittedChars', { count: n }))}
                       </p>
                     )}
 
