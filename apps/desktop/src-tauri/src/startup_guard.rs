@@ -42,9 +42,11 @@
 //!       于是被按成僵尸杀掉——用户侧表现就是"点哪个页面就崩"。真僵尸按定义是**没有
 //!       窗口**的那个(第 1、2 条描述的"双击毫无反应、静默堆积在任务管理器")。
 //!    b) **跨路径这一对既无人清理也互不移交**(安装版 `D:\智汇AI\ihui-desktop.exe` 与
-//!       开发版 `target\{debug,release}\ihui-desktop.exe`:同 APP_ID、同 `{id}-sim`
+//!       开发版 `target\{debug,release}\ihui-desktop.exe`:只要 identifier 相同就同 `{id}-sim`
 //!       mutex、同 `EBWebView` 数据目录)。正确出口是**本进程移交退出**,不是把清理
 //!       范围扩到跨路径——那等于让开发版去杀用户正在用的安装版,是 a) 的放大。
+//!       2026-10-19 起开发版另配 identifier(G-921,机主拍板"dev 用独立标识"),与安装版
+//!       不再是同一把锁;本条判据对"同 identifier 的跨路径对"照常成立。
 
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -179,7 +181,10 @@ pub fn wait_for_webview_lock_release(lockfile: &Path, max_wait_ms: u64) -> u64 {
 }
 
 #[cfg(target_os = "windows")]
-pub fn preflight() {
+/// 启动守护预检。`app_id` **必须**是运行期配置里的 identifier(调用方取
+/// `tauri::Context::config().identifier`,与插件 setup 里的 `app.config().identifier`
+/// 同一枚值)—— 锁名由它派生,写死一份就等于让预检和插件各拿一把锁。
+pub fn preflight(app_id: &str) {
     use std::ffi::OsString;
     use std::os::windows::ffi::{OsStrExt, OsStringExt};
     use std::ptr;
@@ -205,9 +210,6 @@ pub fn preflight() {
         SMTO_ABORTIFHUNG, SMTO_BLOCK, WM_NULL,
     };
 
-    /// 与 tauri.conf.json `identifier` 一致;改名/改 identifier 必须同步这里,
-    /// 否则预检与插件不再是同一个锁,守护整体失效。
-    const APP_ID: &str = "com.ihui.desktop";
     /// 隐藏消息窗口应答探测超时(毫秒)。插件自身的 `SendMessageW` 无超时,
     /// 本探测必须带超时,否则预检自己也会卡在挂死实例上。
     const SIW_PROBE_TIMEOUT_MS: DWORD = 2000;
@@ -221,9 +223,9 @@ pub fn preflight() {
         std::ffi::OsStr::new(s).encode_wide().chain(std::iter::once(0)).collect()
     }
 
-    let mutex_name = encode_wide(&format!("{APP_ID}-sim"));
-    let class_name = encode_wide(&format!("{APP_ID}-sic"));
-    let window_name = encode_wide(&format!("{APP_ID}-siw"));
+    let mutex_name = encode_wide(&format!("{app_id}-sim"));
+    let class_name = encode_wide(&format!("{app_id}-sic"));
+    let window_name = encode_wide(&format!("{app_id}-siw"));
 
     unsafe {
         // 探针:与插件同名 mutex。FALSE=不要求初始所有权,只为问"有没有别人"。
@@ -312,7 +314,7 @@ pub fn preflight() {
         // 与"双击没反应"完全同形——这正是"强制退出兜底"之后下一次双击打不开的最终一环。
         if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
             let lockfile = std::path::Path::new(&local_app_data)
-                .join(APP_ID)
+                .join(app_id)
                 .join("EBWebView")
                 .join("Lockfile");
             let waited = wait_for_webview_lock_release(&lockfile, WEBVIEW_LOCK_WAIT_MAX_MS);
@@ -465,7 +467,7 @@ pub fn preflight() {
 }
 
 #[cfg(not(target_os = "windows"))]
-pub fn preflight() {}
+pub fn preflight(_app_id: &str) {}
 
 #[cfg(test)]
 mod tests {
@@ -546,7 +548,8 @@ mod tests {
 
     #[test]
     fn 跨路径且筛不出可清理对象时移交而非继续启动() {
-        // 安装版与开发版同 APP_ID、同 `{id}-sim` mutex、同 `EBWebView` 目录:继续往下建
+        // 同一 identifier 的两个实例(如安装版与其更新版、两份同配置的开发版)共用一把
+        // `{id}-sim` mutex、同一个 `EBWebView` 目录:继续往下建
         // webview 必撞目录锁(实测 `0x800700AA 请求的资源在使用中` ×2 + `0x800705B4` ×1)。
         assert_eq!(
             decide(true, false, false, PresentButNothingCleanable, false),
