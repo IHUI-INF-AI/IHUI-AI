@@ -99,7 +99,7 @@ import {
   type HomeRecommendItem,
 } from '@ihui/rn-app'
 import type { CarouselItem } from '@ihui/ui-native'
-import type { AiModelData, AppIcon } from '@ihui/types'
+import type { AiModelData, AppIcon, ChatModelType } from '@ihui/types'
 import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import Carousel from '../components/Carousel'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
@@ -245,8 +245,12 @@ const FUNCTION_BLOCKS: FunctionBlock[] = [
 ]
 
 // ── 对齐 Uniapp ai_index BottomActionBar 8 种 model-type-btn(行 44-97) ──
-/** AI 模型类型(skills 技能 / talk 对话 / image 图片 / video 视频 / audio 音频 / videoa 视频音频 / other 其他 / sck 知识库) */
-type ModelType = 'skills' | 'talk' | 'image' | 'video' | 'audio' | 'videoa' | 'other' | 'sck'
+/**
+ * AI 模型类型(skills 技能 / talk 对话 / image 图片 / video 视频 / audio 音频 / videoa 视频音频 /
+ * other 其他 / sck 知识库)。值域单源 = `@ihui/types` 的 `ChatModelType`(门 219 点名的端内重声明族:
+ * 这一副 8 值曾有三份逐字副本,小程序侧 ModelTypeButton 已接,RN 的 ChatScreen 与本机同枚一起接)。
+ */
+type ModelType = ChatModelType
 
 /** 模型类型按钮配置(对应 Uniapp model-type-btn:icon + label + active 态) */
 interface ModelTypeOption {
