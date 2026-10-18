@@ -37,6 +37,7 @@ import {
   __test__ as IG,
   buildFileGraph,
   formatStats,
+  widenFilesOverDependents,
   widenOverDependents,
 } from '../lib/import-graph.mjs'
 
@@ -380,5 +381,85 @@ test('stats 三项计数必须都有值且与真实结构一致（三项全零�
   const text = formatStats(g)
   for (const k of ['顶点数', '边数', 'undetermined', '耗时']) assert.match(text, new RegExp(k))
   for (const k of ['pkg', 'alias', 'relative', 'dynamic']) assert.match(text, new RegExp(k))
+})
+
+// ── L14546(2026-10-18):widenFilesOverDependents 守门触发面/typecheck 同源通用版 ──
+// 构造图(不真建图,秒级):ctx ← a.tsx ← b.tsx 传递链,SOLO 无下游。
+const WIDEN_FAKE = {
+  reverse: new Map([
+    ['packages/shared/src/ctx.ts', new Set(['apps/web/src/a.tsx'])],
+    ['apps/web/src/a.tsx', new Set(['apps/web/src/b.tsx'])],
+  ]),
+}
+
+test('L14546 改有下游的契约 ⇒ 闭包含种子+直接+传递 importer(改契约红 importer)', () => {
+  const w = widenFilesOverDependents(['packages/shared/src/ctx.ts'], {
+    face: 'index',
+    buildGraph: () => WIDEN_FAKE,
+  })
+  assert.equal(w.widened, true)
+  assert.ok(w.files.includes('packages/shared/src/ctx.ts'), '闭包必须 ⊇ 种子本身')
+  assert.ok(w.files.includes('apps/web/src/a.tsx'), '含直接 importer')
+  assert.ok(w.files.includes('apps/web/src/b.tsx'), '含传递 importer(一跳图等于没有)')
+  assert.equal(w.added.length, 2)
+})
+
+test('L14546 无下游 ⇒ 逐字不变,不得把全仓塞进来', () => {
+  const w = widenFilesOverDependents(['apps/web/src/solo.ts'], {
+    buildGraph: () => WIDEN_FAKE,
+  })
+  assert.equal(w.widened, false)
+  assert.deepEqual(w.files, ['apps/web/src/solo.ts'])
+})
+
+test('L14546 空集 / null 原样返回:null(git 不可用)不得被加宽改写成数组', () => {
+  assert.equal(widenFilesOverDependents([], { buildGraph: () => WIDEN_FAKE }).files.length, 0)
+  const n = widenFilesOverDependents(null, { buildGraph: () => WIDEN_FAKE })
+  assert.equal(n.files, null)
+  assert.equal(n.widened, false)
+})
+
+test('L14546 全非源码扩展名 ⇒ 跳过建图(buildGraph 零调用),文档/配置提交不付 5~25s 开销', () => {
+  let called = 0
+  const w = widenFilesOverDependents(['README.md', 'docs/x.json', 'scripts/a.ps1', 'img.png'], {
+    buildGraph: () => {
+      called++
+      return WIDEN_FAKE
+    },
+  })
+  assert.equal(called, 0, '无源码扩展名时禁止建图')
+  assert.equal(w.widened, false)
+  assert.deepEqual(w.files, ['README.md', 'docs/x.json', 'scripts/a.ps1', 'img.png'])
+})
+
+test('L14546 含源码扩展名才建图(性能预判的正向对照,与上一条成对)', () => {
+  let called = 0
+  widenFilesOverDependents(['README.md', 'apps/web/src/a.ts'], {
+    buildGraph: () => {
+      called++
+      return WIDEN_FAKE
+    },
+  })
+  assert.equal(called, 1, '暂存含 .ts 必须建图')
+})
+
+test('L14546 建图抛错 ⇒ 退回未加宽 + 可见 reason,不崩也不静默假装成功', () => {
+  const w = widenFilesOverDependents(['apps/web/src/a.ts'], {
+    buildGraph: () => {
+      throw new Error('模拟 git 故障')
+    },
+  })
+  assert.equal(w.widened, false)
+  assert.deepEqual(w.files, ['apps/web/src/a.ts'])
+  assert.match(w.reason, /建图失败/)
+})
+
+test('L14546 闭包计算抛错(图缺 reverse Map) ⇒ 退回未加宽 + 可见 reason', () => {
+  const w = widenFilesOverDependents(['apps/web/src/a.ts'], {
+    buildGraph: () => ({}),
+  })
+  assert.equal(w.widened, false)
+  assert.deepEqual(w.files, ['apps/web/src/a.ts'])
+  assert.match(w.reason, /闭包计算失败/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

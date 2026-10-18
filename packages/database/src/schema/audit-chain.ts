@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { pgTable, uuid, varchar, timestamp, jsonb, char, index } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, timestamp, jsonb, char, index, boolean } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
 /**
@@ -23,6 +23,16 @@ export const auditLogsChain = pgTable(
     userAgent: varchar('user_agent', { length: 512 }),
     result: varchar('result', { length: 32 }),
     metadata: jsonb('metadata').default({}),
+    /**
+     * G-790 A5(2026-10-18 立):原文当前是否仍在表内 —— 判别列,不是 JSON 键。
+     *
+     * 保留清理的候选筛今天写的是 `COALESCE(metadata->>'rawRetained','true') <> 'false'`,
+     * 正确性依赖"只有本 job 的擦除步骤会写这个键"这一**巧合**;同表 `user_agent`/`result`
+     * 早就证明"列可以存在于哈希输入之外"(`computeHash` 只吃 prevHash + AuditEntry 字段),
+     * 所以给这张哈希链表加判别列**不改任何既有行的哈希**,回填也只读 metadata 不写它。
+     * 默认 true = "原文在"(与旧谓词把缺键当作在完全同形);擦除步骤同批置 false。
+     */
+    rawRetained: boolean('raw_retained').default(true).notNull(),
     prevHash: char('prev_hash', { length: 64 }).notNull(),
     currentHash: char('current_hash', { length: 64 }).notNull(),
   },
