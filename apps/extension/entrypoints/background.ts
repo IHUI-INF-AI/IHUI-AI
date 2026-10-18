@@ -61,6 +61,20 @@ function translateBg(locale: Locale, key: string): string {
 // API 代理:background context 通过 fetch 直连 API(走 @ihui/api-client 的 fetchApi)。
 // 用 chrome.runtime.sendMessage 接 fetchApi 不便(扩展中 fetch 走 service worker
 // 无 CORS 限制,直接调用更稳)。
+
+/**
+ * G-933 冷启动抢跑（扩展端 service worker 腿）：`lib/token.ts` 的 `getToken()` 读的是**内存镜像**，
+ * 而这面镜像只由 `initApi()` 的 `await chrome.storage.local.get` 回填 ⇒ service worker 每次冷启动
+ * 的第一拍上，"用户确实没登录" 与 "回填还没跑完" 在同步视角里长得一模一样。
+ * 本包装把这端唯一的初始化出口做成一枚可重入的 promise：需要身份的地方先 await 它，
+ * **不新增第二套 ready 位**（该端既有出口只有 `initApi()`）。
+ */
+let apiInitPromise: Promise<void> | null = null
+function ensureApiReady(): Promise<void> {
+  apiInitPromise ??= initApi()
+  return apiInitPromise
+}
+
 async function callApi<T = unknown>(
   path: string,
   init: {
@@ -69,6 +83,8 @@ async function callApi<T = unknown>(
     body?: string
   },
 ): Promise<{ ok: boolean; status: number; data: T | null; text: string }> {
+  // 先等回填：否则 baseURL 也还是 lib/config.ts 的 localhost 缺省值，请求既没身份又打错目标。
+  await ensureApiReady()
   const url = new URL(path.replace(/^\//, ''), getApiBaseUrl()).toString()
   const token = getToken()
   const headers: Record<string, string> = {
@@ -498,12 +514,26 @@ export default defineBackground(() => {
     }
   })
 
-  // 启动时尝试静默 refresh
-  if (getToken() && getRefreshToken()) {
-    const t = getToken()
-    if (t) scheduleRefreshAlarm(t)
-  } else {
-    void clearAllTokens().catch(() => {})
-  }
+  // 启动时尝试静默 refresh。
+  // G-933：这一段原先**同步**判 `getToken()`，而 service worker 冷启动第一拍上 `initApi()`
+  // 的异步回填还没跑完 ⇒ 镜像恒空 ⇒ 已登录用户也会被判成"无凭据"并走 else 分支，
+  // 由 `clearAllTokens()` 把 chrome.storage 里的三把 token 键删掉 —— 症状是登录态被反复洗掉，
+  // 比首屏吃一次 401 重得多。改为先 await 本端既有出口 `initApi()` 落定再判，
+  // 且**只在回填后仍然两把都没有**时才清；落定失败(存储不可读等)一律不清、不排程 ——
+  // 判不出就当没判，绝不允许把"判不出"实现成"删用户数据"。
+  void ensureApiReady()
+    .then(() => {
+      const t = getToken()
+      if (t && getRefreshToken()) {
+        scheduleRefreshAlarm(t)
+        return
+      }
+      if (!t && !getRefreshToken()) {
+        void clearAllTokens().catch(() => {})
+      }
+    })
+    .catch(() => {
+      console.warn('[IHUI AI] initApi failed at SW start; skip refresh scheduling, keep stored tokens')
+    })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
