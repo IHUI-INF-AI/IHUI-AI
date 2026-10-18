@@ -14,6 +14,8 @@ import { fileRoutes } from './files.js'
 import { adminRoutes } from './admin.js'
 import { i18nDashboardRoutes } from './i18n-dashboard.js'
 import { notificationRoutes } from './notifications.js'
+// D43 会话内快捷笔记(第②格,2026-10-18):归属取令牌主体,整棵子树需登录
+import { voiceNoteRoutes } from './voice-notes.js'
 import { billingRoutes } from './billing.js'
 import { searchRoutes } from './search.js'
 import { auditRoutes } from './audit.js'
@@ -537,6 +539,7 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(adminRoutes, { prefix: '/api/admin' })
   server.register(i18nDashboardRoutes, { prefix: '/api/admin' })
   server.register(notificationRoutes, { prefix: '/api' })
+  server.register(voiceNoteRoutes, { prefix: '/api/voice-notes' })
   server.register(billingRoutes, { prefix: '/api' })
   server.register(searchRoutes, { prefix: '/api' })
   server.register(auditRoutes, { prefix: '/api/admin' })

@@ -938,6 +938,17 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
                 WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
                 return;
             };
+            // 回跳地址 = 发起页当前 URL 去 fragment(2026-10-18):跟随发起页而不是
+            // 硬编码线上签到页,本地/测试环境的登录结果才回得了家。
+            let return_base = active_wv()
+                .and_then(|wv| wv.url().ok())
+                .map(|u| {
+                    let mut u = u;
+                    u.set_fragment(None);
+                    u.to_string()
+                })
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "https://aizhs.top/checkin".to_string());
             // 降级窗(单 webview)没有"新标签"可开:当前页直接导航去登录页 ——
             // 签到页会被顶掉,但登录完成后看护会把这一页导航回带 #wb_import=
             // 的签到页自然恢复。标签满时同走此退化路。
@@ -982,7 +993,7 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
                     Some(id)
                 }
             };
-            run_wb_checkin_login_watch(app, login_tab).await;
+            run_wb_checkin_login_watch(app, login_tab, return_base).await;
         }
         SentinelAction::NewTab(u) => {
             // 降级模式(单 webview 窗)无多标签可言:把"新建标签"退化为"当前页导航"。
@@ -1114,7 +1125,14 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
 /// (`#wb_import=<percent-encoded JSON>`;fragment 不发往服务端,纯页面内消费),
 /// 页面解析后入库并清 hash。超时静默放弃:不打断可能正在登录的用户,签到页
 /// 自己的时钟(6.5 分钟)负责复位按钮态。
-async fn run_wb_checkin_login_watch(app: AppHandle, login_tab: Option<u64>) {
+///
+/// `return_base` = 发起页地址(登录前活动 webview 的当前 URL 去 fragment)。
+/// **为什么不能硬编码 `https://aizhs.top/checkin`**(2026-10-18 修):内嵌浏览器
+/// 里打开的不一定是线上签到页 —— 桌面端本地打包页(`tauri://localhost/...`)、
+/// 测试环境地址都在同一窗口里跑;硬编码会把本地会话的登录结果导航去线上,
+/// 用户看到的是「登录成功却跳到了另一个站点」= 没跳回我们程序。回跳地址
+/// 一律跟随发起页,拿不到才退常量兜底。
+async fn run_wb_checkin_login_watch(app: AppHandle, login_tab: Option<u64>, return_base: String) {
     /// 轮询节奏(与主窗口流程的 2.5s 前端轮询同拍)。
     const INTERVAL: Duration = Duration::from_millis(2500);
     /// 总超时:登录超过 6 分钟按放弃处理(登录页留在原地,用户可继续用浏览器)。
@@ -1144,7 +1162,8 @@ async fn run_wb_checkin_login_watch(app: AppHandle, login_tab: Option<u64>) {
                     "cookie_checkin_ok": cookie_checkin_ok,
                 });
                 let Ok(parsed) = Url::parse(&format!(
-                    "https://aizhs.top/checkin#wb_import={}",
+                    "{}#wb_import={}",
+                    return_base,
                     percent_encode(&payload.to_string())
                 )) else {
                     return;

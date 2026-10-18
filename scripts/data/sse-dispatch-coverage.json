@@ -1,6 +1,10 @@
 {
   "$comment": "SSE 帧端内 dispatch 覆盖台账(守门 scripts/check-sse-dispatch-parity.mjs 读取,D107)。帧清单**不写在这里** —— 由守门每次从 packages/api-client/src/client.ts 的 onXxx 成员自动提取并减去 toolCallbacks,故本文件不可能与代码脱节。baseline[端] = 该端命中数下限(ratchet,只挡倒退不挡增长;新增接入后请同步上调);missing[端] = 该端**未命中**的帧,键集合必须**精确等于**实测未命中集合,值直接写理由或指向 groups 里的复用分组。口径:帧回调名在该端源码出现即算已处理(不按写法区分,精度靠'精确等于'兜)。",
-  "toolCallbacks": ["onAbort", "onAttemptStart", "onLine"],
+  "toolCallbacks": [
+    "onAbort",
+    "onAttemptStart",
+    "onLine"
+  ],
   "$commentFieldLevel": "字段级台账(b76-05 票1,守门 scripts/check-agent-event-parity.mjs [5/5] 读取)。fieldBaseline[事件名][键] = 该键'生产点写出、前端解析面不读'的豁免理由;键清单本身不写在这里 —— 由守门每次从生产侧(sse_contract.py 声明 / agents.py 与 apps/api/src/services 写出点)与解析侧(agent-events.ts parse*Event 读取点)现读,故本文件不可能与代码脱节。未登记的缺口 = 错误阻断。",
   "fieldBaseline": {},
   "baseline": {
@@ -11,11 +15,22 @@
     "cli": 17
   },
   "endpoints": {
-    "web": ["apps/web/src", "apps/web/app"],
-    "extension": ["apps/extension"],
-    "miniapp-taro": ["apps/miniapp-taro/src"],
-    "mobile-rn": ["apps/mobile-rn"],
-    "cli": ["apps/cli"]
+    "web": [
+      "apps/web/src",
+      "apps/web/app"
+    ],
+    "extension": [
+      "apps/extension"
+    ],
+    "miniapp-taro": [
+      "apps/miniapp-taro/src"
+    ],
+    "mobile-rn": [
+      "apps/mobile-rn"
+    ],
+    "cli": [
+      "apps/cli"
+    ]
   },
   "groups": {
     "no-subagent-ui": "该端未实现子代理活动流水(SubAgentActivityFeed 族),故 spawn/progress/end 三帧无渲染位;补齐见 PROJECT_PLAN D40 / D103。",
@@ -56,7 +71,7 @@
       "onSubagentEnd": "no-subagent-ui",
       "onSubagentProgress": "no-subagent-ui",
       "onSubagentSpawn": "no-subagent-ui",
-      "onFormRequest": "D77 业务表单帧:api-client 已暴露 onFormRequest(HEAD 实测),但 ① 生产者侧(Python sse_contract.py / llm.py 发 form_request)未入库,② web 宿主(contract.ts + send-message.ts + stores/business-forms.ts + business-form-section.tsx)在途且与并行会话的脏文件同面,③ 其余四端无表单渲染位。⇒ 五端一律显式登记而非静默丢弃。解阻判据:sse_contract.py 与 llm.py 工作树==HEAD 后,同一票内落地「Python 发帧 + TS 契约 + web 宿主 + 本项从 missing 删除 + baseline 上调」,四端按 H18 端覆盖矩阵补渲染位。"
+      "onFormRequest": "该端**没有对话流通道**:apps/extension/src 对 streamChat / /llm/complete/stream 的 git grep 实测 0 命中(面板只做上下文回传),没有可挂帧的回调表 ⇒ 无可挂点,非\"未接线\"。"
     },
     "miniapp-taro": {
       "onFinishReason": "no-finish-reason-consumer",
@@ -100,7 +115,7 @@
       "onTerminalStart": "no-terminal-stream-ui",
       "onToolDelegate": "no-tool-delegate-ui",
       "onToolSummary": "no-tool-summary-ui",
-      "onFormRequest": "D77 业务表单帧:api-client 已暴露 onFormRequest(HEAD 实测),但 ① 生产者侧(Python sse_contract.py / llm.py 发 form_request)未入库,② web 宿主(contract.ts + send-message.ts + stores/business-forms.ts + business-form-section.tsx)在途且与并行会话的脏文件同面,③ 其余四端无表单渲染位。⇒ 五端一律显式登记而非静默丢弃。解阻判据:sse_contract.py 与 llm.py 工作树==HEAD 后,同一票内落地「Python 发帧 + TS 契约 + web 宿主 + 本项从 missing 删除 + baseline 上调」,四端按 H18 端覆盖矩阵补渲染位。",
+      "onFormRequest": "该端的对话走 CLI 自有 stream 出口,不消费 web 侧 streamChat 回调表:apps/cli/src 对 streamChat 的 git grep 实测 0 命中 ⇒ 无 onFormRequest 这一维可挂(要补须先给 CLI 做交互卡渲染,属新能力)。",
       "onToolApproval": "V3 #58(2026-09-26 立)当日只落了两侧:api-client 的解析开关(`onToolApproval 注册才解析`)+ web 宿主(send-message.ts:1004)。本端源码里没有该回调名 ⇒ 帧到本端会被**静默丢弃**,故按 D107 口径显式登记而非不写。解阻判据:该端把工具审批落到已有批准面上(mobile-rn/共享屏层走工具确认弹窗、miniapp-taro 走页内确认卡、extension 走 sidepanel 审批位、cli 走 REPL 内联批准提示),接上后从本 missing 删除并把该端 baseline 上调 —— 四端各自的渲染位是否存在,须在接的那一票里当场证,不得凭此条推断\"该端本就不该有\"。"
     }
   },

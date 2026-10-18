@@ -154,6 +154,49 @@ pub async fn probe_cookie_checkin(cookie_header: &str) -> Option<bool> {
 // 探测结果(前端契约)
 // ---------------------------------------------------------------------------
 
+/// 「带 Cookie 直调服务端」的判定产物:账号列表 + 登录态能否驱动签到(实测;
+/// None=网络原因未判定)。纯探测函数与命令共用,便于单测与两处入口复用。
+pub struct ProbeOutcome {
+    pub accounts: Vec<WbWebAccount>,
+    pub cookie_checkin_ok: Option<bool>,
+}
+
+/// 带 Cookie 直调 `/console/accounts` 取账号 + 自检签到接口可用性。
+///
+/// 两条入口共用:①`checkin_workbuddy_web_login_probe`(读内嵌窗 cookie jar);
+/// ②`checkin_workbuddy_web_login_probe_cookie`(用户粘贴的 Cookie,主窗专用)。
+/// 判据与编排分离:本函数只做 HTTP + 解析,不碰任何 webview 状态。
+pub async fn probe_cookie_accounts(cookie_header: &str) -> Result<ProbeOutcome, String> {
+    let resp = shared_client()
+        .get(format!("{WB_WEB_ORIGIN}{ACCOUNTS_PATH}"))
+        .header("accept", "application/json")
+        .header("cookie", cookie_header)
+        .header(
+            "user-agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) IHUI-Desktop-Checkin",
+        )
+        .send()
+        .await
+        .map_err(|e| format!("登录态验证请求失败: {e}"))?;
+    match resp.status().as_u16() {
+        200 => {
+            let body = resp.text().await.unwrap_or_default();
+            let accounts = parse_accounts_body(&body);
+            if accounts.is_empty() {
+                // 200 但解析不到账号:结构不符或登录态名存实亡
+                return Err("登录态已失效(服务端未返回账号)".to_string());
+            }
+            let cookie_checkin_ok = probe_cookie_checkin(cookie_header).await;
+            Ok(ProbeOutcome {
+                accounts,
+                cookie_checkin_ok,
+            })
+        }
+        401 | 403 => Err("Cookie 未登录或已过期".to_string()),
+        s => Err(format!("登录态验证失败(HTTP {s})")),
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum WebLoginProbe {
@@ -161,8 +204,9 @@ pub enum WebLoginProbe {
     NoWindow,
     /// 窗口在,但 cookie jar 还没有 workbuddy.cn 域族的任何 cookie(未登录/加载中)。
     NoCookie,
-    /// 有 cookie 但服务端说未登录(登录中/会话失效)。
-    NotLoggedIn,
+    /// 有 cookie 但服务端说未登录(登录中/会话失效)。`message` 带原因
+    /// (2026-10-18:粘贴路径要把「Cookie 无效/已过期」如实告知用户)。
+    NotLoggedIn { message: String },
     /// 验证通过:cookie + 账号齐全,前端可自动回填。
     /// `cookie_checkin_ok`:网页登录态能否驱动签到接口(实测;None=网络原因未判定)。
     Ok {
@@ -229,44 +273,40 @@ pub async fn checkin_workbuddy_web_login_probe(app: tauri::AppHandle) -> Result<
         return Ok(WebLoginProbe::NoCookie);
     };
 
-    // cookie 在手 → 服务端验证登录态(带 Cookie 直调,与网页版同机制)
-    let resp = shared_client()
-        .get(format!("{WB_WEB_ORIGIN}{ACCOUNTS_PATH}"))
-        .header("accept", "application/json")
-        .header("cookie", &cookie_header)
-        .header(
-            "user-agent",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) IHUI-Desktop-Checkin",
-        )
-        .send()
-        .await;
-    let resp = match resp {
-        Ok(r) => r,
-        Err(e) => {
-            return Ok(WebLoginProbe::Error {
-                message: format!("登录态验证请求失败: {e}"),
-            })
-        }
-    };
-    match resp.status().as_u16() {
-        200 => {
-            let body = resp.text().await.unwrap_or_default();
-            let accounts = parse_accounts_body(&body);
-            if accounts.is_empty() {
-                // 200 但解析不到账号:结构不符或登录态名存实亡
-                return Ok(WebLoginProbe::NotLoggedIn);
-            }
-            let cookie_checkin_ok = probe_cookie_checkin(&cookie_header).await;
-            Ok(WebLoginProbe::Ok {
-                cookie: cookie_header,
-                accounts,
-                cookie_checkin_ok,
-            })
-        }
-        s if s == 401 || s == 403 => Ok(WebLoginProbe::NotLoggedIn),
-        s => Ok(WebLoginProbe::Error {
-            message: format!("登录态验证失败(HTTP {s})"),
+    match probe_cookie_accounts(&cookie_header).await {
+        Ok(outcome) => Ok(WebLoginProbe::Ok {
+            cookie: cookie_header,
+            accounts: outcome.accounts,
+            cookie_checkin_ok: outcome.cookie_checkin_ok,
         }),
+        Err(msg) => Ok(WebLoginProbe::NotLoggedIn {
+            message: msg,
+        }),
+    }
+}
+
+/// 用**用户粘贴的 Cookie**直探测(2026-10-18 主窗默认浏览器版收尾):
+/// 默认浏览器登录后应用读不到它的 cookie jar(浏览器安全隔离),由用户把 Cookie
+/// 粘过来;粘贴路径与内嵌路径共用同一个服务端探测 ⇒ 同样能取到 uid/昵称,
+/// 「记录好账号」不因入口不同而缺位。探测不到账号 ⇒ NotLoggedIn(带原因),
+/// 前端如实拒绝入库,不落无名账号。
+#[tauri::command]
+pub async fn checkin_workbuddy_web_login_probe_cookie(
+    cookie: String,
+) -> Result<WebLoginProbe, IpcError> {
+    let cookie_header = cookie.trim().replace('\n', " ");
+    if cookie_header.is_empty() {
+        return Ok(WebLoginProbe::NotLoggedIn {
+            message: "Cookie 为空".to_string(),
+        });
+    }
+    match probe_cookie_accounts(&cookie_header).await {
+        Ok(outcome) => Ok(WebLoginProbe::Ok {
+            cookie: cookie_header,
+            accounts: outcome.accounts,
+            cookie_checkin_ok: outcome.cookie_checkin_ok,
+        }),
+        Err(msg) => Ok(WebLoginProbe::NotLoggedIn { message: msg }),
     }
 }
 
