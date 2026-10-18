@@ -11,6 +11,7 @@
 
 import asyncio
 import base64
+import hashlib
 import json
 import logging
 import os
@@ -228,29 +229,39 @@ async def _get_pool() -> asyncpg.Pool:
 from ..services.key_pool_selector import KeyPoolSelector
 
 
-def _decrypt_api_key(api_key_enc: str | None) -> str | None:
-    """解密 ai_model_config.api_key_enc。
+# ---------------------------------------------------------------------------
+# 解密失败告警去重(2026-10-18 立)
+#
+# 现场:一份解不开的密文**每被读一次**就 WARN 一次 —— 实测 agnes 一条坏数据半小时刷出
+# 190 条一模一样的 "解密 api_key_enc 失败:(空)",既刷屏又**没说是哪个 provider**
+# (可观测性等于零:运营看到了 190 条告警,却答不出是哪一家的 key 坏了)。
+#
+# 现在:按密文指纹去重,首次必报且带 provider 名;重复静默。整体清点交给启动时的
+# `audit_undecryptable_configs()`,那里一次性报出全量名单 —— 单条不再重复,全局不丢。
+# ---------------------------------------------------------------------------
+_UNDECRYPTABLE_REPORTED: set[str] = set()
 
-    格式:JSON {"iv","ciphertext","tag"} base64,AES-256-GCM(与 apps/api/utils/crypto.ts 对应)。
-    向后兼容:非加密 payload 格式视为明文。
+
+def _try_decrypt_payload(api_key_enc: str) -> tuple[str | None, str | None]:
+    """解密的唯一实现(纯函数),返回 (plaintext, error)。两者恰有一个非 None。
+
+    `plaintext is None 且 error is None` 只在本函数认定"这是明文而非密文"时出现错误,
+    故约定:明文路径直接返回 (值, None);解密路径成功返回 (值, None)、失败返回 (None, 原因)。
     """
-    if not api_key_enc:
-        return None
     try:
         payload = json.loads(api_key_enc)
         if not (isinstance(payload, dict) and all(k in payload for k in ("iv", "ciphertext", "tag"))):
             # JSON 解析成功但不是加密 dict(可能是 JSON 字符串带引号)→ 返回解析后的值
             if isinstance(payload, str):
-                return payload.strip().strip('"').strip("'")
-            return api_key_enc
+                return payload.strip().strip('"').strip("'"), None
+            return api_key_enc, None
     except (json.JSONDecodeError, TypeError):
         # 非 JSON 格式,视为明文(同时 strip 首尾引号/空白,防御 seed 脚本引号包裹)
-        return api_key_enc.strip().strip('"').strip("'")
+        return api_key_enc.strip().strip('"').strip("'"), None
 
     key_str = settings.credentials_encryption_key
     if not key_str or len(key_str) < 32:
-        logger.warning("credentials_encryption_key 未配置或长度不足 32,无法解密 api_key_enc")
-        return None
+        return None, f"credentials_encryption_key 未配置或长度不足 32(当前 {len(key_str or '')})"
     try:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -258,14 +269,86 @@ def _decrypt_api_key(api_key_enc: str | None) -> str | None:
         iv = base64.b64decode(payload["iv"])
         ciphertext = base64.b64decode(payload["ciphertext"])
         tag = base64.b64decode(payload["tag"])
-        aesgcm = AESGCM(key)
-        plaintext = aesgcm.decrypt(iv, ciphertext + tag, None)
-        decoded = plaintext.decode("utf-8")
+        plaintext = AESGCM(key).decrypt(iv, ciphertext + tag, None).decode("utf-8")
         # P0-5m(2026-07-30):strip 首尾引号(防御 seed 脚本把 key 用 JSON.stringify 包裹导致引号残留)
-        return decoded.strip().strip('"').strip("'")
+        return plaintext.strip().strip('"').strip("'"), None
     except Exception as e:
-        logger.warning("解密 api_key_enc 失败: %s", e)
+        return None, f"{type(e).__name__}: {e}"
+
+
+def _decrypt_api_key(api_key_enc: str | None, provider: str = "") -> str | None:
+    """解密 ai_model_config.api_key_enc。
+
+    格式:JSON {"iv","ciphertext","tag"} base64,AES-256-GCM(与 apps/api/utils/crypto.ts 对应)。
+    向后兼容:非加密 payload 格式视为明文。
+
+    provider 只用于日志归因(同一份坏密文会被读很多次,不带名字等于没人知道是谁坏了)。
+    """
+    if not api_key_enc:
         return None
+    value, err = _try_decrypt_payload(api_key_enc)
+    if err is None:
+        return value
+    fingerprint = hashlib.sha256(api_key_enc.encode("utf-8", "replace")).hexdigest()[:12]
+    if fingerprint not in _UNDECRYPTABLE_REPORTED:
+        _UNDECRYPTABLE_REPORTED.add(fingerprint)
+        logger.warning(
+            "解密 api_key_enc 失败(provider=%s, 密文指纹=%s): %s => 该行已降级到 .env 明文配置;"
+            "同一份密文后续不再重复告警,完整名单见启动时的 [credential-audit] 清点"
+            "(多半是历史密钥遗留,需要重录或用原密钥重新加密)",
+            provider or "-", fingerprint, err,
+        )
+    return None
+
+
+async def audit_undecryptable_configs() -> int:
+    """启动时清点:启用 + 带密文、但用当前密钥**解不开**的配置行。
+
+    为什么必须有这一格:2026-10-18 实测 28 行启用配置里 **27 行**解不开(历史密钥遗留,
+    密文长度显示其中 23 行疑似真 key ⇒ 不能删,丢了就没了),而失败此前只散落在每次调用
+    的一条 WARNING 里 —— 刷屏又让人看不全。现在启动报一次全量名单:数量 + provider 列表 +
+    一条可直接执行的取证命令,单条路径则保持静默。
+
+    返回解不开的行数(0 = 全部可解)。查询失败返回 -1(不静默:查不到 ≠ 没问题)。
+    """
+    try:
+        pool = await _get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT provider_code, api_key_enc
+                   FROM ai_model_config
+                   WHERE enabled = true AND owner_uuid IS NULL AND api_key_enc IS NOT NULL
+                   ORDER BY provider_code"""
+            )
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[credential-audit] 清点失败(不阻塞启动): %s", e)
+        return -1
+
+    bad: list[str] = []
+    for row in rows:
+        _value, err = _try_decrypt_payload(row["api_key_enc"])
+        if err is not None:
+            bad.append(row["provider_code"])
+            # 顺手把指纹登记进去重集 ⇒ 后续调用路径不再重复 WARN(启动时已报过)
+            _UNDECRYPTABLE_REPORTED.add(
+                hashlib.sha256(row["api_key_enc"].encode("utf-8", "replace")).hexdigest()[:12]
+            )
+
+    # ⚠ 字符纪律:日志 handler 在 Windows 下按 GBK(cp936)编码 stdout,`⇒`(U+21D2)/
+    #   `✓`(U+2713) 等不在 GBK 里的字符会在写盘时抛 UnicodeEncodeError,而 logging 会把
+    #   这个异常**吞掉**——表现为"这一行凭空消失",既没报错也没日志(本条当初就是这样
+    #   整体丢过一次)。故本文件所有日志文本只用 ASCII + GBK 覆盖的中文/标点。
+    if not bad:
+        logger.info("[credential-audit] %d 行启用配置全部可解密(OK)", len(rows))
+        return 0
+    logger.warning(
+        "[credential-audit] %d/%d 行启用配置的 api_key_enc [用当前密钥解不开] => 这些 provider "
+        "已降级到 .env 明文配置(或判未配置)。多半是历史密钥遗留:密文仍在库里、没有丢,拿到原密钥即可恢复;"
+        "确认作废的请在管理端重录。名单:%s。取证:psql -c \"SELECT provider_code, length(api_key_enc) "
+        "FROM ai_model_config WHERE enabled AND owner_uuid IS NULL AND api_key_enc IS NOT NULL;\"",
+        len(bad), len(rows), ", ".join(bad),
+    )
+    return len(bad)
 
 
 _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
@@ -1348,7 +1431,8 @@ async def _resolve_from_db(
                 )
         if not row:
             return None
-        api_key = _decrypt_api_key(row["api_key_enc"])
+        # 带上 provider_code:坏密文会被读到很多次,日志不带名字等于没人知道是哪一家坏了
+        api_key = _decrypt_api_key(row["api_key_enc"], provider_code)
         if not api_key:
             return None
         # H7(Phase D):占位符 key 不覆盖 .env
