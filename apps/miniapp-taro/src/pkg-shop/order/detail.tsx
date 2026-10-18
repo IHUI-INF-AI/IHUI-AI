@@ -8,6 +8,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useMemo } from 'react'
 import { getOrderDetail, closeOrder, type Order } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
 const STATUS_KEYS: Record<string, string> = {
@@ -23,6 +24,7 @@ const STATUS_KEYS: Record<string, string> = {
 export default function OrderDetail() {
   const { t } = useI18n()
   const router = useRouter()
+  const gate = useAuthReadyGate()
   const [order, setOrder] = useState<Order>({} as Order)
   const [canceling, setCanceling] = useState(false)
 
@@ -43,7 +45,9 @@ export default function OrderDetail() {
   useEffect(() => {
     const id = router.params.id
     if (!id) return
-    reload(id)
+    // G-933 冷启动门控:鉴权判定落定前不发需登录详情请求(卸载/参数变更时取消订阅)
+    const cancel = gate.waitUntilReady(() => reload(id))
+    return cancel
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.params.id])
 

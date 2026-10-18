@@ -8,6 +8,7 @@ import { View, Text, Switch } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, logout, type UserInfo } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { markSessionLoggedOut } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
@@ -17,6 +18,7 @@ const NOTIFICATION_KEY = 'messageNotificationEnabled'
 
 export default function Settings() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [user, setUser] = useState<Partial<UserInfo>>({})
   const [notifEnabled, setNotifEnabled] = useState(true)
 
@@ -42,7 +44,8 @@ export default function Settings() {
     }
   }, [])
 
-  useDidShow(() => load())
+  // G-933 冷启动门控:GET /user/profile(checkAuth)需鉴权,落定前不发
+  useDidShow(() => gate.waitUntilReady(() => void load()))
 
   function navigate(url: string) {
     Taro.navigateTo({ url })

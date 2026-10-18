@@ -17,6 +17,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { AnyPayParams } from '@ihui/types'
 import { get } from '@/utils/api-bridge'
 import { wechatPay } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { requestWxPayment } from '@/utils/pay'
 import { requestPushSubscription } from '@/utils/push-init'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -104,6 +105,7 @@ const PAY_METHOD_KEY: Record<string, string> = {
 
 export default function Bill() {
   const tt = useTt()
+  const gate = useAuthReadyGate()
   const [data, setData] = useState<MyBillsResp>({ enrollments: [], payments: [], ledgers: [] })
   const [loading, setLoading] = useState(false)
   const [payingId, setPayingId] = useState('')
@@ -152,7 +154,11 @@ export default function Bill() {
   useEffect(() => {
     if (mountedRef.current) return
     mountedRef.current = true
-    void load()
+    // G-933 冷启动门控:账单 GET /edu-ai-management/my-bills(JWT 优先鉴权)需登录
+    return gate.waitUntilReady(() => {
+      void load()
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load])
 
   usePullDownRefresh(() => {

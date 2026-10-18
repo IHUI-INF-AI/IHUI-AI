@@ -7,6 +7,7 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getDistributionInfo, getCommissionRecords } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 // P2-F 接线:SectionHeader 切换为 Taro 适配层导出(props 契约与旧实现一致)
 import { SectionHeader } from '@/components/adapters'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -37,6 +38,7 @@ function sumToday(items: CommissionRecord[]): number {
 export default function CommissionPage() {
   const { t } = useI18n()
   const tt = useTt()
+  const gate = useAuthReadyGate()
   const [list, setList] = useState<CommissionRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [totalCommission, setTotalCommission] = useState(0)
@@ -82,8 +84,14 @@ export default function CommissionPage() {
   }
 
   useEffect(() => {
-    loadSummary()
-    load(true)
+    // G-933 冷启动门控:概览(GET /distribution/overview,distribution 组级 authenticate)需鉴权 ⇒ 挡;
+    // load() 的 GET /distribution/commission 后端注册面查无此路由 ⇒ 判不出,按口径原样不动
+    const cancel = gate.waitUntilReady(() => {
+      void loadSummary()
+    })
+    void load(true)
+    return cancel
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useReachBottom(() => {
