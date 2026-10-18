@@ -213,16 +213,18 @@ import { rpx } from '../utils/rpx'
 import { parseMessageContent } from '../utils/message-parse'
 
 import { rnRadius } from '@ihui/design-tokens'
+import type { ChatModelType } from '@ihui/types'
 
 // ── 类型定义(强类型,禁用 any) ──
 
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 /**
- * 模型类型(对齐 Uniapp ai_index.vue 的 8 种模型类型按钮)。
+ * 模型类型(8 值)。值域单源 = `@ihui/types` 的 `ChatModelType`:这一副值在仓里原有三份逐字
+ * 相同副本(小程序 ModelTypeButton、RN ChatScreen 与 HomeScreen),小程序侧已接,本枚接 RN 两处。
  * Uniapp 实际第 8 个按钮是 'sck'(素材库),非 'all';按 Uniapp 保真用 'sck'。
  */
-type ModelType = 'skills' | 'talk' | 'image' | 'video' | 'audio' | 'videoa' | 'other' | 'sck'
+type ModelType = ChatModelType
 
 /** 素材卡片(对齐 Uniapp materialCards,引入到输入区的素材,支持删除) */
 interface MaterialCard {
@@ -462,7 +464,9 @@ export function ChatScreen() {
   const { user: authUser, token: authToken, logout } = useAuth()
   // 录音不可用 → toast(showToast 定义在本函数后段,经 ref 桥接避免顺序依赖;
   // reason→文案与 HomeScreen handleVoiceUnavailable 逐字一致,2026-10-15 web 静默失效修复)
-  const voiceUnavailableBridge = useRef<((reason: 'permission-denied' | 'record-failed', message: string) => void) | null>(null)
+  const voiceUnavailableBridge = useRef<
+    ((reason: 'permission-denied' | 'record-failed', message: string) => void) | null
+  >(null)
   const handleVoiceUnavailableBridge = useCallback(
     (reason: 'permission-denied' | 'record-failed', message: string): void => {
       voiceUnavailableBridge.current?.(reason, message)
@@ -655,7 +659,10 @@ export function ChatScreen() {
     (reason: 'permission-denied' | 'record-failed', message: string): void => {
       showToast(
         'warning',
-        message || (reason === 'permission-denied' ? '无法访问麦克风,请检查权限设置' : '录音启动失败,请重试'),
+        message ||
+          (reason === 'permission-denied'
+            ? '无法访问麦克风,请检查权限设置'
+            : '录音启动失败,请重试'),
       )
     },
     [showToast],
@@ -3305,11 +3312,7 @@ export function ChatScreen() {
             </View>
             {/* AgentList 是弹窗唯一弹性块(flex:1 内部滚动);固定 header 不被压缩
                 (同 HomeScreen 模型弹窗 flexShrink 根治模式,2026-10-15) */}
-            <AgentList
-              style={{ flex: 1 }}
-              items={agentListItems}
-              onItemClick={handleAgentSelect}
-            />
+            <AgentList style={{ flex: 1 }} items={agentListItems} onItemClick={handleAgentSelect} />
           </Pressable>
         </Pressable>
       </Modal>
