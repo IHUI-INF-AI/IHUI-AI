@@ -31,6 +31,9 @@ import {
   getWorkspacePermissionDefault,
   // D20 服务端会话回放:消息体唯一出口(端内不得裸 Taro.request,守门 73)
   getMessages,
+  // 票64 格②(2026-10-19 落小程序腿):消息级钉选/收藏的写链同样只走 api-client ——
+  // 端内不重写第二份 fetch,归属与错误码分流都在服务端那一条判据里。
+  setMessageFlags,
   // D77(2026-10-17):业务表单应答上行 —— 唯一装配/传输出口(buildFormResponseEvent +
   // postFormResponse 从 @ihui/api-client 导出,端内不另起传输层)。
   buildFormResponseEvent,
@@ -1423,6 +1426,37 @@ export default function ChatPage() {
     void sendMessage(text, base)
   }, [messages, sendMessage])
 
+  /** 票64 格②(2026-10-19 落小程序腿):消息级钉选/收藏。形态以 RN 那份为准 ——
+   *  一次点击只动它点的那一把(两个维度都给,等于顺手取消另一个没打算动的标记),
+   *  成功态取服务端回写的时刻而不是本地翻转;写链走 @ihui/api-client 的 setMessageFlags。 */
+  const toggleMessageFlag = useCallback(
+    async (msg: ChatMessage, kind: 'pinned' | 'bookmarked'): Promise<void> => {
+      // 端内流式行在拿到落库 id 之前无处可写,调用侧已按有无 id 决定给不给这两项
+      if (!msg.id) return
+      const res = await setMessageFlags({
+        messageId: msg.id,
+        ...(kind === 'pinned' ? { pinned: !msg.pinnedAt } : { bookmarked: !msg.bookmarkedAt }),
+      })
+      if (!res.success) {
+        Taro.showToast({ title: t('ai.messageAction.flagFailed'), icon: 'none' })
+        return
+      }
+      const written = res.data?.message
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msg.id
+            ? {
+                ...m,
+                pinnedAt: written?.pinnedAt ?? null,
+                bookmarkedAt: written?.bookmarkedAt ?? null,
+              }
+            : m,
+        ),
+      )
+    },
+    [t],
+  )
+
   const handleLongPress = useCallback(
     (msg: ChatMessage, idx: number) => {
       // 失败轮不给"分享"(它不是内容),复制保留 —— 报错排查要用那段文字
@@ -1434,6 +1468,20 @@ export default function ChatPage() {
       })
       if (msg.role === 'user') {
         actions.push({ label: t('ai.messageAction.reuse'), run: () => handleReuse(msg.content) })
+      }
+      // 票64 格②:钉选/收藏对 user 与 assistant 同渲染(web `MessageItem` 与 RN 都是这个口径,
+      // 标记语义与"谁能被点赞"不是一回事);但没有服务端 id 就无处可写 ⇒ 不给死入口。
+      if (msg.id) {
+        actions.push(
+          {
+            label: t(msg.pinnedAt ? 'ai.messageAction.unpin' : 'ai.messageAction.pin'),
+            run: () => void toggleMessageFlag(msg, 'pinned'),
+          },
+          {
+            label: t(msg.bookmarkedAt ? 'ai.messageAction.unbookmark' : 'ai.messageAction.bookmark'),
+            run: () => void toggleMessageFlag(msg, 'bookmarked'),
+          },
+        )
       }
       actions.push({
         label: t('ai.messageAction.delete'),
@@ -1458,7 +1506,7 @@ export default function ChatPage() {
         success: (res) => actions[res.tapIndex]?.run(),
       })
     },
-    [t, handleReuse, handleRegenerate],
+    [t, handleReuse, handleRegenerate, toggleMessageFlag],
   )
 
   const handleEdit = useCallback((msg: ChatMessage, idx: number) => {

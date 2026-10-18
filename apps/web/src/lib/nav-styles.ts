@@ -115,6 +115,44 @@ export const TOPBAR_BTN_BASE =
  *  - 之前 w-7 (28×36) 矩形,3 类按钮"看似不同实则都是 28×36 雷同"但跟搜索按钮 36×36 视觉参差 */
 export const TOPBAR_BTN_W9 = 'w-9'
 
+/**
+ * 36×36 定尺寸 wrapper(2026-10-18 立,侧边栏三分支共用)。
+ *
+ * 为什么必须存在:TOPBAR_BTN_BASE 内置 `h-full`,它只在**确定高度**的父容器里才解析成 36px ——
+ * 历史事故:折叠态 header 是 flex-col 自动高度,Chrome 把循环百分比一次性解析成 60px,
+ * 按钮变 36×60 长方形压住下方内容;移动端 h-[44px] header 里则被拉成 36×44。
+ * 故三处(header 折叠态 / header 移动关闭 / 快捷区)一律先套这个 36×36 wrapper。
+ *
+ * 三份逐字相同的 class 曾各写各的(2026-09-21 那次只改了两处),本次提到单一真相源。
+ */
+export const ICON_BTN_36_WRAPPER = 'flex h-9 w-9 shrink-0 items-center justify-center'
+
+/**
+ * 侧边栏折叠/展开(及移动端关闭)按钮共享样式(2026-10-18 立)。
+ *
+ * 组成:TOPBAR_BTN_BASE(36px 高 + 圆角 6px + hover:bg-accent + 焦点态,与顶栏 4 类按钮同源)
+ *      + TOPBAR_BTN_W9(36px 宽,正方形)
+ *      + 侧边栏局部覆盖:
+ *        · bg-transparent —— 2026-08-01 用户要求"收起按钮默认无背景容器色"
+ *        · [&>svg]:!h-5 [&>svg]:!w-5 —— 2026-08-01 用户要求"图标加大、容器大小不变"
+ *          (覆盖 base 末尾的 3.5 = 14px;tailwind-merge 同特异性后定义胜出)
+ *        · text-foreground/70 → hover:text-foreground —— 静默态略退、hover 提亮,
+ *          比 base 的 /80 更克制,与侧边栏整体低刺激基调一致(不削弱 hover:bg-accent,
+ *          那一条是用户 2026-07-30 明令的"hover 必须突出")
+ *        · active:bg-accent/80 —— 按下即时反馈(此前缺失,点击无触感)
+ *        · group/toggle —— 供内部箭头的 hover 微位移(见 SIDEBAR_ARROW_NUDGE_* )
+ */
+export const SIDEBAR_TOGGLE_BTN_CLASS =
+  `${TOPBAR_BTN_BASE} ${TOPBAR_BTN_W9}` +
+  ' h-9 p-0 flex bg-transparent text-foreground/70 transition-colors hover:text-foreground' +
+  ' active:bg-accent/80 [&>svg]:!h-5 [&>svg]:!w-5'
+
+/** 折叠/展开箭头 hover 微位移:展开态箭头朝左 ⇒ 向左轻推;折叠态箭头朝右 ⇒ 向右轻推。
+ *  只位移 svg 内的 <g>,不改 svg 自身 20×20 与按钮 36×36 的盒子 —— 视觉守门测的是外层盒,
+ *  位移不参与布局,不会让任何断言翻红。 */
+export const SIDEBAR_ARROW_NUDGE_LEFT = 'transition-transform duration-200 group-hover/toggle:-translate-x-[1.5px]'
+export const SIDEBAR_ARROW_NUDGE_RIGHT = 'transition-transform duration-200 group-hover/toggle:translate-x-[1.5px]'
+
 /** 模型选择器下拉触发器 (h-9,icon + 文字 + chevron)
  *  - 三元素同行,中间文字 span 加 translateY
  */
