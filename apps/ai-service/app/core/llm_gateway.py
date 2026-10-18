@@ -1030,9 +1030,25 @@ _AUTO_TIER_HINTS: list[tuple[tuple[str, ...], int]] = [
 _AUTO_FREE_PREFIXES = (
     "@cf/", "pollinations/", "llm7/", "aihorde/", "opencode/",
 )
-# LOCAL provider 前缀(本地 LLM):is_model_available 直接返回 True,但本地服务未必在跑,
-# auto 路由需排除,避免选了不可用模型(详见 _resolve_auto_model available 过滤)。
+# LOCAL provider 前缀(本地 LLM)。
+# 2026-08-06 ~ 2026-10-17:is_model_available 对 LOCAL 恒 True(UI 显示用),本地服务
+# 未必在跑,auto 路由整体排除,避免选了不可用模型。
+# 2026-10-18(票85①):local_provider_health 探针落地,LOCAL 改为"探针实证 available
+# 才进 auto 池"(见 _resolve_auto_model 内 _local_auto_eligible);unavailable/
+# undetermined 仍排除 —— 判据从"没有"升级成"实证过",不是回到旧态。
 _LOCAL_PREFIXES = ("ollama/", "lmstudio/", "llamacpp/", "vllm/")
+
+
+def _local_auto_eligible(model_id: str, health: Any) -> bool:
+    """LOCAL 模型进 auto 池的唯一判据(票85①):探针实证 available 才 True。
+
+    非 LOCAL 前缀不归本判据管(恒 True);unavailable/undetermined 一律 False ——
+    与 2026-08-06 整体移除 LOCAL 的理由同源:auto 不选判不了的东西。
+    health 参数注入(local_provider_health 单例),单测不碰真网络。
+    """
+    if not any(model_id.startswith(p) for p in _LOCAL_PREFIXES):
+        return True
+    return health.is_available(model_id.split("/", 1)[0])
 
 # 自动路由显式排除模型(2026-09-05 立):本部署 openai key 无余额(no credits)且
 # agnes 聚合端点无 gpt-4o 通道,任何把任务升级到 gpt-4o 的尝试都会失败
@@ -1216,9 +1232,10 @@ async def _resolve_auto_model(
 ) -> str:
     """跨厂商自动路由:从 model_availability 全量可用模型中选最优。
 
-    选择策略(2026-08-06 立):
+    选择策略(2026-08-06 立;第 2 条 2026-10-18 票85① 修订):
     1. 调用 model_availability.get_available_models() 拿全量可用模型(已过滤 DOWN provider)
-    2. 优先 zero_cost / LOCAL(完全免费)
+    2. 优先 zero_cost / LOCAL(完全免费;LOCAL 仅限本地探针实证 available 者,
+       unavailable/undetermined 仍排除)
     3. 按 tier 选最小可用档(0/1 → 3 → 10 → 30,逐步升级,避免一开始就烧高级模型)
     4. tool calling 场景(has_tools=True):在前 3 名候选中筛掉不支持 function calling 的
     5. D16(2026-09-25):对上面收口出的候选池再做一次**成本感知重排**
@@ -1251,14 +1268,28 @@ async def _resolve_auto_model(
             str(m["id"]): m for m in all_models if m.get("id")
         }
 
-        # 过滤:只保留 model_availability 判定为可用的,且排除 LOCAL provider
-        # (ollama/lmstudio/llamacpp/vllm):is_model_available 对 LOCAL 直接返回 True(UI 显示用),
-        # 但本地服务未必在跑,auto 选了会 MODEL_NOT_CONFIGURED。LOCAL 模型用户可手动选。
+        # 票85①:LOCAL 模型从"整体排除"改为"探针实证 available 才进 auto 池"。
+        # 先对候选里出现过的本地 provider 批量补探(带 TTL 缓存,通常 0 个真请求),
+        # 过滤里只放行实证可用者;unavailable/undetermined 仍排除 —— 与 2026-08-06
+        # 移除 LOCAL 的理由同源:auto 不选判不了的东西,失败的账单是用户付。
+        from ..services.local_provider_health import local_provider_health as _local_health
+
+        local_codes = sorted(
+            {
+                m["id"].split("/", 1)[0]
+                for m in all_models
+                if any(m["id"].startswith(p) for p in _LOCAL_PREFIXES)
+            }
+        )
+        if local_codes:
+            await _local_health.ensure_probed(local_codes)
+
+        # 过滤:只保留 model_availability 判定为可用的;LOCAL 按 _local_auto_eligible 实证放行
         available = [
             m
             for m in all_models
             if model_availability.is_model_available(m["id"])
-            and not any(m["id"].startswith(p) for p in _LOCAL_PREFIXES)
+            and _local_auto_eligible(m["id"], _local_health)
             # ihui/Auto-Model 是极速服务端自动随机模型:全局 auto 路由需选具体模型,
             # 避免双重随机(系统 auto → ihui auto → 极速随机)导致路由行为不可预测
             and m["id"].lower() != "ihui/auto-model"

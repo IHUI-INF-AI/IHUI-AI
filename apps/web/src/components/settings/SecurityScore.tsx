@@ -10,6 +10,7 @@ import { ShieldCheck, Loader2 } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface ScoreItem {
   id: string
@@ -49,15 +50,20 @@ export function SecurityScore() {
   const t = useTranslations('settings')
   const [data, setData] = React.useState<ScoreData | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const { allow } = useAuthGate()
 
   React.useEffect(() => {
+    if (!allow) {
+      setLoading(false)
+      return
+    }
     void fetchApi<ScoreData>('/api/user/security-score')
       .then((res) => {
         if (res.success && res.data) setData(res.data)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [allow])
 
   const circumference = 2 * Math.PI * 45
   const maxScore = data?.maxScore ?? 100
