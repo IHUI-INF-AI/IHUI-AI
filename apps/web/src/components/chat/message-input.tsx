@@ -86,9 +86,7 @@ import { useMentionFiles, useAiSkills } from '@/hooks/use-lazy-resource-hooks'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { Tooltip } from '@/components/feedback'
 import { toast } from '@/components/common'
-// 票60 步序二(2026-10-18):消费面按窗格寻址 —— 无 ChatPaneProvider 时恒回落单例
-// useChatStore,行为零变化;窗格挂载(发送链路窗格化后)即读独立实例
-import { usePaneChatStore } from '@/stores/chat-pane-context'
+import { useChatStore } from '@/stores/chat'
 import { answerSideQuestion } from '@/hooks/use-chat/slash-commands'
 // D38 队列语义完整交互(G-42):交互条只做展示与回调上抛,许可判定一律走 D69 的
 // queueInteractionPerms(与本文件下方 queueCtx 同一对象),动作落 store 的四个新 action。
@@ -248,10 +246,6 @@ export function MessageInput({
   onFloatDragStart,
 }: MessageInputProps) {
   const t = useTranslations('chat')
-  // 票60 步序二(2026-10-18):chat store 消费面按窗格寻址。本组件内对 chat 状态的
-  // 读/写全部经 chatStore(getState/setState/selector 同一实例,内部自洽);
-  // 无 Provider 时它是单例 useChatStore 本尊 —— 本轮行为零变化。
-  const chatStore = usePaneChatStore()
   // 2026-08-02 修复: Bug 3 — useRouter 替代 window.location.href,避免整页刷新丢失状态
   const router = useRouter()
   // 权限模式循环切换 hook(2026-07-29 提取自本文件,深度对标 Codex CLI Shift+Tab 循环):
@@ -271,7 +265,7 @@ export function MessageInput({
   // - 用户主动切走其他模式 → 自动清掉计时
   const autoRevert = usePermissionAutoRevert()
   // 当前会话 ID(W27 草稿 per-conversation 化;手动压缩上下文按钮也消费;未持久化会话按钮禁用)
-  const conversationId = chatStore((s) => s.conversationId)
+  const conversationId = useChatStore((s) => s.conversationId)
   // W27(2026-09-14):草稿 key 按会话隔离 —— 新会话(未持久化)共用 'chat:draft',
   // 已持久化会话用 'chat:draft:{id}',切换会话时草稿互不串扰
   const draftKey = conversationId ? `chat:draft:${conversationId}` : 'chat:draft'
@@ -281,7 +275,7 @@ export function MessageInput({
   // 由 usePromptDrafts 内部解密完成后一次性回填(机主拍板:不闪旧明文)。
   const [value, setValue] = React.useState(() => {
     if (typeof window === 'undefined') return ''
-    const convId = chatStore.getState().conversationId
+    const convId = useChatStore.getState().conversationId
     return peekInitialDraft(convId ? `chat:draft:${convId}` : 'chat:draft')
   })
   const [slashOpen, setSlashOpen] = React.useState(false)
@@ -467,16 +461,16 @@ export function MessageInput({
     'menu',
   )
   // D28 /side 快速侧问(2026-09-20 立):当前会话侧问队列(store 持久化,切会话不丢)
-  const sideQueue = chatStore((s) =>
+  const sideQueue = useChatStore((s) =>
     conversationId ? s.sideQueueByConversation[conversationId] : undefined,
   )
-  const shiftSideQuestion = chatStore((s) => s.shiftSideQuestion)
+  const shiftSideQuestion = useChatStore((s) => s.shiftSideQuestion)
   // D38 队列模式偏好(steer=插话优先 / queue=排队优先),持久化在 chat store
-  const followUpQueueMode = chatStore((s) => s.followUpQueueMode)
+  const followUpQueueMode = useChatStore((s) => s.followUpQueueMode)
   // Runtime 插话能力声明(null = 生产者还没说话,经 resolveInterjectionSupport 回落 false)。
   // 数据源 = 流帧载荷(send-message/send-answer 的 noteRuntimeCapabilities)+ 会话元数据
   // (ai-side-panel 的 getConversation 分支),均落在 chat store 这一个键上。
-  const runtimeInterjection = chatStore((s) => s.runtimeInterjection)
+  const runtimeInterjection = useChatStore((s) => s.runtimeInterjection)
   const runtimeSupportsInterjection = resolveInterjectionSupport(runtimeInterjection)
   // 补答一条侧问文本(runBestOfN 单候选,回答以 sidechat 消息入本地流,不入主线历史);
   // 失败仅 toast 提示,不打断主流程
@@ -528,17 +522,17 @@ export function MessageInput({
 
   // 消费 chat store 中的 draftInput(由 PromptTemplates 等外部触发),填充到 textarea 后清空
   // draftAutoSend(2026-09-08 立,首页「立即体验」CTA):预填后立即自动发送发起对话
-  const draftInput = chatStore((s) => s.draftInput)
-  const clearDraftInput = chatStore((s) => s.clearDraftInput)
-  const draftAutoSend = chatStore((s) => s.draftAutoSend)
-  const clearDraftAutoSend = chatStore((s) => s.clearDraftAutoSend)
+  const draftInput = useChatStore((s) => s.draftInput)
+  const clearDraftInput = useChatStore((s) => s.clearDraftInput)
+  const draftAutoSend = useChatStore((s) => s.draftAutoSend)
+  const clearDraftAutoSend = useChatStore((s) => s.clearDraftAutoSend)
   // 已选工具(用户从插件市场点击"+"添加到对话的 pluginId 列表)
-  const selectedToolsIds = chatStore((s) => s.selectedTools)
-  const removeSelectedTool = chatStore((s) => s.removeSelectedTool)
+  const selectedToolsIds = useChatStore((s) => s.selectedTools)
+  const removeSelectedTool = useChatStore((s) => s.removeSelectedTool)
   // D22 引用回复(2026-09-19 立,对标 Qoder 0.2.x):待引用消息快照 chip + 清除
   // (store 只暴露 setQuotedMessage,以 setQuotedMessage(null) 充当清除)
-  const quotedMessage = chatStore((s) => s.quotedMessage)
-  const setQuotedMessage = chatStore((s) => s.setQuotedMessage)
+  const quotedMessage = useChatStore((s) => s.quotedMessage)
+  const setQuotedMessage = useChatStore((s) => s.setQuotedMessage)
   // D22 圈选 AI 回复入上下文:MessageItem 内选中文本后浮现「引用选中」按钮,
   // 派发 ihui:add-text-reference,输入框统一消费转成文本引用 chip
   React.useEffect(() => {
@@ -897,7 +891,7 @@ export function MessageInput({
   // /compact 斜杠命令复用同一函数;此处只保留按钮 loading 态与流式守卫。
   const [compacting, setCompacting] = React.useState(false)
   const handleCompact = React.useCallback(async () => {
-    const id = chatStore.getState().conversationId
+    const id = useChatStore.getState().conversationId
     if (!id || compacting || isStreaming) return
     setCompacting(true)
     try {
@@ -905,7 +899,7 @@ export function MessageInput({
     } finally {
       setCompacting(false)
     }
-  }, [compacting, isStreaming, t, chatStore])
+  }, [compacting, isStreaming, t])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, localComposing = false) => {
     // G-862 IME 组合守卫**必须在 contextSelector 之前**。原先它落在
@@ -977,11 +971,11 @@ export function MessageInput({
     (plan: { readonly stopFirst: boolean; readonly thenRun: string | null }) => {
       if (!conversationId || !plan.thenRun) return
       if (plan.stopFirst) onStop()
-      const head = chatStore.getState().interruptAndRun(conversationId)
+      const head = useChatStore.getState().interruptAndRun(conversationId)
       if (head && head.id === plan.thenRun) answerWithToast(head.text)
     },
     // answerWithToast 是 useCallback 稳定引用,列入依赖防闭包读旧 conversationId
-    [conversationId, onStop, answerWithToast, chatStore],
+    [conversationId, onStop, answerWithToast],
   )
 
   // #18 流式中输入框保持可输入(2026-07-25 立):流式中 textarea 不再 disabled,用户可输入下一条消息草稿(对标 Cursor/ChatGPT 行为)。
@@ -1060,15 +1054,15 @@ export function MessageInput({
           runtimeSupportsInterjection={runtimeSupportsInterjection}
           streaming={isStreaming}
           onReorder={(from, to) => {
-            if (conversationId) chatStore.getState().requeue(conversationId, from, to)
+            if (conversationId) useChatStore.getState().requeue(conversationId, from, to)
           }}
           onUndo={(id) => {
-            if (conversationId) chatStore.getState().removeQueued(conversationId, id)
+            if (conversationId) useChatStore.getState().removeQueued(conversationId, id)
           }}
           onEdit={(id, text) => {
-            if (conversationId) chatStore.getState().editQueued(conversationId, id, text)
+            if (conversationId) useChatStore.getState().editQueued(conversationId, id, text)
           }}
-          onModeChange={(mode: FollowUpMode) => chatStore.getState().setFollowUpQueueMode(mode)}
+          onModeChange={(mode: FollowUpMode) => useChatStore.getState().setFollowUpQueueMode(mode)}
           onInterruptAndRun={handleInterruptAndRun}
         />
         <div ref={inputAreaRef} className="relative">
@@ -1206,7 +1200,7 @@ export function MessageInput({
                   setAddMenuMode('menu')
                 }}
                 onSkillSendToChat={(content) => {
-                  chatStore.setState({ draftInput: content })
+                  useChatStore.setState({ draftInput: content })
                   setAddMenuOpen(false)
                   setAddMenuMode('menu')
                 }}

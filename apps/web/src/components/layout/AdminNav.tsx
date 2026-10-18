@@ -841,6 +841,14 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         icon: MonitorCog,
         dynamicLabel: '监控大屏',
       },
+      // 2026-10-18 新增监控面板页:Grafana 21 张盘的项目内入口(kiosk 内嵌只读),
+      // 与 wallboard(自研 HUD 总览)互补 —— 本页是全量明细下钻。
+      {
+        href: '/admin/monitor/panels',
+        labelKey: 'monitorWallboard',
+        icon: Gauge,
+        dynamicLabel: '监控面板',
+      },
     ],
   },
   // 客服工单

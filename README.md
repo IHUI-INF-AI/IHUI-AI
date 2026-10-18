@@ -5720,6 +5720,16 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 用法:`GET /api/chat/templates?page=1&pageSize=20&category=writing`;query 由 Zod `.strict()` 校验(未知键与非法页码一律 400),`pageSize` 上限 50。
 - 数据源:`apps/api/src/routes/chat-templates.ts` 下半部的内置目录(当前无对应库表,建表属后续票);handler 自证只取 `status = 'published'` 的行,下发字段是**逐行点名的白名单**(运营内部字段不出面),`category` 拼错回空集而非静默全量。
 - 分页键口径:全仓 `/api/*` 只认 `list`(与 `packages/api-client` 的 `PageData<T>` 同源),同一端点不得同时发 `items` 顶键——两个键都发等于把消费侧的分叉藏起来。
+
+**积分规则端点(2026-10-18 立,补 RN 侧此前打不通的一条):**
+
+| 端点               | 方法 | 鉴权                              | 响应形状                                                    | 消费端                                       |
+| ------------------ | ---- | --------------------------------- | ----------------------------------------------------------- | -------------------------------------------- |
+| `/api/point-rule`  | GET  | 需登录(`pointRoutes` 插件级 preHandler) | `{ code: 0, message: 'success', data: PointRuleItem[] }`(载荷是**数组**) | RN `PointRuleScreen`(经 `@ihui/rn-app` 共享屏) |
+
+- 数据源 `point_rule` 表(`packages/database/src/schema/relation-tables.ts`),只出 `status = 1` 的启用档,按 `code → id` 稳定序;投影固定四键 `id/action/points/desc`(`id` 在库层一次转成字符串,`description` 为空落 `''`),不把 `code/type/max_per_day` 外泄成第三种形状。
+- 该端点**刻意不挂** `point.ts` 里那份通用 `responseSchema`——它把 `data` 定成 `type: 'object'`,而本端点载荷是数组,挂上会被序列化层裁掉(同形态先例 `apps/api/src/routes/articles.ts`)。
+- 这条路径原先的状态:RN 屏打的是裸路径 `/point-rule`,由 transport 的 `normalizeUrl` 补成 `/api/point-rule`,而后端两引擎都没注册过它 ⇒ 界面恒空且不报错。客户端字面量已同时改成显式 `/api/point-rule` 形态,让门 8(`check-api-routes.mjs`)能看见这条调用——它此前只认引号紧邻 `/api/` 的字面量,裸路径调用整体在射程外。
 **小程序兼容设置端点(2026-10-18 收口单/复数分叉):**
 | 端点                    | 方法 | 鉴权 | 响应形状 | 消费端 |
 | ----------------------- | ---- | ---- | -------- | ------ |
