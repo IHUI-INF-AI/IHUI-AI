@@ -101,6 +101,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw, readWorktreeFile, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { maskComments } from './lib/code-mask.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(dirname(SELF_DIR))
@@ -810,8 +811,9 @@ const ledJudge = (
 
 /** 成对正反例:每一条都指定"应该看见什么",不看感觉。 */
 export function selfTest() {
-  const rows = []
-  const ok = (name, cond, why = '') => rows.push({ name, ok: !!cond, why })
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  // 本门自己的 report() 与出口的 report 撞名 ⇒ 出口侧改绑 reportCases,不遮蔽门体判据。
+  const { t: ok, report: reportCases } = makeRegistrar()
   const j = (path, head, cand, ledger = { ok: new Map(), bad: [], present: false }) =>
     judgeFile({ path, headText: head, candText: cand, candAbsent: false, ledger })
 
@@ -1190,10 +1192,10 @@ export function selfTest() {
     JSON.stringify(s24.defects.map((x) => x.why)),
   )
 
-  const bad = rows.filter((x) => !x.ok)
-  console.log(`—— 自检 ${rows.length - bad.length}/${rows.length} 通过${bad.length ? ' ✗' : ' ✅'}`)
-  for (const x of bad) console.log(`   ✗ ${x.name} ${x.why}`)
-  return bad.length ? 1 : 0
+  const { pass, fail, cases } = reportCases()
+  console.log(`—— 自检 ${pass}/${cases.length} 通过${fail ? ' ✗' : ' ✅'}`)
+  for (const x of cases.filter((c) => !c.pass)) console.log(`   ✗ ${x.name} ${x.got}`)
+  return fail ? 1 : 0
 }
 
 function main(argv) {

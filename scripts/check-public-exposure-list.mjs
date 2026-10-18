@@ -81,6 +81,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { isFlagValueToken } from './lib/flag-value.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -971,8 +972,8 @@ function selfTest() {
       }
     }
   }
-  const results = []
-  const t = (name, pass, detail = '') => results.push({ name, pass: !!pass, detail })
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t, report } = makeRegistrar()
 
   const ok = run(withFixture())
   t(
@@ -1187,14 +1188,12 @@ function selfTest() {
     JSON.stringify({ v: x7unresolved.violations, u: x7unresolved.undetermined }),
   )
 
-  let failed = 0
-  for (const r of results) {
-    if (!r.pass) failed += 1
-    console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.pass ? '' : ` → ${r.detail}`}`)
-  }
+  const { pass, fail, cases } = report()
   rmScratch(dir)
-  console.log(`--self-test:${results.length - failed}/${results.length} 条断言通过`)
-  return failed === 0 ? 0 : 1
+  for (const r of cases)
+    console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.pass ? '' : ` → ${r.got}`}`)
+  console.log(`--self-test:${pass}/${cases.length} 条断言通过`)
+  return fail === 0 ? 0 : 1
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

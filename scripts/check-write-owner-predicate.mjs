@@ -115,6 +115,7 @@ import {
   maskedSpans,
   scanSpans,
 } from './lib/code-mask.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 // 「什么算一条裸 SQL 写链」不在本门重写第二份:直接引守门 134 那份唯一实现(它的动词搭配式与
 // 括号配平都被自己的镜像测试钉着)。两处各扫一遍必漂移,而漂移的表现永远是"安静"(AGENTS §22c)。
 import {
@@ -1955,8 +1956,9 @@ export function judgeFixture(text) {
 }
 
 function runSelfTest() {
-  const checks = []
-  const ok = (name, cond, extra = '') => checks.push({ name, pass: !!cond, extra })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `checks.push({ name, pass: !!cond })` 布尔强制(函数恒真)—— 已由共用出口封死。
+  const { t: ok, report } = makeRegistrar()
   const first = (text) => judgeFixture(text)[0] || null
   const all = (text) => judgeFixture(text)
 
@@ -2307,10 +2309,11 @@ function runSelfTest() {
     decide({ face: 'staged', strict: false, missing: 0, undetermined: 52, ratcheted: 0 }) === 0,
   )
 
-  for (const c of checks) console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.extra ? ` —— ${c.extra}` : ''}`)
-  const passed = checks.filter((c) => c.pass).length
-  console.log(`--self-test: ${passed}/${checks.length} 通过`)
-  process.exitCode = passed === checks.length ? 0 : 1
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { pass, fail, cases: checks } = report()
+  for (const c of checks) console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.got !== 'true' && c.got !== 'false' ? ` —— ${c.got}` : ''}`)
+  console.log(`--self-test: ${pass}/${checks.length} 通过`)
+  process.exitCode = fail === 0 ? 0 : 1
 }
 
 /* ------------------------------ CLI ------------------------------ */
