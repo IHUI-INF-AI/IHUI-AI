@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { toast } from '@/components/common'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@ihui/ui-react'
 
 const ipSchema = z.union([z.ipv4(), z.ipv6()])
@@ -26,6 +27,7 @@ export function IpWhitelist() {
   const [loading, setLoading] = React.useState(true)
   const [adding, setAdding] = React.useState(false)
   const [removing, setRemoving] = React.useState<string | null>(null)
+  const { allow } = useAuthGate()
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -40,8 +42,12 @@ export function IpWhitelist() {
   }, [])
 
   React.useEffect(() => {
+    if (!allow) {
+      setLoading(false)
+      return
+    }
     void load()
-  }, [load])
+  }, [load, allow])
 
   const handleAdd = async () => {
     setError(null)
