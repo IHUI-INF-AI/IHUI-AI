@@ -39,15 +39,49 @@
  *     结论行仍单独报出 lib 的计数,免得"覆盖了 lib"只存在于本注释里。
  *  2. **取不到内容必须报「未判定」并 exit 2**,绝不折成"0 处违规"当绿。本仓铁律:
  *     **少扫不等于没有违规**。少了文件还报绿,比不报更坏(它替人做出"这一格已被看过"的判断)。
- *  3. **只判 `stdio` 作为属性名出现,不判取值**
+ *  3. **`stdio` 属性名那一维只判在场、不判取值**
  *     (`/(^|[{,\s])stdio\s*:|(?:^|[{,])\s*stdio\s*[,}]/`,两支:显式属性 + ES6 **属性简写**)。理由:
- *     `['pipe','pipe','pipe']`(喂 stdin 的 batch 族,见 `scripts/lib/face-reader.mjs:94`
- *     的两态)与 `['ignore','pipe','pipe']` **都合规**;判取值会把前者误伤成红。
+ *     本仓有两种正当写法 —— 不喂 stdin 的 `['ignore','pipe','pipe']` 与喂 stdin 的
+ *     `['pipe','pipe','pipe']`(见 `scripts/lib/face-reader.mjs:94` 的两态),**属性名维**把它们
+ *     一律放过是对的;取值那一格由**第 3b 条**单独判,不在这里判(混在一起会把"配了 stdio 但
+ *     配错通道"和"压根没配 stdio"两件事报成同一个成因)。
  *     ⚠️ 第二支不是"名字里出现 stdio 就算",而是**两端**都要求对象字面量的键位边界:
  *     前端必须是 `{`/`,`、后端必须是 `,`/`}`,于是 `{ encoding: stdio }`(值位置)、`{ stdioX }`、
  *     `xstdio:` / `my_stdio:` 一律仍判红。**漏掉第二支的实测代价**:真仓
  *     `scripts/git-heal-broken-links.mjs` 的 `git()` 包装器 options 里写的是简写 `stdio,`,
  *     旧形态把它误报成「options 内无 stdio 属性名」—— 门把已合规的调用判红,逼人去改没坏的代码。
+ *  3b. **`input` 在场时,stdin 通道必须是 `'pipe'`(2026-10-19 新维,真事故立因)**
+ *     事故:构造 blob 时写 `spawnSync('git', ['hash-object','-w','--stdin'], { input: <1.67MB Buffer>,
+ *     stdio: ['ignore','pipe','pipe'] })` —— stdin 被关成 `ignore` ⇒ git 读到**空 stdin**,
+ *     `hash-object` **不报错**,安静产出一枚 `e69de29b…`(0 字节空 blob)的"看着像 sha"的值,
+ *     于是 0 字节的 `pnpm-lock.yaml` 就这么落进 main 并推到了远端。
+ *     **这一型没有任何编译期症状**:typecheck / lint / 测试全绿,第 3 条那一维也判它绿
+ *     (`stdio` 属性名在场就放过)—— **排除条款就是缺陷候选**:"必须显式写 stdio"放过了
+ *     "显式写了一个错的 stdio"。
+ *     实测(node 26,`git hash-object --stdin` **不带 -w**,每形态 10 次,§12g 单次探测不算结论):
+ *      - `['ignore','pipe','pipe']` + input ⇒ **10/10 内容被静默吃掉**(空 blob,exit 0,无 error)
+ *      - `['inherit','pipe','pipe']` + input ⇒ 10/10 同样空 blob
+ *      - 标量 `'ignore'` / `'inherit'` + input ⇒ 10/10 连 stdout 都拿不到(三通道整体被关,status null)
+ *      - `['pipe','pipe','pipe']` / 标量 `'pipe'` / 不写 stdio ⇒ 10/10 正常拿到内容 sha
+ *     所以判据 = **同一 options 对象顶层里 `input` 作为属性名出现 ∧ 顶层 `stdio` 键的取值是可读到
+ *     的字面量 ∧ 其 stdin 通道(数组首元素 / 标量 / `{type:…}`)不是 `'pipe'`** ⇒ 判红,并**报出它
+ *     实际写的那个首元素**(修法只有一条:`['pipe','pipe','pipe']`)。
+ *     三种情形**明确不判红**,各自进报数:
+ *      ① `stdio` 取值取不到字面量(ES6 简写 `{ stdio }`、变量、成员、函数返回值)⇒ `undetermined`,
+ *         既不记绿也不冒红(§0.3)。真仓同型现存:`scripts/git-heal-broken-links.mjs` 的
+ *         `{ cwd, stdio, input: opts.input }` —— 判它红就是第 3 条当年修过的那格误伤复发。
+ *         **条件/三元形态(`stdio: input ? [...] : [...]`)只在"两支的 stdin 都是 pipe"时才算 ok**;
+ *         任一支非 pipe 或读不到 ⇒ 归 `undetermined` —— 静态读哪一支在 `input` 为真时生效 = 猜,
+ *         宁可留名报数,也不出具"这一处已判过"的合格证(现读两处即此型:
+ *         `scripts/union-converge.mjs` 的 `git()` 与 `scripts/check-plan-claims-vs-head.mjs`
+ *         的同型包装器,两处写法都对,但"对"要由人读出,不由门猜出)。
+ *      ② `stdio` 与 `input` 分居两个对象(如 `{ env: { stdio: 'ignore' }, input: x }`)⇒ 顶层没配
+ *         stdio,嵌套那个与派生通道无关,本维不读它(读它就是把合法代码判红)。
+ *      ③ 有 `input` 而 options 顶层**没有** `stdio` 键(且无 spread)⇒ 该行已由"缺 stdio 属性名"
+ *         那一维判红,本维不再重复报同一行(一处两红会把修法指错方向)。
+ *     **定级(§12e 恒红门禁令)**:本维不参与第 3 条那一维的绝对判红,自带**差值棘轮** ——
+ *     锚点 = 该文件 **HEAD 面自身**在本维的命中数;`--staged` 只拦"本次把它加回来"的新增,
+ *     全量档(HEAD blob)只报存量,`--strict` 才问责存量。升绝对档的前置 = 现读归零。
  *  4. **判据落在该次调用的 options 内**,不能落"这个文件有没有 stdio"。理由:
  *     `scripts/check-root-dir-clean.mjs` 现存该形态 —— :265/:281 合规而 :75 裸奔,
  *     按文件判会被另一处合规调用**洗白**。自检 `同一文件内合规调用不得洗白裸奔调用` 钉这一条。
@@ -71,9 +105,10 @@
  * 发明一套(那正是"每道门各有一个面"的起点)。
  *
  * 用法:
- *   node scripts/check-git-stdio-discipline.mjs              # 缺省判 HEAD blob
- *   node scripts/check-git-stdio-discipline.mjs --staged     # 判索引 blob
+ *   node scripts/check-git-stdio-discipline.mjs              # 缺省判 HEAD blob(存量只报数)
+ *   node scripts/check-git-stdio-discipline.mjs --staged     # 判索引 blob(新维走差值棘轮)
  *   node scripts/check-git-stdio-discipline.mjs --worktree   # 人工逃生舱
+ *   node scripts/check-git-stdio-discipline.mjs --strict     # 第 3b 条那一维的存量问责档
  *   node scripts/check-git-stdio-discipline.mjs --self-test
  */
 import { existsSync, readFileSync } from 'node:fs'
@@ -516,19 +551,244 @@ export function judgeSpan(span, isExecSync = false) {
   return { verdict: 'noStdio', stdio, shell }
 }
 
+// ── 第 3b 条那一维:input ↔ stdin 通道(判据唯一实现,镜像测试 import 消费,禁止另写一份)──
+/**
+ * `input` 是否**作为属性名**出现。两支形态与 `STDIO_PROP` 完全同形(显式属性 + ES6 简写),
+ * 于是 `{ xinput: 1 }` / `{ my_input: 1 }` / `{ inputX }` / `{ cwd: input }`(值位置)都不算。
+ */
+export const INPUT_PROP = /(^|[{,\s])input\s*:|(?:^|[{,])\s*input\s*[,}]/
+
+/**
+ * 把 `{ … }` 文本在**顶层逗号**处切成条目(外壳是花括号的 `splitArgs`,同一套配平规则)。
+ *
+ * 为什么本维必须切一层、而不能像第 3 条那样在整段调用文本上跑:第 3 条只问"属性名在不在",
+ * 整段文本够用;本维要读 **stdio 的取值**,而取值必须来自**该对象自己的顶层键** ——
+ * `{ env: { stdio: 'ignore' }, input: x }` 的嵌套 `stdio` 与派生通道无关,读它就是误伤
+ * (口径第 3b 条②)。非对象字面量(工厂调用 / 三元 / 形参)⇒ 返回 null,调用方归"判不出"。
+ */
+export function topLevelEntries(objText) {
+  const text = String(objText).trim()
+  if (!text.startsWith('{')) return null
+  const out = []
+  let depth = 0
+  let str = null
+  let start = 1 // 跳过外层的 `{`
+  for (let i = 1; i < text.length; i++) {
+    const c = text[i]
+    if (str) {
+      if (c === '\\') i++
+      else if (c === str) str = null
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      str = c
+      continue
+    }
+    if (c === '(' || c === '[' || c === '{') depth++
+    else if (c === ')' || c === ']' || c === '}') {
+      if (depth === 0) {
+        out.push(text.slice(start, i))
+        return out.map((s) => s.trim()).filter((s) => s.length > 0)
+      }
+      depth--
+    } else if (c === ',' && depth === 0) {
+      out.push(text.slice(start, i))
+      start = i + 1
+    }
+  }
+  // 未配平(源码正在编辑/被截断)⇒ 把尾巴当一条交出去,由 entryKeyValue 归"读不到"
+  out.push(text.slice(start))
+  return out.map((s) => s.trim()).filter((s) => s.length > 0)
+}
+
+/**
+ * 条目文本 → `{ key, value, shorthand, spread }`。
+ * 取不到键名(计算键 `[k]:`、展开 `…base`、三元、解构)⇒ `key: null`,调用方**绝不猜**。
+ */
+export function entryKeyValue(entry) {
+  const e = String(entry).trim()
+  if (!e) return { key: null, value: null }
+  if (e.startsWith('...')) return { key: null, value: null, spread: true }
+  if (e.startsWith('[')) return { key: null, value: null, computed: true }
+  const m = /^(?:(['"])((?:(?!\1)[^\\]|\\.)*?)\1|([A-Za-z_$][\w$]*))\s*:\s*([\s\S]*)$/.exec(e)
+  if (m) return { key: m[2] !== undefined ? m[2] : m[3], value: m[4].trim() }
+  const s = /^([A-Za-z_$][\w$]*)$/.exec(e)
+  // ES6 属性简写:键名就是同名变量 ⇒ 键在、**取值取不到**(口径第 3b 条①)
+  if (s) return { key: s[1], value: null, shorthand: true }
+  return { key: null, value: null }
+}
+
+/**
+ * 顶层三元 `cond ? A : B`(恰好一个顶层 `?` 与其后恰好一个顶层 `:`)⇒ 返回两个分支文本。
+ * 形态不符(嵌套三元、无括号、`a?.b`、对象里的冒号…)⇒ null,调用方归"判不出"。
+ *
+ * 为什么要认这一族:`stdio: input ? ['pipe','pipe','pipe'] : ['ignore','pipe','pipe']` 是本仓
+ * **已经写过正确注释的惯用法**(`scripts/union-converge.mjs:160` 就地写明"带 input 必须保住管道")。
+ * 整体当一个不可读表达式 ⇒ 每一处正当写法都长驻"判不出"那一格,那一格很快就没人看了。
+ */
+export function ternaryBranches(v) {
+  const text = String(v)
+  const marks = []
+  let depth = 0
+  let str = null
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (str) {
+      if (c === '\\') i++
+      else if (c === str) str = null
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      str = c
+      continue
+    }
+    if (c === '(' || c === '[' || c === '{') depth++
+    else if (c === ')' || c === ']' || c === '}') depth--
+    else if (depth === 0 && (c === '?' || c === ':')) marks.push({ i, c })
+  }
+  const q = marks.filter((m) => m.c === '?')
+  const colons = marks.filter((m) => m.c === ':')
+  if (q.length !== 1 || colons.length !== 1 || q[0].i > colons[0].i) return null
+  const cond = text.slice(0, q[0].i)
+  // `a?.b` / `x ?? y` 这类不是三元:`?` 后紧跟 `.` 或 `?` 即出局
+  if (!cond.trim() || /^[.?]/.test(text.slice(q[0].i + 1))) return null
+  const thenB = text.slice(q[0].i + 1, colons[0].i)
+  const elseB = text.slice(colons[0].i + 1)
+  if (!thenB.trim() || !elseB.trim()) return null
+  return [thenB.trim(), elseB.trim()]
+}
+
+/**
+ * 读 `stdio` 取值里的 **stdin 通道**(第 0 个通道)。三态,取不到一律 `unreadable`:
+ *  - 数组 ⇒ 取首元素(`splitArgs` 同一套配平,嵌套逗号不会把首元素切坏)
+ *  - 标量字符串 ⇒ 三通道同值,首通道 = 该值
+ *  - `{ type: '…' }` ⇒ 读 `type` 字面量
+ *  - `cond ? A : B` ⇒ **只有两支都读到 `'pipe'` 才算 ok**;任一支非 pipe 或读不到 ⇒ `unreadable`
+ *    (认不出哪支在 input 为真时生效 ⇒ 判不出绝不猜成红,也绝不猜成绿)
+ * 其余形态(变量 / 成员 / 函数返回值 / 空数组 / 数字 fd)⇒ `unreadable` ⇒ **判不出**,
+ * 既不记绿也不冒红(§0.3)。数字 fd 归此类是刻意的:它确实不是 pipe,但"该不该判红"
+ * 要先把 node 对 fd + input 的行为也成组实测过才能写进判据 —— 没实测过的形态不判红
+ * (§12f:文档里每条出路都得真跑通;这里是判据里每条红都得真测过)。
+ */
+export function stdinChannelOf(valueText) {
+  const v = String(valueText).trim()
+  if (!v) return { state: 'unreadable', got: '(空取值)' }
+  const QUOTED = /^(['"])((?:(?!\1)[^\\]|\\.)*?)\1$/
+  const scalar = QUOTED.exec(v)
+  if (scalar) {
+    return scalar[2] === 'pipe'
+      ? { state: 'pipe', got: 'pipe' }
+      : { state: 'notPipe', got: scalar[2] }
+  }
+  if (v.startsWith('[')) {
+    const parts = splitArgs(v)
+    const first = parts.length ? parts[0] : ''
+    if (!first) return { state: 'unreadable', got: '(空数组)' }
+    const fq = QUOTED.exec(first)
+    if (fq) {
+      return fq[2] === 'pipe'
+        ? { state: 'pipe', got: 'pipe' }
+        : { state: 'notPipe', got: fq[2] }
+    }
+    if (first.startsWith('{')) {
+      const entries = topLevelEntries(first) || []
+      for (const en of entries) {
+        const kv = entryKeyValue(en)
+        if (kv.key !== 'type') continue
+        const tq = QUOTED.exec(String(kv.value ?? ''))
+        if (!tq) return { state: 'unreadable', got: '(type 取值非字面量)' }
+        return tq[2] === 'pipe'
+          ? { state: 'pipe', got: 'type:pipe' }
+          : { state: 'notPipe', got: `type:${tq[2]}` }
+      }
+      return { state: 'unreadable', got: '(对象形态无 type)' }
+    }
+    return { state: 'unreadable', got: first.slice(0, 24) }
+  }
+  const branches = ternaryBranches(v)
+  if (branches) {
+    const bs = branches.map((b) => stdinChannelOf(b))
+    if (bs.every((b) => b.state === 'pipe')) return { state: 'pipe', got: 'pipe(两支皆 pipe)' }
+    return { state: 'unreadable', got: `(三元分支含 ${bs.map((b) => b.got || b.state).join('/')})` }
+  }
+  return { state: 'unreadable', got: v.slice(0, 24) }
+}
+
+/**
+ * 本维总入口(纯函数)。返回四态 + 成因,`undetermined` 与判红**同样重要**(不判绝不折成绿):
+ *  - `na`           —— 该次调用没有可读的 input 属性(或 stdin 那一格已由第 3 条判红)⇒ 本维不适用
+ *  - `ok`           —— input 在场 ∧ stdin 字面量 = `'pipe'`
+ *  - `bad`          —— input 在场 ∧ stdin 字面量非 `'pipe'` ⇒ **判红**(`got` 就是它实际写的首元素)
+ *  - `undetermined` —— input 在场而 stdin 取值取不到字面量(简写 / 变量 / 工厂 / 形参 options)⇒ 不判
+ *
+ * `raw` 用于 `stdio` 属性名那一维同款的**具名 options 对象**回捞(`FACE_OPTS` 形态):
+ * 取值住在 `const FACE_OPTS = { … }` 里,不接这一层就会给具名 options 发免检通行证。
+ */
+export function judgeInputStdin(raw, span, isExecSync = false) {
+  const code = maskComments(String(span))
+  const args = splitArgs(code)
+  const optArg = args[isExecSync ? 1 : 2]
+  if (!optArg) return { state: 'na', why: 'noOptionsArg' }
+  let objText = null
+  let optId = null
+  if (optArg.startsWith('{')) objText = optArg
+  else if (/^[A-Za-z_$][\w$]*$/.test(optArg)) {
+    optId = optArg
+    const obj = objectLiteralFor(raw, optArg)
+    if (obj !== null) objText = obj
+  }
+  const entries = objText === null ? null : topLevelEntries(objText)
+  if (entries === null) {
+    // options 读不到(形参 / 三元 / 工厂返回值):只有 span **自己提到 input** 才归"判不出";
+    // 连 input 都没提到 ⇒ 本维无输入,不计数(否则每个包装器都刷一条,把真信息淹成无信息量的总数)。
+    if (!INPUT_PROP.test(code)) return { state: 'na', why: 'optionsUnreadable' }
+    return { state: 'undetermined', why: 'optionsUnreadable', id: optId }
+  }
+  let hasInput = false
+  let stdioKv = null
+  let spread = false
+  for (const en of entries) {
+    const kv = entryKeyValue(en)
+    if (kv.spread) {
+      spread = true
+      continue
+    }
+    if (kv.key === 'input') hasInput = true
+    else if (kv.key === 'stdio') stdioKv = kv
+  }
+  if (!hasInput) return { state: 'na' }
+  if (stdioKv === null) {
+    // stdio 可能整份来自 `...base` ⇒ 判不出;确认没有 spread 时 stdin 走 node 缺省(pipe),
+    // 而"顶层没配 stdio"这一行已由第 3 条那一维判红 ⇒ 本维不重复报(口径第 3b 条③)。
+    return spread
+      ? { state: 'undetermined', why: 'stdioMayComeFromSpread' }
+      : { state: 'na', why: 'noTopLevelStdioKey' }
+  }
+  if (stdioKv.shorthand) return { state: 'undetermined', why: 'stdioShorthand' }
+  const ch = stdinChannelOf(stdioKv.value)
+  if (ch.state === 'pipe') return { state: 'ok', got: ch.got }
+  if (ch.state === 'notPipe') return { state: 'bad', got: ch.got }
+  return { state: 'undetermined', why: 'stdioValueUnreadable', got: ch.got }
+}
+
 /**
  * 判断一个源码字符串。**不判**的每一族都进 `skipped` 并带原因标签,调用方折成"分类计数"报出 ——
  * 一个门把"没判"折成 0,账面读起来与"全都判过且合规"完全一样(本仓对"没判"的禁令)。
  *
  * @param raw 源码正文
  * @param opts.selfExempt 该文件是否自豁免(豁免的命中仍计数,不进 misses)
- * @returns {{misses:Array, skipped:Array, shellFlagged:number}}
+ * @param opts.inputDim 第 3b 条那一维的**构造开关**(缺省开)。关掉它只为形状锁存在:
+ *   自检/镜像用它证明"反向用例确实是这一维抓到的"——摘掉新维 ⇒ 该用例翻绿。判据本体不受影响。
+ * @returns {{misses:Array, skipped:Array, shellFlagged:number, inputBad:Array, inputUndetermined:Array}}
  */
 export function scanSource(raw, opts = {}) {
   const selfExempt = opts.selfExempt === true
+  const inputDim = opts.inputDim !== false
   const hidden = markHidden(raw)
   const misses = []
   const skipped = []
+  const inputBad = []
+  const inputUndetermined = []
   let shellFlagged = 0
   // 先收①③,再收②:①的命中位置要用来把③的同位置命中剔掉(同一处调用不应计两次)。
   const bins = []
@@ -572,6 +832,24 @@ export function scanSource(raw, opts = {}) {
   for (const b of bins) {
     const openIdx = raw.indexOf('(', b.index)
     const span = callSpan(raw, openIdx)
+    // 第 3b 条那一维**对每一处调用都跑**,而且必须先跑 —— 它抓的恰恰是第 3 条放过的那一格
+    // (`stdio` 属性名在场、却把 stdin 关成非 pipe)。把它挂在 `verdict === 'ok'` 之后
+    // 就等于没挂:那一型的旧维结论永远是 ok,新维一次也不会被问到(自检有专门一例钉这件事)。
+    if (inputDim) {
+      const iv = judgeInputStdin(raw, span, b.fn === 'execSync')
+      const at = lineOf(raw, b.index)
+      if (iv.state === 'bad') {
+        if (selfExempt) skipped.push({ line: at, why: 'selfExemptInput' })
+        else {
+          inputBad.push({ line: at, got: iv.got })
+          // 具名 options 对象里的 input↔stdin 冲突:第 3 条那一维已因"顶层无 stdio"给了红,
+          // 两处都得留痕,但红只由本维记一次(misses 那一格不重复计数,免得一处两红指错修法)。
+        }
+      } else if (iv.state === 'undetermined') {
+        skipped.push({ line: at, why: 'inputStdinUnreadable', note: iv.why })
+        inputUndetermined.push({ line: at, why: iv.why, got: iv.got })
+      }
+    }
     const v = judgeSpanWithNamed(span, raw, b.fn === 'execSync')
     if (v.verdict === 'ok') continue
     if (v.verdict === 'viaCmd') shellFlagged++
@@ -581,7 +859,7 @@ export function scanSource(raw, opts = {}) {
     }
     misses.push({ line: lineOf(raw, b.index), verdict: v.verdict })
   }
-  return { misses, skipped, shellFlagged }
+  return { misses, skipped, shellFlagged, inputBad, inputUndetermined }
 }
 
 /** 依据正文的扩展名判定是否解析。非源码扩展名按扩展名归类,如实报数不静默。 */
@@ -731,7 +1009,8 @@ export function readFace(root, face, paths) {
  * 取不到内容 ⇒ 进 `unread`,由调用方折成 exit 2「无法判定」——
  * **少扫一个文件不是"没有违规"**(文件头口径第2 条)。
  *
- * @returns {{files, sources, unread, bad, skippedByReason, misses, shellFlagged, libFiles, testFiles}}
+ * @returns {{files, sources, unread, bad, skippedByReason, misses, shellFlagged, libFiles, testFiles,
+ *            inputBad, inputUndetermined, inputExempted}}
  */
 export function evaluate(root, face) {
   const all = listScoped(root, face)
@@ -741,6 +1020,8 @@ export function evaluate(root, face) {
   const unread = files.filter((rel) => typeof texts.get(rel) !== 'string')
   const { entries, malformed, absent } = loadExemptions(root)
   const bad = []
+  const inputBad = []
+  const inputUndetermined = []
   const skippedByReason = {}
   const addSkip = (why, n = 1) => {
     skippedByReason[why] = (skippedByReason[why] || 0) + n
@@ -748,6 +1029,7 @@ export function evaluate(root, face) {
   let misses = 0
   let shellFlagged = 0
   let exempted = 0
+  let inputExempted = 0
   for (const rel of files) {
     const raw = texts.get(rel)
     if (typeof raw !== 'string') continue
@@ -773,6 +1055,26 @@ export function evaluate(root, face) {
         isLib: norm(rel).startsWith('scripts/lib/'),
       })
     }
+    // 第 3b 条那一维**独立成账**:它有自己的棘轮与退出码,不并进上面那一维的绝对判红
+    // (口径第 3b 条"定级")。台账豁免对它同样生效(同一份具名台账,不开第二个通道)。
+    for (const h of r.inputBad) {
+      const ex = exemptedBy(entries, rel, h.line)
+      if (ex) {
+        inputExempted++
+        addSkip('exemptedByLedgerInput')
+        continue
+      }
+      inputBad.push({
+        rel,
+        line: h.line,
+        got: h.got,
+        isTest: isTestSurface(rel),
+        isLib: norm(rel).startsWith('scripts/lib/'),
+      })
+    }
+    for (const u of r.inputUndetermined) {
+      inputUndetermined.push({ rel, line: u.line, why: u.why, got: u.got })
+    }
   }
   // 传 malformed.length 而非让 addSkip 用默认值 1:这里报的是**整条台账不可用**,
   // 不是"发现一处形态不对"——按 1 计会把"一份台账坏了"读成"坏了一条",量级失真。
@@ -789,14 +1091,74 @@ export function evaluate(root, face) {
     ledgerAbsent: absent,
     ledgerMalformed: malformed,
     skippedByReason,
+    inputBad,
+    inputUndetermined,
+    inputExempted,
     libFiles: files.filter((f) => norm(f).startsWith('scripts/lib/')).length,
     testFiles: files.filter(isTestSurface).length,
+  }
+}
+
+/**
+ * 第 3b 条那一维的**落槌**(纯函数:自检与镜像测试都只对这张构造面动手,不赌真仓此刻长什么样)。
+ *
+ * 锚点 = **该文件在 HEAD 面自身**在本维的命中数(§0.5:棘轮锚点既不是全仓总数也不是静态白名单)。
+ *  - `face === 'head'`:本面就是锚点 ⇒ 新增按构造恒 0 ⇒ **只报存量**(§12e 恒红门禁令:
+ *    与本次提交内容无关的红,唯一结局是逼人 `--no-verify` 并连带废掉全部守门)。
+ *    `--strict` 才把存量升成问责读数。
+ *  - `face === 'staged'`:新增 = max(0, 本面该文件命中数 − 锚点),只拦"本次把它加回来"。
+ *  - `face === 'worktree'`:人工逃生舱,全量报数不判。
+ *  - `anchor === null`(HEAD 面取不到)而本面确有命中 ⇒ **未判定**:`undeterminedAnchor` ——
+ *    既不折成"没有新增"(§0.3 没判绝不写成判过),也不冒红。
+ */
+export function decideInput({ face, inputBad, anchor, strict = false }) {
+  const byRel = new Map()
+  for (const h of inputBad) {
+    if (!byRel.has(h.rel)) byRel.set(h.rel, [])
+    byRel.get(h.rel).push(h)
+  }
+  const violations = []
+  const stock = []
+  // 只有索引档要靠锚点做差 —— 全量档本面就是锚点,工作树档是人工逃生舱(只报数)。
+  // 锚点取不到而本面确有命中 ⇒ **未判定**:既不折成"没有新增"(§0.3),也不冒红(§12e),
+  // 所以这些命中全部落进 stock(报数),由调用方按 anchorUndetermined 出 exit 2。
+  const anchorUndetermined = face === 'staged' && anchor === null && byRel.size > 0
+  for (const [rel, hits] of byRel) {
+    const base = face === 'head' ? hits.length : (anchor?.get(rel) ?? 0)
+    const isNew = face === 'staged' && !anchorUndetermined && hits.length > base
+    if (isNew) {
+      violations.push({
+        rel,
+        hits,
+        why: `本次新增 ${hits.length - base} 处(HEAD 面该文件本维命中 ${base})`,
+      })
+    } else stock.push({ rel, hits })
+  }
+  if (strict && face === 'head' && stock.length) {
+    for (const s of stock) violations.push({ rel: s.rel, hits: s.hits, why: '存量问责档(--strict)' })
+  }
+  return {
+    violations,
+    stock,
+    total: inputBad.length,
+    anchorUndetermined,
+    // 报数用的按档归因:让人一眼看清"这一档为什么没判红"
+    ratchetNote:
+      face === 'head'
+        ? '全量档(HEAD blob)= 存量读数,按差值棘轮不判红(§12e);`--strict` 才问责存量'
+        : face === 'worktree'
+          ? '工作树档 = 人工逃生舱,只报数'
+          : anchorUndetermined
+            ? '索引档但**锚点取不到 ⇒ 本维未判定**(exit 2,不记绿也不冒红)'
+            : '索引档(--staged)= 差值棘轮,锚点 = 该文件 HEAD 面自身命中数,只拦本次新增',
   }
 }
 
 export function verdictText(v) {
   if (v === 'noOptions') return '调用根本没有 options 实参(无从配 stdio)'
   if (v === 'noStdio') return 'options 内无 stdio 属性名'
+  if (v === 'inputStdinNotPipe')
+    return 'options 带 input 而 stdio 首通道不是 pipe(内容被静默吃掉)'
   return '经 cmd.exe(shell 真值 / 整串命令)'
 }
 
@@ -1125,6 +1487,169 @@ function selfTest() {
     if (r.entries.length !== 0) throw new Error('缺失台账产出了豁免条目')
   })
 
+  // ── 口径第 3b 条那一维:input ↔ stdin 通道(成对用例,含形状锁)──────────────
+  // 夹具助手:整段源码 → 本维读数(走 scanSource,与真仓同一条路,不在夹具里复制判据)。
+  const dim = (src, opts = {}) => {
+    const r = scanSource(src, opts)
+    return { bad: r.inputBad, und: r.inputUndetermined, misses: r.misses }
+  }
+  const INC_BROB = `const r = spawnSync(${S_GIT}, ['hash-object', '-w', '--stdin'], { input: blob, ${S_STDIO}: ['ignore', 'pipe', 'pipe'] })`
+  t('第3b条正向:带 input 且 stdin = pipe → 合规(且不进任何"不判"格)', () => {
+    const src = `const r = ${EF}(${S_GIT}, ['hash-object', '--stdin'], { input: blob, ${S_STDIO}: ['pipe', 'pipe', 'pipe'], encoding: 'utf8' })`
+    const d = dim(src)
+    if (d.bad.length || d.und.length || d.misses.length) {
+      throw new Error(`pipe 档被读成 ${JSON.stringify(d)}`)
+    }
+    const scalar = `const r = ${EF}(${S_GIT}, ['x'], { input: blob, ${S_STDIO}: 'pipe' })`
+    const ds = dim(scalar)
+    if (ds.bad.length || ds.und.length) throw new Error(`标量 pipe 档被误判:${JSON.stringify(ds)}`)
+  })
+  t('第3b条反向(事故原样):带 input 而 stdin = ignore → 判红,且第3条那一维判它绿', () => {
+    const d = dim(INC_BROB)
+    if (d.bad.length !== 1) throw new Error(`应判红 1 处,实得 ${JSON.stringify(d.bad)}`)
+    if (d.bad[0].got !== 'ignore') throw new Error(`未报出实际首元素:${JSON.stringify(d.bad[0])}`)
+    // 这一格是"排除条款就是缺陷候选"的机器证明:旧维(只判属性名在不在)对同一处**放过**。
+    if (d.misses.length !== 0) throw new Error(`旧维不该同时报这一行:${JSON.stringify(d.misses)}`)
+    for (const first of ['inherit', 'ignore']) {
+      const x = dim(
+        `const r = spawnSync(${S_GIT}, ['x'], { input: b, ${S_STDIO}: ['${first}', 'pipe', 'pipe'] })`,
+      )
+      if (x.bad.length !== 1 || x.bad[0].got !== first) {
+        throw new Error(`${first} 档未被抓到:${JSON.stringify(x.bad)}`)
+      }
+    }
+    // execSync 的 options 在第 2 位 —— 位序错了这一族就永远判不到
+    const es = dim(`const r = ${ES}('git hash-object --stdin', { input: b, ${S_STDIO}: ['ignore', 'pipe', 'pipe'] })`)
+    if (es.bad.length !== 1) throw new Error(`execSync 位序漏判:${JSON.stringify(es)}`)
+    // 标量 ignore / inherit:三通道同值 ⇒ stdin 也不是 pipe
+    for (const sc of ['ignore', 'inherit']) {
+      const x = dim(`const r = ${EF}(${S_GIT}, ['x'], { input: b, ${S_STDIO}: '${sc}' })`)
+      if (x.bad.length !== 1 || x.bad[0].got !== sc) throw new Error(`标量 ${sc} 档漏判`)
+    }
+  })
+  t('第3b条形状锁:摘掉新维(inputDim=false)→ 反向用例翻绿(证明红确实是这一维抓的)', () => {
+    const on = dim(INC_BROB)
+    const off = dim(INC_BROB, { inputDim: false })
+    if (on.bad.length !== 1) throw new Error(`开着新维却不判红:${JSON.stringify(on.bad)}`)
+    if (off.bad.length !== 0) throw new Error(`关掉新维仍判红 ⇒ 计数不是这一维产的:${JSON.stringify(off.bad)}`)
+    if (off.misses.length !== 0) throw new Error('关掉新维却把旧维带红了 ⇒ 开关不干净')
+  })
+  t('第3b条:取值取不到字面量 → 判不出(既不记绿也不冒红,§0.3)', () => {
+    const forms = [
+      // ES6 属性简写:键在、值是同名变量(真仓 git-heal-broken-links.mjs 同型)
+      `const r = ${EF}(${S_GIT}, ['x'], { cwd: R, ${S_STDIO}, input: opts.input })`,
+      // 变量 / 成员 / 函数返回值
+      `const r = ${EF}(${S_GIT}, ['x'], { input: b, ${S_STDIO}: STDIO_OPTS })`,
+      `const r = ${EF}(${S_GIT}, ['x'], { input: b, ${S_STDIO}: base.stdio })`,
+      `const r = ${EF}(${S_GIT}, ['x'], { input: b, ${S_STDIO}: mkStdio() })`,
+      // 空数组 / 三元含非 pipe 支(认不出哪支在 input 为真时生效 ⇒ 不猜红)
+      `const r = ${EF}(${S_GIT}, ['x'], { input: b, ${S_STDIO}: [] })`,
+      `const r = ${EF}(${S_GIT}, ['x'], { input: b, ${S_STDIO}: input ? ['pipe','pipe','pipe'] : ['ignore','pipe','pipe'] })`,
+      // stdio 整份来自展开
+      `const r = ${EF}(${S_GIT}, ['x'], { input: b, ...base })`,
+    ]
+    for (const src of forms) {
+      const d = dim(src)
+      if (d.bad.length !== 0) throw new Error(`取不到取值却判红(误伤):${src}\n${JSON.stringify(d.bad)}`)
+      if (d.und.length !== 1) throw new Error(`未归入"判不出":${JSON.stringify(d)}`)
+      // 旧维**可以**因"顶层没有 stdio 属性名"照红(如 `...base` 那型)—— 那是它自己的判据。
+      // 这里断言的是两维不串门:新维绝不用自己的 verdict 名去污染旧维那一格。
+      if (d.misses.some((m) => !['noStdio', 'noOptions', 'viaCmd'].includes(m.verdict))) {
+        throw new Error(`旧维那一格被塞进新维的成因:${JSON.stringify(d.misses)}`)
+      }
+    }
+    // 三支里的正当惯用法(两支皆 pipe)必须算合规 —— 否则正当写法长驻"判不出",那格就没人看了
+    const okTernary = dim(
+      `const r = ${EF}(${S_GIT}, ['x'], { input: b, ${S_STDIO}: withInput ? ['pipe','pipe','pipe'] : ['pipe','ignore','ignore'] })`,
+    )
+    if (okTernary.bad.length || okTernary.und.length) {
+      throw new Error(`两支 stdin 皆 pipe 却未判合规:${JSON.stringify(okTernary)}`)
+    }
+  })
+  t('第3b条:input 在场而顶层无 stdio → 由第3条那一维判红,本维不重复报同一行', () => {
+    const d = dim(`const r = ${EF}(${S_GIT}, ['x'], { input: b, encoding: 'utf8' })`)
+    if (d.bad.length !== 0) throw new Error(`同一行两处红会把修法指错方向:${JSON.stringify(d.bad)}`)
+    if (d.misses.length !== 1 || d.misses[0].verdict !== 'noStdio') {
+      throw new Error(`旧维必须照红:${JSON.stringify(d.misses)}`)
+    }
+  })
+  t('第3b条:不给具名 options 对象发免检通行证(与 STDIO 那一维同一条回捞路)', () => {
+    const src = [
+      `const FACE_OPTS = { input: blob, ${S_STDIO}: ['ignore', 'pipe', 'pipe'] }`,
+      `spawnSync(GIT, ['hash-object', '-w', '--stdin'], FACE_OPTS)`,
+    ].join('\n')
+    const d = dim(src)
+    if (d.bad.length !== 1) throw new Error(`具名 options 里的 input↔stdin 冲突漏判:${JSON.stringify(d)}`)
+    if (d.misses.length !== 0) throw new Error('旧维已因具名回捞判绿,本维不该顺带报两遍')
+    const clean = src.replace("['ignore', 'pipe', 'pipe']", "['pipe', 'pipe', 'pipe']")
+    const dc = dim(clean)
+    if (dc.bad.length) throw new Error(`改成 pipe 后仍判红 ⇒ 这一维不是恒红:${JSON.stringify(dc.bad)}`)
+  })
+  t('第3b条:嵌套 stdio 不算顶层/stdin(不误伤),名字里带 input 的不算触发(不放行别的)', () => {
+    // 顶层没配 stdio(stdin 走 node 缺省 pipe),嵌套那个与派生通道无关
+    const nested = dim(
+      `const r = ${EF}(${S_GIT}, ['x'], { input: b, env: { ${S_STDIO}: 'ignore' }, ${S_STDIO}: ['pipe','pipe','pipe'] })`,
+    )
+    if (nested.bad.length) throw new Error(`嵌套 stdio 被当成顶层:${JSON.stringify(nested.bad)}`)
+    // 反向:值位置上的 input(不是属性名)不得触发本维
+    const notKey = dim(
+      `const r = ${EF}(${S_GIT}, [input], { ${S_STDIO}: ['ignore', 'pipe', 'pipe'] })`,
+    )
+    if (notKey.bad.length || notKey.und.length) {
+      throw new Error(`值位置的 input 被当成属性名:${JSON.stringify(notKey)}`)
+    }
+    for (const k of ['xinput', 'my_input', 'inputX']) {
+      const d = dim(
+        `const r = ${EF}(${S_GIT}, ['x'], { ${k}: 1, ${S_STDIO}: ['ignore', 'pipe', 'pipe'] })`,
+      )
+      if (d.bad.length || d.und.length) {
+        throw new Error(`${k} 被当成 input 属性名(本维不该由它触发):${JSON.stringify(d)}`)
+      }
+    }
+  })
+  t('第3b条设计命门:prettier 折行不改本维判据(合规向与判红向双向)', () => {
+    const badOne = INC_BROB
+    const badFolded = [
+      `const r = spawnSync(`,
+      `  ${S_GIT},`,
+      `  ['hash-object', '-w', '--stdin'],`,
+      `  {`,
+      `    input: blob,`,
+      `    ${S_STDIO}: ['ignore', 'pipe', 'pipe'],`,
+      `  },`,
+      `)`,
+    ].join('\n')
+    if (dim(badOne).bad.length !== 1) throw new Error('单行判红形态应 1')
+    if (dim(badFolded).bad.length !== 1) throw new Error('折行后本维漏判 ⇒ 逐行匹配的旧病复发')
+    const okFolded = badFolded.replace("'ignore'", "'pipe'")
+    if (dim(okFolded).bad.length !== 0) throw new Error(`折行后的 pipe 档被误判红:${JSON.stringify(dim(okFolded).bad)}`)
+  })
+  t('第3b条落槌:差值棘轮只拦新增;锚点取不到 ⇒ 未判定;--strict 才问责存量', () => {
+    const hit = (rel, line) => ({ rel, line, got: 'ignore' })
+    const anchor = new Map([['scripts/a.mjs', 1]])
+    const face1 = decideInput({ face: 'head', inputBad: [hit('scripts/a.mjs', 3)], anchor: null })
+    if (face1.violations.length !== 0) throw new Error('全量档(HEAD 面)按构造不得判红(§12e)')
+    if (face1.stock.length !== 1) throw new Error(`存量必须报数不静默:${JSON.stringify(face1)}`)
+    const sameCount = decideInput({ face: 'staged', inputBad: [hit('scripts/a.mjs', 3)], anchor })
+    if (sameCount.violations.length !== 0) throw new Error('HEAD 已 1 而本面仍 1 ⇒ 存量不该判红')
+    const added = decideInput({
+      face: 'staged',
+      inputBad: [hit('scripts/a.mjs', 3), hit('scripts/a.mjs', 9)],
+      anchor,
+    })
+    if (added.violations.length !== 1) throw new Error(`新增 1 处必须判红:${JSON.stringify(added)}`)
+    const fresh = decideInput({ face: 'staged', inputBad: [hit('scripts/new.mjs', 1)], anchor })
+    if (fresh.violations.length !== 1) throw new Error('新文件里的命中(锚点 0)必须判红')
+    const noAnchor = decideInput({ face: 'staged', inputBad: [hit('scripts/a.mjs', 3)], anchor: null })
+    if (!noAnchor.anchorUndetermined || noAnchor.violations.length) {
+      throw new Error(`锚点取不到必须归"未判定"且不冒红:${JSON.stringify(noAnchor)}`)
+    }
+    const strict = decideInput({ face: 'head', inputBad: [hit('scripts/a.mjs', 3)], anchor: null, strict: true })
+    if (strict.violations.length !== 1) throw new Error('--strict 下存量必须被问责')
+    const wt = decideInput({ face: 'worktree', inputBad: [hit('scripts/a.mjs', 3)], anchor })
+    if (wt.violations.length) throw new Error('工作树档是人工逃生舱,不得判红')
+  })
+
   let failed = 0
   for (const c of cases) {
     try {
@@ -1164,6 +1689,10 @@ function run(argv) {
     worktree: argv.includes('--worktree'),
     def: 'head',
   })
+  // `--strict` = 存量问责档:把第 3b 条那一维的存量也升成判红(全量档专用)。
+  // 缺省不问责 —— 门注册为 blocking(runner 条目 193 现读),对与本次提交无关的存量
+  // 绝对判红就是 §12e 禁的恒红门:唯一结局是逼人 `--no-verify`,连带废掉全部守门。
+  const strict = argv.includes('--strict')
   if (error) {
     console.error(`❌ 无法判定: ${error}`)
     return 2
@@ -1226,6 +1755,23 @@ function run(argv) {
     )
     return 2
   }
+  // ── 第 3b 条那一维的锚点:该文件 **HEAD 面自身**在本维的命中数 ──────────────────
+  // 只在被审面不是 HEAD 时另取一轮(全量档本面就是锚点,按构造新增恒 0)。
+  // 取不到锚点 ⇒ anchor=null ⇒ 本维「未判定」:既不折成"没有新增"(§0.3),也不冒红(§12e)。
+  let anchor = null
+  let anchorErr = null
+  if (face !== 'head') {
+    try {
+      const headFace = evaluate(REPO, 'head')
+      anchor = new Map()
+      for (const h of headFace.inputBad) {
+        anchor.set(h.rel, (anchor.get(h.rel) ?? 0) + 1)
+      }
+    } catch (e) {
+      anchor = null
+      anchorErr = e instanceof Undetermined ? e.message : (e?.message ?? String(e))
+    }
+  }
   const skipText = Object.entries(out.skippedByReason)
     .sort((a, b) => b[1] - a[1])
     .map(([k, v]) => `${k} ${v}`)
@@ -1250,9 +1796,75 @@ function run(argv) {
     )
     for (const m of out.ledgerMalformed) console.error(`      · ${m.entry} —— ${m.why}`)
   }
-  if (out.misses === 0) {
+  // ── 第 3b 条那一维(input ↔ stdin 通道):独立成账,自带差值棘轮 ─────────────────
+  // 锚点 = 该文件 **HEAD 面自身**在本维的命中数 ⇒ 被审面不是 HEAD 时才另取一轮 HEAD 面。
+  // 取不到锚点 ⇒ 本维「未判定」:绝不折成"没有新增"(§0.3),也不冒红(§12e)。
+  const inDim = decideInput({ face, inputBad: out.inputBad, anchor, strict })
+  console.log(
+    `   新维 input↔stdin(口径第 3b 条):判红 ${inDim.violations.length} 处(本次新增) / ` +
+      `存量 ${inDim.stock.reduce((s, x) => s + x.hits.length, 0)} 处(不判红) / ` +
+      `判不出 ${out.inputUndetermined.length} 处 / 台账豁免 ${out.inputExempted} 处` +
+      (inDim.anchorUndetermined ? ' / **锚点取不到 ⇒ 本维未判定**' : '') +
+      ` —— ${inDim.ratchetNote}`,
+  )
+  for (const s of inDim.stock) {
+    for (const h of s.hits) {
+      console.log(
+        `      · 存量 ${s.rel}:${h.line} stdio 首通道 = '${h.got}'(options 带 input ⇒ 内容被静默吃掉)`,
+      )
+    }
+  }
+  for (const u of out.inputUndetermined) {
+    console.log(`      · 判不出 ${u.rel}:${u.line} —— ${u.why}${u.got ? `(${u.got})` : ''}`)
+  }
+  if (inDim.anchorUndetermined) {
+    console.error(
+      `❌ 未判定(exit 2):第 3b 条那一维取不到 HEAD 面锚点${anchorErr ? ` —— ${anchorErr}` : ''},` +
+        `而本面有 ${inDim.total} 处命中 ⇒ 无法判断是新增还是存量。不记绿也不冒红。`,
+    )
+    return 2
+  }
+  if (out.misses === 0 && inDim.violations.length === 0) {
     console.log('✅ 射程内 git 派生调用的 options 均已显式接管 stdio')
     return 0
+  }
+  if (out.misses === 0) {
+    console.error(
+      `❌ 第 3b 条那一维判红 ${inDim.violations.length} 个文件 / ${inDim.violations.reduce(
+        (s, v) => s + v.hits.length,
+        0,
+      )} 处:`,
+    )
+    for (const v of inDim.violations) {
+      // ⚠️ 行首刻意写成 `❌ [第3b条] <文件>` 而不是 `❌ <文件>`:
+      // `scripts/lib/gen-exemptions-from-gate-report.mjs` 按 `^❌ (scripts/\S+)` + `L<行> <原因>`
+      // 解析本门的判红报告去生成台账,而它给每条写的 reason 是"派生 git 未显式接管 stdio(EBUSY 病灶)"
+      // —— 那一维的成因。**把本维的红喂进那台生成器 = 给 input↔stdin 冲突贴上 EBUSY 的标签**,
+      // 而两者的修法不同(一个补属性名,一个改通道)。宁可那台生成器看不见这一族。
+      console.error(`❌ [第3b条] ${v.rel} —— ${v.why}`)
+      for (const h of v.hits) {
+        console.error(
+          `   L${h.line}  options 带 input 而 stdio 首通道 = '${h.got}' ⇒ git 读到空 stdin,` +
+            '内容被**静默**吃掉(hash-object 不报错,直接产出一枚 0 字节空 blob 的"合法 sha")',
+        )
+      }
+    }
+    console.error(
+      [
+        '',
+        '  修法只有一条:带 input 的那次派生必须 `stdio: [\x27pipe\x27,\x27pipe\x27,\x27pipe\x27]`。',
+        '     实测(node 26,git hash-object --stdin,每形态 10 次):',
+        '     · [\x27ignore\x27,\x27pipe\x27,\x27pipe\x27] + input ⇒ 10/10 空 blob(exit 0,无 error,不报错)',
+        '     · [\x27inherit\x27,\x27pipe\x27,\x27pipe\x27] + input ⇒ 10/10 同样空 blob',
+        '     · [\x27pipe\x27,\x27pipe\x27,\x27pipe\x27] / 标量 \x27pipe\x27 / 不写 stdio ⇒ 10/10 拿到内容 sha',
+        '     条件形态 `stdio: cond ? A : B` 只在**两支都是 pipe** 时算合规,否则归"判不出"报数 ——',
+        '     认不出哪支在 input 为真时生效,判红就是猜(§0.3);本仓惯用法见 union-converge.mjs:160。',
+        '  豁免只走具名台账 `' + EXEMPTIONS_FILE + '`(与本门另一维同一份台账,不开第二个通道)。',
+        '  单跑:node scripts/check-git-stdio-discipline.mjs [--staged|--worktree|--strict]',
+        '',
+      ].join('\n'),
+    )
+    return 1
   }
   const prod = out.bad.filter((b) => !b.isTest)
   const test = out.bad.filter((b) => b.isTest)
@@ -1316,11 +1928,18 @@ export const __test__ = {
   CALLER_STRING,
   CALLER_IDENT,
   STDIO_PROP,
+  INPUT_PROP,
   SHELL_PROP,
   callSpan,
   markHidden,
   maskComments,
   splitArgs,
+  topLevelEntries,
+  entryKeyValue,
+  ternaryBranches,
+  stdinChannelOf,
+  judgeInputStdin,
+  decideInput,
   hasOptionsArg,
   isStringCommand,
   isGitLikeName,
