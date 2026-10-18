@@ -117,6 +117,25 @@ export const DEFAULT_BLOCKED_ENV_VARS = [
   ...CREDENTIAL_SHAPE_BLOCKED_PATTERNS,
 ];
 
+/**
+ * G-465 10-08 拍板逃生门(白名单透传):交互终端子进程的"第三方 CLI 凭据形态"豁免清单。
+ *
+ * 宽 deny(DEFAULT_BLOCKED_ENV_VARS)把一切凭据形态全剥,会误伤交互终端里靠 env 工作的
+ * aws/gcloud/azure/github/git-ssh 类第三方 CLI —— 其凭据(AWS_ACCESS_KEY_ID 命中 `*_KEY`、
+ * AWS_SECRET_ACCESS_KEY 命中 `*_SECRET`、AWS_SESSION_TOKEN 命中 `*_TOKEN`)会被一并剥掉。
+ * 本清单把这些第三方 CLI 的凭据形态**显式点名越过 deny 幸存**,使其能在交互终端里正常工作;
+ * 我方平台凭据(IHUI_* 等)绝不在此列 ⇒ 不会被逃生门误放。形态语义见 `matchPattern`
+ * (前缀 / 中段 / 后缀通配均支持,如 `AWS_*` / `GIT_*_KEY_FILE`)。
+ */
+export const TERMINAL_CLI_CREDENTIAL_ALLOWLIST: readonly string[] = [
+  'AWS_*', // AWS CLI(AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN …)
+  'GCP_*', // gcloud 凭据
+  'GOOGLE_*', // Google Cloud SDK
+  'AZURE_*', // Azure CLI
+  'GH_TOKEN', 'GITHUB_TOKEN', // GitHub CLI
+  'GIT_*_KEY_FILE', 'GIT_SSH_KEY_FILE', 'SSH_KEY_PATH', 'SSH_KEY_FILE', // git / ssh 私钥路径
+];
+
 export type FolderTrustLevel = 'trusted' | 'read-only' | 'forbidden';
 
 /**

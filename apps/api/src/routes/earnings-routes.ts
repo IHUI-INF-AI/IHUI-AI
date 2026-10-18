@@ -193,7 +193,13 @@ export const earningsRoutes: FastifyPluginAsync = async (server) => {
             ELSE 0
           END), 0) AS yesterday_relay
         FROM llm_call_logs
-        WHERE created_at >= ${yesterdayStartIso}
+        -- G-790 A3(与已入库的 A1/A2 同口径):这段用 JSON 内容键 byokMode 判类别,而否定式
+        -- 那一支(byokMode IS NULL OR != 'true')不限定行族时,把任何非 BYOK 记录都算成中转站收入。
+        -- 顶层 byokMode 今天的唯一写入者 relay-billing-service.recordCall 的 apiKeyId 必填并落
+        -- api_key_id 列 ⇒ 这条收窄对现存行是 no-op;防的是"明天多一个同名顶层键的写入者"混入收入,
+        -- 而那种混入在条数与分面读数上全都"看起来正常"。
+        WHERE api_key_id IS NOT NULL
+          AND created_at >= ${yesterdayStartIso}
       `)
 
       const todayByokCents = Number(incomeRow?.today_byok ?? 0)
@@ -275,7 +281,9 @@ export const earningsRoutes: FastifyPluginAsync = async (server) => {
           to_char(created_at AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD') AS date,
           COALESCE(SUM((metadata->>'platformFeeCents')::numeric), 0) AS amount
         FROM llm_call_logs
-        WHERE metadata->>'byokMode' = 'true'
+        -- G-790 A3:同上 —— 按内容键筛 byok 趋势,必须与独立判别条件同谓词(见本文件收入段的注记)。
+        WHERE api_key_id IS NOT NULL
+          AND metadata->>'byokMode' = 'true'
           AND created_at >= NOW() - MAKE_INTERVAL(days => ${days})
         GROUP BY 1
         ORDER BY 1 ASC
@@ -362,7 +370,8 @@ export const earningsRoutes: FastifyPluginAsync = async (server) => {
         SELECT
           (SELECT COUNT(*) FROM users) AS register_count,
           (SELECT COUNT(DISTINCT user_id) FROM llm_call_logs) AS active_count,
-          (SELECT COUNT(DISTINCT user_id) FROM llm_call_logs WHERE metadata->>'byokMode' = 'true') AS byok_count,
+          -- G-790 A3:漏斗里的 byok 阶段同样按内容键判类别 ⇒ 与独立判别条件同谓词。
+          (SELECT COUNT(DISTINCT user_id) FROM llm_call_logs WHERE api_key_id IS NOT NULL AND metadata->>'byokMode' = 'true') AS byok_count,
           (SELECT COUNT(*) FROM users WHERE is_vip > 0) AS vip_count
       `)
 

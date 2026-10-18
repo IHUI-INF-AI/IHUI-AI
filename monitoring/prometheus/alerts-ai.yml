@@ -51,7 +51,11 @@ groups:
           severity: critical
         annotations:
           summary: 'LLM 调用失败率过高(≥20%)'
-          description: '近 30 分钟尝试数 {{ $value }} 比例超阈且样本量达标。下一步:看厂商健康面板 model_sync_provider_health 与号池/key 池状态,确认是整家厂商欠费(额度类)还是单把 key 失效;别先改代码。'
+          # `{{ $value }}` 是 `A > 0.2 and on() B >= 5` 里**左侧 A 的值**,即失败率(0.2~1.0),
+          # 不是调用次数 —— 原文案写"尝试数 {{ $value }}"会让收信人把"1"读成"只试了 1 次",
+          # 实为 100% 失败(2026-10-18 改)。printf 成百分比,免得还要在脑子里乘 100。
+          # 样本量门槛(B >= 5)不进 $value,需要时用 `sum(increase(ihui_llm_calls_total[30m]))` 另查。
+          description: '近 30 分钟 LLM 调用失败率 {{ $value | printf "%.0f%%" }} 超阈 20%(样本量门槛 ≥5 次已满足)。下一步:先看 ai-service 日志里 provider 的真实报错(如 stepfun 403 real_name_required = 账号未实名,不是欠费),再决定是摘除该 provider 还是充值;别先改代码。'
 
       - alert: AiLlmLatencyP95High
         expr: |

@@ -120,6 +120,10 @@ export const chatMessages = pgTable(
     // 存量行零回填、既有读写路径零感知;迁移 20261007221500_chat_messages_sibling_versions 同批落库。
     parentMessageId: uuid('parent_message_id'),
     siblingIndex: integer('sibling_index'),
+    // 票 64(消息级 pin/书签):两个都是"可撤销的一次标记",用可空时间戳而不是布尔 ——
+    // 布尔表达不了"何时钉上的",而已钉/已藏列表要按钉上时间倒序回显(与 D195 归档位同一口径)。
+    pinnedAt: timestamp('pinned_at', { withTimezone: true }),
+    bookmarkedAt: timestamp('bookmarked_at', { withTimezone: true }),
   },
   (t) => ({
     // 2026-09-06 P0:按会话取消息/计数为热路径,缺 conversation_id 索引全表扫描
@@ -131,6 +135,9 @@ export const chatMessages = pgTable(
     // conversation_id,时间范围谓词拿它们无法定位,只能全表扫 —— 清理任务会与在线读争 IO。
     // 单列即可:清理只按时间切片,不带其他列。
     createdAtIdx: index('ix_chat_messages_created_at').on(t.createdAt),
+    // 票64:钉选只在会话内有意义(全局钉一条历史消息没有出口),取数形状 = 会话内按钉选时刻倒序;
+    // 首列必须是 conversation_id,否则又退化成整表扫。
+    convPinnedIdx: index('ix_chat_messages_conv_pinned').on(t.conversationId, t.pinnedAt),
   }),
 )
 

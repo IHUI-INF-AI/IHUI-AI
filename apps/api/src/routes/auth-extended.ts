@@ -2124,7 +2124,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const app = await findOAuthAppByClientId(parsed.data.client_id)
     if (!app || app.isActive !== 1) return reply.status(404).send(error(404, '应用不存在或已禁用'))
-    if (parsed.data.client_secret && app.clientSecret !== parsed.data.client_secret)
+    // client_secret 校验必须走常量时间验证器(matchesOAuthAppSecret:内部 secretsEqual 定长散列,
+    // 兼容 KDF 摘要),严禁裸 `!==` 逐字节比密钥(计时侧信道逐字节猜 client_secret)。
+    if (parsed.data.client_secret && !(await matchesOAuthAppSecret(app, parsed.data.client_secret)))
       return reply.status(401).send(error(401, '应用凭证错误'))
     // 校验 assertion（JWT格式: header.payload.signature）
     const parts = parsed.data.assertion.split('.')

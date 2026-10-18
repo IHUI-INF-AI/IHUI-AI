@@ -21,7 +21,7 @@ import type { Tool, ToolResult } from './index.js';
 import { gateCommandExecution, describeCommandBlock } from './command-safety.js';
 import { runPreToolCall } from '../hooks/index.js';
 import { execSandboxed, precheckSandboxedCommand, type SandboxPolicy } from './sandbox/index.js';
-import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS } from '../sandbox/index.js';
+import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS, TERMINAL_CLI_CREDENTIAL_ALLOWLIST } from '../sandbox/index.js';
 import { loadSettings, type SandboxSettings } from '../commands/settings.js';
 
 // ==================== 沙箱接入(默认关闭,向后兼容) ====================
@@ -154,7 +154,7 @@ function spawnPty(command: string, cwd: string, cols: number, rows: number): Ses
     cols,
     rows,
     cwd,
-    env: buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS) as Record<string, string>,
+    env: buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS, TERMINAL_CLI_CREDENTIAL_ALLOWLIST) as Record<string, string>,
   }) as unknown as IPty;
   pty.write(`${command}\r`); // 立即注入命令
   return {
@@ -174,7 +174,7 @@ function spawnPty(command: string, cwd: string, cols: number, rows: number): Ses
 
 /** 降级:用 child_process.spawn 模拟 TTY(无 PTY,但设置 FORCE_COLOR 启用颜色) */
 function spawnFallback(command: string, cwd: string, _cols: number, _rows: number): SessionProc {
-  const env = { ...process.env, FORCE_COLOR: '1' } as Record<string, string>;
+  const env = { ...buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS, TERMINAL_CLI_CREDENTIAL_ALLOWLIST), FORCE_COLOR: '1' } as Record<string, string>;
   const child = spawnChild(command, {
     shell: true,
     cwd,

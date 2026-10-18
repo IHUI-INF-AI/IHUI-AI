@@ -1142,4 +1142,121 @@ async def test_fusion_metric_no_exception_propagates(caplog):
 
     assert result["content"] == "merged"
     assert result["fusion_judge_mode"] == "merge"
+
+
+# =============================================================================
+# llm_combo_strategy_configs gauge(2026-10-18 立,纯观测置值)
+#
+# 形状选择(测试即锁):装载时 ComboStrategy 全部策略档都必须存在且各带值,
+# 未出现的档写 0 而不是缺序列——Grafana 上"序列缺失"只能读成"埋点坏了/进程
+# 没装载"(这正是 fusion 面板恒 No data 无法归因的旧病),"值为 0"才是
+# "配置已装载且该策略确实 0 条组合"的正陈述。用例同时把"取不到序列"判红,
+# 谁改成"缺档不留序列"的实现会立刻在这里翻红。
+# =============================================================================
+
+
+def _combo_strategy_gauge_sample(strategy: str) -> "float | None":
+    """按 strategy 档取 gauge 样本值;返回 None = 该序列整体不存在(与 0 区分)。"""
+    from app.middleware.llm_metrics import llm_combo_strategy_configs
+
+    for family in llm_combo_strategy_configs.collect():
+        for s in family.samples:
+            if s.labels.get("strategy") == strategy:
+                return float(s.value)
+    return None
+
+
+def test_combo_strategy_gauge_priority_only_load_publishes_full_set_with_zeros(
+    monkeypatch,
+):
+    """(a) priority-only 配置:priority==1,且 fusion/cheapest 序列存在、值为 0。"""
+    monkeypatch.delenv("COMBO_CHAINS", raising=False)
+    router = ComboRouter()
+    router.configure_combo("only-priority", {
+        "strategy": "priority",
+        "chain": ["kimi-k2", "glm-4-flash"],
+    })
+    assert _combo_strategy_gauge_sample("priority") == 1.0
+    # 缺档 = 0(序列必须存在),不是缺序列
+    assert _combo_strategy_gauge_sample("fusion") == 0.0
+    assert _combo_strategy_gauge_sample("cheapest") == 0.0
+
+
+def test_combo_strategy_gauge_env_load_publishes_at_startup(monkeypatch):
+    """COMBO_CHAINS 装载收口点(_load_from_env)完成即置值,含未出现的 0 档。"""
+    monkeypatch.setenv(
+        "COMBO_CHAINS",
+        '{"maximize-free":{"strategy":"priority","chain":["kimi-k2"]}}',
+    )
+    ComboRouter()
+    assert _combo_strategy_gauge_sample("priority") == 1.0
+    assert _combo_strategy_gauge_sample("fusion") == 0.0
+    assert _combo_strategy_gauge_sample("cheapest") == 0.0
+
+
+def test_combo_strategy_gauge_is_chain_count_not_boolean(monkeypatch):
+    """同一 strategy 配两条链 ⇒ 值为 2(计数不是布尔)。"""
+    monkeypatch.delenv("COMBO_CHAINS", raising=False)
+    router = ComboRouter()
+    router.configure_combo("p1", {"strategy": "priority", "chain": ["m1"]})
+    router.configure_combo("p2", {"strategy": "priority", "chain": ["m2"]})
+    assert _combo_strategy_gauge_sample("priority") == 2.0
+
+
+def test_combo_strategy_gauge_no_stale_value_after_second_load_removes_fusion(
+    monkeypatch,
+):
+    """(b) 第二次装载撤掉 fusion ⇒ 值回 0,不残留旧值 1(整体置值非累加)。"""
+    monkeypatch.setenv(
+        "COMBO_CHAINS",
+        '{"f1":{"strategy":"fusion","chain":["gpt-4o","claude-3.5-sonnet"],'
+        '"judge":"gpt-4o-mini"}}',
+    )
+    ComboRouter()
+    assert _combo_strategy_gauge_sample("fusion") == 1.0
+
+    # 第二次装载:配置里撤掉 fusion,只剩 priority
+    monkeypatch.setenv(
+        "COMBO_CHAINS",
+        '{"p1":{"strategy":"priority","chain":["kimi-k2"]}}',
+    )
+    ComboRouter()
+    assert _combo_strategy_gauge_sample("fusion") == 0.0  # 不残留成 1
+    assert _combo_strategy_gauge_sample("priority") == 1.0
+
+
+def test_combo_strategy_gauge_reconfigure_strategy_updates_counts(monkeypatch):
+    """同一条链改策略(fusion→priority)⇒ 两侧计数同轮修正。"""
+    monkeypatch.delenv("COMBO_CHAINS", raising=False)
+    router = ComboRouter()
+    router.configure_combo("c1", {
+        "strategy": "fusion",
+        "chain": ["gpt-4o", "claude-3.5-sonnet"],
+    })
+    assert _combo_strategy_gauge_sample("fusion") == 1.0
+    assert _combo_strategy_gauge_sample("priority") == 0.0
+
+    router.configure_combo("c1", {"strategy": "priority", "chain": ["gpt-4o"]})
+    assert _combo_strategy_gauge_sample("fusion") == 0.0
+    assert _combo_strategy_gauge_sample("priority") == 1.0
+
+
+def test_combo_strategy_gauge_failure_does_not_break_configure(monkeypatch):
+    """(c) 观测层抛异常不得把 configure_combo / _load_from_env 带崩。"""
+    from app.middleware import llm_metrics
+
+    class _BoomGauge:
+        def labels(self, **_labels: str) -> "_BoomGauge":
+            raise RuntimeError("metric backend down")
+
+        def set(self, _value: float) -> None:
+            raise RuntimeError("metric backend down")
+
+    monkeypatch.delenv("COMBO_CHAINS", raising=False)
+    monkeypatch.setattr(llm_metrics, "llm_combo_strategy_configs", _BoomGauge())
+
+    router = ComboRouter()  # _load_from_env 收口置值 ⇒ 异常被吞,不得上抛
+    router.configure_combo("p1", {"strategy": "priority", "chain": ["m1"]})
+    combo = router.get_combo("p1")
+    assert combo is not None  # 配置照常生效,业务未被观测层带崩
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -5048,6 +5048,26 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 桌面端事件链路接线(1 项,blocking)---
+  {
+    id: '223',
+    label:
+      '桌面端(Tauri)事件链路三层接线守门:Rust emit→use-desktop listen/case→CustomEvent→web addEventListener 消费方闭环;含 G8 整页导航先复位深链闸门、G9 整页导航发起点必须先触发存草稿(desktop-before-close)',
+    script: 'check-desktop-event-wiring.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DESKTOP_EVENT_WIRING',
+    stagedTriggers: ['apps/desktop/src-tauri/src', 'apps/web/src'],
+    onFailHint: [
+      '',
+      '① 看清单:node scripts/check-desktop-event-wiring.mjs',
+      '② 自检:node scripts/check-desktop-event-wiring.mjs --self-test',
+      '③ 修:Rust emit 的事件须在 apps/web/src/hooks/use-desktop.ts 有 listen+case;dispatch 的 CustomEvent 须有 addEventListener 消费方;auto_refresh.rs 整页导航发起点须先 emit desktop-before-close(存草稿)',
+      '紧急跳过:HUSKY_SKIP_DESKTOP_EVENT_WIRING=1',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
