@@ -71,16 +71,28 @@ groups:
 
   - name: llm-alerts
     rules:
-      # LLM provider 健康/配额降级(重): model_sync 把 provider 标记为不健康(常见于 402/配额超限被禁用)。
-      # 指标 `model_sync_provider_health`(gauge, 1=健康/0=降级)已确认持续采样(含 provider_code=stepfun)。
+      # 模型清单同步连续失败(重):model_sync 连续 >=3 次拉不到厂商 /v1/models,provider 被标记 unhealthy。
+      # 指标 `model_sync_provider_health`(gauge, 1=健康/0=降级)已确认持续采样
+      #   (实测 3 条:stepfun / agnes / token6688,均为 1)。注意它是 **Prometheus 指标**,
+      #   不是数据库表 —— 曾经有运维拿这个名字去 psql 查表,当然查不到。
+      # ⚠ 文案为什么改(2026-10-18 立):原文案写"LLM provider 不健康(疑似 402/配额超限)",
+      #   但本条判据来源是 **model_sync 的同步健康度**,与"LLM 调用是否 402 欠费"不是一回事:
+      #     - 本条 = 拉不到厂商的"模型清单"端点(常见:key 无效 / 端点 404 / 网络不通 / 厂商挂);
+      #       账号欠费时 /v1/models 往往照样能拉到,反而是 chat 端点 402 —— 即本条**不会**响;
+      #     - "调用侧 402/配额/5xx"由 AiLlmHighFailureRate 与 LlmProviderErrorBurst 覆盖。
+      #   原文案把收信人指去查配额费用 = 给出不对症的出路(AGENTS §0.8 禁),现按真实故障面改写。
+      # ⚠ 盲区已修(2026-10-18):gauge / 失败计数 / 永久禁用名单**全是进程内存态**,
+      #   ai-service 一重启就归零 ⇒ 本条对"无样本序列"不成立(不是 0,是没有),
+      #   坏 provider 重启后最长要 3 轮 x 6h = 18h 才重新告警。
+      #   现由 model_sync 启动时从 ai_model_sync_log 恢复尾部连续失败数并立刻打点。
       - alert: LlmProviderUnhealthy
         expr: model_sync_provider_health{job="ai-service"} == 0
         for: 5m
         labels:
           severity: critical
         annotations:
-          summary: 'LLM provider 不健康(疑似 402/配额超限)'
-          description: 'provider_code={{ $labels.provider_code }} 被标记为不健康已达 5 分钟。检查配额/费用(stepfun/step-3.7-flash 曾 402 quota_exceeded 拖垮线上)。'
+          summary: '模型清单同步连续失败(provider 已标记 unhealthy)'
+          description: 'provider_code={{ $labels.provider_code }} 连续 3 次拉取 /v1/models 失败,已标记 unhealthy(后续同步自动跳过)。注意这不是"调用欠费"告警:常见原因是 key 无效 / 厂商端点 404 / 网络不通。第一步查 ai-service 日志里 [ModelSyncService] 的真实报错(401/403=key 无效,404=厂商无此端点,超时=网络),别先去查配额。确认 key 有效后调用 POST /llm/models/sync/reset?provider={{ $labels.provider_code }} 复位重同步。若同时出现调用失败,另见 AiLlmHighFailureRate。'
 
       # LLM provider 错误突增(402/5xx 等): 15 分钟窗口内出现 provider 错误。
       # `ihui_llm_provider_errors_total` 为按需采样计数(无事件时不出现), 用 `or on() vector(0)` 兜底为 0,
@@ -91,14 +103,40 @@ groups:
       #   D:\DevEnv\monitor\prometheus\ 下一份去掉了这两条的副本 —— 即"仓库这份从没真跑过"。
       #   现按作者原意改回可加载形态:两条都带 `or on() vector(0)` 兜底,指标缺席时算式恒为 0 > 0 /
       #   0 > 100000 = 假,所以"接入打点前不会误报"这一目的由表达式自己保证,不需要关文件的开关。
+      # ⚠ 阈值为什么从 `rate(...) > 0` 改成"绝对量 ≥10 次 ∧ 错误占比 >20%"(2026-10-18 立):
+      #   `rate(...) > 0` 的语义是"15 分钟窗口内只要出现过 1 次 provider 错误就 firing",与规则名里的
+      #   "Burst(突增)"完全不符。LLM 判据走的是滑窗(30m 失败率 / 15m 错误率),样本量随业务量起伏,
+      #   窗口一滑过去就 resolved、滑回来又 firing ⇒ 该规则与 AiLlmHighFailureRate 交替抖动,每约
+      #   2 小时各寄一封(实测收件箱被刷成"一直在报警")。
+      #   现改为:15 分钟内 provider 错误**绝对量 ≥10 次**(不是零星 1 次抖动)∧**错误占比 >20%**
+      #   (不是高流量下的正常重试)。指标缺席时 `or on() vector(0)` 兜底恒 0 ⇒ 0 > 0 为假,不误报。
+      #   分母为 0 时 0/0=NaN,NaN > 0.2 为假 ⇒ 不会因为"除零"反向变成真。
+      #   (上面那段"部署机读的是 D:\DevEnv\monitor\prometheus\ 副本"的记述已过时:现读
+      #    prometheus.yml 的 rule_files 指向的就是本仓源码路径。)
+      # `for: 15m` 与 AiLlmHighFailureRate **刻意对齐**:两条同源于 provider 报错,而 Alertmanager
+      #   的 route 按 alertname 分组 ⇒ 不同 alertname 永远不会并进同一封邮件。让 critical 那条
+      #   先(或同时) firing,Alertmanager 的 inhibit 才有机会把 warning 这条压掉;若本条先响,
+      #   抑制关系尚未成立,同一次故障就会寄出两封。
       - alert: LlmProviderErrorBurst
-        expr: (sum(rate(ihui_llm_provider_errors_total{job="ai-service"}[15m])) or on() vector(0)) > 0
-        for: 5m
+        expr: |
+          (
+            (
+              sum(increase(ihui_llm_provider_errors_total{job="ai-service"}[15m])) >= 10
+              and on()
+              (
+                sum(increase(ihui_llm_provider_errors_total{job="ai-service"}[15m]))
+                /
+                sum(increase(ihui_llm_calls_total{job="ai-service"}[15m]))
+              ) > 0.2
+            )
+            or on() vector(0)
+          ) > 0
+        for: 15m
         labels:
           severity: warning
         annotations:
           summary: 'LLM provider 错误突增'
-          description: '15 分钟窗口内出现 LLM provider 错误(含 402 配额/超限/5xx)。请核查 LLM 网关日志与配额。'
+          description: '15 分钟内 LLM provider 错误 {{ $value }} 次且占比超 20%(含 402 配额/超限/5xx)。请核查 LLM 网关日志与配额;单次零星 4xx 不再触发本规则。'
 
       # LLM token/费用突增: 15 分钟 token 量超阈值(费用代理指标)。
       # `ihui_llm_tokens_total` 同为按需采样计数; 阈值 100k 需按真实基线校准(当前尚无采样, 规则已就位待指标出现即生效)。

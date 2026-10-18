@@ -1103,7 +1103,7 @@ def _observable_worker_count() -> int | None:
         return int(text)
     except ValueError:
         logger.warning(
-            "%s=%r 不是整数 ⇒ 无法判定 worker 数,本启动期断言对这一格不成立(既不冒红也不记绿)",
+            "%s=%r 不是整数 => 无法判定 worker 数,本启动期断言对这一格不成立(既不冒红也不记绿)",
             _WORKER_COUNT_ENV,
             raw,
         )
