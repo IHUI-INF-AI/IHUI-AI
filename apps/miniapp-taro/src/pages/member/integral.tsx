@@ -7,6 +7,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useRef, useCallback } from 'react'
 import { getIntegral, getMemberInfo } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -21,6 +22,7 @@ const PAGE_SIZE = 20
 
 export default function IntegralPage() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [list, setList] = useState<IntegralItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
@@ -80,9 +82,15 @@ export default function IntegralPage() {
     }
   }, [])
 
+  // G-933 冷启动抢跑门控:两发全是需鉴权端点 —— GET /api/points/transactions 与
+  // GET /api/levels/current 同挂 gamificationRoutes 的统一 preHandler
+  // (`apps/api/src/routes/gamification.ts:69` addHook authenticate)。
+  // 分页(useReachBottom)/下拉刷新属用户动作,那时早已落定,不加门。
   useDidShow(() => {
-    loadTotal()
-    load(true)
+    gate.waitUntilReady(() => {
+      void loadTotal()
+      void load(true)
+    })
   })
   useReachBottom(() => load())
   usePullDownRefresh(() =>

@@ -7,6 +7,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useCallback } from 'react'
 import { getSubscriptions, cancelSubscription, type SubscriptionItem } from '@/api/social'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useSocialList } from '@/hooks/use-social-list'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -22,6 +23,7 @@ interface DisplayableSubscription extends SubscriptionItem {
 
 export default function SubscriptionsPage() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const { items, loading, hasMore, load, removeItem } = useSocialList<DisplayableSubscription>({
     pageSize: PAGE_SIZE,
     fetch: (params) => getSubscriptions(params),
@@ -62,7 +64,8 @@ export default function SubscriptionsPage() {
     [t, removeItem],
   )
 
-  useDidShow(() => load(true))
+  // G-933 冷启动门控:GET /subscriptions(checkAuth)需鉴权,落定前不发
+  useDidShow(() => gate.waitUntilReady(() => load(true)))
   useReachBottom(() => load())
   usePullDownRefresh(() => load(true).finally(() => Taro.stopPullDownRefresh()))
 

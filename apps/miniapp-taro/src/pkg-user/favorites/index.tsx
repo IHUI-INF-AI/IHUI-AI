@@ -7,6 +7,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { getFavorites, deleteFavorite, type FavoriteItem } from '@/api/social'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useSocialList } from '@/hooks/use-social-list'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -46,6 +47,7 @@ const ROUTE_MAP: Record<string, string> = {
 
 export default function FavoritesPage() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
 
   const { items, loading, hasMore, load, removeItem } = useSocialList<FavoriteItem>({
@@ -156,7 +158,8 @@ export default function FavoritesPage() {
     [manageMode, tt],
   )
 
-  useDidShow(() => load(true))
+  // G-933 冷启动门控:GET /favorites(checkAuth)需鉴权,落定前不发
+  useDidShow(() => gate.waitUntilReady(() => load(true)))
   useReachBottom(() => load())
   usePullDownRefresh(() => load(true).finally(() => Taro.stopPullDownRefresh()))
 
