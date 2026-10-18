@@ -267,12 +267,13 @@ export function HomeScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.gray[100] },
+    // 页面背景必须用 surface.bg(明暗自适应);gray[100] 是明暗同值浅灰(#f5f5f5),暗色下会铺白底
+    container: { flex: 1, backgroundColor: tk.surface.bg },
     center: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: tk.gray[100],
+      backgroundColor: tk.surface.bg,
     },
     headerRow: {
       flexDirection: 'row',
