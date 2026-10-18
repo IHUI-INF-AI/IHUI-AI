@@ -999,7 +999,7 @@ LiteLLM ゲートウェイで統一接続、インテリジェントルーティ
 | バックエンドユニット | Vitest         | 38 ファイル、268 ケース      | `pnpm --filter @ihui/api test`    |
 | フロントエンド E2E   | Playwright     | 17 spec ファイル             | `pnpm test:e2e`                   |
 | AI サービス          | pytest         | 13 ファイル、400+ ケース     | `cd apps/ai-service && pytest`    |
-| CLI ユニット         | Vitest         | 13 ファイル                  | `pnpm --filter @ihui/cli test`    |
+| CLI ユニット         | Vitest         | 13 ファイル                  | `pnpm --filter ihui-cli test`     |
 | 負荷テスト           | Locust         | `scripts/locustfile.py`      | `locust -f scripts/locustfile.py` |
 | 性能予算             | Lighthouse CI  | `apps/web/lighthouserc.json` | CI 自動実行                       |
 | 未使用コード         | Knip           | `knip.jsonc` + CI workflow   | `pnpm knip`                       |
