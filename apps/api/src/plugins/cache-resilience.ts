@@ -63,14 +63,14 @@ export type RecheckVerdict =
   | { kind: 'undecided'; reason: 'no-declaration' | 'unreadable-shape'; detail: string }
 
 /** 最近一次「未判定」的落点（点名：哪个 key、什么原因）。 */
-export interface UndecidedEvent {
+interface UndecidedEvent {
   key: string
   reason: 'no-declaration' | 'unreadable-shape'
   detail: string
 }
 
 /** 等锁者复检观测面：三态互斥，合计 = 等锁者（非 leader）参与 singleflight 的次数。 */
-export interface SingleflightRecheckStats {
+interface SingleflightRecheckStats {
   /** 必需项齐全 ⇒ 复用共享结果的次数 */
   satisfied: number
   /** 必需项缺失 ⇒ 不吃缓存、自行回源的次数 */

@@ -72,6 +72,29 @@ async def _get_pool() -> asyncpg.Pool:
     return await get_shared_pool()
 
 
+def _coerce_jsonb_list(value: Any) -> list[Any]:
+    """把 DB 读回的 jsonb 列归一化为 list。
+
+    修复(2026-10-18):agent_metacognition_log.findings / actions_taken 由 text
+    收敛为 jsonb(见 drizzle/20261018160000_agent_state_tables_runtime_reality.sql),
+    但共享池(app.core.db_pool.get_shared_pool)不注册 jsonb codec ——
+    asyncpg 对 jsonb 列默认返回 **str**(如 '["a","b"]'),直接 list(str) 会得到
+    逐字符列表。这与 meta_learner._coerce_source_skills(2026-09-12 修)是同一病根,
+    沿用同一范式:str → json.loads;已是 list/tuple → 原样;非法值/None → 空列表(不抛错)。
+    """
+    if value is None:
+        return []
+    if isinstance(value, (str, bytes, bytearray)):
+        try:
+            parsed = json.loads(value)
+        except (ValueError, TypeError):
+            return []
+        return list(parsed) if isinstance(parsed, list) else []
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    return []
+
+
 class Metacognition:
     """元认知系统:记忆自我反思 + 主动遗忘策略。
 
@@ -445,8 +468,8 @@ class Metacognition:
                 "reflection_type": row["reflection_type"],
                 "target_layer": row["target_layer"],
                 "target_id": row["target_id"],
-                "findings": list(row["findings"] or []),
-                "actions_taken": list(row["actions_taken"] or []),
+                "findings": _coerce_jsonb_list(row["findings"]),
+                "actions_taken": _coerce_jsonb_list(row["actions_taken"]),
                 "confidence": float(row["confidence"] or 0.5),
                 "llm_used": bool(row["llm_used"]),
                 "token_cost": int(row["token_cost"] or 0),

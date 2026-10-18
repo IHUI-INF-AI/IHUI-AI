@@ -51,7 +51,7 @@ import { rpx } from '../../utils/rpx'
  */
 
 /** 队列项展示视图(调用方从本地队列态映射;id/text 与 web QueuedItemView 同形) */
-export interface RnQueuedItemView {
+interface RnQueuedItemView {
   readonly id: string
   readonly text: string
 }

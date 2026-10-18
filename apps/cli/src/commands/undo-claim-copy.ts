@@ -41,7 +41,7 @@ export type UndoClaimKey = (typeof UNDO_CLAIM_KEYS)[number];
 export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';
 
 /** 三态(与 `undo-workspace-state.ts` 的 UndoVerdict 同义,这里用结构型避免命令层被反依赖)。 */
-export type UndoVerdictLike = 'unchanged' | 'changed' | 'unknown';
+type UndoVerdictLike = 'unchanged' | 'changed' | 'unknown';
 
 /** `selectUndoClaimKey` 的入参:只要"已经跑完的回退"这一份结论。 */
 export interface UndoClaimInput {

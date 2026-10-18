@@ -31,9 +31,9 @@ from app.services.agent_loop_v2 import (
     ApprovalOutcome,
     ToolCall,
     ToolDefinition,
-    _ApprovalEntry,
     _approval_generation_cas,
     _approval_registry,
+    _ApprovalEntry,
     resolve_approval_for_requester,
     resolve_approval_response,
 )
