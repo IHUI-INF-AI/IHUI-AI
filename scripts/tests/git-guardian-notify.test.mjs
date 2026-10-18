@@ -47,22 +47,13 @@ function harness(dispatchImpl) {
   }
 }
 
-test('发信台账:每次投递尝试落一行机读账,键名 ASCII、收件人只留脱敏形态', () => {
+test('本层不写发信台账(账在唯一出口),但必须把来源交给出口 —— 否则出口的账没有生产者维度', () => {
   const h = harness()
-  const ledger = join(h.dir, 'mail-send-ledger.jsonl')
   N.notifyGuardRed('部署停摆(线上构建 vs origin/main)', '线上无构建标记', { ...h.opts, now: 1_760_000_000_000, dedupKey: 'stall;class=no-marker;held=lt6h' })
-  N.notifyGuardRed('隧道腿异常', '投不出去', { ...h.opts, now: 1_760_000_000_001, dispatch: () => ({ ok: false, why: 'exit=1 smtp 拒收' }) })
-  const rows = readFileSync(ledger, 'utf8').split(/\r?\n/).filter(Boolean).map((l) => JSON.parse(l))
-  assert.equal(rows.length, 2, '成功与失败都要有账 —— 只记成功就等于"失败又变回安静"')
-  assert.equal(rows[0].delivered, true)
-  assert.equal(rows[1].delivered, false)
-  assert.match(rows[1].why, /smtp/, '失败必须带病名,否则量算仪只能报数量不能报成因')
-  assert.equal(new Set(rows.map((r) => r.fp)).size, 2, '身份指纹要落账:同一场停摆寄了几封就是按 fp 数出来的')
-  for (const r of rows) {
-    assert.equal(Object.keys(r).every((k) => /^[\x20-\x7e]+$/.test(k)), true, '键名必须纯 ASCII(量算仪的判据是 ASCII 关键字,中文键读不到)')
-    assert.match(r.to, /\*\*\*@/, '收件人只准留脱敏形态')
-    assert.doesNotMatch(JSON.stringify(r), /[0-9a-f]{20,}/, '台账里不得出现完整 sha/凭据(12 位前缀够定位身份)')
-  }
+  assert.equal(existsSync(join(h.dir, 'mail-send-ledger.jsonl')), false, '生产侧还在另写一份台账 ⇒ 与出口重复计数(一封被数成两封)')
+  const built = N.buildGuardMailArgv({ to: 'x@y', title: 'T', severity: 'critical', messageFile: '/tmp/m.txt' })
+  const i = built.indexOf('--source')
+  assert.ok(i > 0 && built[i + 1] === 'git-guardian', '调用出口必须带 --source,量算仪按 (source, 身份) 分组的账才认得出是谁寄的')
   rmScratch(h.dir)
 })
 
