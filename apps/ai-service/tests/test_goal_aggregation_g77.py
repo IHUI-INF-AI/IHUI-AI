@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
 from app.routers import sessions as sessions_router
 from app.services.session_store import SessionStore, normalize_goal_state
 
