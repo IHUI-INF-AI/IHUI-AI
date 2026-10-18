@@ -58,6 +58,9 @@ import { QrCodeScreen } from '../screens/QrCodeScreen'
 import { NotificationSettingsScreen } from '../screens/NotificationSettingsScreen'
 import { CourseFilterScreen } from '../screens/CourseFilterScreen'
 import { LiveListScreen } from '../screens/LiveListScreen'
+import { WorkflowsScreen } from '../screens/WorkflowsScreen'
+import { AutomationsScreen } from '../screens/AutomationsScreen'
+import { DashboardScreen } from '../screens/DashboardScreen'
 import { CouponScreen } from '../screens/CouponScreen'
 import { PointsMallScreen } from '../screens/PointsMallScreen'
 import { PointsRecordScreen } from '../screens/PointsRecordScreen'
@@ -272,6 +275,9 @@ export type RootStackParamList = {
      */
     autoSendVoice?: { url: string; durationSec: number }
   }
+  Workflows: undefined
+  Automations: { id?: string }
+  Dashboard: undefined
   CourseDetail: { id: string }
   VideoPlayer: { courseId: string; lessonId: string; title?: string }
   LiveDetail: { id: string }
@@ -913,6 +919,22 @@ function RootNavigatorInner() {
             <RootStack.Screen name="TopicList" component={TopicListScreen} />
             <RootStack.Screen name="TopicDetail" component={TopicDetailScreen} />
             <RootStack.Screen name="CircleIndex" component={CircleIndexScreen} />
+            {/* 工作流 / 自动化 / 数据看板(只读原生屏,对齐 web portal 12/13 区) */}
+            <RootStack.Screen
+              name="Workflows"
+              component={WorkflowsScreen}
+              options={{ title: t('workflows.title') }}
+            />
+            <RootStack.Screen
+              name="Automations"
+              component={AutomationsScreen}
+              options={{ title: t('automations.title') }}
+            />
+            <RootStack.Screen
+              name="Dashboard"
+              component={DashboardScreen}
+              options={{ title: t('dashboard.title') }}
+            />
           </>
         ) : (
           <>

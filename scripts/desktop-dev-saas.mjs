@@ -134,6 +134,31 @@ function freePort(port) {
 /** 本仓桌面端构建产物目录 —— 只有落在这个目录里的实例,才是"本脚本随后要覆盖掉的 exe"。 */
 const DESKTOP_TARGET_DIR = path.join(repoRoot, 'apps', 'desktop', 'src-tauri', 'target')
 
+/**
+ * dev 侧应用标识的唯一取源(G-921,2026-10-19;机主 2026-10-18 拍板"dev 用独立标识")。
+ * single-instance 插件的 mutex/隐藏窗口名是 `{app.config().identifier}-sim/-siw/-sic`,
+ * 与安装版同标识 ⇒ dev 实例被静默吞掉并 exit 0。这里读不到、读空、或读到与生产同值,
+ * 一律当场中止 —— 绝不回落到生产标识(回落就是把这个 bug 再放回去,还看不见)。
+ */
+const SRC_TAURI_DIR = path.join(repoRoot, 'apps', 'desktop', 'src-tauri')
+const readTauriJson = (file) => {
+  const full = path.join(SRC_TAURI_DIR, file)
+  try {
+    return JSON.parse(readFileSync(full, 'utf8'))
+  } catch (e) {
+    console.error(`[desktop-dev-saas] 读不到可解析的 ${file}(${e?.message ?? e})——dev 标识无取源,已中止`)
+    process.exit(1)
+  }
+}
+const PROD_APP_IDENTIFIER = readTauriJson('tauri.conf.json').identifier
+const DEV_APP_IDENTIFIER = readTauriJson('tauri.dev.json').identifier
+if (!DEV_APP_IDENTIFIER || DEV_APP_IDENTIFIER === PROD_APP_IDENTIFIER) {
+  console.error(
+    `[desktop-dev-saas] tauri.dev.json 的 identifier 必须存在且不等于生产那份(${PROD_APP_IDENTIFIER}),已中止`,
+  )
+  process.exit(1)
+}
+
 /** PowerShell 入口:System32 那份在 5.1/7.x 机器上都在,且两版都有 Get-CimInstance。 */
 const PS_BIN = existsSync('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe')
   ? 'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
@@ -171,18 +196,15 @@ function stopRunningDesktop() {
   }
   const { mine, foreign } = selectDesktopVictims(r.stdout || '', DESKTOP_TARGET_DIR)
   if (foreign.length) {
-    // 这里必须把**后果**说出来,不能只报"不动它们"。本仓 dev 构建与已安装版共用
-    // identifier `com.ihui.desktop`(四个 tauri*.json 现读同值),而 lib.rs 把
-    // tauri-plugin-single-instance 注册在插件链最前 ⇒ 安装版在场时,本脚本随后拉起的
-    // dev 实例会被插件**静默吞掉并以 exit 0 退出**:窗口看起来"起来了",实际聚焦的是
-    // 那份安装版,本地改的代码一行都没上屏。失效表现是安静的,而"不动安装版"是
-    // 2026-09-27 误杀事故后定死的正确行为(绝不改),所以唯一出路是把话说明白。
+    // "不动安装版"是 2026-09-27 误杀事故后定死的正确行为,绝不改。
+    // 2026-10-19(G-921)把话改对:上一版这里写的是"它们与 dev 构建同 identifier ⇒
+    // 单实例插件会把 dev 实例静默吞掉并以 exit 0 退出,要先退出安装版" —— 那是当时
+    // 四个 tauri*.json 现读同值 `com.ihui.desktop` 的真实后果,也是机主拍板"dev 用独立
+    // 标识"要根治的那一格。dev 侧 identifier 的唯一取源是 tauri.dev.json(见下方
+    // configOverride),它与安装版不再是同一把 `{id}-sim` mutex、不再是同一个 EBWebView
+    // 目录 ⇒ 安装版在场不再挡住本地代码上屏,这里无需再让人先去退出对方。
     log(`⚠ 检测到 ${foreign.length} 个非本仓 target 目录的同名实例,按既定规则不动它们:${foreign.join(' | ')}`)
-    log('⚠ 但它们与 dev 构建同 identifier(com.ihui.desktop),单实例插件会把本脚本随后拉起的')
-    log('  dev 实例**静默吞掉并 exit 0** —— 你会看到那份已安装的应用获得焦点,而不是本地代码。')
-    log('  要联调桌面端:请先退出上面那份,再重跑本命令。(给 dev 构建配独立 identifier 会牵动')
-    log('  app_data_dir / capabilities / 更新器,属需机主拍板的设计变更,本脚本不擅自改。)'
-    )
+    log(`  dev 构建用独立标识(${DEV_APP_IDENTIFIER}),与上面那份不同锁、不同数据目录,不会被单实例插件吞掉。`)
   }
   if (!mine.length) {
     log('无本仓构建的残留桌面端实例')
@@ -285,7 +307,7 @@ if (!rootResp.ok) {
 }
 log(`dev server 已就绪(${spawnedDevPid === null ? '复用现有实例' : spawnedDevPid < 0 ? '已隐藏启动' : `pid=${spawnedDevPid}`},GET / = ${rootResp.status})`)
 
-// --config 覆盖两件事(合并语义:app.windows 是整数组替换,build 是对象深合并):
+// --config 覆盖三件事(合并语义:app.windows 是整数组替换,build 是对象深合并):
 //   ① beforeDevCommand 置空:dev server 已就绪(本脚本拉起,或 --keep-dev-server
 //      复用现有实例),Tauri 不再重复拉起抢端口;
 //   ② windows[0].url 指向本地 dev server:薄壳态下 tauri.conf.json 的 url 是绝对
@@ -295,6 +317,9 @@ log(`dev server 已就绪(${spawnedDevPid === null ? '复用现有实例' : spaw
 //      是 Next dev 唯一返回 200 的入口(index.html 是 404 页);dev 构建下该 origin
 //      与 devUrl 同源 ⇒ Tauri IPC 判定 Origin::Local,无需改 capabilities
 //      (tauri 2.11.5 src/webview/mod.rs is_local_url)。
+//   ③ identifier 取 dev 那份(G-921):tauri-build 的合并是 json_patch::merge,
+//      顶层标量直接覆盖 ⇒ 编译期嵌入的配置与运行期 app.config() 同为该值,
+//      single-instance 的 `{id}-sim` 锁、EBWebView/app_data 目录都随之分家。
 const tauriConfPath = path.join(repoRoot, 'apps', 'desktop', 'src-tauri', 'tauri.conf.json')
 const tauriConf = JSON.parse(readFileSync(tauriConfPath, 'utf8'))
 const mainWindow = tauriConf.app?.windows?.find((w) => w.label === 'main')
@@ -303,6 +328,7 @@ if (!mainWindow) {
   process.exit(1)
 }
 const configOverride = JSON.stringify({
+  identifier: DEV_APP_IDENTIFIER,
   build: { beforeDevCommand: '' },
   app: { windows: [{ ...mainWindow, url: `http://localhost:${DEV_PORT}/` }] },
 })

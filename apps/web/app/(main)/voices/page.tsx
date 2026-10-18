@@ -20,7 +20,7 @@ import {
   ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@ihui/ui-react'
 
@@ -80,12 +80,6 @@ function voiceUrl(v: VoiceItem): string | null {
   return typeof u === 'string' && u ? u : null
 }
 
-async function api<T>(url: string, options: RequestInit & { timeoutMs?: number } = {}): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error || 'Request failed')
-  return r.data
-}
-
 export default function VoicesPage() {
   const t = useTranslations('voicesPage')
   const locale = useLocale()
@@ -107,7 +101,10 @@ export default function VoicesPage() {
 
   const listQuery = useQuery({
     queryKey: ['voices'],
-    queryFn: () => api<{ ok: boolean; voices: VoiceItem[]; count: number }>('/voice/voices'),
+    queryFn: () =>
+      apiOrThrow<{ ok: boolean; voices: VoiceItem[]; count: number }>('/voice/voices', {
+        fallbackError: 'Request failed',
+      }),
     enabled: allow,
     // 2026-09-09 F6:声纹克隆是异步任务,存在克隆中(非终态)的声纹时 5s 自动轮询,
     // 克隆完成后自动刷新出可试听/可用的新声纹,无需手动刷新。
@@ -151,7 +148,11 @@ export default function VoicesPage() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      await api<{ voice?: VoiceItem }>('/voice/voices', { method: 'POST', body: fd })
+      await apiOrThrow<{ voice?: VoiceItem }>('/voice/voices', {
+        method: 'POST',
+        body: fd,
+        fallbackError: 'Request failed',
+      })
       // 克隆是异步任务:上传成功 ≠ 克隆完成,提示语义要准确,完成由 5s 轮询自动带出
       setInfo(t('cloneSubmitted'))
       await queryClient.invalidateQueries({ queryKey: ['voices'] })
@@ -169,7 +170,10 @@ export default function VoicesPage() {
     setError(null)
     setInfo(null)
     try {
-      await api<{ ok: boolean }>(`/voice/voices/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      await apiOrThrow<{ ok: boolean }>(`/voice/voices/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        fallbackError: 'Request failed',
+      })
       if (expanded === id) setExpanded(null)
       await queryClient.invalidateQueries({ queryKey: ['voices'] })
     } catch (e) {
@@ -384,7 +388,10 @@ function VoiceDetailPanel({ voiceId: vid }: { voiceId: string }) {
   const t = useTranslations('voicesPage')
   const detailQuery = useQuery({
     queryKey: ['voice-detail', vid],
-    queryFn: () => api<VoiceDetail>(`/voice/voices/${encodeURIComponent(vid)}`),
+    queryFn: () =>
+      apiOrThrow<VoiceDetail>(`/voice/voices/${encodeURIComponent(vid)}`, {
+        fallbackError: 'Request failed',
+      }),
     enabled: !!vid,
   })
 
