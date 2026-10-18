@@ -26,12 +26,18 @@ const repoRoot = () => resolve(HERE, '..', '..')
 
 const LOCK = gate.lockWith(gate.ACCIDENT_DEPS_BLOCK)
 /** 今天卡死生产构建的那一对不一致声明(manifest 写 ^0.18.5,lock 记 npm:@e965/xlsx@^0.20.3) */
-const BROKEN_WEB = { dependencies: { xlsx: '^0.18.5', '@ihui/shared': 'workspace:*' } }
+// LOCK(lockWith 恒带 devDependencies.typescript)与下面两个清单必须**互为全声明**:
+// R3 自 2026-10-18 起把"lock 有、清单无"的孤儿并入违规判红,基线夹具里不得再留孤儿。
+const BROKEN_WEB = {
+  dependencies: { xlsx: '^0.18.5', '@ihui/shared': 'workspace:*' },
+  devDependencies: { typescript: 'catalog:' },
+}
 const WEB_PKG_REL = join('apps', 'web', 'package.json')
 
 function fixtureWebPkg(overrides) {
   return {
     dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:*' },
+    devDependencies: { typescript: 'catalog:' },
     ...overrides,
   }
 }
@@ -64,7 +70,10 @@ test('T1 事故形态(specifier 不一致)判红,点名 xlsx', () => {
   const s = mkScratch('lmci-t1')
   try {
     const dir = gate.makeFixture(join(s, 'p'), {
-      webPkg: { dependencies: { xlsx: '^0.18.5', '@ihui/shared': 'workspace:*' } },
+      webPkg: {
+        dependencies: { xlsx: '^0.18.5', '@ihui/shared': 'workspace:*' },
+        devDependencies: { typescript: 'catalog:' },
+      },
       lock: LOCK,
     })
     const r = gate.runCheck(dir)
@@ -89,7 +98,7 @@ test('T2 反向对照:声明与 lock 逐字一致必绿', () => {
   }
 })
 
-test('T3 声明了而 lock 缺条目判红;孤儿记账不判红但如实报数', () => {
+test('T3 声明了而 lock 缺条目判红;孤儿记账判红 kind=orphan-in-lock(R3 升红 2026-10-18,正反成对)', () => {
   const s = mkScratch('lmci-t3')
   try {
     const missing = gate.makeFixture(join(s, 'm'), {
@@ -105,10 +114,30 @@ test('T3 声明了而 lock 缺条目判红;孤儿记账不判红但如实报数'
     const rm = gate.runCheck(missing)
     assert.equal(rm.violations.length, 1)
     assert.equal(rm.violations[0].kind, 'missing')
-    const orphan = gate.makeFixture(join(s, 'o'), { webPkg: fixtureWebPkg(), lock: LOCK })
+    // 阳性对照成对(同一份清单、同一把 lock 只差 ORPHAN_DEP_BLOCK 这一块):
+    // ① 基线(无孤儿)必绿 —— 证明 R3 不是"逢 lock 条目即红"的恒红档;
+    const green = gate.makeFixture(join(s, 'g'), { webPkg: fixtureWebPkg(), lock: LOCK })
+    const rg = gate.runCheck(green)
+    assert.deepEqual(rg.violations, [])
+    assert.deepEqual(rg.orphans, [])
+    // ② 只多一条孤儿(jszip)必红,且 violations 与 orphans 是**同一枚对象**
+    //   (orphans 保留为测量维,不得另造一份让两侧各数各的)。
+    const orphan = gate.makeFixture(join(s, 'o'), {
+      webPkg: fixtureWebPkg(),
+      lock: gate.lockWith(`${gate.ACCIDENT_DEPS_BLOCK}\n${gate.ORPHAN_DEP_BLOCK}`),
+    })
     const ro = gate.runCheck(orphan)
-    assert.equal(ro.violations.length, 0)
-    assert.ok(ro.orphans.some((o) => o.name === 'jszip'))
+    assert.equal(ro.violations.length, 1)
+    assert.equal(ro.violations[0].kind, 'orphan-in-lock')
+    assert.equal(ro.violations[0].name, 'jszip')
+    assert.equal(ro.orphans.length, 1)
+    assert.equal(ro.orphans[0], ro.violations[0])
+    // ③ CLI 端到端:同一夹具摘掉孤儿 RC=0、放回 RC=1(提交链走的就是这条路径)
+    assert.equal(runCLI(['--all', '--worktree', '--root', green]).code, 0)
+    const cliRed = runCLI(['--all', '--worktree', '--root', orphan])
+    assert.equal(cliRed.code, 1)
+    assert.match(cliRed.out, /孤儿记账/)
+    assert.match(cliRed.out, /ERR_PNPM_OUTDATED_LOCKFILE/)
   } finally {
     rmScratch(s)
   }
@@ -118,7 +147,10 @@ test('T4 workspace: 协议参与比对(漂移即红,一致即绿)', () => {
   const s = mkScratch('lmci-t4')
   try {
     const drift = gate.makeFixture(join(s, 'd'), {
-      webPkg: { dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:^' } },
+      webPkg: {
+        dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:^' },
+        devDependencies: { typescript: 'catalog:' },
+      },
       lock: LOCK,
     })
     assert.equal(gate.runCheck(drift).violations.length, 1)
@@ -345,7 +377,13 @@ test('T14 peer 记在 devDependencies 段且值不同 → 绿并计入 peerExemp
     assert.equal(rp.peerExempted.length, 1)
     assert.equal(rp.peerExempted[0].lockedIn, 'devDependencies')
     const absent = gate.makeFixture(join(s, 'absent'), {
-      webPkg: { peerDependencies: { 'peer-only': '^1.0.0' } },
+      // react 是"peer 缺席"这一格的场地道具,R3 升红后必须由清单声明,且**记在与锁同一段**
+      // (deps↔deps 同值 ⇒ 绿),否则它不是 orphan-in-lock 就是 section-drift,
+      // violations.length===1 断言会被场地道具顶成 2
+      webPkg: {
+        dependencies: { react: '19.0.0' },
+        peerDependencies: { 'peer-only': '^1.0.0' },
+      },
       lock: gate.lockFrom({ dependencies: { react: '19.0.0' } }),
     })
     const ra = gate.runCheck(absent)
@@ -977,7 +1015,9 @@ test('T33 三型判不准各自成格:默认档只报数(不冒红),--strict 端
     },
     {
       label: 'U3 importer 有 peer 段而该 peer 不在其中',
-      webPkg: { peerDependencies: { react: '>=18' } },
+      // vue 是"importer 存在 peer 段"这一前提的载体,R3 升红后必须被清单声明(同段值等 ⇒ 绿),
+      // 否则本例会先被 orphan-in-lock 判红、测不到 U3 那一格(与门自检 u3-peer-section 同形)。
+      webPkg: { peerDependencies: { react: '>=18', vue: '^3.0.0' } },
       lock: gate.lockExact({
         peerDependencies: [{ name: 'vue', specifier: '^3.0.0', version: '3.4.0' }],
         devDependencies: [{ name: 'react', specifier: '19.0.0', version: '19.0.0' }],
