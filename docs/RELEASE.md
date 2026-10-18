@@ -632,9 +632,13 @@ git branch -d hotfix/v1.2.4
 - 前端更新逻辑:[use-updater.ts](../apps/web/src/hooks/use-updater.ts)(web 端 Tauri WebView 内运行)+ Rust 端 `restart_app` 命令
 - [tauri.conf.json](../apps/desktop/src-tauri/tauri.conf.json):`bundle.createUpdaterArtifacts: true` 已启用,updater 配的是**单端点**(2026-10-05 机主拍板定稿,原 GitHub 兜底端点已随枚 ea7616fecf 删除):
   1. `https://aizhs.top/desktop-feed.json` —— **唯一端点**,是 Next App Route
-     (`apps/web/app/desktop-feed.json/route.ts`,`force-static`),数据来自入库快照
-     `apps/web/src/config/desktop-feed.generated.ts`(由 `resolve-desktop-download.mjs` 在
-     `release-desktop.yml` 与每日 `sync-downloads.yml` 两处刷新);Windows 包直链走 **Gitee 国内发行**。
+     (`apps/web/app/desktop-feed.json/route.ts`),**运行期直读发布源**(`api.github.com` 的
+     `desktop-v*` release 及其 `latest.json`,revalidate 600s);入库快照
+     `apps/web/src/config/desktop-feed.generated.ts` **只是 live 取不到时的兜底,不是数据主源**。
+     快照由 `resolve-desktop-download.mjs` 在 `release-desktop.yml` 与每日 `sync-downloads.yml`
+     两处**重生成**(2026-10-17 起 CI 只上传产物、不再自动提交回 main,入库需人工提交);
+     Windows 包直链走 **Gitee 国内发行**,但自 2026-10-18 起必须先按 Content-Length 与 GitHub 资产
+     size **逐字节对账**才准改用 —— 同名不等于同物(0.1.75 实锤:同名差 4,173 字节 ⇒ 客户端下载成功而验签必失败)。
      (原第 2 条 GitHub `desktop-updater-feed/latest.json` 回退端点已删除——它只由 CI 维护、
      本机发版通道无 GH_TOKEN,属"看似有兜底、实际随发布路径分叉"的假能力。)
 
@@ -653,7 +657,7 @@ git branch -d hotfix/v1.2.4
   > ✅ **主端点缺 mac/linux 键已修(2026-09-24)**:站点 feed 的 `platforms` 不再由 route 自己
   > `find(a => /Windows/i.test(a.format))` 拼单键,而是输出快照的 `updaterPlatforms` 四键映射。
   > 平台推断/择优(`exe>msi`、`AppImage>deb>rpm`、universal 一次填 `darwin-x86_64`+`darwin-aarch64`)、
-  > 空签名不出键、URL host 白名单(mac/linux 只认 GitHub,因 Gitee 镜像的 mac/linux 资产实测 404)
+  > 空签名不出键、URL host 白名单(`{github.com, gitee.com}`,2026-10-12 backfill 补齐后**四平台全部放行** Gitee,口径见 `scripts/lib/tauri-updater-platforms.mjs` 的 `GITEE_ALLOWED_PLATFORMS`;旧句"mac/linux 只认 GitHub,因其 Gitee 直链实测 404"已随补齐失效,别再按它推理)
   > 全部收在唯一真相源 `scripts/lib/tauri-updater-platforms.mjs`,CI 的 `generate-latest-json.mjs`
   > 与快照生成器 `resolve-desktop-download.mjs` 共用它 —— 两条 feed 从此同源同形。
   > **macOS 绝不能用 `.dmg` 填 darwin 键**:dmg 不是可更新产物、没有配套 `.sig`(快照里 dmg 的 signature 恒为空串),
@@ -668,10 +672,14 @@ git branch -d hotfix/v1.2.4
 - 签名密钥:**全链路只有一把**(`B5D7E67EA2B1DB08`,即 conf 里的 pinned 公钥)。2026-09-24 机检:CI 产的
   exe/AppImage/universal-app.tar.gz 三枚 `.sig`、Gitee 上两枚 exe `.sig`、以及快照里四个平台键的 signature,
   内嵌 keyID **逐一对该公钥相等** ⇒ "mac/linux 要补签名密钥"是伪命题,**不得新建密钥对**
-  (新建即让存量客户端验签全废)。`deploy/prod-bundle/keys/ihui-desktop.key` 是**另一对** keyID
-  (`664FF5770686C5AC`)、未入仓、也未参与任何已发布产物,不要误当发布私钥。
-  公钥在仓库、**私钥只在 CI secrets** 与发版机 `~/.tauri/ihui-updater.key`;本机若无该文件,
-  本地打包只能走 `DESKTOP_ALLOW_UNSIGNED=1` 出**不可发版**的包。
+  (新建即让存量客户端验签全废)。`deploy/prod-bundle/keys/ihui-desktop.key`(+`.pub`)是**另一对** keyID
+  (`664FF5770686C5AC`),未参与任何已发布产物,不要误当发布私钥;2026-10-18 更硬的一条:它**连自己都不成对**
+  (`.key` 内嵌明文公钥 `4928d40f…`,同目录 `.pub` 却是 `f76bff45…`)—— 判「成对」必须比公钥字节,不能比由 keynum 派生出来的十六进制注释。
+  公钥在仓库、**私钥只在 CI secrets**(`DESKTOP_TAURI_PRIVATE_KEY`)。"与发版机 `~/.tauri/ihui-updater.key`"
+  那半句 2026-10-18 起不再成立:本机该目录现为空,而在它被填入内容的那一晚现读证明,放进去的私钥与配置信任锚
+  **不配对**(私钥内嵌 `2a4f1192…` vs 邻居 `.pub` `392ca89b…` vs conf `19dac610…`,三者互不相干)⇒ **本机没有一把可用私钥**,
+  本地只能走 `DESKTOP_ALLOW_UNSIGNED=1` 出**不可发版**的包;此后若再往 `~/.tauri/` 放钥匙,
+  `scripts/release-desktop-local.mjs` 会先做配对自证,不配对直接退出(不再能"签出没人验得过的包")。
 
 > ✅ **触发方式铁律已被实测推翻(2026-09-24)**:本节下方原先写"tag push 触发 `release-desktop.yml` 历史上
 > #15-#22 几乎全失败,必须用 workflow_dispatch"。本次 **0.1.44 用 `git push origin refs/tags/desktop-v0.1.44`
@@ -697,8 +705,8 @@ git push origin desktop-v0.1.15
 > - 或 API 触发:`POST /repos/IHUI-INF-AI/IHUI-AI/actions/workflows/release-desktop.yml/dispatches`,body `{"ref":"main","inputs":{"tag":"desktop-vX.Y.Z"}}`,需要 GitHub 凭据 token(`git credential fill` 提取 `gho_` token);HTTP 204 = 触发成功,随后到 Actions 页确认新 run 的 4 平台均为 in_progress(无早期失败)
 
 3. `release-desktop.yml` 自动执行:4 平台(windows-x64 / macos-arm64 / macos-x64 / linux-x64)构建 → 上传安装包 + `.sig` 签名包到 Release → `publish-updater-json` 聚合全部平台生成 `latest.json`(仅上传到发版 Release;原"固定 feed tag `desktop-updater-feed`"上传已随 2026-10-05 兜底端点删除移除)→ `sync-downloads` 把产物同步到 `apps/web/public/downloads/` 并自动提交回 main
-   - **注意**:桌面安装包 ~230MB,超过 GitHub 单文件 100MB 限制,`sync-downloads` 提交时**不包含** exe/msi(`apps/web/public/downloads/desktop/` 已 gitignore)。
-4. `sync-downloads` job 同时运行 `scripts/resolve-desktop-download.mjs`,从 GitHub Releases API **动态解析**最新 `desktop-v*` release 的安装包(URL/大小/版本/发布日期),刷新 `apps/web/src/config/desktop-feed.generated.ts` 入库快照并随提交回 main。Web 下载页(`/download/desktop`)构建期读取该快照渲染下载按钮——**发版后下载页自动更新,无需手动改任何 URL / 大小 / 版本号**。
+   - **注意**:exe/msi 不入库是 `.gitignore` 的决定(`apps/web/public/downloads/desktop/`),**不是**体积限制 —— 2026-10-18 现读 Windows 安装包约 10 MB(旧句"~230MB 超过 GitHub 单文件 100MB 限制"属 `offlineInstaller` 时代,枚 ac695ce9d7a 改回 embedBootstrapper 后已不成立)。
+4. `sync-downloads` job 同时运行 `scripts/resolve-desktop-download.mjs`,从 GitHub Releases API **动态解析**最新 `desktop-v*` release 的安装包(URL/大小/版本/发布日期),刷新 `apps/web/src/config/desktop-feed.generated.ts` 入库快照并随提交回 main。Web 下载页(`/download/desktop`)构建期读取该快照渲染下载按钮——**发版后仍需有人跑 `pnpm resolve:desktop-download` 并提交,下载页才会换到新版**(2026-10-17 起 CI 不再自动提交回 main;"自动更新、无需手动"那句已不成立)。更新器端点(`aizhs.top/desktop-feed.json`)是运行期直读发布源,不受此限。
 5. 用户端:应用启动时 `checkForUpdate()` 拉唯一端点(`https://aizhs.top/desktop-feed.json`)的 `latest.json` → 比对版本 → 下载签名包 → `downloadAndInstall()` 验签安装 → 重启
 
 > 手动刷新快照(CI 失败兜底 / 本地调试):`node scripts/resolve-desktop-download.mjs`(有差异才写);`--check` 仅对比(有差异退出码 1);`--offline` 仅查看本地快照。
@@ -711,7 +719,9 @@ git push origin desktop-v0.1.15
 | `DESKTOP_TAURI_KEY_PASSWORD` | 私钥密码(无密码留空) |
 | `DESKTOP_API_URL` | 生产 API 基址(如 `https://api.ihui.ai`,不设则桌面端 API 为空) |
 
-> 若密钥私钥丢失(本地 `~/.tauri/ihui.key` 不存在且 Secrets 未配置),重跑 `generate-tauri-keys.yml` 生成新密钥对,并把新公钥更新到 tauri.conf.json(旧已发布版本无法再验证新签名,需用户重新安装)。
+> ⛔ **私钥"丢失"时禁止生成新密钥对**(2026-10-18 更正,原文写的是"重跑 `generate-tauri-keys.yml` 生成新密钥对,并把新公钥更新到 tauri.conf.json" —— 那是**教人做一次破坏性轮换**:公钥钉在 `tauri.conf.json` 和**已经分发出去的所有客户端**里,换新对 = 存量客户端从此验不出任何新签名,只能全部人工重装,与"丢失"本身一样糟)。
+> 正确出路只有一条:**取回在用的那把原私钥** —— 权威存货是 CI secrets `DESKTOP_TAURI_PRIVATE_KEY`(+ `DESKTOP_TAURI_KEY_PASSWORD`),机主另有备份。`generate-tauri-keys.yml` 只在**首次建立**发布链时用,不得用于"恢复丢失"。
+> 另:下表里 `cat ~/.tauri/ihui.key` 那个文件名**没有任何脚本读它** —— 本机约定路径是 `~/.tauri/ihui-updater.key` + `~/.tauri/ihui-updater-password.txt`(读它们的正是 `scripts/release-desktop-local.mjs`),且该脚本现在会在动手签之前做**配对自证**:私钥内嵌公钥逐字节不等于 conf 的 `plugins.updater.pubkey` 就判孤儿并退出(orphan ⇒ exit 1,量不出 ⇒ exit 2)。2026-10-18 本机现读:**没有任何一把**本地私钥与信任锚配对(含 `deploy/prod-bundle/keys/` 那对,它自己的 `.key`/`.pub` 也互不配对)⇒ 本地只能出 `DESKTOP_ALLOW_UNSIGNED=1` 的不可发版包,可发布的包只由 CI 出。
 
 ---
 

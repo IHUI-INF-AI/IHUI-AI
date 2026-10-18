@@ -106,31 +106,30 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 5 语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
-
-| 指标           | 现值  | 取数键             |
-| -------------- | ----- | ------------------ |
-| 数据库表       | 596   | `dbTables`         |
-| schema 文件    | 229   | `dbSchemaFiles`    |
-| API 路由       | 4418  | `apiRoutes`        |
-| 路由文件       | 595   | `apiRouteFiles`    |
-| AI 服务路由    | 575   | `aiServiceRoutes`  |
-| WebSocket 端点 | 25    | `wsEndpoints`      |
-| 入库模型清单   | 118   | `llmModels`        |
-| 发布平台       | 38    | `publishPlatforms` |
-| 端应用包       | 9     | `appPackages`      |
-| 共享包         | 16    | `sharedPackages`   |
-| CLI 命令文件   | 64    | `cliCommandFiles`  |
-| CLI 工具文件   | 71    | `cliToolFiles`     |
-| 语言           | 5     | `i18nLanguages`    |
-| i18n 作用域    | 7     | `i18nScopes`       |
-| 语言包 JSON    | 35    | `i18nMessageFiles` |
-| 测试文件       | 2864  | `testFiles`        |
-| CI 工作流      | 48    | `ciWorkflows`      |
-| Compose 服务   | 15    | `composeServices`  |
-| 工程守门       | 256   | `guardianGates`    |
-| — blocking     | 233   | `guardianBlocking` |
-| — warn         | 26    | `guardianWarn`     |
-| 跟踪文件       | 14866 | `trackedFiles`     |
+| 指标 | 现值 | 取数键 |
+| ---- | ---- | ------ |
+| 数据库表 | 596 | `dbTables` |
+| schema 文件 | 229 | `dbSchemaFiles` |
+| API 路由 | 4418 | `apiRoutes` |
+| 路由文件 | 595 | `apiRouteFiles` |
+| AI 服务路由 | 575 | `aiServiceRoutes` |
+| WebSocket 端点 | 25 | `wsEndpoints` |
+| 入库模型清单 | 118 | `llmModels` |
+| 发布平台 | 38 | `publishPlatforms` |
+| 端应用包 | 9 | `appPackages` |
+| 共享包 | 16 | `sharedPackages` |
+| CLI 命令文件 | 64 | `cliCommandFiles` |
+| CLI 工具文件 | 71 | `cliToolFiles` |
+| 语言 | 5 | `i18nLanguages` |
+| i18n 作用域 | 7 | `i18nScopes` |
+| 语言包 JSON | 35 | `i18nMessageFiles` |
+| 测试文件 | 2864 | `testFiles` |
+| CI 工作流 | 48 | `ciWorkflows` |
+| Compose 服务 | 15 | `composeServices` |
+| 工程守门 | 256 | `guardianGates` |
+| — blocking | 233 | `guardianBlocking` |
+| — warn | 26 | `guardianWarn` |
+| 跟踪文件 | 14869 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-17。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -285,6 +284,9 @@ node scripts/check-gate-wiring.mjs            # 「门造好了但没装车」�
 F 两条更新器 feed route 必须走 `resolveDesktopFeedForUpdater`(不得退回读静态快照);
 G 不得再出现 bot 裸 `git push` 到 main(该路径在 protected main 上恒被 GH006 拒,
 GITHUB_TOKEN 推送不触发 workflow ⇒ required check 永不出现,只会制造每天一次的假红)。
+H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号，而是**版本号背后的包还能不能被
+国内用户拿到**：该档把 ≈205MB 的 WebView2 运行时打进安装包（实测 exe 225,269,867 字节），
+结构性超过 Gitee 单文件 100MB 硬上限 ⇒ 0.1.74 的 Gitee release 里只有 `.exe.sig`、没有 `.exe`。
 自检 `node --test scripts/tests/check-version-drift.test.mjs`(13/13,每条判据都配了能被它抓住的反例)。
 立因:桌面下载页与更新器 feed 曾静默停在 0.1.54 四天,而仓库已发到 0.1.58;
 同一时期安卓侧三处版本号互相矛盾、Capacitor 壳写死 `"1.0"` 从不跟真实版本走。
@@ -3241,7 +3243,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 **权限分级(防越线)**:`docs/**/*.md` 按位置分两级:
 - **子目录文档全公开**(`developer/*` / `user/*` / `enterprise-service/*`):用户指南、开发者 API 文档、企业服务白皮书等
 - **顶层文档仅白名单 20 篇公开**:AI_LEADERBOARD / AI_SERVICE / API_REFERENCE / architecture / AUTHENTICATION / CHANGELOG / CLI / CONTRIBUTING / DATABASE / FAQ / I18N / MULTI_END / PACKAGES / PERFORMANCE / RELEASE / SDK / SECURITY / TESTING / TROUBLESHOOTING / UI_GUIDELINES
-- **顶层敏感文档仅管理员可见**(13 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend
+- **顶层敏感文档仅管理员可见**(14 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend / I18N-COMPLETION-PLAN
 管理员登录后(`roleId >= 1`)可查看全部 87 篇工程文档 + 所有 published DB 文档,普通用户只能看子目录全公开 + 顶层白名单 20 篇。DB `docs` 表内容由管理员通过 `/admin/docs` 管理,不受文件白名单限制。
 ### 项目与架构
 | 文档                                                                   | 说明                                                                 |
@@ -5594,6 +5596,8 @@ RC2 全量档判 HEAD 并逐文件点名存量,RC3 取不到计「未判定」�
 - **活文档写回对账已进门**(guardian id 166,blocking):`scripts/check-live-doc-pathspec.mjs` —— 三份多会话共写的活文档(`PROJECT_PLAN.md` / `AGENTS.md` / `README.md`)工作树副本在这台机常年滞后 HEAD,而 `git commit -- <文档>` 取的就是工作树字节 ⇒ "我只加 4 行"的规范提交会把别人已入库的行整批写回旧态,而 `git status`、diff 行数、typecheck、守门 71 全都不响。AGENTS §12 那条对账规矩此前只有散文、没有尺子,现在有了:被提交的那份必须逐字含住 HEAD 已有非空行;三态 lost/superseded/stale **只有 lost 判红**;逐字存在于 `.ihui-agent/archive/**` 的行按 §1 归档两步走豁免(归档面按被审面枚举,不读磁盘)。提交链 `--staged` 只判"本次真改掉的那份文档",索引==HEAD 记跳过而**不记通过**;全量档审 `HEAD^→HEAD`(旁路落地那一型)只报数,`--strict` 才问责;`--worktree` 仅人工。修复出口只有一条 `merge-live-doc.mjs --file <文档> --apply`,刻意不给行内豁免。取证:门体 `--self-test` 11 条、§22c 镜像 10 例(含"同一行只因归档面有没有它而一绿一红"的成对锁与端到端双向锁);三态判据从归并器下沉成 `lib/live-doc-classify.mjs` 那一份实现,搬动用同一份夹具对 HEAD 版与工作树版做**逐字同形的 A/B**(同义证明,不是自检)。
 - **组件层的共享真值源(2026-09-29 O92 立;同日按用户拍板改成「基座 + 追加」)**:跨端 Button 的共享档位值收口到 `packages/design-tokens/src/button-variants.ts`,两端 `buttonVariants` 先 spread 基座、**只在基座之外追加**平台修饰,**共享键不得被任何一端整档写成字面量**(那会让共享值只约束另一端)。这是本节"改一端另一端自动生效"的交付标准在**组件层**的第一处落地(此前两端只共享档位的**键名类型**,值各写一份)。覆盖范围仍要按档读,不要读成"整个 Button 已同源":表里每档只放两端共同持有的原子,`outline` 基座 = `border border-input`,而 `ghost` / `size lg` 的共同集合为空 ⇒ 共享值是空串(受管的只有键名与不许整档另写,取值未跨端绑定);把这两档并成同值属全端观感决策。常驻锁:`scripts/tests/shared-button-tier-base.test.mjs`(读 HEAD 面,整档另写即红)。约束正文见 AGENTS.md §4「跨端 Button 共享档位值的唯一源」。
 | 168        | check-merge-deletion-resurrection.mjs                                    | **合并复活已删文件对账(blocking,2026-09-30 立)**:守门 100 的另一半 —— 100 拦「合并吞掉对侧独有新增」,本门拦「**本侧显式删除的路径被合并整批写回**」(立项实测定型两次:`apps/miniapp-taro/src/components/SectionHeader.tsx` 显式删除被并集合并写回两次)。**DR1**:P ∈ tree(共同基底) ∧ ∈ 对侧父 ∧ ∉ 本侧父 ∧ ∈ 结果 ⇒ 判红;**DR2** 补多轮「删除→复活」上 DR1 的结构性失明(第一轮复活后分叉点已推进,下一枚合并的基底里已没有它):P ∉ 本侧父 ∧ ∈ 结果 ∧ 本侧可达范围内存在一笔非合并提交删掉了它 ⇒ 判红;同一路径两条取证只计一条。正当豁免两条且都带证据:删除提交信息含 `intentional-delete:`,或 `scripts/data/deletion-survival-allowlist.json` 带 `path+reason+reviewBy` 且未过期。默认只判未入 origin/main 的合并,增量台账让每枚合并只判一次;`--strict` 下有未判定即拒绝出合格证。取证 `--self-test` 43 例 + 镜像 11 例(含 T1 方向锁);紧急跳过 `HUSKY_SKIP_MERGE_DELETION_RESURRECTION=1` |
+| 200        | check-provider-health-vocabulary.mjs                                   | **provider 健康四档单一真相源对账(blocking,2026-10-08 立 · 2026-10-10 接线)**:钉住 2026-10-07「并表」决策不许再分叉 —— canonical 在 `apps/web/app/(main)/settings/llm/types-v2.ts` 的 `PROVIDER_HEALTH_STATUSES`(as const,unknown/healthy/degraded/down),`ProviderHealthStatus` 由它派生,`apps/web/app/(main)/models/channels/channels-api.ts` 的 `RelayKeyPoolHealthStatus` 是同来源别名。**PV1** canonical 形态与派生 / **PV2** 全仓第二份**同值**声明(接线当轮 HEAD 面 409 候选 · 同值 0 ⇒ 直挂 blocking 不新增恒红面;两处真子集只报名,补齐即翻红)/ **PV3** 别名被换回字面量即红。同名不同域按值不判(web 另一张 `ProviderHealthStatus` = ok/invalid_key/unreachable/not_configured、api-client 7 档、`unhealthy` 族、`.py` 侧机主已裁决不扩)。**无行内豁免通道**,只有具名覆盖边界台账;注册条目带 `--strict`(默认档只报数,不带它的 blocking 就是永不红的尺子,守门 117 同型)。口径同 77/83/151(HEAD blob / 索引 blob / `--worktree` 仅人工 / 两旗同给 exit 2 / 枚举 0 判死);取证 `--self-test` + 镜像(T5/T15 接线方向锁双向臂、T13 两旗同给、T14 唯一真相源被摘线必 exit 2);紧急跳过 `HUSKY_SKIP_PROVIDER_HEALTH_VOCAB=1`。台账 G-814416 / G-1058634 |
+| 221        | check-mjs-syntax.mjs                                                    | **.mjs 语法对账(blocking,2026-10-17 立)**:被审面全量 `scripts/check-mjs-syntax.mjs` 逐一纯解析(只 compile 不 evaluate,绝不执行被检文件);定级走差值棘轮:存量只报数,只拦本次带进来的;自检 `node scripts/check-mjs-syntax.mjs --self-test`;应急跳过 `HUSKY_SKIP_MJS_SYNTAX=1`(须在提交信息写明理由) |
 - **会话分组(D165,2026-10-01 立)**:web 侧栏的"文件夹"从本日起是**服务端一等实体**而不是本机 localStorage ——
   库面新增 `chat_conversation_groups`(每人 `(user_id, name)` 唯一)+ `chat_conversations.group_id`
   (`ON DELETE SET NULL`:删分组只取消归类,绝不连带删会话);服务端新增六条端点
@@ -5611,115 +5615,3 @@ RC2 全量档判 HEAD 并逐文件点名存量,RC3 取不到计「未判定」�
   语言包落笔(miniapp 的离线语言包是派生产物,须按 §19/守门 105 的生成链重生成,不得手改)。
 | 168        | check-merge-deletion-resurrection.mjs                                    | **合并复活已删文件对账(blocking,2026-09-30 立)**:守门 100 的另一半 —— 100 拦「合并吞掉对侧独有新增」,本门拦「**本侧显式删除的路径被合并整批写回**」(立项实测定型两次:端内那份零消费者、零深导入的 SectionHeader 副本(小程序腿,与 adapters 那条腿同名) 显式删除被并集合并写回两次)。**DR1**:P ∈ tree(共同基底) ∧ ∈ 对侧父 ∧ ∉ 本侧父 ∧ ∈ 结果 ⇒ 判红;**DR2** 补多轮「删除→复活」上 DR1 的结构性失明(第一轮复活后分叉点已推进,下一枚合并的基底里已没有它):P ∉ 本侧父 ∧ ∈ 结果 ∧ 本侧可达范围内存在一笔非合并提交删掉了它 ⇒ 判红;同一路径两条取证只计一条。正当豁免两条且都带证据:删除提交信息含 `intentional-delete:`,或 `scripts/data/deletion-survival-allowlist.json` 带 `path+reason+reviewBy` 且未过期。默认只判未入 origin/main 的合并,增量台账让每枚合并只判一次;`--strict` 下有未判定即拒绝出合格证。取证 `--self-test` 43 例 + 镜像 11 例(含 T1 方向锁);紧急跳过 `HUSKY_SKIP_MERGE_DELETION_RESURRECTION=1` |
 | 168        | check-merge-deletion-resurrection.mjs                                    | **合并复活已删文件对账(blocking,2026-09-30 立)**:守门 100 的另一半 —— 100 拦「合并吞掉对侧独有新增」,本门拦「**本侧显式删除的路径被合并整批写回**」(立项实测定型两次:`小程序端 components 目录那份同名未接线旧副本(非 adapters 腿)` 显式删除被并集合并写回两次)。**DR1**:P ∈ tree(共同基底) ∧ ∈ 对侧父 ∧ ∉ 本侧父 ∧ ∈ 结果 ⇒ 判红;**DR2** 补多轮「删除→复活」上 DR1 的结构性失明(第一轮复活后分叉点已推进,下一枚合并的基底里已没有它):P ∉ 本侧父 ∧ ∈ 结果 ∧ 本侧可达范围内存在一笔非合并提交删掉了它 ⇒ 判红;同一路径两条取证只计一条。正当豁免两条且都带证据:删除提交信息含 `intentional-delete:`,或 `scripts/data/deletion-survival-allowlist.json` 带 `path+reason+reviewBy` 且未过期。默认只判未入 origin/main 的合并,增量台账让每枚合并只判一次;`--strict` 下有未判定即拒绝出合格证。取证 `--self-test` 43 例 + 镜像 11 例(含 T1 方向锁);紧急跳过 `HUSKY_SKIP_MERGE_DELETION_RESURRECTION=1` |
-对外关键数字声明(与本页生成块同源,均现算):**596 张表 · 4418 API 路由 · 25 个 WebSocket 端点 ·
-118 入库模型 · 38 平台自动发布 · 2864 测试文件 · 256 道工程守门 · 48 CI workflows ·
-| 数据库表 | 595 | `dbTables` |
-| schema 文件 | 229 | `dbSchemaFiles` |
-| API 路由 | 4415 | `apiRoutes` |
-| 路由文件 | 593 | `apiRouteFiles` |
-| AI 服务路由 | 573 | `aiServiceRoutes` |
-| CLI 命令文件 | 64 | `cliCommandFiles` |
-| CLI 工具文件 | 71 | `cliToolFiles` |
-| 测试文件 | 2778 | `testFiles` |
-| CI 工作流 | 48 | `ciWorkflows` |
-| 工程守门 | 238 | `guardianGates` |
-| — blocking | 215 | `guardianBlocking` |
-| — warn | 23 | `guardianWarn` |
-| 跟踪文件 | 14533 | `trackedFiles` |
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-10。
-  <strong>596 张表 · 4418 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 2864 测试文件 / ~14839+ 测试用例 · 67 e2e spec · 48 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
-  <strong>8 端全覆盖</strong> · <strong>118 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
-| **代码规模** | 8 端代码 / 205 schema 文件 / **596 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4418 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
-| **工程守门** | **88 守门/验证脚本**(60 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段(push 门 staged-scope 降级) + 48 CI workflows          |
-| **测试覆盖** | **2864 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
-→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4418 API 路由 / 2864 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
-→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 48 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 2864 测试文件 / ~14839+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
-核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 2864 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
-**长尾关键词**:open source ai agent platform with multi-tenant · self-hosted chatgpt alternative 118 llms · langgraph mcp a2a triple stack · ai operating system 8 platforms monorepo · litellm gateway with rag knowledge base · multi-tenant row level security ai platform · apache 2.0 ai saas template · tauri desktop ai assistant auto update · wxt browser extension ai agent 35 pages · taro mini program ai chatbot 6 platforms · **open source 38 platforms auto publishing** · **open source anti-detect framework 37 detection points** · **ai conversation visualization inline to message bubble** · **tool call summary card with source badge** · **risk scoring 0-100 cooldown manager** · **fingerprint isolation 13 submodules canvas audio font webrtc**
-- **运维**:Prometheus + Grafana · 48 CI workflows · 88 守门脚本 · 蓝绿部署
-   技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4418 API 路由    │
-| **代码规模** | 8 端代码 / 205 schema 文件 / 596 数据库表 / drizzle-kit push / 4418 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
-|                   | API                 | Fastify 5 / **4418 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-|                   | 工程守门            | **87 守门/验证脚本**(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + **48 CI workflows** + post-commit 自动 push + lost-commit tag 自动同步                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-|                   | 测试覆盖            | **2864 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **小程序**  | `apps/miniapp-taro/` | Taro 4 + React                  | 微信小程序,微信支付原生集成 + 5 语言 i18n                                                                                                                                                                                                                                                                                                                                                                         |
-├── .github/workflows/       # 48 个 CI workflows
-对标开源 AI 网关项目 OmniRoute(GitHub 27k stars,MIT 协议,聚合 290+ provider / 500+ 模型,Combo 多级 fallback,OpenAI/Claude/Gemini 协议互转,RTK+Caveman 89% 压缩,网关 Dashboard)。IHUI-AI 在 AI 网关核心能力上反超 OmniRoute,同时保留 8 端全栈 + Agent 编排 + RAG + 元学习 + 38 平台发布的业务深度优势。
-| 38 平台发布    | ✅ CSDN/知乎/掘金/微信公众号/小红书/B站/头条/抖音...                                | ❌ 无                         | **IHUI** |
-| 78         | check-workspace-dep-links.mjs                                            | **workspace 依赖链接五维对账(blocking)**:①`workspace:*` 声明必须有链接(悬空同判红) ②链接目标必须是真包(`existsSync` 对"指向空目录的链接"仍返回 true,故旧判据对"链接在、内容被掏空"恒绿) ③直接依赖声明 `bin` 而该处无 shim → 只报数(并发 install 窗口实测 0↔113 跳,判红会逼全队 `--no-verify`),判红落 `pnpm check:dep-links:strict`(已串进 `check:all`),`--strict` 另把 ②延伸到 `node_modules/.pnpm/*/node_modules/*` 传递闭包(真仓实测浅扫 717 / 深扫 10,015 条,均 0 红) ④`lint-staged` 必 spawn 的命令必须在**根** `.bin` 解析得到(不接受"包目录存在",也不查全局 PATH —— 故障当天正是"包体完好、shim 没了",而全局 `where eslint` 还能命中) ⑤shim 指向的**入口文件**必须存在(④只验 shim 文件在不在)。成因:2026-09-23 `apps/extension` 缺 `@ihui/design-tokens` → rollup 解析失败 → 部署环连续 4 次全红并冷却,线上停在旧提交,而 typecheck/lint/单测全绿;2026-09-24 `node_modules/typescript`、`eslint` 指向 `.pnpm` 空目录 → lint-staged 第一步即崩 → **每次提交被迫跳门,约 238 道守门对全队同时失效<!-- doc-num-exempt: 叙述事故当时的门数,非当前守门总量 -->**。`--staged` 刻意**不**随暂存收窄(这类破损与"本次改了什么"无关)。修复分两类:①② 全量 `pnpm install`(不带 `--filter`,见 §12e);③④⑤ `node scripts/repair-node-bin-links.mjs` —— **shim 不会被 `pnpm install` 或 `--force` 重建**(两条都只回 "Already up to date")。验收必须实测命令本身(`.bin/eslint --version` + `.bin/tsc --version` 都出版本号)。取证 `--self-test` + 镜像测试(含装车证明、"真仓 eslint/prettier 第五维必须判绿"的反恒红对照、"深扫只在 strict 生效"的接线方向对照;例数以末行现测为准)。紧急跳过 `HUSKY_SKIP_WORKSPACE_DEP_LINKS=1`                                                                                                                                   |
-### WebSocket 端点(25 个)
-### 通病 ② 边界条件处理不足 → 实际:2864 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
-| 边界条件缺失     | 2864 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
-- 596 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
-- **118 大模型统一调度**:LiteLLM 1.55+ 适配,OpenAI 兼容 v1 API,31+ provider 适配器(含 22 免费 provider 内化)
-- **API(Fastify 5)**:4418 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-- **2864 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-- **48 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
-> **8 端代码 · 596 张数据库表 · 4393 个 API 路由。**
-A: Yes. ~14839+ tests / 2864 test files / 67 e2e spec / 4418 API 路由 / 596 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
-- self-hosted chatgpt alternative with 118 llms
-- **组件层的共享真值源(2026-09-29 O92 立;同日按用户拍板改成「基座 + 追加」)**:跨端 Button 的共享档位值收口到 `packages/design-tokens/src/button-variants.ts`,两端 `buttonVariants` 先 spread 基座、**只在基座之外追加**平台修饰,**共享键不得被任何一端整档写成字面量**(那会让共享值只约束另一端)。这是本节"改一端另一端自动生效"的交付标准在**组件层**的第一处落地(此前两端只共享档位的**键名类型**,值各写一份)。覆盖范围仍要按档读,不要读成"整个 Button 已同源":2026-10-10 机主拍板统一后,`outline` 基座 = `border border-input bg-background text-foreground`、`ghost` = `bg-transparent text-foreground`、`size lg` = `h-10 px-8`(取 web 定稿,RN 原 h-12 px-6 跟上来),两端的 hover/shadow/rounded 仍是各自在基座外追加;此前 `ghost` 与 `lg` 的共享值是空串 —— 那是用空串遮住一处真分叉(同档名两端不同串)。仍有三格未统一:圆角(web lg=rounded-sm 4px vs RN 基座 rounded-md 6px)、字号(RN 由组件内部 Text 固定 text-sm,size 只管盒)、默认档高度(RN 独占 md=h-10 而 web default=h-9,现读 RN 侧 size 显式传参 0 处 ⇒ 两端默认按钮仍差 4px),已登记台账归设计规范统一批。并由常驻锁 `scripts/tests/shared-button-tier-base.test.mjs` 的 T11/T12 钉住:统一其中任一格都会让 T11 红一次并要求同步本句与台账 G-1115908(T12 用构造面证明它有牙),不得静默演进。常驻锁:`scripts/tests/shared-button-tier-base.test.mjs`(读 HEAD 面,整档另写即红)。约束正文见 AGENTS.md §4「跨端 Button 共享档位值的唯一源」。
-| 200        | check-provider-health-vocabulary.mjs                                   | **provider 健康四档单一真相源对账(blocking,2026-10-08 立 · 2026-10-10 接线)**:钉住 2026-10-07「并表」决策不许再分叉 —— canonical 在 `apps/web/app/(main)/settings/llm/types-v2.ts` 的 `PROVIDER_HEALTH_STATUSES`(as const,unknown/healthy/degraded/down),`ProviderHealthStatus` 由它派生,`apps/web/app/(main)/models/channels/channels-api.ts` 的 `RelayKeyPoolHealthStatus` 是同来源别名。**PV1** canonical 形态与派生 / **PV2** 全仓第二份**同值**声明(接线当轮 HEAD 面 409 候选 · 同值 0 ⇒ 直挂 blocking 不新增恒红面;两处真子集只报名,补齐即翻红)/ **PV3** 别名被换回字面量即红。同名不同域按值不判(web 另一张 `ProviderHealthStatus` = ok/invalid_key/unreachable/not_configured、api-client 7 档、`unhealthy` 族、`.py` 侧机主已裁决不扩)。**无行内豁免通道**,只有具名覆盖边界台账;注册条目带 `--strict`(默认档只报数,不带它的 blocking 就是永不红的尺子,守门 117 同型)。口径同 77/83/151(HEAD blob / 索引 blob / `--worktree` 仅人工 / 两旗同给 exit 2 / 枚举 0 判死);取证 `--self-test` + 镜像(T5/T15 接线方向锁双向臂、T13 两旗同给、T14 唯一真相源被摘线必 exit 2);紧急跳过 `HUSKY_SKIP_PROVIDER_HEALTH_VOCAB=1`。台账 G-814416 / G-1058634 |
-| 221        | check-mjs-syntax.mjs                                                    | **.mjs 语法对账(blocking,2026-10-17 立)**:被审面全量 `scripts/check-mjs-syntax.mjs` 逐一纯解析(只 compile 不 evaluate,绝不执行被检文件);定级走差值棘轮:存量只报数,只拦本次带进来的;自检 `node scripts/check-mjs-syntax.mjs --self-test`;应急跳过 `HUSKY_SKIP_MJS_SYNTAX=1`(须在提交信息写明理由) |
-**两台机器状态探测器现在有名字了(warn 档:已注册进提交链但不阻塞 —— 它判的是机器状态,升 blocking 就是每台每次逼人跳门)**:`scripts/check-service-binary-paths.mjs`(`pnpm check:service-paths`)按 STATE / `nssm Application` 路径存在性 / 声明端口应答 三件事判一个 Windows 服务是不是"真的活着",并把"取不到值"与"值为空"以退出码分岔(nssm stdout 实测 UTF-16LE)—— 立因是 `IHUI-RSSHUB` 被 `.workbuddy` 自升级换掉 node 目录后**静默停了 3 天**,183 道门禁与告警全都看不见。`scripts/check-public-path-probe.mjs`(`pnpm check:public-path`,并由 `git-guardian` 每 30 分钟跑一次)把**换流窗口的不可用时长**与**常态公网的失败率/延迟**分成两条互不顶账的序列各自量,取证经 `scripts/run-evidence.mjs` 封缄 —— "没跑完"的 0 不算合格证。两者刻意保持 warn:判的是机器运行时状态,挂 blocking 只会逼人跳门、连带废掉全部守门。
-| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖**全部命名空间**;`--check` 另比名字 + SHA,AGENTS.md §22) |
-   - commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖全部命名空间;限流 60s + 积压闸 `IHUI_TAG_AUTO_MAX`)
-3. **手动恢复**:`pnpm tag:sync:fetch` 从 origin 拉回全部 tag(以 origin 为权威校准本地)
-| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖**全部命名空间**;`--check` 另比名字 + SHA,AGENTS.md §22) |
-- **顶层敏感文档仅管理员可见**(14 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend / I18N-COMPLETION-PLAN
-| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国际化完成计划(历史规划)                                             |
-**11 个 i18n 工具链脚本**(`scripts/`): apply-brand-glossary.mjs / apply-i18n-translations.mjs / apply-translation-fallback.mjs / deep-i18n-audit.mjs / export-untranslated-i18n.mjs / fix-i18n-deep.mjs / scan-hardcoded-zh.mjs / scan-i18n-zh-residue.mjs / translate-i18n-batch.mjs / analyze-unique-i18n-values.mjs / verify-i18n.mjs
-**版本号漂移守门** `scripts/check-version-drift.mjs`(已接 `ci.yml`):判据不是"版本号是多少",
-而是**每个对外可见的版本号都必须可追溯到某个源头** —— A 桌面 `tauri.conf.json` 与
-`apps/desktop/package.json` 双写一致;B/C `apps/mobile-rn` 的原生 `versionName` 与界面
-`APP_VERSION` 都必须取自环境变量或 `package.json`;D Capacitor 壳不得出现字面量
-`versionName`/`versionCode`;E 下载页 web/mobile/extension/cli 四端不得写死语义版本字面量;
-F 两条更新器 feed route 必须走 `resolveDesktopFeedForUpdater`(不得退回读静态快照);
-G 不得再出现 bot 裸 `git push` 到 main(该路径在 protected main 上恒被 GH006 拒,
-GITHUB_TOKEN 推送不触发 workflow ⇒ required check 永不出现,只会制造每天一次的假红);
-H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号,而是**版本号背后的包还能不能被
-国内用户拿到**:该档把 ≈205MB 的 WebView2 运行时打进安装包(实测 exe 225,269,867 字节),
-结构性超过 Gitee 单文件 100MB 硬上限 ⇒ 0.1.74 的 Gitee release 里只有 `.exe.sig`、没有 `.exe`。
-自检 `node --test scripts/tests/check-version-drift.test.mjs`(13/13,每条判据都配了能被它抓住的反例)。
-立因:桌面下载页与更新器 feed 曾静默停在 0.1.54 四天,而仓库已发到 0.1.58;
-同一时期安卓侧三处版本号互相矛盾、Capacitor 壳写死 `"1.0"` 从不跟真实版本走。
-| 指标 | 现值 | 取数键 |
-| ---- | ---- | ------ |
-| 数据库表 | 596 | `dbTables` |
-| schema 文件 | 229 | `dbSchemaFiles` |
-| API 路由 | 4420 | `apiRoutes` |
-| 路由文件 | 595 | `apiRouteFiles` |
-| AI 服务路由 | 576 | `aiServiceRoutes` |
-| WebSocket 端点 | 25 | `wsEndpoints` |
-| 入库模型清单 | 118 | `llmModels` |
-| 发布平台 | 38 | `publishPlatforms` |
-| 端应用包 | 9 | `appPackages` |
-| 共享包 | 16 | `sharedPackages` |
-| CLI 命令文件 | 66 | `cliCommandFiles` |
-| CLI 工具文件 | 71 | `cliToolFiles` |
-| 语言 | 5 | `i18nLanguages` |
-| i18n 作用域 | 7 | `i18nScopes` |
-| 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 2887 | `testFiles` |
-| CI 工作流 | 48 | `ciWorkflows` |
-| Compose 服务 | 15 | `composeServices` |
-| 工程守门 | 254 | `guardianGates` |
-| — blocking | 231 | `guardianBlocking` |
-| — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 14925 | `trackedFiles` |
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-18。
-|                   | 会话内快捷笔记        | 录音 12 相状态机 / 转写落库(chat_voice_notes)/ 归档可撤销 / 分组与关键词检索走 SQL 谓词 / 一键插入对话输入框(web 已挂进输入区;小程序端按"平台独占:录音 API 差异"豁免) |
-**对话模板端点(2026-10-18 立,服务端最小闭环):**
-| 端点                     | 方法  | 鉴权                                    | 响应形状                                                                                     | 消费端                                                            |
-| ------------------------ | ----- | --------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `/api/chat/templates`    | GET   | 需登录(`plugins/auth.ts` 的 `authenticate`) | `{ code: 0, message: 'success', data: { list, total, page, pageSize, categories } }`        | web `/chat/templates` 页 · CLI `ihui chat templates` · extension sidepanel 模板网格 |
-- 用法:`GET /api/chat/templates?page=1&pageSize=20&category=writing`;query 由 Zod `.strict()` 校验(未知键与非法页码一律 400),`pageSize` 上限 50。
-- 数据源:`apps/api/src/routes/chat-templates.ts` 下半部的内置目录(当前无对应库表,建表属后续票);handler 自证只取 `status = 'published'` 的行,下发字段是**逐行点名的白名单**(运营内部字段不出面),`category` 拼错回空集而非静默全量。
-- 分页键口径:全仓 `/api/*` 只认 `list`(与 `packages/api-client` 的 `PageData<T>` 同源),同一端点不得同时发 `items` 顶键——两个键都发等于把消费侧的分叉藏起来。
-**小程序兼容设置端点(2026-10-18 收口单/复数分叉):**
-| 端点                    | 方法 | 鉴权 | 响应形状 | 消费端 |
-| ----------------------- | ---- | ---- | -------- | ------ |
-| `/settings/notification` | GET  | 登录 | `{ code:0, message:'success', data: { list: [{ key, title, enabled }] } }` | 小程序 `apps/miniapp-taro/src/pages/setting/notification.tsx`(经 `@/api` 的 `getNotificationSettings`) |
-| `/settings/notification` | PUT  | 登录 | `{ code:0, message:'success', data: { success, requested, affected, missedIds } }` | 同上 `updateNotificationSettings`(逐键 upsert) |
-- group 已统一为复数 `'notifications'`(取 `apps/api/src/db/user-preferences-queries.ts` 的 `USER_PREFERENCE_GROUPS` 常量,裸字面量不得再出现),compat 单数路径别名与 web 权威腿 `/settings/notifications` 读同一批行;历史写在单数 `'notification'` 的存量由迁移 `packages/database/drizzle/20261018150000_user_preferences_notification_group_plural.sql` 一次性并入(同 `(userId,key)` 冲突取 `updated_at` 较新者胜、败方删除,迁移以 `RAISE NOTICE` 现报迁移/冲突/删除三计数)。
-- GET 曾回 `{ settings }` 的 k/v,与端上声明的 `{ list }` 契约不符致 `data.list` 恒 undefined;现两端对齐为 `list` 单一形状。PUT 逐键 `.returning({ id, key })` 回库确认写入集合并带 `missedIds`,不把请求侧 `.length` 当 affected(守门 134)。`title` 承载存储键,不在服务端拼中文(§19)。

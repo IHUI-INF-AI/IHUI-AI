@@ -87,6 +87,22 @@ export function classifyMissing(headLines, candidateLines, threshold = SIM_THRES
   // 翻勾会改行首状态(`- [ ]（进行中）` → `- [x] ✅(日期)`),不剥掉它就永远"不逐字包含",
   // 于是把刚翻勾的那行判成真丢失、`--apply` 再插回一遍 —— 双态行就是这么造出来的。
   const localBare = localOnly.map((l) => squash(stripState(l)))
+  /**
+   * 容器短路专用的**全量候选**骨架池(2026-10-17 补)。
+   *
+   * `localOnly` 的语义是"候选面独有行"(不在 HEAD 里的行),锚点唯一性判据与 Jaccard 兜底
+   * 都依赖这个语义,不能动。但**容器短路**问的是另一个问题:"HEAD 这一行,在候选面里
+   * 是不是以某种形态(只差空白/对齐)仍然存在?" —— 答案不该受"它是否也出现在 HEAD 里"影响。
+   *
+   * 实测失效形态(README 尾部碎片清理):HEAD 尾部残留着旧版生成块的宽对齐版
+   * (`| schema 文件    | 229   | ... |`),候选面正文里有紧凑版(`| schema 文件 | 229 | ... |`)。
+   * 紧凑版在 HEAD 里也存在 ⇒ 它不进 `localOnly` ⇒ 宽版那条找不到"容器"⇒ 被判 `lost` ⇒
+   * `merge-live-doc --apply` 会把宽版原样插回,造出同键两行。这正是本仓已出现过三次的重复登记行。
+   *
+   * 安全性:这一步只把 `squash` 之后**逐字相等**的行算作"存活";`squash` 抹掉的只有空白,
+   * 抹不掉任何有意义的字符。所以它不会把"内容被换掉"洗成"还在"。
+   */
+  const allSquashed = wtLines.map(trim).filter(Boolean).map(squash)
   const verdict = new Map()
   for (const raw of headLines) {
     const t = trim(raw)
@@ -114,6 +130,9 @@ export function classifyMissing(headLines, candidateLines, threshold = SIM_THRES
       }
     }
     if (
+      // 容器短路:优先用**全量候选**骨架(见 allSquashed 头注 —— HEAD 里回残着宽对齐版本的
+      // 行不能被判成丢失),再回落到 localOnly 语义(保留原有的 superseded 判定不变)。
+      (sq.length >= CONTAIN_MIN && allSquashed.some((w) => w.includes(sq))) ||
       (sq.length >= CONTAIN_MIN && localSquashed.some((w) => w.includes(sq))) ||
       (bare.length >= CONTAIN_MIN && localBare.some((w) => w.includes(bare)))
     ) {

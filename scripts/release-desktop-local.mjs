@@ -33,8 +33,10 @@ const NO_PUSH = process.argv.includes('--no-push');
 const SLOW_COMMIT = process.argv.includes('--slow-commit');
 // ⚠️ NO_PUSH 只挡「版本 bump 提交」,**不挡 Gitee 上传** —— 2026-09-27 实测踩坑:
 //    本地验证构建想"只出包不出网",结果把 智汇AI_0.1.44_x64-setup.exe(+sig) 传上了
-//    Gitee release 成孤儿资产(Gitee API 不暴露 asset id、无法逐删,见
-//    gitee-release-attach.py「asset 列表不返回 id」注释)。本地验证一律带 --no-upload。
+//    Gitee release 成孤儿资产。本地验证一律带 --no-upload。
+//    (2026-10-18 更正本注旧句"Gitee API 不暴露 asset id、无法逐删,见 gitee-release-attach.py
+//     「asset 列表不返回 id」注释":那句已被同日实测证伪 —— /releases/{id}/attach_files 返回
+//     id 与 size,DELETE by id 返回 204 即真删;孤儿资产**可以**逐件清,别再按"清不掉"行事。)
 const NO_UPLOAD = process.argv.includes('--no-upload');
 const KEEP_VERSION = process.argv.includes('--keep-version');
 const BUMP = process.argv.includes('--minor') ? 'minor' : process.argv.includes('--major') ? 'major' : 'patch';

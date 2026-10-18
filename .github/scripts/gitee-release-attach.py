@@ -60,8 +60,15 @@ def upload(rid, filepath, filename, content_type="application/octet-stream"):
 
 
 def replace_gitee_feed(latest_data):
-    """Gitee feed 更新:整删重建 release(2026-09-17 实证——同名附件允许重复上传但
-    下载直链永远取第一个旧附件;而 asset 列表不返回 id 无法逐一删除,故删整个 release)。"""
+    """Gitee feed 更新:整删重建 release(2026-09-17 当时的实证:同名附件允许重复上传而
+    下载直链永远取第一个旧附件)。
+
+    ⚠️ 2026-10-18 更正本函数原注释里"asset 列表不返回 id 无法逐一删除,故删整个 release"
+    这一句 —— 它是**假的**:`GET /releases/{id}/attach_files` 返回每枚附件的 `id` 与 `size`,
+    `DELETE /releases/{id}/attach_files/{file_id}` 返回 204 即真删(同日在 desktop-v0.1.75
+    那枚冒名 exe 上实测:删旧 + 重挂 CI 原件,回读 Content-Length 与 sha256 均与 GitHub 一致)。
+    留着这句的代价很实在:整删重建会换掉 release id 与 tag(1159406→1169204 那次就是它),
+    还会顺手抹掉别的资产。**逐件按 id 删才是正解**,整删只作为末路手段。"""
     # 2026-09-17:tag 残留导致同 tag 重建必失败,且 Gitee 无删 tag API——
     # 快速路径:tag 已存在则跳过(该 release 只是 Gitee 侧附件存档,**不是**更新器端点,
     # 客户端不读它;更新器端点 2026-10-05 已定稿为 aizhs.top 单端点),不做无谓的删/建重试。

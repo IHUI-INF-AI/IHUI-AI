@@ -26,6 +26,14 @@ function BackdateGrace([string]$sig, [double]$minutes) {
     $st.Map[$k].lastSend = (Get-Date).AddSeconds(-30).ToString('o')
     Write-AlertDedupState -StateFile $tmp -Map $st.Map | Out-Null
 }
+function NoStallMutant([string]$hay, [string]$anchorRx) {
+    # 变异夹具(装车锁的成对反例):按锚点定位"含那处调用的一行",只摘掉这一处的 ' -Stall',
+    # 返回改写后的**整份正文**。全程只在内存里改字符串 ⇒ 不写盘、不碰 deploy\win\ 的生产脚本。
+    # 取不到该行 ⇒ 返回 $null,由调用处显式记"未判定"(§0.3:不得折成通过)。
+    $line = @($hay -split '\r?\n') | Where-Object { $_ -match $anchorRx } | Select-Object -First 1
+    if (-not $line) { return $null }
+    return $hay.Replace($line, $line.Replace(' -Stall', ''))
+}
 
 Fresh
 Write-Output '[1] 宽限窗内不寄'
@@ -94,11 +102,28 @@ T '8b 该类不被成功清偿' ($cl8.Cleared -eq 0) "Cleared=$($cl8.Cleared)"
 
 Write-Output '[9] 装车锁:调用点必须真的带上 -Stall 与清偿(否则上面全绿也只是模块自己对了)'
 $src = Get-Content (Join-Path $PSScriptRoot '..\win\ihui-deploy.ps1') -Raw
+# 9c/9e 判据形状钉的是"**这一处调用自带 -Stall**",不是"两个开关必须挨着"。
+# -Detail(2026-10-17 加:实时值只进正文不进身份)落在 -m 与 -Stall 之间 ⇒ 旧的紧邻写法原地假红。
+# 放宽只放宽"同一条语句内的参数序":前瞻与锚点都被 [^;{}\r\n] 锁死在一条语句内 —— 块边界
+# (try { … } catch {} 的 })、语句分隔 ; 与换行一律过不去 ⇒ "正文别处出现 -Stall"绝不算过
+# (这条不退化的性质由下面 9c-反例/9e-反例 与它们的对照格钉住,不靠注释自述)。
+$rx9c = 'Invoke-FailNotify\b(?=[^;{}\r\n]*-Stall\b)[^;{}\r\n]*-m \$m\b'
+$rx9e = 'Invoke-FailNotify\b(?=[^;{}\r\n]*-Stall\b)[^;{}\r\n]*-m "健康门禁未过'
+# 与 -Stall 无关的锚点:只为变异夹具定位"待摘的那一行"(9c 的 \$m\b 还兼作区分 $migMsg 那处非切流类调用)
+$ax9c = 'Invoke-FailNotify[^;\r\n]*-m \$m\b'
+$ax9e = 'Invoke-FailNotify[^;\r\n]*-m "健康门禁未过'
 T '9a 宽限窗调用带 -Stall' ($src -match 'Test-AlertSuppressionGrace[^\r\n]*-Stall') '调用点没标类 ⇒ 锚点永不被清偿'
 T '9b 去重调用把 -Stall 透传' ($src -match 'Test-AlertDueByIdentity[^\r\n]*-Stall:\$Stall') '身份不带类 ⇒ 清偿无对象'
-T '9c Fail 走切流类' ($src -match 'Invoke-FailNotify -m \$m -Stall') 'Fail 未标记 ⇒ 本轮未切流仍无终态'
+T '9c Fail 走切流类' ($src -match $rx9c) 'Fail 未标记 ⇒ 本轮未切流仍无终态'
+$mut9c = NoStallMutant $src $ax9c
+T '9c-反例-前置 Fail 那处调用行取得到(取不到=未判定,不得折成通过)' ($null -ne $mut9c) "锚点未命中:$ax9c"
+T '9c-反例 摘掉这一处的 -Stall ⇒ 同一判据必须不匹配' (($null -ne $mut9c) -and (-not ($mut9c -match $rx9c))) '判据已退化:该处不带 -Stall 也算过'
+T '9c-反例-对照 正文里仍有其它 -Stall(证明只摘了那一处,不是把全文抹净)' (($null -ne $mut9c) -and $mut9c.Contains('-Stall')) '取不到正文(见前置格)或变异波及了别处'
 T '9d 成功切流处真的清偿' ($src -match 'Clear-AlertStallIdentities -StateFile \$AlertNotifyStateFile') '没接线 ⇒ 本票等于没做'
-T '9e 门禁回滚那处也按切流类' ($src -match 'Invoke-FailNotify -Stall -m "健康门禁未过') '回滚=未切流,漏标会继续 4h 重发'
+T '9e 门禁回滚那处也按切流类' ($src -match $rx9e) '回滚=未切流,漏标会继续 4h 重发'
+$mut9e = NoStallMutant $src $ax9e
+T '9e-反例-前置 门禁回滚那处调用行取得到(取不到=未判定,不得折成通过)' ($null -ne $mut9e) "锚点未命中:$ax9e"
+T '9e-反例 摘掉这一处的 -Stall ⇒ 同一判据必须不匹配' (($null -ne $mut9e) -and (-not ($mut9e -match $rx9e))) '判据已退化:该处不带 -Stall 也算过'
 
 if (Test-Path $tmp) { Remove-Item $tmp -Force }
 Write-Output ''

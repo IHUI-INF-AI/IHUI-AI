@@ -13,7 +13,9 @@
  * `apps/web/src/config/desktop-feed.generated.ts`,前端构建期读取快照渲染下载页。
  *
  * 数据源:GitHub Releases API(公开 repo 无需 token;可选 GITHUB_TOKEN 提升限流)。
- * 资产 size 由 API 直接返回,无需下载文件(安装包 230MB+,HEAD 请求也不必要)。
+ * 资产 size 由 API 直接返回,无需下载文件(故不必 HEAD 大文件;2026-10-18 现读 Windows 包
+ * 已回到 ~10MB —— 旧句"230MB+"属 offlineInstaller 时代)。这个 size 就是字节对账的权威侧,
+ * 判定口径见 giteeBytesVerdict:量过且等长才改用 Gitee;量不到 ⇒ 未判定 ⇒ 保持 GitHub。
  *
  * 用法:
  *   node scripts/resolve-desktop-download.mjs                # 解析线上 → 有差异则写快照

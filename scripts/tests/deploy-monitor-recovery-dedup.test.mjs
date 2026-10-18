@@ -12,6 +12,10 @@
 //   I3 恢复后该身份不再滞留台账:缺席未超窗 ⇒ 只打 recoveredTs 标记且 4h 抑制仍在(间歇故障不得
 //      每轮重寄);缺席且超窗 ⇒ 条目删除(真终态);档案读不出 ⇒ 未判定,不得伪装成已清。
 // 装车锁 I4:ihui-monitor.ps1 必须真的接线清偿档、且三格旧抖动形态不得回潮(下一席改回即红)。
+// 扩面锁 I5/I6(2026-10-17 同日):备份维射程从"只 glob ihui_dev"扩到逐类(ihui_dev + keycloak),
+//   两类各出一条身份;"超龄"与"该类一个文件都没有"是两格,"目录取不到/枚举抛错/时刻读不出"是
+//   第三格(未判定,只落日志)—— 旧形用 -ErrorAction SilentlyContinue 把第三格折进第二格。
+//   I7 把源码里的逐类循环原文抽出来喂四类临时夹具(未判定/超龄/零文件/正常),四格当场量得出来。
 //
 // 取材纪律:alert-dedup.ps1 顶层只有函数定义 ⇒ 整模块 dot-source(ihui-monitor.ps1 顶层会起
 // 巡检循环,禁止 dot-source ⇒ 用大括号配平从源码抽出目标纯函数原文,抽不到 ⇒ 当场未判定红)。
@@ -62,12 +66,11 @@ function pwsh(cmd) {
 // 从 ihui-monitor.ps1 源码抽函数原文(大括号配平;函数体内注释与字符串均不含花括号,
 // monitor 侧新增函数遵守此纪律,源锁 I4c 把这条也钉上)。抽不到即失败——不得静默少喂。
 const monitorSrc = readFileSync(MONITOR, 'utf8')
-function extractFn(name) {
-  const marker = `function ${name}`
+function extractRegion(marker, label = marker) {
   const start = monitorSrc.indexOf(marker)
-  if (start < 0) assert.fail(`未判定:ihui-monitor.ps1 源码里抽不到 function ${name}(函数被改名/删除 ⇒ 本测试失去输入,判红不判绿)`)
-  let i = monitorSrc.indexOf('{', start)
-  if (i < 0) assert.fail(`未判定:function ${name} 找不到起始大括号`)
+  if (start < 0) assert.fail(`未判定:ihui-monitor.ps1 源码里抽不到 ${label}(被改名/删除 ⇒ 本测试失去输入,判红不判绿)`)
+  const i = monitorSrc.indexOf('{', start)
+  if (i < 0) assert.fail(`未判定:${label} 找不到起始大括号`)
   let depth = 0
   for (let j = i; j < monitorSrc.length; j++) {
     const ch = monitorSrc[j]
@@ -77,7 +80,10 @@ function extractFn(name) {
       if (depth === 0) return monitorSrc.slice(start, j + 1)
     }
   }
-  assert.fail(`未判定:function ${name} 大括号不配平`)
+  assert.fail(`未判定:${label} 大括号不配平`)
+}
+function extractFn(name) {
+  return extractRegion(`function ${name}`, `function ${name}`)
 }
 const FNS = [
   'Get-DiskFreeTier',
@@ -86,6 +92,7 @@ const FNS = [
   'Get-UrlAlertSig',
   'Get-CloudflaredAlertSig',
   'Get-BackupAlertSig',
+  'Get-BackupAbsentAlertSig',
 ].map(extractFn)
 
 // 每个用例共用的 PS 头部:装载真模块 + 注入抽出的身份函数。
@@ -297,5 +304,110 @@ test('I4 监控侧接线与旧抖动形态反向锁(下一席改回即红)', () 
   assert.match(src, /Get-PSDrive \$MonitoredDrive/, '乙-3 出路:被检卷按配置($MonitoredDrive)')
   assert.match(src, /IHUI_MONITOR_DISK_LETTER/, '乙-3 覆盖开关必须登记在配置层')
   assert.match(src, /身份恢复清偿 未判定/, '甲:清偿判不出必须能在日志里点名,不得静默')
+})
+
+// ── I5 备份维逐类扩面(2026-10-17:keycloak 从未进射程,停更无人喊)──────────────────
+// 判据一律走源文件抽出的函数(§22c:FNS 由 extractFn 从 ihui-monitor.ps1 原文取,测试不抄)。
+// 钉四格:①逐类各一条身份且同类同班恒等 ②"超龄"与"该类零文件"是两格不是一格
+// ③两格身份里都不带实时量(档=缺N 班是整数班号,零文件那一格压根没有数可抖)
+// ④台账面两类各占一槽、同槽重复轮被 4h 窗压住。
+test('I5 备份维逐类扩面:ihui_dev/keycloak 各一条身份,"超龄"与"零文件"两格不混且身份不随轮抖', () => {
+  runCase('i5', [
+    `$k1 = Get-BackupAlertSig -Kind 'keycloak' -Shifts (Get-BackupMissedShifts -AgeHours 30)`,
+    `$k2 = Get-BackupAlertSig -Kind 'keycloak' -Shifts (Get-BackupMissedShifts -AgeHours 31)`,
+    `$d1 = Get-BackupAlertSig -Kind 'ihui_dev' -Shifts (Get-BackupMissedShifts -AgeHours 30)`,
+    `Write-Output ("KC_STABLE=" + ($k1 -eq $k2))`,
+    `Write-Output ("KC_KIND_DIFF=" + ($k1 -ne $d1))`,
+    `Write-Output ("KC1=" + $k1)`,
+    `$a1 = Get-BackupAbsentAlertSig -Kind 'keycloak'`,
+    `$a2 = Get-BackupAbsentAlertSig -Kind 'ihui_dev'`,
+    `Write-Output ("ABSENT1=" + $a1)`,
+    `Write-Output ("ABSENT_KIND_DIFF=" + ($a1 -ne $a2))`,
+    `Write-Output ("ABSENT_NO_REALTIME=" + (-not ($a1 -match '档=|班|dump|\.dump')))`,
+    `Write-Output ("GRID_SEPARATE=" + ($k1 -ne $a1))`,
+    `$null = Test-AlertDueByIdentity -Sig $d1 -StateFile $sf -RepeatHours 4`,
+    `$null = Test-AlertDueByIdentity -Sig $k1 -StateFile $sf -RepeatHours 4`,
+    `$again = Test-AlertDueByIdentity -Sig $k1 -StateFile $sf -RepeatHours 4`,
+    `$st = Read-AlertDedupState -StateFile $sf`,
+    `Write-Output ("STALE_COUNT=" + $st.Map.Count)`,
+    `Write-Output ("STALE_AGAIN=" + $again.Decision)`,
+    `$b1 = Test-AlertDueByIdentity -Sig $a1 -StateFile $sf -RepeatHours 4`,
+    `$b2 = Test-AlertDueByIdentity -Sig $a1 -StateFile $sf -RepeatHours 4`,
+    `Write-Output ("ABSENT_DEC=" + ($b1.Decision + ',' + $b2.Decision))`,
+  ], (out) => {
+    assert.match(out, /KC_STABLE=True/, '同类同班号必须恒为一个身份(30h 与 31h 都是缺1班):', out)
+    assert.match(out, /KC_KIND_DIFF=True/, '异类必须异身份:两类并一条 = 一类没备份被另一类顶掉:', out)
+    assert.match(out, /KC1=备份超龄 类别=keycloak 档=缺1 班/, 'keycloak 那一格的身份串:', out)
+    assert.match(out, /ABSENT1=无数据库备份文件 类别=keycloak/, '零文件那一格的身份串:', out)
+    assert.match(out, /ABSENT_KIND_DIFF=True/, '零文件那一格也必须逐类分开:', out)
+    assert.match(out, /ABSENT_NO_REALTIME=True/, '零文件身份里不得出现任何实时量(文件名/小时数/班号):', out)
+    assert.match(out, /GRID_SEPARATE=True/, '超龄与零文件必须是两格身份,不得混判:', out)
+    assert.match(out, /STALE_COUNT=2/, '两类各占一个身份槽:', out)
+    assert.match(out, /STALE_AGAIN=window-hit/, '同身份第二轮必须被 4h 窗压住:', out)
+    assert.match(out, /ABSENT_DEC=due-new,window-hit/, '零文件那一格同样按身份去重:', out)
+  })
+})
+
+// ── I6 备份维扩面的接线锁:射程、出路、旧形态不得回潮 ─────────────────────────────
+test('I6 备份维接线锁:两类都在射程、逐类各一条身份、"读不到"不得折成"没备份"、阈值只有一处', () => {
+  const src = monitorSrc
+  assert.match(src, /kind = 'ihui_dev'/, '射程必须显式列 ihui_dev(现读既有那一类)')
+  assert.match(src, /kind = 'keycloak'/, 'keycloak 没进清单 = 本票等于没做')
+  assert.match(src, /Get-BackupAbsentAlertSig -Kind \$t\.kind/, '零文件那一格必须走带类别的身份函数')
+  assert.doesNotMatch(src, /\$alerts \+= "无数据库备份文件"/, '旧形回潮:常量身份不带类别 ⇒ 两类并成一格')
+  assert.doesNotMatch(src, /Get-ChildItem \$t\.glob -ErrorAction SilentlyContinue/, '旧形回潮:SilentlyContinue 把"读不到"折成"没有文件"')
+  assert.match(src, /-ErrorAction Stop/, '枚举必须抛得出错,否则"判不出"那一格结构上不存在')
+  assert.match(src, /备份新鲜度维 未判定\(类别=/, '逐类未判定必须点名是哪一类')
+  assert.match(src, /\}\s*catch\s*\{\s*Log "备份新鲜度维 未判定\(类别=/, '每一类各自一个 catch:一类判不出不得把另一类一起带走')
+  assert.equal((src.match(/Get-BackupMissedShifts -AgeHours/g) || []).length, 1, '档位算法只许一处调用点(第二份必然漂开)')
+  assert.equal((src.match(/-gt 26\b/g) || []).length, 1, '26h 阈值只在巡检段出现一次,不抄第二份')
+  assert.match(src, /ihui-pg-backup\.ps1:353/, '阈值/节律的出处必须写在注释里(现读行号,不是记忆)')
+})
+
+// ── I7 备份维那一轮的四格实测(把源码里的逐类循环原文抽出来喂临时夹具,不抄第二份判据)──
+// 四格必须各归各位:①目录取不到 ⇒ 未判定(不红不绿) ②超龄 ⇒ 一条身份 ③枚举成功而零文件 ⇒
+// 另一条身份(红) ④正常 ⇒ 什么都不产。四类同排一轮,还要证明"判不出那一类"不会把后面的类带走。
+test('I7 备份维四格实测:未判定/超龄/零文件/正常 分得开,一类判不出不带走另一类', () => {
+  const loop = extractRegion('foreach ($t in $bakTargets) {', '备份维逐类循环')
+  runCase('i7', [
+    `$d = Split-Path $sf -Parent`,
+    `$stale = Join-Path $d 'pg-stale'`,
+    `$zero = Join-Path $d 'pg-zero'`,
+    `$fresh = Join-Path $d 'pg-fresh'`,
+    `$null = New-Item -ItemType Directory -Path $stale -Force`,
+    `$null = New-Item -ItemType Directory -Path $zero -Force`,
+    `$null = New-Item -ItemType Directory -Path $fresh -Force`,
+    `Set-Content -LiteralPath (Join-Path $stale 'ihui_dev_20260101_030000.dump') -Value 'x' -Encoding ascii`,
+    `Set-Content -LiteralPath (Join-Path $fresh 'keycloak_20260101_030000.dump') -Value 'x' -Encoding ascii`,
+    `(Get-Item -LiteralPath (Join-Path $stale 'ihui_dev_20260101_030000.dump')).LastWriteTime = (Get-Date).AddHours(-30)`,
+    `$alerts = @()`,
+    `$alertDetail = @()`,
+    `$script:und = @()`,
+    `function Log($m) { $script:und += $m }`,
+    // nodir 排第一位:它当轮判不出,后面的类仍必须照判(旧写法整维一个 catch,一处抛错全体没判)
+    `$bakTargets = @(`,
+    `  @{ kind = 'nodir'; dir = (Join-Path $d 'pg-missing'); pattern = 'ihui_dev_*.dump' },`,
+    `  @{ kind = 'ihui_dev'; dir = $stale; pattern = 'ihui_dev_*.dump' },`,
+    `  @{ kind = 'keycloak'; dir = $zero; pattern = 'keycloak_*.dump' },`,
+    `  @{ kind = 'freshone'; dir = $fresh; pattern = 'keycloak_*.dump' }`,
+    `)`,
+    loop,
+    `Write-Output ("ALERT_COUNT=" + @($alerts).Count)`,
+    `Write-Output ("ALERTS=" + (@($alerts) -join ' ;; '))`,
+    `Write-Output ("UNDET=" + (@($script:und) -join ' ;; '))`,
+    `Write-Output ("DETAIL=" + (@($alertDetail) -join ' ;; '))`,
+  ], (out) => {
+    const alerts = (out.match(/ALERTS=(.+)/) || [])[1] || ''
+    const und = (out.match(/UNDET=(.+)/) || [])[1] || ''
+    const detail = (out.match(/DETAIL=(.+)/) || [])[1] || ''
+    assert.match(out, /ALERT_COUNT=2/, `只许超龄与零文件两格进告警(未判定与正常都不许):${out}`)
+    assert.ok(alerts.includes('备份超龄 类别=ihui_dev 档=缺1 班'), `超龄那一格必须有身份:\n${out}`)
+    assert.ok(alerts.includes('无数据库备份文件 类别=keycloak'), `零文件那一格必须有身份(且带类别):\n${out}`)
+    assert.ok(!alerts.includes('nodir'), `目录取不到那一格不得变成红信(它是判不出,不是没备份):\n${alerts}`)
+    assert.ok(!alerts.includes('freshone'), `新鲜备份不得产告警:\n${alerts}`)
+    assert.match(und, /^备份新鲜度维 未判定\(类别=nodir/, `判不出必须点名类别落到日志里(不得折成告警也不得折成正常):\n${out}`)
+    assert.ok(detail.includes('枚举到 0 个文件'), `零文件那一格的实时正文(目录+匹配式)必须留档:\n${out}`)
+    assert.ok(detail.includes('缺 1 班'), '超龄那一格把实测小时数只写进正文:', out)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

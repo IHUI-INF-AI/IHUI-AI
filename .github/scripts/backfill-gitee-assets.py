@@ -33,8 +33,13 @@ GH_REPO = os.environ.get("GITHUB_REPOSITORY", "IHUI-INF-AI/IHUI-AI")
 PROXY_PREFIX = "https://gh-proxy.com/"
 # 2026-10-12 修正:TMP_DIR 必须按 tag 分子目录 —— 旧实现全局平铺,而 tauri-action 的
 # darwin 产物名(AI_universal.app.tar.gz / AI.app.tar.gz)不带版本号,0.1.50 的缓存
-# 被 0.1.51 复用 ⇒ 错误内容传上 Gitee(签名对不上/旧包冒名,且 Gitee 同名直链永取
-# 第一个、无法覆盖)。历史事故:0.1.51 补齐时两枚 darwin 包体 MISMATCH 实锤。
+# 被 0.1.51 复用 ⇒ 错误内容传上 Gitee(签名对不上/旧包冒名)。历史事故:0.1.51 补齐时
+# 两枚 darwin 包体 MISMATCH 实锤。
+# ⚠️ 2026-10-18 更正末句"且 Gitee 同名直链永取第一个、无法覆盖":**可覆盖**,
+#   按 /releases/{id}/attach_files 返回的 id 逐件 DELETE 再重传即可(同日实测生效)。
+#   真正的不变式是"**同名 ≠ 同物**":补传/复用前必须比 size(必要时比 sha256),
+#   desktop-v0.1.75 就是靠"同名即已有"让一份 02:28 的旧包顶着 CI 03:53 的签名挂在链上,
+#   客户端下载成功而验签必失败。对账已接在 sync-gitee.py 的上传环里,本器同口径。
 def tmp_dir_for(tag):
     return os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "..", "..", ".ihui-agent", "tmp", "backfill-gitee", tag)
