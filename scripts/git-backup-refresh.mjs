@@ -14,6 +14,14 @@
 // 做法:对备份 gitdir 做**增量 fetch**(不做整仓 857MB 重拷),
 // 只同步 `refs/heads/*` 与 `refs/tags/*`,再落一份 `refs-manifest.json` 副本,
 // 使"离线恢复"在恢复后立刻具备 §5b 的嵌套 ref 自愈能力。
+//
+// CLI:`--check`(零副作用体检,守护每轮跑)| `--dry-run` | `--self-test` | `--quiet` |
+//   **`--init`**(G-930 补的新建档:恢复源镜像缺失时按**工作区外**落点 `backupMirrorRoot()`
+//   建 bare mirror,建完立即用既有 `--check` 路径复量;幂等 —— 已在位就不动。
+//   为什么恢复源落点不能跟着 `devEnvRoot()` 走仓内 `.DevEnv`:那是 G-814433 给"现场归档"
+//   定的形态,而镜像若长在仓树内 ⇒ ① 守门 208 判工作树内嵌套 git 仓(blocking,人人跳门,
+//   §12e 禁的恒红门)②恢复源放进它所恢复的对象内,对"工作区被 clean/删"这一类事故正好失效。
+//   `--check` 与 `--dry-run` 一支都不建(自动档悄悄长出一棵仓是禁的)。
 // 全程只读工作树仓库、只写工作树之外。**唯一的删除动作**:备份自己的 `refs/heads/main`
 // 若是一枚写坏的半截文件(内容不是合法 sha),它会让 fetch 直接 `fatal: bad object`,
 // 此时先按 §5b 把现场字节归档到 gitArchiveDir()/broken-refs 并回读逐字节一致,才清除它
@@ -33,6 +41,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  renameSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
@@ -70,6 +79,8 @@ const REFRESH_LOCK_SUBPATH = 'ihui-backup-refresh.lock'
 const args = process.argv.slice(2)
 const CHECK_ONLY = args.includes('--check')
 const DRY_RUN = args.includes('--dry-run')
+// G-930:恢复源镜像缺失时的**唯一新建出口**(旧版只会刷新已存在的镜像,缺了就永久硬失败)
+const INIT = args.includes('--init')
 const SELF_TEST = args.includes('--self-test')
 const QUIET = args.includes('--quiet')
 
@@ -562,6 +573,43 @@ async function selfTest() {
         /禁止清除/.test(q14.error || ''),
       JSON.stringify(q14),
     )
+    // 15 G-930 落点闸:目标落在工作树内 ⇒ 必须拒建(守门 208 判工作树内嵌套 git 仓零容忍,
+    //    恢复源也不得放进它所恢复的对象)。这一例是"拒绝"臂,不成立就等于闸是装饰。
+    const inside = initMirror({
+      worktree: src,
+      source: join(src, '.git'),
+      target: join(src, 'bk.git'),
+    })
+    expect(
+      '15 --init 拒建工作树内落点(嵌套 git 仓 / §5b 恢复源必须在对象之外)',
+      inside.ok === false && /工作树内/.test(inside.why),
+      JSON.stringify(inside),
+    )
+
+    // 16 G-930 端到端:缺失的镜像要真建得出,且建完 tip 与源 HEAD 逐字等值;再跑一次必须幂等
+    const bk16 = join(dir, 'mirror16.git')
+    const i16 = initMirror({ worktree: src, source: join(src, '.git'), target: bk16 })
+    const srcHead16 = run(['rev-parse', 'HEAD'], src)
+    const again16 = initMirror({ worktree: src, source: join(src, '.git'), target: bk16 })
+    expect(
+      '16 --init 建出 bare mirror 且 tip==源 HEAD;重复调用不重建(幂等)',
+      i16.ok === true &&
+        i16.created === true &&
+        existsSync(join(bk16, 'HEAD')) &&
+        i16.head === srcHead16 &&
+        again16.created === false &&
+        again16.ok === true,
+      JSON.stringify({ i16, again16 }),
+    )
+
+    // 17 G-930 源不可用时不得建出空壳("空镜像比没有镜像更误导")
+    const bk17 = join(dir, 'mirror17.git')
+    const i17 = initMirror({ worktree: src, source: join(dir, 'no-such-git'), target: bk17 })
+    expect(
+      '17 --init 源 gitdir 取不到 HEAD ⇒ 拒建且不留目录',
+      i17.ok === false && /源 gitdir/.test(i17.why) && !existsSync(bk17),
+      JSON.stringify(i17),
+    )
     return pass ? 0 : 1
   } finally {
     rmScratch(dir)
@@ -570,6 +618,31 @@ async function selfTest() {
 
 async function main() {
   if (SELF_TEST) return selfTest()
+
+  // ── G-930 新建档(--init)───────────────────────────────────────────────
+  // 只在显式 --init 下建镜像;--dry-run 只报落点不写盘 —— `--check` 的零副作用是守护每轮
+  // 早退的前提(镜像测试 T15 钉死),所以"自动档悄悄长出一棵仓"这条形态在这里是禁的。
+  if (INIT) {
+    if (DRY_RUN) {
+      const t = resolveBackupDir(resolveWorktree())
+      if (!t) {
+        console.error('❌ --init --dry-run:落点解析为 null(夹具/无法交出生产落点)⇒ 未判定')
+        return 2
+      }
+      say(
+        existsSync(join(t, 'HEAD'))
+          ? `[dry-run] --init:恢复源已在位(${t}),无需新建`
+          : `[dry-run] --init:将按工作区外落点建 bare mirror → ${t}(本档不写盘)`,
+      )
+      return 0
+    }
+    const r = initMirror()
+    if (!r.ok) {
+      console.error(`❌ --init: ${r.why}`)
+      return 1
+    }
+    say(`--init: ${r.why}(落点 ${r.target},本次${r.created ? '新建' : '未写入'})`)
+  }
 
   // ── G-262 单实例守卫(只管"会真 fetch"的 apply 路径)──────────────────────────
   // 实测 2026-09-27:守护每 2 分钟跑一次 `--check`,判落后才 apply;而一次全 ref 的增量
@@ -594,7 +667,9 @@ async function main() {
       })
       if (!guard.acquired) {
         say(`SKIPPED 本轮不刷新本地恢复源:${guard.why}`)
-        say('SKIPPED 不是故障:下一个 tick 会重新起跑(§5b 恢复源的账不会因跳过而丢,落后判据仍会被下一次 --check 量出来)')
+        say(
+          'SKIPPED 不是故障:下一个 tick 会重新起跑(§5b 恢复源的账不会因跳过而丢,落后判据仍会被下一次 --check 量出来)',
+        )
         return 0
       }
     }
@@ -609,6 +684,87 @@ async function main() {
         /* 释放失败不改本轮结论:残留锁按"pid 已死 ∧ 超龄"回收,不秒删 */
       }
     }
+  }
+}
+
+/**
+ * G-930 的新建档:本地恢复源镜像不存在时,按**工作区外**落点建一棵 bare mirror,建完立即复量。
+ *
+ * 为什么必须有这一档(旧现状):`refreshBackup()` 只会 fetch 已存在的镜像,而两处遗留形态
+ * `D:/IHUI-AI-git-repo`、`D:/IHUI-AI.git-backup-20260912` 实测都已不在 ⇒ guardian 每轮
+ * 先 `--check` 再刷的那一层在同一处永久硬失败,本机**没有可用的 .git 恢复源**。
+ *
+ * 三条硬约束(都写在判据里,不靠口头):
+ *  ① 落点必须在工作树之外 —— 仓内长 bare 仓 = 守门 208 的嵌套 git 仓(blocking,每次提交都红,
+ *    §12e 禁的形态)+ 恢复源放进它所恢复的对象内部(§5b/§15b 同一条理由);
+ *  ② 只在显式 `--init` 下建 —— `--check` 的零副作用是守护每 2 分钟早退的前提(镜像 T15 钉死);
+ *  ③ 建失败不留半成品冒充恢复源 —— 把刚建的目录**改名**成 `.partial-<ts>` 而不是递归删
+ *    (§26:junction 递归穿透会清空真实目标;改名可逆,不赌它是不是链)。
+ *
+ * @param {{worktree?:string, source?:string, target?:string}} [opts] 测试注入用
+ * @returns {{ok:boolean,target:string,why:string,created:boolean,head?:string,srcHead?:string}}
+ */
+export function initMirror(opts = {}) {
+  const worktree = opts.worktree || resolveWorktree()
+  const src = opts.source || resolveGitdir(worktree)
+  const target = (opts.target || resolveBackupDir(worktree) || '').replace(/\\/g, '/')
+  const wt = String(worktree).replace(/\\/g, '/').replace(/\/+$/, '')
+  const fail = (why) => ({ ok: false, target, why, created: false })
+  if (!target) return fail('resolveBackupDir() 返回 null(夹具现场 / 无法交出生产落点)⇒ 不建')
+  if (target === wt || target.startsWith(`${wt}/`))
+    return fail(
+      `落点在工作树内(${target})⇒ 拒绝新建:守门 208 判工作树内嵌套 git 仓零容忍,且恢复源不得放进它所恢复的对象(§5b/§15b)`,
+    )
+  if (!src || !existsSync(join(src, 'HEAD')))
+    return fail(`源 gitdir 取不到 HEAD(${src})⇒ 不建(空镜像比没有镜像更误导)`)
+
+  if (existsSync(join(target, 'HEAD')))
+    return {
+      ok: true,
+      target,
+      why: '已存在 ⇒ 不重建(本档幂等;追平走不带 --init 的刷新路径)',
+      created: false,
+      head: gitSha(target, ['rev-parse', '--verify', 'main'], true) || null,
+      srcHead: gitSha(src, ['rev-parse', 'HEAD']) || null,
+    }
+
+  mkdirSync(dirname(target), { recursive: true })
+  let created = false
+  try {
+    execFileSync(GIT, ['-c', 'safe.directory=*', 'clone', '--mirror', src, target], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 30 * 60 * 1000,
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    created = true
+  } catch (e) {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    if (existsSync(target)) {
+      try {
+        renameSync(target, `${target}.partial-${stamp}`)
+      } catch {
+        /* 改名也失败 ⇒ 只大声报,不强删 */
+      }
+    }
+    return fail(
+      `clone --mirror 失败(半成品已改名 .partial-${stamp},未留冒充):${String(e?.message ?? e).slice(0, 200)}`,
+    )
+  }
+  const head = gitSha(target, ['rev-parse', '--verify', 'main'], true) || null
+  const srcHead = gitSha(src, ['rev-parse', 'HEAD']) || null
+  if (!existsSync(join(target, 'HEAD')) || !head)
+    return fail(`建完仍读不到镜像 HEAD/main(镜像=${target})⇒ 判未建成,不当成功`)
+  return {
+    ok: head === srcHead,
+    target,
+    why:
+      head === srcHead
+        ? '✅ 恢复源镜像已建出,且 tip 与源 HEAD 逐字等值'
+        : `⚠️ 镜像已建但 tip 与源不同(${String(head).slice(0, 9)} vs ${String(srcHead).slice(0, 9)})—— 期间源被并进过新提交,再跑一次刷新即可`,
+    created,
+    head,
+    srcHead,
   }
 }
 
@@ -665,6 +821,7 @@ export const __test__ = {
   classifyBackupTip,
   judgeCheck,
   quarantineBrokenTipRef,
+  initMirror,
   repoName: () => basename(REPO),
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
