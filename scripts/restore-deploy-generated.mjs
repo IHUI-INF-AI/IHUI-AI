@@ -120,7 +120,6 @@ export function planGeneratedYield(repoRoot, registryText, { nowMs = Date.now(),
       blocked = true
       continue
     }
-    const src = join(repoRoot, rel)
     const dst = join(backupDir, 'tracked__' + norm.replace(/[\\/]/g, '__'))
     actions.push({ rel: norm, tier: 'tracked-generated', action: '备份后复原到 HEAD', backup: dst, reason: listed.reason })
   }
