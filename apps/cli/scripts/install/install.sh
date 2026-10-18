@@ -10,7 +10,7 @@
 set -euo pipefail
 
 GITHUB_REPO="IHUI-INF-AI/IHUI-AI"
-NPM_PACKAGE="@ihui/cli"
+NPM_PACKAGE="ihui-cli"
 INSTALL_VERSION="${IHUI_VERSION:-latest}"
 INSTALL_DIR_LOCAL="${HOME}/.local/bin"
 INSTALL_DIR_GLOBAL="/usr/local/bin"
