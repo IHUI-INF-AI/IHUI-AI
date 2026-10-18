@@ -38,8 +38,13 @@
  * 用法:`node scripts/check-alert-identity-volatility.mjs [--staged|--worktree|--json|--strict|--self-test]`
  * 退出码:0 通过(含"只有存量") / 1 本次带进来的命中或 strict 下的存量 / 2 无法判定。
  *
- * 接线状态(如实登记):见本文件末尾 `WIRING` 与 AGENTS.md「门名点名索引」同批登记;
- * 未接提交链之前不得自称已接线(守门 89 R1/R4)。
+ * 接线状态(2026-10-18 现读,头注与注册条目必须同真同假 —— 脱节即红,镜像测试钉这条):
+ * **已接进提交链 = 守门 id 224**(用 `scripts/gate-registry-insert.mjs` 以 HEAD 为底取号插入并同枚落地),
+ * 注册条目现读 `mode: 'blocking'` / `skipEnv: 'HUSKY_SKIP_ALERT_IDENTITY'` /
+ * `stagedTriggers: ['scripts/','deploy/win/','apps/api/src/']`。敢定 blocking 而不是 warn:提交链上
+ * 走的是差值棘轮(锚点 = 该文件 HEAD 自身命中数),现读 HEAD 面存量 0 条 + 1 条具名到期豁免,
+ * 因此它对无关提交不构成红(§12e 禁的是恒红门,不是"拦新增")。自检 `--self-test`(条数现读,
+ * 别在本文钉数),镜像 `scripts/tests/check-alert-identity-volatility.test.mjs`。
  */
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
