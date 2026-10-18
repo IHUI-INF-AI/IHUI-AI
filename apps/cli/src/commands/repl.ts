@@ -131,6 +131,7 @@ import {
   listSessions as listSessionStates,
   newSessionId,
 } from '../sessions/index.js';
+import { buildToolResultMetadata } from '@ihui/types';
 import { loadSettings, type Settings } from './settings.js';
 import { handlePluginMarketplaceCommand } from './plugin-marketplace.js';
 import {
@@ -326,6 +327,12 @@ export interface ReplState {
   abortController: AbortController | null;
   /** W10 工具调用完整记录环形缓冲(/tool 回看,保留最近 20 条) */
   toolLog: ToolCallRecord[];
+  /**
+   * G-109 落库面:有界 display 投影 + serialization 四数的持久化条目(按 callId 归档)。
+   * 挂在 state 上而不是工具循环的局部变量上 —— 写点在 onToolResult,落盘点在退出处理器,
+   * 两者不同函数作用域(局部声明会被保存点判 Cannot find name,已实测)。
+   */
+  toolResultMetadata: Record<string, unknown>;
   /** P3-3 Prompt Queue:用户在 agent 运行时排队的提示词,agent 完成后自动 drain 顺序执行 */
   promptQueue: PromptQueue;
   /** D38 队列模式(真相源 queue-interactions FOLLOW_UP_MODES):steer=运行中输入进插话缓冲(现状默认);queue=运行中输入排队优先 */
@@ -706,6 +713,7 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     abortController: null,
     // W10 工具调用记录(/tool 回看)
     toolLog: [],
+    toolResultMetadata: {},
     // P3-3 Prompt Queue:初始化提示词队列
     promptQueue: new PromptQueue(),
     // D38 默认 steer(维持现状:运行中输入进插话缓冲);/queue mode 可切 queue
@@ -925,6 +933,9 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
           })),
           status: 'completed',
           cwd: opts.workspacePath,
+          // G-109:落库面 —— 只有真发生过裁剪的结果才产条目;空表不写这一格,免得把
+          // 水合读侧判成"有条目但都降级"的假账。
+          ...(Object.keys(state.toolResultMetadata).length > 0 ? { toolState: { ...state.toolResultMetadata } } : {}),
         });
         const msgCount = state.history.length;
         console.info(chalk.dim(`  · session ${stateId.slice(0, 8)} · ${msgCount} 条消息`));
@@ -2948,13 +2959,19 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         const card = formatToolResultForCard(text);
         console.info(chalk.cyan(`  │  ${card.text.replace(/\n/g, '\n  │  ')}`));
       },
-      onToolResult: (name, success, output) => {
+      onToolResult: (name, success, output, display) => {
         // 停止工具运行 spinner
         if (currentToolSpinner) {
           currentToolSpinner.stop();
           currentToolSpinner = null;
         }
         const callId = `call-${toolCallCount}`;
+        // G-109:有界 display 才落库(未触发裁剪就没有第二条账要记)。写侧唯一入口
+        // buildToolResultMetadata —— 它的入参结构上没有 output,全文进不了 metadata。
+        if (display) {
+          const meta = buildToolResultMetadata({ toolCallId: callId, toolName: name, display });
+          if (meta) state.toolResultMetadata[callId] = meta;
+        }
         const startTime = toolStartTime.get(callId);
         const durationMs = startTime ? Date.now() - startTime : 0;
         const durationStr = durationMs > 0 ? chalk.dim(` ${durationMs}ms`) : '';
