@@ -5068,6 +5068,22 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 告警身份抖动(1 项,blocking)---
+  {
+    id: '224',
+    label:
+      '告警身份抖动对账(到人邮件的去重身份不得含逐轮抖动的 sha/时刻/原始计数/异常原文;差值棘轮:只拦本次加回来的)',
+    script: 'check-alert-identity-volatility.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_ALERT_IDENTITY',
+    stagedTriggers: ['scripts/', 'deploy/win/', 'apps/api/src/'],
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
