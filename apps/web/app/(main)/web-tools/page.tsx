@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Braces, Copy, Check, ExternalLink, Globe, Link2, FileText, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 
 /** 网页工具中心(2026-09-09 立):Firecrawl 四件套融合的只读网页抓取操作页。
@@ -34,12 +34,6 @@ interface ToolResult {
   llm_usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
   llm_model?: string
   message?: string
-}
-
-async function api<T>(url: string, options: RequestInit & { timeoutMs?: number } = {}): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error || 'Request failed')
-  return r.data
 }
 
 function parseFields(text: string): Record<string, string> | null {
@@ -105,10 +99,11 @@ export default function WebToolsPage() {
     setCopied(false)
     const t0 = performance.now()
     try {
-      const res = await api<{ ok: boolean; result: ToolResult }>('/web-tools/call', {
+      const res = await apiOrThrow<{ ok: boolean; result: ToolResult }>('/web-tools/call', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        fallbackError: 'Request failed',
       })
       setResult(res.result)
       setElapsed(Math.round(performance.now() - t0))
