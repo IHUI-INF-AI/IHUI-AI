@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "IHUI-AI 多租户业务监控 (租户活跃 / API 调用 / 资源占用 / 限流 / 计费)",
+  "description": "IHUI-AI 多租户业务监控 (租户活跃 / API 调用 / 资源占用 / 限流 / 计费)。给值班:本盘全部指标族的标签值(tenant_id / resource)是开放集——序列只在真实租户级调用发生那一刻才出现。本机至今没有发生过租户级调用,整盘 No data 是事实,不是采集坏了。要验证埋点活着:自己发一次带租户身份的真实 API 调用再看序列是否出现即可。严禁用 clamp 或假标签凑出 0——那会把'没发生过'伪装成'发生了但值为 0',在告警上是两种完全不同的结论。",
   "editable": true,
   "graphTooltip": 1,
   "id": null,
