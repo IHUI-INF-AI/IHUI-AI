@@ -16,6 +16,7 @@
  *  - /content/home          → carousels(position=home,status=1,前 5)+ lessons(isPublished,前 10)+ announcements(前 5)
  *  - /content/banner/list   → carousels(status=1,支持 position 筛选,分页)
  *  - /content/course/list   → lessons(isPublished + status=1,支持 categoryId,分页)
+ *  - /content/course/:id    → 同表同投影的单条 + lesson_chapters 组成的章节大纲
  *  - /study/info            → 已迁出,鉴权版(返回真实 lessonRecords 聚合)在 miniapp-compat-routes.ts
  */
 import type { FastifyPluginAsync } from 'fastify'
@@ -23,7 +24,54 @@ import { z } from 'zod'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
 import { carousels, lessons, announcements } from '@ihui/database'
-import { success } from '../utils/response.js'
+import { success, error } from '../utils/response.js'
+import { findLessonChapters } from '../db/learn-queries.js'
+
+/** 课程列表/详情共用的投影源列(两处必须同形,否则同一门课在两个页面长得不一样) */
+const courseColumns = {
+  id: lessons.id,
+  title: lessons.title,
+  coverImage: lessons.coverImage,
+  intro: lessons.intro,
+  categoryId: lessons.categoryId,
+  lecturerId: lessons.lecturerId,
+  lecturerName: lessons.lecturerName,
+  difficulty: lessons.difficulty,
+  price: lessons.price,
+  originalPrice: lessons.originalPrice,
+  isFree: lessons.isFree,
+  viewCount: lessons.viewCount,
+  signupCount: lessons.signupCount,
+  lessonCount: lessons.lessonCount,
+  createdAt: lessons.createdAt,
+}
+
+/**
+ * 库列 → 端上读取名。小程序两个课程页(`pkg-learn/course/list` 与 `.../detail`)都按
+ * `coverUrl / teacher / description` 取值,而库里叫 `coverImage / lecturerName / intro`
+ * ⇒ 列表页此前拿到的是 undefined(封面恒空)。映射只在这一处实现,列表与详情共用。
+ * `subtitle` 库里没有对应列 ⇒ 不发这个键(端上是 optional,缺键即不渲染,胜过造一个假的一行)。
+ */
+export function toCourseRow(r: Record<string, unknown>) {
+  return {
+    id: r.id,
+    title: r.title,
+    coverUrl: r.coverImage ?? '',
+    teacher: r.lecturerName ?? '',
+    teacherId: r.lecturerId ?? '',
+    description: r.intro ?? '',
+    level: r.difficulty ?? '',
+    price: Number(r.price ?? 0),
+    originalPrice:
+      r.originalPrice === null || r.originalPrice === undefined ? null : Number(r.originalPrice),
+    isFree: r.isFree,
+    viewCount: r.viewCount,
+    signupCount: r.signupCount,
+    lessonCount: r.lessonCount,
+    categoryId: r.categoryId,
+    createdAt: r.createdAt,
+  }
+}
 
 export const miniappPublicFallbackRoutes: FastifyPluginAsync = async (server) => {
   // GET /content/home - 首页聚合(banner 前 5 + 推荐课程前 10 + 公告前 5)
@@ -114,23 +162,9 @@ export const miniappPublicFallbackRoutes: FastifyPluginAsync = async (server) =>
     if (categoryId) conditions.push(eq(lessons.categoryId, categoryId))
     const where = and(...conditions)
     const offset = (page - 1) * pageSize
-    const [list, totalRows] = await Promise.all([
+    const [rows, totalRows] = await Promise.all([
       dbRead
-        .select({
-          id: lessons.id,
-          title: lessons.title,
-          coverImage: lessons.coverImage,
-          intro: lessons.intro,
-          categoryId: lessons.categoryId,
-          lecturerName: lessons.lecturerName,
-          price: lessons.price,
-          originalPrice: lessons.originalPrice,
-          isFree: lessons.isFree,
-          viewCount: lessons.viewCount,
-          signupCount: lessons.signupCount,
-          lessonCount: lessons.lessonCount,
-          createdAt: lessons.createdAt,
-        })
+        .select(courseColumns)
         .from(lessons)
         .where(where)
         .orderBy(desc(lessons.createdAt))
@@ -141,7 +175,35 @@ export const miniappPublicFallbackRoutes: FastifyPluginAsync = async (server) =>
         .from(lessons)
         .where(where),
     ])
+    const list = rows.map(toCourseRow)
     return reply.send(success({ list, total: totalRows[0]?.total ?? 0, page, pageSize }))
+  })
+
+  // GET /content/course/:id - 课程详情(与列表同表同投影,另挂 lesson_chapters 组成的章节大纲)
+  server.get('/content/course/:id', async (request, reply) => {
+    const parsed = z
+      .object({ id: z.uuid('课程 id 必须是 UUID') })
+      .safeParse((request.params ?? {}) as { id?: string })
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const rows = await dbRead
+      .select(courseColumns)
+      .from(lessons)
+      .where(
+        and(eq(lessons.id, parsed.data.id), eq(lessons.isPublished, true), eq(lessons.status, 1)),
+      )
+      .limit(1)
+    const row = rows[0]
+    if (!row) return reply.status(404).send(error(404, '课程不存在或未发布'))
+    // 章节没有"时长/简介"列 ⇒ duration/description 落空串,由端上决定不渲染,而不是在服务端造数
+    const chapters = await findLessonChapters(parsed.data.id)
+    return reply.send(
+      success({
+        ...toCourseRow(row),
+        outline: chapters.map((c) => ({ title: c.title, duration: '', description: '' })),
+      }),
+    )
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
