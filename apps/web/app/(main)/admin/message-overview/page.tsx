@@ -22,10 +22,6 @@ interface PageList<T> {
   total?: number
 }
 
-async function api<T>(url: string): Promise<T> {
-  return eduApi<T>(url)
-}
-
 function toDateStr(s: string): string {
   return s ? new Date(s).toISOString().slice(0, 10) : ''
 }
@@ -54,16 +50,16 @@ export default function MessageOverviewPage() {
 
   const { data: notifData, isLoading: ln } = useQuery({
     queryKey: ['msg-overview', 'notifications'],
-    queryFn: () => api<PageList<NotifItem>>('/api/notifications?pageSize=100'),
+    queryFn: () => eduApi<PageList<NotifItem>>('/api/notifications?pageSize=100'),
   })
   const { data: annData, isLoading: la } = useQuery({
     queryKey: ['msg-overview', 'announcements'],
     queryFn: () =>
-      api<PageList<unknown>>('/api/admin/messages/announcements?includeUnpublished=true'),
+      eduApi<PageList<unknown>>('/api/admin/messages/announcements?includeUnpublished=true'),
   })
   const { data: letterData, isLoading: ll } = useQuery({
     queryKey: ['msg-overview', 'private-letters'],
-    queryFn: () => api<PageList<unknown>>('/api/admin/private-letters?pageSize=100'),
+    queryFn: () => eduApi<PageList<unknown>>('/api/admin/private-letters?pageSize=100'),
   })
 
   const notifList = React.useMemo(() => notifData?.list ?? [], [notifData?.list])

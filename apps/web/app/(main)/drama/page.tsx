@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Loader2, Sparkles, PenLine } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
@@ -24,15 +24,6 @@ interface LineRewrite {
   rewritten: string
   sceneIndex: number
   lineIndex: number
-}
-
-async function api<T>(url: string, body?: unknown): Promise<T> {
-  const r = await fetchApi<T>(url, {
-    method: 'POST',
-    body: body ? JSON.stringify(body) : '{}',
-  })
-  if (!r.success) throw new Error(r.error)
-  return r.data
 }
 
 const inputCls =
@@ -64,10 +55,10 @@ export default function DramaPage() {
     setEnhanceLoading(true)
     setEnhanceErr(null)
     try {
-      const res = await api<EnhanceResult>(
-        `/api/drama/scripts/${scriptId}/enhance`,
-        title ? { title } : {},
-      )
+      const res = await apiOrThrow<EnhanceResult>(`/api/drama/scripts/${scriptId}/enhance`, {
+        method: 'POST',
+        body: JSON.stringify(title ? { title } : {}),
+      })
       setEnhanceResult(res)
     } catch (err) {
       setEnhanceErr((err as Error).message)
@@ -85,9 +76,12 @@ export default function DramaPage() {
     setLineLoading(true)
     setLineErr(null)
     try {
-      const res = await api<LineRewrite>(
+      const res = await apiOrThrow<LineRewrite>(
         `/api/drama/scripts/${lineScriptId}/scenes/${sceneIndex}/lines/${lineIndex}/enhance`,
-        { content, instruction: instruction || undefined },
+        {
+          method: 'POST',
+          body: JSON.stringify({ content, instruction: instruction || undefined }),
+        },
       )
       setLineResult(res)
     } catch (err) {
