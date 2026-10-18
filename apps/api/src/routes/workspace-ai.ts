@@ -11,6 +11,7 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
+import { checkpointAvailabilityEvent } from '@ihui/types'
 // 权限档唯一真源(G-161):授权入参必须先归一再判定,认不出即 400
 import { PERMISSION_MODES, normalizePermissionMode } from '@ihui/types/permission-mode'
 import { authenticate } from '../plugins/auth.js'
@@ -1684,6 +1685,25 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
 
   // ─── 全栈原子回滚(P3 #42,2026-09-17 立;dry-run 先行,execute 需 confirm)──
 
+  // D163 残余(2026-10-18):检查点可用性下行(与 D154 同一载体,不另建通道)。
+  // 投递是**下行**,写链成败才是响应状态 —— 广播失败只出声,绝不把一次成功的写链改成 500;
+  // 构造失败同理(值全来自服务端,理论上不可达,同样不许污染写链结果)。
+  const emitCheckpointAvailability = (
+    request: FastifyRequest,
+    input: Parameters<typeof checkpointAvailabilityEvent>[0],
+  ): void => {
+    if (!request.userId) return
+    try {
+      const evt = checkpointAvailabilityEvent(input)
+      server.broadcastToUser(request.userId, evt.event, evt.data)
+    } catch (err) {
+      request.log.warn(
+        { err, userId: request.userId },
+        'checkpoint:availability 广播发射失败(端上退回手动刷新)',
+      )
+    }
+  }
+
   // POST /atomic-checkpoint — 创建原子快照
   server.post('/atomic-checkpoint', async (request, reply) => {
     await requireAuth(request, reply)
@@ -1704,6 +1724,12 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         description: parsed.data.description,
         tool: 'http',
       })
+      // 写链成功 ⇒ 别的设备上的同一工作区也应立刻知道"有一个可用检查点"
+      emitCheckpointAvailability(request, {
+        workspacePath: parsed.data.workspacePath,
+        state: 'available',
+        checkpointId: result.meta.id,
+      })
       return reply.send(
         success({
           id: result.meta.id,
@@ -1712,6 +1738,12 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
+      // 写链失败同样要上报"不可用" —— 否则另一端继续按"可用"行事(D163 的三态纪律)
+      emitCheckpointAvailability(request, {
+        workspacePath: parsed.data.workspacePath,
+        state: 'unavailable',
+        reason: (e as Error).message,
+      })
       return reply.status(500).send(error(500, (e as Error).message))
     }
   })

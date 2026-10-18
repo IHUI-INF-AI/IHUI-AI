@@ -74,12 +74,21 @@ export interface UserBroadcastConfig {
  * 本文件的 `'conversation:updated'` 常量表也会跟着点名"有个事件没人接")。
  */
 export interface UserBroadcastHandlers {
-  'conversation:updated'?: (evt: Extract<UserBroadcastEvent, { event: 'conversation:updated' }>) => void
+  'conversation:updated'?: (
+    evt: Extract<UserBroadcastEvent, { event: 'conversation:updated' }>,
+  ) => void
   /**
    * D154 MCP 连接状态下行(票 §11.3:与 D153 同一枚载体决策,不得另开一条通道)。
    * 与 `'conversation:updated'` 同一条纪律:端内只接自己声明过的事件。
    */
   'mcp:status'?: (evt: Extract<UserBroadcastEvent, { event: 'mcp:status' }>) => void
+  /**
+   * D163 残余(2026-10-18):检查点可用性下行。与上面两条同一条纪律 ——
+   * 端内只接自己声明过的事件;收到不认识的事件走 `onUndetermined` 计数。
+   */
+  'checkpoint:availability'?: (
+    evt: Extract<UserBroadcastEvent, { event: 'checkpoint:availability' }>,
+  ) => void
   /** 收到对象形态但解不出已知事件的帧 ⇒ 「未判定」,必须计数/点名,不得静默丢弃 */
   onUndetermined?: (raw: unknown) => void
   /** 连接状态变化(`'injected'` 档恒为 `idle`,因为它不拥有连接) */
@@ -185,7 +194,8 @@ class UserBroadcastChannel {
         tokenProvider: config.tokenProvider,
         messageGuard: isInboundMessage,
         ticketProvider:
-          config.ticketProvider ?? ((accessToken: string) => fetchWsTicket(config.baseUrl, accessToken)),
+          config.ticketProvider ??
+          ((accessToken: string) => fetchWsTicket(config.baseUrl, accessToken)),
         ...(config.webSocketFactory ? { webSocketFactory: config.webSocketFactory } : {}),
       },
       {
@@ -315,7 +325,8 @@ export function feedUserBroadcastFrame(
   opts: { baseUrl: string } = { baseUrl: '' },
 ): UserBroadcastEvent | null {
   const key = channelKey({ baseUrl: opts.baseUrl, transport: 'injected' })
-  const channel = channels.get(key) ?? channels.get(`${opts.baseUrl.replace(/\/$/, '')}|shared-socket`)
+  const channel =
+    channels.get(key) ?? channels.get(`${opts.baseUrl.replace(/\/$/, '')}|shared-socket`)
   if (!channel) return null
   return channel.ingest(raw)
 }
@@ -363,6 +374,7 @@ export function resetUserBroadcastHub(): void {
 export const USER_BROADCAST_SUBSCRIBABLE_EVENTS: readonly UserBroadcastEventName[] = [
   'conversation:updated',
   'mcp:status',
+  'checkpoint:availability',
 ]
 
 // ===================== 宿主绑定工厂(端内适配器的唯一入口) =====================
