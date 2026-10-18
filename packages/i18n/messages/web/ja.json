@@ -16000,7 +16000,8 @@
   },
   "connectivity": {
     "deviceOffline": "端末がオフラインのため、一部機能を利用できません",
-    "apiUnreachable": "サーバーに接続できません。自動再試行中",
+    "slow": "ネットワークが遅延しています。応答に時間がかかります",
+    "unconfirmed": "サーバーに接続できません。自動再試行中",
     "hostLocalAvailable": "ローカル Git チャネルは引き続き利用可能"
   },
   "ide": {

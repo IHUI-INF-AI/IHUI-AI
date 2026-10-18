@@ -15997,7 +15997,8 @@
   },
   "connectivity": {
     "deviceOffline": "Device offline, some features unavailable",
-    "apiUnreachable": "Cannot reach the server, retrying automatically",
+    "slow": "Network is slow, responses are taking longer than usual",
+    "unconfirmed": "Cannot reach the server, retrying automatically",
     "hostLocalAvailable": "Local Git channel still available"
   },
   "ide": {

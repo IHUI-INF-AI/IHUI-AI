@@ -4,105 +4,106 @@
 
 'use client'
 
-// 票85③ —— 连通性四态 hook(离线/边缘优先降级的用户侧地基)。
+// 票85③/④ —— web 端连通性 hook:**只做 adapter,不做判据、不做排期**。
 //
-// 为什么是四态而不是布尔 online/offline:**四种事实互不可折叠**(与宿主 git 通道
-// 三态纪律同族)——
-//   device-offline   本机断网(navigator.onLine=false,本地事实,立即可判);
-//   api-unreachable  本机有网但 api 探测失败(fetch 抛错=链路不通);
-//   online           探测拿到 HTTP 响应(链路通;服务本身 5xx 是另一格事实,
-//                    由 GlobalErrorBanner 负责,这里不冒充链路判官);
-//   probing          还没拿到任何结论 —— **不等于 online**,界面据此不显示横幅
-//                    但也绝不把"还没探"当成"在线"。
+// 判据只有一份,住在 `packages/shared/src/utils/connectivity.ts`
+// (`classifyRound` / `createConnectivityTracker` / `bannerKindFor`);
+// 排期也只有一份,住在 `packages/shared/src/hooks/use-connectivity.ts`
+// (`createUseConnectivity`:持有 tracker + 按档位自适应复探 + 响应式暴露)。
+// RN 端消费同两份(`apps/mobile-rn/src/context/NetworkContext.tsx`)。
 //
-// 探测端点用 /api/health(免鉴权、不触 DB/Redis,与 /api/health/ready 分工)。
+// 本文件剩下的职责被刻意压到两条:
+//   ① 怎么探(fetch /api/health + AbortController 计时,web 端唯一形态);
+//   ② web 独有的浏览器事件(online/offline/visibilitychange)触发一次立即复核。
+//
+// 2026-10-19 二次纠偏:初版在 web 端自造四态(第二份判据),改 adapter 后仍自己写了一套
+// 轮询/排期(第三份)。现在连排期也交回共享层 —— 各端只许注入"怎么探"。
+//
+// 语义要点(沿用共享层,不得本地改写):
+// - 拿到任何 HTTP 响应(含 5xx)= 传输路径存在 ⇒ online/slow,**不是离线**;
+// - 设备信号报无网但探测有应答 ⇒ 按应答为准(交叉反证优先于单一信号);
+// - 探测全失败 + 设备在线 ⇒ unknown(只报"连不上服务器"),连续 3 轮才落 offline;
+// - 一次都没探过 ⇒ unknown(no-sample),**不等于在线**。
 
 import * as React from 'react'
+import { createUseConnectivity } from '@ihui/shared/hooks/use-connectivity'
+import type { ProbeRound, ProbeSample } from '@ihui/shared/utils/connectivity'
 
 import { resolveApiBaseUrl } from '@/lib/api-base-url'
 
-export type ConnectivityState =
-  | 'probing'
-  | 'online'
-  | 'api-unreachable'
-  | 'device-offline'
-
-const PROBE_OK_INTERVAL_MS = 30_000
-const PROBE_RETRY_INTERVAL_MS = 10_000
 const PROBE_TIMEOUT_MS = 5_000
 
-async function probeOnce(signal: AbortSignal): Promise<boolean> {
-  const base = resolveApiBaseUrl()
-  const resp = await fetch(`${base}/api/health`, {
-    cache: 'no-store',
-    signal,
-  })
-  // 拿到任何 HTTP 响应都算"链路通"(健康与否是服务层的事,这里只判链路)
-  return resp.status > 0
+/** web 端唯一的探测形态:HTTP GET /api/health,任何响应都算"答了"。 */
+async function probeSample(target: string): Promise<ProbeSample> {
+  const started = performance.now()
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
+  try {
+    const resp = await fetch(target, { cache: 'no-store', signal: controller.signal })
+    // 拿到响应(任何状态码)即 L7 应答 —— 服务健康度不是本判据的事实面
+    return {
+      target,
+      kind: 'response',
+      httpStatus: resp.status,
+      latencyMs: Math.round(performance.now() - started),
+    }
+  } catch (err) {
+    const isAbort = err instanceof DOMException && err.name === 'AbortError'
+    // AbortError=超时(慢网/断网共同形状,单独不足以判离线);其余=链路层失败
+    return isAbort
+      ? { target, kind: 'timeout', latencyMs: Math.round(performance.now() - started) }
+      : { target, kind: 'unreachable', detail: String(err) }
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
-export function useConnectivity(): { state: ConnectivityState; lastCheckedAt: number | null } {
-  const [state, setState] = React.useState<ConnectivityState>('probing')
-  const [lastCheckedAt, setLastCheckedAt] = React.useState<number | null>(null)
-  const stateRef = React.useRef<ConnectivityState>('probing')
-  stateRef.current = state
+/** 一轮探测:设备信号 + 目标样本,纯数据,交给共享层判。 */
+async function probeWebRound(): Promise<ProbeRound> {
+  // 平台信号:web 只有 navigator.onLine(只报有网/无网),拿不到时必须 unknown ——
+  // 用"探测失败"反推设备无网正是共享层要消除的并档。
+  const deviceSignal: ProbeRound['deviceSignal'] =
+    typeof navigator === 'undefined' || typeof navigator.onLine !== 'boolean'
+      ? 'unknown'
+      : navigator.onLine
+        ? 'online'
+        : 'offline'
+  const sample = await probeSample(`${resolveApiBaseUrl()}/api/health`)
+  return { deviceSignal, samples: [sample] }
+}
 
-  const probe = React.useCallback(async () => {
-    // 本机断网是本地事实,不发请求直接定格(发了也只会白等超时)
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      setState('device-offline')
-      setLastCheckedAt(Date.now())
-      return
-    }
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
-    try {
-      await probeOnce(controller.signal)
-      setState('online')
-    } catch {
-      // abort(超时)与 fetch 抛错同格:链路不通。不细分 —— "服务活着但 5xx"
-      // 不是本 hook 的事实面。
-      setState('api-unreachable')
-    } finally {
-      clearTimeout(timer)
-      setLastCheckedAt(Date.now())
-    }
-  }, [])
+const useSharedConnectivity = createUseConnectivity({
+  probeRound: probeWebRound,
+  // 与 RN 端同档:常规 30s 轮询;非 online 档 10s 复探(web 端有真实 online 事件兜底,
+  // 不必比 RN 的 8s 更激进)。
+  intervalMs: 30_000,
+  retryIntervalMs: 10_000,
+})
 
+/**
+ * web 端连通性结论。返回值形状与 RN `useNetwork()` 同构(status/reason/latencyMs/
+ * detail/banner/isOnline/refresh),端上只许消费不许重判。
+ */
+export function useConnectivity() {
+  const value = useSharedConnectivity()
+  const { refresh } = value
+
+  // 浏览器事件只是"催一次复核"的信号,结论仍由探测给出 —— 事件本身不进判据。
   React.useEffect(() => {
-    void probe()
-    // 稳态 30s;非在线 10s(重连窗口更快收敛,但不打爆不健康的服务)
-    const interval = () =>
-      stateRef.current === 'online' ? PROBE_OK_INTERVAL_MS : PROBE_RETRY_INTERVAL_MS
-    let timer: ReturnType<typeof setTimeout>
-    const schedule = () => {
-      timer = setTimeout(() => {
-        void probe().then(schedule)
-      }, interval())
-    }
-    schedule()
-    // 浏览器连通性事件:立即复核(事件只是信号,结论仍由探测给出)
-    const onOnline = () => void probe()
-    const onOffline = () => {
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-        setState('device-offline')
-        setLastCheckedAt(Date.now())
-      }
-    }
+    const onEvent = () => refresh()
     const onVisible = () => {
-      if (document.visibilityState === 'visible') void probe()
+      if (document.visibilityState === 'visible') refresh()
     }
-    window.addEventListener('online', onOnline)
-    window.addEventListener('offline', onOffline)
+    window.addEventListener('online', onEvent)
+    window.addEventListener('offline', onEvent)
     document.addEventListener('visibilitychange', onVisible)
     return () => {
-      clearTimeout(timer)
-      window.removeEventListener('online', onOnline)
-      window.removeEventListener('offline', onOffline)
+      window.removeEventListener('online', onEvent)
+      window.removeEventListener('offline', onEvent)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [probe])
+  }, [refresh])
 
-  return { state, lastCheckedAt }
+  return value
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -16000,7 +16000,8 @@
   },
   "connectivity": {
     "deviceOffline": "기기가 오프라인 상태이며 일부 기능을 사용할 수 없습니다",
-    "apiUnreachable": "서버에 연결할 수 없습니다, 자동으로 재시도 중",
+    "slow": "네트워크가 느려 응답이 지연되고 있습니다",
+    "unconfirmed": "서버에 연결할 수 없습니다, 자동으로 재시도 중",
     "hostLocalAvailable": "로컬 Git 채널은 계속 사용 가능"
   },
   "ide": {
