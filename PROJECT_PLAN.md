@@ -7573,7 +7573,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 <!-- 已归档(2026-10-07:✅(2026-10-06) 73. `apps/miniapp-taro` AI 对话页(移植 `packages/ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-07_auto-archive.md -->
 - [ ] 77. Goal-driven 自评估闭环 + My Quests 跨 workspace 全局看板(依赖 51)
 - [ ] 78. Experts 多智能体并行子模式(专家模板产品化 + 同文件写冲突治理:串行化或 worktree 隔离)
-- [ ] 64. AI 消息可编辑 + 消息级 pin/书签(共用 59 的 sibling 存储)
+- [ ]（进行中@2026-10-18/goal-t64） 64. AI 消息可编辑 + 消息级 pin/书签(共用 59 的 sibling 存储)
 <!-- 已归档(2026-10-08:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-08_auto-archive.md -->
 - [ ] 85. 离线/边缘优先降级(依赖 72;本地向量索引 + `ollama`/`lmstudio`/`llama_cpp` 三路 provider 已在适配表里)
 <!-- 已归档(2026-10-07:✅(2026-10-06) P1 **CI 装不上而门 101 报绿：锁只记「条目在不在」，不看它落在哪个依赖段**（2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-07_auto-archive.md -->
