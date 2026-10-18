@@ -119,6 +119,8 @@ test('§22c 装车证明:判据符号必须来自源文件导出(__test__ 或具
     'faceNoticeFor',
     'runCheck',
     'historyMarkers',
+    // 已勾形态身份(2026-10-18 完成即删收口):"什么算一条已勾销登记"只许有一份实现
+    'closedRegistrationOf',
     // 编号形态维(G-722):按面选基准的编排出口
     'malformedReport',
     'idExistsOnFace',
@@ -606,14 +608,19 @@ test('端到端(G-307):翻勾+注记的两种形态都不得触发回捞;整行�
     '- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-256 · 一条」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 G-256 一条**环境相关红**,归因未定:`tests/x.py::t` 在工作树红而在干净检出绿。解阻判据:带与不带 `.env` 各跑一次同一文件即可定性。'
   const SUFFIXED =
     '- [x] ✅(2026-09-28) G-256 一条**环境相关红**,归因未定:`tests/x.py::t` 在工作树红而在干净检出绿。解阻判据:带与不带 `.env` 各跑一次同一文件即可定性。 （[归并] 本行与已完成登记同题(主键 「G-256 · 一条」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、正文逐字保留于前、不删行、不重复计账）'
-  const v1 = ['# 计划', '', PLAIN, ''].join('\n')
+  // 哨兵:一枚始终开放、从不被删的登记行。2026-10-18 加 —— "翻勾后该行退出保护集"落地后,
+  // 三行两列的夹具仓历史基线会退化成空扫,而空扫按 §0.3 是**未判定**(exit 2)不是通过;
+  // 少这一行,本用例测的就是"门在发呆"而不是"门放过了合法翻勾"。
+  const SENTINEL =
+    '- [ ] G-9001 夹具哨兵:始终开放且从不被删的一行,作用只有一个 —— 保证本用例的历史基线不会退化成空扫(空扫 exit 2 是未判定,不算证明过)。'
+  const v1 = ['# 计划', '', PLAIN, '', SENTINEL, ''].join('\n')
   for (const [name, turned] of [
     ['legacy 前置式', LEGACY],
     ['现行后置式', SUFFIXED],
   ]) {
     const dir = tempPlanRepo(v1)
     try {
-      writeFileSync(join(dir, 'PROJECT_PLAN.md'), ['# 计划', '', turned, ''].join('\n'), 'utf8')
+      writeFileSync(join(dir, 'PROJECT_PLAN.md'), ['# 计划', '', turned, '', SENTINEL, ''].join('\n'), 'utf8')
       git(dir, 'add', 'PROJECT_PLAN.md')
       git(dir, 'commit', '-m', `fixture: ${name} 翻勾`)
       const r = runGate(dir, [])
@@ -627,7 +634,7 @@ test('端到端(G-307):翻勾+注记的两种形态都不得触发回捞;整行�
     }
   }
   // 反向对照:整行真删,只在别处留一句带同样文字的散文引用 ⇒ 必须仍判丢(两代形态同判)
-  const erased = ['# 计划', '', '- 说明:曾有过 G-256 一条**环境相关红** 的登记,现状以别处为准,本行只是转述引用。', ''].join('\n')
+  const erased = ['# 计划', '', '- 说明:曾有过 G-256 一条**环境相关红** 的登记,现状以别处为准,本行只是转述引用。', '', SENTINEL, ''].join('\n')
   const dir = tempPlanRepo(v1)
   try {
     writeFileSync(join(dir, 'PROJECT_PLAN.md'), erased, 'utf8')
@@ -638,6 +645,154 @@ test('端到端(G-307):翻勾+注记的两种形态都不得触发回捞;整行�
     assert.match(`${r.stdout}${r.stderr}`, /G-256/)
   } finally {
     rmScratch(dir)
+  }
+})
+
+/**
+ * 端到端(完成即删,2026-10-18 立):"翻勾 → 整行删除"这一串必须走得通。
+ * 立因是本仓当天的真实互咬:D117 按票面四格现读结清、翻勾入库后按 HEAD 底稿删行,
+ * 而 `historyMarkers()` 只认开放形态(`markerOf` 对 `- [x]` 返回 null)⇒ 同 marker 在更深
+ * 历史里的未勾副本照常进保护集 ⇒ `--heal` 把行以**未勾**形态原样还原(恢复提交 04e8efe128e),
+ * 与门体自己 447-451 行写的"已勾行不进保护集(机主 2026-10-16 令:完成即删,存档机制退役)"矛盾,
+ * 而退役后 a) 归档豁免那条例出通道已经没有承接件(§1:「.ihui-agent/archive/ 不再承接台账存料」)。
+ * 三条臂各管一格,缺一格就是"看着修好了其实放宽了":
+ *  1. 开放 → 翻勾 → 删除 ⇒ 判绿,且 `--heal --commit` 不建恢复提交(修复本体);
+ *  2. 阳性对照:开放 → 直接删除(从未翻勾)⇒ 仍判红并点名(事故防线一格未松);
+ *  3. 同 marker 在同一枚提交里既有开放行又有已勾行 ⇒ 摘掉开放行仍判红
+ *     (拦"按枚分组退化成按行分组":否则已勾行会把整族永久摘出保护集)。
+ */
+const DEL_SENTINEL =
+  '- [ ] G-9003 夹具哨兵:始终开放且从不被删,作用是保证历史基线不会退化成空扫(空扫按 §0.3 判未判定)。'
+
+function commitPlan(dir, text, msg) {
+  writeFileSync(join(dir, 'PROJECT_PLAN.md'), text, 'utf8')
+  git(dir, 'add', 'PROJECT_PLAN.md')
+  git(dir, 'commit', '-m', msg)
+}
+
+test('端到端(完成即删):翻勾后删除判绿且自愈不再还原;未翻勾就删仍判红;基线勾销判定逐型现读', () => {
+  const OPEN = '- [ ] D7777 夹具:翻勾后整行删除这一格必须走得通,不能被历史基线里的旧形态召唤回来。'
+  const CHECKED =
+    '- [x] ✅(2026-10-18) D7777 夹具:翻勾后整行删除这一格必须走得通,不能被历史基线里的旧形态召唤回来。'
+  // 与 OPEN **共用同一个 marker**(marker 只取前 18 字,甲/乙的分歧在第 21 字),但正文不同 ⇒
+  // 不落在"逐字相同的孪生副本"既有豁免里;它在 c1 就已是已勾形态。
+  const CHECKED_SIBLING =
+    '- [x] ✅(2026-10-01) D7778 夹具同族共号不同正文的登记行乙:同一编号里早已结案的副本,它在上一枚就在位,不能替甲那条开放行挡掉回捞。'
+  const OPEN_SIBLING =
+    '- [ ] D7778 夹具同族共号不同正文的登记行甲:这一条仍开放的登记被下一枚提交摘走,同族里另有一条早已结案的同号副本。'
+
+  // 臂 1:open → flip → delete
+  const dir1 = tempPlanRepo(['# 计划', '', OPEN, '', DEL_SENTINEL, ''].join('\n'))
+  try {
+    commitPlan(dir1, ['# 计划', '', CHECKED, '', DEL_SENTINEL, ''].join('\n'), 'fixture: 翻勾')
+    commitPlan(dir1, ['# 计划', '', DEL_SENTINEL, ''].join('\n'), 'fixture: 完成即删')
+    const r = runGate(dir1, [])
+    assert.equal(
+      r.status,
+      0,
+      `翻勾后删除不得判丢(判丢即被自愈还原 ⇒ 完成即删永远收不了口):\nstdout:${r.stdout}\nstderr:${r.stderr}`,
+    )
+    const before = git(dir1, 'rev-parse', 'HEAD').trim()
+    const heal = runGate(dir1, ['--heal', '--commit'])
+    const after = git(dir1, 'rev-parse', 'HEAD').trim()
+    assert.equal(
+      heal.status,
+      0,
+      `--heal 应正常跑完,实得 ${heal.status}\n${heal.stdout}${heal.stderr}`,
+    )
+    assert.equal(before, after, '已勾销的行不得被自愈建成前向恢复提交')
+    assert.match(`${heal.stdout}`, /无缺失,无需回捞/)
+    // 报名那一格:已勾销条数必须跟读数一起说,否则"比上一轮少了"这句话没人答
+    assert.match(`${r.stdout}`, /已按最新形态勾销 \d+ 条/)
+  } finally {
+    rmScratch(dir1)
+  }
+
+  // 臂 2:阳性对照 —— 从未翻勾就删 ⇒ 事故防线照拦
+  const dir2 = tempPlanRepo(['# 计划', '', OPEN, '', DEL_SENTINEL, ''].join('\n'))
+  try {
+    commitPlan(dir2, ['# 计划', '', DEL_SENTINEL, ''].join('\n'), 'fixture: 未翻勾就整行删除')
+    const r = runGate(dir2, [])
+    assert.equal(r.status, 1, `未翻勾的整行删除必须仍判红,否则本门被这次修复削掉了:\n${r.stdout}`)
+    assert.match(`${r.stdout}${r.stderr}`, /D7777/)
+  } finally {
+    rmScratch(dir2)
+  }
+
+  // 臂 3:基线侧的勾销判定单独用单元尺子量(直接喂 `historyMarkers`),不借端到端 exit 码 ——
+  // 端到端那一档的"判活"层另有既有语义:同编号里一条**已勾**行仍顶行首名额、能把开放行照旧
+  // 判活(self-test 的「已作废行不得被历史名额重新召唤」那条钉的就是它)。把两件事混在一支臂里,
+  // 红了也不知道是配平状态机坏了还是名额判活坏了,所以这里只问一个问题:
+  // **这条 marker 到底进不进历史基线。**
+  const bareRepo = (commits) => {
+    const d = mkScratch('ihui-g71base-')
+    git(d, 'init', '-b', 'main')
+    git(d, 'config', 'user.email', 't@t.local')
+    git(d, 'config', 'user.name', 't')
+    for (const [text, msg] of commits) {
+      writeFileSync(join(d, 'PROJECT_PLAN.md'), text, 'utf8')
+      git(d, 'add', 'PROJECT_PLAN.md')
+      git(d, 'commit', '-m', msg)
+    }
+    return d
+  }
+  const withSentinel = (rows) => ['# 计划', '', ...rows, '', DEL_SENTINEL, ''].join('\n')
+  const MARKER = G.registrationOf(OPEN).marker
+  const MARKER_SIBLING = G.registrationOf(OPEN_SIBLING).marker
+
+  const dFlip = bareRepo([
+    [withSentinel([OPEN]), 'c1 开放登记'],
+    [withSentinel([CHECKED]), 'c2 翻勾'],
+    [withSentinel([]), 'c3 完成即删'],
+  ])
+  try {
+    const seen = G.historyMarkers(60, dFlip)
+    assert.equal(
+      seen.has(MARKER),
+      false,
+      '翻勾后删除的 marker 必须退出历史基线(否则 --heal 永远把它捞回来)',
+    )
+    assert.ok(G.lastHistoryWindow().retired >= 1, '已勾销条数必须报名,不得静默吞掉')
+  } finally {
+    rmScratch(dFlip)
+  }
+
+  const dNoFlip = bareRepo([
+    [withSentinel([OPEN]), 'c1 开放登记'],
+    [withSentinel([]), 'c2 未翻勾就整行删除'],
+  ])
+  try {
+    const seen = G.historyMarkers(60, dNoFlip)
+    assert.equal(
+      seen.has(MARKER),
+      true,
+      '没有翻勾凭据的删除必须仍进基线 —— 这条就是本门立项防的"旧基线整文件回写"事故型',
+    )
+    assert.equal(G.lastHistoryWindow().retired, 0, '未翻勾的减少不得被算成勾销')
+  } finally {
+    rmScratch(dNoFlip)
+  }
+
+  const dPartial = bareRepo([
+    [withSentinel([OPEN_SIBLING, CHECKED_SIBLING]), 'c1 同 marker:一条开放 + 一条已结案的同号副本'],
+    [withSentinel([CHECKED_SIBLING]), 'c2 摘掉那条仍开放的(已结案副本本来就在位)'],
+  ])
+  try {
+    assert.equal(
+      G.closedRegistrationOf(CHECKED_SIBLING)?.marker,
+      MARKER_SIBLING,
+      '前提:甲(开放)与乙(已勾)必须共用同一个 marker,否则这一型根本没在测配平'
+    )
+    assert.equal(MARKER_SIBLING, 'D7778 夹具同族共号不同正文的登', '前提:marker 取前 18 字(现读钉住)')
+    const seen = G.historyMarkers(60, dPartial)
+    assert.equal(
+      seen.has(MARKER_SIBLING),
+      true,
+      '开放行的减少若没有配上"同一枚里新出现的已勾行"(已勾行在上一枚就在位),不算翻勾,必须仍进基线',
+    )
+    assert.equal(G.lastHistoryWindow().retired, 0, '这一型一条都不许勾销')
+  } finally {
+    rmScratch(dPartial)
   }
 })
 
