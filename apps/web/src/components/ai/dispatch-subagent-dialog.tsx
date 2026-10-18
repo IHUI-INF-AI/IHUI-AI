@@ -47,6 +47,7 @@ import {
 
 import { Tooltip } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { formatDate } from '@/lib/date-utils'
 import { activeDispatchesKey, swarmTopologyKey } from '@/hooks/use-subagent-dispatch'
 import type { SubagentRole, OrchestrationMode, SubagentDispatch } from '@ihui/shared/subagents'
@@ -885,6 +886,7 @@ function AutoPlanPanel() {
 function CustomRolesPanel() {
   const t = useTranslations('dispatchDialog')
   const tcommon = useTranslations('common')
+  const { allow } = useAuthGate()
   const [roles, setRoles] = React.useState<CustomRole[]>([])
   const [loading, setLoading] = React.useState(false)
   const [editingRole, setEditingRole] = React.useState<CustomRole | null>(null)
@@ -907,12 +909,13 @@ function CustomRolesPanel() {
   }, [])
 
   React.useEffect(() => {
+    if (!allow) return
     let cancelled = false
     void loadRoles(() => cancelled)
     return () => {
       cancelled = true
     }
-  }, [loadRoles])
+  }, [loadRoles, allow])
 
   const handleDelete = async (id: string) => {
     try {
