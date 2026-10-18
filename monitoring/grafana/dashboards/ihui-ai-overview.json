@@ -80,7 +80,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -130,7 +132,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -180,7 +184,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -234,7 +240,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -344,7 +352,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "showThresholdLabels": false,
         "showThresholdStats": true
@@ -386,7 +396,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -606,7 +618,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -656,7 +670,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "showThresholdLabels": false,
         "showThresholdStats": true
@@ -903,7 +919,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "showThresholdLabels": false,
         "showThresholdStats": true
@@ -945,7 +963,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -981,7 +1001,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (call_type) (rate(business_ai_calls_total{job=\"business-metrics\",vendor=~\"$provider\",model=~\"$model\"}[1h]))",
+          "expr": "sum by (call_type) (rate(business_ai_calls_total{job=\"business-metrics\",vendor=~\"$vendor\",model=~\"$biz_model\"}[1h]))",
           "legendFormat": "{{call_type}}",
           "refId": "A"
         }
@@ -1023,7 +1043,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(business_ai_cost_minor_units_total{job=\"business-metrics\",vendor=~\"$provider\",model=~\"$model\"}[$__range])) / 100",
+          "expr": "sum(increase(business_ai_cost_minor_units_total{job=\"business-metrics\",vendor=~\"$vendor\",model=~\"$biz_model\"}[$__range])) / 100",
           "legendFormat": "cost",
           "refId": "A"
         }
@@ -1044,7 +1064,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -1066,7 +1088,7 @@
       },
       "targets": [
         {
-          "expr": "count(business_ai_calls_total{job=\"business-metrics\",vendor=~\"$provider\",model=~\"$model\"})",
+          "expr": "count(business_ai_calls_total{job=\"business-metrics\",vendor=~\"$vendor\",model=~\"$biz_model\"})",
           "legendFormat": "series",
           "refId": "A"
         }
@@ -1094,7 +1116,9 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": ["lastNotNull"]
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -1104,7 +1128,11 @@
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["ihui-ai", "ai", "llm"],
+  "tags": [
+    "ihui-ai",
+    "ai",
+    "llm"
+  ],
   "templating": {
     "list": [
       {
@@ -1150,6 +1178,50 @@
           "type": "prometheus",
           "uid": "Prometheus"
         }
+      },
+      {
+        "name": "vendor",
+        "label": "厂商(业务落账)",
+        "query": "label_values(business_ai_calls_total{job=\"business-metrics\"}, vendor)",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "includeAll": true,
+        "multi": true,
+        "refresh": 1,
+        "type": "query",
+        "hide": 0,
+        "definition": "label_values(business_ai_calls_total{job=\"business-metrics\"}, vendor)",
+        "options": [],
+        "allValue": ".*",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        }
+      },
+      {
+        "name": "biz_model",
+        "label": "模型(业务落账)",
+        "query": "label_values(business_ai_calls_total{job=\"business-metrics\"}, model)",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "includeAll": true,
+        "multi": true,
+        "refresh": 1,
+        "type": "query",
+        "hide": 0,
+        "definition": "label_values(business_ai_calls_total{job=\"business-metrics\"}, model)",
+        "options": [],
+        "allValue": ".*",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        }
       }
     ]
   },
@@ -1158,7 +1230,14 @@
     "to": "now"
   },
   "timepicker": {
-    "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "1h"]
+    "refresh_intervals": [
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "1h"
+    ]
   },
   "timezone": "",
   "title": "IHUI-AI · AI 运行全景",
