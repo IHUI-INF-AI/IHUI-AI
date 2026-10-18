@@ -317,7 +317,13 @@ def carry_identity_keys(current: dict[str, Any], proposed: dict[str, Any]) -> di
 #     **提示词载荷**不是**状态机**;这里落的是 `goalState`(带 status 的对象),
 #     两个键名刻意不同,免得一次系统提示注入顺带把状态机改了。
 #   · 零迁移:它就是一个 metadata 键,不新增列、不建新表(拍板口径)。
-GOAL_METADATA_KEYS: tuple[str, ...] = ("goalState",)
+#: 引擎自评估轨迹的 metadata 键(票77;GOAL_METADATA_KEYS 第二项由它拼出,单一来源)
+GOAL_ASSESSMENTS_KEY = "goalAssessments"
+
+GOAL_METADATA_KEYS: tuple[str, ...] = ("goalState", GOAL_ASSESSMENTS_KEY)
+
+#: 引擎侧自评估轨迹上限(票77:与 web MAX_QUEST_ASSESSMENTS 同值,越旧越先裁)
+MAX_GOAL_ASSESSMENTS = 20
 
 # goal 状态六档(2026-09-29 拍板:在现存四态上并入 usageLimited/budgetLimited)。
 # ⚠️ 这是**第三个域**:与 packages/types/src/agent-runtime.ts 的 AGENT_TASK_STATUSES
@@ -383,6 +389,45 @@ def normalize_goal_state(raw: Any) -> dict[str, Any] | None:
     if isinstance(updated_at, (int, float)) and not isinstance(updated_at, bool):
         state["updatedAt"] = float(updated_at)
     return state
+
+
+def normalize_goal_assessments(raw: Any) -> list[dict[str, Any]]:
+    """把引擎自评估轨迹收窄成受管形状(票77);坏项逐条剔除,不猜不补默认。
+
+    `at` 是 **epoch 毫秒**(与 web `QuestAssessment.at` 同单位;注意线程行上的
+    created_at/updated_at 是 epoch 秒,两者不得混用)。`source` 只可能为 engine
+    —— 本键只由 `append_goal_assessment` 写,客户端整写被 `carry_goal_keys` 盖回。
+    """
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        aid = item.get("id")
+        at = item.get("at")
+        status = item.get("status")
+        if not isinstance(aid, str) or not aid.strip():
+            continue
+        if not isinstance(at, (int, float)) or isinstance(at, bool):
+            continue
+        if not isinstance(status, str) or status not in GOAL_STATUSES:
+            continue
+        progress = item.get("progress")
+        if isinstance(progress, bool) or not isinstance(progress, (int, float)):
+            progress = 0
+        summary = item.get("summary")
+        out.append(
+            {
+                "id": aid[:64],
+                "at": float(at),
+                "status": status,
+                "progress": max(0, min(100, int(progress))),
+                "summary": summary[:2000] if isinstance(summary, str) else "",
+                "source": "engine",
+            }
+        )
+    return out[-MAX_GOAL_ASSESSMENTS:]
 
 
 # ---------------------------------------------------------------------------
@@ -1070,13 +1115,66 @@ class SessionStore:
             new_meta = dict(current)
             if state is None:
                 new_meta.pop("goalState", None)
+                # 票77:清除目标 ⇒ 自评估轨迹随删(不留僵尸轨迹给下一个目标)
+                new_meta.pop(GOAL_ASSESSMENTS_KEY, None)
             else:
+                previous = normalize_goal_state(current.get("goalState"))
+                if previous is not None and previous["objective"] != state["objective"]:
+                    # 换了目标(不是 pause/resume)⇒ 旧轨迹不属于新目标
+                    new_meta.pop(GOAL_ASSESSMENTS_KEY, None)
                 new_meta["goalState"] = state
             conn.execute(
                 "UPDATE threads SET metadata = ?, updated_at = max(updated_at, ?) WHERE thread_id = ?",
                 (json.dumps(new_meta, ensure_ascii=False), _now(), thread_id),
             )
         return new_meta
+
+    def append_goal_assessment(
+        self,
+        thread_id: str,
+        assessment: dict[str, Any],
+        *,
+        owner_user_id: str,
+        goal_status: str | None = None,
+    ) -> list[dict[str, Any]] | None:
+        """票77:引擎侧自评估落账(My Quests 的自动评估源)。
+
+        只写 `metadata.userId` 与 `owner_user_id` **逐字相等**的行;不存在 / 无属主 /
+        他人一律返回 None(调用方不得据此区分归属)。非 goal 线程(无合规
+        `goalState`)同样不落 —— 评估轨迹是目标的附属物,不单独存在。
+
+        `goal_status` 给终态档(done/blocked)时,同事务把 `goalState.status`
+        推到该档并刷新 `updatedAt`;非终态(None)不动状态机。
+        返回收窄后的完整轨迹(封顶 `MAX_GOAL_ASSESSMENTS`)。
+        """
+        entry = normalize_goal_assessments([assessment])
+        if not entry or not isinstance(owner_user_id, str) or not owner_user_id:
+            return None
+        with self._lock, self._tx() as conn:
+            row = conn.execute(
+                "SELECT metadata FROM threads WHERE thread_id = ?", (thread_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            meta = _json_dict(_row_str(row, "metadata"))
+            if meta.get("userId") != owner_user_id:
+                return None
+            state = normalize_goal_state(meta.get("goalState"))
+            if state is None:
+                return None
+            history = [
+                *normalize_goal_assessments(meta.get(GOAL_ASSESSMENTS_KEY)),
+                *entry,
+            ][-MAX_GOAL_ASSESSMENTS:]
+            meta[GOAL_ASSESSMENTS_KEY] = history
+            if goal_status is not None and goal_status in GOAL_STATUSES:
+                state = {**state, "status": goal_status, "updatedAt": _now()}
+                meta["goalState"] = state
+            conn.execute(
+                "UPDATE threads SET metadata = ?, updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                (json.dumps(meta, ensure_ascii=False), _now(), thread_id),
+            )
+        return history
 
     def get_thread_goal_state(self, thread_id: str) -> dict[str, Any] | None:
         """读服务端那份 goal 主副本(形状不对 ⇒ None,不猜)。"""
