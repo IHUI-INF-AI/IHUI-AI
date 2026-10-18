@@ -571,7 +571,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.get('/permission/:agentId', async (request) => {
     const params = z.object({ agentId: z.string().min(1) }).parse(request.params)
     const query = z.object({ userId: z.uuid().optional() }).parse(request.query)
-    const permission = await calculateAgentPermission(params.agentId, query.userId)
+    // 归属主体优先取承载层身份:本插件顶层已有 requireAuth preHandler,所以登录态下
+    // `?userId=` 一律不再参与判定 —— 客户端自报身份能决定"我看得到这个 Agent 吗"
+    // 就是 §5「身份不得住客户端可整写字段」那型。只有拿不到主体身份时才回落 query
+    // (给未挂 preHandler 的复用路径留出口,现状不会走到)。
+    const subjectId = request.userId ?? query.userId
+    const permission = await calculateAgentPermission(params.agentId, subjectId)
     return { code: 0, message: 'ok', data: permission }
   })
 
