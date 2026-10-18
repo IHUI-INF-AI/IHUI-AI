@@ -13,6 +13,8 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
+import { toVipBenefitItems, type VipLevelRow } from '../utils/vip-benefits'
+
 export function VipBenefitScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
@@ -24,9 +26,9 @@ export function VipBenefitScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetchApi<{ list: VipBenefitItem[] }>('/vip/benefits')
+      const r = await fetchApi<{ list: VipLevelRow[] }>('/api/vip/benefits')
       if (!r.success) throw new Error()
-      setItems(r.data?.list ?? [])
+      setItems(toVipBenefitItems(r.data?.list ?? [], t))
     } catch {
       setError(t('vipBenefit.loadFailed'))
     } finally {
