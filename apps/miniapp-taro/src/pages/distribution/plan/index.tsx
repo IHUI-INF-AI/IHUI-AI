@@ -7,26 +7,33 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
 import * as api from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
 export default function DistributionPlan() {
   const tt = useTt()
+  const gate = useAuthReadyGate()
   const [totalEarnings, setTotalEarnings] = useState(0)
   const [inviteCount, setInviteCount] = useState(0)
 
+  // G-933 冷启动抢跑门控:两发 GET /api/distribution/overview 与
+  // GET /api/distribution/invited-users 都由 distributionRoutes 的统一 preHandler 守
+  // (`apps/api/src/routes/distribution.ts:24` addHook authenticate)⇒ 需鉴权,整块挡到门后。
   useDidShow(() => {
-    api
-      .getDistributionInfo()
-      .then((res) => {
-        setTotalEarnings((res as unknown as { totalCommission?: number }).totalCommission ?? 0)
-      })
-      .catch(() => {})
-    api
-      .getDistributionTeam({ page: 1, pageSize: 1 })
-      .then((res) => {
-        setInviteCount(res.total ?? 0)
-      })
-      .catch(() => {})
+    gate.waitUntilReady(() => {
+      api
+        .getDistributionInfo()
+        .then((res) => {
+          setTotalEarnings((res as unknown as { totalCommission?: number }).totalCommission ?? 0)
+        })
+        .catch(() => {})
+      api
+        .getDistributionTeam({ page: 1, pageSize: 1 })
+        .then((res) => {
+          setInviteCount(res.total ?? 0)
+        })
+        .catch(() => {})
+    })
   })
 
   const onOpenVip = () => {

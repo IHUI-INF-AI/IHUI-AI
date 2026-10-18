@@ -7,6 +7,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getStudyRecords, getStudyInfo, type StudyRecord } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -39,6 +40,7 @@ const deriveStatus = (progress: number): FilterTab => {
 
 export default function StudyRecord() {
   const tt = useTt()
+  const { waitUntilReady } = useAuthReadyGate()
 
   const [info, setInfo] = useState<StudyInfo | null>(null)
   const [rawList, setRawList] = useState<StudyRecordRow[]>([])
@@ -108,9 +110,14 @@ export default function StudyRecord() {
   })
 
   useEffect(() => {
-    loadInfo()
-    load(true)
-  }, [load, loadInfo])
+    // G-933 冷启动抢跑门控:GET /api/study/records(`routes/user/index.ts:36` 组级
+    // userAuthPreHandler)与 GET /api/study/info(`miniapp-compat-routes.ts:758` inline
+    // checkAuth)全需鉴权 ⇒ 整块挡到门后;卸载即注销,不留悬空订阅。
+    return waitUntilReady(() => {
+      void loadInfo()
+      void load(true)
+    })
+  }, [waitUntilReady, load, loadInfo])
 
   // 客户端筛选:基于 progress 派生 status
   useEffect(() => {
