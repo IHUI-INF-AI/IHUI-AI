@@ -7,6 +7,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { listRecurringContracts, cancelRecurringContract, type WechatPayContract } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -21,6 +22,7 @@ const STATUS_STYLE: Record<WechatPayContract['status'], string> = {
 
 export default function SubscriptionContractsPage() {
   const tt = useTt()
+  const gate = useAuthReadyGate()
   const [list, setList] = useState<WechatPayContract[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -83,8 +85,17 @@ export default function SubscriptionContractsPage() {
     [load, tt],
   )
 
+  // G-933 冷启动抢跑门控:挂载唯一一支 GET /api/payments/recurring/contracts
+  // (端内经 @ihui/api-client endpoints/subscription.ts 的 listRecurringContracts,
+  // 后端 apps/api/src/routes/payment-recurring.ts:224,注册前缀 /api 见 routes/index.ts:906)
+  // handler 第一行 `const payload = await authenticate(request)`(payment-recurring.ts:235)
+  // 且归属按 payload.userId 过滤 ⇒ 需鉴权,挡到门后。未落定期间归入既有加载态
+  // (见下方 gate.ready 两处判据),落定未登录时照发一次并走既有 contractsEmpty 空态;
+  // 下拉刷新与解约(cancelRecurringContract)均由用户手势触发,不属挂载抢跑,原样不动。
   useDidShow(() => {
-    load()
+    gate.waitUntilReady(() => {
+      void load()
+    })
   })
 
   usePullDownRefresh(() => {
@@ -163,14 +174,14 @@ export default function SubscriptionContractsPage() {
             ))}
           </View>
         )}
-        {list.length === 0 && !loading && (
+        {list.length === 0 && !loading && gate.ready && (
           <View className="text-center py-[96rpx] text-muted-foreground">
             <Text className="text-[length:28rpx]">
               {tt('subscription.contractsEmpty', '暂无自动续费签约')}
             </Text>
           </View>
         )}
-        {loading && (
+        {(loading || !gate.ready) && (
           <View className="text-center py-[96rpx] text-muted-foreground">
             <Text className="text-[length:28rpx]">{tt('subscription.loadingText', '加载中...')}</Text>
           </View>

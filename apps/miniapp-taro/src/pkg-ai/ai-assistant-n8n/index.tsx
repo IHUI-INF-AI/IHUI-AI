@@ -8,6 +8,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
 /** n8n 工作流状态映射(对齐 RN N8nModelScreen badgeRun/badgeStop + dotRun/dotStop) */
@@ -65,8 +66,14 @@ export default function AiAssistantN8n() {
     }
   }, [])
 
+  // G-933 冷启动抢跑门:GET /api/workflows/n8n 需鉴权(miniapp-compat-routes.ts checkAuth),
+  // 判定落定前不发;落定后每次显示照旧补跑(与既有 useDidShow 刷新语义一致)。
+  const gate = useAuthReadyGate()
+
   useDidShow(() => {
-    loadData()
+    gate.waitUntilReady(() => {
+      void loadData()
+    })
   })
 
   const onItemClick = useCallback(

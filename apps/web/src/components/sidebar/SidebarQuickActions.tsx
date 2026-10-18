@@ -58,6 +58,11 @@ export function SidebarQuickActions({
               disabled={isStreaming}
               aria-label={tchat('newConversation')}
               aria-pressed={aiPanelOpen}
+              // 2026-10-19 美化:三枚快捷钮圆角统一 sm 档(O81 角色台账 control=sm)。
+              // 此前「新建任务」是 sm、另两枚(插件市场/自动化)是 md,同列两档并存;
+              // 首版曾统一到 md,被 radius-role-conformance 守门判红(角色 control 取 md 应为 sm,
+              // O81 票 c603c52ddd2 已把控件档定死 sm),故按台账档位全列统一 sm;
+              // 另两枚的 md 藏在模板串里守门解析不到(账面暗洞),一并对齐免得暗洞留存。
               className="flex h-9 w-9 items-center justify-center rounded-sm bg-foreground/10 text-foreground transition-colors hover:bg-foreground/20 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus className="h-5 w-5" />
@@ -96,7 +101,7 @@ export function SidebarQuickActions({
               aria-label={t('pluginMarket')}
               aria-current={pathname.startsWith('/plugins') ? 'page' : undefined}
               className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-colors',
+                'flex h-9 w-9 items-center justify-center rounded-sm text-foreground transition-colors',
                 pathname.startsWith('/plugins') ? 'bg-foreground/20' : 'hover:bg-foreground/20',
               )}
             >
@@ -136,7 +141,7 @@ export function SidebarQuickActions({
               aria-label={t('selfMediaAutomation')}
               aria-current={pathname.startsWith('/self-media/automation') ? 'page' : undefined}
               className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-colors',
+                'flex h-9 w-9 items-center justify-center rounded-sm text-foreground transition-colors',
                 pathname.startsWith('/self-media/automation')
                   ? 'bg-foreground/20'
                   : 'hover:bg-foreground/20',

@@ -847,7 +847,12 @@
     "messageAction": {
       "copy": "Copy",
       "delete": "Delete",
-      "reuse": "Reuse"
+      "reuse": "Reuse",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "bookmark": "Bookmark",
+      "unbookmark": "Remove bookmark",
+      "flagFailed": "Failed to save marker"
     },
     "share": {
       "title": "Share"
