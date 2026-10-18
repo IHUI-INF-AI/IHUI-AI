@@ -10864,7 +10864,8 @@
         "saveFailed": "录音保存失败",
         "recognitionFailed": "语音识别中断",
         "emptyTranscript": "没有识别到内容",
-        "sttPending": "转写暂不可用,可稍后重试或仅保存音频"
+        "sttPending": "转写暂不可用,可稍后重试或仅保存音频",
+        "loadFailed": "笔记列表加载失败,请重试"
       },
       "action": {
         "start": "开始录音",

@@ -5,10 +5,13 @@
 /**
  * D43 会话内快捷笔记 — 语音笔记共享层(纯函数,端中立)。
  *
- * 12 相判别联合状态机 + 归档桶 CRUD + 时长格式化;phase 收敛全部经
- * `transitionVoiceNotePhase`(非法迁移一律 no-op),端内不得散写 phase 判断。
+ * 12 相判别联合状态机 + 归档列表代数(upsert/remove)+ 服务端行映射 + 时长格式化;
+ * phase 收敛全部经 `transitionVoiceNotePhase`(非法迁移一律 no-op),端内不得散写 phase 判断。
  * 消费契约以 apps/web/src/components/chat/voice-note.tsx 与其测试为准
- * (start→…→recording→stop→saved→waitingTranscript→transcriptReady→completed)。
+ * (start→requestingPermission→preparingMedia→connecting→recording→stop→saved→
+ *  waitingTranscript→transcriptReady→completed)。
+ * 归档自 D43 第②格起改由服务端 `chat_voice_notes` 承载:phase 维**不落库**,
+ * 进行中相因此无从回灌(旧本地桶会把 `recording` 原样存回再复活)。
  */
 
 /** 12 相:录音生命周期 + 转写等待 + 五个终态 */
@@ -42,7 +45,7 @@ export type VoiceNoteEvent =
   | 'retry'
   | 'dismiss'
 
-/** 归档记录(localStorage 单桶持久化的最小形态) */
+/** 归档列表里的一条记录(服务端行的客户端形态) */
 export interface VoiceNoteRecord {
   id: string
   /** 所属会话;无会话上下文为 null */
@@ -50,28 +53,38 @@ export interface VoiceNoteRecord {
   /** ISO 时间戳 */
   createdAt: string
   durationMs: number
-  /** 转写文本;仅存音频 / 转写失败为 null */
+  /** 转写文本;仅存音频为 null */
   transcript: string | null
-  phase: VoiceNotePhase
 }
 
-/** 归档桶上限(超出淘汰最旧;配额满时组件侧静默降级内存态) */
+/** 归档列表上限(与列表分页同档;超出淘汰最旧) */
 export const VOICE_NOTE_ARCHIVE_LIMIT = 50
 
-const ALL_PHASES: readonly VoiceNotePhase[] = [
-  'ready',
-  'requestingPermission',
-  'preparingMedia',
-  'connecting',
-  'recording',
-  'stopping',
-  'waitingTranscript',
-  'completed',
-  'cancelled',
-  'failed',
-  'error',
-  'interrupted',
-]
+/** 服务端行的最小形状(刻意不引 @ihui/types:共享层不得反向依赖端类型包)。 */
+export interface VoiceNoteRowLike {
+  id: string
+  conversationId?: string | null
+  createdAt: string
+  durationMs: number
+  transcript?: string | null
+}
+
+/**
+ * 服务端行 → 归档记录的唯一入口(D43 第②格)。
+ *
+ * 为什么需要这一层并且要测试钉住:归档行**不再携带 phase 维** —— 旧实现把 12 相的
+ * 进行中相(如 `recording`)原样写进本地桶,重载后就复活一条永不停表的录音。
+ * 服务端表里根本没有这一列,映射固定落终态,进行中相结构性无从回灌。
+ */
+export function toVoiceNoteRecord(row: VoiceNoteRowLike): VoiceNoteRecord {
+  return {
+    id: row.id,
+    conversationId: row.conversationId ?? null,
+    createdAt: row.createdAt,
+    durationMs: row.durationMs,
+    transcript: row.transcript ?? null,
+  }
+}
 
 const TERMINAL_PHASES: readonly VoiceNotePhase[] = [
   'completed',
@@ -143,42 +156,6 @@ export function transitionVoiceNotePhase(
   event: VoiceNoteEvent,
 ): VoiceNotePhase {
   return TRANSITIONS[phase]?.[event] ?? phase
-}
-
-/** 归档桶读取:损坏 JSON / 非数组 / 条目形状不合法一律兜空,绝不抛错 */
-export function parseVoiceNotes(raw: string | null): VoiceNoteRecord[] {
-  if (!raw) return []
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    const notes: VoiceNoteRecord[] = []
-    for (const item of parsed) {
-      if (typeof item !== 'object' || item === null) continue
-      const candidate = item as Partial<VoiceNoteRecord>
-      if (typeof candidate.id !== 'string' || candidate.id.length === 0) continue
-      if (typeof candidate.createdAt !== 'string') continue
-      if (typeof candidate.durationMs !== 'number' || !Number.isFinite(candidate.durationMs))
-        continue
-      if (
-        typeof candidate.phase !== 'string' ||
-        !ALL_PHASES.includes(candidate.phase as VoiceNotePhase)
-      ) {
-        continue
-      }
-      notes.push({
-        id: candidate.id,
-        conversationId:
-          typeof candidate.conversationId === 'string' ? candidate.conversationId : null,
-        createdAt: candidate.createdAt,
-        durationMs: candidate.durationMs,
-        transcript: typeof candidate.transcript === 'string' ? candidate.transcript : null,
-        phase: candidate.phase as VoiceNotePhase,
-      })
-    }
-    return notes.slice(0, VOICE_NOTE_ARCHIVE_LIMIT)
-  } catch {
-    return []
-  }
 }
 
 /** 归档 upsert:同 id 原位替换;新记录追加在尾部(展示层自行倒序取最新);超限淘汰最旧 */
