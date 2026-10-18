@@ -20,14 +20,10 @@ import { RefreshCw, Search } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
+import { Tooltip } from '@/components/feedback'
 import type { NativeDashboard } from './dashboard-config.generated'
-import {
-  QueryResult,
-  rkey,
-  materializeExpr,
-  stepFor,
-  DashboardGrid,
-} from './panel-render'
+import { rkey, materializeExpr, stepFor, DashboardGrid } from './panel-render'
+import type { QueryResult } from './panel-render'
 
 // ---------- 时间窗与步长 ----------
 
@@ -41,12 +37,22 @@ const RANGES = [
 
 const AUTO_REFRESH_MS = 30_000
 
-// 配置体积 3000+ 行(213 条表达式),静态 import 会进首屏 bundle;运行期动态
+// 配置体积 3000+ 行(已 331 条表达式),静态 import 会进首屏 bundle;运行期动态
 // import 让 Next 把它切成独立 chunk,本页打开时才拉取(类型仍静态导入,零成本)。
-type ConfigModule = typeof import('./dashboard-config.generated')
-function loadConfig(): Promise<ConfigModule> {
+// 类型用 ReturnType<typeof loadConfig> 推导(规避 `import()` 字面量,过 consistent-type-imports 门)。
+//
+// ⚠ 2026-10-19 修:这里原来是「返回类型注解写 ConfigModule」+「ConfigModule 又由
+//   ReturnType<typeof loadConfig> 推导」——**自我循环**。TS 在配置规模小时能靠推断链
+//   兜过去,盘从 21 张加到 29 张(331 条表达式)后推断链断裂,`next build` 直接挂:
+//     TS2577 Return type annotation circularly references itself(43,24)
+//     TS2456 Type alias 'ConfigModule' circularly references itself(46,6)
+//     连带 6 条 TS7006(ConfigModule 解析失败 ⇒ 下游参数全部退化成隐式 any)
+//   修法只拿掉显式返回类型注解 —— 依赖变成单向(ConfigModule ← loadConfig),
+//   循环消失,且不写 `import()` 字面量这一条(comment 42 行)原样保住。
+async function loadConfig() {
   return import('./dashboard-config.generated')
 }
+type ConfigModule = Awaited<ReturnType<typeof loadConfig>>
 
 // ---------- 页面主体 ----------
 
@@ -184,7 +190,10 @@ export default function MonitorPanelsPage() {
   // 倒计时仅做显示(实际刷新由上面的 interval 驱动);每次数据落定即重置
   React.useEffect(() => {
     if (!autoRefresh) return
-    const tick = setInterval(() => setCountdown((c) => (c <= 1 ? AUTO_REFRESH_MS / 1000 : c - 1)), 1000)
+    const tick = setInterval(
+      () => setCountdown((c) => (c <= 1 ? AUTO_REFRESH_MS / 1000 : c - 1)),
+      1000,
+    )
     return () => clearInterval(tick)
   }, [autoRefresh])
   React.useEffect(() => {
@@ -209,7 +218,7 @@ export default function MonitorPanelsPage() {
   }, [dashboard, filter])
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden rounded-lg border border-[#1b2a45] bg-[#070d1a]">
+    <div className="flex h-[calc(100vh-64px)] overflow-hidden rounded-lg border border-[#1b2a45] bg-[#070d1a] px-4">
       {/* 左侧导航:21 张盘,按分组 */}
       <aside
         className={cn(
@@ -233,23 +242,25 @@ export default function MonitorPanelsPage() {
             return (
               <div key={group} className="mb-2">
                 {navOpen && (
-                  <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-600">{group}</div>
+                  <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                    {group}
+                  </div>
                 )}
                 {groupBoards.map((d) => (
-                  <button
-                    key={d.uid}
-                    type="button"
-                    onClick={() => switchDashboard(d.uid)}
-                    className={cn(
-                      'block w-full truncate px-3 py-1.5 text-left text-xs transition-colors',
-                      d.uid === activeUid
-                        ? 'border-l-2 border-cyan-400 bg-[#0f1a30] text-cyan-300'
-                        : 'border-l-2 border-transparent text-slate-400 hover:bg-[#0d1626] hover:text-slate-200',
-                    )}
-                    title={d.title}
-                  >
-                    {navOpen ? d.title : d.title.slice(0, 2)}
-                  </button>
+                  <Tooltip key={d.uid} content={d.title}>
+                    <button
+                      type="button"
+                      onClick={() => switchDashboard(d.uid)}
+                      className={cn(
+                        'block w-full truncate px-3 py-1.5 text-left text-xs transition-colors',
+                        d.uid === activeUid
+                          ? 'border-l-2 border-cyan-400 bg-[#0f1a30] text-cyan-300'
+                          : 'border-l-2 border-transparent text-slate-400 hover:bg-[#0d1626] hover:text-slate-200',
+                      )}
+                    >
+                      {navOpen ? d.title : d.title.slice(0, 2)}
+                    </button>
+                  </Tooltip>
                 ))}
               </div>
             )
@@ -264,7 +275,10 @@ export default function MonitorPanelsPage() {
           <h2 className="text-sm font-semibold text-slate-100">{dashboard?.title ?? '监控面板'}</h2>
           {dashboard && (
             <span className="rounded bg-[#0f1a30] px-1.5 py-0.5 text-[10px] text-slate-500">
-              {filter.trim() ? `${panels.length}/${dashboard.panels.length}` : dashboard.panels.length} 面板
+              {filter.trim()
+                ? `${panels.length}/${dashboard.panels.length}`
+                : dashboard.panels.length}{' '}
+              面板
             </span>
           )}
           <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -274,10 +288,10 @@ export default function MonitorPanelsPage() {
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="筛选面板…"
-                className="w-32 rounded border border-[#1b2a45] bg-[#0b1220] py-1 pl-7 pr-2 text-[11px] text-slate-200 placeholder:text-slate-600 focus:border-cyan-500/40 focus:outline-none"
+                className="w-32 rounded-sm border border-[#1b2a45] bg-[#0b1220] py-1 pl-7 pr-2 text-[11px] text-slate-200 placeholder:text-slate-600 focus:border-cyan-500/40 focus:outline-none"
               />
             </div>
-            <div className="flex overflow-hidden rounded border border-[#1b2a45]">
+            <div className="flex overflow-hidden rounded-sm border border-[#1b2a45]">
               {RANGES.map((r) => (
                 <button
                   key={r.seconds}
@@ -285,7 +299,9 @@ export default function MonitorPanelsPage() {
                   onClick={() => setRangeSec(r.seconds)}
                   className={cn(
                     'px-2.5 py-1 text-[11px] transition-colors',
-                    rangeSec === r.seconds ? 'bg-cyan-500/15 text-cyan-300' : 'text-slate-400 hover:text-slate-200',
+                    rangeSec === r.seconds
+                      ? 'bg-cyan-500/15 text-cyan-300'
+                      : 'text-slate-400 hover:text-slate-200',
                   )}
                 >
                   {r.label}
@@ -296,39 +312,50 @@ export default function MonitorPanelsPage() {
               type="button"
               onClick={() => setAutoRefresh((v) => !v)}
               className={cn(
-                'flex items-center gap-1 rounded border px-2 py-1 text-[11px]',
+                'flex items-center gap-1 rounded-sm border px-2 py-1 text-[11px]',
                 autoRefresh
                   ? 'border-cyan-500/40 text-cyan-300'
                   : 'border-[#1b2a45] text-slate-500 hover:text-slate-300',
               )}
             >
-              <RefreshCw className={cn('h-3 w-3', autoRefresh && 'animate-spin')} style={autoRefresh ? { animationDuration: '3s' } : undefined} />
+              <RefreshCw
+                className={cn('h-3 w-3', autoRefresh && 'animate-spin')}
+                style={autoRefresh ? { animationDuration: '3s' } : undefined}
+              />
               {autoRefresh ? `${countdown}s` : '已暂停'}
             </button>
             <button
               type="button"
               onClick={() => dashboard && void load(dashboard, rangeSec)}
               disabled={loading || !dashboard}
-              className="rounded border border-[#1b2a45] px-2 py-1 text-[11px] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-50"
+              className="rounded-sm border border-[#1b2a45] px-2 py-1 text-[11px] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-50"
             >
               刷新
             </button>
             {updatedAt && (
-              <span className="text-[10px] text-slate-600">更新于 {updatedAt.toLocaleTimeString('zh-CN', { hour12: false })}</span>
+              <span className="text-[10px] text-slate-600">
+                更新于 {updatedAt.toLocaleTimeString('zh-CN', { hour12: false })}
+              </span>
             )}
           </div>
         </div>
 
         {pageError && (
-          <div className="border-b border-amber-500/20 bg-amber-500/5 px-4 py-1.5 text-[11px] text-amber-400">{pageError}</div>
+          <div className="border-b border-amber-500/20 bg-amber-500/5 px-4 py-1.5 text-[11px] text-amber-400">
+            {pageError}
+          </div>
         )}
 
         {/* 面板网格 */}
         <div className="flex-1 overflow-y-auto p-4">
           {!dashboard ? (
-            <div className="flex h-full items-center justify-center text-xs text-slate-500">配置加载中…</div>
+            <div className="flex h-full items-center justify-center text-xs text-slate-500">
+              配置加载中…
+            </div>
           ) : panels.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-xs text-slate-500">无匹配「{filter}」的面板</div>
+            <div className="flex h-full items-center justify-center text-xs text-slate-500">
+              无匹配「{filter}」的面板
+            </div>
           ) : (
             <DashboardGrid dash={dashboard} panels={panels} results={results} loading={loading} />
           )}

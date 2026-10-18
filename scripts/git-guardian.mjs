@@ -1962,7 +1962,10 @@ function auditDiskRootHygiene() {
           // 恒记 1,再叠加别人在飞的 0~3 个 worktree ⇒ 每轮巡检至少有一个数在变
           // ⇒ shouldAlert 判"新故障"立即重报。分档语义:档内抖动不重报,
           // **跨档才算真恶化/真缓解**;信文照旧逐条点名(信息量没降),判据一字未动(§12e)。
-          dedupKey: `stray=${alertCountTier(c.diskRootStray)};wtOutside=${alertCountTier(c.worktreeOutside)}`,
+          // 真变化(违规类别或计数变了)仍立即重报。**2026-10-18 再补持续档**:10-16 以来该族 13 封
+          // 全是 4h 平窗重发 —— 分档只解决了"计数在抖",没解决"同一批外流条目每隔 4h 再寄一次"。
+          // 跨 6h/24h/72h 才重报,清零即摘起点(与隧道腿、部署停摆同一把尺子,§0.6)。
+          dedupKey: `stray=${alertCountTier(c.diskRootStray)};wtOutside=${alertCountTier(c.worktreeOutside)};held=${alertHeldTier(noteUndeterminedStreak(join(WORKTREE, '.workbuddy', 'disk-root-stray-first.json')).firstMs).tier}`,
         },
       )
       logger(
@@ -1971,6 +1974,8 @@ function auditDiskRootHygiene() {
       )
       return
     }
+    // 已判干净 ⇒ 摘掉外流持续计时起点(与上面 dedupKey 的 held 档成套,否则起点会背着历史时长)
+    clearUndeterminedStreak(join(WORKTREE, '.workbuddy', 'disk-root-stray-first.json'))
     logger(
       `✅ 盘根卫生:0 违规(白名单对账 + worktree 落点全在 ${join(WORKTREE, '.worktrees')})` +
         (nN ? `;另有 ${nN} 个声明盘根在本机不适用(不是"已判干净",是"本机没有这块盘")` : ''),
@@ -4053,6 +4058,12 @@ export function auditTunnelLegHealth(opts = {}) {
       const reading = JSON.stringify(d?.reading ?? {}).slice(0, 300)
       if (verdict === 'breach') {
         breaches += 1
+        // 身份必须带**持续档**(2026-10-18 补,与 `部署停摆`/`backup-refresh-fail` 同一把尺子):
+        // deprecated-source 在本机是**节律性现象** —— 源地址首选寿命实测 ~12h,到期必退化,
+        // 而唯一的出路(重启 Cloudflared)代价是 3 分钟 530,按 4h 平窗重报等于每 4 小时逼机主
+        // 做一次比故障更贵的操作。现读 10-16 以来该族 8 封全是平窗重发。改后:同一段退化内
+        // 只在跨 6h/24h/72h 档时重报,清掉起点即归零。
+        const held = alertHeldTier(noteUndeterminedStreak(join(WORKTREE, '.workbuddy', `tunnel-leg-${dim}-first.json`), now).firstMs, now)
         const exit =
           dim === 'deprecated-source'
             ? '出路:重启 `Cloudflared` 服务让腿重选源地址。**实测代价(2026-10-16 15:40 那次)**:优雅关闭到旧进程退出约 3 分钟,期间监控现读到 `530` 与 `StopPending(公网入口将不可达)`;写"10-30 秒"是错的。不重启的后果则是源地址被删时 4 条腿同时断 ⇒ 入口长时间 530。挑低峰做,做完用本尺子复验腿数。'
@@ -4060,15 +4071,21 @@ export function auditTunnelLegHealth(opts = {}) {
         notify(
           `公网入口隧道腿异常:${dim}`,
           `读数:${reading}\n原因:${String(d?.reason || '(尺子未给原因)')}\n尺子:scripts/check-tunnel-leg-health.mjs(netsh 地址寿命 + netstat 腿 + 进程三路现读,只读)。\n取证:node scripts/check-tunnel-leg-health.mjs --json(或读 .workbuddy/tunnel-leg-health-last.json)\n${exit}`,
-          { severity: 'warning', dedupKey: `dim=${dim};verdict=${verdict};legs=${alertCountTier(parsed.legs)}` },
+          { severity: 'warning', dedupKey: `dim=${dim};verdict=${verdict};legs=${alertCountTier(parsed.legs)};held=${held.tier}` },
         )
       } else if (verdict === 'warn') {
+        // 报数维不影响起点;起点在循环后按 ok/warn 统一清扫 ⇒ 下一轮真退化时从 0 起算
         warns += 1
         logger(`⚠️ 隧道腿健康报数(${dim},不判红):${String(d?.reason || reading).slice(0, 200)}`)
       } else if (verdict === 'unjudged') {
         unjudged += 1
         logger(`ℹ️ 隧道腿健康 ${dim}:未判定 —— ${String(d?.reason || '(无原因)').slice(0, 200)}`)
       }
+    }
+    // 起点清扫:本轮该维判 ok/warn(即"没在坏")就摘掉它的持续计时;unjudged 既不续命也不清零(§0.3)
+    for (const [dim, d] of Object.entries(parsed.dims)) {
+      const v = String(d?.verdict || '')
+      if (v === 'ok' || v === 'warn') clearUndeterminedStreak(join(WORKTREE, '.workbuddy', `tunnel-leg-${dim}-first.json`))
     }
     if (breaches === 0 && unjudged === 0) logger(`✅ 隧道腿健康:${parsed.legs} 条腿,源地址未见废弃(${warns} 格只报数)`)
     return { ran: true, judged: true, breaches, warns, unjudged, legs: parsed.legs }

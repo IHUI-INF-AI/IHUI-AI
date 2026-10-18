@@ -94,6 +94,12 @@ export function createUseConnectivity(adapter: ConnectivityAdapter): () => UseCo
       }
     }, [runProbe])
 
+    // 自适应排期:非 online 档用更短的间隔复探 ⇒ 网络一通,横幅一次成功即解除。
+    //
+    // 依赖必须是 `snapshot` 本体而不是 `snapshot.status`:连续同档时(真断网期间状态会一直
+    // 停在 unknown/offline)status 不变 ⇒ effect 不再触发 ⇒ 定时器不再续排,**第一轮重试
+    // 之后就永久停摆** —— "自动恢复"整个断掉,网络回来也没人去发现。判据每次 observe 都产出
+    // 新对象,故按对象身份续排即可(2026-10-19 票85④ 多端连通验证实测捕获)。
     React.useEffect(() => {
       const delay = snapshot.status === 'online' ? intervalMs : retryIntervalMs
       timerRef.current = setTimeout(() => {
@@ -103,7 +109,7 @@ export function createUseConnectivity(adapter: ConnectivityAdapter): () => UseCo
         if (timerRef.current) clearTimeout(timerRef.current)
         timerRef.current = null
       }
-    }, [snapshot.status, runProbe, intervalMs, retryIntervalMs])
+    }, [snapshot, runProbe, intervalMs, retryIntervalMs])
 
     const refresh = React.useCallback(() => {
       void runProbe()

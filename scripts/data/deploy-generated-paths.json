@@ -1,0 +1,27 @@
+{
+  "_comment": "ff-only 前置让位的封闭清单(配 scripts/restore-deploy-generated.mjs)。新增条目=显式审批,禁止'看起来是生成物'就口头放宽到全树。每条必须写明谁在生产它、为什么它每次构建都会重写、以及授权范围(trackedYield=索引==HEAD 时复原到 HEAD;untrackedCollide=上游 tip 已跟踪同名而本地是未跟踪副本时,备份后让位)。",
+  "_whyThisExists": "2026-10-19 现读:生产签出落后 origin/main 57 枚、部署环每 60s 撞 ff 失败并每 4h 寄一封『有未提交文件挡住 ff』。那批文件没有一份是人在写的(PROJECT_PLAN 回灌旧账 / 4 枚上游同名已跟踪的 Grafana 派生大屏 / sw.js 与 next-env.d.ts 这类构建每轮重写的被跟踪文件)。既有自愈层只治『盘上内容==该路径某祖先版本』的幻影漂移,生成物是比 HEAD 更新的内容 ⇒ 结构上永不命中 ⇒ 只要构建还在自己树上落生成物,下一次 ff 还会被同一枚挡死。这一格此前全仓无判据。",
+  "paths": [
+    {
+      "path": "apps/web/public/sw.js",
+      "trackedYield": true,
+      "reason": "Workbox 由 next build 每轮重写的 service worker 产物;生产签出里它必然与 HEAD 不同,而人手不写它"
+    },
+    {
+      "path": "apps/web/next-env.d.ts",
+      "trackedYield": true,
+      "reason": "Next.js 每次 build/dev 自写的环境声明文件(内容随上游 typescript 版本漂移),不是人工编辑面"
+    },
+    {
+      "path": "apps/web/app/(main)/admin/monitor/panels/dashboard-config.generated.ts",
+      "trackedYield": true,
+      "untrackedCollide": true,
+      "reason": "文件名即 .generated:面板派生器产物,真相面在 monitoring/ 与生成器脚本"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/",
+      "untrackedCollide": true,
+      "reason": "大屏是 sync-grafana-live-provisioning / generate-monitor-panels 的派生态;本地未跟踪而上游同名已跟踪时,ff 会拒绝覆盖 ⇒ 备份后让位,装的是已入库真相面"
+    }
+  ]
+}

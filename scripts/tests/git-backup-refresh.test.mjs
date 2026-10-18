@@ -251,7 +251,11 @@ test('T9 接线锁:守卫挂在被调方 main() 且只包 apply 路径;git-lock 
     'SKIPPED 支的退出码不是 0(恒非零支会弄崩守护的其余自愈步)',
   )
   // 反第二真相:被调方不得自己抄一份锁语义(判活/回收/抢占算法只许住在 git-lock)
-  assert.doesNotMatch(SOURCE, /claimStaleLock|isPidAlive|verifyHolder/, 'git-backup-refresh 里出现了第二份锁判据')
+  assert.doesNotMatch(
+    SOURCE,
+    /claimStaleLock|isPidAlive|verifyHolder/,
+    'git-backup-refresh 里出现了第二份锁判据',
+  )
   // 地基文件是**纯新增**:acquire 那条既有判据行必须逐字还在
   assert.ok(
     GITLOCK_SOURCE.includes('else if (!holderAlive || age > hardStaleMs || age > staleMs) {'),
@@ -278,7 +282,11 @@ test('T10 判据1+5:另一活进程持锁时,第二个 --apply 打 SKIPPED、exi
     const c = runChild(f, [])
     assert.equal(c.status, 0, `跳过必须是 0:${c.stdout}\n${c.stderr}`)
     assert.match(c.stdout, /SKIPPED/, '第二个实例没报 SKIPPED')
-    assert.doesNotMatch(c.stdout + c.stderr, /自身异常|增量 fetch 失败/, '子进程碰了 git ⇒ 守卫根本没生效')
+    assert.doesNotMatch(
+      c.stdout + c.stderr,
+      /自身异常|增量 fetch 失败/,
+      '子进程碰了 git ⇒ 守卫根本没生效',
+    )
     // 反向对照(判据5):锁被他人持有 ⇒ 不得删、不得改
     assert.ok(existsSync(lockDir), '跳过的实例把别人的锁删了')
     assert.deepEqual(readMetaBytes(lockDir), metaBefore, '持有者的 meta.json 被动过')
@@ -367,7 +375,12 @@ test('T13 单实例原语的三格分档(构造面 + 注入 identityRun,不派�
     // ② 死但未超龄 ⇒ 不抢
     const d2 = join(dir, 'lock2')
     plantMeta(d2, { unitId: LOCK_UNIT, pid: gone.pid, ts: Date.now() })
-    const b = tryAcquireSingleInstance({ dir: d2, unitId: LOCK_UNIT, staleMs: 100_000, log: () => {} })
+    const b = tryAcquireSingleInstance({
+      dir: d2,
+      unitId: LOCK_UNIT,
+      staleMs: 100_000,
+      log: () => {},
+    })
     assert.equal(b.acquired, false)
     assert.match(b.why, /未超/)
     assert.ok(existsSync(d2))
@@ -419,12 +432,19 @@ test('T14 判据4:--check 零副作用不破 —— 不建锁、不动备份 ref
   try {
     // check 必须真跑 git(读)才有结论 —— 桩会让它连 rev-parse 都失败,测不到目标形态
     const c = runChild(f, ['--check'], { stub: false })
-    assert.ok(c.status === 0 || c.status === 1, `check 退出码异常:${c.status} ${c.stdout}${c.stderr}`)
+    assert.ok(
+      c.status === 0 || c.status === 1,
+      `check 退出码异常:${c.status} ${c.stdout}${c.stderr}`,
+    )
     assert.equal(c.status, 1, '夹具是落后的,check 必须报需刷新(原语义)')
     assert.match(c.stdout, /需刷新/)
     assert.doesNotMatch(c.stdout, /SKIPPED/, '--check 不该挂守卫')
     assert.ok(!existsSync(lockDir), '--check 建了锁目录 ⇒ 零副作用判据被破')
-    assert.equal(gitRun(['rev-parse', '--verify', 'main'], f.backup), tipBefore, '--check 把备份动了')
+    assert.equal(
+      gitRun(['rev-parse', '--verify', 'main'], f.backup),
+      tipBefore,
+      '--check 把备份动了',
+    )
     assert.ok(!existsSync(join(f.backup, 'FETCH_HEAD')), '--check 派生了 fetch(FETCH_HEAD 出现)')
     assert.ok(!existsSync(join(f.backup, 'refs-manifest.json')), '--check 写了 manifest')
     // 持有者在场时 --check 行为一字不变(它不排队、不等锁)
@@ -445,7 +465,11 @@ test('T15 判据3:真 git 串行两发 --apply 都 exit 0 —— 第一发追平
     const a = runChild(f, [], { stub: false })
     assert.equal(a.status, 0, `第一发必须成:${a.stdout}${a.stderr}`)
     assert.match(a.stdout, /已增量追平/)
-    assert.equal(gitRun(['rev-parse', '--verify', 'main'], f.backup), f.head, 'apply 后备份没追平源')
+    assert.equal(
+      gitRun(['rev-parse', '--verify', 'main'], f.backup),
+      f.head,
+      'apply 后备份没追平源',
+    )
     const b = runChild(f, [], { stub: false })
     assert.equal(b.status, 0)
     assert.doesNotMatch(b.stdout, /SKIPPED/, '两发是串行的,第二发不该看到在飞持有者')
@@ -454,6 +478,49 @@ test('T15 判据3:真 git 串行两发 --apply 都 exit 0 —— 第一发追平
   } finally {
     rmScratch(f.dir)
   }
+})
+
+test('T17 G-930 接线锁:--init 必须真挂在 main() 上,而 --check/--dry-run 一支都不许建镜像', async () => {
+  // "函数在而无人调=没有"是本仓反复记过的那一型(T4 同一条)。镜像判据只读源码形状,
+  // 不派生真 git、不碰生产落点。
+  assert.match(SOURCE, /const INIT = args\.includes\('--init'\)/, '旗标未注册')
+  const mainBody = SOURCE.slice(
+    SOURCE.indexOf('async function main()'),
+    SOURCE.indexOf('async function runOnce'),
+  )
+  assert.match(
+    mainBody,
+    /if \(INIT\) \{[\s\S]{0,400}?initMirror\(\)/,
+    'main() 里没有把 INIT 接到 initMirror()',
+  )
+  // 零副作用那一半:建镜像只允许发生在 INIT 支里
+  const checkBranch = mainBody.slice(mainBody.indexOf('if (INIT)'))
+  assert.doesNotMatch(
+    checkBranch.slice(0, checkBranch.indexOf('let guard')),
+    /clone', '--mirror/,
+    '镜像建在了 check 之前的公共路径上',
+  )
+  assert.match(
+    SOURCE,
+    /if \(DRY_RUN\) \{[\s\S]{0,300}?--init[\s\S]{0,200}?不写盘/,
+    '--dry-run 必须只报落点',
+  )
+
+  const [{ backupMirrorRoot, resolveBackupDir }, { __test__ }] = await Promise.all([
+    import('../lib/gitdir.mjs'),
+    import('../git-backup-refresh.mjs'),
+  ])
+  assert.equal(
+    typeof __test__.initMirror,
+    'function',
+    'initMirror 未进 __test__ 出口(镜像测不了行为)',
+  )
+  const wt = process.cwd().replace(/\\/g, '/')
+  const root = String(backupMirrorRoot() || '').replace(/\\/g, '/')
+  assert.ok(root.length > 0, '真仓工作区外落点解析为空')
+  assert.ok(!(root === wt || root.startsWith(`${wt}/`)), `落点落回工作树内: ${root}`)
+  const cand = String(resolveBackupDir() || '').replace(/\\/g, '/')
+  assert.ok(cand.startsWith(root), `resolveBackupDir 首候选不在树外落点下: ${cand}`)
 })
 
 test('T16 两发并发的形态学保证:先起跑者在 fetch 中,后起跑者必 SKIPPED 且零派生', () => {
