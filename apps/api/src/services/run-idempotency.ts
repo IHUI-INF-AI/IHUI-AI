@@ -365,7 +365,7 @@ export type SlotLocalityPhase = 'commit' | 'replay'
  * 两处各写一遍"这条槽由哪些段定位",将来加一段(比如租户)就会有一处忘,而漏掉的那处只会让
  * child 集合变小 —— 表现为"合规的事实被判越界",不是安静,是误伤。
  */
-export type SlotLocalityScope = IdempotencySlotRef
+type SlotLocalityScope = IdempotencySlotRef
 
 export interface SlotLocalitySpec<T> {
   /**

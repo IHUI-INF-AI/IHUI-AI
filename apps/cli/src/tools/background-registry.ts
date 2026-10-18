@@ -976,9 +976,9 @@ export function formatSettledTaskNotification(input: SettledTaskNotificationInpu
  * 故生产调用点恒传 `false`。判据先建在有序链里,是为了第二生产者落地时**只改这一个入参**、
  * 不在别处再抄一遍顺序 —— 两处算同一件事必漂移。
  */
-export type SettlementCheckName = 'ownership' | 'idempotency' | 'observability' | 'crossProducerDedup' | 'capacity';
+type SettlementCheckName = 'ownership' | 'idempotency' | 'observability' | 'crossProducerDedup' | 'capacity';
 
-export interface TerminalSettlementEvidence {
+interface TerminalSettlementEvidence {
   /** ① 事件归属于该条目当前这一轮生命周期。 */
   ownsEntry: boolean;
   /** ② 本轮已经 claim 过(`notified` 位为真)。 */
@@ -997,9 +997,9 @@ export interface TerminalSettlementEvidence {
   buildNotice: (outcome: TerminalSettlementOutcome) => SettledTaskNotificationInput;
 }
 
-export type TerminalSettlementOutcome = 'settled' | 'lost' | 'not-owned' | 'already-claimed' | 'deduped-by-producer';
+type TerminalSettlementOutcome = 'settled' | 'lost' | 'not-owned' | 'already-claimed' | 'deduped-by-producer';
 
-export interface TerminalSettlementDecision {
+interface TerminalSettlementDecision {
   outcome: TerminalSettlementOutcome;
   /** 按序**通过**的判据名;`haltedAt` 非空时,其后的判据一律不在列。 */
   passedChecks: SettlementCheckName[];
