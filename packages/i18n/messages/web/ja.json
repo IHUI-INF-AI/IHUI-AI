@@ -8303,6 +8303,10 @@
           "title": "現在のチャットモードではこの操作はブロックされます",
           "action": "ビルドモードに切り替えて再試行"
         },
+        "CONCURRENT_MODIFICATION": {
+          "title": "ファイルが並行して変更されました",
+          "action": "再読み込みしてから書き込みるか、強制上書きを確認してください"
+        },
         "CONCURRENCY_LIMIT_EXCEEDED": {
           "title": "リクエストが多すぎます",
           "action": "しばらくしてから再試行"
@@ -15993,6 +15997,11 @@
     "logsEmptyDescription": "この Hook はまだ発火していません",
     "logSuccess": "成功",
     "logFailure": "失敗"
+  },
+  "connectivity": {
+    "deviceOffline": "端末がオフラインのため、一部機能を利用できません",
+    "apiUnreachable": "サーバーに接続できません。自動再試行中",
+    "hostLocalAvailable": "ローカル Git チャネルは引き続き利用可能"
   },
   "ide": {
     "activityBar": {

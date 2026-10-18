@@ -50,33 +50,87 @@ function saveSecretArtifact(name, obj) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-async function waitPastCloudflare(page, maxMs = 90000) {
+async function waitPastCloudflare(page, maxMs = 300000) {
   const t0 = Date.now()
+  let clicked = 0
   while (Date.now() - t0 < maxMs) {
     const title = await page.title().catch(() => '')
-    if (!/just a moment|请稍候|attention required/i.test(title)) return true
-    // Turnstile 勾选框(有头无头都试一次)
-    for (const fr of page.frames()) {
-      if (fr.url().includes('challenges.cloudflare')) {
-        try {
-          const cb = fr.locator('input[type="checkbox"]')
-          if ((await cb.count()) && (await cb.first().isVisible())) {
-            await cb.first().click({ timeout: 2000 })
-          }
-        } catch {}
+    let body = ''
+    try {
+      body = (await page.textContent('body', { timeout: 5000 })) || ''
+    } catch {}
+    const combined = title + ' ' + body
+    if (!/just a moment|请稍候|performing security|verifying you are human|attention required/i.test(combined))
+      return true
+    // 自动验证中(spinner)——绝不点击,点了会重置
+    if (/verifying you are human|may take a few seconds/i.test(combined)) {
+      await sleep(5000)
+      continue
+    }
+    // 0) 拦截页组件在【主文档】内(非 iframe):#challenge-stage / .ctp-checkbox-label
+    for (const sel of [
+      'label.ctp-checkbox-label',
+      '#challenge-stage label',
+      '#challenge-form label',
+      '#challenge-stage .ctp-checkbox-label',
+      'input[type="checkbox"]:not([hidden])',
+    ]) {
+      try {
+        const loc = page.locator(sel).first()
+        if (await loc.isVisible({ timeout: 500 })) {
+          await loc.click({ timeout: 2000, force: true })
+          clicked++
+          console.log(`CF-CLICK main sel=${sel} round=${clicked}`)
+          break
+        }
+      } catch {}
+    }
+    // 1) iframe 内兜底
+    if (clicked < 6) {
+      for (const fr of page.frames()) {
+        if (fr.url().includes('challenges.cloudflare')) {
+          try {
+            const loc = fr.locator('.ctp-checkbox-label').first()
+            if (await loc.isVisible({ timeout: 500 })) {
+              await loc.click({ timeout: 2000, force: true })
+              clicked++
+              console.log(`CF-CLICK frame round=${clicked}`)
+              break
+            }
+          } catch {}
+        }
       }
     }
-    await sleep(4000)
+    // 2) 页面级坐标兜底(勾选框实测在视口 16.5%,39.2%)
+    if (clicked < 4) {
+      const vp = page.viewportSize()
+      const cx = Math.round(vp.width * 0.165)
+      const cy = Math.round(vp.height * 0.392)
+      try {
+        await page.mouse.move(cx - 10, cy - 6)
+        await page.mouse.click(cx, cy)
+        clicked++
+        console.log(`CF-CLICK viewport(${cx},${cy}) round=${clicked}`)
+      } catch {}
+    }
+    await sleep(6000)
   }
   return false
 }
 
 async function launch() {
-  const browser = await chromium.launch({ headless: true })
+  const headed = process.env.UNDER_XVFB === '1'
+  const browser = await chromium.launch({
+    headless: !headed,
+    args: ['--disable-blink-features=AutomationControlled', '--no-sandbox'],
+  })
   const ctx = await browser.newContext({
     viewport: { width: 1280, height: 860 },
     locale: 'en-US',
     timezoneId: 'Asia/Shanghai',
+  })
+  await ctx.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined })
   })
   const page = await ctx.newPage()
   return { browser, ctx, page }
