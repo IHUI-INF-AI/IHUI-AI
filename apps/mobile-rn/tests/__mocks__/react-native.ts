@@ -53,7 +53,7 @@ type Measurable = HTMLElement & {
 
 const mk = (tag: string) =>
   function MockComp(props: { children?: ReactNode; ref?: unknown; [k: string]: unknown }) {
-    const { style, onPress, ref, ...rest } = props
+    const { style, onPress, onChangeText, onSubmitEditing, accessibilityLabel, ref, ...rest } = props
     /**
      * React 19 把 ref 当普通 prop 传给函数组件,而这里此前直接把它连同 `style` 一起
      * spread 到 DOM 上 —— 结果 ref 被静默丢弃,`triggerRef.current` 恒为 null,
@@ -70,9 +70,26 @@ const mk = (tag: string) =>
       if (typeof ref === 'function') ref(node)
       else if (ref && typeof ref === 'object') (ref as { current: unknown }).current = node
     }
+    /**
+     * RN TextInput 的受控入口是 onChangeText + onSubmitEditing(回车),DOM 侧对应
+     * onChange / Enter 键;accessibilityLabel 对应 web aria-label(RTL getByLabelText 只认它)。
+     * 不映射则这些属性只作为未知属性被 React DOM 丢弃 —— 受控输入在测试里"打不了字、
+     * 提交不了",无障碍文案也检索不到(SearchOverlay 弹层三者皆用)。同 flattenStyle 一条规矩:
+     * 共享替身必须覆盖真身 API 面,不在各套件各自 vi.mock。
+     */
+    const extra: Record<string, unknown> = {}
+    if (typeof onChangeText === 'function')
+      extra.onChange = (e: { target: { value: string } }) => {
+        ;(onChangeText as (v: string) => void)(e.target.value)
+      }
+    if (typeof onSubmitEditing === 'function')
+      extra.onKeyDown = (e: { key: string }) => {
+        if (e.key === 'Enter') (onSubmitEditing as () => void)()
+      }
+    if (typeof accessibilityLabel === 'string') extra['aria-label'] = accessibilityLabel
     return createElement(
       tag,
-      { ...rest, ref: setRef, onClick: onPress, style: flattenStyle(style) },
+      { ...rest, ...extra, ref: setRef, onClick: onPress, style: flattenStyle(style) },
       resolveChildren(props.children),
     )
   }
@@ -178,6 +195,11 @@ export const StyleSheet = {
     }
     return out
   },
+  // 真身 API 面补齐:hairlineWidth 是分隔线/描边常用档(SearchOverlay divider 即用它),
+  // absoluteFillObject 是全屏遮罩常用底(弹层 backdrop 即展开它)。缺了前者 height 变 NaN,
+  // 缺了后者遮罩样式表静默丢铺满四边 —— 都不报错但断言失真。
+  hairlineWidth: 1,
+  absoluteFillObject: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
 } as const
 export const Dimensions = { get: () => ({ width: 375, height: 812 }) }
 /**
