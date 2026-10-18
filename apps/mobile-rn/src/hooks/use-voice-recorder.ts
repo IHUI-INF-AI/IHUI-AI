@@ -13,6 +13,8 @@
  * 失败/无权限/空录音回调 onComplete('')。
  * 2026-10-15:新增 onUnavailable(无权限/录音启动失败的用户可见反馈入口)+ 授权懒补办
  * (web 端挂载期预请求无手势上下文必失败,原先此后长按永远静默)+ 松开竞态守卫。
+ * 2026-10-16:新增原始录音模式(transcribe=false):松开不走 STT,经 onRecorded(uri, 秒)
+ * 把本地录音文件交给调用方上传发送(语音气泡消息),duration 用 ref 镜像供 stop 读取。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio'
@@ -31,6 +33,16 @@ export interface UseVoiceRecorderOptions {
    *  2026-10-15:此前 start() 的两条失败路径都只回调 onComplete(''),界面零反馈,
    *  web 预览长按麦克风表现为「点了没反应」(用户报障)。 */
   onUnavailable?: (reason: 'permission-denied' | 'record-failed') => void
+  /**
+   * 原始录音回调(transcribe=false 时生效):松开后把本地录音 uri + 时长(秒)交出,
+   * 供调用方上传并发语音气泡消息。转写模式下不触发。
+   */
+  onRecorded?: (uri: string, durationSec: number) => void
+  /**
+   * 是否转写为文字(默认 true,原行为)。
+   * false = 原始录音模式:跳过 STT,走 onRecorded(录音消息)。
+   */
+  transcribe?: boolean
   /** ai-service URL(默认 http://localhost:8803,与 VoiceInput 一致) */
   aiServiceUrl?: string
   /** 语言提示(默认 zh) */
@@ -40,6 +52,8 @@ export interface UseVoiceRecorderOptions {
 export function useVoiceRecorder({
   onComplete,
   onUnavailable,
+  onRecorded,
+  transcribe = true,
   aiServiceUrl = 'http://localhost:8803',
   language = 'zh',
 }: UseVoiceRecorderOptions = {}) {
@@ -48,6 +62,9 @@ export function useVoiceRecorder({
   const [duration, setDuration] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const recordingRef = useRef(false)
+  // duration 的 ref 镜像:stop() 是 useCallback,不随每秒 tick 重建,
+  // 原始录音模式要在 stop 里读「松手这一瞬」的时长,只能走 ref。
+  const durationRef = useRef(0)
   const permissionRef = useRef(false)
   // start 异步续体的代次:授权等待/prepare 期间用户松开(stop)会推进代次,
   // 续体据此放弃开始,避免「手指已抬起却凭空进入录音态」。
@@ -98,12 +115,18 @@ export function useVoiceRecorder({
       uri = ''
     }
 
-    // 录音 URI → ai-service STT 转文字(空串 = 失败,调用方自行忽略)
     if (!uri) {
       onComplete?.('')
       return
     }
 
+    // 原始录音模式(2026-10-16):跳过 STT,把录音文件 + 时长交给调用方上传发送
+    if (!transcribe) {
+      onRecorded?.(uri, durationRef.current)
+      return
+    }
+
+    // 录音 URI → ai-service STT 转文字(空串 = 失败,调用方自行忽略)
     setTranscribing(true)
     try {
       const text = await voiceSttFromReactNative(uri, {
@@ -117,7 +140,7 @@ export function useVoiceRecorder({
     } finally {
       setTranscribing(false)
     }
-  }, [onComplete, recorder, language, aiServiceUrl])
+  }, [onComplete, onRecorded, recorder, transcribe, language, aiServiceUrl])
 
   const start = useCallback(() => {
     if (recordingRef.current) return
@@ -158,7 +181,11 @@ export function useVoiceRecorder({
       recordingRef.current = true
       setRecording(true)
       setDuration(0)
-      timerRef.current = setInterval(() => setDuration((d) => d + 1), 1000)
+      durationRef.current = 0
+      timerRef.current = setInterval(() => {
+        durationRef.current += 1
+        setDuration(durationRef.current)
+      }, 1000)
       try {
         await recorder.prepareToRecordAsync()
         if (!recordingRef.current) {
