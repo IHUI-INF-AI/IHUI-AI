@@ -639,8 +639,13 @@ export function collectStallInputs({
   const logPath = prodDeployLoopLog(repo)
   const logExists = existsSync(logPath)
   const log = logExists ? readFileText(logPath) : ''
-  // 取最后一次"部署完成"(日志时间是 UTC,+00:00)
-  const lines = log.split(/\r?\n/).filter((l) => /部署完成/.test(l))
+  // 取最后一次**真实**部署完成 —— 只认环收尾写的那一行 `=== 部署完成,HEAD=<sha> … ===`。
+  // 为什么不能按裸"部署完成"过滤(2026-10-18 实测):环在攒批窗口内每 60 秒写一行
+  // `[loop] 距上次部署完成 29.0 分钟 < 最小间隔 30 分钟,本轮跳过`,裸词把**跳过**读成**成功**
+  // ⇒ lastSuccessIso 每分钟自己往前走。当场就是证据:16:37 之后环被 WIP 挡住再没成功过,
+  // 而尺子报的"最近成功"是 17:06 那一行跳过。两笔代价:①信里"已落后 N 小时"是假的;
+  // ②任何把成功时刻写进告警身份的档位,都会每轮拿到新身份 ⇒ 去重窗形同虚设(实测 18 封/天)。
+  const lines = log.split(/\r?\n/).filter((l) => /部署完成,HEAD=[0-9a-f]{7,40}/.test(l))
   let lastOkIso = ''
   if (lines.length) {
     const m = String(lines[lines.length - 1]).match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([+-]\d{2}:\d{2})\]/)
