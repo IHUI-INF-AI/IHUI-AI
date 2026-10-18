@@ -19,7 +19,8 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -278,6 +279,8 @@ function EmptyState({ t }: { t: ReturnType<typeof useTranslations> }) {
 
 export default function UsagePage() {
   const t = useTranslations('models')
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
   const [days, setDays] = React.useState(7)
   const [stats, setStats] = React.useState<UsageStatsData | null>(null)
   const [globalData, setGlobalData] = React.useState<GlobalUsageData | null>(null)
@@ -311,8 +314,19 @@ export default function UsagePage() {
   }, [days])
 
   React.useEffect(() => {
+    if (!allow) {
+      setLoading(false)
+      return
+    }
     fetchData()
-  }, [fetchData])
+  }, [fetchData, allow])
+
+  if (!allow)
+    return (
+      <div className="p-4">
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      </div>
+    )
 
   if (loading) return <LoadingSkeleton t={t} />
   if (error) return <ErrorState error={error} onRetry={fetchData} />
