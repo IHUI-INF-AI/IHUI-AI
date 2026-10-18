@@ -9,12 +9,14 @@ import {
   eduPoints,
   eduPointChannelRelations,
   eduPointRecords,
+  pointRule,
   type EduPointChannel,
   type EduPoint,
   type EduPointChannelRelation,
   type EduPointRecord,
 } from '@ihui/database'
 import { AppError } from '../errors/AppError.js'
+import type { PointRuleItem } from '@ihui/types'
 
 // =============================================================================
 // Channels 积分渠道
@@ -60,6 +62,32 @@ export async function findAllActiveChannels(): Promise<EduPointChannel[]> {
     .from(eduPointChannels)
     .where(eq(eduPointChannels.status, 1))
     .orderBy(asc(eduPointChannels.sort), asc(eduPointChannels.id))
+}
+
+/**
+ * 积分规则列表(仅启用档) —— GET /api/point-rule 的唯一数据源。
+ *
+ * 投影刻意对齐消费端已声明的 `PointRuleItem`(id/action/points/desc),不把 `point_rule`
+ * 的内部列(code/type/max_per_day)外泄成第三种形状;`id` 是 serial 数字而契约是字符串,
+ * 在库层一次转换,不在各端各转一次。排序取 code→id 稳定序,前端下拉/列表两次刷新同序。
+ */
+export async function findActivePointRules(): Promise<PointRuleItem[]> {
+  const rows = await db
+    .select({
+      id: pointRule.id,
+      action: pointRule.action,
+      point: pointRule.point,
+      description: pointRule.description,
+    })
+    .from(pointRule)
+    .where(eq(pointRule.status, 1))
+    .orderBy(asc(pointRule.code), asc(pointRule.id))
+  return rows.map((r) => ({
+    id: String(r.id),
+    action: r.action,
+    points: r.point ?? 0,
+    desc: r.description ?? '',
+  }))
 }
 
 export async function findChannelById(id: string): Promise<EduPointChannel | undefined> {
