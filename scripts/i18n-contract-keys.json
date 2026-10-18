@@ -158,6 +158,108 @@
           }
         ]
       }
+    },
+    "cli": {
+      "cliEntry.undoSucceeded": {
+        "reason": "取词点真实存在但静态扫描看不见:undo-claim-copy.ts:91 用常量相加 t(UNDO_CLAIM_KEY_PREFIX + 'undoSucceeded', { count }) 渲染,而 :41 才把前缀写成 'cliEntry.' ⇒ 全仓没有一处把 'cliEntry.undoSucceeded' 整串写成字面量。摘键等于让 CLI 回退成功时报出一句空白;补字面引用要改他人已入库的纯函数与 :62 的反向锁注释,归该线持有人。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 41,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 91,
+            "contains": "return t(UNDO_CLAIM_KEY_PREFIX + 'undoSucceeded', { count });"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 73,
+            "contains": "return 'undoSucceeded';"
+          }
+        ]
+      },
+      "cliEntry.undoPartialWarning": {
+        "reason": "同族:selectUndoClaimKey 在 :71 按票面状态返回叶名,再由 :98 的 t(UNDO_CLAIM_KEY_PREFIX + key) 拼出整串 ⇒ 本端零字面引用是拼接的必然结果,不是孤儿。「部分文件没撤成」这句是票面六态之一,摘键即把不完整结果报成干净成功。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 41,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 98,
+            "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 71,
+            "contains": "if (input.partial) return 'undoPartialWarning';"
+          }
+        ]
+      },
+      "cliEntry.undoUnavailable": {
+        "reason": "同族::72 返回叶名、:98 拼前缀成串,静态扫描无值流分析能力 ⇒ 'cliEntry.undoUnavailable' 从不以字面出现属工具盲区而非死文案。该态说的是「没有可回滚的项」,摘键即让无事可做被读成有结果。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 41,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 98,
+            "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 72,
+            "contains": "if (input.undoneSteps === 0) return 'undoUnavailable';"
+          }
+        ]
+      },
+      "cliEntry.undoFailedChanged": {
+        "reason": "同族::70 返回叶名、:98 拼前缀成串。这一态是「确证工作区已变」的事实陈述,:58 的反向锁写明它与「判不了」互斥且顺序不得对调 ⇒ 摘键会把确证事实降级成沉默,属票面禁的那类谎,不是清理死文案。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 41,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 98,
+            "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 70,
+            "contains": "if (input.verdict === 'changed') return 'undoFailedChanged';"
+          }
+        ]
+      },
+      "cliEntry.undoFailedUnverifiable": {
+        "reason": "同族::69 返回叶名、:98 拼前缀成串。这一态专管「判不了就不声称」——摘掉它,失败三拆少一条,无法核实的回退会被读成成功;:59 的顺序契约已把这一格钉成互斥,所以键必须留在五语言词包里。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 41,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 98,
+            "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 69,
+            "contains": "if (input.verdict === 'unknown') return 'undoFailedUnverifiable';"
+          }
+        ]
+      }
     }
   }
 }
