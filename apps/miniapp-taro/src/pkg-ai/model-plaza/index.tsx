@@ -12,12 +12,14 @@ import { FALLBACK_MODELS } from '@ihui/shared/constants'
 // 兜底模型的上下文容量按 id 取真实值;广场是用户直接看到"128K/32K"这类字样的地方,
 // 写死一个数 = 对一半以上的模型报错误规格(与首页那处同一型,共用同一个出口)
 import { getModelContextCapacity } from '@ihui/api-client'
+import type { ModelPlazaModelType, ModelPlazaTypeFilter } from '@ihui/types'
 import ThemeRoot from '@/components/ThemeRoot'
 import CategoryBar from '@/components/CategoryBar'
 import './index.css'
 
-type ModelType = 'text' | 'image' | 'av'
-type TypeFilter = 'all' | ModelType
+// 值域单源 = @ihui/types(门 219 点名的端内重声明族;本地名保留,只把值域换成别名)
+type ModelType = ModelPlazaModelType
+type TypeFilter = ModelPlazaTypeFilter
 
 interface ModelDisplay {
   id: string
