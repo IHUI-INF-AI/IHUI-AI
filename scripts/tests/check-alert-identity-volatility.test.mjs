@@ -112,9 +112,15 @@ test('④ 豁免台账:每条都必须指向 HEAD 面存在的路径,到期日�
   }
 })
 
-test('⑤ 量算仪射程:发信台账必须是它的源之一,且取不到时报 null 不报 0', () => {
+test('⑤ 量算仪射程:发信台账必须是它的源之一,取不到报 null 不报 0,且与出口的落点是同一个文件', () => {
   const src = headBlob('scripts/alert-volume-report.mjs')
   assert.match(String(src), /mail-send-ledger\.jsonl/, '量算仪没把投递台账当源 ⇒ 最大的发信面仍然隐形')
   assert.match(String(src), /ledgerTotal24h:\s*ledger\s*\?\s*ledger\.windows\['24h'\]\.mailCount\s*:\s*null/, '取不到必须落 null(用 0 冒充"没寄过"是今天那一型的另一半)')
+  // 落点漂移是最阴的一型:出口往 A 写、量的人读 B ⇒ 双方都"正常",账却是空的。
+  const exitSrc = String(headBlob('apps/api/scripts/notify-deploy-failure.ts'))
+  const fn = exitSrc.slice(exitSrc.indexOf('function defaultMailSendLedgerPath'), exitSrc.indexOf('function defaultMailSendLedgerPath') + 400)
+  assert.match(fn, /\.workbuddy/, '出口台账必须落在 .workbuddy/')
+  assert.match(fn, /mail-send-ledger\.jsonl/, '出口写的文件名必须与量算仪读的那个逐字相同')
+  assert.match(String(src), /join\(ROOT,\s*'\.workbuddy',\s*'mail-send-ledger\.jsonl'\)/, '量算仪那一侧的落点字面量必须同形')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
