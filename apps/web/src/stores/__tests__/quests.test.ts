@@ -187,6 +187,65 @@ describe('quests store:hydrateFromServer(票77 服务端聚合腿)', () => {
     expect(entryOf('srv-th-1')!.updatedAt).toBe(1_700_000_200_000)
   })
 
+  it('引擎评估轨迹:并轨去重、进度取最新、服务端已带同档则不再补本地 auto', () => {
+    // 直接种入端内旧快照(upsertFromGoal 的 auto 时间戳是 now,会把排序断言挤到最后)
+    useQuestsStore.setState({
+      entries: {
+        'goal-1': {
+          goalId: 'goal-1',
+          text: '本地目标',
+          status: 'active',
+          progress: 30,
+          workspaceId: '',
+          sessionId: 'sess-1',
+          createdAt: 1_000,
+          updatedAt: 2_000,
+          assessments: [
+            { id: 'local-1', at: 1_000, status: 'active', progress: 30, summary: '', source: 'auto' },
+          ],
+        },
+      },
+    })
+    const row = makeRow({
+      sessionId: 'sess-1',
+      goal: { status: 'done', objective: '服务端目标' },
+      assessments: [
+        {
+          id: 'gv-bad',
+          at: 1_700_000_120_000,
+          status: 'bogus',
+          progress: 1,
+          summary: '坏档',
+          source: 'engine',
+        },
+        {
+          id: 'gv-1',
+          at: 1_700_000_150_000,
+          status: 'done',
+          progress: 80,
+          summary: '独立校验:成立 4/5 条',
+          source: 'engine',
+        },
+      ],
+    })
+    useQuestsStore.getState().hydrateFromServer([row])
+    useQuestsStore.getState().hydrateFromServer([row])
+    const entry = entryOf('goal-1')!
+    expect(entry.status).toBe('done')
+    expect(entry.progress).toBe(80)
+    // 端内旧快照 + 引擎一条;第二次灌入按 id 去重,不重复追加
+    expect(entry.assessments).toHaveLength(2)
+    expect(entry.assessments.filter((a) => a.id === 'gv-1')).toHaveLength(1)
+    expect(entry.assessments.some((a) => a.id === 'gv-bad')).toBe(false)
+    expect(entry.assessments.at(-1)).toMatchObject({
+      id: 'gv-1',
+      status: 'done',
+      progress: 80,
+      summary: '独立校验:成立 4/5 条',
+      source: 'auto',
+    })
+  })
+
   it('非法状态档跳过;objective 空时退 title', () => {
     useQuestsStore
       .getState()

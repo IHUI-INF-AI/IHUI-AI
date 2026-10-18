@@ -37,6 +37,8 @@
 from __future__ import annotations
 
 import logging
+import time
+import uuid
 from collections.abc import Sequence
 from typing import Any, Literal
 
@@ -65,6 +67,11 @@ from ..services.goal_round_state import (
     decide_pause,
     get_store,
     normalize_outcome,
+)
+from ..services.session_store import (
+    normalize_goal_state,
+    owner_scoped_allows,
+    thread_owner,
 )
 
 logger = logging.getLogger(__name__)
@@ -319,6 +326,62 @@ def _aggregate(
     }
 
 
+def _record_engine_assessment(
+    *,
+    session_id: str,
+    principal: str,
+    result_status: str,
+    blocked: bool,
+    views: Sequence[CriterionOut],
+) -> None:
+    """票77:把本轮独立校验回灌到目标线程(My Quests 的引擎侧自动评估源)。
+
+    只写属主逐字相等且已有合规 `goalState` 的线程;缺失 / 他人 / 非 goal 线程
+    静默跳过(不据此区分归属)。本函数**不参与 HTTP 结论**:回灌失败只留日志,
+    绝不把一次已完成的判定改成 5xx。
+    """
+    try:
+        from .sessions import get_session_store
+
+        store = get_session_store()
+        thread_id = store.resolve_thread_id_for_conversation(session_id)
+        if not thread_id:
+            return
+        thread = store.get_thread(thread_id)
+        if thread is None or not owner_scoped_allows(principal, thread_owner(thread)):
+            return
+        state = normalize_goal_state(thread.metadata.get("goalState"))
+        if state is None:
+            return
+        total = len(views)
+        met = sum(1 for v in views if v.verdict == "met")
+        unmet = sum(1 for v in views if v.verdict == "unmet")
+        unknown = sum(1 for v in views if v.verdict == "unknown")
+        if blocked:
+            status = "blocked"
+        elif result_status == _STATUS_ACHIEVED:
+            status = "done"
+        else:
+            status = state["status"]
+        terminal = "blocked" if blocked else ("done" if result_status == _STATUS_ACHIEVED else None)
+        now_ms = int(time.time() * 1000)
+        store.append_goal_assessment(
+            thread_id,
+            {
+                "id": f"gv-{now_ms}-{uuid.uuid4().hex[:6]}",
+                "at": now_ms,
+                "status": status,
+                "progress": round(met * 100 / total) if total else 0,
+                "summary": f"独立校验:成立 {met}/{total} 条(未成立 {unmet},未判定 {unknown})",
+                "source": "engine",
+            },
+            owner_user_id=principal,
+            goal_status=terminal,
+        )
+    except Exception:  # noqa: BLE001 - 回灌失败不得影响校验结论
+        logger.warning("goal 自评估回灌失败(session=%s),已跳过", session_id, exc_info=True)
+
+
 def _criterion_views(
     result_criteria: Sequence[CriterionVerdict], required_by_id: dict[str, bool]
 ) -> list[CriterionOut]:
@@ -479,6 +542,14 @@ async def verify_goal(payload: VerifyIn, request: Request) -> VerifyOut:
         body["unavailable_reason"] = body.get("unavailable_reason") or (
             f"本轮后已达收口条件(原因:{pause.reason})"
         )
+    # 票77:判定已完成 ⇒ 回灌目标线程(评估轨迹 + 终态状态机);失败不影响本响应
+    _record_engine_assessment(
+        session_id=payload.session_id,
+        principal=principal,
+        result_status=result.status,
+        blocked=state.blocked,
+        views=views,
+    )
     return VerifyOut(
         **body,
         stateful=True,
