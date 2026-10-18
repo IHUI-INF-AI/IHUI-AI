@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Palette, Copy, Check, Loader2, AlertTriangle, Code2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 
 /** D31 设计稿转码(2026-09-26 立):Figma Frame/组件 → 可运行前端代码。
@@ -35,12 +35,6 @@ interface FigmaImportResult {
   degraded?: boolean
 }
 
-async function api<T>(url: string, options: RequestInit & { timeoutMs?: number } = {}): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error || 'Request failed')
-  return r.data
-}
-
 const TARGETS: TranscodeTarget[] = ['react', 'taro']
 
 export default function FigmaImportPage() {
@@ -63,10 +57,11 @@ export default function FigmaImportPage() {
     setResult(null)
     setCopied(false)
     try {
-      const res = await api<FigmaImportResult>('/figma/import', {
+      const res = await apiOrThrow<FigmaImportResult>('/figma/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileKey: fileKey.trim(), nodeId: nodeId.trim(), target }),
+        fallbackError: 'Request failed',
       })
       setResult(res)
     } catch (e) {

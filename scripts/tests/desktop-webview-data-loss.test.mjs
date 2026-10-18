@@ -80,9 +80,13 @@ test('① 源码里不得存在"对 EBWebView 根整棵删除"的调用点', () 
 })
 
 test('② 两处清理入口必须都走白名单辅助函数(装车证明)', () => {
-  // 窗口须从函数起点截到「其后的下一枚 #[cfg(test)]」;直接 indexOf('#[cfg(test)]') 命中的是文件早期(157 行)那枚,
-  // 早于本函数(1754)⇒ slice 起>止返空串、判据恒假(自伤)。取函数之后的 cfg(test) 才真验到 1762 行那次 helper 调用。
-  const cmd = src.slice(src.indexOf('fn clear_webview_cache()'), src.indexOf('#[cfg(test)]', src.indexOf('fn clear_webview_cache()')))
+  // 窗口须从函数起点截到「其后的下一枚 #[cfg(test)]」;直接 indexOf('#[cfg(test)]') 命中的是文件早期
+  // 那枚,早于本函数 ⇒ slice 起>止返空串、判据恒假(自伤)。取函数之后的 cfg(test) 才真验到 helper 调用。
+  // 匹配式按 `fn clear_webview_cache(` 截(不带括号结尾):签名加参数(G-921 起要从 AppHandle 取
+  // identifier)不该把这条装车证明读成"辅助函数被摘走"—— 认字面量签名就是把判据钉在形状上。
+  const cmdAt = src.indexOf('fn clear_webview_cache(')
+  assert.ok(cmdAt > 0, '找不到 clear_webview_cache 命令本体,须同步本判据')
+  const cmd = src.slice(cmdAt, src.indexOf('#[cfg(test)]', cmdAt))
   assert.ok(
     cmd.includes('clear_webview_caches('),
     '设置项"清理缓存"命令未走辅助函数(可能退回整树删)',

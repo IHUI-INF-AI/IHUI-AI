@@ -11,7 +11,7 @@ import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 import { Loader2, Video, RefreshCw, ChevronRight, ChevronDown } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import {
   Card,
   CardContent,
@@ -46,12 +46,6 @@ interface DetailData {
   warning?: string
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error || 'Request failed')
-  return r.data
-}
-
 export default function VideoTasksPage() {
   const locale = useLocale()
   const t = useTranslations('videoTasksPage')
@@ -74,7 +68,10 @@ export default function VideoTasksPage() {
 
   const listQuery = useQuery({
     queryKey: ['jimeng-video-tasks'],
-    queryFn: () => api<ListData>('/api/ai/jimeng4/video/tasks?page=1&pageSize=20'),
+    queryFn: () =>
+      apiOrThrow<ListData>('/api/ai/jimeng4/video/tasks?page=1&pageSize=20', {
+        fallbackError: 'Request failed',
+      }),
     enabled: allow,
     refetchInterval: (q) => {
       const list = q.state.data?.list ?? []
@@ -84,7 +81,10 @@ export default function VideoTasksPage() {
 
   const detailQuery = useQuery({
     queryKey: ['jimeng-video-task', expandedId],
-    queryFn: () => api<DetailData>(`/api/ai/jimeng4/video/tasks/${expandedId}`),
+    queryFn: () =>
+      apiOrThrow<DetailData>(`/api/ai/jimeng4/video/tasks/${expandedId}`, {
+        fallbackError: 'Request failed',
+      }),
     enabled: expandedId !== null,
     refetchInterval: (q) => {
       const task = q.state.data?.task

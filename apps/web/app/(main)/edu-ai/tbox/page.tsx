@@ -19,7 +19,7 @@ import {
   Unlock,
   Upload,
 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { formatShortDateTime } from '@/lib/date-utils'
 import {
@@ -72,9 +72,6 @@ interface RegisterForm {
   deviceName: string
   deviceType: string
 }
-interface RequestError extends Error {
-  status?: number
-}
 
 const EMPTY_FORM: RegisterForm = { deviceNo: '', deviceName: '', deviceType: '' }
 const STATUS_STYLES: Record<string, string> = {
@@ -95,16 +92,6 @@ const COMMANDS = [
   { cmd: 'upgrade', Icon: Upload },
 ] as const
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) {
-    const e = new Error(r.error) as RequestError
-    e.status = r.status
-    throw e
-  }
-  return r.data
-}
-
 export default function TboxPage() {
   const t = useTranslations('eduAi.tbox')
   const locale = useLocale()
@@ -115,21 +102,21 @@ export default function TboxPage() {
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['tbox-devices'],
-    queryFn: () => api<Device[]>('/api/tbox/devices'),
+    queryFn: () => apiOrThrow<Device[]>('/api/tbox/devices'),
   })
   const detailQuery = useQuery({
     queryKey: ['tbox-devices', 'detail', selectedId],
-    queryFn: () => api<Device>(`/api/tbox/devices/${selectedId}`),
+    queryFn: () => apiOrThrow<Device>(`/api/tbox/devices/${selectedId}`),
     enabled: selectedId !== null,
   })
   const commandsQuery = useQuery({
     queryKey: ['tbox-devices', 'commands', selectedId],
-    queryFn: () => api<CommandRecord[]>(`/api/tbox/devices/${selectedId}/commands`),
+    queryFn: () => apiOrThrow<CommandRecord[]>(`/api/tbox/devices/${selectedId}/commands`),
     enabled: selectedId !== null && detailOpen,
   })
   const registerMutation = useMutation({
     mutationFn: (v: RegisterForm) =>
-      api<Device>('/api/tbox/devices', {
+      apiOrThrow<Device>('/api/tbox/devices', {
         method: 'POST',
         body: JSON.stringify({
           deviceNo: v.deviceNo.trim(),
@@ -144,7 +131,7 @@ export default function TboxPage() {
   })
   const commandMutation = useMutation({
     mutationFn: (cmd: string) =>
-      api<CommandRecord>(`/api/tbox/devices/${selectedId}/command`, {
+      apiOrThrow<CommandRecord>(`/api/tbox/devices/${selectedId}/command`, {
         method: 'POST',
         body: JSON.stringify({ command: cmd }),
       }),

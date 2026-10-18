@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import type {
   RegistryItemListResponse,
   RegistryItemDetailResponse,
@@ -19,12 +19,6 @@ import type {
 
 const BASE = '/api/registry'
 
-async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(`${BASE}${path}`, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 function qs(query: Record<string, unknown>): string {
   const sp = new URLSearchParams()
   for (const [k, v] of Object.entries(query)) {
@@ -36,19 +30,32 @@ function qs(query: Record<string, unknown>): string {
 
 export const registryApi = {
   listItems: (query: RegistryItemListQuery) =>
-    api<RegistryItemListResponse>(`/items${qs(query as Record<string, unknown>)}`),
-  getItem: (id: string) => api<RegistryItemDetailResponse>(`/items/${encodeURIComponent(id)}`),
+    apiOrThrow<RegistryItemListResponse>(`${BASE}/items${qs(query as Record<string, unknown>)}`),
+  getItem: (id: string) =>
+    apiOrThrow<RegistryItemDetailResponse>(`${BASE}/items/${encodeURIComponent(id)}`),
   listSyncLogs: (query: { page?: number; pageSize?: number }) =>
-    api<RegistrySyncLogListResponse>(`/sync-logs${qs(query)}`),
+    apiOrThrow<RegistrySyncLogListResponse>(`${BASE}/sync-logs${qs(query)}`),
   triggerSync: (body: { sourceType?: RegistrySourceType; source?: string; force?: boolean }) =>
-    api<RegistrySyncResponse>(`/sync`, { method: 'POST', body: JSON.stringify(body) }),
+    apiOrThrow<RegistrySyncResponse>(`${BASE}/sync`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   install: (body: { sourceType: RegistrySourceType; sourceId: string; version?: string }) =>
-    api<InstallRegistryItemResponse>(`/install`, { method: 'POST', body: JSON.stringify(body) }),
+    apiOrThrow<InstallRegistryItemResponse>(`${BASE}/install`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   upgradeAll: (body: { sourceType?: RegistrySourceType }) =>
-    api<UpgradeAllResponse>(`/upgrade-all`, { method: 'POST', body: JSON.stringify(body) }),
-  detectConfigDrift: () => api<ConfigDriftDetectResponse>(`/config-drift`),
+    apiOrThrow<UpgradeAllResponse>(`${BASE}/upgrade-all`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  detectConfigDrift: () => apiOrThrow<ConfigDriftDetectResponse>(`${BASE}/config-drift`),
   migrateConfig: (body: { fileType?: string; dryRun?: boolean; rollbackThreshold?: number }) =>
-    api<ConfigMigrateResponse>(`/config-migrate`, { method: 'POST', body: JSON.stringify(body) }),
-  getWorkerStats: () => api<RegistryWorkerStats>(`/worker-stats`),
+    apiOrThrow<ConfigMigrateResponse>(`${BASE}/config-migrate`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  getWorkerStats: () => apiOrThrow<RegistryWorkerStats>(`${BASE}/worker-stats`),
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
