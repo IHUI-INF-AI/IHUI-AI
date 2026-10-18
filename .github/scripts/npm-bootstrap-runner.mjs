@@ -307,3 +307,4 @@ async function runVerifyToken(page) {
   if (!/^npm_/.test(token)) throw new Error('token not captured — see shots/token-generated.png')
   saveSecretArtifact('npm-token', { username: USERNAME, token })
 }
+main()
