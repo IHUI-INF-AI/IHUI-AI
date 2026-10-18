@@ -61,7 +61,7 @@ const DEFAULT_REPO = 'IHUI-INF-AI/IHUI-AI'
 const RELEASE_PREFIX = 'desktop-v'
 const RELEASES_PAGE = 'https://github.com/IHUI-INF-AI/IHUI-AI/releases'
 // Gitee 镜像仓坐标(与 resolveFromGitee 的 GITEE_OWNER/GITEE_REPO 默认值同源 ——
-// 2026-10-16 起 host 钉定(下方 forceGiteeWindowsExe)也要用它,故提为模块级常量单源)。
+// 2026-10-18 起它由字节对账决定 host 归属(giteeBytesVerdict),常量仍是两侧拼链的单一出处)。
 const GITEE_OWNER = process.env.GITEE_OWNER || 'JLSLSSZWHYXGS_0'
 const GITEE_REPO = process.env.GITEE_REPO || 'IHUI-AI'
 
@@ -304,7 +304,7 @@ async function fetchReleasesPaged(baseUrl, headers, label, { perPage = 100, maxP
  * 下载页须能反映最新版本;Gitee 直链国内下载也快)。无匹配则返回 null 由 GitHub 兜底。
  */
 async function resolveFromGitee() {
-  // 仓坐标用模块级常量(GITEE_OWNER/GITEE_REPO),与 host 钉定 forceGiteeWindowsExe 同源
+  // 仓坐标用模块级常量(GITEE_OWNER/GITEE_REPO)—— 与快照里可能出现的 Gitee 直链同源拼装
   let releases
   try {
     releases = await fetchReleasesPaged(
@@ -558,43 +558,39 @@ function nameFromHref(href) {
  * updater 专属产物兜底(macOS 唯一可更新产物 `.app.tar.gz`、rpm 等,URL 恒为
  * GitHub 直链 —— Gitee mac/linux 资产实测 404)。空签名/白名单外 host 不出键。
  *
- * 2026-10-16 host 钉定:windows-x86_64(updater 第一优先平台)的 URL 恒为 Gitee 直链。
- * GitHub 直链在国内网络下被重置(curl exit 56,2026-09-21 0.1.42 实测),端内更新器
- * 拿不到包即整体失效;且 Gitee 侧该形态可完全确定性推导(owner/repo 常量 + 本快照自己的
- * resolvedFromTag + 资产名),不需要 Gitee API 当次命中 —— Gitee 源未命中/GitHub 兜底
- * 那条路(0.1.54 快照实锤形态)以前会把 windows 键落回 github.com,判据因此红。
- * 签名是 minisign 对包体的签名,两端挂的是同一 CI 产物字节,改写 host 不毁签。
- * `tauri-updater-platforms.test.mjs` ① 锁的就是这一不变式(windows 键必须 Gitee 形态,
- * 且不钉具体版本字节)。
+ * 2026-10-18 **取消 host 盲钉**:同名 ≠ 同字节。两条实锤 ——
+ *   ① desktop-v0.1.75:Gitee 那份是 02:28:50Z 的 10,118,299 字节,CI 03:53:54Z 构建并签名的
+ *      是 10,122,472 字节;盲钉把 CI 的签名配到了别的字节上 ⇒ 客户端下载成功而验签必失败,
+ *      自动更新静默失效(比 404 更难发现)。
+ *   ② 0.1.54 那份入库快照:盲钉按"确定性推导"给它钉了 `gitee.com/.../desktop-v0.1.54/...exe`,
+ *      而 Gitee 只镜像了 v0.1.47/v0.1.74/v0.1.75 —— 该直链实测 404,于是 live 一取不到,
+ *      兜底就同时给出「降级 21 版」+「死链」。当年正是"判据因此红"把这条钉出来的。
+ * host 现在只由 `resolveOnline` 里的**字节对账**决定(见 `giteeBytesVerdict`):量过且等长
+ * 才用 Gitee;不等长或量不到 ⇒ 保持 GitHub(慢而正确),并逐条大声报「未判定」,
+ * 绝不把"没量过"记成"量过了"。
  */
-function forceGiteeWindowsExe(href, tag) {
-  if (!/^https:\/\/github\.com\/[^/]+\/[^/]+\/releases\/download\//.test(String(href))) return href
-  return `https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/${tag}/${encodeURIComponent(nameFromHref(href))}`
+/** 同名资产是不是同一份字节:same / different / undetermined(任一侧 size 量不到)。 */
+export function giteeBytesVerdict(ghSize, giteeSize) {
+  const a = Number(ghSize || 0)
+  const b = Number(giteeSize || 0)
+  if (!a || !b) return 'undetermined'
+  return a === b ? 'same' : 'different'
 }
 
 function withUpdaterPlatforms(data) {
   // gitee 源单独命中时 data 带着 giteeReleasesUrl,它不进快照 → 解构剥离(下划线前缀 = 刻意弃用,eslint /^_/u)
   const { updaterEntries, giteeReleasesUrl: _giteeReleasesUrl, ...rest } = data
-  // host 钉定在**源数据**上做:下载页 assets 与 updaterPlatforms 同读同一份条目,
-  // 若只改 updaterPlatforms、不改 assets,「两形态并读」(windows 键 url 必须与
-  // assets 里那条 Windows 资产同值)那条断言必红。
-  const winExe = (a) => a.format === 'Windows NSIS exe'
-  rest.assets = (data.assets || []).map((a) =>
-    winExe(a) ? { ...a, href: forceGiteeWindowsExe(a.href, data.resolvedFromTag) } : a,
-  )
+  // host 一律沿用**合并时按字节对账定下来的那一份**,这里不再做任何改写:
+  // 下载页 assets 与 updaterPlatforms 同读同一对象,「两形态并读」断言(windows 键 url
+  // 必须与 assets 里那条 Windows 资产同值)因此天然成立,不需要靠盲钉去凑。
+  rest.assets = data.assets || []
   const assetEntries = rest.assets.map((a) => ({
     name: nameFromHref(a.href),
     url: a.href,
     signature: a.signature || '',
   }))
   const seenNames = new Set(assetEntries.map((e) => e.name))
-  const extras = (updaterEntries || [])
-    .filter((e) => !seenNames.has(e.name))
-    .map((e) =>
-      /_x64-setup\.exe$/.test(e.name)
-        ? { ...e, url: forceGiteeWindowsExe(e.url, data.resolvedFromTag) }
-        : e,
-    )
+  const extras = (updaterEntries || []).filter((entry) => !seenNames.has(entry.name))
   const all = [...assetEntries, ...extras]
   // 同优先级、同版本匹配、签名却不同的候选 = 择优靠"保留首个"静默决定。
   // 2026-09-24 实测 Gitee 上真同时挂着 CI 与本机通道两份 Windows exe ⇒ 必须吼出来。
@@ -644,9 +640,20 @@ async function resolveOnline() {
   )
   const keyOf = (a) => `${a.format}|${a.arch || ''}`
   const giteeMap = new Map(fromGitee.assets.map((a) => [keyOf(a), a]))
+  // 2026-10-18:assets 侧此前**完全没有**字节对账(updater 侧有),Gitee 同名条目是无条件
+  // 采纳的 ⇒ 与下面 updater 侧会得出不同 host,两形态并读靠盲钉硬凑。现在两侧同一把尺子:
+  // 只有量过且等长才改用 Gitee,否则保持 GitHub 条目。
   const merged = fromGithub.assets.map((a) => {
     const g = giteeMap.get(keyOf(a))
     if (!g) return a
+    const verdict = giteeBytesVerdict(a.sizeBytes, g.sizeBytes)
+    if (verdict !== 'same') {
+      console.warn(
+        `[resolve] Gitee 同名资产未采用(${a.format}|${a.arch || '-'}) 字节对账=${verdict}` +
+          `:GH=${a.sizeBytes} / Gitee=${g.sizeBytes} ⇒ 保持 GitHub 直链`,
+      )
+      return a
+    }
     giteeMap.delete(keyOf(a))
     return { ...g, signature: g.signature || a.signature }
   })
@@ -658,13 +665,24 @@ async function resolveOnline() {
   // 2026-10-12 加 size 对账:Gitee 同名直链永取第一个附件且附件不可删——历史上
   // 曾有旧版包体冒名占用无版本号资产名(AI_universal.app.tar.gz 实锤,size
   // 11425039 ≠ GH 0.1.51 的 13126884)。同名且 size 不符的 Gitee 条目一律弃用
-  // (GH 条目兜底);GH 无同名(带版本号新名直链)或 size 一致才采信。
+  // (GH 条目兜底);GH 无同名(带版本号新名直链)才直接采信。
+  // 2026-10-18 改判方向:旧口径"任一侧量不到 size ⇒ 采信"把**未判定**当成了**已核对**。
+  // desktop-v0.1.75 实锤就是这条:Gitee 那份同名 exe 与 CI 签名的字节差 4173 字节,
+  // 采信即等于把签名配到别人的字节上 ⇒ 客户端下载成功、验签必失败、自动更新静默失效。
+  // 所以量不到现在也回 GitHub(慢而正确),并吼出是"未判定"而不是"对上了"。
   const ghByName = new Map((fromGithub.updaterEntries || []).map((e) => [e.name, e]))
   const giteeTrustable = (g) => {
     const gh = ghByName.get(g.name)
     if (!gh) return true
-    if (!g.size || !gh.size) return true // 任一侧取不到 size ⇒ 未判定,不因量不出而误杀
-    return g.size === gh.size
+    const verdict = giteeBytesVerdict(gh.size, g.size)
+    if (verdict !== 'same') {
+      console.warn(
+        `[resolve] Gitee updater 条目 ${g.name} 未采用:字节对账=${verdict}` +
+          `(GH=${gh.size} / Gitee=${g.size})⇒ 保持 GitHub`,
+      )
+      return false
+    }
+    return true
   }
   const mergedUpdaterEntries = [
     ...(fromGitee.updaterEntries || [])
