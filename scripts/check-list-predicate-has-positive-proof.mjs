@@ -38,6 +38,7 @@ import {
   readWorktreeFile,
   selectFace,
 } from './lib/face-reader.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符) */
@@ -407,8 +408,9 @@ export async function main(argv) {
  * 别人的一次改动就能让一条"证明"永远不再证明任何事)。
  */
 function runSelfTest() {
-  const results = []
-  const t = (name, pass, note = '') => results.push({ name, pass, note })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `results.push({ name, pass })` 裸存结论 —— 已由共用出口结构封死,用例调用一字不动。
+  const { t, report } = makeRegistrar()
 
   const LIST = `export const DENIED = [\n  'a-alpha',\n  'b-beta',\n] as const\n`
   const read = (map) => (p) => map.get(p) ?? null
@@ -545,11 +547,12 @@ function runSelfTest() {
       !iterationRegex('DENIED').test('expect(DENIED).toHaveLength(3)'),
   )
 
-  const failed = results.filter((r) => !r.pass)
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { fail, cases: results } = report()
   for (const r of results)
-    console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.note ? ` — ${r.note}` : ''}`)
-  console.log(`\n--self-test:${results.length} 条断言,失败 ${failed.length} 条`)
-  return failed.length === 0 ? 0 : 1
+    console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.got !== 'true' && r.got !== 'false' ? ` — ${r.got}` : ''}`)
+  console.log(`\n--self-test:${results.length} 条断言,失败 ${fail} 条`)
+  return fail === 0 ? 0 : 1
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

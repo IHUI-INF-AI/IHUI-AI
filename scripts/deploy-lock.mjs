@@ -147,6 +147,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // 2026-10-02(补齐部署锁机制票):acquire --with-heartbeat 与 run 子命令都要**派生进程**
 // (常驻心跳 + 被包装的真命令)。§5b/守门 52:凡派生控制台程序必带 windowsHide,否则用户桌面反复弹黑窗。
 import { spawn } from 'node:child_process'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dirname, '..')
@@ -1901,7 +1902,10 @@ async function runSelfTest() {
   const { mkScratch, rmScratch } = await import('./lib/scratch-dir.mjs')
   const base = mkScratch('deploy-lock-selftest-')
   process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR = join(base, 'scene')
-  const results = []
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `results.push({ name, ok: !!cond })` 布尔强制(函数恒真)—— 已由共用出口封死。
+  // 逐条即时打印 ✅/❌ 的既有观感由这层薄壳保留(结论值在调用侧即已算出,thunk 语义不受影响)。
+  const { t: reg, report } = makeRegistrar()
   let seq = 0
   const freshDir = () => {
     const d = join(base, `lock-${++seq}`)
@@ -1920,7 +1924,7 @@ async function runSelfTest() {
   }
   const DEAD_PID = findDeadPid()
   const t = (name, cond, detail = '') => {
-    results.push({ name, ok: !!cond, detail })
+    reg(name, cond)
     console.log(`${cond ? '✅' : '❌'} ${name}${cond ? '' : ` — ${detail || '断言不成立'}`}`)
   }
   const elapsed = async (fn) => {
@@ -3142,7 +3146,7 @@ async function runSelfTest() {
 
     const mkFake = () => {
       const calls = []
-      const fn = (file, args) => {
+      const fn = (file, args) => { // selftest-registrant-exempt: spawn 间谍(记录调用实参供断言逐字段比对),不是用例登记函数,结论另有 t() 求值路径
         calls.push({ file, args })
         return { pid: 4242, unref() {}, on() {} }
       }
@@ -3321,12 +3325,13 @@ async function runSelfTest() {
     )
   }
 
-  const failed = results.filter((r) => !r.ok)
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { fail, cases: results } = report()
   console.log(
-    `自检 ${results.length} 条:pass ${results.length - failed.length} / fail ${failed.length}`,
+    `自检 ${results.length} 条:pass ${results.length - fail} / fail ${fail}`,
   )
-  for (const f of failed) console.log(`  ❌ ${f.name} — ${f.detail}`)
-  return failed.length === 0 ? 0 : 1
+  for (const f of results) if (!f.pass) console.log(`  ❌ ${f.name}${f.got && f.got !== 'false' ? ` — ${f.got}` : ''}`)
+  return fail === 0 ? 0 : 1
 }
 
 async function main() {

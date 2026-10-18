@@ -56,6 +56,7 @@ import {
   FACE_LABEL,
 } from './lib/face-reader.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const SELF = 'check-plan-sha-resolvable.mjs'
 const DEFAULT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -386,8 +387,9 @@ function printReport(res, root, face, topN) {
 // ---------------------------------------------------------------------------
 
 function selfTest() {
-  const t = []
-  const ok = (name, cond, extra = '') => t.push({ name, pass: !!cond, extra })
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值,
+  // 用例判据"求值后的结论"进 report(),登记侧结构上无法"忘了调用"。
+  const { t: ok, report } = makeRegistrar()
   const NL = String.fromCharCode(10)
 
   // 1) 每种登记形态：逐字样例必须被抽出并归到登记的形态上
@@ -527,13 +529,11 @@ function selfTest() {
   ok('F2 单面旗必须落在正确面上（selectFace 返回对象而非面名，这一条钉住不再漂回去）',
     parseFaces(['--staged']) === 'staged' && parseFaces(['--worktree']) === 'worktree' && parseFaces([]) === 'head')
 
-  let fails = 0
-  for (const r of t) {
-    if (!r.pass) fails++
-    console.log(`${r.pass ? '  ✅' : '  ❌'} ${r.name}${r.extra ? `  — ${r.extra}` : ''}`)
-  }
-  console.log(`${SELF} --self-test：${t.length - fails}/${t.length} 条通过`)
-  return fails === 0 ? 0 : 1
+  const { pass, fail, cases } = report()
+  for (const r of cases)
+    console.log(`${r.pass ? '  ✅' : '  ❌'} ${r.name}${r.pass ? '' : `  — ${r.got}`}`)
+  console.log(`${SELF} --self-test：${pass}/${cases.length} 条通过`)
+  return fail === 0 ? 0 : 1
 }
 
 // ---------------------------------------------------------------------------

@@ -75,6 +75,7 @@ import { fileURLToPath } from 'node:url'
 import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { classifyMissing } from './lib/live-doc-classify.mjs'
 import { maskComments } from './lib/code-mask.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(dirname(SELF_DIR))
@@ -420,18 +421,15 @@ function report(res, { json }) {
 }
 
 /**
- * 构造面自检(零副作用)。每条 `cond` 都是**已求值的布尔** —— 本仓有大量自检把函数当条件传进
- * 登记器,`!!(() => {})` 恒真 ⇒ 打印"N/N 通过"而一条都没判过(守门 150 票㉛ 实测 8 条同型)。
+ * 构造面自检(零副作用)。登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs
+ * (thunk 族,消费循环求值)—— 旧本地登记器对函数形参只能"记假并劝返",共用出口则结构上
+ * 封死"函数对象恒真"的老洞:传进来的 thunk 会在消费点被真调用,用例调用一字不动。
  */
 export function selfTest() {
-  const rows = []
+  const { t: reg, report } = makeRegistrar()
   const t = (name, cond) => {
-    if (typeof cond === 'function') {
-      rows.push({ name, ok: false, why: 'cond 是函数 ⇒ 断言从未求值(应写成 (() => {...})())' })
-      return
-    }
-    rows.push({ name, ok: !!cond, why: '' })
-    console.log(`${!!cond ? '✓' : '✗'} ${name}`)
+    reg(name, cond)
+    console.log(`${cond ? '✓' : '✗'} ${name}`)
   }
   const base = [
     '# 头',
@@ -616,10 +614,11 @@ export function selfTest() {
     })(),
   )
 
-  const bad = rows.filter((r) => !r.ok)
-  console.log(`—— 自检 ${rows.length - bad.length}/${rows.length} 通过${bad.length ? ' ✗' : ' ✅'}`)
-  for (const r of bad) console.log(`   ✗ ${r.name}:${r.why}`)
-  return bad.length ? 1 : 0
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { fail, cases: rows } = report()
+  console.log(`—— 自检 ${rows.length - fail}/${rows.length} 通过${fail ? ' ✗' : ' ✅'}`)
+  for (const r of rows) if (!r.pass) console.log(`   ✗ ${r.name}:${r.got}`)
+  return fail ? 1 : 0
 }
 
 function main(argv) {
