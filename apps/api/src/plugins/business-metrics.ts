@@ -358,7 +358,7 @@ export class BizTimer {
  */
 
 /** token 方向:与 ai_cost_records 的 prompt/completion 两列一一对应。 */
-export type AiTokenDirection = 'input' | 'output'
+type AiTokenDirection = 'input' | 'output'
 /** 调用结果:大屏错误率 = sum(status!="success") / sum(全部)。 */
 export type AiCallStatus = 'success' | 'error' | 'cancelled'
 /**

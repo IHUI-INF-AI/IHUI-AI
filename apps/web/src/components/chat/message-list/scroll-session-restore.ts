@@ -92,7 +92,7 @@ export function createScrollSessionStore(maxEntries: number = SCROLL_SESSION_STO
 }
 
 /** 消费失败的原因(测试逐条锁;`'not-pending'` = 已消费或从未挂起)。 */
-export type RestoreConsumeReason =
+type RestoreConsumeReason =
   | 'not-pending'
   | 'conversation-mismatch'
   | 'messages-not-ready'

@@ -38,7 +38,11 @@
       "project": ["**/*.{ts,tsx}"]
     },
     "apps/mobile-rn": {
-      "project": ["src/**/*.{ts,tsx}"]
+      "project": ["src/**/*.{ts,tsx}"],
+      // @lobehub/icons 由 brand-icon.web.tsx 以深路径 default 导入(react-native-web 平台扩展 .web.tsx),
+      // knip 静态面不解析 .web.tsx 平台变体,会把这条真实依赖误报为未用;2026-10-17 厂商矢量图标接入(f72e53becd)。
+      // 到期复核:启用 @knip/react-native 插件(platformExtensions)后应删本白名单。
+      "ignoreDependencies": ["@lobehub/icons"]
     },
     "apps/miniapp-taro": {
       "entry": ["src/app.tsx"],
@@ -61,6 +65,14 @@
     },
     "packages/ui-native": {
       "project": ["src/**/*.{ts,tsx}"]
+    },
+    "packages/app": {
+      "project": ["src/**/*.{ts,tsx}"],
+      // lucide-react 与 lucide-react-native 双包并存:NavBar/PayButton 等同构组件在 web/RNW 侧
+      // import lucide-react(真 SVG),native 侧用 -native;这些组件随 TabBar 液态玻璃接入(068af74ddf)、
+      // 尚未挂到静态可达入口,knip 因而把真依赖误报为未用。
+      // 到期复核:组件挂载到入口可达面后应删本白名单。
+      "ignoreDependencies": ["lucide-react"]
     }
   }
 }

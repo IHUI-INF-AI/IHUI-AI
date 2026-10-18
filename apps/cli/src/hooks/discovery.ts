@@ -59,10 +59,10 @@ export const HOOK_DISCOVERY_DIAGNOSTIC_CODES = [
   'hook-frontmatter-unreadable',
 ] as const;
 
-export type HookDiscoveryDiagnosticCode = (typeof HOOK_DISCOVERY_DIAGNOSTIC_CODES)[number];
+type HookDiscoveryDiagnosticCode = (typeof HOOK_DISCOVERY_DIAGNOSTIC_CODES)[number];
 
 /** 诊断严重级:`error` = 发现了却没装载;`warning` = 装载了但有内容被忽略 */
-export type HookDiscoveryDiagnosticSeverity = 'error' | 'warning';
+type HookDiscoveryDiagnosticSeverity = 'error' | 'warning';
 
 /**
  * 判别码 → 严重级的唯一映射(与 plugins/loader.ts 的 DIAGNOSTIC_SEVERITY 同一纪律:
