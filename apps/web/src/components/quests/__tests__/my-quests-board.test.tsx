@@ -15,7 +15,13 @@ vi.mock('next-intl', () => ({
   },
 }))
 
+// 票77:看板挂载即拉 GET /sessions/goals;单测禁真网络,默认注入口返回空表
+vi.mock('@ihui/api-client', () => ({
+  listMyGoals: vi.fn(async () => []),
+}))
+
 import { useQuestsStore, type QuestEntry } from '@/stores/quests'
+import type { MyGoalRow } from '@ihui/api-client'
 import { MyQuestsBoard } from '../my-quests-board'
 
 function seedEntry(partial: Partial<QuestEntry>): QuestEntry {
@@ -34,8 +40,10 @@ function seedEntry(partial: Partial<QuestEntry>): QuestEntry {
   }
 }
 
+const loadNone = async (): Promise<MyGoalRow[]> => []
+
 function board(): HTMLElement {
-  return render(<MyQuestsBoard />).container
+  return render(<MyQuestsBoard loadGoals={loadNone} />).container
 }
 void board
 
@@ -50,7 +58,7 @@ describe('MyQuestsBoard', () => {
   })
 
   it('无登记条目:渲染空态', () => {
-    render(<MyQuestsBoard />)
+    render(<MyQuestsBoard loadGoals={loadNone} />)
     expect(screen.getByTestId('my-quests-empty')).toBeTruthy()
     expect(screen.getByTestId('my-quests-total').textContent).toContain('共 0 个任务')
   })
@@ -66,12 +74,19 @@ describe('MyQuestsBoard', () => {
           progress: 10,
           workspaceId: 'ws-9',
           assessments: [
-            { id: 'qa-2', at: 1_600, status: 'blocked', progress: 10, summary: '端点未接', source: 'manual' },
+            {
+              id: 'qa-2',
+              at: 1_600,
+              status: 'blocked',
+              progress: 10,
+              summary: '端点未接',
+              source: 'manual',
+            },
           ],
         }),
       },
     })
-    render(<MyQuestsBoard />)
+    render(<MyQuestsBoard loadGoals={loadNone} />)
     expect(screen.getByTestId('my-quests-total').textContent).toContain('共 2 个任务')
     expect(screen.getByTestId('my-quests-count-active').textContent).toContain('× 1')
     expect(screen.getByTestId('my-quests-count-blocked').textContent).toContain('× 1')
@@ -85,7 +100,7 @@ describe('MyQuestsBoard', () => {
 
   it('手动自评估回路:输入 + 提交 → manual 条目成为最近评估,草稿清空', () => {
     useQuestsStore.setState({ entries: { 'goal-1': seedEntry({}) } })
-    render(<MyQuestsBoard />)
+    render(<MyQuestsBoard loadGoals={loadNone} />)
     const input = screen.getByTestId('my-quests-assess-input-goal-1') as HTMLInputElement
     fireEvent.change(input, { target: { value: '自评估:数据模型与看板已装车' } })
     fireEvent.click(screen.getByTestId('my-quests-assess-add-goal-1'))
@@ -105,8 +120,36 @@ describe('MyQuestsBoard', () => {
 
   it('空草稿提交不产生条目', () => {
     useQuestsStore.setState({ entries: { 'goal-1': seedEntry({}) } })
-    render(<MyQuestsBoard />)
+    render(<MyQuestsBoard loadGoals={loadNone} />)
     fireEvent.click(screen.getByTestId('my-quests-assess-add-goal-1'))
     expect(useQuestsStore.getState().entries['goal-1']!.assessments).toHaveLength(1)
+  })
+
+  it('挂载后灌入服务端聚合:目标出卡、workspace 分组用真实标识', async () => {
+    const row: MyGoalRow = {
+      threadId: 'th-1',
+      sessionId: '',
+      title: '服务端标题',
+      workspaceId: 'ws-remote',
+      createdAt: 1_700_000_000,
+      updatedAt: 1_700_000_100,
+      goal: { status: 'done', objective: '跨会话目标' },
+    }
+    const loadGoals = async () => [row]
+    render(<MyQuestsBoard loadGoals={loadGoals} />)
+    expect(await screen.findByTestId('my-quests-row-srv-th-1')).toBeTruthy()
+    expect(screen.getByText('跨会话目标')).toBeTruthy()
+    expect(screen.getByText('ws-remote')).toBeTruthy()
+    expect(screen.getByTestId('my-quests-total').textContent).toContain('共 1 个任务')
+  })
+
+  it('加载器失败:静默保留端内登记表(D152 兜底),看板不空', async () => {
+    useQuestsStore.setState({ entries: { 'goal-1': seedEntry({}) } })
+    const loadGoals = async (): Promise<MyGoalRow[]> => {
+      throw new Error('offline')
+    }
+    render(<MyQuestsBoard loadGoals={loadGoals} />)
+    expect(await screen.findByTestId('my-quests-row-goal-1')).toBeTruthy()
+    expect(screen.getByTestId('my-quests-total').textContent).toContain('共 1 个任务')
   })
 })

@@ -60,6 +60,9 @@ export {
   // D152(2026-09-29 立):会话目标的服务端主副本上行出口。同批必须在此 re-export ——
   // 本包入口是**显式命名清单**,漏一条端内拿到 undefined(守门 149 记过的同一型)。
   postSessionGoal,
+  // 票77(2026-10-18 立):My Quests 跨会话目标聚合下行出口。同上,入口是显式命名清单,
+  // 漏一条端内 import 得 undefined;web 构建 ignoreBuildErrors 吞掉 TS2305,只 typecheck 可见。
+  listMyGoals,
 } from './client.js'
 export type {
   TokenProvider,
@@ -91,6 +94,8 @@ export type {
   // D152(2026-09-29):会话目标状态帧的类型 —— 与 postSessionGoal 同批入入口,否则
   // 端内要写 onGoalUpdate 回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
   GoalUpdateEvent,
+  // 票77(2026-10-18):跨会话目标聚合行类型 —— 与 listMyGoals 同批入入口。
+  MyGoalRow,
   UsageEvent,
   // Budget 用量分档提醒事件(2026-09-19 立,网关发,前端 onBudget toast 提示用量进度)
   BudgetEvent,
