@@ -7,7 +7,8 @@
  * 签名算法:HMAC-SHA256,签名串 = timestamp + nonce + rawBody + callbackKey。
  */
 
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHmac } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import { updateLiveChannelStatusByStreamName } from '../db/live-queries.js'
 
 /** 回调时间戳容忍窗口(5 分钟,防重放攻击)。 */
@@ -72,10 +73,10 @@ export function verifyCallbackSignature(
   if (age > CALLBACK_TIMESTAMP_TOLERANCE_MS) return { ok: false, reason: 'timestamp expired' }
 
   const expected = computeCallbackSignature(timestamp, nonce, rawBody, callbackKey)
-  const a = Buffer.from(signature)
-  const b = Buffer.from(expected)
-  if (a.length !== b.length) return { ok: false, reason: 'signature mismatch' }
-  return timingSafeEqual(a, b) ? { ok: true } : { ok: false, reason: 'signature mismatch' }
+  // 经全仓唯一比较出口 secretsEqual(定长散列 + timingSafeEqual):长度不等不抛、无长度泄漏
+  return secretsEqual(signature, expected)
+    ? { ok: true }
+    : { ok: false, reason: 'signature mismatch' }
 }
 
 /** 处理腾讯云直播回调事件(stream_begin/stream_end/stream_mixed/stream_notify)。 */

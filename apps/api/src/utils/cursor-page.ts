@@ -24,7 +24,8 @@
  * 时走调用方原有的校验与分页判据,响应不新增任何键(逐字节不变);带 `page_format=cursor`
  * 才产出 `next_cursor`,并且 `limit` 改为夹紧而非 400。
  */
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHmac } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 
 /** 游标前缀,一眼可辨;同时用于「这是游标还是旧的裸 id」的判定。 */
 export const CURSOR_PREFIX = 'cr1'
@@ -114,10 +115,9 @@ function signatureOf(body: string, secret: string): string {
   return hmacDigest(secret, `${DOMAIN}|sig|${body}`).slice(0, SIGNATURE_CHARS)
 }
 
-/** 定长摘要,长度不等直接 false(不喂 timingSafeEqual,它会抛)。 */
+/** 定长摘要比较(经全仓唯一比较出口 secretsEqual:定长散列,无长度泄漏,长度不等不抛)。 */
 function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  return timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'))
+  return secretsEqual(a, b)
 }
 
 /** 是不是本模块产出的游标(旧客户端传的裸 id 一律 false,走旧路径)。 */

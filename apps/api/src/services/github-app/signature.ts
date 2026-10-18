@@ -13,9 +13,11 @@
  *
  * 为什么不复用 `services/agent-event-trigger.ts` 里同名的 `verifyGitHubSignature`:
  * 那个模块的 import 链带 `db` 与 agent-runtime(鉴权原语一旦被 DB 依赖污染,单测就得 mock 数据库)。
- * 本文件是 GitHub App 专用的独立原语,零依赖;两者算法逐位一致(HMAC-SHA256 + timingSafeEqual)。
+ * 本文件是 GitHub App 专用的独立原语,不依赖 db/agent-runtime(比较出口复用全仓唯一的
+ * secretsEqual);两者算法逐位一致(HMAC-SHA256 + 定长散列常数时间比较)。
  */
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHmac } from 'node:crypto'
+import { secretsEqual } from '../../plugins/internal-service-token.js'
 
 /** 签名请求头(GitHub 官方头名) */
 export const WEBHOOK_SIGNATURE_HEADER = 'x-hub-signature-256'
@@ -91,11 +93,8 @@ export function verifyWebhookSignature(input: {
   }
 
   const expected = computeExpectedDigestHex(rawBody, secret)
-  const expectedBuf = Buffer.from(expected, 'utf8')
-  const providedBuf = Buffer.from(provided, 'utf8')
-  // timingSafeEqual 在长度不等时会抛 —— 必须先比长度,这既是防崩也是防时序侧信道
-  if (expectedBuf.length !== providedBuf.length) return { ok: false, reason: 'mismatch' }
-  if (!timingSafeEqual(expectedBuf, providedBuf)) return { ok: false, reason: 'mismatch' }
+  // 经全仓唯一比较出口 secretsEqual(定长散列 + timingSafeEqual):长度不等不抛、无长度泄漏
+  if (!secretsEqual(expected, provided)) return { ok: false, reason: 'mismatch' }
   return { ok: true }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
