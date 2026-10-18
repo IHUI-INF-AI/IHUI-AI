@@ -72,9 +72,19 @@ const buildVersion = String(pkg.version ?? '0.0.0')
 const buildMinVersion =
   pkg.engines && typeof pkg.engines.minimumVersion === 'string' ? pkg.engines.minimumVersion : ''
 const esbuildBin = join(esbuildDir, 'bin', 'esbuild')
-// bin/esbuild 是无扩展名 JS shim,Windows spawnSync 无法直接执行,恒经 node 拉起
-run(nodeBin, [
-  esbuildBin,
+// bin/esbuild 形态随平台而异:Windows 下是无扩展名 JS shim(spawnSync 无法直接执行,需 node 拉起);
+// Linux/macOS 下被 @esbuild/<platform> postinstall 替换为原生可执行文件(ELF/Mach-O),
+// 用 node 拉起原生二进制会报 SyntaxError。按文件头嗅探分派,两条路都稳。
+function isNativeBinary(p) {
+  const head = readFileSync(p).subarray(0, 4)
+  const elf = head[0] === 0x7f && head[1] === 0x45 && head[2] === 0x4c && head[3] === 0x46
+  const machO64 = head[0] === 0xcf && head[1] === 0xfa && head[2] === 0xed && head[3] === 0xfe
+  const machO32 = head[0] === 0xce && head[1] === 0xfa && head[2] === 0xed && head[3] === 0xfe
+  const pe = head[0] === 0x4d && head[1] === 0x5a // MZ
+  return elf || machO64 || machO32 || pe
+}
+if (isNativeBinary(esbuildBin)) {
+  run(esbuildBin, [
   join(pkgRoot, 'src', 'index.ts'),
   '--bundle',
   '--platform=node',
@@ -90,6 +100,25 @@ run(nodeBin, [
   `--define:process.env.IHUI_BUILD_VERSION="${buildVersion}"`,
   `--define:process.env.IHUI_BUILD_MIN_VERSION="${buildMinVersion}"`,
 ])
+} else {
+  run(nodeBin, [
+    esbuildBin,
+    join(pkgRoot, 'src', 'index.ts'),
+    '--bundle',
+    '--platform=node',
+    '--format=cjs',
+    '--target=node22',
+    `--outfile=${join(outDir, 'ihui.bundle.cjs')}`,
+    '--legal-comments=none',
+    // bundle 内全模块 import.meta.url 收敛到 exe 路径:入口用 banner 供其比对 argv[1],
+    // 次级入口的主模块判定由 IHUI_BUNDLED=1 关闸(见 util/main-module.ts)。
+    "--banner:js=const import_meta_url = require('url').pathToFileURL(__filename).href;",
+    '--define:import.meta.url=import_meta_url',
+    '--define:process.env.IHUI_BUNDLED="1"',
+    `--define:process.env.IHUI_BUILD_VERSION="${buildVersion}"`,
+    `--define:process.env.IHUI_BUILD_MIN_VERSION="${buildMinVersion}"`,
+  ])
+}
 // SEA 主脚本不接受 shebang 首行
 {
   const { readFileSync, writeFileSync: w } = await import('node:fs')
