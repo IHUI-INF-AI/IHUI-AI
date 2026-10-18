@@ -14,9 +14,9 @@
 > | 发布凭据 | ❌ 本地 `npm token list --registry=https://registry.npmjs.org/` → **401 Unauthorized**;用户级 `~/.npmrc` 无 `_authToken`;`gh secret list` 显示 CI 也**没有** `NPM_TOKEN` |
 > | OIDC 免 token 发布 | ❌ 首次发布用不了。npm Trusted Publishing 要求**包已存在**才能登记 publisher,404 状态无从登记 → 首版必须走 `NPM_TOKEN` |
 > | `@ihui` scope | ❓ 未验证(无法在不登录的前提下确认 org 归属)。发布前先 `npm org ls ihui` 确认,否则首版会 403 |
-> | 本指南适用包 | 只发布 **`@ihui/sdk`** 一个包。`@ihui/types` / `@ihui/api-client` / `@ihui/ui-react` / `@ihui/design-tokens` 仍是 `private: true` 的内部包(理由见 §4.6);`@ihui/cli` 名义可发布但依赖闭包不完整(见 §11) |
+> | 本指南适用包 | 只发布 **`@ihui/sdk`** 一个包。`@ihui/types` / `@ihui/api-client` / `@ihui/ui-react` / `@ihui/design-tokens` 仍是 `private: true` 的内部包(理由见 §4.6);`ihui-cli` 名义可发布但依赖闭包不完整(见 §11) |
 > | 发布通道 | 不是本文件 §7 提议的 `npm-publish.yml`,而是已存在的 **`.github/workflows/release-sdk.yml`**(`sdk-v*` tag)与 **`release-cli.yml`**(`cli-v*` tag) |
-> | 仓库 registry 陷阱 | 根 `.npmrc` 写的是 `registry=https://registry.npmmirror.com`(**第三方镜像**)。项目级 `.npmrc` 优先级高于 `setup-node` 写的用户级配置 → 缺 `publishConfig.registry` 的包会**把代码推给镜像站**。`@ihui/sdk` / `@ihui/cli` 已显式锁 `registry.npmjs.org` |
+> | 仓库 registry 陷阱 | 根 `.npmrc` 写的是 `registry=https://registry.npmmirror.com`(**第三方镜像**)。项目级 `.npmrc` 优先级高于 `setup-node` 写的用户级配置 → 缺 `publishConfig.registry` 的包会**把代码推给镜像站**。`@ihui/sdk` / `ihui-cli` 已显式锁 `registry.npmjs.org` |
 > | 已完成的可安装性修复 | `@ihui/sdk`:`main`/`types`/`exports` → `dist`、`files` 白名单、`license: Apache-2.0`、`@ihui/types` 降为 devDependency、`prepack` 构建+附带 `LICENSE`/`NOTICE`。tarball 由 **253 文件 / 1.39MB(含 java/go/dotnet/python 四棵源码树、src、tests、`.turbo` 日志、tsbuildinfo)** 降到 **76 文件 / 0.23MB(dist + LICENSE + NOTICE + README)**。已用真实 tarball 装入干净工程验证:`npm i` 成功、`import` 成功、`tsc --noEmit`(skipLibCheck:true)**exit 0** |
 >
 > 仍缺的东西(全部需要人类在浏览器里操作,agent 无法代办):npm 账号 + `@ihui` org + `NPM_TOKEN` secret;
@@ -108,7 +108,7 @@ registry=https://registry.npmmirror.com   # ← 第三方镜像,不是 npm 官�
 npm 的配置优先级里**项目级 `.npmrc` 高于用户级**,所以 GitHub Actions 里 `setup-node` 的
 `registry-url` 压不过它。不带显式 registry 的 `npm publish` 会**把包 PUT 到 npmmirror**。
 
-正确做法(**已在 `@ihui/sdk` / `@ihui/cli` 落地**,不要再依赖命令行习惯):
+正确做法(**已在 `@ihui/sdk` / `ihui-cli` 落地**,不要再依赖命令行习惯):
 
 ```jsonc
 // packages/<pkg>/package.json —— 包级锁死,优先级最高,任何环境都生效
@@ -724,7 +724,7 @@ npm publish --tag beta                  # 用 beta tag,不污染 latest
 > | 通道 | 触发 tag | 发什么 | 状态 |
 > | --- | --- | --- | --- |
 > | `release-sdk.yml` | `sdk-v*` | npm `@ihui/sdk` + PyPI `ihui-ai` + Maven + Go | 存在;2026-09-20 修掉"4 个 job 的 `if:` 在 push 事件下恒 false → 只 dry-run 不发布"的门控缺陷,并补齐 tarball 自检 / `twine check` 前置 / 发布后 registry 回读 |
-> | `release-cli.yml` | `cli-v*` | npm `@ihui/cli` + 6 二进制 + GHCR 镜像 | 存在;但 `@ihui/cli` 因依赖闭包(5 个 private workspace 包)发出去装不上,见 §11 |
+> | `release-cli.yml` | `cli-v*` | npm `ihui-cli` + 6 二进制 + GHCR 镜像 | 存在;但 `ihui-cli` 因依赖闭包(5 个 private workspace 包)发出去装不上,见 §11 |
 > | `release-on-tag.yml` | `v*` | 只建 GitHub Release 页面 | 与包发布无关 |
 >
 > 下面 §7.1 保留提案原文仅作设计参考;**要发布请看 §7.5「实际发布步骤」**。
@@ -1143,14 +1143,14 @@ npm publish --access public
 
 ---
 
-## 11. `@ihui/cli` 为什么现在发出去也装不上
+## 11. `ihui-cli` 为什么现在发出去也装不上
 
 `apps/cli/package.json` 是 `private: false` + `publishConfig.access: public`,看着"随时能发",实测相反:
 
 | 检查项 | 实测 |
 | --- | --- |
 | `dependencies` 里的 `workspace:*` | **5 个**:`@ihui/api-client` / `@ihui/context-compaction` / `@ihui/design-tokens` / `@ihui/shared` / `@ihui/types` —— 全部 `private: true`、`version: 0.0.0`、registry 404 |
-| 安装期 | `pnpm publish` / `npm publish` 会把 `workspace:*` 改写成 `0.0.0`,消费者 `npm i @ihui/cli` 立刻 `404 @ihui/types@0.0.0` |
+| 安装期 | `pnpm publish` / `npm publish` 会把 `workspace:*` 改写成 `0.0.0`,消费者 `npm i ihui-cli` 立刻 `404 @ihui/types@0.0.0` |
 | 运行期(即使绕过安装) | CLI 的 `dist/` 保留 `import '@ihui/shared'` 等裸说明符(tsc 不做 bundle),没有 node_modules 里的这些包就直接崩 |
 | tarball 体量 | 630 文件 / **6.51MB** 解包(`dist` 4.07MB + `src` 2.58MB)。`src` 是否要发出去是个**有意的取舍**:水印覆盖 `dist`(`scripts/watermark.mjs` 的 `SKIP_DIRS` 含 `dist`),所以 `src` 是发布物里唯一的零宽溯源载体;且源码本就公开于 Apache-2.0,不构成泄密。保持现状,不再重复瘦身 |
 | `license` / `repository` | 2026-09-20 已补 `Apache-2.0` + `repository.directory` + `bugs`(原先全缺) |
@@ -1161,7 +1161,7 @@ npm publish --access public
 2. **把 CLI bundle 成单文件**(`tsup`/`esbuild`/`ncc`,零外部 `@ihui/*` 依赖)—— 一次构建解决安装与运行两面,但要新增 devDependency 并改 `pnpm-lock.yaml`。注意 6 平台二进制(`pkg`/`bun` 路线)本来就要过一遍 bundle,两条路在这一步合流。
 
 > 在这两条落地前,**不要打 `cli-v*` tag**:`release-cli.yml` 的 npm job 会成功产出"装不上的包"并
-> 永久占用 `@ihui/cli@1.0.0`(npm 不允许覆盖已发布版本,只能 deprecate —— 见 §9.10)。
+> 永久占用 `ihui-cli@1.0.0`(npm 不允许覆盖已发布版本,只能 deprecate —— 见 §9.10)。
 
 ---
 

@@ -331,7 +331,7 @@ await expect(page).toHaveScreenshot('login.png')
 | 文件数 | 13 个 `*.test.ts` |
 | 框架 | Vitest 2 |
 | 配置 | `apps/cli/vitest.config.ts` |
-| 运行命令 | `pnpm --filter @ihui/cli test` |
+| 运行命令 | `pnpm --filter ihui-cli test` |
 
 | 测试文件 | 覆盖模块 |
 |---|---|
