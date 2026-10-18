@@ -228,7 +228,6 @@ async def _get_pool() -> asyncpg.Pool:
 # 模块级导入安全:key_pool_selector.py 内部对 llm_gateway 符号用懒导入,无循环依赖
 from ..services.key_pool_selector import KeyPoolSelector
 
-
 # ---------------------------------------------------------------------------
 # 解密失败告警去重(2026-10-18 立)
 #

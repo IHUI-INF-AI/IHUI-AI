@@ -38,7 +38,7 @@ class WorktreeIsolatedWriteError(RuntimeError):
         self.detail = detail
 
 
-def _git(git_root: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
+def _git(git_root: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     """在 git_root 上跑一条 git 命令;check=True 时非零退码上抛结构化异常。"""
     proc = subprocess.run(
         ["git", "-C", str(git_root), *args],

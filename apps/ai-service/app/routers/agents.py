@@ -77,6 +77,9 @@ from ..services.vector_memory import vector_memory
 
 if TYPE_CHECKING:
     # 仅类型注解使用(运行时在函数内延迟导入,避免循环依赖)
+    # 双轴类型同理:注解一律写成字符串,本模块没有 from __future__ import annotations,
+    # 裸写会在 import 期求值 ⇒ NameError(实测试过)。
+    from ..core.permission_axis_gate import AxisResolution as _AxisResolution
     from ..services.agent_loop_v2 import AgentLoopResult, AgentLoopV2
     from ..services.mcp_tool_aggregator import SuperToolPool
 
@@ -495,7 +498,7 @@ async def _new_v2_loop(
     # 整段跳过(与旧 resume 构造同语义,零行为变化)。类型标注为 object:
     # 真类型 AxisResolution 属 core.permission_axis_gate,本模块刻意不 import 它
     # (路由层只做解析与传递,不参与判定 —— 判定权归执行面一个出口)。
-    axis_resolution: object | None = None,
+    axis_resolution: "_AxisResolution | None" = None,
     durable_horizon_seconds: int | None = None,
 ) -> "AgentLoopV2":
     """构造 AgentLoopV2 的**唯一**入口(D144③ 2026-09-29 从 execute/stream 抽出)。
@@ -1008,7 +1011,7 @@ def _resolved_axis_resolution(
     sandbox_mode: str | None,
     approval_policy: str | None,
     permission_mode: str | None = None,
-) -> object | None:
+) -> "_AxisResolution | None":
     """双轴 wire 三输入 → AxisResolution;**两个轴字段都不给返回 None**(整段跳过)。
 
     与 _resolved_permission_mode 同一条规矩:认不出拒 400,绝不静默丢弃。
