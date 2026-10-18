@@ -85,6 +85,11 @@ def _make_loop(monkeypatch: pytest.MonkeyPatch, events: _FakeEvents) -> AgentLoo
     loop._executed_tool_calls_enabled = False
     loop._executed_tool_calls = None
     loop._tool_call_trace_enabled = _tool_call_trace_enabled_from_env()
+    # 79 号票(2026-10-18)双轴裁决层:__init__ 以 axis_resolution 参数挂
+    # `self._axis_resolution`(默认 None ⇒ 审批链整段跳过,零行为变化)。
+    # 本夹具绕过 __init__ 手搭实例(V3 #53 同款滞后),须逐字同值补上;
+    # 补 None 只复刻"未携带双轴"的真实构造默认,不洗任何判定。
+    loop._axis_resolution = None
     # G-998120 轮次负向面:空 frozenset = 本轮无 turn-scoped 禁用,与 __init__ 对
     # 非 automation 轮的默认逐字同值。HEAD 面尚未读该属性(置空不介入任何判定),
     # 在飞的 turn-scoped denylist 版本会读它 —— 两种面下本夹具结论同一。
