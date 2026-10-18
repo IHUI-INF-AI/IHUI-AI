@@ -604,6 +604,13 @@ interface ChatState {
    * 未定义 = 旧消息(视为已完成)。
    */
   setMessageStreamCompleted: (messageId: string, completed: boolean) => void
+  /** 票64(2026-10-18 立):写入消息级钉选/收藏时刻。
+   *  存的是服务端盖章的时间戳而不是布尔 —— 布尔会把"我不知道"和"没标记"压成同一个值。
+   *  调用方只应在 PATCH 成功后拿服务端回写的整行调本出口,不做乐观翻转。 */
+  patchMessageFlags: (
+    messageId: string,
+    flags: { pinnedAt: string | null; bookmarkedAt: string | null },
+  ) => void
   /** #21 中断后追加指令继续(2026-09-13 立):被用户主动 Stop 中断的 assistant 消息 ID。
    *  null = 无中断;非 null = 输入框上方显示「追加指令继续」提示条 + 一键继续按钮。
    *  用户发送新消息或点击继续后由 send-message.ts 清空。 */
@@ -812,6 +819,23 @@ export const useChatStore = create<ChatState>()(
           if (!target) return s
           const next = s.messages.slice()
           next[idx] = { ...target, streamCompleted: completed }
+          return { messages: next }
+        }),
+
+      /** 票64(2026-10-18 立):写入消息级钉选/收藏时刻(服务端盖章值)。
+       *  找不到那条消息就整轮原样返回 —— 把"消息不在这屏"写成一次清空标记是反向失真。 */
+      patchMessageFlags: (messageId, flags) =>
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target) return s
+          const next = s.messages.slice()
+          next[idx] = {
+            ...target,
+            pinnedAt: flags.pinnedAt,
+            bookmarkedAt: flags.bookmarkedAt,
+          }
           return { messages: next }
         }),
 

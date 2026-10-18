@@ -48,6 +48,9 @@ import {
   matchedKeys,
   scanFile,
   maskFaces,
+  // 输入侧投影收窄(2026-10-18):判据本体住在源门,这里只 import 来核形状与真仓面
+  isInputSideProjection,
+  fedIntoHashNamedCall,
 } from '../check-digest-name-reality.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
@@ -382,5 +385,38 @@ test('T10 源门未被本票碰坏:--self-test 必须整绿(判据本体的正�
   const r = runGate(['--self-test'], ROOT)
   assert.equal(r.code, 0, `--self-test 红 ⇒ 源门判据漂了或本票动过它(镜像只准加锁,不准动门):\n${r.out}`)
   assert.match(r.out, /--self-test:\d+ 条断言,失败 0 条/)
+})
+
+/**
+ * T11 真仓面阳性对照(2026-10-18 立)。本轮动的是**判据本身**(输入侧投影名 + 值被当实参喂进具名
+ * 哈希生产者 ⇒ 未判定),唯一的实证来源就是真仓里那枚被误判的站点。夹具只证明实现自洽;这一条逐字
+ * 取 `git show HEAD:<path>` 的被审面(T4 同法),既钉"本仓真产出的这个形状不再判红",也反向钉住
+ * "真摘要确实住在另一个模块的 computeAuditHash 体内"——那一环不在本文件 ⇒ 门给人的答案必须是
+ * **未判定且逐条报名**,既不放行也不定罪(§0.3)。
+ */
+const RETENTION_REL = 'apps/api/src/jobs/audit-evidence-retention.ts'
+const AUDIT_SVC_REL = 'apps/api/src/services/audit-log-service.ts'
+
+test('T11 真仓面:hashInputOf 不再被定罪,而真摘要确在另一模块的具名生产者体内', () => {
+  const text = gitShowBlob('HEAD', RETENTION_REL)
+  const masked = maskFaces(text, 'ts').noComment
+  assert.equal(isInputSideProjection('hashInputOf'), true, '前提:该名字必须是输入侧构词')
+  assert.equal(
+    fedIntoHashNamedCall('hashInputOf', masked),
+    'computeAuditHash',
+    '前提:它的值必须是被当实参喂进具名哈希生产者',
+  )
+  const res = scanFile(RETENTION_REL, text)
+  assert.ok(
+    !res.hits.some((h) => h.name === 'hashInputOf'),
+    `这一枚仍被判红 ⇒ 收窄没生效:${JSON.stringify(res.hits.map((h) => h.name))}`,
+  )
+  assert.ok(
+    res.undetermined.some((u) => u.name === 'hashInputOf' && /输入侧投影名/.test(u.why)),
+    `必须逐条报名它落到哪一档(不得静默消失):${JSON.stringify(res.undetermined.map((u) => `${u.name}:${u.stage}`))}`,
+  )
+  const svc = gitShowBlob('HEAD', AUDIT_SVC_REL)
+  assert.match(svc, /function computeAuditHash\(/, 'computeAuditHash 的定义面必须在审计服务里')
+  assert.match(svc, /hmacSHA256\(/, '那一环体内必须有真散列调用 —— 没有它本条收窄根本不成立')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

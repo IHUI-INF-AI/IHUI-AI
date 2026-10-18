@@ -11182,7 +11182,12 @@
       "shareLinkCopied": "已複製內容與連結",
       "showContent": "顯示內容",
       "stopReadAloud": "停止朗讀",
-      "toggleMetadata": "切換元數據"
+      "toggleMetadata": "切換元數據",
+      "pin": "釘選",
+      "unpin": "取消釘選",
+      "bookmark": "收藏",
+      "unbookmark": "取消收藏",
+      "flagFailed": "標記儲存失敗"
     },
     "messageDeleted": "已刪除消息",
     "modeAlreadyActive": "當前已是{mode}模式",

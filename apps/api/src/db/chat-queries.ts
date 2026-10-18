@@ -1266,6 +1266,122 @@ export async function updateMessage(
  * 为什么删一行也要 reset:被删的行可能落在**已计入断点**的轮次里 —— 那一轮的字节量当场变小,
  * 而 roll 的取数窗口永不回看断点之前 ⇒ 只有重算能把账对回来。
  */
+/**
+ * 票64(消息级 pin/书签):一次可撤销的标记写入。
+ *
+ * - 归属**不在本函数判**:调用方(路由层)必须先按"消息 → 会话 → 会话主人 === 请求主体"验完;
+ *   本函数收的是已经过归属判据的 messageId(与 markAsRead/deleteMessage 同一分层,身份不从记录反推)。
+ * - 两个键都是"给了才写":空补丁不得把两列一起清掉(那会让"只改钉选"顺带取消收藏)。
+ * - 用时间戳而不是布尔:标记要能按"何时钉上"倒序回显,且 null 就是"未标记"的终态,不需要第二列存原因。
+ */
+export async function setMessageFlags(input: {
+  messageId: string
+  userId: string
+  pinned?: boolean
+  bookmarked?: boolean
+}): Promise<ChatMessage | undefined> {
+  const patch: { pinnedAt?: Date | null; bookmarkedAt?: Date | null } = {}
+  if (input.pinned !== undefined) patch.pinnedAt = input.pinned ? new Date() : null
+  if (input.bookmarked !== undefined) patch.bookmarkedAt = input.bookmarked ? new Date() : null
+  // 归属预查询写在任何动作之前(门 163 的 pre-scoped 档):消息所在会话的主人 === 传入主体
+  // 才放行,身份既不从被操作记录反推,也不信客户端自报。判不出归属 ⇒ undefined,零写。
+  const owned = await db
+    .select({ id: chatMessages.id })
+    .from(chatMessages)
+    .innerJoin(chatConversations, eq(chatConversations.id, chatMessages.conversationId))
+    .where(and(eq(chatMessages.id, input.messageId), eq(chatConversations.userId, input.userId)))
+    .limit(1)
+  if (owned.length === 0) return undefined
+  if (Object.keys(patch).length === 0) return findMessageById(input.messageId)
+  const rows = await db
+    .update(chatMessages)
+    .set(patch)
+    .where(eq(chatMessages.id, input.messageId))
+    .returning()
+  return rows[0]
+}
+
+/**
+ * 票64(AI 消息可编辑):编辑**不覆写历史**,而是把新内容作为同一版本族里的下一个 sibling 落库
+ * —— 与票59 的 regenerate 共用同一存储模型(`parent_message_id` + `sibling_index`),
+ * 因此编辑前后的两个版本都能用既有的版本切换菜单来回对比与回退。
+ *
+ * 族规则(与 regenerateConversationMessages 逐条同口径,不另立第二套):
+ *  - root = 目标自身已是再生版本(parentMessageId 非空)时取其 parentMessageId,否则取目标自身;
+ *  - root 首次入族时补 sibling_index = 0(幂等:已标记就不动);
+ *  - 新版本序号 = 族内现有最大值 + 1;
+ *  - 序号计算与写入之间不得有并发写同族 —— 与 regenerate 同一约束,故本函数在族内取序号后
+ *    立刻用同一事务外的串行点(调用方按会话串行),不引入新的竞态面。
+ * 只有 assistant 消息可编辑为版本:用户消息的编辑走既有的 edit-rerun(编辑并重跑),两格不混。
+ */
+/** 票64 编辑入口的拒绝身份:调用方按 `code` 分流成 400/404,不得回头比对错误文本
+ *  (门 206 —— 文本判身份是最脆的一型:改一个字,分流就静默失效,而两端看起来都"还在报错")。 */
+export class MessageEditRejectedError extends Error {
+  readonly code: 'not_found' | 'not_assistant'
+  constructor(code: 'not_found' | 'not_assistant') {
+    super(
+      code === 'not_assistant'
+        ? '仅 AI 消息支持编辑为版本(用户消息请走编辑重跑)'
+        : '消息不存在或不属于该主体',
+    )
+    this.name = 'MessageEditRejectedError'
+    this.code = code
+  }
+}
+
+export async function editAiMessageAsVersion(input: {
+  messageId: string
+  userId: string
+  content: string
+}): Promise<{ message: ChatMessage; rootId: string; siblingIndex: number }> {
+  // 归属预查询在任何写之前:消息 → 会话 → 会话主人 === 传入主体(与 setMessageFlags 同一条判据)。
+  const owned = await db
+    .select({ id: chatMessages.id })
+    .from(chatMessages)
+    .innerJoin(chatConversations, eq(chatConversations.id, chatMessages.conversationId))
+    .where(and(eq(chatMessages.id, input.messageId), eq(chatConversations.userId, input.userId)))
+    .limit(1)
+  if (owned.length === 0) throw new MessageEditRejectedError('not_found')
+  const target = await findMessageById(input.messageId)
+  if (!target) throw new MessageEditRejectedError('not_found')
+  if (target.role !== 'assistant') throw new MessageEditRejectedError('not_assistant')
+
+  const rootId = target.parentMessageId ?? target.id
+  if (target.parentMessageId) {
+    const root = await findMessageById(target.parentMessageId)
+    if (root && root.siblingIndex === null) {
+      await db.update(chatMessages).set({ siblingIndex: 0 }).where(eq(chatMessages.id, root.id))
+    }
+  } else if (target.siblingIndex === null) {
+    await db.update(chatMessages).set({ siblingIndex: 0 }).where(eq(chatMessages.id, target.id))
+  }
+
+  const family = await db
+    .select({ siblingIndex: chatMessages.siblingIndex })
+    .from(chatMessages)
+    .where(or(eq(chatMessages.id, rootId), eq(chatMessages.parentMessageId, rootId)))
+  const nextIndex = family.reduce((maxIdx, row) => Math.max(maxIdx, row.siblingIndex ?? 0), 0) + 1
+
+  const rows = await db
+    .insert(chatMessages)
+    .values({
+      conversationId: target.conversationId,
+      role: target.role,
+      content: input.content,
+      reasoning: target.reasoning,
+      turnOrdinal: target.turnOrdinal,
+      parentMessageId: rootId,
+      siblingIndex: nextIndex,
+      // metadata 原样继承再补一条编辑来源:前端要能说明"这一版是从哪一版改出来的",
+      // 而不是只剩一个匿名版本(丢来源就等于丢可追溯性)。
+      metadata: { ...(target.metadata ?? {}), editedFromMessageId: target.id },
+    })
+    .returning()
+  const created = rows[0]
+  if (!created) throw new Error('编辑落库失败')
+  return { message: created, rootId, siblingIndex: nextIndex }
+}
+
 export async function deleteMessage(id: string): Promise<string[]> {
   return db.transaction(async (tx) => {
     const owner = await tx
@@ -1355,10 +1471,7 @@ export async function regenerateConversationMessages(
 
     // 原始消息首次被 regenerate:补 root 序号 0(幂等:已标记的行不动)
     if (target.parentMessageId === null && target.siblingIndex === null) {
-      await tx
-        .update(chatMessages)
-        .set({ siblingIndex: 0 })
-        .where(eq(chatMessages.id, target.id))
+      await tx.update(chatMessages).set({ siblingIndex: 0 }).where(eq(chatMessages.id, target.id))
     }
 
     const maxRows = await tx

@@ -194,6 +194,12 @@ export interface ConversationMessage {
   tokens: number | null
   metadata: ChatMessageMetadata | null
   createdAt: string
+  /** 票64(2026-10-18):消息级标记与版本族坐标由服务端读面逐条盖章下发。
+   *  客户端不得靠"本地存过就算钉选过"渲染 —— 刷新即失真。 */
+  pinnedAt?: string | null
+  bookmarkedAt?: string | null
+  parentMessageId?: string | null
+  siblingIndex?: number | null
 }
 
 /** 创建对话 */
@@ -381,6 +387,27 @@ export function editAndRerunConversation(
     {
       method: 'POST',
       body: JSON.stringify({ messageId, content }),
+    },
+  )
+}
+
+/** 票64(2026-10-18 立):钉选/收藏一条消息(可撤销)。
+ *  只把"本次要改的维度"放进 body —— 空 body 会被服务端拒(400),
+ *  因为把两个维度都不给却执行写入,等于一次点击顺手取消了另一个没打算动的标记。
+ *  返回值取服务端回写的整行,调用方以它的 pinnedAt/bookmarkedAt 为准渲染,不做乐观翻转。 */
+export function setMessageFlags(input: {
+  messageId: string
+  pinned?: boolean
+  bookmarked?: boolean
+}) {
+  const patch: Record<string, boolean> = {}
+  if (input.pinned !== undefined) patch.pinned = input.pinned
+  if (input.bookmarked !== undefined) patch.bookmarked = input.bookmarked
+  return fetchApi<{ message: ConversationMessage }>(
+    `/api/chat/messages/${encodeURIComponent(input.messageId)}/flags`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
     },
   )
 }

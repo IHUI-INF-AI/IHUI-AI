@@ -45,6 +45,15 @@
  *         从未进任何提交的归档文件不构成删行凭据(2026-09-25 G-183 补,详见 `archivedCopy` 头注);
  *      b) 本次提交同时改动了基线里没有该行的位置(即该行本就不是 HEAD 内容) —— 由
  *         "只从 HEAD 取基线"天然保证。
+ *      c) **翻勾后整行删除**(2026-10-18 补,把 447-451 行那条"已勾行不进保护集"落到历史基线):
+ *         历史基线按 marker 走一遍**配平**状态机(时间正序):一条开放行的减少,只有同枚提交里
+ *         closed 计数相应增加才算"被翻勾了";减了却没配上 ⇒ 记一笔无凭据的减少。判定 =
+ *         最新一仍开放 ⇒ 保护(与改前逐字同形) ‖ 无凭据减少 > 翻勾次数 ⇒ 仍保护 ‖ 否则 ⇒ 勾销,
+ *         不再回捞。此前历史基线只看开放形态(`markerOf` 对 `[x]` 返回 null),于是"先翻勾、再删行"
+ *         这一串必然被读成丢失,自愈层把行以**未勾形态**原样还原(本机 2026-10-18 实测的 D117
+ *         那一枚:恢复提交 04e8efe128e),而存档退役后 a) 那条例出通道已无承接件 ⇒ 两令互咬。
+ *         ⚠️ 刻意不用"最新形态是不是已勾"这一条粗判:同编号里既有开放行又有已勾行时,它会因为
+ *         开放行被吞掉而把整族永久摘出保护集(镜像测试第三条臂实测抓出)—— 那正是本门立项防的事故型。
  *   4. **编号形态维(G-722 接入提交链)**:登记行出现"族名在编号段重复"的畸形号(两形态同视)——
  *      `--staged` / `--worktree` 拿 HEAD 当基准,只判**本次新增**即红;全量档锚点 = 该文件 HEAD
  *      自身存量 ⇒ **只报数不判红**(§12e:与任何提交都无关的红只会逼人 --no-verify 并连带废掉全部守门)。
@@ -243,7 +252,24 @@ export function headingIdSet(src) {
  * 只对"行首编号"这一路收紧,不动既有 214 条加粗 bullet 的判据语义,避免连带误伤。
  */
 export function registrationOf(line) {
-  const marker = markerOf(line)
+  return registrationCore(line, false)
+}
+
+/**
+ * **已勾形态**的登记行身份(2026-10-18 立,只给 `historyMarkers` 判"marker 的最新形态"用)。
+ * 与 `registrationOf` 共用同一具身体(`registrationCore`),差别只在放行 `- [x]` 那一行 ——
+ * §22c 禁止在这里抄第二份 marker 算式:两份"什么算同一件事"必然漂开,而漂开的方向是
+ * "已勾形态认不出来 ⇒ 继续从更深历史捞未勾副本 ⇒ 完成即删每删一行被还原一次"(本机 2026-10-18
+ * 实测的 D117 那一枚即此型)。
+ * @returns {{marker:string,id:string|null,shape:string}|null} 非 `- [x]` 形态一律 null
+ */
+export function closedRegistrationOf(line) {
+  if (!/^\s*[-*]\s\[[xX]\]/.test(line)) return null
+  return registrationCore(line, true)
+}
+
+function registrationCore(line, allowChecked) {
+  const marker = markerOf(line, allowChecked)
   if (!marker) return null
   // ⚠️ 只有"新两族"才走行首编号判活。既有 214 条加粗 bullet(`- **G-166 第⑤步…**`)保持
   // 原文前缀文本搜索的旧语义 —— 一并收紧会把"把编号挪到句中重写"这类正当编辑判成丢失,
@@ -443,13 +469,17 @@ export function resolveRegistrationLoss(entries, targetSrc) {
 }
 
 /** 登记行 → 编号标记(找不到返回 null) */
-export function markerOf(line) {
+export function markerOf(line, allowChecked = false) {
   // 已勾行不进保护集(2026-10-16 机主令:完成即删,存档机制退役):`- [x]` 行(含 bullet 级
   // `  - [x] ✅(日期) …`)在翻勾后可整行删除,回捞层同样不得把它捞回来 —— 否则"完成即删"
   // 每删一行就被本门拦一次/被自愈还原一次,机制互咬空转(13d 与清偿器 2026-10-14 同型教训)。
   // 未勾行(checkbox `- [ ]`、加粗 bullet、标题族)照旧受保护:防"旧基线整文件回写"
   // 的事故防线保留,与存档退役无关。
-  if (/^\s*[-*]\s\[[xX]\]/.test(line)) return null
+  // ⚠️ `allowChecked` 只服务一个用途:让 `historyMarkers` 能**看见**已勾形态,从而判断一个
+  // marker 的最新形态到底是开放还是已勾销(2026-10-18 实测:此前已勾形态对扫描完全不可见,
+  // 同 marker 在更深历史里的未勾副本照常进保护集,"翻勾后删行"必被自愈还原 ⇒ 上面那条口径
+  // 结构上跑不通)。它**不放宽判活**:保护与否由 `historyMarkers` 的配平状态机决定。
+  if (!allowChecked && /^\s*[-*]\s\[[xX]\]/.test(line)) return null
   const isBullet = /^\s*[-*]\s/.test(line)
   // 标题行只有"以批次序号开头"这一种受保护形态(见文件头判据 1c),正文标题不进基线
   const isHeading = /^#{2,4}\s/.test(line)
@@ -814,9 +844,13 @@ export function historyWindowNote(window, face) {
   if (face === 'staged') return ''
   if (!window) return '历史面覆盖范围:未判定(没跑过 historyMarkers,不得据此说"全都看过了")'
   if (!window.commits) return '历史面覆盖范围:未判定(窗口内一枚提交都取不到)'
+  // 已勾销计数也必须跟着报名:它说明"这一格里有多少登记是被'完成即删'正当摘掉的",
+  // 少了这句话,读数就只回答"还剩几条"、不回答"为什么比上一轮少了"。
+  const retiredNote =
+    typeof window.retired === 'number' ? `,已按最新形态勾销 ${window.retired} 条` : ',已勾销数未判定'
   return `历史面取材窗口:最近 ${window.commits} 枚改动 ${PLAN} 的提交(至 ${window.oldest ?? '?'}${
     window.oldestDate ? ` @ ${window.oldestDate}` : ''
-  };更早的被吞行不在射程内)`
+  };更早的被吞行不在射程内${retiredNote})`
 }
 
 /**
@@ -922,6 +956,11 @@ export function historyMarkers(depth = historyDepth(), root = ROOT) {
     ),
   ]
   const seen = new Map()
+  // 每个 marker 的"最新开放形态"那一行(基线候选);是否真进 `seen` 由下面的配平状态机决定。
+  const newest = new Map()
+  // 已勾销的 marker(2026-10-18 立):窗口内每一条开放行的消失都被"翻勾成已勾行"配平了 ⇒
+  // 这条登记已按"完成即删"结案,更深历史里的未勾副本不得再把它种回保护集(否则每删一行被还原一次)。
+  const retired = new Set()
   // 一次批量读满整个窗口(迁移前是逐 sha 各开一次 `git show`,60 次派生)
   const specs = shas.map((sha) => `${sha}:${PLAN}`)
   let historic
@@ -931,7 +970,13 @@ export function historyMarkers(depth = historyDepth(), root = ROOT) {
     historic = new Map()
   }
   // 覆盖范围报名:窗口最旧那一枚的时刻,让人一眼看出"多久以前的丢失已经看不见"
-  LAST_HISTORY_WINDOW = { depth, commits: shas.length, oldest: null, oldestDate: null }
+  LAST_HISTORY_WINDOW = {
+    depth,
+    commits: shas.length,
+    oldest: null,
+    oldestDate: null,
+    retired: 0,
+  }
   if (shas.length) {
     LAST_HISTORY_WINDOW.oldest = shas[shas.length - 1].slice(0, 9)
     try {
@@ -942,29 +987,87 @@ export function historyMarkers(depth = historyDepth(), root = ROOT) {
       LAST_HISTORY_WINDOW.oldestDate = null
     }
   }
+  // 每枚提交的 marker → {开放行数, 已勾行数} 计数表(与 shas 同序 = 由新到旧);
+  // 供下面那台"配平"状态机按时间正序走一遍用。
+  const countsPerCommit = []
   for (let i = 0; i < shas.length; i++) {
     const sha = shas[i]
     const src = historic.get(specs[i])
+    countsPerCommit.push(new Map())
     if (typeof src !== 'string') continue
     const rows = src.split(/\r?\n/)
+    // 一趟解析(每行只算一次身份):开放形态与已勾形态各归一路。
+    const parsed = rows.map((line) => {
+      const reg = registrationOf(line)
+      if (reg) return { reg, closed: null }
+      const closed = closedRegistrationOf(line)
+      return closed ? { reg: null, closed } : null
+    })
+    const counts = countsPerCommit[i]
     // 内层索引刻意命名 k:批量读迁移时外层丢掉了 `const sha`,而 forEach 的 `i` 又把外层计数器
     // 遮住 ⇒ `sha` 未定义 ⇒ `--heal` 每次抛 ReferenceError。post-commit 写着 || true,于是整条
     // 自愈层静默失效(本节下方那段"自愈提交自上线起从未成功过"的同型)。
-    rows.forEach((line, k) => {
-      const reg = registrationOf(line)
-      if (!reg) return
-      const { marker } = reg
-      if (seen.has(marker)) return
-      let prev = null
-      for (let j = k - 1; j >= 0; j--) {
-        if (rows[j].trim()) {
-          prev = rows[j]
-          break
+    parsed.forEach((p, k) => {
+      if (!p) return
+      const marker = (p.reg || p.closed).marker
+      const e = counts.get(marker) || { open: 0, closed: 0 }
+      if (p.reg) {
+        e.open += 1
+        // 由新到旧:第一枚含该 marker 开放形态的面即为"最新开放形态",留作基线条目(现行为不变)
+        if (!newest.has(marker)) {
+          let prev = null
+          for (let j = k - 1; j >= 0; j--) {
+            if (rows[j].trim()) {
+              prev = rows[j]
+              break
+            }
+          }
+          newest.set(marker, {
+            line: rows[k],
+            marker,
+            id: p.reg.id,
+            shape: p.reg.shape,
+            sha,
+            prev,
+          })
         }
+      } else {
+        e.closed += 1
       }
-      seen.set(marker, { line, marker, id: reg.id, shape: reg.shape, sha, prev })
+      counts.set(marker, e)
     })
   }
+  // 配平状态机(2026-10-18 立,按时间**正序**走窗口):一条开放行的消失只允许两种正当去处 ——
+  // 要么还在(计数不减),要么被翻勾成已勾行(同一枚提交里 closed 配上 open 的减量)。
+  // 减了却没配上 ⇒ 记一笔"无凭据的减少"。判定:
+  //   最新一仍开放 ⇒ 保护(与改前逐字同形);
+  //   无凭据减少 > 翻勾次数 ⇒ 仍保护(例:同编号里那条开放行被摘走、已勾行本来就在 ⇒ 这不是翻勾);
+  //   否则 ⇒ 勾销(翻勾后整行删除 = 机主 2026-10-16「完成即删」的正当移除,不再回捞)。
+  // ⚠️ 刻意不用"最新形态是不是已勾"这一条粗判:它在"同族里一条开放行被吞、已勾行仍在"这一型上
+  // 会把整族永久摘出保护集(镜像测试第三条臂实测抓出),而那正是本门立项要防的事故型。
+  for (const [marker, entry] of newest) {
+    let open = 0
+    let closed = 0
+    let unexplained = 0
+    let flips = 0
+    for (let i = countsPerCommit.length - 1; i >= 0; i--) {
+      const c = countsPerCommit[i].get(marker)
+      const nowOpen = c ? c.open : 0
+      const nowClosed = c ? c.closed : 0
+      const drop = open - nowOpen
+      if (drop > 0) {
+        const rise = Math.max(0, nowClosed - closed)
+        const paired = Math.min(drop, rise)
+        flips += paired
+        unexplained += drop - paired
+      }
+      open = nowOpen
+      closed = nowClosed
+    }
+    if (open > 0 || unexplained > flips) seen.set(marker, entry)
+    else retired.add(marker)
+  }
+  LAST_HISTORY_WINDOW.retired = retired.size
   return seen
 }
 
@@ -3080,5 +3183,7 @@ export const __test__ = {
   malformedReport,
   runCheck,
   historyMarkers,
+  // 已勾形态身份(2026-10-18):镜像测试据此证明"什么算一条已勾销登记"只有一份实现
+  closedRegistrationOf,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

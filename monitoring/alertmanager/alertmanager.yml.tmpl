@@ -83,5 +83,12 @@ inhibit_rules:
   - source_matchers: ['alertname="AiServiceDown"', 'severity="critical"']
     target_matchers: ['alertname="LlmProviderUnhealthy"']
     equal: ['instance']
+  # LLM 失败率(critical)抑制 provider 错误突增(warning):两者同源于 provider 报错,
+  # 而 route 按 alertname 分组 ⇒ 不抑制就必然是两封邮件(实测同一故障每约 2 小时寄两封,
+  # 收件箱的观感就是"一直在报警")。两条告警都由 sum() 聚合而来、**没有 instance/service 标签**
+  # (bridge 日志里实例位恒为 `-`),故本条**不写 equal** —— 写了就永不命中。
+  # 时序靠 for 对齐保证:alerts.yml 里两条都取 for: 15m,critical 不会晚于 warning 成立。
+  - source_matchers: ['alertname="AiLlmHighFailureRate"']
+    target_matchers: ['alertname="LlmProviderErrorBurst"']
   # 说明:PostgresDown/RedisDown/WindowsDiskSpaceLow 当前 alerts.yml 无衍生告警可抑制,
   # 后续新增 PG/Redis 明细指标告警时,再在 noise-rules.yml 按真实 alertname 追加级联。

@@ -18,7 +18,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { buildFilteredEnv, CREDENTIAL_SHAPE_BLOCKED_PATTERNS, DEFAULT_BLOCKED_ENV_VARS } from '../src/sandbox/index.js';
+import { buildFilteredEnv, CREDENTIAL_SHAPE_BLOCKED_PATTERNS, DEFAULT_BLOCKED_ENV_VARS, TERMINAL_CLI_CREDENTIAL_ALLOWLIST } from '../src/sandbox/index.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -205,6 +205,32 @@ describe('子进程 env 边界', () => {
           else process.env[k] = v;
         }
       }
+    });
+  });
+
+  describe('交互终端白名单透传(G-465:TERMINAL_CLI_CREDENTIAL_ALLOWLIST)', () => {
+    it('第三方 CLI 凭据(AWS_*)穿越宽 deny 幸存,我方平台凭据(IHUI_*)仍全剥', () => {
+      const previous = new Map<string, string | undefined>();
+      try {
+        for (const k of ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'IHUI_API_KEY']) {
+          previous.set(k, process.env[k]);
+          process.env[k] = 'sentinel-value-not-a-real-credential';
+        }
+        const filtered = buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS, TERMINAL_CLI_CREDENTIAL_ALLOWLIST);
+        expect(filtered.AWS_ACCESS_KEY_ID).toBe('sentinel-value-not-a-real-credential');
+        expect(filtered.AWS_SECRET_ACCESS_KEY).toBe('sentinel-value-not-a-real-credential');
+        expect(filtered.IHUI_API_KEY).toBeUndefined();
+      } finally {
+        for (const [k, v] of previous) {
+          if (v === undefined) delete process.env[k];
+          else process.env[k] = v;
+        }
+      }
+    });
+
+    it('装车对账:terminal.ts 必须带第二参(白名单逃生门),不得裸 DEFAULT_BLOCKED_ENV_VARS', () => {
+      const src = readFileSync(path.join(ROOT, 'src/tools/terminal.ts'), 'utf8');
+      expect(src).toMatch(/buildFilteredEnv\(\s*DEFAULT_BLOCKED_ENV_VARS\s*,\s*TERMINAL_CLI_CREDENTIAL_ALLOWLIST/);
     });
   });
 
