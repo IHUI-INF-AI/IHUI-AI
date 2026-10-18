@@ -4,7 +4,8 @@
 
 // 桌面端本地缓存明文巡检门(warn-only,不进任何提交链)
 //
-// 只读巡检桌面端(Tauri + WebView2, identifier=com.ihui.desktop)的数据落盘面,
+// 只读巡检桌面端(Tauri + WebView2)的数据落盘面,标识面 = tauri.conf.json 的生产
+// identifier ∪ tauri.dev.json 的 dev identifier(G-921,2026-10-19 起 com.ihui.desktop.dev),
 // 判"D48 本地会话加密"是否在**盘上真实生效**,而不是只看代码在不在。
 //
 // 为什么 warn-only:本门判的是"那台机器上跑过什么",提交者结构上无法满足它;
@@ -17,7 +18,14 @@
 //   判据 1(结构位):对 persist 键(ihui-chat / ihui-goal)断言值的 JSON 顶层 key 集合
 //     恰为 {ihuiVaultV1}、内层恰为 {alg,kid,iv,ct};常量一律从 apps/web/src/lib/local-vault.ts
 //     的**源码解析**取得(该文件未 export 这些常量,按票面要求退化为源码解析,不抄第二份字面量);
-//     persist 键名同理从 stores/chat.ts / stores/goal.ts 的 name 行解析。
+//     persist 键名同理从 stores/chat.ts / stores/goal.ts 源码解析,**同时认两形**:旧形态
+//     `name: 'ihui-*'` 行与 2026-10-18 工厂化新形态默认参数 `persistName: string = 'ihui-*'`;
+//     两形都解析不到 ⇒ 该面显式「未判定」并点名文件(§0.3),不抛异常炸掉整轮巡检,也不当"没有键"。
+//   判据 1b(标识面,G-921 补格):巡检面 = 生产 identifier(tauri.conf.json)
+//     ∪ dev identifier(tauri.dev.json,2026-10-19 起独立 com.ihui.desktop.dev,
+//     唯一取源与 scripts/desktop-dev-saas.mjs 的 DEV_APP_IDENTIFIER 同源)。
+//     任一标识目录不存在 ⇒ 该面判「未判定/不存在」并点名,**绝不因此判违规**;
+//     只要存在未判定面,整体就不记 clean(§0.3 不记绿)。
 //   判据 2(目录级 CJK = 0):扫描面**只含** EBWebView/*/Local Storage/ 与 roaming 顶层 *.json;
 //     禁扫 Cache_Data / Code Cache / GPUCache(无正文且体积大)。必须打印实际扫描文件清单。
 //   判据 3(密钥不入仓):git ls-files 里不得出现 vault 数据文件;vault 文件名落点字符串
@@ -71,11 +79,19 @@ export function parseVaultConstants(vaultSrc) {
   }
 }
 
-/** 从 store 源码文本解析 persist name(如 "name: 'ihui-chat',") */
+/**
+ * 从 store 源码文本解析 persist 键名,同时认两形(唯一判据实现,测试经 __test__ 复用):
+ *   旧形态:`name: 'ihui-xxx',`(persist 配置对象里的字面量行)
+ *   新形态(2026-10-18 chat.ts 工厂化):默认参数 `persistName: string = 'ihui-xxx'`
+ * 两形都取不到 ⇒ 返回 null,由调用方落「未判定/点名」档(§0.3),
+ * 不抛异常炸掉整轮巡检,也不当"没有键"记绿。
+ */
 export function parsePersistKey(storeSrc) {
-  const m = storeSrc.match(/name: '(ihui-[a-z-]+)'/)
-  if (!m) throw new Error('persist name 解析失败:store 源码里找不到 name: \'ihui-*\' 行')
-  return m[1]
+  const legacy = storeSrc.match(/name: '(ihui-[a-z-]+)'/)
+  if (legacy) return legacy[1]
+  const factory = storeSrc.match(/persistName\s*:\s*string\s*=\s*'(ihui-[a-z-]+)'/)
+  if (factory) return factory[1]
+  return null
 }
 
 /** 从 tauri.conf.json 解析应用 identifier(数据目录名,不写死) */
@@ -85,16 +101,45 @@ export function parseAppIdentifier(confSrc) {
   return m[1]
 }
 
+const PERSIST_STORE_FILES = ['apps/web/src/stores/chat.ts', 'apps/web/src/stores/goal.ts']
+const TAURI_PROD_CONF = 'apps/desktop/src-tauri/tauri.conf.json'
+// G-921(2026-10-19):dev 构建独立标识的唯一取源,与 scripts/desktop-dev-saas.mjs
+// 的 DEV_APP_IDENTIFIER 同源(readTauriJson('tauri.dev.json').identifier)
+const TAURI_DEV_CONF = 'apps/desktop/src-tauri/tauri.dev.json'
+
+function readRepoFile(rel) {
+  return fs.readFileSync(path.join(ROOT, rel), 'utf8')
+}
+
 function loadConstants() {
-  const vaultSrc = fs.readFileSync(path.join(ROOT, 'apps/web/src/lib/local-vault.ts'), 'utf8')
-  const chatSrc = fs.readFileSync(path.join(ROOT, 'apps/web/src/stores/chat.ts'), 'utf8')
-  const goalSrc = fs.readFileSync(path.join(ROOT, 'apps/web/src/stores/goal.ts'), 'utf8')
-  const confSrc = fs.readFileSync(path.join(ROOT, 'apps/desktop/src-tauri/tauri.conf.json'), 'utf8')
-  return {
-    consts: parseVaultConstants(vaultSrc),
-    persistKeys: [parsePersistKey(chatSrc), parsePersistKey(goalSrc)],
-    identifier: parseAppIdentifier(confSrc),
+  const consts = parseVaultConstants(readRepoFile('apps/web/src/lib/local-vault.ts'))
+  const persistKeys = []
+  const unparsedPersistFiles = []
+  for (const rel of PERSIST_STORE_FILES) {
+    let src = ''
+    try {
+      src = readRepoFile(rel)
+    } catch {
+      src = ''
+    }
+    const key = parsePersistKey(src)
+    if (key) persistKeys.push(key)
+    else unparsedPersistFiles.push(rel)
   }
+  // 生产标识解析不到 ⇒ 抛(loadConstants 的 catch 会落整轮「未判定」并点名,不记绿也不冒红)
+  const identifier = parseAppIdentifier(readRepoFile(TAURI_PROD_CONF))
+  let devIdentifier = null
+  let devIdentifierNote = ''
+  try {
+    devIdentifier = parseAppIdentifier(readRepoFile(TAURI_DEV_CONF))
+    if (devIdentifier === identifier) {
+      devIdentifierNote = `${TAURI_DEV_CONF} 与生产 identifier 同值(${devIdentifier}),dev 面无从独立判定(G-921 要求两枚必须分叉)`
+      devIdentifier = null
+    }
+  } catch (e) {
+    devIdentifierNote = `${TAURI_DEV_CONF} 的 identifier 解析失败: ${e.message}`
+  }
+  return { consts, persistKeys, unparsedPersistFiles, identifier, devIdentifier, devIdentifierNote }
 }
 
 // ==================== 缓冲区判读 ====================
@@ -356,6 +401,34 @@ export function resolveAppDirs(identifier) {
 
 // ==================== 巡检主流程 ====================
 
+/**
+ * 面级聚合(纯函数,供 runInspection 与镜像测试共用同一份结论判据,§0.6 单源):
+ * faces 每项 {kind, identifier, ...};kind='missing'/'empty'/'error' 都是"未判定"面,
+ * 只进 unjudged 点名清单,**永不进 violations**(目录不存在 ≠ 违规,§0.3)。
+ * 状态序:violations > unjudged(含 extraUnjudged 与"零扫描面") > clean。
+ */
+export function aggregateFaces(faces, extraUnjudged = []) {
+  const violations = []
+  const unjudged = [...extraUnjudged]
+  let scanned = 0
+  for (const f of faces || []) {
+    if (f.kind === 'scanned') {
+      scanned += f.fileCount
+      violations.push(...(f.violations || []))
+    } else if (f.kind === 'missing') {
+      const via = f.viaLocal ? `(${f.viaLocal} / ${f.viaRoam})` : ''
+      unjudged.push(`桌面端数据目录不存在: ${f.identifier} ${via}→ 该面未判定 ≠ 通过`)
+    } else if (f.kind === 'empty') {
+      unjudged.push(`扫描面为空: ${f.identifier}(Local Storage 与 roaming json 均无文件),尺子没浸到水,未判定`)
+    } else if (f.kind === 'error') {
+      unjudged.push(`标识 ${f.identifier} 目录解析失败: ${f.reason},未判定`)
+    }
+  }
+  const status =
+    violations.length > 0 ? 'violations' : unjudged.length > 0 || scanned === 0 ? 'undetermined' : 'clean'
+  return { violations, unjudged, scanned, status }
+}
+
 export function runInspection(identifierOverride) {
   if (process.platform !== 'win32') {
     return { status: 'undetermined', reasons: [`非 win32(${process.platform}),桌面端数据目录不存在于本机形态,未判定`] }
@@ -366,38 +439,64 @@ export function runInspection(identifierOverride) {
   } catch (e) {
     return { status: 'undetermined', reasons: [`常量解析失败: ${e.message}`] }
   }
-  const consts = loaded.consts
-  const persistKeys = loaded.persistKeys
-  const identifier = identifierOverride || loaded.identifier
-  let dirs
-  try {
-    dirs = resolveAppDirs(identifier)
-  } catch (e) {
-    return { status: 'undetermined', reasons: [`realpathSync 解析 junction 失败: ${e.message}`] }
-  }
-  if (!dirs.realLocal && !dirs.realRoam) {
-    return {
-      status: 'undetermined',
-      reasons: [`桌面端数据目录不存在(${dirs.viaLocal} / ${dirs.viaRoam}),未判定 ≠ 通过`],
+  const { consts, persistKeys, unparsedPersistFiles, identifier, devIdentifier, devIdentifierNote } = loaded
+  const identifiers =
+    typeof identifierOverride === 'string'
+      ? [identifierOverride]
+      : Array.isArray(identifierOverride?.identifiers)
+        ? identifierOverride.identifiers
+        : [identifier, ...(devIdentifier ? [devIdentifier] : [])]
+  const faces = []
+  for (const id of identifiers) {
+    let dirs
+    try {
+      dirs = resolveAppDirs(id)
+    } catch (e) {
+      faces.push({ kind: 'error', identifier: id, reason: `realpathSync 解析 junction 失败: ${e.message}` })
+      continue
     }
+    if (!dirs.realLocal && !dirs.realRoam) {
+      faces.push({ kind: 'missing', identifier: id, viaLocal: dirs.viaLocal, viaRoam: dirs.viaRoam })
+      continue
+    }
+    const scanList = listScanFiles(dirs.realLocal || '', dirs.realRoam || '')
+    if (scanList.length === 0) {
+      faces.push({ kind: 'empty', identifier: id, dirs })
+      continue
+    }
+    const ev = evaluateFiles(scanList, consts, persistKeys)
+    faces.push({
+      kind: 'scanned',
+      identifier: id,
+      dirs,
+      fileCount: scanList.length,
+      violations: ev.violations,
+      perFile: ev.perFile,
+    })
   }
-  const scanList = listScanFiles(dirs.realLocal || '', dirs.realRoam || '')
-  if (scanList.length === 0) {
-    return { status: 'undetermined', reasons: ['扫描面为空(Local Storage 与 roaming json 均无文件),尺子没浸到水,未判定'] }
+  const extraUnjudged = []
+  if (devIdentifierNote) extraUnjudged.push(`dev 标识面未判定: ${devIdentifierNote}`)
+  if (persistKeys.length === 0) {
+    extraUnjudged.push(`persist 键名两形(旧 name: 'ihui-*' 行 / 工厂默认参数)都解析不到(全体 store 源码无命中),判据 1 未判定 ≠ 通过`)
+  } else if (unparsedPersistFiles.length > 0) {
+    extraUnjudged.push(
+      `persist 键名解析失败,该面未判定: ${unparsedPersistFiles.join(', ')}(两形都不命中,须同步本门解析式)`,
+    )
   }
-  const { violations, perFile } = evaluateFiles(scanList, consts, persistKeys)
   const hygiene = checkKeyHygiene(consts)
-  if (hygiene.undetermined) {
-    return { status: 'undetermined', reasons: [hygiene.undetermined], perFile, consts, persistKeys, dirs }
-  }
-  const all = [...violations, ...hygiene.violations]
+  if (hygiene.undetermined) extraUnjudged.push(hygiene.undetermined)
+  const agg = aggregateFaces(faces, extraUnjudged)
+  const perFile = faces.filter((f) => f.kind === 'scanned').flatMap((f) => f.perFile)
   return {
-    status: all.length > 0 ? 'violations' : 'clean',
-    reasons: all,
+    status: agg.violations.length > 0 ? 'violations' : agg.status,
+    reasons: [...agg.violations, ...hygiene.violations, ...agg.unjudged],
+    violations: [...agg.violations, ...hygiene.violations],
+    unjudged: agg.unjudged,
     perFile,
+    faces,
     consts,
     persistKeys,
-    dirs,
+    identifiers,
   }
 }
 
@@ -406,16 +505,31 @@ function printReport(result, asJson) {
     const slim = {
       status: result.status,
       reasons: result.reasons,
-      dirs: result.dirs,
+      faces: (result.faces || []).map((f) => ({
+        identifier: f.identifier,
+        kind: f.kind,
+        fileCount: f.fileCount || 0,
+        ...(f.viaLocal ? { viaLocal: f.viaLocal, viaRoam: f.viaRoam } : {}),
+      })),
       files: result.perFile,
     }
     console.log(JSON.stringify(slim, null, 1))
     return
   }
   console.log(`[desktop-cache-plaintext] 状态: ${result.status}`)
-  if (result.dirs) {
-    console.log(`  local 真身: ${result.dirs.realLocal || '(缺)'}`)
-    console.log(`  roaming 真身: ${result.dirs.realRoam || '(缺)'}`)
+  if (result.faces) {
+    console.log(`  巡检标识面(${result.faces.length} 枚):`)
+    for (const f of result.faces) {
+      const detail =
+        f.kind === 'scanned'
+          ? `已扫 ${f.fileCount} 个文件,local 真身: ${f.dirs?.realLocal || '(缺)'},roaming 真身: ${f.dirs?.realRoam || '(缺)'}`
+          : f.kind === 'missing'
+            ? `目录不存在(${f.viaLocal} / ${f.viaRoam})→ 未判定 ≠ 通过`
+            : f.kind === 'empty'
+              ? '扫描面为空 → 未判定'
+              : `解析失败 → 未判定: ${f.reason || ''}`
+      console.log(`    - ${f.identifier} [${f.kind}] ${detail}`)
+    }
   }
   if (result.perFile) {
     console.log(`  实际扫描文件清单(${result.perFile.length} 个,判据 2 要求必须打印):`)
@@ -539,6 +653,7 @@ export const __test__ = {
   parseVaultConstants,
   parsePersistKey,
   parseAppIdentifier,
+  aggregateFaces,
   compactView,
   extractBalancedJson,
   checkEnvelopeStructure,
