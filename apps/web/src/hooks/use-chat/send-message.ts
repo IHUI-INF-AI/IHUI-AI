@@ -21,6 +21,7 @@ import {
   createConversation,
   regenerateConversation,
   editAndRerunConversation,
+  editAiMessageVersion,
   autoTitleConversation,
   branchConversation,
   type ToolDelegateEvent,
@@ -84,7 +85,11 @@ import {
   localizeQuotaExhausted,
 } from './stream-handlers'
 import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
+// 票60 步序三(2026-10-18):CustomEvent 触发面注册 + abort 域按 store 实例隔离
+import { getStreamRuntime } from './stream-runtime'
 import { estimateLiveUsage } from './live-usage'
+// 票64(2026-10-18 立):AI 消息编辑落新版本后,服务端回写行按与历史加载同一份白名单水合
+import { hydrateHistoryMessage } from './history-message'
 // V3 #69:budget 命名帧的唯一落点(输入框上方 ContextBudgetBar 读它;toast 照旧)
 import { clearBudgetEvent, noteBudgetTrustedZeroPhase, setBudgetEvent } from './budget-state'
 // D155(2026-09-29 立):下行告警三档(config-warning/deprecation-notice/guardian-warning)
@@ -112,22 +117,20 @@ import type { PlanStep, TerminalTask } from '@ihui/types/ai'
 import type { ChatActionContext } from './types'
 
 // =============================================================================
-// 模块级单例注册表(2026-08-30 立,重新生成 / 分支闭环)
+// CustomEvent 触发面的注册(票60 步序三,2026-10-18 实例化)
 // =============================================================================
-// useChat hook 全局唯一实例(ai-side-panel 单挂载),createSendMessage 每次渲染
-// 都会用最新 ctx 重建 sendMessage。这里保存最新实例,供 MessageList 等无 ctx 的
-// 组件通过 CustomEvent(ihui:regenerate-message / ihui:branch-message)触发
-// regenerate / branch 时,复用同一套流式发送逻辑,避免重写流式处理。
+// 原形态:sendMessageInstance / sendActionCtx 是本文件模块级 let 单例 —— 多窗格下
+// 会被最后一次渲染的实例覆盖,regenerate/branch 触发面错窗格。
+// 现形态:收进按 store 实例隔离的运行时记录(stream-runtime.ts)。本文件当前仍服务
+// 单例 useChatStore(70 处读写,窗格化是票60 步序四),故按 useChatStore 取记录;
+// 行为与原模块级单例逐字节等价。窗格寻址消费面接入后,createSendMessage 按 pane
+// 实例取记录,每窗格的触发面与中断域独立。
 export interface SendMessageOptions {
   /** 重新生成模式(2026-08-30 立):
    *  true 时不重复 addMessage/persist 用户消息 —— 历史已被截断到该用户消息之前,
    *  store 中已存在该用户消息,仅需补一个 assistant 占位并走流式。 */
   regenerate?: boolean
 }
-
-let sendMessageInstance: ((content: string, opts?: SendMessageOptions) => Promise<boolean>) | null =
-  null
-let sendActionCtx: ChatActionContext | null = null
 
 /**
  * 首轮回复后自动生成会话标题(2026-09-15 立,四竞品对标 V2 #15):
@@ -165,7 +168,8 @@ export function createSendMessage(
     streamGenerationRef,
     streamConversationRef,
   } = ctx
-  sendActionCtx = ctx
+  // 票60 步序三:actionCtx 注册挪到与 sendInstance 同一处(文件尾),按 store 实例落账
+  const sendRuntime = getStreamRuntime(useChatStore)
   const sendMessage = async (content: string, opts?: SendMessageOptions): Promise<boolean> => {
     const text = content.trim()
     if (!text) return false
@@ -1415,8 +1419,10 @@ export function createSendMessage(
     // 消息已提交到 store(即使流式出错也有 error 标记 + retry 按钮),可清空输入框
     return true
   }
-  // 注册到模块级单例,供无 ctx 组件(MessageList)通过 CustomEvent 触发 regenerate
-  sendMessageInstance = sendMessage
+  // 注册到按 store 实例隔离的运行时记录(原模块级单例),供无 ctx 组件(MessageList)
+  // 通过 CustomEvent 触发 regenerate / branch 时复用同一套流式发送逻辑
+  sendRuntime.sendInstance = sendMessage
+  sendRuntime.actionCtx = ctx
   return sendMessage
 }
 
@@ -1429,8 +1435,9 @@ export function createSendMessage(
  *    走既有流式链路(超时/节流/工具调用/错误重试全部复用,不重写)。
  */
 export async function regenerateMessage(messageId: string): Promise<boolean> {
-  const sendMessage = sendMessageInstance
-  if (!sendMessage || !sendActionCtx) return false
+  const runtime = getStreamRuntime(useChatStore)
+  const sendMessage = runtime.sendInstance
+  if (!sendMessage || !runtime.actionCtx) return false
 
   const store = useChatStore.getState()
   const conversationId = store.conversationId
@@ -1492,8 +1499,9 @@ export async function editMessageAndRerun(
   newContent: string,
   rollbackFiles = false,
 ): Promise<boolean> {
-  const sendMessage = sendMessageInstance
-  if (!sendMessage || !sendActionCtx) return false
+  const sendRuntime = getStreamRuntime(useChatStore)
+  const sendMessage = sendRuntime.sendInstance
+  if (!sendMessage || !sendRuntime.actionCtx) return false
 
   const text = newContent.trim()
   if (!text) return false
@@ -1578,6 +1586,52 @@ export async function editMessageAndRerun(
 }
 
 /**
+ * 票64(2026-10-18 立):编辑一条 AI 消息 = 落新版本,不重跑、不截断。
+ * 由 MessageList 监听 `ihui:edit-ai-message` 后调用,完整闭环:
+ * 1. 调后端 POST /chat/messages/:id/edit —— 在同一版本族里插入新 sibling(原行保留)
+ * 2. hydrateHistoryMessage 把服务端回写的整行转成 ChatMessage(标记/版本坐标一并对齐)
+ * 3. store.mergeVersionMessage 并入内存:给族根补 siblingIndex=0 + 按族尾插入新版本
+ * 与用户消息的编辑重跑(editMessageAndRerun)是两条链:AI 编辑不产生新回复,
+ * 也不删后续消息 —— 只多出一个可切换的版本。
+ */
+export async function editAiMessageAsVersion(
+  messageId: string,
+  newContent: string,
+): Promise<boolean> {
+  const text = newContent.trim()
+  if (!text) return false
+
+  const store = useChatStore.getState()
+  if (store.isStreaming) return false
+  const target = store.messages.find((m) => m.id === messageId)
+  if (!target || target.role !== 'assistant') return false
+  // 内容未变化时无需落新版本,直接关闭编辑态即可
+  if (target.content === text) return true
+
+  try {
+    const res = await editAiMessageVersion(messageId, text)
+    if (!res.success || !res.data) {
+      toast.error('编辑失败', {
+        description: res.error || `服务异常(${res.status ?? '未知'})`,
+      })
+      return false
+    }
+    const { message, rootId, siblingIndex } = res.data
+    useChatStore.getState().mergeVersionMessage(
+      hydrateHistoryMessage(message),
+      rootId,
+      siblingIndex,
+    )
+    return true
+  } catch (err) {
+    toast.error('编辑失败', {
+      description: err instanceof Error ? err.message : String(err),
+    })
+    return false
+  }
+}
+
+/**
  * 分支/回退(2026-08-30 立)。
  * 由 MessageList 监听 `ihui:branch-message` 后调用:
  * 1. 调后端 POST /conversations/:id/branch —— 基于目标消息之前的内容创建新会话(旧会话原样保留)
@@ -1585,7 +1639,7 @@ export async function editMessageAndRerun(
  * 3. 打开 AI 面板 + 刷新会话列表 + 更新 URL(?conversationId=)便于分享/书签
  */
 export async function branchMessage(messageId: string): Promise<boolean> {
-  const ctx = sendActionCtx
+  const ctx = getStreamRuntime(useChatStore).actionCtx
   if (!ctx) return false
 
   const store = useChatStore.getState()
