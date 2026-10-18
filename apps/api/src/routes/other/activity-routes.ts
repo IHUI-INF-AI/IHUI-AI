@@ -96,14 +96,15 @@ export const activityRoutes: FastifyPluginAsync = async (server) => {
     if (!existing) return reply.status(404).send(error(404, '未加入该圈子'))
     if (existing.role === 'owner')
       return reply.status(400).send(error(400, '圈主不能退出,请先转让'))
-    if (existing.status === 0) {
-      // 重复点"退出"不是第二次退出:成员数不能再 -1,updatedAt 也不发 UPDATE(它是 tasks.ts
-      // since 补拉与 user-routes gte 窗口的消费源,"没改"被盖成"变过"会让增量读读到假变更)
+    // 守门 198 的出口形态:值由现值比较导出,没变就不发 UPDATE、不盖 updatedAt
+    // (updatedAt 是增量读的消费源 —— tasks.ts since 补拉 / user-routes gte 窗口)
+    const changed: Partial<{ status: number }> = existing.status === 0 ? {} : { status: 0 }
+    if (Object.keys(changed).length === 0) {
       return reply.send(success({ left: true, already: true, member: existing }))
     }
     const [left] = await db
       .update(circleMembers)
-      .set({ status: 0, updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(circleMembers.id, existing.id))
       .returning()
     // 圈子成员数 -1
