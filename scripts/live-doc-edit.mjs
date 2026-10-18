@@ -60,6 +60,15 @@
  *  "提交前查一次占用"挡不住别人事后取同一个号(与守门编号撞号同族)。为什么必须**递增**而不是
  *  每个令牌都算 max+1:一次登记两件事是常态,那样本器自己就会产出它要防的那一型。
  *  该族一条登记行都没有 ⇒ exit 2 拒绝落地,绝不给 "<族>-1"。
+ *  ⚠️ 裸写 `{{NEXT_ID}}`(不带族)与全角 `｛｛NEXT_ID｝｝`(U+FF5B/U+FF5D)**不被任何展开步骤消费**,
+ *  会被原样写进 HEAD(实测 HEAD 面存量 18 行,最早可追到 2026-09-29)。G-15107 格①(2026-10-19 立):
+ *  本器在**每次 CAS 尝试之前**把"本次声明内容里仍残留消费不掉的令牌字面量"判成**用法错 ⇒ exit 2**
+ *  (与"缺必填 env"同档),点名所在行并给三条可执行下一步(改带族 `{{NEXT_ID:G}}` / 补具名编号 /
+ *  引述请用反引号包起)。歧义解法 = a)+窄档③:反引号行内代码段内的命中放过(文档与台账引述令牌一律
+ *  用反引号包起,把它们一起拒就是与任何提交无关的恒红工具 §12e);但登记行**编号声明位**里即便带
+ *  反引号仍判(该位不存在"正当引述",这一档封住"补一枚反引号绕过放过"的通道)。存量不担:
+ *  整行改写档 `before` 里同判定的同名字面量按"携带"放过,只拦 `after` 新引入的(格②另有票)。
+ *  判据唯一出口 = `judgeResidualIdTokens`(镜像测试与 `--self-test` 都从 `__test__` 复用,§22c)。
  *  占用面(G-313 续,2026-09-28 补)= **台账 ⊕ `.ihui-agent/archive/PROJECT_PLAN*.md`**,由
  *  `lib/plan-id-face.mjs` 的 `collectIdFace()` 给(与 `next-plan-id.mjs` 共用那一份实现)。理由:
  *  归档器把已完成条目整块搬进归档件、台账只留一行 HTML 注释占位 ⇒ 只看台账的 max 会随每次归档回落,
@@ -87,7 +96,8 @@
  *        1 = 业务拒绝(锚点命中 0 或 >1 / 结构等值不成立 / 文档不在 HEAD / CAS 12 次未抢到 / 回读缺行 /
  *            编号形状编译不出 ⇒ 无法证明"不在位" / **新行里的 sha 形态指针当场问不到 commit**(G-1079146
  *            取值档;注意"git 问不到"不落这一档 —— 那一档是未判定 ⇒ 放行并打印原因));
- *        2 = 用法或环境错(缺必填 env / 锚点或正文块为空 / 根不可当仓库问)。
+ *        2 = 用法或环境错(缺必填 env / 锚点或正文块为空 / 根不可当仓库问 /
+ *            本次内容残留消费不掉的取号令牌字面量或该档取不到判定输入(G-15107 格①;反引号引述放过));
  *
  * 已知边界(如实登记,别读成"重复落地这一族已被全覆盖"):
  *  - **EOF 追加档不在幂等射程**:票面 ① 的判据定义在"锚点之后紧邻 N 行"上,EOF 档没有锚点可点名。
@@ -582,6 +592,165 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     leaseNotes,
     dupTitleNotes,
   }
+}
+
+/**
+ * 残留取号令牌字面量闸(G-15107 格①,2026-10-19 立)。判据**只住这一份**:镜像测试与 `--self-test`
+ * 一律经 `__test__` 出口复用下面这三个函数,禁止在测试里再抄一条匹配式(§22c;跨门判据
+ * `check-test-judge-not-replicated.mjs` 盯着这一型)。
+ *
+ * 拦的是:落进 HEAD 的正文里**永远不会被消费**的取号令牌字面量 —— 裸写 `{{NEXT_ID}}`(不带族)与
+ * 全角 `｛｛NEXT_ID｝｝`/`｛｛NEXT_ID:族｝｝`(U+FF5B/U+FF5D)。合法形状 `{{NEXT_ID:族}}` 由
+ * ID_TOKEN_RE 在每轮 CAS 里消费,天然不在此列,故本闸在**展开前的原文**上判与展开后判结果相同。
+ *
+ * 歧义解法 = a)+窄档③(为何不是纯 b):
+ *  ① 命中在**行内代码段之外**(反引号游程交替切分,见 `inlineCodeSpansOf`)⇒ 判红 —— 活占位符正是
+ *     这一形态(实测病行 `- [ ] {{NEXT_ID}} 把 AGENTS.md 体积判据…`);
+ *  ② 命中在代码段**之内** ⇒ 放过 —— 文档与台账引述令牌一律用反引号包起(实测 `PROJECT_PLAN.md`
+ *     两处引述行都是这一形态),把正当引述一起拒 = 造一台与任何提交都无关的恒红工具(§12e),失效
+ *     方向还会变成"多放一次跳门"(§0.10 禁区);
+ *  ③ 但登记行(`- [ ]`/`- [x]`)的**编号声明位**(标记之后到第一个非空白词止)内即便带反引号仍判 ——
+ *     编号位不存在"正当引述",这一档封住"补一枚反引号绕过②"的通道。
+ *  如实登记的代价:同一行有未配对的游离反引号时,其后文字被当作代码段放过(方向是"宁放引述、
+ *  不误杀落地");同一行若命中在编号声明位,③ 仍兜住。
+ *
+ * 存量不担(与主键闸/sha 闸同一档差值语义):整行改写档里 `before` 已带同判定命中的同名字面量按
+ * "携带"放过,只拦 `after` 新引入的 —— 否则每一次对存量行的正当结清动作都被他人欠的账钉红(§12e),
+ * 而存量 56 条的清偿是格②,另有票。
+ */
+const RESIDUAL_ID_TOKEN_RE =
+  /(?:\{\{NEXT_ID\}\}|｛｛NEXT_ID(?::[A-Za-z]+|：[A-Za-z]+)?｝｝)/
+
+const RESIDUAL_ID_TOKEN_RE_G = new RegExp(RESIDUAL_ID_TOKEN_RE.source, 'g')
+
+/**
+ * 行内代码段区间表(唯一实现):按**连续反引号游程**交替切分 —— 第 1 枚游程起进入代码段、第 2 枚
+ * 退出,依此类推;游程本身不算内容。未配对(奇数枚游程)时末段按"在段内"处理,方向取"宁放引述、
+ * 不误杀落地"(见上档注释)。返回 [start,end) 数组(左闭右开,指向反引号之间的正文字符)。
+ */
+export function inlineCodeSpansOf(line) {
+  const parts = String(line).split(/(`+)/)
+  const spans = []
+  let pos = 0
+  let inside = false
+  for (let i = 0; i < parts.length; i += 1) {
+    const p = parts[i]
+    if (i % 2 === 1) {
+      inside = !inside
+      pos += p.length
+      continue
+    }
+    if (inside && p.length > 0) spans.push([pos, pos + p.length])
+    pos += p.length
+  }
+  return spans
+}
+
+/**
+ * 登记行"编号声明位"窗口(唯一实现):`- [ ]`/`- [x]` 标记之后到第一个非空白词止(词按非空白切,
+ * 含包裹它的反引号 —— 所以 `` `- [ ] `{{NEXT_ID}}` …` `` 里带引号的令牌仍落在窗口内,被③ 判住)。
+ * 非登记行 ⇒ null(② 的放过对该形态没有例外可给)。
+ */
+function idSlotWindowOf(line) {
+  const text = String(line)
+  const m = /^\s*-\s*\[[ xX]\]\s?/.exec(text)
+  if (!m) return null
+  const start = m.index + m[0].length
+  const rest = /^\S+/.exec(text.slice(start))
+  return rest ? [start, start + rest[0].length] : [start, text.length]
+}
+
+/** 单行的"应判"命中(①/③ 合成后的形态;② 纯引述在此已被摘掉)。 */
+function residualHitsOf(line) {
+  const text = String(line)
+  const spans = inlineCodeSpansOf(text)
+  const slot = idSlotWindowOf(text)
+  const hits = []
+  for (const m of text.matchAll(RESIDUAL_ID_TOKEN_RE_G)) {
+    const at = m.index
+    const inCode = spans.some(([s, e]) => at >= s && at < e)
+    const inSlot = slot !== null && at >= slot[0] && at < slot[1]
+    if (!inCode || inSlot) hits.push({ literal: m[0], at, quoted: inCode, inSlot })
+  }
+  return hits
+}
+
+/**
+ * 判定入口(纯函数,零 git 零写盘)。entries = 本次声明要写入的每一行:
+ *  插入档 `{ after: 块行 }`(before 缺省 ⇒ 没有"携带"可言);
+ *  整行改写档 `{ before, after }`(差值语义:before 里同判定的同名字面量逐枚抵扣,只报多出来的)。
+ * 三态返回(§0.3):`status:'ok'` 干净 / `'violation'` 有新引入的残留字面量 / `'undetermined'`
+ * 连判定输入都取不到(entries 非数组、或逐条读不出 after 字符串)—— 未判定不得记绿也不得冒红,
+ * 调用方按用法错档 exit 2 并点名原因。
+ */
+export function judgeResidualIdTokens(entries) {
+  const res = { status: 'ok', violations: [], carriedOver: [], undetermined: [] }
+  if (!Array.isArray(entries) || entries.length === 0) {
+    res.status = 'undetermined'
+    res.undetermined.push('取不到本次写入内容(entries 不是非空数组)⇒ 本闸未判定,不记绿也不冒红')
+    return res
+  }
+  for (const [i, e] of entries.entries()) {
+    const after =
+      typeof e?.after === 'string' ? e.after : typeof e === 'string' ? e : null
+    if (after === null) {
+      res.undetermined.push(`第 ${i + 1} 条取不到 after 字符串 ⇒ 该行未经本闸判定`)
+      continue
+    }
+    const before = typeof e?.before === 'string' ? e.before : null
+    const pool = before === null ? [] : residualHitsOf(before).map((h) => h.literal)
+    for (const h of residualHitsOf(after)) {
+      const pi = pool.indexOf(h.literal)
+      if (pi >= 0) {
+        pool.splice(pi, 1)
+        res.carriedOver.push({ index: i, ...h })
+        continue
+      }
+      res.violations.push({ index: i, ...h, lineText: after })
+    }
+  }
+  if (res.violations.length > 0) res.status = 'violation'
+  else if (res.undetermined.length > 0) res.status = 'undetermined'
+  return res
+}
+
+/**
+ * 措辞唯一出口(纯函数,`--self-test` 与镜像测试把"下一步给没给"逐字钉住)。
+ * 三条出路必须真做得到(§0.8):①带族令牌由本器现算取号;②具名编号(照同族现行行的形状填,
+ * 形状判据住 lib/plan-task-index.mjs,本器不另立);③确属引述 ⇒ 反引号包起即为放过形态。
+ */
+export function residualIdTokenReport(v) {
+  const lines = []
+  for (const h of v.violations.slice(0, 8))
+    lines.push({
+      kind: 'error',
+      text:
+        `   · 声明内容第 ${h.index + 1} 行(列 ${h.at + 1})「${h.literal}」` +
+        (h.inSlot
+          ? '—— 落在登记行编号声明位,带反引号也判(该位没有正当引述)'
+          : h.quoted
+            ? '—— 在反引号内但被编号声明位兜住'
+            : '—— 不在行内代码段内,是活占位符形态') +
+        ` ⇒ 该行原文:${String(h.lineText).slice(0, 120)}`,
+    })
+  if (v.violations.length > 0) {
+    lines.unshift({
+      kind: 'error',
+      text: '❌ 本次要写的内容里有 ' + v.violations.length + ' 处**消费不掉的取号令牌字面量**(裸写不带族 / 全角形态)⇒ 用法错,拒绝落地(G-15107 格①)。本器只消费带族的 `{{NEXT_ID:族}}`,其余字面量会原样进 HEAD 并被后续会话照抄。',
+    })
+    lines.push({
+      kind: 'error',
+      text: '   可执行的下一步(三选一):① 活取号 ⇒ 把该行该处改写为带族形态 `{{NEXT_ID:G}}`(G 换成目标族字母),本器每轮 CAS 都按当下 HEAD 底稿现算空闲号;② 已知号 ⇒ 直接补成具名编号(形状照同族现行登记行,如 `G-123`);③ 确属引述(讲令牌本身的说明句)⇒ 用反引号把字面量包成行内代码段即放过。',
+    })
+  }
+  for (const u of v.undetermined)
+    lines.push({ kind: 'error', text: `❌ 残留取号令牌字面量闸:取不到判定输入 ⇒ 未判定,拒绝落地(§0.3:不记绿也不冒红):${u}` })
+  if (v.violations.length === 0 && v.undetermined.length === 0 && v.carriedOver.length > 0)
+    lines.push({
+      kind: 'warn',
+      text: `ℹ 残留令牌字面量闸:${v.carriedOver.length} 处按"携带存量"放过(before 里本来就有同一字面量;逐条清偿是格②,本闸不替存量担账)`,
+    })
+  return lines
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -1383,6 +1552,22 @@ async function main() {
   const shaProbe = makeShaProber({ root })
   const shaAllow = parseShaAllow(process.env.LIVE_SHA_ALLOW)
 
+  // 残留取号令牌字面量闸(G-15107 格①):**CAS 尝试之前**判,两档(插入 / 整行改写)同走这一处。
+  // 输入是本器命令行声明的原文;带族 ASCII 令牌由循环里的 resolveIdTokens 消费,本闸只判
+  // "消费不掉"的形状(裸写 / 全角),被消费的形状已从匹配式排除 ⇒ 在原文上判与展开后判结果相同。
+  // violation / undetermined 都落 exit 2(与"缺必填 env"同档 —— 这是用法错与判定不能,不是业务拒)。
+  {
+    const rsEntries = replacements
+      ? replacements.map((p) => ({ before: p.before, after: p.after }))
+      : block.map((l) => ({ before: null, after: l }))
+    const rv = judgeResidualIdTokens(rsEntries)
+    for (const l of residualIdTokenReport(rv)) {
+      if (l.kind === 'error') console.error(l.text)
+      else console.log(l.text)
+    }
+    if (rv.status === 'violation' || rv.status === 'undetermined') process.exit(2)
+  }
+
   let landed = ''
   let parentSha = ''
   let rejectReason = ''
@@ -1774,6 +1959,11 @@ export const __test__ = {
   shaProbeCommand,
   SHA_PROBE_TRANSPORT,
   SHA_PROBE_MAX,
+  // G-15107 格① 残留取号令牌字面量闸:判据从这里出去(镜像测试禁止再抄一份匹配式,§22c)。
+  judgeResidualIdTokens,
+  residualIdTokenReport,
+  inlineCodeSpansOf,
+  RESIDUAL_ID_TOKEN_RE,
 }
 
 /**
@@ -2008,6 +2198,126 @@ function selfTest() {
         { probe: () => ({ state: 'bad', status: 128 }) },
       )
       return v.probed === 0 && classifyShape('97fef424f841ab997b161bc4ead93cbe').kind === 'ambiguous'
+    })(),
+  )
+  // ── R 族:残留取号令牌字面量闸(G-15107 格①,2026-10-19 立)──
+  // 成对纪律(本器 self-test 第③条):每条"必红"都配一条"必须不红"的放过对照 ——
+  // 把正当引述一起拒 = 恒红工具(§12e),放过通道被引述形态堵死 = 拦不到成因,两个方向都得有牙。
+  ok(
+    'R1 裸写 {{NEXT_ID}} 在代码段外(实测病行形态 `- [ ] {{NEXT_ID}} …`)⇒ violation',
+    (() => {
+      const v = judgeResidualIdTokens([{ after: '- [ ] {{NEXT_ID}} 把某判据接进提交链' }])
+      return (
+        v.status === 'violation' &&
+        v.violations.length === 1 &&
+        v.violations[0].literal === '{{NEXT_ID}}' &&
+        v.violations[0].inSlot === true
+      )
+    })(),
+  )
+  ok(
+    'R2 反证:说明句用反引号引述 `{{NEXT_ID}}` ⇒ 放过(拒引述就是把本闸变成恒红工具)',
+    (() => {
+      const v = judgeResidualIdTokens([
+        { after: '而取号器把这类六位号当"已用号"算 max,`{{NEXT_ID}}` 会给出天文号' },
+      ])
+      return v.status === 'ok' && v.violations.length === 0
+    })(),
+  )
+  ok(
+    'R3 全角 ｛｛NEXT_ID｝｝(U+FF5B/U+FF5D)在代码段外 ⇒ 同样 violation',
+    (() => {
+      const v = judgeResidualIdTokens([{ after: '台账里被反复抄用的是 ｛｛NEXT_ID｝｝ 这一形态' }])
+      return v.status === 'violation' && v.violations[0].literal === '｛｛NEXT_ID｝｝'
+    })(),
+  )
+  ok(
+    'R4 反证:全角带引引述与全角带族 ｛｛NEXT_ID:G｝｝ 在代码段内 ⇒ 放过',
+    (() => {
+      const v = judgeResidualIdTokens([
+        { after: '规定的令牌形状是 `｛｛NEXT_ID:G｝｝`,而抄成 `｛｛NEXT_ID｝｝` 不被消费' },
+      ])
+      return v.status === 'ok' && v.violations.length === 0
+    })(),
+  )
+  ok(
+    'R5 编号声明位内即便带反引号仍判(封"补一枚反引号绕过 R2"的通道)',
+    (() => {
+      const v = judgeResidualIdTokens([{ after: '- [ ] `{{NEXT_ID}}` 这一行仍是活占位符' }])
+      return (
+        v.status === 'violation' &&
+        v.violations.length === 1 &&
+        v.violations[0].inSlot === true &&
+        v.violations[0].quoted === true
+      )
+    })(),
+  )
+  ok(
+    'R6 合法带族令牌 {{NEXT_ID:G}}(代码段内外都算)不在本闸射程 ⇒ ok',
+    (() => {
+      const v = judgeResidualIdTokens([
+        { after: '- [ ] {{NEXT_ID:G}} 正常取号登记' },
+        { after: '令牌 `{{NEXT_ID:G}}` 每轮 CAS 现算' },
+      ])
+      return v.status === 'ok' && v.violations.length === 0 && v.undetermined.length === 0
+    })(),
+  )
+  ok(
+    'R7 携带存量:before 里已有同一裸令牌、after 逐字带过去 ⇒ 不替格②的存量担账',
+    (() => {
+      const before = '- [ ] {{NEXT_ID}} 存量行'
+      const v = judgeResidualIdTokens([{ before, after: before + ' 〔注记:仍待补号(格②)〕' }])
+      return v.status === 'ok' && v.carriedOver.length === 1 && v.violations.length === 0
+    })(),
+  )
+  ok(
+    'R8 before 干净而 after 新引入裸令牌 ⇒ 必判(携带档不得变成放行档)',
+    (() => {
+      const v = judgeResidualIdTokens([
+        { before: '- [ ] G-123 干净行', after: '- [ ] {{NEXT_ID}} 抄成了裸写' },
+      ])
+      return v.status === 'violation' && v.violations.length === 1
+    })(),
+  )
+  ok(
+    'R9 取不到判定输入 ⇒ undetermined(不记绿也不冒红),报告点名',
+    (() => {
+      const empty = judgeResidualIdTokens([])
+      const bad = judgeResidualIdTokens([{ after: 42 }])
+      const rep = residualIdTokenReport(bad)
+      return (
+        empty.status === 'undetermined' &&
+        bad.status === 'undetermined' &&
+        bad.violations.length === 0 &&
+        rep.some((l) => l.kind === 'error' && l.text.includes('未判定'))
+      )
+    })(),
+  )
+  ok(
+    'R10 拒绝报告逐条点名所在行并给三条可执行下一步(§0.8:出路必须真做得到)',
+    (() => {
+      const v = judgeResidualIdTokens([{ after: '- [ ] {{NEXT_ID}} 病行' }])
+      const txt = residualIdTokenReport(v)
+        .map((l) => l.text)
+        .join('\n')
+      return (
+        txt.includes('第 1 行') &&
+        txt.includes('{{NEXT_ID}}') &&
+        txt.includes('{{NEXT_ID:G}}') &&
+        txt.includes('反引号') &&
+        txt.includes('G-15107')
+      )
+    })(),
+  )
+  ok(
+    'R11 inlineCodeSpansOf 游程切分本身成对:配对段内/未配对尾段/双反引号游程',
+    (() => {
+      const a = inlineCodeSpansOf('x `y` z')
+      const b = inlineCodeSpansOf('x `y z')
+      const c = inlineCodeSpansOf('x ``y`` z')
+      return (
+        a.length === 1 && a[0][0] === 3 && b.length === 1 && c.length === 1 && c[0][0] === 4
+      )
     })(),
   )
   let fail = 0
