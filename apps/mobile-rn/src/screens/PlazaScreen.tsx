@@ -28,6 +28,7 @@ import {
   type ViewStyle,
   type TextStyle,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Clipboard from '@react-native-clipboard/clipboard'
@@ -58,6 +59,7 @@ import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { NavBar, type NavBarAction } from '../components/NavBar'
 // 底部导航(对齐原 customTabBar 5 主 Tab,PlazaScreen 对应「广场」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
+import { tabBarScrollReserve } from '../components/TabBar.styles'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -128,6 +130,8 @@ export function PlazaScreen() {
   const { user } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<RootNav>()
+  // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
+  const insets = useSafeAreaInsets()
 
   /** 底部 Tab 切换(对齐原 customTabBar 5 主 Tab;Plaza 为 RootStack 独立路由,经 Main 聚焦 Tab) */
   const handleTabChange = (key: TabBarKey): void => {
@@ -474,6 +478,7 @@ export function PlazaScreen() {
         onSubmitSearch={onSubmitSearch}
         onPressItem={showDetail}
         onPublish={onPublish}
+        contentBottomPadding={tabBarScrollReserve(insets.bottom)}
         colorScheme={resolvedTheme}
       />
       <FloatBox
