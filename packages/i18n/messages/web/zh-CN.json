@@ -10874,7 +10874,9 @@
         "saveAudioOnly": "仅保存音频",
         "insertToInput": "插入对话",
         "dismiss": "关闭"
-      }
+      },
+      "searchPlaceholder": "搜索笔记内容",
+      "groupAll": "全部"
     },
     "connectorAuth": {
       "title": "连接到 {connectorName}",

@@ -10877,7 +10877,9 @@
         "saveAudioOnly": "音声のみ保存",
         "insertToInput": "入力欄に挿入",
         "dismiss": "閉じる"
-      }
+      },
+      "searchPlaceholder": "ノートを検索",
+      "groupAll": "すべて"
     },
     "connectorAuth": {
       "title": "{connectorName} に接続",

@@ -10874,7 +10874,9 @@
         "saveAudioOnly": "僅儲存音訊",
         "insertToInput": "插入對話",
         "dismiss": "關閉"
-      }
+      },
+      "searchPlaceholder": "搜尋筆記內容",
+      "groupAll": "全部"
     },
     "connectorAuth": {
       "title": "連接到 {connectorName}",
