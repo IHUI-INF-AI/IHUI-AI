@@ -27,9 +27,11 @@
  * 检查逻辑:
  *   1. 读取当前分支
  *   2. 读取本地 HEAD
- *   3. 读取 origin/<branch> HEAD —— **以 `git ls-remote`(网络真值)为准**,
- *      ls-remote 不可用时才回退本地 remote-tracking ref(2026-09-12 修:
- *      本机宿主清理层会删除嵌套 ref,本地 ref 可能残旧,曾致"已推送却被判未推送"而阻塞 commit)
+ *   3. 读取 origin/<branch> HEAD —— **唯一出口 `scripts/lib/face-reader.mjs` 的 resolveRemoteHead()**:
+ *      ① ls-remote(当次服务器真值)→ ② 本轮 fetch 成功时的 FETCH_HEAD → ③ 只剩跟踪 ref 残值
+ *      ⇒ **不参与落槌**,本门如实报「未判定」并放行(2026-10-18 收口:过去 ③ 档回退本地 ref 照常判定,
+ *      既造出"已推送却被判未推送 ⇒ 阻塞 commit"的假红,也造出"残值恰好等于本地 ⇒ 报已同步"的假绿;
+ *      本机宿主清理层删除嵌套 ref 后 packed-refs 读回旧值即此型,AGENTS §5b 已记)
  *   4. git rev-list --count origin/<branch>..HEAD
  *   5. 如果 > 0 → 有未 push 的 commit → 阻塞
  *
@@ -53,6 +55,8 @@
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+// 远端 tip 的唯一取法(§22c 单一真相源):判据住在 lib,本门不再各写一份
+import { resolveRemoteHead } from './lib/face-reader.mjs'
 
 const C = {
   red: '\x1b[31m',
@@ -123,27 +127,28 @@ if (!localHead) {
   process.exit(0)
 }
 
-// 远端 tip 必须以 ls-remote(网络真值)为准(2026-09-12 修,与 git-push-guard.mjs 同源问题)。
-// 背景:本机「宿主清理 gitdir 嵌套目录」病理会把 `refs/remotes/<remote>/<branch>` 静默删除,
+// 远端 tip 的唯一取法住在 `scripts/lib/face-reader.mjs` 的 `resolveRemoteHead()`(§22c 单一真相源)。
+// 背景(2026-09-12 修,与 git-push-guard.mjs 同源问题;2026-10-18 收口成共用一份):
+//   本机「宿主清理 gitdir 嵌套目录」病理会把 `refs/remotes/<remote>/<branch>` 静默删除,
 //   而 packed-refs 残留旧值 → `git rev-parse origin/<branch>` 返回**过期 sha**。
-//   旧逻辑只读本地 tracking ref,于是会把"其实已经推送成功"的 commit 判成"未 push"并
-//   **阻塞下一次 commit**(实测:本地=远端=bc3b29c1f,却报「远端 HEAD: 81a5869」)。
-//   现改为 ls-remote 优先,失败才回退本地 ref(离线场景仍可用)。
-async function resolveRemoteHead() {
-  const viaLs = run(`git ls-remote origin refs/heads/${currentBranch}`, { allowFail: true })
-  if (viaLs) {
-    const sha = viaLs.split('\t')[0].trim()
-    if (sha) return sha
-  }
-  console.log(`ℹ️  ls-remote 不可用,回退本地 origin/${currentBranch} 引用(本机可能过期)`)
-  return run(`git rev-parse origin/${currentBranch}`, { allowFail: true })
-}
-const remoteHead = await resolveRemoteHead()
+//   本门过去在 ls-remote 失败时**回退到那枚残值并照常落槌**,两个方向都会错:
+//     ① 残值落后 ⇒ 把已推送的 commit 判成"未 push"并阻塞本次 commit(实测:本地=远端=bc3b29c1f,
+//        却报「远端 HEAD: 81a5869」);诱导出的 `pull --rebase` 本机禁用且曾两次删库(§5b);
+//     ② 残值恰好等于本地 ⇒ 报"已同步"放行,而远端其实在别处 ⇒ 提交堆在本地被当成完成(§20)。
+//   lib 的三档依次退让里第 ③ 档(只剩跟踪 ref 残值)**不参与落槌**,只随"无法判定"报出供诊断。
+//   本门据此在无法判定时**如实报未判定并放行**:判机器状态的门在网络不可达时造红,
+//   唯一实际结局是逼人 `--no-verify`,连带废掉全部守门(§12e)。
+const remoteResolution = resolveRemoteHead(currentBranch, { root: repoRoot })
+const remoteHead = remoteResolution.sha
 if (!remoteHead) {
-  // ls-remote 与本地 ref 都取不到(无网络且从未 fetch 过),跳过
   console.log(
-    `⏭  无法确定 origin/${currentBranch} HEAD(未 fetch 且 ls-remote 不可用),跳过 push 同步检查`,
+    `⏭  无法判定 origin/${currentBranch} 的当次位置 ⇒ 本次不参与判定(不阻塞 commit)\n     依据:${remoteResolution.reason}`,
   )
+  if (remoteResolution.stale) {
+    console.log(
+      `     仅有跟踪 ref 残值 ${String(remoteResolution.stale).slice(0, 11)} —— §5b 规定它不足以判定收敛,不拿它算"未 push"数量`,
+    )
+  }
   process.exit(0)
 }
 
