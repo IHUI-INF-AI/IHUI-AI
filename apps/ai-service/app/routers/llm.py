@@ -4531,6 +4531,22 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         tool_name, args if isinstance(args, dict) else None,
                                         owner_uuid,
                                     ),
+                                    # D1047 diff①(2026-10-19,零行为):重放取数侧
+                                    # `chat_pending_approval_replays` 的两道闸(属主精确相等
+                                    # ∧ 展示字段齐备)读的就是下面这几格。此前生产条目只有
+                                    # event/decision/scope/reason/argv/tool_name/net_fact,
+                                    # 而对侧判据对"字段缺席"一律判不重放 ⇒ 函数在生产面恒空、
+                                    # 只能靠测试夹具自证。补齐后条目形状与已发帧(:4537-4555)
+                                    # 逐字段同源 —— **存的是发帧那一刻的取值**,与帧上显示的
+                                    # 必然同一条(与 net_fact 同一条纪律,客户端回传里没有这些
+                                    # 格,所以"看到的"和"重放的"不可能分叉)。本笔无任何读取方:
+                                    # `app/core/approval_replay.py` 现读生产零 import,
+                                    # 接线归 diff②(须与 G-77 生成器显式关停同批)。
+                                    "tool_call_id": tool_call_id,
+                                    "args_preview": _args_preview,
+                                    "danger_level": _danger,
+                                    "owner_user_id": owner_uuid,
+                                    "created_at": datetime.now(UTC).isoformat(),
                                 }
                                 # 发 tool-approval SSE 帧(帧名/payload 见模块头注释,与
                                 # agent 任务流同形,前端 ToolApprovalDialog 可复用解析)
