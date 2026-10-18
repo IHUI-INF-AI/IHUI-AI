@@ -219,6 +219,11 @@ const EXEMPT_PORTS = new Set([
   // 2026-10-03 立:收敛 --all 全量扫描慢性红(均为测试 fixture / 注释示例,非 dev/宿主映射端口)
   59999, // egress-retry-safety.ts 头注引用的 Node 原生错误消息示例(connect ECONNREFUSED),注释文本
   7800, // check-service-binary-paths.mjs 探针自检 fixture(模拟对端 192.168.1.37:7800 观测端点)
+  // 2026-10-18 立:清零 `--all` 全量扫描剩下的 7 处命中(现读三类站点逐处读过才免,§0.7)
+  // —— 三条全是"被连的第三方/OS 标准口"或"注释里的示例",不是本仓会占口的 dev/宿主映射端口。
+  3389, // RDP(Windows 远程桌面)标准口:deploy/scripts/prod-bundle/rdp-connector.bat 三处是 cloudflared access tcp 转发到本机回环后**要连的远端服务口**;另 1 处是 scripts/check-prod-bundle-shadow.mjs 的 why 文案引用同一事实。登记表管的是会占口的东西,连别人的口不占。
+  7890, // Clash 系代理客户端默认口:仅出现在 apps/desktop/src-tauri/src/auto_refresh.rs 关于 WebView2 ProxyServer 两种形状的**注释示例**里(与已豁免的 7897 同族第三方工具口)。
+  20241, // cloudflared 自带 metrics 默认口(第三方工具):scripts/check-tunnel-leg-health.mjs 的第五维取材点与 netstat 样例各 1 处 —— 实测在 127.0.0.1 上 LISTENING 的是 cloudflared 自己,不是本仓服务。
 ])
 
 // 豁免文件路径模式(不扫描)
