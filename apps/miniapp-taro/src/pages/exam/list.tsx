@@ -7,6 +7,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { getExamList, getExamRecords, type Exam, type ExamRecord } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { formatDateOnly } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -20,6 +21,7 @@ const TAB_KEYS: { key: Tab; labelKey: string }[] = [
 
 export default function ExamList() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [tab, setTab] = useState<Tab>('all')
   const [papers, setPapers] = useState<Exam[]>([])
   const [records, setRecords] = useState<ExamRecord[]>([])
@@ -41,8 +43,16 @@ export default function ExamList() {
     }
   }, [t])
 
+  // G-933 冷启动抢跑门控:load 的两支请求全部需鉴权 ——
+  // GET /api/exam/papers(apps/api/src/routes/exam.ts:494)与
+  // GET /api/exam/records(exam.ts:642),两支都在 handler 内
+  // `if (!(await checkAuth(request, reply))) return`(注册前缀 /api 见 routes/index.ts:598)
+  // ⇒ 本枚无公开请求,整块挡到门后。等待期间由既有加载态承载(见下方 gate.ready 两处判据),
+  // 落定但未登录时照发一次,空态仍走该页既有 emptyKey 分支,不新增文案。
   useDidShow(() => {
-    load()
+    gate.waitUntilReady(() => {
+      void load()
+    })
   })
 
   const answeredIds = useMemo(() => new Set(records.map((r) => r.paperId)), [records])
@@ -210,15 +220,16 @@ export default function ExamList() {
               : papers.map((e) => renderPaper(e))}
         </View>
 
-        {/* 空态/加载态对齐 RN emptyText(28rpx text-tertiary 居中) */}
-        {!loading && curList.length === 0 && (
+        {/* 空态/加载态对齐 RN emptyText(28rpx text-tertiary 居中);
+            冷启动门未落定期间归入加载态,不把"还没问过"渲染成"没有考试" */}
+        {!loading && gate.ready && curList.length === 0 && (
           <View className="flex justify-center py-[80rpx]">
             <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
               {t(emptyKey)}
             </Text>
           </View>
         )}
-        {loading && curList.length === 0 && (
+        {(loading || !gate.ready) && curList.length === 0 && (
           <View className="flex justify-center py-[80rpx]">
             <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
               {t('common.loading')}
