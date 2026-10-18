@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { Code, Loader2, Search, Copy, Rocket, KeyRound, Zap, Coins } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, Input } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -39,11 +39,6 @@ interface ApiDocGroup {
   endpoints: ApiEndpoint[]
 }
 
-async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 const METHOD_CLASS: Record<string, string> = {
   GET: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   POST: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
@@ -148,7 +143,8 @@ export default function ApiDocsPage() {
     error,
   } = useQuery({
     queryKey: ['developer', 'api-docs'],
-    queryFn: () => api<ApiDocGroup[]>('/api/developer/docs').catch(() => [] as ApiDocGroup[]),
+    queryFn: () =>
+      apiOrThrow<ApiDocGroup[]>('/api/developer/docs').catch(() => [] as ApiDocGroup[]),
   })
 
   const filtered = React.useMemo(() => {
