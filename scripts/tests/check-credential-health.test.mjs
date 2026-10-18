@@ -81,6 +81,7 @@ const {
   ALERT_ITEM_WINDOW_MS,
   ALERT_STATE_VERSION,
   collectStallInputs,
+  scanRotatedLoopLogs,
   judgeStallReadout,
   stallExitCode,
 } = m
@@ -580,6 +581,33 @@ test('T19 攒批跳过节流行不得冒充成功史;真实完成行的取法必
   assert.match(withReal.input.lastSuccessIso, /^\d{4}-\d{2}-\d{2}T/, '反向对照:同一夹具补一行真实完成 ⇒ 必须读得到时刻')
   assert.equal(withReal.readout.behindHours, 2, '落后小时数按真实完成时刻算(2 小时),不是按节流行的分钟数算')
   assert.match(withReal.readout.why, /2\.0 小时/)
+})
+
+// T20(2026-10-18 立):完成史必须跨日志轮转找得回来。
+// 立因:当天 16:37 那次真实完成被轮转冲出了活动件(活动件 0 条完成行,旧段 .1 里 141 条),
+// 于是"最近成功部署"退化成"未知"—— 未知是诚实的,但收信人需要"到底停了几个小时"才能判断
+// 这是不是同一场停摆,所以诚实之外还得真去找。
+test('T20 活动件没有完成行时必须去滚动件找回,并写明取自哪一份;活动件有则一次都不许翻', () => {
+  const rotated = makeStallRepo({ buildSha: SHA_LIVE, logLines: [throttleSkipLine(1), roundEndLine(0)] })
+  const logDir = join(rotated, 'ihui-prod', 'deploy', 'win')
+  writeFileSync(join(logDir, 'deploy-loop.log.1'), [successLine(300), roundEndLine(299)].join('\n') + '\n', 'utf8')
+  const r = readoutAt(rotated)
+  assert.match(r.input.lastSuccessIso, /^\d{4}-\d{2}-\d{2}T/, '完成时刻必须从滚动件找回')
+  assert.equal(r.input.lastSuccessFrom, 'deploy-loop.log.1', '必须写明取自哪一份(不写就等于让人以为活动件里有这一行)')
+  assert.equal(r.readout.behindHours, 5, `落后小时数按找回来的真实完成算,实得 ${r.readout.behindHours}`)
+
+  // 成本锁:活动件命中时,一次都不许去读滚动件(旧段现读约 20MB,每 15 分钟一趟不能白翻)
+  const active = makeStallRepo({ buildSha: SHA_LIVE, logLines: [successLine(20), roundEndLine(19)] })
+  const adir = join(active, 'ihui-prod', 'deploy', 'win')
+  writeFileSync(join(adir, 'deploy-loop.log.1'), '不该被读到的内容\n', 'utf8')
+  const r2 = readoutAt(active)
+  assert.equal(r2.input.lastSuccessFrom, 'deploy-loop.log', '活动件已有完成行 ⇒ 不许去翻滚动件')
+  assert.equal(r2.readout.behindHours, 0.3, `活动件命中时按活动件算,实得 ${r2.readout.behindHours}`)
+
+  // 目录都取不到 ⇒ 空 + 不炸(调用方据此落"未知",不冒充也不冒红)
+  const none = scanRotatedLoopLogs(join(logDir, 'nope'), 'deploy-loop.log', (l) => l)
+  assert.equal(none.lastOkIso, '')
+  assert.equal(none.candidates, 0, '目录取不到时必须报"一个候选都没看",而不是看成 0 条完成')
 })
 
 function askedHasRepoNext(askedList) {
