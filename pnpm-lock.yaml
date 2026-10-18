@@ -80,6 +80,10 @@ overrides:
 importers:
 
   .:
+    dependencies:
+      '@parcel/watcher-win32-x64':
+        specifier: ^2.6.0
+        version: 2.6.0
     devDependencies:
       '@ihui/eslint-config':
         specifier: workspace:^
