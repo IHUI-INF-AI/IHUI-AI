@@ -172,7 +172,8 @@ function baseTimeOption(unit?: string): EChartsOption {
       axisLabel: {
         color: TEXT,
         fontSize: 10,
-        formatter: (v: number) => (unit === 'percent' || unit === 'percentunit' ? `${v}%` : fmtValue(v, unit)),
+        // 统一走 fmtValue:percentunit 自动 ×100,bytes/duration/速率族全部同源
+        formatter: (v: number) => fmtValue(v, unit),
       },
       splitLine: { lineStyle: { color: '#16213a' } },
     },
@@ -432,11 +433,33 @@ function TableBody({ panel, panelIdx, results, unit }: { panel: NativePanel; pan
   )
 }
 
+/** nssm/子进程 stdout 常带 ANSI 色码,Loki 原样收录 ⇒ 渲染前剥掉,否则页面上是乱码方块。 */
+function stripAnsi(s: string): string {
+  // eslint-disable-next-line no-control-regex
+  return s.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
+}
+
+/** 日志行级别 → 行首色条,扫一眼就能定位错误行。 */
+function logLevelOf(line: string): 'error' | 'warn' | 'info' | 'other' {
+  const u = line.toUpperCase()
+  if (/\b(ERROR|ERR|FATAL|PANIC|FAIL(ED)?)\b/.test(u)) return 'error'
+  if (/\b(WARN|WARNING|DEPRECATED)\b/.test(u)) return 'warn'
+  if (/\b(INFO|DEBUG|TRACE|HTTP|GET|POST|PUT|DELETE)\b/.test(u)) return 'info'
+  return 'other'
+}
+
+const LEVEL_BAR: Record<string, string> = {
+  error: 'bg-red-400',
+  warn: 'bg-amber-400',
+  info: 'bg-slate-600',
+  other: 'bg-slate-700',
+}
+
 function LogsBody({ panel, panelIdx, results }: { panel: NativePanel; panelIdx: number; results: Map<number, QueryResult> }) {
   const lines: Array<{ ts: number; line: string }> = []
   panel.targets.forEach((_, ti) => {
     const r = results.get(rkey(panelIdx, ti))
-    r?.logs?.forEach((l) => lines.push({ ts: l.ts, line: l.line }))
+    r?.logs?.forEach((l) => lines.push({ ts: l.ts, line: stripAnsi(l.line) }))
   })
   if (!lines.length) return <EmptyBody />
   lines.sort((a, b) => b.ts - a.ts)
@@ -446,8 +469,10 @@ function LogsBody({ panel, panelIdx, results }: { panel: NativePanel; panelIdx: 
       {lines.slice(0, 120).map((l, i) => {
         const d = new Date(l.ts)
         const sameDay = d.toDateString() === t0.toDateString()
+        const level = logLevelOf(l.line)
         return (
           <div key={i} className="flex gap-2 border-b border-[#101a2e] pb-0.5">
+            <span className={cn('mt-0.5 h-3 w-0.5 shrink-0 rounded', LEVEL_BAR[level])} title={level} />
             <span className="shrink-0 text-slate-600">
               {sameDay ? d.toLocaleTimeString('zh-CN', { hour12: false }) : d.toLocaleString('zh-CN', { hour12: false })}
             </span>
@@ -516,9 +541,25 @@ export default function MonitorPanelsPage() {
     })
     const next = new Map<number, QueryResult>()
     try {
+      // 同键(expr+backend+窗口)去重:同盘常见多面板共享同一表达式,只查一次上游
+      const byKey = new Map<string, number[]>() // key -> queries 原始下标列表(含首个)
+      const uniq: typeof queries = []
+      const uniqOrig: number[] = [] // uniq[j] 对应 queries[uniqOrig[j]]
+      const uniqFlat: Array<{ panelIdx: number; targetIdx: number }> = []
+      queries.forEach((q, i) => {
+        const key = `${q.backend}|${q.rangeSeconds ?? '-'}|${q.stepSeconds ?? '-'}|${q.expr}`
+        const hit = byKey.get(key)
+        if (hit) hit.push(i)
+        else {
+          byKey.set(key, [i])
+          uniq.push(q)
+          uniqOrig.push(i)
+          uniqFlat.push(flat[i]!)
+        }
+      })
       // API 单次上限 96 条,分批(服务端已并发执行,批间串行即可)
-      for (let i = 0; i < queries.length; i += 96) {
-        const batch = queries.slice(i, i + 96)
+      for (let i = 0; i < uniq.length; i += 96) {
+        const batch = uniq.slice(i, i + 96)
         const res = await fetchApi<{ results: QueryResult[] }>('/api/admin/monitor-panels/query', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -530,8 +571,19 @@ export default function MonitorPanelsPage() {
           break
         }
         res.data.results.forEach((r, bi) => {
-          const f = flat[i + bi]
-          if (f) next.set(rkey(f.panelIdx, f.targetIdx), r)
+          const j = i + bi
+          const f = uniqFlat[j]
+          if (!f) return
+          next.set(rkey(f.panelIdx, f.targetIdx), r)
+          // 克隆给共享同表达式的其余引用
+          const origIdx = uniqOrig[j]!
+          const q0 = queries[origIdx]!
+          const key = `${q0.backend}|${q0.rangeSeconds ?? '-'}|${q0.stepSeconds ?? '-'}|${q0.expr}`
+          for (const dup of byKey.get(key) ?? []) {
+            if (dup === origIdx) continue
+            const df = flat[dup]
+            if (df) next.set(rkey(df.panelIdx, df.targetIdx), r)
+          }
         })
       }
       setResults(next)
