@@ -847,7 +847,12 @@
     "messageAction": {
       "copy": "複製",
       "delete": "刪除",
-      "reuse": "復用"
+      "reuse": "復用",
+      "pin": "釘選",
+      "unpin": "取消釘選",
+      "bookmark": "收藏",
+      "unbookmark": "取消收藏",
+      "flagFailed": "標記儲存失敗"
     },
     "share": {
       "title": "分享"

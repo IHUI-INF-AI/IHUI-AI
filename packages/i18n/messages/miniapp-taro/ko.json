@@ -847,7 +847,12 @@
     "messageAction": {
       "copy": "복사",
       "delete": "삭제",
-      "reuse": "재사용"
+      "reuse": "재사용",
+      "pin": "고정",
+      "unpin": "고정 해제",
+      "bookmark": "북마크",
+      "unbookmark": "북마크 해제",
+      "flagFailed": "표시 저장 실패"
     },
     "share": {
       "title": "공유"

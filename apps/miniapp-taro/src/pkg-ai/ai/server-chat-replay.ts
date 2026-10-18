@@ -231,6 +231,12 @@ export function mapServerMessage(m: ConversationMessage): ChatMessage | null {
     ...(typeof m.reasoning === 'string' && m.reasoning ? { reasoning: m.reasoning } : {}),
     ...(m.role === 'assistant' && typeof m.tokens === 'number' ? { tokenCount: m.tokens } : {}),
     ...(Number.isNaN(created) ? {} : { timestamp: created }),
+    // 票64 格②:服务端盖章的两个标记时刻要透传,否则回放行的长按菜单永远显示「钉选」,
+    // 把已钉选的读成未钉选 —— 与 id 同一纪律:缺值不造(不写键),不得填 false/0 冒充已知状态。
+    ...('pinnedAt' in m && m.pinnedAt !== undefined ? { pinnedAt: m.pinnedAt } : {}),
+    ...('bookmarkedAt' in m && m.bookmarkedAt !== undefined
+      ? { bookmarkedAt: m.bookmarkedAt }
+      : {}),
     ...(meta ? { metadata: meta as Record<string, unknown> } : {}),
     // 五族卡片一个都不给空数组:aiCards 只在真有内容时才挂,否则 ChatMessageItem
     // 会把"没有任何卡片"读成"有一组空卡片",渲染出空的执行过程区。
