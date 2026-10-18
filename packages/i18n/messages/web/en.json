@@ -11182,7 +11182,12 @@
       "shareLinkCopied": "Content and link copied",
       "showContent": "Show content",
       "stopReadAloud": "Stop reading",
-      "toggleMetadata": "Toggle metadata"
+      "toggleMetadata": "Toggle metadata",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "bookmark": "Bookmark",
+      "unbookmark": "Remove bookmark",
+      "flagFailed": "Failed to save marker"
     },
     "messageDeleted": "Message deleted",
     "modeAlreadyActive": "Already in {mode} mode",

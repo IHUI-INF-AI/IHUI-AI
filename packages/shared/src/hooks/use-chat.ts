@@ -108,6 +108,11 @@ export interface ChatMessage {
   model?: string
   /** 该消息是否有错误(错误文本写入 content) */
   error?: boolean
+  /** 票64(2026-10-18 立):消息级钉选/收藏时刻,由服务端盖章下发。
+   *  存时间戳而不是布尔 —— 布尔会把"没标记"和"不知道有没有标记"压成同一个值。
+   *  null/undefined = 未标记;live 新增消息不带(尚未落库),历史回放与水合后才有值。 */
+  pinnedAt?: string | null
+  bookmarkedAt?: string | null
   /** 推理过程文本(reasoning model 输出) */
   reasoning?: string
   /** 工具调用列表(SSE tool-call 事件累加) */
