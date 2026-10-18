@@ -36,6 +36,7 @@ import { fileURLToPath } from 'node:url'
 
 import { COLORS, createLogger } from './lib/logger.mjs'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 import {
   FACE_LABEL,
   Undetermined,
@@ -615,9 +616,10 @@ function removeKnownFixture(root) {
 
 function runSelfTest() {
   const root = mkScratch('ai-panel-mount-guards-')
-  const results = []
-  const check = (name, condition, detail = '') =>
-    results.push({ name, ok: Boolean(condition), detail })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `results.push({ name, ok: Boolean(condition) })` 收到 `() => {...}` 时
+  // 求的是函数对象真值(恒真)—— 已由共用出口结构封死,用例调用一字不动。
+  const { t: check, report } = makeRegistrar()
   const evaluateArgs = (args) => {
     const parsed = parseArgs(args)
     if (parsed.error) return { status: 2, stdout: '', stderr: parsed.error }
@@ -762,19 +764,21 @@ function runSelfTest() {
     }
   }
 
-  const failed = results.filter((item) => !item.ok)
-  for (const item of failed) {
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { fail, cases: results } = report()
+  for (const item of results) {
+    if (item.pass) continue
     log.error(paint(COLORS.red, `[FAIL] ${item.name}`))
-    if (item.detail) log.error(item.detail.trim())
+    if (item.got) log.error(item.got.trim())
   }
   const paired = cases.length
-  const summary = failed.length
-    ? `[FAIL] check-ai-panel-mount-guards self-test 失败 ${failed.length}/${results.length}`
+  const summary = fail
+    ? `[FAIL] check-ai-panel-mount-guards self-test 失败 ${fail}/${results.length}`
     : `[PASS] check-ai-panel-mount-guards self-test 全部通过(${results.length} 例；${paired} 组正反成对；临时夹具经 --root --worktree 注入,未扫描真仓)`
-  ;(failed.length ? log.error : log.info)(
-    paint(failed.length ? COLORS.red : COLORS.green, summary),
+  ;(fail ? log.error : log.info)(
+    paint(fail ? COLORS.red : COLORS.green, summary),
   )
-  return failed.length ? 1 : 0
+  return fail ? 1 : 0
 }
 
 function main(argv = process.argv.slice(2)) {

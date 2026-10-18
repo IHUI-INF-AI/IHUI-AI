@@ -73,6 +73,7 @@ import { catBatch, catBatchOids, catBatchSizes, gitRaw } from './lib/face-reader
 import { BYPASS_KIND, ledgerPath, readLedgerRecords } from './lib/commit-attestation.mjs'
 // §26:新增临时夹具唯一落点(mkScratch 不落 os.tmpdir、不落仓库树内)。第四层取证用。
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 export const SKIP_ENV = 'IHUI_SKIP_WORKTREE_HEAL'
 
@@ -1991,8 +1992,8 @@ function selfTestRun() {
     join(dirname(fileURLToPath(import.meta.url)), '..', '.ihui-agent', 'tmp', 'wt-heal-drill-'),
   )
   const g = makeGit(tmp)
-  const out = []
-  const check = (n, ok) => out.push({ n, ok })
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t: check, report } = makeRegistrar()
   try {
     g(['init', '-q', '--initial-branch=main'])
     g(['config', 'core.autocrlf', 'false'])
@@ -2968,15 +2969,12 @@ function selfTestRun() {
         rLock.lockSkip?.kind === 'write-lock-held',
     )
 
-    let fail = 0
-    for (const r of out) {
-      console.log(`${r.ok ? '✅' : '❌'} ${r.n}`)
-      if (!r.ok) fail++
-    }
+    const { fail, cases } = report()
+    for (const r of cases) console.log(`${r.pass ? '✅' : '❌'} ${r.name}`)
     console.log(
       fail
-        ? `self-test FAILED ${fail}/${out.length}`
-        : `✅ check heal-worktree-tracked self-test 全部通过(${out.length} 例)`,
+        ? `self-test FAILED ${fail}/${cases.length}`
+        : `✅ check heal-worktree-tracked self-test 全部通过(${cases.length} 例)`,
     )
     return fail ? 1 : 0
   } finally {

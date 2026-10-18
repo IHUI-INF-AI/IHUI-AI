@@ -38,6 +38,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { __test__ as metricGate } from './check-grafana-metric-exists.mjs'
 // 版面坐标判据同源:门 222 是它的唯一实现,本器物只是消费方。
 import { __test__ as wiringGate } from './check-grafana-datasource-wiring.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const metricNames = metricGate.extractMetricNames
 
@@ -484,8 +485,8 @@ function printReport(report, tally) {
 }
 
 function selfTest() {
-  const cases = []
-  const ok = (name, cond, detail) => cases.push({ name, pass: !!cond, detail })
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t: ok, report } = makeRegistrar()
 
   ok('parseWindow 合法', parseWindow('6h') === 21600 && parseWindow('30m') === 1800)
   ok('parseWindow 非法返回 null', parseWindow('6x') === null)
@@ -536,13 +537,11 @@ function selfTest() {
   ok('变量查询:CloudWatch 遗留形状也能取出表达式', varQueryText({ query: { expression: 'label_values(a, provider)' } }) === 'label_values(a, provider)')
   ok('变量查询:qry 形状优先', varQueryText({ query: { qry: 'label_values(a, x)', expression: '噪声' } }) === 'label_values(a, x)')
 
-  let pass = 0
-  for (const c of cases) {
-    console.info(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : c.detail ? `\n      读数:${c.detail}` : ''}`)
-    if (c.pass) pass++
-  }
+  const { pass, fail, cases } = report()
+  for (const c of cases)
+    console.info(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : c.got ? `\n      读数:${c.got}` : ''}`)
   console.info(`自检 ${pass}/${cases.length}`)
-  process.exit(pass === cases.length ? 0 : 1)
+  process.exit(fail === 0 ? 0 : 1)
 }
 
 async function main() {

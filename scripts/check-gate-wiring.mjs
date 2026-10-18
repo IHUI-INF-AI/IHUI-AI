@@ -156,6 +156,7 @@ const DOC_FILES = ['AGENTS.md', 'README.md']
 import { normalizeTriggers } from './lib/guardian-triggers.mjs'
 import { catBatch, gitRaw, Undetermined } from './lib/face-reader.mjs'
 import { isFlagValueToken } from './lib/flag-value.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 // ─── git 派生出口(§5b:不得依赖环境) ───────────────────────────────────
 //
@@ -2303,8 +2304,9 @@ function runGateCli(args) {
 }
 
 function runSelfTest() {
-  const cases = []
-  const assert = (name, cond, detail = '') => cases.push({ name, ok: !!cond, detail })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `cases.push({ name, ok: !!cond })` 布尔强制(函数恒真)—— 已由共用出口结构封死。
+  const { t: assert, report } = makeRegistrar()
 
   // 纯函数层
   assert(
@@ -3465,13 +3467,14 @@ function runSelfTest() {
     }
   }
 
-  const failed = cases.filter((c) => !c.ok)
+  // 消费点:求值只发生在这里(共用出口的报告函数,仍处 finally 清理之后但结论已全部登记)。
+  const { fail, cases } = report()
   for (const c of cases)
-    console.log(`${c.ok ? '  ok' : '  FAIL'} ${c.name}${c.detail && !c.ok ? ` — ${c.detail}` : ''}`)
+    console.log(`${c.pass ? '  ok' : '  FAIL'} ${c.name}${!c.pass && c.got !== 'false' ? ` — ${c.got}` : ''}`)
   console.log(
-    `\n自检 ${cases.length} 例:${cases.length - failed.length} 通过 / ${failed.length} 失败`,
+    `\n自检 ${cases.length} 例:${cases.length - fail} 通过 / ${fail} 失败`,
   )
-  return failed.length === 0 ? 0 : 1
+  return fail === 0 ? 0 : 1
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

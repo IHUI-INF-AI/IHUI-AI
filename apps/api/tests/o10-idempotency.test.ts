@@ -12,6 +12,7 @@ import Fastify, {
 import type { Redis } from 'ioredis'
 import type { ApiKeyPermission, AuthenticatedApiKey } from '@ihui/types'
 import { getCapability } from '@ihui/types'
+import { slotKeyOf } from '../src/services/run-idempotency.js'
 import { openIdempotency } from '../src/plugins/open-idempotency.js'
 
 /**
@@ -174,7 +175,13 @@ async function buildHarness(
 }
 
 const OWNER = 'abc-1'
-const KEY = 'idem:key:abc-1:agents:call:req-seeded'
+// G-734 拼键收敛后,open-idempotency 的槽键统一走 `slotKeyOf` 单一出口
+// (open-idempotency.ts:键形 = idem:res:open-response.cache:<凭据维度>:<scope>:<转义后的 clientKey>)。
+// 期望键不再钉死字节字面,按同一出口计算,键形再演化这里也不漂。
+const OPEN_IDEM_NAMESPACE = 'open-response.cache'
+const slotKeyFor = (owner: string, clientKey: string, scope: ApiKeyPermission = 'agents:call'): string =>
+  slotKeyOf({ namespace: OPEN_IDEM_NAMESPACE, ownerKey: `key:${owner}:${scope}`, clientKey })
+const KEY = slotKeyFor(OWNER, 'req-seeded')
 
 function postWithKey(
   app: FastifyInstance,
@@ -331,10 +338,10 @@ describe('凭据隔离', () => {
     const { app, redis } = await buildHarness()
     await postWithKey(app, 'shared-0002', 'abc-1')
 
-    const owned = redis.raw('idem:key:abc-1:agents:call:shared-0002')
+    const owned = redis.raw(slotKeyFor('abc-1', 'shared-0002'))
     expect(owned).toContain('"status":"completed"')
     expect(owned).toContain('"statusCode":202')
-    expect(redis.raw('idem:key:zzz-9:agents:call:shared-0002')).toBeUndefined()
+    expect(redis.raw(slotKeyFor('zzz-9', 'shared-0002'))).toBeUndefined()
     await app.close()
   })
 })
@@ -358,7 +365,7 @@ describe('Redis 不可用 = 放人,不拦人', () => {
     const first = await postWithKey(app, 'req-0007')
     expect([first.statusCode, executions()]).toEqual([202, 1])
     // 到这儿槽里躺着的是 completed —— 平时第二把该走重放。现在把桌子掀了。
-    expect(redis.raw('idem:key:abc-1:agents:call:req-0007')).toContain('"completed"')
+    expect(redis.raw(slotKeyFor(OWNER, 'req-0007'))).toContain('"completed"')
 
     redis.down = true
     const retry = await postWithKey(app, 'req-0007')

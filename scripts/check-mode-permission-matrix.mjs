@@ -52,6 +52,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -618,8 +619,9 @@ export function runAudit({ root = ROOT, face } = {}) {
 }
 
 function selfTest() {
-  const cases = []
-  const t = (name, ok) => cases.push({ name, ok })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `cases.push({ name, ok })` 裸存结论 —— 已由共用出口结构封死,用例调用一字不动。
+  const { t, report } = makeRegistrar()
   const src = runAudit({ root: ROOT, face: 'worktree' })
   // 先取一份真实语料,再逐条注入变异(变异必须走 decide() 这个生产入口,不得各写一份判据)
   const base = readContents(ROOT, 'worktree')
@@ -794,15 +796,15 @@ function selfTest() {
       codeRefsTo('READONLY_TOOLS', stripCommentsKeepStrings(base[FILES.pyLlm], 'py')) === 0,
   )
 
-  let pass = 0
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { pass, fail, cases } = report()
   for (const c of cases) {
-    console.log(`${c.ok ? '✅' : '❌'} ${c.name}`)
-    if (c.ok) pass++
+    console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
   }
   console.log(
     `--self-test:${pass}/${cases.length} 通过(真仓 ${src.face} 面问题数 ${src.problems.length})`,
   )
-  return pass === cases.length ? 0 : 1
+  return fail === 0 ? 0 : 1
 }
 
 function main() {

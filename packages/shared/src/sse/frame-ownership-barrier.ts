@@ -67,7 +67,7 @@ export interface BarrierFrame<TFrame = unknown> {
 }
 
 /** offer 的四态:pass = 所有权已确立,调用方直接交付;staged = 有界暂存;overflow = 溢出,整批已清空;stale = 迟到帧(G-276),只丢弃。 */
-export type FrameBarrierDeliveryKind = 'pass' | 'staged' | 'overflow' | 'stale'
+type FrameBarrierDeliveryKind = 'pass' | 'staged' | 'overflow' | 'stale'
 
 /** activate 的入参:激活哪条订阅对哪些 topic 的所有权。 */
 interface FrameBarrierActivateInput {

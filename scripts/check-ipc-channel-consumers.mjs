@@ -50,6 +50,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, '..')
@@ -259,9 +260,12 @@ function printReport({ registered, consumedChannels, pluginLiteralCount, dynamic
 // ================== --self-test:临时夹具正反例 ==================
 
 function runSelfTest() {
-  const results = []
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `results.push({ name, pass: cond })` 裸存结论 —— 已由共用出口结构封死,用例调用一字不动。
+  // 逐条即时打印 PASS/FAIL 的既有观感由这层薄壳保留(结论值在调用侧即已算出, thunk 语义不受影响)。
+  const { t: reg, report } = makeRegistrar()
   const check = (name, cond) => {
-    results.push({ name, pass: cond })
+    reg(name, cond)
     console.log((cond ? 'PASS' : 'FAIL') + ' — ' + name)
   }
   const tmp = mkScratch("g678-selftest-")
@@ -348,9 +352,10 @@ function runSelfTest() {
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true })
   }
-  const failed = results.filter((r) => !r.pass)
-  console.log(`--self-test: ${results.length - failed.length}/${results.length} 通过`)
-  return failed.length === 0
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { fail, cases: results } = report()
+  console.log(`--self-test: ${results.length - fail}/${results.length} 通过`)
+  return fail === 0
 }
 
 // ================== 入口 ==================

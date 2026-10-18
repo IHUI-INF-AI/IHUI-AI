@@ -35,6 +35,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitRaw, selectFace, assertRepoRoot, Undetermined } from './lib/face-reader.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -385,8 +386,8 @@ async function audit(root, face) {
 /* ------------------------------------------------------------------ 自检(纯构造面) */
 
 function selfTest() {
-  const cases = []
-  const ok = (name, pass, detail = '') => cases.push({ name, pass, detail })
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t: ok, report } = makeRegistrar()
   const registry = `
 export const PROMPT_INJECTION_KINDS = ['reference_data', 'host_reminder', 'host_directive'] as const;
 export const PROMPT_INJECTION_ENTRIES: readonly PromptInjectionEntry[] = [
@@ -509,10 +510,10 @@ export function build() { return renderInjectionNotice(); }
   ok('C15 注释遮而字符串不遮:id 仍可见', maskCode(`const a = 'x'; // 'x'`, { strings: false }).includes(`'x'`))
   ok('C16 遮罩后行数不漂(逐行计数依赖它)', maskCode('a\nb\nc').split('\n').length === 3)
 
-  const failed = cases.filter((c) => !c.pass)
-  for (const c of cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ' :: ' + c.detail}`)
-  console.log(`--self-test ${cases.length - failed.length}/${cases.length} 通过`)
-  return failed.length === 0 ? 0 : 1
+  const { pass, fail, cases } = report()
+  for (const c of cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ' :: ' + c.got}`)
+  console.log(`--self-test ${pass}/${cases.length} 通过`)
+  return fail === 0 ? 0 : 1
 }
 
 const allGreen = (r) => [...r.red.R1, ...r.red.R2, ...r.red.R3].length === 0

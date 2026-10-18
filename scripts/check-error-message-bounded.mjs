@@ -50,6 +50,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url))
 
@@ -421,8 +422,9 @@ function judge(hits, baseline = BASELINE) {
 }
 
 function selfTestRun() {
-  const results = []
-  const check = (name, ok) => results.push({ name, ok })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `results.push({ name, ok })` 裸存结论 —— 已由共用出口结构封死,用例调用一字不动。
+  const { t: check, report } = makeRegistrar()
   const scan = (src) => scanFile('apps/api/src/demo.ts', src) // 默认服务面(无 face 豁免)
   const RED = (h) => h.verdict === 'PERSISTENT'
 
@@ -532,10 +534,10 @@ function selfTestRun() {
   )
   check('⑨ 合法 ref= 基线抵扣 PERSISTENT 命中', okBase.errors.length === 0 && okBase.used.size === 1)
 
-  let fail = 0
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { fail, cases: results } = report()
   for (const r of results) {
-    console.log(`${r.ok ? '✅' : '❌'} ${r.name}`)
-    if (!r.ok) fail++
+    console.log(`${r.pass ? '✅' : '❌'} ${r.name}`)
   }
   console.log(
     fail
