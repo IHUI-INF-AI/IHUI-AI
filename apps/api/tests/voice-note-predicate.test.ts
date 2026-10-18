@@ -133,9 +133,23 @@ describe('语音笔记查询层的归属与谓词形状', () => {
 
     state.wheres.length = 0
     state.sets.length = 0
+    // 恢复的前提是"当下确实归档着" —— 夹具喂一行带 archivedAt 的现值
+    state.rows = [{ ...voiceNoteRow(), archivedAt: new Date() }]
     await setVoiceNoteArchived(USER, NOTE_ID, false)
     expect(state.sets[0]?.archivedAt).toBe(null)
     expect(archived?.id).toBe(NOTE_ID)
+  })
+
+  it('幂等重复(已归档再归档 / 未归档再恢复)⇒ 零 UPDATE、不盖 updated_at', async () => {
+    state.rows = [{ ...voiceNoteRow(), archivedAt: new Date() }]
+    state.sets.length = 0
+    const again = await setVoiceNoteArchived(USER, NOTE_ID, true)
+    expect(state.sets.length).toBe(0)
+    expect(again?.id).toBe(NOTE_ID)
+
+    state.rows = [{ ...voiceNoteRow(), archivedAt: null }]
+    await setVoiceNoteArchived(USER, NOTE_ID, false)
+    expect(state.sets.length).toBe(0)
   })
 
   it('空 PATCH 不动 updated_at、不发 update(否则"没改"也洗了时序)', async () => {
@@ -143,6 +157,14 @@ describe('语音笔记查询层的归属与谓词形状', () => {
     const result = await updateVoiceNote(USER, NOTE_ID, {})
     expect(state.sets.length).toBe(0)
     expect(result).toBe(null)
+  })
+
+  it('同值 PATCH(把分组改成它本来的值)⇒ 零 UPDATE:门 198 的盲写形态就死在这一格', async () => {
+    state.rows = [voiceNoteRow()]
+    state.sets.length = 0
+    const same = await updateVoiceNote(USER, NOTE_ID, { groupKey: 'inbox' })
+    expect(state.sets.length).toBe(0)
+    expect(same?.groupKey).toBe('inbox')
   })
 
   it('带字段的 PATCH:set 含 updated_at 且谓词含 user_id', async () => {

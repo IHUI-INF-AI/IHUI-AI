@@ -144,22 +144,26 @@ export async function updateVoiceNote(
   id: string,
   patch: UpdateVoiceNoteInput,
 ): Promise<VoiceNoteItem | null> {
-  const set: Partial<typeof chatVoiceNotes.$inferInsert> = { updatedAt: new Date() }
-  if (patch.title !== undefined) set.title = patch.title
-  if (patch.groupKey !== undefined) set.groupKey = patch.groupKey
-  if (patch.transcript !== undefined) set.transcript = patch.transcript
-  if (Object.keys(set).length === 1) {
-    // 没有任何字段要改:不去动 updated_at,免得"空 PATCH"把行的时序语义洗掉
-    const [existing] = await db
-      .select()
-      .from(chatVoiceNotes)
-      .where(ownedBy(userId, eq(chatVoiceNotes.id, id)))
-      .limit(1)
-    return existing ? toVoiceNoteItem(existing) : null
-  }
+  // 先取现值、按键比较,只有真变化的字段进 set(门 198 的出口形态,正例见 admin-sys-queries
+  // 的 updateMenu)。无条件盖 updatedAt 会把"没改"伪装成"变过",而这张表的 updated_at 是
+  // 增量读的消费源 —— 洗一次时序,下游就多补拉一轮。归属谓词在读与写两侧都在,
+  // 判不出归属与不存在同样返回 null(归属探测本身是信息泄露面,不区分两型)。
+  const [existing] = await db
+    .select()
+    .from(chatVoiceNotes)
+    .where(ownedBy(userId, eq(chatVoiceNotes.id, id)))
+    .limit(1)
+  if (!existing) return null
+  const changed: Partial<typeof chatVoiceNotes.$inferInsert> = {}
+  if (patch.title !== undefined && patch.title !== existing.title) changed.title = patch.title
+  if (patch.groupKey !== undefined && patch.groupKey !== existing.groupKey)
+    changed.groupKey = patch.groupKey
+  if (patch.transcript !== undefined && patch.transcript !== existing.transcript)
+    changed.transcript = patch.transcript
+  if (Object.keys(changed).length === 0) return toVoiceNoteItem(existing)
   const [row] = await db
     .update(chatVoiceNotes)
-    .set(set)
+    .set({ ...changed, updatedAt: new Date() })
     .where(ownedBy(userId, eq(chatVoiceNotes.id, id)))
     .returning()
   return row ? toVoiceNoteItem(row) : null
@@ -171,9 +175,21 @@ export async function setVoiceNoteArchived(
   id: string,
   archived: boolean,
 ): Promise<VoiceNoteItem | null> {
+  // 幂等重复(已归档再归档 / 未归档再恢复)不发 UPDATE —— 同 updateVoiceNote:重复一次
+  // 就把增量读的消费源往前推一格,而调用方看不出任何差别。
+  const [existing] = await db
+    .select()
+    .from(chatVoiceNotes)
+    .where(ownedBy(userId, eq(chatVoiceNotes.id, id)))
+    .limit(1)
+  if (!existing) return null
+  if ((existing.archivedAt !== null) === archived) return toVoiceNoteItem(existing)
+  const changed: Partial<typeof chatVoiceNotes.$inferInsert> = {
+    archivedAt: archived ? new Date() : null,
+  }
   const [row] = await db
     .update(chatVoiceNotes)
-    .set({ archivedAt: archived ? new Date() : null, updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(ownedBy(userId, eq(chatVoiceNotes.id, id)))
     .returning()
   return row ? toVoiceNoteItem(row) : null
