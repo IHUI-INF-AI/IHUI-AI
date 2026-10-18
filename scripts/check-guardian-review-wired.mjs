@@ -42,6 +42,7 @@ import {
   readWorktreeFile,
   selectFace,
 } from './lib/face-reader.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -326,8 +327,9 @@ function printReport(out) {
 }
 
 function selfTest() {
-  const cases = []
-  const t = (name, ok) => cases.push({ name, ok })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `cases.push({ name, ok })` 裸存结论 —— 已由共用出口结构封死,用例调用一字不动。
+  const { t, report } = makeRegistrar()
 
   const MODULE_OK = `
 GUARDIAN_REVIEW_STATUS_NOT_REVIEWED = "not_reviewed"
@@ -443,10 +445,11 @@ review = await request_guardian_review(tc.name, tc.args)
     return lines.length === 4 && lines[1].trim() === '' && lines[2].includes('request_guardian_review(')
   })())
 
-  const pass = cases.filter((c) => c.ok).length
-  for (const c of cases) console.log(`${c.ok ? '✅' : '❌'} ${c.name}`)
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { pass, fail, cases } = report()
+  for (const c of cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
   console.log(`--self-test:${pass}/${cases.length} 通过`)
-  return pass === cases.length ? 0 : 1
+  return fail === 0 ? 0 : 1
 }
 
 function main(argv) {

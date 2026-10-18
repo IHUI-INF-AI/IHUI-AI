@@ -132,6 +132,7 @@ import { dedupeByFingerprint, uniqueNotes, selfIdOf } from './lib/dedupe-ledger.
 // 自证侧问"被折掉的那一行,产物面里还有没有同一件事的那一行",问的是**身份**而不是**策略** ——
 // 折谁、注记怎么并、保留行怎么选全都住在 lib/dedupe-ledger,本器一处也不重写(§22c)。
 import { extractTaskFingerprint } from './check-plan-task-duplicates.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 // git 可执行一律经 §5b 唯一出口解析(候选链 + 探活;§5b 明写"脚本一律不得依赖环境取 git")。
@@ -2297,8 +2298,8 @@ export function plan(
 function selfTest() {
   const dir = mkScratch('ihui-union-')
   const run = (...a) => git(a, dir)
-  const cases = []
-  const ok = (n, c, note = '') => cases.push({ n, c, note })
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t: ok, report } = makeRegistrar()
   try {
     run('init', '-q', '-b', 'main')
     run('config', 'user.email', 't@t')
@@ -3666,8 +3667,8 @@ function selfTest() {
   } finally {
     rmScratch(dir, { bestEffort: true })
   }
-  for (const c of cases) console.log(`${c.c ? '✅' : '❌'} ${c.n}${c.c ? '' : ` —— ${c.note}`}`)
-  const fail = cases.filter((c) => !c.c).length
+  const { fail, cases } = report()
+  for (const c of cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ` —— ${c.got}`}`)
   console.log(fail ? `\n❌ ${fail} 例失败` : `全部 ${cases.length} 例通过`)
   process.exit(fail ? 1 : 0)
 }

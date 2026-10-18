@@ -85,6 +85,7 @@ import {
   remoteLocaleList,
   decodeTaroBundle,
 } from './check-tool-display-resolvable.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const LANGS = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko']
@@ -1338,8 +1339,8 @@ export function run({ staged = false, json = false, quiet = false, worktree = fa
 
 /** 注入违规 + 反例自证(全部用内存假语料,绝不写仓库真实文件) */
 function selfTest() {
-  const cases = []
-  const t = (name, ok) => cases.push({ name, ok })
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t, report } = makeRegistrar()
 
   // ── 假源码:一张好词表 + 三种"不该检"的形状 ─────────────────
   const fake = [
@@ -1858,8 +1859,9 @@ function selfTest() {
     })(),
   )
 
-  for (const c of cases) console.log(`${c.ok ? '✅' : '❌'} ${c.name}`)
-  return cases.every((c) => c.ok) ? 0 : 1
+  const { fail, cases } = report()
+  for (const c of cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
+  return fail === 0 ? 0 : 1
 }
 
 export const __test__ = {

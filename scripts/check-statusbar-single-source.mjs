@@ -60,6 +60,7 @@ import { resolveGitBin } from './lib/gitdir.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
 // §26:临时夹具唯一落点(工作树同盘、不落 C 盘，且 Windows EPERM 有重试)
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT = resolveGitBin()
@@ -443,8 +444,9 @@ export function X() {
  */
 function selfTest() {
   const GITROOT = mkScratch('statusbar-gate')
-  const cases = []
-  const t = (name, pass, detail = '') => cases.push({ name, pass, detail })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `cases.push({ name, pass })` 裸存结论 —— 已由共用出口结构封死,用例调用一字不动。
+  const { t, report } = makeRegistrar()
   try {
     git(['init', '-q'], GITROOT)
     git(['config', 'user.email', 'gate@test'], GITROOT)
@@ -603,10 +605,11 @@ function selfTest() {
     t('E2E 逐行豁免:被标那行放过、同文件另一处仍红', r.violations.s3.length === 1 && /L3 page/.test(r.violations.s3[0]), JSON.stringify(r.violations.s3))
     t('E2E 无 Modal 文件时不吞顶距:modalSuppressed 归零', r.notes.modalSuppressed.length === 0)
 
-    const failed = cases.filter((c) => !c.pass)
-    for (const c of cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.detail ? ' — ' + c.detail : ''}`)
-    console.log(`${cases.length - failed.length}/${cases.length} 通过`)
-    return failed.length ? 1 : 0
+    // 消费点:求值只发生在这里(共用出口的报告函数,仍在 finally 清理之前、临时仓在世时)。
+    const { fail, cases } = report()
+    for (const c of cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.got !== 'true' && c.got !== 'false' ? ' — ' + c.got : ''}`)
+    console.log(`${cases.length - fail}/${cases.length} 通过`)
+    return fail ? 1 : 0
   } finally {
     rmScratch(GITROOT)
   }

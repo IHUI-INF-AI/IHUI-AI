@@ -64,6 +64,7 @@ import * as OpenCC from 'opencc-js'
 
 import { git } from './lib/bypass-git.mjs'
 import { JOYO_FILE_REL, joyoSetFromRaw } from './lib/i18n-script-families.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
@@ -159,8 +160,8 @@ const sizeOf = (m) => (m === null ? null : m.size)
 
 // ── 自检:合成词包夹具 ⇒ 确定性,不依赖真仓瞬时状态 ──
 function selfTest(cv) {
-  const results = []
-  const ok = (name, cond, detail = '') => results.push({ name, pass: !!cond, detail })
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t: ok, report } = makeRegistrar()
 
   if (!cv) {
     console.error('❌ 自检需要 opencc-js 转换器(缺依赖 ⇒ 本尺不判,不是"零嫌疑")')
@@ -236,13 +237,13 @@ function selfTest(cv) {
     flattenStrings({ r: ['x', 'y'] }).map((l) => l.path).join('|'),
   )
 
-  const fail = results.filter((x) => !x.pass)
-  for (const x of results)
+  const { pass, fail, cases } = report()
+  for (const x of cases)
     console.log(
-      `  ${x.pass ? '✅' : '❌'} ${x.name}${x.detail && !x.pass ? ` —— ${x.detail}` : ''}`,
+      `  ${x.pass ? '✅' : '❌'} ${x.name}${x.pass ? '' : ` —— ${x.got}`}`,
     )
-  console.log(`\nja 嫌疑分桶自检:${results.length - fail.length} 通过 / ${fail.length} 失败`)
-  return fail.length ? 1 : 0
+  console.log(`\nja 嫌疑分桶自检:${pass} 通过 / ${fail} 失败`)
+  return fail ? 1 : 0
 }
 
 const oneLine = (e) => String(e?.stderr ?? e?.message ?? e).split(/\r?\n/)[0].slice(0, 200)

@@ -67,6 +67,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { gitRaw, selectFace } from './lib/face-reader.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -550,10 +551,13 @@ function report(res, { json, strict }) {
  * 反引号外提及不算引用 / braces 丢弃 / 行号锚剥离 / 目录式点名 / staged 档不看工作区。
  */
 export function selfTest() {
-  const rows = []
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `rows.push({ name, ok: !!cond })` 布尔强制(函数恒真)—— 已由共用出口结构封死。
+  // 逐条即时打印 ✓/✗ 的既有观感由这层薄壳保留(结论值在调用侧即已算出,thunk 语义不受影响)。
+  const { t: reg, report } = makeRegistrar()
   const t = (name, cond) => {
-    rows.push({ name, ok: !!cond })
-    console.log(`${!!cond ? '✓' : '✗'} ${name}`)
+    reg(name, cond)
+    console.log(`${cond ? '✓' : '✗'} ${name}`)
   }
   const mk = (pairs) => {
     const refs = new Map()
@@ -908,10 +912,11 @@ export function selfTest() {
     })(),
   )
 
-  const bad = rows.filter((r) => !r.ok)
-  console.log(`—— 自检 ${rows.length - bad.length}/${rows.length} 通过${bad.length ? ' ✗' : ' ✅'}`)
-  for (const r of bad) console.log(`   ✗ ${r.name}`)
-  return bad.length ? 1 : 0
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { fail, cases: rows } = report()
+  console.log(`—— 自检 ${rows.length - fail}/${rows.length} 通过${fail ? ' ✗' : ' ✅'}`)
+  for (const r of rows) if (!r.pass) console.log(`   ✗ ${r.name}`)
+  return fail ? 1 : 0
 }
 
 function main(argv) {
