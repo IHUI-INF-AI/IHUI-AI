@@ -563,6 +563,8 @@
     "budgetTier": "{tier} plan",
     "more": "More",
     "close": "Close",
+    "myCreation": "My Creation",
+    "myCreationSubtitle": "Text, image, video, audio",
     "delete": "Delete",
     "failed": "Operation failed",
     "hint": "Hint",
