@@ -1750,6 +1750,20 @@ async function main() {
    */
   rerunLedgerHeal({ root, paths })
 
+  /**
+   * G-816040 的旁路落地半格(2026-10-18 立):四端 `ui-routes` 派生态的写回出口挂在
+   * `.husky/pre-commit` 的 `TOKEN_SYNC_TARGETS` 登记表里,而本器走 commit-tree ⇒ 那一档**结构上从不触发**。
+   * 现读量级(同日):`.workbuddy/safe-commit-attestation.jsonl` 里 `kind=bypass-landing` 共 **623 条**
+   * —— 即"改页面/路由源并入库"里相当一部分根本没经过登记表,产物钉必然反复落后 ⇒ 门 105 的 G5
+   * 在干净 HEAD 上红 ⇒ 每一次普通提交都被迫再人工重钉一遍(本会话今日已人工重钉两次)。
+   * 本步只做**复检与点名**,不做写回:写回档 `--heal-ui-routes` 的纪律是"面上取不到/工作树副本≠面副本/
+   * 量级异常 ⇒ 拒绝并点名",而 CAS 之后磁盘那份恰好与新品不一致(别人或本人的在飞现场),在这里跑它
+   * 只会得到一次"拒绝写回"的噪声,却可能把他人现场改脏 —— 要写回必须由人显式跑那条命令。
+   * 退出码刻意不改(与上面 rerunLedgerHeal 同一条理由):零丢失自证已通过的落地,不该被替身判红;
+   * 真正的判定权仍在提交链那一轮的 `--staged` 面。
+   */
+  uiRoutesFreshnessNotice({ root, paths })
+
   // ② 共享主索引对齐(判据在 lib,只有一份):未尽事项点名后退出码仍 0 —— 落地本身已成功
   const align = alignSharedIndex({ root, paths, parentRef: parentSha })
   if (align.lockAbandoned) {
@@ -1774,6 +1788,57 @@ async function main() {
     )
   }
   process.exit(0)
+}
+
+/**
+ * 四端 `ui-routes` 派生态的落地后复检(只点名,不判定、不写回、不改退出码)。
+ * 触发面与 `.husky/pre-commit` 登记表里那四行的 `pathTrigger` 逐字同集合 —— 少一端就是"扩了面却没接进这一档"。
+ * @returns {{skipped?:boolean, rc?:number, stale:number, why?:string}}
+ */
+export function uiRoutesFreshnessNotice({ root, paths }) {
+  const TRIGGER_FACES = [
+    'apps/web/app/',
+    'apps/mobile-rn/src/navigation/',
+    'apps/miniapp-taro/src/',
+    'apps/extension/entrypoints/sidepanel/',
+  ]
+  const ARTIFACTS = [
+    'apps/web/src/lib/ui-routes.generated.ts',
+    'apps/mobile-rn/src/constants/ui-routes.generated.ts',
+    'apps/miniapp-taro/src/constants/ui-routes.generated.ts',
+    'apps/extension/lib/ext-ui-routes.generated.ts',
+  ]
+  const touched = paths.map((p) => String(p).replace(/\\/g, '/'))
+  const hit = touched.some(
+    (p) => ARTIFACTS.includes(p) || TRIGGER_FACES.some((f) => p.startsWith(f)),
+  )
+  if (!hit) return { skipped: true, stale: 0 }
+  const r = spawnSync(process.execPath, [join(root, 'scripts', 'check-miniapp-generated.mjs')], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 240000,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+  const stale = (out.match(/\[G5\]/g) ?? []).length
+  if (r.status === 0) return { rc: 0, stale: 0 }
+  if (r.status === 2) {
+    console.log(
+      `⚠️ 落地后复检门 105 报「无法判定」(exit 2)⇒ 不记绿也不记红,请人工复跑:node scripts/check-miniapp-generated.mjs`,
+    )
+    return { rc: 2, stale, why: 'undetermined' }
+  }
+  console.log(
+    `⚠️ 本枚旁路落地之后,门 105 现读有 ${stale} 处派生产物自述钉陈旧(G5)。成因不是本枚写坏了产物,` +
+      `而是四端 ui-routes 的写回档挂在 .husky/pre-commit 的登记表上,而旁路落地(commit-tree)结构上不跑钩子。`,
+  )
+  console.log(
+    `   出路(不代做:写回档会按面比对磁盘,此刻磁盘可能挂着他人现场):` +
+      `node scripts/check-miniapp-generated.mjs --heal-ui-routes --staged 之后逐路径复核再提交;` +
+      `若拒绝写回,它会点名是哪一端的面与磁盘不一致。判定权仍在提交链那一轮的 --staged 面。`,
+  )
+  return { rc: r.status ?? 1, stale }
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
