@@ -36,6 +36,7 @@ import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
+import { type CarouselSlideImg } from '../components/Carousel'
 import { MoreTitles } from '../components/MoreTitles'
 import Menu from '../components/Menu'
 import Loading from '../components/common/Loading'
@@ -65,14 +66,35 @@ interface PlanetData {
  * 顶部图片轮播(对齐来源:原 CourseCarousel/index.vue 内置 carouselList 7 张图,
  * 原页面 <CourseCarousel @item-click="onCarouselItemClick" /> 未传外部数据)
  */
-const SWIPER_IMAGES: readonly string[] = [
-  'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/ai_agent/lunbo6.jpg',
-  'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/carousel1.jpg',
-  'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/carousel2.jpg',
-  'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/carousel3.jpg',
-  'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/carousel4-footer1-two.png',
-  'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/lunbo1.png',
-  'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/lunbo2.png',
+// 2026-10-15 本地化:原 bspapp 云存储 CDN(mp-aab956eb-…)整体不可达(HTTP 000),
+// 7 张轮播图按原 CDN 路径打包进应用(文件副本与 apps/web/public 本地化批次同源):
+//   tabbar/ai_agent/lunbo6.jpg                  → assets/images/carousel/lunbo6.jpg
+//   tabbar/home/carousel4-footer1/carousel1.jpg → assets/images/carousel/carousel1.jpg
+//   tabbar/home/carousel4-footer1/carousel2.jpg → assets/images/carousel/carousel2.jpg
+//   tabbar/home/carousel4-footer1/carousel3.jpg → assets/images/carousel/carousel3.jpg
+//   tabbar/home/carousel4-footer1/carousel4-footer1-two.png → assets/images/carousel/carousel4-footer1-two.png
+//   tabbar/home/carousel4-footer1/lunbo1.png    → assets/images/carousel/lunbo1.png
+//   tabbar/home/carousel4-footer1/lunbo2.png    → assets/images/carousel/lunbo2.png
+// RN 静态资源打包必须用 require(Metro asset 插件契约),此处豁免 no-require-imports;
+// 写法与 ModelRecordScreen/ProfileScreen 同档(块级 disable,只罩资源声明行)。
+/* eslint-disable @typescript-eslint/no-require-imports */
+const IMG_LUNBO6 = require('../../assets/images/carousel/lunbo6.jpg')
+const IMG_CAROUSEL1 = require('../../assets/images/carousel/carousel1.jpg')
+const IMG_CAROUSEL2 = require('../../assets/images/carousel/carousel2.jpg')
+const IMG_CAROUSEL3 = require('../../assets/images/carousel/carousel3.jpg')
+const IMG_CAROUSEL_TWO = require('../../assets/images/carousel/carousel4-footer1-two.png')
+const IMG_LUNBO1 = require('../../assets/images/carousel/lunbo1.png')
+const IMG_LUNBO2 = require('../../assets/images/carousel/lunbo2.png')
+/* eslint-enable @typescript-eslint/no-require-imports */
+
+const SWIPER_IMAGES: readonly CarouselSlideImg[] = [
+  IMG_LUNBO6,
+  IMG_CAROUSEL1,
+  IMG_CAROUSEL2,
+  IMG_CAROUSEL3,
+  IMG_CAROUSEL_TWO,
+  IMG_LUNBO1,
+  IMG_LUNBO2,
 ]
 
 /** 接口课程 → CourseCarouselItem(封面字段 coverImage → img) */

@@ -13,12 +13,14 @@
 import { useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { StyleSheet, View, type ViewStyle } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getLiveList, type Live } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { LiveScreen as SharedLiveScreen, type LiveScreenItem } from '@ihui/rn-app'
 import TabBar, { type TabBarKey } from '../components/TabBar'
+import { tabBarScrollReserve } from '../components/TabBar.styles'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { MainStackParamList } from '../navigation/tab-utils'
@@ -31,6 +33,8 @@ export function LiveScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<RootNav>()
+  // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
+  const insets = useSafeAreaInsets()
   const [lives, setLives] = useState<Live[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -103,6 +107,7 @@ export function LiveScreen() {
           onRefresh={() => load(true)}
           onPressItem={(id) => rootNav?.navigate('LiveDetail', { id })}
           onBack={() => navigation.goBack()}
+          contentBottomPadding={tabBarScrollReserve(insets.bottom)}
           colorScheme={resolvedTheme}
         />
       </View>
