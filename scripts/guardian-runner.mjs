@@ -5070,6 +5070,20 @@ const checks = [
 
   // --- 告警身份抖动(1 项,blocking)---
   {
+    id: '225',
+    label: '生成器资源释放对账(warn 起步;持有事务/句柄/订阅的 async 生成器,消费方提前 break/抛错时不得只靠退出作用域与 GC)',
+    script: 'check-generator-resource-release.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_GENERATOR_RESOURCE_RELEASE',
+    stagedTriggers: ['apps/ai-service/'],
+    onFailHint: [
+      '',
+      '  💡 本门的红只有一格能收:消费点必须在自己 finally 里显式 aclose()/return() 生成器,',
+      '     而不是靠作用域退出与 GC(判据本体见门体头注;升 blocking 的前置 = violations 归零,§12e)。',
+      '     单独复现:node scripts/check-generator-resource-release.mjs',
+      '     自检:node scripts/check-generator-resource-release.mjs --self-test',
+    ],
     id: '224',
     label:
       '告警身份抖动对账(到人邮件的去重身份不得含逐轮抖动的 sha/时刻/原始计数/异常原文;差值棘轮:只拦本次加回来的)',
