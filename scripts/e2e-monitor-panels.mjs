@@ -64,6 +64,24 @@ const OUT = 'D:/IHUI-AI/.ihui-agent/tmp'
     await page.screenshot({ path: `${OUT}/e2e-05-logs-dash.png` })
     console.log('LOGS-OK')
   }
+  // 4. SaaS 租户监控页:GrafanaFrame 原生替身(2026-10-18 退役收尾)
+  //    判据:页面无指向 Grafana 的 iframe,且有真实渲染出的图表/面板
+  await page.goto(`${BASE}/admin/saas/metrics`, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+  // 该盘 8 面板需等首个 96 条批量查询返回(实测 8~10s);用面板标题作为就绪信号,
+  // 9s 硬等会在冷启动时误抓到瞬时错误态(2026-10-19 实测)
+  await page.waitForSelector('text=活跃租户数', { timeout: 25_000 }).catch(() => {})
+  await page.waitForTimeout(3000)
+  await page.screenshot({ path: `${OUT}/e2e-06-saas-metrics.png` })
+  const frames = await page.locator('iframe').count()
+  const grafanaFrames = await page.locator('iframe[src*="grafana"], iframe[src*="8816"]').count()
+  const saasText = await page.locator('body').innerText()
+  console.log('SAAS-URL', page.url())
+  console.log('SAAS-IFRAME-COUNT', frames, 'GRAFANA-IFRAME', grafanaFrames)
+  // 该盘 21 面板里大部分是 stat/table 类(数字/表格,无 canvas) ⇒ 以面板标题与
+  // 降级提示判据替代 canvas 计数;'Grafana' 字样已从可见文案清空(i18n 改为原生面板)
+  const saasPanels = await page.locator('[data-panel-title], .rounded-lg.border').count()
+  console.log('SAAS-CANVAS', await page.locator('canvas').count(), 'SAAS-CARDS', saasPanels, 'SAAS-PANEL-TITLES', /活跃租户数|租户 API 调用总数/.test(saasText))
+  console.log('SAAS-HAS-GRAFANA-WORD', /Grafana/.test(saasText), 'SAAS-HAS-UNAVAILABLE-HINT', /监控服务不可用/.test(saasText))
   await browser.close()
 })().catch((e) => {
   console.error('E2E-FAIL', String(e).slice(0, 300))
