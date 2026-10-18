@@ -73,6 +73,7 @@ import { rnRadius } from '@ihui/design-tokens'
 const closeInputPng = aizhsUrl('remote-images/close_input.png')
 import { rpx } from '@/utils/rpx'
 import * as api from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import type { ChatMessage } from '@/api'
 import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
@@ -775,9 +776,16 @@ export default function Index() {
   }, [])
 
   // 仅在列表为空时拉取,避免 useDidShow 重复请求
+  // G-933 冷启动抢跑门:fetchModels → GET /api/llm/models(llm-models.ts:133 组级 addHook
+  // preHandler checkAuth,:141 注册),判定落定前不发。这一支落空时有 FALLBACK_MODEL_ITEMS 兜底,
+  // 于是"冷启动那次 401"会被兜成"模型就这几个"的假象 —— 正是要挡的那一型。
+  const { waitUntilReady } = useAuthReadyGate()
   useEffect(() => {
-    if (!models.length) loadModels()
-  }, [models.length, loadModels])
+    if (models.length) return
+    return waitUntilReady(() => {
+      void loadModels()
+    })
+  }, [models.length, loadModels, waitUntilReady])
 
   // 下拉刷新(对齐原项目 onPullDownRefresh)
   usePullDownRefresh(() => {
