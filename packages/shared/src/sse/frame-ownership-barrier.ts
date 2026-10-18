@@ -26,6 +26,23 @@
 // 其读环内的同形移植(frame-ownership-barrier.ts)由
 // packages/api-client/tests/frame-barrier-parity-g816030.test.ts 的判例表对账钉住
 // (先例:frame-watermark / error-serialize / stream-trace-id)。
+//
+// ============================================================================
+// G-276:单向代际守卫(建连 await 窗口代际重验的收尾格)
+// ============================================================================
+// 主判据(cffa4242)已入库:ws-client.ts 两道 await 后重验 + disposeStaleSocket。
+// 仍开的一格 = **迟到帧不得回写所有权映射**。上游锚:上游仓
+// replaceableConversationTransport.ts:84-99 的单向代际守卫(本仓无该文件,仅参考
+// 语义):代际递增后,旧代际的迟到帧只丢弃、不投递、不回写任何代际状态。
+//
+// 落法:帧与 ACK 都可选携带单调递增的 generation(缺省不判 —— 未下发代际的旧
+// 生产端零行为变化);activate(ACK)是唯一推进当前代际的出口,代际只升不降
+// (reset 除外)。守卫两格:
+//  · 迟到帧(generation 早于当前代际)⇒ 只丢弃:不投递('pass' 不可能)、不暂存
+//    (防被后续 ACK 冲刷误投)、不回写任何状态;
+//  · 迟到 ACK ⇒ 不回写所有权映射(activeByTopic 不动)、不冲刷暂存,返回空批。
+// 当前代际(及未携带代际)的帧行为逐字不变;ACK 冲刷时对暂存帧同样按代际过滤,
+// 换代前已暂存的旧代际帧不得借新 ACK 之手投递。
 
 /** 暂存帧上限(条数)。 */
 export const FRAME_BARRIER_MAX_STAGED_FRAMES = 512
@@ -38,19 +55,29 @@ export interface BarrierFrame<TFrame = unknown> {
   topic: string
   /** 帧声称的订阅代际 */
   subscriptionId: string
+  /**
+   * G-276:帧声称的建连代际(单调递增)。缺省不判 —— 未下发代际的旧生产端
+   * 零行为变化;携带且早于屏障当前代际 ⇒ 迟到帧,只丢弃、不投递、不暂存。
+   */
+  generation?: number
   /** 字节面计重(缺省按 0 计) */
   byteSize?: number
   /** 载荷(消费方自己的帧形状) */
   frame: TFrame
 }
 
-/** offer 的三态:pass = 所有权已确立,调用方直接交付;staged = 有界暂存;overflow = 溢出,整批已清空。 */
-export type FrameBarrierDeliveryKind = 'pass' | 'staged' | 'overflow'
+/** offer 的四态:pass = 所有权已确立,调用方直接交付;staged = 有界暂存;overflow = 溢出,整批已清空;stale = 迟到帧(G-276),只丢弃。 */
+export type FrameBarrierDeliveryKind = 'pass' | 'staged' | 'overflow' | 'stale'
 
 /** activate 的入参:激活哪条订阅对哪些 topic 的所有权。 */
 export interface FrameBarrierActivateInput {
   subscriptionId: string
   topics: readonly string[]
+  /**
+   * G-276:本 ACK 携带的建连代际。缺省不判(旧行为);早于屏障当前代际 ⇒
+   * 迟到 ACK:不回写所有权映射、不冲刷暂存、返回空批;高于当前代际 ⇒ 单向推进。
+   */
+  generation?: number
   /**
    * 反向退订钩子:越界时 activate **先调用它再抛错**(保证"抛错后必须已反向退订"
  * 可被断言 —— 断退订调用次数,不看日志文案)。
@@ -77,12 +104,13 @@ export interface FrameOwnershipBarrier<TFrame = unknown> {
   /**
    * 收一帧:所有权已确立(activeByTopic 命中)⇒ 'pass'(调用方直接交付);
    * 未确立 ⇒ 有界暂存('staged');越界 ⇒ **整批清空 + 标记溢出**('overflow'),
-   * 绝不 shift 保上限。
+   * 绝不 shift 保上限;代际早于当前代际(G-276)⇒ 'stale',只丢弃、不投递不暂存。
    */
   offer(frame: BarrierFrame<TFrame>): FrameBarrierDeliveryKind
   /**
    * ACK:确立订阅对 topics 的所有权;成功 ⇒ 返回暂存帧中归属已激活 topic 的部分
-   * (**按原序**,调用方逐条交付);越界 ⇒ 先反向退订再抛 FrameBarrierOverflowError。
+   * (**按原序**,调用方逐条交付);越界 ⇒ 先反向退订再抛 FrameBarrierOverflowError;
+   * 代际早于当前代际(G-276)⇒ 迟到 ACK:不回写映射、不冲刷暂存,返回空批。
    */
   activate(input: FrameBarrierActivateInput): BarrierFrame<TFrame>[]
   /** 仅 activeByTopic.get(topic) === subscriptionId 才算本订阅的帧。 */
@@ -107,11 +135,18 @@ export function createFrameOwnershipBarrier<TFrame = unknown>(options?: {
   let bytes = 0
   let overflow: { subscriptionId: string; reason: 'frames' | 'bytes'; droppedCount: number } | null =
     null
+  // G-276:屏障当前代际。activate(ACK)是唯一推进出口,单向只升(reset 归零除外);
+  // 携带更早代际的帧/ACK 一律按迟到处理。
+  let currentGeneration = 0
 
   const byteSizeOf = (frame: BarrierFrame<TFrame>): number =>
     typeof frame.byteSize === 'number' && Number.isFinite(frame.byteSize) && frame.byteSize > 0
       ? frame.byteSize
       : 0
+
+  // 迟到判定:仅对显式携带 generation 且为安全整数的输入判;缺省(旧生产端)不判。
+  const isStaleGeneration = (generation: number | undefined): boolean =>
+    typeof generation === 'number' && Number.isSafeInteger(generation) && generation < currentGeneration
 
   const clearStaged = (): void => {
     staged = []
@@ -123,6 +158,11 @@ export function createFrameOwnershipBarrier<TFrame = unknown>(options?: {
       if (overflow !== null && overflow.subscriptionId === frame.subscriptionId) {
         // 已溢出的订阅:后续帧一律拒收(整批已清,不再零星收)
         return 'overflow'
+      }
+      if (isStaleGeneration(frame.generation)) {
+        // G-276:迟到帧只丢弃 —— 不投递('pass' 不可能)、不暂存(否则会被后续
+        // ACK 冲刷误投)、不回写任何代际状态。
+        return 'stale'
       }
       if (activeByTopic.get(frame.topic) === frame.subscriptionId) {
         return 'pass'
@@ -152,14 +192,29 @@ export function createFrameOwnershipBarrier<TFrame = unknown>(options?: {
         }
         throw new FrameBarrierOverflowError(overflow.reason, overflow.droppedCount)
       }
+      if (isStaleGeneration(input.generation)) {
+        // G-276:迟到 ACK —— 不回写所有权映射(activeByTopic 不动)、不冲刷暂存,
+        // 返回空批。暂存帧属于当前/更新代际,不得借旧 ACK 之手投递。
+        return []
+      }
+      if (
+        typeof input.generation === 'number' &&
+        Number.isSafeInteger(input.generation) &&
+        input.generation > currentGeneration
+      ) {
+        // 单向推进:代际只升不降,落后于已推进代际的帧从此按迟到处理。
+        currentGeneration = input.generation
+      }
       for (const topic of topics) {
         activeByTopic.set(topic, subscriptionId)
       }
-      // 按原序交还归属已激活 topic 的暂存帧;其余订阅的暂存帧保留等它们自己的 ACK
+      // 按原序交还归属已激活 topic 的暂存帧;其余订阅的暂存帧保留等它们自己的 ACK;
+      // 暂存帧里的迟到代际帧(G-276:换代前暂存、ACK 时已落后)只丢弃,不冲刷不保留。
       const flushable: BarrierFrame<TFrame>[] = []
       const rest: BarrierFrame<TFrame>[] = []
       const activeTopics = new Set(topics)
       for (const frame of staged) {
+        if (isStaleGeneration(frame.generation)) continue
         if (activeTopics.has(frame.topic)) flushable.push(frame)
         else rest.push(frame)
       }
@@ -188,6 +243,7 @@ export function createFrameOwnershipBarrier<TFrame = unknown>(options?: {
       activeByTopic = new Map()
       clearStaged()
       overflow = null
+      currentGeneration = 0
     },
   }
 }

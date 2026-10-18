@@ -4,6 +4,9 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import { WebSocketClient, type WebSocketLike } from '../src/ws-client.js'
+// G-276:所有权映射(activeByTopic)的判据源在 shared 侧屏障(本包零依赖边界不装
+// @ihui/shared,测试经相对路径直引判据源源码;同形先例:parity 套件的跨包对账)。
+import { createFrameOwnershipBarrier } from '../../shared/src/sse/frame-ownership-barrier.js'
 
 /**
  * G-816007 成对测试:建连 await 窗口的代际重验。
@@ -197,6 +200,80 @@ describe('G-816007 建连 await 窗口的代际重验', () => {
     await flush()
     expect(h.sockets.length).toBe(socketsBefore)
     h.client.disconnect()
+  })
+})
+
+/**
+ * G-276:迟到帧不得回写所有权映射(建连 await 窗口代际重验的收尾格)。
+ *
+ * 上游锚:上游仓 replaceableConversationTransport.ts:84-99 的单向代际守卫 ——
+ * 代际递增后,旧代际的迟到帧只丢弃、不投递、不回写任何代际状态。本仓所有权映射
+ * (activeByTopic)的判据源是 packages/shared/src/sse/frame-ownership-barrier.ts:
+ * activate(ACK)是唯一回写映射的路径,也是唯一推进当前代际的出口。
+ *
+ * 结构注记:本文件原测 WebSocketClient(其自身无所有权映射;"迟到帧不投递"在
+ * ws-client 侧由 cffa4242 的 disposeStaleSocket 路径钉住),映射回写守卫的断言
+ * 只能落在屏障判据源上 —— 故本组经跨包相对导入直测判据源。
+ */
+describe('G-276 迟到帧/迟到 ACK 不得回写所有权映射(屏障单向代际守卫)', () => {
+  it('⑤ 迟到 ACK(generation 早于当前代际)不回写所有权映射、不冲刷暂存;迟到帧只丢弃不投递', () => {
+    const barrier = createFrameOwnershipBarrier<string>()
+    // 新代际(gen 2)ACK 先确立所有权
+    barrier.activate({ subscriptionId: 'sub-gen2', topics: ['chat-stream'], generation: 2 })
+    expect(barrier.isOwned('chat-stream', 'sub-gen2')).toBe(true)
+    // 迟到的旧代际(gen 1)帧:只丢弃 —— 不投递('pass' 不可能)、不暂存、不动状态
+    expect(
+      barrier.offer({
+        topic: 'chat-stream',
+        subscriptionId: 'sub-gen1',
+        generation: 1,
+        frame: 'late',
+      }),
+    ).toBe('stale')
+    expect(barrier.stagedCount()).toBe(0)
+    // 迟到的旧代际(gen 1)ACK:不回写映射 —— topic 所有权仍是 gen2,gen1 无从取得
+    const flushed = barrier.activate({
+      subscriptionId: 'sub-gen1',
+      topics: ['chat-stream'],
+      generation: 1,
+    })
+    expect(flushed).toEqual([])
+    expect(barrier.isOwned('chat-stream', 'sub-gen2')).toBe(true)
+    expect(barrier.isOwned('chat-stream', 'sub-gen1')).toBe(false)
+    // 换代前已暂存的旧代际帧,不得借新代际 ACK 之手投递(冲刷按代际过滤)
+    const fresh = createFrameOwnershipBarrier<string>()
+    fresh.offer({ topic: 'chat-stream', subscriptionId: 'sub-gen1', generation: 1, frame: 'old-1' })
+    fresh.offer({ topic: 'chat-stream', subscriptionId: 'sub-gen2', generation: 2, frame: 'new-2' })
+    const gen2Flush = fresh.activate({
+      subscriptionId: 'sub-gen2',
+      topics: ['chat-stream'],
+      generation: 2,
+    })
+    expect(gen2Flush.map((x) => x.frame)).toEqual(['new-2'])
+    expect(fresh.isOwned('chat-stream', 'sub-gen2')).toBe(true)
+  })
+
+  it('⑥ 反向锁:当前代际 ACK 回写保留 —— 映射照写、暂存照冲、同代际帧照投(行为逐字不变)', () => {
+    const barrier = createFrameOwnershipBarrier<string>()
+    barrier.offer({ topic: 'chat-stream', subscriptionId: 'sub-gen3', generation: 3, frame: 'a' })
+    barrier.offer({ topic: 'chat-stream', subscriptionId: 'sub-gen3', generation: 3, frame: 'b' })
+    // 当前代际 ACK:回写保留 —— 映射确立、暂存按原序冲刷
+    const flushed = barrier.activate({
+      subscriptionId: 'sub-gen3',
+      topics: ['chat-stream'],
+      generation: 3,
+    })
+    expect(flushed.map((x) => x.frame)).toEqual(['a', 'b'])
+    expect(barrier.isOwned('chat-stream', 'sub-gen3')).toBe(true)
+    // 同代际后续帧照常直接投递(不暂存、不丢弃)
+    expect(
+      barrier.offer({ topic: 'chat-stream', subscriptionId: 'sub-gen3', generation: 3, frame: 'c' }),
+    ).toBe('pass')
+    // 幂等重 ACK(同代际)不丢所有权
+    expect(
+      barrier.activate({ subscriptionId: 'sub-gen3', topics: ['chat-stream'], generation: 3 }),
+    ).toEqual([])
+    expect(barrier.isOwned('chat-stream', 'sub-gen3')).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

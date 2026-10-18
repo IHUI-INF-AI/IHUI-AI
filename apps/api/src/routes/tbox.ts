@@ -4,7 +4,8 @@
 
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHmac } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import { eq, desc } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { tboxDevice, tboxCommand, tboxAgentChannel } from '@ihui/database'
@@ -188,9 +189,7 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
       if (!rawBody) return reply.status(401).send(error(401, '无法读取请求体'))
 
       const expected = createHmac('sha256', secret).update(rawBody).digest('hex')
-      const sigBuf = Buffer.from(signature)
-      const expBuf = Buffer.from(expected)
-      if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+      if (!secretsEqual(signature, expected)) {
         return reply.status(401).send(error(401, '签名验证失败'))
       }
     }
@@ -224,9 +223,7 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
       if (!rawBody) return reply.status(401).send(error(401, '无法读取请求体'))
 
       const expected = createHmac('sha256', secret).update(rawBody).digest('hex')
-      const sigBuf = Buffer.from(signature)
-      const expBuf = Buffer.from(expected)
-      if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+      if (!secretsEqual(signature, expected)) {
         return reply.status(401).send(error(401, '签名验证失败'))
       }
     }
