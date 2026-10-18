@@ -177,7 +177,7 @@ export interface HookResult {
 }
 
 /** PermissionRequest 钩子的应答形状(上游 tool/executor hook-flow 的四形状,值域照抄)。 */
-export type PermissionHookDecision = 'deny' | 'allow' | 'ask' | 'modify';
+type PermissionHookDecision = 'deny' | 'allow' | 'ask' | 'modify';
 
 // ============================================================================
 // 终态层(一处实现 —— 2026-09-29 拆终态票)
@@ -322,10 +322,10 @@ export const HOOK_RUN_OUTCOMES = [
   'Unknown',
 ] as const;
 
-export type HookRunOutcome = (typeof HOOK_RUN_OUTCOMES)[number];
+type HookRunOutcome = (typeof HOOK_RUN_OUTCOMES)[number];
 
 /** 一次钩子派发的 started 事件:执行前发,只报身份不报结果。 */
-export interface HookRunStartedEvent {
+interface HookRunStartedEvent {
   type: 'started';
   /** 所属钩子事件名(preToolCall/turnStart/…) */
   hookEvent: string;
@@ -334,7 +334,7 @@ export interface HookRunStartedEvent {
 }
 
 /** 一次钩子派发的终态事件:outcome 是机器可判档位,exitCode 是执行面原始观察。 */
-export interface HookRunTerminalEvent {
+interface HookRunTerminalEvent {
   type: 'terminal';
   hookEvent: string;
   hook: string;
