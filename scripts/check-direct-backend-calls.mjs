@@ -85,7 +85,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { flagValue as flagValueRaw, requireFlagValue } from './lib/flag-value.mjs'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
-import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 // 判据里「值缺失」一律 null 与 undefined 同待:eqeqeq 禁 `== null`,而拆成 `=== null` 会只挡一半(典型误修)。
 const isNil = (v) => v === null || v === undefined
@@ -1299,10 +1298,9 @@ const FIXTURES = {
 }
 
 export function __selfTest() {
-  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
-  // 旧本地写法 `results.push({ label, ok: !!cond })` 布尔强制(函数恒真)—— 已由共用出口结构封死。
-  const { t: assert, report } = makeRegistrar()
+  const results = []
   const run = (files) => analyzeCorpus(new Map(Object.entries(files)), DEFAULT_ROOT)
+  const assert = (label, cond, extra = '') => results.push({ label, ok: !!cond, extra })
 
   const inj = run(FIXTURES.injection)
   assert(
@@ -1365,11 +1363,10 @@ export function __selfTest() {
     JSON.stringify(commented.hits.map((h) => `${h.file}:${h.line}`)),
   )
 
-  // 消费点:求值只发生在这里(共用出口的报告函数)。
-  const { fail, cases: results } = report()
+  const bad = results.filter((r) => !r.ok)
   for (const r of results)
-    console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.pass ? '' : `\n     ${r.got}`}`)
-  return fail === 0
+    console.log(`${r.ok ? '✅' : '❌'} ${r.label}${r.ok ? '' : `\n     ${r.extra}`}`)
+  return bad.length === 0
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

@@ -286,7 +286,7 @@ function runDevStack() {
       '--json',
       `--timeout=${BACKEND_TIMEOUT_S}`,
     ],
-    { stdio: ['ignore', 'pipe', 'pipe'],
+    {
       cwd: REPO_ROOT,
       encoding: 'utf8',
       windowsHide: true,

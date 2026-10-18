@@ -747,7 +747,7 @@ function runInCwd(extraArgs) {
     const r = spawnSync('node', [SCRIPT_PATH, '--worktree', '--root', dir, ...extraArgs], {
       cwd: dir,
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
     })
     r.out = (r.stdout || '').replace(/\x1b\[[0-9;]*m/g, '')
