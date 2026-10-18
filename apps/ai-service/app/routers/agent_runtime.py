@@ -32,9 +32,16 @@ from app.services.session_store import owner_scoped_allows
 
 from ..core.jwt_auth import get_current_user_id
 from ..core.rbac import Permission, require_permission
+from ..core.sse_frames import with_frame_trace_id
 
 router = APIRouter(prefix="/agent-runtime", tags=["agent-runtime"])
 logger = logging.getLogger(__name__)
+
+
+def _sse_frame(evt: str, payload: dict[str, Any], *, ensure_ascii: bool = True) -> str:
+    """SSE 文本帧(帧级 traceId 经共享注入点,承 G-248 R3)。"""
+    framed = with_frame_trace_id(evt, payload)
+    return f"event: {evt}\ndata: {json.dumps(framed, ensure_ascii=ensure_ascii)}\n\n"
 
 
 # ============ 数据模型(对齐 packages/types/src/agent-runtime.ts)============
@@ -269,12 +276,12 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
     _save_session_redis(session)
 
     async def event_stream() -> AsyncIterator[str]:
-        yield f"event: session\ndata: {json.dumps({'sessionId': session.id})}\n\n"
+        yield _sse_frame("session", {"sessionId": session.id})
 
         if req.mode == "plan":
-            yield (
-                f"event: permission\ndata: "
-                f"{json.dumps({'mode': req.mode, 'toolName': 'Write', 'dangerLevel': 'write', 'decision': 'deny'})}\n\n"
+            yield _sse_frame(
+                "permission",
+                {'mode': req.mode, 'toolName': 'Write', 'dangerLevel': 'write', 'decision': 'deny'},
             )
 
         try:
@@ -298,17 +305,13 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
                     if not isinstance(node_output, dict):
                         continue
                     if node_name == "plan" and node_output.get("plan"):
-                        yield (
-                            f"event: plan\ndata: "
-                            f"{json.dumps({'plan': node_output['plan']})}\n\n"
-                        )
+                        yield _sse_frame("plan", {"plan": node_output["plan"]})
                     elif (
                         node_name == "execute"
                         and node_output.get("execution_result")
                     ):
-                        yield (
-                            f"event: delta\ndata: "
-                            f"{json.dumps({'content': node_output['execution_result']})}\n\n"
+                        yield _sse_frame(
+                            "delta", {"content": node_output["execution_result"]}
                         )
                     elif node_name == "summarize" and node_output.get("summary"):
                         session.messages.append(
@@ -318,25 +321,23 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
                         )
                         session.status = "completed"
                         _save_session_redis(session)
-                        yield (
-                            f"event: done\ndata: "
-                            f"{json.dumps({'sessionId': session.id, 'status': 'completed', 'summary': node_output['summary']})}\n\n"
+                        yield _sse_frame(
+                            "done",
+                            {
+                                "sessionId": session.id,
+                                "status": "completed",
+                                "summary": node_output["summary"],
+                            },
                         )
                     if node_output.get("error"):
-                        yield (
-                            f"event: error\ndata: "
-                            f"{json.dumps({'message': node_output['error']})}\n\n"
-                        )
+                        yield _sse_frame("error", {"message": node_output["error"]})
         except asyncio.CancelledError:
             logger.info("agent_runtime SSE cancelled by client disconnect")
             raise
         except Exception as e:
             session.status = "failed"
             _save_session_redis(session)
-            yield (
-                f"event: error\ndata: "
-                f"{json.dumps({'message': f'graph execution failed: {e}'})}\n\n"
-            )
+            yield _sse_frame("error", {"message": f"graph execution failed: {e}"})
 
     return StreamingResponse(
         event_stream(),
@@ -533,7 +534,7 @@ async def stream_container_run(
         while True:
             evt = await queue.get()
             name = str(evt.get("event", "message"))
-            yield f"event: {name}\ndata: {json.dumps(evt, ensure_ascii=False)}\n\n"
+            yield _sse_frame(name, evt, ensure_ascii=False)
             if name == "exit":
                 break
 
