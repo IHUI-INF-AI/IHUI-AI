@@ -40,6 +40,7 @@ import chalk from 'chalk';
 // 不一致。出口函数自带深度封顶 + 循环 cause 检测,且在任何输入下不抛 —— 崩溃
 // 恢复路径上二次抛错等于把事故升级成事故×2。
 import { serializeError, type SerializedError } from '@ihui/types';
+import { readCliPackage } from './util/pkg-version.js';
 
 const CRASH_LOG_DIR = path.join(os.homedir(), '.ihui', 'crash-logs');
 const MAX_CRASH_LOGS = 10;
@@ -87,15 +88,9 @@ export interface CrashInfo {
   version: string;
 }
 
-/** 读取当前 CLI 版本(从 dist 推断 package.json) */
+/** 读取当前 CLI 版本(dist 形态按包根推断;SEA 形态读 exe 旁 package.json;均不可得回 'unknown') */
 function readCliVersion(): string {
-  const pkgPath = path.join(__dirname, '..', 'package.json');
-  try {
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-    return String(pkg.version ?? 'unknown');
-  } catch {
-    return 'unknown';
-  }
+  return readCliPackage(import.meta.url)?.version ?? 'unknown';
 }
 
 /** 清理旧 crash log,保留最近 MAX_CRASH_LOGS 个 */
