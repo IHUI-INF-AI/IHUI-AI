@@ -7,7 +7,7 @@
 //
 // 降级策略(任务原文):转写端点存在时消费;`sttEnabled=false`(或端点探活失败)
 // 时 waitingTranscript 相可达但停留在 pending,给明确文案,不崩。
-// 归档最小闭环:localStorage 单桶暂存(VOICE_NOTE_ARCHIVE_LIMIT 上限)+
+// 归档事实源:服务端 chat_voice_notes(列表分页 + 乐观上行 + 失败回滚),端内不再持有本地桶
 // 「插入对话」复用既有 draftInput 通道(useChatStore.setState,与 ai-side-panel 同形),
 // 不新建消息注入通道。归档/分组/搜索、miniapp 端豁免为台账剩余项,不在本组件内。
 
@@ -16,21 +16,28 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Mic, Square, RefreshCw, X, Trash2, ClipboardPaste } from 'lucide-react'
-import { Button } from '@ihui/ui-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
-import { voiceSttFromBlob } from '@ihui/api-client'
+import {
+  createVoiceNote,
+  deleteVoiceNote,
+  listVoiceNotes,
+  voiceSttFromBlob,
+} from '@ihui/api-client'
+import type { VoiceNoteGroupFacet } from '@ihui/types'
 import { useWebAuthStore } from '@/stores/auth-store'
 import { useChatStore } from '@/stores/chat'
 import {
   formatVoiceNoteDuration,
   isVoiceNotePhaseTerminal,
   isVoiceNoteTranscriptPending,
-  parseVoiceNotes,
   removeVoiceNote,
+  toVoiceNoteRecord,
   transitionVoiceNotePhase,
   upsertVoiceNote,
+  VOICE_NOTE_ARCHIVE_LIMIT,
   voiceNoteHasInsertableText,
   type VoiceNoteEvent,
   type VoiceNotePhase,
@@ -43,22 +50,14 @@ const STT_ENDPOINT =
     ? process.env.NEXT_PUBLIC_AI_SERVICE_URL
     : '/api/voice/stt'
 
-const NOTES_STORAGE_KEY = 'ihui:voice-notes'
-
 export interface VoiceNoteProps {
-  /** 所属会话(会话内暂存标注;无会话上下文传 null) */
+  /** 所属会话(随笔记落库;无会话上下文传 null) */
   conversationId?: string | null
   /** 转写端点开关:false = 显式降级(转写占位相可达但卡 pending) */
   sttEnabled?: boolean
-  /** 归档桶 key(默认全局单桶) */
-  storageKey?: string
 }
 
-export function VoiceNote({
-  conversationId = null,
-  sttEnabled = true,
-  storageKey = NOTES_STORAGE_KEY,
-}: VoiceNoteProps) {
+export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNoteProps) {
   const t = useTranslations('chat.voiceNote')
   const token = useWebAuthStore((s) => s.token)
 
@@ -83,49 +82,85 @@ export function VoiceNote({
     setPhase((prev) => transitionVoiceNotePhase(prev, event))
   }, [])
 
-  // 归档桶读取(挂载时一次;损坏 JSON 由 parseVoiceNotes 兜空)
-  React.useEffect(() => {
-    try {
-      setArchived(parseVoiceNotes(window.localStorage.getItem(storageKey)))
-    } catch {
-      setArchived([])
+  // 归档列表的事实源是服务端 `chat_voice_notes`(D43 第②格);本地不再持有任何桶。
+  // archivedRef 只是给回滚用的镜像,不参与渲染。
+  const archivedRef = React.useRef<VoiceNoteRecord[]>([])
+  archivedRef.current = archived
+  const [listError, setListError] = React.useState(false)
+  // 检索与分组都落在服务端(票面②「按分组检索→命中」):面板只持有查询条件,不持数据
+  const [query, setQuery] = React.useState('')
+  const [groupKey, setGroupKey] = React.useState<string | null>(null)
+  const [groups, setGroups] = React.useState<VoiceNoteGroupFacet[]>([])
+
+  const loadArchive = React.useCallback(async () => {
+    const res = await listVoiceNotes({
+      pageSize: VOICE_NOTE_ARCHIVE_LIMIT,
+      withGroups: '1',
+      ...(query.trim() ? { q: query.trim() } : {}),
+      ...(groupKey ? { groupKey } : {}),
+    })
+    if (!res.success) {
+      // 读失败必须喊出来:静默兜空列表会让人以为"笔记都丢了"
+      setListError(true)
+      return
     }
-  }, [storageKey])
+    setListError(false)
+    setArchived(res.data.list.map(toVoiceNoteRecord))
+    setGroups(res.data.groups ?? [])
+  }, [groupKey, query])
 
-  const persistArchive = React.useCallback(
-    (next: VoiceNoteRecord[]) => {
-      setArchived(next)
-      try {
-        window.localStorage.setItem(storageKey, JSON.stringify(next))
-      } catch {
-        // 配额满/隐私模式:内存态继续可用,不崩
-      }
-    },
-    [storageKey],
-  )
+  // 输入即搜,但去抖 300ms:每敲一个字符打一次后端会把列表打抖。
+  // 首帧不去抖(打开就该看见已有笔记,不该先空 300ms)。
+  const firstLoadRef = React.useRef(true)
+  React.useEffect(() => {
+    if (firstLoadRef.current) {
+      firstLoadRef.current = false
+      void loadArchive()
+      return
+    }
+    const timer = setTimeout(() => void loadArchive(), 300)
+    return () => clearTimeout(timer)
+  }, [loadArchive])
 
-  const archiveNote = React.useCallback(
-    (recordPhase: VoiceNotePhase, text: string | null) => {
-      const record: VoiceNoteRecord = {
-        id: `vn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  /**
+   * 落一条笔记:先乐观上行,写失败当场回滚 + 显式报错 ——
+   * 不留 renderer-only 假记录(那正是本仓反复登记的"看着存上了,刷新就没"那一型)。
+   */
+  const persistNote = React.useCallback(
+    async (text: string | null) => {
+      const pendingId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const durationMs = durationSecRef.current * 1000
+      const optimistic: VoiceNoteRecord = {
+        id: pendingId,
         conversationId,
         createdAt: new Date().toISOString(),
-        durationMs: durationSecRef.current * 1000,
+        durationMs,
         transcript: text,
-        phase: recordPhase,
       }
-      setArchived((prev) => {
-        const next = upsertVoiceNote(prev, record)
-        try {
-          window.localStorage.setItem(storageKey, JSON.stringify(next))
-        } catch {
-          // 同上:降级内存态
-        }
-        return next
+      setArchived((prev) => upsertVoiceNote(prev, optimistic))
+      const res = await createVoiceNote({
+        // 标题优先取转写起首;仅存音频时回落到本命名空间自带的"语音笔记"文案(不写死中文)
+        title: (text?.trim() || t('title')).slice(0, 200),
+        transcript: text,
+        durationMs,
+        conversationId,
       })
+      if (!res.success) {
+        setArchived((prev) => removeVoiceNote(prev, pendingId))
+        setErrorCode('saveFailed')
+        return
+      }
+      void loadArchive()
     },
-    [conversationId, storageKey],
+    [conversationId, loadArchive, t],
   )
+
+  const removeNote = React.useCallback(async (id: string) => {
+    const snapshot = archivedRef.current
+    setArchived(removeVoiceNote(snapshot, id))
+    const res = await deleteVoiceNote(id)
+    if (!res.success) setArchived(snapshot)
+  }, [])
 
   const stopTimer = React.useCallback(() => {
     if (timerRef.current) {
@@ -165,15 +200,15 @@ export function VoiceNote({
         })
         setEmptyResult(text.trim().length === 0)
         setTranscript(text)
-        archiveNote('completed', text)
+        // 空转写不落库:一条没有内容也没有显式存盘意图的记录,不是"笔记"
+        if (text.trim().length > 0) void persistNote(text)
         dispatch('transcriptReady')
       } catch {
         setErrorCode('recognitionFailed')
-        archiveNote('error', null)
         dispatch('transcriptFailed')
       }
     },
-    [archiveNote, dispatch, sttEnabled, token],
+    [dispatch, persistNote, sttEnabled, token],
   )
 
   const finalize = React.useCallback(() => {
@@ -185,12 +220,11 @@ export function VoiceNote({
     dispatch('saved')
     if (blob.size === 0) {
       setErrorCode('saveFailed')
-      archiveNote('failed', null)
       dispatch('transcriptFailed')
       return
     }
     void transcribe(blob)
-  }, [archiveNote, dispatch, releaseStream, stopTimer, transcribe])
+  }, [dispatch, releaseStream, stopTimer, transcribe])
 
   const startRecording = React.useCallback(async () => {
     setErrorCode(null)
@@ -398,7 +432,7 @@ export function VoiceNote({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  archiveNote('completed', null)
+                  void persistNote(null)
                   dispatch('dismiss')
                 }}
                 data-testid="voice-note-save-audio-only"
@@ -407,14 +441,66 @@ export function VoiceNote({
               </Button>
             )}
             {phase !== 'ready' && !busy && (
-              <Button variant="ghost" size="sm" onClick={resetToReady} data-testid="voice-note-reset">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetToReady}
+                data-testid="voice-note-reset"
+              >
                 <X className="h-3.5 w-3.5" />
                 {t('action.dismiss')}
               </Button>
             )}
           </div>
 
-          {/* 归档列表(最小闭环:暂存 + 插入对话 + 删除) */}
+          {/* 检索与分组入口(票面②「按分组检索→命中」):条件交给服务端,列表按结果渲染 */}
+          <div className="mb-2 space-y-1.5" data-testid="voice-note-filters">
+            <SearchInput
+              size="sm"
+              clearable
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('searchPlaceholder')}
+              aria-label={t('searchPlaceholder')}
+              clearAriaLabel={t('action.dismiss')}
+              data-testid="voice-note-search"
+            />
+            {groups.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                <Button
+                  size="xs"
+                  variant={groupKey === null ? 'secondary' : 'ghost'}
+                  data-testid="voice-note-group-chip-all"
+                  onClick={() => setGroupKey(null)}
+                >
+                  {t('groupAll')}
+                </Button>
+                {groups.map((facet) => (
+                  <Button
+                    key={facet.groupKey}
+                    size="xs"
+                    variant={groupKey === facet.groupKey ? 'secondary' : 'ghost'}
+                    data-testid="voice-note-group-chip"
+                    onClick={() => setGroupKey(facet.groupKey)}
+                  >
+                    {facet.groupKey}
+                    <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-md bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums">
+                      {facet.count}
+                    </span>
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* 归档列表(服务端事实源:新建→落库→插入对话→删除) */}
+          {listError && (
+            <div
+              className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs text-destructive"
+              data-testid="voice-note-list-error"
+            >
+              {t('errors.loadFailed')}
+            </div>
+          )}
           {archived.length > 0 && (
             <div className="mt-3 border-t pt-2" data-testid="voice-note-archive">
               {archived
@@ -430,7 +516,8 @@ export function VoiceNote({
                       {formatVoiceNoteDuration(note.durationMs)}
                     </span>
                     <span className="min-w-0 flex-1 truncate">
-                      {note.transcript ?? t(`phase.${note.phase}`)}
+                      {/* 无转写=只存了音频,给命名空间自带的"语音笔记"文案,不猜任何相 */}
+                      {note.transcript ?? t('title')}
                     </span>
                     {voiceNoteHasInsertableText(note) && (
                       <Tooltip content={t('action.insertToInput')}>
@@ -448,7 +535,7 @@ export function VoiceNote({
                       variant="ghost"
                       size="icon-sm"
                       data-testid="voice-note-archive-delete"
-                      onClick={() => persistArchive(removeVoiceNote(archived, note.id))}
+                      onClick={() => void removeNote(note.id)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>

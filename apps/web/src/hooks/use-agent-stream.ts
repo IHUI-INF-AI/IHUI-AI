@@ -14,6 +14,15 @@ import {
   type SseFrameAccumulator,
   type SseTailAccount,
 } from '@ihui/shared/utils/sse-frame-accumulator'
+// G-102(2026-10-18 接线):内容失败与传输失败分档。这三个出口在 shared 里判据
+// 早已全绿,但生产面消费者为 0 ⇒ "判据挂在半空";本 hook 的重连编排
+// (tryReconnect)是它们的第一个生产面消费者 —— 内容故障不进重连阶梯,
+// 因为 resume 只会把同一批被拒的 delta 再投一遍,必然再被拒。
+import {
+  createStreamFaultTracker,
+  describeFaultTier,
+  shouldSkipResumeLadder,
+} from '@ihui/shared/chat'
 import { getStreamBaseUrl, getToken } from '@/lib/api'
 
 /**
@@ -203,6 +212,10 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
   const lastInputRef = useRef<Record<string, unknown> | undefined>(undefined)
   const reconnectAttemptRef = useRef(0)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // G-102:本 flight(一次 start→收尾)的失败分档账。内容故障一旦出现过,
+  // 终态就归内容故障(后续瞬态不得洗白)—— 判据与洗白锁都在 shared 的
+  // stream-fault-tier,这里只持有账本并按它的结论放行/拒发重连。
+  const faultTrackerRef = useRef(createStreamFaultTracker())
   // start 函数 ref(供重连递归调用,避免闭包陈旧)
   const startRef = useRef<(input?: Record<string, unknown>) => void>(() => {})
 
@@ -252,6 +265,11 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       receivedDoneRef.current = false
       receivedAnyEventRef.current = false
       userStoppedRef.current = false
+      // G-102:新 flight 开一本新账(重连那轮沿用上轮读数,与 tailAccount 同口径 ——
+      // 沿用才能让"先内容后瞬态 ⇒ 终态归内容"的洗白锁在跨重连时依然成立)。
+      if (reconnectAttemptRef.current === 0) {
+        faultTrackerRef.current = createStreamFaultTracker()
+      }
       lastInputRef.current = input
       // 主动 start 时重置重连计数(但重连内部调用 start 时不重置)
       // 用 reconnectAttemptRef > 0 判断是否为重连调用
@@ -361,6 +379,10 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
         if (!autoReconnectRef.current) return
         if (userStoppedRef.current) return
         if (receivedDoneRef.current) return
+        // G-102:内容故障闸门。本次 flight 出现过确定性内容故障 ⇒ 拒发重连:
+        // resume 阶梯只会把同一批被拒的 delta 再投一遍,必然再被拒(上游
+        // conversationProjectionStore.ts:785-790 同型结论)。纯瞬态/无失败 ⇒ 放行。
+        if (shouldSkipResumeLadder(faultTrackerRef.current)) return
         if (reconnectAttemptRef.current >= MAX_RECONNECT_ATTEMPTS) {
           setReconnectAttempt(0)
           reconnectAttemptRef.current = 0
@@ -397,8 +419,12 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
 
           if (!res.ok || !res.body) {
             const msg = `HTTP ${res.status}`
-            cbRef.current.onError?.(msg)
-            setState((s) => ({ ...s, error: msg }))
+            // G-102:HTTP 失败也要入账,且消息带分档(内容故障明说重试无意义) —— 4xx 白名单(400/404/413/422)是确定性内容
+            // 故障,重连无意义;5xx/网络类不入白名单 ⇒ 瞬态,重连仍被允许。
+            faultTrackerRef.current.record({ status: res.status })
+            const tiered = describeFaultTier(msg, faultTrackerRef.current)
+            cbRef.current.onError?.(tiered)
+            setState((s) => ({ ...s, error: tiered }))
             setIsStreaming(false)
             // HTTP 错误也尝试重连
             tryReconnect()
@@ -455,8 +481,12 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
             return
           }
           const msg = err instanceof Error ? err.message : String(err)
-          cbRef.current.onError?.(msg)
-          setState((s) => ({ ...s, error: msg }))
+          // G-102:网络异常入账 —— Error 形状不含 code/status 白名单字段 ⇒ 瞬态,
+          // 重连仍被允许(反向锁:不能把"该重试的"也一起拦死)。
+          faultTrackerRef.current.record(err)
+          const tiered = describeFaultTier(msg, faultTrackerRef.current)
+          cbRef.current.onError?.(tiered)
+          setState((s) => ({ ...s, error: tiered }))
           // 网络错误尝试重连
           tryReconnect()
         } finally {

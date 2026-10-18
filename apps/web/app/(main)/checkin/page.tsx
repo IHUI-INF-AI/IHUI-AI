@@ -26,6 +26,7 @@ import {
   CheckCheck,
   ChevronDown,
   FolderPen,
+  Globe,
   KeyRound,
   Laptop,
   Loader2,
@@ -85,6 +86,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -94,7 +96,11 @@ import {
   checkinCaptureWorkbuddy,
   checkinCaptureMinimax,
   openExternalUrl,
+  openEmbeddedBrowser,
+  closeEmbeddedBrowser,
   WB_WEB_LOGIN_URL,
+  checkinWorkbuddyWebLoginProbe,
+  checkinWorkbuddyWebLoginProbeCookie,
   checkinDetectTraeDir,
   checkinGetPublicIp,
   checkinOneClickResetAll,
@@ -240,14 +246,16 @@ export default function CheckinPage() {
   const [wbCapturedSelected, setWbCapturedSelected] = React.useState<Set<string>>(new Set())
   const [wbTokenDrafts, setWbTokenDrafts] = React.useState<Record<string, string>>({})
 
-  // WorkBuddy 网页登录(2026-10-17 默认浏览器版,李总定档「点击后要打开默认浏览器」):
-  // 点「网页登录」→ openExternalUrl 用系统默认浏览器打开真实登录页(WB_WEB_LOGIN_URL)
-  // → 用户在**自己的浏览器**里完成登录(手机号/扫码)→ 回到此处把浏览器里的登录
-  // Cookie 粘贴进框导入。默认浏览器的 Cookie 有浏览器安全隔离,应用读不到
-  // (这也是 2026-10-16 内嵌浏览器方案能自动导入的原因),故收尾改为粘贴导入,
-  // 与发布账号 ScanLoginDialog 的「默认浏览器登录 + 手动导 cookies」闭环同款。
+  // WorkBuddy 网页登录(2026-10-18 自动闭环版,李总口径「登录后要自动获取授权与
+  // 信息并跳回我们程序」):默认浏览器登录后应用读不到它的 cookie jar(浏览器安全
+  // 隔离),流程只能停在「用户手动粘 Cookie」,既拿不到账号信息也回不来 —— 那是
+  // 2026-10-17 旧版的形态。本版主入口改走**项目内嵌浏览器**(WebView2 cookie jar
+  // 归我们):开登录页 → 主窗轮询 probe(有 IPC,2.5s 同拍)→ 服务端
+  // /console/accounts 验登录态取 uid/昵称 → 自动关登录窗 + 入库(记录好账号)
+  // → 回到签到页。默认浏览器那条路保留下级入口(需手动粘 Cookie,粘贴时同样先
+  // 探测账号再入库,账号信息不缺位)。
   // 嵌入模式(签到页跑在内嵌浏览器内容页里)不受影响:无 IPC,仍走哨兵导航 +
-  // Rust 看 cookie jar 自动回填(startWbWebLoginEmbed),自动导入能力保留。
+  // Rust 看护 cookie jar 自动回填(startWbWebLoginEmbed),自动导入能力保留。
   const [wbWebLoginState, setWbWebLoginState] = React.useState<
     'idle' | 'waiting' | 'importing' | 'done' | 'closed'
   >('idle')
@@ -255,11 +263,13 @@ export default function CheckinPage() {
   /** 用户粘贴的登录 Cookie(waiting 态展示输入框) */
   const [wbPasteDraft, setWbPasteDraft] = React.useState('')
 
-  // 取消网页登录(改主意时的出口):清空粘贴草稿 + 复位状态。
+  // 取消网页登录(改主意时的出口):清空粘贴草稿 + 复位状态 + 关掉可能开着的
+  // 内嵌登录窗(主窗模式;嵌入页无 IPC,close 静默失败不影响复位)。
   const cancelWbWebLogin = React.useCallback(() => {
     setWbPasteDraft('')
     setWbWebLoginState('closed')
     setWbWebLoginMsg(t('captureWbWebCancelled'))
+    void closeEmbeddedBrowser()
   }, [t])
 
   // 内嵌浏览器内容页检测(2026-10-17):内嵌浏览器的工具条注入脚本(BAR_JS)只
@@ -732,11 +742,67 @@ export default function CheckinPage() {
     return true
   }
 
-  // WorkBuddy 网页登录(2026-10-17 默认浏览器版):点「网页登录」→ 系统默认浏览器
-  // 打开真实登录页(WB_WEB_LOGIN_URL,/login/ 扫码/账号密码;裸 origin 是营销首页,
-  // 2026-10-15 实证修正)。默认浏览器 Cookie 有安全隔离、应用读不到 ⇒ 无自动轮询,
-  // 登录完成后由用户把 Cookie 粘贴进下方输入框导入(importWbPastedCookie)。
+  // WorkBuddy 网页登录(2026-10-18 自动闭环版,李总口径「登录后要自动获取授权与
+  // 信息并跳回我们程序」):默认浏览器登录后应用读不到它的 cookie jar(浏览器安全
+  // 隔离),流程只能停在「用户手动粘 Cookie」,既拿不到账号信息也回不来 —— 那是
+  // 2026-10-17 旧版的形态。本版主入口改走**项目内嵌浏览器**(WebView2 cookie jar
+  // 归我们):开登录页 → 主窗轮询 probe(有 IPC,2.5s 同拍)→ 服务端
+  // /console/accounts 验登录态取 uid/昵称 → 自动关登录窗 + 入库(记录好账号)
+  // → 回到签到页。默认浏览器那条路保留下级入口(需手动粘 Cookie,粘贴时同样先
+  // 探测账号再入库,账号信息不缺位)。
   const startWbWebLogin = async () => {
+    setCaptureError(null)
+    setWbWebLoginState('waiting')
+    setWbWebLoginMsg(t('captureWbWebWaiting'))
+    const err = await openEmbeddedBrowser(WB_WEB_LOGIN_URL, 'WorkBuddy 网页登录')
+    if (err) {
+      setWbWebLoginState('closed')
+      setWbWebLoginMsg(err)
+    }
+  }
+
+  // 主窗内嵌浏览器登录看护(2026-10-18):waiting 态下轮询内嵌窗 cookie jar,
+  // 登录成功即自动关窗 + 入库;用户关窗(no_window)即结束等待,不无限转圈。
+  // 嵌入模式(签到页本身在内嵌浏览器里)没有 IPC,不走本 effect,由 Rust 看护 +
+  // 哨兵导航那条链路闭环(见 embedded_browser.rs)。
+  // importWbProbeAccounts 走 ref 取最新:它是每次渲染的新闭包,直接进依赖会让
+  // effect 随每次渲染重建、轮询 timer 反复清零(铁律:禁引用依赖进 effect)。
+  const importWbProbeRef = React.useRef(importWbProbeAccounts)
+  React.useEffect(() => {
+    importWbProbeRef.current = importWbProbeAccounts
+  })
+  React.useEffect(() => {
+    if (!desktop || embedBrowser || wbWebLoginState !== 'waiting') return
+    let stopped = false
+    const poll = async () => {
+      if (stopped) return
+      try {
+        const probe = await checkinWorkbuddyWebLoginProbe()
+        if (stopped) return
+        if (probe.status === 'ok') {
+          stopped = true
+          await closeEmbeddedBrowser()
+          const ok = await importWbProbeRef.current(probe)
+          if (ok) setWbCaptureOpen(false)
+        } else if (probe.status === 'no_window') {
+          stopped = true
+          setWbWebLoginState('closed')
+          setWbWebLoginMsg(t('captureWbWebCancelled'))
+        }
+      } catch {
+        // 瞬态(窗口未建好/网络抖动):下一轮再试
+      }
+    }
+    const timer = setInterval(() => void poll(), 2500)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+    }
+  }, [desktop, embedBrowser, wbWebLoginState, t])
+
+  // 系统默认浏览器打开登录页(下级入口,2026-10-18):浏览器安全隔离 ⇒ 应用读不到
+  // 它的 cookie,登录完成后由用户把 Cookie 粘贴进下方输入框导入(importWbPastedCookie)。
+  const startWbWebLoginSystemBrowser = async () => {
     setCaptureError(null)
     setWbWebLoginMsg(t('captureWbWebWaiting'))
     const opened = await openExternalUrl(WB_WEB_LOGIN_URL)
@@ -748,17 +814,49 @@ export default function CheckinPage() {
     setWbWebLoginState('waiting')
   }
 
-  // 粘贴 Cookie 导入(2026-10-17 默认浏览器版的收尾一步):宽容清洗(去「Cookie:」
-  // 前缀)后入库;Cookie 的签到可用性无本地验证通道,由 captureWbWebCheckinUncertain
-  // 如实告知(无效 Cookie 会在首次签到 401 → SessionDead 冷却兜底提示重登)。
+  // 粘贴 Cookie 导入(2026-10-18:默认浏览器下级入口的收尾一步,李总口径
+  // 「记录好账号」):宽容清洗(去「Cookie:」前缀)后,先用该 Cookie 走服务端
+  // /console/accounts 探测 uid/昵称 —— 探测得到 ⇒ 按账号逐条入库(name=昵称、
+  // device_map 带 uid/nickname);探测不到账号(未登录/已过期)⇒ 如实拒绝入库,
+  // 不落无名账号;IPC 不可用(非桌面/嵌入页)⇒ 回落单条入库并明说账号未记录。
   const importWbPastedCookie = async () => {
-    const cookie = wbPasteDraft.trim().replace(/^cookie\s*:\s*/i, '').trim()
+    const cookie = wbPasteDraft
+      .trim()
+      .replace(/^cookie\s*:\s*/i, '')
+      .trim()
     if (!cookie) {
       setWbWebLoginMsg(t('captureWbWebPasteRequired'))
       return
     }
     setWbWebLoginState('importing')
     setWbWebLoginMsg(t('captureWbWebImporting'))
+    if (desktop) {
+      try {
+        const probe = await checkinWorkbuddyWebLoginProbeCookie(cookie)
+        if (probe.status === 'ok' && probe.accounts.length > 0) {
+          const ok = await importWbProbeAccounts({
+            cookie: probe.cookie,
+            accounts: probe.accounts,
+            cookie_checkin_ok: probe.cookie_checkin_ok,
+          })
+          if (ok) {
+            setWbPasteDraft('')
+            setWbCaptureOpen(false)
+          }
+          return
+        }
+        // 探测不到账号:Cookie 无效/过期/服务端结构变化,拒绝落无名账号
+        setWbWebLoginState('closed')
+        const reason =
+          probe.status === 'not_logged_in' || probe.status === 'error' ? probe.message : ''
+        setWbWebLoginMsg(
+          reason ? `${t('captureWbWebPasteInvalid')}(${reason})` : t('captureWbWebPasteInvalid'),
+        )
+        return
+      } catch {
+        // IPC 异常:回落单条入库(账号信息缺位,明说)
+      }
+    }
     try {
       await createCheckinAccount({
         name: t('captureWbPasteName'),
@@ -770,9 +868,7 @@ export default function CheckinPage() {
       setWbWebLoginState('done')
       setWbWebLoginMsg('')
       setWbPasteDraft('')
-      setBatchNotice(
-        `${t('captureWbWebDone', { count: 1 })} ${t('captureWbWebCheckinUncertain')}`,
-      )
+      setBatchNotice(`${t('captureWbWebDone', { count: 1 })} ${t('captureWbWebAccountMissing')}`)
       await loadAll()
       setWbCaptureOpen(false)
     } catch (e) {
@@ -805,6 +901,18 @@ export default function CheckinPage() {
     return () => clearTimeout(timer)
   }, [embedBrowser, wbWebLoginState, t])
 
+  // 工具栏「网页登录」下拉的 WorkBuddy 项入口(2026-10-18 四平台收口):
+  // 桌面主窗 = 开捕获对话框 + 唤起默认浏览器登录页;嵌入模式 = 走哨兵导航
+  // (无 IPC),把流程归到一处,免得两个入口各写一份分支。
+  const openWbWebLoginEntry = () => {
+    if (embedBrowser) {
+      startWbWebLoginEmbed()
+      return
+    }
+    openWbCapture()
+    void startWbWebLogin()
+  }
+
   // 嵌入模式结果接收(2026-10-17):Rust 登录成功后把登录标签导航到
   // /checkin#wb_import=<percent-encoded JSON>(fragment 不发往服务端,纯页面内
   // 消费),这里解析后走共用导入体入库,再清 hash 防刷新重导。
@@ -829,14 +937,15 @@ export default function CheckinPage() {
       }
       // 先清 hash 再入库:导入中途再触发(importing 重渲染等)不会重复导入
       clearHash()
-      await importWbProbeAccounts(probe)
+      await importWbProbeRef.current(probe)
     }
     void importFromHash()
     window.addEventListener('hashchange', importFromHash)
     return () => window.removeEventListener('hashchange', importFromHash)
-    // importFromHash 闭包随渲染取最新的 importWbProbeAccounts;hash 即清 ⇒
-    // 重复执行空转,依赖从宽不致错。
-  }, [ready, allow, t, groupFilter, loadAll, importWbProbeAccounts])
+    // importFromHash 闭包随渲染取最新的 importWbProbeAccounts(走 ref,禁引用依赖
+    // 进 effect 数组:它是每次渲染的新闭包,会让本 effect 反复重建);hash 即清 ⇒
+    // 重复执行空转,其余依赖从宽不致错。
+  }, [ready, allow, t, groupFilter, loadAll])
 
   // ================== 本机 TRAE 维护(桌面端专属,WP-C) ==================
 
@@ -1852,78 +1961,83 @@ export default function CheckinPage() {
             {creditsRefreshing.size > 0 && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
             {t('creditRefreshAll')}
           </Button>
-          {/* 2026-10-17 恢复独立显眼入口(用户反馈"找不到网页登录"):
-              「从本机捕获」下拉对普通用户藏得太深,「网页登录 WorkBuddy」
-              提为工具栏一级按钮 —— 打开捕获对话框即在系统默认浏览器进入
-              登录流程,不再需要两步。
-              嵌入模式(内嵌浏览器内容页)同样给出该入口:走哨兵导航流程
-              (startWbWebLoginEmbed),与桌面主窗的 IPC 轮询流程共用状态机。 */}
-          {(desktop || embedBrowser) && (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={
-                wbWebLoginState === 'importing' ||
+          {/* 四平台总入口(2026-10-18 李总口径:「网页登录」下拉要能选平台)。
+              一个下拉收口全部添加通道,菜单项右侧标注该平台实际走的通道 ——
+              WorkBuddy 走网页登录(系统默认浏览器打开登录页 → 粘 Cookie 导入),
+              TRAE/Qoder/MiniMax Code 走各自的本机捕获。
+              **为什么不给那三家也做网页登录**:它们的签到凭据是客户端本地的
+              设备级 token(TRAE 的 Cloud-IDE-JWT 存在客户端库、Qoder 的 device
+              token 在 auth.v1.dat、MiniMax 的 access_token 在客户端 auth 文件),
+              网页端登录不产生同款凭据 ⇒ 网页登录那条路对它们根本不成立。
+              与其给三个点进去才发现走不通的死按钮,不如在菜单里就把真实
+              通道标出来(失效方向必须是「多要一次定向说明」,不能是「多放一次
+              跳门」)。waiting 态不展开菜单:整条入口收束成一个「取消」按钮,
+              与对话框内的取消同语义(嵌入模式无 IPC 取消通道 ⇒ 禁用)。 */}
+          {(desktop || embedBrowser) &&
+            (wbWebLoginState === 'waiting' ? (
+              <Button
+                variant="outline"
+                size="sm"
                 // 嵌入模式 waiting 不可再点:没有「取消」IPC 通道(见 startWbWebLoginEmbed)
-                (embedBrowser && wbWebLoginState === 'waiting')
-              }
-              onClick={() => {
-                if (embedBrowser) {
-                  startWbWebLoginEmbed()
-                  return
-                }
-                // waiting 态再点 = 改主意取消(与对话框内取消同语义);否则开启流程
-                if (wbWebLoginState === 'waiting') {
-                  void cancelWbWebLogin()
-                  return
-                }
-                openWbCapture()
-                void startWbWebLogin()
-              }}
-            >
-              {(wbWebLoginState === 'importing' ||
-                (embedBrowser && wbWebLoginState === 'waiting')) && (
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              )}
-              {wbWebLoginState === 'waiting' ? (
-                embedBrowser ? (
-                  <>{t('captureWbWebWaiting')}</>
-                ) : (
-                  <>{t('captureWbWebCancel')}</>
-                )
-              ) : (
-                t('captureWbWebToolbar')
-              )}
-            </Button>
-          )}
-          {desktop && !embedBrowser && (
-            <>
-              {/* 2026-10-15 收敛为下拉(机主口径):各平台平铺按钮占一排,改成单一
-                  「从本机捕获」下拉,菜单项按平台名直列;TRAE/Qoder/WorkBuddy 三个对话框
-                  本体不动。2026-10-17 补第四平台 MiniMax Code:单账号零选择,点一下
-                  捕获即入库(无对话框),故这里只有它不是 openXxxCapture 形态。 */}
+                disabled={embedBrowser}
+                onClick={() => void cancelWbWebLogin()}
+              >
+                {embedBrowser ? t('captureWbWebWaiting') : t('captureWbWebCancel')}
+              </Button>
+            ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Laptop className="mr-1 h-4 w-4" />
-                    {t('captureTitle')}
+                  <Button variant="outline" size="sm" disabled={wbWebLoginState === 'importing'}>
+                    {wbWebLoginState === 'importing' && (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    )}
+                    <Globe className="mr-1 h-4 w-4" />
+                    {t('captureWebLogin')}
                     <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-60" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="p-1">
-                  <DropdownMenuItem onClick={() => void openCapture()}>TRAE</DropdownMenuItem>
-                  <DropdownMenuItem onClick={openWbCapture}>WorkBuddy</DropdownMenuItem>
-                  <DropdownMenuItem onClick={openQoderCapture}>Qoder</DropdownMenuItem>
-                  <DropdownMenuItem disabled={importing} onClick={() => void runMinimaxCapture()}>
-                    MiniMax Code
+                  {/* 平台名是品牌名,与平台徽章同规矩:不进 i18n(见 renderPlatformBadge) */}
+                  <DropdownMenuItem onClick={openWbWebLoginEntry}>
+                    <span>WorkBuddy</span>
+                    <span className="ml-auto pl-3 text-xs text-muted-foreground">
+                      {t('captureMethodWeb')}
+                    </span>
                   </DropdownMenuItem>
+                  {desktop && !embedBrowser && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => void openCapture()}>
+                        <span>TRAE</span>
+                        <span className="ml-auto pl-3 text-xs text-muted-foreground">
+                          {t('captureMethodLocal')}
+                        </span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={openQoderCapture}>
+                        <span>Qoder</span>
+                        <span className="ml-auto pl-3 text-xs text-muted-foreground">
+                          {t('captureMethodLocal')}
+                        </span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={importing}
+                        onClick={() => void runMinimaxCapture()}
+                      >
+                        <span>MiniMax Code</span>
+                        <span className="ml-auto pl-3 text-xs text-muted-foreground">
+                          {t('captureMethodLocal')}
+                        </span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button variant="outline" size="sm" onClick={() => void openMaint()}>
-                <Wrench className="mr-1 h-4 w-4" />
-                {t('maintTitle')}
-              </Button>
-            </>
+            ))}
+          {desktop && !embedBrowser && (
+            <Button variant="outline" size="sm" onClick={() => void openMaint()}>
+              <Wrench className="mr-1 h-4 w-4" />
+              {t('maintTitle')}
+            </Button>
           )}
         </div>
       </div>
@@ -3043,8 +3157,11 @@ export default function CheckinPage() {
                 {captureError}
               </p>
             )}
-            {/* 网页登录(推荐,2026-10-17 默认浏览器版):系统默认浏览器打开登录页,
-                登录完成后把 Cookie 粘贴到下方导入(浏览器安全隔离,无法自动读取) */}
+            {/* 网页登录(2026-10-18 自动闭环版):主入口 = 项目内嵌浏览器打开
+                登录页 → 登录成功后自动获取授权与账号信息(uid/昵称)并自动回到
+                本页入库(cookie jar 归应用,无需粘贴);下级入口 = 系统默认浏览器
+                打开(浏览器安全隔离,应用读不到它的 Cookie,需手动粘贴导入,
+                粘贴时同样先探测账号再入库) */}
             <div className="space-y-2 rounded-sm border bg-muted/40 p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
@@ -3052,25 +3169,46 @@ export default function CheckinPage() {
                   <p className="text-xs text-muted-foreground">{t('captureWbWebDescription')}</p>
                 </div>
                 {wbWebLoginState === 'waiting' ? (
-                  // 改主意时的取消出口:清粘贴草稿 + 复位状态
-                  <Button size="sm" variant="outline" onClick={cancelWbWebLogin}>
-                    {t('captureWbWebCancel')}
-                  </Button>
+                  // 等待态仍保留「系统浏览器打开」:内嵌窗里登录嫌麻烦(扫码/风控)时
+                  // 不必先取消再换入口,一键切默认浏览器 + 粘贴导入(2026-10-18)。
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={cancelWbWebLogin}>
+                      {t('captureWbWebCancel')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void startWbWebLoginSystemBrowser()}
+                    >
+                      {t('captureWbWebOpen')}
+                    </Button>
+                  </div>
                 ) : (
-                  <Button
-                    size="sm"
-                    disabled={wbWebLoginState === 'importing'}
-                    onClick={() => void startWbWebLogin()}
-                  >
-                    {wbWebLoginState === 'importing' && (
-                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                    )}
-                    {t('captureWbWebOpen')}
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      size="sm"
+                      disabled={wbWebLoginState === 'importing'}
+                      onClick={() => void startWbWebLogin()}
+                    >
+                      {wbWebLoginState === 'importing' && (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      )}
+                      {t('captureWbWebEmbed')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={wbWebLoginState === 'importing'}
+                      onClick={() => void startWbWebLoginSystemBrowser()}
+                    >
+                      {t('captureWbWebOpen')}
+                    </Button>
+                  </div>
                 )}
               </div>
               {wbWebLoginState === 'waiting' && (
-                // 登录完成后的收尾一步:粘贴浏览器里的登录 Cookie 导入
+                // 系统浏览器路径的收尾一步:把浏览器里的登录 Cookie 粘进来导入
+                // (内嵌浏览器自动路径不显示此框:登录成功即自动入库)
                 <div className="flex items-center gap-2">
                   <Input
                     data-testid="wb-paste-input"
@@ -3079,10 +3217,7 @@ export default function CheckinPage() {
                     placeholder={t('captureWbWebPastePlaceholder')}
                     className="h-8 min-w-0 flex-1 text-xs"
                   />
-                  <Button
-                    size="sm"
-                    onClick={() => void importWbPastedCookie()}
-                  >
+                  <Button size="sm" onClick={() => void importWbPastedCookie()}>
                     {t('captureWbWebPasteImport')}
                   </Button>
                 </div>

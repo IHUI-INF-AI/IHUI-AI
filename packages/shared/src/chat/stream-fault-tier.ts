@@ -120,4 +120,29 @@ export function resolveStreamRecoveryDecision(
   // 纯瞬态:contentEligible 刻意**不置**——该重试的重试
   return { strategy: 'resume', tier }
 }
+
+/**
+ * 接线便捷判定:内容故障 ⇒ **不走 resume/重连阶梯**(重投只会把同一批被拒的
+ * delta 再投一遍,必然再被拒);纯瞬态 ⇒ 走阶梯(该重试的重试);无失败 ⇒ 走阶梯。
+ *
+ * 薄封装:不重复判据,只把 `resolveStreamRecoveryDecision` 的 strategy 折成
+ * 一个布尔给编排面用。**这个出口存在的理由**是 G-102 上一轮的否证形态:
+ * 三个判据全绿但生产面消费者为 0 ⇒ 判据挂在半空。编排面消费者见
+ * `apps/web/src/hooks/use-agent-stream.ts` 的 tryReconnect。
+ */
+export function shouldSkipResumeLadder(tracker: StreamFaultFlightTracker): boolean {
+  return resolveStreamRecoveryDecision(tracker)?.strategy === 'force-snapshot';
+}
+
+/**
+ * 把分档标进错误消息 —— 票面验收①「终态标 content」在文案面的落点。
+ *
+ * 只标内容故障(明说"重试无意义",别让用户对着同一句话反复点重试);
+ * 瞬态与无失败**原样返回**:反向锁,不能把"网络抖动,再试一次就好"也改成
+ * 一句吓人的话。
+ */
+export function describeFaultTier(raw: string, tracker: StreamFaultFlightTracker): string {
+  if (tracker.terminalTier !== 'content') return raw
+  return `${raw}(内容故障,重试无意义)`
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

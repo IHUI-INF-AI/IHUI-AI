@@ -2234,6 +2234,13 @@
       "when": 1792285200000,
       "tag": "20261018090000_notifications_archived_at",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 320,
+      "when": 1792300800000,
+      "tag": "20261018132000_chat_voice_notes",
+      "breakpoints": true
     }
   ]
 }

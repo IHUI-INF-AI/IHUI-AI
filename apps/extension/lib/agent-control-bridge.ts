@@ -47,6 +47,24 @@ const CAPABILITY_INTERVAL_MIN = 1
 const TOKEN_RETRY_MS = 5000
 const VERSION = '1.0.0'
 
+/**
+ * 浏览器选择器族能力上报清单(刻意手抄,不照下方 BROWSER_PAGE_ACTIONS 那样从运行时源派生;
+ * 2026-09 取证后否决"派生"方案,非疏漏——台账 L10335)。
+ *
+ * 与 page 族的差别就在"有没有一个只含本族、且本端可直接 import 的运行时单一真相源":
+ * page 族有 @ihui/dom-actions 的 `PAGE_ACTIONS` 可派生;这 12 个动词没有——
+ *   - 8 个纯 DOM 动词(click_element/type_text/scroll/extract_dom/wait_for_element/
+ *     get_attribute/hover/select_option)在 `@ihui/dom-actions` 的 `DOM_ACTIONS`,但那是个
+ *     `BrowserControlActionType | PageActionType` 的混合集,里面还并了 7 个 page_* 动词,
+ *     直接拿来当选择器族上报会把句柄族也串进 browserActions;
+ *   - 另 4 个 screenshot/navigate/switch_tab/close_tab 是本扩展私有的 `BACKGROUND_ACTIONS`
+ *     (依赖 chrome.* tabs/debugger,不能下沉到共享包);
+ *   - packages/types 只有编译期 union `BrowserControlActionType`、无运行时数组,且类型包
+ *     不得反向依赖 dom-actions/extension。
+ * 两族子集散落在不同层、无纯净并集源 ⇒ 能力上报只能在此手写。类型标注
+ * `BrowserControlActionType[]` 只对"多写/错字/越界"方向编译期报错;union 新增动词而本清单
+ * 漏加没有编译期看守(手抄固有取舍),故新增浏览器动词时须同步本数组。
+ */
 const BROWSER_ACTIONS: BrowserControlActionType[] = [
   'screenshot',
   'click_element',

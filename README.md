@@ -5683,3 +5683,29 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 自检 `node --test scripts/tests/check-version-drift.test.mjs`(13/13,每条判据都配了能被它抓住的反例)。
 立因:桌面下载页与更新器 feed 曾静默停在 0.1.54 四天,而仓库已发到 0.1.58;
 同一时期安卓侧三处版本号互相矛盾、Capacitor 壳写死 `"1.0"` 从不跟真实版本走。
+| 指标 | 现值 | 取数键 |
+| ---- | ---- | ------ |
+| 数据库表 | 596 | `dbTables` |
+| schema 文件 | 229 | `dbSchemaFiles` |
+| API 路由 | 4420 | `apiRoutes` |
+| 路由文件 | 595 | `apiRouteFiles` |
+| AI 服务路由 | 576 | `aiServiceRoutes` |
+| WebSocket 端点 | 25 | `wsEndpoints` |
+| 入库模型清单 | 118 | `llmModels` |
+| 发布平台 | 38 | `publishPlatforms` |
+| 端应用包 | 9 | `appPackages` |
+| 共享包 | 16 | `sharedPackages` |
+| CLI 命令文件 | 66 | `cliCommandFiles` |
+| CLI 工具文件 | 71 | `cliToolFiles` |
+| 语言 | 5 | `i18nLanguages` |
+| i18n 作用域 | 7 | `i18nScopes` |
+| 语言包 JSON | 35 | `i18nMessageFiles` |
+| 测试文件 | 2887 | `testFiles` |
+| CI 工作流 | 48 | `ciWorkflows` |
+| Compose 服务 | 15 | `composeServices` |
+| 工程守门 | 254 | `guardianGates` |
+| — blocking | 231 | `guardianBlocking` |
+| — warn | 26 | `guardianWarn` |
+| 跟踪文件 | 14925 | `trackedFiles` |
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-18。
+|                   | 会话内快捷笔记        | 录音 12 相状态机 / 转写落库(chat_voice_notes)/ 归档可撤销 / 分组与关键词检索走 SQL 谓词 / 一键插入对话输入框(web 已挂进输入区;小程序端按"平台独占:录音 API 差异"豁免) |
