@@ -116,9 +116,11 @@ jobs:
             arch: arm64
             runner: ubuntu-latest
             asset_name: ihui-linux-arm64.tar.gz
+          # macos-13 已退役(2025-12-04,GitHub 官方 changelog),x64 唯一免费标准标签=macos-15-intel;
+          # 用 macos-latest 会拿到 Apple Silicon,产出 arm64 产物与 asset_name 不符
           - os: macos
             arch: x64
-            runner: macos-13
+            runner: macos-15-intel
             asset_name: ihui-macos-x64.tar.gz
           - os: macos
             arch: arm64
