@@ -1057,7 +1057,7 @@ def _local_auto_eligible(model_id: str, health: Any) -> bool:
     """
     if not any(model_id.startswith(p) for p in _LOCAL_PREFIXES):
         return True
-    return health.is_available(model_id.split("/", 1)[0])
+    return bool(health.is_available(model_id.split("/", 1)[0]))
 
 
 def _assemble_auto_candidates(
@@ -1406,8 +1406,8 @@ async def _resolve_auto_model(
                 has_tools=has_tools,
             )
             if complexity in (TaskComplexity.COMPLEX, TaskComplexity.EXPERT):
-                if premium_top:
-                    candidates = [premium_top]
+                if plan.premium_top:
+                    candidates = [plan.premium_top]
                     logger.info(
                         "[auto-route] 任务复杂度=%s,路由升级到高级模型 %s",
                         complexity.value, candidates[0],
@@ -1453,10 +1453,13 @@ async def _resolve_auto_model(
         )
 
         chosen = candidates[0] if candidates else fallback
+        # 日志只打印当下真取得到的量:三个分桶池(free/cheap/premium)在票85② 重构后
+        # 已收进 plan(纯函数内部局部变量),此处不再引用它们 —— 引用不存在的局部名会
+        # NameError 被外层 except 吞成"自动路由失败",使每次成功路由都降级到 fallback。
         logger.info(
-            "[auto-route] auto → %r (candidates=%d, free=%d, cheap=%d, premium=%d, has_tools=%s)",
-            chosen, len(candidates), len(free_pool), len(cheap_pool),
-            len(premium_pool), has_tools,
+            "[auto-route] auto → %r (candidates=%d, relaxed=%d, premium_present=%s, has_tools=%s)",
+            chosen, len(candidates), len(plan.relaxed),
+            bool(plan.premium_top), has_tools,
         )
         return chosen
     except Exception as e:
