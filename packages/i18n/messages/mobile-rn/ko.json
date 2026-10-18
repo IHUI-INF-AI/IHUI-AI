@@ -1,4 +1,45 @@
 {
+  "workflows": {
+    "title": "워크플로우",
+    "empty": "워크플로우가 없습니다",
+    "loadFailed": "워크플로우를 불러오지 못했습니다"
+  },
+  "automations": {
+    "title": "자동화",
+    "empty": "자동화 작업이 없습니다",
+    "loadFailed": "자동화를 불러오지 못했습니다",
+    "active": "활성",
+    "paused": "일시중지",
+    "scheduleOnce": "한 번",
+    "scheduleRecurring": "반복",
+    "lastRun": "마지막 실행",
+    "nextRun": "다음 실행",
+    "prompt": "프롬프트",
+    "noResult": "실행 결과가 없습니다",
+    "rrule": "일정 (RRULE)",
+    "timezone": "시간대"
+  },
+  "dashboard": {
+    "title": "대시보드",
+    "usage": "사용 현황",
+    "cost": "비용 및 수익",
+    "bi": "BI 개요",
+    "errors": "오류 대시보드",
+    "totalUsers": "총 사용자 수",
+    "activeSessions": "활성 세션",
+    "uniqueUsers": "활성 사용자(분석)",
+    "todayEvents": "오늘 이벤트",
+    "todayRevenue": "오늘 수익",
+    "totalRevenue": "총 수익",
+    "totalOrders": "총 주문",
+    "biTotalUsers": "BI 총 사용자",
+    "activeUsers": "활성 사용자",
+    "errorTotal": "총 오류",
+    "errorToday": "오늘 오류",
+    "errorCritical": "심각한 오류",
+    "errorResolved": "해결됨",
+    "loadFailed": "대시보드를 불러오지 못했습니다"
+  },
   "toolApproval": {
     "title": "도구 승인",
     "description": "AI가 다음 고위험 작업을 요청했습니다. 허용하시겠습니까",
@@ -1720,6 +1761,12 @@
     "empty": "멤버 정보가 없습니다"
   },
   "vip": {
+    "benefitList": {
+      "unlimitedChat": "무제한 대화",
+      "exclusiveModel": "전용 모델",
+      "prioritySupport": "우선 지원",
+      "referral": "추천 보상"
+    },
     "subtitle": "멤버십을 개통하고 더 많은 혜택을 누리세요",
     "retry": "재시도",
     "empty": "멤버십 등급 정보가 없습니다",
