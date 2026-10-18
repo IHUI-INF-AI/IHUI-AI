@@ -3,7 +3,7 @@
     "face": "git-guardian 周期守护判红派发",
     "producerPath": "scripts/git-guardian.mjs",
     "inScope": true,
-    "note": "到人邮件的最大一个生产者(今天 28 封那一面);身份一律经 notifyGuardRed 的 dedupKey,投递每一支都落 mail-send-ledger.jsonl。"
+    "note": "到人邮件的最大一个生产者(2026-10-18 的 28 封那一面);身份一律经 notifyGuardRed 的 dedupKey。投递台账**不在这里写** —— 账记在唯一出口 notify-deploy-failure.ts,两处都写就是把一封数成两封。"
   },
   {
     "face": "凭据/部署停摆巡检",
@@ -36,18 +36,16 @@
     "note": "唯一真用 --alert-id 的生产者;身份走 Get-BackupMissedShifts 折档。"
   },
   {
+    "face": "发信唯一出口(所有生产者共用)",
+    "producerPath": "apps/api/scripts/notify-deploy-failure.ts",
+    "inScope": true,
+    "note": "AGENTS §5e 定死「到人只有这一条通道」,守门 81 硬拦自拼 SMTP;投递台账记在这里(schema 2,单一记录点排在所有终态分支之前)。它自己不构造身份 —— 身份由各生产者在自己的面上构造,所以 V1 对它的判据是「必须把 --source/--alert-id 交给出口」这一形态。"
+  },
+  {
     "face": "Alertmanager → 邮件桥",
     "producerPath": "monitoring/alertbridge/alert-webhook-bridge.cjs",
     "inScope": false,
-    "gapReason": "它自持 240 分钟身份窗,身份 = alertname|instance(稳定类别+实例,不含计数/sha/时刻,已现读确认无 V1 型违规);本门的词法器还不认 JS 里 'dedup Map' 这一形态,强行纳入=拿没装好的尺子冒充覆盖。补词法器的活按本条到期日回队列。",
-    "ticket": "告警身份抖动门 224 立项同日射程审计(2026-10-18)",
-    "until": "2026-12-31"
-  },
-  {
-    "face": "发信出口本体(SMTP/Resend)",
-    "producerPath": "apps/api/scripts/notify-deploy-failure.ts",
-    "inScope": false,
-    "gapReason": "它不构造身份,只原样吃调用方的 --title/--alert-id;身份由各生产者构造,在它们自己的面上判(所以这里不是漏扫,而是判据不在这一层)。通道卫生(不自拼 SMTP、正文走 --message-file)归守门 81。",
+    "gapReason": "身份侧不收:它自持 240 分钟身份窗,身份 = alertname|instance(稳定类别 + 实例,已现读确认无 V1 型违规),而本门的词法器还不认 JS 里「dedup Map」这一形态,强行纳入 = 拿没装好的尺子冒充覆盖。投递量侧**已覆盖**:它经唯一出口发信,出口记 schema 2 台账。补词法器的活按本条到期日回队列。",
     "ticket": "告警身份抖动门 224 立项同日射程审计(2026-10-18)",
     "until": "2026-12-31"
   },
@@ -55,7 +53,7 @@
     "face": "签到出站风控告警(ai-service Python)",
     "producerPath": "apps/ai-service/app/services/checkin_outbound.py",
     "inScope": false,
-    "gapReason": "Python 词法未装:身份是 _alert_last_sent 字典的键(取 _fire_alert 首参 kind,常量为固定类别),正文才含 {secs:.0f}s/{reason}。现读确认无 V1 型违规;要纳入必须先把'键=身份、f-string=正文'这条分界做成判据,否则 f-string 里的秒数会被误判成抖动。",
+    "gapReason": "身份侧不收:Python 词法未装 —— 它的身份是 _alert_last_sent 字典的键(取 _fire_alert 首参 kind,常量类别),f-string 里才是正文({secs:.0f}s/{reason});现读确认无 V1 型违规。要纳入必须先把「键=身份、f-string=正文」这条分界做成判据,否则 f-string 里的秒数会被误判成抖动。投递量侧已覆盖(经唯一出口)。",
     "ticket": "告警身份抖动门 224 立项同日射程审计(2026-10-18)",
     "until": "2026-12-31"
   },
@@ -63,7 +61,7 @@
     "face": "CI 蓝绿部署失败信",
     "producerPath": ".github/workflows/blue-green-deploy.yml",
     "inScope": false,
-    "gapReason": "这一面没有 dedupKey/$sig/fingerprint 任何一种身份形态 —— 它的问题是「有没有跨 run 去重能力」而不是「身份抖不抖」:去重状态住在 runner 本地文件(notify-deploy-failure.ts:669),临时 runner 每次从空状态开始,结构性做不到,所以本门判不到它也不必假判。2026-10-18 已把发信步骤改成 --strict:缺 secret/投递失败不再恒 exit 0(那一型是「一封都没寄而步骤是绿的」=§5e 失败必须响在这一格失效)。该 workflow 现读为 workflow_dispatch、全历史 6 次 run ⇒ 每 run 一封是下限也不是风暴源。",
+    "gapReason": "身份侧不收:这一面没有 dedupKey/$sig/fingerprint 任何形态 —— 它的问题是「有没有跨 run 去重能力」(去重状态住 runner 本地文件,临时 runner 每次从空状态起,结构性做不到),不是「身份抖不抖」。2026-10-18 已把发信步骤改成 --strict:缺 secret/投递失败不再恒 exit 0。投递量侧已覆盖:出口记 schema 2 台账,CI 寄的每一封也在账上。该 workflow 现读 workflow_dispatch、全历史 6 次 run ⇒「每失败 run 一封」是下限而非风暴源。",
     "ticket": "告警身份抖动门 224 立项同日射程审计(2026-10-18)",
     "until": "2026-12-31"
   },
@@ -71,7 +69,7 @@
     "face": "CI 每日值守分诊(loop-daily-triage)",
     "producerPath": ".github/workflows/loop-daily-triage.yml",
     "inScope": false,
-    "gapReason": "原先带「通知钉钉」「通知飞书」两步 —— 与 §5e「告警/运维到人只有邮件一条通道,第三方推送腿已整体摘除」矛盾,且不是死代码(workflow 失败 ∧ secret 非空即真 POST;两步各自还有『secret 为空则 exit 0』的分支,让「跳过」与「发了」在 CI 结论上同形)。2026-10-18 已摘除这两步。这一面**至今没有邮件腿**,失败只经 GitHub Actions 自身通知到人,所以它是「无到人通道」而不是「有通道但没被本门扫」;要给这一面装品牌邮件腿属新增能力,按 §24 需机主点头。",
+    "gapReason": "身份侧不收(没有身份形态)。2026-10-18 摘除「通知钉钉」「通知飞书」两步:它们与 §5e「第三方推送腿已整体摘除」矛盾,且不是死代码(workflow 失败 ∧ secret 非空即真 POST;两步各自还有『secret 为空则 exit 0』分支,让「跳过」与「发了」在 CI 结论上同形)。摘除后这一面**没有邮件腿** ⇒ 投递量为 0 也无人记账;要补一条品牌邮件腿属新增能力,按 §24 需机主点头。",
     "ticket": "告警身份抖动门 224 立项同日射程审计(2026-10-18)",
     "until": "2026-12-31"
   }
