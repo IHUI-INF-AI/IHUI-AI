@@ -1681,6 +1681,27 @@ export class ManagedMcpClient {
     this.lastPingAt = 0;
   }
 
+  /**
+   * 命令层手动重连(O46 拍板 B):用户/agent 显式命令,无视当前存活强制断开并重建。
+   * 与 ensureConnected("活则不重连")不同,即便连接健康也重建(对端状态卡死、换配置/凭据等场景)。
+   * 复用 disconnect(推进代次 + 清理旧 SSE/stdio 句柄)与 ensureConnected(走既有在途合并的
+   * reconnect);不引入任何自动 Retry —— 自动重试由失败驱动的指数退避 reconnect 负责,与本"手动命令"
+   * 两条路径互不混用(票面明令:禁为吞错加 Retry 藏红)。
+   */
+  async forceReconnect(): Promise<McpConnection> {
+    await this.disconnect();
+    // 手动重连是用户主动发起的新意图:退避归零(指数退避只服务于失败驱动的自动重连),
+    // 不继承此前失败攒下的 4s/8s 等待。
+    this.reconnectBackoffMs = this.initialBackoffMs;
+    const conn = await this.ensureConnected();
+    // doReconnect 失败时按设计吞掉 connectFn 错误并让 conn=null(留给下一次自动重试),
+    // 但"手动命令"必须把失败如实回报给调用方,不能静默返回 null 被读成成功。
+    if (!conn) {
+      throw new Error(`MCP server 手动重连失败: ${this.server.name}(连接未建立)`);
+    }
+    return conn;
+  }
+
   /** 当前是否 alive:未 markDead 且 30s 内有 ping 或刚连接 */
   isAlive(): boolean {
     if (this.deadMarkedAt > 0) return false;
@@ -1906,6 +1927,20 @@ export function unregisterManagedClient(serverName: string): void {
 /** 获取单个 ManagedMcpClient(不存在返回 undefined) */
 export function getManagedClient(serverName: string): ManagedMcpClient | undefined {
   return managedClients.get(serverName);
+}
+
+/**
+ * 命令层手动重连(ACP `x.ai/mcp/reconnect`,O46 拍板 B):按 serverName 强制断开并重建,
+ * 返回重连后的 client。未注册返回 undefined(调用方转 success=false);
+ * 连接失败时错误原样上抛(调用方降级成 error 回包,不静默吞、不加自动 Retry)。
+ */
+export async function reconnectManagedClient(
+  serverName: string,
+): Promise<ManagedMcpClient | undefined> {
+  const client = managedClients.get(serverName);
+  if (!client) return undefined;
+  await client.forceReconnect();
+  return client;
 }
 
 /** 列出所有 ManagedMcpClient 状态快照 */
