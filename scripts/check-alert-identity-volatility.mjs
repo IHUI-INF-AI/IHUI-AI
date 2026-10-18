@@ -49,7 +49,8 @@
  * 接线状态(2026-10-18 现读,头注与注册条目必须同真同假 —— 脱节即红,镜像测试钉这条):
  * **已接进提交链 = 守门 id 224**(用 `scripts/gate-registry-insert.mjs` 以 HEAD 为底取号插入并同枚落地),
  * 注册条目现读 `mode: 'blocking'` / `skipEnv: 'HUSKY_SKIP_ALERT_IDENTITY'` /
- * `stagedTriggers: ['scripts/','deploy/win/','apps/api/src/']`。敢定 blocking 而不是 warn:提交链上
+ * `stagedTriggers: ['scripts/','deploy/win/','apps/api/src/','apps/api/scripts/']`(最后一项是
+ * 发信唯一出口那一层,由 V3 自己抓出来必须补:出口声明 inScope:true 而射程没有它 = 假覆盖)。
  * 走的是差值棘轮(锚点 = 该文件 HEAD 自身命中数),现读 HEAD 面存量 0 条 + 1 条具名到期豁免,
  * 因此它对无关提交不构成红(§12e 禁的是恒红门,不是"拦新增")。自检 `--self-test`(条数现读,
  * 别在本文钉数),镜像 `scripts/tests/check-alert-identity-volatility.test.mjs`。
@@ -114,7 +115,9 @@ const STATE_RE = /^(?:after\.code|applied\.code|name|stallClass|whyTags|level|ki
 
 /** 射程:会产出"到人发信身份"的文件类型与路径前缀(测试夹具与运行副本不在面内)。 */
 const LANG_RE = /\.(mjs|cjs|js|ts|ps1)$/
-const SCOPE_PREFIXES = ['scripts/', 'deploy/win/', 'apps/api/src/']
+// `apps/api/scripts/` 是发信**唯一出口**所在层(§5e),必须算射程:V3 会把"声明 inScope:true 却
+// 不在射程里"判成假覆盖 —— 2026-10-18 立台账当天就被自己这一维抓到过一次的正是这一格。
+const SCOPE_PREFIXES = ['scripts/', 'deploy/win/', 'apps/api/src/', 'apps/api/scripts/']
 const SKIP_PATH_RE = /(\.test\.|\.spec\.|\.d\.ts$|node_modules|[/\\]tests?[/\\]|[/\\]__tests__[/\\])/
 
 /** 一个文件是不是发信生产者:命中任一构造词才进射程(不命中 = 与身份无关,不判也不报)。 */
