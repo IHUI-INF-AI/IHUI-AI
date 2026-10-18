@@ -10189,6 +10189,16 @@
     "adopted": "已落盤",
     "adoptHint": "把選中候選內容寫入當前對話"
   },
+  "myQuests": {
+    "title": "My Quests 看板",
+    "total": "共 {count} 個任務",
+    "currentWorkspace": "目前工作空間",
+    "empty": "暫無已登記的任務(目標一經設定自動登記)",
+    "assessmentPlaceholder": "記一條自我評估…",
+    "addAssessment": "記錄",
+    "latestAssessment": "最近評估",
+    "noAssessment": "暫無評估記錄"
+  },
   "goalCard": {
     "editAriaLabel": "編輯目標",
     "editSave": "儲存",

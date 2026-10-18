@@ -10189,6 +10189,16 @@
     "adopted": "已落盘",
     "adoptHint": "把选中候选内容写入当前对话"
   },
+  "myQuests": {
+    "title": "My Quests 看板",
+    "total": "共 {count} 个任务",
+    "currentWorkspace": "当前工作空间",
+    "empty": "暂无已登记的任务(目标一经设定自动登记)",
+    "assessmentPlaceholder": "记一条自评估…",
+    "addAssessment": "记录",
+    "latestAssessment": "最近评估",
+    "noAssessment": "暂无评估记录"
+  },
   "goalCard": {
     "editAriaLabel": "编辑目标",
     "editSave": "保存",

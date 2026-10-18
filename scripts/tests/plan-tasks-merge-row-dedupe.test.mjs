@@ -720,8 +720,8 @@ describe('R8 F 维策略表:两份删除档共用一份,且 F3 读的是"指针�
     assert.equal((src.match(/fDimRegressions\(before, after\)/g) ?? []).length, 2, '两份删除档各调一次')
     assert.equal(
       (src.match(/\['F3', \(c\) => c\.rotatedAuto\]/g) ?? []).length,
-      2,
-      '未做同量级对照的两档(恢复终态 / 折叠孪生)刻意保持原样,不得"顺手统一"',
+      3,
+      '未做同量级对照的三档(恢复终态 / 折叠孪生 / 漂开归并 G-1058524)刻意保持原样,不得"顺手统一"',
     )
   })
 })

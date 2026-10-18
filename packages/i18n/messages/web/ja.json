@@ -10189,6 +10189,16 @@
     "adopted": "採用済み",
     "adoptHint": "選択した候補の内容を現在の会話に書き込む"
   },
+  "myQuests": {
+    "title": "マイクエスト",
+    "total": "{count} 件のクエスト",
+    "currentWorkspace": "現在のワークスペース",
+    "empty": "登録済みのクエストはまだありません(目標は自動登録されます)",
+    "assessmentPlaceholder": "自己評価を記録…",
+    "addAssessment": "記録",
+    "latestAssessment": "最新の評価",
+    "noAssessment": "評価はまだありません"
+  },
   "goalCard": {
     "editAriaLabel": "目標を編集",
     "editSave": "保存",
