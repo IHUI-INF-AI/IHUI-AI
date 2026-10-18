@@ -7,7 +7,8 @@
  * 路径: /admin/saas/metrics
  *
  * 内容:
- *  - 顶部:Grafana 多租户对比 dashboard iframe(各租户 CPU/内存曲线叠加)
+ *  - 顶部:多租户对比原生面板(Grafana 退役后由 GrafanaFrame 原生替身渲染
+ *    ihui-ai-tenant-usage 盘,各租户 CPU/内存曲线叠加;运行时不接触 Grafana)
  *  - 中部:横向排序的租户指标表(按 CPU 降序)
  *  - 底部:健康度提示(Prometheus 不可达时降级)
  */
@@ -63,7 +64,7 @@ export default function MetricsComparisonPage() {
         </Button>
       </header>
 
-      {/* 顶部 — Grafana 对比图(无需 var-tenant,展示所有租户) */}
+      {/* 顶部 — 多租户对比原生面板(无需 var-tenant,展示所有租户) */}
       <Card>
         <CardHeader className="pb-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -84,7 +85,7 @@ export default function MetricsComparisonPage() {
         <CardContent>
           <GrafanaFrame
             tenant="__all__"
-            uid="saas-tenant-comparison"
+            uid="ihui-ai-tenant-usage"
             bare
             timeRange="now-3h"
             refresh="30s"
