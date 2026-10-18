@@ -32,7 +32,7 @@ import {
 
 /** 菜单项:共享 MenuItem 基础上把 icon 放宽为远端 URL 或本地 require 资源 ——
  *  2026-10-15 图标本地化后经 require 引入(原生为 number,Metro web 下为 { uri } 资产对象)。 */
-export type MenuEntry = Pick<MenuItem, 'id' | 'name'> & { icon: CarouselSlideImg }
+type MenuEntry = Pick<MenuItem, 'id' | 'name'> & { icon: CarouselSlideImg }
 
 export interface MenuProps {
   items?: MenuEntry[]

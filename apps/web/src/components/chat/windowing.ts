@@ -36,7 +36,7 @@ export const WINDOW_BUFFER_ITEMS = 6
  */
 export const MAX_MOUNTED_ITEMS = 120
 
-export interface WindowRange {
+interface WindowRange {
   readonly start: number
   readonly end: number
 }

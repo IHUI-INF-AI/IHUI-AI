@@ -49,7 +49,7 @@ export interface AgentShopItem {
   userAvatar?: string
 }
 
-export interface AgentShopListProps {
+interface AgentShopListProps {
   items: AgentShopItem[]
   onItemClick: (id: string) => void
   /** 点赞回调(对齐 Uniapp getAgentLike);不传则不渲染点赞按钮 */
