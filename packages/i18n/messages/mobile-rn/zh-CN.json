@@ -309,7 +309,12 @@
     "modelCategoryGuard": "安全审核",
     "modelCategoryOcr": "文字识别",
     "modelCategoryOther": "其他",
-    "partialDoneTitle": "回答被中断,以下内容可能不完整"
+    "partialDoneTitle": "回答被中断,以下内容可能不完整",
+    "pin": "钉选",
+    "unpin": "取消钉选",
+    "bookmark": "收藏",
+    "unbookmark": "取消收藏",
+    "flagFailed": "标记保存失败"
   },
   "settings": {
     "title": "设置",
