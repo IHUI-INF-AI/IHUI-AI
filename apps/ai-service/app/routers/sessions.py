@@ -272,6 +272,45 @@ def list_threads(
     return {"code": 0, "message": "ok", "data": page.model_dump(mode="json")}
 
 
+@router.get("/goals")
+def list_goal_threads(
+    limit: int = Query(100, ge=1, le=200),
+    user_id: str = Depends(get_current_user_id),
+    store: SessionStore = Depends(get_session_store),
+) -> dict[str, Any]:
+    """跨会话目标聚合(票 77「My Quests 跨 workspace 全局看板」服务端数据源)。
+
+    归属判据与 `/threads` 同一条(owner_user_id 进 SQL,不在响应侧二次筛):
+    别人的会话不出现在清单里;没有可证明属主的历史行按排除处理。
+
+    `goalState` 只经 `normalize_goal_state` 收窄,形状不合规的行在 store 层剔除 ——
+    端点不补默认值、不把"判不了"折成"没有目标"(§0.3)。
+    workspaceId / conversationId 取自线程 metadata;缺省给空串(端内归"当前工作空间"),
+    不凭空造标识。
+    """
+    rows = store.list_goal_threads(limit=limit, owner_user_id=user_id)
+    goals: list[dict[str, Any]] = []
+    for thread, state in rows:
+        session_id = thread.metadata.get("conversationId")
+        workspace_id = thread.metadata.get("workspaceId")
+        goals.append(
+            {
+                "threadId": thread.thread_id,
+                "sessionId": session_id if isinstance(session_id, str) else "",
+                "title": thread.title,
+                "workspaceId": workspace_id if isinstance(workspace_id, str) else "",
+                "createdAt": thread.created_at,
+                "updatedAt": thread.updated_at,
+                "goal": state,
+            }
+        )
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {"goals": goals, "total": len(goals)},
+    }
+
+
 @router.get("/threads/{thread_id}")
 def get_thread(
     thread_id: str,
