@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { FileText, Plus, Edit, Trash2, Loader2 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import { slugify } from '@/lib/content'
 import { Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@ihui/ui-react'
@@ -44,14 +44,8 @@ interface Doc {
   updatedAt?: string
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 async function fetchList(): Promise<Doc[]> {
-  const d = await api<{ list: Doc[] } | Doc[]>('/api/admin/docs')
+  const d = await apiOrThrow<{ list: Doc[] } | Doc[]>('/api/admin/docs')
   return Array.isArray(d) ? d : (d.list ?? [])
 }
 
@@ -75,14 +69,14 @@ export default function AdminDocsPage() {
     mutationFn: () => {
       const body = { title: form.title, slug: form.slug || slugify(form.title), category: form.category, content: form.content, status: form.status }
       return editing
-        ? api(`/api/admin/docs/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) })
-        : api('/api/admin/docs', { method: 'POST', body: JSON.stringify(body) })
+        ? apiOrThrow<void>(`/api/admin/docs/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) })
+        : apiOrThrow<void>('/api/admin/docs', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'docs'] }); close() },
     onError: (e: Error) => setErr(e.message),
   })
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/docs/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow<void>(`/api/admin/docs/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'docs'] }),
   })
 

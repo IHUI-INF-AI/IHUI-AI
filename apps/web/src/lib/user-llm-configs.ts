@@ -19,7 +19,7 @@
  *   - POST /api/user/llm-configs/preview-test       临时测试(未保存)
  */
 
-import { fetchApi } from './api'
+import { apiOrThrow } from './api'
 
 // =============================================================================
 // 类型定义(与 apps/web/app/(main)/settings/llm/types.ts 保持一致)
@@ -90,25 +90,20 @@ export interface FetchTemplatesResult {
   templates: PlatformTemplate[]
 }
 
-/** 通用 API 包装:从 ApiResult 解出 data,失败抛错 */
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error || '请求失败')
-  return r.data
-}
-
 // =============================================================================
 // API 方法
 // =============================================================================
 
 /** 拉取当前用户的所有 LLM 配置(登录态下后端按 userId 过滤) */
 export function fetchConfigs(): Promise<FetchConfigsResult> {
-  return api<FetchConfigsResult>('/api/user/llm-configs')
+  return apiOrThrow<FetchConfigsResult>('/api/user/llm-configs', { fallbackError: '请求失败' })
 }
 
 /** 拉取所有平台模板(15+ 预置,无需登录) */
 export function fetchTemplates(): Promise<FetchTemplatesResult> {
-  return api<FetchTemplatesResult>('/api/user/llm-configs/templates')
+  return apiOrThrow<FetchTemplatesResult>('/api/user/llm-configs/templates', {
+    fallbackError: '请求失败',
+  })
 }
 
 export interface CreateConfigInput {
@@ -123,9 +118,10 @@ export interface CreateConfigInput {
 
 /** 创建 LLM 配置(API Key 加密存储) */
 export function createConfig(input: CreateConfigInput) {
-  return api<{ id: number; created: boolean; name: string }>('/api/user/llm-configs', {
+  return apiOrThrow<{ id: number; created: boolean; name: string }>('/api/user/llm-configs', {
     method: 'POST',
     body: JSON.stringify(input),
+    fallbackError: '请求失败',
   })
 }
 
@@ -142,9 +138,10 @@ export interface UpdateConfigInput {
 
 /** 更新 LLM 配置(apiKey 传 null 显式清除,'' 或不传则沿用现值) */
 export function updateConfig(id: number, input: UpdateConfigInput) {
-  return api<{ id: number; updated: boolean }>(`/api/user/llm-configs/${id}`, {
+  return apiOrThrow<{ id: number; updated: boolean }>(`/api/user/llm-configs/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
+    fallbackError: '请求失败',
   })
 }
 
@@ -155,9 +152,10 @@ export function previewTest(input: {
   modelId: string
   baseUrlOverride?: string
 }) {
-  return api<TestResult>('/api/user/llm-configs/preview-test', {
+  return apiOrThrow<TestResult>('/api/user/llm-configs/preview-test', {
     method: 'POST',
     body: JSON.stringify(input),
+    fallbackError: '请求失败',
   })
 }
 

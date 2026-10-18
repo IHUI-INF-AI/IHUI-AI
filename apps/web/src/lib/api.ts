@@ -211,12 +211,20 @@ export async function fetchApi<T>(
  * 每份本地拷贝都在页面上**自己决定 `r.data` 是什么** ⇒ 后端换响应形状时，237 个副本按各自理解
  * 漂移，而移动端"把信封当数组 ⇒ 界面静默空列表"那 15 族正是同一个病的另一端。
  */
+/** 单源壳抛出的错误形状:`status` 是后端响应状态码(取不到时为 undefined),供调用方分型(如 401/409)。 */
+export type ApiFailure = Error & { status?: number }
+
 export async function apiOrThrow<T>(
   url: string,
-  options: RequestInit & { timeoutMs?: number } = {},
+  options: RequestInit & { timeoutMs?: number; fallbackError?: string } = {},
 ): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
+  const { fallbackError, ...init } = options
+  const r = await fetchApi<T>(url, init)
+  if (!r.success) {
+    const err = new Error(r.error || fallbackError) as ApiFailure
+    err.status = r.status
+    throw err
+  }
   return r.data
 }
 

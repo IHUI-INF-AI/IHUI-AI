@@ -14,7 +14,7 @@
  */
 
 import * as React from 'react'
-import { fetchApi, isAbortError } from '@/lib/api'
+import { apiOrThrow, isAbortError, type ApiFailure } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 
 export type PublishAccountStatus = 'active' | 'disabled' | 'expired'
@@ -38,24 +38,9 @@ export interface AccountInput {
 
 type ListResponse = { items?: PublishAccount[]; list?: PublishAccount[] } | PublishAccount[]
 
-/** 带 status 的错误类型,供 catch 判断 401 静默 */
-interface ApiError extends Error {
-  status?: number
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) {
-    const err = new Error(r.error) as ApiError
-    err.status = r.status
-    throw err
-  }
-  return r.data
-}
-
 /** 401 静默(懒触发策略:不打扰未登录用户),非 401 才 toast 提示 */
 function reportError(toast: ReturnType<typeof useToast>, e: unknown) {
-  const err = e as ApiError
+  const err = e as ApiFailure
   if (err.status === 401) return
   toast.error(err.message)
 }
@@ -74,7 +59,7 @@ export function usePublishAccounts() {
     abortControllerRef.current = controller
     setLoading(true)
     try {
-      const data = await api<ListResponse>('/api/publish/accounts/me', {
+      const data = await apiOrThrow<ListResponse>('/api/publish/accounts/me', {
         signal: controller.signal,
       })
       const list = Array.isArray(data) ? data : (data.items ?? data.list ?? [])
@@ -94,7 +79,7 @@ export function usePublishAccounts() {
     async (input: AccountInput): Promise<boolean> => {
       setSaving(true)
       try {
-        await api('/api/publish/accounts', {
+        await apiOrThrow<void>('/api/publish/accounts', {
           method: 'POST',
           body: JSON.stringify({
             platform: input.platform,
@@ -120,7 +105,7 @@ export function usePublishAccounts() {
     async (id: number, input: AccountInput): Promise<boolean> => {
       setSaving(true)
       try {
-        await api(`/api/publish/accounts/${id}`, {
+        await apiOrThrow<void>(`/api/publish/accounts/${id}`, {
           method: 'PUT',
           body: JSON.stringify({
             platform: input.platform,
@@ -146,7 +131,7 @@ export function usePublishAccounts() {
     async (id: number): Promise<void> => {
       setVerifyingId(id)
       try {
-        await api(`/api/publish/accounts/${id}/verify`, { method: 'POST' })
+        await apiOrThrow<void>(`/api/publish/accounts/${id}/verify`, { method: 'POST' })
         toast.success('验证通过')
         await load()
       } catch (e) {
@@ -161,7 +146,7 @@ export function usePublishAccounts() {
   const remove = React.useCallback(
     async (id: number): Promise<boolean> => {
       try {
-        await api(`/api/publish/accounts/${id}`, { method: 'DELETE' })
+        await apiOrThrow<void>(`/api/publish/accounts/${id}`, { method: 'DELETE' })
         toast.success('账号已删除')
         await load()
         return true
@@ -178,7 +163,7 @@ export function usePublishAccounts() {
   const batchVerify = React.useCallback(async (): Promise<boolean> => {
     setBatchVerifying(true)
     try {
-      await api('/api/publish/accounts/batch-verify', { method: 'POST' })
+      await apiOrThrow<void>('/api/publish/accounts/batch-verify', { method: 'POST' })
       toast.success('批量验证完成')
       await load()
       return true
