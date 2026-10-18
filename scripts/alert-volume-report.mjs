@@ -228,7 +228,8 @@ export function scanSendLedger(text, { nowMs, hours = 24, days = 7 } = {}) {
   const lines = String(text || '').split(/\r?\n/)
   const mails = []
   const bad = []
-  let delivered = 0
+  let deliveredRows = 0
+  let suppressedRows = 0
   let failed = 0
   let lastTsMs = null
   for (let i = 0; i < lines.length; i++) {
@@ -247,10 +248,28 @@ export function scanSendLedger(text, { nowMs, hours = 24, days = 7 } = {}) {
       continue
     }
     if (lastTsMs === null || ms > lastTsMs) lastTsMs = ms
-    if (row.delivered) delivered++
-    else failed++
-    if (!row.delivered) continue
-    const sig = `${row.producer || '?'} ${row.fp || '?'}`
+    // schema 2 = 唯一出口 `notify-deploy-failure.ts` 记的账(所有生产者都会经过它,所以这一档
+    // 天生没有"漏某个面"的问题);schema 1 = 2026-10-18 当天生产者侧留下的旧行,读法保留。
+    const isExitRow = Number(row.schema) === 2
+    let delivered
+    let suppressed = false
+    if (isExitRow) {
+      delivered = row.disposition === 'delivered' || row.disposition === 'probe'
+      suppressed = row.disposition === 'suppressed'
+      if (suppressed) suppressedRows++
+    } else {
+      delivered = Boolean(row.delivered)
+      if (!delivered) failed++
+    }
+    if (isExitRow && !delivered && !suppressed) failed++
+    if (!delivered) continue
+    deliveredRows++
+    const src = String(row.source || row.producer || '?')
+    // 身份优先级:出口的 --alert-id → schema1 生产者的 fp → 折过数字的 subject/name。
+    // fp 不能丢:它是旧行里唯一"同一件事"的稳定标识,丢了就把 18 个不同身份并成 1 个,
+    // 反向对照(多样 ≠ 重复)当场失效。
+    const idPart = String(row.alertId || '').trim() || String(row.fp || '').trim() || normalizeSig(String(row.subject || row.name || '?'))
+    const sig = `${src} ${idPart}`
     mails.push({ ms, sig, id: sigId(sig), ascii: asciiFragment(sig) })
   }
   const inWin = (fromMs) => mails.filter((e) => e.ms >= fromMs && e.ms <= nowMs)
@@ -260,7 +279,14 @@ export function scanSendLedger(text, { nowMs, hours = 24, days = 7 } = {}) {
   const top = [...byFp.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([id, n]) => ({ id, n }))
   return {
     mails,
-    totals: { rows: delivered + failed + bad.length, delivered, failed, badLines: bad.length, badLineNos: bad.slice(0, 10) },
+    totals: {
+      rows: deliveredRows + suppressedRows + failed + bad.length,
+      delivered: deliveredRows,
+      suppressed: suppressedRows,
+      failed,
+      badLines: bad.length,
+      badLineNos: bad.slice(0, 10),
+    },
     windows: {
       [`${hours}h`]: windowStats(mails, [], nowMs - hours * HOUR, nowMs, 'hourly'),
       '24h': windowStats(w24, [], nowMs - 24 * HOUR, nowMs, 'hourly'),
@@ -667,6 +693,8 @@ function buildReport(o) {
     ledgerTotal24h: ledger ? ledger.windows['24h'].mailCount : null,
     ledgerTotal7d: ledger ? ledger.windows['7d'].mailCount : null,
     ledgerUndelivered: ledger ? ledger.totals.failed : null,
+    // 被去重压住的轮数:它是"去重正在起作用"的正向证据,与"寄了几封"是两个数,不得并成一格
+    ledgerSuppressed: ledger ? ledger.totals.suppressed : null,
     ledgerStorms24h: ledger ? ledger.windows['24h'].storms.length : null,
     sourcesCovered: coverage.filter((c) => c.state === 'covered').length,
     sourcesUndetermined: undetermined.length,
@@ -742,9 +770,9 @@ function renderHuman(rep) {
     p('  未判定:台账取不到 ⇒ "这个面寄了几封"给不出结论(不得读成 0 封;git-guardian 那一层的每一封都会在这里留一行)。')
   } else {
     const L = rep.ledger
-    p(`  [近 24h] 送达=${L.windows['24h'].mailCount} 封 / 全窗=${L.totals.delivered} 封 / 未送达欠账=${L.totals.failed} 条 / 坏行=${L.totals.badLines}`)
+    p(`  [近 24h] 送达=${L.windows['24h'].mailCount} 封 / 全窗=${L.totals.delivered} 封 / 去重压住=${L.totals.suppressed} 轮 / 未送达欠账=${L.totals.failed} 条 / 坏行=${L.totals.badLines}`)
     if (L.top24h.length) {
-      p('  同一身份(producer+fp)24h 内寄了几封 —— 这就是"重复发信"的直接读数,不再依赖散文解码:')
+      p('  同一身份(来源 + 身份键:出口 --alert-id → 旧档 fp → 折过数字的标题)24h 内寄了几封 —— 重复发信的直接读数,不依赖散文解码:')
       for (const r of L.top24h) p(`      ${String(r.n).padStart(4)} 封  sig=${r.id}`)
     }
     const ls = L.windows['24h'].storms
@@ -793,7 +821,7 @@ function renderHuman(rep) {
       `skipTotalWindow=${rep.summary.skipTotalWindow} skipTotal24h=${rep.summary.skipTotal24h} skipTotal7d=${rep.summary.skipTotal7d} ` +
       `noBatchTotal=${rep.summary.noBatchTotal} stormClustersWindow=${rep.summary.stormClustersWindow} stormClusters24h=${rep.summary.stormClusters24h} ` +
       `ledgerTotalWindow=${rep.summary.ledgerTotalWindow} ledgerTotal24h=${rep.summary.ledgerTotal24h} ledgerTotal7d=${rep.summary.ledgerTotal7d} ` +
-      `ledgerUndelivered=${rep.summary.ledgerUndelivered} ledgerStorms24h=${rep.summary.ledgerStorms24h} ` +
+      `ledgerUndelivered=${rep.summary.ledgerUndelivered} ledgerSuppressed=${rep.summary.ledgerSuppressed} ledgerStorms24h=${rep.summary.ledgerStorms24h} ` +
       `sourcesCovered=${rep.summary.sourcesCovered} sourcesUndetermined=${rep.summary.sourcesUndetermined}`,
   )
   p('')
@@ -810,7 +838,7 @@ function fmtKinds(kinds) {
 
 /** 射程边界必须**报名**,不得只报数(本仓"报数不报名"记过多次:守门 70/76/81 同族)。 */
 const NOT_COVERED = [
-  '其他生产者写的日志:alert-bridge、IHUI-MONITOR、blue-green workflow 的邮件 —— 这三面还没有机读台账,只有散文留痕(git-guardian 的派发自 2026-10-18 起落 ①b 台账,已纳入射程)',
+  '发信面本身已无盲区(2026-10-18 收口):投递台账记在**唯一出口** `apps/api/scripts/notify-deploy-failure.ts` 上,而 alert-bridge / IHUI-MONITOR / 部署环 ps1 / CI / ai-service 全都经它发 ⇒ 真寄一封就有账,不再依赖"每个生产者记得写"。仍然看不到的只有:不经该出口的自拼 SMTP 写手(由守门 81 拦)、以及"SMTP 侧回执"这半段(本仓无回执 oracle)',
   '被轮转/被删/被清空的旧日志:窗口内计数只反映文件现存部分',
   '手工 `git commit --no-verify`(不经 safe-commit 就不写台账 ⇒ 账面一次都没跳,现实可能跳了)',
   '邮件是否真的到达:只有日志侧留痕,SMTP/Resend 的回执不在这个面内',
@@ -989,6 +1017,37 @@ async function selfTest() {
       if (rep3.summary.ledgerTotal24h !== 1) throw new Error('坏行或未送达行被并进了发信数')
     })
 
+    t('S12b schema2(唯一出口记的账):送达/压住/欠账三桶分得开,身份优先用 --alert-id、没有才退到折过数字的 subject', () => {
+      const nowMs = Date.parse('2026-10-18T15:00:00Z')
+      const row2 = (o) => JSON.stringify({ at: new Date(nowMs - (o.min ?? 0) * MINUTE).toISOString(), schema: 2, source: o.source ?? 'git-guardian', subject: o.subject ?? 'x', alertId: o.alertId ?? '', disposition: o.disposition, channel: o.channel ?? null, to: '5***@qq.com', strict: true })
+      const mix = [
+        row2({ disposition: 'delivered', alertId: 'stall;class=no-marker;held=lt6h', subject: '【git-guardian】部署停摆' }),
+        row2({ disposition: 'delivered', alertId: 'stall;class=no-marker;held=lt6h', subject: '【git-guardian】部署停摆', min: 5 }),
+        row2({ disposition: 'suppressed', alertId: 'stall;class=no-marker;held=lt6h', min: 6 }),
+        row2({ disposition: 'failed', min: 7 }),
+        // 无 --alert-id 的生产者(如 ps1):身份退到 subject,而数字必须被折掉 —— 否则
+        // "元运维巡检红(2 格)"和"(3 格)"会被当成两个身份,风暴就数不出来
+        row2({ disposition: 'delivered', subject: '【git-guardian】元运维巡检红(2 格)', source: 'ihui-monitor' }),
+        row2({ disposition: 'delivered', subject: '【git-guardian】元运维巡检红(13 格)', source: 'ihui-monitor', min: 3 }),
+      ].join('\n') + '\n'
+      const rep = collect({
+        nowMs,
+        mailRead: okRead(''),
+        mailPath: join(box, 's2.log'),
+        ledgerRead: okRead(mix),
+        ledgerPath: join(box, 's2.jsonl'),
+        attRead: okRead(''),
+        attPath: join(box, 's2b.jsonl'),
+        alertRaw: null,
+        dedupeRaw: null,
+        registry: { ok: false, reason: '夹具不提供' },
+      })
+      if (rep.summary.ledgerTotal24h !== 4) throw new Error(`已送达应 4 封(压住与失败不算),实得 ${rep.summary.ledgerTotal24h}`)
+      if (rep.summary.ledgerSuppressed !== 1) throw new Error('压住的轮数没单独成桶 —— 它是"去重起作用"的正向证据,和寄了几封是两个数')
+      if (rep.summary.ledgerUndelivered !== 1) throw new Error('schema2 的 failed 没进欠账桶')
+      if (rep.summary.ledgerStorms24h !== 2) throw new Error(`应有 2 簇(同 alert-id 两封 + 同折数字 subject 两封),实得 ${rep.summary.ledgerStorms24h}`)
+    })
+
     t('S4 签名归一必须折掉自增计数(否则量风暴就用的是酿成风暴的那把错尺子)', () => {
       const log = [
         '[2026-09-27 04:10:00 +00:00] [deploy] [04:10:00 +00:00] MAIL  sent 0.7h ago total 3 x@y.com',
@@ -1029,7 +1088,7 @@ async function selfTest() {
         registry: { ok: false, reason: '夹具不提供注册表' },
       })
       if (rep.summary.skipTotalAllTime !== null) throw new Error('台账取不到却报出了跳门数')
-      for (const k of ['mailTotalWindow', 'mailTotal24h', 'mailTotal7d', 'stormClustersWindow', 'stormClusters24h', 'ledgerTotalWindow', 'ledgerTotal24h', 'ledgerTotal7d', 'ledgerUndelivered', 'ledgerStorms24h'])
+      for (const k of ['mailTotalWindow', 'mailTotal24h', 'mailTotal7d', 'stormClustersWindow', 'stormClusters24h', 'ledgerTotalWindow', 'ledgerTotal24h', 'ledgerTotal7d', 'ledgerUndelivered', 'ledgerSuppressed', 'ledgerStorms24h'])
         if (rep.summary[k] !== null) throw new Error(`${k} 取不到却报出了读数 ⇒ 新增计数字段必须一起进"取不到即为 null"这张清单,漏一个就能伪装成结论`)
       for (const k of ['skipTotalWindow', 'skipTotal24h', 'skipTotal7d'])
         if (rep.summary[k] !== null) throw new Error(`跳门台账取不到却报出了 ${k}`)
