@@ -30,6 +30,7 @@ import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
 import { db, dbRead } from '../db/index.js'
 import { findPublishedVideoFeed, findLatestStudyPlanId } from '../db/learn-queries.js'
+import { USER_PREFERENCE_GROUPS } from '../db/user-preferences-queries.js'
 import {
   lessons,
   lessonChapters,
@@ -2504,43 +2505,78 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
 
   // ==========================================================================
   // /settings/* (6 个,设置,需鉴权)
-  // /settings/notification 单数别名(后端有 /settings/notifications 复数,本端点用 group='notification' 区分)
-  // /settings/cache/* /language /theme 后端完全缺失 → 接入 userPreferences 表
-  // 真实化(2026-07-26):notification/language/theme 接入 userPreferences 表 CRUD;
+  // /settings/notification 单数路径别名(后端权威腿是 /settings/notifications 复数)。
+  //   2026-10-18 收口:路径保持单数别名,但 **group 取复数 'notifications'** 与权威腿共用
+  //   同一批行 —— 此前它写 group='notification'(单数),把同一份通知偏好劈成两堆,读写互不可见。
+  //   响应形状对齐端上已声明的契约 { list: [{ key, title, enabled }] }(端上取 data.list 恒
+  //   undefined 即因服务端曾回 { settings } 的 k/v)。title 用存储键承载,**不在服务端拼中文**
+  //   (§19);逐键的人类可读文案属端侧 i18n,不在本收口射程内。
   //   cache/clear + cache/size 保留空桩(客户端本地缓存,后端无真实状态可返)
   // ==========================================================================
   server.get('/settings/notification', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    const list = await db
+    const rows = await db
       .select({
         key: userPreferences.key,
         value: userPreferences.value,
       })
       .from(userPreferences)
       .where(
-        and(eq(userPreferences.userId, request.userId!), eq(userPreferences.group, 'notification')),
+        and(
+          eq(userPreferences.userId, request.userId!),
+          eq(userPreferences.group, USER_PREFERENCE_GROUPS.notifications),
+        ),
       )
-    const settings = Object.fromEntries(list.map((r) => [r.key, r.value]))
-    return reply.send(success({ settings }))
+    // 端上契约的形状:list = [{ key, title, enabled }]。value 以字符串存储(布尔存 'true'),
+    // 这里只把每一行原样映射,不在服务端拼中文(§19);title 承载存储键,端侧按需用 i18n 呈现。
+    const list = rows.map((r) => ({
+      key: r.key,
+      title: r.key,
+      enabled: r.value === 'true',
+    }))
+    return reply.send(success({ list }))
   })
+
+  const notificationSettingsBodySchema = z.record(z.string().min(1).max(100), z.unknown())
 
   server.put('/settings/notification', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    const body = (request.body as Record<string, unknown> | null) ?? {}
+    const parsed = notificationSettingsBodySchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const body = parsed.data
     const userId = request.userId!
-    await Promise.all(
+    const requestedKeys = Object.keys(body)
+    // 逐键 upsert 后用 .returning({ id, key }) 回库确认「真正落库的键集合」(守门 134):
+    // 不得把请求侧 requestedKeys.length 当 affected,也不得无条件回 { success: true } ——
+    // 那样「写失败」与「写成功」在响应上完全同形。missedIds 逐条点名没落库的键。
+    const results = await Promise.all(
       Object.entries(body).map(([key, value]) => {
         const v = value === null || value === undefined ? null : String(value)
         return db
           .insert(userPreferences)
-          .values({ userId, group: 'notification', key, value: v })
+          .values({ userId, group: USER_PREFERENCE_GROUPS.notifications, key, value: v })
           .onConflictDoUpdate({
             target: [userPreferences.userId, userPreferences.group, userPreferences.key],
             set: { value: v, updatedAt: new Date() },
           })
+          .returning({ id: userPreferences.id, key: userPreferences.key })
+          .then((rows) => rows[0]?.key ?? null)
+          .catch(() => null)
       }),
     )
-    return reply.send(success({ success: true }))
+    const writtenKeys = results.filter((k): k is string => k !== null)
+    const writtenSet = new Set(writtenKeys)
+    const missedIds = requestedKeys.filter((k) => !writtenSet.has(k))
+    return reply.send(
+      success({
+        success: missedIds.length === 0,
+        requested: requestedKeys.length,
+        affected: writtenKeys.length,
+        missedIds,
+      }),
+    )
   })
 
   // 无真实实现:缓存为客户端本地存储,后端无对应状态,
@@ -2579,7 +2615,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       .insert(userPreferences)
       .values({
         userId: request.userId!,
-        group: 'preferences',
+        group: USER_PREFERENCE_GROUPS.preferences,
         key: 'language',
         value: parsed.data.language,
       })
@@ -2599,7 +2635,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       .insert(userPreferences)
       .values({
         userId: request.userId!,
-        group: 'preferences',
+        group: USER_PREFERENCE_GROUPS.preferences,
         key: 'theme',
         value: parsed.data.theme,
       })

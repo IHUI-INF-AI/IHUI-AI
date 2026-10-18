@@ -24,6 +24,8 @@ import { chatModelRoutes } from './chat-models.js'
 // D179(2026-09-30 用户拍板立项):会话 Issue 绑定/解绑 + Issue 搜索转发
 import { chatIssueBindingRoutes } from './chat-issue-binding.js'
 import { chatSkillsRoutes } from './chat-skills.js'
+// 对话模板目录(2026-10-18 立服务端最小闭环):GET /api/chat/templates
+import { chatTemplateRoutes } from './chat-templates.js'
 import { teamRoutes } from './teams.js'
 import { rbacRoutes } from './rbac.js'
 import { workflowRoutes } from './workflows.js'
@@ -551,6 +553,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(chatModelRoutes, { prefix: '/api/chat' })
   // 用户自定义 AI 对话框技能(2026-07-21 新增,Skill 库统一面板支撑):GET/POST/PATCH/DELETE /api/chat/skills
   server.register(chatSkillsRoutes, { prefix: '/api/chat/skills' })
+  // 对话模板目录(2026-10-18 立):GET /api/chat/templates —— web /chat/templates 页 + CLI `ihui chat templates`
+  // + extension sidepanel 三侧消费者的共同数据源;需登录,只下发 status=published 的白名单投影。
+  server.register(chatTemplateRoutes, { prefix: '/api/chat' })
   // RBAC: /api/roles /api/permissions /api/users/:id/roles /api/admin/rbac/check
   server.register(rbacRoutes, { prefix: '/api' })
   server.register(workflowRoutes, { prefix: '/api' })
