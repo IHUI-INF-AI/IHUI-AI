@@ -610,6 +610,15 @@ test('T20 活动件没有完成行时必须去滚动件找回,并写明取自哪
   assert.equal(none.candidates, 0, '目录取不到时必须报"一个候选都没看",而不是看成 0 条完成')
 })
 
+test('镜像停摆的失败判词必须自带可做的出路:服务端 GC 直达地址 + 探针残留分支(§5e-1)', () => {
+  const src = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'check-credential-health.mjs'), 'utf8')
+  assert.match(src, /settings#git-gc/, '收件人唯一能降体积的那一步要写成能直接点的地址')
+  assert.match(src, /ci-quota-probe/, '已撤除探针留在服务端的残留分支要点名,否则每轮白占一次配额账')
+  assert.match(src, /const GITEE_REPO = /, 'GC 地址与取数路径必须同一个仓径来源(§0.6,改一半就是假出路)')
+  assert.doesNotMatch(src, /\/api\/v5\/repos\/JLSLSSZWHYXGS_0/, 'API 路径不得再硬写第二份仓径')
+  assert.doesNotMatch(src, /处置交给下面的 hint/, '旧注释把出路许诺给一个从不进正文的变量;注释必须与代码同代')
+})
+
 function askedHasRepoNext(askedList) {
   return askedList.some((p) => p.includes('/apps/web/.next/IHUI_BUILD_SHA') && !p.includes('/ihui-prod/'))
 }

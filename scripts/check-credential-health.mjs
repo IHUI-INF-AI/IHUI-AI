@@ -317,6 +317,9 @@ async function mirrorTipDate({ host, path, label }) {
 
 async function mirrorLivenessCheck() {
   const NAME = '国内镜像活性(mirror-to-cn)'
+  // 仓径只写一次:API 取数与服务端 GC 面板地址必须同源(§0.6),否则改了名字只改一半,
+  // 告警里那条"唯一能降体积的出路"就会指向一个不存在的页面。
+  const GITEE_REPO = 'JLSLSSZWHYXGS_0/IHUI-AI'
   const thresholdMin = Number(process.env.IHUI_MIRROR_STALL_MIN || 18 * 60)
   const now = Date.now()
   const giteeTok = readMirrKey('gitee apikey.txt', /^[0-9a-f]{32}$/)
@@ -331,7 +334,7 @@ async function mirrorLivenessCheck() {
   const [g, gh] = await Promise.all([
     mirrorTipDate({
       host: 'gitee.com',
-      path: '/api/v5/repos/JLSLSSZWHYXGS_0/IHUI-AI/commits?per_page=1&access_token=' + encodeURIComponent(giteeTok),
+      path: `/api/v5/repos/${GITEE_REPO}/commits?per_page=1&access_token=` + encodeURIComponent(giteeTok),
       label: 'Gitee',
     }),
     ghApi('GET', `/repos/${GH_REPO}/actions/workflows/${MIRROR_WF}/runs?per_page=1`),
@@ -346,13 +349,15 @@ async function mirrorLivenessCheck() {
   const running = last && (last.status === 'in_progress' || last.status === 'queued')
   if (running) return [{ name: NAME, level: 'limited', detail: `${head} 超阈值但有运行在途,等它结束再看` }]
   // 已知上一轮是 failure 时**不补发**:配额/体积型失败补发多少次都还是失败,而单轮要跑 69 分钟
-  // (实测),白烧 Actions 时长。只如实判红,处置交给下面的 hint。
+  // (实测),白烧 Actions 时长。判红本身照旧,但**出路必须写进这一条 detail 里**(detail 才是进邮件的那格):
+  // 旧注释把处置"交给下面的 hint",而那个 hint 只挂在**另一条**补发分支上、failure 分支根本不经过它
+  // ⇒ 一条响了 20.9 天的告警,信里没有那条能直接点的 GC 地址。
   if (last?.conclusion === 'failure') {
     return [
       {
         name: NAME,
         level: 'fail',
-        detail: `${head} 超阈值,且上一轮 conclusion=failure ⇒ 不补发(配额型失败补发多少次都还是失败,单轮实测要跑 69 分钟)。CI 侧曾装的「0 字节配额探针」**已于 2026-09-28 整块撤除**:逐轮日志取证证明它两个方向都证不了(被接受的推送照样打配额行;ref 一旦存在则每轮报 Everything up-to-date、一次都不联系服务端),留着的唯一效果是替一条已经不成立的机制背书。现判词只从**真实推送被拒的那一刻**逐字取(实测体积 1624.812MB→1715.750MB,超配额 ~692MB),并如实说明「本轮对象已上传、下一轮仍会再试」。差的是 Gitee 服务端体积回收:仓库设置里的「Git GC」/「压缩」(无 GC API,改判据/改触发器都无效)——**这一步只有仓库所有者能做**。`,
+        detail: `${head} 超阈值,且上一轮 conclusion=failure ⇒ 不补发(配额型失败补发多少次都还是失败,单轮实测要跑 69 分钟)。CI 侧曾装的「0 字节配额探针」**已于 2026-09-28 整块撤除**:逐轮日志取证证明它两个方向都证不了(被接受的推送照样打配额行;ref 一旦存在则每轮报 Everything up-to-date、一次都不联系服务端),留着的唯一效果是替一条已经不成立的机制背书。现判词只从**真实推送被拒的那一刻**逐字取(实测体积 1624.812MB→1715.750MB,超配额 ~692MB),并如实说明「本轮对象已上传、下一轮仍会再试」。差的是 Gitee 服务端体积回收:仓库设置里的「Git GC」/「压缩」(无 GC API,改判据/改触发器都无效)——**这一步只有仓库所有者能做**。直达地址(与镜像作业失败行里那条同源,不是另编的):https://gitee.com/${GITEE_REPO}/settings#git-gc 。顺手可清:服务端还留着分支 \`ci-quota-probe\`(与 main 同 sha,是 09-28 已撤除那套配额探针的残留,它让每轮有一次推送被判成 Everything up-to-date),删掉不影响镜像语义。GC 完成后要立刻验一次:gh api --method POST /repos/${GH_REPO}/actions/workflows/${MIRROR_WF}/dispatches -f ref=main;不 GC 只补发 = 白烧 69 分钟。`,
       },
     ];
   }
