@@ -22,6 +22,7 @@ import {
 
 import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
+import { MyQuestsBoard } from '@/components/quests/my-quests-board'
 import { useChatStore } from '@/stores/chat'
 import { useGoalStore, type GoalStatus } from '@/stores/goal'
 
@@ -405,6 +406,9 @@ export function GoalCard() {
               {t('clear')}
             </button>
           </div>
+
+          {/* 票77:My Quests 跨 workspace 全局看板(登记表=stores/quests.ts,goal 生命周期自动登记) */}
+          <MyQuestsBoard />
         </div>
       )}
     </div>

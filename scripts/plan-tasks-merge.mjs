@@ -376,6 +376,16 @@ export const BYPASS_LANDING_SITES = [
     rollback: null,
     before: 'alignSharedIndex(',
   },
+  {
+    // 第 8 站(G-1058524):漂开副本的人工归并出口。CAS/复验/回退形状同 twinFoldAndLand
+    //(复验不过即回退),区别只在判据面与触发方式(必须 --keeper 人工点名持有行)。
+    fn: 'driftedMergeAndLand',
+    source: 'plan-tasks-merge:merge-drifted',
+    cas: 'casUpdateRef(landed.commit, parent',
+    guard: 'if (problems.length) {',
+    rollback: 'casUpdateRef(parent,',
+    before: 'alignSharedIndex(',
+  },
 ]
 
 /** 顶层函数声明的位置清单(名字 + 起点)。列 0 起笔才算,缩进的内部函数不吃这一判据。 */
@@ -3027,6 +3037,331 @@ export function twinFoldAndLand(maxAttempts = 8) {
   return 1
 }
 
+// ── 漂开副本归并档(--merge-drifted,G-1058524)──────────────────────────────────
+/**
+ * 票面(2026-10-04 登记,门 130 持有人要的"零损失归并出口"):三条真机票各有 2 份未勾选
+ * 登记,两份都**不带**「重复登记副本」指针、正文长度不等(1077 vs 1339)⇒ 逐字不等 ⇒ 漂开。
+ * 现有出口的覆盖面:F6 `--dedupe-blocks` / `--dedupe-open-rows` 收**逐字相同**;`--fold-twins`
+ * 收**题面逐字相等**且**有编号**的孪生 —— 题面漂开(或无编号)的副本没有任何出口。
+ *
+ * 本档给的最小出口:按**内容锚点**(题面子串,§1 规矩 3:不写行号)点名一族,人工确认
+ * 持有行之后 N→1 —— 每个副本行**原地**折成"指针注记(+摘号,若有)+ 行尾沿革"形态:
+ *  - 注记含 `【归并】重复登记副本` 这一句字面(DUP_POINTER_RE),派单口径立刻逐出副本行;
+ *  - **正文逐字保留**(副本行自己的正文一字不动,只插注记/沿革),"双方差异"不并抄、
+ *    不裁剪 —— 差异以两行原文对照为准,§1 禁止的无声删除在本档结构性不存在(一行不删);
+ *  - 勾选状态、行首名额(headIdOf)、剥注记可逆性全部照 twinFold 同一套判据把门。
+ *
+ * "出口只在工具层"(§1 铁律):本档是显式人工触发(报告 → 人工点名持有行 → --commit 落地),
+ * 不挂 --heal 自动档 —— 挑哪条作数就是裁决哪份差异是正本,这个决定必须是人做的。
+ * 模式:`--merge-drifted "<锚点>"`(报告+两步确认)/ `--merge-drifted "<锚点>" --keeper <行号>`
+ * (预演)/ 同上 + `--commit`(对象空间落地,与 twinFoldAndLand 同一套 plumbing)。
+ */
+
+/** 组内行数上限(与 TWIN_GROUP_MAX 同一条纪律:超过它就不猜,交人工)。 */
+const DRIFT_GROUP_MAX = 8
+
+const DRIFT_NOTE_RE = /^（【归并】重复登记副本·漂开归并·\d{4}-\d{2}-\d{2}·[^）)]*）/
+const DRIFT_FOLDED_RE =
+  /^(\s*[-*]\s\[[ xX]\]\s*)（【归并】重复登记副本·漂开归并·\d{4}-\d{2}-\d{2}·[^）)]*）/
+/** 带编号副本的行尾沿革(与 TWIN_TAIL_RE 同形)。 */
+const DRIFT_TAIL_KEYED_RE = / \(原编号 [^();]+;持有行题面「.*」\)$/
+/** 无编号副本(票面那三条正是这一型)的行尾沿革。 */
+const DRIFT_TAIL_KEYLESS_RE = / \(持有行题面「.*」\)$/
+
+/** 注记正文:固定散文(不含锚点原文、编号、行号 —— 它们都是脏输入,进注记就是开注入口子)。 */
+export function driftedFoldNote(today) {
+  return `（【归并】重复登记副本·漂开归并·${today}·本行与同题登记的持有行同题而正文已漂开,不翻勾、不并抄,本行正文逐字保留,双方差异以两行原文对照为准,派单以持有行为准）`
+}
+
+/** 剥掉**本档**写的注记与沿革,还原底稿 —— 不可逆的归并等于在改别人的登记。 */
+export function stripDriftFold(line) {
+  return String(line)
+    .replace(DRIFT_FOLDED_RE, '$1')
+    .replace(DRIFT_TAIL_KEYED_RE, '')
+    .replace(DRIFT_TAIL_KEYLESS_RE, '')
+}
+
+/** 这行是不是本档折出来的形态(注记 + 两种沿革之一都在位才算)。 */
+export function isDriftFolded(line) {
+  const s = String(line)
+  return DRIFT_FOLDED_RE.test(s) && (DRIFT_TAIL_KEYED_RE.test(s) || DRIFT_TAIL_KEYLESS_RE.test(s))
+}
+
+/**
+ * 把一条漂开副本折成"指针注记(+摘号,若有)+ 行尾沿革"形态。
+ * keeperTitle 是持有行题面(内容锚点,非行号)。给不出复选框前缀或持有行题面 ⇒ null(记未判定)。
+ * 幂等由调用点的 DUP_POINTER_RE / isDriftFolded 挡住(本函数不自己判重复)。
+ */
+export function buildDriftFold(line, keeperTitle, today) {
+  const m = CHECKBOX_LEAD_RE.exec(String(line ?? ''))
+  const anchor = String(keeperTitle ?? '')
+  if (!m || !anchor) return null
+  const key = keyOfRow(line)
+  const tail = key ? ` (原编号 ${key};持有行题面「${anchor}」)` : ` (持有行题面「${anchor}」)`
+  return `${m[1]}${driftedFoldNote(today)}${line.slice(m[1].length)}${tail}`
+}
+
+/** 一条漂开折叠产物的准入判据(与 twinFoldRejectReason 同序同源,只换本档注记形状)。 */
+export function driftedFoldRejectReason(beforeLine, afterLine) {
+  if (afterLine === null || afterLine === undefined) return '构造失败(拿不到复选框前缀或持有行题面)'
+  const k = keyOfRow(afterLine)
+  const kBefore = keyOfRow(beforeLine)
+  if (k !== null && k !== kBefore)
+    return `折叠后主键为 ${k},而本行折前主键是 ${String(kBefore)} ⇒ 这一折给这行改了身份,不折`
+  const stray = strayIdInLeadDecoration(afterLine)
+  if (stray.length)
+    return `注记区在本行主键之前出现了别的任务编号 ${stray.slice(0, 2).join(',')} ⇒ 会被尺子读成本行主键(撞号),不折`
+  const note = DRIFT_NOTE_RE.exec(afterLine.replace(CHECKBOX_LEAD_RE, ''))?.[0] ?? ''
+  if (!note) return '注记形状不合本档构造(内部出现了闭括号?)'
+  if (TWIN_ID_RE.test(note)) return `注记里出现了任务编号形态 ⇒ 会被尺子读成本行主键(实得 ${k})`
+  if (/\bL\d{1,6}\b/.test(note)) return '注记里出现了行号(§1 规矩 3 禁止证据指针写行号)'
+  if (stripDriftFold(afterLine) !== beforeLine) return '剥掉本档注记后不等于底稿(折叠不可逆)'
+  const bs = STATE_TOKEN_RE.exec(beforeLine)?.[0]
+  const as = STATE_TOKEN_RE.exec(afterLine)?.[0]
+  if (bs !== as)
+    return `勾选状态被改了(${JSON.stringify(bs)}→${JSON.stringify(as)})—— 翻勾是 --heal 那一维的职责`
+  if (headIdOf(beforeLine) !== headIdOf(afterLine))
+    return `行首编号被门 71 读成变了(${String(headIdOf(beforeLine))}→${String(headIdOf(afterLine))})⇒ 会与回捞层互咬`
+  return null
+}
+
+/**
+ * 按**内容锚点**找漂开副本族(纯函数)。
+ * 锚点 = 题面子串:trim 后长度 ≥ 4(与 compositeKeyOf 同一条题面闸),不含换行。
+ * 入族四条(全部显式):未勾选 ∧ 不带任何副本指针 ∧ 题面含锚点 ∧ 未被本档折过。
+ * 带认领牌(进行中…)的行跳过并逐条报名(G-761 第⑥维同一条:在飞的现场不碰)。
+ */
+export function findDriftedFamilies(lines, anchor) {
+  const a = String(anchor ?? '').trim()
+  if (a.length < 4)
+    return { error: `锚点太短(实得 ${a.length} 字):至少 4 字的题面子串才配判"同题",不给就交人工` }
+  if (/\r|\n/.test(a)) return { error: '锚点不得含换行(它是题面子串,不是行区间)' }
+  const content = Array.isArray(lines) ? lines.join('\n') : String(lines ?? '')
+  const rows = []
+  const skippedLeased = []
+  for (const r of parseTaskRows(content)) {
+    if (r.state !== 'open') continue
+    if (DUP_POINTER_RE.test(r.raw)) continue // 已折过(任一档)的形状,不再是漂开副本
+    if (isDriftFolded(r.raw)) continue
+    const t = titleOf(r.raw)
+    if (!t || !t.includes(a)) continue
+    if (new RegExp(LEASE_RE.source).test(r.raw)) {
+      skippedLeased.push(r.line)
+      continue
+    }
+    rows.push(r)
+  }
+  return { anchor: a, rows, skippedLeased }
+}
+
+/**
+ * 漂开归并的改写(纯函数):keeperLine 由调用方(人工)点名,**不猜持有行**。
+ */
+export function applyDriftedMerge(content, anchor, keeperLine, today) {
+  if (typeof content !== 'string')
+    throw new TypeError(`applyDriftedMerge 需要整档文本,实得 ${typeof content}`)
+  const fam = findDriftedFamilies(content.split('\n'), anchor)
+  if (fam.error) return { error: fam.error }
+  if (fam.rows.length < 2)
+    return {
+      error: `锚点「${fam.anchor}」名下现读 ${fam.rows.length} 份未指针对待办 —— 不足两份,不构成漂开族`,
+    }
+  if (fam.rows.length > DRIFT_GROUP_MAX)
+    return { error: `锚点「${fam.anchor}」名下 ${fam.rows.length} 份 > 上限 ${DRIFT_GROUP_MAX} ⇒ 不猜,交人工` }
+  const keeper = fam.rows.find((r) => r.line === keeperLine)
+  if (!keeper)
+    return {
+      error:
+        `持有行必须用 --keeper 点名**族内**行号(本次给 ${String(keeperLine)},族内现读:` +
+        fam.rows.map((r) => `L${r.line}`).join(', ') +
+        `)。挑哪条作数是人工裁决,本档不猜。`,
+    }
+  const keeperTitle = titleOf(keeper.raw)
+  const lines = content.split('\n')
+  const edits = []
+  const refused = []
+  for (const r of fam.rows.filter((x) => x.line !== keeperLine)) {
+    const after = buildDriftFold(r.raw, keeperTitle, today)
+    const why = driftedFoldRejectReason(r.raw, after)
+    if (why) {
+      refused.push({ line: r.line, reason: why })
+      continue
+    }
+    edits.push({ line: r.line, before: r.raw, after })
+  }
+  for (const e of edits) lines[e.line - 1] = e.after
+  return {
+    text: lines.join('\n'),
+    edits,
+    refused,
+    keeper: { line: keeper.line, key: keeper.key },
+    anchor: fam.anchor,
+    skippedLeased: fam.skippedLeased,
+  }
+}
+
+/**
+ * 漂开归并的零损失断言(与 verifyTwinFold 同构;"族终端"一条照抄它的第⑦条理由:
+ * 断言只证"没删内容",还得证"还有主人")。
+ */
+export function verifyDriftedMerge(srcText, outText, edits, refused = [], anchor, keeperLine) {
+  const problems = []
+  if (typeof srcText !== 'string' || typeof outText !== 'string')
+    return {
+      problems: [
+        `漂开归并断言未判定 —— 入参不是整档文本(src=${typeof srcText} out=${typeof outText})`,
+      ],
+    }
+  const a = srcText.split('\n')
+  const b = outText.split('\n')
+  if (a.length !== b.length) problems.push(`行数不等 ${a.length}→${b.length}(本档只许改行内内容)`)
+  const touched = new Set(edits.map((e) => e.line))
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    if (!touched.has(i + 1) && a[i] !== b[i]) {
+      problems.push(`L${i + 1} 未登记却被改动 —— 结构等值不成立`)
+      break
+    }
+  }
+  for (const e of edits) {
+    if (a[e.line - 1] !== e.before)
+      problems.push(`L${e.line} 底稿与声明的 before 不等 ⇒ 行号在落地前已挪位,整批不落`)
+    if (b[e.line - 1] !== e.after) problems.push(`L${e.line} 产物没落到声明的位置`)
+    if (stripDriftFold(b[e.line - 1] ?? '') !== e.before)
+      problems.push(`L${e.line} 剥掉本档注记后不等于底稿(不可逆的归并不许落地)`)
+    const kAfter = keyOfRow(b[e.line - 1] ?? '')
+    const kBefore = keyOfRow(e.before)
+    if (kAfter !== null && kAfter !== kBefore)
+      problems.push(`L${e.line} 归并后主键为 ${kAfter},折前是 ${String(kBefore)} ⇒ 改了身份,整批不落`)
+    if (!DUP_POINTER_RE.test(b[e.line - 1] ?? ''))
+      problems.push(
+        `L${e.line} 产物不含【归并】重复登记副本指针 ⇒ 派单口径逐不出它,这一归只是换个地方挂账`,
+      )
+    const stray = strayIdInLeadDecoration(b[e.line - 1] ?? '')
+    if (stray.length)
+      problems.push(
+        `L${e.line} 注记区混入了任务编号 ${stray.slice(0, 2).join(',')} ⇒ 会被尺子读成本行主键,整批不落`,
+      )
+  }
+  const lost = lostMarkers(String(srcText), String(outText))
+  if (lost.length) problems.push(`归并后被守门 71 判为消失的登记行 ${lost.length} 处 ⇒ 会与回捞层互咬,拒落`)
+  // 幂等闭合:同参复跑不得再有可归并对象(本轮点名不折的除外)。
+  // 闭合后的合法形态恰好是"族里只剩持有行"(applyDriftedMerge 报"不足两份")—— 那是成功,
+  // 不是失败;其余 error 才是复跑未判定。
+  const refusedLines = new Set(refused.map((r) => r.line))
+  const again = applyDriftedMerge(outText, anchor, keeperLine, '1970-01-01')
+  if (again.error) {
+    if (!/不足两份/.test(again.error)) problems.push(`幂等复跑未判定:${again.error}`)
+  } else {
+    const left = again.edits.filter((e) => !refusedLines.has(e.line))
+    if (left.length) problems.push(`归并完仍有 ${left.length} 行可归并 ⇒ 不闭合(幂等失败),交人工`)
+  }
+  // F 维一律不得变差(这把尺子不许替别的维度制造红点)
+  const before = audit(srcText).counts
+  const after = audit(outText).counts
+  for (const [k, get] of [
+    ['F1', (c) => c.forks],
+    ['F2', (c) => c.voidRows],
+    ['F3', (c) => c.rotatedAuto],
+    ['F4', (c) => c.dupOpenCopies],
+    ['F4b', (c) => c.verbatimDupCopies],
+    ['F6', (c) => c.dupBlocks],
+  ]) {
+    if (get(after) > get(before)) problems.push(`${k} 由 ${get(before)} 涨到 ${get(after)}`)
+  }
+  if (after.mergeNotes < before.mergeNotes)
+    problems.push(`归并落账注记由 ${before.mergeNotes} 掉到 ${after.mergeNotes}(不得随归并一起丢)`)
+  // 持有行必须仍是"未勾选且无指针"的终端(活账无人认领 = 派单口径静默少一件活)
+  if (b[keeperLine - 1] !== a[keeperLine - 1])
+    problems.push(`持有行 L${keeperLine} 被本档改动 ⇒ 持有行保持原样是本档的硬形状`)
+  if (!/^\s*-\s\[ \]/.test(b[keeperLine - 1] ?? '') || DUP_POINTER_RE.test(b[keeperLine - 1] ?? ''))
+    problems.push(`持有行 L${keeperLine} 不再是"未勾选且无指针"的终端 ⇒ 活账无人认领,拒落`)
+  return { problems, before, after }
+}
+
+/** 漂开归并的落地:与 twinFoldAndLand 同一套对象空间 plumbing(临时索引 + commit-tree + CAS)。 */
+export function driftedMergeAndLand(anchor, keeperLine, maxAttempts = 8) {
+  const today = new Date().toISOString().slice(0, 10)
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const spec = `HEAD:${PLAN_REL}`
+    const src = catBatch(ROOT, [spec], { maxBuffer: 1 << 28 }).get(spec)
+    if (src === null || src === undefined) {
+      console.log('漂开归并档未判定 —— HEAD 取不到 PROJECT_PLAN.md(不记为已修)')
+      return 2
+    }
+    const f = applyDriftedMerge(src, anchor, keeperLine, today)
+    if (f.error) {
+      console.log(`❌ 漂开归并档停手:${f.error}`)
+      return 1
+    }
+    if (!f.edits.length) {
+      console.log(`✅ 漂开归并档:本面无可归并对象(拒绝 ${f.refused.length} 行,逐条见报告)`)
+      return 0
+    }
+    const { problems, after } = verifyDriftedMerge(src, f.text, f.edits, f.refused, anchor, keeperLine)
+    if (problems.length) {
+      console.log('❌ 漂开归并档停手(现场保留,交人工):')
+      for (const p of problems.slice(0, 10)) console.log('   ' + p)
+      return 1
+    }
+    const parent = gitIn(null, ['rev-parse', 'HEAD'])
+    const msg = [
+      'fix(plan): 漂开副本归并(--merge-drifted,人工点名持有行后 N→1)',
+      '',
+      `锚点「${anchor}」名下 ${f.edits.length + 1} 份未指针对待办,人工点名 L${keeperLine} 为持有行;副本 ${f.edits.map((e) => `L${e.line}`).join(', ')} 原地折成指针形态。`,
+      '折叠形态:正文逐字保留、勾选状态一字不动、只在复选框后插全角括注 + 行尾沿革(原编号若有;持有行题面)。',
+      '零损失判据:行数不变 ∧ 未登记行逐字不变 ∧ 剥注记回底稿 ∧ 主键不改身份 ∧ 带副本指针 ∧ 守门 71 判不到消失 ∧ 幂等闭合 ∧ F1/F2/F3/F4/F4b/F6 无一上涨 ∧ 持有行仍是无指针终端。',
+      `落地面现读:F1 ${after.forks} / F2 ${after.voidRows} / F4 ${after.dupOpenCopies}。`,
+    ].join('\n')
+    let landed
+    try {
+      landed = commitTreeWithIndex({
+        root: ROOT,
+        parent,
+        baseRef: parent,
+        message: msg,
+        entries: [{ path: PLAN_REL, text: f.text }],
+      })
+    } catch (e) {
+      console.log(`❌ 漂开归并档停手 —— 候选树建不出来:${String(e?.message ?? e).slice(0, 160)}`)
+      return 1
+    }
+    if (!casUpdateRef(landed.commit, parent, { root: ROOT })) {
+      console.log(`↻ 第 ${attempt} 次 CAS 失败(HEAD 被并发推进),按新 HEAD 现取重算再来`)
+      continue
+    }
+    const landedSpec = `${landed.commit}:${PLAN_REL}`
+    const landedText = catBatch(ROOT, [landedSpec], { maxBuffer: 1 << 28 }).get(landedSpec)
+    if (landedText === null || landedText === undefined) {
+      console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
+      casUpdateRef(parent, landed.commit, { root: ROOT })
+      return 1
+    }
+    const recheck = verifyDriftedMerge(src, landedText, f.edits, f.refused, anchor, keeperLine)
+    if (recheck.problems.length) {
+      console.log(`❌ 落地后复验不过(${recheck.problems[0]}),回退到 ${parent.slice(0, 11)}`)
+      casUpdateRef(parent, landed.commit, { root: ROOT })
+      return 1
+    }
+    // G-800 留痕:复验通过之后、共享索引对齐之前(次序判据见 BYPASS_LANDING_SITES)。
+    attestLanding({
+      source: 'plan-tasks-merge:merge-drifted',
+      landedSha: landed.commit,
+      headBefore: parent,
+      root: ROOT,
+    })
+    rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
+    const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL], parentRef: parent })
+    const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
+    console.log(
+      `✅ 漂开归并落地 ${landed.commit.slice(0, 11)}:持有行 L${keeperLine} 保持原样,折副本 ${f.edits.length} 行;` +
+        `共享索引 移动 ${nOf(align.moved)} / 已就位 ${nOf(align.already)}`,
+    )
+    return 0
+  }
+  console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
+  return 1
+}
+
 // ── 自愈层(挂 post-commit)──────────────────────────────────────────
 /**
  * 对**当时**的 HEAD 重算归并,并落地一枚前向修复提交。
@@ -4857,6 +5192,8 @@ export const KNOWN_FLAGS = [
   '--dedupe-open-rows',
   '--fold-identical-open-rows',
   '--fold-twins',
+  '--merge-drifted',
+  '--keeper',
   '--audit-pointers',
   '--restore-terminals',
   '--json',
@@ -4876,6 +5213,8 @@ export const VALUE_FLAGS = [
   '--write-to',
   '--match',
   '--match-prefix-holder',
+  '--merge-drifted',
+  '--keeper',
   '--max-rows',
   '--rounds',
 ]
@@ -4923,6 +5262,10 @@ function printHelp() {
       '  --fold-identical-open-rows  未勾选且整行**逐字节相同**、**未带**指针的单行副本:多重集 N→1 的无注记出口(15914 方向①)。',
       '                          断言:落地前后派单口径 claimable 一枚不动(尺子本来就把整行同文的多份算作一条活)∧ F4+F4b 副本计数恰好减去删除份数 ∧ 注记枚数一枚不增(机主 2026-10-13 明令不再产生「重复登记副本」注记)。',
       '  --fold-twins          F10 同题不同编号的孪生登记折叠(摘主键位编号 + 只写题面指针)',
+      '  --merge-drifted "<锚点>"  G-1058524 漂开副本归并:题面含锚点(≥4 字)的未指针对待办族,',
+      '                            两步人工确认(--keeper <行号> 点名持有行)后 N→1 —— 副本行原地',
+      '                            折成指针形态,正文逐字保留、一行不删、双方差异以两行原文对照为准。',
+      '  --keeper <N>              --merge-drifted 的持有行行号(必须是族内现读行号,人工裁决不猜)',
       '  --audit-pointers      只读:点名"全族都带副本指针 ⇒ 对派单口径隐形"的主键族',
       '  --restore-terminals   为隐形主键族恢复一行终端代表(只报名,/commit 才落)',
       '',
@@ -5160,6 +5503,95 @@ function main() {
       return 0
     }
     return twinFoldAndLand()
+  }
+  // G-1058524:漂开副本的人工归并出口。两步确认 —— ① 报告档列出族内名单;② --keeper 人工
+  // 点名持有行(+--commit 才落地)。挑哪条作数就是裁决哪份差异是正本,这个决定必须是人做的。
+  const mdv = flagValue(argv, '--merge-drifted')
+  if (mdv.present) {
+    if (!mdv.valid) {
+      console.log(
+        `❌ --merge-drifted 需要一个非旗标值(题面子串锚点,≥4 字),实得 ${JSON.stringify(mdv.token)} —— 把空值当"没指定"会退化成"这一族没配上",方向反了。`,
+      )
+      return 2
+    }
+    const selD = selectFace({ staged: has('--staged'), worktree: has('--worktree'), def: 'head' })
+    if (selD.error) {
+      console.log(`⚠️ 无法判定 —— ${selD.error}`)
+      return 2
+    }
+    if (selD.face === 'staged' && has('--commit')) {
+      console.log('❌ --staged 只许出报告(§12 污染型):落地一律只认 HEAD blob')
+      return 2
+    }
+    let srcD
+    try {
+      srcD = readPlan(ROOT, selD.face)
+    } catch (e) {
+      console.log(
+        `⚠️ 无法判定 —— ${e instanceof Undetermined ? e.message : String(e?.message ?? e)}`,
+      )
+      return 2
+    }
+    const famD = findDriftedFamilies(srcD.split('\n'), mdv.value)
+    if (famD.error) {
+      console.log(`❌ ${famD.error}`)
+      return 2
+    }
+    const dayD =
+      argv.find((a) => /^\d{4}-\d{2}-\d{2}$/.test(a)) ?? new Date().toISOString().slice(0, 10)
+    const kp = flagValue(argv, '--keeper')
+    let keeperLine = null
+    if (kp.present) {
+      const n = Number(kp.valid ? kp.value : NaN)
+      if (!Number.isInteger(n) || n < 1) {
+        console.log(
+          `❌ --keeper 需要一个正整数行号(族内名单见上一步报告),实得 ${JSON.stringify(kp.valid ? kp.value : kp.token)}`,
+        )
+        return 2
+      }
+      keeperLine = n
+    }
+    console.log(
+      `判定面:${LABEL[selD.face]}  漂开族(锚点「${famD.anchor}」):${famD.rows.length} 份未指针对待办` +
+        (famD.skippedLeased.length
+          ? `(另有 ${famD.skippedLeased.length} 行带认领牌已跳过:L${famD.skippedLeased.join(', L')})`
+          : ''),
+    )
+    for (const r of famD.rows) {
+      console.log(
+        `  - L${r.line}${r.key ? ` [${r.key}]` : ' (无编号)'} 正文长度 ${r.raw.length} 题:「${titleOf(r.raw).slice(0, 48)}」`,
+      )
+    }
+    if (!keeperLine) {
+      console.log(
+        'ℹ️ 两步确认:先看上面名单,再跑 --merge-drifted "<锚点>" --keeper <持有行行号>(加 --commit 才落地)。挑哪条作数是人工裁决,本档不猜。',
+      )
+      return 0
+    }
+    const fD = applyDriftedMerge(srcD, mdv.value, keeperLine, dayD)
+    if (fD.error) {
+      console.log(`❌ ${fD.error}`)
+      return 1
+    }
+    const vD = verifyDriftedMerge(srcD, fD.text, fD.edits, fD.refused, mdv.value, keeperLine)
+    if (vD.problems.length) {
+      console.log('❌ 零损失断言未过,拒交付:')
+      for (const p of vD.problems.slice(0, 10)) console.log('   ' + p)
+      return 1
+    }
+    console.log(
+      `✅ 零损失断言全过:拟折副本 ${fD.edits.length} 行(持有行 L${keeperLine} 原样),拒绝 ${fD.refused.length} 行`,
+    )
+    for (const r of fD.refused.slice(0, 10)) console.log(`  · 不折 L${r.line}:${r.reason}`)
+    if (!has('--commit')) {
+      console.log('ℹ️ 未加 --commit:只出报告,一行未改。确认后再加 --commit 落地')
+      return 0
+    }
+    if (selD.face !== 'head') {
+      console.log('❌ 落地一律只认 HEAD blob(现判定面不是 head)')
+      return 2
+    }
+    return driftedMergeAndLand(mdv.value, keeperLine)
   }
   // G-814403 ②:--match-prefix-holder 走独立支线(人工裁决出口),绝不混进 post-commit 自动档
   const mph = flagValue(argv, '--match-prefix-holder')
@@ -5763,6 +6195,18 @@ export const __test__ = {
   TWIN_TAIL_RE,
   CHECKBOX_LEAD_RE,
   TWIN_GROUP_MAX,
+  /**
+   * 漂开归并档(--merge-drifted)的构造与判据一并交出(§22c 同一条:镜像测试不得抄第二份注记形状)。
+   */
+  driftedFoldNote,
+  buildDriftFold,
+  stripDriftFold,
+  isDriftFolded,
+  driftedFoldRejectReason,
+  findDriftedFamilies,
+  applyDriftedMerge,
+  verifyDriftedMerge,
+  DRIFT_GROUP_MAX,
   /** 测试直接 import 这一份判据(§22c:镜像测试不得再抄一份源判据,抄了就跟着一起漂绿) */
   flagValue,
   /** 分块档的贪心与整数取值判据 —— 镜像测试必须用**同一份**实现算块,不得自己再贪心一遍 */
