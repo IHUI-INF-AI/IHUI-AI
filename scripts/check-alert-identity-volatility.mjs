@@ -123,6 +123,9 @@ const SKIP_PATH_RE = /(\.test\.|\.spec\.|\.d\.ts$|node_modules|[/\\]tests?[/\\]|
 /** 一个文件是不是发信生产者:命中任一构造词才进射程(不命中 = 与身份无关,不判也不报)。 */
 const PRODUCER_RE = /notifyGuardRed\(|dedupKey|Invoke-FailNotify|Send-EmailNotify|\$sig\s*=|fingerprint\(|--alert-id|Send-FailureAlert/
 const PRODUCER_GREP = 'notifyGuardRed\\(|dedupKey|Invoke-FailNotify|Send-EmailNotify|\\$sig[[:space:]]*=|fingerprint\\(|--alert-id|Send-FailureAlert'
+/** V4 发现集用的两段 ERE(git grep 侧)与上面的 JS 正则同义,只按其一并存修改。 */
+const TRANSPORT_SRC = 'createTransport|sendMail\\(|Send-MailMessage|RESEND_API_KEY|api\\.resend\\.com'
+const OPS_SRC = "ALERT_EMAIL_TO|notify-deploy-failure|--alert-id|alertId|severity:[[:space:]]*[\"'](critical|warning)"
 
 /** 抽 JS/TS 侧的身份表达式:`dedupKey: <值>` 与 `fingerprint(...)` 的种子。 */
 export function jsIdentityExprs(text) {
@@ -350,10 +353,81 @@ function collectMailFaces(face, nowMs = Date.now()) {
     return { hits: [], undetermined: [`${MAIL_FACES_LEDGER} 解不开(形状坏 ⇒ 既不放行也不冒红,与第三方台账同一条判序)`] }
   }
   if (!Array.isArray(rows) || !rows.length) return { hits: [], undetermined: [`${MAIL_FACES_LEDGER} 枚举到 0 条 ⇒ 判死不记绿`] }
+  // 路径全集恒取 HEAD:"这条路径还在不在仓里"问的是仓库事实,与被审面是不是索引无关
+  // (索引面判的是内容,不是存在性)。
   const listed = String(gitRaw(['ls-tree', '-r', '--name-only', 'HEAD'], ROOT) || '').split(/\r?\n/)
   if (!listed.length || (listed.length === 1 && !listed[0]))
-    return { hits: [], undetermined: ['HEAD 路径全集取不到 ⇒ 无从判"清单是否腐烂",不记绿'] }
-  return { hits: judgeMailFaces(rows, new Set(listed), { nowMs }), undetermined: [] }
+    return { hits: [], undetermined: ['被审面路径全集取不到 ⇒ 无从判"清单是否腐烂",不记绿'] }
+  const discovered = discoverFaceCandidates(face)
+  if (discovered === null) return { hits: [], undetermined: ['V4 发现集 git grep 失败 ⇒ 看不见新面就等于没这一维,不记绿'] }
+  return {
+    hits: [...judgeMailFaces(rows, new Set(listed), { nowMs }), ...judgeFaceCoverage(rows, discovered)],
+    undetermined: [],
+  }
+}
+
+/**
+ * V4 —— 发现集对账(2026-10-19 立,立因是 V3 只审"已声明的行")。
+ *
+ * V3 的台账能钉住"登了却扫不到"和"没写理由的缺口",但它**看不见没登过的新面** ——
+ * 今天就是被一次人工审计揪出 `apps/api/src/services/alert-notification-service.ts`:
+ * 它自建 nodemailer transport、被 ops-watch-reader 当到人通道用,既不在 faces 台账里,
+ * 也不在出口台账里(于是量不到、也拦不到)。"要有人先想到去登记"这件事本身就是漏的。
+ *
+ * 本维度自己把候选找出来:命中"投递构造"(createTransport / sendMail / Send-MailMessage /
+ * Resend key)且同文件里带运维告警标记(ALERT_EMAIL_TO / --alert-id / alertId / severity)的文件,
+ * 每一个都必须有台账行。缺行 ⇒ 红,**且命中记在那个新文件自己身上**(不是记在台账文件上)——
+ * 否则提交者没动台账文件,差值棘轮看不见这条红,规矩就成了摆设。
+ */
+const TRANSPORT_RE = /createTransport|sendMail\(|Send-MailMessage|RESEND_API_KEY|api\.resend\.com/
+const OPS_RE = /ALERT_EMAIL_TO|notify-deploy-failure|--alert-id|alertId|severity:\s*['"](critical|warning)['"]/
+export const FACE_ROLES = ['producer', 'exit', 'measurer', 'guard', 'asset', 'config', 'other']
+
+/** 从 git grep 输出去掉 `HEAD:` 前缀、剔测试夹具,返回相对路径数组。 */
+function grepPaths(args, face) {
+  let raw
+  try {
+    raw = gitRaw(args, ROOT)
+  } catch (e) {
+    if (e?.status === 1) return []
+    return null
+  }
+  return String(raw)
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^HEAD:/, ''))
+    .filter((p) => p && LANG_RE.test(p) && !SKIP_PATH_RE.test(p))
+}
+
+export function discoverFaceCandidates(face) {
+  const globs = ['--', '*.ts', '*.mjs', '*.cjs', '*.js', '*.ps1']
+  const greps = {
+    head: ['grep', '-l', '-E', TRANSPORT_SRC, 'HEAD', ...globs],
+    staged: ['grep', '--cached', '-l', '-E', TRANSPORT_SRC, ...globs],
+    worktree: ['grep', '-l', '-E', TRANSPORT_SRC, ...globs],
+  }
+  const ops = {
+    head: ['grep', '-l', '-E', OPS_SRC, 'HEAD', ...globs],
+    staged: ['grep', '--cached', '-l', '-E', OPS_SRC, ...globs],
+    worktree: ['grep', '-l', '-E', OPS_SRC, ...globs],
+  }
+  const t = grepPaths(greps[face] || greps.head, face)
+  const o = grepPaths(ops[face] || ops.head, face)
+  if (t === null || o === null) return null
+  const oSet = new Set(o)
+  return [...new Set(t.filter((p) => oSet.has(p)).concat(o.filter((p) => /notify-deploy-failure/.test(p))))].sort()
+}
+
+export function judgeFaceCoverage(rows, discovered) {
+  const hits = []
+  const paths = new Set(rows.map((r) => r?.producerPath))
+  for (const r of rows) {
+    if (!FACE_ROLES.includes(String(r?.role || '')))
+      hits.push({ file: MAIL_FACES_LEDGER, line: 1, kind: 'V4/缺角色', detail: `${r?.producerPath} 没有合法的 role(${FACE_ROLES.join('|')})` })
+  }
+  for (const d of discovered) {
+    if (!paths.has(d)) hits.push({ file: d, line: 1, kind: 'V4/未登记发信面', detail: '命中"投递构造 + 运维告警标记",但 alert-mail-faces.json 里没有这一行' })
+  }
+  return hits
 }
 
 function main() {
@@ -524,6 +598,22 @@ function runSelfTest() {
     const unparse = judgeMailFaces([{ producerPath: 'monitoring/w.cjs', inScope: false, gapReason: 'x', ticket: 't', until: '31/12' }], new Set(['monitoring/w.cjs']), { nowMs: now })
     if (!unparse.some((h) => h.kind === 'V3/到期日不可解')) throw new Error('不可解的到期日没被拦(=静默永久豁免)')
   })
+  t('V4 发现集:没登过的新面必须红,且命中记在新文件身上(否则棘轮看不见)', () => {
+    const rows = [{ producerPath: 'scripts/known.mjs', role: 'producer', inScope: true }]
+    const hits = judgeFaceCoverage(rows, ['scripts/known.mjs', 'monitoring/brand-new.cjs'])
+    const miss = hits.find((h) => h.kind === 'V4/未登记发信面')
+    if (!miss) throw new Error('没登记的新面没被抓到')
+    if (miss.file !== 'monitoring/brand-new.cjs')
+      throw new Error(`命中必须落在那个新文件身上(实测 ${miss.file});落在台账文件上的话,提交者没改台账 ⇒ 差值棘轮看不见这条红,规矩成摆设`)
+    const both = [
+      ...rows,
+      { producerPath: 'monitoring/brand-new.cjs', role: 'producer', inScope: false, gapReason: 'x', ticket: 't', until: '2099-01-01' },
+    ]
+    const after = judgeFaceCoverage(both, ['scripts/known.mjs', 'monitoring/brand-new.cjs'])
+    if (after.length) throw new Error(`全登记了还判红 = 恒红门之始:${JSON.stringify(after)}`)
+    if (!judgeFaceCoverage([{ producerPath: 'scripts/norole.mjs', inScope: true }], ['scripts/norole.mjs']).some((h) => h.kind === 'V4/缺角色'))
+      throw new Error('没有 role 的条目必须红(否则"这条到底发不发信"读不出来)')
+  })
   let pass = 0
   for (const c of cases) {
     try {
@@ -552,7 +642,10 @@ export const __test__ = {
   isExempted,
   secondTierRuler,
   judgeMailFaces,
+  judgeFaceCoverage,
+  discoverFaceCandidates,
   collectMailFaces,
+  FACE_ROLES,
   listProducerPaths,
   MAIL_FACES_LEDGER,
   EXEMPTION_LEDGER,
