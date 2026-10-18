@@ -16,7 +16,7 @@ LABEL org.opencontainers.image.description="IHUI AI Coding Agent — 对标 Clau
 LABEL org.opencontainers.image.licenses="MIT"
 
 # 全局安装 IHUI CLI(从 npm registry)
-RUN npm install -g @ihui/cli
+RUN npm install -g ihui-cli
 
 # 工作区挂载点(运行时 -v 挂载宿主目录)
 RUN mkdir -p /workspace

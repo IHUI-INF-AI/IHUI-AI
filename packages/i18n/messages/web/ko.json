@@ -19626,7 +19626,7 @@
     "downloadBack": "뒤로",
     "downloadCli": "CLI 도구",
     "downloadCliDesc": "터미널 원클릭, 스크립트 통합",
-    "downloadCliInstallGuide": "npm으로 @ihui/cli 패키지를 전역 설치한 후, 터미널에서 ihui 명령을 실행하여 CLI 도구를 시작.",
+    "downloadCliInstallGuide": "npm으로 ihui-cli 패키지를 전역 설치한 후, 터미널에서 ihui 명령을 실행하여 CLI 도구를 시작.",
     "downloadCliSysReq": "Node.js 20.10 이상",
     "downloadCliUsageHint": "설치 후 실행",
     "downloadClient": "앱 다운로드",
