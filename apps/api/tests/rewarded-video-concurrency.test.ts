@@ -208,5 +208,24 @@ describe('rewarded-video-ad 并发安全', () => {
     expect(bodies.every((b) => b.code === 0 && b.data?.awarded === true)).toBe(true)
     expect(mockAwardAdPoints).toHaveBeenCalledTimes(2)
   })
+
+  it('场景 4:签名错误一律 403 且在去重/发积分前短路(走 secretsEqual 常量时间比较)', async () => {
+    const wrongBody = {
+      userId: TEST_USER_ID,
+      transactionId: 'tx-bad-signature',
+      rewardAmount: 10,
+      // 攻击者用错误 secret 算出的签名(不是合法 hex 内容的简单不等,必须被常量时间判否)
+      signature: sig(TEST_USER_ID, 'tx-bad-signature', 'wrong-secret-attacker'),
+    }
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/rewarded-video-ad/notify',
+      body: wrongBody,
+    })
+    expect(res.statusCode).toBe(403)
+    expect(res.json().code).toBe(403)
+    // 签名失败必须在 Redis 去重与 awardAdPoints 之前短路,一次都不得发放
+    expect(mockAwardAdPoints).not.toHaveBeenCalled()
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
