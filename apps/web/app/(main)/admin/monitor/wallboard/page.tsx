@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
+import { isNum, isUnset, thresholdTone, type StatusTone } from './unknown-state'
 
 /**
  * 生产在线端监控大屏(/admin/monitor/wallboard)。
@@ -369,31 +370,6 @@ function ChartEmpty({ text }: { text: string }) {
       </span>
     </div>
   )
-}
-
-/**
- * 展示层判定态(§0.3「没判」绝不渲染成「判过」):
- * 'unknown' = 数据源不可达 / 字段缺失。后端每路独立降级留 null(admin-ops-wallboard.ts),
- * 前端任何 null→数字兜底或 null→'ok' 阈值染色都是把「不可达」谎报成「健康」。
- */
-type StatusTone = 'ok' | 'warn' | 'bad' | 'unknown'
-
-/** 阈值着色:null/非有限值一律返回 'unknown',不得伪造默认值通过阈值。 */
-function thresholdTone(
-  v: number | null | undefined,
-  classify: (n: number) => 'ok' | 'warn' | 'bad',
-): StatusTone {
-  return isNum(v) ? classify(v) : 'unknown'
-}
-
-/** 数值可用性:NaN/Infinity 不算"测到了"(面板会把它们画成空白或 0,两种都误导)。 */
-function isNum(v: number | null | undefined): v is number {
-  return typeof v === 'number' && Number.isFinite(v)
-}
-
-/** 未置值:boolean 档位取不到时是 null(后端降级)或 undefined(整块不可达),两者都得走"未知"。 */
-function isUnset(v: boolean | null | undefined): v is null | undefined {
-  return v === null || v === undefined
 }
 
 /** 未知态唯一展示原语:暗色「—」+ Unplug 字形 + 不可达注记。 */
