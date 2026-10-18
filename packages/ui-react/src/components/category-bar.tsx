@@ -31,7 +31,7 @@ const ITEM_IDLE = 'border-border bg-card text-muted-foreground hover:bg-muted'
 const ITEM_ACTIVE = 'border-brand-accent-deep bg-cta text-cta-foreground font-semibold'
 /** §4 数字计数徽章确定性居中模板(任意位数不偏移,等宽数字不抖) */
 const BADGE =
-  'inline-flex h-4 min-w-4 items-center justify-center rounded px-1 text-[10px] font-semibold leading-none tabular-nums'
+  'inline-flex h-4 min-w-4 items-center justify-center rounded-md px-1 text-[10px] font-semibold leading-none tabular-nums'
 
 /**
  * 横滑分类条 — RN 侧 CategoryInlineBar 的 web 同形实现。
