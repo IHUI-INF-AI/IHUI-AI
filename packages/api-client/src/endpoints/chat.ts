@@ -412,6 +412,20 @@ export function setMessageFlags(input: {
   )
 }
 
+/** 票64(2026-10-18 立):编辑一条 AI 消息 —— 服务端不覆写原行,而是在同一版本族里
+ *  落一个新 sibling(票59 存储模型)。返回值里 rootId 是族根、siblingIndex 是新版本序号;
+ *  调用方据此把新行并入 store,读投影(lib/message-version-family.ts)只显示激活版本。
+ *  角色不符服务端拒 400,主体不符拒 404 —— 本方法不吞错,由调用方按 res.error 上屏。 */
+export function editAiMessageVersion(messageId: string, content: string) {
+  return fetchApi<{ message: ConversationMessage; rootId: string; siblingIndex: number }>(
+    `/api/chat/messages/${encodeURIComponent(messageId)}/edit`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    },
+  )
+}
+
 /** 会话标题自动生成(2026-09-15 立,四竞品对标 V2 #15):
  * 首轮回复完成后由前端 fire-and-forget 调用,LLM 依据首条用户消息生成标题。
  * 仅默认标题「新对话」会被覆盖;生成失败静默返回 ok:true/updated:false,调用方无需重试。 */
