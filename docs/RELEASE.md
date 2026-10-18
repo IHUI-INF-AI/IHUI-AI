@@ -8,7 +8,7 @@
 
 > IHUI-AI 跨 14 平台发布:web/api/ai-service Docker 镜像 + desktop GitHub Release 自动发布 + extension Chrome Web Store + mobile-rn EAS + miniapp-taro 微信审核 + cli(npm + 6 二进制 + winget/scoop/homebrew/snap 4 manifest)+ sdk(npm / PyPI / Maven / Go 4 语言通道,.NET 无通道),由 Git tag 触发 GitHub Actions 自动构建,蓝绿部署上线。
 >
-> ⚠️ **"配了流程" ≠ "已发布"**。截至 2026-09-20,npm / PyPI 上的 `@ihui/*` 与 `ihui-ai` **一个都没有**(registry 回读全 404),SDK/CLI 发布所需的 secrets 也未配置。逐条证据见下节[发布状态(实测)](#发布状态实测-2026-09-20逐条带命令回读)。
+> ⚠️ **"配了流程" ≠ "已发布"**。截至 2026-10-18,npm / PyPI 上的 `@ihui/*`、`ihui-cli` 与 `ihui-ai` **一个都没有**(registry 回读全 404)。CLI 已改为 npm Trusted Publishing(OIDC),CI 不再需要 `NPM_TOKEN`;SDK 侧(以及 PyPI / Maven)的凭据仍未配置。逐条证据见下节[发布状态(实测)](#发布状态实测-2026-09-20逐条带命令回读)。
 
 ---
 
@@ -53,23 +53,24 @@ IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actio
 | 产物 | 状态 | 回读命令 | 实测输出 |
 | --- | --- | --- | --- |
 | `@ihui/sdk`(npm) | ❌ 未发布 | `curl -s https://registry.npmjs.org/@ihui%2Fsdk` | `{"error":"Not found"}`(HTTP 404) |
-| `ihui-cli`(npm) | ❌ 未发布 | `curl -s https://registry.npmjs.org/ihui-cli` | `{"error":"Not found"}` |
+| `ihui-cli`(npm) | ❌ 未发布(包名 `ihui-cli` 为 unscoped,404 = 名称可用) | `curl -s https://registry.npmjs.org/ihui-cli` | `{"error":"Not found"}`(HTTP 404) |
 | `@ihui/api-client`(npm) | ❌ 未发布(定位为内部包,见下) | `curl -s https://registry.npmjs.org/@ihui%2Fapi-client` | `{"error":"Not found"}` |
 | `ihui-ai`(PyPI) | ❌ 未发布 | `curl -s https://pypi.org/pypi/ihui-ai/json` | `{"message": "Not Found"}`(HTTP 404) |
 | SDK 发布 tag | ❌ 一个都没有 | `git tag -l 'sdk-v*'`(另测 `v*` / `cli-v*`) | 0 行 |
 | npm 发布凭据(本地) | ❌ 无 | `npm token list --registry=https://registry.npmjs.org/` | `npm error 401 Unauthorized` |
 | npm 发布凭据(用户级 .npmrc) | ❌ 无 token | 查 `C:\Users\Administrator\.npmrc` | 仅 registry/prefix/cache 三行,无 `_authToken` |
-| CI 发布 secrets | ❌ 未配置 | `gh secret list` | 仅 DEPLOY_/DESKTOP_/GITEE_/GITCODE_ 共 8 项,**无** NPM_TOKEN / PYPI_TOKEN / MAVEN_* / NUGET_* |
-| OIDC trusted publishing | ❌ 不可用 | npm / PyPI 包页面 | 两个 registry 都要求**先有已发布的包/项目**才能登记 trusted publisher;当前 404 → 无从登记,首次发布必须走 token |
+| CI 发布 secrets | ⚠️ 部分未配置;npm 已不需要 token | `gh secret list` | 仅 DEPLOY_/DESKTOP_/GITEE_/GITCODE_ 共 8 项,**无** PYPI_TOKEN / MAVEN_* / NUGET_*;CLI 的 npm 发布已切 OIDC,不再读 `NPM_TOKEN` |
+| OIDC trusted publishing | ⚠️ CI 已接入,首版待人工 bootstrap | `release-cli.yml` / npm 包页面 | npm 要求**包已存在**才能登记 trusted publisher;`ihui-cli` 当前 404 → 需人工发布首版后再登记,之后 `cli-v*` tag 由 CI 免 token 发布。PyPI 同理(首版仍需 `PYPI_TOKEN`) |
 | desktop GitHub Release | ✅ 已发布(对照项) | `git tag -l 'desktop-v*'` | `desktop-v0.1.42` 等已产出(见 `release-desktop.yml`) |
 
 **结论:`release-sdk.yml` / `release-cli.yml` 的发布链路是"配好了但从未跑通",不是"已交付"。**
-要让 SDK/CLI 真正对外可安装,还差三件事(全部在用户侧,agent 无法代办):
+CLI 侧链路已收口为 npm Trusted Publishing(OIDC),**CI 不再需要 `NPM_TOKEN`**;但 OIDC 不能给不存在的包登记 publisher,首版仍需人工 bootstrap。剩余人工动作(全部在用户侧,agent 无法代办):
 
-1. 在 npmjs.com 注册 `@ihui` org 并生成 Granular Access Token → 配成 GitHub Secret `NPM_TOKEN`;
-   首次发布后用包页面 "Trusted Publisher" 登记 `IHUI-INF-AI / IHUI-AI / release-sdk.yml`,再摘掉 token。
-2. 在 PyPI 建项目 `ihui-ai` 并配 `PYPI_TOKEN`(名字必须与 workflow 里的 `secrets.PYPI_TOKEN` 一致)。
-3. 决定 `@ihui/*` 内部包(全部 `private:true`)是否随发布 —— 见下方"sdk / cli 依赖闭包"。
+1. 注册 npm 账号并开启 2FA(`npm login` 时需 2FA)。
+2. 首版 bootstrap(唯一一次人工发布):`pnpm --filter ihui-cli build:npm` 产出 `apps/cli/npm-dist/` → `npm publish ./npm-dist --access public`。
+3. 在 npmjs.com 包设置页 → Trusted Publishing 登记:Repository = `IHUI-INF-AI/IHUI-AI`,Workflow filename = `release-cli.yml`,Environment 留空。之后每次 `cli-v*` tag 由 CI 免 token 发布并自动带 provenance。
+4. 在 PyPI 建项目 `ihui-ai` 并配 `PYPI_TOKEN`(名字必须与 workflow 里的 `secrets.PYPI_TOKEN` 一致)。
+5. 决定 `@ihui/*` 内部包(全部 `private:true`)是否随发布 —— 见下方"sdk / cli 依赖闭包"。
 
 ---
 
@@ -400,10 +401,12 @@ sha256sum ihui-windows-x64.zip
 CLI 发版由 `release-cli.yml` 自动化,分两阶段:
 
 ```yaml
-# 阶段 1:npm publish
-- run: pnpm --filter ihui-cli publish --no-git-checks --access public
-  env:
-    NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+# 阶段 1:npm publish —— Trusted Publishing(OIDC),全程不需要 NPM_TOKEN
+- run: npm install -g npm@^11.15.0       # OIDC 换发要求 npm >= 11.5.1、Node >= 22.14.0
+- run: pnpm --filter ihui-cli build:npm  # esbuild 单文件 bundle → apps/cli/npm-dist/(无 dependencies)
+- run: npm view ihui-cli version         # 探测:包尚未 bootstrap 时 warning + 跳过发布
+- run: npm publish ./npm-dist --access public --provenance
+  # permissions.id-token: write 让 npm CLI 自动换取一次性令牌;provenance 由 Sigstore 签发
 
 # 阶段 2:构建 6 平台二进制(linux/macos/windows × x64/arm64)
 matrix:
@@ -417,6 +420,31 @@ matrix:
 ```
 
 二进制上传到 GitHub Release 后,再更新 winget / scoop / homebrew / snap 的 manifest(见 cli 矩阵)。
+
+### Windows 代码签名(SignPath Foundation)
+
+Windows 二进制(`ihui-windows-*.zip` 内的 `ihui.exe`)使用 SignPath Foundation 的免费开源代码签名:证书由 Sectigo CA 签发,私钥保存在 SignPath HSM,不落到 CI。下载页与 README 已包含 SignPath Foundation 声明。
+
+**当前状态(2026-10-18)**
+
+| 项 | 状态 |
+| --- | --- |
+| 申请 | ✅ 2026-10-18 已通过官网表单提交(项目 IHUI AI,仓库 https://github.com/IHUI-INF-AI/IHUI-AI,邮箱 ok502319984@gmail.com) |
+| 审批 | ⏳ 待审批,官方周期约 1-2 周 |
+| 费用 / 证书 | 免费;Sectigo CA 签发 |
+| 私钥 | 由 SignPath HSM 保管,CI 只持短期凭据 |
+| CI 集成 | ❌ 未配置(等审批通过) |
+
+**审批通过后需要的凭据**(配置在 GitHub 仓库 secrets):
+
+| Secret | 内容 |
+| --- | --- |
+| `SIGNPATH_API_TOKEN` | SignPath 生成的 API token |
+| 4 个 slug | `organization-id` / `project-slug` / `signing-policy-slug` / `artifact-configuration-slug`(可写成 secrets,也可直接写进 workflow) |
+
+**签名步骤的位置**:必须插在 `release-cli.yml` 的 `Package (Windows)` 步骤**之前** —— 先对 `apps/cli/dist-sea/ihui.exe` 做 Authenticode 签名,再用 `Compress-Archive` 打包。反过来签的是压缩包外壳:Authenticode 校验的是 PE 文件本身,zip 内的 exe 仍是未签名状态。
+
+**持续义务**:每次发布都需在 SignPath 门户人工批准该次签名请求,不是配置一次后全自动。
 
 ### sdk(4 语言包管理器 + 1 语言无发布通道)
 
@@ -443,7 +471,7 @@ matrix:
 | `@ihui/sdk` | 对外唯一 TS 入口 | 已改为可发布形态:`main/types → dist`、`files` 白名单、`license: Apache-2.0`、`publishConfig.registry` 锁 npmjs.org、`@ihui/types` 移到 devDependencies(纯类型引用,发行包不需要) |
 | `@ihui/api-client` | **内部传输层,不对外发布** | 保留 `private: true`。理由:① 它被 8 端经 workspace 直接按源码消费,翻成 `dist` 入口会让 `pnpm dev` 依赖先构建,收益为零;② 对外契约由 `@ihui/sdk` 承担,同时发布两个高度重叠的客户端包只会让使用者困惑;③ 它 `dependencies: { "@ihui/types": "workspace:*" }`,而 `@ihui/types` 是 private —— 去 private 也发不出去。**注意:`build` 脚本(`tsc`)是好的,`packages/api-client/dist` 能正常产出**,只是不用于发布。 |
 | `@ihui/types` | 契约包 | 仍是 `private: true`。`@ihui/sdk` 的 `dist/*.d.ts` 有 13 处 `import type … from '@ihui/types'`,严格消费者(`skipLibCheck: false`)会报 13 个 TS2307 —— 见"SDK 类型面遗留问题" |
-| `ihui-cli` | 名义上可发布(`private: false` + `publishConfig`),**实际装不上** | 它 `dependencies` 里有 5 个 `workspace:*` 的 private 包(api-client / context-compaction / design-tokens / shared / types)。发出去后 `npm i ihui-cli` 会 404;即使绕过安装,运行时 `import '@ihui/shared'` 也会因为没打包而崩。要么发布这 5 个包,要么把 CLI 用 bundler 打成单文件(需新增构建依赖)。 |
+| `ihui-cli` | 对外发布 npm 包 `ihui-cli`(unscoped) | 已收口为**单文件 bundle**:`build:npm`(esbuild CJS)产出 `apps/cli/npm-dist/`,`@ihui/*` 全部内联,`package.json` **无 `dependencies`**,语言包在 `dist/messages/{cli,shared}/`;发布命令为 `npm publish ./npm-dist --access public`。`packages/i18n` 的 `findMessagesRoot()` 已增加 `dist/messages` 探测。首版仍需人工 bootstrap(见上节人工待办) |
 
 ### SDK 类型面遗留问题(`@ihui/types` 未发布导致 d.ts 解析不到)
 
@@ -499,7 +527,7 @@ node scripts/cert-expiry-check.mjs
 
 | Secret | 被谁引用 | 配置状态(2026-09-20 实测 `gh secret list`) |
 | --- | --- | --- |
-| `NPM_TOKEN` | `release-sdk.yml` npm job + `release-cli.yml` npm job | ❌ 未配置 |
+| `NPM_TOKEN` | 仅 `release-sdk.yml` npm job(`release-cli.yml` 已切 OIDC,不再读取) | ❌ 未配置(CLI 侧已不需要) |
 | `PYPI_TOKEN` | `release-sdk.yml` pypi job(`TWINE_PASSWORD`) | ❌ 未配置 |
 | `MAVEN_USERNAME` / `MAVEN_TOKEN` | `release-sdk.yml` maven job(`~/.m2/settings.xml`) | ❌ 未配置 |
 | `GHCR_TOKEN` | GHCR 镜像推送(多数 job 用自动注入的 `GITHUB_TOKEN`) | ❌ 未配置(通常不需要) |

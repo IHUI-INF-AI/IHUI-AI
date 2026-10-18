@@ -30,6 +30,7 @@
     "dev": "tsx src/index.ts",
     "build": "tsc -p tsconfig.build.json",
     "build:sea": "node scripts/build-sea.mjs",
+    "build:npm": "node scripts/build-npm.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit",

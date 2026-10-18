@@ -999,7 +999,7 @@ LiteLLM 게이트웨이로 통합 연동, 스마트 라우팅 + 60% 캐시 적�
 | 백엔드 유닛    | Vitest        | 38 파일, 268 케이스          | `pnpm --filter @ihui/api test`    |
 | 프론트엔드 E2E | Playwright    | 17 spec 파일                 | `pnpm test:e2e`                   |
 | AI 서비스      | pytest        | 13 파일, 400+ 케이스         | `cd apps/ai-service && pytest`    |
-| CLI 유닛       | Vitest        | 13 파일                      | `pnpm --filter @ihui/cli test`    |
+| CLI 유닛       | Vitest        | 13 파일                      | `pnpm --filter ihui-cli test`     |
 | 부하 테스트    | Locust        | `scripts/locustfile.py`      | `locust -f scripts/locustfile.py` |
 | 성능 예산      | Lighthouse CI | `apps/web/lighthouserc.json` | CI 자동 실행                      |
 | 미사용 코드    | Knip          | `knip.jsonc` + CI 워크플로   | `pnpm knip`                       |

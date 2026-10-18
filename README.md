@@ -5737,3 +5737,5 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | `/settings/notification` | PUT  | 登录 | `{ code:0, message:'success', data: { success, requested, affected, missedIds } }` | 同上 `updateNotificationSettings`(逐键 upsert) |
 - group 已统一为复数 `'notifications'`(取 `apps/api/src/db/user-preferences-queries.ts` 的 `USER_PREFERENCE_GROUPS` 常量,裸字面量不得再出现),compat 单数路径别名与 web 权威腿 `/settings/notifications` 读同一批行;历史写在单数 `'notification'` 的存量由迁移 `packages/database/drizzle/20261018150000_user_preferences_notification_group_plural.sql` 一次性并入(同 `(userId,key)` 冲突取 `updated_at` 较新者胜、败方删除,迁移以 `RAISE NOTICE` 现报迁移/冲突/删除三计数)。
 - GET 曾回 `{ settings }` 的 k/v,与端上声明的 `{ list }` 契约不符致 `data.list` 恒 undefined;现两端对齐为 `list` 单一形状。PUT 逐键 `.returning({ id, key })` 回库确认写入集合并带 `missedIds`,不把请求侧 `.length` 当 affected(守门 134)。`title` 承载存储键,不在服务端拼中文(§19)。
+| **CLI**         | `npm install -g ihui-cli`  | 1.0.0  | -                | 🟢 已接入   |
+| CLI 单元   | Vitest        | 13 文件                      | `pnpm --filter ihui-cli test`     |

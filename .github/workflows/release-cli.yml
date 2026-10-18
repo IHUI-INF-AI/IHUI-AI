@@ -30,10 +30,10 @@ jobs:
   npm-publish:
     name: Publish to npm
     runs-on: ubuntu-latest
-    # NPM_TOKEN 未配置前 publish 必败(匿名 PUT 404)—— continue-on-error 让二进制/Docker
-    # 链不被拖死;token 配好后(NPM_TOKEN secret)移除此行恢复硬门。
-    # 另:@ihui scope 已被第三方占用(2026-10-18 实证),npm 恢复前须先定新包名。
-    continue-on-error: true
+    # 2026-10-18 起改走 npm Trusted Publishing(OIDC):不再读 NPM_TOKEN secret,
+    # 由 GitHub Actions 的 id-token 向 npm 换取一次性发布令牌,同时产出 Sigstore provenance。
+    # 前提(一次性,人工):包 ihui-cli 必须已存在于 registry 才能登记 trusted publisher ——
+    # 首版 bootstrap 见 docs/npm-publish-guide.md §7.2;未 bootstrap 前本 job 只做探测并跳过发布。
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,7 +46,13 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
-          registry-url: 'https://registry.npmjs.org'
+          # 不写 registry-url:那会生成 //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN},
+          # 而 Trusted Publishing 恰恰不能带长期 token。registry 由 package.json 的
+          # publishConfig.registry 锁定,install 走默认 registry.npmjs.org。
+
+      - name: Upgrade npm (Trusted Publishing 需 npm >= 11.5.1)
+        # Node 22 自带的 npm 10.x 不认识 OIDC 换取流程,会直接按未登录处理。
+        run: npm install -g npm@^11.15.0
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -61,18 +67,35 @@ jobs:
       - name: Typecheck
         run: pnpm --filter ihui-cli typecheck
 
+      - name: Build npm bundle
+        # 单文件 esbuild bundle → apps/cli/npm-dist/(自带 dist/messages 语言包、
+        # 无 dependencies):tsc 产物保留 `import '@ihui/shared'` 且依赖 workspace:*
+        # 私有包,直接 publish 出去的包装不上也跑不起来(docs/npm-publish-guide.md §11)。
+        run: pnpm --filter ihui-cli build:npm
+
+      - name: Probe npm registry
+        id: probe
+        # Trusted Publishing 不能给不存在的包登记 publisher。首版由人工 bootstrap 后,
+        # 本 job 才真正发布;此前保持 release 链绿色并给出明确提示。
+        run: |
+          if npm view ihui-cli version --registry=https://registry.npmjs.org/ >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::ihui-cli 尚未在 npm 上 bootstrap(首版需人工发布,见 docs/npm-publish-guide.md §7.2),本次跳过 npm 发布"
+          fi
+
       - name: Publish to npm
-        run: pnpm --filter ihui-cli publish --no-git-checks --access public --provenance
-        # --provenance(2026-10-18):Sigstore keyless 免费供应链证明 —— npm 页面显示
-        # "Verified from github.com/IHUI-INF-AI/IHUI-AI" 徽章,零费用零凭据
-        # (public repo + GitHub Actions 即生效),与 Windows 侧 Authenticode 互补。
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        if: steps.probe.outputs.exists == 'true'
+        # --provenance(2026-10-18):Sigstore keyless 供应链证明 —— npm 页面显示
+        # "Built and signed on GitHub Actions" 徽章;OIDC 令牌由 npm CLI 自动换取,
+        # 无 NPM_TOKEN、无长期凭据。
+        run: npm publish ./npm-dist --access public --provenance
 
       - name: Summary
         run: |
-          echo "### npm 发布完成" >> $GITHUB_STEP_SUMMARY
-          echo "包名: \`ihui-cli\`" >> $GITHUB_STEP_SUMMARY
+          echo "### npm 发布" >> $GITHUB_STEP_SUMMARY
+          echo "包名: \`ihui-cli\` · 已存在: ${{ steps.probe.outputs.exists }}" >> $GITHUB_STEP_SUMMARY
           echo "安装: \`npm install -g ihui-cli\`" >> $GITHUB_STEP_SUMMARY
 
   # ---------- Job 2: Build binaries ----------
@@ -269,7 +292,7 @@ jobs:
   # ---------- Job 4: Generate changelog ----------
   release-summary:
     name: Release Summary
-    needs: [build-binary, build-docker]
+    needs: [npm-publish, build-binary, build-docker]
     runs-on: ubuntu-latest
     if: always()
     steps:
