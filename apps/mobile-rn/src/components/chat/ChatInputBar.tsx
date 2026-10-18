@@ -1,0 +1,14 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// 纯抽取:从 ChatScreen 抽出底部输入条(D120 预算 / D123 意图)。零行为/视觉变更。
+
+import { BottomActionBar, type BottomActionBarProps } from '../../components/BottomActionBar'
+
+/**
+ * 底部输入条(对齐 Uniapp 输入区 + 功能开关 chip 行)。
+ * 纯透传 BottomActionBar 的全部 props,不做任何渲染/逻辑改造 —— 预算(D120)、
+ * 意图(D123)等后续票面在 BottomActionBar 内部演进,本组件仅作为 ChatScreen 的装配点。
+ */
+export function ChatInputBar(props: BottomActionBarProps) {
+  return <BottomActionBar {...props} />
+}
