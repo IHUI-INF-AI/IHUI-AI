@@ -10,6 +10,7 @@ import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, post } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { uploadImage } from '@/utils/upload-image'
 import ThemeRoot from '@/components/ThemeRoot'
 import './realname.css'
@@ -25,6 +26,7 @@ function maskIdCard(id: string): string {
 
 export default function Realname() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
   const [realName, setRealName] = useState('')
   const [idCard, setIdCard] = useState('')
@@ -66,7 +68,10 @@ export default function Realname() {
   }, [t])
 
   useDidShow(() => {
-    load()
+    // G-933 冷启动门控:GET /user/profile(checkAuth)需鉴权,落定前不发
+    gate.waitUntilReady(() => {
+      void load()
+    })
   })
 
   const pickPhoto = (side: 'front' | 'back') => {

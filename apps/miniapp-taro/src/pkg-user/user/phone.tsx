@@ -10,10 +10,12 @@ import { useFieldFocus } from '@/hooks/use-field-focus'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useCallback } from 'react'
 import { getProfile, sendSmsCode, bindPhone, pwdExist } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
 export default function Phone() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [currentPhone, setCurrentPhone] = useState('')
   const [step, setStep] = useState<1 | 2>(1)
   // step 1: 验证当前手机号
@@ -45,17 +47,22 @@ export default function Phone() {
     return p.slice(0, 3) + '****' + p.slice(-4)
   })()
 
-  useDidShow(async () => {
-    try {
-      const profile = await getProfile()
-      const p = profile.phone || ''
-      setCurrentPhone(p)
-      // 已绑定手机号 → 进入两步流程第一步;未绑定 → 直接进入第二步绑定
-      setStep(p && p.length === 11 ? 1 : 2)
-    } catch (e) {
-      logger.error('user/phone', t('userPhone.q1'), e)
-      setStep(2)
-    }
+  useDidShow(() => {
+    // G-933 冷启动门控:GET /user/profile(checkAuth)需鉴权,落定前不发
+    gate.waitUntilReady(() => {
+      void (async () => {
+        try {
+          const profile = await getProfile()
+          const p = profile.phone || ''
+          setCurrentPhone(p)
+          // 已绑定手机号 → 进入两步流程第一步;未绑定 → 直接进入第二步绑定
+          setStep(p && p.length === 11 ? 1 : 2)
+        } catch (e) {
+          logger.error('user/phone', t('userPhone.q1'), e)
+          setStep(2)
+        }
+      })()
+    })
   })
 
   function startOldCountdown() {

@@ -10,6 +10,7 @@ import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
 const priceFmt = new Intl.NumberFormat('zh-CN', {
@@ -19,6 +20,7 @@ const priceFmt = new Intl.NumberFormat('zh-CN', {
 
 export default function WithdrawalPage() {
   const tt = useTt()
+  const gate = useAuthReadyGate()
   const [available, setAvailable] = useState(0)
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState('wechat')
@@ -82,7 +84,10 @@ export default function WithdrawalPage() {
   }
 
   useDidShow(() => {
-    load()
+    // G-933 冷启动门控:可提现金额(GET /distribution/overview,组级 authenticate)需鉴权
+    gate.waitUntilReady(() => {
+      void load()
+    })
   })
 
   return (

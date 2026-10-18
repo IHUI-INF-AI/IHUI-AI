@@ -9,6 +9,7 @@ import SearchBar from '@/components/SearchBar'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getDistributionTeam } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -43,6 +44,7 @@ const toMs = (v: number | string): number => {
 
 export default function DistributionTeam() {
   const tt = useTt()
+  const gate = useAuthReadyGate()
 
   const [rawList, setRawList] = useState<TeamMember[]>([])
   const [displayList, setDisplayList] = useState<TeamMember[]>([])
@@ -98,8 +100,13 @@ export default function DistributionTeam() {
     }
   }
 
+  // G-933 冷启动抢跑门控:GET /api/distribution/invited-users 属需鉴权端点
+  // (`apps/api/src/routes/distribution.ts:24` addHook authenticate)。
+  // useReachBottom 的翻页是用户动作,那时早已落定,不加门。
   useDidShow(() => {
-    load(true)
+    gate.waitUntilReady(() => {
+      void load(true)
+    })
   })
 
   useReachBottom(() => {

@@ -9,6 +9,7 @@ import { FocusInput } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect, type CSSProperties } from 'react'
 import * as api from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -115,6 +116,7 @@ const PHONE_TEXT_STYLE: CSSProperties = {
 
 export default function AccountCancel() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [info, setInfo] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -150,7 +152,10 @@ export default function AccountCancel() {
   }, [])
 
   useDidShow(() => {
-    loadData()
+    // G-933 冷启动门控:资料自查 GET /user/profile(checkAuth)需鉴权
+    gate.waitUntilReady(() => {
+      void loadData()
+    })
   })
 
   // 5 秒强制阅读倒计时(进入页面即开始,结束前禁止提交)

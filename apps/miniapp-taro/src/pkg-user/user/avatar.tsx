@@ -9,6 +9,7 @@ import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
 import { getProfile, updateUserAvatar } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { uploadImage } from '@/utils/upload-image'
 import ThemeRoot from '@/components/ThemeRoot'
 import './avatar.css'
@@ -17,20 +18,26 @@ const DEFAULT_AVATAR = '/static/default-avatar.png'
 
 export default function Avatar() {
   const tt = useTt()
+  const gate = useAuthReadyGate()
 
   const [avatar, setAvatar] = useState('')
   const [nickname, setNickname] = useState('')
   const [uploading, setUploading] = useState(false)
 
-  useDidShow(async () => {
-    try {
-      const profile = await getProfile()
-      setAvatar(profile.avatar || '')
-      setNickname(profile.nickname || '')
-    } catch (e) {
-      logger.error('user/avatar', '获取用户信息', e)
-      Taro.showToast({ title: tt('common.failed', '加载失败'), icon: 'none' })
-    }
+  useDidShow(() => {
+    // G-933 冷启动门控:GET /user/profile(checkAuth)需鉴权,落定前不发
+    gate.waitUntilReady(() => {
+      void (async () => {
+        try {
+          const profile = await getProfile()
+          setAvatar(profile.avatar || '')
+          setNickname(profile.nickname || '')
+        } catch (e) {
+          logger.error('user/avatar', '获取用户信息', e)
+          Taro.showToast({ title: tt('common.failed', '加载失败'), icon: 'none' })
+        }
+      })()
+    })
   })
 
   /** 大图预览当前头像 */
