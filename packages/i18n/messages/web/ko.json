@@ -11169,6 +11169,7 @@
       "delete": "삭제",
       "downloadImages": "이미지 다운로드",
       "edit": "편집",
+      "editAiReply": "이 응답 편집",
       "editAndRerun": "저장 후 다시 실행",
       "editRollbackFiles": "파일 변경도 롤백",
       "hideContent": "콘텐츠 숨기기",
@@ -11179,6 +11180,7 @@
       "readAloudTruncated": "내용이 너무 길어 앞의 {max}자만 읽습니다",
       "regenerate": "다시 생성",
       "reply": "답글",
+      "saveAsNewVersion": "새 버전으로 저장",
       "share": "공유",
       "shareLinkCopied": "내용과 링크를 복사했습니다",
       "showContent": "콘텐츠 표시",
@@ -19628,6 +19630,7 @@
     "downloadCliSysReq": "Node.js 20.10 이상",
     "downloadCliUsageHint": "설치 후 실행",
     "downloadClient": "앱 다운로드",
+    "downloadCodeSigningNotice": "Windows 바이너리는 SignPath Foundation에서 제공하는 무료 코드 서명 인증서를 사용하여 SignPath.io에서 코드 서명됩니다.",
     "downloadComingSoon": "출시 예정",
     "downloadComingSoonHint": "{platform} 클라이언트를 개발 중입니다. 잠시만 기다려 주세요. 그동안 Web 버전으로 모든 기능을 경험할 수 있습니다.",
     "downloadComingSoonTitle": "{platform} 출시 예정",
@@ -26847,7 +26850,9 @@
     "toastLoadFailed": "스냅샷 목록 로드 실패",
     "toastPlanFailed": "미리보기 실패",
     "toastRunOk": "롤백이 실행되었습니다",
-    "toastRunFail": "롤백 실패"
+    "toastRunFail": "롤백 실패",
+    "availabilityAvailable": "다른 기기에서 체크포인트를 생성했습니다: {id}",
+    "availabilityUnavailable": "체크포인트 서비스를 사용할 수 없습니다. 잠시 후 다시 시도하세요."
   },
   "traceReplay": {
     "title": "실행 트레이스 재생",

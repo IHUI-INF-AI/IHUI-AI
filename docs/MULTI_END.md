@@ -95,7 +95,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 - **协议**:Agent Client Protocol(ACP,`@agentclientprotocol/sdk`)+ Language Server Protocol(vscode-jsonrpc)
 - **能力**:24 源配置导入 + subagent 并行 + plan 模式 + memory 嵌入 + mermaid 渲染 + voice + skills 同步
 - **i18n**:`src/i18n/messages/`(en/ja/ko 3 语言,独立于 web 的 next-intl)
-- **发布**:npm 公开包(`@ihui/cli`,`bin: ihui`)
+- **发布**:npm 公开包(`ihui-cli`,`bin: ihui`)
 
 ### 2.5 apps/desktop(Tauri 2.1 薄壳,2026-09-29 按 HEAD 实改)
 
@@ -322,7 +322,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 | web-subagent | `apps/web/` | `pnpm --filter @ihui/web typecheck` |
 | api-subagent | `apps/api/` | `pnpm --filter @ihui/api typecheck && pnpm --filter @ihui/api test` |
 | ai-service-subagent | `apps/ai-service/` | `pytest` |
-| cli-subagent | `apps/cli/` | `pnpm --filter @ihui/cli typecheck` |
+| cli-subagent | `apps/cli/` | `pnpm --filter ihui-cli typecheck` |
 | desktop-subagent | `apps/desktop/` | `pnpm --filter @ihui/desktop build`(= `tauri build`);**无 `typecheck` script**(`apps/desktop/package.json` 实测 scripts 仅 dev/build/tauri/build:debug/icons:regen/clean),Rust 侧用 `cargo check` |
 | extension-subagent | `apps/extension/` | `pnpm --filter @ihui/extension typecheck` |
 | mobile-rn-subagent | `apps/mobile-rn/` | `pnpm --filter @ihui/mobile-rn typecheck` |
@@ -397,7 +397,7 @@ API 契约(`api-contracts.ts` + `v1-endpoints.ts`)定义端点入参/出参,前�
 | web | Docker + Nginx | `deploy/docker/Dockerfile.web` | docker-compose + Nginx reverse proxy |
 | api | Docker | `deploy/docker/Dockerfile.api` | docker-compose |
 | ai-service | Docker | `apps/ai-service/Dockerfile` | docker-compose |
-| cli | Docker + npm | `deploy/docker/Dockerfile.cli` + npm publish | `npm publish`(公开包 `@ihui/cli`) |
+| cli | Docker + npm | `deploy/docker/Dockerfile.cli` + npm publish | `npm publish`(公开包 `ihui-cli`) |
 | desktop | winget + scoop + homebrew + snap | `deploy/winget/` + `deploy/scoop/` + `deploy/homebrew/` + `deploy/snap/` | Tauri updater + 4 包管理器 |
 | extension | Chrome Web Store | `wxt zip` 产物 | 手动上传 / CI 自动发布 |
 | mobile-rn | App Store + Play Store | `apps/mobile-rn/eas.json`(EAS Build) | `eas build` + `eas submit` |

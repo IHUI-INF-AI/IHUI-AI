@@ -22,6 +22,7 @@ import {
   Calendar,
   Cpu,
   HardDrive,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -234,6 +235,14 @@ export function DownloadDetailContent({
             </div>
           </Card>
         </section>
+      )}
+
+      {/* 代码签名声明:SignPath Foundation 要求下载页明确注明签名来源 */}
+      {(platform === 'desktop' || platform === 'cli') && (
+        <p className="mb-6 flex items-start gap-2 text-xs text-muted-foreground">
+          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <span>{t('downloadCodeSigningNotice')}</span>
+        </p>
       )}
 
       {/* 安装指南(CLI 显示 npm 命令 / Mobile 显示构建说明 / 其他显示通用步骤) */}

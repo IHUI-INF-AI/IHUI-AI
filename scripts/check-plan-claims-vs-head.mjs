@@ -25,7 +25,12 @@
  *   - "看着像路径/符号"但判不准的 ⇒ 计入 undetermined 只报数,不判红(误判成本是把别人
  *     的正常叙述改红,那是 §12e 的恒红门成因)。
  *
- * 定级:**warn 起步**。存量非零时上 blocking 就是恒红门(§12e);升档前置 = 本门在被审面
+ * 【尚未接线】本门**不在提交链上**:未注册进 `scripts/guardian-runner.mjs`(2026-10-18 该文件正被并行会话持有,
+ *   按 §12 不往在飞 runner 里加块),也不在 `scripts/lib/pre-commit-hook.js` ⇒ 没有紧急跳过变量生效点。
+ *   接线前置(写在这是为了不让下一手顺手升档):① 基线文件先随建门枚落地(基线按 §0.4 取 HEAD 面,
+ *   所以建门当轮本门必判"未判定",这是设计而非故障);② C3 具名符号那一维先量过全树 grep 的耗时再决定开不开;
+ *   ③ 存量(现读 26 条真缺 + 44 条判不准)清零才谈 blocking,否则就是 §12e 的恒红门。
+ * * 定级:**warn 起步**。存量非零时上 blocking 就是恒红门(§12e);升档前置 = 本门在被审面
  * 现读违规归零,且逐条误报都已被 C1–C3 的收窄规则消化。应急放行:
  * `HUSKY_SKIP_PLAN_CLAIMS_VS_HEAD=1`(注册条目与 skipEnv 一律以 guardian-runner.mjs 现值为准)。
  *
@@ -45,8 +50,29 @@ const SKIP_ENV = 'HUSKY_SKIP_PLAN_CLAIMS_VS_HEAD'
 
 /** C1:被反引号包住、含斜杠、扩展名在已知集合里 ⇒ 当成"声称某文件存在"。 */
 const SOURCE_EXTS = new Set([
-  'ts', 'tsx', 'mts', 'cts', 'js', 'mjs', 'cjs', 'py', 'sql', 'rs', 'kt', 'swift',
-  'json', 'jsonc', 'toml', 'yml', 'yaml', 'sh', 'ps1', 'css', 'html', 'env', 'lock',
+  'ts',
+  'tsx',
+  'mts',
+  'cts',
+  'js',
+  'mjs',
+  'cjs',
+  'py',
+  'sql',
+  'rs',
+  'kt',
+  'swift',
+  'json',
+  'jsonc',
+  'toml',
+  'yml',
+  'yaml',
+  'sh',
+  'ps1',
+  'css',
+  'html',
+  'env',
+  'lock',
 ])
 /** C2:迁移文件名(`NNNN_...sql`),journal 口径的记账对象。 */
 const MIGRATION_RE = /\b(\d{4}_[A-Za-z0-9_\-]+\.sql)\b/
@@ -54,10 +80,35 @@ const MIGRATION_RE = /\b(\d{4}_[A-Za-z0-9_\-]+\.sql)\b/
 const SYMBOL_RE = /^[a-z][a-z0-9_]{5,}$/
 
 const PROSE_DENY = new Set([
-  'project', 'HEAD', 'commit', 'github', 'gitee', 'python', 'nodejs', 'sqlite',
-  'postgres', 'mysql', 'redis', 'docker', 'kubernetes', 'javascript', 'typescript',
-  'monorepo', 'readme', 'license', 'version', 'metadata', 'payload', 'string',
-  'number', 'boolean', 'object', 'undefined', 'runtime', 'services', 'packages',
+  'project',
+  'HEAD',
+  'commit',
+  'github',
+  'gitee',
+  'python',
+  'nodejs',
+  'sqlite',
+  'postgres',
+  'mysql',
+  'redis',
+  'docker',
+  'kubernetes',
+  'javascript',
+  'typescript',
+  'monorepo',
+  'readme',
+  'license',
+  'version',
+  'metadata',
+  'payload',
+  'string',
+  'number',
+  'boolean',
+  'object',
+  'undefined',
+  'runtime',
+  'services',
+  'packages',
 ])
 
 function git(args, input) {
@@ -69,6 +120,7 @@ function git(args, input) {
     maxBuffer: 256 * 1024 * 1024,
     stdio,
     input,
+    windowsHide: true,
   })
 }
 
@@ -99,7 +151,10 @@ export function expandBraces(token, cap = 16) {
   const m = token.match(/^(.*?)\{([^{}]*)\}(.*)$/)
   if (!m) return [token]
   const [, pre, inner, post] = m
-  const parts = inner.split(',').map((s) => s.trim()).filter((s) => s !== '')
+  const parts = inner
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s !== '')
   if (parts.length === 0) return [token]
   const out = []
   for (const p of parts) {
@@ -198,7 +253,17 @@ export function groupClaims(claims) {
 export function judgeEntry(entry, { catFile, grepHead, migrationDirs }) {
   const t = entry.target
   if (entry.kind === 'path') {
-    return catFile(t) ? { verdict: 'ok' } : { verdict: 'missing', evidence: `HEAD:${t}` }
+    if (catFile(t)) return { verdict: 'ok' }
+    // 父目录也不在 HEAD ⇒ 大概率是别仓/上游引用的路径(票面常逐字抄上游出处),或整棵树移动过
+    // —— 这两种都不是"我方声称有个文件而它不存在",判"未判定"交人工看,不冒红(§0.3/§12e)。
+    const dir = t.includes('/') ? t.slice(0, t.lastIndexOf('/')) : ''
+    if (dir && !catFile(dir)) {
+      return {
+        verdict: 'undetermined',
+        evidence: `父目录 HEAD:${dir} 也不存在(疑似别仓引用或整树移动)`,
+      }
+    }
+    return { verdict: 'missing', evidence: `HEAD:${t}` }
   }
   if (entry.kind === 'migration') {
     for (const dir of migrationDirs) {
@@ -218,11 +283,16 @@ function main() {
     console.log(`⚠️  取不到 HEAD 面的 ${DOC} ⇒ 未判定(不记绿也不冒红;§0.3)`)
     process.exit(2)
   }
-  const migrationDirs = (process.env.PLAN_CLAIMS_MIGRATION_DIRS || 'packages/database/migrations,apps/ai-service/migrations').split(',')
+  const migrationDirs = (
+    process.env.PLAN_CLAIMS_MIGRATION_DIRS ||
+    'packages/database/migrations,apps/ai-service/migrations'
+  ).split(',')
   const { claims, stat } = extractClaims(text)
   const grouped = groupClaims(claims)
   if (grouped.length === 0) {
-    console.log(`⚠️  未抽到任何可机检声称(未完成条目 ${stat.openRows} 行 / 判不准 ${stat.undetermined} 处)⇒ 未判定,不得读成"通过"`)
+    console.log(
+      `⚠️  未抽到任何可机检声称(未完成条目 ${stat.openRows} 行 / 判不准 ${stat.undetermined} 处)⇒ 未判定,不得读成"通过"`,
+    )
     process.exit(2)
   }
   const cache = new Map()
@@ -277,7 +347,8 @@ function main() {
   }
   const baseline = loadBaseline()
   const baseSet = new Set(baseline ?? [])
-  const added = baseline === null ? [] : missing.filter((m) => !baseSet.has(`${m.kind}:${m.target}`))
+  const added =
+    baseline === null ? [] : missing.filter((m) => !baseSet.has(`${m.kind}:${m.target}`))
   const carried = missing.length - added.length
   console.log(
     `[plan-claims] 判定面=HEAD blob(${DOC}) · 未完成条目 ${stat.openRows} 行 · 声称 ${grouped.length} 条` +
@@ -287,11 +358,15 @@ function main() {
   if (baseline === null) {
     console.log(`⚠️  基线 ${BASELINE_REL} 取不到或形状不对 ⇒ 未判定(下方只列事实,不据以判红判绿)`)
   } else {
-    console.log(`  [差值] 基线 ${baseSet.size} 条 · 存量只报数 ${carried} · 新增判红 ${added.length}`)
+    console.log(
+      `  [差值] 基线 ${baseSet.size} 条 · 存量只报数 ${carried} · 新增判红 ${added.length}`,
+    )
   }
   const listed = baseline === null ? missing : added.length > 0 ? added : missing.slice(0, 0)
   for (const m of listed.slice(0, 30)) {
-    console.log(`  ❌ [${m.kind}] ${m.target} — ${m.evidence} · 声称方:${m.rows.slice(0, 4).join(',')}`)
+    console.log(
+      `  ❌ [${m.kind}] ${m.target} — ${m.evidence} · 声称方:${m.rows.slice(0, 4).join(',')}`,
+    )
   }
   if (listed.length > 30) console.log(`  · … 其余 ${listed.length - 30} 条`)
   if (undetermined.length > 0) {
@@ -304,7 +379,9 @@ function main() {
     )
     process.exit(0)
   }
-  console.log(`❌ 新增 ${added.length} 条票面声称在 HEAD 面没有实物 —— 这类条目不得留在派单口径外,也不得被读成已完成`)
+  console.log(
+    `❌ 新增 ${added.length} 条票面声称在 HEAD 面没有实物 —— 这类条目不得留在派单口径外,也不得被读成已完成`,
+  )
   process.exit(1)
 }
 

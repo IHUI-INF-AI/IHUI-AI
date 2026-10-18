@@ -69,6 +69,14 @@ const CLOSE_RES = [
   /\.return\(/,
   /contextlib\.closing|closing\(/,
   /GeneratorExit/,
+  // 本仓的**唯一关停出口**是模块级函数 `aclose_async_gen(gen, label=…)`(定义在
+  // `apps/ai-service/app/services/async_gen_close.py`),不是方法形式的 `.aclose()` ——
+  // 前四条锚点全是"点号 + 方法名",因此 llm_gateway.py:3041 那句
+  // `await aclose_async_gen(astream_iter, …)` 在真 finally 里却不被认出(2026-10-18 实测:
+  // 该 miss 与下一条 tryFinallyWraps 的名字不同形叠加,把同一个**已正确关停**的站点
+  // 报成 10 枚 violation)。遮噪仍在(`maskForJudgement` 把行内字符串压白,见 :128),
+  // 所以"只在字符串/docstring 里出现的 aclose"依旧不算关停。
+  /\baclose\w*\s*\(/,
 ]
 /** 框架 sink:框架承诺关停,但那条保证不在本面 ⇒ 落未判定而非判红 */
 const FRAMEWORK_SINK_RES = [/StreamingResponse\(/, /EventSourceResponse\(/, /StreamingHTTPResponse\(/]
@@ -527,21 +535,41 @@ export function judgeFunction(fn, consumers, ctx = {}) {
 /**
  * 在一个面里找生产消费点(排除测试面与自己)。定性逐候选做:前几处命中常是 docstring /
  * `__all__` / 同名定义,固定取第一条会把真消费行挤掉并把噪声行当消费点判红。
+ *
+ * G-77 残余面②(2026-10-17 票面注记钉死的卡点):消费点归因**按定义,不按裸名**——
+ *  ① 枚举走**判据面**(maskForJudgement 遮后文本):docstring/注释里的名字提及
+ *     (实测 llama_cpp_provider.py:12、ollama_provider.py:13 是文档行)不再生成消费点行;
+ *  ② 同名**定义行**(`def astream(`/`class astream`/`function* astream`)是别的文件自己的
+ *     定义,不是 fn 的消费者(实测 token6688_provider.py:251 的 def 行被当成消费点,
+ *     其函数体的 yield 反过来把父生成器判成 forward);
+ *  ③ 站点行号对齐窗口起点:consumer.start 必须传 blockWindow 的起点而不是命中行,
+ *     否则 classifySites 的行号整体偏移(把注释行报成站点的那型错位)。
+ * 三条各去掉一条,红的必须是不同的用例(见 selfTest 与镜像测试的成对臂)。
+ * 方法名的真消费(`provider.astream(`)仍按名匹配 —— 无类型面时这是保守近似,
+ * 同文件内多定义才需要再收窄,现读被审面无此形态。
  */
 export function findConsumers(fn, allFiles) {
-  const re = new RegExp(`\\b${fn.name.replace(/[^\w]/g, '_')}\\b`)
+  const nm = fn.name.replace(/[^\w]/g, '_')
+  const re = new RegExp(`\\b${nm}\\b`)
+  const pyDefRe = new RegExp(`^\\s*(?:async\\s+)?def\\s+${nm}\\b|^\\s*class\\s+${nm}\\b`)
+  const tsDefRe = new RegExp(`^\\s*(?:export\\s+)?(?:async\\s+)?function\\s*\\*?\\s*${nm}\\b`)
   const noise = []
   const real = []
   for (const [p, src] of allFiles) {
     if (isTestPath(p) || src === null) continue
-    const lines = src.split('\n')
+    // 枚举走判据面:docstring/注释里的名字提及不是消费点(窗口仍取原文,
+    // consumerOutcome 内部对窗口再遮一次 —— 从真语句起的窗口不存在 docstring 状态错位)
+    const judgeLines = maskForJudgement(p, src).split('\n')
+    const rawLines = src.split('\n')
     let taken = 0
-    for (let i = 0; i < lines.length; i += 1) {
-      if (!re.test(lines[i])) continue
+    for (let i = 0; i < judgeLines.length; i += 1) {
+      if (!re.test(judgeLines[i])) continue
       if (p === fn.file && Math.abs(i + 1 - fn.line) <= 1) continue // 声明行本身
+      // 同名定义行 = 该文件自己的定义,不是 fn 的消费者(归因按定义,不按裸名)
+      if (p.endsWith('.py') ? pyDefRe.test(judgeLines[i]) : tsDefRe.test(judgeLines[i])) continue
       if (taken++ >= 12) break // 窗口可达 400 行 ⇒ 每文件核候选数必须封顶
-      const win = blockWindow(lines, i)
-      const c = { file: p, line: i + 1, start: i, text: win.text, truncated: win.truncated }
+      const win = blockWindow(rawLines, i)
+      const c = { file: p, line: i + 1, start: win.start, text: win.text, truncated: win.truncated }
       c.outcome = consumerOutcome(c, fn.name)
       if (c.outcome.sites.length > 0 || c.outcome.state === 'closed') real.push(c)
       else noise.push(c)
@@ -717,6 +745,12 @@ function selfTest() {
   t('async-for-in-finally 算关停', judgeFunction(b, [{ file: 'z.py', line: 5, text: 'async for x in g():\n    use(x)\nfinally:\n    pass' }]).verdict === 'passed')
   t('StreamingResponse sink ⇒ 未判定而非判红', judgeFunction(b, [{ file: 'z.py', line: 5, text: 'return StreamingResponse(g(), media_type="text/event-stream")' }]).verdict === 'undetermined')
   t('有消费点而无关停 ⇒ violation', judgeFunction(b, [{ file: 'z.py', line: 5, text: 'async for x in g():\n    break' }]).verdict === 'violation')
+  // G-77 归因修正的成对臂(2026-10-18 实测:真仓 llm_gateway.py:3041 的 `await aclose_async_gen(`
+  // 是本仓唯一关停出口的写法,前四条锚点只认 `.aclose(` 那种方法形式 ⇒ 已关停的站点被报成
+  // violation,并且因按名字归集把同一个站点复述了 10 遍)。三条臂各钉一格:
+  t('模块级唯一关停出口 aclose_async_gen( 算关停', judgeFunction(b, [{ file: 'z.py', line: 5, text: 'await aclose_async_gen(g, label="x")' }]).verdict === 'passed')
+  t('交接给变量而无关停锚点 ⇒ 仍 violation(新锚点不得把 handoff 洗白)', judgeFunction(b, [{ file: 'z.py', line: 5, text: 'h = g()\nsink(h)' }]).verdict === 'violation')
+  t('aclose_async_gen 只出现在字符串里 ⇒ 不算关停(遮噪仍在)', judgeFunction(b, [{ file: 'z.py', line: 5, text: 'msg = "call aclose_async_gen(g) later"' }]).verdict !== 'passed')
   const c = scanPythonFile('c.py', PY[2][1]).find((f) => f.name === '_tx')
   t('@contextmanager 包装 ⇒ 等价保护 passed', c && judgeFunction(c, []).verdict === 'passed')
   // ⑦ 多行签名的生成器(参数行缩进比 def 深、`) -> X:` 与 def 同缩进)必须仍能识别
@@ -742,8 +776,14 @@ function selfTest() {
   t('④b 未判定必须点名站点(只给计数无法清偿)', sinkC.evidence.some((e) => /sink/.test(String(e))))
   t('⑤ 拿到生成器对象却无关停 ⇒ violation', judgeFunction(b, [{ file: 'z.py', line: 1, text: 'it = g()\n    return it\n' }]).verdict === 'violation')
   t('docstring/`__all__`/同名重绑定不得算消费点', judgeFunction(b, [{ file: 'z.py', line: 1, text: 'g = await other()\n__all__ = ["g"]\n' }]).verdict === 'undetermined')
-  t('循环之后的同级 return 不算提前退出(语句级,不是行级运气)', judgeFunction(b, [{ file: 'z.py', line: 1, text: 'async for x in g():\n    use(x)\nreturn done\n' }]).verdict === 'passed')
-  // 真仓样本:跑在被审面上(不是夹具自证);面取不到 ⇒ 这几条红,不出合格证
+   t('循环之后的同级 return 不算提前退出(语句级,不是行级运气)', judgeFunction(b, [{ file: 'z.py', line: 1, text: 'async for x in g():\n    use(x)\nreturn done\n' }]).verdict === 'passed')
+  // G-77 残余面②:消费点归因**按定义** —— 成对正反例(去掉任一条,红的必须是不同的用例)
+  const consOf = (src) => findConsumers(b, new Map([['c.py', src]]))
+  t('归因①: 同族兄弟的同名定义行不得当消费点', consOf('class P:\n    async def g(\n        self,\n    ):\n        yield 1\n').length === 0)
+  t('归因②: docstring/注释里的名字提及不得当消费点(枚举走判据面)', consOf('"""use g() for streaming"""\n# also g()\n').length === 0)
+  const numCons = consOf('async def c9():\n    it = (\n        g()\n    )\n')
+  t('归因③: 站点行号 = 真实行号(窗口起点对齐,不把别的行报成站点)', numCons.length === 1 && numCons[0].outcome.sites[0]?.line === 3)
+   // 真仓样本:跑在被审面上(不是夹具自证);面取不到 ⇒ 这几条红,不出合格证
   const HR = (() => { try { return auditFace(readFace('head', ROOT, listCandidatesFor('head', ROOT))).rows } catch { return [] } })()
   // 真仓臂一律**不钉行号**(§1 同一教训:行号一次 append 就挪位)。判据形状=「该文件里存在这样一处判定」,
   // 站点身份由文件名 + 判定档 + 证据关键词承载;数量下限保住"这不是空面自证"。
@@ -756,7 +796,9 @@ function selfTest() {
   const countAt = (f, verdict, re) => HR.filter((r) => r.file.endsWith(f) && r.verdict === verdict && evHit(r, re)).length
   t('真仓①: command_streamer.py 存在穷尽式 async for 的 passed 判定', anyAt('command_streamer.py', 'passed'))
   t('真仓①b: message_history.py 存在"唯一生产消费是 list(...)"的 passed 判定', anyAt('message_history.py', 'passed'))
-  t('真仓②: openai_provider.py 仍被判 violation(有提前退出的消费)', anyAt('openai_provider.py', 'violation'))
+  t('真仓②: openai_provider.astream 不再被误判 violation(唯一找到的消费点显式关停)', anyAt('openai_provider.py', 'undetermined', /显式关停/))
+  t('真仓②b: 面上确实存在"closed(显式关停)"的证据(模块级 aclose_async_gen 被认出,非夹具自证)', HR.some((r) => evHit(r, /closed\(显式关停/)) === true)
+  t('真仓②c: 该修正不产出任何 violation ⇒ 也不得把敞口洗成 passed(敞口只允许来自确证站点)', HR.filter((r) => r.verdict === 'passed').every((r) => !evHit(r, /open\(/)) === true)
   t('真仓④: routers/agents.py 框架 sink ⇒ 未判定且逐条点名(现读 ≥3 处)', countAt('routers/agents.py', 'undetermined', /sink/) >= 3)
   t('真仓⑤: rollout_archive.py 存在未判定而非 violation 的站点(仅 docstring/__all__ 命中)', anyAt('rollout_archive.py', 'undetermined'))
   // 定级与判读
