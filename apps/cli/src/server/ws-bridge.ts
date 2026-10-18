@@ -20,7 +20,7 @@
  */
 
 import type { IncomingHttpHeaders, Server } from 'node:http';
-import wsModule from 'ws';
+import { WebSocketServer as WsServerNamed } from 'ws';
 import type { AgentCore, AgentEvent } from './agent-core.js';
 import {
   authenticateInbound,
@@ -67,12 +67,14 @@ export interface WsBridgeHandle {
 }
 
 function loadWsServer(): WsServerCtor | null {
-  // ws 为硬依赖,静态导入(createRequire(import.meta.url) 中转在 SEA 形态下必失败,见文件头)
-  const mod = wsModule as unknown as {
-    WebSocketServer?: WsServerCtor;
-    default?: WsServerCtor;
-  };
-  return mod.WebSocketServer ?? mod.default ?? null;
+  /**
+   * 取具名档,且**不得**再留 `?? mod.default` 那一档兜底:ws 的默认导出是**客户端** WebSocket
+   * (ESM 走 wrapper.mjs 的 `export default WebSocket`;CJS 互操作下 `mod.default` 也是那枚裸类),
+   * 兜底成功时拿到的是构造函数型别不对 —— `new WsServer({server,path})` 会变成一条向外拨号的客户端连接,
+   * 比当场报 null 更坏(桥"起来了",但没人能连上)。具名 WebSocketServer 四条载入形态都取得到:
+   * ESM wrapper、CJS index 别名、esbuild `--format=cjs` 的 SEA 产物、CI 现用形态。
+   */
+  return typeof WsServerNamed === 'function' ? (WsServerNamed as unknown as WsServerCtor) : null;
 }
 
 /** 取单值请求头(重复头时 node:http 给数组)。 */
@@ -92,7 +94,7 @@ export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Pr
   const WsServer = loadWsServer();
   if (!WsServer) {
     throw new Error(
-      'ws 包未安装,WebSocket 桥未启动。请运行:pnpm --filter @ihui/cli add ws && pnpm --filter @ihui/cli add -D @types/ws',
+      'ws 载入形态不认识:具名 WebSocketServer 不是构造函数(不是"没装"—— ws 已在 apps/cli 的 devDependencies/dependencies 与 lock 里;缺包会在加载期就报 ERR_MODULE_NOT_FOUND)',
     );
   }
 
