@@ -170,6 +170,10 @@ class Settings(BaseSettings):
     lmstudio_api_key: str = ""
     lmstudio_api_base: str = "http://localhost:1234"
     llamacpp_api_base: str = "http://localhost:8080"
+    # 票85② 边缘优先路由(默认关):开启后 auto 候选把「探针实证可用」的本地模型排在
+    # 最前(次序:本地 tier 升序 → 默认链 → free → cheap → premium)。
+    # 云部署开它只会把请求往没配的本地端点上撞;自托管/边缘实例显式开启。
+    edge_first_local: bool = False
     azure_api_key: str = ""
     azure_api_base: str = ""
     aws_access_key_id: str = ""
