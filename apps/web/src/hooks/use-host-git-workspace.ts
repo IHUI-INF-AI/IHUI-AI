@@ -5,8 +5,10 @@
 // 2026-09-28 V3 #72 —— 桌面宿主 git 通道的消费侧 hook(授权当前 workspace → 取变更清单)。
 //
 // 这里**不重新判定**任何东西:三态结论(`facts` / `command_failed` / `undetermined`)逐字
-// 来自宿主 `git_channel_ipc.rs`。本 hook 只负责三件事:① 何时发请求;② 把宿主的 Err(
-// 与三态并列的第四种"通道层面失败")单独存一格;③ 保证"没拿到结论"永远不等于"没有改动"。
+// 来自宿主 `git_channel_ipc.rs`。本 hook 只负责这么几件事:① 何时发请求(status/diff/
+// index 各走各的);② 把宿主的 Err(与三态并列的"通道层面失败")单独存一格;③ 保证
+// "没拿到结论"永远不等于"没有改动/没有差异/目录为空";④ 索引 delta 的 previous 快照
+// 由前端 ref 持有(宿主刻意不存会话态),换根即作废。
 //
 // 为什么必须有第 ② 条:`requireTauri()` 在非宿主里抛错、宿主越界授权也抛 Err,这两种情况
 // 若被 catch 成 `status=null`,界面上就和"还没点授权"同形 —— 那是把三种不同的事实压成一格。
@@ -18,10 +20,15 @@ import * as React from 'react'
 import {
   gitAuthorizeWorkspace,
   gitChannelInfo,
+  gitWorkspaceDiff,
   gitWorkspaceStatus,
   isTauri,
+  workspaceIndexScan,
   type GitChannelInfoReply,
+  type GitWorkspaceDiffReply,
   type GitWorkspaceStatusReply,
+  type WorkspaceIndexEntry,
+  type WorkspaceIndexReply,
 } from '@/lib/tauri-bridge'
 
 /** 通道层面失败(与宿主返回的三态**并列**,不是第四态:它意味着一条结论都没拿到)。 */
@@ -43,9 +50,19 @@ export interface UseHostGitWorkspaceResult {
   /** 通道自述(git 二进制 / 允许 base);null = 未取到 */
   info: GitChannelInfoReply | null
   error: HostGitChannelError | null
-  busy: 'authorize' | 'refresh' | 'info' | null
+  busy: 'authorize' | 'refresh' | 'info' | 'diff' | 'index' | null
+  /** 上一次拿到的差异结论;null = 本次会话还没点开过差异(≠ 无差异) */
+  diff: GitWorkspaceDiffReply | null
+  /** 上一次拿到的索引结论;null = 还没扫过(≠ 目录为空) */
+  index: WorkspaceIndexReply | null
   authorize: (root: string) => Promise<void>
   refresh: () => Promise<void>
+  /** 取差异(传 path 收窄到单路径);结论存 diff,失败存 error,不清 status */
+  getDiff: (path?: string) => Promise<void>
+  /** 扫文件索引;上次 facts 的 entries 自动作为 previous 传入,结论存 index */
+  scanIndex: () => Promise<void>
+  /** 收起差异面板(只清 diff 格,不动 status/index) */
+  clearDiff: () => void
 }
 
 function toChannelError(kind: HostGitChannelError['kind'], err: unknown): HostGitChannelError {
@@ -64,7 +81,14 @@ export function useHostGitWorkspace(): UseHostGitWorkspaceResult {
   const [status, setStatus] = React.useState<GitWorkspaceStatusReply | null>(null)
   const [info, setInfo] = React.useState<GitChannelInfoReply | null>(null)
   const [error, setError] = React.useState<HostGitChannelError | null>(null)
-  const [busy, setBusy] = React.useState<'authorize' | 'refresh' | 'info' | null>(null)
+  const [busy, setBusy] = React.useState<'authorize' | 'refresh' | 'info' | 'diff' | 'index' | null>(
+    null,
+  )
+  const [diff, setDiff] = React.useState<GitWorkspaceDiffReply | null>(null)
+  const [index, setIndex] = React.useState<WorkspaceIndexReply | null>(null)
+  // 上一次 facts 索引快照(ref 而非 state:它是 scanIndex 的入参,不该触发重渲染)。
+  // 宿主刻意不存会话态,delta 的基准只能由前端持有。
+  const prevIndexRef = React.useRef<WorkspaceIndexEntry[]>([])
 
   const loadInfo = React.useCallback(async () => {
     if (!isTauri()) {
@@ -114,6 +138,10 @@ export function useHostGitWorkspace(): UseHostGitWorkspaceResult {
         setStatus(await gitAuthorizeWorkspace(root))
         setError(null)
         setInfo(await gitChannelInfo())
+        // 根变了(或重新授权):旧根的索引快照与结论全部作废,不许跨根冒充
+        setDiff(null)
+        setIndex(null)
+        prevIndexRef.current = []
       } catch (err) {
         setStatus(null)
         setError(toChannelError('host-rejected', err))
@@ -124,11 +152,65 @@ export function useHostGitWorkspace(): UseHostGitWorkspaceResult {
     [],
   )
 
+  const getDiff = React.useCallback(async (path?: string) => {
+    if (!isTauri()) {
+      setError(toChannelError('not-in-host', 'outside-tauri-host'))
+      return
+    }
+    setBusy('diff')
+    try {
+      setDiff(await gitWorkspaceDiff(path))
+      setError(null)
+    } catch (err) {
+      // 差异这一格自己的失败:清 diff(不许上次正文冒充本次),不动 status/index
+      setDiff(null)
+      setError(toChannelError('host-rejected', err))
+    } finally {
+      setBusy(null)
+    }
+  }, [])
+
+  const scanIndex = React.useCallback(async () => {
+    if (!isTauri()) {
+      setError(toChannelError('not-in-host', 'outside-tauri-host'))
+      return
+    }
+    setBusy('index')
+    try {
+      const reply = await workspaceIndexScan(
+        prevIndexRef.current.length > 0 ? prevIndexRef.current : undefined,
+      )
+      setIndex(reply)
+      setError(null)
+      if (reply.state === 'facts') prevIndexRef.current = reply.entries
+    } catch (err) {
+      setIndex(null)
+      setError(toChannelError('host-rejected', err))
+    } finally {
+      setBusy(null)
+    }
+  }, [])
+
+  const clearDiff = React.useCallback(() => setDiff(null), [])
+
   // 进面板即取一次通道自述:它不需要授权,且能把"为什么判不了"的候选路径先摊开
   React.useEffect(() => {
     if (inHost) void loadInfo()
   }, [inHost, loadInfo])
 
-  return { inHost, status, info, error, busy, authorize, refresh }
+  return {
+    inHost,
+    status,
+    info,
+    error,
+    busy,
+    diff,
+    index,
+    authorize,
+    refresh,
+    getDiff,
+    scanIndex,
+    clearDiff,
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

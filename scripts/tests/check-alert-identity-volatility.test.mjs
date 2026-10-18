@@ -34,15 +34,26 @@ function headBlob(rel) {
   return map.get(`HEAD:${rel}`)
 }
 
-/** 按花括号配平取整个函数体(与 git-guardian-notify 等镜像档同一形态;只判存在不判缩进)。 */
+/**
+ * 按花括号配平取整个函数体。
+ * ⚠️ 不能"从函数名往后找第一个 `{`"——`(opts = {})` 的默认值先命中,取到的是那个空对象
+ * (实测本档第一次就这么瞎掉:函数体长度 2,断言立刻把它报成"提取器失效"而不是假过)。
+ * 先把圆括号配平走完到参数表结束,再取 body 的开括号。
+ */
 function funcBody(src, name) {
   const start = src.indexOf(`function ${name}(`)
   assert.ok(start >= 0, `HEAD 面找不到 ${name}()`)
-  const open = src.indexOf('{', start)
+  let paren = 0
+  let i = src.indexOf('(', start)
+  for (; i < src.length; i++) {
+    if (src[i] === '(') paren++
+    else if (src[i] === ')' && --paren === 0) break
+  }
+  const open = src.indexOf('{', i)
   let depth = 0
-  for (let i = open; i < src.length; i++) {
-    if (src[i] === '{') depth++
-    else if (src[i] === '}' && --depth === 0) return src.slice(open, i + 1)
+  for (let j = open; j < src.length; j++) {
+    if (src[j] === '{') depth++
+    else if (src[j] === '}' && --depth === 0) return src.slice(open, j + 1)
   }
   assert.fail(`${name}() 花括号未配平`)
 }
@@ -71,18 +82,25 @@ test('② 判据既不咬解释文字,也不被遮罩做瞎(成对夹具)', () =
   assert.ok(G.judgeFile('scripts/x.mjs', realCase).length, '真模板字面量读不到 = 门失明(blankStrings 那一型)')
 })
 
-test('③ 发信台账:成功与失败两支都必须写账(只写成功=把投递失败读成零发信)', () => {
+test('③ 发信台账:每一支投递结论都写账(成功/失败 × 真实/自测 = 4 支),漏一支就有一型发信无人记账', () => {
   const src = headBlob('scripts/git-guardian.mjs')
   assert.equal(typeof src, 'string', 'HEAD 面取不到 git-guardian ⇒ 未判定')
   const body = funcBody(String(src), 'notifyGuardRed')
-  assert.ok(body.length > 2000, `函数体抽出来只有 ${body.length} 字符 ⇒ 提取器失效,不得继续判`)
-  const okAt = body.indexOf('if (r.ok) {')
-  const elseAt = body.indexOf('} else {', okAt)
-  assert.ok(okAt > 0 && elseAt > okAt, '找不到投递结论的两支 ⇒ 本用例失效(结构变了要同步改这里,不能默默放行)')
-  const succPart = body.slice(okAt, elseAt)
-  const failPart = body.slice(elseAt)
-  assert.match(succPart, /appendMailSendLedger/, '成功支不写账 ⇒ 风暴量不出来(今天 18 封就是这么隐形的)')
-  assert.match(failPart, /appendMailSendLedger/, '失败支不写账 ⇒ "一直寄不出去"被读成"零发信"')
+  assert.ok(body.length > 2000, `函数体只抽出 ${body.length} 字符 ⇒ 提取器失效,不得继续判`)
+  const calls = (body.match(/appendMailSendLedger/g) || []).length
+  assert.equal(calls, 4, `notifyGuardRed 里应有 4 处写账(真实成功/真实失败/自测成功/自测失败),实测 ${calls}`)
+  // 逐支锚定:凡出现"送达"结论处,前后 700 字符内必须有账 —— 防止四支都写成只覆盖同一支
+  for (const anchor of [
+    'withAlertMark(state, name, fp, now, true)',
+    'withAlertMark(state, name, fp, now, false)',
+    '通知自测已送达',
+    '通知自测失败',
+  ]) {
+    const at = body.indexOf(anchor)
+    assert.ok(at > 0, `找不到锚点「${anchor}」⇒ 本用例失效(结构变了要同步改这里,不能默默放行)`)
+    const win = body.slice(Math.max(0, at - 700), at + 700)
+    assert.match(win, /appendMailSendLedger/, `「${anchor}」这一支不写账 ⇒ 量算仪会把它读成"没寄过"`)
+  }
 })
 
 test('④ 豁免台账:每条都必须指向 HEAD 面存在的路径,到期日必须可解', () => {

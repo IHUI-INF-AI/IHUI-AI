@@ -2480,8 +2480,18 @@ export function notifyGuardRed(name, detail, opts = {}) {
           /* 标记清不掉不影响"通道已验通"这个事实,下一轮真实投递还会再清 */
         }
         logger(`✅ 通知自测已送达: ${name} → ${maskEmail(resolveAlertTo())}`)
+        // 自测也是**真寄了一封到人邮箱**,所以必须进发信台账(`probe` 标注留给量算仪分桶)。
+        // 不写这一支,"人工核验"就成了一次无人记账的投递 —— 与 5e-3 立的那条"量的必须是每一封"相反。
+        appendMailSendLedger(
+          { at: new Date(now).toISOString(), producer: 'git-guardian', name, fp: fp.slice(0, 12), severity, to: maskEmail(resolveAlertTo()), delivered: true, probe: true },
+          ledgerFile,
+        )
       } else {
         writeNotifyJson(undelFile, { ts: now, name, fp, why: r.why })
+        appendMailSendLedger(
+          { at: new Date(now).toISOString(), producer: 'git-guardian', name, fp: fp.slice(0, 12), severity, to: maskEmail(resolveAlertTo()), delivered: false, probe: true, why: String(r.why || '').slice(0, 120) },
+          ledgerFile,
+        )
         logger(`⚠️ 通知自测失败: ${name} — ${r.why}`)
       }
       return { sent: Boolean(r.ok), why: r.why }
