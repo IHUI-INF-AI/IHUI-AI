@@ -2151,12 +2151,44 @@ export async function checkHeadTypecheckLanded(opts = {}) {
   } catch {
     lastRunMs = 0
   }
+  let headNow = ''
+  const readHead =
+    opts.headReader ??
+    (() => {
+      if (headNow) return headNow
+      try {
+        headNow = String(gitRaw(['rev-parse', 'HEAD'], repoRoot, { timeout: 30_000 }) || '').trim()
+      } catch {
+        headNow = ''
+      }
+      return headNow
+    })
   if (lastRunMs && now - lastRunMs < windowMs) {
     const prev = readRow()
     if (!prev || typeof prev.state !== 'string') {
       return { id: 'P12', state: 'undetermined', detail: '未到复跑窗口且没有可复述的上次结论 ⇒ 未判定（不读成"没问题"）' }
     }
-    return { id: 'P12', state: prev.state, detail: '复述 ' + Math.round((now - lastRunMs) / 60000) + 'min 前结论（窗口 ' + Math.round(windowMs / 60000) + 'min）：' + String(prev.detail ?? '') }
+    // **复述不得跨过它没量过的那枚 commit**(2026-10-19 立):本格量的是"HEAD 面能否类型检查",
+    // 而窗口是按墙钟折的 —— 墙钟没走完而 HEAD 已经换了,复述就是在替一份**当前仓里不存在的代码**作证。
+    // 现读代价:22:10 复跑已判"净 20/20",而 22:27 本格仍复述 20:41 那枚"已入库红 4 端"的旧结论
+    // ⇒ 一条已被推翻的红色会继续被报、继续被寄,收件人按它去查什么也查不到(§5e-1)。
+    // 落不到 commit 时不硬判:取不到当前 HEAD ⇒ 未判定(比不了不等于仍成立);
+    // 旧行没有 commit 锚 ⇒ 重跑一次,之后就有可比的锚了。
+    const headNow2 = readHead()
+    const anchor = String(prev.headSha || '')
+    if (headNow2 && anchor && headNow2 === anchor)
+      return { id: 'P12', state: prev.state, detail: '复述 ' + Math.round((now - lastRunMs) / 60000) + 'min 前结论（窗口 ' + Math.round(windowMs / 60000) + 'min,commit ' + anchor.slice(0, 9) + ' 未变）：' + String(prev.detail ?? '') }
+    if (!headNow2 && !anchor)
+      // 两侧都没有锚(不是 git 仓 / 老台账行)⇒ 保持改前口径:按墙钟复述,并如实写明锚没判成。
+      // 不因此判红也不因此判绿 —— 本格的节流契约(窗口内不重复派生 108s 的重活)不该被一次读不到 HEAD 打掉。
+      return { id: 'P12', state: prev.state, detail: '复述 ' + Math.round((now - lastRunMs) / 60000) + 'min 前结论（窗口 ' + Math.round(windowMs / 60000) + 'min;commit 锚两侧都取不到 ⇒ 这一维未判定,只按墙钟复述）：' + String(prev.detail ?? '') }
+    if (!headNow2)
+      return {
+        id: 'P12',
+        state: 'undetermined',
+        detail: `复述被降级为未判定:当前 HEAD 取不到,无法确认旧结论(${String(prev.headSha || '(无 commit 锚)').slice(0, 9)})还在描述这份代码 —— "比不了"不得读成"仍成立"`,
+      }
+    // 走到这里 = commit 变了(或旧行压根没有锚)⇒ 不复述,按本轮重跑走下面的真实判定
   }
   let stdout = ''
   try {
@@ -2196,7 +2228,7 @@ export async function checkHeadTypecheckLanded(opts = {}) {
   else if (inFlightN > 0 || undN > 0 || Number(skippedN ?? 0) > 0 || okN !== judged) state = 'undetermined'
   const detail = m[0] + (skippedN ? '' : ' | 未跑到 未读出⇒按未判定处理') + '（判据源=check-head-typecheck 末行；脏树时它是候选不是定论）'
   try {
-    writeFileSync(lastFile, JSON.stringify({ state, detail }), 'utf8')
+    writeFileSync(lastFile, JSON.stringify({ state, detail, headSha: readHead() }), 'utf8')
   } catch { /* 同上 */ }
   return { id: 'P12', state, detail }
 }
@@ -3040,6 +3072,56 @@ export async function selfTest() {
       windowMs: 10 ** 9,
       runner: async () => { throw new Error('未到窗口时不该再派生') },
     })
+    // ── commit 锚三臂(2026-10-19 立:复述不得跨过它没量过的那枚 commit;现读 22:10 已判净而 22:27 仍复述旧红)──
+    {
+      const tA = join(d, 'tickA')
+      const lA = join(d, 'lastA')
+      writeFileSync(tA, String(20_000), 'utf8')
+      writeFileSync(lA, JSON.stringify({ state: 'finding', detail: '旧结论X', headSha: 'a'.repeat(40) }), 'utf8')
+      let sp1 = 0
+      const rA = await checkHeadTypecheckLanded({
+        now: 20_000 + 60_000,
+        repoRoot: d,
+        tickFile: tA,
+        lastFile: lA,
+        windowMs: 10 ** 9,
+        headReader: () => 'a'.repeat(40),
+        runner: async () => { sp1 += 1; return RED },
+      })
+      t(
+        'P12 锚未变 ⇒ 仍按窗口复述且一次都不派生(节流契约不得被新判据打掉)',
+        rA.state === 'finding' && rA.detail.includes('复述') && sp1 === 0,
+      )
+      let sp2 = 0
+      const rB = await checkHeadTypecheckLanded({
+        now: 20_000 + 60_000,
+        repoRoot: d,
+        tickFile: tA,
+        lastFile: lA,
+        windowMs: 10 ** 9,
+        headReader: () => 'b'.repeat(40),
+        runner: async () => { sp2 += 1; return NET },
+      })
+      t(
+        'P12 HEAD 变了 ⇒ 必须重跑、不得复述(摘掉锚比对这一支,本例直接翻绿)',
+        sp2 === 1 && !rB.detail.includes('复述'),
+      )
+      let sp3 = 0
+      writeFileSync(lA, JSON.stringify({ state: 'finding', detail: '旧结论X', headSha: 'a'.repeat(40) }), 'utf8')
+      const rC = await checkHeadTypecheckLanded({
+        now: 20_000 + 60_000,
+        repoRoot: d,
+        tickFile: tA,
+        lastFile: lA,
+        windowMs: 10 ** 9,
+        headReader: () => '',
+        runner: async () => { sp3 += 1; return RED },
+      })
+      t(
+        'P12 当前 HEAD 取不到而旧行有锚 ⇒ 未判定、不冒红也不派生',
+        rC.state === 'undetermined' && rC.detail.includes('取不到') && sp3 === 0,
+      )
+    }
     t('P12 未到窗口而无历史 ⇒ 未判定（不得读成"没问题"）', r7.state === 'undetermined' && r7.detail.includes('没有可复述'))
     rmSync(root, { recursive: true, force: true })
   }
