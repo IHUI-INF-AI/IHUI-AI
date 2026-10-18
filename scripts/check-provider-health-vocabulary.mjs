@@ -95,6 +95,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { maskComments } from './lib/code-mask.mjs'
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -883,13 +884,13 @@ function main() {
     process.exit(2)
   }
   let root = ROOT
-  const ri = argv.indexOf('--root')
-  if (ri >= 0) {
-    const val = argv[ri + 1]
-    if (!val || val.startsWith('--')) {
-      console.error('❌ --root 需要一个目录参数')
-      process.exit(2)
-    }
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    process.exit(2)
+  }
+  const val = rootFlag.value
+  if (rootFlag.present) {
     if (sel.face !== 'worktree') {
       console.error('❌ --root 只在 --worktree 档有效(换根却按 HEAD/索引读 = 双根分裂)')
       process.exit(2)
