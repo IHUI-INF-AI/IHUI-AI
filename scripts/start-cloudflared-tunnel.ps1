@@ -13,11 +13,18 @@
 #     其余路径 307 跳回 aizhs.top 同路径,子域不承载主功能
 #   - Cookie 写在 .aizhs.top 域,主域与子域共享登录态
 # 用法:在 IDE 终端或 PowerShell 中运行此脚本
-# 前提:本地 dev server (localhost:8801) 已启动
-# 前提:Cloudflare 隧道 ingress 已配置两条规则:
-#   aizhs.top       → http://localhost:8801
-#   bsm.aizhs.top   → http://localhost:8801
-#   (在 Cloudflare Zero Trust → Networks → Tunnels → ihui-local → Configure → Public hostname 添加)
+# 前提:本地 dev server (127.0.0.1:8801) 已启动
+# 前提:Cloudflare 隧道 ingress 共 **8 条**规则(2026-10-19 现读控制台,本文件此前只记 2 条):
+#   aizhs.top / bsm.aizhs.top        → http://127.0.0.1:8801
+#   api.aizhs.top / file.aizhs.top   → http://127.0.0.1:8802
+#   ai.aizhs.top                     → http://127.0.0.1:8803
+#   sso.aizhs.top                    → http://127.0.0.1:8543
+#   rdp.aizhs.top                    → tcp://127.0.0.1:3389
+#   ssh.aizhs.top                    → ssh://127.0.0.1:22
+#   源站一律写 127.0.0.1 不写 localhost:cloudflared 把 localhost 解析成 ::1 优先去连,
+#   而各服务只听 IPv4 回环 ⇒ 该请求直接 530(2026-10-18 实测 764 条这类拒连)。
+#   (添加/修改入口:Cloudflare 控制台 → 帐户 → Tunnels → ihui-local → 路由 → 操作/编辑路由;
+#    改完由 CF 实时推送,无需重启服务,回读看 D:\DevEnv\logs\cloudflared.log 的 "Updated to new configuration")
 
 $env:Path += ";C:\Program Files (x86)\cloudflared"
 
