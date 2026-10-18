@@ -5,8 +5,10 @@
 import { isAdmin } from '@ihui/shared/auth/auth-utils'
 
 /**
- * 管理员登录且**没有**被登录守卫带回具体目标时的默认落地页:生产在线监控大屏。
- * 单一真相源 —— 主站登录弹窗(LoginDialog)等登录落点一律经 resolvePostLoginLanding 取用,
+ * 管理员登录且**没有**被登录守卫带回具体目标时的建议落地页:生产在线监控大屏。
+ * 2026-10-18 起(用户要求"弹窗让我自己选择")该落点不再自动跳转,而是交给常驻
+ * WallboardChoiceDialog 二选一(「看大屏」/「先不用」)。本文件仍是落点路径的单一真相源,
+ * 主站登录弹窗(LoginDialog)等登录落点一律经 resolvePostLoginLanding 取用,
  * 勿在别处另写一份落地路径。
  */
 export const ADMIN_POST_LOGIN_LANDING = '/admin/monitor/wallboard'
