@@ -3513,6 +3513,7 @@
     "members": "メンバー"
   },
   "chat": {
+    "modelSwitchStopped": "{model} に切り替えたため、この回答を終了しました",
     "partialDoneTitle": "回答が中断されました。以下の内容は不完全な可能性があります",
     "send": "送信",
     "meta": {
