@@ -89,6 +89,25 @@ chmod +x IHUI-x86_64.AppImage
 ./IHUI-x86_64.AppImage --help
 ```
 
+### 10. 单文件二进制(SEA,无 Node 依赖)
+
+由 Node 22 SEA(Single Executable Applications)打包:esbuild 单文件 bundle → SEA blob → postject 注入 node.exe。exe 内嵌构建期版本与 10 份 i18n 语言包 assets,部署到任意目录无需 Node 运行时、无需仓库文件。
+
+```bash
+# 从源码构建(本机需 node 22+ 与 esbuild/postject)
+pnpm --filter @ihui/cli build:sea
+# 产物:apps/cli/dist-sea/ihui.exe(旁随带 package.json,可随 exe 一同分发以保留 engines 元信息,缺省亦可用)
+
+# 发布前强制烟雾测试:拷到仓库外空目录验收(版本/i18n/版本闸门都依赖内嵌数据)
+cp apps/cli/dist-sea/ihui.exe /tmp/sea-accept/ && cd /tmp/sea-accept
+./ihui.exe --version   # 必须输出真实版本(非 0.0.0)
+./ihui.exe --help      # 必须输出中文描述(非裸键名如 cliEntry.tagline)
+```
+
+分发与安装脚本(`scripts/install.sh` / `install.ps1`)的二进制下载通道按
+`releases/latest/download/ihui-<os>-<arch>.<ext>` 契约消费 GitHub Release 资产
+(由 `release-cli.yml` 的 build-binary 矩阵产出)。
+
 ## 快速开始
 
 ### 示例 1:启动交互式 REPL
