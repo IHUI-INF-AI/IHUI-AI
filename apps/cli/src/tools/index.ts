@@ -55,6 +55,7 @@ import {
   wrapTool,
   ToolNotFoundError,
   type ToolRegistry,
+  type ToolHandle,
 } from './hub/index.js';
 import {
   projectToolInputSchema,
@@ -640,6 +641,18 @@ export function isToolHubEnabled(): boolean {
 }
 
 /**
+ * hub remote(MCP 适配层)工具的**自述档位**(G-401 拍板②)。
+ *
+ * remote 工具没有本地 Tool 对象(`getTool` 查不到),权限矩阵的调用方(agent.ts
+ * 的 mode 矩阵)此前只能拿到 `undefined ⇒ 'read'` 缺省,把整族 remote 工具当只读放行。
+ * 本出口让调用方能查到适配层写的真实档位(缺省 'dangerous',白名单内 'read');
+ * 查不到(非 remote / 未注册 / hub 未接线)⇒ undefined,调用方沿用各自既有缺省。
+ */
+export function getHubRemoteToolDangerLevel(name: string): 'read' | 'write' | 'dangerous' | undefined {
+  return hubRemoteRegistry?.find(name)?.describe().dangerLevel;
+}
+
+/**
  * 跨归属的同名注册被拒的清单(每条形如 "工具名冲突 …")。
  * 状态面/自检可取用;不做"只 warn 完事"—— 静默覆盖的表现不是报错,而是**结果悄悄来自另一台服务器**。
  */
@@ -1043,6 +1056,86 @@ function applyToolArgValidation(tool: Tool, call: ParsedToolCall): ToolResult | 
   return null;
 }
 
+/**
+ * hub remote 工具的批准闸(G-401 拍板②,唯一实现)。
+ *
+ * 与本地闸(requiresUserConfirmation 路径)的关系:判定源不同 —— 本地 Tool 有契约
+ * (alwaysAsk / approvalExemption / 租约漂移),remote 只有 ToolHandle 自述的 dangerLevel;
+ * 交互原语**同一组**:runPermissionRequest 钩子(四形状应答)+ ctx.confirmDangerous +
+ * noteDangerousApproval 披露记账,不另写第二份策略。
+ *
+ * 钩子应答的差异(如实登记,不静默吞):
+ *   - 'deny' / 钩子失败阻断:与本地同形,原样拒;
+ *   - 'allow':钩子替人应答,放行(与本地 hookApproved 同语义);
+ *   - 'modify':remote 没有可本地校验的 ToolParameter schema(与影子校验的 remote 覆盖面
+ *     缺口同一条纪律,见 executeToolCall hub 分支注)—— 改写后的输入既不能校验也不能
+ *     透传 ⇒ **不采纳改写**,落回人工确认(按原始参数问人),两个方向都不静默。
+ *
+ * 返回 null = 放行(或本来就不需要问);否则返回拒绝 ToolResult(fail-closed:
+ * 无 confirmDangerous 回调 = 'no-confirmation-channel',回调答假 = 'user-declined')。
+ */
+async function gateRemoteHubTool(
+  handle: ToolHandle,
+  call: ParsedToolCall,
+  ctx: ToolContext,
+): Promise<ToolResult | null> {
+  const desc = handle.describe();
+  if (desc.dangerLevel !== 'dangerous') return null;
+  // ctx.confirmDangerous 的签名要 Tool —— remote 没有本地 Tool 对象,给闸一个**只读视图**:
+  // name/description 来自 ToolHandle 自述,档位照实 'dangerous';execute 是死桩(闸与
+  // confirmDangerous 的实现都只读档位与名字,没有任何路径会调它)。
+  const toolView: Tool = {
+    name: call.name,
+    description: desc.description,
+    parameters: {},
+    required: [],
+    dangerLevel: 'dangerous',
+    execute: async () => ({ success: false, output: '' }),
+  };
+  const hookRes = await runPermissionRequest(call.name, call.arguments);
+  if (!hookRes.proceed) {
+    return {
+      success: false,
+      output: '',
+      error: `permissionRequest 钩子执行失败，本次调用被阻断: ${hookRes.reason ?? '未取到结果'}`,
+      errorType: 'permission_denied',
+    };
+  }
+  if (hookRes.permission === 'deny') {
+    return {
+      success: false,
+      output: '',
+      error: `钩子 "${hookRes.permissionSource ?? '-'}" 拒绝了本次调用${hookRes.reason ? `: ${hookRes.reason}` : ''}`,
+      errorType: 'permission_denied',
+    };
+  }
+  const hookApproved = hookRes.permission === 'allow';
+  if (!hookApproved) {
+    const allowed = ctx.confirmDangerous ? await ctx.confirmDangerous(toolView, call.arguments) : false;
+    if (allowed) {
+      // 与本地闸同一披露口:危险放行路径可追溯(只记账,不改判定)。
+      noteDangerousApproval(ctx.allowDangerous === true, call.name);
+    } else {
+      const denial = buildToolDenial({
+        gate: 'dangerous-gate',
+        // 层面边界与本地闸同形:工具层只看"有没有回调";回调内部的成因归因属调用方另计。
+        decider: ctx.confirmDangerous ? 'user-declined' : 'no-confirmation-channel',
+        tool: call.name,
+        args: call.arguments,
+      });
+      auditToolDenial(denial);
+      return {
+        success: false,
+        output: '',
+        error: `危险操作被拒绝(需用户确认): ${call.name}\n${denialErrorSuffix(denial)}`,
+        errorType: 'permission_denied',
+        denial,
+      };
+    }
+  }
+  return null;
+}
+
 export async function executeToolCall(
   call: ParsedToolCall,
   ctx: ToolContext,
@@ -1069,6 +1162,19 @@ export async function executeToolCall(
     if (hubTool) {
       const rejection = applyToolArgValidation(hubTool, call);
       if (rejection) return rejection;
+    }
+    // G-401 拍板②(2026-10-07):remote(MCP 适配层)工具的批准闸。
+    // 本地 Tool 的批准闸在下方原路径(requiresUserConfirmation → 钩子 → confirmDangerous);
+    // remote 工具没有本地 Tool 对象,那条路径结构上到不了 —— 此前 hub 分支对 remote 是
+    // 零闸直发,而适配层又把缺省标成 'read' ⇒ 整族 remote 工具两轴全免批。
+    // 现按 ToolHandle 自述档位补闸:'dangerous'(缺省档)必须过与本地同一组交互原语
+    // (runPermissionRequest 钩子 + ctx.confirmDangerous),无回调一律拒(fail-closed);
+    // 白名单内显式 'read'(唯一降档通道,见 hub/mcp-adapter.ts 的 MCP_READONLY_TOOL_ALLOWLIST)
+    // 不进本闸。本闸只管"要批准"这一轴 —— 失败不自动重跑由 hub 分支无重试的结构保证。
+    const hubResolved = resolver.resolve(call.name);
+    if (hubResolved && hubResolved.kind === 'remote') {
+      const gateRejection = await gateRemoteHubTool(hubResolved.handle, call, ctx);
+      if (gateRejection) return gateRejection;
     }
     try {
       // hub 路径同样收进唯一出口:拿不到本地 Tool 对象时(remote 工具)按**默认档**
