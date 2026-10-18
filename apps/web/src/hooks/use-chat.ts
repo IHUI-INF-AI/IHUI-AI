@@ -13,6 +13,7 @@ import { useChatStore } from '@/stores/chat'
 import { useApplyDiff } from '@/hooks/use-apply-diff'
 import { fetchApi } from '@/lib/api'
 import { createSendMessage } from './use-chat/send-message'
+import { getStreamRuntime } from './use-chat/stream-runtime'
 import { createSendAnswer } from './use-chat/send-answer'
 import { clearCompactionPreview } from './use-chat/stream-handlers'
 import { shouldTerminateForModelSwitch, terminateActiveStream } from './use-chat/model-switch'
@@ -33,7 +34,11 @@ export function useChat(): UseChatReturn {
   const queryClient = useQueryClient()
   // ChatMode 斜杠命令 toast i18n(2026-07-28 立,模块级函数无法调 hook,由此处传入 t)
   const t = useTranslations('chat')
-  const abortRef = React.useRef<AbortController | null>(null)
+  // 票60 步序三(2026-10-18):abort 域收进按 store 实例隔离的运行时记录(stream-runtime.ts)。
+  // 单例场景 getStreamRuntime(useChatStore) 恒同一份 ⇒ 与原 React.useRef 行为逐字节等价;
+  // 窗格实例(票60 后续切片)各挂各的记录,中断互不串扰。send-message/send-answer 经
+  // ctx.abortRef 的读写点零改动,自动落到本记录。
+  const abortRef = getStreamRuntime(useChatStore).abortRef
   // P1 错误重试(2026-07-23):保存最后发送内容,toast 加 retry 按钮
   const lastSentContentRef = React.useRef('')
   // #10 sendAnswer 错误重试(2026-07-25 立):保存最后回答内容,toast 加 retry 按钮

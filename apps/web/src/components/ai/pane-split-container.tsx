@@ -39,6 +39,9 @@ import {
 } from '@ihui/shared/chat/multi-pane'
 
 import { usePaneSplitStore } from '@/stores/pane-split'
+// 票60 步序五(2026-10-18):布局树叶 id ⇆ chat-panes 注册表 paneId 的对齐层
+// (只回收消失叶子的实例,不预建、不挂 Provider —— 门禁见 use-chat-pane-sync.ts)
+import { useChatPaneSync } from '@/hooks/use-chat-pane-sync'
 
 /** D22 通道键名(从判定层 re-export,组件测试与宿主统一从这里取,不再散落字面量) */
 export const PANE_DROP_CONVERSATION_TYPE = PANE_CONVERSATION_DRAG_TYPE
@@ -62,6 +65,8 @@ export interface PaneSplitContainerProps {
 export function PaneSplitContainer(props: PaneSplitContainerProps) {
   const tree = usePaneSplitStore((s) => s.tree)
   const maximizedPaneId = usePaneSplitStore((s) => s.maximizedPaneId)
+  // 票60 步序五:注册表实例随树叶生命周期回收(paneId = leaf.id)
+  useChatPaneSync(tree)
   // 字面量须与判定层 PANE_MULTI_NAMESPACE 逐字相同(组件测试里对账,勿在本文件漂移)
   const t = useTranslations('ai.pane.multiPane')
 
