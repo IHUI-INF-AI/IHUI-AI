@@ -113,7 +113,14 @@ test('⑥ 生产档台账形态自证 + 红字必须点名出路文件(§0.8 不
   const file = join(HERE, '..', 'data', 'no-nested-git-exemptions.json')
   const parsed = loadNamedExemptions(file)
   assert.equal(parsed.error, '', `随仓台账不可用:${parsed.error}`)
-  assert.ok(parsed.entries.length >= 1, '台账为空 = 三枚在飞现场仍会把 208 判红,阻塞全仓提交链')
+  // 原先这里钉的是 `entries.length >= 1`,理由写着"台账为空 = 三枚在飞现场仍会把 208 判红"。
+  // 那个前提是**事实断言**而非结构断言,而它已被现读证伪:三条容器目录( .DevEnv/… /
+  // .ihui-agent/desktop-feed-clone / outputs/ihui-bench-release)在 10-15、10-16、10-17、10-18
+  // 四轮里反复"登记→现场消失→blocking 红"。留着 `>=1` 的后果不是"防止空台账",而是
+  // **逼所有人往台账里塞不命中现场的东西** —— 而那正是门 208 用"清单腐烂判红"要拦的事。
+  // ⇒ 改成只校验台账**形状合法**(空数组在"现场确已清零"时是正当状态),逐条 schema 校验
+  //   与下面那条"红字必须点名出路文件"一律原样保留:能红的still能红。
+  assert.ok(Array.isArray(parsed.entries), 'entries 必须是数组(空数组=当前无在飞嵌套仓,合法)')
   assert.deepEqual(parsed.bad, [])
   for (const e of parsed.entries) {
     assert.equal(e.rel, normRel(e.rel), '条目 rel 必须已是归一形态(否则永远配不上命中)')
