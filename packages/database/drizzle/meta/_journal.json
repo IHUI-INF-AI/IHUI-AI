@@ -2248,6 +2248,13 @@
       "when": 1792304400000,
       "tag": "20261018142000_chat_messages_pin_bookmark",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 322,
+      "when": 1792306800000,
+      "tag": "20261018150000_user_preferences_notification_group_plural",
+      "breakpoints": true
     }
   ]
 }
