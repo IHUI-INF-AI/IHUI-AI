@@ -20,7 +20,13 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { SearchInput } from '../../components/SearchInput'
 import { MoreLink } from '../../components/MoreLink'
 import type { TFunction } from '../../types'
-import type { AppIcon } from '@ihui/types'
+import type {
+  AppIcon,
+  CoursePath,
+  PopularCourseItem,
+  CourseListItem,
+  ProgressOverview,
+} from '@ihui/types'
 import { ChevronLeft, BarChart3, BookOpen, PenLine, Smartphone, Users } from 'lucide-react-native'
 
 /** 课程分类(对齐 Uniapp learn.vue) */
@@ -28,45 +34,6 @@ export interface CourseCategory {
   id: string
   name: string
   icon: AppIcon | string
-}
-
-/** 学习路径卡片数据 */
-export interface CoursePath {
-  id: string
-  title: string
-  coverImage?: string
-}
-
-/** 热门课程卡片数据 */
-export interface PopularCourseItem {
-  id: string
-  title: string
-  instructor: string
-  lessons: number
-  price: number
-  isFree: boolean
-  isVip: boolean
-  studentCount: number
-}
-
-/** 课程列表项数据 */
-export interface CourseListItem {
-  id: string
-  title: string
-  cover?: string
-  description?: string
-  level?: string
-  instructor: string
-  studentCount: number
-  isFree: boolean
-  price: number
-}
-
-/** 学习进度概览 */
-export interface ProgressOverview {
-  totalCourses: number
-  completedCourses: number
-  learningHours: number
 }
 
 export interface CourseTabScreenProps {
