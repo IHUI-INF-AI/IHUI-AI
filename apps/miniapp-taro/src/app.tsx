@@ -252,7 +252,14 @@ function SsoLaunchHandler() {
       // `new URL(baseUrl)`),微信真机 JSCore 不保证有 WHATWG URL 构造器 → 建连静默失败,
       // 通知链路从未真正工作过;桥接层注入了不依赖 URL 的 urlBuilder,并继续把收到的
       // 消息 trigger('wsNotification') 广播给其他消费者,契约不变。
-    })()
+    })().finally(() => {
+      // G-933 小程序腿:这一次冷启动的鉴权判定到此**落定** ⇒ 点亮就绪位,门控它的页面才准发鉴权请求。
+      // 之所以挂 finally 而不是写在链尾:成功、失败(链内已有 catch)、以及"非小程序环境 / 已有票 /
+      // 登出标记闸拦下"这条短路,三条路径都必须走到这里 —— 少任何一条,等就绪的页面就永远等不到,
+      // 那比现在这个"isLoggedIn() 读到 false 就抢发鉴权请求"的抢跑更糟。
+      // (链内两个 await 各自都带 catch,正常流走得到;真出意外抛出时也只有 finally 兜得住。)
+      useUserStore.getState().markAuthReady()
+    })
   })
   return null
 }

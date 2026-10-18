@@ -32,6 +32,21 @@ interface UserState {
   token: string
   refreshToken: string
   user: UserInfo | null
+  /**
+   * 冷启动鉴权就绪位(G-933「冷启动抢跑全仓盘点」小程序腿)。
+   *
+   * 语义只有一条:**本端这一次冷启动的鉴权判定已经落定**(不再区分成功还是失败)。
+   * 三条路径**都必须**把它置为 true ——
+   *   ① 静默登录成功;② 静默登录失败(含 catch);
+   *   ③ 压根没进静默登录:非小程序环境 / 已有票 / 登出标记闸拦下,即"无票可换"的短路。
+   * 漏掉任何一条,后续页面拿到的就绪位就永远不亮,页面会一直卡在"等就绪"——
+   * 那比现在这个"读到 isLoggedIn()===false 就抢发鉴权请求"的抢跑更糟。
+   * 所以这一位是**门控用的基座**,不是登录态的第二份真相:登录与否仍然只看 token
+   * (`isLoggedIn()`),就绪位只回答"这一次判定做完了没有"。
+   * 与 @ihui/shared/stores createAuthStore 的 `ready` 不同源也不同义(那位是 persist 水合完成,
+   * 本端 store 走 zustand/vanilla + Taro.storage,根本没有水合这一步)。
+   */
+  authReady: boolean
   setAuth: (token: string, user: UserInfo, refreshToken?: string) => void
   logout: () => void
   fetchProfile: () => Promise<void>
@@ -49,13 +64,25 @@ interface UserState {
   }) => Promise<MiniAppLoginResult>
   /** 静默尝试跨端小程序登录(启动时自动适配微信/支付宝环境) */
   trySilentMiniAppLogin: () => Promise<MiniAppLoginResult | null>
+  /**
+   * 置起 `authReady`(幂等:已为 true 时不再 set,免得给订阅者发空轮)。
+   * 生产调用点全端只有 app.tsx 冷启动链末尾那一处 —— 本 store 不自己点亮,
+   * 因为"落定"这件事由那条链判,不由取票动作判(取票动作有三条短路根本不会被调到)。
+   */
+  markAuthReady: () => void
 }
 
 // 创建 store 实例(纯逻辑,不依赖 React,可被 Vite 正确打包)
-const userStoreApi = createStore<UserState>((set) => ({
+const userStoreApi = createStore<UserState>((set, get) => ({
   token: getToken(),
   refreshToken: getRefreshToken(),
   user: getUserInfo(),
+  // 冷启动时这一位必然是 false:模块加载即定形的三件套(token/user)不等于判定已落定。
+  authReady: false,
+  markAuthReady: () => {
+    if (get().authReady) return
+    set({ authReady: true })
+  },
   setAuth: (token, user, refreshToken) => {
     persistToken(token)
     if (refreshToken) persistRefreshToken(refreshToken)
