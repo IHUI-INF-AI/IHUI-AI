@@ -75,7 +75,10 @@ const viewStyles = {
     justifyContent: 'space-around',
     height: TAB_BAR_HEIGHT + safeAreaBottom,
     paddingBottom: safeAreaBottom,
-    backgroundColor: tk.surface.card,
+    // 液态玻璃底(2026-10-16 用户定稿):半透明 + backdrop blur,与 mobile-rn TabBar 同档
+    backgroundColor: tk.glass.bg,
+    backdropFilter: 'blur(24px)',
+    WebkitBackdropFilter: 'blur(24px)',
     borderTopWidth: TAB_BAR_TOP_BORDER,
     borderTopColor: tk.border.light,
     borderTopStyle: 'solid',
@@ -169,10 +172,10 @@ export function TabBar({
             <TabBarIcon
               tab={tab}
               isActive={isActive}
-              activeColor={tk.brandAccent.deep}
+              activeColor={tk.text.primary}
               inactiveColor={tk.text.tertiary}
             />
-            <span style={textStyles.label(isActive ? tk.brandAccent.deep : tk.text.tertiary)}>
+            <span style={textStyles.label(isActive ? tk.text.primary : tk.text.tertiary)}>
               {tab.label}
             </span>
           </div>

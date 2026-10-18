@@ -87,6 +87,11 @@ export interface CourseTabScreenProps {
   onPressCategory: (cat: CourseCategory) => void
   onPressPath: (id: string) => void
   onPressMoreCourses: () => void
+  /**
+   * 滚动内容区底部预留(px,默认 24)。mobile-rn 各屏 TabBar 改绝对悬浮胶囊后
+   * (2026-10-16),由调用方传 tabBarScrollReserve(insets.bottom) 让内容可滚到胶囊底下。
+   */
+  contentBottomPadding?: number
 }
 
 const COURSE_CATEGORIES: readonly CourseCategory[] = [
@@ -118,6 +123,7 @@ export function CourseTabScreen({
   onPressCategory,
   onPressPath,
   onPressMoreCourses,
+  contentBottomPadding = 24,
   colorScheme = 'light',
 }: CourseTabScreenProps) {
   const tk = getTokens(colorScheme)
@@ -136,7 +142,7 @@ export function CourseTabScreen({
     <View style={styles.container}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: contentBottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         {/* 学习进度概览 */}

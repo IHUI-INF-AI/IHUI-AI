@@ -94,6 +94,11 @@ export interface LiveScreenProps {
   onPressItem: (id: string) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /**
+   * 滚动内容区底部预留(px,默认 16)。mobile-rn 各屏 TabBar 改绝对悬浮胶囊后
+   * (2026-10-16),由调用方传 tabBarScrollReserve(insets.bottom) 让内容可滚到胶囊底下。
+   */
+  contentBottomPadding?: number
 }
 
 /** 批次 17(2026-07-29):直播详情/主播端/预告/回放(单条直播深 4 屏) */
