@@ -24,7 +24,7 @@ import {
  * MyQuestsBoard — 票77(2026-10-18)「My Quests 跨 workspace 全局看板」前端切片。
  *
  * 数据面 = `stores/quests` 端内登记表(goal 生命周期自动登记 + 手动自评估);
- * 挂载时经 `GET /sessions/goals`(票77 服务端聚合腿)灌入跨会话目标与真实 workspaceId,
+ * 挂载时经 `GET /api/sessions/goals`(票77 服务端聚合腿)灌入跨会话目标与真实 workspaceId,
  * 灌入失败(网络/服务不可达)静默保留端内登记表,看板照常可用(D152 兜底)。
  * 不另造第二套状态词汇:六档取自 `@ihui/types` 的 `GOAL_STATUSES`,
  * 状态取词沿用 goalCard 四旧词 + chat.goal.status 两新词(goal-card.tsx 同一张映射,
