@@ -26,8 +26,8 @@ from pathlib import Path
 import pytest
 
 from app.routers.llm import (
-    LLMCompleteRequest,
     _TOOL_DANGER_LEVELS,
+    LLMCompleteRequest,
     _normalize_permission_mode,
     _resolve_tool_approval,
 )
