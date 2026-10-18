@@ -7,6 +7,7 @@ import { View, Text } from '@tarojs/components'
 import { useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getCommissionRecords, getDistributionInfo } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
 interface CommissionRecord {
@@ -21,6 +22,7 @@ const PAGE_SIZE = 20
 
 export default function DistributionCommission() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [list, setList] = useState<CommissionRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [totalCommission, setTotalCommission] = useState(0)
@@ -62,8 +64,16 @@ export default function DistributionCommission() {
   }
 
   useEffect(() => {
-    loadSummary()
-    load(true)
+    // G-933 冷启动抢跑门控:GET /api/distribution/overview 由 distributionRoutes 的统一
+    // preHandler 守(`apps/api/src/routes/distribution.ts:24` addHook authenticate)⇒ 需鉴权,挡到门后。
+    // GET /api/distribution/commission(load)在两后端零注册(现读:只有 /distribution/commission-rates)
+    // ⇒ 鉴权定性判不出,按纪律那一条一字不动,留给路由侧人工决策。
+    const cancel = gate.waitUntilReady(() => {
+      void loadSummary()
+    })
+    void load(true)
+    return cancel
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载即一次性注册,waitUntilReady 本身是稳定引用
   }, [])
 
   useReachBottom(() => {

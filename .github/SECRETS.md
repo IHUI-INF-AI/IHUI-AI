@@ -60,7 +60,7 @@
 
 ### 发布与部署
 
-- `NPM_TOKEN` — npm 发布令牌（用于 SDK 发布到 npm registry）
+- `NPM_TOKEN` — npm 发布令牌（用于 release-sdk.yml 发布 @ihui/sdk 到 npm registry）。**尚未配置**：npm 账号未建成（npm-bootstrap.yml 首发引导自动化路径已被 DataDome/Cloudflare 拦死，待 owner 人工注册）。未配置时 release-sdk.yml real 模式 npm gate 判红，不会静默跳过
 - `DOCKER_REGISTRY` — Docker 镜像仓库地址
 - `DOCKER_USERNAME` — Docker 仓库用户名
 - `DOCKER_PASSWORD` — Docker 仓库密码
@@ -118,24 +118,26 @@
 
 > 下表基于 `.github/workflows/` 目录下各工作流文件中实际引用的 `${{ secrets.* }}` 变量整理。标记「（无）」表示该工作流当前未直接引用任何 secrets（可能使用本地服务容器、硬编码测试凭据或依赖运行中的外部服务）。
 
-| 工作流                    | 所需 Secrets                                                                                         |
-| ------------------------- | ---------------------------------------------------------------------------------------------------- |
-| ci.yml                    | （无）                                                                                               |
-| ci-monorepo.yml           | （无）                                                                                               |
-| build.yml                 | （无）                                                                                               |
-| e2e.yml                   | （无）                                                                                               |
-| knip.yml                  | （无）                                                                                               |
-| openapi-check.yml         | （无）                                                                                               |
-| visual-regression.yml     | （无）                                                                                               |
-| blue-green-deploy.yml     | （无，当前通过 `environment` 选择 staging/production，部署步骤未引用 secrets）                       |
-| migration-tests.yml       | （无，使用本地 postgres 服务容器 + 硬编码测试凭据 `postgresql://postgres:test@localhost:8810/test`） |
-| observability-drills.yml  | （无，依赖运行中的服务）                                                                             |
-| s3-lifecycle-drift.yml    | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`                              |
-| ws-loadtest.yml           | （无，依赖运行中的服务）                                                                             |
-| smoke-new-modules.yml     | （无）                                                                                               |
-| sdk-publish.yml           | `NPM_TOKEN`                                                                                          |
-| weekly-security-audit.yml | `GITHUB_TOKEN`（GitHub 自动提供，无需手动配置）                                                      |
-| miniapp-preview.yml       | （无）                                                                                               |
-| mirror-to-cn.yml          | `GITEE_TOKEN`, `GITEE_OWNER`, `GITCODE_TOKEN`, `GITCODE_OWNER`                                       |
+| 工作流                    | 所需 Secrets                                                                                                                                                        |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ci.yml                    | （无）                                                                                                                                                              |
+| ci-monorepo.yml           | （无）                                                                                                                                                              |
+| build.yml                 | （无）                                                                                                                                                              |
+| e2e.yml                   | （无）                                                                                                                                                              |
+| knip.yml                  | （无）                                                                                                                                                              |
+| openapi-check.yml         | （无）                                                                                                                                                              |
+| visual-regression.yml     | （无）                                                                                                                                                              |
+| blue-green-deploy.yml     | （无，当前通过 `environment` 选择 staging/production，部署步骤未引用 secrets）                                                                                      |
+| migration-tests.yml       | （无，使用本地 postgres 服务容器 + 硬编码测试凭据 `postgresql://postgres:test@localhost:8810/test`）                                                                |
+| observability-drills.yml  | （无，依赖运行中的服务）                                                                                                                                            |
+| s3-lifecycle-drift.yml    | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`                                                                                             |
+| ws-loadtest.yml           | （无，依赖运行中的服务）                                                                                                                                            |
+| smoke-new-modules.yml     | （无）                                                                                                                                                              |
+| release-cli.yml           | （无：npm 走 Trusted Publishing OIDC，不再读任何 NPM_TOKEN；GITHUB_TOKEN 自动提供）                                                                                 |
+| release-sdk.yml           | `NPM_TOKEN`（**尚未配置**，见上方说明；未配置时 real 模式 npm gate 判红）                                                                                           |
+| npm-bootstrap.yml         | `NPM_BOOT_PUBKEY`, `NPM_BOOT_EMAIL`, `NPM_BOOT_USERNAME`, `NPM_BOOT_PASSWORD`（已配置）；`NPM_VERIFY_URL`（未配置）；`NPM_PUBLISH_TOKEN`（待 bootstrap 闭环后配置） |
+| weekly-security-audit.yml | `GITHUB_TOKEN`（GitHub 自动提供，无需手动配置）                                                                                                                     |
+| miniapp-preview.yml       | （无）                                                                                                                                                              |
+| mirror-to-cn.yml          | `GITEE_TOKEN`, `GITEE_OWNER`, `GITCODE_TOKEN`, `GITCODE_OWNER`                                                                                                      |
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

@@ -7,6 +7,7 @@ import { View, Text, Image } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getDistributionRank } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
 interface RankUser {
@@ -18,6 +19,7 @@ interface RankUser {
 
 export default function DistributionRank() {
   const tt = useTt()
+  const gate = useAuthReadyGate()
   const [list, setList] = useState<RankUser[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -32,8 +34,10 @@ export default function DistributionRank() {
     }
   }, [])
 
+  // G-933 冷启动抢跑门控:GET /api/distribution/ranking 由 distributionRoutes 的统一
+  // preHandler 守(`apps/api/src/routes/distribution.ts:24` addHook authenticate)⇒ 需鉴权。
   useDidShow(() => {
-    load()
+    gate.waitUntilReady(load)
   })
 
   const top3 = list.slice(0, 3)

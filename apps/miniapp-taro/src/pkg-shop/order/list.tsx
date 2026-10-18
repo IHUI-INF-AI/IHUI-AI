@@ -8,6 +8,7 @@ import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/ta
 import { useState, useRef, useMemo, useCallback } from 'react'
 import { formatDateByTemplate } from '@ihui/shared'
 import { getOrderList, type Order } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
 
@@ -116,6 +117,7 @@ function formatTimestamp(ts: string | number | undefined): string {
 
 export default function OrderList() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
   const [list, setList] = useState<OrderItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -200,7 +202,10 @@ export default function OrderList() {
   }
 
   useDidShow(() => {
-    load(true)
+    // G-933 冷启动门控:需登录的订单列表在鉴权判定落定前不发
+    gate.waitUntilReady(() => {
+      void load(true)
+    })
   })
   useReachBottom(() => {
     load()

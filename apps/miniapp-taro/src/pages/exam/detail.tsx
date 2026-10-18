@@ -16,6 +16,7 @@ import {
   type ExamPaper,
   type ExamRecord,
 } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
 import './detail.css'
@@ -44,6 +45,7 @@ export default function ExamDetail() {
   const [history, setHistory] = useState<ExamRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
+  const { waitUntilReady } = useAuthReadyGate()
 
   const loadExam = useCallback(async () => {
     const id = router.params.id
@@ -77,12 +79,25 @@ export default function ExamDetail() {
     }
   }, [router.params.id, tt])
 
+  // G-933 冷启动抢跑门控:loadExam 的三支请求全部需鉴权 ——
+  // GET /api/exam/papers/:id(apps/api/src/routes/exam.ts:519)、
+  // GET /api/exam/papers/:id/questions(exam.ts:547)、
+  // GET /api/exam/records(exam.ts:642),三支都是 handler 内
+  // `if (!(await checkAuth(request, reply))) return`(注册前缀 /api 见 routes/index.ts:598)
+  // ⇒ 本枚无公开请求,整块挡到门后;落定(含"落定但未登录")后照发一次,
+  // 失败态由既有 loading / exam-detail-error 分支渲染,不新增文案。
   useEffect(() => {
-    loadExam()
-  }, [loadExam])
+    return waitUntilReady(() => {
+      void loadExam()
+    })
+  }, [loadExam, waitUntilReady])
 
   useDidShow(() => {
-    if (router.params.id) loadExam()
+    if (router.params.id) {
+      waitUntilReady(() => {
+        void loadExam()
+      })
+    }
   })
 
   const onStart = useCallback(async () => {

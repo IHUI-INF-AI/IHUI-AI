@@ -5,6 +5,7 @@
 import { useTt, useI18n } from '@/i18n'
 import { View, Text, Button, Image } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import {
@@ -53,15 +54,21 @@ export default function RechargePage() {
   const finalAmount = useCustom ? customNum : preset
   const tokenRate = activity?.computing ?? TOKEN_RATE
 
+  // G-933 冷启动门控：getProfile → /user/profile 需鉴权（miniapp-compat-routes.ts:2247 checkAuth），
+  // 与 getActivity(/pay/activity，本轮注册面取证不足) 共用一次 Promise.all 与同一次 setLoading，
+  // 拆支会改回填语义 ⇒ 整块延后到鉴权判定落定；顺带补上原先缺失的 cleanup（取消未落定的订阅）。
+  const { waitUntilReady } = useAuthReadyGate()
   useEffect(() => {
-    Promise.all([getProfile().catch(() => null), getActivity().catch(() => null)]).then(
-      ([u, a]) => {
-        if (u) setUser(u)
-        if (a && (a as ActivityData).activityRule) setActivity(a as ActivityData)
-        setLoading(false)
-      },
-    )
-  }, [])
+    return waitUntilReady(() => {
+      Promise.all([getProfile().catch(() => null), getActivity().catch(() => null)]).then(
+        ([u, a]) => {
+          if (u) setUser(u)
+          if (a && (a as ActivityData).activityRule) setActivity(a as ActivityData)
+          setLoading(false)
+        },
+      )
+    })
+  }, [waitUntilReady])
 
   const onSelectPreset = (v: number) => {
     setPreset(v)

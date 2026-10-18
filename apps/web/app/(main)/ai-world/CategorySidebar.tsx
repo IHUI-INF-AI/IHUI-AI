@@ -21,7 +21,7 @@ import {
   LayoutGrid,
 } from 'lucide-react'
 
-import type { AiCategory } from './types'
+import type { AiWorldCategory } from '@ihui/types'
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Bot,
@@ -40,7 +40,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 }
 
 interface Props {
-  categories: AiCategory[]
+  categories: AiWorldCategory[]
   activeCategory: string | null
   onChange: (slug: string | null) => void
 }

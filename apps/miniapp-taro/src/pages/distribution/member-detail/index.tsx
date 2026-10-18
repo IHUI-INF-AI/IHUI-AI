@@ -7,6 +7,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import * as api from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -30,6 +31,7 @@ const PAGE_SIZE = 20
 export default function MemberDetail() {
   const { t } = useI18n()
   const tt = useTt()
+  const gate = useAuthReadyGate()
   const [list, setList] = useState<MemberItem[]>([])
   const [stats, setStats] = useState<Stats>({ teamCount: 0, monthNew: 0, totalCommission: 0 })
   const [loading, setLoading] = useState(false)
@@ -97,9 +99,14 @@ export default function MemberDetail() {
     }
   }
 
+  // G-933 冷启动抢跑门控:首屏两发 GET /api/distribution/overview 与
+  // GET /api/distribution/invited-users 全在 distributionRoutes 统一 preHandler 之下
+  // (`apps/api/src/routes/distribution.ts:24` addHook authenticate)⇒ 需鉴权,整块挡到门后。
   useDidShow(() => {
-    loadStats()
-    load(true)
+    gate.waitUntilReady(() => {
+      void loadStats()
+      void load(true)
+    })
   })
 
   useReachBottom(() => {
