@@ -6,6 +6,28 @@ import { eq, and, asc, sql } from 'drizzle-orm'
 import { db } from './index.js'
 import { userPreferences, type UserPreference } from '@ihui/database'
 
+/**
+ * `user_preferences.group` 取值的唯一具名出口(2026-10-18 收口单/复数分叉)。
+ *
+ * 为什么要有这一份:compat 路由(`/settings/notification` 单数)曾把通知偏好写进
+ * group='notification'(单数),而权威腿(`/settings/notifications`,user/settings-routes.ts)
+ * 与 schema 词表(notifications/privacy/preferences/devices)都写复数 —— 同一个用户的同一份
+ * 通知偏好被拆到两个 group,读写互不可见(compat 读到空、web 读到另一批)。这不是 preferences
+ * 分叉(language/theme 落 'preferences' 本就正确,见 settings-routes.ts:168 注释),是单复数分叉。
+ * 现以复数为准并把 compat 并进权威腿;裸字面量不得再出现在调用侧(§0.6 单一真相源)。
+ * 存量单数行由迁移 `20261018150000_user_preferences_notification_group_plural` 一次性并入。
+ */
+export const USER_PREFERENCE_GROUPS = {
+  notifications: 'notifications',
+  privacy: 'privacy',
+  preferences: 'preferences',
+  devices: 'devices',
+  sidebar: 'sidebar',
+} as const
+
+export type UserPreferenceGroup =
+  (typeof USER_PREFERENCE_GROUPS)[keyof typeof USER_PREFERENCE_GROUPS]
+
 export type UserPreferenceRow = {
   id: string
   group: string
