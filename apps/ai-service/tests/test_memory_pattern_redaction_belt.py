@@ -39,7 +39,7 @@ def test_legacy_plaintext_tail_is_redacted() -> None:
     assert out.startswith("doom_loop:run_command:redacted-")
     # 形态钉死:redacted- 后恰 16 位 hex(与清洗器逐字同形)
     tail = out.rsplit(":", 1)[1]
-    assert tail == f"redacted-{hashlib.sha256('C:/Users/x/file.py --flag'.encode()).hexdigest()[:16]}"
+    assert tail == f"redacted-{hashlib.sha256(b'C:/Users/x/file.py --flag').hexdigest()[:16]}"
 
 
 def test_same_input_yields_same_redaction() -> None:

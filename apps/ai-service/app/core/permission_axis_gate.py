@@ -161,7 +161,12 @@ def resolve_axis_resolution(
     if preset is not None:
         if not isinstance(preset, str):
             return None
-        pair = APPROVAL_PRESETS.get(preset.strip())
+        # 显式标注成"两轴都可能为 None"的形态:APPROVAL_PRESETS 的取值是具体两元组,
+        # 而下面 config-profile 那支返回 tuple[str | None, str | None] | None —— 同一
+        # 变量名先后接两种取值,mypy 会按首次绑定收窄成 tuple[str, str] | None 并在
+        # 第二次赋值判 [assignment] 红。AxisResolution 两轴本来就允许 None(未指定),
+        # 这里放宽标注不改变任何运行时行为。
+        pair: tuple[str | None, str | None] | None = APPROVAL_PRESETS.get(preset.strip())
         if pair is None:
             return None
         return AxisResolution(

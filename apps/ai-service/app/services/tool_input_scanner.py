@@ -29,7 +29,6 @@ from typing import Any
 from urllib.parse import urlparse
 
 from .network_guard import NetworkEgressPolicy
-
 from .sandbox import _DANGEROUS_PATTERNS
 
 logger = logging.getLogger(__name__)

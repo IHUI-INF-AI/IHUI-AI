@@ -128,6 +128,9 @@ from .durable_resume import (
 from .engine_tool_bridge import capability_equivalent as _capability_equivalent
 
 if TYPE_CHECKING:
+    # 79 号票双轴类型:仅给类型检查器一条线索,运行时不 import(循环"只判定不构造"的
+    # 设计约束不变 —— 构造权仍只在路由层一个出口)。
+    from ..core.permission_axis_gate import AxisResolution as _AxisResolution
     from .compaction_canary import CompactionDecision
     from .memory_service import MemoryService
 
@@ -1923,9 +1926,11 @@ class AgentLoopV2:
         permission_mode: str | None = None,
         # 79 号票(2026-10-18 立):权限双轴解析结果(**路由层解析、执行面判定**)。
         # None = 未携带双轴 ⇒ 下面工具审批链里的双轴层整段跳过 ⇒ 现网零行为变化。
-        # 类型用 object 标注:真类型是 core.permission_axis_gate.AxisResolution,
-        # 本处刻意不 import 该类型 —— 循环只判定不构造,构造权归路由层一个出口。
-        axis_resolution: object | None = None,
+        # 类型走 TYPE_CHECKING-only import 标注(真类型是 core.permission_axis_gate
+        # .AxisResolution);运行时仍不 import、不构造 —— 构造权归路由层一个出口,这条
+        # 设计约束不变。此前用 object 标注让 mypy 在 5706/5708 把实参读成 object,
+        # 判 [arg-type] 红 ⇒ 整条 ai-service 提交链被这条存量堵住。
+        axis_resolution: "_AxisResolution | None" = None,
         # 1-6 token 治理:LLM 预算硬约束接入主循环(2026-09-02 立)。
         # budget_enabled:总开关,默认 None 时取 env AGENT_BUDGET_ENABLED(默认 off);
         #   构造参数优先于 env。on 时每轮 check_budget 硬停止 + record_usage 记录。
@@ -2098,7 +2103,7 @@ class AgentLoopV2:
         # 79 号票:双轴解析结果。None ⇒ 工具审批链整段跳过(零行为变化)。
         # 不做 env 兜底:双轴只能由请求自己声明(与 #84 耐久视野同一条理由 ——
         # "这一轮要什么权限"只能由点名的这一次请求说,服务端不代决定)。
-        self._axis_resolution: object | None = axis_resolution
+        self._axis_resolution: "_AxisResolution | None" = axis_resolution
 
         # 工具级审批策略(构造期校验,非法值 fail-fast)
         _VALID_APPROVAL_POLICIES = ("never", "on-request", "always")

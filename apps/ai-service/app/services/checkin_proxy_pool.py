@@ -131,8 +131,6 @@ async def refresh_pool(client: httpx.AsyncClient | None = None) -> list[str]:
                 if result:
                     alive.append(result)
 
-        import asyncio
-
         for chunk_start in range(0, min(len(candidates), 200), _PROBE_CONCURRENCY):
             chunk = candidates[chunk_start : chunk_start + _PROBE_CONCURRENCY]
             await asyncio.gather(*(probe(c) for c in chunk))
