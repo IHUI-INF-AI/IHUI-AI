@@ -1649,7 +1649,10 @@ export async function refundTaskCall(taskId: string): Promise<RefundTaskResult> 
           sql`${llmCallLogs.metadata}->>'task_id' = ${taskId}`,
           sql`${llmCallLogs.callType} in ('image','video')`,
           eq(llmCallLogs.status, 'success'),
-          sql`COALESCE(${llmCallLogs.metadata}->>'refunded','false') <> 'true'`,
+          // G-790 A7:是否已退款走判别列,不再按 JSON 内容判类别。
+          // (旧形态 `COALESCE(metadata->>'refunded','false') <> 'true'` 的正确性依赖
+          //  "只有 markTaskRefunded 写这个键"这一巧合;迁移已把既有真值回填进列,两型判定同形。)
+          eq(llmCallLogs.refunded, false),
         ),
       )
       .orderBy(desc(llmCallLogs.createdAt))
@@ -1698,11 +1701,16 @@ export async function refundTaskCall(taskId: string): Promise<RefundTaskResult> 
   }
 }
 
-/** 给流水打已退款标记(jsonb_set,幂等) */
+/** 给流水打已退款标记。
+ *
+ *  判别事实写进 `refunded` **列**,`metadata.refunded` 键同批保留(既有读者与人工核查仍看得见),
+ *  但它不再是资格判定的来源 —— G-790 A7:按 JSON 内容判类别的过滤,今天命中集合正确只是巧合。
+ */
 async function markTaskRefunded(logId: string): Promise<void> {
   await db
     .update(llmCallLogs)
     .set({
+      refunded: true,
       metadata: sql`jsonb_set(COALESCE(${llmCallLogs.metadata},'{}'::jsonb), '{refunded}', 'true'::jsonb)`,
     })
     .where(eq(llmCallLogs.id, logId))
