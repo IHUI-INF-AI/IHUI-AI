@@ -103,6 +103,16 @@ export const llmCallLogs = pgTable(
     rawRetentionDays: integer('raw_retention_days'),
     /** 原文当前是否仍在表内。清除器置 false;写入口亦可显式置 false(表示本就不写原文)。 */
     rawRetained: boolean('raw_retained').default(true).notNull(),
+    /**
+     * G-790 A7(2026-10-18 立):这笔调用是否已退款 —— 判别列,不是 JSON 键。
+     *
+     * 退款资格查询今天筛的是 `COALESCE(metadata->>'refunded','false') <> 'true'`,而"只有
+     * markTaskRefunded 会写这个顶层键"是今天的巧合、不是约束(上游同型论证:明天任何别的写入者
+     * 给 metadata 打上同名键,就会把已退款行再退一次,或把无关行判成未退款,而条数看起来正常)。
+     * 与同表 `raw_retained` 同一档:运营事实进列,读面走列;metadata 里的 `refunded` 键继续写
+     * (向后兼容既有读者),但它不再是判定来源。
+     */
+    refunded: boolean('refunded').default(false).notNull(),
     /** 原文被清除的时间;NULL = 尚未清除。保留该列以便回答"这条记录的原文何时按策略消失"。 */
     rawPurgedAt: timestamp('raw_purged_at', { withTimezone: true }),
     /**
