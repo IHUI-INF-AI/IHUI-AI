@@ -5,8 +5,9 @@
 /**
  * ChatTemplatesPage — 对话模板网格(2026-07-25 立)。
  *
- * 数据源:GET /api/chat/templates(分页 PageData<ChatTemplate>)。
- * 网格项:模板名 + 描述 + 图标 + 使用次数,点击 chrome.tabs.create 跳 web 使用模板。
+ * 数据源:GET /api/chat/templates(需登录;分页 PageData<ChatTemplate>,列表键 = list)。
+ * 网格项:模板标题 + 描述,点击 chrome.tabs.create 跳 web 使用模板。
+ * 字段名与服务端投影一致(title 而非本端此前自造的 name),三侧消费者共用同一份形状。
  */
 import { useEffect, useState } from 'react'
 import { ClipboardList } from 'lucide-react'
@@ -17,10 +18,9 @@ import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
 
 interface ChatTemplate {
   id: string
-  name: string
+  /** 服务端投影字段名 = title(web /chat/templates 页与 CLI 用的同一份),此前本端写作 name 是第三种形状 */
+  title: string
   description?: string | null
-  icon?: string | null
-  useCount?: number
 }
 
 export default function ChatTemplatesPage() {
@@ -93,24 +93,15 @@ export default function ChatTemplatesPage() {
             >
               <CardContent className="p-2.5 min-[640px]:p-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-base shrink-0" aria-hidden>
-                    {tpl.icon ? (
-                      tpl.icon
-                    ) : (
-                      <ClipboardList size={16} className="shrink-0 text-current" />
-                    )}
+                  <span className="shrink-0" aria-hidden>
+                    <ClipboardList size={16} className="shrink-0 text-current" />
                   </span>
-                  <div className="font-medium text-xs truncate flex-1 min-w-0">{tpl.name}</div>
+                  <div className="font-medium text-xs truncate flex-1 min-w-0">{tpl.title}</div>
                 </div>
                 {tpl.description ? (
                   <p className="m-0 mt-1 text-[11px] text-muted-foreground line-clamp-2">
                     {tpl.description}
                   </p>
-                ) : null}
-                {typeof tpl.useCount === 'number' ? (
-                  <div className="mt-1 text-[10px] text-muted-foreground tabular-nums">
-                    {tpl.useCount} 次
-                  </div>
                 ) : null}
               </CardContent>
             </Card>

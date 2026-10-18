@@ -45,6 +45,16 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 
+/**
+ * §22c:移动端两条判据的**材料只写这一份** —— 镜像测试 import 它,不得在测试里重抄句子
+ * (守门 191 `check-test-judge-not-replicated.mjs` 的 F1 抓的就是"import 了本门又把材料写一遍")。
+ * 必须声明在本文件任何调用之前:底部 `isDirectRun` 守卫会在模块求值期就调 `main()`。
+ */
+export const MOBILE_JUDGE_MESSAGES = {
+  appEnvUnconsumed: 'B app.config.js 未消费 IHUI_MOBILE_VERSION —— 版本号又变成人敲的死数字了',
+  rnEnvUnconsumed: 'C src/lib/config.ts 的 APP_VERSION 未消费 EXPO_PUBLIC_IHUI_MOBILE_VERSION',
+}
+
 /** 语义版本字面量(如 '1.0.0' / "0.0.5");用于识别"写死的版本号" */
 const SEMVER_LITERAL = /['"]\d+\.\d+\.\d+(?:[-+][\w.-]+)?['"]/
 
@@ -103,7 +113,7 @@ export function findVersionDrift(input) {
   // B RN 原生版本可追溯
   if (appConfigJs !== null) {
     if (!/IHUI_MOBILE_VERSION/.test(appConfigJs)) {
-      v.push('B app.config.js 未消费 IHUI_MOBILE_VERSION —— 版本号又变成人敲的死数字了')
+      v.push(MOBILE_JUDGE_MESSAGES.appEnvUnconsumed)
     }
     if (!/pkg\.version/.test(appConfigJs)) {
       v.push('B app.config.js 缺 package.json 兜底(本地/未注入构建会拿不到版本号)')
@@ -113,7 +123,7 @@ export function findVersionDrift(input) {
   // C RN 界面版本可追溯
   if (rnConfigTs !== null) {
     if (!/EXPO_PUBLIC_IHUI_MOBILE_VERSION/.test(rnConfigTs)) {
-      v.push('C src/lib/config.ts 的 APP_VERSION 未消费 EXPO_PUBLIC_IHUI_MOBILE_VERSION')
+      v.push(MOBILE_JUDGE_MESSAGES.rnEnvUnconsumed)
     }
     if (!/PKG_VERSION/.test(rnConfigTs)) {
       v.push('C src/lib/config.ts 缺 package.json 兜底')

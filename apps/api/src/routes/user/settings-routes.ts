@@ -20,6 +20,8 @@ import {
   upsertUserPreference,
   deleteUserPreferencesByGroup,
   deleteUserPreference,
+  USER_PREFERENCE_GROUPS,
+  type UserPreferenceGroup,
 } from '../../db/user-preferences-queries.js'
 import { findSecurityLogs } from '../../db/security-logs-queries.js'
 import { findActiveSessions, revokeSession } from '../../db/authorizations-queries.js'
@@ -37,13 +39,13 @@ const exportContentStore = new Map<string, { content: string; expiresAt: Date }>
 
 const settingsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/settings/notifications', async (request, reply) => {
-    const { list } = await findUserPreferences(request.userId!, 'notifications')
+    const { list } = await findUserPreferences(request.userId!, USER_PREFERENCE_GROUPS.notifications)
     const settings = Object.fromEntries(list.map((r) => [r.key, r.value]))
     return reply.send(success({ settings }))
   })
 
   server.get('/settings/privacy', async (request, reply) => {
-    const { list } = await findUserPreferences(request.userId!, 'privacy')
+    const { list } = await findUserPreferences(request.userId!, USER_PREFERENCE_GROUPS.privacy)
     const settings = Object.fromEntries(list.map((r) => [r.key, r.value]))
     return reply.send(success({ settings }))
   })
@@ -80,7 +82,7 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/settings/preferences', async (request, reply) => {
-    const { list } = await findUserPreferences(request.userId!, 'preferences')
+    const { list } = await findUserPreferences(request.userId!, USER_PREFERENCE_GROUPS.preferences)
     const settings = Object.fromEntries(list.map((r) => [r.key, r.value]))
     return reply.send(success({ settings }))
   })
@@ -96,7 +98,7 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
       Object.entries(body).map(([key, value]) =>
         upsertUserPreference(
           userId,
-          'notifications',
+          USER_PREFERENCE_GROUPS.notifications,
           key,
           value === null || value === undefined ? null : String(value),
         ),
@@ -114,7 +116,7 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
       Object.entries(body).map(([key, value]) =>
         upsertUserPreference(
           userId,
-          'privacy',
+          USER_PREFERENCE_GROUPS.privacy,
           key,
           value === null || value === undefined ? null : String(value),
         ),
@@ -154,7 +156,7 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
       Object.entries(body).map(([key, value]) =>
         upsertUserPreference(
           userId,
-          'preferences',
+          USER_PREFERENCE_GROUPS.preferences,
           key,
           value === null || value === undefined ? null : String(value),
         ),
@@ -170,7 +172,7 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
   // 复用同一张表 + 同一组查询函数 ⇒ 零迁移、零新表。
   // 上限 50:自定义栏是"常用"而非"全量",给个上界防止单行 value 无限增长
   // (value 是 text 列,不设限时恶意客户端可写进任意长度)。
-  const SIDEBAR_NAV_GROUP = 'sidebar'
+  const SIDEBAR_NAV_GROUP = USER_PREFERENCE_GROUPS.sidebar
   const SIDEBAR_NAV_KEY = 'customNav'
   const SIDEBAR_NAV_MAX = 50
 
@@ -222,7 +224,7 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/settings/devices', async (request, reply) => {
-    const { list, total } = await findUserPreferences(request.userId!, 'devices')
+    const { list, total } = await findUserPreferences(request.userId!, USER_PREFERENCE_GROUPS.devices)
     return reply.send(success({ list, total }))
   })
 
@@ -275,9 +277,9 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
 
     const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
     const [notifPrefs, privacyPrefs, prefPrefs] = await Promise.all([
-      findUserPreferences(userId, 'notifications'),
-      findUserPreferences(userId, 'privacy'),
-      findUserPreferences(userId, 'preferences'),
+      findUserPreferences(userId, USER_PREFERENCE_GROUPS.notifications),
+      findUserPreferences(userId, USER_PREFERENCE_GROUPS.privacy),
+      findUserPreferences(userId, USER_PREFERENCE_GROUPS.preferences),
     ])
     const signups = await findMyLessons(userId, { page: 1, pageSize: 1000 })
 
@@ -346,10 +348,10 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
     // (侧边栏自定义栏)。漏掉的表现是"清理数据"点完,偏好与侧边栏配置仍在 ——
     // 用户以为清了、实际没清,是本仓明令禁止的"装饰性开关"形态。
     await Promise.all([
-      deleteUserPreferencesByGroup(userId, 'notifications'),
-      deleteUserPreferencesByGroup(userId, 'privacy'),
-      deleteUserPreferencesByGroup(userId, 'devices'),
-      deleteUserPreferencesByGroup(userId, 'preferences'),
+      deleteUserPreferencesByGroup(userId, USER_PREFERENCE_GROUPS.notifications),
+      deleteUserPreferencesByGroup(userId, USER_PREFERENCE_GROUPS.privacy),
+      deleteUserPreferencesByGroup(userId, USER_PREFERENCE_GROUPS.devices),
+      deleteUserPreferencesByGroup(userId, USER_PREFERENCE_GROUPS.preferences),
       deleteUserPreferencesByGroup(userId, SIDEBAR_NAV_GROUP),
     ])
     return reply.send(success({ success: true }))
@@ -420,11 +422,11 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
       .safeParse(request.body ?? {})
     if (!body.success) return reply.status(400).send(error(400, '参数错误'))
     const groups: Array<
-      ['notifications' | 'privacy' | 'preferences', Record<string, unknown> | undefined]
+      [UserPreferenceGroup, Record<string, unknown> | undefined]
     > = [
-      ['notifications', body.data.notifications],
-      ['privacy', body.data.privacy],
-      ['preferences', body.data.preferences],
+      [USER_PREFERENCE_GROUPS.notifications, body.data.notifications],
+      [USER_PREFERENCE_GROUPS.privacy, body.data.privacy],
+      [USER_PREFERENCE_GROUPS.preferences, body.data.preferences],
     ]
     for (const [group, obj] of groups) {
       if (!obj) continue
@@ -444,7 +446,11 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
       if (!deviceId) return reply.status(400).send(error(400, '缺少 deviceId'))
       // removed 由 deleteUserPreference 的 RETURNING 命中集派生(2026-09-27):
       // 旧形态丢弃委托回报、无条件回 true —— "没有这条设备偏好"与"删除成功"同形。
-      const removed = await deleteUserPreference(request.userId!, 'devices', deviceId)
+      const removed = await deleteUserPreference(
+        request.userId!,
+        USER_PREFERENCE_GROUPS.devices,
+        deviceId,
+      )
       return reply.send(success({ success: true, deviceId, removed }))
     },
   )
