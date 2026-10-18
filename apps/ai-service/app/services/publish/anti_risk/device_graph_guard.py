@@ -84,6 +84,17 @@ _GRAPH_FILE = resolve_state_path(
 _DIGEST_RE = re.compile(r"\A[0-9a-f]{64}\Z")
 
 
+# 票1「退化指纹的等值处置」拍板 A 档(机主 2026-10-06:保留现状+消费侧基数保护,
+# 不删列、不改摘要算法 —— 跨账号同设备检测能力必须保留)。落码侧:
+# fingerprint_hash 各维取自 fingerprint_isolation 的有界字典(实测 400 账号仅 24 枚
+# 互异摘要、最大同值组 21),"两账号同哈希"多半是**取值空间退化**,不是同一台设备。
+# 真实共享设备是个位数、退化形态是数千 ⇒ 阈值取 10:同哈希组(含被检测账号)超过 10
+# ⇒ 这枚哈希失去区分度,指纹维度退出本次关联判定(基数保护,防指纹碰撞放大误报);
+# IP/UA/Canvas 维度照旧判。同口径先例:备份链 1f7800e37 黑名单出口
+# judgeFingerprintAffiliation(阈值 10,理由同源)。
+_FINGERPRINT_CARDINALITY_THRESHOLD = 10
+
+
 def _migrate_fingerprint_hash(value: str) -> str:
     """把落盘的 fingerprint_hash 归一为摘要形态(幂等、不抛)。
 
@@ -194,6 +205,12 @@ class LinkageReport:
     # 因"同属一个用户"而被跳过的候选数。**必须出现在报告里**，不得静默 ——
     # 静默跳过与"根本没检查"在账面上长得一模一样，而本仓最高频的失效型就是这个。
     same_owner_skipped: int = 0
+    # 票1 A 档基数保护的报告面(与 same_owner_skipped 同一条"不得静默"纪律):
+    # fingerprint_discriminating=False ⇒ 指纹维度因退化(同哈希组超阈)被基数保护**收起**,
+    # fingerprint_withheld_count 点名"因退化被收起的同哈希账号数" —— 收起必须留痕,
+    # 否则"这一维被保护"与"这一维根本没判"在账面上同形。
+    fingerprint_discriminating: bool = True
+    fingerprint_withheld_count: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -203,6 +220,8 @@ class LinkageReport:
             "risk_score": self.risk_score,
             "linkage_types": list(self.linkage_types),
             "same_owner_skipped": self.same_owner_skipped,
+            "fingerprint_discriminating": self.fingerprint_discriminating,
+            "fingerprint_withheld_count": self.fingerprint_withheld_count,
         }
 
 
@@ -361,6 +380,12 @@ class DeviceGraphGuard:
                 **归属解析不到的候选一律照旧计入**（保守）：把"查不到主人"当成"同一个人"
                 等于给关联检测开后门。不给该参数时行为与改动前逐字一致。
 
+                指纹维度带**基数保护**（票1 A 档，2026-10-06 机主拍板）：被检测账号的
+                fingerprint_hash 同值组超过 `_FINGERPRINT_CARDINALITY_THRESHOLD` 时判为
+                退化指纹，该维度收起不判（等值多半是取值空间退化，不是同一设备）；
+                收起事实与被收起账号数写进 `fingerprint_discriminating` /
+                `fingerprint_withheld_count`，不得静默。
+
         Returns:
             LinkageReport(含关联账号列表 + 风险评分)
         """
@@ -374,7 +399,25 @@ class DeviceGraphGuard:
             linkage_types: list[str] = []
             risk = 0
             same_owner_skipped = 0
+            fingerprint_withheld_count = 0
             self_owner = owner_of(account_id) if owner_of is not None else None
+
+            # 票1 A 档:指纹维度基数保护 —— 先量"这枚哈希在图谱里有多少账号同值"。
+            # 超阈 ⇒ 判为退化指纹(取值空间小,等值不构成"同一设备"的证据),
+            # 指纹维度收起不判;IP/UA/Canvas 维度照旧。收起必须点数留痕(见 LinkageReport)。
+            target_fp_hash = target.fingerprint_hash
+            fingerprint_discriminating = True
+            if target_fp_hash:
+                fp_group_size = sum(
+                    1 for b in self._bindings.values() if b.fingerprint_hash == target_fp_hash
+                )
+                if fp_group_size > _FINGERPRINT_CARDINALITY_THRESHOLD:
+                    fingerprint_discriminating = False
+                    logger.warning(
+                        "[device_graph] 账号 %s 的指纹哈希同值组 %d 个(>阈值 %d):判为退化指纹,"
+                        "指纹维度退出本次关联判定(基数保护,防指纹碰撞放大误报);其余维度照旧",
+                        account_id, fp_group_size, _FINGERPRINT_CARDINALITY_THRESHOLD,
+                    )
 
             for other_id, other in self._bindings.items():
                 if other_id == account_id:
@@ -387,12 +430,16 @@ class DeviceGraphGuard:
 
                 reasons: list[str] = []
 
-                # 检测 1:同指纹哈希(高危,+40)
-                if (target.fingerprint_hash
-                        and target.fingerprint_hash == other.fingerprint_hash):
-                    reasons.append("fingerprint_hash")
-                    if "fingerprint" not in linkage_types:
-                        linkage_types.append("fingerprint")
+                # 检测 1:同指纹哈希(高危,+40)—— 退化指纹经基数保护收起(票1 A 档)
+                if (target_fp_hash
+                        and target_fp_hash == other.fingerprint_hash):
+                    if not fingerprint_discriminating:
+                        # 收起但必须点数留痕:静默收起与"没这一维"在账面上同形。
+                        fingerprint_withheld_count += 1
+                    else:
+                        reasons.append("fingerprint_hash")
+                        if "fingerprint" not in linkage_types:
+                            linkage_types.append("fingerprint")
 
                 # 检测 2:同代理 IP(高危,+35)
                 if (target.proxy_ip
@@ -441,6 +488,8 @@ class DeviceGraphGuard:
                 risk_score=risk,
                 linkage_types=linkage_types,
                 same_owner_skipped=same_owner_skipped,
+                fingerprint_discriminating=fingerprint_discriminating,
+                fingerprint_withheld_count=fingerprint_withheld_count,
             )
 
     async def clear_binding(self, account_id: str) -> None:

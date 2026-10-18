@@ -87,6 +87,7 @@ export const SUSPICIOUS_CREDENTIAL_ENV_PATTERNS: readonly string[] = [
   '*_TOKEN_FILE', // 同上(AWS_WEB_IDENTITY_TOKEN_FILE 族)
   '*_KEY_PATH', // 指向 key 文件的路径(SSH_KEY_PATH 族)
   '*_KEY_FILE', // 同上(GIT_SSH_KEY_FILE 族)
+  '*_CREDENTIAL*', // credential 族含中段形态(GOOGLE_APPLICATION_CREDENTIALS / *_CREDENTIALS_FILE / *_CREDENTIAL_HELPER …)—— 票2 拍板「一切凭据形态」补齐 token/password/secret/key/credential 五族里此前缺的 credential 一族
   '*_KEY', // 单数 KEY 后缀兜底(LIBTV_ACCESS_KEY / *_ACCESS_KEY / *_SECRET_KEY …)
 ];
 
