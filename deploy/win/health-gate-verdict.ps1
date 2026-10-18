@@ -70,8 +70,14 @@ function Get-HealthGateVerdict {
     # 不通。②被当成①就会**回滚一个好版本**,让访客侧故障更长;①被当成②则放行了坏构建。
     # 只有源站直探能分开这两者。取不到源站读数(老调用方不传 origin 维)⇒ 一律算"不成立",
     # 即退回改前语义(公网 fail ⇒ 回滚),绝不因为多了一条腿就更容易放行。
+    # 源站维"有没有传"必须对 Hashtable 与 OrderedDictionary **两种形状都成立**:
+    # .ContainsKey() 只有 Hashtable 有,OrderedDictionary 调它会抛 InvalidOperation,
+    # 而异常一抛 $originOk 就停在 $false ⇒ 判成 fail ⇒ 把一个好构建回滚掉
+    # (2026-10-19 拿真实生产数据干跑时才抓到;离线夹具全用普通哈希表,32 例一起骗人)。
+    # 所以改用 .Keys -contains —— 两种字典都支持,且取不到就是"不成立",不猜。
     $originOk = $false
-    if ($last -and ($last.ContainsKey('webOrigin') -or $last.ContainsKey('apiOrigin'))) {
+    $hasOrigin = ($last -and (($last.Keys -contains 'webOrigin') -or ($last.Keys -contains 'apiOrigin')))
+    if ($hasOrigin) {
         $wo = [string]$last.webOrigin
         $ao = [string]$last.apiOrigin
         $originOk = ($wo -eq 'pass' -and $ao -eq 'pass')
