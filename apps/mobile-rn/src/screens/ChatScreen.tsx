@@ -215,6 +215,11 @@ import { useUiTextField } from '../lib/use-ui-text-field'
 // D135:额度分档告警一行措辞(两屏共用同一份,键挂 common.*)
 import { budgetNoteText } from '../utils/budget-note'
 import { useI18n } from '../i18n'
+import {
+  resolveRoundModel,
+  shouldTerminateForModelSwitch,
+  terminateActiveStream,
+} from '../lib/model-switch'
 import { rpx } from '../utils/rpx'
 // 消息富内容解析(代码块/图片/文本分段,对齐 ai_index2 agent_content_list;独立模块供单测共用)
 import { parseMessageContent } from '../utils/message-parse'
@@ -558,6 +563,10 @@ export function ChatScreen() {
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
   const [models, setModels] = useState<LlmModel[]>(FALLBACK_MODELS)
   const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
+  // 票 68:档位「最新值」的两个出口。modelRef 供 send() 在把 payload 交出去之前复核档位;
+  // previousModelRef 供下面换档 effect 判「模型确实变了」—— 首帧与 fetchModels 回填两侧同值 ⇒ 不打断。
+  const modelRef = useRef(model)
+  const previousModelRef = useRef(model)
   const [agents, setAgents] = useState<Agent[]>([])
 
   // ── BottomActionBar 开关(对齐 Uniapp ToggleButtonGroup) ──
@@ -898,15 +907,19 @@ export function ChatScreen() {
     // AI 操控本端(2026-09-21):只对"这一句"做意图判定,system/历史不参与 ——
     // 否则提示词里的"打开/进入"字样会让每次请求都带上工具,打字机流式首字延迟被拖进 tool 往返。
     const agentTools = uiControlToolsFor(text)
+    // 票 68:把 payload 交出去之前复核一次档位 —— streamChat 在触达网关前仍有 await,这期间用户
+    // 换了档就得跟到新档(而不是拿入口快照发新一轮);最新档为空(回填中间态)则退回入口档。
+    const roundModel = resolveRoundModel(model, modelRef.current)
     await streamChat({
-      model,
+      model: roundModel,
       messages: apiMessages,
       // 不命中意图时连字段都不出现,请求体与改造前逐字节一致
       ...(agentTools.length > 0 ? { agentTools } : {}),
       signal: controller.signal,
       // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
       stream: true,
-      contextLimit: getModelContextCapacity(model),
+      // 容量必须跟 roundModel 走:窗口尺寸与实际发出去的模型不同源,自动压缩阈值就会算错档
+      contextLimit: getModelContextCapacity(roundModel),
       onDelta: (delta) => {
         setMessages((prev) => {
           const next = [...prev]
@@ -1183,11 +1196,46 @@ export function ChatScreen() {
     })
   }
 
+  /**
+   * 票 68:终止在途流的唯一出口。「停止」按钮与下面的换档 effect 都走这里,
+   * 差别只在要不要给用户一个看得见的理由(notice)—— 用户自己点停止不需要解释。
+   * 提示出口复用本端已有的 FloatBox(showToast),不新立 UI 面(AGENTS §17)。
+   */
+  const terminateStream = useCallback(
+    (notice?: string): boolean =>
+      terminateActiveStream({
+        abortRef,
+        reclaimStreaming: () => setIsStreaming(false),
+        ...(notice ? { notice, showNotice: (message: string) => showToast('info', message) } : {}),
+      }),
+    [showToast],
+  )
+
   const stop = (): void => {
-    abortRef.current?.abort()
+    terminateStream()
+    // 置空是这条路径改造前就有的行为(停止钮按下去立刻回落);换档那条不置空,
+    // 控制器交给该流自己的 onError/onDone 回收。
     abortRef.current = null
-    setIsStreaming(false)
   }
+
+  // 票 68(语义照 web `use-chat.ts` 与小程序 `pkg-ai/ai/chat.tsx` 的换档 effect):
+  // 流式中切换模型 ⇒ 终止当前这一轮,并让本轮/下一轮自动带入新模型(用户不必重发、也不必重开对话)。
+  // 首帧与 fetchModels 回填时 previous/current 相同 ⇒ 判据不成立 ⇒ 什么都不做(不该凭空打断)。
+  useEffect(() => {
+    const previousModel = previousModelRef.current
+    modelRef.current = model
+    previousModelRef.current = model
+    if (
+      !shouldTerminateForModelSwitch({
+        previousModel,
+        currentModel: model,
+        hasLiveStream: Boolean(abortRef.current),
+      })
+    ) {
+      return
+    }
+    terminateStream(t('chat.modelSwitchStopped', { model }))
+  }, [model, terminateStream, t])
 
   /** 失败轮重试:重发最后一条用户提问,并把历史截到它之前(失败轮不留进上下文)
    *  send 未包 useCallback(每轮渲染重建),故经 ref 间接调用,免得 retryLastTurn 身份每轮都变 */
@@ -1577,9 +1625,8 @@ export function ChatScreen() {
           setMessages([])
           setMaterialCards([])
           setPrompt('')
-          abortRef.current?.abort()
+          terminateStream()
           abortRef.current = null
-          setIsStreaming(false)
           // 清空后视为新会话,收藏降级为本地 UI 状态
           setConversationId(null)
         },

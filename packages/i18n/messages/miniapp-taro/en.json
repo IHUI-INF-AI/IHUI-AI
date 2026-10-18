@@ -3513,6 +3513,7 @@
     "members": "Members"
   },
   "chat": {
+    "modelSwitchStopped": "Switched to {model}. This response was stopped.",
     "partialDoneTitle": "Response interrupted, the content below may be incomplete",
     "send": "Send",
     "meta": {
