@@ -827,6 +827,15 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         icon: Download,
         dynamicLabel: 'Download Stats',
       },
+      // 2026-10-18 补回监控大屏入口:此前仅写在遗留扁平 ADMIN_NAV 数组,
+      // 而 Sidebar 实际渲染 ADMIN_NAV_GROUPS 分组结构,故侧边栏无此入口(用户反馈"找不到")。
+      // 挂入「监控 BI(analytics)」分组,labelKey 复用 nav.monitorWallboard(i18n 已存在)。
+      {
+        href: '/admin/monitor/wallboard',
+        labelKey: 'monitorWallboard',
+        icon: MonitorCog,
+        dynamicLabel: '监控大屏',
+      },
     ],
   },
   // 客服工单
