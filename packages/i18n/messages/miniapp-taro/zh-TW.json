@@ -4459,7 +4459,7 @@
       "models": "模型平臺",
       "more": "更多功能",
       "workspace": "AI 工作臺",
-      "admin": "管理後台",
+      "admin": "管理後臺",
       "analytics": "數據看板",
       "docs": "文件與幫助",
       "workflows": "工作流程與自動化",
@@ -4532,7 +4532,7 @@
     "enterprise": "企業服務",
     "featureCenter": "能力中心",
     "admin": {
-      "home": "管理後台首頁",
+      "home": "管理後臺首頁",
       "dashboardStat": "數據概覽",
       "users": "使用者管理",
       "memberUsers": "會員管理",
