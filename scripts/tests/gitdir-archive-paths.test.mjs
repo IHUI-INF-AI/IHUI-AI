@@ -19,7 +19,13 @@ import { devEnvRoot } from '../seal-c-root-stray.mjs'
 // 遮罩只留那一份实现(§"任一门不得留本地副本"):判据面 = 注释与字符串都抹平的等长文本。
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 
-import { gitArchiveDir, gitdirArchivePath, resolveBackupDir, resolveWorktree } from '../lib/gitdir.mjs'
+import {
+  gitArchiveDir,
+  gitdirArchivePath,
+  resolveBackupDir,
+  backupMirrorRoot,
+  resolveWorktree,
+} from '../lib/gitdir.mjs'
 import { gitArchiveRootFor, ensureGitArchiveDir } from '../lib/gitdir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -58,7 +64,10 @@ test('两个调用点必须真的使用 gitdirArchivePath(防"造好没装车")'
     assert.ok(/import \{[^}]*basename[^}]*\} from 'node:path'/.test(src), `${f} 缺 basename 导入`)
   }
   const g = readFileSync(join(HERE, '../git-guardian.mjs'), 'utf8')
-  assert.ok(/from '\/lib\/gitdir\.mjs'|\.\/lib\/gitdir\.mjs/.test(g) && /gitdirArchivePath,/.test(g), 'guardian 未 import 出口')
+  assert.ok(
+    /from '\/lib\/gitdir\.mjs'|\.\/lib\/gitdir\.mjs/.test(g) && /gitdirArchivePath,/.test(g),
+    'guardian 未 import 出口',
+  )
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,9 +106,17 @@ test('D1 深度无关:同盘上 1..6 层深的合成工作树,归档根全部一
     const got = gitArchiveRootFor(synth)
     if (first === null) {
       first = got
-      assert.match(first.replace(/\\/g, '/'), /DevEnv\/backups\/git$/, `depth=${depth} 合成树归档根形态非法:${first}`)
+      assert.match(
+        first.replace(/\\/g, '/'),
+        /DevEnv\/backups\/git$/,
+        `depth=${depth} 合成树归档根形态非法:${first}`,
+      )
     } else {
-      assert.equal(got, first, `depth=${depth} 解析漂了:${got} ≠ ${first}(旧写法这里会长出 ${depth} 种答案)`)
+      assert.equal(
+        got,
+        first,
+        `depth=${depth} 解析漂了:${got} ≠ ${first}(旧写法这里会长出 ${depth} 种答案)`,
+      )
     }
   }
 })
@@ -114,7 +131,11 @@ test('D2 夹具闸:落在 §26 scratch 里的工作树一律解析为 null(不�
       // 解析函数不得有 mkdir 副作用:夹具根下**不允许**长出 DevEnv 那一棵
       assert.equal(gitArchiveRootFor(wt), null, `depth=${depth} 夹具工作树被交出了归档根`)
       assert.equal(gitArchiveDir(wt), null, `depth=${depth} gitArchiveDir 夹具侧未返回 null`)
-      assert.equal(gitdirArchivePath('scene.broken-T', wt), null, `depth=${depth} 夹具侧写出了归档路径`)
+      assert.equal(
+        gitdirArchivePath('scene.broken-T', wt),
+        null,
+        `depth=${depth} 夹具侧写出了归档路径`,
+      )
       assert.equal(
         existsSync(join(dir, 'DevEnv')),
         false,
@@ -167,7 +188,9 @@ test('D5 解析面零 mkdir:gitArchiveDir / gitArchiveRootFor 不得自带建目
   // 本票实测踩过一次)。代价如实登记:遮罩把字符串也抹了,所以"两级推导的字面量"这种
   // 文本形态在本面**判不出来** —— 那一格由 D1(逐层同值)与 D2(夹具必为 null + 不落 DevEnv)
   // 的行为断言兜:改回按深度推导,这两条当场翻红,字面量锁只是第二道。
-  const masked = maskCommentsAndStrings(readFileSync(resolve(join(HERE, '../lib/gitdir.mjs')), 'utf8'))
+  const masked = maskCommentsAndStrings(
+    readFileSync(resolve(join(HERE, '../lib/gitdir.mjs')), 'utf8'),
+  )
   const fnBody = (name) => {
     const at = masked.indexOf(`export function ${name}(`)
     if (at < 0) return null
@@ -177,12 +200,18 @@ test('D5 解析面零 mkdir:gitArchiveDir / gitArchiveRootFor 不得自带建目
   for (const name of ['gitArchiveDir', 'gitArchiveRootFor']) {
     const body = fnBody(name)
     assert.ok(body, `${name} 出口不见了`)
-    assert.ok(!/mkdirSync\s*\(/.test(body), `${name} 里又出现 mkdirSync ⇒ 只读询问会自己长出一棵归档目录树`)
+    assert.ok(
+      !/mkdirSync\s*\(/.test(body),
+      `${name} 里又出现 mkdirSync ⇒ 只读询问会自己长出一棵归档目录树`,
+    )
   }
   const ensure = fnBody('ensureGitArchiveDir')
   assert.ok(ensure && /mkdirSync\s*\(/.test(ensure), '建目录没落在 ensureGitArchiveDir 这一处出口')
   const exitFn = fnBody('gitdirArchivePath')
-  assert.ok(exitFn && /ensureGitArchiveDir\(/.test(exitFn), 'gitdirArchivePath 未调用建目录出口 ⇒ 写归档会因父目录不存在而失败')
+  assert.ok(
+    exitFn && /ensureGitArchiveDir\(/.test(exitFn),
+    'gitdirArchivePath 未调用建目录出口 ⇒ 写归档会因父目录不存在而失败',
+  )
 })
 
 test('D6 resolveBackupDir 必须把注入的工作树传到底(夹具侧不得挂上生产归档候选)', () => {
@@ -195,13 +224,29 @@ test('D6 resolveBackupDir 必须把注入的工作树传到底(夹具侧不得�
   try {
     const ghost = join(dir, 'gone-wt')
     const want = join(dir, 'gone-wt.git-backup-20260912').replace(/\\/g, '/')
-    assert.equal(resolveBackupDir(ghost).replace(/\\/g, '/'), want, 'resolveBackupDir 的第一候选被生产归档根截胡')
-    // 反向对照:真仓工作树照旧允许生产归档根作第一候选(不得把防护做成"永远同级")
+    assert.equal(
+      resolveBackupDir(ghost).replace(/\\/g, '/'),
+      want,
+      'resolveBackupDir 的第一候选被生产归档根截胡',
+    )
+    // 反向对照(G-930 起改锚):真仓工作树的第一候选必须来自**生产归档根**,而自 2026-10-19
+    // 起"恢复源镜像"的批准落点 = 工作区外的盘根 DevEnv(`backupMirrorRoot()`),不再是仓内
+    // `.DevEnv`(G-814433 那笔是为"现场归档"迁的;镜像长在仓树内会撞守门 208 的嵌套 git 仓
+    // 零容忍,且恢复源被放进它所恢复的对象里 —— 裁决与逐条判据见 gitdir.mjs 头注)。
+    // 这一臂仍在防的老东西没变:不得把防护做成"永远同级"。
     const wt = resolveWorktree()
-    const root = gitArchiveDir(wt)
-    if (root) {
-      const prodCand = `${root}/${basename(wt)}.git-backup-20260912`
+    const mirrorRoot = backupMirrorRoot(wt)
+    if (mirrorRoot) {
+      const prodCand = `${mirrorRoot}/${basename(wt)}.git-backup-20260912`
       assert.equal(resolveBackupDir(wt).replace(/\\/g, '/'), prodCand.replace(/\\/g, '/'))
+      const got = resolveBackupDir(wt).replace(/\\/g, '/')
+      const wtN = String(wt).replace(/\\/g, '/').replace(/\/+$/, '')
+      assert.ok(
+        !(got === wtN || got.startsWith(`${wtN}/`)),
+        `恢复源落点落回工作树内:${got}(§5b/§15b 与守门 208 都禁这一型)`,
+      )
+      // 仓内既有归档根仍作次候选被保留(旧镜像不判丢),只是不再是新建落点
+      assert.ok(typeof gitArchiveDir(wt) === 'string' || gitArchiveDir(wt) === null)
     }
   } finally {
     rmScratch(dir)
