@@ -47,6 +47,7 @@ import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 export const REPO = resolve(HERE, '..')
@@ -324,8 +325,10 @@ export function logDirFromRepo(repoRoot = REPO) {
 }
 
 export function selfTest() {
-  const out = []
-  const t = (name, cond) => out.push({ name, pass: !!cond })
+  // 用例登记走共用出口(scripts/lib/selftest-registrant.mjs):thunk 在消费循环里**必被调用**,
+  // 值形态即算即得 —— 结构上封死"登记侧写 !!ok 而用例传箭头函数 ⇒ 恒真"的老洞(守门 41 同型)。
+  // 本门用例全是值形态(登记时已求值),32–35 号夹具在 finally 里销毁不影响账面。
+  const { t, report } = makeRegistrar()
   const cfg = { expected: { windowsZoneKey: 'China Standard Time', iana: 'Asia/Shanghai', utcOffsetMinutes: 480 }, changedAt: { utc: '2026-09-29T17:17:29Z' }, logStampConsumers: { naiveStampDefault: '+08:00' } }
   t('01 H1 三通道同声明 ⇒ ok', judgeH1(cfg, { zoneKey: 'China Standard Time', tzutil: 'China Standard Time' }, 'Asia/Shanghai', 480).state === 'ok')
   t('02 H1 主机是 UTC ⇒ mismatch(9-04..9-29 的真实形态)', judgeH1(cfg, { zoneKey: 'UTC', tzutil: 'UTC' }, 'UTC', 0).state === 'mismatch')
@@ -379,10 +382,10 @@ export function selfTest() {
   } finally {
     rmScratch(h3dir)
   }
-  const pass = out.filter((o) => o.pass).length
-  console.log(out.map((o) => (o.pass ? 'ok   ' : 'FAIL ') + o.name).join('\n'))
-  console.log('SELFTEST ' + pass + '/' + out.length)
-  return pass === out.length ? 0 : 1
+  const r = report()
+  console.log(r.cases.map((c) => (c.pass ? 'ok   ' : 'FAIL ') + c.name).join('\n'))
+  console.log('SELFTEST ' + r.pass + '/' + r.cases.length)
+  return r.fail === 0 ? 0 : 1
 }
 
 function main(argv) {
