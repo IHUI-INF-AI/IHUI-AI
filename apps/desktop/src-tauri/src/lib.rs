@@ -3438,6 +3438,7 @@ pub fn run() {
             // 2026-10-16 内嵌浏览器版:窗口开/关统一走 embedded_browser(注册在上方),
             // 这里只留 probe(读内嵌窗 cookie jar + 服务端验证,见 checkin_web_login.rs)。
             checkin_web_login::checkin_workbuddy_web_login_probe,
+            checkin_web_login::checkin_workbuddy_web_login_probe_cookie,
             checkin_capture::checkin_reset_device_ids,
             checkin_capture::checkin_get_public_ip,
             checkin_capture::checkin_one_click_reset,
