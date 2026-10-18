@@ -18,7 +18,7 @@
  *   pnpm --filter @ihui/cli exec tsx src/min-version-probe.ts [--json] [--timeout=ms]
  */
 
-import { pathToFileURL } from 'node:url';
+import { isDirectRunMain } from './util/main-module.js';
 import {
   decideGate,
   fetchServerMinVersion,
@@ -131,9 +131,7 @@ export function renderProbeReport(r: ProbeReport): string {
 }
 
 /** 只在被直接执行时跑 CLI 主体（被测试 import 时不得发网络请求）。AGENTS §22d 的判据形态。 */
-const invokedDirectly =
-  typeof process.argv[1] === 'string' &&
-  import.meta.url === pathToFileURL(process.argv[1]).href;
+const invokedDirectly = isDirectRunMain(import.meta.url);
 
 if (invokedDirectly) {
   const argv = process.argv.slice(2);
