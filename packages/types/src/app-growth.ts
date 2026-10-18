@@ -435,10 +435,6 @@ export interface HomeScreenProps {
   loading: boolean
   refreshing: boolean
   error: string
-  /** 嵌入宿主滚动树(G-194):true 时不自建 ScrollView,由宿主页的 ScrollView 提供滚动 +
-   *  下拉刷新。缺省 false = 独立成页,保留自带 ScrollView。RN 首页把它嵌在自己的
-   *  ScrollView 里,再叠一层内嵌 ScrollView 在 Android 上吞手势且不触发父级重测量。 */
-  embedded?: boolean
   onRefresh: () => void
   onOpenNotifications: () => void
   onPressProgress: (courseId: string) => void
