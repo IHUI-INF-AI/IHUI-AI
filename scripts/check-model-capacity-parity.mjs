@@ -57,6 +57,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -774,13 +775,13 @@ function main() {
     process.exit(2)
   }
   let root = ROOT
-  const ri = argv.indexOf('--root')
-  if (ri >= 0) {
-    const val = argv[ri + 1]
-    if (!val || val.startsWith('--')) {
-      console.error('❌ --root 需要一个目录参数')
-      process.exit(2)
-    }
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootFlag.error) {
+    console.error(`❌ ${rootFlag.error}`)
+    process.exit(2)
+  }
+  const val = rootFlag.value
+  if (rootFlag.present) {
     root = path.resolve(val)
   }
   let res
