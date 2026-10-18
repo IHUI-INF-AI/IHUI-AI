@@ -19627,7 +19627,7 @@
     "downloadBack": "返回",
     "downloadCli": "命令行工具",
     "downloadCliDesc": "終端一鍵調用,腳本化集成",
-    "downloadCliInstallGuide": "通過 npm 全局安裝 @ihui/cli 包,安裝後在終端運行 ihui 命令啟動 CLI 工具。",
+    "downloadCliInstallGuide": "通過 npm 全局安裝 ihui-cli 包,安裝後在終端運行 ihui 命令啟動 CLI 工具。",
     "downloadCliSysReq": "Node.js 20.10 或更高版本",
     "downloadCliUsageHint": "安裝完成後運行",
     "downloadClient": "下載客戶端",

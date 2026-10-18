@@ -774,13 +774,25 @@ export const getCouponList = (params?: { status?: string }) =>
   get<{
     list: Array<{
       id: string
-      title: string
+      name: string
       amount: number
-      threshold: number
-      expireTime: string
-      status: string
+      minSpend: number
+      expiresAt: string
+      status: 'unused' | 'used' | 'expired'
     }>
-  }>('/member/coupon', params)
+    total: number
+  }>('/api/coupons', params).then((r) => ({
+    // 后端投影与 web 会员券页同形(title/threshold/expireTime 是本端展示键,映射只在这一层)
+    list: (r.list ?? []).map((row) => ({
+      id: row.id,
+      title: row.name,
+      amount: row.amount,
+      threshold: row.minSpend,
+      expireTime: row.expiresAt,
+      status: row.status,
+    })),
+    total: r.total,
+  }))
 
 /* ============ 支付 / 订单 ============ */
 

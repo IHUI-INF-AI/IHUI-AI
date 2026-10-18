@@ -19626,7 +19626,7 @@
     "downloadBack": "戻る",
     "downloadCli": "CLI ツール",
     "downloadCliDesc": "ターミナルで一発呼び出し、スクリプト化",
-    "downloadCliInstallGuide": "npm で @ihui/cli パッケージをグローバルインストールし、ターミナルで ihui コマンドを実行して CLI ツールを起動。",
+    "downloadCliInstallGuide": "npm で ihui-cli パッケージをグローバルインストールし、ターミナルで ihui コマンドを実行して CLI ツールを起動。",
     "downloadCliSysReq": "Node.js 20.10 以上",
     "downloadCliUsageHint": "インストール後に実行",
     "downloadClient": "アプリをダウンロード",
