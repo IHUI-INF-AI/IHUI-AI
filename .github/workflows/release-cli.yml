@@ -101,7 +101,7 @@ jobs:
   # ---------- Job 2: Build binaries ----------
   build-binary:
     name: Build Binaries (${{ matrix.os }}-${{ matrix.arch }})
-    # 2026-10-18 起与 npm-publish 解耦:NPM_TOKEN 未配置/包名未定时二进制发布照常
+    # 与 npm-publish 完全解耦(needs: []):npm 侧无论 bootstrap 与否,6 平台二进制照常发布
     needs: []
     runs-on: ${{ matrix.runner }}
     strategy:
