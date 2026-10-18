@@ -22,7 +22,12 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
-import { conversationUpdatedEvent, parseUserBroadcastFrame, USER_BROADCAST_EVENT_NAMES } from '@ihui/types'
+import {
+  checkpointAvailabilityEvent,
+  conversationUpdatedEvent,
+  parseUserBroadcastFrame,
+  USER_BROADCAST_EVENT_NAMES,
+} from '@ihui/types'
 import {
   subscribeUserBroadcast,
   feedUserBroadcastFrame,
@@ -164,7 +169,10 @@ describe('D153 ③ payload 缺 changedBy ⇒ 必红(票第 6 栏验收③)', () 
         onUndetermined: (raw) => undetermined.push(raw),
       },
     )
-    feedUserBroadcastFrame({ event: 'conversation:deleted', data: { conversationId: CONV } }, { baseUrl: BASE })
+    feedUserBroadcastFrame(
+      { event: 'conversation:deleted', data: { conversationId: CONV } },
+      { baseUrl: BASE },
+    )
     expect(applied).toBe(0)
     expect(undetermined).toHaveLength(1)
     sub.close()
@@ -184,7 +192,8 @@ function findSecondTruth(file: string, text: string): string[] {
   lines.forEach((line, i) => {
     if (!line.includes(EVENT_LITERAL)) return
     // 数组清单:[ 'conversation:updated' … ](含 as const 与字面量联合的第二份定义形态)
-    if (/\[[^\]]*$/.test(line.slice(0, line.indexOf(EVENT_LITERAL)))) out.push(`${file}:${i + 1} 事件名清单`)
+    if (/\[[^\]]*$/.test(line.slice(0, line.indexOf(EVENT_LITERAL))))
+      out.push(`${file}:${i + 1} 事件名清单`)
     // 手解帧:与事件名做等值比较(那是端内自己又写了一遍判别)
     if (/===|!==|==(?!=)/.test(line)) out.push(`${file}:${i + 1} 手解帧比较`)
   })
@@ -243,8 +252,24 @@ describe('D153 ④ 帧形态只由 @ihui/types 描述:端内不得有第二份�
     try {
       matched = execFileSync(
         'git',
-        ['-c', 'safe.directory=*', 'grep', '-l', '--untracked', '--fixed-string', EVENT_LITERAL, '--', ...faces],
-        { cwd: ROOT, windowsHide: true, timeout: 120_000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+        [
+          '-c',
+          'safe.directory=*',
+          'grep',
+          '-l',
+          '--untracked',
+          '--fixed-string',
+          EVENT_LITERAL,
+          '--',
+          ...faces,
+        ],
+        {
+          cwd: ROOT,
+          windowsHide: true,
+          timeout: 120_000,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        },
       )
         .split('\n')
         .map((s) => s.trim())
@@ -255,7 +280,10 @@ describe('D153 ④ 帧形态只由 @ihui/types 描述:端内不得有第二份�
     }
 
     // 扫描确实看见了东西 ⇒ "0 命中"才是结论而不是空转(受检面里至少 web 那个消费点在用 handler 键)
-    expect(matched.length, '受检面必须至少命中一个真实消费点,否则本扫描是在对着空气打分').toBeGreaterThan(0)
+    expect(
+      matched.length,
+      '受检面必须至少命中一个真实消费点,否则本扫描是在对着空气打分',
+    ).toBeGreaterThan(0)
 
     const violations = matched.flatMap((rel) =>
       findSecondTruth(rel, readFileSync(join(ROOT, rel), 'utf8')),
@@ -287,6 +315,43 @@ describe('D153 宿主绑定工厂(createUserBroadcastClient 是端内适配器�
     expect(client.stats()[0]?.key).toBe(`${BASE}|injected`)
     expect(client.stats()[0]?.connected).toBe(false)
     sub.close()
+  })
+})
+
+describe('D163 残余 checkpoint:availability 经同一 hub 分发(不另建通道)', () => {
+  afterEach(() => resetUserBroadcastHub())
+
+  it('注入一帧 ⇒ 对应 handler 收到;未声明该事件的订阅者不受影响、也不算未判定', () => {
+    const got: string[] = []
+    let undetermined = 0
+    const a = subscribeUserBroadcast(
+      { baseUrl: BASE, tokenProvider: () => 't', transport: 'injected' },
+      {
+        'checkpoint:availability': (evt) =>
+          got.push(`${evt.data.state}:${evt.data.checkpointId ?? '-'}`),
+        onUndetermined: () => {
+          undetermined += 1
+        },
+      },
+    )
+    const b = subscribeUserBroadcast(
+      { baseUrl: BASE, tokenProvider: () => 't', transport: 'injected' },
+      { 'conversation:updated': () => {} },
+    )
+
+    const evt = checkpointAvailabilityEvent({
+      workspacePath: '/workspaces/demo',
+      state: 'available',
+      checkpointId: 'cp_42',
+      at: '2026-10-18T12:00:00.000Z',
+    })
+    expect(feedUserBroadcastFrame(evt, { baseUrl: BASE })).not.toBeNull()
+    expect(got).toEqual(['available:cp_42'])
+    expect(undetermined).toBe(0)
+    // 同一 hub 一条通道,两枚订阅者共用
+    expect(getUserBroadcastHubStats()).toHaveLength(1)
+    a.close()
+    b.close()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -26850,7 +26850,9 @@
     "toastLoadFailed": "スナップショット一覧の取得に失敗",
     "toastPlanFailed": "プレビューに失敗",
     "toastRunOk": "ロールバックを実行しました",
-    "toastRunFail": "ロールバックに失敗しました"
+    "toastRunFail": "ロールバックに失敗しました",
+    "availabilityAvailable": "別のデバイスがチェックポイントを作成しました:{id}",
+    "availabilityUnavailable": "チェックポイントサービスを利用できません。しばらくしてから再試行してください。"
   },
   "traceReplay": {
     "title": "実行トレース再生",
