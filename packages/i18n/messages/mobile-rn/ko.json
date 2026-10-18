@@ -2504,7 +2504,12 @@
       "knowledgeTools": "지식 그래프와 도구",
       "models": "모델 플랫폼",
       "more": "더보기",
-      "workspace": "AI 워크스페이스"
+      "workspace": "AI 워크스페이스",
+      "admin": "관리 콘솔",
+      "analytics": "분석 대시보드",
+      "docs": "문서 및 도움말",
+      "workflows": "워크플로와 자동화",
+      "openPlatform": "오픈 플랫폼"
     },
     "eduAi": {
       "policy": "정책 해설",
@@ -2571,7 +2576,56 @@
       "authorized": "인증 관리"
     },
     "enterprise": "엔터프라이즈",
-    "featureCenter": "기능 센터"
+    "featureCenter": "기능 센터",
+    "admin": {
+      "home": "관리 콘솔 홈",
+      "dashboardStat": "대시보드",
+      "users": "사용자 관리",
+      "memberUsers": "회원 관리",
+      "orders": "주문 관리",
+      "refund": "환불 관리",
+      "wallet": "지갑 관리",
+      "withdrawal": "출금 관리",
+      "articles": "게시글 심사",
+      "eduCourse": "강좌 심사",
+      "eduExam": "시험 심사",
+      "live": "라이브 관리",
+      "point": "포인트 관리",
+      "news": "뉴스 관리",
+      "agents": "에이전트 관리",
+      "feedbacks": "피드백",
+      "ticket": "티켓 관리",
+      "configs": "시스템 설정"
+    },
+    "analytics": {
+      "dashboard": "대시보드",
+      "bi": "BI 대시보드",
+      "cost": "비용 대시보드"
+    },
+    "docs": {
+      "home": "문서",
+      "quickstart": "빠른 시작",
+      "gettingStarted": "시작 가이드",
+      "faq": "자주 묻는 질문",
+      "help": "도움말 센터"
+    },
+    "openPlatform": {
+      "mcpStore": "MCP 스토어",
+      "mcpProjects": "MCP 프로젝트",
+      "connectors": "커넥터 생태계",
+      "registry": "기능 레지스트리",
+      "apiTest": "API 테스트",
+      "capabilityMarket": "기능 마켓"
+    },
+    "workflows": {
+      "home": "워크플로",
+      "editor": "워크플로 편집기",
+      "automations": "자동화 작업",
+      "orchestration": "오케스트레이션",
+      "schedule": "예약 작업"
+    },
+    "knowledgeCards": "지식 카드",
+    "knowledgePlanet": "지식 플래닛"
   },
   "knowledgeRag": {
     "title": "RAG 지식 베이스",
