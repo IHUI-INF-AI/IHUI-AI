@@ -469,6 +469,14 @@ fn quit_app(app: tauri::AppHandle) {
     exit_application(&app);
 }
 
+/// 前端显式设置原生窗控按钮深浅主题(2026-10-18):
+/// dark_bg=true=网页顶栏深底(白字),false=浅顶栏(深字)。
+/// 多数情况由 Rust 按加载 URL 自动判定;前端切换暗色模式时可主动调用。
+#[tauri::command]
+fn set_caption_button_theme(label: String, dark_bg: bool) {
+    window_chrome::set_caption_theme(&label, dark_bg);
+}
+
 /// 真正终止进程的**唯一**序列,由 quit_app / tray.quit / 关窗决策 / resolve_close_choice 共用。
 ///
 /// 兜底必须**先武装、后干活**。2026-09-27 真机复现:遮罩停在「正在退出...」而本函数新增的
@@ -544,14 +552,16 @@ async fn open_admin_window(app: tauri::AppHandle) -> Result<(), String> {
     .center()
     .decorations(false)
     .shadow(true)
-    // 2026-10-17:页面加载前注入 CSS 隐藏 HTML 窗控(原生 DWM 按钮在右上角,避免重叠/闪现)。
-    .initialization_script(window_chrome::HIDE_HTML_WINDOW_CONTROLS_JS)
+    // HTML 窗控按钮的隐藏 CSS 改由 app 级 on_page_load 动态注入:只有 Rust 侧确认
+    // DWM 原生按钮启用成功后才隐藏,避免 DWM 失败时网页按钮也被无条件藏掉(2026-10-18)。
     .build()
     .map_err(|e| e.to_string())?;
+    // 先恢复 admin 窗口上次位置/尺寸(若有保存),几何稳定后再启用原生窗控 ——
+    // 顺序反了 DWM 会把按钮几何绑在初始 1280x820 上,restore 后按钮错位不绘制
+    // (2026-10-18 真机实测,见 window_chrome 模块头)。
+    let _ = restore_window_state(Some("admin".to_string()), app.clone());
     // 2026-10-17:admin 窗同样启用 DWM 原生窗控按钮(与 main 窗一致)。
     window_chrome::enable_native_caption_buttons(&_admin_window);
-    // 创建后恢复 admin 窗口上次位置/尺寸(若有保存)
-    let _ = restore_window_state(Some("admin".to_string()), app.clone());
     Ok(())
 }
 
@@ -2897,21 +2907,34 @@ pub fn run() {
         // 后照旧 show,双保险。三路都尊重 STARTUP_START_HIDDEN(先进托盘/--minimized)。
         // on_page_load 是 app 级 Builder API(2.11 实例侧无此方法),须按 label 过滤主窗。
         .on_page_load(|wv, payload| {
+            let label = wv.label().to_string();
+            if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
+                if label == "main" || label == "admin" {
+                    // 2026-10-18:按 URL 切原生窗控按钮深浅(离线/壳占位页深底白字、
+                    // 线上浅顶栏深字),在窗口点亮前完成首帧即正确。
+                    window_chrome::set_caption_theme(
+                        &label,
+                        window_chrome::theme_is_dark_for_url(payload.url().as_str()),
+                    );
+                    // 仅在 Rust 侧确认原生窗控(自绘 overlay)已启用时隐藏
+                    // HTML 按钮(创建失败则保留网页按钮兜底,不能两边都没有)。
+                    if window_chrome::native_controls_active(&label) {
+                        let _ = wv.eval(window_chrome::HIDE_HTML_WINDOW_CONTROLS_JS);
+                    }
+                }
+            }
             if std::sync::atomic::AtomicBool::load(
                 &STARTUP_START_HIDDEN,
                 std::sync::atomic::Ordering::SeqCst,
             ) {
                 return;
             }
-            if wv.label() != "main" {
+            if label != "main" {
                 return;
             }
             if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
                 if let Some(win) = wv.app_handle().get_webview_window("main") {
                     log::info!("[window-show] site=page_load_finished trigger=主文档加载完成 ⇒ 点亮(chrome 第一帧可见,替代探活点亮)");
-                    // 2026-10-17:隐藏网页侧 HTML 窗控按钮(原生 DWM 按钮已在右上角,避免重叠)。
-                    // eval 是 fire-and-forget;失败不影响窗口显示。
-                    let _ = win.eval(window_chrome::HIDE_HTML_WINDOW_CONTROLS_JS);
                     let _ = win.show();
                 }
             }
@@ -3081,6 +3104,15 @@ pub fn run() {
                 if label == "main" || label == "admin" {
                     let app = window.app_handle().clone();
                     debounce_save_window_state(label.clone(), app);
+                    // 原生窗控:最大化/还原翻转后 DWM 按钮几何需重算,否则按钮位置
+                    // 停留在旧状态(2026-10-18 实测)。内部只在翻转时真正重应用。
+                    window_chrome::refresh_on_maximize_toggle(window);
+                }
+            }
+            // 跨 DPI 显示器移动:帧扩展的顶部条带按物理像素给,必须按新 DPI 重应用。
+            if let tauri::WindowEvent::ScaleFactorChanged { .. } = event {
+                if label == "main" || label == "admin" {
+                    window_chrome::refresh_native_caption_buttons(window);
                 }
             }
             if let tauri::WindowEvent::Moved(_) = event {
@@ -3256,14 +3288,17 @@ pub fn run() {
             let app_name = localized_app_name();
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_title(app_name);
-                // 2026-10-17 立:Windows DWM sheet-of-glass 原生窗控按钮。
-                // 必须在窗口首次 show() 之前调 —— 窗口一亮右上角三按钮就在(OS 绘制),
-                // 不等网页 React 渲染。失败只 warn,退回 HTML 按钮,不阻塞启动。
-                window_chrome::enable_native_caption_buttons(&window);
             }
             // 应用启动时恢复上次窗口状态(位置/尺寸/最大化)
             // 2026-07-27 立:仅恢复 main 窗口,admin 窗口在 open_admin_window 时恢复
             let _ = restore_window_state(Some("main".to_string()), app.handle().clone());
+            // 2026-10-18 立:Windows 原生窗控按钮(分层透明窗自绘 Segoe Fluent Icons,
+            // 见 window_chrome.rs)。必须在 restore_window_state **之后**(几何稳定)、
+            // 首次 show() 之前调 —— 窗口一亮右上角三按钮就在(OS 壳直接绘制),
+            // 不等网页 React 渲染 / __TAURI_INTERNALS__ 门控。
+            if let Some(window) = app.get_webview_window("main") {
+                window_chrome::enable_native_caption_buttons(&window);
+            }
             // 2026-09-17 薄壳化配套:启动线上前端自动刷新(3min 构建指纹轮询)+ 断网兜底守卫(30s 健康检查)
             // ⚠️ 2026-09-28:守卫在启动探活落定时会 `w.show()`(窗口以 visible:false 创建,历史上
             // 靠这一次点亮)。用户勾了「启动后先进托盘」就必须把它按住,否则 8~11 秒后窗口自己冒出来
@@ -3397,6 +3432,7 @@ pub fn run() {
             get_admin_window_info,
             toggle_devtools,
             quit_app,
+            set_caption_button_theme,
             restart_app,
             open_admin_window,
             start_resize,
