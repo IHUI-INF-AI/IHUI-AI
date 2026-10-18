@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -13,12 +13,30 @@ import { readIntlLocale, readSystemLocaleEnv } from '../utils/system-locale.js'
 export type Locale = 'zh-CN' | 'en' | 'ja' | 'ko' | 'zh-TW'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const MESSAGES_DIR = join(__dirname, '../../../../packages/i18n/messages/cli')
+// 语言包目录探测:从本模块起逐级向上找 packages/i18n/messages。
+// 写死相对层数(原 4 级)只在 tsx 直跑 src 时成立;tsc dist 与单文件打包
+// (SEA)的 __dirname 深度各不相同,层数一错整包语言静默退化成裸 key。
+// 向上探测对三种形态同一判据;全部落空返回 null(调用方回退英文键,不抛)。
+function findMessagesRoot(): string | null {
+  let dir = __dirname
+  for (let i = 0; i < 8; i += 1) {
+    const candidate = join(dir, 'packages', 'i18n', 'messages')
+    if (existsSync(join(candidate, 'cli')) && existsSync(join(candidate, 'shared'))) {
+      return candidate
+    }
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  return null
+}
+const MESSAGES_ROOT = findMessagesRoot()
+const MESSAGES_DIR = MESSAGES_ROOT ? join(MESSAGES_ROOT, 'cli') : ''
 // 跨端共享语言包(taskStatus.* 等通用键的唯一真相源,含工具功能名/结果度量单位)。
 // cli 端语言包按"端 override 优先"深合并到 shared 之上 —— 与 mobile-rn / miniapp-taro
 // 的 mergeMessages(shared, 端) 同一策略。这样工具活动行取 `taskStatus.toolReadFile` 等
 // 已有键,无需在各端语言包重复 130+ 条工具映射,也满足"禁改 messages/shared 内容"。
-const SHARED_DIR = join(__dirname, '../../../../packages/i18n/messages/shared')
+const SHARED_DIR = MESSAGES_ROOT ? join(MESSAGES_ROOT, 'shared') : ''
 
 type Messages = Record<string, unknown>
 

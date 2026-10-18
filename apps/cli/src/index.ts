@@ -20,8 +20,8 @@ import 'dotenv/config';
 import { Command, type OptionValues } from 'commander';
 import chalk from 'chalk';
 import { readFileSync, statSync } from 'node:fs';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { join } from 'node:path';
 import { setBaseUrl, setTokenProvider, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client';
 import type { GoalHardCriterion } from '@ihui/api-client';
 import { cliDeviceFingerprintCollector, CLI_USER_AGENT } from './lib/device-fingerprint.js';
@@ -32,7 +32,8 @@ import {
   isDigestTrackedLease,
   releaseLeaseAfterRun,
 } from './utils/permission-lease-flag.js';
-import { tryParseJson, isRecord } from './util/json.js';
+import { isRecord } from './util/json.js';
+import { readCliPackage } from './util/pkg-version.js';
 import { padCell } from './util/text-width.js';
 import {
   installOutboundCredentialHeaders,
@@ -152,11 +153,7 @@ async function maybeRunFullScreen(
   });
 }
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-// package.json 是随包分发的受信资产,但仍防异常逃逸与结构异常导致 CLI 启动崩溃
-const pkgRaw = tryParseJson(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
-const pkg: { version: string } =
-  isRecord(pkgRaw) && typeof pkgRaw.version === 'string' ? (pkgRaw as { version: string }) : { version: '0.0.0' };
+const pkg = readCliPackage(import.meta.url) ?? { version: '0.0.0' };
 
 // 帮助文本在模块顶层就被 commander 固化,故必须在构建 program 之前定好语言:
 // 裸扫 argv 的 --locale > IHUI_LOCALE > settings.json(preAction 仍按解析后的 opts 复算一次)。
