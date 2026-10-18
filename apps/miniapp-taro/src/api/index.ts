@@ -226,10 +226,11 @@ export type Course = Pick<ApiCourse, 'title'> & {
 
 /** 课程列表 */
 export const getCourseList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
-  get<{ list: Course[]; total: number }>('/content/course/list', params)
+  get<{ list: Course[]; total: number }>('/api/content/course/list', params)
 
-/** 课程详情 */
-export const getCourseDetail = (id: string | number) => get<Course>(`/content/course/${id}`)
+/** 课程详情(与列表同投影,额外带 outline 章节大纲) */
+export const getCourseDetail = (id: string | number) =>
+  get<Course>(`/api/content/course/${encodeURIComponent(String(id))}`)
 
 /* ============ 直播 ============ */
 

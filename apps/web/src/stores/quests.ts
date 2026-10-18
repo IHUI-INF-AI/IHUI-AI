@@ -3,16 +3,17 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 票77(2026-10-18)独立切片:Goal-driven 自评估闭环 + My Quests 跨 workspace 全局看板。
-// D152 口径:goal 主副本在 threads.metadata.goalState,端内 goal store 只是**单会话**缓存
-// —— 服务端尚无跨会话/跨 workspace 的目标聚合端点(packages/api-client 禁碰,本席不可扩),
-// 因此本表是**端内登记表**:goal 生命周期每次变化经 attachGoalQuestRecorder 自动登记快照,
+// D152 口径:goal 主副本在 threads.metadata.goalState,端内 goal store 只是**单会话**缓存。
+// 服务端跨会话聚合端点已落地(`GET /sessions/goals`,api-client `listMyGoals`),
+// 看板挂载时经 `hydrateFromServer` 灌入真实 workspaceId 与跨会话目标;
+// 本表仍是端内登记表:goal 生命周期每次变化经 attachGoalQuestRecorder 自动登记快照,
 // 自评估条目双腿:status 变迁自动记(auto)+ 看板手动记(manual)。
-// 依赖 51 已确认入库(台账 6425 行,✅2026-09-28);workspaceId 维度预留为 '',
-// 服务端聚合端点落地后接入真实标识,不凭空造一份假 workspace。
+// 依赖 51 已确认入库(台账 6425 行,✅2026-09-28)。
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { GOAL_STATUSES, type GoalStatus as CanonicalGoalStatus } from '@ihui/types'
+import type { MyGoalRow } from '@ihui/api-client'
 
 import { ssrStorage } from './persist-helpers'
 import { createGoalPersistStorage } from '@/lib/chat-persist-crypto'
@@ -69,6 +70,12 @@ interface QuestsState {
     goalId: string,
     input: { summary: string; status?: QuestStatus; progress?: number },
   ) => boolean
+  /**
+   * 服务端跨会话聚合(票77 GET /sessions/goals)灌入本地登记表。
+   * sessionId 命中的本地条目沿用原 key(保 progress/assessments),
+   * 未命中的以 `srv-<threadId>` 登记;服务端状态词汇非法/形状不符的行跳过。
+   */
+  hydrateFromServer: (rows: MyGoalRow[]) => void
 }
 
 export const useQuestsStore = create<QuestsState>()(
@@ -173,6 +180,72 @@ export const useQuestsStore = create<QuestsState>()(
         })
         return appended
       },
+      hydrateFromServer: (rows) =>
+        set((s) => {
+          const entries = { ...s.entries }
+          const now = Date.now()
+          for (const row of rows) {
+            const rawStatus = row.goal.status
+            if (!(GOAL_STATUSES as readonly string[]).includes(rawStatus)) continue
+            const status = rawStatus as QuestStatus
+            const key =
+              Object.keys(entries).find((k) => {
+                const sid = entries[k]?.sessionId
+                return row.sessionId !== '' && sid === row.sessionId
+              }) ?? `srv-${row.threadId}`
+            const prev = entries[key]
+            const createdAt = Math.round(row.createdAt * 1000)
+            const updatedAt = Math.round(row.updatedAt * 1000)
+            if (!prev) {
+              entries[key] = {
+                goalId: key,
+                text: row.goal.objective || row.title,
+                status,
+                progress: 0,
+                workspaceId: row.workspaceId,
+                ...(row.sessionId ? { sessionId: row.sessionId } : {}),
+                createdAt,
+                updatedAt,
+                assessments: [
+                  {
+                    id: genAssessmentId(),
+                    at: now,
+                    status,
+                    progress: 0,
+                    summary: '',
+                    source: 'auto' as const,
+                  },
+                ],
+              }
+              continue
+            }
+            // 本地已是同一 status ⇒ 不重复记 auto 条目(每次刷新都灌入会刷屏)
+            const statusChanged = prev.status !== status
+            entries[key] = {
+              ...prev,
+              text: row.goal.objective || prev.text || row.title,
+              status,
+              workspaceId: row.workspaceId,
+              ...(row.sessionId ? { sessionId: row.sessionId } : {}),
+              createdAt: Math.min(prev.createdAt, createdAt),
+              updatedAt: Math.max(prev.updatedAt, updatedAt),
+              assessments: statusChanged
+                ? [
+                    ...prev.assessments,
+                    {
+                      id: genAssessmentId(),
+                      at: now,
+                      status,
+                      progress: prev.progress,
+                      summary: '',
+                      source: 'auto' as const,
+                    },
+                  ].slice(-MAX_QUEST_ASSESSMENTS)
+                : prev.assessments,
+            }
+          }
+          return { entries }
+        }),
     }),
     {
       name: 'ihui-quests',
@@ -185,7 +258,10 @@ export const useQuestsStore = create<QuestsState>()(
 )
 
 /** 六档状态计数(看板汇总条;六档全覆盖,零计数的档也出键) */
-export function questStatusCounts(entries: Record<string, QuestEntry>): Record<QuestStatus, number> & {
+export function questStatusCounts(entries: Record<string, QuestEntry>): Record<
+  QuestStatus,
+  number
+> & {
   total: number
 } {
   const counts = Object.fromEntries(GOAL_STATUSES.map((status) => [status, 0])) as Record<

@@ -32,6 +32,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from app.core.sse_frames import with_frame_trace_id
 from app.services.canvas_graph import (
     build_canvas_graph,
     get_canvas_graph_entry,
@@ -482,8 +483,8 @@ async def post_stream(
 
 
 def _sse_format(evt: SSEEvent) -> str:
-    """SSEEvent -> SSE 文本帧。"""
-    payload = evt.to_dict()
+    """SSEEvent -> SSE 文本帧(帧级 traceId 经共享注入点,承 G-248 R3)。"""
+    payload = with_frame_trace_id(evt.type, evt.to_dict())
     # data 中可能含非 ASCII 字符,ensure_ascii=False 保留可读性
     data_str = json.dumps(payload, ensure_ascii=False, default=str)
     return f"event: {evt.type}\ndata: {data_str}\n\n"
