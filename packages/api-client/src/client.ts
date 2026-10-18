@@ -5297,4 +5297,87 @@ export async function postSessionGoal(
     ...(typeof ack?.sessionId === 'string' ? { sessionId: ack?.sessionId } : {}),
   }
 }
+
+/** 票 77:My Quests 看板的服务端聚合行(GET /sessions/goals)。 */
+export interface MyGoalRow {
+  threadId: string
+  /** 引擎线程 metadata.conversationId;缺省 '' = 该线程没记会话 id,端内不猜 */
+  sessionId: string
+  title: string
+  workspaceId: string
+  /** epoch 秒(与 threads 表同源) */
+  createdAt: number
+  updatedAt: number
+  goal: {
+    status: string
+    objective: string
+    elapsedMs?: number
+    tokenUsage?: number
+    updatedAt?: number
+  }
+}
+
+function isMyGoalRow(value: unknown): value is MyGoalRow {
+  if (!value || typeof value !== 'object') return false
+  const row = value as Record<string, unknown>
+  const goal = row.goal
+  if (!goal || typeof goal !== 'object') return false
+  const g = goal as Record<string, unknown>
+  return (
+    typeof row.threadId === 'string' &&
+    typeof row.sessionId === 'string' &&
+    typeof row.title === 'string' &&
+    typeof row.workspaceId === 'string' &&
+    typeof row.createdAt === 'number' &&
+    typeof row.updatedAt === 'number' &&
+    typeof g.status === 'string' &&
+    typeof g.objective === 'string'
+  )
+}
+
+/**
+ * 票 77(2026-10-18):跨会话目标聚合(My Quests 跨 workspace 全局看板数据源)。
+ *
+ * GET /sessions/goals —— **归属由服务端按令牌主体过滤**,客户端不自报 userId
+ * (与 postSessionGoal 同一条「认证不等于授权」判序)。
+ *
+ * 失败必抛:静默吞掉会让看板停在空列表,读起来像"我真的没有目标",
+ * 而真相是"这一次没读到";调用方据此退回端内登记表(D152 回退口径)。
+ * 行形状不合规同样抛(指出第几行)—— 静默 filter 会把不可读折成"没有"。
+ */
+export async function listMyGoals(limit = 100): Promise<MyGoalRow[]> {
+  const aiServiceUrl = aiServiceBaseUrl()
+  let resp: Response
+  try {
+    resp = await fetch(`${aiServiceUrl}/sessions/goals?limit=${encodeURIComponent(String(limit))}`)
+  } catch (e) {
+    throw new Error(`listMyGoals network error: ${(e as Error).message}`)
+  }
+  if (!resp.ok) {
+    let detail = ''
+    try {
+      detail = (await resp.text()).slice(0, 200)
+    } catch {
+      // 忽略 body 读取失败,只保留 status
+    }
+    throw new Error(`listMyGoals failed: HTTP ${resp.status}${detail ? `: ${detail}` : ''}`)
+  }
+  let body: unknown
+  try {
+    body = await resp.json()
+  } catch (e) {
+    throw new Error(`listMyGoals response unreadable: ${(e as Error).message}`)
+  }
+  const data = (body as { data?: unknown } | null)?.data
+  const goals = (data as { goals?: unknown } | null | undefined)?.goals
+  if (!Array.isArray(goals)) {
+    throw new Error('listMyGoals response unreadable: data.goals is not an array')
+  }
+  return goals.map((row, index) => {
+    if (!isMyGoalRow(row)) {
+      throw new Error(`listMyGoals malformed row at index ${index}`)
+    }
+    return row
+  })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
