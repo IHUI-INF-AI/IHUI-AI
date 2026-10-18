@@ -79,6 +79,55 @@ test('事故形态(整棵树按一侧回写)必须被抓到并点名路径', () 
   }
 })
 
+test('后手补回豁免(2026-10-19):对照面读到已补回才降级,部分补回不得洗成整体清白', () => {
+  const { dir, run } = repo()
+  try {
+    run('checkout', '-qb', 'a')
+    writeFileSync(join(dir, 'feature.ts'), 'export const x = 1\n', 'utf8')
+    run('add', 'feature.ts')
+    run('commit', '-qm', 'feat: 新增 feature.ts')
+    run('checkout', '-q', 'main')
+    writeFileSync(join(dir, 'other.txt'), 'b\n', 'utf8')
+    run('add', 'other.txt')
+    run('commit', '-qm', 'chore: B 侧')
+    run('merge', '-q', '--no-edit', 'a')
+    const beforeB = run('rev-parse', 'HEAD^1^')
+    const head = run('rev-parse', 'HEAD')
+    const bad = run('commit-tree', `${beforeB}^{tree}`, '-p', head, '-p', beforeB, '-m', 'accident')
+    run('update-ref', 'HEAD', bad)
+    // commit-tree/update-ref 不动索引 ⇒ 先把索引对齐,否则下一枚提交会把被吞的文件"顺手带回树",
+    // 夹具自己造出假的重补现场(判据没变,变的是夹具保真度)。
+    run('reset', '-q', '--mixed', 'HEAD')
+    writeFileSync(join(dir, 'feature.ts'), 'export const x = 1\n', 'utf8')
+    run('add', 'feature.ts')
+    run('commit', '-qm', 'fix: 只补回 feature.ts')
+
+    const h = G.auditOne(bad, dir)
+    assert.ok(h.repaired.some((x) => x.path === 'feature.ts'), `已补回的必须进 repaired:${JSON.stringify(h.repaired)}`)
+    assert.ok(!h.lost.some((x) => x.path === 'feature.ts'), '已补回的不得再算丢失(否则信会让收件人去补早已在树里的文件)')
+    assert.ok(h.lost.some((x) => x.path === 'other.txt'), '没补的那条必须照旧判丢失(部分补回≠整体清白)')
+
+    // 阳性对照:对照面换成事故自身 ⇒ 同一枚必须重新判丢失。摘掉 atRef 那一支,这例会直接翻绿。
+    const self = G.auditOne(bad, dir, bad)
+    assert.deepEqual(self.lost.map((x) => x.path).sort(), ['feature.ts', 'other.txt'].sort(), '对照面=合并自己 ⇒ 两侧独有新增全部判回')
+    assert.equal(self.repaired.length, 0, '对照面里没有的东西不得被记成"已补回"')
+
+    // 对照面取不到 ⇒ 退回判丢失并报名,不记绿(§0.3)
+    const none = G.auditOne(bad, dir, 'refs/tags/不存在')
+    assert.ok(none.lost.some((x) => x.path === 'feature.ts'), 'atRef 取不到 ⇒ 不得把"量不到"读成已补回')
+    assert.ok(none.atRefUndetermined, '取不到必须点名,不许静默')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('未知旗标 ⇒ 未判定名单(本门没有 --json,静默吃掉等于"文字出了而退出码没出")', () => {
+  assert.deepEqual(G.unknownFlags(['--json']), ['--json'])
+  assert.deepEqual(G.unknownFlags([]), [])
+  assert.deepEqual(G.unknownFlags(['--rev', 'abc', '--staged', '--all-new', '--self-test', '--worktree', '--limit', '3']), [])
+  assert.deepEqual(G.unknownFlags(['--nope', '--json']), ['--nope', '--json'])
+})
+
 test('缓存键必须剥到 tree oid:按符号名缓存会把 ref 移动后的新树读成旧树', () => {
   const src = readFileSync(new URL(`../${SCRIPT}`, import.meta.url), 'utf8')
   assert.match(src, /rev-parse', '--verify', `\$\{rev\}\^\{tree\}`/, 'treePaths 必须先剥 oid')
