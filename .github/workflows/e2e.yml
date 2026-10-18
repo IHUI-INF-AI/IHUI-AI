@@ -116,11 +116,23 @@ jobs:
         # 本包由 web 的 prebuild 构建)。
         run: pnpm --filter "@ihui/api^..." --filter "@ihui/web^..." --filter "@ihui/extension^..." run build
 
-      - name: Run database migrations
+      # 2026-10-18 根修:与 test-real-db.yml 同款「两遍迁移+守卫」(复用同一守卫脚本,
+      # 判据单点,不复制)。根因:从零库跑迁移链在 journal idx 325(20261018160000,
+      # 按生产库现状写成 no-op)对 0000 初始迁移建出的 uuid id 撞 PG 42804
+      # (dp_noise_added real→boolean 撞 42846),drizzle-kit migrate 只 exit 1 不打原因。
+      # 两遍迁移:第一遍把 1..324 逐条落库(325 预期失败回滚),守卫脚本把 uuid/real/text[]
+      # 形状收敛成迁移与 TS schema 共同期望的形状,第二遍 325 变 no-op 通过。
+      # 生产形状(bigint/boolean/jsonb)上守卫为零动作 no-op,三步全幂等。
+      - name: Run database migrations (with fresh-DB shape guard)
         working-directory: packages/database
         env:
           DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
-        run: pnpm exec drizzle-kit migrate
+        run: |
+          if ! pnpm exec drizzle-kit migrate; then
+            echo "::notice::第一遍 migrate 在 idx 325 处失败(从零库预期行为,错误被 drizzle-kit spinner 吞掉;1..324 已逐条提交)"
+          fi
+          node scripts/pre-migrate-fresh-db-guard.mjs
+          pnpm exec drizzle-kit migrate
 
       - name: Seed E2E 测试用户(test@aizhs.top)
         env:

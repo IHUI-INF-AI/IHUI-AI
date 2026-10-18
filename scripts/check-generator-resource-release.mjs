@@ -69,6 +69,14 @@ const CLOSE_RES = [
   /\.return\(/,
   /contextlib\.closing|closing\(/,
   /GeneratorExit/,
+  // 本仓的**唯一关停出口**是模块级函数 `aclose_async_gen(gen, label=…)`(定义在
+  // `apps/ai-service/app/services/async_gen_close.py`),不是方法形式的 `.aclose()` ——
+  // 前四条锚点全是"点号 + 方法名",因此 llm_gateway.py:3041 那句
+  // `await aclose_async_gen(astream_iter, …)` 在真 finally 里却不被认出(2026-10-18 实测:
+  // 该 miss 与下一条 tryFinallyWraps 的名字不同形叠加,把同一个**已正确关停**的站点
+  // 报成 10 枚 violation)。遮噪仍在(`maskForJudgement` 把行内字符串压白,见 :128),
+  // 所以"只在字符串/docstring 里出现的 aclose"依旧不算关停。
+  /\baclose\w*\s*\(/,
 ]
 /** 框架 sink:框架承诺关停,但那条保证不在本面 ⇒ 落未判定而非判红 */
 const FRAMEWORK_SINK_RES = [/StreamingResponse\(/, /EventSourceResponse\(/, /StreamingHTTPResponse\(/]
@@ -717,6 +725,12 @@ function selfTest() {
   t('async-for-in-finally 算关停', judgeFunction(b, [{ file: 'z.py', line: 5, text: 'async for x in g():\n    use(x)\nfinally:\n    pass' }]).verdict === 'passed')
   t('StreamingResponse sink ⇒ 未判定而非判红', judgeFunction(b, [{ file: 'z.py', line: 5, text: 'return StreamingResponse(g(), media_type="text/event-stream")' }]).verdict === 'undetermined')
   t('有消费点而无关停 ⇒ violation', judgeFunction(b, [{ file: 'z.py', line: 5, text: 'async for x in g():\n    break' }]).verdict === 'violation')
+  // G-77 归因修正的成对臂(2026-10-18 实测:真仓 llm_gateway.py:3041 的 `await aclose_async_gen(`
+  // 是本仓唯一关停出口的写法,前四条锚点只认 `.aclose(` 那种方法形式 ⇒ 已关停的站点被报成
+  // violation,并且因按名字归集把同一个站点复述了 10 遍)。三条臂各钉一格:
+  t('模块级唯一关停出口 aclose_async_gen( 算关停', judgeFunction(b, [{ file: 'z.py', line: 5, text: 'await aclose_async_gen(g, label="x")' }]).verdict === 'passed')
+  t('交接给变量而无关停锚点 ⇒ 仍 violation(新锚点不得把 handoff 洗白)', judgeFunction(b, [{ file: 'z.py', line: 5, text: 'h = g()\nsink(h)' }]).verdict === 'violation')
+  t('aclose_async_gen 只出现在字符串里 ⇒ 不算关停(遮噪仍在)', judgeFunction(b, [{ file: 'z.py', line: 5, text: 'msg = "call aclose_async_gen(g) later"' }]).verdict !== 'passed')
   const c = scanPythonFile('c.py', PY[2][1]).find((f) => f.name === '_tx')
   t('@contextmanager 包装 ⇒ 等价保护 passed', c && judgeFunction(c, []).verdict === 'passed')
   // ⑦ 多行签名的生成器(参数行缩进比 def 深、`) -> X:` 与 def 同缩进)必须仍能识别
@@ -756,7 +770,9 @@ function selfTest() {
   const countAt = (f, verdict, re) => HR.filter((r) => r.file.endsWith(f) && r.verdict === verdict && evHit(r, re)).length
   t('真仓①: command_streamer.py 存在穷尽式 async for 的 passed 判定', anyAt('command_streamer.py', 'passed'))
   t('真仓①b: message_history.py 存在"唯一生产消费是 list(...)"的 passed 判定', anyAt('message_history.py', 'passed'))
-  t('真仓②: openai_provider.py 仍被判 violation(有提前退出的消费)', anyAt('openai_provider.py', 'violation'))
+  t('真仓②: openai_provider.astream 不再被误判 violation(唯一找到的消费点显式关停)', anyAt('openai_provider.py', 'undetermined', /显式关停/))
+  t('真仓②b: 面上确实存在"closed(显式关停)"的证据(模块级 aclose_async_gen 被认出,非夹具自证)', HR.some((r) => evHit(r, /closed\(显式关停/)) === true)
+  t('真仓②c: 该修正不产出任何 violation ⇒ 也不得把敞口洗成 passed(敞口只允许来自确证站点)', HR.filter((r) => r.verdict === 'passed').every((r) => !evHit(r, /open\(/)) === true)
   t('真仓④: routers/agents.py 框架 sink ⇒ 未判定且逐条点名(现读 ≥3 处)', countAt('routers/agents.py', 'undetermined', /sink/) >= 3)
   t('真仓⑤: rollout_archive.py 存在未判定而非 violation 的站点(仅 docstring/__all__ 命中)', anyAt('rollout_archive.py', 'undetermined'))
   // 定级与判读

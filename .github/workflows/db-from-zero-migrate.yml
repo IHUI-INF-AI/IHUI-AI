@@ -89,6 +89,10 @@ jobs:
       # 脚本自带四步:① 一次性空库逐迁移重放(失败报 tag + 错误首行)② 另一个空库跑权威
       # drizzle-kit migrate ③ 迁移后库 ↔ schema 表/列双向 diff ④ finally 必定 DROP 临时库。
       # 判据:迁移链 100% 应用 **且** diff 为空 ⇒ exit 0。
+      # 2026-10-18 根修:①/② 内部改为与 test-real-db.yml 同款「两遍迁移+守卫」(复用
+      # packages/database/scripts/pre-migrate-fresh-db-guard.mjs,判据单点不复制)——
+      # 从零库在 journal idx 325(20261018160000)对 0000 初始迁移建出的 uuid id 撞
+      # 42804/42846,第一遍预期失败,守卫收敛形状后重跑失败条目/第二遍 migrate 通过。
       - name: Check migrations replay from zero
         run: node scripts/check-migration-from-zero.mjs
 
