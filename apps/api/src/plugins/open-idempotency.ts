@@ -12,6 +12,7 @@ import type {
 import fp from 'fastify-plugin'
 import { config } from '../config/index.js'
 import { normalizeHeader } from '../utils/http-normalize.js'
+import { MAX_CLIENT_KEY_LEN, slotKeyOf } from '../services/run-idempotency.js'
 
 /**
  * O10 开放面通用幂等重放保护 —— 带 `Idempotency-Key` 的写请求只执行一次,重发拿到首次结果。
@@ -27,9 +28,14 @@ import { normalizeHeader } from '../utils/http-normalize.js'
  *    (Redis 抖动 30s 会把所有带 key 的写请求打成 409)。配额/限流那条链路的降级判据是
  *    `API_KEY_RATE_LIMIT_FAIL_MODE`(它按 risk/billable 决定 503),与本层无关,各管各的。
  *
- * 键:`idem:<凭据维度>:<capability.scope>:<客户端 key>`。凭据维度取 `apiKey.id`,人 JWT 取
- * `userId`,并各带 `key:` / `user:` 前缀 —— 两域即便字符串撞车也互不命中,且 A 的 key
+ * 键(G-734 拼键收敛):全仓幂等槽键统一走 `services/run-idempotency.ts` 的 `slotKeyOf`
+ * 单一出口,本文件不再手拼第二份 —— `idem:res:open-response.cache:<凭据维度>:<capability.scope>:<客户端 key>`。
+ * namespace 段 = `open-response.cache`(固定服务端段);凭据维度 + scope 合成 ownerKey 段 ——
+ * scope(`agents:call` 这类)自带冒号,进不了禁冒号的 namespace 段,而 ownerKey 段本就允许
+ * 冒号作内部分隔,且凭据维度恒为 `key:<id>` / `user:<id>`、id 无冒号,合串不产生折叠。
+ * 凭据维度取 `apiKey.id`,人 JWT 取 `userId` —— 两域即便字符串撞车也互不命中,且 A 的 key
  * 永远无法消费 B 的重放槽位。无凭据(匿名)不启用:没有隔离维度的重放缓存等于跨租户串响应。
+ * 客户端 key 一段由 `slotKeyOf` 自动转义(`%`→`%25`、`:`→`%3A`)。
  *
  * 生命周期:preHandler `SET NX PX` 抢槽 → 抢到放行,响应跑完后 onSend 把
  * `{statusCode, contentType, body}` 回写同键;没抢到则看对方状态 —— 已完成 = 原样重放,
@@ -39,8 +45,11 @@ import { normalizeHeader } from '../utils/http-normalize.js'
  * 不做:run 句柄(异步任务重取)与游标分页 —— 那是另两块骨头,刻意留给后续。
  */
 
-/** 键前缀。与支付域的 `idempotency:payment:` 分开命名空间,便于运维按前缀清理/统计。 */
-const KEY_PREFIX = 'idem:'
+/**
+ * 本层槽位在 `slotKeyOf` 键空间里的 namespace 段。资源级幂等层(`agent-run.create` 等)共用
+ * 同一前缀 `idem:res`,以 namespace 段互不相交;支付域的 `idempotency:payment:` 仍是独立前缀。
+ */
+const OPEN_IDEM_NAMESPACE = 'open-response.cache'
 /** 天然幂等的读方法:重放它们没有价值,只会白占一次 Redis 往返。 */
 const IDEMPOTENT_SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 /** 缓存记录没带 content-type 时的兜底值;只缓存 JSON,SSE / 文件流一律旁路。 */
@@ -53,8 +62,6 @@ const MAX_CACHED_BYTES = 256 * 1024
  * 比拦人更糟。超时按 Redis 不可用处置。
  */
 const REDIS_DEADLINE_MS = 1000
-/** 客户端 key 的长度上限,与 capability-guard 注入时用的截断保持一致。 */
-const MAX_CLIENT_KEY_LEN = 200
 
 /** 落在 Redis 里的两条状态。认不出的一律并进 Probe 的 'unreadable',处置见 preHandler 尾部。 */
 interface InflightRecord {
@@ -324,7 +331,17 @@ const openIdempotencyPlugin: FastifyPluginAsync = async (server) => {
     const clientKey = clientKeyOf(request)
     const scope = request.capability?.scope
     if (!owner || !clientKey || !scope) return
-    const key = `${KEY_PREFIX}${owner}:${scope}:${clientKey}`
+    // G-734 拼键收敛:键不再本文件手拼,统一走 `slotKeyOf` 单一出口(客户端段自动转义,
+    // 服务端段越界当场炸,单射性由内核的转义表与段纪律保证 —— 全仓不再有第二处拼键写法)。
+    // 键形由 `idem:<owner>:<scope>:<clientKey>` 变为
+    // `idem:res:open-response.cache:<owner>:<scope>:<转义后的 clientKey>`:既有槽位不再命中,
+    // 由 TTL 自然回收,代价只是每个旧 key 白丢一次重放窗口(读不到旧结果时按首发重跑一次),
+    // 而不会读到别人的结果 —— 与内核 `escapeSlotSegment` 头注同款判责。
+    const key = slotKeyOf({
+      namespace: OPEN_IDEM_NAMESPACE,
+      ownerKey: `${owner}:${scope}`,
+      clientKey,
+    })
 
     const takeSlot = (slotKey: string): void => {
       counters.acquired += 1

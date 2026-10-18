@@ -15,7 +15,8 @@
  * 为什么不能只靠上面那层:它是响应缓存,记录过期后同一个 key 会**重新创建一个资源**;
  * 而 O10① 的口径是"同一 `Idempotency-Key` 重放必须返回同一个 run"。资源级槽位记录的是
  * 创建结果本身,并且它服务的是**不走 capability 闸**的自有对外面(那层在这类路由上
- * `isEligible` 恒 false,压根不介入)。两层的键前缀也分开命名空间,永不互撞。
+ * `isEligible` 恒 false,压根不介入)。两层的键(G-734 拼键收敛起)都从本文件的 `slotKeyOf`
+ * 单一出口产出,以 namespace 段分开命名空间,永不互撞。
  *
  * 五条硬语义(都有用例钉死,见 apps/api/tests/run-idempotency.test.ts):
  * 1. 已完成重放 → 返回**同一个**资源,不是 409、也不是新建;
@@ -76,11 +77,11 @@
 import { createHash } from 'node:crypto'
 import { normalizeHeader } from '../utils/http-normalize.js'
 
-/** 本层槽位键前缀。与开放面响应缓存的 `idem:` 分开,运维可按前缀各自清理/统计。 */
+/** 本层槽位键前缀。开放面响应缓存层(`open-response.cache` namespace)同走本出口,以 namespace 段分隔。 */
 export const SLOT_KEY_PREFIX = 'idem:res'
 /** 请求头名(Fastify 会把 header key 小写化)。 */
 export const IDEMPOTENCY_HEADER = 'idempotency-key'
-/** 客户端 key 长度上限,与 `plugins/open-idempotency.ts` 的 200 同值,不引入第二个数。 */
+/** 客户端 key 长度上限。`plugins/open-idempotency.ts` 与本层共用此常量,不引入第二个数。 */
 export const MAX_CLIENT_KEY_LEN = 200
 /**
  * 下限 8:幂等键的价值在于"撞不上别人"。允许 1~3 字符的 key 会让同命名空间下不同

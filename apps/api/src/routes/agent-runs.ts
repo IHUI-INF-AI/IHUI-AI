@@ -32,7 +32,9 @@ import {
   readIdempotencyKey,
   requestFingerprint,
   runIdempotently,
+  IdempotencyFactCorruptError,
   type IdempotencyKv,
+  type IdempotencyResult,
 } from '../services/run-idempotency.js'
 import { RUN_HANDLE_REJECT_STATUS, issueRunHandle, parseRunHandle } from '../services/run-handle.js'
 import {
@@ -50,6 +52,12 @@ export const IDEMPOTENCY_KEY_REQUIRED_CODE = 'IDEMPOTENCY_KEY_REQUIRED'
 export const IDEMPOTENCY_IN_PROGRESS_CODE = 'IDEMPOTENCY_IN_PROGRESS'
 export const IDEMPOTENCY_KEY_REUSED_CODE = 'IDEMPOTENCY_KEY_REUSED'
 export const IDEMPOTENCY_STORE_UNAVAILABLE_CODE = 'IDEMPOTENCY_STORE_UNAVAILABLE'
+/**
+ * G-734②:已完成事实读不出载荷 ⇒ 数据完整性硬错。给客户端一个可分辨的 errorCode,
+ * 而不是让它跟任何其他 500 混在一起(客户端据此可告警/上报,而不是盲目重试 —— 重试即重建)。
+ * 与内核异常自带 `code`(`IdempotencyFactCorruptError.code`)逐字同值,单一事实两处可见。
+ */
+export const IDEMPOTENCY_FACT_CORRUPT_CODE = 'IDEMPOTENCY_FACT_CORRUPT'
 export const INVALID_RUN_HANDLE_CODE = 'INVALID_RUN_HANDLE'
 export const RUN_NOT_FOUND_CODE = 'RUN_NOT_FOUND'
 export const INVALID_CURSOR_CODE = 'INVALID_CURSOR'
@@ -208,6 +216,13 @@ export interface AgentRunRoutesDeps {
 const createSchema = z.object({
   agent_id: z.string().min(1).max(64),
   input: z.string().min(1).max(8_000),
+  /**
+   * G-734① 父会话作用域(可选)。带上时编进幂等槽键的父段(`session:<id>`),
+   * 同一条 Idempotency-Key 在不同会话里互不串槽 —— 上游 `v4_command_fact` 的主键
+   * 正是 `child:<parentSessionId>:<sourceCommandId>`,父段缺席时两个会话复用同一
+   * commandId 会互相覆盖事实。段值客户端可整写,由 `slotKeyOf` 的转义段兜单射。
+   */
+  session_id: z.string().min(1).max(128).optional(),
 })
 
 const listQuerySchema = z.object({
@@ -254,6 +269,11 @@ export function createAgentRunRoutes(deps: AgentRunRoutesDeps): FastifyPluginAsy
       }
       const ownerUserId = requireOwner(request)
       const ownerKey = `user:${ownerUserId}`
+      // G-734① 生产接线:客户端可持的父会话作用域编进幂等槽键的父段。此前本路由只注入了
+      // refsOf(③ 的局部性断言),`parentKey` 没有真实调用方 —— 带父作用域的写点从这里起算。
+      // 不带 session_id 时保持 `undefined`,键与改动前逐字节同形(既有槽位与用例不受扰)。
+      const parentKey =
+        body.data.session_id === undefined ? undefined : `session:${body.data.session_id}`
       const clientKey = readIdempotencyKey(request.headers)
       if (clientKey === null) {
         // 明确策略:这个面上幂等键是**必填**。重放代价是真实算力与计费,
@@ -264,41 +284,55 @@ export function createAgentRunRoutes(deps: AgentRunRoutesDeps): FastifyPluginAsy
         })
       }
 
-      const result = await runIdempotently<AgentRunRecord>({
-        kv: deps.kv,
-        namespace: RUN_CREATE_NAMESPACE,
-        ownerKey,
-        clientKey,
-        fingerprint: requestFingerprint({ agent_id: body.data.agent_id, input: body.data.input }),
-        ttlMs: RUN_IDEMPOTENCY_TTL_MS,
-        degrade: 'closed',
-        now: nowMs,
-        create: async () => {
-          const ts = nowMs()
-          const record: AgentRunRecord = {
-            id: deps.newRunId?.() ?? `run_${randomUUID()}`,
-            ownerUserId,
-            agentId: body.data.agent_id,
-            input: body.data.input,
-            status: 'queued',
-            createdAtMs: ts,
-            updatedAtMs: ts,
-            internalSessionId: deps.newSessionId?.() ?? null,
-          }
-          await store.put(record)
-          return record
-        },
-        // G-734③ 引用局部性断言(提交前 + 重放前各跑一次)。这张事实唯一的外部交叉引用就是它所属的人,
-        // child 集合就是这条槽的归属(`user:` + 令牌主体)。
-        // 为什么这一格必须在这儿断言而不是"由 create 自己保证":`create()` 只在本路径**新建**时
-        // 被调用,而**重放**路径上的值是上一轮写进 KV 的 —— 内核把它 `as T` 交回来,路由紧接着
-        // 用它签句柄(`toPublicRunView(result.value, ownerKey, …)`)。那一侧一条引用都不查。
-        // 于是"槽位里躺着的其实是别人的 run"会产出一条**签给请求方、却永远解析不回 200** 的句柄:
-        // `/resolve/:handle` 第 382 行有这道兜(`record.ownerUserId !== ownerUserId ⇒ 404`),
-        // 而 POST 这一侧原来一道都没有 —— 同一个面里两条路径对同一个不变量的严格度不一致,
-        // 而松的那一条正是把越权读成"重放成功"。补齐它,不是新加一层。
-        locality: { refsOf: (record) => [`user:${record.ownerUserId}`] },
-      })
+      // G-734② 的 errorCode 映射(D 项):内核对"已完成事实读不出载荷"抛
+      // `IdempotencyFactCorruptError`,不带 statusCode,直冒到全局 errorHandler 只会变成
+      // 一个与其他 500 无法分辨的错误。在此翻译成带稳定 errorCode 的 AppError(单一翻译点,
+      // 本面只有这一个调用核的入口)。刻意不映射成 4xx:损坏不是客户端的错,也不是可重试态 ——
+      // 重试即重建,正是 ② 禁止的动作;500 + 可分辨码让客户端告警而不是重试。
+      let result: IdempotencyResult<AgentRunRecord>
+      try {
+        result = await runIdempotently<AgentRunRecord>({
+          kv: deps.kv,
+          namespace: RUN_CREATE_NAMESPACE,
+          ownerKey,
+          parentKey,
+          clientKey,
+          fingerprint: requestFingerprint({ agent_id: body.data.agent_id, input: body.data.input }),
+          ttlMs: RUN_IDEMPOTENCY_TTL_MS,
+          degrade: 'closed',
+          now: nowMs,
+          create: async () => {
+            const ts = nowMs()
+            const record: AgentRunRecord = {
+              id: deps.newRunId?.() ?? `run_${randomUUID()}`,
+              ownerUserId,
+              agentId: body.data.agent_id,
+              input: body.data.input,
+              status: 'queued',
+              createdAtMs: ts,
+              updatedAtMs: ts,
+              internalSessionId: deps.newSessionId?.() ?? null,
+            }
+            await store.put(record)
+            return record
+          },
+          // G-734③ 引用局部性断言(提交前 + 重放前各跑一次)。这张事实唯一的外部交叉引用就是它所属的人,
+          // child 集合就是这条槽的归属(`user:` + 令牌主体)。
+          // 为什么这一格必须在这儿断言而不是"由 create 自己保证":`create()` 只在本路径**新建**时
+          // 被调用,而**重放**路径上的值是上一轮写进 KV 的 —— 内核把它 `as T` 交回来,路由紧接着
+          // 用它签句柄(`toPublicRunView(result.value, ownerKey, …)`)。那一侧一条引用都不查。
+          // 于是"槽位里躺着的其实是别人的 run"会产出一条**签给请求方、却永远解析不回 200** 的句柄:
+          // `/resolve/:handle` 第 382 行有这道兜(`record.ownerUserId !== ownerUserId ⇒ 404`),
+          // 而 POST 这一侧原来一道都没有 —— 同一个面里两条路径对同一个不变量的严格度不一致,
+          // 而松的那一条正是把越权读成"重放成功"。补齐它,不是新加一层。
+          locality: { refsOf: (record) => [`user:${record.ownerUserId}`] },
+        })
+      } catch (error) {
+        if (error instanceof IdempotencyFactCorruptError) {
+          throw new AppError('幂等事实已损坏,槽位记录不可回放', 500, IDEMPOTENCY_FACT_CORRUPT_CODE)
+        }
+        throw error
+      }
 
       if (!result.ok) {
         if (result.reason === 'store-unavailable') {
