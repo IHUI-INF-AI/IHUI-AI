@@ -2253,6 +2253,14 @@ class LLMCompleteRequest(BaseModel):
     # plan_mode='plan' 时前置注入 Plan Mode system prompt,LLM 只制定计划不调用工具;
     # 'act' 或 None = 正常 tool loop 执行(默认)
     plan_mode: str | None = Field(None, description="Plan/Act 模式:'plan'=只制定计划,'act'=正常执行(默认)")
+    # V3 #58(2026-09-26 立):权限模式档位 —— 主对话流工具审批门 (_resolve_tool_approval) 与
+    # (mode × permission_mode) 硬收窄 (_filter_agent_tools_for_chat_mode) 都以它为输入。
+    # 2026-10-18 现读:字段声明这半由别枚提交补上(本枚一度也加了一份,被 mypy --strict 以
+    # no-redef 当场拦下 ⇒ 撤掉重复,只留下面这半)。剩下的缺陷是消费点写法:6 处都写成
+    # getattr(req, "permission_mode", None),它让**"键没落地"(断链)与"用户没选"(合法默认)
+    # 长得一模一样**,而 mypy 对 getattr-with-default 结构性失明(看不出那个键存不存在)。
+    # 本枚把 6 处换成直接读属性,并由 tests/test_llm_stream_permission_mode_wire.py 的形状锁钉住:
+    # 源码里再出现该 getattr 形态即红;计数掉于一枚也即红。
     # D7(2026-09-19 立):主聊天自动语义检索注入开关。
     # 默认 True(开启);显式 false 关闭 @codebase 风格的首答前代码库检索注入。
     # 环境变量 IHUI_AUTO_CONTEXT_DISABLE=1 为全局硬开关(在 auto_context 模块内生效)。
@@ -3390,7 +3398,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 # 必须在 augment 之后过滤:服务端自主补全的浏览器/电脑控制族同样受约束。
                 # ask 模式上游 if 已置 None(不进 tool loop),无需再过滤。
                 agent_tools = _filter_agent_tools_for_chat_mode(
-                    chat_mode, agent_tools, getattr(req, "permission_mode", None)
+                    chat_mode, agent_tools, req.permission_mode
                 )
             if agent_tools:
                 from ..services.mcp_server import mcp_server as _mcp
@@ -3899,11 +3907,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 except (json.JSONDecodeError, ValueError):
                                     continue
                                 if not _chat_mode_allows_tool(
-                                    chat_mode, _pf_name, getattr(req, "permission_mode", None)
+                                    chat_mode, _pf_name, req.permission_mode
                                 ):
                                     continue
                                 if _resolve_tool_approval(
-                                    getattr(req, "permission_mode", None), _pf_name
+                                    req.permission_mode, _pf_name
                                 )[0]:
                                     continue
                                 _pf_id = _pf_tc.get("id", "")
@@ -3987,12 +3995,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # 失败结果,并由回灌文本显式要求 LLM 告知用户被拦截,防止幻觉
                             # "已完成"。ask 理论上进不到本循环(入口已跳过),一并兜底。
                             if not _chat_mode_allows_tool(
-                                chat_mode, tool_name, getattr(req, "permission_mode", None)
+                                chat_mode, tool_name, req.permission_mode
                             ):
                                 # 文案唯一出口 = core/permission_mode.blocked_tool_message
                                 # (V3 #49 口径:原因 + 替代建议,禁止模糊"未知工具"让模型原地重试)
                                 _blocked_reason = _chat_mode_blocked_message(
-                                    chat_mode, tool_name, getattr(req, "permission_mode", None)
+                                    chat_mode, tool_name, req.permission_mode
                                 )
                                 blocked_result = {
                                     "tool": tool_name,
@@ -4458,7 +4466,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # 明确失败 tool-result(收尾与 delegate-timeout 分支同构),
                             # 让模型知道工具被拒,而非静默失败后原地重试。
                             _approval_needed, _danger = _resolve_tool_approval(
-                                getattr(req, "permission_mode", None), tool_name
+                                req.permission_mode, tool_name
                             )
                             if _approval_needed:
                                 if session_id is None:
