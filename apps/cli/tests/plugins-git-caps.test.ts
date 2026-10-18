@@ -344,7 +344,13 @@ describe('G-146 git 二进制解析改"当次实测链"(§5b:候选表 + existsS
           : { PATH: bin }
       ) as NodeJS.ProcessEnv;
       try {
-        expect(resolveGitBinary(env)).toBe(path.normalize(hit));
+        // 假探针只造**前置**,不碰判据链:类 Unix 的候选表是硬编码绝对路径(/usr/bin/git 等),
+        // 在 ubuntu runner 上必然存在 ⇒ 不注入就会在候选层直接返回系统 git,PATH×PATHEXT 那一层
+        // 永远轮不到 —— 本用例在 Windows 上绿、在 CI 上红就是这么来的(§5b:机器事实不可假设)。
+        // 这里声明"除夹具那一格外,其它候选都不存在",两平台上"候选全落空"才真正成立;
+        // exists ∧ canExec ∧ PATH 扫描这条被测链仍原样走一遍,所以它依然能红(拔掉 PATH 兜底即翻)。
+        const probe = { exists: (c: string) => c === hit, canExec: () => true }
+        expect(resolveGitBinary(env, probe)).toBe(path.normalize(hit));
       } finally {
         rmScratch(emptyPf);
       }

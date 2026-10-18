@@ -52,7 +52,7 @@
 ALTER TABLE "agent_memory_decay_state" ADD COLUMN IF NOT EXISTS "config" jsonb;
 ALTER TABLE "agent_memory_decay_state" ADD COLUMN IF NOT EXISTS "created_at" timestamptz NOT NULL DEFAULT now();
 ALTER TABLE "agent_memory_decay_state" ADD COLUMN IF NOT EXISTS "updated_at" timestamptz NOT NULL DEFAULT now();
-ALTER TABLE "agent_memory_decay_state" ALTER COLUMN "user_id" TYPE uuid USING nullif("user_id", '')::uuid;
+ALTER TABLE "agent_memory_decay_state" ALTER COLUMN "user_id" TYPE uuid USING nullif("user_id"::text, '')::uuid;
 ALTER TABLE "agent_memory_decay_state" ALTER COLUMN "entry_id" TYPE text USING "entry_id"::text;
 ALTER TABLE "agent_memory_decay_state" ALTER COLUMN "retention_score" TYPE double precision USING "retention_score"::double precision;
 
