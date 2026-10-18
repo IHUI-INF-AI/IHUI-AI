@@ -237,6 +237,7 @@
     "runtimeSend": "전송"
   },
   "chat": {
+    "modelSwitchStopped": "{model}(으)로 전환하여 이번 응답을 중단했습니다",
     "meta": {
       "pullOnly": "이 대화는 다음에 목록을 열 때 동기화됩니다"
     },

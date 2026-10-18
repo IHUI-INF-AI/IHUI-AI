@@ -3513,6 +3513,7 @@
     "members": "成員"
   },
   "chat": {
+    "modelSwitchStopped": "已切換到 {model},本輪回答已終止",
     "partialDoneTitle": "回答被中斷,以下內容可能不完整",
     "send": "傳送",
     "meta": {
