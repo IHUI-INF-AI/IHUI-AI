@@ -84,22 +84,42 @@ export function basesOf(parents, cwd = ROOT) {
   return git(['merge-base', '--all', ...parents], cwd).split('\n').map((s) => s.trim()).filter(Boolean)
 }
 
-/** 审计一枚提交:返回被吞掉的新增路径清单 */
-export function auditOne(rev, cwd = ROOT) {
+/** 审计一枚提交:返回被吞掉的新增路径清单。
+ *
+ *  `atRef`(默认 HEAD)= "后手有没有已经补回"的对照面。2026-10-19 补这一格是实测逼出来的:
+ *  枚 `f2f9086` 吞掉 7 个路径,15 分钟后另一会话用 `139209161bc` 补回其中 5 个,而本门**只比父子树**,
+ *  于是过了一小时再判仍然报"丢失 7"——守护据此寄出的 CRITICAL 信,收件人照做去补的是一批
+ *  早已在树里的文件(§5e-1「红了收信人能做什么」在这里失效了)。
+ *  判序:父独有 ∧ 合并结果没有 ∧ **atRef 也没有** ⇒ 才算 lost;
+ *  atRef 已有 ⇒ 记 `repaired`(照常点名、不参与退出码),这样"补回了什么"在账面上仍是可见的,
+ *  不会因为加了豁免就把一次真吞并洗成无声。
+ *  atRef 取不到 ⇒ 退回"算 lost"并点名,绝不拿"量不到"冒绿(§0.3)。 */
+export function auditOne(rev, cwd = ROOT, atRef = 'HEAD') {
   const ps = parentsOf(rev, cwd)
-  if (ps.length < 2) return { rev, merge: false, bases: [], lost: [] }
+  if (ps.length < 2) return { rev, merge: false, bases: [], lost: [], repaired: [], atRefUndetermined: '' }
   const bases = basesOf(ps, cwd)
   const mine = treePaths(rev, cwd)
+  let alive = null
+  let atRefUndetermined = ''
+  try {
+    alive = treePaths(atRef, cwd)
+  } catch (e) {
+    atRefUndetermined = `${atRef} 树取不到(${String(e.message).slice(0, 80)})⇒ 后手补回维不判,退回按合并结果判丢失`
+  }
   const lost = []
+  const repaired = []
   for (const p of ps) {
     const baseSets = bases.map((b) => treePaths(b, cwd))
     for (const path of treePaths(p, cwd)) {
       // 只问"这一侧独有的新增":任何共同基底里都没有 ⇒ 对侧无从"删除"它
       if (baseSets.some((s) => s.has(path))) continue
-      if (!mine.has(path)) lost.push({ path, addedBy: p })
+      if (!mine.has(path)) {
+        if (alive && alive.has(path)) repaired.push({ path, addedBy: p, restoredAt: atRef })
+        else lost.push({ path, addedBy: p })
+      }
     }
   }
-  return { rev, merge: true, bases, lost }
+  return { rev, merge: true, bases, lost, repaired, atRefUndetermined }
 }
 
 /** 从 startRef 往回找合并提交并逐枚审计 */
@@ -261,6 +281,12 @@ function selfTest() {
     const head = run('rev-parse', 'HEAD').trim()
     const bad = run('commit-tree', tree, '-p', head, '-p', bSide, '-m', 'merge 事故复现').trim()
     run('update-ref', 'HEAD', bad)
+    // `commit-tree` + `update-ref` 只动引用,**不动索引** ⇒ 索引仍停在事故前的那棵树,
+    // 而本门的"后手补回"维读的是 HEAD 树(2026-10-19 加的对照面)。不先把索引对齐到新的 HEAD,
+    // 下面那枚普通提交会顺手把 `feature.ts` 带回树里 ⇒ 夹具自己造出"已被后手补回"的假现场,
+    // 于是"提交链必须抓到事故"两例读成 0。真实历史里没有这种索引/引用劈叉的中间态,所以
+    // 这里改的是**夹具的保真度**,不是判据(判据一个字没动)。
+    run('reset', '-q', '--mixed', 'HEAD')
     const hit = auditOne('HEAD', dir)
     ok(
       '合并吞掉对侧新增文件 ⇒ 必须判红并点名',
@@ -275,6 +301,16 @@ function selfTest() {
     run('commit', '-qm', 'chore: 普通提交')
     const after = auditOne('HEAD', dir)
     ok('普通提交(非合并)不参与该判据', after.merge === false, JSON.stringify(after))
+
+    // 未知旗标必须喊响:本门没有 --json,旧写法把它静默吃掉 ⇒ "文字出了、退出码没出"那一型
+    ok(
+      '未知旗标 ⇒ 未判定名单(--json 这类不得被静默忽略)',
+      unknownFlags(['--json']).join() === '--json' &&
+        unknownFlags(['--rev', 'abc', '--staged', '--all-new']).length === 0 &&
+        unknownFlags(['--limit', '5']).length === 0 &&
+        unknownFlags(['--nope', '--json']).join() === '--nope,--json',
+      JSON.stringify([unknownFlags(['--json']), unknownFlags(['--rev', 'abc', '--staged']), unknownFlags(['--nope', '--json'])]),
+    )
 
     // 提交链口径必须"抓得住未推的、放得下已推的":
     //   抓住 = 阳性对照(否则这道门形同虚设);放下 = 别人早已入库的历史事故不得把后来每次提交钉红
@@ -327,6 +363,37 @@ function selfTest() {
       three.face === 'disk-live',
       `实得 ${JSON.stringify(three)}(head/index 那份被取用即红)`,
     )
+
+    // ── 后手补回豁免(2026-10-19 立;立项现场是现读的:枚 f2f9086 吞掉 7 个路径,15 分钟后
+    //    另一会话用 139209161bc 补回其中 5 个,而本门**只比父子树**⇒ 一小时后再判仍报"丢失 7",
+    //    守护据此寄出 CRITICAL 信,收件人照做去补的是一批早已在树里的文件(§5e-1 在这里失效)。
+    //    放在最末尾是刻意的:前面每一例都要求"feature.ts 仍处于被吞状态"才成立。────────────
+    writeFileSync(join(dir, 'feature.ts'), 'export const feat = 1\n', 'utf8')
+    run('add', 'feature.ts')
+    run('commit', '-qm', 'fix: 把被合并吞掉的 feature.ts 补回')
+    const healed = auditOne(bad, dir)
+    ok(
+      '后手已补回 ⇒ 该路径不再算丢失而进 repaired,**其余未补的照旧判丢失**(部分补回不得洗成整体清白)',
+      healed.repaired.some((x) => x.path === 'feature.ts') &&
+        !healed.lost.some((x) => x.path === 'feature.ts') &&
+        healed.lost.some((x) => x.path === 'other.txt'),
+      JSON.stringify({ lost: healed.lost, repaired: healed.repaired }),
+    )
+    // 阳性对照:对照面换成"合并自己"(feature.ts 在那一面上确实没有)⇒ 同一枚必须重新判丢失。
+    // 摘掉新分支(压根不查 atRef)不会让这例翻绿;把 atRef 当摆设也不会让它翻绿。
+    const stillLost = auditOne(bad, dir, bad)
+    ok(
+      '对照面换成合并自身 ⇒ 同一枚必须重新判丢失(证明豁免真读了 atRef)',
+      stillLost.lost.some((x) => x.path === 'feature.ts') && stillLost.repaired.length === 0,
+      JSON.stringify({ lost: stillLost.lost, repaired: stillLost.repaired }),
+    )
+    // 对照面取不到 ⇒ 退回判丢失并点名,绝不拿"量不到"冒绿(§0.3)
+    const noOracle = auditOne(bad, dir, 'refs/tags/不存在-的-对照')
+    ok(
+      'atRef 取不到 ⇒ 退回按丢失判 + 报名,不记绿',
+      noOracle.lost.some((x) => x.path === 'feature.ts') && Boolean(noOracle.atRefUndetermined),
+      JSON.stringify({ lost: noOracle.lost.map((x) => x.path), why: noOracle.atRefUndetermined }),
+    )
   } finally {
     treeCache.clear()
     rmScratch(dir)
@@ -347,9 +414,37 @@ export function faceFromArgv(argv) {
   return selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
 }
 
+/**
+ * 未知旗标 ⇒ 未判定(§0.3「取不到输入不得冒充判过」)。
+ * 立因:本门**没有** `--json` 档,而旧写法把未知旗标静默吃掉 —— `--gate --json` 那型"文字出了、
+ * 退出码没出"的同族事故在本仓已经量到过实价(一台 HEAD=1 而 HEAD --json=0)。
+ * 与其让人猜"它到底认不认这个旗标",不如当场喊响:它认不得。
+ * 纯函数,好让构造面直接证明(含"带值旗标不把值误当旗标"这一条反向对照)。
+ */
+const KNOWN_FLAGS = new Set(['--self-test', '--staged', '--worktree', '--all-new', '--rev', '--limit'])
+const VALUE_FLAGS = new Set(['--rev', '--limit'])
+export function unknownFlags(argv) {
+  const unknown = []
+  for (let i = 0; i < argv.length; i++) {
+    const tok = String(argv[i])
+    if (!tok.startsWith('--')) continue
+    if (KNOWN_FLAGS.has(tok)) {
+      if (VALUE_FLAGS.has(tok)) i += 1 // 该旗标的取值位跳过,免得把 `--rev abc` 的 abc 读成旗标
+      continue
+    }
+    unknown.push(tok)
+  }
+  return unknown
+}
+
 async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTest()
+  const unk = unknownFlags(argv)
+  if (unk.length) {
+    console.error(`❌ 未判定:本门不认识旗标 ${unk.join(' ')} —— 认不得它 ≠ 判过了(可用:${[...KNOWN_FLAGS].join(' ')})`)
+    process.exit(2)
+  }
   const { face, error } = faceFromArgv(argv)
   if (error) {
     console.error(`❌ 无法判定: ${error}`)
@@ -382,9 +477,12 @@ async function main() {
   const scope = revFlag.present ? `单枚 ${revFlag.value}` : limitFlag.present ? `回看 ${limitFlag.value} 枚` : argv.includes('--all-new') ? '增量台账新判' : '未入 origin/main 的合并'
   const bad = rows.filter((r) => r.lost.length)
   const nLost = bad.reduce((s, r) => s + r.lost.length, 0)
+  const nRepaired = rows.reduce((s, r) => s + ((r.repaired || []).length), 0)
   console.log(
-    `[merge-addition-loss] 口径=${scope} / 面=${face}(判据读提交图) / 审计合并 ${rows.length} 枚 / 吞并 ${bad.length} 枚 / 丢失新增路径 ${nLost}`,
+    `[merge-addition-loss] 口径=${scope} / 面=${face}(判据读提交图) / 审计合并 ${rows.length} 枚 / 吞并 ${bad.length} 枚 / 丢失新增路径 ${nLost} / 已被后手补回 ${nRepaired}(照常点名,不计丢失)`,
   )
+  for (const r of rows) for (const l of r.repaired || []) console.log(`  ↻ ${l.path}  —— ${r.rev.slice(0, 11)} 曾吞掉,后手已在 ${l.restoredAt} 面补回`)
+  for (const r of rows) if (r.atRefUndetermined) console.log(`  ⚠️ ${r.rev.slice(0, 11)}: ${r.atRefUndetermined}`)
   for (const r of bad)
     for (const l of r.lost)
       console.log(`  ❌ ${l.path}  —— 由 ${l.addedBy.slice(0, 11)} 引入,合并提交 ${r.rev.slice(0, 11)} 的树里没有`)
@@ -407,5 +505,5 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { treePaths, parentsOf, basesOf, auditOne, auditRecent, pendingMerges, auditUnseen, readMarker, markerPath, chooseRange, commitExists, faceFromArgv }
+export const __test__ = { treePaths, parentsOf, basesOf, auditOne, auditRecent, pendingMerges, auditUnseen, readMarker, markerPath, chooseRange, commitExists, faceFromArgv, unknownFlags }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
