@@ -18,6 +18,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { TFunction } from '../../types'
+import type { CategoryItem } from '@ihui/types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -33,12 +34,6 @@ export interface ArticleItem {
   category?: string
   sourceName?: string
   [key: string]: unknown
-}
-
-/** 分类项 */
-export interface CategoryItem {
-  id: string
-  label: string
 }
 
 export interface SquareScreenProps {
