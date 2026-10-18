@@ -37,6 +37,7 @@
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = resolve(import.meta.dirname, '..')
 
@@ -186,8 +187,10 @@ export function report({ bindings, unbound, forwards, undetermined, face, strict
 }
 
 function selfTest() {
-  const cases = []
-  const ok = (name, cond) => cases.push([name, !!cond])
+  // 用例登记走共用出口(scripts/lib/selftest-registrant.mjs):thunk 在消费循环里**必被调用**,
+  // 值形态即算即得 —— 结构上封死"登记侧写 !!ok 而用例传箭头函数 ⇒ 恒真"的老洞(守门 41 同型)。
+  // report 改名 finishReport:本门域内已有同名 report()(S16 在用),不得遮蔽。
+  const { t: ok, report: finishReport } = makeRegistrar()
   const PY_UNBOUND = `
 @router.get("/api/memory/recall")
 async def recall(user_id: str = Query(..., description="用户 ID(UUID)"), query: str = Query(...)):
@@ -276,13 +279,10 @@ class Q(BaseModel):
     user_id: str | None = Field(None, description="指定用户")
 `
   ok('S20 Field 的可选标注同样要认(只补 Query 半边等于没补)', scanSource('q.py', PY_OPTIONAL_FIELD)?.forms.includes('Field') === true)
-  let pass = 0
-  for (const [n, v] of cases) {
-    if (v) pass++
-    else console.log(`  ✗ ${n}`)
-  }
-  console.log(`自检 ${pass}/${cases.length} 通过`)
-  return pass === cases.length
+  const res = finishReport()
+  for (const c of res.cases) if (!c.pass) console.log(`  ✗ ${c.name}`)
+  console.log(`自检 ${res.pass}/${res.cases.length} 通过`)
+  return res.fail === 0
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
