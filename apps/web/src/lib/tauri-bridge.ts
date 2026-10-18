@@ -1512,6 +1512,83 @@ export async function gitChannelInfo(): Promise<GitChannelInfoReply> {
   requireTauri()
   return await invokeIpc<GitChannelInfoReply>('git_channel_info')
 }
+
+/**
+ * git_channel_ipc.rs `DiffReply` 的 TS 投影(snake_case 原样)。三态语义与 StatusReply
+ * 同族:`facts` 时 text 装差异正文(verdict=clean|dirty),`undetermined`/`command_failed`
+ * 时 text 恒空、原因在 reason —— **取不到差异 ≠ 无差异**,渲染侧必须按 state 分格。
+ */
+export interface GitWorkspaceDiffReply {
+  state: 'facts' | 'command_failed' | 'undetermined'
+  /** facts:clean|dirty;command_failed:exit=<code|none>;undetermined:失明名 */
+  verdict: string
+  reason: string
+  /** 本次请求的 pathscope(""=整个授权根);仅 facts 分支有意义 */
+  scope: string
+  staged: boolean
+  /** 差异正文(超 262144 字节时宿主判 Budget,不会整段塞过来) */
+  text: string
+  total_bytes: number
+}
+
+/**
+ * git_channel_ipc.rs `IndexEntryWire` 的 TS 投影。注意 `mtime_ms` 在 Rust 是 u128,
+ * serde_json 出来是 number;JS 侧仅作透传回传,不做算术,精度无虞(毫秒时间戳 < 2^53)。
+ */
+export interface WorkspaceIndexEntry {
+  rel: string
+  size: number
+  mtime_ms: number
+}
+
+/** 与 Rust `DeltaWire` 对齐;basis 声明判定基准(文件名+大小+mtime),前端不得暗示内容级。 */
+export interface WorkspaceIndexDelta {
+  basis: string
+  added: string[]
+  removed: string[]
+  changed: string[]
+  unchanged: number
+}
+
+/** 与 Rust `IndexReply` 对齐;delta 只在传了 previous 时非空。 */
+export interface WorkspaceIndexReply {
+  state: 'facts' | 'undetermined'
+  reason: string
+  root: string
+  total: number
+  entries: WorkspaceIndexEntry[]
+  symlink_dirs_skipped: number
+  non_utf8_skipped: number
+  delta: WorkspaceIndexDelta | null
+}
+
+/**
+ * 取已授权根的 git 差异(默认整个根;传 path 收窄到单路径,传 staged 取暂存区)。
+ * 未授权时宿主回 undetermined,不抛错。
+ */
+export async function gitWorkspaceDiff(
+  scope?: string,
+  staged?: boolean,
+): Promise<GitWorkspaceDiffReply> {
+  requireTauri()
+  return await invokeIpc<GitWorkspaceDiffReply>('git_workspace_diff', {
+    scope: scope ?? null,
+    staged: staged ?? null,
+  })
+}
+
+/**
+ * 扫描已授权根的文件索引(链接目录含 junction 不下降)。传 previous(上一次 facts 的
+ * entries)可得 delta;previous 由前端持有 —— 宿主刻意不存会话态。
+ */
+export async function workspaceIndexScan(
+  previous?: WorkspaceIndexEntry[],
+): Promise<WorkspaceIndexReply> {
+  requireTauri()
+  return await invokeIpc<WorkspaceIndexReply>('workspace_index_scan', {
+    previous: previous ?? null,
+  })
+}
 // ================== 签到助手本地通道(2026-10-09 WP-C 立) ==================
 // 对齐参考项目(Trae-workbuddyAssistant)的桌面专属能力:本机 JWT 捕获 / 设备重置 / 快照管理。
 // Rust 侧实现在 apps/desktop/src-tauri/src/checkin_capture.rs,字段名 serde snake_case 原样投影。
