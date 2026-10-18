@@ -19,6 +19,7 @@ import {
   useWindowDimensions,
   type ImageSourcePropType,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 // 分享图兜底资源(require 写法对齐项目惯例,如 BusinessLicenseScreen)
@@ -72,6 +73,7 @@ import { useAppFrameWidth } from '../components/Carousel'
 // 对齐 Uniapp user/index.vue 行 8 <FloatBox />:悬浮导航(赚米/客服/反馈),补齐 ProfileScreen
 // 底部导航(对齐原 customTabBar 5 主 Tab,ProfileScreen 对应「我的」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
+import { tabBarScrollReserve } from '../components/TabBar.styles'
 import { UserCard, type UserCardKey } from '../components/UserCard'
 import UserInfoCard from '../components/UserInfoCard'
 import {
@@ -180,6 +182,8 @@ export function ProfileScreen() {
   const rootNav = navigation.getParent<RootNav>()
   const { user, logout, ready } = useAuth()
   const { resolvedTheme } = useTheme()
+  // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
+  const insets = useSafeAreaInsets()
   // 返回顶部按钮(对齐 Uniapp user/index.vue toodown:滚动超过阈值显示,点击回顶)
   const [showBackToTop, setShowBackToTop] = useState(false)
   const profileScrollRef = useRef<ScrollView>(null)
@@ -540,7 +544,10 @@ export function ProfileScreen() {
       <ScrollView
         ref={profileScrollRef}
         style={styles.screenScroll}
-        contentContainerStyle={styles.screenScrollContent}
+        contentContainerStyle={[
+          styles.screenScrollContent,
+          { paddingBottom: tabBarScrollReserve(insets.bottom) },
+        ]}
         showsVerticalScrollIndicator={false}
         onScroll={handleProfileScroll}
         scrollEventThrottle={16}
