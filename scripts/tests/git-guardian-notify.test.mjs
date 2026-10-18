@@ -550,6 +550,28 @@ test('auditDeployStall 三态:ok 不寄 / fail 寄且身份=类别×持续档 / 
   assert.equal(stallHarness('这不是 JSON', { status: 1 }).calls.length, 0, '读数不可解析 ⇒ 未判定')
 })
 
+// 立因(2026-10-18 改完当场):日志两支都写"已派发到邮件通道",而 notifyGuardRed 压住时也走到这一行
+// ⇒ "这一轮到底多寄了没有"在读日志的人眼里永远是"寄了"。修完的验收只能靠这条区分。
+test('停摆的日志分得出"真寄了"与"窗口内压住"(成对夹具)', () => {
+  const mk = (ret) => {
+    const lines = []
+    const h = stallHarness(stallPayload())
+    const one = N.auditDeployStall({
+      now: Date.parse('2026-10-17T04:00:00.000Z'),
+      intervalMs: 1,
+      tickFile: join(h.dir, 't2.ts'),
+      firstFile: join(h.dir, 'f2.json'),
+      logger: (s) => lines.push(String(s)),
+      notify: () => ret,
+      runner: () => ({ status: 0, stdout: JSON.stringify(stallPayload()), stderr: '', killed: false }),
+    })
+    void one
+    return lines.join('\n')
+  }
+  assert.match(mk({ sent: true }), /已派发到邮件通道/, '真投递必须写派发')
+  assert.doesNotMatch(mk({ sent: false, suppressed: true }), /已派发到邮件通道/, '压住却写"已派发"= 读不出这一轮有没有多寄一封')
+  assert.match(mk({ sent: false, suppressed: true }), /窗口内已通报,本轮压住/)
+})
 // 立因(2026-10-18 现读):当天 28 封里 18 封是同一场停摆 —— 身份写的是 `tip 前缀 + 最近一次成功
 // 部署时刻`,而这台机当日 361 枚提交推进 origin/main,成功时刻又被尺子读成环每 60 秒写的攒批节流行
 // (见 check-credential-health T19)⇒ 每量一轮都是"新故障",4 小时窗从没生效过。
