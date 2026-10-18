@@ -68,8 +68,11 @@ export function ImageGenCreateScreen() {
       })
       if (!res.success || !res.data?.imageUrl) throw new Error(res.error)
       setResult(res.data)
-    } catch {
-      Alert.alert(t('imageGen.genFailed'))
+    } catch (e) {
+      // 503「图像生成能力未接通」的服务端 message 经 fetchApi 取 body.message 优先透出,
+      // 这里原样上屏(机主 2026-10-18 拍板「显式报未接通」);旧写法把原因静默吞成通用文案,
+      // 用户分不清「参数错/未接通/网络断」。取不到才回退通用文案。
+      Alert.alert(e instanceof Error && e.message ? e.message : t('imageGen.genFailed'))
     } finally {
       setGenerating(false)
     }
@@ -105,7 +108,11 @@ export function ImageGenCreateScreen() {
   return (
     <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
       <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-        <BackChevron onPress={() => navigation.goBack()} label={t('common.back')} colorScheme={resolvedTheme} />
+        <BackChevron
+          onPress={() => navigation.goBack()}
+          label={t('common.back')}
+          colorScheme={resolvedTheme}
+        />
         <Text className="text-base font-medium">{t('imageGen.createTitle')}</Text>
         <View className="w-8" />
       </View>
