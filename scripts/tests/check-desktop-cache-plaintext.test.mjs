@@ -37,11 +37,54 @@ test('判据1-常量确从 local-vault.ts 源码解析,且随源漂移(无第二
   assert.throws(() => gate.parseVaultConstants('const X = 1'), /解析失败/)
 })
 
-test('persist 键名从 chat.ts / goal.ts 源码解析', () => {
-  assert.match(gate.parsePersistKey(read('apps/web/src/stores/chat.ts')), /^ihui-/)
-  assert.match(gate.parsePersistKey(read('apps/web/src/stores/goal.ts')), /^ihui-/)
-  assert.throws(() => gate.parsePersistKey('no name here'), /解析失败/)
+test('persist 键名解析:旧 name 行与工厂默认参数两形都认,取不到落未判定(构造面变异自证)', () => {
+  // —— 构造面(§0.3 三档纪律 + 尺子有牙,不靠仓库瞬时状态)——
+  assert.equal(
+    gate.parsePersistKey(`const s = persist(create(), { name: 'ihui-chat', storage })`),
+    'ihui-chat',
+    '旧形态文本喂进去必须仍能解析(变异对照:解析式被改烂时这一条先红)',
+  )
+  assert.equal(
+    gate.parsePersistKey(`export function createChatStore(persistName: string = 'ihui-chat') {`),
+    'ihui-chat',
+    '新形态(chat.ts 2026-10-18 工厂化,默认参数)必须解析得到',
+  )
+  assert.equal(gate.parsePersistKey('no name here'), null, '两形都取不到 ⇒ null(点名"未判定"档),不得抛')
+  assert.equal(gate.parsePersistKey(`export function makeStore(persistName: string = 'not-ihui-prefixed') {`), null)
+  // —— 真仓面(chat.ts=新形态 / goal.ts=旧形态,两形各占一席位)——
+  assert.equal(gate.parsePersistKey(read('apps/web/src/stores/chat.ts')), 'ihui-chat')
+  assert.equal(gate.parsePersistKey(read('apps/web/src/stores/goal.ts')), 'ihui-goal')
   assert.ok(gate.parseAppIdentifier(read('apps/desktop/src-tauri/tauri.conf.json')).includes('.'))
+})
+
+test('G-921:dev 标识(com.ihui.desktop.dev)并入巡检面;面缺失/空只记未判定,绝不记违规', () => {
+  const prod = gate.parseAppIdentifier(read('apps/desktop/src-tauri/tauri.conf.json'))
+  const dev = gate.parseAppIdentifier(read('apps/desktop/src-tauri/tauri.dev.json'))
+  assert.equal(dev, 'com.ihui.desktop.dev', 'dev 标识唯一取源 = tauri.dev.json(与 desktop-dev-saas 同源)')
+  assert.notEqual(dev, prod, 'dev 与生产同值 ⇒ G-921 隔离失效,本断言必须咬住分叉')
+  // —— 聚合判据的构造面(aggregateFaces 是 runInspection 用的同一份实现,§22c 零复制)——
+  const cleanFace = { kind: 'scanned', identifier: prod, fileCount: 2, violations: [] }
+  // ① prod 面干净 + dev 目录不存在 ⇒ 整体未判定且点名 dev,**零违规**
+  const a1 = gate.aggregateFaces([cleanFace, { kind: 'missing', identifier: dev, viaLocal: 'L/' + dev, viaRoam: 'R/' + dev }])
+  assert.equal(a1.status, 'undetermined')
+  assert.deepEqual(a1.violations, [], '目录不存在被判成违规?')
+  assert.ok(a1.unjudged.some((r) => r.includes(dev) && /不存在/.test(r)), `未判定面没点名 dev: ${a1.unjudged}`)
+  // ② dev 面存在但空(本机实测:空 junction)⇒ 同样只落未判定
+  const a2 = gate.aggregateFaces([cleanFace, { kind: 'empty', identifier: dev }])
+  assert.equal(a2.status, 'undetermined')
+  assert.deepEqual(a2.violations, [])
+  // ③ 两面都在且扫过、零违规 ⇒ clean(证明"未判定"不是恒真的兜底)
+  assert.equal(gate.aggregateFaces([cleanFace, { kind: 'scanned', identifier: dev, fileCount: 1, violations: [] }]).status, 'clean')
+  // ④ 真违规优先级最高:dev 缺失只进未判定清单,不混进 violations
+  const a4 = gate.aggregateFaces(
+    [{ kind: 'scanned', identifier: prod, fileCount: 1, violations: ['明文 persist 记录: ihui-chat @ x.log'] }, { kind: 'missing', identifier: dev }],
+  )
+  assert.equal(a4.status, 'violations')
+  assert.ok(a4.violations.every((v) => !/不存在/.test(v)))
+  // ⑤ persist 键名两形都解析不到 ⇒ 以 extraUnjudged 并入 ⇒ 整体未判定,绝不记 clean
+  const a5 = gate.aggregateFaces([cleanFace], ["persist 键名解析失败,该面未判定: apps/web/src/stores/chat.ts"])
+  assert.equal(a5.status, 'undetermined')
+  assert.equal(a5.violations.length, 0)
 })
 
 test('判据0-阳性对照:明文形态可扫、信封形态不可扫(核心尺子)', () => {
