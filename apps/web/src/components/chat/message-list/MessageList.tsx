@@ -25,6 +25,9 @@ import { ScrollJumpButtons } from './scroll-jump-buttons'
 import { DetailModeSwitcher } from './detail-mode-switcher'
 import { applyConversationDetailMode } from './detail-mode-filter'
 import { useConversationDetailModeStore } from '@/stores/conversation-detail-mode'
+// 票64(2026-10-18 立):版本族读投影 —— regenerate/edit 的多版本 sibling
+// 只渲染激活版本,否则"点一次编辑出两个气泡"(纯函数在 @/lib/message-version-family)。
+import { projectActiveMessages } from '@/lib/message-version-family'
 import { useFocusArtifactScroll } from '@/components/media/artifact-turn-badge'
 import { AmbientSuggestions } from '@/components/ai/ambient-suggestions'
 import { CanvasOverlay } from '@/components/chat/canvas-overlay'
@@ -131,7 +134,7 @@ export function MessageList({
   // 'steps' 直通,零行为变化;'commands'/'narrative' 返回过滤拷贝。
   const detailMode = useConversationDetailModeStore((s) => s.mode)
   const visibleMessages = React.useMemo(
-    () => applyConversationDetailMode(messages, detailMode),
+    () => applyConversationDetailMode(projectActiveMessages(messages), detailMode),
     [messages, detailMode],
   )
 

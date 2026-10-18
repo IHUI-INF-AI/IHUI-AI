@@ -10,6 +10,7 @@ import {
   Keyboard,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -1698,6 +1699,9 @@ export function HomeScreen() {
         ]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
+        }
       >
         {/* BottomFigure 轮播(2026-10-15 用户定稿:轮播图置顶;数据源 GET /api/carousels?position=home,
             运营数据为空/接口失败时回退组件内置本地默认图) */}
@@ -1762,6 +1766,9 @@ export function HomeScreen() {
         </View>
         <SharedHomeScreen
           t={t}
+          // 嵌入宿主滚动树(G-194):共享层不再自建 ScrollView,滚动/下拉刷新由本页承担 ——
+          // 双层 ScrollView 在 Android 上吞竖向手势且异步内容不触发宿主重测量(首页滚不动)
+          embedded
           userNickname={user?.nickname || user?.phone || ''}
           connected={connected}
           unreadCount={unreadCount}

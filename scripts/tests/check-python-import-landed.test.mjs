@@ -270,7 +270,7 @@ test('T4 端到端双向锁:注入未入库模块必红并点名,补齐文件后
     const gatePath = join(repo, 'scripts', 'check-python-import-landed.mjs')
     copyScriptClosure(GATE, gatePath)
     const run = () =>
-      spawnSync(process.execPath, [gatePath, '--worktree'], {
+      spawnSync(process.execPath, [gatePath, '--worktree'], { stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf8',
         timeout: 180000,
         cwd: repo,
@@ -304,7 +304,7 @@ test('T4 端到端双向锁:注入未入库模块必红并点名,补齐文件后
 })
 
 test('T5 --staged 本次无 ai-service 的 .py 时必须回退 HEAD 全量且 rc=0', () => {
-  const r = spawnSync(process.execPath, [GATE, '--staged'], {
+  const r = spawnSync(process.execPath, [GATE, '--staged'], { stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     timeout: 300000,
     windowsHide: true,
@@ -323,7 +323,7 @@ test('T5 --staged 本次无 ai-service 的 .py 时必须回退 HEAD 全量且 rc
 })
 
 test('T6 覆盖面自证:HEAD 全量必须真扫到成百个 .py,扫到 0 不记通过', () => {
-  const r = spawnSync(process.execPath, [GATE, '--json'], {
+  const r = spawnSync(process.execPath, [GATE, '--json'], { stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     timeout: 300000,
     windowsHide: true,

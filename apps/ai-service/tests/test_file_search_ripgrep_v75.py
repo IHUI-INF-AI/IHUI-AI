@@ -294,6 +294,28 @@ def _repo_root() -> Path | None:
     return None
 
 
+def _under_reparse_dir(root: Path, rel_posix: str) -> bool:
+    """路径的任一**祖先目录组件**是 reparse point(symlink 目录或 junction)。
+
+    rg 不加 `--follow` 不穿入这类目录,而旧 os.walk(followlinks=False) 只挡 symlink、
+    挡不住 junction(`os.path.islink` 对 junction 判 False)⇒ 差集里"旧通道独有"的
+    这一批按语义放行,不按前缀硬编码。与生产侧 `rg_fallback_parity._is_reparse_dir`
+    的判定本体同源(islink/isjunction 两个系统调用),不在测试里另立判据。
+    """
+    parts = rel_posix.split("/")
+    for i in range(1, len(parts)):
+        p = os.path.join(str(root), *parts[:i])
+        try:
+            if os.path.islink(p):
+                return True
+            isjunction = getattr(os.path, "isjunction", None)
+            if isjunction and isjunction(p):
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def _tracked_code_files(root: Path) -> set[str]:
     """被 git **跟踪**、且命中本索引白名单、且不在忽略目录里的路径集合。
 
@@ -329,9 +351,13 @@ def test_real_repo_enumeration_is_faster_than_serial_walk() -> None:
     """在真 monorepo 上给出前(串行 os.walk)/后(ripgrep)两组读数并断言更快。
 
     三条口径如实交代:
-    - 差集只允许落在 `.ihui-agent/**`(并行代理的在飞临时物)与**符号链接文件**
+    - 差集只允许落在 `.ihui-agent/**`(并行代理的在飞临时物)、**符号链接文件**
       (rg 默认不收链接文件,而 os.walk 会列它;`--follow` 会带来 §26 的递归穿透风险,
-      刻意不加)。任何落在此之外的分叉都算两通道不一致。
+      刻意不加)与 **junction/reparse 目录之下的路径**(同一族 Windows 形态:
+      `.DevEnv/cache/userhome/.../latest` 实测根源 —— `latest` 组件是 junction,
+      rg 不穿入而旧 os.walk 会列;判定走 `_under_reparse_dir` 的语义判据,
+      不按前缀硬编码,环境里新长出的 junction 树不再把对账判红)。
+      任何落在此之外的分叉都算两通道不一致。
     - 耗时是共享机器上的量测,有其他代理在飞写入会抖;断言用"rg 严格快于串行",
       不钉绝对秒数 —— 绝对数写进交付报告,不写进判据(否则下次机器一慢就恒红)。
     - **规模断言与仓库状态解耦**:断的是"跟踪的代码文件全覆盖 + 没被内部上限截断",
@@ -367,7 +393,9 @@ def test_real_repo_enumeration_is_faster_than_serial_walk() -> None:
     for p in divergent:
         in_agent_tmp = p.startswith(".ihui-agent/")
         is_link = os.path.islink(os.path.join(str(root), p.replace("/", os.sep)))
-        assert in_agent_tmp or is_link, f"两通道在非在飞/非链接路径上分叉: {p}"
+        assert in_agent_tmp or is_link or _under_reparse_dir(root, p), (
+            f"两通道在非在飞/非链接/非junction路径上分叉: {p}"
+        )
     print(
         f"[V75] files={len(rg_paths)} (legacy {len(legacy)}; tracked-code {len(tracked)}) "
         f"ripgrep={rg_elapsed:.3f}s serial={serial_elapsed:.3f}s "

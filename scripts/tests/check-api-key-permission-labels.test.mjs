@@ -22,10 +22,10 @@ const ROOT = resolve(HERE, '..', '..')
 const SCRIPT = join(ROOT, 'scripts', 'check-api-key-permission-labels.mjs')
 const stdio = ['ignore', 'pipe', 'pipe']
 
-const run = (args = []) => spawnSync(process.execPath, [SCRIPT, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024, stdio })
+const run = (args = []) => spawnSync(process.execPath, [SCRIPT, ...args], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024, stdio })
 
 test('装车证明:注册条目是 blocking + skipEnv + 只在输入面触发(读 HEAD 面 runner)', () => {
-  const head = spawnSync('git', ['show', 'HEAD:scripts/guardian-runner.mjs'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024, stdio }).stdout
+  const head = spawnSync('git', ['show', 'HEAD:scripts/guardian-runner.mjs'], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024, stdio }).stdout
   const i = head.indexOf("'check-api-key-permission-labels.mjs'")
   assert.ok(i > -1, '门体未接进提交链注册表')
   const block = head.slice(Math.max(0, i - 500), i + 900)

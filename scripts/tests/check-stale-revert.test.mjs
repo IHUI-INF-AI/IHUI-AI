@@ -673,7 +673,7 @@ test('探针索引端到端:混合体只进私有 GIT_INDEX_FILE ⇒ --staged �
     return e
   }
   const gitMain = (args) =>
-    execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...args], { stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,
       encoding: 'utf8',
       windowsHide: true,
@@ -682,7 +682,7 @@ test('探针索引端到端:混合体只进私有 GIT_INDEX_FILE ⇒ --staged �
     }).trim()
   const mainIdxBefore = gitMain(['ls-files', '-s', '--', 'locale.json'])
   const gitWith = (args, opts = {}) =>
-    execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...args], { stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,
       encoding: 'utf8',
       windowsHide: true,

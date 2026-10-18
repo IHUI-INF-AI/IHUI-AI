@@ -467,6 +467,11 @@ function collectPythonParityFacts(reasons) {
     {
       cwd: resolve(ROOT, 'apps/ai-service'),
       encoding: 'utf8',
+      // 上面那句 print(..., ensure_ascii=False) 是**故意**原样输出非 ASCII 的,而 python 子进程
+      // 不传 env 时继承控制台码页(本机 GBK)⇒ 一旦某个 host/URL 含中文或 Python 抛 traceback,
+      // stdout 就 gbk UnicodeEncodeError、非零退出,本门在那台机上静默全盲。
+      // 先例:check-bpe-encoding-parity / check-principal-consumed / check-load-state-loaded-marks。
+      env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
       timeout: 120_000,
       stdio: ['ignore', 'pipe', 'pipe'],
     },

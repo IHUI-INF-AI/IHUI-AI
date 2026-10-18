@@ -32,11 +32,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ as GATE, TABLE_REL, CLIENT_REL, readFaceInputs } from '../check-lsp-language-table.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -234,9 +235,13 @@ test('T6 棘轮双向锁(临时迷你仓):存量 --staged 不判红、新增必�
   try {
     // 1) 把门与它的最小依赖面(rep 根由脚本自身位置推导 ⇒ 拷进临时仓即换根)落位
     mkdirSync(join(dir, 'scripts', 'lib'), { recursive: true })
-    copyFileSync(GATE_PATH, join(dir, 'scripts', 'check-lsp-language-table.mjs'))
-    copyFileSync(join(ROOT, 'scripts', 'lib', 'face-reader.mjs'), join(dir, 'scripts', 'lib', 'face-reader.mjs'))
-    copyFileSync(join(ROOT, 'scripts', 'lib', 'gitdir.mjs'), join(dir, 'scripts', 'lib', 'gitdir.mjs'))
+    // 演练仓的文件集由**导入闭包**算,不再手工列清单:上一版手抄了 gate + face-reader + gitdir 三跳,
+    // 而 gitdir 自己又 import scratch-dir ⇒ 门体加一跳就 ERR_MODULE_NOT_FOUND(2026-10-16 现读),
+    // 且下一次加依赖还会再红。正牌出口自带反向哨兵(expect 少一跳当场抛)。
+    copyScriptWithClosure(join(ROOT, 'scripts'), 'check-lsp-language-table.mjs', join(dir, 'scripts'), [
+      'lib/face-reader.mjs',
+      'lib/gitdir.mjs',
+    ])
     // 2) 夹具:一张自洽语言表 + 完整投影的客户端 + **一条已入库的 T4 存量**
     const write = (rel, body) => {
       const abs = join(dir, rel)

@@ -493,7 +493,7 @@ function r5Prefilter(fromHead) {
       const out = execFileSync(
         'git',
         ['-c', 'safe.directory=*', 'grep', '-l', '-I', '-e', pat, ...revArgs, ...paths],
-        {
+        { stdio: ['ignore', 'pipe', 'pipe'],
           cwd: ROOT,
           encoding: 'utf8',
           maxBuffer: 1 << 26,
@@ -595,7 +595,7 @@ function r8Prefilter(fromHead) {
         '--',
         ...R8_DIRS,
       ],
-      { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 30000 },
+      { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 30000 },
     )
     return out
       .split('\n')

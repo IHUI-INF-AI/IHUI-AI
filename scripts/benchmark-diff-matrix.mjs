@@ -338,7 +338,7 @@ export function buildPerClass(inputs = {}) {
 
 function headStamp() {
   try {
-    return execFileSync('git', ['rev-parse', '--short=10', 'HEAD'], { encoding: 'utf8', windowsHide: true }).trim()
+    return execFileSync('git', ['rev-parse', '--short=10', 'HEAD'], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true }).trim()
   } catch {
     return 'unknown'
   }

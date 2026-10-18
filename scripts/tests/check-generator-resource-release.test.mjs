@@ -145,4 +145,21 @@ test('T9 §22d 守卫在位且 export 顺序合规', () => {
   assert.ok(exportAt > guardAt, '__test__ 的 export 必须在 if (isDirectRun) 之后(§22d)')
   assert.match(gateSrc, /pathToFileURL\(process\.argv\[1\]\)\.href/, '必须经 pathToFileURL 归一(Windows 反斜杠)')
 })
+
+/** T10 G-77 残余面②:消费点归因**按定义,不按裸名** —— 成对正反例(M1:只 import 判据,不抄第二份) */
+test('T10 归因按定义:同名定义行/文档提及不成消费点,站点行号对齐真行', () => {
+  const src = 'async def g():\n    await pool.acquire()\n    yield 1\n'
+  const fn = X.scanPythonFile('b.py', src).find((f) => f.name === 'g')
+  const consOf = (text) => X.findConsumers(fn, new Map([['c.py', text]]))
+  // ① 同族兄弟的同名定义行是它自己的定义,不是 fn 的消费者(实测 token6688:251 的 def 行曾被当消费点)
+  assert.equal(consOf('class P:\n    async def g(\n        self,\n    ):\n        yield 1\n').length, 0)
+  // ② docstring/注释里的名字提及不是消费点(枚举必须走判据面;实测 llama_cpp:12/ollama:13 是文档行)
+  assert.equal(consOf('"""use g() for streaming"""\n# also g()\n').length, 0)
+  // ③ 站点行号 = 真实行号:窗口起点与 classifySites 的 startIdx 对齐,不把邻行报成站点
+  const rows = consOf('async def c9():\n    it = (\n        g()\n    )\n')
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].outcome.sites[0]?.line, 3, `站点应报真实行 3,实得 ${rows[0].outcome.sites[0]?.line}`)
+  // 反向锁:真消费语句仍必须被找到 —— 归因收窄不得把门做瞎
+  assert.equal(consOf('async def c1():\n    async for x in g():\n        use(x)\n').length, 1)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
