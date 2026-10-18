@@ -5247,7 +5247,7 @@ export async function postSessionGoal(
   const aiServiceUrl = aiServiceBaseUrl()
   let resp: Response
   try {
-    resp = await fetch(`${aiServiceUrl}/llm/sessions/${sessionId}/goal`, {
+    resp = await fetch(`${aiServiceUrl}/api/llm/sessions/${sessionId}/goal`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -5298,7 +5298,17 @@ export async function postSessionGoal(
   }
 }
 
-/** 票 77:My Quests 看板的服务端聚合行(GET /sessions/goals)。 */
+/** 票 77:My Quests 看板的服务端聚合行(GET /api/sessions/goals)。 */
+export interface MyGoalAssessment {
+  id: string
+  /** epoch 毫秒(引擎侧写入;与线程行的 createdAt/updatedAt 秒不同单位) */
+  at: number
+  status: string
+  progress: number
+  summary: string
+  source: 'engine'
+}
+
 export interface MyGoalRow {
   threadId: string
   /** 引擎线程 metadata.conversationId;缺省 '' = 该线程没记会话 id,端内不猜 */
@@ -5315,6 +5325,24 @@ export interface MyGoalRow {
     tokenUsage?: number
     updatedAt?: number
   }
+  /**
+   * 引擎侧自评估轨迹(票77 goal-verify 回灌)。
+   * 缺省容忍:滚动升级期旧服务不返回此字段 ⇒ 端内按空轨迹处理(不伪造条目)。
+   */
+  assessments?: MyGoalAssessment[]
+}
+
+function isMyGoalAssessment(value: unknown): value is MyGoalAssessment {
+  if (!value || typeof value !== 'object') return false
+  const a = value as Record<string, unknown>
+  return (
+    typeof a.id === 'string' &&
+    typeof a.at === 'number' &&
+    typeof a.status === 'string' &&
+    typeof a.progress === 'number' &&
+    typeof a.summary === 'string' &&
+    a.source === 'engine'
+  )
 }
 
 function isMyGoalRow(value: unknown): value is MyGoalRow {
@@ -5323,6 +5351,9 @@ function isMyGoalRow(value: unknown): value is MyGoalRow {
   const goal = row.goal
   if (!goal || typeof goal !== 'object') return false
   const g = goal as Record<string, unknown>
+  if (row.assessments !== undefined) {
+    if (!Array.isArray(row.assessments) || !row.assessments.every(isMyGoalAssessment)) return false
+  }
   return (
     typeof row.threadId === 'string' &&
     typeof row.sessionId === 'string' &&
@@ -5338,7 +5369,7 @@ function isMyGoalRow(value: unknown): value is MyGoalRow {
 /**
  * 票 77(2026-10-18):跨会话目标聚合(My Quests 跨 workspace 全局看板数据源)。
  *
- * GET /sessions/goals —— **归属由服务端按令牌主体过滤**,客户端不自报 userId
+ * GET /api/sessions/goals —— **归属由服务端按令牌主体过滤**,客户端不自报 userId
  * (与 postSessionGoal 同一条「认证不等于授权」判序)。
  *
  * 失败必抛:静默吞掉会让看板停在空列表,读起来像"我真的没有目标",
@@ -5349,7 +5380,7 @@ export async function listMyGoals(limit = 100): Promise<MyGoalRow[]> {
   const aiServiceUrl = aiServiceBaseUrl()
   let resp: Response
   try {
-    resp = await fetch(`${aiServiceUrl}/sessions/goals?limit=${encodeURIComponent(String(limit))}`)
+    resp = await fetch(`${aiServiceUrl}/api/sessions/goals?limit=${encodeURIComponent(String(limit))}`)
   } catch (e) {
     throw new Error(`listMyGoals network error: ${(e as Error).message}`)
   }
