@@ -50,33 +50,62 @@ function saveSecretArtifact(name, obj) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-async function waitPastCloudflare(page, maxMs = 90000) {
+async function waitPastCloudflare(page, maxMs = 150000) {
   const t0 = Date.now()
+  let clicked = 0
   while (Date.now() - t0 < maxMs) {
     const title = await page.title().catch(() => '')
-    if (!/just a moment|请稍候|attention required/i.test(title)) return true
-    // Turnstile 勾选框(有头无头都试一次)
+    if (!/just a moment|请稍候|performing security|attention required/i.test(title)) return true
+    // 1) iframe 内选择器点击(Turnstile 自绘控件,勾选框是 label 不是 input)
     for (const fr of page.frames()) {
       if (fr.url().includes('challenges.cloudflare')) {
-        try {
-          const cb = fr.locator('input[type="checkbox"]')
-          if ((await cb.count()) && (await cb.first().isVisible())) {
-            await cb.first().click({ timeout: 2000 })
-          }
-        } catch {}
+        for (const sel of ['.ctp-checkbox-label', 'label.ctp-checkbox-label', '#challenge-stage', 'body']) {
+          try {
+            const loc = fr.locator(sel).first()
+            if (await loc.isVisible({ timeout: 800 })) {
+              const box = await loc.boundingBox()
+              if (box && clicked < 12) {
+                // iframe 内坐标 → 页面坐标由 playwright 处理(frame.click 语义)
+                await fr.locator(sel).first().click({ timeout: 2000, force: true })
+                clicked++
+                console.log(`CF-CLICK frame sel=${sel} round=${clicked}`)
+                break
+              }
+            }
+          } catch {}
+        }
       }
     }
-    await sleep(4000)
+    // 2) 页面级坐标兜底(截实证:勾选框在视口 ~16.5%,39.2% 处)
+    if (clicked < 12) {
+      const vp = page.viewportSize()
+      const cx = Math.round(vp.width * 0.165)
+      const cy = Math.round(vp.height * 0.392)
+      try {
+        await page.mouse.move(cx - 10, cy - 6)
+        await page.mouse.click(cx, cy)
+        clicked++
+        console.log(`CF-CLICK viewport(${cx},${cy}) round=${clicked}`)
+      } catch {}
+    }
+    await sleep(5000)
   }
   return false
 }
 
 async function launch() {
-  const browser = await chromium.launch({ headless: true })
+  const headed = process.env.UNDER_XVFB === '1'
+  const browser = await chromium.launch({
+    headless: !headed,
+    args: ['--disable-blink-features=AutomationControlled', '--no-sandbox'],
+  })
   const ctx = await browser.newContext({
     viewport: { width: 1280, height: 860 },
     locale: 'en-US',
     timezoneId: 'Asia/Shanghai',
+  })
+  await ctx.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined })
   })
   const page = await ctx.newPage()
   return { browser, ctx, page }

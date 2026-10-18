@@ -42,10 +42,11 @@ jobs:
           npm init -y >/dev/null 2>&1 || true
           npm i playwright@1.49.1 --no-fund --no-audit
           npx playwright install chromium --with-deps
-      - name: Run browser automation
+      - name: Run browser automation (xvfb headed)
         run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb >/dev/null
           cd .github/scripts
-          node npm-bootstrap-runner.mjs
+          UNDER_XVFB=1 xvfb-run -a -s "-screen 0 1280x860x24" node npm-bootstrap-runner.mjs
       - name: Upload evidence + encrypted secrets
         if: always()
         uses: actions/upload-artifact@v4
