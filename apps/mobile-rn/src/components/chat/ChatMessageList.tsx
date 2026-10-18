@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
   },
-  msgTextUser: {
+  msgBubbleUserText: {
     color: tokens.brand.ctaForeground,
   },
   msgTextAi: {
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   },
   codeBlockLang: {
     fontSize: 11,
-    color: '#9cdcfe',
+    color: tokens.gray['200'],
     fontWeight: '600',
     flexShrink: 1,
     marginRight: 8,
@@ -572,7 +572,7 @@ export function ChatMessageItem({
                 return (
                   <Text
                     key={`${item.id}-text-${segIndex}`}
-                    style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}
+                    style={[styles.msgText, isUser ? styles.msgBubbleUserText : styles.msgTextAi]}
                   >
                     {seg.text}
                   </Text>
@@ -584,7 +584,7 @@ export function ChatMessageItem({
                     part.kind === 'text' ? (
                       <Text
                         key={`${item.id}-text-${segIndex}-${partIndex}`}
-                        style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}
+                        style={[styles.msgText, isUser ? styles.msgBubbleUserText : styles.msgTextAi]}
                       >
                         {part.text}
                       </Text>
@@ -593,7 +593,7 @@ export function ChatMessageItem({
                         key={`${item.id}-anchor-${segIndex}-${partIndex}`}
                         anchor={part.anchor}
                         isUser={isUser}
-                        textStyle={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}
+                        textStyle={[styles.msgText, isUser ? styles.msgBubbleUserText : styles.msgTextAi]}
                         onActionAnchor={onActionAnchor}
                       />
                     ),
@@ -602,7 +602,7 @@ export function ChatMessageItem({
               )
             })}
           {!isFailed && segments.length === 0 ? (
-            <Text style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}>
+            <Text style={[styles.msgText, isUser ? styles.msgBubbleUserText : styles.msgTextAi]}>
               {item.content || (isStreaming && !isUser ? '正在思考…' : item.content)}
             </Text>
           ) : null}
