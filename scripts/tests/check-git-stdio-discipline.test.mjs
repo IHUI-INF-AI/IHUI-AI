@@ -21,16 +21,20 @@ import { test } from 'node:test'
 
 import {
   EXEMPTIONS_FILE,
+  INPUT_PROP,
   SCAN_ROOTS,
   SELF_EXEMPT,
   STDIO_PROP,
   callSpan,
+  decideInput,
+  entryKeyValue,
   exemptedBy,
   evaluate,
   isGitLikeName,
   isSelfExempt,
   isSourceFile,
   isStringCommand,
+  judgeInputStdin,
   judgeSpan,
   listScoped,
   loadExemptions,
@@ -38,6 +42,9 @@ import {
   maskComments,
   scanSource,
   splitArgs,
+  stdinChannelOf,
+  ternaryBranches,
+  topLevelEntries,
   verdictText,
 } from '../check-git-stdio-discipline.mjs'
 
@@ -523,4 +530,194 @@ test('T14 CLI:self-test 全绿且例数 ≥5(票面下界),默认面 exit 1(存�
   assert.equal(code2, 2, `两面同给应 exit 2,实得 ${code2}`)
   assert.match(err, /无法判定/, '互斥面必须报「无法判定」')
 })
+
+// ── T17 第 3b 条那一维(input ↔ stdin 通道)成对用例 ────────────────────────────
+// 立因:主 agent 用 `spawnSync('git', ['hash-object','-w','--stdin'], { input: <1.67MB>,
+// stdio: ['ignore','pipe','pipe'] })` 构造 blob ⇒ git 读到空 stdin ⇒ **安静产出 0 字节空 blob**
+// 并返回一个"看着像 sha"的值,那份空 `pnpm-lock.yaml` 就这么进了 main。旧口径只判 `stdio`
+// 属性名在不在 ⇒ 这一处它判绿:**排除条款本身就是缺陷候选**("必须显式 stdio"放过了
+// "显式写了一个错的 stdio")。判据实现只在门体里有一份,本档 import 消费(§22c)。
+test('T17 第3b条成对用例:pipe 档合规 / ignore·inherit·标量非 pipe 判红 / execSync 位序也接住', () => {
+  const INC = `const r = spawnSync('git', ['hash-object', '-w', '--stdin'], { input: blob, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })`
+  const on = scanSource(INC)
+  assert.deepEqual(
+    on.inputBad.map((h) => h.got),
+    ['ignore'],
+    `事故原样必须判红并报出实际首元素:${JSON.stringify(on.inputBad)}`,
+  )
+  // 反向对照(证明不是恒红):同一处把首元素改成 pipe ⇒ 归零
+  const fixed = scanSource(INC.replace("['ignore', 'pipe', 'pipe']", "['pipe', 'pipe', 'pipe']"))
+  assert.equal(fixed.inputBad.length, 0, '补成 pipe 后仍判红 ⇒ 这一维是恒红门(§12e)')
+  assert.equal(fixed.misses.length, 0)
+  // inherit 与标量形态同病:stdin 不是 pipe(实测 10/10 拿不到内容或拿到空 blob)
+  for (const [v, got] of [
+    ["['inherit', 'pipe', 'pipe']", 'inherit'],
+    ["'ignore'", 'ignore'],
+    ["'inherit'", 'inherit'],
+  ]) {
+    const r = scanSource(
+      `const x = execFileSync('git', ['hash-object','--stdin'], { input: b, stdio: ${v} })`,
+    )
+    assert.equal(r.inputBad.length, 1, `stdio: ${v} 漏判`)
+    assert.equal(r.inputBad[0].got, got, `stdio: ${v} 未报出实际首元素`)
+  }
+  // 标量 pipe 合规(三通道皆 pipe)—— 别把正当写法判红
+  assert.equal(
+    scanSource(`const x = execFileSync('git', ['x'], { input: b, stdio: 'pipe' })`).inputBad.length,
+    0,
+  )
+  // execSync 的 options 在第 2 位:位序弄错,这一族就永远判不到
+  const es = scanSource(
+    `const x = execSync('git hash-object --stdin', { input: b, stdio: ['ignore', 'pipe', 'pipe'] })`,
+  )
+  assert.equal(es.inputBad.length, 1, `execSync 位序漏判:${JSON.stringify(es)}`)
+  // input 在场而顶层没配 stdio ⇒ 由"缺 stdio 属性名"那一维判红,本维不得重复报同一行
+  const onlyOld = scanSource(`const x = execFileSync('git', ['x'], { input: b, encoding: 'utf8' })`)
+  assert.equal(onlyOld.misses.length, 1, '旧维必须照红')
+  assert.equal(onlyOld.inputBad.length, 0, '同一行两处红会把修法指错方向')
+})
+
+// ── T18 第 3b 条:取值取不到 ⇒ 判不出(不记绿也不冒红)+ 形状锁 ──────────────────
+test('T18 第3b条:取值取不到归"判不出";摘掉新维(inputDim=false)反向用例应翻绿', () => {
+  const INC = `const r = spawnSync('git', ['hash-object','-w','--stdin'], { input: blob, stdio: ['ignore','pipe','pipe'] })`
+  // 形状锁(构造开关,不靠注释):新维关掉 ⇒ 这一处不判红 —— 证明红确实是这一维抓的,
+  // 而旧维单独对它**是瞎的**(misses 恒 0),这正是本票要补的那一格。
+  const off = scanSource(INC, { inputDim: false })
+  assert.equal(off.inputBad.length, 0, '开关不干净:关掉新维仍有 inputBad')
+  assert.equal(off.misses.length, 0, '旧维不该报这一行(它判的是属性名在不在)')
+  const on = scanSource(INC)
+  assert.equal(on.inputBad.length, 1, '开着新维却不判红 ⇒ 判据没接进 scanSource')
+  assert.equal(judgeSpan(callSpan(INC, INC.indexOf('(')), false).verdict, 'ok')
+  // 判不出族:简写 / 变量 / 成员 / 函数返回值 / 空数组 / 混合三元 ⇒ 一律不判红也不判绿
+  const und = [
+    `const r = execFileSync('git', ['x'], { cwd: R, stdio, input: opts.input })`,
+    `const r = execFileSync('git', ['x'], { input: b, stdio: STDIO_OPTS })`,
+    `const r = execFileSync('git', ['x'], { input: b, stdio: base.stdio })`,
+    `const r = execFileSync('git', ['x'], { input: b, stdio: mkStdio() })`,
+    `const r = execFileSync('git', ['x'], { input: b, stdio: [] })`,
+    `const r = execFileSync('git', ['x'], { input: b, stdio: input ? ['pipe','pipe','pipe'] : ['ignore','pipe','pipe'] })`,
+    `const r = execFileSync('git', ['x'], { input: b, ...base })`,
+  ]
+  for (const src of und) {
+    const r = scanSource(src)
+    assert.equal(r.inputBad.length, 0, `取不到取值却判红(误伤):${src}`)
+    assert.equal(r.inputUndetermined.length, 1, `未归入"判不出"且必须点名:${src}`)
+    // 旧维那一格不得被塞进新维的成因(两维各记各的账)
+    for (const m of r.misses) {
+      assert.ok(['noStdio', 'noOptions', 'viaCmd'].includes(m.verdict), `旧维格子被污染:${m.verdict}`)
+    }
+  }
+  // 两支皆 pipe 的三元必须算合规:否则正当写法长驻"判不出",那一格很快就没人看
+  const bothPipe = scanSource(
+    `const r = execFileSync('git', ['x'], { input: b, stdio: withInput ? ['pipe','pipe','pipe'] : ['pipe','ignore','ignore'] })`,
+  )
+  assert.equal(
+    bothPipe.inputBad.length + bothPipe.inputUndetermined.length,
+    0,
+    '两支 stdin 皆 pipe 应判合规',
+  )
+  // 真仓现存同型(git-heal-broken-links.mjs 的折行简写形态)不得被误伤
+  assert.equal(
+    scanSource(
+      `const r = execFileSync('git', ['x'], { cwd: ROOT,\n    stdio,\n    input: opts.input,\n  })`,
+    ).inputBad.length,
+    0,
+  )
+  // 嵌套 stdio 不是顶层/stdin;值位置与 xinput / my_input 不得触发本维
+  for (const src of [
+    `const r = execFileSync('git', ['x'], { input: b, env: { stdio: 'ignore' }, stdio: ['pipe','pipe','pipe'] })`,
+    `const r = execFileSync('git', [input], { stdio: ['ignore','pipe','pipe'] })`,
+    `const r = execFileSync('git', ['x'], { xinput: 1, stdio: ['ignore','pipe','pipe'] })`,
+    `const r = execFileSync('git', ['x'], { my_input: 1, stdio: ['ignore','pipe','pipe'] })`,
+  ]) {
+    const r = scanSource(src)
+    assert.equal(r.inputBad.length + r.inputUndetermined.length, 0, `本维被无关形态触发:${src}`)
+  }
+  // 具名 options 对象里的冲突必须被回捞(不给它发免检通行证)
+  const named = scanSource(
+    `const FACE_OPTS = { input: blob, stdio: ['ignore','pipe','pipe'] }\nspawnSync(GIT, ['hash-object','-w','--stdin'], FACE_OPTS)`,
+  )
+  assert.equal(named.inputBad.length, 1, `具名 options 里的冲突漏判:${JSON.stringify(named)}`)
+  // 设计命门:prettier 折行不改本维判据(双向)
+  const folded = [
+    `const r = spawnSync(`,
+    `  'git',`,
+    `  ['hash-object', '-w', '--stdin'],`,
+    `  {`,
+    `    input: blob,`,
+    `    stdio: ['ignore', 'pipe', 'pipe'],`,
+    `  },`,
+    `)`,
+  ].join('\n')
+  assert.equal(scanSource(folded).inputBad.length, 1, '折行后本维漏判 ⇒ 逐行匹配的旧病复发')
+  assert.equal(
+    scanSource(folded.replace("'ignore'", "'pipe'")).inputBad.length,
+    0,
+    '折行后的 pipe 档被误判红',
+  )
+})
+
+// ── T19 第 3b 条定级:差值棘轮(锚点 = 该文件 HEAD 面自身),存量绝不判红 ──────────
+// 依据 §12e:本门注册档是 blocking(runner 条目 193 现读),而 HEAD 面存量现读非零
+// (`scripts/tests/check-chat-element-coverage.test.mjs` 的 gitIn:带 input 形参而 stdio 首元素
+// ignore)。与本次提交内容无关的存量绝对判红 = 恒红门 = 逼人 --no-verify 连带废掉全部守门。
+// 所以新维**独立成账**:全量档只报存量、索引档只拦新增、锚点取不到 ⇒ 未判定(调用方出 exit 2)、
+// `--strict` 才问责存量。这张构造面钉住四种结局,不许有人回头把它改成绝对档。
+test('T19 第3b条定级:全量档存量不判红 / 索引档只拦新增 / 锚点缺=未判定 / --strict 问责', () => {
+  const hit = (rel, line) => ({ rel, line, got: 'ignore' })
+  const anchor = new Map([['scripts/a.mjs', 1]])
+  const head = decideInput({ face: 'head', inputBad: [hit('scripts/a.mjs', 3)], anchor: null })
+  assert.equal(head.violations.length, 0, '全量档(HEAD blob)按构造不得判红(§12e 恒红门禁令)')
+  assert.equal(head.stock.length, 1, '存量必须报数,不得静默')
+  const same = decideInput({ face: 'staged', inputBad: [hit('scripts/a.mjs', 3)], anchor })
+  assert.equal(same.violations.length, 0, 'HEAD 已 1 而本面仍 1 ⇒ 存量不担责')
+  const added = decideInput({
+    face: 'staged',
+    inputBad: [hit('scripts/a.mjs', 3), hit('scripts/a.mjs', 9)],
+    anchor,
+  })
+  assert.equal(added.violations.length, 1, '本次加回来一处必须被拦')
+  assert.match(added.violations[0].why, /新增 1 处/, `棘轮读数要写明新增几处:${added.violations[0].why}`)
+  const fresh = decideInput({ face: 'staged', inputBad: [hit('scripts/new.mjs', 1)], anchor })
+  assert.equal(fresh.violations.length, 1, '新文件里的命中(锚点 0)必须判红')
+  const noAnchor = decideInput({ face: 'staged', inputBad: [hit('scripts/a.mjs', 3)], anchor: null })
+  assert.equal(noAnchor.anchorUndetermined, true, '锚点取不到必须显式"未判定"')
+  assert.equal(noAnchor.violations.length, 0, '未判定绝不冒红(也不记绿:调用方据此 exit 2)')
+  const strict = decideInput({
+    face: 'head',
+    inputBad: [hit('scripts/a.mjs', 3)],
+    anchor: null,
+    strict: true,
+  })
+  assert.equal(strict.violations.length, 1, '--strict 是存量问责档,必须真能问责')
+  const wt = decideInput({ face: 'worktree', inputBad: [hit('scripts/a.mjs', 3)], anchor })
+  assert.equal(wt.violations.length, 0, '工作树档 = 人工逃生舱,只报数')
+  // 真仓现读:全量档对**实际存量**也必须是零判红(棘轮不是纸面承诺)
+  const ev = evaluate(REPO, 'head')
+  assert.ok(Array.isArray(ev.inputBad) && Array.isArray(ev.inputUndetermined), 'evaluate 未出这两本账')
+  const real = decideInput({ face: 'head', inputBad: ev.inputBad, anchor: null })
+  assert.equal(real.violations.length, 0, `存量被绝对判红 = 恒红门(现读 ${ev.inputBad.length} 枚)`)
+})
+
+// ── T20 门本体与镜像档自身在这一维上必须干净 ───────────────────────────────────
+test('T20 门本体/镜像本体的 input↔stdin 命中为零(自豁免生效且未把红折成绿)', () => {
+  for (const [label, p] of [
+    ['门本体', SRC],
+    ['镜像档', fileURLToPath(import.meta.url)],
+  ]) {
+    assert.ok(existsSync(p), `${label} 不存在`)
+    const r = scanSource(readFileSync(p, 'utf8'), { selfExempt: true })
+    assert.equal(r.inputBad.length, 0, `${label} 带出 input↔stdin 判红:${JSON.stringify(r.inputBad)}`)
+    assert.equal(r.misses.length, 0, `${label} 带出旧维判红:${JSON.stringify(r.misses)}`)
+  }
+  // 判据只有一份:新维的四个出口必须是门体导出的同一实现(§22c,禁镜像复制判据)
+  for (const fn of [judgeInputStdin, stdinChannelOf, topLevelEntries, entryKeyValue, ternaryBranches]) {
+    assert.equal(typeof fn, 'function', '新维出口未从门体导出')
+  }
+  assert.ok(INPUT_PROP instanceof RegExp, 'INPUT_PROP 未导出')
+  assert.equal(INPUT_PROP.test('{ input: 1 }'), true)
+  assert.equal(INPUT_PROP.test('{ xinput: 1 }'), false, 'INPUT_PROP 把 xinput 也算成了 input 属性名')
+  assert.equal(INPUT_PROP.test('{ cwd: input }'), false, '值位置的 input 被算成属性名')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
