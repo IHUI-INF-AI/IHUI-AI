@@ -254,6 +254,25 @@ test('buildGuardMailArgv:唯一出口是品牌派发器,--message-file/--strict/
   assert.ok(N.buildGuardMailArgv({ to: 'a@b.c', title: 't', severity: 'info', messageFile: 'm', dryRun: true }).includes('--dry-run'))
 })
 
+test('身份交给出口:--alert-id 随 dedupKey 而变,force 档必带 --force-alert(否则自测被出口悄悄压下)', () => {
+  const a = N.buildGuardMailArgv({ to: 'a@b.c', title: 't', severity: 'critical', messageFile: 'm', alertId: 'git-guardian;停摆;aaaabbbbcccc' })
+  assert.equal(a[a.indexOf('--alert-id') + 1], 'git-guardian;停摆;aaaabbbbcccc', '出口台账要按真身份分桶,标题不算身份')
+  assert.equal(a.includes('--force-alert'), false, '常规档不许绕过出口去重')
+  assert.ok(
+    N.buildGuardMailArgv({ to: 'a@b.c', title: 't', severity: 'critical', messageFile: 'm', alertId: 'x', forceAlert: true }).includes('--force-alert'),
+    '人工核验(--notify-test)必须显式放行出口那一层窗口',
+  )
+  const seen = []
+  const h = harness((arg) => {
+    seen.push(arg.argv ? arg.argv[arg.argv.indexOf('--alert-id') + 1] : arg.alertId)
+    return { ok: true, why: '已送达' }
+  })
+  N.notifyGuardRed('元运维巡检红', 'cells=a;tier=1', { ...h.opts, now: 1_760_000_000_000, dedupKey: 'cells=a;tier=1' })
+  N.notifyGuardRed('元运维巡检红', 'cells=b;tier=1', { ...h.opts, now: 1_760_000_000_001, dedupKey: 'cells=b;tier=1' })
+  assert.equal(new Set(seen.filter(Boolean)).size, 2, `两条不同身份必须交出两个不同 --alert-id(实测 ${JSON.stringify(seen)}) —— 同一个标题下的两次真重报,量算仪不得数成风暴`)
+  rmScratch(h.dir)
+})
+
 test('maskEmail / redactChildOutput / judgeDryRunChannel:脱敏与通道判定', () => {
   assert.equal(N.maskEmail('abc@qq.com'), 'a***@qq.com')
   assert.equal(N.maskEmail(''), '***')

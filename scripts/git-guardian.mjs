@@ -2318,7 +2318,7 @@ function resolveAlertTo() {
  * ⚠️ 绝不传 `--env-file`:tsx v4 会把它劫持转发给 node 自身,路径不存在时 node 直接 exit 9
  * (§5e 实测坑;check-credential-health 同款约束)。多行中文正文一律 --message-file。
  */
-export function buildGuardMailArgv({ to, title, severity, messageFile, dryRun = false }) {
+export function buildGuardMailArgv({ to, title, severity, messageFile, dryRun = false, alertId = '', forceAlert = false }) {
   return [
     TSX_ENTRY,
     BRAND_MAIL_SCRIPT,
@@ -2332,6 +2332,12 @@ export function buildGuardMailArgv({ to, title, severity, messageFile, dryRun = 
     'git-guardian',
     '--message-file',
     messageFile,
+    // 把本层真正拿去重的那个身份交给出口(2026-10-19):不给它,出口的投递台账只能按标题分组,
+    // 于是"元运维巡检红"两条**不同身份**的重报会被量算仪数成"同一身份 15 分钟 2 封"的假风暴。
+    // 交出去之后:台账按真身份分桶,真·同一身份重复才叫风暴;而本层与出口窗口同为 4 小时、
+    // 键又同为该身份 ⇒ 本层放行时出口必然也放行,不会出现"守护以为寄了、出口悄悄压下"。
+    ...(alertId ? ['--alert-id', alertId] : []),
+    ...(forceAlert ? ['--force-alert'] : []),
     ...(dryRun ? ['--dry-run'] : []),
     '--strict', // 成功 exit 0 / 失败 exit 1,本层据此写/清 UNDELIVERED 标记
   ]
@@ -2355,7 +2361,7 @@ export function judgeDryRunChannel(stdout) {
 }
 
 /** 品牌派发器的一次调用:异常/超时一律归为失败,绝不抛出(通知层不能把守护带崩) */
-function dispatchGuardMail({ title, desp, severity, dryRun = false }) {
+function dispatchGuardMail({ title, desp, severity, dryRun = false, alertId = '', forceAlert = false }) {
   if (!existsSync(TSX_ENTRY) || !existsSync(BRAND_MAIL_SCRIPT)) {
     return {
       ok: false,
@@ -2370,7 +2376,7 @@ function dispatchGuardMail({ title, desp, severity, dryRun = false }) {
     // 无 BOM UTF-8 文件:命令行参数要过一层控制台代码页(GBK),多行中文必被截坏(§5e)
     msgFile = join(NOTIFY_MSG_DIR, `${Date.now()}-${process.pid}.txt`)
     writeFileSync(msgFile, desp, 'utf8')
-    const r = spawnSync(process.execPath, buildGuardMailArgv({ to, title, severity, messageFile: msgFile, dryRun }), {
+    const r = spawnSync(process.execPath, buildGuardMailArgv({ to, title, severity, messageFile: msgFile, dryRun, alertId, forceAlert }), {
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
@@ -2444,10 +2450,13 @@ export function notifyGuardRed(name, detail, opts = {}) {
         : '') +
       `本层只是旁路通知,不改变守护的自愈行为;紧急静音:GIT_GUARDIAN_NOTIFY_DISABLED=1。`
     const callDispatch = () => {
+      // 身份交给出口(台账按真身份分桶);force 档必须同时给 --force-alert,否则
+      // "人工核验一次通道"会被出口那一侧的窗口悄悄压下,而自测的本意就是"必须真发一封"。
+      const alertId = `git-guardian;${name};${fp.slice(0, 12)}`
       // 派发器抛异常 = 投递失败(写 UNDELIVERED、按退避重试),不是"通知层炸了就走人" ——
       // 失败必须响(§5e);真正的兜底是外层 catch,它接的是落盘/状态这类结构性异常。
       try {
-        return dispatch({ title, desp, severity, dryRun: false })
+        return dispatch({ title, desp, severity, dryRun: false, alertId, forceAlert: force })
       } catch (e) {
         return {
           ok: false,
