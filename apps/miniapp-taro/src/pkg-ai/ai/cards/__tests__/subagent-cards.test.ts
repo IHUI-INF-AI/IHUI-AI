@@ -51,7 +51,7 @@ describe('applySubagentProgress(D64④ progress 帧)', () => {
 })
 
 describe('applySubagentEnd(D64④ end 帧)', () => {
-  it('done → completed(completed 的 tone=success,busy=false,terminal=true)', () => {
+  it("done → completed(completed 的 tone=success,busy=false,terminal=true)", () => {
     const next = applySubagentEnd(running, { id: 'sa-1', status: 'done' })
     const task = next[0]
     if (!task) throw new Error('expected task')
@@ -62,7 +62,7 @@ describe('applySubagentEnd(D64④ end 帧)', () => {
     expect(view.terminal).toBe(true)
   })
 
-  it('failed 保留 failureReason 且 tone=danger(失败显式,不伪装成取消)', () => {
+  it("failed 保留 failureReason 且 tone=danger(失败显式,不伪装成取消)", () => {
     const next = applySubagentEnd(running, {
       id: 'sa-1',
       status: 'failed',
