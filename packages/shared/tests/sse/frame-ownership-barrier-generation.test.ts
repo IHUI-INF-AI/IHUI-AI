@@ -73,7 +73,12 @@ describe('G-276 迟到帧/迟到 ACK 不得回写所有权映射(屏障单向代
     expect(barrier.isOwned('chat-stream', 'sub-gen3')).toBe(true)
     // 同代际后续帧照常直接投递(不暂存、不丢弃)
     expect(
-      barrier.offer({ topic: 'chat-stream', subscriptionId: 'sub-gen3', generation: 3, frame: 'c' }),
+      barrier.offer({
+        topic: 'chat-stream',
+        subscriptionId: 'sub-gen3',
+        generation: 3,
+        frame: 'c',
+      }),
     ).toBe('pass')
     // 幂等重 ACK(同代际)不丢所有权
     expect(
