@@ -26851,7 +26851,9 @@
     "toastLoadFailed": "快照列表加载失败",
     "toastPlanFailed": "预演失败",
     "toastRunOk": "整栈回滚已执行",
-    "toastRunFail": "整栈回滚失败"
+    "toastRunFail": "整栈回滚失败",
+    "availabilityAvailable": "另一台设备刚创建了检查点:{id}",
+    "availabilityUnavailable": "检查点服务暂不可用,请稍后重试"
   },
   "traceReplay": {
     "title": "执行轨迹回放",
