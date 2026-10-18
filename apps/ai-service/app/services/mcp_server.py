@@ -39,6 +39,12 @@ from .context_recall import context_recall
 from .engine_tool_bridge import resolve_engine_tool
 from .exec_policy import PolicyDecision, RuleDecision
 from .exec_policy import evaluate as exec_policy_evaluate
+
+# 票78「同文件写冲突治理:串行化」档:per-path 写互斥锁 + 写前基线漂移判定。
+# 算法本体在 file_write_gate 单一实现(注入式纪律,对齐 stale-lock-claim);
+# 本模块只接线 —— 三个写工具(write_file/file_edit/resolve_conflict)的写段
+# 共用同一把 per-path 锁,write_file 写前走五态判定(drifted 拦截,force 逃生门)。
+from .file_write_gate import classify_write_conflict, get_path_write_lock
 from .merge3 import merge3_for_edit
 
 # 1-2 补丁冲突处理:3-way merge 引擎(纯函数,无 IO)
@@ -1644,19 +1650,59 @@ async def _tool_list_files(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
-    """write_file: 写入文件内容(路径必须在工作区白名单内,防 symlink 穿越)。"""
+    """write_file: 写入文件内容(路径必须在工作区白名单内,防 symlink 穿越)。
+
+    票78 写冲突治理(串行化档):写段持 per-path 互斥锁;写前做基线漂移判定 ——
+    base(read_file/write_file 记录的 agent 视角)与现盘不一致、且拟写内容又不
+    等于现盘时,视为并发修改,返回 CONCURRENT_MODIFICATION 不写盘(盲覆盖会丢
+    别人的改动)。逃生门:force=true 显式表态「知情覆盖」。五态判定语义见
+    file_write_gate.classify_write_conflict。
+    """
     path = arguments.get("path", "")
     content = arguments.get("content", "")
+    force = bool(arguments.get("force", False))
     ok, info = _validate_write_path_in_workspace(path)
     if not ok:
         return {"tool": "write_file", "path": path, "ok": False, "error": info}
     resolved_path = info
     try:
-        with open(resolved_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        # 1-2:写盘后刷新 base(agent 视角最新内容)
-        _record_file_base(resolved_path, content)
-        return {"tool": "write_file", "path": resolved_path, "bytes_written": len(content.encode("utf-8")), "ok": True}
+        async with get_path_write_lock(resolved_path):
+            # 写前基线漂移判定(判定与写盘同锁内完成,判定结果对写盘时刻负责)
+            baseline = _FILE_BASE_CONTENT.get(resolved_path)
+            disk_now: str | None = None
+            if os.path.isfile(resolved_path):
+                try:
+                    with open(resolved_path, encoding="utf-8") as f:
+                        disk_now = _normalize_eol(f.read())
+                except (OSError, UnicodeDecodeError, ValueError):
+                    disk_now = None  # 二进制/读不了 → 判不了,交 classify 归 undecidable
+            verdict = classify_write_conflict(
+                disk_now, baseline, _normalize_eol(content)
+            )
+            if verdict == "drifted" and not force:
+                return {
+                    "tool": "write_file",
+                    "path": resolved_path,
+                    "ok": False,
+                    "errorCode": "CONCURRENT_MODIFICATION",
+                    "error": (
+                        "检测到并发修改:现盘内容与本会话记录的 base 版本不一致,"
+                        "且拟写入内容与现盘不同 —— 直接覆盖会丢失他人改动。"
+                        "请先 read_file 重新读取后再写;若确认要覆盖,携带 force=true 重试"
+                    ),
+                    "concurrency": {"verdict": verdict, "forced": False},
+                }
+            with open(resolved_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            # 1-2:写盘后刷新 base(agent 视角最新内容)
+            _record_file_base(resolved_path, content)
+            return {
+                "tool": "write_file",
+                "path": resolved_path,
+                "bytes_written": len(content.encode("utf-8")),
+                "ok": True,
+                "concurrency": {"verdict": verdict, "forced": bool(force and verdict == "drifted")},
+            }
     except Exception as e:
         return {"tool": "write_file", "path": resolved_path, "ok": False, "error": str(e)}
 
@@ -1745,26 +1791,29 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
         replaced_count = 1
 
     backup_path = resolved_path + ".bak"
-    try:
-        with open(backup_path, "wb") as bf:
-            bf.write(raw)
-        with open(resolved_path, "wb") as wf:
-            wf.write(new_content.encode("utf-8"))
-    except OSError as e:
-        # 失败回滚:恢复原内容(raw),删除 .bak(不保留)
+    # 票78 串行化:写回段持 per-path 锁(读段在锁外,3-way base 检测兜底并发;
+    # 写段与 base 刷新入锁,与 write_file/resolve_conflict 的写段互斥,缩小竞态窗口)
+    async with get_path_write_lock(resolved_path):
         try:
-            with open(resolved_path, "wb") as rf:
-                rf.write(raw)
-        except OSError:
-            pass
-        with contextlib.suppress(OSError):
-            os.remove(backup_path)
-        return _err("IO_ERROR", str(e))
+            with open(backup_path, "wb") as bf:
+                bf.write(raw)
+            with open(resolved_path, "wb") as wf:
+                wf.write(new_content.encode("utf-8"))
+        except OSError as e:
+            # 失败回滚:恢复原内容(raw),删除 .bak(不保留)
+            try:
+                with open(resolved_path, "wb") as rf:
+                    rf.write(raw)
+            except OSError:
+                pass
+            with contextlib.suppress(OSError):
+                os.remove(backup_path)
+            return _err("IO_ERROR", str(e))
 
-    diff = list(difflib.unified_diff(content.splitlines(keepends=True),
-                new_content.splitlines(keepends=True), fromfile="old", tofile="new", n=2))
-    # 1-2:写盘后刷新 base(agent 视角最新内容)
-    _record_file_base(resolved_path, new_content)
+        diff = list(difflib.unified_diff(content.splitlines(keepends=True),
+                    new_content.splitlines(keepends=True), fromfile="old", tofile="new", n=2))
+        # 1-2:写盘后刷新 base(agent 视角最新内容;锁内刷新,防释放锁后他人写入把 base 记旧)
+        _record_file_base(resolved_path, new_content)
     return {"tool": "file_edit", "ok": True, "file_path": resolved_path,
             "replaced_count": replaced_count, "backup_path": backup_path,
             "strategy": strategy,
@@ -1832,24 +1881,26 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
     final_content = _restore_eol(str(resolved["content"]), content)
     applied = list(resolved.get("applied", []))
     backup_path = resolved_path + ".bak"
-    try:
-        with open(backup_path, "wb") as bf:
-            bf.write(raw)
-        with open(resolved_path, "wb") as wf:
-            wf.write(final_content.encode("utf-8"))
-    except OSError as e:
-        # 失败回滚:恢复磁盘原内容
+    # 票78 串行化:写回段持 per-path 锁(与 write_file/file_edit 写段互斥,缩竞态窗口)
+    async with get_path_write_lock(resolved_path):
         try:
-            with open(resolved_path, "wb") as rf:
-                rf.write(raw)
-        except OSError:
-            pass
-        with contextlib.suppress(OSError):
-            os.remove(backup_path)
-        return _err("IO_ERROR", str(e))
+            with open(backup_path, "wb") as bf:
+                bf.write(raw)
+            with open(resolved_path, "wb") as wf:
+                wf.write(final_content.encode("utf-8"))
+        except OSError as e:
+            # 失败回滚:恢复磁盘原内容
+            try:
+                with open(resolved_path, "wb") as rf:
+                    rf.write(raw)
+            except OSError:
+                pass
+            with contextlib.suppress(OSError):
+                os.remove(backup_path)
+            return _err("IO_ERROR", str(e))
 
-    # 1-2:写盘后刷新 base(冲突已解决,agent 视角最新内容)
-    _record_file_base(resolved_path, final_content)
+        # 1-2:写盘后刷新 base(冲突已解决,agent 视角最新内容;锁内刷新,时序同 file_edit)
+        _record_file_base(resolved_path, final_content)
     rejected = sum(1 for a in applied if a.get("choice") == "theirs")
     return {
         "tool": "resolve_conflict",
@@ -8525,12 +8576,20 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="write_file",
-        description="写入内容到本地文件",
+        description=(
+            "写入内容到本地文件。写冲突治理:若现盘内容与本会话上次看到的版本不一致"
+            "(他人已修改),写入会被拒绝(CONCURRENT_MODIFICATION);请先 read_file "
+            "重新读取,或携带 force=true 表示已知情、确认覆盖"
+        ),
         input_schema={
             "type": "object",
             "properties": {
                 "path": {"type": "string"},
                 "content": {"type": "string"},
+                "force": {
+                    "type": "boolean",
+                    "description": "知情覆盖逃生门:检测到并发修改时,确信要覆盖他人改动才置 true",
+                },
             },
             "required": ["path", "content"],
         },
