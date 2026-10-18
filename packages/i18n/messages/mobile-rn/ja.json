@@ -1,4 +1,45 @@
 {
+  "workflows": {
+    "title": "ワークフロー",
+    "empty": "ワークフローはまだありません",
+    "loadFailed": "ワークフローの読み込みに失敗しました"
+  },
+  "automations": {
+    "title": "自動化",
+    "empty": "自動化タスクはまだありません",
+    "loadFailed": "自動化の読み込みに失敗しました",
+    "active": "有効",
+    "paused": "一時停止",
+    "scheduleOnce": "一回限り",
+    "scheduleRecurring": "繰り返し",
+    "lastRun": "前回の実行",
+    "nextRun": "次回の実行",
+    "prompt": "プロンプト",
+    "noResult": "実行結果はまだありません",
+    "rrule": "スケジュール (RRULE)",
+    "timezone": "タイムゾーン"
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "usage": "利用状況",
+    "cost": "コストと収益",
+    "bi": "BI 概要",
+    "errors": "エラーダッシュボード",
+    "totalUsers": "総ユーザー数",
+    "activeSessions": "アクティブセッション",
+    "uniqueUsers": "アクティブユーザー (分析)",
+    "todayEvents": "今日のイベント",
+    "todayRevenue": "今日の収益",
+    "totalRevenue": "総収益",
+    "totalOrders": "総注文数",
+    "biTotalUsers": "BI 総ユーザー",
+    "activeUsers": "アクティブユーザー",
+    "errorTotal": "エラー総数",
+    "errorToday": "今日のエラー",
+    "errorCritical": "重大なエラー",
+    "errorResolved": "解決済み",
+    "loadFailed": "ダッシュボードの読み込みに失敗しました"
+  },
   "toolApproval": {
     "title": "ツール承認",
     "description": "AI が次の高リスク操作を要求しています。許可しますか",
@@ -1720,6 +1761,12 @@
     "empty": "メンバー情報がありません"
   },
   "vip": {
+    "benefitList": {
+      "unlimitedChat": "無制限チャット",
+      "exclusiveModel": "専用モデル",
+      "prioritySupport": "優先サポート",
+      "referral": "紹介報酬"
+    },
     "subtitle": "会員を開通して、より多くの権益を",
     "retry": "再試行",
     "empty": "会員レベル情報はありません",

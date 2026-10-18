@@ -1,4 +1,45 @@
 {
+  "workflows": {
+    "title": "Workflows",
+    "empty": "No workflows yet",
+    "loadFailed": "Failed to load workflows"
+  },
+  "automations": {
+    "title": "Automations",
+    "empty": "No automation tasks yet",
+    "loadFailed": "Failed to load automations",
+    "active": "Active",
+    "paused": "Paused",
+    "scheduleOnce": "Once",
+    "scheduleRecurring": "Recurring",
+    "lastRun": "Last run",
+    "nextRun": "Next run",
+    "prompt": "Prompt",
+    "noResult": "No run result yet",
+    "rrule": "Schedule (RRULE)",
+    "timezone": "Timezone"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "usage": "Usage overview",
+    "cost": "Cost & revenue",
+    "bi": "BI overview",
+    "errors": "Error dashboard",
+    "totalUsers": "Total users",
+    "activeSessions": "Active sessions",
+    "uniqueUsers": "Active users (analytics)",
+    "todayEvents": "Today's events",
+    "todayRevenue": "Today's revenue",
+    "totalRevenue": "Total revenue",
+    "totalOrders": "Total orders",
+    "biTotalUsers": "BI total users",
+    "activeUsers": "Active users",
+    "errorTotal": "Total errors",
+    "errorToday": "Errors today",
+    "errorCritical": "Critical errors",
+    "errorResolved": "Resolved",
+    "loadFailed": "Failed to load dashboard"
+  },
   "toolApproval": {
     "title": "Tool approval",
     "description": "AI is requesting a high-risk operation. Allow it?",
@@ -1720,6 +1761,12 @@
     "empty": "No member info"
   },
   "vip": {
+    "benefitList": {
+      "unlimitedChat": "Unlimited chat",
+      "exclusiveModel": "Exclusive models",
+      "prioritySupport": "Priority support",
+      "referral": "Referral rewards"
+    },
     "subtitle": "Unlock membership and enjoy more benefits",
     "retry": "Retry",
     "empty": "No membership levels available",
