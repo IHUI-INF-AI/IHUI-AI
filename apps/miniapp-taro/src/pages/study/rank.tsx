@@ -7,6 +7,7 @@ import { useDidShow } from '@tarojs/taro'
 import { View, Text, Image } from '@tarojs/components'
 import { useState, useCallback } from 'react'
 import { getStudyRank } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
 interface RankUser {
@@ -18,6 +19,7 @@ interface RankUser {
 
 export default function StudyRank() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [list, setList] = useState<RankUser[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -32,8 +34,10 @@ export default function StudyRank() {
     }
   }, [])
 
+  // G-933 冷启动抢跑门控:GET /api/study/rank 由 `miniapp-compat-routes.ts:2483`
+  // 的 inline checkAuth 守 ⇒ 需鉴权,挡到门后(页面既有的空态/加载态分支照常渲染)。
   useDidShow(() => {
-    load()
+    gate.waitUntilReady(load)
   })
 
   return (

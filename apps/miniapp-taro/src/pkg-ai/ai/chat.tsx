@@ -37,6 +37,7 @@ import {
   postFormResponse,
 } from '@ihui/api-client'
 import { formatTokenCount } from '@ihui/shared/utils'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
 // D77(2026-10-17 落地小程序腿):form_request 帧的投影纯函数单源在共享层
 // (@ihui/shared/chat/form-request-frame,由 apps/web 迁入共用,端内不抄第二份)。
@@ -132,6 +133,10 @@ const MATERIAL_PAGE_SIZE = 20
 
 export default function ChatPage() {
   const router = useRouter()
+  // G-933 冷启动抢跑门:服务端会话回放(getMessages → GET /api/chat/conversations/:id/messages,
+  // chat.ts 处理器 requireAuth + 属主过滤)需鉴权;本机快照命中/展示逻辑与 agent 详情(公开接口)
+  // 不挡,只把回放那一句延后到鉴权判定落定。
+  const { waitUntilReady } = useAuthReadyGate()
   const { t, tList } = useI18n()
   const tt = useTt()
   const suggestions = tList('ai.suggestions')
@@ -686,7 +691,9 @@ export default function ChatPage() {
     // (见 clearChat 的 `hist_${Date.now()}`),它不是 chat_conversations 主键 —— 拿它去问
     // 服务端必 404,那种失败不该弹给用户看。
     if (routeSessionId && !restoredFromLocal && !routeSessionId.startsWith('hist_')) {
-      runServerReplay()
+      waitUntilReady(() => {
+        runServerReplay()
+      })
     }
     // 加载收藏消息(对标原 ai_assistant.vue 收藏列表)
     try {
