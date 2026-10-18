@@ -2740,6 +2740,26 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
+  // GET /about - 关于页正文。**不是空桩**：与上面 /privacy、/contact 两条硬编码文案不同源，
+  // 这里读 docs 表里 admin 已发布的 about-us 文档(与 admin-content-routes 的 /about-us 同一类别、
+  // 同一份数据)，没有已发布文档时如实 404 而不是编一段话给端上。
+  server.get('/about', async (_request, reply) => {
+    const { docs } = await import('@ihui/database')
+    const [doc] = await dbRead
+      .select({
+        title: docs.title,
+        content: docs.content,
+        slug: docs.slug,
+        updatedAt: docs.updatedAt,
+      })
+      .from(docs)
+      .where(and(eq(docs.category, 'about-us'), eq(docs.status, 'published')))
+      .orderBy(asc(docs.sortOrder), desc(docs.updatedAt))
+      .limit(1)
+    if (!doc) return reply.status(404).send(error(404, '关于页内容尚未发布'))
+    return reply.send(success({ doc }))
+  })
+
   server.get('/contact', async (_request, reply) => {
     return reply.send(
       success({
