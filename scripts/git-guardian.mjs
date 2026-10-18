@@ -2270,21 +2270,43 @@ export function alertHeldTier(firstMs, nowMs = Date.now()) {
  * "这一轮取不到结论"的持续起点台账(型②通用件,`auditMergeAdditionLoss` 首用)。
  * 读写失败一律不影响判定本身:状态件坏了最多让下一轮重新起算(顶多多等一个窗),
  * 反过来"写不进就不判"会把瞎掉的那一格读成没问题,那才是贵的那种失效。
+ *
+ * `extra`(2026-10-19 加):把**本次事件的起始属性**钉在同一份状态件里,只写不覆盖 ——
+ * 已有键一律保留,所以钉进去的是"这一段故障开始时是什么形状"。加这一格是因为部署停摆那封信
+ * 实测**同一场停摆寄出 3 封**:身份里带了 `class`(线上有无构建标记),而一次清 rebuild 就会把标记洗掉
+ * ⇒ class 在事件中途从 behind 翻成 no-marker ⇒ 旧窗口形同虚设,当场自增一枚新身份。
+ * 起始形状一旦被钉住,事件内怎么翻都只算同一起点(持续档照常升级,那是有意越拖越响)。
  */
-export function noteUndeterminedStreak(file, nowMs = Date.now()) {
+export function noteUndeterminedStreak(file, nowMs = Date.now(), extra = {}) {
+  let prev = {}
   let firstMs = NaN
   try {
-    firstMs = Number(JSON.parse(readFileSync(file, 'utf8')).firstMs)
+    prev = JSON.parse(readFileSync(file, 'utf8')) || {}
+    firstMs = Number(prev.firstMs)
   } catch {
     /* 没有起点 ⇒ 以本次为新起点 */
   }
   if (!Number.isFinite(firstMs)) firstMs = nowMs
+  // 起始形状 = **先到先得**:上一轮已经在册的键一律不被本轮覆盖(本轮想钉的只在缺席时才落册)。
+  // 时间戳三键由本函数自己管,不参与"先到先得"。
+  const keep = {}
+  for (const [k, v] of Object.entries(prev)) {
+    if (k === 'firstMs' || k === 'firstAt' || k === 'lastSeenAt') continue
+    keep[k] = v
+  }
+  for (const [k, v] of Object.entries(extra)) if (!(k in keep)) keep[k] = v
   try {
-    writeFileSync(file, JSON.stringify({ firstMs, firstAt: new Date(firstMs).toISOString(), lastSeenAt: new Date(nowMs).toISOString() }), 'utf8')
+    writeFileSync(
+      file,
+      JSON.stringify({ ...keep, firstMs, firstAt: new Date(firstMs).toISOString(), lastSeenAt: new Date(nowMs).toISOString() }),
+      'utf8',
+    )
   } catch {
     /* 状态件写不掉只影响下一轮的持续性判定 */
   }
-  return { firstMs, heldMs: nowMs - firstMs }
+  // 返回的是**文件里应当留下**的那份起始形状(写失败时即上一轮原值),而不是调用方这次想钉的值 ——
+  // 否则"钉住起始形状"在写不进盘的那一晚会静默变成"没钉",而账面读起来像钉过了。
+  return { firstMs, heldMs: nowMs - firstMs, meta: keep }
 }
 
 export function clearUndeterminedStreak(file) {
@@ -4204,11 +4226,18 @@ export function auditDeployStall(opts = {}) {
     }
     // 类别只取"人能做的动作"不同的那两种:标记缺失要先查线上产物,落后要先查环为什么不切流。
     // 其余一切读数(tip、live sha、成功时刻、落后小时数)都只进正文。
-    const stallClass = String(p.liveSha || '').trim() ? 'behind' : 'no-marker'
-    const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
+    // **身份用起始类别,不用本轮类别**(2026-10-19 现读改正):今晚一次 rebuild 把线上标记
+    // `IHUI_BUILD_SHA` 洗掉 ⇒ 同一场停摆的类别从 `behind` 翻成 `no-marker`,而类别在身份里
+    // ⇒ 4h 窗当场作废,同一件事换来 3 封(14:35 behind / 16:43 与 19:23 no-marker)。
+    // 类别 flipping 是**同一段故障的表征变化**,不是新故障;真要报新的,由持续档(6h/24h/72h)
+    // 与起点清除(线上追平)那两格负责。正文照旧写本轮读数,信息量不降。
+    const classNow = String(p.liveSha || '').trim() ? 'behind' : 'no-marker'
+    const streak = noteUndeterminedStreak(firstFile, now, { stallClass: classNow })
+    const stallClass = String(streak.meta.stallClass || classNow)
+    const held = alertHeldTier(streak.firstMs, now)
     const outcome = notify(
       '部署停摆(线上构建 vs origin/main)',
-      `${String(p.why || '')}\n线上 ${String(p.liveSha || '(无标记)').slice(0, 12)} / tip ${String(p.tipSha || '?').slice(0, 12)}(来源 ${p.tipSource || '未标注'})\n最近一次成功部署 ${p.lastSuccessIso || '(取不到)'}${p.lastSuccessFrom ? `(取自 ${p.lastSuccessFrom};活动件里没有完成行 ⇒ 已跨过一轮日志轮转)` : ''};阈值 ${p.thresholdMin} 分钟;本轮已落后 ${p.behindHours ?? '?'} 小时;本段停摆已持续 ${held.hours ?? '?'} 小时(档 ${held.tier})\n取证:node scripts/check-credential-health.mjs --stall-only --json(只读、零写盘、零发信)`,
+      `${String(p.why || '')}\n线上 ${String(p.liveSha || '(无标记)').slice(0, 12)} / tip ${String(p.tipSha || '?').slice(0, 12)}(来源 ${p.tipSource || '未标注'})\n最近一次成功部署 ${p.lastSuccessIso || '(取不到)'}${p.lastSuccessFrom ? `(取自 ${p.lastSuccessFrom};活动件里没有完成行 ⇒ 已跨过一轮日志轮转)` : ''};阈值 ${p.thresholdMin} 分钟;本轮已落后 ${p.behindHours ?? '?'} 小时;本段停摆已持续 ${held.hours ?? '?'} 小时(档 ${held.tier});本轮类别 ${classNow}${classNow !== stallClass ? `(身份沿用本段起点类别 ${stallClass} ⇒ 标记被 rebuild 洗掉不再被算成第二场停摆)` : ''}\n取证:node scripts/check-credential-health.mjs --stall-only --json(只读、零写盘、零发信)`,
       { severity: 'critical', dedupKey: `stall;class=${stallClass};held=${held.tier}` },
     )
     // 日志必须分得出"真寄了"与"窗口内压住" —— 原先两支都写"已派发到邮件通道",
