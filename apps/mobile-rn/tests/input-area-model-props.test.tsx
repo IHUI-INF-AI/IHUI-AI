@@ -20,7 +20,7 @@ import { fireEvent, render, within } from '@testing-library/react'
 import { InputArea, type InputAreaProps } from '../src/components/InputArea'
 import { I18nProvider } from '../src/i18n'
 import { tokens } from '../src/theme/active-tokens'
-import { rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 
 /** 大输入框态的最小真实调用形参(与 HomeScreen 那段同形:showVoiceMic + 不传折叠) */
 const BASE: InputAreaProps = {
@@ -41,10 +41,16 @@ function renderArea(extra: Partial<InputAreaProps>) {
   )
 }
 
-/** RN 替身把 accessibilityRole/accessibilityLabel **原样落到 DOM 属性**(不是真 ARIA role),
- *  所以图标钮这种"无文字"的控件只能按属性取,不能 getByRole。 */
+/**
+ * 共享 RN 替身(`tests/__mocks__/react-native.ts`)把 RN 的 `accessibilityLabel`
+ * **映射成 web 的 `aria-label`** —— 不映射的话 React DOM 会把这个未知属性丢掉,
+ * RTL 的 getByLabelText 也就检索不到无障碍文案(该替身补这条的立因写在它自己头注里)。
+ * ⇒ 本套件的取元素口径必须跟替身同一套:主查 `aria-label`,兼容旧直通属性,
+ * 两者都查不到才算"没有这枚钮"。图标钮没有文字,只能按属性取,不能 getByRole。
+ */
 function buttonByLabel(container: HTMLElement, label: string): HTMLElement | undefined {
   for (const el of container.querySelectorAll('button')) {
+    if (el.getAttribute('aria-label') === label) return el as HTMLElement
     if (el.getAttribute('accessibilityLabel') === label) return el as HTMLElement
   }
   return undefined
@@ -161,7 +167,14 @@ describe('InputArea 模型按钮族', () => {
     const { container } = renderArea({ onOpenModelSelect: () => {} })
     const chip = mustButton(container, TEXT.select)
     // RN 替身把 style 摊平成 DOM style;React 给非 unitless 数值补 px
-    expect(chip.style.borderRadius).toBe(`${rnRadiusFor.chip}px`)
+    //
+    // 圆角取 **control** 档,不是 chip 档:这一档的权威侧是 web 端 model-selector 触发钮
+    // (`h-8 … rounded-sm`),RN 侧镜像它 ⇒ 跨端同值(改这一档必须先改 web 那个 rounded-sm,
+    // 否则门 128 跨端几何会分叉)。下面三句是连锁锁:组件取值 → 角色档 → 档位表,
+    // 任一侧被改成字面量或换了角色,都会在这里断。
+    expect(chip.style.borderRadius).toBe(`${rnRadiusFor.control}px`)
+    expect(rnRadiusFor.control).toBe(rnRadius.sm)
+    expect(rnRadius.sm).toBe(4)
     expect(chip.style.borderColor).toBe(cssColor(tokens.border.light))
     // 墨档禁入描边(AGENTS §4「描边不得取墨档」)
     for (const ink of [tokens.brand.DEFAULT, tokens.brand.foreground, tokens.text.primary]) {

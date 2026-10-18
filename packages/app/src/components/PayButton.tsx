@@ -71,7 +71,7 @@ const TYPE_CONFIG: Record<PayButtonType, TypeConfig> = {
     showPurchasePopup: false,
   },
   '1': {
-    bg: (tk) => tk.gray[100],
+    bg: (tk) => tk.surface.muted,
     text: (tk) => tk.text.primary,
     icon: Gift,
     label: '免费使用',
@@ -92,7 +92,7 @@ const TYPE_CONFIG: Record<PayButtonType, TypeConfig> = {
     showPurchasePopup: true,
   },
   '4': {
-    bg: (tk) => tk.gray[100],
+    bg: (tk) => tk.surface.muted,
     text: (tk) => tk.gray[500],
     icon: Check,
     label: '已购买',

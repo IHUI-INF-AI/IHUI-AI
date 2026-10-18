@@ -24,9 +24,9 @@ export function VipBenefitScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetchApi<VipBenefitItem[]>('/vip-benefit')
+      const r = await fetchApi<{ list: VipBenefitItem[] }>('/vip/benefits')
       if (!r.success) throw new Error()
-      setItems(r.data ?? [])
+      setItems(r.data?.list ?? [])
     } catch {
       setError(t('vipBenefit.loadFailed'))
     } finally {

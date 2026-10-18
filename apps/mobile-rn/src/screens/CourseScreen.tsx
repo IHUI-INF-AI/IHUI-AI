@@ -14,6 +14,7 @@
  */
 import { useEffect, useState } from 'react'
 import { View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -26,6 +27,7 @@ import {
 import { apiFailureToText } from '@ihui/shared/utils'
 import { CourseTabScreen, type CourseTabScreenProps } from '@ihui/rn-app'
 import TabBar, { type TabBarKey } from '../components/TabBar'
+import { tabBarScrollReserve } from '../components/TabBar.styles'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { type LearnCategory } from './LearnScreen'
@@ -96,6 +98,8 @@ export function CourseScreen() {
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<RootNav>()
+  // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
+  const insets = useSafeAreaInsets()
 
   const [courses, setCourses] = useState<Course[]>([])
   // 热门课程独立数据源:首次加载(无关键词、第一页)时缓存,不随搜索/翻页变化(对齐 learn.vue 热门区)
@@ -204,6 +208,7 @@ export function CourseScreen() {
         onPressCategory={openCategory}
         onPressPath={openCourse}
         onPressMoreCourses={openBrowse}
+        contentBottomPadding={tabBarScrollReserve(insets.bottom)}
         colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
       />
       {/* 底部导航(课程非原项目 5 主 Tab,TabBar 常驻无高亮,可切换主 Tab;对齐原内容页导航) */}

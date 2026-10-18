@@ -62,6 +62,11 @@ export interface PlazaScreenProps {
   /** 「聊一聊」独立点击回调。缺省时与整卡一致(onPressItem)。 */
   onChatPress?: (item: PlazaItem) => void
   onPublish: () => void
+  /**
+   * 滚动内容区底部预留(px,默认 80)。mobile-rn 各屏 TabBar 改绝对悬浮胶囊后
+   * (2026-10-16),由调用方传 tabBarScrollReserve(insets.bottom) 让内容可滚到胶囊底下。
+   */
+  contentBottomPadding?: number
 }
 
 const STATUS_CHIPS: readonly StatusChip[] = [
@@ -130,6 +135,7 @@ export function PlazaScreen({
   onChatPress,
   onPublish,
   colorScheme = 'light',
+  contentBottomPadding = 80,
 }: PlazaScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -316,7 +322,10 @@ export function PlazaScreen({
           data={items.length > 0 ? COLUMN_ROW_DATA : []}
           keyExtractor={() => 'plaza-two-columns'}
           renderItem={renderColumns}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: contentBottomPadding },
+          ]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

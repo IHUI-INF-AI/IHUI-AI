@@ -60,6 +60,11 @@ export interface SquareScreenProps {
   onBack?: () => void
   /** 隐藏自带 header(调用方已有 NavBar 时用,防双标题;默认 false 保持原行为) */
   hideHeader?: boolean
+  /**
+   * 滚动内容区底部预留(px,默认 12)。mobile-rn 各屏 TabBar 改绝对悬浮胶囊后
+   * (2026-10-16),由调用方传 tabBarScrollReserve(insets.bottom) 让内容可滚到胶囊底下。
+   */
+  contentBottomPadding?: number
 }
 
 export function SquareScreen({
@@ -80,6 +85,7 @@ export function SquareScreen({
   onListRef,
   onBack,
   hideHeader = false,
+  contentBottomPadding = 12,
 }: SquareScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -184,7 +190,10 @@ export function SquareScreen({
           data={items}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: contentBottomPadding },
+          ]}
           ItemSeparatorComponent={() => <View style={styles.itemGap} />}
           refreshControl={
             <RefreshControl

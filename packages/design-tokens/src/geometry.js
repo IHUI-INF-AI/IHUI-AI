@@ -64,6 +64,18 @@ export const GEOMETRY_PX = {
    * RN 侧保留 `0.66 × 屏宽` 的比例收缩 —— 比例是窄屏自适应机制,封顶值才是档。
    */
   drawerWidth: 250,
+  /**
+   * web 预览手机壳最大宽度 430:mobile-rn 的浏览器预览壳(`apps/mobile-rn/src/lib/web-shell.web.ts`)
+   * 把 `#root` 与 RN Modal portal 两处 `max-width` 封顶在同一值,消费端 `useAppFrameWidth()` 实测
+   * 框架宽、SearchOverlay 面板宽推导也跟这一档 —— 2026-10-15 用户定「跟手机屏尺寸宽度不符」后
+   * 两处必须同值,原来只收进文件内 `const SHELL_MAX_W = 430`,那是端内第二真相。
+   * 取 430 = iPhone Pro Max 系列逻辑屏宽,是"web 预览所见即真机"的预览基准。
+   * 为什么入表(而非留在端内):用户 token 铁律「尺寸必须走档、相近值统一到一个 token、没有就新建」,
+   * 且本表头注明令「禁止在端内再写 `const *_SIZE = <数字>` 当第二份真相」。按仓内先例
+   * (SHELL_BG_DARK 这类平台预览基础设施值也入 design-tokens)升级为仓级单一真源。
+   * taroGeometry 会同步折出 860rpx,无副作用 —— 小程序端不渲染 web 预览壳,该档无小程序消费者。
+   */
+  previewShellWidth: 430,
 }
 
 /** RN / 共享包侧消费入口:StyleSheet 与内联 style 里写 `width: rnGeometry.tapBox` */
