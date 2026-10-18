@@ -25,6 +25,9 @@ import { ScrollJumpButtons } from './scroll-jump-buttons'
 import { DetailModeSwitcher } from './detail-mode-switcher'
 import { applyConversationDetailMode } from './detail-mode-filter'
 import { useConversationDetailModeStore } from '@/stores/conversation-detail-mode'
+// 票64(2026-10-18 立):版本族读投影 —— regenerate/edit 的多版本 sibling
+// 只渲染激活版本,否则"点一次编辑出两个气泡"(纯函数在 @/lib/message-version-family)。
+import { projectActiveMessages } from '@/lib/message-version-family'
 import { useFocusArtifactScroll } from '@/components/media/artifact-turn-badge'
 import { AmbientSuggestions } from '@/components/ai/ambient-suggestions'
 import { CanvasOverlay } from '@/components/chat/canvas-overlay'
@@ -50,6 +53,7 @@ import {
   regenerateMessage,
   branchMessage,
   editMessageAndRerun,
+  editAiMessageAsVersion,
 } from '@/hooks/use-chat/send-message'
 import { ToolApprovalDialog } from '@/components/ai/tool-approval-dialog'
 
@@ -131,7 +135,7 @@ export function MessageList({
   // 'steps' 直通,零行为变化;'commands'/'narrative' 返回过滤拷贝。
   const detailMode = useConversationDetailModeStore((s) => s.mode)
   const visibleMessages = React.useMemo(
-    () => applyConversationDetailMode(messages, detailMode),
+    () => applyConversationDetailMode(projectActiveMessages(messages), detailMode),
     [messages, detailMode],
   )
 
@@ -314,6 +318,13 @@ export function MessageList({
       if (!detail?.messageId || !detail.content) return
       void editMessageAndRerun(detail.messageId, detail.content, detail.rollbackFiles === true)
     }
+    // 票64(2026-10-18 立):AI 消息编辑(MessageItem 的「保存为新版本」Dialog 派发)。
+    // 与用户消息的编辑重跑是两条链 —— 这条只落新 sibling,不重跑、不截断后续消息。
+    const onEditAi = (e: Event) => {
+      const detail = (e as CustomEvent<{ messageId: string; content: string }>).detail
+      if (!detail?.messageId || !detail.content) return
+      void editAiMessageAsVersion(detail.messageId, detail.content)
+    }
     const onReply = (e: Event) => {
       const detail = (e as CustomEvent<{ messageId: string }>).detail
       if (!detail?.messageId) return
@@ -329,6 +340,7 @@ export function MessageList({
     window.addEventListener('ihui:regenerate-message', onRegenerate as EventListener)
     window.addEventListener('ihui:branch-message', onBranch as EventListener)
     window.addEventListener('ihui:edit-message', onEdit as EventListener)
+    window.addEventListener('ihui:edit-ai-message', onEditAi as EventListener)
     window.addEventListener('ihui:reply-message', onReply as EventListener)
     // 2026-09-22:错误气泡「重试」接同一闭环(regenerateMessage:调后端 /regenerate 截断历史
     // + 复用 sendMessage 重跑前一条用户提问),此前该事件无任何监听方。
@@ -337,6 +349,7 @@ export function MessageList({
       window.removeEventListener('ihui:regenerate-message', onRegenerate as EventListener)
       window.removeEventListener('ihui:branch-message', onBranch as EventListener)
       window.removeEventListener('ihui:edit-message', onEdit as EventListener)
+      window.removeEventListener('ihui:edit-ai-message', onEditAi as EventListener)
       window.removeEventListener('ihui:reply-message', onReply as EventListener)
       window.removeEventListener('ihui:retry-message', onRegenerate as EventListener)
     }
