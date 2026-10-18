@@ -1138,8 +1138,16 @@ export const getExamSignups = (params?: {
   }>('/exam/signups', params)
 export const createExamSignup = (data: { examId: string; userId: string }) =>
   post<{ id: string; paperId: string; userId: string }>('/api/legacy/exam/signups', data)
+/**
+ * 单条报名详情 —— 在册的是 GET /api/legacy/exam/signups/{id}
+ * (同族 create/cancel/check 三条一直打在 legacy 前缀上，只有这条写成
+ * `/exam/signups/${id}`；裸前缀那条只注册了列表 GET /api/exam/signups，
+ * 没有 /:id ⇒ 这一调用此前必 404)。id 一并过 encodeURIComponent。
+ */
 export const getExamSignup = (id: string) =>
-  get<{ id: string; paperId: string; userId: string }>(`/exam/signups/${id}`)
+  get<{ id: string; paperId: string; userId: string }>(
+    `/api/legacy/exam/signups/${encodeURIComponent(id)}`,
+  )
 export const cancelExamSignup = (id: string) =>
   del<{ deleted: boolean }>(`/api/legacy/exam/signups/${id}`)
 export const checkExamSignup = (params: { examId: string; userId: string }) =>
