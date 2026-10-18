@@ -75,6 +75,7 @@ import {
 } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const GIT_BIN = gitBinary()
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -900,8 +901,9 @@ const shiftDay = (iso, d) =>
   new Date(Date.parse(`${iso}T00:00:00Z`) + d * 86400000).toISOString().slice(0, 10)
 
 function selfTest() {
-  const results = []
-  const ok = (name, pass) => results.push([name, !!pass])
+  // 用例登记走共用出口(scripts/lib/selftest-registrant.mjs):thunk 在消费循环里**必被调用**,
+  // 值形态即算即得 —— 结构上封死"登记侧写 !!ok 而用例传箭头函数 ⇒ 恒真"的老洞(守门 41 同型)。
+  const { t: ok, report } = makeRegistrar()
   // 语法覆盖面:两种挂靠行 × 各族真实拼写(容不下就同时产假红与假绿)
   ok('S01 同行尾注释识别为 inline', e0(F_INLINE).attach === 'inline')
   ok('S02 紧邻上一行独立注释识别为 prev-line', e0(F_PREV).attach === 'prev-line')
@@ -1272,10 +1274,10 @@ function selfTest() {
   ok('X01 临时仓 HEAD 面:已过期豁免判红并点名', e2e.headRed)
   ok('X02 临时仓索引面与 HEAD 面结论不同(取材面真的有牙)', e2e.facesDiffer)
 
-  const pass = results.filter(([, p]) => p).length
-  for (const [n, p] of results) console.log(`${p ? '  ok' : 'FAIL'} ${n}`)
-  console.log(`\ncheck-exemption-expiry --self-test:${pass}/${results.length} 通过`)
-  return pass === results.length
+  const r = report()
+  for (const c of r.cases) console.log(`${c.pass ? '  ok' : 'FAIL'} ${c.name}`)
+  console.log(`\ncheck-exemption-expiry --self-test:${r.pass}/${r.cases.length} 通过`)
+  return r.fail === 0
 }
 
 /**
