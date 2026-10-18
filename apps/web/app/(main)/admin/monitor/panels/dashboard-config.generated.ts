@@ -1,12 +1,8 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 /**
  * 监控面板原生配置(自动生成,请勿手改)。
  *
  * 由 scripts/generate-monitor-panels.mjs 从 monitoring/grafana/dashboards/*.json 转译;
- * 表达式与 Grafana 盘逐条同源(216 条),模板变量已归一为 All 档(.*)。
+ * 表达式与 Grafana 盘逐条同源(321 条),模板变量已归一为 All 档(.*)。
  * $__interval / $__range 为占位符,由 /admin/monitor/panels 页面按时间窗替换。
  */
 export interface PanelTarget {
@@ -647,6 +643,294 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
             "ref": "A",
             "expr": "sum by (vendor, model) (increase(business_ai_cost_minor_units_total{job=\"business-metrics\",vendor=~\".*\"}[$__range])) / 100",
             "legend": "m"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "uid": "ihui-ai-deep-pipeline",
+    "title": "IHUI-AI · AI 深度链路(压缩 / MCP / TTFT)",
+    "group": "AI 可观测",
+    "panels": [
+      {
+        "id": "stat-0",
+        "title": "活跃 LLM 会话",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "ihui_llm_active_sessions",
+            "legend": "会话"
+          }
+        ]
+      },
+      {
+        "id": "stat-1",
+        "title": "LLM 请求平均耗时(秒)",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "s",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(ihui_llm_request_duration_seconds_sum[$__range])) / clamp_min(sum(increase(ihui_llm_request_duration_seconds_count[$__range])), 0.000001)",
+            "legend": "平均耗时"
+          }
+        ]
+      },
+      {
+        "id": "stat-2",
+        "title": "首 token 时延 TTFT(秒)",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "orange",
+            "value": 2
+          },
+          {
+            "color": "red",
+            "value": 5
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(ihui_llm_ttft_seconds_sum[$__range])) / clamp_min(sum(increase(ihui_llm_ttft_seconds_count[$__range])), 0.000001)",
+            "legend": "TTFT"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-3",
+        "title": "TTFT 事件计数(窗口内)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(ihui_llm_ttft_seconds_count[$__range]))",
+            "legend": "TTFT 事件"
+          },
+          {
+            "ref": "B",
+            "expr": "sum(increase(ihui_llm_stream_interrupt_total[$__range]))",
+            "legend": "流式中断"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-4",
+        "title": "Token 压缩:触发 / 成功 / 失败",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(llm_token_compaction_triggered_total[$__range]))",
+            "legend": "触发"
+          },
+          {
+            "ref": "B",
+            "expr": "sum(increase(llm_token_compaction_success_total[$__range]))",
+            "legend": "成功"
+          },
+          {
+            "ref": "C",
+            "expr": "sum(increase(llm_token_compaction_failure_total[$__range]))",
+            "legend": "失败"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-5",
+        "title": "Token 压缩比(压缩后/压缩前,越小越好)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(llm_token_compaction_ratio_sum[$__range])) / clamp_min(sum(increase(llm_token_compaction_ratio_count[$__range])), 0.000001)",
+            "legend": "压缩比"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-6",
+        "title": "上下文压缩事件数",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(ihui_compaction_events_total[$__range]))",
+            "legend": "压缩事件"
+          },
+          {
+            "ref": "B",
+            "expr": "sum(increase(ihui_context_recall_queries_total[$__range]))",
+            "legend": "上下文召回查询"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-7",
+        "title": "上下文压缩:run 结局分布",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (outcome) (increase(ihui_compaction_run_outcomes_total[$__range]))",
+            "legend": "{{outcome}}"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-8",
+        "title": "上下文压缩平均耗时(秒)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "s",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(ihui_compaction_duration_seconds_sum[$__range])) / clamp_min(sum(increase(ihui_compaction_duration_seconds_count[$__range])), 0.000001)",
+            "legend": "压缩耗时"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-9",
+        "title": "上下文压缩比(越小越好)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(ihui_compaction_ratio_sum[$__range])) / clamp_min(sum(increase(ihui_compaction_ratio_count[$__range])), 0.000001)",
+            "legend": "压缩比"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-10",
+        "title": "推理内容保留率(越高越好)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(ihui_compaction_reasoning_retention_sum[$__range])) / clamp_min(sum(increase(ihui_compaction_reasoning_retention_count[$__range])), 0.000001)",
+            "legend": "保留率"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-11",
+        "title": "MCP 工具调用次数",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(ihui_mcp_tool_calls_total[$__range]))",
+            "legend": "工具调用"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-12",
+        "title": "MCP 工具平均耗时(秒)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "s",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(ihui_mcp_tool_latency_seconds_sum[$__range])) / clamp_min(sum(increase(ihui_mcp_tool_latency_seconds_count[$__range])), 0.000001)",
+            "legend": "工具耗时"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-13",
+        "title": "MCP schema 不匹配次数",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 1
+          }
+        ],
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(ihui_mcp_schema_mismatch_total[$__range]))",
+            "legend": "schema 不匹配"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-14",
+        "title": "压缩决策链长度",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(ihui_compaction_decision_chain_entries_sum[$__range])) / clamp_min(sum(increase(ihui_compaction_decision_chain_entries_count[$__range])), 0.000001)",
+            "legend": "决策链条目"
           }
         ]
       }
@@ -1301,6 +1585,496 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
             "ref": "A",
             "expr": "sum by (state) (alertmanager_alerts{instance=~\".*\"})",
             "legend": "{{state}}"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "uid": "ihui-ai-app-golden-signals",
+    "title": "IHUI-AI 应用层黄金指标",
+    "group": "基础设施",
+    "panels": [
+      {
+        "id": "1",
+        "title": "API 总 QPS",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "reqps",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(rate(http_requests_by_status[$__interval]))",
+            "legend": "QPS"
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "title": "5xx 占比",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "percent",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "orange",
+            "value": 1
+          },
+          {
+            "color": "red",
+            "value": 5
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "100 * sum(rate(http_requests_by_status{status=~\"5..\"}[$__range])) / clamp_min(sum(rate(http_requests_by_status[$__range])), 0.000001)",
+            "legend": "5xx %"
+          }
+        ]
+      },
+      {
+        "id": "3",
+        "title": "在途请求数",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(inflight_requests)",
+            "legend": "在途"
+          }
+        ]
+      },
+      {
+        "id": "4",
+        "title": "请求速率(按状态码)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "reqps",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (status) (rate(http_requests_by_status[$__interval]))",
+            "legend": "{{status}}"
+          }
+        ]
+      },
+      {
+        "id": "5",
+        "title": "请求速率(按方法)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "reqps",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (method) (rate(http_requests_by_method[$__interval]))",
+            "legend": "{{method}}"
+          }
+        ]
+      },
+      {
+        "id": "6",
+        "title": "API 平均响应耗时(ms)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "ms",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "http_response_time_ms_avg",
+            "legend": "平均耗时"
+          }
+        ]
+      },
+      {
+        "id": "7",
+        "title": "ai-service 平均请求耗时(秒)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "s",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(http_request_duration_seconds_sum[$__range])) / clamp_min(sum(increase(http_request_duration_seconds_count[$__range])), 0.000001)",
+            "legend": "平均耗时"
+          }
+        ]
+      },
+      {
+        "id": "8",
+        "title": "数据库连接池使用率",
+        "kind": "gauge",
+        "backend": "prometheus",
+        "unit": "percent",
+        "min": 0,
+        "max": 100,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "orange",
+            "value": 60
+          },
+          {
+            "color": "red",
+            "value": 85
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "100 * db_pool_in_use / clamp_min(db_pool_size, 1)",
+            "legend": "使用率"
+          }
+        ]
+      },
+      {
+        "id": "9",
+        "title": "连接池水位(size / 在用 / 检出)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "db_pool_size",
+            "legend": "池容量"
+          },
+          {
+            "ref": "B",
+            "expr": "db_pool_in_use",
+            "legend": "在用"
+          },
+          {
+            "ref": "C",
+            "expr": "db_pool_checkedout",
+            "legend": "检出"
+          },
+          {
+            "ref": "D",
+            "expr": "db_pool_overflow",
+            "legend": "溢出"
+          }
+        ]
+      },
+      {
+        "id": "10",
+        "title": "连接池检出超时速率",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 1
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(rate(db_pool_checkout_timeouts_total[$__interval]))",
+            "legend": "超时/秒"
+          }
+        ]
+      },
+      {
+        "id": "11",
+        "title": "应用侧缓存命中率",
+        "kind": "gauge",
+        "backend": "prometheus",
+        "unit": "percent",
+        "min": 0,
+        "max": 100,
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "orange",
+            "value": 50
+          },
+          {
+            "color": "green",
+            "value": 80
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "business_cache_hit_ratio * 100",
+            "legend": "命中率"
+          }
+        ]
+      },
+      {
+        "id": "12",
+        "title": "SQL 平均耗时(秒)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "s",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(rate(sql_query_duration_seconds_sum[$__interval])) / clamp_min(sum(rate(sql_query_duration_seconds_count[$__interval])), 0.000001)",
+            "legend": "平均耗时"
+          }
+        ]
+      },
+      {
+        "id": "13",
+        "title": "SQL 速率(按操作类型)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "ops",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (operation) (rate(sql_queries_total[$__interval]))",
+            "legend": "{{operation}}"
+          }
+        ]
+      },
+      {
+        "id": "14",
+        "title": "进程常驻内存(按 job)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "bytes",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (job) (process_resident_memory_bytes)",
+            "legend": "{{job}}"
+          }
+        ]
+      },
+      {
+        "id": "15",
+        "title": "进程 CPU 使用率(按 job)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "percent",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (job) (rate(process_cpu_seconds_total[$__interval])) * 100",
+            "legend": "{{job}}"
+          }
+        ]
+      },
+      {
+        "id": "16",
+        "title": "进程打开文件数(按 job)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (job) (process_open_fds)",
+            "legend": "{{job}}"
+          }
+        ]
+      },
+      {
+        "id": "17",
+        "title": "Python GC 回收速率(按 job)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (job) (rate(python_gc_objects_collected_total[$__interval]))",
+            "legend": "{{job}}"
+          }
+        ]
+      },
+      {
+        "id": "18",
+        "title": "活跃连接数",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "active_connections",
+            "legend": "活跃连接"
+          },
+          {
+            "ref": "B",
+            "expr": "tcp_connections",
+            "legend": "TCP 连接"
+          }
+        ]
+      },
+      {
+        "id": "19",
+        "title": "出站连接失败速率(按 job)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (job) (rate(net_conntrack_dialer_conn_failed_total[$__interval]))",
+            "legend": "{{job}}"
+          }
+        ]
+      },
+      {
+        "id": "20",
+        "title": "模型同步:在库模型数",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "model_sync_total_models_in_db",
+            "legend": "{{instance}}"
+          }
+        ]
+      },
+      {
+        "id": "21",
+        "title": "模型同步平均耗时(秒)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "s",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(model_sync_latency_seconds_sum[$__range])) / clamp_min(sum(increase(model_sync_latency_seconds_count[$__range])), 0.000001)",
+            "legend": "平均耗时"
+          }
+        ]
+      },
+      {
+        "id": "22",
+        "title": "RSSHub 请求与错误速率",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "reqps",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(rate(rsshub_request_total[$__interval]))",
+            "legend": "请求/秒"
+          },
+          {
+            "ref": "B",
+            "expr": "sum(rate(rsshub_request_error_total[$__interval]))",
+            "legend": "错误/秒"
+          }
+        ]
+      },
+      {
+        "id": "23",
+        "title": "HTTP 请求速率",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (job) (rate(http_requests_total[5m]))",
+            "legend": "job={{job}}"
+          },
+          {
+            "ref": "B",
+            "expr": "sum by (method) (rate(http_requests_by_method[5m]))",
+            "legend": "method={{method}}"
+          }
+        ]
+      },
+      {
+        "id": "24",
+        "title": "HTTP 耗时(P95 与平均)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "s",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[6h])))",
+            "legend": "P95"
+          },
+          {
+            "ref": "B",
+            "expr": "sum(http_request_duration_seconds_sum) / sum(http_request_duration_seconds_count)",
+            "legend": "平均"
+          }
+        ]
+      },
+      {
+        "id": "25",
+        "title": "SQL 查询耗时 P95(按操作)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "s",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(sql_query_duration_seconds_bucket[5m])))",
+            "legend": "{{operation}}"
           }
         ]
       }
@@ -1986,6 +2760,283 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
             "ref": "A",
             "expr": "sum by (instance, db) (redis_db_keys{instance=~\".*\"})",
             "legend": "{{instance}}-{{db}}"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "uid": "ihui-ai-cloudflared-tunnel",
+    "title": "IHUI-AI 公网隧道(Cloudflared)",
+    "group": "基础设施",
+    "panels": [
+      {
+        "id": "1",
+        "title": "隧道在线",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 1
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "up{job=\"cloudflared\"}",
+            "legend": "up"
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "title": "HA 连接数(边缘节点)",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "orange",
+            "value": 1
+          },
+          {
+            "color": "green",
+            "value": 4
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "cloudflared_tunnel_ha_connections",
+            "legend": "HA"
+          }
+        ]
+      },
+      {
+        "id": "3",
+        "title": "累计请求总数",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "cloudflared_tunnel_total_requests",
+            "legend": "请求"
+          }
+        ]
+      },
+      {
+        "id": "4",
+        "title": "请求速率(次/秒)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "reqps",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(rate(cloudflared_tunnel_total_requests[$__interval]))",
+            "legend": "QPS"
+          }
+        ]
+      },
+      {
+        "id": "5",
+        "title": "错误速率(次/秒)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "reqps",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(rate(cloudflared_tunnel_request_errors[$__interval]))",
+            "legend": "错误/秒"
+          }
+        ]
+      },
+      {
+        "id": "6",
+        "title": "响应码分布(按状态码)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "cloudflared_tunnel_response_by_code",
+            "legend": "{{status_code}}"
+          }
+        ]
+      },
+      {
+        "id": "7",
+        "title": "响应码构成(当前值)",
+        "kind": "pie",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "cloudflared_tunnel_response_by_code",
+            "legend": "{{status_code}}"
+          }
+        ]
+      },
+      {
+        "id": "8",
+        "title": "接入 PoP 节点",
+        "kind": "table",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "cloudflared_tunnel_server_locations",
+            "legend": "{{id}}"
+          }
+        ]
+      },
+      {
+        "id": "9",
+        "title": "并发请求数",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "cloudflared_tunnel_concurrent_requests_per_tunnel",
+            "legend": "并发"
+          }
+        ]
+      },
+      {
+        "id": "10",
+        "title": "累计错误总数",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 1
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "cloudflared_tunnel_request_errors",
+            "legend": "错误"
+          }
+        ]
+      },
+      {
+        "id": "11",
+        "title": "隧道注册成功次数",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "cloudflared_tunnel_tunnel_register_success",
+            "legend": "注册"
+          }
+        ]
+      },
+      {
+        "id": "12",
+        "title": "RPC 客户端失败 / TCP 活跃会话",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "cloudflared_rpc_client_failures",
+            "legend": "RPC 失败"
+          },
+          {
+            "ref": "B",
+            "expr": "cloudflared_tcp_active_sessions",
+            "legend": "TCP 活跃会话"
+          }
+        ]
+      },
+      {
+        "id": "13",
+        "title": "RPC 客户端操作速率",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (handler, method) (rate(cloudflared_rpc_client_operations[5m]))",
+            "legend": "{{handler}} · {{method}}"
+          }
+        ]
+      },
+      {
+        "id": "14",
+        "title": "回源连接延迟 P95",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "s",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 0.1
+          },
+          {
+            "color": "red",
+            "value": 0.5
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(cloudflared_proxy_connect_latency_bucket[5m]))) / 1000",
+            "legend": "P95 连接延迟"
           }
         ]
       }
@@ -2819,6 +3870,410 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
             "ref": "A",
             "expr": "sum by (room_id) (increase(ihui_live_stream_disconnected_total{instance=~\".*\"}[5m]))",
             "legend": "room {{room_id}}"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "uid": "ihui-ai-log-stack-health",
+    "title": "IHUI-AI 日志栈与监控栈自健康",
+    "group": "基础设施",
+    "panels": [
+      {
+        "id": "1",
+        "title": "抓取目标在线数(共 13)",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 13
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(up)",
+            "legend": "在线"
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "title": "TSDB 活跃序列数",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "prometheus_tsdb_head_series",
+            "legend": "序列"
+          }
+        ]
+      },
+      {
+        "id": "3",
+        "title": "配置重载是否成功",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 1
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "prometheus_config_last_reload_successful",
+            "legend": "重载"
+          }
+        ]
+      },
+      {
+        "id": "4",
+        "title": "各目标抓取耗时(秒)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "s",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "scrape_duration_seconds",
+            "legend": "{{job}}"
+          }
+        ]
+      },
+      {
+        "id": "5",
+        "title": "抓取目标在线明细",
+        "kind": "table",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 1
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "up",
+            "legend": "{{job}} {{instance}}"
+          }
+        ]
+      },
+      {
+        "id": "6",
+        "title": "告警通知丢弃速率(告警链路断裂信号)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 1
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(rate(prometheus_notifications_dropped_total[$__interval]))",
+            "legend": "丢弃/秒"
+          }
+        ]
+      },
+      {
+        "id": "7",
+        "title": "超出样本上限的抓取",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(rate(prometheus_target_scrapes_exceeded_sample_limit_total[$__interval]))",
+            "legend": "超限/秒"
+          }
+        ]
+      },
+      {
+        "id": "8",
+        "title": "Loki 入站速率(字节/秒)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "Bps",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(rate(loki_distributor_bytes_received_total[$__interval]))",
+            "legend": "入站"
+          },
+          {
+            "ref": "B",
+            "expr": "sum(rate(loki_discarded_bytes_total[$__interval]))",
+            "legend": "丢弃"
+          }
+        ]
+      },
+      {
+        "id": "9",
+        "title": "Loki 在途请求数",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(loki_inflight_requests)",
+            "legend": "在途"
+          }
+        ]
+      },
+      {
+        "id": "10",
+        "title": "Promtail 日志采集速率(行/秒)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 1
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(rate(promtail_read_lines_total[$__interval]))",
+            "legend": "读取"
+          },
+          {
+            "ref": "B",
+            "expr": "sum(rate(promtail_sent_entries_total[$__interval]))",
+            "legend": "已发送"
+          },
+          {
+            "ref": "C",
+            "expr": "sum(rate(promtail_dropped_entries_total[$__interval]))",
+            "legend": "丢弃"
+          }
+        ]
+      },
+      {
+        "id": "11",
+        "title": "Promtail 活跃目标 / 活跃文件",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(promtail_targets_active_total)",
+            "legend": "活跃目标"
+          },
+          {
+            "ref": "B",
+            "expr": "sum(promtail_files_active_total)",
+            "legend": "活跃文件"
+          }
+        ]
+      },
+      {
+        "id": "12",
+        "title": "已发现抓取目标数",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "yellow",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 13
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(prometheus_sd_discovered_targets)",
+            "legend": "已发现目标"
+          }
+        ]
+      },
+      {
+        "id": "13",
+        "title": "Loki 请求速率(按 route)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (route) (rate(loki_request_duration_seconds_count[5m]))",
+            "legend": "{{route}}"
+          }
+        ]
+      },
+      {
+        "id": "14",
+        "title": "Loki 请求耗时(P95 与平均)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "s",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(loki_request_duration_seconds_bucket[5m])))",
+            "legend": "P95"
+          },
+          {
+            "ref": "B",
+            "expr": "sum(rate(loki_request_duration_seconds_sum[5m])) / sum(rate(loki_request_duration_seconds_count[5m]))",
+            "legend": "平均"
+          }
+        ]
+      },
+      {
+        "id": "15",
+        "title": "Loki 5xx 错误率",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "percent",
+        "min": 0,
+        "max": 100,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 1
+          },
+          {
+            "color": "red",
+            "value": 5
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "100 * (sum(rate(loki_request_duration_seconds_count{status_code=~\"5..\"}[5m])) / sum(rate(loki_request_duration_seconds_count[5m])))",
+            "legend": "5xx 占比"
+          }
+        ]
+      },
+      {
+        "id": "16",
+        "title": "Promtail 日志读取速率(Top5 文件)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "Bps",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "topk(5, sum by (path) (rate(promtail_read_bytes_total[5m])))",
+            "legend": "{{path}}"
+          }
+        ]
+      },
+      {
+        "id": "17",
+        "title": "告警桥自监控",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 1
+          },
+          {
+            "color": "red",
+            "value": 5
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(ihui_alertbridge_alerts_received_total)",
+            "legend": "累计接收告警"
+          },
+          {
+            "ref": "B",
+            "expr": "sum(ihui_alertbridge_mail_undelivered)",
+            "legend": "邮件未投递"
+          }
+        ]
+      },
+      {
+        "id": "18",
+        "title": "Prometheus 规则评估耗时(按分位)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "s",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "prometheus_rule_evaluation_duration_seconds",
+            "legend": "q={{quantile}}"
           }
         ]
       }
@@ -3948,6 +5403,367 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
     ]
   },
   {
+    "uid": "ihui-ai-windows-host",
+    "title": "IHUI-AI Windows 宿主机",
+    "group": "基础设施",
+    "panels": [
+      {
+        "id": "1",
+        "title": "IHUI 服务运行状态",
+        "kind": "table",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 1
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "max by (name) (windows_service_state{job=\"windows\",name=~\"IHUI.*\",state=\"running\"})",
+            "legend": "{{name}}"
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "title": "磁盘剩余空间",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "bytes",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 21474836480
+          },
+          {
+            "color": "green",
+            "value": 53687091200
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "windows_logical_disk_free_bytes{job=\"windows\",volume=~\"[A-Z]:\"}",
+            "legend": "{{volume}}"
+          }
+        ]
+      },
+      {
+        "id": "3",
+        "title": "磁盘使用率",
+        "kind": "gauge",
+        "backend": "prometheus",
+        "unit": "percent",
+        "min": 0,
+        "max": 100,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 75
+          },
+          {
+            "color": "red",
+            "value": 90
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "100 * (1 - (windows_logical_disk_free_bytes{job=\"windows\",volume=~\"[A-Z]:\"} / windows_logical_disk_size_bytes{job=\"windows\",volume=~\"[A-Z]:\"}))",
+            "legend": "{{volume}}"
+          }
+        ]
+      },
+      {
+        "id": "4",
+        "title": "物理内存空闲",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "bytes",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 2147483648
+          },
+          {
+            "color": "green",
+            "value": 8589934592
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "windows_os_physical_memory_free_bytes{job=\"windows\"}",
+            "legend": "物理内存空闲"
+          }
+        ]
+      },
+      {
+        "id": "5",
+        "title": "虚拟内存空闲",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "bytes",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 4294967296
+          },
+          {
+            "color": "green",
+            "value": 17179869184
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "windows_os_virtual_memory_free_bytes{job=\"windows\"}",
+            "legend": "虚拟内存空闲"
+          }
+        ]
+      },
+      {
+        "id": "6",
+        "title": "物理内存使用率",
+        "kind": "gauge",
+        "backend": "prometheus",
+        "unit": "percent",
+        "min": 0,
+        "max": 100,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 75
+          },
+          {
+            "color": "red",
+            "value": 90
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "100 * (1 - (windows_os_physical_memory_free_bytes{job=\"windows\"} / windows_cs_physical_memory_bytes{job=\"windows\"}))",
+            "legend": "内存使用率"
+          }
+        ]
+      },
+      {
+        "id": "7",
+        "title": "系统进程数",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 500
+          },
+          {
+            "color": "red",
+            "value": 800
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "windows_system_processes{job=\"windows\"}",
+            "legend": "进程数"
+          }
+        ]
+      },
+      {
+        "id": "8",
+        "title": "CPU 使用率",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "percent",
+        "min": 0,
+        "max": 100,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "100 - (avg by (instance) (rate(windows_cpu_time_total{job=\"windows\",mode=\"idle\"}[5m])) * 100)",
+            "legend": "CPU 使用率"
+          }
+        ]
+      },
+      {
+        "id": "9",
+        "title": "网络入向速率",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "Bps",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "rate(windows_net_bytes_received_total{job=\"windows\"}[5m])",
+            "legend": "{{nic}} 入向"
+          }
+        ]
+      },
+      {
+        "id": "10",
+        "title": "网络出向速率",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "Bps",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "rate(windows_net_bytes_sent_total{job=\"windows\"}[5m])",
+            "legend": "{{nic}} 出向"
+          }
+        ]
+      },
+      {
+        "id": "11",
+        "title": "磁盘读写吞吐",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "Bps",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "rate(windows_logical_disk_read_bytes_total{job=\"windows\",volume=~\"[A-Z]:\"}[5m])",
+            "legend": "{{volume}} 读"
+          },
+          {
+            "ref": "B",
+            "expr": "rate(windows_logical_disk_write_bytes_total{job=\"windows\",volume=~\"[A-Z]:\"}[5m])",
+            "legend": "{{volume}} 写"
+          }
+        ]
+      },
+      {
+        "id": "12",
+        "title": "主机已运行时长",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "d",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "(time() - windows_system_boot_time_timestamp_seconds{job=\"windows\"}) / 86400",
+            "legend": "已运行"
+          }
+        ]
+      },
+      {
+        "id": "13",
+        "title": "内存提交率",
+        "kind": "gauge",
+        "backend": "prometheus",
+        "unit": "percent",
+        "min": 0,
+        "max": 100,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 80
+          },
+          {
+            "color": "red",
+            "value": 95
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "100 * (windows_memory_committed_bytes{job=\"windows\"} / windows_memory_commit_limit{job=\"windows\"})",
+            "legend": "提交率"
+          }
+        ]
+      },
+      {
+        "id": "14",
+        "title": "IHUI 服务运行数(运行 / 异常)",
+        "kind": "table",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "count(windows_service_state{name=~\"IHUI.*\",state=\"running\"} == 1) or vector(0)",
+            "legend": "运行中"
+          },
+          {
+            "ref": "B",
+            "expr": "count(windows_service_state{name=~\"IHUI.*\",state!=\"running\"} == 1) or vector(0)",
+            "legend": "非 running"
+          }
+        ]
+      },
+      {
+        "id": "15",
+        "title": "系统上下文切换速率",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "rate(windows_system_context_switches_total[5m])",
+            "legend": "上下文切换/秒"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "uid": "ihui-ai-ws",
     "title": "IHUI-AI WebSocket 监控",
     "group": "业务",
@@ -4092,4 +5908,3 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
 ]
 
 export const PANEL_GROUPS = Array.from(new Set(MONITOR_DASHBOARDS.map((d) => d.group)))
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
