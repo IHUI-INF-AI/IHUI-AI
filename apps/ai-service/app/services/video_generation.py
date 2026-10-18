@@ -40,6 +40,40 @@ logger = logging.getLogger(__name__)
 # 默认 provider 优先级(可被 VIDEO_PROVIDER 覆盖);token6688 单 key 全模态,已配置则优先
 _DEFAULT_PRIORITY = ["token6688", "kling", "jimeng", "wan", "hunyuan"]
 
+# ---------------------------------------------------------------------------
+# 凭据配置的播报去重(2026-10-18 立,治 5.2 万行/天的日志噪音)
+#
+# 现场:worker 每 `VIDEO_POLL_INTERVAL_S`(默认 10s)跑一轮 `_configured_providers()`,
+# 而它对每个**未配置**厂商各打一条 INFO;实测 6 条/10s ≈ 51840 行/天,把 worker 自己的
+# 启动/出片/报警日志全部埋掉(loki 侧同理放大)。
+#
+# 为什么不直接降级到 debug:"某厂商没配 key"是一条**环境事实**,运维配错凭据时它是唯一线索,
+# 降级等于把线索从默认日志里删掉 ⇒ 沉默失效,与本仓告警治理的方向锁(§5e-1)相反。
+#
+# 采用标准解法 —— **按厂商的状态机播报**,只在状态翻转时打一次:
+#   未配置 → 已配置 :打一条"凭据已就绪"(证明配置改动被进程感知到了)
+#   已配置 → 未配置 :打一条"未配置,跳过"(证明凭据失效/被摘掉)
+#   状态不变        :一句不打(同一事实重复 8640 次不增加任何信息)
+# 两个方向都不静默,稳定态零噪音。进程重启后状态机归零 ⇒ 每次启动仍会完整报一遍。
+# ---------------------------------------------------------------------------
+_CRED_STATE: dict[str, bool] = {}
+
+
+def _report_credential_state(name: str, configured: bool, hint: str = "") -> None:
+    """厂商凭据状态播报(幂等):只在 discovered 状态发生变化时打一条 INFO。"""
+    if _CRED_STATE.get(name) == configured:
+        return
+    _CRED_STATE[name] = configured
+    if configured:
+        logger.info("[video] %s 凭据已就绪,本轮起参与出片(状态未再变之前不重复播报)", name)
+    else:
+        detail = f"({hint})" if hint else ""
+        logger.info(
+            "[video] %s 未配置%s,跳过 —— 这是静态配置事实,后续轮次不再重复播报,"
+            "补上凭据后本条会自动改为「凭据已就绪」",
+            name, detail,
+        )
+
 
 def _configured_providers() -> list[tuple[str, Any]]:
     """按 env 优先级 + 凭据是否齐备,返回可用 provider 列表 [(name, instance)]。"""
@@ -71,31 +105,36 @@ def _instantiate(name: str) -> Any | None:
                 except Exception:  # noqa: BLE001
                     key = ""
             if key:
+                _report_credential_state(name, True)
                 return Token6688Provider(key)
-            logger.info("[video] token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688),跳过")
+            _report_credential_state(name, False, "TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688")
             return None
         if name in ("kling", "可灵"):
             p: Any = KlingProvider(None)
             if p.configured:
+                _report_credential_state(name, True)
                 return p
-            logger.info("[video] 可灵未配置(KLING_ACCESS_KEY/SECRET_KEY),跳过")
+            _report_credential_state(name, False, "KLING_ACCESS_KEY/SECRET_KEY")
             return None
         if name in ("jimeng", "即梦", "seedance"):
             p = JimengProvider(None)
             if p.configured:
+                _report_credential_state(name, True)
                 return p
-            logger.info("[video] 即梦未配置(ARK_API_KEY 或 ARK_ACCESS_KEY/SECRET_KEY),跳过")
+            _report_credential_state(name, False, "ARK_API_KEY 或 ARK_ACCESS_KEY/SECRET_KEY")
             return None
         if name in ("wan", "wann", "万相"):
             p = AlibabaDashscopeProvider("")
             if os.environ.get("DASHSCOPE_API_KEY"):
+                _report_credential_state(name, True)
                 return p
-            logger.info("[video] 通义万相未配置(DASHSCOPE_API_KEY),跳过")
+            _report_credential_state(name, False, "DASHSCOPE_API_KEY")
             return None
         if name in ("hunyuan", "混元"):
             if os.environ.get("TENCENT_SECRET_ID") and os.environ.get("TENCENT_SECRET_KEY"):
+                _report_credential_state(name, True)
                 return TencentHunyuanProvider("")
-            logger.info("[video] 混元未配置(TENCENT_SECRET_ID/SECRET_KEY),跳过")
+            _report_credential_state(name, False, "TENCENT_SECRET_ID/SECRET_KEY")
             return None
     except Exception as e:  # noqa: BLE001
         logger.warning("[video] provider 实例化失败 %s: %s", name, e)
@@ -173,7 +212,11 @@ async def _process_one() -> bool:
     单 worker 卡死 1 小时 → 提交(wait=False)后立即返回,任务置 processing 且
     result 记 poll_via 标记,由 _poll_pending() 轮询终态;其余厂商保持阻塞编排。
     """
-    if not _configured_providers():
+    # 只算一次并在下面复用:此前后各调用一次 `_configured_providers()` /
+    # `_instantiate("token6688")` ⇒ 同一轮把每个厂商实例化两遍(第二轮仅为拿到 token6688),
+    # 既重复 IO/config 解析也让上面的状态播报出现同一厂商的重复行。
+    available = _configured_providers()
+    if not available:
         return False
 
     conn = await get_db_conn()
@@ -203,7 +246,8 @@ async def _process_one() -> bool:
         if not prompt:
             raise ProviderError("任务缺少 prompt(message 为空)")
         # token6688 提交即返回(poll_via 标记),交给 _poll_pending 轮询;提交失败降级原编排
-        t6688 = _instantiate("token6688")
+        # 复用本轮开头算好的实例(原先这里再 `_instantiate("token6688")` 一遍)
+        t6688 = next((inst for n, inst in available if n == "token6688"), None)
         if t6688 is not None:
             try:
                 # 官方 webhook:配置 TOKEN6688_CALLBACK_URL 后带 callback_url 提交,
