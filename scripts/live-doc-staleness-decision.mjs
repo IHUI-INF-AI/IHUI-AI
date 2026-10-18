@@ -160,7 +160,7 @@ export function orphanLines(wtCounts, refCounts) {
  *
  * @param {{rel:string, blockingError?:string|null, wtText:string|null, headText:string|null,
  *          archiveTexts?:string[], archiveError?:string|null, wtUnavailableReason?:string,
- *          remoteText?:string|null}} a
+ *          remoteText?:string|null, retiredProven?:string[]}} a
  */
 export function decidePath(a) {
   const rel = a.rel
@@ -208,10 +208,28 @@ export function decidePath(a) {
   }
   superseded.sort()
 
+  // 第三判据「已退役旧账」(2026-10-19 立,政策出处是本仓 §1 的「完成即删」机主令 2026-10-16:
+  // 翻勾之后整行删除、不留档、不写占位注释 ⇒ 一条**曾经入库、后来被正当删除**的登记行,
+  // 按定义在 HEAD/归档/远端**三个现面上都不存在**。旧版只有前两判据,于是这种行必然落 needHuman。
+  // 现读代价:2026-10-19 生产签出就是被 9 条这样的行挡死 ff —— 部署环拒绝复原(它只能证明
+  // "这行在现面里找得到"),整轮停摆 7 小时、每 4h 给机主寄一封 CRITICAL「有未提交文件挡住 ff」,
+  // 而那条信人**无法整改**:补回=违反"完成即删",删掉=毁掉别人在飞的同一份台账副本。
+  // 授权只有一句话:`git log -S<逐字行> origin/main -- <该文档>` 取到提交 ⇒ 这行**曾在本仓主干入库过**;
+  // 取不到 / 取的过程出错 ⇒ 一律不 proven(保守侧,与上一版逐字同结论),绝不拿"查不动"冒绿。
+  // 逐条 proven 的行**照常写进结果与输出**(retired 桶),不做静默放过。
+  const retiredSet = new Set(a.retiredProven || [])
+  const retired = []
+  const live = []
+  for (const o of orphans) {
+    if (retiredSet.has(o.line)) retired.push(o.line)
+    else live.push(o)
+  }
+  retired.sort()
+
   const total = (m) => [...m.values()].reduce((x, y) => x + y, 0)
   return {
     path: rel,
-    status: orphans.length > 0 ? 'needHuman' : 'alignable',
+    status: live.length > 0 ? 'needHuman' : 'alignable',
     worktreeNonBlankLines: total(wt),
     worktreeDistinctLines: wt.size,
     referenceDistinctLines: ref.size,
@@ -219,8 +237,53 @@ export function decidePath(a) {
     remoteMatched: typeof a.remoteText === 'string',
     supersededCount: superseded.length,
     superseded,
-    orphans,
+    retiredCount: retired.length,
+    retired,
+    orphans: live,
   }
+}
+
+/**
+ * 逐字证明「这一行曾在本仓主干入库、后来被正当删除」= 第三判据的取证出口(§1 完成即删)。
+ * 只认 pickaxe 的**逐字串**命中,不做相似度;命中即 proven,查不动/超界/超长 ⇒ **不 proven**
+ * (保守侧:与没有第三判据时逐字同结论,绝不拿"查不动"写成"可以覆盖")。
+ * 有界:单批最多 MAX_HISTORY_LINES 条、单条超时 60s、超长行不查 —— 这条路径跑在部署环每一轮里,
+ * 无上限的 pickaxe 扫描会把"补一格判据"变成"每轮多耗几分钟"(§12e 的另一种失效:慢到没人敢开)。
+ * `gitImpl` 可注入 ⇒ 镜像档不必造真仓就能钉死"取不到 ⇒ 不 proven"这一支。
+ */
+export const MAX_HISTORY_LINES = 40
+export const HISTORY_LINE_MAX_LEN = 1200
+export function proveRetiredLines(
+  lines,
+  { root, rel, ref = REMOTE_REF, gitImpl = gitRaw, budget = MAX_HISTORY_LINES, timeoutMs = 60_000 } = {},
+) {
+  const proven = []
+  const notes = []
+  const seen = new Set()
+  let used = 0
+  for (const raw of lines || []) {
+    const line = String(raw)
+    if (seen.has(line)) continue
+    seen.add(line)
+    if (used >= budget) {
+      notes.push(`有界放弃:超出 ${budget} 条未取证 ⇒ 这些行一律不 proven`)
+      break
+    }
+    used += 1
+    if (line.length > HISTORY_LINE_MAX_LEN) {
+      notes.push(`超长行(${line.length} 字符)不取证 ⇒ 不 proven`)
+      continue
+    }
+    let hit = ''
+    try {
+      hit = String(gitImpl(['log', '--format=%H', '--max-count=1', `-S${line}`, ref, '--', rel], root, { timeout: timeoutMs }) || '').trim()
+    } catch (e) {
+      notes.push(`查不动:${String((e && e.message) || e).slice(0, 80)} ⇒ 不 proven`)
+      continue
+    }
+    if (hit) proven.push(line)
+  }
+  return { proven, notes }
 }
 
 /**
@@ -275,7 +338,7 @@ function worktreeAbsence(root, rel) {
  * 取材:基准 blob 与归档语料**同面同轮**一次批量读;工作区副本走层的磁盘出口。
  * @returns {{results:Array<object>, archiveDocs:number, archiveChars:number, blockingError:string|null}}
  */
-function gather(root, paths) {
+function gather(root, paths, opts = {}) {
   let blockingError = null
   try {
     assertRepoRoot(root, '本判定出口')
@@ -332,7 +395,7 @@ function gather(root, paths) {
     }
     if (wtText === null && !blockingError) wtReason = worktreeAbsence(root, rel)
     const remoteText = blobs.get(remoteSpecs[i])
-    return decidePath({
+    const input = {
       rel,
       blockingError,
       wtText,
@@ -340,7 +403,13 @@ function gather(root, paths) {
       headText: blobs.get(headSpecs[i]) ?? null,
       archiveTexts,
       remoteText: typeof remoteText === 'string' ? remoteText : null,
-    })
+    }
+    const first = decidePath(input)
+    // 只有前两判据都放过"不许覆盖"时才付第三次取证的钱(pickaxe 有界扫描);`--no-history` 可关。
+    if (first.status !== 'needHuman' || first.orphans.length === 0 || opts.history === false) return first
+    const { proven, notes } = proveRetiredLines(first.orphans.map((o) => o.line), { root, rel })
+    if (proven.length === 0) return notes.length ? { ...first, historyNotes: notes } : first
+    return { ...decidePath({ ...input, retiredProven: proven }), historyNotes: notes, historyProvenCount: proven.length }
   })
   const remoteMatched = paths.filter((_, i) => typeof blobs.get(remoteSpecs[i]) === 'string').length
   return {
@@ -355,7 +424,7 @@ function gather(root, paths) {
 }
 
 export function parseArgs(argv) {
-  const out = { paths: [], json: false, selfTest: false, root: ROOT, help: false, defaulted: false }
+  const out = { paths: [], json: false, selfTest: false, root: ROOT, help: false, defaulted: false, noHistory: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--paths' || a === '-p') {
@@ -364,6 +433,7 @@ export function parseArgs(argv) {
       out.paths.push(...a.slice(8).split(',').filter(Boolean))
     } else if (a === '--json') out.json = true
     else if (a === '--self-test') out.selfTest = true
+    else if (a === '--no-history') out.noHistory = true
     else if (a === '--root') {
       if (argv[i + 1]) out.root = resolve(argv[++i])
     } else if (a === '--help' || a === '-h') out.help = true
@@ -416,6 +486,18 @@ export function render(results, summary, meta, orphanCap) {
       if (superseded.length > orphanCap)
         lines.push(`      …其余 ${superseded.length - orphanCap} 行未列出`)
     }
+    const retired = r.retired || []
+    if (retired.length > 0) {
+      lines.push(
+        `      另有 ${retired.length} 行按「已退役旧账」放过(§1 完成即删:该行曾在 origin/main 主干入库、现面已删;逐条如下):`,
+      )
+      for (const s of retired.slice(0, orphanCap)) {
+        const shown = s.length > 240 ? `${s.slice(0, 240)}…` : s
+        lines.push(`      已退役:${shown}`)
+      }
+      if (retired.length > orphanCap) lines.push(`      …其余 ${retired.length - orphanCap} 行未列出`)
+    }
+    for (const n of r.historyNotes || []) lines.push(`      历史取证说明:${n}`)
   }
   lines.push(
     `汇总:alignable ${summary.alignable} / needHuman ${summary.needHuman} / undetermined ${summary.undetermined}` +
@@ -466,6 +548,78 @@ function selfTest() {
         archiveTexts: [dup],
       })
       return r.status === 'needHuman' && r.orphans.length === 1 && r.orphans[0].excess === 1
+    })(),
+  )
+
+  // 第三判据「已退役旧账」(§1 完成即删 2026-10-16 ⇒ 一条曾入库、后被正当删除的登记行按定义不在任何现面;
+  // 立项现场=生产签出被 9 条这种行挡死 ff 七小时,每 4h 一封人无法整改的 CRITICAL)
+  t(
+    '已退役旧账 proven ⇒ alignable,且该行逐条进 retired 桶(不静默)',
+    (() => {
+      const wt = [head, '- [x] 甲已完成(已于上周翻勾删除)'].join('\n')
+      const r = decidePath({
+        rel: 'P',
+        wtText: wt,
+        headText: head,
+        archiveTexts: [arch],
+        retiredProven: ['- [x] 甲已完成(已于上周翻勾删除)'],
+      })
+      return (
+        r.status === 'alignable' &&
+        r.orphans.length === 0 &&
+        r.retiredCount === 1 &&
+        r.retired[0] === '- [x] 甲已完成(已于上周翻勾删除)'
+      )
+    })(),
+  )
+  t(
+    '阳性对照:同一行没有 proven 证据 ⇒ 必须照旧 needHuman(第三判据不是把门拆掉)',
+    (() => {
+      const wt = [head, '- [x] 甲已完成(已于上周删除)'].join('\n')
+      const r = decidePath({ rel: 'P', wtText: wt, headText: head, archiveTexts: [arch] })
+      return r.status === 'needHuman' && r.retiredCount === 0
+    })(),
+  )
+  t(
+    '部分 proven ⇒ 未 proven 的那条仍 needHuman(一条旧账的证据不替另一条背书)',
+    (() => {
+      const wt = [head, 'AAA-已退役一行', 'BBB-仍在飞的活'].join('\n')
+      const r = decidePath({
+        rel: 'P',
+        wtText: wt,
+        headText: head,
+        archiveTexts: [arch],
+        retiredProven: ['AAA-已退役一行'],
+      })
+      return r.status === 'needHuman' && r.orphans.length === 1 && r.orphans[0].line === 'BBB-仍在飞的活'
+    })(),
+  )
+  t(
+    '取证出口四种落点都如实:命中⇒proven / 查不动⇒不 proven 且报名 / 超界与超长⇒不 proven',
+    (() => {
+      const ok = proveRetiredLines(['L1', 'L2'], {
+        root: '.',
+        rel: 'P',
+        gitImpl: (args) => (args.some((x) => String(x).startsWith('-SL1')) ? 'deadbeef\n' : ''),
+      })
+      const boom = proveRetiredLines(['L1'], {
+        root: '.',
+        rel: 'P',
+        gitImpl: () => {
+          throw new Error('git 挂了')
+        },
+      })
+      const capped = proveRetiredLines(['A', 'B', 'C'], { root: '.', rel: 'P', gitImpl: () => 'x', budget: 2 })
+      const tooLong = proveRetiredLines(['Y'.repeat(HISTORY_LINE_MAX_LEN + 1)], { root: '.', rel: 'P', gitImpl: () => 'x' })
+      return (
+        ok.proven.join() === 'L1' &&
+        boom.proven.length === 0 &&
+        boom.notes.length === 1 &&
+        capped.proven.join() === 'A,B' &&
+        capped.notes.length === 1 &&
+        tooLong.proven.length === 0 &&
+        tooLong.notes.length === 1
+      )
     })(),
   )
 
@@ -771,7 +925,7 @@ function main() {
   if (argv.selfTest) return selfTest()
 
   const paths = [...new Set(argv.paths.map((p) => toRel(p, argv.root)).filter(Boolean))]
-  const got = gather(argv.root, paths)
+  const got = gather(argv.root, paths, { history: !argv.noHistory })
   const summary = aggregate(got.results)
   const meta = {
     face: 'HEAD blob(默认面)',
@@ -823,12 +977,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   process.exitCode = main()
 }
 
-export const __test__ = {
-  normalizeLine,
+export const __test__ = {  normalizeLine,
   normalizeLineText,
   lineCounts,
   mergeCountsInto,
   orphanLines,
+  proveRetiredLines,
   stripSupersedeDecoration,
   decidePath,
   aggregate,

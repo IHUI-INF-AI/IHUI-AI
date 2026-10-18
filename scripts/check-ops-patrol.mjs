@@ -2025,6 +2025,104 @@ export async function checkBackupReplicaPresence({
   return rows
 }
 
+/**
+ * P12:G-181「HEAD 面能否类型检查」的**主动出口** —— 已有的是构建失败时归因(巡检 P5b)，
+ * 没有的是"没人构建也想知道"。本条不自建判据：整条结论(landed / 疑似在飞 / 未判定 三态、
+ * 脏树"候选"告示、耗时与预算)一律取自 scripts/check-head-typecheck.mjs 自己的末行读数，
+ * 本文件只做三件事 —— 何时跑一次、三态怎么落巡检档、跑不到时怎么如实落未判定。
+ *
+ * 三条不可动摇(AGENTS §0.3 / §0.9 / §12e)：
+ *  ① 现测全档一次 43.9s(20 端 / 预算 600s)是重活 ⇒ 必须上窗口缓存；未到窗口时**复述**上次
+ *    结论并写明距今多久，绝不冒充"这一轮又验过"；
+ *  ② 未到窗口且没有上次结论 ⇒ undetermined（没跑过就是没跑过，不得读成"没问题"）；
+ *  ③ 派生失败 / 末行解不出 ⇒ undetermined，永不把"问不到"折成 0 或 ok；
+ *  ④ 它判的是仓库整体状态 ⇒ 只进巡检档，刻意不进提交链（挂 blocking 就是每台每次被逼跳门）。
+ */
+export const HEAD_TYPECHECK_WINDOW_MS = 6 * 3600 * 1000
+const HEAD_TYPECHECK_LINE_RE = /判定=(\S+) \| 端 (\d+)\(通过 (\d+) \/ 已入库红 (\d+) \/ 疑似在飞 (\d+) \/ 未判定 (\d+)\)/
+
+/** 默认派生：跑门体本身，只取它的 stdout（门体自己负责三态归因，这里不重算）。 */
+export function runHeadTypecheck({ repoRoot, timeoutMs = 600_000 } = {}) {
+  return execFileSync(process.execPath, [join(repoRoot, 'scripts', 'check-head-typecheck.mjs')], {
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+    timeout: timeoutMs,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}
+
+export async function checkHeadTypecheckLanded(opts = {}) {
+  const now = typeof opts.now === 'number' ? opts.now : Date.now()
+  const repoRoot = opts.repoRoot ?? REPO
+  const windowMs = opts.windowMs ?? HEAD_TYPECHECK_WINDOW_MS
+  const tickFile = opts.tickFile ?? join(repoRoot, '.workbuddy', 'head-typecheck-last-run')
+  const lastFile = opts.lastFile ?? join(repoRoot, '.workbuddy', 'head-typecheck-last-row')
+  const runner = opts.runner ?? (() => runHeadTypecheck({ repoRoot }))
+  const readRow = () => {
+    try {
+      return JSON.parse(readFileSync(lastFile, 'utf8'))
+    } catch {
+      return null
+    }
+  }
+  let lastRunMs = 0
+  try {
+    lastRunMs = statSync(tickFile).mtimeMs
+  } catch {
+    lastRunMs = 0
+  }
+  if (lastRunMs && now - lastRunMs < windowMs) {
+    const prev = readRow()
+    if (!prev || typeof prev.state !== 'string') {
+      return { id: 'P12', state: 'undetermined', detail: '未到复跑窗口且没有可复述的上次结论 ⇒ 未判定（不读成"没问题"）' }
+    }
+    return { id: 'P12', state: prev.state, detail: '复述 ' + Math.round((now - lastRunMs) / 60000) + 'min 前结论（窗口 ' + Math.round(windowMs / 60000) + 'min）：' + String(prev.detail ?? '') }
+  }
+  let stdout = ''
+  try {
+    const out = await runner()
+    stdout = typeof out === 'string' ? out : String(out?.stdout ?? '')
+  } catch (e) {
+    // 关键分型：门体**判到红就以非 0 退出**，execFileSync 于是抛错，但 err.stdout 里是完整结论。
+    // 把"非 0 退出"当成"派生失败"等于把红读成"没判" —— 那正是本仓禁的那一型。
+    const partial = typeof e?.stdout === 'string' ? e.stdout : ''
+    if (!partial.trim()) {
+      return { id: 'P12', state: 'undetermined', detail: 'check-head-typecheck 派生失败：' + String(e?.message ?? e).slice(0, 160) + ' ⇒ 未判定' }
+    }
+    stdout = partial
+  }
+  try {
+    writeFileSync(tickFile, String(now), 'utf8')
+  } catch {
+    /* 打不进时戳只意味着下一轮还会跑，不影响本轮结论 */
+  }
+  const tail = stdout.split(/\r?\n/).filter((l) => l.trim()).slice(-3).join(' / ')
+  const m = stdout.match(HEAD_TYPECHECK_LINE_RE)
+  if (!m) {
+    try {
+      writeFileSync(lastFile, JSON.stringify({ state: 'undetermined', detail: '末行解不出：' + tail }), 'utf8')
+    } catch { /* 落不下就下轮重跑 */ }
+    return { id: 'P12', state: 'undetermined', detail: '末行解不出"判定=… 端 N(通过…)"结构 ⇒ 未判定，不冒绿：' + tail.slice(0, 200) }
+  }
+  const judged = Number(m[2])
+  const okN = Number(m[3])
+  const landedN = Number(m[4])
+  const inFlightN = Number(m[5])
+  const undN = Number(m[6])
+  const skippedN = (stdout.match(/未跑到 (\d+)/) ?? [])[1]
+  let state = 'ok'
+  if (judged === 0) state = 'undetermined'
+  else if (landedN > 0) state = 'finding'
+  else if (inFlightN > 0 || undN > 0 || Number(skippedN ?? 0) > 0 || okN !== judged) state = 'undetermined'
+  const detail = m[0] + (skippedN ? '' : ' | 未跑到 未读出⇒按未判定处理') + '（判据源=check-head-typecheck 末行；脏树时它是候选不是定论）'
+  try {
+    writeFileSync(lastFile, JSON.stringify({ state, detail }), 'utf8')
+  } catch { /* 同上 */ }
+  return { id: 'P12', state, detail }
+}
+
+
 export async function patrol({ now = Date.now(), apply = false, strict = false, devEnv = devEnvRoot(REPO), ledgerFile = join(REPO, 'scripts/data/ops-patrol-adjudications.json') } = {}) {
   const amUrl = 'http://127.0.0.1:9093/-/reload'
   const promUrl = 'http://127.0.0.1:8815/-/reload'
@@ -2094,6 +2192,9 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
   // P8 是"有没有人记下过失败"(被动、只有失败过才有账),P9 是"通道现在到底能不能用"
   // (主动、没事也要验一次)。只留 P8 的那一格,正是 P8 自己末句写着的"不证明通道可用"。
   add(await checkMailChannelLiveness({ now, repoRoot: REPO }))
+  // P12:G-181 的主动出口。放在 P9 之后是刻意的 —— P9 验"邮件通道现在能不能用"，
+  // P12 验"已入库代码能不能编译"，两问不同、不得合并（合并后任一侧变绿都会替另一侧作证）。
+  add(await checkHeadTypecheckLanded({ now }))
   // P10:未送达欠账。P8 的标记会被下一次任意成功投递清掉,而"那件事到底有没有到人"
   // 是另一条账 —— 同一条债不得在两个判据各计一次,但**不得把两条合成一条**。
   // 裁决台账在这里读、判据在下面判:读不到/坏 JSON 一律按"零裁决"继续问责,
@@ -2767,6 +2868,48 @@ export async function selfTest() {
   t('层次 0 / leap 3 ⇒ 判未同步(本机真实现:resync 成功但时钟没被校准)', (() => { const q = parseSyncQuality(SYNC_BAD); return !!q && q.unsynced === true && q.stratum === 0 })())
   t('层次 ≥1 且 leap≠3 ⇒ 判已同步(不得把正常时钟误报)', (() => { const q = parseSyncQuality(SYNC_GOOD); return !!q && q.unsynced === false })())
   t('同步状态位量不到 ⇒ null(调用方按未判定,**不猜**)', parseSyncQuality('只有一行无关文本') === null)
+  // P12 夹具(G-181)：只测"三态怎么落巡检档 + 缓存与未判定纪律"，判据本体在门体里，不在此重算。
+  const p12base = () => { const b = mkdtempSync(join(scratchRoot(), 'ops-p12-')); mkdirSync(join(b, 'x'), { recursive: true }); return b }
+  {
+    const root = p12base()
+    const d = join(root, 'x')
+    const mkRunner = (stdout) => async () => stdout
+    const NET = '✅ apps/api · 3.1s · 0 处类型错误\n判定=净 | 端 20(通过 20 / 已入库红 0 / 疑似在飞 0 / 未判定 0)| 在飞改动 0 | 耗时 43.9s / 预算 600s | 未跑到 0'
+    const RED = '❌ apps/web · 9.9s · 2 处报错 ⇒ 红在已入库代码\n判定=已入库代码红 | 端 20(通过 19 / 已入库红 1 / 疑似在飞 0 / 未判定 0)| 在飞改动 0 | 耗时 44.1s / 预算 600s | 未跑到 0'
+    const FLY = '⚠️ 疑似在飞\n判定=疑似在飞(不定论) | 端 20(通过 18 / 已入库红 0 / 疑似在飞 2 / 未判定 0)| 在飞改动 123 | 耗时 44s / 预算 600s | 未跑到 0'
+    const r1 = await checkHeadTypecheckLanded({ now: 1_000, repoRoot: d, tickFile: join(d, 'tick'), lastFile: join(d, 'last'), runner: mkRunner(RED) })
+    t('P12 已入库红 ⇒ finding 且复述门体末行', r1.state === 'finding' && r1.detail.includes('已入库红 1'))
+    const r2 = await checkHeadTypecheckLanded({ now: 2_000, repoRoot: d, tickFile: join(d, 'tick2'), lastFile: join(d, 'last2'), runner: mkRunner(NET) })
+    t('P12 全端通过 ⇒ ok', r2.state === 'ok')
+    const r3 = await checkHeadTypecheckLanded({ now: 3_000, repoRoot: d, tickFile: join(d, 'tick3'), lastFile: join(d, 'last3'), runner: mkRunner(FLY) })
+    t('P12 疑似在飞 ⇒ 未判定（不定论、不冒绿也不判红）', r3.state === 'undetermined')
+    const r4 = await checkHeadTypecheckLanded({ now: 4_000, repoRoot: d, tickFile: join(d, 'tick4'), lastFile: join(d, 'last4'), runner: mkRunner('胡说八道没有结构') })
+    t('P12 末行解不出 ⇒ 未判定', r4.state === 'undetermined')
+    const r5 = await checkHeadTypecheckLanded({ now: 5_000, repoRoot: d, tickFile: join(d, 'tick5'), lastFile: join(d, 'last5'), runner: async () => { throw new Error('派生炸了') } })
+    t('P12 派生失败 ⇒ 未判定（不得折成 0 或 ok）', r5.state === 'undetermined')
+    const r5b = await checkHeadTypecheckLanded({
+      now: 5_500,
+      repoRoot: d,
+      tickFile: join(d, 'tick5b'),
+      lastFile: join(d, 'last5b'),
+      runner: async () => { const err = new Error('Command failed'); err.stdout = RED; throw err },
+    })
+    t('P12 门体判红而以非 0 退出 ⇒ 仍须判 finding（把非 0 当派生失败就是把红读成"没判"）', r5b.state === 'finding' && r5b.detail.includes('已入库红 1'))
+    const r6 = await checkHeadTypecheckLanded({ now: 9_000, repoRoot: d, tickFile: join(d, 'tick'), lastFile: join(d, 'last'), windowMs: 10 ** 9, runner: async () => { throw new Error('未到窗口时不该再派生') } })
+    t('P12 未到窗口 ⇒ 复述上次结论并写明距今（不再派生）', r6.state === 'finding' && r6.detail.includes('复述') && r6.detail.includes('已入库红 1'))
+    const t7 = join(d, 'tick7')
+    writeFileSync(t7, 'x', 'utf8')
+    const r7 = await checkHeadTypecheckLanded({
+      now: 1_000,
+      repoRoot: d,
+      tickFile: t7,
+      lastFile: join(d, 'nope-last'),
+      windowMs: 10 ** 9,
+      runner: async () => { throw new Error('未到窗口时不该再派生') },
+    })
+    t('P12 未到窗口而无历史 ⇒ 未判定（不得读成"没问题"）', r7.state === 'undetermined' && r7.detail.includes('没有可复述'))
+    rmSync(root, { recursive: true, force: true })
+  }
   const dir = join(REPO, 'scripts')
   const m = measureDir(dir)
   t('能量到真实目录且非空', !!m && m.entries > 0 && m.bytes > 0)
@@ -3130,6 +3273,7 @@ const PATROL_WIRING = [
   { id: 'P11', needle: 'checkPromtoolRules(', why: 'P11 写了没接线 = 没有这台尺子' },
   { id: 'P8', needle: 'checkUndeliveredAlertMarkers()', why: 'P8 未送达标记没进巡检 ⇒ 投递失败没人知道' },
   { id: 'P9', needle: 'await checkMailChannelLiveness(', why: 'P9 写了没接线 = 没有这台尺子' },
+  { id: 'P12', needle: 'await checkHeadTypecheckLanded(', why: 'P12 写了没接线 = HEAD 面类型层仍然没人主动看（G-181 那格）' },
   { id: 'P10', needle: 'checkUndeliveredAlertDebt(', why: 'P10 写了没接线 = 没有这台尺子' },
   { id: 'P10-ack-read', needle: 'loadDebtAcks()', why: '裁决台账没人读 ⇒ 这条队列没有死亡机制,会一路红到有人删判据' },
   { id: 'P10-ack-feed', needle: 'acks: debtAcks.entries', why: '读了台账却不喂给判据 ⇒ "已裁"在账面上永远不生效' },
