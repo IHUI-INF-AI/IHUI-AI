@@ -670,4 +670,41 @@ test('形状锁:auditMergeAdditionLoss 体内仍调 notifyGuardRed,且 stderr �
   assert.match(body, /classifyMergeLossOutcome/, '结论分档必须走导出的那一格,不得在派发层另抄一份')
 })
 
+test('noteUndeterminedStreak 的 extra 先到先得:已钉的起始形状不被后续轮次覆盖', () => {
+  const dir = mkScratch('gg-streak-meta-')
+  try {
+    const f = join(dir, 's.json')
+    assert.equal(N.noteUndeterminedStreak(f, 1000, { stallClass: 'behind' }).meta.stallClass, 'behind', '首轮钉进去')
+    assert.equal(N.noteUndeterminedStreak(f, 2000, { stallClass: 'no-marker' }).meta.stallClass, 'behind', '第二轮想改也改不动(这才是"同一段故障"的语义)')
+    assert.equal(N.noteUndeterminedStreak(f, 3000).meta.stallClass, 'behind', '不传 extra 也必须保留原形状')
+    assert.equal(N.noteUndeterminedStreak(f, 3000).firstMs, 1000, '起点不许被续命')
+    N.clearUndeterminedStreak(f)
+    assert.equal(N.noteUndeterminedStreak(f, 4000, { stallClass: 'no-marker' }).meta.stallClass, 'no-marker', '清零即新事件 ⇒ 允许钉新形状')
+    assert.equal(N.noteUndeterminedStreak(f, 5000).firstMs, 4000)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('停摆身份:类别被 rebuild 洗掉不得算第二场停摆;正文照旧写本轮读数(2026-10-19 现读 3 封的成因)', () => {
+  const base = Date.parse('2026-10-17T04:00:00.000Z')
+  const h = stallHarness(stallPayload({ liveSha: 'b'.repeat(40) }))
+  try {
+    // 本层把 notify 换成记账桩 ⇒ 这里量的是**身份字符串本身**,窗口压不压由 notifyGuardRed 自己的用例管
+    h.one(stallPayload({ liveSha: 'b'.repeat(40) }), {}, { now: base })
+    assert.match(h.calls[0].opts.dedupKey, /class=behind/, `首轮应钉 behind:${h.calls[0].opts.dedupKey}`)
+
+    h.one(stallPayload({ liveSha: '' }), {}, { now: base + 10 * 60_000 })
+    assert.match(h.calls[1].opts.dedupKey, /class=behind/, `标记被洗掉后身份必须仍是本段起点类别:${h.calls[1].opts.dedupKey}`)
+    assert.ok(h.calls[1].detail.includes('本轮类别 no-marker'), '正文必须写本轮读数 —— 身份变保守不等于信息量下降')
+
+    // 阳性对照:起点清零(线上追平过一次)⇒ 新事件才允许钉新形状。摘掉"钉起点"这一支,本例会直接给 class=no-marker。
+    N.clearUndeterminedStreak(h.firstFile)
+    h.one(stallPayload({ liveSha: '' }), {}, { now: base + 20 * 60_000 })
+    assert.match(h.calls[2].opts.dedupKey, /class=no-marker/, `新事件应认新形状:${h.calls[2].opts.dedupKey}`)
+  } finally {
+    rmScratch(h.dir)
+  }
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
