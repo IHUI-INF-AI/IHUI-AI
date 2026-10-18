@@ -198,4 +198,73 @@ test('(e)装车证明:tick 真执行分支调用 checkConvergeAlignStall,名与�
     assert.equal(typeof exposed[k], 'function', `__test__ 缺运行时可调用的 ${k}`)
   }
 })
+
+/**
+ * (f) 出路真实性锁(2026-10-18 立)。
+ *
+ * 现场不是假设:本告警正文里印着「node scripts/git-sync-converge.mjs --status(只读看对齐状态)」,
+ * 而收敛器的 argv **从来没有认过这个旗号**。未识别的旗号在那里被静默忽略 ⇒ 收信人照信里那一行回车,
+ * 实际执行的是整轮收敛(clean stale lock / fetch / merge-tree / commit-tree / update-ref / 推送)。
+ * 一条自称只读却会动共享面的指令,比"没有这条出路"更坏(§0.8:给用户的每条命令必须真跑得通且语义相符)。
+ * 本轮已把 `--status` 补成真正的只读档;这条锁的作用是**防它再腐烂**:以后谁往告警正文里加出路,
+ * 只要那个旗号在目标脚本里无人认领,这里就红。
+ */
+const SCRIPTS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
+
+/** 从告警正文里挑出每条 `node scripts/x.mjs [--flag]`,返回"站不住的出路"清单(空数组 = 全部可核) */
+function unverifiableRoutes(detail) {
+  const bad = []
+  const seen = new Set()
+  for (const m of String(detail).matchAll(/node\s+(scripts\/[\w.\-]+\.mjs)((?:\s+--[\w-]+)?)/g)) {
+    const rel = m[1]
+    const flag = (m[2] || '').trim()
+    const id = flag ? `${rel} ${flag}` : rel
+    if (seen.has(id)) continue
+    seen.add(id)
+    const abs = join(SCRIPTS_DIR, rel.replace(/^scripts\//, ''))
+    let src = null
+    try {
+      src = readFileSync(abs, 'utf8')
+    } catch {
+      bad.push(`${rel} (查无此文件)`)
+      continue
+    }
+    if (flag && !src.includes(flag)) bad.push(id)
+  }
+  return bad
+}
+
+test('(f)装车证明:告警正文里每条 node scripts/*.mjs 出路都必须真被目标脚本认(§0.8 不许跑不通的出路)', () => {
+  const dir = mkScratch('gg-align-routes-')
+  try {
+    const p = join(dir, 'converge-align-state.json')
+    writeFileSync(p, JSON.stringify(stallState(4, 30 * MIN)), 'utf8')
+    const calls = []
+    const r = G.checkConvergeAlignStall({
+      now: NOW,
+      statePath: p,
+      cfg: DFLT.cfg,
+      notify: (name, detail) => calls.push({ name, detail }),
+    })
+    assert.equal(r.alert, true)
+    assert.equal(calls.length, 1)
+    const bad = unverifiableRoutes(calls[0].detail)
+    assert.deepEqual(bad, [], `告警正文里有出路在目标脚本中无人认领:${bad.join(' / ')}`)
+    // 前提自证:正文里确实至少有一条带旗号的出路,否则上面那条断言可以靠"正文没有命令"糊过去
+    assert.match(calls[0].detail, /node scripts\/[\w.\-]+\.mjs --[\w-]+/, '正文必须含带旗号的出路')
+
+    // 阳性对照:同一把尺必须能认出一个不存在的旗号(否则它就是恒绿的空扫)
+    const doctored = `${calls[0].detail}\n出路:node scripts/git-sync-converge.mjs --definitely-not-a-flag`
+    assert.deepEqual(unverifiableRoutes(doctored), [
+      'scripts/git-sync-converge.mjs --definitely-not-a-flag',
+    ])
+    // 反向对照:文件不在位也要报,不能被 catch 吞成"没问题"
+    assert.deepEqual(unverifiableRoutes('node scripts/no-such-tool.mjs'), [
+      'scripts/no-such-tool.mjs (查无此文件)',
+    ])
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
