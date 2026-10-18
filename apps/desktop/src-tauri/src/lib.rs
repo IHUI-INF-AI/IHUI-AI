@@ -24,6 +24,10 @@ mod desktop_prefs;
 mod git_channel_ipc;
 mod git_local_status;
 mod git_status_core;
+// 2026-10-18 立(票72②):本地 diff 文本通道执行层(只用 std,三态同 git_local_status 纪律)。
+mod git_local_diff;
+// 2026-10-18 立(票72②):工作区增量索引执行层(只用 std;目录不下降符号链接/junction=票72④的索引侧收口)。
+mod workspace_index;
 // G-379/G-407/G-774,2026-10-07:桌面日志保留期——政策常量唯一出处 + setup 期裁剪历史档案。
 mod log_retention;
 mod startup_guard;
@@ -3417,6 +3421,8 @@ pub fn run() {
             get_app_info,
             git_channel_ipc::git_authorize_workspace,
             git_channel_ipc::git_workspace_status,
+            git_channel_ipc::git_workspace_diff,
+            git_channel_ipc::workspace_index_scan,
             git_channel_ipc::git_channel_info,
             embedded_browser::embedded_browser_open,
             embedded_browser::embedded_browser_close,

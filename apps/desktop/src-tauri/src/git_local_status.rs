@@ -538,6 +538,63 @@ pub fn check_root_within_bases(root: &str, bases: &[String], fold: bool) -> Gate
     }
 }
 
+/// 票72④：符号链接/junction 逃逸门。`check_root_within_bases` 比的是**字面路径**，
+/// 一个字面在 base 内、实际经链接指向 base 外的 root 能骗过它 —— 本门把 root 与
+/// 各 base 都做 canonical 解析后再比包含性，解析结果逃出全部 base ⇒ 拒；
+/// 解析失败（悬挂链接/目录消失）⇒ `SuspiciousInput` 判不了，两者都不放行。
+/// `canon` 注入式 seam：生产传 `std::fs::canonicalize` 的包装，单测注入假解析。
+pub fn check_root_no_symlink_escape(
+    root: &str,
+    bases: &[String],
+    fold: bool,
+    canon: &dyn Fn(&str) -> std::io::Result<String>,
+) -> Gate {
+    if bases.is_empty() {
+        return Gate::Refuse {
+            kind: Blindness::OutOfBounds,
+            reason: "宿主没有登记任何允许基目录，符号逃逸门无从判定 ⇒ 拒绝，不按放行处理".into(),
+        };
+    }
+    let resolved_root = match canon(root) {
+        Ok(p) => p,
+        Err(err) => {
+            return Gate::Refuse {
+                kind: Blindness::SuspiciousInput,
+                reason: format!("root 无法做 canonical 解析（悬挂链接/已消失/权限）：{root:?}：{err}"),
+            }
+        }
+    };
+    let mut undetermined = 0usize;
+    for base in bases {
+        let resolved_base = match canon(base) {
+            Ok(p) => p,
+            Err(_) => {
+                undetermined += 1;
+                continue;
+            }
+        };
+        match path_within_root(&resolved_base, &resolved_root, fold) {
+            Contain::Inside => return Gate::Pass,
+            Contain::Outside => {}
+            Contain::Undetermined => undetermined += 1,
+        }
+    }
+    if undetermined > 0 {
+        return Gate::Refuse {
+            kind: Blindness::SuspiciousInput,
+            reason: format!(
+                "符号逃逸判定不完整（{undetermined} 个 base 解析失败/语法判不了），拒绝猜：{root:?}"
+            ),
+        };
+    }
+    Gate::Refuse {
+        kind: Blindness::OutOfBounds,
+        reason: format!(
+            "符号链接/junction 逃逸：{root:?} 字面可落在 base 内，canonical 解析后（{resolved_root:?}）不在任何 base 内 ⇒ 拒绝"
+        ),
+    }
+}
+
 /// scope（前端自报的相对路径）判据。
 pub fn check_scope(scope: Option<&str>) -> Gate {
     let rel = match scope {
@@ -557,7 +614,8 @@ pub fn check_scope(scope: Option<&str>) -> Gate {
     }
 }
 
-fn refused(gate: Gate) -> EngineOutcome {
+/// Gate → 三态的统一折叠（IPC 层与通道入口共用；判"拒"的表达只此一份）。
+pub fn refused(gate: Gate) -> EngineOutcome {
     match gate {
         Gate::Pass => unreachable!("refused() 只接受非 Pass 判定"),
         Gate::Refuse { kind, reason } => EngineOutcome::Undetermined { kind, reason },
@@ -791,7 +849,7 @@ pub fn summarize(outcome: &EngineOutcome) -> StatusSummary {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::cell::RefCell;
 
@@ -1249,6 +1307,186 @@ mod tests {
         );
         if let EngineOutcome::Facts { git_binary, .. } = &outcome {
             assert!(Path::new(git_binary).is_absolute());
+        }
+    }
+
+    // ---------- 跨模块测试助手：只报告"被调用过"的 Runner ----------
+
+    /// `git_local_diff` 的门序测试用：断言"scope 门先于派生"时探测派生是否发生。
+    pub struct Probe<'a> {
+        pub used: &'a std::cell::Cell<bool>,
+    }
+
+    impl Runner for Probe<'_> {
+        fn run(&self, _program: &Path, _args: &[String], _cwd: &str, _t: Duration) -> ExecResult {
+            self.used.set(true);
+            ExecResult {
+                state: ExecState::Exited,
+                exit: Some(0),
+                stdout: Vec::new(),
+                stderr: String::new(),
+                detail: String::new(),
+            }
+        }
+    }
+
+    // ---------- 票72③欠账：verify_root 独立单测（全注入，不碰文件系统） ----------
+
+    const TOP_ROOT: &str = "/work/proj";
+
+    fn toplevel_reply(path: &str) -> ExecResult {
+        ok_z(&format!("{path}\n"))
+    }
+
+    #[test]
+    fn verify_root_out_of_bases_refuses_without_spawning() {
+        let cfg = cfg_with(vec!["/elsewhere".to_string()]);
+        let runner = Scripted::new(vec![toplevel_reply(TOP_ROOT)]);
+        let err = verify_root(&cfg, TOP_ROOT, Some(Path::new("/fake/git")), &runner).unwrap_err();
+        match err {
+            EngineOutcome::Undetermined { kind, .. } => assert_eq!(kind, Blindness::OutOfBounds),
+            other => panic!("实得 {other:?}"),
+        }
+        assert!(runner.calls.borrow().is_empty(), "bases 门先于任何派生");
+    }
+
+    #[test]
+    fn verify_root_ok_returns_binary_used() {
+        let cfg = cfg_with(vec!["/work".to_string()]);
+        let runner = Scripted::new(vec![toplevel_reply(TOP_ROOT)]);
+        let used = verify_root(&cfg, TOP_ROOT, Some(Path::new("/fake/git")), &runner).unwrap();
+        assert_eq!(used, "/fake/git");
+        assert_eq!(runner.calls.borrow().len(), 1, "授权只跑 rev-parse，不跑 status");
+    }
+
+    #[test]
+    fn verify_root_toplevel_mismatch_is_out_of_bounds() {
+        let cfg = cfg_with(vec!["/work".to_string()]);
+        // git 报的是父仓库顶层 ⇒ 拒绝把父仓库的 .git 借给子目录用
+        let runner = Scripted::new(vec![toplevel_reply("/work")]);
+        let err = verify_root(&cfg, TOP_ROOT, Some(Path::new("/fake/git")), &runner).unwrap_err();
+        match err {
+            EngineOutcome::Undetermined { kind, .. } => assert_eq!(kind, Blindness::OutOfBounds),
+            other => panic!("实得 {other:?}"),
+        }
+    }
+
+    #[test]
+    fn verify_root_revparse_failure_is_command_failed() {
+        let cfg = cfg_with(vec!["/work".to_string()]);
+        let runner = Scripted::new(vec![exit_with(128, "fatal: not a git repository", "")]);
+        let err = verify_root(&cfg, TOP_ROOT, Some(Path::new("/fake/git")), &runner).unwrap_err();
+        match err {
+            EngineOutcome::CommandFailed { exit_code, .. } => assert_eq!(exit_code, Some(128)),
+            other => panic!("实得 {other:?}"),
+        }
+    }
+
+    #[test]
+    fn verify_root_missing_binary_is_undetermined() {
+        let cfg = cfg_with(vec!["/work".to_string()]);
+        let runner = Scripted::new(Vec::new());
+        let err = verify_root(&cfg, TOP_ROOT, None, &runner).unwrap_err();
+        match err {
+            EngineOutcome::Undetermined { kind, .. } => assert_eq!(kind, Blindness::MissingBinary),
+            other => panic!("实得 {other:?}"),
+        }
+    }
+
+    // ---------- 票72④：符号链接/junction 逃逸门 ----------
+
+    /// 假 canonical：可编程映射，模拟"字面在 base 内、解析后逃出"。
+    fn fake_canon(
+        map: Vec<(&'static str, &'static str)>,
+        fail: Vec<&'static str>,
+    ) -> impl Fn(&str) -> std::io::Result<String> + 'static {
+        move |p: &str| {
+            if fail.iter().any(|f| *f == p) {
+                return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "dangling"));
+            }
+            for (from, to) in &map {
+                if *from == p {
+                    return Ok((*to).to_string());
+                }
+            }
+            Ok(p.to_string())
+        }
+    }
+
+    #[test]
+    fn escape_gate_passes_when_canonical_stays_inside() {
+        // 字面与解析同在 base 内（无链接的普通仓库）
+        let gate = check_root_no_symlink_escape(
+            "/work/proj",
+            &["/work".to_string()],
+            false,
+            &fake_canon(vec![], vec![]),
+        );
+        assert!(gate.is_pass());
+    }
+
+    #[test]
+    fn escape_gate_refuses_link_that_jumps_outside() {
+        // 字面 /work/link-proj 在 /work 内，canonical 指向 /elsewhere ⇒ 逃逸
+        let gate = check_root_no_symlink_escape(
+            "/work/link-proj",
+            &["/work".to_string()],
+            false,
+            &fake_canon(vec![("/work/link-proj", "/elsewhere/evil")], vec![]),
+        );
+        match gate {
+            Gate::Refuse { kind, reason } => {
+                assert_eq!(kind, Blindness::OutOfBounds);
+                assert!(reason.contains("逃逸"), "点名成因：{reason}");
+            }
+            Gate::Pass => panic!("字面在 base 内、解析在外必须被拦"),
+        }
+    }
+
+    #[test]
+    fn escape_gate_passes_link_that_stays_inside() {
+        // base 自身是链接（canonical 后仍在彼此包含关系内）⇒ 放行
+        let gate = check_root_no_symlink_escape(
+            "/work/proj",
+            &["/lnk-work".to_string()],
+            false,
+            &fake_canon(vec![("/lnk-work", "/work"), ("/work/proj", "/work/proj")], vec![]),
+        );
+        assert!(gate.is_pass(), "base 与 root 同时解析后再比，合法链接不误伤");
+    }
+
+    #[test]
+    fn escape_gate_dangling_root_is_suspicious_not_pass() {
+        let gate = check_root_no_symlink_escape(
+            "/work/dangling",
+            &["/work".to_string()],
+            false,
+            &fake_canon(vec![], vec!["/work/dangling"]),
+        );
+        match gate {
+            Gate::Refuse { kind, .. } => assert_eq!(kind, Blindness::SuspiciousInput),
+            Gate::Pass => panic!("解析不了的 root 判不了，不得放行"),
+        }
+    }
+
+    #[test]
+    fn escape_gate_no_bases_refuses() {
+        let gate = check_root_no_symlink_escape("/x", &[], false, &fake_canon(vec![], vec![]));
+        assert!(!gate.is_pass());
+    }
+
+    #[test]
+    fn escape_gate_base_parse_failure_is_suspicious_not_pass() {
+        // root 解析 OK 且在 base 外，同时有一个 base 解析失败 ⇒ 判定不完整 ⇒ SuspiciousInput
+        let gate = check_root_no_symlink_escape(
+            "/work/proj",
+            &["/broken-base".to_string()],
+            false,
+            &fake_canon(vec![], vec!["/broken-base"]),
+        );
+        match gate {
+            Gate::Refuse { kind, .. } => assert_eq!(kind, Blindness::SuspiciousInput),
+            Gate::Pass => panic!("带着判不了的 base 放行 = 授权边界失明"),
         }
     }
 }
