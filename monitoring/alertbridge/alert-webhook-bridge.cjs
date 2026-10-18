@@ -90,6 +90,23 @@ const logAnchor = require('./log-source-anchor.js')
 // ── 配置 ──────────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.BRIDGE_PORT || '9096', 10)
 const DEDUP_WINDOW_MIN = parseInt(process.env.BRIDGE_DEDUP_MIN || '240', 10)
+/**
+ * 恢复后的最小间隔(分钟):距上次同身份投递不足这么久就恢复 ⇒ 判 flapping,**不摘去重档**
+ * (2026-10-18 立,修"邮箱一直在报警")。
+ *
+ * 为什么必须有这一格:原实现 `applyResolvedClears` 收到 status=resolved 就 `store.delete(key)`
+ * 把去重档整个摘掉,语义是"真恢复了,下次故障立刻再报"。但现役 Alertmanager 开了
+ * send_resolved,而 LLM 类告警的判据是"30 分钟滑窗内的失败率/错误率"—— 样本量随业务量
+ * 起伏,窗口一滑过去就 resolved、滑回来又 firing,于是 **firing→resolved→firing 每轮都重寄
+ * 一封**,240 分钟的去重窗被清偿逻辑架空:实测 LlmProviderErrorBurst / AiLlmHighFailureRate
+ * 每约 2 小时各一封(10-16 6 封 / 10-17 13 封),收件人看到的正是"一直在报警"。
+ *
+ * 方向锁(与 §5e-1 同向):这里**只在"刚寄过信就恢复"这一窄情形**下保留档,恢复持续时间
+ * 超过 RECOOL 才真清偿 ⇒ 真正修好后再次故障依旧立即报(不静音),被压住的只有抖动本身。
+ * 失效方向因此是"多压一条同一个抖动的重复信",不是"多静音一个新故障"。
+ */
+const RECOOL_MIN = parseInt(process.env.BRIDGE_RECOOL_MIN || '30', 10)
+const RECOOL_MS = RECOOL_MIN * 60 * 1000
 const LOG_FILE = process.env.LOG_FILE || 'D:\\DevEnv\\logs\\alert-webhook-bridge.log'
 const STATE_FILE = process.env.STATE_FILE || 'D:\\DevEnv\\state\\alert-bridge-state.json'
 /** 未送达标记:与 STATE_FILE 同目录(⇒ 沙箱把两者一起指进 .ihui-agent/tmp 即零线上污染) */
@@ -258,6 +275,7 @@ const counters = {
   undeliveredMarks: 0,       // 写下 UNDELIVERED 标记的次数
   selfScopeReported: 0,      // 按来源锚点判为"采集器/监控自身造成"、只记账不炸到人的条数
   alertsCleared: 0,          // 显式 status=resolved 被清偿(ALERT-CLEARED 记账、未冒充故障寄信)的条数
+  alertsClearedHeld: 0,      // 恢复但判为抖动、去重档被保留(压住下一轮重寄)的条数 —— "压住了多少重寄"
 }
 /** 日志来源锚点的活性(1=两侧名字对得上、分流在跑;0=失明 ⇒ 本桥已 fail-open 全照旧到人)。 */
 let logAnchorOk = false
@@ -302,6 +320,7 @@ const METRIC_SPECS = [
   ['ihui_alertbridge_alerts_dedup_suppressed_total', 'counter', 'Alerts suppressed by identity (alertname+instance) inside the dedup window.', (s) => s.counters.dedupSuppressed],
   ['ihui_alertbridge_alerts_selfscope_reported_total', 'counter', 'Alerts whose log-source anchor says "collector / monitoring self noise": recorded here (log + this counter) instead of waking a human. Zero when the split is blind.', (s) => s.counters.selfScopeReported],
   ['ihui_alertbridge_alerts_cleared_total', 'counter', 'Alerts with explicit status=resolved: the dedup identity was cleared and an ALERT-CLEARED log line written; never mailed as an incident.', (s) => s.counters.alertsCleared],
+  ['ihui_alertbridge_alerts_cleared_held_total', 'counter', 'Resolved alerts judged flapping (recovered within BRIDGE_RECOOL_MIN of the last delivery): the dedup identity is KEPT so the next firing does not re-mail. High values mean an alert is oscillating, not that it is healthy.', (s) => s.counters.alertsClearedHeld],
   ['ihui_alertbridge_log_anchor_ok', 'gauge', '1 = the log-source anchor label agrees between promtail and the alert rules, so the collector/business split is live; 0 = blind (bridge fails open and pages everything) — alerts.yml rule LogSourceSplitBlind reads this.', (s) => (s.logAnchorOk ? 1 : 0)],
   ['ihui_alertbridge_mail_batches_delivered_total', 'counter', 'Mail batches delivered on either the branded or the plain-text path.', (s) => s.counters.batchesDelivered],
   ['ihui_alertbridge_mail_batches_failed_total', 'counter', 'Mail batches where BOTH the branded and the plain-text path failed (alerts never reached a human).', (s) => s.counters.batchesFailed],
@@ -678,15 +697,28 @@ function statusDimension(alerts, queued, cleared) {
  * 不被旧窗口压住(清偿语义与 deploy/win/ihui-deploy.ps1 的 ALERT-CLEARED 同一形态)。
  * 返回本次摘除的身份键列表(含"窗口内本无"的,逐键如实报数)。
  */
-function applyResolvedClears(store, resolved) {
+function applyResolvedClears(store, resolved, nowMs = Date.now(), recoolMs = RECOOL_MS) {
   const cleared = []
+  const held = []
+  const now = Number.isFinite(Number(nowMs)) ? Number(nowMs) : Date.now()
+  const cooldown = Number.isFinite(Number(recoolMs)) && Number(recoolMs) >= 0 ? Number(recoolMs) : RECOOL_MS
   for (const a of resolved || []) {
     const labels = (a && a.labels) || {}
     const key = `${labels.alertname || ''}|${labels.instance || ''}`
-    store.delete(key)
-    cleared.push(key)
+    const last = Number(store.get(key))
+    /**
+     * 距上次同身份投递已超过冷却窗 ⇒ 判真恢复,摘档(下次 firing 立即再报)。
+     * 否则(刚寄过信就恢复)⇒ 判 flapping,**保留档**,让剩余去重窗继续压住下一轮抖动。
+     * 档本就不存在(已被窗口淘汰)也归 held:那条真恢复早已生效,不需要再造一个档。
+     */
+    if (Number.isFinite(last) && last > 0 && now - last >= cooldown) {
+      store.delete(key)
+      cleared.push(key)
+    } else {
+      held.push(key)
+    }
   }
-  return cleared
+  return { cleared, held }
 }
 
 // ── webhook 处理 ───────────────────────────────────────────────────────────────
@@ -710,9 +742,15 @@ async function handleAlert(reqBody) {
   const statusDimOf = (queued) => statusDimension(alerts, queued, resolved.length)
   if (resolved.length) {
     counters.alertsCleared += resolved.length
-    applyResolvedClears(dedup, resolved)
+    // 清偿带冷却:刚寄过信就恢复 ⇒ 判抖动、保留去重档(压住下一轮 firing 的重寄);
+    // 只有恢复持续超过 RECOOL_MIN 才真摘档。见 RECOOL_MIN 处的方向锁注释。
+    const { cleared, held } = applyResolvedClears(dedup, resolved, now, RECOOL_MS)
+    counters.alertsClearedHeld += held.length
     const shown = resolved.slice(0, 3).map((a) => formatAlert(a).replace(/\n/g, ' / ')).join(' ;; ')
-    writeLog(`ALERT-CLEARED 收到恢复 ${resolved.length} 条(不计故障、不寄邮件;同身份去重档已清偿,下次 firing 立即可再报;前 3 条:${shown}) ${statusDimOf(paging.length)}`)
+    const clearNote = held.length
+      ? `其中 ${cleared.length} 条恢复已超 ${RECOOL_MIN} 分钟⇒真清偿(下次 firing 立即可再报);${held.length} 条判抖动(距上次投递不足 ${RECOOL_MIN} 分钟)⇒保留去重档压住下一轮重寄`
+      : `同身份去重档已清偿,下次 firing 立即可再报`
+    writeLog(`ALERT-CLEARED 收到恢复 ${resolved.length} 条(不计故障、不寄邮件;${clearNote};前 3 条:${shown}) ${statusDimOf(paging.length)}`)
   }
   if (!paging.length) {
     // 本批全是恢复:摘除的去重档同样必须回响应前落盘(跨重启延续,同下方纪律)
@@ -1125,8 +1163,21 @@ async function runSelfTest() {
   const tri9 = splitAlertsByStatus([firingA, resolvedA, noStatusA, pendingA])
   eq('⑨a 只有显式 resolved 进清偿支(阳性对照:恢复不被当故障)', tri9.resolved.map((x) => x.labels.alertname), ['PgDown'])
   eq('⑨b firing/缺 status/其它取值全留在到人支(反向锁:故障照寄不被静音)', tri9.paging.map((x) => x.labels.alertname), ['ApiDown', 'Weird', 'AlsoReal'])
-  const clearedKeys = applyResolvedClears(sStore, tri9.resolved)
-  eq('⑨c 清偿摘档:同身份下一次 firing 立即再报(不被旧窗口压住)', [clearedKeys, partitionAlerts([{ labels: { alertname: 'PgDown', instance: 'pg:1' } }], sStore, 1500, HOUR)].map((v) => (Array.isArray(v) ? v.length : v.toPush.length)), [1, 1])
+  // ⑨c 清偿带冷却(2026-10-18 改):四态成对,把"抖动重寄"这一格钉死。
+  //   c-1 刚寄过信就恢复 ⇒ 保留档   c-2 保留档真压住下一轮 firing(修的就是这一格)
+  //   c-3 恢复持续超冷却窗 ⇒ 真摘档  c-4 摘档后下次 firing 立即再报(反向锁:不静音新故障)
+  const RECOOL = 30 * 60 * 1000
+  const flapStore = new Map()
+  partitionAlerts([resolvedA], flapStore, 1000, HOUR) // 模拟刚寄出过一封
+  const heldOnly = applyResolvedClears(flapStore, [resolvedA], 1000 + 60 * 1000, RECOOL) // 距投递仅 1 分钟 ⇒ 抖动
+  eq('⑨c-1 刚寄过信就恢复 ⇒ 判抖动、保留去重档(不摘)', [heldOnly.cleared.length, heldOnly.held.length, flapStore.has('PgDown|pg:1')], [0, 1, true])
+  const afterFlap = partitionAlerts([{ labels: { alertname: 'PgDown', instance: 'pg:1' } }], flapStore, 1000 + 120 * 1000, HOUR)
+  eq('⑨c-2 保留档真压住下一轮 firing(重寄被消掉 —— "邮箱一直在报警"的那一格)', afterFlap.toPush.length, 0)
+  const trueRecover = applyResolvedClears(flapStore, [resolvedA], 1000 + 60 * 60 * 1000, RECOOL) // 距投递 1 小时 ⇒ 真恢复
+  eq('⑨c-3 恢复持续超冷却窗 ⇒ 真摘档(下次故障不被旧窗口压住)', [trueRecover.cleared.length, trueRecover.held.length, flapStore.has('PgDown|pg:1')], [1, 0, false])
+  const clearedKeys = applyResolvedClears(sStore, tri9.resolved, Date.now(), RECOOL)
+  eq('⑨c-4 清偿摘档:同身份下一次 firing 立即再报(不被旧窗口压住)', [clearedKeys.cleared.length, partitionAlerts([{ labels: { alertname: 'PgDown', instance: 'pg:1' } }], sStore, Date.now() + 1000, HOUR).toPush.length], [1, 1])
+  eq('⑨c-5 冷却窗取生产常量(判据不抄第二份:改了 BRIDGE_RECOOL_MIN 默认值这里跟着动)', RECOOL_MS, 30 * 60 * 1000)
   eq('⑨d 空/非数组输入不炸且全 fail-open 到人', [splitAlertsByStatus(undefined).paging.length, splitAlertsByStatus([]).resolved.length], [0, 0])
   const cCleared = {}
   for (const key of Object.keys(counters)) cCleared[key] = 0

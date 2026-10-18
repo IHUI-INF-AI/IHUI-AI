@@ -250,7 +250,7 @@ def seed_provider_capability_snapshot() -> dict[str, Any]:
         snapshot = provider_caps.get_published_capability_snapshot()
         if snapshot is None:
             logger.warning(
-                "[provider_caps_snapshot] 首发布未落地(status=%s)⇒ 快照仍是未初始化,"
+                "[provider_caps_snapshot] 首发布未落地(status=%s)=> 快照仍是未初始化,"
                 "entitlement 投影本轮不可消费",
                 outcome.get("status"),
             )
@@ -289,6 +289,19 @@ async def lifespan(app: FastAPI) -> Any:
         log_report(result)
     except Exception as e:
         logger.warning("[schema_check] 启动校验异常(忽略): %s", e)
+
+    # 凭据解密清点(2026-10-18 立):启用配置里若存在"用当前密钥解不开"的 api_key_enc,
+    # 启动报一次全量名单(数量 + provider + 取证命令),而不是让它在每次调用时散落成
+    # 上百条一模一样的 WARNING。失败时 -1,不阻塞启动(清点本身坏了 ≠ 凭据有问题)。
+    try:
+        from app.core.llm_gateway import audit_undecryptable_configs
+
+        _bad = await audit_undecryptable_configs()
+        # 返回值也在这里落一条:清点函数自带的那条日志若因任何原因没出来,至少"跑没跑、
+        # 结论是几"仍然可见(观测不依赖单点)。
+        logger.info("[credential-audit] 清点返回:解不开 %s 行(-1=清点本身失败)", _bad)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[credential-audit] 清点异常(忽略): %s", e)
 
     # V3 #57 能力矩阵开机自检:实读 env 输出全量能力台账(默认关能力一目了然)
     from app.core.capability_matrix import log_capability_matrix
@@ -416,7 +429,7 @@ async def lifespan(app: FastAPI) -> Any:
         if not _ledger_durable:
             logger.warning(
                 "goal 评估账本已挂 checkpoint 档但底层未配持久层"
-                "(DATABASE_URL/REDIS_URL 均空)⇒ 连击计数仍活不过重启"
+                "(DATABASE_URL/REDIS_URL 均空)=> 连击计数仍活不过重启"
             )
     except Exception as e:  # noqa: BLE001 - 装载失败不得阻塞启动,但要喊出来
         logger.warning("goal 评估账本持久档装载失败,退回进程内档: %s", e)
