@@ -37,7 +37,8 @@ const bodySchema = z.object({
 
 interface PromSeries {
   labels: Record<string, string>
-  points: Array<[number, number]>
+  /** null = Prometheus NaN/+Inf(Grafana 语义是断点,不是 0) */
+  points: Array<[number, number | null]>
 }
 interface LokiLogLine {
   ts: number
@@ -51,9 +52,12 @@ interface QueryResult {
   error?: string
 }
 
-const num = (raw: string): number => {
+// Prometheus 对无数据的 rate/quantile 返回 "NaN"/"+Inf" 字符串。Grafana 语义是
+// 断点(gap)而非 0 —— 强转 0 会画出假零尖峰/假 0 统计,这里透传 null 让前端按
+// 断点渲染(ECharts 默认不连接 null 点)。
+const num = (raw: string): number | null => {
   const v = Number(raw)
-  return Number.isFinite(v) ? v : 0
+  return Number.isFinite(v) ? v : null
 }
 
 async function queryPrometheus(expr: string, rangeSeconds?: number, stepSeconds?: number): Promise<Omit<QueryResult, 'ref'>> {
@@ -81,8 +85,8 @@ async function queryPrometheus(expr: string, rangeSeconds?: number, stepSeconds?
     const series = (body.data.result ?? []).map((r) => ({
       labels: r.metric ?? {},
       points:
-        r.values?.map(([t, v]) => [t, num(v)] as [number, number]) ??
-        (r.value ? [[r.value[0], num(r.value[1])] as [number, number]] : []),
+        r.values?.map(([t, v]) => [t, num(v)] as [number, number | null]) ??
+        (r.value ? [[r.value[0], num(r.value[1])] as [number, number | null]] : []),
     }))
     return { series }
   } catch (e) {
@@ -132,7 +136,7 @@ async function queryLoki(expr: string, rangeSeconds?: number, stepSeconds?: numb
       } else {
         series.push({
           labels,
-          points: (r.values ?? []).map(([t, v]) => [Number(t), num(v)] as [number, number]),
+          points: (r.values ?? []).map(([t, v]) => [Number(t), num(v)] as [number, number | null]),
         })
       }
     }
