@@ -1494,3 +1494,89 @@ test('L4 G-816708 触发条件的单位锁:只认声明的落地面,提交信息
 
 
 
+
+// ============ 空内容守卫(2026-10-18 立)============
+// 成因不是设计出来的:当天一枚真实落地把 1,673,110 字节的 pnpm-lock.yaml 落成了 **0 字节**并推到远端,
+// 而调用方是 `git hash-object -w --stdin` 配 `stdio: ['ignore', …]` —— 带 input 的派生 stdin 必须是 'pipe'
+// (AGENTS §12g),否则 git 读到空 stdin、安静产出空 blob,返回值仍是一串"看着像 sha"的 40 位十六进制。
+// 本器当时每一句自检都是绿的("祖先对账:不等于任何历史 blob" / "提交面回读 1/1 在树")—— 存在性看不见内容形状,
+// 所以这一格必须由本器判,而且要成对钉住:拦得住空落、拦不错非空落、新增空文件不误伤、取不到字节数判不出。
+test('T-EMPTY1 成对①:0 字节 blob 落地一个基线非空的路径 ⇒ parseArgs 拒绝', (t) => {
+  const dir = makeRepo(t) // a.txt = "v1\n"(非空)
+  writeFileSync(join(dir, 'empty.src'), '')
+  const emptyOid = runGit(dir, ['hash-object', '-w', '--', 'empty.src']).trim()
+  assert.equal(
+    runGit(dir, ['cat-file', '-s', emptyOid]).trim(),
+    '0',
+    '夹具必须先证明这枚 blob 真的是 0 字节',
+  )
+  const blobs = join(dir, 'blobs.json')
+  writeFileSync(blobs, JSON.stringify({ files: [{ path: 'a.txt', blob: emptyOid }] }))
+  const r = __test__.parseArgs({
+    LAND_ROOT: dir,
+    LAND_PATHS: 'a.txt',
+    LAND_MSG: 'm',
+    LAND_BLOBS: blobs,
+    LAND_BLOB_PROOF: '探针',
+  })
+  assert.ok(r.error, '空内容落地必须被拒,而不是返回一个可落地的形状')
+  assert.match(r.error, /0 字节/, `拒绝理由要点名空内容,现读:${r.error}`)
+})
+
+test('T-EMPTY2 成对②(反证):同一条路径给非空 blob ⇒ 放行(证明这一闸不是恒拦)', (t) => {
+  const dir = makeRepo(t)
+  writeFileSync(join(dir, 'v2.src'), 'v2\n')
+  const oid = runGit(dir, ['hash-object', '-w', '--', 'v2.src']).trim()
+  const blobs = join(dir, 'blobs2.json')
+  writeFileSync(blobs, JSON.stringify({ files: [{ path: 'a.txt', blob: oid }] }))
+  const r = __test__.parseArgs({
+    LAND_ROOT: dir,
+    LAND_PATHS: 'a.txt',
+    LAND_MSG: 'm',
+    LAND_BLOBS: blobs,
+    LAND_BLOB_PROOF: '探针',
+  })
+  assert.equal(r.error, undefined, `非空内容不该被这一闸拦下,现读:${r.error}`)
+  assert.equal(r.blobOf.get('a.txt'), oid, '清单要原样进 blobOf')
+})
+
+test('T-EMPTY3 边界:基线没有该路径(新增文件)而内容是空 ⇒ 不误伤(本仓确有合法空文件)', (t) => {
+  const dir = makeRepo(t)
+  writeFileSync(join(dir, 'empty.src'), '')
+  const emptyOid = runGit(dir, ['hash-object', '-w', '--', 'empty.src']).trim()
+  const blobs = join(dir, 'blobs3.json')
+  writeFileSync(blobs, JSON.stringify({ files: [{ path: 'brand-new.txt', blob: emptyOid }] }))
+  const r = __test__.parseArgs({
+    LAND_ROOT: dir,
+    LAND_PATHS: 'brand-new.txt',
+    LAND_MSG: 'm',
+    LAND_BLOBS: blobs,
+    LAND_BLOB_PROOF: '探针',
+  })
+  assert.equal(r.error, undefined, `新增空文件属合法形态,现读:${r.error}`)
+})
+
+test('T-EMPTY4 未判定:清单里的 oid 在对象库取不到字节数 ⇒ 拒绝而不是放行(§0.3)', (t) => {
+  const dir = makeRepo(t)
+  writeFileSync(join(dir, 'ghost.src'), 'ghost\n')
+  // **不带 -w** 的 hash-object:算得出 oid 但对象库里没有这枚对象
+  const ghostOid = runGit(dir, ['hash-object', '--', 'ghost.src']).trim()
+  let ghostReachable = true
+  try {
+    runGit(dir, ['cat-file', '-s', ghostOid])
+    ghostReachable = false
+  } catch {
+    /* 问不到 = 夹具前提成立 */
+  }
+  assert.ok(ghostReachable, '夹具前提:该 oid 不在对象库里(cat-file -s 必须问不到)')
+  const blobs = join(dir, 'blobs4.json')
+  writeFileSync(blobs, JSON.stringify({ files: [{ path: 'a.txt', blob: ghostOid }] }))
+  const r = __test__.parseArgs({
+    LAND_ROOT: dir,
+    LAND_PATHS: 'a.txt',
+    LAND_MSG: 'm',
+    LAND_BLOBS: blobs,
+    LAND_BLOB_PROOF: '探针',
+  })
+  assert.match(String(r.error ?? ''), /取不到|判不出/, '字节数问不到 ⇒ 判不出,不记绿')
+})

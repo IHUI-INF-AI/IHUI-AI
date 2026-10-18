@@ -192,6 +192,43 @@ export function parseArgs(env = process.env) {
       return {
         error: `LAND_BLOBS 里有未声明路径(${unknown.join(', ')})⇒ 声明面与内容面必须一致,拒绝落地`,
       }
+    /**
+     * 空内容守卫(2026-10-18 立,本仓当天实测踩到并已推到远端一次)。
+     * 三档:取不到字节数 ⇒ 判不出,拒绝(§0.3);0 字节而基线同路径非空 ⇒ 拒绝;其余放行。
+     * 成因**不是**"想清空这个文件"(本器结构上表达不了删除,删除走整树那一面),而是调用方把
+     * `git hash-object -w --stdin` 配 `stdio: ['ignore','pipe','pipe']` 派了出去 —— AGENTS §12g 明令
+     * 带 input 的派生 stdin 必须是 'pipe',否则 git 读到空 stdin、**安静地产出空 blob** `e69de29b…`,
+     * 而返回值仍是一串"看着像 sha"的 40 位十六进制。那一枚把 1,673,110 字节的 pnpm-lock.yaml 落成了
+     * 0 字节,而本器当时的每一句自检都是绿的("祖先对账:不等于任何历史 blob"、"提交面回读 1/1 在树")
+     * —— 存在性判据看不见内容形状,所以这一格必须由本器自己补,不能指望调用方记得验体积。
+     */
+    const emptyGuards = []
+    for (const p of paths) {
+      const oid = blobOf.get(p)
+      const newSz = git(['cat-file', '-s', oid], { root, allowFail: true })
+      if (newSz === null) {
+        emptyGuards.push(`${p}:新 blob ${oid} 的字节数取不到 ⇒ 判不出,不落地`)
+        continue
+      }
+      if (Number(newSz) !== 0) continue
+      const baseOid = headBlobOf(baseRef, p, { root })
+      if (baseOid === ABSENT) continue
+      if (baseOid === UNKNOWN) {
+        emptyGuards.push(`${p}:基线 ${baseRef}:${p} 的 blob 问不到 ⇒ 判不出,不落地`)
+        continue
+      }
+      const baseSz = git(['cat-file', '-s', baseOid], { root, allowFail: true })
+      if (baseSz === null) {
+        emptyGuards.push(`${p}:基线 blob ${baseOid} 的字节数取不到 ⇒ 判不出,不落地`)
+        continue
+      }
+      if (Number(baseSz) > 0)
+        emptyGuards.push(`${p}:新内容是 0 字节,而 ${baseRef}:${p} 是 ${baseSz} 字节(空 stdin 落地的形状)`)
+    }
+    if (emptyGuards.length > 0)
+      return {
+        error: `❌ 空内容守卫拒绝落地:\n  ${emptyGuards.join('\n  ')}\n   本器不接受"非空文件被落成 0 字节";若真要删除该文件,走能表达删除的那条整树通道,不是这里。`,
+      }
     // blob 模式不要求盘上有该文件:内容来自对象空间,工作树那份属于别人
   } else {
     const missing = paths.filter((p) => !existsSync(join(root, p)))
