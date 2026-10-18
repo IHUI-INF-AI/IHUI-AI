@@ -61,6 +61,7 @@ from typing import Any, Final
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from ..core.sse_frames import with_frame_trace_id
 from ..services.capability_gate import (
     Principal,
     PrincipalAuthError,
@@ -510,8 +511,9 @@ async def _handle_batch(items: list[Any], principal: Principal) -> JSONResponse:
 
 
 def _sse_frame(message: dict[str, Any]) -> str:
-    """JSON-RPC 消息 → streamable HTTP 的 SSE 帧。"""
-    return f"event: message\ndata: {json.dumps(message, ensure_ascii=False, default=str)}\n\n"
+    """JSON-RPC 消息 → streamable HTTP 的 SSE 帧(帧级 traceId 经共享注入点,承 G-248 R3)。"""
+    payload = with_frame_trace_id("message", message)
+    return f"event: message\ndata: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"
 
 
 def _progress_token_of(params: dict[str, Any]) -> str | int | None:
