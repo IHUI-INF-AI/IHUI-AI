@@ -5,6 +5,7 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isSea, getAsset } from 'node:sea'
 
 import { formatIcu, hasIcuSyntax } from '@ihui/i18n'
 
@@ -48,7 +49,21 @@ function readJson(dir: string, locale: string): Messages {
   }
 }
 
+// SEA 单文件形态:语言包以 assets 内嵌(键清单见 scripts/build-sea.mjs),不经文件系统。
+// 否则 exe 部署到仓库外(MESSAGES_ROOT 探测落空)时所有 t() 退化为裸键名——
+// 恰好躲过开发期自验(exe 留在 dist-sea/ 里跑时向上探测能命中仓库根)的分发期缺陷。
+function seaAssetJson(key: string): Messages | null {
+  try {
+    return JSON.parse(Buffer.from(getAsset(key)).toString('utf8')) as Messages
+  } catch {
+    return null
+  }
+}
+
 function loadMessages(locale: string): Messages {
+  if (isSea()) {
+    return deepMerge(seaAssetJson(`shared-${locale}.json`) ?? {}, seaAssetJson(`cli-${locale}.json`) ?? {})
+  }
   return deepMerge(readJson(SHARED_DIR, locale), readJson(MESSAGES_DIR, locale))
 }
 

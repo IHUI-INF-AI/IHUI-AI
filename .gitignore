@@ -65,6 +65,8 @@ logs-*-restart*.txt
 # 构建产物
 # ============================================================================
 dist/
+# SEA 单文件二进制产物(96MB 级,严禁入库;构建:pnpm --filter @ihui/cli build:sea)
+apps/cli/dist-sea/
 build/
 *.egg-info/
 __pycache__/
