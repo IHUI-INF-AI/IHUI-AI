@@ -301,6 +301,19 @@ def _under_reparse_dir(root: Path, rel_posix: str) -> bool:
     挡不住 junction(`os.path.islink` 对 junction 判 False)⇒ 差集里"旧通道独有"的
     这一批按语义放行,不按前缀硬编码。与生产侧 `rg_fallback_parity._is_reparse_dir`
     的判定本体同源(islink/isjunction 两个系统调用),不在测试里另立判据。
+
+    realpath 兜底(2026-10-18):`os.path.isjunction` 仅 Python ≥3.12 存在,更老解释器
+    上 getattr 落空 ⇒ junction 祖先漏判,差集里"旧通道独有"的 junction 内部路径会把
+    对账判红(实测样例:.DevEnv/cache/userhome/.codex/.../chrome/latest/docs/*.md,
+    `latest` 是指向版本化目录 26.1013.31256 的 junction)。realpath 会解析一切
+    reparse point(含 MOUNT_POINT 之外的 tag 变体),与 abspath 逐祖先对比后版本无关,
+    作为 islink/isjunction 之外的兜底。注意 `latest` 在 3.12 上 os.walk 也确实会穿入
+    (islink=False 挡不住),不是只在老解释器上才有差集。
+
+    .DevEnv 不整体排除的依据:它是工作区缓存(.gitignore:524,git 零跟踪),但两通道
+    对非 reparse 的缓存文件枚举一致,差集天然收敛在 junction 内部 —— 语义判据已
+    精确覆盖,按前缀硬排会在测试里引入"配置漂移"(新增缓存目录名要同步改测试),
+    违背本文件"不按前缀硬编码"的自家纪律。
     """
     parts = rel_posix.split("/")
     for i in range(1, len(parts)):
@@ -310,6 +323,8 @@ def _under_reparse_dir(root: Path, rel_posix: str) -> bool:
                 return True
             isjunction = getattr(os.path, "isjunction", None)
             if isjunction and isjunction(p):
+                return True
+            if os.path.normcase(os.path.realpath(p)) != os.path.normcase(os.path.abspath(p)):
                 return True
         except OSError:
             continue
