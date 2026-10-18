@@ -3,17 +3,19 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 用户要求「监控大屏在用 admin 账号登录时第一时间切换到显示监控大屏」的组件级接线断言(2026-10-17 立)。
+ * 用户要求「登录 admin 账号时弹窗问我要不要看数据大屏,让我自己选择」的组件级接线断言
+ * (2026-10-17 立"自动跳大屏";2026-10-18 按用户新要求改为二选一弹窗)。
  *
  * 为什么钉在 `desktop-sso-success` 这条事件:LoginDialog 的登录成功落点只有一条实现
  * (`handleLoginSuccess`),表单登录成功与桌面深链换 token 成功都走它。这里用「派发事件」这条
- * 确定性入口真渲染组件、真跑那个回调,验的是**实际跳转目标**,而不是"助手函数被调用过":
- *   - 管理员 + 无显式目标 ⇒ 落到 `/admin/monitor/wallboard`;
- *   - 普通用户 + 无显式目标 ⇒ 不跳(维持留在当前页);
+ * 确定性入口真渲染组件、真跑那个回调,验的是**实际行为**,而不是"助手函数被调用过":
+ *   - 管理员 + 无显式目标 ⇒ 弹「要不要看数据大屏」选择窗,不自动跳;
+ *   - 选择「看大屏」⇒ 跳到 /admin/monitor/wallboard;选择「先不用」⇒ 留在当前页;
+ *   - 普通用户 + 无显式目标 ⇒ 不弹窗不跳(维持留在当前页);
  *   - 带显式目标(登录守卫带回)⇒ 目标逐字不变,不被大屏落点旁路。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, waitFor, cleanup } from '@testing-library/react'
+import { render, waitFor, cleanup, screen, fireEvent } from '@testing-library/react'
 
 const pushMock = vi.hoisted(() => vi.fn())
 const dialogState = vi.hoisted(() => ({
@@ -31,10 +33,12 @@ vi.mock('next/navigation', () => ({
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }))
 vi.mock('lucide-react', () => ({ ExternalLink: () => null }))
 vi.mock('@ihui/ui-react', () => ({
-  Button: (props: Record<string, unknown>) => <button>{props.children as never}</button>,
+  Button: ({ children, ...rest }: any) => <button {...rest}>{children}</button>,
   Dialog: ({ open, children }: { open?: boolean; children?: never }) =>
     open ? <div>{children}</div> : null,
   DialogContent: ({ children }: { children?: never }) => <div>{children}</div>,
+  DialogHeader: ({ children }: { children?: never }) => <div>{children}</div>,
+  DialogFooter: ({ children }: { children?: never }) => <div>{children}</div>,
   DialogTitle: ({ children }: { children?: never }) => <div>{children}</div>,
   DialogDescription: ({ children }: { children?: never }) => <div>{children}</div>,
 }))
@@ -93,21 +97,41 @@ afterEach(() => {
 })
 
 describe('LoginDialog 登录成功落点', () => {
-  it('管理员 + 无显式目标 → 落到监控大屏', async () => {
+  it('管理员 + 无显式目标 → 弹「要不要看数据大屏」选择窗,不自动跳', async () => {
     render(<LoginDialog />)
     authState.user = { roleId: 1 }
     fireLoginSuccess()
+    expect(await screen.findByText('要看数据大屏吗？')).toBeTruthy()
+    await new Promise((r) => setTimeout(r, 400))
+    expect(pushMock).not.toHaveBeenCalled()
+  })
+
+  it('管理员选择「看大屏」→ 跳到监控大屏', async () => {
+    render(<LoginDialog />)
+    authState.user = { roleId: 1 }
+    fireLoginSuccess()
+    fireEvent.click(await screen.findByText('看大屏'))
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith('/admin/monitor/wallboard')
     })
   })
 
-  it('普通用户 + 无显式目标 → 不跳转(维持留在当前页)', async () => {
+  it('管理员选择「先不用」→ 留在当前页', async () => {
+    render(<LoginDialog />)
+    authState.user = { roleId: 1 }
+    fireLoginSuccess()
+    fireEvent.click(await screen.findByText('先不用'))
+    await new Promise((r) => setTimeout(r, 400))
+    expect(pushMock).not.toHaveBeenCalled()
+  })
+
+  it('普通用户 + 无显式目标 → 不弹选择窗也不跳转(维持留在当前页)', async () => {
     render(<LoginDialog />)
     authState.user = { roleId: 0 }
     fireLoginSuccess()
     await new Promise((r) => setTimeout(r, 400))
     expect(pushMock).not.toHaveBeenCalled()
+    expect(screen.queryByText('要看数据大屏吗？')).toBeNull()
   })
 
   it('管理员 + 带显式目标 → 目标逐字不变,不被大屏落点旁路', async () => {
