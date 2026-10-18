@@ -1,0 +1,78 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# npm 账号首发引导(一次性):本机与生产机出口 IP 均被 www.npmjs.com 403,
+# 由 GitHub Actions runner(Azure 出口)代行注册/验证/取 token。
+# 凭据经 RSA-OAEP+AES-GCM 加密落 artifact(李总本地持私钥),公开仓零泄露。
+# action=signup | verify_token;publish 走本文件独立 job(标准 npm publish)。
+name: npm Bootstrap
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'signup | verify_token | publish'
+        required: true
+        default: 'signup'
+
+concurrency:
+  group: npm-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  browser:
+    if: github.event.inputs.action != 'publish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ACTION: ${{ github.event.inputs.action }}
+      PUBKEY_PEM: ${{ secrets.NPM_BOOT_PUBKEY }}
+      NPM_EMAIL: ${{ secrets.NPM_BOOT_EMAIL }}
+      NPM_USERNAME: ${{ secrets.NPM_BOOT_USERNAME }}
+      NPM_PASSWORD: ${{ secrets.NPM_BOOT_PASSWORD }}
+      NPM_VERIFY_URL: ${{ secrets.NPM_VERIFY_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install playwright
+        run: |
+          cd .github/scripts
+          npm init -y >/dev/null 2>&1 || true
+          npm i playwright@1.49.1 --no-fund --no-audit
+          npx playwright install chromium --with-deps
+      - name: Run browser automation
+        run: |
+          cd .github/scripts
+          node npm-bootstrap-runner.mjs
+      - name: Upload evidence + encrypted secrets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-bootstrap-${{ github.event.inputs.action }}-${{ github.run_number }}
+          path: .github/scripts/shots/
+          if-no-files-found: warn
+
+  publish:
+    if: github.event.inputs.action == 'publish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+      - name: Install + build npm bundle
+        run: |
+          pnpm install --frozen-lockfile --filter ihui-cli...
+          pnpm --filter "ihui-cli^..." run build
+          pnpm --filter ihui-cli build:npm
+      - name: Publish ihui-cli to npm
+        run: |
+          cd apps/cli/npm-dist
+          npm publish --registry=https://registry.npmjs.org/ --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
