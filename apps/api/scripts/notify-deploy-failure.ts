@@ -664,9 +664,12 @@ function pruneDedupeState(state: DedupeState, nowMs: number, windowMs: number): 
  *
  * 为什么记在**这个文件**而不是各生产者里:发信到人只有这一个出口(AGENTS §5e,守门 81 硬拦自拼
  * SMTP),而生产者有 20 多处(scripts/、deploy/win/*.ps1、monitoring 桥、CI、ai-service)。
- * 记在生产者那一侧 = 每加一个发信点就要记得写一次账;今天 18 封同一件事之所以"没人看得见",
- * 根子就是**量的器物只读了其中一个面的日志**。记在出口上,以后任何一路发信都自动有账,
- * 结构性不再可能出现盲区。
+ * 记在出口上,**本机这一路**就不再依赖"每个生产者记得写"了(今天 18 封同一件事之所以
+ * "没人看得见",根子就是量的器物只读了其中一个生产者的日志)。两条如实边界,别把这句说成
+ * "全世界都有账":① CI 跑在 GitHub 临时 runner 上,行写在那份 checkout 的 .workbuddy/ 里、
+ * 随 run 销毁 ⇒ 本机量不到 CI 寄的那几封;② 各生产者**自己窗口压住**的轮次根本走不到这里,
+ * 所以 disposition=suppressed 只反映出口这一层的 --alert-id 窗口,不是全链路。
+ * 两条都登记在 scripts/data/alert-mail-faces.json 与 AGENTS §5e-3 的补登行里。
  */
 function defaultMailSendLedgerPath(): string {
   return resolve(
