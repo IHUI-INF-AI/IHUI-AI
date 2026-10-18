@@ -7,7 +7,7 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Sparkles, X } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import AgentList, { type AgentListItem } from '../../components/AgentList'
 
@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   listDialogTitle: {
-    fontSize: 15,
+    fontSize: rnGeometry.textStrong,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -61,17 +61,17 @@ const styles = StyleSheet.create({
     gap: rpx(8),
   },
   personaLabel: {
-    fontSize: 12,
+    fontSize: rnGeometry.textLabel,
     fontWeight: '600',
     color: tokens.brandAccent.deep,
   },
   personaName: {
-    fontSize: 14,
+    fontSize: rnGeometry.textBody,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   personaDesc: {
-    fontSize: 12,
+    fontSize: rnGeometry.textLabel,
     lineHeight: 18,
     color: tokens.text.secondary,
   },
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
   },
   personaMetaText: {
-    fontSize: 11,
+    fontSize: rnGeometry.textCaption,
     color: tokens.brandAccent.deep,
   },
 })
@@ -106,6 +106,12 @@ interface AgentSelectorProps {
    * 同时在列表上方渲染「当前人格」摘要。不传 = 无高亮、无摘要区。
    */
   selectedAgentId?: string
+  /**
+   * 行副标题字段(可选,D114 补口)。原样透传给 <AgentList subtitleField>,
+   * 让每行在 name 下渲染一行人格小字;不传 = 列表行保持既有单行结构。
+   * 「当前人格」摘要区不受影响,仍走 description→prologue 回落。
+   */
+  subtitleField?: 'description' | 'prologue'
 }
 
 /**
@@ -118,6 +124,7 @@ export function AgentSelector({
   items,
   onSelect,
   selectedAgentId,
+  subtitleField,
 }: AgentSelectorProps) {
   if (!visible) return null
   // 人格摘要只对「能定位到的选中项」渲染;未选中 / 未命中 / 无文案 ⇒ 整区不渲染(不留空盒子)。
@@ -169,6 +176,7 @@ export function AgentSelector({
             items={items}
             onItemClick={onSelect}
             selectedId={selectedAgentId}
+            subtitleField={subtitleField}
           />
         </Pressable>
       </Pressable>

@@ -29,6 +29,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { tokens } from '../theme/active-tokens'
+import { rpx } from '../utils/rpx'
 import { Check } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
@@ -72,6 +73,12 @@ export interface AgentListProps {
    * 典型如 `flex: 1`(否则自然高度会撑爆 sheet 的 maxHeight,压缩弹窗固定 chrome)。
    */
   style?: StyleProp<ViewStyle>
+  /**
+   * 行副标题字段(D114 补口,可选)。取 item[subtitleField] 渲染在 name 下方的
+   * 一行小字;不传 = 不渲染副标题,行结构与既有调用方完全一致(向后兼容)。
+   * 仅接受非空字符串,空串/undefined 均不渲染。
+   */
+  subtitleField?: 'description' | 'prologue'
 }
 
 function keyExtractor(item: AgentListItem): string {
@@ -82,10 +89,13 @@ function Row({
   item,
   selected,
   onPress,
+  subtitle,
 }: {
   item: AgentListItem
   selected: boolean
   onPress: () => void
+  /** 副标题文案(可选,由调用方按 subtitleField 解析;不传则保持既有单行结构) */
+  subtitle?: string
 }): React.JSX.Element {
   const scale = useRef(new Animated.Value(0.3)).current
   useEffect(() => {
@@ -123,9 +133,26 @@ function Row({
             </View>
           )}
         </View>
-        <Text style={[styles.text, selected ? styles.textActive : null]} numberOfLines={1}>
-          {item.name}
-        </Text>
+        {/*
+          有副标题时才把 name 包进纵向列(nameCol)以叠加一行小字;
+          无副标题走既有分支,name Text 原样保留 ⇒ 既有调用方零视觉/逻辑变化。
+          理由:条件包裹比对始终包裹的扰动更小 —— 不传 subtitleField 时
+          DOM 结构、flex 分配(logo + text(flex:1) + badge)与原实现逐像素一致。
+        */}
+        {subtitle ? (
+          <View style={styles.nameCol}>
+            <Text style={[styles.textName, selected ? styles.textActive : null]} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={styles.subtitle} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          </View>
+        ) : (
+          <Text style={[styles.text, selected ? styles.textActive : null]} numberOfLines={1}>
+            {item.name}
+          </Text>
+        )}
         {item.isNew ? <Text style={styles.newBadge}>{'NEW'}</Text> : null}
       </View>
       <View style={styles.rowRight}>
@@ -147,6 +174,7 @@ export default function AgentList({
   hasMore = true,
   emptyText = '暂无 Agent',
   style,
+  subtitleField,
 }: AgentListProps): React.JSX.Element {
   const slide = useRef(new Animated.Value(60)).current
   const opacity = useRef(new Animated.Value(0)).current
@@ -164,14 +192,21 @@ export default function AgentList({
     >
       <View style={styles.inner}>
         <ScrollView style={styles.content} contentContainerStyle={styles.contentBody}>
-          {items.map((item) => (
-            <Row
-              key={keyExtractor(item)}
-              item={item}
-              selected={selectedId === item.id}
-              onPress={() => onItemClick(item.id)}
-            />
-          ))}
+          {items.map((item) => {
+            // 按 subtitleField 取副标题;仅非空字符串才下发(trim 过纯空白),
+            // subtitleField 未传 ⇒ 恒为 undefined ⇒ Row 走既有单行分支。
+            const raw = subtitleField ? item[subtitleField] : undefined
+            const subtitle = typeof raw === 'string' && raw.trim() !== '' ? raw : undefined
+            return (
+              <Row
+                key={keyExtractor(item)}
+                item={item}
+                selected={selectedId === item.id}
+                onPress={() => onItemClick(item.id)}
+                subtitle={subtitle}
+              />
+            )
+          })}
           {isLoading ? <Text style={styles.loadingText}>{'加载中...'}</Text> : null}
           {!hasMore && items.length > 0 ? (
             <Text style={styles.noMoreText}>{'没有更多了'}</Text>
@@ -212,7 +247,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    height: 40,
+    // 行高方案:定高 40 改 minHeight 40 —— 无副标题时行内容(图标 20dp)撑不满,
+    // 行仍精确为 40dp,既有视觉零变化;有副标题时行自适应增高,扰动最小。
+    minHeight: 40,
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     borderWidth: 2,
@@ -259,6 +296,22 @@ const styles = StyleSheet.create({
   },
   textActive: {
     fontWeight: '700',
+  },
+  // 有副标题时承载 name+subtitle 的纵向列,接管原 text 的 flex:1 水平分配
+  nameCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  // nameCol 内的 name(不带 flex,避免纵向主轴上 flexGrow 干扰两行布局)
+  textName: {
+    fontSize: 14,
+    color: tokens.text.primary,
+  },
+  // 人格副标题:小字号 rpx(11)+ tertiary 色,单行截断,行距紧凑(仅 +1 marginTop)
+  subtitle: {
+    fontSize: rpx(11),
+    color: tokens.text.tertiary,
+    marginTop: 1,
   },
   newBadge: {
     fontSize: 9,
