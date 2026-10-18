@@ -448,6 +448,25 @@ export function maskComments(src) {
 }
 
 /**
+ * 只抹 `'…'` 与 `"…"` 两类引号串,**保留模板字面量**(等长遮罩,换行照旧保留)。
+ *
+ * 给"必须读模板字面量内容"的门用。立因(2026-10-18,守门 `check-alert-identity-volatility`):
+ * 那把尺子判的就是 `` dedupKey: `stall;class=…` `` 里的插值,而它的自检夹具把反例写成
+ * **单引号串内嵌反引号**;`blankStrings` 连反引号一起抹 ⇒ 用它等于把门做瞎(它连真代码都读不到),
+ * 而完全不抹 ⇒ 它咬自己的夹具(实测自检档 6 条假红,全在示例串里)。
+ * 这一档是同一次 `scanSpans` 的投影,不是第二台词法器(§0.6)。
+ */
+export function blankQuoteStrings(src) {
+  if (typeof src !== 'string') return ''
+  const out = src.split('')
+  for (const s of scanSpans(src)) {
+    if (s.kind !== 'string' || s.isTemplate) continue
+    for (let j = s.start; j < s.end && j < out.length; j++) if (out[j] !== '\n') out[j] = ' '
+  }
+  return out.join('')
+}
+
+/**
  * 在文本上把**字符串与正则字面量的体**清空(保留引号/斜杠本身与换行)。
  * 用于"标识符还在、串内假调用不可见"的那一遍;必须是 `scanLiterals` 的一行投影,
  * 不得再自带一遍状态机(那台朴素机器就是 24 道门被判 no-content 的原因)。
