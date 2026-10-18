@@ -24,7 +24,7 @@ from collections.abc import AsyncIterator as AsyncIteratorType
 from contextlib import asynccontextmanager
 from contextlib import suppress as _ctx_suppress
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 import asyncpg
 import httpx
@@ -1039,6 +1039,15 @@ _AUTO_FREE_PREFIXES = (
 _LOCAL_PREFIXES = ("ollama/", "lmstudio/", "llamacpp/", "vllm/")
 
 
+class _AutoCandidatePlan(NamedTuple):
+    """auto 候选组装结果(票85②;各字段供主链路与放宽分支分格消费)。"""
+
+    candidates: list[str]
+    local_pool: list[str]
+    premium_top: str
+    relaxed: list[str]
+
+
 def _local_auto_eligible(model_id: str, health: Any) -> bool:
     """LOCAL 模型进 auto 池的唯一判据(票85①):探针实证 available 才 True。
 
@@ -1049,6 +1058,74 @@ def _local_auto_eligible(model_id: str, health: Any) -> bool:
     if not any(model_id.startswith(p) for p in _LOCAL_PREFIXES):
         return True
     return health.is_available(model_id.split("/", 1)[0])
+
+
+def _assemble_auto_candidates(
+    available: list[dict[str, Any]],
+    *,
+    edge_first_local: bool,
+    default_chain: list[str],
+) -> "_AutoCandidatePlan":
+    """auto 候选链组装(纯函数,票85② 从 _resolve_auto_model 提出)。
+
+    分桶规则与 2026-08-06 版逐字保持:default 链 > free > cheap(tier 升序取 5)>
+    premium(min tier 一枚兜底);_AUTO_ROUTE_EXCLUDED 在桶前剔除。
+    边缘优先(edge_first_local=True,票85②):「探针实证可用」的本地模型插到
+    **候选最前**(tier 升序,小模型省资源)—— 运维开这个开关本身就是偏好声明;
+    云部署保持默认关,行为与旧版完全一致。
+    """
+    free_pool: list[str] = []
+    cheap_pool: list[dict[str, Any]] = []  # tier 1-3
+    premium_pool: list[dict[str, Any]] = []  # tier 10-30
+    for m in available:
+        mid = m["id"]
+        # 显式排除本部署不可用的 gpt-4o(openai 无额度 + agnes 无通道)
+        if mid in _AUTO_ROUTE_EXCLUDED:
+            continue
+        if any(mid.startswith(p) or mid.startswith(p.rstrip("/"))
+               for p in _AUTO_FREE_PREFIXES):
+            free_pool.append(mid)
+            continue
+        tier = _infer_tier_from_model_id(mid)
+        if tier >= 10:
+            premium_pool.append({"id": mid, "tier": tier})
+        else:
+            cheap_pool.append({"id": mid, "tier": tier})
+
+    local_pool: list[str] = []
+    if edge_first_local:
+        local_pool = sorted(
+            (
+                m["id"]
+                for m in available
+                if any(m["id"].startswith(p) for p in _LOCAL_PREFIXES)
+            ),
+            key=lambda mid: (_infer_tier_from_model_id(mid), mid),
+        )
+
+    candidates: list[str] = []
+    candidates.extend(local_pool)
+    # 默认优先使用运维预设的可靠模型(settings.litellm_model),避免 auto 路由误选
+    # 不可达 / 未配置 key 的社区免费 provider(opencode_zen/llm7/pollinations/aihorde/@cf 等,
+    # 本部署均不在 LLM_PROVIDERS 配置,选中即 MODEL_NOT_CONFIGURED)。免费模型仍可在 UI 手动选择。
+    candidates.extend(default_chain)
+    candidates.extend(free_pool)
+    candidates.extend(x["id"] for x in sorted(cheap_pool, key=lambda x: x["tier"])[:5])
+    # 高级模型保留 1 个作为最后兜底(用于前面 cheap/free 全部失败的极端场景)
+    premium_top = min(premium_pool, key=lambda x: x["tier"])["id"] if premium_pool else ""
+    if premium_top:
+        candidates.append(premium_top)
+    # 链兜底可能与 free 池成员重合(如 @cf/ 前缀),去重保序
+    candidates = list(dict.fromkeys(candidates))
+    # tool calling 放宽池(全被筛掉时的退路):free + cheap 前 3(旧版行为),
+    # 边缘优先时本地实证可用者一并保留(边缘实例的 free/cheap 云池常不可用)。
+    relaxed = list(dict.fromkeys(local_pool + free_pool + [c["id"] for c in cheap_pool[:3]]))
+    return _AutoCandidatePlan(
+        candidates=candidates,
+        local_pool=local_pool,
+        premium_top=premium_top,
+        relaxed=relaxed,
+    )
 
 # 自动路由显式排除模型(2026-09-05 立):本部署 openai key 无余额(no credits)且
 # agnes 聚合端点无 gpt-4o 通道,任何把任务升级到 gpt-4o 的尝试都会失败
@@ -1298,37 +1375,19 @@ async def _resolve_auto_model(
             logger.info("[auto-route] 无可用模型,降级到 settings.litellm_model=%r", fallback)
             return fallback
 
-        # 分桶:free / cheap plan / premium
-        free_pool: list[str] = []
-        cheap_pool: list[dict[str, Any]] = []  # tier 1-3
-        premium_pool: list[dict[str, Any]] = []  # tier 10-30
-        for m in available:
-            mid = m["id"]
-            # 显式排除本部署不可用的 gpt-4o(openai 无额度 + agnes 无通道)
-            if mid in _AUTO_ROUTE_EXCLUDED:
-                continue
-            if any(mid.startswith(p) or mid.startswith(p.rstrip("/"))
-                   for p in _AUTO_FREE_PREFIXES):
-                free_pool.append(mid)
-                continue
-            tier = _infer_tier_from_model_id(mid)
-            if tier >= 10:
-                premium_pool.append({"id": mid, "tier": tier})
-            else:
-                cheap_pool.append({"id": mid, "tier": tier})
-
-        # 默认优先使用运维预设的可靠模型(settings.litellm_model),避免 auto 路由误选
-        # 不可达 / 未配置 key 的社区免费 provider(opencode_zen/llm7/pollinations/aihorde/@cf 等,
-        # 本部署均不在 LLM_PROVIDERS 配置,选中即 MODEL_NOT_CONFIGURED)。免费模型仍可在 UI 手动选择。
-        # 优先级:默认链(首选+同族兜底,D208) > free > cheap tier 1 > cheap tier 3 > premium
-        candidates: list[str] = list(_default_model_chain())
-        candidates.extend(free_pool)
-        candidates.extend(x["id"] for x in sorted(cheap_pool, key=lambda x: x["tier"])[:5])
-        # 高级模型保留 1 个作为最后兜底(用于前面 cheap/free 全部失败的极端场景)
-        if premium_pool:
-            candidates.append(min(premium_pool, key=lambda x: x["tier"])["id"])
-        # 链兜底可能与 free 池成员重合(如 @cf/ 前缀),去重保序
-        candidates = list(dict.fromkeys(candidates))
+        # 分桶 + 组装候选链(纯函数 _assemble_auto_candidates,票85② 提出便于单测)
+        plan = _assemble_auto_candidates(
+            available,
+            edge_first_local=settings.edge_first_local,
+            default_chain=_default_model_chain(),
+        )
+        candidates = plan.candidates
+        if plan.local_pool:
+            logger.info(
+                "[auto-route] edge-first: %d 个实证可用本地模型排入候选最前 %s",
+                len(plan.local_pool),
+                plan.local_pool,
+            )
 
         # L5-6(2026-08-12):任务复杂度感知路由——复杂/专家任务跳过免费与廉价模型,
         # 直接给高级模型(能力匹配),简单任务维持免费优先(成本优先)。
@@ -1347,8 +1406,8 @@ async def _resolve_auto_model(
                 has_tools=has_tools,
             )
             if complexity in (TaskComplexity.COMPLEX, TaskComplexity.EXPERT):
-                if premium_pool:
-                    candidates = [min(premium_pool, key=lambda x: x["tier"])["id"]]
+                if premium_top:
+                    candidates = [premium_top]
                     logger.info(
                         "[auto-route] 任务复杂度=%s,路由升级到高级模型 %s",
                         complexity.value, candidates[0],
@@ -1372,11 +1431,11 @@ async def _resolve_auto_model(
             if tool_candidates:
                 candidates = tool_candidates
             else:
-                # 全部被过滤:放宽,不强制 function calling
+                # 全部被过滤:放宽,不强制 function calling(池由组装器给出,票85②)
                 logger.warning(
                     "[auto-route] tool calling 场景下无可用模型,放宽 function calling 限制"
                 )
-                candidates = free_pool + [c["id"] for c in cheap_pool[:3]]
+                candidates = plan.relaxed
                 if not candidates:
                     return fallback
 
