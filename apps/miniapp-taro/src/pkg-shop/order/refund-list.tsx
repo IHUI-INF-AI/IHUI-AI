@@ -8,6 +8,7 @@ import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getRefundList } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import './refund-list.css'
@@ -47,6 +48,7 @@ const normalizeStatus = (raw?: unknown, refundRaw?: unknown): RefundStatus => {
 
 export default function RefundList() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const tt = useTt()
 
   const [rawList, setRawList] = useState<RefundItem[]>([])
@@ -124,7 +126,10 @@ export default function RefundList() {
   }
 
   useDidShow(() => {
-    load(true)
+    // G-933 冷启动门控:需登录的退款列表在鉴权判定落定前不发
+    gate.waitUntilReady(() => {
+      void load(true)
+    })
   })
 
   useEffect(() => {

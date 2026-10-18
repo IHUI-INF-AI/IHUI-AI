@@ -7,6 +7,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useCallback } from 'react'
 import * as api from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { getUserInfo } from '@/utils/auth'
 import { TOKEN_BALANCE_DATA_KEY, USER_INFO_LEGACY_KEY } from '@/constants/storage'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -62,6 +63,7 @@ function getUuid(): string {
 
 export default function TokenBalance() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [balance, setBalance] = useState<BalanceInfo | null>(null)
   const [zhList, setZhList] = useState<ZhRecord[]>([])
   const [activeButton, setActiveButton] = useState<ActiveBtn>('agent')
@@ -154,8 +156,11 @@ export default function TokenBalance() {
   }
 
   useDidShow(() => {
-    loadBalance()
-    getData(true)
+    // G-933 冷启动门控:智汇值余额/流水两枚需鉴权请求在判定落定前不发
+    gate.waitUntilReady(() => {
+      void loadBalance()
+      void getData(true)
+    })
   })
 
   useReachBottom(() => {

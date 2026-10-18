@@ -9,6 +9,7 @@ import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useTt } from '@/i18n'
 import { getPayResult } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import LineIcon, { type IconName } from '@/components/LineIcon'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -37,6 +38,7 @@ const statusGlyph: Record<PayStatus, IconName> = {
 
 export default function PayResult() {
   const tt = useTt()
+  const gate = useAuthReadyGate()
 
   // 路由参数:orderNo(必带)+ status/amount/from(调用方预置初始态,可选)
   const params = Taro.getCurrentInstance().router?.params ?? {}
@@ -83,9 +85,18 @@ export default function PayResult() {
       const result = await check()
       if (result !== 'pending' || count >= MAX_POLL_COUNT) stop()
     }
-    void tick()
-    intervalId = setInterval(() => void tick(), POLL_INTERVAL_MS)
-    return stop
+    const start = () => {
+      void tick()
+      intervalId = setInterval(() => void tick(), POLL_INTERVAL_MS)
+    }
+    // G-933 冷启动门控:支付结果轮询打的是需鉴权端点(GET /payment/orders/:orderNo),
+    // 鉴权判定落定前不启动轮询;卸载/参数变更时取消订阅,免得迟到的 cb 再拉起定时器
+    const cancel = gate.waitUntilReady(start)
+    return () => {
+      cancel()
+      stop()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderNo, initialStatus, check])
 
   const goBack = () => {

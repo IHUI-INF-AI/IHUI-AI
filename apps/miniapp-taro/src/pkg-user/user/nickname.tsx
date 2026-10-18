@@ -10,6 +10,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { updateUserNickname, getProfile } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import './nickname.css'
 
@@ -32,6 +33,7 @@ const RANDOM_POOL = [
 
 export default function Nickname() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
   const [nickname, setNickname] = useState('')
   const [original, setOriginal] = useState('')
@@ -59,7 +61,10 @@ export default function Nickname() {
   }, [t])
 
   useDidShow(() => {
-    load()
+    // G-933 冷启动门控:GET /user/profile(checkAuth)需鉴权,落定前不发
+    gate.waitUntilReady(() => {
+      void load()
+    })
   })
 
   const onInput = (e: { detail: { value: string } }) => {
