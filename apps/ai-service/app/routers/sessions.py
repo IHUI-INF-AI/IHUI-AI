@@ -60,6 +60,7 @@ from app.services.session_store import (
     TurnMismatchError,
     TurnNotFoundError,
     TurnStatus,
+    normalize_goal_assessments,
     owner_scoped_allows,
     thread_owner,
 )
@@ -302,6 +303,10 @@ def list_goal_threads(
                 "createdAt": thread.created_at,
                 "updatedAt": thread.updated_at,
                 "goal": state,
+                # 票77 引擎侧自动评估源:goal-verify 每轮回灌的轨迹(形状不合规的坏项剔除)
+                "assessments": normalize_goal_assessments(
+                    thread.metadata.get("goalAssessments")
+                ),
             }
         )
     return {
