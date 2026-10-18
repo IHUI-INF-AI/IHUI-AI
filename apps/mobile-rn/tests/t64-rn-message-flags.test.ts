@@ -38,7 +38,7 @@ function chatBlockOf(locale: string): Record<string, unknown> {
 describe('票64 RN 腿 · 写链与读面接缝', () => {
   it('① 走 @ihui/api-client 的 setMessageFlags,不在端内重写一遍 fetch', () => {
     expect(SCREEN).toContain('  setMessageFlags,\n')
-    expect(API_CLIENT).toContain("/api/chat/messages/${encodeURIComponent(input.messageId)}/flags`")
+    expect(API_CLIENT).toContain('/api/chat/messages/${encodeURIComponent(input.messageId)}/flags`')
     expect(API_CLIENT).toContain("method: 'PATCH'")
   })
 
@@ -59,17 +59,29 @@ describe('票64 RN 腿 · 写链与读面接缝', () => {
   it('④ 成功态取服务端回写行;失败信封只提示、不改本地态(不做乐观翻转)', () => {
     expect(SCREEN).toContain('const written = res.data?.message')
     expect(SCREEN).toContain('pinnedAt: written?.pinnedAt ?? null')
-    expect(SCREEN).toContain("if (!res.success) {")
+    expect(SCREEN).toContain('if (!res.success) {')
     expect(SCREEN).toContain("showToast('error', t('chat.flagFailed'))")
   })
 
   it('⑤ 共享镜像类型挂了这三场(端内不另立第二份形状)', () => {
-    for (const field of ['pinnedAt?: string | null', 'bookmarkedAt?: string | null', 'flagTargetId?: string']) {
+    for (const field of [
+      'pinnedAt?: string | null',
+      'bookmarkedAt?: string | null',
+      'flagTargetId?: string',
+    ]) {
       expect(SHARED_TYPE).toContain(field)
     }
   })
 
-  it('⑥ 两枚按钮的文案与无障碍标签一律取词,没有新增硬编码中文', () => {
+  it('⑥ 两枚按钮只有一份实现,AI 行与用户行共用(与 web 同口径),且文案全部取词', () => {
+    const defs = SCREEN.match(/const flagButtons: React\.ReactNode = \(/g) ?? []
+    const uses = SCREEN.match(/\{flagButtons\}/g) ?? []
+    expect(defs.length).toBe(1)
+    // 两处消费:AI 消息的操作行 + 用户消息新增那一行
+    expect(uses.length).toBe(2)
+    expect(SCREEN).toContain(
+      '{isUser ? <View style={styles.msgActions}>{flagButtons}</View> : null}',
+    )
     for (const key of flagKeys.slice(0, 4)) expect(SCREEN).toContain(`t('chat.${key}')`)
   })
 })
