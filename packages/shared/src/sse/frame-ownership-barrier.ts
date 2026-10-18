@@ -70,7 +70,7 @@ export interface BarrierFrame<TFrame = unknown> {
 export type FrameBarrierDeliveryKind = 'pass' | 'staged' | 'overflow' | 'stale'
 
 /** activate 的入参:激活哪条订阅对哪些 topic 的所有权。 */
-export interface FrameBarrierActivateInput {
+interface FrameBarrierActivateInput {
   subscriptionId: string
   topics: readonly string[]
   /**
