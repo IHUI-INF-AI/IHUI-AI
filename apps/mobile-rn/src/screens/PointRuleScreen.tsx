@@ -25,7 +25,7 @@ export function PointRuleScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<PointRuleItem[]>('/point-rule')
+      const res = await fetchApi<PointRuleItem[]>('/api/point-rule')
       if (!res.success) throw new Error()
       setItems(res.data ?? [])
     } catch {
