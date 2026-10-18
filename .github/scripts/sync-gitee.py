@@ -7,8 +7,11 @@
 """release-desktop 的 Gitee 同步 job(2026-09-17 立):
 1. 从 GitHub release(desktop-v*) 下载全平台安装包/更新签名
 2. 找/建 Gitee 同名 release 并逐资产上传(同名跳过,幂等)
-3. 生成 latest.json(url 全部指向 Gitee 直链,国内下载快)并更新 desktop-feed 分支
-   → 更新器第一端点 https://gitee.com/<owner>/IHUI-AI/raw/desktop-feed/latest.json
+3. 生成 latest.json(url 指向 Gitee 直链,国内下载快),上传到本 release 作附件存档。
+   ⚠️ 2026-10-18 更正:旧句"更新 desktop-feed 分支 → 更新器第一端点
+   https://gitee.com/<owner>/IHUI-AI/raw/desktop-feed/latest.json"是**跑不通的出路**(AGENTS §0.8):
+   分支方案 2026-09-17 已弃(见本文件末尾),客户端只认单端点 https://aizhs.top/desktop-feed.json
+   (2026-10-05 机主拍板)。Gitee 侧这份 latest.json 不是更新器端点。
 环境变量:GITEE_TOKEN / GITEE_OWNER / TAG / GH_TOKEN / GITHUB_REPOSITORY
 """
 import json
@@ -28,9 +31,13 @@ GITEE_REPO = "IHUI-AI"
 
 # Gitee Release 附件的单文件硬上限(2026-10-17 实测实证:超限直接 400
 #   {"message":"验证失败：文件大小已超出限制：100 MB"})。
-# 这不是偶发故障、也不是 token 问题:桌面端自 0.1.68 起 webviewInstallMode 用
-# offlineInstaller 内嵌 WebView2 运行时,Windows 安装包从 ~8MB 涨到 ~225MB,
-# 于是「AI_x.y.z_x64-setup.exe」**结构性永远**传不上 Gitee。
+# 这不是偶发故障、也不是 token 问题:上限就是单文件 100 MB,超过就 400。
+# ⚠️ 2026-10-18 更正体积前提:原文写"自 0.1.68 起 offlineInstaller ⇒ Windows 包 ~225MB ⇒
+#   结构性永远传不上 Gitee"。枚 ac695ce9d7a 已改回 embedBootstrapper,exe 现读 ~10 MB
+#   (v0.1.75 10,122,472 / v0.1.76 10,142,082)⇒ **Windows 包正常上传**。照旧文推理会得两个错判:
+#   ① 以为 Gitee 上没有/不该有 exe(feed 的 Windows 直链恰恰指向 Gitee);
+#   ② 以为这条 exe 分支是死代码,于是没人看它的对账逻辑 —— 而"同名不同字节"的冒名附件
+#   就是从那儿混过去的。超限只按当次 GitHub API 的 asset.size 动态判定(见下方 oversize)。
 # 后果:原实现把它计入 upload_failed ⇒ sys.exit(1) ⇒ 每次桌面发版该 job 恒红
 # (AGENTS.md §12e 恒红门:与提交内容无关的红会逼人 --no-verify、连带废掉守门)。
 # 而该 job 对用户零影响——Gitee 侧只是附件存档,**不是**更新器端点(见本文件末尾
