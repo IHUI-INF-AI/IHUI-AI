@@ -5,13 +5,13 @@
 /**
  * TUI client — 连接远程 Agent server(WebSocket),发送消息,渲染流式响应。
  *
- * 用 createRequire 动态加载 ws 包(Node 内置 WebSocket 全局为浏览器风格 API,与本实现不兼容),
- * 运行时若 ws 包未安装,connectToServer 抛出友好错误。
+ * ws 为硬依赖,静态导入(运行时导入走 createRequire(import.meta.url) 在 SEA 单文件
+ * 形态下锚定 exe 目录且经变量中转,esbuild 无法解析,必抛误导性错误)。
  *
  * 交互模式:startTuiInteractive 启动 readline 循环,输入 /quit 退出。
  */
 
-import { createRequire } from 'node:module';
+import wsModule from 'ws';
 import * as readline from 'node:readline';
 import chalk from 'chalk';
 import type { AgentEvent } from '../server/agent-core.js';
@@ -28,8 +28,6 @@ import {
   runPerTurnSink,
   type CoexistenceDeclaration,
 } from '../event-stream-ownership.js';
-
-const dynamicRequire = createRequire(import.meta.url);
 
 interface WsClientSocket {
   readyState: number;
@@ -95,12 +93,8 @@ function nextStreamId(): string {
 }
 
 function loadWsClient(): WsClientCtor | null {
-  try {
-    const mod = dynamicRequire('ws') as { WebSocket?: WsClientCtor };
-    return mod.WebSocket ?? null;
-  } catch {
-    return null;
-  }
+  const mod = wsModule as unknown as { WebSocket?: WsClientCtor };
+  return mod.WebSocket ?? null;
 }
 
 export async function connectToServer(opts: TuiClientOptions): Promise<TuiClient> {

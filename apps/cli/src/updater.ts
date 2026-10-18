@@ -518,7 +518,14 @@ export async function enforceServerMinimumVersion(deps: GateDeps = {}): Promise<
   }
   if (currentVersion === UNKNOWN_VERSION) {
     // 版本自识别失败 ⇒ 一律放行。没有"当前版本"就没有可比的两端,拿哨兵去比会把所有人挡在门外。
-    return notAsked(currentVersion, 'cannot determine own version (package.json unreadable), failing open');
+    // 但放行必须留痕(文件头判据:静默放行 = 伪造完整性)—— 与下文正常分支同走 renderTrailLine。
+    const result = notAsked(
+      currentVersion,
+      'cannot determine own version (package.json unreadable), failing open',
+    );
+    writeGateCache(cacheFile, result, now);
+    warn(renderTrailLine(result, endpoint));
+    return result;
   }
 
   let result: GateResult;
@@ -551,7 +558,13 @@ export async function enforceServerMinimumVersion(deps: GateDeps = {}): Promise<
  * 缓存过期(GATE_CACHE_TTL_MS)即视为没有结论 ⇒ 放行 + 重新问。
  */
 function blockFromFreshCache(deps: Required<Pick<GateDeps, 'currentVersion' | 'now' | 'cacheFile' | 'warn' | 'exit'>>): void {
-  if (deps.currentVersion === UNKNOWN_VERSION) return;
+  if (deps.currentVersion === UNKNOWN_VERSION) {
+    // 同 enforceServerMinimumVersion 的 UNKNOWN 分支:放行但留痕,不伪造"闸门通过"。
+    deps.warn(
+      `ℹ version gate [UNDETERMINED] → asked=false current=${deps.currentVersion} — cannot determine own version, failing open`,
+    );
+    return;
+  }
   const cached = readGateCache(deps.cacheFile);
   if (!cached) return;
   if (deps.now - cached.checkedAt >= GATE_CACHE_TTL_MS) return;
