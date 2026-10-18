@@ -31,6 +31,16 @@ OWNER = os.environ.get("GITEE_OWNER", "JLSLSSZWHYXGS_0")
 REPO = os.environ.get("GITEE_REPO", "IHUI-AI")
 GH_REPO = os.environ.get("GITHUB_REPOSITORY", "IHUI-INF-AI/IHUI-AI")
 PROXY_PREFIX = "https://gh-proxy.com/"
+# Gitee Release 附件单文件硬上限(与 sync-gitee.py 的 GITEE_ATTACH_LIMIT_BYTES 同源:
+# 2026-10-17 实测超限 Gitee 直接 400 {"message":"验证失败：文件大小已超出限制：100 MB"})。
+# 两脚本无共享库,各自本地定义一份,改动时两处同步。
+GITEE_ATTACH_LIMIT_BYTES = 100 * 1024 * 1024
+
+
+def over_gitee_limit(size):
+    """Gitee 附件 100MB 硬上限预检(>= 上限即视为会被拒,与 sync-gitee.py 的
+    「预期跳过」语义一致;size 未知(0)不跳过,留给上传环节如实暴露)。"""
+    return size >= GITEE_ATTACH_LIMIT_BYTES
 # 2026-10-12 修正:TMP_DIR 必须按 tag 分子目录 —— 旧实现全局平铺,而 tauri-action 的
 # darwin 产物名(AI_universal.app.tar.gz / AI.app.tar.gz)不带版本号,0.1.50 的缓存
 # 被 0.1.51 复用 ⇒ 错误内容传上 Gitee(签名对不上/旧包冒名,且 Gitee 同名直链永取
@@ -138,6 +148,8 @@ def main():
     # 1. GH release 资产清单
     rel = gh_api(f"/repos/{GH_REPO}/releases/tags/{args.tag}")
     gh_assets = {a["name"]: a["browser_download_url"] for a in rel.get("assets", [])}
+    # 体积表:Gitee 100MB 预检用(GH API 资产自带 size,即下载 Content-Length,免 HEAD)
+    gh_sizes = {a["name"]: int(a.get("size") or 0) for a in rel.get("assets", [])}
     print(f"[gh] {args.tag} 资产 {len(gh_assets)} 个")
 
     # 2. Gitee release(找/建)
@@ -170,6 +182,7 @@ def main():
         rename[dst] = src
         if dst not in have:
             missing[dst] = gh_assets[src]
+            gh_sizes[dst] = gh_sizes.get(src, 0)  # 预检按上传名查体积,映射回源资产
     if not missing:
         print("[done] Gitee 资产已齐,无需补")
         return
@@ -184,6 +197,12 @@ def main():
     os.makedirs(TMP_DIR, exist_ok=True)
     local = {}
     for name, url in sorted(missing.items()):
+        # Gitee 100MB 硬上限预检:超限资产不下载也不上传(白拉 ~96MB 再被 Gitee
+        # 400 拒是纯浪费,2026-10-17 sync-gitee.py 同源实证),直接「预期跳过」。
+        if over_gitee_limit(gh_sizes.get(name, 0)):
+            print(f"[skip] {name}: {gh_sizes.get(name, 0)} 字节 >= Gitee 附件上限 "
+                  f"{GITEE_ATTACH_LIMIT_BYTES} 字节(100MB),预期跳过(不下载不上传)")
+            continue
         dest = os.path.join(TMP_DIR, name)
         if os.path.exists(dest) and os.path.getsize(dest) > 0:
             print(f"[dl] {name}: 沿用本地已有 ({os.path.getsize(dest)} 字节)")
