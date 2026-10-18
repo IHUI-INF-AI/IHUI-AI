@@ -2,74 +2,170 @@
   {
     "face": "git-guardian 周期守护判红派发",
     "producerPath": "scripts/git-guardian.mjs",
+    "role": "producer",
     "inScope": true,
-    "note": "到人邮件的最大一个生产者(2026-10-18 的 28 封那一面);身份一律经 notifyGuardRed 的 dedupKey。投递台账**不在这里写** —— 账记在唯一出口 notify-deploy-failure.ts,两处都写就是把一封数成两封。"
+    "note": "到人邮件最大的一路(2026-10-18 那 28 封)。身份一律经 notifyGuardRed 的 dedupKey。本层不写投递台账 —— 账在唯一出口,两处都写就是把一封数成两封。"
+  },
+  {
+    "face": "发信唯一出口(本机所有 SMTP/Resend 派发的收口)",
+    "producerPath": "apps/api/scripts/notify-deploy-failure.ts",
+    "role": "exit",
+    "inScope": true,
+    "note": "§5e 定死「到人只有这一条通道」,守门 81 硬拦自拼 SMTP。投递台账记在这里(schema 2,单一记录点排在所有终态分支之前)。它不构造身份,所以 V1 对本文件的判据是「必须把 --source/--alert-id 交给调用方使用」。⚠️ 本机限定:CI 上的发信写在临时 runner 的同一相对路径里,随 run 销毁 ⇒ 出口台账只量到本机这一路。"
   },
   {
     "face": "凭据/部署停摆巡检",
     "producerPath": "scripts/check-credential-health.mjs",
+    "role": "producer",
     "inScope": true,
-    "note": "自带 decideAlert 身份档;高频那一维只由 git-guardian 的 --stall-only 档派发,本文件零发信档为 --stall-only。"
+    "note": "自带 decideAlert 身份档;停摆那一维的高频档由 git-guardian 派发,本文件 --stall-only 档零发信。"
   },
   {
     "face": "元运维巡检轮",
     "producerPath": "scripts/check-ops-patrol.mjs",
+    "role": "producer",
     "inScope": true,
-    "note": "身份 = 格子集合 + 档位(门 224 V1 已在面上钉住不得带原始格数)。"
+    "note": "身份 = 格子集合 + 档位(门 224 V1 钉住不得带原始格数)。"
+  },
+  {
+    "face": "受管 .env 键值漂移对账",
+    "producerPath": "scripts/check-env-drift.mjs",
+    "role": "producer",
+    "inScope": true,
+    "note": "守护巡检档;发信按 §5e 经唯一出口。"
+  },
+  {
+    "face": "主机时区漂移体检",
+    "producerPath": "scripts/check-host-timezone.mjs",
+    "role": "producer",
+    "inScope": true,
+    "note": "本体只判不炸到人;到人由 git-guardian 的 --quick 巡检轮补(9-04 缺的就是这一环)。"
   },
   {
     "face": "部署环(切流受阻/构建失败/服务起停)",
     "producerPath": "deploy/win/ihui-deploy.ps1",
+    "role": "producer",
     "inScope": true,
-    "note": "身份 = $sig(整条文案)⇒ 文案里绝不许插 sha/计数/异常原文;明细走 -Detail。"
+    "note": "身份 = $sig(整条文案)⇒ 文案里不许插 sha/计数/异常原文;明细走 -Detail。"
   },
   {
     "face": "服务与站点可用性监控",
     "producerPath": "deploy/win/ihui-monitor.ps1",
+    "role": "producer",
     "inScope": true,
     "note": "去重住在共享模块 deploy/win/alert-dedup.ps1(按身份分槽持久)。"
   },
   {
     "face": "PG 备份告警",
     "producerPath": "deploy/win/ihui-pg-backup.ps1",
+    "role": "producer",
     "inScope": true,
-    "note": "唯一真用 --alert-id 的生产者;身份走 Get-BackupMissedShifts 折档。"
-  },
-  {
-    "face": "发信唯一出口(所有生产者共用)",
-    "producerPath": "apps/api/scripts/notify-deploy-failure.ts",
-    "inScope": true,
-    "note": "AGENTS §5e 定死「到人只有这一条通道」,守门 81 硬拦自拼 SMTP;投递台账记在这里(schema 2,单一记录点排在所有终态分支之前)。它自己不构造身份 —— 身份由各生产者在自己的面上构造,所以 V1 对它的判据是「必须把 --source/--alert-id 交给出口」这一形态。"
+    "note": "全仓唯一真用 --alert-id 的生产者 ⇒ 出口那一层「被压住」桶目前只量得到这一路。"
   },
   {
     "face": "Alertmanager → 邮件桥",
     "producerPath": "monitoring/alertbridge/alert-webhook-bridge.cjs",
+    "role": "producer",
     "inScope": false,
-    "gapReason": "身份侧不收:它自持 240 分钟身份窗,身份 = alertname|instance(稳定类别 + 实例,已现读确认无 V1 型违规),而本门的词法器还不认 JS 里「dedup Map」这一形态,强行纳入 = 拿没装好的尺子冒充覆盖。投递量侧**已覆盖**:它经唯一出口发信,出口记 schema 2 台账。补词法器的活按本条到期日回队列。",
+    "gapReason": "身份侧不收:它自持 240 分钟窗,身份 = alertname|instance(稳定类别 + 实例,现读无 V1 型违规),而本门词法器还不认 JS 里「dedup Map」形态,强行纳入 = 拿没装好的尺子冒充覆盖。台账侧只覆盖**真投递**:被它自家窗口压住的那些轮次在 `handleAlert` 里 toPush 为空即 return,根本不走到出口,也不传 --alert-id ⇒ 出口的 suppressed 桶看不见它。到期日回队列。",
     "ticket": "告警身份抖动门 224 立项同日射程审计(2026-10-18)",
     "until": "2026-12-31"
   },
   {
-    "face": "签到出站风控告警(ai-service Python)",
-    "producerPath": "apps/ai-service/app/services/checkin_outbound.py",
+    "face": "桥的日志来源分流判据",
+    "producerPath": "monitoring/alertbridge/log-source-anchor.js",
+    "role": "other",
     "inScope": false,
-    "gapReason": "身份侧不收:Python 词法未装 —— 它的身份是 _alert_last_sent 字典的键(取 _fire_alert 首参 kind,常量类别),f-string 里才是正文({secs:.0f}s/{reason});现读确认无 V1 型违规。要纳入必须先把「键=身份、f-string=正文」这条分界做成判据,否则 f-string 里的秒数会被误判成抖动。投递量侧已覆盖(经唯一出口)。",
-    "ticket": "告警身份抖动门 224 立项同日射程审计(2026-10-18)",
+    "gapReason": "不直接发信(只在 bridge 内做「要不要炸到人」的分流判据),对 §5e 的引用是注释。登记它是为了让 V4 的发现集与台账逐字对齐,不是这里有缺口。",
+    "ticket": "告警身份抖动门 224 的 V4 发现集(2026-10-19)",
+    "until": "2027-12-31"
+  },
+  {
+    "face": "运维值守读方(自建 transport 的告警扇出)",
+    "producerPath": "apps/api/src/services/alert-notification-service.ts",
+    "role": "producer",
+    "inScope": false,
+    "gapReason": "两处缺口,都需机主拍板才动:(1) 它**自建 nodemailer transport**,不经唯一出口 ⇒ 出口那层投递台账量不到它,而 ops-watch-reader / relay-alert-rules-service 确实用它的 pushAlert 发到人邮件(文件自己 461 行的注释承认「此前只改了 email-service / notify-deploy-failure 两个出口,漏了这一支」—— Logo 死图那格就是这么爆的);(2) 它还挂着钉钉/企微/飞书/PagerDuty/Slack/Teams 腿,与 §5e「第三方推送腿已整体摘除」相冲,但它同时是**产品功能**(租户自己的告警渠道),不能按运维通道一刀切摘。V1 身份词法对它不成立(它的去重键住在 DB 侧 dedup_key),所以既不占射程也不谎称已覆盖。",
+    "ticket": "告警身份抖动门 224 的 V4 发现集(2026-10-19)",
     "until": "2026-12-31"
+  },
+  {
+    "face": "品牌邮件版式资产",
+    "producerPath": "apps/api/src/services/email-assets.ts",
+    "role": "asset",
+    "inScope": false,
+    "gapReason": "只提供 cid 资产与 finalize,不发信;对出口的引用是注释(它解释为何出口是子进程、不能假设 cwd)。登记为对齐 V4 发现集。",
+    "ticket": "告警身份抖动门 224 的 V4 发现集(2026-10-19)",
+    "until": "2027-12-31"
+  },
+  {
+    "face": "发信量与跳门量算仪",
+    "producerPath": "scripts/alert-volume-report.mjs",
+    "role": "measurer",
+    "inScope": true,
+    "note": "它是量的人,不是发信面。射程:本机 deploy-loop 日志面 + 出口投递台账面;取不到的源一律未判定。"
+  },
+  {
+    "face": "邮件通道卫生守门",
+    "producerPath": "scripts/check-brand-email-channel.mjs",
+    "role": "guard",
+    "inScope": true,
+    "note": "守门 81(拦自拼 SMTP/版式)。它是判据不是发信面;登记以对齐 V4 发现集。"
+  },
+  {
+    "face": "告警身份抖动门自身(门 224)",
+    "producerPath": "scripts/check-alert-identity-volatility.mjs",
+    "role": "guard",
+    "inScope": true,
+    "note": "V4 把它自己抓出来是**真命中不是误伤**:它把判据字面量(createTransport / sendMail / Send-MailMessage / Resend key)写在自己文件的正则里,所以「含投递构造 + 含运维告警标记」这条发现判据对它就是成立。登记而非开豁免(给判据留行内豁免 = 给自己造死角,AGENTS 明令排除条款就是候选根因);它不发信,投递量恒为 0。"
+  },
+  {
+    "face": "守门批处理器",
+    "producerPath": "scripts/guardian-runner.mjs",
+    "role": "guard",
+    "inScope": true,
+    "note": "注册表与派发器;命中「notify-deploy-failure」的字面来自失败提示文案(onFailHint),不是发信调用。"
+  },
+  {
+    "face": "运维值守读方(经自建 transport 那一面到人)",
+    "producerPath": "apps/api/src/jobs/ops-watch-reader.ts",
+    "role": "producer",
+    "inScope": true,
+    "note": "V1 收在本文件的 fingerprint 种子上(2026-10-18 已给它补 identity 种子)。⚠️ 它经 alert-notification-service 的 pushAlert 发信,不经唯一出口 ⇒ 出口那层投递台账量不到这一路(与「所有真投递都在出口」这句话相互矛盾,已在本台账如实登记)。"
+  },
+  {
+    "face": "Alertmanager 配置派生器",
+    "producerPath": "scripts/render-alertmanager-config.mjs",
+    "role": "config",
+    "inScope": false,
+    "gapReason": "只派生运行副本配置(把出口写成 receiver 地址),自身不发信。登记以对齐 V4 发现集。",
+    "ticket": "告警身份抖动门 224 的 V4 发现集(2026-10-19)",
+    "until": "2027-12-31"
   },
   {
     "face": "CI 蓝绿部署失败信",
     "producerPath": ".github/workflows/blue-green-deploy.yml",
+    "role": "producer",
     "inScope": false,
-    "gapReason": "身份侧不收:这一面没有 dedupKey/$sig/fingerprint 任何形态 —— 它的问题是「有没有跨 run 去重能力」(去重状态住 runner 本地文件,临时 runner 每次从空状态起,结构性做不到),不是「身份抖不抖」。2026-10-18 已把发信步骤改成 --strict:缺 secret/投递失败不再恒 exit 0。投递量侧已覆盖:出口记 schema 2 台账,CI 寄的每一封也在账上。该 workflow 现读 workflow_dispatch、全历史 6 次 run ⇒「每失败 run 一封」是下限而非风暴源。",
+    "gapReason": "身份侧不收:这一面没有 dedupKey/$sig/fingerprint 任何形态,它的问题是「有没有跨 run 去重能力」—— 去重状态与投递台账都住在 runner 本地,临时 runner 每次从空状态起、跑完连文件一起销毁 ⇒ **CI 寄的信在本机量不到**,本机出口账上没有这一路是设计事实不是漏采。2026-10-18 已把发信步骤改成 --strict(缺 secret/投递失败不再恒 exit 0)。该 workflow 现读 workflow_dispatch、全历史 6 次 run ⇒「每失败 run 一封」是它的下限,不是风暴源。要真量到 CI 侧发信,得给台账加共享存储 —— 那是新增能力,按 §24 需机主点头。",
     "ticket": "告警身份抖动门 224 立项同日射程审计(2026-10-18)",
     "until": "2026-12-31"
   },
   {
     "face": "CI 每日值守分诊(loop-daily-triage)",
     "producerPath": ".github/workflows/loop-daily-triage.yml",
+    "role": "producer",
     "inScope": false,
-    "gapReason": "身份侧不收(没有身份形态)。2026-10-18 摘除「通知钉钉」「通知飞书」两步:它们与 §5e「第三方推送腿已整体摘除」矛盾,且不是死代码(workflow 失败 ∧ secret 非空即真 POST;两步各自还有『secret 为空则 exit 0』分支,让「跳过」与「发了」在 CI 结论上同形)。摘除后这一面**没有邮件腿** ⇒ 投递量为 0 也无人记账;要补一条品牌邮件腿属新增能力,按 §24 需机主点头。",
+    "gapReason": "2026-10-18 摘除「通知钉钉」「通知飞书」两步:它们与 §5e「第三方推送腿已整体摘除」矛盾,且不是死代码(失败 ∧ secret 非空即真 POST;两步各自还有『secret 为空则 exit 0』分支,让「跳过」与「发了」在 CI 结论上同形)。摘除后这一面**没有到人腿** ⇒ 无投递量。补一条品牌邮件腿 = 新增到人通道 + 需要 CI 侧 SMTP secret 授权,按 §24 需机主点头,不由我替它决定。",
+    "ticket": "告警身份抖动门 224 立项同日射程审计(2026-10-18)",
+    "until": "2026-12-31"
+  },
+  {
+    "face": "签到出站风控告警(ai-service Python)",
+    "producerPath": "apps/ai-service/app/services/checkin_outbound.py",
+    "role": "producer",
+    "inScope": false,
+    "gapReason": "身份侧不收:Python 词法未装 —— 它的身份是 _alert_last_sent 字典的键(取 _fire_alert 首参 kind,常量类别),f-string 里才是正文({secs:.0f}s/{reason});现读无 V1 型违规。要纳入必须先把「键=身份、f-string=正文」做成判据,否则 f-string 里的秒数会被误判成抖动。台账侧:它经出口发 ⇒ 真投递有账,自压的轮次没有(与 bridge 同一格限制)。",
     "ticket": "告警身份抖动门 224 立项同日射程审计(2026-10-18)",
     "until": "2026-12-31"
   }
