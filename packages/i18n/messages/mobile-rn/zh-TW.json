@@ -1,4 +1,45 @@
 {
+  "workflows": {
+    "title": "工作流",
+    "empty": "暫無工作流",
+    "loadFailed": "工作流載入失敗"
+  },
+  "automations": {
+    "title": "自動化",
+    "empty": "暫無自動化任務",
+    "loadFailed": "自動化載入失敗",
+    "active": "啟用中",
+    "paused": "已暫停",
+    "scheduleOnce": "一次性",
+    "scheduleRecurring": "重複",
+    "lastRun": "上次執行",
+    "nextRun": "下次執行",
+    "prompt": "提示詞",
+    "noResult": "暫無執行結果",
+    "rrule": "排程規則",
+    "timezone": "時區"
+  },
+  "dashboard": {
+    "title": "資料看板",
+    "usage": "使用概覽",
+    "cost": "成本與營收",
+    "bi": "BI 概覽",
+    "errors": "錯誤看板",
+    "totalUsers": "總用戶數",
+    "activeSessions": "活躍會話",
+    "uniqueUsers": "活躍用戶(分析)",
+    "todayEvents": "今日事件",
+    "todayRevenue": "今日營收",
+    "totalRevenue": "總營收",
+    "totalOrders": "總訂單",
+    "biTotalUsers": "BI 總用戶",
+    "activeUsers": "活躍用戶",
+    "errorTotal": "錯誤總數",
+    "errorToday": "今日錯誤",
+    "errorCritical": "嚴重錯誤",
+    "errorResolved": "已解決",
+    "loadFailed": "資料看板載入失敗"
+  },
   "toolApproval": {
     "title": "工具審批",
     "description": "AI 請求執行以下高風險操作,請確認是否允許",
@@ -1720,6 +1761,12 @@
     "empty": "暫無成員資訊"
   },
   "vip": {
+    "benefitList": {
+      "unlimitedChat": "無限對話",
+      "exclusiveModel": "專屬模型",
+      "prioritySupport": "優先支持",
+      "referral": "推薦獎勵"
+    },
     "subtitle": "開通會員,尊享更多權益",
     "retry": "重試",
     "empty": "暫無會員等級資訊",
