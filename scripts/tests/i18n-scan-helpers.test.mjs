@@ -41,6 +41,8 @@ import {
   loadJson,
   walkDir,
   scanCode,
+  scanTexts,
+  dynamicPrefixOf,
   isInUsedNamespace,
   groupByNamespace,
 } from '../_i18n-scan-helpers.mjs'
@@ -433,12 +435,83 @@ describe('DYNAMIC_T_RE — 动态 t(`prefix.${var}`) 模板字符串拼接识别
     assert.equal(matchFirst(DYNAMIC_T_RE, 't(key, values)'), null)
   })
 
+  // 2026-10-18 别名集与 STATIC_T_RE 对齐(现场:miniapp-taro 16 枚 ai.businessForms.* 假死键)。
+  // 成对:tt/tr 的动态拼接必须命中;而"带前缀的同类调用名"仍必须被词边界挡住 ⇒ 放宽的是别名,不是任意标识符。
+  test('tt(`a.b.${x}`) / tr(`a.b.${x}`) → 命中(与 STATIC_T_RE 同一别名集,修前整条漏判)', () => {
+    assert.notEqual(
+      matchFirst(DYNAMIC_T_RE, 'tt(`ai.businessForms.fields.${field.key}`, field.key)'),
+      null,
+    )
+    assert.notEqual(matchFirst(DYNAMIC_T_RE, 'tr(`a.b.${x}`)'), null)
+  })
+
+  test('反例:mytt(`a.b.${x}`) / xt(`a.b.${x}`) → 不命中(\\b 词边界,别名集不得当成任意标识符后缀)', () => {
+    assert.equal(matchFirst(DYNAMIC_T_RE, 'mytt(`a.b.${x}`)'), null)
+    assert.equal(matchFirst(DYNAMIC_T_RE, 'xt(`a.b.${x}`)'), null)
+  })
+
   test('t(`no-interpolation`) 无插值 → 不应命中 DYNAMIC_T_RE', () => {
     assert.equal(matchFirst(DYNAMIC_T_RE, 't(`no-interpolation`)'), null)
   })
 
   test("t('plain.string') 单引号静态 → 不应命中 DYNAMIC_T_RE", () => {
     assert.equal(matchFirst(DYNAMIC_T_RE, "t('plain.string')"), null)
+  })
+})
+
+// 2026-10-18:这一格锁的是「动态前缀 → usedNamespaces」这条链路本身,而不是单条正则的形状。
+// 现场 = miniapp-taro 16 枚 ai.businessForms.* 被判死,逐键核验后 16/16 只有 tt(`…${…}`) 拼接消费点。
+describe('scanTexts — 动态拼接前缀必须收进 usedNamespaces(假死键回归锁)', () => {
+  test('tt(`ai.businessForms.fields.${field.key}`, fallback) → 前缀入 usedNamespaces 且计一条动态提示', () => {
+    const { usedNamespaces, dynamicHits } = scanTexts([
+      {
+        rel: 'apps/miniapp-taro/src/components/BusinessFormCard.tsx',
+        text: '  {tt(`ai.businessForms.fields.${field.key}`, field.key)}',
+      },
+    ])
+    assert.equal(dynamicHits.length, 1, '应计 1 处动态拼接(修前为 0 ⇒ 整条链路对 tt 不可见)')
+    assert.ok(usedNamespaces.has('ai.businessForms.fields'), '前缀 ai.businessForms.fields 应记为在用命名空间')
+    assert.ok(
+      isInUsedNamespace('ai.businessForms.fields.to', usedNamespaces),
+      'fields.to 应被前缀覆盖(否则就是本轮 16 枚假死键的复现)',
+    )
+  })
+
+  test('反例:别名之外的调用名不产生前缀(mytt(`a.b.${x}`) ⇒ dynamicHits=0、a.b 不入库)', () => {
+    const { usedNamespaces, dynamicHits } = scanTexts([
+      { rel: 'apps/x/Foo.tsx', text: '  {mytt(`a.b.${x}`, x)}' },
+    ])
+    assert.equal(dynamicHits.length, 0)
+    assert.ok(!usedNamespaces.has('a.b'), '词边界外的标识符不得被当作取词调用')
+  })
+
+  test('跨行书写的 tt( + 模板串 → 前缀仍入库(2026-10-18 现场:别名集修好后余下 5 枚的成因)', () => {
+    const { usedNamespaces } = scanTexts([
+      {
+        rel: 'apps/miniapp-taro/src/components/BusinessFormCard.tsx',
+        text: [
+          '  {tt(',
+          '    `ai.businessForms.${formFieldErrorKey(fieldError)}`,',
+          "    fieldError === 'required' ? '请填写必填项' : '格式不正确',",
+          '  )}',
+        ].join('\n'),
+      },
+    ])
+    assert.ok(
+      usedNamespaces.has('ai.businessForms'),
+      '取词调用换行后,拼接前缀也必须记为在用命名空间(STATIC 早已整文件级,动态档不能只看一行)',
+    )
+    assert.ok(
+      isInUsedNamespace('ai.businessForms.error.required', usedNamespaces),
+      'error.required 应由该前缀覆盖 —— 修前它是被判死的 5 枚之一',
+    )
+  })
+
+  test('dynamicPrefixOf:逐行档与整文件档共用同一份前缀口径', () => {
+    assert.equal(dynamicPrefixOf('a.b.c.${x}'), 'a.b.c')
+    assert.equal(dynamicPrefixOf('a.b.${x}.suffix'), 'a.b')
+    assert.equal(dynamicPrefixOf('${x}'), null, '纯插值没有静态前缀,不得当成命名空间')
+    assert.equal(dynamicPrefixOf('nodots'), null, '无点分单段不构成前缀')
   })
 })
 
