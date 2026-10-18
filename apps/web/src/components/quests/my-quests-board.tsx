@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl'
 import { ListChecks } from 'lucide-react'
 
 import { GOAL_STATUSES, type GoalStatus } from '@ihui/types'
+import { listMyGoals, type MyGoalRow } from '@ihui/api-client'
 
 import { cn } from '@/lib/utils'
 import {
@@ -22,11 +23,12 @@ import {
 /**
  * MyQuestsBoard — 票77(2026-10-18)「My Quests 跨 workspace 全局看板」前端切片。
  *
- * 数据面 = `stores/quests` 端内登记表(goal 生命周期自动登记 + 手动自评估),
+ * 数据面 = `stores/quests` 端内登记表(goal 生命周期自动登记 + 手动自评估);
+ * 挂载时经 `GET /sessions/goals`(票77 服务端聚合腿)灌入跨会话目标与真实 workspaceId,
+ * 灌入失败(网络/服务不可达)静默保留端内登记表,看板照常可用(D152 兜底)。
  * 不另造第二套状态词汇:六档取自 `@ihui/types` 的 `GOAL_STATUSES`,
  * 状态取词沿用 goalCard 四旧词 + chat.goal.status 两新词(goal-card.tsx 同一张映射,
  * 此处按取词位置重抄一份 —— goal-card 与本板互不 import,避免环;词汇本体仍单源)。
- * 服务端跨 workspace 聚合端点落地前,workspaceId='' 统一归"当前工作空间"。
  */
 
 /** 六档 → 取词位置(goal-card.tsx 的 STATUS_LABEL 同一张表,词汇源同 @ihui/types) */
@@ -70,22 +72,34 @@ function QuestRow({
     setDraft('')
   }
   return (
-    <div data-testid={`my-quests-row-${quest.goalId}`} className="space-y-1 rounded-md border px-2 py-1.5">
+    <div
+      data-testid={`my-quests-row-${quest.goalId}`}
+      className="space-y-1 rounded-md border px-2 py-1.5"
+    >
       <div className="flex items-center gap-1.5">
         <span className="min-w-0 flex-1 truncate text-xs" title={quest.text}>
           {quest.text}
         </span>
         <span
           data-testid={`my-quests-status-${quest.goalId}`}
-          className={cn('shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium', statusTone(quest.status))}
+          className={cn(
+            'shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+            statusTone(quest.status),
+          )}
         >
           {label}
         </span>
-        <span data-testid={`my-quests-progress-${quest.goalId}`} className="shrink-0 text-xs text-muted-foreground">
+        <span
+          data-testid={`my-quests-progress-${quest.goalId}`}
+          className="shrink-0 text-xs text-muted-foreground"
+        >
           {quest.progress}%
         </span>
       </div>
-      <p data-testid={`my-quests-latest-${quest.goalId}`} className="truncate text-xs text-muted-foreground">
+      <p
+        data-testid={`my-quests-latest-${quest.goalId}`}
+        className="truncate text-xs text-muted-foreground"
+      >
         {t('latestAssessment')}
         {': '}
         {latest && latest.summary ? latest.summary : t('noAssessment')}
@@ -117,12 +131,32 @@ function QuestRow({
   )
 }
 
-export function MyQuestsBoard() {
+export function MyQuestsBoard({
+  loadGoals = listMyGoals,
+}: {
+  /** 测试注入口;生产恒为 api-client 的 listMyGoals */
+  loadGoals?: () => Promise<MyGoalRow[]>
+} = {}) {
   const t = useTranslations('myQuests')
   const tGoalCard = useTranslations('goalCard')
   const tShared = useTranslations('chat.goal.status')
   const entries = useQuestsStore((s) => s.entries)
   const recordAssessment = useQuestsStore((s) => s.recordAssessment)
+  const hydrateFromServer = useQuestsStore((s) => s.hydrateFromServer)
+
+  React.useEffect(() => {
+    let cancelled = false
+    loadGoals()
+      .then((rows) => {
+        if (!cancelled) hydrateFromServer(rows)
+      })
+      .catch(() => {
+        // 服务端聚合不可达 ⇒ 保留端内登记表(D152 兜底),看板不因网络失败而空
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [loadGoals, hydrateFromServer])
 
   const counts = questStatusCounts(entries)
   const groups = groupQuestsByWorkspace(entries)
@@ -156,7 +190,10 @@ export function MyQuestsBoard() {
               <span
                 key={status}
                 data-testid={`my-quests-count-${status}`}
-                className={cn('rounded-sm px-1.5 py-0.5 text-[10px] font-medium', statusTone(status))}
+                className={cn(
+                  'rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+                  statusTone(status),
+                )}
               >
                 {statusLabel(status)} × {counts[status]}
               </span>
@@ -168,7 +205,12 @@ export function MyQuestsBoard() {
                 {group.workspaceId || t('currentWorkspace')}
               </p>
               {group.quests.map((quest) => (
-                <QuestRow key={quest.goalId} quest={quest} label={statusLabel(quest.status)} onAssess={handleAssess} />
+                <QuestRow
+                  key={quest.goalId}
+                  quest={quest}
+                  label={statusLabel(quest.status)}
+                  onAssess={handleAssess}
+                />
               ))}
             </div>
           ))}

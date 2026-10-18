@@ -540,7 +540,8 @@
     "notifOff": "メッセージ通知は無効です",
     "accountSecurity": "アカウントとセキュリティ",
     "goSetting": "設定へ",
-    "notificationEntry": "通知設定"
+    "notificationEntry": "通知設定",
+    "webPortal": "Web 版機能"
   },
   "bill": {
     "title": "学費の請求",
@@ -984,7 +985,7 @@
         "noAttendees": "出席者を少なくとも1名追加してください"
       },
       "reason": "拒否理由(任意)",
-        "fold": {
+      "fold": {
         "expand": "全 {count} 名の出席者を表示",
         "collapse": "出席者を折りたたむ"
       },
@@ -4434,5 +4435,139 @@
   },
   "VoiceInput": {
     "p1": "録音を開始できませんでした"
+  },
+  "webViewPortal": {
+    "title": "Web 機能ポータル",
+    "hint": "以下は Web 版機能の入口です。内蔵ブラウザで開きます",
+    "sections": {
+      "eduAi": "教育 AI",
+      "edu": "教務管理 / 保護者",
+      "developer": "開発者プラットフォーム",
+      "selfMedia": "自媒体運営",
+      "knowledgeTools": "知識グラフとツール",
+      "models": "モデルプラットフォーム",
+      "more": "その他",
+      "workspace": "AI ワークスペース",
+      "admin": "管理コンソール",
+      "analytics": "分析ダッシュボード",
+      "docs": "ドキュメントとヘルプ",
+      "workflows": "ワークフローと自動化",
+      "openPlatform": "オープンプラットフォーム"
+    },
+    "eduAi": {
+      "policy": "政策解説",
+      "certification": "認証センター",
+      "courses": "コースセンター",
+      "aigcTools": "AIGC ツール",
+      "map": "学習マップ",
+      "marking": "AI 採点",
+      "outbound": "智能外呼",
+      "tbox": "T-Box",
+      "videoCompose": "動画合成",
+      "voice": "AI 音声"
+    },
+    "eduManagement": {
+      "schedule": "授業管理",
+      "attendance": "出欠管理",
+      "grades": "成績管理",
+      "homework": "宿題管理",
+      "canteenProcurement": "食堂調達記帳"
+    },
+    "eduParent": "保護者端",
+    "eduSchedule": "時間割",
+    "developer": {
+      "keys": "API キー",
+      "apiDocs": "API ドキュメント",
+      "webhooks": "Webhook",
+      "logs": "呼び出しログ",
+      "billing": "請求",
+      "relay": "Relay ゲートウェイ"
+    },
+    "selfMedia": {
+      "koubo": "口播稿",
+      "wechat": "公式アカウント",
+      "automation": "自動化"
+    },
+    "publish": {
+      "analytics": "公開分析",
+      "calendar": "公開カレンダー"
+    },
+    "knowledgeGraph": "知識グラフ",
+    "tools": {
+      "voiceStt": "音声→テキスト",
+      "pdf": "PDF ツール"
+    },
+    "resources": "リソース",
+    "stock": "株式",
+    "fundData": "ファンド",
+    "models": {
+      "overview": "モデル概要",
+      "keys": "モデルキー",
+      "usage": "使用量",
+      "prompts": "Prompt 管理",
+      "eval": "モデル評価"
+    },
+    "workspace": "ワークスペース",
+    "workspacePermissions": "ワークスペース権限",
+    "tags": "タグ",
+    "topics": "トピック",
+    "context": "コンテキスト管理",
+    "traders": "トレーダー",
+    "members": "メンバー",
+    "lecturers": "講師",
+    "oauth": {
+      "authorized": "認可管理"
+    },
+    "enterprise": "エンタープライズ",
+    "featureCenter": "機能センター",
+    "admin": {
+      "home": "管理コンソール ホーム",
+      "dashboardStat": "ダッシュボード",
+      "users": "ユーザー管理",
+      "memberUsers": "会員管理",
+      "orders": "注文管理",
+      "refund": "返金管理",
+      "wallet": "ウォレット管理",
+      "withdrawal": "出金管理",
+      "articles": "記事審査",
+      "eduCourse": "コース審査",
+      "eduExam": "試験審査",
+      "live": "ライブ管理",
+      "point": "ポイント管理",
+      "news": "ニュース管理",
+      "agents": "エージェント管理",
+      "feedbacks": "フィードバック",
+      "ticket": "チケット管理",
+      "configs": "システム設定"
+    },
+    "analytics": {
+      "dashboard": "ダッシュボード",
+      "bi": "BI ダッシュボード",
+      "cost": "コストダッシュボード"
+    },
+    "docs": {
+      "home": "ドキュメント",
+      "quickstart": "クイックスタート",
+      "gettingStarted": "はじめてのガイド",
+      "faq": "よくある質問",
+      "help": "ヘルプセンター"
+    },
+    "openPlatform": {
+      "mcpStore": "MCP ストア",
+      "mcpProjects": "MCP プロジェクト",
+      "connectors": "コネクタエコシステム",
+      "registry": "ケイパビリティレジストリ",
+      "apiTest": "API テスト",
+      "capabilityMarket": "ケイパビリティマーケット"
+    },
+    "workflows": {
+      "home": "ワークフロー",
+      "editor": "ワークフローエディタ",
+      "automations": "自動化タスク",
+      "orchestration": "オーケストレーション",
+      "schedule": "スケジュールタスク"
+    },
+    "knowledgeCards": "ナレッジカード",
+    "knowledgePlanet": "ナレッジプラネット"
   }
 }

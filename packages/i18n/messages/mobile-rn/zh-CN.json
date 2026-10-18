@@ -2548,7 +2548,12 @@
       "knowledgeTools": "知识图谱与工具",
       "models": "模型平台",
       "more": "更多功能",
-      "workspace": "AI 工作台"
+      "workspace": "AI 工作台",
+      "admin": "管理后台",
+      "analytics": "数据看板",
+      "docs": "文档与帮助",
+      "workflows": "工作流与自动化",
+      "openPlatform": "开放平台"
     },
     "eduAi": {
       "policy": "政策解读",
@@ -2615,7 +2620,56 @@
       "authorized": "授权管理"
     },
     "enterprise": "企业服务",
-    "featureCenter": "能力中心"
+    "featureCenter": "能力中心",
+    "admin": {
+      "home": "管理后台首页",
+      "dashboardStat": "数据概览",
+      "users": "用户管理",
+      "memberUsers": "会员管理",
+      "orders": "订单管理",
+      "refund": "退款管理",
+      "wallet": "钱包管理",
+      "withdrawal": "提现管理",
+      "articles": "文章审核",
+      "eduCourse": "课程审核",
+      "eduExam": "试卷审核",
+      "live": "直播管理",
+      "point": "积分管理",
+      "news": "资讯管理",
+      "agents": "智能体管理",
+      "feedbacks": "用户反馈",
+      "ticket": "工单管理",
+      "configs": "系统配置"
+    },
+    "analytics": {
+      "dashboard": "数据看板",
+      "bi": "BI 看板",
+      "cost": "成本看板"
+    },
+    "docs": {
+      "home": "文档中心",
+      "quickstart": "快速上手",
+      "gettingStarted": "新手指南",
+      "faq": "常见问题",
+      "help": "帮助中心"
+    },
+    "openPlatform": {
+      "mcpStore": "MCP 市场",
+      "mcpProjects": "MCP 项目",
+      "connectors": "连接器生态",
+      "registry": "能力注册表",
+      "apiTest": "API 调试",
+      "capabilityMarket": "能力市场"
+    },
+    "workflows": {
+      "home": "工作流",
+      "editor": "工作流编辑器",
+      "automations": "自动化任务",
+      "orchestration": "编排中心",
+      "schedule": "定时任务"
+    },
+    "knowledgeCards": "知识卡片",
+    "knowledgePlanet": "知识星球"
   },
   "knowledgeRag": {
     "title": "RAG 知识库",
