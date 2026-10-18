@@ -11182,7 +11182,12 @@
       "shareLinkCopied": "コンテンツとリンクをコピーしました",
       "showContent": "コンテンツを表示",
       "stopReadAloud": "読み上げ停止",
-      "toggleMetadata": "メタデータ切替"
+      "toggleMetadata": "メタデータ切替",
+      "pin": "固定",
+      "unpin": "固定を解除",
+      "bookmark": "ブックマーク",
+      "unbookmark": "ブックマークを解除",
+      "flagFailed": "標識の保存に失敗"
     },
     "messageDeleted": "メッセージを削除しました",
     "modeAlreadyActive": "現在既に{mode}モードです",

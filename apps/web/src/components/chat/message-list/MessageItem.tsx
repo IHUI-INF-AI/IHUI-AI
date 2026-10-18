@@ -24,6 +24,10 @@ import {
   Quote,
   Paperclip,
   PenLine,
+  Pin,
+  PinOff,
+  Bookmark,
+  BookmarkCheck,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
@@ -58,7 +62,7 @@ import {
   VIEW_FAILURE_NAMESPACE,
   VIEW_FAILURE_ERROR_CODE_KEY,
 } from '@ihui/shared/utils/view-failure-taxonomy'
-import { FALLBACK_REASON_QUOTA_EQUIVALENT } from '@ihui/api-client'
+import { FALLBACK_REASON_QUOTA_EQUIVALENT, setMessageFlags } from '@ihui/api-client'
 import { ArtifactCanvas, type Artifact } from '@/components/chat/artifact-canvas'
 import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
 import { ToolCallSummaryCard } from '@/components/ai/progress-sections/tool-call-summary-card'
@@ -495,6 +499,35 @@ const MessageItem = React.memo(function MessageItem({
     )
     toast.info(t('regenerating') === 'regenerating' ? 'Regenerating...' : t('regenerating'))
   }, [m.id, t])
+
+  // 票64(2026-10-18 立):消息级钉选/收藏。成功态一律取服务端回写的那一行 ——
+  // 乐观翻转会把"库没写进去"渲染成"已经钉上了",只有刷新才自证其伪(与 G-165 徽章
+  // 从内存换成服务端盖章是同一型修法)。两把标记各发各的维度:一次点击只动它点的那一把,
+  // 空 body 会被服务端拒(400),不会顺手取消另一把。
+  const [flagPending, setFlagPending] = React.useState(false)
+  const handleToggleFlag = React.useCallback(
+    async (kind: 'pinned' | 'bookmarked') => {
+      if (flagPending) return
+      setFlagPending(true)
+      try {
+        const payload =
+          kind === 'pinned' ? { pinned: !m.pinnedAt } : { bookmarked: !m.bookmarkedAt }
+        const res = await setMessageFlags({ messageId: m.id, ...payload })
+        if (!res.success) {
+          toast.error(t('message.flagFailed'), { description: res.error })
+          return
+        }
+        const written = res.data?.message
+        useChatStore.getState().patchMessageFlags(m.id, {
+          pinnedAt: written?.pinnedAt ?? null,
+          bookmarkedAt: written?.bookmarkedAt ?? null,
+        })
+      } finally {
+        setFlagPending(false)
+      }
+    },
+    [flagPending, m.bookmarkedAt, m.id, m.pinnedAt, t],
+  )
 
   // 删除消息(对应原项目 deleteMessage,逻辑从右键菜单提取)
   const handleDelete = React.useCallback(() => {
@@ -1377,6 +1410,55 @@ const MessageItem = React.memo(function MessageItem({
                 )}
               </button>
             </Tooltip>
+            {/* 票64(2026-10-18 立):钉选 / 收藏 —— 图标形态按服务端盖章的两个时刻切,
+                不引入第三份本地布尔态(那会造出"界面显示已钉选、库里没写"的不可判定态)。 */}
+            {!isSystem && (
+              <Tooltip content={m.pinnedAt ? t('message.unpin') : t('message.pin')} side="top">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void handleToggleFlag('pinned')
+                  }}
+                  data-testid={`message-pin-${m.id}`}
+                  aria-label={m.pinnedAt ? t('message.unpin') : t('message.pin')}
+                  aria-pressed={!!m.pinnedAt}
+                  disabled={flagPending}
+                  className={ACTION_BTN_CLASS}
+                >
+                  {m.pinnedAt ? (
+                    <PinOff className="h-4 w-4" aria-hidden />
+                  ) : (
+                    <Pin className="h-4 w-4" aria-hidden />
+                  )}
+                </button>
+              </Tooltip>
+            )}
+            {!isSystem && (
+              <Tooltip
+                content={m.bookmarkedAt ? t('message.unbookmark') : t('message.bookmark')}
+                side="top"
+              >
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void handleToggleFlag('bookmarked')
+                  }}
+                  data-testid={`message-bookmark-${m.id}`}
+                  aria-label={m.bookmarkedAt ? t('message.unbookmark') : t('message.bookmark')}
+                  aria-pressed={!!m.bookmarkedAt}
+                  disabled={flagPending}
+                  className={ACTION_BTN_CLASS}
+                >
+                  {m.bookmarkedAt ? (
+                    <BookmarkCheck className="h-4 w-4" aria-hidden />
+                  ) : (
+                    <Bookmark className="h-4 w-4" aria-hidden />
+                  )}
+                </button>
+              </Tooltip>
+            )}
             {/* AI 消息:朗读(TTS)/停止朗读 — 走 ai-service /api/voice/tts */}
             {!isUser && (
               <Tooltip

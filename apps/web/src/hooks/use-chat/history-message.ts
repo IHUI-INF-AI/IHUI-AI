@@ -31,6 +31,9 @@ export interface HistoryMessageRecord {
   reasoning?: string
   createdAt: string
   metadata?: Record<string, unknown> | null
+  /** 票64(2026-10-18):服务端盖章的消息级标记时刻(ISO 字符串;null/缺席 = 未标记) */
+  pinnedAt?: string | null
+  bookmarkedAt?: string | null
 }
 
 /**
@@ -348,6 +351,10 @@ export function hydrateHistoryMessage(row: HistoryMessageRecord): ChatMessage {
     // SubAgentActivityFeed 渲染位直接消费(回放 = 流式的同组件同形状)。
     // 无元素包/全部帧判不过 → undefined,不挂字段不渲染空态。
     subagentActivities: readSubagentActivitiesFromMetadata(meta),
+    // 票64(2026-10-18 立):钉选/收藏标记读回。逐字段列在 hydrate 里是硬要求 ——
+    // 这个函数按名取值,不在清单上的字段会被静默丢掉,刷新后标记"看起来没存住"。
+    pinnedAt: row.pinnedAt ?? null,
+    bookmarkedAt: row.bookmarkedAt ?? null,
   }
 }
 
