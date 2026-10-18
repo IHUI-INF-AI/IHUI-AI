@@ -2248,6 +2248,20 @@
       "when": 1792304400000,
       "tag": "20261018142000_chat_messages_pin_bookmark",
       "breakpoints": true
+    },
+    {
+      "idx": 322,
+      "version": "7",
+      "when": 1792307400000,
+      "tag": "20261018151000_llm_call_logs_refunded_column",
+      "breakpoints": true
+    },
+    {
+      "idx": 323,
+      "version": "7",
+      "when": 1792309200000,
+      "tag": "20261018154000_audit_logs_chain_raw_retained_column",
+      "breakpoints": true
     }
   ]
 }

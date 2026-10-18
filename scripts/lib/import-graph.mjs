@@ -660,6 +660,83 @@ export function widenOverDependents(changed, graph) {
   }
 }
 
+/**
+ * 反向依赖闭包加宽的**通用高阶版**(2026-10-18 L14546 立,机主拍板全量铺开守门触发面):
+ * 给定本次改动文件集,返回「改动集 ∪ 所有(传递)依赖它们的 importer」。
+ *
+ * 是 check-typecheck 门 G-406② scope 加宽判据提升到 lib 的通用版,face 由调用方按取材面给:
+ *  - 守门 `--staged` 触发面取 `face:'index'`(暂存文件来自 `git diff --cached`,同面同轮 §0.4);
+ *  - push 全量 typecheck 降级取 `face:'worktree'`(判工作树实际要编译的范围)。
+ *
+ * 三条不可破的不变量(镜像测试钉死):
+ *  1. 闭包 ⊇ 改动集本身 —— 加宽只加不减;`null`(git 不可用)等不可用状态原样返回,不改写;
+ *  2. 建图 / 闭包失败 ⇒ 退回**未加宽**的逐字 files + 可见 reason(不崩、不静默假装成功,
+ *     也不把环境故障升级成硬拦):增强失效不等于基线失效,退回后 == 改前路径前缀行为;
+ *  3. 改动集没有任何源码扩展名(全 .md/.json/.ps1/图片…)⇒ 图里不可能有它们的 dependents,
+ *     **跳过建图**(真仓建图 5~25s,纯文档/配置提交不该白付这笔)。
+ *
+ * @param {string[]|null} files 改动文件(repo 相对路径,正斜杠)
+ * @param {{face?:string, root?:string, buildGraph?:Function}} [opts]
+ *   buildGraph 是唯一测试缝(生产默认 buildFileGraph;测试注入构造图,不真建图)。
+ * @returns {{files:string[]|null, added:string[], widened:boolean, seedCount:number, reason:string}}
+ */
+export function widenFilesOverDependents(
+  files,
+  { face = 'index', root = ROOT, buildGraph = buildFileGraph } = {},
+) {
+  if (!Array.isArray(files) || files.length === 0) {
+    return {
+      files,
+      added: [],
+      widened: false,
+      seedCount: 0,
+      reason: '改动集为空或不可用(非数组/null),无需加宽,原样返回',
+    }
+  }
+  if (!files.some((f) => hasSrcExt(f))) {
+    return {
+      files,
+      added: [],
+      widened: false,
+      seedCount: 0,
+      reason: '改动集无源码扩展名(.ts/.tsx/.js/.mjs 等),import 图闭包必然为空,跳过建图',
+    }
+  }
+  let graph
+  try {
+    graph = buildGraph({ face, root })
+  } catch (e) {
+    return {
+      files,
+      added: [],
+      widened: false,
+      seedCount: 0,
+      reason: `建图失败(${String((e && e.message) || e).slice(0, 120)})——退回未加宽(=改前行为)`,
+    }
+  }
+  try {
+    const w = widenOverDependents(files, graph)
+    return {
+      files: w.closure,
+      added: w.added,
+      widened: w.added.length > 0,
+      seedCount: w.seedCount,
+      reason:
+        w.added.length > 0
+          ? `反向依赖闭包 seed=${w.seedCount}→${w.closure.length}(新增 importer ${w.added.length});face=${face}`
+          : `闭包为空(本次改动无 importer),逐字不变;face=${face}`,
+    }
+  } catch (e) {
+    return {
+      files,
+      added: [],
+      widened: false,
+      seedCount: 0,
+      reason: `闭包计算失败(${String((e && e.message) || e).slice(0, 120)})——退回未加宽(=改前行为)`,
+    }
+  }
+}
+
 // ── CLI ────────────────────────────────────────────────────────────────────────────────
 
 const USAGE = `用法: node scripts/lib/import-graph.mjs [--stats] [--widen <path> ...] [--face HEAD|index|worktree] [--json] [--no-cache]
