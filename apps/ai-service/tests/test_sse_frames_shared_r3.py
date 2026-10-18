@@ -2,7 +2,10 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""R3:任务流(agents.py)与主对话流共用同一份帧级 traceId 注入实现。
+"""R3:任务流与主对话流共用同一份帧级 traceId 注入实现。
+
+覆盖面 = 五条曾各自拼帧的路径:agents.py、agent_runtime.py、langgraph.py、
+mcp_official.py、llm.py 的 compaction 帧(G-248 R3 逐条点名)。
 
 立票理由不是"少一个键",而是**两条流各自拼帧**时判序会漂开:漂开的表现是
 "主对话流的帧能对上 llm_call_logs 里的对账键、任务流的帧对不上",
@@ -78,6 +81,103 @@ def test_帧内值是合法32hex() -> None:
     mod_id = mod.with_frame_trace_id("message", {"type": "message"})
     # 无 trace 上下文时不该出现键(测试进程未起 middleware ⇒ trace_id 为 None)
     assert "traceId" not in mod_id
+
+
+TRACE = "0af7651916cd43dd8448eb211c80319c"
+
+
+def _set_trace(monkeypatch: pytest.MonkeyPatch, value: str | None) -> None:
+    monkeypatch.setattr(sse_frames, "sse_frame_trace_id", lambda: value)
+
+
+def test_langgraph_帧经共享注入点(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.routers import langgraph as langgraph_mod
+    from app.services.langgraph_stream import SSEEvent
+
+    evt = SSEEvent(type="node_start", thread_id="t1", node_id="n1", data={"x": 1})
+
+    _set_trace(monkeypatch, None)
+    baseline = langgraph_mod._sse_format(evt)
+    assert baseline.startswith("event: node_start\ndata: "), baseline
+    assert "traceId" not in baseline
+
+    _set_trace(monkeypatch, TRACE)
+    wire = langgraph_mod._sse_format(evt)
+    assert f'"traceId": "{TRACE}"' in wire, wire
+    assert wire.startswith("event: node_start\ndata: "), wire
+
+
+def test_mcp_official_帧经共享注入点(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.routers import mcp_official as mcp_mod
+
+    message = {"jsonrpc": "2.0", "id": 7, "result": {"ok": True}}
+
+    _set_trace(monkeypatch, None)
+    # 线格式逐字节不变:无 trace 时与改造前完全一致
+    assert mcp_mod._sse_frame(message) == (
+        f"event: message\ndata: {json.dumps(message, ensure_ascii=False)}\n\n"
+    )
+
+    _set_trace(monkeypatch, TRACE)
+    wire = mcp_mod._sse_frame(message)
+    assert wire.startswith("event: message\ndata: "), wire
+    assert f'"traceId": "{TRACE}"' in wire, wire
+
+
+def test_llm_compaction_无名帧也经共享注入点(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.routers import llm as llm_mod
+
+    info = {
+        "compressed": True,
+        "original_tokens": 100,
+        "compressed_tokens": 40,
+        "removed_count": 3,
+        "usage_ratio": 0.4,
+    }
+
+    _set_trace(monkeypatch, None)
+    baseline = llm_mod._compaction_frame(info)
+    assert baseline is not None
+    body = json.loads(baseline.removeprefix("data: ").removesuffix("\n\n"))
+    assert "traceId" not in body
+    assert body["compaction"]["triggered"] is True
+
+    _set_trace(monkeypatch, TRACE)
+    framed = llm_mod._compaction_frame(info)
+    assert framed is not None
+    assert framed.startswith("data: "), framed
+    parsed = json.loads(framed.removeprefix("data: ").removesuffix("\n\n"))
+    assert parsed["traceId"] == TRACE
+    assert parsed["compaction"] == body["compaction"]
+
+
+def test_agent_runtime_帧经共享注入点(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.routers import agent_runtime as runtime_mod
+
+    _set_trace(monkeypatch, None)
+    assert runtime_mod._sse_frame("session", {"sessionId": "s1"}) == (
+        'event: session\ndata: {"sessionId": "s1"}\n\n'
+    )
+    # runs/stderr 那条保持 ensure_ascii=False(中文原样出线)
+    assert runtime_mod._sse_frame(
+        "stdout", {"event": "stdout", "text": "中文"}, ensure_ascii=False
+    ) == 'event: stdout\ndata: {"event": "stdout", "text": "中文"}\n\n'
+
+    _set_trace(monkeypatch, TRACE)
+    wire = runtime_mod._sse_frame("done", {"sessionId": "s1", "status": "completed"})
+    assert wire.startswith("event: done\ndata: "), wire
+    assert f'"traceId": "{TRACE}"' in wire, wire
+
+
+def test_五条拼帧路径都引用单源且不自造键() -> None:
+    """漂移锁:每条曾经的拼帧路径必须 import 共享实现,且源码里不得出现自造键。"""
+    root = Path(getattr(routers, "__file__", "")).resolve().parent
+    files = ["agents.py", "agent_runtime.py", "langgraph.py", "mcp_official.py", "llm.py"]
+    for name in files:
+        src = (root / name).read_text(encoding="utf-8")
+        assert "with_frame_trace_id" in src, f"{name} 未引用共享注入点"
+        assert '"traceId"' not in src, f"{name} 里出现自造 traceId 字面量(应只在 sse_frames.py)"
+
     wire_like = json.dumps({"traceId": "A" * 32})
     assert TRACE_RE.search(wire_like) is None, "大写不该被认作合法值(本正则只认小写)"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
