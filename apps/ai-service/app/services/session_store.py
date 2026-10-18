@@ -1227,6 +1227,46 @@ class SessionStore:
             has_more=offset + len(threads) < total,
         )
 
+    def list_goal_threads(
+        self,
+        *,
+        limit: int = 100,
+        owner_user_id: str | None = None,
+    ) -> list[tuple[Thread, dict[str, Any]]]:
+        """跨会话目标聚合(票 77 My Quests 看板的服务端数据源)。
+
+        只取 `metadata.goalState` 存在且**形状合规**的行:
+        `normalize_goal_state` 返回 None 的行一律剔除,不补默认值、不猜 ——
+        "形状不对"与"没有目标"在账面上是两件事,混成一件会让看板多数出从未存在过的目标。
+
+        归属判据与 `list_threads` 同一条(owner_user_id 非空时按 `metadata.userId` 精确过滤,
+        没有 userId 的历史行排除):total/条目与实际被审那批同源,不在响应侧二次筛。
+        archived 行排除 —— 归档会话的目标不该出现在"我的任务"里。
+
+        Returns:
+            [(thread, 收窄后的 goalState)],按 updated_at 倒序,最多 limit 条。
+        """
+        conditions = ["archived = 0", "json_extract(metadata, '$.goalState') IS NOT NULL"]
+        args: list[Any] = []
+        if owner_user_id is not None:
+            conditions.append("json_extract(metadata, '$.userId') = ?")
+            args.append(owner_user_id)
+        where = f" WHERE {' AND '.join(conditions)}"
+        cap = max(1, min(int(limit), 200))
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT * FROM threads{where} ORDER BY updated_at DESC LIMIT ?",
+                [*args, cap],
+            ).fetchall()
+        out: list[tuple[Thread, dict[str, Any]]] = []
+        for row in rows:
+            thread = _row_to_thread(row)
+            state = normalize_goal_state(thread.metadata.get("goalState"))
+            if state is None:
+                continue
+            out.append((thread, state))
+        return out
+
     # ==================== Turn CRUD + 状态机 ====================
 
     def start_turn(

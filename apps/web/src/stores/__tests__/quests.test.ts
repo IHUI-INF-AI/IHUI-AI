@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 // manual 评估空串拒绝、removeQuest 镜像删、六档计数与跨 workspace 分组、
 // 评估轨迹上限、goal store 自动登记器(attachGoalQuestRecorder)。
 import { useGoalStore, type Goal } from '../goal'
+import type { MyGoalRow } from '@ihui/api-client'
 import {
   MAX_QUEST_ASSESSMENTS,
   groupQuestsByWorkspace,
@@ -67,7 +68,8 @@ describe('quests store:upsertFromGoal', () => {
     const entry = entryOf('goal-1')!
     expect(entry.status).toBe('blocked')
     expect(entry.assessments).toHaveLength(2)
-    expect(entry.assessments[1]).toMatchObject({ status: 'blocked', progress: 30, source: 'auto' })  })
+    expect(entry.assessments[1]).toMatchObject({ status: 'blocked', progress: 30, source: 'auto' })
+  })
 
   it('未知状态档:原样不动,不建档不覆盖', () => {
     useQuestsStore.getState().upsertFromGoal(makeGoal())
@@ -85,9 +87,7 @@ describe('quests store:upsertFromGoal', () => {
     useQuestsStore.getState().upsertFromGoal(makeGoal())
     const statuses = ['paused', 'active', 'blocked', 'active'] as const
     for (let i = 0; i < 30; i++) {
-      useQuestsStore
-        .getState()
-        .upsertFromGoal(makeGoal({ status: statuses[i % statuses.length] }))
+      useQuestsStore.getState().upsertFromGoal(makeGoal({ status: statuses[i % statuses.length] }))
     }
     expect(entryOf('goal-1')!.assessments).toHaveLength(MAX_QUEST_ASSESSMENTS)
   })
@@ -125,6 +125,78 @@ describe('quests store:recordAssessment / removeQuest', () => {
     expect(entryOf('goal-1')).toBeUndefined()
     useQuestsStore.getState().removeQuest('goal-1')
     expect(useQuestsStore.getState().entries).toEqual({})
+  })
+})
+
+describe('quests store:hydrateFromServer(票77 服务端聚合腿)', () => {
+  beforeEach(() => {
+    useQuestsStore.setState({ entries: {} })
+  })
+
+  function makeRow(partial: Partial<MyGoalRow> = {}): MyGoalRow {
+    return {
+      threadId: 'th-1',
+      sessionId: '',
+      title: '服务端标题',
+      workspaceId: '',
+      createdAt: 1_700_000_000,
+      updatedAt: 1_700_000_100,
+      goal: { status: 'active', objective: '服务端目标' },
+      ...partial,
+    }
+  }
+
+  it('未命中本地 sessionId:以 srv-<threadId> 建档,带真实 workspaceId 与秒→毫秒时间', () => {
+    useQuestsStore
+      .getState()
+      .hydrateFromServer([makeRow({ threadId: 'th-1', sessionId: 'sess-x', workspaceId: 'ws-2' })])
+    const entry = entryOf('srv-th-1')!
+    expect(entry.text).toBe('服务端目标')
+    expect(entry.status).toBe('active')
+    expect(entry.workspaceId).toBe('ws-2')
+    expect(entry.sessionId).toBe('sess-x')
+    expect(entry.createdAt).toBe(1_700_000_000_000)
+    expect(entry.updatedAt).toBe(1_700_000_100_000)
+    expect(entry.assessments).toHaveLength(1)
+    expect(entry.assessments[0]).toMatchObject({ status: 'active', source: 'auto' })
+  })
+
+  it('sessionId 命中本地条目:沿用 key,保 progress/评估轨迹,更新状态并追加 auto', () => {
+    useQuestsStore.getState().upsertFromGoal(makeGoal({ sessionId: 'sess-1', progress: 55 }))
+    useQuestsStore.getState().hydrateFromServer([
+      makeRow({
+        sessionId: 'sess-1',
+        workspaceId: 'ws-2',
+        goal: { status: 'blocked', objective: '服务端改写' },
+      }),
+    ])
+    const entry = entryOf('goal-1')!
+    expect(entry.status).toBe('blocked')
+    expect(entry.progress).toBe(55)
+    expect(entry.workspaceId).toBe('ws-2')
+    expect(entry.text).toBe('服务端改写')
+    expect(entry.assessments).toHaveLength(2)
+    expect(entry.assessments.at(-1)).toMatchObject({ status: 'blocked', source: 'auto' })
+    expect(entryOf('srv-th-1')).toBeUndefined()
+  })
+
+  it('同 status 重复灌入不追加 auto 条目', () => {
+    useQuestsStore.getState().hydrateFromServer([makeRow()])
+    useQuestsStore.getState().hydrateFromServer([makeRow({ updatedAt: 1_700_000_200 })])
+    expect(entryOf('srv-th-1')!.assessments).toHaveLength(1)
+    expect(entryOf('srv-th-1')!.updatedAt).toBe(1_700_000_200_000)
+  })
+
+  it('非法状态档跳过;objective 空时退 title', () => {
+    useQuestsStore
+      .getState()
+      .hydrateFromServer([
+        makeRow({ threadId: 'bad', goal: { status: 'bogus', objective: 'x' } }),
+        makeRow({ threadId: 'th-2', title: '标题兜底', goal: { status: 'paused', objective: '' } }),
+      ])
+    expect(entryOf('srv-bad')).toBeUndefined()
+    expect(entryOf('srv-th-2')!.text).toBe('标题兜底')
+    expect(entryOf('srv-th-2')!.status).toBe('paused')
   })
 })
 
