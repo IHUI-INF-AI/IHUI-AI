@@ -2,164 +2,148 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * P1-2.3: Grafana iframe 包装组件
- *
- * 职责:
- * - 渲染 Grafana dashboard iframe(同源 localhost:8801)
- * - 透传 var-tenant 变量,自动锁定当前租户
- * - 时间范围:近 1h(实时监控场景)
- *
- * 注意:
- * - 仅在浏览器端渲染(Grafana 需要 cookie/header)
- * - Grafana 服务运行于 http://127.0.0.1:8801(production 需走反向代理)
- * - 若 NEXT_PUBLIC_GRAFANA_BASE 未配置,组件显示降级提示
- */
 'use client'
 
+/**
+ * P1-2.3 Grafana iframe 包装组件 → 2026-10-18 原生化重写。
+ *
+ * 李总裁决「彻底融合进项目,不可以单独搞出一个程序」+ Grafana 服务退役后,
+ * 本组件改为直接复用项目原生面板机制:同一个查询 API
+ * (/api/admin/monitor-panels/query,requireAdmin)+ 共享渲染层(panel-render),
+ * 渲染「多租户业务监控」盘(ihui-ai-tenant-usage)。
+ *
+ * 诚实口径(零假数据):prom 标签 tenant_id 是 UUID,而 SaaS 侧租户对象只有
+ * slug,无 slug→UUID 映射 ⇒ 不做"逐租户过滤"的假象,固定渲染全租户对比视图,
+ * 由读者在图表里看自己关心的租户序列。
+ *
+ * 兼容性:uid/theme/timeRange/refresh 形参保留但不再生效(历史上指向的
+ * saas-tenant-overview/comparison 两张盘在仓内从未存在,iframe 本就是死链)。
+ */
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { AlertTriangle, ExternalLink, Maximize2 } from 'lucide-react'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
-import { Tooltip } from '@/components/feedback'
+import { AlertTriangle } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+
+import { fetchApi } from '@/lib/api'
+import { MONITOR_DASHBOARDS, type NativeDashboard } from '../../monitor/panels/dashboard-config.generated'
+import { DashboardGrid, materializeExpr, stepFor, type QueryResult } from '../../monitor/panels/panel-render'
 
 interface GrafanaFrameProps {
-  /** 当前租户标识(注入到 Grafana 模板变量 $tenant) */
+  /** 当前租户标识(历史形参;prom 标签为 UUID 而 SaaS 侧只有 slug,不再做逐租户过滤) */
   tenant: string
-  /** Grafana dashboard UID(默认 saas-tenant-overview) */
+  /** 历史 Grafana dashboard UID(saas-* 盘从未存在,忽略) */
   uid?: string
   /** 标题(可选,默认 i18n 翻译) */
   title?: string
-  /** iframe 高度(默认 480) */
+  /** 高度(默认 480) */
   height?: number
-  /** 主题:light / dark / auto */
+  /** 历史形参,不再生效 */
   theme?: 'light' | 'dark' | 'auto'
-  /** 时间范围(Grafana 语法,如 "now-1h" / "now-6h") */
+  /** 历史形参,不再生效(固定近 1h) */
   timeRange?: string
-  /** 刷新间隔(Grafana 语法,如 "15s" / "30s") */
+  /** 历史形参,不再生效(固定 30s 自动刷新) */
   refresh?: string
-  /** 紧凑模式:仅渲染 iframe,不带外层 Card(用于详情页内嵌) */
+  /** 紧凑模式:不带外层 Card(用于详情页内嵌) */
   bare?: boolean
 }
 
-const DEFAULT_UID = 'saas-tenant-overview'
-const DEFAULT_BASE = process.env.NEXT_PUBLIC_GRAFANA_BASE ?? 'http://127.0.0.1:8801'
+const FALLBACK_UID = 'ihui-ai-tenant-usage'
+const RANGE_SEC = 3600
+const AUTO_REFRESH_MS = 30_000
 
-export function GrafanaFrame({
-  tenant,
-  uid = DEFAULT_UID,
-  title,
-  height = 480,
-  theme = 'auto',
-  timeRange = 'now-1h',
-  refresh = '15s',
-  bare = false,
-}: GrafanaFrameProps) {
+function resolveDashboard(uid?: string): NativeDashboard {
+  return (
+    MONITOR_DASHBOARDS.find((d) => d.uid === uid) ??
+    MONITOR_DASHBOARDS.find((d) => d.uid === FALLBACK_UID) ??
+    MONITOR_DASHBOARDS[0]!
+  )
+}
+
+export function GrafanaFrame({ tenant: _tenant, uid, title, height = 480, bare = false }: GrafanaFrameProps) {
   const t = useTranslations('admin.saas.metrics')
+  const dash = React.useMemo(() => resolveDashboard(uid), [uid])
+  const [results, setResults] = React.useState<Map<number, QueryResult>>(new Map())
+  const [loading, setLoading] = React.useState(false)
+  const [error, setError] = React.useState('')
+  const inFlight = React.useRef(false)
 
-  // 客户端 hydration 后才挂载 iframe(避免 SSR 期间请求 Grafana)
-  const [mounted, setMounted] = React.useState(false)
-  React.useEffect(() => {
-    setMounted(true)
+  const load = React.useCallback(async (d: NativeDashboard) => {
+    if (inFlight.current) return
+    inFlight.current = true
+    setLoading(true)
+    setError('')
+    try {
+      const queries: Array<{ ref: string; expr: string; backend: 'prometheus' | 'loki'; rangeSeconds?: number; stepSeconds?: number }> = []
+      const idx: Array<{ panelIdx: number; targetIdx: number }> = []
+      const stepSec = stepFor(RANGE_SEC)
+      d.panels.forEach((p, pi) => {
+        const instant = p.kind === 'stat' || p.kind === 'gauge' || p.kind === 'table'
+        p.targets.forEach((tg, ti) => {
+          queries.push({
+            ref: `q${queries.length}`,
+            expr: materializeExpr(tg.expr, RANGE_SEC, stepSec),
+            backend: p.backend,
+            ...(instant ? {} : { rangeSeconds: RANGE_SEC, stepSeconds: stepSec }),
+          })
+          idx.push({ panelIdx: pi, targetIdx: ti })
+        })
+      })
+      const next = new Map<number, QueryResult>()
+      for (let i = 0; i < queries.length; i += 96) {
+        const res = await fetchApi<{ results: QueryResult[] }>('/api/admin/monitor-panels/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queries: queries.slice(i, i + 96) }),
+          timeoutMs: 60_000,
+        })
+        if (!res.success || !res.data) {
+          setError(res.error || '查询失败')
+          break
+        }
+        res.data.results.forEach((r, bi) => {
+          const f = idx[i + bi]
+          if (f) next.set(f.panelIdx * 1000 + f.targetIdx, r)
+        })
+      }
+      setResults(next)
+    } catch (e) {
+      setError(`网络异常:${String((e as Error).message).slice(0, 120)}`)
+    } finally {
+      inFlight.current = false
+      setLoading(false)
+    }
   }, [])
 
-  // SSR 期间不渲染
-  if (!mounted) {
-    if (bare) {
-      return (
-        <div
-          className="flex items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 text-xs text-muted-foreground"
-          style={{ height }}
-        >
-          {t('loading')}
-        </div>
-      )
-    }
-    return (
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {title ?? t('iframeTitle')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div
-            className="flex items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 text-xs text-muted-foreground"
-            style={{ height }}
-          >
-            {t('loading')}
-          </div>
-        </CardContent>
-      </Card>
-    )
+  React.useEffect(() => {
+    void load(dash)
+    const timer = setInterval(() => void load(dash), AUTO_REFRESH_MS)
+    return () => clearInterval(timer)
+  }, [dash, load])
+
+  if (error && results.size === 0) {
+    return <GrafanaUnavailableHint reason={error} />
   }
 
-  // 检测 NEXT_PUBLIC_GRAFANA_BASE 是否配置
-  const grafanaConfigured = Boolean(process.env.NEXT_PUBLIC_GRAFANA_BASE)
-  const resolvedTitle = title ?? t('iframeTitle')
-
-  // 构建 URL
-  const params = new URLSearchParams({
-    'var-tenant': tenant,
-    from: timeRange,
-    to: 'now',
-    refresh,
-    theme,
-    kiosk: bare ? 'true' : 'false',
-  })
-  const src = `${DEFAULT_BASE}/d/${uid}?${params.toString()}`
-
-  const frame = (
-    <div className="relative overflow-hidden rounded-lg border border-border bg-background">
-      <iframe
-        title={resolvedTitle}
-        src={src}
-        style={{ width: '100%', height, border: 0 }}
-        loading="lazy"
-        referrerPolicy="no-referrer"
-        sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
-      />
-      {!grafanaConfigured ? (
-        <div className="pointer-events-none absolute left-2 right-2 bottom-2 bg-amber-500/10 px-3 py-1.5 text-[10px] text-amber-700 dark:text-amber-400">
-          {t('envHint')}
-        </div>
-      ) : null}
+  const grid = (
+    <div className="overflow-y-auto rounded-lg border border-border bg-[#070d1a] p-3" style={{ height }}>
+      <DashboardGrid dash={dash} panels={dash.panels} results={results} loading={loading} />
     </div>
   )
 
-  if (bare) return frame
-
+  if (bare) return grid
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {resolvedTitle}
-          </CardTitle>
-          <div className="flex items-center gap-1">
-            <Tooltip content={t('openNewWindow')}>
-              <Button size="xs" variant="ghost" asChild className="px-2 text-xs">
-                <a href={src} target="_blank" rel="noreferrer">
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </Button>
-            </Tooltip>
-            <Tooltip content={t('openNewWindow')}>
-              <Button size="xs" variant="ghost" asChild className="px-2 text-xs">
-                <a href={`${DEFAULT_BASE}/d/${uid}`} target="_blank" rel="noreferrer">
-                  <Maximize2 className="h-3 w-3" />
-                </a>
-              </Button>
-            </Tooltip>
-          </div>
-        </div>
+        <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {title ?? t('iframeTitle')}
+        </CardTitle>
       </CardHeader>
-      <CardContent>{frame}</CardContent>
+      <CardContent>{grid}</CardContent>
     </Card>
   )
 }
 
-/** Grafana 服务不可达/未启动时的降级卡片 */
+/** 数据面不可达时的降级卡片(保留原导出,metrics 页在用) */
 export function GrafanaUnavailableHint({ reason }: { reason?: string }) {
   const t = useTranslations('admin.saas.metrics')
   return (
