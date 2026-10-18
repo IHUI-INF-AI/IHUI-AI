@@ -14,7 +14,7 @@ import { rnRadius } from '@ihui/design-tokens'
  *
  * 设计规范:
  *   - 容器:paddingHorizontal 16,paddingTop 8(头部区),无强制底部分隔
- *   - 网格:FlatList numColumns=2,ItemSeparatorComponent 行/列间距 8
+ *   - 网格:静态双列渲染(数据有界;G-194 后不再嵌套虚拟化 FlatList),行/列间距 8
  *   - 卡片宽:(屏宽 - 16*2 - 8) / 2,用 useWindowDimensions 自适应
  *   - 缩略图:100% × 100,borderRadius 8,bgColor surface.muted,居中 emoji 📚 32pt
  *   - VIP 角标:absolute top-right,8px 圆角,brand.DEFAULT bg,白字 10/600
@@ -26,13 +26,11 @@ import { tokens, currentRnTheme } from '../theme/active-tokens'
 import { MoreLink } from '@ihui/rn-app'
 import { useState } from 'react'
 import {
-  FlatList,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  type ListRenderItem,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
@@ -94,6 +92,13 @@ function firstChar(text: string): string {
 
 function keyExtractor(item: PopularCourse): string {
   return item.id
+}
+
+/** 数据有界(调用方整表传入),按 2 列切行做静态渲染 */
+function chunkRows(items: PopularCourse[]): PopularCourse[][] {
+  const rows: PopularCourse[][] = []
+  for (let i = 0; i < items.length; i += 2) rows.push(items.slice(i, i + 2))
+  return rows
 }
 
 interface CourseCardProps {
@@ -181,9 +186,7 @@ export default function PopularCourses({
     onTabChange?.(idx)
   }
 
-  const renderItem: ListRenderItem<PopularCourse> = ({ item }) => (
-    <CourseCard item={item} width={cardWidth} onPress={onPress} />
-  )
+  const rows = chunkRows(activeCourses)
 
   return (
     <View style={styles.container}>
@@ -234,22 +237,20 @@ export default function PopularCourses({
         ))}
       </View>
 
-      <FlatList
-        data={activeCourses}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        numColumns={2}
-        showsVerticalScrollIndicator={false}
-        columnWrapperStyle={styles.columnWrapper}
-        ItemSeparatorComponent={Separator}
-        scrollEnabled={false}
-      />
+      {/* 双列网格静态渲染(G-194):本组件的宿主永远是外层页面的 ScrollView(首页/更多课程页),
+          嵌套虚拟化 FlatList 在 Android 上不触发宿主重测量,症状即「首页滚不动,旋屏后能滚」;
+          且数据有界,虚拟化无收益。行距/列距/左右留白与原 FlatList 形态逐值对齐。 */}
+      <View style={styles.grid}>
+        {rows.map((row, rowIdx) => (
+          <View key={row[0]?.id ?? `row-${rowIdx}`} style={styles.gridRow}>
+            {row.map((c) => (
+              <CourseCard key={keyExtractor(c)} item={c} width={cardWidth} onPress={onPress} />
+            ))}
+          </View>
+        ))}
+      </View>
     </View>
   )
-}
-
-function Separator(): React.JSX.Element {
-  return <View style={styles.separator} />
 }
 
 const styles = StyleSheet.create({
@@ -309,12 +310,13 @@ const styles = StyleSheet.create({
   tabTextNormal: {
     color: tokens.text.secondary,
   } as TextStyle,
-  columnWrapper: {
+  grid: {
     paddingHorizontal: CONTAINER_PADDING,
-    gap: GRID_GAP,
+    rowGap: GRID_GAP,
   },
-  separator: {
-    height: GRID_GAP,
+  gridRow: {
+    flexDirection: 'row',
+    gap: GRID_GAP,
   },
   card: {
     backgroundColor: tokens.surface.card,

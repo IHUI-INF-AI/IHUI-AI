@@ -25,7 +25,7 @@ const SCRIPT = join(ROOT, 'scripts', 'check-mjs-syntax.mjs')
 const stdio = ['ignore', 'pipe', 'pipe']
 
 const run = (args = []) =>
-  spawnSync(process.execPath, [SCRIPT, ...args], {
+  spawnSync(process.execPath, [SCRIPT, ...args], { stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,

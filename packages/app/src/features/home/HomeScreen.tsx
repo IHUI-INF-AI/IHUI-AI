@@ -55,6 +55,7 @@ export function HomeScreen({
   loading,
   refreshing,
   error,
+  embedded = false,
   onRefresh,
   onOpenNotifications,
   onPressProgress,
@@ -79,12 +80,11 @@ export function HomeScreen({
 
   const firstProgress = progress[0]
 
-  return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      contentContainerStyle={{ paddingBottom: 32 }}
-    >
+  // embedded=true 时不自建滚动容器(G-194):宿主页已有一层 ScrollView,再嵌一层 ScrollView
+  // 在 Android 上会吞竖向手势,且异步内容不触发宿主重测量 —— 症状即「首页滚不动,旋屏后能滚」。
+  // 滚动与下拉刷新都由宿主承担;独立成页(缺省)保留原自带 ScrollView + RefreshControl。
+  const Body = (
+    <>
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
           <Text style={styles.greeting} numberOfLines={1}>
@@ -261,6 +261,20 @@ export function HomeScreen({
           ))}
         </View>
       </View>
+    </>
+  )
+
+  if (embedded) {
+    return <View style={styles.containerEmbedded}>{Body}</View>
+  }
+
+  return (
+    <ScrollView
+      style={styles.container}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      contentContainerStyle={{ paddingBottom: 32 }}
+    >
+      {Body}
     </ScrollView>
   )
 }
@@ -269,6 +283,8 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     // 页面背景必须用 surface.bg(明暗自适应);gray[100] 是明暗同值浅灰(#f5f5f5),暗色下会铺白底
     container: { flex: 1, backgroundColor: tk.surface.bg },
+    // embedded 形态:不占 flex(宿主滚动树里的一个普通区块),只铺背景
+    containerEmbedded: { backgroundColor: tk.surface.bg },
     center: {
       flex: 1,
       alignItems: 'center',

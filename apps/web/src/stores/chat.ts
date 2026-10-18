@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { create } from 'zustand'
+import type { StateCreator } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 import { ssrStorage } from './persist-helpers'
@@ -190,7 +191,8 @@ export type SendReliabilityStatus =
  * (web 端在其他位置如 lib/video-tools/chat-image-drawer.ts 也有同名 ChatMessage,但属于不同业务上下文,
  *  各自文件内独立,无 import 交叉)。
  */
-export interface ChatMessage extends Omit<BaseChatMessage, 'createdAt' | 'toolCalls'> {
+export interface ChatMessage
+  extends Omit<BaseChatMessage, 'createdAt' | 'toolCalls' | 'parentMessageId' | 'siblingIndex'> {
   /** Web 端 createdAt 必填(写入时 Date.now()) */
   createdAt: number
   /** Web 端 toolCalls 用本地 ToolCall 类型(含 InlineDiff/ApplyStatus) */
@@ -227,6 +229,13 @@ export interface ChatMessage extends Omit<BaseChatMessage, 'createdAt' | 'toolCa
   interrupted?: boolean
   /** 中断原因码(ai-service interrupt_reason,如 user_cancelled);缺省不渲染副文案 */
   interruptReason?: string
+  /** 票64(2026-10-18 立):版本族坐标(仅历史水合行携带,见 history-message.ts)。
+   *  parentMessageId 非空 = 本行是 regenerate/edit 版本族的成员,族根 = 该值;
+   *  siblingIndex 非 null = 参与族投影。**与 W16 live 本地链同字段不同义**:
+   *  addMessage 写的 parentMessageId(=前一条)没有 siblingIndex 伴随,投影判据只认
+   *  siblingIndex 非 null 的行,live 链不受影响。null = 服务端确认非族成员。 */
+  parentMessageId?: string | null
+  siblingIndex?: number | null
 }
 
 /** 自动压缩上下文状态(2026-08-16 立)
@@ -272,7 +281,8 @@ export interface TerminalInteractionState {
   failed: boolean
 }
 
-interface ChatState {
+/** 票60 第一切片:状态形状导出,供 chat-panes 注册表与多实例消费面取型 */
+export interface ChatState {
   messages: ChatMessage[]
   currentModel: string
   isStreaming: boolean
@@ -673,10 +683,17 @@ function genId(): string {
   throw new Error('Web Crypto API 不可用,无法生成密码学安全 ID')
 }
 
-export const useChatStore = create<ChatState>()(
-  persist(
-    (set, get) => ({
-      messages: [],
+// 票60(2026-10-18 立,第一切片):store 工厂化 —— 会话承载从 `conversationId` 单例
+// 走向"每窗格一份状态"(真并行多窗格)。实现体抽成 buildChatState(纯状态+动作,
+// 无模块级可变量),createChatStore(persistName?) 产出互相独立的状态实例;
+// useChatStore 保持默认单例,既有全部消费面(hooks/组件)零改动、零回归。
+// persist name 按实例隔离:两个实例共用一个 key 会互相覆盖持久化快照。
+// 下一步(本切片不含):chat-panes.ts 按 paneId 注册多实例 + send-message 等运行域
+// hooks 按窗格寻址 + 独立 SSE/abort(见 PROJECT_PLAN 票 60 实施方案)。
+type ChatStateCreator = StateCreator<ChatState, [['zustand/persist', unknown]], []>
+
+const buildChatState: ChatStateCreator = (set, get) => ({
+    messages: [],
       // 2026-08-06 立:默认值改为 'auto',与 model-selector.tsx 的 AUTO_OPTION 一致,
       // 体现"零配置即可用"理念,后端 llm_gateway 会自动选最优模型。
       // 历史:step-router-v1 是 Step 厂家路由(仅 Step 内部),违背"自动切换所有可用模型"语义。
@@ -1683,9 +1700,19 @@ export const useChatStore = create<ChatState>()(
           deduped.push(trimmed)
           return { inputHistory: deduped.slice(-50) }
         }),
-    }),
-    {
-      name: 'ihui-chat',
+})
+
+/**
+ * 票60 第一切片:按 persistName 产出一份全新的 chat store 实例。
+ * 默认名 'ihui-chat' 即既有单例的持久化键 —— useChatStore(下方)就是
+ * `createChatStore()` 的返回值,既有消费面行为分毫不变。
+ * 多窗格实例各自传不同 persistName(见 stores/chat-panes.ts),否则两条实例
+ * 会在同一个 localStorage key 上互相覆盖快照。
+ */
+export function createChatStore(persistName: string = 'ihui-chat') {
+  return create<ChatState>()(
+    persist(buildChatState, {
+      name: persistName,
       // D48(G-56)A 层加密:桌面端(Tauri WebView)把整条 blob 走 AES-256-GCM 信封,
       // 浏览器路径原样返回 ssrStorage(对象同一、行为同一)。详见 lib/chat-persist-crypto.ts
       storage: createChatPersistStorage(ssrStorage),
@@ -1763,7 +1790,11 @@ export const useChatStore = create<ChatState>()(
         }
         return persisted
       },
-    },
-  ),
-)
+    }),
+  )
+}
+
+/** 默认单例:既有全部消费面的入口,行为与工厂化前分毫不变 */
+export const useChatStore = createChatStore()
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

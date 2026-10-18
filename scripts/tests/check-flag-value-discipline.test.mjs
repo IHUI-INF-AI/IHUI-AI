@@ -25,7 +25,7 @@ import { __test__ as kit } from '../check-flag-value-discipline.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const GATE = resolve(HERE, '..', 'check-flag-value-discipline.mjs')
 const REPO = resolve(HERE, '..', '..')
-const run = (args) => spawnSync(process.execPath, [GATE, ...args], { cwd: REPO, encoding: 'utf8', windowsHide: true })
+const run = (args) => spawnSync(process.execPath, [GATE, ...args], { stdio: ['ignore', 'pipe', 'pipe'], cwd: REPO, encoding: 'utf8', windowsHide: true })
 
 test('0 import 源门零副作用(__test__ 在、main 未跑)', () => {
   for (const k of ['findRawSites', 'usesLib', 'listTargets', 'measure', 'selfTest']) {
