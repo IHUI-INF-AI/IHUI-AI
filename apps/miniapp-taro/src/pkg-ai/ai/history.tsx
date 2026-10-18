@@ -25,6 +25,7 @@ import { togglePinnedItem } from '@ihui/shared/chat/conversation-pin'
 import { sortPinnedFirst } from '@ihui/shared/chat/conversation-org'
 import type { ApiResult } from '@ihui/types'
 import { REMOTE_ICONS } from '@/constants/remote-icons'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
 import ConversationHistoryItem from '@/components/ConversationHistoryItem'
@@ -398,6 +399,7 @@ export function overlayBroadcastTitles(items: readonly HistoryItem[]): HistoryIt
 }
 
 export default function HistoryPage() {
+  const gate = useAuthReadyGate()
   const { t } = useI18n()
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
 
@@ -443,7 +445,14 @@ export default function HistoryPage() {
   }, [])
 
   useDidShow(() => {
-    void load()
+    // G-933 冷启动抢跑门:listConversations → GET /api/chat/conversations
+    // (apps/api/src/routes/chat.ts 的 server.get('/conversations') 处理器内
+    // await requireAuth(request, reply) + findConversationsByUser 属主过滤)需鉴权;
+    // 判定落定前不发,免得首屏先吃一次 401 再落回本机快照兜底态(那是"降级"被读成"数据就这么点")。
+    // 落定后未登录仍会走一次 —— 由本页既有的本机快照分支去呈现,不新增文案、不改空态。
+    gate.waitUntilReady(() => {
+      void load()
+    })
   })
 
   // 筛选芯片由数据派生(D20 残格④):image/voice/agent 三类从无任何写入方
