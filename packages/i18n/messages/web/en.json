@@ -10867,7 +10867,8 @@
         "saveFailed": "Could not save the recording",
         "recognitionFailed": "Speech recognition was interrupted",
         "emptyTranscript": "Nothing was recognized",
-        "sttPending": "Transcription is not available right now. Try again later, or save the audio only."
+        "sttPending": "Transcription is not available right now. Try again later, or save the audio only.",
+        "loadFailed": "Could not load your notes. Please try again."
       },
       "action": {
         "start": "Start recording",
