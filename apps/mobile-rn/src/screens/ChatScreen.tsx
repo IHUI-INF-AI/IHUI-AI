@@ -138,7 +138,7 @@ import {
   reorderQueue,
   type FollowUpMode,
 } from '@ihui/shared/chat/queue-interactions'
-import { apiFailureToText } from '@ihui/shared/utils'
+import { apiFailureToText, logger } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
 import {
@@ -653,6 +653,9 @@ export function ChatScreen() {
   }, [])
 
   const abortRef = useRef<AbortController | null>(null)
+  // G-248 R2:本轮帧级 traceId。`undefined` = 本轮没见过,这一态不得折成空串
+  // (与 api-client 错误上报体同纪律:没见过就不写这个键)。
+  const roundTraceIdRef = useRef<string | undefined>(undefined)
   const idCounter = useRef(0)
   const listRef = useRef<FlatList<ChatMessage> | null>(null)
   const materialCardIdCounter = useRef(0)
@@ -899,6 +902,8 @@ export function ChatScreen() {
     setIsStreaming(true)
     const controller = new AbortController()
     abortRef.current = controller
+    // 新一轮开始,上一轮的 trace 不得挂到新消息上(与 G-403 缓存读数同一条复位纪律)
+    roundTraceIdRef.current = undefined
     // 失败轮不进下一轮上下文(与 web send-message.ts 同规则):
     // 否则"请求出错"那句会被模型当成自己上一轮的回答读进去
     const apiMessages = history
@@ -1113,6 +1118,23 @@ export function ChatScreen() {
       onError: (err, info) => {
         // info 透传:errorCode 是"厂商账号额度耗尽"等稳定码的唯一判据(HTTP 仍回落默认 502)
         const formatted = formatSSEError(new Error(err), info)
+        // G-248 R2:失败轮把本轮帧级 trace 一起进客户端日志(非视觉消费,不上屏)。
+        // 值由 @ihui/api-client 认领并透传,端内不再解帧、不再重写 trace 合法性判据(§0.6/§22c)。
+        {
+          const roundTraceId = roundTraceIdRef.current
+          logger.error(
+            'mobile-rn/ChatScreen',
+            'stream failed',
+            roundTraceId === undefined
+              ? { code: formatted.code, errorCode: formatted.errorCode, message: formatted.message }
+              : {
+                  code: formatted.code,
+                  errorCode: formatted.errorCode,
+                  message: formatted.message,
+                  traceId: roundTraceId,
+                },
+          )
+        }
         // 失败轮要"可辨认":此前只 toast,那条空 assistant 气泡既不进上下文也不给出口,
         // 界面上看成一轮"回答完了"。标记后由 renderMessage 渲染错误卡片 + 重试。
         setMessages((prev) => applyStreamError(prev, formatted.message))
@@ -1188,6 +1210,12 @@ export function ChatScreen() {
       // 不注册回调 ⇒ 帧照旧静默丢弃(本票立因:手机上高危操作没有任何弹窗)。
       onToolApproval: (event) => {
         toolApproval.onToolApproval(event)
+      },
+      // G-248 R2:帧级 traceId 的端内消费出口(值=本轮第一个被判为合法的帧带的那个,只认一次)。
+      onTraceId: (traceId) => {
+        if (roundTraceIdRef.current !== undefined) return
+        roundTraceIdRef.current = traceId
+        logger.info('mobile-rn/ChatScreen', 'stream traceId', traceId)
       },
       onDone: () => {
         setIsStreaming(false)
