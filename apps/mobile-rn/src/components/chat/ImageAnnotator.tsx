@@ -1,8 +1,9 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // D124 截图/图片标注编辑器:全屏 Modal + 底图之上自由画笔 / 文字标记。
-// 只回传结构化标注(AnnotationData),**不做位图合成** —— RN 端合成要 view-shot / 原生模块兜底,
-// 这里由上层按 strokes/texts 复绘或交由服务端合成(与 D42「浏览器 DOM 批注」互补:
+// 位图合成走 react-native-view-shot 离屏舞台:保存时对隐藏舞台 captureRef 出 png 临时文件,
+// 作为 onSave 第二参(capturedUri)随结构化数据一起交出;合成失败不阻断保存,
+// 降级为 onSave(data, undefined) 只回结构化数据(与 D42「浏览器 DOM 批注」互补:
 // D42 批注的是可寻址 DOM 元素,本条批注的是一张位图,两者不可互替)。
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -19,6 +20,7 @@ import {
   type LayoutChangeEvent,
 } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
+import { captureRef } from 'react-native-view-shot'
 import { Check, PenLine, Trash2, Type, Undo2, X } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
 import { rnRadius } from '@ihui/design-tokens'
@@ -80,8 +82,11 @@ export interface ImageAnnotatorProps {
   imageUri: string
   /** 取消标注(等同 onRequestClose;不产出数据) */
   onCancel: () => void
-  /** 保存标注:回传当前 AnnotationData 交由上层合成 / 发送 */
-  onSave: (data: AnnotationData) => void
+  /**
+   * 保存标注:第一参为结构化标注,第二参为离屏合成出的 png 临时文件 uri(可选)。
+   * 合成失败时第二参为 undefined,调用方须兼容"只有结构化数据"的情况。
+   */
+  onSave: (data: AnnotationData, capturedUri?: string) => void
 }
 
 /** 工具模式:画笔 / 文字 */
@@ -146,6 +151,16 @@ const styles = StyleSheet.create({
     marginLeft: rpx(-8),
     marginTop: rpx(-8),
     borderRadius: rnRadius.xs,
+  },
+  // ── 离屏合成舞台:与画布同尺寸,top:-9999 移出可视区但视图树照常渲染 ──
+  // (opacity:0 也能截到,这里用移出屏外更直观;captureRef 对参与渲染的原生视图截图,
+  // 与"是否在可视区内"无关,故该方式可靠)
+  stageOffscreen: {
+    position: 'absolute',
+    top: -9999,
+    left: 0,
+    overflow: 'hidden',
+    backgroundColor: tokens.surface.card,
   },
   // ── 工具栏 ──
   toolbar: {
@@ -260,6 +275,21 @@ function toPathD(points: readonly AnnotationPoint[]): string {
   return points
     .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
     .join(' ')
+}
+
+/** 笔画集合 → SVG Path 列表(可视画布与离屏合成舞台共用同一渲染口径) */
+function renderStrokePaths(strokes: readonly AnnotationStroke[]) {
+  return strokes.map((stroke, i) => (
+    <Path
+      key={`stroke-${stroke.points.length}-${i}`}
+      d={toPathD(stroke.points)}
+      stroke={stroke.color}
+      strokeWidth={stroke.width}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      fill="none"
+    />
+  ))
 }
 
 /**
@@ -422,9 +452,16 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
 
   const hasContent = strokes.length > 0 || texts.length > 0
 
+  /** 离屏合成舞台 ref:保存时由 captureRef 截为 png 临时文件 */
+  const stageRef = useRef<View | null>(null)
+
   const handleSave = useCallback(() => {
     if (!hasContent) return
-    onSave({ strokes, texts: texts.length > 0 ? texts : undefined })
+    const data: AnnotationData = { strokes, texts: texts.length > 0 ? texts : undefined }
+    // 位图合成失败不阻断保存:降级为 onSave(data, undefined),与旧的纯结构化回传行为一致
+    captureRef(stageRef, { format: 'png', quality: 1, result: 'tmpfile' })
+      .then((uri) => onSave(data, uri || undefined))
+      .catch(() => onSave(data, undefined))
   }, [hasContent, onSave, strokes, texts])
 
   if (!visible) return null
@@ -453,17 +490,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             accessibilityLabel="待标注图片"
           />
           <Svg style={styles.absoluteFill} pointerEvents="none">
-            {strokes.map((stroke, i) => (
-              <Path
-                key={`stroke-${stroke.points.length}-${i}`}
-                d={toPathD(stroke.points)}
-                stroke={stroke.color}
-                strokeWidth={stroke.width}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            ))}
+            {renderStrokePaths(strokes)}
             {draft && draft.length >= MIN_STROKE_POINTS ? (
               <Path
                 d={toPathD(draft)}
@@ -493,6 +520,36 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
           ) : null}
           <View style={styles.absoluteFill} collapsable={false} {...panResponder.panHandlers} />
         </View>
+
+        {/* 离屏合成舞台:与可视画布同一份 strokes/texts state(单一真相,不复制数据),
+            仅在量到画布尺寸后挂载,尺寸与画布完全一致,保证合成 png 与所见同构图。
+            collapsable={false} 防 RN 把无手势纯布局节点折叠掉导致 ref 失效;
+            只渲染已提交的笔画/文字,不含 draft 与 pendingDot(那是过程态)。 */}
+        {canvas.width > 0 && canvas.height > 0 ? (
+          <View
+            ref={stageRef}
+            collapsable={false}
+            style={[styles.stageOffscreen, { width: canvas.width, height: canvas.height }]}
+          >
+            <Image
+              source={{ uri: imageUri }}
+              style={styles.canvasImage}
+              resizeMode="contain"
+              accessibilityLabel="标注合成底图"
+            />
+            <Svg style={styles.absoluteFill} pointerEvents="none">
+              {renderStrokePaths(strokes)}
+            </Svg>
+            {texts.map((item, i) => (
+              <Text
+                key={`stage-text-${i}`}
+                style={[styles.canvasText, { left: item.x, top: item.y, color: item.color }]}
+              >
+                {item.text}
+              </Text>
+            ))}
+          </View>
+        ) : null}
 
         <View style={styles.toolbar}>
           <View style={styles.toolRow}>
