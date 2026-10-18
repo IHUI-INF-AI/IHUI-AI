@@ -198,6 +198,16 @@ export default function SettingIndexPage() {
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
+              onClick={() => navigate('/pkg-about/about/web-portal/index')}
+              hoverClass="opacity-60"
+            >
+              <Text className="text-[length:32rpx] text-muted-foreground">
+                {tt('setting.webPortal', '网页版功能')}
+              </Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
+            </View>
+            <View
+              className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pkg-about/about/index')}
               hoverClass="opacity-60"
             >
