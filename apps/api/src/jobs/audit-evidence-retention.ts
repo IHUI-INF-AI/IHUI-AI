@@ -455,8 +455,14 @@ function mapEvidenceRow(r: Record<string, unknown>): EvidenceChainRow {
  * 清单见 `apps/api/src/routes/__tests__/README-g790-json-filter-inventory.md`。
  */
 function rawHeldCond(): SQL {
+  // G-790 A5(2026-10-18):"原文是否仍在表内"改走判别列。旧形态
+  //   COALESCE(metadata->>'rawRetained','true') <> 'false'
+  // 的正确性依赖"只有本 job 的擦除步骤写这个键"这一巧合;同表 user_agent/result 已在哈希输入之外,
+  // 证明确定性:computeHash 只吃 prev_hash + AuditEntry 字段(utils/audit-chain.ts:51)。
+  // 第一与第三子句刻意留着:`jsonb_typeof` 是 `?` 运算符的前提,而"三个原文键还在不在"
+  // 问的是**内容存在性**,不是按内容判类别 —— 那一维没有列可走,硬造一个就是把没坏的改坏。
   return sql`jsonb_typeof(metadata) = 'object'
-    AND COALESCE(metadata->>'rawRetained', 'true') <> 'false'
+    AND ${CHAIN_TABLE}.raw_retained
     AND (${CHAIN_TABLE}.metadata ? 'body' OR ${CHAIN_TABLE}.metadata ? 'params' OR ${CHAIN_TABLE}.metadata ? 'query')`
 }
 
@@ -553,10 +559,15 @@ export async function runAuditEvidenceRetention(
       if (apply) {
         for (const u of plan.updates) {
           // 永不 DELETE:结构行 180 天档在本票只报数(文件头否证);这里只 UPDATE。
+          // 擦除原文的行**同批落判别列** raw_retained:只写 metadata 不写列 = 列与内容分叉,
+          // 读面会一辈子把已清除的行当"原文仍在"候选(每次重扫、永不命中也永不报)。
+          const purgeSet =
+            u.metadataJson === undefined
+              ? sql``
+              : sql`, metadata = ${u.metadataJson}::jsonb, raw_retained = false`
           await tx.execute(sql`
             UPDATE ${CHAIN_TABLE}
-               SET prev_hash = ${u.prevHash}, current_hash = ${u.currentHash}
-                 ${u.metadataJson !== undefined ? sql`, metadata = ${u.metadataJson}::jsonb` : sql``}
+               SET prev_hash = ${u.prevHash}, current_hash = ${u.currentHash}${purgeSet}
              WHERE id = ${u.id}::uuid
           `)
         }
