@@ -2605,7 +2605,9 @@ HEAD 里有人 import 一个从未入库的 Python 模块 ⇒ 干净检出与 CI
   🔍 定位:node scripts/check-no-nested-git.mjs(逐条点名绝对路径)
   🛠 修法:① 夹具/演练仓无留存价值 → 删目录或只摘 .git(大目录走 robocopy /MIR,§5e-2);
           ② 测试基建要临时仓 → 落点改 scripts/lib/scratch-dir.mjs 的 mkScratch()(工作区外+退出回收);
-          ③ 确属合法 → 不许静默豁免:门脚本加显式常量 + 因由 + §22c 镜像对账(.worktrees 顶层已在射程外)。
+          ③ 确属合法 → 不许静默豁免,也不改门脚本:登记到具名台账 scripts/data/no-nested-git-exemptions.json
+              (owner + why + YYYY-MM-DD 到期日,逐字等值容器目录才免;到期或失去命中自动翻红 —— 现场没了就把条目摘掉)。
+              .worktrees 顶层已在射程外。
   ⚠️ 应急跳过:HUSKY_SKIP_NO_NESTED_GIT=1(须在提交信息写明理由与清偿票)
 
 ```
