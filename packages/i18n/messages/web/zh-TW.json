@@ -26851,7 +26851,9 @@
     "toastLoadFailed": "快照列表載入失敗",
     "toastPlanFailed": "預演失敗",
     "toastRunOk": "整棧回滾已執行",
-    "toastRunFail": "整棧回滾失敗"
+    "toastRunFail": "整棧回滾失敗",
+    "availabilityAvailable": "另一台裝置剛建立了檢查點:{id}",
+    "availabilityUnavailable": "檢查點服務暫時無法使用,請稍後再試"
   },
   "traceReplay": {
     "title": "執行軌跡回放",
