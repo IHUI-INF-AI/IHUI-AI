@@ -21,6 +21,7 @@ import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { CategoryItem } from '../../components/category/types'
 import { Globe, User } from 'lucide-react-native'
 import type { TFunction } from '../../types'
+import type { StatusChip } from '@ihui/types'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -34,12 +35,6 @@ export interface PlazaItem {
   status?: string
   taskStatus?: string
   [key: string]: unknown
-}
-
-/** 状态切换 chip */
-export interface StatusChip {
-  label: string
-  value: string
 }
 
 export interface PlazaScreenProps {
