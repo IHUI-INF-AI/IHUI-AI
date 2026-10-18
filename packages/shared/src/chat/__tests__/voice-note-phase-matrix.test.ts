@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest'
 import {
   isVoiceNotePhaseTerminal,
   isVoiceNoteTranscriptPending,
-  parseVoiceNotes,
+  toVoiceNoteRecord,
   transitionVoiceNotePhase,
   type VoiceNoteEvent,
   type VoiceNotePhase,
@@ -84,9 +84,7 @@ function outgoing(phase: VoiceNotePhase): Array<[VoiceNoteEvent, VoiceNotePhase]
 
 const TERMINALS = PHASES.filter((phase) => isVoiceNotePhaseTerminal(phase))
 /** 进行中相 = 非终态且非空闲(即"要么在录、要么在等结果") */
-const IN_PROGRESS = PHASES.filter(
-  (phase) => !isVoiceNotePhaseTerminal(phase) && phase !== 'ready',
-)
+const IN_PROGRESS = PHASES.filter((phase) => !isVoiceNotePhaseTerminal(phase) && phase !== 'ready')
 
 /** 仓库根:从本文件位置上溯找 pnpm-workspace.yaml(禁 process.cwd(),共享工作区 cwd 不可靠) */
 function findRepoRoot(): string {
@@ -216,29 +214,34 @@ describe('票面④型 后台回收(当前实现无法表达这一维)', () => {
     // 本例必红,改动者必须同批把它换成真正的回收语义,而不是删例消红。
   })
 
-  it('归档原样回灌非终态相 ⇒ 复活一条永不停表的 recording(无归一化出口)', () => {
-    const raw = JSON.stringify([
-      {
-        id: 'note-1',
-        conversationId: null,
-        createdAt: '2026-10-17T00:00:00.000Z',
-        durationMs: 1_200,
-        transcript: null,
-        phase: 'recording',
-      },
+  it('归档行没有 phase 维(D43 第②格改由服务端承载):载荷里混进进行中相也带不进列表', () => {
+    // 旧本地桶会把 `recording` 原样存回并复活一条永不停表的录音(当轮如实钉的是缺陷)。
+    // 归档改走 chat_voice_notes 后表里没有这一列 ⇒ 这里钉的是"结构上不可能再回灌":
+    // 映射出口只认服务端那五个字段,多余键一律带不进去。
+    const row = {
+      id: 'note-1',
+      conversationId: null,
+      createdAt: '2026-10-17T00:00:00.000Z',
+      durationMs: 1_200,
+      transcript: null,
+      phase: 'recording',
+    }
+    const restored = toVoiceNoteRecord(row)
+    expect(Object.keys(restored).sort()).toEqual([
+      'conversationId',
+      'createdAt',
+      'durationMs',
+      'id',
+      'transcript',
     ])
-    const restored = parseVoiceNotes(raw)
-    expect(restored).toHaveLength(1)
-    const phase = restored[0]?.phase
-    expect(phase).toBe('recording')
-    if (!phase) throw new Error('回灌记录取不到 phase ⇒ 未判定')
-    expect(isVoiceNotePhaseTerminal(phase)).toBe(false)
-    // 回灌出来的 recording 只剩三条出边,没有一条是"我其实是被回收过的"(不比顺序,只比集合)
-    expect(outgoing(phase).map(([event]) => event).sort()).toEqual([
-      'cancel',
-      'interrupt',
-      'stop',
-    ])
+    expect('phase' in restored).toBe(false)
+    // 反向对照:`recording` 本身确实是非终态 ⇒ 一旦有人把这维带回列表就是回到旧缺陷
+    expect(isVoiceNotePhaseTerminal('recording')).toBe(false)
+    expect(
+      outgoing('recording')
+        .map(([event]) => event)
+        .sort(),
+    ).toEqual(['cancel', 'interrupt', 'stop'])
   })
 
   it('唯一的近似信号:interrupt 能把 recording 收成终态,而 ready 档连这个信号都收不到', () => {
@@ -324,19 +327,27 @@ describe('结构锁② 转换表只有一份 · 消费点同源', () => {
   it(`端侧消费点(${WIRED_CONSUMER})只准引共享出口推进:引到入口、不留本地表/switch`, () => {
     const src = readSource(WIRED_CONSUMER)
     expect(/transitionVoiceNotePhase/.test(src), '没有引共享推进入口').toBe(true)
-    expect(/from '@ihui\/shared\/chat(?:\/voice-note)?'/.test(src), '引的不是 @ihui/shared/chat 这条唯一出口')
-      .toBe(true)
+    expect(
+      /from '@ihui\/shared\/chat(?:\/voice-note)?'/.test(src),
+      '引的不是 @ihui/shared/chat 这条唯一出口',
+    ).toBe(true)
     expect(LOCAL_SWITCH_RE.test(src), '端内自立了 switch (phase)').toBe(false)
     expect(LOCAL_RECORD_TABLE_RE.test(src), '端内自立了 phase 判定表').toBe(false)
     expect(countMatches(src, TABLE_DECL_RE)).toBe(0)
     // 反空转:这个文件确实按 12 相词表起相(初始必须是 ready),不是"根本没用到"
-    expect(/useState<VoiceNotePhase>\('ready'\)/.test(src), '初始相不是 ready 或根本没消费词表')
-      .toBe(true)
+    expect(
+      /useState<VoiceNotePhase>\('ready'\)/.test(src),
+      '初始相不是 ready 或根本没消费词表',
+    ).toBe(true)
   })
 
   it('共享层对外只有一条出口:chat barrel 再导出 voice-note 恰一枚', () => {
-    expect(countMatches(readSource('packages/shared/src/chat/index.ts'), /export \* from '\.\/voice-note'/g))
-      .toBe(1)
+    expect(
+      countMatches(
+        readSource('packages/shared/src/chat/index.ts'),
+        /export \* from '\.\/voice-note'/g,
+      ),
+    ).toBe(1)
   })
 
   for (const file of NOT_YET_WIRED) {
@@ -357,7 +368,10 @@ describe('结构锁② 转换表只有一份 · 消费点同源', () => {
     const self = readSource(SELF_SOURCE)
     expect(countMatches(self, TABLE_DECL_RE)).toBe(0)
     expect(EVENT_TO_PHASE_LITERAL_RE.test(self), '测试里出现了 事件 → 相名 的字面量表').toBe(false)
-    expect(countMatches(self, /transitionVoiceNotePhase\(/g), '测试没调用生产入口 ⇒ 全是手抄期望').toBeGreaterThan(0)
+    expect(
+      countMatches(self, /transitionVoiceNotePhase\(/g),
+      '测试没调用生产入口 ⇒ 全是手抄期望',
+    ).toBeGreaterThan(0)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -10864,7 +10864,8 @@
         "saveFailed": "錄音儲存失敗",
         "recognitionFailed": "語音辨識中斷",
         "emptyTranscript": "未辨識到內容",
-        "sttPending": "轉寫暫不可用,可稍後重試或僅儲存音訊"
+        "sttPending": "轉寫暫不可用,可稍後重試或僅儲存音訊",
+        "loadFailed": "筆記清單載入失敗,請重試"
       },
       "action": {
         "start": "開始錄音",
