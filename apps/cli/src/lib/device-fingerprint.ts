@@ -3,20 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 平台特有:依赖 Node.js API(os),不适合共享
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
 import os from 'node:os'
 import { createDeviceFingerprintCollector } from '@ihui/types'
-import { tryParseJson, isRecord } from '../util/json.js'
+import { readCliPackage } from '../util/pkg-version.js'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-// 受信资产,但防损坏文件导致模块加载即抛错(CLI 启动崩溃)
-const pkgRaw = tryParseJson(readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf-8'))
-const pkg: { version: string } =
-  isRecord(pkgRaw) && typeof pkgRaw.version === 'string'
-    ? (pkgRaw as { version: string })
-    : { version: '0.0.0' }
+const pkg = readCliPackage(import.meta.url) ?? { version: '0.0.0' }
 
 /**
  * 首方标识单一源头:既作设备指纹的 userAgent 字段,也作 HTTP `User-Agent` 请求头。
