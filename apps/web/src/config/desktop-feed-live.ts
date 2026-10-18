@@ -364,7 +364,7 @@ const GITEE_REPO = process.env.GITEE_REPO || 'IHUI-AI'
  * 签名本身不受 host 影响:minisign 是对**包体字节**签的,**同一份字节**放哪个 host 都验得过
  * (与 scripts/lib/tauri-updater-platforms.mjs 的 host 白名单口径一致) —— 前提就是"同一份字节"。
  */
-export type GiteeParity = 'same' | 'different' | 'undetermined'
+type GiteeParity = 'same' | 'different' | 'undetermined'
 
 async function headContentLength(url: string): Promise<number | null> {
   try {
