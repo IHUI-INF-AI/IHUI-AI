@@ -91,6 +91,7 @@ import {
   type StudyProgress,
 } from '@ihui/api-client'
 import {
+  useWrapFocus,
   HomeScreen as SharedHomeScreen,
   type HomeLiveItem,
   type HomeMenuItem,
@@ -149,10 +150,7 @@ import { rpx } from '../utils/rpx'
 import { inferVendor } from '../lib/vendor-infer'
 // 底部导航(对齐原 customTabBar 5 主 Tab,HomeScreen 对应「首页」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
-import {
-  glassBlurLayer,
-  tabBarDockSpacer,
-} from '../components/TabBar.styles'
+import { glassBlurLayer, tabBarDockSpacer } from '../components/TabBar.styles'
 
 import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
@@ -657,6 +655,9 @@ export function HomeScreen() {
   const { user, token } = useAuth()
   const { resolvedTheme } = useTheme()
   const { connected, unreadCount, setVisible } = useNotificationStore()
+  // 模型搜索框的聚焦描边走容器级 WRAP 唯一实现 useWrapFocus(墨档:亮纯黑/暗纯白,换色不换宽)。
+  // 它是 AGENTS §4「描边不得取墨档」唯一例外位(输入控件聚焦态)的取值出口 —— 本站点不再自挑色值。
+  const modelSearchFF = useWrapFocus(tokens)
   // 离线横条由 App.tsx 全局挂载(见该处 OfflineBanner);此处曾另挂一份,
   // 断网时同屏叠两条,且它是普通流节点,会把整屏内容再往下推。
   const [recommends, setRecommends] = useState<HomeRecommendItem[]>([])
@@ -784,9 +785,7 @@ export function HomeScreen() {
   // 输入区 + 底部导航整块绝对定位悬浮;ScrollView 预留 = 停靠区实测高度 + 呼吸距。
   // 首帧用估值兜底(输入区约 104dp + 胶囊让位区),onLayout 后按实测校正。
   const insets = useSafeAreaInsets()
-  const [dockHeight, setDockHeight] = useState(
-    104 + tabBarDockSpacer(insets.bottom),
-  )
+  const [dockHeight, setDockHeight] = useState(104 + tabBarDockSpacer(insets.bottom))
 
   // ── Drawer 回调(对齐 Uniapp gopage / gotocompany / lingqu / addNewChat) ──
   const closeDrawer = (): void => setDrawerVisible(false)
@@ -2028,12 +2027,14 @@ export function HomeScreen() {
             </View>
             {/* 搜索框:头部搜索图标开关控制展开/收起(收起即清词);非空时跨全部分类过滤 */}
             {showModelSearch ? (
-              <View style={shellStyles.modelSearchBox}>
+              <View style={[shellStyles.modelSearchBox, modelSearchFF.focusBorder]}>
                 <Search size={16} color={tokens.text.tertiary} />
                 <TextInput
                   style={shellStyles.modelSearchInput}
                   value={modelSearch}
                   onChangeText={setModelSearch}
+                  onFocus={modelSearchFF.onFocus}
+                  onBlur={modelSearchFF.onBlur}
                   placeholder="搜索模型或厂商"
                   placeholderTextColor={tokens.text.tertiary}
                   returnKeyType="search"
