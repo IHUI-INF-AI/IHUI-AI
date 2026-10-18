@@ -1202,7 +1202,18 @@ export default function ChatPage() {
   // 差别只在要不要给用户一个看得见的理由(notice)—— 用户自己点停止不需要解释。
   // 注意:此处刻意不把 abortRef 置 null,控制器由该流自己的 finally 回收(见 sendMessage)。
   const terminateStream = useCallback(
-    (): boolean => terminateActiveStream({ abortRef, clearThinkingProgress: stopThinkingProgress }),
+    (notice?: string): boolean =>
+      terminateActiveStream({
+        abortRef,
+        clearThinkingProgress: stopThinkingProgress,
+        ...(notice
+          ? {
+              notice,
+              showNotice: (message: string) =>
+                Taro.showToast({ title: message, icon: 'none', duration: 2500 }),
+            }
+          : {}),
+      }),
     [stopThinkingProgress],
   )
 
@@ -1226,8 +1237,10 @@ export default function ChatPage() {
     ) {
       return
     }
-    terminateStream()
-  }, [currentModel, terminateStream])
+    // 与 web 腿同一条:终止要给用户看得见的理由(键 chat.modelSwitchStopped 2026-10-18 随本票补进五语言包);
+    // 无在途流 = 纯换档,静默生效,不打扰。
+    terminateStream(t('chat.modelSwitchStopped', { model: currentModel }))
+  }, [currentModel, terminateStream, t])
 
   const handleSuggestion = useCallback(
     (text: string) => {
