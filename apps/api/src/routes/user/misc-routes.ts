@@ -43,7 +43,10 @@ export interface MyCouponRow {
 }
 
 /** `unused` 但券已过期 ⇒ 读成 `expired`(库里靠清扫任务落状态,展示层不等它) */
-export function toMyCouponRow(r: UserCoupon & { coupon: PromoCoupon }, now = new Date()): MyCouponRow {
+export function toMyCouponRow(
+  r: UserCoupon & { coupon: PromoCoupon },
+  now = new Date(),
+): MyCouponRow {
   const expired = new Date(r.coupon.expiresAt) < now
   return {
     id: r.id,
