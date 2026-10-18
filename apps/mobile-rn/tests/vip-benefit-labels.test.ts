@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { toVipBenefitItems, type VipLevelRow } from '../src/utils/vip-benefits'
+import { toVipBenefitItems } from '../src/utils/vip-benefits'
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..', '..', '..')
 const LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko'] as const
