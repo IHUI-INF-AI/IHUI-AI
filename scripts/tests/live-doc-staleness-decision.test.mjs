@@ -422,6 +422,78 @@ test('S3 HEAD 侧取代即可(不依赖远端面):新修订在 HEAD 上时同样
   assert.equal(j.payload.results[0].supersededCount, 1)
 })
 
+test('H1 已退役旧账(端到端,§1 完成即删):曾入库、后正当删除、又被回灌进工作树的行 ⇒ 复原放行', () => {
+  const repo = mkScratch('ihui-retired-ledger-')
+  try {
+    const run = (...a) =>
+      execFileSync(gitBinary(), ['-c', 'safe.directory=*', '-C', repo, ...a], {
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    run('init', '-q', '-b', 'main')
+    run('config', 'user.email', 't@t')
+    run('config', 'user.name', 't')
+    const RETIRED =
+      '- [x] 这是一条早就翻勾并按「完成即删」整行删除的登记行,正文长到不会撞第二判据的长度闸(甲)'
+    writeFileSync(join(repo, 'DOC.md'), `# 台账\n${RETIRED}\n`, 'utf8')
+    run('add', 'DOC.md')
+    run('commit', '-qm', 'docs: 登记甲')
+    writeFileSync(join(repo, 'DOC.md'), '# 台账\n', 'utf8')
+    run('add', 'DOC.md')
+    run('commit', '-qm', 'docs: 完成即删,摘掉甲')
+    run('update-ref', 'refs/remotes/origin/main', 'HEAD')
+    // 工作树被一次行级 union 回灌成"旧账还在"——这正是 2026-10-19 把生产挡死七小时的那一型
+    writeFileSync(join(repo, 'DOC.md'), `# 台账\n${RETIRED}\n`, 'utf8')
+    const j = runJson(repo, ['--paths', 'DOC.md'])
+    const r = j.payload.results[0]
+    assert.equal(j.status, 0, `已退役旧账应判可复原:${j.stdout}${j.stderr}`)
+    assert.equal(r.retiredCount, 1, `必须逐条进 retired 桶,实际:${JSON.stringify(r.retired)}`)
+    assert.equal(r.orphans.length, 0, '退役行不得再留在 orphans 里')
+
+    // 反例(阳性对照的另一半):真在飞的独有行**不得**被第三判据顺走 —— 摘掉"逐字命中历史"这一条
+    // 或把它放宽成相似度,这条立刻翻绿,而它正是别人正在写的活账。
+    const LIVE = '- [ ] 这是一条从未入库、别人此刻正在写的在飞登记行,正文同样长到过长度闸(乙)'
+    appendFileSync(join(repo, 'DOC.md'), `${LIVE}\n`, 'utf8')
+    const k = runJson(repo, ['--paths', 'DOC.md'])
+    const s = k.payload.results[0]
+    assert.equal(k.status, 1, '真独有在飞行必须仍 needHuman')
+    assert.ok(s.orphans.some((o) => o.line === LIVE), `在飞行必须在 orphans:${JSON.stringify(s.orphans.map((o) => o.line))}`)
+    assert.ok(!s.retired.includes(LIVE), '从未入库的行不得被记成已退役')
+  } finally {
+    rmScratch(repo)
+  }
+})
+
+test('H2 --no-history 关第三判据 ⇒ 逐字退回改前结论(退役行重新落 needHuman)', () => {
+  const repo = mkScratch('ihui-retired-off-')
+  try {
+    const run = (...a) =>
+      execFileSync(gitBinary(), ['-c', 'safe.directory=*', '-C', repo, ...a], {
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    run('init', '-q', '-b', 'main')
+    run('config', 'user.email', 't@t')
+    run('config', 'user.name', 't')
+    const RETIRED = '- [x] 关闭第三判据时这条应当重新变成拦人的行,长度同样过闸(丙)'
+    writeFileSync(join(repo, 'DOC.md'), `# 台账\n${RETIRED}\n`, 'utf8')
+    run('add', 'DOC.md')
+    run('commit', '-qm', 'docs: 登记丙')
+    writeFileSync(join(repo, 'DOC.md'), '# 台账\n', 'utf8')
+    run('add', 'DOC.md')
+    run('commit', '-qm', 'docs: 完成即删,摘掉丙')
+    run('update-ref', 'refs/remotes/origin/main', 'HEAD')
+    writeFileSync(join(repo, 'DOC.md'), `# 台账\n${RETIRED}\n`, 'utf8')
+    const j = runJson(repo, ['--paths', 'DOC.md', '--no-history'])
+    assert.equal(j.status, 1, `--no-history 必须退回改前结论(needHuman),实际 status=${j.status}`)
+    assert.equal(j.payload.results[0].retiredCount, 0, '关了取证就不该有 retired 桶')
+  } finally {
+    rmScratch(repo)
+  }
+})
+
 test('S4 反洗白(端到端):远端面在场时,真独有的长行仍须 needHuman,且不得出现在被取代里', () => {
   const { repo } = openSupersedeRepo({ remote: true })
   appendFileSync(join(repo, 'DOC.md'), `${UNIQ_LINE}\n`, 'utf8')
