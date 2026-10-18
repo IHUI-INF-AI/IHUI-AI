@@ -207,6 +207,13 @@ const callbackSchema = z.object({
   // D33①(2026-09-26 接):排队消息快照通道。与其余八通道不同,**空数组也合法**
   // (ai-service 侧 attach_queue_items 无条件写键),故只 optional、不设 .min(1)。
   queueItems: z.array(persistedQueueItemSchema).optional(),
+  // G-94(2026-10-18 立):用户按停止时"已到达本进程的半截回答"补发的中断标注。
+  // 显式列举(§5"鉴权面公开化必须显式列举"同一纪律):新通道一律由 schema 逐字段校验后
+  // 再进 metadata,不走 metadata 那个 looseObject 的透传口 —— 透传等于把上游任意字段灌进
+  // chat_messages.metadata(审计面)。两键都是标量且不含正文,故不占体积护栏。
+  // interruptReason 只认这一档取值:标注形态一旦放开,读回侧就得按"任何字符串"渲染。
+  interrupted: z.boolean().optional(),
+  interruptReason: z.enum(['user_cancelled']).optional(),
   metadata: z
     .looseObject({
       conversationId: z.string().optional(),
@@ -271,6 +278,8 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         memoryUpdates,
         steerApplied,
         queueItems,
+        interrupted,
+        interruptReason,
         metadata,
       } = parsed.data
       const conversationId = metadata?.conversationId
@@ -369,6 +378,20 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               // worker 侧是浅合并({ ...prevMeta, ...metadata })—— 只有真写出 [] 才能把上一轮
               // 落库的非空队列覆盖掉;不写 key 则残留会一直显示到该会话被新格式覆盖为止。
               ...(queueItems !== undefined ? { queueItems: capQueueItems(queueItems) } : {}),
+              // G-94(2026-10-18 立):用户按停止时补发的半截回答带中断标注。键名与
+              // conversation.py 取消支路写进会话记忆的那一对**逐字相同**
+              // (metadata.interrupted / metadata.interrupt_reason)—— 读回侧
+              // apps/web/src/hooks/use-chat/history-message.ts 与 MessageItem 的"已中断"行
+              // 只认这两个键,后端两族各起一名就等于前端要写两份判据。
+              // reason 缺省时**不写 reason 键**:前端据此走通用话术(有 reason = 用户取消专属话术),
+              // 拿 'user_cancelled' 顶包就是把"没采到原因"冒充成"确认过原因"。
+              // 非中断时不写键:worker 侧是浅合并,写 interrupted:false 会把已落库的真标注盖掉。
+              ...(interrupted
+                ? {
+                    interrupted: true,
+                    ...(interruptReason ? { interrupt_reason: interruptReason } : {}),
+                  }
+                : {}),
               // G-165:权限档同理"无记录即不写 key",前端据此区分"未盖章"与"default 档"。
               // 消费方 apps/web/src/hooks/use-chat/history-message.ts 读 meta.permissionMode
               // 渲染档位徽章 —— 章不入 payload 则该链路恒空(G-165 名存实亡)。
