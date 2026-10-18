@@ -1,0 +1,9 @@
+[
+  {
+    "file": "apps/api/src/services/agent-event-trigger.ts",
+    "kind": "V1/sha",
+    "reason": "intake 去重的主键就是「同一枚 commit 的同一个 job」—— 新 commit 的接入**本来就是新事件**,不是抖动;换成档位折档会把两次不同 commit 的接入并成一件事而漏报。身份由具名函数 intakeDedupKey 单源构造,不在调用侧散拼。",
+    "ticket": "告警身份抖动门立项(2026-10-18,check-alert-identity-volatility)",
+    "until": "2027-01-31"
+  }
+]

@@ -119,6 +119,14 @@ const REFS_MANIFEST = join(GITDIR, 'refs-manifest.json')
 const NOTIFY_STATE = join(WORKTREE, '.workbuddy', 'git-guardian-notify-state.json')
 /** 投递失败标记:邮件寄不出去必须留可诊断痕迹(§5e),下一次成功投递自动清除 */
 const NOTIFY_UNDEL = join(WORKTREE, '.workbuddy', 'git-guardian-notify-UNDELIVERED.json')
+/**
+ * 每一次投递尝试落一行 JSONL(2026-10-18 立)。立因:量算仪 `alert-volume-report.mjs` 的
+ * 判据是"ASCII 关键字 + 时间戳,中文一律不解码",而本层的人到留痕是中文散文行
+ * (`✅ 判红通报已寄出: …`),于是**这台机最大的一个发信面在量算仪账面上是 MAIL=0**
+ * —— 今天 18 封同一场停摆,量算仪一次都没看见,风暴判据结构上打不到它。
+ * 台账用 ASCII 键名 + ISO 时刻,身份只存 fp 前缀(sha 不是凭据,可留痕;收件人只存脱敏形态)。
+ */
+const MAIL_SEND_LEDGER = join(WORKTREE, '.workbuddy', 'mail-send-ledger.jsonl')
 /** 去重窗:同 (alert 名 + 内容指纹) 在窗口内只寄一封。**没有**任何"每日 N 封"总量闸 —— 那是把"告警静默"再复制一遍 */
 const NOTIFY_DEFAULT_WINDOW_MS = 4 * 60 * 60 * 1000
 /** 投递失败后的重试间隔(反 spam 用的退避,不是配额:窗口照常重发,与"封顶 N 封"不同) */
@@ -1714,15 +1722,17 @@ function healHomeJunctions() {
     const after = call(judge, [], 120000)
     if (after.code === 0) return
     // ③ 报"实测到的原因",不再猜"多为进程占用"
-    const why = [
+    const whyRows = [
       ['cooldown', '冷却中(上轮 EBUSY/校验失败)'],
       ['copy-failed', 'robocopy 失败(源未动)'],
       ['rename-failed', '源改名失败(通常是被占用)'],
       ['verify-failed', '逐文件校验不一致(仍在被写)'],
-    ]
-      .map(([tag, text]) => (count(tag) ? `${count(tag)}×${text}` : ''))
-      .filter(Boolean)
-      .join(' / ')
+    ].filter(([tag]) => count(tag))
+    // 正文带条数(`3×robocopy 失败`),身份只带类别标签 —— 下面那句注释说的"身份只取失败原因
+    // 类别"在实现里原来没做到:`${count(tag)}×` 被拼进了 why,而 why 又整串进了 dedupKey ⇒
+    // 冷却项 0/1/11 各被当成一种身份(实测 09-30/10-01 两天 94 封)。
+    const why = whyRows.map(([tag, text]) => `${count(tag)}×${text}`).join(' / ')
+    const whyTags = whyRows.map(([tag]) => tag).sort().join('+')
     const cool = (() => {
       try {
         return Object.keys(
@@ -1744,8 +1754,8 @@ function healHomeJunctions() {
       // dedupKey(§5e-1 配套,102 封同因):detail 里 `冷却项 N 个` 与 `N×…` 都是**实时计数**,
       // 逐轮变动 ⇒ 指纹变 ⇒ shouldAlert 判"新故障"立即重发,4 小时窗口只剩名字
       // (实测 09-30/10-01 两天寄出 94 封,`冷却项 0/1/11 个`各被当成一种身份)。
-      // 身份只取"失败原因类别",冷却项个数仍进正文(它是诊断信息,不是身份)。
-      { dedupKey: `home-heal-exit=${after.code};why=${why || 'no-tag'}` },
+      // 身份只取"失败原因类别标签",条数与冷却项个数仍进正文(它们是诊断,不是身份)。
+      { dedupKey: `home-heal-exit=${after.code};why=${whyTags || 'no-tag'}` },
     )
   } finally {
     try {
@@ -1866,16 +1876,10 @@ const DISK_ROOT_AUDIT_INTERVAL_MS = 30 * 60 * 1000
  * 告警去重的**计数分档**:档内抖动不重报,跨档才算真恶化/真缓解。
  * 为什么必须分档而不是直接用计数 —— 见 auditDiskRootHygiene() 里 dedupKey 的注释。
  * 0 单独成档:"缓解到 0"必须重报一次(那是终态变化,不是抖动)。
+ * 2026-10-18 收口:这里原先有第二份实现(`function tier(n)` 返回 0/1/2/3/4,边界与
+ * `alertCountTier` 逐字相同),同一把尺子两副面孔正是 §0.6/§22c 立的"第二份必然漂移"。
+ * 盘根那一格现在直接调 `alertCountTier`,不再另立一档。
  */
-function tier(n) {
-  const k = Number(n) || 0
-  if (k <= 0) return 0
-  if (k < 2) return 1
-  if (k < 4) return 2
-  if (k < 8) return 3
-  return 4
-}
-
 function auditDiskRootHygiene() {
   try {
     let last = 0
@@ -1959,7 +1963,7 @@ function auditDiskRootHygiene() {
           // 恒记 1,再叠加别人在飞的 0~3 个 worktree ⇒ 每轮巡检至少有一个数在变
           // ⇒ shouldAlert 判"新故障"立即重报。分档语义:档内抖动不重报,
           // **跨档才算真恶化/真缓解**;信文照旧逐条点名(信息量没降),判据一字未动(§12e)。
-          dedupKey: `stray=${tier(c.diskRootStray)};wtOutside=${tier(c.worktreeOutside)}`,
+          dedupKey: `stray=${alertCountTier(c.diskRootStray)};wtOutside=${alertCountTier(c.worktreeOutside)}`,
         },
       )
       logger(
@@ -2052,14 +2056,18 @@ function auditMergeAdditionLoss() {
     )
     return
   }
-  const { heldMs } = noteMergeLossUndetermined()
+  const { heldMs, firstMs } = noteMergeLossUndetermined()
   const why = [outcome.why, errFirst].filter(Boolean).join(' ⊕ ').slice(0, 240)
   if (heldMs >= MERGE_LOSS_UNDET_HORIZON_MS) {
     log(`⚠️ 合并吞并对账已连续 ${Math.round(heldMs / 60000)} 分钟取不到结论(${why})⇒ 按结构性故障喊人`)
+    // 身份走 `alertHeldTier` 那一把通用尺子(6h/24h/72h)。原先自造 30 分钟一档
+    // (`Math.floor(heldMs / 30min)`)⇒ 一场"尺子瞎了"的故障一天最多可寄 48 封,与它自己
+    // 想压的那个噪声是同一个形态(§5e-1:实时读数进正文,不进身份)。
+    const held = alertHeldTier(firstMs)
     notifyGuardRed(
       '合并吞并对账持续取不到结论',
-      `check-merge-addition-loss.mjs --all-new 连续 ${Math.round(heldMs / 60000)} 分钟没有可采信的结论 ⇒ 这一层现在是瞎的(别人机器上推来的合并只有这里判得到,提交链那道门不跑 commit-tree 旁路)。\n最近一次原因:${why}\n手工复跑取证:node scripts/check-merge-addition-loss.mjs --all-new`,
-      { severity: 'warning', dedupKey: `bucket=${Math.floor(heldMs / MERGE_LOSS_UNDET_HORIZON_MS)}` },
+      `check-merge-addition-loss.mjs --all-new 连续 ${Math.round(heldMs / 60000)} 分钟没有可采信的结论 ⇒ 这一层现在是瞎的(别人机器上推来的合并只有这里判得到,提交链那道门不跑 commit-tree 旁路)。\n最近一次原因:${why}\n本段已持续 ${held.hours ?? '?'} 小时(档 ${held.tier})\n手工复跑取证:node scripts/check-merge-addition-loss.mjs --all-new`,
+      { severity: 'warning', dedupKey: `merge-loss-undet;held=${held.tier}` },
     )
   } else {
     log(`ℹ️ 合并吞并对账未判定(${why})⇒ 单轮不冒"尺子坏了"的信;连满 ${Math.round(MERGE_LOSS_UNDET_HORIZON_MS / 60000)} 分钟(≈15 趟)才到人,当前已持续 ${Math.round(heldMs / 60000)} 分钟`)
@@ -2154,7 +2162,7 @@ export function alertFingerprint(name, detail) {
  * 原始计数也不行 —— 实测 09-30 至 10-05 同一原因寄出 **34 封**,其中 10-04
  * 20:59 / 21:29 / 21:59 三封只隔 30 分钟,4 小时窗口形同虚设。真因是计数本身在抖
  * (多会话并行建删落点外 worktree 是常态,0↔1↔2↔3 每轮都可能变)。所以身份里放的是
- * `tier()` 的**档位**:0 / 1 / 2-3 / 4-7 / 8+ —— 档内抖动不重报,跨档(含缓解到 0)重报。
+ * `alertCountTier()` 的**档位**:0 / 1 / 2-3 / 4-7 / 8+ —— 档内抖动不重报,跨档(含缓解到 0)重报。
  * 这是"压抖动"与"压事实"之间的一条实测出来的线,不是把两者混为一谈的第三条路。
  *
  * 因此这里刻意**不做通用归一**:调用方给什么身份就是什么身份,身份怎么构造是调用方的义务
@@ -2390,6 +2398,16 @@ function writeNotifyJson(file, obj) {
   writeFileSync(file, JSON.stringify(obj, null, 1), 'utf8')
 }
 
+/** 发信台账的一行:写不进**不影响投递**(人是收信方,台账是给机器的账),但量算仪会因此报未判定。 */
+export function appendMailSendLedger(row, file = MAIL_SEND_LEDGER) {
+  try {
+    appendFileSync(file, `${JSON.stringify(row)}\n`, 'utf8')
+    return true
+  } catch {
+    return false
+  }
+}
+
 /**
  * 守护判红时的唯一出口。**旁路通知,不改自愈行为本身**:整个函数体裹 try,
  * 落盘/派发/状态任一环节炸掉都只降级为日志一行,原调用方(三个自愈层)照常走完。
@@ -2403,6 +2421,9 @@ export function notifyGuardRed(name, detail, opts = {}) {
     dispatch = dispatchGuardMail,
     stateFile = NOTIFY_STATE,
     undelFile = NOTIFY_UNDEL,
+    // 台账默认落在去重状态件同一个目录(生产 = `.workbuddy/`);镜像测试注入 scratch 的
+    // stateFile 时,台账原地跟着进 scratch —— 否则"跑一次测试"会往真账上写一行假发信。
+    ledgerFile = join(dirname(stateFile), 'mail-send-ledger.jsonl'),
     windowMs = notifyWindowMs(),
     failCooldownMs = notifyFailCooldownMs(),
     dedupKey = '',
@@ -2466,14 +2487,17 @@ export function notifyGuardRed(name, detail, opts = {}) {
       return { sent: Boolean(r.ok), why: r.why }
     }
     const r = callDispatch()
+    const ledgerOpts = { at: new Date(now).toISOString(), producer: 'git-guardian', name, fp: fp.slice(0, 12), severity, to: maskEmail(resolveAlertTo()) }
     if (r.ok) {
       writeNotifyJson(stateFile, withAlertMark(state, name, fp, now, true))
       rmSync(undelFile, { force: true }) // 下一次成功投递自动清除失败标记(§5e)
+      appendMailSendLedger({ ...ledgerOpts, delivered: true }, ledgerFile)
       logger(`✅ 判红通报已寄出: ${name} → ${maskEmail(resolveAlertTo())}`)
     } else {
       // 失败不记"已送达"⇒ 下轮(退避后)还会重试;标记落盘让人在 --status/日志里看得见
       writeNotifyJson(stateFile, withAlertMark(state, name, fp, now, false))
       writeNotifyJson(undelFile, { ts: now, name, fp, why: r.why })
+      appendMailSendLedger({ ...ledgerOpts, delivered: false, why: String(r.why || '').slice(0, 120) }, ledgerFile)
       logger(`⚠️ 判红通报投递失败: ${name} — ${r.why}(已写 UNDELIVERED 标记,${Math.round(failCooldownMs / 60000)} 分钟后重试)`)
     }
     return { sent: Boolean(r.ok), why: r.why }
@@ -2829,9 +2853,10 @@ export function checkConvergeAlignStall(opts = {}) {
       healNote
     notify('converge-align-stall', detail, {
       // dedupKey(§5e-1 配套,6 封):正文含 `已 N 分钟未恢复` 与失败时刻,逐轮变。
-      // 身份取"失败次数分档 + 真因类别"—— 次数**分档**而非原值:1→9 是同一故障持续,
-      // 归一后的稳定指纹把它压成同一身份(这是对的),但要保证"档位跃升"能重报。
-      dedupKey: `align-stall;fails=${Math.min(Number(d.fails) || 0, 9)}`,
+      // 身份取"失败次数档位 + 真因类别"。原写法 `Math.min(fails,9)` 只**截顶**未折档
+      // —— 1→2→…→9 每一档都是新身份(注释却自称"分档"),同一场停摆最多另寄 9 封;
+      // 现走 `alertCountTier` 这一把通用尺子(0/1/2-3/4-7/8+,跨档才算真恶化)。
+      dedupKey: `align-stall;fails=${alertCountTier(d.fails)}`,
     })
     return d
   } catch (e) {
