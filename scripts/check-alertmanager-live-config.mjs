@@ -33,6 +33,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import http from 'node:http'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { assertBridgeOnlySurface } from './render-alertmanager-config.mjs'
@@ -297,8 +298,9 @@ export const FIX_TMPL = `global:\n  resolve_timeout: 5m\nroute:\n  receiver: 'de
 export const FIX_LIVE = `global:\n  resolve_timeout: 5m\nroute:\n  receiver: default-webhook\n  group_by:\n  - alertname\n  - service\n  continue: false\n  routes:\n  - receiver: default-webhook\n    matchers:\n    - severity="critical"\n    continue: false\n  - receiver: default-webhook\n    matchers:\n    - severity=\\"warning\\"\n    mute_time_intervals:\n    - nightly-maintenance\n  group_wait: 30s\n  group_interval: 5m\n  repeat_interval: 4h\nreceivers:\n- name: default-webhook\n  labels:\n    name: default-webhook\n  webhook_configs:\n  - send_resolved: true\n    http_config:\n      follow_redirects: true\n    url: <secret>\n    max_alerts: 0\n    timeout: 0s\ninhibit_rules:\n- source_matchers:\n  - severity="critical"\n  target_matchers:\n  - severity="warning"\n  equal:\n  - alertname\n  - service\nmute_time_intervals:\n- name: nightly-maintenance\n`
 
 function runSelfTest() {
-  const cases = []
-  const ok = (label, cond) => cases.push([label, !!cond])
+  // 用例登记走共用出口(scripts/lib/selftest-registrant.mjs):thunk 在消费循环里**必被调用**,
+  // 值形态即算即得 —— 结构上封死"登记侧写 !!ok 而用例传箭头函数 ⇒ 恒真"的老洞(守门 41 同型)。
+  const { t: ok, report } = makeRegistrar()
   let t, l
   try { t = parseYamlSubset(FIX_TMPL) } catch (e) { console.log(`✗ 夹具模板面解析失败: ${e.message}`); }
   try { l = parseYamlSubset(FIX_LIVE) } catch (e) { console.log(`✗ 夹具生效面解析失败: ${e.message}`); }
@@ -321,10 +323,10 @@ function runSelfTest() {
   let threw = false
   try { parseYamlSubset('global:\n  resolve_timeout: 5m\n这一行没有键冒号形态\n') } catch { threw = true }
   ok('形状超出子集的行 ⇒ 抛错(由调用方折成未判定),不静默半解析', threw)
-  let bad2 = 0
-  for (const [label, pass] of cases) { if (!pass) bad2++; console.log(`${pass ? '✓' : '✗'} ${label}`) }
-  console.log(`自检 ${cases.length - bad2}/${cases.length} 通过`)
-  return bad2 ? 1 : 0
+  const r = report()
+  for (const c of r.cases) console.log(`${c.pass ? '✓' : '✗'} ${c.name}`)
+  console.log(`自检 ${r.pass}/${r.cases.length} 通过`)
+  return r.fail ? 1 : 0
 }
 
 // ── §22c 出口:镜像测试直接 import,不复制判据 ──

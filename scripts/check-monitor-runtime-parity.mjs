@@ -56,6 +56,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { dropZeroWidth, stripWatermarkStructure } from './lib/watermark-lines.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -259,8 +260,10 @@ export function render(report) {
 // ── --self-test:成对正反夹具(同形→0、改一字节→点名该对、任一侧缺→未判定)+ 取材非空锁 ──
 // 夹具唯一落点 = scripts/lib/scratch-dir.mjs 的 mkScratch(§15b,不落仓库树、不碰真实运行副本)。
 function runSelfTest() {
-  const cases = []
-  const ok = (label, cond) => cases.push([label, !!cond])
+  // 用例登记走共用出口(scripts/lib/selftest-registrant.mjs):thunk 在消费循环里**必被调用**,
+  // 值形态即算即得 —— 结构上封死"登记侧写 !!ok 而用例传箭头函数 ⇒ 恒真"的老洞(守门 41 同型)。
+  // 本门用例全是值形态(登记时已求值),夹具在 finally 里销毁不影响账面。
+  const { t: ok, report } = makeRegistrar()
   const dir = mkScratch('monitor-runtime-parity-selftest')
   try {
     const w = (rel, text) => { const p = join(dir, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); return p }
@@ -319,10 +322,10 @@ function runSelfTest() {
   } finally {
     rmScratch(dir)
   }
-  let bad = 0
-  for (const [label, pass] of cases) { if (!pass) bad++; console.log(`${pass ? '✓' : '✗'} ${label}`) }
-  console.log(`自检 ${cases.length - bad}/${cases.length} 通过`)
-  return bad ? 1 : 0
+  const r = report()
+  for (const c of r.cases) console.log(`${c.pass ? '✓' : '✗'} ${c.name}`)
+  console.log(`自检 ${r.pass}/${r.cases.length} 通过`)
+  return r.fail ? 1 : 0
 }
 
 async function main() {

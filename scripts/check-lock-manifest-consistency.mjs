@@ -169,6 +169,7 @@ import {
 } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DEP_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']
@@ -1218,8 +1219,10 @@ const ACCIDENT_DEPS_BLOCK = [
 ].join('\n')
 
 export function runSelfTest() {
-  const results = []
-  const t = (label, cond) => results.push({ label, ok: !!cond })
+  // 用例登记走共用出口(scripts/lib/selftest-registrant.mjs):thunk 在消费循环里**必被调用**,
+  // 值形态即算即得 —— 结构上封死"登记侧写 !!ok 而用例传箭头函数 ⇒ 恒真"的老洞(守门 41 同型)。
+  // 本门用例全是值形态(登记时已求值),夹具在 finally 里销毁不影响账面。
+  const { t, report } = makeRegistrar()
   const scratch = mkScratch('lock-manifest-consistency')
   try {
     const baseWeb = {
@@ -2059,13 +2062,10 @@ export function runSelfTest() {
   } finally {
     rmScratch(scratch)
   }
-  let failed = 0
-  for (const r of results) {
-    if (!r.ok) failed++
-    console.log(`${r.ok ? '✅' : '❌'} ${r.label}`)
-  }
-  console.log(`--self-test: ${results.length - failed}/${results.length} 通过`)
-  return failed === 0 ? 0 : 1
+  const r = report()
+  for (const c of r.cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
+  console.log(`--self-test: ${r.pass}/${r.cases.length} 通过`)
+  return r.fail === 0 ? 0 : 1
 }
 
 const FACE_FLAGS = { '--staged': 'staged', '--head': 'head', '--worktree': 'worktree' }

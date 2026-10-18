@@ -52,6 +52,7 @@ import {
 } from 'node:fs'
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..')
@@ -532,8 +533,10 @@ function selfTest() {
 }
 
 async function runSelfTest() {
-  const cases = []
-  const ok = (name, cond) => cases.push([name, !!cond])
+  // 用例登记走共用出口(scripts/lib/selftest-registrant.mjs):thunk 在消费循环里**必被调用**,
+  // 值形态即算即得 —— 结构上封死"登记侧写 !!ok 而用例传箭头函数 ⇒ 恒真"的老洞(守门 41 同型)。
+  // 本门用例全是值形态(IIFE 即调用或布尔表达式,登记时已求值),异步夹具的结论当场落账。
+  const { t: ok, report } = makeRegistrar()
   ok(
     'T1 完整且 RC=0 ⇒ complete/exit0',
     (() => {
@@ -960,13 +963,10 @@ async function runSelfTest() {
     'V6 `--` 之后的开关不在射程内(那是被包装命令自己的参数)',
     (() => validateHead(['ev.txt', '--timeout=1000']).length === 0)(),
   )
-  let pass = 0
-  for (const [n, p] of cases) {
-    console.log(`${p ? '  ✅' : '  ❌'} ${n}`)
-    if (p) pass++
-  }
-  console.log(`run-evidence --self-test:${pass}/${cases.length} 通过`)
-  return pass === cases.length ? 0 : 1
+  const r = report()
+  for (const c of r.cases) console.log(`${c.pass ? '  ✅' : '  ❌'} ${c.name}`)
+  console.log(`run-evidence --self-test:${r.pass}/${r.cases.length} 通过`)
+  return r.fail === 0 ? 0 : 1
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
