@@ -152,14 +152,25 @@ export const adminMonitorPanelsRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.code(400).send({ code: 400, message: parsed.error.issues[0]?.message ?? '参数错误' })
     }
-    const results: QueryResult[] = []
-    for (const q of parsed.data.queries) {
-      const r =
-        q.backend === 'loki'
-          ? await queryLoki(q.expr, q.rangeSeconds, q.stepSeconds)
-          : await queryPrometheus(q.expr, q.rangeSeconds, q.stepSeconds)
-      results.push({ ref: q.ref, ...r })
-    }
+    // 有界并发(12):单盘可达 ~30 个 target,串行逐条 fetch 会把整盘加载时间
+    // 放大成 30×单条延迟;全量 Promise.all 又会对上游形成尖刺。12 路并发在
+    // 本机 Prometheus/Loki 下整盘通常亚秒级完成,且上游压力可控。
+    const CONCURRENCY = 12
+    const results: QueryResult[] = new Array(parsed.data.queries.length)
+    let cursor = 0
+    const workers = Array.from({ length: Math.min(CONCURRENCY, parsed.data.queries.length) }, async () => {
+      for (;;) {
+        const i = cursor++
+        if (i >= parsed.data.queries.length) return
+        const q = parsed.data.queries[i]!
+        const r =
+          q.backend === 'loki'
+            ? await queryLoki(q.expr, q.rangeSeconds, q.stepSeconds)
+            : await queryPrometheus(q.expr, q.rangeSeconds, q.stepSeconds)
+        results[i] = { ref: q.ref, ...r }
+      }
+    })
+    await Promise.all(workers)
     return reply.send(success({ results }))
   })
 }
