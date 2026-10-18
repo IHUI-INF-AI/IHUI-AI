@@ -11,7 +11,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { findVersionDrift } from '../check-version-drift.mjs'
+import { findVersionDrift, MOBILE_JUDGE_MESSAGES } from '../check-version-drift.mjs'
 
 /** 一份"全绿"的基线输入,各用例只改其中一项 */
 function baseline(over = {}) {
@@ -50,12 +50,12 @@ describe('A 桌面双写一致', () => {
 describe('B/C 移动端版本可追溯', () => {
   it('app.config.js 丢掉 env 消费要被抓(退回人敲的死数字)', () => {
     const v = findVersionDrift(baseline({ appConfigJs: 'version: pkg.version' }))
-    assert.ok(v.some((x) => /app\.config\.js 未消费 IHUI_MOBILE_VERSION/.test(x)))
+    assert.ok(v.includes(MOBILE_JUDGE_MESSAGES.appEnvUnconsumed))
   })
 
   it('config.ts 丢掉 env 消费要被抓', () => {
     const v = findVersionDrift(baseline({ rnConfigTs: 'export const APP_VERSION = PKG_VERSION' }))
-    assert.ok(v.some((x) => /APP_VERSION 未消费/.test(x)))
+    assert.ok(v.includes(MOBILE_JUDGE_MESSAGES.rnEnvUnconsumed))
   })
 })
 
