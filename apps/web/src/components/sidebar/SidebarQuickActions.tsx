@@ -58,7 +58,11 @@ export function SidebarQuickActions({
               disabled={isStreaming}
               aria-label={tchat('newConversation')}
               aria-pressed={aiPanelOpen}
-              className="flex h-9 w-9 items-center justify-center rounded-sm bg-foreground/10 text-foreground transition-colors hover:bg-foreground/20 disabled:cursor-not-allowed disabled:opacity-40"
+              // 2026-10-18 美化:rounded-sm(2px) → rounded-md(6px)。
+              // 折叠态三个快捷键里只有"新建任务"是 2px,另两个(插件市场/自动化)是 6px,
+              // 与导航项 NAV_ITEM_BASE_CLASS 的 6px 也不一致 —— 同一列按钮圆角三档并存,
+              // 缩到 36×36 时 2px 与 6px 的差异肉眼可辨。统一到 6px,与导航项同圆角。
+              className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground/10 text-foreground transition-colors hover:bg-foreground/20 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus className="h-5 w-5" />
             </button>
