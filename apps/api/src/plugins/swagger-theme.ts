@@ -24,6 +24,7 @@
  *   })
  */
 import type { FastifyRequest, FastifyReply } from 'fastify'
+import { secretsEqual } from './internal-service-token.js'
 import {
   BRAND_PRIMARY,
   BRAND_PRIMARY_DARK,
@@ -247,11 +248,8 @@ export function buildSwaggerApiKeyHook(apiKey: string) {
       return
     }
 
-    // 时序安全比较
-    const { timingSafeEqual } = await import('node:crypto')
-    const a = Buffer.from(providedStr, 'utf8')
-    const b = Buffer.from(apiKey, 'utf8')
-    if (!timingSafeEqual(a, b)) {
+    // 时序安全比较(经全仓唯一比较出口 secretsEqual:定长散列,无长度泄漏)
+    if (!secretsEqual(providedStr, apiKey)) {
       reply.status(401).send({
         code: 401,
         message: 'X-API-Key 请求头无效或缺失',

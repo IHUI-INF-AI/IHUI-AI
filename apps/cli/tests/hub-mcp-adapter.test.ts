@@ -106,7 +106,9 @@ describe('registerMcpToolsToHub', () => {
     expect(desc!.id).toBe('mcp__srv__read_file');
     expect(desc!.description).toBe('Read a file');
     expect(desc!.required).toEqual(['arg1']);
-    expect(desc!.dangerLevel).toBe('read');
+    // G-401 拍板②:缺省(无白名单登记)MCP 工具标 'dangerous'(要批准、失败不自动重跑)。
+    // 旧断言钉的是本票要消灭的"缺省按 read"形态,已随拍板翻转。
+    expect(desc!.dangerLevel).toBe('dangerous');
     // parameters 透传 inputSchema
     expect((desc!.parameters as { type: string }).type).toBe('object');
   });
@@ -209,19 +211,41 @@ describe('registerMcpToolsToHub', () => {
     warnSpy.mockRestore();
   });
 
-  it('enableDangerous=true 时,dangerLevel 标记为 dangerous', () => {
+  it('G-401 拍板②:白名单内 (server, tool) 显式标 read,同服务器未登记工具仍 dangerous', () => {
     const hub = new InMemoryRegistry();
-    const conn = makeMockConn('srv', [makeToolDef('danger')]);
+    const conn = makeMockConn('srv', [
+      makeToolDef('safe_query'),
+      makeToolDef('unsafe_thing'),
+    ]);
 
     registerMcpToolsToHub({
       hub,
       mcpConnection: conn,
       serverName: 'srv',
-      enableDangerous: true,
+      readonlyAllowlist: { srv: ['safe_query'] },
     });
 
-    const desc = hub.find('mcp__srv__danger')?.describe();
-    expect(desc!.dangerLevel).toBe('dangerous');
+    expect(hub.find('mcp__srv__safe_query')?.describe().dangerLevel).toBe('read');
+    expect(hub.find('mcp__srv__unsafe_thing')?.describe().dangerLevel).toBe('dangerous');
+  });
+
+  it('G-401 拍板②:白名单按服务器隔离 —— 同名工具在未登记服务器上仍 dangerous', () => {
+    const hub = new InMemoryRegistry();
+    registerMcpToolsToHub({
+      hub,
+      mcpConnection: makeMockConn('alpha', [makeToolDef('web_search')]),
+      serverName: 'alpha',
+      readonlyAllowlist: { beta: ['web_search'] },
+    });
+    registerMcpToolsToHub({
+      hub,
+      mcpConnection: makeMockConn('beta', [makeToolDef('web_search')]),
+      serverName: 'beta',
+      readonlyAllowlist: { beta: ['web_search'] },
+    });
+
+    expect(hub.find('mcp__alpha__web_search')?.describe().dangerLevel).toBe('dangerous');
+    expect(hub.find('mcp__beta__web_search')?.describe().dangerLevel).toBe('read');
   });
 });
 

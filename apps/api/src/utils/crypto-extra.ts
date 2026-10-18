@@ -9,20 +9,16 @@
  * - secureRandomBytes / secureRandomInt: CSPRNG 随机数(无偏拒绝采样)
  * - hmacSHA256 / hmacVerify: HMAC-SHA256 签名与验签
  */
-import { randomBytes, createHmac, timingSafeEqual } from 'node:crypto'
+import { randomBytes, createHmac } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 
 /**
  * 常量时间字符串比较。
- * 长度不同时仍执行一次假比较,保证耗时与等长情况接近,防时序泄露。
+ * 经全仓唯一比较出口 secretsEqual(定长散列 + timingSafeEqual):长度不等不抛、
+ * 无长度泄漏、无前缀早退 —— 时序安全性不弱于原先"长度不等时喂一次假比较"的形态。
  */
 export function constantTimeCompare(a: string, b: string): boolean {
-  const bufA = Buffer.from(a, 'utf8')
-  const bufB = Buffer.from(b, 'utf8')
-  if (bufA.length !== bufB.length) {
-    timingSafeEqual(bufA, bufA) // 假比较,消耗相近时间
-    return false
-  }
-  return timingSafeEqual(bufA, bufB)
+  return secretsEqual(a, b)
 }
 
 /**

@@ -108,4 +108,57 @@ export function safeParseToolResultMetadata(input: unknown): ToolResultMetadataP
   if (result.success) return { success: true, data: result.data }
   return { success: false, issues: metadataIssues(result.error) }
 }
+
+/**
+ * 落库写侧的入参形状(票 G-109)。
+ *
+ * 刻意**没有** `output` / `error` 这类模型侧全文字段 —— 把"全文塞进持久化 metadata"
+ * 写成类型上不可表达(票面验收臂②的结构化版本:上游原话「禁止把完整结果对象塞进
+ * 实时事件和持久化 metadata」)。生产端 `ToolResultDisplay`(apps/cli)结构上即满足本形状,
+ * 这里只声明写侧需要的最小面,不重抄预算算法、也不当第二份上限真相。
+ */
+export interface ToolResultDisplaySource {
+  text: string
+  truncated?: true
+  originalBytes: number
+  returnedBytes: number
+  budgetStrategy: string
+}
+
+/**
+ * 工具结果 metadata 的**唯一**生产者(票 G-109:落库面此前只有读卡点,没有任何写侧 ⇒
+ * 水合入口 `safeParseToolResultMetadata` 在现网永远拿不到自己的产物)。
+ *
+ * 结论位不靠调用方自觉:`originalBytes > returnedBytes` 即判被截(与
+ * `tool-contract.ts` 的 serialization 四数同口径),缺件/非法 id 一律返回 null ——
+ * 写不出来的东西不留半成品条目。四数一并落在顶层(passthrough 允许新增可选顶层键),
+ * 满足守门 `check-truncation-accounting.mjs` 对"出现 truncated 就必须带数字同族"的要求。
+ */
+export function buildToolResultMetadata(input: {
+  toolCallId: string
+  toolName: string
+  display: ToolResultDisplaySource
+}): ToolResultMetadata | null {
+  if (typeof input.toolCallId !== 'string' || input.toolCallId === '') return null
+  if (typeof input.toolName !== 'string' || input.toolName === '') return null
+  if (typeof input.display?.text !== 'string') return null
+  if (
+    !Number.isFinite(input.display.originalBytes) ||
+    !Number.isFinite(input.display.returnedBytes)
+  ) {
+    return null
+  }
+  const truncated =
+    input.display.truncated === true || input.display.originalBytes > input.display.returnedBytes
+  return {
+    schemaVersion: TOOL_RESULT_METADATA_SCHEMA_VERSION,
+    toolCallId: input.toolCallId,
+    toolName: input.toolName,
+    display: { kind: 'text', text: input.display.text },
+    truncated,
+    originalBytes: input.display.originalBytes,
+    returnedBytes: input.display.returnedBytes,
+    budgetStrategy: input.display.budgetStrategy,
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

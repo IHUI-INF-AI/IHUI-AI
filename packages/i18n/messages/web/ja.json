@@ -7350,6 +7350,7 @@
       "total": "合計"
     },
     "backgroundAgents": {
+      "omittedChars": "{count} 文字省略",
       "calls": "{count} 回呼び出し",
       "cancel": "キャンセル",
       "cancelledCount": "キャンセル {count}",

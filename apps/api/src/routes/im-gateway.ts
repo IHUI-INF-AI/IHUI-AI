@@ -23,7 +23,8 @@
  *  - POST /im-gateway/webhook/:platform     接收 IM 平台 webhook(无需登录,用 webhookSecret 验签)
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHmac } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { eq, and, desc, sql } from 'drizzle-orm'
@@ -733,10 +734,7 @@ function adapterToDbRow(userId: string, config: ImAdapterUpsertInput) {
 function verifyHmac(secret: string, rawBody: string, signature: string): boolean {
   try {
     const expected = createHmac('sha256', secret).update(rawBody).digest('hex')
-    const sigBuf = Buffer.from(signature)
-    const expBuf = Buffer.from(expected)
-    if (sigBuf.length !== expBuf.length) return false
-    return timingSafeEqual(sigBuf, expBuf)
+    return secretsEqual(signature, expected)
   } catch {
     return false
   }
@@ -746,10 +744,7 @@ function verifyHmac(secret: string, rawBody: string, signature: string): boolean
 function verifyHmacBase64(secret: string, rawBody: string, signature: string): boolean {
   try {
     const expected = createHmac('sha256', secret).update(rawBody).digest('base64')
-    const sigBuf = Buffer.from(signature)
-    const expBuf = Buffer.from(expected)
-    if (sigBuf.length !== expBuf.length) return false
-    return timingSafeEqual(sigBuf, expBuf)
+    return secretsEqual(signature, expected)
   } catch {
     return false
   }

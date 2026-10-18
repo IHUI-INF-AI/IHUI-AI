@@ -18,8 +18,8 @@ import {
   createPublicKey,
   createVerify,
   randomUUID,
-  timingSafeEqual,
 } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import {
   existsSync,
   mkdirSync,
@@ -263,11 +263,8 @@ export function verifySignedUrl(key: string, expires: number, sig: string): bool
   const secret = getSigningSecret()
   const payload = `${key}:${expires}`
   const expected = createHmac('sha256', secret).update(payload).digest('hex').slice(0, 32)
-  // 长度不一致直接返回 false(timingSafeEqual 要求同长度)
-  const expectedBuf = Buffer.from(expected, 'utf8')
-  const providedBuf = Buffer.from(sig, 'utf8')
-  if (expectedBuf.length !== providedBuf.length) return false
-  return timingSafeEqual(expectedBuf, providedBuf)
+  // 经全仓唯一比较出口 secretsEqual(定长散列 + timingSafeEqual):长度不等不抛、无长度泄漏
+  return secretsEqual(expected, sig)
 }
 
 // =============================================================================
