@@ -15,7 +15,18 @@
  * 判据:
  *   R1 声明了但 lock 的 importer 里没有 ⇒ 红(缺记账;workspace:/catalog: 协议声明同样参与比对)
  *   R2 specifier 字符串不相等 ⇒ 红(即本次事故形态,含 npm: 别名不一致)
- *   R3 lock importer 有、package.json 已不声明 ⇒ 不计红但如实报数(孤儿记账)
+ *   R3 lock importer 有、package.json 已不声明 ⇒ **判红**(kind=orphan-in-lock;孤儿记账)
+ *      (升红立因 2026-10-18 真实事故:当天 main 上挂着一条 `importers['.'].dependencies` 记
+ *       `@parcel/watcher-win32-x64: ^2.6.0` 而根 package.json 的 dependencies 为空对象,本门旧口径
+ *       "不计红但如实报数"把它打印成 `[孤儿] …` 后 exit 0;而 pnpm 的 frozen 校验对同一事实是
+ *       **确定性报错**的:`[ERR_PNPM_OUTDATED_LOCKFILE] Cannot install with "frozen-lockfile" because
+ *       pnpm-lock.yaml is not up to date with <ROOT>/package.json — specifiers in the lockfile don't
+ *       match specifiers in package.json: * 1 dependencies were removed: @parcel/watcher-win32-x64@^2.6.0`,
+ *       连带 lint-typecheck-test / build-api / real-db-tests / ai-service-schema-check 四条必需 CI
+ *       全红在同一步 install。"不计红"这条排除条款就是那个暗格(本仓反复出现的"判据的排除条款就是
+ *       缺陷候选")。升 blocking 的 §12e 前置 = 现读存量归零,落地当日 HEAD 面与索引面孤儿条数都是 0。
+ *       `result.orphans` 那份**测量**继续保留(报告行与覆盖面自证要用),但不再自称"不计红";
+ *       修法是全量 `pnpm install` 重记账并同 commit 提交,不是手删 lock 行。)
  *   解析不到 / 结构不认识 ⇒ exit 2 "无法判定",绝不静默记为通过
  *
  * 两个"pnpm 自己的合法记账行为"维度(2026-09-24 补,不加就会恒红 22 枚→逼人跳闸):
@@ -758,7 +769,20 @@ export function compareDeclarations(declaredBySection, lockSections, overrideEnt
   }
   for (const [s, m] of lockSections) {
     for (const [name, entry] of m) {
-      if (!declaredNames.has(name)) orphans.push({ section: s, name, locked: entry.specifier })
+      if (declaredNames.has(name)) continue
+      // R3(2026-10-18 升红,立因见文件头):孤儿条目**同一枚对象**既进 violations(判红)
+      // 也留在 orphans(测量,报告行与覆盖面自证要用)。pnpm 对这一型是确定性拒装
+      // (ERR_PNPM_OUTDATED_LOCKFILE),旧口径"不计红只报数"正是今天四条 CI 全红的暗格。
+      const orphan = {
+        kind: 'orphan-in-lock',
+        section: s,
+        name,
+        declared: null,
+        locked: entry.specifier,
+        lockedIn: s,
+      }
+      orphans.push(orphan)
+      violations.push(orphan)
     }
   }
   return { violations, orphans, overrideExempted, peerExempted, multiSectionExempted, undetermined }
@@ -915,6 +939,15 @@ function formatViolation(v) {
       `在**干净检出**里跑一次全量 pnpm install(不带 --filter)重导出该 importer,而不是手改 lock`
     )
   }
+  if (v.kind === 'orphan-in-lock') {
+    return (
+      `[孤儿记账] ${v.pkg} ${v.section}.${v.name}: lock importer 仍记 ${v.locked},而 package.json 已不声明。` +
+      `这不是"如实报数"级别的债:pnpm 的 frozen 校验对这一型**确定报错** ` +
+      `(ERR_PNPM_OUTDATED_LOCKFILE:specifiers in the lockfile don't match specifiers in package.json,` +
+      `"dependencies were removed"),CI 的 pnpm install --frozen-lockfile 会当场拒装(2026-10-18 事故即此型)。` +
+      `修法 = 改完 package.json 后跑一次**全量** pnpm install(不带 --filter)让 lock 重新记账,两者同 commit`
+    )
+  }
   if (v.kind === 'override-not-applied') {
     return (
       `[override 未落 lock] ${v.pkg} ${v.section}.${v.name}: manifest 声明 ${v.declared} 且 lock 也记 ${v.locked},` +
@@ -986,7 +1019,7 @@ function report(result, mode, face, strict = false) {
     return decideExitCode(result, strict)
   }
   console.log(
-    `扫描包 ${result.packagesScanned} / 声明条目 ${result.declarations} / 违规 ${result.violations.length} / 孤儿记账 ${result.orphans.length}(反向条目不计红,如实报数)`,
+    `扫描包 ${result.packagesScanned} / 声明条目 ${result.declarations} / 违规 ${result.violations.length} / 孤儿记账 ${result.orphans.length}(R3 自 2026-10-18 起并入违规判红,此数为测量)`,
   )
   console.log(
     `维度 A overrides 表 ${result.overridesLoaded} 条(父作用域 > 形态 ${result.parentScopedOverrides} 条不参与直接声明比对)` +
@@ -1017,12 +1050,10 @@ function report(result, mode, face, strict = false) {
         `(锁记在 ${u.lockedIn},specifier ${u.locked})`,
     )
   }
+  // 孤儿条目自 2026-10-18 起就是 violations 里的 kind=orphan-in-lock(同一枚对象,见
+  // compareDeclarations),由下面这一轮 formatViolation 统一打印;此前这里另有一段
+  // "[孤儿] …不计红"的独立打印,与判据不同形,已撤 —— 测量值走上面的"孤儿记账 N"报数行。
   for (const v of result.violations) console.log(formatViolation(v))
-  for (const o of result.orphans) {
-    console.log(
-      `[孤儿] ${o.pkg} ${o.section}.${o.name}: lock 仍记 ${o.locked},package.json 已不声明`,
-    )
-  }
   if (result.violations.length === 0) {
     // --strict 的语义是**拒绝出具合格证**,不是加判据。判据只有一份(certRefusal),
     // 文案与退出码同源 —— 报告说"拒绝"而退出码给 0,就等于写了一条跑不通的出路。
@@ -1034,7 +1065,7 @@ function report(result, mode, face, strict = false) {
       )
     } else {
       console.log(
-        `✅ specifier 全部一致、段位置违规 ${result.sectionDrift.length}(孤儿记账 ${result.orphans.length} 条、override 放过 ${result.overrideExempted.length} 条、peer 放过 ${result.peerExempted.length} 条、双声明折段放过 ${(result.multiSectionExempted ?? []).length} 条均不计红)`,
+        `✅ specifier 全部一致、段位置违规 ${result.sectionDrift.length}(孤儿记账 ${result.orphans.length} 条 —— R3 已并入违规,本行可达时必为 0;override 放过 ${result.overrideExempted.length} 条、peer 放过 ${result.peerExempted.length} 条、双声明折段放过 ${(result.multiSectionExempted ?? []).length} 条不计红)`,
       )
     }
     return decideExitCode(result, strict)
@@ -1213,10 +1244,16 @@ const ACCIDENT_DEPS_BLOCK = [
   "      '@ihui/shared':",
   '        specifier: workspace:*',
   '        version: link:../packages/shared',
-  '      jszip:',
-  '        specifier: ^3.10.1',
-  '        version: 3.10.1',
 ].join('\n')
+
+/**
+ * R3(2026-10-18 升红)专用的**唯一孤儿条目**:jszip 曾混在 ACCIDENT_DEPS_BLOCK 里,
+ * 而旧口径"孤儿不计红"让好几个必须当"对齐基线"的夹具带着它判绿 —— 升红后基线夹具不得
+ * 再含孤儿,所以把它摘出来单独成块,只在孤儿正反对照里用(镜像测试从 __test__ 取同一份)。
+ */
+const ORPHAN_DEP_BLOCK = ['      jszip:', '        specifier: ^3.10.1', '        version: 3.10.1'].join(
+  '\n',
+)
 
 export function runSelfTest() {
   // 用例登记走共用出口(scripts/lib/selftest-registrant.mjs):thunk 在消费循环里**必被调用**,
@@ -1230,9 +1267,15 @@ export function runSelfTest() {
         xlsx: '^0.18.5',
         '@ihui/shared': 'workspace:*',
       },
+      // lockWith 的 importer 恒含 devDependencies.typescript(DEFAULT_DEV_DEPS_BLOCK)⇒ 清单
+      // 必须同笔声明它,否则升红后的 R3 会把 typescript 记成孤儿,基线夹具就不再是"对齐基线"
+      devDependencies: { typescript: 'catalog:' },
     }
     const aligned = makeFixture(join(scratch, 'aligned'), {
-      webPkg: { dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:*' } },
+      webPkg: {
+        dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:*' },
+        devDependencies: { typescript: 'catalog:' },
+      },
       lock: lockWith(ACCIDENT_DEPS_BLOCK),
     })
     const broken = makeFixture(join(scratch, 'broken'), {
@@ -1255,12 +1298,36 @@ export function runSelfTest() {
       rAligned.violations.every((v) => v.name !== '@ihui/shared'),
     )
     t(
-      '④孤儿(jszip)不判红但报数',
-      rAligned.violations.length === 0 && rAligned.orphans.some((o) => o.name === 'jszip'),
+      '④孤儿(jszip)判红 kind=orphan-in-lock(R3 升红,2026-10-18)',
+      (() => {
+        // 阳性对照成对:与 aligned **同一份清单、同一把 lock 只多一条孤儿** —— 摘掉必绿、
+        // 放回必红,证明这条闸有牙,不是逢 lock 即红。orphans 的测量维同时留痕。
+        const orphanRed = runCheck(
+          makeFixture(join(scratch, 'orphan-only'), {
+            webPkg: {
+              dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:*' },
+              devDependencies: { typescript: 'catalog:' },
+            },
+            lock: lockWith(`${ACCIDENT_DEPS_BLOCK}\n${ORPHAN_DEP_BLOCK}`),
+          }),
+        )
+        return (
+          rAligned.violations.length === 0 &&
+          rAligned.orphans.length === 0 &&
+          orphanRed.violations.length === 1 &&
+          orphanRed.violations[0].kind === 'orphan-in-lock' &&
+          orphanRed.violations[0].name === 'jszip' &&
+          orphanRed.orphans.length === 1 &&
+          orphanRed.orphans[0] === orphanRed.violations[0]
+        )
+      })(),
     )
 
     const drift = makeFixture(join(scratch, 'ws-drift'), {
-      webPkg: { dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:^' } },
+      webPkg: {
+        dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:^' },
+        devDependencies: { typescript: 'catalog:' },
+      },
       lock: lockWith(ACCIDENT_DEPS_BLOCK),
     })
     const rDrift = runCheck(drift)
@@ -1276,6 +1343,7 @@ export function runSelfTest() {
           '@ihui/shared': 'workspace:*',
           'docx-preview': '^0.3.5',
         },
+        devDependencies: { typescript: 'catalog:' },
       },
       lock: lockWith(ACCIDENT_DEPS_BLOCK),
     })
@@ -1397,7 +1465,12 @@ export function runSelfTest() {
       rPeerIntoDeps.violations.length === 0 && rPeerIntoDeps.peerExempted.length === 1,
     )
     const peerNotAtAll = makeFixture(join(scratch, 'peer-not-at-all'), {
-      webPkg: { peerDependencies: { ghost: '^1.0.0' } },
+      // unrelated 是场地道具(锁里"别的条目都在、只有 peer 不在"的形状),R3 升红后
+      // 必须被清单声明(同段同值 ⇒ 绿),让本例只测 ghost 那一枚 missing
+      webPkg: {
+        dependencies: { unrelated: '^1.0.0' },
+        peerDependencies: { ghost: '^1.0.0' },
+      },
       lock: lockFrom({ dependencies: { unrelated: '^1.0.0' } }),
     })
     t(
@@ -1467,7 +1540,16 @@ export function runSelfTest() {
     )
 
     const quoted = makeFixture(join(scratch, 'quoted'), {
-      webPkg: { devDependencies: { typescript: 'catalog:' } },
+      // lock 里除 typescript(本例主角,单引号形态 'catalog:')外还有 xlsx / jszip2 / @ihui/shared,
+      // R3 升红后这些都得有清单声明兜着,否则"引号不误报"这一例会被孤儿判红顶掉结论
+      webPkg: {
+        dependencies: {
+          xlsx: 'npm:@e965/xlsx@^0.20.3',
+          jszip2: '^3.10.1',
+          '@ihui/shared': 'workspace:*',
+        },
+        devDependencies: { typescript: 'catalog:' },
+      },
       lock: lockWith(
         ACCIDENT_DEPS_BLOCK.replace(
           "      '@ihui/shared':",
@@ -1875,7 +1957,9 @@ export function runSelfTest() {
       runCheck(optSame).violations.length === 0 && runCheck(optSame).undeterminedItems.length === 0,
     )
     const peerSectionExists = makeFixture(join(scratch, 'u3-peer-section'), {
-      webPkg: { peerDependencies: { react: '>=18' } },
+      // vue 是"importer 存在 peerDependencies 段"这一前提的载体;R3 升红后它必须也被清单声明
+      // (记在同段、值等 ⇒ 绿),否则本例会先被 orphan-in-lock 判红,测不到 U3 那一格。
+      webPkg: { peerDependencies: { react: '>=18', vue: '^3.0.0' } },
       // 维度 B 的豁免前提是"实测 importer 没有 peerDependencies 段可比"。夹具里这个段存在
       // 而该 peer 不在其中 ⇒ 前提不再成立 ⇒ 判不准(不得继续静默豁免)。
       lock: lockExact({
@@ -1977,9 +2061,13 @@ export function runSelfTest() {
     // 归镜像测试(它本来就带只读的真仓取证 T26/T27,本次新增 T32)。
 
     /* ---------- 判定面(2026-09-24 收口:--staged 判索引、全量判 HEAD,不判滞后的工作树) ---------- */
-    const BROKEN_WEB = { dependencies: { xlsx: '^0.18.5', '@ihui/shared': 'workspace:*' } }
+    const BROKEN_WEB = {
+      dependencies: { xlsx: '^0.18.5', '@ihui/shared': 'workspace:*' },
+      devDependencies: { typescript: 'catalog:' },
+    }
     const OK_WEB = {
       dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:*' },
+      devDependencies: { typescript: 'catalog:' },
     }
     const webPkgFile = (dir) => join(dir, 'apps', 'web', 'package.json')
 
@@ -2155,6 +2243,8 @@ export const __test__ = {
   wsWithOverrides,
   DEFAULT_WORKSPACE_YAML,
   ACCIDENT_DEPS_BLOCK,
+  // R3 升红(2026-10-18)后专用:唯一一条孤儿条目,正反对照共用同一把 lock 只差这一块
+  ORPHAN_DEP_BLOCK,
   // 退出码只有一份算式:镜像测试要能直接调用它,不得在测试里再抄一遍 ternary(§22c)
   certRefusal,
   decideExitCode,
