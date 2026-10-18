@@ -66,7 +66,7 @@ async def test_默认装载点就是那两个在册manager_不碰真连接(monke
     assert len(targets) == 2
     out = await janitor.sweep_once(targets)
     assert (dbg.calls, ckpt.calls) == (1, 1)
-    assert set(out.values()) == {0, 0}
+    assert set(out.values()) == {0}
 
 
 def test_关档时ensure_started是no_op(monkeypatch) -> None:
