@@ -10,9 +10,10 @@ import { WEBVIEW_FILE_CACHE_KEY } from '@/constants/storage'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 
-/** 导航到 webview 页面并加载指定 URL */
-export function navigateToWebView(url: string): void {
-  navigateTo({ url: `/pages/webview/index?url=${encodeURIComponent(url)}` })
+/** 导航到 webview 页面并加载指定 URL(title 可选:带上后导航栏显示功能名而非空白) */
+export function navigateToWebView(url: string, title?: string): void {
+  const titleParam = title ? `&title=${encodeURIComponent(title)}` : ''
+  navigateTo({ url: `/pages/webview/index?url=${encodeURIComponent(url)}${titleParam}` })
 }
 
 export default function WebviewIndex() {
