@@ -540,7 +540,8 @@
     "notifOff": "메시지 알림이 비활성화되었습니다",
     "accountSecurity": "계정 및 보안",
     "goSetting": "설정으로 이동",
-    "notificationEntry": "알림"
+    "notificationEntry": "알림",
+    "webPortal": "웹 버전 기능"
   },
   "bill": {
     "title": "수강료 청구서",
@@ -984,7 +985,7 @@
         "noAttendees": "참석자를 1명 이상 추가해 주세요"
       },
       "reason": "거절 사유(선택)",
-        "fold": {
+      "fold": {
         "expand": "전체 {count}명 참석자 펼치기",
         "collapse": "참석자 접기"
       },
@@ -4434,5 +4435,139 @@
   },
   "VoiceInput": {
     "p1": "녹음을 시작하지 못했습니다"
+  },
+  "webViewPortal": {
+    "title": "웹 기능 포털",
+    "hint": "아래는 웹 버전 기능 진입점입니다. 내장 브라우저에서 열립니다",
+    "sections": {
+      "eduAi": "교육 AI",
+      "edu": "교무 관리 / 학부모",
+      "developer": "개발자 플랫폼",
+      "selfMedia": "자체 미디어 운영",
+      "knowledgeTools": "지식 그래프와 도구",
+      "models": "모델 플랫폼",
+      "more": "더보기",
+      "workspace": "AI 워크스페이스",
+      "admin": "관리 콘솔",
+      "analytics": "분석 대시보드",
+      "docs": "문서 및 도움말",
+      "workflows": "워크플로와 자동화",
+      "openPlatform": "오픈 플랫폼"
+    },
+    "eduAi": {
+      "policy": "정책 해설",
+      "certification": "인증 센터",
+      "courses": "강좌 센터",
+      "aigcTools": "AIGC 도구",
+      "map": "학습 지도",
+      "marking": "AI 채점",
+      "outbound": "스마트 아웃바운드",
+      "tbox": "T-Box",
+      "videoCompose": "영상 합성",
+      "voice": "AI 음성"
+    },
+    "eduManagement": {
+      "schedule": "시간표 관리",
+      "attendance": "출결 관리",
+      "grades": "성적 관리",
+      "homework": "숙제 관리",
+      "canteenProcurement": "식당 구매 장부"
+    },
+    "eduParent": "학부모 포털",
+    "eduSchedule": "시간표",
+    "developer": {
+      "keys": "API 키",
+      "apiDocs": "API 문서",
+      "webhooks": "Webhook",
+      "logs": "호출 로그",
+      "billing": "청구",
+      "relay": "Relay 게이트웨이"
+    },
+    "selfMedia": {
+      "koubo": "입담 대본",
+      "wechat": "공식 계정",
+      "automation": "자동화"
+    },
+    "publish": {
+      "analytics": "발행 분석",
+      "calendar": "발행 캘린더"
+    },
+    "knowledgeGraph": "지식 그래프",
+    "tools": {
+      "voiceStt": "음성→텍스트",
+      "pdf": "PDF 도구"
+    },
+    "resources": "자료실",
+    "stock": "주식",
+    "fundData": "펀드",
+    "models": {
+      "overview": "모델 개요",
+      "keys": "모델 키",
+      "usage": "사용량",
+      "prompts": "Prompt 관리",
+      "eval": "모델 평가"
+    },
+    "workspace": "워크스페이스",
+    "workspacePermissions": "워크스페이스 권한",
+    "tags": "태그",
+    "topics": "토픽",
+    "context": "컨텍스트 관리",
+    "traders": "트레이더",
+    "members": "회원",
+    "lecturers": "강사",
+    "oauth": {
+      "authorized": "인증 관리"
+    },
+    "enterprise": "엔터프라이즈",
+    "featureCenter": "기능 센터",
+    "admin": {
+      "home": "관리 콘솔 홈",
+      "dashboardStat": "대시보드",
+      "users": "사용자 관리",
+      "memberUsers": "회원 관리",
+      "orders": "주문 관리",
+      "refund": "환불 관리",
+      "wallet": "지갑 관리",
+      "withdrawal": "출금 관리",
+      "articles": "게시글 심사",
+      "eduCourse": "강좌 심사",
+      "eduExam": "시험 심사",
+      "live": "라이브 관리",
+      "point": "포인트 관리",
+      "news": "뉴스 관리",
+      "agents": "에이전트 관리",
+      "feedbacks": "피드백",
+      "ticket": "티켓 관리",
+      "configs": "시스템 설정"
+    },
+    "analytics": {
+      "dashboard": "대시보드",
+      "bi": "BI 대시보드",
+      "cost": "비용 대시보드"
+    },
+    "docs": {
+      "home": "문서",
+      "quickstart": "빠른 시작",
+      "gettingStarted": "시작 가이드",
+      "faq": "자주 묻는 질문",
+      "help": "도움말 센터"
+    },
+    "openPlatform": {
+      "mcpStore": "MCP 스토어",
+      "mcpProjects": "MCP 프로젝트",
+      "connectors": "커넥터 생태계",
+      "registry": "기능 레지스트리",
+      "apiTest": "API 테스트",
+      "capabilityMarket": "기능 마켓"
+    },
+    "workflows": {
+      "home": "워크플로",
+      "editor": "워크플로 편집기",
+      "automations": "자동화 작업",
+      "orchestration": "오케스트레이션",
+      "schedule": "예약 작업"
+    },
+    "knowledgeCards": "지식 카드",
+    "knowledgePlanet": "지식 플래닛"
   }
 }

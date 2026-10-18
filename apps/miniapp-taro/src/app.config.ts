@@ -162,6 +162,7 @@ export default defineAppConfig({
         'about/usage-rules/index',
         'about/app-permission/index',
         'about/api-settings/index',
+        'about/web-portal/index',
       ],
     },
     {
