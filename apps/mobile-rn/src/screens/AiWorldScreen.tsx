@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
+import type { AiWorldCategory } from '@ihui/types'
 import {
   AiWorldScreen as SharedAiWorldScreen,
   type AiWorldEntry,
@@ -79,15 +80,6 @@ interface AiWorldEntryDto {
   trendingScore: number | null
   trendingMetrics: Record<string, unknown> | null
   trendingUpdatedAt: string | null
-}
-
-interface AiWorldCategory {
-  id: string
-  name: string
-  slug: string
-  description: string | null
-  icon: string | null
-  sort: number
 }
 
 interface AiWorldFeed {

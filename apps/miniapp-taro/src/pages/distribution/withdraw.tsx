@@ -9,10 +9,12 @@ import { useFieldFocus } from '@/hooks/use-field-focus'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
 export default function DistributionWithdraw() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [available, setAvailable] = useState(0)
   const [amount, setAmount] = useState('')
   const [payType, setPayType] = useState('wechat')
@@ -64,8 +66,11 @@ export default function DistributionWithdraw() {
     }
   }
 
+  // G-933 冷启动抢跑门控:GET /api/distribution/overview 由 distributionRoutes 的统一
+  // preHandler 守(`apps/api/src/routes/distribution.ts:24` addHook authenticate)⇒ 需鉴权;
+  // 提交提现(onSubmit → POST /api/distribution/withdraw)是用户动作,不经这一道门。
   useDidShow(() => {
-    load()
+    gate.waitUntilReady(load)
   })
 
   return (

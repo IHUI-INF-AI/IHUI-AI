@@ -54,6 +54,11 @@ import { isErrorTurn, resendTargetText } from '@ihui/shared/chat'
 import type { ChatMessage } from '@ihui/shared'
 import type { ChatScreenMessage } from '@ihui/rn-app'
 import { ToolCallCard } from './ToolCallCard'
+import {
+  ActionAnchorChip,
+  extractActionAnchors,
+  type ActionAnchor,
+} from './action-anchor'
 import { type FloatBoxType } from '../../components/FloatBox'
 import type { MessageRating } from '@ihui/api-client'
 
@@ -258,6 +263,12 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: tokens.text.secondary,
   },
+  // ── D99 富文本动作锚点:文本段内「原文片段 + 芯片」的行内流容器 ──
+  anchorParagraph: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
   // ── D135 执行/交互帧最小可视态(子代理回放行,与 ToolCallCard 同族) ──
   execRows: {
     marginTop: rpx(8),
@@ -307,6 +318,12 @@ interface ChatMessageItemProps {
   setPreviewImageUrl: (url: string | null) => void
   /** D111 工作区权限档(null = 尚未取到 / 取数失败 → 整行隐藏) */
   workspaceTier: string | null
+  /**
+   * D99 富文本动作锚点出口:点击正文里的 `[[action:<type>:<label>|<payload>]]` 芯片时触发。
+   * 可选 —— 未传时锚点降级为普通加粗文本(不挂点击语义),故既有调用方零改动仍然编译通过。
+   * 宿主**必须**按 anchor.type 二次白名单校验后再执行(payload 为不透明字符串,可能来自模型输出)。
+   */
+  onActionAnchor?: (anchor: ActionAnchor) => void
 }
 
 /**
@@ -333,6 +350,7 @@ export function ChatMessageItem({
   messageRefs,
   setPreviewImageUrl,
   workspaceTier,
+  onActionAnchor,
 }: ChatMessageItemProps): ReactNode {
   const isUser = item.role === 'user'
   const isLastMessage = messages.length > 0 && item.id === messages[messages.length - 1]?.id
@@ -546,13 +564,41 @@ export function ChatMessageItem({
                   </View>
                 )
               }
+              // D99 富文本动作锚点:文本段先过识别器 —— 无锚点时走下面的原样 <Text>,
+              // 与抽取前逐字节一致;有锚点时切成行内流(text 子段照旧 <Text>,
+              // anchor 子段为可点击芯片,未传 onActionAnchor 时芯片内部自动降级为加粗文本)。
+              const anchorParts = extractActionAnchors(seg.text)
+              if (!anchorParts.some((part) => part.kind === 'anchor')) {
+                return (
+                  <Text
+                    key={`${item.id}-text-${segIndex}`}
+                    style={[styles.msgText, isUser ? styles.msgBubbleUserText : styles.msgTextAi]}
+                  >
+                    {seg.text}
+                  </Text>
+                )
+              }
               return (
-                <Text
-                  key={`${item.id}-text-${segIndex}`}
-                  style={[styles.msgText, isUser ? styles.msgBubbleUserText : styles.msgTextAi]}
-                >
-                  {seg.text}
-                </Text>
+                <View key={`${item.id}-text-${segIndex}`} style={styles.anchorParagraph}>
+                  {anchorParts.map((part, partIndex) =>
+                    part.kind === 'text' ? (
+                      <Text
+                        key={`${item.id}-text-${segIndex}-${partIndex}`}
+                        style={[styles.msgText, isUser ? styles.msgBubbleUserText : styles.msgTextAi]}
+                      >
+                        {part.text}
+                      </Text>
+                    ) : (
+                      <ActionAnchorChip
+                        key={`${item.id}-anchor-${segIndex}-${partIndex}`}
+                        anchor={part.anchor}
+                        isUser={isUser}
+                        textStyle={[styles.msgText, isUser ? styles.msgBubbleUserText : styles.msgTextAi]}
+                        onActionAnchor={onActionAnchor}
+                      />
+                    ),
+                  )}
+                </View>
               )
             })}
           {!isFailed && segments.length === 0 ? (

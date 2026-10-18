@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import { useState, useCallback } from 'react'
 import { getMemberBenefits } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { logger } from '@/utils/logger'
 import { REMOTE_ICONS, icon } from '@/constants/remote-icons'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -275,6 +276,7 @@ const TIER_HEAD_CLASS = 'bg-muted text-foreground'
 
 export default function BenefitsPage() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [list, setList] = useState<Benefit[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -302,7 +304,12 @@ export default function BenefitsPage() {
     }
   }, [])
 
-  useDidShow(() => load())
+  // G-933 冷启动抢跑门控:GET /api/member/benefits 挂在 otherRoutes 的统一 preHandler
+  // (`apps/api/src/routes/other/index.ts:42` addHook authenticate)之下 ⇒ 属需鉴权请求,
+  // 未落定期间不发;落定(含"落定但未登录")后照发一次,页面空态由既有分支渲染。
+  useDidShow(() => {
+    gate.waitUntilReady(load)
+  })
 
   return (
     <ThemeRoot>

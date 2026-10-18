@@ -6,12 +6,17 @@
  * PanelLeftRounded 侧边栏面板图标 (mobile-rn 端)
  *
  * 与 web 端 SidebarHeader.tsx 的 PanelLeftRounded 同源(对标设计稿):
- * 大圆角面板 + 左侧短竖线(两端不贴外框) + 方向箭头。
+ * 大圆角面板(外框) + 左侧实心竖条(面板边) + 方向箭头。
  * open=false 箭头朝左(web 展开态侧边栏的可见图标);open=true 箭头朝右(web 折叠态展开动作)。
  * NavBar 各屏抽屉触发钮取 open=false,替换原 lucide Menu 汉堡图标(2026-10-15 用户定:
  * 抽屉钮图标须与 web 端侧边栏图标完全一致,且不显示「菜单」文字)。
  * rx 走 rnRadius.sm 档(勿写死 4);RN SVG 无 currentColor,墨迹色由调用方注入
  * (NavBarActionButton 传 tokens.text.secondary,与 web 端 text-foreground/80 语义对齐)。
+ *
+ * 2026-10-18 与 web 端美化同步(几何逐值一致,web 侧注释见 SidebarHeader.tsx):
+ * 外框描边 2→1.75;左竖条改 2.5 宽圆头实心条(y 8.5→15.5);
+ * 箭头改两态镜像的 3.5×7 对称折角并右移 0.75 —— RN 端无 group-hover,
+ * 故不做 hover 微位移(那是 web 端 CSS 交互,不属于图标几何)。
  */
 import Svg, { Path, Rect } from 'react-native-svg'
 import { rnRadius } from '@ihui/design-tokens'
@@ -33,13 +38,17 @@ export function PanelLeftRounded({ size = 20, color, open = false }: PanelLeftRo
       viewBox="0 0 24 24"
       fill="none"
       stroke={color}
-      strokeWidth={2}
+      strokeWidth={1.75}
       strokeLinecap="round"
       strokeLinejoin="round"
     >
       <Rect width={18} height={18} x={3} y={3} rx={rnRadius.sm} />
-      <Path d="M7.5 8v8" />
-      {open ? <Path d="m14 9 3 3-3 3" /> : <Path d="m16 15-3-3 3-3" />}
+      <Path d="M7.5 8.5v7" strokeWidth={2.5} />
+      {open ? (
+        <Path d="m13.75 8.5 3.5 3.5-3.5 3.5" />
+      ) : (
+        <Path d="m17.25 8.5-3.5 3.5 3.5 3.5" />
+      )}
     </Svg>
   )
 }

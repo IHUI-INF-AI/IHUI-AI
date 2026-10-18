@@ -37,7 +37,7 @@ IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actio
 | desktop | GitHub Release(6 包)+ 自动更新 feed + 下载页快照自动同步 | `desktop-v*` tag → `release-desktop.yml` | `apps/desktop/src-tauri/tauri.conf.json` + `release-desktop.yml` |
 | extension | Chrome Web Store | 手动上传 zip | `apps/extension/package.json` + `wxt.config.ts` |
 | mobile-rn | EAS + App Store + Play Store | `eas build` / `eas submit` | `apps/mobile-rn/eas.json` |
-| miniapp-taro | 微信小程序审核 | 微信开发者工具上传 | `apps/miniapp-taro/package.json` |
+| miniapp-taro | 微信小程序审核 | `node scripts/upload-miniapp.mjs`(miniprogram-ci) | `apps/miniapp-taro/package.json` |
 | sdk(TS) | npm 包 | `sdk-v*` tag → `release-sdk.yml` | `packages/sdk/package.json` |
 | sdk(Python) | PyPI | `sdk-v*` tag → `release-sdk.yml` | `packages/sdk/python/pyproject.toml` |
 | sdk(Go) | go get(git tag) | `sdk-v*` tag → `release-sdk.yml`(推 `sdk/v*` 子 tag) | `packages/sdk/go/go.mod` |
@@ -392,7 +392,10 @@ sha256sum ihui-windows-x64.zip
 | --- | --- |
 | 构建命令 | `pnpm --filter @ihui/miniapp-taro build:weapp` |
 | 产物 | `apps/miniapp-taro/dist/` |
-| 上传 | 微信开发者工具 → 上传 → 提交审核 |
+| 上传(CI/无人值守) | `node scripts/upload-miniapp.mjs --version <ver> --desc "<说明>" [--key <密钥路径>]` |
+| 上传密钥来源 | `--key` > 环境变量 `WX_MINIAPP_PRIVATE_KEY` > `apps/miniapp-taro/private.<appid>.key`(密钥取自微信公众平台,禁止入库) |
+| 上传依赖 | `pnpm --filter @ihui/miniapp-taro add -D miniprogram-ci`(未装时脚本 exit 2 报缺依赖) |
+| 兜底通道 | 微信开发者工具 → 上传 → 提交审核(无密钥时) |
 | 审核 | 微信团队审核(1-7 天) |
 | 多端 | Taro 4.2 支持同时构建 weapp / alipay / swan / tt / h5 |
 
@@ -425,15 +428,28 @@ matrix:
 
 Windows 二进制(`ihui-windows-*.zip` 内的 `ihui.exe`)使用 SignPath Foundation 的免费开源代码签名:证书由 Sectigo CA 签发,私钥保存在 SignPath HSM,不落到 CI。下载页与 README 已包含 SignPath Foundation 声明。
 
-**当前状态(2026-10-18)**
+**当前状态(2026-10-19)**
 
 | 项 | 状态 |
 | --- | --- |
 | 申请 | ✅ 2026-10-18 已通过官网表单提交(项目 IHUI AI,仓库 https://github.com/IHUI-INF-AI/IHUI-AI,邮箱 ok502319984@gmail.com) |
+| 声誉问询 | ✅ 2026-10-19 已邮件回复(SignPath 要求补充项目声誉/影响力公开佐证,与 GitHub OAuth 无关) |
 | 审批 | ⏳ 待审批,官方周期约 1-2 周 |
 | 费用 / 证书 | 免费;Sectigo CA 签发 |
 | 私钥 | 由 SignPath HSM 保管,CI 只持短期凭据 |
 | CI 集成 | ❌ 未配置(等审批通过) |
+
+**2026-10-19 回复问询时提交的公开佐证**(均已 HTTP 200 验证):
+
+| 类型 | 链接 |
+| --- | --- |
+| Product Hunt 收录 | https://www.producthunt.com/products/ihui-ai |
+| dev.to 技术博客(维护者 18 篇) | https://dev.to/_fd4c731d8fc551b91150a |
+| 前端进阶之旅 AI 资讯站转载(AI Score 8.0) | https://feinterview.poetries.top/ai-monitor/news/introducing-ihui-ai-8-platforms-176-llms-1-codebase-apache-2-0 |
+| Molayo 韩文技术博客架构分析 | https://molayo1419.me/insights/ |
+| AITNT AI 工具库收录(productId=23174) | https://m.app.aitntnews.com/aiProductDetail.html?productId=23174 |
+| MarkdownSkill 技能库收录 | https://www.markdownskill.com/skills/ihui-inf-ai-ihui-ai |
+| Bilibili 开源公告 | https://m.bilibili.com/opus/1227375741989027847 |
 
 **审批通过后需要的凭据**(配置在 GitHub 仓库 secrets):
 

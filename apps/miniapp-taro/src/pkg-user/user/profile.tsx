@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, updateUserAvatar, type UserInfo } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import './profile.css'
 import LineIcon from '@/components/LineIcon'
@@ -15,6 +16,7 @@ import LineIcon from '@/components/LineIcon'
 export default function Profile() {
   const { t } = useI18n()
   const tt = useTt()
+  const gate = useAuthReadyGate()
   const [form, setForm] = useState<Partial<UserInfo>>({})
   const [uploading, setUploading] = useState(false)
 
@@ -60,7 +62,10 @@ export default function Profile() {
   }, [uploading, form.avatar, t])
 
   useDidShow(() => {
-    load()
+    // G-933 冷启动门控:GET /user/profile(checkAuth)需鉴权,落定前不发
+    gate.waitUntilReady(() => {
+      void load()
+    })
   })
 
   const accountRows = [

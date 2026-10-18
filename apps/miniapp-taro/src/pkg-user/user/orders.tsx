@@ -7,6 +7,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getOrderList, type Order } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
 const STATUS_COLOR: Record<string, string> = {
@@ -31,6 +32,7 @@ const STATUS_KEY: Record<string, string> = {
 
 export default function Orders() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [list, setList] = useState<Order[]>([])
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
@@ -85,7 +87,11 @@ export default function Orders() {
   useEffect(() => {
     if (mountedRef.current) return
     mountedRef.current = true
-    load(true)
+    // G-933 冷启动门控:GET /orders/me(orderRoutes 组级 checkAuth)需鉴权
+    return gate.waitUntilReady(() => {
+      void load(true)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load])
 
   usePullDownRefresh(() => {

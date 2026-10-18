@@ -15,6 +15,7 @@ import { useAppTheme } from '@/lib/theme'
 import { fetchApi } from '@ihui/api-client'
 import type { CheckInInfo } from '@ihui/types'
 import ThemeRoot from '@/components/ThemeRoot'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 
 /** 已签到日历格白色对勾图标(RN 端为 lucide Check,stroke 白色) */
 const CHECK_ICON = 'check-white'
@@ -181,6 +182,7 @@ const textStyles = {
 
 export default function CheckIn() {
   const tt = useTt()
+  const gate = useAuthReadyGate()
   const { resolved: appTheme } = useAppTheme()
   const tk = getRnTokens(appTheme)
   const [info, setInfo] = useState<CheckInInfo | null>(null)
@@ -210,7 +212,10 @@ export default function CheckIn() {
   )
 
   useDidShow(() => {
-    void load()
+    // G-933 冷启动门控:GET /checkin/today(gamification 组级 authenticate)需鉴权
+    gate.waitUntilReady(() => {
+      void load()
+    })
   })
 
   // 签到:对齐 mobile-rn handleSign(POST /checkin,成功 toast + 刷新)

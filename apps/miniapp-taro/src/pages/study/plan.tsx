@@ -8,6 +8,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { getStudyPlan, post } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import { FocusInput } from '@/components/FocusField'
 
@@ -23,6 +24,7 @@ interface PlanItem {
 
 export default function StudyPlan() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [list, setList] = useState<PlanItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -92,8 +94,10 @@ export default function StudyPlan() {
     }
   }, [newTitle, newTarget, load, t])
 
+  // G-933 冷启动抢跑门控:GET /api/study/plan 由 `miniapp-compat-routes.ts:2397`
+  // 的 inline checkAuth 守 ⇒ 需鉴权。新增计划的 POST /api/study/plan 是用户动作,不经这一道门。
   useDidShow(() => {
-    load()
+    gate.waitUntilReady(load)
   })
 
   return (

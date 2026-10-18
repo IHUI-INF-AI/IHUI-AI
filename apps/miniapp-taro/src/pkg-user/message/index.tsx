@@ -15,6 +15,7 @@ import {
   type AggregateMessages,
   type NotificationPreferences,
 } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { getUserInfo } from '@/utils/auth'
 import { logger } from '@/utils/logger'
 import { getTopBarMetrics } from '@/utils/system-info'
@@ -54,6 +55,7 @@ const DEFAULT_PRIVATE: PrivateMessageItem[] = []
 
 export default function MessageIndex() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [list, setList] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
@@ -253,7 +255,9 @@ export default function MessageIndex() {
     ])
   }, [loadAggregate, loadSystemNotices, loadPrivateMessages, loadPreferences])
 
-  useDidShow(load)
+  // G-933 冷启动门控:聚合消息/系统通知/私信/通知偏好四枚请求均挂 checkAuth/authenticate(需鉴权),
+  // 鉴权判定落定前整批不发
+  useDidShow(() => gate.waitUntilReady(() => void load()))
 
   const notification = useMemo(() => {
     if (bannerClosed) return undefined
