@@ -5742,6 +5742,18 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 归属主体只取 `request.userId`;查询 schema 是 `strict`,客户端塞 `userId` 连同任何未知键一律 400(不是"塞了被忽略",而是"塞了不通过")。`total` 是全集条数而不是本页条数。
 - 这条路径原先的状态:RN 打 `/coupons`、小程序打 `/member/coupon`、web 打 `/api/coupons`,三端字面量互不相同而**后端一条都没注册**(库里 `user_coupons` 有写入链路:领券/裂变/核销都真在写,admin 侧也有列表,唯独用户侧没有出口)⇒ 三端会员券页都只会拿到错误态。移动两端字面量已统一成显式 `/api/coupons` 形态,好让门 8(`check-api-routes.mjs`)看得见这两处调用。
 
+**小程序课程公开 fallback 端点(2026-10-18 立,补详情腿并同修列表投影):**
+
+| 端点                      | 方法 | 鉴权 | 响应形状                                                             | 消费端                                            |
+| ------------------------- | ---- | ---- | -------------------------------------------------------------------- | ------------------------------------------------- |
+| `/api/content/course/list` | GET  | 公开 | `{ code:0, message:'success', data:{ list, total, page, pageSize } }` | 小程序 `pkg-learn/course/list.tsx`                |
+| `/api/content/course/:id`  | GET  | 公开 | `data` = 单条课程行 + `outline: [{ title, duration, description }]`    | 小程序 `pkg-learn/course/detail.tsx`(点击进详情) |
+
+- 两条路由**共用同一个投影函数** `toCourseRow`(库里 `coverImage/lecturerName/intro/lecturerId/difficulty` → 端上 `coverUrl/teacher/description/teacherId/level`),同一门课在列表页与详情页不可能长得不一样。列表此前也在发库列名,而两个页面都读 `coverUrl` ⇒ 列表封面恒空,这一并从结构上修掉。
+- 库里没有"一行简介"这一列 ⇒ **不发 `subtitle` 键**(端上是 optional,缺键即不渲染,胜过在服务端造一行假简介);`lesson_chapters` 只有标题 ⇒ `duration/description` 落空串,由端上决定不显示。
+- 只出 `isPublished = true ∧ status = 1` 的课;查无此课 ⇒ 404 且**不发章节查询**(用例用队列哨兵证明大纲那条查询没发生)。id 非 UUID ⇒ 400 且不进库。
+- 小程序两处调用字面量已改成显式 `/api/content/course/…` 形态,使其进入门 8 的对账面。
+
 **小程序兼容设置端点(2026-10-18 收口单/复数分叉):**
 | 端点                    | 方法 | 鉴权 | 响应形状 | 消费端 |
 | ----------------------- | ---- | ---- | -------- | ------ |
