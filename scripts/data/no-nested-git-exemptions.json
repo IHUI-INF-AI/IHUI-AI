@@ -1,5 +1,24 @@
 {
   "$comment": "守门 208 (check-no-nested-git.mjs) 的具名豁免台账。AGENTS §0.7:豁免必须「验过才免」且会到期 —— 只有容器目录 rel 与条目**逐字等值**才放行(不做前缀/同名匹配);缺 owner/why 或到期日不是 YYYY-MM-DD ⇒ 整条作废;到期 ⇒ 自动翻红需重新 ack;审面不再命中 ⇒ 按清单腐烂判红。放行的每一处都由门自己逐条打印,不静默。‖ 2026-10-16 销账记录:commit 27e3bbdfcc 所登三条(.DevEnv/cache/userhome/.codex/.tmp/plugins / .ihui-agent/desktop-feed-clone / outputs/ihui-bench-release)经审面三处现场均已消失(Test-Path 全 False,[208] 门清单腐烂判红),按门自身指示随现场销账 —— 非回退他席登记,是 §0.7『豁免必须随现场一起销』的必然处置;三处若复现在飞,由持有席按带 owner/why/到期日的完整格式重新登记。‖ 2026-10-17 复现重登记:三处现场在门 208 现读均复现(无豁免即红),按上句指令补登;三条的 owner/why/到期日已由独立复核重写(证据见本枚提交信息),到期日沿用前任 72h/72h/96h 口径而**不**给 3 个月长期豁免。‖ 2026-10-18 销账:三条豁免(.DevEnv/cache/userhome/.codex/.tmp/plugins / .ihui-agent/desktop-feed-clone / outputs/ihui-bench-release)的容器目录经现读全部消失(`[ -e <path> ]` 三处均无、`[ -e <path>/.git ]` 三处均无,全树 find -maxdepth 4 -name .git 只剩主仓自身)⇒ 门 208 按「审面不再命中 ⇒ 清单腐烂」blocking 红,按门自身指示随现场销账(entries 置空)。这不是回退他席登记:f73b5a3294b 那条重登记写明了\"到期或它不再命中都翻红,逼届时做真正的决定\",而\"真决定\"之一就是现场已没就摘册。其中 .ihui-agent/desktop-feed-clone 那条当初担心的「唯一存活载体」已另面复核:origin 上有 refs/tags/restore/desktop-feed 与 backup/cleanup-2026-09-17-desktop-feed、backup/cleanup-20260923-desktop-feed 三枚标签,内容不孤。三处若复现在飞,由持有席按带 owner/why/到期日的完整格式重新登记(判据未改,新出现的嵌套仓仍直接红)。",
-  "entries": [],
+  "entries": [
+    {
+      "rel": ".DevEnv/cache/userhome/.codex/.tmp/plugins",
+      "owner": "未知持有席(本仓的仓内第二份工作副本 .DevEnv/,分支 main,远端 gitee+origin)",
+      "why": "2026-10-18 现读: .DevEnv/ 是本仓整份克隆(体积 2.5G,其 log 头部即当日主仓提交 b7fb4bbd48 chore(knip) G-80),内层 .codex/.tmp/plugins 带自己的 .git;工作树呈 85 条未提交改动(样例: PROJECT_PLAN.md、.husky/post-commit、apps/ai-service/app/routers/checkin.py)⇒ 按 §7 三问无法判定为垃圾,既不删也不搬(搬 2.5G 活动副本会让持有席的现场失联)。落点本身违反 §15b(项目外落点只允许 D:\\DevEnv\\ 等批准目录,不得在仓树内)⇒ 限期处置:由持有席把副本移出工作区,或自清后随现场摘本条。gitignore 命中 .gitignore:522 `.DevEnv/`。到期或现场消失即翻红,逼届时做真正的决定。",
+      "expires": "2026-10-21"
+    },
+    {
+      "rel": ".ihui-agent/desktop-feed-clone",
+      "owner": "桌面更新源发布流程(desktop-feed 分支)",
+      "why": "2026-10-18 现读: 分支 desktop-feed,工作树 34 条未提交改动,且有 1 枚未推送提交 2072082 desktop updater feed 0.1.28 ⇒ 删除即丢在飞发布工作。内容另面已复核不孤: 主仓本地在位三枚兜底标签 restore/desktop-feed、backup/cleanup-2026-09-17-desktop-feed、backup/cleanup-20260923-desktop-feed。gitignore 命中 .gitignore:163 `.ihui-agent/*`。限期由持有席推走未推送提交并把夹具落点改 scripts/lib/scratch-dir.mjs mkScratch()(§15c)。",
+      "expires": "2026-10-21"
+    },
+    {
+      "rel": "outputs/ihui-bench-release",
+      "owner": "IHUI-Bench 基准发布仓(自带独立 origin)",
+      "why": "2026-10-18 现读: 工作树净(0 条脏项),但 log 有 1 枚未推送提交 00089ae docs: 回填已发布仓库链接 ⇒ §7 三问第③条不成立,删了就是丢别人的成品。gitignore 命中 .gitignore:472 `outputs/*`。限期由持有席推送后把发布副本移出仓树(§15b),或摘本条并自清现场。",
+      "expires": "2026-10-22"
+    }
+  ],
   "$note": "2026-10-15 清空:此前 3 条(.DevEnv/cache/userhome/.codex/.tmp/plugins、.ihui-agent/desktop-feed-clone、outputs/ihui-bench-release)的容器目录实测都已不存在 ⇒ 门按\"审面不再命中 ⇒ 清单腐烂\"判红。判据未改:新出现的嵌套仓仍直接红,需要长期豁免者必须按 schema 补 owner/why/expires 的具名条目。"
 }
