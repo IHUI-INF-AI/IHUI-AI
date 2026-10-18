@@ -404,6 +404,31 @@ async def _build_loop_v2_tools(
     return tools
 
 
+class _LLMGatewayResponseError(RuntimeError):
+    """网关返回 error dict / error 事件时抛出(2026-10-18)。
+
+    根因修复:llm_gateway.complete/astream 把上游失败兜成优雅 error dict
+    ({"error": True, "errorCode": ...})而不抛异常;agent loop 原先把该 dict
+    当"正常空响应"继续走完并记 stop_reason=completed —— 假成功,且
+    ihui_agent_loop_llm_retries_total / ihui_agent_loop_errors_total 一根毛
+    都不动。改为在此处抛错,让网关级失败与 raise 型失败同走既有
+    _llm_call_with_retry 重试与 run() 外层 errors 计数链路(语义对齐:
+    上游真失败就该重试、就该计错),零新指标、零行为面外溢。"""
+
+
+def _raise_if_gateway_error(payload: dict[str, Any], *, stream: bool) -> None:
+    """网关失败形态两族:非流式 dict(error/errorCode)与流式事件(type=error)。"""
+    if stream:
+        err_code = payload.get("errorCode") or "LLM_ERROR"
+        msg = payload.get("message") or "llm gateway stream error"
+    else:
+        if not payload.get("error"):
+            return
+        err_code = payload.get("errorCode") or "LLM_ERROR"
+        msg = payload.get("error_message") or "llm gateway error"
+    raise _LLMGatewayResponseError(f"[{err_code}] {msg}")
+
+
 def _make_loop_v2_llm(model: str | None) -> Any:
     """构造 AgentLoopV2 的 llm_complete_fn(包装 llm_gateway.complete/astream)。
 
@@ -429,6 +454,7 @@ def _make_loop_v2_llm(model: str | None) -> Any:
             result = await llm_gateway.complete(
                 messages, model=model, **model_kwargs
             )
+            _raise_if_gateway_error(result, stream=False)
             return {
                 "content": result.get("content", ""),
                 "tool_calls": _convert_openai_tool_calls(result.get("tool_calls")),
@@ -456,6 +482,10 @@ def _make_loop_v2_llm(model: str | None) -> Any:
             elif evt_type == "done":
                 usage = evt.get("usage")
                 model_used = evt.get("model", "")
+            elif evt_type == "error":
+                # 网关流式失败事件(过去被静默忽略 → 空响应假成功),
+                # 抛错交给 _llm_call_with_retry 计 retries、耗尽计 errors。
+                _raise_if_gateway_error(evt, stream=True)
         return {
             "content": "".join(content_parts),
             "tool_calls": _convert_openai_tool_calls(raw_tool_calls),
