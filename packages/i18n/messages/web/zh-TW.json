@@ -8303,6 +8303,10 @@
           "title": "目前對話模式已封鎖該操作",
           "action": "切換至建構模式後重試"
         },
+        "CONCURRENT_MODIFICATION": {
+          "title": "檔案已被並發修改",
+          "action": "重新讀取後再寫，或確認後強制覆蓋"
+        },
         "CONCURRENCY_LIMIT_EXCEEDED": {
           "title": "請求過於頻繁",
           "action": "稍後重試"
@@ -15994,6 +15998,11 @@
     "logsEmptyDescription": "該 Hook 尚未被觸發過",
     "logSuccess": "成功",
     "logFailure": "失敗"
+  },
+  "connectivity": {
+    "deviceOffline": "本機已斷網,部分功能不可用",
+    "apiUnreachable": "無法連接伺服器,正在自動重試",
+    "hostLocalAvailable": "本地 Git 通道仍可用"
   },
   "ide": {
     "activityBar": {
@@ -26872,7 +26881,7 @@
     "toastPlanFailed": "預演失敗",
     "toastRunOk": "整棧回滾已執行",
     "toastRunFail": "整棧回滾失敗",
-    "availabilityAvailable": "另一台裝置剛建立了檢查點:{id}",
+    "availabilityAvailable": "另一臺裝置剛建立了檢查點:{id}",
     "availabilityUnavailable": "檢查點服務暫時無法使用,請稍後再試"
   },
   "traceReplay": {

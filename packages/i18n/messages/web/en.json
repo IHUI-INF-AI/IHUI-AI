@@ -8303,6 +8303,10 @@
           "title": "This action is blocked in the current chat mode",
           "action": "Switch to Build Mode and retry"
         },
+        "CONCURRENT_MODIFICATION": {
+          "title": "File modified concurrently",
+          "action": "Re-read before writing, or confirm to force overwrite"
+        },
         "CONCURRENCY_LIMIT_EXCEEDED": {
           "title": "Too many requests",
           "action": "Retry later"
@@ -15990,6 +15994,11 @@
     "logsEmptyDescription": "This hook has not been triggered yet",
     "logSuccess": "Success",
     "logFailure": "Failed"
+  },
+  "connectivity": {
+    "deviceOffline": "Device offline, some features unavailable",
+    "apiUnreachable": "Cannot reach the server, retrying automatically",
+    "hostLocalAvailable": "Local Git channel still available"
   },
   "ide": {
     "activityBar": {
