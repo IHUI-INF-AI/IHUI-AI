@@ -299,7 +299,7 @@ export default function EnDocsPage() {
           </p>
           <pre className="mt-6 overflow-x-auto rounded-lg border bg-background p-3 text-xs leading-relaxed text-foreground min-[768px]:text-sm">
             <code>{`# Install CLI
-npm install -g @ihui/cli
+npm install -g ihui-cli
 
 # Initialize a project
 ihui init my-ai-app

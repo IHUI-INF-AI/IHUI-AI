@@ -18,14 +18,17 @@
 //!   与 `suspicious-input`（看不清），两者都不是放行。
 
 use serde::Serialize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 
+use crate::git_local_diff::{local_diff, DiffOutcome};
 use crate::git_local_status::{
-    git_binary_candidates, local_status, resolve_git_binary, summarize, verify_root, Config,
-    EngineOutcome, ProcessRunner, RequestSpec, DEFAULT_TIMEOUT_MS, ENV_GIT_BASES, MAX_TIMEOUT_MS,
+    check_root_no_symlink_escape, git_binary_candidates, local_status, refused, resolve_git_binary,
+    summarize, verify_root, Config, EngineOutcome, ProcessRunner, RequestSpec,
+    DEFAULT_TIMEOUT_MS, ENV_GIT_BASES, MAX_TIMEOUT_MS,
 };
+use crate::workspace_index::{compute_delta, walk_index, IndexDelta, WalkOutcome};
 use crate::git_status_core::{ChangeKind, StatusEntry};
 
 /// 一条变更的上线形态。`kind` 是封闭集（`added|modified|deleted|renamed|copied|
@@ -249,6 +252,18 @@ pub fn git_authorize_workspace(
     // facts ⇒ 大仓永远无法授权 —— 授权不该取决于仓库有多大（verify_root 立口的
     // 同一句话）。失败路径（拒/判不了/命令失败）经 StatusReply::from 原样上线，
     // state 均非 "facts"，不会写入 authorized_root。
+    // 票72④(2026-10-18)：双证之前先过符号逃逸门 —— 字面落在 base 内、实际经
+    // 符号链接/junction 指向 base 外的 root 能骗过字面包含性比对；canonical
+    // 解析后逃出全部 base ⇒ 拒，解析不了 ⇒ 判不了，两者都不写 authorized_root。
+    let escape = check_root_no_symlink_escape(
+        &candidate,
+        &cfg.bases,
+        cfg.fold_case,
+        &|p: &str| std::fs::canonicalize(p).map(|pb| pb.display().to_string()),
+    );
+    if !escape.is_pass() {
+        return Ok(StatusReply::from(&refused(escape)));
+    }
     let reply = match verify_root(&cfg, &candidate, Some(&binary), &ProcessRunner) {
         Ok(binary_used) => {
             let mut slot = state
@@ -321,6 +336,209 @@ pub fn git_channel_info(state: tauri::State<'_, GitChannelState>) -> Result<serd
         "timeoutMs": state.timeout.as_millis(),
         "boundary": state.boundary_note(),
     }))
+}
+
+/// diff 通道上线形态。`state` 三态与 StatusReply 同名同义；`dirty` 只在
+/// `facts` 时有意义，"空 diff"与"有 diff"结构上分家。
+#[derive(Debug, Clone, Serialize)]
+pub struct DiffReply {
+    pub state: String,
+    /// `facts` 时为 `clean|dirty`；其余为空串。
+    pub verdict: String,
+    pub reason: String,
+    pub scope: String,
+    pub staged: bool,
+    pub text: String,
+    pub total_bytes: usize,
+}
+
+impl From<&DiffOutcome> for DiffReply {
+    fn from(outcome: &DiffOutcome) -> Self {
+        match outcome {
+            DiffOutcome::Facts { scope, staged, dirty, text } => DiffReply {
+                state: "facts".into(),
+                verdict: if *dirty { "dirty" } else { "clean" }.into(),
+                reason: String::new(),
+                scope: scope.clone(),
+                staged: *staged,
+                text: text.clone(),
+                total_bytes: text.len(),
+            },
+            DiffOutcome::CommandFailed { exit_code, stderr } => DiffReply {
+                state: "command_failed".into(),
+                verdict: String::new(),
+                reason: format!(
+                    "git 退出码 {}；stderr 原文：{}",
+                    exit_code.map(|c| c.to_string()).unwrap_or_else(|| "none".into()),
+                    if stderr.trim().is_empty() { "(空)" } else { stderr }
+                ),
+                scope: String::new(),
+                staged: false,
+                text: String::new(),
+                total_bytes: 0,
+            },
+            DiffOutcome::Undetermined { kind, reason } => DiffReply {
+                state: "undetermined".into(),
+                verdict: String::new(),
+                reason: format!("[{}] {}", kind.as_str(), reason),
+                scope: String::new(),
+                staged: false,
+                text: String::new(),
+                total_bytes: 0,
+            },
+        }
+    }
+}
+
+fn diff_undetermined(reason: String) -> DiffReply {
+    DiffReply {
+        state: "undetermined".into(),
+        verdict: String::new(),
+        reason,
+        scope: String::new(),
+        staged: false,
+        text: String::new(),
+        total_bytes: 0,
+    }
+}
+
+/// 取本地 diff 文本。只作用于**已授权**的根；scope 必须是仓库内相对路径
+/// （判据与 status 通道同一份 `check_scope`，不另立一份）。
+#[tauri::command]
+pub fn git_workspace_diff(
+    state: tauri::State<'_, GitChannelState>,
+    scope: Option<String>,
+    staged: Option<bool>,
+) -> Result<DiffReply, String> {
+    let root = match state.stored_root() {
+        Some(root) => root,
+        None => {
+            return Ok(diff_undetermined(format!(
+                "尚未授权工作区根（先调 git_authorize_workspace）；边界：{}",
+                state.boundary_note()
+            )))
+        }
+    };
+    let cfg = state.config();
+    let binary = match resolved_binary(&state) {
+        Some(b) => b,
+        None => {
+            return Ok(diff_undetermined(
+                crate::git_local_status::missing_binary_reason(&cfg.git_candidates),
+            ))
+        }
+    };
+    let scope = scope
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| ".".to_string());
+    let staged = staged.unwrap_or(false);
+    Ok(DiffReply::from(&local_diff(
+        &cfg,
+        &root,
+        &scope,
+        staged,
+        Some(&binary),
+        &ProcessRunner,
+    )))
+}
+
+/// 一条索引记录的上线形态（rel 恒 `/` 分隔；增量基准 `size+mtime_ms`，内容级近似）。
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
+pub struct IndexEntryWire {
+    pub rel: String,
+    pub size: u64,
+    pub mtime_ms: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DeltaWire {
+    pub basis: String,
+    pub added: Vec<String>,
+    pub removed: Vec<String>,
+    pub changed: Vec<String>,
+    pub unchanged: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct IndexReply {
+    pub state: String,
+    pub reason: String,
+    pub root: String,
+    pub total: usize,
+    pub entries: Vec<IndexEntryWire>,
+    pub symlink_dirs_skipped: u32,
+    pub non_utf8_skipped: u32,
+    /// 只在传了 previous 时出现；`basis` 显式声明"没变"的判定基准，前端不得暗示内容级。
+    pub delta: Option<DeltaWire>,
+}
+
+fn index_undetermined(reason: String) -> IndexReply {
+    IndexReply {
+        state: "undetermined".into(),
+        reason,
+        root: String::new(),
+        total: 0,
+        entries: Vec::new(),
+        symlink_dirs_skipped: 0,
+        non_utf8_skipped: 0,
+        delta: None,
+    }
+}
+
+/// 工作区文件索引快照（增量）。previous 由前端持回上一次快照 —— 宿主不存会话态，
+/// 重启即失效的索引没有资格叫"增量索引"。目录不下降符号链接/junction（票72④）。
+#[tauri::command]
+pub fn workspace_index_scan(
+    state: tauri::State<'_, GitChannelState>,
+    previous: Option<Vec<IndexEntryWire>>,
+) -> Result<IndexReply, String> {
+    let root = match state.stored_root() {
+        Some(root) => root,
+        None => {
+            return Ok(index_undetermined(format!(
+                "尚未授权工作区根（先调 git_authorize_workspace）；边界：{}",
+                state.boundary_note()
+            )))
+        }
+    };
+    let walk = walk_index(Path::new(&root));
+    let (entries, symlink_dirs_skipped, non_utf8_skipped) = match walk {
+        WalkOutcome::Facts { entries, symlink_dirs_skipped, non_utf8_skipped } => {
+            (entries, symlink_dirs_skipped, non_utf8_skipped)
+        }
+        WalkOutcome::Undetermined { kind, reason } => {
+            return Ok(index_undetermined(format!("[{}] {}", kind.as_str(), reason)))
+        }
+    };
+    let delta = previous.map(|prev| {
+        let mut map = std::collections::BTreeMap::new();
+        for e in prev {
+            map.insert(e.rel, (e.size, e.mtime_ms));
+        }
+        let d: IndexDelta = compute_delta(&map, &entries);
+        DeltaWire {
+            basis: "size+mtime".into(),
+            added: d.added,
+            removed: d.removed,
+            changed: d.changed,
+            unchanged: d.unchanged,
+        }
+    });
+    let total = entries.len();
+    Ok(IndexReply {
+        state: "facts".into(),
+        reason: String::new(),
+        root,
+        total,
+        entries: entries
+            .into_iter()
+            .map(|e| IndexEntryWire { rel: e.rel, size: e.size, mtime_ms: e.mtime_ms })
+            .collect(),
+        symlink_dirs_skipped,
+        non_utf8_skipped,
+        delta,
+    })
 }
 
 /// 供测试与后续对账使用：把 kind 的封闭集固定在一处，前端拼错即编译不到。

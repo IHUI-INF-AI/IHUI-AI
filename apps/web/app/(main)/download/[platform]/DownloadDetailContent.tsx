@@ -52,6 +52,14 @@ const PLATFORM_ICON: Record<DownloadPlatform, LucideIcon | React.FC<{ className?
   cli: Terminal,
 }
 
+/**
+ * CLI 的 npm 安装命令。
+ * 包名是 unscoped 的 `ihui-cli`(apps/cli/package.json),不是 `@ihui/cli` ——
+ * 该 scope 在 npm 上属于第三方,写成 scoped 会让用户装到别人的包。
+ * 复制按钮与代码块共用此常量,避免两处漂移。
+ */
+const CLI_INSTALL_COMMAND = 'npm install -g ihui-cli'
+
 /** platform → labelKey 映射(用于 t() 翻译) */
 const PLATFORM_LABEL_KEY: Record<DownloadPlatform, string> = {
   web: 'downloadWeb',
@@ -206,8 +214,11 @@ export function DownloadDetailContent({
             ))}
           </div>
         </section>
-      ) : (
+      ) : isAvailable ? null : (
         // 未接入:显示"即将上线"占位 + Web 端使用引导
+        // 注意:assets 为空 ≠ 未上架。CLI(走 npm)与 Mobile(走源码构建)都没有独立
+        // 安装包,但 version + installGuideKey 齐全 ⇒ isAvailable=true,下方安装指南
+        // 已是完整入口。此处再插一张"即将上线"卡片会自相矛盾(头部却显示"可用")。
         <section className="mb-6">
           <Card className="border-dashed bg-muted/30 p-3 text-center">
             <Package className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
@@ -385,7 +396,7 @@ function InstallGuideContent({
   if (platform === 'cli') {
     const handleCopy = () => {
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        void navigator.clipboard.writeText('npm install -g @ihui/cli')
+        void navigator.clipboard.writeText(CLI_INSTALL_COMMAND)
         setCopied(true)
         setTimeout(() => setCopied(false), 1500)
       }
@@ -395,7 +406,7 @@ function InstallGuideContent({
         <p className="whitespace-pre-line text-sm text-muted-foreground">{guideText}</p>
         <div className="flex items-center gap-2">
           <code className="flex-1 rounded-md bg-muted px-3 py-2 font-mono text-sm text-foreground">
-            npm install -g @ihui/cli
+            {CLI_INSTALL_COMMAND}
           </code>
           <Button variant="outline" size="sm" onClick={handleCopy}>
             {copied ? t('downloadCopied') : t('downloadCopy')}

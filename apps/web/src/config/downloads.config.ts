@@ -467,7 +467,9 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
       releaseDate: '2026-08-06',
       systemRequirementsKey: 'downloadCliSysReq',
       installGuideKey: 'downloadCliInstallGuide',
-      docsUrl: 'https://www.npmjs.com/package/@ihui/cli',
+      // 包名以 apps/cli/package.json 的 name 为准(unscoped: ihui-cli)。
+      // `@ihui/cli` 这个 scope 属于 npm 上的第三方,链过去是别人的包。
+      docsUrl: 'https://www.npmjs.com/package/ihui-cli',
       githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
       // CLI 走 npm install,无独立安装包
       assets: [],

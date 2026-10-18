@@ -13,7 +13,7 @@
 ### 1. npm(全平台)
 
 ```bash
-npm install -g @ihui/cli
+npm install -g ihui-cli
 ```
 
 ### 2. curl 一键安装(macOS / Linux)
@@ -95,7 +95,7 @@ chmod +x IHUI-x86_64.AppImage
 
 ```bash
 # 从源码构建(本机需 node 22+ 与 esbuild/postject)
-pnpm --filter @ihui/cli build:sea
+pnpm --filter ihui-cli build:sea
 # 产物:apps/cli/dist-sea/ihui.exe(旁随带 package.json,可随 exe 一同分发以保留 engines 元信息,缺省亦可用)
 
 # 发布前强制烟雾测试:拷到仓库外空目录验收(版本/i18n/版本闸门都依赖内嵌数据)
