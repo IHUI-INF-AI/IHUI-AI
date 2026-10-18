@@ -17,6 +17,9 @@ on:
 permissions:
   contents: write
   packages: write
+  # --provenance 通过 Sigstore keyless 签发,必须先换 GitHub OIDC token;
+  # 缺这一条发布步会直接失败(npm ERR! --provenance flag requires OIDC token)。
+  id-token: write
 
 env:
   NODE_VERSION: '22'
