@@ -1,7 +1,7 @@
 {
   "version": "2.1",
   "description": "公众号文章发布记忆，记录所有已发布的公众号长文，避免选题重复+沉淀转化规律",
-  "last_updated": "2026-07-20T17:29:37",
+  "last_updated": "2026-10-18T18:37:16",
   "changelog": [
     {
       "version": "v3.1",
@@ -117,6 +117,16 @@
       "version": "v2.10",
       "date": "2026-07-13",
       "changes": "发布第17篇文章：xAI Grok CLI偷传整库事件解读（标题《xAI Grok CLI 偷传整库：你的密钥在裸奔，3招止损避坑》）。选题为7月13日AI HOT热点：xAI Grok CLI被曝静默上传代码库和API密钥。22项自检全过三项满分（可读性80/100、传播力9/10、开头钩子7/10），GEO 100/100，原创度100%，AI味1.0%，平台风险0%，流量预测9/10。1926字，4张真实配图（cover_grok/audit_tools/action_plan/counter_consensus）。修复：①删除两套免责声明（正式免责声明+智汇AI悄悄话末尾暗示性免责语句）②新增免责声明禁令（最高优先级·零容忍）③重写开头增加钩子类型（对话引用+数据冲击+直接提问）④新增类比'就像纸糊的墙'⑤新增E-E-A-T信号'我注意到'/'我发现'/'根据我过去三年的测试经验'⑥CTA自然度优化：从'关注我，带你用最稳的方式，把AI这波机会接住'改为'关注我，后面继续拆解这类事件'，消除营销感⑦消除CSDN广告嫌疑。SKILL升级：新增免责声明禁令条目。草稿箱推送成功（media_id: GzcJBDZnOjkIbRDGSSwCXWHhCpvgZpRk25Tzqt77kIVgn6pt6vCOig8mClUopvlo）。"
+    },
+    {
+      "version": "v3.2",
+      "date": "2026-10-18",
+      "changes": "完成第65篇公众号长文（稿毕，机主将自行后台发布，非经 API）：《35B 大模型塞进 iPhone、只吃 3GB 内存：面壁 MiniCPM-V 4.7 跨过端侧 AI 临界点》。端侧 AI 深度文：引子→35B 与 3GB 共存(MoE 解耦)→四层技术干货(MoE/量化/端侧引擎/多模态结构)→AI 离开云端→创业者四机会+三陷阱→五步落地清单→结语；含 1 张模型对比表 + 2 张 matplotlib 示意图。发布通道诊断(本日实证)：A 账号(AI智汇社)真实 AppSecret 存放在 D:\\BaiduSyncdisk\\密钥\\公众号APP SECRET.txt(机主点名授权读取，仅 A 账号)；微信 API 推送受 IP 白名单限制(errcode 40164, 本机公网出口 IP 175.17.196.187 未加白),需机主在 mp.weixin.qq.com「基本配置→IP白名单」加入该 IP 后方可 API 推送；后台手动粘贴 HTML 发布不受白名单、无需 secret。另外：用浏览器自动化登录 mp.weixin.qq.com 须先 unset http(s)_proxy 环境变量(本机挂了 127.0.0.1:50749 代理,不清除则页面返回 39 字符空文档),清掉代理后页面正常加载。"
+    },
+    {
+      "version": "v3.3",
+      "date": "2026-10-18",
+      "changes": "完成第66篇公众号长文（稿毕，机主将自行后台发布，非经 API）：《真相：Meta开源智能指数不如9款国产模型，但你能省多少钱？》。选题：Meta 新开源模型在 Artificial Analysis 智能指数榜仅列第10、前九皆国产模型。结构：引子(数据冲击+对话引用+争议声明钩子)→一·智能指数榜真相(Top10完整名单与分数)→二·三碗冷水(排名基准/生态份额/免费幻觉)→三·台式机就能跑的四种姿势与成本账→四·API价格对比(对数轴)→五·全球份额双面板(HF下载41.0% vs OpenRouter调用约30%)→六·普通人捡便宜清单→七·结语+智汇AI悄悄话；4张matplotlib真图(osmodel_1成本/2榜单/3份额/4价格)。门禁A 22项全过三项满分：开头钩子10/10、标题吸引力10/10、可读性100/100；原创度100%(观点密度4.6/千字)、AI味1.5%、流量10/10、GEO100/100、传播力10/10、受众对齐100/100、平台风险0%；第23项fact_check：C1-C11 HIGH=0（C8 1条MEDIUM为自动注册表capability声明未标source_type，非阻断；C12 1条HIGH为auto_extract_claims默认verified=False，流水线按2026-07-12既定策略降级为警告）。物理审计full_audit 42维：C0.5/C1(三件套)/C2(主源1+CSDN1)/C3+/C3++/C4/C5/C7/C8/R1-R6/D1-D4全绿；既有/环境红3项如实记录：B2(_archive从未存在)、C0(koubo_workflow为另一窗口领土，审计扫描根app/skills越界误报)、E0(微信API IP白名单175.17.196.187未加,errcode40164,机主需后台添加后方可推草稿箱)。三件套dry-run构建完成：html(38527字符)+docx(497882字节,6图内嵌验证通过)+CSDN专用docx(独立中性技术稿渲染)。清理：articles根目录移除7-20旧稿Kimi双文件重复副本(archive内字节级相同副本已在)。"
     }
   ],
   "published": [
@@ -876,6 +886,29 @@
       "status": "generated",
       "draft_id": "GzcJBDZnOjkIbRDGSSwCXb4F8AR_mBeSRbSK8sf6v2jRTDg2VWHet0zAYtEuGPPy",
       "topic_keyword": "Kimi K3登顶全球！开源大模型三国杀"
+    },
+    {
+      "date": "2026-10-18",
+      "title": "35B 大模型塞进 iPhone、只吃 3GB 内存：面壁 MiniCPM-V 4.7 跨过端侧 AI 临界点",
+      "status": "written_pending_owner_release",
+      "topic": "面壁 MiniCPM-V 4.7 端侧 AI 临界点",
+      "keywords": ["面壁", "MiniCPM-V 4.7", "端侧 AI", "MoE", "iPhone", "35B"]
+    },
+    {
+      "date": "2026-10-18",
+      "title": "真相：Meta开源智能指数不如9款国产模型，但你能省多少钱？",
+      "status": "written_pending_owner_release",
+      "topic": "Meta 开源模型智能指数仅列第10（前九皆国产模型）后的三碗冷水与普通人真实省钱账",
+      "keywords": [
+        "Meta",
+        "开源模型",
+        "智能指数",
+        "国产模型",
+        "DeepSeek",
+        "API价格",
+        "省钱",
+        "Artificial Analysis"
+      ]
     }
   ],
   "blacklist_topics": ["DeepSeek 510亿融资", "OpenAI万亿IPO", "ChatGPT-5发布"],
@@ -1036,6 +1069,26 @@
         "file": "sec4.jpg",
         "article": "苹果OpenAI窃密真相：一句「哈哈」成铁证，普通人3招避坑",
         "date": "2026-07-12"
+      },
+      {
+        "file": "osmodel_1.png",
+        "article": "真相：Meta开源智能指数不如9款国产模型，但你能省多少钱？",
+        "date": "2026-10-18"
+      },
+      {
+        "file": "osmodel_2.png",
+        "article": "真相：Meta开源智能指数不如9款国产模型，但你能省多少钱？",
+        "date": "2026-10-18"
+      },
+      {
+        "file": "osmodel_3.png",
+        "article": "真相：Meta开源智能指数不如9款国产模型，但你能省多少钱？",
+        "date": "2026-10-18"
+      },
+      {
+        "file": "osmodel_4.png",
+        "article": "真相：Meta开源智能指数不如9款国产模型，但你能省多少钱？",
+        "date": "2026-10-18"
       }
     ]
   },
