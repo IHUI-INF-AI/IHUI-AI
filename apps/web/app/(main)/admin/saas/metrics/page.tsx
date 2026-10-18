@@ -73,11 +73,8 @@ export default function MetricsComparisonPage() {
             </CardTitle>
             <Tooltip content={t('openNewWindow')}>
               <Button size="xs" variant="ghost" asChild className="px-2 text-xs">
-                <a
-                  href={`${process.env.NEXT_PUBLIC_GRAFANA_BASE ?? 'http://127.0.0.1:8801'}/d/saas-tenant-comparison`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                {/* Grafana 退役:外链改指项目原生监控面板(多租户业务监控盘) */}
+                <a href="/admin/monitor/panels" target="_blank" rel="noreferrer">
                   <ExternalLink className="h-3 w-3" />
                 </a>
               </Button>
