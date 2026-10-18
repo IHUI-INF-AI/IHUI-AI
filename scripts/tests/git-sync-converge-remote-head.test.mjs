@@ -20,7 +20,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { __test__ as src } from '../git-sync-converge.mjs'
@@ -229,7 +229,11 @@ test(
     const s = readFileSync(new URL('../git-sync-converge.mjs', import.meta.url), 'utf8')
     const body = s.slice(s.indexOf('function main()'))
     const calls = body.match(/ensureCommitObjectPresent\(/g) || []
-    assert.equal(calls.length, 1, `核验必须唯一一处,实得 ${calls.length} 处(各调用点各写一份必然漂移)`)
+    assert.equal(
+      calls.length,
+      1,
+      `核验必须唯一一处,实得 ${calls.length} 处(各调用点各写一份必然漂移)`,
+    )
     const at = body.indexOf('ensureCommitObjectPresent(remoteHead, branch)')
     assert.ok(at > -1, 'main 循环必须核的是当轮解析出的 remoteHead(而非某个下游别名)')
     assert.ok(
@@ -250,4 +254,71 @@ test(
     assert.ok(!/e\?\.stack/.test(tail), '裸栈退出就是本次要根治的形态')
   },
 )
+
+/**
+ * 全仓单源装车证明(2026-10-18 立,承台账「同族修法早已存在,收敛器只是最后一个」那一票)。
+ *
+ * 现场:判据上移到本 lib 之后,`git-sync-converge`/`union-converge`/`check-merge-addition-loss`/
+ * `check-credential-health`/`check-merge-deletion-resurrection` 都改了进口,但**还剩两处各自留着
+ * 同族的一份**:`check-push-sync.mjs` 里一个同名 `async function resolveRemoteHead()`,
+ * `git-push-guard.mjs` 里两段内联"ls-remote→回退 rev-parse"。两份"远端在哪"必然漂开,而漂开的
+ * 那两个方向都不报错:残值==本地 ⇒ 报"已同步"(提交堆在本地被当成完成,§20);
+ * 残值落后 ⇒ 报"未 push"拦提交(§12e 恒红型,既往事故还诱导过禁用的 pull --rebase 删库)。
+ * 这条锁的作用不是装饰:它把"再抄一份"变成一次红,而不是靠人记得。
+ */
+const DEFINITION_RE = /(?:function|const)\s+resolveRemoteHead\s*[=(]/
+const DECISION_MAKERS = [
+  'git-sync-converge.mjs',
+  'union-converge.mjs',
+  'check-merge-addition-loss.mjs',
+  'check-push-sync.mjs',
+  'git-push-guard.mjs',
+]
+
+test('单源:全仓 scripts/*.mjs 里 resolveRemoteHead 的定义只许有一处,且住在 lib', () => {
+  const definers = []
+  for (const dir of ['..', join('..', 'lib')]) {
+    const abs = new URL(dir === '..' ? '../' : '../lib/', import.meta.url)
+    for (const name of readdirSync(abs)) {
+      if (!name.endsWith('.mjs')) continue
+      const src = readFileSync(new URL(name, abs), 'utf8')
+      if (DEFINITION_RE.test(src)) definers.push(join(dir, name))
+    }
+  }
+  assert.deepEqual(
+    definers,
+    [join('..', 'lib', 'face-reader.mjs')],
+    `判据只能有一份实现(§22c),现读到 ${definers.length} 处:${definers.join(', ')}`,
+  )
+  // 阳性对照:上面那把尺子必须真能认出"就地再抄一份"这一型,否则它是个空扫
+  assert.equal(
+    DEFINITION_RE.test(
+      "async function resolveRemoteHead() {\n  return run('git rev-parse origin/main')\n}",
+    ),
+    true,
+    '反证失败:定义式正则认不出旧写法,上面那条单源断言就是恒绿的空扫',
+  )
+  assert.equal(
+    DEFINITION_RE.test('const resolveRemoteHead = (branch) => lsRemote(branch)'),
+    true,
+    '反证失败:const 形态的抄本同样必须被认出',
+  )
+})
+
+test('装车:每个拿远端位置落槌的脚本都必须进口 lib,且不再用 rev-parse origin/<branch> 做决策', () => {
+  for (const name of DECISION_MAKERS) {
+    const src = readFileSync(new URL(join('..', name), import.meta.url), 'utf8')
+    assert.match(
+      src,
+      /import\s*\{[^}]*\bresolveRemoteHead\b[^}]*\}\s*from\s*'\.\/lib\/face-reader\.mjs'/,
+      `${name} 没有从 lib 进口唯一取法(它在自己算"远端在哪")`,
+    )
+    // 决策面不得再出现"读跟踪 ref 当远端真值"的取法(注释里引用它讲成因是允许的 ⇒ 只拦调用形)
+    assert.ok(
+      !/rev-parse\s+origin\/\$\{?/.test(src),
+      `${name} 仍在用 \`git rev-parse origin/<branch>\` 取值 —— §5b 实测那是上一次同步时的答案`,
+    )
+  }
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
