@@ -238,7 +238,9 @@ export async function startTranscodeJob(jobId: string): Promise<TranscodeJob> {
   job.progress = 0
 
   return new Promise<TranscodeJob>((resolve, reject) => {
-    const child = spawn('ffmpeg', args, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+    // FFMPEG_PATH(2026-10-18):nssm SYSTEM 服务不继承交互式会话的 PATH 更新,
+    // 靠 PATH 裸找 ffmpeg 在服务形态下不可靠 —— 支持显式二进制路径(env 优先)。
+    const child = spawn(process.env.FFMPEG_PATH || 'ffmpeg', args, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
     childProcesses.set(jobId, child)
 
     let stderrBuffer = ''
@@ -368,7 +370,8 @@ export async function isFfmpegAvailable(): Promise<boolean> {
   // 恢复点复查:在飞探测已在 ⇒ 不再 spawn 第二个 ffmpeg -version
   if (ffmpegProbeInFlight) return ffmpegProbeInFlight
   const probe = new Promise<boolean>((resolve) => {
-    const child = spawn('ffmpeg', ['-version'], { stdio: 'ignore', windowsHide: true })
+    // 与转码主路径同源:FFMPEG_PATH 显式二进制(env 优先),否则 PATH 裸找
+    const child = spawn(process.env.FFMPEG_PATH || 'ffmpeg', ['-version'], { stdio: 'ignore', windowsHide: true })
     child.on('close', (code) => resolve(code === 0))
     child.on('error', () => resolve(false))
   }).finally(() => {
