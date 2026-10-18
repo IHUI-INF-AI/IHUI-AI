@@ -23,7 +23,7 @@ jobs:
   browser:
     if: github.event.inputs.action != 'publish'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     env:
       ACTION: ${{ github.event.inputs.action }}
       PUBKEY_PEM: ${{ secrets.NPM_BOOT_PUBKEY }}
