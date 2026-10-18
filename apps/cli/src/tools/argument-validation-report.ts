@@ -36,7 +36,8 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { pathToFileURL, fileURLToPath } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import { isDirectRunMain } from '../util/main-module.js';
 
 import type { ValidationError, ValidationResult } from './argument-validator.js';
 import type { ToolParameter, ToolSchema } from './index.js';
@@ -911,12 +912,7 @@ export function runSelfTest(): number {
   return fail === 0 ? 0 : 1;
 }
 
-const isDirectRun = (() => {
-  const entry = process.argv[1];
-  if (!entry) return false;
-  const here = pathToFileURL(entry).href;
-  return import.meta.url === here || import.meta.url.replace(/\.ts$/, '.js') === here;
-})();
+const isDirectRun = isDirectRunMain(import.meta.url);
 
 if (isDirectRun) {
   let code = 2;

@@ -9,10 +9,9 @@
 
 import * as path from 'node:path';
 import * as readline from 'node:readline';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import chalk from 'chalk';
+import { readCliPackage } from '../util/pkg-version.js';
 import inquirer from 'inquirer';
 import { createSession, saveSession, repairSessionHistory, type Session, type ChatMessage } from './session.js';
 import { loadMcpConfig } from './mcp-config.js';
@@ -750,14 +749,7 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   };
 
   // IHUI AI 品牌 banner — ansi_shadow 字母 art,外框 + 系统信息行,与 web icon 同源品牌色
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  let version = '1.0.0';
-  try {
-    const pkgRaw = readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf-8');
-    version = (JSON.parse(pkgRaw) as { version?: string }).version ?? '1.0.0';
-  } catch {
-    // 静默回退到默认版本号
-  }
+  const version = readCliPackage(import.meta.url)?.version ?? '1.0.0';
   const bannerLines = [
     '██╗██╗  ██╗██╗   ██╗██╗     █████╗ ██╗',
     '██║██║  ██║██║   ██║██║    ██╔══██╗██║',
