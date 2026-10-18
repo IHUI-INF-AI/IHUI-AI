@@ -119,6 +119,8 @@ import {
 // D136(2026-10-01 立,承 V4 #94/D84):高危工具审批 —— 面板 + 常驻待审批胶囊,
 // 三档 once/session/always 逐档对齐 web(tool-approval-dialog.tsx),默认 once 最小特权。
 import { useToolApprovalQueue } from '../components/ai/ToolApprovalSheet'
+// D77(承 G-106):业务表单卡 RN 腿 —— 投影与判定全部走 @ihui/shared,端内只负责 RN 形态。
+import { useBusinessFormQueue } from '../components/ai/BusinessFormSheet'
 // D38(承 G-42):队列交互宿主 —— 排队/撤回/编辑/重排/打断并执行入口。
 // 判定复用 @ihui/shared 的 D69+D38(queueInteractionPerms/interactionAllowed/
 // effectiveMode/reorderQueue/applyQueueEdit/interruptPlan),端内不另立第二套判定;
@@ -643,6 +645,9 @@ export function ChatScreen() {
   // D135 交互帧最小可视态(AI 提问 / 业务表单):先保证帧到屏可见,完整续流属后续票面
   const [pendingQuestions, setPendingQuestions] = useState<PendingQuestionEntry[]>([])
   const [pendingForms, setPendingForms] = useState<PendingFormEntry[]>([])
+  // D77:帧未带 messageId 时的锚点 = 本轮那条 assistant 占位消息(在 send() 里锁定,不在回调里现算"最后一条")。
+  const formAnchorIdRef = useRef('')
+  const businessForm = useBusinessFormQueue({ fallbackMessageId: () => formAnchorIdRef.current })
   // 无渲染位帧的计数器(最小态 = 计数 + 日志行,不静默丢帧,也不给永不触发的帧造假 UI)
   const streamDiagRef = useRef({
     response: 0,
@@ -822,6 +827,8 @@ export function ChatScreen() {
     setPrompt('')
     const userMsg: ChatMessage = { id: nextId(), role: 'user', content: text }
     const aiMsg: ChatMessage = { id: nextId(), role: 'assistant', content: '' }
+    // D77:本轮表单锚点在此锁定(回调里读 state 会拿到闭包旧值,与折叠键同一口径)。
+    formAnchorIdRef.current = aiMsg.id
     const history = [...(baseHistory ?? messages), userMsg]
     setMessages([...history, aiMsg])
     // D135:折叠键在 send() 里就锁到本轮那条 assistant 消息(不在回调里现算"最后一条",
@@ -1006,8 +1013,10 @@ export function ChatScreen() {
           prev.some((q) => q.questionId === question.questionId) ? prev : [...prev, question],
         )
       },
-      // D77 业务表单请求(交互帧):BusinessFormCard 未搬到本端,最小可视态 = 列表条目
+      // D77 业务表单请求(交互帧):帧→渲染态投影走 @ihui/shared(与小程序 chat.tsx 同一出口),
+      // 本端 pendingForms 只留"交互区可见"这一维,卡本身由 businessForm.host 渲染。
       onFormRequest: (event) => {
+        businessForm.onFormRequest(event)
         setPendingForms((prev) =>
           prev.some((f) => f.requestId === event.requestId)
             ? prev
@@ -2142,11 +2151,8 @@ export function ChatScreen() {
               ))}
             </View>
           ))}
-          {pendingForms.map((f) => (
-            <Text key={f.requestId} style={styles.interactionMeta}>
-              {`表单请求 ${f.kind}(字段 ${f.fieldCount} 项)待填`}
-            </Text>
-          ))}
+          {/* D77:可填表单卡(批准带 values / 拒绝只带原因),取代此前那行只读中文文案。 */}
+          {businessForm.host}
         </View>,
       )
     }
@@ -2210,6 +2216,7 @@ export function ChatScreen() {
     compactionInfo,
     pendingQuestions,
     pendingForms,
+    businessForm.host,
     t,
     tishiShow,
     tokenQuantity,
