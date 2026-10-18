@@ -9,6 +9,7 @@ import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { refund, getOrderDetail, type Order } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
 const REASONS = (tt: TtFn): Array<{ key: string; fb: string }> => [
@@ -22,6 +23,7 @@ const REASONS = (tt: TtFn): Array<{ key: string; fb: string }> => [
 export default function OrderRefund() {
   const tt = useTt()
   const router = useRouter()
+  const gate = useAuthReadyGate()
   const [orderNo, setOrderNo] = useState('')
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
@@ -47,10 +49,15 @@ export default function OrderRefund() {
       setLoading(false)
       return
     }
-    getOrderDetail(no)
-      .then((o) => setOrder(o))
-      .catch(() => setOrder(null))
-      .finally(() => setLoading(false))
+    // G-933 冷启动门控:需登录的订单详情在鉴权判定落定前不发(卸载时取消订阅)
+    const cancel = gate.waitUntilReady(() => {
+      getOrderDetail(no)
+        .then((o) => setOrder(o))
+        .catch(() => setOrder(null))
+        .finally(() => setLoading(false))
+    })
+    return cancel
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.params.orderNo])
 
   const refundAmount = order ? order.amount : 0
