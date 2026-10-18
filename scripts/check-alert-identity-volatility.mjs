@@ -45,7 +45,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
-import { maskComments, maskScriptComments } from './lib/code-mask.mjs'
+import { maskComments, maskScriptComments, blankQuoteStrings } from './lib/code-mask.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -177,9 +177,11 @@ export function judgeFile(path, text) {
   const hits = []
   const isPs = path.endsWith('.ps1')
   // 注释里写的示例(比如这道门自己的头注就逐字抄过 `dedupKey: \`stall;tip=…\``)不是实现 ——
-  // 判它等于把"讲过这条规矩"读成"违反了这条规矩"。遮罩一律引 `code-mask` 那一份实现,
-  // 不在本文件另写注释识别器(§0.6;blankByMask 按长度回填,行号不漂)。
-  const src = isPs ? maskScriptComments(text, 'ps') : maskComments(text)
+  // 判它等于把"讲过这条规矩"读成"违反了这条规矩"。同理,自检夹具把反例写成**单引号串内嵌
+  // 反引号**,所以引号串也要抹;但模板字面量必须留着 —— 那正是本门要读的东西,连它一起抹就等于
+  // 把门做瞎(实测 `blankStrings` 一用,自检档立刻看不见真代码)。遮罩一律引 `code-mask`
+  // 那一份实现,不在本文件另写词法器(§0.6;等长遮罩,行号不漂)。
+  const src = isPs ? maskScriptComments(text, 'ps') : blankQuoteStrings(maskComments(text))
   if (isPs) {
     // ps1 的身份 = `$sig` 右侧那段文案。只有文案里**插值**了变量才是"每轮可能变";
     // 一句常量文案里出现了"sha"这个词不算(那是描述,不是读数)—— 按整串判会把
@@ -398,6 +400,12 @@ function runSelfTest() {
     const good = 'function fingerprint(f: WatchFinding): string {\n  return `${f.title}|${f.identity ?? f.title}`\n}'
     if (!judgeFile('apps/api/src/jobs/a.ts', bad).some((h) => h.kind === 'V1b/明细进指纹')) throw new Error('detail 进指纹没抓到(ops-watch 那一型)')
     if (judgeFile('apps/api/src/jobs/a.ts', good).length) throw new Error('走 identity 种子仍被误判')
+  })
+  t('夹具串不算实现,真模板字面量必须仍被抓到(遮罩引号而留反引号的分界)', () => {
+    const fixture = 'const case1 = "dedupKey: `x;tip=${p.tipSha}`"'
+    if (judgeFile('scripts/a.mjs', fixture).length) throw new Error('自检夹具被当实现判红(门咬自己的解释文字)')
+    const real = 'notifyGuardRed(n, d, { dedupKey: `x;tip=${p.tipSha}` })'
+    if (!judgeFile('scripts/a.mjs', real).length) throw new Error('真模板字面量读不到 = 门被做瞎(用 blankStrings 就是这一型)')
   })
   let pass = 0
   for (const c of cases) {
