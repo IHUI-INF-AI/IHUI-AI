@@ -3122,6 +3122,12 @@
     "verified": "認證"
   },
   "vip": {
+    "benefitList": {
+      "unlimitedChat": "無限對話",
+      "exclusiveModel": "專屬模型",
+      "prioritySupport": "優先支持",
+      "referral": "推薦獎勵"
+    },
     "selectPlanFirst": "請先選擇方案",
     "notOpened": "未開通",
     "expireTime": "到期時間:{time}",
