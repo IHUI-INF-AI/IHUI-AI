@@ -32,13 +32,7 @@
  * 条件经跨函数 helper 组装 ⇒ 未判定;`metadata ? 'body'` 这类 jsonb **键存在**运算符不探测(`?` 与 TS 三元/可选链同形,认它必产假阳 ⇒ 该形态整族无判据,**不是**"已确认没有");Python 面整族未判定;"独立列里那一列是不是该类别的判别列"归人裁(只分 equality/presence,并把"证据来自 if 分支内的 push"标成 `branchScoped` 旁注);O1 的"同一作用域"取最近一层花括号块做窗口,窗口可能比一条查询宽(过宽 ⇒ 少报候选,方向保守),窗口字节数随每条一起报。
  * ## 口径(同 70/77/83/98/101/103/118/150/194)与 CLI
  * 全量档判 **HEAD blob**、`--staged` 判**索引 blob**、`--worktree` 仅人工;两面旗同给 ⇒ exit 2;取不到不回落另一个面、绝不记绿;**清单与正文同面同轮**(HEAD 档枚举 `ls-tree -r … HEAD`、索引档 `ls-files -c`,内容一律 `catBatch`,都出自 `./lib/face-reader.mjs`);**枚举到 0 = 判死**(exit 2)。派生 git 一律带 `timeout`(守门 80);本文件不出现裸 `execSync('git …')` 也不按磁盘读被审内容(守门 118)。
- * `node scripts/check-redundant-discriminator-predicate.mjs [--staged|--worktree] [--json] [--strict] [--self-test] [--root <仓根>] [--db [DSN]]` —— **0** = 判定完成(命中多少都不改退出码);**2** = 用法错 / 取材不到 / 枚举 0 判死 / 分类未走完(内部漏档)/ `--strict` 下有未判定或覆盖面未闭合 / `--db` 档不可执行(连不上、DSN 违规、psql 取不到——票面原话:如实报告不可执行+原因)。
- * `--db [DSN]`:**真库对账档**(L10191)。在静态清单之外追加一节只读对账:对 G-790 README A/E 段
- * 落进真库的判别列(`llm_call_logs.refunded` / `audit_logs_chain.raw_retained` / `llm_call_logs.api_key_id`)
- * 逐一核"列在不在 + 类型对不对 + EXPLAIN 计划里有没有判别列"——静态面那些 pass/equality 判定
- * 全部押在这些列上,列没了就是收口被回潮。探针只发 SELECT/EXPLAIN;DSN 只许本机回环、
- * 8810(生产隧道口)显式拒绝;不给 DSN 时取 `$DATABASE_URL`。探针结论与 O1/O2 同性质:
- * **只报数、不参与退出码**——但"取不到"绝不折成"没有",连不上即 rc 2 点名原因。
+ * `node scripts/check-redundant-discriminator-predicate.mjs [--staged|--worktree] [--json] [--strict] [--self-test] [--root <仓根>]` —— **0** = 判定完成(命中多少都不改退出码);**2** = 用法错 / 取材不到 / 枚举 0 判死 / 分类未走完(内部漏档)/ `--strict` 下有未判定或覆盖面未闭合。
  * **不写文件、不改 git 状态、不在提交链上,故没有应急跳过变量。**
  */
 
@@ -48,10 +42,6 @@ import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selec
 import { maskCommentsAndStrings, scanSpans } from './lib/code-mask.mjs'
 // 复用守门 188 那一份 SQL 字面量抠取(三引号 + 相邻拼接),不在本文件抄第二遍。
 import { extractSqlLiterals } from './check-authorization-column-isolation.mjs'
-import { makeRegistrar } from './lib/selftest-registrant.mjs'
-// --db 真库对账档(L10191):探针规格 / 分类判据 / DSN 守卫都住 lib,T7 锁管的是被审内容
-// 的取材面(face-reader),真库只读探针是另一件事,spawn 细节不出门体。
-import { DB_PROBES, guardDbDsn, classifyDbProbe, sanitizeDsn } from './lib/db-probe-client.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT = 120_000 // 守门 80:热路径 git 只读调用不得无界
@@ -621,15 +611,6 @@ function auxLine(s) {
   return `      ${s.rel}:${s.line}  [${s.kind}] ${win} —— ${s.text}`
 }
 
-/** --db 真库对账节的打印(四态同形;只报数不改退出码;DSN 脱敏后展示)。 */
-export function dbProbeLines(results) {
-  const n = (s) => results.filter((r) => r.state === s).length
-  const label = { pass: '通过', hit: '失据', undetermined: '未判定' }
-  const head = `─ 真库对账(--db,只读 SELECT/EXPLAIN):探针 ${results.length} ⇒ 通过 ${n('pass')} / 失据 ${n('hit')} / 未判定 ${n('undetermined')}`
-  const lines = results.map((r) => `      [${r.id}] ${r.table}.${r.column} 库类型=${r.dbType ?? '缺'} ⇒ ${label[r.state] || r.state} —— ${r.why}`)
-  return [head, ...lines]
-}
-
 export function printReport(a, arg) {
   const strict = !!arg.strict
   const label = a.face === 'worktree' ? '工作树(仅人工,不得作为提交门禁)' : a.face
@@ -645,10 +626,6 @@ export function printReport(a, arg) {
   for (const [title, list, cand] of [['O1 展示顺序寄托在 id', o1, a.tally.candidatesO1], ['O2 失败条目可能被读面筛掉', o2, a.tally.candidatesO2]]) {
     console.log(`  ${C.yellow}─ ${title}(只报数,不参与退出码):候选 ${cand} / 报名 ${list.length}${C.reset}`)
     for (const l of clip(list, auxLine)) console.log(l)
-  }
-  if (arg.db?.results?.length) {
-    for (const l of dbProbeLines(arg.db.results)) console.log(`  ${arg.db.results.some((r) => r.state !== 'pass') ? C.yellow : C.green}${l}${C.reset}`)
-    console.log(`  ${C.yellow}─ 真库对账结论只报数,不参与退出码;判据 = scripts/lib/db-probe-client.mjs 的 DB_PROBES(对账 G-790 README A/E 段)${C.reset}`)
   }
   for (const u of a.judged.flatMap((j) => j.auxUndetermined).slice(0, 12)) console.log(`  ${C.yellow}─ 两维的未判定:${u.rel} —— ${u.why}${C.reset}`)
   if (a.coverageGaps.length) console.log(`${C.red}  ❌ 覆盖面未闭合:${a.coverageGaps.length} 个 —— ${a.coverageGaps.slice(0, LIST_CAP).join(', ')}${C.reset}`)
@@ -671,7 +648,6 @@ export function jsonReport(a, arg) {
     face: a.face, root: a.root, listedCount: a.listed.length, counts, sites: a.tally.sites,
     auxO1: a.judged.flatMap((j) => j.auxO1), auxO2: a.judged.flatMap((j) => j.auxO2), auxUndetermined: a.judged.flatMap((j) => j.auxUndetermined),
     coverageGaps: a.coverageGaps, dead: a.dead, scope: SCOPE_DIRS, outOfScope: OUT_OF_SCOPE, rc, note: JSON_NOTE, summary: summaryLine(a),
-    dbProbes: arg.db?.results ?? null,
   }
   return JSON.stringify(body, null, 2)
 }
@@ -704,9 +680,9 @@ export const FX = {
 }
 
 export function selfTest() {
-  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值,
-  // 求值点收进 report(),登记侧结构上无法"忘了调用"。
-  const { t, report } = makeRegistrar()
+  const cases = []
+  // 求值后再记账:存函数会让断言从未求值而账面记绿(本仓 §自检 harness 那条禁令)
+  const t = (name, cond) => cases.push({ name, ok: (() => !!cond)() })
   const J = (src, rel = 'a.ts') => judgeSource(rel, src)
   const st = (src, rel) => J(src, rel).sites.map((s) => s.state)
   const ks = (src, rel) => J(src, rel).sites.map((s) => `${s.state}:${s.kind}`)
@@ -756,22 +732,8 @@ export function selfTest() {
   t('S40 tally 不并桶:四态之和 == 站点数', (() => { const tt = tally([J(`${FX.only}\n${FX.type}\n${FX.nodecl}`)]); return tt.hit + tt.pass + tt.undetermined + tt.notApplicable === tt.sites.length })())
   t('S41 测试面(test_*.py / __tests__ / *.test.ts)不算覆盖面缺口', testFaceOf('apps/ai-service/tests/test_x.py') && testFaceOf('a/__tests__/x.test.ts') && !coverageGapOf('apps/ai-service/tests/test_x.py') && coverageGapOf('apps/other/src/x.ts'))
   t('S42 覆盖面枚举的 rev 前缀被抹净(否则整面被误读成缺口)', (() => { const l = listProbeBearing(ROOT, 'head'); return l.length > 0 && l.every((x) => !x.startsWith('HEAD:') && !x.includes(':')) })())
-  // --db 真库对账档(L10191)的纯判据:守卫 / 分类 / 规格表完整。
-  t('S43 DSN 守卫拒绝非回环 host(取证不得连生产)', !guardDbDsn('postgresql://u:p@db.example.com:5432/ihui').ok)
-  t('S44 DSN 守卫点名拒绝 8810 生产隧道口', (() => { const g = guardDbDsn('postgresql://u:p@127.0.0.1:8810/ihui'); return !g.ok && g.why.includes('8810') })())
-  t('S45 DSN 守卫放行本机回环 dev 库', guardDbDsn('postgresql://ihui:pw@localhost:5432/ihui_dev').ok === true)
-  t('S46 探针分类四态不并桶:表缺/列缺/类型漂移/计划缺列各归其位', (() => {
-    const t1 = classifyDbProbe({ tableExists: false, columnRow: null, planText: null, column: 'refunded' })
-    const t2 = classifyDbProbe({ tableExists: true, columnRow: null, planText: null, column: 'refunded' })
-    const t3 = classifyDbProbe({ tableExists: true, columnRow: { data_type: 'text' }, planText: 'Seq Scan', wantType: 'boolean', column: 'refunded' })
-    const t4 = classifyDbProbe({ tableExists: true, columnRow: { data_type: 'boolean' }, planText: 'Seq Scan', wantType: 'boolean', column: 'refunded' })
-    const t5 = classifyDbProbe({ tableExists: true, columnRow: { data_type: 'boolean' }, planText: 'Filter: (refunded = false)', wantType: 'boolean', column: 'refunded' })
-    return t1.state === 'undetermined' && t2.state === 'hit' && t3.state === 'hit' && t4.state === 'hit' && t5.state === 'pass'
-  })())
-  t('S47 探针规格表完整(id/table/column/shape/why 齐备且对账 README A/E 段三列)', DB_PROBES.length >= 3 && DB_PROBES.every((p) => p.id && p.table && p.column && p.shape && p.why))
 
-  const { pass, fail, cases } = report()
-  return { total: cases.length, pass, fail, failed: cases.filter((c) => !c.pass) }
+  return { total: cases.length, pass: cases.filter((c) => c.ok).length, fail: cases.filter((c) => !c.ok).length, failed: cases.filter((c) => !c.ok) }
 }
 
 const argValue = (argv, flag) => { const i = argv.indexOf(flag); return i < 0 ? null : argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : undefined }
@@ -796,23 +758,11 @@ export async function main(argv = process.argv.slice(2)) {
     return die(`无法判定(不冒红也不记绿,不回落另一个面):${e && e.message ? e.message : e}`)
   }
   const strict = argv.includes('--strict')
-  // --db 真库对账档(L10191):`--db` 裸旗 = DSN 取 $DATABASE_URL;`--db <dsn>` 显式指路。
-  // 守卫先于连接:非回环 / 8810 生产隧道口 ⇒ rc 2 "不可执行+原因",不硬造、不回落。
-  let db = null
-  if (argv.includes('--db')) {
-    const explicit = argValue(argv, '--db')
-    const guarded = guardDbDsn(explicit && explicit !== 'env' ? explicit : process.env.DATABASE_URL)
-    if (!guarded.ok) return die(`--db 档不可执行:${guarded.why}`)
-    const { runDbProbes } = await import('./lib/db-probe-client.mjs')
-    const got = runDbProbes(guarded.dsn)
-    if (!got.ok) return die(`--db 档不可执行:${got.why}`)
-    db = { dsnSafe: sanitizeDsn(guarded.dsn), results: got.results }
-  }
   if (argv.includes('--json')) {
-    console.log(jsonReport(a, { strict, db }))
+    console.log(jsonReport(a, { strict }))
     return exitCodeOf({ t: a.tally, dead: a.dead, strict, coverageGaps: a.coverageGaps.length })
   }
-  return printReport(a, { strict, db })
+  return printReport(a, { strict })
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -824,6 +774,6 @@ export const __test__ = {
   inScope, testFaceOf, coverageGapOf, judgeFace, structFace, blankRanges, lineAt, framesOf, scanBracket, leftColumnOf,
   columnConditionsIn, classifyProbeSite, buildUnit, judgeSource, measureAux, windowOf, tally,
   enumerationVerdict, exitCodeOf, analyze, listInScope, listProbeBearing, readFace, selfTest,
-  summaryLine, printReport, jsonReport, main, dbProbeLines,
+  summaryLine, printReport, jsonReport, main,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
