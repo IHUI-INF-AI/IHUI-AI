@@ -237,6 +237,7 @@
     "runtimeSend": "Send"
   },
   "chat": {
+    "modelSwitchStopped": "Switched to {model}. This response was stopped.",
     "meta": {
       "pullOnly": "This conversation syncs the next time you open the list"
     },
