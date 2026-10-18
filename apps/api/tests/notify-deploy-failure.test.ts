@@ -724,4 +724,77 @@ describe('告警标识去重端到端(零网络,状态注入)', () => {
     expect(o.warnings.join()).toContain('下一轮可能重寄')
   })
 })
+
+// ── 投递台账(§5e-3,2026-10-18 立)──────────────────────────────────────────
+// 立因:发信到人只有这一个出口,而"量的器物"当天只读了其中一个生产者的日志 ⇒ 28 封在它账面上
+// 是 MAIL=0。账必须记在出口上,才不会再有"某一路发信没人记账"这一型。
+describe('投递台账:每一次发信结论落一行,没有投递动作就不落行', () => {
+  const NOW = Date.parse('2026-10-18T15:00:00.000Z')
+
+  it('送达 / 压下 / 失败 / 探针真投递 四态各造一行,disposition 与来源都对', () => {
+    const cases: Array<[Record<string, unknown>, string, string]> = [
+      [{ sent: true, channel: 'smtp', subject: 'A', toMasked: ['5***@qq.com'] }, 'delivered', 'smtp'],
+      [{ sent: false, suppressed: true, subject: 'B', toMasked: [], dedupeWhy: '窗口内已寄过' }, 'suppressed', ''],
+      [{ sent: false, reasons: ['SMTP 认证失败'], subject: 'C', toMasked: [] }, 'failed', ''],
+    ]
+    for (const [partial, want, wantChannel] of cases) {
+      const o = { help: false, dryRun: false, warnings: [], ...partial } as never
+      const row = t.buildMailLedgerRow(o, t.parseCliArgs(['--source', 'unit-test', '--alert-id', 'x-1']), NOW)
+      expect(row, JSON.stringify(partial)).not.toBeNull()
+      expect(row?.disposition).toBe(want)
+      expect(row?.channel ?? '').toBe(wantChannel)
+      expect(row?.source).toBe('unit-test')
+      expect(row?.alertId).toBe('x-1')
+      expect(row?.schema).toBe(2)
+    }
+    const probe = {
+      help: false,
+      dryRun: false,
+      warnings: [],
+      probe: { rc: 0, delivered: true, channels: [] },
+      subject: 'P',
+      toMasked: ['5***@qq.com'],
+    } as never
+    expect(t.buildMailLedgerRow(probe, t.parseCliArgs([]), NOW)?.disposition).toBe('probe')
+  })
+
+  it('help / dry-run / 零投递探针 ⇒ 不写行(一次演练不得被发信量数成一封)', () => {
+    const rows = [
+      { help: true, dryRun: false, warnings: [] },
+      { help: false, dryRun: true, warnings: [], subject: 'S', toMasked: [] },
+      { help: false, dryRun: false, warnings: [], probe: { rc: 2, delivered: false, channels: [] } },
+    ]
+    for (const p of rows) expect(t.buildMailLedgerRow(p as never, t.parseCliArgs([]), NOW)).toBeNull()
+  })
+
+  it('台账行里没有正文、没有地址原文(只有脱敏形态)、没有 env', () => {
+    const o = {
+      help: false,
+      dryRun: false,
+      warnings: [],
+      sent: true,
+      channel: 'resend',
+      subject: '【git-guardian】部署停摆',
+      toMasked: ['5***@qq.com'],
+    } as never
+    const json = JSON.stringify(t.buildMailLedgerRow(o, t.parseCliArgs(['--message', 'SECRET-BODY']), NOW))
+    expect(json).not.toContain('SECRET-BODY')
+    expect(json).not.toContain('502319984')
+    expect(json).toContain('5***@qq.com')
+  })
+
+  it('写不进必须把原因交回来(静默丢账就是又一格安静)', () => {
+    // 落点选在"已存在文件之下再开一层目录":mkdirSync 必失败(ENOTDIR/ENOENT),
+    // 而这条路不会在任何地方真的创建文件 —— 测试不留夹具,也不污染真台账。
+    const bad = `${t.defaultEnvFilePath()}/nope/mail-send-ledger.jsonl`
+    const o = { help: false, dryRun: false, warnings: [], sent: true, channel: 'smtp', subject: 'A', toMasked: [] } as never
+    const why = t.recordMailAttempt(o, ['--source', 'unit-test'], NOW, bad)
+    expect(typeof why).toBe('string')
+    expect(why ?? '').toContain('投递台账写入失败')
+    // 反向:没有投递动作时,即使路径是坏的也不许报名(它压根不该去碰盘)
+    const dry = { help: false, dryRun: true, warnings: [] } as never
+    expect(t.recordMailAttempt(dry, [], NOW, bad)).toBeNull()
+  })
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
