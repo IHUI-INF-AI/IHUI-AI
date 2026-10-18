@@ -53,6 +53,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符) */
@@ -548,9 +549,9 @@ setupAgentTools({ workspacePath: p }) // subagent-permission-exempt:
 }
 
 export function selfTest() {
-  const cases = []
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t: push, report } = makeRegistrar()
   const scan = (rel, text) => scanFile(rel, text)
-  const push = (name, ok, detail = '') => cases.push({ name, ok, detail })
   const F = FIXTURES
   const SUB = 'apps/cli/src/tools/subagent.ts'
 
@@ -614,11 +615,9 @@ export function selfTest() {
   const unread = decide({ face: 'head', perFile: new Map(), headAnchor: new Map(), scannedFiles: 0, unreadable: ['apps/cli/src/x.ts'] })
   push('D8 取不到内容 ⇒ 未判定点名文件', unread.undetermined.length === 1 && unread.undetermined[0].includes('apps/cli/src/x.ts'))
 
-  let fail = 0
-  for (const c of cases) {
-    if (!c.ok) fail++
-    console.log(`${c.ok ? '✅' : '❌'} ${c.name}${c.ok ? '' : ` — ${c.detail}`}`)
-  }
+  const { pass, fail, cases } = report()
+  for (const c of cases)
+    console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ` — ${c.got}`}`)
   console.log(`${fail === 0 ? '✅' : '❌'} 自检共 ${cases.length} 条,失败 ${fail} 条`)
   return fail === 0 ? 0 : 1
 }

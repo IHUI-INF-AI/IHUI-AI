@@ -109,6 +109,7 @@ export {
 }
 import { analyze as analyzeIndexRevert, resolveBlobs, MAX_FILES } from './check-stale-revert.mjs'
 import { flagValue, describeFlagToken } from './lib/flag-value.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -664,9 +665,9 @@ function mtimeMsOf(relPath, root = ROOT) {
 
 // ─── 自检(§self-test:纯函数用例,不依赖 git / 文件系统) ──────────
 export function runSelfTest() {
-  const results = []
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t: ok, report } = makeRegistrar()
   const now = 1_700_000_000_000
-  const ok = (name, cond, extra = '') => results.push({ name, pass: !!cond, extra })
   const stat = (file, ageMin) => ({ path: file, mtimeMs: now - ageMin * 60_000 })
 
   // 1) 无改动 = pass
@@ -856,7 +857,7 @@ export function runSelfTest() {
   ok('出口分流:真新内容 ⇒ 给 safe-commit 提交建议',
     indexExitLines({ file: 'src/a.ts', ancestorEqual: { state: 'novel' } }).join('\n').includes('safe-commit.mjs'))
 
-  return results
+  return report().cases
 }
 
 // ─── 报告输出 ───────────────────────────────────────────────────
@@ -969,7 +970,7 @@ async function main() {
     const results = runSelfTest()
     const failed = results.filter((r) => !r.pass)
     for (const r of results) {
-      console.log(`${r.pass ? '  ✅' : `${C.red}  ❌`} ${r.name}${r.extra ? ` ${C.dim}[${r.extra}]${C.reset}` : ''}${C.reset}`)
+      console.log(`${r.pass ? '  ✅' : `${C.red}  ❌`} ${r.name}${r.pass ? '' : ` ${C.dim}[${r.got}]${C.reset}`}${C.reset}`)
     }
     console.log(
       failed.length === 0

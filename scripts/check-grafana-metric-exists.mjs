@@ -35,6 +35,7 @@ import { dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitRaw } from './lib/face-reader.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -402,8 +403,9 @@ function main() {
 
 // ─── 自检:证明判据有牙(§0.2/取证纪律)─────────────────────────
 function selfTest(_argv) {
-  const cases = []
-  const add = (name, pass) => cases.push({ name, pass })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `cases.push({ name, pass })` 裸存结论 —— 已由共用出口结构封死,用例调用一字不动。
+  const { t: add, report } = makeRegistrar()
   const variants = normalizedNameVariants('ihui_llm_calls_total')
   add('Counter 声明名展开出 _total 与 _created 形态', variants.has('ihui_llm_calls_total') && variants.has('ihui_llm_calls_created'))
   add('Histogram 声明名展开出 _bucket', normalizedNameVariants('ihui_llm_ttft_seconds').has('ihui_llm_ttft_seconds_bucket'))
@@ -433,10 +435,11 @@ function selfTest(_argv) {
   add('凭空名字仍然不在集里(扩面没有把判据扩成万能)', em.set !== null && !em.set.has('ihui_alertbridge_ghost_total'))
   const roots = EMISSION_ROOTS.join(' ')
   add('取材根目录含监控桥(第二份手抄路径已并回单一清单)', roots.includes('monitoring/alertbridge'))
-  const fails = cases.filter((c) => !c.pass)
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { fail, cases } = report()
   for (const c of cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
-  if (fails.length > 0) {
-    console.log(`❌ 自检失败 ${fails.length}/${cases.length}`)
+  if (fail > 0) {
+    console.log(`❌ 自检失败 ${fail}/${cases.length}`)
     return 1
   }
   console.log(`✅ 自检通过 ${cases.length}/${cases.length}`)

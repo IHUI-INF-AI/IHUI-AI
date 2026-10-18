@@ -1,0 +1,332 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * scripts/check-plan-claims-vs-head.mjs — 票面声称 ↔ HEAD 实物 对账尺(票 G-1142551 同族教训的机制化出口)
+ *
+ * 立票理由(2026-10-18 现读):台账里出现过"票面写着已入库 + 实测 N 例全绿,而实现物在
+ * **任何 ref 与磁盘上都不存在**"的条目(D35/D36/D43 那一族的 `voice-note.ts` /
+ * `prompt-drafts.ts` / `history-projection.ts`)。既有尺子全看不到这一型:
+ * `check-task-claims.mjs` 只管认领牌、`check-plan-line-loss.mjs` 只管登记行不丢。
+ * 而这一型恰恰最贵:账面说"做完了",于是它留在派单口径外(或不留),别的会话既可能重做,
+ * 也可能永远不去做 —— 两边都错。
+ *
+ * 判据(三类可机检声称,只从**未完成条目** `- [ ]` 里抽 —— 已勾行按 §1 完成即删,不该再判):
+ *   C1 反引号里的路径形态 `path/file.ext`(ext ∈ 已知源码/迁移扩展名)⇒ 必须 `git cat-file -e HEAD:<path>`
+ *   C2 迁移文件名 `NNNN_*.sql` ⇒ 必须在 HEAD 的迁移目录里存在(按 §5/守门 49 的 journal 口径)
+ *   C3 点名的具名符号(`def X` / `function X` / 反引号包住的裸标识符且首字母小写、长度 ≥ 6)
+ *      ⇒ 必须 `git grep -l` 在 HEAD 任一源文件里命中
+ *
+ * 三态纪律(§0.3):
+ *   - 取不到 HEAD 面 ⇒ exit 2「未判定」,不记绿也不冒红;
+ *   - 未抽到任何声称 ⇒ exit 2「未判定」(枚举到 0 判死),不得读成"通过";
+ *   - "看着像路径/符号"但判不准的 ⇒ 计入 undetermined 只报数,不判红(误判成本是把别人
+ *     的正常叙述改红,那是 §12e 的恒红门成因)。
+ *
+ * 定级:**warn 起步**。存量非零时上 blocking 就是恒红门(§12e);升档前置 = 本门在被审面
+ * 现读违规归零,且逐条误报都已被 C1–C3 的收窄规则消化。应急放行:
+ * `HUSKY_SKIP_PLAN_CLAIMS_VS_HEAD=1`(注册条目与 skipEnv 一律以 guardian-runner.mjs 现值为准)。
+ *
+ * 取材面(§0.4 / 守门 118):全量档判 **HEAD blob** 的 PROJECT_PLAN.md,不读滞后的工作树副本;
+ * 无 `--worktree` 逃生舱(本门的意义就是"仓库里到底有没有",读盘会自证)。
+ */
+import { execFileSync } from 'node:child_process'
+import path from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const DOC = process.env.PLAN_CLAIMS_DOC || 'PROJECT_PLAN.md'
+/** 差值基线:存量只报数、新增才红(§0.5)。取不到该文件 ⇒ 未判定,不判红也不判绿。 */
+const BASELINE_REL = 'scripts/data/plan-claims-baseline.json'
+const GIT_TIMEOUT = 120_000
+const SKIP_ENV = 'HUSKY_SKIP_PLAN_CLAIMS_VS_HEAD'
+
+/** C1:被反引号包住、含斜杠、扩展名在已知集合里 ⇒ 当成"声称某文件存在"。 */
+const SOURCE_EXTS = new Set([
+  'ts', 'tsx', 'mts', 'cts', 'js', 'mjs', 'cjs', 'py', 'sql', 'rs', 'kt', 'swift',
+  'json', 'jsonc', 'toml', 'yml', 'yaml', 'sh', 'ps1', 'css', 'html', 'env', 'lock',
+])
+/** C2:迁移文件名(`NNNN_...sql`),journal 口径的记账对象。 */
+const MIGRATION_RE = /\b(\d{4}_[A-Za-z0-9_\-]+\.sql)\b/
+/** C3:具名符号 —— 宁窄勿宽:反引号内裸标识符,小写开头、长度 ≥ 6、不含常见散文词。 */
+const SYMBOL_RE = /^[a-z][a-z0-9_]{5,}$/
+
+const PROSE_DENY = new Set([
+  'project', 'HEAD', 'commit', 'github', 'gitee', 'python', 'nodejs', 'sqlite',
+  'postgres', 'mysql', 'redis', 'docker', 'kubernetes', 'javascript', 'typescript',
+  'monorepo', 'readme', 'license', 'version', 'metadata', 'payload', 'string',
+  'number', 'boolean', 'object', 'undefined', 'runtime', 'services', 'packages',
+])
+
+function git(args, input) {
+  const stdio = input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
+  return execFileSync('git', args, {
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: GIT_TIMEOUT,
+    maxBuffer: 256 * 1024 * 1024,
+    stdio,
+    input,
+  })
+}
+
+function headBlob(rel) {
+  try {
+    return git(['show', `HEAD:${rel}`])
+  } catch {
+    return null
+  }
+}
+
+/** 从一行的正文里抽出全部反引号片段(不跨行,不匹配空串)。 */
+function backticked(text) {
+  const out = []
+  const re = /`([^`\n]+)`/g
+  let m
+  while ((m = re.exec(text)) !== null) out.push(m[1].trim())
+  return out
+}
+
+/** 本仓顶层目录白名单:票面常逐字引用**上游/别仓**路径(如 `apps/zcode-cli/...`),
+ *  那些不是"我方声称的实物",按我方 HEAD 判就会批量假阳(把别人的代码当成我们缺的文件)。 */
+const OUR_ROOTS = new Set(['apps', 'packages', 'scripts', 'docs', 'deploy', 'e2e'])
+
+/** 花括号集合 `a/{b,c}.ts` 是"多条路径的缩写",不是单一路径:展开后逐条判。
+ *  不展开就会把 15 条正常引用一口气判成缺(第一版就这么误判了 79 条里的绝大多数)。 */
+export function expandBraces(token, cap = 16) {
+  const m = token.match(/^(.*?)\{([^{}]*)\}(.*)$/)
+  if (!m) return [token]
+  const [, pre, inner, post] = m
+  const parts = inner.split(',').map((s) => s.trim()).filter((s) => s !== '')
+  if (parts.length === 0) return [token]
+  const out = []
+  for (const p of parts) {
+    for (const more of expandBraces(pre + p + post, cap)) {
+      out.push(more)
+      if (out.length >= cap) return out
+    }
+  }
+  return out
+}
+
+function isPathClaim(token) {
+  if (!token.includes('/') || token.startsWith('/') || token.includes(' ')) return false
+  if (/\*/.test(token) || token.includes('<') || token.includes('…')) return false
+  const bases = expandBraces(token).length ? expandBraces(token) : [token]
+  if (!bases.every((b) => OUR_ROOTS.has(b.split('/')[0]))) {
+    // 任一条展开落在别仓顶层 ⇒ 整串是上游/别仓引用,不作我方声称
+    if (!bases.some((b) => OUR_ROOTS.has(b.split('/')[0]))) return false
+  }
+  const base = token.split('/').pop()
+  const ext = base.includes('.') ? base.split(/[{}.]/).pop().toLowerCase() : ''
+  if (!SOURCE_EXTS.has(ext)) return false
+  // 带行号锚 `a/b.ts:12` 或 glob 尾巴的一律不当声称(那是引用写法,不是路径断言)
+  if (/:\d+$/.test(token) || /\.\.\./.test(token)) return false
+  return true
+}
+
+function isSymbolClaim(token) {
+  if (token.includes('/') || token.includes(' ') || !SYMBOL_RE.test(token)) return false
+  if (PROSE_DENY.has(token.toLowerCase())) return false
+  return true
+}
+
+/**
+ * 从台账 HEAD 面抽声称。返回 {claims:[{rowId,line,kind,target}], stat}
+ * 未完成条目 = 行首 `- [ ]`(允许夹带认领牌括号)。
+ */
+export function extractClaims(docText) {
+  const claims = []
+  const stat = { openRows: 0, withClaims: 0, undetermined: 0, symbolsSkipped: 0 }
+  const rows = docText.split(/\r?\n/)
+  let currentId = ''
+  for (const line of rows) {
+    const isOpen = /^[-*]\s+\[\s]/.test(line)
+    if (/^\s*[-*]\s+\[[xX]\]/.test(line)) continue
+    if (isOpen) {
+      stat.openRows += 1
+      // 行身份:取 G-NNN / DNN / 纯数字编号,取不到就用行首 40 字
+      const idm = line.match(/\b(G-\d+|D\d+[a-z]?|O\d+[a-z]?|P\d+-F\.\d+|W\d+|B\d+|\d{1,3})\b/)
+      currentId = idm ? idm[1] : line.slice(0, 40).trim()
+    }
+    if (!isOpen && !currentId) continue
+    const owner = currentId || '(前置段落)'
+    let found = 0
+    for (const tok of backticked(line)) {
+      if (isPathClaim(tok)) {
+        for (const one of expandBraces(tok)) {
+          if (!OUR_ROOTS.has(one.split('/')[0])) continue
+          claims.push({ rowId: owner, kind: 'path', target: one })
+          found += 1
+        }
+      } else if (MIGRATION_RE.test(tok)) {
+        claims.push({ rowId: owner, kind: 'migration', target: tok.match(MIGRATION_RE)[1] })
+        found += 1
+      } else if (isSymbolClaim(tok)) {
+        // C3 默认**不判**:每条具名符号都要在 HEAD 全树跑一次 git grep(本仓 2.5G),
+        // 未收窄前几百条 = 几百次全树扫,装下去就是一把慢门(§12e 之外的另一种恒红:
+        // 超时被跳)。要开走 `PLAN_CLAIMS_SYMBOLS=1`,开之前先量耗时再谈接线。
+        stat.symbolsSkipped += 1
+        if (process.env.PLAN_CLAIMS_SYMBOLS === '1') {
+          claims.push({ rowId: owner, kind: 'symbol', target: tok })
+          found += 1
+        }
+      } else if (MIGRATION_RE.test(tok.replace(/\s/g, ''))) {
+        stat.undetermined += 1
+      }
+    }
+    if (found > 0) stat.withClaims += 1
+  }
+  return { claims, stat }
+}
+
+/** 去重:同一 target 在多条行里被反复引用时只判一次,但保留全部出处行。 */
+export function groupClaims(claims) {
+  const byTarget = new Map()
+  for (const c of claims) {
+    const key = `${c.kind}:${c.target}`
+    if (!byTarget.has(key)) byTarget.set(key, { kind: c.kind, target: c.target, rows: [] })
+    const e = byTarget.get(key)
+    if (!e.rows.includes(c.rowId)) e.rows.push(c.rowId)
+  }
+  return [...byTarget.values()]
+}
+
+/** 实物核对:path/migration 走 blob 存在性,symbol 走 HEAD grep。 */
+export function judgeEntry(entry, { catFile, grepHead, migrationDirs }) {
+  const t = entry.target
+  if (entry.kind === 'path') {
+    return catFile(t) ? { verdict: 'ok' } : { verdict: 'missing', evidence: `HEAD:${t}` }
+  }
+  if (entry.kind === 'migration') {
+    for (const dir of migrationDirs) {
+      if (catFile(`${dir}/${t}`)) return { verdict: 'ok' }
+    }
+    return { verdict: 'missing', evidence: `迁移 ${t} 不在 HEAD 的任一迁移目录` }
+  }
+  const hits = grepHead(t)
+  if (hits === null) return { verdict: 'undetermined', evidence: 'git grep 取不到结论' }
+  if (hits.length > 0) return { verdict: 'ok' }
+  return { verdict: 'missing', evidence: `符号 ${t} 在 HEAD 面零命中` }
+}
+
+function main() {
+  const text = headBlob(DOC)
+  if (text === null) {
+    console.log(`⚠️  取不到 HEAD 面的 ${DOC} ⇒ 未判定(不记绿也不冒红;§0.3)`)
+    process.exit(2)
+  }
+  const migrationDirs = (process.env.PLAN_CLAIMS_MIGRATION_DIRS || 'packages/database/migrations,apps/ai-service/migrations').split(',')
+  const { claims, stat } = extractClaims(text)
+  const grouped = groupClaims(claims)
+  if (grouped.length === 0) {
+    console.log(`⚠️  未抽到任何可机检声称(未完成条目 ${stat.openRows} 行 / 判不准 ${stat.undetermined} 处)⇒ 未判定,不得读成"通过"`)
+    process.exit(2)
+  }
+  const cache = new Map()
+  const catFile = (p) => {
+    if (!cache.has(p)) {
+      try {
+        git(['cat-file', '-e', `HEAD:${p}`])
+        cache.set(p, true)
+      } catch {
+        cache.set(p, false)
+      }
+    }
+    return cache.get(p)
+  }
+  const grepCache = new Map()
+  const grepHead = (sym) => {
+    if (!grepCache.has(sym)) {
+      try {
+        const out = git(['grep', '-l', sym, 'HEAD', '--', 'apps', 'packages', 'scripts'])
+        grepCache.set(sym, out.split(/\r?\n/).filter(Boolean))
+      } catch (e) {
+        if (e.status === 1) grepCache.set(sym, [])
+        else grepCache.set(sym, null)
+      }
+    }
+    return grepCache.get(sym)
+  }
+  /*
+   * 差值棘轮(§0.5 + §12e):台账里现成有 71 条"路径写法与仓库不符"的存量(移动过、改名过,
+   * 或干脆不存在 —— 后者正是本门要抓的那一型)。一上来全判红 = 每次提交刷 71 行,那正是
+   * 逼人跳门的形态。所以:基线内的只报数,**新增**的那条才红;基线取不到 ⇒ 判"未判定"
+   * (不得把"没基线"读成"全通过",也不得读成"全红")。
+   */
+  function loadBaseline() {
+    let raw
+    try {
+      raw = JSON.parse(headBlob(BASELINE_REL) ?? '')
+    } catch {
+      return null
+    }
+    if (!raw || !Array.isArray(raw.missing)) return null
+    return raw.missing.filter((x) => typeof x === 'string')
+  }
+  const missing = []
+  const undetermined = []
+  let ok = 0
+  for (const e of grouped) {
+    const r = judgeEntry(e, { catFile, grepHead, migrationDirs })
+    if (r.verdict === 'missing') missing.push({ ...e, evidence: r.evidence })
+    else if (r.verdict === 'undetermined') undetermined.push({ ...e, evidence: r.evidence })
+    else ok += 1
+  }
+  const baseline = loadBaseline()
+  const baseSet = new Set(baseline ?? [])
+  const added = baseline === null ? [] : missing.filter((m) => !baseSet.has(`${m.kind}:${m.target}`))
+  const carried = missing.length - added.length
+  console.log(
+    `[plan-claims] 判定面=HEAD blob(${DOC}) · 未完成条目 ${stat.openRows} 行 · 声称 ${grouped.length} 条` +
+      `(在 ${ok} / 缺 ${missing.length} / 判不准 ${undetermined.length})` +
+      ` · C3 具名符号 ${stat.symbolsSkipped} 处默认不判(全树 grep 耗时未量;开档 PLAN_CLAIMS_SYMBOLS=1)`,
+  )
+  if (baseline === null) {
+    console.log(`⚠️  基线 ${BASELINE_REL} 取不到或形状不对 ⇒ 未判定(下方只列事实,不据以判红判绿)`)
+  } else {
+    console.log(`  [差值] 基线 ${baseSet.size} 条 · 存量只报数 ${carried} · 新增判红 ${added.length}`)
+  }
+  const listed = baseline === null ? missing : added.length > 0 ? added : missing.slice(0, 0)
+  for (const m of listed.slice(0, 30)) {
+    console.log(`  ❌ [${m.kind}] ${m.target} — ${m.evidence} · 声称方:${m.rows.slice(0, 4).join(',')}`)
+  }
+  if (listed.length > 30) console.log(`  · … 其余 ${listed.length - 30} 条`)
+  if (undetermined.length > 0) {
+    console.log(`  ℹ️ 判不准 ${undetermined.length} 条:既不记绿也不冒红(§0.3),逐条需人工看写法`)
+  }
+  if (baseline === null) process.exit(2)
+  if (added.length === 0) {
+    console.log(
+      `✅ 无新增"票面声称 ↔ HEAD 实物"缺口(存量 ${carried} 条只报数;升 blocking 前置 = 存量归零,§12e)`,
+    )
+    process.exit(0)
+  }
+  console.log(`❌ 新增 ${added.length} 条票面声称在 HEAD 面没有实物 —— 这类条目不得留在派单口径外,也不得被读成已完成`)
+  process.exit(1)
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  try {
+    main()
+  } catch (e) {
+    console.log(`⚠️  本门自身异常 ⇒ 按未判定处理:${e?.message ?? e}`)
+    process.exit(2)
+  }
+}
+
+export const __test__ = {
+  extractClaims,
+  groupClaims,
+  judgeEntry,
+  isPathClaim,
+  isSymbolClaim,
+  expandBraces,
+  backticked,
+  OUR_ROOTS,
+  SKIP_ENV,
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -41,6 +41,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw, readWorktreeFile, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT = 120_000
@@ -462,8 +463,9 @@ function printVerdict(res, root) {
 }
 
 function runSelfTest() {
-  const results = []
-  const ok = (name, cond, detail = '') => results.push({ name, pass: !!cond, detail })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `results.push({ name, pass: !!cond })` 布尔强制(函数恒真)—— 已由共用出口封死。
+  const { t: ok, report } = makeRegistrar()
 
   const ENGINE = `export const MENTION_DIMENSIONS = [
   { id: 'at-file', sigil: '@', candidateSource: 'workspace-files' },
@@ -738,13 +740,13 @@ export const check = (s: string) => HEX_COLOR_RE.test(s) || EMAIL_RE.test(s)
     }
   }
 
-  let failed = 0
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { fail, cases: results } = report()
   for (const r of results) {
-    if (!r.pass) failed += 1
-    console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.pass ? '' : ` → ${r.detail}`}`)
+    console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.pass ? '' : ` → ${r.got}`}`)
   }
-  console.log(`--self-test:${results.length - failed}/${results.length} 条断言通过`)
-  return failed === 0 ? 0 : 1
+  console.log(`--self-test:${results.length - fail}/${results.length} 条断言通过`)
+  return fail === 0 ? 0 : 1
 }
 
 function main(argv) {

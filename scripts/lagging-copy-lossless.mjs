@@ -35,6 +35,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitBinary } from './lib/face-reader.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -176,8 +177,8 @@ export function emptyEnumerationVerdict(targets) {
 }
 
 function selfTest() {
-  const t = []
-  const pass = (n, ok, why) => t.push({ n, ok: !!ok, why })
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t: pass, report } = makeRegistrar()
   // A1 独有行 0(纯滞后:HEAD 有而盘上没有)⇒ alignable
   pass('A1 纯回退形态判 alignable', judgeLossless('a\nb\n', 'a\nb\nc\n').verdict === 'alignable')
   // A2 有一行 HEAD 从未有过 ⇒ held(别人正在写)
@@ -213,10 +214,10 @@ function selfTest() {
   // A10/A11 空枚举必须判死,而非记绿(把"没审"写成"审过且干净"是本仓最高频失效型)
   pass('A10 空枚举判死给 exit 2', emptyEnumerationVerdict([])?.exit === 2)
   pass('A11 非空枚举不得判死', emptyEnumerationVerdict(['a']) === null)
-  for (const r of t) console.log(`${r.ok ? '✅' : '❌'} ${r.n}${r.ok ? '' : ' :: ' + r.why}`)
-  const failed = t.filter((r) => !r.ok).length
-  console.log(`SELF-TEST pass ${t.length - failed} / fail ${failed}`)
-  process.exit(failed ? 1 : 0)
+  const { pass: passed, fail, cases } = report()
+  for (const r of cases) console.log(`${r.pass ? '✅' : '❌'} ${r.name}${r.pass ? '' : ' :: ' + r.got}`)
+  console.log(`SELF-TEST pass ${passed} / fail ${fail}`)
+  process.exit(fail ? 1 : 0)
 }
 
 function main() {

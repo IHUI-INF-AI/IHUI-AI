@@ -126,6 +126,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // 本门此前自带一份 `git()` + `catBatch()`,与守门 91/94/101 同形;现统一走共用层。
 import { Undetermined, catBatch, gitRaw } from './lib/face-reader.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SELF_SKIP = 'HUSKY_SKIP_GLYPH_ARROW_ICON'
@@ -2004,8 +2005,9 @@ const MECH_SNIPPETS = {
 }
 
 function selfTest() {
-  const cases = []
-  const t = (name, pass, detail = '') => cases.push({ name, pass, detail })
+  // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
+  // 旧本地写法 `cases.push({ name, pass })` 裸存结论 —— 已由共用出口结构封死,用例调用一字不动。
+  const { t, report } = makeRegistrar()
   const run = (files) => {
     const read = (p) => (p in files ? files[p] : null)
     const { violations, notes } = scan(read, Object.keys(files), { checkWiring: true })
@@ -2946,11 +2948,12 @@ function selfTest() {
     splitFresh(new Map([['a.tsx', 1]]), new Map([['a.tsx', 5]])).fresh.length === 0,
   )
 
-  const failed = cases.filter((c) => !c.pass)
+  // 消费点:求值只发生在这里(共用出口的报告函数)。
+  const { fail, cases } = report()
   for (const c of cases)
-    console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.detail ? ' — ' + c.detail : ''}`)
-  console.log(`${cases.length - failed.length}/${cases.length} 通过`)
-  return failed.length ? 1 : 0
+    console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.got !== 'true' && c.got !== 'false' ? ' — ' + c.got : ''}`)
+  console.log(`${cases.length - fail}/${cases.length} 通过`)
+  return fail ? 1 : 0
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
