@@ -2344,21 +2344,6 @@ pnpm turbo build typecheck lint test
 // 错误: { code: number, message: string }
 // 由共享 utils/response.ts 的 success()/error() 生成
 **认证:** JWT HS256 + token-family 旋转 + refresh 黑名单,access token 7 天有效期,所有端点通过 `@ihui/auth` 共享包统一签发/验证。
-**对话模板端点(2026-10-18 立,服务端最小闭环):**
-| 端点                     | 方法  | 鉴权                                    | 响应形状                                                                                     | 消费端                                                            |
-| ------------------------ | ----- | --------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `/api/chat/templates`    | GET   | 需登录(`plugins/auth.ts` 的 `authenticate`) | `{ code: 0, message: 'success', data: { list, total, page, pageSize, categories } }`        | web `/chat/templates` 页 · CLI `ihui chat templates` · extension sidepanel 模板网格 |
-- 用法:`GET /api/chat/templates?page=1&pageSize=20&category=writing`;query 由 Zod `.strict()` 校验(未知键与非法页码一律 400),`pageSize` 上限 50。
-- 数据源:`apps/api/src/routes/chat-templates.ts` 下半部的内置目录(当前无对应库表,建表属后续票);handler 自证只取 `status = 'published'` 的行,下发字段是**逐行点名的白名单**(运营内部字段不出面),`category` 拼错回空集而非静默全量。
-- 分页键口径:全仓 `/api/*` 只认 `list`(与 `packages/api-client` 的 `PageData<T>` 同源),同一端点不得同时发 `items` 顶键——两个键都发等于把消费侧的分叉藏起来。
-**小程序兼容设置端点(2026-10-18 收口单/复数分叉):**
-| 端点                    | 方法 | 鉴权 | 响应形状 | 消费端 |
-| ----------------------- | ---- | ---- | -------- | ------ |
-| `/settings/notification` | GET  | 登录 | `{ code:0, message:'success', data: { list: [{ key, title, enabled }] } }` | 小程序 `apps/miniapp-taro/src/pages/setting/notification.tsx`(经 `@/api` 的 `getNotificationSettings`) |
-| `/settings/notification` | PUT  | 登录 | `{ code:0, message:'success', data: { success, requested, affected, missedIds } }` | 同上 `updateNotificationSettings`(逐键 upsert) |
-- group 已统一为复数 `'notifications'`(取 `apps/api/src/db/user-preferences-queries.ts` 的 `USER_PREFERENCE_GROUPS` 常量,裸字面量不得再出现),compat 单数路径别名与 web 权威腿 `/settings/notifications` 读同一批行;历史写在单数 `'notification'` 的存量由迁移 `packages/database/drizzle/20261018150000_user_preferences_notification_group_plural.sql` 一次性并入(同 `(userId,key)` 冲突取 `updated_at` 较新者胜、败方删除,迁移以 `RAISE NOTICE` 现报迁移/冲突/删除三计数)。
-- GET 曾回 `{ settings }` 的 k/v,与端上声明的 `{ list }` 契约不符致 `data.list` 恒 undefined;现两端对齐为 `list` 单一形状。PUT 逐键 `.returning({ id, key })` 回库确认写入集合并带 `missedIds`,不把请求侧 `.length` 当 affected(守门 134)。`title` 承载存储键,不在服务端拼中文(§19)。
-
 ### Agent 开放能力(能力目录单一事实源,2026-09-20 立)
 第三方 AI Agent 通过**机器凭据**调用本项目能力,能力面由 `packages/types/src/capability-catalog.ts` 一处声明、三处消费(API 闸口 / MCP 门禁 / 文档产物)。
 | 要素                | 落点                                                                                                                                                                                              | 说明                                                                                                                                                                                                                                                                                                  |
@@ -5724,3 +5709,17 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | 跟踪文件 | 14925 | `trackedFiles` |
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-18。
 |                   | 会话内快捷笔记        | 录音 12 相状态机 / 转写落库(chat_voice_notes)/ 归档可撤销 / 分组与关键词检索走 SQL 谓词 / 一键插入对话输入框(web 已挂进输入区;小程序端按"平台独占:录音 API 差异"豁免) |
+**对话模板端点(2026-10-18 立,服务端最小闭环):**
+| 端点                     | 方法  | 鉴权                                    | 响应形状                                                                                     | 消费端                                                            |
+| ------------------------ | ----- | --------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `/api/chat/templates`    | GET   | 需登录(`plugins/auth.ts` 的 `authenticate`) | `{ code: 0, message: 'success', data: { list, total, page, pageSize, categories } }`        | web `/chat/templates` 页 · CLI `ihui chat templates` · extension sidepanel 模板网格 |
+- 用法:`GET /api/chat/templates?page=1&pageSize=20&category=writing`;query 由 Zod `.strict()` 校验(未知键与非法页码一律 400),`pageSize` 上限 50。
+- 数据源:`apps/api/src/routes/chat-templates.ts` 下半部的内置目录(当前无对应库表,建表属后续票);handler 自证只取 `status = 'published'` 的行,下发字段是**逐行点名的白名单**(运营内部字段不出面),`category` 拼错回空集而非静默全量。
+- 分页键口径:全仓 `/api/*` 只认 `list`(与 `packages/api-client` 的 `PageData<T>` 同源),同一端点不得同时发 `items` 顶键——两个键都发等于把消费侧的分叉藏起来。
+**小程序兼容设置端点(2026-10-18 收口单/复数分叉):**
+| 端点                    | 方法 | 鉴权 | 响应形状 | 消费端 |
+| ----------------------- | ---- | ---- | -------- | ------ |
+| `/settings/notification` | GET  | 登录 | `{ code:0, message:'success', data: { list: [{ key, title, enabled }] } }` | 小程序 `apps/miniapp-taro/src/pages/setting/notification.tsx`(经 `@/api` 的 `getNotificationSettings`) |
+| `/settings/notification` | PUT  | 登录 | `{ code:0, message:'success', data: { success, requested, affected, missedIds } }` | 同上 `updateNotificationSettings`(逐键 upsert) |
+- group 已统一为复数 `'notifications'`(取 `apps/api/src/db/user-preferences-queries.ts` 的 `USER_PREFERENCE_GROUPS` 常量,裸字面量不得再出现),compat 单数路径别名与 web 权威腿 `/settings/notifications` 读同一批行;历史写在单数 `'notification'` 的存量由迁移 `packages/database/drizzle/20261018150000_user_preferences_notification_group_plural.sql` 一次性并入(同 `(userId,key)` 冲突取 `updated_at` 较新者胜、败方删除,迁移以 `RAISE NOTICE` 现报迁移/冲突/删除三计数)。
+- GET 曾回 `{ settings }` 的 k/v,与端上声明的 `{ list }` 契约不符致 `data.list` 恒 undefined;现两端对齐为 `list` 单一形状。PUT 逐键 `.returning({ id, key })` 回库确认写入集合并带 `missedIds`,不把请求侧 `.length` 当 affected(守门 134)。`title` 承载存储键,不在服务端拼中文(§19)。
