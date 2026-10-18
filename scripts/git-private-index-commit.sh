@@ -53,26 +53,53 @@ for attempt in 1 2 3 4 5; do
   NEW=""
   sleep 2
 done
-unset GIT_INDEX_FILE
-rm -f "${GIT_INDEX_FILE:-}" 2>/dev/null
 [ -n "$NEW" ] || { echo "❌ 5 轮都没抢到 CAS,停手"; exit 1; }
 
+# ⚠️ 2026-10-18 修两处会把结论带偏的缺陷(此前守门批的"红"不可信):
+#   缺陷 A(要命):原来在这里就 `unset GIT_INDEX_FILE` + `rm` 私有索引,然后才跑
+#     `guardian-runner --staged`。于是守门批实际审的是**共享暂存区**(别人的在途内容 /
+#     旧版本),不是本次提交内容 —— 实测因此误报出"陈旧副本 / 反回退 / 暂存删除 /
+#     mypy no-any-return"四条 blocking,而本次 17 个文件在正确面下全部通过。
+#     现改为:**守门批跑完之后才清理私有索引**,让 `--staged` 全程审本次声明集。
+#   缺陷 B: `git diff --name-only "$OLD" "$NEW"` 就是本次提交的文件表,与 PATHS
+#     **恒有交集** ⇒ "批内结论点名了本次文件"这个判断恒为真,永远把别人的红
+#     算到自己头上。现改为从 batch.out 里抓真实文件路径再与 PATHS 求交集。
 echo "=== 在同一份内容上跑守门批(staged 档,面 = 本次声明集) ==="
 # 注意:此时 HEAD 已含本枚提交,所以必须把批的基准指回**父提交**才判得出本次内容
 # —— 若仍跑 `--staged` 且暂存集为空,门 70 那类"空暂存回退全量"的脚本会去扫滞后的共享工作树,
 # 结论与本次改动无关(本仓 §70/§77/§83 反复记过同一型)。
+# 做法:把私有索引重置为"父树 + 本次 17 个文件",使 staged 面恰好等于本次改动
+# (write-tree 结果与 $NEW 的树逐字节相同,已实测)。
+git read-tree "$OLD" || { echo "read-tree 父树失败"; exit 1; }
+echo "$MAP" | xargs -d '\n' git add --
+REPLAY_TREE=$(git write-tree)
+NEW_TREE=$(git rev-parse "$NEW^{tree}")
+if [ "$REPLAY_TREE" != "$NEW_TREE" ]; then
+  echo "❌ 重建的判定面与本次提交树不一致($REPLAY_TREE != $NEW_TREE),停手不跑批"
+  exit 1
+fi
+echo "判定面已重建并与本次提交树逐字节等价: $REPLAY_TREE"
 node scripts/guardian-runner.mjs --staged > /tmp/batch.out 2>&1
 BATCH_RC=$?
 grep -E "总检查数|blocking 失败|失败门清单" /tmp/batch.out | tail -4
+# 从批输出的**❌ 行**里抓真实被点名的路径,再与本次声明集求交集。
+# ⚠️ 只抓 ❌ 行,不能抓全文: mypy 那类门会把"判定面内的文件清单"整份打印出来,
+#    抓全文会把清单里本次的文件误判成"被点名"(实测 15/17 假阳性)。
+BATCH_PATHS=$(grep -a "❌" /tmp/batch.out | grep -aoE '(apps|packages|monitoring|scripts|docs|deploy)/[A-Za-z0-9_./-]+' | sort -u)
+MINE=$(printf '%s\n' "${PATHS[@]}" | sort -u)
+HIT=$(comm -12 <(echo "$BATCH_PATHS") <(echo "$MINE"))
 if [ "$BATCH_RC" != "0" ]; then
   echo "⚠️ 守门批非零(详见 /tmp/batch.out)。逐道复跑,点名本次文件的必须自己修:"
   grep -E "❌" /tmp/batch.out | tail -8
-  if git diff --name-only "$OLD" "$NEW" | grep -qxF -f <(printf '%s\n' "${PATHS[@]}"); then
-    echo "❌ 批内结论点名了本次声明的文件 ⇒ 这是本任务自己的红"
+  if [ -n "$HIT" ]; then
+    echo "❌ 批内结论点名了本次声明的文件 ⇒ 这是本任务自己的红:"
+    echo "$HIT" | sed 's/^/    /'
     exit 1
   fi
-  echo "ℹ️ 未点名本次文件 ⇒ 属他人/机器态的红,按 §12 记录后继续(提交已落地:$NEW)"
+  echo "ℹ️ 未点名本次文件(交集为空) ⇒ 属他人/机器态的红,按 §12 记录后继续(提交已落地:$NEW)"
 fi
+unset GIT_INDEX_FILE
+rm -f "${GIT_INDEX_FILE:-}" 2>/dev/null
 git show --stat --oneline "$NEW" | head -12
 exit 0
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
