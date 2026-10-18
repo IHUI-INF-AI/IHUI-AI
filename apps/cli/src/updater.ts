@@ -235,7 +235,7 @@ export function updateOutcome(
  * 不抛异常,失败返回 hasUpdate=false 的默认结果(并填充 error 字段)。
  */
 export async function checkForUpdates(
-  packageName = '@ihui/cli',
+  packageName = 'ihui-cli',
   opts: { forceRefresh?: boolean; registryUrl?: string } = {},
 ): Promise<UpdateCheckResult> {
   const currentVersion = getCurrentVersion();
@@ -304,7 +304,7 @@ const GATE_FETCH_TIMEOUT_MS = 1_500;
 /** 导出给探针与诊断出口用,避免第二份路径字面量。 */
 export const GATE_PATH = '/api/app-version/min-cli-version';
 export const GATE_TIMEOUT_MS = GATE_FETCH_TIMEOUT_MS;
-export const UPGRADE_COMMAND = 'npm i -g @ihui/cli';
+export const UPGRADE_COMMAND = 'npm i -g ihui-cli';
 /** 拦下时的退出码:78 = BSD sysexits 的 EX_CONFIG(配置类错误,需人工升级后重试)。 */
 export const EXIT_CODE_BELOW_MINIMUM = 78;
 
@@ -585,7 +585,7 @@ function blockFromFreshCache(deps: Required<Pick<GateDeps, 'currentVersion' | 'n
  *
  * 提示格式:
  *   - 闸门拦下:打印当前版本 / 要求版本 / 真值来源 / 升级出口,退出码 78
- *   - hasUpdate & !belowMinimum:dim 提示"新版本可用,运行 npm i -g @ihui/cli 升级"
+ *   - hasUpdate & !belowMinimum:dim 提示"新版本可用,运行 npm i -g ihui-cli 升级"
  *   - belowMinimum:yellow 警告"当前版本低于建议最低版本 X.Y.Z,部分功能可能不可用"
  */
 export function notifyUpdates(deps: GateDeps = {}): void {
@@ -618,11 +618,11 @@ export function notifyUpdates(deps: GateDeps = {}): void {
       .then((r) => {
         if (r.belowMinimum && r.minimumVersion) {
           console.warn(
-            `\n⚠ 当前版本 v${r.currentVersion} 低于建议最低版本 v${r.minimumVersion},部分功能可能不可用。请运行 \`npm i -g @ihui/cli\` 升级。\n`,
+            `\n⚠ 当前版本 v${r.currentVersion} 低于建议最低版本 v${r.minimumVersion},部分功能可能不可用。请运行 \`npm i -g ihui-cli\` 升级。\n`,
           );
         } else if (r.hasUpdate && r.latestVersion) {
           console.warn(
-            `\nℹ 新版本可用:v${r.currentVersion} → v${r.latestVersion}。运行 \`npm i -g @ihui/cli\` 升级。\n`,
+            `\nℹ 新版本可用:v${r.currentVersion} → v${r.latestVersion}。运行 \`npm i -g ihui-cli\` 升级。\n`,
           );
         }
       })

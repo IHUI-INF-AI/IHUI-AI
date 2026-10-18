@@ -627,7 +627,7 @@ modules:
     public_entrypoints: []
 
   - id: 'apps/cli'
-    package: '@ihui/cli'
+    package: 'ihui-cli'
     layer: 'product'
     exported: false
     managed: true
