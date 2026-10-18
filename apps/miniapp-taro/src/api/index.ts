@@ -6,6 +6,7 @@
  * API 接口定义 - 对接新架构后端 http://localhost:8801/api
  */
 import { BASE_URL } from '../utils/api-config'
+import { t } from '../i18n'
 import { type UserInfo, type LoginResult } from '../utils/auth'
 import type { SSEEvent } from '../utils/sse-parse'
 import { formatDateByTemplate } from '@ihui/shared'
@@ -716,8 +717,33 @@ export interface VipInfo {
 
 export const getVipInfo = () => get<VipInfo>('/vip/my')
 export const getVipLevels = () => get<{ items: VipLevel[] }>('/vip/levels')
+/**
+ * 会员权益清单 —— 打的是在册路由 GET /api/vip/benefits(misc-routes.ts 直出 vip_levels)。
+ * 库里 `benefits` 是**机器键**数组(["unlimitedChat",…] ⇒ 生产现读),这里摊平成页面用的
+ * `{id,title,desc}`:title 走 `vip.benefitList.*` 五语译名(与 web/RN 同一张表、逐字同源),
+ * 没登记译名的键原样透出(不在 api 层拼中文,§19);desc 取档位名,库里无第二行说明文字。
+ */
+const TRANSLATED_BENEFITS = new Set([
+  'unlimitedChat',
+  'exclusiveModel',
+  'prioritySupport',
+  'referral',
+])
 export const getVipPrivilege = () =>
-  get<{ list: Array<{ id: string; title: string; desc: string }> }>('/vip/privilege')
+  get<{
+    list: Array<{ id: string; levelName: string; benefits?: unknown }>
+  }>('/api/vip/benefits').then((r) => ({
+    list: (r.list ?? []).flatMap((lv) =>
+      (Array.isArray(lv.benefits)
+        ? lv.benefits.filter((b): b is string => typeof b === 'string')
+        : []
+      ).map((k) => ({
+        id: `${lv.id}:${k}`,
+        title: TRANSLATED_BENEFITS.has(k) ? t(`vip.benefitList.${k}`) : k,
+        desc: lv.levelName,
+      })),
+    ),
+  }))
 // VipPayInfo / VipOrderResult 已下沉到 @ihui/api-client(endpoints/member.ts),上方 re-export
 export const upgradeVip = (vipLevelId: string) =>
   post<VipOrderResult>('/vip/order', { vipLevelId, quantity: 1 })
@@ -1073,9 +1099,9 @@ export type QuestionType =
 // QuestionType 保留本地定义:answer.tsx 使用旧枚举值 'multi_choice'/'fill_blank'/'subjective',迁移需联动修改 answer.tsx(超出 P2-1 范围)
 export const getExamPaper = (id: string) => get<{ paper: ExamPaper }>(`/exam/papers/${id}`)
 export const getExamQuestions = (id: string) =>
-  get<{ exam: ExamPaper; questions: ExamQuestion[] }>(`/exam/papers/${id}/questions`).then(
-    (r) => ({ list: r.questions ?? [] }),
-  )
+  get<{ exam: ExamPaper; questions: ExamQuestion[] }>(`/exam/papers/${id}/questions`).then((r) => ({
+    list: r.questions ?? [],
+  }))
 // ExamRecord 已下沉到 @ihui/api-client(endpoints/exam.ts),上方 re-export
 export const getExamRecords = (params?: { page?: number; pageSize?: number }) =>
   get<{ list: ExamRecord[]; total: number }>('/exam/records', params)
