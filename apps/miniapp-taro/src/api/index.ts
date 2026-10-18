@@ -1216,11 +1216,14 @@ export const getAgentDetail = (id: string | number) =>
   }))
 
 /**
- * 获取指定 Agent 的访问权限(对接后端 GET /api/agent-ext/:id/permission)
- * 类型复用 @ihui/api-client AgentPermission(单一来源)
+ * 获取指定 Agent 的访问权限 —— 对接后端 GET /api/agent-ext/permission/:agentId。
+ * 类型与路径口径都以共享实现为准:类型复用 @ihui/api-client AgentPermission(单一来源),
+ * 路径同 packages/api-client/src/endpoints/agent.ts。此前本地写成
+ * `/agent-ext/${id}/permission`(段序颠倒)⇒ 两台后端都没有这条路径,
+ * 智能体详情页的权限区恒失败。
  */
 export const getAgentPermission = (id: string | number) =>
-  get<AgentPermission>(`/agent-ext/${id}/permission`)
+  get<AgentPermission>(`/api/agent-ext/permission/${encodeURIComponent(String(id))}`)
 
 /* ============ 直播扩展 ============ */
 
