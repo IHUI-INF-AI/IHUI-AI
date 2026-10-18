@@ -428,14 +428,6 @@ groups:
         annotations:
           summary: '日志采集器 promtail 不可用'
           description: 'promtail(127.0.0.1:9080)无指标超过 5 分钟 ⇒ 从这一刻起的新日志不再入库,而线上表现一切正常'
-      - alert: GrafanaDown
-        expr: up{job="grafana"} == 0
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: '看板 grafana 不可用'
-          description: 'grafana(127.0.0.1:8816)无指标超过 10 分钟;只影响人工查看,告警链不经它,故窗口放宽'
       # ── 分流机制自身的活性(G-472 告警侧的"判据失效必须响")─────────────────────────
       # 上面那行 LOG_SOURCE_ANCHOR 与 promtail 侧的同名标记一旦对不上(任一侧改名/摘线),
       # 桥就退回"全部照旧到人"—— 那是安全方向,但**分流失明本身必须被看见**,否则这条纪律
