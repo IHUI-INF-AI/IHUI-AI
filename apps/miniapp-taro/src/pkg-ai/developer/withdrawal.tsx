@@ -7,6 +7,7 @@ import { View, Text } from '@tarojs/components'
 import { useState, useCallback, useMemo } from 'react'
 import { useDidShow } from '@tarojs/taro'
 import { getDeveloperWithdrawalList } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
 // 开发者提现记录项(getDeveloperWithdrawalList 后端未类型化,按页面使用字段定义)
@@ -47,6 +48,7 @@ function normalizeStatus(raw?: string): 'pending' | 'processing' | 'success' | '
 
 export default function DeveloperWithdrawal() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [list, setList] = useState<WithdrawalItem[]>([])
   const [totalAmount, setTotalAmount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -70,7 +72,16 @@ export default function DeveloperWithdrawal() {
     }
   }, [])
 
-  useDidShow(load)
+  // G-933 冷启动抢跑门控:挂载唯一一支 GET /api/developer/withdrawals
+  // (apps/api/src/routes/developer.ts:385)整组开发者路由由统一 preHandler 守
+  // (developer.ts:152 `server.addHook('preHandler', requireAuth)`,
+  // 注册前缀 /api/developer 见 routes/index.ts:794)⇒ 需鉴权,挡到门后。
+  // 等待期由既有 loading 分支(初值 true,t('common.loading'))承载,不新增文案。
+  useDidShow(() => {
+    gate.waitUntilReady(() => {
+      void load()
+    })
+  })
 
   // 状态文案:复用 developer.withdrawal 已有 i18n key(processing/empty),
   // 其余状态用 common 已有 key,再不济回退原 statusText

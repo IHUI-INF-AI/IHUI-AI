@@ -8,6 +8,7 @@ import LineIcon, { type IconName } from '@/components/LineIcon'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { fetchModels, type LlmModel } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
 // 兜底模型的上下文容量按 id 取真实值;广场是用户直接看到"128K/32K"这类字样的地方,
 // 写死一个数 = 对一半以上的模型报错误规格(与首页那处同一型,共用同一个出口)
@@ -88,6 +89,7 @@ function inferType(model: LlmModel): ModelType {
 export default function ModelPlazaIndex() {
   const { t } = useI18n()
   const tt = useTt()
+  const { waitUntilReady } = useAuthReadyGate()
 
   /** 类型 tab(全部用现有 common.all,其他文案为修复严重缺失直接硬编码) */
   const TYPE_TABS: { key: TypeFilter; label: string }[] = [
@@ -174,8 +176,16 @@ export default function ModelPlazaIndex() {
   useEffect(() => {
     if (initializedRef.current) return
     initializedRef.current = true
-    void load()
-  }, [load])
+    // G-933 冷启动抢跑门控:挂载唯一一支 GET /api/llm/models(llm-models.ts:141,
+    // 注册前缀 /api/llm 见 routes/index.ts:832)由该路由组统一 preHandler 守
+    // (apps/api/src/routes/llm-models.ts:133 `server.addHook('preHandler', … checkAuth)`)
+    // ⇒ 需鉴权,挡到门后。等待期由既有 loading 分支(初值 true,t('common.loading'))承载;
+    // 落定但未登录时照发一次,失败/空仍然降级到既有 FALLBACK_MODEL_DISPLAYS,不改降级链。
+    // 下拉刷新(usePullDownRefresh)由用户手势触发,不属挂载抢跑,原样不动。
+    return waitUntilReady(() => {
+      void load()
+    })
+  }, [load, waitUntilReady])
 
   // 厂商列表(从模型数据 distinct 提取,按 MOCK 顺序优先排序)
   const providers = useMemo(() => {
