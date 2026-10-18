@@ -10189,6 +10189,16 @@
     "adopted": "채택됨",
     "adoptHint": "선택한 후보 내용을 현재 대화에 기록"
   },
+  "myQuests": {
+    "title": "내 퀘스트",
+    "total": "퀘스트 {count}개",
+    "currentWorkspace": "현재 워크스페이스",
+    "empty": "등록된 퀘스트가 없습니다(목표는 자동 등록됩니다)",
+    "assessmentPlaceholder": "자기 평가 기록…",
+    "addAssessment": "기록",
+    "latestAssessment": "최근 평가",
+    "noAssessment": "평가 기록이 없습니다"
+  },
   "goalCard": {
     "editAriaLabel": "목표 편집",
     "editSave": "저장",

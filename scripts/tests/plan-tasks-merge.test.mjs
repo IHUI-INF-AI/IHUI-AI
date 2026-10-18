@@ -1866,17 +1866,17 @@ test('T33 端到端:熔断现场不得建提交,退出码必须仍是 0 并点�
  *  ③ 同一站点跑两遍 ⇒ 必须报"出现 2 次"(同一枚落地写两行自愈 = 会造重复提交);
  *  ④ 把 heal 挪到共享索引写回之后 ⇒ 必须报次序违规(恢复提交会被这一次的索引写回盖掉)。
  */
-test('T39 G-246 七处旁路落地站点必须各自就地补跑台账自愈(四臂)', () => {
+test('T39 G-246 全部旁路落地站点(现读 8 站)必须各自就地补跑台账自愈(四臂)', () => {
   const here = path.dirname(fileURLToPath(import.meta.url))
   const src = readFileSync(path.join(here, '..', 'plan-tasks-merge.mjs'), 'utf8')
   const HEAL = 'rerunLedgerHeal({'
 
-  // ① 真源码全绿,且站点数就是判据表那七站
+  // ① 真源码全绿,且站点数就是判据表那八站(第 8 站 = merge-drifted,G-1058524)
   const clean = landingAttestationStructure(src)
   if (clean.bad.length !== 0)
     throw new Error(`真源码应判 0 违规,实测:${clean.bad.slice(0, 3).join(' | ')}`)
-  if (clean.counts.sites !== 7)
-    throw new Error(`判据表应覆盖 7 个落地站点,实测 ${clean.counts.sites}`)
+  if (clean.counts.sites !== 8)
+    throw new Error(`判据表应覆盖 8 个落地站点,实测 ${clean.counts.sites}`)
 
   const names = (v) => v.bad.map((b) => b.split(':').slice(1).join(':').trim())
 

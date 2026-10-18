@@ -10189,6 +10189,16 @@
     "adopted": "Adopted",
     "adoptHint": "Write the selected candidate into the current conversation"
   },
+  "myQuests": {
+    "title": "My Quests",
+    "total": "{count} quests",
+    "currentWorkspace": "Current workspace",
+    "empty": "No quests registered yet (goals register automatically once set)",
+    "assessmentPlaceholder": "Record a self-assessment…",
+    "addAssessment": "Record",
+    "latestAssessment": "Latest assessment",
+    "noAssessment": "No assessments yet"
+  },
   "goalCard": {
     "editAriaLabel": "Edit goal",
     "editSave": "Save",
