@@ -18,6 +18,7 @@
 // - $__interval / $__rate_interval → 保留占位,由页面按所选时间窗换算步长;
 // - $__range → 保留占位,由页面替换为所选时间窗;
 // - 行面板/文本面板跳过;timeseries/stat/gauge/table/piechart/barchart/logs 全收。
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -69,7 +70,7 @@ const KIND_MAP = {
 };
 
 function normalizeExpr(raw) {
-  let e = raw
+  const e = raw
     // 裸写的 $__rate_interval(不带花括号,如 bullmq/pg_deploy 盘)若落到下面的
     // \$(\w+) 兜底会被替换成 .* 生成 [.*] 非法 PromQL —— 必须在兜底前先归一
     .replace(/\$__rate_interval/g, '$__interval')
@@ -190,6 +191,13 @@ export const PANEL_GROUPS = Array.from(new Set(MONITOR_DASHBOARDS.map((d) => d.g
 `;
 
 fs.writeFileSync(OUT, banner + body);
+// §5c:生成器写完必须紧随注入 —— 产物在覆盖面上,而 check-watermark-coverage 判的是 HEAD blob,
+// 不注入就等于每次重跑本器都把已入库的水印洗掉,把 blocking 门 47 的红留在 HEAD 上(§12e 型:
+// 与本枚提交内容无关的红只会逼人 --no-verify)。inject 幂等,重复生成不产 diff。
+execFileSync(process.execPath, [path.join(ROOT, 'scripts/watermark.mjs'), 'inject', OUT], {
+  stdio: 'inherit',
+  windowsHide: true,
+});
 const totalTargets = dashboards.reduce((n, d) => n + d.panels.reduce((m, p) => m + p.targets.length, 0), 0);
 console.log(`OK ${dashboards.length} 张盘 / ${dashboards.reduce((n, d) => n + d.panels.length, 0)} 面板 / ${totalTargets} 表达式 → ${path.relative(ROOT, OUT)}`);
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
