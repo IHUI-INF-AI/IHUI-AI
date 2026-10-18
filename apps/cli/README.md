@@ -196,7 +196,25 @@ ihui -m gpt-4o "任务描述"
 - [变更日志](https://github.com/IHUI-INF-AI/IHUI-AI/releases)
 - [问题反馈](https://github.com/IHUI-INF-AI/IHUI-AI/issues)
 
+## Code signing policy
+
+Free code signing provided by SignPath.io, certificate by SignPath Foundation.
+
+- **Scope**: starting with the first SignPath-approved release, every distributed Windows binary (`ihui.exe` from GitHub Releases) is Authenticode-signed during the GitHub Actions release pipeline. Builds from before that release are unsigned.
+- **Team roles** (single-maintainer project): Authors / Committers: [@IHUI-INF-AI](https://github.com/IHUI-INF-AI); Reviewers: same; Approvers (signing approval for each release): same. All accounts interacting with the signing pipeline use multi-factor authentication.
+- **Builds**: every release artifact is produced by the GitHub Actions workflow in this repository from the release tag's source tree. The signing request for each release is approved manually by the Approver in the SignPath portal before artifacts are published.
+
+## Privacy statement
+
+This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it. The only outbound connections, each triggered by user-configured features, are:
+
+- **AI API calls**: sent to the user-configured IHUI API endpoint (default `https://api.aizhs.top`) when the user runs a chat/agent task;
+- **Version check**: contacts the user-configured API endpoint and `registry.npmjs.org` to check for CLI updates — disable entirely with the environment variable `IHUI_NO_UPDATE_CHECK=1`;
+- **Telemetry**: disabled by default (`settings.telemetry.enabled = false`, fully no-op). If explicitly enabled by the user, events go only to the user-configured endpoint.
+
+Crash logs are written locally to `~/.ihui/crash-logs` and never leave the machine automatically.
+
 ## License
 
-MIT
+Apache-2.0 — see [LICENSE](../../LICENSE).
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
