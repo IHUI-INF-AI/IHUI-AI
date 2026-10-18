@@ -918,7 +918,7 @@ function sh(cmd, cwd) {
   return execSync(cmd, {
     cwd,
     encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
     timeout: 120_000,
   })
