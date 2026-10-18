@@ -30,6 +30,10 @@ jobs:
   npm-publish:
     name: Publish to npm
     runs-on: ubuntu-latest
+    # NPM_TOKEN 未配置前 publish 必败(匿名 PUT 404)—— continue-on-error 让二进制/Docker
+    # 链不被拖死;token 配好后(NPM_TOKEN secret)移除此行恢复硬门。
+    # 另:@ihui scope 已被第三方占用(2026-10-18 实证),npm 恢复前须先定新包名。
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -74,7 +78,8 @@ jobs:
   # ---------- Job 2: Build binaries ----------
   build-binary:
     name: Build Binaries (${{ matrix.os }}-${{ matrix.arch }})
-    needs: npm-publish
+    # 2026-10-18 起与 npm-publish 解耦:NPM_TOKEN 未配置/包名未定时二进制发布照常
+    needs: []
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -201,7 +206,7 @@ jobs:
   # ---------- Job 3: Build Docker image ----------
   build-docker:
     name: Build & Push Docker Image
-    needs: npm-publish
+    needs: []
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -264,7 +269,7 @@ jobs:
   # ---------- Job 4: Generate changelog ----------
   release-summary:
     name: Release Summary
-    needs: [npm-publish, build-binary, build-docker]
+    needs: [build-binary, build-docker]
     runs-on: ubuntu-latest
     if: always()
     steps:
