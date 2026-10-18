@@ -16,7 +16,9 @@ import {
   numeric,
   index,
   unique,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 /**
  * AI 模型配置表（ai_model_config）。
@@ -102,6 +104,25 @@ export const aiModelConfig = pgTable(
     providerIdx: index('ix_ai_model_config_provider').on(t.providerCode),
     providerGroupIdx: index('ix_ai_model_config_provider_group').on(t.providerGroup),
     healthIdx: index('ix_ai_model_config_health').on(t.healthStatus),
+    /**
+     * 全局配置(owner_uuid IS NULL)防重:同一 provider + 同一 base_url 只允许一行。
+     * 2026-10-18 立 —— 线上 token6688 曾长出 id=1 与 id=46 两条**业务字段逐字节相同**的
+     * 全局配置,生产者是 model_sync._ensure_provider_config:它原先只按 `enabled = true`
+     * 查行,一旦该行被临时禁用或并发下不可见,查询落空就再插一行。id=46 之后再没被
+     * 同步更新过,成了停在 2026-09-22 的僵尸行,并让 8 个本已被下架的模型
+     * (glm-5 / glm-5.1 / grok-4.6 / qwen3-max / sora-2 / tts-1 / tts-1-hd /
+     * doubao-seedance-1-5-pro)靠僵尸行继续错误上架。
+     * 除"删僵尸行 + 改生产者"外,这一层是防再生的硬闸(重复插入会被直接拒绝)。
+     *
+     * 为什么用 (provider_code, COALESCE(base_url,'')) 而不是单独 provider_code:
+     * 同一 provider_code 下允许存在多个**不同端点**的中转配置(既有设计,如 swiftapi 的
+     * https://new.x5m5x.com 与 https://new.x5m5x.com/v1 是两条语义不同的配置行)。
+     * 只按 provider_code 做唯一会误伤这类配置,故把 base_url 纳入键。
+     * COALESCE 是必须的:base_url 可空,而 UNIQUE 对 NULL 不去重。
+     */
+    globalProviderBaseUniq: uniqueIndex('uq_ai_model_config_global_provider_base')
+      .on(t.providerCode, sql`COALESCE(${t.baseUrl}, '')`)
+      .where(sql`${t.ownerUuid} IS NULL`),
   }),
 )
 
