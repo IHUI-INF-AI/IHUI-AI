@@ -3,8 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 活动报名 + 圈子退出(从 frontend-stub-other-routes.ts 拆分)。
+ * 活动报名 + 圈子加入/退出(从 frontend-stub-other-routes.ts 拆分)。
  * POST /activities/:id — 用户报名参与活动
+ * POST /circles/:id/join — 加入圈子
  * POST /circles/:id/leave — 退出圈子
  */
 import type { FastifyPluginAsync } from 'fastify'
@@ -27,6 +28,60 @@ export const activityRoutes: FastifyPluginAsync = async (server) => {
     const participant = await joinActivity(id, request.userId!, request.body)
     if (!participant) return reply.send(success({ joined: true, message: '已参与该活动' }))
     return reply.status(201).send(success({ joined: true, participant }))
+  })
+
+  // POST /circles/:id/join — 加入圈子(与 leave 成对;曾退出者复活,不新建第二行)
+  server.post('/circles/:id/join', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    const [circle] = await dbRead
+      .select({ id: circles.id })
+      .from(circles)
+      .where(eq(circles.id, id))
+      .limit(1)
+    if (!circle) return reply.status(404).send(error(404, '圈子不存在'))
+
+    const [existing] = await dbRead
+      .select()
+      .from(circleMembers)
+      .where(and(eq(circleMembers.circleId, id), eq(circleMembers.userId, userId)))
+      .limit(1)
+
+    if (existing && existing.status === 1) {
+      // 重复点"加入"不是第二次加入:成员数不能再 +1
+      return reply.send(success({ joined: true, already: true, member: existing }))
+    }
+
+    let member = null
+    if (existing) {
+      // 库里留着她上次退出的那一行(status=0)⇒ 复活原行,role 不动(可能是被邀回来的管理员)
+      const [revived] = await db
+        .update(circleMembers)
+        .set({ status: 1, updatedAt: new Date() })
+        .where(eq(circleMembers.id, existing.id))
+        .returning()
+      member = revived ?? null
+    } else {
+      // 唯一索引 (circle_id, user_id) 在,并发撞索引时 returning 为空 ⇒ 判"已加入"而不是判成功新建
+      const [inserted] = await db
+        .insert(circleMembers)
+        .values({ circleId: id, userId })
+        .onConflictDoNothing()
+        .returning()
+      member = inserted ?? null
+    }
+
+    if (!member) return reply.send(success({ joined: true, already: true }))
+
+    await db
+      .update(circles)
+      .set({ memberCount: sql`${circles.memberCount} + 1` })
+      .where(eq(circles.id, id))
+
+    return reply.status(201).send(success({ joined: true, already: false, member }))
   })
 
   // POST /circles/:id/leave — 退出圈子
