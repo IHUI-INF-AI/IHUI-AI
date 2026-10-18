@@ -12,6 +12,7 @@ import { getAiSkill, type AiSkillMeta } from '@ihui/api-client'
 import { useTt } from '@/i18n'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
@@ -180,6 +181,9 @@ export default function AiSkillDetail() {
   const [skill, setSkill] = useState<AiSkillMeta | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  // G-933 冷启动抢跑门:getAiSkill → GET /api/ai-skills/:id(ai-skills-proxy.ts:38 组级
+  // authenticate)需鉴权;判定落定前不发。卸载时 cancel 注销订阅。
+  const { waitUntilReady } = useAuthReadyGate()
 
   const load = useCallback(async () => {
     setError('')
@@ -195,8 +199,10 @@ export default function AiSkillDetail() {
   }, [skillId, tt])
 
   useEffect(() => {
-    void load()
-  }, [load])
+    return waitUntilReady(() => {
+      void load()
+    })
+  }, [load, waitUntilReady])
 
   const retry = () => {
     setLoading(true)

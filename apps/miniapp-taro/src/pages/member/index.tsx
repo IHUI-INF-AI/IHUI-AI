@@ -10,6 +10,7 @@ import Taro from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { useDidShow } from '@tarojs/taro'
 import { getMemberInfo, getMemberBenefits, getProfile, type MemberInfo } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { calcVipRemainDays, formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
@@ -44,6 +45,7 @@ const readStr = (obj: Record<string, unknown>, key: string): string | undefined 
 
 export default function MemberIndexPage() {
   const tt = useTt()
+  const gate = useAuthReadyGate()
 
   const defaultBenefits = useMemo<BenefitItem[]>(
     () => [
@@ -156,7 +158,15 @@ export default function MemberIndexPage() {
     Taro.navigateTo({ url })
   }, [])
 
-  useDidShow(load)
+  // G-933 冷启动抢跑门控:load 的三发全是需鉴权端点 —— GET /api/levels/current 与
+  // GET /api/points/transactions 同挂 gamificationRoutes 的统一 preHandler
+  // (`apps/api/src/routes/gamification.ts:69` addHook authenticate),
+  // GET /api/user/profile 走 `miniapp-compat-routes.ts:2247` 的 inline checkAuth。
+  // 三支都在同一个 Promise.all 里且无一公开 ⇒ 整块挡到门后,游客可见内容(等级档位表)
+  // 本就是页面内静态 TIERS/levelTiers,不依赖这三发,不存在首屏白屏。
+  useDidShow(() => {
+    gate.waitUntilReady(load)
+  })
 
   const isVip = Boolean(profile.isVip)
   const isPermanentVip = Boolean(profile.isPermanentVip)

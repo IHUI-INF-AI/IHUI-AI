@@ -32,6 +32,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { ChatScreenMessage, MessageInputFile } from '@ihui/types'
 import { chatStream, getChatHistory, type ChatMessage } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -68,6 +69,7 @@ function inferFileType(rawType: string | undefined): MessageInputFile['type'] {
 }
 
 export default function AiChatDetail() {
+  const gate = useAuthReadyGate()
   const { t } = useI18n()
   // 兜底翻译:key 缺失时返回 fallback,避免显示原始 key
   const tt = useCallback(
@@ -136,7 +138,11 @@ export default function AiChatDetail() {
   }, [scrollToBottom])
 
   useDidShow(() => {
-    loadData()
+    // G-933 冷启动抢跑门:getChatHistory → GET /api/ai/history(ai-user-model-chat.ts:246 组级
+    // checkAuth)需鉴权;判定落定前不发,落定后每次显示补跑。
+    gate.waitUntilReady(() => {
+      void loadData()
+    })
   })
 
   const handleInputChange = useCallback((e: { detail: { value: string } }) => {

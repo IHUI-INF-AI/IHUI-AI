@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getStudyInfo, getStudyRecords, type StudyRecord } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 const rankoneIcon = aizhsUrl('remote-images/rankone.png')
 const kechengIcon = aizhsUrl('remote-images/kecheng.png')
 // record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到产物而非打包进 common.js
@@ -36,6 +37,7 @@ const RECENT_LIMIT = 5
 
 export default function StudyIndex() {
   const { t } = useI18n()
+  const gate = useAuthReadyGate()
   const [info, setInfo] = useState<StudyInfo>({
     todayMinutes: 0,
     totalMinutes: 0,
@@ -64,8 +66,11 @@ export default function StudyIndex() {
     Taro.navigateTo({ url })
   }, [])
 
+  // G-933 冷启动抢跑门控:load 两发 GET /api/study/info(`miniapp-compat-routes.ts:758`
+  // inline checkAuth)与 GET /api/study/records(`routes/user/index.ts:36` 组级
+  // userAuthPreHandler → 非公开白名单一律 authenticate)⇒ 全需鉴权,整块挡到门后。
   useDidShow(() => {
-    load()
+    gate.waitUntilReady(load)
   })
 
   const goVideo = useCallback((r: StudyRecord) => {
