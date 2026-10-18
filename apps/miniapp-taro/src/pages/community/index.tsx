@@ -31,6 +31,7 @@ import LineIcon from '@/components/LineIcon'
 import RecentAgents from './components/RecentAgents'
 import MyAgents from './components/MyAgents'
 import * as api from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 // 服务弹窗名片+二维码(对齐原项目 Ai-list_b.vue L213-227 mingpian.png + erweima.png)
 const mingpianImg = aizhsUrl('remote-images/mingpian.png')
 const erweimaImg = aizhsUrl('remote-images/erweima.png')
@@ -305,13 +306,22 @@ export default function Community() {
     }
   }, [tt])
 
+  // G-933 冷启动门控：下面三支是个性化数据 —— loadHistoryChat → GET /api/ai/history
+  // (ai-user-model-chat.ts:448 处理器用 request.userId!，插件级 preHandler :246，前缀 /api/ai
+  // 见 routes/index.ts:828)、loadRecentAgents → GET /agents/use-history 与 loadMyAgents →
+  // GET /agents/collections(miniapp-compat-routes.ts:1331/:1352 各自 if (!(await checkAuth)) return)，
+  // 均需鉴权。而 loadData/loadBanners/loadCategories 是公开内容流，**必须照发** —— 本页是 tab 首屏，
+  // 整块挡会让游客白屏，所以只把这三支延后到判定落定。
+  const { waitUntilReady } = useAuthReadyGate()
   useDidShow(() => {
     void loadData(true)
-    void loadHistoryChat()
     void loadBanners()
-    void loadRecentAgents()
-    void loadMyAgents()
     void loadCategories()
+    waitUntilReady(() => {
+      void loadHistoryChat()
+      void loadRecentAgents()
+      void loadMyAgents()
+    })
     try {
       const userData = Taro.getStorageSync('data') as
         { avatar?: string; userName?: string; nickname?: string } | undefined
