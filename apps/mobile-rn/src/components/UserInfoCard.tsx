@@ -22,7 +22,8 @@
  */
 import { useState } from 'react'
 import { tokens } from '../theme/active-tokens'
-import { Alert, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { appAlert } from './BottomPops'
 import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { formatTokenValue } from '@ihui/shared/utils'
 import { getRoleLabel } from '@ihui/shared/utils'
@@ -162,7 +163,7 @@ function UserInfoCardNew({
     if (onCopyInviteCode) {
       onCopyInviteCode(inviteCode)
     } else {
-      Alert.alert('邀请码', `邀请码:${inviteCode}\n(长按复制)`)
+      appAlert('邀请码', `邀请码:${inviteCode}\n(长按复制)`)
     }
   }
 

@@ -94,8 +94,6 @@ export type {
   // D152(2026-09-29 立):会话目标状态帧的类型 —— 与 postSessionGoal 同批入入口,否则
   // 端内要写 onGoalUpdate 回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
   GoalUpdateEvent,
-  // D77(2026-09-25 立):对话流业务表单请求帧的类型 —— 与 postFormResponse 同批入入口。
-  FormRequestEvent,
   // 票77(2026-10-18):跨会话目标聚合行类型 —— 与 listMyGoals 同批入入口。
   MyGoalRow,
   MyGoalAssessment,
@@ -134,9 +132,6 @@ export type {
   // 漏一条是**跨包**的悬空具名导入(守门 98 在 HEAD 面直接红)。
   ToolApprovalExecEnvironment,
   ToolApprovalNetworkTarget,
-  // D77(2026-09-25 立):对话流业务表单请求帧类型 —— 与上面 D106/D130 同一型,入口是显式
-  // 命名清单,漏列则 @ihui/shared 的 sse-parse.ts 具名 import 悬空(守门 98 在 HEAD 面直接红)。
-  FormRequestEvent,
 } from './client.js'
 export { projectToolApprovalEnvFacts } from './client.js'
 // AI 对话可视化 Phase 4a 事件类型 re-export(2026-08-01,消息级 plan/terminal inline 展示)

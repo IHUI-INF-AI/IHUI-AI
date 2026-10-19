@@ -925,6 +925,11 @@ function selfTest() {
   eq('必带 --message-file(多行中文正文不得走命令行参数)', mailArgv.includes('--message-file'), true)
   eq('绝不传 --env-file:tsx v4 会劫持它转发给 node,路径不存在时 node 直接 exit 9', mailArgv.includes('--env-file'), false)
   eq('默认不降级、不演练:--plain/--dry-run 都不出现', [mailArgv.includes('--plain'), mailArgv.includes('--dry-run')], [false, false])
+  // §5e-3(2026-10-19 立):记账身份必须交给唯一出口,且**不得**顺带把出口的第二层窗口装上
+  const idArgv = buildBrandMailArgv({ to: 'a@b.c', title: 't', severity: 'critical', messageFile: 'm', alertId: 'credential-health;甲故障' })
+  const atId = idArgv.indexOf('--alert-id')
+  eq('给了 alertId ⇒ --alert-id 与 --dedupe-hours 0 必须成套出现(压信权只留给逐项窗口的持有者)', [atId > 0, idArgv[atId + 1], idArgv.indexOf('--dedupe-hours') > 0, idArgv[idArgv.indexOf('--dedupe-hours') + 1], idArgv.includes('--alert-id', atId + 2)], [true, 'credential-health;甲故障', true, '0', false])
+  eq('反向对照:没给 alertId 时两个旗都不许出现(不得凭空开启出口去重)', [mailArgv.includes('--alert-id'), mailArgv.includes('--dedupe-hours')], [false, false])
   eq('降级/演练标志按需才出现', buildBrandMailArgv({ to: 'a@b.c', title: 't', severity: 'warning', messageFile: 'm', plain: true, dryRun: true }).filter((a) => a === '--plain' || a === '--dry-run'), ['--plain', '--dry-run'])
   const redacted = redactChildOutput('SMTP 发送失败\nRESEND_API_KEY=re-secret-value-123\n堆栈第一行')
   eq('子进程输出脱敏:留键名抹掉值,普通行不动', [redacted.includes('RESEND_API_KEY=***'), redacted.includes('re-secret-value-123'), redacted.includes('SMTP 发送失败')], [true, false, true])
@@ -1403,7 +1408,8 @@ const BRAND_MAIL_TIMEOUT_MS = 90_000
  * 会把 `--env-file` 当成自己的参数劫持转发给 node 自身,路径不存在时 node 直接 exit 9(实测坑)。
  * 确需显式指定时须用 `-- --env-file <path>` 双横杠透传形态。
  */
-export function buildBrandMailArgv({ to, title, severity, messageFile, plain = false, dryRun = false }) {
+export function buildBrandMailArgv({ to, title, severity, messageFile, plain = false, dryRun = false, alertId = '' }) {
+  const id = String(alertId || '').trim()
   return [
     TSX_ENTRY,
     BRAND_MAIL_SCRIPT,
@@ -1419,6 +1425,12 @@ export function buildBrandMailArgv({ to, title, severity, messageFile, plain = f
     messageFile,
     ...(plain ? ['--plain'] : []),
     ...(dryRun ? ['--dry-run'] : []),
+    // 身份交给唯一出口记账(§5e-3,2026-10-19 立):标题是通用的
+    // (「凭据失效/部署停摆告警」一封里可能装着三件不同的故障),量算仪按标题分桶就会把
+    // "甲故障复发"与"乙故障新增"数成同一身份 2 封 ⇒ 假风暴,也会把真风暴并成假安静。
+    // `--dedupe-hours 0` 是**必须成对**的那一半:本文件已有逐项 20h 窗口(decideAlert),
+    // 出口的默认 4h 窗口再叠一层就是"谁在压信"读不出来 —— 压信权只留给语义主键的持有者。
+    ...(id ? ['--alert-id', id, '--dedupe-hours', '0'] : []),
     '--strict', // 成功 exit 0 / 失败 exit 1,由本脚本据此决定是否降级重试
   ]
 }
@@ -1430,7 +1442,7 @@ export function judgeDryRunChannel(stdout) {
 }
 
 /** 品牌派发器的一次调用:异常/超时一律归为失败,绝不抛出(告警通道自身不能让巡检崩掉) */
-function dispatchBrandMail({ title, desp, severity, plain, dryRun }) {
+function dispatchBrandMail({ title, desp, severity, plain, dryRun, alertId }) {
   if (!existsSync(TSX_ENTRY) || !existsSync(BRAND_MAIL_SCRIPT)) {
     return { ok: false, why: `品牌派发器缺失(tsx=${existsSync(TSX_ENTRY)} 脚本=${existsSync(BRAND_MAIL_SCRIPT)})` }
   }
@@ -1443,7 +1455,7 @@ function dispatchBrandMail({ title, desp, severity, plain, dryRun }) {
     writeFileSync(msgFile, desp, 'utf8')
     const r = spawnSync(
       process.execPath, // 本进程就是 node ⇒ 绝对路径天然可得,不必像 PowerShell 那样按候选找 node.exe
-      buildBrandMailArgv({ to: ALERT_EMAIL_TO, title, severity, messageFile: msgFile, plain, dryRun }),
+      buildBrandMailArgv({ to: ALERT_EMAIL_TO, title, severity, messageFile: msgFile, plain, dryRun, alertId }),
       {
         encoding: 'utf8',
         windowsHide: true,
@@ -1470,11 +1482,11 @@ function dispatchBrandMail({ title, desp, severity, plain, dryRun }) {
  * 第三方推送时代不存在这层担忧:那时邮件只是兜底,推不出去还有主通道;如今没有兜底可退,
  * 失败必须经 UNDEL 标记在下一轮被判红。
  */
-async function sendEmail(title, desp, severity = 'critical', { dryRun = false } = {}) {
-  const branded = dispatchBrandMail({ title, desp, severity, plain: false, dryRun })
+async function sendEmail(title, desp, severity = 'critical', { dryRun = false, alertId = '' } = {}) {
+  const branded = dispatchBrandMail({ title, desp, severity, plain: false, dryRun, alertId })
   if (dryRun) return branded
   if (branded.ok) return { ok: true, why: '品牌模板通道已送达' }
-  const plain = dispatchBrandMail({ title, desp, severity, plain: true, dryRun: false })
+  const plain = dispatchBrandMail({ title, desp, severity, plain: true, dryRun: false, alertId })
   if (plain.ok) return { ok: true, why: `品牌模板失败(${branded.why})→ 降级纯文本已送达` }
   return { ok: false, why: `品牌模板失败(${branded.why});降级纯文本失败(${plain.why})` }
 }
@@ -1483,8 +1495,8 @@ async function sendEmail(title, desp, severity = 'critical', { dryRun = false } 
  * 投递(邮件单通道,2026-09-24 起无第二通道)。返回尝试结论列表,调用方据此留痕。
  * 失败 = 故障从未被人看见,必须写 UNDELIVERED 标记并在下一轮判红 —— 没有"另一条腿"可退。
  */
-async function deliver(title, desp, severity = 'critical') {
-  const e = await sendEmail(title, desp, severity)
+async function deliver(title, desp, severity = 'critical', alertId = '') {
+  const e = await sendEmail(title, desp, severity, { alertId })
   const attempts = [`email: ${e.ok ? `已送达 — ${e.why}` : `未送达 — ${e.why}`}`]
   if (e.ok) return { sent: true, via: 'email', attempts }
   return { sent: false, via: null, attempts }
@@ -1528,7 +1540,12 @@ async function maybeAlert(results, dryRun) {
   // 这里再兜一层 try 是为"投递流程自己崩了也留痕",而不是为"先落一条再说"。
   let d
   try {
-    d = await deliver(title, desp, severity)
+    // 交给唯一出口的记账身份 = 本轮真正报出去的那几项(逐项语义主键,与 decideAlert 的窗口同源);
+    // 恢复通知自成一段。计数/时刻一律不进这一串(守门 224 V1)。
+    const mailAlertId = recovered
+      ? 'credential-health;recovered'
+      : `credential-health;${[...d0.due].sort().join('+') || 'no-due-id'}`
+    d = await deliver(title, desp, severity, mailAlertId)
   } catch (e) {
     d = { sent: false, via: null, attempts: [`投递流程异常: ${redactChildOutput((e && e.message) || String(e))}`] }
   }
@@ -1597,7 +1614,12 @@ async function main() {
   } else if (argv.includes('--self-test')) selfTest()
   else if (argv.includes('--test-alert')) {
     // 通道可用性必须可证:只看"代码写了发信"不算,必须真发一次并回读结果。
-    const d = await deliver(`【${envLabelHere()}】凭据巡检通道自测`, '这是一条通道自测消息(非故障)。用于验证唯一到人通道(邮件)是否真能落地。')
+    const d = await deliver(
+      `【${envLabelHere()}】凭据巡检通道自测`,
+      '这是一条通道自测消息(非故障)。用于验证唯一到人通道(邮件)是否真能落地。',
+      'critical',
+      'credential-health;channel-selftest',
+    )
     console.log(`通道自测: sent=${d.sent} via=${d.via || '-'}`)
     for (const t of d.attempts) console.log(`  · ${t}`)
     process.exit(d.sent ? 0 : 1)
