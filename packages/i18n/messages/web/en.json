@@ -20046,7 +20046,10 @@
     "customAdd": "Add",
     "customRemove": "Remove",
     "customDragHint": "Drag to reorder",
-    "customNoResults": "No matching items"
+    "customNoResults": "No matching items",
+    "eduHubTitle": "Education",
+    "contentHubTitle": "Content",
+    "tradeHubTitle": "Trade"
   },
   "news": {
     "allCategories": "All Categories",
@@ -28690,5 +28693,17 @@
   },
   "statusPage": {
     "incidentsUnavailable": "Incident data for the last 30 days is temporarily unavailable"
+  },
+  "eduHub": {
+    "title": "Education",
+    "subtitle": "Courses, exams, study tools and academic management"
+  },
+  "contentHub": {
+    "title": "Content",
+    "subtitle": "Plaza, community, messages and multi-platform publishing"
+  },
+  "tradeHub": {
+    "title": "Trade",
+    "subtitle": "Wallet, orders, membership and points benefits"
   }
 }
