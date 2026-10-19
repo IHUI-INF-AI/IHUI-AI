@@ -18,23 +18,10 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { TFunction } from '../../types'
-import type { CategoryItem } from '@ihui/types'
+import type { ArticleItem, CategoryItem } from '@ihui/types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
-
-/** 文章卡片(共享层简化类型,保留 UI 渲染所需字段) */
-export interface ArticleItem {
-  id: string
-  title: string
-  summary?: string
-  authorName?: string
-  createdAt?: string
-  viewCount?: number
-  category?: string
-  sourceName?: string
-  [key: string]: unknown
-}
 
 export interface SquareScreenProps {
   t: TFunction
@@ -185,10 +172,7 @@ export function SquareScreen({
           data={items}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: contentBottomPadding },
-          ]}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentBottomPadding }]}
           ItemSeparatorComponent={() => <View style={styles.itemGap} />}
           refreshControl={
             <RefreshControl
