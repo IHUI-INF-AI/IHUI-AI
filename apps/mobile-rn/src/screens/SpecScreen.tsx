@@ -13,7 +13,7 @@
  * - 加载失败 Alert;导航 goBack;主题色 / i18n 注入
  */
 import { useCallback, useEffect, useState } from 'react'
-import { Alert } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { listSpecTemplates, type SpecTemplate } from '@ihui/api-client'
@@ -45,7 +45,7 @@ export function SpecScreen() {
       if (!res.success || !res.data) throw new Error(res.error)
       setTemplates(res.data.templates)
     } catch {
-      Alert.alert(t('spec.loadFailed'))
+      appAlert(t('spec.loadFailed'))
     } finally {
       setLoading(false)
     }

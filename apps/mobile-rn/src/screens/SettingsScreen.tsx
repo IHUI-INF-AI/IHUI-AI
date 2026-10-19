@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useState } from 'react'
-import { Alert, View } from 'react-native'
+import { View } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { SettingsScreen as SharedSettingsScreen } from '@ihui/rn-app'
@@ -148,12 +149,12 @@ export default function SettingsScreen() {
   const onSelectLocale = (v: string) => {
     if (v === locale) return
     void setLocale(v as Locale)
-    Alert.alert(t('settings.languageChanged'))
+    appAlert(t('settings.languageChanged'))
   }
 
   const onSelectTheme = (v: string) => {
     setThemeMode(v as 'light' | 'dark' | 'system')
-    Alert.alert(t('settings.themeChanged'))
+    appAlert(t('settings.themeChanged'))
   }
 
   const onToggleNotification = (key: keyof SharedNotificationToggles, value: boolean) => {
@@ -166,11 +167,11 @@ export default function SettingsScreen() {
   }
 
   const onAlert = (title: string, message?: string) => {
-    Alert.alert(title, message)
+    appAlert(title, message)
   }
 
   const onConfirm = (title: string, message: string, onOk: () => void) => {
-    Alert.alert(title, message, [
+    appAlert(title, message, [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('common.confirm'), style: 'destructive', onPress: onOk },
     ])
@@ -179,13 +180,13 @@ export default function SettingsScreen() {
   const onMenuPress = (key: string) => {
     // 检查更新:不跳转,直接弹窗提示(settings.checkUpdateTitle/Latest)
     if (key === 'CheckUpdate') {
-      Alert.alert(t('settings.checkUpdateTitle'), t('settings.checkUpdateLatest'))
+      appAlert(t('settings.checkUpdateTitle'), t('settings.checkUpdateLatest'))
       return
     }
     // 更换手机号:ChangePhone 路由需要 { uuid } 参数(取 user.id)
     if (key === 'ChangePhone') {
       if (!user?.id) {
-        Alert.alert(t('common.error'), t('settings.changePhoneMissingUser'))
+        appAlert(t('common.error'), t('settings.changePhoneMissingUser'))
         return
       }
       navigation.navigate('ChangePhone', { uuid: user.id })

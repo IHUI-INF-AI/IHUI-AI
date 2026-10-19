@@ -12,7 +12,6 @@ import {
   type ReactNode,
 } from 'react'
 import {
-  Alert,
   ActivityIndicator,
   Modal,
   Platform,
@@ -22,6 +21,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { CommonActions, useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Eye, EyeOff } from 'lucide-react-native'
@@ -816,7 +816,7 @@ export function LoginScreen() {
       // 微信:原生 SDK 授权(web 平台 / SDK 未就绪 → fallback 到 SSO 网页端)
       if (platform === 'wechat') {
         if (Platform.OS === 'web' || !isWechatAvailable()) {
-          Alert.alert(
+          appAlert(
             t('auth.thirdPartyLogin'),
             '微信登录请在原生 App 中使用(需安装微信 App)。\n您可以使用"智汇AI网页授权登录"按钮跳转网页端授权。',
             [
@@ -866,7 +866,7 @@ export function LoginScreen() {
       // web 预览不支持 openAuthSessionAsync(系统浏览器授权会话),
       // 苹果/Google/飞书/钉钉/企微/支付宝/GitHub 的 OAuth 跳转在 web 平台不可用,统一引导走 SSO
       if (Platform.OS === 'web') {
-        Alert.alert(
+        appAlert(
           t('auth.thirdPartyLogin'),
           '网页预览暂不支持第三方授权登录,请使用"智汇AI网页授权登录"跳转网页端完成授权。',
           [
@@ -980,7 +980,7 @@ export function LoginScreen() {
 
       // 其余未知平台:引导走网页端 SSO
       setThirdPartyLoadingPlatform(platform)
-      Alert.alert(
+      appAlert(
         t('auth.thirdPartyLogin'),
         `${option.label} 登录请使用网页端,移动端暂未集成原生 SDK。\n您也可以使用"智汇AI网页授权登录"按钮跳转网页端授权。`,
         [

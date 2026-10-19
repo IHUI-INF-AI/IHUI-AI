@@ -22,7 +22,6 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Alert,
   FlatList,
   Image,
   Modal,
@@ -36,6 +35,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { getAgents, fetchApi, type Agent, type AgentStatus } from '@ihui/api-client'
 import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
@@ -130,11 +130,11 @@ export default function DevEnterScreen() {
           setHasMore(items.length >= PAGE_SIZE)
           setPage(pageNum)
         } else {
-          Alert.alert(t('common.hint'), res.error || '加载失败，请重试')
+          appAlert(t('common.hint'), res.error || '加载失败，请重试')
         }
       } catch (e: unknown) {
         const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-        Alert.alert(
+        appAlert(
           t('common.hint'),
           detail.trim() ? toUserFriendlyMessage(e) : '加载失败，请检查网络',
         )
@@ -183,14 +183,11 @@ export default function DevEnterScreen() {
         setTotal((n) => Math.max(0, n - 1))
         setOfflineTarget(null)
       } else {
-        Alert.alert(t('common.hint'), res.error || '下架失败，请重试')
+        appAlert(t('common.hint'), res.error || '下架失败，请重试')
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      Alert.alert(
-        t('common.hint'),
-        detail.trim() ? toUserFriendlyMessage(e) : '下架失败，请检查网络',
-      )
+      appAlert(t('common.hint'), detail.trim() ? toUserFriendlyMessage(e) : '下架失败，请检查网络')
     } finally {
       setOfflining(false)
     }
