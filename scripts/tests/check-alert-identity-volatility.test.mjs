@@ -21,7 +21,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { gitRaw, catBatch } from '../lib/face-reader.mjs'
 import { fileURLToPath } from 'node:url'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { __test__ as G } from '../check-alert-identity-volatility.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -61,9 +61,22 @@ function funcBody(src, name) {
 test('① 装车证明:门 224 的注册条目在 HEAD 面成套,且门体头注与注册条目逐字同形', () => {
   const runner = headBlob(RUNNER)
   assert.equal(typeof runner, 'string', 'HEAD 面取不到 runner ⇒ 本用例无从判(不得当作通过)')
-  const entries = [...String(runner).matchAll(/\{\s*\n\s*id:\s*'(\d+)',[\s\S]{0,900}?\n  \}/g)]
+  // 条目块的边界靠"到下一个两空格缩进的 `}` 为止"这个内容锚点,**不靠长度预算**:
+  // 上一版写死 `{0,900}?`,门 224 的 onFailHint 一写长(把处置口径装进红行正是本票要求的)
+  // 整块就落在预算外 ⇒ 本用例报"注册表里没有本门的条目",而注册表里明明有(假红会逼人跳门)。
+  const entries = [
+    ...String(runner).matchAll(/\{\s*\n\s*id:\s*'(\d+)',[\s\S]*?\n {2}\}/g),
+  ].map((m) => m[0])
   assert.ok(entries.length > 0, '注册条目一条都没解析出来 ⇒ 判据失效,不是"没接"')
-  const mine = entries.map((m) => m[0]).find((blk) => /check-alert-identity-volatility\.mjs/.test(blk))
+  assert.ok(entries.length > 200, `只解析到 ${entries.length} 条注册条目(实盘数百枚)⇒ 提取器失效,不得据此判`)
+  for (const blk of entries) {
+    assert.equal(
+      (blk.match(/\bid:/g) || []).length,
+      1,
+      '一个块里出现两个 id ⇒ 块边界吞掉了下一条(提取器失效),或注册条目真被合并(门 89 R13 那一型)',
+    )
+  }
+  const mine = entries.find((blk) => /check-alert-identity-volatility\.mjs/.test(blk))
   assert.ok(mine, '注册表里没有本门的条目(头注却声称已接 = 守门 89 R1)')
   assert.match(mine, /mode:\s*'blocking'/, '定级未登记 ⇒ 静默回落成 warn')
   const skipEnv = /skipEnv:\s*'([A-Z0-9_]+)'/.exec(mine)?.[1]
