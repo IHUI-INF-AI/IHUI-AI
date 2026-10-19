@@ -8,8 +8,11 @@
  * 断言四件事,任一不成立即红:
  * ① 文案零硬编码 —— 注册表只登记 i18n 键,解析后才出文案;五语言包必须逐键齐备
  *    (本端取词缺键不抛错,而是把键名原样回显到界面,与 max-tokens 那条同一失效类)。
- * ② 模板类命令与 web 同一份 `SLASH_COMMAND_IDS` **同序同条**(直接 import web 源,
+ * ② 模板类命令与共享层 `SLASH_COMMAND_IDS` **同序同条**(直接 import 共享层源,
  *    不抄副本 —— 抄副本等于把对账变成两人都可能漂移的两份真相)。
+ *    ⚠️ 基准必须取自 `@ihui/shared/chat/slash-command-ids`,不能取自 web 源码:
+ *    端与端之间的 import 边违反架构契约(端永不互相 import),web 与 RN 两侧
+ *    都 import 这一份共享层清单,顺序一致才是「同源」而非「同抄」。
  * ③ 模板正文与 web `chat.cmd*` 逐字一致(中/英两语;web 侧的键名大小写拼写由映射表给出)。
  * ④ 匹配打在本地化文案上 —— 中文用户敲「总结」要能筛出 /summary;/help 文案由命令表
  *    现场拼出,新增命令不必再改一处手写清单。
@@ -18,7 +21,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-import { SLASH_COMMAND_IDS } from '../../../apps/web/src/components/chat/slash-command-data'
+import { SLASH_COMMAND_IDS } from '@ihui/shared/chat/slash-command-ids'
 import {
   formatSlashHelp,
   matchSlashCommands,

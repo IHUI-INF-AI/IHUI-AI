@@ -13,17 +13,12 @@
  * - 全部用 `import type` 处理类型依赖,确保编译后 0 运行时引用
  *
  * 命名约定:本文件名 `slash-command-data.ts`(纯数据)区别于同目录 `slash-command-palette.tsx`(组件)
+ *
+ * 2026-10-19:清单本体已下沉 `@ihui/shared/chat/slash-command-ids`(跨端单一真相源)——
+ * web 与 mobile-rn 各自 import 同一份,端与端之间不再有 import 边
+ * (架构契约:端永不互相 import,见 config/architecture-policy.yaml 的 requires 声明)。
+ * 本文件保留原导出名与原取值,web 侧消费方(`use-slash-commands.tsx`)零改动。
  */
 
-export const SLASH_COMMAND_IDS = [
-  'summary',
-  'translate',
-  'explain',
-  'code',
-  'polish',
-  'wechat-article',
-  'koubo-script',
-] as const
-
-export type SlashCommandId = (typeof SLASH_COMMAND_IDS)[number]
+export { SLASH_COMMAND_IDS, type SlashCommandId } from '@ihui/shared/chat/slash-command-ids'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
