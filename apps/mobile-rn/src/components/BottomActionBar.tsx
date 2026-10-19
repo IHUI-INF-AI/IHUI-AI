@@ -25,7 +25,6 @@ import { useEffect, useRef } from 'react'
 import { tokens, currentRnTheme } from '../theme/active-tokens'
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Image,
   Keyboard,
@@ -38,6 +37,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
+import { appAlert } from './BottomPops'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useI18n } from '../i18n'
 import { formatShortDuration } from '@ihui/shared/utils'
@@ -50,6 +50,7 @@ import {
   ChevronDown,
   Folder,
   Image as ImageIcon,
+  Library,
   Maximize,
   MessageCircle,
   Mic,
@@ -144,6 +145,9 @@ export interface BottomActionBarProps {
   onKeyboardShow?: () => void
   onKeyboardHide?: () => void
   onShowModelList?: () => void
+  /** 「我的创作」入口回调(2026-10-18:原输入框上方模型类型行第 8 项「素材」移入「+」面板
+   *  主入口行 heroItem;提供时 AddPanel 渲染主入口,未提供时面板与旧版完全一致) */
+  onShowMyCreation?: () => void
 
   // ── 开关状态 ──
   superAgentEnabled?: boolean
@@ -240,13 +244,7 @@ function RecordingWave() {
   return (
     <View style={styles.recordingWave}>
       {bars.map((v, i) => (
-        <Animated.View
-          key={i}
-          style={[
-            styles.recordingWaveBar,
-            { transform: [{ scaleY: v }] },
-          ]}
-        />
+        <Animated.View key={i} style={[styles.recordingWaveBar, { transform: [{ scaleY: v }] }]} />
       ))}
     </View>
   )
@@ -455,6 +453,7 @@ function ChatInputBar(props: BottomActionBarProps) {
     onKeyboardShow,
     onKeyboardHide,
     onShowModelList,
+    onShowMyCreation,
     superAgentEnabled = false,
     mcpEnabled = false,
     knowledgeBaseEnabled = false,
@@ -532,7 +531,8 @@ function ChatInputBar(props: BottomActionBarProps) {
       onFangda !== undefined ||
       onCompactContext !== undefined ||
       onAddFile !== undefined)
-  const showIconGroup = isShowIcon && onIconClick !== undefined
+  // 2026-10-18:面板可见条件纳入 onShowMyCreation(仅传「我的创作」不传图标组的调用方也能开面板)
+  const showIconGroup = isShowIcon && (onIconClick !== undefined || onShowMyCreation !== undefined)
 
   return (
     <View
@@ -623,10 +623,7 @@ function ChatInputBar(props: BottomActionBarProps) {
       <View style={styles.inputRow}>
         {onToggleVoiceInput !== undefined ? (
           <Pressable
-            style={[
-              styles.voiceBtn,
-              voiceInputEnabled || recording ? styles.voiceBtnActive : null,
-            ]}
+            style={[styles.voiceBtn, voiceInputEnabled || recording ? styles.voiceBtnActive : null]}
             onPress={onToggleVoiceInput}
             onLongPress={onStartLongPress}
             onPressOut={onEndLongPress}
@@ -716,7 +713,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               if (onAddFile) {
                 onAddFile()
               } else {
-                Alert.alert(
+                appAlert(
                   t('messageInput.addFile'),
                   `${t('messageInput.document')} / ${t('messageInput.video')} 等附件选择功能待接入`,
                 )
@@ -789,17 +786,34 @@ function ChatInputBar(props: BottomActionBarProps) {
       {/* 图标按钮组:相机 / 相册 / 本地文件 / 微信文件(统一走共享 AddPanel 底部滑出面板;
           onIconClick('camera'|'album'|'file'|'wxfile') 契约不变,ChatScreen/AssistantScreen 零改动)。
           24 是面板项图标墨迹档 —— 小程序端的同一功能是内联 PNG 卡(另一枚布局角色),
-          两端配对要到 AddPanel 那一票一并裁,本票不在此单独立档。 */}
-      {onIconClick !== undefined ? (
+          两端配对要到 AddPanel 那一票一并裁,本票不在此单独立档。
+          heroItem(2026-10-18):「我的创作」自模型类型行第 8 项移入本面板主入口行
+          (onShowMyCreation 提供时渲染;未提供时与旧版网格完全一致)。 */}
+      {onIconClick !== undefined || onShowMyCreation !== undefined ? (
         <AddPanel
           visible={showIconGroup}
           onClose={() => onPlusToggle?.()}
-          items={ICON_GROUP_ITEMS.map((item) => ({
-            key: item.type,
-            label: item.label,
-            icon: <item.Icon size={24} color={tokens.text.secondary} />,
-            onPress: () => onIconClick(item.type),
-          }))}
+          heroItem={
+            onShowMyCreation !== undefined
+              ? {
+                  key: 'my-creation',
+                  label: t('common.myCreation'),
+                  subtitle: t('common.myCreationSubtitle'),
+                  icon: <Library size={24} color={tokens.text.secondary} />,
+                  onPress: onShowMyCreation,
+                }
+              : undefined
+          }
+          items={
+            onIconClick !== undefined
+              ? ICON_GROUP_ITEMS.map((item) => ({
+                  key: item.type,
+                  label: item.label,
+                  icon: <item.Icon size={24} color={tokens.text.secondary} />,
+                  onPress: () => onIconClick(item.type),
+                }))
+              : []
+          }
         />
       ) : null}
     </View>

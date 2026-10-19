@@ -9,8 +9,8 @@
  * 添加面板收敛到本文件单一真源,禁止各输入组件再自绘 Plus 按钮 / 图标组面板:
  *   - PlusButton:统一加号触发按钮(激活时旋转 45° + 品牌色高亮,
  *     对齐 Uniapp InputArea search-box2:functionHandle 的 rotate-icon 动画)
- *   - AddPanel:统一底部滑出「添加」面板(BottomPops + 图标组网格,
- *     对齐 Uniapp isShowIcon 图标按钮组:相机/相册/本地文件/微信文件)
+ *   - AddPanel:统一底部滑出「添加」面板(BottomPops + 可选主入口行(heroItem)
+ *     + 图标组网格,对齐 Uniapp isShowIcon 图标按钮组:相机/相册/本地文件/微信文件)
  *
  * 接入方:
  *   - InputArea(大输入框 showVoiceMic 分支,HomeScreen 用)→ PlusButton + 调用方 AddPanel
@@ -18,11 +18,12 @@
  *     (原内嵌滑出图标组收敛为统一底部滑出面板,回调 onIconClick 契约不变)
  *
  * 交互契约:点击 PlusButton → 调用方切换 visible → AddPanel 底部滑出(键盘需调用方收起);
- * 上传/选择行为由调用方经 items[].onPress 注入,本组件不做任何业务。
+ * 上传/选择行为由调用方经 items[].onPress 注入,本组件不做任何业务;点按任意项
+ * (含 heroItem)执行业务后统一收起面板。
  */
 import { type ReactNode } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { Plus } from 'lucide-react-native'
+import { ChevronRight, Plus } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 import { BottomPops } from './BottomPops'
 
@@ -77,6 +78,8 @@ export interface AddPanelItem {
   icon: ReactNode
   /** 图标下方文字标签 */
   label: string
+  /** 主入口行(heroItem)专用副标题;网格项不渲染 */
+  subtitle?: string
   /** 点击回调(上传/选择等业务逻辑由调用方注入) */
   onPress: () => void
   disabled?: boolean
@@ -85,29 +88,79 @@ export interface AddPanelItem {
 export interface AddPanelProps {
   visible: boolean
   onClose: () => void
+  /** 主入口项(可选):全宽单行,渲染在图标网格上方(如「我的创作」) */
+  heroItem?: AddPanelItem
   /** 面板项(图标组网格,一行 4 个自动换行) */
   items: ReadonlyArray<AddPanelItem>
   /** 面板标题,默认「添加」 */
   title?: string
 }
 
-export function AddPanel({ visible, onClose, items, title = '添加' }: AddPanelProps) {
+export function AddPanel({ visible, onClose, heroItem, items, title = '添加' }: AddPanelProps) {
+  /** 点按任意项执行业务后即收起面板(收敛 HomeScreen 各处理器自带的 setPlusPanelVisible(false)) */
+  const pressItem = (item: AddPanelItem): void => {
+    item.onPress()
+    onClose()
+  }
+
   return (
     <BottomPops visible={visible} onClose={onClose} title={title}>
-      <View style={styles.iconGroup}>
+      {heroItem ? (
+        <Pressable
+          disabled={heroItem.disabled}
+          onPress={() => pressItem(heroItem)}
+          accessibilityRole="button"
+          accessibilityLabel={
+            heroItem.subtitle ? `${heroItem.label},${heroItem.subtitle}` : heroItem.label
+          }
+        >
+          {({ pressed }) => (
+            <View
+              style={[
+                styles.heroItem,
+                pressed ? styles.pressed : null,
+                heroItem.disabled ? styles.disabled : null,
+              ]}
+            >
+              <View style={styles.heroIconTile}>{heroItem.icon}</View>
+              <View style={styles.heroTextGroup}>
+                <Text style={styles.heroLabel} numberOfLines={1}>
+                  {heroItem.label}
+                </Text>
+                {heroItem.subtitle ? (
+                  <Text style={styles.heroSubtitle} numberOfLines={1}>
+                    {heroItem.subtitle}
+                  </Text>
+                ) : null}
+              </View>
+              <ChevronRight size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+            </View>
+          )}
+        </Pressable>
+      ) : null}
+      <View style={[styles.iconGroup, heroItem ? styles.iconGroupWithHero : null]}>
         {items.map((item) => (
           <Pressable
             key={item.key}
-            style={[styles.iconGroupItem, item.disabled ? styles.iconGroupItemDisabled : null]}
-            onPress={item.onPress}
             disabled={item.disabled}
+            onPress={() => pressItem(item)}
             accessibilityRole="button"
             accessibilityLabel={item.label}
           >
-            {item.icon}
-            <Text style={styles.iconGroupLabel} numberOfLines={1}>
-              {item.label}
-            </Text>
+            {({ pressed }) => (
+              <View
+                style={[
+                  styles.iconGroupItem,
+                  pressed ? styles.pressed : null,
+                  item.disabled ? styles.disabled : null,
+                ]}
+              >
+                {item.icon}
+                <Text style={styles.iconGroupLabel} numberOfLines={1}>
+                  {item.label}
+                </Text>
+              </View>
+            )}
           </Pressable>
         ))}
       </View>
@@ -134,6 +187,9 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingBottom: 12,
   },
+  iconGroupWithHero: {
+    marginTop: 12,
+  },
   iconGroupItem: {
     width: 72,
     height: 72,
@@ -143,12 +199,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconGroupItemDisabled: {
+  // 主入口行(heroItem):全宽单行,与网格项同底同圆角,靠 36 图标方砖 + 副标题 + 箭头建立层级
+  heroItem: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.surface.muted,
+    paddingHorizontal: 14,
+  },
+  heroIconTile: {
+    width: rnGeometry.tapBox,
+    height: rnGeometry.tapBox,
+    borderRadius: rnRadius.md,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroTextGroup: {
+    flex: 1,
+  },
+  heroLabel: {
+    fontSize: rnGeometry.textBody,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  heroSubtitle: {
+    fontSize: rnGeometry.textCaption,
+    color: tokens.text.tertiary,
+    marginTop: 1,
+  },
+  pressed: {
+    opacity: 0.6,
+  },
+  disabled: {
     opacity: 0.5,
   },
   iconGroupLabel: {
-    fontSize: 11,
-    color: tokens.text.secondary,
+    fontSize: rnGeometry.textLabel,
+    color: tokens.text.primary,
     marginTop: 2,
   },
 })
