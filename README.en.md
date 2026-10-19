@@ -84,13 +84,13 @@ Headline claims (same source as the table below, all live-computed): **598 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 2955 | `testFiles` |
+| 测试文件 | 2959 | `testFiles` |
 | CI 工作流 | 49 | `ciWorkflows` |
 | Compose 服务 | 15 | `composeServices` |
 | 工程守门 | 260 | `guardianGates` |
 | — blocking | 236 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15146 | `trackedFiles` |
+| 跟踪文件 | 15155 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-19。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -99,6 +99,17 @@ Headline claims (same source as the table below, all live-computed): **598 table
 
 <!-- END GENERATED NUMBERS -->
 
+
+## Recent updates (auto-maintained)
+
+<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-19**
+- 🚀 **Web sidebar converged to domain entries**: P1 de-duplicated 4 spots + relocated 3 settings; P2 folded Education/Content/Commerce domains into domain entries, cutting nav from 72→24 items (`refactor(web)`).
+- 🧩 **G-425 truncation notice extended cross-end (Extension / Mobile-RN)**: decision logic sunk into a single shared-layer implementation with all five language packs (`feat(跨端)`).
+- 🔄 **Four-end ui-routes artifacts synced**: after P2 domain-entry routes were added, AI-navigable route artifacts for Web/Extension/Mobile-RN/Miniapp-Taro realign automatically.
+- 🛡️ **Guardian hardening**: fixed guardian 203 fingerprint defects, turned union merger's "no-pass" from comment into a real gate; guardian 208 disposed nested repos and patched two real `.gitignore` gaps.
+- 🐞 **Fixes**: removed api-client's duplicate re-export that broke the package build; npm-bootstrap login flow gained error diagnostics/screenshot/Turnstile probing and an upload timeout guard.
+<!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
 

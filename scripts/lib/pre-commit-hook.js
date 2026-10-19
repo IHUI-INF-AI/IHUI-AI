@@ -739,6 +739,42 @@ if (process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
   console.log('⏭  design-tokens → 各端 CSS 副本自动同步(HUSKY_SKIP_TOKENS_SYNC=1, 跳过)')
 }
 
+// ── README 数字生成块自动同步(2026-10-19 立 · 李总诉求:项目改动自动更新文档)────
+// 任何提交都先把 README 内嵌的"生成数字块"对齐 gen-doc-numbers 现算真值,再交给守门 173 判。
+// 这样"数字随代码漂移"(596↔598、4393↔4443、48↔49、trackedFiles 15145↔15146 等)在提交瞬间被掐死,
+// 不再靠人肉开会话催更。脚本自带"块外 prose 安全闸"(他人在飞 prose 改动时只写盘不 git add),
+// 故 git add 仍由脚本内部完成;这里只把脚本 git add 过的文件登记进 staged 快照,
+// 防止 setupRestoreOnExit 在退出时把它当成"非预期新增"unstage。
+if (process.env.HUSKY_SKIP_README_NUMBERS !== '1') {
+  try {
+    console.log('📊 README 数字生成块自动同步(现算对齐)')
+    const out = execSync('node scripts/sync-readme-numbers.mjs', {
+      encoding: 'utf8',
+      cwd: process.cwd(),
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    process.stdout.write(out)
+    // 把脚本 git add 过的文件登记进 staged 快照(脚本会打印 STAGED:<rel>)
+    for (const line of out.split('\n')) {
+      const m = /^STAGED:(.+)$/.exec(line.trim())
+      if (m && INITIAL_STAGED_SNAPSHOT && typeof INITIAL_STAGED_SNAPSHOT.add === 'function') {
+        INITIAL_STAGED_SNAPSHOT.add(m[1].trim())
+      }
+    }
+  } catch (e) {
+    // 生成器运行失败 ≠ 必须阻断提交:守门 173 会在本轮(若触及 README)判红兜底;
+    // 未触及 README 的轮次则只是数字暂时没刷,下次触及再纠正。绝不因一次性生成器故障卡住所有人的提交。
+    console.warn(
+      `⚠️  sync-readme-numbers.mjs 运行失败,README 数字本次未自动刷新:${(e && e.message) || e}。` +
+        `正确性仍由守门 173 兜底;紧急跳过:HUSKY_SKIP_README_NUMBERS=1 git commit ...`,
+    )
+  }
+} else {
+  console.log('⏭  README 数字生成块自动同步(HUSKY_SKIP_README_NUMBERS=1, 跳过)')
+}
+
 // 1-4c, 6-29: 批量执行所有守门脚本(guardian-runner 单进程顺序执行)
 // 守门项数与分级见 `node scripts/guardian-runner.mjs --help` 输出
 // (项数随 guardian-runner.mjs 注册表自动变化,勿在此写死数字——写死必然过期)
