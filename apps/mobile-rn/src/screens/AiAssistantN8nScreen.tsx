@@ -39,7 +39,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import IntelligentAssistant from '../components/IntelligentAssistant'
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Keyboard,
@@ -57,6 +56,7 @@ import {
   type ImageSourcePropType,
   type ListRenderItem,
 } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import Clipboard from '@react-native-clipboard/clipboard'
 import * as FileSystem from 'expo-file-system'
 import * as MediaLibrary from 'expo-media-library'
@@ -1814,7 +1814,7 @@ export default function AiAssistantN8nScreen() {
     void loadConversationMessages(id)
   }
   const handleDrawerDeleteConversation = (id: string): void => {
-    Alert.alert('删除对话', '确认删除此对话?', [
+    appAlert('删除对话', '确认删除此对话?', [
       { text: '取消', style: 'cancel' },
       {
         text: '确认',

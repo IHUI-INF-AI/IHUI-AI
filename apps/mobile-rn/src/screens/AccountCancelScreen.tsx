@@ -1,10 +1,11 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { Alert } from 'react-native'
+import {} from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
@@ -52,20 +53,20 @@ export default function AccountCancelScreen() {
   const onSendSms = useCallback(async () => {
     const phone = inputPhone.trim()
     if (!phone) {
-      Alert.alert('提示', '请先输入手机号')
+      appAlert('提示', '请先输入手机号')
       return
     }
     if (!/^1\d{10}$/.test(phone)) {
-      Alert.alert('提示', '请输入正确的手机号')
+      appAlert('提示', '请输入正确的手机号')
       return
     }
     // 真实发送短信验证码(对齐原项目 account-cancel.vue onGetCode → sendTextMsg)
     const res = await sendSmsCode(phone, 'login')
     if (res.success) {
-      Alert.alert('提示', '验证码已发送')
+      appAlert('提示', '验证码已发送')
       setCountdown(60)
     } else {
-      Alert.alert('提示', res.error ?? '验证码发送失败，请稍后重试')
+      appAlert('提示', res.error ?? '验证码发送失败，请稍后重试')
     }
   }, [inputPhone])
 
@@ -81,7 +82,7 @@ export default function AccountCancelScreen() {
   const onSubmit = useCallback(async () => {
     const err = validate()
     if (err) {
-      Alert.alert('提示', err)
+      appAlert('提示', err)
       return
     }
     setSubmitting(true)
@@ -89,10 +90,10 @@ export default function AccountCancelScreen() {
       // 真实注销接口(对齐原项目 accountCancel → DELETE /login/cancel;RN 后端为 POST /api/settings/delete-account)
       const res = await deleteAccount(smsCode.trim(), '用户主动申请注销')
       if (!res.success) {
-        Alert.alert('提示', res.error ?? '提交失败，请稍后重试')
+        appAlert('提示', res.error ?? '提交失败，请稍后重试')
         return
       }
-      Alert.alert('注销成功', '您的账号已注销', [
+      appAlert('注销成功', '您的账号已注销', [
         {
           text: '知道了',
           onPress: () => {
@@ -102,7 +103,7 @@ export default function AccountCancelScreen() {
       ])
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      Alert.alert('提示', detail.trim() ? toUserFriendlyMessage(e) : '提交失败，请稍后重试')
+      appAlert('提示', detail.trim() ? toUserFriendlyMessage(e) : '提交失败，请稍后重试')
     } finally {
       setSubmitting(false)
     }

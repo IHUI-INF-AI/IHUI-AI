@@ -7,7 +7,8 @@
  * 2×2 网格:我的订单 / 我的公司 / 我的智汇值 / 我的钱包
  * 点击跳转对应路由,未登录时 Alert 提示。
  */
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { appAlert } from './BottomPops'
 import { Building2, Gem, Receipt, Wallet } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 
@@ -61,7 +62,7 @@ export interface UserCardProps {
 export function UserCard({ t, isLoggedIn, onPress }: UserCardProps) {
   const handlePress = (key: UserCardKey) => {
     if (!isLoggedIn) {
-      Alert.alert(t('profile.userCard.loginRequired'))
+      appAlert(t('profile.userCard.loginRequired'))
       return
     }
     onPress(key)
