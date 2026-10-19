@@ -2436,6 +2436,41 @@ function writeNotifyJson(file, obj) {
  * 所有依赖(时间/派发/路径/日志)可注入,离线取证见镜像测试。
  * @returns {{sent:boolean, suppressed?:boolean, why:string}}
  */
+/**
+ * 派发点身份覆盖自检(纯函数,§22c 由镜像测试直接消费,不在测试里重写一份判据)。
+ *
+ * 每个 `notify(` / `notifyGuardRed(` 派发点的 options 必须**显式**给出二者之一:
+ *   · `dedupKey` —— 稳定语义身份(类×折档),措辞与实时读数只进正文;
+ *   · `force: true` —— 主动通道自测(`--notify-test`),按设计绕过当轮窗口。
+ * 两者都没有的,身份退回 `alertFingerprint(name, detail)`:那把尺子把 detail 归一成指纹,
+ * 今天 detail 恰好是常量时碰巧稳定,但**任何一次改措辞都会静默换身份**、窗口当场作废再寄一轮
+ * (§5e-1 型②)。2026-10-19 全量派发点审计实测抓到一枚(`.env 漂移巡检没装车`),已补。
+ */
+export function auditDispatchSites(src) {
+  const lines = String(src || '').split('\n')
+  const sites = []
+  for (let i = 0; i < lines.length; i += 1) {
+    const raw = lines[i]
+    // 注释里提到的 `notifyGuardRed()` 不是派发点(§0.3:判据要落在真调用的那一行)
+    const t = raw.trim()
+    if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) continue
+    // 调用点:标识符前不得是 `= , : ( ! . & |`(赋值/默认参数/引用都不是派发)
+    if (!/(?:^|[^\w.$=,:(!&|?])(?:notify|notifyGuardRed)\(/.test(raw)) continue
+    // 选项块 = 本次调用自身:直到出现"整行只有一个右括号"那行为止(多行调用即闭合行)
+    let j = i
+    while (j < lines.length && j < i + 40 && !/^\s*\)/.test(lines[j])) j += 1
+    const block = lines.slice(i, Math.min(j + 1, lines.length)).join('\n')
+    const name = (block.match(/(?:notify|notifyGuardRed)\(\s*[`']([^`'\n]+)[`']/) || [])[1] || '?'
+    sites.push({
+      line: i + 1,
+      name,
+      hasDedupKey: /dedupKey/.test(block),
+      hasForce: /force:\s*true/.test(block),
+    })
+  }
+  return sites
+}
+
 export function notifyGuardRed(name, detail, opts = {}) {
   const {
     severity = 'warning',
@@ -2956,6 +2991,10 @@ export function auditEnvDrift(opts = {}) {
     notify(
       '.env 漂移巡检没装车(尺子文件不在这台机上)',
       'check-env-drift.mjs 不存在或被删 ⇒ 这一格当前无人看守,而账面看起来"什么都没发生"。',
+      // dedupKey 必填(2026-10-19 全量派发点审计补齐):不写就退回 `alertFingerprint(name, detail)`
+      // —— 那把尺子把 detail 归一成指纹,今天这段 detail 是常量所以碰巧稳定,但**任何一次改措辞
+      // 都会静默换身份**,窗口当场作废、重寄一轮(§5e-1 型②)。身份只认语义主键,措辞只进正文。
+      { dedupKey: 'env-drift;not-installed' },
     )
     return { state: 'not-installed' }
   }
@@ -5406,6 +5445,7 @@ export const __test__ = {
   judgeRefsHealth,
   alertFingerprint,
   stableAlertFingerprint,
+  auditDispatchSites,
   auditPublicPathProbe,
   auditTunnelLegHealth,
   auditTunnelMetrics,
