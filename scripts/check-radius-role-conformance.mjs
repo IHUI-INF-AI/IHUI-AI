@@ -687,6 +687,37 @@ export function applyRatchet(counts, anchors) {
 }
 
 /**
+ * 锚点收紧(2026-10-19 立,G-621 的最后一格)。
+ *
+ * 差值棘轮的本意是"拦本次把违规加回来"(§0.5:锚点 = 该文件 HEAD 自身的违规数),
+ * 但台账是**冻结的**:一处清完后台账里那格的旧值还写着。于是"在同一个文件里加新代码时
+ * 把已收敛的档位写回旧形态"读起来是 `n(1) <= cap(3)` ⇒ 被当成存量一路放行。
+ * 实测型:`1532608ed` 把控件收进 sm 之后,`7baa8ab0e` 在同一批文件新增 markup 又写回 rounded-md。
+ *
+ * 口径:只对**本次真的改过的文件**把上限换成 HEAD 面自身计数;未改动的文件继续按台账判
+ * (否则就是把别人钉的锚顶成新增红 —— §12e 那条)。
+ * `perFile` 每项 `{file, counts}`:`counts` 是该文件 HEAD 正文逐键计数(新增文件给 `{}`);
+ * **不要**为"HEAD 正文没读到"的文件造出 perFile 项 —— 调用方那种情形必须原样交台账。
+ */
+export function tightenAnchors(anchors, perFile) {
+  const out = { ...(anchors || {}) }
+  const tightened = []
+  const knownFiles = new Set((perFile || []).map((e) => e.file))
+  for (const e of perFile || []) {
+    for (const [key, ledgerCap] of Object.entries(anchors || {})) {
+      const [file] = key.split('|')
+      if (file !== e.file) continue
+      const cap = Number(e.counts?.[key] ?? 0)
+      if (cap < Number(ledgerCap)) {
+        tightened.push({ key, was: Number(ledgerCap), now: cap })
+        out[key] = cap
+      }
+    }
+  }
+  return { anchors: out, tightened, files: [...knownFiles] }
+}
+
+/**
  * 台账只允许下降或持平;第一次入锚(空台账)除外。
  *
  * **新键带违规同样拒绝**:`--emit-baseline` 是一条命令就能跑的东西,若允许它往已建立的
@@ -956,6 +987,47 @@ export function runAudit(repoRoot, face, { only } = {}) {
     unclassified.push(...r.unclassified)
     weakFindings.push(...r.weakFindings)
   }
+  /**
+   * 锚点收紧(理由见 tightenAnchors 头注):只在"该文件索引 blob 与 HEAD blob 不同"时动手,
+   * 且档位表与具名档仍取被审面 —— 同一轮里两端必须共用一把尺子,换掉的只有被比较的正文。
+   * HEAD 正文读不到 ⇒ 该文件**不收紧**(拿"读不到"当"HEAD 干净"就是凭猜测改锚)。
+   */
+  const anchorInfo = { anchors: baseline.anchors || {}, tightened: [], skipped: [] }
+  if (effFace === 'staged') {
+    let changed = null
+    try {
+      changed = String(gitRaw(['diff', '--name-only', 'HEAD', '--cached'], repoRoot) ?? '')
+        .split(/\r?\n/)
+        .map((s) => s.replaceAll('\\', '/').trim())
+        .filter(Boolean)
+    } catch (e) {
+      anchorInfo.skipped.push(`git diff 取不到(${String(e?.message ?? e).slice(0, 80)})⇒ 本枚按台账判,未做任何收紧`)
+    }
+    const targets = changed ? changed.filter((f) => files.includes(f)) : []
+    if (targets.length) {
+      const headGot = catBatch(repoRoot, targets.map((p) => `HEAD:${p}`), {
+        maxBuffer: 1 << 29,
+        timeout: 180000,
+      })
+      const perFile = []
+      for (const rel of targets) {
+        const src = headGot.get(`HEAD:${rel}`)
+        if (typeof src !== 'string') {
+          anchorInfo.skipped.push(`${rel}:HEAD 正文取不到 ⇒ 这一格不收紧(新增文件由"台账缺键视作 0"兜住)`)
+          continue
+        }
+        const counts = {}
+        for (const v of auditFileText(rel, src, table, baseConsts).violations) {
+          const k = anchorKey(v)
+          counts[k] = (counts[k] || 0) + 1
+        }
+        perFile.push({ file: rel, counts })
+      }
+      const t = tightenAnchors(baseline.anchors || {}, perFile)
+      anchorInfo.anchors = t.anchors
+      anchorInfo.tightened = t.tightened
+    }
+  }
   return {
     face: effFace,
     /** 请求的面与真正判定用的面必须都留痕:只留 effFace,"门换了面"就没人看得见。 */
@@ -987,7 +1059,8 @@ export function runAudit(repoRoot, face, { only } = {}) {
     roundedEnd,
     dimsUndetermined,
     exemptionIgnored,
-    red: applyRatchet(countByKey(violations), baseline.anchors || {}),
+    red: applyRatchet(countByKey(violations), anchorInfo.anchors),
+    anchorInfo,
     roleTableProblems: roleTableProblems(table),
   }
 }
@@ -1245,6 +1318,20 @@ export async function main(argv = process.argv.slice(2), repoRoot = ROOT) {
           '修它之前不得把这一族读成"已收口"。',
       )
     }
+    /**
+     * 锚点收紧必须自己报数:静默下调锚点等于把"为什么这次红了"藏起来 ——
+     * 读数变了却没人知道是锚点换了来源(台账 → 该文件 HEAD 自身计数)。
+     */
+    if (res.anchorInfo?.tightened?.length) {
+      const t = res.anchorInfo.tightened
+      console.log(
+        `  ⓘ 锚点按 HEAD 面收紧 ${t.length} 键(台账旧值 → 该文件 HEAD 自身计数;这是"同文件加新代码写回旧档"能被拦住的来源):` +
+          t.slice(0, 6).map((x) => ` ${x.key} ${x.was}→${x.now}`).join(' ,') +
+          (t.length > 6 ? ` …其余 ${t.length - 6} 键见 --json` : ''),
+      )
+    }
+    for (const s of res.anchorInfo?.skipped ?? [])
+      console.log(`  ⚪ 锚点未收紧:${s}(不收紧 = 按台账判,不得凭"读不到"当"HEAD 干净")`)
     if (res.red.length) {
       console.log(`❌ 判红(${res.red.length} 个「文件×角色」族超出自身锚点):`)
       for (const r of res.red.slice(0, 40)) {
@@ -2259,6 +2346,37 @@ export default function P() {
       }
     })(),
   )
+  // 95-98:锚点收紧(G-621 最后一格)。缝隙本体是"台账是冻结的":一处清完后旧锚还写着 3,
+  // 于是同一文件里新加的 1 处被读成 `n(1) <= cap(3)` 的存量 —— 功能提交顺手写回旧挡位就藏在这里。
+  t('95 台账留旧锚(3)而该文件 HEAD 自身是 0 ⇒ 收紧到 0,新写回的那 1 处判红', (() => {
+    const a = tightenAnchors({ 'x.tsx|control': 3 }, [{ file: 'x.tsx', counts: {} }])
+    const red = applyRatchet({ 'x.tsx|control': 1 }, a.anchors)
+    return (
+      a.tightened.length === 1 &&
+      a.tightened[0].now === 0 &&
+      red.length === 1 &&
+      red[0].key === 'x.tsx|control'
+    )
+  }))
+  t('96 反向不放宽:该文件 HEAD 自己就有 2 处 ⇒ 锚点仍是 2,存量不误判成新增', (() => {
+    const a = tightenAnchors({ 'y.tsx|card': 2 }, [{ file: 'y.tsx', counts: { 'y.tsx|card': 2 } }])
+    return (
+      a.tightened.length === 0 &&
+      a.anchors['y.tsx|card'] === 2 &&
+      applyRatchet({ 'y.tsx|card': 2 }, a.anchors).length === 0
+    )
+  }))
+  t('97 没改的文件一律不动锚(只作用于本次改动面,否则把别人存量顶成新增红 = §12e)', (() => {
+    const a = tightenAnchors({ 'z.tsx|panel': 5 }, [{ file: 'w.tsx', counts: {} }])
+    return a.tightened.length === 0 && a.anchors['z.tsx|panel'] === 5
+  }))
+  t('98 同文件多角色各自算账:另一角色的锚同样受该文件 HEAD 计数约束(不因收紧漏掉)', (() => {
+    const a = tightenAnchors(
+      { 'x.tsx|control': 3, 'x.tsx|panel': 1 },
+      [{ file: 'x.tsx', counts: { 'x.tsx|panel': 1 } }],
+    )
+    return a.anchors['x.tsx|control'] === 0 && a.anchors['x.tsx|panel'] === 1 && a.tightened.length === 1
+  }))
   // "两处算同一件事必漂移"是本仓记过最多次的失败型:回退判定只有一份(门 135 的
   // `shouldRetreatToHead`),本门不得再写一个 —— 那条反向源码锁由镜像 T35 钉。
   const { pass, fail, cases } = report()
