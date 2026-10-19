@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "anchor": "该文件在基线里的\"裸路径传输口死调用\"存量数(只减不增;新增即判红,存量只报数)",
+  "leg": "BP 腿:传输口 URL 实参位上引号紧邻、不以 /api/ 开头的裸路径字面量,按 normalizeUrl 现读档归一成 /api/…（判据见 scripts/check-api-routes.mjs::extractBareTransportCalls）",
+  "reason": "存量于 2026-10-19 现读得到:此前这一族调用点结构上进不了守门 8 的调用集(pathRe 要求引号紧邻 /api/),所以\"存量\"不是谁写坏了,是没人对过账。逐条分类已做过(29 条全量档 HEAD 面读数):① `apps/mobile-rn/src/screens/CircleIndexScreen.tsx` 的 3 条落在 `apps/api/src/routes/circle-mobile-routes.ts` —— 该后端文件当刻只在索引面(A)不在 HEAD 面,所以 HEAD 档看不见它的注册(换 `--staged` 即在册);② `use-vip-payment.ts` 的 2 条是 method 推断型(`GET /api/payment/orders/:orderNo`、`GET /api/vip/order/:orderNo/payinfo` 确在册,而 `inferMethodAtLine` 把这两处读成 POST)—— 判据用主腿同一个 `inferMethodAtLine`,不另发明第二把尺子;③ 余下(terminal 13 条、files 5 条、live/points/asks 若干)在 HEAD 面上路径整条不在册,属待人工裁决的存量。本基线只把\"本轮不判红\"这一件事钉住,不等于裁决其为合法调用(§12e:首次纳入的存量当场 blocking 就是恒红门)。",
+  "face": "head",
+  "perFileCount": {
+    "apps/miniapp-taro/src/pkg-user/task-center/index.tsx": 1,
+    "apps/mobile-rn/src/screens/CircleIndexScreen.tsx": 2,
+    "apps/mobile-rn/src/screens/LivePreviewScreen.tsx": 1,
+    "apps/mobile-rn/src/screens/PointsMallScreen.tsx": 1,
+    "apps/mobile-rn/src/screens/TaskCenterScreen.tsx": 1,
+    "apps/mobile-rn/src/screens/TopicDetailScreen.tsx": 1,
+    "apps/web/app/(main)/admin/distribution/withdrawals/page.tsx": 1,
+    "apps/web/src/hooks/use-terminal-session.ts": 12,
+    "apps/web/src/hooks/use-vip-payment.ts": 2,
+    "apps/web/src/lib/file-utils.ts": 4,
+    "packages/api-client/src/endpoints/community.ts": 2
+  }
+}
