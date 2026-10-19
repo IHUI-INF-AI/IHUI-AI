@@ -1,4 +1,4 @@
-2026-10-19T12:29:43.383Z pid=3868
+2026-10-19T12:29:55.384Z pid=3868
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/3 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
