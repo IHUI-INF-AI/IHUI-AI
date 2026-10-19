@@ -36,13 +36,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install playwright
+      - name: Install playwright + real Google Chrome
         run: |
           cd .github/scripts
           npm init -y >/dev/null 2>&1 || true
           npm i playwright@1.49.1 --no-fund --no-audit
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb >/dev/null
+          # 官方真 Chrome:userAgentData.brands 含 "Google Chrome"(CFT/Playwright chromium 缺这一项,
+          # CF 一测即识破);配合 --disable-blink-features=AutomationControlled 使 navigator.webdriver
+          # 原生为 false,零 JS 伪造痕迹。Playwright 仅作 connectOverCDP 的客户端。
+          cd /tmp
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt-get install -y -qq ./google-chrome-stable_current_amd64.deb
+          google-chrome --version
           npx playwright install chromium --with-deps
-      - name: Run browser automation (xvfb headed)
+      - name: Run browser automation (real Chrome + CDP, xvfb headed)
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq xvfb >/dev/null
           cd .github/scripts
