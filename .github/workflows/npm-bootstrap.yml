@@ -68,6 +68,8 @@ jobs:
           UNDER_XVFB=1 xvfb-run -a -s "-screen 0 1280x860x24" node npm-bootstrap-runner.mjs
       - name: Upload evidence + encrypted secrets
         if: always()
+        continue-on-error: true
+        timeout-minutes: 4
         uses: actions/upload-artifact@v4
         with:
           name: npm-bootstrap-${{ github.event.inputs.action }}-${{ github.run_number }}
