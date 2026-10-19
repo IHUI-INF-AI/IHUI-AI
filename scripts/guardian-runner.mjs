@@ -1023,6 +1023,10 @@ const checks = [
     id: '33',
     label: '🛡️  LLM provider schema 守门 (blocking,阶段 3 主体已落地)',
     script: 'check-llm-provider-schema.mjs',
+    // 射程收窄(2026-10-17):本门判的是 apps/ai-service/.env 这个 **gitignored 机器态文件**,
+    // 与提交内容无因果关系;无条件挂上 = §12e 恒红门(.env 缺失时任何提交都被堵)。
+    // 与门 208 同型:只在暂存区触及本域路径时才跑,判据一字未改。
+    stagedTriggers: ['apps/ai-service/'],
     args: [],
     mode: 'blocking',
     onFailHint: [
