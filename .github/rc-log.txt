@@ -1,4 +1,4 @@
-2026-10-19T10:37:13.078Z pid=3853
+2026-10-19T10:37:25.078Z pid=3853
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/1 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -28,3 +28,6 @@ RC-WAIT round=0 i=4 status=404
 RC-WAIT round=0 i=8 status=404
 RC-WAIT round=0 i=12 status=404
 RC-WAIT round=0 i=16 status=404
+RC-INSTRUCT round=0 {"round":0,"tiles":[3,4,9]}
+RC-TILES-CLICKED round=0 n=3
+RC-VERIFY-BTN label="Verify"
