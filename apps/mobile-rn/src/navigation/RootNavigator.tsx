@@ -236,6 +236,9 @@ import { KnowledgeRagScreen } from '../screens/KnowledgeRagScreen'
 import { SubagentsScreen } from '../screens/SubagentsScreen'
 // D28 多端同步(2026-09-21):外部会话导入(对应 web 端 /settings/import 会话导入 Tab)
 import { ConversationImportScreen } from '../screens/ConversationImportScreen'
+// P3 侧边栏收敛:教育/交易/社区域入口二级屏
+import DomainHubScreen from '../screens/DomainHubScreen'
+import type { DomainKey } from './domain-hub'
 
 /**
  * Vip 弹窗分支类型(对齐 Uniapp vip_info/index.vue onLoad options.type 行 59-75):
@@ -252,6 +255,8 @@ export type RootStackParamList = {
   Login: undefined
   Main: NavigatorScreenParams<MainStackParamList>
   Home: undefined
+  // P3 侧边栏收敛:教育/交易/社区域入口二级屏,params.domain 指定域单源(navigation/domain-hub)
+  DomainHub: { domain: DomainKey }
   // 对齐 Uniapp 跳 chat 传参(conversationId/title/modelName/modelId/remark),其余 12 参数中关键项已覆盖;
   // modelName/modelId/remark 可选,ChatScreen 仅消费 conversationId,其余字段预留给后续接入。
   Chat: {
@@ -693,6 +698,7 @@ function RootNavigatorInner() {
                 出路不能建在"异步一定成功"上。两边都挂着,跳转就是同步可达的。 */}
             <RootStack.Screen name="Login" component={LoginScreen} />
             <RootStack.Screen name="Home" component={HomeScreen} />
+            <RootStack.Screen name="DomainHub" component={DomainHubScreen} />
             <RootStack.Screen name="Chat" component={ChatScreen} />
             <RootStack.Screen name="OrderRefund" component={OrderRefundScreen} />
             <RootStack.Screen name="Payment" component={PaymentScreen} />
