@@ -134,6 +134,8 @@ import {
 } from '@ihui/shared/chat/queue-interactions'
 import { apiFailureToText, logger } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
+// 按子路径取:RN 的 vitest 把 `@ihui/shared/utils` 父别名指向测试替身,父入口取不到本模块
+import { isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils/finish-reason'
 import type { ChatMessage } from '@ihui/shared'
 import {
   applyStreamError,
@@ -1044,6 +1046,14 @@ export function ChatScreen() {
       // 不再与完整回答同形。提示出口复用本端既有 FloatBox(与 onFallback 同形)
       onPartialDone: () => {
         showToast('warning', t('chat.partialDoneTitle'))
+      },
+      // G-425(默认档"只提示"):done 帧携带上游 finish/stop reason,判"输出被
+      // max_tokens 截断"用共享层唯一助手(与 web 同一份,端内不另写判据),
+      // 复用本端既有 FloatBox(与 onPartialDone 同一出口,不新立 UI)。
+      onFinishReason: (event) => {
+        if (isMaxTokensTruncatedFinishReason(event.finishReason)) {
+          showToast('warning', t('chat.truncation.maxLengthNotice'))
+        }
       },
       // D39 重试交代:与 N8n 屏同一句词包(否则用户在流上只看到"卡住")
       onRetryScheduled: (event) => {
