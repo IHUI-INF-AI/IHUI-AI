@@ -6433,3 +6433,6 @@ A: 118 models via LiteLLM adapter(国际 30+ / 国产 15+ / 云厂商 10+),统�
 - **118 大模型统一调度**:LiteLLM 1.55+ 适配,OpenAI 兼容 v1 API,48 provider 前缀映射 + 93 免费 provider 注册内化
 > | **CLI** | `apps/cli/` | Node.js + Commander | 自研命令行 AI 编程助手,66 命令文件 + 72 工具文件 + ACP Server + 24 源配置导入 |
 > | **CLI** | `apps/cli/` | 🟡 核心场景级 | ~1500 行 / 66 命令 / 72 工具 | 单元测试 | 自研 AI 编程助手,ACP Server |
+                 │  • 三支柱可观测性 + 26 Grafana 仪表盘             │
+9. **三支柱可观测性 + 26 Grafana 仪表盘**:Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager — 开源 AI 平台中较为少见的完整 SRE 级可观测性栈(其他项目最多基础日志)
+9. **三支柱可观测性 + 26 Grafana 仪表盘 + Alertmanager**(在开源 AI 平台中较为少见)
