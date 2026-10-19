@@ -29,7 +29,6 @@ import { tokens } from '../theme/active-tokens'
 import { rnGeometry, rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Alert,
   Animated,
   Dimensions,
   Easing,
@@ -43,6 +42,7 @@ import {
   Text,
   View,
 } from 'react-native'
+import { appAlert } from './BottomPops'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation, useNavigationState } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -900,7 +900,7 @@ export function Drawer(props: DrawerProps) {
           const { [id]: _rollback, ...rest } = prev
           return rest
         })
-        Alert.alert(t('drawer.prompt'), t('drawer.favoriteFailed'))
+        appAlert(t('drawer.prompt'), t('drawer.favoriteFailed'))
       })
     },
     [t],
@@ -974,7 +974,7 @@ export function Drawer(props: DrawerProps) {
   /** 用户菜单-退出登录:确认后登出(文案全 i18n,替代旧硬编码"确定要退出登录吗?") */
   const handleLogoutPress = useCallback(() => {
     setUserMenuOpen(false)
-    Alert.alert(t('common.logout'), t('settings.logoutConfirm'), [
+    appAlert(t('common.logout'), t('settings.logoutConfirm'), [
       { text: t('drawer.cancel'), style: 'cancel' },
       { text: t('drawer.exit'), style: 'destructive', onPress: () => void logout() },
     ])
