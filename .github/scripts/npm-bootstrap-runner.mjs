@@ -767,10 +767,11 @@ async function handleRecaptchaChallenge(page, attempt) {
     const b64 = fs.readFileSync(shotPath).toString('base64')
     const pushed = await pushRepoFileRetry(`.github/rc-shot-${round}.png`, b64, `rc challenge round ${round}`)
     console.log(`RC-SHOT-PUSHED round=${round} ok=${pushed}`)
-    // 等待指令文件(最多 6 分钟轮询;每次 fetch 都带超时,避免 TCP 挂死拖住整轮)
+    // 等待指令文件(最多 10 分钟轮询;每次 fetch 都带超时,避免 TCP 挂死拖住整轮)
+    // ★ 窗口必须够长:人工侧要看图 → 判断 → 推指令,单轮实测 2-4 分钟;过短会白跑一整轮。
     let instr = null
-    for (let i = 0; i < 24; i++) {
-      await sleep(15000)
+    for (let i = 0; i < 60; i++) {
+      await sleep(10000)
       try {
         const r = await fetch(INSTR_URL + '?t=' + Date.now(), {
           cache: 'no-store',
