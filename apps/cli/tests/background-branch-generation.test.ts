@@ -220,6 +220,30 @@ describe('G-816001 后台条目分支代戳 + 唤醒播报面比对', () => {
     expect(fresh.status).toBe('lost');
   });
 
+  it('同代两条唤醒各自播报一条:通知面不得把多条合成一条不存在的 payload(票面"队列因果一并收")', () => {
+    // 我方现读没有成批通知面(`git grep -nE "enqueueBackgroundTaskNotification|pendingNotifications" HEAD -- apps/cli/src`
+    // 只命中本注册表的论证注释),所以上游"以首任务推整批因果、payload 不合成"在我方的
+    // 落法 = **逐条各发各的**:两条同代唤醒必须得到两条独立正文,每条只带自己的 id 与输出,
+    // 不得出现"首条代表整批"的合成体。这一条钉住的就是"别为了迁就批语义去省事合成"。
+    const idA = registerTask(null, 'bg-batch A');
+    const idB = registerTask(null, 'bg-batch B');
+    const a = getTask(idA)!;
+    const b = getTask(idB)!;
+    settleLostShaped(a);
+    settleLostShaped(b);
+
+    const notices: string[] = [];
+    __test__.setTerminalNoticeSink((n) => notices.push(n));
+    __test__.notifySettled(a);
+    __test__.notifySettled(b);
+
+    expect(notices.length).toBe(2); // 两条唤醒 ⇒ 两条通知,不是一条合成体
+    expect(notices[0]).toContain(idA);
+    expect(notices[0]).not.toContain(idB); // 正文只讲自己那一条
+    expect(notices[1]).toContain(idB);
+    expect(notices[1]).not.toContain(idA); // 也不是"首条代表整批"
+  });
+
   it('分支代门只拦播报入队:旧代条目的 settled 支照常向等待者投递快照', () => {
     const id = registerTask(null, 'bg-gen 等待者不受代门影响');
     const live = getTask(id)!;
