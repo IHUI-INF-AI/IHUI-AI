@@ -202,12 +202,12 @@
 
 ### 项目集成
 
-- [ ] `/sponsor` 页面显示 BTC / ETH / USDT / USDC 充值地址
-- [ ] `.env` 文件已配置:
-  - [ ] `NEXT_PUBLIC_BTC_ADDRESS=`
-  - [ ] `NEXT_PUBLIC_ETH_ADDRESS=`
+- [ ] `/sponsor` 页面展示 BTC / ETH 捐赠地址（前端硬编码公开常量）与 USDT 收款入口
+- [ ] `.env` 文件已配置（服务端读取，禁止 `NEXT_PUBLIC_` 前缀）:
   - [ ] `USDT_TRC20_ADDRESS=`
-  - [ ] `NEXT_PUBLIC_USDC_ADDRESS=`
+  - [ ] `USDT_ERC20_ADDRESS=`
+  - [ ] `TRONGRID_API_KEY=`（可选，链上查询）
+  - [ ] `ETHERSCAN_API_KEY=`（可选，链上查询）
 
 ### 测试
 

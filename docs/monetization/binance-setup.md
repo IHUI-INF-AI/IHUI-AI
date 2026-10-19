@@ -273,16 +273,19 @@ const CRYPTO_ADDRESSES = {
 
 在 `.env` 文件中添加:
 
+服务端充值地址在 `.env` 配置（由 `getUsdtPaymentConfig` 读取，**禁止 `NEXT_PUBLIC_` 前缀**，该前缀会把值内联进前端 bundle）:
+
 ```bash
-# Cryptocurrency addresses (public, safe to commit)
-NEXT_PUBLIC_BTC_ADDRESS=用户的 BTC 地址
-NEXT_PUBLIC_ETH_ADDRESS=用户的 ETH 地址
+# 平台固定收款地址(所有用户共用,靠链上金额匹配订单)
 USDT_TRC20_ADDRESS=用户的 USDT TRC20 地址
-NEXT_PUBLIC_USDC_ADDRESS=用户的 USDC 地址
+USDT_ERC20_ADDRESS=用户的 USDT ERC20 地址
+# TronGrid / Etherscan API key(链上查询;可留空,匿名查询配额较低)
+TRONGRID_API_KEY=
+ETHERSCAN_API_KEY=
 ```
 
-> ✅ 充值地址是**公开信息**，可以用 `NEXT_PUBLIC_` 前缀让前端访问
-> ❌ 私钥是**机密信息**，绝不提交到 git
+> `/sponsor` 页展示的 BTC/ETH 捐赠地址是前端硬编码公开常量（`CryptoDonation.tsx`），不走 env，也不存在 `NEXT_PUBLIC_BTC_ADDRESS` / `NEXT_PUBLIC_USDC_ADDRESS` 这类键。
+> ❌ 私钥是**机密信息**，只放 gitignored 的 `wallet-secrets.json`，绝不提交到 git。
 
 ---
 
