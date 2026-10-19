@@ -160,3 +160,44 @@ test('T8 同题真孪生仍须折叠(收紧不得变成永远拒绝)', () => {
   const out = run(dir, ['--mode=f1', '--out=cand.md'])
   assert.match(out, /归并 1 行/, '真同题副本必须还能折叠 —— 否则本器只是把能力关掉')
 })
+
+// T9(G-72 裁决①):f1 档一律不折叠自述指针行。指针行的复合键取自指针文本自身,
+// 它的"同键已勾孪生"只是另一条同文指针行,并不证明被指持有行已闭环 ⇒ 翻勾是循环论证
+// (把没做完记成做过,本仓最贵的假绿)。declared 档本职就是收自述副本,原样不变。
+const PTR_OPEN = '- [ ] D9 夹具标题的正文片段 〔【归并】重复登记副本(2026-09-29):派单以那条为准〕'
+const PTR_DONE = `- [x] ${TICK}(2026-09-01) D9 夹具标题的正文片段 〔【归并】重复登记副本(2026-09-29):派单以那条为准〕`
+
+test('T9 f1 档跳过自述指针行(同键已勾孪生指针不构成闭环证据);declared 档仍收自述副本', () => {
+  // 夹具前提自查:两行复合键逐字相等且都命中自述声明,否则测不到这一型(假夹具自报)。
+  const ka = compositeKeyOf(PTR_OPEN)
+  const kb = compositeKeyOf(PTR_DONE)
+  assert.ok(ka && kb, '夹具前提:两行都取得出复合主键')
+  assert.equal(ka, kb, '夹具前提:两行复合键相等(同文指针孪生,而非真持有行)')
+  const selfDecl = /〔[^〕]*(重复登记副本|派单以那条为准|本行不再单独派单)[^〕]*〕/
+  assert.match(PTR_OPEN, selfDecl, '夹具前提:未勾行带自述声明')
+  assert.match(PTR_DONE, selfDecl, '夹具前提:已勾孪生也是自述指针,不是真持有行')
+
+  // f1:不折叠、归并候选 0、报出 skippedPointer≥1(未勾未降 ⇒ 审计拒绝,rc≠0)。
+  const dir = mkRepo(['# 夹具', PTR_DONE, PTR_OPEN])
+  let rc = 0
+  let err = ''
+  try {
+    execFileSync(process.execPath, [TOOL, `--root=${dir}`, '--mode=f1', '--out=cand.md'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    rc = e.status
+    err = String(e.stderr || '') + String(e.stdout || '')
+  }
+  assert.notEqual(rc, 0, 'f1 档折叠自述指针行 ⇒ 循环论证误翻勾,必须拒绝')
+  assert.match(err, /归并候选 0/, '一条都不许折叠')
+  assert.match(err, /跳过自述指针 [1-9]\d*/, '跳过的指针行必须报名,不得静默丢弃')
+
+  // declared 回归:本职就是收自述副本,同一夹具仍折叠(两档不同判)。
+  const out = run(dir, ['--mode=declared', '--out=cand2.md'])
+  assert.match(out, /归并 1 行/, 'declared 档收自述副本的本职不变')
+  const cand = readFileSync(join(dir, 'cand2.md'), 'utf8').split('\n')
+  assert.ok(cand[2].startsWith(`- [x] ${TICK}`), 'declared 档把自述副本翻勾')
+})
