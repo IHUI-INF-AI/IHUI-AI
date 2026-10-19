@@ -611,13 +611,55 @@ async function runSignPath(page, attempt) {
     throw new Error('signpath form still present after submit (reCAPTCHA?) — see sp-after-submit.png')
   }
   console.log('SIGNPATH-SUBMITTED')
+  // 清理 rc-live 临时文件(截图 + 指令)
+  for (let r = 0; r < 4; r++) await deleteRepoFile(`.github/rc-shot-${r}.png`)
+  await deleteRepoFile('.github/rc-clicks.json')
+  console.log('RC-FILES-CLEANED')
 }
 
-// reCAPTCHA 图像挑战闭环:截图 → 轮询 repo 指令文件(坐标)→ 人类化点击 → VERIFY → 循环
-// 指令文件:.github/rc-clicks.json = {"round":N,"clicks":[{"x":px,"y":px},...]} (viewport 坐标)
+// 推送截图到 rc-live 专用分支(供李总侧实时 raw 读取识别;不污染 main)
+async function pushRepoFile(path, contentB64, message) {
+  const repo = 'IHUI-INF-AI/IHUI-AI'
+  const token = process.env.GH_TOKEN
+  const branch = 'rc-live'
+  let sha
+  try {
+    const r0 = await fetch(`https://api.github.com/repos/${repo}/contents/${encodeURI(path)}?ref=${branch}`, {
+      headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github+json' },
+    })
+    if (r0.ok) sha = (await r0.json()).sha
+  } catch {}
+  const r = await fetch(`https://api.github.com/repos/${repo}/contents/${encodeURI(path)}`, {
+    method: 'PUT',
+    headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, content: contentB64, branch, sha }),
+  })
+  if (!r.ok) throw new Error('push rc file failed: ' + r.status + ' ' + (await r.text()).slice(0, 150))
+}
+
+// 删除 rc-live 上的临时文件(Contents API DELETE)
+async function deleteRepoFile(path) {
+  const repo = 'IHUI-INF-AI/IHUI-AI'
+  const token = process.env.GH_TOKEN
+  const branch = 'rc-live'
+  try {
+    const r0 = await fetch(`https://api.github.com/repos/${repo}/contents/${encodeURI(path)}?ref=${branch}`, {
+      headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github+json' },
+    })
+    if (!r0.ok) return
+    const sha = (await r0.json()).sha
+    await fetch(`https://api.github.com/repos/${repo}/contents/${encodeURI(path)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: `cleanup ${path}`, sha, branch }),
+    })
+  } catch {}
+}
+
+// reCAPTCHA 图像挑战闭环:截图推 rc-live → 轮询 rc-clicks.json 坐标 → 人类化点击 → VERIFY → 多轮
+// 指令文件(rc-live 分支):.github/rc-clicks.json = {"round":N,"clicks":[{"x":px,"y":px},...]} (viewport 坐标)
 async function handleRecaptchaChallenge(page, attempt) {
-  const INSTR_URL =
-    'https://raw.githubusercontent.com/IHUI-INF-AI/IHUI-AI/main/.github/rc-clicks.json'
+  const INSTR_URL = 'https://raw.githubusercontent.com/IHUI-INF-AI/IHUI-AI/rc-live/.github/rc-clicks.json'
   for (let round = 0; round < 4; round++) {
     const bframe = page.frames().find((f) => /recaptcha.*bframe/.test(f.url()))
     if (!bframe) {
@@ -625,7 +667,16 @@ async function handleRecaptchaChallenge(page, attempt) {
       return true
     }
     console.log(`RC-CHALLENGE round=${round} frame=${bframe.url().slice(0, 90)}`)
-    await shot(page, `rc-challenge-${round}`)
+    const shotPath = `${SHOT_DIR}/rc-challenge-${round}.png`
+    await page.screenshot({ path: shotPath, fullPage: false })
+    // 实时推送截图到 rc-live(李总侧多模态识别用)
+    try {
+      const b64 = fs.readFileSync(shotPath).toString('base64')
+      await pushRepoFile(`.github/rc-shot-${round}.png`, b64, `rc challenge round ${round}`)
+      console.log(`RC-SHOT-PUSHED round=${round}`)
+    } catch (e) {
+      console.log(`RC-SHOT-PUSH-FAIL round=${round} ${String(e.message).slice(0, 120)}`)
+    }
     // 等待指令文件(最多 8 分钟轮询)
     let clicks = null
     for (let i = 0; i < 24; i++) {
@@ -652,7 +703,7 @@ async function handleRecaptchaChallenge(page, attempt) {
     }
     // 点 VERIFY
     const verify = bframe
-      .locator('#recaptcha-verify-button, button:has-text("Verify"), #recaptcha-verify-button')
+      .locator('#recaptcha-verify-button, button:has-text("Verify")')
       .first()
     await verify.click({ timeout: 12000 })
     await sleep(9000)
