@@ -53,7 +53,7 @@ IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actio
 | 产物 | 状态 | 回读命令 | 实测输出 |
 | --- | --- | --- | --- |
 | `@ihui/sdk`(npm) | ❌ 未发布 | `curl -s https://registry.npmjs.org/@ihui%2Fsdk` | `{"error":"Not found"}`(HTTP 404) |
-| `ihui-cli`(npm) | ❌ 未发布(包名 `ihui-cli` 为 unscoped,404 = 名称可用) | `curl -s https://registry.npmjs.org/ihui-cli` | `{"error":"Not found"}`(HTTP 404) |
+| `ihui-cli`(npm) | ❌ 未发布(包名 `ihui-cli` 为 unscoped,404 = 名称可用;任务 5 卡在用户 npm 账号 2FA bootstrap) | `curl -s https://registry.npmjs.org/ihui-cli` | `{"error":"Not found"}`(HTTP 404) |
 | `@ihui/api-client`(npm) | ❌ 未发布(定位为内部包,见下) | `curl -s https://registry.npmjs.org/@ihui%2Fapi-client` | `{"error":"Not found"}` |
 | `ihui-ai`(PyPI) | ❌ 未发布 | `curl -s https://pypi.org/pypi/ihui-ai/json` | `{"message": "Not Found"}`(HTTP 404) |
 | SDK 发布 tag | ❌ 一个都没有 | `git tag -l 'sdk-v*'`(另测 `v*` / `cli-v*`) | 0 行 |
@@ -62,6 +62,10 @@ IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actio
 | CI 发布 secrets | ⚠️ 部分未配置;npm 已不需要 token | `gh secret list` | 仅 DEPLOY_/DESKTOP_/GITEE_/GITCODE_ 共 8 项,**无** PYPI_TOKEN / MAVEN_* / NUGET_*;CLI 的 npm 发布已切 OIDC,不再读 `NPM_TOKEN` |
 | OIDC trusted publishing | ⚠️ CI 已接入,首版待人工 bootstrap | `release-cli.yml` / npm 包页面 | npm 要求**包已存在**才能登记 trusted publisher;`ihui-cli` 当前 404 → 需人工发布首版后再登记,之后 `cli-v*` tag 由 CI 免 token 发布。PyPI 同理(首版仍需 `PYPI_TOKEN`) |
 | desktop GitHub Release | ✅ 已发布(对照项) | `git tag -l 'desktop-v*'` | `desktop-v0.1.42` 等已产出(见 `release-desktop.yml`) |
+| 桌面端 updater 闭环 | ✅ 已验证(任务 2,2026-10-19) | 本机自装 0.1.76 全流程 | `checkForUpdate()` 拉 `aizhs.top/desktop-feed.json` → 比对版本 → 验签安装 → 重启,闭环绿 |
+| Android versionCode + 可上架 AAB | ✅ 已产出(任务 4,2026-10-19) | `apps/mobile-rn/android/app/.../gradle` `assembleRelease` | AAB 已落 `android/app/build/outputs/bundle/release/`,`versionCode` 由 `app.config.js` 号段派生 |
+| 小程序 weapp 产物 | ✅ 已构建(任务 3,2026-10-19) | `pnpm --filter @ihui/miniapp-taro build:weapp` | `apps/miniapp-taro/dist/` 全链 exit 0;上传密钥缺失待用户补 |
+| iOS 端 | ⏳ 工程侧全就绪,待用户侧 Apple Developer + EAS 登录 + AASA Team ID 占位替换(任务 6,2026-10-19) | `npx eas build -p ios` | 见下节「iOS 端可行性评估」 |
 
 **结论:`release-sdk.yml` / `release-cli.yml` 的发布链路是"配好了但从未跑通",不是"已交付"。**
 CLI 侧链路已收口为 npm Trusted Publishing(OIDC),**CI 不再需要 `NPM_TOKEN`**;但 OIDC 不能给不存在的包登记 publisher,首版仍需人工 bootstrap。剩余人工动作(全部在用户侧,agent 无法代办):
@@ -386,6 +390,47 @@ sha256sum ihui-windows-x64.zip
 | Android 提交 | EAS Submit | `eas submit -p android` | Google 审核(1-4 小时) |
 | 配置 | `apps/mobile-rn/eas.json` | build / submit profile | — |
 
+#### iOS 端可行性评估(2026-10-19,工程侧全就绪)
+
+**工程侧已就绪**(无需本地 Xcode,走 EAS 云端构建):
+
+| 项 | 状态 | 证据 |
+| --- | --- | --- |
+| `ios.bundleIdentifier` | ✅ | `app.json` `ai.ihui.mobile` |
+| `ios.infoPlist` / `usesNonExemptEncryption:false` | ✅ | `app.json` + `eas.json` env |
+| `ios.associatedDomains`(applinks) | ✅ | `app.json` `applinks:aizhs.top` + `applinks:file.aizhs.top` |
+| `app.config.js` `buildNumber` 号段 | ✅ | UTC `YYMMDDHH` 8 位号段 `[26010100, 2100000000]`,`IHUI_VERSION_CODE` 覆盖口越界抛错 |
+| `eas.json` `build.production` | ✅ | `autoIncrement:true` + `android.buildType:apk`(iOS 不锁 apk) |
+| `eas.json` `submit.production` | ✅ | 空配置(全量平台) |
+| 4 个 Expo config plugin | ✅ | `withWechat.cjs`(CFBundleURLTypes + AppDelegate WXApi 钩子)+ `withCarrier.cjs` + `withExpoImportFix.cjs` + `withSplash.cjs` |
+| `expo-notifications ~57.0.0` 已装 | ✅ | 推送能力就绪;`use-push.ts` 已注册到后端 `/push/devices/register` |
+| `assets/icon.png` / `splash-icon.png` / `adaptive-icon.png` | ✅ | `apps/mobile-rn/assets/` 就绪 |
+| Apple AASA 源文件 | ✅ | `apps/mobile-rn/public/.well-known/apple-app-site-association`(含 `TEAMID.ai.ihui.mobile` 占位) |
+| 本地 `ios/` 原生目录 | ⚠️ 无 | 走 EAS 云端构建路径,**无需**本地 Xcode 工程;本地 debug 走 `eas build -p ios --profile development`(simulator) |
+
+**用户侧前置条件(全部在 agent 之外,需用户完成)**:
+
+| 项 | 说明 |
+| --- | --- |
+| ① Apple Developer 账号 | $99/年;[developer.apple.com](https://developer.apple.com/) 注册 |
+| ② EAS 登录 | `cd apps/mobile-rn && npx eas login`(Expo 账号 + Apple 开发者团队绑定) |
+| ③ Apple Team ID | Apple Developer 会员页 → Membership Details;用于替换 AASA 中的 `TEAMID` 占位 |
+| ④ AASA 文件部署 | ① 把 `apps/mobile-rn/public/.well-known/apple-app-site-association` 中的 `TEAMID.ai.ihui.mobile` 替换为 `<TeamID>.ai.ihui.mobile`;② 部署到 `https://file.aizhs.top/.well-known/apple-app-site-association`(HTTPS、Content-Type: application/json、<128KB、不允许 3xx) |
+| ⑤ App Store 元数据 | App Store Connect 创建 App record(本地化、截图 6.7"/6.5"、描述、隐私政策 URL、关键词、类目、年龄分级);图标 1024×1024 |
+| ⑥ 推送证书(APNs) | 若启用 `expo-notifications`:App Store Connect → App → App Services → Push Notifications → 注册 APNs 证书;或 EAS 走 `eas build -p ios` 时上传 cert 到 EAS |
+| ⑦ 微信 Universal Link 域名 | `aizhs.top` / `file.aizhs.top` 域名 ICP 备案 + HTTPS 证书有效;微信开放平台移动应用注册时填 `https://aizhs.top`(与 `WX_UNIVERSAL_LINK` 一致) |
+
+**上架命令(用户侧动作)**:
+
+```bash
+cd apps/mobile-rn
+npx eas login                              # 首次
+npx eas build --platform ios --profile production
+npx eas submit -p ios                     # 走 App Store Connect
+```
+
+**可行性结论**:工程侧全就绪,EAS 云端构建路径无阻塞;上架路径仅卡在用户侧 Apple Developer 账号 + EAS 登录 + AASA 占位替换 + 元数据补齐。**iOS 端无工程侧阻塞,可立即启动上架。**
+
 ### miniapp-taro(微信小程序审核)
 
 | 项 | 说明 |
@@ -398,6 +443,15 @@ sha256sum ihui-windows-x64.zip
 | 兜底通道 | 微信开发者工具 → 上传 → 提交审核(无密钥时) |
 | 审核 | 微信团队审核(1-7 天) |
 | 多端 | Taro 4.2 支持同时构建 weapp / alipay / swan / tt / h5 |
+
+**当前状态(2026-10-19,任务 3 收口)**
+
+| 项 | 状态 |
+| --- | --- |
+| `miniprogram-ci` 已安装 | ✅ `apps/miniapp-taro/package.json` devDependencies |
+| weapp 产物构建 | ✅ `apps/miniapp-taro/dist/` 全链 exit 0(编译 51.61s;CSS 覆盖率 728/740 = 98.38%;主包 1558577B / 2097152B,余量 538575B) |
+| 上传密钥 | ⚠️ 缺失 —— `apps/miniapp-taro/private.wx27028e276ffdbc5d.key` 不存在,`WX_MINIAPP_PRIVATE_KEY` 未设 |
+| 上传动作 | ⏳ 待用户从微信公众平台「开发管理 → 开发设置 → 小程序代码上传密钥」下载 `.pem` 后:`node scripts/upload-miniapp.mjs --version 0.0.6 --desc "..."` |
 
 ### cli(npm + 4 包管理器)
 

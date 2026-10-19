@@ -33,6 +33,7 @@ from app.services.session_store import owner_scoped_allows
 from ..core.jwt_auth import get_current_user_id
 from ..core.rbac import Permission, require_permission
 from ..core.sse_frames import with_frame_trace_id
+from ..services.async_gen_close import aclose_async_gen
 
 router = APIRouter(prefix="/agent-runtime", tags=["agent-runtime"])
 logger = logging.getLogger(__name__)
@@ -297,40 +298,71 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
                 "error": None,
             }
 
-            async for event in graph.astream(initial_state):
-                if await request.is_disconnected():
-                    logger.info("agent_runtime SSE client disconnected, stopping stream")
-                    break
-                for node_name, node_output in event.items():
-                    if not isinstance(node_output, dict):
-                        continue
-                    if node_name == "plan" and node_output.get("plan"):
-                        yield _sse_frame("plan", {"plan": node_output["plan"]})
-                    elif (
-                        node_name == "execute"
-                        and node_output.get("execution_result")
-                    ):
-                        yield _sse_frame(
-                            "delta", {"content": node_output["execution_result"]}
+            _graph_stream: AsyncIterator[Any] | None = None
+            try:
+                _graph_stream = graph.astream(initial_state)
+                async for event in _graph_stream:
+                    if await request.is_disconnected():
+                        logger.info("agent_runtime SSE client disconnected, stopping stream")
+                        # 被弃路径就地关停:break 之后本流还要走完外层 except 的收尾,
+                        # 而 graph.astream(langgraph)此刻仍停在半读态 —— 拖到 GC 才关,
+                        # 检查点与内部清理要等不确定的时间(G-77:借来的生成器谁借谁关)。
+                        await aclose_async_gen(
+                            _graph_stream,
+                            label="agent_runtime execute/stream (client disconnected)",
                         )
-                    elif node_name == "summarize" and node_output.get("summary"):
-                        session.messages.append(
-                            SessionMessage(
-                                role="assistant", content=node_output["summary"]
+                        break
+                    for node_name, node_output in event.items():
+                        if not isinstance(node_output, dict):
+                            continue
+                        if node_name == "plan" and node_output.get("plan"):
+                            yield _sse_frame("plan", {"plan": node_output["plan"]})
+                        elif (
+                            node_name == "execute"
+                            and node_output.get("execution_result")
+                        ):
+                            yield _sse_frame(
+                                "delta", {"content": node_output["execution_result"]}
                             )
+                        elif node_name == "summarize" and node_output.get("summary"):
+                            session.messages.append(
+                                SessionMessage(
+                                    role="assistant", content=node_output["summary"]
+                                )
+                            )
+                            session.status = "completed"
+                            _save_session_redis(session)
+                            yield _sse_frame(
+                                "done",
+                                {
+                                    "sessionId": session.id,
+                                    "status": "completed",
+                                    "summary": node_output["summary"],
+                                },
+                            )
+                        if node_output.get("error"):
+                            yield _sse_frame("error", {"message": node_output["error"]})
+            finally:
+                # 兜底关停:覆盖"流中途抛错 / CancelledError / GeneratorExit"三条被弃路径
+                # (客户端断开那条已在 break 之前就关)。正常耗尽时 aclose 是合法 no-op,
+                # 不构成二次回滚;出口自身吞错,绝不用关停异常掩盖正在传播的原异常。
+                # **必须 shield + 只吞本行等待**:这段 finally 会在"任务被取消"的作用域里
+                # 执行,裸 await 一旦在取消点点燃 CancelledError,外层 except 分支的
+                # session failed 收尾就整批被跳过;shield 让关停任务脱离本次取消跑完
+                # (资源真的关掉),except 只吞"这一行的等待":外层正在传播的取消 /
+                # GeneratorExit 仍随 finally 结束后照常向外传播。
+                try:
+                    await asyncio.shield(
+                        aclose_async_gen(
+                            _graph_stream,
+                            label="agent_runtime execute/stream (stream finally)",
                         )
-                        session.status = "completed"
-                        _save_session_redis(session)
-                        yield _sse_frame(
-                            "done",
-                            {
-                                "sessionId": session.id,
-                                "status": "completed",
-                                "summary": node_output["summary"],
-                            },
-                        )
-                    if node_output.get("error"):
-                        yield _sse_frame("error", {"message": node_output["error"]})
+                    )
+                except BaseException as close_err:  # noqa: BLE001 - 兜底关停不得吞掉原异常
+                    logger.warning(
+                        "[agent_runtime] 兜底关停未在此处等待完成(已交 shield 接管) err=%r",
+                        close_err,
+                    )
         except asyncio.CancelledError:
             logger.info("agent_runtime SSE cancelled by client disconnect")
             raise
