@@ -1474,4 +1474,84 @@ class TestEndToEndMemoryMode:
 
         stats = await hub.decision_engine.get_orchestration_stats()
         assert stats["partially_failed"] == 1
+
+
+# =============================================================================
+# 回归:orchestration_hub Redis 流持久化(2026-10-20 根因修复)
+# 此前 publish 把含嵌套 dict 的 event.to_dict() 直接喂 redis.xadd() →
+# Invalid input of type: 'dict' → 所有 XADD 失败、hub:events 流 XLEN=0。
+# 修复后:XADD 字段必须是单键 JSON 化 {"event": <json>},两端消费者 json.loads 还原。
+# =============================================================================
+
+
+class _FakeRedis:
+    """最小假 redis:记录 xadd 调用并通过 xrevrange 回放,足以验证序列化形状。"""
+
+    def __init__(self) -> None:
+        self.xadd_calls: list[tuple[str, dict, dict]] = []
+        self._stream: list[tuple[str, dict]] = []
+        self._seq = 0
+
+    async def ping(self) -> bool:
+        return True
+
+    async def xgroup_create(self, *_a: object, **_k: object) -> bool:
+        return True
+
+    async def xadd(self, key: str, fields: dict, **kwargs: object) -> str:
+        self._seq += 1
+        entry_id = f"{self._seq}-0"
+        self.xadd_calls.append((key, dict(fields), dict(kwargs)))
+        self._stream.append((entry_id, dict(fields)))
+        return entry_id
+
+    async def xrevrange(self, _key: str, count: int | None = None, **_k: object) -> list:
+        return list(reversed(self._stream))
+
+
+@pytest.mark.asyncio
+async def test_publish_serializes_event_as_single_json_field(monkeypatch: pytest.MonkeyPatch):
+    """XADD 必须是单键 JSON 化;嵌套 payload 不得直接作字段(否则此前恒失败)。"""
+    fake = _FakeRedis()
+    bus = PillarEventBus()
+    monkeypatch.setattr(bus, "_ensure_redis", AsyncMock(return_value=fake))
+
+    evt = PillarEvent(
+        event_type="test_event",
+        source_pillar="rules",
+        timestamp=datetime.now(UTC).isoformat(),
+        payload={"nested": {"deep": [1, 2, 3]}, "x": "y"},
+        dispatch_id="d1",
+        severity="warning",
+    )
+    await bus.publish(evt)
+
+    assert fake.xadd_calls, "xadd 必须被调用(此前因 dict 序列化失败而静默降级内存)"
+    key, fields, _kwargs = fake.xadd_calls[0]
+    assert key == _STREAM_KEY
+    assert list(fields.keys()) == ["event"], f"XADD 必须是单键 JSON 化,实际={list(fields.keys())}"
+    decoded = json.loads(fields["event"])
+    assert decoded["payload"] == {"nested": {"deep": [1, 2, 3]}, "x": "y"}
+
+
+@pytest.mark.asyncio
+async def test_get_recent_events_roundtrip_from_stream(monkeypatch: pytest.MonkeyPatch):
+    """get_recent_events 能从 Redis 流还原事件(验证 xrevrange 消费端 json.loads)。"""
+    fake = _FakeRedis()
+    bus = PillarEventBus()
+    monkeypatch.setattr(bus, "_ensure_redis", AsyncMock(return_value=fake))
+
+    evt = PillarEvent(
+        event_type="roundtrip_event",
+        source_pillar="hook",
+        timestamp=datetime.now(UTC).isoformat(),
+        payload={"a": {"b": 1}},
+    )
+    await bus.publish(evt)
+
+    events = await bus.get_recent_events(limit=10)
+    assert events, "get_recent_events 应能从 Redis 流还原事件"
+    got = events[0]
+    assert got["event_type"] == "roundtrip_event"
+    assert got["payload"] == {"a": {"b": 1}}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
