@@ -89,12 +89,23 @@ let examined = 0
 // 判不出那一维必须报名:复合主键取不出(题面退化/纯指针行)时本器**不动它**,
 // 而"没得翻"与"没在看"是两件事 —— 只报数不点名就是把没判写成判过了。
 let noComposite = 0
+// G-72 裁决①:f1 档一律不折叠自述指针行(〔【归并】/重复登记副本〕声明)。
+// 指针行的复合键取自指针文本自身,"同键已勾孪生"只是另一条同文指针行,并不证明
+// 被指持有行已闭环 ⇒ 翻勾是循环论证(把没做完记成做过)。这一维同样必须报名,
+// 不得静默丢弃("没得翻≠没在看")。declared 档本职就是收自述副本,不走这道闸。
+let skippedPointer = 0
 const samples = []
 for (let i = 0; i < lines.length; i++) {
   const line = lines[i]
   if (!/^- \[ \]/.test(line)) continue
   if (CLAIM.test(line)) {
     skippedClaim++
+    continue
+  }
+  // G-72 裁决①:f1 档在取复合键之前先挡自述指针行 —— 它的"同键已勾孪生"只是另一条
+  // 同文指针行,不证明被指持有行已闭环,折叠即循环论证。declared 档原样收自述副本。
+  if (mode === 'f1' && SELF_DECL.test(line)) {
+    skippedPointer++
     continue
   }
   if (mode === 'declared' && !SELF_DECL.test(line)) continue
@@ -141,7 +152,7 @@ function audit() {
   if (un(next) >= un(text))
     throw new Error(
       `未勾选总数没有下降(${un(text)}→${un(next)}):无事可做或判据失效` +
-        `(归并候选 ${folded} / 判过未折 ${examined} / 跳过带租约 ${skippedClaim}          / 无复合主键而判不出 ${noComposite})`,
+        `(归并候选 ${folded} / 判过未折 ${examined} / 跳过带租约 ${skippedClaim} / 跳过自述指针 ${skippedPointer} / 无复合主键而判不出 ${noComposite})`,
     )
   const dup = (s) => {
     const m = new Map()
@@ -157,7 +168,7 @@ function audit() {
 const a = audit()
 const next = lines.join('\n')
 console.log(
-  `${APPLY ? 'APPLY' : 'DRY'} mode=${mode} 归并 ${folded} 行(跳过带租约 ${skippedClaim} / 无复合主键而判不出 ${noComposite});未勾选 ${a.b}→${a.a};逐字重复 ${a.d1}→${a.d2}`,
+  `${APPLY ? 'APPLY' : 'DRY'} mode=${mode} 归并 ${folded} 行(跳过带租约 ${skippedClaim} / 跳过自述指针 ${skippedPointer} / 无复合主键而判不出 ${noComposite});未勾选 ${a.b}→${a.a};逐字重复 ${a.d1}→${a.d2}`,
 )
 console.log(`样例主键:${samples.join(' / ')}`)
 if (!APPLY) {
