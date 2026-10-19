@@ -1,4 +1,4 @@
-2026-10-19T13:15:22.864Z pid=3842
+2026-10-19T13:15:34.864Z pid=3842
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/3 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -84,3 +84,6 @@ RC-FORCEBOX ["8,8,420x600,depth=4"]
 RC-TILES-CLICKED round=1 step=2 n=0
 RC-FORCEBOX ["8,8,420x600,depth=4"]
 RC-VERIFY-BTN label="Verify"
+RC-PASSED round=1 step=2 (token) url=https://signpath.org/apply
+RC_SOLVED=true
+SP-SUBMIT-CLICKED
