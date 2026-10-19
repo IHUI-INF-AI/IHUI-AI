@@ -892,24 +892,42 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
   // (DOM 完整、9 格都在,但屏幕上空白)。截图/点击前强制把挑战框摆到可见位置。
   const forceBox = async () => {
     try {
-      const n = await page.evaluate(() => {
+      const info = await page.evaluate(() => {
         const fs = Array.from(document.querySelectorAll('iframe')).filter((x) => /bframe/.test(x.src || ''))
+        const out = []
         for (const f of fs) {
-          const s = f.style
-          s.setProperty('width', '420px', 'important')
-          s.setProperty('height', '600px', 'important')
-          s.setProperty('position', 'fixed', 'important')
-          s.setProperty('top', '8px', 'important')
-          s.setProperty('left', '8px', 'important')
-          s.setProperty('z-index', '2147483647', 'important')
-          s.setProperty('visibility', 'visible', 'important')
-          s.setProperty('opacity', '1', 'important')
-          s.setProperty('transform', 'none', 'important')
+          // ★ 不能 reparent(移动 iframe 会重载其浏览上下文,挑战会被重置)。
+          // 沿祖先链修:display/visibility/opacity/overflow + 抬 z-index(静态定位要给 relative,
+          // 否则 z-index 不生效,内容仍被页面盖住)。
+          let el = f
+          let depth = 0
+          while (el && el !== document.documentElement && depth < 25) {
+            const cs = getComputedStyle(el)
+            if (cs.display === 'none') el.style.setProperty('display', 'block', 'important')
+            if (cs.visibility === 'hidden') el.style.setProperty('visibility', 'visible', 'important')
+            if (parseFloat(cs.opacity) === 0) el.style.setProperty('opacity', '1', 'important')
+            if (cs.overflow === 'hidden') el.style.setProperty('overflow', 'visible', 'important')
+            if (cs.position === 'static') el.style.setProperty('position', 'relative', 'important')
+            el.style.setProperty('z-index', String(2147483600 - depth), 'important')
+            if (el === f) {
+              const s = f.style
+              s.setProperty('width', '420px', 'important')
+              s.setProperty('height', '600px', 'important')
+              s.setProperty('top', '8px', 'important')
+              s.setProperty('left', '8px', 'important')
+              s.setProperty('position', 'fixed', 'important')
+              s.setProperty('border', '0', 'important')
+            }
+            el = el.parentElement
+            depth++
+          }
+          const r = f.getBoundingClientRect()
+          out.push(`${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)}x${Math.round(r.height)},depth=${depth}`)
         }
-        return fs.length
+        return out
       })
-      if (n) console.log('RC-FORCEBOX n=' + n)
-      return n > 0
+      console.log('RC-FORCEBOX ' + JSON.stringify(info))
+      return info.length > 0
     } catch (e) {
       console.log('RC-FORCEBOX-FAIL ' + String(e.message).slice(0, 60))
       return false
