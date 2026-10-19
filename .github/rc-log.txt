@@ -1,4 +1,4 @@
-2026-10-19T10:15:20.790Z pid=3829
+2026-10-19T10:15:22.924Z pid=3829
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/1 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -37,3 +37,13 @@ RC-WAIT round=1 i=8 status=200
 RC-WAIT round=1 i=12 status=200
 RC-WAIT round=1 i=16 status=200
 RC-INSTRUCT round=1 clicks=[{"x":582,"y":271},{"x":679,"y":271},{"x":582,"y":368},{"x":679,"y":368}]
+BOOTSTRAP-ERROR-STACK locator.click: Timeout 12000ms exceeded.
+Call log:
+  - waiting for locator('#recaptcha-verify-button, button:has-text("Verify")').first()
+    - locator resolved to <button title="" value="" tabindex="0" id="recaptcha-verify-button" class="rc-button-default goog-inline-block">Skip</button>
+  - attempting click action
+    - waiting for element to be visible, enabled and stable
+
+    at handleRecaptchaChallenge (/home/runner/work/IHUI-AI/IHUI-AI/.github/scripts/npm-bootstrap-runner.mjs:770:18)
+    at async runSignPath (/home/runner/work/IHUI-AI/IHUI-AI/.github/scripts/npm-bootstrap-runner.mjs:633:20)
+    at async main (/home/runner/work/IHUI-AI/IHUI-AI/.github/scripts/npm-bootstrap-runner.mjs:299:39)
