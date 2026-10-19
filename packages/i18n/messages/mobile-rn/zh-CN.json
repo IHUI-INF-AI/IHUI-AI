@@ -352,6 +352,9 @@
     "modelCategoryOcr": "文字识别",
     "modelCategoryOther": "其他",
     "partialDoneTitle": "回答被中断,以下内容可能不完整",
+    "truncation": {
+      "maxLengthNotice": "本条回答在达到最大输出长度时被截断，内容不完整；发送“继续”可接着生成。"
+    },
     "pin": "钉选",
     "unpin": "取消钉选",
     "bookmark": "收藏",

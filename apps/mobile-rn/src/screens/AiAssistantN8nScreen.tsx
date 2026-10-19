@@ -140,6 +140,8 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { uiControlToolsFor } from '../lib/ui-control-tools'
 import { rpx } from '../utils/rpx'
 import { budgetNoteText } from '../utils/budget-note'
+// G-425:done 帧 finishReason 判"输出被 max_tokens 截断"(与 ChatScreen 同一份判据)
+import { isMaxTokensTruncatedFinishReason } from '../utils/max-tokens-truncation'
 // 会话级分叉的判据层(纯函数 + 五条出口文案选择),网络出口/词表/提示/切会话由本屏注入。
 import {
   branchConversationFromMessage,
@@ -1526,6 +1528,15 @@ export default function AiAssistantN8nScreen() {
             }
             return next
           })
+        },
+        // G-425(2026-10-07 立,web 腿先行):done 帧携带上游 finish/stop reason
+        // (api-client onFinishReason,缺席不触发)。判"输出被 max_tokens 截断"用
+        // utils/max-tokens-truncation 的唯一助手(口径见其注释),提示出口复用本端
+        // 既有 FloatBox;其余 reason 不提示,不自动续写。
+        onFinishReason: (evt) => {
+          if (isMaxTokensTruncatedFinishReason(evt.finishReason)) {
+            showToast('warning', t('chat.truncation.maxLengthNotice'))
+          }
         },
         // 工具调用可视化(W7):tool-call-start/tool-result 折叠进最后一条 assistant 消息
         onToolCall: (event) => {

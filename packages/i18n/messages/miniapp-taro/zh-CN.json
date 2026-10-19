@@ -3527,6 +3527,9 @@
   "chat": {
     "modelSwitchStopped": "已切换到 {model},本轮回答已终止",
     "partialDoneTitle": "回答被中断,以下内容可能不完整",
+    "truncation": {
+      "maxLengthNotice": "本条回答在达到最大输出长度时被截断，内容不完整；发送“继续”可接着生成。"
+    },
     "send": "发送",
     "meta": {
       "pullOnly": "小程序端将在下次打开时同步该改动"
