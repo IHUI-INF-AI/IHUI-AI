@@ -204,6 +204,16 @@ const PUBLIC_PREFIXES = [
   // 若依赖已登录豁免,反而会在嵌入第三方站点时把本站 cookie 带到请求里,语义更差;
   // 现有防线已足够:SSRF 主机拦截(localhost/私网/链路本地/ULA,含重定向落点复检)+ 每 IP 60s/120 次限流。
   '/api/embed-proxy',
+  // 匿名可写的表单类公开端点(2026-10-19 立)。三处均为**游客未登录即可提交**的转化入口,
+  // 前端 fetchApi 从不签发/携带 CSRF token(全仓无 /api/csrf-token 消费方),按 CSRF 校验
+  // 一律 403 ⇒ 表单实际不可用(生产实测 2026-10-19:newsletter/service-inquiry/play-testers
+  // 三个 POST 全 403 `CSRF 令牌缺失或无效`)。
+  // 逐个写**精确整路径**而非前缀(纪律同上两条):这三条各自只有唯一写端点,同族 admin
+  // 读写端点仍走 Bearer 鉴权 + CSRF 校验。防线不靠 CSRF:蜜罐字段 + 全局限流 +
+  // anomaly-detector,且只写各自一张表,无敏感读/无状态迁移。
+  '/api/play-testers/register',
+  '/api/newsletter/subscribe',
+  '/api/service-inquiry',
 ]
 
 function secret(): string {

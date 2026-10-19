@@ -661,6 +661,56 @@ test('T17 真仓注册表 R8 必 0 枚 bad(升档前置:不得留下一枚恒红
 })
 
 // ─────────────────────────────────────────────────────────────────────────
+// R13(2026-10-19 立):两道门被合并进同一个注册对象 ⇒ 后写字段覆盖前者,
+// 被吞的那道门**从注册表静默消失**。R5 看不见它(两个 id 各出现一次,只是同处一个 `{}`)。
+// 本组三例:成对判据(真源 import)+ 装车证明(判据真被 main 调用并影响退出码)+ 真仓零合并。
+// ─────────────────────────────────────────────────────────────────────────
+
+test('T27 R13 成对:合并的注册对象必被抓住;拆成两个独立对象(哪怕共用 skipEnv / 注释里有合并示例)必须放行', () => {
+  // ① 合并形态:插号器少写一个闭合 `},` ⇒ 门 224 的对象整个嵌进门 225 的对象里。必报,并把两个号都点名
+  const merged = G.findMergedEntries(
+    "#!/usr/bin/env node\nconst GATES = [\n  { id: '225', script: 'a.mjs', {\n    id: '224', script: 'b.mjs',\n  } },\n  { id: '1', script: 'c.mjs' },\n]\n",
+  )
+  assert.equal(merged.length, 1, '嵌套在同一对象里的两个 id 必须落 1 枚 red-r13(不得静默放过)')
+  assert.deepEqual(merged[0].ids, ['225', '224'])
+  assert.deepEqual(merged[0].scripts, ['a.mjs', 'b.mjs'])
+  // ①' 同一登记的另一种坏法(字段平铺进同一个 `{}`)必须同样抓到 —— R13 两种形态互为对照
+  const flat = G.findMergedEntries(
+    "#!/usr/bin/env node\nconst GATES = [\n  { id: '225', script: 'a.mjs', mode: 'warn', id: '224', script: 'b.mjs' },\n  { id: '1', script: 'c.mjs' },\n]\n",
+  )
+  assert.equal(flat.length, 1, '字段平铺进同一对象的两枚 id 必须落 1 枚 red-r13')
+  assert.deepEqual(flat[0].ids, ['225', '224'])
+  // ② 唯一变量 = 拆成独立对象 ⇒ 必须 0 枚(否则这道门会在每条正常注册行上响,升档即恒红)
+  const split = G.findMergedEntries(
+    "\n  {\n    id: '225',\n    script: 'a.mjs',\n    skipEnv: 'HUSKY_SKIP_X',\n  },\n  {\n    id: '224',\n    script: 'b.mjs',\n    skipEnv: 'HUSKY_SKIP_X',\n  },\n" +
+      "\n  // {\n  //   id: '999',\n  //   script: 'c.mjs',\n  //   id: '998',\n  // }\n",
+  )
+  assert.deepEqual(split, [], '独立对象 / 注释示例都不是合并;真判据必须只认"同一对象"')
+})
+
+test('T28 R13 装车证明:main() 必须真调用判据并把 red-r13 推进 reds(函数在而没人调 = 一路绿灯的假门)', () => {
+  const src = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'check-gate-wiring.mjs'), 'utf8')
+  assert.match(src, /findMergedEntries\(/, 'R13 判据零调度')
+  assert.match(src, /status:\s*'red-r13'/, 'R13 未产出 red-r13 条目 ⇒ 不进 reds、不影响退出码')
+  // 判据必须与 R8/R9 同一张面:--staged 读索引注册就必须用索引枚举,否则"造出合并的那枚提交"能过关
+  assert.match(
+    src,
+    /r8Text[\s\S]{0,200}findMergedEntries/,
+    'R13 必须复用 R8/R9 的注册面文本(两处各读一张面 = 基准错位的尺子)',
+  )
+})
+
+test('T29 真仓注册表 R13 必 0 枚合并(存量归零才配得上 blocking;真检出非空即说明又有门被吞)', () => {
+  const root = fileURLToPath(new URL('../..', import.meta.url))
+  const r = G.findMergedEntries(readFileSync(join(root, 'scripts/guardian-runner.mjs'), 'utf8'))
+  assert.deepEqual(
+    r,
+    [],
+    `注册表里有 ${r.length} 枚被合并的条目:${r.map((x) => x.ids.join('+')).join(' / ')}(其中被吞的门一条都不会跑)`,
+  )
+})
+
+// ─────────────────────────────────────────────────────────────────────────
 // R10(票 G-409):文档/登记表点名 ↔ 实现侧存在
 //   成对判据一律在这里钉住(端到端三态另由源脚本 --self-test 的 R10a–R10h 用临时仓库跑),
 //   本文件守的是**判据形状**:两臂必须互为对照,缺一臂就退化成"只会响的喇叭"。
@@ -888,6 +938,55 @@ test('T28 R12 形状锁:main() 必须真接三段判据,red-r12 只允许在 --s
     assert.ok(main.includes(`blobSpecs.add(\`${spec}\`)`), `R12 取材缺 blobSpecs 预取 ${spec} ⇒ 未预取面会抛 Undetermined`)
   }
   assert.ok(!/readFileSync\([^)]*(UI_GUIDELINES|radius\.js)/.test(main), 'R12 禁止 readFileSync 工作区取材(他人未提交的编辑不算仓库内容)')
+})
+
+test('T29 R13 合并条目:引号 id / 裸数字 id / 只有重复 script 三形态都要抓到,而独立条目与注释必须为 0', () => {
+  // 正例三形态(全部现造字符串,不依赖真仓内容)
+  const mergedQuoted =
+    "const GATES = [\n  { id: '225', script: 'check-a.mjs', id: '224', script: 'check-b.mjs' },\n]\n"
+  const m1 = G.findMergedEntries(mergedQuoted)
+  assert.equal(m1.length, 1, `引号形态合并必须恰 1 命中(实得 ${JSON.stringify(m1)})`)
+  assert.deepEqual([...m1[0].ids].sort(), ['224', '225'], '两枚 id 都要点名,否则报告无法定位被吞的是哪道门')
+  assert.deepEqual(m1[0].scripts, ['check-a.mjs', 'check-b.mjs'])
+  assert.equal(
+    G.findMergedEntries(
+      "const GATES = [\n  { id: 1, script: 'check-a.mjs', id: 2, script: 'check-b.mjs' },\n]\n",
+    ).length,
+    1,
+    '裸数字 id 同样是登记形态(本门自己的基线夹具就写这个形态)⇒ 只认引号即失明',
+  )
+  assert.equal(
+    G.findMergedEntries("const GATES = [\n  { id: '7', script: 'a', script: 'b' },\n]\n").length,
+    1,
+    '只剩重复 script(id 不重复)也必须命中 ⇒ 判据不靠单维',
+  )
+  // 反例:修好后的形态与注释里的示例(误报就是新造的恒红门)
+  assert.deepEqual(
+    G.findMergedEntries("const GATES = [\n  { id: '225', script: 'a' },\n  { id: '224', script: 'b' },\n]\n"),
+    [],
+    '两条独立条目被判成合并 ⇒ 本门自己会把提交链堵死',
+  )
+  assert.equal(
+    G.findMergedEntries("// { id: '1', script: 'a' },\n// { id: '2', script: 'b' },\nconst G = [{ id: '3', script: 'c' }]\n").length,
+    0,
+    '注释里的示例对象不构成登记(剥注释口径与 R5 同源)',
+  )
+  // 两维不可互替:这一型 R5(撞号)全盲 —— 合并体里 id 各只出现一次
+  assert.deepEqual(G.findDuplicateIds(mergedQuoted), [], 'R5 若已能抓到合并,则 R13 是重复判据(要撤一边)')
+})
+
+test('T30 R13 形状锁:main() 必须接 findMergedEntries、吃 R8/R9 同一张注册面、且红不受 --strict 门控', () => {
+  const src = readFileSync(join(fileURLToPath(new URL('.', import.meta.url)), '..', 'check-gate-wiring.mjs'), 'utf8')
+  const main = src.slice(src.indexOf('async function main('), src.indexOf('// ─── self-test'))
+  assert.ok(main.length > 500, 'main() 区块取形失败 ⇒ 本条断言无牙')
+  assert.ok(main.includes('findMergedEntries(r8Text)'), 'R13 必须吃注册面变量 r8Text(--staged=索引),不得写死 runnerText')
+  assert.ok(
+    main.indexOf('let r8Text') < main.indexOf('findMergedEntries(r8Text)'),
+    'R13 的调用必须在面解析之后 —— 先调用则 --staged 下永远读 HEAD,造出合并的那枚提交当场拦不住',
+  )
+  assert.equal((main.match(/status: 'red-r13'/g) || []).length, 1, 'red-r13 恰一个 push 点,新增桶必须一起改这条锁')
+  const block = main.slice(main.indexOf('const mergedEntries'), main.indexOf("status: 'red-r13'"))
+  assert.ok(!/opts\.strict/.test(block), 'red-r13 属结构性缺陷,默认档就必须判红 —— 挂 --strict 等于平时失明')
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
