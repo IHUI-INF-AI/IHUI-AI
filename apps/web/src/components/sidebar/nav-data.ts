@@ -150,7 +150,7 @@ const ADMIN_THEME_CHILDREN: NavItem[] = [
 ]
 
 /** /models 15 项作为 /models 的三级子菜单 */
-const MODELS_CHILDREN: NavItem[] = [
+export const MODELS_CHILDREN: NavItem[] = [
   { href: '/models/overview', labelKey: 'modelsOverview', icon: LayoutDashboard },
   { href: '/models/channels', labelKey: 'modelsChannels', icon: Cable },
   { href: '/available-channels', labelKey: 'availableChannels', icon: Cable },
@@ -206,7 +206,9 @@ const USER_CHILDREN: NavItem[] = [
 ]
 
 /** /edu 8 项整合到 AI教育 组下 */
-const EDU_ITEMS: NavItem[] = [
+// 2026-10-19 P2 导出:域入口页(apps/web/app/(main)/domains/edu)复用本清单,
+// 不另抄一份 —— 同一件事两个来源必然漂移(§0.6 单一真相源)。
+export const EDU_ITEMS: NavItem[] = [
   // 学习模块
   { href: '/edu/dashboard', labelKey: 'eduDashboard', icon: LayoutDashboard },
   // /learn 课程入口不再单列:eduGroup 主体已有 /learn(React key=href,重复项触发 duplicate key 警告且菜单双条目)
@@ -301,8 +303,84 @@ const EDU_ITEMS: NavItem[] = [
   { href: '/edu-ai/voice', labelKey: 'eduAiVoice', icon: PhoneCall },
 ]
 
+/**
+ * 教育域条目全清单(2026-10-19 P2)
+ *
+ * P2 把侧边栏 eduGroup 由 49 项收敛为 1 个域入口(/domains/edu),原 22 条顶层
+ * + EDU_ITEMS 27 条移到这里,由域入口页消费。**清单一个不少**,只是不再在侧边栏平铺。
+ * 页面与 URL 一个不改(A 方案),旧链接仍可直接访问。
+ *
+ * 位置说明:必须声明在 EDU_ITEMS **之后** —— 模块顶层 const 有 TDZ,
+ * 展开 `...EDU_ITEMS` 时若 EDU_ITEMS 尚未初始化会 ReferenceError(2026-10-19 实测)。
+ */
+export const EDU_HUB_ITEMS: NavItem[] = [
+  { href: '/dashboard', labelKey: 'overview', icon: LayoutDashboard },
+  { href: '/learn', labelKey: 'learn', icon: GraduationCap },
+  { href: '/live', labelKey: 'live', icon: PlayCircle },
+  { href: '/exam', labelKey: 'exam', icon: ScrollText },
+  // 错题本/今日复习此前实现完整但全站无入口(只能手敲 URL,G-978073)
+  // labelKey 用 nav 命名空间的扁平 key(nav.exam 是字符串,点分嵌套 key 解析不到)
+  { href: '/exam/wrong-questions', labelKey: 'examWrongQuestions', icon: NotebookPen },
+  { href: '/learn/review', labelKey: 'learnDailyReview', icon: RefreshCw },
+  { href: '/lecturers', labelKey: 'lecturers', icon: Users },
+  // /schedule 实为定时任务管理页(label 已从「课表」改为「任务调度」,学生课表在 /edu/schedule)
+  { href: '/schedule', labelKey: 'schedule', icon: Calendar },
+  { href: '/topics', labelKey: 'topics', icon: FileText },
+  { href: '/asks', labelKey: 'asks', icon: MessageSquare },
+  { href: '/circles', labelKey: 'circles', icon: Users },
+  { href: '/resources', labelKey: 'resources', icon: Package },
+  { href: '/news', labelKey: 'news', icon: Newspaper },
+  { href: '/announcements', labelKey: 'announcements', icon: Megaphone },
+  // /edu 8 项整合(原 /edu/layout.tsx 页面级菜单栏)
+  ...EDU_ITEMS,
+]
+
+/**
+ * 内容域条目全清单(2026-10-19 P2)
+ *
+ * P2 把侧边栏 contentGroup 由 21 项收敛为 1 个域入口(/domains/content),
+ * 原条目移到这里由域入口页消费。消息 6 项仍以 children 形态保留(带未读 badge)。
+ * 声明须在 MESSAGES_CHILDREN 之后(模块顶层 const 的 TDZ)。
+ */
+export const CONTENT_HUB_ITEMS: NavItem[] = [
+  { href: '/plaza', labelKey: 'plaza', icon: LayoutGrid },
+  { href: '/enterprise', labelKey: 'enterprise', icon: Briefcase },
+  { href: '/distribution', labelKey: 'distribution', icon: Gift },
+  { href: '/teams', labelKey: 'teams', icon: Users },
+  // /messages 6 项作为可展开子菜单(原 /messages/layout.tsx 页面级菜单栏,带未读数 badge)
+  {
+    href: '/messages',
+    labelKey: 'messages',
+    icon: MessageSquare,
+    children: MESSAGES_CHILDREN,
+  },
+  { href: '/feature-center/documents', labelKey: 'docs', icon: FileText },
+  { href: '/tags', labelKey: 'tags', icon: Tag },
+  { href: '/oauth/platform', labelKey: 'oauthPlatform', icon: KeyRound },
+  // 自媒体创作工具(2026-07-20 从独立分组整合到内容分组,内容创作归属内容大类)
+  { href: '/self-media/wechat', labelKey: 'selfMediaWechat', icon: Newspaper },
+  { href: '/self-media/koubo', labelKey: 'selfMediaKoubo', icon: Mic },
+  // 2026-08-07 feature-connect2:AI 语音转写(上传音频转文字)
+  { href: '/tools/voice-stt', labelKey: 'eduAiStt', icon: Mic },
+  // 2026-08-07 feature-connect:私信(用户间 1对1 私密聊天)
+  { href: '/letters', labelKey: 'eduAiLetters', icon: Mail },
+  // 2026-08-07 feature-connect:群组(用户自建群组与成员管理)
+  { href: '/groups', labelKey: 'eduAiGroups', icon: UsersRound },
+  // 多平台一键发布平台(2026-07-20 新增,支持 md/docx/html/pdf/图片/视频 → 14 平台)
+  { href: '/publish/history', labelKey: 'publishPlatform', icon: Send },
+  // 技术博客(2026-07-27 新增,docs/blog 10 篇技术文章对外曝光用)
+  { href: '/blog', labelKey: 'blog', icon: BookOpen },
+]
+
+/**
+ * 交易域条目全清单(2026-10-19 P2)—— 声明位置见下方 MEMBER_ITEMS 之后。
+ *
+ * P2 把侧边栏 tradeGroup 由 28 项收敛为 1 个域入口(/domains/trade),
+ * 原条目移到这里由域入口页消费。
+ */
+
 /** /member 12 项整合到交易组下 */
-const MEMBER_ITEMS: NavItem[] = [
+export const MEMBER_ITEMS: NavItem[] = [
   { href: '/member/dashboard', labelKey: 'memberDashboard', icon: LayoutDashboard },
   { href: '/member/benefits', labelKey: 'memberBenefits', icon: Award },
   { href: '/member/coupons', labelKey: 'memberCoupons', icon: Ticket },
@@ -315,6 +393,40 @@ const MEMBER_ITEMS: NavItem[] = [
   { href: '/member/feedback', labelKey: 'memberFeedback', icon: MessageSquare },
   { href: '/member/help', labelKey: 'memberHelp', icon: HelpCircle },
   { href: '/member/settings', labelKey: 'memberSettings', icon: Settings },
+]
+
+/**
+ * 交易域条目全清单(2026-10-19 P2)
+ *
+ * P2 把侧边栏 tradeGroup 由 28 项收敛为 1 个域入口(/domains/trade),
+ * 原条目移到这里由域入口页消费。页面与 URL 一个不改(A 方案)。
+ *
+ * 位置说明:**必须声明在 MEMBER_ITEMS 之后** —— 末尾展开 `...MEMBER_ITEMS`,
+ * 而模块顶层 const 有 TDZ。首版把本常量放在 MEMBER_ITEMS 之前,
+ * import 该模块即 ReferenceError(整页白屏);已由
+ * `__tests__/p2-domain-hub-nav.test.ts` 实跑钉住(读代码推断不出这一格)。
+ */
+export const TRADE_HUB_ITEMS: NavItem[] = [
+  { href: '/earnings', labelKey: 'earnings', icon: TrendingUp },
+  // 2026-08-07 feature-connect2:AI 股票分析(输入代码+问题,AI 智能分析)
+  { href: '/stock', labelKey: 'eduAiStock', icon: LineChart },
+  // 2026-08-07 feature-final:交易员入驻(申请认证交易员)
+  { href: '/traders', labelKey: 'eduAiTraders', icon: TrendingUp },
+  // 2026-08-08 feature-final2:外呼营销(批量外呼任务编排)
+  { href: '/edu-ai/outbound', labelKey: 'eduAiOutbound', icon: Megaphone },
+  // 2026-08-09 moved from edu-ai/fund-data:基金数据(基金列表/详情/净值)
+  { href: '/fund-data', labelKey: 'fundData', icon: PieChart },
+  { href: '/vip', labelKey: 'vip', icon: Crown },
+  { href: '/wallet', labelKey: 'wallet', icon: Wallet },
+  { href: '/payment', labelKey: 'payment', icon: CreditCard },
+  { href: '/orders', labelKey: 'orders', icon: ShoppingBag },
+  { href: '/invoices', labelKey: 'invoices', icon: Receipt },
+  { href: '/activities', labelKey: 'activities', icon: Gift },
+  { href: '/points', labelKey: 'points', icon: Star },
+  { href: '/edu-points', labelKey: 'eduPoints', icon: Award },
+  { href: '/oauth/my-authorized', labelKey: 'oauthMyAuthorized', icon: KeyRound },
+  // /member 15 项整合(原 /member/layout.tsx 页面级菜单栏)
+  ...MEMBER_ITEMS,
 ]
 
 /** /developer 开发者工具子菜单(2026-08-30 瘦身):低频开发者工具收进可折叠子菜单 */
@@ -373,7 +485,7 @@ const DEVELOPER_ITEMS: NavItem[] = [
 ]
 
 /** 知识库三合一(2026-08-30):知识库/RAG/图谱 三个入口概念重叠,收进"知识库"可展开子菜单 */
-const KNOWLEDGE_CHILDREN: NavItem[] = [
+export const KNOWLEDGE_CHILDREN: NavItem[] = [
   { href: '/knowledge-base', labelKey: 'knowledgeBase', icon: BookOpen },
   { href: '/knowledge-rag', labelKey: 'knowledgeRag', icon: Database },
   { href: '/knowledge-graph', labelKey: 'knowledgeGraph', icon: Network },
@@ -390,7 +502,7 @@ const KNOWLEDGE_CHILDREN: NavItem[] = [
  * (记忆/子智能体/上下文/规格/计划/注册中心/A2A/Personas/编排)对普通用户不可理解,
  * 收进单个可折叠子菜单降噪;入口保留,高级用户仍可展开使用。
  */
-const ADVANCED_AI_TOOLS_CHILDREN: NavItem[] = [
+export const ADVANCED_AI_TOOLS_CHILDREN: NavItem[] = [
   { href: '/memory', labelKey: 'memory', icon: Brain },
   { href: '/subagents', labelKey: 'subagents', icon: Bot },
   { href: '/context', labelKey: 'context', icon: Layers },
@@ -502,85 +614,28 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
+    // 2026-10-19 P2:本组由 49 项收敛为 1 个域入口。
+    // 原 49 条(仪表盘/课程/直播/考试/错题本/讲师/课表/话题/问答/圈子/资源/新闻/
+    // 公告 + EDU_ITEMS 27 条含 11 项 edu:manage 教师入口)全部移入域入口页
+    // /domains/edu,以卡片网格承载;侧边栏不再平铺。
+    // 页面一个不删、URL 一个不改(A 方案)—— 全部旧链接仍可直接访问。
     label: 'eduGroup',
-    items: [
-      { href: '/dashboard', labelKey: 'overview', icon: LayoutDashboard },
-      { href: '/learn', labelKey: 'learn', icon: GraduationCap },
-      { href: '/live', labelKey: 'live', icon: PlayCircle },
-      { href: '/exam', labelKey: 'exam', icon: ScrollText },
-      // 错题本/今日复习此前实现完整但全站无入口(只能手敲 URL,G-978073)
-      // labelKey 用 nav 命名空间的扁平 key(nav.exam 是字符串,点分嵌套 key 解析不到)
-      { href: '/exam/wrong-questions', labelKey: 'examWrongQuestions', icon: NotebookPen },
-      { href: '/learn/review', labelKey: 'learnDailyReview', icon: RefreshCw },
-      { href: '/lecturers', labelKey: 'lecturers', icon: Users },
-      // /schedule 实为定时任务管理页(label 已从「课表」改为「任务调度」,学生课表在 /edu/schedule)
-      { href: '/schedule', labelKey: 'schedule', icon: Calendar },
-      { href: '/topics', labelKey: 'topics', icon: FileText },
-      { href: '/asks', labelKey: 'asks', icon: MessageSquare },
-      { href: '/circles', labelKey: 'circles', icon: Users },
-      { href: '/resources', labelKey: 'resources', icon: Package },
-      { href: '/news', labelKey: 'news', icon: Newspaper },
-      { href: '/announcements', labelKey: 'announcements', icon: Megaphone },
-      // /edu 8 项整合(原 /edu/layout.tsx 页面级菜单栏)
-      ...EDU_ITEMS,
-    ],
+    items: [{ href: '/domains/edu', labelKey: 'eduHubTitle', icon: GraduationCap }],
   },
   {
+    // 2026-10-19 P2:本组由 21 项收敛为 1 个域入口(/domains/content)。
+    // 原条目(广场/企业/分销/团队/消息 6 子项/文档/标签/OAuth/自媒体 2 工具/
+    // 语音转写/私信/群组/多平台发布/技术博客)全部移入 CONTENT_HUB_ITEMS,
+    // 由域入口页以卡片网格承载;页面与 URL 一个不改。
     label: 'contentGroup',
-    items: [
-      { href: '/plaza', labelKey: 'plaza', icon: LayoutGrid },
-      { href: '/enterprise', labelKey: 'enterprise', icon: Briefcase },
-      { href: '/distribution', labelKey: 'distribution', icon: Gift },
-      { href: '/teams', labelKey: 'teams', icon: Users },
-      // /messages 6 项作为可展开子菜单(原 /messages/layout.tsx 页面级菜单栏,带未读数 badge)
-      {
-        href: '/messages',
-        labelKey: 'messages',
-        icon: MessageSquare,
-        children: MESSAGES_CHILDREN,
-      },
-      { href: '/feature-center/documents', labelKey: 'docs', icon: FileText },
-      { href: '/tags', labelKey: 'tags', icon: Tag },
-      { href: '/oauth/platform', labelKey: 'oauthPlatform', icon: KeyRound },
-      // 自媒体创作工具(2026-07-20 从独立分组整合到内容分组,内容创作归属内容大类)
-      { href: '/self-media/wechat', labelKey: 'selfMediaWechat', icon: Newspaper },
-      { href: '/self-media/koubo', labelKey: 'selfMediaKoubo', icon: Mic },
-      // 2026-08-07 feature-connect2:AI 语音转写(上传音频转文字)
-      { href: '/tools/voice-stt', labelKey: 'eduAiStt', icon: Mic },
-      // 2026-08-07 feature-connect:私信(用户间 1对1 私密聊天)
-      { href: '/letters', labelKey: 'eduAiLetters', icon: Mail },
-      // 2026-08-07 feature-connect:群组(用户自建群组与成员管理)
-      { href: '/groups', labelKey: 'eduAiGroups', icon: UsersRound },
-      // 多平台一键发布平台(2026-07-20 新增,支持 md/docx/html/pdf/图片/视频 → 14 平台)
-      { href: '/publish/history', labelKey: 'publishPlatform', icon: Send },
-      // 技术博客(2026-07-27 新增,docs/blog 10 篇技术文章对外曝光用)
-      { href: '/blog', labelKey: 'blog', icon: BookOpen },
-    ],
+    items: [{ href: '/domains/content', labelKey: 'contentHubTitle', icon: LayoutGrid }],
   },
   {
+    // 2026-10-19 P2:本组由 28 项收敛为 1 个域入口(/domains/trade)。
+    // 原条目(收益/股票/交易员/外呼/基金/VIP/钱包/支付/订单/发票/活动/积分/
+    // 教育积分/OAuth + MEMBER_ITEMS 12 条)全部移入 TRADE_HUB_ITEMS。
     label: 'tradeGroup',
-    items: [
-      { href: '/earnings', labelKey: 'earnings', icon: TrendingUp },
-      // 2026-08-07 feature-connect2:AI 股票分析(输入代码+问题,AI 智能分析)
-      { href: '/stock', labelKey: 'eduAiStock', icon: LineChart },
-      // 2026-08-07 feature-final:交易员入驻(申请认证交易员)
-      { href: '/traders', labelKey: 'eduAiTraders', icon: TrendingUp },
-      // 2026-08-08 feature-final2:外呼营销(批量外呼任务编排)
-      { href: '/edu-ai/outbound', labelKey: 'eduAiOutbound', icon: Megaphone },
-      // 2026-08-09 moved from edu-ai/fund-data:基金数据(基金列表/详情/净值)
-      { href: '/fund-data', labelKey: 'fundData', icon: PieChart },
-      { href: '/vip', labelKey: 'vip', icon: Crown },
-      { href: '/wallet', labelKey: 'wallet', icon: Wallet },
-      { href: '/payment', labelKey: 'payment', icon: CreditCard },
-      { href: '/orders', labelKey: 'orders', icon: ShoppingBag },
-      { href: '/invoices', labelKey: 'invoices', icon: Receipt },
-      { href: '/activities', labelKey: 'activities', icon: Gift },
-      { href: '/points', labelKey: 'points', icon: Star },
-      { href: '/edu-points', labelKey: 'eduPoints', icon: Award },
-      { href: '/oauth/my-authorized', labelKey: 'oauthMyAuthorized', icon: KeyRound },
-      // /member 15 项整合(原 /member/layout.tsx 页面级菜单栏)
-      ...MEMBER_ITEMS,
-    ],
+    items: [{ href: '/domains/trade', labelKey: 'tradeHubTitle', icon: Wallet }],
   },
   {
     label: 'personalGroup',
@@ -625,6 +680,19 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
 
 export function flattenNavItems(items: NavItem[]): NavItem[] {
   return items.flatMap((item) => [item, ...(item.children ? flattenNavItems(item.children) : [])])
+}
+
+/**
+ * 按分组 label 取该组全部条目(2026-10-19 P2 立)
+ *
+ * 域入口页(/domains/edu、/domains/content、/domains/trade)用它在**侧边栏条目之上**
+ * 直接搭壳,不另抄一份清单 —— 侧边栏加减项时域入口页自动同步(§0.6 单一真相源)。
+ *
+ * @param label NAV_GROUPS 的分组 label(如 'eduGroup' / 'contentGroup' / 'tradeGroup')
+ * @returns 该组条目;组不存在时返回空数组(不抛,让调用方自行决定降级形态)
+ */
+export function navItemsByGroup(label: string): NavItem[] {
+  return NAV_GROUPS.find((g) => g.label === label)?.items ?? []
 }
 
 export const ALL_NAV_HREFS = flattenNavItems(NAV_GROUPS.flatMap((g) => g.items)).map((i) => i.href)
