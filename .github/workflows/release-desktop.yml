@@ -70,8 +70,15 @@ jobs:
         if: runner.os == 'macOS'
         run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
-      # 2026-09-17 链接提速:.cargo/config.toml 指定 rust-lld 作为 Windows 链接器
-      # (实测增量构建 110s → 5.4s);rust-lld 在 toolchain 内不在 PATH,补入 GITHUB_PATH
+      # 2026-10-19 订正 —— 本步现为空操作,原注释的性能结论已失效:
+      # .cargo/config.toml 已于 2026-10-09 回退到 `linker = "link.exe"`
+      # (lld 写 PDB/exe 系统层失败),链接器不再从 PATH 取 rust-lld,
+      # 因此这里补入 GITHUB_PATH 的那个目录**当前没有任何步骤会消费**;
+      # "实测增量构建 110s → 5.4s"是 lld 在架时期的读数,与现状不符。
+      # 保留本步本体不删(保守原则,§0.8):它是发版流水线的一环,本机无法验证
+      # 删除是否安全;且 lld 一旦修复、config.toml 改回,这里就是现成的兜底。
+      # 判据:本步生效的充要条件 = apps/desktop/src-tauri/.cargo/config.toml 的
+      # [target.x86_64-pc-windows-msvc].linker 指向 lld;读到 link.exe 即为空操作。
       - name: Expose rust-lld (Windows linker speedup)
         if: runner.os == 'Windows'
         shell: pwsh
