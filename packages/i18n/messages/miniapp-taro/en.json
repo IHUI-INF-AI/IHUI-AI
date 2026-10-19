@@ -4441,7 +4441,7 @@
     "codeSent": "Verification code sent",
     "codeIncomplete": "Please enter the full verification code",
     "verifySuccess": "Verification succeeded",
-    "getCode": "Get verification code"
+    "getCode": "Enter verification code"
   },
   "VerifyCodeModal": {
     "p2": "Resend",

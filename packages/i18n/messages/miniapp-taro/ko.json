@@ -4441,7 +4441,7 @@
     "codeSent": "인증 코드를 전송했습니다",
     "codeIncomplete": "인증 코드를 모두 입력하세요",
     "verifySuccess": "인증에 성공했습니다",
-    "getCode": "인증 코드 받기"
+    "getCode": "인증 코드를 입력하세요"
   },
   "VerifyCodeModal": {
     "p2": "재전송",
