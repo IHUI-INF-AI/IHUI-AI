@@ -16,7 +16,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type GestureResponderEvent,
   type LayoutChangeEvent,
@@ -24,8 +23,8 @@ import {
 import Svg, { Path } from 'react-native-svg'
 import { captureRef } from 'react-native-view-shot'
 import { Check, PenLine, Trash2, Type, Undo2, X } from 'lucide-react-native'
-import { useWrapFocus } from '@ihui/rn-app'
-import { tokens } from '../../theme/active-tokens'
+import { TextField } from '@ihui/rn-app'
+import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { rnRadius } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 
@@ -227,10 +226,6 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     fontSize: 14,
     color: tokens.text.primary,
-    // 常态先占好 1px 描边位(透明),聚焦只换色不加宽 —— 聚焦才加边框会让工具栏内容跳动
-    // (与 TextField 的 RESTING_BORDER / SearchInput 的 container 同一口径)
-    borderWidth: 1,
-    borderColor: 'transparent',
   },
   textInputBtn: {
     width: rpx(72),
@@ -320,9 +315,6 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
 
   /** 当前画笔粗细(档位 → px;元组按下标取值在 noUncheckedIndexedAccess 下带 undefined,首档兜底) */
   const penWidth = PEN_WIDTHS[widthIndex] ?? PEN_WIDTHS[0]
-  // 文字标记输入框的聚焦描边走 WRAP 唯一实现 useWrapFocus(墨档:亮纯黑/暗纯白,换色不换宽)——
-  // 它是 AGENTS §4「描边不得取墨档」唯一例外位(输入控件聚焦态)的取值出口,本站点不再自挑色值
-  const textInputFF = useWrapFocus(tokens)
 
   // 手势回调里要读"当前"取色/粗细/模式/画布尺寸:PanResponder 只建一次,故走 ref 镜像
   const colorRef = useRef(color)
@@ -370,10 +362,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
     const points = draftRef.current
     updateDraft(null)
     if (!points || points.length < MIN_STROKE_POINTS) return
-    setStrokes((prev) => [
-      ...prev,
-      { points, color: colorRef.current, width: widthRef.current },
-    ])
+    setStrokes((prev) => [...prev, { points, color: colorRef.current, width: widthRef.current }])
     setOpLog((prev) => [...prev, 'stroke'])
   }, [updateDraft])
 
@@ -569,8 +558,13 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               accessibilityRole="button"
               accessibilityLabel="画笔工具"
             >
-              <PenLine size={16} color={mode === 'pen' ? tokens.brand.ctaForeground : tokens.text.primary} />
-              <Text style={[styles.toolBtnText, mode === 'pen' && styles.toolBtnActiveText]}>画笔</Text>
+              <PenLine
+                size={16}
+                color={mode === 'pen' ? tokens.brand.ctaForeground : tokens.text.primary}
+              />
+              <Text style={[styles.toolBtnText, mode === 'pen' && styles.toolBtnActiveText]}>
+                画笔
+              </Text>
             </Pressable>
             <Pressable
               onPress={() => setMode('text')}
@@ -578,8 +572,13 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               accessibilityRole="button"
               accessibilityLabel="文字工具"
             >
-              <Type size={16} color={mode === 'text' ? tokens.brand.ctaForeground : tokens.text.primary} />
-              <Text style={[styles.toolBtnText, mode === 'text' && styles.toolBtnActiveText]}>文字</Text>
+              <Type
+                size={16}
+                color={mode === 'text' ? tokens.brand.ctaForeground : tokens.text.primary}
+              />
+              <Text style={[styles.toolBtnText, mode === 'text' && styles.toolBtnActiveText]}>
+                文字
+              </Text>
             </Pressable>
             <Pressable
               onPress={undo}
@@ -652,8 +651,9 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
 
           {pendingText ? (
             <View style={styles.textInputRow}>
-              <TextInput
-                style={[styles.textInput, textInputFF.focusBorder]}
+              <TextField
+                colorScheme={currentRnTheme()}
+                style={styles.textInput}
                 value={textValue}
                 onChangeText={setTextValue}
                 placeholder="输入标记文字"
@@ -661,8 +661,6 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
                 maxLength={MAX_TEXT_LENGTH}
                 autoFocus
                 onSubmitEditing={confirmPendingText}
-                onFocus={textInputFF.onFocus}
-                onBlur={textInputFF.onBlur}
                 accessibilityLabel="标记文字输入"
               />
               <Pressable
