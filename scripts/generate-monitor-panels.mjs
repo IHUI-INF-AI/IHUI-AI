@@ -5,7 +5,7 @@
 // 监控面板原生配置生成器(2026-10-18)。
 //
 // 背景:李总要求监控大屏「彻底融合进项目,不可以单独搞出一个程序」——因此把
-// monitoring/grafana/dashboards/*.json 的全部面板(20 张 Prometheus 盘 + 1 张 Loki 日志盘,
+// monitoring/grafana/dashboards/*.json 的全部面板(24 张 Prometheus 盘 + 2 张 Loki 日志盘,
 // 共 216 条表达式)转译为项目原生面板配置,由 /admin/monitor/panels 页面用项目自己的
 // EChart 组件 + /api/admin/monitor-panels/query 接口渲染。Grafana 从此只当 headless
 // 的配置源/告警跳板,用户永远不直接接触它。
