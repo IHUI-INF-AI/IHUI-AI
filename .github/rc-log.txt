@@ -1,4 +1,4 @@
-2026-10-19T10:38:25.078Z pid=3853
+2026-10-19T10:38:37.079Z pid=3853
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/1 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -37,3 +37,4 @@ RC-GRID round=1 rows=3 cols=3 prompt="Select all images with a fire hydrantClick
 RC-FRAME-DUMP round=1 len=16935
 RC-SHOT-PUSHED round=1 ok=true
 RC-WAIT round=1 i=0 status=404
+RC-WAIT round=1 i=4 status=200
