@@ -2659,11 +2659,15 @@
           "create": "신규",
           "createSuccess": "생성 성공",
           "createTitle": "결제 로그 생성",
+          "dateLabel": "납부일",
           "delete": "삭제",
           "deleteSuccess": "삭제 성공",
           "edit": "편집",
           "editTitle": "결제 로그 편집",
           "empty": "결제 기록이 없습니다",
+          "emptyRoster": "신청 내역이 없습니다",
+          "enrollmentLabel": "회차(수강 신청)",
+          "enrollmentPlaceholder": "학생의 수강 신청 회차를 선택하세요",
           "export": "내보내기",
           "exportFailed": "내보내기 실패",
           "exportSuccess": "내보내기 성공",
@@ -2673,6 +2677,10 @@
           "filterUserUuid": "사용자 UUID",
           "filterVideoId": "동영상 ID",
           "loading": "로딩 중...",
+          "methodAlipay": "알리페이",
+          "methodCash": "현금",
+          "methodTransfer": "계좌이체",
+          "methodWechat": "위챗",
           "nextPage": "다음",
           "outBillOnLabel": "청구 날짜 *",
           "outBillOnRequired": "청구 날짜는 필수입니다",
@@ -2680,7 +2688,11 @@
           "payWayLabel": "결제 방식",
           "prevPage": "이전",
           "realAmountLabel": "실결제 금액",
+          "recordTitle": "납부 등록",
+          "remarkLabel": "비고",
+          "remarkPlaceholder": "선택 사항",
           "reset": "초기화",
+          "rosterLine": "{name} · {cls} · 청구액 {totalFee} · 납부액 {paidAmount} · 미납액 {dueAmount}",
           "save": "저장",
           "subtitle": "코스 결제 기록 및 청구서 관리",
           "title": "코스 결제 로그",
@@ -20049,7 +20061,10 @@
     "customAdd": "추가",
     "customRemove": "제거",
     "customDragHint": "드래그하여 정렬",
-    "customNoResults": "일치하는 기능이 없습니다"
+    "customNoResults": "일치하는 기능이 없습니다",
+    "eduHubTitle": "교육",
+    "contentHubTitle": "콘텐츠",
+    "tradeHubTitle": "거래"
   },
   "news": {
     "allCategories": "All categories",
@@ -22230,6 +22245,7 @@
     "dashboardDesc": "모든 설정 옵션에 빠르게 액세스",
     "dashboardTitle": "대시보드",
     "dataExportTitle": "데이터 내보내기",
+    "dataRightsTitle": "데이터 권리",
     "dataVisibility": "데이터 가시성",
     "dataVisibilityDesc": "프로필 정보 표시 범위 제어",
     "desc": {
@@ -22648,7 +22664,21 @@
     "codeIndexEgressOptOut": "코드 의미 인덱스 생성 안 함",
     "codeIndexEgressOptOutDesc": "코드 조각은 벡터화 인덱싱을 위해 외부로 전송되지 않습니다",
     "autoMemoryOptOut": "자동 장기 기억 끄기",
-    "autoMemoryOptOutDesc": "대화를 세션 간 선호나 규칙으로 자동 추출하지 않습니다"
+    "autoMemoryOptOutDesc": "대화를 세션 간 선호나 규칙으로 자동 추출하지 않습니다",
+    "navTiers": {
+      "title": "사이드바 간편 모드",
+      "desc": "개발자 및 운영용 메뉴를 기본적으로 숨깁니다. 필요할 때 아래 스위치로 다시 표시할 수 있습니다.",
+      "simpleMode": "간편 모드",
+      "simpleModeDesc": "아래 네 가지를 한 번에 숨깁니다. 끄면 모두 표시됩니다",
+      "developer": "개발자 도구",
+      "developerDesc": "API 문서, 웹훅, 샌드박스, 릴레이 키 및 API 구독",
+      "relayOps": "모델 릴레이 관리",
+      "relayOpsDesc": "채널, 키, 호출 로그, 청구, 쿠폰 등 운영 데이터",
+      "advancedAi": "고급 AI 도구",
+      "advancedAiDesc": "메모리, 하위 에이전트, 오케스트레이션, 컨텍스트 압축 등 에이전트 기능",
+      "experimental": "실험적 기능",
+      "experimentalDesc": "아직 검증 중인 기능으로, 이후 변경되거나 중단될 수 있습니다"
+    }
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI 생성",
@@ -28692,5 +28722,17 @@
   },
   "statusPage": {
     "incidentsUnavailable": "최근 30일 이벤트 데이터를 일시적으로 가져올 수 없습니다"
+  },
+  "eduHub": {
+    "title": "교육",
+    "subtitle": "강좌, 시험, 학습 도구와 교무 관리"
+  },
+  "contentHub": {
+    "title": "콘텐츠",
+    "subtitle": "광장, 커뮤니티, 메시지와 멀티 플랫폼 게시"
+  },
+  "tradeHub": {
+    "title": "거래",
+    "subtitle": "지갑, 주문, 멤버십과 포인트 혜택"
   }
 }
