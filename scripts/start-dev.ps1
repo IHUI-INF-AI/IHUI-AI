@@ -616,9 +616,13 @@ if ($toStart -contains 'desktop' -and $toStart -contains 'web') {
   exit 1
 }
 
-# Tauri 桌面端需要 cargo 在 PATH。取 %USERPROFILE%\.cargo\bin —— 该处已是指向
-# D:\DevEnv\cache\userhome\.cargo 的 junction(缓存实体不在 C 盘),且原写
-# D:\caches\cargo\bin 是本机不存在的死路径,导致 desktop 启动时 cargo 从未被注入 PATH。
+# Tauri 桌面端需要两样东西都在 PATH 上,**不是只有 cargo**:
+#   (1) cargo —— 取 %USERPROFILE%\.cargo\bin,该处已是指向
+#       D:\DevEnv\cache\userhome\.cargo 的 junction(缓存实体不在 C 盘),且原写
+#       D:\caches\cargo\bin 是本机不存在的死路径,导致 desktop 启动时 cargo 从未被注入 PATH。
+#   (2) MSVC 工具链(提供 link.exe)—— 本脚本**不**注入,见下方只读诊断。
+#       .cargo/config.toml 里 `linker = "link.exe"` 是裸名、按 PATH 解析,
+#       所以"只有 cargo 也能编"是错的:linker 那一步会在 PATH 上被顶掉或干脆找不到。
 if ($toStart -contains 'desktop') {
   $cargoBin = Join-Path $env:USERPROFILE '.cargo\bin'
   if (Test-Path (Join-Path $cargoBin 'cargo.exe')) {
@@ -628,6 +632,32 @@ if ($toStart -contains 'desktop') {
     }
   } else {
     Write-Warn "未找到 cargo($cargoBin),桌面端 Rust 编译将失败。请先安装 Rust 工具链(或检查 CARGO_HOME)。"
+  }
+
+  # ── 只读诊断:link.exe 是否会被非 MSVC 的同名程序遮蔽 ────────────────────────
+  # 纯 Get-Command + 字符串比对,**不注入 PATH、不改任何变量、不调 vcvars**。
+  # MSVC 环境注入的唯一真相源是 scripts/lib/msvc-env.mjs + scripts/desktop-build.mjs;
+  # 在 .ps1 里再造一份 vcvars 调用就是第二份判据(§0.6),故这里只报不改。
+  # 判据:能解析到 link.exe 但来源不在 \VC\Tools\MSVC\ 下 ⇒ 顶上来的不是 MSVC 链接器。
+  #
+  # **报什么由"desktop 实际怎么被拉起"决定,不由本 shell 的 PATH 单独决定**(否则必假红):
+  # 本脚本自己不注入 MSVC ⇒ 这条读数**恒**是"被遮蔽",但如果 desktop 经由
+  # `pnpm --filter @ihui/desktop dev|build`(package.json 的 dev/build 已改走 scripts/desktop-build.mjs)
+  # 拉起,那次构建会自行注入,本条只是记录事实;只有 desktop 被指向裸 tauri/cargo 时才真的无路。
+  $linkCmd = Get-Command link.exe -ErrorAction SilentlyContinue
+  $shadowed = [bool]$linkCmd -and ($linkCmd.Source -notlike '*\VC\Tools\MSVC\*')
+  if ($shadowed) {
+    $desktopLaunch = (@($registry.services.desktop.cmd) + @($registry.services.desktop.args)) -join ' '
+    # 走 pnpm --filter @ihui/desktop <script> ⇒ 经 package.json ⇒ 已被 wrapper 接管(注入在入口里)
+    $viaWrapper = ($desktopLaunch -like '*@ihui/desktop*') -and ($desktopLaunch -notlike '*exec tauri*')
+    if ($viaWrapper) {
+      Write-Info "link.exe 解析到 $($linkCmd.Source)(不在 MSVC 目录)—— 本脚本不注入 MSVC;desktop 经 '$desktopLaunch' 拉起,由 scripts/desktop-build.mjs 自行注入,不受影响。"
+      Write-Info "  仅当**裸跑** cargo build / tauri dev / tauri build 时才会撞上遮蔽(症状: link: missing operand after '\377\376')。"
+    } else {
+      Write-Warn "link.exe 解析到 $($linkCmd.Source),不在 MSVC 工具链目录(\VC\Tools\MSVC\)内 —— 这是 Git usr\bin 的 GNU coreutils link,正在遮蔽 MSVC 链接器。"
+      Write-Warn "  desktop 的启动命令 '$desktopLaunch' **不经** scripts/desktop-build.mjs ⇒ 无处注入工具链,构建会在链接阶段失败(症状: link: missing operand after '\377\376')。"
+      Write-Warn "  出路:把 dev-port-registry.json 的 desktop 指向 'pnpm --filter @ihui/desktop dev'(package.json 的 dev 已接注入),或在开发 shell 里先加载 vcvars/vsdevcmd;不要在本脚本里补 PATH。"
+    }
   }
 }
 
