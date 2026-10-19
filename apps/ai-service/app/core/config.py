@@ -179,7 +179,7 @@ class Settings(BaseSettings):
     # 部署过它们(IHUI-OLLAMA 等服务的既成事实),探测纯属噪音(实测 1205 次/天)。
     # 要启用某个本地 provider:从这里删掉它,或在 .env 设
     # LOCAL_PROVIDERS_DISABLED="" 全启用。禁用是显式配置,启用也是显式配置。
-    local_providers_disabled: str = "ollama,lmstudio,llamacpp,vllm"
+    local_providers_disabled: str = "ollama,lmstudio,llamacpp,vllm,xinference"
     azure_api_key: str = ""
     azure_api_base: str = ""
     aws_access_key_id: str = ""
