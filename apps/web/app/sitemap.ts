@@ -10,6 +10,9 @@ import type { MetadataRoute } from 'next'
 //   移除 en/ko/ja 路由声明(对应路由文件不存在,AI 爬虫访问 /en/agents 会 404,
 //   严重损害 GEO 信任度 + Google Search Console 报 hreflang 错误)
 // - 补充遗漏公开页:/openclaw、/developers、/products、/services、/docs/* 16 子文档页等
+// 2026-10-19 补记:app/en 下现存在 /en、/en/agents、/en/models、/en/pricing、/en/docs
+// 五条路由,但 ko/ja 仍无路由文件;为避免 /en 单页被爬虫误判为全站 hreflang 基准,
+// 本 sitemap 暂仍只声明 zh-CN / zh-TW / x-default,en 路由待全量 i18n 后再统一声明。
 // - 优先级 + 更新频率按页面重要度分级
 // - 私有页(admin/user/wallet/orders/sso-callback/auth/dashboard/favorites/
 //   notifications/messages/following/search/task-receiver)不进 sitemap,
@@ -222,7 +225,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // hreflang 策略(2026-08-02 修正):
     // - 所有页面都声明 x-default(指向 zh-CN 主版本)
     // - 只有实际存在 zh-TW 路由的 5 个 use-cases 子页才声明 zh-CN + zh-TW hreflang
-    // - 不再声明 en/ko/ja(对应路由文件不存在,声明会导致 AI 爬虫 404)
+    // - 不再声明 ko/ja(对应路由文件不存在,声明会导致 AI 爬虫 404)
+    // - /en 路由已存在但仅覆盖 5 页,暂不声明 en hreflang(见文件头 2026-10-19 补记)
     const languages: Record<string, string> = {
       'x-default': `${SITE_URL}${path}`,
     }
