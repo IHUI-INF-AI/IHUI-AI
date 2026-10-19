@@ -12,11 +12,18 @@
  * 仅发 Windows(本机通道);全平台走 CI(tag → release-desktop.yml)。
  * 前置:~/.tauri/ 更新签名密钥;git credential 含 gitee.com token。
  */
-import { execSync, spawnSync } from 'node:child_process';
+import { execFileSync, execSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { planArtifactInvariant } from './lib/desktop-artifact-invariant.mjs';
 import { judgeUpdaterKeyPairing } from './lib/updater-key-pairing.mjs';
+// MSVC 工具链注入判据**单源**在 scripts/lib/msvc-env.mjs(立因/三态见该文件头注):
+// 本机 `C:\Program Files\Git\usr\bin` 在系统 PATH 里且带 GNU coreutils 的 `link.exe`,
+// 未加载 MSVC 的 shell 里 cargo 在链接阶段就撞上它。这里是"调用点",自己一份都不抄(§0.6)。
+import { planBuildEnv } from './lib/msvc-env.mjs';
+// vcvars 的**生产实现**同样单源:desktop-build.mjs 的 captureVsEnv(切 cwd + 只写批处理文件名,
+// 完整路径形态在本机实测静默不生效)。走它已有的具名导出,不另写第二种形态。
+import { __test__ as desktopBuildInternals } from './desktop-build.mjs';
 
 const cwd0 = process.cwd();
 const ROOT = /apps[\\/]desktop$/.test(cwd0) ? path.resolve(cwd0, '../..') : cwd0;
@@ -95,23 +102,71 @@ if (pairing.verdict !== 'ok') {
 }
 console.log(`✓ 签名钥匙配对自证:${pairing.reason}`);
 const pwd = readFileSync(path.join(process.env.USERPROFILE || '', '.tauri/ihui-updater-password.txt'), 'utf8').trim();
+// MSVC 工具链注入(判据单源,见上方 import 的注释)。三态(§0.3):取不到 ⇒ 显式「未判定」+ exit 2,
+// 绝不静默回落成"裸 env 硬跑" —— 那一跑的报错是一个指向 GNU `link.exe` 的费解信息。
+//
+// ⚠ 顺序是判据的一半:planBuildEnv 的成功档是 `{...调用方env, ...vcvars的set块}`,即注入结果
+// **整块盖在**调用方 env 上。所以本脚本自己的签名/跳前端 env 必须在注入**之后**才叠,
+// 否则由那次 `set` 说了算(实测就是被覆盖的那一侧)。
+const toolchain = planBuildEnv({ env: process.env, existsSync, runCapture: desktopBuildInternals.captureVsEnv });
+if (!toolchain.ok) {
+  console.error(`ERROR: 未判定 —— MSVC 工具链取不到,未进入构建(不记失败也不记绿,reason=${toolchain.reason})`);
+  console.error(`  已试候选 ${toolchain.tried.length} 条,其中确实存在的 ${toolchain.candidates.length} 条:`);
+  for (const c of toolchain.tried) console.error(`    ${toolchain.candidates.includes(c) ? '[存在]' : '[不存在]'} ${c}`);
+  for (const d of toolchain.details) console.error(`    [失败] ${d.vcvars} -> ${d.error}`);
+  console.error('  出路:装 VS 2022 Build Tools(含 MSVC v143 + Windows SDK),或设 VSINSTALLDIR 指向现有安装。');
+  console.error('        本仓不靠"让 cargo 自己撞"来替代判定 —— 那只会把"没装工具链"换成更难认的一型。');
+  process.exit(2);
+}
+console.log(`✓ MSVC 工具链已注入:${toolchain.linkFrom}`);
+if (toolchain.removedDirs.length > 0) console.log(`  已从 PATH 剔除遮蔽目录:${toolchain.removedDirs.join(' ; ')}`);
 const buildEnv = {
-  ...process.env,
+  ...toolchain.env,
   TAURI_SKIP_FRONTEND: '1',
   TAURI_SIGNING_PRIVATE_KEY: key,
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: pwd,
 };
-// 2026-10-12:首跑曾撞瞬时句柄锁(cargo 写 .d 文件 os error 5「拒绝访问」,当时无任何
-// 存活构建进程,重跑即过)。失败自动重试 1 次 —— 增量构建下重试成本低,能把瞬时锁
-// 兜住;真编译错误多等一轮增量也可接受(总比整个发版流程中断好)。
+/**
+ * 归因用:在**本次构建真正用的那份 env** 里,`where link` 会解析到哪。
+ *
+ * 这不是判据,只是失败分支的一行诊断 —— 直接问 Windows 的查找器,不重算一遍 PATH 查找规则
+ * (那会变成判据的第二份实现)。判"该不该构建"由 planBuildEnv 单源负责。
+ *
+ * @param {Record<string, string>} env 注入后的 env(即 buildEnv)
+ * @returns {string} 一行可读文本;问不到时如实说问不到
+ */
+function whereLinkIn(env) {
+  try {
+    const out = execFileSync('where.exe', ['link'], {
+      env,
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const hits = out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    return hits.length > 0 ? hits.join(' | ') : '(无命中:PATH 里找不到 link.exe)';
+  } catch (e) {
+    return `(执行 where link 失败:${e?.status ?? e?.message ?? e})`;
+  }
+}
+// 失败自动重试 1 次,**兜的是两病并列**,二者的可重试性相反,别只写其中一个:
+//   ① 瞬时句柄锁(2026-10-12 实锤形态:cargo 写 .d 文件 os error 5「拒绝访问」,当时无任何
+//      存活构建进程,重跑即过)—— 重试是对症的;
+//   ② 环境类确定性失败(链接阶段解析到 Git 的 GNU `link.exe` 之类)—— 重试**治不好**,只是把
+//      "构建失败"拖成"构建失败两次"。
+// 两类都落在同一个失败分支里,重试**之前**区分不了,所以重试保留(为①);真要区分,看最终失败
+// 分支那行 `where link` 归因。重试次数与等待时长保持原值,未改动。
 const runBuild = () => spawnSync('pnpm', ['exec', 'tauri', 'build'], { cwd: DESKTOP, stdio: 'inherit', env: buildEnv, shell: true, windowsHide: true });
 let build = runBuild();
 if (build.status !== 0) {
-  console.log('\n⚠️ tauri build 失败,5 秒后自动重试 1 次(瞬时句柄锁兜底,2026-10-12 实锤形态)');
+  console.log('\n⚠️ tauri build 失败,5 秒后自动重试 1 次(兜底两病:① 瞬时句柄锁 ② 环境类确定性失败)');
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000);
   build = runBuild();
   if (build.status !== 0) {
-    console.error('ERROR: tauri build 重试仍失败');
+    console.error(`ERROR: tauri build 重试仍失败\n  归因:本次构建 shell 里 link 的解析 → ${whereLinkIn(buildEnv)}`);
+    console.error(`  工具链注入点:${toolchain.linkFrom}`);
+    console.error('  · 上面若**不**落在同一个 MSVC 目录 ⇒ 工具链没真正加载,重试不会变好(病②),先查 PATH/注入。');
+    console.error('  · 上面若已落在 MSVC 目录仍失败 ⇒ 多半是病①(本仓 target 里的残留桌面端进程占着 exe),关掉后重跑。');
     process.exit(1);
   }
 }

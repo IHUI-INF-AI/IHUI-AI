@@ -63,12 +63,36 @@ IPC 授权说明：dev 构建下窗口 origin 与 `devUrl` 同源 ⇒ Tauri 判�
 ## 构建
 
 ```bash
-pnpm --filter @ihui/desktop build          # = tauri build（beforeBuildCommand 为空，不构建/不内嵌前端）
-pnpm --filter @ihui/desktop build:debug    # 调试版
-pnpm build:desktop:saas                    # 根目录入口：注入 NEXT_PUBLIC_* 线上后端地址后走同一条 tauri build
+pnpm --filter @ihui/desktop build          # = node ../../scripts/desktop-build.mjs（注入 MSVC 后 tauri build + 单一产物收敛）
+pnpm --filter @ihui/desktop build:debug    # 调试版，同一入口加 --debug
+pnpm --filter @ihui/desktop dev            # = desktop-build.mjs --dev（tauri dev，同样注入 MSVC）
+pnpm build:desktop:saas                    # 根目录入口：注入 NEXT_PUBLIC_* 线上后端地址后走同一条链
 ```
 
 注：由于 `beforeBuildCommand` 已为空、构建链中不再有前端编译（Rust 侧也不读 `NEXT_PUBLIC_*`），`build:desktop:saas` 注入的环境变量当前**不会影响**运行时的线上前端——运行时前端以 `https://aizhs.top` 部署为准。
+
+### Windows 工具链前置（由仓内脚本注入，无需手动 call vcvars）
+
+本机系统 PATH 里有 Git 自带的 `link.exe`（`C:\Program Files\Git\usr\bin`，GNU coreutils 同名程序），而 `src-tauri/.cargo/config.toml` 的 `linker = "link.exe"` 是**裸名**、原样按 PATH 解析 ⇒ 未加载 MSVC 的 shell 里链接阶段直接失败，报 `link: missing operand after '\377\376'`（实测；该报错只字不提工具链，别顺着它去查 cargo）。
+
+- MSVC 注入由 `scripts/desktop-build.mjs` 承担（判据唯一真相源 `scripts/lib/msvc-env.mjs`），等价命令：仓库根执行 `node scripts/desktop-build.mjs`，调试版加 `--debug`，开发态加 `--dev`。`build` / `build:debug` / `dev` / `dev:cdp` 四个脚本都走它，用户**不需要**自己 call vcvars。
+- 取不到工具链时脚本打印显式「未判定」并 `exit 2`，**不**静默回落成"裸 env 硬跑"。
+- `pnpm build:desktop:saas`（`scripts/desktop-build-saas.mjs`）、`pnpm dev:desktop:saas`（`scripts/desktop-dev-saas.mjs`）与发版脚本（`scripts/release-desktop-local.mjs`）复用同一份注入判据。
+- 自查：`where link` 的第一命中应指向 `...\VC\Tools\MSVC\…\bin\HostX64\x64\link.exe`；指向 Git 那个就是没注入。
+- **唯一仍需自行处理工具链的是裸跑**：`tauri build` / `tauri dev` / `cargo build` 直接调（不经上面任何一个脚本）时，须自行在开发 shell 加载 `vcvars`/`vsdevcmd`（安装位置随机器变，不写死路径）。
+
+### 本地无签名私钥时怎么打包（`DESKTOP_ALLOW_UNSIGNED=1`）
+
+`src-tauri/tauri.conf.json` 钉着 `bundle.createUpdaterArtifacts: true` + updater 公钥，而 minisign 私钥 `~/.tauri/ihui-updater.key` **只在发版机/CI 上**。本机没有私钥时 makensis 其实已经产出 `setup.exe`，只是随后的签名步报 `A public key has been found, but no private key.` ⇒ 整条命令 exit 1。
+
+```bash
+DESKTOP_ALLOW_UNSIGNED=1 pnpm --filter @ihui/desktop build   # 仅本地自测包
+```
+
+该开关两段同时生效（判据单源 `scripts/lib/desktop-unsigned-config.mjs`）：① 给 tauri 传一份只关 `bundle.createUpdaterArtifacts` 的临时 config（在 `.ihui-agent/tmp/` 下、用完即删，只覆盖这一个字段，pubkey/bundle 目标/版本号一律不动）；② 同一个 env 继续传给尾部收敛钩子 `scripts/desktop-artifact-single.mjs`，让它放行"缺 `.sig`"那一项。
+
+未设该 env 时行为不变、仍然判红——它是**显式开关**，不是自动降级。
+⚠️ 未签名产物：**不得**进更新源、不得发版、不得上传任何下载/更新 CDN。发版一律走持有私钥的 `scripts/release-desktop-local.mjs`。
 
 ## 重要提示
 

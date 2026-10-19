@@ -230,7 +230,9 @@ test('临时 config 只关 createUpdaterArtifacts,不碰其他任何发版形态
   assert.deepEqual(Object.keys(parsed), ['bundle'])
   assert.deepEqual(Object.keys(parsed.bundle), ['createUpdaterArtifacts'])
   assert.equal(parsed.bundle.createUpdaterArtifacts, false)
-  const raw = saas.unsignedConfigPath(REPO)
+  // slot 是判据的一部分(不同入口各占一格,免得并发时互删临时 config),不许省略成默认格
+  const raw = saas.unsignedConfigPath(REPO, saas.UNSIGNED_SLOT)
   assert.ok(path.isAbsolute(raw) && raw.startsWith(REPO), raw)
+  assert.ok(raw.includes('desktop-build-saas'), `临时 config 须落在本入口独占的那一格,实际 ${raw}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
