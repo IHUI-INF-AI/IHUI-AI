@@ -2619,6 +2619,22 @@ class LLMGateway:
             # 观测收口:换 key 递归/换模型 fallback 会各自再记一次,所以
             # ihui_llm_calls_total 的量纲是"上游尝试次数",不是会话次数。
             _err_status = llm_error_status(e)
+            # 观测可诊断性修复(2026-10-20):此前只把错误写入指标、不记日志,
+            # 导致 agnes 等无号池 provider 返回 4xx 时异常文本被静默丢弃
+            # (指标里 agnes 4xx 累加却零日志可溯源)。此处统一在错误处理入口
+            # 记一条 warning(含 model/provider/状态码),确保每次上游失败至少
+            # 有一条可检索文本轨迹,不依赖后续号池/故障转移分支是否命中。
+            _http_status = getattr(e, "status_code", None) or getattr(
+                getattr(e, "response", None), "status_code", None
+            )
+            logger.warning(
+                "LLM 上游调用失败(model=%s, provider=%s, status=%s, http=%s): %s",
+                used_model,
+                _metrics_provider(used_model),
+                _err_status,
+                _http_status,
+                str(e)[:300],
+            )
             record_llm_outcome(
                 _metrics_provider(used_model),
                 used_model,
@@ -3500,6 +3516,22 @@ class LLMGateway:
             # 观测收口(流式失败):已发过 chunk 的失败同时是"流中断"(内容被截断),
             # 与前端 partial_done 同一判据,不另立第二套口径。
             _err_status_s = llm_error_status(e)
+            # 观测可诊断性修复(2026-10-20):同 complete() 路径,流式上游失败
+            # 此前只入指标不记日志;无号池且未发过 chunk 的 agnes 4xx 会被静默
+            # (号池分支要 current_key_pool_id 非空才记,流式中断分支要已发过
+            # chunk 才记,两个分支都漏掉"首个 chunk 就 4xx"的场景)。
+            # 在错误处理入口补一条 warning(含 model/provider/状态码)。
+            _http_status_s = getattr(e, "status_code", None) or getattr(
+                getattr(e, "response", None), "status_code", None
+            )
+            logger.warning(
+                "LLM 流式上游调用失败(model=%s, provider=%s, status=%s, http=%s): %s",
+                used_model,
+                _metrics_provider(used_model),
+                _err_status_s,
+                _http_status_s,
+                str(e)[:300],
+            )
             record_llm_outcome(
                 _metrics_provider(used_model),
                 used_model,
