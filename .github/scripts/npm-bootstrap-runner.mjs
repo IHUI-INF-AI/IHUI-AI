@@ -700,8 +700,11 @@ async function deleteRepoFile(path) {
   } catch {}
 }
 
-// reCAPTCHA 图像挑战闭环:截图推 rc-live → 轮询 rc-clicks.json 坐标 → 人类化点击 → VERIFY → 多轮
-// 指令文件(rc-live 分支):.github/rc-clicks.json = {"round":N,"clicks":[{"x":px,"y":px},...]} (viewport 坐标)
+// reCAPTCHA 图像挑战闭环:截图推 rc-live → 轮询指令 → 在 bframe DOM 内点 tile → 提交 → 多轮
+// 指令文件(rc-live 分支):.github/rc-clicks.json = {"round":N,"tiles":[序号...]}  (1 起,行优先)
+//   ★ 不用像素坐标:reCAPTCHA 同一站点会在 3x3 / 4x4 之间切换,固定坐标必然点错格(实证)。
+//     改由 runner 读 DOM 网格尺寸(.rc-imageselect-table-33 / -44),按格子序号点,坐标漂移归零。
+// 兼容旧格式 {"clicks":[{x,y}]}:识别到则回退用坐标点。
 async function handleRecaptchaChallenge(page, attempt) {
   const INSTR_URL = 'https://raw.githubusercontent.com/IHUI-INF-AI/IHUI-AI/rc-live/.github/rc-clicks.json'
   const findB = () => page.frames().find((f) => /recaptcha.*bframe/.test(f.url()))
@@ -720,23 +723,55 @@ async function handleRecaptchaChallenge(page, attempt) {
   console.log(
     `RC-STATE bframe=${b0 ? 'yes' : 'no'} frames=${page.frames().length} url=${page.url().slice(0, 100)}`
   )
-  for (let round = 0; round < 4; round++) {
+  for (let round = 0; round < 5; round++) {
     const bframe = findB()
     if (!bframe) {
       console.log(`RC-NO-CHALLENGE round=${round}`)
       return true
     }
     console.log(`RC-CHALLENGE round=${round} frame=${bframe.url().slice(0, 90)}`)
+    // 读网格尺寸与题目文案(指令里只需给序号,不必依赖截图对齐)
+    let rows = 0
+    let cols = 0
+    let prompt = ''
+    try {
+      prompt = ((await bframe.locator('.rc-imageselect-desc, .rc-imageselect-desc-no-canonical').first().textContent({ timeout: 5000 })) || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+      const t44 = await bframe.locator('.rc-imageselect-table-44 td.rc-imageselect-tile').count()
+      const t33 = await bframe.locator('.rc-imageselect-table-33 td.rc-imageselect-tile').count()
+      if (t44 > 0) {
+        rows = 4
+        cols = 4
+      } else if (t33 > 0) {
+        rows = 3
+        cols = 3
+      }
+    } catch {}
+    console.log(`RC-GRID round=${round} rows=${rows} cols=${cols} prompt=${JSON.stringify(prompt.slice(0, 90))}`)
+    // 结构快照:挑战 DOM 一旦与预期不同(动态 tile / 错误提示 / 加载失败),靠 HTML 才定位得到
+    try {
+      const fhtml = ((await bframe.locator('body').innerHTML({ timeout: 6000 })) || '').slice(0, 20000)
+      await pushRepoFileRetry(
+        `.github/rc-frame-${round}.html`,
+        Buffer.from(fhtml, 'utf8').toString('base64'),
+        `rc frame dump ${round}`
+      )
+      console.log(`RC-FRAME-DUMP round=${round} len=${fhtml.length}`)
+    } catch (e) {
+      console.log(`RC-FRAME-DUMP-FAIL round=${round} ${String(e.message).slice(0, 80)}`)
+    }
     const shotPath = `${SHOT_DIR}/rc-challenge-${round}.png`
     await page.screenshot({ path: shotPath, fullPage: false })
     // 实时推送截图到 rc-live(李总侧多模态识别用)
     const b64 = fs.readFileSync(shotPath).toString('base64')
     const pushed = await pushRepoFileRetry(`.github/rc-shot-${round}.png`, b64, `rc challenge round ${round}`)
     console.log(`RC-SHOT-PUSHED round=${round} ok=${pushed}`)
-    // 等待指令文件(最多 8 分钟轮询;每次 fetch 都带超时,避免 TCP 挂死拖住整轮)
-    let clicks = null
-    for (let i = 0; i < 24; i++) {
-      await sleep(15000)
+    // 等待指令文件(最多 10 分钟轮询;每次 fetch 都带超时,避免 TCP 挂死拖住整轮)
+    // ★ 窗口必须够长:人工侧要看图 → 判断 → 推指令,单轮实测 2-4 分钟;过短会白跑一整轮。
+    let instr = null
+    for (let i = 0; i < 60; i++) {
+      await sleep(10000)
       try {
         const r = await fetch(INSTR_URL + '?t=' + Date.now(), {
           cache: 'no-store',
@@ -744,8 +779,8 @@ async function handleRecaptchaChallenge(page, attempt) {
         })
         if (r.ok) {
           const j = await r.json()
-          if (j.round === round && Array.isArray(j.clicks)) {
-            clicks = j.clicks
+          if (j.round === round && (Array.isArray(j.tiles) || Array.isArray(j.clicks))) {
+            instr = j
             break
           }
         }
@@ -754,20 +789,56 @@ async function handleRecaptchaChallenge(page, attempt) {
         console.log(`RC-WAIT-ERR round=${round} i=${i} ${String(e.message).slice(0, 60)}`)
       }
     }
-    if (!clicks) throw new Error(`rc instruction timeout round=${round} — see rc-challenge-${round}.png`)
-    console.log(`RC-INSTRUCT round=${round} clicks=${JSON.stringify(clicks)}`)
-    // 人类化点击:随机轨迹 + 随机间隔
-    for (const c of clicks) {
-      await page.mouse.move(c.x, c.y, { steps: 10 })
-      await sleep(250 + Math.random() * 600)
-      await page.mouse.click(c.x, c.y)
-      await sleep(350 + Math.random() * 500)
+    if (!instr) throw new Error(`rc instruction timeout round=${round} — see rc-challenge-${round}.png`)
+    console.log(`RC-INSTRUCT round=${round} ${JSON.stringify(instr)}`)
+    if (Array.isArray(instr.tiles) && rows > 0) {
+      // 格子序号 → 直接点 DOM 节点(含 humanize 停顿)
+      for (const n of instr.tiles) {
+        const idx = Number(n) - 1
+        if (!Number.isFinite(idx) || idx < 0 || idx >= rows * cols) {
+          console.log(`RC-TILE-SKIP bad index ${n}`)
+          continue
+        }
+        const tile = bframe.locator('.rc-imageselect-table-44 td.rc-imageselect-tile, .rc-imageselect-table-33 td.rc-imageselect-tile').nth(idx)
+        await tile.click({ timeout: 12000, force: true })
+        await sleep(320 + Math.random() * 520)
+      }
+      console.log(`RC-TILES-CLICKED round=${round} n=${instr.tiles.length}`)
+    } else if (Array.isArray(instr.clicks)) {
+      for (const c of instr.clicks) {
+        await page.mouse.move(c.x, c.y, { steps: 10 })
+        await sleep(250 + Math.random() * 600)
+        await page.mouse.click(c.x, c.y)
+        await sleep(350 + Math.random() * 500)
+      }
+      console.log(`RC-COORD-CLICKED round=${round} n=${instr.clicks.length}`)
     }
-    // 点 VERIFY
-    const verify = bframe
-      .locator('#recaptcha-verify-button, button:has-text("Verify")')
-      .first()
-    await verify.click({ timeout: 12000 })
+    await sleep(900)
+    // 提交按钮:文本随状态变化(Skip/Next/Verify),且会重渲染 → 用 id + force + JS 兜底
+    const verify = bframe.locator('#recaptcha-verify-button').first()
+    const label = ((await verify.textContent({ timeout: 5000 }).catch(() => '')) || '').trim()
+    console.log(`RC-VERIFY-BTN label=${JSON.stringify(label)}`)
+    let clicked = false
+    try {
+      await verify.click({ timeout: 8000, force: true })
+      clicked = true
+    } catch (e) {
+      console.log(`RC-VERIFY-CLICK-RETRY ${String(e.message).slice(0, 80)}`)
+      await sleep(1500)
+      try {
+        await verify.click({ timeout: 8000, force: true })
+        clicked = true
+      } catch {}
+    }
+    if (!clicked) {
+      try {
+        await verify.evaluate((el) => el.click())
+        clicked = true
+        console.log('RC-VERIFY-JS-CLICK')
+      } catch (e) {
+        console.log(`RC-VERIFY-JS-FAIL ${String(e.message).slice(0, 80)}`)
+      }
+    }
     await sleep(9000)
     await shot(page, `rc-after-verify-${round}`)
     // VERIFY 后可能直接过(表单提交)或弹下一轮
