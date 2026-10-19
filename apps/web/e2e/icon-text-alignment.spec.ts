@@ -190,9 +190,7 @@ test.describe('icon + 文字垂直对齐守门', () => {
       'nav-learn',
       'nav-myLearning', // ★ 重点回归位点
       'nav-favorites',
-      // 2026-10-19:原 'nav-settings' 已移除 —— /settings 于 P1 收敛中归位到设置页,
-      // 不再作为主侧边栏条目渲染(改由用户行下拉 / Ctrl+Shift+, / 命令面板 / 桌面托盘进入)。
-      // 保留此项会让 toBeVisible() 恒失败(元素不存在)。
+      'nav-settings',
     ]
 
     for (const testid of targetItems) {
