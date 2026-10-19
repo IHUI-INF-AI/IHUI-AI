@@ -32,7 +32,7 @@ import {
   type ProjectionWatermarkState,
   type RejectReason,
   type WatermarkFrame,
-} from '../chat/projection-watermark.js'
+} from '../chat/projection-watermark'
 
 // D174(2026-09-30 立):帧级 traceId 的键名与归一规则只有一份,住在 SSE 契约层
 // (`sse/contract.ts`,与 Python 侧 `core/sse_contract.py` + `core/trace_context.py` 对应)。
