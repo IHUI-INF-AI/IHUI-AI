@@ -530,10 +530,17 @@ class TestPillarEventBusGetRecentEvents:
         assert events[0]["event_type"] == "rules.matched"
 
     async def test_get_recent_events_redis_path(self, event_bus: PillarEventBus):
-        """模拟 Redis 可用:xrevrange 返回事件。"""
+        """模拟 Redis 可用:xrevrange 返回事件。
+
+        stream 字段是单个 JSON 化的 "event"(与 publish 对称):XADD 不接受
+        嵌套 dict,payload 必须随整条事件一起 JSON 编码进单键。本用例此前按
+        旧的"字段平铺"形态造数据,修复后读端改为 json.loads(fields["event"]),
+        故同步为新形态 —— 流里不存在旧格式历史数据(旧 XADD 恒定抛异常,
+        XLEN 实测为 0),无需兼容旧形态。
+        """
         fake_redis = AsyncMock()
         fake_redis.xrevrange = AsyncMock(return_value=[
-            ("id-1", {"event_type": "rules.matched", "source_pillar": "rules", "timestamp": "ts", "payload": {}, "dispatch_id": "", "severity": "info"}),
+            ("id-1", {"event": json.dumps({"event_type": "rules.matched", "source_pillar": "rules", "timestamp": "ts", "payload": {}, "dispatch_id": "", "severity": "info"})}),
         ])
         event_bus._redis = fake_redis
         events = await event_bus.get_recent_events(limit=10)
