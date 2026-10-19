@@ -116,9 +116,15 @@ function adminGroupToNavItem(group: AdminNavGroup): NavItem {
     labelKey: `adminGroup.${group.groupKey}`,
     icon: GroupIcon,
     adminOnly: true,
+    // 2026-10-19 修复:labelKey 原先被硬编码成 'adminDynamic'(= "动态路由"),
+    // 把 item.labelKey 整个盖掉了。渲染侧取名规则是 `dynamicLabel ?? t(labelKey)`,
+    // 于是**任何缺 dynamicLabel 的分组项都 fallback 到同一句"动态路由"** —— 现读 76 项里 22 项中招
+    // (aiAgent 组 20 个 relay/backup/im 项 + saas 组 2 项),表现为一排同名按钮。
+    // 那 22 项的 i18n 键本就存在(中转概览/中转模型/Key 池/…)或仅 2 个真缺词条,
+    // 现在透传 item.labelKey 作 fallback:有 dynamicLabel 仍优先用它,否则走各自 i18n。
     children: group.items.map((item) => ({
       href: item.href,
-      labelKey: 'adminDynamic',
+      labelKey: item.labelKey,
       icon: item.icon,
       adminOnly: true,
       dynamicLabel: item.dynamicLabel,
