@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
     height: rpx(28),
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: rpx(14),
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brandAccent.deep,
     paddingHorizontal: rpx(6),
   },
