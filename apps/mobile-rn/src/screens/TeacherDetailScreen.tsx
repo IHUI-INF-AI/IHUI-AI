@@ -13,7 +13,7 @@
  * - 导航:CourseDetail 跳转 / goBack;主题色 / i18n 注入
  */
 import { useEffect, useState } from 'react'
-import { Alert } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import { fetchApi, type Teacher, type TeacherCourse, type TeacherReview } from '@ihui/api-client'
@@ -105,22 +105,22 @@ export function TeacherDetailScreen() {
     })
     if (!res.success) {
       setFollowing(!next)
-      Alert.alert(t('common.failed'))
+      appAlert(t('common.failed'))
       return
     }
-    Alert.alert(next ? t('teacher.detail.followed') : t('teacher.detail.unfollowed'))
+    appAlert(next ? t('teacher.detail.followed') : t('teacher.detail.unfollowed'))
   }
 
   // 联系讲师:ActionSheet 降级为 Alert 选项(对齐 miniapp 行为)
   const onContact = () => {
-    Alert.alert(t('teacher.detail.contact'), undefined, [
+    appAlert(t('teacher.detail.contact'), undefined, [
       {
         text: t('teacher.detail.contactMessage'),
-        onPress: () => Alert.alert(t('teacher.detail.contact'), t('teacher.detail.imSoon')),
+        onPress: () => appAlert(t('teacher.detail.contact'), t('teacher.detail.imSoon')),
       },
       {
         text: t('teacher.detail.contactPhone'),
-        onPress: () => Alert.alert(t('teacher.detail.contact'), t('teacher.detail.phoneHint')),
+        onPress: () => appAlert(t('teacher.detail.contact'), t('teacher.detail.phoneHint')),
       },
       { text: t('common.cancel'), style: 'cancel' },
     ])
