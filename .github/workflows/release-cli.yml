@@ -87,10 +87,22 @@ jobs:
 
       - name: Publish to npm
         if: steps.probe.outputs.exists == 'true'
-        # --provenance(2026-10-18):Sigstore keyless 供应链证明 —— npm 页面显示
-        # "Built and signed on GitHub Actions" 徽章;OIDC 令牌由 npm CLI 自动换取,
-        # 无 NPM_TOKEN、无长期凭据。
-        run: npm publish ./npm-dist --access public --provenance
+        # 首选 Trusted Publishing(OIDC + Sigstore provenance 徽章);若包页尚未登记
+        # trusted publisher(表现:OIDC 换取失败/403),回退 NPM_PUBLISH_TOKEN
+        # (Classic Automation token,无写包权限外的敏感面)——双保险保证每次发版必达 npm。
+        env:
+          NPM_PUBLISH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+        run: |
+          if npm publish ./npm-dist --access public --provenance; then
+            echo "published via OIDC provenance"
+          elif [ -n "$NPM_PUBLISH_TOKEN" ]; then
+            echo "::warning::OIDC 发布未成(疑似 Trusted Publisher 未登记),回退 token 发布"
+            printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_PUBLISH_TOKEN" > ~/.npmrc
+            npm publish ./npm-dist --access public
+          else
+            echo "::error::OIDC 发布失败且未配置 NPM_PUBLISH_TOKEN"
+            exit 1
+          fi
 
       - name: Summary
         run: |
