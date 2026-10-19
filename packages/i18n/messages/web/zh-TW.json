@@ -682,18 +682,6 @@
   },
   "admin": {
     "wallboard": {
-      "edgeControlLeg": "未走加速的對照",
-      "edgeHeadlineHit": "國內加速命中率",
-      "edgeHeadlineMs": "首頁現在開啟耗時",
-      "edgeNoSeries": "暫無訪客開啟探測樣本",
-      "edgeSparkName": "首頁耗時",
-      "edgeSparkTitle": "近期訪客首頁耗時（綠點=快取命中，黃點=未命中）",
-      "edgeStatP50": "P50 耗時",
-      "edgeStatP95": "P95 耗時",
-      "edgeStatSamples": "探測樣本",
-      "edgeStatWorst": "最差耗時",
-      "edgeUpdatedAgo": "探測於 {ago}",
-      "panelEdge": "訪客訪問 · 國內加速",
       "activeAlerts": "活躍告警(Alertmanager)",
       "agoDays": "{n}天前",
       "agoHours": "{n}小時前",
@@ -28735,17 +28723,5 @@
   },
   "statusPage": {
     "incidentsUnavailable": "最近 30 天的事件資料暫時取不到"
-  },
-  "eduHub": {
-    "title": "教育",
-    "subtitle": "課程、考試、學習工具與教務管理"
-  },
-  "contentHub": {
-    "title": "內容",
-    "subtitle": "廣場、社區、訊息與多平臺發布"
-  },
-  "tradeHub": {
-    "title": "交易",
-    "subtitle": "錢包、訂單、會員與積分權益"
   }
 }
