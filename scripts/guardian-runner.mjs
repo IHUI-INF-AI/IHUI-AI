@@ -4757,7 +4757,7 @@ const checks = [
       '     ① 让号/重登必须**旧行同批**加〔【归并】同题多号收拢〕指针或删掉 —— 只增不删就是重复登记;',
       '     ② 确属另一件事 ⇒ 把题面写到取不出同一个指纹(换编号不算改题);',
       '     ③ 登记一律走 live-doc-edit 的 {{NEXT_ID}} 令牌(发号前已查同题,命中拒发),别手填号。',
-      '  📖 单复验:node scripts/check-plan-task-duplicates.mjs --self-test(18 例) / --ratchet(索引面 vs HEAD 面) / --staged --ratchet;默认档只报数,--strict 问责。',
+      '  📖 单复验:node scripts/check-plan-task-duplicates.mjs --self-test(30 例) / --ratchet(索引面 vs HEAD 面) / --staged --ratchet;默认档只报数,--strict 问责。',
       '  ⚠️ 应急跳过:HUSKY_SKIP_PLAN_DUP_TITLE=1(跳过即放弃「同一件事只有一行当前状态」这条不变量,须在提交信息写明理由与清偿票)',
       '',
     ].join('\n'),
