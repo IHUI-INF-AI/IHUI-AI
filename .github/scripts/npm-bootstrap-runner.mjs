@@ -342,6 +342,14 @@ async function runSignup(page, attempt) {
 // 在 npm 网页给 ihui-cli 登记 GitHub Trusted Publisher(Workflow OIDC),registry API 无此端点。
 // npm 发布页:https://www.npmjs.com/package/ihui-cli/access
 async function runTrustedPublisher(page, attempt) {
+  // 0) 网络监听:抓登录 POST 的真实响应(无 UI 错误时唯一的真相来源)
+  const netLog = []
+  const onResp = (r) => {
+    try {
+      if (r.request().method() !== 'GET') netLog.push(`${r.status()} ${r.request().method()} ${r.url().slice(0, 120)}`)
+    } catch {}
+  }
+  page.on('response', onResp)
   // 1) 网页登录(CF 挑战已被真 Chrome 方案突破)
   await page.goto('https://www.npmjs.com/login', { waitUntil: 'domcontentloaded', timeout: 60000 })
   await waitPastCloudflare(page)
@@ -382,6 +390,8 @@ async function runTrustedPublisher(page, attempt) {
       }
     }
     if (!clicked) throw new Error('login submit button not found')
+    await sleep(12000) // 给登录 POST 留足响应时间
+    console.log('TP_NET_LOG=' + JSON.stringify(netLog.slice(-12)))
     await waitPastCloudflare(page, 120000)
     await sleep(6000)
     await shot(page, `tp-login-after`)
@@ -395,6 +405,11 @@ async function runTrustedPublisher(page, attempt) {
     console.log('TP_LOGIN_ERR=' + (errMatch ? errMatch[0] : '(none)'))
     const tsFrames = page.frames().filter((f) => /challenges\.cloudflare\.com|turnstile/i.test(f.url())).length
     console.log('TP_TURNSTILE_FRAMES=' + tsFrames)
+    // 表单区 DOM dump(错误 DOM 常在 form 内,textContent 拿不到样式隐藏节点)
+    try {
+      const formHtml = await page.locator('form').first().evaluate((el) => el.innerHTML.replace(/\s+/g, ' ').slice(0, 600))
+      console.log('TP_FORM_HTML=' + formHtml)
+    } catch {}
     if (/\/login/.test(page.url()) && errMatch) {
       throw new Error('npm login rejected: ' + errMatch[0])
     }
