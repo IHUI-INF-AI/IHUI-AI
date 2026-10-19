@@ -1,4 +1,4 @@
-2026-10-19T10:12:20.782Z pid=3829
+2026-10-19T10:12:32.783Z pid=3829
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/1 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -33,3 +33,4 @@ RC-CHALLENGE round=1 frame=https://google.com/recaptcha/enterprise/bframe?hl=en&
 RC-SHOT-PUSHED round=1 ok=true
 RC-WAIT round=1 i=0 status=200
 RC-WAIT round=1 i=4 status=200
+RC-WAIT round=1 i=8 status=200
