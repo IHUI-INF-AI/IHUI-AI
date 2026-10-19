@@ -92,14 +92,19 @@ PROVIDER_CAPS: dict[str, ProviderCap] = {
         max_context=200000,
     ),
     # StepFun 智能路由:不支持 stream_usage(需 token_counter 估算兜底)
+    # 2026-10-19:免费档上游并发上限 5,重试也占并发槽 —— 2 次重试会把一次
+    # 拥塞放大成三倍占用(实测 concurrency reached current:6 limit:5 自伤)。
+    # 降为 1:失败即交棒 combo 下一条腿,不在这里原地重试挤兑。
     "stepfun": ProviderCap(
         supports_stream_usage=False,
         max_context=128000,
+        request_max_retries=1,
     ),
-    # Agnes 中转站:不支持 stream_usage
+    # Agnes 中转站:不支持 stream_usage;同为免费/中转档,重试降 1(同 stepfun 理由)
     "agnes": ProviderCap(
         supports_stream_usage=False,
         max_context=128000,
+        request_max_retries=1,
     ),
     # Token6688 聚合网关(TokenGo 系):stream_usage 未知先按 False 兜底,
     # 超时放宽(聚合网关上游链路长),vision 走多模态模型
