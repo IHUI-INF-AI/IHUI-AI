@@ -6,7 +6,7 @@
 
 # 可观测性文档(MONITORING)
 
-> IHUI-AI 全栈监控体系 —— Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager,21 仪表盘。本文档聚焦监控栈内部实现与运维命令,系统级可观测性概述见 [architecture.md](./architecture.md) §8,告警响应流程见 [INCIDENTS.md](./INCIDENTS.md)(若存在)。
+> IHUI-AI 全栈监控体系 —— Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager,26 仪表盘。本文档聚焦监控栈内部实现与运维命令,系统级可观测性概述见 [architecture.md](./architecture.md) §8,告警响应流程见 [INCIDENTS.md](./INCIDENTS.md)(若存在)。
 
 ---
 
