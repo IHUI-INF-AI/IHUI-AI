@@ -888,6 +888,33 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
     }
     return null
   }
+  // 宿主页(HubSpot)的 CSS 会把 bframe 拉成 1262x150 的条带,挑战内容被裁掉看不见
+  // (DOM 完整、9 格都在,但屏幕上空白)。截图/点击前强制把挑战框摆到可见位置。
+  const forceBox = async () => {
+    try {
+      const n = await page.evaluate(() => {
+        const fs = Array.from(document.querySelectorAll('iframe')).filter((x) => /bframe/.test(x.src || ''))
+        for (const f of fs) {
+          const s = f.style
+          s.setProperty('width', '420px', 'important')
+          s.setProperty('height', '600px', 'important')
+          s.setProperty('position', 'fixed', 'important')
+          s.setProperty('top', '8px', 'important')
+          s.setProperty('left', '8px', 'important')
+          s.setProperty('z-index', '2147483647', 'important')
+          s.setProperty('visibility', 'visible', 'important')
+          s.setProperty('opacity', '1', 'important')
+          s.setProperty('transform', 'none', 'important')
+        }
+        return fs.length
+      })
+      if (n) console.log('RC-FORCEBOX n=' + n)
+      return n > 0
+    } catch (e) {
+      console.log('RC-FORCEBOX-FAIL ' + String(e.message).slice(0, 60))
+      return false
+    }
+  }
   const shotPush = async (name) => {
     const p = `${SHOT_DIR}/${name}.png`
     await page.screenshot({ path: p, fullPage: false })
@@ -991,6 +1018,8 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
           )
         } catch {}
       }
+      await forceBox()
+      await sleep(800)
       await shotPush(step === 0 ? `rc-shot-${round}` : `rc-shot-${round}-${step}`)
       // 裁剪放大版(只含挑战区),辨识度远高于整页缩略图
       await shotGrid(step === 0 ? `rc-grid-${round}` : `rc-grid-${round}-${step}`)
@@ -999,6 +1028,8 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
       console.log(`RC-INSTRUCT round=${round} step=${step} ${JSON.stringify(instr)}`)
       const wantVerify = instr.verify === true
       if (Array.isArray(instr.tiles) && rows > 0) {
+        await forceBox()
+        await sleep(500)
         for (const n of instr.tiles) {
           const idx = Number(n) - 1
           if (!Number.isFinite(idx) || idx < 0 || idx >= rows * cols) {
@@ -1029,6 +1060,7 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
         step++
         continue
       }
+      await forceBox()
       await clickVerify(bframe)
       await sleep(9000)
       await shot(page, `rc-after-verify-${round}`)
