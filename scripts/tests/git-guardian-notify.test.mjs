@@ -714,4 +714,43 @@ test('停摆身份:类别被 rebuild 洗掉不得算第二场停摆;正文照旧
   }
 })
 
+// ─────────────────────────────────────────────────────────────────────────
+// ⑥ 派发点身份覆盖(2026-10-19 立,判据在源脚本 __test__.auditDispatchSites,此处零复制实现)
+// ─────────────────────────────────────────────────────────────────────────
+
+const GUARDIAN_SRC = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'git-guardian.mjs'), 'utf8')
+
+test('⑥-a 成对判据:派发点不带 dedupKey 必被点名;补上即消失;force 通道(自测)不算漏', () => {
+  const bare = "  notify('some-alert', 'some-detail')\n"
+  const one = N.auditDispatchSites(bare)
+  assert.equal(one.length, 1, '裸调用必须被认成一个派发点')
+  assert.equal(one[0].hasDedupKey, false)
+  assert.equal(one[0].hasForce, false)
+  assert.match(one[0].name, /some-alert/, '必须报出派发点名字,否则红的人不知道去改哪一行')
+
+  const fixed = "  notify('some-alert', 'some-detail', { dedupKey: 'x;v=1' })\n"
+  const two = N.auditDispatchSites(fixed)
+  assert.equal(two[0].hasDedupKey, true, '唯一变量 = 补 dedupKey ⇒ 必须放行')
+  assert.equal(two[0].hasForce, false)
+
+  const forced = "  notifyGuardRed('通道自测', 'detail', { severity: 'info', force: true })\n"
+  const three = N.auditDispatchSites(forced)
+  assert.equal(three[0].hasForce, true, '--notify-test 按设计绕过窗口,不得被算成"漏写身份"')
+
+  // 注释里提到的调用、以及默认参数里的引用,都不是派发点(否则每条文档注释都变红)
+  const notSites = "  // 旧写法:notifyGuardRed() 已删\n  function auditX({ notify = notifyGuardRed }) {}\n"
+  assert.deepEqual(N.auditDispatchSites(notSites), [], '注释与引用不得被当成派发点')
+})
+
+test('⑥-b 真源:每个派发点都必须显式给 dedupKey 或 force,且派发点数不得为 0(空扫冒充通过要判红)', () => {
+  const sites = N.auditDispatchSites(GUARDIAN_SRC)
+  const bad = sites.filter((x) => !x.hasDedupKey && !x.hasForce)
+  assert.deepEqual(
+    bad.map((x) => `L${x.line} ${x.name}`),
+    [],
+    `这些派发点的身份退回 alertFingerprint(name, detail)—— 改一次措辞就换身份、窗口作废再寄一轮(${bad.map((x) => `L${x.line}`).join(' / ')})`,
+  )
+  assert.ok(sites.length >= 15, `只认出 ${sites.length} 个派发点 ⇒ 判据对本文件失明(不得把 0 当通过)`)
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
