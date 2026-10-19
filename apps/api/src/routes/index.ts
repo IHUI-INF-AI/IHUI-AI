@@ -48,6 +48,7 @@ import { systemRoutes, adminSystemRoutes } from './system.js'
 import { examRoutes } from './exam.js'
 import { orderRoutes, adminOrderRoutes } from './order.js'
 import { liveRoutes, adminLiveRoutes } from './live.js'
+import { teacherRoutes } from './teacher.js'
 import { memberRoutes, adminMemberRoutes } from './member.js'
 import { resourceRoutes, adminResourceRoutes } from './resource.js'
 import { default as githubProjectRoutes } from './github-projects.js'
@@ -604,6 +605,8 @@ export function registerRoutes(server: FastifyInstance) {
   // 直播模块：/api/live/* + /api/admin/live/*
   server.register(liveRoutes, { prefix: '/api' })
   server.register(adminLiveRoutes, { prefix: '/api/admin' })
+  // 讲师目录：/api/teacher/*(用户 × 已发布课程的真实聚合 + user_follows 关注)
+  server.register(teacherRoutes, { prefix: '/api' })
   // 会员模块：/api/members/* + /api/admin/members/*
   server.register(memberRoutes, { prefix: '/api' })
   server.register(adminMemberRoutes, { prefix: '/api/admin' })

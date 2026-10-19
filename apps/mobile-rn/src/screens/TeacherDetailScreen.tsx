@@ -65,7 +65,8 @@ export function TeacherDetailScreen() {
 
   const [teacher, setTeacher] = useState<Teacher | null>(null)
   const [courses, setCourses] = useState<TeacherCourse[]>([])
-  const [reviews, setReviews] = useState<TeacherReview[]>([])
+  // 评价没有真数据源(全仓无课程/讲师评价表),不再打不存在的 /teacher/:id/reviews
+  const reviews: TeacherReview[] = []
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [following, setFollowing] = useState(false)
@@ -75,19 +76,18 @@ export function TeacherDetailScreen() {
     void (async () => {
       setLoading(true)
       setError('')
-      const [teacherRes, coursesRes, reviewsRes] = await Promise.all([
+      const [teacherRes, coursesRes] = await Promise.all([
         fetchApi<Teacher>(`/teacher/${id}`),
         fetchApi<ListRes<TeacherCourse>>(`/teacher/${id}/courses`),
-        fetchApi<ListRes<TeacherReview>>(`/teacher/${id}/reviews`),
       ])
       if (cancelled) return
       if (teacherRes.success) {
         setTeacher(teacherRes.data ?? null)
+        setFollowing(Boolean(teacherRes.data?.isFollowed))
       } else {
         setError(apiFailureToText(teacherRes, t('teacher.detail.notFound')))
       }
       if (coursesRes.success) setCourses(normalizeList(coursesRes.data))
-      if (reviewsRes.success) setReviews(normalizeList(reviewsRes.data))
       setLoading(false)
     })()
     return () => {

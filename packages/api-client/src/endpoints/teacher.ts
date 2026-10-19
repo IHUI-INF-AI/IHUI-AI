@@ -28,6 +28,8 @@ export interface Teacher {
   fans?: number
   /** 评分(GET /teacher/:id 返回) */
   rating?: number
+  /** 当前登录用户是否已关注(GET /teacher/:id 返回;匿名恒 false) */
+  isFollowed?: boolean
 }
 
 export type TeacherList = Teacher[]
@@ -81,13 +83,6 @@ export async function getTeacherDetail(id: string | number): Promise<ApiResult<T
 /** 讲师主讲课程 — GET /teacher/:id/courses(响应兼容数组与 { list } 两种结构) */
 export async function getTeacherCourses(id: string | number): Promise<ApiResult<TeacherCourse[]>> {
   const res = await fetchApi<ListRes<TeacherCourse>>(`/teacher/${encodeURIComponent(id)}/courses`)
-  if (!res.success) return res
-  return { success: true, data: normalizeList(res.data) }
-}
-
-/** 讲师学员评价 — GET /teacher/:id/reviews(响应兼容数组与 { list } 两种结构) */
-export async function getTeacherReviews(id: string | number): Promise<ApiResult<TeacherReview[]>> {
-  const res = await fetchApi<ListRes<TeacherReview>>(`/teacher/${encodeURIComponent(id)}/reviews`)
   if (!res.success) return res
   return { success: true, data: normalizeList(res.data) }
 }
