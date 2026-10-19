@@ -92,6 +92,9 @@ vi.mock('react-native', async () => {
     // 主题单例(src/theme/active-tokens.ts)在模块求值时调 Appearance.getColorScheme(),
     // 缺这个导出会让整个测试文件加载失败 ⇒ 该文件的断言一条都不会跑。
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
+    // BottomPops(经 AgentScreen 的 appAlert 导入拉入)模块求值期读窗口高:
+    // const SCREEN_HEIGHT = Dimensions.get('window').height,缺它则整文件加载即炸。
+    Dimensions: { get: () => ({ width: 375, height: 812, scale: 1, fontScale: 1 }) },
     DevSettings: { reload: () => {} },
     __esModule: true,
     Modal: ({ children, visible }: { visible?: boolean; children?: React.ReactNode }) =>
@@ -104,7 +107,6 @@ vi.mock('react-native', async () => {
     FlatList: mk('div'),
     RefreshControl: () => h('div', { 'data-testid': 'refresh-control' }, null),
     ActivityIndicator: () => h('div', { 'data-testid': 'activity-indicator' }, null),
-    Alert: { alert: vi.fn() },
     StyleSheet: {
       // hairlineWidth:SearchOverlay(styles 分隔线 height 求值期就读它)缺则模块求值即炸
       hairlineWidth: 1,
