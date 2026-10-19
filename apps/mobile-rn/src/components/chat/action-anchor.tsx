@@ -5,13 +5,7 @@
 // D99 富文本动作锚点:内联语法白名单 + 识别器 + 原生芯片渲染(全 RN 原生组件,零 HTML)。
 
 import { type ReactNode } from 'react'
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  type StyleProp,
-  type TextStyle,
-} from 'react-native'
+import { StyleSheet, Text, TouchableOpacity, type StyleProp, type TextStyle } from 'react-native'
 import { MousePointerClick } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
 import { rnRadius } from '@ihui/design-tokens'
@@ -38,8 +32,7 @@ export interface ActionAnchor {
 
 /** extractActionAnchors 的返回单元:text = 原文片段,anchor = 校验通过的动作锚点 */
 export type ActionAnchorPart =
-  | { kind: 'text'; text: string }
-  | { kind: 'anchor'; anchor: ActionAnchor }
+  { kind: 'text'; text: string } | { kind: 'anchor'; anchor: ActionAnchor }
 
 /**
  * 内联语法(RN 端白名单,**唯一**形态):
@@ -148,7 +141,7 @@ const styles = StyleSheet.create({
     marginVertical: rpx(2),
     paddingHorizontal: rpx(12),
     paddingVertical: rpx(2),
-    borderRadius: rnRadius.xl,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.brandAccent.DEFAULT,
     backgroundColor: tokens.brandAccent.light,
