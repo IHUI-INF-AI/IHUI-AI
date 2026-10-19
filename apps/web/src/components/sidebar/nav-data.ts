@@ -414,13 +414,14 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [{ href: '/', labelKey: 'home', icon: Home }],
   },
   // 热门分组(2026-08-01 新增):高频常用功能快捷入口,放在首页下方
+  // 2026-10-19 P1 收敛:本组由 5 项降为 1 项。逐项去向(纯减法,页面一个不删):
+  //  - /publish/history、/ai-world、/models —— 与各自业务分组重复登记(React key=href 会双条目,
+  //    同 nav-data 旧注记记载的 /learn 同型病),保留业务分组那一份(那三份还带 children 子菜单)。
+  //  - /settings/import —— 配置项,归设置页;设置页自有导航 helpers.ts NAV_GROUPS.navDeveloper 已登记,
+  //    且 /settings/llm 页有按钮直达,删此处不丢入口。
   {
     label: 'hotGroupLabel',
     items: [
-      { href: '/publish/history', labelKey: 'publishPlatform', icon: Send },
-      { href: '/ai-world', labelKey: 'aiWorld', icon: Globe },
-      { href: '/models', labelKey: 'models', icon: Bot },
-      { href: '/settings/import', labelKey: 'hotModelImport', icon: Download },
       // D17 生态入口收敛:顶栏并列的 5 个市场入口在 /ecosystem 统一聚合(老 URL 直达仍可用)
       { href: '/ecosystem', labelKey: 'ecosystemHub', icon: LayoutGrid },
     ],
@@ -592,8 +593,9 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
           { href: '/favorites', labelKey: 'favorites', icon: Star },
           { href: '/following', labelKey: 'following', icon: Users },
           { href: '/subscriptions', labelKey: 'subscriptions', icon: Rss },
-          // 2026-08-30 同义入口合并:收藏入口重叠(个人收藏 vs 会员收藏),统一收进本父项
-          { href: '/member/favorites', labelKey: 'memberFavorites', icon: Heart },
+          // 2026-08-30 曾把「会员收藏」收进本父项,但该 href 同期仍在 MEMBER_ITEMS(交易组)登记,
+          // 两份逐字相同 ⇒ React key=href 双条目(2026-10-19 P1 复查时实测仍并存)。
+          // 现保留 MEMBER_ITEMS 那一份(交易组与会员功能同域),此处删重复项。
         ],
       },
       // /user 16 项作为可展开子菜单(原 UserNav.tsx 页面级菜单栏)
@@ -604,9 +606,12 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         children: USER_CHILDREN,
       },
       { href: '/student', labelKey: 'student', icon: GraduationCap },
-      { href: '/settings', labelKey: 'settings', icon: Settings },
-      // 2026-08-07 feature-connect2:数据权利(GDPR 导出/可携带/擦除)
-      { href: '/settings/data-rights', labelKey: 'eduAiDataRights', icon: Download },
+      // 2026-10-19 P1 归位:/settings 与 /settings/data-rights 两项移出主侧边栏,归设置页统一管理。
+      // 删这两项不丢入口,逐条已核实:
+      //  - /settings —— 侧边栏用户行下拉(SidebarUserRow.tsx:275 navigate('/settings'))、
+      //    Ctrl+Shift+, 全局快捷键、命令面板、桌面托盘「打开设置」、首页会员卡,共 5+ 条独立入口。
+      //  - /settings/data-rights —— 同批已在 settings/helpers.ts NAV_GROUPS.navBilling 补位,
+      //    与 data-export 同组;若只删不补,该页会成零入口孤儿页(只能手敲 URL)。
       { href: '/feedback', labelKey: 'feedback', icon: MessageSquare },
       { href: '/help', labelKey: 'help', icon: HelpCircle },
     ],
