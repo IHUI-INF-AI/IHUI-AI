@@ -57,7 +57,13 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { buildSkillPromptSection, codePointLength, sanitizeSkillName } from '../utils/prompt-boundary.js';
+import {
+  buildSkillPromptSection,
+  codePointLength,
+  neutralizeBoundaries,
+  sanitizeSkillName,
+  truncateToCodePoints,
+} from '../utils/prompt-boundary.js';
 import { parseSkillsFrontmatter } from './frontmatter.js';
 import { recordInjectionInjected, recordInjectionSkipped } from '../utils/prompt-injection-registry.js';
 import { declareShadowSurfaces } from './allowed-tools-shadow.js';
@@ -862,6 +868,56 @@ function withheldCountLine(withheld: readonly Skill[]): string {
 }
 
 /**
+ * 渐进披露目录段的字节预算(L5669①)。目录是"每轮都进上下文"的那一层,必须远小于
+ * 正文预算;超预算先降级为"仅名字+路径"(丢描述),再超则逐条装得下为止并如实计数。
+ */
+const SKILL_CATALOG_MAX_BYTES = 4_096;
+/** 目录行里描述的码位上限(描述原文 ≤1024 码位,目录行只取一句摘要)。 */
+const CATALOG_DESCRIPTION_MAX_CODE_POINTS = 120;
+
+/** 目录单行;`withDescription=false` = 超预算降级档(仅名字+路径)。 */
+function catalogLine(s: Skill, withDescription: boolean): string {
+  const name = sanitizeSkillName(s.name) || 'unnamed';
+  const pathPart = `path: ${s.source}`;
+  if (!withDescription) return `- ${name} (${pathPart})`;
+  const desc = truncateToCodePoints(neutralizeBoundaries(s.description ?? ''), CATALOG_DESCRIPTION_MAX_CODE_POINTS).trim();
+  return desc ? `- ${name}: ${desc} (${pathPart})` : `- ${name} (${pathPart})`;
+}
+
+/**
+ * 渐进披露目录段(L5669① 两级披露的第一级:提示只放目录,正文由 Skill 工具按名拉)。
+ * 预算降级两级:① 带描述超预算 ⇒ 重建为仅名字+路径;② 仍超 ⇒ 逐条装得下,剩余计数。
+ */
+function buildSkillCatalogSection(progressive: readonly Skill[]): string {
+  if (progressive.length === 0) return '';
+  const header =
+    '<ihui-skill-catalog role="reference-data">\n'
+    + 'The skills below are listed by catalog only; their bodies are NOT injected. '
+    + 'Call the Skill tool with the name to load the full instructions on demand.\n';
+  const footer = '\n</ihui-skill-catalog>';
+  let lines = progressive.map((s) => catalogLine(s, true));
+  if (Buffer.byteLength(header + lines.join('\n') + footer, 'utf8') > SKILL_CATALOG_MAX_BYTES) {
+    lines = progressive.map((s) => catalogLine(s, false));
+  }
+  const kept: string[] = [];
+  let used = Buffer.byteLength(header + footer, 'utf8');
+  let omitted = 0;
+  for (const line of lines) {
+    const b = Buffer.byteLength(`\n${line}`, 'utf8');
+    if (used + b > SKILL_CATALOG_MAX_BYTES) {
+      omitted += 1;
+      continue;
+    }
+    used += b;
+    kept.push(line);
+  }
+  const tail = omitted > 0
+    ? `\n[note] ${omitted} catalog entr(ies) omitted by the ${SKILL_CATALOG_MAX_BYTES}-byte catalog budget.`
+    : '';
+  return `${header}${kept.join('\n')}${footer}${tail}`;
+}
+
+/**
  * Name of the model-invokable skill tool the prompt section is gated on (G-427,
  * decided 2026-10-07: copy upstream). Upstream `context/builder.ts:225-228` only
  * advertises the skills list when this tool is actually present in the tool
@@ -919,20 +975,32 @@ export function formatSkillsForPrompt(skills: Skill[], gate?: SkillsPromptGateOp
       `all ${skills.length} skill(s) withheld by the conservative rule (unrecognized frontmatter keys); see the [skills] diagnostics for the key names`,
     );
   }
-  const built = buildSkillPromptSection(autoLoadable.map((s) => ({ name: s.name, body: s.body })));
-  if (built.included === 0) {
-    return recordInjectionSkipped(
-      'skill_list',
-      `${autoLoadable.length} auto-loadable skill(s) all have empty bodies (${withheld.length} more withheld by the conservative rule)`,
-    );
+  // L5669① 两级渐进披露:frontmatter `progressiveDisclosure: true` 的技能只进目录段
+  // (名字+描述+路径,正文不注入),其余技能维持原有"正文直接进提示"的 eager 路径,零回归。
+  const eager: Skill[] = [];
+  const progressive: Skill[] = [];
+  for (const s of autoLoadable) {
+    (s.frontmatter?.progressiveDisclosure === true ? progressive : eager).push(s);
   }
+  const built = buildSkillPromptSection(eager.map((s) => ({ name: s.name, body: s.body })));
+  const catalogText = buildSkillCatalogSection(progressive);
   // G-427 第①步(机主拍板 2026-10-10「先影子记账一周再开真门控」):把**进自动加载面**的这批
   // 技能交给 allowed-tools 影子账本。声明点选在"提示词真的产出了技能段"之后,而不是
   // "磁盘上有这些文件" —— 记账的口径必须与"这批技能真的在生效"同形,否则一周后拿到的
   // 是一份没发生过的样本。三值口径直接取 `getAllowedTools`(唯一实现,本文件不重算一遍),
   // 影子账本**永不拦截、永不改判定**(见 allowed-tools-shadow.ts 文件头①)。
   declareShadowSurfaces(autoLoadable.map((s) => ({ name: s.name, allowed: getAllowedTools(s.frontmatter) })));
-  const text = withheld.length === 0 ? built.text : built.text + withheldCountLine(withheld);
+  const parts: string[] = [];
+  if (built.text) parts.push(built.text);
+  if (catalogText) parts.push(catalogText);
+  if (parts.length === 0) {
+    return recordInjectionSkipped(
+      'skill_list',
+      `${autoLoadable.length} auto-loadable skill(s) have no renderable content (${withheld.length} withheld by the conservative rule)`,
+    );
+  }
+  let text = parts.join('\n\n');
+  if (withheld.length > 0) text += withheldCountLine(withheld);
   return recordInjectionInjected('skill_list', text);
 }
 
