@@ -1318,6 +1318,7 @@
     "uploadSelfie": "上传手持身份证照片",
     "submit": "提交认证",
     "submitting": "提交中...",
+    "failed": "认证失败",
     "loadFailed": "加载认证失败",
     "status_unverified": "未认证",
     "status_pending": "审核中",
@@ -3097,5 +3098,13 @@
     "polish": "请润色以下文本，使其更专业流畅：",
     "wechatArticle": "请帮我生成一篇公众号文章。要求:\n1. 主题:\n2. 摘要:\n3. 重点标记(金句卡 / 提示块 / 引用 / 代码块 / 小标题)\n4. 配图建议:\n请走 content-engine 流水线(摸鱼绿主题 + 22 项自检 + 草稿箱推送)。",
     "kouboScript": "请帮我生成今日 8 篇抖音口播稿。要求:\n1. 日期:MMDD\n2. 选题方向:\n3. 双门禁验证(歧义压缩 / 跨稿词表 / 全量验证 / 语病 / 热点覆盖)\n请走 koubo-workflow 流水线(约束优先写作法)。"
+  },
+  "verify": {
+    "getCode": "请输入验证码",
+    "desc": "验证码已发送至",
+    "resend": "重新发送",
+    "confirm": "确定",
+    "closeA11y": "关闭验证码弹窗",
+    "inputA11y": "验证码输入"
   }
 }
