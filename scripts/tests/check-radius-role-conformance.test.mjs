@@ -561,7 +561,19 @@ test('T22 C6:短边达标的角色件胶囊必须进 violations 且不吃豁免;
 
 test('T23 自检 harness 不得接受"函数当断言"(空断言锁)', () => {
   const src = readFileSync(SRC, 'utf8')
-  assert.match(src, /typeof cond === 'function'/, 'harness 必须拒绝未求值的断言(否则 ✅ 可能是空断言)')
+  /**
+   * 求值防护**不在本门里**,这是有意的:200+ 道守门各抄一份登记器时,"忘记调用"这一族坏在
+   * 每道门上(守门 156 的原话:"一个结构问题的 41 个投影"),出路是把求值点收进共用出口
+   * `scripts/lib/selftest-registrant.mjs`(thunk 族 + 消费循环全文唯一求值位)。
+   * 因此这条锁旧版逐字钉 `typeof cond === 'function'` 在本门源码里 —— 迁移之后它必然假红
+   * (HEAD 面实测已红)。正确的钉法是两半:① 本门必须用那份共用出口(不得再自造登记器);
+   * ② 出口本身必须仍然拒"没求值的断言"(它失效 = 所有门的 ✅ 都可以是空断言)。
+   */
+  assert.match(src, /from '\.\/lib\/selftest-registrant\.mjs'/, '本门没接共用登记出口')
+  assert.ok(!/function t\(|const t = \(/.test(src), '本门自造了一份登记器(两处必漂移)')
+  const lib = readFileSync(join(REPO, 'scripts', 'lib', 'selftest-registrant.mjs'), 'utf8')
+  assert.match(lib, /typeof value === 'function'/, '共用出口不再拒未求值断言 ⇒ 全部守门的 ✅ 都可能空')
+  assert.match(lib, /function\(从未求值\)/, '自诊断字段被摘掉 ⇒ 这一型失效重新变哑')
   assert.ok(!/^\s+t\('[^']*', \(\) => \{$/m.test(src), '不得再有 t(name, () => {...}) 这种从不求值的用例形态')
 })
 
@@ -957,5 +969,49 @@ test('T35 回退判据必须是门 135 那一份 import,不得复制第二份;13
   assert.equal(g135.shouldRetreatToHead({ face: 'staged', hasOnlyFiles: false, stagedInScopeCount: 1 }), false)
   assert.equal(T.retreatFacePlan({ face: 'head', hasOnlyFiles: false, inScopeCount: 0 }).effFace, 'head')
   assert.equal(T.retreatFacePlan({ face: 'head', hasOnlyFiles: false, inScopeCount: 0 }).retreatReason, null)
+})
+
+// T36(2026-10-19 立,G-621 最后一格):锚点收紧这条腿必须真接在 staged 档上。
+//   缝隙本体:台账是冻结的 ⇒ 一处清完后旧锚还写着大值,同一文件里新写回旧挡位被读成存量。
+//   这里钉三件事:①腿接上了(纯函数被 runAudit 调用,red 吃的是收紧后的锚);
+//   ②摘掉即红(变异:把 tightenAnchors 的调用从源码里抹掉 ⇒ 本锁必须失败);
+//   ③真仓索引面跑一遍,锚点结构必须在读数里(不在 = 只写了函数没装车)。
+test('T36 锚点收紧已装车:runAudit 的 staged 档必须真喂收紧后的锚(含摘线变异对照)', async () => {
+  const src = readFileSync(join(REPO, 'scripts', 'check-radius-role-conformance.mjs'), 'utf8')
+  assert.match(src, /export function tightenAnchors\(/, 'tightenAnchors 被摘')
+  assert.match(
+    src,
+    /const t = tightenAnchors\(baseline\.anchors \|\| \{\}, perFile\)/,
+    'runAudit 没调用收紧 ⇒ 台账旧锚继续遮账(纯函数测试全绿也没用)',
+  )
+  assert.match(
+    src,
+    /red: applyRatchet\(countByKey\(violations\), anchorInfo\.anchors\)/,
+    'red 还在吃原始台账锚 ⇒ 收紧是装饰',
+  )
+  // 收紧只允许作用于"本次改过的文件",且 HEAD 正文读不到时不得凭空改锚
+  assert.match(src, /typeof src !== 'string'[\s\S]{0,160}skipped\.push/, '取不到 HEAD 正文必须点名"不收紧"')
+
+  // 变异对照:抹掉调用 ⇒ 上面那条锁必须翻红(证明它有牙,不是恒真)
+  const mutated = src.replace(
+    'const t = tightenAnchors(baseline.anchors || {}, perFile)',
+    'const t = { anchors: baseline.anchors || {}, tightened: [] }',
+  )
+  assert.notEqual(mutated, src, '变异夹具没生效 ⇒ 这条对照是空的')
+  assert.ok(
+    !/const t = tightenAnchors\(baseline\.anchors \|\| \{\}, perFile\)/.test(mutated),
+    '变异后仍能匹配原式 ⇒ 锁没有牙',
+  )
+
+  const T2 = await import(pathToFileURL(join(REPO, 'scripts', 'check-radius-role-conformance.mjs')).href)
+  const res = T2.runAudit(REPO, 'staged')
+  assert.ok(res.anchorInfo, 'staged 档没带回 anchorInfo ⇒ 这一腿没接到真跑')
+  assert.ok(Array.isArray(res.anchorInfo.tightened), 'tightened 必须是数组(可空,但必须存在)')
+  assert.ok(Array.isArray(res.anchorInfo.skipped), 'skipped 必须存在:取不到 HEAD 正文时要能点名')
+  assert.equal(
+    res.red.every((r) => r.count > Number(res.anchorInfo.anchors[r.key] ?? 0)),
+    true,
+    '每条红都必须严于"收紧后的锚" —— 否则红与锚点两套账互相不认',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
