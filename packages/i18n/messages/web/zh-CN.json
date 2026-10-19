@@ -682,18 +682,6 @@
   },
   "admin": {
     "wallboard": {
-      "edgeControlLeg": "未走加速的对照",
-      "edgeHeadlineHit": "国内加速命中率",
-      "edgeHeadlineMs": "首页现在打开耗时",
-      "edgeNoSeries": "暂无访客访问探测样本",
-      "edgeSparkName": "首页耗时",
-      "edgeSparkTitle": "近期访客首页耗时（绿点=命中缓存，黄点=未命中）",
-      "edgeStatP50": "P50 耗时",
-      "edgeStatP95": "P95 耗时",
-      "edgeStatSamples": "探测样本",
-      "edgeStatWorst": "最差耗时",
-      "edgeUpdatedAgo": "探测于 {ago}",
-      "panelEdge": "访客访问 · 国内加速",
       "activeAlerts": "活跃告警(Alertmanager)",
       "agoDays": "{n}天前",
       "agoHours": "{n}小时前",
@@ -28735,17 +28723,5 @@
   },
   "statusPage": {
     "incidentsUnavailable": "最近 30 天的事件数据暂时取不到"
-  },
-  "eduHub": {
-    "title": "教育",
-    "subtitle": "课程、考试、学习工具与教务管理"
-  },
-  "contentHub": {
-    "title": "内容",
-    "subtitle": "广场、社区、消息与多平台发布"
-  },
-  "tradeHub": {
-    "title": "交易",
-    "subtitle": "钱包、订单、会员与积分权益"
   }
 }
