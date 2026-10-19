@@ -1318,7 +1318,6 @@
     "uploadSelfie": "身分証を手に持った写真をアップロード",
     "submit": "認証を提出",
     "submitting": "送信中...",
-    "failed": "認証に失敗",
     "loadFailed": "認証の読み込みに失敗",
     "status_unverified": "未認証",
     "status_pending": "審査中",

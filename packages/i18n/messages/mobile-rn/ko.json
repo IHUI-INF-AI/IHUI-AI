@@ -1318,7 +1318,6 @@
     "uploadSelfie": "신분증을 든 셀카 업로드",
     "submit": "인증 제출",
     "submitting": "제출 중...",
-    "failed": "인증 실패",
     "loadFailed": "인증 불러오기 실패",
     "status_unverified": "미인증",
     "status_pending": "심사 중",
