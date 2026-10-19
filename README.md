@@ -711,7 +711,7 @@ IHUI-AI 的定位由"用户价值 → 产品形态 → 技术护城河"三层金
    技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4449 API 路由    │
    (How)        │  • LangGraph + MCP + A2A 三栈协同                 │
                  │  • 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n   │
-                 │  • 三支柱可观测性 + 21 Grafana 仪表盘             │
+                 │  • 三支柱可观测性 + 26 Grafana 仪表盘             │
                  │  • 企业级安全栈(RBAC + RLS + SSO + AES-256-GCM)  │
                  │  • Apache 2.0 License,商用零限制                │
                  │  • P3 深度层:Context Engineering(1851 行)/ 四层记忆系统  │
@@ -763,7 +763,7 @@ IHUI-AI 的定位由"用户价值 → 产品形态 → 技术护城河"三层金
 6. **AI 教育全栈**:课程 / 题库 / 考试 / 直播流媒体(SRS) / 学习报告 / 证书 / 讲师 / 学生端 12 子页 / 45 表 edu-full schema — 开源 AI 平台中较为少见的 AI 教育全栈(Khan Academy/Coursera 是闭源 SaaS)
 7. **企业级安全栈**:RBAC + 多租户 + RLS(Row-Level Security)+ SSO(OAuth2 + Apple + Google + PKCE)+ AES-256-GCM + JWT token-family + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时 + GDPR + 2FA + IDOR 防护 — 开源 AI 平台中较为少见的完整企业级安全栈
 8. **88 守门脚本 + 56+10 pre-commit 项 + drizzle-kit push 模式 + post-commit 自动 push**:从机制上减少协作事故 — 开源 AI 项目中较为少见的把工程守门做到机制级(Dify/FastGPT 仅有基础 lint)
-9. **三支柱可观测性 + 3 Grafana 仪表盘**:Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager — 开源 AI 平台中较为少见的完整 SRE 级可观测性栈(其他项目最多基础日志)
+9. **三支柱可观测性 + 26 Grafana 仪表盘**:Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager — 开源 AI 平台中较为少见的完整 SRE 级可观测性栈(其他项目最多基础日志)
 10. **5 语言 i18n parity + 8 守门脚本(4 web + 4 extension)**:zh-CN / zh-TW / en / ko / ja 键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验),opencc 字形检测 + 字符范围检测 + 破碎机翻检测 + key parity 校验 × 2 端(web + extension 各 4 守门)— 开源 AI 项目中较为少见的把 i18n 做到 parity + 守门级(其他项目最多中英文)+ i18n 治理 4 阶段(动态拼接 307→0 + 无引用 key 453→0,递归 key 9910→9679,无引用率 4.6%→0%)
 ### 记忆点标语(可传播)
 | 标语                              | 价值锚点                                                                                |
@@ -3130,7 +3130,7 @@ IHUI-AI 不是单一 AI 工具,而是**开源 AI 商业级一体化基座**,把�
 6. **AI 教育全栈 + 学生端 12 子页 + 45 表 edu-full schema**(在开源 AI 平台中较为少见)
 7. **企业级安全栈(RBAC + 多租户 + RLS + SSO + AES-256-GCM + JWT token-family + GDPR + 2FA + IDOR)**(在开源 AI 平台中较为少见)
 8. **88 守门脚本 + drizzle-kit push 模式 + 9 PowerShell + post-commit 自动 push**(在开源 AI 项目中较为少见)
-9. **三支柱可观测性 + 21 Grafana 仪表盘 + Alertmanager**(在开源 AI 平台中较为少见)
+9. **三支柱可观测性 + 26 Grafana 仪表盘 + Alertmanager**(在开源 AI 平台中较为少见)
 10. **5 语言 i18n parity + 4 守门脚本 + pgvector + 知识图谱 + 用户长期记忆**(在开源 AI 项目中较为少见)
 详见上方 [项目定位](#项目定位必读)、[成本对比](#成本对比ihui-ai-自托管-vs-等价-saas-组合) 与 [与同类项目对比](#与同类项目对比) 章节。
 **核心差异化**:你能找到比 IHUI-AI 更专的项目(RAGFlow 在 RAG 维度更深、Claude Code 在 CLI 维度更成熟、LangChain 在框架层更灵活、Khan Academy 在教育内容更丰富),但找不到比 IHUI-AI 更全的开源基座。
