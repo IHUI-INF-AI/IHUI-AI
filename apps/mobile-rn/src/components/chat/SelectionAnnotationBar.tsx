@@ -9,9 +9,10 @@
 // 文本一律走 t prop 注入(§19 禁止端内新增硬编码中文),由 ChatMessageItem 透传。
 
 import { useState, type ReactNode } from 'react'
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Eraser, MessageSquarePlus, X } from 'lucide-react-native'
-import { tokens } from '../../theme/active-tokens'
+import { TextField } from '@ihui/rn-app'
+import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { rnRadius } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import {
@@ -183,7 +184,8 @@ export function SelectionAnnotationBar({
                   <Text style={styles.textMuted}>{t('selectionAnnotations.noComment')}</Text>
                 )}
                 <View style={styles.commentRow}>
-                  <TextInput
+                  <TextField
+                    colorScheme={currentRnTheme()}
                     style={styles.commentInput}
                     value={draft}
                     onChangeText={(v) => setDrafts((d) => ({ ...d, [a.id]: v }))}
