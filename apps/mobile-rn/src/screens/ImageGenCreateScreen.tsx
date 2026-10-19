@@ -1,10 +1,12 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// Provenan
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useState } from 'react'
-import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import * as FileSystem from 'expo-file-system'
@@ -56,7 +58,7 @@ export function ImageGenCreateScreen() {
 
   const onGenerate = async () => {
     if (!prompt.trim()) {
-      Alert.alert(t('imageGen.promptRequired'))
+      appAlert(t('imageGen.promptRequired'))
       return
     }
     setGenerating(true)
@@ -72,7 +74,7 @@ export function ImageGenCreateScreen() {
       // 503「图像生成能力未接通」的服务端 message 经 fetchApi 取 body.message 优先透出,
       // 这里原样上屏(机主 2026-10-18 拍板「显式报未接通」);旧写法把原因静默吞成通用文案,
       // 用户分不清「参数错/未接通/网络断」。取不到才回退通用文案。
-      Alert.alert(e instanceof Error && e.message ? e.message : t('imageGen.genFailed'))
+      appAlert(e instanceof Error && e.message ? e.message : t('imageGen.genFailed'))
     } finally {
       setGenerating(false)
     }
@@ -84,7 +86,7 @@ export function ImageGenCreateScreen() {
     try {
       const perm = await MediaLibrary.requestPermissionsAsync()
       if (!perm.granted) {
-        Alert.alert(t('imageGen.needPermission'))
+        appAlert(t('imageGen.needPermission'))
         return
       }
       const filename = `imagegen_${Date.now()}.png`
@@ -97,9 +99,9 @@ export function ImageGenCreateScreen() {
         },
       )
       await MediaLibrary.saveToLibraryAsync(downloaded.uri)
-      Alert.alert(t('imageGen.saveSuccess'))
+      appAlert(t('imageGen.saveSuccess'))
     } catch {
-      Alert.alert(t('imageGen.saveFailed'))
+      appAlert(t('imageGen.saveFailed'))
     } finally {
       setSaving(false)
     }
