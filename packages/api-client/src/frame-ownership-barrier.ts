@@ -34,7 +34,7 @@ export interface BarrierFrame<TFrame = unknown> {
 }
 
 /** offer 的三态:pass = 所有权已确立,调用方直接交付;staged = 有界暂存;overflow = 溢出,整批已清空。 */
-type FrameBarrierDeliveryKind = 'pass' | 'staged' | 'overflow'
+export type FrameBarrierDeliveryKind = 'pass' | 'staged' | 'overflow'
 
 /** activate 的入参:激活哪条订阅对哪些 topic 的所有权。 */
 interface FrameBarrierActivateInput {
@@ -94,8 +94,11 @@ export function createFrameOwnershipBarrier<TFrame = unknown>(options?: {
   let activeByTopic = new Map<string, string>()
   let staged: BarrierFrame<TFrame>[] = []
   let bytes = 0
-  let overflow: { subscriptionId: string; reason: 'frames' | 'bytes'; droppedCount: number } | null =
-    null
+  let overflow: {
+    subscriptionId: string
+    reason: 'frames' | 'bytes'
+    droppedCount: number
+  } | null = null
 
   const byteSizeOf = (frame: BarrierFrame<TFrame>): number =>
     typeof frame.byteSize === 'number' && Number.isFinite(frame.byteSize) && frame.byteSize > 0

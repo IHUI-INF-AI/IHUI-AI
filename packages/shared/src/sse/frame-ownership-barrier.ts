@@ -67,7 +67,7 @@ export interface BarrierFrame<TFrame = unknown> {
 }
 
 /** offer 的四态:pass = 所有权已确立,调用方直接交付;staged = 有界暂存;overflow = 溢出,整批已清空;stale = 迟到帧(G-276),只丢弃。 */
-type FrameBarrierDeliveryKind = 'pass' | 'staged' | 'overflow' | 'stale'
+export type FrameBarrierDeliveryKind = 'pass' | 'staged' | 'overflow' | 'stale'
 
 /** activate 的入参:激活哪条订阅对哪些 topic 的所有权。 */
 interface FrameBarrierActivateInput {
@@ -80,7 +80,7 @@ interface FrameBarrierActivateInput {
   generation?: number
   /**
    * 反向退订钩子:越界时 activate **先调用它再抛错**(保证"抛错后必须已反向退订"
- * 可被断言 —— 断退订调用次数,不看日志文案)。
+   * 可被断言 —— 断退订调用次数,不看日志文案)。
    */
   unsubscribe?: () => void
 }
@@ -133,8 +133,11 @@ export function createFrameOwnershipBarrier<TFrame = unknown>(options?: {
   let activeByTopic = new Map<string, string>()
   let staged: BarrierFrame<TFrame>[] = []
   let bytes = 0
-  let overflow: { subscriptionId: string; reason: 'frames' | 'bytes'; droppedCount: number } | null =
-    null
+  let overflow: {
+    subscriptionId: string
+    reason: 'frames' | 'bytes'
+    droppedCount: number
+  } | null = null
   // G-276:屏障当前代际。activate(ACK)是唯一推进出口,单向只升(reset 归零除外);
   // 携带更早代际的帧/ACK 一律按迟到处理。
   let currentGeneration = 0
@@ -146,7 +149,9 @@ export function createFrameOwnershipBarrier<TFrame = unknown>(options?: {
 
   // 迟到判定:仅对显式携带 generation 且为安全整数的输入判;缺省(旧生产端)不判。
   const isStaleGeneration = (generation: number | undefined): boolean =>
-    typeof generation === 'number' && Number.isSafeInteger(generation) && generation < currentGeneration
+    typeof generation === 'number' &&
+    Number.isSafeInteger(generation) &&
+    generation < currentGeneration
 
   const clearStaged = (): void => {
     staged = []
