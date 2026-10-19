@@ -4,7 +4,7 @@
     {
       "rel": ".ihui-agent/desktop-feed-clone",
       "owner": "desktop-feed 持有人(远端 https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git 的 desktop-feed 分支克隆)",
-      "why": "2026-10-19 本席按门 208 处置指引逐条做 §7 删除三问,结论是**不可删**:该克隆工作树有 34 个未提交改动,逐个 hash-object 后回本仓对象库比对,30 个命中、**4 个未命中**(.github/scripts/gitee-release-attach.py、apps/ai-service/app/routers/cost_estimate.py、apps/web/src/components/chat/voice-stream-speaker.tsx、scripts/check-knip-ratchet.mjs,numstat 合计 +11/-3)—— 这些内容只存在于本目录,删目录即永久丢失,第三问答否。已先把独有内容三重保全(逐字副本 + hash-object -w 写入本仓对象库 + git diff 补丁)到 D:\\DevEnv\\backups\\nested-git\\20261019-140441-desktop-feed-unique。**销册条件**:持有席把这 4 处改动落进正式提交(或确认已在 origin)后,本目录可随现场摘册。⚠️ 安全旁记(非本门射程):该克隆 remote URL 内联了 Gitee 访问令牌,是否轮换归机主决定,本席未动。另注:该目录在 .ihui-agent/ 下且已被 .gitignore 覆盖,不入库;本条豁免只为让门 208 放行工作树扫描,不是给它入库资格。",
+      "why": "2026-10-19 本席按门 208 处置指引逐条做 §7 删除三问,结论是**不可删**:该克隆工作树有 34 个未提交改动,逐个 hash-object 后回本仓对象库比对,30 个命中、**4 个未命中**(.github/scripts/gitee-release-attach.py、apps/ai-service/app/routers/cost_estimate.py、apps/web/src/components/chat/voice-stream-speaker.tsx、scripts/check-knip-ratchet.mjs,numstat 合计 +11/-3)—— 这些内容只存在于本目录,删目录即永久丢失,第三问答否。已先把独有内容三重保全(逐字副本 + hash-object -w 写入本仓对象库 + git diff 补丁)到 D:\\DevEnv\\backups\\nested-git\\20261019-140441-desktop-feed-unique。**销册条件**:持有席把这 4 处改动落进正式提交(或确认已在 origin)后,本目录可随现场摘册。另注:该目录在 .ihui-agent/ 下且已被 .gitignore 覆盖,不入库;本条豁免只为让门 208 放行工作树扫描,不是给它入库资格。",
       "expires": "2026-10-22"
     },
     {
