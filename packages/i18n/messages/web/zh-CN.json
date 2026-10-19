@@ -1,4 +1,54 @@
 {
+  "playBeta": {
+    "hero": {
+      "badge": "Google Play 封闭测试招募",
+      "title": "加入 IHUI AI Android 封闭测试",
+      "subtitle": "Google Play 要求至少 12 名测试人员连续参与 14 天，才能申请正式版发布。你的每一次使用与反馈，都是我们上架的关键一步。"
+    },
+    "why": {
+      "title": "为什么加入",
+      "items": [
+        "抢先体验 Android 版完整功能，包括移动端 AI 对话、Agent 与多模型切换",
+        "直接向产品团队反馈问题，你的建议会进入正式版的迭代清单",
+        "正式上架后获得首批内测用户专属权益与优先体验资格"
+      ]
+    },
+    "form": {
+      "email": "Google 账号邮箱",
+      "emailPlaceholder": "you@example.com",
+      "submit": "报名参加封闭测试",
+      "submitting": "提交中...",
+      "privacyPrefix": "我已阅读并同意",
+      "privacyLink": "隐私政策",
+      "privacyRequired": "同意隐私政策是报名的必要前提"
+    },
+    "errors": {
+      "invalidEmail": "请输入有效的邮箱地址",
+      "generic": "提交失败，请稍后重试"
+    },
+    "success": {
+      "title": "报名成功，感谢参与！",
+      "desc": "我们已收到你的邮箱，请按以下步骤完成测试准备：",
+      "step1": "关注邮箱，我们会发送 Google Play 封闭测试邀请与测试链接",
+      "step2": "使用报名邮箱对应的 Google 账号打开测试链接并加入测试",
+      "step3": "安装 IHUI AI，在 14 天内保持使用并通过站内反馈页随时告诉我们问题"
+    },
+    "join": {
+      "title": "加入测试后立即下载",
+      "desc": "已收到邀请的测试人员可直接通过下方链接加入测试并安装应用。",
+      "button": "前往 Google Play 测试页",
+      "hint": "请确保设备已登录与报名邮箱一致的 Google 账号，否则可能无法下载。"
+    },
+    "faq": {
+      "title": "常见问题",
+      "q1": "封闭测试需要做什么？",
+      "a1": "使用 Android 设备安装 IHUI AI 测试版，正常使用主要功能，并在遇到问题时通过站内反馈页告诉我们。",
+      "q2": "为什么要求连续参与 14 天？",
+      "a2": "Google Play 规定封闭测试至少需要 12 名测试人员连续参与 14 天，满足后才能申请正式版发布，中途退出会影响整体进度。",
+      "q3": "必须使用 Google 账号吗？",
+      "a3": "是的。测试链接、下载与更新都通过 Google Play 完成，请使用可正常登录 Play 商店的 Google 账号。"
+    }
+  },
   "ecosystem": {
     "packMembers": "包含 {count} 个市场",
     "skillsSection": "技能市场",

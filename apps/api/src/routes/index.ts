@@ -510,6 +510,8 @@ import { aiTutorRoutes } from './ai-tutor-routes.js'
 import { aiMarkingProxyRoutes } from './ai-marking-proxy.js'
 // Newsletter 订阅路由(定价页转化率优化配套,lead capture)
 import newsletterRoutes from './newsletter.js'
+// Google Play 封闭测试招募名单(网页收集邮箱 + admin 导出 CSV)
+import playTestersRoutes from './play-testers.js'
 // 挣钱中心仪表盘后端(P0 挣钱核心,4 端点:overview/byok-trend/referral/funnel)
 import { earningsRoutes } from './earnings-routes.js'
 // P0 第四批次(2026-07-31 立):public-status + api-key-shares + export-csv + relay-conversations 4 个新路由
@@ -1230,6 +1232,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(aiMarkingProxyRoutes, { prefix: '/api' })
   // Newsletter 订阅(定价页转化率优化配套:subscribe/unsubscribe + admin list/send)
   server.register(newsletterRoutes, { prefix: '/api/newsletter' })
+  // Google Play 封闭测试招募名单(公开报名/状态查询 + admin 列表/导出 CSV)
+  server.register(playTestersRoutes, { prefix: '/api/play-testers' })
   // 挣钱中心仪表盘后端(P0 挣钱核心,4 端点:overview/byok-trend/referral/funnel)
   server.register(earningsRoutes, { prefix: '/api/earnings' })
 
