@@ -543,6 +543,20 @@ async function runTrustedPublisher(page, attempt) {
 async function runSignPath(page, attempt) {
   await page.goto('https://signpath.org/apply', { waitUntil: 'domcontentloaded', timeout: 60000 })
   await sleep(7000)
+  // 2 倍超采样:reCAPTCHA 九宫格每格只有 ~123px,整页缩略图辨识度太低导致误判;
+  // 用 CDP 把 deviceScaleFactor 提到 2,截图变 2 倍像素密度(布局不变,不影响点击)。
+  try {
+    const cdp = await page.context().newCDPSession(page)
+    await cdp.send('Emulation.setDeviceMetricsOverride', {
+      width: 1280,
+      height: 1000,
+      deviceScaleFactor: 2,
+      mobile: false,
+    })
+    console.log('SP-DPR 2 enabled')
+  } catch (e) {
+    console.log('SP-DPR-fail ' + String(e.message).slice(0, 80))
+  }
   let hf = null
   for (const fr of page.frames()) if (/hsforms\.net/.test(fr.url())) hf = fr
   if (!hf) {
@@ -624,24 +638,46 @@ async function runSignPath(page, attempt) {
   await shot(page, `sp-filled`)
 
   // 提交。SignPath 表单带 reCAPTCHA v2:bot 检测会弹图像挑战(九宫格选图),
-  // 用「截图回传 → rc-clicks.json 指令(坐标由李总侧多模态识别后推送)→ runner 点击 → VERIFY」闭环。
-  await hf
-    .locator('button[type="submit"], input[type="submit"], .hs-button')
-    .first()
-    .click({ timeout: 15000 })
-  await sleep(8000)
-  const rcSolved = await handleRecaptchaChallenge(page, attempt)
-  console.log('RC_SOLVED=' + rcSolved)
-  await shot(page, `sp-after-submit`)
-  const after = ((await hf.locator('body').textContent().catch(() => '')) || '').replace(/\s+/g, ' ')
-  console.log('SP_AFTER=' + after.slice(0, 300))
-  if (/Project Name/i.test(after) && !/thank|submitted|received/i.test(after)) {
-    if (rcSolved) throw new Error('signpath form still present after RC solved — see sp-after-submit.png')
-    throw new Error('signpath form still present after submit (reCAPTCHA?) — see sp-after-submit.png')
+  // 用「截图回传 → rc-clicks.json 指令(多模态识别后推送)→ runner 点击 → VERIFY」闭环。
+  // ★ 通过挑战后原 Submit 点击不会自动重放:必须再点一次 Submit(实测 run 39241408771)。
+  let rcSolved = false
+  let submittedOk = false
+  for (let k = 0; k < 3; k++) {
+    console.log(`SP-SUBMIT k=${k}`)
+    await hf
+      .locator('button[type="submit"], input[type="submit"], .hs-button')
+      .first()
+      .click({ timeout: 15000 })
+      .catch((e) => console.log('SP-SUBMIT-CLICK-FAIL ' + String(e.message).slice(0, 60)))
+    await sleep(8000)
+    rcSolved = await handleRecaptchaChallenge(page, attempt + k)
+    console.log('RC_SOLVED=' + rcSolved)
+    await sleep(7000)
+    await shot(page, `sp-after-submit-${k}`)
+    const after = ((await hf.locator('body').textContent().catch(() => '')) || '').replace(/\s+/g, ' ')
+    console.log('SP_AFTER=' + after.slice(0, 300))
+    if (!/Project Name/i.test(after) || /thank|submitted|received/i.test(after)) {
+      submittedOk = true
+      break
+    }
+  }
+  if (!submittedOk) {
+    throw new Error(
+      `signpath form still present after ${3} submit cycles (rcSolved=${rcSolved}) — see sp-after-submit-*.png`
+    )
   }
   console.log('SIGNPATH-SUBMITTED')
-  // 清理 rc-live 临时文件(截图 + 指令)
-  for (let r = 0; r < 4; r++) await deleteRepoFile(`.github/rc-shot-${r}.png`)
+  // 清理 rc-live 临时文件(截图 + 指令);范围收窄,避免收尾拖太久
+  for (let r = 0; r < 3; r++) {
+    await deleteRepoFile(`.github/rc-shot-${r}.png`)
+    await deleteRepoFile(`.github/rc-grid-${r}.png`)
+    await deleteRepoFile(`.github/rc-next-${r}.png`)
+    await deleteRepoFile(`.github/rc-frame-${r}.html`)
+    for (let s = 1; s < 10; s++) {
+      await deleteRepoFile(`.github/rc-shot-${r}-${s}.png`)
+      await deleteRepoFile(`.github/rc-grid-${r}-${s}.png`)
+    }
+  }
   await deleteRepoFile('.github/rc-clicks.json')
   console.log('RC-FILES-CLEANED')
 }
@@ -712,6 +748,50 @@ async function deleteRepoFile(path) {
 // 兼容旧格式 {"clicks":[{x,y}]}。
 async function handleRecaptchaChallenge(page, attempt) {
   const findB = () => page.frames().find((f) => /recaptcha.*bframe/.test(f.url()))
+  // ★ 判「已通过」的唯一可靠信号:#g-recaptcha-response 里拿到 token。
+  //   ★ 实测坑:挑战通过后 bframe 元素仍留在 DOM 里(隐藏、内容不刷新),
+  //   只看 frame 是否存在会把「已通过」误判成「挑战还在」,于是死等指令并再点一次
+  //   Verify,反而重新触发新挑战(run 39241408771 实证)。
+  const isSolved = async () => {
+    try {
+      const v = await page.evaluate(() => {
+        const els = Array.from(document.querySelectorAll('#g-recaptcha-response, textarea[name="g-recaptcha-response"]'))
+        return els.map((e) => String(e.value || '')).sort((a, b) => b.length - a.length)[0] || ''
+      })
+      return v.length > 20
+    } catch {
+      return false
+    }
+  }
+  // 挑战区是否真的可见(.rc-imageselect 在 bframe 内且未隐藏)
+  const challengeVisible = async (bframe) => {
+    try {
+      if (!bframe) return false
+      return await bframe.locator('.rc-imageselect').first().isVisible({ timeout: 3000 })
+    } catch {
+      return false
+    }
+  }
+  // 挑战区整图截图(裁剪到表格 + 提示语,放大后判断更准)
+  const shotGrid = async (name) => {
+    try {
+      const box = await page.evaluate(() => {
+        const f = Array.from(document.querySelectorAll('iframe')).find((x) => /bframe/.test(x.src || ''))
+        if (!f) return null
+        const r = f.getBoundingClientRect()
+        return { x: Math.max(0, r.x) | 0, y: Math.max(0, r.y) | 0, width: Math.min(r.width, 1000) | 0, height: Math.min(r.height, 900) | 0 }
+      })
+      if (!box || box.width < 50) return false
+      const p = `${SHOT_DIR}/${name}.png`
+      await page.screenshot({ path: p, clip: box })
+      const ok = await pushRepoFileRetry(`.github/${name}.png`, fs.readFileSync(p).toString('base64'), `rc ${name}`)
+      console.log(`RC-GRID-PUSHED ${name} ${box.width}x${box.height} ok=${ok}`)
+      return ok
+    } catch (e) {
+      console.log(`RC-GRID-FAIL ${String(e.message).slice(0, 70)}`)
+      return false
+    }
+  }
   const readInstr = async () => {
     try {
       const r = await fetch(
@@ -734,8 +814,8 @@ async function handleRecaptchaChallenge(page, attempt) {
     }
   }
   const waitInstr = async (round, step) => {
-    for (let i = 0; i < 75; i++) {
-      await sleep(8000)
+    for (let i = 0; i < 100; i++) {
+      await sleep(6000)
       const { status, j, err } = await readInstr()
       if (j && j.round === round && (j.step ?? 0) === step && (Array.isArray(j.tiles) || Array.isArray(j.clicks))) {
         return j
@@ -794,8 +874,12 @@ async function handleRecaptchaChallenge(page, attempt) {
     let submitted = false
     while (step < 12) {
       const bframe = findB()
-      if (!bframe) {
-        console.log(`RC-NO-CHALLENGE round=${round} step=${step}`)
+      if (await isSolved()) {
+        console.log(`RC-SOLVED round=${round} step=${step} (token present)`)
+        return true
+      }
+      if (!bframe || !(await challengeVisible(bframe))) {
+        console.log(`RC-NO-CHALLENGE round=${round} step=${step} bframe=${bframe ? 'yes' : 'no'}`)
         return true
       }
       let rows = 0
@@ -830,6 +914,8 @@ async function handleRecaptchaChallenge(page, attempt) {
         } catch {}
       }
       await shotPush(step === 0 ? `rc-shot-${round}` : `rc-shot-${round}-${step}`)
+      // 裁剪放大版(只含挑战区),辨识度远高于整页缩略图
+      await shotGrid(step === 0 ? `rc-grid-${round}` : `rc-grid-${round}-${step}`)
       const instr = await waitInstr(round, step)
       if (!instr) throw new Error(`rc instruction timeout round=${round} step=${step}`)
       console.log(`RC-INSTRUCT round=${round} step=${step} ${JSON.stringify(instr)}`)
@@ -868,8 +954,12 @@ async function handleRecaptchaChallenge(page, attempt) {
       await clickVerify(bframe)
       await sleep(9000)
       await shot(page, `rc-after-verify-${round}`)
-      if (!findB()) {
-        console.log(`RC-PASSED round=${round} step=${step} url=${page.url().slice(0, 100)}`)
+      if (await isSolved()) {
+        console.log(`RC-PASSED round=${round} step=${step} (token) url=${page.url().slice(0, 100)}`)
+        return true
+      }
+      if (!findB() || !(await challengeVisible(findB()))) {
+        console.log(`RC-PASSED round=${round} step=${step} (challenge gone) url=${page.url().slice(0, 100)}`)
         return true
       }
       submitted = true
@@ -880,7 +970,7 @@ async function handleRecaptchaChallenge(page, attempt) {
       const bframe = findB()
       if (bframe) await clickVerify(bframe)
       await sleep(8000)
-      if (!findB()) {
+      if ((await isSolved()) || !findB() || !(await challengeVisible(findB()))) {
         console.log(`RC-PASSED round=${round} (forced verify)`)
         return true
       }
