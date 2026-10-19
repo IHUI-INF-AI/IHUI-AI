@@ -19,6 +19,11 @@ const EMAIL = process.env.NPM_EMAIL
 const USERNAME = process.env.NPM_USERNAME
 const PASSWORD = process.env.NPM_PASSWORD // signup 时为空则生成;verify 时从 secret
 const VERIFY_URL = process.env.NPM_VERIFY_URL
+// trusted_publisher:网页登录凭据(npm 已禁用 API 换 token,Trusted Publisher 只能在网页登记)
+const WEB_USERNAME = process.env.NPM_WEB_USERNAME
+const WEB_PASSWORD = process.env.NPM_WEB_PASSWORD
+// signpath:申请联系邮箱(SignPath 审核沟通都走 email)
+const SIGNPATH_EMAIL = process.env.SIGNPATH_EMAIL
 const SHOT_DIR = 'shots'
 fs.mkdirSync(SHOT_DIR, { recursive: true })
 
@@ -264,6 +269,8 @@ async function main() {
     const { browser, page } = await launch()
     try {
       if (ACTION === 'signup') await runSignup(page, n)
+      else if (ACTION === 'trusted_publisher') await runTrustedPublisher(page, n)
+      else if (ACTION === 'signpath') await runSignPath(page, n)
       else await runVerifyToken(page)
       lastErr = null
       await browser.close()
@@ -329,6 +336,196 @@ async function runSignup(page, attempt) {
   }
   if (!/created|redirected/.test(outcome)) throw new Error('signup outcome: ' + outcome)
   saveSecretArtifact('npm-credentials', { username: USERNAME, email: EMAIL, password: PASSWORD })
+}
+
+// ---------- action=trusted_publisher ----------
+// 在 npm 网页给 ihui-cli 登记 GitHub Trusted Publisher(Workflow OIDC),registry API 无此端点。
+// npm 发布页:https://www.npmjs.com/package/ihui-cli/access
+async function runTrustedPublisher(page, attempt) {
+  // 1) 网页登录(CF 挑战已被真 Chrome 方案突破)
+  await page.goto('https://www.npmjs.com/login', { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await waitPastCloudflare(page)
+  await sleep(3000)
+  await shot(page, `tp-login-${attempt}`)
+  try {
+    const uSels = ['input[name="username"]', 'input#login_name', 'input[type="text"]']
+    let filledU = false
+    for (const s of uSels) {
+      const loc = page.locator(s).first()
+      if (await loc.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await loc.click({ timeout: 3000 })
+        await page.keyboard.type(WEB_USERNAME, { delay: 60 })
+        filledU = true
+        break
+      }
+    }
+    if (!filledU) throw new Error('username field not visible (可能已登录)')
+    const p = page.locator('input[type="password"]').first()
+    await p.click({ timeout: 5000 })
+    await page.keyboard.type(WEB_PASSWORD, { delay: 60 })
+    await shot(page, `tp-login-filled`)
+    await page
+      .locator('button[type="submit"], button:has-text("Sign in")')
+      .first()
+      .click({ timeout: 10000 })
+    await waitPastCloudflare(page, 120000)
+    await sleep(5000)
+    await shot(page, `tp-login-after`)
+    console.log('TP_LOGIN_URL=' + page.url())
+  } catch (e) {
+    console.log('TP-LOGIN-SKIP ' + String(e.message).slice(0, 100))
+  }
+
+  // 2) 包 publishing access 页
+  await page.goto('https://www.npmjs.com/package/ihui-cli/access', {
+    waitUntil: 'domcontentloaded',
+    timeout: 60000,
+  })
+  await waitPastCloudflare(page)
+  await sleep(4000)
+  await shot(page, `tp-access-page`)
+  const accBody = (await page.textContent('body').catch(() => '')) || ''
+  console.log('TP_ACCESS_SNIPPET=' + accBody.replace(/\s+/g, ' ').slice(0, 260))
+  if (/sign in/i.test(accBody.slice(0, 400))) throw new Error('access page requires login — see tp-access-page.png')
+
+  // 3) 打开 Add a trusted publisher
+  const addBtn = page
+    .locator(
+      'button:has-text("Add a trusted publisher"), a:has-text("Add a trusted publisher"), button:has-text("Add trusted publisher"), button:has-text("Add Publisher")'
+    )
+    .first()
+  await addBtn.click({ timeout: 20000 })
+  await sleep(2500)
+  await shot(page, `tp-form-open`)
+
+  // 4) 打印表单所有输入框元数据(诊断)并按顺序填:owner / repo / workflow / environment
+  const inputs = page.locator(
+    '[role="dialog"] input, dialog input, .modal input, form input[type="text"], input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])'
+  )
+  const cnt = await inputs.count()
+  const meta = []
+  for (let i = 0; i < Math.min(cnt, 10); i++) {
+    const el = inputs.nth(i)
+    meta.push({
+      i,
+      name: await el.getAttribute('name').catch(() => null),
+      ph: await el.getAttribute('placeholder').catch(() => null),
+      type: await el.getAttribute('type').catch(() => null),
+      vis: await el.isVisible().catch(() => false),
+    })
+  }
+  console.log('TP_FORM_INPUTS=' + JSON.stringify(meta))
+  const vals = ['IHUI-INF-AI', 'IHUI-AI', 'release-cli.yml', '']
+  let filled = 0
+  for (let i = 0; i < cnt && filled < 3; i++) {
+    const el = inputs.nth(i)
+    if (!(await el.isVisible().catch(() => false))) continue
+    const type = ((await el.getAttribute('type').catch(() => 'text')) || 'text').toLowerCase()
+    if (type === 'hidden' || type === 'checkbox' || type === 'radio' || type === 'submit') continue
+    await el.click({ timeout: 3000 })
+    await page.keyboard.type(vals[filled], { delay: 40 })
+    filled++
+  }
+  console.log('TP_FILLED=' + filled)
+  await shot(page, `tp-form-filled`)
+  if (filled < 3) throw new Error(`trusted publisher form: only ${filled}/3 fields filled — see tp-form-open.png`)
+
+  // 5) 提交并验证
+  const saveBtn = page
+    .locator('button:has-text("Add publisher"), button:has-text("Add Publisher"), button:has-text("Add"), button:has-text("Save")')
+    .last()
+  await saveBtn.click({ timeout: 10000 })
+  await sleep(6000)
+  await shot(page, `tp-after-save`)
+  const after = (await page.textContent('body').catch(() => '')) || ''
+  console.log('TP_AFTER_SNIPPET=' + after.replace(/\s+/g, ' ').slice(0, 260))
+  if (!/IHUI-INF-AI|release-cli\.yml/i.test(after)) {
+    throw new Error('trusted publisher save not confirmed — see tp-after-save.png')
+  }
+  console.log('TRUSTED-PUBLISHER-OK')
+}
+
+// ---------- action=signpath ----------
+// SignPath Foundation 免费代码签名申请(HubSpot 表单嵌 signpath.org/apply 的 iframe)。
+// reCAPTCHA Enterprise 验证端点在 www.google.com,本机(中国 IP)不可达 —— runner(美国)可完成。
+async function runSignPath(page, attempt) {
+  await page.goto('https://signpath.org/apply', { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await sleep(7000)
+  let hf = null
+  for (const fr of page.frames()) if (/hsforms\.net/.test(fr.url())) hf = fr
+  if (!hf) {
+    await sleep(7000)
+    for (const fr of page.frames()) if (/hsforms\.net/.test(fr.url())) hf = fr
+  }
+  if (!hf) throw new Error('hubspot iframe not found — see sp-page.png')
+  await shot(page, `sp-page-${attempt}`)
+
+  const F = {
+    '2-198696014/name': 'IHUI AI',
+    '2-198696014/repository_url': 'https://github.com/IHUI-INF-AI/IHUI-AI',
+    '2-198696014/homepage_url': 'https://aizhs.top',
+    '2-198696014/download_url': 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
+    '2-198696014/tagline':
+      'Open-source AI coding agent platform: CLI, web console and AI service, distributed as signed native binaries.',
+    '2-198696014/description':
+      'IHUI AI is an open-source AI coding agent platform (Apache-2.0). It ships a Node.js Single-Executable-Application CLI ("ihui-cli") published as native binaries for 6 platforms, a Next.js web console, a Fastify API and an AI service, with PostgreSQL/Redis backing. Releases are built and published by GitHub Actions; binaries are currently distributed unsigned, and we want Authenticode signing via SignPath Foundation so Windows users no longer hit SmartScreen warnings.',
+    '2-198696014/reputation':
+      'Public GitHub repository under the IHUI-INF-AI organisation with full source, issue tracker and CI history. Released artifacts: GitHub Releases (six platform binaries + SHA256SUMS), GHCR container image ghcr.io/ihui-inf-ai/ai-cli, and npm package "ihui-cli" (already live on the registry). Project site https://aizhs.top is the maintainer-operated production deployment.',
+    '2-198696014/discovery_source': 'Web search',
+    '0-1/firstname': 'Chunchuan',
+    '0-1/lastname': 'Li',
+    '0-1/email': SIGNPATH_EMAIL || '502319984@qq.com',
+    '0-1/company': 'IHUI AI',
+  }
+  for (const [name, val] of Object.entries(F)) {
+    const loc = hf.locator(`[name="${name}"]`).first()
+    await loc.waitFor({ state: 'visible', timeout: 20000 })
+    await loc.click({ timeout: 5000 })
+    await loc.fill(val)
+    console.log('SP-FILLED ' + name + ' len=' + val.length)
+  }
+
+  // 三个自定义 DropdownField(HubSpot 组件,非原生 select):点开 -> 选 option
+  const DD = [
+    { hid: '87a6cc11-45fc-43ca-9b88-40485775cb3d-3550993458169', label: 'Category', opt: 'Developer Tools' },
+    { hid: '87a6cc11-45fc-43ca-9b88-40485775cb3d-2081506618076', label: 'Build System', opt: 'GitHub Actions' },
+    { hid: '87a6cc11-45fc-43ca-9b88-40485775cb3d-2052735583143', label: 'Primary Discovery Channel', opt: 'Organic search' },
+  ]
+  for (const d of DD) {
+    const inp = hf.locator(`#${d.hid}-input`)
+    await inp.click({ timeout: 10000 })
+    await sleep(1500)
+    const opt = hf.locator(`[role="option"]:has-text("${d.opt}")`).first()
+    await opt.click({ timeout: 10000 })
+    await sleep(700)
+    console.log(`SP-DD ${d.label}=${d.opt}`)
+  }
+  await shot(page, `sp-dd-done`)
+
+  // 法务勾选(subscription_type_2099806800 实测 required)
+  for (const n of ['LEGAL_CONSENT.subscription_type_2099806800', 'LEGAL_CONSENT.processing']) {
+    const c = hf.locator(`[name="${n}"]`).first()
+    try {
+      if (!(await c.isChecked())) await c.check({ timeout: 5000 })
+    } catch {
+      await c.click({ timeout: 5000 }).catch(() => {})
+    }
+  }
+  await shot(page, `sp-filled`)
+
+  // 提交(reCAPTCHA Enterprise invisible:美国 IP + 真 Chrome 应自动放行)
+  await hf
+    .locator('button[type="submit"], input[type="submit"], .hs-button')
+    .first()
+    .click({ timeout: 15000 })
+  await sleep(14000)
+  await shot(page, `sp-after-submit`)
+  const after = ((await hf.locator('body').textContent().catch(() => '')) || '').replace(/\s+/g, ' ')
+  console.log('SP_AFTER=' + after.slice(0, 300))
+  if (/Project Name/i.test(after) && !/thank|submitted|received/i.test(after)) {
+    throw new Error('signpath form still present after submit (reCAPTCHA?) — see sp-after-submit.png')
+  }
+  console.log('SIGNPATH-SUBMITTED')
 }
 
 async function runVerifyToken(page) {

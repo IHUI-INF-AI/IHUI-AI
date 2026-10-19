@@ -19646,6 +19646,8 @@
     "adminWorkflows": "Workflows",
     "advancedAiTools": "Advanced AI Tools",
     "mediaTasks": "Media Tasks",
+    "saasCertificates": "SaaS Certificates",
+    "saasTenants": "SaaS Tenants",
     "webTools": "Web Tools",
     "figmaImport": "Design to Code",
     "voices": "Voice Library",
