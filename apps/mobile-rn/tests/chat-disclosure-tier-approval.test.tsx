@@ -35,7 +35,11 @@ vi.mock('react-native', async (importOriginal) => {
   return { ...(actual as object), Linking: { openURL: vi.fn(async () => true) } }
 })
 
-import { PermissionTierRow, ToolApprovalRow, APPROVAL_ACTION_WIRE } from '../src/components/ChatDisclosure'
+import {
+  PermissionTierRow,
+  ToolApprovalRow,
+  APPROVAL_ACTION_WIRE,
+} from '../src/components/ChatDisclosure'
 import { I18nProvider } from '../src/i18n'
 
 const wrap = (node: ReactNode) => render(<I18nProvider>{node}</I18nProvider>)
@@ -149,20 +153,31 @@ describe('屏侧接线自证(源码级)', () => {
   const read = (rel: string): string => readFileSync(join(__dirname, '..', rel), 'utf8')
   const chatSrc = read('src/screens/ChatScreen.tsx')
   const n8nSrc = read('src/screens/AiAssistantN8nScreen.tsx')
+  // 2026-10-19:D99/T1 拆分后,消息操作区(点赞/点踩钮、flagButtons、档位行)的单一实现
+  // 落在共享 ChatMessageList,屏侧只保留网络出口 rateMessage 并经 prop 装车。
+  const listSrc = read('src/components/chat/ChatMessageList.tsx')
 
   it('ChatScreen 走 @ihui/api-client 的 rateChatMessage,并真发出调用', () => {
     expect(chatSrc).toMatch(/import \{[\s\S]*?rateChatMessage,[\s\S]*?\} from '@ihui\/api-client'/)
     expect(chatSrc).toContain('await rateChatMessage({ messageId, rating: next })')
-    expect(chatSrc).not.toMatch(/\bfetch\(/)
+    // 判据精确化(2026-10-19):本守门禁的是"后端调用绕开 api-client(丢鉴权/超时/错误归一)",
+    // 不是禁一切 fetch —— 本地资源读(如 file:// URI → Blob,上传前置)不经后端、不涉鉴权,
+    // 裸 fetch 属合理形态。故禁"字符串字面量 URL 与 API_BASE_URL 直连"这两类真绕行。
+    expect(chatSrc).not.toMatch(/\bfetch\(\s*(?:['"`]|API_BASE_URL)/)
   })
 
-  it('ChatScreen 的消息操作区挂了点赞/点踩两个钮(不是只有 handler)', () => {
-    expect(chatSrc).toContain("onPress={() => void rateMessage(item.id, 'like')}")
-    expect(chatSrc).toContain("onPress={() => void rateMessage(item.id, 'dislike')}")
+  it('消息操作区挂了点赞/点踩两个钮(不是只有 handler)', () => {
+    expect(listSrc).toContain("onPress={() => void rateMessage(item.id, 'like')}")
+    expect(listSrc).toContain("onPress={() => void rateMessage(item.id, 'dislike')}")
+    // 装车证明:组件造好没装车正是本仓反复出事的那一类(守门 64/70 的成因)——
+    // 屏侧必须真把 rateMessage 传进共享列表,钮点下去才有网络出口。
+    expect(chatSrc).toContain('rateMessage={rateMessage}')
   })
 
   it('档位行两屏同一实现:D111 要求 ChatScreen 接上,且 N8n 不再留第二套文案', () => {
-    expect(chatSrc).toContain('<PermissionTierRow key="permission-tier-row" mode={workspaceTier} />')
+    expect(listSrc).toContain(
+      '<PermissionTierRow key="permission-tier-row" mode={workspaceTier} />',
+    )
     expect(n8nSrc).toContain('<PermissionTierRow mode={stampedTier ?? workspaceTier} />')
     // 原 N8n 内联 IIFE(第二份取词)必须消失,否则两屏会各自漂移
     expect(n8nSrc).not.toContain("t('permissionTier.label')")
