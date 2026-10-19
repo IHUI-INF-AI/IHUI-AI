@@ -824,7 +824,7 @@ function renderHuman(rep) {
     p(rep.gateRows.length ? '  按门聚合(门号→脚本现读注册表,不硬编码清单):' : '  按门聚合:台账里没有任何 failedGates 记录(这是读数,不得读成"没有门红过")')
     for (const g of rep.gateRows)
       p(
-        `    ${String(g.id).padEnd(8)} × ${String(g.n).padStart(3)}  ${g.repro ?? '不在注册面(该号在当前注册表里没有 ⇒ 只能是已退役/挪号的历史行;这不是"当下缺门",也不是本工具判不出)'}`,
+        `    ${String(g.id).padEnd(8)} × ${String(g.n).padStart(3)}  ${g.repro ?? '未判定:注册表本次不可读或该 id 不在注册面(门可能被摘线/挪号)'}`,
       )
   }
 
