@@ -131,6 +131,12 @@ def _classify(resp: httpx.Response | None, exc: Exception | None) -> LocalProbeR
     )
 
 
+def _disabled_codes() -> set[str]:
+    """settings.local_providers_disabled(逗号分隔)⇒ 小写集合(2026-10-19)。"""
+    raw = getattr(settings, "local_providers_disabled", "") or ""
+    return {c.strip().lower() for c in raw.split(",") if c.strip()}
+
+
 class LocalProviderHealth:
     """本地 provider 探针(TTL 缓存单例)。
 
@@ -162,6 +168,15 @@ class LocalProviderHealth:
         force: bool = False,
     ) -> LocalProbeResult:
         """探测单个本地 provider;永不抛错,三态可判。force=True 绕过缓存。"""
+        # 禁用清单短路(2026-10-19):LOCAL_PROVIDERS_DISABLED 列过的 provider
+        # 直接判 undetermined(detail=disabled),不发 HTTP、不写缓存 ——
+        # 未部署的本地 provider 每 30s 一次 ConnectTimeout 是纯噪音(实测 1205 次/天)。
+        # 消费侧只认 AVAILABLE,行为不变;差异仅是"不探测"而非"探测了说不可用"。
+        if provider_code.lower() in _disabled_codes():
+            return LocalProbeResult(
+                verdict=LocalProbeVerdict.UNDETERMINED,
+                detail=f"disabled by config (local_providers_disabled)",
+            )
         if not force:
             fresh = self._fresh(provider_code)
             if fresh is not None:

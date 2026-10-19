@@ -18,7 +18,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
+from ..middleware.llm_metrics import record_user_request
 from ..services.audit_service import audit_service
+
+# 用户级 LLM 指标的中间件收口路径(2026-10-19 立):只收非流式 complete。
+# 流式(/api/llm/complete/stream)不走这里——入口恒 200,中途失败在
+# llm_gateway.astream 的 done/error 事件收口,避免双计。
+_USER_LLM_PATH = "/api/llm/complete"
 
 
 class AuditMiddleware(BaseHTTPMiddleware):
@@ -51,6 +57,13 @@ class AuditMiddleware(BaseHTTPMiddleware):
             },
             trace_id=trace_id,
         )
+        # 用户级 LLM 指标(2026-10-19):非流式 complete 按 HTTP 状态码收口一次。
+        # 2xx=ok(含 TRIAL_QUOTA 之外的正常返回),非 2xx=failed(额度墙/未配 key/
+        # 上游 502 都是用户感知失败)。流式不在此列(见 _USER_LLM_PATH 注释)。
+        if request.url.path == _USER_LLM_PATH:
+            record_user_request(
+                "complete", "ok" if response.status_code < 400 else "failed"
+            )
 
         return response
 
