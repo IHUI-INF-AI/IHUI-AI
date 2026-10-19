@@ -8,9 +8,9 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 46c2b8cae63d5bfdd6b433eac22a43192d87d4d4
-// inputsSha256: c3a984175a6e8c6c6d228baf9d94f300aad698b31bcaf1f550fa78c65a52ccc9
-// input: apps/miniapp-taro/src/api/index.ts b81ebe3e79ee3272cd5f97903f57e49b03739b954880516984a72eb0180ddda9
+// sourceCommit: 6059dfccc4efe4da1ab719a409c48e1b0362cfed
+// inputsSha256: 0c50876b38902fa36ca2ea8f3eb3fd4a5a7b59bb513de3499d7409caef60bcd9
+// input: apps/miniapp-taro/src/api/index.ts e463aaf7c8cb5ebac11ef16d384d4693812a5d9395fe1b0d15c72e3fddb08358
 // input: apps/miniapp-taro/src/api/social.ts 6fd0f50805af0b076929ce380009d01c6856fa63994bce8367577161e968a160
 // input: apps/miniapp-taro/src/app.config.ts 782c5e8315c502161d00aaeedd892bdcd7c88621621279d8e3e2e9fd5f6752fe
 // input: apps/miniapp-taro/src/app.tsx 98159d2ace623b098b1f692291214968fd56536cc00101b5e78c7a069d515c83
@@ -283,7 +283,7 @@
 // input: apps/miniapp-taro/src/pkg-ai/ai/cards/tool-line.ts bee68a1f7fe7c6d52ec475eca686de6620aeffaf2ffd3cf583caad9a985b7371
 // input: apps/miniapp-taro/src/pkg-ai/ai/cards/types.ts 571bf46fa103894be08b847a049e13f9bd390b2c717adddd6b4bed61d88cce4d
 // input: apps/miniapp-taro/src/pkg-ai/ai/chat.config.ts 5cbbde710f52f07e43cc2348a0df560442c5c594d9112f128bae6057aaa17f07
-// input: apps/miniapp-taro/src/pkg-ai/ai/chat.tsx f729cc957bf5c008471142c8c045033e61bb2d0a40d0036f30571d1240dbe454
+// input: apps/miniapp-taro/src/pkg-ai/ai/chat.tsx 3bc4ec4449d0c3bc044ecb228eb78f68f15ff7470424427d32ce96e07c08ffb2
 // input: apps/miniapp-taro/src/pkg-ai/ai/context-usage-strip.tsx d7d62c8c5285b52f817bcd5cabd6682960f74716b54110b0272a3756b6d8c9e2
 // input: apps/miniapp-taro/src/pkg-ai/ai/conversation-import-analysis.tsx fc098be16ee2c70bfb90cdee4e254bcf5c9091a4cfac32016bd439d29a29b330
 // input: apps/miniapp-taro/src/pkg-ai/ai/conversation-import-core.ts 45e8aaaac8481541e075b732af0f05c5a18100cfb62831c9846528280121ecc1
@@ -482,7 +482,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 4959a62f1cb83c3b0a280a446f001ac92ed3163cb539a812bc6ec4608924dcc3
 // scanned: 349 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=36(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-10-19T03:13:42.615Z
+// generatedAt: 2026-10-19T05:49:12.540Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */

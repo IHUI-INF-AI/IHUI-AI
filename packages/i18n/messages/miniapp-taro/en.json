@@ -3527,6 +3527,9 @@
   "chat": {
     "modelSwitchStopped": "Switched to {model}. This response was stopped.",
     "partialDoneTitle": "Response interrupted, the content below may be incomplete",
+    "truncation": {
+      "maxLengthNotice": "This reply was cut off at the maximum output length and is incomplete; send \"continue\" to keep generating."
+    },
     "send": "Send",
     "meta": {
       "pullOnly": "On the mini program, this change syncs the next time you open it"

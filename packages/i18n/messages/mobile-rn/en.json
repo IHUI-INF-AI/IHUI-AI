@@ -352,6 +352,9 @@
     "modelCategoryOcr": "OCR",
     "modelCategoryOther": "Other",
     "partialDoneTitle": "Response interrupted, the content below may be incomplete",
+    "truncation": {
+      "maxLengthNotice": "This reply was cut off at the maximum output length and is incomplete; send \"continue\" to keep generating."
+    },
     "pin": "Pin",
     "unpin": "Unpin",
     "bookmark": "Bookmark",
