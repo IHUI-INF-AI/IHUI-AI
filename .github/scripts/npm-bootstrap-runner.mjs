@@ -8,6 +8,8 @@
 //   action=publish        build:npm → 用 secret token 发布 ihui-cli@x.y.z
 // 加密:RSA-OAEP(SHA256) 包 AES-256-GCM,公钥来自 secret PUBKEY_PEM(只有李总持私钥)。
 import { chromium } from 'playwright'
+import { spawn } from 'node:child_process'
+import net from 'node:net'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 
@@ -50,9 +52,10 @@ function saveSecretArtifact(name, obj) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-async function waitPastCloudflare(page, maxMs = 300000) {
+async function waitPastCloudflare(page, maxMs = 600000) {
   const t0 = Date.now()
   let clicked = 0
+  let lastClickAt = 0
   while (Date.now() - t0 < maxMs) {
     const title = await page.title().catch(() => '')
     let body = ''
@@ -60,39 +63,55 @@ async function waitPastCloudflare(page, maxMs = 300000) {
       body = (await page.textContent('body', { timeout: 5000 })) || ''
     } catch {}
     const combined = title + ' ' + body
-    if (!/just a moment|请稍候|performing security|verifying you are human|attention required/i.test(combined))
+    if (!/just a moment|请稍候|performing security|verifying you are human|attention required|正在进行安全验证|checking your browser/i.test(combined))
       return true
-    // 自动验证中(spinner)——绝不点击,点了会重置
-    if (/verifying you are human|may take a few seconds/i.test(combined)) {
+    // 1) 自动验证中(spinner)—— 只等,绝不点击(点击会重置挑战)。
+    //    必须同时识别中英文文案:CF 按出口 IP 语言返回中文页("正在进行安全验证"),
+    //    旧版只匹配英文 "verifying you are human",导致中文 spinner 被误判为 idle 而每 6s 重点。
+    const verifying = /verifying you are human|may take a few seconds|正在验证您|正在验证/i.test(combined)
+    let spinnerEl = false
+    try {
+      spinnerEl = await page
+        .locator('.ctp-spinner, [class*="spinner" i], [class*="Spinner"]')
+        .first()
+        .isVisible({ timeout: 800 })
+    } catch {}
+    if (verifying || spinnerEl) {
       await sleep(5000)
       continue
     }
-    // 0) 拦截页组件在【主文档】内(非 iframe):#challenge-stage / .ctp-checkbox-label
+    // 2) 只有确认 idle 才点击,且两次点击间隔 >= 60s;点完长等 15s 让 CF 后台验证完成
+    const now = Date.now()
+    if (now - lastClickAt < 60000) {
+      await sleep(2000)
+      continue
+    }
+    let didClick = false
     for (const sel of [
       'label.ctp-checkbox-label',
       '#challenge-stage label',
       '#challenge-form label',
-      '#challenge-stage .ctp-checkbox-label',
       'input[type="checkbox"]:not([hidden])',
     ]) {
       try {
         const loc = page.locator(sel).first()
         if (await loc.isVisible({ timeout: 500 })) {
           await loc.click({ timeout: 2000, force: true })
+          didClick = true
           clicked++
           console.log(`CF-CLICK main sel=${sel} round=${clicked}`)
           break
         }
       } catch {}
     }
-    // 1) iframe 内兜底
-    if (clicked < 6) {
+    if (!didClick && clicked < 6) {
       for (const fr of page.frames()) {
         if (fr.url().includes('challenges.cloudflare')) {
           try {
             const loc = fr.locator('.ctp-checkbox-label').first()
             if (await loc.isVisible({ timeout: 500 })) {
               await loc.click({ timeout: 2000, force: true })
+              didClick = true
               clicked++
               console.log(`CF-CLICK frame round=${clicked}`)
               break
@@ -101,25 +120,81 @@ async function waitPastCloudflare(page, maxMs = 300000) {
         }
       }
     }
-    // 2) 页面级坐标兜底(勾选框实测在视口 16.5%,39.2%)
-    if (clicked < 4) {
-      const vp = page.viewportSize()
-      const cx = Math.round(vp.width * 0.165)
-      const cy = Math.round(vp.height * 0.392)
-      try {
-        await page.mouse.move(cx - 10, cy - 6)
-        await page.mouse.click(cx, cy)
-        clicked++
-        console.log(`CF-CLICK viewport(${cx},${cy}) round=${clicked}`)
-      } catch {}
+    if (didClick) {
+      lastClickAt = now
+      await sleep(15000)
+    } else {
+      // 无控件可点:等 CF 的 JS 挑战自动完成(真 Chrome + webdriver=false 时通常几秒内放行)
+      await sleep(6000)
     }
-    await sleep(6000)
   }
   return false
 }
 
+// 真 Chrome 优先:官方安装的 google-chrome 的 userAgentData.brands 含 "Google Chrome",
+// 而 Playwright/Chrome-for-Testing 的 chromium 只有 Chromium 品牌 —— CF 一测即识破。
+// 配合 --disable-blink-features=AutomationControlled,navigator.webdriver 原生为 false,
+// 无需任何 JS 补丁(JS 补丁会被 Function.prototype.toString / 自有属性检测识破)。
+// Playwright 只作为 connectOverCDP 的客户端复用现有 API,失败再回退自家 chromium。
+function findRealChrome() {
+  const cands = [
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/opt/google/chrome/chrome',
+    '/usr/local/bin/google-chrome',
+  ]
+  for (const p of cands) if (fs.existsSync(p)) return p
+  return null
+}
+
+function waitPort(port, timeoutMs) {
+  const t0 = Date.now()
+  return new Promise((resolve, reject) => {
+    const tryOnce = () => {
+      const sock = net.connect(port, '127.0.0.1')
+      sock.on('connect', () => {
+        sock.destroy()
+        resolve()
+      })
+      sock.on('error', () => {
+        sock.destroy()
+        if (Date.now() - t0 > timeoutMs) reject(new Error('chrome devtools port timeout'))
+        else setTimeout(tryOnce, 500)
+      })
+    }
+    tryOnce()
+  })
+}
+
 async function launch() {
   const headed = process.env.UNDER_XVFB === '1'
+  const bin = findRealChrome()
+  if (bin) {
+    try {
+      fs.rmSync('/tmp/chrome-npmboot', { recursive: true, force: true })
+      const args = [
+        '--remote-debugging-port=9222',
+        '--no-sandbox',
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-infobars',
+        '--disable-blink-features=AutomationControlled',
+        '--window-size=1280,860',
+        '--user-data-dir=/tmp/chrome-npmboot',
+        'about:blank',
+      ]
+      if (!headed) args.push('--headless=new')
+      spawn(bin, args, { stdio: 'ignore' })
+      await waitPort(9222, 25000)
+      const browser = await chromium.connectOverCDP('http://127.0.0.1:9222')
+      const ctx = browser.contexts()[0] || (await browser.newContext())
+      const page = ctx.pages()[0] || (await ctx.newPage())
+      console.log(`LAUNCH via real Chrome: ${bin} (webdriver native=false, brands include "Google Chrome")`)
+      return { browser, ctx, page }
+    } catch (e) {
+      console.log(`real-chrome launch failed, fallback to playwright chromium: ${e.message}`)
+    }
+  }
   const browser = await chromium.launch({
     headless: !headed,
     args: ['--disable-blink-features=AutomationControlled', '--no-sandbox'],
@@ -133,6 +208,7 @@ async function launch() {
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined })
   })
   const page = await ctx.newPage()
+  console.log('LAUNCH via playwright chromium (fallback)')
   return { browser, ctx, page }
 }
 

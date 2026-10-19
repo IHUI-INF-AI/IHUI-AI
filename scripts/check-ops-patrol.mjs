@@ -594,10 +594,78 @@ export async function checkMailChannelLiveness({
   now = Date.now(),
   repoRoot = REPO,
   runner = null,
+  loadRunner = null,
   tickFile = MAIL_PROBE_TICK,
   lastFile = MAIL_PROBE_LAST,
 } = {}) {
   const id = 'P9·邮件通道活性'
+  const sender = join(repoRoot, 'apps', 'api', 'scripts', 'notify-deploy-failure.ts')
+  const tsx = join(repoRoot, 'apps', 'api', 'node_modules', 'tsx', 'dist', 'cli.mjs')
+
+  /**
+   * **零投递加载探针,每轮都跑**(2026-10-19 立,立项凭据是当晚一次两小时的静默失效):
+   · 19:29→21:32 到人邮件一封都没寄出去,起因只是某会话把 `packages/types/src/ai-world.ts`
+     **从磁盘**删掉(索引与 HEAD 都还在 ⇒ HEAD 面的悬空导入门与孤儿删除门双双射程外),
+     barrel 起不来 ⇒ 唯一发信出口 `notify-deploy-failure.ts` 连同纯文本降级**一起崩**;
+   · 而本格的 SMTP 探针每 `mailProbeIntervalHours` 才真跑一趟,其余轮次**复述缓存结论**
+     ⇒ 通道可以坏着最多 6 小时没人知道;
+   · 最后暴露它的是"某条告警真去寄而寄失败"——也就是说:**没有告警要寄的那段时间,
+     通道坏了量不到**。这正是不该有的失效方向(§0.10:宁可多要一次定向说明,绝不能静默)。
+   加载探针只跑 `--help`(零网络、零投递、不占收件人),代价是每轮一次子进程;
+   崩了就立刻判红并点名缺的是哪个模块 —— 这是**量到的事实**,不是"取不到输入"(§0.3 分得清这两者)。
+   */
+  const loadProbeModuleError = (text) => {
+    const t = String(text || '')
+    const m = t.match(/ERR_MODULE_NOT_FOUND[\s\S]{0,400}?Cannot find module '([^']+)'/) || t.match(/Cannot find module '([^']+)'/)
+    return m ? m[1] : null
+  }
+  if (existsSync(tsx) && existsSync(sender)) {
+    const lr =
+      loadRunner ||
+      (() => {
+        try {
+          const stdout = execFileSync(process.execPath, [tsx, sender, '--help'], {
+            cwd: repoRoot,
+            windowsHide: true, // §5b
+            timeout: MAIL_PROBE_TIMEOUT_MS, // 守门 80
+            maxBuffer: 1 << 20,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            encoding: 'utf8',
+          })
+          return { status: 0, stdout: String(stdout || ''), stderr: '' }
+        } catch (e) {
+          return {
+            status: typeof e?.status === 'number' ? e.status : 2,
+            stdout: String(e?.stdout || ''),
+            stderr: String(e?.stderr || e?.message || ''),
+          }
+        }
+      })
+    let l
+    try {
+      l = await lr()
+    } catch (e) {
+      return { id, state: 'undetermined', detail: `加载探针派生失败(未判定,不当"通道坏了"):${String((e && e.message) || e).slice(0, 120)}` }
+    }
+    const missing = loadProbeModuleError(`${l.stderr || ''}\n${l.stdout || ''}`)
+    if (missing)
+      return {
+        id,
+        state: 'finding',
+        detail:
+          `发信出口**根本起不来**(零投递加载探针 ` +
+          `node apps/api/node_modules/tsx/dist/cli.mjs apps/api/scripts/notify-deploy-failure.ts --help` +
+          ` 崩):缺模块 ${missing} ⇒ 这一段时间里该寄的信一封都寄不出去,而 SMTP 侧探针量不到这件事。` +
+          `先按字节把缺的那个源文件补回并重建其包(索引/HEAD 仍在位时用 git show HEAD:<path>),` +
+          `再跑 node scripts/git-guardian.mjs --notify-test 端到端复验`,
+      }
+    if (l.status !== 0)
+      return {
+        id,
+        state: 'undetermined',
+        detail: `加载探针 rc=${l.status} 但不是缺模块形态(不据此判"通道坏了"):${String(l.stderr || l.stdout || '(无输出)').split(/\r?\n/).slice(0, 2).join(' | ').slice(0, 160)}`,
+      }
+  }
   const readTick = () => {
     try {
       const t = String(readFileSync(tickFile, 'utf8')).trim()
@@ -636,15 +704,19 @@ export async function checkMailChannelLiveness({
     return mailProbeRow(last.probe, { atMs: Number(last.atMs) })
   }
 
-  const sender = join(repoRoot, 'apps', 'api', 'scripts', 'notify-deploy-failure.ts')
-  const tsx = join(repoRoot, 'apps', 'api', 'node_modules', 'tsx', 'dist', 'cli.mjs')
-  if (!existsSync(tsx) || !existsSync(sender)) {
+  // sender / tsx 已在本函数开头取过(加载探针要用同一对路径,§0.6 不留第二份取值)
+  if (!existsSync(sender))
+    return {
+      id,
+      state: 'finding',
+      detail: `唯一发信出口不在位:${sender} ⇒ 到人链路结构上不可能寄信(这是量到的事实,不是"取不到输入")`,
+    }
+  if (!existsSync(tsx))
     return {
       id,
       state: 'undetermined',
-      detail: `派发器或其 tsx 入口不在位(tsx=${existsSync(tsx)} sender=${existsSync(sender)})⇒ 没判`,
+      detail: `tsx 入口不在位(${tsx})而出口文件在 ⇒ 本格没判,不读成"通道坏了"`,
     }
-  }
   const call =
     runner ||
     (() => {
@@ -674,6 +746,13 @@ export async function checkMailChannelLiveness({
   }
   const parsed = parseProbeOutput(r.stdout)
   if (!parsed) {
+    const missingSmtp = loadProbeModuleError(`${r.stderr || ''}\n${r.stdout || ''}`)
+    if (missingSmtp)
+      return {
+        id,
+        state: 'finding',
+        detail: `SMTP 探针同样以缺模块崩(缺 ${missingSmtp})⇒ 出口起不来,通道量不到就等于坏(与加载探针同判)`,
+      }
     return {
       id,
       state: 'undetermined',
@@ -2072,12 +2151,44 @@ export async function checkHeadTypecheckLanded(opts = {}) {
   } catch {
     lastRunMs = 0
   }
+  let headNow = ''
+  const readHead =
+    opts.headReader ??
+    (() => {
+      if (headNow) return headNow
+      try {
+        headNow = String(gitRaw(['rev-parse', 'HEAD'], repoRoot, { timeout: 30_000 }) || '').trim()
+      } catch {
+        headNow = ''
+      }
+      return headNow
+    })
   if (lastRunMs && now - lastRunMs < windowMs) {
     const prev = readRow()
     if (!prev || typeof prev.state !== 'string') {
       return { id: 'P12', state: 'undetermined', detail: '未到复跑窗口且没有可复述的上次结论 ⇒ 未判定（不读成"没问题"）' }
     }
-    return { id: 'P12', state: prev.state, detail: '复述 ' + Math.round((now - lastRunMs) / 60000) + 'min 前结论（窗口 ' + Math.round(windowMs / 60000) + 'min）：' + String(prev.detail ?? '') }
+    // **复述不得跨过它没量过的那枚 commit**(2026-10-19 立):本格量的是"HEAD 面能否类型检查",
+    // 而窗口是按墙钟折的 —— 墙钟没走完而 HEAD 已经换了,复述就是在替一份**当前仓里不存在的代码**作证。
+    // 现读代价:22:10 复跑已判"净 20/20",而 22:27 本格仍复述 20:41 那枚"已入库红 4 端"的旧结论
+    // ⇒ 一条已被推翻的红色会继续被报、继续被寄,收件人按它去查什么也查不到(§5e-1)。
+    // 落不到 commit 时不硬判:取不到当前 HEAD ⇒ 未判定(比不了不等于仍成立);
+    // 旧行没有 commit 锚 ⇒ 重跑一次,之后就有可比的锚了。
+    const headNow2 = readHead()
+    const anchor = String(prev.headSha || '')
+    if (headNow2 && anchor && headNow2 === anchor)
+      return { id: 'P12', state: prev.state, detail: '复述 ' + Math.round((now - lastRunMs) / 60000) + 'min 前结论（窗口 ' + Math.round(windowMs / 60000) + 'min,commit ' + anchor.slice(0, 9) + ' 未变）：' + String(prev.detail ?? '') }
+    if (!headNow2 && !anchor)
+      // 两侧都没有锚(不是 git 仓 / 老台账行)⇒ 保持改前口径:按墙钟复述,并如实写明锚没判成。
+      // 不因此判红也不因此判绿 —— 本格的节流契约(窗口内不重复派生 108s 的重活)不该被一次读不到 HEAD 打掉。
+      return { id: 'P12', state: prev.state, detail: '复述 ' + Math.round((now - lastRunMs) / 60000) + 'min 前结论（窗口 ' + Math.round(windowMs / 60000) + 'min;commit 锚两侧都取不到 ⇒ 这一维未判定,只按墙钟复述）：' + String(prev.detail ?? '') }
+    if (!headNow2)
+      return {
+        id: 'P12',
+        state: 'undetermined',
+        detail: `复述被降级为未判定:当前 HEAD 取不到,无法确认旧结论(${String(prev.headSha || '(无 commit 锚)').slice(0, 9)})还在描述这份代码 —— "比不了"不得读成"仍成立"`,
+      }
+    // 走到这里 = commit 变了(或旧行压根没有锚)⇒ 不复述,按本轮重跑走下面的真实判定
   }
   let stdout = ''
   try {
@@ -2117,7 +2228,7 @@ export async function checkHeadTypecheckLanded(opts = {}) {
   else if (inFlightN > 0 || undN > 0 || Number(skippedN ?? 0) > 0 || okN !== judged) state = 'undetermined'
   const detail = m[0] + (skippedN ? '' : ' | 未跑到 未读出⇒按未判定处理') + '（判据源=check-head-typecheck 末行；脏树时它是候选不是定论）'
   try {
-    writeFileSync(lastFile, JSON.stringify({ state, detail }), 'utf8')
+    writeFileSync(lastFile, JSON.stringify({ state, detail, headSha: readHead() }), 'utf8')
   } catch { /* 同上 */ }
   return { id: 'P12', state, detail }
 }
@@ -2464,6 +2575,60 @@ async function mailProbeFixture() {
   // 稳定性:同一份 last 连判两次必须逐字同形(否则每轮生成一封新告警)
   const again = await checkMailChannelLiveness({ now: now + 1000, repoRoot: repo, tickFile: tick, lastFile: join(base, 'last-missing'), runner: () => ({ status: 0, stdout: '', stderr: '' }) })
   if (again.state !== 'undetermined' || !again.detail.includes('取不到')) return { ok: false, why: '结论文件缺失档未点名原因' }
+
+  // ── 零投递加载探针(2026-10-19 立;当晚 19:29→21:32 邮件通道静默死了两小时,而 SMTP 探针
+  //    要么还在复述缓存结论、要么把"模块崩"读成未判定 —— 没有告警要寄的时段,通道坏了量不到)──
+  const repo3 = join(base, 'repo3')
+  mkdirSync(join(repo3, 'apps/api/scripts'), { recursive: true })
+  mkdirSync(join(repo3, 'apps/api/node_modules/tsx/dist'), { recursive: true })
+  writeFileSync(join(repo3, 'apps/api/scripts/notify-deploy-failure.ts'), 'export {}\n', 'utf8')
+  writeFileSync(join(repo3, 'apps/api/node_modules/tsx/dist/cli.mjs'), '', 'utf8')
+  const t3 = join(base, 'tick3')
+  const l3 = join(base, 'last3')
+  writeFileSync(t3, String(now), 'utf8') // 未到班次 ⇒ 只有加载探针会跑,正好证明"每轮都探"这一格
+  writeFileSync(l3, JSON.stringify({ atMs: now, probe: { rc: 0, channels: { smtp: { verdict: 'ok', why: 'x' } }, verdict: 'ok' } }), 'utf8')
+  const CRASH =
+    "node:internal/modules/esm/resolve:272\nError [ERR_MODULE_NOT_FOUND]: Cannot find module 'D:\\\\IHUI-AI\\\\packages\\\\types\\\\dist\\\\ai-world.js' imported from D:\\\\IHUI-AI\\\\packages\\\\types\\\\dist\\\\index.js\n"
+  let smtpSpawned = 0
+  const dead = await checkMailChannelLiveness({
+    now: now + 1000,
+    repoRoot: repo3,
+    tickFile: t3,
+    lastFile: l3,
+    loadRunner: () => ({ status: 1, stdout: '', stderr: CRASH }),
+    runner: () => {
+      smtpSpawned += 1
+      return { status: 0, stdout: '{"rc":0}', stderr: '' }
+    },
+  })
+  if (dead.state !== 'finding') return { ok: false, why: `出口崩了却被读成没判:${dead.state} / ${dead.detail}` }
+  if (!dead.detail.includes('ai-world.js')) return { ok: false, why: `判红必须点名缺的是哪个模块:${dead.detail}` }
+  if (smtpSpawned !== 0) return { ok: false, why: '加载探针已判坏还去派 SMTP 探针(白派一次,且会把红顶成绿)' }
+  // 阳性对照 A:同样 rc≠0 但**不是**缺模块形态 ⇒ 必须回到未判定,不许冒红(§0.3 两个方向都要钉)
+  const other = await checkMailChannelLiveness({
+    now: now + 2000,
+    repoRoot: repo3,
+    tickFile: t3,
+    lastFile: l3,
+    loadRunner: () => ({ status: 1, stdout: '', stderr: 'Error: 某个与模块解析无关的失败' }),
+    runner: () => {
+      smtpSpawned += 1
+      return { status: 0, stdout: '{"rc":0}', stderr: '' }
+    },
+  })
+  if (other.state !== 'undetermined' || !other.detail.includes('不是缺模块形态'))
+    return { ok: false, why: `非缺模块的崩溃被读成通道坏了(方向错):${other.state} / ${other.detail}` }
+  // 阳性对照 B:加载成功 ⇒ 一律照旧走原探针口径(新格不得把既有结论洗成红或洗成绿)
+  const alive = await checkMailChannelLiveness({
+    now: now + 3000,
+    repoRoot: repo3,
+    tickFile: t3,
+    lastFile: l3,
+    loadRunner: () => ({ status: 0, stdout: 'usage: notify-deploy-failure', stderr: '' }),
+    runner: () => ({ status: 0, stdout: '{"rc":1,"channels":{"smtp":{"verdict":"fail","why":"auth"}},"verdict":"y"}', stderr: '' }),
+  })
+  if (alive.state === 'finding' && alive.detail.includes('根本起不来'))
+    return { ok: false, why: '加载探针过了却仍判"起不来"' }
   return { ok: true, why: '' }
   } finally {
     rmSync(base, { recursive: true, force: true })
@@ -2907,6 +3072,56 @@ export async function selfTest() {
       windowMs: 10 ** 9,
       runner: async () => { throw new Error('未到窗口时不该再派生') },
     })
+    // ── commit 锚三臂(2026-10-19 立:复述不得跨过它没量过的那枚 commit;现读 22:10 已判净而 22:27 仍复述旧红)──
+    {
+      const tA = join(d, 'tickA')
+      const lA = join(d, 'lastA')
+      writeFileSync(tA, String(20_000), 'utf8')
+      writeFileSync(lA, JSON.stringify({ state: 'finding', detail: '旧结论X', headSha: 'a'.repeat(40) }), 'utf8')
+      let sp1 = 0
+      const rA = await checkHeadTypecheckLanded({
+        now: 20_000 + 60_000,
+        repoRoot: d,
+        tickFile: tA,
+        lastFile: lA,
+        windowMs: 10 ** 9,
+        headReader: () => 'a'.repeat(40),
+        runner: async () => { sp1 += 1; return RED },
+      })
+      t(
+        'P12 锚未变 ⇒ 仍按窗口复述且一次都不派生(节流契约不得被新判据打掉)',
+        rA.state === 'finding' && rA.detail.includes('复述') && sp1 === 0,
+      )
+      let sp2 = 0
+      const rB = await checkHeadTypecheckLanded({
+        now: 20_000 + 60_000,
+        repoRoot: d,
+        tickFile: tA,
+        lastFile: lA,
+        windowMs: 10 ** 9,
+        headReader: () => 'b'.repeat(40),
+        runner: async () => { sp2 += 1; return NET },
+      })
+      t(
+        'P12 HEAD 变了 ⇒ 必须重跑、不得复述(摘掉锚比对这一支,本例直接翻绿)',
+        sp2 === 1 && !rB.detail.includes('复述'),
+      )
+      let sp3 = 0
+      writeFileSync(lA, JSON.stringify({ state: 'finding', detail: '旧结论X', headSha: 'a'.repeat(40) }), 'utf8')
+      const rC = await checkHeadTypecheckLanded({
+        now: 20_000 + 60_000,
+        repoRoot: d,
+        tickFile: tA,
+        lastFile: lA,
+        windowMs: 10 ** 9,
+        headReader: () => '',
+        runner: async () => { sp3 += 1; return RED },
+      })
+      t(
+        'P12 当前 HEAD 取不到而旧行有锚 ⇒ 未判定、不冒红也不派生',
+        rC.state === 'undetermined' && rC.detail.includes('取不到') && sp3 === 0,
+      )
+    }
     t('P12 未到窗口而无历史 ⇒ 未判定（不得读成"没问题"）', r7.state === 'undetermined' && r7.detail.includes('没有可复述'))
     rmSync(root, { recursive: true, force: true })
   }

@@ -1229,6 +1229,11 @@ def create_app() -> FastAPI:
         }
 
     # Prometheus 指标(/metrics 端点,由 prometheus-fastapi-instrumentator 自动暴露)
+    # 2026-10-19 修复:compaction_metrics 此前仅在压缩事件发生时才惰性加载,
+    # 导致 ihui_compaction_* 指标在 /metrics 完全缺失(连 HELP 都没有)。
+    # 此处启动期顶层注册,保证指标对象始终存在(无事件时诚实显示 0 / 无序列)。
+    from app.services import compaction_metrics  # noqa: F401  - 仅用于注册 Prometheus 指标
+
     Instrumentator(
         should_group_status_codes=True,
         should_ignore_untemplated=True,

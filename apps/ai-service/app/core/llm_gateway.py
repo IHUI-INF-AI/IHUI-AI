@@ -3119,6 +3119,10 @@ class LLMGateway:
                 # 取不到时以 litellm.token_counter 估算兜底(与 LiteLLM 流式路径同款)。
                 _native_metrics_t0 = time.perf_counter()
                 _native_final_usage: dict[str, Any] | None = None
+                # 2026-10-19 修复:原生流式分支此前只置 native_sent_content,
+                # 未测量首 token 耗时,导致 ihui_llm_ttft_seconds 在 stepfun/工具
+                # 原生路径上永不产出(与 LiteLLM 分支双标)。首个内容事件即记 TTFT。
+                _native_ttft: float | None = None
                 # 借来的异步生成器必须"谁借谁关":下面 error→fallback 分支那句
                 # `yield …; return` 就是把 astream_iter 弃在半路的一型 —— 它此刻仍停在
                 # provider 的 `async with client.stream(...)` 内部(见
@@ -3151,6 +3155,8 @@ class LLMGateway:
                             continue
                         if isinstance(evt, dict) and evt.get("type") in ("chunk", "reasoning"):
                             native_sent_content = True
+                            if _native_ttft is None:
+                                _native_ttft = time.perf_counter() - _native_metrics_t0
                         if isinstance(evt, dict) and evt.get("usage"):
                             _native_final_usage = evt["usage"]
                         yield evt
@@ -3180,6 +3186,7 @@ class LLMGateway:
                     status='ok',
                     usage=_native_final_usage,
                     duration_seconds=time.perf_counter() - _native_metrics_t0,
+                    ttft_seconds=_native_ttft,
                     cost_usd=_estimate_cost_usd(used_model, _native_final_usage),
                 )
                 # 2026-08-29 修复:流结束前统一产出累积后的完整 tool_calls(按 index 排序)

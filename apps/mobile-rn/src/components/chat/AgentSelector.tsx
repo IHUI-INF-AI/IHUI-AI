@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(12),
     paddingVertical: rpx(4),
     backgroundColor: tokens.brandAccent.light,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
   },
   personaMetaText: {
     fontSize: rnGeometry.textCaption,
