@@ -738,6 +738,10 @@ export function ChatScreen() {
         const title = conversationMetaLedger.titleFor(item.id, item.title)
         return title === item.title ? item : { ...item, title }
       }),
+    // broadcastMetaVersion 是广播账本的失效令牌(非被引用值):ledger 为模块级单例,
+    // titleFor 读其当前值,React 追踪不到单例内部变化 ⇒ 有意以版本号入 deps 触发重算
+    // (账本被广播改过 ⇒ 版本递增 ⇒ 本列表重算覆盖值,机制见上方 useSyncExternalStore 注释)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [drawerConversations, broadcastMetaVersion],
   )
 
@@ -2108,6 +2112,7 @@ export function ChatScreen() {
       retryLastTurn,
       toggleMessageFlag,
       t,
+      workspaceTier,
       setPrompt,
     ],
   )
