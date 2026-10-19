@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'signup | verify_token | publish | trusted_publisher | signpath'
+        description: 'signup | verify_token | publish | signpath'
         required: true
         default: 'signup'
       attempts:
@@ -36,9 +36,6 @@ jobs:
       NPM_USERNAME: ${{ secrets.NPM_BOOT_USERNAME }}
       NPM_PASSWORD: ${{ secrets.NPM_BOOT_PASSWORD }}
       NPM_VERIFY_URL: ${{ secrets.NPM_VERIFY_URL }}
-      # trusted_publisher:网页登录凭据(npm 已禁用 API 换 token,Trusted Publisher 只能网页登记)
-      NPM_WEB_USERNAME: ${{ secrets.NPM_WEB_USERNAME }}
-      NPM_WEB_PASSWORD: ${{ secrets.NPM_WEB_PASSWORD }}
       # signpath:申请联系邮箱
       SIGNPATH_EMAIL: ${{ secrets.SIGNPATH_EMAIL }}
     steps:
