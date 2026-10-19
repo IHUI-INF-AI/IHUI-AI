@@ -15,6 +15,7 @@
 // @vitest-environment jsdom
 import { act, render } from '@testing-library/react'
 import { type ReactNode } from 'react'
+import type * as BottomPopsModule from '../src/components/BottomPops'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ToolApprovalEvent } from '@ihui/api-client'
 import { I18nProvider, messages, getValueByPath } from '../src/i18n'
@@ -46,9 +47,8 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
   }
 })
 
-// react-native 走端内桩;桩里没有 Alert(原生确认框在 jsdom 不存在),TextInput 又不把
-// onChangeText 交给 DOM —— 所以保留其余导出,替这三件:确认框记录到 h.alerts,
-// 输入框把 props 交回给用例,Modal 只在 visible 时渲染。
+// react-native 走端内桩;TextInput 不把 onChangeText 交给 DOM —— 所以保留其余导出,
+// 替这两件:输入框把 props 交回给用例,Modal 只在 visible 时渲染。
 vi.mock('react-native', async (importOriginal) => {
   const mod = await importOriginal<Record<string, unknown>>()
   const { createElement: ce } = await import('react')
@@ -62,10 +62,17 @@ vi.mock('react-native', async (importOriginal) => {
       h.input = props
       return ce('input', { readOnly: true })
     },
-    Alert: {
-      alert: (title: string, message: string, buttons?: AlertCall['buttons']) => {
-        h.alerts.push({ title, message, buttons: buttons ?? [] })
-      },
+  }
+})
+
+// 高危命令二次确认改走共享 appAlert(见 components/BottomPops);用 importOriginal 保底其余导出,
+// 只把 appAlert 替成捕获函数:确认框记录进 h.alerts(按钮 onPress 留待 pressAlert 手动触发)。
+vi.mock('../src/components/BottomPops', async (importOriginal) => {
+  const mod = await importOriginal<typeof BottomPopsModule>()
+  return {
+    ...mod,
+    appAlert: (title: string, message: string, buttons?: AlertCall['buttons']) => {
+      h.alerts.push({ title, message, buttons: buttons ?? [] })
     },
   }
 })
