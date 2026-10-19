@@ -30,8 +30,12 @@ import {
   resurrectKey,
   resurrectAnalysis,
   resurrectInputPath,
+  watermarkReinjection,
   RESURRECT_WATERMARK_SLOT_RE,
 } from '../lib/stale-content-analysis.mjs'
+// G-926:横幅文案与结构行识别都取自那唯一一份;落地器的陈旧判据入口也只 import 不复制
+import { CANONICAL_BANNER_LINES } from '../lib/watermark-lines.mjs'
+import { __test__ as L } from '../object-space-land.mjs'
 
 const GIT = 'C:/Program Files/Git/cmd/git.exe'
 
@@ -1098,3 +1102,146 @@ test('形状锁:输入路径解析只有一份,门体必须两侧各按自己的
     '门体必须**两侧各按自己的面**查存在性(索引面 / HEAD 面)—— 一面量两面就是把两把尺子叠成一把',
   )
 })
+
+/* ------------------------------------------------------------------ *
+ * G-926 组(2026-10-19):水印**补回**型不得无路可走 —— 门 84 R1(整 blob 支)↔ 门 47 互锁。
+ * WM 组折的是载荷槽行那一行;可见横幅两行落在它射程之外,而"照 §5c 补回署名"这一步
+ * 产出的形态**逐字等于**洗掉之前那枚祖先 ⇒ R1 前提成立 + R1r 数到 2 行 ⇒ 两把正确的门之间
+ * 没有合法落地通道(夹具实测留档 .ihui-agent/tmp/rn-miniapp-zero/g926-probe.mjs)。
+ * 窄判据 = removed===0 ∧ 多的行逐字全是水印结构行 ∧ 至少多一行;三条缺一不放行。
+ * 成对断律:只补横幅 ⇒ 门 84 与落地器**两侧都绿**;补横幅的同时弄没一行正文 ⇒ 两侧照红。
+ * ------------------------------------------------------------------ */
+{
+  const BNR = `${CANONICAL_BANNER_LINES.map((l) => `// ${l}`).join('\n')}\n`
+  const BODY = 'export const keep = 1\n'
+  const BODY_WITH_EXTRA = 'export const keep = 1\nexport const gone = 0\n'
+
+  test('G-926 M-1 纯函数四态:只补水印⇒放行 / 少一行⇒不放 / 多一行非水印⇒不放 / 取不到⇒未判定', () => {
+    const yes = watermarkReinjection({ baseText: BODY, newText: BNR + BODY })
+    assert.equal(yes.status, 'judged')
+    assert.equal(yes.watermarkOnly, true, `只补横幅必须放行,实得 ${JSON.stringify(yes)}`)
+    assert.equal(yes.addedWatermark, 2)
+    assert.equal(yes.removed, 0)
+
+    const rollback = watermarkReinjection({ baseText: BODY_WITH_EXTRA, newText: BNR + BODY })
+    assert.equal(rollback.watermarkOnly, false, '少一行正文就不是补水印,是回退')
+    assert.equal(rollback.removed, 1)
+
+    const mixed = watermarkReinjection({ baseText: BODY, newText: `${BNR + BODY}export const z = 3\n` })
+    assert.equal(mixed.watermarkOnly, false, '多了一行非水印内容 ⇒ 三条缺一不生效')
+    assert.equal(mixed.addedOther, 1)
+
+    const nothing = watermarkReinjection({ baseText: BODY, newText: BODY })
+    assert.equal(nothing.watermarkOnly, false, '一字未动不得被读成"补回放行"(addedWatermark≥1 是第三条)')
+
+    for (const bad of [
+      { baseText: null, newText: BNR + BODY },
+      { baseText: BNR + BODY, newText: null },
+    ]) {
+      const u = watermarkReinjection(bad)
+      assert.equal(u.status, 'undetermined')
+      assert.equal(u.watermarkOnly, false, '未判定绝不被读成放行')
+    }
+  })
+
+  test('G-926 M-2 端到端成对:只补横幅在门 84 与落地器两侧都绿,真回退一行正文照红', () => {
+    const { dir, run } = repo()
+    try {
+      put(dir, 'wm.ts', BNR + BODY)
+      put(dir, 'md.ts', BNR + BODY_WITH_EXTRA)
+      run('add', '-A')
+      run('commit', '-qm', 'c1: 带横幅的祖先形态')
+      put(dir, 'wm.ts', BODY)
+      put(dir, 'md.ts', BODY)
+      run('add', '-A')
+      run('commit', '-qm', 'c2: regeneration 洗掉横幅(md 还删掉一行正文)')
+
+      // ① 只补水印:两枚都按 §5c 补回,但 wm 的正文一字未动、md 顺带搬回一行旧内容
+      put(dir, 'wm.ts', BNR + BODY)
+      put(dir, 'md.ts', BNR + BODY_WITH_EXTRA)
+      const land = L.detectStaleLanding({ root: dir, paths: ['wm.ts', 'md.ts'] })
+      const off = (land.offenders ?? []).map((o) => o.path)
+      assert.ok(!off.includes('wm.ts'), `只补横幅不得被落地器拒绝,实得 ${JSON.stringify(off)}`)
+      assert.ok(
+        off.includes('md.ts'),
+        `补横幅同时搬回一行旧内容必须被拒,实得 ${JSON.stringify(off)}`,
+      )
+      const note = (land.notes ?? []).find((n) => n.path === 'wm.ts')
+      assert.ok(
+        note && /复活 0 行/.test(note.why),
+        `落地器必须报"复活 0 行"(水印档生效的证据),实得 ${JSON.stringify(note)}`,
+      )
+
+      // ② 门 84 索引面:同一枚只补横幅的暂存 ⇒ RC=0 且留痕点名放行
+      run('add', '--', 'wm.ts')
+      const g1 = G.audit(dir, { staged: true })
+      assert.equal(g1.code, 0, `只补横幅必须过门,实得:\n${g1.lines.join('\n').slice(0, 500)}`)
+      assert.ok(
+        g1.lines.join('\n').includes('[R1 水印补回型放行]'),
+        '放行必须逐条点名(看不见就是把豁免变成无人看守区)',
+      )
+
+      // ③ 阳性对照:同一枚提交里带上 md.ts(整 blob 等于祖先 + 相对 HEAD 少一行正文)⇒ 照红
+      run('add', '--', 'md.ts')
+      const g2 = G.audit(dir, { staged: true })
+      assert.equal(g2.code, 1, '搬回旧内容那一枚必须仍判红,窄判据没有把牙削掉')
+      const out2 = g2.lines.join('\n')
+      assert.ok(out2.includes('md.ts'), `红行必须点名 md.ts,实得 ${out2.slice(0, 400)}`)
+      assert.ok(
+        !out2.includes('wm.ts') || out2.includes('[R1 水印补回型放行]'),
+        'wm.ts 不得因为同批带上 md.ts 而被判成回退',
+      )
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  test('G-926 M-3 形状锁:水印行的识别口径全仓只有一份,门体与 lib 都不许自拼横幅字符串', () => {
+    const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+    const libSrc = readFileSync(join(ROOT, 'scripts/lib/stale-content-analysis.mjs'), 'utf8')
+    const gateSrc = readFileSync(join(ROOT, 'scripts/check-stale-revert.mjs'), 'utf8')
+    const linesSrc = readFileSync(join(ROOT, 'scripts/lib/watermark-lines.mjs'), 'utf8')
+    assert.equal(
+      (linesSrc.match(/export function isWatermarkStructureLine/g) ?? []).length,
+      1,
+      '结构行识别在 watermark-lines.mjs 里必须只有一处定义',
+    )
+    assert.match(
+      libSrc,
+      /import\s*\{[^}]*\bisWatermarkStructureLine\b[^}]*\}\s*from\s*['"]\.\/watermark-lines\.mjs['"]/,
+      'lib 必须 import 那份唯一出口(§22c:自写一份必然漂移)',
+    )
+    const libCode = maskCommentsAndStrings(libSrc)
+    assert.match(
+      libCode,
+      /isWatermarkStructureLine\s*\(/,
+      'import 了却没调用 = 判据仍是自写的(假接线)',
+    )
+    // 门体只许通过 lib 的 watermarkReinjection 用这一维,自己不得再判一次水印形态
+    const gateCode = maskCommentsAndStrings(gateSrc)
+    assert.match(gateCode, /watermarkReinjection\s*\(/, '门体必须调用 lib 那份窄判据')
+    for (const re of [/isWatermarkStructureLine/, /BANNER_TEXT_RE/, /ZW_ONLY_RE/])
+      assert.ok(!re.test(gateCode), `门体不得出现第二份水印形态识别:${re}`)
+    // 每枚被水印覆盖的文件顶部**本来就带着**这句文案 ⇒ 只能判遮掉注释/字符串之后的代码面:
+    // 谁在代码里再拼一份横幅文字,就是第二份实现(按原文面判会把自己的横幅判成违规)。
+    for (const [name, code] of [
+      ['lib/stale-content-analysis', maskCommentsAndStrings(libSrc)],
+      ['check-stale-revert', gateCode],
+    ])
+      assert.ok(
+        !code.includes('© 2026 IHUI AI'),
+        `${name} 的代码面不得内联横幅文案(文案唯一住在 watermark-lines.mjs)`,
+      )
+    // 反向锁:工作树档(人工逃生舱)不走这一维 —— 放宽只按索引面取证。
+    // 这条按**原文面**判:遮掉字符串的尺子会把 `'index'` 一起抹掉,那判的就不是实现而是形状了。
+    assert.match(
+      gateSrc,
+      /if\s*\(\s*source\s*!==\s*'index'\s*\)\s*return\s+fail\(/,
+      'r1WatermarkInfo 必须对工作树档拒绝放宽(不得按磁盘读被审内容,守门 118)',
+    )
+    assert.ok(
+      !gateCode.match(/\breadFileSync\s*\(/),
+      '门体不得为这一档去读磁盘正文(共享工作树滞后即换结论)',
+    )
+  })
+}

@@ -70,13 +70,12 @@ import type { GoalUpdateEvent } from '@ihui/api-client'
 import type { ToolApprovalEvent } from '@ihui/api-client'
 // D136:tool-approval 帧的端内认领层(共享解析面不认领该帧族,见该文件头注)。
 import { parseToolApprovalLine } from '@/lib/tool-approval-frame'
-// D77(2026-10-17 落地小程序腿):form_request 帧的**认领层 + 投影**单源在共享层
-// (@ihui/shared/chat/form-request-frame),端内只接线不重实现(AGENTS §0.6 判据单源)。
-// 认领走本文件 streamSSE 的 onRawLine 旁路(与 D136 tool-approval 同先例)——
-// 共享解析面(@ihui/shared/utils/sse-parse)在本票禁改面内,不替跨端裁决改共享解析面;
-// 不走旁路该帧族会滑到 `⇒ {type:'meta', sessionId}` 泛化兜底被折成一条 meta,
-// kind/fields/actions 全丢(D151 terminal_interaction 同型缺陷)。
-import { parseFormRequestLine } from '@ihui/shared/chat/form-request-frame'
+// D77(2026-10-17 落地小程序腿 / 2026-10-19 收编):form_request 帧的**认领层 + 投影**单源在共享层
+// (@ihui/shared/chat/form-request-frame)。端内**不再走 onRawLine 二次认领**:共享解析面
+// (@ihui/shared/utils/sse-parse)已于 2026-10-18 在 meta 泛化兜底之前认领该帧族,
+// 原先"共享面不认领 ⇒ 不走旁路该帧会被折成 meta、kind/fields/actions 全丢"的前提已不成立;
+// 留着旁路就是同一条帧两处认领 —— 共享面改了字段口径时端内这份会静默比它旧。
+// 投影层仍从该共享件取(与 web/RN 同一份判定),只是接线改由 dispatch 承接已认领的事件。
 import type { FormRequestFramePayload } from '@ihui/shared'
 import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
 import type {
@@ -552,6 +551,11 @@ export const chatStream = async (
       case 'partial_done':
         if (evt.partialDone) onPartialDone?.(evt.partialDone)
         break
+      // D77(2026-10-19 收编,与上一条 partial_done 同一形状):共享 sse-parse 已认领 form_request,
+      // 端内只承接已认领的事件 —— 不在 onRawLine 里再解析一次(见文件头那条注记的理由)。
+      case 'form_request':
+        if (evt.formRequest) callbacks?.onFormRequest?.(evt.formRequest)
+        break
       case 'done':
         onDone?.({
           totalTokens: evt.usage?.totalTokens,
@@ -699,14 +703,11 @@ export const chatStream = async (
     // D77(2026-10-17):form_request 同一旁路追加认领(同一纪律:共享解析面在禁改面内,
     // 两族各自认领、互不串门 —— tool-approval 命中即 return,form_request 只在其后补问一次)。
     onRawLine: (line) => {
+      // D136:tool-approval 仍走旁路(共享 sse-parse 至今不认领该帧族,不走旁路它一路静默丢弃)。
+      // D77 的 form_request 已收编到 dispatch 承接共享认领(2026-10-19)—— 两族先例不同,别照着抄。
       const evt = parseToolApprovalLine(line)
       if (evt && callbacks && typeof callbacks.onToolApproval === 'function') {
         callbacks.onToolApproval(evt)
-        return
-      }
-      const form = parseFormRequestLine(line)
-      if (form && callbacks && typeof callbacks.onFormRequest === 'function') {
-        callbacks.onFormRequest(form)
       }
     },
     onReconnect: (attempt, delayMs) => {

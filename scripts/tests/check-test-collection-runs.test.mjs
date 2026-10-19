@@ -20,7 +20,16 @@ import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ } from '../check-test-collection-runs.mjs'
 
-const { parseVitestOutput, resolveEnd, runEnd, decideExit, DEFAULT_ENDS, vitestArgvOf } = __test__
+const {
+  parseVitestOutput,
+  resolveEnd,
+  runEnd,
+  decideExit,
+  DEFAULT_ENDS,
+  vitestArgvOf,
+  listHeadEnds,
+  hasVitestEntry,
+} = __test__
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -285,5 +294,51 @@ test('T19 vitestArgvOf:取不到调用点 / 多次调用 / 无子命令 三型�
     'run',
     '--passWithNoTests',
   ])
+})
+
+/* ------------------------------------------------------------------ *
+ * T20–T22(2026-10-20 立,G-29):全端枚举 + 三态分色。
+ * 立因是现读到的两个账面失真:① 票面前置写"全端归零",而拿全端读数要手敲 16 个 --end ——
+ *   漏敲一个端、或将来新增第 17 端,汇总行照样打"收集失败端 0";② HEAD 面实有 25 个端目录,
+ *   其中只有 16 端是 vitest 入口 —— 把"按定义不在射程"计成未判定再配 --strict,
+ *   就是给一台跑得通的机器造 9 端恒红门(§12e)。
+ * ------------------------------------------------------------------ */
+test('T20 全端枚举的装车锁:默认腿每一枚都必须在 HEAD 面枚举里(端被改名/删除 ⇒ 这一条先响)', () => {
+  const { ends, error } = listHeadEnds(REPO)
+  assert.equal(error, null, `HEAD 面枚举失败:${error}`)
+  assert.ok(ends.length >= 15, `HEAD 面枚举到 ${ends.length} 端 —— 少于实测 25 说明射程被改窄了`)
+  for (const e of DEFAULT_ENDS)
+    assert.ok(ends.includes(e), `默认腿 ${e} 不在枚举里 ⇒ 提交链那条窄腿指着已经不存在的端`)
+  // 反向锁:更深位置的 package.json 不是"端"(真仓实测 apps/zcode-cli/packages/core 那一层)。
+  assert.ok(
+    !ends.some((e) => e.split('/').length > 2),
+    `枚举混进了非端目录:${JSON.stringify(ends.filter((e) => e.split('/').length > 2))}`,
+  )
+})
+
+test('T21 射程分色的牙:射程外不判红也不冒充跑过,真·未判定在 strict 下照红', () => {
+  const scoped = { end: 'a', verdict: 'out-of-scope', reason: 'test 入口不是 vitest' }
+  const okRes = { end: 'b', verdict: 'ok', collectionFailures: [] }
+  const undet = { end: 'c', verdict: 'undetermined', reason: 'vitest 入口不可解析' }
+  const red = { end: 'd', verdict: 'violation', collectionFailures: [{ file: 'x.test.ts' }] }
+  assert.equal(decideExit([scoped, okRes], { strict: true }), 0, '射程外不得连累同批达标的端')
+  assert.equal(decideExit([scoped], { strict: true }), 2, '全批射程外 = 一条没量到,判死不记绿')
+  assert.equal(decideExit([undet], { strict: true }), 1, '真·未判定在 strict 下必须计红')
+  assert.equal(decideExit([undet], { strict: false }), 2, '非 strict 档仍是未判定,不冒红也不记绿')
+  assert.equal(decideExit([scoped, red], { strict: true }), 1, '有收集失败就红,与同批射程外无关')
+})
+
+test('T22 形状锁:vitest 入口的认定全仓只有一份,枚举侧不得自带第二把尺子', () => {
+  const src = readFileSync(GATE, 'utf8')
+  assert.ok(hasVitestEntry('vitest run'), '正例:vitest run 必须算 vitest 入口')
+  assert.ok(!hasVitestEntry('pytest -q'), '反例:pytest 不得算')
+  assert.ok(!hasVitestEntry(undefined), '反例:取不到 script 不得算(也不得抛)')
+  const body = src.slice(src.indexOf('export function listHeadEnds'))
+  const enumPart = body.slice(0, body.indexOf('\nexport ', 10) > 0 ? body.indexOf('\nexport ', 10) : body.length)
+  assert.ok(
+    !/\\bvitest\\b|includes\('vitest'\)|testScript/.test(enumPart),
+    '枚举层只回答"有哪些端";在它里面判 vitest = 第二把尺子(§0.6/§22c)',
+  )
+  assert.match(src, /if \(!hasVitestEntry\(testScript\)\)/, 'resolveEnd 必须走那一份共用认定')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
