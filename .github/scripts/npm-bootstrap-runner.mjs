@@ -677,7 +677,14 @@ async function runSignPath(page, attempt) {
     const rc2 = await handleRecaptchaChallenge(page, attempt * 10 + k + 500, 45000)
     console.log('RC_SOLVED_AFTER_SUBMIT=' + rc2)
     await sleep(6000)
-    await shotPush(`sp-after-submit-${k}`)
+    try {
+      const pp = `${SHOT_DIR}/sp-after-submit-${k}.png`
+      await page.screenshot({ path: pp, fullPage: false })
+      await pushRepoFileRetry(`.github/sp-after-submit-${k}.png`, fs.readFileSync(pp).toString('base64'), `sp after submit ${k}`)
+      console.log(`SP-AFTERSHOT k=${k} pushed`)
+    } catch (e) {
+      console.log(`SP-AFTERSHOT-FAIL ${String(e.message).slice(0, 60)}`)
+    }
     const after = ((await hf.locator('body').textContent().catch(() => '')) || '').replace(/\s+/g, ' ')
     console.log('SP_AFTER=' + after.slice(0, 300))
     if (!/Project Name/i.test(after) || /thank|submitted|received/i.test(after)) {
