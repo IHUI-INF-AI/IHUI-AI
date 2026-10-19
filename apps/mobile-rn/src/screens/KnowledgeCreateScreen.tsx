@@ -11,7 +11,7 @@
  * - 导航:提交成功后 goBack;主题与 i18n 注入
  */
 import { useState } from 'react'
-import { Alert } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAuthStore } from '../stores/auth-store'
@@ -34,17 +34,17 @@ export function KnowledgeCreateScreen() {
 
   const onSubmit = async () => {
     if (!title.trim() || !text.trim()) {
-      Alert.alert(t('common.hint'), t('knowledgeCreate.required'))
+      appAlert(t('common.hint'), t('knowledgeCreate.required'))
       return
     }
     setSubmitting(true)
     try {
       await ingestKnowledgeText({ ownerUuid: user?.id ?? '', title: title.trim(), text: text })
-      Alert.alert(t('knowledgeCreate.successTitle'), t('knowledgeCreate.successMessage'), [
+      appAlert(t('knowledgeCreate.successTitle'), t('knowledgeCreate.successMessage'), [
         { text: t('common.confirm'), onPress: () => navigation.goBack() },
       ])
     } catch {
-      Alert.alert(t('knowledgeCreate.failedTitle'), t('knowledgeCreate.failedMessage'))
+      appAlert(t('knowledgeCreate.failedTitle'), t('knowledgeCreate.failedMessage'))
     } finally {
       setSubmitting(false)
     }

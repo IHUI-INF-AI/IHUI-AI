@@ -20,7 +20,6 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Alert,
   Animated,
   Easing,
   FlatList,
@@ -35,6 +34,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -342,7 +342,7 @@ export function StudyIndexScreen() {
   const handleDrawerClaimFree = () => {
     setDrawerVisible(false)
     Clipboard.setString(FREE_RESOURCE_URL)
-    Alert.alert('领取免费资料', '链接已复制到剪贴板,可在浏览器粘贴打开')
+    appAlert('领取免费资料', '链接已复制到剪贴板,可在浏览器粘贴打开')
   }
   const handleDrawerCreateNewChat = () => {
     setDrawerVisible(false)
@@ -353,7 +353,7 @@ export function StudyIndexScreen() {
     navigation.navigate('Chat', { conversationId: id })
   }
   const handleDrawerDeleteConversation = (id: string) => {
-    Alert.alert('删除对话', '确认删除此对话?', [
+    appAlert('删除对话', '确认删除此对话?', [
       { text: '取消', style: 'cancel' },
       {
         text: '删除',
@@ -365,7 +365,7 @@ export function StudyIndexScreen() {
             const res = await deleteConversation(id)
             if (!res.success) {
               setDrawerConversations(snapshot)
-              Alert.alert('提示', '删除失败,请重试')
+              appAlert('提示', '删除失败,请重试')
             }
           })()
         },

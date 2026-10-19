@@ -2,6 +2,7 @@
   "components/IntroducePopup.tsx": ["#bfbeff"],
   "components/ModelList.tsx": ["#f5b301"],
   "components/PersonalInformationCard.tsx": ["#ffffff"],
+  "components/SearchOverlay.tsx": ["#000000"],
   "hooks/use-push.ts": ["#ff231f7c"],
   "screens/CarteScreen.tsx": ["#9395e4"],
   "screens/ChatScreen.tsx": ["#9cdcfe"],

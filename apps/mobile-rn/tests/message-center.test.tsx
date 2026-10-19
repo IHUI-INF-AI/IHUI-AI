@@ -14,6 +14,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/react'
 import type { ReactNode } from 'react'
+import type * as BottomPopsModule from '../src/components/BottomPops'
 
 const { apiMocks } = vi.hoisted(() => ({
   apiMocks: {
@@ -122,10 +123,19 @@ vi.mock('react-native', async () => {
     ScrollView: mk('div'),
     Image: mk('img'),
     RefreshControl: () => null,
-    // 置顶失败反馈出口:Alert.alert(...) 成员调用(守门 11f 的 (?<!\.) 明确豁免 RN 形态)
-    Alert: { alert: apiMocks.alert },
+    // BottomPops(经本屏 appAlert 导入拉入)模块求值期读窗口高;
+    // 主题单例(active-tokens)求值期读 Appearance.getColorScheme,两者缺一整文件加载即炸。
+    Dimensions: { get: () => ({ width: 375, height: 812, scale: 1, fontScale: 1 }) },
+    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
     StyleSheet: { create: (s: Record<string, unknown>) => s },
   }
+})
+
+// MessageCenterScreen 置顶失败反馈改走共享 appAlert(见 components/BottomPops);
+// importOriginal 保底其余导出,只把 appAlert 替成 spy,断言失败出口喊的是 appAlert。
+vi.mock('../src/components/BottomPops', async (importOriginal) => {
+  const mod = await importOriginal<typeof BottomPopsModule>()
+  return { ...mod, appAlert: apiMocks.alert }
 })
 
 import { MessageCenterScreen } from '../src/screens/MessageCenterScreen'

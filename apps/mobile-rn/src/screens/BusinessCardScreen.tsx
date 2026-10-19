@@ -4,7 +4,8 @@
 
 import { useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { Alert, Share } from 'react-native'
+import { Share } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import * as ImagePicker from 'expo-image-picker'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -149,7 +150,7 @@ export default function BusinessCardScreen() {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
       if (!perm.granted) {
-        Alert.alert('提示', '需要相册权限才能选择名片图片')
+        appAlert('提示', '需要相册权限才能选择名片图片')
         return
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -167,7 +168,7 @@ export default function BusinessCardScreen() {
         name: fileName,
       })
       if (!up.success || !up.data?.path) {
-        Alert.alert('提示', '名片图片上传失败')
+        appAlert('提示', '名片图片上传失败')
         return
       }
       // 2. 提交名片(对齐原 uploadBusinessCard → /remote/business-card/upload)
@@ -180,7 +181,7 @@ export default function BusinessCardScreen() {
         email: card?.email ?? '',
       })
       if (cardRes.success) {
-        Alert.alert('成功', '名片已更新')
+        appAlert('成功', '名片已更新')
         // 3. 刷新列表
         const listRes = await fetchApi<{ list: BusinessCardListItem[] }>(
           '/api/business-card/list?page=1&pageSize=100',
@@ -205,11 +206,11 @@ export default function BusinessCardScreen() {
           }
         }
       } else {
-        Alert.alert('提示', '名片提交失败')
+        appAlert('提示', '名片提交失败')
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      Alert.alert('提示', detail.trim() ? toUserFriendlyMessage(e) : '名片定制失败,请重试')
+      appAlert('提示', detail.trim() ? toUserFriendlyMessage(e) : '名片定制失败,请重试')
     } finally {
       // 定制完成(同步提示已由 Alert 呈现)
     }

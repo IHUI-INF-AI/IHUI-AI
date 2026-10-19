@@ -127,6 +127,20 @@
  *     类名面走 git grep -P 预筛,失效时退回全量并在报告里亮 `prefallback` 旗标:
  *     `-P` 的模式串含 `(?!`,一旦被 shell 历史展开成 `\!` 会让 git 直接 fatal,
  *     若把 stderr 吞掉,这台尺子就永久"零命中"而报告全绿(本会话实测被骗过一次)。
+ *  R9 品牌底 × 硬编码字面量前景(2026-10-16 立,补 R1/R4/R7 的**字面量盲区**):
+ *     立因:HomeScreen 模型选择弹窗分类 tab 选中态**白底白字** shipped(CDP 实测
+ *     `brand.cta` 底与 `'#FFFFFF'` 字同为 rgb(255,255,255),用户实测「鬼能看清字」)——
+ *     而三道既有判据全绿:R1/R4 的前景正则只认 token(`surface.light`/`text.primary`),
+ *     R7 只在 JSX 渲染嵌套成立时出手,且当时对 cta 底的常量白还放行(同日修)。
+ *     **判据存在而永不调用 = 没有;判据面窄于病灶 = 同样没有**(仓内同款教训第 N 次)。
+ *     判据:同一具名 style 块内、或**兄弟名**配对(复用 R4 的 isSiblingStylePair)里,
+ *     `color:` 取**字面量**(`'#fff'`/`'#262626'`/`rgba(...)` 一律算)且该块/其配对块
+ *     有 `backgroundColor: brand.(DEFAULT|cta)` 底。字面量在两态品牌底(明暗反转)上
+ *     必有一态不可读(黑字压黑底 / 白字压白底),与具体取值无关 —— 档位法则照判。
+ *     与 R1/R4/R7 **互斥**:token 前景归 R1(同块)/R4(兄弟名),嵌套前景归 R7,
+ *     本条只收**字面量**前景 —— 三面按前景书写形态切分,天然不重复计数。
+ *     **零容忍、无基线键**(立门当日全量实测存量 0:同块 0、兄弟对 0),任何新增即红;
+ *     确需保留时同行或紧邻上行写 `r9-literal-exempt: <原因>`(同 r5/r7 形态,必须带原因)。
  *
  * 用法:
  *   node scripts/check-brand-foreground.mjs                  # 全量
@@ -809,6 +823,10 @@ export function extractNamedStyleChunks(lines) {
  *    (§4 唯一正配 = brand.ctaForeground)。对比度上 `text.primary` 两态都与底同色
  *    (黑压黑 / 白压白)纯隐形;另两档虽在现行黑/白取值下碰巧可读,但按"底与字同档成对"
  *    的档位法则照判 —— 否则换回中间调底色时这些配对会静默掉出 AA。
+ *    **常量白同判**(2026-10-16 扩,起因:HomeScreen 模型分类 tab 选中态白底白字,
+ *    CDP 实测底/字同为 rgb(255,255,255)):cta 暗档是纯白底,写死 '#FFFFFF' 即白压白 ——
+ *    原判据只对 DEFAULT 判常量白、对 cta 放行(按"亮档黑底白字合法"的取值巧合思维),
+ *    与本表"档位法则不看取值巧合"的口径自相矛盾,正是三门全漏的那一格。
  *  - DEFAULT 底:`surface.light` **两态都可见**(#FFF 压 #000 / #262626 压 #FFF)⇒ 不算债
  *    (R4 建门时 127 处存量全是这一型,已按"合法兄弟对"入基线,此处必须同口径)。
  *    而 `text.primary` 两态都与底同色(黑压黑 / 白压白),`brand.ctaForeground` 与常量白
@@ -840,7 +858,7 @@ function r7ExemptAt(lines, ln) {
   return ln > 1 && R7_EXEMPT.test(lines[ln - 2])
 }
 
-/** 常量白(R7 视同 brand.ctaForeground 的等价物,只用于"压 brand.DEFAULT 深色档=白压白") */
+/** 常量白(R7 视同 brand.ctaForeground 的等价物;两档品牌底都是白压白 —— 2026-10-16 扩) */
 function isConstantWhite(tok) {
   if (!tok) return false
   const t = tok.toLowerCase().replace(/\s+/g, '')
@@ -860,7 +878,10 @@ function isConstantWhite(tok) {
 /** 某前景 token 落在某品牌档底上是否跨档错配(未知 token 一律不判 —— 宁漏不误报) */
 export function r7IsMismatch(fillTier, fgTok) {
   if (!R7_FILL_TIERS.has(fillTier)) return false
-  if (fgTok === 'constant-white') return fillTier === 'brand.DEFAULT'
+  // 常量白对两档品牌底都是白压白:cta 暗档 = 纯白底,DEFAULT 深色档 = 纯白底。
+  // 2026-10-16 修:原 `fillTier === 'brand.DEFAULT'` 把 cta 底上的 '#FFFFFF' 放行,
+  // 正是 HomeScreen 模型分类 tab 白底白字三门全漏的根因(CDP 实测底/字均 rgb(255,255,255))。
+  if (fgTok === 'constant-white') return true
   return (fillTier === 'brand.cta' ? R7_BAD_ON_CTA : R7_BAD_ON_DEFAULT).has(fgTok)
 }
 
@@ -1357,6 +1378,64 @@ export function findR4Violations(lines) {
   return pairs
 }
 
+/**
+ * R9:品牌底 × **硬编码字面量**前景(2026-10-16 立,零容忍、无基线键)。
+ * 只收 `color:` 后紧跟引号字面量的行 —— token 前景归 R1(同块)/R4(兄弟名),
+ * 字面量前景归本条,三面按前景书写形态切分,天然不重复计数。
+ * 命中形态:同块(底与字一个 key),或兄弟名配对(底在 X、字在 XText/XActiveText…)。
+ */
+const R9_LITERAL_FG = /(?:^|[,{\s])color:\s*['"][^'"]*['"]/
+/** 整行注释不计(同 R5:零容忍门不得被叙述/文档行钉红) */
+const R9_COMMENT_LINE = /^\s*(?:\/\/|\/\*|\*)/
+/**
+ * R9 行内豁免出口(同 r5-cta-exempt / r7-nest-exempt 形态):在前景行或底行
+ * (各含其紧邻上行)写 `r9-literal-exempt: <原因>` 即不计该配对。必须带原因。
+ */
+const R9_EXEMPT = /r9-literal-exempt:\s*\S/
+
+function r9ExemptAt(lines, ln) {
+  if (!ln || ln < 1 || ln > lines.length) return false
+  if (R9_EXEMPT.test(lines[ln - 1])) return true
+  return ln > 1 && R9_EXEMPT.test(lines[ln - 2])
+}
+
+/** 该 chunk 内首个非注释的字面量前景行(1-based),无则返回 null */
+function r9LiteralFgLine(chunk) {
+  const ls = chunk.text.split('\n')
+  for (let i = 0; i < ls.length; i++) {
+    if (!R9_COMMENT_LINE.test(ls[i]) && R9_LITERAL_FG.test(ls[i])) return chunk.start + i + 1
+  }
+  return null
+}
+
+export function findR9Violations(lines) {
+  const chunks = extractNamedStyleChunks(lines)
+  const out = []
+  const seen = new Set()
+  const push = (sig, bgName, bgLine, fgName, fgLine) => {
+    if (seen.has(sig)) return
+    if (r9ExemptAt(lines, fgLine) || r9ExemptAt(lines, bgLine)) return
+    seen.add(sig)
+    out.push({ bg: bgName, bgLine, fg: fgName, fgLine, sig })
+  }
+  for (const c of chunks) {
+    if (!R1_BG.test(c.text)) continue
+    const bgLine = c.start + 1
+    // 同块:底与字同一个 key(与 R1 同构,只是前景形态是字面量 —— 那一格 R1 正则看不见)
+    const selfFg = r9LiteralFgLine(c)
+    if (selfFg !== null) push(`${c.name}(同块)`, c.name, bgLine, c.name, selfFg)
+    // 兄弟名:底在 X、字在兄弟 key(复用 R4 同一套命名配对,不同面各计各的债)
+    for (const g of chunks) {
+      if (g === c) continue
+      const gFg = r9LiteralFgLine(g)
+      if (gFg === null) continue
+      if (!isSiblingStylePair(c.name, g.name)) continue
+      push(`${c.name}×${g.name}`, c.name, bgLine, g.name, gFg)
+    }
+  }
+  return out
+}
+
 /** R2:单文件「浅色容器」计数(surface.light 背景 / α≥0.5 白 rgba / 非 dark: 的 bg-white) */
 export function countLightContainers(lines) {
   let count = 0
@@ -1597,6 +1676,7 @@ function run(options) {
   const r4ByFile = {}
   const r7ByFile = {}
   const r8ByFile = {}
+  const r9ByFile = {}
   r7ParseErrors.length = 0
   for (const file of files) {
     const rel = path.relative(ROOT, file).replace(/\\/g, '/')
@@ -1607,6 +1687,8 @@ function run(options) {
     if (r4Pairs.length > 0) r4ByFile[rel] = r4Pairs
     const r7Items = findR7Violations(lines)
     if (r7Items.length > 0) r7ByFile[rel] = r7Items
+    const r9Items = findR9Violations(lines)
+    if (r9Items.length > 0) r9ByFile[rel] = r9Items
     const r8Items = findR8Violations(lines)
     if (r8Items.length > 0) r8ByFile[rel] = r8Items
     if (isR2Scope(rel)) {
@@ -1804,7 +1886,26 @@ function run(options) {
     console.error(
       '   ⚠️ brand.cta 作描边**不由本条判**(它是"主实底"档,与同色填充并用作描边时语义是加厚),该形态归 R3 计数面。',
     )
-    console.error('   确需保留时:同行写 `border-ink-exempt: <一句话原因>`(必须带原因)。')
+    console.error('   确属保留时:同行写 `border-ink-exempt: <一句话原因>`(必须带原因)。')
+    console.error('   单独复验:node scripts/check-brand-foreground.mjs --staged')
+  }
+
+  // R9:零容忍、无基线键 —— 立门当日全量实测存量 0,任何命中即红(同 R5 清零后的形态)
+  const r9ItemsAll = Object.values(r9ByFile).flat()
+  if (r9ItemsAll.length > 0) {
+    failed = true
+    console.error(
+      `❌ R9 品牌底 × 硬编码字面量前景(同块/兄弟名,字面量在明暗反转的两态品牌底上必有一态不可读;零容忍):${r9ItemsAll.length} 处`,
+    )
+    for (const [f, items] of Object.entries(r9ByFile)) {
+      for (const it of items) console.error(`   ${f} → L${it.bgLine} ${it.bg}(底) × L${it.fgLine} ${it.fg}(字面量前景)`)
+    }
+    console.error(
+      '   改法只有一处:把 color 的字面量换成与底同档的配对前景 token —— 底取 brand.cta 用 brand.ctaForeground,底取 brand.DEFAULT 用 brand.foreground(明暗自动反转)。',
+    )
+    console.error(
+      '   确需保留(如文字压在图片上而非该底色上)时:在前景行或底行写 `r9-literal-exempt: <一句话原因>`(必须带原因)。',
+    )
     console.error('   单独复验:node scripts/check-brand-foreground.mjs --staged')
   }
 
@@ -1834,6 +1935,11 @@ function run(options) {
         '     内联在图标上的 `color={…}` 同理(`<Plus color={tk.surface.card}/>` 在 cta 悬浮钮里):',
         '     图标不是"装饰白",它取哪一档由**它所在容器**决定;',
         '     覆盖在图片/彩色底上的白色前景属合法,基线棘轮只拦「比基线更多」。',
+        '     R9(品牌底 × 硬编码字面量前景,2026-10-16 立)与 R1/R4 同一缺陷,只是字被写成了',
+        '     写死颜色 —— 底取 brand.cta 时写死 #FFFFFF 在暗档就是白底白字',
+        '     (HomeScreen 模型分类 tab 实测底/字同为 rgb(255,255,255));零容忍,',
+        '     改法是换成与底同档的配对前景 token(ctaForeground / foreground),',
+        '     确需保留写 `r9-literal-exempt: <原因>`;',
         '     收紧基线(人工确认后,全量口径):node scripts/check-brand-foreground.mjs --update-baseline',
         '     自检:node scripts/check-brand-foreground.mjs --self-test',
         `     紧急跳过(不推荐):${SKIP_ENV}=1 git commit ...`,
@@ -1842,8 +1948,9 @@ function run(options) {
     )
     return 1
   }
+  const r9Total = r9ItemsAll.length
   console.log(
-    `✅ mobile-rn/共享包 前景/容器守门通过(${files.length} 文件,R1=0,R4 ${r4Total} 处全部 ≤ 基线,R7 ${r7Total} 处全部 ≤ 基线,R2/R3 全部 ≤ 基线;R3 存量 ${Object.values(ctaCounts).reduce((a, b) => a + b, 0)} 处)`,
+    `✅ mobile-rn/共享包 前景/容器守门通过(${files.length} 文件,R1=0,R4 ${r4Total} 处全部 ≤ 基线,R7 ${r7Total} 处全部 ≤ 基线,R9 ${r9Total} 处(零容忍);R2/R3 全部 ≤ 基线;R3 存量 ${Object.values(ctaCounts).reduce((a, b) => a + b, 0)} 处)`,
   )
   // R5 的"范围文件数 / 候选数"必须与"命中数"同行打印:预筛(git grep)或范围正则一旦静默失效,
   // 命中数会掉到 0 而棘轮依然全绿 —— 只有把分母摆出来,镜像测试才能区分
@@ -2638,6 +2745,10 @@ function selfTest() {
     r7IsMismatch('brand.DEFAULT', 'constant-white') === true,
     'R7 矩阵:DEFAULT × 常量白(深色白压白)',
   )
+  assert(
+    r7IsMismatch('brand.cta', 'constant-white') === true,
+    'R7 矩阵:cta × 常量白(暗档纯白底 —— 2026-10-16 扩,原放行即 HomeScreen 白底白字的漏点)',
+  )
   assert(r7IsMismatch('surface.muted', 'surface.light') === false, 'R7 矩阵:非品牌底一律不判')
   assert(r7IsMismatch('brand.cta', 'text.quaternary') === false, 'R7 矩阵:未知 token 不猜')
   assert(
@@ -2711,6 +2822,106 @@ function selfTest() {
       `R7 复用了 ${other} ⇒ 一次 --update-baseline 会把另一条判据的存量发给 R7`,
     )
   }
+  // ── R9 品牌底 × 硬编码字面量前景(2026-10-16 立,零容忍)─────────────────
+  // (L1) 真空形态:命名**成** R4 兄弟对(R3 见配对前景逻辑放行、R4 见 token 才算、R1 同块不中、
+  //      R7 不嵌套)而前景是**字面量** —— 全门只剩 R9。原命名(TextActive)形态另有 R3
+  //      "未配对实底"兜底(见 L1b),本案 HomeScreen 命名改对后 R3 归零,这一格必须由 R9 补。
+  assert(
+    findR9Violations([
+      '  modelModalTabActive: {',
+      '    backgroundColor: tokens.brand.cta,',
+      '  },',
+      '  modelModalTabActiveText: {',
+      "    color: '#FFFFFF',",
+      '  },',
+    ]).length === 1,
+    'R9-L1 兄弟命名 × 字面量白字(cta 底)必须判红(三门全漏的真空形态)',
+  )
+  // (L1b) 分层证明:原命名 + 字面量由 R3 的"未配对实底"计数兜住(它不认字面量为前景)
+  assert(
+    countCtaFills([
+      '  modelModalTabActive: {',
+      '    backgroundColor: tokens.brand.cta,',
+      '  },',
+      '  modelModalTabTextActive: {',
+      "    color: '#FFFFFF',",
+      '  },',
+    ]) >= 1,
+    'R9-L1b 原命名形态由 R3 兜底(两道门各有一层,合起来无真空)',
+  )
+  // (L2) 同块形态:底与字一个 key
+  assert(
+    findR9Violations([
+      '  badge: {',
+      '    backgroundColor: tokens.brand.DEFAULT,',
+      "    color: '#262626',",
+      '  },',
+    ]).length === 1,
+    'R9-L2 同块品牌底 × 字面量前景必须判红',
+  )
+  // (L3) token 前景不归 R9(归 R1/R4)—— 三面按前景书写形态切分,不得重复计数
+  assert(
+    findR9Violations([
+      '  btn: { backgroundColor: tokens.brand.cta },',
+      '  btnText: { color: tokens.brand.ctaForeground },',
+    ]).length === 0,
+    'R9-L3 token 前景不得被 R9 计(与 R1/R4 互斥)',
+  )
+  // (L4) 非品牌底 × 字面量前景不判(否则全站自定义色全成债)
+  assert(
+    findR9Violations([
+      '  muted: { backgroundColor: tokens.surface.muted, color: "#666666" },',
+    ]).length === 0,
+    'R9-L4 非品牌底一律不判',
+  )
+  // (L5) 非兄弟名的平行 key 不判(归 R7 管嵌套,或本就无关)
+  assert(
+    findR9Violations([
+      '  card: { backgroundColor: tokens.brand.cta },',
+      '  pageTitle: { color: "#FFFFFF" },',
+      '  return (<View style={styles.card} /><Text style={styles.pageTitle}>x</Text>)',
+    ]).length === 0,
+    'R9-L5 名字不成兄弟对且不嵌套 ⇒ 不归 R9(R7 的射程)',
+  )
+  // (L6) 注释行不判(零容忍门不得被叙述行钉红,同 R5/R8)
+  assert(
+    findR9Violations([
+      '  // legacy: color: "#FFFFFF" 是旧写法,已废',
+      '  ok: { color: tokens.brand.ctaForeground },',
+    ]).length === 0,
+    'R9-L6 注释行不计',
+  )
+  // (L7) 豁免必须带原因、逐行生效
+  assert(
+    findR9Violations([
+      '  tabActive: {',
+      '    backgroundColor: tokens.brand.cta,',
+      '  },',
+      '  tabActiveText: {',
+      "    color: '#FFFFFF', // r9-literal-exempt: 文字压在半透明图片上",
+      '  },',
+    ]).length === 0,
+    'R9-L7 前景行 r9-literal-exempt(带原因)必须生效',
+  )
+  assert(
+    findR9Violations([
+      '  tabActive: {',
+      '    backgroundColor: tokens.brand.cta, // r9-literal-exempt:',
+      '  },',
+      '  tabActiveText: {',
+      "    color: '#FFFFFF',",
+      '  },',
+    ]).length === 1,
+    'R9-L8 不带原因的豁免不算豁免',
+  )
+  // 变异对照:字面量正则必须只认引号字面量(token 形态不得命中 —— 否则 R9 与 R1/R4 撞面)
+  assert(
+    R9_LITERAL_FG.test('    color: "#FFFFFF",') &&
+      R9_LITERAL_FG.test("    color: '#fff',") &&
+      !R9_LITERAL_FG.test('    color: tokens.brand.ctaForeground,') &&
+      !R9_LITERAL_FG.test('    color: tk.text.secondary,'),
+    'R9 词法:只认字面量前景(token 一律不认)',
+  )
   // ── R8 描边取墨档(2026-09-26 立)────────────────────────────────────────
   assert(BASELINE_R8_KEY === 'inkBorderCounts', 'R8 基线键必须是新键 inkBorderCounts')
   for (const other of ['counts', 'ctaCounts', 'r4Counts', BASELINE_R5_KEY, BASELINE_R7_KEY]) {
@@ -3005,6 +3216,13 @@ export const __test__ = {
   extractNamedStyleChunks,
   isSiblingStylePair,
   findR4Violations,
+  // R9(品牌底 × 硬编码字面量前景,2026-10-16 立,零容忍无基线键):判据函数 + 词法本体。
+  // 导出正则的理由同 §22c —— 镜像测试要靠"旧版收 token 前景 vs 现版收字面量"做变异对照,
+  // 证明本案的红确实挂在字面量面上,而不是恒红。
+  findR9Violations,
+  R9_LITERAL_FG,
+  R9_COMMENT_LINE,
+  R9_EXEMPT,
   // R5(web 类名面):判据函数 + 词法前置 + 范围判定 + 基线键与类名 token 常量。
   // 导出常量的理由同 §22c —— 镜像测试要靠它们做"键被复用/类名被改窄"的变异对照。
   countWebClassPairs,

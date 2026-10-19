@@ -18,7 +18,6 @@
  * 本路由语义为操盘手计划宣传页,已恢复对齐原项目。
  */
 import {
-  Alert,
   Image,
   StyleSheet,
   Text,
@@ -28,6 +27,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
@@ -52,7 +52,7 @@ export default function RecruitmentScreen() {
 
   const handleBuy = (): void => {
     // 原页面为纯静态展示,购买按钮无绑定逻辑;APP 端提示联系客服完成购买
-    Alert.alert(t('common.hint'), '请联系客服购买操盘手计划服务')
+    appAlert(t('common.hint'), '请联系客服购买操盘手计划服务')
   }
 
   return (

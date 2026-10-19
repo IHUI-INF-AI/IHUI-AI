@@ -301,4 +301,17 @@ export function createAgentDeltaBatcher() {
   }
   return { batch, flushAll, cancelAll }
 }
+
+/**
+ * G-425(2026-10-07 立,默认档"只提示"):done 帧 finishReason 是否表示
+ * "输出被 max_tokens 截断"。判据口径逐字取自 shared sse contract.ts 的 done 帧
+ * `finishReason` 字段注释 —— 小写归一后 ∈ {length, max_tokens};其余值
+ * (stop/tool_calls/SAFETY/RECITATION…)与缺席/非串一律 false(缺席 = 上游没给,
+ * 绝不折成"正常结束")。web 的两个流入口(sendMessage/sendAnswer)共用这一份,
+ * 不各写一遍判据;CLI 的续写档判断口径更宽,在 apps/cli 自持,互不引用。
+ */
+export function isMaxTokensTruncatedFinishReason(finishReason: string | undefined | null): boolean {
+  const fr = (finishReason ?? '').toLowerCase()
+  return fr === 'length' || fr === 'max_tokens'
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
