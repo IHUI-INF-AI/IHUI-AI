@@ -644,16 +644,34 @@ async function runSignPath(page, attempt) {
   let submittedOk = false
   for (let k = 0; k < 3; k++) {
     console.log(`SP-SUBMIT k=${k}`)
-    await hf
-      .locator('button[type="submit"], input[type="submit"], .hs-button')
-      .first()
-      .click({ timeout: 15000 })
-      .catch((e) => console.log('SP-SUBMIT-CLICK-FAIL ' + String(e.message).slice(0, 60)))
-    await sleep(8000)
-    rcSolved = await handleRecaptchaChallenge(page, attempt + k)
+    // 先过「我不是机器人」+ 九宫格(拿到 token),再点提交 —— 这是人类真实顺序,
+    // 反过来先点提交只会被 HubSpot 拦下并提示未验证(run 39245072174 实证)。
+    rcSolved = await handleRecaptchaChallenge(page, attempt * 10 + k)
     console.log('RC_SOLVED=' + rcSolved)
-    await sleep(7000)
-    await shot(page, `sp-after-submit-${k}`)
+    await sleep(1500)
+    const sbtn = hf.locator('button[type="submit"], input[type="submit"], .hs-button').first()
+    let clicked = false
+    try {
+      await sbtn.click({ timeout: 12000 })
+      clicked = true
+      console.log('SP-SUBMIT-CLICKED')
+    } catch (e) {
+      console.log('SP-SUBMIT-CLICK-FAIL ' + String(e.message).slice(0, 50))
+    }
+    if (!clicked) {
+      try {
+        await sbtn.evaluate((el) => el.click())
+        console.log('SP-SUBMIT-JS-CLICK')
+      } catch (e) {
+        console.log('SP-SUBMIT-JS-FAIL ' + String(e.message).slice(0, 50))
+      }
+    }
+    await sleep(9000)
+    // 提交本身也可能再弹一次挑战
+    const rc2 = await handleRecaptchaChallenge(page, attempt * 10 + k + 500)
+    console.log('RC_SOLVED_AFTER_SUBMIT=' + rc2)
+    await sleep(6000)
+    await shotPush(`sp-after-submit-${k}`)
     const after = ((await hf.locator('body').textContent().catch(() => '')) || '').replace(/\s+/g, ' ')
     console.log('SP_AFTER=' + after.slice(0, 300))
     if (!/Project Name/i.test(after) || /thank|submitted|received/i.test(after)) {
@@ -752,16 +770,43 @@ async function handleRecaptchaChallenge(page, attempt) {
   //   ★ 实测坑:挑战通过后 bframe 元素仍留在 DOM 里(隐藏、内容不刷新),
   //   只看 frame 是否存在会把「已通过」误判成「挑战还在」,于是死等指令并再点一次
   //   Verify,反而重新触发新挑战(run 39241408771 实证)。
+  let lastTokLen = -1
   const isSolved = async () => {
     try {
       const v = await page.evaluate(() => {
         const els = Array.from(document.querySelectorAll('#g-recaptcha-response, textarea[name="g-recaptcha-response"]'))
         return els.map((e) => String(e.value || '')).sort((a, b) => b.length - a.length)[0] || ''
       })
+      lastTokLen = v.length
       return v.length > 20
     } catch {
+      lastTokLen = -1
       return false
     }
+  }
+  // 「我不是机器人」复选框:bframe 可能已存在但隐藏(图像挑战尚未展开),
+  // 此时必须点 anchor 才会弹九宫格。旧代码只在 bframe 完全不存在时才点,
+  // 结果表单反复提示未验证而九宫格永不出现(run 39245072174 实证)。
+  const ensureAnchor = async () => {
+    const anchor = page.frames().find((f) => /recaptcha.*anchor/.test(f.url()))
+    if (!anchor) return false
+    let st = null
+    try {
+      st = await anchor.locator('#recaptcha-anchor').getAttribute('aria-checked', { timeout: 5000 })
+    } catch {}
+    console.log(`RC-ANCHOR state=${JSON.stringify(st)}`)
+    if (st === 'true') return true
+    for (let t = 0; t < 2; t++) {
+      try {
+        await anchor.locator('#recaptcha-anchor').click({ timeout: 10000, force: true })
+        await sleep(5000)
+        return true
+      } catch (e) {
+        console.log(`RC-ANCHOR-CLICK-RETRY t=${t} ${String(e.message).slice(0, 60)}`)
+        await sleep(1200)
+      }
+    }
+    return false
   }
   // 挑战区是否真的可见(.rc-imageselect 在 bframe 内且未隐藏)
   const challengeVisible = async (bframe) => {
@@ -854,19 +899,15 @@ async function handleRecaptchaChallenge(page, attempt) {
     }
   }
 
-  // 刚提交时可能只有「我不是机器人」复选框(anchor frame),图像挑战尚未展开
-  let b0 = findB()
-  if (!b0) {
-    const anchor = page.frames().find((f) => /recaptcha.*anchor/.test(f.url()))
-    if (anchor) {
-      console.log('RC-ANCHOR-CLICK')
-      await anchor.locator('#recaptcha-anchor').click({ timeout: 15000 }).catch(() => {})
-      await sleep(6000)
-      b0 = findB()
-    }
+  // 先过「我不是机器人」复选框;有 token 就直接返回,避免空转
+  if (await isSolved()) {
+    console.log(`RC-ALREADY-SOLVED tokLen=${lastTokLen}`)
+    return true
   }
+  await ensureAnchor()
+  const b0 = findB()
   console.log(
-    `RC-STATE bframe=${b0 ? 'yes' : 'no'} frames=${page.frames().length} url=${page.url().slice(0, 100)}`
+    `RC-STATE bframe=${b0 ? 'yes' : 'no'} visible=${await challengeVisible(b0)} frames=${page.frames().length} url=${page.url().slice(0, 100)}`
   )
 
   for (let round = 0; round < 6; round++) {
