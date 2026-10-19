@@ -133,11 +133,6 @@ export type {
   ToolApprovalExecEnvironment,
   ToolApprovalNetworkTarget,
 } from './client.js'
-// D77 的对话流业务表单请求帧类型(2026-10-19 现读补回,单列一条而不是并进上面那两条长清单):
-// `packages/shared/src/utils/sse-parse.ts` 具名 import 这个类型,入口少它一枚就是悬空具名导入
-// (TS2305,守门 98 那一型);而把它同时列进两条 `export { … } from './client.js'` 清单是 TS2300
-// 重复标识符,实测把本包 build 打死、部署环连轮失败。同名在整个模块面上只准出现一次。
-export type { FormRequestEvent } from './client.js'
 export { projectToolApprovalEnvFacts } from './client.js'
 // AI 对话可视化 Phase 4a 事件类型 re-export(2026-08-01,消息级 plan/terminal inline 展示)
 export type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
