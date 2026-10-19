@@ -1,4 +1,4 @@
-2026-10-19T11:50:12.168Z pid=4046
+2026-10-19T11:50:24.169Z pid=4046
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/3 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -28,3 +28,4 @@ SP-SUBMIT-CLICKED
 SP-POSTSHOT k=0 pushed
 RC-WAIT-APPEAR i=0
 RC-WAIT-APPEAR i=4
+RC-WAIT-APPEAR i=8
