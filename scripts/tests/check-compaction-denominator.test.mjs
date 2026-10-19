@@ -23,6 +23,8 @@ import {
   inLiteralSiteScope,
   inScanScope,
   isTestPath,
+  prefilterPatterns,
+  runScan,
   scanCapacityLiteralContent,
   scanContent,
 } from '../check-compaction-denominator.mjs'
@@ -143,5 +145,61 @@ test('M14 L2 站点根 = 票面 grep 三根(口径漂移 = 票面自读命令与
   assert.equal(inLiteralSiteScope('apps/cli/src/c.ts'), true)
   assert.equal(inLiteralSiteScope('apps/web/app/(main)/models/x.ts'), false)
   assert.equal(inLiteralSiteScope('apps/api/src/x.ts'), false)
+})
+
+// ── 2026-10-19 扩面(maxTokens 族 + packages/ 扫描面)镜像 ──────────────────────────
+//   这一族的失效方向是**静默**的:只改判据正则、不改预筛关键字或 pathspec,门照样报绿而新族从没被看到。
+//   所以三半各钉一条,且都带反证。
+test('M15 三半同源:分母名表 = 判据锚定集 = git grep 关键字(手抄两遍必漂移)', () => {
+  const src = readFileSync(path.join(ROOT, 'scripts', 'check-compaction-denominator.mjs'), 'utf8')
+  const pats = prefilterPatterns()
+  // ① 判据吃的每个 stem 都必须在预筛清单里(超集关系由构造成立)
+  const table = [...src.matchAll(/^const DENOMINATOR_NAME_STEMS = \[([\s\S]*?)\]/gm)][0][1]
+  const stems = [...table.matchAll(/'([^']+)'/g)].map((m) => m[1])
+  assert.ok(stems.length >= 5, `名表读数异常:${stems.length}`)
+  for (const s of stems) {
+    assert.ok(pats.includes(s), `stem "${s}" 在判据里而不在预筛清单里 ⇒ 该族会在枚举层静默消失`)
+  }
+  // ② 反向:表外名字不得被正则认(证明锚定集恰等于这张表,不是宽松的 /token/ 之类)
+  for (const not of ['windowBudget', 'tokenLimit', 'capacity', 'outputTokens']) {
+    assert.ok(
+      !stems.some((s) => not.toLowerCase().startsWith(s)),
+      `"${not}" 不该被这张表认成上下文分母 —— 名表被写宽了`,
+    )
+  }
+  // ③ 判据正则必须由这张表拼出来(出现第二份手抄正则即红)
+  assert.match(src, /new RegExp\(\s*`\^\(\?:\$\{DENOMINATOR_NAME_STEMS\.map/)
+})
+
+test('M16 扫描面两半同批:pathspec 与谓词都得含 packages/(只改一半 = 门照报绿)', () => {
+  const src = readFileSync(path.join(ROOT, 'scripts', 'check-compaction-denominator.mjs'), 'utf8')
+  assert.match(src, /const scope = \['--', 'apps', 'packages'\]/, 'git grep 的 pathspec 那一半没扩')
+  assert.match(src, /const SCAN_ROOTS = \['apps\/', 'packages\/'\]/, 'inScanScope 谓词那一半没扩')
+  assert.equal(inScanScope('packages/app/src/features/chat/ContextUsagePanel.tsx'), true)
+  assert.equal(inScanScope('packages/app/node_modules/x.ts'), false, '扩面不许把 node_modules 放进来')
+})
+
+test('M17 真仓端到端:共享层那处 maxTokens 除法必须被这次扫描点名(扩面已装车,不是只改了文本)', () => {
+  const res = runScan(ROOT, 'head')
+  const named = [...res.findings, ...res.ratcheted].map((f) => f.rel)
+  assert.ok(
+    named.includes('packages/app/src/features/chat/ContextUsagePanel.tsx'),
+    `未点名 ⇒ 扩面没生效(扫描 ${res.scanned} 个文件,命中 ${named.length} 个文件)`,
+  )
+  assert.ok(
+    named.includes('apps/miniapp-taro/src/pkg-ai/ai/context-usage-strip.tsx'),
+    '小程序端那处同族除法也必须被看到(两端同一条除法,三处副本同批)',
+  )
+})
+
+test('M18 maxTokens 族成对:漏消毒判红、走唯一出口判绿(扩面不许把新族判成不可清偿)', () => {
+  assert.equal(scanContent('packages/app/src/f.tsx', 'const r = usedTokens / maxTokens\n').length, 1)
+  assert.equal(
+    scanContent(
+      'packages/app/src/f.tsx',
+      'const maxTokens = effectiveContextWindow({ contextWindow: cfg.maxTokens });\nconst r = usedTokens / maxTokens\n',
+    ).length,
+    0,
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
