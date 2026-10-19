@@ -9,7 +9,7 @@
  * - 数据源:@ihui/api-client fetchApi —— feed GET /circles(usePaginatedList 分页)、
  *   热话题 GET /circles/topics/hot、推荐用户 GET /circles/users/recommend(副榜静默失败不阻塞)
  * - 交互:4 tab(推荐/关注/最新/热门,feed 本地重排)→ 热话题 chip 跳 TopicDetail →
- *   关注用户乐观翻转 POST /circles/follow 失败回滚 → 图片 Modal 预览(对齐 previewImage)→
+ *   关注用户乐观翻转 POST /api/follows/:userId 失败回滚 → 图片 Modal 预览(对齐 previewImage)→
  *   FAB '+' 跳 CircleCreate;帖子卡点击进 CircleDetail
  * - 样式:getRnTokens 语义 token(零 hex,过 check:rn-parity);图标 lucide-react-native(无 emoji)
  */
@@ -164,10 +164,7 @@ export function CircleIndexScreen() {
     const prev = !!u.followed
     setRecommendUsers((list) => list.map((x) => (x.id === u.id ? { ...x, followed: !prev } : x)))
     try {
-      const res = await fetchApi('/circles/follow', {
-        method: 'POST',
-        body: JSON.stringify({ userId: u.id }),
-      })
+      const res = await fetchApi(`/api/follows/${encodeURIComponent(u.id)}`, { method: 'POST' })
       if (!res.success) {
         setRecommendUsers((list) => list.map((x) => (x.id === u.id ? { ...x, followed: prev } : x)))
       }
