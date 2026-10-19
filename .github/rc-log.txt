@@ -1,4 +1,4 @@
-2026-10-19T13:32:32.505Z pid=4059
+2026-10-19T13:32:44.505Z pid=4059
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/3 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -91,3 +91,5 @@ RC-VERIFY-BTN label="Verify"
 RC-NEXT-ROUND round=4
 RC-CHALLENGE round=5 step=0 rows=3 cols=3 dynamic=true prompt="Select all images with a fire hydrantClick verify once there are none left."
 RC-FORCEBOX ["8,8,420x600,depth=4"]
+RC-SHOT-PUSHED rc-shot-5 ok=true
+RC-GRID-PUSHED rc-grid-5 420x600 ok=true
