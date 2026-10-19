@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 import { useCountdown } from '@ihui/shared/hooks'
+import { useI18n } from '../i18n'
 import {
   VERIFY_CODE_BOX_FONT_PX,
   VERIFY_CODE_BOX_GAP_PX,
@@ -70,6 +71,7 @@ export function VerifyCodeModal({
   const [code, setCode] = useState<string[]>(() => Array<string>(length).fill(''))
   // 共享 useCountdown:@ihui/shared/hooks 单一实现(§3 端内禁止重复造 setInterval;小程序端同源)
   const { count: remaining, start, reset: resetCountdown } = useCountdown(0)
+  const { t } = useI18n()
   const hiddenInputRef = useRef<TextInput>(null)
 
   // visible 关闭时重置 code + 倒计时(reset(0) 同步清理计时器)
@@ -135,13 +137,13 @@ export function VerifyCodeModal({
               style={styles.closeBtn}
               onPress={onClose}
               hitSlop={8}
-              accessibilityLabel="关闭验证码弹窗"
+              accessibilityLabel={t('verify.closeA11y')}
             >
               <Text style={styles.closeIcon}>×</Text>
             </Pressable>
 
-            <Text style={styles.title}>请输入验证码</Text>
-            <Text style={styles.description}>验证码已发送至</Text>
+            <Text style={styles.title}>{t('verify.getCode')}</Text>
+            <Text style={styles.description}>{t('verify.desc')}</Text>
             <Text style={styles.phone}>{phone}</Text>
 
             <View style={styles.boxRowContainer}>
@@ -174,7 +176,7 @@ export function VerifyCodeModal({
                 caretHidden
                 contextMenuHidden
                 style={styles.hiddenInput}
-                accessibilityLabel="验证码输入"
+                accessibilityLabel={t('verify.inputA11y')}
               />
             </View>
 
@@ -185,7 +187,7 @@ export function VerifyCodeModal({
                   remaining > 0 ? styles.countdownActive : styles.countdownResend,
                 ]}
               >
-                {remaining > 0 ? `${remaining}s 后重发` : '重新发送'}
+                {remaining > 0 ? t('auth.resendCode', { seconds: remaining }) : t('verify.resend')}
               </Text>
             </Pressable>
 
@@ -195,7 +197,7 @@ export function VerifyCodeModal({
               accessibilityRole="button"
               style={[styles.confirm, !isComplete && styles.confirmDisabled]}
             >
-              <Text style={styles.confirmText}>确定</Text>
+              <Text style={styles.confirmText}>{t('verify.confirm')}</Text>
             </Pressable>
           </View>
         </View>
