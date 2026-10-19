@@ -10,7 +10,7 @@
 > 修改 guardian-runner.mjs 后请运行 `pnpm guardian:docs` 重新生成。
 > **禁止手工编辑**——下次生成会覆盖。
 >
-> 最后生成：2026-10-15（共 249 项：blocking 222 / warn 26 / info 1）
+> 最后生成：2026-10-15（共 252 项：blocking 225 / warn 26 / info 1）
 
 ## 目录
 
@@ -25,7 +25,7 @@
 
 按 mode 分组，每组按 guardian-runner.mjs 中的出现顺序排列。
 
-### 1.1 blocking 项（222 项）
+### 1.1 blocking 项（225 项）
 
 | ID | Label | Script | Args | onFailHint |
 |----|-------|--------|------|------------|
@@ -245,6 +245,9 @@
 | 207 | 📏 AGENTS.md 体积守门(逐字注入面尺寸,预算 96,000 字节;口径与定级依据见脚本头注) | check-agents-doc-size.mjs | — | — |
 | 208 | 🪆 工作区嵌套 git 仓零容忍(blocking,0 存量棘轮;演练/夹具仓被 IDE 源代码管理扫成「暂存的更改 10000+ 全 D」幻影) | check-no-nested-git.mjs | — | 有 |
 | 212 | 🎯 输入框聚焦反馈对账(描边输入/选择控件必须有聚焦反应,三端同尺;存量按该文件 HEAD 自身棘轮只报数,定级依据与取证窗见脚本头注) | check-input-focus-feedback.mjs | — | — |
+| 213 | 🛡️  盘根写入回归锁(代码里别再产新的盘根外流;差值棘轮只拦新增) | check-disk-root-write.mjs | — | — |
+| 214 | 📐 mobile-rn sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块,固定 chrome 不被压扁) | check-sheet-flex-contract.mjs | — | — |
+| 215 | 🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增) | check-mobile-rn-style-parity.mjs | — | 有 |
 | 150 | 角色档合规对账(元素类别→档位,77 不判的那一型) | check-radius-role-conformance.mjs | — | 有 |
 | 170 | 🛰 旁路落地声明面对账(blocking,留痕声明面 ⊉ 实际面 ∧ 射程外路径写回旧 blob ⇒ 红并点名;增量台账每枚判一次) | check-bypass-landing-scope.mjs | — | 有 |
 | 172 | 🛡  跳门变量承诺/兑现对账(blocking,文档承诺的 HUSKY_SKIP_* 必须有真实读点;差值棘轮只拦新增) | check-skip-env-promise.mjs | — | 有 |
@@ -292,7 +295,7 @@
 
 ### 1.4 失败提示详情（onFailHint）
 
-仅展示有 onFailHint 的守门项（共 171 项），按 guardian-runner.mjs 出现顺序排列。
+仅展示有 onFailHint 的守门项（共 172 项），按 guardian-runner.mjs 出现顺序排列。
 
 #### [2e-dupns] 🧬 i18n 重复命名空间/重复键(blocking,防 JSON last-wins 静默遮蔽)
 
@@ -2605,9 +2608,7 @@ HEAD 里有人 import 一个从未入库的 Python 模块 ⇒ 干净检出与 CI
   🔍 定位:node scripts/check-no-nested-git.mjs(逐条点名绝对路径)
   🛠 修法:① 夹具/演练仓无留存价值 → 删目录或只摘 .git(大目录走 robocopy /MIR,§5e-2);
           ② 测试基建要临时仓 → 落点改 scripts/lib/scratch-dir.mjs 的 mkScratch()(工作区外+退出回收);
-          ③ 确属合法 → 不许静默豁免,也不改门脚本:登记到具名台账 scripts/data/no-nested-git-exemptions.json
-              (owner + why + YYYY-MM-DD 到期日,逐字等值容器目录才免;到期或失去命中自动翻红 —— 现场没了就把条目摘掉)。
-              .worktrees 顶层已在射程外。
+          ③ 确属合法 → 不许静默豁免:门脚本加显式常量 + 因由 + §22c 镜像对账(.worktrees 顶层已在射程外)。
   ⚠️ 应急跳过:HUSKY_SKIP_NO_NESTED_GIT=1(须在提交信息写明理由与清偿票)
 
 ```
@@ -2633,6 +2634,17 @@ HEAD 里有人 import 一个从未入库的 Python 模块 ⇒ 干净检出与 CI
   取证长号是谁的:node scripts/check-plan-id-pool.mjs --json 看 stock 列表;
   修法:用正牌取号器换池内空闲号并留改号尾注(node scripts/next-plan-id.mjs 报池内空闲清单);
   紧急跳过(不推荐):HUSKY_SKIP_PLAN_ID_POOL=1 git commit ...
+
+```
+
+#### [215] 🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增)
+
+```
+
+  改法:把 #hex 换成 @ihui/design-tokens(rnLightTokens/rnDarkTokens)的 token 引用,不要新造近似色。
+  存量治理后可运行 node scripts/check-mobile-rn-style-parity.mjs --update-baseline 收紧基线(全量档,不得与 --staged 同用)。
+  取材口径:全量=HEAD blob、--staged=索引 blob、--worktree=人工排查;取不到 ⇒ exit 2 无法判定。
+  自检:node scripts/check-mobile-rn-style-parity.mjs --self-test
 
 ```
 
@@ -3133,6 +3145,9 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 210 | `—（待补充）` | 📐 TS/Python 行切分口径逐例同值对账(warn;§0.9 造好没装车那一格) | check-line-split-parity.mjs |
 | 211 | `—（待补充）` | 🧮 PROJECT_PLAN 号池对账(声明位号 >999 按重数差值棘轮;R2 发号路径点名,warn) | check-plan-id-pool.mjs |
 | 212 | `—（待补充）` | 🎯 输入框聚焦反馈对账(描边输入/选择控件必须有聚焦反应,三端同尺;存量按该文件 HEAD 自身棘轮只报数,定级依据与取证窗见脚本头注) | check-input-focus-feedback.mjs |
+| 213 | `—（待补充）` | 🛡️  盘根写入回归锁(代码里别再产新的盘根外流;差值棘轮只拦新增) | check-disk-root-write.mjs |
+| 214 | `—（待补充）` | 📐 mobile-rn sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块,固定 chrome 不被压扁) | check-sheet-flex-contract.mjs |
+| 215 | `—（待补充）` | 🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增) | check-mobile-rn-style-parity.mjs |
 | 23 | `engineering/staged-files-info` | 📋 staged 文件清单(info) | check-staged-files.mjs |
 | 150 | `—（待补充）` | 角色档合规对账(元素类别→档位,77 不判的那一型) | check-radius-role-conformance.mjs |
 | 170 | `—（待补充）` | 🛰 旁路落地声明面对账(blocking,留痕声明面 ⊉ 实际面 ∧ 射程外路径写回旧 blob ⇒ 红并点名;增量台账每枚判一次) | check-bypass-landing-scope.mjs |
