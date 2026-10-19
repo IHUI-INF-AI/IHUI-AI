@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   panel: {
     marginTop: rpx(8),
     padding: rpx(16),
-    borderRadius: rnRadius.md,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     gap: rpx(12),
   },
