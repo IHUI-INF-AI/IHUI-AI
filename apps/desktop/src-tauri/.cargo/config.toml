@@ -14,5 +14,20 @@
 # (I/O Stream Error / permission denied,D:/G: 盘皆然、新装 1.90 工具链同样),
 # 且 autocfg 探针直调 rustc 也走 lld ⇒ 探针失败静默判"无 std" ⇒ schemars E0107
 # (indexmap 走 not(has_std) 分支)。lld 修复后可改回。
+#
+# ⚠️ 回退的代价(2026-10-19 补记 —— 原注释只记了"为什么回退",没记"回退之后多依赖了什么"):
+#   下面 `linker = "link.exe"` 是**裸名**,cargo 原样交给操作系统按 **PATH** 解析 ——
+#   它不指向任何具体安装目录。所以"MSVC 装了吗 / 选中的是哪一份"从本文件读不出来,
+#   只取决于跑构建那一刻的 PATH 内容与次序。
+#   ⇒ 后果:PATH 上任何**同名** link.exe 都会顶掉 MSVC 链接器。本机实测
+#     C:\Program Files\Git\usr\bin\link.exe(Git 自带 GNU coreutils,在系统 PATH 上)
+#     劫持过,链接阶段报 `link: missing operand after '\377\376'`
+#     (GNU coreutils 的 link 把 MSVC 传进来的响应文件当自己的参数吃掉了)。
+#   ⇒ 处置:`linker = "link.exe"` **保持不动**。lld 的失败是实测事实,不因为提速诉求
+#     就改判据;正确性改由"MSVC 工具链在 PATH 且**优先于**任何第三方 link.exe"来保证,
+#     仓内由 scripts/lib/msvc-env.mjs(MSVC 环境注入唯一真相源)+
+#     scripts/desktop-build.mjs 在 build/dev 入口负责注入。
+#     裸跑 `cargo build` / `tauri dev` 不经过那两文件 ⇒ 必须先在开发者 shell 里
+#     加载 vcvars/vsdevcmd,否则命中上面那条劫持。
 [target.x86_64-pc-windows-msvc]
 linker = "link.exe"
