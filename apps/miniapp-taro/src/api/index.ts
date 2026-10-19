@@ -49,6 +49,8 @@ import type {
   SubagentSpawnEvent,
   SubagentEndEvent,
   SubagentProgressEvent,
+  // G-425:done 帧 finishReason 透传事件(载荷口径与 web 端 streamChat.onFinishReason 同一份契约)
+  FinishReasonEvent,
   // api-client 已有类型(用于本地映射,字段差异见各 mapped type 注释)
   Course as ApiCourse,
   Live as ApiLive,
@@ -435,6 +437,27 @@ export interface StreamEventCallbacks {
    * (消费侧保持"未知",不得折成空串顶掉这一态)。
    */
   onTraceId?: (traceId: string) => void
+  /**
+   * G-425(2026-10-07 立,web 腿先行):done 帧的 finish/stop reason 透传通道。
+   * 值由共享解析层(@ihui/shared/utils/sse-parse 的 done 认领点)挂进 SSEEvent,
+   * 上游原样值不归一;**缺席 = 上游没给(旧服务端/老 provider),不是"正常结束"**
+   * —— 缺席时本通道不触发,绝不把"没采到"折成 stop(与 api-client
+   * streamChat.onFinishReason 同一纪律)。
+   */
+  onFinishReason?: (evt: FinishReasonEvent) => void
+}
+
+/**
+ * G-425:done 帧 finishReason 是否表示"输出被 max_tokens 截断"。判据口径逐字取自
+ * shared sse contract.ts 的 done 帧 `finishReason` 字段注释 —— 小写归一后
+ * ∈ {length, max_tokens};其余值(stop/tool_calls/SAFETY/RECITATION…)与缺席/非串
+ * 一律 false(缺席 = 上游没给,绝不折成"正常结束")。与 web
+ * `use-chat/stream-handlers.ts` 的同名助手同口径(packages/shared 未收此键,
+ * 端内各持一份;修改判据必须两端同批)。
+ */
+export function isMaxTokensTruncatedFinishReason(finishReason: string | undefined | null): boolean {
+  const fr = (finishReason ?? '').toLowerCase()
+  return fr === 'length' || fr === 'max_tokens'
 }
 
 /** SSE 错误对象携带的元信息(字段名与 @ihui/api-client client.ts attachErrorMeta 一致) */
@@ -542,6 +565,9 @@ export const chatStream = async (
           completionTokens: evt.usage?.completionTokens,
           model: evt.model,
         })
+        // G-425:done 帧携带的 finishReason 原样透传(共享 sse-parse 已认领该字段);
+        // 缺席 = 上游没给,不触发通道(绝不把"没采到"折成 stop)。
+        if (evt.finishReason) callbacks?.onFinishReason?.({ finishReason: evt.finishReason })
         break
       case 'error': {
         if (!evt.content) break

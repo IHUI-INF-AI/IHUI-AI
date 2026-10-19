@@ -206,6 +206,8 @@ import { uiControlToolsFor } from '../lib/ui-control-tools'
 import { useUiTextField } from '../lib/use-ui-text-field'
 // D135:额度分档告警一行措辞(两屏共用同一份,键挂 common.*)
 import { budgetNoteText } from '../utils/budget-note'
+// G-425:done 帧 finishReason 判"输出被 max_tokens 截断"(两屏共用同一判据)
+import { isMaxTokensTruncatedFinishReason } from '../utils/max-tokens-truncation'
 import { useI18n } from '../i18n'
 import {
   resolveRoundModel,
@@ -1044,6 +1046,15 @@ export function ChatScreen() {
       // 不再与完整回答同形。提示出口复用本端既有 FloatBox(与 onFallback 同形)
       onPartialDone: () => {
         showToast('warning', t('chat.partialDoneTitle'))
+      },
+      // G-425(2026-10-07 立,web 腿先行):done 帧携带上游 finish/stop reason
+      // (api-client onFinishReason,缺席不触发)。判"输出被 max_tokens 截断"用
+      // utils/max-tokens-truncation 的唯一助手(口径见其注释),提示出口复用本端
+      // 既有 FloatBox(与 onPartialDone 同形);其余 reason 不提示,不自动续写。
+      onFinishReason: (evt) => {
+        if (isMaxTokensTruncatedFinishReason(evt.finishReason)) {
+          showToast('warning', t('chat.truncation.maxLengthNotice'))
+        }
       },
       // D39 重试交代:与 N8n 屏同一句词包(否则用户在流上只看到"卡住")
       onRetryScheduled: (event) => {

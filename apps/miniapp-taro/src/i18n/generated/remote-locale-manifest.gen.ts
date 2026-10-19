@@ -8,23 +8,23 @@
 // 与 src/assets/remote-locales/<locale>.b64.txt(CDN 部署),三者同批派生、同钉对账。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/gen-i18n-compressed.mjs
-// sourceCommit: 984ac008a3c67c13a5754d910b2213dfc631008f
-// inputsSha256: bf92486ded6c88ca7207967194de8d99218dec9e34a9ac408e6603f0ba9054e0
-// input: packages/i18n/messages/miniapp-taro/en.json 5ef0eca9555972046a8649d88cc3f97f947435836a191a0e7ed4d690b0c0e239
-// input: packages/i18n/messages/miniapp-taro/ja.json 814ab0a49d17e1d31af433f1e06e34828a67936bd843662113e58ec686a6038d
-// input: packages/i18n/messages/miniapp-taro/ko.json 6ec111672327cc4d4c636e8b6dda6a7a5c8961767e04a979bbfc6f620ed06764
-// input: packages/i18n/messages/miniapp-taro/zh-TW.json ece73c8a2e294c5fbf312fe9b62f86859527e638978471a002af80037a95f2d2
+// sourceCommit: 6059dfccc4efe4da1ab719a409c48e1b0362cfed
+// inputsSha256: 2d677a3f868931b7013cb6df7c5cb1f082f43ab99ded66bd7e7534f9db62705d
+// input: packages/i18n/messages/miniapp-taro/en.json 3c7a801bf9a658e89fd418a22c4cf9623ee3d431a510955acdc06763d02eedb2
+// input: packages/i18n/messages/miniapp-taro/ja.json bb8aa3cea5bc69264236856c1c21664b41159822d99b215865e6e101e666530b
+// input: packages/i18n/messages/miniapp-taro/ko.json 75cb26cdfa13f6ff96e324bc60e1c6b0d2f786ce5526e7f18f5f26f14536e823
+// input: packages/i18n/messages/miniapp-taro/zh-TW.json 133a523b14b3f667bf839804ad001230746fe27eca3e752e82326165b55040d7
 // input: packages/i18n/messages/shared/en.json ad56dbbda35e9f0fd4342e4ed9162617a3488bfc02fa9425625bb54cac694cca
 // input: packages/i18n/messages/shared/ja.json b8f60d6e3cbff48ae249813217a74fd15046abbb4952a46a15759e1fbdb8dbb4
 // input: packages/i18n/messages/shared/ko.json f671dd631e9d9f6540449d184d23df62ab75b6507c071cbc08ef3bc0eb4bea99
 // input: packages/i18n/messages/shared/zh-TW.json d80846b39c4b89708396855ffcd23d34a1a2874700cea45ac2c6ec3b4cc589ca
-// generatedAt: 2026-10-18T18:01:24.064Z
+// generatedAt: 2026-10-19T04:46:08.095Z
 // IHUI-GEN-PIN-END
 export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'
 export const REMOTE_LOCALE_MANIFEST: Record<RemoteLocale, { version: string; bytes: number }> = {
-  en: { version: 'd328b3b116e365cbf7d417b5cb91a9a55420c2f584d0b946d5445de4dd9846d9', bytes: 109464 },
-  ja: { version: '4d37b788c288737f1e928f042a42f6f2bf56cf052706fdc9ba7efb4b977771e5', bytes: 123376 },
-  ko: { version: 'c37675d19412c49c98f3156b82870867eca6764188059cf487635ddd82cf1e3c', bytes: 117288 },
-  'zh-TW': { version: 'c2feda593c30e9d3c772d6eb40fec0fa236967ad22e9f22117a8d74732cfd929', bytes: 111044 },
+  en: { version: 'd9818fc8f6c0eeacbbcab27fc582b22edb1c226fd6eaed4d74ef9261c54a9dbd', bytes: 109564 },
+  ja: { version: '90be3a7df101e994dc5d2d43b86b39b9b78dedd274148261eadb957bebf4bf4b', bytes: 123512 },
+  ko: { version: 'e4838e836a328e7c54b16580be8daa129d841fd979a7633fbe6f9ecc84c7fd0a', bytes: 117384 },
+  'zh-TW': { version: '3fc68ebd4106f747ca7dda2f8bfd4cd86124616046909c5dd2f1185ad86959a9', bytes: 111136 },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
