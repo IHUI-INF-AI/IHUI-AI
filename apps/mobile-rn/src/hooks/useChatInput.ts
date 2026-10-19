@@ -19,7 +19,8 @@
  * 2026-07-29:补全 ChatScreen 包装层所需的 13+ MessageInput props/事件。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, Platform } from 'react-native'
+import { Platform } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import * as ImagePicker from 'expo-image-picker'
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio'
 import type { MessageInputAgentVariable, MessageInputFile, MessageInputFileType } from '@ihui/types'
@@ -171,7 +172,7 @@ export function useChatInput(options?: UseChatInputOptions): UseChatInputResult 
       setInputFiles((prev) => [...prev, file])
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'unknown'
-      Alert.alert('image picker error', msg)
+      appAlert('image picker error', msg)
     }
   }, [])
 
@@ -192,7 +193,7 @@ export function useChatInput(options?: UseChatInputOptions): UseChatInputResult 
       setInputFiles((prev) => [...prev, file])
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'unknown'
-      Alert.alert('file picker error', msg)
+      appAlert('file picker error', msg)
     }
   }, [])
 
@@ -250,7 +251,7 @@ export function useChatInput(options?: UseChatInputOptions): UseChatInputResult 
           onVoiceUnavailableRef.current('permission-denied', message)
           return
         }
-        Alert.alert('permission denied', 'microphone permission required')
+        appAlert('permission denied', 'microphone permission required')
         return
       }
       await recorder.prepareToRecordAsync()
@@ -270,7 +271,7 @@ export function useChatInput(options?: UseChatInputOptions): UseChatInputResult 
         onVoiceUnavailableRef.current('record-failed', msg || '录音启动失败,请重试')
         return
       }
-      Alert.alert('recorder error', msg)
+      appAlert('recorder error', msg)
     }
   }, [recorder])
 
@@ -325,7 +326,7 @@ export function useChatInput(options?: UseChatInputOptions): UseChatInputResult 
       })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'unknown'
-      Alert.alert('agent variable image error', msg)
+      appAlert('agent variable image error', msg)
     }
   }, [])
 
