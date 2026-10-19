@@ -39,6 +39,15 @@ console.log = (...a) => {
     if (__logBuf.length > 500) __logBuf.splice(0, __logBuf.length - 500)
   } catch {}
 }
+// console.error 也要镜像:否则抛错信息永远进不了远端日志(run 39246377653 实证,
+// BOOTSTRAP-ERROR 之外的真栈只能靠它看见)
+console.error = (...a) => {
+  try {
+    __logBuf.push('[ERR] ' + a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' '))
+    if (__logBuf.length > 500) __logBuf.splice(0, __logBuf.length - 500)
+  } catch {}
+  process.stderr.write(a.map((x) => (typeof x === 'string' ? x : String(x))).join(' ') + '\n')
+}
 let __logTimer = null
 function startRemoteLog() {
   if (__logTimer) return
@@ -667,7 +676,14 @@ async function runSignPath(page, attempt) {
       }
     }
     await sleep(9000)
-    await shotPush(`sp-postsubmit-${k}`)
+    try {
+      const pp = `${SHOT_DIR}/sp-postsubmit-${k}.png`
+      await page.screenshot({ path: pp, fullPage: false })
+      await pushRepoFileRetry(`.github/sp-postsubmit-${k}.png`, fs.readFileSync(pp).toString('base64'), `sp postsubmit ${k}`)
+      console.log(`SP-POSTSHOT k=${k} pushed`)
+    } catch (e) {
+      console.log(`SP-POSTSHOT-FAIL ${String(e.message).slice(0, 60)}`)
+    }
     // 提交本身触发不可见 reCAPTCHA,给 45 秒等挑战弹出
     const rc2 = await handleRecaptchaChallenge(page, attempt * 10 + k + 500, 45000)
     console.log('RC_SOLVED_AFTER_SUBMIT=' + rc2)
