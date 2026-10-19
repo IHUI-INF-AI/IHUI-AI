@@ -341,6 +341,20 @@ export async function updatePreferences(
 }
 
 /**
+ * 读取偏好设置(2026-10-20 侧边栏简洁模式通道)。
+ *
+ * 后端 `GET /api/settings/preferences` 返回 group='preferences' 的全部 (key,value),
+ * value 恒为字符串或 null —— **JSON 值由调用方自己 parse**,本函数不做结构化,
+ * 这样往这张表里加任何新的扁平偏好都不用再动这一层。
+ * 与 `updatePreferences` 成对。
+ */
+export async function getPreferences(): Promise<
+  ApiResult<{ settings: Record<string, string | null> }>
+> {
+  return fetchApi<{ settings: Record<string, string | null> }>('/api/settings/preferences')
+}
+
+/**
  * 读取侧边栏「自定义」栏配置(2026-10-16 立)。
  * 返回有序 href 列表 —— 顺序即侧栏显示顺序,调用方不得重排。
  * `exists=false` 表示该用户从未设置过(区别于"设置过但为空",后者 exists=true 且 hrefs=[]);

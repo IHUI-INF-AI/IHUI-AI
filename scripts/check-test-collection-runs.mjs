@@ -36,11 +36,6 @@
  *      实测反例:`packages/app` 的 script 带 `--environment jsdom`,丢旗标后 5 枚套件
  *      31 条用例以 `document is not defined` 红,按该端跑法复跑 22/22 绿。取不到调用点
  *      (script 里 vitest 不在命令位)、多于一次调用、裸 `vitest` 无子命令 —— 三型一律未判定。
- *   ⑤ **判红必须能在被审面上定论**(2026-10-19 加):本门只能在盘上真跑,而共享工作树常年带着
- *      别人的在飞改动 ⇒ 取材装配直接复用 `check-head-typecheck.mjs` 的 `makeHeadFaceDeps`
- *      (同一份脏面判据,§0.6 不得有第二份)。面上有在飞改动时:收集失败**降为候选 ⇒ 未判定**
- *      (与本次改动无关的恒红门只会逼人 --no-verify,§12e),达标也照样带一句"脏面读数不等于
- *      HEAD 面归零"(§0.4);装配本身装不上 ⇒ 当场点名"不判面",读数不得当合格证。
  *
  * 派生纪律(AGENTS §5b):一律 `execFileSync(<绝对路径 node>, [<绝对路径 vitest 入口>, …])`,
  *   带 `windowsHide: true`(钩子/GUI 宿主无控制台时漏了必弹窗)与 `timeout`(漏了会把提交挂死)。
@@ -294,29 +289,8 @@ export function resolveEnd(endDir) {
   return { reason: `vitest 入口不可解析(${endDir}/node_modules/vitest 与根 node_modules/vitest 都没有可执行入口)` }
 }
 
-/**
- * 把"这一端的读数能不能定论"接到**已有的**取材装配上(§0.6 不造第二份脏面判据):
- * `makeHeadFaceDeps` 出自 `check-head-typecheck.mjs`,它的头注②写明"净面方案已实测否证"
- * (worktree 净面 + node_modules junction 回真仓,cli 端一次 tsc 仍报 210 处 TS2307),
- * 正解是"跑在真仓工作树上,靠归因把在飞污染摘出去"。本门是同一条处境的另一例:
- * vitest 只能在盘上跑,而共享工作树常年带着别人的在飞改动。
- *
- * 两条降档(只降不升,绝不静默):
- *  - 判红 + 面上有在飞改动 ⇒ 改判**未判定**,文案明写"候选"——与改动无关的恒红门只会逼人
- *    `--no-verify`(§12e);失败明细一条不删,照抄在 reason 后面。
- *  - 达标 + 面上有在飞改动 ⇒ 仍达标,但必须带一句"脏面只能证明这一面上没看到红",
- *    不得把这份读数引用成 HEAD 面的合格证(§0.4 同面同轮)。
- * git 问不到在飞清单(dirtyCount < 0)⇒ 当作"不知道",两个方向都不发合格证。
- */
-export function faceCaveat(deps) {
-  if (!deps || typeof deps.countDirty !== 'function') return { known: false, dirtyCount: null }
-  const n = deps.countDirty()
-  if (typeof n !== 'number' || n < 0) return { known: false, dirtyCount: null }
-  return { known: true, dirtyCount: n }
-}
-
 /** 真跑一端:派生纪律见文件头(绝对路径 + windowsHide + timeout)。 */
-export function runEnd(endDir, { timeoutMs = DEFAULT_TIMEOUT_MS, deps = null } = {}) {
+export function runEnd(endDir, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   const resolved = resolveEnd(endDir)
   if (resolved.reason) return { verdict: 'undetermined', reason: resolved.reason }
 
@@ -348,40 +322,7 @@ export function runEnd(endDir, { timeoutMs = DEFAULT_TIMEOUT_MS, deps = null } =
     exitCode = e.status
   }
   const parsed = parseVitestOutput(`${stdout}\n${stderr}`, { exitCode })
-  const base = { ...parsed, vitestVersion: resolved.vitestVersion, argv: resolved.argv }
-  // 调用方没注入取材装配(单元自检走这一支)⇒ 不判面,原样回结论;真跑与巡检一律由 main 注入。
-  if (!deps) return base
-  const face = faceCaveat(deps)
-  const detail = (base.collectionFailures || []).map((f) => f.file).join(' , ') || '(逐条未点名,总数见 count)'
-  if (!face.known) {
-    if (base.verdict === 'violation') {
-      return {
-        ...base,
-        verdict: 'undetermined',
-        candidate: true,
-        reason: `收集失败 ${base.count} 个(${detail}),但在飞改动清单取不到 ⇒ 无法归因。判红会把与本次改动无关的脏面顶成恒红(§12e),取不到就落未判定(${base.reason})`,
-      }
-    }
-    return { ...base, faceNote: '在飞改动清单取不到 ⇒ 这份读数不得当合格证(§0.3:没判 ≠ 判过)' }
-  }
-  if (base.verdict === 'violation' && face.dirtyCount > 0) {
-    return {
-      ...base,
-      verdict: 'undetermined',
-      candidate: true,
-      dirtyCount: face.dirtyCount,
-      reason: `收集失败 ${base.count} 个(${detail})—— 但工作树上有 ${face.dirtyCount} 条在飞改动,其中任何一条都可能才是打断收集的那一条 ⇒ **候选,脏面不可定论**(同 ` +
-        '`check-head-typecheck --require-clean` 那一条口径)。要定论:在净面(或隔离检出)复跑一次。',
-    }
-  }
-  if (base.verdict === 'ok' && face.dirtyCount > 0) {
-    return {
-      ...base,
-      dirtyCount: face.dirtyCount,
-      faceNote: `脏面读数(在飞 ${face.dirtyCount} 条)只证明"这一面上没看到红",不等于 HEAD 面归零(§0.4 同面同轮)`,
-    }
-  }
-  return { ...base, dirtyCount: face.dirtyCount }
+  return { ...parsed, vitestVersion: resolved.vitestVersion, argv: resolved.argv }
 }
 
 /** 退出码:判红 1 > 未判定(strict 计红 1 / 默认 2)> 达标 0。 */
@@ -407,7 +348,6 @@ export function report(results, { strict }) {
     out.push(
       `  ${r.verdict === 'violation' ? '🔴 判红' : '🟢 达标'}:${r.reason || '收集失败套件 0 个'}${r.summaryLine ? ` ｜ Test Files ${r.summaryLine}` : ''}`,
     )
-    if (r.faceNote) out.push(`  ℹ ${r.faceNote}`)
     for (const f of r.collectionFailures) {
       out.push(`    - ${f.file}`)
       if (f.firstErrorLine) out.push(`        ↳ ${f.firstErrorLine}`)
@@ -639,47 +579,6 @@ async function selfTest() {
       JSON.stringify({ argv: ['run', '--passWithNoTests'] }),
   )
 
-  // A26–A30(2026-10-19 立,口径⑤):脏面不得定论,但判红能力必须有阳性对照证明它还在。
-  const cleanDeps = { countDirty: () => 0, isDirty: () => false, readHeadLine: () => 'x' }
-  const dirtyDeps = (n) => ({ countDirty: () => n, isDirty: () => true, readHeadLine: () => 'x' })
-  const unknownDeps = { countDirty: () => -1 }
-  const collectDir = mkEnd('face-collect', { output: COLLECT_OUT, code: 1 })
-  const f1 = runEnd(collectDir, { deps: cleanDeps })
-  ok(
-    'A26 净面 + 收集失败 ⇒ 仍判红(阳性对照:这条腿不许摘掉判红能力)',
-    f1.verdict === 'violation' && f1.dirtyCount === 0,
-    JSON.stringify({ v: f1.verdict, d: f1.dirtyCount }),
-  )
-  const f2 = runEnd(collectDir, { deps: dirtyDeps(7) })
-  ok(
-    'A27 脏面 + 收集失败 ⇒ 降为未判定并点名候选',
-    f2.verdict === 'undetermined' && f2.candidate === true && /候选/.test(f2.reason),
-    JSON.stringify(f2).slice(0, 200),
-  )
-  ok(
-    'A28 降档不许丢明细(失败套件名必须仍在 reason 里)',
-    /tests\/broken\.test\.ts/.test(f2.reason || ''),
-    (f2.reason || '').slice(0, 160),
-  )
-  const f3 = runEnd(mkEnd('face-green', { output: GREEN_OUT }), { deps: dirtyDeps(3) })
-  ok(
-    'A29 脏面 + 达标 ⇒ 仍达标,但必须带"不等于 HEAD 面归零"这一句',
-    f3.verdict === 'ok' && /不等于 HEAD 面归零/.test(f3.faceNote || ''),
-    JSON.stringify({ v: f3.verdict, n: f3.faceNote }),
-  )
-  const f4 = runEnd(collectDir, { deps: unknownDeps })
-  ok(
-    'A30 在飞清单取不到 ⇒ 既不判红也不发合格证(§0.3 没判 ≠ 判过)',
-    f4.verdict === 'undetermined' && /取不到/.test(f4.reason || ''),
-    JSON.stringify(f4).slice(0, 200),
-  )
-  ok(
-    'A31 faceCaveat 只认数得出数量的装配;负向不回落 0',
-    JSON.stringify(faceCaveat(cleanDeps)) === JSON.stringify({ known: true, dirtyCount: 0 }) &&
-      faceCaveat(unknownDeps).known === false &&
-      faceCaveat(null).known === false,
-  )
-
   rmScratch(scratch)
   console.log(`\n${fail === 0 ? '✅' : '❌'} self-test:${pass} 通过 / ${fail} 失败`)
   return fail === 0 ? 0 : 1
@@ -738,20 +637,7 @@ async function main() {
   if (argv.includes('--staged')) console.log('[staged] 本门不接受按暂存收窄(全端属性),按全量判定。')
 
   console.log(`测试收集存续性对账 · 受检端 ${targets.join(', ') || '(无)'}`)
-  /**
-   * 取材装配 = `check-head-typecheck.mjs` 的同一份(§0.6 不得有第二份脏面判据)。
-   * 动态 import:自检与纯判据档不该把 ops-patrol 那条链拖进来。
-   */
-  let deps = null
-  let depsError = null
-  try {
-    const mod = await import('./check-head-typecheck.mjs')
-    deps = mod.makeHeadFaceDeps({ root: ROOT })
-  } catch (e) {
-    depsError = e?.message ?? String(e)
-    console.log(`⚪ 取材装配装不上(${oneLine(String(depsError), 120)})⇒ 本轮**不判面**,读数不得当合格证`)
-  }
-  const results = targets.map((dir) => ({ end: dir, ...runEnd(dir, { timeoutMs, deps }) }))
+  const results = targets.map((dir) => ({ end: dir, ...runEnd(dir, { timeoutMs }) }))
   report(results, { strict })
   process.exitCode = decideExit(results, { strict })
 }
@@ -771,7 +657,6 @@ export const __test__ = {
   resolveEnd,
   runEnd,
   vitestArgvOf,
-  faceCaveat,
   decideExit,
   stripAnsi,
   DEFAULT_ENDS,
