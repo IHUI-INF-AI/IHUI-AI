@@ -8,6 +8,8 @@
 //   action=publish        build:npm → 用 secret token 发布 ihui-cli@x.y.z
 // 加密:RSA-OAEP(SHA256) 包 AES-256-GCM,公钥来自 secret PUBKEY_PEM(只有李总持私钥)。
 import { chromium } from 'playwright'
+import { spawn } from 'node:child_process'
+import net from 'node:net'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 
@@ -146,7 +148,6 @@ function findRealChrome() {
 }
 
 function waitPort(port, timeoutMs) {
-  const net = require('node:net')
   const t0 = Date.now()
   return new Promise((resolve, reject) => {
     const tryOnce = () => {
@@ -183,7 +184,7 @@ async function launch() {
         'about:blank',
       ]
       if (!headed) args.push('--headless=new')
-      require('node:child_process').spawn(bin, args, { stdio: 'ignore' })
+      spawn(bin, args, { stdio: 'ignore' })
       await waitPort(9222, 25000)
       const browser = await chromium.connectOverCDP('http://127.0.0.1:9222')
       const ctx = browser.contexts()[0] || (await browser.newContext())
