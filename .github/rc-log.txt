@@ -1,4 +1,4 @@
-2026-10-19T10:28:04.539Z pid=4059
+2026-10-19T10:28:10.379Z pid=4059
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/1 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -29,3 +29,8 @@ RC-WAIT round=0 i=8 status=404
 RC-WAIT round=0 i=12 status=404
 RC-WAIT round=0 i=16 status=404
 RC-WAIT round=0 i=20 status=404
+BOOTSTRAP-ERROR-STACK Error: rc instruction timeout round=0 — see rc-challenge-0.png
+    at handleRecaptchaChallenge (file:///home/runner/work/IHUI-AI/IHUI-AI/.github/scripts/npm-bootstrap-runner.mjs:791:23)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async runSignPath (file:///home/runner/work/IHUI-AI/IHUI-AI/.github/scripts/npm-bootstrap-runner.mjs:633:20)
+    at async main (file:///home/runner/work/IHUI-AI/IHUI-AI/.github/scripts/npm-bootstrap-runner.mjs:299:39)
