@@ -133,7 +133,7 @@ import {
 import { resurrectAnalysis } from './lib/stale-content-analysis.mjs'
 // 同题去重(2026-10-15,根治 union 重复再生):union 产出后、落地前按标题指纹折叠 PROJECT_PLAN 的
 // 同题行 —— 同一件事物理上只留一行,被丢弃行的独有注记/票号并入保留行(信息守恒)。
-import { dedupeByFingerprint, uniqueNotes, selfIdOf } from './lib/dedupe-ledger.mjs'
+import { dedupeByFingerprint, dedupeGroups, uniqueNotes, selfIdOf } from './lib/dedupe-ledger.mjs'
 // 折叠去向的举证只用**这一把**指纹尺子(与 dedupe-ledger / 守门 194 / 守门 203 同一个来源):
 // 自证侧问"被折掉的那一行,产物面里还有没有同一件事的那一行",问的是**身份**而不是**策略** ——
 // 折谁、注记怎么并、保留行怎么选全都住在 lib/dedupe-ledger,本器一处也不重写(§22c)。
@@ -1090,9 +1090,14 @@ export function attestFoldPair(pair, m) {
  * 折叠的唯一调用点(2026-10-16 收口):`dedupeByFingerprint` 只在这里被调,产物与台账同轮产出。
  * 返回的 `text` 与 `unionLines(..., { dedupeTasks: true })` 逐字等值(该函数体就是这两步)。
  */
-export function foldDedupe(text) {
-  const folded = dedupeByFingerprint(String(text ?? ''))
-  return { text: folded, ledger: foldLedgerOf(text, folded) }
+export function foldDedupe(text, baseLines = null) {
+  const folded = dedupeGroups(String(text ?? ''), baseLines)
+  return {
+    text: folded.text,
+    ledger: foldLedgerOf(text, folded.text),
+    // 两侧各写一版、机器无从裁定的那些组:必须一路带到落地闸点名,不许在这一步被读成"没得折"。
+    ambiguous: folded.ambiguous,
+  }
 }
 
 /**
@@ -1152,9 +1157,10 @@ function unionLinesCore(oursText, theirsText, baseText, suppress, dedupeTasks) {
   // (那是就 union 自身量),也不引入任何对侧的"少带" —— 方向只可能是"少留一份冗余",绝不会"丢"。
   // 2026-10-16:折叠的那一步收进唯一调用点 `foldDedupe`,产物与台账出自同一次函数调用。
   const pre = ensureTrailingNewline(res)
-  if (!dedupeTasks) return { text: pre, pre, ledger: null }
-  const folded = foldDedupe(pre)
-  return { text: folded.text, pre, ledger: folded.ledger }
+  if (!dedupeTasks) return { text: pre, pre, ledger: null, ambiguous: [] }
+  // 基底交给折叠层做「改写者优先」判据(2026-10-20):没有 baseText 就没有改写信号 ⇒ 逐字走旧判据。
+  const folded = foldDedupe(pre, baseText)
+  return { text: folded.text, pre, ledger: folded.ledger, ambiguous: folded.ambiguous }
 }
 
 /**
@@ -1472,6 +1478,8 @@ export function buildUnion(
     // 折叠台账(2026-10-16 立,根治"产物面折了、自证面不知道"那 295 处误拒收):
     // 键 = 文档路径,值 = `foldLedgerOf` 的产物。**只有真跑过折叠的那一份文档才会进这本账。**
     const foldLedgers = new Map()
+    // path -> 两侧各写一版、折叠层拒绝裁定的人工组(2026-10-20,随台账一起交回落地闸)
+    const foldAmbiguous = new Map()
     // 行级复活对账记录(G-383 最后一格):每份活文档归并后逐条登记,随返回值交 plan/main 呈报。
     const resurrect = []
     for (const p of LIVE_DOCS) {
@@ -1488,6 +1496,9 @@ export function buildUnion(
       const built0 = unionLinesCore(a, b, bt, ma.suppress, foldOn)
       const mergedText = built0.text
       if (foldOn) foldLedgers.set(p, built0.ledger)
+      // 「两侧各写一版、机器无从裁定」的组:一条都没折(产物面两版并存),但必须记下来交给落地闸点名
+      // —— 不记就等于把"没敢折"读成"不需要折",下一手看到的账面是干净的(§0.10 方向禁令)。
+      if (foldOn && built0.ambiguous?.length) foldAmbiguous.set(p, built0.ambiguous)
       // 根治(2026-09-30):--stdin 通道要求真 stdin 管道(本会话建管道必 EBUSY)⇒ 改走
       // writeBlob 临时文件通道,同 --path 语义、同 blob SHA(该函数头注有 CRLF 等价实证)。
       const oid = writeBlob(mergedText, p, cwd)
@@ -1804,6 +1815,8 @@ export function buildUnion(
       liveDocs,
       // 折叠台账(逐文档):自证侧 `verifyUnion` 必须拿它把"少掉的份数"问成"合法折叠"还是"真丢失"。
       foldLedgers,
+      // 折叠层拒绝裁定的组(逐文档):一条都没折,但必须交回落地闸点名,不得读成"没得折"。
+      foldAmbiguous,
       resurrect,
     }
   } finally {
@@ -2298,10 +2311,20 @@ export function plan(
   // 折叠台账必须**同轮**交给落地自证(§0.4 同面同轮):产物面是折叠之后那一份,自证侧若拿不到
   // 这本账,就会对着一个"产物面根本不存在的重数"判红 —— 本机实测 289 处「未存活行」而真丢失 0。
   const vu = verifyUnion(ours, theirs, built.tree, cwd, base, moveAwareCache, built.foldLedgers)
+  // 折叠层拒绝裁定的组必须以「未判定」进落地闸(2026-10-20):两版并存不是"没得折",而是"机器不敢猜"。
+  // 让它静默通过 = 把下一次合并的裁定权交给并不在场的人;拦下来点名 = §0.10 要的那个方向。
+  const ambiguousRows = []
+  for (const [doc, list] of built.foldAmbiguous || [])
+    for (const a of list)
+      ambiguousRows.push(
+        `${doc} 同题两版并存、折叠层拒绝裁定(未判定,须人工判哪一版是当下状态):指纹「${a.fp}」共 ${a.lines.length} 版 —— ${a.lines
+          .map((l) => `「${l.slice(0, 40)}」`)
+          .join(' ⇄ ')}`,
+      )
   return {
     base,
     ...built,
-    bad: [...built.violations, ...blocked, ...vu],
+    bad: [...built.violations, ...blocked, ...vu, ...ambiguousRows],
     // 两条路径的"少带份数"合流:两侧同改的丢行分流(built.caps)+ 活文档行 union(vu.pointerCaps)。
     // 只接其中一条 = 台账这一族恰好无人点名,而那正是本票要防的形状。
     caps: [
@@ -2315,6 +2338,7 @@ export function plan(
     folded: vu.folded,
     foldUndetermined: vu.foldUndetermined,
     foldLedgers: built.foldLedgers,
+    foldAmbiguous: built.foldAmbiguous,
     // 「因搬运感知而未取回」这一维:逐条目块的行数 + 出处归档件 + 判不出/照旧取回的原因。
     // 报告必须能回答"你没带回 N 行,因为这 N 行在基准面已有 已归档 占位代表"。
     moveAware: [...moveAwareCache.values()],
@@ -3176,6 +3200,47 @@ function selfTest() {
         return foldDedupe(unionLines(before, before, before)).text === unionLines(before, before, before, null, { dedupeTasks: true })
       })(),
     )
+    // ── 「改写者优先」(2026-10-20,票 G-310 同族的实测成因:G-69 base1023/本侧830、G-158 1539/1524、
+    //    G-222 629/613 三条合并稿全部只留旧长版 ⇒ 台账状态集体倒退)。四条臂缺一不可:
+    //    正臂证明新维度真生效,阳臂证明它不改变"没基底"时的旧行为,牙臂证明不敢猜时是拦不是放,
+    //    最后一臂证明 F4/F10 那族(同指纹不同票号)没被误拦成交人工。
+    {
+      const KB = '- [ ] G-790 **改写者优先判据夹具题面**,基底原文长版带一大段取证流水以示范长度差 AAAABBBBCCCCDDDD'
+      const KN = '- [ ] G-790 **改写者优先判据夹具题面**,本侧改写版把失效证据段摘掉了'
+      const KO = '- [ ] G-790 **改写者优先判据夹具题面**,对侧另写的第二版 EEEEEEEEFFFF'
+      const kbNew = `# 台账\n${KN}\n${KB}\n`
+      ok(
+        '改写者优先(正):同票号两版里"等于基底原文"的那条必须被折掉,keeper 是改写版 —— 旧判据按字节长会反过来留旧版',
+        (() => {
+          const g = dedupeGroups(kbNew, new Set([KB]))
+          return g.text.includes(KN) && !g.text.includes(KB) && g.ambiguous.length === 0
+        })(),
+      )
+      ok(
+        '改写者优先(阳性对照):不给基底 ⇒ 必须逐字走旧判据(留字节最长那版),证明新维度只在真拿到基底时才生效',
+        (() => {
+          const g = dedupeGroups(kbNew, null)
+          return g.text.includes(KB) && !g.text.includes(KN)
+        })(),
+      )
+      ok(
+        '拒绝裁定的牙:同一票号下两版都不是基底原文 ⇒ 一条不折、整组点名(绝不静默猜哪版是当下状态)',
+        (() => {
+          const g = dedupeGroups(`# 台账\n${KN}\n${KO}\n`, new Set([KB]))
+          return g.text.includes(KN) && g.text.includes(KO) && g.ambiguous.length === 1 && !!g.ambiguous[0].fp
+        })(),
+      )
+      ok(
+        '不退化:同指纹而票号不同(F4/F10 那族)照旧折成一份,不得被上面那一维误拦成交人工',
+        (() => {
+          const g = dedupeGroups(`# 台账\n${FOLD_A}\n${FOLD_B}\n`, new Set([FOLD_A]))
+          return (
+            g.text.split('\n').filter((l) => l.includes('落地闸不许对着折叠前的重数判红')).length === 1 &&
+            g.ambiguous.length === 0
+          )
+        })(),
+      )
+    }
     ok(
       '举证判据的牙:伪造一本"把它折进了另一件事"的台账必须给 lost(信台账 ≠ 信调用方)',
       (() => {
