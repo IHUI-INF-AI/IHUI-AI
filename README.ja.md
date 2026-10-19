@@ -2171,6 +2171,18 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 ---
 
+
+## 最近の更新 (自動維持)
+
+<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-19**
+- 🚀 **Web サイドバーをドメイン入口に集約**: P1 で重複 4 か所削除 + 設定 3 件移動; P2 で教育/コンテンツ/コマース 3 ドメインをドメイン入口に統合し、ナビを 72→24 項目に削減(`refactor(web)`).
+- 🧩 **G-425 切り捨て通知をクロスエンド補強(Extension / Mobile-RN)**: 判定ロジックを共有層の単一実装に下沉統合、5 言語パック完備(`feat(跨端)`).
+- 🔄 **4 エンド ui-routes 成果物同期**: P2 ドメイン入口ルート追加後、Web/Extension/Mobile-RN/Miniapp-Taro の AI ナビゲーション可能ルートが自動整列.
+- 🛡️ **ガーディアン強化**: ガーディアン 203 指紋欠陥を修正、union マージャーの「通過禁止」をコメントから実ゲートへ昇格; ガーディアン 208 が入れ子リポを処理し `.gitignore` 漏れ 2 か所を補完.
+- 🐞 **修正**: api-client の重複再エクスポートを削除(パッケージビルド失敗の原因); npm-bootstrap ログインフローにエラー診断/スクリーンショット/Turnstile 探査とアップロードタイムアウト保護を追加.
+<!-- END RECENT UPDATES -->
+
 <p align="center">
   <sub>Built by <strong>吉林省愛智匯人工知能科技有限公司</strong> · オープンソース共創、あなたと共に</sub>
 </p>

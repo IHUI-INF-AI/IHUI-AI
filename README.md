@@ -123,13 +123,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 2955 | `testFiles` |
+| 测试文件 | 2959 | `testFiles` |
 | CI 工作流 | 49 | `ciWorkflows` |
 | Compose 服务 | 15 | `composeServices` |
 | 工程守门 | 260 | `guardianGates` |
 | — blocking | 236 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15146 | `trackedFiles` |
+| 跟踪文件 | 15155 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-19。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -142,6 +142,17 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 
 ---
+
+## 最近更新(自动维护)
+
+<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-19**
+- 🚀 **Web 侧边栏收敛为域入口**:P1 去重 4 处 + 设置项归位 3 项;P2 将教育/内容/交易三域收为域入口,导航由 72→24 项(`refactor(web)`)。
+- 🧩 **G-425 截断提示跨端补齐(Extension / Mobile-RN)**:判定下沉共享层唯一实现,五语言词包齐备(`feat(跨端)`)。
+- 🔄 **四端 ui-routes 产物同步**:P2 域入口新增路由后,Web/Extension/Mobile-RN/Miniapp-Taro 的 AI 可导航路由自动对齐。
+- 🛡️ **工程守门加固**:修复守门 203 指纹缺陷、union 归并器「禁止放行」升级为真闸;守门 208 处置嵌套仓并补 .gitignore 缺口。
+- 🐞 **修复**:api-client 去除重复 re-export 导致的构建失败;npm-bootstrap 登录流程增加错误诊断/截图/Turnstile 探测与上传超时保护。
+<!-- END RECENT UPDATES -->
 
 ## 九份主题文档(从根 README 拆出的原文收纳件)
 
