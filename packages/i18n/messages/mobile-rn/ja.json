@@ -3081,7 +3081,7 @@
     "codeDesc": "要件を実装するコードを作成します",
     "polish": "推敲",
     "polishDesc": "指定されたテキストを推敲します",
-    "wechatArticle": "公众号記事",
+    "wechatArticle": "公式アカウント記事",
     "wechatArticleDesc": "WeChat 公式記事を作成します",
     "kouboScript": "ナレーション原稿",
     "kouboScriptDesc": "ナレーション原稿を作成します",
