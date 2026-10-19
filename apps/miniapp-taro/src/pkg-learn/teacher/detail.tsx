@@ -54,7 +54,8 @@ export default function TeacherDetail() {
   const router = useRouter()
   const [teacher, setTeacher] = useState<TeacherExtra | null>(null)
   const [courses, setCourses] = useState<TeacherCourse[]>([])
-  const [reviews, setReviews] = useState<TeacherReview[]>([])
+  // 评价没有真数据源(全仓无课程/讲师评价表),不再打不存在的 /teacher/:id/reviews
+  const [reviews] = useState<TeacherReview[]>([])
   const [loading, setLoading] = useState(true)
   const [followed, setFollowed] = useState(false)
   const [introExpanded, setIntroExpanded] = useState(false)
@@ -82,12 +83,6 @@ export default function TeacherDetail() {
       setCourses(res?.list || [])
     } catch {
       setCourses([])
-    }
-    try {
-      const res = await get<{ list: TeacherReview[] }>(`/teacher/${id}/reviews`)
-      setReviews(res?.list || [])
-    } catch {
-      setReviews([])
     }
   }, [router.params.id, tt])
 
