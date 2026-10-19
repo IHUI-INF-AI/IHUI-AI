@@ -32,6 +32,7 @@ import { isVideoImmersive, subscribeVideoImmersive } from './src/lib/video-immer
 import type { LoginResult } from '@ihui/api-client'
 import { GlobalFloatBox } from './src/components/GlobalFloatBox'
 import { PrivacyPolicyModal } from './src/components/PrivacyPolicyModal'
+import { AppConfirmHost } from './src/components/BottomPops'
 import { PRIVACY_POLICY_STORAGE_KEY } from './src/constants/privacyPolicy'
 import './src/lib/web-shell'
 
@@ -283,6 +284,10 @@ function AppContent() {
               <AppInner />
             </NetworkProvider>
           </AuthProvider>
+          {/* 全局确认弹层宿主:承载 appAlert(替代原生 Alert.alert)。RN Modal 恒渲染在最顶层,
+              树内位置不影响视觉层级;放在 Provider 子树内是硬要求 —— AppConfirmHost 调
+              useI18n 取默认确认按钮文案,挂在子树外会直接抛 useI18n 上下文错误。 */}
+          <AppConfirmHost />
         </I18nProvider>
         <StatusBar style="auto" />
       </SafeAreaProvider>

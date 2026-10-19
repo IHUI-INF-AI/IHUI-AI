@@ -221,7 +221,9 @@ export function readLedgerRecords(root = REPO_ROOT) {
         // indexLedger 的,根本不经过这里)。这一格由镜像测试的"写→读 round-trip"钉住。
         gatesRan: o.gatesRan === true,
         commitFiles: Array.isArray(o.commitFiles) ? o.commitFiles.map(String) : [],
-        ranFullBatch: o.ranFullBatch === true,
+        // 三态(2026-10-19 修):缺席 ≠ false。`gates-then-commit` 那一族按设计不记这一维
+        // (正/反证在上面的 gatesRan + hookSkipped),折成 false 会被下游读成"整批门没跑就跳了"。
+        ranFullBatch: typeof o.ranFullBatch === 'boolean' ? o.ranFullBatch : null,
         declaredFiles: Array.isArray(o.declaredFiles) ? o.declaredFiles.map(String) : [],
         headBefore: typeof o.headBefore === 'string' ? o.headBefore : '',
         landedSha: typeof o.landedSha === 'string' ? o.landedSha : '',

@@ -1,5 +1,5 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
@@ -19,7 +19,8 @@
  *   await pay(1000, '充值 10 元') // amountCents 单位:分
  */
 import { useCallback, useState } from 'react'
-import { Alert } from 'react-native'
+import {} from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { checkPaymentStatus, createWechatAppPayment } from '@ihui/api-client'
 import { isWeChatInstalled, openWeChatPayment } from '../lib/wechat-pay'
 
@@ -70,7 +71,7 @@ export function useWechatPayment(options: UseWechatPaymentOptions): UseWechatPay
         // 1. 检查微信客户端是否安装
         const installed = await isWeChatInstalled()
         if (!installed) {
-          Alert.alert('提示', messages?.wechatNotInstalled ?? DEFAULT_MESSAGES.wechatNotInstalled)
+          appAlert('提示', messages?.wechatNotInstalled ?? DEFAULT_MESSAGES.wechatNotInstalled)
           onFail?.('WECHAT_NOT_INSTALLED')
           return
         }
@@ -82,27 +83,27 @@ export function useWechatPayment(options: UseWechatPaymentOptions): UseWechatPay
           description,
         })
         if (!payRes.success || !payRes.data) {
-          Alert.alert('提示', payRes.error ?? '创建支付订单失败')
+          appAlert('提示', payRes.error ?? '创建支付订单失败')
           onFail?.('CREATE_ORDER_FAILED')
           return
         }
 
         // 3. DEV mock 回退(无微信支付配置,直接标记成功)
         if (payRes.data.mock) {
-          Alert.alert('提示', messages?.paySuccess ?? DEFAULT_MESSAGES.paySuccess)
+          appAlert('提示', messages?.paySuccess ?? DEFAULT_MESSAGES.paySuccess)
           await onSuccess?.(payRes.data.outTradeNo)
           return
         }
 
         // 4. 调起微信 APP 支付(传签名参数给 react-native-wechat-lib)
         if (!payRes.data.prepayData) {
-          Alert.alert('提示', messages?.nativeUnavailable ?? DEFAULT_MESSAGES.nativeUnavailable)
+          appAlert('提示', messages?.nativeUnavailable ?? DEFAULT_MESSAGES.nativeUnavailable)
           onFail?.('NATIVE_UNAVAILABLE')
           return
         }
         const paySuccess = await openWeChatPayment(payRes.data.prepayData)
         if (!paySuccess) {
-          Alert.alert('提示', messages?.payCancelled ?? DEFAULT_MESSAGES.payCancelled)
+          appAlert('提示', messages?.payCancelled ?? DEFAULT_MESSAGES.payCancelled)
           onFail?.('USER_CANCELLED')
           return
         }
@@ -112,25 +113,25 @@ export function useWechatPayment(options: UseWechatPaymentOptions): UseWechatPay
         if (orderNo) {
           const statusRes = await checkPaymentStatus(orderNo)
           if (statusRes.success && statusRes.data?.paid) {
-            Alert.alert('提示', messages?.paySuccess ?? DEFAULT_MESSAGES.paySuccess)
+            appAlert('提示', messages?.paySuccess ?? DEFAULT_MESSAGES.paySuccess)
             await onSuccess?.(orderNo)
           } else {
             // SDK 返回成功但后端状态未同步,乐观提示
-            Alert.alert('提示', messages?.paySuccess ?? DEFAULT_MESSAGES.paySuccess)
+            appAlert('提示', messages?.paySuccess ?? DEFAULT_MESSAGES.paySuccess)
             await onSuccess?.(orderNo)
           }
         } else {
-          Alert.alert('提示', messages?.paySuccess ?? DEFAULT_MESSAGES.paySuccess)
+          appAlert('提示', messages?.paySuccess ?? DEFAULT_MESSAGES.paySuccess)
           await onSuccess?.('')
         }
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err)
         if (errMsg === 'WECHAT_NOT_INSTALLED') {
-          Alert.alert('提示', messages?.wechatNotInstalled ?? DEFAULT_MESSAGES.wechatNotInstalled)
+          appAlert('提示', messages?.wechatNotInstalled ?? DEFAULT_MESSAGES.wechatNotInstalled)
         } else if (errMsg === 'WECHAT_NATIVE_UNAVAILABLE') {
-          Alert.alert('提示', messages?.nativeUnavailable ?? DEFAULT_MESSAGES.nativeUnavailable)
+          appAlert('提示', messages?.nativeUnavailable ?? DEFAULT_MESSAGES.nativeUnavailable)
         } else {
-          Alert.alert('提示', messages?.payFailed ?? DEFAULT_MESSAGES.payFailed)
+          appAlert('提示', messages?.payFailed ?? DEFAULT_MESSAGES.payFailed)
         }
         onFail?.(errMsg)
       } finally {
