@@ -108,10 +108,10 @@ ALTER TABLE "agent_ab_tests" ALTER COLUMN "status" TYPE varchar(32) USING "statu
 ALTER TABLE "agent_ab_tests" ALTER COLUMN "shadow_ratio" TYPE double precision USING "shadow_ratio"::double precision;
 ALTER TABLE "agent_ab_tests" ALTER COLUMN "significance_level" TYPE double precision USING "significance_level"::double precision;
 
-ALTER TABLE "agent_federated_lessons" ALTER COLUMN "id" TYPE bigint USING "id"::text::bigint;
+ALTER TABLE "agent_federated_lessons" ALTER COLUMN "id" DROP DEFAULT, ALTER COLUMN "id" TYPE bigint USING "id"::text::bigint;
 ALTER TABLE "agent_federated_lessons" ALTER COLUMN "lesson_type" TYPE varchar(64) USING "lesson_type"::varchar(64);
 ALTER TABLE "agent_federated_lessons" ALTER COLUMN "confidence" TYPE double precision USING "confidence"::double precision;
-ALTER TABLE "agent_federated_lessons" ALTER COLUMN "dp_noise_added" TYPE boolean USING "dp_noise_added"::boolean;
+ALTER TABLE "agent_federated_lessons" ALTER COLUMN "dp_noise_added" DROP DEFAULT, ALTER COLUMN "dp_noise_added" TYPE boolean USING nullif("dp_noise_added"::text, '')::boolean;
 
 ALTER TABLE "agent_meta_lessons" ADD COLUMN IF NOT EXISTS "user_id" text;
 ALTER TABLE "agent_meta_lessons" ADD COLUMN IF NOT EXISTS "anonymized_content" text;
@@ -120,7 +120,7 @@ ALTER TABLE "agent_meta_lessons" ADD COLUMN IF NOT EXISTS "dp_noise_added" boole
 ALTER TABLE "agent_meta_lessons" ADD COLUMN IF NOT EXISTS "expires_at" timestamptz;
 ALTER TABLE "agent_meta_lessons" ALTER COLUMN "id" TYPE bigint USING "id"::text::bigint;
 ALTER TABLE "agent_meta_lessons" ALTER COLUMN "lesson_type" TYPE varchar(64) USING "lesson_type"::varchar(64);
-ALTER TABLE "agent_meta_lessons" ALTER COLUMN "source_skills" TYPE jsonb USING to_jsonb("source_skills");
+ALTER TABLE "agent_meta_lessons" ALTER COLUMN "source_skills" DROP DEFAULT, ALTER COLUMN "source_skills" TYPE jsonb USING to_jsonb("source_skills");
 ALTER TABLE "agent_meta_lessons" ALTER COLUMN "failure_pattern_id" TYPE varchar(64) USING "failure_pattern_id"::varchar(64);
 ALTER TABLE "agent_meta_lessons" ALTER COLUMN "confidence" TYPE double precision USING "confidence"::double precision;
 
