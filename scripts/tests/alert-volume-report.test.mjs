@@ -308,4 +308,51 @@ test('T11 报告卫生:不泄中文原文、邮箱本地段必须掩码', () => 
   assert.equal(maskLocalPart('abc@qq.com'), '***@qq.com')
   assert.ok(!HAS_NON_ASCII.test(asciiFragment('中文 mixed ascii 尾')), 'ASCII 片段仍含非 ASCII')
 })
+
+// ─────────────────────────────────────────────────────────────────────────
+// T14/T15:2026-10-19 两处读侧误判(写侧从不说谎,是读者把"没记"读成"记了 false")
+// ─────────────────────────────────────────────────────────────────────────
+
+test('T14 缺席 ≠ false:该族按设计不记的两维不得折成"没跑整批"', () => {
+  const now = Date.parse('2026-10-19T02:00:00.000Z')
+  const row = (o) => JSON.stringify({ ts: new Date(now).toISOString(), kind: 'x', ...o })
+  const text = [
+    row({ kind: 'gates-then-commit', gatesRan: true, landedSha: 'a'.repeat(40) }), // 无 ranFullBatch ⇒ 缺席
+    row({ kind: 'not-ours', ranFullBatch: false, failedGates: ['192'] }),
+    row({ kind: 'gate-batch-run', ranFullBatch: true, failedGates: [] }),
+  ].join('\n')
+  const a = __test__.parseAttestation(text, { nowMs: now, hours: 24, days: 7 })
+  assert.equal(a.all.noBatchCount, 1, '只有明写 false 的那条能进"整批没跑"计数(真报数现读为 1)')
+  assert.equal(a.all.noBatchUnknown, 1, '缺席必须单列一格,既不算跑过也不算没跑')
+  assert.equal(a.totals.ranFullBatchFieldMissing, 1)
+  assert.equal(a.totals.failedGatesFieldMissing, 1, '只有 gates-then-commit 那一族按设计不记 failedGates(空数组也是"记了")')
+  assert.equal(a.entries[0].ranFullBatch, null, '缺席读成 null 而不是 false')
+  assert.equal(a.entries[0].failedGates, null)
+  assert.equal(a.entries[1].failedGates.length, 1, '真有的那一条必须照常可归因')
+  // 反向对照:把唯一变量改成"明写 false",必须照旧被计 —— 否则这条锁是恒真的
+  const b = __test__.parseAttestation(
+    text.replace('"gatesRan":true', '"gatesRan":true,"ranFullBatch":false'),
+    { nowMs: now, hours: 24, days: 7 },
+  )
+  assert.equal(b.all.noBatchCount, 2, '明写 false 的行必须照常进计数')
+  assert.equal(b.all.noBatchUnknown, 0)
+})
+
+test('T15 注册表反查必须认单行条目形态(207/212/217 曾在旧正则下彻底隐身)', () => {
+  const multiline = "  {\n    id: '105',\n    label: 'x',\n    script: 'check-miniapp-generated.mjs',\n  },\n"
+  const singleLine = "  { id: '207', label: 'y', script: 'check-agents-doc-size.mjs', mode: 'blocking' },\n"
+  const both = __test__.parseRegistry(multiline + singleLine)
+  assert.equal(both.entries, 2, '两种行形态都必须被认出来(旧正则按 4 空格锚定,单行条目结构上隐身)')
+  assert.equal(both.map.get('105'), 'check-miniapp-generated.mjs')
+  assert.equal(both.map.get('207'), 'check-agents-doc-size.mjs')
+  assert.deepEqual(both.dupIds, [])
+  // 撞号/串位仍是红的:同一 id 出现两次必须报名,不得静默认领
+  const dup = __test__.parseRegistry(multiline + multiline)
+  assert.deepEqual(dup.dupIds, ['105'], '撞号必须报名')
+  // 真仓面:不得还有"认出 id 却读不出 script"的盲区(旧读数是 3 枚)
+  const r = __test__.loadRegistry(ROOT, 'head')
+  assert.ok(r.ok, `真仓注册表取不到:${r.reason}`)
+  const blind = [...r.map].filter(([, v]) => v === null).map(([k]) => k)
+  assert.deepEqual(blind, [], `这些 id 认出但反查不到脚本 ⇒ 又出现盲区:${blind.join(' / ')}`)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
