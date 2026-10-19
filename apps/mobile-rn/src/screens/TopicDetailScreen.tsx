@@ -8,14 +8,13 @@
  * 镜像 miniapp-taro pages/topic/detail(P1 社区链路补齐):
  * - 数据源:@ihui/api-client fetchApi GET /topics/:id(帖子随详情一次性返回,客户端分页 slice)
  * - 交互:关注/取关 POST /circles/topic/:id/follow(翻转 isFollowed ± followerCount,
- *   toast → Alert.alert(t('common.hint')))→ 发布入口跳 CircleCreate(topicId/topicName 透传)→
+ *   toast → appAlert(t('common.hint')))→ 发布入口跳 CircleCreate(topicId/topicName 透传)→
  *   帖子卡点击进 CircleDetail;时间相对化(刚刚/N 分钟前/N 小时前/YYYY-MM-DD)
  * - 样式:getRnTokens 语义 token(零 hex,过 check:rn-parity);图标 lucide-react-native(无 emoji)
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Pressable,
@@ -26,6 +25,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Heart, MessageCircle, PenLine } from 'lucide-react-native'
@@ -94,10 +94,10 @@ export function TopicDetailScreen() {
         setDisplayPosts(allPosts.slice(0, PAGE_SIZE))
         setHasMore(allPosts.length > PAGE_SIZE)
       } else {
-        Alert.alert(t('common.hint'), t('topic.detail.loadFailed'))
+        appAlert(t('common.hint'), t('topic.detail.loadFailed'))
       }
     } catch {
-      Alert.alert(t('common.hint'), t('topic.detail.loadFailed'))
+      appAlert(t('common.hint'), t('topic.detail.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -138,15 +138,15 @@ export function TopicDetailScreen() {
           isFollowed: !prev.isFollowed,
           followerCount: (prev.followerCount ?? 0) + (prev.isFollowed ? -1 : 1),
         }))
-        Alert.alert(
+        appAlert(
           t('common.hint'),
           topic.isFollowed ? t('topic.detail.unfollowed') : t('topic.detail.followSuccess'),
         )
       } else {
-        Alert.alert(t('common.hint'), t('topic.detail.followFailed'))
+        appAlert(t('common.hint'), t('topic.detail.followFailed'))
       }
     } catch {
-      Alert.alert(t('common.hint'), t('topic.detail.followFailed'))
+      appAlert(t('common.hint'), t('topic.detail.followFailed'))
     } finally {
       setFollowing(false)
     }
