@@ -763,6 +763,7 @@ export async function loadToolFamilies(): Promise<{ families: ToolFamily[]; load
     ['CODEGRAPH_TOOLS', async () => import('../tools/codegraph.js')],
     ['CLIPBOARD_TOOLS', async () => import('../tools/clipboard.js')],
     ['MEMORY_TOOLS', async () => import('../tools/memory.js')],
+    ['SKILL_TOOLS', async () => import('../tools/skill-tool.js')],
     ['LSP_TOOLS', async () => import('../tools/lsp.js')],
     ['BROWSER_TOOLS', async () => import('../tools/browser.js')],
     ['BROWSER_PAGE_TOOLS', async () => import('../tools/browser-page.js')],
