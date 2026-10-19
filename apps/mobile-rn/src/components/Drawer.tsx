@@ -30,7 +30,6 @@ import { rnGeometry, rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
-  Dimensions,
   Easing,
   Image,
   Modal,
@@ -40,6 +39,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native'
 import { appAlert } from './BottomPops'
@@ -51,48 +51,37 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { MainTabKey } from '../navigation/tab-utils'
+import { DOMAIN_HUBS, type DomainKey, type HubGlyph } from '../navigation/domain-hub'
 import {
-  Award,
   Bell,
   Bot,
   BookOpen,
   Brain,
   ChevronDown,
-  ClipboardList,
+  ChevronRight,
   Crown,
-  FileText,
   Flame,
   Gift,
   Globe,
-  GraduationCap,
   Heart,
   HelpCircle,
   Home,
   Info,
   Layers,
-  ListChecks,
   LogIn,
   LogOut,
   Megaphone,
-  MessageCircle,
   MessageSquare,
-  NotebookPen,
   Palette,
-  PlayCircle,
   Plus,
   Puzzle,
-  ScrollText,
   Send,
   Settings,
-  ShoppingBag,
   Star,
-  Ticket,
   Trash2,
   User,
   UserPlus,
   Users,
-  UsersRound,
-  Wallet,
 } from 'lucide-react-native'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import { favoriteConversation, unfavoriteConversation } from '@ihui/api-client'
@@ -322,91 +311,6 @@ const NAV_GROUPS: readonly NavGroupConfig[] = [
     ],
   },
   {
-    titleKey: 'drawer.groupEdu',
-    defaultOpen: false,
-    items: [
-      {
-        labelKey: 'nav.courses',
-        Icon: GraduationCap,
-        route: 'CourseMain',
-        target: { type: 'main', screen: 'CourseMain' },
-      },
-      {
-        labelKey: 'nav.live',
-        Icon: PlayCircle,
-        route: 'LiveList',
-        target: { type: 'route', name: 'LiveList' },
-      },
-      {
-        labelKey: 'menu.sectionStudy',
-        Icon: BookOpen,
-        route: 'Learn',
-        target: { type: 'route', name: 'Learn' },
-      },
-      {
-        labelKey: 'menu.exam',
-        Icon: ScrollText,
-        route: 'Exam',
-        target: { type: 'route', name: 'Exam' },
-      },
-      {
-        labelKey: 'menu.studyRecord',
-        Icon: ClipboardList,
-        route: 'StudyRecord',
-        target: { type: 'route', name: 'StudyRecord' },
-      },
-      {
-        labelKey: 'menu.noteList',
-        Icon: NotebookPen,
-        route: 'NoteList',
-        target: { type: 'route', name: 'NoteList' },
-      },
-      {
-        labelKey: 'menu.certificate',
-        Icon: Award,
-        route: 'Certificate',
-        target: { type: 'route', name: 'Certificate' },
-      },
-    ],
-  },
-  {
-    titleKey: 'drawer.groupTrade',
-    defaultOpen: false,
-    items: [
-      { labelKey: 'menu.vip', Icon: Crown, route: 'Vip', target: { type: 'route', name: 'Vip' } },
-      {
-        labelKey: 'menu.wallet',
-        Icon: Wallet,
-        route: 'Wallet',
-        target: { type: 'route', name: 'Wallet' },
-      },
-      {
-        labelKey: 'menu.order',
-        Icon: ShoppingBag,
-        route: 'Order',
-        target: { type: 'route', name: 'Order' },
-      },
-      {
-        labelKey: 'menu.coupon',
-        Icon: Ticket,
-        route: 'Coupon',
-        target: { type: 'route', name: 'Coupon' },
-      },
-      {
-        labelKey: 'menu.pointsMall',
-        Icon: Star,
-        route: 'PointsMall',
-        target: { type: 'route', name: 'PointsMall' },
-      },
-      {
-        labelKey: 'menu.taskCenter',
-        Icon: ListChecks,
-        route: 'TaskCenter',
-        target: { type: 'route', name: 'TaskCenter' },
-      },
-    ],
-  },
-  {
     titleKey: 'drawer.groupPromote',
     defaultOpen: false,
     items: [
@@ -484,31 +388,23 @@ const NAV_GROUPS: readonly NavGroupConfig[] = [
       },
     ],
   },
-  {
-    titleKey: 'drawer.groupCommunity',
-    defaultOpen: false,
-    items: [
-      {
-        labelKey: 'menu.articleList',
-        Icon: FileText,
-        route: 'ArticleList',
-        target: { type: 'route', name: 'ArticleList' },
-      },
-      {
-        labelKey: 'menu.circleIndex',
-        Icon: UsersRound,
-        route: 'CircleIndex',
-        target: { type: 'route', name: 'CircleIndex' },
-      },
-      {
-        labelKey: 'menu.askList',
-        Icon: MessageCircle,
-        route: 'AskList',
-        target: { type: 'route', name: 'AskList' },
-      },
-    ],
-  },
 ] as const
+
+/**
+ * 抽屉竖排序列(P3 收敛后):折叠组与域入口行按原信息架构交错。
+ * edu/trade/community 不再是折叠组,而是域入口行 → DomainHubScreen 二级屏。
+ */
+type DrawerSection = { kind: 'group'; groupKey: string } | { kind: 'domain'; domain: DomainKey }
+
+const DRAWER_SECTIONS: readonly DrawerSection[] = [
+  { kind: 'group', groupKey: 'drawer.groupHot' },
+  { kind: 'group', groupKey: 'drawer.groupAi' },
+  { kind: 'domain', domain: 'edu' },
+  { kind: 'domain', domain: 'trade' },
+  { kind: 'group', groupKey: 'drawer.groupPromote' },
+  { kind: 'group', groupKey: 'drawer.groupPersonal' },
+  { kind: 'domain', domain: 'community' },
+]
 
 // ── 日期分组逻辑 ──
 
@@ -779,6 +675,29 @@ function NavRow({ item }: { item: NavRowModel }) {
   )
 }
 
+// ── 域入口行(P3 侧边栏收敛:教育/交易/社区收进 DomainHubScreen 二级屏,右侧 ChevronRight 表可进入) ──
+interface NavDomainRowProps {
+  label: string
+  Icon: HubGlyph
+  onPress: () => void
+}
+
+function NavDomainRow({ label, Icon, onPress }: NavDomainRowProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"
+      android_ripple={{ color: tokens.surface.muted }}
+    >
+      <Icon size={rnGeometry.glyphMd} color={tokens.text.secondary} />
+      <Text numberOfLines={1} className="flex-1 font-medium" style={styles.navRowText}>
+        {label}
+      </Text>
+      <ChevronRight size={rnGeometry.glyphSm} color={tokens.text.tertiary} />
+    </Pressable>
+  )
+}
+
 // ── 可折叠分组(web NavGroupSection 同构:text-xs uppercase 标题 + ChevronDown,折时 -90°) ──
 
 interface NavGroupSectionProps {
@@ -845,7 +764,8 @@ export function Drawer(props: DrawerProps) {
   const { logout } = useAuth()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<DrawerNav>()
-  const screenWidth = Dimensions.get('window').width
+  // app.json orientation 已放开为 default,旋转/分屏时抽屉宽度必须随窗口变化
+  const { width: screenWidth } = useWindowDimensions()
   const drawerWidth = Math.min(screenWidth * DRAWER_WIDTH_RATIO, rnGeometry.drawerWidth)
 
   // progress: 0 = 隐藏, 1 = 显示
@@ -995,6 +915,17 @@ export function Drawer(props: DrawerProps) {
     })),
   }))
 
+  /** 域入口:收起抽屉后进 DomainHubScreen 二级屏(教育/交易/社区,条目单源见 navigation/domain-hub) */
+  const handleOpenDomain = useCallback(
+    (domain: DomainKey) => {
+      onClose()
+      navigation.navigate('DomainHub', { domain })
+    },
+    [navigation, onClose],
+  )
+
+  const groupByKey = new Map(navGroups.map((group) => [group.key, group]))
+
   // 用户菜单项(web SidebarUserRow 下拉的 RN 可达子集)
   const userMenuItems = isLoggedIn
     ? [
@@ -1138,16 +1069,32 @@ export function Drawer(props: DrawerProps) {
                   />
                 </View>
 
-                {/* 4. 分组竖排导航(热门/AI/教育/交易/推广/个人/社区;无路由项不渲染) */}
-                {navGroups.map((group) => (
-                  <NavGroupSection
-                    key={group.key}
-                    title={group.title}
-                    variant={group.variant}
-                    defaultOpen={group.defaultOpen}
-                    items={group.items}
-                  />
-                ))}
+                {/* 4. 竖排导航:折叠组(热门/AI/推广/个人) + 域入口行(教育/交易/社区 → 二级屏) */}
+                {DRAWER_SECTIONS.map((section) => {
+                  if (section.kind === 'domain') {
+                    const hub = DOMAIN_HUBS[section.domain]
+                    if (!hub) return null
+                    return (
+                      <NavDomainRow
+                        key={section.domain}
+                        label={t(hub.titleKey)}
+                        Icon={hub.Icon}
+                        onPress={() => handleOpenDomain(section.domain)}
+                      />
+                    )
+                  }
+                  const group = groupByKey.get(section.groupKey)
+                  if (!group) return null
+                  return (
+                    <NavGroupSection
+                      key={group.key}
+                      title={group.title}
+                      variant={group.variant}
+                      defaultOpen={group.defaultOpen}
+                      items={group.items}
+                    />
+                  )
+                })}
 
                 {/* 5. 历史对话(模型分组 → 日期分组 → 左滑收藏/删除;机制原样,文案 i18n 化) */}
                 <View className="mt-3 flex-row items-center justify-between px-2.5">
