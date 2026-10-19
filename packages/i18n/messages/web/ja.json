@@ -682,6 +682,18 @@
   },
   "admin": {
     "wallboard": {
+      "edgeControlLeg": "非加速経路の比較計測",
+      "edgeHeadlineHit": "国内高速化ヒット率",
+      "edgeHeadlineMs": "トップページの現在の表示時間",
+      "edgeNoSeries": "訪問者計測のサンプルがありません",
+      "edgeSparkName": "トップページ遅延",
+      "edgeSparkTitle": "最近の訪問者トップページ遅延(緑=キャッシュヒット、黄=ミス)",
+      "edgeStatP50": "P50 時間",
+      "edgeStatP95": "P95 時間",
+      "edgeStatSamples": "サンプル数",
+      "edgeStatWorst": "最悪値",
+      "edgeUpdatedAgo": "計測 {ago}",
+      "panelEdge": "訪問者遅延 · 国内高速化",
       "activeAlerts": "アクティブアラート (Alertmanager)",
       "agoDays": "{n}日前",
       "agoHours": "{n}時間前",
