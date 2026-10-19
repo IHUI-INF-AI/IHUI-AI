@@ -497,26 +497,29 @@ function loadImage(file: File): Promise<HTMLImageElement> {
 /* 文件分享（fileShare）                                               */
 /* ------------------------------------------------------------------ */
 
+/**
+ * 分享记录(对齐后端 POST /api/files/:id/share 的返回体,
+ * apps/api/src/routes/files.ts::createShareSchemaDoc)。
+ */
 export interface ShareLink {
   id: string
-  fileId: string
-  url: string
-  password?: string
+  shareToken: string
+  permissions: 'view' | 'edit'
+  sharedWith: string | null
   expiresAt: string | null
-  maxDownloads: number | null
-  downloadCount: number
   createdAt: string
 }
 
 export async function createShareLink(input: {
   fileId: string
-  password?: string
-  expiresInDays?: number
-  maxDownloads?: number
-}): Promise<ApiResult<ShareLink>> {
-  return fetchApi<ShareLink>('/files/share', {
+  sharedWith?: string
+  permissions?: 'view' | 'edit'
+  expiresAt?: string
+}): Promise<ApiResult<{ share: ShareLink }>> {
+  const { fileId, ...body } = input
+  return fetchApi<{ share: ShareLink }>(`/api/files/${encodeURIComponent(fileId)}/share`, {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify(body),
   })
 }
 
@@ -524,8 +527,8 @@ export async function getShareLink(id: string, password?: string): Promise<ApiRe
   return fetchApi<ShareLink>(`/files/share/${encodeURIComponent(id)}${buildQs({ password })}`)
 }
 
-export async function revokeShareLink(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/files/share/${encodeURIComponent(id)}`, {
+export async function revokeShareLink(id: string): Promise<ApiResult<{ deleted: boolean }>> {
+  return fetchApi<{ deleted: boolean }>(`/api/files/shares/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   })
 }
@@ -538,28 +541,31 @@ export async function listShareLinks(): Promise<ApiResult<ShareLink[]>> {
 /* 文件版本（fileVersion）                                             */
 /* ------------------------------------------------------------------ */
 
+/**
+ * 文件版本(对齐后端 file-version.ts 的 serializeVersion 返回体)。
+ * 旧形态的 url / uploader / changelog / isCurrent 四字段后端**从未产出**
+ * (apps/api/src/routes/file-version.ts::serializeVersion 只给这七个),
+ * 留着就是"端上看不见的假字段"。
+ */
 export interface FileVersion {
   id: string
   fileId: string
   version: number
-  url: string
   size: number
-  uploader: { id: string; nickname: string }
-  changelog: string | null
-  isCurrent: boolean
+  uploadedBy: string
+  changeLog: string | null
   createdAt: string
 }
 
-export async function listVersions(fileId: string): Promise<ApiResult<FileVersion[]>> {
-  return fetchApi<FileVersion[]>(`/files/${encodeURIComponent(fileId)}/versions`)
+export async function listVersions(fileId: string): Promise<ApiResult<{ versions: FileVersion[] }>> {
+  return fetchApi<{ versions: FileVersion[] }>(
+    `/api/file-versions/list/${encodeURIComponent(fileId)}`,
+  )
 }
 
-export async function restoreVersion(
-  fileId: string,
-  versionId: string,
-): Promise<ApiResult<FileVersion>> {
-  return fetchApi<FileVersion>(
-    `/files/${encodeURIComponent(fileId)}/versions/${encodeURIComponent(versionId)}/restore`,
+export async function restoreVersion(versionId: string): Promise<ApiResult<{ version: FileVersion }>> {
+  return fetchApi<{ version: FileVersion }>(
+    `/api/file-versions/rollback/${encodeURIComponent(versionId)}`,
     { method: 'POST' },
   )
 }
@@ -567,12 +573,13 @@ export async function restoreVersion(
 export async function uploadNewVersion(
   fileId: string,
   file: File,
-  changelog?: string,
-): Promise<ApiResult<FileVersion>> {
+  changeLog?: string,
+): Promise<ApiResult<{ version: FileVersion }>> {
   const formData = new FormData()
   formData.append('file', file)
-  if (changelog) formData.append('changelog', changelog)
-  return fetchApi<FileVersion>(`/files/${encodeURIComponent(fileId)}/versions`, {
+  formData.append('fileId', fileId)
+  if (changeLog) formData.append('changeLog', changeLog)
+  return fetchApi<{ version: FileVersion }>('/api/file-versions/create', {
     method: 'POST',
     body: formData,
   })
