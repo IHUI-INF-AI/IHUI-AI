@@ -1,4 +1,4 @@
-2026-10-19T10:14:44.783Z pid=3829
+2026-10-19T10:14:56.782Z pid=3829
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/1 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -36,3 +36,4 @@ RC-WAIT round=1 i=4 status=200
 RC-WAIT round=1 i=8 status=200
 RC-WAIT round=1 i=12 status=200
 RC-WAIT round=1 i=16 status=200
+RC-INSTRUCT round=1 clicks=[{"x":582,"y":271},{"x":679,"y":271},{"x":582,"y":368},{"x":679,"y":368}]
