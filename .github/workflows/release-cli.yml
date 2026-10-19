@@ -20,6 +20,9 @@ permissions:
   # --provenance 通过 Sigstore keyless 签发,必须先换 GitHub OIDC token;
   # 缺这一条发布步会直接失败(npm ERR! --provenance flag requires OIDC token)。
   id-token: write
+  # SignPath 签名请求需回读本次 run 的 workflow artifact(upload-artifact 产物);
+  # 显式声明 permissions 块后未列出的 scope 一律为 none,缺这条签名步会读不到 artifact。
+  actions: read
 
 env:
   NODE_VERSION: '22'
@@ -115,6 +118,10 @@ jobs:
     # 与 npm-publish 完全解耦(needs: []):npm 侧无论 bootstrap 与否,6 平台二进制照常发布
     needs: []
     runs-on: ${{ matrix.runner }}
+    env:
+      # SignPath 通道开关:四项凭据齐备才置 true(step-level if 不支持 secrets 上下文,
+      # 故先在此折算成 env)。未配置时签名相关步骤整体跳过,发布保持现状(未签名 exe)。
+      SIGNPATH_CONFIGURED: ${{ secrets.SIGNPATH_API_TOKEN != '' && secrets.SIGNPATH_ORGANIZATION_ID != '' && secrets.SIGNPATH_PROJECT_SLUG != '' && secrets.SIGNPATH_SIGNING_POLICY_SLUG != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -177,6 +184,73 @@ jobs:
         # 非 Windows: ihui),旁带 package.json。
         run: pnpm --filter ihui-cli build:sea
 
+      # ---------- SignPath 代码签名(仅 Windows;凭据齐备才启用) ----------
+      # 时序硬约束:build-sea.mjs 的最后一步是 postject 注入 NODE_SEA_BLOB(改写 PE 尾部),
+      # 任何注入前的签名都会被它破坏 —— 故签名必须落在 build:sea 之后、打包与算哈希之前。
+      # 同时必须早于 Package (Windows)/Generate SHA256 checksum:否则 zip 里仍是未签名 exe、
+      # SHA256SUMS 记录的是未签名哈希。
+      # SignPath 侧需预先配置 artifact configuration(根为 <zip-file>,内含 ihui.exe 的
+      # PE 签名项),否则默认配置会因找不到可签名对象而报错。
+      - name: Upload unsigned binary for signing (Windows)
+        if: matrix.os == 'windows' && env.SIGNPATH_CONFIGURED == 'true'
+        id: upload-unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          # 与后面的发布 artifact 用不同 name,避免同名冲突
+          name: unsigned-ihui-windows-${{ matrix.arch }}
+          path: apps/cli/dist-sea/ihui.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Submit SignPath signing request (Windows)
+        if: matrix.os == 'windows' && env.SIGNPATH_CONFIGURED == 'true'
+        id: signpath
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ secrets.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          # SignPath Foundation 人工审批可能排队,600s 默认值不够
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed
+
+      - name: Replace binary with signed artifact (Windows)
+        if: matrix.os == 'windows' && env.SIGNPATH_CONFIGURED == 'true'
+        shell: pwsh
+        run: |
+          # SignPath 回传物形态取决于 artifact configuration:根为 <zip-file> 时是 zip,
+          # 根为 PE 文件时是裸 exe。两种都收:先找 exe,找不到就解压 zip 再找。
+          $signed = Get-ChildItem -Path signed -Filter ihui.exe -Recurse -File |
+            Select-Object -First 1
+          if (-not $signed) {
+            Get-ChildItem -Path signed -Filter *.zip -Recurse -File | ForEach-Object {
+              Expand-Archive -Path $_.FullName -DestinationPath signed -Force
+            }
+            $signed = Get-ChildItem -Path signed -Filter ihui.exe -Recurse -File |
+              Select-Object -First 1
+          }
+          if (-not $signed) { throw "签名产物中未找到 ihui.exe" }
+          Copy-Item $signed.FullName apps\cli\dist-sea\ihui.exe -Force
+          Write-Host "signed: $($signed.FullName) ($($signed.Length) bytes)"
+
+      - name: Verify Authenticode signature (Windows)
+        if: matrix.os == 'windows' && env.SIGNPATH_CONFIGURED == 'true'
+        shell: pwsh
+        run: |
+          # 签名链必须 Valid;不是 Valid 就让流水线红掉,不允许把未签名/坏签名产物发出去
+          $sig = Get-AuthenticodeSignature apps\cli\dist-sea\ihui.exe
+          Write-Host "Status: $($sig.Status)"
+          Write-Host "Subject: $($sig.SignerCertificate.Subject)"
+          Write-Host "Issuer:  $($sig.SignerCertificate.Issuer)"
+          if ($sig.Status -ne 'Valid') {
+            throw "Authenticode 校验失败: $($sig.Status) / $($sig.StatusMessage)"
+          }
+          Write-Host "SHA256: $((Get-FileHash -Algorithm SHA256 apps\cli\dist-sea\ihui.exe).Hash.ToLower())"
+          "### 签名状态`n- Status: $($sig.Status)`n- Subject: $($sig.SignerCertificate.Subject)" >> $env:GITHUB_STEP_SUMMARY
+
       - name: Package (Linux/macOS)
         if: matrix.os != 'windows'
         shell: bash
@@ -238,6 +312,20 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
+
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      # 守门 215 的 W1/W2:作业里**每个**带 id 的步骤都必须在 TRIAGE_IDS 里并有对应 O_<ID> 键 ——
+      # 本作业原无带 id 步骤,SignPath 签名步引入 upload-unsigned / signpath 两个 id,
+      # 必须同批装自述,否则"红了却报不出是哪一条"这一型正好被自己造出来。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/release-cli.yml
+          TRIAGE_IDS: upload-unsigned signpath
+          O_UPLOAD_UNSIGNED: ${{ steps.upload-unsigned.outcome }}
+          O_SIGNPATH: ${{ steps.signpath.outcome }}
+        run: bash scripts/ci-failure-triage.sh
 
   # ---------- Job 3: Build Docker image ----------
   build-docker:
