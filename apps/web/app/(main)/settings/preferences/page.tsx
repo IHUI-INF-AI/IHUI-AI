@@ -18,6 +18,7 @@ import { clearWebViewCache } from '@/lib/tauri-bridge'
 import { SamplingParamsCard } from '@/components/settings/sampling-params-card'
 import { FoldPolicyCard } from '@/components/settings/fold-policy-card'
 import { WebSearchCard } from '@/components/settings/web-search-card'
+import { NavTierCard } from '@/components/settings/nav-tier-card'
 import { cn } from '@/lib/utils'
 
 const SIDEBAR_KEY = 'sidebar-collapsed'
@@ -163,6 +164,9 @@ export default function PreferencesPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* 侧边栏简洁模式(2026-10-20 立):一个总闸 + 四档开关,收起那 60 项目开发者/运维向入口 */}
+        <NavTierCard />
 
         {/* AI 回答偏好(2026-09-14 自聊天输入区高级参数面板迁入统一设置页) */}
         <SamplingParamsCard />

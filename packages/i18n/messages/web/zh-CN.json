@@ -2671,11 +2671,15 @@
           "create": "新建",
           "createSuccess": "创建成功",
           "createTitle": "新建支付日志",
+          "dateLabel": "缴费日期",
           "delete": "删除",
           "deleteSuccess": "删除成功",
           "edit": "编辑",
           "editTitle": "编辑支付日志",
           "empty": "暂无支付记录",
+          "emptyRoster": "暂无报名数据",
+          "enrollmentLabel": "期次（报名）",
+          "enrollmentPlaceholder": "选择学员的某一期报名",
           "export": "导出",
           "exportFailed": "导出失败",
           "exportSuccess": "导出成功",
@@ -2685,6 +2689,10 @@
           "filterUserUuid": "用户UUID",
           "filterVideoId": "视频ID",
           "loading": "加载中...",
+          "methodAlipay": "支付宝",
+          "methodCash": "现金",
+          "methodTransfer": "转账",
+          "methodWechat": "微信",
           "nextPage": "下一页",
           "outBillOnLabel": "账单日期 *",
           "outBillOnRequired": "账单日期不能为空",
@@ -2692,7 +2700,11 @@
           "payWayLabel": "支付方式",
           "prevPage": "上一页",
           "realAmountLabel": "实付金额",
+          "recordTitle": "登记缴费",
+          "remarkLabel": "备注",
+          "remarkPlaceholder": "可选",
           "reset": "重置",
+          "rosterLine": "{name} · {cls} · 应缴 {totalFee} 已缴 {paidAmount} 欠费 {dueAmount}",
           "save": "保存",
           "subtitle": "管理课程支付记录与账单",
           "title": "课程支付日志",
@@ -20062,7 +20074,10 @@
     "customAdd": "添加",
     "customRemove": "移除",
     "customDragHint": "拖拽排序",
-    "customNoResults": "没有找到匹配的功能"
+    "customNoResults": "没有找到匹配的功能",
+    "eduHubTitle": "教育",
+    "contentHubTitle": "内容",
+    "tradeHubTitle": "交易"
   },
   "news": {
     "allCategories": "全部分类",
@@ -22243,6 +22258,7 @@
     "dashboardDesc": "快速访问所有设置项",
     "dashboardTitle": "仪表盘",
     "dataExportTitle": "数据导出",
+    "dataRightsTitle": "数据权利",
     "dataVisibility": "数据可见性",
     "dataVisibilityDesc": "控制谁可以查看您的个人资料信息",
     "desc": {
@@ -22661,7 +22677,21 @@
     "codeIndexEgressOptOut": "不建代码语义索引",
     "codeIndexEgressOptOutDesc": "代码切片不会外发用于向量化建索引",
     "autoMemoryOptOut": "关闭自动长期记忆",
-    "autoMemoryOptOutDesc": "不会把对话提炼成跨会话的偏好或约定"
+    "autoMemoryOptOutDesc": "不会把对话提炼成跨会话的偏好或约定",
+    "navTiers": {
+      "title": "侧边栏简洁模式",
+      "desc": "侧边栏默认隐藏开发者与运维向的功能入口。需要用到时，打开下面的开关即可显示。",
+      "simpleMode": "简洁模式",
+      "simpleModeDesc": "一键隐藏下方四类入口；关闭则全部显示",
+      "developer": "开发者工具",
+      "developerDesc": "API 文档、Webhook、沙箱、中转站密钥与 API 订阅",
+      "relayOps": "模型中转站后台",
+      "relayOpsDesc": "渠道、密钥、调用日志、计费与兑换码等运营数据",
+      "advancedAi": "高级 AI 工具",
+      "advancedAiDesc": "记忆、子智能体、编排、上下文压缩等智能体框架能力",
+      "experimental": "实验性功能",
+      "experimentalDesc": "仍在验证阶段的能力，后续可能调整或下线"
+    }
   },
   "shareContentPage": {
     "aiGenerated": "智汇 AI 生成",
@@ -28705,5 +28735,17 @@
   },
   "statusPage": {
     "incidentsUnavailable": "最近 30 天的事件数据暂时取不到"
+  },
+  "eduHub": {
+    "title": "教育",
+    "subtitle": "课程、考试、学习工具与教务管理"
+  },
+  "contentHub": {
+    "title": "内容",
+    "subtitle": "广场、社区、消息与多平台发布"
+  },
+  "tradeHub": {
+    "title": "交易",
+    "subtitle": "钱包、订单、会员与积分权益"
   }
 }

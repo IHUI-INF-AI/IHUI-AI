@@ -31,6 +31,11 @@
  *      收集失败。断言失败如实报数并明写"不计入本门"。
  *   ③ **取不到结论必须显式"无法判定"并给原因** —— vitest 入口不可解析 / 超时 / 输出里没有汇总行 /
  *      该端没有 test script,四类全部 exit 2(strict 下 exit 1),既不冒红也不记绿。
+ *   ④ **受检形态必须等于该端真实跑法**(2026-10-19 加,起因是实测到的假红):派生时原样带上
+ *      该端 `scripts.test` 里 vitest 那一次调用的全部参数,不再固定 `[入口, 'run']`。
+ *      实测反例:`packages/app` 的 script 带 `--environment jsdom`,丢旗标后 5 枚套件
+ *      31 条用例以 `document is not defined` 红,按该端跑法复跑 22/22 绿。取不到调用点
+ *      (script 里 vitest 不在命令位)、多于一次调用、裸 `vitest` 无子命令 —— 三型一律未判定。
  *
  * 派生纪律(AGENTS §5b):一律 `execFileSync(<绝对路径 node>, [<绝对路径 vitest 入口>, …])`,
  *   带 `windowsHide: true`(钩子/GUI 宿主无控制台时漏了必弹窗)与 `timeout`(漏了会把提交挂死)。
@@ -168,6 +173,84 @@ export function parseVitestOutput(raw, { exitCode } = {}) {
   return { verdict: 'ok', reason: '', ...detail }
 }
 
+/**
+ * 把一段 test script 里 **vitest 那一次调用**的参数原样取出来。
+ *
+ * 为什么必须有这一格(2026-10-19 实测到的假红):本门原先固定派生 `[入口, 'run']`,
+ * 把该端 script 自带的旗标整片丢掉。`packages/app` 的 test script 是
+ * `vitest run --environment jsdom --passWithNoTests`,少了 `--environment jsdom`
+ * 之后 5 个套件里的 31 条用例全部以 `ReferenceError: document is not defined` 失败 ——
+ * 而按该端真实跑法复跑是 22/22 绿。门判的是"这一端能不能收集到用例",拿**另一种跑法**
+ * 去量它,读到的红与该端真实交付面无关(与 §0.4 同面同轮同一条理由)。
+ * 更危险的是反方向:若某端靠旗标才让套件可被收集,丢旗标会造出**根本不存在的收集失败**。
+ *
+ * 口径:
+ *  - 按 shell 连接符(`&&` / `||` / `;` / 管道)切段,只认**命令位上是 vitest** 的那一段
+ *    (前面允许 `node` / `pnpm` / `npx` / `yarn` / `tsx` 这类 runner 前缀);
+ *  - 0 段命中 ⇒ 取不到调用点(`\bvitest\b` 只是出现在别处,如旗标值或注释)⇒ **未判定**,不猜;
+ *  - ≥2 段命中 ⇒ 无从判断哪一次才是受检的那一轮 ⇒ **未判定**,不猜;
+ *  - 命中段里 `vitest` 之后的全部词元原样透传(含 `run` 与其余旗标),引号形态按成对引号切词。
+ *
+ * @param {string} testScript
+ * @returns {{argv?: string[], reason?: string}}
+ */
+export function vitestArgvOf(testScript) {
+  const segments = String(testScript)
+    .split(/&&|\|\||[;|]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const hits = []
+  for (const seg of segments) {
+    const tokens = tokenizeShellWords(seg)
+    const i = tokens.findIndex(
+      (t, idx) => t === 'vitest' && (idx === 0 || RUNNER_PREFIXES.has(tokens[idx - 1])),
+    )
+    if (i >= 0) hits.push(tokens.slice(i + 1))
+  }
+  if (hits.length === 0) {
+    return { reason: `test script 里找不到 vitest 的调用点(实为 "${oneLine(testScript, 80)}")⇒ 本门无法按该端跑法派生` }
+  }
+  if (hits.length > 1) {
+    return { reason: `test script 里有 ${hits.length} 次 vitest 调用 ⇒ 无法判定该量哪一轮,请人工拆成单一入口` }
+  }
+  if (hits[0].length === 0) {
+    return { reason: `test script 只有 vitest 命令词而无子命令 ⇒ 子命令取不到(裸 vitest 是 watch 形态),不替该端猜` }
+  }
+  return { argv: hits[0] }
+}
+
+/** runner 前缀白名单:只有这些词紧跟 vitest 时,vitest 才算命令位(否则 `--config vitest` 之类会误认)。 */
+const RUNNER_PREFIXES = new Set(['node', 'pnpm', 'npx', 'yarn', 'tsx', 'ts-node', 'bun', 'deno'])
+
+/** 成对引号感知的空白切词(单引号内原样、双引号内不展开 —— 本仓 test script 无转义需求)。 */
+function tokenizeShellWords(s) {
+  const out = []
+  let cur = ''
+  let quote = null
+  let has = false
+  for (const ch of s) {
+    if (quote) {
+      if (ch === quote) quote = null
+      else cur += ch
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch
+      has = true
+      continue
+    }
+    if (/\s/.test(ch)) {
+      if (has || cur) out.push(cur)
+      cur = ''
+      has = false
+      continue
+    }
+    cur += ch
+  }
+  if (has || cur) out.push(cur)
+  return out
+}
+
 /** 读某端的 test 入口与 vitest 可执行文件绝对路径;任一环节取不到 ⇒ 返回 { reason }(未判定)。 */
 export function resolveEnd(endDir) {
   const pkgPath = join(endDir, 'package.json')
@@ -185,6 +268,9 @@ export function resolveEnd(endDir) {
       reason: `test 入口不是 vitest(实为 "${oneLine(testScript, 80)}")⇒ 本门只认 JS 系收集判据,该端未判定`,
     }
   }
+  // 派生形态必须与该端真实跑法同形:取该端 script 里 vitest 那一次调用的参数原样透传。
+  const spec = vitestArgvOf(testScript)
+  if (spec.reason) return { reason: `${spec.reason}(端 ${endDir})` }
   // 候选:端内直链 → 根 hoist。读各自 package.json 的 bin 字段拿**入口文件绝对路径**,
   // 不猜文件名(不同大版本 bin 名不同),也不靠 PATH。
   for (const pkgDir of [join(endDir, 'node_modules', 'vitest'), join(ROOT, 'node_modules', 'vitest')]) {
@@ -195,7 +281,7 @@ export function resolveEnd(endDir) {
       const binRel = typeof m.bin === 'string' ? m.bin : m.bin?.vitest
       if (!binRel) continue
       const entry = resolve(pkgDir, binRel)
-      if (existsSync(entry)) return { entry, vitestVersion: m.version }
+      if (existsSync(entry)) return { entry, vitestVersion: m.version, argv: spec.argv }
     } catch {
       /* 清单坏了 ⇒ 换下一个候选,但绝不静默当成"没有 vitest" */
     }
@@ -212,7 +298,7 @@ export function runEnd(endDir, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   let stderr = ''
   let exitCode = 0
   try {
-    stdout = execFileSync(process.execPath, [resolved.entry, 'run'], {
+    stdout = execFileSync(process.execPath, [resolved.entry, ...resolved.argv], {
       cwd: endDir,
       encoding: 'utf8',
       windowsHide: true,
@@ -236,7 +322,7 @@ export function runEnd(endDir, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
     exitCode = e.status
   }
   const parsed = parseVitestOutput(`${stdout}\n${stderr}`, { exitCode })
-  return { ...parsed, vitestVersion: resolved.vitestVersion }
+  return { ...parsed, vitestVersion: resolved.vitestVersion, argv: resolved.argv }
 }
 
 /** 退出码:判红 1 > 未判定(strict 计红 1 / 默认 2)> 达标 0。 */
@@ -251,7 +337,9 @@ export function decideExit(results, { strict } = {}) {
 export function report(results, { strict }) {
   const out = []
   for (const r of results) {
-    out.push(`\n· 端 ${r.end}${r.vitestVersion ? ` (vitest ${r.vitestVersion})` : ''}`)
+    out.push(
+      `\n· 端 ${r.end}${r.vitestVersion ? ` (vitest ${r.vitestVersion})` : ''}${r.argv ? ` · 跑法: vitest ${r.argv.join(' ')}` : ''}`,
+    )
     if (r.verdict === 'undetermined') {
       out.push(`  ⚪ 未判定:${r.reason}`)
       out.push('     说明:未判定 **不等于** 达标。本门没有看到结论,也不替它记绿。')
@@ -432,6 +520,65 @@ async function selfTest() {
     JSON.stringify({ v: a18.verdict, e: a18.emptyCollected }),
   )
 
+  // A19–A22(2026-10-19 立):派生形态必须与该端 test script 同形。
+  //   立因实测:本门原先固定 `[入口, 'run']`,而 packages/app 的 script 带
+  //   `--environment jsdom` ⇒ 5 枚套件 31 条用例以 `document is not defined` 假红,
+  //   按该端真实跑法复跑 22/22 绿。丢旗标既会造假红,也会造**根本不存在的收集失败**。
+  const echoOut = ' Test Files  1 passed (1)\n      Tests  1 passed (1)\n'
+  const flagDir = mkEnd('flagged', {
+    script: 'vitest run --environment jsdom --passWithNoTests',
+    output: echoOut,
+  })
+  writeFileSync(
+    join(flagDir, 'node_modules', 'vitest', 'vitest.mjs'),
+    `import fs from 'node:fs'\nfs.writeFileSync(${JSON.stringify(join(scratch, 'flagged-argv.txt'))}, JSON.stringify(process.argv.slice(2)))\nprocess.stdout.write(${JSON.stringify(echoOut)})\n`,
+  )
+  const a19 = runEnd(flagDir)
+  let gotArgv = null
+  try {
+    gotArgv = JSON.parse(readFileSync(join(scratch, 'flagged-argv.txt'), 'utf8'))
+  } catch (e) {
+    gotArgv = `读取失败:${e.message}`
+  }
+  ok(
+    'A19 该端 script 的旗标必须原样透传(装到真派生层,不是只判字符串)',
+    (Array.isArray(gotArgv) ? gotArgv.join(' ') : String(gotArgv)) ===
+      'run --environment jsdom --passWithNoTests',
+    JSON.stringify(gotArgv),
+  )
+  ok(
+    'A20 透传后判据仍按输出定性 ⇒ 达标,且自述跑法等于实测 argv',
+    a19.verdict === 'ok' && JSON.stringify(a19.argv) === JSON.stringify(gotArgv),
+    JSON.stringify(a19),
+  )
+  const a21 = runEnd(mkEnd('multi', { script: 'vitest run && vitest run --coverage', output: echoOut }))
+  ok(
+    'A21 两次 vitest 调用 ⇒ 未判定(不替该端挑一轮)',
+    a21.verdict === 'undetermined' && /无法判定该量哪一轮/.test(a21.reason),
+    JSON.stringify(a21),
+  )
+  const a22 = runEnd(mkEnd('bare', { script: 'vitest', output: echoOut }))
+  ok(
+    'A22 裸 vitest(无子命令)⇒ 未判定,不猜 run 也不落 watch',
+    a22.verdict === 'undetermined' && /子命令取不到/.test(a22.reason),
+    JSON.stringify(a22),
+  )
+
+  // A23–A25:vitestArgvOf 纯函数面(命令位才算数;旗标值里的 "vitest" 不算;带引号的值原样成一个词)
+  ok(
+    'A23 vitest 只出现在旗标值 ⇒ 取不到调用点',
+    /找不到 vitest 的调用点/.test(vitestArgvOf('--config vitest.json run').reason || ''),
+  )
+  ok(
+    'A24 runner 前缀 + 带引号参数:命令位认出,值不被拆碎',
+    JSON.stringify(vitestArgvOf('pnpm vitest run -t "a b"')) === JSON.stringify({ argv: ['run', '-t', 'a b'] }),
+  )
+  ok(
+    'A25 正例对照:连接符后那一段才是 vitest 调用(与 apps/web 实测形态同形)',
+    JSON.stringify(vitestArgvOf('node scripts/clean-vite-temp.mjs && vitest run --passWithNoTests')) ===
+      JSON.stringify({ argv: ['run', '--passWithNoTests'] }),
+  )
+
   rmScratch(scratch)
   console.log(`\n${fail === 0 ? '✅' : '❌'} self-test:${pass} 通过 / ${fail} 失败`)
   return fail === 0 ? 0 : 1
@@ -509,6 +656,7 @@ export const __test__ = {
   parseVitestOutput,
   resolveEnd,
   runEnd,
+  vitestArgvOf,
   decideExit,
   stripAnsi,
   DEFAULT_ENDS,
