@@ -10,17 +10,26 @@
 >
 > | 事项 | 实测结论 |
 > | --- | --- |
-> | 是否已发布 | ❌ 全部未发布。`ihui-cli` 与 `@ihui/sdk` 回读均 404;对 `ihui-cli` 而言 404 表示**包名可用、尚未被占用** |
-> | 发布凭据 | ❌ 本地无 npm 登录态(`npm token list --registry=https://registry.npmjs.org/` → **401**)。CLI 发布已切 **npm Trusted Publishing(OIDC)**,CI **不再需要** `NPM_TOKEN`;SDK 侧仍走 token |
-> | OIDC 免 token 发布 | ⚠️ CI 已接入,首版需人工 bootstrap。npm 要求**包已存在**才能登记 trusted publisher;`ihui-cli` 当前 404 → 首版必须人工 `npm publish` 一次,之后 `cli-v*` tag 由 CI 免 token 发布 |
+> | 是否已发布 | `ihui-cli@1.0.0` **已发布**(2026-10-19,`latest=1.0.0`,安装实测通过);`@ihui/sdk` 仍 404 未发布 |
+> | 发布凭据 | ✅ 本地已有 granular token `ihui-cli-publish`(`bypass_2fa: true`,All packages,read-write,到期 2027-01-17),写在用户级 `~/.npmrc` 的 `//registry.npmjs.org/:_authToken`;备份在仓库外 `D:\DevEnv\secrets\npm-token-ihui-cli-2026-10-19.txt`。**这是 CLI 与 SDK 的唯一发布通道**(不启用 2FA,故不用 OIDC) |
+> | OIDC 免 token 发布 | ⛔ **已放弃(用户定案)**:不启用 2FA、不登记 Trusted Publisher。原卡点:npm 要求包设置类操作做 WebAuthn step-up,网页提交后强制跳 `/settings/<user>/tfa` 的 `Add your security key`,无邮箱 OTP 分支 |
+> | 当前可用的发布方式 | ✅ 唯一通道:**granular token(`bypass_2fa`)**。本地 `npm publish ./npm-dist --access public`;CI 由 `release-cli.yml` 回退 `secrets.NPM_PUBLISH_TOKEN` 发布(无 provenance)。`cli-v*` 的 OIDC 步骤会失败后自动回退,属预期行为 |
 > | `@ihui` scope | `ihui-cli` 是 **unscoped 包名**,与 `@ihui` scope 归属无关,不存在"scope 被占用"问题;`@ihui` scope 只影响 `@ihui/sdk` 等 SDK 包(发布前仍需 `npm org ls ihui` 确认) |
 > | 本指南适用包 | npm 侧当前有两个目标:CLI 发 **`ihui-cli`**(unscoped,单文件 bundle,见 §11);SDK 只发 **`@ihui/sdk`**。`@ihui/types` / `@ihui/api-client` / `@ihui/ui-react` / `@ihui/design-tokens` 仍是 `private: true` 的内部包(理由见 §4.6) |
 > | 发布通道 | 不是本文件 §7 提议的 `npm-publish.yml`,而是已存在的 **`.github/workflows/release-sdk.yml`**(`sdk-v*` tag)与 **`release-cli.yml`**(`cli-v*` tag,已切 OIDC) |
 > | 仓库 registry 陷阱 | 根 `.npmrc` 写的是 `registry=https://registry.npmmirror.com`(**第三方镜像**)。项目级 `.npmrc` 优先级高于 `setup-node` 写的用户级配置 → 缺 `publishConfig.registry` 的包会**把代码推给镜像站**。`@ihui/sdk` / `ihui-cli` 已显式锁 `registry.npmjs.org` |
 > | 已完成的可安装性修复 | `@ihui/sdk`:`main`/`types`/`exports` → `dist`、`files` 白名单、`license: Apache-2.0`、`@ihui/types` 降为 devDependency、`prepack` 构建+附带 `LICENSE`/`NOTICE`。tarball 由 **253 文件 / 1.39MB(含 java/go/dotnet/python 四棵源码树、src、tests、`.turbo` 日志、tsbuildinfo)** 降到 **76 文件 / 0.23MB(dist + LICENSE + NOTICE + README)**。已用真实 tarball 装入干净工程验证:`npm i` 成功、`import` 成功、`tsc --noEmit`(skipLibCheck:true)**exit 0** |
 >
-> 仍缺的东西(全部需要人类在浏览器里操作,agent 无法代办):npm 账号 + 2FA → 首版 bootstrap `ihui-cli` → 在包页面登记 trusted publisher;
-> SDK 侧仍需 `NPM_TOKEN`;PyPI 项目 `ihui-ai` + `PYPI_TOKEN`;若要发 Java/.NET,还需 Sonatype 账号 / GPG 与一个**尚不存在**的 NuGet workflow。
+> **⛔ 最终决策(2026-10-19,用户明确指示):永久不启用 2FA / 不绑定任何 WebAuthn 认证器,因此不登记 Trusted Publisher。**
+> 该结论已定案 —— 后续任何 agent 会话**不得再提议、不得再询问**扫码绑定安全密钥、Windows Hello、USB key 或 TOTP 等 2FA 方案。
+> npm 发布永久走 **granular token(`bypass_2fa`)** 这条通道,本地与 CI 均已验证可用(CI 由 `NPM_PUBLISH_TOKEN` 回退发布,代价是没有 Sigstore provenance)。
+> 此路不通的实测证据保留在 §7.2(仅供追溯,不是待办)。
+>
+> 仍缺的东西(与非 2FA 路径无关):
+> - SDK 侧仍需 `NPM_TOKEN`;PyPI 项目 `ihui-ai` + `PYPI_TOKEN`;若要发 Java/.NET,还需 Sonatype 账号 / GPG 与一个**尚不存在**的 NuGet workflow。
+> - token 运维:`ihui-cli-publish` 到期日 **2027-01-17**,到期前需在 npm 网页 Tokens 页重新生成一个 granular token(同样勾 `Bypass 2FA`,无需任何认证器),替换 `~/.npmrc` 与 CI secret `NPM_PUBLISH_TOKEN`。
+>
+> ✅ 已不需要人工代办的:npm 账号 2FA 现状(`mode: auth-and-writes`,不绑认证器)、`ihui-cli` 首版 bootstrap(2026-10-19 已发 `1.0.0`)、发布凭据(内置浏览器网页表单创建的 granular token 已落盘并实测写权限)。
 
 ---
 
@@ -65,7 +74,7 @@
 ### 3.1 注册 npm 账号
 
 1. 访问 https://www.npmjs.com/signup 注册账号
-2. 开启 2FA(Settings → Account Security → Two-Factor Authentication → `auth_and_writes`)
+2. ~~开启 2FA(Settings → Account Security → Two-Factor Authentication → `auth_and_writes`)~~ —— ⛔ **不做**。用户 2026-10-19 定案:永久不启用 2FA(AGENTS.md §0 第 11 条)。发布凭据改用 granular token 并勾 `Bypass 2FA`,见 §7.2
 3. 在 npm 上创建 `@ihui` organization:https://www.npmjs.com/org/create
    - org name: `ihui`
    - 选择 **Free**( unlimited public packages,仅私有权益收费)
@@ -88,7 +97,7 @@ npm org ls ihui
 
 ```bash
 # 逐个检查(404 = 可用,200 = 已占用)
-npm view ihui-cli            # unscoped,当前期望 E404(名称可用)
+npm view ihui-cli            # unscoped,已发布 1.0.0(2026-10-19),回读 200
 npm view @ihui/types
 npm view @ihui/design-tokens
 npm view @ihui/ui-react
@@ -96,7 +105,7 @@ npm view @ihui/sdk
 npm view @ihui/api-client
 ```
 
-期望全部返回 `npm error code E404`(表示未占用,可发布)。
+期望 `@ihui/*` 全部返回 `npm error code E404`(表示未占用,可发布);`ihui-cli` 已发布,回读 200 属正常。
 
 ### 3.4 registry 配置(⚠️ 本仓库有真实陷阱)
 
@@ -725,7 +734,7 @@ npm publish --tag beta                  # 用 beta tag,不污染 latest
 > | 通道 | 触发 tag | 发什么 | 状态 |
 > | --- | --- | --- | --- |
 > | `release-sdk.yml` | `sdk-v*` | npm `@ihui/sdk` + PyPI `ihui-ai` + Maven + Go | 存在;2026-09-20 修掉"4 个 job 的 `if:` 在 push 事件下恒 false → 只 dry-run 不发布"的门控缺陷,并补齐 tarball 自检 / `twine check` 前置 / 发布后 registry 回读 |
-> | `release-cli.yml` | `cli-v*` | npm `ihui-cli` + 6 二进制 + GHCR 镜像 | 存在;发布物已收口为单文件 bundle,CI 已切 OIDC(见 §11);首版需人工 bootstrap(见 §7.2) |
+> | `release-cli.yml` | `cli-v*` | npm `ihui-cli` + 6 二进制 + GHCR 镜像 | 存在;发布物已收口为单文件 bundle;首版 `1.0.0` 已 bootstrap 完成。npm 发布走 **token 通道**(OIDC 步骤失败后自动回退 `NPM_PUBLISH_TOKEN`,见 §11) |
 > | `release-on-tag.yml` | `v*` | 只建 GitHub Release 页面 | 与包发布无关 |
 >
 > 下面 §7.1 保留提案原文仅作设计参考;**要发布请看 §7.5「实际发布步骤」**。
@@ -822,26 +831,30 @@ jobs:
           echo "View on npm: https://www.npmjs.com/package/${{ steps.pkg.outputs.name }}" >> $GITHUB_STEP_SUMMARY
 ```
 
-### 7.2 首版 bootstrap(唯一一次人工发布)+ 登记 Trusted Publisher
+### 7.2 首版 bootstrap(已完成)+ Trusted Publisher(已终止,不再推进)
 
-CLI(`ihui-cli`)的发布链路已切到 **npm Trusted Publishing(OIDC)**,CI 不再读取 `NPM_TOKEN`。
-但 npm 只允许给**已存在**的包登记 trusted publisher,而 `ihui-cli` 目前 404 → 首版必须人工发一次。
+> ⛔ **2026-10-19 用户定案:不启用 2FA,不登记 Trusted Publisher。本节第 2 步仅作历史记录,不是待办,不得再询问用户绑定任何认证器。**
 
-**第 1 步:人工发布首版(只做一次)**
+CLI(`ihui-cli`)的首版已用 granular token 发布完成;OIDC 链路保留在 workflow 里**仅作前向兼容**(失败即回退 token),不构成"以后启用 2FA"的路线 —— 用户已定案永久不启用,不存在该分支。
+npm 只允许给**已存在**的包登记 trusted publisher,所以首版必须人工发一次 —— 这一步**已于 2026-10-19 完成**。
+
+**第 1 步:首版 bootstrap —— ✅ 已完成**
 
 ```bash
-npm login                      # 账号需开启 2FA
-npm whoami                     # 确认登录态
-
-pnpm --filter ihui-cli build:npm   # esbuild 单文件 bundle → apps/cli/npm-dist/
-ls apps/cli/npm-dist               # 期望:dist/index.js(单文件)+ package.json(无 dependencies)+ dist/messages/
-
-npm view ihui-cli version --registry=https://registry.npmjs.org/   # 期望 404(E404),证明包名仍可用
-cd apps/cli && npm publish ./npm-dist --access public               # 首版 bootstrap
-npm view ihui-cli version --registry=https://registry.npmjs.org/   # 回读,期望 1.0.0
+# 等效命令(首版已于 2026-10-19 发布,此处仅留作复现记录)
+pnpm --filter ihui-cli build:npm        # esbuild 单文件 bundle → apps/cli/npm-dist/
+cd apps/cli && npm publish ./npm-dist --access public
+npm view ihui-cli version --registry=https://registry.npmjs.org/   # 回读 = 1.0.0
+npm view ihui-cli dist-tags --registry=https://registry.npmjs.org/ # 回读 = { latest: '1.0.0' }
 ```
 
-**第 2 步:登记 Trusted Publisher(只做一次)**
+当前状态:`ihui-cli@1.0.0` 在 npm 上可安装,`latest = 1.0.0`;本机凭据是 granular token
+`ihui-cli-publish`(`bypass_2fa: true`,All packages,read-write,到期 2027-01-17),`npm dist-tag add`
+实测写权限可用(无 OTP、无 403)。
+
+**第 2 步:登记 Trusted Publisher —— ⛔ 已终止(用户明确不要 2FA,不再尝试)**
+
+> 以下内容仅为 2026-10-19 实测记录,供日后追溯;不作为待办,任何 agent 不得据此再次提示用户绑定认证器。
 
 npmjs.com → `ihui-cli` 包页面 → **Settings** → **Trusted Publishing** → Add publisher:
 
@@ -851,9 +864,21 @@ npmjs.com → `ihui-cli` 包页面 → **Settings** → **Trusted Publishing** �
 | Repository name | `IHUI-AI` |
 | Workflow filename | `release-cli.yml` |
 | Environment | 留空 |
+| Allowed actions | 勾选 `Allow npm publish` |
 
-登记完成后,每次推 `cli-v*` tag,`release-cli.yml` 都会用 OIDC 换取一次性令牌发布,并自动附带 provenance,
-**仓库不再需要为 CLI 配置 `NPM_TOKEN`**。
+2026-10-19 用内置浏览器实测到的真实卡点:
+
+1. 表单可正常填写并点 `Set up`,随后跳转 `npm | Confirm Password to Continue`;
+2. 输入账号密码后**不出现邮箱 OTP 输入框**,而是直接落到 `/settings/ihui-ai/tfa`;
+3. 该页面只有 `Security key` 一个单选项 + `Continue`;点 `Continue` 进入 `Add your security key`
+   (`Enter your security key name *` + `Add security key`),必须当场完成 WebAuthn 手势。
+
+即:此路必须绑定 WebAuthn 认证器。**用户已明确不要 2FA,故本路径永久关闭**,不再列举替代认证器方案,也不再评估可行性。
+
+> 现行发布通道(最终方案):`cli-v*` 的 OIDC 步骤会失败,然后由 `release-cli.yml` 自动回退到
+> `secrets.NPM_PUBLISH_TOKEN`(该 secret 已确认存在,2026-10-19T03:04:21Z 配置)。
+> 即 CI 仍能发布,只是拿不到 Sigstore provenance;本地 `npm publish` 用 `bypass_2fa` granular token,完全不受影响。
+> 这一回退**不是临时方案,而是既定长期方案**。
 
 > SDK(`@ihui/sdk`)尚未切 OIDC,仍沿用 token 方式,需要 `NPM_TOKEN` secret(见 §7.5)。
 
@@ -871,7 +896,7 @@ gh workflow run release-sdk.yml --ref main -f dry_run=true -f language=npm
 # 只跑 Python 链路的 dry-run
 gh workflow run release-sdk.yml --ref main -f dry_run=true -f language=pypi
 
-# 方式 3:CLI 发版(必须先完成 §7.2 的 bootstrap 与 trusted publisher 登记)
+# 方式 3:CLI 发版(首版 bootstrap 已完成;无需任何 2FA / trusted publisher 登记)
 git tag cli-v1.0.1
 git push origin cli-v1.0.1    # 推送 tag 同样只能由人执行
 ```
@@ -883,28 +908,24 @@ git push origin cli-v1.0.1    # 推送 tag 同样只能由人执行
 > Trusted Publishing / provenance 要求 **npm CLI >= 11.5.1** 且 **Node >= 22.14.0**;Node 22 自带的 npm 10.x
 > 不认识 OIDC 换发流程,直接用会报 `--provenance flag requires OIDC token`。本地手工 bootstrap 也要满足同样版本。
 
-### 7.4 npm Trusted Publishers(OIDC,免 token)
+### 7.4 npm Trusted Publishers(OIDC,免 token)—— ⛔ 本项目不采用
 
-CLI 已采用该方案:在 npm 包页面登记 GitHub Actions 为 trusted publisher 后,CI **不需要任何长期 token**,
+> **用户定案:不启用 2FA,故不登记 Trusted Publisher。本节仅存档,不是待办。**
+
+原设计:在 npm 包页面登记 GitHub Actions 为 trusted publisher 后,CI 不需要任何长期 token,
 发布时由 npm CLI 用 OIDC 换取一次性令牌,provenance 由 Sigstore 签发。
 
-前置条件:
-
-1. 包**已存在**(首版必须走 §7.2 的人工 bootstrap);
-2. workflow 有 `permissions: id-token: write`(`release-cli.yml` 已配置);
-3. npm CLI >= 11.5.1、Node >= 22.14.0(见 §7.3)。
-
-登记步骤见 §7.2 第 2 步。若之后要把 `@ihui/sdk` 也切到 OIDC:先用 `NPM_TOKEN` 发首版 → 在包页面登记
-`release-sdk.yml` → 再摘掉 workflow 里的 `NODE_AUTH_TOKEN`,顺序不能反。
+登记这一步被 WebAuthn step-up 卡死(见 §7.2 第 2 步),而用户明确不要 2FA,因此本项目**永久使用 token 通道**,
+放弃 Sigstore provenance。该结论永久有效,**不存在"以后启用 2FA"的分支**,后续会话不得再提议(AGENTS.md §0 第 11 条)。
 
 参考:https://docs.npmjs.com/generating-provenance-statements
 
 ### 7.5 实际发布步骤(凭据到位后的完整链路)
 
 ```bash
-# ── 0. 前置一次性配置(人工,浏览器操作) ─────────────────────────
-#   a. npmjs.com 注册 + 开启 2FA
-#   b. CLI:按 §7.2 人工 bootstrap 首版 + 登记 trusted publisher(不需要 NPM_TOKEN)
+# ── 0. 前置一次性配置 ─────────────────────────────────────────
+#   a. npmjs.com 注册 —— ✅ 已完成(账号 ihui-ai);2FA ⛔ 用户明确不启用,不要绑认证器
+#   b. CLI:首版 bootstrap(1.0.0)已完成;npm 发布走 granular token / CI `NPM_PUBLISH_TOKEN`(不启用 2FA)
 #   c. SDK:@ihui org 归属确认(`npm org ls ihui`)→ 生成 Granular Access Token → gh secret set NPM_TOKEN
 #   d. PyPI 无法预先建项目(名字随首版产生)→ 生成 API token → gh secret set PYPI_TOKEN
 #      注意名字是 PYPI_TOKEN,不是 PYPI_API_TOKEN(workflow 里引用的是前者)
@@ -1044,7 +1065,8 @@ npm ERR! This command requires a one-time password.
 # 交互式输入 OTP
 npm publish --access public --otp=123456
 
-# CI 中用 --provenance + trusted publisher 避免 OTP
+# 本项目不启用 2FA:改用 granular token(创建时勾 Bypass 2FA)即可免 OTP
+# 本地:~/.npmrc 已有 ihui-cli-publish;CI:secrets.NPM_PUBLISH_TOKEN
 ```
 
 ### 9.4 版本冲突
@@ -1108,8 +1130,7 @@ npm ERR! --provenance flag requires OIDC token
 
 1. workflow 有 `permissions: id-token: write`(`release-cli.yml` 已配置;缺了就拿不到 OIDC token);
 2. npm CLI >= 11.5.1、Node >= 22.14.0(CI 里靠 `npm install -g npm@^11.15.0` 保证);
-3. 已在 npm 包页面 **Settings → Trusted Publishing** 登记 trusted publisher,且 Workflow filename 与实际一致
-   (`release-cli.yml`,Environment 留空)。
+3. ~~已在 npm 包页面 **Settings → Trusted Publishing** 登记 trusted publisher~~ —— ⛔ **本项目不做**(不启用 2FA)。既然 `--provenance` 在本项目不可用,遇到该报错按预期处理:CI 会自动回退 token 发布,本地则直接不带 `--provenance`。
 
 若不想配置 provenance,删除 `--provenance` flag。
 
@@ -1209,20 +1230,22 @@ npm publish --access public
 
 ```bash
 pnpm --filter ihui-cli build:npm
-npm publish ./npm-dist --access public     # 首版人工 bootstrap(见 §7.2)
+npm publish ./npm-dist --access public     # 首版 1.0.0 已发;后续版本同样可用本地 token 发布
 
-# bootstrap 完成后,正常走 tag:
-git tag cli-v1.0.1 && git push origin cli-v1.0.1   # CI 用 OIDC 发布,不需要 NPM_TOKEN
+# 打 tag 走 CI(无需 2FA / trusted publisher;OIDC 失败后自动回退 NPM_PUBLISH_TOKEN):
+git tag cli-v1.0.1 && git push origin cli-v1.0.1   # 推送 tag 只能由人执行
 ```
 
-**bootstrap 完成后可以正常打 `cli-v*` tag。** `release-cli.yml` 发布前会先跑 `Probe npm registry`
+**bootstrap 已完成(`1.0.0` 在 npm 上可安装)。** `release-cli.yml` 发布前会先跑 `Probe npm registry`
 (`npm view ihui-cli version`):包不存在时只 warning 并跳过发布,不会产出"装不上的包",也不会占用版本号。
+但 **Trusted Publisher 不登记(用户明确不要 2FA)**,`cli-v*` job 的 OIDC 发布必然失败,随后由 workflow
+自动回退 `secrets.NPM_PUBLISH_TOKEN` 完成发布 —— 这是既定方案,不是故障。本地 `npm publish` 不受影响。
 
 ---
 
 ## 附录:发布 Checklist
 
-以 `@ihui/sdk@0.1.0` 与 `ihui-cli@1.0.0` 为参照。逐项打勾,**"实测状态"列是 2026-10-18 的结论**:
+以 `@ihui/sdk@0.1.0` 与 `ihui-cli@1.0.0` 为参照。逐项打勾,**"实测状态"为 2026-10-18 ~ 2026-10-19 的结论**:
 
 - [x] `package.json` 已是可发布形态(`main`/`types` → `dist`、`files` 白名单、`publishConfig.registry` 锁 npmjs.org、`license`、`repository`、`bugs`)—— **已落地**
 - [x] 无 `workspace:*` / `@ihui/*` 残留在 `dependencies`(`@ihui/types` 已降为 devDependency)—— **已落地,prepack 会硬闸**
@@ -1231,12 +1254,12 @@ git tag cli-v1.0.1 && git push origin cli-v1.0.1   # CI 用 OIDC 发布,不需�
 - [x] `npm pack --dry-run` 清单干净 —— **已实测 76 文件 / 0.23MB,无 src/java/go/dotnet/python/tests/.turbo/tsbuildinfo**
 - [x] 真实 tarball 装进干净工程 + `import` + `tsc --noEmit` 通过 —— **已实测 exit 0**
 - [x] CLI 发布物已收口为单文件 bundle(`build:npm` → `apps/cli/npm-dist/`,无 `dependencies`,含 `dist/messages`)—— **已落地(见 §11)**
-- [x] CLI 的 CI 发布已切 OIDC,`release-cli.yml` 不再读取 `NPM_TOKEN` —— **已落地**
+- [x] CLI 的 CI 发布通道 —— **已落地**:OIDC 尝试失败后回退 `NPM_PUBLISH_TOKEN`(不用 2FA)
 - [x] `ihui-cli` 包名可用(registry 404 = 未被占用,且 unscoped 与 `@ihui` scope 无关)—— **已核实**
-- [ ] npm 账号已注册并开启 2FA —— ❌ 待人工
-- [ ] `ihui-cli` 首版 bootstrap(`npm publish ./npm-dist --access public`)—— ❌ 待人工(唯一一次人工发布)
-- [ ] npm 包页面已登记 trusted publisher(Repository `IHUI-INF-AI/IHUI-AI`、Workflow `release-cli.yml`、Environment 留空)—— ❌ 待登记(必须在 bootstrap 之后)
-- [ ] `npm view ihui-cli version` 回读 === 发布版本 —— ❌ 待 bootstrap
+- [x] npm 账号已注册 —— **已完成**(账号 `ihui-ai`);2FA ⛔ **用户明确不启用,不再讨论**
+- [x] `ihui-cli` 首版 bootstrap(`npm publish ./npm-dist --access public`)—— **已完成**(`1.0.0`,`latest` 已指向它,安装实测通过)
+- [—] npm trusted publisher —— ⛔ **不做**(用户明确不要 2FA)。发布走 token:本地 `ihui-cli-publish`,CI `NPM_PUBLISH_TOKEN`
+- [x] `npm view ihui-cli version` 回读 === 发布版本 —— **已实测 1.0.0**
 - [ ] `@ihui` org 归属确认(`npm org ls ihui`)—— ❓ 未验证(只影响 SDK)
 - [ ] `NPM_TOKEN` 已配置到 GitHub Secrets —— ❌ 仅 SDK 需要,`gh secret list` 实测没有
 - [ ] 根 `.npmrc` 的 registry 陷阱已用 `publishConfig.registry` 兜住 —— **已落地(见 §3.4)**

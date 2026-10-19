@@ -353,7 +353,7 @@
     "modelCategoryOther": "기타",
     "partialDoneTitle": "응답이 중단되었습니다. 아래 내용은 불완전할 수 있습니다",
     "truncation": {
-      "maxLengthNotice": "이 답변은 최대 출력 길이에 도달하여 잘렸으며 내용이 불완전합니다. \"계속\"을 보내면 이어서 생성됩니다."
+      "maxLengthNotice": "이 답변은 최대 출력 길이에 도달하여 잘렸으며 내용이 불완전합니다. \"계속\"이라고 답장하면 이어서 생성됩니다."
     },
     "pin": "고정",
     "unpin": "고정 해제",

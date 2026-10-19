@@ -177,6 +177,9 @@
     "inputPlaceholder": "Say something...",
     "compactionNotice": "Context auto-compacted: {before} → {after} (removed {removed} messages)",
     "partialDoneTitle": "Response interrupted, the content below may be incomplete",
+    "truncation": {
+      "maxLengthNotice": "This reply was cut off at the maximum output length and is incomplete; send \"continue\" to keep generating."
+    },
     "voiceStop": "Stop Recording",
     "voiceStart": "Start Recording",
     "voiceError": "Cannot access microphone. Please allow microphone permission in browser settings",
