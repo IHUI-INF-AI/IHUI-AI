@@ -113,7 +113,6 @@ interface AdminNavItem {
     | 'dashboard'
     | 'users'
     | 'projects'
-    | 'settings'
     | 'orders'
     | 'roles'
     | 'permissions'
@@ -182,7 +181,6 @@ interface AdminNavItem {
     | 'memberLogs'
     | 'memberBlacklist'
     | 'systemMonitor'
-    | 'systemConfig'
     | 'systemTasks'
     | 'realnameAudit'
     | 'agentRules'
@@ -236,7 +234,6 @@ interface AdminNavItem {
     | 'knowledgeRag'
     | 'saasTenants'
     | 'saasCertificates'
-    | 'saasMetrics'
     | 'pluginsStats'
     | 'aiCost'
     | 'pricing'
@@ -247,8 +244,6 @@ interface AdminNavItem {
     | 'adminRelayDiscovery'
     | 'adminRelayLogs'
     | 'adminRelayModelMappings'
-    | 'adminRelayRedemptionCodes'
-    | 'adminProvidersHealth'
     | 'imChannels'
     | 'topupConfig'
     | 'relayParamOps'
@@ -946,7 +941,6 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   dashboard: 'nav.dashboard',
   users: 'nav.users',
   projects: 'nav.projects',
-  settings: 'nav.settings',
   orders: 'nav.orders',
   roles: 'nav.roles',
   permissions: 'nav.permissions',
@@ -1018,7 +1012,6 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   memberLogs: 'nav.memberLogs',
   memberBlacklist: 'nav.memberBlacklist',
   systemMonitor: 'nav.systemMonitor',
-  systemConfig: 'nav.systemConfig',
   systemTasks: 'nav.systemTasks',
   realnameAudit: 'nav.realnameAudit',
   agentRules: 'nav.agentRules',
@@ -1072,7 +1065,6 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   knowledgeRag: 'nav.knowledgeRag',
   saasTenants: 'nav.saasTenants',
   saasCertificates: 'nav.saasCertificates',
-  saasMetrics: 'nav.saasMetrics',
   pluginsStats: 'nav.pluginsStats',
   aiCost: 'nav.aiCost',
   pricing: 'nav.pricing',
@@ -1083,8 +1075,6 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   adminRelayDiscovery: 'nav.adminRelayDiscovery',
   adminRelayLogs: 'nav.adminRelayLogs',
   adminRelayModelMappings: 'nav.adminRelayModelMappings',
-  adminRelayRedemptionCodes: 'nav.adminRelayRedemptionCodes',
-  adminProvidersHealth: 'nav.adminProvidersHealth',
   imChannels: 'nav.imChannels',
   topupConfig: 'nav.topupConfig',
   relayParamOps: 'nav.relayParamOps',
