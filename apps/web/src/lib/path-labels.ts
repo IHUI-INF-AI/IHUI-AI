@@ -20,7 +20,7 @@
 import type { ComponentType } from 'react'
 import { Home } from 'lucide-react'
 import { FLAT_NAV_ITEMS } from '@/components/sidebar'
-import { ADMIN_NAV } from '@/components/layout/AdminNav'
+import { ADMIN_NAV, ADMIN_NAV_GROUPS } from '@/components/layout/AdminNav'
 
 export interface PathLabelSpec {
   /** 翻译命名空间(对应 messages/*.json 的顶层 key,如 'nav'/'admin'/'about') */
@@ -32,6 +32,15 @@ export interface PathLabelSpec {
 interface PathLabelEntry {
   href: string
   spec: PathLabelSpec
+  /**
+   * 已定稿的显示名(2026-10-19)。AdminNav 的 dynamicLabel 是中文硬编码名(如「操作日志」),
+   * 侧边栏靠 `dynamicLabel ?? t(labelKey)` 短路它;标签栏必须走同一规则,否则同一页面
+   * 侧边栏显示中文、标签栏显示英文兜底。
+   *
+   * **刻意不放进 PathLabelSpec**:spec 是 resolvePathLabelSpec 的公开返回值,
+   * 既有测试用 `toEqual({ns, key})` 精确断言,加字段会把它们全打红。
+   */
+  dynamicLabel?: string
 }
 
 /**
@@ -71,11 +80,26 @@ const NAV_ENTRIES: PathLabelEntry[] = FLAT_NAV_ITEMS.map((item) => ({
   spec: { ns: 'nav', key: item.labelKey },
 }))
 
-/** AdminNav 路由 → ns='admin',key=labelKey */
-const ADMIN_ENTRIES: PathLabelEntry[] = ADMIN_NAV.map((item) => ({
-  href: item.href,
-  spec: { ns: 'admin', key: item.labelKey },
-}))
+/**
+ * AdminNav 路由 → ns='nav',key=labelKey
+ *
+ * 2026-10-19 修复:原先写的是 ns='admin'。而 `ADMIN_NAV` 的 labelKey 是**nav 命名空间**的键
+ * (见 AdminNav.tsx 的 `NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string>` 全是 'nav.xxx' 前缀),
+ * `admin` 命名空间下只有 12 个字符串叶子且不含 dashboard/users —— 于是 138 条 admin 路由里
+ * 135 条在 TagsView 上显示成英文兜底(deriveTitle)或**裸键名 `admin.users`**。
+ *
+ * 取名规则与侧边栏同源(dynamicLabel 优先,否则 t(labelKey)):ADMIN_NAV_GROUPS 里那些带
+ * dynamicLabel 的项(如「操作日志」)在标签栏也应显示同一个中文名,而不是 /admin/logs 的英文兜底。
+ */
+const ADMIN_ENTRIES: PathLabelEntry[] = ADMIN_NAV.map((item) => {
+  const groupItem = ADMIN_NAV_GROUPS.flatMap((g) => g.items).find((g) => g.href === item.href)
+  return {
+    href: item.href,
+    spec: { ns: 'nav', key: item.labelKey },
+    // dynamicLabel 是 AdminNav 的既有字段(中文名);带上它让 TagsView 与侧边栏显示同一个名字
+    dynamicLabel: groupItem?.dynamicLabel,
+  }
+})
 
 /**
  * 未在侧边栏中暴露但用户可能通过 URL 直接访问的独立页面路由。
@@ -541,6 +565,28 @@ export function resolvePathLabelSpec(pathname: string): PathLabelSpec | null {
     if (normalized.startsWith(`${entry.href}/`)) return entry.spec
   }
 
+  return null
+}
+
+/**
+ * pathname → 已定稿的显示名(2026-10-19)。
+ *
+ * 与侧边栏的取名规则**同源**:`dynamicLabel ?? t(labelKey)`。
+ * 命中 dynamicLabel 时直接返回它(AdminNav 的中文硬编码名),调用方不再查 i18n;
+ * 未命中返回 null,由调用方走 `t(spec.key)`。
+ *
+ * 为什么需要它:`resolvePathLabelSpec` 只返回 {ns,key},表达不了"这个名字不用查表"。
+ * 若让 TagsView 无条件 `t(spec.key)`,则带 dynamicLabel 的 admin 菜单在标签栏会显示
+ * 英文兜底或裸键名,而侧边栏显示「操作日志」—— 同一页面两个名字。
+ */
+export function resolvePathDynamicLabel(pathname: string): string | null {
+  if (!pathname || pathname === '/') return null
+  const normalized = stripI18nPrefix(pathname)
+  const exact = ALL_PATH_LABEL_MAP.find((e) => e.href === normalized)
+  if (exact?.dynamicLabel) return exact.dynamicLabel
+  for (const entry of SORTED_PATH_LABELS) {
+    if (normalized.startsWith(`${entry.href}/`)) return entry.dynamicLabel ?? null
+  }
   return null
 }
 
