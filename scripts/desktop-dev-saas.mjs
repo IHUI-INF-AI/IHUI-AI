@@ -50,6 +50,10 @@ import { selectDesktopVictims } from './lib/desktop-victims.mjs'
 import { mkScratch } from './lib/scratch-dir.mjs'
 // 包管理器执行器判据同样单源(与 desktop-build-saas.mjs 共用,不得各抄一份)
 import { planPackageManagerSpawn } from './lib/npm-execpath.mjs'
+// MSVC 工具链注入判据单源(立因/三态见该文件头注);vcvars 的生产实现同样复用
+// desktop-build.mjs 已有的具名导出,不另写第二种形态
+import { planBuildEnv } from './lib/msvc-env.mjs'
+import { __test__ as desktopBuildInternals } from './desktop-build.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const webDir = path.join(repoRoot, 'apps', 'web')
@@ -354,7 +358,29 @@ const args = [...execPrefix, ...tauriArgs]
 // dev 构建默认会弹 DevTools 盖住主窗口、把鼠标输入抢走(2026-10-14 实测「啥也点击不了」,
 // 用户点到的其实是 DevTools 不是应用本体)⇒ 联调场景默认关掉;要看 DevTools 就显式
 // IHUI_DESKTOP_OPEN_DEVTOOLS=1 覆盖本脚本的默认值。
-const childEnv = { ...process.env }
+// MSVC 工具链注入(判据单源,见上方 import 的注释)。三态(§0.3):取不到 ⇒ 显式「未判定」+ exit 2,
+// 绝不静默回落成"裸 env 硬跑" —— dev 壳同样要在 cargo 链接阶段解析 link.exe。
+// 放在这里(spawn 之前、但**不碰**上面那段停残留进程的逻辑):它与那个逻辑无关,提前插进去
+// 只会让"停旧实例失败 ⇒ 已中止"那条既有出路被一个更早的失败截走。
+const toolchain = planBuildEnv({ env: process.env, existsSync, runCapture: desktopBuildInternals.captureVsEnv })
+if (!toolchain.ok) {
+  console.error(`[desktop-dev-saas] ❌ 未判定:MSVC 工具链注入失败(reason=${toolchain.reason})—— 不记绿,也不记失败`)
+  console.error(`  已试候选 ${toolchain.tried.length} 条,其中确实存在的 ${toolchain.candidates.length} 条:`)
+  for (const c of toolchain.tried) console.error(`    ${toolchain.candidates.includes(c) ? '[存在]' : '[不存在]'} ${c}`)
+  for (const d of toolchain.details) console.error(`    [失败] ${d.vcvars} -> ${d.error}`)
+  console.error('  出路:装 VS 2022 Build Tools(含 MSVC v143 + Windows SDK),或设 VSINSTALLDIR 指向现有安装。')
+  console.error('        本仓不靠"让 cargo 自己撞"来替代判定 —— 那只会把"没装工具链"换成更难认的一型。')
+  process.exit(2)
+}
+log(`MSVC 工具链已注入:${toolchain.linkFrom}`)
+if (toolchain.removedDirs.length > 0) log(`已从 PATH 剔除遮蔽目录:${toolchain.removedDirs.join(' ; ')}`)
+// 「注入结果 ∪ childEnv」:childEnv 自己的键**优先**,因为脚本要设 SaaS 后端地址这类值。
+// ⚠ 落到对象字面量上必须写成 `{...process.env, ...注入结果}` + 策略键再落最后 ——
+// 把"childEnv 优先"直译成 `{...注入结果, ...childEnv}` 是**错的**:childEnv 就是 process.env 的
+// 副本,直译会让 raw 的 `Path` 盖掉注入档里已剔遮蔽段、已把 MSVC 链接器顶到最前的那一份
+// (本机两侧键名都是 `Path`,实测),等于把整次注入悄悄作废,页面上却看不出任何差别。
+// 策略键(IHUI_DESKTOP_OPEN_DEVTOOLS)写在最后,同样是"childEnv 自己的键优先"。
+const childEnv = { ...process.env, ...toolchain.env }
 if (childEnv.IHUI_DESKTOP_OPEN_DEVTOOLS === undefined) childEnv.IHUI_DESKTOP_OPEN_DEVTOOLS = '0'
 
 log('启动 Tauri 桌面端(窗口加载本地 dev server;首次需编译 Rust,约 30-60s)...')
