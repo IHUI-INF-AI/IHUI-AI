@@ -1,4 +1,4 @@
-2026-10-19T11:06:32.129Z pid=4050
+2026-10-19T11:06:44.129Z pid=4050
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/1 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -32,3 +32,4 @@ RC-CHALLENGE round=0 step=1 rows=3 cols=3 dynamic=true prompt="Select all images
 RC-SHOT-PUSHED rc-shot-0-1 ok=true
 RC-WAIT round=0 step=1 i=0 status=200
 RC-WAIT round=0 step=1 i=6 status=200
+RC-WAIT round=0 step=1 i=12 status=200
