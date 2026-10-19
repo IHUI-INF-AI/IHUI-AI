@@ -79,6 +79,16 @@
  *       #   187 行、其中 186 行是多余副本,而零损失断言一路报绿)。台账类路径判红时,人工出路只有
  *       #   "手删重复行"(可能删多 = 丢内容)或绕开本器做裸 git 手术 ⇒ 只判不修逼人绕过。
  *       #   封顶保留先出现的份、按原序只丢多余那几份,封顶后的内容**仍过同一条零损失断言**。
+ *   node scripts/union-converge.mjs --supersede '<path>=<声明档 JSON>' [--supersede ...]
+ *       # 声明式取代(票 G-310):"未存活行"与"旧行被复活"这两格判的是**语义搬了家**,
+ *       #   而工具只能比字面、判不出"同一件事现在住在哪一行"。此前它只喊"请人工判",人工结果
+ *       #   没有任何回灌路径 ⇒ 会话要么停在这格,要么绕开本器裸做 git 手术(把断言一起绕过)。
+ *       #   声明档 = `[{dropped, kept, why}]`(或 `{items:[…]}`),逐条给:被取代行的**逐字字面**、
+ *       #   该语义现在所在行的**逐字字面**、原因。放行仍要过举证 —— `supersedeProof` 复用折叠那四问
+ *       #   (`attestFoldPair`:同主键/同指纹 + 去向行真在产物面 + 独有注记与票号被接住),
+ *       #   另加"必须带原因""不得自取代";证不出去向 ⇒ 照旧判红并带原因。
+ *       #   本轮没命中的声明同样判红(不记通过)—— 陈旧的放行清单不许被读成"这轮放过东西"。
+ *       #   放行的每一行逐条打印并写进合并提交信息(与守门 83"声明式例外不静默"同一规矩)。
  *   node scripts/union-converge.mjs --self-test      # 真临时仓取证(含"选边必判失败"反向对照)
  *   node scripts/union-converge.mjs --move-aware-detail
  *       # 把"因搬运感知而未取回"的行**逐行**打印(默认只按条目块给计数 + 出处归档件路径)。
@@ -1087,6 +1097,36 @@ export function attestFoldPair(pair, m) {
 }
 
 /**
+ * 「声明式取代」的举证(票 G-310)。
+ *
+ * 存在的理由:活文档归并的失效方向被定死为"只能多带一行回来",于是**本侧就地改写过**的旧行
+ * 会被按字面取回;落地闸随即判它"旧行被复活"。这一型既不是丢失也不是折叠 —— 它是同一件事
+ * 换了写法,而"换写法"这件事只有改过它的人知道现在哪一行承载它的语义。所以出口必须由人来声明,
+ * 而**不许由工具猜**(猜 = 把语义判定权塞进正则)。
+ *
+ * 判据不另起一把尺子(G-310 票面要求与守门 83"声明式例外不静默"同规矩):
+ *  Q0 声明必须带原因 —— 无原因的放行等于没有判据;
+ *  Q0b 声明必须给出去向行,且不得自取代(`kept === dropped` 是空调用,放行了也不证明任何事);
+ *  Q1–Q4 其余四问**逐字复用 `attestFoldPair`**(主键/指纹同一件事、去向行真在产物面、
+ *      独有注记与票号被接住)。这里再写一份"什么算同一件事"必然与它漂移,而漂移的固定代价
+ *      是一边绿灯一边判红。
+ *
+ * @param {{kept?:string, why?:string}} declared 人给的一条声明
+ * @param {string} dropped 判红的那一行字面
+ * @param {Map<string,number>} m 产物面的行重数
+ * @returns {{status:'attested'|'undetermined'|'lost',kept:string|null,reason:string}}
+ */
+export function supersedeProof(declared, dropped, m) {
+  const why = String(declared?.why ?? '').trim()
+  if (why === '') return { status: 'lost', kept: null, reason: '声明没写原因(无原因放行 = 没有判据)' }
+  const kept = typeof declared?.kept === 'string' ? declared.kept : ''
+  if (kept.trim() === '')
+    return { status: 'undetermined', kept: null, reason: '声明没给"该语义现在住在合并稿哪一行"' }
+  if (kept === dropped) return { status: 'lost', kept, reason: '自取代(去向行就是被取代行)⇒ 空调用' }
+  return attestFoldPair({ dropped, kept }, m)
+}
+
+/**
  * 折叠的唯一调用点(2026-10-16 收口):`dedupeByFingerprint` 只在这里被调,产物与台账同轮产出。
  * 返回的 `text` 与 `unionLines(..., { dedupeTasks: true })` 逐字等值(该函数体就是这两步)。
  */
@@ -1855,6 +1895,7 @@ export function verifyUnion(
   base = null,
   moveAwareCache = null,
   foldLedgers = null,
+  supersede = null,
 ) {
   const M = new Set(listPaths(tree, cwd))
   const bad = []
@@ -1863,6 +1904,7 @@ export function verifyUnion(
   const moveAware = []
   const foldCredited = []
   const foldUndetermined = []
+  const supCredits = []
   for (const p of listPaths(ours, cwd)) {
     if (M.has(p)) continue
     /**
@@ -1945,11 +1987,43 @@ export function verifyUnion(
      */
     const ledger = foldLedgers?.get?.(p) || null
     const pairOf = new Map((ledger?.pairs || []).map((x) => [x.dropped, x]))
+    /**
+     * 声明式取代的出口(票 G-310):"本侧就地改写过这一行"和"对侧那一版已被另一版取代"这两型,
+     * 工具**结构上判不出来** —— 它能比字面,不能判语义住在哪一行。所以由人声明,而声明必须过
+     * `supersedeProof`(= 折叠那四问 + 必须带原因 + 不得自取代),**不许工具猜**。
+     * 两半判据共用这一份实现:各写一遍的固定代价是一条尺子绿灯、另一条同一改动判红(§0.6)。
+     */
+    const sup = supersede?.get?.(p) || null
+    const supHit = new Set()
+    const creditSupersede = (l, kind, short) => {
+      if (!sup?.has(l)) return null
+      supHit.add(l)
+      const declared = sup.get(l)
+      const sp = supersedeProof(declared, l, m)
+      if (sp.status !== 'attested') {
+        bad.push(
+          `${p} ${kind}(--supersede 已声明但举证不成立:${sp.reason}):${l.slice(0, 50)}`,
+        )
+        return 'rejected'
+      }
+      supCredits.push({
+        doc: p,
+        kind,
+        dropped: l,
+        copies: short,
+        kept: sp.kept,
+        why: String(declared.why).trim(),
+      })
+      return 'attested'
+    }
     for (const [l, n] of want) {
       const have = m.get(l) || 0
       if (have >= n) continue
       const pair = pairOf.get(l)
       if (!pair) {
+        // 折叠台账没这一行 ⇒ 按旧判据本应逐字照红;G-310 之后人可以**声明**它被哪一行取代,
+        // 但声明证不出去向照样红(且比原句多带原因),放行了也必报名。
+        if (creditSupersede(l, '未存活行', n - have)) continue
         bad.push(`${p} 未存活行:${l.slice(0, 50)}`)
         continue
       }
@@ -1998,13 +2072,27 @@ export function verifyUnion(
       const ca = counter(a)
       for (const [l, n] of cb) {
         if ((ca.get(l) || 0) >= n) continue // 本侧留着它 ⇒ 不是改写/删除
-        if ((m.get(l) || 0) > (want.get(l) || 0))
+        if ((m.get(l) || 0) > (want.get(l) || 0)) {
+          // G-310 的正主:归并按"失效方向只能多带一行"把**本侧已就地改写过**的旧行取回,
+          // 判据随即判它复活。这一型唯一合法的收法是声明"语义现在住在哪一行"并过四问举证,
+          // 之前这里一处出口都没有 ⇒ 每个会话走到这格只能停,或去裸做 git 手术绕过全部断言。
+          if (creditSupersede(l, '旧行被复活', (m.get(l) || 0) - (want.get(l) || 0))) continue
           bad.push(
             `${p} 旧行被复活(本侧已改写/删除):重数 ${m.get(l)} > 期望 ${want.get(l) || 0} —— ${l.slice(0, 50)}`,
           )
+        }
       }
     }
+    // 声明了却本轮没命中 ⇒ 不记通过(§0.3):清单陈旧/串档必须当场喊出来,
+    // 否则"配了清单"会被读成"这轮真放过东西"。
+    for (const l of sup?.keys() || []) {
+      if (!supHit.has(l))
+        bad.push(
+          `${p} --supersede 声明未命中(该行本轮既未少带也未复活 ⇒ 清单属陈旧或串档,不记通过):${l.slice(0, 50)}`,
+        )
+    }
   }
+  bad.superseded = supCredits
   bad.moved = moved
   bad.pointerCaps = pointerCaps
   bad.moveAware = moveAware
@@ -2248,6 +2336,7 @@ export function plan(
   takeTheirs = new Set(),
   accepted = null,
   baseOverride = null,
+  supersede = null,
 ) {
   // 直接走 API 的调用方也必须拿到同一句诊断,而不是 git 的 "Not a valid commit name" 加一串堆栈
   // (G-473 ②:取不到要写成"未判定 + 出口",不得表现为工具故障)。CLI 那一支在 resolveTargets
@@ -2297,7 +2386,7 @@ export function plan(
   const blocked = built.needHuman.map((h) => `${h.path} 需人工判(${h.kind}):${h.detail}`)
   // 折叠台账必须**同轮**交给落地自证(§0.4 同面同轮):产物面是折叠之后那一份,自证侧若拿不到
   // 这本账,就会对着一个"产物面根本不存在的重数"判红 —— 本机实测 289 处「未存活行」而真丢失 0。
-  const vu = verifyUnion(ours, theirs, built.tree, cwd, base, moveAwareCache, built.foldLedgers)
+  const vu = verifyUnion(ours, theirs, built.tree, cwd, base, moveAwareCache, built.foldLedgers, supersede)
   return {
     base,
     ...built,
@@ -2313,6 +2402,7 @@ export function plan(
     // 折叠销掉的份数(合法少带)与问不出去向的格:两条都必须随返回值交到报告与提交信息里,
     // 静默折进"0 丢失"就是本仓记过最多次的那一型(与 caps / pointerCaps 同一条留痕纪律)。
     folded: vu.folded,
+    superseded: vu.superseded,
     foldUndetermined: vu.foldUndetermined,
     foldLedgers: built.foldLedgers,
     // 「因搬运感知而未取回」这一维:逐条目块的行数 + 出处归档件 + 判不出/照旧取回的原因。
@@ -3764,6 +3854,60 @@ async function main() {
     const file = argv[i].slice(eq + 1)
     resolutions.set(argv[i].slice(0, eq), capped ? { file, capped: true } : file)
   }
+  // --supersede <path>=<声明档>(可重复,票 G-310):**声明式取代**的入口。判据在这两格
+  //   ("未存活行" / "旧行被复活")结构上判不出语义搬到了哪一行 —— 它能比字面,不能判"同一件事"。
+  //   此前它只在报错文案里喊"请人工判",而人工结果没有任何回灌路径,于是每个走到这格的会话
+  //   只有两条出路:停住,或绕开本器去裸做 git 手术(把全部断言一起绕过)。本旗标是那第三条出路。
+  // 声明档 = JSON `[{dropped, kept, why}]`(也接受 `{items:[…]}`):
+  //   dropped = 被判红的那一行**逐字字面**;kept = 该语义现在住在合并稿的哪一行(逐字字面);
+  //   why = 为什么它已被取代。三条都得当场给全:缺原因 ⇒ `supersedeProof` 判不成立(照红),
+  //   本轮没命中 ⇒ "声明未命中"判红(不记通过)—— 放行通道不收"配了个空清单"这种写法。
+  const supersede = new Map()
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] !== '--supersede' || !argv[i + 1]) continue
+    const spec = argv[++i]
+    const eq = spec.indexOf('=')
+    if (eq <= 0) {
+      console.log(`❌ --supersede 需要 <path>=<声明档 JSON>,得到的是:${spec}`)
+      process.exit(2)
+    }
+    const doc = spec.slice(0, eq)
+    const file = spec.slice(eq + 1)
+    let raw
+    try {
+      raw = readFileSync(file, 'utf8')
+    } catch (e) {
+      // 取不到输入 ⇒ 当场退 2 点名,绝不当成"这一路径没有声明"(那会把配错文件读成放行)。
+      console.log(`❌ --supersede 读不到声明档 ${doc}=${file}:${e?.message ?? e}`)
+      process.exit(2)
+    }
+    let parsed
+    try {
+      const j = JSON.parse(raw)
+      parsed = Array.isArray(j) ? j : j?.items
+    } catch (e) {
+      console.log(`❌ --supersede 声明档不是 JSON(${doc}=${file}):${e?.message ?? e}`)
+      process.exit(2)
+    }
+    if (!Array.isArray(parsed)) {
+      console.log(`❌ --supersede 声明档既不是数组也没有 items 字段(${doc}=${file})⇒ 无从判定,拒绝执行`)
+      process.exit(2)
+    }
+    const m = supersede.get(doc) || new Map()
+    for (const [k, d] of parsed.entries()) {
+      const dropped = typeof d?.dropped === 'string' ? d.dropped : ''
+      if (dropped === '') {
+        console.log(`❌ --supersede 声明档第 ${k + 1} 项没有 dropped(被取代行的逐字字面)⇒ 拒绝执行`)
+        process.exit(2)
+      }
+      if (m.has(dropped)) {
+        console.log(`❌ --supersede ${doc} 第 ${k + 1} 项与前面某条同 dropped(一行两条取代去向 ⇒ 歧义,拒绝执行)`)
+        process.exit(2)
+      }
+      m.set(dropped, { kept: typeof d?.kept === 'string' ? d.kept : '', why: typeof d?.why === 'string' ? d.why : '' })
+    }
+    supersede.set(doc, m)
+  }
   // --accept-state-growth <维>=<理由>(可重复):并集天然放大的三条量纲(F1 / F4 / F3-rotatedAuto)
   //   的**声明式出口**。它不是"关掉判据" —— 每条都必须带理由,两个读数与理由一起打印,并写进
   //   合并提交信息;维名不认识直接退 2;F5/F6/F9/F9b 与路径零丢失不接受放行(见 planStateRegressions 头注)。
@@ -3817,7 +3961,17 @@ async function main() {
       '[union-converge] 本地落后于所点名的 --theirs ⇒ 这不是"无需合并";按显式目标照常归并' +
         '(要快进请自己跑 git merge --ff-only,本器不替调用方决定动作)',
     )
-  const p = plan(t.head, t.theirs, ROOT, takeOurs, resolutions, takeTheirs, accepted, baseOverride)
+  const p = plan(
+    t.head,
+    t.theirs,
+    ROOT,
+    takeOurs,
+    resolutions,
+    takeTheirs,
+    accepted,
+    baseOverride,
+    supersede.size ? supersede : null,
+  )
   console.log(
     `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 删除随合并传播 ${p.propagatedDeletes?.length ?? 0} / 影子 .js 随合并删掉 ${p.shadowDeletes?.length ?? 0} / 影子 .js 未恢复 ${p.shadowRestores?.length ?? 0} / 活文档行 union`,
   )
@@ -3875,6 +4029,19 @@ async function main() {
   // 不是"这一行没了"—— 分不清这两件事的下一手会把一次零信息损失的合并读成一次丢内容。
   for (const line of formatFoldReport(p.folded)) console.log(line)
   const foldCopies = (p.folded || []).reduce((s, e) => s + e.copies, 0)
+  // 声明式取代(G-310)同样必须报名:放过的每一行都要说清"它现在住在合并稿哪一行、为什么",
+  // 因为这条判据的失效方向和它守的那条律一样 —— 安静地放行比判红更危险。
+  const supCredits = p.superseded || []
+  if (supCredits.length) {
+    console.log(
+      `  · 声明式取代少带/复活销账 ${supCredits.length} 行(--supersede 已声明且四问举证通过;逐条如下)`,
+    )
+    for (const s of supCredits)
+      console.log(
+        `      [${s.doc}] ${s.kind}${s.copies ? ` ×${s.copies}` : ''} ← ${JSON.stringify(s.dropped.slice(0, 46))}\n` +
+          `        去向:${JSON.stringify(String(s.kept).slice(0, 60))} | 原因:${s.why}`,
+      )
+  }
   // 显式旗标才把"新增强"折进落地闸(缺省只报数;存量/未判定永远不折,见 --resurrect-block 的用法注)。
   if (resurrectBlock) applyResurrectBlock(p)
   if (p.bad.length) {
@@ -3936,6 +4103,13 @@ async function main() {
       : '') +
     (p.foldUndetermined?.length
       ? `;折叠去向未判定 ${(p.foldUndetermined).length} 格(未记通过,落地闸据此拒绝推进)`
+      : '') +
+    // 声明式取代的留痕(G-310):后来人只读 `git log` 也必须看出这些行是**人声明被取代、且过了
+    // 折叠那四问举证**才少带的,不是一次丢内容,也不是一条自动放行的例外。
+    (supCredits.length
+      ? `;声明式取代 ${supCredits.length} 行(--supersede 声明 + attestFoldPair 四问通过;逐条见 ${supCredits
+          .map((s) => `${s.kind}←${String(s.dropped).slice(0, 24)}`)
+          .join(' / ')})`
       : '')
   const sha = git(['commit-tree', p.tree, '-p', t.head, '-p', t.theirs, '-m', msg])
   const cas = spawnSync(
@@ -4055,6 +4229,7 @@ export const __test__ = {
   foldLedgerOf,
   foldDedupe,
   attestFoldPair,
+  supersedeProof,
   formatFoldReport,
   ensureTrailingNewline,
   moveAwareForDoc,
