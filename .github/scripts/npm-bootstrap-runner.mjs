@@ -667,6 +667,7 @@ async function runSignPath(page, attempt) {
       }
     }
     await sleep(9000)
+    await shotPush(`sp-postsubmit-${k}`)
     // 提交本身触发不可见 reCAPTCHA,给 45 秒等挑战弹出
     const rc2 = await handleRecaptchaChallenge(page, attempt * 10 + k + 500, 45000)
     console.log('RC_SOLVED_AFTER_SUBMIT=' + rc2)
