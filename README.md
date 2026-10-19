@@ -106,31 +106,30 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 5 语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
-
-| 指标           | 现值  | 取数键             |
-| -------------- | ----- | ------------------ |
-| 数据库表       | 598   | `dbTables`         |
-| schema 文件    | 231   | `dbSchemaFiles`    |
-| API 路由       | 4449  | `apiRoutes`        |
-| 路由文件       | 606   | `apiRouteFiles`    |
-| AI 服务路由    | 576   | `aiServiceRoutes`  |
-| WebSocket 端点 | 25    | `wsEndpoints`      |
-| 入库模型清单   | 118   | `llmModels`        |
-| 发布平台       | 38    | `publishPlatforms` |
-| 端应用包       | 9     | `appPackages`      |
-| 共享包         | 16    | `sharedPackages`   |
-| CLI 命令文件   | 66    | `cliCommandFiles`  |
-| CLI 工具文件   | 71    | `cliToolFiles`     |
-| 语言           | 5     | `i18nLanguages`    |
-| i18n 作用域    | 7     | `i18nScopes`       |
-| 语言包 JSON    | 35    | `i18nMessageFiles` |
-| 测试文件       | 2955  | `testFiles`        |
-| CI 工作流      | 49    | `ciWorkflows`      |
-| Compose 服务   | 15    | `composeServices`  |
-| 工程守门       | 260   | `guardianGates`    |
-| — blocking     | 236   | `guardianBlocking` |
-| — warn         | 27    | `guardianWarn`     |
-| 跟踪文件       | 15144 | `trackedFiles`     |
+| 指标 | 现值 | 取数键 |
+| ---- | ---- | ------ |
+| 数据库表 | 598 | `dbTables` |
+| schema 文件 | 231 | `dbSchemaFiles` |
+| API 路由 | 4449 | `apiRoutes` |
+| 路由文件 | 606 | `apiRouteFiles` |
+| AI 服务路由 | 576 | `aiServiceRoutes` |
+| WebSocket 端点 | 25 | `wsEndpoints` |
+| 入库模型清单 | 118 | `llmModels` |
+| 发布平台 | 38 | `publishPlatforms` |
+| 端应用包 | 9 | `appPackages` |
+| 共享包 | 16 | `sharedPackages` |
+| CLI 命令文件 | 66 | `cliCommandFiles` |
+| CLI 工具文件 | 71 | `cliToolFiles` |
+| 语言 | 5 | `i18nLanguages` |
+| i18n 作用域 | 7 | `i18nScopes` |
+| 语言包 JSON | 35 | `i18nMessageFiles` |
+| 测试文件 | 2968 | `testFiles` |
+| CI 工作流 | 49 | `ciWorkflows` |
+| Compose 服务 | 15 | `composeServices` |
+| 工程守门 | 260 | `guardianGates` |
+| — blocking | 236 | `guardianBlocking` |
+| — warn | 27 | `guardianWarn` |
+| 跟踪文件 | 15174 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-19。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。

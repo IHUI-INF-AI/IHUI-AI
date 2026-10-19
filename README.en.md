@@ -71,9 +71,9 @@ Headline claims (same source as the table below, all live-computed): **598 table
 | ---- | ---- | ------ |
 | 数据库表 | 598 | `dbTables` |
 | schema 文件 | 231 | `dbSchemaFiles` |
-| API 路由 | 4443 | `apiRoutes` |
-| 路由文件 | 604 | `apiRouteFiles` |
-| AI 服务路由 | 577 | `aiServiceRoutes` |
+| API 路由 | 4449 | `apiRoutes` |
+| 路由文件 | 606 | `apiRouteFiles` |
+| AI 服务路由 | 576 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 118 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
@@ -84,18 +84,16 @@ Headline claims (same source as the table below, all live-computed): **598 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 2959 | `testFiles` |
+| 测试文件 | 2968 | `testFiles` |
 | CI 工作流 | 49 | `ciWorkflows` |
 | Compose 服务 | 15 | `composeServices` |
 | 工程守门 | 260 | `guardianGates` |
 | — blocking | 236 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15155 | `trackedFiles` |
+| 跟踪文件 | 15174 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-19。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
-> ⚠️ 未判定 1 项:`apiSrc`(apps/api/src 有 2 个 .ts 在面上取不到内容)
 
 <!-- END GENERATED NUMBERS -->
 

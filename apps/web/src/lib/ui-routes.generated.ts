@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 4c0dbc10212ba07341765cd7c79d8e5c89fb6c82
-// inputsSha256: a3ca7f57683ccc960c02e10df11056e1123602106f3be047be44a68281d0abf4
+// sourceCommit: c0b02be13cf706a528c6b70fc504f22b75caa9d5
+// inputsSha256: 4f8dec66a360aa41b87066aac429438bcc90d4ee674a51d34cbc815454393708
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -533,6 +533,9 @@
 // input: apps/web/app/(main)/docs/self-host/page.tsx acaf955ab00bf364e37cc6dd09fafa9eecff7eef62c00d5a5c704684981da8de
 // input: apps/web/app/(main)/docs/team/page.tsx bee28fd41360c5248ccf820f890a935e845aa38b78508fca7823347ae4ca197b
 // input: apps/web/app/(main)/docs/workflow/page.tsx 14526433eb12c6152ddfe2f803c39285703f9aacc773c325d5c3a97b5a7ace79
+// input: apps/web/app/(main)/domains/content/page.tsx 5f2aadcd2744e25d3e55f3329446167280360de8d78bf2a8d48c36f2bb426e7c
+// input: apps/web/app/(main)/domains/edu/page.tsx 610d37bec54c738e573d24150b1a36c173a9344cb559da2ed18aeb7386026fd2
+// input: apps/web/app/(main)/domains/trade/page.tsx 81b8bcc37d1565a1ffdbbb0abbcf9f8eb077f08bdc9b8d8b789fb789c2368949
 // input: apps/web/app/(main)/download/[platform]/page.tsx 04bf22574b04954a7418bae2c41138e61083f06317686216af880c1b1529c314
 // input: apps/web/app/(main)/download/page.tsx 59bc8557ed62a53fa3608ec75132263f58a438dd8c09e066e49f8a07bb726c04
 // input: apps/web/app/(main)/drama/page.tsx 38e76b18be7c5ae74eb48bc258c8634d65ca08f6ebb2173241e3ad2aad5cd37c
@@ -918,7 +921,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx 73f528f7654b7eb8bf5d08493a07afa63ed1de621f5a792399270a41505bf2fd
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-10-19T14:56:37.881Z
+// generatedAt: 2026-10-19T22:13:47.504Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1441,6 +1444,9 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/docs/self-host', param: false, group: 'docs' },
   { path: '/docs/team', param: false, group: 'docs' },
   { path: '/docs/workflow', param: false, group: 'docs' },
+  { path: '/domains/content', param: false, group: 'domains' },
+  { path: '/domains/edu', param: false, group: 'domains' },
+  { path: '/domains/trade', param: false, group: 'domains' },
   { path: '/download', param: false, group: 'download' },
   { path: '/download/:platform', param: true, group: 'download' },
   { path: '/drama', param: false, group: 'drama' },
