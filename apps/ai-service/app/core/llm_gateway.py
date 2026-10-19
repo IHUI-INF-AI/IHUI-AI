@@ -2555,6 +2555,12 @@ class LLMGateway:
                 "usage": usage_dict,
                 "stub": False,
             }
+            # G-200(2026-10-07):非流式调用也要把上游结束原因交出去——AgentLoopV2
+            # 的续写判据在非流式/重试降级轮同样要问"这一轮是不是被 max_tokens 截断"。
+            # 取不到/为空则不写键(缺席 = 判据不成立 = 不续写,绝不折成 stop)。
+            _finish_reason = getattr(response.choices[0], "finish_reason", None)
+            if _finish_reason:
+                result["finish_reason"] = str(_finish_reason)
             # P3-1 token 压缩信息(仅在压缩启用且成功时存在,前端/监控可读)
             if compaction_info is not None:
                 result["compaction"] = compaction_info
