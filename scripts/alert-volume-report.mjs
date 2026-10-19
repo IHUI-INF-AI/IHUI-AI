@@ -382,9 +382,14 @@ export function parseAttestation(text, { nowMs, hours = 24, days = 7 }) {
     entries.push({
       ms: Number.isFinite(ms) ? ms : null,
       kind: typeof o.kind === 'string' ? o.kind : '(缺 kind)',
-      ranFullBatch: o.ranFullBatch === true,
+      // 三态(2026-10-19 修):**缺席 ≠ false**。`gates-then-commit` 那一族按设计就不持这两维
+      // (它的正/反证在 `gatesRan` + `hookSkipped`,见 lib/commit-attestation.mjs 头注),
+      // 旧写法 `o.ranFullBatch === true` 把"没记"折成 false,于是 109 条里 22 条货真价实的正证
+      // 被报成"一批检查全没跑就跳了,比跳门更严重"—— 与本仓"没判不写成判过"同一条禁令。
+      // 缺席走 `null`,由 ranFullBatchMissing / failedGatesMissing 如实报名,不进 noBatch 计数。
+      ranFullBatch: typeof o.ranFullBatch === 'boolean' ? o.ranFullBatch : null,
       ranFullBatchMissing: typeof o.ranFullBatch !== 'boolean',
-      failedGates: Array.isArray(o.failedGates) ? o.failedGates.map(String) : [],
+      failedGates: Array.isArray(o.failedGates) ? o.failedGates.map(String) : null,
       failedGatesMissing: !Array.isArray(o.failedGates),
       declaredFiles: Array.isArray(o.declaredFiles) ? o.declaredFiles : [],
     })
@@ -393,15 +398,19 @@ export function parseAttestation(text, { nowMs, hours = 24, days = 7 }) {
     const kinds = {}
     const byGate = new Map()
     let noBatch = 0
+    let noBatchUnknown = 0
     for (const e of list) {
       kinds[e.kind] = (kinds[e.kind] || 0) + 1
-      if (!e.ranFullBatch) noBatch++ // 字段缺席也按"没跑完整批"计 —— 宁可多问一句,不把"没记"当"跑过"
-      for (const g of e.failedGates) byGate.set(g, (byGate.get(g) || 0) + 1)
+      // 只认"明写 false";缺席单列 unknown(宁可多问一句,也不把"没记"当"没跑")
+      if (e.ranFullBatch === false) noBatch++
+      else if (e.ranFullBatch === null) noBatchUnknown++
+      for (const g of e.failedGates || []) byGate.set(g, (byGate.get(g) || 0) + 1)
     }
     return {
       skips: list.length,
       kinds,
       noBatchCount: noBatch,
+      noBatchUnknown,
       gates: [...byGate.entries()]
         .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
         .map(([id, n]) => ({ id, n })),
@@ -434,9 +443,16 @@ export function parseAttestation(text, { nowMs, hours = 24, days = 7 }) {
  * 逐条目扫:`id:` 开一条,其后第一个 `script:` 归它;没有 script 的条目记 null ——
  * 而不是位置错位认领邻门(那等于把别人的门说成我的,反查结论直接错)。
  * 两种引号形态都要认:双引号 id 对一切按单引号解析注册表的判据隐身(本仓真踩过)。
+ * 两种**行形态**也都要认(2026-10-19 实测):注册表里既有
+ *   { id: '105',\n    script: 'x.mjs',\n  },
+ * 也有**单行**形态 `{ id: '207', label: '…', script: 'check-agents-doc-size.mjs', … }`。
+ * 旧正则按 `^[ \t]{4}` 锚定,单行条目行首只有 2 空格且第 3 字符是 `{` ⇒ 结构上永远看不见
+ * (现读盲区 3 枚:207 / 212 / 217)⇒ 台账里的门号被报成「未判定:不在注册面」,人以为门被摘线。
+ * 锚定放宽为 `行首 或 { / , 之后`(单行条目里 `script:` 不在行首);两个字段同行时按出现先后
+ * 配对,顺序语义不变。撞号与"script 读到 null"都如实报出,不静默认领邻门。
  */
 export function parseRegistry(text) {
-  const re = /^[ \t]{4}(id|script):\s*(['"])([^'"]*)\2/gm
+  const re = /(?:^[ \t]*|[,{][ \t]*)(id|script):\s*(['"])([^'"]*)\2/gm
   const map = new Map()
   const dupIds = []
   let cur = null
@@ -686,6 +702,8 @@ function buildReport(o) {
     skipTotal24h: att ? att.windows['24h'].skips : null,
     skipTotal7d: att ? att.windows['7d'].skips : null,
     noBatchTotal: att ? att.all.noBatchCount : null,
+    // 缺席条数单列一格:它是"没记",不是"没跑"。混进 noBatchTotal 就是本仓明令禁止的"没判写成判过"。
+    noBatchUnknownTotal: att ? att.all.noBatchUnknown : null,
     stormClustersWindow: mail ? mail.windows[hKey].storms.length : null,
     stormClusters24h: mail ? mail.windows['24h'].storms.length : null,
     // 台账面(发信面之二)同一条纪律:取不到 ⇒ null,不得用 0 冒充"没寄过"(S6 用例逐键钉住)
@@ -790,6 +808,7 @@ function renderHuman(rep) {
   } else {
     const a = rep.att
     p(`  全量:${a.all.skips} 次;其中 ranFullBatch=false(一批检查**全没跑**就跳了,比跳门更严重)= ${a.all.noBatchCount} 次`)
+    p(`  另:字段缺席(该族按设计不记这一维)= ${a.all.noBatchUnknown} 次 —— 是"没记"不是"没跑",不并入上一格`)
     // 同键只列一次:默认档 --hours 24 时请求窗口就是 24h,列两遍会被读成两个不同的数。
     const attKeys = [...new Set([hKey, '24h', dKey, '7d'])]
     p(`  跳门次数:${attKeys.map((k) => `近 ${k} ${a.windows[k].skips} 次`).join(' / ')}`)
@@ -797,10 +816,10 @@ function renderHuman(rep) {
     if (a.totals.badLines || a.totals.undated)
       p(`  ⚠️ 坏行 ${a.totals.badLines} 条 / 无有效 ts ${a.totals.undated} 条 —— 都不进任何计数(把没判写成判过是本仓最高频失效型)`)
     if (a.totals.ranFullBatchFieldMissing || a.totals.failedGatesFieldMissing)
-      p(`  ⚠️ 字段缺席:ranFullBatch ${a.totals.ranFullBatchFieldMissing} 条 / failedGates ${a.totals.failedGatesFieldMissing} 条 —— 缺席按"没跑完整批/无门可归因"处理并在此报名`)
+      p(`  ⚠️ 字段缺席:ranFullBatch ${a.totals.ranFullBatchFieldMissing} 条 / failedGates ${a.totals.failedGatesFieldMissing} 条 —— 缺席是"该族按设计不记这一维",既不算"跑过"也不算"没跑",单独计数`)
     if (a.all.noBatchCount) {
-      for (const e of a.entries.filter((x) => !x.ranFullBatch && x.ms !== null).slice(-5))
-        p(`    ranFullBatch=false @ ${new Date(e.ms).toISOString()} kind=${e.kind} gates=[${e.failedGates.join(',')}]`)
+      for (const e of a.entries.filter((x) => x.ranFullBatch === false && x.ms !== null).slice(-5))
+        p(`    ranFullBatch=false @ ${new Date(e.ms).toISOString()} kind=${e.kind} gates=[${(e.failedGates || []).join(',')}]`)
     }
     p(rep.gateRows.length ? '  按门聚合(门号→脚本现读注册表,不硬编码清单):' : '  按门聚合:台账里没有任何 failedGates 记录(这是读数,不得读成"没有门红过")')
     for (const g of rep.gateRows)
@@ -819,7 +838,7 @@ function renderHuman(rep) {
       `mailTotalWindow=${rep.summary.mailTotalWindow} mailTotal24h=${rep.summary.mailTotal24h} mailTotal7d=${rep.summary.mailTotal7d} ` +
       `alertSkippedTotal=${rep.summary.alertSkippedTotal} skipTotalAllTime=${rep.summary.skipTotalAllTime} ` +
       `skipTotalWindow=${rep.summary.skipTotalWindow} skipTotal24h=${rep.summary.skipTotal24h} skipTotal7d=${rep.summary.skipTotal7d} ` +
-      `noBatchTotal=${rep.summary.noBatchTotal} stormClustersWindow=${rep.summary.stormClustersWindow} stormClusters24h=${rep.summary.stormClusters24h} ` +
+      `noBatchTotal=${rep.summary.noBatchTotal} noBatchUnknownTotal=${rep.summary.noBatchUnknownTotal} stormClustersWindow=${rep.summary.stormClustersWindow} stormClusters24h=${rep.summary.stormClusters24h} ` +
       `ledgerTotalWindow=${rep.summary.ledgerTotalWindow} ledgerTotal24h=${rep.summary.ledgerTotal24h} ledgerTotal7d=${rep.summary.ledgerTotal7d} ` +
       `ledgerUndelivered=${rep.summary.ledgerUndelivered} ledgerSuppressed=${rep.summary.ledgerSuppressed} ledgerStorms24h=${rep.summary.ledgerStorms24h} ` +
       `sourcesCovered=${rep.summary.sourcesCovered} sourcesUndetermined=${rep.summary.sourcesUndetermined}`,
