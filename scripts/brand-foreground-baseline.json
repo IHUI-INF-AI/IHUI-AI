@@ -4,6 +4,7 @@
     "apps/mobile-rn/src/components/CourseCarousel.tsx": 2,
     "apps/mobile-rn/src/components/VideoPlayer.tsx": 4,
     "apps/mobile-rn/src/navigation/RootNavigator.tsx": 1,
+    "apps/mobile-rn/src/screens/ChatScreen.tsx": 2,
     "apps/mobile-rn/src/screens/ChatToolsScreen.tsx": 2,
     "apps/mobile-rn/src/screens/CoursePlanetScreen.tsx": 1,
     "apps/mobile-rn/src/screens/ImageGenCreateScreen.tsx": 1,
