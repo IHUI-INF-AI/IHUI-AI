@@ -254,6 +254,14 @@ export default defineConfig({
         __dirname,
         '../../packages/shared/src/chat/conversation-pin.ts',
       ),
+      // 2026-10-19:斜杠命令模板类 id 清单(跨端单一真相源,web 与 RN 共用同一份)。
+      // 子路径别名必须排在下面 '@ihui/shared/chat' 父别名之前 —— 父别名按
+      // startsWith(pattern+'/') 匹配,会把 '@ihui/shared/chat/slash-command-ids'
+      // 整段子路径吞成 <barrel>/slash-command-ids ⇒ 收集期 MODULE_NOT_FOUND。
+      '@ihui/shared/chat/slash-command-ids': resolve(
+        __dirname,
+        '../../packages/shared/src/chat/slash-command-ids.ts',
+      ),
       '@ihui/shared/chat': resolve(__dirname, '../../packages/shared/src/chat/index.ts'),
       // O81 票③:shared 包新增 './ui' 子路径导出(barrel + 纯 spec 模块,无 DOM/RN 依赖),
       // 当时漏配别名 ⇒ 父别名 '@ihui/shared' 按 startsWith(pattern+'/') 吞掉 '@ihui/shared/ui',
