@@ -39,22 +39,23 @@ RN 侧**共享屏层**:`src/features/`(现读 194 个特性目录)装整屏级�
 ## 3. 依赖方向与边界
 
 策略表登记:`layer: composite`、`exported: true`、`managed: true`、`requires: packages/design-tokens`
-+ `packages/types` + `packages/shared`(清单取表,勿在此另立一份)。
 
-- 上游只能被更深的层消费;本包**不得** import 任何 `apps/*`(端应用 `exported:false`,D2 反向依赖)。
-- 可见真值只有一处:色档 `packages/design-tokens/src/styles/tokens.css`、圆角 `radius.js`、
+- `packages/types` + `packages/shared`(清单取表,勿在此另立一份)。
+
+* 上游只能被更深的层消费;本包**不得** import 任何 `apps/*`(端应用 `exported:false`,D2 反向依赖)。
+* 可见真值只有一处:色档 `packages/design-tokens/src/styles/tokens.css`、圆角 `radius.js`、
   几何 `geometry.js`。本包内**不得**出现第二个色值/圆角/尺寸字面量,派生副本一律由生成器写回。
-- 主题透线:`packages/app` 的 theme-driven 组件形参若带 `colorScheme` 默认值,调用方必须在每个
+* 主题透线:`packages/app` 的 theme-driven 组件形参若带 `colorScheme` 默认值,调用方必须在每个
   JSX 渲染点真传参(守门 91 判 missing/literal/spread-unknown)。
-- 页头返回键的唯一实现是 `packages/app/src/components/BackChevron.tsx`(经本包导出);
+* 页头返回键的唯一实现是 `packages/app/src/components/BackChevron.tsx`(经本包导出);
   区段头「更多」的唯一 RN 实现是 `components/MoreLink.tsx`。两端不得再自拼第三份(守门 102 S0)。
 
 ## 4. 已知缺口 / 未收口的点(现读,非"应该没有")
 
-1. **`components/Selecter.tsx` 引的是 web 图标库 `lucide-react`**,而同包 82 个文件用的是
-   `lucide-react-native`。AGENTS §4 规定移动端一律 `lucide-react-native`;这一处是 web 图标组件
-   被引进了 RN 共享屏层,metro 打包能过不代表真机上能渲染。是否收掉归该组件持有者(改图标载体
-   属观感改动,需回归)。
+1. ~~`components/Selecter.tsx` 引的是 web 图标库 `lucide-react`~~ **已终(2026-10-19 判定)**:本包
+   `src/components/Selecter.tsx` 已于 2026-10-15 随死载体摘除(注记见 `src/components/index.ts` 与
+   `src/index.ts`),全仓零具名消费者;现役实现只剩小程序端 `apps/miniapp-taro/src/components/adapters/Selecter.taro.tsx`
+   与 RN 端 `apps/mobile-rn/src/components/ModelConfigDialog.tsx` 自绘的 ModelSelecterDialog 两份,无缺口可收。
 2. **`src/components/UserInfoCard.tsx` 与 `src/features/cards/UserInfoCard.tsx` 同族两份活实现并存**,
    前者经现读全仓零深导入(只在注释里出现),属 DOM 死副本;按 AGENTS §7 删除安全,不在本文件
    授权删除,归该包持有者裁决。教训已登记在 O81 票⑮:**同族第三份活实现改了像素不移动任何读数**
@@ -63,4 +64,5 @@ RN 侧**共享屏层**:`src/features/`(现读 194 个特性目录)装整屏级�
    跨端对账门(128)今天对本包**没有配对面**,不得把它的 exit 0 读成"两端界面已同值"。
 4. `packages/app` 无自有 `build`/`test` 脚本入口登记在本文件 —— 端内测试由 `apps/mobile-rn` 的
    vitest 装载本包源码跑,本包自身不产 dist。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
