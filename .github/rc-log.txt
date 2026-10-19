@@ -1,4 +1,4 @@
-2026-10-19T10:42:37.079Z pid=3853
+2026-10-19T10:42:49.079Z pid=3853
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/1 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -46,3 +46,8 @@ RC-WAIT round=1 i=24 status=200
 RC-INSTRUCT round=1 {"round":1,"tiles":[9]}
 RC-TILES-CLICKED round=1 n=1
 RC-VERIFY-BTN label="Verify"
+RC-NEXT-ROUND round=1
+RC-CHALLENGE round=2 frame=https://google.com/recaptcha/enterprise/bframe?hl=en&v=4EDjxXf4knsx6UBM1L2V6cv8&k=6Ld_ad8Z
+RC-GRID round=2 rows=3 cols=3 prompt="Select all images with crosswalksClick verify once there are none left."
+RC-FRAME-DUMP round=2 len=13629
+RC-SHOT-PUSHED round=2 ok=true
