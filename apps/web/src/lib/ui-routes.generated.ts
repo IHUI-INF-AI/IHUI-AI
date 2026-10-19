@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 53b7f2fe0c39866a208b79f51255acc241997f12
-// inputsSha256: 7b776774f97f7ba65a1a9c211941ed64f65065dc89b9076cfca691540c5bd214
+// sourceCommit: c05c304774471ac4d9bb70619a76b8b3c0e98613
+// inputsSha256: 11c87ee3992a445249889c1679fea373feb0f6dffddb7c3eade424b999982a11
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -733,6 +733,7 @@
 // input: apps/web/app/(main)/plan/[id]/page.tsx aa87c22226e7b4f4618429c44041536bd60b8774b1a7109580b93eadb0363876
 // input: apps/web/app/(main)/plan/new/page.tsx 49e9f0e4aacd07e78e363e25a47e70457e6a559c627d1679a133beb90efc797d
 // input: apps/web/app/(main)/plan/page.tsx 9baf1856cd8e162b3827739acfb84ba498cafb5a0c989c989b5011b6921f489c
+// input: apps/web/app/(main)/play-beta/page.tsx 782878ccc647def051105b9ac08b7fc6a2c19607d43115ab7b792c0df2c9fddf
 // input: apps/web/app/(main)/playground/page.tsx ca50dbffcbf32eea3ea7baa7feedcc165204149fd6af07dd99c397b7fa6d8d2a
 // input: apps/web/app/(main)/plaza/new/page.tsx a2e5e81722d99ebc2549c39c8482e17bf31dbf527462ffcf21a37165b12fefa8
 // input: apps/web/app/(main)/plaza/page.tsx 7646688c9b22bbc29283a41c136cd55162c7bc1c82e0809ac8bafe1a75451148
@@ -917,7 +918,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx 73f528f7654b7eb8bf5d08493a07afa63ed1de621f5a792399270a41505bf2fd
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-10-18T20:59:56.062Z
+// generatedAt: 2026-10-19T00:13:52.099Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1649,6 +1650,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/plan', param: false, group: 'plan' },
   { path: '/plan/:id', param: true, group: 'plan' },
   { path: '/plan/new', param: false, group: 'plan' },
+  { path: '/play-beta', param: false, group: 'play-beta' },
   { path: '/playground', param: false, group: 'playground' },
   { path: '/plaza', param: false, group: 'plaza' },
   { path: '/plaza/new', param: false, group: 'plaza' },

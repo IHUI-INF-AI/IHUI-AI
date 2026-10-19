@@ -1,4 +1,54 @@
 {
+  "playBeta": {
+    "hero": {
+      "badge": "Google Play closed test recruitment",
+      "title": "Join the IHUI AI Android closed test",
+      "subtitle": "Google Play requires at least 12 testers to stay opted in for 14 consecutive days before we can apply for a production release. Every session and every piece of feedback helps us get there."
+    },
+    "why": {
+      "title": "Why join",
+      "items": [
+        "Try every Android feature early, including mobile AI chat, agents, and model switching",
+        "Report issues straight to the product team; your suggestions go into the release backlog",
+        "Get founding-tester perks and priority access once the app is publicly listed"
+      ]
+    },
+    "form": {
+      "email": "Google account email",
+      "emailPlaceholder": "you@example.com",
+      "submit": "Sign up for the closed test",
+      "submitting": "Submitting...",
+      "privacyPrefix": "I have read and agree to the",
+      "privacyLink": "Privacy Policy",
+      "privacyRequired": "Agreeing to the Privacy Policy is required to sign up"
+    },
+    "errors": {
+      "invalidEmail": "Please enter a valid email address",
+      "generic": "Submission failed. Please try again later"
+    },
+    "success": {
+      "title": "You're signed up. Thank you!",
+      "desc": "We've received your email. Follow these steps to get ready for testing:",
+      "step1": "Watch your inbox for the Google Play closed test invitation and opt-in link",
+      "step2": "Open the opt-in link with the Google account tied to your signup email and join the test",
+      "step3": "Install IHUI AI, keep using it over the next 14 days, and send feedback through our in-app feedback page anytime"
+    },
+    "join": {
+      "title": "Download after joining the test",
+      "desc": "Testers who already received the invitation can join the test and install the app from the link below.",
+      "button": "Open the Google Play test page",
+      "hint": "Make sure your device is signed in with the same Google account you used to sign up, or the download may not be available."
+    },
+    "faq": {
+      "title": "Frequently asked questions",
+      "q1": "What do I need to do as a tester?",
+      "a1": "Install the IHUI AI beta on an Android device, use the main features normally, and report any problems through the feedback page on our site.",
+      "q2": "Why 14 consecutive days?",
+      "a2": "Google Play requires at least 12 testers to stay opted in for 14 consecutive days before a production release can be requested. Dropping out early delays the whole process.",
+      "q3": "Do I need a Google account?",
+      "a3": "Yes. The opt-in link, download, and updates all go through Google Play, so use a Google account that can sign in to the Play Store."
+    }
+  },
   "ecosystem": {
     "packMembers": "Includes {count} markets",
     "skillsSection": "Skill Market",
