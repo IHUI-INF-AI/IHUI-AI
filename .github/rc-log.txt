@@ -1,4 +1,4 @@
-2026-10-19T12:56:33.636Z pid=3859
+2026-10-19T12:56:45.636Z pid=3859
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/3 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -59,3 +59,5 @@ RC-WAIT round=0 step=3 i=12 status=200
 RC-INSTRUCT round=0 step=3 {"round":0,"step":3,"tiles":[],"verify":true}
 RC-FORCEBOX ["8,8,420x600,depth=4"]
 RC-TILES-CLICKED round=0 step=3 n=0
+RC-FORCEBOX ["8,8,420x600,depth=4"]
+RC-VERIFY-BTN label="Verify"
