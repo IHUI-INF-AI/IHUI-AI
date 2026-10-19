@@ -43,6 +43,7 @@ from ..middleware.llm_metrics import (
     llm_error_status,
     llm_stream_interrupt_total,
     record_llm_outcome,
+    record_user_request,
 )
 from ..services.tls_stealth import create_stealth_client
 from .config import settings
@@ -55,6 +56,7 @@ from .provider_caps import (
     filter_call_kwargs,
     get_provider_cap,
 )
+from .provider_slots import provider_slot
 from .usage_cache import normalize_usage
 
 # Combo 多级 fallback 路由器(2026-07-30 立,P0-1 Combo 接入 LLM 调用链)
@@ -2537,8 +2539,12 @@ class LLMGateway:
             filter_call_kwargs(call_kwargs, provider_code, used_model)
             # P3-3(2026-07-30):openrouter/ 前缀请求临时设置专用代理
             # 2026-08-01 P0:改为 async with + asyncio.Lock 防止并发 env var 竞态
-            async with _openrouter_proxy_context(used_model):
-                response = await litellm.acompletion(**call_kwargs)
+            # 2026-10-19:provider_slot 并发槽(灭自伤:stepfun 免费档上游并发 5,
+            # 本系统打到 6 ⇒ concurrency reached ⇒ combo 全灭)。闸在代理上下文
+            # 外层:排队期间不占代理 env var,也不占上游连接。
+            async with provider_slot(provider_code):
+                async with _openrouter_proxy_context(used_model):
+                    response = await litellm.acompletion(**call_kwargs)
             usage = response.usage
             usage_dict: dict[str, Any] = {}
             if usage is not None:
@@ -3278,8 +3284,10 @@ class LLMGateway:
             filter_call_kwargs(call_kwargs, provider_code, used_model)
             # P3-3(2026-07-30):openrouter/ 前缀请求临时设置专用代理
             # 2026-08-01 P0:改为 async with + asyncio.Lock 防止并发 env var 竞态
-            async with _openrouter_proxy_context(used_model):
-                response = await litellm.acompletion(**call_kwargs)
+            # 2026-10-19:provider_slot 并发槽(同 complete 路径理由)
+            async with provider_slot(provider_code):
+                async with _openrouter_proxy_context(used_model):
+                    response = await litellm.acompletion(**call_kwargs)
             final_model = used_model
             final_usage: dict[str, Any] = {}
             # P0 修复:try/finally 确保客户端断开时显式关闭 litellm 响应流,防止 httpx 连接泄漏
@@ -3386,8 +3394,11 @@ class LLMGateway:
                     k: v for k, v in call_kwargs.items() if k not in ("stream", "stream_usage")
                 }
                 fb_kwargs["stream"] = False
-                async with _openrouter_proxy_context(used_model):
-                    fb_resp = await litellm.acompletion(**fb_kwargs)
+                # 2026-10-19:fallback 也过并发槽(它打的是同一个 provider,
+                # 不占槽就等于主路径的闸对它无效)。
+                async with provider_slot(provider_code):
+                    async with _openrouter_proxy_context(used_model):
+                        fb_resp = await litellm.acompletion(**fb_kwargs)
                 fb_msg = fb_resp.choices[0].message
                 fb_content = getattr(fb_msg, "content", None) or ""
                 _FB_CHUNK_SIZE = 64
@@ -3473,6 +3484,9 @@ class LLMGateway:
                 ttft_seconds=_ttft_seconds,
                 cost_usd=_stream_cost,
             )
+            # 用户级收口(2026-10-19):流式完整跑完 = 一个用户请求成功一次。
+            # 非流式走 AuditMiddleware,此处不双计(见 llm_metrics 头注)。
+            record_user_request('stream', 'ok')
             yield {
                 "type": "done",
                 "model": final_model,
@@ -3502,6 +3516,9 @@ class LLMGateway:
                     'upstream_error' if (accumulated_content or accumulated_reasoning) else None
                 ),
             )
+            # 用户级收口(2026-10-19):入口 200 但流中途炸 = 用户感知失败。
+            # attempt 级上面已记(可能多条),这里只记一条,和中间件的 complete 对称。
+            record_user_request('stream', 'failed')
             safe_msg = str(e)
             err_code = "LLM_ERROR"
             if "API key 未配置" in safe_msg or "未配置" in safe_msg:

@@ -673,10 +673,24 @@ async function runSignPath(page, attempt) {
     } catch (e) {
       console.log(`SP-POSTSHOT-FAIL ${String(e.message).slice(0, 60)}`)
     }
-    // 提交本身触发不可见 reCAPTCHA,给 45 秒等挑战弹出
+    // 提交触发不可见 reCAPTCHA,给 45 秒等挑战弹出
     const rc2 = await handleRecaptchaChallenge(page, attempt * 10 + k + 500, 45000)
     console.log('RC_SOLVED_AFTER_SUBMIT=' + rc2)
-    await sleep(6000)
+    if (rc2) {
+      // ★ token 已就位:等 HubSpot 回调自动提交。此刻再点 Submit 只会让 reCAPTCHA
+      // 重新 execute、再弹一个新挑战,形成死循环(run 39256922894 实证)。
+      for (let w = 0; w < 12; w++) {
+        await sleep(3000)
+        const t = ((await hf.locator('body').textContent().catch(() => '')) || '').replace(/\s+/g, ' ')
+        if (!/Project Name/i.test(t) || /thank|submitted|received/i.test(t)) {
+          submittedOk = true
+          break
+        }
+      }
+      console.log('SP-AUTOSUBMIT-WAIT ok=' + submittedOk)
+    }
+    if (submittedOk) break
+    await sleep(3000)
     try {
       const pp = `${SHOT_DIR}/sp-after-submit-${k}.png`
       await page.screenshot({ path: pp, fullPage: false })
