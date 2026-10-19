@@ -112,6 +112,10 @@ const EXTRA_EXCLUDED_DIRS = new Set([
   'test',
   'e2e',
   'fixtures',
+  // dist-sea = apps/cli 的 SEA 单文件打包产物目录(gitignored,从未入库;12 处命中全是
+  // 打包后标识符如 url3 = new URL(trimmed),按定义不可能被任何提交带进/带出 ⇒ 恒红门型,
+  // §12e。2026-10-19 实测 25 处基线外新增经逐行点名复核 12/12 全在此目录。
+  'dist-sea',
 ])
 const SOURCE_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']
 const SKIP_FILE_RE = /(\.test\.|\.spec\.|\.d\.ts$|\.min\.(js|mjs|cjs|jsx)$|\.gen\.ts$)/
