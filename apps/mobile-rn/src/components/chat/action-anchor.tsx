@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   // 用户气泡(brand.cta 实底)上的芯片:cta/ctaForeground 是**成对**的明暗翻面档,
   // 与 msgBubbleUser / msgTextUser 同一口径,不另取一档色。
   anchorChipUser: {
-    borderColor: tokens.brand.ctaForeground,
+    borderColor: tokens.brandAccent.deep,
     backgroundColor: tokens.brand.ctaForeground,
   },
   anchorChipLabel: {
