@@ -555,7 +555,8 @@ async function runSignPath(page, attempt) {
     { hid: '87a6cc11-45fc-43ca-9b88-40485775cb3d-2052735583143', label: 'Primary Discovery Channel', opt: 'Organic search' },
   ]
   for (const d of DD) {
-    const inp = hf.locator(`#${d.hid}-input`)
+    // hid 以数字开头,#数字开头 不是合法 CSS ID 选择器,必须用属性选择器
+    const inp = hf.locator(`[id="${d.hid}-input"]`)
     await inp.click({ timeout: 10000 })
     await sleep(1500)
     const opt = hf.locator(`[role="option"]:has-text("${d.opt}")`).first()
