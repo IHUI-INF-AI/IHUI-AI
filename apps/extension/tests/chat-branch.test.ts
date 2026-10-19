@@ -112,7 +112,7 @@ describe('i18n 取词(五语言齐备,禁止硬编码中文)', () => {
     'conversationCreateFailed',
     'messageSaveFailed',
   ] as const
-  const locales: Array<[string, { chat: Record<string, string> }]> = [
+  const locales: Array<[string, { chat: Record<string, unknown> }]> = [
     ['zh-CN', zhCN],
     ['zh-TW', zhTW],
     ['en', en],
@@ -123,7 +123,7 @@ describe('i18n 取词(五语言齐备,禁止硬编码中文)', () => {
   for (const [lang, bundle] of locales) {
     for (const key of keys) {
       it(`${lang} chat.${key} 有非空译文且保留占位符`, () => {
-        const value = bundle.chat[key]
+        const value = bundle.chat[key] as string | undefined
         expect(typeof value).toBe('string')
         expect((value ?? '').trim()).not.toBe('')
         if (
