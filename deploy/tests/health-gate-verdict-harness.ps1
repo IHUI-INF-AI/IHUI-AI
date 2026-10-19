@@ -110,6 +110,23 @@ T '12a Hashtable 形状 ⇒ entry-broken' ($vh.Decision -eq 'entry-broken') $vh.
 T '12b OrderedDictionary 形状不抛异常且同结论(形状锁)' ($vo.Decision -eq 'entry-broken') "$($vo.Decision)"
 T '12c 两种形状的 OriginOk 一致' ($vh.OriginOk -eq $vo.OriginOk -and $vo.OriginOk -eq $true) "h=$($vh.OriginOk) od=$($vo.OriginOk)"
 
+Write-Output '[13] 源站折算契约:调用方把"公网 unknown 而源站 pass"折算掉后,空证据表即算绿'
+$r13 = @{ web = 'pass'; api = 'pass'; llm = 'unknown'; webOrigin = 'pass'; apiOrigin = 'pass'; llmOrigin = 'pass'; fails = @(); unknown = @() }
+$v13 = Get-HealthGateVerdict -Rounds @($r13)
+T '13a 折算后 fails/unknown 皆空 ⇒ Decision=pass' ($v13.Decision -eq 'pass') $v13.Decision
+T '13b Proven=true(某一维被源站折算救回,不再 perpetual-unproven)' ($v13.Proven -eq $true) "$($v13.Proven)"
+
+Write-Output '[14] 向后兼容:调用方不折算(unknown 含 llm、无 llmOrigin 键)⇒ 仍 pass-unproven'
+$v14 = Get-HealthGateVerdict -Rounds @((Round 'pass' 'pass' 'unknown'))
+T '14a 未折算 ⇒ pass-unproven(老调用方语义一字不变)' ($v14.Decision -eq 'pass-unproven') $v14.Decision
+T '14b Proven=false' ($v14.Proven -eq $false) "$($v14.Proven)"
+
+Write-Output '[15] 折算只作用于 unknown:公网明确 fail 不因源站 pass 被折成绿'
+$v15 = Get-HealthGateVerdict -Rounds @((RoundP 'pass' 'pass' 'fail' 'pass' 'pass'))
+T '15a Decision 不是 pass(公网 fail 不享受折算)' ($v15.Decision -ne 'pass') $v15.Decision
+T '15b Proven=false' ($v15.Proven -eq $false) "$($v15.Proven)"
+T '15c Decision=entry-broken(公网 fail 但源站健康 ⇒ 入口故障,不回滚也不冒绿)' ($v15.Decision -eq 'entry-broken') $v15.Decision
+
 Write-Output ''
 Write-Output ("结果: pass=$pass fail=$fail")
 if ($fail -gt 0) { exit 1 }

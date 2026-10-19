@@ -10,20 +10,21 @@ import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { planArtifactInvariant } from './lib/desktop-artifact-invariant.mjs'
+// 未签名豁免开关的常量与判据单源(§0.6):本文件只 import,不重抄(原本地副本已删)。
+import { ALLOW_UNSIGNED_ENV, allowUnsignedFrom } from './lib/desktop-unsigned-config.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const CONF = path.join(ROOT, 'apps/desktop/src-tauri/tauri.conf.json')
 
 /**
- * 未签名本地打包的**显式**豁免开关(2026-09-24 立)。
+ * 未签名本地打包的**显式**豁免开关(2026-09-24 立,常量与判据单源见
+ * `scripts/lib/desktop-unsigned-config.mjs`,本文件只 import 不重抄 —— §0.6)。
  * 背景:`bundle.createUpdaterArtifacts=true` + 钉死 minisign pubkey,而签名私钥
  * `~/.tauri/ihui-updater.key` 只存在于发版机/CI。本机没有私钥时 makensis **已经产出**
  * setup.exe,tauri 却在随后的签名步报 `A public key has been found, but no private key.`
  * → 整条链路恒红,本地连自测包都拿不到。默认(不设该 env)判据一字不改。
  * 严格只认 '1' —— `0`/空/任意其他值一律按"未豁免"处理,避免误开。
  */
-const ALLOW_UNSIGNED_ENV = 'DESKTOP_ALLOW_UNSIGNED'
-const allowUnsignedFrom = (env) => env?.[ALLOW_UNSIGNED_ENV] === '1'
 
 /**
  * 违规分堆:`blocking`(照旧判红)与 `excused`(仅在显式豁免下放行)。

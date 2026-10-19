@@ -60,11 +60,21 @@ function git(args) {
   })
 }
 
-/** 取 last-sha 基线(文件不存在 ⇒ 退回 HEAD~20,首次回填近 20 条)。 */
+/** 判断 SHA 是否真实存在于本仓库(防止基线指向已不在当前历史的提交,导致 git log <sha>..HEAD 报错卡死钩子)。 */
+function commitExists(sha) {
+  try {
+    git(['rev-parse', '--verify', '--quiet', `${sha}^{commit}`])
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** 取 last-sha 基线(文件不存在 / 内容为空 / SHA 不在本仓库 ⇒ 退回 HEAD~20,首次回填近 20 条)。 */
 function readBaseline() {
   try {
     const s = fs.readFileSync(BASELINE, 'utf8').trim()
-    if (s) return s
+    if (s && commitExists(s)) return s
   } catch {
     /* 文件不存在 */
   }

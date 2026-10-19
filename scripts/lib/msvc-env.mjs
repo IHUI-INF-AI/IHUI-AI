@@ -312,5 +312,30 @@ export function planBuildEnv({ env = process.env, existsSync, runCapture } = {})
   return { ok: false, reason, tried, candidates, details }
 }
 
-export const __test__ = { parseVsEnv, findVcvarsCandidates, sanitizePathForMsvc, planBuildEnv }
+/**
+ * MSVC 注入**只对 Windows 成立** —— 它治的是"Git usr\bin 的 link.exe 遮蔽 MSVC 链接器",
+ * 而 macOS 用 clang、Linux 用 cc,压根没有 MSVC。
+ *
+ * ## 这条判据漏掉过一次,代价是真实回归(2026-10-19 审计实测)
+ *   桌面构建入口改成薄壳后无条件调 `planBuildEnv`,而本文件的候选枚举在非 Windows 上
+ *   `ProgramFiles` / `ProgramFiles(x86)` 全是 undefined ⇒ 候选 0 条 ⇒ `NO_VCVARS` ⇒ **exit 2**。
+ *   改版前 `apps/desktop/package.json` 的 build 是裸 `tauri build`,在装了 rustc 的
+ *   Linux/macOS 上真能编;改版后 `.github/workflows/desktop-build.yml` 的 build 步
+ *   **没有矩阵条件**,ubuntu/macOS 两条腿全部走它 ⇒ 两条腿在 tauri 启动前就红了。
+ *
+ * ## 放这里而不是放执行层
+ *   本文件是"MSVC 环境这件事"的唯一真相源(§0.6)。现在有**三个**调用点要问这个问题
+ *   (`desktop-build.mjs` / `desktop-dev-saas.mjs` / `desktop-build-saas.mjs`),
+ *   判据放在任何一个执行层都会立刻产生第二份。
+ *
+ * 纯函数、无 IO,可直接被测试与 CLI 共用。
+ *
+ * @param {string} [platform] 缺省取当前进程平台
+ * @returns {boolean}
+ */
+export function needsMsvcInjection(platform = process.platform) {
+  return platform === 'win32'
+}
+
+export const __test__ = { parseVsEnv, findVcvarsCandidates, sanitizePathForMsvc, planBuildEnv, needsMsvcInjection }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
