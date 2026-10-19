@@ -91,9 +91,11 @@ export type {
   // D151(2026-09-29):命令在等键盘输入的一帧 —— 与 postTerminalInput 同批入入口,
   // 否则端内要写 onTerminalInteraction 回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
   TerminalInteractionEvent,
-  // D152(2026-09-29):会话目标状态帧的类型 —— 与 postSessionGoal 同批入入口,否则
+  // D152(2026-09-29 立):会话目标状态帧的类型 —— 与 postSessionGoal 同批入入口,否则
   // 端内要写 onGoalUpdate 回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
   GoalUpdateEvent,
+  // D77(2026-09-25 立):对话流业务表单请求帧的类型 —— 与 postFormResponse 同批入入口。
+  FormRequestEvent,
   // 票77(2026-10-18):跨会话目标聚合行类型 —— 与 listMyGoals 同批入入口。
   MyGoalRow,
   MyGoalAssessment,
