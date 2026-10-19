@@ -84,13 +84,13 @@ Headline claims (same source as the table below, all live-computed): **598 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 2955 | `testFiles` |
+| 测试文件 | 2959 | `testFiles` |
 | CI 工作流 | 49 | `ciWorkflows` |
 | Compose 服务 | 15 | `composeServices` |
 | 工程守门 | 260 | `guardianGates` |
 | — blocking | 236 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15146 | `trackedFiles` |
+| 跟踪文件 | 15155 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-19。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -99,6 +99,28 @@ Headline claims (same source as the table below, all live-computed): **598 table
 
 <!-- END GENERATED NUMBERS -->
 
+
+## Recent updates (auto-maintained)
+
+<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-19**
+- 🔧 Chore/Other:认领 L5669 ①skills 两级渐进披露+技能前置门 428 (b9de28d220)
+- 📚 Docs:自动化文档更新机制 —— 提交即刷新数字,每日 AI 刷新最近更新 (a862205d66)
+- 🔧 Chore/Other:同步四端 ui-routes 派生产物(P2 域入口页新增路由) (90c5d44c06)
+- ♻️ Refactor:侧边栏收敛 P2 —— 教育/内容/交易三域收为域入口(72→24) (126b47d148)
+- ♻️ Refactor:侧边栏收敛 P1 —— 去重 4 处 + 设置项归位 3 项 (3e367aa971)
+- 📚 Docs:四语言 README 现算数字刷新(598表/49 CI/4443路由/118模型/38平台/2955测试),对齐最新项目状态并补全新增功能与更新详情 (c6250f420c)
+- 🐞 Fix:门 208 按 §7 三问逐条处置三处嵌套仓(一删两留)+ 补 .gitignore 两处真实缺口(门44 exit2 → 0) (9fa43654ec)
+- 📚 Docs:npm 发布永久走 granular token,2FA 与 Trusted Publisher 结论固化 (c6433fe3af)
+- 🐞 Fix:修守门 203 指纹两处缺陷(同题副本折不掉的生产根因)+ 把 union 归并器的「禁止放行」从注释变成真闸 (9e6f4b17bd)
+- 🔧 Chore/Other:TP 登录加网络监听(TP_NET_LOG 抓登录 POST 真实响应) + 表单区 DOM dump(TP_FORM_HTML),定位静默重置根因 (03667e1082)
+- 🐞 Fix:去掉 FormRequestEvent 的重复 re-export(TS2300 打死本包 build) (25e315a77b)
+- 📚 Docs:量算仪对不在注册面的历史门号如实读法 —— 那是已退役/挪号,不是当下缺门 (a7553a56f9)
+- 📚 Docs:G-94 行内旧判断就地订正 —— v2 腿已实跑取证,勾选态归 2026-10-18 侧结清,标注无容器格如实保留 (5a87eef475)
+- 🐞 Fix:TP 登录提交按钮限定 form 内防误点页头 + 登录后错误诊断/fullPage 截图/Turnstile 探测;upload-artifact 加 4min 超时防挂死 (410aa41b13)
+- 🐞 Fix:TP 登录提交按钮限定 form 内防误点页头 + 登录后错误诊断/fullPage 截图/Turnstile 探测;upload-artifact 加 4min 超时防挂死 (d7ac1e2a37)
+- 🐞 Fix:补 scripts/tests/desktop-build.test.mjs 的溯源水印(门 47 欠账) (8634796f2d)
+<!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
 

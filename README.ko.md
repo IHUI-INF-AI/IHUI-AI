@@ -2171,6 +2171,29 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 ---
 
+
+## 최근 업데이트 (자동 유지)
+
+<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-19**
+- 🔧 기타:认领 L5669 ①skills 两级渐进披露+技能前置门 428 (b9de28d220)
+- 📚 문서:自动化文档更新机制 —— 提交即刷新数字,每日 AI 刷新最近更新 (a862205d66)
+- 🔧 기타:同步四端 ui-routes 派生产物(P2 域入口页新增路由) (90c5d44c06)
+- ♻️ 리팩터:侧边栏收敛 P2 —— 教育/内容/交易三域收为域入口(72→24) (126b47d148)
+- ♻️ 리팩터:侧边栏收敛 P1 —— 去重 4 处 + 设置项归位 3 项 (3e367aa971)
+- 📚 문서:四语言 README 现算数字刷新(598表/49 CI/4443路由/118模型/38平台/2955测试),对齐最新项目状态并补全新增功能与更新详情 (c6250f420c)
+- 🐞 수정:门 208 按 §7 三问逐条处置三处嵌套仓(一删两留)+ 补 .gitignore 两处真实缺口(门44 exit2 → 0) (9fa43654ec)
+- 📚 문서:npm 发布永久走 granular token,2FA 与 Trusted Publisher 结论固化 (c6433fe3af)
+- 🐞 수정:修守门 203 指纹两处缺陷(同题副本折不掉的生产根因)+ 把 union 归并器的「禁止放行」从注释变成真闸 (9e6f4b17bd)
+- 🔧 기타:TP 登录加网络监听(TP_NET_LOG 抓登录 POST 真实响应) + 表单区 DOM dump(TP_FORM_HTML),定位静默重置根因 (03667e1082)
+- 🐞 수정:去掉 FormRequestEvent 的重复 re-export(TS2300 打死本包 build) (25e315a77b)
+- 📚 문서:量算仪对不在注册面的历史门号如实读法 —— 那是已退役/挪号,不是当下缺门 (a7553a56f9)
+- 📚 문서:G-94 行内旧判断就地订正 —— v2 腿已实跑取证,勾选态归 2026-10-18 侧结清,标注无容器格如实保留 (5a87eef475)
+- 🐞 수정:TP 登录提交按钮限定 form 内防误点页头 + 登录后错误诊断/fullPage 截图/Turnstile 探测;upload-artifact 加 4min 超时防挂死 (410aa41b13)
+- 🐞 수정:TP 登录提交按钮限定 form 内防误点页头 + 登录后错误诊断/fullPage 截图/Turnstile 探测;upload-artifact 加 4min 超时防挂死 (d7ac1e2a37)
+- 🐞 수정:补 scripts/tests/desktop-build.test.mjs 的溯源水印(门 47 欠账) (8634796f2d)
+<!-- END RECENT UPDATES -->
+
 <p align="center">
   <sub>Built by <strong>지린성 아이즈히후이 인공지능 기술 유한공사</strong> · 오픈소스 공동 구축, 우리 함께합니다</sub>
 </p>
