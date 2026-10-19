@@ -2659,11 +2659,15 @@
           "create": "Create",
           "createSuccess": "Created successfully",
           "createTitle": "Create Payment Log",
+          "dateLabel": "Payment Date",
           "delete": "Delete",
           "deleteSuccess": "Deleted successfully",
           "edit": "Edit",
           "editTitle": "Edit Payment Log",
           "empty": "No payment records",
+          "emptyRoster": "No enrollment records",
+          "enrollmentLabel": "Enrollment (Term)",
+          "enrollmentPlaceholder": "Select a student's enrollment",
           "export": "Export",
           "exportFailed": "Export failed",
           "exportSuccess": "Exported successfully",
@@ -2673,6 +2677,10 @@
           "filterUserUuid": "User UUID",
           "filterVideoId": "Video ID",
           "loading": "Loading...",
+          "methodAlipay": "Alipay",
+          "methodCash": "Cash",
+          "methodTransfer": "Transfer",
+          "methodWechat": "WeChat",
           "nextPage": "Next",
           "outBillOnLabel": "Bill Date *",
           "outBillOnRequired": "Bill date is required",
@@ -2680,7 +2688,11 @@
           "payWayLabel": "Payment Method",
           "prevPage": "Previous",
           "realAmountLabel": "Paid Amount",
+          "recordTitle": "Register Payment",
+          "remarkLabel": "Remark",
+          "remarkPlaceholder": "Optional",
           "reset": "Reset",
+          "rosterLine": "{name} · {cls} · Due {totalFee} · Paid {paidAmount} · Arrears {dueAmount}",
           "save": "Save",
           "subtitle": "Manage course payment records and bills",
           "title": "Course Payment Logs",
@@ -20046,7 +20058,10 @@
     "customAdd": "Add",
     "customRemove": "Remove",
     "customDragHint": "Drag to reorder",
-    "customNoResults": "No matching items"
+    "customNoResults": "No matching items",
+    "eduHubTitle": "Education",
+    "contentHubTitle": "Content",
+    "tradeHubTitle": "Trade"
   },
   "news": {
     "allCategories": "All Categories",
@@ -22227,6 +22242,7 @@
     "dashboardDesc": "Quick access to all settings options",
     "dashboardTitle": "Dashboard",
     "dataExportTitle": "Data Export",
+    "dataRightsTitle": "Data Rights",
     "dataVisibility": "Data Visibility",
     "dataVisibilityDesc": "Control who can see your profile information",
     "desc": {
@@ -22645,7 +22661,21 @@
     "codeIndexEgressOptOut": "Don't Build Code Semantic Index",
     "codeIndexEgressOptOutDesc": "Code snippets are never sent out for vector indexing",
     "autoMemoryOptOut": "Turn Off Auto Long-term Memory",
-    "autoMemoryOptOutDesc": "Conversations won't be distilled into cross-session preferences"
+    "autoMemoryOptOutDesc": "Conversations won't be distilled into cross-session preferences",
+    "navTiers": {
+      "title": "Simplified sidebar",
+      "desc": "Hides developer and operations entries from the sidebar by default. Turn on any group below when you need it.",
+      "simpleMode": "Simple mode",
+      "simpleModeDesc": "Hide all four groups below at once; turn it off to show everything",
+      "developer": "Developer tools",
+      "developerDesc": "API docs, webhooks, sandbox, relay keys and API subscriptions",
+      "relayOps": "Model relay backend",
+      "relayOpsDesc": "Channels, keys, call logs, billing and redemption codes — operations data",
+      "advancedAi": "Advanced AI tools",
+      "advancedAiDesc": "Memory, subagents, orchestration, context compaction and other agent framework features",
+      "experimental": "Experimental features",
+      "experimentalDesc": "Still in validation; these may change or be removed later"
+    }
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI Generated",
@@ -28689,5 +28719,17 @@
   },
   "statusPage": {
     "incidentsUnavailable": "Incident data for the last 30 days is temporarily unavailable"
+  },
+  "eduHub": {
+    "title": "Education",
+    "subtitle": "Courses, exams, study tools and academic management"
+  },
+  "contentHub": {
+    "title": "Content",
+    "subtitle": "Plaza, community, messages and multi-platform publishing"
+  },
+  "tradeHub": {
+    "title": "Trade",
+    "subtitle": "Wallet, orders, membership and points benefits"
   }
 }

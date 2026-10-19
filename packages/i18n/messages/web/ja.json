@@ -2659,11 +2659,15 @@
           "create": "新建",
           "createSuccess": "作成しました",
           "createTitle": "いログを",
+          "dateLabel": "入金日",
           "delete": "削除",
           "deleteSuccess": "削除しました",
           "edit": "編集",
           "editTitle": "いログを",
           "empty": "いがありません",
+          "emptyRoster": "申込データがありません",
+          "enrollmentLabel": "期(申込)",
+          "enrollmentPlaceholder": "生徒の申込回を選択してください",
           "export": "エクスポート",
           "exportFailed": "エクスポート",
           "exportSuccess": "エクスポート",
@@ -2673,6 +2677,10 @@
           "filterUserUuid": "ユーザーUUID",
           "filterVideoId": "ビデオID",
           "loading": "読み込み中...",
+          "methodAlipay": "Alipay",
+          "methodCash": "現金",
+          "methodTransfer": "振込",
+          "methodWechat": "WeChat",
           "nextPage": "次のページ",
           "outBillOnLabel": "*",
           "outBillOnRequired": "はです",
@@ -2680,7 +2688,11 @@
           "payWayLabel": "いメソッド",
           "prevPage": "前のページ",
           "realAmountLabel": "実支払金額",
+          "recordTitle": "入金登録",
+          "remarkLabel": "備考",
+          "remarkPlaceholder": "任意",
           "reset": "リセット",
+          "rosterLine": "{name} · {cls} · 請求額 {totalFee} · 入金済 {paidAmount} · 未納額 {dueAmount}",
           "save": "保存",
           "subtitle": "コースいとの",
           "title": "コースいログ",
@@ -20049,7 +20061,10 @@
     "customAdd": "追加",
     "customRemove": "削除",
     "customDragHint": "ドラッグで並べ替え",
-    "customNoResults": "該当する機能がありません"
+    "customNoResults": "該当する機能がありません",
+    "eduHubTitle": "教育",
+    "contentHubTitle": "コンテンツ",
+    "tradeHubTitle": "取引"
   },
   "news": {
     "allCategories": "All categories",
@@ -22230,6 +22245,7 @@
     "dashboardDesc": "すべてのオプションにすばやくアクセス",
     "dashboardTitle": "ダッシュボード",
     "dataExportTitle": "データエクスポート",
+    "dataRightsTitle": "データ権利",
     "dataVisibility": "データ公開範囲",
     "dataVisibilityDesc": "他のユーザーに対するプロフィールの公開範囲を制御",
     "desc": {
@@ -22648,7 +22664,21 @@
     "codeIndexEgressOptOut": "コード意味インデックスを作成しない",
     "codeIndexEgressOptOutDesc": "コード断片はベクトル化インデックスのために外部へ送信されません",
     "autoMemoryOptOut": "自動長期メモリを無効化",
-    "autoMemoryOptOutDesc": "会話をセッション横断の嗜好や規約に自動抽出しません"
+    "autoMemoryOptOutDesc": "会話をセッション横断の嗜好や規約に自動抽出しません",
+    "navTiers": {
+      "title": "サイドバー簡素モード",
+      "desc": "開発者向け・運用向けの項目を既定で非表示にします。必要になったら下のスイッチで表示できます。",
+      "simpleMode": "簡素モード",
+      "simpleModeDesc": "下の4種類をまとめて非表示にします。オフにするとすべて表示されます",
+      "developer": "開発者ツール",
+      "developerDesc": "API ドキュメント、Webhook、サンドボックス、中継キーと API 契約",
+      "relayOps": "モデル中継の管理画面",
+      "relayOpsDesc": "チャネル、キー、呼び出しログ、課金、還元コードなどの運用データ",
+      "advancedAi": "高度な AI ツール",
+      "advancedAiDesc": "記憶、サブエージェント、オーケストレーション、コンテキスト圧縮などのエージェント機能",
+      "experimental": "試験的な機能",
+      "experimentalDesc": "検証中の機能です。今後変更または廃止される場合があります"
+    }
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI 生成",
@@ -28692,5 +28722,17 @@
   },
   "statusPage": {
     "incidentsUnavailable": "直近 30 日間のインシデント情報は一時的に取得できません"
+  },
+  "eduHub": {
+    "title": "教育",
+    "subtitle": "講座、試験、学習ツールと教務管理"
+  },
+  "contentHub": {
+    "title": "コンテンツ",
+    "subtitle": "広場、コミュニティ、メッセージとマルチプラットフォーム公開"
+  },
+  "tradeHub": {
+    "title": "取引",
+    "subtitle": "ウォレット、注文、会員とポイント特典"
   }
 }

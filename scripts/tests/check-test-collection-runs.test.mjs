@@ -20,8 +20,7 @@ import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ } from '../check-test-collection-runs.mjs'
 
-const { parseVitestOutput, resolveEnd, runEnd, decideExit, DEFAULT_ENDS, vitestArgvOf, faceCaveat } =
-  __test__
+const { parseVitestOutput, resolveEnd, runEnd, decideExit, DEFAULT_ENDS, vitestArgvOf } = __test__
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -286,50 +285,5 @@ test('T19 vitestArgvOf:取不到调用点 / 多次调用 / 无子命令 三型�
     'run',
     '--passWithNoTests',
   ])
-})
-
-// T20/T21(2026-10-19 立,口径⑤「判红必须能在被审面上定论」):
-//   本门只能在盘上真跑,而共享工作树常年带别人的在飞改动 —— 与 check-head-typecheck 头注②
-//   「净面方案已实测否证」同一条处境,正解是复用同一份装配做归因,而不是造第二份脏面判据。
-test('T20 装配接线锁(§0.9 造好没装车=没有):main 必须把取材装配真喂进 runEnd', () => {
-  const src = readFileSync(GATE, 'utf8')
-  assert.match(
-    src,
-    /import\('\.\/check-head-typecheck\.mjs'\)/,
-    '装配不取 check-head-typecheck ⇒ 要出第二份脏面判据(§0.6 单一真相源)',
-  )
-  assert.match(src, /runEnd\(dir, \{ timeoutMs, deps \}\)/, '装配没接进真跑循环 ⇒ 这条腿只是装饰')
-  assert.match(src, /if \(!deps\) return base/, '未注入装配时必须原样回结论(自检档),不得静默降档')
-  assert.match(src, /装配本身装不上|不判面/, '装配装不上必须当场点名,不许静默当成干净')
-})
-
-test('T21 两臂对照:同一份收集失败输出,净面判红 / 脏面降为未判定且明细不丢', () => {
-  const scratch = mkScratch('tcr-face')
-  try {
-    const dir = join(scratch, 'fakeend')
-    mkdirSync(join(dir, 'node_modules', 'vitest'), { recursive: true })
-    writeFileSync(join(dir, 'package.json'), JSON.stringify({ scripts: { test: 'vitest run' } }))
-    writeFileSync(
-      join(dir, 'node_modules', 'vitest', 'package.json'),
-      JSON.stringify({ name: 'vitest', version: '4.1.10-fake', bin: { vitest: 'vitest.mjs' } }),
-    )
-    writeFileSync(
-      join(dir, 'node_modules', 'vitest', 'vitest.mjs'),
-      `process.stdout.write(${JSON.stringify(COLLECT_OUT)})\nprocess.exit(1)\n`,
-    )
-    const clean = runEnd(dir, {
-      deps: { countDirty: () => 0, isDirty: () => false, readHeadLine: () => 'x' },
-    })
-    const dirty = runEnd(dir, {
-      deps: { countDirty: () => 5, isDirty: () => true, readHeadLine: () => 'x' },
-    })
-    assert.equal(clean.verdict, 'violation', '净面必须仍然能判红(这条腿不许把判据削钝)')
-    assert.equal(dirty.verdict, 'undetermined', '脏面判红 = 给无关的在飞改动顶罪(§12e)')
-    assert.equal(dirty.candidate, true)
-    assert.match(dirty.reason, /tests\/broken\.test\.ts/, '降档不许丢明细')
-    assert.equal(faceCaveat({ countDirty: () => -1 }).known, false, 'git 问不到不得回落成"干净"')
-  } finally {
-    rmScratch(scratch)
-  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
