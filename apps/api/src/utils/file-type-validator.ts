@@ -35,6 +35,13 @@ const EXT_MIME_MAP: Record<string, string[]> = {
   txt: ['text/plain'],
   csv: ['text/csv', 'text/plain'],
   zip: ['application/zip', 'application/x-zip-compressed'],
+  // 2026-10-16:语音消息上线(mobile-rn 长按录音 → 上传 → 聊天语音气泡回听)。
+  // expo-audio HIGH_QUALITY 预设产出 m4a(AAC in MP4 容器);其余三档覆盖导入/转发音频。
+  // audio/m4a 是非标准但客户端常见的声明值(RN FormData type),收进白名单省一次 400。
+  m4a: ['audio/mp4', 'audio/x-m4a', 'audio/m4a'],
+  mp3: ['audio/mpeg', 'audio/mp3'],
+  wav: ['audio/wav', 'audio/x-wav', 'audio/vnd.wave'],
+  aac: ['audio/aac', 'audio/aacp'],
   // 2026-09-08:anydoc 解析引擎接入后开放的文档格式
   odt: ['application/vnd.oasis.opendocument.text'],
   rtf: ['application/rtf', 'text/rtf'],
@@ -128,6 +135,24 @@ function checkMagicNumber(ext: string, buf: Buffer): boolean {
     case 'csv':
       // 纯文本无固定 magic number,跳过文件头校验
       return true
+    // ── 音频(2026-10-16 语音消息上线)──
+    case 'm4a':
+      // MP4 容器:偏移 4 起为 'ftyp'(expo-audio 录音 = ftypM4A )
+      return buf.length >= 8 && buf.subarray(4, 8).toString('latin1') === 'ftyp'
+    case 'mp3':
+      // ID3v2 标签头 或 MPEG 帧同步(0xFFE0 掩码)
+      if (buf.length >= 3 && buf.subarray(0, 3).toString('latin1') === 'ID3') return true
+      return buf.length >= 2 && buf[0] === 0xff && (buf[1]! & 0xe0) === 0xe0
+    case 'aac':
+      // ADTS 帧同步(0xFFF0 掩码)
+      return buf.length >= 2 && buf[0] === 0xff && (buf[1]! & 0xf0) === 0xf0
+    case 'wav':
+      // RIFF 容器 + 偏移 8 'WAVE'
+      return (
+        buf.length >= 12 &&
+        buf.subarray(0, 4).toString('latin1') === 'RIFF' &&
+        buf.subarray(8, 12).toString('latin1') === 'WAVE'
+      )
     default:
       return false
   }
