@@ -22665,7 +22665,21 @@
     "codeIndexEgressOptOut": "不建程式碼語義索引",
     "codeIndexEgressOptOutDesc": "程式碼片段不會外送用於向量化建索引",
     "autoMemoryOptOut": "關閉自動長期記憶",
-    "autoMemoryOptOutDesc": "不會把對話提煉成跨會話的偏好或約定"
+    "autoMemoryOptOutDesc": "不會把對話提煉成跨會話的偏好或約定",
+    "navTiers": {
+      "title": "側邊欄精簡模式",
+      "desc": "預設隱藏開發者與維運導向的功能入口。需要時打開下方開關即可顯示。",
+      "simpleMode": "精簡模式",
+      "simpleModeDesc": "一鍵隱藏下方四類入口；關閉則全部顯示",
+      "developer": "開發者工具",
+      "developerDesc": "API 文件、Webhook、沙箱、中繼站金鑰與 API 訂閱",
+      "relayOps": "模型中繼站後臺",
+      "relayOpsDesc": "渠道、金鑰、呼叫紀錄、計費與兌換碼等營運資料",
+      "advancedAi": "進階 AI 工具",
+      "advancedAiDesc": "記憶、子代理、編排、上下文壓縮等代理框架能力",
+      "experimental": "實驗性功能",
+      "experimentalDesc": "仍在驗證階段的功能，後續可能調整或下線"
+    }
   },
   "shareContentPage": {
     "aiGenerated": "智匯 AI 生成",
