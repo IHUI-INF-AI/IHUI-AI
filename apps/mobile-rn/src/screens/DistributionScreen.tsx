@@ -5,7 +5,7 @@ import { useTheme } from '../context/ThemeContext'
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, Pressable, ScrollView, Share, Text, View } from 'react-native'
+import { Pressable, ScrollView, Share, Text, View } from 'react-native'
 import QRCode from 'react-native-qrcode-svg'
 import { captureRef } from 'react-native-view-shot'
 import { Asset, requestPermissionsAsync } from 'expo-media-library'
@@ -23,7 +23,7 @@ import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionB
 import { Bot, IdCard, Package, QrCode, Users } from 'lucide-react-native'
 import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 import { HandPlatePops } from '../components/HandPlatePops'
-import { BottomPops } from '../components/BottomPops'
+import { appAlert, BottomPops } from '../components/BottomPops'
 import FloatBox, { type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
@@ -126,7 +126,7 @@ export function DistributionScreen() {
       })
       const { status } = await requestPermissionsAsync()
       if (status !== 'granted') {
-        Alert.alert('提示', '未获得相册权限,无法保存')
+        appAlert('提示', '未获得相册权限,无法保存')
         return
       }
       await Asset.create(localUri)
@@ -211,7 +211,7 @@ export function DistributionScreen() {
     if (!info) return
     if (info.pendingCommission < WITHDRAW_MIN) {
       // 金额不足带详情,保留 Alert 展示具体金额(后端无最低提现配置,恒不触发,保留结构)
-      Alert.alert(
+      appAlert(
         t('distribution.withdrawFailed'),
         t('distribution.withdrawMin', { amount: fenToYuan(WITHDRAW_MIN) }),
       )
@@ -223,7 +223,7 @@ export function DistributionScreen() {
     try {
       const realnameRes = await fetchApi<{ authStatus?: string }>('/auth/realname/my')
       if (!realnameRes.success || realnameRes.data?.authStatus !== 'approved') {
-        Alert.alert(
+        appAlert(
           t('distribution.withdrawNeedRealname'),
           t('distribution.withdrawNeedRealnameHint'),
           [
@@ -238,17 +238,13 @@ export function DistributionScreen() {
       }
     } catch {
       // 实名状态接口异常:按未实名拦截(与原项目「无认证信息则拦截」语义一致,fail-safe)
-      Alert.alert(
-        t('distribution.withdrawNeedRealname'),
-        t('distribution.withdrawNeedRealnameHint'),
-        [
-          { text: t('distribution.withdrawRealnameCancel'), style: 'cancel' },
-          {
-            text: t('distribution.withdrawRealnameGo'),
-            onPress: () => navigation.navigate('RealNameAuth' as never),
-          },
-        ],
-      )
+      appAlert(t('distribution.withdrawNeedRealname'), t('distribution.withdrawNeedRealnameHint'), [
+        { text: t('distribution.withdrawRealnameCancel'), style: 'cancel' },
+        {
+          text: t('distribution.withdrawRealnameGo'),
+          onPress: () => navigation.navigate('RealNameAuth' as never),
+        },
+      ])
       return
     }
     setWithdrawing(true)

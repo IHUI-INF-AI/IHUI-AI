@@ -53,7 +53,8 @@ type Measurable = HTMLElement & {
 
 const mk = (tag: string) =>
   function MockComp(props: { children?: ReactNode; ref?: unknown; [k: string]: unknown }) {
-    const { style, onPress, onChangeText, onSubmitEditing, accessibilityLabel, ref, ...rest } = props
+    const { style, onPress, onChangeText, onSubmitEditing, accessibilityLabel, ref, ...rest } =
+      props
     /**
      * React 19 把 ref 当普通 prop 传给函数组件,而这里此前直接把它连同 `style` 一起
      * spread 到 DOM 上 —— 结果 ref 被静默丢弃,`triggerRef.current` 恒为 null,
@@ -244,6 +245,19 @@ export const Animated = {
   },
 }
 
+// BottomPops(共享确认弹层,已进 App 根树)挂载即 PanResponder.create(下拉关闭手势);
+// 开合动画取 Easing.inOut(Easing.ease)。AppConfirmHost 进树后任何渲染 App 的测试都会触达。
+export const PanResponder = {
+  create: () => ({ panHandlers: {} }),
+}
+export const Easing = {
+  linear: 'linear',
+  ease: 'ease',
+  in: (easing: unknown) => easing,
+  out: (easing: unknown) => easing,
+  inOut: (easing: unknown) => easing,
+}
+
 const ReactNative = {
   Platform,
   Appearance,
@@ -267,6 +281,8 @@ const ReactNative = {
   I18nManager,
   Animated,
   BackHandler,
+  PanResponder,
+  Easing,
 }
 
 export default ReactNative

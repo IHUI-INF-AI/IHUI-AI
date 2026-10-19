@@ -13,7 +13,8 @@
  * - 导航 goBack;主题色 / i18n 注入
  */
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, Share } from 'react-native'
+import { Share } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -62,7 +63,7 @@ export function SelfMediaScreen() {
           setRecords(res.data.items)
         }
       } catch {
-        Alert.alert(t('selfMedia.loadFailed'))
+        appAlert(t('selfMedia.loadFailed'))
       } finally {
         setLoading(false)
       }
@@ -76,7 +77,7 @@ export function SelfMediaScreen() {
 
   const onInvoke = async (skill: SelfMediaSkill) => {
     if (!prompt.trim()) {
-      Alert.alert(t('selfMedia.promptRequired'))
+      appAlert(t('selfMedia.promptRequired'))
       return
     }
     setInvoking(true)
@@ -84,9 +85,9 @@ export function SelfMediaScreen() {
     try {
       const res = await invokeSelfMediaSkill(skill.id, prompt.trim())
       setResult(res)
-      if (!res.ok) Alert.alert(res.error || t('selfMedia.invokeFailed'))
+      if (!res.ok) appAlert(res.error || t('selfMedia.invokeFailed'))
     } catch {
-      Alert.alert(t('selfMedia.invokeFailed'))
+      appAlert(t('selfMedia.invokeFailed'))
     } finally {
       setInvoking(false)
     }

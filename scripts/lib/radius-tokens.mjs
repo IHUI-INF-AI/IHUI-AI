@@ -127,9 +127,11 @@ export function radiusLookup(radiusSrc) {
 
 /**
  * 一行源码里的圆角**取档** → px 数组。逐行调用,好让豁免规则按行生效。
- * 覆盖六种书写形态:Tailwind 档名类(含**方向与角形态** `rounded-t-xl` / `rounded-tr-sm`)、
+ * 覆盖七种书写形态:Tailwind 档名类(含**方向与角形态** `rounded-t-xl` / `rounded-tr-sm`)、
  * Tailwind 任意值(带 rpx/px)、CSS 变量、
- * `rnRadius.<step>` / `rnRadius['2xl']`、`rnRadiusFor.<role>`、裸 `borderRadius: <数字>`。
+ * `rnRadius.<step>` / `rnRadius['2xl']`、`rnRadiusFor.<role>`、裸 `borderRadius: <数字>`、
+ * **裸档 `rounded` / `var(--radius)`**(= 档位表 `DEFAULT`,G-277② 补;识别式仍只有
+ * `bareRoundedOccurrences` 那两枚正则,本支不抄第二份)。
  *
  * 方向形态必须与整格形态同一遍识别,不是"顺手多认一种写法":小程序把底部弹层写成
  * `rounded-t-2xl` 而 RN 写成整格 `rnRadius['2xl']` 时,旧判据只在小程序那一侧读不到 16,
@@ -257,8 +259,12 @@ export function radiusItemsInLine(line, table, consts, opts = {}) {
     push(Number(m[1]), m[1])
   /**
    * **别名取用**:`borderRadius: INPUT_BORDER_RADIUS`(同文件 `const INPUT_BORDER_RADIUS = rnRadius['2xl']`)。
-   * 只在调用方递来别名表时才判 —— 默认口径一位不动,因为 `radiusItemsInLine` 同时是守门 11/77/150
-   * 的输入,那三道的读数各有自己的锚点,本票不许替它们改账。
+   * 只在调用方递来别名表时才判 —— 默认口径一位不动。消费面按 import 实测(2026-10-19 复裁,
+   * 更正上一版写的"同时是守门 11/77/150 的输入"):本函数只被 `radiusPxInLine`(守门 11)与
+   * `radiusSetOf` / `radiusEntriesOf` / `radiusAliasMapOf`(守门 128)取用;守门 77 不 import 本文件,
+   * 守门 150 走 `lib/radius-roles.mjs` 自带提取式(只共享 `radiusOperandPx` 那一份算术)。
+   * 别名支刻意保持 opt-in:它是"补读一类写法",开默认档会把 128 的锚点与 11 的读数一起顶动,
+   * 那要按本门的重锚口径(中和本次改动后的旧口径自证)单独一笔,不搭在任何票的顺车里。
    *
    * 为什么必须有这一支:端内把档收进局部常量是 §4 **要求**的写法,而尺子只认 `rnRadius.xl` 的字面形态
    * 就等于奖励不规范 —— 实测 HEAD `apps/mobile-rn/src/components/BottomActionBar.tsx:190` 定义、
@@ -331,8 +337,38 @@ export function radiusItemsInLine(line, table, consts, opts = {}) {
       )
     }
   }
+  /**
+   * **裸档取用(G-277②)—— `rounded` 与 CSS 侧 `var(--radius)`,两者都等于档位表的 `DEFAULT`。**
+   *
+   * 为什么必须并进这一支而不是让调用方另开一条 audit:提取式只认 `rounded-(xs|sm|md|lg|xl|2xl)`
+   * 时,写裸档的元素在账面上**等于没写档** —— 与"真的没写档"同形。表现不是少算一个数,而是
+   * **凭空造出跨端分叉**:一端写裸档、另一端写具名档时,RD/RE 两维都把裸档那侧读成空集。
+   * "什么算裸档"的识别式仍只有 `bareRoundedOccurrences` 那一份(本支逐字复用它的两个正则常量
+   * 形态由它定义),这里只是把它的结论并进取用集合,不在门体里抄第二份。
+   *
+   * 为什么必须放在**最后**:本函数的返回顺序就是调用方的优先级 —— `radiusAliasMapOf` 取 `[0]`
+   * 解同文件常量别名,若裸档支排在前面,一条 `borderRadius: cn('rounded', SIDE / 2)` 的右值会先
+   * 被读成 8 而把真正的除法解值挤掉(那是把对的读数换成错的读数)。放在末尾后,凡是旧口径
+   * 已经读得到形态的行,`[0]` 一位未动。
+   *
+   * 收尾边界与 `bareRoundedOccurrences` 同一条:后面接 `-` 或标识符字符的一律不算
+   * (`rounded-md` / `rounded-full` / `rounded-[8px]` / `rounded-brand` 都早已有自己的判据或不属档位),
+   * 否则会与新档名族**双计**同一个 8。
+   */
+  if (Number.isFinite(table.DEFAULT)) {
+    for (const m of line.matchAll(BARE_ROUNDED_RE)) push(table.DEFAULT, m[0])
+    for (const m of line.matchAll(BARE_RADIUS_VAR_RE)) push(table.DEFAULT, m[0])
+  }
   return out
 }
+
+/**
+ * 裸档识别式的**唯一两份正则**(`rounded` 字形 / CSS 默认档变量 `var(--radius)`)。
+ * `bareRoundedOccurrences`(整源报名)与 `radiusItemsInLine`(逐行进档位集合)共用这两枚,
+ * 不许任何一侧再写第三份 —— 两处算同一件事必漂移,而漂移的方向是"报名说看见了、判据说不存在"。
+ */
+const BARE_ROUNDED_RE = /(?<![\w$-])rounded(?![\w$-])/g
+const BARE_RADIUS_VAR_RE = /var\(\s*--radius\s*\)/g
 
 /** 一行源码里的圆角取档 → px 数组(`radiusItemsInLine` 到 px 的投影;既有调用方口径不变)。 */
 export function radiusPxInLine(line, table, consts, opts = {}) {
@@ -392,20 +428,23 @@ export function radiusSetOf(src, table) {
 }
 
 /**
- * **裸档取用的清点(G-978049②)——只报名,不进任何判据。**
+ * **裸档取用的清点(G-978049② / G-277②)—— 识别式出口,同时已并进判据集合。**
  *
- * 上面那把尺子(`radiusItemsInLine`)的类名一支只认 `rounded-(xs|sm|md|lg|xl|2xl)`,
- * 所以**裸写 `rounded`**(以及 CSS 侧 `var(--radius)`,两者都等于档位表的 `DEFAULT`)整族
- * 读不出来。表现不是"少算一处",而是**凭空造出跨端分叉**:一端写裸档、另一端写具名档时,
- * RD/RE 两条维都会把写裸档那一侧读成"那一端没写档"(本轮 Tooltip 一族就是这么被读窄的)。
+ * 历史形态(上一席位留的注):它当时写"补认裸档会**同时移动三本账** —— 守门 77 的 HEAD 棘轮、
+ * 守门 150 的角色档台账、守门 128 的三维锚点,故只报数不判档"。本轮按 import 面实测**该前提不成立**,
+ * 逐字更正如下,不留旧论当口径:
+ *  - 守门 77(`check-radius-single-source.mjs`)**不 import 本文件**(只取 face-reader / box-geometry /
+ *    radius-exempt-marker),它的 B 族判据自己扫字面量与 `rounded-[…]`,读不到也判不了裸档 ⇒ 本刀动不到它。
+ *  - 守门 150 走 `lib/radius-roles.mjs` 那份**自带的**角色档提取式,其 1b) 支**早就认裸 `rounded`**
+ *    (从本表取 `DEFAULT`),只共享 `radiusOperandPx` 那一份算术 ⇒ 本刀同样动不到它。
+ *  - 真会随本函数移动读数的只有 `radiusItemsInLine` 的三个出口:`radiusSetOf` / `radiusEntriesOf`
+ *    (守门 128 的 RD、RE 两维)与 `radiusPxInLine`(守门 11 容器纯圆;全量档 warn-only、
+ *    暂存档只看新增行,故不会替无关提交造红,亦无锚点台账可重锚)。
+ * ⇒ 于是"三本账同批重锚"的票面判据落到现实只剩**一本**会动(门 128),另两本如实报名"读数未变"。
  *
- * 为什么这一版只报数、不改 `radiusItemsInLine`:补认裸档会**同时移动三本账** —— 守门 77 的
- * HEAD 棘轮、守门 150 的角色档台账、守门 128 的三维锚点,而票面(§1 的重锚口径)明令
- * "三处读数必须在同一枚提交里各自重锚",且 77/150 的台账不在本票文件清单内。
- * 在只有 128 重锚的状态下放宽提取式,等于把别人钉着的锚顶成"新增红" —— 那是两把尺子互相
- * 改基准,本仓记过最贵的一类事故。所以这里把"什么算裸档"收成**唯一一份实现**,
- * 由调用方按自己的口径决定报数还是判档:三本账同批重锚之后,那一步只需把
- * `bareRoundedOccurrences` 并进 `radiusItemsInLine`,不必再有人重新定义裸档。
+ * 为什么仍保留这个整源出口(不是把判据并进 `radiusItemsInLine` 就算完):`radiusItemsInLine` 是**逐行**
+ * 取用集合,报不出"哪个文件哪一行、档表 DEFAULT 取没取到";门 128 的报名需要文件级样本清单,
+ * 而两侧识别式必须同形 —— 所以两侧共用下面那两枚正则,谁也不许再抄第三份。
  *
  * 遮噪与 RD 维同一条口径(走本文件唯一的 `maskComments`),所以注释里逐字写出的
  * `rounded` 不会算成站点(写进注释必不计,写进代码必计 —— 成对用例钉的就是这一条)。
@@ -422,10 +461,10 @@ export function bareRoundedOccurrences(src, table) {
     const t = lines[i]
     if (!t || !t.trim()) continue
     // 裸 `rounded`:后面不得接 `-`(那是已认的档位/任意值/full/none)也不得接标识符字符。
-    for (const m of t.matchAll(/(?<![\w$-])rounded(?![\w$-])/g))
+    for (const m of t.matchAll(BARE_ROUNDED_RE))
       samples.push({ line: i + 1, raw: m[0], px: defaultPx })
     // CSS 侧的默认档变量:`var(--radius)`,而 `var(--radius-lg)` 那族早已被读到,不重复计。
-    for (const m of t.matchAll(/var\(\s*--radius\s*\)/g))
+    for (const m of t.matchAll(BARE_RADIUS_VAR_RE))
       samples.push({ line: i + 1, raw: m[0], px: defaultPx })
   }
   return { count: samples.length, defaultPx, samples }

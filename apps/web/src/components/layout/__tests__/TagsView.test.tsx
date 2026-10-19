@@ -139,6 +139,10 @@ vi.mock('next-intl', async () => {
         const translate = (k: string) => msgs[k] ?? k
         t = Object.assign(translate, {
           has: (k: string) => k in msgs,
+          // 2026-10-19:TagLabel 用 raw() 判"该 key 是不是字符串"。
+          // next-intl 的 t.has() 只判 null,对象子树也返回 true(见 use-intl resolvePath),
+          // 而 t() 对非字符串抛 FORMATTING_ERROR 后回退成裸键名 —— 必须靠 raw 的类型拦住。
+          raw: (k: string) => msgs[k],
         }) as (k: string) => string
         cache.set(key, t)
       }
@@ -154,6 +158,9 @@ vi.mock('@/lib/path-labels', () => ({
     if (!pathname || pathname === '/') return { ns: 'nav', key: 'home' }
     return null
   },
+  // 2026-10-19:TagLabel 新增消费(与侧边栏同源的 dynamicLabel ?? t(labelKey))。
+  // mock 必须同步提供,否则 vi.mock 的模块缺导出会在渲染期抛错。
+  resolvePathDynamicLabel: (_pathname: string) => null,
   resolvePathIcon: (_pathname: string) => null,
 }))
 

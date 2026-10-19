@@ -31,7 +31,12 @@
  * `apps/miniapp-taro/src/components/ModelConfigDialog.tsx` 把十余行外**兄弟容器**的 `border-t`
  * 算给了输入框,产出一枚假阳。跨窗归属不是"多读几个数",而是**把对的判成错的**,
  * 代价是逼人把一个本来正确的样式改掉(§12e:误红门的唯一结局是人人 `--no-verify`)。
- * 开标签闭合无法确定 ⇒ 落"未判定",绝不判红(与 lib/jsx-scope、lib/box-geometry 同一条规矩)。
+ * 开标签的窗**按 JSX 结构配平取,不按行数截**:主扫描器 lib/jsx-scope 在 40 行处放弃时是把游标
+ * 推到断点,被吞掉的不是那一枚开标签而是**它之后 40 行内的全部元素**(实测 `<TextField>` 自己只
+ * 跨 9 行,却因容器 `<FlatList/>` 跨 60 行而被连坐)。本门对被漏掉的输入控件**自己再配平一次**
+ * (`openTagRegion`,窗口上限 `STRUCT_MAX_TAG_LINES`):配得平 ⇒ 照常判;配不平(触顶 / 深度穿负 /
+ * 到文件尾)⇒ 落"未判定"并写明是**哪一层**配不平,绝不判红也**绝不把"没量到"写成"量过了"**。
+ * 祖先链因此读不全的重建元素,与标签栈失配同档处置:可见祖先里有唯一实现 ⇒ 不敢用它交差 ⇒ 未判定。
  *
  * 聚焦态认什么(逐端,写死在下面三份判据里):
  *   - RN:`focused ? {…}` 条件取值 / 命中行所属样式键本身就是聚焦档(`xxxFocused: {`) / `onFocus`
@@ -50,11 +55,24 @@
  * 否则当场就是一台与任何提交都无关的恒红门(§12e 那条本仓最高反面教训)。
  *
  * 第四条认法 = **跨文件一跳**(2026-10-11 立):大写标签若来自 import,**必须沿说明符读到那件源码**
- * 再判 —— 件内同时给出「聚焦条件」与「可见描边」才算放过;解析不到 / 切不出声明体一律落
- * **未判定**。立因:`@ihui/ui-native` 的 `Input` 自己就写聚焦墨档(该件 :127),调用点没有聚焦
- * 措辞是正确写法,把它记成命中就是拿假阳逼下一个人去"修"没坏的东西。**禁止**改用名字白名单解决
+ * 再判 —— 件内同时给出「聚焦条件」与「可见描边」才算放过;仓内路径(相对说明符、workspace 包名
+ * 及其子路径)解析不到 / 切不出声明体一律落**未判定**。立因:`@ihui/ui-native` 的 `Input` 自己就写
+ * 聚焦墨档(该件 :127),调用点没有聚焦措辞是正确写法,把它记成命中就是拿假阳逼下一个人去"修"
+ * 没坏的东西。**禁止**改用名字白名单解决
  * (名单必然腐烂:§4 对 `RN_ONLY_BRAND_KEYS`、守门 39 对 `WHITELIST` 各记过一次)。**锚点面必须
  * 过同一把尺子** —— 尺子变准不等于仓库新增命中。
+ *
+ * 第五条(2026-10-17 补,收票 G-42 的「未判定那 N 处」最后一格)= **第三方运行时包不走这一跳**:
+ * 说明符既非相对路径也不在本仓 workspace 名册里(判据 = `packages/*` 与 `apps/*` 的 package.json
+ * 里真读到的 name,`@ihui/` 前缀只作 --staged 稀疏名册的兜底护栏,不是主判据),那它的实现**结构上
+ * 不可能在被审面上**(node_modules 不入库;`apps/mobile-rn/tsconfig.json` 的 `paths` 也只是把
+ * `react-native` 指回 `./node_modules/react-native`,不是指回仓内源)。仓内没有任何一份源能藏住
+ * 它的聚焦反馈 ⇒ **调用点就是本门拿得到的全部证据**,有描边而无聚焦 ⇒ 记命中并写明出处。
+ * 现场取证(2026-10-17):`apps/mobile-rn/src/components/ai/QueueInteractionBar.tsx:222` 的
+ * `<TextInput style={styles.editInput}>`(键体 :358-359 写 `borderWidth`+`borderColor`)此前被写成
+ * "解析不到实现文件 ⇒ 未判定",那是把尺子的取材边界当被测对象的不确定性;真结论是**一处 RN 端
+ * 聚焦反馈缺口**(改它 = 加 onFocus + 聚焦档描边,或迁 packages/app 的 TextField)。
+ * 方向取"喊"不取"静默":认错一枚第三方组件的代价是多一次定向说明,把它写成放过才是造假。
  *
  * 取材面同 70/77/83/98/101/103/118/131:全量判 **HEAD blob**、`--staged` 判**索引 blob**、
  * `--worktree` 仅人工逃生舱、两面旗同给 exit 2、清单与内容**同面同轮**、内容取不到**不回退磁盘**
@@ -79,7 +97,8 @@ import { fileURLToPath } from 'node:url'
 import { catBatch, readWorktreeFile, selectFace, gitRaw } from './lib/face-reader.mjs'
 // 遮罩/分词只有一份:两面(注释抹掉 / 注释+串都抹掉)与串区间全部出自这一层,本门不自带词法器。
 import { maskFaces } from './lib/radius-roles.mjs'
-import { hasJsxShape, scanJsx } from './lib/jsx-scope.mjs'
+// 属性区 → 键/类名的取用一律走 jsx-scope 那一份(证据窗的语义只许有一把尺子,§0.6)
+import { attrNames, hasJsxShape, scanJsx, tagBase } from './lib/jsx-scope.mjs'
 import { objectScope } from './lib/box-geometry.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -88,6 +107,16 @@ const SELF_SKIP = 'HUSKY_SKIP_INPUT_FOCUS_FEEDBACK'
 const EXEMPT = /input-focus-exempt:\s*\S/
 /** 与 lib/jsx-scope 的 `MAX_TAG_SPAN_LINES` 同值;本门只用它写措辞,不另起一份窗口实现。 */
 const MAX_TAG_LINES = 40
+/**
+ * 取证窗**重建**的配平上限(行)。主扫描器在 `MAX_TAG_SPAN_LINES` 处放弃时会把游标直接推到
+ * 断点,于是被吞掉的不是"这一枚开标签",而是**它之后那 40 行里的全部元素**——实测
+ * `apps/mobile-rn/src/screens/TopicListScreen.tsx:194` 的 `<TextField` 自身只跨 9 行,它是被
+ * 176 行那枚跨 60 行的 `<FlatList/>` 连坐吞掉的。这一档**不放宽判据**,只把"我的窗口不够长"
+ * 与"这枚控件的边界确实定不下"分开:配平在触顶前回到深度 0 ⇒ 照常判;触顶/穿负/到 EOF ⇒ 仍判不出。
+ * 上限取 240 的理由:HEAD 面重建成功的开标签实测最长 172 行(见 `--json` 的 rebuilt 计数),
+ * 再长就不是"一个元素的属性区"而是解析器认错标签了 —— 宁可在这一格继续落未判定。
+ */
+const STRUCT_MAX_TAG_LINES = 240
 const SCAN_ROOTS = ['apps/web/', 'apps/miniapp-taro/src/', 'apps/mobile-rn/src/', 'packages/app/src/']
 const SCAN_EXT = /\.(tsx|jsx|css)$/
 
@@ -252,6 +281,69 @@ export function styleKeyBody(codeLines, keptLines, blocks, key) {
 // ─── JSX 面判定(三端共用一台结构解析器,证据窗=各自属性区)──────────────────
 
 /**
+ * 从 `start`(指向 `<`)按 JSX 结构**继续配平**,找这一枚开标签自己的 `>`。
+ * 口径与 `lib/jsx-scope` 的同一段循环逐条一致(花括号深度 0 处的第一个 `>` 即闭合;串区间取自
+ * `maskFaces`,串里的 `<`/`>` 不算标签;嵌套 JSX 活在 `{…}` 里 ⇒ 深度 ≥ 1 ⇒ 其 `>` 不会被误当闭合),
+ * 唯一差别是**不许在 40 行处停**。三种情况一律返回 null 交调用方落未判定,不猜:
+ *  ① 深度穿负 —— 已经走出本标签所属的表达式区,再往前配平就是拿别人的边界当自己的属性区;
+ *  ② 标签体外换行数触顶;③ 走到 EOF 仍未闭合。
+ * `attrText` 只含属性区(不含标签名,也不含其后的子节点);键/类名取用交给 `attrNames`(一份实现)。
+ */
+export function openTagRegion(text, strings, start, startLine, maxLines) {
+  const src = String(text || '')
+  const nm = /^<([A-Za-z][\w.]*)/.exec(src.slice(start, start + 120))
+  if (!nm) return null
+  const name = nm[1]
+  const attrFrom = start + 1 + name.length
+  const strEnd = new Map()
+  for (const s of strings || []) strEnd.set(s.start, s.end)
+  const hasStringTable = Array.isArray(strings)
+  const jumpString = (i) => {
+    if (strEnd.has(i)) return strEnd.get(i)
+    if (hasStringTable) return i + 1 // 词法器说这里不是串起手 ⇒ 当普通字符(JSX 文本里的撇号)
+    const q = src[i]
+    let j = i + 1
+    while (j < src.length) {
+      if (src[j] === '\\') {
+        j += 2
+        continue
+      }
+      if (src[j] === q) return j + 1
+      if (src[j] === '\n' && q !== '`') return j
+      j++
+    }
+    return j
+  }
+  let i = attrFrom
+  let brace = 0
+  let crossed = 0
+  while (i < src.length) {
+    const d = src[i]
+    if (d === '"' || d === "'" || d === '`') {
+      i = jumpString(i)
+      continue
+    }
+    if (d === '{') brace++
+    else if (d === '}') {
+      brace--
+      if (brace < 0) return null
+    } else if (d === '<' && brace === 0) {
+      // 深度 0 处的 `<` 在**开标签**里结构上不可能出现(嵌套元素只活在 `{…}` 里,其 `>` 深度 ≥ 1;
+      // 属性串里的 `<` 已被 jumpString 跳过)。走到这里只能是本标签压根没闭合、配平吃到了兄弟/闭合
+      // 标签的 `>` —— 那种"闭合点"造出来的属性区是别人的内容,必须判不出而不是造出一个元素。
+      return null
+    } else if (d === '>' && brace === 0) {
+      return { name, base: tagBase(name), attrText: src.slice(attrFrom, i), attrEndLine: startLine + crossed }
+    } else if (d === '\n') {
+      crossed++
+      if (crossed > maxLines) return null
+    }
+    i++
+  }
+  return null
+}
+
+/**
  * @returns {{hits:Array,passed:Array,undet:Array,unresolved:number,scanned:boolean}}
  */
 export function judgeJsx(rel, text, end) {
@@ -271,7 +363,66 @@ export function judgeJsx(rel, text, end) {
   // 此时"祖先里有唯一实现"这一条放行依据**停用**,改记未判定。
   const chainTrusted = scope.corrupt === 0
 
-  for (const el of scope.elements) {
+  /**
+   * 取证窗重建(票 G-42「未判定那 N 处」的第一格)。
+   * 主扫描器只要有一枚开标签超窗(`scope.truncated`),它就把游标推到断点,**被吞掉的是断点之前
+   * 那 40 行里的所有元素** —— 于是原来那套"出现次数 vs 建成次数对账"会把邻居报成主角:
+   * 点名 `<TextField`(194 行)而真正建不出来的是它的容器 `<FlatList`(176 行)。
+   * 这里先按 `line|base` 多重集把已建成的一次性扣掉,剩下的每一枚**自己**去配平取窗:
+   * 建得出来 ⇒ 进同一台判定(不再需要"未判定");建不出来 ⇒ 落未判定,并把原因写实(超顶/穿负)。
+   * 只比**名字落在本端标签集**里的出现,所以泛型(`useState<Mode>`)、内联 SVG 串、比较式里的 `<`
+   * 都不会被算进来 —— 那些不是输入控件(这条口径沿用原对账档,实测本仓 truncated 大多来自那一型)。
+   * 字符串区间直接取 `maskFaces` 的那一份(词法只有一台),串里的 `<Input` 不算开标签。
+   */
+  const rebuilt = []
+  if (scope.truncated) {
+    const built = new Map()
+    for (const e of scope.elements) {
+      const k = `${e.line}|${e.base}`
+      built.set(k, (built.get(k) || 0) + 1)
+    }
+    const inString = (idx) => (strings || []).some((s) => idx >= s.start && idx < s.end)
+    const pending = []
+    for (const base of tags) {
+      const re = new RegExp(`<${base}(?![\\w.])`, 'g')
+      let m
+      while ((m = re.exec(kept))) {
+        if (inString(m.index)) continue
+        const line = kept.slice(0, m.index).split('\n').length
+        const k = `${line}|${base}`
+        const n = built.get(k) || 0
+        if (n > 0) {
+          built.set(k, n - 1) // 这一枚主扫描器已经建成 ⇒ 交给主判定,不重复取证
+          continue
+        }
+        pending.push({ index: m.index, line, base })
+      }
+    }
+    for (const p of pending) {
+      const r = openTagRegion(kept, strings, p.index, p.line, STRUCT_MAX_TAG_LINES)
+      if (!r || r.base !== p.base) {
+        undet.push({
+          file: rel,
+          line: p.line,
+          reason: `<${p.base} 开标签在主扫描器 ${MAX_TAG_LINES} 行档外放弃,结构化配平到 ${STRUCT_MAX_TAG_LINES} 行仍回不到深度 0(或深度穿负/到文件尾)⇒ 是否描边无法判定,不判红也不记绿`,
+        })
+        continue
+      }
+      const bl = scope.byLine.get(p.line)
+      rebuilt.push({
+        line: p.line,
+        base: p.base,
+        attrEndLine: r.attrEndLine,
+        ...attrNames(r.attrText),
+        // 祖先只能取"主扫描器看得见的那一截";看不见的容器是否提供聚焦无从证明 ⇒ 下面按不可信链处置
+        ancestors: bl ? bl.ancestors : [],
+        rebuilt: true,
+      })
+    }
+  }
+  const elements = rebuilt.length ? [...scope.elements, ...rebuilt].sort((a, b) => a.line - b.line) : scope.elements
+
+  for (const el of elements) {
     if (!tags.has(el.base)) continue
     const from = el.line - 1
     const to = el.attrEndLine
@@ -326,53 +477,27 @@ export function judgeJsx(rel, text, end) {
       passed.push({ file: rel, line: el.line, tag: el.base, why, by: '属性区有聚焦态取值/props' })
       continue
     }
-    if (!chainTrusted && (el.ancestors || []).some((a) => SINGLE_IMPL.has(a))) {
-      undet.push({ file: rel, line: el.line, reason: `标签栈失配(${scope.corrupt} 处)⇒ 祖先链不可信,唯一实现豁免不敢用` })
-      continue
-    }
-    if (chainTrusted && (el.ancestors || []).some((a) => SINGLE_IMPL.has(a))) {
+    // 重建出来的元素看不到完整祖先链(它正是被一枚建不出的容器连坐吞掉的),与标签栈失配同档处置:
+    // 祖先里有唯一实现 ⇒ **不敢用它交差**(把"没看见"写成"确信没有"是本仓最高频失效型)。
+    const chainComplete = chainTrusted && !el.rebuilt
+    if ((el.ancestors || []).some((a) => SINGLE_IMPL.has(a))) {
       const a = (el.ancestors || []).find((x) => SINGLE_IMPL.has(x))
-      passed.push({ file: rel, line: el.line, tag: el.base, why, by: `祖先 ${a} 提供聚焦` })
-      continue
-    }
-    hits.push({ file: rel, end, line: el.line, tag: el.base, why })
-  }
-  /**
-   * 开标签在 40 行内找不到闭合(jsx-scope `truncated`)⇒ **不建元素**,本门就看不见这一枚。
-   * 落到行号的做法:把"本端输入控件开标签的出现次数"与"建成元素的次数"对账,多出来的那些出现
-   * 就是没建成的。只比**名字落在本端标签集**里的出现,所以泛型(`useState<Mode>`)、
-   * 内联 SVG 串、比较式里的 `<` 都不会被算进来 —— 那些不是输入控件,把它们写成"未判定"
-   * 只会让 44 条噪声淹没真该点名的那几条(实测本仓 truncated 大多来自这一型)。
-   * 字符串区间直接取 maskFaces 的那一份(词法只有一台),串里的 `<Input` 不算开标签。
-   */
-  if (scope.truncated) {
-    const built = new Map()
-    for (const e of scope.elements) {
-      const k = `${e.line}|${e.base}`
-      built.set(k, (built.get(k) || 0) + 1)
-    }
-    const inString = (idx) => (strings || []).some((s) => idx >= s.start && idx < s.end)
-    for (const base of tags) {
-      const re = new RegExp(`<${base}(?![\\w.])`, 'g')
-      let m
-      while ((m = re.exec(kept))) {
-        if (inString(m.index)) continue
-        const line = kept.slice(0, m.index).split('\n').length
-        const k = `${line}|${base}`
-        const n = built.get(k) || 0
-        if (n > 0) {
-          built.set(k, n - 1) // 这一枚确实建成了元素
-          continue
-        }
+      if (chainComplete) {
+        passed.push({ file: rel, line: el.line, tag: el.base, why, by: `祖先 ${a} 提供聚焦` })
+      } else {
         undet.push({
           file: rel,
-          line,
-          reason: `<${base} 开标签未能建成元素(闭合在 ${MAX_TAG_LINES} 行内找不到)⇒ 是否描边无法判定,不判红也不记绿`,
+          line: el.line,
+          reason: el.rebuilt
+            ? `祖先链读不全(该元素位于一枚建不出的容器开标签内)⇒ 外层 ${a} 是否提供聚焦无法确认,不判红也不记绿`
+            : `标签栈失配(${scope.corrupt} 处)⇒ 祖先链不可信,唯一实现豁免不敢用`,
         })
       }
+      continue
     }
+    hits.push({ file: rel, end, line: el.line, tag: el.base, why, rebuilt: !!el.rebuilt })
   }
-  return { hits, passed, undet, unresolved, scanned: true }
+  return { hits, passed, undet, unresolved, scanned: true, rebuilt: rebuilt.length }
 }
 
 // ─── 跨文件一跳:命中若是「导入件」,先去那件内部取聚焦证据 ────────────────
@@ -426,6 +551,31 @@ export function followBarrelExport(kept, name) {
   return null
 }
 
+/** 说明符的首段包名(`@scope/name` 取两段,其余取一段);相对/绝对路径返回 null */
+export function pkgNameOf(spec) {
+  const s = String(spec || '')
+  if (!s || s.startsWith('.') || s.startsWith('/') ) return null
+  const segs = s.split('/')
+  return s.startsWith('@') ? segs.slice(0, 2).join('/') : segs[0]
+}
+
+/**
+ * 「第三方运行时包」判据 —— 既不是相对路径,也不在本仓 workspace 的名册里。
+ * 两条护栏,少一条都会造假:
+ * ① `@ihui/` 前缀**永不**算第三方:本仓全部 workspace 包名都以 `@ihui/` 起头(现读自
+ *     `packages/<pkg>/package.json` 与 `apps/<pkg>/package.json` 两层),而 `--staged` 面的清单
+ *     **只含改动文件**,名册在那一档本来就是空的 —— 按名册判会把 `@ihui/ui-native` 读成第三方,
+ *     给别人的组件凭空记一枚命中(假阳 = 逼人改没坏的东西,§12e)。前缀这一条是名册空缺时的兜底,
+ *     不是主判据。
+ *  ② 名册命中 ⇒ 一定走"沿说明符读到实现件"那一跳,读不到就落未判定(仓内确实有源,不能当没有)。
+ */
+export function isExternalPkgSpec(spec, nameToDir) {
+  const pkg = pkgNameOf(spec)
+  if (!pkg) return false
+  if (nameToDir && nameToDir.has(pkg)) return false
+  return !WS_PKG_RE.test(pkg)
+}
+
 /** 说明符 → 被审面上的相对路径;解析不出返回 null(不回落磁盘、不猜 node_modules) */
 export function resolveSpecPath(spec, fromFile, nameToDir) {
   const dir = fromFile.includes('/') ? fromFile.slice(0, fromFile.lastIndexOf('/') + 1) : ''
@@ -434,10 +584,15 @@ export function resolveSpecPath(spec, fromFile, nameToDir) {
     const joined = normalizeRel(dir + spec)
     cands.push(`${joined}.tsx`, `${joined}.ts`, `${joined}/index.tsx`, `${joined}/index.ts`)
   } else {
-    const pkg = WS_PKG_RE.test(spec) ? spec : null
-    const sub = pkg && spec.length > pkg.length + 1 ? spec.slice(pkg.length + 1) : ''
-    const base = pkg ? nameToDir.get(pkg) : null
-    if (base) cands.push(`${base}/src/${sub || 'index'}.tsx`, `${base}/src/${sub || 'index'}.ts`, `${base}/${sub}.tsx`)
+    // 子路径说明符(`@ihui/shared/chat/queue-interactions`)同样属于本仓 workspace:首段包名在名册里
+    // 就得按 `<包>/src/<子路径>` 去取件(各包 exports 的 `"./*": "./src/*.ts"` 约定)。此前这里按
+    // 整串匹配 `^@ihui/[\w-]+$`,子路径一律判成"解析不到"⇒ 与第三方同形,是别名解析缺项而非面映射。
+    const pkg = pkgNameOf(spec)
+    const base = pkg && nameToDir.get(pkg) ? nameToDir.get(pkg) : null
+    if (base) {
+      const sub = spec.length > pkg.length + 1 ? spec.slice(pkg.length + 1) : 'index'
+      cands.push(`${base}/src/${sub}.tsx`, `${base}/src/${sub}.ts`, `${base}/src/${sub}/index.ts`, `${base}/${sub}.tsx`)
+    }
   }
   return cands
 }
@@ -526,17 +681,20 @@ export function bodyProvidesFocus(body) {
  * 每枚候选最多两跳(barrel → 实现件),每次跳读**同面**的一个路径(候选量个位数,
  * 逐路径读比一次性预读整包更省,且不会把"没在候选里的文件"拖进射程)。
  */
+/** 本仓 workspace 包目录的形态(两层:packages/<pkg> 与 apps/<pkg>,后者也是 @ihui/* 名) */
+const PKG_JSON_RE = /^(?:packages|apps)\/[^/]+\/package\.json$/
+
 export function reclassifyHits(hits, face, facePaths, baseText) {
   const cache = new Map()
   const nameToDir = new Map()
   for (const p of facePaths) {
-    const m = /^(packages\/[^/]+)\/package\.json$/.exec(p)
+    const m = PKG_JSON_RE.exec(p)
     if (!m) continue
     const t = readFaceOne(p, face, cache)
     if (typeof t !== 'string') continue
     try {
       const nm = JSON.parse(t).name
-      if (typeof nm === 'string' && nm.startsWith('@ihui/')) nameToDir.set(nm, m[1])
+      if (typeof nm === 'string' && WS_PKG_RE.test(nm)) nameToDir.set(nm, m[0].replace(/\/package\.json$/, ''))
     } catch {
       /* 坏 JSON ⇒ 该包解析不到,调用处落未判定,不猜目录 */
     }
@@ -574,7 +732,15 @@ export function reclassifyHits(hits, face, facePaths, baseText) {
     }
     const cands = resolveSpecPath(spec, h.file, nameToDir).filter((p) => facePaths.has(p))
     if (!cands.length) {
-      undet.push({ file: h.file, line: h.line, reason: `import '${spec}' 在被审面上解析不到实现文件 ⇒ 未判定(不判红也不放过)` })
+      if (isExternalPkgSpec(spec, nameToDir)) {
+        // 第三方运行时包(`react-native` 这类):实现**不在被审面上**(node_modules 不入库,
+        // apps/mobile-rn/tsconfig.json 的 paths 也只是把它指回 ./node_modules),仓内没有任何一份
+        // 源可以藏住它的聚焦反馈 ⇒ 调用点就是本门拿得到的全部证据。方向取"喊"不取"静默":
+        // 记命中并写明出处,由人裁决(与头注④同一取向;把它写成放过才是把没量到当量过了)。
+        kept.push({ ...h, by: `import '${spec}' 是第三方运行时包,实现不在被审面上 ⇒ 调用点即全部证据` })
+      } else {
+        undet.push({ file: h.file, line: h.line, reason: `import '${spec}' 在被审面上解析不到实现文件 ⇒ 未判定(不判红也不放过)` })
+      }
       continue
     }
     let verdict = null
@@ -784,6 +950,7 @@ export function analyze(face) {
   const headCounts = new Map()
   const unreadable = []
   let unresolvedStyleRefs = 0
+  let rebuiltWindows = 0
   const perEnd = {}
   for (const f of files) {
     const text = contents.get(f)
@@ -794,6 +961,7 @@ export function analyze(face) {
     const r = judgeText(f, text)
     perEnd[r.end] = (perEnd[r.end] || 0) + 1
     unresolvedStyleRefs += r.unresolved
+    rebuiltWindows += r.rebuilt || 0
     for (const x of r.undet) undetermined.push(x)
     passed.push(...r.passed)
     if (r.hits.length) {
@@ -842,6 +1010,7 @@ export function analyze(face) {
     filesWithHits: counts.size,
     passedCount: passed.length,
     unresolvedStyleRefs,
+    rebuiltWindows,
     red,
     emptyScan,
     exit:
@@ -1138,6 +1307,10 @@ function main() {
     console.log(
       `⚠️ 射程外:${r.unresolvedStyleRefs} 处 style 引用在本文件解不到样式键(跨文件常量 / 函数返回值)⇒ 是否描边无法判定,本门不猜`,
     )
+  if (r.rebuiltWindows)
+    console.log(
+      `ℹ️ 取证窗重建:${r.rebuiltWindows} 枚输入控件的开标签主扫描器在 ${MAX_TAG_LINES} 行档内建不出来(被超窗容器连坐),已按 JSX 结构配平重新取窗并照常判定`,
+    )
   if (r.red.length) {
     console.log(`❌ F1 有描边却无聚焦反馈(超出该文件 HEAD 自身存量)${r.red.length} 个文件:`)
     for (const x of r.red.slice(0, 40))
@@ -1207,5 +1380,11 @@ export const __test__ = {
   followBarrelExport,
   resolveSpecPath,
   bodyProvidesFocus,
+  // 取证窗重建与第三方说明符分类的出口(同上:镜像只调这些,不复制判据)
+  openTagRegion,
+  pkgNameOf,
+  isExternalPkgSpec,
+  MAX_TAG_LINES,
+  STRUCT_MAX_TAG_LINES,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

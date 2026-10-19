@@ -16,7 +16,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Pressable,
@@ -27,6 +26,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useNavigation } from '@react-navigation/native'
 import { Check, Minus, Package, Plus, ShoppingCart, Trash2 } from 'lucide-react-native'
@@ -122,7 +122,7 @@ export function CartScreen() {
 
   /** 删除(Alert 二次确认,对齐 miniapp Taro.showModal) */
   const onRemove = (item: CartItemView) => {
-    Alert.alert(t('common.hint'), t('cart.deleteConfirm'), [
+    appAlert(t('common.hint'), t('cart.deleteConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.delete'),
@@ -147,7 +147,7 @@ export function CartScreen() {
 
   const onCheckout = () => {
     if (totalCount === 0) {
-      Alert.alert(t('cart.selectFirst'))
+      appAlert(t('cart.selectFirst'))
       return
     }
     setCheckoutVisible(true)
@@ -160,7 +160,7 @@ export function CartScreen() {
       // 1. 检查微信客户端
       const installed = await isWeChatInstalled()
       if (!installed) {
-        Alert.alert(t('payment.wechatNotInstalled'))
+        appAlert(t('payment.wechatNotInstalled'))
         return
       }
       // 2. 创建微信 APP 支付订单(amount 单位:分,后端契约)
@@ -169,7 +169,7 @@ export function CartScreen() {
         description: t('cart.title'),
       })
       if (!res.success || !res.data) {
-        Alert.alert(res.error || t('payment.createFailed'))
+        appAlert(res.error || t('payment.createFailed'))
         return
       }
       // 3. DEV mock(无微信支付配置):后端已落单,直接进结果页轮询状态
@@ -179,7 +179,7 @@ export function CartScreen() {
         return
       }
       if (!res.data.prepayData) {
-        Alert.alert(t('payment.nativeUnavailable'))
+        appAlert(t('payment.nativeUnavailable'))
         return
       }
       // 4. 调起微信 APP 支付
@@ -189,15 +189,15 @@ export function CartScreen() {
         // 支付成功 → 统一支付结果页(PayResult 内部轮询订单状态)
         navigation.navigate('PayResult', { orderNo: res.data.outTradeNo })
       } else if (!paid) {
-        Alert.alert(t('payment.payCancelled'))
+        appAlert(t('payment.payCancelled'))
       } else {
-        Alert.alert(t('payment.payFailed'))
+        appAlert(t('payment.payFailed'))
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      if (msg === 'WECHAT_NOT_INSTALLED') Alert.alert(t('payment.wechatNotInstalled'))
-      else if (msg === 'WECHAT_NATIVE_UNAVAILABLE') Alert.alert(t('payment.nativeUnavailable'))
-      else Alert.alert(t('payment.payFailed'))
+      if (msg === 'WECHAT_NOT_INSTALLED') appAlert(t('payment.wechatNotInstalled'))
+      else if (msg === 'WECHAT_NATIVE_UNAVAILABLE') appAlert(t('payment.nativeUnavailable'))
+      else appAlert(t('payment.payFailed'))
     } finally {
       setPaying(false)
     }

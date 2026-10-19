@@ -99,4 +99,28 @@ export function collectVars(css, selectors) {
       for (const d of collectDecls(block)) map.set(d.name, d)
   return map
 }
+
+/**
+ * design-token **档名**判据:7 类前缀 color / radius / chart / font / animate / z / shadow。
+ * `--radius` 可无后缀也可有后缀(`radius[\w-]*`),其余 6 类要求前缀后再有后缀。
+ *
+ * 为什么这一格也必须只有一份(2026-10-17 由守门 `check-miniapp-taro-design-tokens.mjs` 收口搬入):
+ *   同一条"什么算 design-token"的正则此前逐字抄在 `check-design-tokens-sync.mjs` 与
+ *   `check-miniapp-taro-design-tokens.mjs` 两处 —— 两份常量当时相等靠的是人工比对,
+ *   而 §0.6 记过的形态正是"第二份必然漂移":一处扩了 `--ease-*` 档,另一处就把新档读成
+ *   "非 token 档、不参与比对",门仍然绿。搬进本文件后第三处不得再加。
+ *   **残余(如实登记,不在本次收口范围内)**:`scripts/check-design-tokens-sync.mjs` 仍持有
+ *   自己那份同名常量,收它 import 本出口是那道的票,不是本门体的。
+ *
+ * 与 `collectVars` 的分工:`collectVars` 回答"块里有哪些声明"(全部 `--*`),本出口回答
+ * "其中哪些属于 design-token 族",所以调用方是**先取声明再筛档名**,不是各写一份块解析。
+ * @param {string} name 声明名(如 `--color-bg`、`--radius-sm`)
+ * @returns {boolean}
+ */
+const DESIGN_TOKEN_NAME_RE =
+  /^--(?:radius[\w-]*|color-[\w-]+|chart-[\w-]+|font-[\w-]+|animate-[\w-]+|z-[\w-]+|shadow-[\w-]+)$/
+
+export function isDesignTokenVarName(name) {
+  return DESIGN_TOKEN_NAME_RE.test(String(name ?? ''))
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
