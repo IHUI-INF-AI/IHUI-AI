@@ -16,9 +16,20 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-interface VerifyResult {
-  status: IdentityVerifyStatus
-  reason?: string
+interface RealnameMyResponse {
+  authStatus?: 'unverified' | 'pending' | 'approved' | 'rejected'
+  rejectReason?: string | null
+}
+
+// 后端 authStatus 与端上 IdentityVerifyStatus 词汇不同形,只认这张显式映射表
+const AUTH_STATUS_TO_VERIFY: Record<
+  NonNullable<RealnameMyResponse['authStatus']>,
+  IdentityVerifyStatus
+> = {
+  unverified: 'unverified',
+  pending: 'pending',
+  approved: 'verified',
+  rejected: 'rejected',
 }
 
 export function IdentityVerifyScreen() {
@@ -28,18 +39,17 @@ export function IdentityVerifyScreen() {
   const [status, setStatus] = useState<IdentityVerifyStatus>('unverified')
   const [reason, setReason] = useState('')
   const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetchApi<VerifyResult>('/user/identity-verify')
+        const res = await fetchApi<RealnameMyResponse>('/api/auth/realname/my')
         if (cancelled) return
         if (!res.success) throw new Error()
-        setStatus(res.data?.status ?? 'unverified')
-        setReason(res.data?.reason ?? '')
+        setStatus(AUTH_STATUS_TO_VERIFY[res.data?.authStatus ?? 'unverified'])
+        setReason(res.data?.rejectReason ?? '')
       } catch {
         if (!cancelled) setError(t('identityVerify.loadFailed'))
       } finally {
@@ -51,21 +61,9 @@ export function IdentityVerifyScreen() {
     }
   }, [t])
 
-  const handleSubmit = async () => {
-    setSubmitting(true)
-    setError('')
-    try {
-      const res = await fetchApi('/user/identity-verify', {
-        method: 'POST',
-        body: JSON.stringify({}),
-      })
-      if (!res.success) throw new Error()
-      setStatus('pending')
-    } catch {
-      setError(t('identityVerify.failed'))
-    } finally {
-      setSubmitting(false)
-    }
+  // 本屏无姓名/证号输入框,提交流程由兄弟屏 RealNameAuthScreen(收 realName+idCard)承载
+  const handleGoVerify = () => {
+    navigation.navigate('RealNameAuth')
   }
 
   return (
@@ -74,9 +72,9 @@ export function IdentityVerifyScreen() {
       status={status}
       reason={reason}
       loading={loading}
-      submitting={submitting}
+      submitting={false}
       error={error}
-      onSubmit={handleSubmit}
+      onSubmit={handleGoVerify}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
     />

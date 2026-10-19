@@ -5,17 +5,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { StyleSheet, View } from 'react-native'
-import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { apiFailureToError, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { ChangePhoneScreen as SharedChangePhoneScreen, type NationOption } from '@ihui/rn-app'
-import { InputArea } from '../components/InputArea'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -27,21 +24,19 @@ const NATIONS: NationOption[] = [
   { title: '日本', content: '+81', id: 5 },
 ]
 
-const NOTE_MAX_LENGTH = 500
-
 /**
- * mobile-rn 换绑手机号(2026-07-30 接入本地 InputArea + FloatBox)
+ * mobile-rn 换绑手机号
  *
  * shell 层职责:
  * - 主体调用 @ihui/rn-app.SharedChangePhoneScreen(国家区号 + 手机号 + 验证码 + 提交)
- * - 底部叠加 mobile-rn 本地 InputArea(附加备注输入,例如"换号原因 / 申诉说明")
- *   + 浮动提示 FloatBox(成功/错误 toast)
+ * - 验证码发往新手机号(/api/auth/sms/send),提交打 /api/auth/change-phone/confirm
+ *   (confirm 校验的是新手机号的验证码,身份只取 JWT 主体,无旧码前置步骤)
+ * - 浮动提示 FloatBox(成功/错误 toast)
  */
-export function ChangePhoneScreen({ route }: { route?: { params?: { uuid?: string } } }) {
+export function ChangePhoneScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
-  const uuid = route?.params?.uuid ?? ''
   const [phoneNumber, setPhoneNumber] = useState('')
   const [codeValue, setCodeValue] = useState('')
   const [phoneHead, setPhoneHead] = useState('+86')
@@ -50,8 +45,6 @@ export function ChangePhoneScreen({ route }: { route?: { params?: { uuid?: strin
   const [sendCodeShow, setSendCodeShow] = useState(true)
   const [tip, setTip] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [note, setNote] = useState('')
-  const [noteSubmitting, setNoteSubmitting] = useState(false)
   const [toastVisible, setToastVisible] = useState(false)
   const [toastType, setToastType] = useState<FloatBoxType>('info')
   const [toastMessage, setToastMessage] = useState('')
@@ -99,9 +92,9 @@ export function ChangePhoneScreen({ route }: { route?: { params?: { uuid?: strin
     }
     setTip('')
     try {
-      const res = await fetchApi('/auth/sms/send', {
+      const res = await fetchApi('/api/auth/sms/send', {
         method: 'POST',
-        body: JSON.stringify({ phone: phoneNumber, type: 2 }),
+        body: JSON.stringify({ phone: phoneNumber, scene: 'phone-binding' }),
       })
       if (!res.success) throw apiFailureToError(res)
       startCountdown()
@@ -125,17 +118,12 @@ export function ChangePhoneScreen({ route }: { route?: { params?: { uuid?: strin
       showToast('warning', '请输入验证码')
       return
     }
-    if (!uuid) {
-      // 用户信息缺失边界分支(无用户对象/标识):用 settings.changePhoneMissingUser 提示后 return
-      appAlert(t('common.error'), t('settings.changePhoneMissingUser'))
-      return
-    }
     setSubmitting(true)
     setTip('')
     try {
-      const res = await fetchApi('/auth/phone/edit', {
+      const res = await fetchApi('/api/auth/change-phone/confirm', {
         method: 'POST',
-        body: JSON.stringify({ phone: phoneNumber, uuid, code: codeValue, note: note.trim() }),
+        body: JSON.stringify({ newPhone: phoneNumber, code: codeValue }),
       })
       if (!res.success) {
         setTip(res.error || '绑定失败')
@@ -157,18 +145,6 @@ export function ChangePhoneScreen({ route }: { route?: { params?: { uuid?: strin
       setSubmitting(false)
     }
   }
-
-  // InputArea 备注提交:仅做本地回显(真实业务可对接 /auth/phone/edit 的 note 字段)
-  const handleNoteSubmit = useCallback(
-    async (text: string) => {
-      setNoteSubmitting(true)
-      // 演示:把备注回写到本地 tip(不实际发起网络请求)
-      setTip(`已记录备注: ${text.slice(0, 20)}${text.length > 20 ? '...' : ''}`)
-      showToast('success', '备注已暂存')
-      setNoteSubmitting(false)
-    },
-    [showToast],
-  )
 
   return (
     <View style={styles.container}>
@@ -196,16 +172,6 @@ export function ChangePhoneScreen({ route }: { route?: { params?: { uuid?: strin
           onBack={() => navigation.goBack()}
           colorScheme={resolvedTheme}
         />
-        <View style={styles.noteWrap}>
-          <InputArea
-            value={note}
-            onChangeText={setNote}
-            placeholder="备注(选填,如换号原因 / 申诉说明)"
-            maxLength={NOTE_MAX_LENGTH}
-            onSubmit={handleNoteSubmit}
-            loading={noteSubmitting}
-          />
-        </View>
       </View>
       <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
     </View>
@@ -218,9 +184,6 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-  },
-  noteWrap: {
-    marginTop: rpx(16),
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

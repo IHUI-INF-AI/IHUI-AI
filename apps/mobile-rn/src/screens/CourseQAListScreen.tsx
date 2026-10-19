@@ -13,6 +13,15 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
+/** GET /api/edu/qa 行(后端 findAllCommunityPosts 投影的只读消费面) */
+interface CommunityPostRow {
+  id: string
+  title: string
+  userName: string | null
+  replyCount: number
+  createdAt: string
+}
+
 /**
  * 课程问答列表屏 — mobile-rn 薄 wrapper
  *
@@ -32,9 +41,18 @@ export function CourseQAListScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<CourseQAListItem[]>('/course-qa')
+      const res = await fetchApi<{ list: CommunityPostRow[] }>('/api/edu/qa')
       if (!res.success) throw new Error()
-      setItems(res.data ?? [])
+      // 键名投影:后端行字段 title/userName/replyCount → 契约 question/asker/answerCount
+      setItems(
+        (res.data?.list ?? []).map((row) => ({
+          id: row.id,
+          question: row.title,
+          asker: row.userName ?? '',
+          answerCount: row.replyCount,
+          createdAt: row.createdAt,
+        })),
+      )
     } catch {
       setError(t('courseQAList.loadFailed'))
     } finally {
