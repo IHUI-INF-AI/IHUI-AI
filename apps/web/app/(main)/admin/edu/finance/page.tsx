@@ -9,7 +9,7 @@ import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { exportFromApi } from '@/lib/export-utils'
 import { Button } from '@ihui/ui-react'
@@ -19,6 +19,7 @@ import type { PayLog, CForm } from './types'
 import { PayLogFilter } from './PayLogFilter'
 import { PayLogTable } from './PayLogTable'
 import { PayLogDialog } from './PayLogDialog'
+import { PaymentRecordDialog } from './PaymentRecordDialog'
 import { BackButton } from '@/components/common'
 
 export default function EduFinancePage() {
@@ -37,6 +38,8 @@ export default function EduFinancePage() {
   const [editing, setEditing] = React.useState<PayLog | null>(null)
   const [form, setForm] = React.useState<CForm>(EMPTY)
   const [err, setErr] = React.useState<string | null>(null)
+  // G-28 登记缴费(POST /payment-record)独立于上方 legacy 支付日志 CRUD
+  const [payOpen, setPayOpen] = React.useState(false)
 
   const params = { page, pageSize: PAGE_SIZE, ...q }
   const { data, isLoading, error } = useQuery({
@@ -139,9 +142,15 @@ export default function EduFinancePage() {
   return (
     <div className="space-y-4 px-4 py-4">
       <BackButton />
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        </div>
+        <Button size="sm" onClick={() => setPayOpen(true)}>
+          <Plus className="h-4 w-4" />
+          登记缴费
+        </Button>
       </div>
       <PayLogFilter
         q={q}
@@ -216,6 +225,7 @@ export default function EduFinancePage() {
         pending={saveMut.isPending}
         err={err}
       />
+      <PaymentRecordDialog open={payOpen} onClose={() => setPayOpen(false)} />
     </div>
   )
 }
