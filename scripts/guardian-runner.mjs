@@ -5098,6 +5098,23 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 钩子形态(1 项,blocking)---
+  {
+    id: '226',
+    label:
+      '钩子装载形态对账(.husky 钩子必须 sh 薄壳,node 正文只能在 scripts/lib)',
+    script: 'check-husky-hook-form.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_HOOK_FORM',
+    stagedTriggers: ['.husky/'],
+    onFailHint: [
+      '',
+      'node 正文搬进 scripts/lib/<hook>-hook.js,钩子文件只留 sh 薄壳(样板 .husky/pre-commit);薄壳引用的包装与正文必须在同一判定面在位',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',

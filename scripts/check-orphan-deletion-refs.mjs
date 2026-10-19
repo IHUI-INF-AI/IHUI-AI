@@ -169,8 +169,22 @@ export function auditOrphanDeletionRefs(root = ROOT) {
   const g = (args, o) => git(root, args, o)
   const undetermined = []
   let deleted
+  /**
+   * 两型都要问,证据面不同、出路也不同(2026-10-19 补第二型,立项凭据是当晚一次两小时的邮件静默失效):
+   *  · `orphanIndex`(`D ` 首列):索引与磁盘都没有而 HEAD 有 ⇒ 旁路落地没回写共享索引,或他人已 `git rm`;
+   *  · `intentLost`(` D` 次列且**在 safe-commit 那份被清空意图的账上**):索引与 HEAD 都还在、只有盘上没了,
+   *    而恢复层因为"这可能是别人有意的删除"刻意不代裁 ⇒ **没有任何一格会把它喊给人**。
+   *    当晚 `packages/types/src/ai-world.ts` 正落在这一格:barrel 仍 `export * from './ai-world.js'`,
+   *    发信出口 import 该包 ⇒ 唯一到人通道崩了 2 小时,而所有 HEAD 面门禁照常绿。
+   * 分类只有一份实现(heal-worktree-tracked 的 `findOrphanedDeletions`),本门不另抄判据(§0.6/§22c)。
+   */
+  let kindOf = new Map()
   try {
-    deleted = findOrphanedDeletions(root).orphanIndex
+    const fd = findOrphanedDeletions(root)
+    const oi = fd.orphanIndex || []
+    const il = fd.intentLost || []
+    kindOf = new Map([...oi.map((p) => [p, 'index-落后HEAD(D )']), ...il.map((p) => [p, '删除意图被索引清空摘掉( D)'])])
+    deleted = [...new Set([...oi, ...il])]
   } catch (e) {
     return {
       hits: [],
@@ -215,7 +229,7 @@ export function auditOrphanDeletionRefs(root = ROOT) {
   for (const [p, list] of hits) {
     if (!list || !list.length) continue
     // 只把**引用方路径**交出去(hit 还带 line/form/spec,报告与自检都按文件名比,别拿对象去 includes)
-    out.push({ path: p, via: [...new Set(list.map((h) => h.file))], detail: list })
+    out.push({ path: p, kind: kindOf.get(p) || '未归类', via: [...new Set(list.map((h) => h.file))], detail: list })
   }
   return { hits: out, undetermined, deleted: deleted.length, candidates: files.length }
 }
@@ -295,6 +309,47 @@ function selfTest() {
       r3.hits.length === 0 && r3.undetermined.length > 0,
       `A3 取不到状态必须落未判定并给原因,实测 ${JSON.stringify(r3)}`,
     )
+    // 第四臂(2026-10-19 立,当晚一次两小时的邮件静默失效就是这一型):
+    // 索引与 HEAD 都还在、**只有盘上没了**,而且删除意图已被 safe-commit 的索引清空摘掉 ⇒
+    // 恢复层按规矩不代裁,于是历史上没有任何一格会喊人。这里成对钉两臂:
+    //   没有那份账 ⇒ 这一条属 `safe`(恢复层会补),不进本门结论;
+    //   有那份账   ⇒ 进 `intentLost`,仍被 import 就必须点名并标型。
+    put('packages/shared/src/voice-world.ts', 'export const vw = 1\n')
+    put('packages/shared/src/index.ts', 'export * from "./voice-world"\n')
+    g(['add', 'packages/shared/src/voice-world.ts', 'packages/shared/src/index.ts'])
+    g(['commit', '-qm', 'feat: 登记 voice-world 与其 barrel 导出'])
+    rmSync(join(tmp, 'packages/shared/src/voice-world.ts'))
+    const rNoLedger = auditOrphanDeletionRefs(tmp)
+    ok(
+      !rNoLedger.hits.some((h) => h.path === 'packages/shared/src/voice-world.ts'),
+      `无清空账时这一条该交恢复层补(不进本门点名),实测 ${JSON.stringify(rNoLedger.hits.map((h) => h.path))}`,
+    )
+    put(
+      '.workbuddy/staged-delete-intent-ledger.jsonl',
+      `${JSON.stringify({ ts: new Date().toISOString(), event: 'index-purge-cleared-staged-deletions', actionTaken: 'report-only', clearedIntentLost: ['packages/shared/src/voice-world.ts'] })}\n`,
+    )
+    const rLedger = auditOrphanDeletionRefs(tmp)
+    const hitVw = rLedger.hits.find((h) => h.path === 'packages/shared/src/voice-world.ts')
+    ok(Boolean(hitVw), `有清空账且仍被 barrel 导入 ⇒ 必须点名,实测 ${JSON.stringify(rLedger.hits.map((h) => h.path))}`)
+    ok(
+      Boolean(hitVw) && hitVw.kind === '删除意图被索引清空摘掉( D)',
+      `必须带型(两型出路不同,不给型收件人无法决定补还是删完),实测 ${JSON.stringify(hitVw && hitVw.kind)}`,
+    )
+    ok(
+      !rLedger.hits.some((h) => h.path === 'packages/shared/src/chat/lonely.ts'),
+      '无人引用的孤儿仍不得被算成命中(新增一型不许放宽既有口径)',
+    )
+    // 读账要验"声明过没动过手":同一份账把 actionTaken 改成"已恢复"就不该再当证据用
+    // (heal 层正是按这个字段决定不代裁的;本门跟着一个自称动过手的账喊人 = 拿过期证据出结论)。
+    put(
+      '.workbuddy/staged-delete-intent-ledger.jsonl',
+      `${JSON.stringify({ ts: new Date().toISOString(), event: 'index-purge-cleared-staged-deletions', actionTaken: 'restored-by-owner', clearedIntentLost: ['packages/shared/src/voice-world.ts'] })}\n`,
+    )
+    const rClaimed = auditOrphanDeletionRefs(tmp)
+    ok(
+      !rClaimed.hits.some((h) => h.path === 'packages/shared/src/voice-world.ts'),
+      `账自称已动手(actionTaken≠report-only)⇒ 不算证据,不得据它点名,实测 ${JSON.stringify(rClaimed.hits.map((h) => h.path))}`,
+    )
     console.log(`自检:${pass} 通过 / ${fail} 失败`)
     return fail === 0 ? 0 : 1
   } finally {
@@ -323,9 +378,19 @@ function main(argv = process.argv.slice(2)) {
   }
   if (!quiet) {
     console.log(
-      `孤儿删除的引用对账(判定面:工作树 —— 构建吃的那一份;孤儿 = HEAD 有而索引与磁盘都无):孤儿删除 ${r.deleted} 条 / 预筛候选 ${r.candidates} 个文件 / 命中 ${r.hits.length} 条`,
+      `孤儿删除的引用对账(判定面:工作树 —— 构建吃的那一份;孤儿 = HEAD 有而盘上没有。两型:首列 D = 索引落后 HEAD;次列 D = 仅盘上缺失且删除意图已被索引清空摘掉):孤儿删除 ${r.deleted} 条 / 预筛候选 ${r.candidates} 个文件 / 命中 ${r.hits.length} 条`,
     )
-    for (const h of r.hits) console.log(`  ❌ ${h.path} —— 仍被这些位置引用:${h.via.slice(0, 4).join(', ')}${h.via.length > 4 ? ` 等 ${h.via.length} 处` : ''}`)
+    for (const h of r.hits)
+      console.log(
+        `  ❌ ${h.path} [${h.kind || '未归类'}] —— 仍被这些位置引用:${h.via.slice(0, 4).join(', ')}${h.via.length > 4 ? ` 等 ${h.via.length} 处` : ''}`,
+      )
+    if (r.hits.some((h) => h.kind === '删除意图被索引清空摘掉( D)'))
+      console.log(
+        '  ↳ 第二型(` D`:索引与 HEAD 都还在、只有盘上没了,且删除意图已被 safe-commit 的索引清空摘掉):' +
+          '恢复层按规矩**不代裁**,所以这一型过去没有任何一格会喊人 —— 当晚就是它把唯一发信出口弄崩了两小时。' +
+          '出路二选一,都由该删除的归属会话裁:① 把删除**做完**(改掉还在 import 它的 barrel,再 `git rm --cached <路径>` 把意图钉回索引);' +
+          '② 不删了(`git show HEAD:<路径>` 按字节补回,并重建它所属的包)。',
+      )
     for (const u of r.undetermined) console.log(`  ⚠️ 未判定:${u}`)
     if (r.hits.length === 0 && r.undetermined.length === 0 && r.deleted > 0)
       console.log('  ✅ 有孤儿删除,但 HEAD 树内无人再引用它们(只报数,不构成红)')
