@@ -548,28 +548,38 @@ async function runSignPath(page, attempt) {
     console.log('SP-FILLED ' + name + ' len=' + val.length)
   }
 
-  // HubSpot Dropdown 字段渲染为原生 <select>(name=GUID/fieldname,无 "-input" 后缀);
-  // 硬编码隐藏 id 必然查无此元素。改用 select:has(option:has-text) 语义匹配。
-  const optVals = ['Developer Tools', 'GitHub Actions', 'Organic search']
-  for (const val of optVals) {
-    const sel = hf.locator(`select:has(option:has-text("${val}"))`).first()
+  // HubSpot 新版 hsfc- 组件(SP_FORM_HTML 实证):dropdown 非原生 select,是 hsfc-DropdownField
+  // (label 文本定位字段容器 → combobox/button 点开 → role=option/li 选择)。
+  const DD = [
+    ['Category', 'Developer Tools'],
+    ['Build System', 'GitHub Actions'],
+    ['Primary Discovery Channel', 'Organic search'],
+  ]
+  for (const [label, opt] of DD) {
     try {
-      await sel.waitFor({ state: 'visible', timeout: 8000 })
-      const optHandle = sel.locator(`option:has-text("${val}")`).first()
-      const optVal = (await optHandle.getAttribute('value')) || val
-      await sel.selectOption(optVal, { timeout: 8000 })
-      console.log('SP-DD select=' + val + ' val=' + optVal)
+      const field = hf
+        .locator(`.hsfc-DropdownField:has(label:has-text("${label}")), [class*="Dropdown"]:has(label:has-text("${label}"))`)
+        .first()
+      await field.waitFor({ state: 'visible', timeout: 8000 })
+      const combo = field.locator('[role="combobox"], button').first()
+      await combo.click({ timeout: 8000 })
+      await sleep(1000)
+      const option = hf.locator(`[role="option"]:has-text("${opt}"), li:has-text("${opt}")`).first()
+      await option.click({ timeout: 8000 })
+      await sleep(600)
+      console.log(`SP-DD ${label}=${opt}`)
     } catch (e) {
-      console.log('SP-DD select-fail=' + val + ' ' + String(e.message).slice(0, 60))
+      console.log(`SP-DD-fail ${label}=${opt} ${String(e.message).slice(0, 70)}`)
     }
   }
-  // 诊断:dump 表单 HTML(下拉结构)供核实
+  // 诊断:dump 第一个 dropdown 容器结构(供精准修复)
   try {
-    const html = await hf
-      .locator('form')
+    const ddHtml = await hf
+      .locator('.hsfc-DropdownField, [class*="Dropdown"]')
       .first()
-      .evaluate((el) => el.outerHTML.replace(/\s+/g, ' ').slice(0, 2000))
-    console.log('SP_FORM_HTML=' + html)
+      .evaluate((el) => el.outerHTML.replace(/\s+/g, ' ').slice(0, 1500))
+      .catch(() => '(no dropdown container found)')
+    console.log('SP_DD_HTML=' + ddHtml)
   } catch {}
   await shot(page, `sp-dd-done`)
 
