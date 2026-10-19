@@ -22,14 +22,27 @@ import type {
   /** 命令在等键盘输入(api-client 2026-09-29 立 D151,本解析器同批接上) */
   TerminalInteractionEvent,
   GoalUpdateEvent,
+  /** D77(2026-09-25 立,本解析器 2026-10-18 接上):对话流业务表单请求帧 */
+  FormRequestEvent,
 } from '@ihui/api-client'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
+import {
+  applyFrame,
+  createWatermarkState,
+  type ProjectionWatermarkState,
+  type RejectReason,
+  type WatermarkFrame,
+} from '../chat/projection-watermark.js'
 
 // D174(2026-09-30 立):帧级 traceId 的键名与归一规则只有一份,住在 SSE 契约层
 // (`sse/contract.ts`,与 Python 侧 `core/sse_contract.py` + `core/trace_context.py` 对应)。
 // 本解析器不另写一遍 hex/全 0 判据 —— 两处算同一件事必漂移,而漂开的表现是"有的帧的
 // trace 被采信、有的被判废",排查时最难归因。
-import { normalizeSSEFrameTraceId, SSE_TRACE_ID_PAYLOAD_KEY } from '../sse/contract'
+import {
+  normalizeSSEFrameTraceId,
+  SSE_AGENT_ID_PAYLOAD_KEY,
+  SSE_TRACE_ID_PAYLOAD_KEY,
+} from '../sse/contract'
 
 /**
  * SSE 事件对象。
@@ -89,6 +102,10 @@ export interface SSEEvent {
     // 状态与目标原文整帧丢失(terminal_delta=D19-A1、tool-delta=D113、
     // terminal_interaction=D151 同型三次;判据 scripts/check-sse-parser-parity.mjs)。
     | 'goal_updated'
+    // ===== D77(2026-09-25 立,本解析器 2026-10-18 接上):对话流业务表单请求帧 =====
+    // 载荷 {requestId, kind, fields[], actions[], sessionId?, messageId?} —— 字段口径与
+    // @ihui/api-client 的 FormRequestEvent / tryParseFormRequest 逐位一致(见判据注释)。
+    | 'form_request'
     // ===== G-815976(2026-10-04 收口入契约):流式中断标记帧 =====
     // llm_gateway astream 异常中断且已发过 chunk 时发出(此后流终止,不会有 done)。
     // 载荷 {fallback_applied, reason, model?} —— 不带 content/delta/text,不认领会
@@ -106,6 +123,17 @@ export interface SSEEvent {
    * `traceparent` 头)—— 归属/权限判定不得读它。
    */
   traceId?: string
+  /**
+   * G-248 R1(2026-10-19 补):顶层注入的 agent 关联键。契约位
+   * `sse/contract.ts::SSEEventMeta.agentId`(网关在 agent 绑定的流上注入,用于前端
+   * subagent 卡片分流),此前本解析器**一个都不认领** —— 与 api-client 那条链的
+   * `extractTopLevelAgentId` 同键不同命,端上因此只在一半链路上拿得到它。
+   * 认领点与 traceId 同在 `parseLine` 最外层(内层分支不得自己再挂一遍)。
+   *
+   * 缺席 = 这一帧不在 agent 绑定流上(不是空串)。空串不当值采信(与
+   * "缺席必须与空值可分"同纪律),故这里只在非空字符串时落键。
+   */
+  agentId?: string
   /** 错误码(对齐 @ihui/api-client SSEErrorInfo 字段) */
   code?: number
   errorCode?: string
@@ -179,6 +207,8 @@ export interface SSEEvent {
   terminalInteraction?: TerminalInteractionEvent
   /** D152 会话目标状态(goal_updated):字段口径与 api-client tryParseGoalUpdate 一致 */
   goalUpdated?: GoalUpdateEvent
+  /** D77 对话流业务表单请求帧(form_request):字段口径与 api-client FormRequestEvent 一致 */
+  formRequest?: FormRequestEvent
   /** G-815976 流式中断标记(partial_done):字段口径与 api-client PartialDoneEvent 一致 */
   partialDone?: {
     fallback_applied: boolean
@@ -221,17 +251,41 @@ export interface SSEReplayGuard {
 /** 非 `{prefix}-{seq}` 形态 id 的精确去重缓存上限(防长流内存无界)。 */
 const REPLAY_SEEN_NON_SEQ_CAP = 1024
 
+/** 守卫实例的缺省代际编号(每一次连接尝试各建一个实例 ⇒ 跨连接不可比的序号天然分代)。 */
+let GUARD_INSTANCE_SEQ = 0
+
 /**
- * 单调性守卫(默认实现)。
+ * 单调性守卫(默认实现)—— **判据交给投影水位协议**(票 G-274 的生产消费点)。
  *
- * id 形态 `{prefix}-{seq}`(与 ai-service sse_buffer._parse_seq 同判据:prefix 可含
- * `-`,尾段必须纯数字):维护已见最大 seq,seq ≤ maxSeq 的事件判为重放丢弃 ——
- * 单调游标只需 O(1) 内存,不为长流保留历史。
- * 不带数字尾段的 id(UUID 等)无法判单调,退化为精确去重(有界缓存)。
+ * 为什么不是"再加一条本地补偿":原实现在 `seq > maxSeq` 时无条件放行,于是**断档被静默 admit**
+ * —— 少了一帧还把后续拼进本地投影,正是"UI 显示一份自洽但根本不存在的对话、日志零痕迹"那一型。
+ * 现在首帧立基线(带真实序号,绝不喂 null 否则协议会把每帧判成 `watermark-unknown` ⇒ 每条 delta
+ * 都变全量重拉),后续帧交 `applyFrame`:
+ *  - 迟到/重复 ⇒ `drop`(与既有 `seq <= maxSeq` 丢弃**逐次同结论**,happy path 零行为变化);
+ *  - 衔接(fromSeq = applied+1 或 resume 重叠)⇒ `apply`;
+ *  - **断档 ⇒ `resync`:该帧不放行,并把原因挂到 `pendingResync`,由消费方去重订阅**。
+ * 协议禁止本地补偿(不裁头、不补洞),所以这里刻意不"把缺的那帧凑出来"。
+ * 不带数字尾段的 id(UUID 等)无法判单调 ⇒ 不喂协议,退化为既有精确去重(判"未知"就是未知)。
  */
 export class SseMonotonicReplayGuard implements SSEReplayGuard {
   private maxSeq = -1
   private readonly seenNonSeq = new Set<string>()
+  private readonly baseId: string
+  private wm: ProjectionWatermarkState
+  private resync: { reason: RejectReason; fromSeq: number } | null = null
+
+  constructor(seed?: { baseId?: string }) {
+    this.baseId = seed?.baseId ?? `sse-guard-${(GUARD_INSTANCE_SEQ += 1)}`
+    this.wm = createWatermarkState({ baseId: this.baseId })
+  }
+
+  /**
+   * 非 null = 协议判定手上这份投影已不可续,必须重新订阅(而不是继续拼)。
+   * 只读出口,不改状态 ⇒ 消费方读几次都是同一事实,不会"读一次就自愈"。
+   */
+  get pendingResync(): { reason: RejectReason; fromSeq: number } | null {
+    return this.resync
+  }
 
   admit(eventId: string): boolean {
     const seq = sseEventSeqOf(eventId)
@@ -241,7 +295,17 @@ export class SseMonotonicReplayGuard implements SSEReplayGuard {
       this.seenNonSeq.add(eventId)
       return true
     }
-    if (seq <= this.maxSeq) return false
+    const frame: WatermarkFrame =
+      this.maxSeq === -1
+        ? { kind: 'snapshot', baseId: this.baseId, seq }
+        : { kind: 'delta', fromSeq: seq, toSeq: seq }
+    const t = applyFrame(this.wm, frame)
+    this.wm = t.state
+    if (t.verdict.action === 'resync') {
+      this.resync = { reason: t.verdict.reason, fromSeq: seq }
+      return false
+    }
+    if (t.verdict.action === 'drop') return false
     this.maxSeq = seq
     return true
   }
@@ -355,7 +419,12 @@ export function dataPayloadOfLine(line: string): string | null {
 }
 
 /**
- * D174(2026-09-30 立):帧级 traceId 的**唯一认领点** —— 挂在整条认领链的最外层。
+ * D174(2026-09-30 立):顶层注入字段的**唯一认领点** —— 挂在整条认领链的最外层。
+ * G-248 R1(2026-10-19 扩面):从"只认 traceId"扩成"认 `SSEEventMeta` 声明的全部顶层
+ * 注入字段"(此刻 = agentId + traceId)。扩面的成因是现读发现的一处真漏:契约声明了
+ * `agentId`,而本解析器的 `SSEEvent` **一个 agentId 都不认领** —— api-client 那条链有
+ * `extractTopLevelAgentId`,这条链没有 ⇒ 同一根线上的同一个键,一条链认一条链不认,
+ * 正是 [[contract-and-view-green-while-parser-drops-fields]](契约与视图全绿而解析面丢字段)。
  *
  * 为什么必须在包装层、而不是在某个分支里挂:本函数尾部有一条泛化兜底
  * `typeof json?.sessionId === 'string' ⇒ {type:'meta', sessionId}`,内层分支 `return`
@@ -363,35 +432,49 @@ export function dataPayloadOfLine(line: string): string | null {
  * 本仓同型已栽过三次 —— terminal_delta 被折成 chunk(D19-A1)、tool-delta 被整帧丢掉
  * (D113)、terminal_interaction 被折成 meta(D151);判据
  * `scripts/check-sse-parser-parity.mjs`。在这一层挂,**每一帧**都过这一次,连被兜底
- * 折掉的那些也带着自己的 traceId。
+ * 折掉的那些也带着自己的 meta。
  *
- * 代价如实登记:具名帧的 data JSON 因此被解析两次(`parseLineEvent` 一次、取 trace 一次)。
- * 一次 parse 的是几百字节的对象(实测每帧微秒级),换来的是"新分支不需要记得挂 trace"
- * —— 少一处会漏的地方,比省一次 parse 值钱。
+ * 代价如实登记:具名帧的 data JSON 因此被解析两次(`parseLineEvent` 一次、取 meta 一次)。
+ * 一次 parse 的是几百字节的对象(实测每帧微秒级),换来的是"新分支不需要记得挂 meta"
+ * —— 少一处会漏的地方,比省一次 parse 值钱。**新增顶层注入字段只需改 `frameMetaOfLine`
+ * 一处 + 契约的 `SSEEventMeta`**,漏改由 `sse/__tests__/sse-meta-projection-lock.test.ts`
+ * 双向对账(契约有而端上不认领 ⇒ 红;端上认领而契约没声明 ⇒ 红)。
  */
 function parseLine(line: string): SSEEvent | null {
   const evt = parseLineEvent(line)
   if (!evt) return null
-  const traceId = frameTraceIdOfLine(line)
-  return traceId ? { ...evt, traceId } : evt
+  const meta = frameMetaOfLine(line)
+  return meta ? { ...evt, ...meta } : evt
 }
 
 /**
- * 从一行 SSE 文本里取帧级 traceId;取不到 ⇒ `undefined`(**不写空串、不写 null**)。
+ * 从一行 SSE 文本里取**顶层注入的关联字段**;一个都没取到 ⇒ `undefined`
+ * (**不写空串、不写 null**,缺席与空值必须可分)。
  *
- * 值规则(小写 32 hex / 全 0 非法)只在 `sse/contract.ts::normalizeSSEFrameTraceId`
- * 那一份里定义,生产侧对应 `apps/ai-service/app/core/trace_context.py::normalize_trace_id`。
- * `[DONE]` 与 Vercel data-stream 的 `0:"…"` 协议帧不带我方 payload ⇒ 直接不给 trace。
+ * 各字段的值规则只在其契约侧那一份里定义(此刻:`traceId` 走
+ * `sse/contract.ts::normalizeSSEFrameTraceId`;`agentId` 是非空字符串即采信,
+ * 归一规则由生产侧 `sse_contract.py` 与 api-client `extractTopLevelAgentId` 对账)。
+ * `[DONE]` 与 Vercel data-stream 的 `0:"…"` 协议帧不带我方 payload ⇒ 一律不给。
  */
-function frameTraceIdOfLine(line: string): string | undefined {
+function frameMetaOfLine(line: string): Pick<SSEEvent, 'agentId' | 'traceId'> | undefined {
   const data = dataPayloadOfLine(line)
   if (!data || data === '[DONE]') return undefined
   if (/^\d+:.*$/su.test(data)) return undefined
+  let json: unknown
   try {
-    const json = JSON.parse(data) as Record<string, unknown>
-    return normalizeSSEFrameTraceId(json?.[SSE_TRACE_ID_PAYLOAD_KEY])
+    json = JSON.parse(data)
   } catch {
     return undefined
+  }
+  if (typeof json !== 'object' || json === null) return undefined
+  const rec = json as Record<string, unknown>
+  const traceId = normalizeSSEFrameTraceId(rec[SSE_TRACE_ID_PAYLOAD_KEY])
+  const rawAgentId = rec[SSE_AGENT_ID_PAYLOAD_KEY]
+  const agentId = typeof rawAgentId === 'string' && rawAgentId.length > 0 ? rawAgentId : undefined
+  if (traceId === undefined && agentId === undefined) return undefined
+  return {
+    ...(agentId !== undefined ? { agentId } : {}),
+    ...(traceId !== undefined ? { traceId } : {}),
   }
 }
 
@@ -617,6 +700,46 @@ function parseLineEvent(line: string): SSEEvent | null {
         ...(typeof json.updatedAt === 'number' ? { updatedAt: json.updatedAt } : {}),
       }
       return { type: 'goal_updated', goalUpdated: goal }
+    }
+    // ===== D77(2026-09-25 立,本解析器 2026-10-18 接上):form_request 认领 =====
+    // 字段收窄口径逐位抄 @ihui/api-client client.ts 的 tryParseFormRequest(同源纪律,判据
+    // scripts/check-sse-parser-parity.mjs):requestId/kind 必须是非空 string,fields 必须是非空
+    // 数组且逐个收窄为 {key,type,required,placeholderKey?}(key 非空 string 才收),actions
+    // 必须成对(同时含 'approve' 与 'reject'),任一条不满足 → 畸形帧,一律 **丢弃**(return null),
+    // 绝不回落 chunk/meta —— 静默降级就是给"填不了/无法应答"的表单添砖加瓦。
+    if (json?.type === 'form_request') {
+      const requestId = json.requestId
+      const kind = json.kind
+      if (typeof requestId !== 'string' || requestId === '') return null
+      if (typeof kind !== 'string' || kind === '') return null
+      const rawFields = json.fields
+      if (!Array.isArray(rawFields) || rawFields.length === 0) return null
+      const fields: FormRequestEvent['fields'] = []
+      for (const raw of rawFields) {
+        if (typeof raw !== 'object' || raw === null) continue
+        const f = raw as Record<string, unknown>
+        if (typeof f.key !== 'string' || f.key === '') continue
+        fields.push({
+          key: f.key,
+          type: typeof f.type === 'string' ? f.type : 'text',
+          required: f.required === true,
+          ...(typeof f.placeholderKey === 'string' ? { placeholderKey: f.placeholderKey } : {}),
+        })
+      }
+      if (fields.length === 0) return null
+      const actions = Array.isArray(json.actions)
+        ? (json.actions as unknown[]).filter((a): a is string => typeof a === 'string')
+        : []
+      if (!actions.includes('approve') || !actions.includes('reject')) return null
+      const evt: FormRequestEvent = {
+        requestId,
+        kind,
+        fields,
+        actions,
+        ...(typeof json.sessionId === 'string' ? { sessionId: json.sessionId } : {}),
+        ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+      }
+      return { type: 'form_request', formRequest: evt }
     }
     // G-815976(2026-10-04):流式中断标记帧认领 —— 不带 content/delta/text,不认领
     // 会被静默丢掉(与 terminal_delta/tool-delta 同型:帧能到设备却像"功能不存在")。
