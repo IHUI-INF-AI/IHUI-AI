@@ -227,3 +227,24 @@ def test_malformed_claim_argument_is_refused(tmp_path: Path, bad: str, capsys) -
     assert rc == 1
     assert "拒绝" in capsys.readouterr().out
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+
+def test_gbk_console_still_delivers_its_refusal() -> None:
+    """强制 GBK 码页跑 CLI:拒执行文案必须打到 stdout,而不是把进程崩在打印上。
+
+    这一臂就是"修复前必红"的凭据:未加固时 `print("❌ ...")` 抛 UnicodeEncodeError,
+    rc 虽仍非 0,但运维读不到"为什么没跑",而这张票的解阻动作恰恰是"跑一次 dry-run"。
+    更坏的一型是写盘成功之后才打印 ✅ —— 输出面不许推翻已成立的结果。
+    """
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+    env = {**os.environ, "PYTHONIOENCODING": "gbk", "PYTHONUTF8": "0"}
+    proc = subprocess.run(
+        [sys.executable, str(Path("scripts/backfill_connector_owner.py"))],
+        capture_output=True, text=True, encoding="gbk", errors="replace", env=env, timeout=60,
+    )
+    assert "UnicodeEncodeError" not in (proc.stdout + proc.stderr)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "拒绝" in proc.stdout, proc.stdout
