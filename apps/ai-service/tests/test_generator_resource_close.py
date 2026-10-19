@@ -14,11 +14,18 @@
      由 site1、site3 与出口自身的用例证成。
   ③ site3 `app/services/publish/ai_assistant._astream`(带 `except Exception` 吞错的那一型)
      —— 行为级,并专测"关停自身失败不得吃掉原 warning"
+  ④ site4 `app/routers/agent_runtime.py` SSE 流(2026-10-19,G-77 cell① 第一处内联借入
+     改造:`async for event in graph.astream(...)` 旧内联写法 ⇒ 句柄化 + break 前关停
+     + finally shield 兜底,与 site2 同形)—— 形状对账(该流嵌在会话/Redis 上下文里,
+     无法脱离真实 req 单跑,行为由出口与 site1/site3 的用例证成)
 
 票面三条判据逐一有正反例:
   A 消费一半就被弃 ⇒ 底层生成器 `aclose()` 恰被调用 1 次
   B 正常耗尽 ⇒ 产出序列与改动前逐字一致、aclose 至多 1 次、不因关停路径重复抛错
   C 底层抛错走 fallback ⇒ 前一个生成器被关停 **且** fallback 分支照常产出
+  D 生成器体内**持事务**(上游 migration-runner.ts 记的"begin immediate 仍开着,
+    业务拿着身在事务里的连接继续读写"那一型)⇒ 半途弃置经出口关停后事务恰回滚
+    一次、不得被洗成提交;正常走完 ⇒ 提交恰一次,再按规矩关一次不得二次回滚/提交
 
 测试隔离(AGENTS §5 铁律):全程 fake 异步迭代器;llm_gateway 的 compaction / provider /
 fallback 三个上游出口与 ai_assistant 里的 `llm_gateway.astream` 一律 monkeypatch 成替身
@@ -307,13 +314,24 @@ def test_site2_disconnect_path_closes_before_break_and_finally_backstops():
     #    MCP 取消闭环 / 委托 session / 表单待决 / 引导队列四项清理;裸 await 一旦在取消点抛出
     #    CancelledError,那四项就整批被跳过(与本文件既有的"取消仅 fire 不 await"同一条理由)。
     #    判的是这条不变量,不锁具体书写形状:换写法(例如挪到 finally 末尾)仍应通过。
-    fin_at = src.index("        finally:\n            # 借来的异步生成器兜底关停")
-    seg = src[fin_at : fin_at + 1600]
+    #    锚点口径(2026-10-19 修,单文件档当场抓到的一处 staleness):原锚点要求
+    #    「# 借来的异步生成器兜底关停」注释紧贴 finally 首行,而他席往 finally 头部插入
+    #    interrupted 回调块后该文本锁误红 —— 接线本身完好(break 前一次 + finally 里一次),
+    #    是锚点锁了形状。改为语义锚点:**流循环之后第一个 8 空格 finally:** 即包住该流的
+    #    try 的 finally(循环体内任何嵌套 finally 缩进必深于 8 空格,同级 sibling try 若插在
+    #    循环与它之间也会先被命中 —— 两种情形都仍在该流的 try 辖域内,不变量判定不受影响)。
+    fin_at = src.index("        finally:\n", loop_at)
+    seg = src[fin_at : fin_at + 4200]
     assert "aclose_async_gen(" in seg, "finally 里已没有兜底关停 ⇒ 抛错/GeneratorExit 路径回到等 GC"
+    # 关停必须被 shield 接管:shield 出现在该次关停调用之前(同一 finally 窗口内)
+    close_at = seg.index("aclose_async_gen(")
+    shield_at = seg.find("asyncio.shield(")
+    assert (
+        shield_at != -1 and shield_at < close_at
+    ), "兜底关停必须被 shield 接管(或被挪到 finally 末尾)"
     assert (
         "\n            await aclose_async_gen(\n                _native_fc_stream" not in seg
     ), "兜底关停退回**裸 await** ⇒ 取消作用域内会跳过其后四项清理(见上方注释)"
-    assert "asyncio.shield(" in seg, "兜底关停必须被 shield 接管(或被挪到 finally 末尾)"
 
 
 def test_site2_inline_borrow_form_is_gone():
@@ -403,4 +421,173 @@ def test_shielded_close_in_finally_still_runs_later_cleanups():
         "裸 await 版**竟然**做完了清理 ⇒ 本用例的反向对照失效(取消没有在取消点点燃,"
         "是测试环境变了,不构成「可以把 shield 删掉」的依据)"
     )
+
+
+# ----------------------------------------------------------------------------
+# 票面判据 D:生成器体内持事务 —— 半途弃置 ⇒ 回滚;正常走完 ⇒ 不二次回滚
+# (FakeStream 只模拟 `async with client.stream(...)` 退出,事务这一维此前没有
+#  对应用例;单文件档补上后,票面「正反成对」才算齐。)
+# ----------------------------------------------------------------------------
+
+
+class FakeTxConn:
+    """"身在事务里的连接"替身:量 rollback/commit 次数与是否仍处在事务中。"""
+
+    def __init__(self) -> None:
+        self.in_transaction = False
+        self.rollback_count = 0
+        self.commit_count = 0
+
+    def begin(self) -> None:
+        self.in_transaction = True
+
+    def commit(self) -> None:
+        self.commit_count += 1
+        self.in_transaction = False
+
+    def rollback(self) -> None:
+        self.rollback_count += 1
+        self.in_transaction = False
+
+
+class FakeTxStream:
+    """"持事务的异步生成器"替身:启动即 begin;耗尽走 commit;被弃(finalized
+    时事务还开着)走 rollback —— 与"半迁移连接"那一型同形。"""
+
+    def __init__(self, events: list[Any], conn: FakeTxConn) -> None:
+        self._events = events
+        self._conn = conn
+        self.aclose_count = 0
+        self._gen = self._drive()
+
+    async def _drive(self):
+        self._conn.begin()
+        try:
+            for evt in self._events:
+                if isinstance(evt, BaseException):
+                    raise evt
+                yield evt
+            self._conn.commit()
+        finally:
+            if self._conn.in_transaction:
+                self._conn.rollback()
+
+    def __aiter__(self):
+        return self._gen.__aiter__()
+
+    async def aclose(self) -> None:
+        self.aclose_count += 1
+        await self._gen.aclose()
+
+
+async def test_tx_stream_abandoned_midway_rolls_back_via_outlet():
+    """票面正例:消费一半即被弃(生成器内含事务)⇒ 经关停出口断言连接已回滚。
+
+    负向对照夹在中间:关停之前 in_transaction 仍为 True、rollback 数为 0 ——
+    那正是"业务拿着身在事务里的连接继续读写"的脏读窗口;出口一跑,体内 finally
+    才落地,事务恰回滚一次,且**不得**被洗成提交。
+    """
+    conn = FakeTxConn()
+    stream = FakeTxStream([{"type": "chunk"}, {"type": "chunk"}], conn)
+    it = stream.__aiter__()
+    await it.__anext__()
+    assert conn.in_transaction is True
+    assert conn.rollback_count == 0
+    assert conn.commit_count == 0
+
+    assert await aclose_async_gen(stream, label="tx") is True
+    assert conn.rollback_count == 1
+    assert conn.commit_count == 0  # 半途弃置不得洗成"成功提交"
+    assert conn.in_transaction is False
+
+
+async def test_tx_stream_exhausted_no_double_rollback():
+    """票面反例:正常走完 ⇒ 提交恰一次;消费方再按规矩关一次 ⇒ 不得二次回滚/提交。
+
+    "防把成功当失败":exhausted 后 aclose 是合法 no-op(出口语义第 1 条),体内
+    finally 不会二次跑;若实现把"关停"写成无条件 rollback,这条立刻红。
+    """
+    conn = FakeTxConn()
+    stream = FakeTxStream([{"type": "chunk"}, {"type": "done"}], conn)
+    async for _ in stream:
+        pass
+    assert conn.commit_count == 1
+    assert conn.rollback_count == 0
+    assert conn.in_transaction is False
+
+    assert await aclose_async_gen(stream, label="tx") is True  # 不抛
+    assert conn.rollback_count == 0  # 不得二次回滚
+    assert conn.commit_count == 1  # 不得二次提交
+
+
+async def test_site3_tx_stream_abandoned_midway_rolls_back(monkeypatch):
+    """真实接线路径(site3)的事务维度:外层 _astream 被归还 ⇒ 其 finally 经出口
+    关停底层 ⇒ 底层 finally 回滚事务。上面两条证出口契约,这一条证接线真的通。"""
+    conn = FakeTxConn()
+    stream = FakeTxStream(
+        [{"type": "chunk", "content": "x"}, {"type": "chunk", "content": "y"}], conn
+    )
+    _patch_gateway_astream(monkeypatch, stream)
+    agen = AiWritingService()._astream("prompt")
+
+    async for _ in agen:
+        break
+    assert conn.in_transaction is True  # 外层尚未归还 ⇒ 半迁移连接窗口
+    assert conn.rollback_count == 0
+
+    await agen.aclose()  # 消费方归还:site3 finally → aclose_async_gen → 底层 aclose
+    assert conn.rollback_count == 1
+    assert conn.in_transaction is False
+
+
+# ----------------------------------------------------------------------------
+# site4:routers/agent_runtime.py 的 SSE 流(G-77 cell① 第一处内联借入改造,2026-10-19)
+# ----------------------------------------------------------------------------
+
+_ROUTER_AGENT_RUNTIME_PY = (
+    Path(__file__).resolve().parents[1] / "app" / "routers" / "agent_runtime.py"
+)
+
+
+def test_site4_inline_borrow_form_is_gone():
+    """反向对照:`graph.astream` 不得再只活在 async for 表达式里(旧内联写法)。
+
+    这一型正是票面记的缺陷原形:"消费方提前 break/抛错时 generator 自身的 finally
+    不会自动跑 ⇒ begin immediate 仍开着"—— 没有句柄就无从归还。
+    """
+    src = _ROUTER_AGENT_RUNTIME_PY.read_text(encoding="utf-8")
+    assert "async for event in graph.astream(initial_state):" not in src
+
+
+def test_site4_disconnect_path_closes_before_break_and_finally_backstops():
+    src = _ROUTER_AGENT_RUNTIME_PY.read_text(encoding="utf-8")
+
+    # ① 句柄先置 None ⇒ 内层 finally 不会 UnboundLocalError(与 site2 同一条理由)
+    assert "_graph_stream: AsyncIterator[Any] | None = None" in src
+
+    # ② break 之前就关:控制流必须出现在该 if 分支内、break 之前
+    #    (循环体比 site2 多嵌一层内层 try ⇒ break 在 24 空格)
+    loop_at = src.index("async for event in _graph_stream:")
+    tail = src[loop_at:]
+    brk_at = tail.index("\n                        break\n")
+    segment = tail[:brk_at]
+    assert "await aclose_async_gen(" in segment, "客户端断开路径未在 break 之前关停生成器"
+
+    # ③ 兜底:内层 try 的 finally 里也有一次关停(抛错 / CancelledError / GeneratorExit
+    #    三条被弃路径),且必须被 shield 接管、不得裸 await —— 与 site2 同一条不变量:
+    #    这段 finally 在取消作用域里执行,裸 await 会点燃 CancelledError 把外层 except
+    #    的 session failed 收尾整批跳过。锚点取"流循环之后第一个 12 空格 finally:"
+    #    (循环体内嵌套 finally 缩进必更深;async-for 是内层 try 的末句,同级 sibling
+    #    不可能插在它与 finally 之间)。
+    fin_at = src.index("            finally:\n", loop_at)
+    seg = src[fin_at : fin_at + 3200]
+    assert "aclose_async_gen(" in seg, "finally 里已没有兜底关停 ⇒ 被弃路径回到等 GC"
+    close_at = seg.index("aclose_async_gen(")
+    shield_at = seg.find("asyncio.shield(")
+    assert (
+        shield_at != -1 and shield_at < close_at
+    ), "兜底关停必须被 shield 接管(或被挪到 finally 末尾)"
+    assert (
+        "\n            await aclose_async_gen(" not in seg
+    ), "兜底关停退回**裸 await** ⇒ 取消作用域内会跳过后收尾(见上方注释)"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
