@@ -23,7 +23,7 @@
  *         仓库问不到东西(`ok=false`)必须三种答法,不得共用"0 枚"这一个词。
  */
 import test from 'node:test'
-import { maskedSpans } from '../lib/code-mask.mjs'
+import { maskedSpans, maskComments } from '../lib/code-mask.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
@@ -281,7 +281,13 @@ test('T5 同源 schema 锁:键名与 safe-commit 那本逐字同族,只多 gates
   // 落地器不得自己再拼一次路径(第二份落点)
   for (const f of ['object-space-land.mjs', 'live-doc-edit.mjs']) {
     const s = src(f)
-    assert.ok(!s.includes('safe-commit-attestation.jsonl'), `${f} 里出现了台账路径字面量 ⇒ 落点分叉`)
+    // 判"有没有第二份落点"是**判字面量**的门:按 AGENTS 横向口径,遮罩只遮注释、保留字符串 ——
+    // 注释里引用一次台账文件名(读给人看的量级注记)是叙述,不是落点;而把路径写进代码字符串
+    // 仍然是分叉,照红。2026-10-19 实测踩的就是前者(误报)。
+    assert.ok(
+      !maskComments(s).includes('safe-commit-attestation.jsonl'),
+      `${f} 里出现了台账路径字面量 ⇒ 落点分叉`,
+    )
     assert.match(s, /from '\.\/lib\/commit-attestation\.mjs'/, `${f} 必须引唯一出口`)
     assert.match(s, /recordBypassLanding\(\{/, `${f} 必须真的调用留痕出口(判据在而无人调 = 没有)`)
     const j = s.indexOf('if (!attest.ok)')
@@ -320,8 +326,8 @@ test('T5b HEAD 面装车锁:两个落地器在**被审面**上都必须真的接
       `${rel} 的 HEAD 版本里 recordBypassLanding( 的**调用**应恰好 1 处(import 那行不带左括号,由上面那条断言单独锁),实测 ${head.split('recordBypassLanding(').length - 1} 处`,
     )
     assert.ok(
-      !head.includes('safe-commit-attestation.jsonl'),
-      `${rel} 的 HEAD 版本自己拼了台账路径 ⇒ 落点分叉`,
+      !maskComments(head).includes('safe-commit-attestation.jsonl'),
+      `${rel} 的 HEAD 版本自己拼了台账路径 ⇒ 落点分叉(判字面量只遮注释、保留字符串,故真落点仍会被抓到)`,
     )
   }
 })
