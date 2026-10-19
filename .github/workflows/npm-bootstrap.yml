@@ -14,6 +14,10 @@ on:
         description: 'signup | verify_token | publish'
         required: true
         default: 'signup'
+      attempts:
+        description: '整轮重试次数(诊断时可传 1 快速拿结果)'
+        required: false
+        default: '3'
 
 concurrency:
   group: npm-bootstrap
@@ -26,6 +30,7 @@ jobs:
     timeout-minutes: 45
     env:
       ACTION: ${{ github.event.inputs.action }}
+      BOOT_ATTEMPTS: ${{ github.event.inputs.attempts || '3' }}
       PUBKEY_PEM: ${{ secrets.NPM_BOOT_PUBKEY }}
       NPM_EMAIL: ${{ secrets.NPM_BOOT_EMAIL }}
       NPM_USERNAME: ${{ secrets.NPM_BOOT_USERNAME }}
