@@ -177,6 +177,9 @@
     "inputPlaceholder": "무언가 입력하세요...",
     "compactionNotice": "컨텍스트 자동 압축:{before} → {after}({removed}개 기록 제거)",
     "partialDoneTitle": "응답이 중단되었습니다. 아래 내용은 불완전할 수 있습니다",
+    "truncation": {
+      "maxLengthNotice": "이 답변은 최대 출력 길이에 도달하여 잘렸으며 내용이 불완전합니다. \"계속\"을 보내면 이어서 생성됩니다."
+    },
     "voiceStop": "녹음 중지",
     "voiceStart": "녹음 시작",
     "voiceError": "마이크에 접근할 수 없습니다. 브라우저 설정에서 마이크 권한을 허용해 주세요",
