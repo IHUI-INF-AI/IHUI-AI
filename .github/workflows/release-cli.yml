@@ -30,10 +30,9 @@ jobs:
   npm-publish:
     name: Publish to npm
     runs-on: ubuntu-latest
-    # 2026-10-18 起改走 npm Trusted Publishing(OIDC):不再读 NPM_TOKEN secret,
-    # 由 GitHub Actions 的 id-token 向 npm 换取一次性发布令牌,同时产出 Sigstore provenance。
-    # 前提(一次性,人工):包 ihui-cli 必须已存在于 registry 才能登记 trusted publisher ——
-    # 首版 bootstrap 见 docs/npm-publish-guide.md §7.2;未 bootstrap 前本 job 只做探测并跳过发布。
+    # 2026-10-19 定案:不启用 2FA → 不登记 Trusted Publisher。发布实际走 secrets.NPM_PUBLISH_TOKEN
+    # (granular token,bypass_2fa),OIDC/--provenance 仅作前向兼容保留,失败会自动回退。
+    # 首版 1.0.0 已 bootstrap 完成(docs/npm-publish-guide.md §7.2)。
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -75,28 +74,28 @@ jobs:
 
       - name: Probe npm registry
         id: probe
-        # Trusted Publishing 不能给不存在的包登记 publisher。首版由人工 bootstrap 后,
-        # 本 job 才真正发布;此前保持 release 链绿色并给出明确提示。
+        # Trusted Publishing 不能给不存在的包登记 publisher。首版 1.0.0 已 bootstrap,
+        # 正常情况下恒为 exists=true;exists=false 只应出现在 registry 不可达等异常场景。
         run: |
           if npm view ihui-cli version --registry=https://registry.npmjs.org/ >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::ihui-cli 尚未在 npm 上 bootstrap(首版需人工发布,见 docs/npm-publish-guide.md §7.2),本次跳过 npm 发布"
+            echo "::warning::npm view ihui-cli 失败(包已存在,疑似 registry 不可达),本次跳过 npm 发布"
           fi
 
       - name: Publish to npm
         if: steps.probe.outputs.exists == 'true'
-        # 首选 Trusted Publishing(OIDC + Sigstore provenance 徽章);若包页尚未登记
-        # trusted publisher(表现:OIDC 换取失败/403),回退 NPM_PUBLISH_TOKEN
-        # (Classic Automation token,无写包权限外的敏感面)——双保险保证每次发版必达 npm。
+        # 既定方案:不使用 2FA,故不登记 Trusted Publisher,OIDC 必然失败 →
+        # 直接回退 NPM_PUBLISH_TOKEN(granular token,bypass_2fa)发布。
+        # 保留 OIDC 首次尝试仅作为"万一将来登记了"的前向兼容;失败属预期,不是故障。
         env:
           NPM_PUBLISH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
         run: |
           if npm publish ./npm-dist --access public --provenance; then
             echo "published via OIDC provenance"
           elif [ -n "$NPM_PUBLISH_TOKEN" ]; then
-            echo "::warning::OIDC 发布未成(疑似 Trusted Publisher 未登记),回退 token 发布"
+            echo "::notice::OIDC 不可用(项目不启用 2FA / 未登记 Trusted Publisher),按既定方案回退 token 发布"
             printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_PUBLISH_TOKEN" > ~/.npmrc
             npm publish ./npm-dist --access public
           else

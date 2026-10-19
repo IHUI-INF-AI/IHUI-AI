@@ -9,12 +9,15 @@ name: Release SDK
 #   标签前缀与 cli-v* / desktop-v* 对齐;裸 v* 会与仓库其他发版标签互相误触发,故不用。
 # 发布:npm(@ihui/sdk)+ PyPI(ihui-ai)+ Maven Central(com.ihui:ihui-ai-java)+ Go module(github.com/.../sdk/go)
 #       + NuGet(Ihui.AI)
-# 鉴权:优先 OIDC trusted publishing(npm/PyPI/Maven),无 OIDC 时回退 NPM_TOKEN/PYPI_TOKEN/MAVEN_TOKEN
-# npm 通道现状(2026-10-19 诚实登记):
-#   secrets.NPM_TOKEN **尚未配置** —— npm 账号仍未建成(npm-bootstrap.yml 首发引导最近 6 次全红:
-#   本机出口被 DataDome 封锁,GH runner Azure 出口被 Cloudflare Turnstile 拦截,自动化路径穷尽,
-#   待 owner 人工注册后在本 workflow 登记该 secret)。未配置时下方 real 模式 npm gate 判红
-#   (设计如此,不静默跳过);bootstrap 闭环前 CI 的 npm 发布通道不可用,不得虚假声称"已接线"。
+# 鉴权(*):见下方逐通道登记 —— npm / PyPI / Maven 当前均以长期 token 鉴权
+#   (OIDC trusted publishing 未接线:npm 因不启用 2FA 永久不登记,见 AGENTS.md §0 第 11 条;
+#    PyPI/Maven 尚无 pending publisher 配置)。Go 用自带 GITHUB_TOKEN;NuGet 走 API key。
+# npm 通道现状(2026-10-19 实测登记):
+#   npm 账号 ihui-ai **已建成**,CLI 通道 `ihui-cli@1.0.0` 已发布并 registry 回读确认;
+#   SDK 通道缺的是 secrets.NPM_TOKEN 这一枚(CLI 用的是 NPM_PUBLISH_TOKEN,互不复用)。
+#   未配置时下方 real 模式 npm gate 判红(设计如此,不静默跳过)。
+#   发布实现:先试 `--provenance`(前向兼容,失败属预期),随即回退 token 发布 ——
+#   与 release-cli.yml 同构。⛔ 不启用 2FA、不登记 trusted publisher、不存在"以后切 OIDC"。
 # .NET/NuGet 通道现状(2026-09-24 更正本文件此前的错误登记):
 #   工程文件 `packages/sdk/dotnet/Ihui.AI.csproj` **早已入库**(不是"仓库内无 dotnet 项目"),
 #   缺的一直是发布出口 —— 即下面这个 nuget-publish job。PackageId 由 csproj 文件名推导(= Ihui.AI),
@@ -69,7 +72,7 @@ on:
 permissions:
   contents: write
   packages: write
-  id-token: write # OIDC trusted publishing 必需
+  id-token: write # --provenance 的 Sigstore keyless 签发需要(前向兼容保留)
 
 env:
   NODE_VERSION: '22'
@@ -217,8 +220,8 @@ jobs:
           if need npm; then
             if [ -z "$NPM_TOKEN" ]; then
               echo "❌ npm:secrets.NPM_TOKEN 为空"
-              echo "   (OIDC trusted publishing 要求 npm 上先存在同名包才能登记 publisher,"
-              echo "    当前 @ihui/sdk 在 registry 是 404 → 首次发布只能走 token)"
+              echo "   (发布走 granular token,勾 Bypass 2FA;不启用 2FA → 不登记 Trusted Publisher,"
+              echo "    OIDC 分支属前向兼容尝试,失败会回退 token)"
               fail=1
             else
               echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > "$HOME/.npmrc"
@@ -378,14 +381,26 @@ jobs:
             console.log('✅ tarball 干净且自包含(dist + LICENSE + NOTICE)');
           "
 
-      - name: Publish to npm (OIDC trusted publishing)
+      - name: Publish to npm
         id: npm-readback
         if: needs.extract.outputs.dry_run == 'false'
         working-directory: packages/sdk
         run: |
           VERSION="${{ needs.extract.outputs.version }}"
-          echo "📦 Publishing @ihui/sdk@$VERSION to npm (OIDC)..."
-          npm publish --access public --provenance
+          # 既定方案:不启用 2FA → 不登记 Trusted Publisher → OIDC 必然失败。
+          # 先试 --provenance 仅作前向兼容,失败按预期回退 NPM_TOKEN(granular,bypass_2fa)。
+          set -o pipefail
+          if npm publish --access public --provenance; then
+            echo "published via OIDC provenance"
+          elif [ -n "$NODE_AUTH_TOKEN" ]; then
+            echo "::notice::OIDC 不可用(项目不启用 2FA / 未登记 Trusted Publisher),按既定方案回退 token 发布"
+            printf '//registry.npmjs.org/:_authToken=%s\n' "$NODE_AUTH_TOKEN" > "$HOME/.npmrc"
+            chmod 600 "$HOME/.npmrc"
+            npm publish --access public
+          else
+            echo "::error::OIDC 发布失败且 secrets.NPM_TOKEN 为空 —— SDK npm 通道不可发布"
+            exit 1
+          fi
           # 回读验证:registry 拿不到就等于没发布,绝不用"命令没报错"当结论。
           # registry 传播有延迟,故轮询而非单次 sleep —— 超时仍是判红,不降级为警告。
           PUBLISHED=""
@@ -401,7 +416,7 @@ jobs:
           echo "proof=@ihui/sdk@$VERSION (registry 回读确认)" >> "$GITHUB_OUTPUT"
           echo "✅ @ihui/sdk@$VERSION 已在 npm registry 可见"
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} # OIDC 失败时回退
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Dry-run verification
         if: needs.extract.outputs.dry_run == 'true'
@@ -502,7 +517,7 @@ jobs:
               sys.exit('❌ wheel 未附带 LICENSE / NOTICE')
           PY
 
-      - name: Publish to PyPI (OIDC trusted publishing)
+      - name: Publish to PyPI
         id: pypi-readback
         if: needs.extract.outputs.dry_run == 'false'
         working-directory: packages/sdk/python
@@ -510,7 +525,7 @@ jobs:
           VERSION="${{ needs.extract.outputs.version }}"
           # 上传前先 twine check:元数据/长描述不合法就不该去打 PyPI 的不可撤销动作
           python -m twine check dist/*
-          echo "📦 Publishing ihui-ai to PyPI (OIDC)..."
+          echo "📦 Publishing ihui-ai to PyPI (token)..."
           python -m twine upload --non-interactive dist/*
           # 回读验证:PyPI JSON API 为准(与"命令没报错"无关);传播有延迟 → 轮询后仍查不到判红
           ok=0
@@ -533,7 +548,7 @@ jobs:
           echo "proof=ihui-ai==$VERSION (PyPI JSON API 回读确认)" >> "$GITHUB_OUTPUT"
         env:
           TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }} # OIDC 失败时回退
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
 
       - name: Dry-run verification
         if: needs.extract.outputs.dry_run == 'true'
@@ -580,7 +595,7 @@ jobs:
           echo "✅ Set version to $VERSION"
           grep -E '<version>' pom.xml | head -1
 
-      - name: Configure Maven settings.xml (OIDC)
+      - name: Configure Maven settings.xml
         if: needs.extract.outputs.dry_run == 'false'
         shell: bash
         run: |

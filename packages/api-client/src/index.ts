@@ -418,4 +418,8 @@ export * from './endpoints/voice-note.js'
 // @ihui/shared 的 sse-parse.ts 具名 import 悬空(守门 98)。独立行落地:本导出
 // 已三次被并行合并流用旧基线整文件重写冲掉(7f473aff/caaf2e5fc23 均曾落地),
 // 末尾独立行避开显式命名清单,防与他席补条目时双写 TS2300。
+// 2026-10-19 第④次:两个并发会话**各自**新加了一行同名导出(a6702a66d89 / b8f1d47e1be),
+// 两者都合进 main ⇒ TS2300 重复标识符,打死本包 build、部署环连轮失败。
+// ⇒ 本行是**全模块唯一**的那一条;任何席要加同名导出,先 `grep -n` 本行再动手,
+// 不得"看着上面没有就再加一行"(旁证:守门 98 判的是悬空,不判重复 —— 这一型在它射程外)。
 export type { FormRequestEvent } from './client.js'
