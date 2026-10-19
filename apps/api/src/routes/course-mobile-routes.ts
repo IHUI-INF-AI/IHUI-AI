@@ -4,7 +4,7 @@
 
 /**
  * 移动端课程只读端点(/courses/:id/*)。
- * RN 的课程目录/章节/评论三屏此前各打一条两端都没注册的路径,界面恒空且不报错。
+ * RN 的课程目录/章节/评论三屏此前各打一条两端都没注册的路径 ⇒ 加载必然失败(屏侧 !success 一律 throw→setError)。
  * 这里按移动端已声明的契约补齐最小读面,数据源全部复用既有 learn 查询。
  */
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
