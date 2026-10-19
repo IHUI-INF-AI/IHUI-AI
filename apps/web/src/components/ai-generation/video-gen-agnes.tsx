@@ -85,7 +85,7 @@ export function VideoGenAgnes() {
   const { data: task } = useQuery({
     queryKey: ['ai-task', taskId],
     queryFn: async () => {
-      const res = await fetchApi<AsyncTask>(`/api/ai/tasks/${taskId}`)
+      const res = await fetchApi<AsyncTask>(`/api/ai/agnes/video/tasks/${taskId}`)
       if (!res.success) throw new Error(res.error)
       return res.data
     },
