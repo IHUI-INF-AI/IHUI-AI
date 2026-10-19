@@ -33,9 +33,6 @@ import {
   MAX_MULTIPART_UPLOAD_SIZE,
 } from '../utils/file-type-validator.js'
 
-// ihui_oss_upload_bytes_total:上传字节(单位 = 字节),真实落盘点在 files.ts 三个上传端点
-import { recordOssUploadBytes } from '../plugins/business-metrics.js'
-
 const ADMIN_ROLE_ID = 1
 
 // P2 修复(2026-08-25):上传接口返回的 path 由磁盘绝对路径改为公开可访问 URL。
@@ -238,8 +235,6 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         const fileId = randomUUID()
         const filePath = join(UPLOAD_DIR, fileId)
         writeFileSync(filePath, finalBuffer)
-        // ihui_oss_upload_bytes_total:文件写入成功后计 written bytes
-        recordOssUploadBytes(finalBuffer.length)
 
         return reply.status(201).send(
           success({
@@ -766,10 +761,13 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       try {
         if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
         const fileId = randomUUID()
-        const filePath = join(UPLOAD_DIR, fileId)
+        // 2026-10-16:落盘名带 canonical 扩展名 —— @fastify/static 的 send 按扩展名推
+        // Content-Type,此前裸 UUID 名对音频等类型只能回 application/octet-stream
+        // (浏览器/播放器嗅探不一致,语音气泡回听偶发无声)。旧文件(UUID 无扩展名)
+        // 仍由静态服务兜底,不受影响。
+        const storedName = `${fileId}.${validation.extension}`
+        const filePath = join(UPLOAD_DIR, storedName)
         writeFileSync(filePath, buffer)
-        // ihui_oss_upload_bytes_total:multipart 上传字节
-        recordOssUploadBytes(buffer.length)
 
         return reply.status(201).send(
           success({
@@ -778,7 +776,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
               name: safeFilename,
               size: buffer.length,
               mimeType: validation.mimeType,
-              path: resolvePublicUrl(fileId),
+              path: resolvePublicUrl(storedName),
               uploadedBy: request.userId,
             },
           }),
@@ -845,8 +843,6 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         const fileId = randomUUID()
         const filePath = join(UPLOAD_DIR, fileId)
         writeFileSync(filePath, buffer)
-        // ihui_oss_upload_bytes_total:octet-stream 原始流上传字节
-        recordOssUploadBytes(buffer.length)
 
         return reply.status(201).send(
           success({
