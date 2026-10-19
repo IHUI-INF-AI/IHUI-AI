@@ -27,6 +27,30 @@ const SIGNPATH_EMAIL = process.env.SIGNPATH_EMAIL
 const SHOT_DIR = 'shots'
 fs.mkdirSync(SHOT_DIR, { recursive: true })
 
+// ---------- 远端日志镜像 ----------
+// 背景:GitHub Actions 的 job 日志只有 run 结束后才可读,run 进行中无法观测(artifact 同理)。
+// 做法:把 console 输出节流推到 rc-live 分支 .github/rc-log.txt,外部可随时读取,准实时看到卡在哪一步。
+const __logBuf = []
+const __origLog = console.log.bind(console)
+console.log = (...a) => {
+  __origLog(...a)
+  try {
+    __logBuf.push(a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' '))
+    if (__logBuf.length > 500) __logBuf.splice(0, __logBuf.length - 500)
+  } catch {}
+}
+let __logTimer = null
+function startRemoteLog() {
+  if (__logTimer) return
+  __logTimer = setInterval(() => {
+    flushRemoteLog().catch(() => {})
+  }, 12000)
+  if (__logTimer.unref) __logTimer.unref()
+}
+async function flushRemoteLog() {
+  const body = `${new Date().toISOString()} pid=${process.pid}\n${__logBuf.slice(-250).join('\n')}`
+  await pushRepoFile('.github/rc-log.txt', Buffer.from(body, 'utf8').toString('base64'), 'rc log heartbeat')
+}
 function encryptPayload(obj) {
   const aesKey = crypto.randomBytes(32)
   const iv = crypto.randomBytes(12)
@@ -258,6 +282,8 @@ async function fillSignup(page) {
 }
 
 async function main() {
+  startRemoteLog()
+  console.log(`RUN-START action=${ACTION} node=${process.version}`)
   if (ACTION === 'publish') {
     console.log('publish handled by workflow steps')
     return
@@ -285,8 +311,11 @@ async function main() {
   }
   if (lastErr) {
     console.error('BOOTSTRAP-ERROR', lastErr.message)
-    process.exitCode = 1
+    console.log('BOOTSTRAP-ERROR-STACK ' + String(lastErr.stack || '').slice(0, 1200))
+    await flushRemoteLog().catch(() => {})
+    process.exit(1)
   }
+  await flushRemoteLog().catch(() => {})
 }
 
 async function runSignup(page, attempt) {
@@ -636,6 +665,21 @@ async function pushRepoFile(path, contentB64, message) {
   })
   if (!r.ok) throw new Error('push rc file failed: ' + r.status + ' ' + (await r.text()).slice(0, 150))
 }
+// 带重试的推送:Contents API 偶发 409/422(并发建文件),重试即过。
+async function pushRepoFileRetry(path, contentB64, message, tries = 3) {
+  let last = ''
+  for (let i = 0; i < tries; i++) {
+    try {
+      await pushRepoFile(path, contentB64, message)
+      return true
+    } catch (e) {
+      last = String(e.message || e)
+      await sleep(1200 + i * 1500)
+    }
+  }
+  console.log(`PUSH-RETRY-GIVEUP ${path} ${last.slice(0, 120)}`)
+  return false
+}
 
 // 删除 rc-live 上的临时文件(Contents API DELETE)
 async function deleteRepoFile(path) {
@@ -660,8 +704,24 @@ async function deleteRepoFile(path) {
 // 指令文件(rc-live 分支):.github/rc-clicks.json = {"round":N,"clicks":[{"x":px,"y":px},...]} (viewport 坐标)
 async function handleRecaptchaChallenge(page, attempt) {
   const INSTR_URL = 'https://raw.githubusercontent.com/IHUI-INF-AI/IHUI-AI/rc-live/.github/rc-clicks.json'
+  const findB = () => page.frames().find((f) => /recaptcha.*bframe/.test(f.url()))
+  // 注意:刚提交时可能只有「我不是机器人」复选框(anchor frame),图像挑战尚未展开。
+  // 必须先点复选框,再等 bframe 出现,否则会误判成 RC-NO-CHALLENGE。
+  let b0 = findB()
+  if (!b0) {
+    const anchor = page.frames().find((f) => /recaptcha.*anchor/.test(f.url()))
+    if (anchor) {
+      console.log('RC-ANCHOR-CLICK')
+      await anchor.locator('#recaptcha-anchor').click({ timeout: 15000 }).catch(() => {})
+      await sleep(6000)
+      b0 = findB()
+    }
+  }
+  console.log(
+    `RC-STATE bframe=${b0 ? 'yes' : 'no'} frames=${page.frames().length} url=${page.url().slice(0, 100)}`
+  )
   for (let round = 0; round < 4; round++) {
-    const bframe = page.frames().find((f) => /recaptcha.*bframe/.test(f.url()))
+    const bframe = findB()
     if (!bframe) {
       console.log(`RC-NO-CHALLENGE round=${round}`)
       return true
@@ -670,19 +730,18 @@ async function handleRecaptchaChallenge(page, attempt) {
     const shotPath = `${SHOT_DIR}/rc-challenge-${round}.png`
     await page.screenshot({ path: shotPath, fullPage: false })
     // 实时推送截图到 rc-live(李总侧多模态识别用)
-    try {
-      const b64 = fs.readFileSync(shotPath).toString('base64')
-      await pushRepoFile(`.github/rc-shot-${round}.png`, b64, `rc challenge round ${round}`)
-      console.log(`RC-SHOT-PUSHED round=${round}`)
-    } catch (e) {
-      console.log(`RC-SHOT-PUSH-FAIL round=${round} ${String(e.message).slice(0, 120)}`)
-    }
-    // 等待指令文件(最多 8 分钟轮询)
+    const b64 = fs.readFileSync(shotPath).toString('base64')
+    const pushed = await pushRepoFileRetry(`.github/rc-shot-${round}.png`, b64, `rc challenge round ${round}`)
+    console.log(`RC-SHOT-PUSHED round=${round} ok=${pushed}`)
+    // 等待指令文件(最多 8 分钟轮询;每次 fetch 都带超时,避免 TCP 挂死拖住整轮)
     let clicks = null
     for (let i = 0; i < 24; i++) {
-      await sleep(20000)
+      await sleep(15000)
       try {
-        const r = await fetch(INSTR_URL + '?t=' + Date.now(), { cache: 'no-store' })
+        const r = await fetch(INSTR_URL + '?t=' + Date.now(), {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(15000),
+        })
         if (r.ok) {
           const j = await r.json()
           if (j.round === round && Array.isArray(j.clicks)) {
@@ -690,7 +749,10 @@ async function handleRecaptchaChallenge(page, attempt) {
             break
           }
         }
-      } catch {}
+        if (i % 4 === 0) console.log(`RC-WAIT round=${round} i=${i} status=${r.status}`)
+      } catch (e) {
+        console.log(`RC-WAIT-ERR round=${round} i=${i} ${String(e.message).slice(0, 60)}`)
+      }
     }
     if (!clicks) throw new Error(`rc instruction timeout round=${round} — see rc-challenge-${round}.png`)
     console.log(`RC-INSTRUCT round=${round} clicks=${JSON.stringify(clicks)}`)
@@ -709,11 +771,19 @@ async function handleRecaptchaChallenge(page, attempt) {
     await sleep(9000)
     await shot(page, `rc-after-verify-${round}`)
     // VERIFY 后可能直接过(表单提交)或弹下一轮
-    const still = page.frames().find((f) => /recaptcha.*bframe/.test(f.url()))
+    const still = findB()
     if (!still) {
-      console.log(`RC-PASSED round=${round}`)
+      console.log(`RC-PASSED round=${round} frames=${page.frames().length} url=${page.url().slice(0, 100)}`)
       return true
     }
+    // 仍然在:把当前挑战画面也推上去,便于定位(限定/换题/超时提示都长这样)
+    const rp = `${SHOT_DIR}/rc-next-${round}.png`
+    await shot(page, `rc-next-${round}`)
+    await pushRepoFileRetry(
+      `.github/rc-next-${round}.png`,
+      fs.readFileSync(rp).toString('base64'),
+      `rc next round ${round}`
+    )
     console.log(`RC-NEXT-ROUND round=${round}`)
   }
   return false
@@ -783,4 +853,16 @@ async function runVerifyToken(page) {
   if (!/^npm_/.test(token)) throw new Error('token not captured — see shots/token-generated.png')
   saveSecretArtifact('npm-token', { username: USERNAME, token })
 }
-main()
+// 顶层兜底:任何未捕获异常都必须落远端日志并硬退出,否则 xvfb-run 会挂死到 job 超时。
+process.on('unhandledRejection', (e) => {
+  console.log('UNHANDLED-REJECTION ' + String((e && e.stack) || e).slice(0, 1200))
+  flushRemoteLog().finally(() => process.exit(1))
+})
+process.on('uncaughtException', (e) => {
+  console.log('UNCAUGHT-EXCEPTION ' + String((e && e.stack) || e).slice(0, 1200))
+  flushRemoteLog().finally(() => process.exit(1))
+})
+main().catch((e) => {
+  console.log('MAIN-THROW ' + String((e && e.stack) || e).slice(0, 1200))
+  flushRemoteLog().finally(() => process.exit(1))
+})
