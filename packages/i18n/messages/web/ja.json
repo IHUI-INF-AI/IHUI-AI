@@ -28734,17 +28734,5 @@
   },
   "statusPage": {
     "incidentsUnavailable": "直近 30 日間のインシデント情報は一時的に取得できません"
-  },
-  "eduHub": {
-    "title": "教育",
-    "subtitle": "講座、試験、学習ツールと教務管理"
-  },
-  "contentHub": {
-    "title": "コンテンツ",
-    "subtitle": "広場、コミュニティ、メッセージとマルチプラットフォーム公開"
-  },
-  "tradeHub": {
-    "title": "取引",
-    "subtitle": "ウォレット、注文、会員とポイント特典"
   }
 }

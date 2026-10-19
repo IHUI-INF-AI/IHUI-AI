@@ -28731,17 +28731,5 @@
   },
   "statusPage": {
     "incidentsUnavailable": "Incident data for the last 30 days is temporarily unavailable"
-  },
-  "eduHub": {
-    "title": "Education",
-    "subtitle": "Courses, exams, study tools and academic management"
-  },
-  "contentHub": {
-    "title": "Content",
-    "subtitle": "Plaza, community, messages and multi-platform publishing"
-  },
-  "tradeHub": {
-    "title": "Trade",
-    "subtitle": "Wallet, orders, membership and points benefits"
   }
 }

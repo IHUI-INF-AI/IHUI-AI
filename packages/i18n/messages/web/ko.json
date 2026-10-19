@@ -28734,17 +28734,5 @@
   },
   "statusPage": {
     "incidentsUnavailable": "최근 30일 이벤트 데이터를 일시적으로 가져올 수 없습니다"
-  },
-  "eduHub": {
-    "title": "교육",
-    "subtitle": "강좌, 시험, 학습 도구와 교무 관리"
-  },
-  "contentHub": {
-    "title": "콘텐츠",
-    "subtitle": "광장, 커뮤니티, 메시지와 멀티 플랫폼 게시"
-  },
-  "tradeHub": {
-    "title": "거래",
-    "subtitle": "지갑, 주문, 멤버십과 포인트 혜택"
   }
 }
