@@ -84,6 +84,7 @@ const {
   scanRotatedLoopLogs,
   judgeStallReadout,
   stallExitCode,
+  buildBrandMailArgv,
 } = m
 
 const T0 = Date.parse('2026-09-29T00:00:00.000Z')
@@ -619,6 +620,23 @@ test('镜像停摆的失败判词必须自带可做的出路:服务端 GC 直达
   assert.doesNotMatch(src, /处置交给下面的 hint/, '旧注释把出路许诺给一个从不进正文的变量;注释必须与代码同代')
   // 引号里的历史数字必须带日期并写明"本轮没重量" —— 否则一条 9 月的读数会被当成今天的实测值
   assert.match(src, /2026-09-27 \/ 09-28 的 CI 作业日志[\s\S]{0,80}本轮没有重新量/, '体积数字没带日期与"本轮未重量"声明 ⇒ 9 月的读数会被当成今天的实测值')
+})
+
+test('T-EXITID 记账身份必须交给唯一出口,且不得顺带开启出口那层第二窗口(§5e-3)', () => {
+  const argvOf = (alertId) =>
+    buildBrandMailArgv({ to: 'a@b.c', title: 't', severity: 'critical', messageFile: 'm', alertId })
+  const withId = argvOf('credential-health;部署停摆(线上构建 vs origin/main)')
+  const at = withId.indexOf('--alert-id')
+  assert.ok(at > 0 && withId[at + 1] === 'credential-health;部署停摆(线上构建 vs origin/main)', '--alert-id 的值必须紧跟其后(错位就是给出口喂空身份)')
+  const dh = withId.indexOf('--dedupe-hours')
+  assert.ok(dh > 0 && withId[dh + 1] === '0', '给了身份就必须把出口那层 4h 默认窗口关掉 —— 压信权只能有一处(本文件逐项 20h)')
+  assert.equal(withId.slice(at + 2).includes('--alert-id'), false, '不得出现第二个 --alert-id(后写覆盖前写,正是门 89 R13 那一型)')
+  const plain = argvOf('')
+  assert.equal(plain.includes('--alert-id'), false, '没给身份时不得凭空开启出口去重(那是把"没寄"伪装成"被压住")')
+  assert.equal(plain.includes('--dedupe-hours'), false)
+  // 能力必须有人消费:argv 支持而调用点不传 ⇒ 台账里这一路永远"(无 alert-id)",量算仪只能按标题分桶
+  assert.match(SRC, /d = await deliver\(title, desp, severity, mailAlertId\)/, '故障信没把身份交给出口 ⇒ 判据退化成标题分桶')
+  assert.match(SRC, /'credential-health;channel-selftest'/, '通道自测那封也必须带身份,否则它会被并进故障桶里数成"同一故障 2 封"')
 })
 
 function askedHasRepoNext(askedList) {
