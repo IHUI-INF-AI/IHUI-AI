@@ -708,6 +708,7 @@ export function analyzeResurrect(
       newText,
       maxBlobBytes,
       facePaths,
+      path: p,
       ancestors: used.map((c) => ({
         commit: c.slice(0, 9),
         sha: c,
@@ -782,6 +783,7 @@ export function analyzeResurrect(
         baseText: anchorTexts.get(`HEAD^:${f.path}`) ?? null,
         newText: texts.get(`HEAD:${f.path}`) ?? null,
         maxBlobBytes,
+        path: f.path,
         // 锚点侧的面 = HEAD:两侧必须各按自己那面问"输入在不在面上"(§0.5 棘轮锚点的同尺前提),
         // 拿索引面去量 HEAD 侧就是把两把尺子叠成一把。
         facePaths: facePathsForGeneratedInputs(
@@ -1577,7 +1579,7 @@ function selfTestRun() {
         pureNoFace.generatedInputOnFace === 0,
     )
 
-    const { pass, fail, cases } = report()
+    const { fail, cases } = report()
     for (const r of cases) console.log(`${r.pass ? '✅' : '❌'} ${r.name}`)
     console.log(
       fail
