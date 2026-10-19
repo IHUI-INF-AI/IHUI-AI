@@ -1,4 +1,4 @@
-2026-10-19T10:04:32.774Z pid=3829
+2026-10-19T10:04:44.774Z pid=3829
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/1 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -21,3 +21,4 @@ SP_DD_HTML=<div data-hsfc-id="DropdownField" class="hsfc-DropdownField" id="7c43
 RC-STATE bframe=yes frames=7 url=https://signpath.org/apply
 RC-CHALLENGE round=0 frame=https://google.com/recaptcha/enterprise/bframe?hl=en&v=4EDjxXf4knsx6UBM1L2V6cv8&k=6Ld_ad8Z
 RC-SHOT-PUSHED round=0 ok=true
+RC-WAIT round=0 i=0 status=404
