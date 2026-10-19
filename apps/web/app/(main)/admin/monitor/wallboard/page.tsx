@@ -23,6 +23,7 @@ import {
   Cpu,
   Database,
   Gauge,
+  Globe,
   HardDrive,
   Radio,
   Server,
@@ -103,6 +104,38 @@ interface BridgeSnapshot {
   dedupSuppressed: number | null
 }
 
+interface EdgeLegSnapshot {
+  ok: boolean
+  status: number | null
+  totalMs: number | null
+  ttfbMs: number | null
+  bytes: number | null
+  encoding: string | null
+  edgeStatus: string | null
+  edgeAgeSec: number | null
+  landedViaEdgeOne: boolean
+  reason: string | null
+}
+
+interface EdgeSnapshot {
+  at: string
+  ageSec: number
+  stats: {
+    samples: number
+    hitRatio: number | null
+    lastMs: number | null
+    p50Ms: number | null
+    p95Ms: number | null
+    worstMs: number | null
+    landedViaEdgeOne: boolean | null
+  }
+  legs: Record<
+    'edgeHomepage' | 'apexRedirect' | 'edgeStatic' | 'originViaCf',
+    EdgeLegSnapshot
+  >
+  series: Array<[number, number, boolean]>
+}
+
 interface BusinessSnapshot {
   usersTotal: number
   usersTodayNew: number
@@ -168,6 +201,7 @@ interface OverviewPayload {
   business: BusinessSnapshot | null
   alerts: AlertsSnapshot | null
   events: EventItem[] | null
+  edge: EdgeSnapshot | null
 }
 
 interface TrendPayload {
@@ -449,6 +483,7 @@ export default function OpsWallboardPage() {
   const biz = ov?.business ?? null
   const alerts = ov?.alerts ?? null
   const events = ov?.events ?? null
+  const edge = ov?.edge ?? null
 
   // 告警数 = Alertmanager 活跃 ∪ 库内 firing(按告警名去重):
   // 告警桥会把同一告警同步落库,两路直接相加会重复计数
@@ -792,6 +827,47 @@ export default function OpsWallboardPage() {
     }
   }, [biz?.llmTopModels])
 
+  // 访客首页访问耗时走势:点色 = 该次是否命中边缘缓存(绿 HIT / 黄 MISS),线 = 耗时 ms
+  const edgeOption = React.useMemo<EChartsOption>(() => {
+    const rows = edge?.series ?? []
+    const labels = rows.map(([ts]) =>
+      new Date(ts).toLocaleTimeString(locale, {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }),
+    )
+    return {
+      grid: { left: 42, right: 12, top: 18, bottom: 20 },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(8,18,33,0.92)',
+        borderColor: 'rgba(72,146,196,0.35)',
+        textStyle: { color: '#dbe7f3', fontSize: 11 },
+      },
+      xAxis: { type: 'category', data: labels, ...AXIS, boundaryGap: false },
+      yAxis: {
+        type: 'value',
+        name: t('unitMs'),
+        nameTextStyle: { color: '#7c93ad' },
+        ...AXIS,
+      },
+      series: [
+        {
+          name: t('edgeSparkName'),
+          type: 'line',
+          showSymbol: true,
+          symbolSize: 5,
+          data: rows.map(([, ms, hit]) => ({
+            value: ms,
+            itemStyle: { color: hit ? '#34d399' : '#fbbf24' },
+          })),
+          ...seriesGlow('#22d3ee'),
+        },
+      ],
+    }
+  }, [edge?.series, locale, t])
+
   // 「无 5xx」好消息徽章:刻意定义在组件作用域(脱离 <Panel right> 开标签区间),
   // 避免被圆角角色门按 panel 角色误判须 xl;该徽章自身无角色类名,落「未判定」射程外,不计入红。
   const no5xxBadge =
@@ -803,6 +879,12 @@ export default function OpsWallboardPage() {
         {t('no5xxWindow', { minutes: trend.minutes })}
       </span>
     ) : null
+
+  // 访客加速两档阈值着色:null(未测到)⇒ 'unknown',不得借默认值染成绿/红
+  const edgeLastTone = thresholdTone(edge?.stats.lastMs, (n) =>
+    n >= 3000 ? 'bad' : n >= 1500 ? 'warn' : 'ok',
+  )
+  const edgeHitTone = thresholdTone(edge?.stats.hitRatio, (n) => (n >= 0.8 ? 'ok' : 'warn'))
 
   // ---------- 渲染 ----------
   return (
@@ -1607,6 +1689,124 @@ export default function OpsWallboardPage() {
                 />
               </div>
             </div>
+          </Panel>
+
+          {/* 访客访问耗时 · 国内加速命中率(edge 块独立降级:null ⇒ 未判定,绝不渲染 0) */}
+          <Panel
+            title={t('panelEdge')}
+            icon={<Globe className="h-3.5 w-3.5" />}
+            className="xl:col-span-7"
+            right={
+              edge ? (
+                <span className="text-[10px] text-slate-500">
+                  {t('edgeUpdatedAgo', { ago: fmtAgo(edge.at) })}
+                </span>
+              ) : (
+                <SourceGap text={t('sourceUnreachable')} />
+              )
+            }
+            bodyClassName="flex flex-col gap-2"
+          >
+            {edge === null ? (
+              ov !== undefined ? (
+                <div className="flex flex-1 items-center justify-center py-4">
+                  <SourceGap text={t('sourceUnreachable')} />
+                </div>
+              ) : null
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-sm border border-[rgba(72,146,196,0.16)] bg-[rgba(20,36,60,0.5)] px-2.5 py-2">
+                    <div className="text-[10px] tracking-[0.12em] text-slate-400">
+                      {t('edgeHeadlineMs')}
+                    </div>
+                    <div
+                      className={cn(
+                        'wb-num mt-0.5 text-[26px] leading-none font-bold',
+                        edgeLastTone === 'bad'
+                          ? 'text-red-400'
+                          : edgeLastTone === 'warn'
+                            ? 'text-amber-300'
+                            : edgeLastTone === 'unknown'
+                              ? 'text-slate-500'
+                              : 'text-cyan-300',
+                      )}
+                    >
+                      {isNum(edge.stats.lastMs) ? fmtInt(edge.stats.lastMs) : '—'}
+                      {isNum(edge.stats.lastMs) ? (
+                        <span className="ml-1 text-[12px] text-slate-400">{t('unitMs')}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="rounded-sm border border-[rgba(72,146,196,0.16)] bg-[rgba(20,36,60,0.5)] px-2.5 py-2">
+                    <div className="text-[10px] tracking-[0.12em] text-slate-400">
+                      {t('edgeHeadlineHit')}
+                    </div>
+                    <div
+                      className={cn(
+                        'wb-num mt-0.5 text-[26px] leading-none font-bold',
+                        edgeHitTone === 'bad'
+                          ? 'text-red-400'
+                          : edgeHitTone === 'warn'
+                            ? 'text-amber-300'
+                            : edgeHitTone === 'unknown'
+                              ? 'text-slate-500'
+                              : 'text-emerald-300',
+                      )}
+                    >
+                      {isNum(edge.stats.hitRatio)
+                        ? fmtPct(edge.stats.hitRatio * 100, 1)
+                        : '—'}
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+                  <StatCell
+                    label={t('edgeStatP50')}
+                    value={isNum(edge.stats.p50Ms) ? fmtInt(edge.stats.p50Ms) : '—'}
+                    unit={t('unitMs')}
+                  />
+                  <StatCell
+                    label={t('edgeStatP95')}
+                    value={isNum(edge.stats.p95Ms) ? fmtInt(edge.stats.p95Ms) : '—'}
+                    unit={t('unitMs')}
+                  />
+                  <StatCell
+                    label={t('edgeStatWorst')}
+                    value={isNum(edge.stats.worstMs) ? fmtInt(edge.stats.worstMs) : '—'}
+                    unit={t('unitMs')}
+                    tone={thresholdTone(edge.stats.worstMs, (n) => (n >= 5000 ? 'bad' : 'warn'))}
+                  />
+                  <StatCell label={t('edgeStatSamples')} value={fmtInt(edge.stats.samples)} />
+                </div>
+                <div className="flex items-center gap-2 rounded-sm border border-[rgba(72,146,196,0.16)] bg-[rgba(20,36,60,0.5)] px-2.5 py-2">
+                  <Dot tone={edge.legs.originViaCf.ok ? 'ok' : 'bad'} />
+                  <span className="text-[10px] tracking-[0.12em] text-slate-400">
+                    {t('edgeControlLeg')}
+                  </span>
+                  <span
+                    className={cn(
+                      'wb-num ml-auto text-[14px] font-semibold',
+                      isNum(edge.legs.originViaCf.totalMs) ? 'text-slate-200' : 'text-slate-500',
+                    )}
+                  >
+                    {isNum(edge.legs.originViaCf.totalMs)
+                      ? fmtInt(edge.legs.originViaCf.totalMs)
+                      : '—'}
+                    <span className="ml-0.5 text-[11px] text-slate-400">{t('unitMs')}</span>
+                  </span>
+                </div>
+                <div className="min-h-0 flex-1">
+                  <div className="mb-1 text-[10px] tracking-[0.14em] text-slate-400">
+                    {t('edgeSparkTitle')}
+                  </div>
+                  <div className="relative">
+                    <EChart option={edgeOption} height={116} />
+                    {edge.series.length === 0 ? <ChartEmpty text={t('edgeNoSeries')} /> : null}
+                  </div>
+                </div>
+              </>
+            )}
           </Panel>
         </section>
 
