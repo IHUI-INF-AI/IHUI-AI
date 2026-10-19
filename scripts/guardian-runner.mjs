@@ -5068,7 +5068,7 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 告警身份抖动(1 项,blocking)---
+  // --- 生成器资源释放(1 项,warn)---
   {
     id: '225',
     label: '生成器资源释放对账(warn 起步;持有事务/句柄/订阅的 async 生成器,消费方提前 break/抛错时不得只靠退出作用域与 GC)',
@@ -5084,6 +5084,10 @@ const checks = [
       '     单独复现:node scripts/check-generator-resource-release.mjs',
       '     自检:node scripts/check-generator-resource-release.mjs --self-test',
     ],
+  },
+
+  // --- 告警身份抖动(1 项,blocking)---
+  {
     id: '224',
     label:
       '告警身份抖动对账(到人邮件的去重身份不得含逐轮抖动的 sha/时刻/原始计数/异常原文;差值棘轮:只拦本次加回来的)',
@@ -5094,6 +5098,15 @@ const checks = [
     stagedTriggers: ['scripts/', 'deploy/win/', 'apps/api/src/', 'apps/api/scripts/'],
     onFailHint: [
       '',
+      '  💡 判的是"到人邮件的去重身份里塞了每轮都变的量"(sha / 时刻 / 原始计数 / 异常原文)。',
+      '     身份只留「类别 × 折档」—— 折档只用这几把通用尺子:alertCountTier / alertHeldTier /',
+      '     classifyAlertIdentity(js) 或 Get-*Tier(ps1);实时读数一律只进邮件正文,不进身份。',
+      '     单独复现:node scripts/check-alert-identity-volatility.mjs --staged',
+      '     自检:node scripts/check-alert-identity-volatility.mjs --self-test(15 例,含成对反证)',
+      '     确属稳定语义主键(如同一枚 commit 的 intake)⇒ 只认具名到期台账:',
+      '     scripts/data/alert-identity-exemptions.json(每条带 reason/ticket/until,无行内豁免)。',
+      '     发信面总账:scripts/data/alert-mail-faces.json(V3 射程声明 / V4 发现集都读它)。',
+      '     紧急跳过:HUSKY_SKIP_ALERT_IDENTITY=1 git commit …(不推荐:这一维直接决定信箱会不会被刷屏)',
       '',
     ].join('\n'),
   },

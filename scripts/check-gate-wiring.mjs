@@ -81,6 +81,16 @@
  *              只报数(该方向归 R4 既有行为,本维不并债);同角色不同 px ⇒ 报数(--strict 一并判红,
  *              "照文档写必错"同源);任一侧枚举到 0 行 ⇒ 未判定,不冒绿也不冒红。
  *              双向用例:self-test R12a-R12g(端到端夹具 + 变异还原)+ 镜像测试 T-R12。
+ *   R13 blocking:注册表里**两道门挤进同一个对象字面量**(少写一个闭合 `},`)⇒ 后写的 `id:`/`script:`
+ *              把先写的整个覆盖掉,被吞的那道门从注册表静默消失。R5 结构上看不见它(合并体里每枚 id
+ *              各只出现一次,不撞号),按条目数/id 字面量数对账也看不见(两种形态计数相等)。
+ *              2026-10-19 实测:`gate-registry-insert.mjs` 把门 224 的字段插进了并发会话刚立的门 225
+ *              对象里 ⇒ 225 从落地到被发现**一条都没跑过**(`grep -c "[225]" .workbuddy/hook-logs/pre-commit.log` = 0),
+ *              而这道对账全程 RC=0。插号器只保证"号没被占",不保证"插进去之后条目边界还在"。
+ *              取材与 R8/R9 同张注册面(--staged 读索引):造出合并的那枚提交必须当场被拦,而不是等
+ *              下一次提交才响 —— 代价是那次提交里被吞的门一条都没跑。`id` 引号与裸数字两形态都认
+ *              (本门基线夹具自己就写 `{ id: 1, ... }`,只认引号即对新立门失明)。
+ *              双向用例:self-test R13a-R13i(含 R5 失明对照 + 面纪律)+ 镜像测试 T29/T30。
 
  *   R7 blocking:台账 type=dispatcher 的"依据"文件不存在、或文件里没提被豁免脚本 =
  *              假依据(实测抓到 check-lock.mjs 一条编造的 dispatcher 说明)。
@@ -713,6 +723,54 @@ export function findStaleExemptions(entries, gateSet) {
  */
 export function idsOfRegistry(runnerText) {
   return [...stripJsComments(String(runnerText || '')).matchAll(/\bid:\s*(['"])([^'"]+)\1/g)].map((m) => m[2])
+}
+
+/**
+ * 纯函数(R13,判红):一个条目对象里出现**两个 `id:`(或两个 `script:`)** ⇒ 两道门被合并进
+ * 同一个对象字面量,后写的字段把先写的整个覆盖掉 —— 被吞的那道门**从注册表里静默消失**。
+ *
+ * 为什么 R5 看不见它:R5 查的是"同一 id 出现两次",而合并型根本不重复(225 与 224 各出现一次),
+ * 运行时数组里只剩一个对象,所以 `--help` 的条目数比源里的 `id:` 字面量少 1,而**定级、跳过开关、
+ * stagedTriggers 全部按后写的那份生效**。2026-10-19 实测:`gate-registry-insert.mjs` 把门 224 的
+ * 字段插进了并发会话刚立的门 225 对象里 ⇒ 225 从落地到被发现**一条都没跑过**
+ * (`grep -c "[225]" .workbuddy/hook-logs/pre-commit.log` = 0),而这道对账全程 RC=0。
+ * 教训同 R5:插号器只保证"号没被占",不保证"插进去之后条目边界还在" ⇒ 必须在提交口再判一次结构。
+ *
+ * 判"登记"沿用 R5 的口径:先剥注释再匹配(注释里的示例对象不构成登记)。
+ */
+export function findMergedEntries(runnerText) {
+  const src = stripJsComments(String(runnerText || ''))
+  // `id` 的书写形态两种都要认:实盘 267 枚全是引号串,但**数字裸值同样是合法登记**(本门自己的
+  // 基线夹具 `makeFixtureRepo` 写的就是 `{ id: 1, script: ... }`)。只匹配引号 ⇒ 数字形态的两道
+  // 门合并在一起时这条判据结构上看不见,而"能被抓到的形态才叫有牙"。
+  const ID_RE = /\bid:\s*(?:(['"])([^'"]*)\1|(\d+))/g
+  const SCRIPT_RE = /\bscript:\s*(['"])([^'"]+)\1/g
+  // 逐字符括号栈(2026-10-19 换法):每个对象字面量按**它自己**的范围收集 id/script。
+  // 旧写法(从 id 处向前找闭合 `}`、向后找开启 `{`)在内层对象上会认错包围括号:少写一个 `},`
+  // 的嵌套形态会被算成"内层那一个 id",于是这一型静默放过 —— 与 R13 同型的"安静的失效",
+  // 插号器少一个字符就正好落在这一型上(而那正是 R13 立项时的现场形态)。
+  const merged = []
+  const emitted = [] // 已报区间(外层已覆盖时不再重复报同一个内层)
+  const stack = []
+  const emit = (open, close) => {
+    for (const [eo, ec] of emitted) if (open > eo && close < ec) return
+    const body = src.slice(open + 1, close)
+    const ids = [...body.matchAll(ID_RE)].map((x) => x[2] ?? x[3])
+    const scripts = [...body.matchAll(SCRIPT_RE)].map((x) => x[2])
+    if (ids.length > 1 || scripts.length > 1) {
+      merged.push({ ids, scripts })
+      emitted.push([open, close])
+    }
+  }
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i]
+    if (c === '{') stack.push(i)
+    else if (c === '}') {
+      const open = stack.pop()
+      if (open !== undefined) emit(open, i)
+    }
+  }
+  return merged
 }
 
 export function findDuplicateIds(runnerText) {
@@ -1700,6 +1758,9 @@ async function main(argv = process.argv.slice(2)) {
   }
   const runnerText = runnerHead
   const dupIds = findDuplicateIds(runnerText)
+  // R13 两道门被合并进同一个对象 ⇒ 被吞的那道**从注册表静默消失**(R5 看不见,因为 id 不重复)。
+  // 判序放在下面 R8 之后:它必须与 R8/R9 吃**同一张注册面**(--staged 读索引),否则"造出合并的那枚
+  // 提交"反而能过关,红要等下一次提交才响 —— 而注册表被吞的代价正是那枚提交里的门从没跑过。
   const sharedEnvs = findSharedSkipEnvs(runnerText)
   if (dispatcherProblems.length) {
     reds.push(
@@ -1737,6 +1798,16 @@ async function main(argv = process.argv.slice(2)) {
       r8Text = idxRunner
       r8Face = '索引'
     }
+  }
+  const mergedEntries = findMergedEntries(r8Text)
+  if (mergedEntries.length) {
+    reds.push(
+      ...mergedEntries.map((e) => ({
+        script: (e.scripts || []).join(' + ') || '(未知脚本)',
+        status: 'red-r13',
+        reason: `注册条目被合并(${r8Face}面):同一对象里有 ${e.ids.length} 个 id(${e.ids.join(',')})⇒ 后写字段覆盖前者,被吞的那道门一条都不会跑(§0.3:这不是"少一道门",是"账面全绿而规则不存在")`,
+      })),
+    )
   }
   const r8 = findMalformedTriggers(r8Text)
   const badTriggers = r8.bad
@@ -2162,7 +2233,7 @@ async function main(argv = process.argv.slice(2)) {
   if (reds.length > 0) {
     if (!opts.json) {
       console.error(
-        `\n❌ 接线层结构性缺陷共 ${reds.length} 枚(R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据 · R8 注册形态非法 · R9 注册的门体不在面上${opts.strict ? ' · R10 文档点名的门体不在面上 · R12 文档列了而代码注册表没有/px 不符' : ''})—— 禁止为消红塞台账:`,
+        `\n❌ 接线层结构性缺陷共 ${reds.length} 枚(R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据 · R8 注册形态非法 · R9 注册的门体不在面上 · R13 注册条目被合并${opts.strict ? ' · R10 文档点名的门体不在面上 · R12 文档列了而代码注册表没有/px 不符' : ''})—— 禁止为消红塞台账:`,
       )
       for (const r of reds)
         console.error(
@@ -2183,6 +2254,9 @@ async function main(argv = process.argv.slice(2)) {
       )
       console.error('         R5 → 后来者改用空闲编号。')
       console.error('         R8 → stagedTriggers 必须是字符串数组(裸字符串会中止整批门,空数组则该门恒不跑)。')
+      console.error(
+        '         R13 → 两道门的字段挤在同一个对象里:补回缺失的 `},` 让每条注册各占一个对象(被吞的那道从落地起一条都没跑过,R5/条目计数都看不见它)。',
+      )
       console.error(
         '         R9 → 把门体文件补进同一枚提交(`git add scripts/<名>`),或删掉这条注册;两条都是**注册与脚本必须同枚入库**。',
       )
@@ -3456,6 +3530,104 @@ function runSelfTest() {
         String(s12g.d.why || '').includes('RADIUS_ROLES'),
     )
 
+    // ── R13(注册条目被合并):2026-10-19 实测自造事故的门 —— 插号器把门 224 的字段插进了
+    // 并发会话刚立的门 225 对象里 ⇒ 225 从落地到被发现一条都没跑过,而这道对账全程 RC=0。
+    // 双向用例:真坏状态必须抓到(有牙),修好后的形态必须为 0(否则就是新造的恒红门)。
+    const r13Clean =
+      "#!/usr/bin/env node\nconst GATES = [\n  { id: '225', script: 'check-a.mjs', mode: 'warn' },\n  { id: '224', script: 'check-b.mjs', mode: 'blocking' },\n]\n"
+    const r13Merged =
+      "#!/usr/bin/env node\nconst GATES = [\n  { id: '225', script: 'check-a.mjs', mode: 'warn', id: '224', script: 'check-b.mjs', mode: 'blocking' },\n]\n"
+    assert(
+      'R13a 两条独立条目 ⇒ 0 命中(修好后的形态不许误报)',
+      JSON.stringify(findMergedEntries(r13Clean)) === '[]',
+    )
+    const r13m = findMergedEntries(r13Merged)
+    assert(
+      `R13b 一条对象里两个 id + 两个 script ⇒ 恰 1 命中且点名两枚 id(实得 ${JSON.stringify(r13m)})`,
+      r13m.length === 1 &&
+        [...r13m[0].ids].sort().join(',') === '224,225' &&
+        r13m[0].scripts.join(',') === 'check-a.mjs,check-b.mjs',
+    )
+    assert(
+      'R13c R5 对这一型全盲(撞号判据看不见合并)⇒ 两维不可互替(实得 dupIds=' +
+        JSON.stringify(findDuplicateIds(r13Merged)) +
+        ` merged=${r13m.length})`,
+      findDuplicateIds(r13Merged).length === 0 && r13m.length === 1,
+    )
+    assert(
+      'R13d id 字面量计数在两形态下完全相等 ⇒ 按"条目数/id 数"对账的尺子结构上抓不到(实得 ' +
+        `${idsOfRegistry(r13Clean).length}=${idsOfRegistry(r13Merged).length})`,
+      idsOfRegistry(r13Clean).length === idsOfRegistry(r13Merged).length &&
+        idsOfRegistry(r13Merged).length === 2,
+    )
+    assert(
+      'R13e 注释里的示例对象不算登记(剥注释口径与 R5 同源)',
+      findMergedEntries(
+        "// { id: '1', script: 'x' },\n// { id: '2', script: 'y' },\nconst G = [{ id: '3', script: 'z' }]\n",
+      ).length === 0,
+    )
+    assert(
+      'R13f 变异还原:合并体里删掉第二个 id ⇒ 只剩"两个 script"仍须抓到(不靠单维)',
+      findMergedEntries(
+        r13Merged.replace(/id: '224', /, ''),
+      ).length === 1,
+    )
+    assert(
+      'R13i 数字裸值 id 同样是登记形态 ⇒ 不得只认引号(本门基线夹具就是这个形态)',
+      findMergedEntries(
+        "#!/usr/bin/env node\nconst GATES = [\n  { id: 1, script: 'check-a.mjs', id: 2, script: 'check-b.mjs' },\n]\n",
+      ).length === 1,
+    )
+    // 变体(同型):插号器少写一个闭合 `},` ⇒ 内层对象整个嵌进外层。旧扫描法在这里会把包围括号
+    // 认成内层那个,于是"外层两个 id"被算成"内层一个 id"而静默放过。两种形态都必须抓到。
+    const r13Nested =
+      "#!/usr/bin/env node\nconst GATES = [\n  { id: '225', script: 'a.mjs', {\n    id: '224', script: 'b.mjs',\n  } },\n  { id: '1', script: 'c.mjs' },\n]\n"
+    assert(
+      `R13j 嵌套合并(缺一个闭合)⇒ 同样恰 1 命中且点名两枚 id(实得 ${JSON.stringify(findMergedEntries(r13Nested))})`,
+      (() => {
+        const m = findMergedEntries(r13Nested)
+        return m.length === 1 && [...m[0].ids].sort().join(',') === '224,225'
+      })(),
+    )
+    assert(
+      'R13k 内层对象被外层已报区间覆盖时不得重复报同一处(否则一枚合并报成两红,而真源只认一处)',
+      (() => {
+        const flat = findMergedEntries(r13Merged)
+        const nested = findMergedEntries(r13Nested)
+        return flat.length === 1 && nested.length === 1
+      })(),
+    )
+    // 端到端:坏注册表进真判定链必须落 red-r13 并翻退出码;把索引改成两条独立条目后必须复绿
+    // (--staged 吃索引面 = 造出合并的那枚提交当场就被拦,而不是等下一次提交才响)。
+    const repoR13 = makeFixtureRepo(base, {
+      files: {
+        'scripts/guardian-runner.mjs':
+          "#!/usr/bin/env node\nconst GATES = [\n  { id: 1, script: 'check-wired.mjs', id: 2, script: 'check-ci-only.mjs' },\n]\n",
+      },
+    })
+    const r13cli = runGateCli([`--root=${repoR13}`, '--json'])
+    const r13e2e = JSON.parse(r13cli.out.slice(r13cli.out.indexOf('{')))
+    const r13Reds = r13e2e.reds.filter((x) => x.status === 'red-r13')
+    assert(
+      `R13g 端到端:HEAD 面合并条目 ⇒ red-r13 进判红集且带面名(实得 code=${r13cli.code} reds=${JSON.stringify(r13Reds.map((x) => x.script))})`,
+      r13cli.code === 1 &&
+        r13Reds.length === 1 &&
+        r13Reds[0].script === 'check-wired.mjs + check-ci-only.mjs' &&
+        r13Reds[0].reason.includes('HEAD面'),
+    )
+    writeFileSync(
+      join(repoR13, 'scripts', 'guardian-runner.mjs'),
+      "#!/usr/bin/env node\nconst GATES = [\n  { id: 1, script: 'check-wired.mjs' },\n  { id: 2, script: 'check-ci-only.mjs' },\n]\n",
+      'utf8',
+    )
+    git(['add', 'scripts/guardian-runner.mjs'], repoR13, { quiet: true })
+    const r13Staged = runGateCli([`--root=${repoR13}`, '--staged', '--json'])
+    const j13Staged = JSON.parse(r13Staged.out.slice(r13Staged.out.indexOf('{')))
+    assert(
+      `R13h 取材面纪律:--staged 读索引 ⇒ 修复本枚自己不会被自己刚上线的判据挡住(实得 red-r13=${j13Staged.reds.filter((x) => x.status === 'red-r13').length})`,
+      j13Staged.reds.filter((x) => x.status === 'red-r13').length === 0,
+    )
+
 
   } catch (e) {
     assert(`EX 端到端异常: ${e && e.message}`, false)
@@ -3529,6 +3701,8 @@ export const __test__ = {
   // R8:红条件委托给 lib,镜像测试要能直接拿到这三个出口构造正反例(§22c)
   findMalformedTriggers,
   findAbsentGateScripts,
+  // R13(注册条目被合并):判据是纯函数,镜像测试按 §22c 直接 import,不得另写一份扫描
+  findMergedEntries,
   // R11(G-665):解析与旗标/目录常量,镜像测试直接 import 判据(§22c,不另写一份)
   parseBaselineUpdateHits,
   R11_BASELINE_FLAG,
