@@ -2176,11 +2176,22 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-19**
-- 🚀 **Web 사이드바 도메인 진입점으로 수렴**: P1 중복 4곳 제거 + 설정 3개 이동; P2에서 교육/콘텐츠/커머스 3개 도메인을 도메인 진입점으로 통합하여 탐색 항목 72→24로 감소(`refactor(web)`).
-- 🧩 **G-425 잘림 알림 크로스엔드 보강(Extension / Mobile-RN)**: 판단 로직을 공유 계층 단일 구현으로 하향 통합, 5개 언어 팩 완비(`feat(跨端)`).
-- 🔄 **4개 엔드 ui-routes 산출물 동기화**: P2 도메인 진입점 라우트 추가 후 Web/Extension/Mobile-RN/Miniapp-Taro의 AI 탐색 가능 라우트가 자동 정렬.
-- 🛡️ **가디언 강화**: 가디언 203 지문 결함 수정, union 병합기의 "통과 금지"를 주석에서 실제 게이트로 격상; 가디언 208 중첩 저장소 처리 및 `.gitignore` 누락 2곳 보완.
-- 🐞 **수정**: api-client 중복 재내보내기 제거(패키지 빌드 실패 원인); npm-bootstrap 로그인 흐름에 오류 진단/스크린샷/Turnstile 탐지 및 업로드 타임아웃 보호 추가.
+- 🔧 기타:认领 L5669 ①skills 两级渐进披露+技能前置门 428 (b9de28d220)
+- 📚 문서:自动化文档更新机制 —— 提交即刷新数字,每日 AI 刷新最近更新 (a862205d66)
+- 🔧 기타:同步四端 ui-routes 派生产物(P2 域入口页新增路由) (90c5d44c06)
+- ♻️ 리팩터:侧边栏收敛 P2 —— 教育/内容/交易三域收为域入口(72→24) (126b47d148)
+- ♻️ 리팩터:侧边栏收敛 P1 —— 去重 4 处 + 设置项归位 3 项 (3e367aa971)
+- 📚 문서:四语言 README 现算数字刷新(598表/49 CI/4443路由/118模型/38平台/2955测试),对齐最新项目状态并补全新增功能与更新详情 (c6250f420c)
+- 🐞 수정:门 208 按 §7 三问逐条处置三处嵌套仓(一删两留)+ 补 .gitignore 两处真实缺口(门44 exit2 → 0) (9fa43654ec)
+- 📚 문서:npm 发布永久走 granular token,2FA 与 Trusted Publisher 结论固化 (c6433fe3af)
+- 🐞 수정:修守门 203 指纹两处缺陷(同题副本折不掉的生产根因)+ 把 union 归并器的「禁止放行」从注释变成真闸 (9e6f4b17bd)
+- 🔧 기타:TP 登录加网络监听(TP_NET_LOG 抓登录 POST 真实响应) + 表单区 DOM dump(TP_FORM_HTML),定位静默重置根因 (03667e1082)
+- 🐞 수정:去掉 FormRequestEvent 的重复 re-export(TS2300 打死本包 build) (25e315a77b)
+- 📚 문서:量算仪对不在注册面的历史门号如实读法 —— 那是已退役/挪号,不是当下缺门 (a7553a56f9)
+- 📚 문서:G-94 行内旧判断就地订正 —— v2 腿已实跑取证,勾选态归 2026-10-18 侧结清,标注无容器格如实保留 (5a87eef475)
+- 🐞 수정:TP 登录提交按钮限定 form 内防误点页头 + 登录后错误诊断/fullPage 截图/Turnstile 探测;upload-artifact 加 4min 超时防挂死 (410aa41b13)
+- 🐞 수정:TP 登录提交按钮限定 form 内防误点页头 + 登录后错误诊断/fullPage 截图/Turnstile 探测;upload-artifact 加 4min 超时防挂死 (d7ac1e2a37)
+- 🐞 수정:补 scripts/tests/desktop-build.test.mjs 的溯源水印(门 47 欠账) (8634796f2d)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

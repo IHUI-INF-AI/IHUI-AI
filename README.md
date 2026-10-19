@@ -147,11 +147,22 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-19**
-- 🚀 **Web 侧边栏收敛为域入口**:P1 去重 4 处 + 设置项归位 3 项;P2 将教育/内容/交易三域收为域入口,导航由 72→24 项(`refactor(web)`)。
-- 🧩 **G-425 截断提示跨端补齐(Extension / Mobile-RN)**:判定下沉共享层唯一实现,五语言词包齐备(`feat(跨端)`)。
-- 🔄 **四端 ui-routes 产物同步**:P2 域入口新增路由后,Web/Extension/Mobile-RN/Miniapp-Taro 的 AI 可导航路由自动对齐。
-- 🛡️ **工程守门加固**:修复守门 203 指纹缺陷、union 归并器「禁止放行」升级为真闸;守门 208 处置嵌套仓并补 .gitignore 缺口。
-- 🐞 **修复**:api-client 去除重复 re-export 导致的构建失败;npm-bootstrap 登录流程增加错误诊断/截图/Turnstile 探测与上传超时保护。
+- 🔧 工程/其他:认领 L5669 ①skills 两级渐进披露+技能前置门 428 (b9de28d220)
+- 📚 文档:自动化文档更新机制 —— 提交即刷新数字,每日 AI 刷新最近更新 (a862205d66)
+- 🔧 工程/其他:同步四端 ui-routes 派生产物(P2 域入口页新增路由) (90c5d44c06)
+- ♻️ 重构:侧边栏收敛 P2 —— 教育/内容/交易三域收为域入口(72→24) (126b47d148)
+- ♻️ 重构:侧边栏收敛 P1 —— 去重 4 处 + 设置项归位 3 项 (3e367aa971)
+- 📚 文档:四语言 README 现算数字刷新(598表/49 CI/4443路由/118模型/38平台/2955测试),对齐最新项目状态并补全新增功能与更新详情 (c6250f420c)
+- 🐞 修复:门 208 按 §7 三问逐条处置三处嵌套仓(一删两留)+ 补 .gitignore 两处真实缺口(门44 exit2 → 0) (9fa43654ec)
+- 📚 文档:npm 发布永久走 granular token,2FA 与 Trusted Publisher 结论固化 (c6433fe3af)
+- 🐞 修复:修守门 203 指纹两处缺陷(同题副本折不掉的生产根因)+ 把 union 归并器的「禁止放行」从注释变成真闸 (9e6f4b17bd)
+- 🔧 工程/其他:TP 登录加网络监听(TP_NET_LOG 抓登录 POST 真实响应) + 表单区 DOM dump(TP_FORM_HTML),定位静默重置根因 (03667e1082)
+- 🐞 修复:去掉 FormRequestEvent 的重复 re-export(TS2300 打死本包 build) (25e315a77b)
+- 📚 文档:量算仪对不在注册面的历史门号如实读法 —— 那是已退役/挪号,不是当下缺门 (a7553a56f9)
+- 📚 文档:G-94 行内旧判断就地订正 —— v2 腿已实跑取证,勾选态归 2026-10-18 侧结清,标注无容器格如实保留 (5a87eef475)
+- 🐞 修复:TP 登录提交按钮限定 form 内防误点页头 + 登录后错误诊断/fullPage 截图/Turnstile 探测;upload-artifact 加 4min 超时防挂死 (410aa41b13)
+- 🐞 修复:TP 登录提交按钮限定 form 内防误点页头 + 登录后错误诊断/fullPage 截图/Turnstile 探测;upload-artifact 加 4min 超时防挂死 (d7ac1e2a37)
+- 🐞 修复:补 scripts/tests/desktop-build.test.mjs 的溯源水印(门 47 欠账) (8634796f2d)
 <!-- END RECENT UPDATES -->
 
 ## 九份主题文档(从根 README 拆出的原文收纳件)
