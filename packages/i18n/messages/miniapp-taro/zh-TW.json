@@ -4441,7 +4441,7 @@
     "codeSent": "驗證碼已發送",
     "codeIncomplete": "請輸入完整驗證碼",
     "verifySuccess": "驗證成功",
-    "getCode": "取得驗證碼"
+    "getCode": "請輸入驗證碼"
   },
   "VerifyCodeModal": {
     "p2": "重新發送",

@@ -858,7 +858,7 @@
     "title": "n8n Models"
   },
   "modelPlaza": {
-    "officialBadge": "智",
+    "officialBadge": "IH",
     "compare": {
       "title": "Compare Models",
       "message": "Please select 2-3 models to compare"
@@ -1318,7 +1318,6 @@
     "uploadSelfie": "Upload a selfie with your ID",
     "submit": "Submit",
     "submitting": "Submitting...",
-    "failed": "Verification failed",
     "loadFailed": "Failed to load",
     "status_unverified": "Not verified",
     "status_pending": "Under review",
@@ -3098,5 +3097,13 @@
     "polish": "Please polish the following text to make it more professional and fluent:",
     "wechatArticle": "Please help me generate a WeChat official account article. Requirements:\n1. Topic:\n2. Summary:\n3. Highlight markers (quote card / tip block / citation / code block / subheading)\n4. Image suggestions:\nRun the content-engine pipeline (Moyu Green theme + 22-check self-validation + draft box push).",
     "kouboScript": "Please help me generate 8 daily Douyin voice-over scripts. Requirements:\n1. Date: MMDD\n2. Topic direction:\n3. Dual-gate validation (ambiguity compression / cross-script vocabulary / full validation / grammar / hot-topic coverage)\nRun the koubo-workflow pipeline (constraint-first writing method)."
+  },
+  "verify": {
+    "getCode": "Enter verification code",
+    "desc": "Verification code sent to",
+    "resend": "Resend",
+    "confirm": "Confirm",
+    "closeA11y": "Close verification dialog",
+    "inputA11y": "Verification code input"
   }
 }

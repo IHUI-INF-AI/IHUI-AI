@@ -2671,11 +2671,15 @@
           "create": "新建",
           "createSuccess": "創建成功",
           "createTitle": "新建支付日誌",
+          "dateLabel": "繳費日期",
           "delete": "刪除",
           "deleteSuccess": "刪除成功",
           "edit": "編輯",
           "editTitle": "編輯支付日誌",
           "empty": "暫無支付記錄",
+          "emptyRoster": "暫無報名資料",
+          "enrollmentLabel": "期次（報名）",
+          "enrollmentPlaceholder": "選擇學員的某一期報名",
           "export": "導出",
           "exportFailed": "導出失敗",
           "exportSuccess": "導出成功",
@@ -2685,6 +2689,10 @@
           "filterUserUuid": "用戶UUID",
           "filterVideoId": "視頻ID",
           "loading": "加載中...",
+          "methodAlipay": "支付寶",
+          "methodCash": "現金",
+          "methodTransfer": "轉帳",
+          "methodWechat": "微信",
           "nextPage": "下一頁",
           "outBillOnLabel": "賬單日期 *",
           "outBillOnRequired": "賬單日期不能為空",
@@ -2692,7 +2700,11 @@
           "payWayLabel": "支付方式",
           "prevPage": "上一頁",
           "realAmountLabel": "實付金額",
+          "recordTitle": "登記繳費",
+          "remarkLabel": "備註",
+          "remarkPlaceholder": "可選",
           "reset": "重置",
+          "rosterLine": "{name} · {cls} · 應繳 {totalFee} 已繳 {paidAmount} 欠費 {dueAmount}",
           "save": "保存",
           "subtitle": "管理課程支付記錄與賬單",
           "title": "課程支付日誌",
@@ -20062,7 +20074,10 @@
     "customAdd": "新增",
     "customRemove": "移除",
     "customDragHint": "拖曳排序",
-    "customNoResults": "沒有找到符合的功能"
+    "customNoResults": "沒有找到符合的功能",
+    "eduHubTitle": "教育",
+    "contentHubTitle": "內容",
+    "tradeHubTitle": "交易"
   },
   "news": {
     "allCategories": "全部分類",
@@ -22243,6 +22258,7 @@
     "dashboardDesc": "快速訪問所有設置項",
     "dashboardTitle": "儀表盤",
     "dataExportTitle": "數據導出",
+    "dataRightsTitle": "資料權利",
     "dataVisibility": "數據可見性",
     "dataVisibilityDesc": "控制誰可以查看您的個人資料信息",
     "desc": {
@@ -22661,7 +22677,21 @@
     "codeIndexEgressOptOut": "不建程式碼語義索引",
     "codeIndexEgressOptOutDesc": "程式碼片段不會外送用於向量化建索引",
     "autoMemoryOptOut": "關閉自動長期記憶",
-    "autoMemoryOptOutDesc": "不會把對話提煉成跨會話的偏好或約定"
+    "autoMemoryOptOutDesc": "不會把對話提煉成跨會話的偏好或約定",
+    "navTiers": {
+      "title": "側邊欄精簡模式",
+      "desc": "預設隱藏開發者與維運導向的功能入口。需要時打開下方開關即可顯示。",
+      "simpleMode": "精簡模式",
+      "simpleModeDesc": "一鍵隱藏下方四類入口；關閉則全部顯示",
+      "developer": "開發者工具",
+      "developerDesc": "API 文件、Webhook、沙箱、中繼站金鑰與 API 訂閱",
+      "relayOps": "模型中繼站後臺",
+      "relayOpsDesc": "渠道、金鑰、呼叫紀錄、計費與兌換碼等營運資料",
+      "advancedAi": "進階 AI 工具",
+      "advancedAiDesc": "記憶、子代理、編排、上下文壓縮等代理框架能力",
+      "experimental": "實驗性功能",
+      "experimentalDesc": "仍在驗證階段的功能，後續可能調整或下線"
+    }
   },
   "shareContentPage": {
     "aiGenerated": "智匯 AI 生成",
@@ -28705,5 +28735,17 @@
   },
   "statusPage": {
     "incidentsUnavailable": "最近 30 天的事件資料暫時取不到"
+  },
+  "eduHub": {
+    "title": "教育",
+    "subtitle": "課程、考試、學習工具與教務管理"
+  },
+  "contentHub": {
+    "title": "內容",
+    "subtitle": "廣場、社區、訊息與多平臺發布"
+  },
+  "tradeHub": {
+    "title": "交易",
+    "subtitle": "錢包、訂單、會員與積分權益"
   }
 }
