@@ -20,7 +20,7 @@ import { useTagsViewStore, type TagItem } from '@/stores/tags-view'
 const TAGS_VIEW_OVERLAY_ID = 'tags-view-search'
 import { Dropdown } from '@/components/feedback'
 import { SearchBar } from '@/components/business'
-import { resolvePathLabelSpec, resolvePathIcon } from '@/lib/path-labels'
+import { resolvePathLabelSpec, resolvePathDynamicLabel, resolvePathIcon } from '@/lib/path-labels'
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 
 /**
@@ -730,8 +730,14 @@ export function TagsView() {
  */
 const TagLabel = React.memo(function TagLabel({ path }: { path: string }) {
   const spec = resolvePathLabelSpec(path)
+  // 2026-10-19:与侧边栏同源的取名规则 `dynamicLabel ?? t(labelKey)`。
+  // AdminNav 的 dynamicLabel 是已定稿中文名(如「操作日志」),侧边栏短路用它;
+  // 标签栏若绕过它直接 t(labelKey),同一页面侧边栏中文 / 标签栏英文兜底或裸键名。
+  const dynamicLabel = resolvePathDynamicLabel(path)
   // spec 为 null 时也必须无条件调用 useTranslations(React hook 规则)
   const t = useTranslations(spec?.ns ?? 'common')
+  if (dynamicLabel)
+    return <span className="min-w-0 flex-1 truncate text-sm leading-none">{dynamicLabel}</span>
   if (!spec)
     return <span className="min-w-0 flex-1 truncate text-sm leading-none">{deriveTitle(path)}</span>
   // 2026-07-29 根治"标签栏显示 i18n 键名"问题:
@@ -739,7 +745,10 @@ const TagLabel = React.memo(function TagLabel({ path }: { path: string }) {
   // (如 "aiChat.title"),导致标签栏直接显示键名。原 try/catch 永远进不去 catch 分支。
   // 改用 t.has() 显式检查 key 是否存在,不存在则回退到 deriveTitle(英文 Title Case 兜底),
   // 至少不泄露键名;后续可由 path-labels.ts 补齐 key 让标签显示正确翻译。
-  if (!t.has(spec.key)) {
+  // 2026-10-19 补一层 typeof 判定:next-intl 的 t.has() 只判 null,**对象子树也返回 true**
+  // (见 use-intl 内部 resolvePath 只判 next == null),而 t() 对非字符串抛 FORMATTING_ERROR
+  // 后回退成裸键名 —— 那是比英文兜底更糟的形态,必须在这里挡住。
+  if (!t.has(spec.key) || typeof t.raw(spec.key) !== 'string') {
     return <span className="min-w-0 flex-1 truncate text-sm leading-none">{deriveTitle(path)}</span>
   }
   return <span className="min-w-0 flex-1 truncate text-sm leading-none">{t(spec.key)}</span>
