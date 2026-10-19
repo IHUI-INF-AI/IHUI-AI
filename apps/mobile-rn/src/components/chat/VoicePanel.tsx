@@ -309,7 +309,7 @@ export function VoicePanel({
                     </View>
                   )}
                 </Pressable>
-                {turnNote != null && turnNote.trim() !== '' ? (
+                {typeof turnNote === 'string' && turnNote.trim() !== '' ? (
                   <Text style={styles.turnNoteText}>{turnNote}</Text>
                 ) : null}
               </>

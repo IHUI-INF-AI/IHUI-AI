@@ -19,7 +19,6 @@
  * 故 onRequestClose 返回空函数,阻止 Android 返回键关闭弹窗。
  */
 import {
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -30,6 +29,7 @@ import {
   View,
   type ViewStyle,
 } from 'react-native'
+import { appAlert } from './BottomPops'
 import { Shield, Lock, CornerDownLeft } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 import { PRIVACY_POLICY_PARAGRAPHS, PRIVACY_POLICY_TITLE } from '../constants/privacyPolicy'
@@ -72,7 +72,7 @@ export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps
 
   const handleDisagree = () => {
     // 复刻 Uniapp preventClose:不允许关闭,RN 用 Alert 提示
-    Alert.alert('提示', '需同意隐私政策才能使用本应用', [{ text: '我知道了' }])
+    appAlert('提示', '需同意隐私政策才能使用本应用', [{ text: '我知道了' }])
   }
 
   const handleAgree = () => {
