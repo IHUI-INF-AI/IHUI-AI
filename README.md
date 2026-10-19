@@ -6300,3 +6300,88 @@ A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4443 API 路由 / 598 �
   | | API | Fastify 5 / **4443 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4443 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 > A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4443 API 路由 / 598 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+| 测试文件 | 2955 | `testFiles` |
+| 跟踪文件 | 15146 | `trackedFiles` |
+> **一个人,一台电脑,百万行代码** 写出的自托管全栈 AI 平台 —— **118 大模型网关** + **LangGraph / MCP / A2A 三栈** + **多租户商业后端** + **8 端前端**,Apache-2.0 商业可用,5 分钟 Fork 到上线。
+### 🧠 AI 内核 —— 模型网关与编排
+- **118 大模型统一接入**:LiteLLM 网关 · 90+ 免费/中转 provider · 19 个原生适配器(OpenAI / Claude / Gemini / 智谱 GLM / DeepSeek / 月之暗面 / 豆包 / 混元 / StepFun…)
+- **智能路由**:成本感知择优 · 国内外端点竞速 · 故障自动 fallback · 模型积分计价(免费 ×0 → 旗舰 ×30 五档梯度)
+- **LangGraph 图编排**:plan → execute → summarize · Postgres 节点级检查点 · HITL 人工介入 · 5 模式流式(values/updates/messages/events/debug)
+- **MCP + A2A 三栈**:自研 MCP 协议服务端 + 客户端(stdio / SSE / HTTP)· 24 内置工具 · Agent-to-Agent 互通
+- **知识与记忆**:RAG 双路召回 + RRF 融合 + LLM 重排 · pgvector 向量库 · 知识图谱 · 15 个记忆服务(长期 / 衰减 / 多模态 / 项目级)
+- **深度能力**:Deep Research(信源分级 + 验证状态)· Computer Use 计算机操控 · 代码库增量索引(Tree-sitter)· LSP 代码智能
+### 💬 对话体验(Web 端王牌)
+- **全局 docked AI 面板**:任意页面右侧常驻对话,不占独立路由,深链可分享
+- **丝滑流式**:SSE + 断点续传 · 消息排队 · Steer 中途引导(对标 Codex / Cursor)
+- **富渲染**:流式 Markdown + KaTeX 公式 + Mermaid 图 + 代码高亮 + 可运行代码块 + Artifact 画布
+- **多模型工作台**:模型选择(按厂商分组 + 自动档)· 推理强度 · 采样参数 · 发送前成本预估
+- **工具可见可控**:工具调用可视化(实时耗时 / 来源徽章)· 人工审批闸门 · 代码 diff 单文件 / 批量审批
+- **多任务窗格**:树形分屏多会话 · 内嵌终端(xterm)· 内嵌浏览器(CDP 真 Chrome)
+- **语音全家桶**:语音输入 · 流式播报 · 屏幕阅读器 aria-live 无障碍播报
+- **会话导出**:Markdown / JSON / HTML / PDF / 分享卡 / 分享链接(H5)
+### 🤖 Agent 生态
+- **市场 + 工作台 + 画布**:模板市场 · xyflow 节点画布 · 我的 Agent
+- **运行监控全家桶**:运行时 / 进度 / 看板 / Swarm 拓扑 / 编排 Hub / Trace 回放 / 后台 Agent
+- **协作与择优**:子智能体派发 · Agent 团队多轮协作 · Best-of-N 同任务多副本自动择优
+- **可控可回滚**:检查点历史 / 原子回滚 · Hooks / 规则审批 · 云端 Agent
+### 📝 内容创作引擎(一个人的自媒体军团)
+- **口播稿流水线**:18 项逐篇验证 + 朗读质量门禁(断句 / 语病 / 自然度)+ 跨篇去重 + 4 合 1 发布门禁
+- **公众号文章流水线**:22 项自检 + 事实核查 12 子检查 + GEO 优化 100/100 + DOCX 构建 + 微信草稿箱推送
+- **38 平台一键发布**:文字 / 视频 / 图文全适配 · 30 个反风控模块(指纹隔离 / 行为拟人 / 代理池 / 验证码 / TLS 指纹…)
+- **AI 写作助手**:AI 标题 / 润色 / 标签 / 摘要 / SEO / 封面,发布流程内 SSE 辅助
+### 🎓 AI 教育全栈
+- **课程学习**:课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 / 证书
+- **题库考试**:多题型 / 自动批改 / 章节练习 / 错题本 / 试卷上传
+- **AI 教育引擎**:SM-2 间隔复习 · AI 助教(7 学科 persona)· AI 批改主观题 · AI 出题(人工审核)
+- **直播流媒体**:RTMP / HLS / WebRTC 推流 · 签到互动 · 回放 · 讲师管理 · 学习报告
+### 🌐 8 端全覆盖(一套契约,多端复用)
+| 端 | 技术栈 | 亮点 |
+| --- | --- | --- |
+| **Web** | Next.js 16 + React 19 | 250+ 页面 · PWA · SEO/GEO · 暗黑模式 · 5 语言 |
+| **桌面** | Tauri 2 薄壳 + Rust | 自动更新 · 72 项原生 IPC · 线上更新即生效免重发 |
+| **CLI** | Node SEA 单文件(92.9MB) | 9 种安装方式 · ACP 编辑器协议 · 100+ 子命令 · 真并行子代理 |
+| **扩展** | WXT + Chrome MV3 | 45 个侧栏页面 · SSO · 防指纹探测收窄 |
+| **小程序** | Taro 4 | 5 平台一套代码 · 主包体积治理 |
+| **移动** | Expo + React Native | 200+ 屏幕 · 生物识别 · 微信支付 · 深链 |
+| **API** | Fastify 5 + Drizzle | 4443 路由 · 25 WebSocket · OpenAPI |
+| **AI 服务** | FastAPI + LangGraph | 577 路由 · LiteLLM / MCP / A2A |
+### 💼 企业级与商业闭环
+- **多租户**:PostgreSQL RLS 行级隔离 + 租户路由 + 读从库
+- **权限**:RBAC 细粒度 + 工作区权限 + data-scope 数据范围
+- **认证全家桶**:密码 / 短信 / 微信 / Passkey(无密码)/ MFA / SSO / OAuth2 授权服务器
+- **计费支付**:VIP / 订阅 / 钱包 / 积分 / 10 支付网关(微信 / 支付宝 / PayPal / USDT)
+- **运营增长**:签到积分 / 任务 / 商城 / 排行榜 / 分销佣金 / 抽奖 / 邀请返佣
+- **社区互动**:圈子 / 广场 / 问答 / 话题 / 私信 / 关注 / 博客 / 文档 / 名片
+- **客服支持**:工单系统 / WebSocket 在线客服 / 反馈中心
+### ⚙️ 工程基建(一个人驾驭百万行代码的底气)
+- **规模**:598 张表 · 4443 API 路由 · 2959 测试文件 · ~14839 测试用例
+- **质量**:260 道工程守门(236 blocking)· 49 CI workflows · 删水印即 CI 失败
+- **可观测**:Prometheus + Grafana + Loki + Jaeger + OpenTelemetry + Alertmanager
+- **部署**:Docker Compose 15 服务一键起全栈 · 蓝绿发布 · 自动备份 · 健康检查
+- **国际化**:5 语言 × 7 端 = 35 个语言包,parity 守门逐键对齐
+- **开源合规**:Apache-2.0 + NOTICE + 三层溯源水印(可见横幅 + 零宽隐写,13,732 文件)
+### 🔬 进阶与对标(对标 Codex / Cursor / Claude Code)
+- **终端集成**:xterm + node-pty + WebSocket 双向流 + 多 session
+- **六大自研引擎**:Rules / Hook / Plan-Spec / Context Engineering / Subagent 派单 / 目标自评估闭环
+- **AI 流式过程可见性**:进度面板 / 工具调用折叠区 / 子代理任务树
+- **对话队列语义**:重排 / 撤回 / 编辑 / 打断并执行 / steer↔queue 五动词,跨端单一真相源
+- **积分用量可见性**:每日消耗热力图 + 会话数独立序列
+> 📚 每个能力的完整判据、成因与取证,见下方「核心能力详解(15 大模块)」与 [`docs/engineering/`](./docs/engineering) 九份主题收纳件。
+- 📚 文档:最近更新小节接入提交钩子,开发时自动从 git log 派生 (754c0386974)
+- 📚 文档:自动化文档更新机制 —— 提交即刷新数字,每日 AI 刷新最近更新 (d9368a7a194)
+- 🐞 修复:未跟踪影子与 tip 同 blob 时免逐条授权让位(根治 ff 停摆) (e481ca471de)
+- 🐞 修复:SignPath Dropdown 改原生 select 语义匹配;加 SP_FORM_HTML 诊断 (ec1d23f640d)
+- 🐞 修复:SignPath 下拉框改属性选择器(id 数字开头非法 CSS 选择器,run 实证 SyntaxError);automation 步骤加 15min 超时防 xvfb-run 报错后挂死 44min (f87111ab38f)
+- 🚀 新功能/改进:TP 支持 npm 邮箱 OTP(302→/login/email-otp 实证):NPM_OTP_CODE input 填码过新设备验证,OTP 后校验登录态 (9478793050f)
+- ♻️ 重构:侧边栏收敛 P1 —— 去重 4 处 + 设置项归位 3 项 (3e367aa971e)
+- 📚 文档:四语言 README 现算数字刷新(598表/49 CI/4443路由/118模型/38平台/2955测试),对齐最新项目状态并补全新增功能与更新详情 (c6250f420c6)
+- 🐞 修复:门 208 按 §7 三问逐条处置三处嵌套仓(一删两留)+ 补 .gitignore 两处真实缺口(门44 exit2 → 0) (9fa43654ec5)
+- 📚 文档:npm 发布永久走 granular token,2FA 与 Trusted Publisher 结论固化 (c6433fe3afd)
+- 🐞 修复:修守门 203 指纹两处缺陷(同题副本折不掉的生产根因)+ 把 union 归并器的「禁止放行」从注释变成真闸 (9e6f4b17bd7)
+- 🔧 工程/其他:TP 登录加网络监听(TP_NET_LOG 抓登录 POST 真实响应) + 表单区 DOM dump(TP_FORM_HTML),定位静默重置根因 (03667e1082b)
+- 🐞 修复:去掉 FormRequestEvent 的重复 re-export(TS2300 打死本包 build) (25e315a77b6)
+- 📚 文档:量算仪对不在注册面的历史门号如实读法 —— 那是已退役/挪号,不是当下缺门 (a7553a56f90)
+- 📚 文档:G-94 行内旧判断就地订正 —— v2 腿已实跑取证,勾选态归 2026-10-18 侧结清,标注无容器格如实保留 (5a87eef4751)
+- 🐞 修复:TP 登录提交按钮限定 form 内防误点页头 + 登录后错误诊断/fullPage 截图/Turnstile 探测;upload-artifact 加 4min 超时防挂死 (410aa41b135)
+- 🐞 修复:TP 登录提交按钮限定 form 内防误点页头 + 登录后错误诊断/fullPage 截图/Turnstile 探测;upload-artifact 加 4min 超时防挂死 (d7ac1e2a375)
+- 🐞 修复:补 scripts/tests/desktop-build.test.mjs 的溯源水印(门 47 欠账) (8634796f2d4)

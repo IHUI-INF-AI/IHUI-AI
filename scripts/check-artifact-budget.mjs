@@ -84,7 +84,7 @@ const BUDGET = {
     warnPct: 85,
     mainPackageScoped: false,
     ab2Judged: true,
-    buildHint: 'pnpm --filter @ihui/desktop tauri build(需 ~/.tauri 更新签名密钥)',
+    buildHint: 'pnpm --filter @ihui/desktop build(本机无 updater 签名私钥时前置 DESKTOP_ALLOW_UNSIGNED=1,仅本地自测包,不得发布)',
     basis: '实测 ~6.17 MB 薄壳包,取 2x 余量;非平台硬限',
   },
   'web-static': {

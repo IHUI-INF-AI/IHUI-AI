@@ -403,7 +403,10 @@ const styles = StyleSheet.create({
   confirmBtn: {
     flex: 1,
     height: 48,
-    borderRadius: rnRadius.lg,
+    // 角色=control ⇒ 必须取 sm 档(RADIUS_ROLES.control→sm,门 150);这里原来取 lg,
+    // 是"按元素大就配大圆角"的直觉 —— 两端各按直觉选档时,门 77(档位表)和门 150(角色档)
+    // 互相指认、无人看守,这一型就是本门立项的立因。
+    borderRadius: rnRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
