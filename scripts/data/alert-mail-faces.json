@@ -18,7 +18,7 @@
     "producerPath": "scripts/check-credential-health.mjs",
     "role": "producer",
     "inScope": true,
-    "note": "自带 decideAlert 身份档;停摆那一维的高频档由 git-guardian 派发,本文件 --stall-only 档零发信。"
+    "note": "自带 decideAlert 逐项 20h 身份档;停摆那一维的高频档由 git-guardian 派发,本文件 --stall-only 档零发信。2026-10-19 起把真身份交给唯一出口(--alert-id 带本轮 due 项 + --dedupe-hours 0,压信权仍只在本文件那一层),量算仪不再按通用标题分桶。"
   },
   {
     "face": "元运维巡检轮",

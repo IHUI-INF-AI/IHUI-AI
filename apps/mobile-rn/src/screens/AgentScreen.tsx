@@ -4,7 +4,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Alert,
   Modal,
   Pressable,
   RefreshControl,
@@ -16,6 +15,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
@@ -381,7 +381,7 @@ export function AgentScreen() {
   const handleItemClick = useCallback(
     (id: string) => {
       if (!token) {
-        Alert.alert(t('common.hint'), '请先登录', [
+        appAlert(t('common.hint'), '请先登录', [
           { text: t('common.cancel'), style: 'cancel' },
           { text: t('common.login'), onPress: () => navigation.navigate('Login') },
         ])
@@ -403,7 +403,7 @@ export function AgentScreen() {
   const handleMyAgentPress = useCallback(
     (item: MyAgentItem): void => {
       if (!token) {
-        Alert.alert(t('common.hint'), '请先登录', [
+        appAlert(t('common.hint'), '请先登录', [
           { text: t('common.cancel'), style: 'cancel' },
           { text: t('common.login'), onPress: () => navigation.navigate('Login') },
         ])
@@ -526,7 +526,7 @@ export function AgentScreen() {
   )
   const handleDrawerDeleteConversation = useCallback(
     (id: string): void => {
-      Alert.alert('删除对话', '确认删除此对话?', [
+      appAlert('删除对话', '确认删除此对话?', [
         { text: '取消', style: 'cancel' },
         {
           text: '删除',
@@ -655,7 +655,7 @@ export function AgentScreen() {
                 // 点击轮播跳转对应智能体对话(banner 派生自智能体列表,link 为智能体 id;
                 // 对齐 Uniapp banner_carousel @item-click → ai_assistant)
                 if (!token) {
-                  Alert.alert(t('common.hint'), '请先登录', [
+                  appAlert(t('common.hint'), '请先登录', [
                     { text: t('common.cancel'), style: 'cancel' },
                     { text: t('common.login'), onPress: () => navigation.navigate('Login') },
                   ])
