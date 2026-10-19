@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ } from '../check-test-collection-runs.mjs'
 
-const { parseVitestOutput, resolveEnd, runEnd, decideExit, DEFAULT_ENDS } = __test__
+const { parseVitestOutput, resolveEnd, runEnd, decideExit, DEFAULT_ENDS, vitestArgvOf } = __test__
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -179,9 +179,14 @@ test('T11 退出码方向:判红 1 / 未判定默认 2 而 strict 1 / 达标 0',
   )
 })
 
-test('T12 派生纪律(§5b):绝对入口 + windowsHide + timeout,不走 pnpm/PATH', () => {
+test('T12 派生纪律(§5b):绝对入口 + windowsHide + timeout,不走 pnpm/PATH;且 argv 取该端 script(口径④)', () => {
   const src = readFileSync(GATE, 'utf8')
-  assert.match(src, /execFileSync\(process\.execPath,\s*\[resolved\.entry,\s*'run'\]/)
+  assert.match(src, /execFileSync\(process\.execPath,\s*\[resolved\.entry,\s*\.\.\.resolved\.argv\]/)
+  assert.doesNotMatch(
+    src,
+    /execFileSync\(process\.execPath,\s*\[resolved\.entry,\s*'run'\]/,
+    '固定 [入口, run] 会把该端 test script 的旗标整片丢掉 —— 2026-10-19 实测到的假红型',
+  )
   assert.match(src, /windowsHide:\s*true/)
   assert.match(src, /timeout:\s*timeoutMs/)
   assert.doesNotMatch(src, /spawnSync\(\s*'pnpm'/, '走 pnpm 就依赖 PATH,钩子/服务进程下必失')
@@ -254,5 +259,31 @@ test('T17 巡检入口在根 package.json 且带 --strict(未判定必须计红)
   assert.ok(cmd, '缺少 pnpm check:test-collection 入口')
   assert.match(cmd, /check-test-collection-runs\.mjs/)
   assert.match(cmd, /--strict/)
+})
+
+// T18/T19(2026-10-19 立):口径④「受检形态 = 该端真实跑法」的实测证据面。
+//   立因:本门曾固定派生 [入口,'run'],packages/app 的 script 带 --environment jsdom,
+//   丢旗标后 5 枚套件 31 条用例以 `document is not defined` 假红(按该端跑法复跑 22/22 绿)。
+test('T18 真端对照:packages/app 的环境旗标必须进到派生 argv 里', () => {
+  const dir = join(REPO, 'packages', 'app')
+  const script = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).scripts.test
+  const r = resolveEnd(dir)
+  assert.equal(r.reason, undefined, `真端解析失败:${r.reason}`)
+  assert.ok(
+    r.argv.includes('--environment') && r.argv.includes('jsdom'),
+    `该端 script 带环境旗标而 argv 里没有 ⇒ 旗标被丢。script=${script} argv=${JSON.stringify(r.argv)}`,
+  )
+  assert.ok(r.argv[0] === 'run', `子命令必须原样带上(仍按该端 script 走),实为 ${JSON.stringify(r.argv[0])}`)
+})
+
+test('T19 vitestArgvOf:取不到调用点 / 多次调用 / 无子命令 三型各自未判定,负向不与正向混', () => {
+  assert.match(vitestArgvOf('--config vitest.json run').reason, /找不到 vitest 的调用点/)
+  assert.match(vitestArgvOf('vitest run && vitest run --coverage').reason, /无法判定该量哪一轮/)
+  assert.match(vitestArgvOf('vitest').reason, /子命令取不到/)
+  assert.deepEqual(vitestArgvOf('pnpm vitest run -t "a b"').argv, ['run', '-t', 'a b'])
+  assert.deepEqual(vitestArgvOf('node scripts/clean.mjs && vitest run --passWithNoTests').argv, [
+    'run',
+    '--passWithNoTests',
+  ])
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
