@@ -39,7 +39,7 @@ function interfaceFields(src: string, name: string): string[] {
   expect(start, `${name} 接口在源码里找不到`).toBeGreaterThan(0)
   const end = src.indexOf('\n}', start)
   expect(end, `${name} 接口块没找到收口`).toBeGreaterThan(start)
-  return [...src.slice(start, end).matchAll(/^ {2}(\w+)\??:/gm)].map((m) => m[1]).sort()
+  return [...src.slice(start, end).matchAll(/^ {2}(\w+)\??:/gm)].map((m) => m[1]!).sort()
 }
 
 describe('G-248 R1 / 顶层注入字段镜像锁(契约 ⇄ 端上挑字段名单)', () => {
@@ -75,7 +75,7 @@ describe('G-248 R1 / 顶层注入字段镜像锁(契约 ⇄ 端上挑字段名�
       PARSE_SRC.indexOf('function frameMetaOfLine'),
       PARSE_SRC.indexOf('function parseLineEvent'),
     )
-    for (const m of block.matchAll(/\{ (\w+) \}/g)) written.add(m[1])
+    for (const m of block.matchAll(/\{ (\w+) \}/g)) written.add(m[1]!)
     expect([...written].sort(), 'frameMetaOfLine 实际写出的键与契约声明不一致').toEqual(contractMeta)
   })
 })
