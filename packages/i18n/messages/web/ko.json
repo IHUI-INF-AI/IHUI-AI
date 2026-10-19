@@ -682,18 +682,6 @@
   },
   "admin": {
     "wallboard": {
-      "edgeControlLeg": "가속을 거치지 않은 비교 측정",
-      "edgeHeadlineHit": "중국 본토 가속 적중률",
-      "edgeHeadlineMs": "현재 홈페이지 열림 시간",
-      "edgeNoSeries": "방문자 측정 샘플이 없습니다",
-      "edgeSparkName": "홈페이지 응답 시간",
-      "edgeSparkTitle": "최근 방문자 홈페이지 응답 시간(녹색=캐시 적중, 노란색=미적중)",
-      "edgeStatP50": "P50 시간",
-      "edgeStatP95": "P95 시간",
-      "edgeStatSamples": "샘플 수",
-      "edgeStatWorst": "최악 시간",
-      "edgeUpdatedAgo": "측정 {ago}",
-      "panelEdge": "방문자 응답 · 본토 가속",
       "activeAlerts": "활성 알림 (Alertmanager)",
       "agoDays": "{n}일 전",
       "agoHours": "{n}시간 전",
@@ -28734,17 +28722,5 @@
   },
   "statusPage": {
     "incidentsUnavailable": "최근 30일 이벤트 데이터를 일시적으로 가져올 수 없습니다"
-  },
-  "eduHub": {
-    "title": "교육",
-    "subtitle": "강좌, 시험, 학습 도구와 교무 관리"
-  },
-  "contentHub": {
-    "title": "콘텐츠",
-    "subtitle": "광장, 커뮤니티, 메시지와 멀티 플랫폼 게시"
-  },
-  "tradeHub": {
-    "title": "거래",
-    "subtitle": "지갑, 주문, 멤버십과 포인트 혜택"
   }
 }

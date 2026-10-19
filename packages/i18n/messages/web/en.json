@@ -682,18 +682,6 @@
   },
   "admin": {
     "wallboard": {
-      "edgeControlLeg": "Control run without acceleration",
-      "edgeHeadlineHit": "CN Acceleration Hit Rate",
-      "edgeHeadlineMs": "Homepage Open Time Now",
-      "edgeNoSeries": "No visitor probe samples yet",
-      "edgeSparkName": "Homepage Latency",
-      "edgeSparkTitle": "Recent visitor homepage latency (green = cache hit, amber = miss)",
-      "edgeStatP50": "P50 Time",
-      "edgeStatP95": "P95 Time",
-      "edgeStatSamples": "Samples",
-      "edgeStatWorst": "Worst Time",
-      "edgeUpdatedAgo": "Probed {ago}",
-      "panelEdge": "Visitor Latency · CN Acceleration",
       "activeAlerts": "Active Alerts (Alertmanager)",
       "agoDays": "{n} d ago",
       "agoHours": "{n} h ago",
@@ -28731,17 +28719,5 @@
   },
   "statusPage": {
     "incidentsUnavailable": "Incident data for the last 30 days is temporarily unavailable"
-  },
-  "eduHub": {
-    "title": "Education",
-    "subtitle": "Courses, exams, study tools and academic management"
-  },
-  "contentHub": {
-    "title": "Content",
-    "subtitle": "Plaza, community, messages and multi-platform publishing"
-  },
-  "tradeHub": {
-    "title": "Trade",
-    "subtitle": "Wallet, orders, membership and points benefits"
   }
 }
