@@ -2171,6 +2171,18 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 ---
 
+
+## 최근 업데이트 (자동 유지)
+
+<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-19**
+- 🚀 **Web 사이드바 도메인 진입점으로 수렴**: P1 중복 4곳 제거 + 설정 3개 이동; P2에서 교육/콘텐츠/커머스 3개 도메인을 도메인 진입점으로 통합하여 탐색 항목 72→24로 감소(`refactor(web)`).
+- 🧩 **G-425 잘림 알림 크로스엔드 보강(Extension / Mobile-RN)**: 판단 로직을 공유 계층 단일 구현으로 하향 통합, 5개 언어 팩 완비(`feat(跨端)`).
+- 🔄 **4개 엔드 ui-routes 산출물 동기화**: P2 도메인 진입점 라우트 추가 후 Web/Extension/Mobile-RN/Miniapp-Taro의 AI 탐색 가능 라우트가 자동 정렬.
+- 🛡️ **가디언 강화**: 가디언 203 지문 결함 수정, union 병합기의 "통과 금지"를 주석에서 실제 게이트로 격상; 가디언 208 중첩 저장소 처리 및 `.gitignore` 누락 2곳 보완.
+- 🐞 **수정**: api-client 중복 재내보내기 제거(패키지 빌드 실패 원인); npm-bootstrap 로그인 흐름에 오류 진단/스크린샷/Turnstile 탐지 및 업로드 타임아웃 보호 추가.
+<!-- END RECENT UPDATES -->
+
 <p align="center">
   <sub>Built by <strong>지린성 아이즈히후이 인공지능 기술 유한공사</strong> · 오픈소스 공동 구축, 우리 함께합니다</sub>
 </p>
