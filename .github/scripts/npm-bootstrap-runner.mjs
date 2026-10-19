@@ -235,7 +235,9 @@ async function fillSignup(page) {
         }
       } catch {}
     }
-    throw new Error(`field not found: ${label}`)
+    throw new Error(
+      `field not found: ${label} | url=${page.url()} | body=${(((await page.textContent('body').catch(() => '')) || '').replace(/\s+/g, ' ').slice(0, 200))}`
+    )
   }
   await typeFirst(emailSel, EMAIL, 'email')
   await typeFirst(userSel, USERNAME, 'username')
@@ -255,7 +257,7 @@ async function main() {
     console.log('publish handled by workflow steps')
     return
   }
-  const attempts = ACTION === 'signup' ? 3 : 1
+  const attempts = Number(process.env.BOOT_ATTEMPTS || (ACTION === 'signup' ? 3 : 1))
   let lastErr = null
   for (let n = 1; n <= attempts; n++) {
     console.log(`=== ATTEMPT ${n}/${attempts} ===`)
@@ -285,6 +287,16 @@ async function runSignup(page, attempt) {
   const ok = await waitPastCloudflare(page)
   await shot(page, `signup-page-${attempt}`)
   if (!ok) throw new Error('cloudflare challenge unresolved')
+  // 诊断:npm /signup 实测会被重定向到 GitHub(Actions runner 的 IP 属 GitHub ASN,
+  // npm/GitHub 对自家数据中心 IP 的浏览器活动直接封锁或强制 OAuth)。打印真实 URL 与正文,
+  // 一次 run 定位,避免再靠截图猜。
+  let diag = ''
+  try {
+    diag = ((await page.textContent('body')) || '').replace(/\s+/g, ' ').slice(0, 400)
+  } catch {}
+  console.log(`SIGNUP-URL=${page.url()}`)
+  console.log(`SIGNUP-TITLE=${await page.title()}`)
+  console.log(`SIGNUP-BODY=${diag}`)
   await fillSignup(page)
   let outcome = 'unknown'
   for (let i = 0; i < 20; i++) {
