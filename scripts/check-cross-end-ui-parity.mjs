@@ -89,10 +89,17 @@ const OWN_END_PREFIX = { miniapp: 'apps/miniapp-taro/', rn: 'apps/mobile-rn/' }
  *    web 的 tsconfig 解析;被剔的族逐条点名(`⊘ WD …… 从web端入口不可达`),web 种子取不到时
  *    整维**挂起留痕**而不是当成"都活着" —— 挂起那一句里的"本轮未做剔除"说的是这一轮,不是这一腿。
  *  - 只比**档值集合**(RD 量纲),不比元素名(RE 量纲):web 侧没有 StyleSheet 键可归属。
- *  - **裸档盲区(G-978049②,本腿与主腿同罪)**:档位提取式只认 `rounded-(xs|sm|md|lg|xl|2xl)`,
- *    裸写 `rounded` / `var(--radius)`(值 = 档位表 DEFAULT)读不出来 ⇒ "一端写裸档、另一端写具名档"
- *    会被读成"那一端没写档"。补认它必须与守门 77 / 150 的台账**同枚提交各自重锚**,不在本腿单独放宽;
- *    今天先由 `bareRoundedAudit` **逐条报名**(报数不进判据、不进退出码),给下一票当输入。
+ *  - **裸档(G-978049② 立案 / G-277② 落地,本腿与主腿同罪)**:档位提取式曾只认
+ *    `rounded-(xs|sm|md|lg|xl|2xl)`,裸写 `rounded` / `var(--radius)`(值 = 档位表 DEFAULT)读不出来
+ *    ⇒ "一端写裸档、另一端写具名档"会被读成"那一端没写档"。**本票已把它并进取用集合**
+ *    (`scripts/lib/radius-tokens.mjs` 的 `radiusItemsInLine` 末尾一支,识别式仍只有
+ *    `bareRoundedOccurrences` 那一份,门内不抄第二份正则)。立项时写的"补认必须与守门 77 / 150
+ *    的台账同枚提交各自重锚"经 import 面复裁**不成立**:77 不 import radius-tokens,150 走
+ *    `lib/radius-roles.mjs` 自带的提取式且其 1b) 支早已认裸档,两本账的读数不可能随本刀移动;
+ *    会移动的只有本门(128)与守门 11 的 `radiusPxInLine` 消费面。真仓 HEAD 现读锚点零变化
+ *    (唯一带裸档的配对文件 ModelList 小程序侧那 2 处折进档集合后 8 早已在集合内 ⇒ RD 不新增分叉),
+ *    所以**没有锚点需要重锚**;`bareRoundedAudit` 继续逐条报名,但它报的不再是"看不见多少",
+ *    而是"这一族有几处是靠裸档形态被认进来的"(见门内打印)。
  */
 const WEB_DIRS = ['apps/web/src/components', 'packages/ui-react/src/components']
 export const WEB_LEDGER = {
@@ -1893,8 +1900,10 @@ export function collect(
     ? geometryDeclCheck(specSources[geoPath], specSources[geoDtsPath])
     : { skipped: true }
   /**
-   * 裸档报名(G-978049②):**两腿各算各的名单**,且不进判据、不进退出码 —— 它报的是
-   * "这一维今天看不见多少",不是"发现了多少债"。档表取不到 DEFAULT 时 `defaultResolved:false`,
+   * 裸档报名(G-978049② 立案 / G-277② 落地):**两腿各算各的名单**,仍是报名、不单独构成判据,
+   * 但它报的不再是"这一维看不见多少"—— 裸档自本票起已并进 `radiusItemsInLine` 的取用集合,
+   * RD/RE 两维都看得见它。这里留着名单是为了让"某族的 8 是从裸档形态认来的"可追(逐条到行),
+   * 而不是只能从集合差里倒推。档表取不到 DEFAULT 时 `defaultResolved:false`,
    * 由打印面如实写成"值未判定",绝不拿一个猜出来的 8 去冒充读数。
    */
   const bareRounded = {
@@ -2695,15 +2704,23 @@ export function webRadiusAudit(webPairs, text, radiusTable, styles = {}, tiers =
 }
 
 /**
- * **裸档取用的报名(G-978049②)—— 只报名,不进任何判据、不进退出码。**
+ * **裸档取用的报名(G-978049② 立案 / G-277② 已进档集合)—— 报的是"靠裸档形态认进来几处"。**
  *
- * 为什么必须在尺子里而不是在注释里:提取式读不到裸 `rounded` 这件事,今天的全部表现是
- * "那一端没写档" —— 与"那一端真的没写档"在账面上**完全同形**。本门已经吃过一次这个形状
+ * 为什么必须在尺子里而不是在注释里:提取式曾读不到裸 `rounded`,其全部表现是
+ * "那一端没写档" —— 与"那一端真的没写档"在账面上**完全同形**。本门吃过一次这个形状
  * (Tooltip 一族被读窄,现读小程序那行改前裸 `rounded` 隐身、只显 web 的 6),而它不是判据错,
- * 是判据不知道自己没看见。所以这一格的正解是把"看不见多少"跟着读数一起印出来,而不是顺手
- * 放宽提取式 —— 后者会同时移动守门 77 的 HEAD 棘轮、守门 150 的角色档台账与本门三维锚点,
- * 票面明令三处必须在同一枚提交里各自重锚(§O81 票⑬:"重锚的正当性靠'中和本次读数改动后的
- * 旧口径'证明,不靠只降不升")。
+ * 是判据不知道自己没看见。所以立案时先把"看不见多少"跟着读数印出来,而不是顺手放宽提取式。
+ *
+ * 本票(第②格)把提取式补全了:裸档已并进 `lib/radius-tokens.mjs` 的 `radiusItemsInLine` 返回集合
+ * (末尾一支,保住 `radiusAliasMapOf` 取 `[0]` 的既有优先级),于是 RD/RE 两维都能看见它。
+ * 立项注里"会同时移动守门 77 的 HEAD 棘轮、守门 150 的角色档台账与本门三维锚点,三处必须同枚
+ * 提交各自重锚"这句,按 import 面复裁是**错的**:77 不 import radius-tokens(自己的 B 族判据只扫
+ * 字面量与 `rounded-[…]`),150 走 `lib/radius-roles.mjs` 自带提取式且其 1b) 支早已认裸 `rounded`
+ * (同样从档位表取 DEFAULT),两本账的读数都不可能随本刀移动;真会移动的是本门的 RD/RE 与
+ * 守门 11 的 `radiusPxInLine` 消费面(11 无锚点台账,全量档 warn-only、暂存档只看新增行)。
+ * 真仓 HEAD 现读:配对射程内只有 ModelList 小程序侧 2 处裸档,折进档集合后 8 早已在集合内
+ * ⇒ **锚点零位移**,故本轮不改任何 counts/radiusCounts/elementRadiusCounts 数字
+ * (读数没动却去改锚点 = 本仓禁的"为过门补数字"),只在 `ledgerVersion` 记这一笔复裁。
  *
  * 什么算裸档由 `lib/radius-tokens.mjs` 的 `bareRoundedOccurrences` 那一份实现给 ——
  * 本门不得再抄一份正则(两处算同一件事必漂移,本仓记过最多次)。
@@ -3402,10 +3419,11 @@ export function main(argv, repoRoot = ROOT) {
             `收口姿势与 RD 同:两端各自引用档位表不是目的,同一元素取同一档才是`,
         )
       /**
-       * **裸档盲区跟着读数一起印(G-978049②)**。不印的代价是这句会被读成"配对文件里没有裸档":
-       * 提取式今天读不到 `rounded` / `var(--radius)`(值 = 档位表 DEFAULT),所以"读不出"与
-       * "没有"在这条腿的产物里是同一个数。补认它要 77/150/128 三本账同枚重锚(见门内头注),
-       * 不在本腿单独放宽判据 ⇒ 这里只报名,不判红、不改退出码。
+       * **裸档名单跟着读数一起印(G-978049② 立案 / G-277② 落地)**。不印的代价是这句会被读成
+       * "配对文件里没有裸档";而自本票起裸档**已计进档集合**(提取式 `radiusItemsInLine` 末尾一支),
+       * 所以这一行现在的作用是点名"哪几族的 DEFAULT 档是靠裸 `rounded` 字形认来的",供人复核
+       * RD/RE 读数而不是供人猜。档表取不到 DEFAULT 时值未判定,由 `valNote` 如实写成"值未判定",
+       * 绝不拿猜出来的 8 冒充读数;本报名自身仍不另立判据、不改退出码(判据在提取式那一层已经生效)。
        */
       {
         const br = collected.bareRounded ?? { web: { total: 0 }, main: { total: 0 } }
@@ -3416,9 +3434,9 @@ export function main(argv, repoRoot = ROOT) {
             ? '(档位表没读到 DEFAULT ⇒ 这些裸档的**值未判定**,不得拿猜的 8 冒充)'
             : `值 = DEFAULT ${br?.web?.defaultPx}`
         console.log(
-          `  ⊘ 裸档盲区(不判红、不进退出码):配对文件里读到 ${nWeb} 处(web 腿)/ ${nMain} 处(主腿)` +
-            `裸 rounded / var(--radius),${valNote} —— 它们**未计进档集合**,` +
-            `"一端写裸档、另一端写具名档"会被读成"那一端没写档";逐条见 --json 的 bareRounded`,
+          `  ⊘ 裸档取用(已计进档集合,本行只报名不另立判据):配对文件里读到 ${nWeb} 处(web 腿)/ ` +
+            `${nMain} 处(主腿)裸 rounded / var(--radius),${valNote};` +
+            `"一端写裸档、另一端写具名档"自 G-277② 起不再被读成"那一端没写档";逐条见 --json 的 bareRounded`,
         )
       }
     }

@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, StyleSheet, View, type ViewStyle } from 'react-native'
+import { StyleSheet, View, type ViewStyle } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import * as ImagePicker from 'expo-image-picker'
@@ -86,7 +87,7 @@ export default function StudyPublishScreen() {
   const pickImage = useCallback(async (): Promise<string> => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (status !== 'granted') {
-      Alert.alert('提示', '需要相册权限才能选择封面')
+      appAlert('提示', '需要相册权限才能选择封面')
       return ''
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -107,7 +108,7 @@ export default function StudyPublishScreen() {
   const pickVideo = useCallback(async (): Promise<string> => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (status !== 'granted') {
-      Alert.alert('提示', '需要相册权限才能选择视频')
+      appAlert('提示', '需要相册权限才能选择视频')
       return ''
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -148,11 +149,11 @@ export default function StudyPublishScreen() {
 
   const handleGroupSubmit = useCallback(async () => {
     if (!groupTitle.trim()) {
-      Alert.alert('提示', '请输入合集标题')
+      appAlert('提示', '请输入合集标题')
       return
     }
     if (!groupCategory) {
-      Alert.alert('提示', '请选择赛道')
+      appAlert('提示', '请选择赛道')
       return
     }
     setSubmitting(true)
@@ -164,14 +165,14 @@ export default function StudyPublishScreen() {
         platforms: [],
       })
       if (res.success) {
-        Alert.alert('提示', '提交成功,等待审核', [
+        appAlert('提示', '提交成功,等待审核', [
           { text: '知道了', onPress: () => navigation.goBack() },
         ])
       } else {
-        Alert.alert('提示', res.error)
+        appAlert('提示', res.error)
       }
     } catch (err) {
-      Alert.alert('提示', err instanceof Error ? err.message : '提交失败')
+      appAlert('提示', err instanceof Error ? err.message : '提交失败')
     } finally {
       setSubmitting(false)
     }
@@ -179,11 +180,11 @@ export default function StudyPublishScreen() {
 
   const handleVideoSubmit = useCallback(async () => {
     if (!videoTitle.trim()) {
-      Alert.alert('提示', '请输入课程标题')
+      appAlert('提示', '请输入课程标题')
       return
     }
     if (!videoUri) {
-      Alert.alert('提示', '请选择视频')
+      appAlert('提示', '请选择视频')
       return
     }
     setSubmitting(true)
@@ -195,14 +196,14 @@ export default function StudyPublishScreen() {
         platforms: [],
       })
       if (res.success) {
-        Alert.alert('提示', '提交成功,等待审核', [
+        appAlert('提示', '提交成功,等待审核', [
           { text: '知道了', onPress: () => navigation.goBack() },
         ])
       } else {
-        Alert.alert('提示', res.error)
+        appAlert('提示', res.error)
       }
     } catch (err) {
-      Alert.alert('提示', err instanceof Error ? err.message : '提交失败')
+      appAlert('提示', err instanceof Error ? err.message : '提交失败')
     } finally {
       setSubmitting(false)
     }

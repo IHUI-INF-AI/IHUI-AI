@@ -5,12 +5,13 @@
 /**
  * useChatInput 契约单测(2026-10-15 立,ChatScreen「长按麦克风静默失效」修复配套)。
  *
- * 根因:useChatInput 的录音失败反馈走 Alert.alert,而 react-native-web 上 Alert 是
+ * 根因:useChatInput 的录音失败反馈走 appAlert(共享确认弹层),而原生 Alert 在
+ * react-native-web 上是 no-op ⇒ web 预览长按麦克风零反馈。
  * no-op ⇒ web 预览长按麦克风零反馈。修复引入 onVoiceUnavailable 回调(与
  * useVoiceRecorder 的 onUnavailable 同构),本套件只锁修复的行为面:
  * ① 权限被拒 + 已传回调 → onVoiceUnavailable('permission-denied', 文案) 被调,
- *    且不再走 Alert(web 病灶不再静默);
- * ② 权限被拒 + 未传回调 → 保留 Alert 兜底(原生端行为不变);
+ *    且不再走 appAlert(web 病灶不再静默);
+ * ② 权限被拒 + 未传回调 → 保留 appAlert 兜底(原生端行为不变);
  * ③ prepareToRecordAsync 抛错 + 已传回调 → onVoiceUnavailable('record-failed', …);
  * ④ 全链路成功 → 回调与 Alert 均不被调,正常进入录音态(回归守护)。
  *
@@ -52,12 +53,15 @@ vi.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: vi.fn(),
 }))
 
-// 全局 react-native 替身没有 Alert 导出(useChatInput 具名导入 Alert/Platform),
-// 展开替身并注入 Alert spy;其余组件面沿用全局替身,不重写。
+// useChatInput 只从 react-native 具名导入 Platform;确认提示已迁移为共享 appAlert
+// (见 components/BottomPops),故在 BottomPops 替身里注入 appAlert spy,react-native 替身不变。
 vi.mock('react-native', async () => {
   const rn = await import('./__mocks__/react-native')
-  return { ...rn, Alert: { alert: mocks.alert } }
+  return { ...rn }
 })
+
+// 共享确认弹层 appAlert 用 spy 替身接管,断言"录音失败兜底提示"走的是 appAlert 而非原生 Alert。
+vi.mock('../src/components/BottomPops', () => ({ appAlert: mocks.alert }))
 
 import { useChatInput } from '../src/hooks/useChatInput'
 

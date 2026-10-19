@@ -106,8 +106,8 @@ test('T2 guardian-runner 里 check-miniapp-chrome 已注册为 blocking + skipEn
 })
 
 // ─── T3 阳性对照(端到端):改 tokens.css 一处 → 两份副本必须都跟着变,其余逐行原位 ───
-test('T3 演练仓里改 --color-brand-accent 跑生成器 ⇒ theme.json 与 theme.ts 同步且不动旁', () => {
-  const moved = TOKENS.replace('--color-brand-accent: #8fb8cc;', '--color-brand-accent: #135799;')
+test('T3 演练仓里改 --color-foreground 跑生成器 ⇒ theme.json 与 theme.ts 同步且不动旁', () => {
+  const moved = TOKENS.replace('--color-foreground: hsl(0 0% 3.9%);', '--color-foreground: #135799;')
   assert.notEqual(moved, TOKENS, '夹具失效:改不动源 token')
   const dir = buildScratch({ tokensCss: moved })
   try {
@@ -129,7 +129,7 @@ test('T3 演练仓里改 --color-brand-accent 跑生成器 ⇒ theme.json 与 th
 
 // ─── T4 幂等:第二次跑必须 0 字节 ───
 test('T4 写回后重跑生成器 ⇒ exit 0 且两份副本 0 字节变化', () => {
-  const moved = TOKENS.replace('--color-brand-accent: #8fb8cc;', '--color-brand-accent: #135799;')
+  const moved = TOKENS.replace('--color-foreground: hsl(0 0% 3.9%);', '--color-foreground: #135799;')
   const dir = buildScratch({ tokensCss: moved })
   try {
     assert.equal(runCli(dir, 'sync-miniapp-chrome.mjs').code, 0)
@@ -150,7 +150,7 @@ test('T4 写回后重跑生成器 ⇒ exit 0 且两份副本 0 字节变化', ()
 
 // ─── T5 阴性对照:手改副本 ⇒ 守门红且点名文件 ───
 test('T5 手改两份副本各一处 ⇒ 门 exit 1 且逐一点名文件与字段', () => {
-  const badJson = THEME_JSON.replace('"tabSelectedColor": "#8fb8cc"', '"tabSelectedColor": "#ff0000"')
+  const badJson = THEME_JSON.replace('"tabSelectedColor": "#0a0a0a"', '"tabSelectedColor": "#ff0000"')
   const badTs = THEME_TS.replace("windowBg: '#f5f5f5',", "windowBg: '#00ff00',")
   assert.notEqual(badJson, THEME_JSON)
   assert.notEqual(badTs, THEME_TS)
