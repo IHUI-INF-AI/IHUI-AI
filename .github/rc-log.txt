@@ -1,4 +1,4 @@
-2026-10-19T11:10:44.133Z pid=4050
+2026-10-19T11:10:56.133Z pid=4050
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/1 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -46,3 +46,4 @@ RC-TILES-CLICKED round=0 step=2 n=2
 RC-CHALLENGE round=0 step=3 rows=3 cols=3 dynamic=true prompt="Select all images with a busClick verify once there are none left."
 RC-SHOT-PUSHED rc-shot-0-3 ok=true
 RC-WAIT round=0 step=3 i=0 status=200
+RC-WAIT round=0 step=3 i=6 status=200
