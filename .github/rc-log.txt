@@ -1,4 +1,4 @@
-2026-10-19T11:01:08.124Z pid=4050
+2026-10-19T11:01:20.124Z pid=4050
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/1 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -21,3 +21,4 @@ SP_DD_HTML=<div data-hsfc-id="DropdownField" class="hsfc-DropdownField" id="5444
 RC-STATE bframe=yes frames=7 url=https://signpath.org/apply
 RC-CHALLENGE round=0 step=0 rows=3 cols=3 dynamic=true prompt="Select all images with a busClick verify once there are none left."
 RC-SHOT-PUSHED rc-shot-0 ok=true
+RC-WAIT round=0 step=0 i=0 status=404
