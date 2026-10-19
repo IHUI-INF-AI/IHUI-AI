@@ -14,6 +14,10 @@ on:
         description: 'signup | verify_token | publish'
         required: true
         default: 'signup'
+      attempts:
+        description: '整轮重试次数(诊断时可传 1 快速拿结果)'
+        required: false
+        default: '3'
 
 concurrency:
   group: npm-bootstrap
@@ -26,6 +30,7 @@ jobs:
     timeout-minutes: 45
     env:
       ACTION: ${{ github.event.inputs.action }}
+      BOOT_ATTEMPTS: ${{ github.event.inputs.attempts || '3' }}
       PUBKEY_PEM: ${{ secrets.NPM_BOOT_PUBKEY }}
       NPM_EMAIL: ${{ secrets.NPM_BOOT_EMAIL }}
       NPM_USERNAME: ${{ secrets.NPM_BOOT_USERNAME }}
@@ -41,6 +46,7 @@ jobs:
           cd .github/scripts
           npm init -y >/dev/null 2>&1 || true
           npm i playwright@1.49.1 --no-fund --no-audit
+          npx playwright install chromium --with-deps
           sudo apt-get update -qq
           sudo apt-get install -y -qq xvfb >/dev/null
           # 官方真 Chrome:userAgentData.brands 含 "Google Chrome"(CFT/Playwright chromium 缺这一项,
@@ -50,7 +56,6 @@ jobs:
           wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
           sudo apt-get install -y -qq ./google-chrome-stable_current_amd64.deb
           google-chrome --version
-          npx playwright install chromium --with-deps
       - name: Run browser automation (real Chrome + CDP, xvfb headed)
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq xvfb >/dev/null
