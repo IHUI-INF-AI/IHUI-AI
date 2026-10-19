@@ -4,7 +4,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * check-grafana-metric-exists.mjs — Grafana 大屏指标名对账(2026-10-17 立)。
+ * check-panel-metric-exists.mjs — 监控大屏指标名对账(2026-10-17 立;2026-10-19 随 panel 系改名契约更名)。
  *
  * 为什么必须有这道门:AI 侧三张大屏(ai-latency / ai-cost / ihui-ai-overview)
  * 长期查询 `ihui_ai_latency_seconds_bucket`、`business_ai_calls_total` 这类
@@ -17,17 +17,20 @@
  *   G1 (BLOCK,差值棘轮) 大屏 expr 里引用的每个 Prometheus 指标名,必须能在
  *      代码发射点(apps/ai-service 的 prometheus_client 声明、apps/api 与 packages
  *      的 prom-client 声明)、核心指标(up、scrape_ 前缀、prometheus_ 前缀)或第三方导出器
- *      台账(scripts/data/grafana-external-metrics.json,带 expires)里找到。
+ *      台账(scripts/data/panel-external-metrics.json,带 expires)里找到。
  *      锚点 = 该 dashboard 文件 HEAD 自身的违规数:只拦"本次把幽灵名加回来",
  *      存量只报数(AGENTS.md §0.5/§12e —— 存量未归零时绝对判红就是恒红门)。
+ *      锚点按**文件身份**取而非按地址取:整棵树改名(2026-10-19 panel 系改名契约)时
+ *      地址变了而内容没变,按地址查锚点会把全部存量读成"本次新加"⇒ 改名那一枚提交自己
+ *      过不去,正是 §12e 禁的恒红门。旧地址一律问 git 的重命名检测得到,本仓不抄第二份旧拼法。
  *   G2 (WARN) 台账里已登记但被审面不再命中的外部前缀(清单腐烂,§0.7)。
  *
  * 取材面纪律(§0.4):全量档判 HEAD blob,--staged 判索引 blob,--worktree 仅人工逃生舱;
  * 清单与内容同面同轮;取不到被审面 ⇒ exit 2 显式「未判定」(§0.3),既不记绿也不冒红。
  *
  * 用法:
- *   node scripts/check-grafana-metric-exists.mjs [--staged|--worktree] [--self-test] [--json]
- * 跳过:HUSKY_SKIP_GRAFANA_METRIC_EXISTS=1
+ *   node scripts/check-panel-metric-exists.mjs [--staged|--worktree] [--self-test] [--json]
+ * 跳过:HUSKY_SKIP_PANEL_METRIC_EXISTS=1
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -39,11 +42,11 @@ import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-/** 被扫的大屏目录(相对仓库根)。 */
+/** 被扫的大屏目录(相对仓库根)。目录清单本身就是判据,镜像测试按它对账覆盖面。 */
 const DASHBOARD_DIRS = [
-  'monitoring/grafana/dashboards',
-  'deploy/observability/grafana/dashboards',
-  'deploy/saas/grafana/dashboards',
+  'monitoring/panel-defs/panels',
+  'deploy/observability/panel-defs/panels',
+  'deploy/saas/panel-defs/panels',
 ]
 
 /** 扫发射点的代码根(相对仓库根)。 */
@@ -52,7 +55,83 @@ const EMISSION_ROOTS = ['apps/ai-service/app', 'apps/api/src', 'packages', 'moni
 /** Prometheus 自己产生、不需要仓库发射的名字前缀。 */
 const CORE_PREFIXES = ['up', 'scrape_', 'prometheus_', 'target_info']
 
-const SELF_SKIP_ENV = 'HUSKY_SKIP_GRAFANA_METRIC_EXISTS'
+const SELF_SKIP_ENV = 'HUSKY_SKIP_PANEL_METRIC_EXISTS'
+
+const LEDGER_REL = 'scripts/data/panel-external-metrics.json'
+
+/**
+ * 改名连续性(2026-10-19 panel 系改名契约 T2 层立)。
+ *
+ * 要修的格子:棘轮锚点取「该面板文件在 HEAD 自身的违规数」,键是**路径**。整棵树改名后
+ * HEAD 上它叫旧地址、被审面上它叫新地址 ⇒ 锚点查不到 ⇒ base=0 ⇒ 现读 30 处存量幽灵被读成
+ * "本次新加" ⇒ 改名这一枚提交被自己的门拦死(§12e 的恒红门形态),唯一出路是 --no-verify,
+ * 而那一出的代价是全链守门作废。
+ *
+ * 正解 = 问 git 的重命名检测要"同一枚文件换了地址"这个事实,把两张面折到同一个**文件身份**上。
+ * 刻意不在本仓抄一份旧拼法常量:旧名字正是这份契约要消掉的东西,抄进来就等于给它续命,
+ * 而且下一次改名还得回来改这里(第二份真相,§0.6)。
+ * 取材 = `git diff --cached -M --name-status`(HEAD↔索引);改名必须先 git mv 进索引才谈得上落地,
+ * 所以这张表在"正在改名的那一枚提交"里必然有内容,在其余任何时刻恒为空 ⇒ 行为逐字不变。
+ *
+ * @returns {{toIdentity: Map<string,string>, oldDirs: string[]}}
+ */
+function renameContinuity() {
+  const toIdentity = new Map()
+  const out = { toIdentity, oldDirs: [] }
+  let raw
+  try {
+    raw = gitRaw(['diff', '--cached', '-M', '--name-status', '-z'], ROOT, { maxBuffer: 64 * 1024 * 1024 })
+  } catch {
+    // 取不到重命名表 ⇒ 按"没有改名"处理:锚点退回按地址取,与改名前的行为逐字相同。
+    // 这不是放行幽灵名 —— 只影响锚点寻址,判据本身一分未松。
+    return out
+  }
+  const tokens = String(raw || '').split('\0').filter((s) => s !== '')
+  for (let i = 0; i < tokens.length; i++) {
+    const status = tokens[i]
+    if (!/^R\d+/.test(status)) continue
+    const from = tokens[++i]
+    const to = tokens[++i]
+    if (!from || !to) break
+    toIdentity.set(from, to)
+    if (/\.(?:json)$/.test(to)) {
+      for (const dir of DASHBOARD_DIRS) {
+        if (to.startsWith(`${dir}/`) && !from.startsWith(`${dir}/`)) {
+          const oldDir = from.slice(0, from.lastIndexOf('/'))
+          if (!out.oldDirs.includes(oldDir)) out.oldDirs.push(oldDir)
+        }
+      }
+    }
+  }
+  return out
+}
+
+/** 文件身份:被审面上的地址;若它是由改名得来的,折到改名后的地址(两面同一个键)。 */
+function identityOf(path, cont) {
+  let cur = path
+  const seen = new Set()
+  while (cont.toIdentity.has(cur) && !seen.has(cur)) {
+    seen.add(cur)
+    cur = cont.toIdentity.get(cur)
+  }
+  return cur
+}
+
+/** 某一面上要枚举的面板目录:契约清单 + 改名前那批旧地址(由 git 重命名表得到)。 */
+function dirsOfFace(cont) {
+  return [...DASHBOARD_DIRS, ...cont.oldDirs.filter((d) => !DASHBOARD_DIRS.includes(d))]
+}
+
+/**
+ * 台账在某一面上的可读地址清单 = 契约地址 +(若它是改名来的)改名前那个地址。
+ * 不带旧地址的后果是实打实的:改名那一枚提交的 HEAD 面上只有旧地址,台账会被读成"缺失"
+ * ⇒ 全门落 exit 2 未判定 —— 而提交链要的是判据,不是一把因为搬家就失明的尺子。
+ */
+function ledgerSources(cont) {
+  const legacy = [...cont.toIdentity.entries()].filter(([, to]) => to === LEDGER_REL).map(([from]) => from)
+  return [LEDGER_REL, ...legacy]
+}
+
 
 // ─── PromQL 里"指标名"的取形 ─────────────────────────────────────
 // 只认这三种形状:① name{labels} ② name[range] ③ 函数首参(rate|increase|irate|absent|count)(name…)
@@ -124,7 +203,7 @@ function isSourceFile(p) {
 }
 
 function readExternalLedger(faceRead) {
-  const path = 'scripts/data/grafana-external-metrics.json'
+  const path = LEDGER_REL
   const raw = faceRead(path)
   if (raw === null) return { prefixes: [], entries: [], missing: true }
   const parsed = JSON.parse(raw)
@@ -252,21 +331,31 @@ function runAudit(face, opts = {}) {
     }
   }
   const f = makeFace(face, git)
-  const dashPaths = []
-  for (const d of DASHBOARD_DIRS) {
+  const cont = renameContinuity()
+  const panelsById = new Map()
+  for (const d of dirsOfFace(cont)) {
     const list = f.list(d)
     if (list === null) return { status: 'undetermined', reason: `被审面(${face})无法列出 ${d}` }
-    dashPaths.push(...list.filter((p) => p.endsWith('.json')))
+    for (const p of list.filter((s) => s.endsWith('.json'))) {
+      const id = identityOf(p, cont)
+      // 同一身份在两面各有一份时(改名只做了一半),以**契约清单里的地址**为准:
+      // 存量按它自己的地址记账,才不会把"搬了一半"读成两份工作。
+      if (panelsById.has(id) && !DASHBOARD_DIRS.some((dir) => p.startsWith(`${dir}/`))) continue
+      panelsById.set(id, p)
+    }
   }
+  const dashIds = [...panelsById.keys()]
+  const dashPaths = dashIds.map((id) => panelsById.get(id))
   if (dashPaths.length === 0) return { status: 'undetermined', reason: `被审面(${face})上枚举到 0 个大屏文件 —— 判死,不记绿` }
 
-  const contents = f.readMany([...dashPaths, 'scripts/data/grafana-external-metrics.json'])
-  const ledger = readExternalLedger((p) => contents.get(p) ?? null)
+  const contents = f.readMany([...dashPaths, ...ledgerSources(cont)])
+  const ledgerRaw = ledgerSources(cont).map((p) => contents.get(p)).find((s) => typeof s === 'string') ?? null
+  const ledger = readExternalLedger(() => ledgerRaw)
   if (ledger.missing) {
     // 锚点档(HEAD)可以没有台账:台账只会"少判",按空前缀算出的 HEAD 基线只会更严,
     // 不会放水。被审面(本次提交)缺台账才是真取不到输入 ⇒ 未判定。
     if (!allowMissingLedger) {
-      return { status: 'undetermined', reason: '外部导出器台账 scripts/data/grafana-external-metrics.json 在审面上取不到' }
+      return { status: 'undetermined', reason: `外部导出器台账 ${LEDGER_REL} 在审面上取不到` }
     }
     ledger.prefixes = []
     ledger.entries = []
@@ -291,14 +380,15 @@ function runAudit(face, opts = {}) {
   }
 
   const report = []
-  for (const p of dashPaths) {
+  for (const [k, p] of dashPaths.entries()) {
+    const id = dashIds[k]
     const raw = contents.get(p) ?? null
-    if (raw === null) return { status: 'undetermined', reason: `被审面(${face})上读不到 ${p}` }
+    if (raw === null) return { status: 'undetermined', reason: `被审面(${face})上读不到 ${id}` }
     let json
     try {
       json = JSON.parse(raw)
     } catch (e) {
-      report.push({ file: p, violations: [{ name: '<JSON 解析失败>', expr: String(e).slice(0, 60) }], parseError: true })
+      report.push({ file: id, violations: [{ name: '<JSON 解析失败>', expr: String(e).slice(0, 60) }], parseError: true })
       continue
     }
     const exprs = []
@@ -311,7 +401,7 @@ function runAudit(face, opts = {}) {
       .filter((n) => !CORE_PREFIXES.some((pre) => n.startsWith(pre)))
       .filter((n) => !knownPrefixes.some((pre) => n.startsWith(pre)))
       .map((n) => ({ name: n, expr: (exprs.find((e) => e.includes(`${n}{`) || e.includes(`${n}[`) || e.includes(`(${n}`)) || '').slice(0, 120) }))
-    report.push({ file: p, violations, referenced: names.size })
+    report.push({ file: id, violations, referenced: names.size })
   }
 
   // 台账腐烂(§0.7):登记了却审面上没有任何大屏再引用的前缀
@@ -382,7 +472,7 @@ function main() {
   const { blocks, legacy } = applyRatchet(res, headByFile)
   const totalRefs = res.report.reduce((a, r) => a + (r.referenced || 0), 0)
   console.log(
-    `[grafana-metric-exists] 面=${face} 大屏 ${res.dashboardCount} 份 · 引用名 ${totalRefs} 个 · 发射点源 ${res.scanned} 个 · 已知名 ${res.emittedCount} 个`
+    `[panel-metric-exists] 面=${face} 大屏 ${res.dashboardCount} 份 · 引用名 ${totalRefs} 个 · 发射点源 ${res.scanned} 个 · 已知名 ${res.emittedCount} 个`
   )
   if (legacy.length > 0) {
     console.log(`⚠ 存量幽灵名(§12e 只报数,不拦无关提交):${legacy.reduce((a, s) => a + s.count, 0)} 处` + (legacy.length <= 12 ? ` — ${legacy.map((s) => `${s.file}(${s.count})`).join(', ')}` : ''))
@@ -435,6 +525,20 @@ function selfTest(_argv) {
   add('凭空名字仍然不在集里(扩面没有把判据扩成万能)', em.set !== null && !em.set.has('ihui_alertbridge_ghost_total'))
   const roots = EMISSION_ROOTS.join(' ')
   add('取材根目录含监控桥(第二份手抄路径已并回单一清单)', roots.includes('monitoring/alertbridge'))
+  // 改名连续性(2026-10-19 panel 系改名契约 T2 层立)。锚点按地址取的话,整棵树改名会把
+  // 现读 30 处存量幽灵读成"本次新加"⇒ 改名那一枚提交被自己的门拦死(§12e 恒红门形态)。
+  {
+    const cont = { toIdentity: new Map([['monitoring/old-layout/dashboards/x.json', 'monitoring/panel-defs/panels/x.json']]) }
+    add('旧地址按文件身份折回契约地址(锚点不随目录改名失效)', identityOf('monitoring/old-layout/dashboards/x.json', cont) === 'monitoring/panel-defs/panels/x.json')
+    add('未改名的路径原样返回(连续性不得把无关面板并进同一身份)', identityOf('monitoring/panel-defs/panels/y.json', cont) === 'monitoring/panel-defs/panels/y.json')
+    add('改名表成环时必须终止而不是死循环', identityOf('a.json', { toIdentity: new Map([['a.json', 'b.json'], ['b.json', 'a.json']]) }) === 'a.json')
+    const live = renameContinuity()
+    const panelRenames = [...live.toIdentity.entries()].filter(([, to]) => DASHBOARD_DIRS.some((d) => to.startsWith(`${d}/`)))
+    add('落到契约面板目录的改名,旧地址必须同时进枚举清单(否则 HEAD 面读不到锚点)', panelRenames.every(([from, to]) => live.oldDirs.includes(from.slice(0, from.lastIndexOf('/'))) && identityOf(from, live) === to))
+    add('非面板区的改名不得混进面板枚举(另一路在改的 web 组件改名与本门无关)', live.oldDirs.every((d) => panelRenames.some(([from]) => from.startsWith(`${d}/`))))
+    add('面板目录清单三条都落在 panel 系地址上(覆盖面本身就是对账对象)', DASHBOARD_DIRS.length === 3 && DASHBOARD_DIRS.every((d) => d.endsWith('/panels')))
+    add('外部台账与跳过变量都跟着门改名(注册条目不得再指旧名)', LEDGER_REL === 'scripts/data/panel-external-metrics.json' && SELF_SKIP_ENV === 'HUSKY_SKIP_PANEL_METRIC_EXISTS')
+  }
   // 消费点:求值只发生在这里(共用出口的报告函数)。
   const { fail, cases } = report()
   for (const c of cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
@@ -455,5 +559,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   process.exit(main())
 }
 
-export const __test__ = { extractMetricNames, normalizedNameVariants, collectExprs, runAudit }
+export const __test__ = {
+  extractMetricNames,
+  normalizedNameVariants,
+  collectExprs,
+  runAudit,
+  // 覆盖面清单与改名连续性同样是判据(§22c:镜像测试不得另抄一份路径清单/另写一份折地址逻辑)
+  DASHBOARD_DIRS,
+  LEDGER_REL,
+  SELF_SKIP_ENV,
+  identityOf,
+  renameContinuity,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

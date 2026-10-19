@@ -474,9 +474,13 @@ class PillarEventBus:
         redis = await self._ensure_redis()
         if redis is not None:
             try:
+                # Redis XADD 字段值必须是标量;事件含嵌套 dict(payload),
+                # 必须整体 JSON 编码进单个字段,否则抛 Invalid input of type: 'dict'
+                # 导致所有 XADD 失败、hub:events 流恒为空(已根因:XLEN=0)。
+                event_payload = json.dumps(event_data, ensure_ascii=False)
                 event_id = await redis.xadd(
                     _STREAM_KEY,
-                    event_data,
+                    {"event": event_payload},
                     maxlen=_STREAM_MAXLEN,
                     approximate=True,
                 )
@@ -549,7 +553,8 @@ class PillarEventBus:
                 raw = await redis.xrevrange(_STREAM_KEY, count=limit * 4)
                 events: list[dict[str, Any]] = []
                 for entry_id, fields in raw:
-                    evt = dict(fields)
+                    # 与 publish 对应:stream 字段是单个 JSON 化的 "event"
+                    evt = json.loads(fields["event"])
                     evt["id"] = entry_id
                     if pillar and evt.get("source_pillar") != pillar:
                         continue
@@ -1066,9 +1071,9 @@ class OrchestrationHub:
                     )
                     if not resp:
                         continue
-                    for _stream, messages in resp:
-                        for entry_id, fields in messages:
-                            event = PillarEvent.from_dict(fields)
+                        for _stream, messages in resp:
+                            for entry_id, fields in messages:
+                                event = PillarEvent.from_dict(json.loads(fields["event"]))
                             await self._process_event(event)
                             # 确认已处理
                             try:
