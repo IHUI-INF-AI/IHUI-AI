@@ -1318,7 +1318,6 @@
     "uploadSelfie": "上传手持身份证照片",
     "submit": "提交认证",
     "submitting": "提交中...",
-    "failed": "认证失败",
     "loadFailed": "加载认证失败",
     "status_unverified": "未认证",
     "status_pending": "审核中",
