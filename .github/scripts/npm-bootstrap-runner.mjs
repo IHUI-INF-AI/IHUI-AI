@@ -667,8 +667,8 @@ async function runSignPath(page, attempt) {
       }
     }
     await sleep(9000)
-    // 提交本身也可能再弹一次挑战
-    const rc2 = await handleRecaptchaChallenge(page, attempt * 10 + k + 500)
+    // 提交本身触发不可见 reCAPTCHA,给 45 秒等挑战弹出
+    const rc2 = await handleRecaptchaChallenge(page, attempt * 10 + k + 500, 45000)
     console.log('RC_SOLVED_AFTER_SUBMIT=' + rc2)
     await sleep(6000)
     await shotPush(`sp-after-submit-${k}`)
@@ -764,7 +764,7 @@ async function deleteRepoFile(path) {
 //   ★ 不用像素坐标:同一站点会在 3x3/4x4 之间切换,固定坐标必然点错格(实证)。
 //   ★ 动态挑战(题面含 "once there are none left")必须多屏循环,一次性点完再提交必然失败(实证)。
 // 兼容旧格式 {"clicks":[{x,y}]}。
-async function handleRecaptchaChallenge(page, attempt) {
+async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
   const findB = () => page.frames().find((f) => /recaptcha.*bframe/.test(f.url()))
   // ★ 判「已通过」的唯一可靠信号:#g-recaptcha-response 里拿到 token。
   //   ★ 实测坑:挑战通过后 bframe 元素仍留在 DOM 里(隐藏、内容不刷新),
@@ -790,23 +790,24 @@ async function handleRecaptchaChallenge(page, attempt) {
   const ensureAnchor = async () => {
     const anchor = page.frames().find((f) => /recaptcha.*anchor/.test(f.url()))
     if (!anchor) return false
+    // HubSpot 用的是不可见 reCAPTCHA:anchor 存在但不可见、aria-checked 为 null,
+    // 硬点只会白等超时,所以先判可见性(run 39245845548 实证)。
+    let vis = false
     let st = null
     try {
-      st = await anchor.locator('#recaptcha-anchor').getAttribute('aria-checked', { timeout: 5000 })
+      vis = await anchor.locator('#recaptcha-anchor').isVisible({ timeout: 3000 })
+      if (vis) st = await anchor.locator('#recaptcha-anchor').getAttribute('aria-checked', { timeout: 3000 })
     } catch {}
-    console.log(`RC-ANCHOR state=${JSON.stringify(st)}`)
-    if (st === 'true') return true
-    for (let t = 0; t < 2; t++) {
-      try {
-        await anchor.locator('#recaptcha-anchor').click({ timeout: 10000, force: true })
-        await sleep(5000)
-        return true
-      } catch (e) {
-        console.log(`RC-ANCHOR-CLICK-RETRY t=${t} ${String(e.message).slice(0, 60)}`)
-        await sleep(1200)
-      }
+    console.log(`RC-ANCHOR visible=${vis} state=${JSON.stringify(st)}`)
+    if (!vis || st === 'true') return vis && st === 'true'
+    try {
+      await anchor.locator('#recaptcha-anchor').click({ timeout: 6000, force: true })
+      await sleep(4000)
+      return true
+    } catch (e) {
+      console.log(`RC-ANCHOR-CLICK-FAIL ${String(e.message).slice(0, 60)}`)
+      return false
     }
-    return false
   }
   // 挑战区是否真的可见(.rc-imageselect 在 bframe 内且未隐藏)
   const challengeVisible = async (bframe) => {
@@ -899,6 +900,24 @@ async function handleRecaptchaChallenge(page, attempt) {
     }
   }
 
+  // 不可见 reCAPTCHA 的挑战是**提交后异步弹出**的,必须给等待窗口,
+  // 否则 0 秒判「没挑战」直接返回,表单原地不动(run 39245072174 实证)。
+  if (waitMs > 0) {
+    const n = Math.ceil(waitMs / 3000)
+    for (let i = 0; i < n; i++) {
+      if (await isSolved()) {
+        console.log(`RC-TOKEN-EARLY tokLen=${lastTokLen} i=${i}`)
+        return true
+      }
+      const bb = findB()
+      if (bb && (await challengeVisible(bb))) {
+        console.log(`RC-CHALLENGE-APPEARED i=${i}`)
+        break
+      }
+      if (i % 4 === 0) console.log(`RC-WAIT-APPEAR i=${i}`)
+      await sleep(3000)
+    }
+  }
   // 先过「我不是机器人」复选框;有 token 就直接返回,避免空转
   if (await isSolved()) {
     console.log(`RC-ALREADY-SOLVED tokLen=${lastTokLen}`)
