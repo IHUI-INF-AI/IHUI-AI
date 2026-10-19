@@ -151,6 +151,25 @@ test('T8 入口故障不许触发回滚,也不许冒绿', () => {
   if (!/Invoke-FailNotify[^\n]*公网入口不可达/.test(s)) throw new Error('入口故障没有到人通道(§5e 失败必须响)')
 })
 
+test('T9 llm 源站直探腿已接上:公网 unknown 可经源站 liveness 折算为绿(反潮锁)', () => {
+  const s = read(DEPLOY)
+  if (!/\$lo = Invoke-Probe -Url \$AiServiceHealth/.test(s)) {
+    throw new Error('llm 维的源站直探腿没接上(应为 $lo = Invoke-Probe -Url $AiServiceHealth,liveness)⇒ llm 只能走公网,被 CF 挡成 perpetual-unknown,每轮一封 GATE-UNPROVEN 邮件')
+  }
+  if (!/llmOrigin = \$lo\.Verdict/.test(s)) {
+    throw new Error('llm 源站读数没随轮留底 ⇒ 折算判据拿不到它')
+  }
+  // 折算只作用于 unknown 分支:llm 的 unknown 行必须含"公网非 pass 且源站非 pass"条件,
+  // 否则折算被悄悄摘掉、llm 回到 perpetual-unknown
+  if (!/\$l -ne 'pass' -and \$lo\.Verdict -ne 'pass'/.test(s)) {
+    throw new Error('llm 的 unknown 分支缺少"公网非 pass 且源站非 pass"的折算条件 ⇒ 折算已被摘掉')
+  }
+  // fail 分支不许被折算污染:公网明确 fail 仍必须原样进 fails(回滚判序的输入)
+  if (!/if \(\$l -eq 'fail'\) \{ \$fails \+= 'llm\(网关接口未就绪\)' \}/.test(s)) {
+    throw new Error('llm 的 fail 分支被改 ⇒ 公网明确失败可能不再回滚')
+  }
+})
+
 test('T6 判据本体自洽:模块必须只有一份 Decision 判序实现', () => {
   const s = read(MODULE)
   const n = (s.match(/\$decision = /g) || []).length
