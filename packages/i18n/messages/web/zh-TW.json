@@ -1,4 +1,54 @@
 {
+  "playBeta": {
+    "hero": {
+      "badge": "Google Play 封閉測試招募",
+      "title": "加入 IHUI AI Android 封閉測試",
+      "subtitle": "Google Play 要求至少 12 名測試人員連續參與 14 天，才能申請正式版發佈。你的每一次使用與回饋，都是我們上架的關鍵一步。"
+    },
+    "why": {
+      "title": "為什麼加入",
+      "items": [
+        "搶先體驗 Android 版完整功能，包含行動端 AI 對話、Agent 與多模型切換",
+        "直接向產品團隊回報問題，你的建議會進入正式版的迭代清單",
+        "正式上架後獲得首批內測使用者專屬權益與優先體驗資格"
+      ]
+    },
+    "form": {
+      "email": "Google 帳號電子郵件",
+      "emailPlaceholder": "you@example.com",
+      "submit": "報名參加封閉測試",
+      "submitting": "提交中...",
+      "privacyPrefix": "我已閱讀並同意",
+      "privacyLink": "隱私權政策",
+      "privacyRequired": "同意隱私權政策是報名的必要前提"
+    },
+    "errors": {
+      "invalidEmail": "請輸入有效的電子郵件地址",
+      "generic": "提交失敗，請稍後再試"
+    },
+    "success": {
+      "title": "報名成功，感謝參與！",
+      "desc": "我們已收到你的電子郵件，請依下列步驟完成測試準備：",
+      "step1": "留意信箱，我們會寄送 Google Play 封閉測試邀請與測試連結",
+      "step2": "使用報名信箱對應的 Google 帳號開啟測試連結並加入測試",
+      "step3": "安裝 IHUI AI，在 14 天內持續使用並透過站內回饋頁隨時告訴我們問題"
+    },
+    "join": {
+      "title": "加入測試後立即下載",
+      "desc": "已收到邀請的測試人員可直接透過下方連結加入測試並安裝應用程式。",
+      "button": "前往 Google Play 測試頁面",
+      "hint": "請確認裝置已登入與報名信箱一致的 Google 帳號，否則可能無法下載。"
+    },
+    "faq": {
+      "title": "常見問題",
+      "q1": "封閉測試需要做什麼？",
+      "a1": "在 Android 裝置安裝 IHUI AI 測試版，正常使用主要功能，並在遇到問題時透過站內回饋頁告訴我們。",
+      "q2": "為什麼要求連續參與 14 天？",
+      "a2": "Google Play 規定封閉測試至少需要 12 名測試人員連續參與 14 天，符合後才能申請正式版發佈，中途退出會影響整體進度。",
+      "q3": "必須使用 Google 帳號嗎？",
+      "a3": "是的。測試連結、下載與更新都透過 Google Play 完成，請使用可正常登入 Play 商店的 Google 帳號。"
+    }
+  },
   "ecosystem": {
     "packMembers": "包含 {count} 個市場",
     "skillsSection": "技能市場",
