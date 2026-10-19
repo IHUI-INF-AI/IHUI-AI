@@ -13,7 +13,7 @@
  * - 导航 goBack;主题色 / i18n 注入
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -70,7 +70,7 @@ export function PublishScreen() {
   }, [load])
 
   const onCancelTask = (task: PublishTask) => {
-    Alert.alert(t('publish.cancelTitle'), t('publish.cancelConfirm'), [
+    appAlert(t('publish.cancelTitle'), t('publish.cancelConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.confirm'),
@@ -82,7 +82,7 @@ export function PublishScreen() {
             if (!res.success) throw new Error(res.error)
             await load()
           } catch {
-            Alert.alert(t('publish.operateFailed'))
+            appAlert(t('publish.operateFailed'))
           } finally {
             setOperatingId(null)
           }
@@ -98,7 +98,7 @@ export function PublishScreen() {
       if (!res.success) throw new Error(res.error)
       await load()
     } catch {
-      Alert.alert(t('publish.operateFailed'))
+      appAlert(t('publish.operateFailed'))
     } finally {
       setOperatingId(null)
     }
