@@ -32,23 +32,31 @@
  * 产物:apps/desktop/src-tauri/target/release/bundle/(NSIS/msi 等),同目录 target 内。
  */
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, rmdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // 包管理器执行器判据单源(与 desktop-dev-saas.mjs 共用,不得各抄一份)
 import { planPackageManagerSpawn } from './lib/npm-execpath.mjs'
+// MSVC 工具链注入判据单源(立因/三态见该文件头注);vcvars 的生产实现同样复用
+// desktop-build.mjs 已有的具名导出,不另写第二种形态
+import { planBuildEnv } from './lib/msvc-env.mjs'
+import { __test__ as desktopBuildInternals } from './desktop-build.mjs'
+// 未签名豁免判据单源(§0.6:开关名/临时 config 形态/落点三件事全仓只许一份;
+// scripts/desktop-artifact-single.mjs 与 scripts/desktop-build.mjs 读同一份)
+import {
+  ALLOW_UNSIGNED_ENV,
+  UNSIGNED_CONFIG_CONTENT,
+  allowUnsignedFrom,
+  ensureUnsignedConfig,
+  removeUnsignedConfig,
+  unsignedConfigPath,
+} from './lib/desktop-unsigned-config.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-/** 与 scripts/desktop-artifact-single.mjs 共用同一个开关:一处开,签名步与 .sig 断言同时放行 */
-const ALLOW_UNSIGNED_ENV = 'DESKTOP_ALLOW_UNSIGNED'
-const allowUnsignedFrom = (env) => env?.[ALLOW_UNSIGNED_ENV] === '1'
-
-/** 临时 config 只允许落在仓库内(§15 工作区卫生),路径由脚本自身位置推导,不写死盘符 */
-const unsignedConfigPath = (root) => path.join(root, '.ihui-agent', 'tmp', 'desktop-build-saas', 'tauri.unsigned.json')
-/** 唯一被覆盖的字段:关掉 updater 产物(签名),不动 pubkey/bundle 目标/版本号等任何发版形态 */
-const UNSIGNED_CONFIG_CONTENT = `${JSON.stringify({ bundle: { createUpdaterArtifacts: false } }, null, 2)}\n`
+/** 本入口独占的那一格临时 config 目录(§15:路径由脚本自身位置推导,不写死盘符)。 */
+const UNSIGNED_SLOT = 'desktop-build-saas'
 
 /**
  * 组装本次要执行的命令行(纯函数,不派生进程 ⇒ 测试可直接断言 argv)。
@@ -69,7 +77,7 @@ function buildPlan({ npmExecpath, execPath, root, allowUnsigned }) {
   if (!allowUnsigned) {
     return { cmd, args: [...prefix, '--filter', '@ihui/desktop', 'build'], shell, configPath: null, tail: null }
   }
-  const configPath = unsignedConfigPath(root)
+  const configPath = unsignedConfigPath(root, UNSIGNED_SLOT)
   return {
     cmd,
     args: [...prefix, '--filter', '@ihui/desktop', 'exec', 'tauri', 'build', '--config', configPath],
@@ -105,20 +113,47 @@ async function main() {
     allowUnsigned,
   })
 
+  // 派生用的 env。默认分支**逐字保持** process.env 不变;只有豁免分支(裸 `tauri build`)才注入
+  // MSVC 工具链 —— 默认分支那条命令已改走 scripts/desktop-build.mjs,由它自己注入并对未判定
+  // exit 2,这里再注一次就是同一次构建里跑两遍 vcvars(不只是慢,还会让"注入了几次"再也读不出来)。
+  let buildEnv = process.env
+  if (allowUnsigned) {
+    const toolchain = planBuildEnv({ env: process.env, existsSync, runCapture: desktopBuildInternals.captureVsEnv })
+    if (!toolchain.ok) {
+      console.error(`[desktop-build-saas] ❌ 未判定:MSVC 工具链注入失败(reason=${toolchain.reason})—— 不记绿,也不记失败`)
+      console.error(`  已试候选 ${toolchain.tried.length} 条,其中确实存在的 ${toolchain.candidates.length} 条:`)
+      for (const c of toolchain.tried) console.error(`    ${toolchain.candidates.includes(c) ? '[存在]' : '[不存在]'} ${c}`)
+      for (const d of toolchain.details) console.error(`    [失败] ${d.vcvars} -> ${d.error}`)
+      console.error('  出路:装 VS 2022 Build Tools(含 MSVC v143 + Windows SDK),或设 VSINSTALLDIR 指向现有安装。')
+      console.error('        本仓不靠"让 cargo 自己撞"来替代判定 —— 那只会把"没装工具链"换成更难认的一型。')
+      return 2
+    }
+    console.log(`[desktop-build-saas] MSVC 工具链已注入:${toolchain.linkFrom}`)
+    if (toolchain.removedDirs.length > 0) {
+      console.log(`[desktop-build-saas] 已从 PATH 剔除遮蔽目录:${toolchain.removedDirs.join(' ; ')}`)
+    }
+    // ⚠ 顺序:策略 env 必须在注入**之后**落。planBuildEnv 的成功档是 `{...调用方env, ...vcvars的set块}`,
+    // 注入结果**整块盖在**调用方 env 上 —— 写在注入之前的键,取值由那次 `set` 说了算。
+    // DESKTOP_ALLOW_UNSIGNED 是"本脚本判出来要不要放行未签名"的结果,不是从 `set` 里读出来的,
+    // 落在注入之后,才是"注入不会改写本脚本的策略"。
+    // (实测:本文件只**读**它而不设它,读到的值来自父进程、会原样出现在 `set` 输出里 ⇒ 今天两种
+    //  顺序同值;这一行仍保留,因为判据不能建立在"上游恰好把值带下来了"这个事实上。)
+    buildEnv = { ...toolchain.env, [ALLOW_UNSIGNED_ENV]: '1' }
+  }
+
   if (allowUnsigned) {
     console.log(`[desktop-build-saas] !! ${ALLOW_UNSIGNED_ENV}=1 —— 本地未签名打包(显式豁免):`)
     console.log(`  !! 向 tauri 传 --config(绝对路径)关掉 bundle.createUpdaterArtifacts: ${plan.configPath}`)
     console.log(`  !! 尾部脚本 desktop-artifact-single.mjs 同受该 env 放行"缺 .sig"一项判据`)
     console.log('  !! 产物未签名:不得进更新源、不得发版、不得上传任何下载/更新 CDN')
-    mkdirSync(path.dirname(plan.configPath), { recursive: true })
-    writeFileSync(plan.configPath, UNSIGNED_CONFIG_CONTENT)
+    ensureUnsignedConfig(repoRoot, UNSIGNED_SLOT)
   }
 
   try {
     const r = spawnSync(plan.cmd, plan.args, {
       cwd: repoRoot,
       stdio: 'inherit',
-      env: process.env,
+      env: buildEnv,
       shell: plan.shell,
       windowsHide: true,
     })
@@ -128,7 +163,7 @@ async function main() {
       const t = spawnSync(plan.tail.cmd, plan.tail.args, {
         cwd: repoRoot,
         stdio: 'inherit',
-        env: process.env,
+        env: buildEnv,
         windowsHide: true,
       })
       code = t.status ?? 1
@@ -136,13 +171,8 @@ async function main() {
     return code
   } finally {
     if (plan.configPath) {
-      rmSync(plan.configPath, { force: true })
-      // 目录只在自己空的时候才收(rmdirSync 对非空目录抛 ENOTEMPTY),不得连带删掉别人的现场
-      try {
-        rmdirSync(path.dirname(plan.configPath))
-      } catch {
-        /* 目录非空(他人正在用)⇒ 保留,不算本脚本的残留 */
-      }
+      const r = removeUnsignedConfig(repoRoot, UNSIGNED_SLOT)
+      if (!r.removed) console.error(`[desktop-build-saas] 临时 config 未收掉(${r.configPath}):${r.reason}`)
     }
   }
 }
@@ -155,5 +185,12 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { buildPlan, unsignedConfigPath, UNSIGNED_CONFIG_CONTENT, allowUnsignedFrom, ALLOW_UNSIGNED_ENV }
+export const __test__ = {
+  buildPlan,
+  unsignedConfigPath,
+  allowUnsignedFrom,
+  ALLOW_UNSIGNED_ENV,
+  UNSIGNED_SLOT,
+  UNSIGNED_CONFIG_CONTENT,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
