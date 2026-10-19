@@ -1318,7 +1318,6 @@
     "uploadSelfie": "上傳手持身分證照片",
     "submit": "提交認證",
     "submitting": "提交中...",
-    "failed": "認證失敗",
     "loadFailed": "載入認證失敗",
     "status_unverified": "未認證",
     "status_pending": "審核中",
