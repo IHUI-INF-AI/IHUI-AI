@@ -19,6 +19,9 @@ const EMAIL = process.env.NPM_EMAIL
 const USERNAME = process.env.NPM_USERNAME
 const PASSWORD = process.env.NPM_PASSWORD // signup 时为空则生成;verify 时从 secret
 const VERIFY_URL = process.env.NPM_VERIFY_URL
+// trusted_publisher:网页登录凭据(npm 已禁用 API 换 token,Trusted Publisher 只能在网页登记)
+const WEB_USERNAME = process.env.NPM_WEB_USERNAME
+const WEB_PASSWORD = process.env.NPM_WEB_PASSWORD
 // signpath:申请联系邮箱(SignPath 审核沟通都走 email)
 const SIGNPATH_EMAIL = process.env.SIGNPATH_EMAIL
 const SHOT_DIR = 'shots'
@@ -266,6 +269,7 @@ async function main() {
     const { browser, page } = await launch()
     try {
       if (ACTION === 'signup') await runSignup(page, n)
+      else if (ACTION === 'trusted_publisher') await runTrustedPublisher(page, n)
       else if (ACTION === 'signpath') await runSignPath(page, n)
       else await runVerifyToken(page)
       lastErr = null
@@ -332,6 +336,176 @@ async function runSignup(page, attempt) {
   }
   if (!/created|redirected/.test(outcome)) throw new Error('signup outcome: ' + outcome)
   saveSecretArtifact('npm-credentials', { username: USERNAME, email: EMAIL, password: PASSWORD })
+}
+
+// ---------- action=trusted_publisher ----------
+// 在 npm 网页给 ihui-cli 登记 GitHub Trusted Publisher(Workflow OIDC),registry API 无此端点。
+// npm 发布页:https://www.npmjs.com/package/ihui-cli/access
+async function runTrustedPublisher(page, attempt) {
+  // 0) 网络监听:抓登录 POST 的真实响应(无 UI 错误时唯一的真相来源)
+  const netLog = []
+  const onResp = (r) => {
+    try {
+      if (r.request().method() !== 'GET') netLog.push(`${r.status()} ${r.request().method()} ${r.url().slice(0, 120)}`)
+    } catch {}
+  }
+  page.on('response', onResp)
+  // 1) 网页登录(CF 挑战已被真 Chrome 方案突破)
+  await page.goto('https://www.npmjs.com/login', { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await waitPastCloudflare(page)
+  await sleep(3000)
+  await shot(page, `tp-login-${attempt}`)
+  try {
+    const uSels = ['input[name="username"]', 'input#login_name', 'input[type="text"]']
+    let filledU = false
+    for (const s of uSels) {
+      const loc = page.locator(s).first()
+      if (await loc.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await loc.click({ timeout: 3000 })
+        await page.keyboard.type(WEB_USERNAME, { delay: 60 })
+        filledU = true
+        break
+      }
+    }
+    if (!filledU) throw new Error('username field not visible (可能已登录)')
+    const p = page.locator('input[type="password"]').first()
+    await p.click({ timeout: 5000 })
+    await page.keyboard.type(WEB_PASSWORD, { delay: 60 })
+    await shot(page, `tp-login-filled`)
+    // 提交按钮必须限定在登录表单内(全局 :has-text("Sign in") 会误点页头导航元素,表单被重置)
+    const submitSel = [
+      'form button[type="submit"]',
+      'form button:has-text("Sign in")',
+      'main button[type="submit"]',
+      'button[type="submit"]',
+    ]
+    let clicked = false
+    for (const s of submitSel) {
+      const loc = page.locator(s).first()
+      if (await loc.isVisible({ timeout: 2500 }).catch(() => false)) {
+        await loc.click({ timeout: 10000 })
+        clicked = true
+        console.log('TP_LOGIN_SUBMIT=' + s)
+        break
+      }
+    }
+    if (!clicked) throw new Error('login submit button not found')
+    await sleep(12000) // 给登录 POST 留足响应时间
+    console.log('TP_NET_LOG=' + JSON.stringify(netLog.slice(-12)))
+    await waitPastCloudflare(page, 120000)
+    await sleep(6000)
+    await shot(page, `tp-login-after`)
+    await page.screenshot({ path: `${SHOT_DIR}/tp-login-after-full.png`, fullPage: true })
+    console.log('TP_LOGIN_URL=' + page.url())
+    // 登录后诊断:错误提示文本 + Turnstile iframe 检测
+    const lbody = ((await page.textContent('body').catch(() => '')) || '').replace(/\s+/g, ' ')
+    const errMatch = lbody.match(
+      /(incorrect[^.]{0,80}|too many[^.]{0,80}|wrong[^.]{0,80}|failed[^.]{0,80}|invalid[^.]{0,80}|locked[^.]{0,80}|verify[^.]{0,80})/i
+    )
+    console.log('TP_LOGIN_ERR=' + (errMatch ? errMatch[0] : '(none)'))
+    const tsFrames = page.frames().filter((f) => /challenges\.cloudflare\.com|turnstile/i.test(f.url())).length
+    console.log('TP_TURNSTILE_FRAMES=' + tsFrames)
+    // email-otp:npm 对新设备登录强制邮箱 OTP(发到账号邮箱),NPM_OTP_CODE 由李总读邮件提供
+    if (/\/login\/email-otp/.test(page.url())) {
+      const otp = process.env.NPM_OTP_CODE || ''
+      if (!otp) throw new Error('npm login requires email OTP — need NPM_OTP_CODE (sent to account email)')
+      console.log('TP_OTP_REQUIRED=true')
+      const otpInput = page
+        .locator('input[inputmode="numeric"], input[autocomplete="one-time-code"], input[name*="otp" i], input[type="text"]')
+        .first()
+      await otpInput.waitFor({ state: 'visible', timeout: 20000 })
+      await otpInput.click({ timeout: 5000 })
+      await page.keyboard.type(otp, { delay: 80 })
+      await shot(page, `tp-otp-filled`)
+      const otpSubmit = page.locator('form button[type="submit"], button[type="submit"]').first()
+      await otpSubmit.click({ timeout: 10000 })
+      await sleep(10000)
+      await shot(page, `tp-otp-after`)
+      console.log('TP_AFTER_OTP_URL=' + page.url())
+      console.log('TP_NET_LOG2=' + JSON.stringify(netLog.slice(-6)))
+      if (/\/login/.test(page.url())) throw new Error('OTP verification failed — see tp-otp-after.png')
+      console.log('TP-LOGIN-OK')
+    }
+    // 表单区 DOM dump(错误 DOM 常在 form 内,textContent 拿不到样式隐藏节点)
+    try {
+      const formHtml = await page.locator('form').first().evaluate((el) => el.innerHTML.replace(/\s+/g, ' ').slice(0, 600))
+      console.log('TP_FORM_HTML=' + formHtml)
+    } catch {}
+    if (/\/login/.test(page.url()) && errMatch) {
+      throw new Error('npm login rejected: ' + errMatch[0])
+    }
+  } catch (e) {
+    if (/npm login rejected/.test(e.message)) throw e
+    console.log('TP-LOGIN-SKIP ' + String(e.message).slice(0, 100))
+  }
+
+  // 2) 包 publishing access 页
+  await page.goto('https://www.npmjs.com/package/ihui-cli/access', {
+    waitUntil: 'domcontentloaded',
+    timeout: 60000,
+  })
+  await waitPastCloudflare(page)
+  await sleep(4000)
+  await shot(page, `tp-access-page`)
+  const accBody = (await page.textContent('body').catch(() => '')) || ''
+  console.log('TP_ACCESS_SNIPPET=' + accBody.replace(/\s+/g, ' ').slice(0, 260))
+  if (/sign in/i.test(accBody.slice(0, 400))) throw new Error('access page requires login — see tp-access-page.png')
+
+  // 3) 打开 Add a trusted publisher
+  const addBtn = page
+    .locator(
+      'button:has-text("Add a trusted publisher"), a:has-text("Add a trusted publisher"), button:has-text("Add trusted publisher"), button:has-text("Add Publisher")'
+    )
+    .first()
+  await addBtn.click({ timeout: 20000 })
+  await sleep(2500)
+  await shot(page, `tp-form-open`)
+
+  // 4) 打印表单所有输入框元数据(诊断)并按顺序填:owner / repo / workflow / environment
+  const inputs = page.locator(
+    '[role="dialog"] input, dialog input, .modal input, form input[type="text"], input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])'
+  )
+  const cnt = await inputs.count()
+  const meta = []
+  for (let i = 0; i < Math.min(cnt, 10); i++) {
+    const el = inputs.nth(i)
+    meta.push({
+      i,
+      name: await el.getAttribute('name').catch(() => null),
+      ph: await el.getAttribute('placeholder').catch(() => null),
+      type: await el.getAttribute('type').catch(() => null),
+      vis: await el.isVisible().catch(() => false),
+    })
+  }
+  console.log('TP_FORM_INPUTS=' + JSON.stringify(meta))
+  const vals = ['IHUI-INF-AI', 'IHUI-AI', 'release-cli.yml', '']
+  let filled = 0
+  for (let i = 0; i < cnt && filled < 3; i++) {
+    const el = inputs.nth(i)
+    if (!(await el.isVisible().catch(() => false))) continue
+    const type = ((await el.getAttribute('type').catch(() => 'text')) || 'text').toLowerCase()
+    if (type === 'hidden' || type === 'checkbox' || type === 'radio' || type === 'submit') continue
+    await el.click({ timeout: 3000 })
+    await page.keyboard.type(vals[filled], { delay: 40 })
+    filled++
+  }
+  console.log('TP_FILLED=' + filled)
+  await shot(page, `tp-form-filled`)
+  if (filled < 3) throw new Error(`trusted publisher form: only ${filled}/3 fields filled — see tp-form-open.png`)
+
+  // 5) 提交并验证
+  const saveBtn = page
+    .locator('button:has-text("Add publisher"), button:has-text("Add Publisher"), button:has-text("Add"), button:has-text("Save")')
+    .last()
+  await saveBtn.click({ timeout: 10000 })
+  await sleep(6000)
+  await shot(page, `tp-after-save`)
+  const after = (await page.textContent('body').catch(() => '')) || ''
+  console.log('TP_AFTER_SNIPPET=' + after.replace(/\s+/g, ' ').slice(0, 260))
+  if (!/IHUI-INF-AI|release-cli\.yml/i.test(after)) {
+    throw new Error('trusted publisher save not confirmed — see tp-after-save.png')
+  }
+  console.log('TRUSTED-PUBLISHER-OK')
 }
 
 // ---------- action=signpath ----------
