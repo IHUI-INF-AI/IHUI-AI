@@ -24,6 +24,13 @@
  *      或含点但根本不是键的字符串 map(模型名 `MiniMax-M2.5`),一律不检并计数说明;
  *   W3 逐键 × 逐语言:消费端(apps/<end> 内经解析后的 import 图**确实**能到词表模块、
  *      且提及该模块导出符号)的合并视图 shared+端 必须解析出非空字符串且不等于键名;
+ *      绝对路径解析不出时走**命名空间相对出口**(2026-10-19 立,与 W6 同口径):同一视图
+ *      同一语言里存在 `<前缀>.<键>` 叶子且有值 ⇒ 这一格不算红。立的因是实测的恒红型 ——
+ *      W2 锚定按**全语料**数比例、W3 按**消费端视图**判,于是 web 的 `useTranslations('chat')` +
+ *      `t('slashCmd.summary')`(真身 `chat.slashCmd.summary`)被 mobile-rn 那枚**顶层同名**
+ *      `slashCmd.summary`(枚 895eefbdbd1af1a4bb5f1eba8ee9e59f3d90027e 补 RN 五语言词条时带来)
+ *      顶过半锚定 ⇒ 35 处假红、三面同红、卡住全场提交链。缺语言/从未有键仍有牙:那一站在
+ *      每一门语言的视图里都找不到后缀命中(自检有正反两对锁,末行现读)。
  *   W4 miniapp-taro 消费时,离线生成物各远程语言载荷也必须解析出值
  *      (解码与 REMOTE_LOCALES 取法直接复用 check-tool-display-resolvable 的导出,不自己拼路径);
  *   W5 共享层落点:packages/* 的词表,若某依赖该包的端**尚未 import 它**但该端消息源整块缺键,
@@ -512,6 +519,43 @@ export function resolvable(map, key) {
   return typeof value === 'string' && value.trim() !== '' && value !== key
 }
 
+/**
+ * 命名空间相对取词的后缀出口(2026-10-19 立,与本门 W6 同一条口径)。
+ *
+ * 立的因:W2 锚定按**全语料**数"能不能解析出来",W3 却按**消费端自己的视图**判。
+ * web 端 `useTranslations('chat')` + `t('slashCmd.summary')` 这种相对取词,键真身在
+ * `chat.slashCmd.summary`;而 mobile-rn 恰好有一份**顶层** `slashCmd.summary`(绝对风格)。
+ * 于是 18:14 那枚给 RN 补词条的提交一落地,web 这张表的锚定比例被"别人的绝对键"顶过半 ⇒
+ * 整表进 W3,再按 web 视图的绝对路径逐个判 ⇒ 35 处假红,blocking,三面(HEAD/索引/工作树)同红。
+ * 这就是 §12e 禁的恒红型:红与任何人的提交内容无关,唯一结局是逼全场 `--no-verify`。
+ *
+ * 出口只做一件窄事:在**同一张视图、同一门语言**里找一个以 `.键` 结尾且有值的叶子。
+ *  - 命中 ⇒ 该 (端×语言) 这一格不算红(相对取词本来就长这样,W6 建门当日就按后缀吸收过同一类);
+ *  - 不命中 ⇒ 照旧逐键逐语言判红 —— 所以"键从来没进任何语言包"(本门立因的事故型)和
+ *    "键在 ko 缺失"(注入验证那条)都仍然有牙:它们在每一个语言视图里都找不到后缀命中。
+ * 已知不覆盖(与 W6 同一句实话):命名空间住在别处而**拼错**的相对取词,若拼出来的前缀恰好在
+ * 视图里有同名叶子,会被这一格放过。代价是"少放一类从未发生过的形状",收益是门不再恒红。
+ *
+ * @returns {{hit:string,value:string}|null}
+ */
+export function namespaceSuffixHit(view, key) {
+  if (!view || typeof key !== 'string' || !key.includes('.')) return null
+  const suffix = `.${key}`
+  for (const [leaf, value] of view) {
+    if (!leaf.endsWith(suffix)) continue
+    if (typeof value !== 'string' || value.trim() === '' || value === leaf) continue
+    return { hit: leaf, value }
+  }
+  return null
+}
+
+/** W3/W5 的取词可解析判定:先按绝对路径,再走命名空间相对出口 */
+export function keyResolvableInView(view, key) {
+  if (resolvable(view, key)) return { ok: true, via: 'absolute' }
+  const rel = namespaceSuffixHit(view, key)
+  return rel ? { ok: true, via: 'namespace', hit: rel.hit } : { ok: false, via: null, hit: null }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // W3 消费端归属
 // ─────────────────────────────────────────────────────────────────────────────
@@ -853,6 +897,7 @@ export function evaluateWordTables({ tables, corpusLeaves, views, taro, isShared
   const checked = []
   const skipped = []
   const failures = []
+  const relativeHits = []
   // W5 是"落点债"而非当前缺陷:该端依赖共享包但**尚未引用**这张表 ⇒ 今天没有任何界面会回显键名。
   // 让它计入 failures 会把 blocking 门长期红在别人未接入的存量上(实测 5 条全是这一类),
   // 故单列 notices:照报、不改退出码。真正接进去(端内出现该表符号)即由 W3/W4 逐键硬拦。
@@ -886,14 +931,19 @@ export function evaluateWordTables({ tables, corpusLeaves, views, taro, isShared
       for (const lang of LANGS) {
         const view = views[`${end}/${lang}`]
         for (const key of t.keys) {
-          if (!resolvable(view, key))
-            failures.push({
-              rule: 'W3',
-              table: t,
-              key,
-              where: `${end}/${lang}`,
-              why: '消费端合并视图(shared+端)解析不出值 → 界面回显键名',
-            })
+          const r = keyResolvableInView(view, key)
+          if (r.ok) {
+            if (r.via === 'namespace')
+              relativeHits.push(`${t.file}:${t.line}#${t.name} ${key} → ${r.hit} @ ${end}/${lang}`)
+            continue
+          }
+          failures.push({
+            rule: 'W3',
+            table: t,
+            key,
+            where: `${end}/${lang}`,
+            why: '消费端合并视图(shared+端)解析不出值 → 界面回显键名',
+          })
         }
       }
     }
@@ -935,7 +985,7 @@ export function evaluateWordTables({ tables, corpusLeaves, views, taro, isShared
       for (const end of t.dependentEnds ?? []) {
         if (ends.includes(end)) continue
         const missing = LANGS.filter((lang) =>
-          t.keys.some((k) => !resolvable(views[`${end}/${lang}`], k)),
+          t.keys.some((k) => !keyResolvableInView(views[`${end}/${lang}`], k).ok),
         )
         if (missing.length) {
           notices.push({
@@ -949,7 +999,7 @@ export function evaluateWordTables({ tables, corpusLeaves, views, taro, isShared
       }
     }
   }
-  return { checked, skipped, failures, notices }
+  return { checked, skipped, failures, notices, relativeHits }
 }
 
 /** 空输入不得静默变绿:全量模式一张表都没认出来 = 源码形状变了 */
@@ -1185,7 +1235,7 @@ export function run({ staged = false, json = false, quiet = false, worktree = fa
     const m = /^(packages\/[^/]+)\//.exec(t.file)
     t.dependentEnds = m ? endsDependingOnPackage(m[1], pkgMap, deps) : []
   }
-  const { checked, skipped, failures, notices } = evaluateWordTables({
+  const { checked, skipped, failures, notices, relativeHits } = evaluateWordTables({
     tables: scoped,
     corpusLeaves: corpus,
     views,
@@ -1238,6 +1288,7 @@ export function run({ staged = false, json = false, quiet = false, worktree = fa
     face: reader.label,
     tablesFound: tables.length,
     checkedTables: checked.length,
+    namespaceRelativeAbsorbed: relativeHits.length,
     keysChecked: checked.reduce((a, b) => a + b.keys.length, 0),
     consumers: checked.map((t) => ({
       table: `${t.file}:${t.line}#${t.name}`,
@@ -1293,6 +1344,9 @@ export function run({ staged = false, json = false, quiet = false, worktree = fa
     `[word-table-resolvable] 判定面 ${report.face} · 候选词表 ${report.tablesFound} 张 → 认定 ${report.checkedTables} 张 / ${report.keysChecked} 键` +
       `(未锚定跳过 ${skipped.length} 张)· ${report.scope}` +
       (taro.broken.length ? ` · ⚠ taro 载荷解不出:${taro.broken.join(',')}` : ''),
+  )
+  log(
+    `  W3 命名空间相对出口:吸收 ${report.namespaceRelativeAbsorbed} 处(端×语言×键;只吸收"同一视图同一语言里确有 <ns>.<键> 叶子"的相对取词,逐语言仍严格)`,
   )
   log(
     `  W6 散落取词:扫 ${report.scattered.filesScanned} 文件 · 缺键 ${report.scattered.missingKeys} 处 / ${report.scattered.filesWithMissingKeys} 文件` +
@@ -1487,7 +1541,89 @@ function selfTest() {
     })(),
   )
 
-  // W4:miniapp-taro 消费 + 离线包缺键 → 必红
+  // W3 命名空间相对出口(2026-10-19 立):正反两对锁,证明放宽只吸收"相对取词"这一类,
+  // 缺语言 / 从未有键 / 值等于叶子名(静默回显)三种坏形状照旧逐条咬。
+  const NS_KEYS = ['slashCmd.summary', 'slashCmd.translate']
+  const nsTable = [
+    {
+      file: 'apps/web/src/hooks/use-slash-commands.tsx',
+      line: 41,
+      name: 'SLASH_CMD_KEY_MAP',
+      keys: NS_KEYS,
+      consumerEnds: ['web'],
+      dependentEnds: ['web'],
+    },
+  ]
+  // 锚定成立靠的是**别的端**那份顶层同名绝对键(真实事故里就是 mobile-rn);消费端视图里只有 chat.<键>
+  const nsCorpus = new Set(NS_KEYS)
+  const nsLeafMap = (missing = []) =>
+    new Map(
+      NS_KEYS.filter((k) => !missing.includes(k)).map((k) => [`chat.${k}`, `V:chat.${k}`]),
+    )
+  const nsViews = Object.fromEntries(LANGS.map((l) => [`web/${l}`, nsLeafMap()]))
+  t(
+    'W3 相对取词:键只在 <ns>.<键> 下存在且五语言齐 ⇒ 不判红(2026-10-19 三面同红的那型)',
+    (() => {
+      const r = evaluateWordTables({
+        tables: nsTable,
+        corpusLeaves: nsCorpus,
+        views: nsViews,
+        taro: null,
+        isSharedTable: () => false,
+      })
+      return r.checked.length === 1 && r.failures.length === 0 && r.relativeHits.length === 10
+    })(),
+  )
+  t(
+    '反证:相对取词在 ko 缺一个 ⇒ 仍逐语言咬 W3(出口不得吞掉缺语言)',
+    (() => {
+      const r = evaluateWordTables({
+        tables: nsTable,
+        corpusLeaves: nsCorpus,
+        views: { ...nsViews, 'web/ko': nsLeafMap(['slashCmd.translate']) },
+        taro: null,
+        isSharedTable: () => false,
+      })
+      return (
+        r.failures.length === 1 &&
+        r.failures[0].rule === 'W3' &&
+        r.failures[0].key === 'slashCmd.translate' &&
+        r.failures[0].where === 'web/ko'
+      )
+    })(),
+  )
+  t(
+    '反证:键在任何视图里连后缀命中都没有 ⇒ 照旧逐键逐语言咬(本门立因的"从来没收录过"型)',
+    (() => {
+      const r = evaluateWordTables({
+        tables: nsTable,
+        corpusLeaves: nsCorpus,
+        views: Object.fromEntries(LANGS.map((l) => [`web/${l}`, new Map([['other.thing', 'V']])])),
+        taro: null,
+        isSharedTable: () => false,
+      })
+      return r.failures.length === NS_KEYS.length * LANGS.length
+    })(),
+  )
+  t(
+    '反证:后缀命中但值等于叶子名(静默回显)⇒ 不算命中,照红',
+    (() => {
+      const echoViews = Object.fromEntries(
+        LANGS.map((l) => [
+          `web/${l}`,
+          new Map(NS_KEYS.map((k) => [`chat.${k}`, `chat.${k}`])),
+        ]),
+      )
+      const r = evaluateWordTables({
+        tables: nsTable,
+        corpusLeaves: nsCorpus,
+        views: echoViews,
+        taro: null,
+        isSharedTable: () => false,
+      })
+      return r.failures.length === NS_KEYS.length * LANGS.length && r.relativeHits.length === 0
+    })(),
+  )
   const withTaro = evaluateWordTables({
     tables: pick('TIER_KEYS', { consumerEnds: ['miniapp-taro'], dependentEnds: ['miniapp-taro'] }),
     corpusLeaves: corpus,
@@ -1872,6 +2008,8 @@ export const __test__ = {
   buildMergedViews,
   corpusLeafSet,
   resolvable,
+  namespaceSuffixHit,
+  keyResolvableInView,
   resolveSpecifier,
   importSpecifiers,
   exportedSymbols,

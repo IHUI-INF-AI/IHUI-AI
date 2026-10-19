@@ -11,7 +11,9 @@ import LineIcon from '@/components/LineIcon'
 import { ICONS } from '@/components/LineIcon/icons'
 // 图片内容(非 UI 图标)只有两枚:头部品牌 logo 与默认头像 —— 其余界面图标一律 LineIcon 矢量
 // (O81 票:菜单/标签/设置/模型兜底图标从 CDN 位图收进矢量,与 RN 端 lucide 同一载体类)
+// icon-bitmap-exempt: 品牌多色插画 logo(非线形 UI 图标;RN 侧同资产 Drawer.tsx LOGO_LIGHT/LOGO_DARK 已同例豁免) until 2027-01-15
 const choutilogoH = aizhsUrl('remote-images/choutilogo_h.png')
+// icon-bitmap-exempt: 用户头像兜底插画(非 UI 图标;RN 侧同一张图见 IntroducePopup.tsx DECOR_AVATAR_FALLBACK) until 2027-01-15
 const daixaodimingPng = aizhsUrl('remote-images/daixaodiming.png')
 import { rpx } from '@/utils/rpx'
 import { getTopBarMetrics } from '@/utils/system-info'

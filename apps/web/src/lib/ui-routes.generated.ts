@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: c05c304774471ac4d9bb70619a76b8b3c0e98613
-// inputsSha256: 11c87ee3992a445249889c1679fea373feb0f6dffddb7c3eade424b999982a11
+// sourceCommit: 8d763df0a7bbc3a2d347bf43788754c8a599f8e6
+// inputsSha256: a3ca7f57683ccc960c02e10df11056e1123602106f3be047be44a68281d0abf4
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -96,7 +96,7 @@
 // input: apps/web/app/(main)/admin/distribution/page.tsx d5bb87842622d0a223d62d2a0d0caeb887adb9aca9f98d571d52fd6dfade423e
 // input: apps/web/app/(main)/admin/distribution/rules/page.tsx 0b78a7c8b8bd4c805f9411f8766958ad1ebda5134ddb3bcbc96b2fe4b41dca7a
 // input: apps/web/app/(main)/admin/distribution/settlements/page.tsx 94c1534289e602e6aba083ab9721083ab36974c7bbbdc6804b918ae23017bf6b
-// input: apps/web/app/(main)/admin/distribution/withdrawals/page.tsx 03dee692b9cbdd10f6ccd96d6ca1f0e85d8041b492d7f0cedd5dfad87d3aaa41
+// input: apps/web/app/(main)/admin/distribution/withdrawals/page.tsx c3d5f2600e7189421b75c37c9e989be51142b6eb374fe32e53494142562a07ef
 // input: apps/web/app/(main)/admin/docs/page.tsx 2c351a39d980ea7c0af6496d206140aeccbb0a93bb58d16497693176d6bc1baf
 // input: apps/web/app/(main)/admin/downloads/page.tsx 8819060090a817f13cc5f5a7dccc075694b0901af5f868996a1d0b7f943b0a05
 // input: apps/web/app/(main)/admin/edu-settings/page.tsx b3bf808dde4ef393df9314cb2ffaeea6d7399c7e86c7383f2857e6d7325a0a52
@@ -918,7 +918,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx 73f528f7654b7eb8bf5d08493a07afa63ed1de621f5a792399270a41505bf2fd
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-10-19T00:13:52.099Z
+// generatedAt: 2026-10-19T13:49:20.956Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
