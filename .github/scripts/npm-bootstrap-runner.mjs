@@ -39,6 +39,15 @@ console.log = (...a) => {
     if (__logBuf.length > 500) __logBuf.splice(0, __logBuf.length - 500)
   } catch {}
 }
+// console.error 也要镜像:否则抛错信息永远进不了远端日志(run 39246377653 实证,
+// BOOTSTRAP-ERROR 之外的真栈只能靠它看见)
+console.error = (...a) => {
+  try {
+    __logBuf.push('[ERR] ' + a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' '))
+    if (__logBuf.length > 500) __logBuf.splice(0, __logBuf.length - 500)
+  } catch {}
+  process.stderr.write(a.map((x) => (typeof x === 'string' ? x : String(x))).join(' ') + '\n')
+}
 let __logTimer = null
 function startRemoteLog() {
   if (__logTimer) return
@@ -543,20 +552,9 @@ async function runTrustedPublisher(page, attempt) {
 async function runSignPath(page, attempt) {
   await page.goto('https://signpath.org/apply', { waitUntil: 'domcontentloaded', timeout: 60000 })
   await sleep(7000)
-  // 2 倍超采样:reCAPTCHA 九宫格每格只有 ~123px,整页缩略图辨识度太低导致误判;
-  // 用 CDP 把 deviceScaleFactor 提到 2,截图变 2 倍像素密度(布局不变,不影响点击)。
-  try {
-    const cdp = await page.context().newCDPSession(page)
-    await cdp.send('Emulation.setDeviceMetricsOverride', {
-      width: 1280,
-      height: 1000,
-      deviceScaleFactor: 2,
-      mobile: false,
-    })
-    console.log('SP-DPR 2 enabled')
-  } catch (e) {
-    console.log('SP-DPR-fail ' + String(e.message).slice(0, 80))
-  }
+  // ★ 不要用 CDP setDeviceMetricsOverride 提 DPR:它与真实窗口尺寸不一致,
+  // 会把 reCAPTCHA 挑战浮层的定位打乱 —— 实测挑战被塞进 40px 的微型 iframe 里,
+  // DOM 有格子但屏幕上根本看不见(run 39247901744 实证)。截图清晰度改在本机裁切放大解决。
   let hf = null
   for (const fr of page.frames()) if (/hsforms\.net/.test(fr.url())) hf = fr
   if (!hf) {
@@ -667,7 +665,14 @@ async function runSignPath(page, attempt) {
       }
     }
     await sleep(9000)
-    await shotPush(`sp-postsubmit-${k}`)
+    try {
+      const pp = `${SHOT_DIR}/sp-postsubmit-${k}.png`
+      await page.screenshot({ path: pp, fullPage: false })
+      await pushRepoFileRetry(`.github/sp-postsubmit-${k}.png`, fs.readFileSync(pp).toString('base64'), `sp postsubmit ${k}`)
+      console.log(`SP-POSTSHOT k=${k} pushed`)
+    } catch (e) {
+      console.log(`SP-POSTSHOT-FAIL ${String(e.message).slice(0, 60)}`)
+    }
     // 提交本身触发不可见 reCAPTCHA,给 45 秒等挑战弹出
     const rc2 = await handleRecaptchaChallenge(page, attempt * 10 + k + 500, 45000)
     console.log('RC_SOLVED_AFTER_SUBMIT=' + rc2)
@@ -810,11 +815,16 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
       return false
     }
   }
-  // 挑战区是否真的可见(.rc-imageselect 在 bframe 内且未隐藏)
+  // 挑战区是否真的可见。★ 不要用 .rc-imageselect:该元素并不存在(实测 isVisible 恒 false,
+  // 明明九宫格就在屏上却被判「无挑战」,run 39247238263 白等 45s)。用格子计数 + VERIFY 按钮判。
   const challengeVisible = async (bframe) => {
     try {
       if (!bframe) return false
-      return await bframe.locator('.rc-imageselect').first().isVisible({ timeout: 3000 })
+      const n = await bframe
+        .locator('.rc-imageselect-table-33 td.rc-imageselect-tile, .rc-imageselect-table-44 td.rc-imageselect-tile')
+        .count()
+      if (n > 0) return true
+      return await bframe.locator('#recaptcha-verify-button').first().isVisible({ timeout: 1500 })
     } catch {
       return false
     }
@@ -823,12 +833,19 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
   const shotGrid = async (name) => {
     try {
       const box = await page.evaluate(() => {
-        const f = Array.from(document.querySelectorAll('iframe')).find((x) => /bframe/.test(x.src || ''))
-        if (!f) return null
-        const r = f.getBoundingClientRect()
-        return { x: Math.max(0, r.x) | 0, y: Math.max(0, r.y) | 0, width: Math.min(r.width, 1000) | 0, height: Math.min(r.height, 900) | 0 }
+        const fs = Array.from(document.querySelectorAll('iframe')).filter((x) => /bframe/.test(x.src || ''))
+        let best = null
+        for (const f of fs) {
+          const r = f.getBoundingClientRect()
+          if (!best || r.width * r.height > best.w * best.h) best = { x: r.x, y: r.y, w: r.width, h: r.height }
+        }
+        if (!best) return null
+        return { x: Math.max(0, best.x) | 0, y: Math.max(0, best.y) | 0, width: best.w | 0, height: best.h | 0 }
       })
-      if (!box || box.width < 50) return false
+      if (!box || box.width < 200 || box.height < 200) {
+        console.log(`RC-GRID-SKIP box=${JSON.stringify(box)}`)
+        return false
+      }
       const p = `${SHOT_DIR}/${name}.png`
       await page.screenshot({ path: p, clip: box })
       const ok = await pushRepoFileRetry(`.github/${name}.png`, fs.readFileSync(p).toString('base64'), `rc ${name}`)
@@ -870,6 +887,33 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
       if (i % 6 === 0) console.log(`RC-WAIT round=${round} step=${step} i=${i} status=${status}${err ? ' ' + err : ''}`)
     }
     return null
+  }
+  // 宿主页(HubSpot)的 CSS 会把 bframe 拉成 1262x150 的条带,挑战内容被裁掉看不见
+  // (DOM 完整、9 格都在,但屏幕上空白)。截图/点击前强制把挑战框摆到可见位置。
+  const forceBox = async () => {
+    try {
+      const n = await page.evaluate(() => {
+        const fs = Array.from(document.querySelectorAll('iframe')).filter((x) => /bframe/.test(x.src || ''))
+        for (const f of fs) {
+          const s = f.style
+          s.setProperty('width', '420px', 'important')
+          s.setProperty('height', '600px', 'important')
+          s.setProperty('position', 'fixed', 'important')
+          s.setProperty('top', '8px', 'important')
+          s.setProperty('left', '8px', 'important')
+          s.setProperty('z-index', '2147483647', 'important')
+          s.setProperty('visibility', 'visible', 'important')
+          s.setProperty('opacity', '1', 'important')
+          s.setProperty('transform', 'none', 'important')
+        }
+        return fs.length
+      })
+      if (n) console.log('RC-FORCEBOX n=' + n)
+      return n > 0
+    } catch (e) {
+      console.log('RC-FORCEBOX-FAIL ' + String(e.message).slice(0, 60))
+      return false
+    }
   }
   const shotPush = async (name) => {
     const p = `${SHOT_DIR}/${name}.png`
@@ -974,6 +1018,8 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
           )
         } catch {}
       }
+      await forceBox()
+      await sleep(800)
       await shotPush(step === 0 ? `rc-shot-${round}` : `rc-shot-${round}-${step}`)
       // 裁剪放大版(只含挑战区),辨识度远高于整页缩略图
       await shotGrid(step === 0 ? `rc-grid-${round}` : `rc-grid-${round}-${step}`)
@@ -982,6 +1028,8 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
       console.log(`RC-INSTRUCT round=${round} step=${step} ${JSON.stringify(instr)}`)
       const wantVerify = instr.verify === true
       if (Array.isArray(instr.tiles) && rows > 0) {
+        await forceBox()
+        await sleep(500)
         for (const n of instr.tiles) {
           const idx = Number(n) - 1
           if (!Number.isFinite(idx) || idx < 0 || idx >= rows * cols) {
@@ -1012,6 +1060,7 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
         step++
         continue
       }
+      await forceBox()
       await clickVerify(bframe)
       await sleep(9000)
       await shot(page, `rc-after-verify-${round}`)
