@@ -16,10 +16,10 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Alert,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Clipboard from '@react-native-clipboard/clipboard'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -1069,7 +1069,7 @@ export function HomeScreen() {
    *  MaterialItem.id 即 agentId(agent 条目映射自 agentId 字段),删除后直接过滤本地列表,不重新拉取) */
   const handleMaterialDelete = useCallback(
     (item: MaterialItem): void => {
-      Alert.alert('删除素材', `确认删除「${item.title}」？`, [
+      appAlert('删除素材', `确认删除「${item.title}」？`, [
         { text: '取消', style: 'cancel' },
         {
           text: '确认',

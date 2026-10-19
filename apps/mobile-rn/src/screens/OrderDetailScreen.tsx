@@ -1,10 +1,11 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan)
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { Alert, StyleSheet, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { checkPaymentStatus, createWechatAppPayment, fetchApi } from '@ihui/api-client'
@@ -100,7 +101,7 @@ export function OrderDetailScreen() {
       // 1. 检查微信客户端
       const installed = await isWeChatInstalled()
       if (!installed) {
-        Alert.alert(t('payment.wechatNotInstalled'))
+        appAlert(t('payment.wechatNotInstalled'))
         return
       }
 
@@ -111,19 +112,19 @@ export function OrderDetailScreen() {
         description: order.productName,
       })
       if (!payRes.success || !payRes.data) {
-        Alert.alert(payRes.error || t('vipScreen.pay.failed'))
+        appAlert(payRes.error || t('vipScreen.pay.failed'))
         return
       }
 
       // 3. mock 模式(DEV 环境无微信支付配置):提示 native unavailable
       if (payRes.data.mock) {
-        Alert.alert(t('payment.nativeUnavailable'))
+        appAlert(t('payment.nativeUnavailable'))
         return
       }
 
       // 4. 调起微信 APP 支付
       if (!payRes.data.prepayData) {
-        Alert.alert(t('payment.nativeUnavailable'))
+        appAlert(t('payment.nativeUnavailable'))
         return
       }
       const paySuccess = await openWeChatPayment(payRes.data.prepayData)
@@ -135,12 +136,12 @@ export function OrderDetailScreen() {
       // 5. 只有后端确认已支付才刷新订单状态
       const outTradeNo = payRes.data.outTradeNo
       if (!outTradeNo) {
-        Alert.alert(t('payment.payFailed'))
+        appAlert(t('payment.payFailed'))
         return
       }
       const statusRes = await checkPaymentStatus(outTradeNo)
       if (!statusRes.success || !statusRes.data?.paid) {
-        Alert.alert(t('payment.payFailed'))
+        appAlert(t('payment.payFailed'))
         return
       }
       // 6. 重新加载订单详情
@@ -148,11 +149,11 @@ export function OrderDetailScreen() {
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
       if (errMsg === 'WECHAT_NOT_INSTALLED') {
-        Alert.alert(t('payment.wechatNotInstalled'))
+        appAlert(t('payment.wechatNotInstalled'))
       } else if (errMsg === 'WECHAT_NATIVE_UNAVAILABLE') {
-        Alert.alert(t('payment.nativeUnavailable'))
+        appAlert(t('payment.nativeUnavailable'))
       } else {
-        Alert.alert(t('payment.payFailed'))
+        appAlert(t('payment.payFailed'))
       }
     } finally {
       setActionLoading(null)
@@ -161,7 +162,7 @@ export function OrderDetailScreen() {
 
   // 联系卖家:客户端行为(无后端接口)
   const handleContact = useCallback(() => {
-    Alert.alert('联系卖家', '如有问题请联系客服微信：aizhs_kefu')
+    appAlert('联系卖家', '如有问题请联系客服微信：aizhs_kefu')
   }, [])
 
   // 再次购买:跳转 VIP 页(无后端接口)
@@ -240,7 +241,8 @@ export function OrderDetailScreen() {
           loading={loading}
           error={error}
           onBack={() => navigation.goBack()}
-         colorScheme={resolvedTheme}/>
+          colorScheme={resolvedTheme}
+        />
       </View>
       {actions.length > 0 ? <BottomActionBar actions={actions} /> : null}
       <PurchaseNoticePopUp
