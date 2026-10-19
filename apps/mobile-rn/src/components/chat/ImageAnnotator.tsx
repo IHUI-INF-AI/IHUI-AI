@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: tokens.text.primary,
   },
-  toolBtnTextActive: {
+  toolBtnActiveText: {
     color: tokens.brand.ctaForeground,
   },
   // 颜色档:32px 圆点 + rnRadius['2xl'](16)正好成圆
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   colorSwatchActive: {
-    borderColor: tokens.text.primary,
+    borderColor: tokens.brandAccent.deep,
   },
   // ── 文字标记输入行 ──
   textInputRow: {
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: tokens.text.primary,
   },
-  footerBtnTextPrimary: {
+  footerBtnPrimaryText: {
     color: tokens.brand.ctaForeground,
   },
   panelItemPressed: {
@@ -562,7 +562,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               accessibilityLabel="画笔工具"
             >
               <PenLine size={16} color={mode === 'pen' ? tokens.brand.ctaForeground : tokens.text.primary} />
-              <Text style={[styles.toolBtnText, mode === 'pen' && styles.toolBtnTextActive]}>画笔</Text>
+              <Text style={[styles.toolBtnText, mode === 'pen' && styles.toolBtnActiveText]}>画笔</Text>
             </Pressable>
             <Pressable
               onPress={() => setMode('text')}
@@ -571,7 +571,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               accessibilityLabel="文字工具"
             >
               <Type size={16} color={mode === 'text' ? tokens.brand.ctaForeground : tokens.text.primary} />
-              <Text style={[styles.toolBtnText, mode === 'text' && styles.toolBtnTextActive]}>文字</Text>
+              <Text style={[styles.toolBtnText, mode === 'text' && styles.toolBtnActiveText]}>文字</Text>
             </Pressable>
             <Pressable
               onPress={undo}
@@ -627,7 +627,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
                 accessibilityRole="button"
                 accessibilityLabel={`画笔${PEN_WIDTH_LABELS[i]}`}
               >
-                <Text style={[styles.toolBtnText, widthIndex === i && styles.toolBtnTextActive]}>
+                <Text style={[styles.toolBtnText, widthIndex === i && styles.toolBtnActiveText]}>
                   {PEN_WIDTH_LABELS[i]}
                 </Text>
                 <View
@@ -696,7 +696,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             accessibilityRole="button"
             accessibilityLabel="保存标注"
           >
-            <Text style={[styles.footerBtnText, styles.footerBtnTextPrimary]}>保存</Text>
+            <Text style={[styles.footerBtnText, styles.footerBtnPrimaryText]}>保存</Text>
           </Pressable>
         </View>
       </View>

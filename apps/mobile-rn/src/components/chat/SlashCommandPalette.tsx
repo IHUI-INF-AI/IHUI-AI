@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   itemHighlighted: {
     backgroundColor: tokens.surface.muted,
     borderWidth: 1,
-    borderColor: tokens.brand.cta,
+    borderColor: tokens.brandAccent.deep,
   },
   itemPressed: {
     opacity: 0.85,
