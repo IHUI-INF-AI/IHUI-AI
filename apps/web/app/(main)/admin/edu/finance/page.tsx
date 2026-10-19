@@ -149,7 +149,7 @@ export default function EduFinancePage() {
         </div>
         <Button size="sm" onClick={() => setPayOpen(true)}>
           <Plus className="h-4 w-4" />
-          登记缴费
+          {t('recordTitle')}
         </Button>
       </div>
       <PayLogFilter

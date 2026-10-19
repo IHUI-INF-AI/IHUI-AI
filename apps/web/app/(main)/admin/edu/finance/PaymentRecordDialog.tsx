@@ -63,6 +63,12 @@ export function PaymentRecordDialog({ open, onClose }: Props) {
   }, [open, reset])
 
   const amountInt = Math.round(Number(form.amount))
+  const methodLabel = (value: string) => {
+    if (value === 'cash') return t('methodCash')
+    if (value === 'transfer') return t('methodTransfer')
+    if (value === 'wechat') return t('methodWechat')
+    return t('methodAlipay')
+  }
   const valid =
     !!form.enrollmentId &&
     form.amount.trim() !== '' &&
@@ -109,7 +115,7 @@ export function PaymentRecordDialog({ open, onClose }: Props) {
       <DialogContent className="sm:max-w-md">
         <form onSubmit={submit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>登记缴费</DialogTitle>
+            <DialogTitle>{t('recordTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -117,18 +123,24 @@ export function PaymentRecordDialog({ open, onClose }: Props) {
             </div>
           )}
           <div className="space-y-2">
-            <Label>期次（报名）</Label>
+            <Label>{t('enrollmentLabel')}</Label>
             <Select
               value={form.enrollmentId}
               onValueChange={(v) => setForm({ ...form, enrollmentId: v })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="选择学员的某一期报名" />
+                <SelectValue placeholder={t('enrollmentPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {roster.map((r) => (
                   <SelectItem key={r.enrollmentId} value={r.enrollmentId}>
-                    {`${r.studentName} · ${r.className} · 应缴 ${r.totalFee} 已缴 ${r.paidAmount} 欠费 ${r.dueAmount}`}
+                    {t('rosterLine', {
+                      name: r.studentName,
+                      cls: r.className,
+                      totalFee: r.totalFee,
+                      paidAmount: r.paidAmount,
+                      dueAmount: r.dueAmount,
+                    })}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -137,7 +149,7 @@ export function PaymentRecordDialog({ open, onClose }: Props) {
               <p className="text-sm text-muted-foreground">{t('loading')}</p>
             )}
             {!rosterQuery.isLoading && roster.length === 0 && (
-              <p className="text-sm text-muted-foreground">暂无报名数据</p>
+              <p className="text-sm text-muted-foreground">{t('emptyRoster')}</p>
             )}
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -154,7 +166,7 @@ export function PaymentRecordDialog({ open, onClose }: Props) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="pr-date">缴费日期</Label>
+              <Label htmlFor="pr-date">{t('dateLabel')}</Label>
               <Input
                 id="pr-date"
                 type="date"
@@ -173,19 +185,19 @@ export function PaymentRecordDialog({ open, onClose }: Props) {
                 </SelectTrigger>
                 <SelectContent>
                   {PAYMENT_METHODS.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>
-                      {m.label}
+                    <SelectItem key={m} value={m}>
+                      {methodLabel(m)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>备注</Label>
+              <Label>{t('remarkLabel')}</Label>
               <Input
                 value={form.remark}
                 onChange={(e) => setForm({ ...form, remark: e.target.value })}
-                placeholder="可选"
+                placeholder={t('remarkPlaceholder')}
               />
             </div>
           </div>
