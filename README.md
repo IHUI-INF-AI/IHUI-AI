@@ -5785,3 +5785,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - GET 曾回 `{ settings }` 的 k/v,与端上声明的 `{ list }` 契约不符致 `data.list` 恒 undefined;现两端对齐为 `list` 单一形状。PUT 逐键 `.returning({ id, key })` 回库确认写入集合并带 `missedIds`,不把请求侧 `.length` 当 affected(守门 134)。`title` 承载存储键,不在服务端拼中文(§19)。
 | **CLI**         | `npm install -g ihui-cli`  | 1.0.0  | -                | 🟢 已接入   |
 | CLI 单元   | Vitest        | 13 文件                      | `pnpm --filter ihui-cli test`     |
+### 讲师目录接口收口(2026-10-19)
+- **小程序/RN 的讲师页有了真后端**:此前两端共 5 条 `/api/teacher/*` 调用在两个引擎里都零路由(死路径)。现由 `apps/api/src/routes/teacher.ts` 补 4 条,数据取自真实表、不造新表:`GET /api/teacher/list`(按 `lessons.lecturerId` 聚合已发布课程,返回课程数与报名人数,姓名/头像取自 `users`;响应只含 id/name/avatar/title/intro/courses/students/fans,不含手机号、邮箱、用户名与口令字段)、`GET /api/teacher/:id`(同一聚合 + `user_follows` 的粉丝数与当前登录者的 `isFollowed`,匿名可读)、`GET /api/teacher/:id/courses`(该讲师的已发布课程,价格由元转分)、`POST /api/teacher/:id/follow`(必须携带人用 JWT,关注关系只从令牌主体写入 `user_follows`,请求体只有 `{follow:boolean}`,禁止自关注)。
+- **第 5 条 `/teacher/:id/reviews` 是删不是补**:全仓没有课程/讲师评价表,补一个恒空端点就是假闭环;小程序 `pkg-learn/teacher/detail.tsx` 与 RN `TeacherDetailScreen.tsx` 已移除该请求,评价区如实留空。
+- 取证:`pnpm --filter @ihui/api test teacher-routes` 末行 `Tests 9 passed (9)`,含"查询串冒用 userId 无效、关注写入取令牌主体"与"无凭据 401 且零读零写"两组反向断言。
