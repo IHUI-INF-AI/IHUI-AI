@@ -3431,7 +3431,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 - [x] ✅(2026-10-19) **P2 侧边栏六大域入口页**(commit `126b47d148`;四端 ui-routes 派生产物同步 `90c5d44c06`)—— A 方案(只建域入口页,不动现有路由,避开 CategoryShell 只管自己目录子树的限制):教育/内容/交易三域收为域入口(72→24);已抽出 `use-nav-visibility.ts` 共享权限过滤(Sidebar 私有 filterByRole 迁出),否则入口页渲染 `EDU_ITEMS` 会把 `edu:manage` 教师/管理员入口泄漏给普通用户。
 
-- [ ] **P3 侧边栏收敛跨端对齐(RN 域入口层,miniapp 不动)**(进行中@2026-10-19/doubao)—— 用户拍板:mobile-rn 抽屉把教育/交易/社区三组收进 `DomainHubScreen` 二级屏(条目单源 `navigation/domain-hub.ts`,零新增五语言文案,复用 `drawer.groupEdu/groupTrade/groupCommunity` 与现有子项键,顺带修正 `nav.live`→`live.title` 既有缺键);miniapp-taro 无平铺侧边栏,平台独占不动。门 128 HEAD 面 rc=0。
+- [x] ✅(2026-10-19) **P3 侧边栏收敛跨端对齐(RN 域入口层,miniapp 不动)**(commit `7bc83e2b59`)—— 用户拍板:mobile-rn 抽屉把教育/交易/社区三组收进 `DomainHubScreen` 二级屏(条目单源 `navigation/domain-hub.ts`,零新增五语言文案,复用 `drawer.groupEdu/groupTrade/groupCommunity` 与现有子项键,顺带修正 `nav.live`→`live.title` 既有缺键);miniapp-taro 无平铺侧边栏,平台独占不动。验证:mobile-rn typecheck 本票四文件零错误、eslint 零告警、门 128 HEAD 面 rc=0、域清单 19 键五语言齐全、新文件水印完好;ui-routes 白名单重生成含 DomainHub。
 
 > AGENTS.md §9 平台独占豁免(本条覆盖 P1 与 P2 两批):仅触及 `apps/web/src/components/sidebar/**`、`apps/web/src/lib/path-labels.ts`、`apps/web/app/(main)/settings/helpers.ts`、`apps/web/app/(main)/settings/layout.tsx`、`apps/web/e2e/**` 与 `packages/i18n/messages/web/*.json`(文案侧),不参与 api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli 跨端**契约**同步。⚠️ **P3 跨端视觉对齐不在此豁免内**,届时须按 §9 同步 miniapp-taro/mobile-rn 并过门 128。
 
