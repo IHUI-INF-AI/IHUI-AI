@@ -50,6 +50,8 @@ import {
   stopRelayModelSyncScheduler,
 } from './services/relay-model-sync.js'
 import { startAlgorithmRecordScheduler } from './services/algorithm-record-service.js'
+// 访客链路测速 + 边缘缓存预热(同一形态:进程内定时读方,不新增服务拓扑,2026-10-19 立)
+import { startEdgeAccessProbe } from './services/edge-access.js'
 import {
   startAgentAutomationScheduler,
   stopAgentAutomationScheduler,
@@ -305,6 +307,14 @@ async function start() {
   // G-916430③ 机主拍板,ENABLE_OPS_WATCH_READER=false 禁用)
   if (process.env.ENABLE_OPS_WATCH_READER !== 'false') {
     startOpsWatchReaderScheduler()
+  }
+
+  // 启动访客链路测速(每 5 分钟访问一次首页与三条对照腿:访问本身就是边缘缓存预热
+  // —— 首页 HIT 0.13s / MISS 实测 4~7s,夜间无人访问时缓存过期后第一个访客要付 7 秒;
+  // 量到的耗时与命中率由 /api/admin/ops-wallboard/overview 直接读。
+  // EDGE_PROBE_INTERVAL_MS 覆盖节奏,ENABLE_EDGE_ACCESS_PROBE=false 禁用,2026-10-19 立)
+  if (process.env.ENABLE_EDGE_ACCESS_PROBE !== 'false') {
+    startEdgeAccessProbe()
   }
 
   // 启动中转站上游模型自动同步(启动 30s 后首跑,之后每 6h 一次,
