@@ -134,9 +134,6 @@ export type {
   // 漏一条是**跨包**的悬空具名导入(守门 98 在 HEAD 面直接红)。
   ToolApprovalExecEnvironment,
   ToolApprovalNetworkTarget,
-  // D77(2026-09-25 立):对话流业务表单请求帧类型 —— 与上面 D106/D130 同一型,入口是显式
-  // 命名清单,漏列则 @ihui/shared 的 sse-parse.ts 具名 import 悬空(守门 98 在 HEAD 面直接红)。
-  FormRequestEvent,
 } from './client.js'
 export { projectToolApprovalEnvFacts } from './client.js'
 // AI 对话可视化 Phase 4a 事件类型 re-export(2026-08-01,消息级 plan/terminal inline 展示)
