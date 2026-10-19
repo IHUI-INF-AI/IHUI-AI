@@ -269,7 +269,7 @@
           "mustMatch": "retryLastTurn"
         },
         {
-          "file": "apps/mobile-rn/src/screens/ChatScreen.tsx",
+          "file": "apps/mobile-rn/src/components/chat/ChatMessageList.tsx",
           "mustMatch": "chatAlert.errorTitle"
         },
         {
