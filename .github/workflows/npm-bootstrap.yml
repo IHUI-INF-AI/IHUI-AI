@@ -18,6 +18,10 @@ on:
         description: '整轮重试次数(诊断时可传 1 快速拿结果)'
         required: false
         default: '3'
+      otp_code:
+        description: 'npm 邮箱 OTP 验证码(trusted_publisher 登录被要求邮箱验证时传,一次性)'
+        required: false
+        default: ''
 
 concurrency:
   group: npm-bootstrap
@@ -39,6 +43,8 @@ jobs:
       # trusted_publisher:网页登录凭据(npm 已禁用 API 换 token,Trusted Publisher 只能网页登记)
       NPM_WEB_USERNAME: ${{ secrets.NPM_WEB_USERNAME }}
       NPM_WEB_PASSWORD: ${{ secrets.NPM_WEB_PASSWORD }}
+      # trusted_publisher:npm 新设备登录的邮箱 OTP(李总读邮件提供,一次性)
+      NPM_OTP_CODE: ${{ github.event.inputs.otp_code || '' }}
       # signpath:申请联系邮箱
       SIGNPATH_EMAIL: ${{ secrets.SIGNPATH_EMAIL }}
     steps:
@@ -62,12 +68,15 @@ jobs:
           sudo apt-get install -y -qq ./google-chrome-stable_current_amd64.deb
           google-chrome --version
       - name: Run browser automation (real Chrome + CDP, xvfb headed)
+        timeout-minutes: 15
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq xvfb >/dev/null
           cd .github/scripts
           UNDER_XVFB=1 xvfb-run -a -s "-screen 0 1280x860x24" node npm-bootstrap-runner.mjs
       - name: Upload evidence + encrypted secrets
         if: always()
+        continue-on-error: true
+        timeout-minutes: 4
         uses: actions/upload-artifact@v4
         with:
           name: npm-bootstrap-${{ github.event.inputs.action }}-${{ github.run_number }}

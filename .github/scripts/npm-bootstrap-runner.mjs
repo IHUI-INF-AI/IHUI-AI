@@ -342,6 +342,14 @@ async function runSignup(page, attempt) {
 // 在 npm 网页给 ihui-cli 登记 GitHub Trusted Publisher(Workflow OIDC),registry API 无此端点。
 // npm 发布页:https://www.npmjs.com/package/ihui-cli/access
 async function runTrustedPublisher(page, attempt) {
+  // 0) 网络监听:抓登录 POST 的真实响应(无 UI 错误时唯一的真相来源)
+  const netLog = []
+  const onResp = (r) => {
+    try {
+      if (r.request().method() !== 'GET') netLog.push(`${r.status()} ${r.request().method()} ${r.url().slice(0, 120)}`)
+    } catch {}
+  }
+  page.on('response', onResp)
   // 1) 网页登录(CF 挑战已被真 Chrome 方案突破)
   await page.goto('https://www.npmjs.com/login', { waitUntil: 'domcontentloaded', timeout: 60000 })
   await waitPastCloudflare(page)
@@ -364,15 +372,70 @@ async function runTrustedPublisher(page, attempt) {
     await p.click({ timeout: 5000 })
     await page.keyboard.type(WEB_PASSWORD, { delay: 60 })
     await shot(page, `tp-login-filled`)
-    await page
-      .locator('button[type="submit"], button:has-text("Sign in")')
-      .first()
-      .click({ timeout: 10000 })
+    // 提交按钮必须限定在登录表单内(全局 :has-text("Sign in") 会误点页头导航元素,表单被重置)
+    const submitSel = [
+      'form button[type="submit"]',
+      'form button:has-text("Sign in")',
+      'main button[type="submit"]',
+      'button[type="submit"]',
+    ]
+    let clicked = false
+    for (const s of submitSel) {
+      const loc = page.locator(s).first()
+      if (await loc.isVisible({ timeout: 2500 }).catch(() => false)) {
+        await loc.click({ timeout: 10000 })
+        clicked = true
+        console.log('TP_LOGIN_SUBMIT=' + s)
+        break
+      }
+    }
+    if (!clicked) throw new Error('login submit button not found')
+    await sleep(12000) // 给登录 POST 留足响应时间
+    console.log('TP_NET_LOG=' + JSON.stringify(netLog.slice(-12)))
     await waitPastCloudflare(page, 120000)
-    await sleep(5000)
+    await sleep(6000)
     await shot(page, `tp-login-after`)
+    await page.screenshot({ path: `${SHOT_DIR}/tp-login-after-full.png`, fullPage: true })
     console.log('TP_LOGIN_URL=' + page.url())
+    // 登录后诊断:错误提示文本 + Turnstile iframe 检测
+    const lbody = ((await page.textContent('body').catch(() => '')) || '').replace(/\s+/g, ' ')
+    const errMatch = lbody.match(
+      /(incorrect[^.]{0,80}|too many[^.]{0,80}|wrong[^.]{0,80}|failed[^.]{0,80}|invalid[^.]{0,80}|locked[^.]{0,80}|verify[^.]{0,80})/i
+    )
+    console.log('TP_LOGIN_ERR=' + (errMatch ? errMatch[0] : '(none)'))
+    const tsFrames = page.frames().filter((f) => /challenges\.cloudflare\.com|turnstile/i.test(f.url())).length
+    console.log('TP_TURNSTILE_FRAMES=' + tsFrames)
+    // email-otp:npm 对新设备登录强制邮箱 OTP(发到账号邮箱),NPM_OTP_CODE 由李总读邮件提供
+    if (/\/login\/email-otp/.test(page.url())) {
+      const otp = process.env.NPM_OTP_CODE || ''
+      if (!otp) throw new Error('npm login requires email OTP — need NPM_OTP_CODE (sent to account email)')
+      console.log('TP_OTP_REQUIRED=true')
+      const otpInput = page
+        .locator('input[inputmode="numeric"], input[autocomplete="one-time-code"], input[name*="otp" i], input[type="text"]')
+        .first()
+      await otpInput.waitFor({ state: 'visible', timeout: 20000 })
+      await otpInput.click({ timeout: 5000 })
+      await page.keyboard.type(otp, { delay: 80 })
+      await shot(page, `tp-otp-filled`)
+      const otpSubmit = page.locator('form button[type="submit"], button[type="submit"]').first()
+      await otpSubmit.click({ timeout: 10000 })
+      await sleep(10000)
+      await shot(page, `tp-otp-after`)
+      console.log('TP_AFTER_OTP_URL=' + page.url())
+      console.log('TP_NET_LOG2=' + JSON.stringify(netLog.slice(-6)))
+      if (/\/login/.test(page.url())) throw new Error('OTP verification failed — see tp-otp-after.png')
+      console.log('TP-LOGIN-OK')
+    }
+    // 表单区 DOM dump(错误 DOM 常在 form 内,textContent 拿不到样式隐藏节点)
+    try {
+      const formHtml = await page.locator('form').first().evaluate((el) => el.innerHTML.replace(/\s+/g, ' ').slice(0, 600))
+      console.log('TP_FORM_HTML=' + formHtml)
+    } catch {}
+    if (/\/login/.test(page.url()) && errMatch) {
+      throw new Error('npm login rejected: ' + errMatch[0])
+    }
   } catch (e) {
+    if (/npm login rejected/.test(e.message)) throw e
     console.log('TP-LOGIN-SKIP ' + String(e.message).slice(0, 100))
   }
 
@@ -485,21 +548,29 @@ async function runSignPath(page, attempt) {
     console.log('SP-FILLED ' + name + ' len=' + val.length)
   }
 
-  // 三个自定义 DropdownField(HubSpot 组件,非原生 select):点开 -> 选 option
-  const DD = [
-    { hid: '87a6cc11-45fc-43ca-9b88-40485775cb3d-3550993458169', label: 'Category', opt: 'Developer Tools' },
-    { hid: '87a6cc11-45fc-43ca-9b88-40485775cb3d-2081506618076', label: 'Build System', opt: 'GitHub Actions' },
-    { hid: '87a6cc11-45fc-43ca-9b88-40485775cb3d-2052735583143', label: 'Primary Discovery Channel', opt: 'Organic search' },
-  ]
-  for (const d of DD) {
-    const inp = hf.locator(`#${d.hid}-input`)
-    await inp.click({ timeout: 10000 })
-    await sleep(1500)
-    const opt = hf.locator(`[role="option"]:has-text("${d.opt}")`).first()
-    await opt.click({ timeout: 10000 })
-    await sleep(700)
-    console.log(`SP-DD ${d.label}=${d.opt}`)
+  // HubSpot Dropdown 字段渲染为原生 <select>(name=GUID/fieldname,无 "-input" 后缀);
+  // 硬编码隐藏 id 必然查无此元素。改用 select:has(option:has-text) 语义匹配。
+  const optVals = ['Developer Tools', 'GitHub Actions', 'Organic search']
+  for (const val of optVals) {
+    const sel = hf.locator(`select:has(option:has-text("${val}"))`).first()
+    try {
+      await sel.waitFor({ state: 'visible', timeout: 8000 })
+      const optHandle = sel.locator(`option:has-text("${val}")`).first()
+      const optVal = (await optHandle.getAttribute('value')) || val
+      await sel.selectOption(optVal, { timeout: 8000 })
+      console.log('SP-DD select=' + val + ' val=' + optVal)
+    } catch (e) {
+      console.log('SP-DD select-fail=' + val + ' ' + String(e.message).slice(0, 60))
+    }
   }
+  // 诊断:dump 表单 HTML(下拉结构)供核实
+  try {
+    const html = await hf
+      .locator('form')
+      .first()
+      .evaluate((el) => el.outerHTML.replace(/\s+/g, ' ').slice(0, 2000))
+    console.log('SP_FORM_HTML=' + html)
+  } catch {}
   await shot(page, `sp-dd-done`)
 
   // 法务勾选(subscription_type_2099806800 实测 required)

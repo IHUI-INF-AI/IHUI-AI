@@ -20,8 +20,8 @@
  * 会被 `filter(Boolean)` 滤掉,整组恒看不见 —— 台账里同题多份副本可以长期存在而本门报 0 组,
  * 派单清单却把每一份都发出去(实测:GA7 两票在 HEAD 面各 3 份;`--ratchet` 现读锚点 94 组/307 行,
  * 全是存量,新增 0 ⇒ 加这一类不造恒红门,§12e 前置成立)。混合组(有号 + 无号)仍归"同号多行"(F4 地盘)。
- * 注:`scripts/guardian-runner.mjs` 里本门条目写的"--self-test(18 例)"因本次改动过期(现为现读数),
- * 该文件此刻被他席 staged 持有(§16 不代改),由持有人下一次改齐;本门体不另抄一份计数。
+ * 注:`scripts/guardian-runner.mjs` 里本门条目写的"--self-test(N 例)"随用例增删会过期,2026-10-19 已对齐现读数;
+ * 该数每轮都可能再变,故以本门 `--self-test` 的**自印末行**为准(凡数字现读,§0.1)。
  * 指纹相同且票号不同的行 ⇒ "同题多号"组。指针行(〔【归并】开头,自述不再单独派单)
  * 不算独立任务,豁免。已勾行随归档走,不在本门视野。
  *
@@ -39,6 +39,7 @@
  * 取不到面 ⇒ exit 2 拒绝出合格证,不回落、不记绿。
  */
 import { Undetermined, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { matchBalancedGroupAt } from './lib/plan-task-index.mjs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
@@ -46,6 +47,39 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 export const LEDGER_NAME = 'PROJECT_PLAN.md'
 /** 面名的中文标签(报错与结论行都要写明量的是哪一面 —— 换面即换读数,不标就是让人照错的数派单)。 */
 export const FACE_TXT = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树' }
+
+/**
+ * 剥掉成对括号包裹的注记段(默认 `〔…〕`)。**括号配平**,不是 `[^〕]*` 那种非嵌套正则。
+ *
+ * 为什么必须配平(2026-10-19 实测):台账里存在真嵌套的注记
+ * (`〔副本正文并入·承载整段:X〔副本正文并入·承载整段:X〔改号(…):原G-1038307〕〕〕`),
+ * 非嵌套正则在第一个内层 `〕` 就收尾,剥完剩下孤儿 `〕`,并把折叠叙述暴露进标题,
+ * 于是"同一件事的多种书写形态"算出互不相等的指纹 —— 这正是同题副本折不掉的那一格。
+ *
+ * 配平用的是 `lib/plan-task-index.mjs` 的 `matchBalancedGroupAt`(仓里唯一实现,§22c 不另抄)。
+ * **配不平时原样保留该开括号并继续扫**(宁可少剥一段,也不从行里吃掉内容);
+ * 收尾若仍剩孤儿闭括号,一并去掉 —— 它是上面剥剩下的残渣,不是内容。
+ */
+export function stripNoteGroups(s, opener, closer) {
+  const pairs = { [opener]: closer }
+  let out = ''
+  let i = 0
+  while (i < s.length) {
+    if (s[i] === opener) {
+      const end = matchBalancedGroupAt(s, i, pairs)
+      if (end < 0) {
+        out += s[i]
+        i += 1
+        continue
+      }
+      i = end // 整段丢掉
+      continue
+    }
+    out += s[i]
+    i += 1
+  }
+  return out.replaceAll(closer, '')
+}
 
 /** 指纹提取:从登记行提取归一化标题指纹(导出供取号器与镜像测试复用,§22d) */
 export function extractTaskFingerprint(line) {
@@ -61,8 +95,14 @@ export function extractTaskFingerprint(line) {
   // 去前置状语:(进行中@...)/(待派/XXX)/✅(date) 等
   s = s.replace(/^[（(【\[]?(进行中|待派|已完成|✅)[^】）)〕\]]*[】）)〕\]]?\s*/g, '')
   s = s.replace(/^✅\(\d{4}-\d{2}-\d{2}\)\s*/, '')
-  // 去注记段(〔…〕)——注记是进度/归并留痕,不参与身份
-  s = s.replace(/〔[^〕]*〕/g, '')
+  // 去注记段(〔…〕)——注记是进度/归并留痕,不参与身份。
+  // 2026-10-19 修:原实现是 `/〔[^〕]*〕/g`,**非嵌套**。台账里真实存在的形态是嵌套的
+  // (`〔副本正文并入·承载整段:…〔副本正文并入·承载整段:…〔改号(…):原G-1038307〕〕〕`),
+  // 非嵌套正则在第一个内层 `〕` 就收尾,剥完剩下孤儿 `〕`,并把折叠叙述
+  // `(原编号 68;持有行题面「…」)` 暴露进标题 ⇒ 同一件事的多种书写形态算出互不相等的指纹。
+  // 改用仓里既有的括号配平实现(§22c 不另抄一份);配不平时**原样保留该字符**继续扫,
+  // 宁可少剥一点也不把内容从行里吃掉。
+  s = stripNoteGroups(s, '〔', '〕')
   // 提取标题段:标题=粗体内文本;粗体恰是票号时取其后至"——"前;无粗体取票号后至"——"前
   // (尾巴"—— 详情/取证…"是各会话各自写的进度叙述,不参与身份)
   const bold = s.match(/\*\*([^*]+)\*\*/)
@@ -70,7 +110,15 @@ export function extractTaskFingerprint(line) {
   if (bold) {
     if (/^[A-Z]-?\d+/.test(bold[1].replace(/[.。:：\s]/g, ''))) {
       const after = s.slice((bold.index ?? 0) + bold[0].length)
-      title = after.split(/——|--/)[0] || bold[1]
+      // 2026-10-19 修(真值陷阱,本门此前的"整格失明"根因):原写法 `split(...)[0] || bold[1]`。
+      // 登记行的主流写法是 `**G-933 冷启动…** —— 盘点口径(…)`,粗体后有一个空格再跟破折号,
+      // 于是 `split()[0]` 等于**单个空格 `' '`** —— 它是真值 ⇒ `|| bold[1]` 兜底永不触发
+      // ⇒ title 变成空白 ⇒ 归一化后权重 0 ⇒ `:88 weight < 16` 判 null。
+      // 实测后果:HEAD 面 125 条登记行因此算不出指纹(修后 72),其中 G-933 / W4-W7 / D690
+      // 三组同题副本**两行的粗体逐字相同却各自 null**,于是 `dedupeByFingerprint` 折不掉、
+      // 派单口径把它们算成两件活。语义上要的是"破折号前若只剩空白,退回粗体本身"。
+      const seg = after.split(/——|--/)[0]
+      title = seg && seg.trim() ? seg : bold[1]
     } else {
       title = bold[1]
     }
@@ -306,6 +354,42 @@ function runSelfTest() {
     { name: '过短指纹不参与', lines: ['- [ ] G-100 **修超时**', '- [ ] G-101 **修超时**'], expect: 0 },    { name: '无号同题副本必命中(第三类,2026-10-16)', lines: ['- [ ] {{NEXT_ID}} **GA7 对 render-prop 宿主组合失明 属性扫描上限 4000 字符** 甲', '- [ ]（认领已释放@2026-10-15/x） {{NEXT_ID}} **GA7 对 render-prop 宿主组合失明 属性扫描上限 4000 字符** 乙'], expect: 1 },
     { name: '无号但只有一份 ⇒ 不成组', lines: ['- [ ] {{NEXT_ID}} **单独一份的无号登记行,标题足够长以越过指纹阈** 正文'], expect: 0 },
     { name: '混合组(有号 + 无号)不抢 F4 名额', lines: ['- [ ] G-700 **同一件事的混合组标题,长度足够越过指纹阈** 甲', '- [ ] {{NEXT_ID}} **同一件事的混合组标题,长度足够越过指纹阈** 乙'], expect: 0 },
+    // ── 2026-10-19 修两处真值/正则缺陷,下面四例是它们的回归锁 ──
+    // ⚠️ 形状必须**逐字复现真台账形态**:粗体本身要**以票号开头**(`**G-100 题面**`),
+    // 否则 `extractTaskFingerprint` 走 `else { title = bold[1] }` 那条分支,压根碰不到 `:73` 的真值陷阱,
+    // 用例会写成"修前也绿"的假锁(本轮第一版就是这么错的,阳性对照把它筛掉了)。
+    {
+      name: '粗体以票号开头+空格+破折号必算出指纹(真值陷阱回归;修前两行皆 null)',
+      lines: [
+        '- [ ] G-100 **G-100 修复登录超时问题的根因与修法** —— 详情甲',
+        '- [ ] G-101 **G-101 修复登录超时问题的根因与修法** —— 详情乙',
+      ],
+      expect: 1,
+    },
+    {
+      name: '粗体后有真题面时仍取题面(反证臂:钉"别把本分支改成恒取粗体")',
+      lines: [
+        '- [ ] G-100 **G-100** 真正的题面在这里继续写下去并且足够长 —— 详情甲',
+        '- [ ] G-101 **G-101** 真正的题面在这里继续写下去并且足够长 —— 详情乙',
+      ],
+      expect: 1,
+    },
+    {
+      name: '嵌套注记(〔…〔…〕〕)按配平整段剥掉(修前被非嵌套正则切碎 ⇒ 两行皆 null)',
+      lines: [
+        '- [ ] G-100 **G-100 修复登录超时问题** 〔副本正文并入·承载整段:甲〔改号(2026-10-14):原G-88〕〕 〔拍板@2026-10-18:定 A 档〕',
+        '- [ ] G-101 **G-101 修复登录超时问题** 〔副本正文并入·承载整段:乙〔改号(2026-10-14):原G-77〕〕',
+      ],
+      expect: 1,
+    },
+    {
+      name: '真实台账形态逐字复现(W4-W7;修前两行皆 null ⇒ 这正是折不掉的那一组)',
+      lines: [
+        '- [ ] **W4-W7 四波覆盖票（每波一票，交付判据见上）** —— 派单前先看登记表 `remaining` 名单，勿凭记忆切范围。',
+        '- [ ] **W4-W7 四波覆盖票（每波一票，交付判据见上）** —— 派单前先看登记表 `remaining` 名单，勿凭记忆切范围。 〔现读更正@2026-10-19:实测该端目录不存在〕',
+      ],
+      expect: 1,
+    },
   ]
   let pass = 0
   let total = 0
@@ -363,6 +447,21 @@ function runSelfTest() {
   ok('取面:--ratchet 缺省索引面(提交链带走的那一份)', faceFromArgv([], { ratchet: true }).face === 'staged')
   ok('取面:缺省工作树(人读档,行为与接线前逐字一致)', faceFromArgv([]).face === 'worktree')
   ok('取面:显式 --head 可取', faceFromArgv(['--head'], { ratchet: true }).face === 'head')
+
+  // ── 剥注记维:配不平不许把正文吃掉(反证臂;没有它,一次"配平失败就吞掉后面全部"的改法照样全绿) ──
+  const unbal = extractTaskFingerprint(
+    '- [ ] G-300 **未闭合的注记不许吃掉后面的正文** 〔只开不闭 后面还有很长很长的一段正文内容在这里',
+  )
+  ok('剥注记:括号配不平 ⇒ 仍算出指纹(不是把整行判死)', unbal !== null)
+  ok(
+    '剥注记:配平时只开不闭的那一段原样留在行里,不吞掉后续正文',
+    unbal !== null && /未闭合的注记不许吃掉后面的正文/.test(unbal),
+    `实测 ${JSON.stringify(unbal)}`,
+  )
+  ok(
+    '剥注记:剥完之后不残留孤儿闭括号',
+    !stripNoteGroups('甲〔注记:丙〕乙〕丙', '〔', '〕').includes('〕'),
+  )
 
   console.log(`[plan-dup-title] self-test ${pass}/${total}`)
   process.exit(pass === total ? 0 : 1)

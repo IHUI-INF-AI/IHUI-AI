@@ -23,7 +23,7 @@ import {
   type LlmModel,
 } from '@ihui/api-client'
 import { GitBranch } from 'lucide-react'
-import { formatTokenCount } from '@ihui/shared/utils'
+import { formatTokenCount, isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import { Button, Input } from '@ihui/ui-react'
 import { useOutletContext } from 'react-router-dom'
@@ -411,6 +411,14 @@ export default function ChatPage() {
       // 回答同形;提示面复用本页既有 notice 状态条(与 onCompaction 同一出口,不新立 UI)。
       onPartialDone: () => {
         setNotice(t('chat.partialDoneTitle'))
+      },
+      // G-425(默认档"只提示"):done 帧携带上游 finish/stop reason,判"输出被
+      // max_tokens 截断"用共享层唯一助手(与 web 同一份,端内不另写判据),
+      // 复用本页既有 notice 状态条(与 onPartialDone 同一出口,不新立 UI)。
+      onFinishReason: (event) => {
+        if (isMaxTokensTruncatedFinishReason(event.finishReason)) {
+          setNotice(t('chat.truncation.maxLengthNotice'))
+        }
       },
       onDelta: (delta) => {
         window.clearTimeout(timeoutId)

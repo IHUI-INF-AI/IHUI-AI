@@ -177,6 +177,9 @@
     "inputPlaceholder": "何か入力してください...",
     "compactionNotice": "コンテキストを自動圧縮しました:{before} → {after}({removed} 件の履歴を削除)",
     "partialDoneTitle": "回答が中断されました。以下の内容は不完全な可能性があります",
+    "truncation": {
+      "maxLengthNotice": "この回答は最大出力長に達したため切り詰められており、内容が完全ではありません。「続けて」と送信すると生成を再開できます。"
+    },
     "voiceStop": "録音を停止",
     "voiceStart": "録音を開始",
     "voiceError": "マイクにアクセスできません。ブラウザの設定でマイクの許可を有効にしてください",

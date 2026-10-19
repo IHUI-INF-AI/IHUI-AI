@@ -134,6 +134,8 @@ import {
 } from '@ihui/shared/chat/queue-interactions'
 import { apiFailureToText, logger } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
+// 按子路径取:RN 的 vitest 把 `@ihui/shared/utils` 父别名指向测试替身,父入口取不到本模块
+import { isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils/finish-reason'
 import type { ChatMessage } from '@ihui/shared'
 import {
   applyStreamError,
@@ -206,8 +208,6 @@ import { uiControlToolsFor } from '../lib/ui-control-tools'
 import { useUiTextField } from '../lib/use-ui-text-field'
 // D135:额度分档告警一行措辞(两屏共用同一份,键挂 common.*)
 import { budgetNoteText } from '../utils/budget-note'
-// G-425:done 帧 finishReason 判"输出被 max_tokens 截断"(两屏共用同一判据)
-import { isMaxTokensTruncatedFinishReason } from '../utils/max-tokens-truncation'
 import { useI18n } from '../i18n'
 import {
   resolveRoundModel,
@@ -1047,12 +1047,11 @@ export function ChatScreen() {
       onPartialDone: () => {
         showToast('warning', t('chat.partialDoneTitle'))
       },
-      // G-425(2026-10-07 立,web 腿先行):done 帧携带上游 finish/stop reason
-      // (api-client onFinishReason,缺席不触发)。判"输出被 max_tokens 截断"用
-      // utils/max-tokens-truncation 的唯一助手(口径见其注释),提示出口复用本端
-      // 既有 FloatBox(与 onPartialDone 同形);其余 reason 不提示,不自动续写。
-      onFinishReason: (evt) => {
-        if (isMaxTokensTruncatedFinishReason(evt.finishReason)) {
+      // G-425(默认档"只提示"):done 帧携带上游 finish/stop reason,判"输出被
+      // max_tokens 截断"用共享层唯一助手(与 web 同一份,端内不另写判据),
+      // 复用本端既有 FloatBox(与 onPartialDone 同一出口,不新立 UI)。
+      onFinishReason: (event) => {
+        if (isMaxTokensTruncatedFinishReason(event.finishReason)) {
           showToast('warning', t('chat.truncation.maxLengthNotice'))
         }
       },
