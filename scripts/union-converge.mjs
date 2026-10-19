@@ -88,6 +88,12 @@
  *       # **默认全档只报数**(stdout 点名,不参与退出码)—— 推送链零风险;本旗标显式声明后,
  *       # 仅"新增强"(复活行数 > 本侧自身存量)才折进落地闸。存量与未判定在任何档位都不拦:
  *       # 拦存量 = 恒红门(§12e/§12f);拦"没判成"会把一次 git 抖动读成内容裁决。
+ *   node scripts/union-converge.mjs --accept-state-growth forks=<理由>
+ *       # 声明式放行"归并后某一量纲比任一侧都大"(可重复;`--accept-state-growth forks=… dupOpenCopies=…`)。
+ *       # 理由**不得为空**(空理由的放行等于没有判据);放行只留痕不阻断:该维不进落地闸 bad,
+ *       # 但两个读数与理由会逐条打印并写进合并提交信息(见 `planStateRegressions` 头注)。
+ *       # 可声明维 = `forks`(F1) / `dupOpenCopies`(F4) / `rotatedAuto`(F3);
+ *       # **`voidRows`(F2)与 `dupBlocks`(F6)硬拒**,拼错的维名也硬拒 —— 两者都抛错退出。
  * 退出码:0 = 无需合并或已落地且复核干净;1 = 判据不过/两侧同改冲突需人工/CAS 失败;
  *        2 = 脚本自身异常,**或"本器没资格判"**(取不到远端当次真值 / 目标对象不在本机)——
  *        后者走 `unreachableObjectGuidance` 打印三条出口并落 `UNDETERMINED 未判定`,
@@ -421,9 +427,29 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
   for (const a of Array.isArray(accepted) ? accepted : [])
     if (a && typeof a.dim === 'string' && a.dim) acceptedDims.set(a.dim, a.reason)
   const sides = (sideTexts ?? []).filter((t) => typeof t === 'string' && t.trim() !== '')
+  /**
+   * **禁止声明放行的维**(2026-10-19 补):头注 `:417-418` 明写「F5(落账注记变少)/ F6(整块重复)/
+   * F9+F9b(撞号与畸形号)/ 路径零丢失**一律不接受声明放行** —— 它们是"本可以不做错"的那一型,
+   * 而不是并集的天然后果」;但旧校验只问"维名在不在 KEYS 里",而 `voidRows`(F2)与 `dupBlocks`(F6)
+   * **都在 KEYS 内** ⇒ 实际可被 `--accept-state-growth` 放行,文档与实现分叉。
+   *
+   * 实测佐证:自检里唯一一条覆盖本校验的用例用的是 `{dim:'F1'}`,而 F1 本来就是**合法可声明**的维,
+   * 于是那条用例只证明了"拼错的维名会抛",对"名字合法但被禁的维"零覆盖。
+   *
+   * 立因:只写在注释里的禁令 = 没有禁令。这里把它变成真闸,被禁维显式硬拒。
+   */
+  const NON_ACCEPTABLE = new Map([
+    ['voidRows', 'F2 带作废声明未落账'],
+    ['dupBlocks', 'F6 整块登记重复'],
+  ])
   if (typeof mergedText === 'string' && mergedText.trim() !== '' && sides.length > 0)
     for (const d of acceptedDims.keys())
-      if (!KEYS.some(([k]) => k === d))
+      if (NON_ACCEPTABLE.has(d))
+        throw new Error(
+          `--accept-state-growth ${d}:该维不接受声明放行(${NON_ACCEPTABLE.get(d)} 属"本可以不做错"的那一型,` +
+            '不是并集的天然后果;头注 :417-418 是这句话的出处,本闸让那句话真正成立)',
+        )
+      else if (!KEYS.some(([k]) => k === d))
         throw new Error(
           `--accept-state-growth 的维名不认识:${d}(可用维 = ${KEYS.map(([k]) => k).join(' / ')};` +
             'F5/F6/F9/F9b 与路径零丢失一律不可声明放行 —— 那三条正是本闸存在的理由)',
@@ -2835,6 +2861,33 @@ function selfTest() {
           return false
         } catch (e) {
           return String(e && e.message).includes('维名不认识')
+        }
+      })(),
+    )
+    // 2026-10-19 补:名字**合法**(在 KEYS 里)但头注明文禁用的维,同样必须硬拒。
+    // 上面那条用 F1 试,F1 恰是可声明维 ⇒ 对这一族零覆盖;没有这两条,头注 :417-418 那句禁令
+    // 就只是一句注释(旧实现真的会把 voidRows / dupBlocks 放行掉)。
+    for (const banned of ['voidRows', 'dupBlocks']) {
+      ok(
+        `声明放行:被禁维 ${banned} 必须硬拒(名字合法 ≠ 可以放行)`,
+        (() => {
+          try {
+            planStateRegressions(PS_A + PS_B, [PS_A, PS_B], [{ dim: banned, reason: '我有理由' }])
+            return false
+          } catch (e) {
+            return String(e && e.message).includes('不接受声明放行')
+          }
+        })(),
+      )
+    }
+    ok(
+      '声明放行:合法维(fork/dupOpenCopies/rotatedAuto)仍放行(禁令不得把出口整个堵死)',
+      (() => {
+        try {
+          planStateRegressions(PS_A + PS_B, [PS_A, PS_B], [{ dim: 'forks', reason: 'r' }])
+          return true
+        } catch {
+          return false
         }
       })(),
     )
