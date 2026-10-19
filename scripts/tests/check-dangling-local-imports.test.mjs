@@ -11,6 +11,8 @@
  *  3. 必须装车(guardian-runner 里 id 98 存在、blocking、skipEnv 对得上);
  *  4. D4「影子 .js」必须**真能认出当年那枚把生产 API 打崩的文件** —— 判据只对自己造的夹具
  *     有牙,等于没有牙(§22c 那条"镜像测试只复读实现就是复读机"讲的就是这一格)。
+ *  5. (2026-10-19 补)D5「barrel 同名导出重复」四格成对 + 真仓历史 blob(2225fccfdb8)阳性对照 ——
+ *     这枚重复四次复发、最近一次正是 union 合并两侧都收,防回灌必须钉在提交口与审面两道。
  */
 import { execFileSync } from 'node:child_process'
 import { test } from 'node:test'
@@ -34,13 +36,16 @@ import {
   literalSpecTarget,
   mergeShadow,
   mergeSites,
+  auditTree,
+  auditDuplicateBarrelExports,
+  D5_BARREL_RE,
   SELF_SKIP as GATE_SKIP_ENV,
 } from '../check-dangling-local-imports.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GUARD = join(ROOT, 'scripts/check-dangling-local-imports.mjs')
 
-test('源模块导出可单测的纯函数(§22c 前置条件;D3/D4 那几个必须在列,否则判据只能靠端到端摸)', () => {
+test('源模块导出可单测的纯函数(§22c 前置条件;D3/D4/D5 那几个必须在列,否则判据只能靠端到端摸)', () => {
   for (const fn of [
     parseImports,
     parseExports,
@@ -55,9 +60,12 @@ test('源模块导出可单测的纯函数(§22c 前置条件;D3/D4 那几个必
     literalSpecTarget,
     mergeShadow,
     mergeSites,
+    auditTree,
+    auditDuplicateBarrelExports,
   ])
     assert.equal(typeof fn, 'function')
   assert.ok(Array.isArray(KNOWN_ALIAS_LEDGER), 'KNOWN_ALIAS_LEDGER 必须是数组(待偿台账不是豁免清单)')
+  assert.ok(D5_BARREL_RE instanceof RegExp, 'D5 射程封闭集合必须是导出的正则(镜像测试不许另抄一份)')
 })
 
 test('D3 装车证明:真 tsconfig 的 glob 列表不得把映射吃掉(正则剥注释的翻车现场)', () => {
@@ -422,6 +430,109 @@ test('D4 形状锁:不得有第二台解析器 / 不得新增磁盘读 / 只报�
   assert.deepEqual(probeTypeScriptSyntax('const s = "new Map<string, number>()"\nexport const k = 1'), [])
 })
 
+/**
+ * D5「同一 barrel 文件内同名显式导出重复」(2026-10-19 立)。
+ * 成对钉死票面要求的四格 + 两格防恒红:
+ *  ① 阳性:同名 type 转导出两份必拦(`packages/api-client/src/index.ts` 的 FormRequestEvent 事故原形);
+ *  ② 反向:只出现一份必绿;
+ *  ③ `export *` 重叠 ⇒ **判不出也不得冒红**,更不许装看得见(头注如实写明不在射程,§0.9);
+ *  ④ 内容取不到 ⇒ null(未判定;CLI 档折成 exit 2,由形状锁钉);
+ *  ⑤/⑥ 合法 TS 声明合并(interface×2、interface+class)与跨声明空间同名(type 别名+const)
+ *     **不得误判** —— 判它们红就是逼 --no-verify(§12e)。
+ */
+const BARREL = 'packages/api-client/src/index.ts'
+test('D5 夹具正反成对:双份必拦 / 单份必绿 / export * 判不出不冒红 / 取不到判未判定 / 合法合并不误判', () => {
+  const dup = auditDuplicateBarrelExports(BARREL, "export type { FormRequestEvent } from './client.js'\nconst k = 1\nexport type { FormRequestEvent } from './client.js'\n")
+  assert.equal(dup.length, 1, `同名 type 转导出两份必须报 1,实得 ${JSON.stringify(dup)}`)
+  assert.equal(dup[0].rule, 'D5')
+  assert.match(dup[0].raw, /FormRequestEvent\(type 档,第 1 \/ 3 行共 2 次\)/, '必须点名两处的真实行号(修法要在现场找)')
+  // ② 反向:同内容只一份 ⇒ 绿(与本席现读的 HEAD 面同形)
+  assert.deepEqual(auditDuplicateBarrelExports(BARREL, "export type { A } from './c'\nconst k = 1\n"), [])
+  // ③ export * 重叠:判据结构性看不见 ⇒ 候选 0(若哪天有人把它"补成有牙",只能是对 * 的目标枚举,
+  //    而不是在这里把重叠假装有牙 —— 这一格钉的是"没判不许写成判过")
+  assert.deepEqual(auditDuplicateBarrelExports('packages/x/src/index.ts', "export * from './b'\nexport * from './c'\n"), [])
+  // ④ 取不到 ⇒ null:既不记绿([])也不冒红([{...}])
+  assert.equal(auditDuplicateBarrelExports(BARREL, null), null)
+  assert.equal(auditDuplicateBarrelExports(BARREL, undefined), null)
+  // ⑤ 同名 interface 互相合并、interface+class 合并 —— 全部合法 TS,不得判红
+  assert.deepEqual(
+    auditDuplicateBarrelExports(BARREL, 'export interface A { a: number }\nexport interface A { b: number }\nexport class A {}'),
+    [],
+    'interface/class 声明合并被误判 ⇒ 门在合法代码上恒红(§12e)',
+  )
+  // ⑥ 跨声明空间同名(type 别名 + 同名 const)合法,不判
+  assert.deepEqual(auditDuplicateBarrelExports(BARREL, 'export type A = 1\nexport const A = 2'), [])
+  // value 档重复与多行名单形态也必须有牙
+  assert.equal(auditDuplicateBarrelExports(BARREL, 'export const A = 1\nexport const A = 2').length, 1)
+  assert.equal(
+    auditDuplicateBarrelExports(BARREL, "export {\n  A,\n  B,\n} from './c'\nexport { A } from './d'\n").length,
+    1,
+    '多行 export 名单是事故的真实形态,漏它等于门对自己立项的形状失明',
+  )
+  // 注释里的 export 不算导出(门不得读自己的解释文字)
+  assert.deepEqual(auditDuplicateBarrelExports(BARREL, "// export type { A } from './c'\nexport type { A } from './c'\n"), [])
+  // 射程边界:同内容出现在非 barrel 文件 ⇒ 不判(封闭集合外)
+  assert.deepEqual(auditDuplicateBarrelExports('packages/api-client/src/client.ts', 'export const A = 1\nexport const A = 2'), [])
+})
+
+/**
+ * D5 的**真仓历史 blob 阳性对照**(§22c:只对自己造的夹具有牙等于没有牙)。
+ * 2225fccfdb8 那枚"文件面零丢失 union"合并把两侧各自补的条目**都**收了 ⇒ 该面必须被点名;
+ * 修复后的 HEAD 面必须干净。这是"单纯删一行必然第五次复发"的机器 proof:再出现同型,
+ * 提交口(--staged 棘轮)与落地审面(--rev)两道都会拦。
+ */
+test('D5 真仓历史对照:2225fccfdb8 那份 union 重复必须被点名,修后 HEAD 面必须干净', () => {
+  const show = (rev) => gitRaw(['show', `${rev}:${BARREL}`], ROOT, { timeout: 120000 })
+  const merged = show('2225fccfdb8')
+  const now = show('HEAD')
+  assert.equal((merged.match(/^export type \{ FormRequestEvent \}/gm) || []).length, 2, '历史取样取错了面')
+  const hits = auditDuplicateBarrelExports(BARREL, merged)
+  assert.equal(hits.length, 1, `union 合并那份双写必须判 1 处,实得 ${JSON.stringify(hits)}`)
+  assert.match(hits[0].raw, /FormRequestEvent/)
+  assert.equal((now.match(/^export type \{ FormRequestEvent \}/gm) || []).length, 1, 'HEAD 现读应为一份(本席修复已落)')
+  assert.deepEqual(auditDuplicateBarrelExports(BARREL, now), [], '修后 HEAD 面不得判红(反向对照)')
+})
+
+/**
+ * D5 的接线形状锁 —— 判据造好却没接进 auditTree / 未判定没接进 exit 2,都等于没有
+ * (守门 89 R4 同型:已接线才叫在;这里钉的是"判据与取材在同一张表、同一套退出码"）。
+ */
+test('D5 接线形状锁:违规进 auditTree 同一张表 / 未判定进 sink 且 CLI 判死 exit 2', () => {
+  const sink = []
+  const byFile = auditTree(
+    (p) => (p === BARREL ? 'export type { A } from "./c"\nexport type { A } from "./c"' : null),
+    [BARREL],
+    () => true,
+    new Map(),
+    null,
+    sink,
+  )
+  assert.ok((byFile.get(BARREL) || []).some((v) => v.rule === 'D5'), 'D5 必须并进 auditTree 的违规表(锚点/打印/退出码只一套)')
+  assert.equal(sink.length, 0)
+  const sink2 = []
+  assert.equal(auditTree(() => null, [BARREL], () => false, new Map(), null, sink2).size, 0)
+  assert.deepEqual(sink2, [BARREL], '在射程却取不到内容 ⇒ 必须落"未判定"点名,不得被空表洗成通过')
+  const src = readFileSync(GUARD, 'utf8')
+  assert.match(src, /D5 未判定/, 'CLI 必须逐枚点名未判定的 barrel')
+  assert.match(src, /不记绿也不冒红\(§0\.3\),先修取材通道/, 'D5 未判定必须 exit 2 并自报"无法判定"')
+  assert.match(src, /d5Unpending\.length\)\s*\{\s*\n\s*console\.log\('❌ 无法判定/, '判死那一档必须真的挂在计数之后(定义了不挂=没有)')
+})
+
+/** 端到端:全量档报告里 D5 那一行必须在,且候选/未判定为 0、在射程枚数为现读正数;
+ *  两面旗同给必须 exit 2(面只能有一个,§0.4)。 */
+test('D5 端到端计数行与两面旗冲突:候选 0 / 未判定 0 / --staged+--files exit 2', () => {
+  const { out } = runGuard()
+  const m = /D5 barrel 同名导出重复:HEAD 面在射程 (\d+) 枚 \| 判定面候选 (\d+) 处 \| 未判定 (\d+) 枚/.exec(out)
+  assert.ok(m, `报告缺 D5 计数行 ⇒ 这一维没上岗:${out.slice(0, 400)}`)
+  assert.ok(Number(m[1]) >= 100, `在射程 barrel 只有 ${m[1]} 枚(2026-10-19 现读 195)⇒ 枚举通道断了,"候选 0"不作数`)
+  assert.equal(Number(m[2]), 0, `HEAD 面上出现 ${m[2]} 处 barrel 同名导出重复 ⇒ 第五次复发已落到 HEAD`)
+  assert.equal(Number(m[3]), 0, '未判定必须为 0(非零时门已 exit 2,走到这里说明口径分叉)')
+  const conflict = runRev(['--staged', '--files', 'a.ts'])
+  assert.equal(conflict.rc, 2, `--staged 与 --files 同给应 exit 2:${conflict.out.slice(-400)}`)
+  assert.match(conflict.out, /面只能有一个/)
+})
+
+
 /** G-815985 `--rev` 的 CLI 端到端(每次派生约 20s,与 runGuard 同量级,故各只跑一次)。
  *  RAP(真实历史锚点对):f3857e05cd 修掉 input-status-slot 引用的两个从未写下的导出 ——
  *  以修后为锚审修前必红且点名那 1 文件,锚点取反必绿。判据只对自己造的夹具有牙等于没有牙。 */
@@ -478,7 +589,12 @@ test('--rev 锚点方向反了必须绿(锚点错了尺子要安静,而不是反
 test('--rev 接线形状锁:revMain 不得被摘,SELF_SKIP 忽略必须有注释凭据', () => {
   const src = readFileSync(GUARD, 'utf8')
   assert.match(src, /async function revMain\(rev, anchorOpt/)
-  assert.match(src, /indexOf\('--rev'\)/)
+  // 〔2026-10-19 就地改判:旧档钉的是 /indexOf\('--rev'\)/ —— G-322 把 CLI 取值迁到
+  // requireFlagValue 共享出口后手工 indexOf 已不存在,这条自 HEAD 面起就是**存量红**
+  // (断言钉的是已消失的写法,不是已消失的接线)。现钉真正承重的两格:--rev 仍走带坏值
+  // 拒绝的取值出口,且取值直连 revMain。〕
+  assert.match(src, /requireFlagValue\(argv, '--rev'/, "--rev 必须仍走 flag-value 共享出口(坏值不猜默认面)")
+  assert.match(src, /if \(REV\) return revMain\(REV, ANCHOR_OPT/, '取值必须直连 revMain(接线不被摘)')
   assert.match(src, /SELF_SKIP.*在这一档不吃|在这一档不吃.*SELF_SKIP/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
