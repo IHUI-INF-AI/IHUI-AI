@@ -21,6 +21,7 @@ import { render, waitFor, fireEvent } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { ReactNode } from 'react'
+import type * as BottomPopsModule from '../src/components/BottomPops'
 
 const { apiMocks } = vi.hoisted(() => ({
   apiMocks: {
@@ -126,15 +127,27 @@ vi.mock('react-native', async () => {
     ScrollView: mk('div'),
     Image: mk('img'),
     RefreshControl: () => null,
-    Alert: { alert: apiMocks.alert },
+    // BottomPops(经 MessageCenterScreen 的 appAlert 导入拉入)模块求值期读窗口高;
+    // 主题单例(active-tokens)求值期读 Appearance.getColorScheme,两者缺一整文件加载即炸。
+    Dimensions: { get: () => ({ width: 375, height: 812, scale: 1, fontScale: 1 }) },
+    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
     StyleSheet: { create: (s: Record<string, unknown>) => s },
   }
+})
+
+// MessageCenterScreen 置顶/取消失败反馈改走共享 appAlert(见 components/BottomPops);
+// 用 importOriginal 保底其余导出,只把 appAlert 替成 spy,断言失败出口喊的是 appAlert。
+vi.mock('../src/components/BottomPops', async (importOriginal) => {
+  const mod = await importOriginal<typeof BottomPopsModule>()
+  return { ...mod, appAlert: apiMocks.alert }
 })
 
 import { MessageCenterScreen } from '../src/screens/MessageCenterScreen'
 
 /** 渲染序读取器:返回会话区按钮的 [id, pinned 标记] 序列 —— 判据一律打在它上面 */
-function renderedRows(container: HTMLElement): Array<{ id: string; index: number; pinned: boolean }> {
+function renderedRows(
+  container: HTMLElement,
+): Array<{ id: string; index: number; pinned: boolean }> {
   const buttons = Array.from(
     container.querySelector('[data-testid="conversations"]')!.querySelectorAll('button'),
   )
@@ -212,10 +225,7 @@ describe('取消置顶即时落位(RN 渲染 index 判据)', () => {
 })
 
 describe('源码级反向锁(RN 端):置顶动作只有共享出口一个,端内不得写第二份排序', () => {
-  const src = readFileSync(
-    resolve(__dirname, '../src/screens/MessageCenterScreen.tsx'),
-    'utf8',
-  )
+  const src = readFileSync(resolve(__dirname, '../src/screens/MessageCenterScreen.tsx'), 'utf8')
 
   it('置顶切换从共享包导入并调用 togglePinnedItem(AGENTS §3 共享层优先 / 守门 40)', () => {
     expect(src).toContain("@ihui/shared/chat/conversation-pin'")

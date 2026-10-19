@@ -14,6 +14,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
+import type * as BottomPopsModule from '../src/components/BottomPops'
 
 const { apiMocks, alertCallbacks } = vi.hoisted(() => ({
   apiMocks: {
@@ -86,16 +87,25 @@ vi.mock('react-native', async () => {
     TextInput: mk('input'),
     RefreshControl: () => null,
     useColorScheme: () => 'light',
-    // Alert 二次确认弹窗:捕获按钮 onPress,测试中手动触发「确认」走提现
-    Alert: {
-      alert: vi.fn(
-        (_title: string, _msg: string, buttons?: { text: string; onPress?: () => void }[]) => {
-          const confirm = buttons?.find((b) => b.text === 'common.confirm')
-          if (confirm?.onPress) alertCallbacks.push(confirm.onPress)
-        },
-      ),
-    },
+    // BottomPops(经 WithdrawScreen 的 appAlert 导入拉入)模块求值期读窗口高,缺它则整文件加载即炸。
+    Dimensions: { get: () => ({ width: 375, height: 812, scale: 1, fontScale: 1 }) },
     StyleSheet: { create: (s: Record<string, unknown>) => s },
+  }
+})
+
+// 提现二次确认弹窗改走共享 appAlert(见 components/BottomPops);用 importOriginal 保底其余导出,
+// 只把 appAlert 替成捕获函数:捕获「确认」(common.confirm)按钮的 onPress 存入 alertCallbacks,
+// 测试中手动触发以走完提现链路。
+vi.mock('../src/components/BottomPops', async (importOriginal) => {
+  const mod = await importOriginal<typeof BottomPopsModule>()
+  return {
+    ...mod,
+    appAlert: vi.fn(
+      (_title: string, _msg: string, buttons?: { text: string; onPress?: () => void }[]) => {
+        const confirm = buttons?.find((b) => b.text === 'common.confirm')
+        if (confirm?.onPress) alertCallbacks.push(confirm.onPress)
+      },
+    ),
   }
 })
 
