@@ -1394,3 +1394,82 @@ test('T36 ALIAS 跨名配对的族,RS 必须按"本文件名"再锚一次;锚不
     '未判定要点名"两次锚定都试过",否则下一步的人不知道该往哪补',
   )
 })
+
+// ── T37–T40(2026-10-19 立,票 G-16 那格):SL 认几何投影别名 ──────────────────────────
+//   立因实测:INPUT_AREA_IN_SHELL_BTN_PX 是 GEOMETRY_PX.controlBox 的投影,小程序腿直取
+//   `taroGeometry.controlBox`(HEAD 面现读),RN 腿引常数名 —— 改前 SL 把这条已收口的腿算成
+//   "仅 RN 引用",读数里混着假账;下一个人按它去"给单端补数字"就是单方面改观感。
+//   夹具全部构造,不读真仓(真仓那份对照由 T40 拿 HEAD 面点名)。
+const GEO_SRC = [
+  'export const GEOMETRY_PX = {',
+  '  controlBox: 32,',
+  '  otherBox: 20',
+  '}',
+  '',
+].join('\n')
+const SPEC_SRC = [
+  'export const FOO_PX = GEOMETRY_PX.controlBox;',
+  'export const PLAIN_PX = 14;',
+  '',
+].join('\n')
+const SPEC_SOURCES = {
+  'packages/design-tokens/src/geometry.js': GEO_SRC,
+  'packages/app/src/features/x/spec.ts': SPEC_SRC,
+}
+const slRun = (miniappSrc, rnSrc) => {
+  const tiers = src.specTiers(SPEC_SOURCES)
+  const pairs = { pairs: [{ name: 'Fixture', miniapp: 'm/Mini.tsx', rn: 'r/Rn.tsx' }] }
+  const text = { 'm/Mini.tsx': miniappSrc, 'r/Rn.tsx': rnSrc }
+  return { sl: src.specLegAudit(pairs, text, tiers), aliases: src.specProjectionAliases(tiers) }
+}
+
+test('T37 别名归一正向:一侧引常数名、另一侧直取同一几何档 ⇒ 不再算单侧(假账消除)', () => {
+  const { sl, aliases } = slRun(
+    'const s = { width: rpx(taroGeometry.controlBox) }\n',
+    'const s = { width: FOO_PX }\n',
+  )
+  assert.equal(aliases.FOO_PX, 'controlBox', '投影表没记下 ⇒ 归一无从谈起')
+  assert.equal(sl.length, 0, `FOO_PX 两侧都已走单一源,不该再出单侧条目:${JSON.stringify(sl)}`)
+})
+
+test('T38 反向对照:另一侧取的是**不同**的几何档 ⇒ 照判单侧(别名不许把两个档并成一个)', () => {
+  const { sl } = slRun('const s = { width: rpx(taroGeometry.otherBox) }\n', 'const s = { width: FOO_PX }\n')
+  assert.equal(sl.length, 1)
+  assert.deepEqual(sl[0].onlyRn, ['FOO_PX'], '投影源不同 ⇒ 这条必须仍然判单侧,归一不得遮账')
+})
+
+test('T39 无投影的常数档口径不变;一侧只引几何档而另一侧两者皆无 ⇒ 不新报单侧(别名只许消账)', () => {
+  const a = slRun('const s = { a: 1 }\n', 'const s = { width: PLAIN_PX }\n')
+  assert.deepEqual(a.sl[0].onlyRn, ['PLAIN_PX'], '非投影档仍按档名比(旧口径一字不动)')
+  const b = slRun('const s = { width: rpx(taroGeometry.controlBox) }\n', 'const s = { a: 1 }\n')
+  // 反向不成立:同一个 step 可以被多枚组件各自的常数引用(真仓实测 controlBox 同挂
+  // INPUT_AREA_IN_SHELL_BTN_PX 与 BOTTOM_ACTION_BAR_CONTROL_BOX_PX)。按 step 反向定罪
+  // = 把别处组件的档算到这个组件头上 —— 与 unresolvedClassNames 头注那条教训同型。
+  assert.equal(b.sl.length, 0, `按 step 反向造账了:${JSON.stringify(b.sl)}`)
+})
+
+test('T41 单调性锁:SL 报出的每一条都必须由**具名引用**产生(别名只用于划掉假账)', () => {
+  const c = src.collect(ROOT, 'head', { pairAll: false })
+  const aliases = src.specProjectionAliases(c.tiers)
+  const sl = src.specLegAudit(c.pairs, c.text, c.tiers)
+  const bad = []
+  for (const x of sl) {
+    const pair = c.pairs.pairs.find((p) => p.name === x.name)
+    if (!pair) continue
+    const idsOf = (t) => new Set(String(t).match(/[A-Za-z_$][\w$]*/g) || [])
+    const ia = idsOf(src.stripComments(c.text[pair.miniapp] ?? ''))
+    const ib = idsOf(src.stripComments(c.text[pair.rn] ?? ''))
+    for (const n of x.onlyMiniapp) if (!ia.has(n)) bad.push(`${x.name}/M:${n}`)
+    for (const n of x.onlyRn) if (!ib.has(n)) bad.push(`${x.name}/R:${n}`)
+  }
+  assert.deepEqual(bad, [], `出现"只靠 step 反向定罪"的条目:${bad.join(' , ')}`)
+  assert.ok(Object.keys(aliases).length > 0, '真仓投影表为空 ⇒ 这条锁是在空转')
+})
+
+test('T40 真仓对照:票面点名的 INPUT_AREA_IN_SHELL_BTN_PX 假账在 HEAD 面已消除', () => {
+  const c = src.collect(ROOT, 'head', { pairAll: false })
+  const sl = src.specLegAudit(c.pairs, c.text, c.tiers)
+  const all = sl.flatMap((x) => [...x.onlyMiniapp, ...x.onlyRn])
+  assert.ok(!all.includes('INPUT_AREA_IN_SHELL_BTN_PX'), '改前该档被算成仅 RN 引用(实测假账),现必须不再出现')
+  assert.ok(Object.keys(src.specProjectionAliases(c.tiers)).length > 0, '真仓 spec 面投影表为空 ⇒ 这一腿没接到真数据')
+})

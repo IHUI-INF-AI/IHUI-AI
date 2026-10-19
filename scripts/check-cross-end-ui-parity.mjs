@@ -414,6 +414,12 @@ export function diffValues(mini, rn) {
 
 const fileName = (f) => f.split('/').pop()
 /**
+ * 档表 → 投影关系(`export const X = GEOMETRY_PX.g` 里的 g)。
+ * 用 WeakMap 挂在**同一次解析产物**上,而不是把 tiers 改成 `{tiers, projections}`:
+ * tiers 被六处判据当纯数字表消费,改形状等于让每一处都跟着改一遍(改漏一处就是静默失明)。
+ */
+const SPEC_PROJECTIONS = new WeakMap()
+/**
  * 单一源表(共享 spec + design-tokens 几何表)→ 具名档表。
  * 键:`SPEC_…_PX` 原样;`GEOMETRY_PX` 的档挂 `geometry.` 前缀(与消费侧 `rnGeometry.tapBox` 同形)。
  * 排除项按判据面而非按名字猜:带 `PER_` 的是单位换算系数(`TARO_RPX_PER_PX = 2` 不是尺寸档)、
@@ -421,6 +427,15 @@ const fileName = (f) => f.split('/').pop()
  */
 export function specTiers(sources) {
   const tiers = {}
+  /**
+   * 投影关系表(档名 → 它投影的几何档),由**同一次解析**记下,不再走第二遍源码。
+   * 为什么要留着这段关系:SL 维原先只比档名,于是"小程序腿直取 `taroGeometry.controlBox`、
+   * RN 腿引用 `INPUT_AREA_IN_SHELL_BTN_PX`(它就是 GEOMETRY_PX.controlBox 的投影)"被算成
+   * **仅一侧引用** —— 两条腿都走了单一源,门却报"另一条腿还没接线"(2026-10-19 票 G-16 那格)。
+   * 归一依据取自被审面上的 `export const X = GEOMETRY_PX.g` 这一条语句本身,**不做名字相似度匹配**
+   * (相似度匹配会把两个不同档并成一个,那正是本仓记过的那一型)。
+   */
+  const projections = {}
   // 两遍:几何表可能排在 spec 之后,先收表,再解析 `export const X = GEOMETRY_PX.y` 这类投影档。
   const geom = []
   for (const [rel, src] of Object.entries(sources)) {
@@ -443,12 +458,21 @@ export function specTiers(sources) {
       const name = m[1]
       if (/PER_/.test(name) || NON_GEO_KEY.test(name) || RADIUS_FORM_RE.test(name)) continue
       const px = m[2] !== undefined ? Number(m[2]) : tiers[`geometry.${m[3]}`]
-      if (typeof px === 'number' && px > 0) tiers[name] = px
+      if (typeof px === 'number' && px > 0) {
+        tiers[name] = px
+        if (m[3]) projections[name] = m[3]
+      }
       // 投影源取不到(表里没这一档 / 改了名)⇒ **不计入档表**:把"解析不出"当成 0 或跳过,
       // 等于让一次改名把整条具名档判据静默关掉 —— 与本门"判不出即点名"的口径同形,这里如实留空。
     }
   }
+  SPEC_PROJECTIONS.set(tiers, projections)
   return tiers
+}
+
+/** 档名 → 投影的几何档名(由 specTiers 同一次解析记下;没有这层关系就返回空表)。 */
+export function specProjectionAliases(tiers) {
+  return SPEC_PROJECTIONS.get(tiers) ?? {}
 }
 
 const normKey = (file) =>
@@ -777,10 +801,27 @@ export function iconAudit(pairs, text) {
  * 新增单侧档(或新增一族)才判红 —— 当场判红就是一台与任何提交都无关的恒红门(§12e 同型)。
  * 域取 `tiers` 里 spec 导出的档名(**不含 `geometry.*`**)：通用档天然被很多端很多文件引用,
  * 按配对文件两两求差只会产出噪声。
+ * **但认投影别名**(2026-10-19,G-16 那格):`export const X = GEOMETRY_PX.g` 里 X 与 g 是同一个数,
+ * 一条腿写 `taroGeometry.g` 就是已经走单一源 —— 不认这层会把已收口的档算成"仅一侧引用"的假账。
+ * 方向是单向的:**别名只许划掉假账,不许新报单侧**(理由与真仓实测见 specLegAudit 内注)。
  */
 export function specLegAudit(pairs, text, tiers) {
   const specNames = Object.keys(tiers ?? {}).filter((n) => !n.startsWith('geometry.'))
   if (!specNames.length) return []
+  /**
+   * 别名归一(2026-10-19,票 G-16 那格),但**只许消账、不许造账**:
+   * 一条腿没引常数名、却引了它投影的那个几何档 ⇒ 这条腿已经走单一源,把"仅另一侧引用"这条
+   * 假账划掉。反过来不成立 —— 一侧引了几何档而另一侧两者皆无,**不得**因此新报一条单侧:
+   * 同一个 step 可以被多枚组件各自的常数引用(实测 `controlBox` 同挂 INPUT_AREA_IN_SHELL_BTN_PX
+   * 与 BOTTOM_ACTION_BAR_CONTROL_BOX_PX),按 step 反向定罪就是把别处组件的档算到这个头上,
+   * 与本文件 unresolvedClassNames 头注记过的"归因过宽比漏读更贵"是同一条教训。
+   */
+  const aliases = specProjectionAliases(tiers)
+  /** 这条腿虽没引常数名,却引了它投影的那个几何档 ⇒ 它已经走单一源(只用来划掉假账) */
+  const viaStep = (ids, name) => {
+    const step = aliases[name]
+    return step ? ids.has(step) : false
+  }
   const out = []
   for (const p of pairs.pairs) {
     const a = text[p.miniapp]
@@ -789,8 +830,8 @@ export function specLegAudit(pairs, text, tiers) {
     const idsOf = (src) => new Set(src.match(/[A-Za-z_$][\w$]*/g) || [])
     const ia = idsOf(stripComments(a))
     const ib = idsOf(stripComments(b))
-    const onlyMiniapp = specNames.filter((n) => ia.has(n) && !ib.has(n))
-    const onlyRn = specNames.filter((n) => ib.has(n) && !ia.has(n))
+    const onlyMiniapp = specNames.filter((n) => ia.has(n) && !ib.has(n) && !viaStep(ib, n))
+    const onlyRn = specNames.filter((n) => ib.has(n) && !ia.has(n) && !viaStep(ia, n))
     if (!onlyMiniapp.length && !onlyRn.length) continue
     out.push({ name: p.name, onlyMiniapp, onlyRn })
   }
@@ -3758,6 +3799,9 @@ export const __test__ = {
   stripComments,
   toPx,
   readGeometry,
+  specTiers,
+  specProjectionAliases,
+  specLegAudit,
   radiusCount,
   namedConflicts,
   diffValues,

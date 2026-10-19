@@ -2951,7 +2951,7 @@ const checks = [
 
   {
     id: '112',
-    label: '📐 压缩分母对账(blocking,阈值分母必须经 effectiveContextWindow;存量 8 文件/12 处进棘轮)',
+    label: '📐 压缩分母对账(blocking,阈值分母必须经 effectiveContextWindow;存量 15 文件/17 处进棘轮)',
     script: 'check-compaction-denominator.mjs',
     args: [],
     mode: 'blocking',
@@ -2970,10 +2970,12 @@ const checks = [
       '     的子入口,深导入会被守门 103 判 D3 红(本仓踩过)。',
       '     行为后果如实登记:分母只会变小 ⇒ **压缩更早触发**,用户可感知;回退有两条路(构造参数',
       '     `outputReserveEnabled:false` 或环境变量 `IHUI_COMPACTION_OUTPUT_RESERVE=0`)。',
-      '     存量 8 文件/12 处已冻进 `scripts/compaction-denominator-baseline.json`(只减不增棘轮),',
+      '     存量 15 文件/17 处已冻进 `scripts/compaction-denominator-baseline.json`(只减不增棘轮),',
+      '     2026-10-19 扩面:扫描面补 `packages/`、分母名补 maxTokens 一族(名字表与预筛关键字同源),',
+      '     当日 HEAD 面新暴露的 8 文件/9 处(maxTokens 族)按实测逐文件入账 —— 它们是既有债,不是本次造出来的。',
       '     其中 **api 端 `/chat/stream` 的溢出面尚未收口** —— 那是本票如实留下的账,不是"已修完"。',
       '     单独复验:node scripts/check-compaction-denominator.mjs',
-      '     自检:node scripts/check-compaction-denominator.mjs --self-test(15 条,含成对正反例与',
+      '     自检:node scripts/check-compaction-denominator.mjs --self-test(24 条,含成对正反例与',
       '     "枚举到 0 个文件必须判无法判定、不得记绿"的反向对照)',
       '     镜像测试:node --test scripts/tests/check-compaction-denominator.test.mjs',
       '',

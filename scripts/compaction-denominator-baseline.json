@@ -1,13 +1,20 @@
 {
-  "_readme": "每文件「token 数 ÷ contextLimit/contextWindow 且分母未经 effectiveContextWindow」的存量,只减不增。清理后跑 --update-baseline 下调额度,禁止为过门而调高。",
+  "_readme": "每文件「token 数 ÷ (contextLimit/contextWindow/contextBudget 或 maxTokens 族) 且分母未经 effectiveContextWindow」的存量,只减不增。清理后跑 --update-baseline 下调额度,禁止为过门而调高。2026-10-19 扩面:扫描面从 apps/ + packages/context-compaction/src 扩到 apps/ + packages/,分母名补 maxTokens 一族(预筛关键字同笔),当日 HEAD 面新暴露的存量逐文件如实入账。",
   "counts": {
     "apps/api/src/routes/ai-chat-stream.ts": 2,
     "apps/cli/src/commands/agent.ts": 1,
-    "apps/cli/src/compaction-v2.ts": 4,
     "apps/cli/src/context.ts": 1,
     "apps/cli/src/reminders.ts": 1,
     "packages/context-compaction/src/index.ts": 1,
     "packages/context-compaction/src/reclaim.ts": 1,
-    "packages/context-compaction/src/validity-guards.ts": 1
+    "packages/context-compaction/src/validity-guards.ts": 1,
+    "apps/cli/src/commands/repl.ts": 1,
+    "apps/cli/src/commands/status-cmd.ts": 1,
+    "apps/cli/tests/context-command.test.ts": 2,
+    "apps/miniapp-taro/src/pkg-ai/ai/context-usage-strip.tsx": 1,
+    "apps/web/app/(main)/models/usage/page.tsx": 1,
+    "apps/web/app/(main)/settings/usage/page.tsx": 1,
+    "apps/web/src/components/ai/context-usage-ring.tsx": 1,
+    "packages/app/src/features/chat/ContextUsagePanel.tsx": 1
   }
 }
