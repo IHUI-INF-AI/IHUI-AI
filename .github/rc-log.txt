@@ -1,4 +1,4 @@
-2026-10-19T10:43:25.080Z pid=3853
+2026-10-19T10:43:37.080Z pid=3853
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/1 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -52,3 +52,4 @@ RC-GRID round=2 rows=3 cols=3 prompt="Select all images with crosswalksClick ver
 RC-FRAME-DUMP round=2 len=13629
 RC-SHOT-PUSHED round=2 ok=true
 RC-WAIT round=2 i=0 status=200
+RC-WAIT round=2 i=4 status=200
