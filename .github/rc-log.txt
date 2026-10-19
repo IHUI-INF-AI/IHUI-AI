@@ -1,4 +1,4 @@
-2026-10-19T10:21:52.532Z pid=4059
+2026-10-19T10:22:04.532Z pid=4059
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/1 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -18,3 +18,8 @@ SP-DD Category=Developer Tools
 SP-DD Build System=GitHub Actions
 SP-DD Primary Discovery Channel=Organic search
 SP_DD_HTML=<div data-hsfc-id="DropdownField" class="hsfc-DropdownField" id="629c421b-ed0b-48df-abd0-4b2b5ea7cf3a-3550993458169"><label data-hsfc-id="FieldLabel" id="629c421b-ed0b-48df-abd0-4b2b5ea7cf3a-3550993458169-label" for="629c421b-ed0b-48df-abd0-4b2b5ea7cf3a-3550993458169-input" lang="EN" class="hsfc-FieldLabel"><span><span>Category</span><span class="hsfc-FieldLabel__RequiredIndicator">*</span></span></label><div data-hsfc-id="FieldDescription" id="629c421b-ed0b-48df-abd0-4b2b5ea7cf3a-3550993458169-description" lang="EN" class="hsfc-FieldDescription">Select the category that best describes your project. This is used to group projects on the SignPath Foundation website.</div><div data-hsfc-id="DropdownInput" class="hsfc-DropdownInput"><input data-hsfc-id="TextInput" type="text" autocomplete="off" readonly="" placeholder="" id="629c421b-ed0b-48df-abd0-4b2b5ea7cf3a-3550993458169-input" aria-invalid="false" aria-required="true" aria-labelledby="629c421b-ed0b-48df-abd0-4b2b5ea7cf3a-3550993458169-label" aria-describedby="629c421b-ed0b-48df-abd0-4b2b5ea7cf3a-3550993458169-description" class="hsfc-TextInput hsfc-TextInput--button" role="combobox" aria-expanded="false" aria-haspopup="listbox" aria-controls="629c421b-ed0b-48df-abd0-4b2b5ea7cf3a-3550993458169-listbox" value="Developer Tools" style=""><input aria-hidden="true" type="hidden" name="2-198696014/category" tabindex="-1" value="developer-tools" style=""><div aria-hidden="true" class="hsfc-DropdownInput__Caret"><span></span></div><
+RC-STATE bframe=yes frames=7 url=https://signpath.org/apply
+RC-CHALLENGE round=0 frame=https://google.com/recaptcha/enterprise/bframe?hl=en&v=4EDjxXf4knsT8wRTp1lOoMFE&k=6Ld_ad8Z
+RC-GRID round=0 rows=4 cols=4 prompt="Select all squares with stairsIf there are none, click skip"
+RC-FRAME-DUMP round=0 len=17963
+RC-SHOT-PUSHED round=0 ok=true
