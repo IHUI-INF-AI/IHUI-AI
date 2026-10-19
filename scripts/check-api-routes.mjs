@@ -1613,7 +1613,12 @@ function inferMethodAtLine(lines, idx) {
           //       调用处 run('generate', '/api/self-media/koubo/generate', ...) 在另一行
           // 限制 1:必须匹配 => 或 function 关键字,避免误匹配 const xxx = useMutation({ 等非函数
           // 限制 2:只对"间接调用"(非 fetchApi 直接调用)适用,避免 React 组件内多 method 误判
-          const directFetchRe = /fetchApi\s*(<[^>]*>)?\s*\(\s*['"`]\/api\//i
+          // 2026-10-19 补(裸路径也算直接调用):`fetchApi('/course-qa')` 这类**不带 /api/ 前缀**
+          //   的裸路径,运行期由 transport 的 normalizeUrl 补成 /api/… ⇒ 它同样是 fetchApi 直接调用。
+          //   旧式只认 `['"`]\/api\/` ⇒ 裸路径被读成"间接调用" ⇒ 门向**前**借邻居函数的
+          //   `method:'POST'` ⇒ 明明是 GET 的在册端点被报成"POST 死调用"(假阳性:把正确实现钉红)。
+          //   `//` 起头是协议相对 URL(另一台主机),不属于本仓 transport ⇒ 仍排除。
+          const directFetchRe = /fetchApi\s*(<[^>]*>)?\s*\(\s*['"`]\/(?!\/)/i
           const isDirectFetch = directFetchRe.test(lines[idx] || '')
           if (!isDirectFetch) {
             // 2026-09-17 加固:两处加 `(?:<[^<>()]*>\s*)?` 泛型参数支持。
@@ -2647,6 +2652,20 @@ function resolveGateKeys(text, loop, at) {
  *  4. 块内若还有第二层 `register(`,本函数**不递归** —— 只展开一层,解析不出即不产出。
  *  产出的是**额外**条目(原有 methodRe 那条 `/cancel` 仍原样进面),所以这是纯增益、零删除。
  */
+/**
+ * 泛型实参组(单一真相源,2026-10-19 立):路由注册与 wrapper 定义都可能带泛型,
+ * 而泛型里**还能再套泛型** —— `server.post<{ Params: z.infer<typeof X> }>(…)`。
+ * 旧式 `(?:<[^<>()]*>)?` 的字符类把 `<` `>` 一律挡掉 ⇒ 套一层就整型失配 ⇒
+ * 那条路由**在册却看不见** ⇒ 它的前端真调用被报成死调用(方向:把正确实现钉红)。
+ * 本仓现读:全仓只有 2 处这种嵌套泛型注册(`apps/api/src/routes/points-mall-user.ts:77`
+ * 与 `apps/api/src/routes/points-tasks.ts:333`),而它们各自让 1~2 个 RN/小程序调用
+ * 被误判成死调用 ⇒ 实测不是理论风险,已由真机侧 RN 代理给出同一条路径的复现。
+ * 现式允许外层里再嵌一层(`z.infer<typeof X>` 这类),够吃仓内形态;
+ * 再深的嵌套(≥4 层)不在覆盖内 —— 真出现时本门会把那条路由读成"看不见",
+ * 即退化成旧行为(判假死调用),而不是静悄悄放过。
+ */
+const GENERIC_ARGS_SRC = '(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?'
+
 function expandNestedRegisterRoutes(src, rel) {
   const out = []
   const openRe = /\.register\(\s*(?:async\s*)?\(\s*([A-Za-z0-9_$]+)\s*\)\s*=>/g
@@ -2672,7 +2691,7 @@ function expandNestedRegisterRoutes(src, rel) {
     // 第二层 register ⇒ 本函数不递归,整块跳过
     if (/\.\s*register\s*\(/.test(body)) continue
     const innerRe = new RegExp(
-      `\\b${varName}\\s*\\.\\s*(get|post|put|patch|delete|options|head)(?:<[^<>()]*>)?\\(\\s*['"\`]([^'"\`]*)['"\`]`,
+      `\\b${varName}\\s*\\.\\s*(get|post|put|patch|delete|options|head)${GENERIC_ARGS_SRC}\\(\\s*['"\`]([^'"\`]*)['"\`]`,
       'g',
     )
     let im
@@ -2782,8 +2801,14 @@ function extractBackendRoutes() {
   // 2026-09-28 再补 `(?:<[^<>()]*>)?`:**带泛型参数的注册** `server.post<{ Params: { source: X } }>(
   //   '/registry/webhook/:source', …)` 原本整型看不见(registry-sync.ts:374)—— 泛型夹在动词与
   //   `(` 之间,旧式要求两者紧邻。漏识别 = 前端真调用被报死调用(cli 的 registry-webhook 即此例)。
-  const methodRe =
-    /\b(?:server|s|sub|child|scope|authed|instance|app|fastify)\.(get|post|put|patch|delete)(?:<[^<>()]*>)?\(\s*['"`]([^'"`]*)['"`]/g
+  // 2026-10-19 再补(嵌套泛型):`server.post<{ Params: z.infer<typeof X> }>(…)` 的泛型里
+  //   还套了一层 `<…>`,旧式 `(?:<[^<>()]*>)?` 的字符类一见到内层 `<` 就失配 ⇒ 那条路由
+  //   **在册却看不见** ⇒ RN/小程序对它的真调用被报成死调用(仓里 2 处,points-mall-user /
+  //   points-tasks)。泛型组改为单一真相源 GENERIC_ARGS_SRC(见其头注的覆盖边界)。
+  const methodRe = new RegExp(
+    `\\b(?:server|s|sub|child|scope|authed|instance|app|fastify)\\.(get|post|put|patch|delete)${GENERIC_ARGS_SRC}\\(\\s*['"\`]([^'"\`]*)['"\`]`,
+    'g',
+  )
   // registerCrud(VAR, 'basePath', ...) 工厂: 展开为 GET list/GET :id/POST/PUT :id/DELETE :id/DELETE(batch) 共 6 条
   // (2026-09-28 根修:上一版漏了 GET `${basePath}/:id` —— 工厂在 admin/_shared.ts:276 真注册了
   //  getById,漏展开让三枚 GET :id 前端调用被假判死调用(台账豁免文件里 admin/courses 那条
@@ -4875,9 +4900,14 @@ if (UPDATE_BARE_BASELINE) {
     leg: 'BP 腿:传输口 URL 实参位上引号紧邻、不以 /api/ 开头的裸路径字面量,按 normalizeUrl 现读档归一成 /api/…（判据见 scripts/check-api-routes.mjs::extractBareTransportCalls）',
     reason:
       '存量于 2026-10-19 现读得到:此前这一族调用点结构上进不了守门 8 的调用集(pathRe 要求引号紧邻 /api/),所以"存量"不是谁写坏了,是没人对过账。' +
-      '逐条分类已做过(29 条全量档 HEAD 面读数):① `apps/mobile-rn/src/screens/CircleIndexScreen.tsx` 的 3 条落在 `apps/api/src/routes/circle-mobile-routes.ts` —— 该后端文件当刻只在索引面(A)不在 HEAD 面,所以 HEAD 档看不见它的注册(换 `--staged` 即在册);' +
-      '② `use-vip-payment.ts` 的 2 条是 method 推断型(`GET /api/payment/orders/:orderNo`、`GET /api/vip/order/:orderNo/payinfo` 确在册,而 `inferMethodAtLine` 把这两处读成 POST)—— 判据用主腿同一个 `inferMethodAtLine`,不另发明第二把尺子;' +
-      '③ 余下(terminal 13 条、files 5 条、live/points/asks 若干)在 HEAD 面上路径整条不在册,属待人工裁决的存量。' +
+      '本轮已把能在本层收口的全部收掉(裸路径死调用 28 → 15,逐文件见 perFileCount),余下 15 条逐条分类(全量档 HEAD 面读数):' +
+      '① `apps/web/src/hooks/use-terminal-session.ts` 11 条 = 终端会话能力,两个后端都没有对应 REST(' +
+      '会话源在 Redis,`apps/api/src/routes/terminal.ts:13-14`;ws 通道 `/ws/terminal/:sessionId` 是独立分档,不覆盖任何一条 REST)⇒ 属**新增能力,须人定档**;' +
+      '② `apps/mobile-rn/src/screens/CircleIndexScreen.tsx` 1 条 `/circles/topics/hot` = 无源(已注册的邻居 `GET /api/circles/topic/list` ' +
+      '返的是 circle_dynamic 行,无 name/count 字段,而本屏渲染的正是 topic.name + topic.count;`GET /api/topics` 是课程专题域,另一套资源);' +
+      '③ `apps/mobile-rn/src/screens/TopicDetailScreen.tsx` 1 条 `/circles/topic/:id/follow` = 无表无源(TARGET_TYPES 不含 topic;' +
+      'schema 里零 topic follower 列);' +
+      '④ `packages/api-client/src/endpoints/community.ts` 2 条(`/asks/my/count`、`/asks/my/answers/count`)= 端点不在册、表存在 ⇒ 同属需人定档。' +
       '本基线只把"本轮不判红"这一件事钉住,不等于裁决其为合法调用(§12e:首次纳入的存量当场 blocking 就是恒红门)。',
     face: FACE,
     perFileCount: Object.fromEntries(
