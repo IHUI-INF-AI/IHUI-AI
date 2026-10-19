@@ -159,6 +159,20 @@ export interface SSEEventMeta {
 export const SSE_TRACE_ID_PAYLOAD_KEY = 'traceId'
 
 /**
+ * G-248 R1(2026-10-19 补):顶层注入的 agent 关联键的**线格式键名**(唯一真相源)。
+ *
+ * 为什么补这一份:`SSEEventMeta.agentId` 与 `traceId` 同族(都是网关在流顶层注入的
+ * 关联键),但只有 traceId 有键名常量 ⇒ 端上各写各的字面量(`'agentId'`)迟早漂开,
+ * 而漂开的表现不是报错,是"subagent 卡片分不了流"这种静默丢字段。键名与字段名同值
+ * 是必然(camelCase 一族),把同源关系写在这里,判据就有处可挂。
+ *
+ * 跨语言那一侧:`packages/api-client/src/client.ts::extractTopLevelAgentId` 按本包
+ * **零依赖 @ihui/shared** 的边界自持字面量(与 `readStreamTraceId` 同因),其正确性由
+ * 各自测试对账,不构成第二份真相源(真相是"线格式键名"这一个值,两份实现是对它的引用)。
+ */
+export const SSE_AGENT_ID_PAYLOAD_KEY = 'agentId'
+
+/**
  * D174:把一个候选值归一成**可以进帧/可以采信**的 trace id;不合格一律 `undefined`。
  *
  * 与 `apps/ai-service/app/core/trace_context.py::normalize_trace_id` 同规则:
