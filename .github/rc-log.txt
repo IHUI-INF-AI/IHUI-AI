@@ -1,4 +1,4 @@
-2026-10-19T11:39:42.075Z pid=4058
+2026-10-19T11:39:54.076Z pid=4058
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/3 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -62,3 +62,6 @@ SP-DD Primary Discovery Channel=Organic search
 SP_DD_HTML=<div data-hsfc-id="DropdownField" class="hsfc-DropdownField" id="f1f053ad-eb53-4426-b8d5-34433f7e0f9a-3550993458169"><label data-hsfc-id="FieldLabel" id="f1f053ad-eb53-4426-b8d5-34433f7e0f9a-3550993458169-label" for="f1f053ad-eb53-4426-b8d5-34433f7e0f9a-3550993458169-input" lang="EN" class="hsfc-FieldLabel"><span><span>Category</span><span class="hsfc-FieldLabel__RequiredIndicator">*</span></span></label><div data-hsfc-id="FieldDescription" id="f1f053ad-eb53-4426-b8d5-34433f7e0f9a-3550993458169-description" lang="EN" class="hsfc-FieldDescription">Select the category that best describes your project. This is used to group projects on the SignPath Foundation website.</div><div data-hsfc-id="DropdownInput" class="hsfc-DropdownInput"><input data-hsfc-id="TextInput" type="text" autocomplete="off" readonly="" placeholder="" id="f1f053ad-eb53-4426-b8d5-34433f7e0f9a-3550993458169-input" aria-invalid="false" aria-required="true" aria-labelledby="f1f053ad-eb53-4426-b8d5-34433f7e0f9a-3550993458169-label" aria-describedby="f1f053ad-eb53-4426-b8d5-34433f7e0f9a-3550993458169-description" class="hsfc-TextInput hsfc-TextInput--button" role="combobox" aria-expanded="false" aria-haspopup="listbox" aria-controls="f1f053ad-eb53-4426-b8d5-34433f7e0f9a-3550993458169-listbox" value="Developer Tools" style=""><input aria-hidden="true" type="hidden" name="2-198696014/category" tabindex="-1" value="developer-tools" style=""><div aria-hidden="true" class="hsfc-DropdownInput__Caret"><span></span></div><
 SP-SUBMIT k=0
 RC-ANCHOR state=null
+RC-ANCHOR-CLICK-RETRY t=0 locator.click: Timeout 10000ms exceeded.
+Call log:
+  - waiti
