@@ -22,7 +22,6 @@
  */
 import { useEffect, useState } from 'react'
 import {
-  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -33,6 +32,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -111,9 +111,9 @@ export default function DeveloperScreen() {
     if (!text) return
     try {
       Clipboard.setString(text)
-      Alert.alert(t('common.hint'), '已复制')
+      appAlert(t('common.hint'), '已复制')
     } catch {
-      Alert.alert(t('common.hint'), '复制失败')
+      appAlert(t('common.hint'), '复制失败')
     }
   }
 
@@ -125,9 +125,9 @@ export default function DeveloperScreen() {
   const handleOpenWeb = (url: string): void => {
     try {
       Clipboard.setString(url)
-      Alert.alert(t('common.hint'), '链接已复制,请在浏览器中打开')
+      appAlert(t('common.hint'), '链接已复制,请在浏览器中打开')
     } catch {
-      Alert.alert(t('common.hint'), '复制失败,请重试')
+      appAlert(t('common.hint'), '复制失败,请重试')
     }
   }
 

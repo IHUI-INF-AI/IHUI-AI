@@ -4,7 +4,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Alert,
   FlatList,
   Image,
   Modal,
@@ -19,6 +18,7 @@ import {
   useWindowDimensions,
   type ImageSourcePropType,
 } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
@@ -405,7 +405,7 @@ export function ProfileScreen() {
     })
   }
   const handleDrawerDeleteConversation = (id: string) => {
-    Alert.alert('删除对话', '确认删除此对话?', [
+    appAlert('删除对话', '确认删除此对话?', [
       { text: '取消', style: 'cancel' },
       {
         text: '删除',

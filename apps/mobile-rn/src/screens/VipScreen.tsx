@@ -6,7 +6,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -35,7 +34,7 @@ import {
 import { apiFailureToText } from '@ihui/shared/utils'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import { BottomPopup } from '../components/BottomPopup'
-import { BottomPops } from '../components/BottomPops'
+import { appAlert, BottomPops } from '../components/BottomPops'
 import { PurchaseNoticePopUp } from '../components/PurchaseNoticePopUp'
 import { IntroducePopup } from '../components/IntroducePopup'
 import { isWeChatInstalled, openWeChatPayment } from '../lib/wechat-pay'
@@ -311,7 +310,7 @@ export function VipScreen() {
   const pay = useCallback(
     async (plan: PricePlan) => {
       const amountYuan = (plan.amount / 100).toFixed(2)
-      Alert.alert(
+      appAlert(
         t('vipScreen.pay.title'),
         t('vipScreen.pay.message', { amount: amountYuan, name: plan.cycle }),
         [

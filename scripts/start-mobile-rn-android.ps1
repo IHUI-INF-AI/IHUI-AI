@@ -10,9 +10,9 @@
   顺序:
     1. 幂等注入 RN deepFreeze 兼容补丁(node scripts/patch-rn-deepfreeze.mjs)
     2. 前置检查:adb / 模拟器(无设备则软渲染启动 ihui_api36)/ 后端 8802(缺失仅告警)
-    3. 确保 Metro 在 8081(未监听则后台起 expo,日志 tmp/metro-mobile-rn.log)
+    3. 确保 Metro 在 8806(唯一 Metro 端口;已在监听则复用,未监听则后台起 expo,日志 tmp/metro-mobile-rn.log)
     4. 构建 debug APK(仅当缺失或 -Build;x86_64 单 ABI;前台执行——后台任务会被环境 ~2min 终结)
-    5. 安装到设备 + adb reverse tcp:8081 tcp:8081
+    5. 安装到设备 + adb reverse tcp:8081 tcp:8806(设备侧 8081 是 RN 硬编码,复用 8806 单 Metro)
     6. 启动 App + 延时截图(tmp/mobile-screen-*.png)
 
   用法:
@@ -30,7 +30,9 @@
   启动 App 后等待秒数,默认 40(首次 bundle 编译需更久,可调大)
 .NOTES
   要求 pwsh7。本机 AVD 唯一可靠启动=软渲染(-gpu swiftshader_indirect),gfxstream+RTX3060 组合会卡死;
-  Metro 必须 8081(App 默认 dev URL);adb reverse 只解决 Metro,business API 走 10.0.2.2:8802 直连。
+  Metro 单实例铁律(2026-10-15,与 dev-stack.mjs 同源规则):全仓库唯一 Metro 端口 = 8806,
+  本脚本不再启动 8081;设备侧 8081(RN 硬编码默认)经 reverse tcp:8081 tcp:8806 复用 8806。
+  business API 走 10.0.2.2:8802 直连,不依赖 reverse。
   红屏排查速查表见 skill:mobile-rn-android-emulator。
 #>
 [CmdletBinding()]
@@ -134,15 +136,15 @@ function Ensure-Device {
 }
 
 # ============================================================
-# 3. Metro(8081,缺失则后台起)
+# 3. Metro(单实例铁律:唯一端口 8806,缺失才起;绝不另起 8081)
 # ============================================================
 function Ensure-Metro {
-  Write-Hdr 'Metro(8081)'
-  if (Test-PortInUse 8081) { Write-Ok '8081 已在监听,复用现有 Metro'; return }
+  Write-Hdr 'Metro(8806,唯一 Metro 端口)'
+  if (Test-PortInUse 8806) { Write-Ok '8806 已在监听,复用现有 Metro(浏览器预览/手机 bundle 同源)'; return }
   if (-not (Test-Path $TmpDir)) { New-Item -ItemType Directory -Path $TmpDir -Force | Out-Null }
-  Write-Info '启动 Metro(隐藏 cmd.exe,SIGINT 免疫,日志 tmp/metro-mobile-rn.log)...'
+  Write-Info '启动 Metro @8806(隐藏 cmd.exe,SIGINT 免疫,日志 tmp/metro-mobile-rn.log)...'
   $proc = Start-Process -FilePath 'cmd.exe' `
-    -ArgumentList @('/c', "cd /d `"$MobileRn`" && set CI=1&& set EXPO_NO_TELEMETRY=1&& npx expo start --port 8081") `
+    -ArgumentList @('/c', "cd /d `"$MobileRn`" && set CI=1&& set EXPO_NO_TELEMETRY=1&& npx expo start --port 8806") `
     -WorkingDirectory $MobileRn `
     -WindowStyle Hidden `
     -RedirectStandardOutput $MetroLog `
@@ -152,7 +154,7 @@ function Ensure-Metro {
   $deadline = (Get-Date).AddSeconds(90)
   while ((Get-Date) -lt $deadline) {
     try {
-      $r = Invoke-WebRequest -Uri 'http://localhost:8081/status' -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
+      $r = Invoke-WebRequest -Uri 'http://localhost:8806/status' -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
       if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 500) { Write-Ok 'Metro /status 就绪'; return }
     } catch {}
     Start-Sleep -Seconds 2
@@ -188,8 +190,11 @@ function Install-ToDevice([string]$serial) {
   & $Adb -s $serial install -r $Apk 2>&1 | Out-Host
   if ($LASTEXITCODE -ne 0) { Write-Err 'APK 安装失败'; exit 1 }
   & $Adb -s $serial reverse --remove-all 2>$null
-  & $Adb -s $serial reverse tcp:8081 tcp:8081
-  Write-Ok 'adb reverse tcp:8081 tcp:8081 已设置'
+  # 设备侧 8081 是 RN 硬编码默认 → 复用 8806 单 Metro;8807 反代一并转发(dev-stack 出的
+  # bundle 内嵌 API 基址 8807,本脚本裸起的 bundle 虽内嵌生产域名,多一条转发无害)
+  & $Adb -s $serial reverse tcp:8081 tcp:8806
+  & $Adb -s $serial reverse tcp:8807 tcp:8807
+  Write-Ok 'adb reverse tcp:8081→tcp:8806 / tcp:8807 已设置'
 }
 
 # ============================================================
@@ -238,5 +243,5 @@ Launch-App $serial
 Write-Hdr '完成'
 Write-Ok "设备: $serial | APK: $Apk"
 Write-Ok "Metro 日志: $MetroLog | 截图: $TmpDir\mobile-screen-*.png"
-Write-Info '提示:首次 bundle 编译需 1-3 分钟;若红屏且 Metro 无请求,检查 reverse(tcp:8081)与端口'
+Write-Info '提示:首次 bundle 编译需 1-3 分钟;若红屏且 Metro 无请求,检查 reverse(tcp:8081→tcp:8806)与 8806 端口'
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

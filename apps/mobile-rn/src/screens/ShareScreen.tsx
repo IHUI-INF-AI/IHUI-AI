@@ -22,7 +22,6 @@ import { rnRadius } from '@ihui/design-tokens'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -34,6 +33,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useNavigation } from '@react-navigation/native'
 import * as ImagePicker from 'expo-image-picker'
@@ -252,7 +252,7 @@ export function ShareScreen() {
   const pickImage = async (): Promise<void> => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (status !== 'granted') {
-      Alert.alert('提示', '需要相册权限才能选择图片')
+      appAlert('提示', '需要相册权限才能选择图片')
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({

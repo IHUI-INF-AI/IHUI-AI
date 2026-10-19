@@ -34,6 +34,8 @@ import {
   type ConfigWarningEvent,
   type DeprecationNoticeEvent,
   type GuardianWarningEvent,
+  // G-425:done 帧携带上游 finish/stop reason(截断提示数据源)
+  type FinishReasonEvent,
 } from '@ihui/api-client'
 // V3 #58(2026-09-26 立):审批请求桥接到全局 ToolApprovalDialog(channel 标记让
 // 弹窗把决策回传到主聊天流端点,而非 agent 任务流端点 —— 两套注册表互不相通)
@@ -83,6 +85,7 @@ import {
   createDeltaBatcher,
   createAgentDeltaBatcher,
   localizeQuotaExhausted,
+  isMaxTokensTruncatedFinishReason,
 } from './stream-handlers'
 import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
 // 票60 步序三(2026-10-18):CustomEvent 触发面注册 + abort 域按 store 实例隔离
@@ -1109,6 +1112,16 @@ export function createSendMessage(
         // 该键语义「回答已被中断,可继续输入追加指令」与本帧完全一致)。
         onPartialDone: () => {
           toast.warning(t('appendAfterInterrupt.title'))
+        },
+        // G-425(2026-10-07 立,默认档"只提示"):done 帧携带上游 finish/stop reason
+        // (api-client onFinishReason,缺席不触发)。判"输出被 max_tokens 截断"用
+        // stream-handlers 的唯一助手(口径见其注释),给一行可见提示(与 onPartialDone
+        // 同一 toast 形态,复用既有五语言键 truncation.maxLengthNotice);
+        // 其余 reason 不提示,不自动续写。
+        onFinishReason: (evt: FinishReasonEvent) => {
+          if (isMaxTokensTruncatedFinishReason(evt.finishReason)) {
+            toast.warning(t('truncation.maxLengthNotice'))
+          }
         },
         // D155 下行告警三档(2026-09-29 立):帧 → stream-alerts 落点(输入框上方
         // StreamAlertBar 渲染)。message/severity 已由 api-client 解析层逐字段收窄

@@ -23,6 +23,8 @@ import {
   getMessages,
   type ToolDelegateEvent,
   type WorkspacePermissionMode,
+  // G-425:done 帧携带上游 finish/stop reason(截断提示数据源)
+  type FinishReasonEvent,
 } from '@ihui/api-client'
 import { logger } from '@/lib/logger'
 // G-248/G-916415 R1 web 腿:帧级 traceId 的错误上报消费点(与 send-message.ts 对称)
@@ -48,6 +50,7 @@ import {
   createDeltaBatcher,
   createAgentDeltaBatcher,
   localizeQuotaExhausted,
+  isMaxTokensTruncatedFinishReason,
 } from './stream-handlers'
 import type { PlanStep, TerminalTask } from '@ihui/types/ai'
 import type { ChatActionContext } from './types'
@@ -471,6 +474,14 @@ export function createSendAnswer(
           ]
           return agentTools.length > 0 ? { agentTools } : {}
         })(),
+        // G-425(2026-10-07 立,默认档"只提示"):续答流同判截断 —— done 帧 finishReason
+        // 判"输出被 max_tokens 截断"用 stream-handlers 的唯一助手(与 sendMessage 同一口径、
+        // 同一五语言键 truncation.maxLengthNotice);其余 reason 不提示,不自动续写。
+        onFinishReason: (evt: FinishReasonEvent) => {
+          if (isMaxTokensTruncatedFinishReason(evt.finishReason)) {
+            toast.warning(t('truncation.maxLengthNotice'))
+          }
+        },
         onError: (errMsg, info) => {
           // D131(2026-09-29 立):与主流同形 —— 续答以错误收场时落"已断开"并占位
           markStreamDisconnected(errMsg)

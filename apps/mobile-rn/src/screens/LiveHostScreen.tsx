@@ -1,10 +1,11 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { Alert } from 'react-native'
+import {} from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getResources, type Resource } from '@ihui/api-client'
@@ -110,7 +111,7 @@ export function LiveHostScreen() {
 
   const startLive = async () => {
     const title = streamTitle.trim()
-    if (!title) return Alert.alert(t('common.hint'), t('liveHost.error.titleRequired'))
+    if (!title) return appAlert(t('common.hint'), t('liveHost.error.titleRequired'))
     setLoading(true)
     setError('')
     try {
@@ -122,7 +123,7 @@ export function LiveHostScreen() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('liveHost.error.startFailed')
       setError(msg)
-      Alert.alert(t('common.error'), msg)
+      appAlert(t('common.error'), msg)
     } finally {
       setLoading(false)
     }
@@ -135,21 +136,21 @@ export function LiveHostScreen() {
     try {
       await callApi(`/api/srs/streams/${stream.id}`, 'PUT', { status: 'inactive' })
       setStatus('inactive')
-      Alert.alert(
+      appAlert(
         t('liveHost.ended.title'),
         t('liveHost.ended.message', { duration: formatDuration(duration) }),
       )
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('liveHost.error.endFailed')
       setError(msg)
-      Alert.alert(t('common.error'), msg)
+      appAlert(t('common.error'), msg)
     } finally {
       setLoading(false)
     }
   }
 
   const copyText = (text: string, label: string) =>
-    Alert.alert(label, text, [{ text: t('common.close') }])
+    appAlert(label, text, [{ text: t('common.close') }])
 
   const sharedStream = useMemo(() => (stream ? mapStream(stream) : null), [stream])
   const durationText = useMemo(() => formatDuration(duration), [duration])
@@ -174,7 +175,7 @@ export function LiveHostScreen() {
       productsError={productsError}
       onStartLive={startLive}
       onEndLive={endLive}
-      onAddProduct={() => Alert.alert(t('common.hint'), t('liveHost.productAdd.message'))}
+      onAddProduct={() => appAlert(t('common.hint'), t('liveHost.productAdd.message'))}
       onCopyText={copyText}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}

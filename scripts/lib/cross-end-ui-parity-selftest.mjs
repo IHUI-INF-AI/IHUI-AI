@@ -11,11 +11,18 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gitBinary, Undetermined } from './face-reader.mjs'
 import { mkScratch, rmScratch } from './scratch-dir.mjs'
-import { radiusEntriesOf, radiusLookup, radiusSetOf } from './radius-tokens.mjs'
+import {
+  bareRoundedOccurrences,
+  radiusEntriesOf,
+  radiusItemsInLine,
+  radiusLookup,
+  radiusSetOf,
+} from './radius-tokens.mjs'
 import {
   WEB_LEDGER,
   anchorRegression,
   audit,
+  bareRoundedAudit,
   clauseDemand,
   collect,
   diffValues,
@@ -2452,6 +2459,87 @@ export function runSelfTest() {
         JSON.stringify(c.tiers) === '[16]' &&
         stripComments(raw, true).length === raw.length
       )
+    })(),
+  )
+  t(
+    'KY 裸档必须并进档位集合(G-277② 落地,正反成对):摘掉提取式末尾那支就翻红 —— ' +
+      '① 裸 rounded 单独成行必须读出 8、② 一端裸档一端具名档不得报跨端分叉、' +
+      '③ 真不同档仍必须报分叉(不是把裸档当万能 8)、④ 已认形态一律不得双计、⑤ 注释里逐字写的不计',
+    (() => {
+      const tbl = { DEFAULT: 8, xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const bare = radiusSetOf('export function Foo() {\n  return <View className="rounded" />\n}\n', tbl)
+      // ① 识别式被摘掉时这一格读成 [] ⇒ 用例翻红(这就是本票要的"摘掉即红"那半边)。
+      if (JSON.stringify(bare) !== '[8]') return `① 裸档未进档集合:${JSON.stringify(bare)}`
+      // ② mp 写裸档 / rn 写具名档:两端同一个 8,不得报分叉(改前正是这一型被读成"mp 没写档")。
+      const same = diffValues(new Set(bare), new Set(radiusSetOf('<View className="rounded-lg" />', tbl)))
+      if (same.onlyMiniapp.length || same.onlyRn.length)
+        return `② 同值裸档被报成分叉:${JSON.stringify(same)}`
+      // ③ 反证:另一端是 12 时必须照样报分叉 —— 补认裸档不是把它折成"永远相等"。
+      const real = diffValues(new Set(bare), new Set(radiusSetOf('<View className="rounded-xl" />', tbl)))
+      if (
+        JSON.stringify(real.onlyMiniapp) !== '[8]' ||
+        JSON.stringify(real.onlyRn) !== '[12]'
+      )
+        return `③ 真分叉没报出来:${JSON.stringify(real)}`
+      // ④ 收尾边界:带档位/带方括号/full 的字形都归各自判据,裸档支不得再补一个 8(数条目而不是数集合,
+      //    集合会把双计折成一个元素、看不出漂移)。
+      const items = (s) => radiusItemsInLine(s, tbl, {}).length
+      if (
+        JSON.stringify(radiusSetOf('<View className="rounded-md" />', tbl)) !== '[6]' ||
+        items('<View className="rounded-md" />') !== 1 ||
+        items('<View className="rounded-full" />') !== 0 ||
+        items('<View className="rounded-[12px]" />') !== 1 ||
+        items('.a { border-radius: var(--radius-lg); }') !== 1 ||
+        items('.a { border-radius: var(--radius); }') !== 1
+      )
+        return `④ 已认形态与裸档双计:${items('<View className="rounded-md" />')}/` +
+          `${items('<View className="rounded-full" />')}/${items('<View className="rounded-[12px]" />')}`
+      // ⑤ 遮噪与报名同口径:注释里逐字写出的 rounded 必不计(写进注释必不计,写进代码必计)。
+      if (radiusSetOf('// <View className="rounded" />\nexport default function B() { return <View /> }', tbl).length)
+        return '⑤ 注释里的裸档被计进了档集合'
+      // ⑥ CSS 侧同一把尺子:var(--radius) 与 rounded 同值同判。
+      if (
+        JSON.stringify(radiusSetOf('.a {\n  border-radius: var(--radius);\n}', tbl)) !== '[8]' ||
+        JSON.stringify(radiusEntriesOf('.card {\n  border-radius: var(--radius);\n}', tbl).entries.card) !== '[8]'
+      )
+        return '⑥ CSS 侧 var(--radius) 未并进集合/元素名归属'
+      return true
+    })(),
+  )
+  t(
+    'KZ 裸档"报名出口 ↔ 判据集合 ↔ 门体接线"三面对账(G-277②):' +
+      '① 报名数与进集合的档必须同形、② 档表取不到 DEFAULT 时判据不得凭空记 8(宁可读不出)、' +
+      '③ 门体不得再抄第二份裸档正则(唯一实现在 lib/radius-tokens.mjs,§0.6)',
+    (() => {
+      const tbl = { DEFAULT: 8, xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const mp = 'apps/miniapp-taro/src/components/Foo.tsx'
+      const rn = 'packages/app/src/components/Foo.tsx'
+      const src = 'export function Foo() {\n  return <View className="rounded" />\n}\n'
+      const text = { [mp]: src, [rn]: 'export function Foo() {\n  return <View className="rounded-lg" />\n}\n' }
+      const pairs = [{ name: 'Foo', miniapp: mp, rn }]
+      // ① 报名与判据两侧同形:名单点数 == 整源报名 == 档集合里那枚 8。
+      const aud = bareRoundedAudit(pairs, text, tbl, 'main')
+      const occ = bareRoundedOccurrences(src, tbl)
+      if (aud.total !== occ.count || occ.count !== 1 || aud.sites[0]?.file !== mp)
+        return `① 报名与判据不同形:audit=${aud.total} occurrences=${occ.count}`
+      if (JSON.stringify(radiusSetOf(src, tbl)) !== '[8]')
+        return `① 报了名却没进档集合:${JSON.stringify(radiusSetOf(src, tbl))}`
+      // ② 表里没有 DEFAULT ⇒ 两侧都必须"读不出",绝不拿猜出来的 8 冒充读数。
+      const noDefault = { xs: 2, md: 6, lg: 8, xl: 12 }
+      if (radiusSetOf(src, noDefault).length)
+        return `② 档表无 DEFAULT 却凭空记了档:${JSON.stringify(radiusSetOf(src, noDefault))}`
+      if (bareRoundedOccurrences(src, noDefault).defaultPx !== null)
+        return '② 整源报名把未判定(默认档取不到)伪装成了已判定'
+      if (bareRoundedAudit(pairs, text, noDefault, 'main').defaultResolved !== false)
+        return '② 门内报名未如实写 defaultResolved:false(值未判定)'
+      // ③ 装车锁:裸档识别式只准住在 lib/radius-tokens.mjs,门体再抄一份就是第二把尺子。
+      const mainSrc = readFileSync(MAIN_SOURCE_PATH, 'utf8')
+      const libSrc = readFileSync(fileURLToPath(new URL('./radius-tokens.mjs', import.meta.url)), 'utf8')
+      const re = /\(\?<!\[\\w\$-\]\)rounded/g
+      const inMain = (mainSrc.match(re) || []).length
+      const inLib = (libSrc.match(re) || []).length
+      if (inMain !== 0 || inLib !== 1) return `③ 裸档正则出现第二份:门内 ${inMain} 处、lib ${inLib} 处`
+      return true
     })(),
   )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
