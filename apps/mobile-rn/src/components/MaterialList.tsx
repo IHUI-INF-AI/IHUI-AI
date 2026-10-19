@@ -12,9 +12,11 @@
  *   - 空态 + 分页提示(loading → 加载中…;!hasMore 且列表非空 → 没有更多了)
  *   - 长按列表项 → onDelete(item)(可选,父级弹确认框;onPress 点击选中不受影响)
  *
- * 视觉规范(rpx→dp 2:1):
+ * 视觉规范(2026-10-18 美化改版):
  *   - 标题头 16 / 行标题 14 / 预览 12 / 时间 11 / tab 13
- *   - 缩略图 50×50(原 100rpx),圆角 4
+ *   - 行改白卡:surface.card + rnRadius.md + padding 12 + 行距 8(去 hairline,AGENTS 禁分割线)
+ *   - 缩略图 50×50(原 100rpx),圆角 6
+ *   - 空态:Library 图标 + 文案;onClose 提供时标题行渲染 X 关闭钮(弹窗场景免外部再造头部)
  *   - 颜色全部走 主题 token 入口:选中 tab = brand 黑底白字;禁用 purple/indigo
  *   - 触底加载用 useState + useEffect 双重护栏:避免 loading 重入 + 翻 false 后才真正派发
  *   - 类型零 any
@@ -22,7 +24,8 @@
 import { tokens } from '../theme/active-tokens'
 import { formatDate } from '@ihui/shared/utils/date-utils'
 import { CategoryInlineBar } from '@ihui/rn-app'
-import { FileText, Image as ImageIcon, Music, Video } from 'lucide-react-native'
+import { useI18n } from '../i18n'
+import { FileText, Image as ImageIcon, Library, Music, Video, X } from 'lucide-react-native'
 import {
   FlatList,
   Image,
@@ -35,7 +38,7 @@ import {
 } from 'react-native'
 import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 
 /** 素材类型(文本/图片/视频/音频;doc 保留向后兼容,供 AigcList/Assistant 屏使用) */
 export type MaterialType = 'text' | 'image' | 'video' | 'audio' | 'doc'
@@ -75,6 +78,9 @@ export interface MaterialListProps {
   loading?: boolean
   /** 是否还有更多分页数据;false 且列表非空时显示「没有更多了」 */
   hasMore?: boolean
+  /** 头部关闭回调(可选):提供时标题行右侧渲染 X 关闭钮(弹窗场景免外部再造头部);
+   *  页面级用法(AigcListScreen / HomeScreen)不传,头部仅标题 */
+  onClose?: () => void
 }
 
 /** 文本预览截断长度(对齐原版 slice(0, 30)) */
@@ -226,8 +232,10 @@ export default function MaterialList({
   onLoadMore,
   loading = false,
   hasMore = true,
+  onClose,
 }: MaterialListProps): React.JSX.Element {
   const { resolvedTheme } = useTheme()
+  const { t } = useI18n()
   /** 触底触发标记:仅当 useEffect 看到 trigger=true 且 loading 翻 false 才真正派发回调 */
   const [endReachedTrigger, setEndReachedTrigger] = useState<boolean>(false)
 
@@ -264,9 +272,24 @@ export default function MaterialList({
 
   return (
     <View style={styles.root}>
-      {/* 标题头(对齐原版 material-header) */}
+      {/* 标题头(对齐原版 material-header;onClose 提供时右侧渲染 X——弹窗场景免外部再造头部。
+          守门 131:按压态落子 View 数组形态,不传函数形态 style) */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>我的创作</Text>
+        {onClose ? (
+          <Pressable
+            hitSlop={8}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.close')}
+          >
+            {({ pressed }) => (
+              <View style={pressed ? styles.headerClosePressed : null}>
+                <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+              </View>
+            )}
+          </Pressable>
+        ) : null}
       </View>
 
       {/* 分类 tab(对齐原版 material-tabs,由 categories 驱动) */}
@@ -285,7 +308,14 @@ export default function MaterialList({
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
-        ListEmptyComponent={!loading ? <Text style={styles.empty}>{emptyText}</Text> : null}
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.empty}>
+              <Library size={32} color={tokens.text.tertiary} strokeWidth={1.5} />
+              <Text style={styles.emptyText}>{emptyText}</Text>
+            </View>
+          ) : null
+        }
         ListFooterComponent={footer}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.4}
@@ -303,8 +333,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingTop: 10,
     paddingBottom: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: tokens.border.light,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerClosePressed: {
+    opacity: 0.5,
   },
   headerTitle: {
     fontSize: 16,
@@ -315,10 +349,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingBottom: 12,
   },
+  // 行改卡片(2026-10-18 美化):白卡 + md 圆角 + 间距,去 hairline 分割线(AGENTS 禁分割线)
   row: {
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    borderRadius: rnRadius.md,
+    padding: 12,
+    marginBottom: 8,
   },
   rowWithThumb: {
     flexDirection: 'row',
@@ -368,7 +404,7 @@ const styles = StyleSheet.create({
   thumb: {
     width: 50,
     height: 50,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   thumbPlaceholder: {
@@ -377,7 +413,11 @@ const styles = StyleSheet.create({
   },
   empty: {
     paddingVertical: 30,
-    textAlign: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  emptyText: {
     fontSize: 14,
     color: tokens.text.tertiary,
   },
