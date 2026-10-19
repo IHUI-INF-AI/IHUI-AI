@@ -22661,7 +22661,21 @@
     "codeIndexEgressOptOut": "Don't Build Code Semantic Index",
     "codeIndexEgressOptOutDesc": "Code snippets are never sent out for vector indexing",
     "autoMemoryOptOut": "Turn Off Auto Long-term Memory",
-    "autoMemoryOptOutDesc": "Conversations won't be distilled into cross-session preferences"
+    "autoMemoryOptOutDesc": "Conversations won't be distilled into cross-session preferences",
+    "navTiers": {
+      "title": "Simplified sidebar",
+      "desc": "Hides developer and operations entries from the sidebar by default. Turn on any group below when you need it.",
+      "simpleMode": "Simple mode",
+      "simpleModeDesc": "Hide all four groups below at once; turn it off to show everything",
+      "developer": "Developer tools",
+      "developerDesc": "API docs, webhooks, sandbox, relay keys and API subscriptions",
+      "relayOps": "Model relay backend",
+      "relayOpsDesc": "Channels, keys, call logs, billing and redemption codes — operations data",
+      "advancedAi": "Advanced AI tools",
+      "advancedAiDesc": "Memory, subagents, orchestration, context compaction and other agent framework features",
+      "experimental": "Experimental features",
+      "experimentalDesc": "Still in validation; these may change or be removed later"
+    }
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI Generated",

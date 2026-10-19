@@ -22664,7 +22664,21 @@
     "codeIndexEgressOptOut": "コード意味インデックスを作成しない",
     "codeIndexEgressOptOutDesc": "コード断片はベクトル化インデックスのために外部へ送信されません",
     "autoMemoryOptOut": "自動長期メモリを無効化",
-    "autoMemoryOptOutDesc": "会話をセッション横断の嗜好や規約に自動抽出しません"
+    "autoMemoryOptOutDesc": "会話をセッション横断の嗜好や規約に自動抽出しません",
+    "navTiers": {
+      "title": "サイドバー簡素モード",
+      "desc": "開発者向け・運用向けの項目を既定で非表示にします。必要になったら下のスイッチで表示できます。",
+      "simpleMode": "簡素モード",
+      "simpleModeDesc": "下の4種類をまとめて非表示にします。オフにするとすべて表示されます",
+      "developer": "開発者ツール",
+      "developerDesc": "API ドキュメント、Webhook、サンドボックス、中継キーと API 契約",
+      "relayOps": "モデル中継の管理画面",
+      "relayOpsDesc": "チャネル、キー、呼び出しログ、課金、還元コードなどの運用データ",
+      "advancedAi": "高度な AI ツール",
+      "advancedAiDesc": "記憶、サブエージェント、オーケストレーション、コンテキスト圧縮などのエージェント機能",
+      "experimental": "試験的な機能",
+      "experimentalDesc": "検証中の機能です。今後変更または廃止される場合があります"
+    }
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI 生成",

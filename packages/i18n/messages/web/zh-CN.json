@@ -22665,7 +22665,21 @@
     "codeIndexEgressOptOut": "不建代码语义索引",
     "codeIndexEgressOptOutDesc": "代码切片不会外发用于向量化建索引",
     "autoMemoryOptOut": "关闭自动长期记忆",
-    "autoMemoryOptOutDesc": "不会把对话提炼成跨会话的偏好或约定"
+    "autoMemoryOptOutDesc": "不会把对话提炼成跨会话的偏好或约定",
+    "navTiers": {
+      "title": "侧边栏简洁模式",
+      "desc": "侧边栏默认隐藏开发者与运维向的功能入口。需要用到时，打开下面的开关即可显示。",
+      "simpleMode": "简洁模式",
+      "simpleModeDesc": "一键隐藏下方四类入口；关闭则全部显示",
+      "developer": "开发者工具",
+      "developerDesc": "API 文档、Webhook、沙箱、中转站密钥与 API 订阅",
+      "relayOps": "模型中转站后台",
+      "relayOpsDesc": "渠道、密钥、调用日志、计费与兑换码等运营数据",
+      "advancedAi": "高级 AI 工具",
+      "advancedAiDesc": "记忆、子智能体、编排、上下文压缩等智能体框架能力",
+      "experimental": "实验性功能",
+      "experimentalDesc": "仍在验证阶段的能力，后续可能调整或下线"
+    }
   },
   "shareContentPage": {
     "aiGenerated": "智汇 AI 生成",

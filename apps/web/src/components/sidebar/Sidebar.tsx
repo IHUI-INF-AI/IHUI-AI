@@ -303,12 +303,13 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   // 原先本文件的 filterByRole 是私有的,P2 新增的域入口页(/edu、/content、/trade
   // 三个 CategoryShell 落地页)要过滤同样带 permission 的 EDU_ITEMS —— 各写一份
   // 必然漂移,漏写就是权限漏洞(普通用户看到教务管理入口,点开只剩 403)。
-  // 现两处共用 filterNavItemsByRole,改规则两边同时生效。
-  const filterByRole = useNavVisibilityFilter()
+  // 2026-10-20 第二层:同一出口现在叠加「用户自选」过滤(filterNavItemsByTier),
+  // 变量名同步改为 filterNav —— 保留 filterByRole 会让读代码的人以为只过滤了角色。
+  const filterNav = useNavVisibilityFilter()
 
   const visibleGroups = React.useMemo(() => {
     return NAV_GROUPS.map((g) => {
-      const filtered = filterByRole(g.items)
+      const filtered = filterNav(g.items)
       // 合并 admin 动态路由到"管理"分组(items[0] 是 /admin 入口,动态项插在它后面)
       if (g.label === 'adminGroupLabel' && adminDynamicItems.length > 0) {
         const [head, ...rest] = filtered
@@ -319,7 +320,7 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
       }
       return { ...g, items: filtered }
     }).filter((g) => g.items.length > 0)
-  }, [filterByRole, adminDynamicItems])
+  }, [filterNav, adminDynamicItems])
 
   const allVisibleItems = React.useMemo(
     () => flattenNavItems(visibleGroups.flatMap((g) => g.items)),

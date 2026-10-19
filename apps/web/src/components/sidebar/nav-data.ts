@@ -149,26 +149,43 @@ const ADMIN_THEME_CHILDREN: NavItem[] = [
   { href: '/admin/theme/export', labelKey: 'adminThemeExport', icon: Download, adminOnly: true },
 ]
 
-/** /models 15 项作为 /models 的三级子菜单 */
+/**
+ * /models 15 项作为 /models 的三级子菜单
+ *
+ * 2026-10-20 简洁模式:18 项里 16 项标 `relayOps`(中转站运营后台 —— 渠道/密钥/日志/计费/
+ * 流派 group 等是**全站运营数据**,普通用户点开既看不懂又可能误以为自己数据泄露)。
+ * 只留 overview(模型总览)+ usage(自己的用量)两项给普通用户,父项 /models 本身保留。
+ * 父项也因此**不能**标 relayOps —— 标了会把 overview/usage 一起带走。
+ */
 export const MODELS_CHILDREN: NavItem[] = [
   { href: '/models/overview', labelKey: 'modelsOverview', icon: LayoutDashboard },
-  { href: '/models/channels', labelKey: 'modelsChannels', icon: Cable },
-  { href: '/available-channels', labelKey: 'availableChannels', icon: Cable },
-  { href: '/models/keys', labelKey: 'modelsKeys', icon: Key },
-  { href: '/models/logs', labelKey: 'modelsLogs', icon: FileText },
-  { href: '/models/chats', labelKey: 'modelsChats', icon: MessagesSquare },
-  { href: '/models/users', labelKey: 'modelsUsers', icon: Users },
-  { href: '/models/groups', labelKey: 'modelsGroups', icon: UsersRound },
+  { href: '/models/channels', labelKey: 'modelsChannels', icon: Cable, advancedOnly: 'relayOps' },
+  {
+    href: '/available-channels',
+    labelKey: 'availableChannels',
+    icon: Cable,
+    advancedOnly: 'relayOps',
+  },
+  { href: '/models/keys', labelKey: 'modelsKeys', icon: Key, advancedOnly: 'relayOps' },
+  { href: '/models/logs', labelKey: 'modelsLogs', icon: FileText, advancedOnly: 'relayOps' },
+  { href: '/models/chats', labelKey: 'modelsChats', icon: MessagesSquare, advancedOnly: 'relayOps' },
+  { href: '/models/users', labelKey: 'modelsUsers', icon: Users, advancedOnly: 'relayOps' },
+  { href: '/models/groups', labelKey: 'modelsGroups', icon: UsersRound, advancedOnly: 'relayOps' },
   { href: '/models/usage', labelKey: 'modelsUsage', icon: BarChart3 },
-  { href: '/models/trajectory', labelKey: 'modelsTrajectory', icon: Activity },
-  { href: '/models/prompts', labelKey: 'modelsPrompts', icon: FileText },
-  { href: '/models/eval', labelKey: 'modelsEval', icon: FlaskConical },
-  { href: '/models/billing', labelKey: 'modelsBilling', icon: Wallet },
-  { href: '/models/redeem', labelKey: 'modelsRedeem', icon: Ticket },
-  { href: '/models/referral', labelKey: 'modelsReferral', icon: Gift },
-  { href: '/models/openclaw', labelKey: 'modelsOpenclaw', icon: Rocket },
-  { href: '/models/api-docs', labelKey: 'modelsApiDocs', icon: BookOpen },
-  { href: '/models/skills', labelKey: 'modelsSkills', icon: Sparkles },
+  {
+    href: '/models/trajectory',
+    labelKey: 'modelsTrajectory',
+    icon: Activity,
+    advancedOnly: 'relayOps',
+  },
+  { href: '/models/prompts', labelKey: 'modelsPrompts', icon: FileText, advancedOnly: 'relayOps' },
+  { href: '/models/eval', labelKey: 'modelsEval', icon: FlaskConical, advancedOnly: 'relayOps' },
+  { href: '/models/billing', labelKey: 'modelsBilling', icon: Wallet, advancedOnly: 'relayOps' },
+  { href: '/models/redeem', labelKey: 'modelsRedeem', icon: Ticket, advancedOnly: 'relayOps' },
+  { href: '/models/referral', labelKey: 'modelsReferral', icon: Gift, advancedOnly: 'relayOps' },
+  { href: '/models/openclaw', labelKey: 'modelsOpenclaw', icon: Rocket, advancedOnly: 'relayOps' },
+  { href: '/models/api-docs', labelKey: 'modelsApiDocs', icon: BookOpen, advancedOnly: 'relayOps' },
+  { href: '/models/skills', labelKey: 'modelsSkills', icon: Sparkles, advancedOnly: 'relayOps' },
 ]
 
 /** /messages 6 项作为 /messages 的三级子菜单(带未读数 badge) */
@@ -448,11 +465,22 @@ const DEVELOPER_TOOLS_CHILDREN: NavItem[] = [
   { href: '/developer/settings', labelKey: 'developerSettings', icon: Settings },
 ]
 
-/** /developer 项整合到"开发者"组下(2026-08-30 瘦身:19+ 项平铺对普通用户不可理解,
- * 只保留 5 个核心项平铺,中转站密钥/用量挂为子项,其余低频工具收进"开发者工具"折叠子菜单) */
+/**
+ * /developer 项整合到"开发者"组下(2026-08-30 瘦身:19+ 项平铺对普通用户不可理解,
+ * 只保留 5 个核心项平铺,中转站密钥/用量挂为子项,其余低频工具收进"开发者工具"折叠子菜单)
+ *
+ * 2026-10-20 简洁模式:5 个顶层项全部标 `developer` —— 整个组面向"来接 API 的外部开发者",
+ * 与本站普通创作者/学习者毫无交集。**子项无需逐个标注**:16 个子项由继承规则自动带上同一档。
+ * 末尾两项已是 `adminOnly`(普通用户本就看不到),不需要再标 advancedOnly。
+ */
 const DEVELOPER_ITEMS: NavItem[] = [
-  { href: '/developer', labelKey: 'developer', icon: Terminal },
-  { href: '/developer/api-docs', labelKey: 'developerApiDocs', icon: Code },
+  { href: '/developer', labelKey: 'developer', icon: Terminal, advancedOnly: 'developer' },
+  {
+    href: '/developer/api-docs',
+    labelKey: 'developerApiDocs',
+    icon: Code,
+    advancedOnly: 'developer',
+  },
   // 2026-09-13:原 /developer/keys 独立入口与「中转站 → API 密钥」重复且旧页 API 不存在,
   // 统一收敛到 /developer/relay/keys(旧路由保留重定向,见 developer/keys/page.tsx)
   // P0-5 模型 API 中转站(2026-07-29 立);2026-08-30 密钥/用量挂为中转站子项
@@ -460,6 +488,7 @@ const DEVELOPER_ITEMS: NavItem[] = [
     href: '/developer/relay',
     labelKey: 'developerRelay',
     icon: Zap,
+    advancedOnly: 'developer',
     children: [
       { href: '/developer/relay/keys', labelKey: 'developerRelayKeys', icon: KeyRound },
       { href: '/developer/relay/usage', labelKey: 'developerRelayUsage', icon: Activity },
@@ -470,12 +499,14 @@ const DEVELOPER_ITEMS: NavItem[] = [
     href: '/developer/relay/subscriptions',
     labelKey: 'developerRelaySubscriptions',
     icon: CreditCard,
+    advancedOnly: 'developer',
   },
   // 2026-08-30 瘦身:低频开发者工具收进"开发者工具"可展开子菜单(入口保留,高级用户可展开使用)
   {
     href: '/developer/webhooks',
     labelKey: 'developerTools',
     icon: Terminal,
+    advancedOnly: 'developer',
     children: DEVELOPER_TOOLS_CHILDREN,
   },
   // 2026-08-08 feature-final2:IoT 设备管理(TBox 车载设备)——设备后台管理,仅 admin 可见
@@ -490,11 +521,24 @@ export const KNOWLEDGE_CHILDREN: NavItem[] = [
   { href: '/knowledge-rag', labelKey: 'knowledgeRag', icon: Database },
   { href: '/knowledge-graph', labelKey: 'knowledgeGraph', icon: Network },
   // 2026-09-10 2-1a:Repo Wiki 页(2026-09-07 MVP)补挂侧边栏入口
-  { href: '/repo-wiki', labelKey: 'repoWiki', icon: FileText },
+  // 2026-10-20 简洁模式:`experimental` —— 代码仓库 Wiki,是研发资产不是用户内容
+  { href: '/repo-wiki', labelKey: 'repoWiki', icon: FileText, advancedOnly: 'experimental' },
   // 2026-09-10 2-1b-fe:Knowledge Card 页(仓库级任务经验卡)
-  { href: '/knowledge-cards', labelKey: 'knowledgeCards', icon: NotebookPen },
+  // 2026-10-20 简洁模式:`experimental` —— 仓库级任务经验卡是研发内部沉淀工具,不是用户功能
+  {
+    href: '/knowledge-cards',
+    labelKey: 'knowledgeCards',
+    icon: NotebookPen,
+    advancedOnly: 'experimental',
+  },
   // D29 团队级知识引擎(G-35,2026-09-26 追加):空间/成员/条目/修订审计
-  { href: '/team-knowledge', labelKey: 'teamKnowledge', icon: Users },
+  // 2026-10-20 简洁模式:`experimental` —— 同上,团队知识工程侧工具
+  {
+    href: '/team-knowledge',
+    labelKey: 'teamKnowledge',
+    icon: Users,
+    advancedOnly: 'experimental',
+  },
 ]
 
 /**
@@ -548,8 +592,19 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       // /models 整合原 ModelsSidebar 15 项(主功能/业务/财务/资源四组扁平化为三级子菜单)
       { href: '/models', labelKey: 'models', icon: Bot, children: MODELS_CHILDREN },
       { href: '/agents', labelKey: 'agents', icon: Bot },
-      { href: '/agent-workbench', labelKey: 'agentWorkbench', icon: Activity },
-      { href: '/agent-canvas', labelKey: 'agentCanvas', icon: Network },
+      // 2026-10-20 简洁模式:`experimental` —— Agent 运行时调试台,是开发期产物,不是用户功能
+      {
+        href: '/agent-workbench',
+        labelKey: 'agentWorkbench',
+        icon: Activity,
+        advancedOnly: 'experimental',
+      },
+      {
+        href: '/agent-canvas',
+        labelKey: 'agentCanvas',
+        icon: Network,
+        advancedOnly: 'experimental',
+      },
       {
         href: '/ai-world',
         labelKey: 'aiWorld',
@@ -557,22 +612,30 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         children: [{ href: '/ai-world/favorites', labelKey: 'favorites', icon: Star }],
       },
       // 2026-07-24 对标 AI 工作台 AI 工作台能力(2026-08-30 收进"高级 AI 工具"折叠子菜单,见 ADVANCED_AI_TOOLS_CHILDREN)
+      // 2026-10-20 简洁模式:整组标 `advancedAi` —— Agent 框架内部概念(memory/subagents/context/
+      // spec/plan/registry/a2a/personas/orchestration/...),普通用户看名词完全不知道是什么。
+      // 只标父项:14 个子项由 filterNavItemsByTier 的继承规则自动带上同一档,不逐个重复标注。
       {
         href: '/memory',
         labelKey: 'advancedAiTools',
         icon: Brain,
+        advancedOnly: 'advancedAi',
         children: ADVANCED_AI_TOOLS_CHILDREN,
       },
       // 对话内媒体任务统一中心(2026-09-09 立):视频/音乐/语音/图片任务查看/播放/取消
       { href: '/media-tasks', labelKey: 'mediaTasks', icon: Clapperboard },
       // 网页工具中心(2026-09-09 立):Firecrawl 四件套融合的只读网页抓取(正文/站点地图/结构化抽取)
-      { href: '/web-tools', labelKey: 'webTools', icon: Globe },
+      // 2026-10-20 简洁模式:`experimental` —— 面向抓取/采集场景的技术工具,普通用户无此诉求
+      { href: '/web-tools', labelKey: 'webTools', icon: Globe, advancedOnly: 'experimental' },
       // D31 设计稿转码(2026-09-26 立):Figma Frame/组件 → 可运行前端代码(lucide 无 Figma 图标,用 Palette)
-      { href: '/figma-import', labelKey: 'figmaImport', icon: Palette },
+      // 2026-10-20 简洁模式:`experimental` —— 前端/设计师专用
+      { href: '/figma-import', labelKey: 'figmaImport', icon: Palette, advancedOnly: 'experimental' },
       // 声纹库管理(2026-09-09 F4):token6688 克隆音色列表/详情/删除/上传
-      { href: '/voices', labelKey: 'voices', icon: Mic },
+      // 2026-10-20 简洁模式:`experimental` —— 服务端音色账号管理界面,普通用户点开是空列表或他人音色
+      { href: '/voices', labelKey: 'voices', icon: Mic, advancedOnly: 'experimental' },
       // 签到助手(2026-10-03 立):账号服务端化管理(ai-service /api/checkin)
-      { href: '/checkin', labelKey: 'checkin', icon: CalendarCheck },
+      // 2026-10-20 简洁模式:`experimental` —— 服务端账号签到运维面板,用户点进去只会看到一排与自己无关的账号状态
+      { href: '/checkin', labelKey: 'checkin', icon: CalendarCheck, advancedOnly: 'experimental' },
       { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
       // 知识库三合一(2026-08-30):原平铺的知识库/RAG/图谱收进可展开子菜单
       {
