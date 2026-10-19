@@ -1,4 +1,4 @@
-2026-10-19T12:02:20.492Z pid=3831
+2026-10-19T12:02:32.491Z pid=3831
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/3 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -30,3 +30,4 @@ RC-CHALLENGE round=0 step=1 rows=3 cols=3 dynamic=true prompt="Select all images
 RC-SHOT-PUSHED rc-shot-0-1 ok=true
 RC-GRID-SKIP box={"x":1,"y":1,"width":1262,"height":150}
 RC-WAIT round=0 step=1 i=0 status=200
+RC-WAIT round=0 step=1 i=6 status=200
