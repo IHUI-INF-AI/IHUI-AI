@@ -16,7 +16,7 @@ import test from 'node:test'
 
 import { __test__ as src } from '../check-cross-end-ui-parity.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { bareRoundedOccurrences, radiusSetOf } from '../lib/radius-tokens.mjs'
+import { bareRoundedOccurrences, radiusItemsInLine, radiusSetOf } from '../lib/radius-tokens.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const RUNNER = resolve(ROOT, 'scripts/guardian-runner.mjs')
@@ -984,14 +984,37 @@ test('T29 ② 的裸档探针:必须看得见"看不见多少",且不得顺手�
     '探针不进 --json ⇒ 下一票只能抄终端输出当数据源',
   )
   assert.ok(
-    /裸档盲区/.test(txt),
+    /裸档取用\(已计进档集合/.test(txt),
     '探针不跟人读读数同印 ⇒ "配对文件里读到 0 处"会被读成"全仓没有裸档"',
   )
-  // 反向锁(本票最关键的一条):提取式今天**不许**认裸档 —— 补认必须与守门 77 / 150 的台账同枚重锚。
+  /**
+   * 正向锁(G-277② 落地,替换 2026-10-11 立的那条反向锁):裸档**必须**并进取用集合。
+   * 反向锁当时的理由是"补认会同时移动 77 的 HEAD 棘轮与 150 的角色档台账,须同枚提交各自重锚";
+   * 本票按 import 面复裁该理由不成立 ⇒ 反向锁一并改写,不留旧声称当口径:
+   *  - 守门 77(check-radius-single-source.mjs)不 import lib/radius-tokens.mjs,读不到也判不了裸档;
+   *  - 守门 150 走 lib/radius-roles.mjs 自带提取式,其 1b) 支早已认裸 rounded(同样取档位表 DEFAULT),
+   *    它只共享 radiusOperandPx 那一份算术;
+   *  - 真会移动的只有本门 128 的 RD/RE 与守门 11 的 radiusPxInLine 消费面,而 11 无锚点台账
+   *    (全量档 warn-only、暂存档只看新增行)。
+   * 真仓 HEAD 现读:锚点零位移(唯一带裸档的配对文件 ModelList 小程序侧 2 处折进去后 8 早已在集合内),
+   * 所以三本 baseline 里只有本门这本**有账可记**(记在 ledgerVersion 的复裁笔),锚点数字一位未动;
+   * 读数没动却去改锚点 = 本仓禁的"为过门补数字"。
+   * 成对反证留在下面两格:表里没有 DEFAULT 不得凭空记 8,已认具名档不得被再补一个 8。
+   */
   assert.deepEqual(
     radiusSetOf('<View className="rounded bg-card" />', table),
+    [8],
+    '裸档没有并进 radiusItemsInLine ⇒ 一端写裸档、另一端写具名档仍会被读成"那一端没写档"(G-277② 未落地)',
+  )
+  assert.deepEqual(
+    radiusSetOf('<View className="rounded bg-card" />', { lg: 8 }),
     [],
-    '裸档被并进 radiusItemsInLine 了,而 77 的 HEAD 棘轮与 150 的角色档台账没在同一枚提交里重锚 ⇒ 会把别人钉着的锚顶成"新增红"(§O81 票⑬)',
+    '档表取不到 DEFAULT 却记了一档 ⇒ 把"没判"写成"判过"(§0.3),宁可读不出',
+  )
+  assert.equal(
+    radiusItemsInLine('<View className="rounded-md bg-card" />', table, {}).length,
+    1,
+    '具名档被裸档支双计 ⇒ 同一处贡献两个取用点,集合会把多计折成一个数、账面看不出漂移',
   )
   const j = JSON.parse(
     spawnSync(process.execPath, [SELF, '--staged', '--json'], {
