@@ -58,10 +58,14 @@ vi.mock('@tarojs/components', () => {
   }
 })
 
-vi.mock('@ihui/api-client', () => ({
-  listConversations: vi.fn(),
-  setConversationPinned: vi.fn(),
-}))
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    listConversations: vi.fn(),
+    setConversationPinned: vi.fn(),
+  }
+})
 
 vi.mock('@/i18n', () => ({
   useI18n: () => ({
