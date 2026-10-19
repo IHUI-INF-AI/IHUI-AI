@@ -17,7 +17,8 @@
     "prompt": "프롬프트",
     "noResult": "실행 결과가 없습니다",
     "rrule": "일정 (RRULE)",
-    "timezone": "시간대"
+    "timezone": "시간대",
+    "schedule": "실행 주기"
   },
   "dashboard": {
     "title": "대시보드",
@@ -3043,5 +3044,59 @@
         }
       }
     }
+  },
+  "selectionAnnotations": {
+    "hoverHint": "주석 보기",
+    "removeAll": "모든 주석 삭제",
+    "originalText": "원문",
+    "noComment": "(코멘트 없음)",
+    "commentPlaceholder": "코멘트 추가…",
+    "commentAriaLabel": "코멘트 입력란",
+    "addComment": "추가",
+    "removeOne": "이 주석 삭제",
+    "addAnnotation": "주석 추가"
+  },
+  "slashCmd": {
+    "paletteTitle": "슬래시 명령",
+    "paletteEmpty": "일치하는 명령이 없습니다",
+    "new": "새 대화",
+    "newDesc": "새 대화를 시작합니다",
+    "clear": "지우기",
+    "clearDesc": "현재 입력과 컨텍스트를 지웁니다",
+    "model": "모델 전환",
+    "modelDesc": "모델 목록을 열어 모델을 전환합니다",
+    "compact": "컨텍스트 압축",
+    "compactDesc": "이 대화 기록을 압축해 컨텍스트를 절약합니다",
+    "status": "세션 상태",
+    "statusDesc": "현재 모델, 메시지 수, 생성 상태를 표시합니다",
+    "help": "도움말",
+    "helpDesc": "사용 가능한 슬래시 명령과 사용법을 확인합니다",
+    "summary": "요약",
+    "summaryDesc": "주어진 내용을 요약합니다",
+    "translate": "번역",
+    "translateDesc": "내용을 영어로 번역합니다",
+    "explain": "설명",
+    "explainDesc": "주어진 내용을 설명합니다",
+    "code": "코드",
+    "codeDesc": "요구사항을 구현하는 코드를 작성합니다",
+    "polish": "윤문",
+    "polishDesc": "주어진 텍스트를 다듬습니다",
+    "wechatArticle": "위챗 기사",
+    "wechatArticleDesc": "이를 바탕으로 위챗 공식계정 글을 작성합니다",
+    "kouboScript": "나레이션 대본",
+    "kouboScriptDesc": "나레이션 대본을 작성합니다",
+    "helpPrefix": "사용 가능한 명령: {list}",
+    "statusToast": "모델 {model} · 메시지 {count}개 · {state}",
+    "stateIdle": "대기 중",
+    "stateStreaming": "생성 중"
+  },
+  "slashTemplate": {
+    "summary": "위 대화 내용을 요약하고 핵심 정보를 추출해 주세요",
+    "translate": "다음 내용을 영어로 번역해 주세요:",
+    "explain": "다음 개념을 자세히 설명해 주세요:",
+    "code": "다음 기능을 코드로 구현하고 주석을 추가해 주세요:",
+    "polish": "다음 텍스트를 더 전문적이고 자연스러운 표현으로 다듬어 주세요:",
+    "wechatArticle": "위챗 공식계정 글 작성을 도와 주세요. 요구사항:\n1. 주제:\n2. 요약:\n3. 하이라이트 표식(금구 카드 / 팁 블록 / 인용 / 코드 블록 / 소제목)\n4. 이미지 제안:\ncontent-engine 파이프라인으로 실행해 주세요(모위 그린 테마 + 22항목 자체 검증 + 임시 보관함 저장).",
+    "kouboScript": "오늘의 더우인 나레이션 대본 8편을 작성해 주세요. 요구사항:\n1. 날짜: MMDD\n2. 주제 방향:\n3. 이중 검증(모호성 축약 / 대본 간 어휘 통일 / 전량 검증 / 어병 / 핫토픽 커버리지)\nkoubo-workflow 파이프라인으로 실행해 주세요(제약 우선 작성법)."
   }
 }

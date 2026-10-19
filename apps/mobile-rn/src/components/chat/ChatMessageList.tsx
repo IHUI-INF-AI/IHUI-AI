@@ -54,6 +54,7 @@ import { isErrorTurn, resendTargetText } from '@ihui/shared/chat'
 import type { ChatMessage } from '@ihui/shared'
 import type { ChatScreenMessage } from '@ihui/rn-app'
 import { ToolCallCard } from './ToolCallCard'
+import { SelectionAnnotationBar } from './SelectionAnnotationBar'
 import {
   ActionAnchorChip,
   extractActionAnchors,
@@ -312,6 +313,11 @@ interface ChatMessageItemProps {
   ) => Promise<void>
   /** i18n 取词(零端内硬编码中文) */
   t: (key: string, params?: Record<string, string | number>) => string
+  /**
+   * 归属会话 id(批注复合键的一半)。可选 —— 未传时批注落到 `''::msgId` 命名空间,
+   * 与"尚未关联后端对话的新会话"同形,既有调用方零改动仍能编译。
+   */
+  conversationId?: string | null
   /** 消息气泡原生节点 Map(长按截图用) */
   messageRefs: MutableRefObject<Map<string, View | null>>
   /** 图片全屏预览 url 设置 */
@@ -347,6 +353,7 @@ export function ChatMessageItem({
   retryLastTurn,
   toggleMessageFlag,
   t,
+  conversationId,
   messageRefs,
   setPreviewImageUrl,
   workspaceTier,
@@ -703,6 +710,7 @@ export function ChatMessageItem({
           // 卡片只在 running + partialDiff 非空时渲染「流中 diff 预览」折叠块。
           toolCalls={executionVizById[item.id]?.toolCalls}
         />
+        <SelectionAnnotationBar messageId={item.id} conversationId={conversationId ?? null} t={t} />
       </View>
     </View>
   )
