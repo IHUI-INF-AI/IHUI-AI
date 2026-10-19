@@ -548,22 +548,29 @@ async function runSignPath(page, attempt) {
     console.log('SP-FILLED ' + name + ' len=' + val.length)
   }
 
-  // 三个自定义 DropdownField(HubSpot 组件,非原生 select):点开 -> 选 option
-  const DD = [
-    { hid: '87a6cc11-45fc-43ca-9b88-40485775cb3d-3550993458169', label: 'Category', opt: 'Developer Tools' },
-    { hid: '87a6cc11-45fc-43ca-9b88-40485775cb3d-2081506618076', label: 'Build System', opt: 'GitHub Actions' },
-    { hid: '87a6cc11-45fc-43ca-9b88-40485775cb3d-2052735583143', label: 'Primary Discovery Channel', opt: 'Organic search' },
-  ]
-  for (const d of DD) {
-    // hid 以数字开头,#数字开头 不是合法 CSS ID 选择器,必须用属性选择器
-    const inp = hf.locator(`[id="${d.hid}-input"]`)
-    await inp.click({ timeout: 10000 })
-    await sleep(1500)
-    const opt = hf.locator(`[role="option"]:has-text("${d.opt}")`).first()
-    await opt.click({ timeout: 10000 })
-    await sleep(700)
-    console.log(`SP-DD ${d.label}=${d.opt}`)
+  // HubSpot Dropdown 字段渲染为原生 <select>(name=GUID/fieldname,无 "-input" 后缀);
+  // 硬编码隐藏 id 必然查无此元素。改用 select:has(option:has-text) 语义匹配。
+  const optVals = ['Developer Tools', 'GitHub Actions', 'Organic search']
+  for (const val of optVals) {
+    const sel = hf.locator(`select:has(option:has-text("${val}"))`).first()
+    try {
+      await sel.waitFor({ state: 'visible', timeout: 8000 })
+      const optHandle = sel.locator(`option:has-text("${val}")`).first()
+      const optVal = (await optHandle.getAttribute('value')) || val
+      await sel.selectOption(optVal, { timeout: 8000 })
+      console.log('SP-DD select=' + val + ' val=' + optVal)
+    } catch (e) {
+      console.log('SP-DD select-fail=' + val + ' ' + String(e.message).slice(0, 60))
+    }
   }
+  // 诊断:dump 表单 HTML(下拉结构)供核实
+  try {
+    const html = await hf
+      .locator('form')
+      .first()
+      .evaluate((el) => el.outerHTML.replace(/\s+/g, ' ').slice(0, 2000))
+    console.log('SP_FORM_HTML=' + html)
+  } catch {}
   await shot(page, `sp-dd-done`)
 
   // 法务勾选(subscription_type_2099806800 实测 required)
