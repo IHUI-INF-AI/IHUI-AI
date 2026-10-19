@@ -16,6 +16,9 @@ const HERE = process.cwd()
 import { describe, expect, it } from 'vitest'
 
 const SCREEN = readFileSync(resolve(HERE, 'src/screens/ChatScreen.tsx'), 'utf8')
+// 2026-10-19:D99/T1 拆分后,pin/书签/举报三枚按钮的单一实现(flagButtons)落至共享
+// ChatMessageList,屏侧只保留网络出口并经 rateMessage prop 装车 —— ⑥ 的实现面断言改读新家。
+const MESSAGE_LIST = readFileSync(resolve(HERE, 'src/components/chat/ChatMessageList.tsx'), 'utf8')
 const API_CLIENT = readFileSync(
   resolve(HERE, '../../packages/api-client/src/endpoints/chat.ts'),
   'utf8',
@@ -74,15 +77,17 @@ describe('票64 RN 腿 · 写链与读面接缝', () => {
   })
 
   it('⑥ 两枚按钮只有一份实现,AI 行与用户行共用(与 web 同口径),且文案全部取词', () => {
-    const defs = SCREEN.match(/const flagButtons: React\.ReactNode = \(/g) ?? []
-    const uses = SCREEN.match(/\{flagButtons\}/g) ?? []
+    const defs = MESSAGE_LIST.match(/const flagButtons: (?:React\.)?ReactNode = \(/g) ?? []
+    const uses = MESSAGE_LIST.match(/\{flagButtons\}/g) ?? []
     expect(defs.length).toBe(1)
     // 两处消费:AI 消息的操作行 + 用户消息新增那一行
     expect(uses.length).toBe(2)
-    expect(SCREEN).toContain(
+    expect(MESSAGE_LIST).toContain(
       '{isUser ? <View style={styles.msgActions}>{flagButtons}</View> : null}',
     )
-    for (const key of flagKeys.slice(0, 4)) expect(SCREEN).toContain(`t('chat.${key}')`)
+    for (const key of flagKeys.slice(0, 4)) expect(MESSAGE_LIST).toContain(`t('chat.${key}')`)
+    // 装车证明:屏侧必须真把网络出口传进共享列表(组件造好没装车 = 守门 64/70 的成因)
+    expect(SCREEN).toContain('rateMessage={rateMessage}')
   })
 })
 

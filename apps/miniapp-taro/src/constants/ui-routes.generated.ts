@@ -8,7 +8,7 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 12230f9c2112ff9203e442db10ea1c3f165110ea
+// sourceCommit: 46c2b8cae63d5bfdd6b433eac22a43192d87d4d4
 // inputsSha256: c3a984175a6e8c6c6d228baf9d94f300aad698b31bcaf1f550fa78c65a52ccc9
 // input: apps/miniapp-taro/src/api/index.ts b81ebe3e79ee3272cd5f97903f57e49b03739b954880516984a72eb0180ddda9
 // input: apps/miniapp-taro/src/api/social.ts 6fd0f50805af0b076929ce380009d01c6856fa63994bce8367577161e968a160
@@ -482,7 +482,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 4959a62f1cb83c3b0a280a446f001ac92ed3163cb539a812bc6ec4608924dcc3
 // scanned: 349 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=36(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-10-19T03:27:03.194Z
+// generatedAt: 2026-10-19T03:13:42.615Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */

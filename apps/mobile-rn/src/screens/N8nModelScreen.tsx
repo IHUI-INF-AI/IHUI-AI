@@ -1,18 +1,12 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apach
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTheme } from '../context/ThemeContext'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -133,7 +127,7 @@ export default function N8nModelScreen() {
   const handleToggle = (m: N8nModelItem) => {
     const wf = workflows.find((w) => w.id === m.id)
     const isActive = wf ? Boolean(wf.active) : m.status === 'running'
-    Alert.alert(
+    appAlert(
       isActive ? t('n8nModel.toggle.stopTitle') : t('n8nModel.toggle.startTitle'),
       isActive
         ? t('n8nModel.toggle.stopMessage', { name: m.name })
@@ -146,13 +140,13 @@ export default function N8nModelScreen() {
             try {
               const res = await toggleN8nWorkflow(m.id, !isActive)
               if (res.success) {
-                Alert.alert(t('common.hint'), t('n8nModel.toggle.success'))
+                appAlert(t('common.hint'), t('n8nModel.toggle.success'))
                 await load()
               } else {
-                Alert.alert(t('common.hint'), res.error || t('n8nModel.toggle.failed'))
+                appAlert(t('common.hint'), res.error || t('n8nModel.toggle.failed'))
               }
             } catch {
-              Alert.alert(t('common.hint'), t('n8nModel.operationFailed'))
+              appAlert(t('common.hint'), t('n8nModel.operationFailed'))
             }
           },
         },
@@ -181,7 +175,7 @@ export default function N8nModelScreen() {
   const handleFormSubmit = async () => {
     const name = formName.trim()
     if (!name) {
-      Alert.alert(t('common.hint'), t('n8nModel.nameRequired'))
+      appAlert(t('common.hint'), t('n8nModel.nameRequired'))
       return
     }
     setFormSubmitting(true)
@@ -193,7 +187,7 @@ export default function N8nModelScreen() {
           : await updateN8nWorkflow(formId, input)
       if (res.success) {
         setFormVisible(false)
-        Alert.alert(
+        appAlert(
           t('common.hint'),
           formMode === 'create' ? t('n8nModel.createSuccess') : t('n8nModel.editSuccess'),
         )
@@ -202,10 +196,10 @@ export default function N8nModelScreen() {
           setSelectedIds([res.data.id])
         }
       } else {
-        Alert.alert(t('common.hint'), res.error || t('n8nModel.operationFailed'))
+        appAlert(t('common.hint'), res.error || t('n8nModel.operationFailed'))
       }
     } catch {
-      Alert.alert(t('common.hint'), t('n8nModel.operationFailed'))
+      appAlert(t('common.hint'), t('n8nModel.operationFailed'))
     } finally {
       setFormSubmitting(false)
     }

@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { Alert } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getProfile, updateProfile } from '@ihui/api-client'
@@ -85,11 +85,11 @@ export function ProfileEditScreen() {
   const onSave = async () => {
     // 对齐 Uniapp loginPopUp 校验顺序:空昵称 → 超长
     if (!nickname.trim()) {
-      Alert.alert(uniappT('profileEdit.nicknameRequired'))
+      appAlert(uniappT('profileEdit.nicknameRequired'))
       return
     }
     if (nickname.trim().length > NICKNAME_MAX_LENGTH) {
-      Alert.alert(uniappT('profileEdit.nicknameTooLong'))
+      appAlert(uniappT('profileEdit.nicknameTooLong'))
       return
     }
     setSaving(true)
@@ -103,7 +103,7 @@ export function ProfileEditScreen() {
     setSaving(false)
     if (res.success) {
       // uni.showToast(上传成功) → RN Alert
-      Alert.alert(uniappT('profileEdit.saved'))
+      appAlert(uniappT('profileEdit.saved'))
       navigation.goBack()
     } else {
       setError(apiFailureToText(res, uniappT('profileEdit.saveFailed')))
@@ -141,7 +141,8 @@ export function ProfileEditScreen() {
       onSave={onSave}
       onRetry={fetchProfile}
       onBack={() => navigation.goBack()}
-     colorScheme={resolvedTheme}/>
+      colorScheme={resolvedTheme}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

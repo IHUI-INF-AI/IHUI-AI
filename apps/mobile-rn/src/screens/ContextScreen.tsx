@@ -12,7 +12,7 @@
  * - 导航:goBack;主题与 i18n 注入
  */
 import { useCallback, useEffect, useState } from 'react'
-import { Alert } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -45,7 +45,7 @@ export function ContextScreen() {
       if (!res.success || !res.data) throw new Error(res.error)
       setStats(res.data)
     } catch {
-      Alert.alert(t('context.loadFailed'))
+      appAlert(t('context.loadFailed'))
     } finally {
       setLoading(false)
     }

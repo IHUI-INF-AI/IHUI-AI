@@ -11,7 +11,7 @@
  * - 导航:goBack / KnowledgeDoc 详情 / KnowledgeCreate 新建;主题与 i18n 注入
  */
 import { useCallback, useEffect, useState } from 'react'
-import { Alert } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAuthStore } from '../stores/auth-store'
@@ -52,7 +52,7 @@ export function KnowledgeBaseScreen() {
   }, [load])
 
   const onDelete = (doc: KnowledgeDocSummary) => {
-    Alert.alert(t('knowledgeBase.deleteTitle'), t('knowledgeBase.deleteConfirm'), [
+    appAlert(t('knowledgeBase.deleteTitle'), t('knowledgeBase.deleteConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.confirm'),
@@ -63,7 +63,7 @@ export function KnowledgeBaseScreen() {
             await deleteKnowledgeDoc(doc.id, user?.id ?? '')
             void load()
           } catch {
-            Alert.alert(t('knowledgeBase.deleteFailed'))
+            appAlert(t('knowledgeBase.deleteFailed'))
           } finally {
             setDeleting(false)
           }
