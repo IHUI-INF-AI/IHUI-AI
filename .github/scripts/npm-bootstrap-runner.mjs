@@ -364,15 +364,42 @@ async function runTrustedPublisher(page, attempt) {
     await p.click({ timeout: 5000 })
     await page.keyboard.type(WEB_PASSWORD, { delay: 60 })
     await shot(page, `tp-login-filled`)
-    await page
-      .locator('button[type="submit"], button:has-text("Sign in")')
-      .first()
-      .click({ timeout: 10000 })
+    // 提交按钮必须限定在登录表单内(全局 :has-text("Sign in") 会误点页头导航元素,表单被重置)
+    const submitSel = [
+      'form button[type="submit"]',
+      'form button:has-text("Sign in")',
+      'main button[type="submit"]',
+      'button[type="submit"]',
+    ]
+    let clicked = false
+    for (const s of submitSel) {
+      const loc = page.locator(s).first()
+      if (await loc.isVisible({ timeout: 2500 }).catch(() => false)) {
+        await loc.click({ timeout: 10000 })
+        clicked = true
+        console.log('TP_LOGIN_SUBMIT=' + s)
+        break
+      }
+    }
+    if (!clicked) throw new Error('login submit button not found')
     await waitPastCloudflare(page, 120000)
-    await sleep(5000)
+    await sleep(6000)
     await shot(page, `tp-login-after`)
+    await page.screenshot({ path: `${SHOT_DIR}/tp-login-after-full.png`, fullPage: true })
     console.log('TP_LOGIN_URL=' + page.url())
+    // 登录后诊断:错误提示文本 + Turnstile iframe 检测
+    const lbody = ((await page.textContent('body').catch(() => '')) || '').replace(/\s+/g, ' ')
+    const errMatch = lbody.match(
+      /(incorrect[^.]{0,80}|too many[^.]{0,80}|wrong[^.]{0,80}|failed[^.]{0,80}|invalid[^.]{0,80}|locked[^.]{0,80}|verify[^.]{0,80})/i
+    )
+    console.log('TP_LOGIN_ERR=' + (errMatch ? errMatch[0] : '(none)'))
+    const tsFrames = page.frames().filter((f) => /challenges\.cloudflare\.com|turnstile/i.test(f.url())).length
+    console.log('TP_TURNSTILE_FRAMES=' + tsFrames)
+    if (/\/login/.test(page.url()) && errMatch) {
+      throw new Error('npm login rejected: ' + errMatch[0])
+    }
   } catch (e) {
+    if (/npm login rejected/.test(e.message)) throw e
     console.log('TP-LOGIN-SKIP ' + String(e.message).slice(0, 100))
   }
 
