@@ -17,7 +17,7 @@
     "production": {
       "autoIncrement": true,
       "android": {
-        "buildType": "apk"
+        "buildType": "app-bundle"
       },
       "env": {
         "WX_APP_APPID": "wx85fa429a9331b5c8",

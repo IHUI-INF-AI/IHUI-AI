@@ -412,6 +412,7 @@ const EXTRA_PATH_LABELS: PathLabelEntry[] = [
   { href: '/orders/[id]', spec: { ns: 'orders', key: 'loading' } },
   { href: '/plan/[id]', spec: { ns: 'plan', key: 'detail' } },
   { href: '/plan/new', spec: { ns: 'plan', key: 'new' } },
+  { href: '/play-beta', spec: { ns: 'playBeta', key: 'hero.title' } },
   { href: '/plaza/new', spec: { ns: 'plazaNew', key: 'success' } },
   { href: '/points/mall', spec: { ns: 'points', key: 'redeemSuccess' } },
   { href: '/points/tasks', spec: { ns: 'points.tasks', key: 'title' } },
