@@ -22,7 +22,8 @@
  * 平台独占入口:仅 mobile-rn 端。
  */
 import { useCallback, useState } from 'react'
-import { Alert, KeyboardAvoidingView, Linking, Platform, StyleSheet, View } from 'react-native'
+import { KeyboardAvoidingView, Linking, Platform, StyleSheet, View } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import {
   ChatRoomScreen,
   detectChatRoomMediaType,
@@ -172,7 +173,7 @@ export default function AssistantScreen() {
     const content = inputContent.trim()
     if (!content) return
     if (!userUuid) {
-      Alert.alert('用户信息不完整')
+      appAlert('用户信息不完整')
       return
     }
     const tempId = `temp_${Date.now()}`
@@ -223,10 +224,10 @@ export default function AssistantScreen() {
   const handleIconClick = useCallback((type: ChatRoomIconType) => {
     setShowAttach(false)
     if (type === 'wxfile') {
-      Alert.alert('仅微信小程序支持')
+      appAlert('仅微信小程序支持')
       return
     }
-    Alert.alert(
+    appAlert(
       '附件发送待接后端',
       `将支持:${type === 'camera' ? '拍照' : type === 'album' ? '相册图片' : '文件'}上传后经 WS 发送`,
     )
@@ -234,7 +235,7 @@ export default function AssistantScreen() {
 
   /** 音频/文件/视频打开(对齐历史 openAudio/openFile:APP 内 openURL) */
   const handleOpenUrl = useCallback((url: string) => {
-    void Linking.openURL(url).catch(() => Alert.alert('无法打开链接'))
+    void Linking.openURL(url).catch(() => appAlert('无法打开链接'))
   }, [])
 
   const chat = mode === 'chat' && activeRoom !== null

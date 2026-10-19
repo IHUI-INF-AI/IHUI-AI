@@ -12,7 +12,7 @@
  * - 导航:goBack;登录态 / 主题色 / i18n 注入
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
@@ -96,7 +96,7 @@ export function MemoryScreen() {
 
   const onCreate = async () => {
     if (!newText.trim()) {
-      Alert.alert(t('memory.textRequired'))
+      appAlert(t('memory.textRequired'))
       return
     }
     setSaving(true)
@@ -120,14 +120,14 @@ export function MemoryScreen() {
       setNewType('fact')
       setNewScope('user')
     } catch {
-      Alert.alert(t('memory.saveFailed'))
+      appAlert(t('memory.saveFailed'))
     } finally {
       setSaving(false)
     }
   }
 
   const onDelete = (entry: MemoryEntry) => {
-    Alert.alert(t('memory.deleteTitle'), t('memory.deleteConfirm'), [
+    appAlert(t('memory.deleteTitle'), t('memory.deleteConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.confirm'),
@@ -143,7 +143,7 @@ export function MemoryScreen() {
             setEntries((prev) => prev.filter((e) => e.id !== entry.id))
             setExpandedId((cur) => (cur === entry.id ? null : cur))
           } catch {
-            Alert.alert(t('memory.deleteFailed'))
+            appAlert(t('memory.deleteFailed'))
           } finally {
             setDeleting(false)
           }

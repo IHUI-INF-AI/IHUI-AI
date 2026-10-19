@@ -7,11 +7,13 @@
  *
  * 1:1 复刻历史 Uniapp ai_index.vue 核心结构:
  * - 顶部 NavBar:菜单入口(打开 Drawer)+ 标题"智汇AI"+ 加入按钮(二维码弹窗)
- * - 模型类型切换区:8 种模型类型按钮(skills/talk/image/video/audio/videoa/other/sck)
- *   注:Uniapp 第 8 个按钮是 'sck'(素材库/我的创作),非任务描述的 'all';
- *   'sck' 是素材库入口,'all' 是任务作者语义映射,这里按 Uniapp 保真用 'sck'。
+ * - 模型类型切换区:7 种模型类型按钮(skills/talk/image/video/audio/videoa/other)
+ *   注:Uniapp 第 8 个按钮是 'sck'(素材库/我的创作);2026-10-18 用户令「我的创作」
+ *   移入输入行「+」面板主入口行(ChatInputBar onShowMyCreation → AddPanel heroItem),
+ *   模型类型行不再承载该入口;ChatModelType 值域(8 值)仍含 'sck',仅不再渲染按钮。
  * - Material 卡片区:当前对话引入的素材(materialCards),横向卡片 + 关闭按钮(对齐 Uniapp materialCards)
- *   素材库浏览弹窗(sck 点击)用现有 MaterialList 组件(分类 tab + 网格),不支持删除;
+ *   素材库浏览弹窗(「我的创作」,来源:「+」面板主入口行 / source-handle 面板「素材库」项)
+ *   用现有 MaterialList 组件(分类 tab + 网格),不支持删除;
  *   materialCards 是"引入到输入区的素材",需删除,故自定义实现。在注释中说明分工。
  * - 消息列表:FlatList 渲染气泡(user 右 / assistant 左),保留 streamChat 流式逻辑
  * - 底部输入区:输入框 + 语音 + 图片(自定义)+ 功能开关 chip 行(对齐 Uniapp ToggleButtonGroup)
@@ -35,10 +37,10 @@ import * as DocumentPicker from 'expo-document-picker'
 import { File, Paths } from 'expo-file-system'
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -47,7 +49,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
   useWindowDimensions,
 } from 'react-native'
@@ -60,32 +61,25 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { tokens } from '../theme/active-tokens'
 import {
-  AlertTriangle,
   Bot,
   BookOpen,
-  Bookmark,
-  BookmarkCheck,
   Clapperboard,
-  Copy,
   Cpu,
   Download,
   Image as ImageIcon,
-  Library,
   Link,
   type LucideIcon,
   MessageCircle,
   MessageSquare,
+  Mic,
   Music,
   Paperclip,
-  Pin,
-  PinOff,
+  PenLine,
   QrCode,
   RefreshCw,
   Share2,
   Sparkles,
   Star,
-  ThumbsDown,
-  ThumbsUp,
   Trash2,
   Video,
   Volume2,
@@ -154,15 +148,19 @@ import {
   type ChatScreenModel,
 } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
+import { AgentSelector } from '../components/chat/AgentSelector'
+import { NotesPanel } from '../components/chat/NotesPanel'
+import { createVoiceSession, closeVoiceSession, turnVoiceSession } from '../lib/engine-voice'
+import useVoiceRecorder from '../hooks/use-voice-recorder'
+import { ImageAnnotator } from '../components/chat/ImageAnnotator'
+import { VoicePanel } from '../components/chat/VoicePanel'
+import {
+  ChatMessageItem,
+  type ChatScreenMessageWithReasoning,
+} from '../components/chat/ChatMessageList'
 import { ShareRewardDialog } from '../components/ShareRewardDialog'
 import { NavChrome } from '../components/NavChrome'
 // G-166:交代区(RN 端共享组件)—— 引用来源 + 本轮上下文注入,与 N8n 屏同一实现
-import {
-  CitationList,
-  InjectionDisclosure,
-  PermissionTierRow,
-  SteerNoticeList,
-} from '../components/ChatDisclosure'
 // D135(承 V4 #93):任务进度状态条 —— 执行帧折叠结果的可读出口,与 N8n 屏同一组件
 import { TaskStatusBar } from '../components/ai/TaskStatusBar'
 import {
@@ -170,23 +168,17 @@ import {
   applyAssistantExecutionFrame,
   applyInjectionFrame,
   appendSteerFrames,
-  formatDurationMs,
   foldElementPackFrames,
   readSteerAppliedFromMetadata,
-  subagentReplayRow,
   type AssistantExecutionFrame,
   type AssistantExecutionViz,
-  type MessageCitation,
-  type MessageInjection,
   type SteerNotice,
   type SubagentReplayItem,
 } from '../utils/chat-render-model'
-import { thinkingTitleView } from '@ihui/shared/chat/element-pack'
 import { parseElementPackFrames } from '@ihui/shared/chat/element-pack-history'
-import { BottomActionBar, type BottomActionBarIconType } from '../components/BottomActionBar'
+import { type BottomActionBarIconType } from '../components/BottomActionBar'
+import { ChatInputBar } from '../components/chat/ChatInputBar'
 import { McpStatusStrip } from '../components/McpStatusStrip'
-// 2026-10-16 录音消息:消息内语音气泡(播放回听),渲染面挂在 renderMessage 的 audio 段
-import { VoiceBubble } from '../components/VoiceBubble'
 // 对齐 Uniapp ai_index2.vue 行 117-131:对话页顶部「查看卡片」折叠区(智汇值卡)
 import IntelligentAssistant from '../components/IntelligentAssistant'
 import MaterialList, { type MaterialCategory, type MaterialItem } from '../components/MaterialList'
@@ -200,8 +192,8 @@ import { ModelConfigDialog, type ModelConfig } from '../components/ModelConfigDi
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import { NAVBAR_ACTION_GLYPH_PX } from '@ihui/shared/ui/navbar-spec'
 import ModelPickerList, { type ModelListItem } from '../components/ModelPickerList'
-import AgentList, { type AgentListItem } from '../components/AgentList'
-import { BottomPops } from '../components/BottomPops'
+import type { AgentListItem } from '../components/AgentList'
+import { BottomPops, appAlert } from '../components/BottomPops'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
@@ -221,10 +213,8 @@ import {
   terminateActiveStream,
 } from '../lib/model-switch'
 import { rpx } from '../utils/rpx'
-// 消息富内容解析(代码块/图片/文本分段,对齐 ai_index2 agent_content_list;独立模块供单测共用)
-import { parseMessageContent } from '../utils/message-parse'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 import type { ChatModelType } from '@ihui/types'
 
 // ── 类型定义(强类型,禁用 any) ──
@@ -234,7 +224,8 @@ type RootNav = NativeStackNavigationProp<RootStackParamList>
 /**
  * 模型类型(8 值)。值域单源 = `@ihui/types` 的 `ChatModelType`:这一副值在仓里原有三份逐字
  * 相同副本(小程序 ModelTypeButton、RN ChatScreen 与 HomeScreen),小程序侧已接,本枚接 RN 两处。
- * Uniapp 实际第 8 个按钮是 'sck'(素材库),非 'all';按 Uniapp 保真用 'sck'。
+ * Uniapp 实际第 8 个按钮是 'sck'(素材库);2026-10-18 起 RN 模型类型行只渲染 7 项,
+ * 'sck' 入口移入「+」面板「我的创作」主入口行,值域本身不变。
  */
 type ModelType = ChatModelType
 
@@ -251,28 +242,13 @@ interface MaterialCard {
   posterUrl?: string
 }
 
+// 确认弹层:已统一走共享 appAlert(见 components/BottomPops 的 AppConfirmHost),本屏不再自维护状态。
+
 /** 模型类型按钮配置 */
 interface ModelTypeConfig {
   key: ModelType
   label: string
   Icon: LucideIcon
-}
-
-/**
- * 带推理过程(thinking)的 AI 消息(对齐 Uniapp ai_index2.vue thinking-process)。
- * ChatScreenMessage(@ihui/types)仅有 id/role/content,本地扩展 reasoning 字段,
- * 对齐 @ihui/shared ChatMessage.reasoning(chat_messages 表已有该字段)。
- */
-interface ChatScreenMessageWithReasoning extends ChatScreenMessage {
-  reasoning?: string
-  /** G-166 交代区:本轮引用来源 / 带了哪些上下文(与 @ihui/shared ChatMessage 同一形状) */
-  citations?: MessageCitation[]
-  injections?: MessageInjection[]
-  /** D106 Steer(中途引导):本轮被用户注入的引导交代,对齐 web steerNoticesByMessageId。
-   *  api 侧已随回调落库 metadata.steerApplied,历史水合读回(2026-09-24 立)。 */
-  steerNotices?: SteerNotice[]
-  /** D64⑤ 历史回放:metadata.elementPack 子代理帧归并后的最小回放视图(空/缺席不渲染) */
-  elementPack?: SubagentReplayItem[]
 }
 
 /**
@@ -358,7 +334,8 @@ const FALLBACK_MODELS: LlmModel[] = SHARED_FALLBACK_MODELS.map((m) => ({
   input_price: 0,
 }))
 
-/** 8 种模型类型按钮(对齐 Uniapp ai_index.vue 的 8 个 model-type-btn) */
+/** 7 种模型类型按钮(对齐 Uniapp ai_index.vue 的 model-type-btn;
+ *  2026-10-18:原第 8 项「素材」(sck/我的创作)移入输入行「+」面板主入口行) */
 const MODEL_TYPES: readonly ModelTypeConfig[] = [
   { key: 'skills', label: '技能', Icon: Sparkles },
   { key: 'talk', label: '对话', Icon: MessageCircle },
@@ -367,7 +344,6 @@ const MODEL_TYPES: readonly ModelTypeConfig[] = [
   { key: 'audio', label: '音频', Icon: Music },
   { key: 'videoa', label: '视音', Icon: Clapperboard },
   { key: 'other', label: '其他', Icon: Cpu },
-  { key: 'sck', label: '素材', Icon: Library },
 ] as const
 
 /** 素材库分类(对齐 Uniapp MaterialList 的 4 tab:文本/图片/视频/音频) */
@@ -460,9 +436,6 @@ const formatDetailValue = (v: unknown): string => {
   if (typeof v === 'object') return JSON.stringify(v)
   return String(v)
 }
-
-/** TTS 语音类型选项(P1.1 转语音 Modal,真实 TTS 已接入) */
-const TTS_VOICE_OPTIONS: readonly string[] = ['男声', '女声', '儿童'] as const
 
 /** 文件上传支持类型徽章(P1.5,expo-document-picker 已装,DocumentPicker + uploadFileMultipart 真实上传) */
 const FILE_TYPE_BADGES: readonly string[] = ['PDF', 'Word', 'Excel', 'TXT'] as const
@@ -561,6 +534,19 @@ export function ChatScreen() {
   // 思考过程展开状态(msgId,对齐 ai_index2 thinking-process:默认收起,点击标题展开/收起)
   const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set())
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
+  // D114:选中 Agent 痕迹(AgentSelector「当前人格」摘要区数据源;RN 现状选中即跳 N8n,这里只留选中态)
+  const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined)
+  // D43③ 语音笔记面板 / D124 图片标注编辑器(从图片全屏预览进入)
+  const [notesVisible, setNotesVisible] = useState(false)
+  const [annotatorUri, setAnnotatorUri] = useState<string | null>(null)
+  // D126 实时语音(回合式 engine_voice):会话/回合/播放编排;面板只发按压事件,录音走 useVoiceRecorder 原始模式
+  const [realtimeVoiceState, setRealtimeVoiceState] = useState<
+    'idle' | 'connecting' | 'live' | 'error'
+  >('idle')
+  const [realtimeErrorText, setRealtimeErrorText] = useState<string | undefined>(undefined)
+  const [turnBusy, setTurnBusy] = useState(false)
+  const [turnNote, setTurnNote] = useState<string | undefined>(undefined)
+  const realtimeSessionRef = useRef<string | null>(null)
   const [models, setModels] = useState<LlmModel[]>(FALLBACK_MODELS)
   const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
   // 票 68:档位「最新值」的两个出口。modelRef 供 send() 在把 payload 交出去之前复核档位;
@@ -665,7 +651,7 @@ export function ChatScreen() {
   const nextId = (): string => `msg-${++idCounter.current}`
   const nextMaterialCardId = (): string => `card-${++materialCardIdCounter.current}`
 
-  // FloatBox 浮层提示状态(替代单按钮 Alert.alert 的非阻塞反馈)
+  // FloatBox 浮层提示状态(替代单按钮原生 Alert 的非阻塞反馈)
   const [toastVisible, setToastVisible] = useState(false)
   const [toastType, setToastType] = useState<FloatBoxType>('info')
   const [toastMessage, setToastMessage] = useState('')
@@ -845,7 +831,7 @@ export function ChatScreen() {
     setInputPanelVisible(false)
     // 登录校验:未登录提示并跳转 Login(logout 触发 RootNavigator 切换到 Login 流)
     if (!authUser) {
-      Alert.alert('提示', '请先登录后再发送消息', [
+      appAlert('提示', '请先登录后再发送消息', [
         {
           text: t('chatAlert.loginBtn'),
           onPress: () => {
@@ -861,8 +847,7 @@ export function ChatScreen() {
     const isPaidModel = currentModelInfo ? currentModelInfo.input_price > 0 : false
     const isVip = authUser.isVip === 1
     if (isPaidModel && !isVip) {
-      Alert.alert('提示', '该模型为 VIP 专享,开通会员后可使用', [
-        // 对齐历史 loginPopUp/index.vue openIntroduce:「开通会员」→ vip_info?type=IntroducePopup
+      appAlert('提示', '该模型为 VIP 专享,开通会员后可使用', [
         { text: '开通会员', onPress: () => navigation.navigate('Vip', { type: 'IntroducePopup' }) },
         { text: '取消', style: 'cancel' },
       ])
@@ -1141,7 +1126,7 @@ export function ChatScreen() {
         setIsStreaming(false)
         abortRef.current = null
         if (formatted.severity === 'auth') {
-          Alert.alert(formatted.title, formatted.message, [
+          appAlert(formatted.title, formatted.message, [
             { text: '重新登录', onPress: () => logout() },
             { text: '取消', style: 'cancel' },
           ])
@@ -1316,7 +1301,7 @@ export function ChatScreen() {
     void sendRef.current(text, base)
   }, [messages])
 
-  // ── 模型类型按钮点击(对齐 Uniapp handleModelTypeClick / toggleMaterialPopup) ──
+  // ── 模型类型按钮点击(对齐 Uniapp handleModelTypeClick) ──
   /** 按分类加载素材库(对齐 Uniapp loadMaterialContent;数据源 getMyCreation,按分类映射 API type;
    *  audio 无对应类型 → 空态) */
   const loadMaterials = useCallback((category: string): void => {
@@ -1349,40 +1334,38 @@ export function ChatScreen() {
     [loadMaterials],
   )
 
-  const handleModelTypeClick = useCallback(
-    (type: ModelType): void => {
-      if (type === 'sck') {
-        // 素材库:切换弹窗(对齐 Uniapp toggleMaterialPopup)
-        setCurrentModelType((prev) => {
-          if (prev === 'sck') {
-            setShowMaterialList(false)
-            return ''
-          }
-          setShowMaterialList(true)
-          // 打开素材库默认切回文本 tab 并加载(对齐 Uniapp materialTab=1 + loadMaterialContent(1))
-          setMaterialTab('text')
-          void loadMaterials('text')
-          return 'sck'
-        })
-        return
+  /**
+   * 我的创作(2026-10-18:自输入框上方模型类型行第 8 项「素材」移入输入行「+」面板主入口行;
+   *  打开素材库默认切回文本 tab 并加载,对齐 Uniapp materialTab=1 + loadMaterialContent(1);
+   *  不再借道 currentModelType——模型类型行已无 sck 按钮,选中态与弹窗解耦)
+   */
+  const showMyCreation = useCallback((): void => {
+    setShowMaterialList(true)
+    setMaterialTab('text')
+    void loadMaterials('text')
+  }, [loadMaterials])
+
+  /** 关闭素材库弹窗(仅收弹窗;不动 currentModelType——它可能持有其他模型类型的选中态) */
+  const closeMaterialList = useCallback((): void => {
+    setShowMaterialList(false)
+  }, [])
+
+  const handleModelTypeClick = useCallback((type: ModelType): void => {
+    // 其他类型:切换选中态 + 打开 ModelList 弹窗
+    // (对齐 Uniapp handleModelTypeClick 行 698-777:点击类型 → showModelList=true 显示
+    // 对应类型模型列表;二次点击同一类型收起。RN 端 ModelList 弹窗按 vendor 分组展示全部
+    // 模型,不区分类型,为内联等价实现)
+    setCurrentModelType((prev) => {
+      if (prev === type) {
+        setModelListVisible(false)
+        return ''
       }
-      // 其他类型:切换选中态 + 打开 ModelList 弹窗
-      // (对齐 Uniapp handleModelTypeClick 行 698-777:点击类型 → showModelList=true 显示
-      // 对应类型模型列表;二次点击同一类型收起。RN 端 ModelList 弹窗按 vendor 分组展示全部
-      // 模型,不区分类型,为内联等价实现)
-      setCurrentModelType((prev) => {
-        if (prev === type) {
-          setModelListVisible(false)
-          return ''
-        }
-        setModelListVisible(true)
-        setShowMaterialList(false)
-        setAgentListVisible(false)
-        return type
-      })
-    },
-    [loadMaterials],
-  )
+      setModelListVisible(true)
+      setShowMaterialList(false)
+      setAgentListVisible(false)
+      return type
+    })
+  }, [])
 
   // ── BottomActionBar 核心事件回调(10 个核心) ──
 
@@ -1550,6 +1533,83 @@ export function ChatScreen() {
     [showToast],
   )
 
+  // ── D126 实时语音(回合式):建会话 → live → 按住说话(原始录音)→ 松手 turn → 播响应 ──
+  const handleRealtimeTurn = useCallback(
+    async (uri: string): Promise<void> => {
+      const sid = realtimeSessionRef.current
+      if (!sid || !uri) return
+      setTurnBusy(true)
+      setTurnNote(undefined)
+      try {
+        const blob = await (await fetch(uri)).blob()
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(String(reader.result))
+          reader.onerror = () => reject(reader.error)
+          reader.readAsDataURL(blob)
+        })
+        const audioBase64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
+        const result = await turnVoiceSession(sid, audioBase64, { filename: 'turn.m4a' })
+        setTurnNote(result.note ?? undefined)
+        if (result.audioBase64) {
+          // 复用 TTS 既有播放链:base64 → 缓存文件 → ttsPlayer(Hermes 内建 atob,RN>=0.74)
+          const bin = atob(result.audioBase64)
+          const bytes = new Uint8Array(bin.length)
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+          const audioFile = new File(Paths.cache, `voice-turn-${Date.now()}.mp3`)
+          audioFile.write(bytes)
+          ttsPlayer.replace(audioFile.uri)
+          ttsPlayer.play()
+        } else if (result.responseText.trim()) {
+          setPrompt((p) => (p ? `${p}\n${result.responseText}` : result.responseText))
+        }
+      } catch (e) {
+        showToast('warning', e instanceof Error ? e.message : '语音回合失败,请重试')
+      } finally {
+        setTurnBusy(false)
+      }
+    },
+    [showToast, ttsPlayer],
+  )
+  // 原始录音模式:跳过 STT,松手把录音文件交给 handleRealtimeTurn(面板为 Modal,与输入条录音天然互斥)
+  const realtimeRecorder = useVoiceRecorder({
+    transcribe: false,
+    onRecorded: (uri) => {
+      void handleRealtimeTurn(uri)
+    },
+  })
+  const startRealtimeVoice = useCallback(async (): Promise<void> => {
+    if (realtimeVoiceState === 'connecting' || realtimeVoiceState === 'live') return
+    setRealtimeVoiceState('connecting')
+    setRealtimeErrorText(undefined)
+    try {
+      const session = await createVoiceSession()
+      realtimeSessionRef.current = session.sessionId
+      setRealtimeVoiceState('live')
+    } catch (e) {
+      setRealtimeVoiceState('error')
+      setRealtimeErrorText(e instanceof Error ? e.message : '连接失败,请重试')
+    }
+  }, [realtimeVoiceState])
+  const handleRealtimeTalkPress = useCallback(
+    (pressed: boolean): void => {
+      if (pressed) {
+        void realtimeRecorder.start()
+        return
+      }
+      void realtimeRecorder.stop()
+    },
+    [realtimeRecorder],
+  )
+  const closeRealtimeVoice = useCallback((): void => {
+    const sid = realtimeSessionRef.current
+    realtimeSessionRef.current = null
+    setRealtimeVoiceState('idle')
+    setTurnNote(undefined)
+    setTurnBusy(false)
+    if (sid) void closeVoiceSession(sid).catch(() => {})
+  }, [])
+
   /**
    * P1.1 转语音:打开语音类型选项 Modal,调用真实 TTS 接口并播放生成的音频。
    */
@@ -1644,7 +1704,7 @@ export function ChatScreen() {
       showToast('warning', '当前对话为空')
       return
     }
-    Alert.alert('清空对话', '确认清空当前对话的所有消息?', [
+    appAlert('清空对话', '确认清空当前对话的所有消息?', [
       { text: '取消', style: 'cancel' },
       {
         text: '清空',
@@ -1715,7 +1775,7 @@ export function ChatScreen() {
   /**
    * function-handle 面板 6 项列表(对齐 Uniapp function-handle 子组件)。
    * 1. 切换模型 → 复用 ModelList 弹窗(setModelListVisible)
-   * 2. 清空对话 → Alert 二次确认
+   * 2. 清空对话 → 确认弹层二次确认
    * 3. 导出对话 → Share.share 分享对话文本
    * 4. 分享对话 → Share.share(语义独立,UI 入口分离)
    * 5. 转语音 → 真实 TTS(fetchTextToSpeechAudio + expo-audio 播放,openTtsPanel)
@@ -1768,12 +1828,13 @@ export function ChatScreen() {
   ]
 
   /**
-   * source-handle 面板 4 项列表(对齐 Uniapp source-handle 子组件)。
+   * source-handle 面板 5 项列表(对齐 Uniapp source-handle 子组件 + D43③ 语音笔记)。
    * 1. 素材库 → 已接 MaterialList 弹窗(数据源 getMyCreation 我的创作;
    *    后端无 /api/material 端点,素材库接口未开通,勿伪造)
    * 2. 网页链接 → 已接 URL 输入 Modal(纯前端实现,作为消息发送)
    * 3. 文件上传 → 已接 DocumentPicker + uploadFileMultipart 真实上传
    * 4. 历史对话 → 复用 Drawer(setDrawerVisible)
+   * 5. 语音笔记 → 已接 NotesPanel(D43③:列表选一条回填输入框 / 新建录音走语音输入链路)
    */
   const sourcePanelItems: readonly PanelItem[] = [
     {
@@ -1781,10 +1842,19 @@ export function ChatScreen() {
       label: '素材库',
       Icon: BookOpen,
       onPress: () => {
-        // P1.3:复用 sck 模型类型 + MaterialList 弹窗
+        // P1.3:素材库弹窗(2026-10-18 起与「+」面板「我的创作」主入口共用 showMyCreation)
         setSourcePanelVisible(false)
-        setCurrentModelType('sck')
-        setShowMaterialList(true)
+        showMyCreation()
+      },
+    },
+    {
+      key: 'voice-notes',
+      label: '语音笔记',
+      Icon: Mic,
+      onPress: () => {
+        // D43③:语音笔记面板(列表回填输入框 / 新建录音)
+        setSourcePanelVisible(false)
+        setNotesVisible(true)
       },
     },
     {
@@ -1915,7 +1985,7 @@ export function ChatScreen() {
       const title =
         msg.role === 'user' ? t('chatAlert.longPress.myTitle') : t('chatAlert.longPress.aiTitle')
       const shareText = uri ? { url: uri, message: msg.content } : { message: msg.content }
-      Alert.alert(title, t('chatAlert.longPress.message'), [
+      appAlert(title, t('chatAlert.longPress.message'), [
         {
           text: t('chatAlert.longPress.shareBtn'),
           onPress: () => {
@@ -1983,338 +2053,38 @@ export function ChatScreen() {
     [showToast, t],
   )
 
+  // ── 单条消息渲染:抽至 ChatMessageItem(ChatMessageList.tsx,D99 富文本锚点) ──
   const renderMessage = useCallback(
-    (item: ChatScreenMessage, _index: number): React.ReactNode => {
-      const isUser = item.role === 'user'
-      const isLastMessage = messages.length > 0 && item.id === messages[messages.length - 1]?.id
-      const showActions = !isUser && item.content.trim() !== '' && !(isStreaming && isLastMessage)
-      // 票64(2026-10-18 立):钉选/收藏抽成一份,AI 行与用户行共用 —— 标记语义与"谁能被点赞"
-      // 不是一回事(web 端两枚按钮对 user+assistant 同渲染,这里对齐同一口径;分叉写两遍必然漂)。
-      // 图标按服务端盖章的时刻切,文案与无障碍标签一律取词(§19 禁止端内新增硬编码中文)。
-      const flagButtons: React.ReactNode = (
-        <>
-          <TouchableOpacity
-            style={styles.msgActionBtn}
-            hitSlop={8}
-            onPress={() => void toggleMessageFlag(item, 'pinned')}
-            accessibilityRole="button"
-            accessibilityLabel={item.pinnedAt ? t('chat.unpin') : t('chat.pin')}
-          >
-            {item.pinnedAt ? (
-              <PinOff size={16} color={tokens.text.primary} />
-            ) : (
-              <Pin size={16} color={tokens.text.secondary} />
-            )}
-            <Text style={styles.msgActionText}>
-              {item.pinnedAt ? t('chat.unpin') : t('chat.pin')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.msgActionBtn}
-            hitSlop={8}
-            onPress={() => void toggleMessageFlag(item, 'bookmarked')}
-            accessibilityRole="button"
-            accessibilityLabel={item.bookmarkedAt ? t('chat.unbookmark') : t('chat.bookmark')}
-          >
-            {item.bookmarkedAt ? (
-              <BookmarkCheck size={16} color={tokens.text.primary} />
-            ) : (
-              <Bookmark size={16} color={tokens.text.secondary} />
-            )}
-            <Text style={styles.msgActionText}>
-              {item.bookmarkedAt ? t('chat.unbookmark') : t('chat.bookmark')}
-            </Text>
-          </TouchableOpacity>
-        </>
-      )
-      // 失败轮:渲染错误卡片而非正文;重试只在"确实有一条可重发的用户提问"时给
-      const isFailed = !isUser && isErrorTurn(item)
-      const retryable = isFailed && resendTargetText(messages) !== null
-      // 富内容分段(代码块/图片/文本,对齐 ai_index2 agent_content_list;消息内容不长,直接解析)
-      const segments = parseMessageContent(item.content)
-      // 思考过程(对齐 ai_index2 thinking-process:assistant 消息带 reasoning 时渲染折叠区块,
-      // 默认收起只显示标题行;reasoning 由 toChatScreenMessage 映射透传)
-      const reasoning = !isUser ? ((item as ChatScreenMessageWithReasoning).reasoning ?? '') : ''
-      // D64③ 双态标题判据走共享真相源:有思考 → thinkingTitle;无思考但有引用 → thinkingRefsTitle
-      const thinkingView = thinkingTitleView(
-        reasoning.trim() !== '',
-        (item as ChatScreenMessageWithReasoning).citations?.length ?? 0,
-      )
-      const thinkingKey = item.id
-      const thinkingExpanded = expandedThinking.has(thinkingKey)
-      return (
-        <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAi]}>
-          <View style={styles.msgContent}>
-            <Pressable
-              ref={(el) => {
-                if (el) messageRefs.current.set(item.id, el)
-                else messageRefs.current.delete(item.id)
-              }}
-              onLongPress={() => void handleLongPressMessage(item)}
-              delayLongPress={500}
-              style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAi]}
-            >
-              {isFailed ? (
-                // 失败轮:错误卡片(警示头 + 正文 + 重试出口),整块替换正文 —— 与 web D22 /
-                // miniapp 同一形态,跨端一致:失败不产出内容,也不能看起来像一次正常回答。
-                <View style={styles.msgErrorCard}>
-                  <View style={styles.msgErrorHeader}>
-                    <AlertTriangle size={14} color={tokens.error.text} />
-                    <Text style={styles.msgErrorTitle}>{t('chatAlert.errorTitle')}</Text>
-                  </View>
-                  <Text style={styles.msgErrorBody} selectable>
-                    {item.content}
-                  </Text>
-                  {retryable ? (
-                    <TouchableOpacity
-                      style={styles.msgErrorRetry}
-                      hitSlop={8}
-                      onPress={retryLastTurn}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('chatAlert.errorRetry')}
-                    >
-                      <RefreshCw size={14} color={tokens.error.text} />
-                      <Text style={styles.msgErrorRetryText}>{t('chatAlert.errorRetry')}</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              ) : thinkingView ? (
-                <View style={styles.thinkingBlock}>
-                  <Pressable
-                    style={styles.thinkingHeader}
-                    hitSlop={6}
-                    onPress={() =>
-                      setExpandedThinking((prev) => {
-                        const next = new Set(prev)
-                        if (next.has(thinkingKey)) next.delete(thinkingKey)
-                        else next.add(thinkingKey)
-                        return next
-                      })
-                    }
-                    accessibilityRole="button"
-                    accessibilityLabel={thinkingExpanded ? '收起思考过程' : '展开思考过程'}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <MessageSquare size={12} color={tokens.text.secondary} />
-                      <Text style={styles.thinkingTitle}>
-                        {t(`ai.pane.${thinkingView.titleKey}`, thinkingView.values)}
-                      </Text>
-                    </View>
-                    {reasoning.trim() !== '' ? (
-                      <Text style={styles.thinkingToggle}>
-                        {thinkingExpanded ? '收起' : '展开'}
-                      </Text>
-                    ) : null}
-                  </Pressable>
-                  {thinkingExpanded && reasoning.trim() !== '' ? (
-                    <Text style={styles.thinkingContent} selectable>
-                      {reasoning}
-                    </Text>
-                  ) : null}
-                </View>
-              ) : null}
-              {!isFailed &&
-                segments.map((seg, segIndex) => {
-                  if (seg.type === 'audio') {
-                    // 2026-10-16 录音消息:语音气泡(播放/暂停 + 进度点条 + 时长),可回听
-                    return (
-                      <VoiceBubble
-                        key={`${item.id}-voice-${segIndex}`}
-                        url={seg.url}
-                        durationSec={seg.durationSec}
-                        isUser={isUser}
-                      />
-                    )
-                  }
-                  if (seg.type === 'image') {
-                    return (
-                      <Pressable
-                        key={`${item.id}-img-${segIndex}`}
-                        onPress={() => setPreviewImageUrl(seg.url)}
-                        style={styles.msgImageWrap}
-                      >
-                        <Image
-                          source={{ uri: seg.url }}
-                          style={styles.msgImage}
-                          resizeMode="cover"
-                          accessibilityLabel="消息图片,点击预览"
-                        />
-                      </Pressable>
-                    )
-                  }
-                  if (seg.type === 'code') {
-                    const codeKey = `${item.id}-${segIndex}`
-                    const expanded = expandedCodeBlocks.has(codeKey)
-                    return (
-                      <View key={`${item.id}-code-${segIndex}`} style={styles.codeBlock}>
-                        <View style={styles.codeBlockHeader}>
-                          <Text style={styles.codeBlockLang} numberOfLines={1}>
-                            {seg.language || 'code'}
-                          </Text>
-                          <View style={styles.codeBlockActions}>
-                            <TouchableOpacity
-                              style={styles.codeBlockBtn}
-                              hitSlop={6}
-                              onPress={() => {
-                                Clipboard.setString(seg.code)
-                                showToast('success', '已复制')
-                              }}
-                              accessibilityRole="button"
-                              accessibilityLabel="复制代码"
-                            >
-                              <Copy size={13} color={tokens.gray['200']} />
-                              <Text style={styles.codeBlockBtnText}>复制</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={styles.codeBlockBtn}
-                              hitSlop={6}
-                              onPress={() =>
-                                setExpandedCodeBlocks((prev) => {
-                                  const next = new Set(prev)
-                                  if (next.has(codeKey)) next.delete(codeKey)
-                                  else next.add(codeKey)
-                                  return next
-                                })
-                              }
-                              accessibilityRole="button"
-                              accessibilityLabel={expanded ? '收起代码' : '展开代码'}
-                            >
-                              <Text style={styles.codeBlockBtnText}>
-                                {expanded ? '收起' : '展开'}
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                        {expanded ? (
-                          <Text style={styles.codeBlockContent} selectable>
-                            {seg.code}
-                          </Text>
-                        ) : (
-                          <Text style={styles.codeBlockContent} numberOfLines={4}>
-                            {seg.code}
-                          </Text>
-                        )}
-                      </View>
-                    )
-                  }
-                  return (
-                    <Text
-                      key={`${item.id}-text-${segIndex}`}
-                      style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}
-                    >
-                      {seg.text}
-                    </Text>
-                  )
-                })}
-              {!isFailed && segments.length === 0 ? (
-                <Text style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}>
-                  {item.content || (isStreaming && !isUser ? '正在思考…' : item.content)}
-                </Text>
-              ) : null}
-            </Pressable>
-            {showActions ? (
-              <View style={styles.msgActions}>
-                <TouchableOpacity
-                  style={styles.msgActionBtn}
-                  hitSlop={8}
-                  onPress={() => {
-                    Clipboard.setString(item.content)
-                    showToast('success', '已复制')
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="复制"
-                >
-                  <Copy size={16} color={tokens.text.secondary} />
-                  <Text style={styles.msgActionText}>复制</Text>
-                </TouchableOpacity>
-                {flagButtons}
-                {/* 失败轮不给"分享"(它不是内容);复制保留 —— 报错排查要用那段文字 */}
-                {isFailed ? null : (
-                  <TouchableOpacity
-                    style={styles.msgActionBtn}
-                    hitSlop={8}
-                    onPress={() => {
-                      void Share.share({ message: item.content }).then(() => {
-                        void maybeTriggerFirstShareReward()
-                      })
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel="分享"
-                  >
-                    <Share2 size={16} color={tokens.text.secondary} />
-                    <Text style={styles.msgActionText}>分享</Text>
-                  </TouchableOpacity>
-                )}
-                {isFailed ? null : (
-                  <TouchableOpacity
-                    style={styles.msgActionBtn}
-                    hitSlop={8}
-                    onPress={() => void rateMessage(item.id, 'like')}
-                    accessibilityRole="button"
-                    accessibilityLabel="赞同"
-                  >
-                    <ThumbsUp size={16} color={tokens.text.secondary} />
-                  </TouchableOpacity>
-                )}
-                {isFailed ? null : (
-                  <TouchableOpacity
-                    style={styles.msgActionBtn}
-                    hitSlop={8}
-                    onPress={() => void rateMessage(item.id, 'dislike')}
-                    accessibilityRole="button"
-                    accessibilityLabel="反对"
-                  >
-                    <ThumbsDown size={16} color={tokens.text.secondary} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            ) : null}
-            {/* 票64:用户消息也给这两枚(操作行其余按钮维持既有"只给 AI"的结构不动) */}
-            {isUser ? <View style={styles.msgActions}>{flagButtons}</View> : null}
-            {/* G-166 交代区:本轮引用来源 + 带了哪些上下文(与 N8n 屏同一共享组件) */}
-            {isFailed ? null : (
-              <InjectionDisclosure
-                items={(item as ChatScreenMessageWithReasoning).injections ?? []}
-              />
-            )}
-            {isFailed ? null : (
-              <CitationList items={(item as ChatScreenMessageWithReasoning).citations ?? []} />
-            )}
-            {/* D106 Steer(中途引导)交代:本轮被注入了哪些引导文本 */}
-            {isFailed ? null : (
-              <SteerNoticeList
-                items={(item as ChatScreenMessageWithReasoning).steerNotices ?? []}
-              />
-            )}
-            {/* D64⑤ 历史回放:metadata.elementPack 子代理帧的最小回放行(一行一代理,
-                与既有 execRowText 行形态同族;流式侧最小形态是计数+日志行,回放不逐帧重演) */}
-            {isFailed ? null : (item as ChatScreenMessageWithReasoning).elementPack?.length ? (
-              <View style={styles.execRows}>
-                {(item as ChatScreenMessageWithReasoning).elementPack!.map((sg) => (
-                  <Text key={sg.id} style={styles.execRowText} numberOfLines={1}>
-                    {subagentReplayRow(sg, t)}
-                  </Text>
-                ))}
-              </View>
-            ) : null}
-            {/* D111 权限档交代行:档名 + 该档后果(与 N8n 屏同一共享组件;null 不渲染) */}
-            {isFailed ? null : <PermissionTierRow key="permission-tier-row" mode={workspaceTier} />}
-            {/* D135 终端任务最小可视态:命令 + 状态 + 耗时(完整终端面板在 N8n 屏,不在此复制) */}
-            {isFailed ? null : executionVizById[item.id]?.terminalTasks?.length ? (
-              <View style={styles.execRows}>
-                {(executionVizById[item.id]!.terminalTasks ?? []).map((task) => (
-                  <Text key={task.id} style={styles.execRowText} numberOfLines={1}>
-                    {`$ ${task.command} · ${task.status}${
-                      task.durationMs !== undefined ? ` · ${formatDurationMs(task.durationMs)}` : ''
-                    }`}
-                  </Text>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        </View>
-      )
-    },
+    (item: ChatScreenMessage, _index: number): React.ReactNode => (
+      <ChatMessageItem
+        item={item}
+        messages={messages}
+        isStreaming={isStreaming}
+        expandedCodeBlocks={expandedCodeBlocks}
+        setExpandedCodeBlocks={setExpandedCodeBlocks}
+        expandedThinking={expandedThinking}
+        setExpandedThinking={setExpandedThinking}
+        executionVizById={executionVizById}
+        maybeTriggerFirstShareReward={maybeTriggerFirstShareReward}
+        showToast={showToast}
+        onLongPressMessage={handleLongPressMessage}
+        rateMessage={rateMessage}
+        retryLastTurn={retryLastTurn}
+        toggleMessageFlag={toggleMessageFlag}
+        t={t}
+        messageRefs={messageRefs}
+        setPreviewImageUrl={setPreviewImageUrl}
+        workspaceTier={workspaceTier}
+        onActionAnchor={(anchor) => {
+          // D99 宿主分发:openurl 且 payload 为 http(s) 走系统浏览器;其余类型回落「填入输入框」
+          if (anchor.type === 'openurl' && anchor.payload && /^https?:\/\//.test(anchor.payload)) {
+            void Linking.openURL(anchor.payload)
+            return
+          }
+          setPrompt((p) => (p ? `${p} ${anchor.label}` : anchor.label))
+        }}
+      />
+    ),
     [
       messages,
       isStreaming,
@@ -2328,6 +2098,7 @@ export function ChatScreen() {
       retryLastTurn,
       toggleMessageFlag,
       t,
+      setPrompt,
     ],
   )
 
@@ -2534,13 +2305,12 @@ export function ChatScreen() {
       content: item?.text ?? '',
     }
     setMaterialCards((prev) => [...prev, card])
-    setShowMaterialList(false)
-    setCurrentModelType('')
+    closeMaterialList()
   }
   /** 素材长按删除(对齐 Uniapp MaterialList 删除;后端 DELETE /agents/:agentId) */
   const handleMaterialDelete = useCallback(
     (item: MaterialItem): void => {
-      Alert.alert('删除素材', `确认删除「${item.title}」？`, [
+      appAlert('删除素材', `确认删除「${item.title}」？`, [
         { text: '取消', style: 'cancel' },
         {
           text: '删除',
@@ -2841,7 +2611,7 @@ export function ChatScreen() {
     void loadConversationMessages(id)
   }
   const handleDrawerDeleteConversation = (id: string): void => {
-    Alert.alert('删除对话', '确认删除此对话?', [
+    appAlert('删除对话', '确认删除此对话?', [
       { text: '取消', style: 'cancel' },
       {
         text: '确认',
@@ -2933,6 +2703,8 @@ export function ChatScreen() {
   // ── AgentList 选中回调 ──
   const handleAgentSelect = (id: string): void => {
     setAgentListVisible(false)
+    // D114:留下选中痕迹,AgentSelector 摘要区据此显示「当前人格」
+    setSelectedAgentId(id)
     // 对齐 Uniapp:Agent 选中后跳 AiAssistant 传 agentId 参数
     // (AiAssistant 路由 params 已更新为 { agentId?: string; title?: string })
     // 对齐 Uniapp ai_index.vue handleAgentPitch → /pages/tools/ai_assistant(智能体对话页)
@@ -3070,7 +2842,7 @@ export function ChatScreen() {
           FloatBox toast 会过期,这一行不会。空表 ⇒ 组件返回 null、零占位。
         */}
         <McpStatusStrip />
-        <BottomActionBar
+        <ChatInputBar
           prompt={prompt}
           onPromptChange={updatePrompt}
           // D38:流式中输入非空 = 入队(发送按钮让出排队入口);空输入仍是打断(Stop)
@@ -3094,6 +2866,23 @@ export function ChatScreen() {
           // 附件按钮 → 真实 DocumentPicker + uploadFileMultipart(原占位 Alert 已移除)
           onAddFile={() => void handleFileUpload()}
           onIconClick={handleIconClick}
+          onShowMyCreation={showMyCreation}
+          onSlashCommand={(cmd) => {
+            // D117 斜杠命令宿主分发:/new 清空对话(复用二次确认流)、/clear 清空输入、/model 开模型列表、/help 提示
+            if (cmd.id === 'slashNew') {
+              confirmClearMessages()
+              return
+            }
+            if (cmd.id === 'slashClear') {
+              setPrompt('')
+              return
+            }
+            if (cmd.id === 'slashModel') {
+              showModelList()
+              return
+            }
+            showToast('info', '可用命令:/new 新会话 · /clear 清空输入 · /model 切换模型')
+          }}
           onFangda={handleFangda}
           onCompactContext={() => void handleCompactContext()}
           compactContextLoading={compacting}
@@ -3125,37 +2914,18 @@ export function ChatScreen() {
           关闭/被拒后胶囊仍在,人工放行入口不随面板消失(AGENTS §30)。 */}
       {toolApproval.host}
 
-      {/* 素材库弹窗(sck 点击,对齐 Uniapp showMaterialList + MaterialList 组件) */}
+      {/* 素材库弹窗(2026-10-18:入口从模型类型行第 8 项「素材」移入「+」面板「我的创作」
+          主入口行;对齐 Uniapp showMaterialList + MaterialList 组件;头部与关闭钮
+          (含 X)由 MaterialList onClose 渲染,外部不再重复造头部) */}
       {showMaterialList ? (
         <Modal
           visible={showMaterialList}
           transparent
           animationType="slide"
-          onRequestClose={() => {
-            setShowMaterialList(false)
-            setCurrentModelType('')
-          }}
+          onRequestClose={closeMaterialList}
         >
-          <Pressable
-            style={styles.modalMask}
-            onPress={() => {
-              setShowMaterialList(false)
-              setCurrentModelType('')
-            }}
-          >
+          <Pressable style={styles.modalMask} onPress={closeMaterialList}>
             <Pressable style={styles.materialPopup} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.materialPopupHeader}>
-                <Text style={styles.materialPopupTitle}>我的创作</Text>
-                <Pressable
-                  hitSlop={8}
-                  onPress={() => {
-                    setShowMaterialList(false)
-                    setCurrentModelType('')
-                  }}
-                >
-                  <X size={20} color={tokens.text.secondary} />
-                </Pressable>
-              </View>
               <MaterialList
                 categories={[...MATERIAL_CATEGORIES]}
                 activeCategory={materialTab}
@@ -3165,6 +2935,7 @@ export function ChatScreen() {
                 onDelete={handleMaterialDelete}
                 onDetail={handleMaterialDetail}
                 loading={materialLoading}
+                onClose={closeMaterialList}
               />
             </Pressable>
           </Pressable>
@@ -3225,7 +2996,7 @@ export function ChatScreen() {
         <Pressable style={styles.modalMask} onPress={hideQrCode}>
           <Pressable style={styles.qrCodeContent} onPress={(e) => e.stopPropagation()}>
             <Pressable hitSlop={8} onPress={hideQrCode} style={styles.qrCodeClose}>
-              <X size={20} color={tokens.text.primary} />
+              <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
             </Pressable>
             <Pressable
               ref={qrCodeViewRef}
@@ -3255,72 +3026,37 @@ export function ChatScreen() {
         onSecondaryPress={handleShareClick}
       />
 
-      {/* P1.1 转语音 Modal(语音类型选项 + 真实 TTS loading) */}
-      <Modal
+      {/* P1.1 转语音 Modal(语音类型选项 + 真实 TTS loading) —— 抽至 VoicePanel(D126) */}
+      <VoicePanel
         visible={ttsVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          if (!ttsLoading) setTtsVisible(false)
+        loading={ttsLoading}
+        onSelect={handleTtsSelect}
+        onClose={() => {
+          setTtsVisible(false)
+          closeRealtimeVoice()
         }}
-      >
-        <Pressable
-          style={styles.modalMask}
-          onPress={() => {
-            if (!ttsLoading) setTtsVisible(false)
-          }}
-        >
-          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.listDialogHeader}>
-              <Text style={styles.listDialogTitle}>转语音</Text>
-              <Pressable
-                hitSlop={8}
-                onPress={() => {
-                  if (!ttsLoading) setTtsVisible(false)
-                }}
-                style={styles.listDialogClose}
-              >
-                <X size={20} color={tokens.text.primary} />
-              </Pressable>
-            </View>
-            {ttsLoading ? (
-              <View style={styles.ttsLoadingWrap}>
-                <Text style={styles.ttsLoadingText}>TTS 转换中...</Text>
-              </View>
-            ) : (
-              <View style={styles.ttsOptions}>
-                {TTS_VOICE_OPTIONS.map((opt) => (
-                  // 守门 131 改型:marginHorizontal 槽位留外层,可视盒(ttsOptionBtn)+pressed
-                  // 淡出落内层数组形态(ttsOptionBtn 的边距已搬到 slot 档,数值原样)。
-                  <Pressable
-                    key={opt}
-                    onPress={() => handleTtsSelect(opt)}
-                    style={styles.ttsOptionBtnSlot}
-                    accessibilityRole="button"
-                    accessibilityLabel={opt}
-                  >
-                    {({ pressed }) => (
-                      <View style={[styles.ttsOptionBtn, pressed && styles.panelItemPressed]}>
-                        <Text style={styles.ttsOptionText}>{opt}</Text>
-                      </View>
-                    )}
-                  </Pressable>
-                ))}
-              </View>
-            )}
-            {!ttsLoading ? (
-              <Pressable
-                onPress={() => setTtsVisible(false)}
-                style={[styles.panelCancelBtn, styles.ttsCancelBtn]}
-                accessibilityRole="button"
-                accessibilityLabel="取消"
-              >
-                <Text style={styles.panelCancelText}>取消</Text>
-              </Pressable>
-            ) : null}
-          </Pressable>
-        </Pressable>
-      </Modal>
+        onStartRealtimeVoice={startRealtimeVoice}
+        realtimeState={realtimeVoiceState}
+        realtimeErrorText={realtimeErrorText}
+        onTalkPress={handleRealtimeTalkPress}
+        turnBusy={turnBusy}
+        turnNote={turnNote}
+      />
+
+      {/* D43③ 语音笔记面板:列表选一条回填输入框;「新建录音」走既有语音输入链路 */}
+      <NotesPanel
+        visible={notesVisible}
+        onInsertNote={(note) => {
+          const text = note.transcript ? `${note.title} ${note.transcript}` : note.title
+          setPrompt((p) => (p ? `${p}\n${text}` : text))
+          setNotesVisible(false)
+        }}
+        onRecordNew={() => {
+          setNotesVisible(false)
+          toggleVoiceInput()
+        }}
+        onClose={() => setNotesVisible(false)}
+      />
 
       {/* P1.4 网页链接输入 Modal */}
       <Modal
@@ -3338,7 +3074,7 @@ export function ChatScreen() {
                 onPress={() => setUrlInputVisible(false)}
                 style={styles.listDialogClose}
               >
-                <X size={20} color={tokens.text.primary} />
+                <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
               </Pressable>
             </View>
             <View style={styles.urlInputBody}>
@@ -3384,7 +3120,7 @@ export function ChatScreen() {
                 onPress={() => setFileUploadVisible(false)}
                 style={styles.listDialogClose}
               >
-                <X size={20} color={tokens.text.primary} />
+                <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
               </Pressable>
             </View>
             <View style={styles.fileUploadBody}>
@@ -3443,7 +3179,7 @@ export function ChatScreen() {
                 onPress={() => setModelListVisible(false)}
                 style={styles.listDialogClose}
               >
-                <X size={20} color={tokens.text.primary} />
+                <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
               </Pressable>
             </View>
             <ModelPickerList
@@ -3461,31 +3197,15 @@ export function ChatScreen() {
         </Pressable>
       </Modal>
 
-      {/* AgentList 弹窗(对齐 Uniapp ai_index.vue 行 34 AgentList) */}
-      <Modal
+      {/* AgentList 弹窗(对齐 Uniapp ai_index.vue 行 34 AgentList) —— 抽至 AgentSelector(D114) */}
+      <AgentSelector
         visible={agentListVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setAgentListVisible(false)}
-      >
-        <Pressable style={styles.modalMask} onPress={() => setAgentListVisible(false)}>
-          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.listDialogHeader}>
-              <Text style={styles.listDialogTitle}>选择 Agent</Text>
-              <Pressable
-                hitSlop={8}
-                onPress={() => setAgentListVisible(false)}
-                style={styles.listDialogClose}
-              >
-                <X size={20} color={tokens.text.primary} />
-              </Pressable>
-            </View>
-            {/* AgentList 是弹窗唯一弹性块(flex:1 内部滚动);固定 header 不被压缩
-                (同 HomeScreen 模型弹窗 flexShrink 根治模式,2026-10-15) */}
-            <AgentList style={{ flex: 1 }} items={agentListItems} onItemClick={handleAgentSelect} />
-          </Pressable>
-        </Pressable>
-      </Modal>
+        onClose={() => setAgentListVisible(false)}
+        items={agentListItems}
+        onSelect={handleAgentSelect}
+        selectedAgentId={selectedAgentId}
+        subtitleField="description"
+      />
 
       {/* 功能面板(对齐 Uniapp function-handle 子组件,底部上滑 6 项 AI 功能) */}
       <BottomPops visible={functionPanelVisible} onClose={closeFunctionPanel} title="功能">
@@ -3500,7 +3220,9 @@ export function ChatScreen() {
           >
             {({ pressed }) => (
               <View style={[styles.panelItem, pressed && styles.panelItemPressed]}>
-                <item.Icon size={22} color={tokens.text.primary} />
+                <View style={styles.panelIconTile}>
+                  <item.Icon size={rnGeometry.glyphMd} color={tokens.text.primary} />
+                </View>
                 <Text style={styles.panelItemText}>{item.label}</Text>
               </View>
             )}
@@ -3532,15 +3254,23 @@ export function ChatScreen() {
           >
             {({ pressed }) => (
               <View style={[styles.panelItem, pressed && styles.panelItemPressed]}>
-                <item.Icon size={22} color={tokens.text.primary} />
+                <View style={styles.panelIconTile}>
+                  <item.Icon size={rnGeometry.glyphMd} color={tokens.text.primary} />
+                </View>
                 <Text style={styles.panelItemText}>{item.label}</Text>
               </View>
             )}
           </Pressable>
         ))}
-        <Pressable onPress={closeSourcePanel} accessibilityRole="button" accessibilityLabel="取消">
+        <Pressable
+          onPress={closeSourcePanel}
+          style={styles.panelCancelBtnSlot}
+          accessibilityRole="button"
+          accessibilityLabel="取消"
+        >
           {({ pressed }) => (
-            <View style={[styles.panelItem, pressed && styles.panelItemPressed]}>
+            // 与功能面板同形:取消是"卡片式按钮"而非"列表行"(此前两个并排面板观感割裂)
+            <View style={[styles.panelCancelBtnFace, pressed && styles.panelItemPressed]}>
               <Text style={styles.panelCancelText}>取消</Text>
             </View>
           )}
@@ -3580,7 +3310,7 @@ export function ChatScreen() {
               onPress={() => setFangdaVisible(false)}
               style={styles.fangdaCloseBtn}
             >
-              <X size={24} color={tokens.text.primary} />
+              <X size={rnGeometry.glyphMd} color={tokens.text.primary} />
             </Pressable>
           </View>
           <TextInput
@@ -3631,10 +3361,70 @@ export function ChatScreen() {
             accessibilityRole="button"
             accessibilityLabel="关闭预览"
           >
-            <X size={26} color={tokens.surface.light} />
+            {/* 底改实底白后字形必须换档:白底配 text.primary(亮近黑 / 暗近白),不再用 surface.light 白字 */}
+            <X size={rnGeometry.glyphMd} color={tokens.text.primary} />
+          </Pressable>
+          <Pressable
+            hitSlop={10}
+            onPress={() => {
+              if (previewImageUrl) setAnnotatorUri(previewImageUrl)
+            }}
+            style={styles.imagePreviewAnnotate}
+            accessibilityRole="button"
+            accessibilityLabel="标注此图"
+          >
+            {/* D124:图片标注编辑器入口(与关闭钮同一行,左移一个按钮位) */}
+            <PenLine size={rnGeometry.glyphMd} color={tokens.text.primary} />
           </Pressable>
         </View>
       </Modal>
+
+      {/* D124 图片标注编辑器:从图片全屏预览进入;保存 → 标注概要回填输入框
+          (位图合成/随消息附图依赖 D42 图片附件管线,当前以文本概要为过渡口径) */}
+      <ImageAnnotator
+        visible={annotatorUri !== null}
+        imageUri={annotatorUri ?? ''}
+        onCancel={() => setAnnotatorUri(null)}
+        onSave={(data, capturedUri) => {
+          // D124 收尾:位图合成成功 → 上传 PNG → 裸 URL 进输入框(message-parse 渲染成图片段);
+          // 截屏失败降级 → 维持标注概要回填的过渡口径
+          if (capturedUri) {
+            void (async () => {
+              try {
+                const up = await uploadFileMultipart({
+                  uri: capturedUri,
+                  type: 'image/png',
+                  name: `annotated-${Date.now()}.png`,
+                })
+                if (up.success && up.data?.path) {
+                  const url = resolveFileUrl(up.data.path)
+                  setPrompt((p) => (p ? `${p}\n${url}` : url))
+                  showToast('success', '标注图已加入输入框')
+                  setAnnotatorUri(null)
+                  return
+                }
+              } catch {
+                // 落到概要回填
+              }
+              const textCount = data.texts?.length ?? 0
+              const summary = `[图片标注] 笔画 ${data.strokes.length} 段${
+                textCount > 0 ? ` · 文字 ${textCount} 处` : ''
+              }`
+              setPrompt((p) => (p ? `${p}\n${summary}` : summary))
+              setAnnotatorUri(null)
+              showToast('success', '标注已加入输入框')
+            })()
+            return
+          }
+          const textCount = data.texts?.length ?? 0
+          const summary = `[图片标注] 笔画 ${data.strokes.length} 段${
+            textCount > 0 ? ` · 文字 ${textCount} 处` : ''
+          }`
+          setPrompt((p) => (p ? `${p}\n${summary}` : summary))
+          setAnnotatorUri(null)
+          showToast('success', '标注已加入输入框')
+        }}
+      />
     </View>
   )
 }
@@ -3940,7 +3730,9 @@ const styles = StyleSheet.create({
   // ── 消息图片全屏预览 ──
   imagePreviewOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
+    // 全屏看图是"深色画布"而非"模态遮罩":取 surface.dark 档(不透明深色,随主题),
+    // 不再写死 rgba(0,0,0,0.92) 当第二份真相。
+    backgroundColor: tokens.surface.dark,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3952,10 +3744,24 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 52,
     right: 20,
-    width: 36,
-    height: 36,
+    width: rnGeometry.tapBox,
+    height: rnGeometry.tapBox,
     borderRadius: rnRadius['2xl'],
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    // 实底取 surface.light(亮白/暗深灰随主题),字形配 text.primary —— 底与字同档反转,
+    // 不是"半透明白 + 白字"那种压在照片上的糊底。
+    backgroundColor: tokens.surface.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // D124 标注入口:与关闭钮同一行,左移一个按钮位(right 20 + tapBox + 8 间距)
+  imagePreviewAnnotate: {
+    position: 'absolute',
+    top: 52,
+    right: 20 + rnGeometry.tapBox + 8,
+    width: rnGeometry.tapBox,
+    height: rnGeometry.tapBox,
+    borderRadius: rnRadius['2xl'],
+    backgroundColor: tokens.surface.light,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3963,21 +3769,9 @@ const styles = StyleSheet.create({
   materialPopup: {
     width: '88%',
     maxHeight: '70%',
-    backgroundColor: tokens.surface.card,
+    backgroundColor: tokens.surface.bg,
     borderRadius: rnRadius.lg,
     overflow: 'hidden',
-  },
-  materialPopupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: rpx(24),
-    paddingVertical: rpx(20),
-  },
-  materialPopupTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: tokens.text.primary,
   },
   // ── Material 卡片区 ──
   materialCardsScroll: {
@@ -4132,11 +3926,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 10,
     right: 10,
-    width: 30,
-    height: 30,
+    // 命中盒取 tapBox 档(原 30 是裸值);去老式描边圈 —— 矢量字形本身就是可见边界,
+    // 再套一圈 borderWidth 只会让关闭钮看起来像"未启用控件"。
+    width: rnGeometry.tapBox,
+    height: rnGeometry.tapBox,
     borderRadius: rnRadius.lg,
-    borderWidth: 1,
-    borderColor: tokens.gray.black,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4159,7 +3953,7 @@ const styles = StyleSheet.create({
     padding: rpx(8),
   },
   qrCodeHintText: {
-    fontSize: 12,
+    fontSize: rnGeometry.textLabel,
     color: tokens.text.secondary,
   },
   // ── 列表弹窗(ModelList / AgentList 共用容器) ──
@@ -4179,13 +3973,13 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   listDialogTitle: {
-    fontSize: 15,
+    fontSize: rnGeometry.textStrong,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   listDialogClose: {
-    width: 28,
-    height: 28,
+    width: rnGeometry.tapBox,
+    height: rnGeometry.tapBox,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4201,19 +3995,18 @@ const styles = StyleSheet.create({
   detailDialogFieldRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: rpx(10),
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: tokens.border.light,
+    // AGENTS §4 禁分割线:字段行靠行距分层,不用 hairline 划界(原 borderBottom 已删)
+    paddingVertical: rpx(12),
   },
   detailDialogFieldLabel: {
     width: rpx(140),
-    fontSize: 13,
+    fontSize: rnGeometry.textLabel,
     color: tokens.text.tertiary,
   },
   detailDialogFieldValue: {
     flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: rnGeometry.textBody,
+    lineHeight: rnGeometry.textBody + 4,
     color: tokens.text.primary,
   },
   detailDialogErrorWrap: {
@@ -4222,7 +4015,7 @@ const styles = StyleSheet.create({
     gap: rpx(16),
   },
   detailDialogErrorText: {
-    fontSize: 13,
+    fontSize: rnGeometry.textLabel,
     color: tokens.text.secondary,
   },
   detailDialogRetryBtn: {
@@ -4232,7 +4025,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
   },
   detailDialogRetryText: {
-    fontSize: 13,
+    fontSize: rnGeometry.textLabel,
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
   },
@@ -4247,9 +4040,19 @@ const styles = StyleSheet.create({
   panelItemPressed: {
     opacity: 0.85,
   },
+  // 面板行图标砖:与 AddPanel heroItem 同一设计语言(36 方砖 muted 底,压在 card 白底上)
+  panelIconTile: {
+    width: rnGeometry.tapBox,
+    height: rnGeometry.tapBox,
+    borderRadius: rnRadius.md,
+    backgroundColor: tokens.surface.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   panelItemText: {
     flex: 1,
-    fontSize: 16,
+    // 入口行走 geometry 的正文档(原 16 不在档上,与 MaterialList 行标题同归 textBody)
+    fontSize: rnGeometry.textBody,
     color: tokens.text.primary,
   },
   panelCancelBtn: {
@@ -4277,7 +4080,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   panelCancelText: {
-    fontSize: 16,
+    fontSize: rnGeometry.textBody,
     fontWeight: '500',
     color: tokens.text.primary,
   },
@@ -4334,7 +4137,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ttsLoadingText: {
-    fontSize: 14,
+    fontSize: rnGeometry.textBody,
     color: tokens.text.secondary,
   },
   ttsOptions: {
@@ -4353,7 +4156,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ttsOptionText: {
-    fontSize: 15,
+    fontSize: rnGeometry.textStrong,
     color: tokens.text.primary,
   },
   ttsCancelBtn: {
@@ -4370,7 +4173,7 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(20),
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
-    fontSize: 14,
+    fontSize: rnGeometry.textBody,
     color: tokens.text.primary,
   },
   urlInputConfirmBtn: {
@@ -4380,7 +4183,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   urlInputConfirmText: {
-    fontSize: 15,
+    fontSize: rnGeometry.textStrong,
     fontWeight: '500',
     color: tokens.brand.ctaForeground,
   },
@@ -4390,7 +4193,7 @@ const styles = StyleSheet.create({
     gap: rpx(24),
   },
   fileUploadDesc: {
-    fontSize: 14,
+    fontSize: rnGeometry.textBody,
     color: tokens.text.primary,
     fontWeight: '500',
   },
@@ -4406,11 +4209,11 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   fileUploadTypeText: {
-    fontSize: 12,
+    fontSize: rnGeometry.textLabel,
     color: tokens.text.secondary,
   },
   fileUploadHint: {
-    fontSize: 12,
+    fontSize: rnGeometry.textLabel,
     color: tokens.text.tertiary,
   },
   fileUploadConfirmBtn: {
@@ -4421,7 +4224,7 @@ const styles = StyleSheet.create({
     marginTop: rpx(8),
   },
   fileUploadConfirmText: {
-    fontSize: 15,
+    fontSize: rnGeometry.textStrong,
     fontWeight: '500',
     color: tokens.brand.ctaForeground,
   },
