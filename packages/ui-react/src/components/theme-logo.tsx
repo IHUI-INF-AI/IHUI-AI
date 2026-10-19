@@ -69,6 +69,9 @@ export function ThemeLogo({
   // 原 #000/#373737/#000 在深色 sidebar 上几乎不可见 → 改成 #fff/#e5e5e5/#fff)
   const cacheBust = '?v=20260720-logo-dark-v2-gradient-white'
 
+  // 两枚都标 lazy:未被当前主题显示的那一枚是 display:none,不进视口 ⇒ 浏览器根本不下载它。
+  // 此前两枚都是默认 eager,浅色/深色访客都要多下一整枚 1.18MB 的 SVG(实测首屏 3.5MB 全花在这张
+  // 120x32 的字标上);可见那一枚在视口内,lazy 仍立即加载。
   return (
     <>
       <img
@@ -76,6 +79,7 @@ export function ThemeLogo({
         alt={alt}
         width={width}
         height={height}
+        loading="lazy"
         // 桌面端 logo 兼作拖窗口把手:不禁原生图片拖拽的话,浏览器会在按下移动时
         // 抢走手势起图片拖拽,页面的 mousemove 再也收不到 → 拖不动窗口(2026-09-21 实测)
         draggable={false}
@@ -87,6 +91,7 @@ export function ThemeLogo({
         alt={alt}
         width={width}
         height={height}
+        loading="lazy"
         draggable={false}
         onClick={onClick}
         // 2026-07-20 修复:不再用 filter: brightness(0) invert(1) 反色整图
