@@ -803,18 +803,25 @@ export function iconAudit(pairs, text) {
  * 按配对文件两两求差只会产出噪声。
  * **但认投影别名**(2026-10-19,G-16 那格):`export const X = GEOMETRY_PX.g` 里 X 与 g 是同一个数,
  * 一条腿写 `taroGeometry.g` 就是已经走单一源 —— 不认这层会把已收口的档算成"仅一侧引用"的假账。
+ * 方向是单向的:**别名只许划掉假账,不许新报单侧**(理由与真仓实测见 specLegAudit 内注)。
  */
 export function specLegAudit(pairs, text, tiers) {
   const specNames = Object.keys(tiers ?? {}).filter((n) => !n.startsWith('geometry.'))
   if (!specNames.length) return []
   /**
-   * 别名归一(2026-10-19,票 G-16 那格):档名 X 若由 `GEOMETRY_PX.g` 投影而来,则一条腿引用 `g`
-   * 与引用 `X` 是同一件事 —— 它走的都是单一源。不认这一层就会把"两条腿都已收口"报成
-   * "另一条腿还没接线",下一个人按这个读数去"补数字"就是单方面改观感。
-   * 归一表来自被审面源码里那条 export 语句本身(specTiers 同一次解析记下),不做名字相似度匹配。
+   * 别名归一(2026-10-19,票 G-16 那格),但**只许消账、不许造账**:
+   * 一条腿没引常数名、却引了它投影的那个几何档 ⇒ 这条腿已经走单一源,把"仅另一侧引用"这条
+   * 假账划掉。反过来不成立 —— 一侧引了几何档而另一侧两者皆无,**不得**因此新报一条单侧:
+   * 同一个 step 可以被多枚组件各自的常数引用(实测 `controlBox` 同挂 INPUT_AREA_IN_SHELL_BTN_PX
+   * 与 BOTTOM_ACTION_BAR_CONTROL_BOX_PX),按 step 反向定罪就是把别处组件的档算到这个头上,
+   * 与本文件 unresolvedClassNames 头注记过的"归因过宽比漏读更贵"是同一条教训。
    */
   const aliases = specProjectionAliases(tiers)
-  const references = (ids, name) => ids.has(name) || (aliases[name] ? ids.has(aliases[name]) : false)
+  /** 这条腿虽没引常数名,却引了它投影的那个几何档 ⇒ 它已经走单一源(只用来划掉假账) */
+  const viaStep = (ids, name) => {
+    const step = aliases[name]
+    return step ? ids.has(step) : false
+  }
   const out = []
   for (const p of pairs.pairs) {
     const a = text[p.miniapp]
@@ -823,8 +830,8 @@ export function specLegAudit(pairs, text, tiers) {
     const idsOf = (src) => new Set(src.match(/[A-Za-z_$][\w$]*/g) || [])
     const ia = idsOf(stripComments(a))
     const ib = idsOf(stripComments(b))
-    const onlyMiniapp = specNames.filter((n) => references(ia, n) && !references(ib, n))
-    const onlyRn = specNames.filter((n) => references(ib, n) && !references(ia, n))
+    const onlyMiniapp = specNames.filter((n) => ia.has(n) && !ib.has(n) && !viaStep(ib, n))
+    const onlyRn = specNames.filter((n) => ib.has(n) && !ia.has(n) && !viaStep(ia, n))
     if (!onlyMiniapp.length && !onlyRn.length) continue
     out.push({ name: p.name, onlyMiniapp, onlyRn })
   }
