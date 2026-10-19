@@ -5,11 +5,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tauri dev --config src-tauri/tauri.dev.json",
-    "dev:cdp": "tauri dev --config src-tauri/tauri.cdp.json",
-    "build": "tauri build && node ../../scripts/desktop-artifact-single.mjs",
+    "dev": "node ../../scripts/desktop-build.mjs --dev -- --config src-tauri/tauri.dev.json",
+    "dev:cdp": "node ../../scripts/desktop-build.mjs --dev -- --config src-tauri/tauri.cdp.json",
+    "build": "node ../../scripts/desktop-build.mjs",
     "tauri": "tauri",
-    "build:debug": "tauri build --debug",
+    "build:debug": "node ../../scripts/desktop-build.mjs --debug",
     "icons:regen": "node scripts/make-rounded-icon.mjs && tauri icon src-tauri/icons/source-rounded.png",
     "clean": "rimraf dist node_modules .turbo src-tauri/target"
   },

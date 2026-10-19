@@ -31,6 +31,14 @@ git tag desktop-v<version> && git push origin desktop-v<version>   # → .github
 
 注：`beforeBuildCommand` 为空且 Rust 侧不读 `NEXT_PUBLIC_*`，故 `build:desktop:saas` 注入的环境变量当前不再进入任何前端构建；运行时前端以线上部署为准（该脚本仍保留其历史入口职责）。
 
+### 构建前置：MSVC 工具链（不是可选仪式）
+
+`.cargo/config.toml` 的 `linker = "link.exe"` 是**裸名**，cargo 原样交给操作系统按 PATH 解析 —— 它不指向任何安装目录，所以「MSVC 装了吗 / 选中的是哪一份」从本文件读不出来。本机系统 PATH 上有 Git 自带的 `C:\Program Files\Git\usr\bin\link.exe`（GNU coreutils 同名程序），会顶掉 MSVC 链接器；未加载工具链的 shell 里链接阶段报 `link: missing operand after '\377\376'`（实测，报错里一个字都不提工具链）。
+
+- 上面三条构建/发版命令都经 `scripts/desktop-build.mjs`（+ `desktop-build-saas.mjs` / `release-desktop-local.mjs`）注入 MSVC，判据唯一真相源 `scripts/lib/msvc-env.mjs`；`build` / `build:debug` 亦走该入口，用户无需手动 call vcvars。
+- `tauri dev` 经 `pnpm dev:desktop:saas`（`scripts/desktop-dev-saas.mjs`）时同样注入；裸跑 `tauri dev` / `cargo build` 不经注入，须自行在开发 shell 加载 `vcvars`/`vsdevcmd`。
+- 自查：`where link` 第一命中应为 `...\VC\Tools\MSVC\…\bin\HostX64\x64\link.exe`。完整说明与现状格见 `apps/desktop/README.md` §Windows 工具链前置。
+
 ### 签名密钥与更新 feed
 
 - 本机：`~/.tauri/ihui-updater.key` + `~/.tauri/ihui-updater-password.txt` → `TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`（`scripts/release-desktop-local.mjs`）。
