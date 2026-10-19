@@ -40,7 +40,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { planPackageManagerSpawn } from './lib/npm-execpath.mjs'
 // MSVC 工具链注入判据单源(立因/三态见该文件头注);vcvars 的生产实现同样复用
 // desktop-build.mjs 已有的具名导出,不另写第二种形态
-import { planBuildEnv } from './lib/msvc-env.mjs'
+import { planBuildEnv, needsMsvcInjection } from './lib/msvc-env.mjs'
 import { __test__ as desktopBuildInternals } from './desktop-build.mjs'
 // 未签名豁免判据单源(§0.6:开关名/临时 config 形态/落点三件事全仓只许一份;
 // scripts/desktop-artifact-single.mjs 与 scripts/desktop-build.mjs 读同一份)
@@ -117,7 +117,9 @@ async function main() {
   // MSVC 工具链 —— 默认分支那条命令已改走 scripts/desktop-build.mjs,由它自己注入并对未判定
   // exit 2,这里再注一次就是同一次构建里跑两遍 vcvars(不只是慢,还会让"注入了几次"再也读不出来)。
   let buildEnv = process.env
-  if (allowUnsigned) {
+  // 平台闸(判据单源:scripts/lib/msvc-env.mjs 的 needsMsvcInjection)。非 Windows 上 MSVC 根本不适用
+  // (macOS/Linux 用 clang/cc),此时**既不注入也不判未判定** —— 但豁免分支仍要照常跑完(它与工具链无关)。
+  if (allowUnsigned && needsMsvcInjection()) {
     const toolchain = planBuildEnv({ env: process.env, existsSync, runCapture: desktopBuildInternals.captureVsEnv })
     if (!toolchain.ok) {
       console.error(`[desktop-build-saas] ❌ 未判定:MSVC 工具链注入失败(reason=${toolchain.reason})—— 不记绿,也不记失败`)
@@ -139,6 +141,10 @@ async function main() {
     // (实测:本文件只**读**它而不设它,读到的值来自父进程、会原样出现在 `set` 输出里 ⇒ 今天两种
     //  顺序同值;这一行仍保留,因为判据不能建立在"上游恰好把值带下来了"这个事实上。)
     buildEnv = { ...toolchain.env, [ALLOW_UNSIGNED_ENV]: '1' }
+  } else if (allowUnsigned) {
+    // 策略 env 与工具链无关,非 Windows 上照样要落到 child(否则尾部收敛钩子不认豁免)
+    buildEnv = { ...process.env, [ALLOW_UNSIGNED_ENV]: '1' }
+    console.log(`[desktop-build-saas] ⓘ 跳过 MSVC 注入:NOT_WINDOWS(platform=${process.platform}) —— 本平台不适用,按现 env 直跑`)
   }
 
   if (allowUnsigned) {

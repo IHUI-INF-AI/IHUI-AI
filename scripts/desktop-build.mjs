@@ -25,7 +25,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { planBuildEnv } from './lib/msvc-env.mjs'
+import { planBuildEnv, needsMsvcInjection } from './lib/msvc-env.mjs'
 // 包管理器执行器判据单源(与 desktop-build-saas / desktop-dev-saas 共用,不得各抄一份)
 import { planPackageManagerSpawn } from './lib/npm-execpath.mjs'
 // 未签名豁免判据单源(§0.6)。为什么**本入口必须**认这个开关:desktop-artifact-single.mjs 早就有
@@ -79,19 +79,45 @@ const USAGE = `用法:node scripts/desktop-build.mjs [--debug | --dev] [--no-art
  * 切 cwd 后 `call vcvars64.bat` 用的是 cmd 的"当前目录优先"查找,一个引号都不需要。
  * `/d` 关闭 AutoRun(§30:AutoRun 会往这台机的 cmd 会话里插东西)。
  *
+ * ⚠️ **为什么必须先 `chcp 65001`**(2026-10-19 实测回归,不是洁癖):
+ *   cmd 往管道写文本用的是**当前 OEM 码页**,本机是 936(GBK)。而 Node 侧按 `encoding:'utf8'`
+ *   解码 ⇒ 每一个非 ASCII 字节都变成 U+FFFD。实测后果:`Path` 里三段中文目录
+ *   (`D:\电脑软件\微信web开发者工具\dll`、`D:\桌面\deepseek gui`)被改写成一串 `�`,
+ *   外加 `COMPUTERNAME` / `LOGONSERVER` / `USERDOMAIN` / `USERDOMAIN_ROAMINGPROFILE`
+ *   四个变量一起烂(本机 COMPUTERNAME = `服务器`)。
+ *   这是**静默**的:那几段目录只是"不可用但存在",cargo / MSVC / tauri 一个都用不到,
+ *   所以构建照样 EXIT=0 —— 除非哪天有工具碰它们,才炸在一句毫不相干的报错上。
+ *   把码页先切到 UTF-8 再 `set`,实测三段中文逐字节保持、四个变量零改写、无一个 U+FFFD。
+ *   (与 AGENTS §5d「node stdout 的中文路径会被 GBK 码页吃掉」是同一个坑的反向:那次是
+ *    node 写、这次是 node **读** cmd。)
+ *
  * @param {string} vcvars vcvars64.bat 的完整路径
- * @returns {string} `set` 输出原文
+ * @returns {string} `set` 输出原文(UTF-8)
  */
 function captureVsEnv(vcvars) {
-  return execFileSync('cmd.exe', ['/d', '/s', '/c', 'call vcvars64.bat >nul 2>&1 && set'], {
-    cwd: path.dirname(vcvars),
-    encoding: 'utf8',
-    windowsHide: true,
-    // §12g:派生必须显式接管 stdio;这一档不吃 stdin、不靠 stdout 之外的任何东西拿结论
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 8 << 20,
-  })
+  return execFileSync(
+    'cmd.exe',
+    ['/d', '/s', '/c', 'chcp 65001 >nul && call vcvars64.bat >nul 2>&1 && set'],
+    {
+      cwd: path.dirname(vcvars),
+      encoding: 'utf8',
+      windowsHide: true,
+      // §12g:派生必须显式接管 stdio;这一档不吃 stdin、不靠 stdout 之外的任何东西拿结论
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 8 << 20,
+    },
+  )
 }
+
+/**
+ * MSVC 注入是否适用 —— **判据单源住 `scripts/lib/msvc-env.mjs` 的 `needsMsvcInjection`**,
+ * 本文件只是把它转出来给 `__test__` 用,实现不在这里(§0.6:现在有三个调用点要问这个问题,
+ * 判据放在任何一个执行层都会立刻产生第二份)。
+ *
+ * 为什么要问这个问题(立因与代价见 lib 里那条判据的头注):它治的是"Git usr\bin 的 link.exe
+ * 遮蔽 MSVC 链接器",macOS 用 clang / Linux 用 cc,压根没有 MSVC;漏判的代价是
+ * `.github/workflows/desktop-build.yml` 的 ubuntu / macOS 两条腿在 tauri 启动前就 exit 2。
+ */
 
 /**
  * 派生通道判据单源(§12g 样板):带 input 的调用必须给 stdin 留管道,否则写进去的内容被静默吃掉。
@@ -166,6 +192,39 @@ function runChild(p) {
   })
 }
 
+/**
+ * "用户主动中断"在退出码上的几种已知形态。
+ *
+ * 为什么要在意:`--dev` 是长驻会话,**Ctrl+C 是它的正常结束方式**。而 `runChild` 的 close 分支
+ * 把 `code === null`(信号终止)一律判成失败(1),于是"按 Ctrl+C 关掉开发会话"会被打印成
+ * `❌ tauri dev 失败,退出码原样透传:N` —— 一句**与事实相反**的结论,而且 dev 档还没到
+ * "查因顺序"那一支(它只在 `code === 1 && !allowUnsigned` 时出现),用户连线索都拿不到。
+ *
+ * 口径(§0.3:能测的说测到的,测不到的不许写成"已知"):
+ *   · `130` = 128 + SIGINT,POSIX shell 惯例;
+ *   · `3221225786` = `0xC000013A` = `STATUS_CONTROL_C_EXIT`,Windows 控制台 Ctrl+C 的原生退出码;
+ *   · `signal === 'SIGINT'` = POSIX 信号形态。
+ * 三者都归入"被用户中断"。**未实测声明**:本仓没有对另一个进程发 CTRL_C_EVENT 的实验装置,
+ * Windows 上 `tauri dev` 被 Ctrl+C 后究竟落到上面哪一个,未判定 —— 所以这里三个都收,
+ * 且命中时会**打印实际观测到的那一个**,不替它编成因。
+ * 落到表外的码仍按失败处理(安全默认,且可见)。
+ */
+const INTERRUPT_CODES = new Map([
+  [130, 'SIGINT(128+2,POSIX shell 惯例)'],
+  [3221225786, 'STATUS_CONTROL_C_EXIT(0xC000013A,Windows 控制台 Ctrl+C 原生码)'],
+])
+
+/**
+ * @param {{ code: number, error: Error | null, signal?: string | null }} r
+ * @returns {{ interrupted: boolean, observed: string | null }}
+ */
+function judgeInterrupt(r) {
+  if (r.signal === 'SIGINT') return { interrupted: true, observed: 'signal=SIGINT' }
+  const known = INTERRUPT_CODES.get(r.code)
+  if (known) return { interrupted: true, observed: `code=${r.code}(${known})` }
+  return { interrupted: false, observed: null }
+}
+
 /** 工具链取不到时的出口:显式「未判定」+ 机器可读 reason + 出路(AGENTS §0.3)。 */
 function printUndecided(plan) {
   console.error(`[desktop-build] ❌ 未判定:MSVC 工具链注入失败(reason=${plan.reason})`)
@@ -174,6 +233,40 @@ function printUndecided(plan) {
   for (const d of plan.details) console.error(`  ✘ ${d.vcvars} → ${d.error}`)
   console.error('  出路:装 VS 2022 Build Tools(含 MSVC v143 + Windows SDK),或设 VSINSTALLDIR 指向现有安装;')
   console.error('        本仓不改判据来迁就"没装工具链"——那样只会把报错换成更难认的一型。')
+}
+
+/**
+ * 算出这次要用的 env —— Windows 才注入 MSVC,其它平台原样透传。
+ *
+ * 非 Windows 分支**必须显式说明**自己在跳过什么(而不是悄悄用 process.env):
+ * 一个"看起来注入成功"的静默分支,下一次有人把判据收紧时就会变成没人发现的口子(§0.9)。
+ *
+ * @returns {{ ok: true, env: Record<string, string>, linkFrom: string | null, vcvars: string | null, removedDirs: string[], skipped: string | null }
+ *          | { ok: false, plan: object }}
+ */
+function resolveToolchainEnv() {
+  if (!needsMsvcInjection()) {
+    // 非 Windows:**必须显式说明自己在跳过什么**,而不是悄悄用 process.env。
+    // 一个"看起来注入成功"的静默分支,下一次有人收紧判据时就会变成没人发现的口子(§0.9)。
+    console.log(
+      `[desktop-build] ⓘ 跳过 MSVC 注入:NOT_WINDOWS(platform=${process.platform}) —— MSVC 是 Windows 专属问题,本平台不适用,按现 env 直跑`,
+    )
+    return { ok: true, env: process.env, linkFrom: null, vcvars: null, removedDirs: [], skipped: 'NOT_WINDOWS' }
+  }
+  const plan = planBuildEnv({ env: process.env, existsSync, runCapture: captureVsEnv })
+  if (!plan.ok) return { ok: false, plan }
+  console.log(`[desktop-build] MSVC 工具链已注入:${plan.linkFrom}`)
+  console.log(`[desktop-build] vcvars:${plan.vcvars}`)
+  if (plan.removedDirs.length > 0)
+    console.log(`[desktop-build] 已从 PATH 剔除遮蔽目录:${plan.removedDirs.join(' ; ')}`)
+  return {
+    ok: true,
+    env: plan.env,
+    linkFrom: plan.linkFrom,
+    vcvars: plan.vcvars,
+    removedDirs: plan.removedDirs,
+    skipped: null,
+  }
 }
 
 async function main(argv = process.argv.slice(2)) {
@@ -197,14 +290,11 @@ async function main(argv = process.argv.slice(2)) {
     return 2
   }
 
-  const plan = planBuildEnv({ env: process.env, existsSync, runCapture: captureVsEnv })
-  if (!plan.ok) {
-    printUndecided(plan)
+  const toolchain = resolveToolchainEnv()
+  if (!toolchain.ok) {
+    printUndecided(toolchain.plan)
     return 2
   }
-  console.log(`[desktop-build] MSVC 工具链已注入:${plan.linkFrom}`)
-  console.log(`[desktop-build] vcvars:${plan.vcvars}`)
-  if (plan.removedDirs.length > 0) console.log(`[desktop-build] 已从 PATH 剔除遮蔽目录:${plan.removedDirs.join(' ; ')}`)
 
   // pnpm 在本机是 .cmd shim(实测 `where pnpm` 只有 pnpm.cmd / 无扩展名 shim),
   // `spawn('pnpm', …, { shell: false })` 直接 ENOENT(实测)⇒ 执行器选择复用 scripts/lib/npm-execpath.mjs
@@ -235,10 +325,19 @@ async function main(argv = process.argv.slice(2)) {
   console.log(`[desktop-build] 执行:${cmd} ${tauriArgs.join(' ')}(cwd=${DESKTOP}${shell ? ',shell=true' : ''})`)
 
   try {
-    const build = await runChild({ cmd, args: tauriArgs, cwd: DESKTOP, env: plan.env, shell })
+    const build = await runChild({ cmd, args: tauriArgs, cwd: DESKTOP, env: toolchain.env, shell })
     if (build.error) {
       console.error(`[desktop-build] ❌ 未判定:构建进程根本没启动(${build.error.code ?? build.error.message})—— 不记绿`)
       return 2
+    }
+    // 开发会话被用户中断 = 正常结束,不是失败(判据与观测码见 judgeInterrupt 头注)。
+    // 只在 --dev 档生效:build 档被 Ctrl+C 打断仍然是"这次没建成",该红就得红。
+    if (opts.dev) {
+      const { interrupted, observed } = judgeInterrupt(build)
+      if (interrupted) {
+        console.log(`[desktop-build] ✅ 开发会话已结束(被用户中断:${observed};不是失败,退出码按 0 计)`)
+        return 0
+      }
     }
     if (build.code !== 0) {
       console.error(
@@ -265,7 +364,7 @@ async function main(argv = process.argv.slice(2)) {
       cmd: process.execPath,
       args: [ARTIFACT_HOOK, '--dir', artifactDirFor(opts.debug)],
       cwd: DESKTOP,
-      env: plan.env,
+env: toolchain.env,
       shell: false,
     })
     if (tail.error) {
@@ -299,5 +398,16 @@ if (isDirectRun) {
   )
 }
 
-export const __test__ = { parseArgv, stdioFor, hasLineBreak, captureVsEnv, artifactDirFor, ARTIFACT_HOOK, DESKTOP }
+export const __test__ = {
+  parseArgv,
+  stdioFor,
+  hasLineBreak,
+  captureVsEnv,
+  artifactDirFor,
+  needsMsvcInjection,
+  judgeInterrupt,
+  INTERRUPT_CODES,
+  ARTIFACT_HOOK,
+  DESKTOP,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
