@@ -26,6 +26,7 @@ import {
   statSync,
   utimesSync,
   readFileSync,
+  rmSync,
 } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
@@ -43,6 +44,12 @@ import {
   hostStrayExpired,
   HOST_STRAY_FAMILIES,
   HOST_STRAY_ROUND_CAP,
+  scanScratchFixtures,
+  formatScratchReport,
+  scratchEffectiveMinAgeHours,
+  SCRATCH_MIN_AGE_HOURS_DEFAULT,
+  SCRATCH_DIR_NAME,
+  SCRATCH_ROUND_CAP,
 } from '../scrub-temp-fixtures.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -52,6 +59,38 @@ const DAY = 86400000
 const touchOld = (p, daysAgo = 30) => {
   const t = new Date(Date.now() - daysAgo * DAY)
   utimesSync(p, t, t)
+}
+
+/**
+ * 第三腿用:整棵**子树**都要老化 —— 判据读的是"子树最新 mtime",只改目录 mtime 会让
+ * 里面刚写的文件把这条判成"还在用"(这正是该判据保守的地方,不是它的 bug)。
+ */
+const touchOldTree = (dir, daysAgo = 30) => {
+  const t = new Date(Date.now() - daysAgo * DAY)
+  const stack = [dir]
+  while (stack.length) {
+    const d = stack.pop()
+    try {
+      utimesSync(d, t, t)
+    } catch {
+      /* 读不到就跳过:判据侧会按 unreadable 跳过,不会误删 */
+    }
+    let es = []
+    try {
+      es = readdirSync(d, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const e of es) {
+      const f = join(d, e.name)
+      try {
+        utimesSync(f, t, t) // 文件也要改:判据量的是**子树**最新 mtime,只改目录等于没改
+      } catch {
+        /* 读不到就跳过:判据侧会按 unreadable 跳过,不会误删 */
+      }
+      if (e.isDirectory()) stack.push(f)
+    }
+  }
 }
 
 const mkFixture = (root, name, { files = 1, ageDays = 30 } = {}) => {
@@ -664,5 +703,76 @@ test('T25 表锁:每条族必须带 why/owner/reviewBy 且两头锚定,射程不
   // 两族都不得把前缀族的条目一起带走(第二腿不是放宽第一腿的通道)
   for (const probe of ['ihui-abcd-cwd', 'IHUI-0a1b-cwd', 'next-backup-1a2b-cwd', 'probe-abcd-cwd', 'ihui-0f8e2a6b-1c3d-4e5f-8a9b-0c1d2e3f4a5b.tmp.md'])
     for (const f of HOST_STRAY_FAMILIES) assert.equal(f.re.test(probe), false, `${f.name} 吃进了前缀族条目:${probe}`)
+})
+
+// ─────────────────────────────────────────────────────────────────────────
+// T26–T29:第三腿(本项目自己的 scratch 夹具)。立因:前两腿只扫 TEMP **顶层**,
+// 而 `ihui-scratch` 整体只是一个顶层条目 ⇒ 它里面的夹具结构上永远扫不到;
+// mkScratch 又只有"进程退出钩子",SIGKILL 残留没有任何出口(现读该目录 20,720 项/764 MB)。
+// ─────────────────────────────────────────────────────────────────────────
+
+test('T26 scratch 腿成对:静默超时的夹具进候选,刚写过的必须跳过并报数', () => {
+  const root = mkScratch('scrub-t26')
+  const scratch = join(root, SCRATCH_DIR_NAME)
+  try {
+    mkdirSync(scratch, { recursive: true })
+    const stale = join(scratch, 'gate-baseline-AAA')
+    mkdirSync(join(stale, 'deep'), { recursive: true })
+    writeFileSync(join(stale, 'deep', 'a.bin'), Buffer.alloc(1024, 1))
+    touchOldTree(stale, 8 / 24) // 子树整体静默 8 小时
+    const live = join(scratch, 'gate-baseline-LIVE')
+    mkdirSync(live, { recursive: true })
+    writeFileSync(join(live, 'b.bin'), Buffer.alloc(1024, 2))
+    const hidden = join(scratch, '.not-a-fixture')
+    mkdirSync(hidden, { recursive: true })
+    writeFileSync(join(hidden, 'c.bin'), 'x')
+    touchOldTree(hidden, 30)
+    const r = scanScratchFixtures({ root, now: Date.now() })
+    assert.equal(r.error, null)
+    assert.deepEqual(r.candidates.map((c) => c.name), ['gate-baseline-AAA'], '只有子树整体静默超阈的那条进候选')
+    assert.equal(r.skipped.fresh, 1, '刚写过的必须报数并跳过,不得静默')
+    assert.equal(r.skipped.notOurs, 1, '点开头的条目不归本腿管')
+    assert.ok(r.candidates[0].files >= 1 && r.candidates[0].bytes > 0, '字节与文件数必须量到')
+    assert.ok(r.candidates[0].idleHours >= 6, 'idleHours 必须报出来(人要看"静默多久"才敢删)')
+    // 清扫腿的真实动作就是"先删 scratch 根**里面**的条目" ⇒ 夹具里那个同名的二阶根得先自行拆掉,
+    // 否则 rmScratch 的二阶根闸会(正确地)拒绝整棵删除。守卫本身由 scratch-dir 的镜像档负责。
+    rmSync(scratch, { recursive: true, force: true })
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('T27 账龄合成:族档 6 小时是下限,--older-than 只能加严、调不穿', () => {
+  assert.equal(scratchEffectiveMinAgeHours(undefined), SCRATCH_MIN_AGE_HOURS_DEFAULT)
+  assert.equal(scratchEffectiveMinAgeHours(0), SCRATCH_MIN_AGE_HOURS_DEFAULT, '命令行 0 不得把下限调穿')
+  assert.equal(scratchEffectiveMinAgeHours(0.05), SCRATCH_MIN_AGE_HOURS_DEFAULT)
+  assert.equal(scratchEffectiveMinAgeHours(72), 72, '请求比下限大时按请求走')
+  assert.ok(SCRATCH_MIN_AGE_HOURS_DEFAULT >= 6, '下限不得比 6 小时更激进(一轮门几分钟,6h 是 20 倍余量)')
+})
+
+test('T28 族级熔断上限必须存在且被锁住(方向是少删一次)', () => {
+  assert.ok(Number.isFinite(SCRATCH_ROUND_CAP) && SCRATCH_ROUND_CAP > 0, '熔断上限必须是正数')
+  assert.equal(SCRATCH_ROUND_CAP, 2000, '熔断上限现读值(改动必须同步改这条锁)')
+  // 形状不变量:候选数 > cap ⇒ 整腿清空并报名(真跑路径由判据自己保证)
+  const probe = Array.from({ length: SCRATCH_ROUND_CAP + 1 }, (_, i) => ({ name: `x${i}`, path: 'x' }))
+  assert.ok(probe.length > SCRATCH_ROUND_CAP, '探针必须真的越过上限,否则这条锁是恒真的')
+})
+
+test('T29 缺失形状与装车锁:没有 scratch 目录时判"跳过"而非"已清扫";这一腿必须真被主流程调用', () => {
+  const root = mkScratch('scrub-t29')
+  try {
+    const r = scanScratchFixtures({ root, now: Date.now() })
+    assert.equal(r.absent, true, '没有 scratch 目录是一个确定的答案,但它不是"这一格已清扫"')
+    const line = formatScratchReport(r, { apply: false }).join('\n')
+    assert.match(line, /跳过/, '必须报名跳过,不得只报数')
+    assert.ok(!/已删/.test(line), '没跑的东西不得写成已删')
+    const src = readFileSync(join(HERE, '..', 'scrub-temp-fixtures.mjs'), 'utf8')
+    assert.match(src, /scanScratchFixtures\(\{ root, minAgeHours: minAgeDays \* 24, now \}\)/, '主流程没调第三腿')
+    assert.match(src, /formatScratchReport\(s, \{ apply \}\)/, '主流程没打印第三腿报告')
+    assert.match(src, /del\(resolve\(s\.scratchRoot\), s\.candidates\)/, '第三腿必须走同一个删除出口 del(),不得另开删法')
+    assert.ok(!/scanScratchFixtures/.test('const x = 1'), '取判据锁失效(整份源码被当成函数体了)')
+  } finally {
+    rmScratch(root)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

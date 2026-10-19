@@ -536,6 +536,168 @@ export function formatReport(r, { apply, minAgeDays }) {
  * 删除。只接受 scan() 产出的候选 —— 判序(重解析点/保护区/账龄)全在 scan 里做一次,
  * 这里不重判也不放宽:两处各判一遍必然漂移,而本函数会毁数据。
  */
+/**
+ * 第三腿(2026-10-19 立):本项目**自己的** scratch 夹具 —— `ihui-scratch/<prefix>-XXXXXX/`。
+ *
+ * 为什么必须有这一腿(立因是"造好没装车"的又一型,现读量级为准):
+ *   · `scripts/lib/scratch-dir.mjs` 给每个夹具注册了**进程退出钩子**,正常退出自动回收;
+ *   · 但 SIGKILL / 断电 / 任务被杀不在此列 ⇒ 残留没有第二个出口;
+ *   · 而前两腿都只扫 **TEMP 顶层**:`ihui-scratch` 整体只是**一个**顶层条目,目录一近期
+ *     (刚建过夹具就"新鲜")就整体不判 ⇒ **结构上永远扫不到它里面的任何夹具**。
+ *   · 现读:`D:\DevEnv\Temp` 73,469 项,`ihui-scratch` 一家 20,720 项(764 MB),已经把 P4a
+ *     (条目阈 60000)顶红;而 P4a 指向的出路正是本工具。
+ *
+ * 为什么这一腿可以比前两腿**激进**一点(账龄 6 小时而不是 7 天),而方向不能反:
+ *   · 名字围栏最硬:该目录下每个条目都是 `mkScratch()` 亲手建的,**没有别人的东西**;
+ *   · 判据用**子树最新 mtime**而不是目录 mtime(深一层写文件不会改目录 mtime,目录 mtime
+ *     对"还在写"这件事系统性失真);一轮门跑几分钟,6 小时是 20 倍余量;
+ *   · 族档 6 小时是**下限**,`--older-than` 只能把它抬高,不能调穿(同族级熔断的口径);
+ *   · 熔断:单轮候选 > `SCRATCH_ROUND_CAP` ⇒ 整腿本轮不删并报名(判据被一次风暴读成海量
+ *     删除时,方向必须是少删一次)。
+ */
+export const SCRATCH_DIR_NAME = 'ihui-scratch'
+export const SCRATCH_MIN_AGE_HOURS_DEFAULT = 6
+export const SCRATCH_ROUND_CAP = 2000
+const HOUR_MS = 3600000
+const NEWEST_WALK_BUDGET = 20000
+
+export function scratchEffectiveMinAgeHours(requestedHours = SCRATCH_MIN_AGE_HOURS_DEFAULT) {
+  const req = Number(requestedHours)
+  return Math.max(SCRATCH_MIN_AGE_HOURS_DEFAULT, Number.isFinite(req) ? req : SCRATCH_MIN_AGE_HOURS_DEFAULT)
+}
+
+/**
+ * 子树里最新的 mtime。取不到(读不动 / 超预算)**不猜**:返回 null ⇒ 该条判"读不到"、
+ * 绝不进入候选(§0.3:量不到就不删,方向是少删一次)。
+ */
+function newestMtimeMs(target, budget = NEWEST_WALK_BUDGET) {
+  let newest = 0
+  let spent = 0
+  const stack = [target]
+  while (stack.length) {
+    const d = stack.pop()
+    let entries
+    try {
+      entries = readdirSync(d, { withFileTypes: true })
+    } catch {
+      return null
+    }
+    for (const e of entries) {
+      if (++spent > budget) return null
+      const f = join(d, e.name)
+      try {
+        const st = lstatSync(f)
+        if (st.mtimeMs > newest) newest = st.mtimeMs
+        if (st.isDirectory() && !st.isSymbolicLink()) stack.push(f)
+      } catch {
+        return null
+      }
+    }
+  }
+  return newest || null
+}
+
+export function scanScratchFixtures({ root, minAgeHours = SCRATCH_MIN_AGE_HOURS_DEFAULT, now = Date.now() } = {}) {
+  const scratchRoot = join(resolve(root), SCRATCH_DIR_NAME)
+  const minAge = scratchEffectiveMinAgeHours(minAgeHours)
+  const skipped = { fresh: 0, protected: 0, link: 0, unreadable: 0, notOurs: 0 }
+  const candidates = []
+  const base = { scratchRoot, minAgeHours: minAge, candidates, skipped, cap: SCRATCH_ROUND_CAP, capTripped: false }
+  let st0
+  try {
+    st0 = lstatSync(scratchRoot)
+  } catch {
+    return { ...base, totalEntries: 0, error: null, absent: true }
+  }
+  if (!st0.isDirectory() || st0.isSymbolicLink()) return { ...base, totalEntries: 0, error: null, absent: false, skipped: { ...skipped, notOurs: 1 } }
+  let names
+  try {
+    names = readdirSync(scratchRoot, { withFileTypes: true })
+  } catch (e) {
+    return { ...base, totalEntries: 0, error: `取不到夹具清单: ${e?.message ?? e}`, absent: false }
+  }
+  for (const e of names) {
+    if (e.name.startsWith('.')) {
+      skipped.notOurs++
+      continue
+    }
+    if (isProtected(e.name)) {
+      skipped.protected++
+      continue
+    }
+    const full = join(scratchRoot, e.name)
+    let st
+    try {
+      st = lstatSync(full)
+    } catch {
+      skipped.unreadable++
+      continue
+    }
+    if (st.isSymbolicLink()) {
+      skipped.link++ // 链接本体也只报数:断链与否归持有者(同 `scan()` 的口径)
+      continue
+    }
+    const newest = newestMtimeMs(full)
+    if (newest === null) {
+      skipped.unreadable++
+      continue
+    }
+    if (now - newest < minAge * HOUR_MS) {
+      skipped.fresh++
+      continue
+    }
+    const m = st.isDirectory() ? measure(full) : { files: 1, bytes: st.size, links: 0, protectedHit: null }
+    if (m.protectedHit) {
+      skipped.protected++
+      continue
+    }
+    candidates.push({
+      name: e.name,
+      path: full,
+      dir: st.isDirectory(),
+      idleHours: Math.round(((now - newest) / HOUR_MS) * 10) / 10,
+      ...m,
+    })
+  }
+  if (candidates.length > SCRATCH_ROUND_CAP) {
+    return { ...base, candidates: [], skipped: { ...skipped, fresh: skipped.fresh + 0 }, totalEntries: names.length, error: null, absent: false, capTripped: true }
+  }
+  return { ...base, totalEntries: names.length, error: null, absent: false, capTripped: false }
+}
+
+export function formatScratchReport(r, { apply } = {}) {
+  const L = []
+  const p = (s = '') => L.push(s)
+  if (r.absent) {
+    p(`scratch 夹具清扫 · root=${r.scratchRoot} —— 该根没有 scratch 目录,本腿跳过(不记残留,也不记为已清扫)`)
+    return L
+  }
+  if (r.error) {
+    p(`scratch 夹具清扫 · root=${r.scratchRoot} —— ${r.error} ⇒ 本腿未判定,不是"已清扫"`)
+    return L
+  }
+  if (r.capTripped) {
+    p(
+      `scratch 夹具清扫 · root=${r.scratchRoot} —— 候选超过族级熔断(>${r.cap}) ⇒ 整腿本轮不删并报名(方向是少删一次);` +
+        `请人工分批看,别把判据调松来"清掉"`,
+    )
+    return L
+  }
+  const files = r.candidates.reduce((a, c) => a + c.files, 0)
+  const bytes = r.candidates.reduce((a, c) => a + c.bytes, 0)
+  p(
+    `scratch 夹具清扫 · root=${r.scratchRoot} · 静默闸 ${r.minAgeHours}h · 条目 ${r.totalEntries} → 候选 ${r.candidates.length}(文件 ${files} · ${(bytes / 1048576).toFixed(1)} MB)`,
+  )
+  p(
+    `  跳过(不判但报数):静默未到 ${r.skipped.fresh} · 保护区 ${r.skipped.protected} · 重解析点 ${r.skipped.link} · 读不到 ${r.skipped.unreadable} · 非夹具 ${r.skipped.notOurs}`,
+  )
+  for (const c of r.candidates.slice(0, 8))
+    p(`  · ${String(c.idleHours).padStart(5)}h  ${c.dir ? '目录' : '文件'} ${c.name}(${c.files} 文件 / ${(c.bytes / 1048576).toFixed(2)} MB)`)
+  if (r.candidates.length > 8) p(`  … 另 ${r.candidates.length - 8} 条(${apply ? '--apply 时逐条执行' : '预演'})`)
+  p(apply ? `  本腿删除入口已开(--apply);实际删除仍只走 del()` : `  本轮未删除任何东西;要删请加 --apply`)
+  return L
+}
+
 export function del(root, candidates) {
   let ok = 0
   let fail = 0
@@ -636,6 +798,24 @@ if (isDirectRun) {
       failAll += d2.fail
       if (d2.firstError) firstFail = firstFail || d2.firstError
       console.log(`  本根宿主散文件已删 ${d2.ok} 条 / 失败 ${d2.fail} 条 / 释放 ${(d2.bytes / 1048576).toFixed(2)} MB  root=${root}`)
+    }
+    // ── 第三腿:本项目自己的 scratch 夹具(同一批根、同一个删除出口、同一份汇总)──
+    // 根必须是 scratch 目录本身:del() 判 `path.startsWith(root)`,给 TEMP 根会放过越界检查。
+    const s = scanScratchFixtures({ root, minAgeHours: minAgeDays * 24, now })
+    for (const l of formatScratchReport(s, { apply })) console.log(l)
+    if (s.error) {
+      errs++
+      continue
+    }
+    totalCand += s.candidates.length
+    totalFiles += s.candidates.reduce((a, c) => a + c.files, 0)
+    totalBytes += s.candidates.reduce((a, c) => a + c.bytes, 0)
+    if (apply && s.candidates.length) {
+      const d3 = del(resolve(s.scratchRoot), s.candidates)
+      okAll += d3.ok
+      failAll += d3.fail
+      if (d3.firstError) firstFail = firstFail || d3.firstError
+      console.log(`  本根 scratch 夹具已删 ${d3.ok} 条 / 失败 ${d3.fail} 条 / 释放 ${(d3.bytes / 1048576).toFixed(2)} MB  root=${s.scratchRoot}`)
     }
   }
   const judgable = roots.length - absent - errs
