@@ -133,11 +133,6 @@ export type {
   ToolApprovalExecEnvironment,
   ToolApprovalNetworkTarget,
 } from './client.js'
-// D77 的对话流业务表单请求帧类型(2026-10-19 现读补回,单列一条而不是并进上面那两条长清单):
-// `packages/shared/src/utils/sse-parse.ts` 具名 import 这个类型,入口少它一枚就是悬空具名导入
-// (TS2305,守门 98 那一型);而把它同时列进两条 `export { … } from './client.js'` 清单是 TS2300
-// 重复标识符,实测把本包 build 打死、部署环连轮失败。同名在整个模块面上只准出现一次。
-export type { FormRequestEvent } from './client.js'
 export { projectToolApprovalEnvFacts } from './client.js'
 // AI 对话可视化 Phase 4a 事件类型 re-export(2026-08-01,消息级 plan/terminal inline 展示)
 export type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
@@ -423,4 +418,8 @@ export * from './endpoints/voice-note.js'
 // @ihui/shared 的 sse-parse.ts 具名 import 悬空(守门 98)。独立行落地:本导出
 // 已三次被并行合并流用旧基线整文件重写冲掉(7f473aff/caaf2e5fc23 均曾落地),
 // 末尾独立行避开显式命名清单,防与他席补条目时双写 TS2300。
+// 2026-10-19 第④次:两个并发会话**各自**新加了一行同名导出(a6702a66d89 / b8f1d47e1be),
+// 两者都合进 main ⇒ TS2300 重复标识符,打死本包 build、部署环连轮失败。
+// ⇒ 本行是**全模块唯一**的那一条;任何席要加同名导出,先 `grep -n` 本行再动手,
+// 不得"看着上面没有就再加一行"(旁证:守门 98 判的是悬空,不判重复 —— 这一型在它射程外)。
 export type { FormRequestEvent } from './client.js'
