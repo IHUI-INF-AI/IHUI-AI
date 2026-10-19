@@ -32,6 +32,8 @@ export * from './deep-equal-records'
 export * from './error-attribution'
 export * from './error-messages'
 export * from './file-helpers'
+// G-425 截断判定唯一实现(五端共用判据;端内差异只在"提示往哪放")
+export * from './finish-reason'
 export * from './form-styles'
 export * from './format'
 export * from './format-ext'
