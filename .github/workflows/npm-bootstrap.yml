@@ -41,6 +41,7 @@ jobs:
           cd .github/scripts
           npm init -y >/dev/null 2>&1 || true
           npm i playwright@1.49.1 --no-fund --no-audit
+          npx playwright install chromium --with-deps
           sudo apt-get update -qq
           sudo apt-get install -y -qq xvfb >/dev/null
           # 官方真 Chrome:userAgentData.brands 含 "Google Chrome"(CFT/Playwright chromium 缺这一项,
@@ -50,7 +51,6 @@ jobs:
           wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
           sudo apt-get install -y -qq ./google-chrome-stable_current_amd64.deb
           google-chrome --version
-          npx playwright install chromium --with-deps
       - name: Run browser automation (real Chrome + CDP, xvfb headed)
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq xvfb >/dev/null
