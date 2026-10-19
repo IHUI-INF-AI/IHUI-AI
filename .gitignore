@@ -168,6 +168,9 @@ deploy/prod-bundle/cloudflared/*.local.txt
 # 存档机制已退役(2026-10-16):.ihui-agent/archive/ 整目录忽略,防回潮
 .ihui-agent/archive/
 .qoder/
+# 2026-10-19 补(门 44 同上):第三方 AI 工具 CodeArts Doer 在本仓的工作目录,
+# 与上面 .qoder/ .trae/ .superpowers/ 同一口径 —— 工具自有配置/技能/记忆,不是本仓产物。
+.codeartsdoer/
 *.swp
 *.swo
 .DS_Store
@@ -438,6 +441,12 @@ packages/sdk/java/target/
 # ============================================================================
 .deploy.lock
 .deploy-loop.lock
+# 2026-10-19 补(门 44 exit 2「白名单外且未被跟踪 ⇒ 归属无从判定」实况):
+# deploy-lock.mjs `break-stale` 人工出口会先归档现场再断锁,归档落点是一级目录
+# `.deploy.lockbreak-stale/`(实测 2026-10-19 11:05 一枚跨机死锁取证现场就在那儿)。
+# 上一行只忽略了锁本体,漏了这个归档目录 ⇒ 它既不在白名单、又没被忽略,门 44 每次跑都判未判定。
+# 该目录含运行态 token(与 .deploy.lock 同性质),本就不该入库。
+.deploy.lockbreak-stale/
 
 # RN/Expo 原生模块 CMake staging(本地打包缓存,不入库)
 .cxx-modules-staging/
