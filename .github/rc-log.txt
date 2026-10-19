@@ -1,4 +1,4 @@
-2026-10-19T12:28:43.380Z pid=3868
+2026-10-19T12:28:55.383Z pid=3868
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/3 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -85,3 +85,4 @@ RC-WAIT round=0 step=0 i=78 status=404
 RC-WAIT round=0 step=0 i=84 status=404
 RC-WAIT round=0 step=0 i=90 status=404
 RC-WAIT round=0 step=0 i=96 status=404
+[ERR] ATTEMPT-2-ERROR rc instruction timeout round=0 step=0
