@@ -148,6 +148,32 @@ export const resurrectKey = (l) =>
  *    可重跑的等价物是上面那四条例(同一把尺子,只是夹具换成可控面)。
  * 放宽的只是"生成器自己怎么写这行",真实内容行一条也不放过 —— 缺条件②时(例 13)连同源行也照旧判红。
  */
+/**
+ * ④ JSON 面的**排版重排**(2026-10-19 立,门 84 R1r 第三型假阳)
+ *
+ * 立因(真仓现读):`scripts/data/sse-dispatch-coverage.json` 在 HEAD 里是展开写法
+ * (`"toolCallbacks": [\n  "onAbort", … ]`),而 lint-staged 的 `prettier --write` 按
+ * printWidth 把它压成一行(`"toolCallbacks": ["onAbort", "onAttemptStart", "onLine"],`)。
+ * 内容一个字节没变,但压行后的每条短数组行都逐字等于某个祖先的形态、HEAD 里却不存在
+ * ⇒ 被 R1r 读成"复活 6 行"并拒绝整枚提交。这与 resurrectKey 的②是同一族(HEAD 里本就不合规,
+ * 第一次碰它的提交必然带整片重排),只是重排形态不是缩进而是**行折叠**。
+ *
+ * 处置:对 `.json` 路径,三面(基准 / 待检 / 祖先)先折叠成同一份规范文本
+ * (`JSON.parse` → 缩进 2 的 `JSON.stringify`)再走行级比对;任一面解析失败 ⇒ 三面一起退回
+ * 旧严格尺(不得混面比对)。
+ * 牙不受影响:被写回的键值在规范文本里照样是"基准面没有、祖先面记过"的行 —— 成对用例见
+ * `scripts/tests/check-stale-revert.test.mjs` 的「JSON 排版折叠」一条(排版变 ⇒ 0 行;
+ * 同一次提交里把 baseline 写回祖先值 ⇒ 照旧点名)。
+ */
+export function canonicalJsonText(text) {
+  if (typeof text !== 'string') return null
+  try {
+    return `${JSON.stringify(JSON.parse(text), null, 2)}\n`
+  } catch {
+    return null
+  }
+}
+
 export const RESURRECT_PROVENANCE_KEYS = Object.freeze([
   'generator', //   钉块里的生成器路径
   'sourceCommit', //  生成时 HEAD 的 sha
@@ -348,6 +374,7 @@ export function resurrectAnalysis({
   sampleLines = SAMPLE_LINES,
   sampleCol = SAMPLE_COL,
   facePaths = null,
+  path = null,
 } = {}) {
   const clip = (l) => (l.length > sampleCol ? `${l.slice(0, sampleCol)}…` : l)
   const noProvenance = {
@@ -387,15 +414,31 @@ export function resurrectAnalysis({
       `正文 ${Math.max(baseText.length, newText.length)}B 超过行级扫描尺寸护栏 ${maxBlobBytes}B(整 blob 判据仍照判)`,
     )
 
+  // JSON 面先把三面折成同一份规范文本(理由见 canonicalJsonText 的 ④)。
+  // 任一面解析失败就三面一起退回原文 —— 拿一面规范、一面原文比,等于把两把尺子叠成一把。
+  let baseFace = baseText
+  let newFace = newText
+  let ancestorFaces = usable
+  if (typeof path === 'string' && /\.json$/i.test(path)) {
+    const cb = canonicalJsonText(baseText)
+    const cn = canonicalJsonText(newText)
+    const ca = usable.map((a) => ({ ...a, text: canonicalJsonText(a.text) }))
+    if (cb !== null && cn !== null && ca.every((a) => typeof a.text === 'string')) {
+      baseFace = cb
+      newFace = cn
+      ancestorFaces = ca
+    }
+  }
+
   // **先定尺,再量行**:条件②(所在文件自证为生成物)是一次性判定,基准面/待检面/祖先面必须
   // 共用同一把键 —— 两侧各定一次就会出现"同一枚提交在两道尺子下一红一绿"(本层开头那条禁令)。
   // 取"任一面自证即算":这条档只影响命中白名单的**注释自述行**,内容行照旧,放宽面窄到可以点名。
-  const generated = isGeneratedSelfDescribing(newText) || isGeneratedSelfDescribing(baseText)
+  const generated = isGeneratedSelfDescribing(newFace) || isGeneratedSelfDescribing(baseFace)
   const key = generated ? generatedProvenanceResurrectKey : resurrectKey
 
-  const baseT = tallyLines(baseText, key)
-  const newT = tallyLines(newText, key)
-  const ancT = usable.map((a) => ({ commit: a.commit, m: tallyLines(a.text, key) }))
+  const baseT = tallyLines(baseFace, key)
+  const newT = tallyLines(newFace, key)
+  const ancT = ancestorFaces.map((a) => ({ commit: a.commit, m: tallyLines(a.text, key) }))
   let count = 0
   const boilerplate = [] // G-587:结构符/样板行单独成档 —— 只报数,不判红(见下)
   const inputOnFace = [] // 生成物输入路径已在被审面上、因此折掉的 `// input:` 行(报数,不静默)
@@ -403,7 +446,7 @@ export function resurrectAnalysis({
   const sample = []
   const commits = []
   const seenCommit = new Set()
-  const newLines = linesOf(newText)
+  const newLines = linesOf(newFace)
   const clipBy = new Map(newLines.map((l) => [key(l), l])) // 报名时报**原文**,不报去逗号后的键
   for (const [line, cNew] of newT) {
     // ① 必须是**基准 blob 里根本没有这一行**(按上面的键比)。这里刻意不用"多重集多出"——
@@ -473,7 +516,7 @@ export function resurrectAnalysis({
   let provenanceLineCount = 0
   let provenanceValueDrift = 0
   if (generated) {
-    const strictBase = tallyLines(baseText, resurrectKey)
+    const strictBase = tallyLines(baseFace, resurrectKey)
     for (const l of newLines) {
       if (!isResurrectProvenanceLine(l)) continue
       provenanceLineCount++
