@@ -826,11 +826,16 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
       return false
     }
   }
-  // 挑战区是否真的可见(.rc-imageselect 在 bframe 内且未隐藏)
+  // 挑战区是否真的可见。★ 不要用 .rc-imageselect:该元素并不存在(实测 isVisible 恒 false,
+  // 明明九宫格就在屏上却被判「无挑战」,run 39247238263 白等 45s)。用格子计数 + VERIFY 按钮判。
   const challengeVisible = async (bframe) => {
     try {
       if (!bframe) return false
-      return await bframe.locator('.rc-imageselect').first().isVisible({ timeout: 3000 })
+      const n = await bframe
+        .locator('.rc-imageselect-table-33 td.rc-imageselect-tile, .rc-imageselect-table-44 td.rc-imageselect-tile')
+        .count()
+      if (n > 0) return true
+      return await bframe.locator('#recaptcha-verify-button').first().isVisible({ timeout: 1500 })
     } catch {
       return false
     }
