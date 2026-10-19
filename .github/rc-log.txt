@@ -1,4 +1,4 @@
-2026-10-19T11:18:44.140Z pid=4050
+2026-10-19T11:18:56.141Z pid=4050
 RUN-START action=signpath node=v22.23.3
 === ATTEMPT 1/1 ===
 LAUNCH via real Chrome: /usr/bin/google-chrome (webdriver native=false, brands include "Google Chrome")
@@ -60,3 +60,4 @@ RC-WAIT round=0 step=4 i=12 status=200
 RC-WAIT round=0 step=4 i=18 status=200
 RC-WAIT round=0 step=4 i=24 status=200
 RC-WAIT round=0 step=4 i=30 status=200
+RC-WAIT round=0 step=4 i=36 status=200
