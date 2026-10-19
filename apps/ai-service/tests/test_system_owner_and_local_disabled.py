@@ -95,6 +95,35 @@ def test_disabled_provider_sends_no_http(monkeypatch):
     assert health.is_available("ollama") is False
 
 
+def test_xinference_disabled_by_default_sends_no_http(monkeypatch):
+    """xinference 属未部署本地 provider,默认禁用清单应含它 ⇒ 零 HTTP 调用。
+
+    上一轮只禁了 ollama/lmstudio/llamacpp/vllm,遗漏 xinference,导致每轮
+    探活都 ConnectTimeout 刷屏。本例钉死默认清单含 xinference,防回归。
+    """
+    assert "xinference" in [
+        c.strip().lower() for c in settings.local_providers_disabled.split(",") if c.strip()
+    ]
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(200, json={"models": []})
+
+    health = LocalProviderHealth()
+
+    import asyncio
+
+    async def scenario():
+        return await health.probe(
+            "xinference", transport=httpx.MockTransport(handler), force=True
+        )
+
+    result = asyncio.run(scenario())
+    assert calls["n"] == 0, "默认禁用的 xinference 不该发探测请求"
+    assert result.verdict == LocalProbeVerdict.UNDETERMINED
+
+
 def test_non_disabled_provider_still_probes(monkeypatch):
     """未禁用的 provider:照常探测(MockTransport 返回 200 ⇒ available)。"""
     # 从禁用清单里临时拿掉 ollama(monkeypatch settings 字段)
