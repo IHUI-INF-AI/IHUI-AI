@@ -552,20 +552,9 @@ async function runTrustedPublisher(page, attempt) {
 async function runSignPath(page, attempt) {
   await page.goto('https://signpath.org/apply', { waitUntil: 'domcontentloaded', timeout: 60000 })
   await sleep(7000)
-  // 2 倍超采样:reCAPTCHA 九宫格每格只有 ~123px,整页缩略图辨识度太低导致误判;
-  // 用 CDP 把 deviceScaleFactor 提到 2,截图变 2 倍像素密度(布局不变,不影响点击)。
-  try {
-    const cdp = await page.context().newCDPSession(page)
-    await cdp.send('Emulation.setDeviceMetricsOverride', {
-      width: 1280,
-      height: 1000,
-      deviceScaleFactor: 2,
-      mobile: false,
-    })
-    console.log('SP-DPR 2 enabled')
-  } catch (e) {
-    console.log('SP-DPR-fail ' + String(e.message).slice(0, 80))
-  }
+  // ★ 不要用 CDP setDeviceMetricsOverride 提 DPR:它与真实窗口尺寸不一致,
+  // 会把 reCAPTCHA 挑战浮层的定位打乱 —— 实测挑战被塞进 40px 的微型 iframe 里,
+  // DOM 有格子但屏幕上根本看不见(run 39247901744 实证)。截图清晰度改在本机裁切放大解决。
   let hf = null
   for (const fr of page.frames()) if (/hsforms\.net/.test(fr.url())) hf = fr
   if (!hf) {
@@ -844,12 +833,19 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
   const shotGrid = async (name) => {
     try {
       const box = await page.evaluate(() => {
-        const f = Array.from(document.querySelectorAll('iframe')).find((x) => /bframe/.test(x.src || ''))
-        if (!f) return null
-        const r = f.getBoundingClientRect()
-        return { x: Math.max(0, r.x) | 0, y: Math.max(0, r.y) | 0, width: Math.min(r.width, 1000) | 0, height: Math.min(r.height, 900) | 0 }
+        const fs = Array.from(document.querySelectorAll('iframe')).filter((x) => /bframe/.test(x.src || ''))
+        let best = null
+        for (const f of fs) {
+          const r = f.getBoundingClientRect()
+          if (!best || r.width * r.height > best.w * best.h) best = { x: r.x, y: r.y, w: r.width, h: r.height }
+        }
+        if (!best) return null
+        return { x: Math.max(0, best.x) | 0, y: Math.max(0, best.y) | 0, width: best.w | 0, height: best.h | 0 }
       })
-      if (!box || box.width < 50) return false
+      if (!box || box.width < 200 || box.height < 200) {
+        console.log(`RC-GRID-SKIP box=${JSON.stringify(box)}`)
+        return false
+      }
       const p = `${SHOT_DIR}/${name}.png`
       await page.screenshot({ path: p, clip: box })
       const ok = await pushRepoFileRetry(`.github/${name}.png`, fs.readFileSync(p).toString('base64'), `rc ${name}`)
