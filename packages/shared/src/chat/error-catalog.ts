@@ -108,6 +108,11 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'CONCURRENCY_LIMIT_EXCEEDED.action',
     category: 'resourceLimitExceeded',
   },
+  CONCURRENT_MODIFICATION: {
+    titleKey: 'CONCURRENT_MODIFICATION.title',
+    actionKey: 'CONCURRENT_MODIFICATION.action',
+    category: 'runtimeException',
+  },
   CONTEXT_TOO_LONG: {
     titleKey: 'CONTEXT_TOO_LONG.title',
     actionKey: 'CONTEXT_TOO_LONG.action',
