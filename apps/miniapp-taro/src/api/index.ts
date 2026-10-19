@@ -448,17 +448,11 @@ export interface StreamEventCallbacks {
 }
 
 /**
- * G-425:done 帧 finishReason 是否表示"输出被 max_tokens 截断"。判据口径逐字取自
- * shared sse contract.ts 的 done 帧 `finishReason` 字段注释 —— 小写归一后
- * ∈ {length, max_tokens};其余值(stop/tool_calls/SAFETY/RECITATION…)与缺席/非串
- * 一律 false(缺席 = 上游没给,绝不折成"正常结束")。与 web
- * `use-chat/stream-handlers.ts` 的同名助手同口径(packages/shared 未收此键,
- * 端内各持一份;修改判据必须两端同批)。
+ * G-425:done 帧 finishReason 是否表示"输出被 max_tokens 截断"。
+ * 判据已下沉共享层(2026-10-19):唯一实现 = `@ihui/shared/utils/finish-reason`,
+ * 与 web/extension/mobile-rn 同一份。此处只做出口转发,端内不再留判据副本。
  */
-export function isMaxTokensTruncatedFinishReason(finishReason: string | undefined | null): boolean {
-  const fr = (finishReason ?? '').toLowerCase()
-  return fr === 'length' || fr === 'max_tokens'
-}
+export { isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils/finish-reason'
 
 /** SSE 错误对象携带的元信息(字段名与 @ihui/api-client client.ts attachErrorMeta 一致) */
 type SSEError = Error & { code?: number; errorCode?: string; retryAfter?: number }

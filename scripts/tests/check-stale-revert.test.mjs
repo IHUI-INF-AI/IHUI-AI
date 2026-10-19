@@ -802,6 +802,73 @@ test('R1r 键变换:纯缩进重排不得计复活,而真回退一行必须照�
   )
 })
 
+test('R1r JSON 排版折叠:prettier 压行不得计复活,而同一提交里把键值写回祖先版本照样点名(成对)', async () => {
+  const { resurrectAnalysis } = await import('../lib/stale-content-analysis.mjs')
+  // HEAD 形态:短数组展开(与仓内 sse-dispatch-coverage.json 现读同形)
+  const head = [
+    '{',
+    '  "baseline": {',
+    '    "miniapp-taro": 2',
+    '  },',
+    '  "endpoints": {',
+    '    "web": [',
+    '      "apps/web"',
+    '    ]',
+    '  },',
+    '  "note": "x"',
+    '}',
+    '',
+  ].join('\n')
+  // lint-staged 的 prettier 会把它压成一行 —— 内容不变
+  const compact = [
+    '{',
+    '  "baseline": {',
+    '    "miniapp-taro": 2',
+    '  },',
+    '  "endpoints": { "web": ["apps/web"] },',
+    '  "note": "x"',
+    '}',
+    '',
+  ].join('\n')
+  const ancestor = [
+    '{',
+    '  "baseline": {',
+    '    "miniapp-taro": 1',
+    '  },',
+    '  "endpoints": { "web": ["apps/web"] },',
+    '  "note": "x"',
+    '}',
+    '',
+  ].join('\n')
+  const reflowOnly = resurrectAnalysis({
+    path: 'scripts/data/x.json',
+    baseText: head,
+    newText: compact,
+    ancestors: [{ commit: 'a1b2c3d', text: ancestor }],
+  })
+  assert.equal(reflowOnly.status, 'judged', `排版折叠应当可判,实得 ${reflowOnly.status}/${reflowOnly.reason}`)
+  assert.equal(
+    reflowOnly.count,
+    0,
+    `纯排版折叠不得算复活,实得 ${reflowOnly.count}:${JSON.stringify(reflowOnly.sample).slice(0, 120)}`,
+  )
+  // 同一份压行内容里把键值写回祖先版本 ⇒ 规范文本里仍是"HEAD 没有、祖先记过"的行
+  const rolledBack = compact.replace('"miniapp-taro": 2', '"miniapp-taro": 1')
+  const bad = resurrectAnalysis({
+    path: 'scripts/data/x.json',
+    baseText: head,
+    newText: rolledBack,
+    ancestors: [{ commit: 'd4e5f6a', text: ancestor }],
+  })
+  assert.ok(
+    bad.status === 'judged' && bad.count > 0,
+    `JSON 值回写必须照旧点名(排版档不许把牙一起磨掉),实得 ${bad.status}/${bad.count}`,
+  )
+  // 不给 path 的调用方保持旧严格尺 —— 放宽必须显式点名到 JSON 面,不得静默生效
+  const noPath = resurrectAnalysis({ baseText: head, newText: compact, ancestors: [{ commit: 'a1b2c3d', text: ancestor }] })
+  assert.ok(noPath.count > 0, '未给 path 时不得套用 JSON 折叠档')
+})
+
 /**
  * G-587(2026-10-13):R1r 的内容性档 —— 结构符/样板行(`if: failure()` / `fi` / `exit 0` / `}`)
  * 只报数不判红。立因:2026-09-28 落地 CI 失败自述步骤(4f61a35f6)时实测假阳,祖先 fbe0e3f65
