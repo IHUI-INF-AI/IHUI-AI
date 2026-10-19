@@ -1732,6 +1732,29 @@ test('FL-8 形状锁:汇点派生只能引 lib 那一份,门内不得再抄一�
   )
 })
 
+test('FL-9 形状锁:G-167 ② —— 命名空间枚举与 reader 消费判据只能住 lib,两族都不得再持副本', () => {
+  // 票面拍板选②:保持两道门、共用一份取键实现,唯一入口 lib/i18n-key-flow.mjs。
+  // 本锁钉两端:门 2 不得重新声明本地副本;死键扫描必须真的 import flowKeysOf(否则
+  // "共用"只写在注释里,第二族仍按自己的正则表判,迟早再漂)。
+  const gate = readFileSync(SCRIPT_PATH, 'utf8')
+  const helpers = readFileSync(join(__dirname, '..', '_i18n-scan-helpers.mjs'), 'utf8')
+  assert.match(
+    gate,
+    /import\s*\{[^}]*translationVarsOf[^}]*\}\s*from\s*'\.\/lib\/i18n-key-flow\.mjs'/,
+  )
+  assert.match(
+    gate,
+    /import\s*\{[^}]*translationConsumesReader[^}]*\}\s*from\s*'\.\/lib\/i18n-key-flow\.mjs'/,
+  )
+  assert.doesNotMatch(gate, /^function extractNamespaces\b/m, '门 2 内出现第二份命名空间枚举实现')
+  assert.doesNotMatch(gate, /^function varConsumesReader\b/m, '门 2 内出现第二份 reader 消费判据')
+  assert.match(
+    helpers,
+    /import\s*\{[^}]*flowKeysOf[^}]*\}\s*from\s*'\.\/lib\/i18n-key-flow\.mjs'/,
+  )
+  assert.doesNotMatch(helpers, /^function (?:deriveStatePairs|traceKeyFlow)\b/m, '死键族内出现第二份流键派生')
+})
+
 test('FL-7 变异锁:真实形态里摘掉那一个流键必须翻红并点名(证明并集真进了判定面,不只进计数)', () => {
   const root = createTempProject()
   try {

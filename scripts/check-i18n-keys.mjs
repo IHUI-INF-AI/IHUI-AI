@@ -54,7 +54,7 @@ import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 // ⚠ traceKeyFlow 要吃的是**汇点**(state setter `setX`)而不是源函数名(`flashNotice`)——
 // 喂错不报错,只会永远返回空,于是门对着同一个文件继续报绿。所以汇点由本门从源码自己派生,
 // 不留给调用方手传(2026-10-09 接线前置实测 ② 的原文)。
-import { traceKeyFlow, deriveStatePairs } from './lib/i18n-key-flow.mjs'
+import { traceKeyFlow, deriveStatePairs, translationVarsOf, translationConsumesReader } from './lib/i18n-key-flow.mjs'
 
 const ROOT = process.cwd()
 // 2026-09:解析端内 lib/*.ts 的 messagesZhCN TS 对象字面量。
@@ -749,20 +749,10 @@ function collectLeafValues(obj, prefix = '') {
   return map
 }
 
-function extractNamespaces(src) {
-  const pairs = []
-  // 2026-07-30: 支持无参数调用 useTranslations() / getTranslations()(根 namespace,ns='')
-  // 原 regex 要求必须有引号参数,导致 PageClient.tsx(const t = useTranslations())被跳过,
-  // 其 t('design.saved') / t('design.export.exportSuccess') 等 5 个 missing key 漏检。
-  // (?:['"]([^'"]+)['"])? 使引号参数可选,无参数时 ns = ''
-  const re =
-    /(?:const|let|var)\s+(\w+)\s*=\s*(?:await\s+)?(?:useTranslations|getTranslations)\(\s*(?:['"]([^'"]+)['"])?\s*\)/g
-  let m
-  while ((m = re.exec(src)) !== null) {
-    pairs.push({ varName: m[1], ns: m[2] ?? '' })
-  }
-  return pairs
-}
+// G-167 ②(2026-10-19):命名空间枚举与 reader 消费判据的**唯一实现**已迁到
+// scripts/lib/i18n-key-flow.mjs(死键扫描侧同批接入,禁止两族各持一份正则)。
+// 原 extractNamespaces / varConsumesReader 的函数体逐字迁走,行为不变;
+// 本门只保留调用点。
 
 function extractKeysByVar(src, varName) {
   const escaped = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -785,12 +775,7 @@ function extractKeysByVar(src, varName) {
 // 该翻译变量是否以"整个实参恰为 reader"的形态被调用:`t(notice)` / `t.rich(notice)`。
 // 只认整实参:`t(`a.${notice}`)` 与 `t('x' + notice)` 都属于"拼接型",本票不猜其键名(动态前缀
 // 那一维另有 extractDynamicPrefixes 管),把它们算成流键的汇点会凭空造出归属。
-function varConsumesReader(src, varName, reader) {
-  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(
-    `\\b${esc(varName)}(?:\\.(?:rich|raw|format|has))?\\(\\s*${esc(reader)}\\s*[,)]`,
-  ).test(src)
-}
+// G-167 ②(2026-10-19):实现已迁 lib 的 translationConsumesReader(与死键扫描共用),本门不持副本。
 
 function hasKey(msg, ns, key) {
   // 2026-07-30: ns='' 表示根 namespace(useTranslations() 无参数调用)
@@ -1206,7 +1191,7 @@ for (const file of sourceFiles) {
     continue
   }
 
-  const nsPairs = extractNamespaces(src)
+  const nsPairs = translationVarsOf(src)
   if (nsPairs.length === 0) continue
 
   const seen = new Set()
@@ -1241,7 +1226,7 @@ for (const file of sourceFiles) {
   // 一个归属会把别人命名空间里的同键算成"这里在用",那是造假账);没有任何 var 用 ⇒ 该 state 与
   // 翻译无关(如 copied/fullscreen 这类布尔位),按定义不是流键,不报名也不计。
   for (const { reader, sink } of deriveStatePairs(srcNoComment)) {
-    const owners = nsPairs.filter(({ varName }) => varConsumesReader(srcNoComment, varName, reader))
+    const owners = nsPairs.filter(({ varName }) => translationConsumesReader(srcNoComment, varName, reader))
     if (owners.length === 0) continue
     if (owners.length > 1) {
       flowUndetermined.push(
