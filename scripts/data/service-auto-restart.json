@@ -71,7 +71,7 @@
     },
     { "name": "IHUI-MONITOR", "reason": "同上:无端口,巡检 P5 管心跳。" },
     {
-      "name": "ihui-prometheus / ihui-loki / ihui-grafana / ihui-promtail",
+      "name": "ihui-prometheus / ihui-loki / ihui-promtail",
       "reason": "B 档存储与采集:崩了影响『看得见』不影响业务,自动重启会在数据目录未刷盘时反复拉起;只喊人。"
     },
     {
