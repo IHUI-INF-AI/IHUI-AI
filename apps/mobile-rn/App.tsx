@@ -70,6 +70,7 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
   CourseDetail: (t) => t.surface.chrome,
   DevEnter: (t) => t.surface.chrome,
   Developer: (t) => t.surface.chrome,
+  DomainHub: (t) => t.surface.chrome,
   LiveDetail: (t) => t.surface.chrome,
   RankingDetail: (t) => t.surface.chrome,
   Share: (t) => t.surface.chrome,
