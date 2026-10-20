@@ -5072,10 +5072,10 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 生成器资源释放(1 项,warn)---
+  // --- 生成器资源释放(1 项,warn;升 blocking 前置见门体头注)---
   {
     id: '225',
-    label: '生成器资源释放对账(warn 起步;持有事务/句柄/订阅的 async 生成器,消费方提前 break/抛错时不得只靠退出作用域与 GC)',
+    label: '生成器资源释放对账(warn;持有事务/句柄/订阅的 async 生成器,消费方提前 break/抛错时不得只靠退出作用域与 GC)',
     script: 'check-generator-resource-release.mjs',
     args: [],
     mode: 'warn',
