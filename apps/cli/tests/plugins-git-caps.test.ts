@@ -370,7 +370,10 @@ describe('G-146 git 二进制解析改"当次实测链"(§5b:候选表 + existsS
       fs.writeFileSync(path.join(bin, exeName), '#!/bin/sh\nexit 0\n');
       if (!isWin) fs.chmodSync(path.join(bin, exeName), 0o644);
       const env = (isWin ? { PATH: bin, PATHEXT: '.TXT' } : { PATH: bin }) as NodeJS.ProcessEnv;
-      expect(resolveGitBinary(env)).toBe('git');
+      // 同上一例:类 Unix 候选表含 /usr/bin/git(Ubuntu runner 上存在),不声明"只有夹具那格
+      // 存在"就会在候选层先命中系统 git,PATH×X_OK 这一层永远走不到。
+      const probe = { exists: (c: string) => c === path.join(bin, exeName), canExec: () => false };
+      expect(resolveGitBinary(env, probe)).toBe('git');
     } finally {
       rmScratch(bin);
     }

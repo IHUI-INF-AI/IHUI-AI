@@ -1,0 +1,882 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "title": "返回 AI 总览",
+      "type": "link",
+      "url": "/d/ihui-ai-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "tags": [
+        "ihui-ai"
+      ]
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 200,
+      "type": "row",
+      "title": "支出总览",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "collapsed": false,
+      "panels": [],
+      "repeat": null
+    },
+    {
+      "id": 201,
+      "type": "stat",
+      "title": "区间总支出(USD)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_llm_cost_usd_total{job=\"ai-service\",provider=~\"$provider\"}[$__range]))",
+          "legendFormat": "total",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 202,
+      "type": "stat",
+      "title": "每小时支出",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_llm_cost_usd_total{job=\"ai-service\",provider=~\"$provider\"}[1h]))",
+          "legendFormat": "per-hour",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 203,
+      "type": "stat",
+      "title": "每千 token 单价(USD)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(ihui_llm_cost_usd_total{job=\"ai-service\",provider=~\"$provider\"}[1h])) / clamp_min(sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=~\"input|output\"}[1h])),0.0001) * 1000",
+          "legendFormat": "k",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 204,
+      "type": "stat",
+      "title": "支出是否在被采集",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "count(ihui_llm_cost_usd_total{job=\"ai-service\",provider=~\"$provider\"})",
+          "legendFormat": "series",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 205,
+      "type": "row",
+      "title": "趋势与构成",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "collapsed": false,
+      "panels": [],
+      "repeat": null
+    },
+    {
+      "id": 206,
+      "type": "timeseries",
+      "title": "支出趋势(按厂商)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      },
+      "targets": [
+        {
+          "expr": "sum by (provider) (rate(ihui_llm_cost_usd_total{job=\"ai-service\",provider=~\"$provider\"}[1h]))",
+          "legendFormat": "{{provider}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 207,
+      "type": "timeseries",
+      "title": "支出趋势(按模型)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 7
+      },
+      "targets": [
+        {
+          "expr": "sum by (model) (rate(ihui_llm_cost_usd_total{job=\"ai-service\",provider=~\"$provider\"}[1h]))",
+          "legendFormat": "{{model}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 208,
+      "type": "timeseries",
+      "title": "Token 输入/输出速率",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"input\"}[1h]))",
+          "legendFormat": "input",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"output\"}[1h]))",
+          "legendFormat": "output",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"cache_read\"}[1h]))",
+          "legendFormat": "cache_read",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(ihui_llm_tokens_total{job=\"ai-service\",direction=\"cache_read\"}[1h]))",
+          "legendFormat": "cache_creation",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 209,
+      "type": "table",
+      "title": "模型支出排行(区间)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "targets": [
+        {
+          "expr": "sum by (model, provider) (increase(ihui_llm_cost_usd_total{job=\"ai-service\",provider=~\"$provider\"}[$__range]))",
+          "legendFormat": "m",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 500,
+      "type": "row",
+      "title": "API 业务口径(落账侧 /business-metrics)",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "collapsed": false,
+      "panels": [],
+      "repeat": null
+    },
+    {
+      "id": 501,
+      "type": "stat",
+      "title": "区间 AI 支出(CNY 元)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 25
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(business_ai_cost_minor_units_total{job=\"business-metrics\",vendor=~\"$vendor\"}[$__range])) / 100",
+          "legendFormat": "cost",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyCNY",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 502,
+      "type": "timeseries",
+      "title": "落账调用速率(按类型)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 9,
+        "x": 6,
+        "y": 25
+      },
+      "targets": [
+        {
+          "expr": "sum by (call_type, status) (rate(business_ai_calls_total{job=\"business-metrics\",vendor=~\"$vendor\"}[1h]))",
+          "legendFormat": "{{call_type}} {{status}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 503,
+      "type": "timeseries",
+      "title": "Token 速率(按方向)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 9,
+        "x": 15,
+        "y": 25
+      },
+      "targets": [
+        {
+          "expr": "sum by (direction) (rate(business_ai_tokens_total{job=\"business-metrics\",vendor=~\"$vendor\"}[1h]))",
+          "legendFormat": "{{direction}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "id": 504,
+      "type": "stat",
+      "title": "成本落库失败(区间,应为 0)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 30
+      },
+      "targets": [
+        {
+          "expr": "(sum(increase(business_ai_record_failures_total{job=\"business-metrics\"}[$__range]))) or vector(0)",
+          "legendFormat": "fail",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 505,
+      "type": "stat",
+      "title": "被基数护栏拒掉的序列写入(区间)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 30
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(business_ai_series_dropped_total{job=\"business-metrics\"}[$__range]))",
+          "legendFormat": "dropped",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 506,
+      "type": "stat",
+      "title": "端点抓取存活",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 30
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"business-metrics\"}",
+          "legendFormat": "up",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red"
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 507,
+      "type": "table",
+      "title": "厂商×模型支出排行(区间 CNY 元)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 30
+      },
+      "targets": [
+        {
+          "expr": "sum by (vendor, model) (increase(business_ai_cost_minor_units_total{job=\"business-metrics\",vendor=~\"$vendor\"}[$__range])) / 100",
+          "legendFormat": "m",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyCNY",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [
+    "ihui-ai",
+    "ai",
+    "cost"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "provider",
+        "label": "厂商",
+        "query": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, provider)",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "includeAll": true,
+        "multi": true,
+        "refresh": 1,
+        "type": "query",
+        "hide": 0,
+        "definition": "label_values(ihui_llm_calls_total{job=\"ai-service\"}, provider)",
+        "options": [],
+        "allValue": ".*",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        }
+      },
+      {
+        "name": "vendor",
+        "label": "厂商(业务落账)",
+        "query": "label_values(business_ai_calls_total{job=\"business-metrics\"}, vendor)",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "includeAll": true,
+        "multi": true,
+        "refresh": 1,
+        "type": "query",
+        "hide": 0,
+        "definition": "label_values(business_ai_calls_total{job=\"business-metrics\"}, vendor)",
+        "options": [],
+        "allValue": ".*",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        }
+      },
+      {
+        "name": "biz_model",
+        "label": "模型(业务落账)",
+        "query": "label_values(business_ai_calls_total{job=\"business-metrics\"}, model)",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "includeAll": true,
+        "multi": true,
+        "refresh": 1,
+        "type": "query",
+        "hide": 0,
+        "definition": "label_values(business_ai_calls_total{job=\"business-metrics\"}, model)",
+        "options": [],
+        "allValue": ".*",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "1h"
+    ]
+  },
+  "timezone": "",
+  "title": "IHUI-AI 模型成本与用量",
+  "tooltip": {
+    "shared": true,
+    "showCrosshair": false,
+    "sort": 2
+  },
+  "uid": "ihui-ai-ai-cost",
+  "version": 1,
+  "weekStart": "",
+  "description": "AI 成本:USD 与人民币分两套口径的支出、每千 token 单价、落账失败数。数据源 ai-service 的 ihui_llm_cost_usd_total/ihui_llm_tokens_total 与 api 落账侧 business_ai_*。"
+}

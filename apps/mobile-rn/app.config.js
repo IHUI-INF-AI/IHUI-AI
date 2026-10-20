@@ -108,6 +108,9 @@ module.exports = ({ config }) => {
       // Android 开屏图 + 样式:未装 expo-splash-screen 时 prebuild 的 legacy 分支
       // 不会写 drawable 资源,原生目录里留的是模板灰白占位图(详见插件头注释)
       './plugins/withSplash.cjs',
+      // media3 钉版:react-native-video 6.19.2 期望 1.8.0,依赖图会解到 1.9.0 ⇒ 进播放器
+      // NoSuchMethodError 闪退(2026-10-20 真机实测;当时全仓无入口到播放器,崩溃从未暴露)
+      './plugins/withMedia3Pin.cjs',
       // 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
       // 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
       // build-time linking,font-family 名称取字体内部 PostScript name

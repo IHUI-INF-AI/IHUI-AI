@@ -34,7 +34,8 @@ export function CourseChapterScreen() {
       setLoading(true)
       setError('')
       const res = await fetchApi<CourseChapterItem[]>(
-        `/api/courses/${encodeURIComponent(courseId)}/chapters`,
+        // /catalog 才是「章节 + children(小节,含 videoUrl)」的投影;/chapters 只有章节骨架
+        `/api/courses/${encodeURIComponent(courseId)}/catalog`,
       )
       if (cancelled) return
       if (res.success) setChapters(res.data ?? [])

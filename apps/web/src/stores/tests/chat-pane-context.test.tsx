@@ -12,7 +12,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { renderHook } from '@testing-library/react'
 
-import { ChatPaneProvider, usePaneChatStore } from '@/stores/chat-pane-context'
+import { ChatPaneProvider, matchesPaneEvent, usePaneChatStore } from '@/stores/chat-pane-context'
 import { resetChatPaneStores } from '@/stores/chat-panes'
 import { useChatStore } from '@/stores/chat'
 
@@ -61,6 +61,26 @@ describe('usePaneChatStore 消费基座', () => {
         wrapper: ({ children }) => <ChatPaneProvider paneId="   ">{children}</ChatPaneProvider>,
       }),
     ).toThrow(/paneId 不能为空/)
+  })
+})
+
+describe('matchesPaneEvent 窗格事件门控', () => {
+  it('事件 paneId 与当前窗格相同 ⇒ 处理', () => {
+    expect(matchesPaneEvent('pane-a', 'pane-a')).toBe(true)
+  })
+
+  it('事件 paneId 指向别的窗格 ⇒ 不处理', () => {
+    expect(matchesPaneEvent('pane-a', 'pane-b')).toBe(false)
+  })
+
+  it('根窗格(paneId=null)只处理无 paneId 的历史事件', () => {
+    expect(matchesPaneEvent(undefined, null)).toBe(true)
+    expect(matchesPaneEvent(null, null)).toBe(true)
+    expect(matchesPaneEvent('pane-a', null)).toBe(false)
+  })
+
+  it('窗格内的监听方不处理无 paneId 的全局事件(避免根事件被每个窗格重复消费)', () => {
+    expect(matchesPaneEvent(undefined, 'pane-a')).toBe(false)
   })
 })
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

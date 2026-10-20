@@ -5005,10 +5005,10 @@ const checks = [
     id: '220',
     label:
       '监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记)',
-    script: 'check-panel-metric-exists.mjs',
+    script: 'check-grafana-metric-exists.mjs',
     args: [],
     mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_PANEL_METRIC_EXISTS',
+    skipEnv: 'HUSKY_SKIP_GRAFANA_METRIC_EXISTS',
     stagedTriggers: ['monitoring', 'deploy', 'apps/ai-service/app', 'apps/api/src', 'packages', 'scripts/'],
     onFailHint: [
       '',
@@ -5021,15 +5021,15 @@ const checks = [
     id: '222',
     label:
       '监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态)',
-    script: 'check-panel-datasource-wiring.mjs',
+    script: 'check-grafana-datasource-wiring.mjs',
     args: [],
     mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_PANEL_DATASOURCE_WIRING',
-    stagedTriggers: ['monitoring', 'scripts/sync-panel-live-provisioning.mjs'],
+    skipEnv: 'HUSKY_SKIP_GRAFANA_DATASOURCE_WIRING',
+    stagedTriggers: ['monitoring', 'scripts/sync-grafana-live-provisioning.mjs'],
     onFailHint: [
       '面板引用的数据源 uid 不在 monitoring/panel-defs/provisioning/datasources/datasources.yml 里 ——',
       '这样的面板只会静静显示 "Datasource not found",和"这业务本来没流量"长得一模一样。',
-      '要么把 uid 改成已声明的源,要么先在 provisioning 里声明这个源(并跑 sync-panel-live-provisioning.mjs 派生到线上副本)。',
+      '要么把 uid 改成已声明的源,要么先在 provisioning 里声明这个源(并跑 sync-grafana-live-provisioning.mjs 派生到线上副本)。',
     ].join('\n'),
   },
 

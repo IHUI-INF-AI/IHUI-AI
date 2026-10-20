@@ -9,13 +9,26 @@
  *      + 认领转移;④ 守恒断言(A1 勾选态 / A3 注记归零 / A4 族级认领守恒)。
  */
 import { test } from 'node:test'
-import { ratchetVerdict, countPointerRows, pointerRows, twinRatchetVerdict } from '../check-plan-dup-pointer-ratchet.mjs'
+import {
+  ratchetVerdict,
+  countPointerRows,
+  pointerRows,
+  twinRatchetVerdict,
+  redundantNoteCount,
+  redundantNoteCountInLine,
+  noteRedundancyVerdict,
+  prefixTwinPairs,
+  prefixTwinVerdict,
+} from '../check-plan-dup-pointer-ratchet.mjs'
+import { DUP_POINTER_RE } from '../lib/plan-task-index.mjs'
 import { stripMergeNotes, buildPlan, renderPurge, verifyPurge } from '../plan-pointer-purge.mjs'
 
 const NOTE =
   '〔【归并】重复登记副本(2026-09-27):逐字相同的另一条登记,派单以那条为准,本行不再单独派单。〕'
-const NOTE2 = '**[归并]** 【归并】重复登记副本:本行与同标题登记 L6542(枚 b0d91000e)重复,以主行为准。'
-const NOTE3 = '（【归并】重复登记副本·同题不同编号·2026-09-28·本行与同题登记的持有行重复,派单以持有行为准）'
+const NOTE2 =
+  '**[归并]** 【归并】重复登记副本:本行与同标题登记 L6542(枚 b0d91000e)重复,以主行为准。'
+const NOTE3 =
+  '（【归并】重复登记副本·同题不同编号·2026-09-28·本行与同题登记的持有行重复,派单以持有行为准）'
 const NOTE4 = '（【归并】重复登记副本:行首那个号是改派工具造出来的,派单以持有行为准。）'
 const PROSE_PAREN = '正常正文(含中文括注:说明)保持不变。'
 
@@ -54,7 +67,10 @@ test('P1 剥注记:〔〕/【】/（）三形态全剥,不动普通中文括注'
   ]
   for (const [input, expect] of cases) {
     const got = stripMergeNotes(input).trim()
-    if (got !== expect.trim()) throw new Error(`输入=${JSON.stringify(input.slice(0, 60))}\n得到=${JSON.stringify(got)}\n期望=${JSON.stringify(expect)}`)
+    if (got !== expect.trim())
+      throw new Error(
+        `输入=${JSON.stringify(input.slice(0, 60))}\n得到=${JSON.stringify(got)}\n期望=${JSON.stringify(expect)}`,
+      )
   }
 })
 
@@ -174,10 +190,7 @@ test('P6 F10 差值棘轮(维②):同题不同编号可折重复登记只拦变�
     '- [ ] G-601. 同一件事被并发登记成两个号:第一份登记,持有行,正文交代。',
     '- [ ] G-602. 同一件事被并发登记成两个号',
   ]
-  const staged = [
-    ...head,
-    '- [ ] G-603. 同一件事被并发登记成两个号:又一份登记,题面同、号不同。',
-  ]
+  const staged = [...head, '- [ ] G-603. 同一件事被并发登记成两个号:又一份登记,题面同、号不同。']
   const grew = twinRatchetVerdict(head.join('\n'), staged.join('\n'))
   if (grew.undetermined) throw new Error('判据未判定 ⇒ 不得当通过')
   if (!grew.grew) throw new Error(`新增同题不同号应判 grew,实得 ${JSON.stringify(grew)}`)
@@ -233,3 +246,57 @@ test('P8 A5 仍有牙:未勾选行数不变而重复度上升 ⇒ 必红(不许�
   if (errs.some((e) => e.startsWith('A2'))) throw new Error('A2 被误触发(行数未变) ⇒ 夹具失真')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('P9 维③叠注重数:同一行同一注记多出来的份数只拦变多;识别集不并入 DUP_POINTER_RE', () => {
+  const one = '- [ ] G-9 做点啥 〔同题原号 G-191〕\n'
+  const three = '- [ ] G-9 做点啥 〔同题原号 G-191〕〔同题原号 G-191〕〔同题原号 G-191〕\n'
+  if (redundantNoteCount(one) !== 0) throw new Error('单份留痕不该计重叠(阳性对照失败)')
+  if (redundantNoteCount(three) !== 2) throw new Error('三份同注记应计 2 份多余')
+  if (redundantNoteCountInLine('') !== 0) throw new Error('空行必须读成 0')
+  const prose = '随便一句正文 〔同题原号 G-191〕〔同题原号 G-191〕\n'
+  if (redundantNoteCount(prose) !== 0) throw new Error('登记行以外的文本不得计入重数')
+  const grew = noteRedundancyVerdict(one, three)
+  if (!grew.grew || grew.before !== 0 || grew.after !== 2) throw new Error('叠注变多必须判红')
+  const shrank = noteRedundancyVerdict(three, one)
+  if (shrank.grew || shrank.after !== 0) throw new Error('折并后应判绿且归零')
+  // 形状锁:维③自带识别集,**没有**扩大 DUP_POINTER_RE —— 那个字面一旦扩到通用括注族,
+  // 维①与 T3 元判据会把台账里合法的改号留痕一起判红(§12e 恒红门)。
+  if (DUP_POINTER_RE.source.includes('同题原号'))
+    throw new Error('DUP_POINTER_RE 被扩大 ⇒ 会造恒红门')
+})
+
+test('P10 维④前缀型副本对:只数严格前缀,逐字相同归 fold-identical 通道,已勾行不计', () => {
+  const A = '- [ ] G-7 做点啥这件事项的正文要长过承载下限才算副本短侧\n'
+  const B = '- [ ] G-7 做点啥这件事项的正文要长过承载下限才算副本短侧 追加了一段\n'
+  const C = '- [ ] G-7 做点啥这件事项的正文要长过承载下限才算副本短侧 追加了一段 又追加\n'
+  if (prefixTwinPairs(A + B) !== 1) throw new Error('两行成对应计 1 对(阳性对照失败)')
+  if (prefixTwinPairs(A + A) !== 0)
+    throw new Error('逐字相同的两行不由本维计(那是 --fold-identical-open-rows 的地盘)')
+  if (
+    prefixTwinPairs(
+      '- [ ] 不相关甲事项正文足够长可以独立派单\n- [ ] 不相关乙事项正文足够长可以独立派单\n',
+    ) !== 0
+  )
+    throw new Error('无前缀关系必须读成 0')
+  if (prefixTwinPairs(A + B + C) !== 3) throw new Error('链式 A⊂BC 应计 3 对')
+  if (
+    prefixTwinPairs(
+      '- [x] ✅(2026-01-01) G-7 做点啥这件事项的正文要长过承载下限才算副本短侧\n' + B,
+    ) !== 0
+  )
+    throw new Error('已勾行不参与本维')
+  // 反证(今天实测到的误咬型):裸认领标记行剥完括注后正文为空,却是所有同前缀行的公共前缀;
+  // 不设承载下限时,实测一条长度 10 的行在本维配到 26 条 ⇒ 读数全是假的。
+  const bare = '- [ ]（进行中）\n'
+  const filledA = '- [ ]（进行中）甲事项正文足够长可以独立派单干活现在补长一些以便越过承载下限\n'
+  const filledB =
+    '- [ ]（进行中）甲事项正文足够长可以独立派单干活现在补长一些以便越过承载下限 又补了一句\n'
+  const filledC = '- [ ]（进行中）乙事项正文足够长可以独立派单干活现在补长一些以便越过承载下限\n'
+  if (prefixTwinPairs(bare + filledA + filledC) !== 0)
+    throw new Error('裸认领标记行不得作为副本短侧(误咬)')
+  if (prefixTwinPairs(filledA + filledB + filledC) !== 1)
+    throw new Error('阳性对照:剥掉认领括注后正文够长的短侧,仍必须读得出 1 对')
+  const grew = prefixTwinVerdict(A, A + B)
+  if (!grew.grew || grew.before !== 0 || grew.after !== 1) throw new Error('新增副本对必须判红')
+  if (prefixTwinVerdict(A + B, A).grew) throw new Error('折并后不得判红')
+})
