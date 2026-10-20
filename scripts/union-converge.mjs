@@ -995,8 +995,9 @@ function ensureTrailingNewline(text) {
  *
  * @param {string} beforeText 折叠输入(= 未折叠的行 union 产物)
  * @param {string} afterText  折叠输出(= 真正落地的产物)
+ * @param {Map<string,string>|null} [keptOf] 折叠自己记的去向账(被折行 → 产物面那一行)
  */
-export function foldLedgerOf(beforeText, afterText) {
+export function foldLedgerOf(beforeText, afterText, keptOf = null) {
   const cb = counter(beforeText)
   const ca = counter(afterText)
   const foldedAway = new Map()
@@ -1020,7 +1021,10 @@ export function foldLedgerOf(beforeText, afterText) {
   }
   const pairs = []
   for (const [l, n] of foldedAway) {
-    let kept = (ca.get(l) || 0) > 0 ? l : null
+    // 折叠自己记的去向优先(2026-10-20):事后按指纹回查在"并入注记改变了保留行指纹"时会落空,
+    // 把合法折叠记成「未判定」。台账仍由验证侧拿产物面过四问,本项不是自证。
+    let kept = keptOf?.get?.(l) ?? null
+    if (kept === null) kept = (ca.get(l) || 0) > 0 ? l : null
     if (kept === null) {
       const fp = extractTaskFingerprint(l)
       // 指纹算不出 ⇒ 无从配对。不猜、不回落"就当它活着"(§0.3):登记 kept:null 交自证侧点名。
@@ -1130,13 +1134,15 @@ export function supersedeProof(declared, dropped, m) {
  * 折叠的唯一调用点(2026-10-16 收口):`dedupeByFingerprint` 只在这里被调,产物与台账同轮产出。
  * 返回的 `text` 与 `unionLines(..., { dedupeTasks: true })` 逐字等值(该函数体就是这两步)。
  */
-export function foldDedupe(text, baseLines = null) {
-  const folded = dedupeGroups(String(text ?? ''), baseLines)
+export function foldDedupe(text, baseLines = null, oursLines = null, picks = null) {
+  const folded = dedupeGroups(String(text ?? ''), baseLines, oursLines, picks)
   return {
     text: folded.text,
-    ledger: foldLedgerOf(text, folded.text),
+    ledger: foldLedgerOf(text, folded.text, folded.keptOf),
     // 两侧各写一版、机器无从裁定的那些组:必须一路带到落地闸点名,不许在这一步被读成"没得折"。
     ambiguous: folded.ambiguous,
+    // 声明式保留行里陈旧/串档的那些:同样必须进落地闸,否则"配了清单"会被读成"这轮真放过东西"。
+    stalePicks: folded.stalePicks,
   }
 }
 
@@ -1150,7 +1156,7 @@ export function foldDedupe(text, baseLines = null) {
  *
  * 文本形状与拆分前逐字一致:`pre` 就是"未折叠的行 union 产物",`text` 就是"折叠后的产物"。
  */
-function unionLinesCore(oursText, theirsText, baseText, suppress, dedupeTasks) {
+function unionLinesCore(oursText, theirsText, baseText, suppress, dedupeTasks, foldPicks = null) {
   const want = liveDocExpectedCounts(oursText, theirsText, baseText, suppress)
   // 脊柱裁剪:期望表已按改写折叠下调过的行,这里必须真把多出来的份数从本侧脊柱里去掉,
   // 否则"折叠"只存在于断言侧而产出面仍是双份 —— 那等于 F9 判据看不见、落地闸却对着一个不存在的数红。
@@ -1197,10 +1203,16 @@ function unionLinesCore(oursText, theirsText, baseText, suppress, dedupeTasks) {
   // (那是就 union 自身量),也不引入任何对侧的"少带" —— 方向只可能是"少留一份冗余",绝不会"丢"。
   // 2026-10-16:折叠的那一步收进唯一调用点 `foldDedupe`,产物与台账出自同一次函数调用。
   const pre = ensureTrailingNewline(res)
-  if (!dedupeTasks) return { text: pre, pre, ledger: null, ambiguous: [] }
+  if (!dedupeTasks) return { text: pre, pre, ledger: null, ambiguous: [], stalePicks: [] }
   // 基底交给折叠层做「改写者优先」判据(2026-10-20):没有 baseText 就没有改写信号 ⇒ 逐字走旧判据。
-  const folded = foldDedupe(pre, baseText)
-  return { text: folded.text, pre, ledger: folded.ledger, ambiguous: folded.ambiguous }
+  const folded = foldDedupe(pre, baseText, oursText, foldPicks)
+  return {
+    text: folded.text,
+    pre,
+    ledger: folded.ledger,
+    ambiguous: folded.ambiguous,
+    stalePicks: folded.stalePicks,
+  }
 }
 
 /**
@@ -1484,6 +1496,7 @@ export function buildUnion(
   moveAwareCache = null,
   takeTheirs = new Set(),
   accepted = null,
+  foldKeep = null,
 ) {
   const scratch = mkScratch('union-idx')
   const idx = join(scratch, 'index')
@@ -1520,6 +1533,8 @@ export function buildUnion(
     const foldLedgers = new Map()
     // path -> 两侧各写一版、折叠层拒绝裁定的人工组(2026-10-20,随台账一起交回落地闸)
     const foldAmbiguous = new Map()
+    // path -> 声明式保留行里陈旧/串档的那些(声明必须真命中本轮的组,否则当场喊出来)
+    const foldStalePicks = new Map()
     // 行级复活对账记录(G-383 最后一格):每份活文档归并后逐条登记,随返回值交 plan/main 呈报。
     const resurrect = []
     for (const p of LIVE_DOCS) {
@@ -1533,9 +1548,11 @@ export function buildUnion(
       // `foldLedgers` 记的是"哪些行被折进哪个保留行、各折了几份",自证侧拿它才可能问出"少掉的那一份
       // 是合法折叠还是真丢失"。未开折叠的两份文档(AGENTS/README)不进这本账 ⇒ 自证侧对它们逐字照旧。
       const foldOn = p.endsWith('PROJECT_PLAN.md')
-      const built0 = unionLinesCore(a, b, bt, ma.suppress, foldOn)
+      const foldPicks = foldOn ? foldKeep?.get?.(p) || null : null
+      const built0 = unionLinesCore(a, b, bt, ma.suppress, foldOn, foldPicks)
       const mergedText = built0.text
       if (foldOn) foldLedgers.set(p, built0.ledger)
+      if (foldOn && built0.stalePicks?.length) foldStalePicks.set(p, built0.stalePicks)
       // 「两侧各写一版、机器无从裁定」的组:一条都没折(产物面两版并存),但必须记下来交给落地闸点名
       // —— 不记就等于把"没敢折"读成"不需要折",下一手看到的账面是干净的(§0.10 方向禁令)。
       if (foldOn && built0.ambiguous?.length) foldAmbiguous.set(p, built0.ambiguous)
@@ -1857,6 +1874,8 @@ export function buildUnion(
       foldLedgers,
       // 折叠层拒绝裁定的组(逐文档):一条都没折,但必须交回落地闸点名,不得读成"没得折"。
       foldAmbiguous,
+      // 声明式保留行没命中的那些(逐文档):"配了清单"不等于"这轮真放过东西"(§0.3)。
+      foldStalePicks,
       resurrect,
     }
   } finally {
@@ -2080,12 +2099,45 @@ export function verifyUnion(
     // 反向对照:本侧改写/删除过的行,合并树里的**重数**不得高于期望表 ——
     // 不能判">0 即复活":活文档里同一行常有真实多份(台账登记行就是如此,实测 D38 有 4 份),
     // 判存在会把"保住的那 3 份"误报成复活。第一版就被真仓咬出这一条。
-    if (bt !== null) {
-      const cb = counter(bt)
-      const ca = counter(a)
+    const cb = bt !== null ? counter(bt) : null
+    const ca = counter(a)
+    /**
+     * 折叠"复原"账(2026-10-20):折叠层把**本侧独有**的改写版折进了基底那一行(「改写者优先」的反面 ——
+     * 改写版并入注记后与基底行逐字同形时,keeper 就是基底行)。此时归并产物里出现基底行不是"旧行被复活":
+     * 它是折叠当场裁定的保留行,而且四问(同一件事/去向在产物面/独有注记与票号被接住)全过。
+     * 只在被折行确属**本侧独有**(本侧有、基底没有)时才认这一格 —— 那证明本侧是就地改写,不是删了它。
+     * 取证:9 条实测全是这一型(G-196/G-69/G-158/G-222/G-262/D128/G-978002/G-1058619/G-36),
+     * 每条都能在 foldLedgers 里找到 dropped=本侧独有版、kept=基底行、attestFoldPair=attested 的对。
+     */
+    const foldRestitutions = new Map() // kept 行(基底行) -> 折进它的那些 pair
+    for (const pair of ledger?.pairs || []) {
+      if (!pair || !pair.kept || pair.dropped === pair.kept) continue
+      if (!ca.get(pair.dropped)) continue // 本侧没有它 ⇒ 不是本侧的改写版
+      if (cb && cb.get(pair.dropped)) continue // 基底也有它 ⇒ 不是本侧独有
+      if (!foldRestitutions.has(pair.kept)) foldRestitutions.set(pair.kept, [])
+      foldRestitutions.get(pair.kept).push(pair)
+    }
+    const creditFoldRestitution = (l) => {
+      for (const pair of foldRestitutions.get(l) || []) {
+        if (attestFoldPair(pair, m).status !== 'attested') continue
+        foldCredited.push({
+          doc: p,
+          dropped: pair.dropped,
+          copies: pair.droppedCopies,
+          kept: l,
+          inherited: true,
+          restitution: true,
+        })
+        return true
+      }
+      return false
+    }
+    if (cb !== null) {
       for (const [l, n] of cb) {
         if ((ca.get(l) || 0) >= n) continue // 本侧留着它 ⇒ 不是改写/删除
         if ((m.get(l) || 0) > (want.get(l) || 0)) {
+          // 折叠复原:改写版并入注记后**就是**基底那一行 ⇒ keeper 是基底行,产物里出现它不是复活。
+          if (creditFoldRestitution(l)) continue
           // G-310 的正主:归并按"失效方向只能多带一行"把**本侧已就地改写过**的旧行取回,
           // 判据随即判它复活。这一型唯一合法的收法是声明"语义现在住在哪一行"并过四问举证,
           // 之前这里一处出口都没有 ⇒ 每个会话走到这格只能停,或去裸做 git 手术绕过全部断言。
@@ -2350,6 +2402,7 @@ export function plan(
   accepted = null,
   baseOverride = null,
   supersede = null,
+  foldKeep = null,
 ) {
   // 直接走 API 的调用方也必须拿到同一句诊断,而不是 git 的 "Not a valid commit name" 加一串堆栈
   // (G-473 ②:取不到要写成"未判定 + 出口",不得表现为工具故障)。CLI 那一支在 resolveTargets
@@ -2393,6 +2446,7 @@ export function plan(
     moveAwareCache,
     takeTheirs,
     accepted,
+    foldKeep,
   )
   // needHuman 同时进 bad:任何只看 bad 的调用方(含 git-sync-converge 之外的使用者)都不可能
   //   把一枚含冲突文件的树落地。冲突详情仍单独留清单,报告要点名到"是哪个文件"。
@@ -2410,10 +2464,17 @@ export function plan(
           .map((l) => `「${l.slice(0, 40)}」`)
           .join(' ⇄ ')}`,
       )
+  // 声明式保留行的陈旧/串档:与「拒绝裁定」同一条纪律 —— 不命中就当场喊,绝不记成"这轮真放过"。
+  const stalePickRows = []
+  for (const [doc, list] of built.foldStalePicks || [])
+    for (const s of list)
+      stalePickRows.push(
+        `${doc} --fold-keep 声明未命中(${s.reason} ⇒ 陈旧或串档,不记通过):指纹「${s.fp}」`,
+      )
   return {
     base,
     ...built,
-    bad: [...built.violations, ...blocked, ...vu, ...ambiguousRows],
+    bad: [...built.violations, ...blocked, ...vu, ...ambiguousRows, ...stalePickRows],
     // 两条路径的"少带份数"合流:两侧同改的丢行分流(built.caps)+ 活文档行 union(vu.pointerCaps)。
     // 只接其中一条 = 台账这一族恰好无人点名,而那正是本票要防的形状。
     caps: [
@@ -3973,6 +4034,79 @@ async function main() {
     }
     supersede.set(doc, m)
   }
+  // --fold-keep <path>=<声明档>(可重复):折叠层**拒绝裁定**的那一组由谁当选 keeper。
+  //   折叠层只在"同指纹、同自持票号、两条都不等于基底"时才拒绝(机器无从判哪版是当下状态),
+  //   此时整组一条不折并进 `bad` 点名 —— 正确失效方向,但人工结果同样没有回灌路径。
+  // 声明档 = JSON `[{keep, why, fp?}]`(也接受 `{items:[…]}`):
+  //   keep = 当选 keeper 的那一行**逐字字面**(必须真在本组里,否则记"未命中"判红,不静默跳过);
+  //   why  = 为什么它才是当下状态(空理由 = 配了个空放行,当场退 2);
+  //   fp   = 可选的指纹自述:给了就与 `extractTaskFingerprint(keep)` 对账,不一致 ⇒ 串档退 2。
+  // 指纹一律由 keep 行现算(与折叠层同一把尺子),不接受"手填一个数对不上也算"。
+  const foldKeep = new Map()
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] !== '--fold-keep' || !argv[i + 1]) continue
+    const spec = argv[++i]
+    const eq = spec.indexOf('=')
+    if (eq <= 0) {
+      console.log(`❌ --fold-keep 需要 <path>=<声明档 JSON>,得到的是:${spec}`)
+      process.exit(2)
+    }
+    const doc = spec.slice(0, eq)
+    const file = spec.slice(eq + 1)
+    let raw
+    try {
+      raw = readFileSync(file, 'utf8')
+    } catch (e) {
+      console.log(`❌ --fold-keep 读不到声明档 ${doc}=${file}:${e?.message ?? e}`)
+      process.exit(2)
+    }
+    let parsed
+    try {
+      const j = JSON.parse(raw)
+      parsed = Array.isArray(j) ? j : j?.items
+    } catch (e) {
+      console.log(`❌ --fold-keep 声明档不是 JSON(${doc}=${file}):${e?.message ?? e}`)
+      process.exit(2)
+    }
+    if (!Array.isArray(parsed)) {
+      console.log(`❌ --fold-keep 声明档既不是数组也没有 items 字段(${doc}=${file})⇒ 无从判定,拒绝执行`)
+      process.exit(2)
+    }
+    const m = foldKeep.get(doc) || new Map()
+    for (const [k, d] of parsed.entries()) {
+      const keep = typeof d?.keep === 'string' ? d.keep : ''
+      const why = typeof d?.why === 'string' ? d.why.trim() : ''
+      if (keep === '') {
+        console.log(`❌ --fold-keep 声明档第 ${k + 1} 项没有 keep(当选 keeper 的逐字字面)⇒ 拒绝执行`)
+        process.exit(2)
+      }
+      if (why === '') {
+        console.log(`❌ --fold-keep ${doc} 第 ${k + 1} 项没有 why(不说明理由的选边等于替人猜)⇒ 拒绝执行`)
+        process.exit(2)
+      }
+      const fp = extractTaskFingerprint(keep)
+      if (!fp) {
+        console.log(
+          `❌ --fold-keep ${doc} 第 ${k + 1} 项:该行算不出标题指纹(过短/无标题)` +
+            `⇒ 它不可能是同题组的一员,拒绝执行:${keep.slice(0, 50)}`,
+        )
+        process.exit(2)
+      }
+      if (typeof d?.fp === 'string' && d.fp !== fp) {
+        console.log(
+          `❌ --fold-keep ${doc} 第 ${k + 1} 项:声明的 fp「${d.fp}」与 keep 行算出的「${fp}」不一致` +
+            `(串档了 ⇒ 放行会落到别的组上),拒绝执行`,
+        )
+        process.exit(2)
+      }
+      if (m.has(fp)) {
+        console.log(`❌ --fold-keep ${doc} 第 ${k + 1} 项与前面某条同指纹「${fp}」却给了两个 keeper ⇒ 歧义,拒绝执行`)
+        process.exit(2)
+      }
+      m.set(fp, keep)
+    }
+    foldKeep.set(doc, m)
+  }
   // --accept-state-growth <维>=<理由>(可重复):并集天然放大的三条量纲(F1 / F4 / F3-rotatedAuto)
   //   的**声明式出口**。它不是"关掉判据" —— 每条都必须带理由,两个读数与理由一起打印,并写进
   //   合并提交信息;维名不认识直接退 2;F5/F6/F9/F9b 与路径零丢失不接受放行(见 planStateRegressions 头注)。
@@ -4036,6 +4170,7 @@ async function main() {
     accepted,
     baseOverride,
     supersede.size ? supersede : null,
+    foldKeep.size ? foldKeep : null,
   )
   console.log(
     `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 删除随合并传播 ${p.propagatedDeletes?.length ?? 0} / 影子 .js 随合并删掉 ${p.shadowDeletes?.length ?? 0} / 影子 .js 未恢复 ${p.shadowRestores?.length ?? 0} / 活文档行 union`,
