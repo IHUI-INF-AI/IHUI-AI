@@ -794,6 +794,13 @@ export interface FormRequestFramePayload {
   sessionId?: string
   /** 表单种类,合法取值见 BUSINESS_FORM_KINDS */
   kind: string
+  /**
+   * 表单形态:创建 / 更新 / 保存(日历事件等需要 update/save 形态的表单)。
+   * 缺省即 'create' —— 向后兼容:既有下发方不传此槽,端内一律按创建处理
+   * (D77 残余①:日历"更新/保存"形态此前在生产链不可达,正是缺这一槽位)。
+   * 取值集不在本类型收紧,未知值端内投影处不渲染(同 kind 纪律)。
+   */
+  mode?: string
   /** 字段集(形状权威在判定层,本处只是线格式;解析层保证非空) */
   fields: FormRequestFieldPayload[]
   /** 成对动作,恒含 'approve' 与 'reject'(解析层已判,缺一条整帧丢弃) */
