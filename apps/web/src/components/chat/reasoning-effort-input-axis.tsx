@@ -31,7 +31,7 @@ import type { ModelCapabilities, ReasoningEffort } from '@ihui/types'
 import ReasoningEffortAxis from '@/components/chat/reasoning-effort-axis'
 import { fetchSelectorModels } from '@/lib/models-api'
 import { resolveSamplingParams, useSamplingParamsStore } from '@/stores/sampling-params'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 
 export interface ReasoningEffortInputAxisProps {
   /** 当前选中的模型 ID(驱动 capabilities 判灰;'auto' 与查不到的模型一律按"未知"处理) */
@@ -41,11 +41,13 @@ export interface ReasoningEffortInputAxisProps {
 }
 
 export function ReasoningEffortInputAxis({ model, disabled }: ReasoningEffortInputAxisProps) {
-  const conversationId = useChatStore((s) => s.conversationId)
+  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
+  const chatStore = usePaneChatStore()
+  const conversationId = chatStore((s) => s.conversationId)
   const defaults = useSamplingParamsStore((s) => s.defaults)
   const byConversation = useSamplingParamsStore((s) => s.byConversation)
   const setParam = useSamplingParamsStore((s) => s.setParam)
-  const notice = useChatStore((s) => s.reasoningEffortNotice)
+  const notice = chatStore((s) => s.reasoningEffortNotice)
 
   const params = React.useMemo(
     () => resolveSamplingParams(defaults, byConversation, conversationId),
