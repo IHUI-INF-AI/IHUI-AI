@@ -13,7 +13,9 @@ const mianLabelIcon = aizhsUrl('remote-images/mian_label.png')
 /** VIP 标签类型(对齐原项目 Ai-list_b.vue L43-64):1=会员免费 / 2=免费使用 / 3=限时免费 / 4=月费 / 5=已购买 */
 export type VipType = 1 | 2 | 3 | 4 | 5
 
-export type AgentInfo = Pick<Agent, 'id' | 'name'> & {
+/** 本地视图模型:契约主键是 Agent.agentId,本端沿用 id 承载(对齐 mobile-rn AgentShopItem.id) */
+export type AgentInfo = Pick<Agent, 'name'> & {
+  id: string
   description?: string
   /** @deprecated 使用 description 替代,兼容 agent.tsx 旧字段名 */
   desc?: string
