@@ -5154,6 +5154,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 跨端 BPE 词表对账(1 项,blocking) ---
+  {
+    id: '228',
+    label: '跨端 BPE 词表对账(blocking;C1 声明 + C2 行为 + C3 反向锁)',
+    script: 'check-bpe-encoding-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BPE_ENCODING_PARITY',
+    stagedTriggers: ['packages/context-compaction/', 'apps/ai-service/app/core/context_compaction.py'],
+    onFailHint: [
+      '',
+      '  💡 两端 BPE 表必须同是已批准的 cl100k_base;改 token-estimate.ts 或 context_compaction.py 后',
+      '     先跑 node scripts/check-bpe-encoding-parity.mjs --worktree 取读数,再提交。',
+      '     紧急跳过:HUSKY_SKIP_BPE_ENCODING_PARITY=1(仅限红确属他人文件时)。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',

@@ -57,6 +57,7 @@ import httpx
 
 from ..core.llm_gateway import get_http_client
 from ..core.retry_after import hint_from_error, resolve_retry_delay_s
+from ..services.async_gen_close import aclose_async_gen
 from .base_provider import ProviderError
 from .openai_provider import OpenAIProvider
 
@@ -258,8 +259,12 @@ class Token6688Provider(OpenAIProvider):
     ) -> AsyncIterator[dict[str, Any]]:
         """流式对话(先归一化多模态输入,再走 OpenAI 兼容流式协议)。"""
         messages = await self._normalize_vision_inputs(messages)
-        async for event in super().astream(messages, model, tools=tools, **kwargs):
-            yield event
+        inner = super().astream(messages, model, tools=tools, **kwargs)
+        try:
+            async for event in inner:
+                yield event
+        finally:
+            await aclose_async_gen(inner, label="token6688_provider.astream")
 
     # ------------------------------------------------------------------
     # 模型清单(免鉴权 /v1/skills/models,112 模型;映射 OpenAI 风格供 model_sync)
