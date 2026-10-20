@@ -1,6 +1,6 @@
 {
   "$comment": "scripts/check-gate-wiring.mjs 的豁免台账。只登记「结构上不该由五处权威接线点接」的脚本(分发器 / 被 import 的库 / 纯 CLI 工具 / 端内 package.json 调用)。严禁为消除 R1/R2 红点而登记 —— 判据顺序已把这一点钉死:凡头部或 AGENTS.md 声称已接线者,台账一律不救(自检 M0/M2 用例钉住)。已接线却仍挂在本台账里的条目会被报「可撤销豁免」,防幂等守卫只判存在而冻结冗余。",
-  "updatedAt": "2026-09-24",
+  "updatedAt": "2026-10-20",
   "entries": [
     {
       "script": "check-agents.mjs",
@@ -33,11 +33,7 @@
       "type": "standalone-tool",
       "reason": "i18n messages 变更后提示重启 dev server 的开发期提醒脚本,不判成败、不阻断提交"
     },
-    {
-      "script": "check-miniapp-taro-design-tokens.mjs",
-      "type": "standalone-tool",
-      "reason": "重复真相:同一件事已由已接线的 runner 第 36 项 check-miniapp-tokens-sync.mjs 与 CI 侧 check-design-tokens-sync --target=miniapp-taro 承担(213 变量同结论),其独有段(app.config.ts 硬编码色值)又与 check-miniapp-taro-style-parity.mjs 重叠。正解是并进既有门,再挂一枚只会多一处漂移源。"
-    },
+    
     {
       "script": "check-p2-3-acceptance.mjs",
       "type": "standalone-tool",
