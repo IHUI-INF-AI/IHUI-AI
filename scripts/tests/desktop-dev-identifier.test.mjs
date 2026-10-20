@@ -69,17 +69,25 @@ export function findDevFaceViolations({ prodIdentifier, devFaces }) {
 }
 
 /**
- * 桌面端 dev 入口对账:凡命令里出现 `tauri dev`,必须经 `--config` 带上一个 dev 面文件,
+ * 桌面端 dev 入口形态:直接 `tauri dev`,或经唯一包装壳 `desktop-build.mjs --dev`
+ * (2026-10-19 起 apps/desktop 的 dev/build 入口全部改走包装壳;判据必须跟着生产者换形,
+ *  否则本尺子的正控会变成"一条 dev 入口都没量到"的空尺子 —— 实测踩过)。
+ * `--debug` 不算:`\s--dev\b` 的单词边界挡住了它。
+ */
+const DEV_ENTRY_RE = /\btauri\s+dev\b|\bdesktop-build\.mjs\b[^\n]*\s--dev\b/
+
+/**
+ * 桌面端 dev 入口对账:凡命令里出现 dev 入口形态,必须经 `--config` 带上一个 dev 面文件,
  * 且该文件存在、不是生产面本身。
  * @returns 违规文案数组
  */
 export function findDevEntryViolations(scripts, { existingConfigFiles }) {
   const hits = []
   for (const [name, cmd] of Object.entries(scripts || {})) {
-    if (typeof cmd !== 'string' || !/\btauri\s+dev\b/.test(cmd)) continue
+    if (typeof cmd !== 'string' || !DEV_ENTRY_RE.test(cmd)) continue
     const m = /--config\s+(\S+)/.exec(cmd)
     if (!m) {
-      hits.push(`脚本 ${name} 裸跑 "tauri dev"(未带 --config)⇒ 继承生产标识,回到 G-921 那一格`)
+      hits.push(`脚本 ${name} 裸跑 "tauri dev" / "desktop-build --dev"(未带 --config)⇒ 继承生产标识,回到 G-921 那一格`)
       continue
     }
     const rel = m[1].replace(/^\.?\//, '')
@@ -163,8 +171,8 @@ test('③ 每条 tauri dev 入口都真的带上 dev 面', () => {
   })
   assert.deepEqual(hits, [])
   assert.ok(
-    Object.values(desktopPkg.scripts || {}).some((c) => /\btauri\s+dev\b/.test(String(c))),
-    '一条 dev 入口都没量到 ⇒ 本判据是恒绿的空尺子',
+    Object.values(desktopPkg.scripts || {}).some((c) => DEV_ENTRY_RE.test(String(c))),
+    '一条 dev 入口都没量到(tauri dev / desktop-build --dev)⇒ 本判据是恒绿的空尺子',
   )
 })
 
@@ -209,7 +217,31 @@ test('⑥ 尺子本身有牙:喂回旧形态必须判红(构造面,不靠仓库�
 
   assert.deepEqual(
     findDevEntryViolations({ dev: 'tauri dev' }, { existingConfigFiles: new Set(['tauri.dev.json']) }),
-    ['脚本 dev 裸跑 "tauri dev"(未带 --config)⇒ 继承生产标识,回到 G-921 那一格'],
+    ['脚本 dev 裸跑 "tauri dev" / "desktop-build --dev"(未带 --config)⇒ 继承生产标识,回到 G-921 那一格'],
+  )
+  assert.deepEqual(
+    findDevEntryViolations(
+      { dev: 'node ../../scripts/desktop-build.mjs --dev' },
+      { existingConfigFiles: new Set(['tauri.dev.json']) },
+    ),
+    ['脚本 dev 裸跑 "tauri dev" / "desktop-build --dev"(未带 --config)⇒ 继承生产标识,回到 G-921 那一格'],
+    '包装壳形态(现在的生产入口)不带 --config 必须判红,否则换形后判据对真实入口失明',
+  )
+  assert.deepEqual(
+    findDevEntryViolations(
+      { dev: 'node ../../scripts/desktop-build.mjs --dev -- --config src-tauri/tauri.dev.json' },
+      { existingConfigFiles: new Set(['tauri.dev.json']) },
+    ),
+    [],
+    '包装壳带 dev 面的现行入口被判红 ⇒ 本门会变成恒红门',
+  )
+  assert.deepEqual(
+    findDevEntryViolations(
+      { build: 'node ../../scripts/desktop-build.mjs --debug' },
+      { existingConfigFiles: new Set(['tauri.dev.json']) },
+    ),
+    [],
+    '--debug 不是 dev 入口,不得被误判',
   )
   assert.deepEqual(
     findDevEntryViolations(
