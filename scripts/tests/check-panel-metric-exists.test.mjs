@@ -11,10 +11,10 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
-import { __test__ as GATE } from '../check-grafana-metric-exists.mjs'
+import { __test__ as GATE } from '../check-panel-metric-exists.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const GATE_PATH = resolve(ROOT, 'scripts/check-grafana-metric-exists.mjs')
+const GATE_PATH = resolve(ROOT, 'scripts/check-panel-metric-exists.mjs')
 
 test('M1 取形:selector / range / 函数首参 三种形状都取得到名字', () => {
   const names = GATE.extractMetricNames('histogram_quantile(0.95, sum by (le) (rate(ihui_llm_ttft_seconds_bucket{job="ai-service"}[1h])))')

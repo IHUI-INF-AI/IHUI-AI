@@ -11,10 +11,10 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
-import { __test__ as GATE } from '../check-grafana-datasource-wiring.mjs'
+import { __test__ as GATE } from '../check-panel-datasource-wiring.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const GATE_PATH = resolve(ROOT, 'scripts/check-grafana-datasource-wiring.mjs')
+const GATE_PATH = resolve(ROOT, 'scripts/check-panel-datasource-wiring.mjs')
 
 test('D1 uid 提取:显式 uid 与「无 uid 回落 name」两种形状都要对', () => {
   const uids = GATE.collectProvisionedUids(
@@ -123,18 +123,18 @@ test('D8 覆盖锁:仓内每一棵有面板的 grafana/dashboards 树都必须�
     .split('\0')
     .filter(Boolean)
   const dirs = new Set(
-    tracked.filter((p) => /(^|\/)grafana\/dashboards\/.*\.json$/.test(p)).map((p) => p.replace(/\/[^/]+$/, ''))
+    tracked.filter((p) => /(^|\/)panel-defs\/panels\/.*\.json$/.test(p)).map((p) => p.replace(/\/[^/]+$/, ''))
   )
   assert.ok(dirs.size >= 3, `正面前提:仓里至少应有 3 棵面板树(现读 ${dirs.size} 棵 ⇒ 取材可能失效)`)
   const covered = new Set(GATE.DASHBOARD_TREES.map((t) => t.dashboards))
   for (const d of dirs) {
     assert.ok(covered.has(d), `树 ${d} 有面板但未登记进 DASHBOARD_TREES ⇒ 该树悬空 uid 对 CI 失明`)
   }
-  assert.ok(covered.has('deploy/saas/grafana/dashboards'), 'deploy/saas 必须在覆盖面内(2026-10-18 失明案本体)')
+  assert.ok(covered.has('deploy/saas/panel-defs/panels'), 'deploy/saas 必须在覆盖面内(2026-10-18 失明案本体)')
 })
 
 test('D9 新树真被扫:坏 uid 夹具走 saas 树同一判据链必须判 dangling(摘掉判据即翻红)', () => {
-  const tree = GATE.DASHBOARD_TREES.find((t) => t.dashboards === 'deploy/saas/grafana/dashboards')
+  const tree = GATE.DASHBOARD_TREES.find((t) => t.dashboards === 'deploy/saas/panel-defs/panels')
   assert.ok(tree, 'saas 树条目必须存在')
   const provText = readFileSync(resolve(ROOT, tree.provisioning), 'utf8')
   const provisioned = GATE.collectProvisionedUids(provText)

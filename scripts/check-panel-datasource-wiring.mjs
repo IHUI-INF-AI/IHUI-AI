@@ -4,13 +4,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 守门 222 · Grafana 大屏 ↔ 数据源 接线对账
+ * 守门 222 · 监控大屏 ↔ 数据源 接线对账
  *
  * 立因(2026-10-17 量出来的同型病,和门 220 是一棵树上两颗果子):
  *   门 220 管的是「大屏查的指标名在代码里有没有发射点」;本门管的是**再上一层**——
  *   「大屏引用的数据源本身存不存在」。实测:24 张大屏 100% 只引用 Prometheus,
  *   而 provisioning 里 Loki 与 Jaeger 声明了三年、零个面板使用(死配置);
- *   反向的风险同样真:面板里写个 uid 打错字,Grafana 只会静静显示 "Datasource not found",
+ *   反向的风险同样真:面板里写个 uid 打错字,大屏只会静静显示 "Datasource not found",
  *   不报错、不告警,和"这业务本来就没流量"看起来一模一样。
  *
  * 两条判据,刻意分成两种后果:
@@ -21,20 +21,21 @@
  *     observability profile 里存在,原生 nssm 部署没有它),把它判红就是 §12e 恒红门。
  *     但它必须被**报出来**——死配置正是这次要根治的东西,不报就等于默许它继续躺着。
  *
- * 判据复用:数据源块的切分与 uid 推导一律 import `sync-grafana-live-provisioning.mjs`
+ * 判据复用:数据源块的切分与 uid 推导一律 import `sync-panel-live-provisioning.mjs`
  * 的 splitBlocks(§22c 同一件事只许一份实现)。本文件不复制第二份 YAML 解析。
  *
- * 覆盖面(2026-10-17 扩面;2026-10-17 补齐第三棵树):仓里全部三棵 Grafana 树(现读
- * `git ls-files | grep grafana/dashboards/` 目录集合,自检 S5 做覆盖锁),都要对账 ——
- *   · monitoring/grafana(本机 Grafana 直载,含 Loki 数据源)
- *   · deploy/observability/grafana(部署环,只有 Prometheus + Jaeger)
- *   · deploy/saas/grafana(SaaS 托管环,P1-2.3;**曾因不在覆盖面而对 CI 失明**:
- *     两份大屏共 10 处硬编码 Grafana 样例数据源 uid "PBFA97CFB590B2093",
+ * 覆盖面(2026-10-17 扩面;2026-10-17 补齐第三棵树;2026-10-19 随 panel 系改名契约换地址):
+ *   仓里全部三棵面板树(现读 `git ls-files | grep panel-defs/panels/` 目录集合,
+ *   自检 S5 做覆盖锁),都要对账 ——
+ *   · monitoring/panel-defs(本机大屏直载,含 Loki 数据源)
+ *   · deploy/observability/panel-defs(部署环,只有 Prometheus + Jaeger)
+ *   · deploy/saas/panel-defs(SaaS 托管环,P1-2.3;**曾因不在覆盖面而对 CI 失明**:
+ *     两份大屏共 10 处硬编码外部看板程序的样例数据源 uid "PBFA97CFB590B2093",
  *     该 uid 在全仓任何 provisioning 里都不存在,这 10 处引用无一能解析)
  * 对账按**树**分组:每棵树的面板只对本树的 provisioning 负责。合并成一个大池会
  * 假放行 —— 部署环根本没配 Loki,它的面板若引 Loki 就是悬空的,拿 monitoring 的
  * Loki 配置给它背书等于放死配置过关(2026-10-17 实测:agent-runtime.json 8 处
- * 小写 "prometheus" 全部悬空,Grafana 静静显示 Datasource not found)。
+ * 小写 "prometheus" 全部悬空,大屏静静显示 Datasource not found)。
  *
  * 判定面取材(2026-10-17 收口,本案自带教训):
  *   全量档 = HEAD blob、`--staged` = **索引 blob**、`--worktree` = 磁盘(人工逃生舱)。
@@ -44,43 +45,44 @@
  *   读者会误以为"改了没用"。这不是判据错,是取材错:判据面 ≠ 提交面。
  *
  * 用法:
- *   node scripts/check-grafana-datasource-wiring.mjs            # 全量档(HEAD blob)
- *   node scripts/check-grafana-datasource-wiring.mjs --staged   # 索引面(提交链用)
- *   node scripts/check-grafana-datasource-wiring.mjs --worktree # 工作树(本地自查)
- *   node scripts/check-grafana-datasource-wiring.mjs --self-test
+ *   node scripts/check-panel-datasource-wiring.mjs            # 全量档(HEAD blob)
+ *   node scripts/check-panel-datasource-wiring.mjs --staged   # 索引面(提交链用)
+ *   node scripts/check-panel-datasource-wiring.mjs --worktree # 工作树(本地自查)
+ *   node scripts/check-panel-datasource-wiring.mjs --self-test
  */
 import { readdirSync, existsSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
-import { splitBlocks } from './sync-grafana-live-provisioning.mjs'
+import { buildRenameIndex, gitStagedRenamePairs } from './lib/git-paths.mjs'
+import { splitBlocks } from './sync-panel-live-provisioning.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 /**
- * 三棵 Grafana 树。dashboards = 面板目录(仓库内相对路径前缀);
+ * 三棵面板树。dashboards = 面板目录(仓库内相对路径前缀);
  * provisioning = 该树自己的数据源 provisioning(相对路径)。
- * 覆盖锁见 selfTest S5 与镜像测试(仓里任何 grafana/dashboards 目录都必须在此登记)。
+ * 覆盖锁见 selfTest S5 与镜像测试(仓里任何 panel-defs/panels 目录都必须在此登记)。
  */
 const DASHBOARD_TREES = [
   {
     label: 'monitoring',
-    dashboards: 'monitoring/grafana/dashboards',
-    provisioning: 'monitoring/grafana/provisioning/datasources/datasources.yml',
+    dashboards: 'monitoring/panel-defs/panels',
+    provisioning: 'monitoring/panel-defs/provisioning/datasources/datasources.yml',
   },
   {
     label: 'deploy/observability',
-    dashboards: 'deploy/observability/grafana/dashboards',
-    provisioning: 'deploy/observability/grafana/provisioning/datasources/datasources.yml',
+    dashboards: 'deploy/observability/panel-defs/panels',
+    provisioning: 'deploy/observability/panel-defs/provisioning/datasources/datasources.yml',
   },
   {
     label: 'deploy/saas',
-    dashboards: 'deploy/saas/grafana/dashboards',
-    provisioning: 'deploy/saas/grafana/provisioning/datasources/prometheus.yml',
+    dashboards: 'deploy/saas/panel-defs/panels',
+    provisioning: 'deploy/saas/panel-defs/provisioning/datasources/prometheus.yml',
   },
 ]
 
-/** uid 未显式声明时,Grafana 会用 name 当 uid(与派生器的补 uid 规则同源)。 */
+/** uid 未显式声明时,外部看板程序会用 name 当 uid(与派生器的补 uid 规则同源)。 */
 function collectProvisionedUids(text) {
   const { blocks } = splitBlocks(text)
   const out = new Map()
@@ -136,28 +138,45 @@ function listFacePaths(face) {
  * 一次 batch 读齐各棵树的面板与 provisioning(取材层 `catBatch` 单次派生,
  * 不做 N 次逐文件 git 调用 —— 那是 §5b 的 fork 风暴同型)。
  *
+ * 改名连续性(2026-10-19 panel 系改名契约 T2 层立):整棵树改名那一枚提交的 HEAD 面上,
+ * 新地址还不存在 —— 不带上"旧地址",每棵树都会被读成"取不到 provisioning ⇒ 未判定",
+ * 一把对账全盲却照样 exit 0。折身份的唯一实现住 `scripts/lib/git-paths.mjs`(§0.6),
+ * 本门只是消费方;落地之后改名表恒空 ⇒ 候选清单只剩契约地址,行为与改名前逐字相同。
+ *
  * @param {string} face 'head' | 'staged'
  * @returns {{dashboards: Array<{tree,file,json}>, provisioning: Map<string,string|null>}}
  */
 function readFromFace(face) {
   const paths = listFacePaths(face)
+  const idx = buildRenameIndex(gitStagedRenamePairs({ root: ROOT }))
   const out = { dashboards: [], provisioning: new Map() }
-  const want = []
+  const spec = (p) => `${face === 'staged' ? ':' : 'HEAD:'}${p}`
+  const candidates = []
   for (const tree of DASHBOARD_TREES) {
-    const prefix = tree.dashboards + '/'
-    want.push(...paths.filter((s) => s.startsWith(prefix) && s.endsWith('.json')))
-    want.push(tree.provisioning)
+    for (const p of [tree.provisioning, ...idx.legacyPathsFor(tree.provisioning)]) candidates.push({ tree, p })
+    for (const dir of [tree.dashboards, ...idx.legacyDirsFor(tree.dashboards)]) {
+      for (const p of paths.filter((s) => s.startsWith(`${dir}/`) && s.endsWith('.json'))) candidates.push({ tree, p, dir })
+    }
   }
-  const specs = want.map((p) => `${face === 'staged' ? ':' : 'HEAD:'}${p}`)
-  const blobs = specs.length ? catBatch(ROOT, specs, { timeout: 120000 }) : new Map()
+  const want = [...new Set(candidates.map((c) => c.p))]
+  const blobs = want.length ? catBatch(ROOT, want.map(spec), { timeout: 120000 }) : new Map()
   for (const tree of DASHBOARD_TREES) {
-    out.provisioning.set(tree.label, blobs.get(`${face === 'staged' ? ':' : 'HEAD:'}${tree.provisioning}`) ?? null)
-    const prefix = tree.dashboards + '/'
-    for (const p of paths.filter((s) => s.startsWith(prefix) && s.endsWith('.json'))) {
-      const text = blobs.get(`${face === 'staged' ? ':' : 'HEAD:'}${p}`)
+    const texts = candidates
+      .filter((c) => c.tree === tree && !c.dir)
+      .map((c) => blobs.get(spec(c.p)))
+      .filter((v) => typeof v === 'string')
+    out.provisioning.set(tree.label, texts[0] ?? null)
+    const seen = new Set()
+    for (const c of candidates.filter((x) => x.tree === tree && x.dir)) {
+      // 同一枚面板在新旧两个地址都还在时(改名只做了一半),按新地址记一次,不重复计。
+      const idp = idx.identityOf(c.p)
+      const tail = idp.startsWith(`${tree.dashboards}/`) ? idp.slice(tree.dashboards.length + 1) : idp.slice(idp.lastIndexOf('/') + 1)
+      if (seen.has(tail)) continue
+      const text = blobs.get(spec(c.p))
       if (typeof text !== 'string') continue
+      seen.add(tail)
       try {
-        out.dashboards.push({ tree: tree.label, file: p.slice(prefix.length), json: JSON.parse(text) })
+        out.dashboards.push({ tree: tree.label, file: tail, json: JSON.parse(text) })
       } catch {
         /* 解析不了的面板由别的门负责,这里跳过 */
       }
@@ -222,11 +241,15 @@ function selfTest() {
     ])
     req(auditTree(prov, good).dangling.length === 0, 'S4b 已声明 uid 夹具不得误判')
   }
-  // S5 覆盖锁:盘上(deploy/ 与 monitoring/ 两棵候选根下)凡是含 .json 面板的
-  // grafana/dashboards 目录,必须在 DASHBOARD_TREES 里有登记 —— "清单静默漏掉一棵树"
-  // 正是本次要闭的失明:saas 树曾带着 10 处悬空 uid 在 CI 视野外活了好久。
+  // S5 覆盖锁:盘上(deploy/ 与 monitoring/ 两棵候选根下)凡是**形状上是一棵面板树**的目录
+  // (目录里有 .json 面板,且它的父目录下另有 provisioning/ 子目录 —— 面板目录与 provisioning
+  // 同父,这是这三棵树唯一的稳定形状),必须在 DASHBOARD_TREES 里有登记 ——
+  // "清单静默漏掉一棵树"正是本次要闭的失明:saas 树曾带着 10 处悬空 uid 在 CI 视野外活了好久。
+  // 2026-10-19 panel 系改名契约后改按**形状**认而不是按目录名认:改名前后都照样有牙,
+  // 也不必把旧拼法抄进本仓(那正是契约要消掉的东西)。
   const covered = new Set(DASHBOARD_TREES.map((t) => t.dashboards.replace(/\\/g, '/')))
   const strays = []
+  const isPanelTree = (p) => readdirSync(p).some((f) => f.endsWith('.json')) && existsSync(join(p, '..', 'provisioning'))
   const scan = (dir) => {
     let ents
     try {
@@ -237,18 +260,17 @@ function selfTest() {
     for (const e of ents) {
       if (!e.isDirectory()) continue
       const p = join(dir, e.name)
-      if (p.replace(/\\/g, '/').endsWith('grafana/dashboards')) {
-        const hasJson = readdirSync(p).some((f) => f.endsWith('.json'))
+      if (isPanelTree(p)) {
         const rel = relative(ROOT, p).replace(/\\/g, '/')
-        if (hasJson && !covered.has(rel)) strays.push(rel)
+        if (!covered.has(rel)) strays.push(rel)
       } else {
         scan(p)
       }
     }
   }
   for (const rootCandidate of ['deploy', 'monitoring']) scan(join(ROOT, rootCandidate))
-  req(covered.has('deploy/saas/grafana/dashboards'), 'S5a deploy/saas 树必须在覆盖面清单里(2026-10-18 失明案)')
-  req(strays.length === 0, `S5b 盘面存在未登记的 grafana/dashboards 目录: ${strays.join(', ')}`)
+  req(covered.has('deploy/saas/panel-defs/panels'), 'S5a deploy/saas 树必须在覆盖面清单里(2026-10-18 失明案)')
+  req(strays.length === 0, `S5b 盘面存在未登记的面板树(形状:面板目录与 provisioning 同父): ${strays.join(', ')}`)
 
   // S6 版面坐标档:成对正反 + 一条"不同原点不得互比"的反证(它比漏判更贵,误咬会逼人跳门)
   const mkGrid = (y2) => [{ file: 'g.json', json: { panels: [{ type: 'stat', title: 'A', gridPos: { h: 3, w: 24, x: 0, y: 0 } }, { type: 'timeseries', title: 'B', gridPos: { h: 8, w: 12, x: 0, y: y2 } }] } }]
@@ -332,7 +354,7 @@ function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTest()
   if (argv.includes('--help') || argv.includes('-h')) {
-    console.info('用法: node scripts/check-grafana-datasource-wiring.mjs [--staged|--worktree|--head] [--self-test]')
+    console.info('用法: node scripts/check-panel-datasource-wiring.mjs [--staged|--worktree|--head] [--self-test]')
     return 0
   }
   // 面必须**如实**映射:提交链判索引、全量判 HEAD。第一版把 --staged 映成 'HEAD',
@@ -385,7 +407,7 @@ function main() {
         console.info(`   · ${u}(provisioning name: ${provisioned.get(u)})`)
       }
       console.info('   若该基建确实未部署(本机 Jaeger 即如此:只在 docker-compose 的 observability profile 里),')
-      console.info('   这是预期状态;派生器 sync-grafana-live-provisioning.mjs 会因探活不通自动跳过它。')
+      console.info('   这是预期状态;派生器 sync-panel-live-provisioning.mjs 会因探活不通自动跳过它。')
     } else {
       console.info('✅ 判据 B:本树已声明的数据源全部有面板在用')
     }
@@ -409,7 +431,7 @@ function main() {
 const isDirect = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirect) process.exit(main())
 
-// 镜像测试 scripts/tests/check-grafana-datasource-wiring.test.mjs 一律从这里取判据
+// 镜像测试 scripts/tests/check-panel-datasource-wiring.test.mjs 一律从这里取判据
 // (§22c:同一份判据不许有第二份实现)。DASHBOARD_TREES 一并导出:覆盖面清单本身也是判据,
 // 测试要能对账"树是否真的在扫",不许测试另抄一份树清单。
 export const __test__ = { collectProvisionedUids, collectPanelRefs, auditTree, auditGrid, DASHBOARD_TREES }

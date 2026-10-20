@@ -4,20 +4,26 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 把仓库里的 Grafana provisioning(数据源)派生到部署机的运行副本,并把 docker 服务名
+ * 把仓库里的面板 provisioning(数据源)派生到部署机的运行副本,并把 docker 服务名
  * 改写成**本机实测可达的回环地址** —— 于是「用哪些数据源」只剩仓库一份真相,
  * 而「每个数据源在本机实际跑在哪个端口」由本脚本当次现读(§0.1 凡数字一律现读)。
  *
  * 立因(2026-10-17 Loki 上大屏时实测):
- *   仓库 `monitoring/grafana/provisioning/datasources/datasources.yml` 写的是 docker-compose
+ *   仓库 `monitoring/panel-defs/provisioning/datasources/datasources.yml` 写的是 docker-compose
  *   里的服务名(prometheus:9090 / loki:3100 / jaeger:16686),而本机是 **nssm 原生部署**:
- *     · Prometheus 实际在 8815(不是 9090),Grafana 在 8816;
+ *     · Prometheus 实际在 8815(不是 9090),监控大屏在 8816;
  *     · Loki 在 3100,端口碰巧同,主机名不同;
  *     · Jaeger **压根没部署**(端口无监听)。
  *   结果:部署机上那份 provisioning 是人工手抄的 12 行「只有 Prometheus」版本 ——
  *   仓库里 provisioning 了三个源、线上只有一个,Loki 与 Jaeger 从建栈那天起就是死配置,
  *   24 张大屏因此没有一张能用日志/追踪维度。这就是「账面上有、实际上没有」的同型病:
  *   和 AI 大屏查幽灵指标是同一个病根,只是换在了数据源这一层。
+ *
+ * ⚠ 装载方现状(2026-10-20 现读):外部看板程序(已退役)在本机的运行副本目录已不存在
+ *   (`D:\DevEnv\monitor` 下实测只剩 alertmanager/bin/loki/postgres_exporter/prometheus/
+ *   promtail/redis_exporter/windows_exporter),而入口页已改由项目自身的 `/admin/monitor/panels`
+ *   渲染。因此本器现在跑 `--check` 会如实报「运行副本尚不存在」—— 那是**量到的事实**,不是坏了。
+ *   要重新派生:先有装载方,再按下面的 `--live-dir` 指它。判据(splitBlocks)仍被守门 222 消费。
  *
  * 三条硬规矩:
  *   1. 运行副本一律是**派生态**,禁止手改。要加数据源改仓库那份再跑本脚本。
@@ -26,9 +32,9 @@
  *   3. 幂等 + 留退路:内容一致时不写字节;写前把旧副本挪进 `pre-sync-backups/`。
  *
  * 用法:
- *   node scripts/sync-grafana-live-provisioning.mjs            # 检查并写回(默认)
- *   node scripts/sync-grafana-live-provisioning.mjs --check    # 零副作用,只报会改什么
- *   node scripts/sync-grafana-live-provisioning.mjs --live-dir <目录>
+ *   node scripts/sync-panel-live-provisioning.mjs            # 检查并写回(默认)
+ *   node scripts/sync-panel-live-provisioning.mjs --check    # 零副作用,只报会改什么
+ *   node scripts/sync-panel-live-provisioning.mjs --live-dir <目录>
  */
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -36,10 +42,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { devEnvRoot } from './seal-c-root-stray.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const REPO_PROVISIONING = join(ROOT, 'monitoring', 'grafana', 'provisioning')
+const REPO_PROVISIONING = join(ROOT, 'monitoring', 'panel-defs', 'provisioning')
 const SRC = join(REPO_PROVISIONING, 'datasources', 'datasources.yml')
 
-const CANDIDATE_LIVE_DIRS = [join(devEnvRoot(), 'monitor', 'grafana', 'provisioning')]
+// 运行副本落点(装载方目录)。2026-10-20 现读:外部看板程序(已退役)在本机的运行副本已不存在,
+ // 这一格因此是"将来有装载方才用得上"的候选;不在位时本器如实报"尚不存在",不猜别的盘符。
+const CANDIDATE_LIVE_DIRS = [join(devEnvRoot(), 'monitor', 'board', 'provisioning')]
 
 // 逻辑服务 → 本机候选端口(按当次实测逐个探活,取第一个真有响应的)。
 // 这里的数字是**候选清单**不是事实:9090/16686 是 docker-compose 里的端口,本机原生部署不通。
@@ -162,7 +170,7 @@ async function buildLiveYaml(srcText) {
     }
 
     // uid 必须显式:大屏 panel 用 uid 引用数据源(Prometheus 那份线上副本就是靠显式 uid 才对上),
-    // 不显式 uid 时 Grafana 会自生成一个,仓库面板里的 "uid": "Prometheus" 就永远对不上。
+    // 不显式 uid 时装载方会自生成一个,仓库面板里的 "uid": "Prometheus" 就永远对不上。
     if (findLineIndex(block.lines, /^\s*uid:\s*/) === -1) {
       block.lines.splice(urlIdx + 1, 0, `${indentOf(urlLine)}uid: ${block.name}`)
     }
@@ -188,7 +196,7 @@ async function buildLiveYaml(srcText) {
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   if (args.help) {
-    console.info('用法: node scripts/sync-grafana-live-provisioning.mjs [--check] [--live-dir <目录>]')
+    console.info('用法: node scripts/sync-panel-live-provisioning.mjs [--check] [--live-dir <目录>]')
     process.exit(0)
   }
   if (!existsSync(SRC)) {
@@ -233,7 +241,7 @@ async function main() {
   renameSync(target, join(liveDir, 'pre-sync-backups', `datasources.yml.${stamp}`))
   writeFileSync(target, yaml, 'utf8')
   console.info(`✅ 已按仓库源重写运行副本(旧副本存于 pre-sync-backups/datasources.yml.${stamp})`)
-  console.info('ℹ️  Grafana 需在重启后加载新数据源: Restart-Service ihui-grafana')
+  console.info('ℹ️  装载方需在重启后加载新数据源(本机外部看板程序已退役,现读无该服务 ⇒ 这一步按装载方实际形态执行)')
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

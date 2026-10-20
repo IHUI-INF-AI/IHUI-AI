@@ -346,9 +346,8 @@ admin-api(:8830) ─┘
 
 | 变量                       | 默认                    | 说明                                   |
 | -------------------------- | ----------------------- | -------------------------------------- |
-| `NEXT_PUBLIC_GRAFANA_BASE` | `http://127.0.0.1:8816` | Grafana 公开 URL(生产环境可走反向代理) |
-| `GRAFANA_ADMIN_USER`       | `admin`                 | Grafana 管理员账号                     |
-| `GRAFANA_ADMIN_PASSWORD`   | `admin`                 | Grafana 管理员密码(生产环境必须修改)   |
+| `BOARD_ADMIN_USER`       | `admin`                 | Grafana 管理员账号                     |
+| `BOARD_ADMIN_PASSWORD`   | `admin`                 | Grafana 管理员密码(生产环境必须修改)   |
 
 ### Prometheus 不可达降级策略
 

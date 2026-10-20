@@ -19,9 +19,9 @@
       "reason": "文件名即 .generated:面板派生器产物,真相面在 monitoring/ 与生成器脚本"
     },
     {
-      "path": "monitoring/grafana/dashboards/",
+      "path": "monitoring/panel-defs/panels/",
       "untrackedCollide": true,
-      "reason": "大屏是 sync-grafana-live-provisioning / generate-monitor-panels 的派生态;本地未跟踪而上游同名已跟踪时,ff 会拒绝覆盖 ⇒ 备份后让位,装的是已入库真相面"
+      "reason": "大屏是 sync-panel-live-provisioning / generate-monitor-panels 的派生态;本地未跟踪而上游同名已跟踪时,ff 会拒绝覆盖 ⇒ 备份后让位,装的是已入库真相面"
     }
   ]
 }

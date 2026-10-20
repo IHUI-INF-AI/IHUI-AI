@@ -49,9 +49,7 @@
       "options": {
         "showHeader": true,
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 1,
@@ -101,9 +99,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 2,
@@ -155,9 +151,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 3,
@@ -207,9 +201,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 4,
@@ -259,9 +251,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 5,
@@ -313,9 +303,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 6,
@@ -365,9 +353,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 7,
@@ -528,9 +514,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 12,
@@ -582,9 +566,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 13,
@@ -614,9 +596,7 @@
       "options": {
         "showHeader": true,
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "description": "windows-exporter 的 windows_service_state 按 name 展开所有 IHUI-* 服务:state=\"running\" 且值为 1 即运行中;异常数为 state 非 running 且值为 1 的行数(服务已停止但状态位残留的行不计)。数据来自本机 windows job(localhost:9182)。",
@@ -668,9 +648,7 @@
       }
     }
   ],
-  "tags": [
-    "ihui-ai"
-  ],
+  "tags": ["ihui-ai"],
   "templating": {
     "list": []
   },

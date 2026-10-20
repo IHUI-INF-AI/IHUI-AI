@@ -4,7 +4,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 把 Grafana 大屏里所有 **Loki 面板**的 LogQL 拿去本机 Loki 上真跑一遍,报「有数 / 空板」。
+ * 把监控大屏里所有 **Loki 面板**的 LogQL 拿去本机 Loki 上真跑一遍,报「有数 / 空板」。
  *
  * 立因(2026-10-17):AI 指标那条链的病是「大屏查的指标代码里根本没有」——日志这条链
  * 会有同型病,而且更隐蔽:数据源配上了、LogQL 语法也合法、面板照样一片空白,
@@ -18,19 +18,19 @@
  * 用法是人工巡检或放进运维台账的周期性自查。
  *
  * 用法:
- *   node scripts/verify-grafana-logql-panels.mjs                 # 近 6h 全量核验
- *   node scripts/verify-grafana-logql-panels.mjs --window 24h
- *   node scripts/verify-grafana-logql-panels.mjs --loki http://127.0.0.1:3100
- *   node scripts/verify-grafana-logql-panels.mjs --dashboard ai-logs   # 只看某一张
+ *   node scripts/verify-panel-logql.mjs                 # 近 6h 全量核验
+ *   node scripts/verify-panel-logql.mjs --window 24h
+ *   node scripts/verify-panel-logql.mjs --loki http://127.0.0.1:3100
+ *   node scripts/verify-panel-logql.mjs --dashboard ai-logs   # 只看某一张
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const DASHBOARD_DIR = join(ROOT, 'monitoring', 'grafana', 'dashboards')
+const DASHBOARD_DIR = join(ROOT, 'monitoring', 'panel-defs', 'panels')
 
-// Grafana 变量在面板里是字面量,真跑时要换成能落地的区间。
+// 装载方的变量在面板里是字面量,真跑时要换成能落地的区间。
 const VAR_SUBSTITUTIONS = [
   [/\$__interval/g, '5m'],
   [/\$__range/g, '6h'],
@@ -155,7 +155,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2))
   if (args.help) {
     console.info(
-      '用法: node scripts/verify-grafana-logql-panels.mjs [--window 6h] [--loki http://127.0.0.1:3100] [--dashboard ai-logs]'
+      '用法: node scripts/verify-panel-logql.mjs [--window 6h] [--loki http://127.0.0.1:3100] [--dashboard ai-logs]'
     )
     process.exit(0)
   }
