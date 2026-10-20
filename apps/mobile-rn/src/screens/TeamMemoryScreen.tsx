@@ -31,6 +31,7 @@ import NavBar from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
+import { tokens } from '../theme/active-tokens'
 
 const SCOPE_KEY = 'ihui:team-memory:scopeId'
 const KINDS: TeamMemoryKind[] = ['decision', 'convention', 'pitfall', 'fingerprint']
@@ -232,10 +233,10 @@ export function TeamMemoryScreen() {
             value={scopeId}
             onChangeText={setScopeId}
             placeholder={t('teamMemory.scopePlaceholder')}
-            placeholderTextColor={isDark ? '#a3a3a3' : '#737373'}
+            placeholderTextColor={tokens.text.tertiary}
             autoCapitalize="none"
             autoCorrect={false}
-            className="mt-2 h-9 rounded-control border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
+            className="mt-2 h-9 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
           />
           <View className="mt-2 flex-row items-center">
             <TextField
@@ -243,13 +244,13 @@ export function TeamMemoryScreen() {
               value={keyword}
               onChangeText={setKeyword}
               placeholder={t('teamMemory.searchPlaceholder')}
-              placeholderTextColor={isDark ? '#a3a3a3' : '#737373'}
-              className="mr-2 h-9 flex-1 rounded-control border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
+              placeholderTextColor={tokens.text.tertiary}
+              className="mr-2 h-9 flex-1 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
             />
             <TouchableOpacity
               disabled={loading}
               onPress={onSearch}
-              className="rounded-control bg-neutral-900 px-3 py-2 dark:bg-neutral-100"
+              className="rounded-sm bg-neutral-900 px-3 py-2 dark:bg-neutral-100"
             >
               <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                 {t('teamMemory.searchBtn')}
@@ -263,7 +264,7 @@ export function TeamMemoryScreen() {
                 <TouchableOpacity
                   key={k || 'all'}
                   onPress={() => onPickKind(k)}
-                  className={`mb-2 mr-2 rounded-control px-3 py-1.5 ${
+                  className={`mb-2 mr-2 rounded-sm px-3 py-1.5 ${
                     active
                       ? 'bg-neutral-900 dark:bg-neutral-100'
                       : 'bg-neutral-200 dark:bg-neutral-800'
@@ -298,31 +299,31 @@ export function TeamMemoryScreen() {
         </View>
 
         {editing ? (
-          <View className="mx-4 mt-2 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+          <View className="mx-4 mt-2 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
             <TextField
               colorScheme={resolvedTheme}
               value={editing.title}
               onChangeText={(v) => setEditing((prev) => (prev ? { ...prev, title: v } : prev))}
               placeholder={t('teamMemory.titlePlaceholder')}
-              placeholderTextColor={isDark ? '#a3a3a3' : '#737373'}
-              className="h-9 rounded-control border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
+              placeholderTextColor={tokens.text.tertiary}
+              className="h-9 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
             />
             <TextField
               colorScheme={resolvedTheme}
               value={editing.content}
               onChangeText={(v) => setEditing((prev) => (prev ? { ...prev, content: v } : prev))}
               placeholder={t('teamMemory.contentPlaceholder')}
-              placeholderTextColor={isDark ? '#a3a3a3' : '#737373'}
+              placeholderTextColor={tokens.text.tertiary}
               multiline
-              className="mt-2 min-h-[72px] rounded-control border border-neutral-300 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
+              className="mt-2 min-h-[72px] rounded-sm border border-neutral-300 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
             />
             <TextField
               colorScheme={resolvedTheme}
               value={editing.tags}
               onChangeText={(v) => setEditing((prev) => (prev ? { ...prev, tags: v } : prev))}
               placeholder={t('teamMemory.tagsPlaceholder')}
-              placeholderTextColor={isDark ? '#a3a3a3' : '#737373'}
-              className="mt-2 h-9 rounded-control border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
+              placeholderTextColor={tokens.text.tertiary}
+              className="mt-2 h-9 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
             />
             <View className="mt-2 flex-row flex-wrap">
               {KINDS.map((k) => {
@@ -331,7 +332,7 @@ export function TeamMemoryScreen() {
                   <TouchableOpacity
                     key={k}
                     onPress={() => setEditing((prev) => (prev ? { ...prev, kind: k } : prev))}
-                    className={`mb-2 mr-2 rounded-control px-3 py-1.5 ${
+                    className={`mb-2 mr-2 rounded-sm px-3 py-1.5 ${
                       active
                         ? 'bg-neutral-900 dark:bg-neutral-100'
                         : 'bg-neutral-200 dark:bg-neutral-800'
@@ -350,7 +351,7 @@ export function TeamMemoryScreen() {
               <TouchableOpacity
                 disabled={saving}
                 onPress={onSave}
-                className="mr-2 rounded-control bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
+                className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
               >
                 <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                   {t('teamMemory.saveBtn')}
@@ -358,7 +359,7 @@ export function TeamMemoryScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setEditing(null)}
-                className="rounded-control border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+                className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
               >
                 <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                   {t('teamMemory.cancelBtn')}
@@ -381,13 +382,13 @@ export function TeamMemoryScreen() {
             {rows.map((row) => (
               <View
                 key={row.id}
-                className="mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
+                className="mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
               >
                 <View className="flex-row items-center">
                   <Text className="flex-1 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                     {row.title}
                   </Text>
-                  <View className="rounded-tiny bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">
+                  <View className="rounded-xs bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">
                     <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                       {kindLabel(t, row.kind)}
                     </Text>
@@ -406,7 +407,7 @@ export function TeamMemoryScreen() {
                   <TouchableOpacity
                     disabled={saving}
                     onPress={() => startEdit(row)}
-                    className="mr-2 rounded-control bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
+                    className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
                   >
                     <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                       {t('teamMemory.editBtn')}
@@ -415,7 +416,7 @@ export function TeamMemoryScreen() {
                   <TouchableOpacity
                     disabled={busyId === row.id}
                     onPress={() => onDelete(row)}
-                    className="rounded-control border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+                    className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
                   >
                     <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                       {t('teamMemory.deleteBtn')}

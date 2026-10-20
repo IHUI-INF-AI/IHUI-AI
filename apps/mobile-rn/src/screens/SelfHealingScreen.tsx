@@ -17,10 +17,7 @@
  */
 import { useCallback, useState } from 'react'
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
-import {
-  runSelfHealing,
-  type SelfHealingOutcome,
-} from '@ihui/api-client/endpoints/self-healing'
+import { runSelfHealing, type SelfHealingOutcome } from '@ihui/api-client/endpoints/self-healing'
 import NavBar from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { TextField } from '@ihui/rn-app'
@@ -85,8 +82,10 @@ export function SelfHealingScreen() {
     setRefreshing(false)
   }, [])
 
-  const inputClass = `rounded-control border px-3 py-2 text-sm ${
-    isDark ? 'border-neutral-700 bg-neutral-800 text-neutral-100' : 'border-neutral-300 bg-white text-neutral-900'
+  const inputClass = `rounded-sm border px-3 py-2 text-sm ${
+    isDark
+      ? 'border-neutral-700 bg-neutral-800 text-neutral-100'
+      : 'border-neutral-300 bg-white text-neutral-900'
   }`
 
   const lastRun = outcome?.run_history.length
@@ -103,7 +102,7 @@ export function SelfHealingScreen() {
         className="flex-1"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <View className="mx-4 mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+        <View className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
           <Text className="mb-1 text-xs text-neutral-600 dark:text-neutral-400">
             {t('selfHealing.taskLabel')}
           </Text>
@@ -129,7 +128,7 @@ export function SelfHealingScreen() {
           <TouchableOpacity
             disabled={running || !task.trim() || !targetPath.trim()}
             onPress={run}
-            className={`mt-3 self-start rounded-control px-4 py-2 ${
+            className={`mt-3 self-start rounded-sm px-4 py-2 ${
               running || !task.trim() || !targetPath.trim()
                 ? 'bg-neutral-300 dark:bg-neutral-800'
                 : 'bg-neutral-900 dark:bg-neutral-100'
@@ -148,7 +147,7 @@ export function SelfHealingScreen() {
         </View>
 
         {needLogin ? (
-          <View className="mx-4 mb-3 rounded-panel border border-red-300 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950">
+          <View className="mx-4 mb-3 rounded-xl border border-red-300 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950">
             <Text className="text-sm text-red-600 dark:text-red-400">
               {t('selfHealing.needLogin')}
             </Text>
@@ -156,7 +155,7 @@ export function SelfHealingScreen() {
         ) : null}
 
         {disabled ? (
-          <View className="mx-4 mb-3 rounded-panel border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950">
+          <View className="mx-4 mb-3 rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950">
             <Text className="text-sm text-amber-700 dark:text-amber-400">
               {t('selfHealing.disabledHint')}
             </Text>
@@ -164,7 +163,7 @@ export function SelfHealingScreen() {
         ) : null}
 
         {error ? (
-          <View className="mx-4 mb-3 rounded-panel border border-red-300 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950">
+          <View className="mx-4 mb-3 rounded-xl border border-red-300 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950">
             <Text className="text-sm text-red-600 dark:text-red-400">{error}</Text>
           </View>
         ) : null}
@@ -172,15 +171,13 @@ export function SelfHealingScreen() {
         {outcome ? (
           <>
             <View className="mx-4 mb-3 flex-row">
-              <View className="mr-2 flex-1 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
-                <Text className="mb-1 text-xs text-neutral-500">
-                  {t('selfHealing.attempts')}
-                </Text>
+              <View className="mr-2 flex-1 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                <Text className="mb-1 text-xs text-neutral-500">{t('selfHealing.attempts')}</Text>
                 <Text className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
                   {outcome.attempts}
                 </Text>
               </View>
-              <View className="mr-2 flex-1 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+              <View className="mr-2 flex-1 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
                 <Text className="mb-1 text-xs text-neutral-500">{t('selfHealing.status')}</Text>
                 <Text
                   className={`text-base font-bold ${
@@ -190,10 +187,8 @@ export function SelfHealingScreen() {
                   {outcome.final_passed ? t('selfHealing.healed') : t('selfHealing.notHealed')}
                 </Text>
               </View>
-              <View className="flex-1 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
-                <Text className="mb-1 text-xs text-neutral-500">
-                  {t('selfHealing.lastRun')}
-                </Text>
+              <View className="flex-1 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                <Text className="mb-1 text-xs text-neutral-500">{t('selfHealing.lastRun')}</Text>
                 <Text className="text-base font-bold">
                   <Text className="text-emerald-600">{lastRun?.passed ?? 0}</Text>
                   <Text className="text-neutral-400">{` / `}</Text>
@@ -202,7 +197,7 @@ export function SelfHealingScreen() {
               </View>
             </View>
 
-            <View className="mx-4 mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+            <View className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
               <Text className="mb-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                 {t('selfHealing.history')}
               </Text>
@@ -214,27 +209,27 @@ export function SelfHealingScreen() {
                 outcome.run_history.map((rec) => (
                   <View
                     key={rec.attempt}
-                    className="mb-2 rounded-control border border-neutral-200 p-2 dark:border-neutral-800"
+                    className="mb-2 rounded-sm border border-neutral-200 p-2 dark:border-neutral-800"
                   >
                     <View className="flex-row flex-wrap items-center">
-                      <View className="mr-2 rounded-tiny bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">
+                      <View className="mr-2 rounded-xs bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">
                         <Text className="text-xs font-medium text-neutral-800 dark:text-neutral-200">
                           {`#${rec.attempt}`}
                         </Text>
                       </View>
-                      <View className="mr-2 rounded-tiny bg-emerald-500/15 px-2 py-0.5">
+                      <View className="mr-2 rounded-xs bg-emerald-500/15 px-2 py-0.5">
                         <Text className="text-xs text-emerald-600">
                           {t('selfHealing.passedCount', { count: rec.passed })}
                         </Text>
                       </View>
                       {rec.failed > 0 ? (
-                        <View className="mr-2 rounded-tiny bg-red-500/15 px-2 py-0.5">
+                        <View className="mr-2 rounded-xs bg-red-500/15 px-2 py-0.5">
                           <Text className="text-xs text-red-600">
                             {t('selfHealing.failedCount', { count: rec.failed })}
                           </Text>
                         </View>
                       ) : (
-                        <View className="rounded-tiny bg-emerald-500/15 px-2 py-0.5">
+                        <View className="rounded-xs bg-emerald-500/15 px-2 py-0.5">
                           <Text className="text-xs font-medium text-emerald-600">
                             {t('selfHealing.allGreen')}
                           </Text>
@@ -261,7 +256,7 @@ export function SelfHealingScreen() {
             </View>
 
             {outcome.suggestions.length > 0 ? (
-              <View className="mx-4 mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+              <View className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
                 <Text className="mb-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                   {t('selfHealing.suggestions')}
                 </Text>

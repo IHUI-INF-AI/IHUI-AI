@@ -76,6 +76,8 @@ import {
   setToken,
   setRefreshToken,
   clearAuth,
+  setUserInfo,
+  getUserInfo,
   expireAuth,
   isSessionLoggedOut,
   markSessionLoggedOut,
@@ -96,9 +98,12 @@ beforeEach(() => {
 describe('① 主动登出 ⇒ 冷启动静默登录被拦', () => {
   it('clearAuth() 落标记,且标记落在共享层那一个 key 上', () => {
     setToken('tk-1')
+    setUserInfo({ id: 'u-1', nickname: '旧账号' } as Parameters<typeof setUserInfo>[0])
     clearAuth()
 
     expect(getToken()).toBe('')
+    // 用户资料同批清掉:只清 token 会让登录页/我的页拿上一号的头像昵称渲染(2026-10-20 补)
+    expect(getUserInfo()).toBeNull()
     expect(taroStorage[SESSION_LOGGED_OUT_STORAGE_KEY]).toBeDefined()
     expect(isSessionLoggedOut()).toBe(true)
     expect(
