@@ -5,8 +5,13 @@
 /**
  * 底部悬浮玻璃胶囊的几何量(小程序端唯一出处)
  *
- * 与 apps/mobile-rn/src/components/TabBar.styles.ts 的同名量逐值对齐 —— 跨端观感一致是
- * 交付门槛(AGENTS §4)。px 在微信里就是逻辑像素,与 RN 的 dp 同尺,不做 rpx 换算。
+ * 2026-10-20 起与 apps/mobile-rn/src/components/TabBar.styles.ts 的同名量**不同值**:用户定稿
+ * 「底部菜单栏的高宽要跟 AI 输入框一致」,RN 侧已把胶囊高/左右留边绑到它自己输入框外壳那一档
+ * (62 / 10);本端首页 ai-home 输入栏是原项目 rpx 复刻的紧凑条(留边 12,行高另成一档),要与它
+ * 同形得按本端另量,这一格尚未做 ⇒ 本文件维持 56 / 12,不是漏同步。跨端门 128 对这两族不同名
+ * 元素零判据(它只配同名成对的),分叉依据即本注。
+ *
+ * px 在微信里就是逻辑像素,与 RN 的 dp 同尺,不做 rpx 换算。
  *
  * 为什么单独成模块:自定义 tabBar 是浮层(实测 systemInfo.windowHeight == screenHeight),
  * 它不压缩页面视口 ⇒ 每个 tab 页都要自己让出底部距离,这个量必须和组件用的是同一个数。
@@ -20,6 +25,12 @@ export const TAB_BAR_MARGIN_H = 12
 export const TAB_BAR_GAP_BOTTOM = 6
 /** 选中态顶部指示条高度(与 RN localStyles.activeIndicator 同值) */
 export const TAB_BAR_INDICATOR_H = 3
+
+/**
+ * 选中态光晕半径(px):与 apps/mobile-rn/src/components/TabBar.styles.ts 的同名量逐值对齐。
+ * 颜色一律走 CSS 变量(--color-brand-accent),端内不得出现裸 hex。
+ */
+export const TAB_BAR_GLOW_RADIUS_PX = 6
 
 /**
  * 浮层胶囊实际占掉的底部高度(不含安全区):胶囊高 + 它与屏幕底的悬浮间距。
