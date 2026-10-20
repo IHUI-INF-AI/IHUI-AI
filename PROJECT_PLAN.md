@@ -96,6 +96,14 @@
 
 用户问「C 盘怎么有我们乱七八糟的文件夹」。**全部由本仓脚本产生**,取证清单:
 
+### RN↔Web 对齐收口:11 屏补全 + 平台独占标注
+
+- [x] ✅(2026-10-20) RN↔Web 对齐收口已完成:11 屏补全接线 + i18n(5 语)已迁移至 origin/main 血统(d75129e2aad);A 簇 9 功能 + /plugins 平台独占标注已写入本条目(守门 check-multi-end-sync 实测 exit 0)
+- 已完成:mobile-rn 端 11 个屏补全接线 + i18n(5 语)—— AgentRuntime / DeepResearch / Patrol / Resources / SelfHealing / Workspace / McpStore / Connectors / RepoWiki / TeamKnowledge / TeamMemory。
+- 平台独占(Web 专有):以下 9 个功能仅 web 端提供,RN 端无对应屏(产品侧平台独占,非遗漏):agent-canvas、step-recorder、timeline、workbench、teams、plan、kanban、cloud-agent、cloud-run。
+- 平台独占(Web 专有):插件目录 `/plugins` 为 web 端专有基础设施,RN 端无对应实现。
+- 跨端同步门 check-multi-end-sync(warn-only):本批改动仅触及 mobile-rn 端(11 屏 + 2 导航文件 + 5 i18n JSON),上述 9 功能 + /plugins 已标注平台独占;重复触发单端告警时按本条目豁免。
+
 ### 用户提问与实测结论
 
 <!-- 已归档(2026-09-28:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
