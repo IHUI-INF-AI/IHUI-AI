@@ -133,12 +133,12 @@ export default function AdminMonitorFunnelPage() {
                     <div className="relative h-8 overflow-hidden rounded-md bg-muted">
                       <div
                         className={cn(
-                          'flex h-full items-center rounded-md px-2 text-xs font-medium text-primary-foreground transition-all',
+                          'flex h-full items-center rounded-md px-2 text-xs font-medium transition-all',
                           i === 0
-                            ? 'bg-primary'
+                            ? 'bg-primary text-primary-foreground'
                             : i === stages.length - 1
-                              ? 'bg-emerald-600'
-                              : 'bg-primary/70',
+                              ? 'bg-success-tint-strong text-success-deep-text' /* 原 bg-emerald-600 + 白字:亮档实测 3.61 < AA 4.5,且是调色板字面量;此对实测 5.80/6.30 */
+                              : 'bg-primary/70 text-primary-foreground',
                         )}
                         style={{ width: `${Math.max(width, 15)}%` }}
                       >

@@ -61,7 +61,7 @@ export default function AdminMonitorDashboardPage() {
   const perfCards = [
     { label: 'CPU', value: perf?.cpu ?? 0, unit: '%', max: 100, cls: 'text-primary' },
     { label: '内存', value: perf?.memory ?? 0, unit: '%', max: 100, cls: 'text-primary' },
-    { label: '磁盘', value: perf?.diskUsage ?? 0, unit: '%', max: 100, cls: 'text-purple-600' },
+    { label: '磁盘', value: perf?.diskUsage ?? 0, unit: '%', max: 100, cls: 'text-primary' },
     { label: 'QPS', value: perf?.qps ?? 0, unit: '', max: 0, cls: 'text-success-deep-text', raw: true },
     {
       label: '平均响应',
