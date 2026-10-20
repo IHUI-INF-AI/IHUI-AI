@@ -2951,7 +2951,7 @@ const checks = [
 
   {
     id: '112',
-    label: '📐 压缩分母对账(blocking,阈值分母必须经 effectiveContextWindow;存量 8 文件/12 处进棘轮)',
+    label: '📐 压缩分母对账(blocking,阈值分母必须经 effectiveContextWindow;存量 15 文件/17 处进棘轮)',
     script: 'check-compaction-denominator.mjs',
     args: [],
     mode: 'blocking',
@@ -2970,10 +2970,12 @@ const checks = [
       '     的子入口,深导入会被守门 103 判 D3 红(本仓踩过)。',
       '     行为后果如实登记:分母只会变小 ⇒ **压缩更早触发**,用户可感知;回退有两条路(构造参数',
       '     `outputReserveEnabled:false` 或环境变量 `IHUI_COMPACTION_OUTPUT_RESERVE=0`)。',
-      '     存量 8 文件/12 处已冻进 `scripts/compaction-denominator-baseline.json`(只减不增棘轮),',
+      '     存量 15 文件/17 处已冻进 `scripts/compaction-denominator-baseline.json`(只减不增棘轮),',
+      '     2026-10-19 扩面:扫描面补 `packages/`、分母名补 maxTokens 一族(名字表与预筛关键字同源),',
+      '     当日 HEAD 面新暴露的 8 文件/9 处(maxTokens 族)按实测逐文件入账 —— 它们是既有债,不是本次造出来的。',
       '     其中 **api 端 `/chat/stream` 的溢出面尚未收口** —— 那是本票如实留下的账,不是"已修完"。',
       '     单独复验:node scripts/check-compaction-denominator.mjs',
-      '     自检:node scripts/check-compaction-denominator.mjs --self-test(15 条,含成对正反例与',
+      '     自检:node scripts/check-compaction-denominator.mjs --self-test(24 条,含成对正反例与',
       '     "枚举到 0 个文件必须判无法判定、不得记绿"的反向对照)',
       '     镜像测试:node --test scripts/tests/check-compaction-denominator.test.mjs',
       '',
@@ -5128,6 +5130,26 @@ const checks = [
     onFailHint: [
       '',
       'node 正文搬进 scripts/lib/<hook>-hook.js,钩子文件只留 sh 薄壳(样板 .husky/pre-commit);薄壳引用的包装与正文必须在同一判定面在位',
+      '',
+    ].join('\n'),
+  },
+
+  // --- miniapp-design-token-parity(1 项,blocking)---
+  {
+    id: '227',
+    label:
+      '🎨 小程序 design-token 副本逐位同值(blocking,判 app.css 首块已有键 × 7 类 token,含提交链唯一覆盖的 --chart-* 档)',
+    script: 'check-miniapp-taro-design-tokens.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MINIAPP_TARO_DESIGN_TOKENS',
+    stagedTriggers: ['apps/miniapp-taro/src/app.css', 'packages/design-tokens/src/styles/tokens.css'],
+    onFailHint: [
+      '',
+      '  💡 app.css 首块的 design-token 档与 packages/design-tokens/src/styles/tokens.css 不同值。',
+      '     正解只有一条:改源头 tokens.css,再跑派生写回(node scripts/sync-miniapp-tokens.mjs 或 TOKEN_SYNC_TARGETS 那条入口),',
+      '     禁止手改 app.css 受管块(那是派生态,下一次 sync 就把它洗掉)。',
+      '     缺档(源头有、副本没有)不归本门,那是守门 36 的判据。',
       '',
     ].join('\n'),
   },

@@ -65,6 +65,12 @@ const isStaged = process.argv.includes('--staged')
 //   · 它没有对本枚提交下结论 ⇒ 归因层不得据差分定责(见 lib/commit-gate-attribution.mjs 态①b);
 //   · 它仍然非零 ⇒ §28 那句"交付前跑 `--staged`,0 违规才算完成"照样拦得住我自己漏在根的垃圾,
 //     也拦得住 runner(runner 对 blocking 门按"非 0 即失败"处理)—— **没有放开任何一条检测**。
+// 〔更正@2026-10-19,上面"批内 索引 ≡ 声明集"按当次实现作废,原句逐字保留只作改判留痕〕
+// `git ls-files` 列的是**全部跟踪条目**,`git reset HEAD` 不会把它们移出索引(它只清"暂存"这一层),
+// 所以"名字在索引里"从来不等于"我这枚提交带了它"。实测后果:一枚早在 HEAD 里的自动化状态目录
+// (现读 `git ls-tree --name-only HEAD` 命中 `.doc-autoupdate`)使每次提交的 --staged 档稳定 exit 1
+// ⇒ 全场被迫跳门、连带废掉整条守门链(§12e 的恒红门)。正解=差值棘轮,锚点取"提交开始前那棵 HEAD 树",
+// 实现与三档归属见 getHeadRootNames() 与下方归属分流。
 // 全量档(不带 --staged)一字未改:它今天就是报告档(exit 0),本门刻意不动它,
 // 免得顺手"修好"成一个谁碰谁红的档。
 // ============================================================================
@@ -98,12 +104,51 @@ function getIndexedRootNames() {
   }
 }
 
+/**
+ * HEAD 树里出现过的根级条目名(= 提交链**开始前**就已入库的那些)。问不到 ⇒ null。
+ *
+ * 为什么必须有这一维(2026-10-19 立,根因不在白名单而在归属判据):上面那段注记写的
+ * "批内 索引 ≡ 声明集"是**假前提**——safe-commit 第 1 步 `git reset HEAD` 只是将改动移出暂存区,
+ * `git ls-files` 照旧列出**全部跟踪条目**。于是"名字在索引里"等价于"这仓跟踪过它",而不是
+ * "我这枚提交带了它"。后果实测:一个早在 HEAD 里的自动化状态目录(`.doc-autoupdate/last-sha`,
+ * 2026-10-19 现读 git ls-tree HEAD 命中)让**每一次**提交的 --staged 档都稳定 exit 1 ⇒
+ * 每个会话都被迫走 --no-verify,连带废掉整条守门链 —— 正是 §12e 禁的恒红门。
+ * 前几次的处置是逐枚把新目录加进白名单(`.arts`/`.DevEnv`/`.codeartsdoer`…),那是消症状不是修根:
+ * 只要跟踪集合里还剩一枚白名单外条目,门就永久红。
+ *
+ * 正解取本仓通用差值棘轮口径:**锚点 = 被审提交开始前那棵 HEAD 树**。
+ *  - 违规名 ∈ 索引 ∧ ∉ HEAD ⇒ 本次新入库 ⇒ owned ⇒ exit 1(阳性对照 P1 同形,牙不钝);
+ *  - 违规名 ∈ 索引 ∧ ∈ HEAD ⇒ 存量 ⇒ 照点名、不判红(§12e"存量只报数");
+ *  - 违规名 ∉ 索引 ⇒ 未跟踪 ⇒ 照旧 exit 2(归属无从判定);
+ *  - 本函数返回 null(HEAD 问不到,如空仓/无提交)⇒ **不得**把存量算成零 ⇒ 退回旧的全量拦截。
+ */
+function getHeadRootNames() {
+  try {
+    const out = execFileSync('git', ['-C', ROOT, 'ls-tree', '--name-only', '-z', 'HEAD'], {
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true,
+      timeout: 60_000,
+      // 派生 git 必须显式接管 stdio(§12g);不吃的子进程给 ignore 否则本机报 EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const names = new Set()
+    for (const p of out.split('\0')) {
+      if (!p) continue
+      const first = p.split('/')[0]
+      if (first) names.add(first)
+    }
+    return names
+  } catch {
+    return null
+  }
+}
+
 // 逃生舱(应急跳过,默认不推荐,与 check-pwsh-version 等守门脚本一致)
 if (process.env.HUSKY_SKIP_ROOT_DIR_GUARD === '1') {
   console.log('  ⏭  根目录整洁守门(HUSKY_SKIP_ROOT_DIR_GUARD=1, 跳过)')
   process.exit(0)
 }
-
 // ============================================================================
 // 白名单(一级目录合法条目,封闭集合)
 // ============================================================================
@@ -251,6 +296,13 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   // 与 `.vscode`/`.qoder`/`.workbuddy` 同类:只登记、不搬不删(删了会打断他人正在用的工具态)。
   // 本条同时解除守门 44 在 --staged 下点名该目录 ⇒ 提交链被迫 --no-verify 的系统性风险(§12e 同型)。
   '.DevEnv',
+  // 2026-10-19 登记:文档自动更新器的运行态目录(现读 `git ls-tree --name-only HEAD` 命中,
+  // 目录内只有 `last-sha` 一枚已入库文件,由自动化持续写入)。与 `.workbuddy`/`.turbo` 同类:
+  // 只登记、不搬不删(删了就打断它自己的增量判定,下一轮又会重新生成)。
+  // 同上一条注释所写的另一类风险也要一并记清:真正让本门恒红的不是"这个目录没进白名单",
+  // 而是归属判据把"全部跟踪条目"当成"本次携带"——那一格已在 getHeadRootNames() 修掉;
+  // 这里登记只是把**合法运行态**从存量告警里摘出来,不再每次刷屏。
+  '.doc-autoupdate',
   '.deploy.lock',
   // 2026-10-19 登记:README 提交钩子 scripts/auto-update-readme-recent.mjs 的增量基线目录
   // (.doc-autoupdate/last-sha = 上次处理到的 commit,被 git 跟踪、随提交刷新)。与 .env/.DevEnv
@@ -408,17 +460,35 @@ if (violations.length === 0) {
 
 // ── 归属分流(只在 --staged 档生效;全量档保持历史形态,见上方 G-268 注释)──
 let owned = violations
+let preexisting = []
 let untracked = []
 if (isStaged) {
   const indexed = getIndexedRootNames()
+  const headNames = indexed === null ? null : getHeadRootNames()
   if (indexed === null) {
     console.error(
       '  ⚠️  索引面问不到(git ls-files 失败)⇒ 无从区分归属,本门**退回全量拦截**:所有违规一律按本次的红计',
     )
-  } else {
+  } else if (headNames === null) {
+    console.error(
+      '  ⚠️  HEAD 树问不到(git ls-tree 失败或尚无提交)⇒ 无从证明哪几枚是存量,本门**退回全量拦截**:所有已跟踪违规一律按本次的红计',
+    )
     owned = violations.filter((v) => indexed.has(v.name))
     untracked = violations.filter((v) => !indexed.has(v.name))
+  } else {
+    // 差值棘轮:只有"本次新入库"的那几枚算本次的红;早在 HEAD 里的照点名不判红(§12e)
+    owned = violations.filter((v) => indexed.has(v.name) && !headNames.has(v.name))
+    preexisting = violations.filter((v) => indexed.has(v.name) && headNames.has(v.name))
+    untracked = violations.filter((v) => !indexed.has(v.name))
   }
+}
+
+if (preexisting.length > 0) {
+  console.log('')
+  console.log(
+    `  ⚠️  根目录整洁守门[存量]:${preexisting.length} 枚白名单外条目**早在 HEAD 里** ⇒ 与本次提交内容无关,只报数不判红(§12e;出路=按 §28 显式登记白名单或移进 tmp/ 与 logs/)`,
+  )
+  for (const v of preexisting) console.log(`     - ${v.name}  (${v.kind},已在 HEAD)`)
 }
 
 if (owned.length > 0) {
@@ -448,6 +518,8 @@ console.error('')
 console.error('  禁止在一级目录随意生成 .log / .html / cookies / 截图 / ad-hoc 脚本。')
 
 if (!isStaged) process.exit(0)
-// exit 1 = 本次提交面(索引)里确有违规;exit 2 = 只剩"未跟踪、归属无从判定"那一档(仍非零,仍拦得住)
-process.exit(owned.length > 0 ? 1 : 2)
+// exit 1 = 本次**新入库**的根级违规(差值棘轮超出锚点);exit 2 = 只剩"未跟踪、归属无从判定"那一档
+// (仍非零,仍拦得住);exit 0 = 只剩早在 HEAD 里的存量(照点名,§12e 只报数不判红)
+if (owned.length > 0) process.exit(1)
+process.exit(untracked.length > 0 ? 2 : 0)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

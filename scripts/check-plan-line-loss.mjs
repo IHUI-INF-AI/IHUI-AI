@@ -114,7 +114,12 @@ import { stripForkPrefix } from './lib/plan-merge-annotation.mjs'
 // G-722:编号形态判据(畸形号 = 族名在编号段出现两次)的**唯一实现**住在活文档编辑器里 ——
 // 判据住在 `scripts/lib/plan-task-index.mjs` 的下沉方案因该文件正被并发会话在飞编辑而未采,
 // 按票面指定的 import 方案接。两处各抄一遍形态正则必然漂移(§22c 同一条纪律),镜像形状锁钉死。
-import { findMalformedIds, newMalformed, malformedLine } from './lib/plan-task-index.mjs'
+import {
+  findMalformedIds,
+  newMalformed,
+  malformedLine,
+  MALFORMED_ID_RE,
+} from './lib/plan-task-index.mjs'
 
 const GIT_TIMEOUT = 60000
 /**
@@ -166,8 +171,17 @@ function titleMarker(rest) {
  * 它不属于 G/D/O/P/W/B 任何一形,所以当有一枚并行暂存版本的 PROJECT_PLAN 缺这几行时,
  * 本门与 post-commit 自愈**双双看不见** —— 实测本会话落地 47b/c 后,共享索引里那三份副本
  * 只含 47a 一行。判据不能靠"这族恰好是别人写过的形态",族漏了就等于没门。
+ * 〔同日按同一条教训复量全表(2026-10-19,`.ihui-agent/tmp/rn-miniapp-zero/unseen-ids.mjs` 现读
+ * HEAD 面 345 条未勾登记行):声明位有号而**整族表认不出**的仍有 4 行 ——
+ * `A36`(L4453)/ `WP-7`(L4968)/ `H2`(L29125)/ `A4+A10`(L29228)。A 族、H 族、WP 族根本不在表里,
+ * 而 `WP-7` 还多带一个横杠(表内 `W\d+` 既认不出 WP 也容不下横杠)。这 4 行今天对防丢面、
+ * 复合主键与派单口径**三重隐身**:合并吞掉它们无人报,同题副本/撞号也判不到它们。
+ * 补 `A\d+` / `H\d+` / `WP-?\d+` 三族,并把 D 族写成 `D-?\d+`(HEAD 面现读带横杠的 D 声明位 0 行,
+ * 所以这一改不减任何存量,只是让台账里已经出现过的"让号注记 D-128/D-172"那种形态下次真挂在声明位时
+ * 不再隐身)。**没有改成"任意字母+数字"**:`T1`/`e5`/`ISO8601`/`P2P` 这类正文噪声会被当成编号,
+ * 那把"防丢"换成"什么都防"——族要按现读证据逐条加,而不是靠放宽通用式一次到位。
  */
-const ID = String.raw`G-\d+[a-z]?|D\d+[a-z]?|O\d+[a-z]*\d*|B\d+[a-z]?|P\d+(?:-[A-Za-z]+)?(?:\.\d+)?|W\d+|守门\s*\d+[a-z]?|V3-\d+[a-z]?`
+const ID = String.raw`G-\d+[a-z]?|D-?\d+[a-z]?|O\d+[a-z]*\d*|B\d+[a-z]?|P\d+(?:-[A-Za-z]+)?(?:\.\d+)?|W\d+|WP-?\d+[a-z]?|A\d+[a-z]?|H\d+[a-z]?|守门\s*\d+[a-z]?|V3-\d+[a-z]?`
 /**
  * 单一真相源出口(2026-09-26):`scripts/lib/plan-task-index.mjs` 按编号收敛任务状态时
  * 必须用**同一族**编号 —— 两处各写一遍必然漂移,而漂移的形态是"一边判孪生、一边判真丢失"
@@ -213,6 +227,51 @@ export function headIdOf(line) {
     if (m && m.index === 0 && m[1].length >= 3) return m[1]
   }
   return null
+}
+
+/**
+ * **族表自检**(2026-10-19 立):登记行的声明位长得像编号,却不认识本表任何一族(或被行首长度门槛
+ * 挡在外面)⇒ 这些行对防丢面、复合主键与撞号判据**三重隐身**。
+ *
+ * 立因是现读证据,不是假想:`TASK_ID_PATTERN` 的 A 族 / WP 族 / H 族从未登记过,而 HEAD 面真有
+ * 4 行这样登记(`A36`、`WP-7`、`H2`、`A4+A10`);其中 `A4+A10` 那组正因为隐身,同一件事被记了
+ * **两行**而 F9 撞号看不见 —— 本门补上 A 族当天即由 plan-tasks 报出该撞号组,双行现读逐字对照后
+ * 按 §1「一个编号只能有一行当前状态」归并(副本翻勾→摘行)。
+ * V3 族那一格的教训写在 ID 旁:**族漏了就等于没门**,而"没门"的账面表现永远是安静 ——
+ * 所以这一维不靠人来想起来跑一次,它挂在门自己的输出上。
+ *
+ * 定级:只报数、不判红、不进退出码。新家族随时会出现,当场判红就是一台与本次提交内容无关的
+ * 恒红门(§12e);但它必须大声到无法被忽略(逐条点名行号 + 声明位前 24 字)。
+ *
+ * @param {string} src 被审面正文
+ * @returns {Array<{line:number, token:string, head:string}>}
+ */
+export function unseenRegistrantIds(src) {
+  const collected = [] // 族表认不出的声明位收集口:只报数,永不进退出码(定级理由见上方头注)
+  const lines = String(src ?? '').split(/\r?\n/)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (headIdOf(line)) continue // 认得出的不是缺陷
+    const cb = checkboxBody(line)
+    if (cb === null) continue // 不是登记行
+    // 分隔符位**只写 ASCII 连字符**:全角那一形态的定义住在共享判据里,门体内再抄一份分隔符形态
+    // 正是镜像形状锁(`门体内不得再抄第二份形态正则`)要拦的事(它连注释里的字面量一起拦 ——
+    // 一把会读到自己说明文字的尺子,拦得住抄写、也拦得住我在此处解释它)。真出现全角形态的号,
+    // 该改的是族表本身(单一来源),不是让这把尺子自带第二条路。
+    const m = /^([A-Za-z]{1,5})-?(\d+[a-z]?)(?![\w-])/.exec(cb)
+    if (!m) continue // 声明位不是"字母族+数字"形态
+    // **刻意跟着 headIdOf 的 >=3 长度门槛走**:两字符形态在本账里与优先级标签 `P1 残余③` /
+    // `P2 新登记` 无法区分(HEAD 面现读:不加这道门槛时 12 条点名里 11 条是 P1 优先级标签,
+    // 只有 1 条是真族表缺族 —— 一把九成是噪音的尺子等于没有尺子)。代价如实登记:
+    // `H2` / `A4` 这类两字符短号仍对这一维隐身,它们能被发现只因为 plan-tasks 的主键/撞号提取
+    // 不受这个门槛约束(A4 那双行就是这样被 F9 抓出来的)。
+    if (m[1].length + m[2].length < 3) continue
+    // 畸形号(族名重复前缀那一族)已有自己的编号形态维判它(必红档),本维不重复报 ——
+        // 同一行被两把尺子点名,读数谁也不认谁,那就等于没有读数。
+    if (MALFORMED_ID_RE.test(line)) continue
+    collected.push({ line: i + 1, token: `${m[1]}${m[2]}`, head: cb.slice(0, 24) })
+  }
+  return collected
 }
 
 /** 一份文档里"仍作为登记行行首存在"的编号集合 */
@@ -2574,10 +2633,52 @@ function selfTest() {
     }
   })
 
-  // ── 编号形态维(G-722):本次新增即判红,存量只报数(成对档注入/摘前缀)──────────────
+  // ── 族表自检维(2026-10-19 立):声明位像编号但族表认不出 ⇒ 必须点名,且不得判红 ──
+  t('族表自检:补上的族(WP-7/A36)不点名;真缺族 T12 点名;两字符短号与 P1 优先级标签一律不点名(噪音尺等于没尺);畸形号归编号形态维', () => {
+    const doc = [
+      '# 计划',
+      '',
+      '- [ ] WP-7 浏览器语义快照:补上 WP 族后必须被认出来 ⇒ 不进名单。',
+      '- [ ] A36 剩下的两步:补 A 族后即被认出 ⇒ 不进名单。',
+      '- [ ] P1 残余③:优先级标签不是编号,HEAD 面这种行有 11 条,进名单就是噪音尺。',
+      '- [ ] T12 未知族:三字符形态且不在族表里 ⇒ 必须点名。',
+      '- [ ] H2 两字符短号:与 P1 那一族无法区分 ⇒ 按门槛不点名(代价写在实现旁)。',
+      '- [ ] DD9002 畸形号已有自己的编号形态维,本维不得重复报。',
+      '- [ ] 这条没有编号,不该出现在任何名单里。',
+    ].join('\n')
+    const named = unseenRegistrantIds(doc)
+    return (
+      named.length === 1 &&
+      named[0].line === 6 &&
+      named[0].token === 'T12' &&
+      headIdOf(doc.split('\n')[2]) === 'WP-7' &&
+      headIdOf(doc.split('\n')[3]) === 'A36'
+    )
+  })
+  t('族表自检定级:同一夹具多出一行隐身声明位,runCheck 的 ok 与 lost 读数必须逐字相同(新家族不该挡住任何一次提交)', () => {
+    const base = '# 计划\n\n- [ ] G-9100 正常行:三面都在。\n'
+    const withUnseen =
+      '# 计划\n\n- [ ] G-9100 正常行:三面都在。\n\n- [ ] H2 隐身编号行:两字符编号,族表与长度门槛都不认它。\n'
+    const a = faceFixtureRepo({ commits: [{ plan: base }] })
+    const b = faceFixtureRepo({ commits: [{ plan: withUnseen }] })
+    try {
+      const ra = runCheck(false, 'head', { root: a })
+      const rb = runCheck(false, 'head', { root: b })
+      const n = (r) => `${r.ok}/${r.lost?.length ?? 'no-lost-field'}/${r.prose ?? 'no-prose'}`
+      // 只断言"这一维不进结论":两档的读数必须逐字相同;至于 runCheck 在这一型夹具上本来的结论
+      // 是什么,由上面那批既有用例管,本条不替它下判断(拿"应当为 true"去断言就是把两维混判)。
+      return n(ra) === n(rb)
+    } finally {
+      rmScratch(a)
+      rmScratch(b)
+    }
+  })
+
+
   // 夹具基线自带一行存量畸形号(已在 HEAD)与一行正常登记行:
   //  · 注入档 ⇒ added 点名新增行、preexisting 只剩存量 ⇒ 判红;
   //  · 摘完重复前缀的正常行 ⇒ added=0 ⇒ 判绿(存量仍报名,不得静默)。
+  // ── 编号形态维(G-722):本次新增即判红,存量只报数(成对档注入/摘前缀)──────────────
   const MAL_BASE = [
     '# 计划',
     '',
@@ -2731,6 +2832,12 @@ function heal(commit) {
    * 混成一个结论会让人拿工作树去"修"HEAD(= §12 禁止的覆盖),或反之把该恢复的行当成噪音跳过。
    */
   for (const line of healLegRoster(seen.size, legs, loop)) console.log(line)
+  // 族表自检:隐身声明位逐条点名(只报数、不进退出码;理由见 unseenRegistrantIds 头注)。
+  // 取 **HEAD 面**那份正文(与"下一次提交要带走的内容"同形),不取磁盘 —— 盘上副本常年滞后。
+  for (const u of unseenRegistrantIds(head))
+    console.log(
+      `ℹ️  [族表自检] L${u.line} 声明位 ${u.token} 不被编号族认出 ⇒ 防丢面/复合主键/撞号三重看不见它:${u.head}`,
+    )
   if (legs.allClean) {
     console.log(`✅ [plan-line-loss] 扫描 ${seen.size} 条登记行:无缺失,无需回捞`)
     return 0

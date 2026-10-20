@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { fetchApi, subscribeLive } from '@ihui/api-client'
 import { LivePreviewScreen as SharedLivePreviewScreen, type LivePreviewItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -46,7 +46,7 @@ export function LivePreviewScreen() {
     if (!item) return
     setSubscribing(true)
     try {
-      const res = await fetchApi(`/live/preview/${id}/subscribe`, { method: 'POST' })
+      const res = await subscribeLive(id)
       if (!res.success) throw new Error()
       setItem({ ...item, subscribed: true })
     } catch {

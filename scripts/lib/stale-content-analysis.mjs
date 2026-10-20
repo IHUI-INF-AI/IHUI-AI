@@ -35,6 +35,7 @@
 // 生成物「自述钉起始行」的标记名全仓只许有一份(它住在 `generated-input-pin.mjs`,生成器与门 105
 // 都从那里取)。本层只借那个**字面量**来拼自证标记的正则,不引入哈希/取内容逻辑 —— 判据仍是纯函数。
 import { PIN_BEGIN } from './generated-input-pin.mjs'
+import { isWatermarkStructureLine } from './watermark-lines.mjs'
 
 /** 证据采样上限与单行截断宽度:报告要能读,不能把终端刷成一份 diff。 */
 export const SAMPLE_LINES = 8
@@ -148,6 +149,32 @@ export const resurrectKey = (l) =>
  *    可重跑的等价物是上面那四条例(同一把尺子,只是夹具换成可控面)。
  * 放宽的只是"生成器自己怎么写这行",真实内容行一条也不放过 —— 缺条件②时(例 13)连同源行也照旧判红。
  */
+/**
+ * ④ JSON 面的**排版重排**(2026-10-19 立,门 84 R1r 第三型假阳)
+ *
+ * 立因(真仓现读):`scripts/data/sse-dispatch-coverage.json` 在 HEAD 里是展开写法
+ * (`"toolCallbacks": [\n  "onAbort", … ]`),而 lint-staged 的 `prettier --write` 按
+ * printWidth 把它压成一行(`"toolCallbacks": ["onAbort", "onAttemptStart", "onLine"],`)。
+ * 内容一个字节没变,但压行后的每条短数组行都逐字等于某个祖先的形态、HEAD 里却不存在
+ * ⇒ 被 R1r 读成"复活 6 行"并拒绝整枚提交。这与 resurrectKey 的②是同一族(HEAD 里本就不合规,
+ * 第一次碰它的提交必然带整片重排),只是重排形态不是缩进而是**行折叠**。
+ *
+ * 处置:对 `.json` 路径,三面(基准 / 待检 / 祖先)先折叠成同一份规范文本
+ * (`JSON.parse` → 缩进 2 的 `JSON.stringify`)再走行级比对;任一面解析失败 ⇒ 三面一起退回
+ * 旧严格尺(不得混面比对)。
+ * 牙不受影响:被写回的键值在规范文本里照样是"基准面没有、祖先面记过"的行 —— 成对用例见
+ * `scripts/tests/check-stale-revert.test.mjs` 的「JSON 排版折叠」一条(排版变 ⇒ 0 行;
+ * 同一次提交里把 baseline 写回祖先值 ⇒ 照旧点名)。
+ */
+export function canonicalJsonText(text) {
+  if (typeof text !== 'string') return null
+  try {
+    return `${JSON.stringify(JSON.parse(text), null, 2)}\n`
+  } catch {
+    return null
+  }
+}
+
 export const RESURRECT_PROVENANCE_KEYS = Object.freeze([
   'generator', //   钉块里的生成器路径
   'sourceCommit', //  生成时 HEAD 的 sha
@@ -304,6 +331,83 @@ export function lineDelta(
 }
 
 /**
+ * **水印补回型放行的窄判据**(G-926,2026-10-19 立;纯函数,与 `resurrectAnalysis` 同层同尺)。
+ *
+ * 要解的是一个结构互锁,不是松紧:一枚被 regeneration 洗掉横幅的文件,HEAD 面缺署名 ⇒ 门 47
+ * 判红;而 §5c 规定的修法(`clean → inject`,正文一字不动)产出的形态**恰好逐字等于**洗掉之前
+ * 那枚祖先提交 ⇒ 门 84 的 R1(整 blob 比 oid)前提成立。照 47 修就撞 84,照 84 修就撞 47,
+ * 两道各自正确的门之间没有任何合法落地通道(夹具实测计数见
+ * `.ihui-agent/tmp/rn-miniapp-zero/g926-probe.mjs`:R1 命中 + R1r 数到 2 行,样本就是两条可见横幅)。
+ *
+ * 判据只认一个形状:**相对基准一行没少,多的行逐字全是水印结构行**。
+ *  `watermarkOnly = removed === 0 ∧ addedOther === 0 ∧ addedWatermark ≥ 1`
+ * 这三条就是它的牙 —— 真回退必然要让基准里的某些行消失,`removed === 0` 一档就把"借水印之名
+ * 搬回旧内容"整型挡在外面,不需要任何额外豁免开关。水印结构行的认定复用
+ * `watermark-lines.mjs` 的 `isWatermarkStructureLine`(唯一出口;本层再拼一份字符串就是两处实现,
+ * 那是本仓记过最多次的失效型)。按**逐字行**比(`lineDeltaMaps` 的默认键,不套 `resurrectKey`
+ * 的剥逗号/去缩进归一):补回来的横幅应当与规范文案逐字相同,差一个字符就不是这一档。
+ *
+ * 三态照旧不并桶:两侧正文取不到 / 超过行级尺寸护栏 ⇒ `undetermined`,调用方**不得**读成放行。
+ *
+ * @param {{baseText:string|null, newText:string|null}} a 基准面(HEAD/基线 blob)与待检面(索引/工作树/候选 blob)
+ * @returns {{status:'judged'|'undetermined', reason:string|null, watermarkOnly:boolean,
+ *            removed:number, addedWatermark:number, addedOther:number, sample:string[]}}
+ */
+export function watermarkReinjection({
+  baseText,
+  newText,
+  maxBlobBytes = RESURRECT_MAX_BLOB_BYTES,
+  sampleLines = SAMPLE_LINES,
+  sampleCol = SAMPLE_COL,
+} = {}) {
+  const clip = (l) => (l.length > sampleCol ? `${l.slice(0, sampleCol)}…` : l)
+  const no = (reason) => ({
+    status: 'undetermined',
+    reason,
+    watermarkOnly: false,
+    removed: 0,
+    addedWatermark: 0,
+    addedOther: 0,
+    sample: [],
+  })
+  const absentText = [baseText, newText].some((t) => typeof t !== 'string')
+  if (absentText)
+    return no('基准或待检正文取不到文本 ⇒ 无从判"多的行是不是全是水印"')
+  if (baseText.length > maxBlobBytes || newText.length > maxBlobBytes)
+    return no(
+      `正文 ${Math.max(baseText.length, newText.length)}B 超过行级尺寸护栏 ${maxBlobBytes}B ⇒ 不放行(整 blob 判据照判)`,
+    )
+
+  const maps = lineDeltaMaps(baseText, newText)
+  if (!maps) return no('差集算不出来(与上面同一条理由,不另判一次)')
+
+  const sum = (m) => [...m.values()].reduce((a, b) => a + b, 0)
+  const removed = sum(maps.removed)
+  let addedWatermark = 0
+  let addedOther = 0
+  const sample = []
+  for (const [line, c] of maps.added) {
+    if (isWatermarkStructureLine(line)) addedWatermark += c
+    else {
+      addedOther += c
+      if (sample.length < sampleLines) sample.push(`+[${clip(line)}]`)
+    }
+  }
+  // removed 侧的样本也要报:放行是靠"一行没少"这个事实,少掉了什么必须能看见(不得只给数)。
+  for (const [line] of maps.removed) if (sample.length < sampleLines) sample.push(`-[${clip(line)}]`)
+
+  return {
+    status: 'judged',
+    reason: null,
+    watermarkOnly: removed === 0 && addedOther === 0 && addedWatermark >= 1,
+    removed,
+    addedWatermark,
+    addedOther,
+    sample,
+  }
+}
+
+/**
  * **行级复活**判据(纯函数):待检内容相对基准**多出来**的行里,有多少是"某个祖先版本写过、
  * 而基准已删掉"的旧内容。三条同时成立才算一行复活(缺任一即不算,这是它不误伤人真删除的理由):
  *  ① 该行在待检内容里的重数 > 在基准 blob 里的重数(不是"搬家",是"新增")
@@ -348,6 +452,7 @@ export function resurrectAnalysis({
   sampleLines = SAMPLE_LINES,
   sampleCol = SAMPLE_COL,
   facePaths = null,
+  path = null,
 } = {}) {
   const clip = (l) => (l.length > sampleCol ? `${l.slice(0, sampleCol)}…` : l)
   const noProvenance = {
@@ -357,6 +462,9 @@ export function resurrectAnalysis({
     generatedInputOnFace: 0,
     generatedInputOffFace: 0,
   }
+  // 水印结构档的"没量到"形态必须是 0/空,但**不得**与"量到了且一条没有"混成一态:
+  // 三态早退分支里这条维按定义没跑,调用方要看 status 判,不能靠这两个字段的存在性。
+  const noWatermark = { watermarkStructure: [], watermarkStructureCount: 0 }
   const undetermined = (reason) => ({
     status: 'undetermined',
     reason,
@@ -364,6 +472,7 @@ export function resurrectAnalysis({
     sample: [],
     commits: [],
     ...noProvenance,
+    ...noWatermark,
   })
   const outOfScope = (reason) => ({
     status: 'out-of-scope',
@@ -372,6 +481,7 @@ export function resurrectAnalysis({
     sample: [],
     commits: [],
     ...noProvenance,
+    ...noWatermark,
   })
   if (typeof newText !== 'string')
     return outOfScope('待落地内容不是文本(二进制或取不到)⇒ 行级判据不适用')
@@ -387,23 +497,40 @@ export function resurrectAnalysis({
       `正文 ${Math.max(baseText.length, newText.length)}B 超过行级扫描尺寸护栏 ${maxBlobBytes}B(整 blob 判据仍照判)`,
     )
 
+  // JSON 面先把三面折成同一份规范文本(理由见 canonicalJsonText 的 ④)。
+  // 任一面解析失败就三面一起退回原文 —— 拿一面规范、一面原文比,等于把两把尺子叠成一把。
+  let baseFace = baseText
+  let newFace = newText
+  let ancestorFaces = usable
+  if (typeof path === 'string' && /\.json$/i.test(path)) {
+    const cb = canonicalJsonText(baseText)
+    const cn = canonicalJsonText(newText)
+    const ca = usable.map((a) => ({ ...a, text: canonicalJsonText(a.text) }))
+    if (cb !== null && cn !== null && ca.every((a) => typeof a.text === 'string')) {
+      baseFace = cb
+      newFace = cn
+      ancestorFaces = ca
+    }
+  }
+
   // **先定尺,再量行**:条件②(所在文件自证为生成物)是一次性判定,基准面/待检面/祖先面必须
   // 共用同一把键 —— 两侧各定一次就会出现"同一枚提交在两道尺子下一红一绿"(本层开头那条禁令)。
   // 取"任一面自证即算":这条档只影响命中白名单的**注释自述行**,内容行照旧,放宽面窄到可以点名。
-  const generated = isGeneratedSelfDescribing(newText) || isGeneratedSelfDescribing(baseText)
+  const generated = isGeneratedSelfDescribing(newFace) || isGeneratedSelfDescribing(baseFace)
   const key = generated ? generatedProvenanceResurrectKey : resurrectKey
 
-  const baseT = tallyLines(baseText, key)
-  const newT = tallyLines(newText, key)
-  const ancT = usable.map((a) => ({ commit: a.commit, m: tallyLines(a.text, key) }))
+  const baseT = tallyLines(baseFace, key)
+  const newT = tallyLines(newFace, key)
+  const ancT = ancestorFaces.map((a) => ({ commit: a.commit, m: tallyLines(a.text, key) }))
   let count = 0
   const boilerplate = [] // G-587:结构符/样板行单独成档 —— 只报数,不判红(见下)
+  const watermarkStructure = [] // G-926:水印结构行单独成档 —— 只报数,不判红(见 RESURRECT_WATERMARK_SLOT_RE 旁)
   const inputOnFace = [] // 生成物输入路径已在被审面上、因此折掉的 `// input:` 行(报数,不静默)
   let inputOffFace = 0 // 产物列着而面上已不存在的输入行数(照旧计入回潮,并单独点名)
   const sample = []
   const commits = []
   const seenCommit = new Set()
-  const newLines = linesOf(newText)
+  const newLines = linesOf(newFace)
   const clipBy = new Map(newLines.map((l) => [key(l), l])) // 报名时报**原文**,不报去逗号后的键
   for (const [line, cNew] of newT) {
     // ① 必须是**基准 blob 里根本没有这一行**(按上面的键比)。这里刻意不用"多重集多出"——
@@ -448,6 +575,22 @@ export function resurrectAnalysis({
       boilerplate.push(rawLine)
       continue
     }
+    // **水印结构行不算复活证据**(G-926,2026-10-19 立;识别口径复用 `watermark-lines.mjs`
+    // 的 `isWatermarkStructureLine` 唯一出口,本层不拼第二份字符串)。
+    // 立项现场(夹具实测,`.ihui-agent/tmp/rn-miniapp-zero/g926-probe.mjs` 留档):一枚被
+    // regeneration 洗掉横幅的文件,HEAD 面只剩正文 ⇒ 门 47 判"缺载荷",而 §5c 规定的修法
+    // (`clean → inject`,内容一字不动)产出的形态**恰好等于**洗掉之前那枚祖先提交:
+    //   ① R1(整 blob 比 oid)前提逐字成立;② R1r 数到 **2 行复活**,样本就是那两条可见横幅行。
+    // 已有的槽行档只折得了 L2/L3(带 `[IHUI-AI-PROVENANCE]:` 或不带字母的那两行),**可见横幅行
+    // 落在它射程之外** ⇒ 两道各自正确的门互锁,唯一出路是 `--no-verify` / `LAND_ALLOW_STALE`,
+    // 正是 §12e/§12f 记过的那类"逼人来绕的尺子"。
+    // 牙没被削掉:这一档只认"剥掉注释前缀后逐字命中三种水印形态"的行(版权行 / 溯源声明行 /
+    // 载荷行 / 纯零宽行),它们由工具拥有、不承载文件信息;内容行与既有成对对照一样照判红,
+    // 而且这里折不掉的那些仍会走下面的 ①②③。
+    if (isWatermarkStructureLine(rawLine)) {
+      watermarkStructure.push(rawLine)
+      continue
+    }
     let best = 0
     let bestCommit = null
     for (const { commit, m } of ancT) {
@@ -473,7 +616,7 @@ export function resurrectAnalysis({
   let provenanceLineCount = 0
   let provenanceValueDrift = 0
   if (generated) {
-    const strictBase = tallyLines(baseText, resurrectKey)
+    const strictBase = tallyLines(baseFace, resurrectKey)
     for (const l of newLines) {
       if (!isResurrectProvenanceLine(l)) continue
       provenanceLineCount++
@@ -486,6 +629,8 @@ export function resurrectAnalysis({
     count,
     boilerplate,
     boilerplateCount: boilerplate.length,
+    watermarkStructure,
+    watermarkStructureCount: watermarkStructure.length,
     sample,
     commits,
     generatedProvenance: generated,
@@ -533,6 +678,11 @@ export const RESURRECT_BOILER_LINE_RE =
  * 并交叉断言 marker 字面量等于 `watermark.mjs` 那份唯一出口里的 `BANNER_ID`,防两处漂开。
  *
  * 走 `boilerplate` 档而不是直接 `continue`:少认了多少必须**可见**,不得把"没算"写成"没有"。
+ *
+ * 〔与 G-926 那一档的分工(2026-10-19,两条都在,不许合并)〕本常量**按行内任意位置**命中载荷槽,
+ * 射程宽在"标记出现在长行中段"那一型;`resurrectAnalysis` 循环里的 `isWatermarkStructureLine`
+ * 档**按行首注释前缀锚定**,射程宽在"两条可见横幅行"(它们没有 `[IHUI-AI-PROVENANCE]:` 这个槽名)。
+ * 两把尺子量的不是同一集合,删掉任一条都会让另一条量不到的那一型照判红 —— 因此不得"看着重复"就并档。
  */
 export const RESURRECT_WATERMARK_SLOT_RE = /\[IHUI-AI-PROVENANCE\]:/
 
@@ -549,6 +699,7 @@ export const __test__ = {
   RESURRECT_PROVENANCE_LINE_RE,
   lineDelta,
   lineDeltaMaps,
+  watermarkReinjection,
   multisetOfLines,
   multisetsEqual,
   resurrectAnalysis,

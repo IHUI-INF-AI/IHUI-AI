@@ -11,13 +11,17 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'signup | verify_token | publish | signpath'
+        description: 'signup | verify_token | publish | trusted_publisher | signpath'
         required: true
         default: 'signup'
       attempts:
         description: '整轮重试次数(诊断时可传 1 快速拿结果)'
         required: false
         default: '3'
+      otp_code:
+        description: 'npm 邮箱 OTP 验证码(trusted_publisher 登录被要求邮箱验证时传,一次性)'
+        required: false
+        default: ''
 
 concurrency:
   group: npm-bootstrap
@@ -36,6 +40,13 @@ jobs:
       NPM_USERNAME: ${{ secrets.NPM_BOOT_USERNAME }}
       NPM_PASSWORD: ${{ secrets.NPM_BOOT_PASSWORD }}
       NPM_VERIFY_URL: ${{ secrets.NPM_VERIFY_URL }}
+      # trusted_publisher:网页登录凭据(npm 已禁用 API 换 token,Trusted Publisher 只能网页登记)
+      NPM_WEB_USERNAME: ${{ secrets.NPM_WEB_USERNAME }}
+      NPM_WEB_PASSWORD: ${{ secrets.NPM_WEB_PASSWORD }}
+      # trusted_publisher:npm 新设备登录的邮箱 OTP(李总读邮件提供,一次性)
+      NPM_OTP_CODE: ${{ github.event.inputs.otp_code || '' }}
+      # reCAPTCHA 闭环:把挑战截图实时推到 rc-live 分支供李总侧识别
+      GH_TOKEN: ${{ github.token }}
       # signpath:申请联系邮箱
       SIGNPATH_EMAIL: ${{ secrets.SIGNPATH_EMAIL }}
     steps:
@@ -59,10 +70,20 @@ jobs:
           sudo apt-get install -y -qq ./google-chrome-stable_current_amd64.deb
           google-chrome --version
       - name: Run browser automation (real Chrome + CDP, xvfb headed)
+        timeout-minutes: 40
+        # 防挂死:xvfb-run 在脚本异常退出后不会回收(实测挂满 45 分钟),用 timeout 硬杀并核对退出码。
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq xvfb >/dev/null
           cd .github/scripts
-          UNDER_XVFB=1 xvfb-run -a -s "-screen 0 1280x860x24" node npm-bootstrap-runner.mjs
+          set +e
+          UNDER_XVFB=1 timeout -s KILL 1500 xvfb-run -a -s "-screen 0 1280x860x24" node npm-bootstrap-runner.mjs
+          ec=$?
+          pkill -f Xvfb || true
+          echo "RUNNER-EXIT=$ec"
+          if [ "$ec" -eq 137 ] || [ "$ec" -eq 124 ]; then
+            echo "::error::runner 超过 25 分钟未结束,已硬杀(脚本自身挂死),详见 rc-live 分支 .github/rc-log.txt"
+          fi
+          exit $ec
       - name: Upload evidence + encrypted secrets
         if: always()
         continue-on-error: true

@@ -82,10 +82,16 @@
 
 | 端口 | 服务 | 端 | 配置文件 | strictPort |
 |------|------|------|----------|------------|
-| 8861 | 桌面端「加载本地 web 构建」时窗口指向的本地 devUrl(刻意不用 8801,避免与生产 web 构建互踩) | apps/desktop | `apps/desktop/README.md` §开发态覆盖配方写的 `tauri dev --config .ihui-agent/tmp/desktop-dev-override.json` | ❌(不 bind,由调用方自备本地 web 服务) |
+| 8861 | 桌面端「加载本地 web 构建」时窗口指向的本地 devUrl(刻意不用 8801,避免与生产 web 构建互踩) | apps/desktop | `apps/desktop/README.md` §本地开发 记的 dev 覆盖流程 `pnpm dev:desktop:saas`（`scripts/desktop-dev-saas.mjs` 运行时生成临时 config,经 wrapper 注入 MSVC 后 `tauri dev --config`）;旧配方 .ihui-agent/tmp/desktop-dev-override.json 仓内已不存在,该覆盖口当前指向 8801,本槽保留为认领 | ❌(不 bind,由调用方自备本地 web 服务) |
 | 8877 | 桌面遮罩 e2e 的私有 dev server(刻意不用 8801,避免与生产构建互踩) | apps/web | `apps/web/e2e/desktop-window-controls-dim.spec.ts` 头注跑法 `next dev --turbopack -p 8877` | ❌(手动起的临时 dev) |
 
-**为什么是"认领"而不是"豁免"**:这两处都是文档里真会指向宿主 88xx 端口的用法(一处在 spec 头注的跑法里,一处在 README 的 dev-override 配方里),按 §3.1 走"填端口 + 服务名 + 配置文件 + 同 commit 更新本文件"才是正解;把它塞进 `EXEMPT_PORTS` 等于给整个段开一张全仓通行证,以后谁真在这些端口上起服务都不会被拦。8850-8899 其余槽位仍为预留。
+**为什么是"认领"而不是"豁免"**:这两处都是文档里真会指向宿主 88xx 端口的用法(一处在 spec 头注的跑法里,一处在 README 的本地 dev 覆盖流程里),按 §3.1 走"填端口 + 服务名 + 配置文件 + 同 commit 更新本文件"才是正解;把它塞进 `EXEMPT_PORTS` 等于给整个段开一张全仓通行证,以后谁真在这些端口上起服务都不会被拦。8850-8899 其余槽位仍为预留。
+
+### 2.7 本地 SSO 源站(8850-8899 段内认领)
+
+| 端口 | 服务 | 端 | 配置文件 | strictPort |
+|------|------|------|----------|------------|
+| 8850 | 本地 Keycloak SSO 源站(分域 SSO:sso.aizhs.top 的隧道 ingress 指向它;刻意不用 Keycloak 默认 8543,端口铁律,2026-10-19 立) | — | `scripts/start-cloudflared-tunnel.ps1:21` ingress 注释 + Cloudflare 控制台 tunnel「ihui-local」路由(仓外,切换须三处同步,见该脚本头注) | —(第三方 IdP,非本仓 dev server) |
 
 ---
 

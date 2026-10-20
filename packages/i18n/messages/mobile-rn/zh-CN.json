@@ -17,7 +17,8 @@
     "prompt": "提示词",
     "noResult": "暂无运行结果",
     "rrule": "调度规则",
-    "timezone": "时区"
+    "timezone": "时区",
+    "schedule": "触发方式"
   },
   "dashboard": {
     "title": "数据看板",
@@ -1317,7 +1318,6 @@
     "uploadSelfie": "上传手持身份证照片",
     "submit": "提交认证",
     "submitting": "提交中...",
-    "failed": "认证失败",
     "loadFailed": "加载认证失败",
     "status_unverified": "未认证",
     "status_pending": "审核中",
@@ -3043,5 +3043,67 @@
         }
       }
     }
+  },
+  "selectionAnnotations": {
+    "hoverHint": "查看批注",
+    "removeAll": "清除全部批注",
+    "originalText": "原文",
+    "noComment": "（未添加评论）",
+    "commentPlaceholder": "补充评论…",
+    "commentAriaLabel": "评论输入框",
+    "addComment": "添加",
+    "removeOne": "移除该批注",
+    "addAnnotation": "添加批注"
+  },
+  "slashCmd": {
+    "paletteTitle": "斜杠命令",
+    "paletteEmpty": "无匹配命令",
+    "new": "新会话",
+    "newDesc": "开始一个新的会话",
+    "clear": "清空当前",
+    "clearDesc": "清空当前输入与上下文",
+    "model": "切换模型",
+    "modelDesc": "打开模型列表切换当前模型",
+    "compact": "压缩上下文",
+    "compactDesc": "压缩当前会话历史以节省上下文",
+    "status": "会话状态",
+    "statusDesc": "查看当前模型、消息数与生成状态",
+    "help": "帮助",
+    "helpDesc": "查看可用斜杠命令与用法",
+    "summary": "总结",
+    "summaryDesc": "总结归纳给定内容",
+    "translate": "翻译",
+    "translateDesc": "将内容翻译为英文",
+    "explain": "解释",
+    "explainDesc": "解释说明给定内容",
+    "code": "代码",
+    "codeDesc": "编写实现需求的代码",
+    "polish": "润色",
+    "polishDesc": "润色优化给定文本",
+    "wechatArticle": "公众号文章",
+    "wechatArticleDesc": "据此撰写公众号文章",
+    "kouboScript": "口播稿",
+    "kouboScriptDesc": "据此撰写口播稿",
+    "helpPrefix": "可用命令:{list}",
+    "statusToast": "模型 {model} · 消息 {count} 条 · {state}",
+    "stateIdle": "空闲",
+    "stateStreaming": "生成中"
+  },
+  "slashTemplate": {
+    "summary": "请总结以上对话内容，提炼关键信息",
+    "translate": "请将以下内容翻译为英文：",
+    "explain": "请详细解释以下概念：",
+    "code": "请用代码实现以下功能，并添加注释：",
+    "polish": "请润色以下文本，使其更专业流畅：",
+    "wechatArticle": "请帮我生成一篇公众号文章。要求:\n1. 主题:\n2. 摘要:\n3. 重点标记(金句卡 / 提示块 / 引用 / 代码块 / 小标题)\n4. 配图建议:\n请走 content-engine 流水线(摸鱼绿主题 + 22 项自检 + 草稿箱推送)。",
+    "kouboScript": "请帮我生成今日 8 篇抖音口播稿。要求:\n1. 日期:MMDD\n2. 选题方向:\n3. 双门禁验证(歧义压缩 / 跨稿词表 / 全量验证 / 语病 / 热点覆盖)\n请走 koubo-workflow 流水线(约束优先写作法)。"
+  },
+  "verify": {
+    "getCode": "请输入验证码",
+    "desc": "验证码已发送至",
+    "resend": "重新发送",
+    "confirm": "确定",
+    "closeA11y": "关闭验证码弹窗",
+    "inputA11y": "验证码输入"
   }
 }

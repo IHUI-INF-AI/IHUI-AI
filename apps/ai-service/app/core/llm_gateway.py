@@ -43,6 +43,7 @@ from ..middleware.llm_metrics import (
     llm_error_status,
     llm_stream_interrupt_total,
     record_llm_outcome,
+    record_user_request,
 )
 from ..services.tls_stealth import create_stealth_client
 from .config import settings
@@ -55,6 +56,7 @@ from .provider_caps import (
     filter_call_kwargs,
     get_provider_cap,
 )
+from .provider_slots import provider_slot
 from .usage_cache import normalize_usage
 
 # Combo 多级 fallback 路由器(2026-07-30 立,P0-1 Combo 接入 LLM 调用链)
@@ -2537,8 +2539,12 @@ class LLMGateway:
             filter_call_kwargs(call_kwargs, provider_code, used_model)
             # P3-3(2026-07-30):openrouter/ 前缀请求临时设置专用代理
             # 2026-08-01 P0:改为 async with + asyncio.Lock 防止并发 env var 竞态
-            async with _openrouter_proxy_context(used_model):
-                response = await litellm.acompletion(**call_kwargs)
+            # 2026-10-19:provider_slot 并发槽(灭自伤:stepfun 免费档上游并发 5,
+            # 本系统打到 6 ⇒ concurrency reached ⇒ combo 全灭)。闸在代理上下文
+            # 外层:排队期间不占代理 env var,也不占上游连接。
+            async with provider_slot(provider_code):
+                async with _openrouter_proxy_context(used_model):
+                    response = await litellm.acompletion(**call_kwargs)
             usage = response.usage
             usage_dict: dict[str, Any] = {}
             if usage is not None:
@@ -2555,6 +2561,12 @@ class LLMGateway:
                 "usage": usage_dict,
                 "stub": False,
             }
+            # G-200(2026-10-07):非流式调用也要把上游结束原因交出去——AgentLoopV2
+            # 的续写判据在非流式/重试降级轮同样要问"这一轮是不是被 max_tokens 截断"。
+            # 取不到/为空则不写键(缺席 = 判据不成立 = 不续写,绝不折成 stop)。
+            _finish_reason = getattr(response.choices[0], "finish_reason", None)
+            if _finish_reason:
+                result["finish_reason"] = str(_finish_reason)
             # P3-1 token 压缩信息(仅在压缩启用且成功时存在,前端/监控可读)
             if compaction_info is not None:
                 result["compaction"] = compaction_info
@@ -2607,6 +2619,22 @@ class LLMGateway:
             # 观测收口:换 key 递归/换模型 fallback 会各自再记一次,所以
             # ihui_llm_calls_total 的量纲是"上游尝试次数",不是会话次数。
             _err_status = llm_error_status(e)
+            # 观测可诊断性修复(2026-10-20):此前只把错误写入指标、不记日志,
+            # 导致 agnes 等无号池 provider 返回 4xx 时异常文本被静默丢弃
+            # (指标里 agnes 4xx 累加却零日志可溯源)。此处统一在错误处理入口
+            # 记一条 warning(含 model/provider/状态码),确保每次上游失败至少
+            # 有一条可检索文本轨迹,不依赖后续号池/故障转移分支是否命中。
+            _http_status = getattr(e, "status_code", None) or getattr(
+                getattr(e, "response", None), "status_code", None
+            )
+            logger.warning(
+                "LLM 上游调用失败(model=%s, provider=%s, status=%s, http=%s): %s",
+                used_model,
+                _metrics_provider(used_model),
+                _err_status,
+                _http_status,
+                str(e)[:300],
+            )
             record_llm_outcome(
                 _metrics_provider(used_model),
                 used_model,
@@ -3272,8 +3300,10 @@ class LLMGateway:
             filter_call_kwargs(call_kwargs, provider_code, used_model)
             # P3-3(2026-07-30):openrouter/ 前缀请求临时设置专用代理
             # 2026-08-01 P0:改为 async with + asyncio.Lock 防止并发 env var 竞态
-            async with _openrouter_proxy_context(used_model):
-                response = await litellm.acompletion(**call_kwargs)
+            # 2026-10-19:provider_slot 并发槽(同 complete 路径理由)
+            async with provider_slot(provider_code):
+                async with _openrouter_proxy_context(used_model):
+                    response = await litellm.acompletion(**call_kwargs)
             final_model = used_model
             final_usage: dict[str, Any] = {}
             # P0 修复:try/finally 确保客户端断开时显式关闭 litellm 响应流,防止 httpx 连接泄漏
@@ -3380,8 +3410,11 @@ class LLMGateway:
                     k: v for k, v in call_kwargs.items() if k not in ("stream", "stream_usage")
                 }
                 fb_kwargs["stream"] = False
-                async with _openrouter_proxy_context(used_model):
-                    fb_resp = await litellm.acompletion(**fb_kwargs)
+                # 2026-10-19:fallback 也过并发槽(它打的是同一个 provider,
+                # 不占槽就等于主路径的闸对它无效)。
+                async with provider_slot(provider_code):
+                    async with _openrouter_proxy_context(used_model):
+                        fb_resp = await litellm.acompletion(**fb_kwargs)
                 fb_msg = fb_resp.choices[0].message
                 fb_content = getattr(fb_msg, "content", None) or ""
                 _FB_CHUNK_SIZE = 64
@@ -3467,6 +3500,9 @@ class LLMGateway:
                 ttft_seconds=_ttft_seconds,
                 cost_usd=_stream_cost,
             )
+            # 用户级收口(2026-10-19):流式完整跑完 = 一个用户请求成功一次。
+            # 非流式走 AuditMiddleware,此处不双计(见 llm_metrics 头注)。
+            record_user_request('stream', 'ok')
             yield {
                 "type": "done",
                 "model": final_model,
@@ -3480,6 +3516,22 @@ class LLMGateway:
             # 观测收口(流式失败):已发过 chunk 的失败同时是"流中断"(内容被截断),
             # 与前端 partial_done 同一判据,不另立第二套口径。
             _err_status_s = llm_error_status(e)
+            # 观测可诊断性修复(2026-10-20):同 complete() 路径,流式上游失败
+            # 此前只入指标不记日志;无号池且未发过 chunk 的 agnes 4xx 会被静默
+            # (号池分支要 current_key_pool_id 非空才记,流式中断分支要已发过
+            # chunk 才记,两个分支都漏掉"首个 chunk 就 4xx"的场景)。
+            # 在错误处理入口补一条 warning(含 model/provider/状态码)。
+            _http_status_s = getattr(e, "status_code", None) or getattr(
+                getattr(e, "response", None), "status_code", None
+            )
+            logger.warning(
+                "LLM 流式上游调用失败(model=%s, provider=%s, status=%s, http=%s): %s",
+                used_model,
+                _metrics_provider(used_model),
+                _err_status_s,
+                _http_status_s,
+                str(e)[:300],
+            )
             record_llm_outcome(
                 _metrics_provider(used_model),
                 used_model,
@@ -3496,6 +3548,9 @@ class LLMGateway:
                     'upstream_error' if (accumulated_content or accumulated_reasoning) else None
                 ),
             )
+            # 用户级收口(2026-10-19):入口 200 但流中途炸 = 用户感知失败。
+            # attempt 级上面已记(可能多条),这里只记一条,和中间件的 complete 对称。
+            record_user_request('stream', 'failed')
             safe_msg = str(e)
             err_code = "LLM_ERROR"
             if "API key 未配置" in safe_msg or "未配置" in safe_msg:

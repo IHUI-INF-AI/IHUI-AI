@@ -70,13 +70,41 @@ const LITERAL_SITE_ROOTS = ['apps/web/src/', 'apps/miniapp-taro/src/', 'apps/cli
 const TEST_PATH_RE = /(^|\/)(tests?|__tests__)(\/|$)|\.(test|spec)\.[cm]?[jt]sx?$/i
 
 /** 扫描面:各端 src + 共享包自身 */
-const SCAN_ROOTS = ['apps/', 'packages/context-compaction/src/']
+const SCAN_ROOTS = ['apps/', 'packages/']
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.mjs', '.cjs']
 
 /** 分子:名字里含 token(单/复数、任意前后缀),与"上下文窗口分母"配对才判 */
 const NUMERATOR_RE = /token/i
-/** 分母:上下文窗口语义的名字(contextLimit / contextWindow / contextBudget 及大小写变体) */
-const DENOMINATOR_NAME_RE = /^context(?:limit|window|budget)/i
+/**
+ * 分母:上下文窗口语义的名字。两类都得认(2026-10-19 扩,票「cache token 主体已入库,
+ * 本行只剩守门 112 射程半格」):
+ *  - `context*` 前缀一族(contextLimit / contextWindow / contextBudget 及大小写变体);
+ *  - `maxTokens` / `max_tokens` / `modelMaxTokens` 一族 —— provider 的**原始上限**当分母与拿
+ *    contextWindow 当分母是同一个缺陷(未减 output 预留与缓冲),此前整族隐身于判据之外。
+ * 与旧口径一致地**不锚尾部**(contextWindowUsed 这类仍算命中)。
+ */
+/**
+ * 分母名的**唯一一张表**:同一个数组既拼出判据用的锚定正则,又原样喂给 `git grep` 预筛。
+ * 为什么必须同源(2026-10-19 扩面时定死):此前判据只认 `context*` 前缀,`maxTokens` 整族隐身;
+ * 而预筛是另一份手抄的关键字清单 ⇒ 只改正则的话文件在预筛层就被筛掉,门照报绿、射程一点没动
+ * (AGENTS 记过的同型坑:"守门扩面必须同批改枚举与预筛两半,只改一半会静默失效")。
+ * 新增一族只改这张表;锚定用 `^`,不锚尾部(与旧口径一致,`contextWindowUsed` 这类仍算命中)。
+ * `max_tokens` / `model_max_tokens` 是 snake 形态(下划线不会被 camel 模式当子串命中,必须单列)。
+ */
+const DENOMINATOR_NAME_STEMS = [
+  'contextlimit',
+  'contextwindow',
+  'contextbudget',
+  'maxtokens',
+  'max_tokens',
+  'modelmaxtokens',
+  'model_max_tokens',
+]
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const DENOMINATOR_NAME_RE = new RegExp(
+  `^(?:${DENOMINATOR_NAME_STEMS.map((s) => escapeRe(s)).join('|')})`,
+  'i',
+)
 /** 分母被"消毒":文件内把它从唯一出口赋过值 */
 const SANITIZED_RE = /\b([A-Za-z_$][\w$]*)\s*=\s*effectiveContextWindow\s*\(/g
 
@@ -188,6 +216,14 @@ export function scanContent(relPath, text) {
   return hits
 }
 
+/**
+ * 预筛关键字(判据分母名表 ⊕ 容量字面量)。单独成出口的原因:镜像测试与自检要能证明
+ * "预筛与判据吃的是同一张表" —— 这条同源性一旦断掉,失效方向是**静默**的(门照报绿、新族没被看到)。
+ */
+export function prefilterPatterns() {
+  return [...DENOMINATOR_NAME_STEMS, '128000', '128_000']
+}
+
 export function inScanScope(rel) {
   const norm = rel.replace(/\\/g, '/')
   if (!SCAN_ROOTS.some((p) => norm.startsWith(p))) return false
@@ -255,25 +291,17 @@ export function assertNonEmptyScan(files, face) {
 /**
  * 候选清单靠一次 `git grep` 预筛,而不是"枚举全部跟踪文件再逐个 cat-file"。
  * 两个理由:① 真仓 apps/** 的 HEAD blob 一次读完会打爆 maxBuffer(实测整批取不到 ⇒
- *    本门会恒常判"无法判定");② 判据要求的分母名一律以 `context` + limit/window/budget 开头,
- *    所以这三个字面量是判据的**严格超集**,预筛不可能筛掉一个真违规(口径同守门 97);
+ *    本门会恒常判"无法判定");② 预筛关键字**不是手抄清单**,而是与判据的分母名表同源
+ *    (`DENOMINATOR_NAME_STEMS` 一张数组同时拼出锚定正则与这张 -e 清单)⇒ 超集关系由构造成立:
+ *    锚定要命中 `^stem`,而 `-e stem` 是子串,任何真违规的文件必然先被预筛放进来(口径同守门 97)。
+ *    这条同源性由镜像测试钉住(只改一半 ⇒ 镜像红),因为手抄两遍的失效方向是**静默**的:
+ *    正则扩了、预筛没扩 ⇒ 新族在枚举层就消失,门继续报绿;
  *    ③ G-916940(b) L 判据(容量字面量禁入分母位)必以字面量在场为前提,`128000`/`128_000`
- *    两个模式同样是 L1/L2 的严格超集 —— 五个模式合起来仍筛不掉任何一个真违规。
+ *    两个模式同样是 L1/L2 的严格超集 —— 与名字表合起来仍筛不掉任何一个真违规。
  */
 function listCandidates(root, face) {
-  const scope = ['--', 'apps', 'packages/context-compaction/src']
-  const pat = [
-    '-e',
-    'contextlimit',
-    '-e',
-    'contextwindow',
-    '-e',
-    'contextbudget',
-    '-e',
-    '128000',
-    '-e',
-    '128_000',
-  ]
+  const scope = ['--', 'apps', 'packages']
+  const pat = prefilterPatterns().flatMap((s) => ['-e', s])
   const args =
     face === 'head'
       ? ['grep', '-I', '-l', '-i', ...pat, 'HEAD', ...scope]
@@ -361,7 +389,7 @@ function writeBaseline(root, res) {
     JSON.stringify(
       {
         _readme:
-          '每文件「token 数 ÷ contextLimit/contextWindow 且分母未经 effectiveContextWindow」的存量,只减不增。清理后跑 --update-baseline 下调额度,禁止为过门而调高。',
+          '每文件「token 数 ÷ (contextLimit/contextWindow/contextBudget 或 maxTokens 族) 且分母未经 effectiveContextWindow」的存量,只减不增。清理后跑 --update-baseline 下调额度,禁止为过门而调高。2026-10-19 扩面:扫描面从 apps/ + packages/context-compaction/src 扩到 apps/ + packages/,分母名补 maxTokens 一族(预筛关键字同笔),当日 HEAD 面新暴露的存量逐文件如实入账。',
         counts,
       },
       null,
@@ -496,6 +524,25 @@ const CASES = [
   },
   { name: 'V11 串内 http:// 不得把整行判成除法 ⇒ 绿', src: 'const u = "https://a/b" + totalTokens;\n', expect: 0 },
   { name: 'V12 自豁免:门自己的脚本路径 ⇒ 绿', src: 'const x = totalTokens / contextLimit;\n', expect: 0, rel: 'scripts/check-compaction-denominator.mjs' },
+  // V13–V16(2026-10-19 扩面同笔):maxTokens 一族与 packages/ 扫描面都必须"有牙",
+  // 且与 V1/V2 成对 —— 消毒出口对这一族同样生效,不许把新族判成"永远红"。
+  {
+    name: 'V13 直接除 maxTokens ⇒ 红(新增族阳性对照:漏了这条就是整族隐身)',
+    src: 'const ratio = maxTokens > 0 ? usedTokens / maxTokens : 0\n',
+    expect: 1,
+  },
+  {
+    name: 'V14 与 V13 成对:maxTokens 取自唯一出口 ⇒ 绿(扩面不许把新族判成不可消毒)',
+    src:
+      'const maxTokens = effectiveContextWindow({ contextWindow: cfg.maxTokens });\n' +
+      'const ratio = usedTokens / maxTokens\n',
+    expect: 0,
+  },
+  {
+    name: 'V15 snake 形态 max_tokens 同判(camel 的正则是子串,下划线必须单列)',
+    src: 'const pct = (stats.total_tokens / max_tokens) * 100\n',
+    expect: 1,
+  },
 ]
 
 // G-916940(b) L 判据自检:容量字面量禁入分母位(独立计数 —— runner 文案钉着原判据的"15 条",不得混算)
@@ -562,6 +609,34 @@ function selfTest() {
     const got = scanContent(c.rel ?? 'apps/cli/src/__fixture.ts', c.src).length
     check(`${c.name}`, got === c.expect, `期望 ${c.expect} 处,实得 ${got} 处`)
   }
+  // V16–V18(2026-10-19 扩面同笔):上面那些用例只喂给 scanContent,**证明不了枚举与预筛这两半**。
+  // 只改正则而预筛/扫描面没改时,CASES 全绿而真仓照报绿 —— 所以这两半各要一把自己的牙。
+  check(
+    'V16 枚举那一半:packages/ 与 apps/ 都在扫描面内,node_modules/dist 仍筛掉',
+    inScanScope('packages/app/src/features/chat/ContextUsagePanel.tsx') === true &&
+      inScanScope('packages/context-compaction/src/index.ts') === true &&
+      inScanScope('apps/cli/src/x.ts') === true &&
+      inScanScope('packages/app/node_modules/y.ts') === false &&
+      inScanScope('packages/app/dist/z.ts') === false,
+  )
+  check(
+    'V17 预筛与判据同源(§0.6):表里每个 stem 既被锚定正则认,也在 -e 清单里',
+    DENOMINATOR_NAME_STEMS.every(
+      (s) => DENOMINATOR_NAME_RE.test(s) && prefilterPatterns().includes(s),
+    ),
+    DENOMINATOR_NAME_STEMS.join(','),
+  )
+  let knownStockSeen = false
+  let stockErr = ''
+  try {
+    const res = runScan(ROOT, 'head')
+    const all = [...res.findings, ...res.ratcheted].map((f) => f.rel)
+    knownStockSeen = all.includes('packages/app/src/features/chat/ContextUsagePanel.tsx')
+    stockErr = `本次扫 ${res.scanned} 个文件,已入库存量点名未命中该文件`
+  } catch (e) {
+    stockErr = e?.message ?? String(e)
+  }
+  check('V18 真仓端到端:共享层那处 maxTokens 除法必须被这次扫描点名到(扩面已装车)', knownStockSeen, stockErr)
   // 反假绿对照:枚举到 0 个文件必须"无法判定",绝不得走到"绿"这条分支
   let threw = false
   try {

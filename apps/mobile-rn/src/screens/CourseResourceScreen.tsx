@@ -16,6 +16,14 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
+/** GET /api/resources 行(后端 findResources 返回整行,此处只声明消费到的列) */
+interface ResourceRow {
+  id: string
+  title: string
+  fileType: string | null
+  fileSize: number
+}
+
 export function CourseResourceScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
@@ -28,9 +36,17 @@ export function CourseResourceScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<CourseResourceItem[]>('/course-resource')
+      const res = await fetchApi<{ list: ResourceRow[] }>('/api/resources')
       if (!res.success) throw new Error()
-      setItems(res.data ?? [])
+      // 键名投影:title→name、fileType→type;fileSize 本身就是字节数,与共享屏 fmtSize 同档不折算
+      setItems(
+        (res.data?.list ?? []).map((row) => ({
+          id: row.id,
+          name: row.title,
+          size: row.fileSize,
+          type: row.fileType ?? '',
+        })),
+      )
     } catch {
       setError(t('courseResource.loadFailed'))
     } finally {

@@ -54,6 +54,9 @@ import { resolveGitBin } from './lib/gitdir.mjs'
 // 判定面取材的唯一出口(守门 118 的 loose/half-wired 收口):绝对 git + safe.directory +
 // stdio[0]=pipe + 一次 cat-file --batch 读完整批 + 取不到抛 Undetermined,由调用方折成 exit 2。
 import { Undetermined, catBatch, gitRaw, assertRepoRoot } from './lib/face-reader.mjs'
+// G-167 ②(2026-10-19):流键提取与门 2 共用同一份派生(唯一入口 lib/i18n-key-flow.mjs)。
+// 死键族原先只有正则表,"键先存进 state、再由 t(reader) 取用"的形态在它眼里等于没人用。
+import { flowKeysOf } from './lib/i18n-key-flow.mjs'
 
 // 磁盘档(缺省全量)沿用进程 cwd —— 这是既有 CLI 契约:5 份端内测试套件的夹具靠
 // `process.chdir(tmpDir)` + dynamic import 在**进程内**调 main(),改默认值会整批打爆它们
@@ -502,6 +505,11 @@ export function scanTexts(items) {
       const p = dynamicPrefixOf(m[1])
       if (p) usedNamespaces.add(p)
     }
+    // G-167 ②(2026-10-19):流键并入 staticRefs —— 与门 2 同一份派生(deriveStatePairs +
+    // traceKeyFlow + translationConsumesReader),归属判据同形:state 读数必须被本文件的翻译变量
+    // 当整实参消费才收,`copied`/`success` 这类非 i18n state 值不收(按名字并桶会静默掩盖真死键)。
+    // 接线前量测(HEAD 面,五端逐端):新增键 0/0/0/0/0 ⇒ 不改变任何现有死键读数。
+    for (const key of flowKeysOf(content)) staticRefs.add(key)
   }
   // 2026-09-03 增强:扫描 path-labels.ts 中的命名空间注册,
   // 这些命名空间通过 TagsView 的 useTranslations(spec.ns) 动态引用,静态扫描无法检测。
