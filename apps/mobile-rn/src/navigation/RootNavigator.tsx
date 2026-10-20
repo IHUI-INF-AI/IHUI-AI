@@ -56,6 +56,20 @@ import AddressesScreen from '../screens/AddressesScreen'
 import WrongQuestionsScreen from '../screens/WrongQuestionsScreen'
 import PointsScreen from '../screens/PointsScreen'
 import GroupsScreen from '../screens/GroupsScreen'
+import UserFansScreen from '../screens/UserFansScreen'
+import UserArticlesScreen from '../screens/UserArticlesScreen'
+import InvoicesScreen from '../screens/InvoicesScreen'
+import PurchaseScreen from '../screens/PurchaseScreen'
+import PublishAccountsScreen from '../screens/PublishAccountsScreen'
+import PublishAnalyticsScreen from '../screens/PublishAnalyticsScreen'
+import PublishCalendarScreen from '../screens/PublishCalendarScreen'
+import PublishNewScreen from '../screens/PublishNewScreen'
+import AgentCategoriesScreen from '../screens/AgentCategoriesScreen'
+import LearnMapScreen from '../screens/LearnMapScreen'
+import LearnReviewScreen from '../screens/LearnReviewScreen'
+import KnowledgeBaseEditScreen from '../screens/KnowledgeBaseEditScreen'
+import MemoryNewScreen from '../screens/MemoryNewScreen'
+import VoiceSttScreen from '../screens/VoiceSttScreen'
 import { PrivacyScreen } from '../screens/PrivacyScreen'
 import { AgreementScreen } from '../screens/AgreementScreen'
 import { AboutScreen } from '../screens/AboutScreen'
@@ -367,6 +381,20 @@ export type RootStackParamList = {
   WrongQuestions: undefined
   Points: undefined
   Groups: undefined
+  UserFans: undefined
+  UserArticles: undefined
+  Invoices: undefined
+  Purchase: undefined
+  PublishAccounts: undefined
+  PublishAnalytics: undefined
+  PublishCalendar: undefined
+  PublishNew: undefined
+  AgentCategories: undefined
+  LearnMap: undefined
+  LearnReview: undefined
+  KnowledgeBaseEdit: { id?: string } | undefined
+  MemoryNew: undefined
+  VoiceStt: undefined
   Privacy: undefined
   Agreement: undefined
   About: undefined
@@ -787,6 +815,20 @@ function RootNavigatorInner() {
             <RootStack.Screen name="WrongQuestions" component={WrongQuestionsScreen} />
             <RootStack.Screen name="Points" component={PointsScreen} />
             <RootStack.Screen name="Groups" component={GroupsScreen} />
+            <RootStack.Screen name="UserFans" component={UserFansScreen} />
+            <RootStack.Screen name="UserArticles" component={UserArticlesScreen} />
+            <RootStack.Screen name="Invoices" component={InvoicesScreen} />
+            <RootStack.Screen name="Purchase" component={PurchaseScreen} />
+            <RootStack.Screen name="PublishAccounts" component={PublishAccountsScreen} />
+            <RootStack.Screen name="PublishAnalytics" component={PublishAnalyticsScreen} />
+            <RootStack.Screen name="PublishCalendar" component={PublishCalendarScreen} />
+            <RootStack.Screen name="PublishNew" component={PublishNewScreen} />
+            <RootStack.Screen name="AgentCategories" component={AgentCategoriesScreen} />
+            <RootStack.Screen name="LearnMap" component={LearnMapScreen} />
+            <RootStack.Screen name="LearnReview" component={LearnReviewScreen} />
+            <RootStack.Screen name="KnowledgeBaseEdit" component={KnowledgeBaseEditScreen} />
+            <RootStack.Screen name="MemoryNew" component={MemoryNewScreen} />
+            <RootStack.Screen name="VoiceStt" component={VoiceSttScreen} />
             <RootStack.Screen name="Privacy" component={PrivacyScreen} />
             <RootStack.Screen name="Agreement" component={AgreementScreen} />
             <RootStack.Screen name="About" component={AboutScreen} />
