@@ -2,19 +2,12 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * 连接器管理屏(mobile-rn 原生实现,对应 Web 端 /connectors)。
- *
- * 平台说明:
- * - 消费 @ihui/api-client/endpoints/connectors 的 getConnectors / setConnectorEnabled /
- *   syncConnector / deleteConnector;未配置(configured=false)的条目不允许同步,
- *   仅提示先配置,不伪造"同步成功"。
- * - 端点返回 ApiResult(成功载荷在 res.data),失败按其 message 显式报错。
- * - 样式与 McpStoreScreen 一致:Tailwind className + resolvedTheme 暗色适配 + NavBar。
- */
-import { useCallback, useEffect, useState } from 'react'
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
-import { appAlert } from '../components/BottomPops'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  ConnectorsScreen as SharedConnectorsScreen,
+  canSyncConnector,
+  type ConnectorItem,
+} from '@ihui/rn-app'
 import {
   deleteConnector,
   getConnectors,
@@ -22,26 +15,46 @@ import {
   syncConnector,
   type ConnectorEntry,
 } from '@ihui/api-client/endpoints/connectors'
-import NavBar from '../components/NavBar'
-import { NavChrome } from '../components/NavChrome'
+import { appAlert } from '../components/BottomPops'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 
-/** 未配置的连接器不允许同步:先配置再同步,不给假成功 */
-function canSync(entry: ConnectorEntry): boolean {
-  return entry.configured && entry.enabled
+/**
+ * 连接器管理屏(RN 端),对应 Web 端 /connectors。
+ *
+ * 〔G-921 2026-10-21〕UI 已下沉到共享层 `@ihui/rn-app` 的 ConnectorsScreen —— 本文件改成
+ * wrapper,只留平台侧三件事:API 调用(get / setEnabled / sync / delete)、二次确认弹层
+ * (`appAlert`)、i18n 与主题注入。列表卡片、启停徽章、加载/错误/空态由共享层渲染,
+ * 与 PaymentScreen / DomainHubScreen 同一型 wrapper 模式。
+ * **不准**靠"补一条 @ihui/rn-app import"或塞白名单消门 39 的红 —— 那两条都不改真实共享度。
+ *
+ * 平台说明(沿用下沉前的口径,一条未改):
+ * - 端点返回 ApiResult(成功载荷在 res.data),失败按其 message 显式报错;
+ * - 未配置(configured=false)的条目**不允许同步**,仅提示先配置,不伪造"同步成功" ——
+ *   这条判据随 UI 一起下沉成共享层的 `canSyncConnector`,两端共用同一枚函数。
+ */
+function toConnectorItem(entry: ConnectorEntry): ConnectorItem {
+  return {
+    key: entry.key,
+    name: entry.name,
+    type: entry.type,
+    enabled: entry.enabled,
+    configured: entry.configured,
+    // 时间不做二次格式化:原实现直接渲染后端给的 last_sync_at,空值由共享层回落"从未同步"
+    lastSyncText: entry.last_sync_at ?? '',
+    syncItemsCount: entry.sync_items?.length ?? 0,
+    lastError: entry.last_error ?? null,
+  }
 }
 
 export function ConnectorsScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
-  const [connectors, setConnectors] = useState<ConnectorEntry[]>([])
+  const [entries, setEntries] = useState<ConnectorEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [busyKey, setBusyKey] = useState('')
-
-  const isDark = resolvedTheme === 'dark'
 
   const load = useCallback(async () => {
     setError('')
@@ -49,13 +62,13 @@ export function ConnectorsScreen() {
       const res = await getConnectors()
       if (!res.success) {
         setError(res.error || t('connectors.loadFailed'))
-        setConnectors([])
+        setEntries([])
         return
       }
-      setConnectors(res.data?.connectors ?? [])
+      setEntries(res.data?.connectors ?? [])
     } catch (e) {
       setError(e instanceof Error ? e.message : t('connectors.loadFailed'))
-      setConnectors([])
+      setEntries([])
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -66,17 +79,19 @@ export function ConnectorsScreen() {
     void load()
   }, [load])
 
+  const items = useMemo(() => entries.map(toConnectorItem), [entries])
+
   const onRefresh = useCallback(() => {
     setRefreshing(true)
     void load()
   }, [load])
 
-  const onToggleEnabled = useCallback(
-    (entry: ConnectorEntry) => {
-      setBusyKey(entry.key)
+  const onToggle = useCallback(
+    (item: ConnectorItem) => {
+      setBusyKey(item.key)
       void (async () => {
         try {
-          const res = await setConnectorEnabled(entry.key, !entry.enabled)
+          const res = await setConnectorEnabled(item.key, !item.enabled)
           if (!res.success) throw new Error(res.error || t('connectors.actionFailed'))
           await load()
         } catch (e) {
@@ -93,15 +108,15 @@ export function ConnectorsScreen() {
   )
 
   const onSync = useCallback(
-    (entry: ConnectorEntry) => {
-      if (!canSync(entry)) {
+    (item: ConnectorItem) => {
+      if (!canSyncConnector(item)) {
         appAlert(t('connectors.sync'), t('connectors.notConfigured'))
         return
       }
-      setBusyKey(entry.key)
+      setBusyKey(item.key)
       void (async () => {
         try {
-          const res = await syncConnector(entry.key)
+          const res = await syncConnector(item.key)
           if (!res.success) throw new Error(res.error || t('connectors.syncFailed'))
           await load()
         } catch (e) {
@@ -118,17 +133,17 @@ export function ConnectorsScreen() {
   )
 
   const onDelete = useCallback(
-    (entry: ConnectorEntry) => {
-      appAlert(t('connectors.confirmDelete'), entry.name, [
+    (item: ConnectorItem) => {
+      appAlert(t('connectors.confirmDelete'), item.name, [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('common.confirm'),
           style: 'destructive',
           onPress: () => {
-            setBusyKey(entry.key)
+            setBusyKey(item.key)
             void (async () => {
               try {
-                const res = await deleteConnector(entry.key)
+                const res = await deleteConnector(item.key)
                 if (!res.success) throw new Error(res.error || t('connectors.actionFailed'))
                 await load()
               } catch (e) {
@@ -148,113 +163,20 @@ export function ConnectorsScreen() {
   )
 
   return (
-    <View className={`flex-1 ${isDark ? 'bg-neutral-950' : 'bg-neutral-50'}`}>
-      <NavChrome>
-        <NavBar title={t('connectors.title')} />
-      </NavChrome>
-
-      {loading ? (
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
-        </View>
-      ) : error ? (
-        <View className="flex-1 items-center justify-center px-6">
-          <Text className="mb-3 text-sm text-neutral-600 dark:text-neutral-300">{error}</Text>
-          <TouchableOpacity
-            onPress={() => void load()}
-            className="rounded-sm bg-neutral-900 px-4 py-2"
-          >
-            <Text className="text-sm text-neutral-50">{t('common.retry')}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <ScrollView
-          className="flex-1"
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        >
-          {connectors.length === 0 ? (
-            <View className="items-center py-16">
-              <Text className="text-sm text-neutral-500">{t('connectors.empty')}</Text>
-            </View>
-          ) : (
-            connectors.map((entry) => (
-              <View
-                key={entry.key}
-                className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
-              >
-                <View className="flex-row items-center justify-between">
-                  <Text className="flex-1 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                    {entry.name}
-                  </Text>
-                  <View
-                    className={`rounded-xs px-2 py-0.5 ${
-                      entry.enabled
-                        ? 'bg-neutral-900 dark:bg-neutral-100'
-                        : 'bg-neutral-200 dark:bg-neutral-800'
-                    }`}
-                  >
-                    <Text
-                      className={`text-xs ${entry.enabled ? 'text-neutral-50 dark:text-neutral-900' : 'text-neutral-600 dark:text-neutral-400'}`}
-                    >
-                      {entry.enabled ? t('connectors.enabled') : t('connectors.disabled')}
-                    </Text>
-                  </View>
-                </View>
-
-                <Text className="mt-1 text-xs text-neutral-500">
-                  {entry.type} ·{' '}
-                  {entry.configured ? t('connectors.configured') : t('connectors.notConfigured')}
-                </Text>
-                <Text className="mt-1 text-xs text-neutral-500">
-                  {t('connectors.lastSync')}:{' '}
-                  {entry.last_sync_at ? entry.last_sync_at : t('connectors.neverSync')}
-                </Text>
-                {entry.sync_items.length > 0 ? (
-                  <Text className="mt-1 text-xs text-neutral-500">
-                    {t('connectors.items')}: {entry.sync_items.length}
-                  </Text>
-                ) : null}
-                {entry.last_error ? (
-                  <Text className="mt-2 text-xs text-red-600 dark:text-red-400">
-                    {entry.last_error}
-                  </Text>
-                ) : null}
-
-                <View className="mt-3 flex-row items-center">
-                  <TouchableOpacity
-                    disabled={busyKey === entry.key}
-                    onPress={() => onToggleEnabled(entry)}
-                    className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
-                  >
-                    <Text className="text-xs text-neutral-50 dark:text-neutral-900">
-                      {entry.enabled ? t('connectors.disable') : t('connectors.enable')}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    disabled={busyKey === entry.key}
-                    onPress={() => onSync(entry)}
-                    className="mr-2 rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
-                  >
-                    <Text className="text-xs text-neutral-700 dark:text-neutral-300">
-                      {t('connectors.sync')}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    disabled={busyKey === entry.key}
-                    onPress={() => onDelete(entry)}
-                    className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
-                  >
-                    <Text className="text-xs text-neutral-700 dark:text-neutral-300">
-                      {t('connectors.delete')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
-          )}
-        </ScrollView>
-      )}
-    </View>
+    <SharedConnectorsScreen
+      t={t}
+      items={items}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      busyKey={busyKey}
+      onToggle={onToggle}
+      onSync={onSync}
+      onDelete={onDelete}
+      onRefresh={onRefresh}
+      onRetry={() => void load()}
+      colorScheme={resolvedTheme}
+    />
   )
 }
 
