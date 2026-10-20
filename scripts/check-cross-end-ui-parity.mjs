@@ -3222,8 +3222,10 @@ export function main(argv, repoRoot = ROOT) {
           undetermined: rs.undetermined,
           red: rsRed.map((x) => x.name),
         },
-        // 裸档盲区也要能被机器读(G-978049②):下一票要同批重锚 77/150/128 三本账时,
-        // 它的输入就是这两份名单 —— 只印人读面就等于把取证退回复制粘贴终端输出。
+        // 裸档取用也要能被机器读(G-978049② 立项 / G-277② 落地):"同批重锚三本账"的前提已按
+        // import 面复裁推翻(守门 77 不 import radius-tokens、150 走 radius-roles 自带提取式且
+        // 早已认裸档、128 锚点零位移),这两份名单是复裁结论与后续审计的机器可读输入 ——
+        // 只印人读面就等于把取证退回复制粘贴终端输出。
         bareRounded: collected.bareRounded ?? null,
         // web 腿也要能被机器读:只有人读面的话,下一票(把 web 的几何也纳进来)就得抄终端输出当数据源。
         web: {
