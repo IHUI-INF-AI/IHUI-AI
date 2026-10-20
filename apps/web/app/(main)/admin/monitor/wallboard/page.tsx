@@ -9,10 +9,12 @@ import { isNum, isUnset, thresholdTone, type StatusTone } from './unknown-state'
  * 生产在线端监控大屏(/admin/monitor/wallboard)。
  *
  * 数据面:GET /api/admin/ops-wallboard/overview(5s 轮询)+ /ops-wallboard/trend(20s 轮询)。
- * 视觉定位:控制中心/工业 HUD —— 深空蓝底 + 青色辉光描边 + 切角面板 + 等宽数字,
- * 固定深色(不随站点主题),适配值班室大屏长时间挂机。
+ * 视觉定位:控制中心/工业 HUD —— 切角面板 + 等宽数字 + 辉光描边,
+ * 配色全部走语义 token(bg-background/bg-card/border-border/success/warning/destructive/info),
+ * 随站点明暗主题切换(ECharts 走 canvas 读不到 CSS var,按 resolvedTheme 显式切换,见下方图表主题)。
  */
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -40,6 +42,18 @@ import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
 // 悬停提示一律走项目 Tooltip(守门 18:禁用原生 HTML title 属性)
 import { Tooltip, TooltipProvider } from '@/components/feedback'
+import { useTheme } from 'next-themes'
+import {
+  CHART_AMBER,
+  CHART_CYAN,
+  CHART_GREEN,
+  CHART_RED,
+  CHART_VIOLET,
+  chartAxis,
+  chartBg,
+  chartText,
+  withAlpha,
+} from '@ihui/design-tokens'
 import type { EChartsOption } from 'echarts'
 
 // ===================== 类型(与 apps/api/src/routes/admin-ops-wallboard.ts 对齐) =====================
@@ -310,14 +324,14 @@ function Panel({
   return (
     <section
       className={cn(
-        'wb-panel relative flex min-h-0 flex-col rounded-xl border border-[rgba(72,146,196,0.22)] bg-[rgba(10,21,38,0.72)]',
+        'wb-panel relative flex min-h-0 flex-col rounded-xl border border-border bg-card/80',
         className,
       )}
     >
-      <header className="flex shrink-0 items-center gap-2 border-b border-[rgba(72,146,196,0.16)] px-3 py-2">
-        <span className="h-3 w-[3px] rounded-full bg-cyan-300 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
-        {icon ? <span className="text-cyan-200/70">{icon}</span> : null}
-        <h2 className="wb-display text-[13px] font-semibold tracking-[0.18em] text-slate-100 uppercase">
+      <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+        <span className="h-3 w-[3px] rounded-full bg-info shadow-[0_0_8px_color-mix(in_srgb,var(--color-info)_80%,transparent)]" />
+        {icon ? <span className="text-info/70">{icon}</span> : null}
+        <h2 className="wb-display text-[13px] font-semibold tracking-[0.18em] text-foreground uppercase">
           {title}
         </h2>
         <div className="ml-auto flex items-center gap-2">{right}</div>
@@ -330,29 +344,29 @@ function Panel({
 function Dot({ tone }: { tone: StatusTone | 'idle' }) {
   const color =
     tone === 'ok'
-      ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]'
+      ? 'bg-success shadow-[0_0_6px_color-mix(in_srgb,var(--color-success)_90%,transparent)]'
       : tone === 'warn'
-        ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.9)]'
+        ? 'bg-warning shadow-[0_0_6px_color-mix(in_srgb,var(--color-warning)_90%,transparent)]'
         : tone === 'bad'
-          ? 'bg-red-500 shadow-[0_0_6px_rgba(248,113,113,0.9)]'
+          ? 'bg-destructive shadow-[0_0_6px_color-mix(in_srgb,var(--color-destructive)_90%,transparent)]'
           : tone === 'unknown'
-            ? 'bg-slate-600'
-            : 'bg-slate-500'
+            ? 'bg-muted-foreground/60'
+            : 'bg-muted-foreground'
   return <span className={cn('inline-block h-1.5 w-1.5 rounded-full', color)} />
 }
 
 function MiniBar({ pct, tone }: { pct: number; tone?: 'ok' | 'warn' | 'bad' }) {
   const t = tone ?? (pct >= 90 ? 'bad' : pct >= 70 ? 'warn' : 'ok')
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[rgba(72,146,196,0.18)]">
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
       <div
         className={cn(
           'h-full rounded-full transition-[width] duration-700',
           t === 'bad'
-            ? 'bg-gradient-to-r from-red-500 to-amber-400'
+            ? 'bg-gradient-to-r from-destructive to-warning'
             : t === 'warn'
-              ? 'bg-gradient-to-r from-amber-500 to-yellow-300'
-              : 'bg-gradient-to-r from-cyan-400 to-emerald-400',
+              ? 'bg-gradient-to-r from-warning to-warning/70'
+              : 'bg-gradient-to-r from-info to-success',
         )}
         style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
       />
@@ -372,24 +386,24 @@ function StatCell({
   tone?: StatusTone | 'accent'
 }) {
   return (
-    <div className="rounded-sm border border-[rgba(72,146,196,0.16)] bg-[rgba(20,36,60,0.5)] px-2.5 py-2">
-      <div className="text-[10px] tracking-[0.12em] text-slate-400">{label}</div>
+    <div className="rounded-sm border border-border bg-muted/60 px-2.5 py-2">
+      <div className="text-[10px] tracking-[0.12em] text-muted-foreground">{label}</div>
       <div
         className={cn(
           'wb-num mt-0.5 text-[18px] leading-tight font-semibold',
           tone === 'bad'
-            ? 'text-red-400'
+            ? 'text-destructive'
             : tone === 'warn'
-              ? 'text-amber-300'
+              ? 'text-warning'
               : tone === 'accent'
-                ? 'text-cyan-300'
+                ? 'text-info'
                 : tone === 'unknown'
-                  ? 'text-slate-500'
-                  : 'text-slate-100',
+                  ? 'text-muted-foreground'
+                  : 'text-foreground',
         )}
       >
         {value}
-        {unit ? <span className="ml-0.5 text-[11px] text-slate-400">{unit}</span> : null}
+        {unit ? <span className="ml-0.5 text-[11px] text-muted-foreground">{unit}</span> : null}
       </div>
     </div>
   )
@@ -399,7 +413,7 @@ function StatCell({
 function ChartEmpty({ text }: { text: string }) {
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-      <span className="rounded-sm border border-[rgba(72,146,196,0.18)] bg-[rgba(10,21,38,0.66)] px-2.5 py-1 text-[10px] text-slate-500">
+      <span className="rounded-sm border border-border bg-card/80 px-2.5 py-1 text-[10px] text-muted-foreground">
         {text}
       </span>
     </div>
@@ -409,7 +423,7 @@ function ChartEmpty({ text }: { text: string }) {
 /** 未知态唯一展示原语:暗色「—」+ Unplug 字形 + 不可达注记。 */
 function SourceGap({ text, className }: { text: string; className?: string }) {
   return (
-    <span className={cn('inline-flex items-center gap-1.5 text-[10px] text-slate-500', className)}>
+    <span className={cn('inline-flex items-center gap-1.5 text-[10px] text-muted-foreground', className)}>
       <span className="wb-num leading-none">—</span>
       <Unplug className="h-3 w-3 shrink-0 opacity-70" />
       <span className="leading-none">{text}</span>
@@ -425,13 +439,20 @@ async function fetchJson<T>(url: string): Promise<T> {
   return r.data
 }
 
-// ===================== 图表主题(与大屏深色底固定配套) =====================
+// ===================== 图表主题(跟随站点明暗主题) =====================
+// ECharts 画在 canvas 上,读不到 CSS var()(AGENTS §3 技术约束):轴线/文字/tooltip 底取
+// design-tokens 的 chartAxis/chartText/chartBg(JS 侧唯一真相源,逐位镜像 tokens.css 的
+// --chart-axis / --chart-text),系列色取 --chart-N 色板;明暗由 resolvedTheme 显式切换
+// 并计入各 option 的 useMemo 依赖,主题翻转即重建 option。
 
-const AXIS = {
-  axisLine: { lineStyle: { color: 'rgba(100,160,210,0.35)' } },
-  axisLabel: { color: '#7c93ad', fontSize: 10 },
-  splitLine: { lineStyle: { color: 'rgba(100,160,210,0.12)' } },
-} as const
+const AXIS = (isDark: boolean) => ({
+  axisLine: { lineStyle: { color: chartAxis(isDark) } },
+  axisLabel: { color: chartText(isDark), fontSize: 10 },
+  splitLine: { lineStyle: { color: withAlpha(chartAxis(isDark), isDark ? 0.5 : 0.9) } },
+})
+
+/** 画布上的主读数前景(明暗两档,对齐 --color-foreground;canvas 读不到 var 故取字面色)。 */
+const fg = (isDark: boolean): string => (isDark ? '#e6f2ff' : '#0f172a')
 
 function seriesGlow(color: string) {
   return {
@@ -442,9 +463,20 @@ function seriesGlow(color: string) {
 
 // ===================== 页面 =====================
 
+/** 监控大屏路由:统一落到监控面板页的大屏模式,由该页顶部按钮切换两种呈现。 */
 export default function OpsWallboardPage() {
+  const router = useRouter()
+  React.useEffect(() => {
+    router.replace('/admin/monitor/panels?view=wallboard')
+  }, [router])
+  return null
+}
+
+export function WallboardView() {
   const t = useTranslations('admin.wallboard')
   const locale = useLocale()
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === 'dark'
   const { fmtInt, fmtCompact, fmtRate, fmtDuration, fmtClock, fmtAgo } = makeFmt(locale, t)
   const [now, setNow] = React.useState(() => new Date())
   React.useEffect(() => {
@@ -528,24 +560,24 @@ export default function OpsWallboardPage() {
       grid: { left: 42, right: 46, top: 26, bottom: 22 },
       legend: {
         data: [t('legendQps'), t('legendErrRate'), t('legendP95')],
-        textStyle: { color: '#8fa6bf', fontSize: 10 },
+        textStyle: { color: chartText(isDark), fontSize: 10 },
         top: 0,
         itemWidth: 14,
       },
       tooltip: {
         trigger: 'axis',
-        backgroundColor: 'rgba(8,18,33,0.92)',
-        borderColor: 'rgba(72,146,196,0.35)',
-        textStyle: { color: '#dbe7f3', fontSize: 11 },
+        backgroundColor: chartBg(isDark),
+        borderColor: chartAxis(isDark),
+        textStyle: { color: fg(isDark), fontSize: 11 },
       },
-      xAxis: { type: 'category', data: labels, ...AXIS, boundaryGap: false },
+      xAxis: { type: 'category', data: labels, ...AXIS(isDark), boundaryGap: false },
       yAxis: [
-        { type: 'value', name: t('axisReqPerSec'), nameTextStyle: { color: '#7c93ad' }, ...AXIS },
+        { type: 'value', name: t('axisReqPerSec'), nameTextStyle: { color: chartText(isDark) }, ...AXIS(isDark) },
         {
           type: 'value',
           name: t('axisPctMs'),
-          nameTextStyle: { color: '#7c93ad' },
-          ...AXIS,
+          nameTextStyle: { color: chartText(isDark) },
+          ...AXIS(isDark),
           splitLine: { show: false },
         },
       ],
@@ -556,7 +588,7 @@ export default function OpsWallboardPage() {
           smooth: true,
           showSymbol: false,
           data: (trend?.qps ?? []).map(([, v]) => Number(v.toFixed(2))),
-          ...seriesGlow('#22d3ee'),
+          ...seriesGlow(CHART_CYAN),
           areaStyle: {
             color: {
               type: 'linear',
@@ -565,8 +597,8 @@ export default function OpsWallboardPage() {
               x2: 0,
               y2: 1,
               colorStops: [
-                { offset: 0, color: 'rgba(34,211,238,0.35)' },
-                { offset: 1, color: 'rgba(34,211,238,0.02)' },
+                { offset: 0, color: withAlpha(CHART_CYAN, 0.35) },
+                { offset: 1, color: withAlpha(CHART_CYAN, 0.02) },
               ],
             },
           },
@@ -578,7 +610,7 @@ export default function OpsWallboardPage() {
           smooth: true,
           showSymbol: false,
           data: (trend?.errRate ?? []).map(([, v]) => Number((v * 100).toFixed(3))),
-          ...seriesGlow('#f87171'),
+          ...seriesGlow(CHART_RED),
         },
         {
           name: t('legendP95'),
@@ -587,11 +619,11 @@ export default function OpsWallboardPage() {
           smooth: true,
           showSymbol: false,
           data: (trend?.p95Ms ?? []).map(([, v]) => Number(v.toFixed(1))),
-          ...seriesGlow('#fbbf24'),
+          ...seriesGlow(CHART_AMBER),
         },
       ],
     }
-  }, [trend, locale, t])
+  }, [trend, locale, t, isDark])
 
   const gaugeOption = React.useMemo<EChartsOption>(() => {
     // 仪表读数:null(数据源不可达)显示「—」而不是 0%(0% 会被读成「空闲且健康」)
@@ -609,18 +641,18 @@ export default function OpsWallboardPage() {
           endAngle: -30,
           min: 0,
           max: 100,
-          progress: { show: true, width: 8, itemStyle: { color: '#22d3ee' } },
-          axisLine: { lineStyle: { width: 8, color: [[1, 'rgba(72,146,196,0.22)']] } },
+          progress: { show: true, width: 8, itemStyle: { color: CHART_CYAN } },
+          axisLine: { lineStyle: { width: 8, color: [[1, chartAxis(isDark)]] } },
           axisTick: { show: false },
           splitLine: { show: false },
           axisLabel: { show: false },
           pointer: { show: false },
           anchor: { show: false },
-          title: { offsetCenter: [0, '34%'], color: '#8fa6bf', fontSize: 11 },
+          title: { offsetCenter: [0, '34%'], color: chartText(isDark), fontSize: 11 },
           detail: {
             valueAnimation: true,
             offsetCenter: [0, '2%'],
-            color: cpuValue === null ? '#64748b' : '#e6f2ff',
+            color: cpuValue === null ? chartText(isDark) : fg(isDark),
             fontSize: 22,
             fontFamily: 'Bahnschrift, DIN Alternate, sans-serif',
             formatter: cpuValue === null ? () => '—' : '{value}%',
@@ -635,18 +667,18 @@ export default function OpsWallboardPage() {
           endAngle: -30,
           min: 0,
           max: 100,
-          progress: { show: true, width: 8, itemStyle: { color: '#a78bfa' } },
-          axisLine: { lineStyle: { width: 8, color: [[1, 'rgba(72,146,196,0.22)']] } },
+          progress: { show: true, width: 8, itemStyle: { color: CHART_VIOLET } },
+          axisLine: { lineStyle: { width: 8, color: [[1, chartAxis(isDark)]] } },
           axisTick: { show: false },
           splitLine: { show: false },
           axisLabel: { show: false },
           pointer: { show: false },
           anchor: { show: false },
-          title: { offsetCenter: [0, '34%'], color: '#8fa6bf', fontSize: 11 },
+          title: { offsetCenter: [0, '34%'], color: chartText(isDark), fontSize: 11 },
           detail: {
             valueAnimation: true,
             offsetCenter: [0, '2%'],
-            color: memValue === null ? '#64748b' : '#e6f2ff',
+            color: memValue === null ? chartText(isDark) : fg(isDark),
             fontSize: 22,
             fontFamily: 'Bahnschrift, DIN Alternate, sans-serif',
             formatter: memValue === null ? () => '—' : '{value}%',
@@ -655,27 +687,27 @@ export default function OpsWallboardPage() {
         },
       ],
     }
-  }, [host?.cpuPct, host?.memPct, t])
+  }, [host?.cpuPct, host?.memPct, t, isDark])
 
   const statusOption = React.useMemo<EChartsOption>(() => {
     const klassColor: Record<string, string> = {
-      '2xx': '#34d399',
-      '3xx': '#22d3ee',
-      '4xx': '#fbbf24',
-      '5xx': '#f87171',
-      other: '#64748b',
+      '2xx': CHART_GREEN,
+      '3xx': CHART_CYAN,
+      '4xx': CHART_AMBER,
+      '5xx': CHART_RED,
+      other: chartText(isDark),
     }
     const data = (http?.statusRates ?? []).map((s) => ({
       name: s.klass,
       value: Number(s.rate.toFixed(3)),
-      itemStyle: { color: klassColor[s.klass] ?? '#64748b' },
+      itemStyle: { color: klassColor[s.klass] ?? chartText(isDark) },
     }))
     return {
       tooltip: {
         trigger: 'item',
-        backgroundColor: 'rgba(8,18,33,0.92)',
-        borderColor: 'rgba(72,146,196,0.35)',
-        textStyle: { color: '#dbe7f3', fontSize: 11 },
+        backgroundColor: chartBg(isDark),
+        borderColor: chartAxis(isDark),
+        textStyle: { color: fg(isDark), fontSize: 11 },
       },
       series: [
         {
@@ -683,17 +715,17 @@ export default function OpsWallboardPage() {
           radius: ['42%', '68%'],
           center: ['50%', '52%'],
           label: {
-            color: '#8fa6bf',
+            color: chartText(isDark),
             fontSize: 10,
             formatter: `{b}\n{c}${t('piePerSecSuffix')}`,
           },
-          labelLine: { lineStyle: { color: 'rgba(120,160,200,0.35)' } },
-          itemStyle: { borderColor: 'rgba(10,21,38,0.9)', borderWidth: 2 },
+          labelLine: { lineStyle: { color: withAlpha(chartText(isDark), 0.5) } },
+          itemStyle: { borderColor: chartBg(isDark), borderWidth: 2 },
           data,
         },
       ],
     }
-  }, [http?.statusRates, t])
+  }, [http?.statusRates, t, isDark])
 
   // 主机 CPU / 内存走势(补齐 trend.cpuPct / trend.memPct 两个已返回未上屏的序列)
   const hostTrendOption = React.useMemo<EChartsOption>(() => {
@@ -708,24 +740,24 @@ export default function OpsWallboardPage() {
       grid: { left: 34, right: 34, top: 22, bottom: 18 },
       legend: {
         data: [t('cpuLegend'), t('memLegend')],
-        textStyle: { color: '#8fa6bf', fontSize: 10 },
+        textStyle: { color: chartText(isDark), fontSize: 10 },
         top: 0,
         itemWidth: 12,
       },
       tooltip: {
         trigger: 'axis',
-        backgroundColor: 'rgba(8,18,33,0.92)',
-        borderColor: 'rgba(72,146,196,0.35)',
-        textStyle: { color: '#dbe7f3', fontSize: 11 },
+        backgroundColor: chartBg(isDark),
+        borderColor: chartAxis(isDark),
+        textStyle: { color: fg(isDark), fontSize: 11 },
       },
       xAxis: {
         type: 'category',
         data: labels,
-        ...AXIS,
+        ...AXIS(isDark),
         boundaryGap: false,
         axisLabel: { show: false },
       },
-      yAxis: { type: 'value', min: 0, max: 100, ...AXIS, splitLine: { show: false } },
+      yAxis: { type: 'value', min: 0, max: 100, ...AXIS(isDark), splitLine: { show: false } },
       series: [
         {
           name: t('cpuLegend'),
@@ -733,7 +765,7 @@ export default function OpsWallboardPage() {
           smooth: true,
           showSymbol: false,
           data: (trend?.cpuPct ?? []).map(([, v]) => Number(v.toFixed(2))),
-          ...seriesGlow('#22d3ee'),
+          ...seriesGlow(CHART_CYAN),
         },
         {
           name: t('memLegend'),
@@ -741,11 +773,11 @@ export default function OpsWallboardPage() {
           smooth: true,
           showSymbol: false,
           data: (trend?.memPct ?? []).map(([, v]) => Number(v.toFixed(2))),
-          ...seriesGlow('#a78bfa'),
+          ...seriesGlow(CHART_VIOLET),
         },
       ],
     }
-  }, [trend, locale, t])
+  }, [trend, locale, t, isDark])
 
   const hourlyOption = React.useMemo<EChartsOption>(() => {
     const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
@@ -754,12 +786,12 @@ export default function OpsWallboardPage() {
       grid: { left: 40, right: 12, top: 16, bottom: 22 },
       tooltip: {
         trigger: 'axis',
-        backgroundColor: 'rgba(8,18,33,0.92)',
-        borderColor: 'rgba(72,146,196,0.35)',
-        textStyle: { color: '#dbe7f3', fontSize: 11 },
+        backgroundColor: chartBg(isDark),
+        borderColor: chartAxis(isDark),
+        textStyle: { color: fg(isDark), fontSize: 11 },
       },
-      xAxis: { type: 'category', data: hours, ...AXIS },
-      yAxis: { type: 'value', ...AXIS },
+      xAxis: { type: 'category', data: hours, ...AXIS(isDark) },
+      yAxis: { type: 'value', ...AXIS(isDark) },
       series: [
         {
           type: 'bar',
@@ -774,40 +806,40 @@ export default function OpsWallboardPage() {
               x2: 0,
               y2: 1,
               colorStops: [
-                { offset: 0, color: 'rgba(34,211,238,0.95)' },
-                { offset: 1, color: 'rgba(34,211,238,0.15)' },
+                { offset: 0, color: withAlpha(CHART_CYAN, 0.95) },
+                { offset: 1, color: withAlpha(CHART_CYAN, 0.15) },
               ],
             },
           },
         },
       ],
     }
-  }, [trend?.hourlyCalls])
+  }, [trend?.hourlyCalls, isDark])
 
   const modelOption = React.useMemo<EChartsOption>(() => {
     const models = [...(biz?.llmTopModels ?? [])].reverse()
     return {
       grid: { left: 8, right: 40, top: 6, bottom: 6, containLabel: true },
       tooltip: {
-        backgroundColor: 'rgba(8,18,33,0.92)',
-        borderColor: 'rgba(72,146,196,0.35)',
-        textStyle: { color: '#dbe7f3', fontSize: 11 },
+        backgroundColor: chartBg(isDark),
+        borderColor: chartAxis(isDark),
+        textStyle: { color: fg(isDark), fontSize: 11 },
       },
-      xAxis: { type: 'value', ...AXIS, splitLine: { show: false }, axisLabel: { show: false } },
+      xAxis: { type: 'value', ...AXIS(isDark), splitLine: { show: false }, axisLabel: { show: false } },
       yAxis: {
         type: 'category',
         data: models.map((m) => m.model),
-        ...AXIS,
+        ...AXIS(isDark),
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: '#9db4cd', fontSize: 10, width: 120, overflow: 'truncate' },
+        axisLabel: { color: chartText(isDark), fontSize: 10, width: 120, overflow: 'truncate' },
       },
       series: [
         {
           type: 'bar',
           data: models.map((m) => m.calls),
           barWidth: 12,
-          label: { show: true, position: 'right', color: '#8fa6bf', fontSize: 10 },
+          label: { show: true, position: 'right', color: chartText(isDark), fontSize: 10 },
           itemStyle: {
             borderRadius: [0, 6, 6, 0],
             color: {
@@ -817,15 +849,15 @@ export default function OpsWallboardPage() {
               x2: 1,
               y2: 0,
               colorStops: [
-                { offset: 0, color: 'rgba(167,139,250,0.35)' },
-                { offset: 1, color: '#a78bfa' },
+                { offset: 0, color: withAlpha(CHART_VIOLET, 0.35) },
+                { offset: 1, color: CHART_VIOLET },
               ],
             },
           },
         },
       ],
     }
-  }, [biz?.llmTopModels])
+  }, [biz?.llmTopModels, isDark])
 
   // 访客首页访问耗时走势:点色 = 该次是否命中边缘缓存(绿 HIT / 黄 MISS),线 = 耗时 ms
   const edgeOption = React.useMemo<EChartsOption>(() => {
@@ -841,16 +873,16 @@ export default function OpsWallboardPage() {
       grid: { left: 42, right: 12, top: 18, bottom: 20 },
       tooltip: {
         trigger: 'axis',
-        backgroundColor: 'rgba(8,18,33,0.92)',
-        borderColor: 'rgba(72,146,196,0.35)',
-        textStyle: { color: '#dbe7f3', fontSize: 11 },
+        backgroundColor: chartBg(isDark),
+        borderColor: chartAxis(isDark),
+        textStyle: { color: fg(isDark), fontSize: 11 },
       },
-      xAxis: { type: 'category', data: labels, ...AXIS, boundaryGap: false },
+      xAxis: { type: 'category', data: labels, ...AXIS(isDark), boundaryGap: false },
       yAxis: {
         type: 'value',
         name: t('unitMs'),
-        nameTextStyle: { color: '#7c93ad' },
-        ...AXIS,
+        nameTextStyle: { color: chartText(isDark) },
+        ...AXIS(isDark),
       },
       series: [
         {
@@ -860,13 +892,13 @@ export default function OpsWallboardPage() {
           symbolSize: 5,
           data: rows.map(([, ms, hit]) => ({
             value: ms,
-            itemStyle: { color: hit ? '#34d399' : '#fbbf24' },
+            itemStyle: { color: hit ? CHART_GREEN : CHART_AMBER },
           })),
-          ...seriesGlow('#22d3ee'),
+          ...seriesGlow(CHART_CYAN),
         },
       ],
     }
-  }, [edge?.series, locale, t])
+  }, [edge?.series, locale, t, isDark])
 
   // 「无 5xx」好消息徽章:刻意定义在组件作用域(脱离 <Panel right> 开标签区间),
   // 避免被圆角角色门按 panel 角色误判须 xl;该徽章自身无角色类名,落「未判定」射程外,不计入红。
@@ -874,7 +906,7 @@ export default function OpsWallboardPage() {
     trend &&
     trend.qps.length > 0 &&
     (trend.errRate.length === 0 || trend.errRate.every(([, v]) => v === 0)) ? (
-      <span className="flex items-center gap-1 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300">
+      <span className="flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-1.5 py-0.5 text-[10px] text-success">
         <Dot tone="ok" />
         {t('no5xxWindow', { minutes: trend.minutes })}
       </span>
@@ -889,12 +921,12 @@ export default function OpsWallboardPage() {
   // ---------- 渲染 ----------
   return (
     <TooltipProvider>
-      <div className="wb-root min-h-full bg-[#060c17] px-0 text-slate-200">
+      <div className="wb-root min-h-full bg-background px-0 text-foreground">
         <style>{WALLBOARD_CSS}</style>
 
         {/* overview/trend 整体失败(网络/500):顶部横幅 + 一键重试,避免整屏「—」或旧快照无解释 */}
         {ovError || trendError ? (
-          <div className="mx-4 mt-3 flex items-center gap-2 rounded-sm border border-red-400/30 bg-red-500/[0.08] px-3 py-2 text-[11px] text-red-200">
+          <div className="mx-4 mt-3 flex items-center gap-2 rounded-sm border border-destructive/30 bg-destructive/[0.08] px-3 py-2 text-[11px] text-destructive">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             <span>{t('loadFailed')}</span>
             <button
@@ -903,7 +935,7 @@ export default function OpsWallboardPage() {
                 void refetchOv()
                 void refetchTrend()
               }}
-              className="ml-auto shrink-0 rounded-sm border border-red-400/40 bg-red-500/10 px-2 py-0.5 text-[10px] text-red-200 transition-colors hover:bg-red-500/20"
+              className="ml-auto shrink-0 rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] text-destructive transition-colors hover:bg-destructive/20"
             >
               {t('retry')}
             </button>
@@ -911,17 +943,17 @@ export default function OpsWallboardPage() {
         ) : null}
 
         {/* ===== 顶部横梁 ===== */}
-        <header className="wb-header sticky top-0 z-20 flex items-center gap-4 border-b border-[rgba(72,146,196,0.28)] bg-[rgba(6,12,23,0.92)] px-5 py-2.5 backdrop-blur">
+        <header className="wb-header sticky top-0 z-20 flex items-center gap-4 border-b border-border bg-background/90 px-5 py-2.5 backdrop-blur">
           <div className="flex items-center gap-3">
             <BackButton />
-            <div className="flex h-9 w-9 items-center justify-center rounded-sm border border-cyan-400/40 bg-cyan-400/10 shadow-[0_0_18px_rgba(34,211,238,0.35)]">
-              <Gauge className="h-5 w-5 text-cyan-300" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-sm border border-info/40 bg-info/10 shadow-[0_0_18px_color-mix(in_srgb,var(--color-info)_35%,transparent)]">
+              <Gauge className="h-5 w-5 text-info" />
             </div>
             <div>
-              <h1 className="wb-display text-[17px] leading-tight font-bold tracking-[0.22em] text-slate-50">
+              <h1 className="wb-display text-[17px] leading-tight font-bold tracking-[0.22em] text-foreground">
                 {t('title')}
               </h1>
-              <p className="text-[10px] tracking-[0.3em] text-cyan-200/60 uppercase">
+              <p className="text-[10px] tracking-[0.3em] text-muted-foreground uppercase">
                 {t('subtitle')}
               </p>
             </div>
@@ -937,7 +969,7 @@ export default function OpsWallboardPage() {
             ).map(([name, state]) => (
               <span
                 key={name}
-                className="flex items-center gap-1.5 rounded-sm border border-[rgba(72,146,196,0.22)] bg-[rgba(20,36,60,0.55)] px-2 py-1 text-[10px] text-slate-300"
+                className="flex items-center gap-1.5 rounded-sm border border-border bg-muted/60 px-2 py-1 text-[10px] text-foreground"
               >
                 <Dot tone={state === 'up' ? 'ok' : 'bad'} />
                 {name}
@@ -950,10 +982,10 @@ export default function OpsWallboardPage() {
               className={cn(
                 'flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-[11px]',
                 overallTone === 'ok'
-                  ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300'
+                  ? 'border-success/40 bg-success/10 text-success'
                   : overallTone === 'warn'
-                    ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
-                    : 'border-[rgba(72,146,196,0.30)] bg-[rgba(20,36,60,0.55)] text-slate-400',
+                    ? 'border-warning/40 bg-warning/10 text-warning'
+                    : 'border-border bg-muted/60 text-muted-foreground',
               )}
             >
               <Dot tone={overallTone} />
@@ -967,8 +999,8 @@ export default function OpsWallboardPage() {
               className={cn(
                 'flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-[11px]',
                 alertCount === null
-                  ? 'border-[rgba(72,146,196,0.30)] bg-[rgba(20,36,60,0.55)] text-slate-400'
-                  : 'border-red-400/30 bg-red-500/10 text-red-300',
+                  ? 'border-border bg-muted/60 text-muted-foreground'
+                  : 'border-destructive/30 bg-destructive/10 text-destructive',
               )}
             >
               <Bell className="h-3 w-3" />
@@ -977,13 +1009,13 @@ export default function OpsWallboardPage() {
                 : t('alertCount', { count: alertCount })}
             </span>
             <div className="text-right">
-              <div className="wb-num text-[15px] leading-tight font-semibold text-slate-100">
+              <div className="wb-num text-[15px] leading-tight font-semibold text-foreground">
                 {fmtClockDigits(now)}
               </div>
               <div
                 className={cn(
                   'text-[9px] tracking-[0.2em]',
-                  dataStale ? 'text-amber-400/90' : 'text-slate-500',
+                  dataStale ? 'text-warning/90' : 'text-muted-foreground',
                 )}
               >
                 {dataStale ? `${t('staleData')} · ` : ''}
@@ -1051,28 +1083,28 @@ export default function OpsWallboardPage() {
           ].map((k) => (
             <div
               key={k.label}
-              className="wb-panel wb-rise relative overflow-hidden rounded-sm border border-[rgba(72,146,196,0.22)] bg-[rgba(10,21,38,0.72)] px-3 py-2.5"
+              className="wb-panel wb-rise relative overflow-hidden rounded-sm border border-border bg-card/80 px-3 py-2.5"
             >
-              <div className="flex items-center gap-2 text-[10px] tracking-[0.16em] text-slate-400">
-                <span className="text-cyan-200/70">{k.icon}</span>
+              <div className="flex items-center gap-2 text-[10px] tracking-[0.16em] text-muted-foreground">
+                <span className="text-info/70">{k.icon}</span>
                 {k.label}
               </div>
               <div
                 className={cn(
                   'wb-num mt-1 text-[26px] leading-none font-bold',
                   k.tone === 'bad'
-                    ? 'text-red-400'
+                    ? 'text-destructive'
                     : k.tone === 'accent'
-                      ? 'text-cyan-300'
+                      ? 'text-info'
                       : k.tone === 'unknown'
-                        ? 'text-slate-500'
-                        : 'text-emerald-300',
+                        ? 'text-muted-foreground'
+                        : 'text-success',
                 )}
               >
                 {k.value}
-                {k.unit ? <span className="ml-1 text-[12px] text-slate-400">{k.unit}</span> : null}
+                {k.unit ? <span className="ml-1 text-[12px] text-muted-foreground">{k.unit}</span> : null}
               </div>
-              <div className="mt-1 text-[10px] text-slate-500">{k.sub}</div>
+              <div className="mt-1 text-[10px] text-muted-foreground">{k.sub}</div>
             </div>
           ))}
         </section>
@@ -1085,7 +1117,7 @@ export default function OpsWallboardPage() {
             icon={<Cpu className="h-3.5 w-3.5" />}
             className="xl:col-span-3"
             right={
-              <span className="text-[10px] text-slate-500">
+              <span className="text-[10px] text-muted-foreground">
                 {t('hostUptime', {
                   duration: fmtDuration(
                     isNum(host?.bootTimeEpochSec)
@@ -1116,7 +1148,7 @@ export default function OpsWallboardPage() {
               />
             </div>
             <div className="mt-2.5">
-              <div className="mb-1 text-[10px] tracking-[0.14em] text-slate-400">
+              <div className="mb-1 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('cpuMemTrendTitle')}
               </div>
               <div className="relative">
@@ -1127,24 +1159,24 @@ export default function OpsWallboardPage() {
               </div>
             </div>
             <div className="mt-2.5 space-y-2">
-              <div className="flex items-center gap-1.5 text-[10px] tracking-[0.14em] text-slate-400">
+              <div className="flex items-center gap-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 <HardDrive className="h-3 w-3" /> {t('diskVolumes')}
               </div>
               {(host?.disks ?? []).map((d) => (
                 <div key={d.volume}>
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="wb-num text-slate-300">{d.volume}</span>
-                    <span className="text-slate-500">
+                    <span className="wb-num text-foreground">{d.volume}</span>
+                    <span className="text-muted-foreground">
                       {fmtBytes(d.sizeBytes - d.freeBytes)} / {fmtBytes(d.sizeBytes)}
                     </span>
                     <span
                       className={cn(
                         'wb-num',
                         d.usedPct >= 90
-                          ? 'text-red-400'
+                          ? 'text-destructive'
                           : d.usedPct >= 75
-                            ? 'text-amber-300'
-                            : 'text-cyan-300',
+                            ? 'text-warning'
+                            : 'text-info',
                       )}
                     >
                       {fmtPct(d.usedPct, 1)}
@@ -1166,9 +1198,9 @@ export default function OpsWallboardPage() {
             right={
               <span className="flex items-center gap-2">
                 {no5xxBadge}
-                <span className="text-[10px] text-slate-500">{t('trendWindow')}</span>
+                <span className="text-[10px] text-muted-foreground">{t('trendWindow')}</span>
                 {trendStale ? (
-                  <span className="flex items-center gap-1 text-[10px] text-amber-400/90">
+                  <span className="flex items-center gap-1 text-[10px] text-warning/90">
                     <Dot tone="warn" />
                     {t('staleData')}
                   </span>
@@ -1222,7 +1254,7 @@ export default function OpsWallboardPage() {
             className="xl:col-span-3"
             right={
               services ? (
-                <span className="text-[10px] text-slate-500">
+                <span className="text-[10px] text-muted-foreground">
                   {t('svcRunning', {
                     running: services.windowsRunning,
                     total: services.windowsExpectedTotal,
@@ -1243,9 +1275,9 @@ export default function OpsWallboardPage() {
               {(services?.windows ?? []).map((s) => (
                 <div
                   key={s.name}
-                  className="flex items-center justify-between rounded-sm border border-transparent bg-[rgba(20,36,60,0.42)] px-2 py-[5px] transition-colors hover:border-[rgba(72,146,196,0.3)]"
+                  className="flex items-center justify-between rounded-sm border border-transparent bg-muted/50 px-2 py-[5px] transition-colors hover:border-info/40"
                 >
-                  <span className="wb-num truncate text-[11px] text-slate-300">{s.name}</span>
+                  <span className="wb-num truncate text-[11px] text-foreground">{s.name}</span>
                   <span className="flex shrink-0 items-center gap-1.5">
                     <Dot
                       tone={
@@ -1262,12 +1294,12 @@ export default function OpsWallboardPage() {
                       className={cn(
                         'text-[10px]',
                         s.retired
-                          ? 'text-slate-500'
+                          ? 'text-muted-foreground'
                           : s.state === 'running'
-                            ? 'text-emerald-300/90'
+                            ? 'text-success/90'
                             : s.state === 'stopped'
-                              ? 'text-red-400'
-                              : 'text-amber-300',
+                              ? 'text-destructive'
+                              : 'text-warning',
                       )}
                     >
                       {s.retired
@@ -1282,8 +1314,8 @@ export default function OpsWallboardPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-3 border-t border-[rgba(72,146,196,0.14)] pt-2">
-              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-slate-400">
+            <div className="mt-3 border-t border-border pt-2">
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('scrapeTargets', {
                   up: services ? String(services.targetsUp) : '—',
                   total: services ? String(services.targetsTotal) : '—',
@@ -1296,8 +1328,8 @@ export default function OpsWallboardPage() {
                       className={cn(
                         'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px]',
                         target.up === 1
-                          ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200/90'
-                          : 'border-red-400/30 bg-red-500/10 text-red-300',
+                          ? 'border-success/25 bg-success/10 text-success/90'
+                          : 'border-destructive/30 bg-destructive/10 text-destructive',
                       )}
                     >
                       <Dot tone={target.up === 1 ? 'ok' : 'bad'} />
@@ -1324,7 +1356,7 @@ export default function OpsWallboardPage() {
                 />
               ) : null}
             </div>
-            <div className="mt-1 text-[10px] tracking-[0.14em] text-slate-400">
+            <div className="mt-1 text-[10px] tracking-[0.14em] text-muted-foreground">
               {t('hourlyTitle')}
             </div>
             <div className="relative">
@@ -1349,7 +1381,7 @@ export default function OpsWallboardPage() {
             icon={<AlertTriangle className="h-3.5 w-3.5" />}
             className="xl:col-span-5"
             right={
-              <span className="flex items-center gap-2 text-[10px] text-slate-500">
+              <span className="flex items-center gap-2 text-[10px] text-muted-foreground">
                 <span>
                   {isUnset(bridge?.mailUndelivered)
                     ? t('statusUnknown')
@@ -1363,26 +1395,26 @@ export default function OpsWallboardPage() {
             bodyClassName="grid grid-cols-1 gap-2 overflow-y-auto md:grid-cols-2"
           >
             <div>
-              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-slate-400">
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('activeAlerts')}
               </div>
               <div className="space-y-1.5">
                 {(alerts?.promActive ?? []).slice(0, 5).map((a, i) => (
                   <div
                     key={`${a.name}-${i}`}
-                    className="rounded-sm border border-red-400/25 bg-red-500/[0.08] px-2 py-1.5"
+                    className="rounded-sm border border-destructive/25 bg-destructive/[0.08] px-2 py-1.5"
                   >
                     <div className="flex items-center gap-1.5">
                       <Dot tone={a.severity === 'critical' ? 'bad' : 'warn'} />
-                      <span className="truncate text-[11px] font-medium text-red-200">
+                      <span className="truncate text-[11px] font-medium text-destructive">
                         {a.name}
                       </span>
                       <span
                         className={cn(
                           'shrink-0 rounded-sm border px-1 text-[9px]',
                           a.state === 'active'
-                            ? 'border-red-400/30 bg-red-500/10 text-red-300'
-                            : 'border-amber-400/30 bg-amber-400/10 text-amber-200',
+                            ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                            : 'border-warning/30 bg-warning/10 text-warning',
                         )}
                       >
                         {a.state === 'suppressed'
@@ -1391,34 +1423,34 @@ export default function OpsWallboardPage() {
                             ? t('alertStateUnprocessed')
                             : t('alertStateActive')}
                       </span>
-                      <span className="ml-auto shrink-0 text-[9px] text-slate-500">
+                      <span className="ml-auto shrink-0 text-[9px] text-muted-foreground">
                         {fmtAgo(a.since)}
                       </span>
                     </div>
                     {a.summary ? (
-                      <div className="mt-0.5 truncate text-[10px] text-slate-400">{a.summary}</div>
+                      <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{a.summary}</div>
                     ) : null}
                   </div>
                 ))}
                 {alerts?.promActiveCount === 0 ? (
-                  <div className="rounded-sm border border-emerald-400/20 bg-emerald-400/[0.06] px-2 py-3 text-center text-[11px] text-emerald-300/90">
+                  <div className="rounded-sm border border-success/20 bg-success/[0.06] px-2 py-3 text-center text-[11px] text-success/90">
                     {t('noActiveAlerts')}
                   </div>
                 ) : null}
                 {alerts?.promActive === null || alerts?.promActive === undefined ? (
-                  <div className="rounded-sm border border-amber-400/20 bg-amber-400/[0.06] px-2 py-3 text-center text-[11px] text-amber-200/90">
+                  <div className="rounded-sm border border-warning/20 bg-warning/[0.06] px-2 py-3 text-center text-[11px] text-warning/90">
                     {t('alertmanagerDown')}
                   </div>
                 ) : null}
               </div>
-              <div className="mt-2 mb-1.5 text-[10px] tracking-[0.14em] text-slate-400">
+              <div className="mt-2 mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('recentAlerts')}
               </div>
               <div className="space-y-1">
                 {(alerts?.recent ?? []).slice(0, 4).map((a, i) => (
                   <div
                     key={`${a.name}-${i}`}
-                    className="rounded-md border border-transparent bg-[rgba(20,36,60,0.42)] px-2 py-1"
+                    className="rounded-md border border-transparent bg-muted/50 px-2 py-1"
                   >
                     <div className="flex items-center gap-1.5 text-[10px]">
                       <Dot tone={a.status === 'firing' ? 'bad' : 'ok'} />
@@ -1426,10 +1458,10 @@ export default function OpsWallboardPage() {
                         className={cn(
                           'shrink-0 rounded-sm border px-1 text-[9px]',
                           a.severity === 'critical'
-                            ? 'border-red-400/30 bg-red-500/10 text-red-300'
+                            ? 'border-destructive/30 bg-destructive/10 text-destructive'
                             : a.severity === 'info'
-                              ? 'border-cyan-400/25 bg-cyan-400/10 text-cyan-200'
-                              : 'border-amber-400/30 bg-amber-400/10 text-amber-200',
+                              ? 'border-info/40 bg-info/10 text-info'
+                              : 'border-warning/30 bg-warning/10 text-warning',
                         )}
                       >
                         {a.severity === 'critical'
@@ -1438,13 +1470,13 @@ export default function OpsWallboardPage() {
                             ? t('sevInfo')
                             : t('sevWarning')}
                       </span>
-                      <span className="truncate text-slate-300">{a.name}</span>
-                      <span className="ml-auto shrink-0 text-slate-500">{fmtAgo(a.firedAt)}</span>
+                      <span className="truncate text-foreground">{a.name}</span>
+                      <span className="ml-auto shrink-0 text-muted-foreground">{fmtAgo(a.firedAt)}</span>
                     </div>
-                    <div className="mt-0.5 flex items-center gap-1.5 text-[9px] text-slate-500">
-                      <span className="shrink-0 text-cyan-200/70">{a.source}</span>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[9px] text-muted-foreground">
+                      <span className="shrink-0 text-info/70">{a.source}</span>
                       {a.resolvedAt ? (
-                        <span className="truncate text-emerald-300/80">
+                        <span className="truncate text-success/80">
                           {t('resolvedAgo', { ago: fmtAgo(a.resolvedAt) })}
                         </span>
                       ) : a.message ? (
@@ -1454,25 +1486,25 @@ export default function OpsWallboardPage() {
                   </div>
                 ))}
                 {alerts === null ? (
-                  <div className="flex justify-center rounded-sm border border-[rgba(72,146,196,0.20)] bg-[rgba(20,36,60,0.42)] px-2 py-3">
+                  <div className="flex justify-center rounded-sm border border-border bg-muted/50 px-2 py-3">
                     <SourceGap text={t('sourceUnreachable')} />
                   </div>
                 ) : alerts.recent.length === 0 ? (
-                  <div className="px-2 py-3 text-center text-[11px] text-slate-500">
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
                     {t('noRecentAlerts')}
                   </div>
                 ) : null}
               </div>
             </div>
             <div>
-              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-slate-400">
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('eventsTitle')}
               </div>
               <div className="space-y-1">
                 {(events ?? []).map((e, i) => (
                   <div
                     key={`${e.createdAt}-${i}`}
-                    className="rounded-sm border border-transparent bg-[rgba(20,36,60,0.42)] px-2 py-1.5"
+                    className="rounded-sm border border-transparent bg-muted/50 px-2 py-1.5"
                   >
                     <div className="flex items-center gap-1.5">
                       <Dot
@@ -1484,24 +1516,24 @@ export default function OpsWallboardPage() {
                               : 'ok'
                         }
                       />
-                      <span className="shrink-0 text-[9px] tracking-[0.12em] text-cyan-200/80 uppercase">
+                      <span className="shrink-0 text-[9px] tracking-[0.12em] text-info/80 uppercase">
                         {e.type}
                       </span>
-                      <span className="ml-auto shrink-0 text-[9px] text-slate-500">
+                      <span className="ml-auto shrink-0 text-[9px] text-muted-foreground">
                         {fmtClock(e.createdAt)}
                       </span>
                     </div>
-                    <div className="mt-0.5 line-clamp-2 text-[10px] text-slate-400">
+                    <div className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">
                       {e.message}
                     </div>
                   </div>
                 ))}
                 {events === null ? (
-                  <div className="flex justify-center rounded-sm border border-[rgba(72,146,196,0.20)] bg-[rgba(20,36,60,0.42)] px-2 py-3">
+                  <div className="flex justify-center rounded-sm border border-border bg-muted/50 px-2 py-3">
                     <SourceGap text={t('sourceUnreachable')} />
                   </div>
                 ) : events.length === 0 ? (
-                  <div className="px-2 py-3 text-center text-[11px] text-slate-500">
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
                     {t('noEvents')}
                   </div>
                 ) : null}
@@ -1517,12 +1549,12 @@ export default function OpsWallboardPage() {
             bodyClassName="flex flex-col gap-2"
           >
             <div>
-              <div className="mb-1 flex items-center justify-between text-[10px] tracking-[0.14em] text-slate-400">
+              <div className="mb-1 flex items-center justify-between text-[10px] tracking-[0.14em] text-muted-foreground">
                 <span>{t('pgLabel')}</span>
                 {pg === null && ov !== undefined ? (
                   <SourceGap text={t('sourceUnreachable')} />
                 ) : (
-                  <span className="text-slate-500">
+                  <span className="text-muted-foreground">
                     {t('pgConnections', { count: fmtInt(pg?.backends) })}
                   </span>
                 )}
@@ -1540,12 +1572,12 @@ export default function OpsWallboardPage() {
               </div>
             </div>
             <div>
-              <div className="mb-1 flex items-center justify-between text-[10px] tracking-[0.14em] text-slate-400">
+              <div className="mb-1 flex items-center justify-between text-[10px] tracking-[0.14em] text-muted-foreground">
                 <span>{t('redisLabel')}</span>
                 {redis === null && ov !== undefined ? (
                   <SourceGap text={t('sourceUnreachable')} />
                 ) : (
-                  <span className="text-slate-500">
+                  <span className="text-muted-foreground">
                     {t('memUsage', {
                       used: `${fmtBytes(redis?.memUsedBytes)}${redis?.memMaxBytes ? ` / ${fmtBytes(redis.memMaxBytes)}` : ''}`,
                     })}
@@ -1568,7 +1600,7 @@ export default function OpsWallboardPage() {
               </div>
             </div>
             <div>
-              <div className="mb-1 text-[10px] tracking-[0.14em] text-slate-400">
+              <div className="mb-1 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('llmBridge')}
               </div>
               <div className="grid grid-cols-3 gap-1.5">
@@ -1610,23 +1642,23 @@ export default function OpsWallboardPage() {
             bodyClassName="grid grid-cols-1 gap-2 overflow-y-auto md:grid-cols-2"
           >
             <div>
-              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-slate-400">
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('topEndpoints')}
               </div>
               <div className="space-y-1">
                 {(biz?.topEndpoints ?? []).map((e, i) => (
                   <div
                     key={`${e.method}-${e.path}-${i}`}
-                    className="flex items-center gap-2 rounded-sm bg-[rgba(20,36,60,0.42)] px-2 py-1"
+                    className="flex items-center gap-2 rounded-sm bg-muted/50 px-2 py-1"
                   >
-                    <span className="wb-num w-4 text-[10px] text-slate-500">{i + 1}</span>
-                    <span className="shrink-0 rounded-sm border border-cyan-400/25 px-1 text-[9px] text-cyan-200/90">
+                    <span className="wb-num w-4 text-[10px] text-muted-foreground">{i + 1}</span>
+                    <span className="shrink-0 rounded-sm border border-info/25 px-1 text-[9px] text-info/90">
                       {e.method}
                     </span>
                     <Tooltip content={e.path}>
-                      <span className="truncate text-[10px] text-slate-300">{e.path}</span>
+                      <span className="truncate text-[10px] text-foreground">{e.path}</span>
                     </Tooltip>
-                    <span className="wb-num ml-auto shrink-0 text-[10px] text-cyan-300">
+                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info">
                       {fmtCompact(e.calls)}
                     </span>
                   </div>
@@ -1636,7 +1668,7 @@ export default function OpsWallboardPage() {
                     <SourceGap text={t('sourceUnreachable')} />
                   </div>
                 ) : biz.topEndpoints.length === 0 ? (
-                  <div className="px-2 py-3 text-center text-[11px] text-slate-500">
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
                     {t('noCallsToday')}
                   </div>
                 ) : null}
@@ -1652,7 +1684,7 @@ export default function OpsWallboardPage() {
               </div>
             </div>
             <div>
-              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-slate-400">
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('topModels')}
               </div>
               <div className="relative">
@@ -1698,7 +1730,7 @@ export default function OpsWallboardPage() {
             className="xl:col-span-7"
             right={
               edge ? (
-                <span className="text-[10px] text-slate-500">
+                <span className="text-[10px] text-muted-foreground">
                   {t('edgeUpdatedAgo', { ago: fmtAgo(edge.at) })}
                 </span>
               ) : (
@@ -1716,42 +1748,42 @@ export default function OpsWallboardPage() {
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-sm border border-[rgba(72,146,196,0.16)] bg-[rgba(20,36,60,0.5)] px-2.5 py-2">
-                    <div className="text-[10px] tracking-[0.12em] text-slate-400">
+                  <div className="rounded-sm border border-border bg-muted/60 px-2.5 py-2">
+                    <div className="text-[10px] tracking-[0.12em] text-muted-foreground">
                       {t('edgeHeadlineMs')}
                     </div>
                     <div
                       className={cn(
                         'wb-num mt-0.5 text-[26px] leading-none font-bold',
                         edgeLastTone === 'bad'
-                          ? 'text-red-400'
+                          ? 'text-destructive'
                           : edgeLastTone === 'warn'
-                            ? 'text-amber-300'
+                            ? 'text-warning'
                             : edgeLastTone === 'unknown'
-                              ? 'text-slate-500'
-                              : 'text-cyan-300',
+                              ? 'text-muted-foreground'
+                              : 'text-info',
                       )}
                     >
                       {isNum(edge.stats.lastMs) ? fmtInt(edge.stats.lastMs) : '—'}
                       {isNum(edge.stats.lastMs) ? (
-                        <span className="ml-1 text-[12px] text-slate-400">{t('unitMs')}</span>
+                        <span className="ml-1 text-[12px] text-muted-foreground">{t('unitMs')}</span>
                       ) : null}
                     </div>
                   </div>
-                  <div className="rounded-sm border border-[rgba(72,146,196,0.16)] bg-[rgba(20,36,60,0.5)] px-2.5 py-2">
-                    <div className="text-[10px] tracking-[0.12em] text-slate-400">
+                  <div className="rounded-sm border border-border bg-muted/60 px-2.5 py-2">
+                    <div className="text-[10px] tracking-[0.12em] text-muted-foreground">
                       {t('edgeHeadlineHit')}
                     </div>
                     <div
                       className={cn(
                         'wb-num mt-0.5 text-[26px] leading-none font-bold',
                         edgeHitTone === 'bad'
-                          ? 'text-red-400'
+                          ? 'text-destructive'
                           : edgeHitTone === 'warn'
-                            ? 'text-amber-300'
+                            ? 'text-warning'
                             : edgeHitTone === 'unknown'
-                              ? 'text-slate-500'
-                              : 'text-emerald-300',
+                              ? 'text-muted-foreground'
+                              : 'text-success',
                       )}
                     >
                       {isNum(edge.stats.hitRatio)
@@ -1779,25 +1811,25 @@ export default function OpsWallboardPage() {
                   />
                   <StatCell label={t('edgeStatSamples')} value={fmtInt(edge.stats.samples)} />
                 </div>
-                <div className="flex items-center gap-2 rounded-sm border border-[rgba(72,146,196,0.16)] bg-[rgba(20,36,60,0.5)] px-2.5 py-2">
+                <div className="flex items-center gap-2 rounded-sm border border-border bg-muted/60 px-2.5 py-2">
                   <Dot tone={edge.legs.originViaCf.ok ? 'ok' : 'bad'} />
-                  <span className="text-[10px] tracking-[0.12em] text-slate-400">
+                  <span className="text-[10px] tracking-[0.12em] text-muted-foreground">
                     {t('edgeControlLeg')}
                   </span>
                   <span
                     className={cn(
                       'wb-num ml-auto text-[14px] font-semibold',
-                      isNum(edge.legs.originViaCf.totalMs) ? 'text-slate-200' : 'text-slate-500',
+                      isNum(edge.legs.originViaCf.totalMs) ? 'text-foreground' : 'text-muted-foreground',
                     )}
                   >
                     {isNum(edge.legs.originViaCf.totalMs)
                       ? fmtInt(edge.legs.originViaCf.totalMs)
                       : '—'}
-                    <span className="ml-0.5 text-[11px] text-slate-400">{t('unitMs')}</span>
+                    <span className="ml-0.5 text-[11px] text-muted-foreground">{t('unitMs')}</span>
                   </span>
                 </div>
                 <div className="min-h-0 flex-1">
-                  <div className="mb-1 text-[10px] tracking-[0.14em] text-slate-400">
+                  <div className="mb-1 text-[10px] tracking-[0.14em] text-muted-foreground">
                     {t('edgeSparkTitle')}
                   </div>
                   <div className="relative">
@@ -1810,7 +1842,7 @@ export default function OpsWallboardPage() {
           </Panel>
         </section>
 
-        <footer className="flex items-center justify-between border-t border-[rgba(72,146,196,0.16)] px-5 py-2 text-[10px] text-slate-600">
+        <footer className="flex items-center justify-between border-t border-border px-5 py-2 text-[10px] text-muted-foreground">
           <span>{t('footerSources', { url: ov?.prometheusUrl ?? '—' })}</span>
           <span className="wb-num">
             {t('footerUptime', {
@@ -1832,11 +1864,24 @@ const WALLBOARD_CSS = `
 .wb-root {
   --wb-font-display: 'Bahnschrift', 'DIN Alternate', 'Oswald', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --wb-font-num: 'JetBrains Mono', 'Cascadia Mono', 'Consolas', 'Bahnschrift', monospace;
+  /* 辉光/网格线一律引用语义 token(color-mix 取 alpha):明暗随站点主题,不再写死深空蓝 */
   background-image:
-    radial-gradient(1100px 520px at 82% -12%, rgba(34, 211, 238, 0.11), transparent 60%),
-    radial-gradient(880px 460px at 8% 108%, rgba(167, 139, 250, 0.09), transparent 62%),
-    linear-gradient(rgba(72, 146, 196, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(72, 146, 196, 0.05) 1px, transparent 1px);
+    radial-gradient(
+      1100px 520px at 82% -12%,
+      color-mix(in srgb, var(--color-info) 12%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      880px 460px at 8% 108%,
+      color-mix(in srgb, var(--chart-5) 10%, transparent),
+      transparent 62%
+    ),
+    linear-gradient(color-mix(in srgb, var(--color-border) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-border) 55%, transparent) 1px,
+      transparent 1px
+    );
   background-size: auto, auto, 32px 32px, 32px 32px;
 }
 .wb-display { font-family: var(--wb-font-display); }
@@ -1848,7 +1893,9 @@ const WALLBOARD_CSS = `
 /* 切角面板 + 四角亮标 */
 .wb-panel {
   clip-path: polygon(0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px));
-  box-shadow: inset 0 0 24px rgba(34, 211, 238, 0.05), 0 8px 26px rgba(2, 8, 18, 0.5);
+  box-shadow:
+    inset 0 0 24px color-mix(in srgb, var(--color-info) 6%, transparent),
+    0 8px 26px var(--color-black-20);
 }
 .wb-header::after {
   content: '';
@@ -1857,7 +1904,13 @@ const WALLBOARD_CSS = `
   right: 0;
   bottom: -1px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.55), rgba(167, 139, 250, 0.4), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-info) 55%, transparent),
+    color-mix(in srgb, var(--chart-5) 45%, transparent),
+    transparent
+  );
   animation: wb-scan 6s linear infinite;
 }
 @keyframes wb-scan {
@@ -1872,7 +1925,7 @@ const WALLBOARD_CSS = `
 }
 .wb-root ::-webkit-scrollbar { width: 6px; height: 6px; }
 .wb-root ::-webkit-scrollbar-thumb {
-  background: rgba(72, 146, 196, 0.35);
+  background: color-mix(in srgb, var(--color-muted-foreground) 55%, transparent);
   border-radius: var(--radius-xs);
 }
 .wb-root ::-webkit-scrollbar-track { background: transparent; }
