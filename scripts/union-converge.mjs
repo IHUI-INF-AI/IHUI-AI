@@ -89,6 +89,10 @@
  *       #   另加"必须带原因""不得自取代";证不出去向 ⇒ 照旧判红并带原因。
  *       #   本轮没命中的声明同样判红(不记通过)—— 陈旧的放行清单不许被读成"这轮放过东西"。
  *       #   放行的每一行逐条打印并写进合并提交信息(与守门 83"声明式例外不静默"同一规矩)。
+ *   node scripts/union-converge.mjs --show-all-bad
+ *       # 全列落地闸障碍。缺省只印前 15 条,并在末尾**报出余下几条 + 指向本旗标**(2026-10-20 立:
+ *       #   旧写法 `bad.slice(0, 15)` 与标题行的 `bad.length` 不同形,账面"19 处"只列 15 行,
+ *       #   读账的人只能另写探针 import plan() 才看得见全貌)。静默截断与"没有"同形,不许。
  *   node scripts/union-converge.mjs --self-test      # 真临时仓取证(含"选边必判失败"反向对照)
  *   node scripts/union-converge.mjs --move-aware-detail
  *       # 把"因搬运感知而未取回"的行**逐行**打印(默认只按条目块给计数 + 出处归档件路径)。
@@ -1467,6 +1471,31 @@ export function renderResurrectWatch(r) {
     ]
   if (r.status === 'out-of-scope') return [`   ℹ️ [R1r 复活对账·未覆盖] ${r.doc}:${r.reason}(未覆盖 ≠ 通过)`]
   return [`   ❓ [R1r 复活对账·未判定] ${r.doc}:${r.reason}(不是"查过且干净")`]
+}
+
+/**
+ * 落地闸障碍清单的打印形状(纯函数,唯一实现)。
+ *
+ * 存在的理由(2026-10-20 实测自伤):这里曾写 `p.bad.slice(0, 15)` 而标题行报 `p.bad.length`,
+ * 于是账面出现「❌ 落地闸不过 19 处」而下面只有 15 行 —— 既不报"余 4 条",也不给看全的出路。
+ * 我照着它做判断时只能另写探针 `import { plan }` 才拿到全清单,那一轮白花二十分钟。
+ * 形状照本仓既有写法(`check-transcript-addressability.mjs:808`「其余 N 条未打印(--top 调)」):
+ * **截断必须报名,并给出一条真跑得通的出路**;静默截断与"没有嫌疑人"同形(与 `git-guardian` 那条同源)。
+ *
+ * @param {Array<unknown>} bad 障碍全清单(顺序即打印顺序)
+ * @param {{showAll?:boolean, cap?:number}} [opts] showAll ⇒ 全列;缺省打印上限 15
+ * @returns {string[]} 待逐行打印的行(含缩进)
+ */
+export function formatBadReport(bad, opts = {}) {
+  const list = Array.isArray(bad) ? bad : []
+  const cap = opts.showAll ? list.length : (opts.cap ?? 15)
+  const rows = list.slice(0, Math.max(0, cap)).map((b) => `   ${b}`)
+  const hidden = list.length - rows.length
+  if (hidden > 0)
+    rows.push(
+      `   … 其余 ${hidden} 条未打印(加 --show-all-bad 全列;标题那行的总数含它们,不是"没有")`,
+    )
+  return rows
 }
 
 /** --resurrect-block 的接线点(main 专供、导出供测):只把"新增强"折进落地闸;存量与未判定在任何档位都不拦。 */
@@ -4134,6 +4163,9 @@ async function main() {
   // 推送链零风险:对侧一份滞后台账副本就能让每一次收敛判红,那等于把收敛器自己变成恒红门
   // (§12e/§12f:被恒红逼出来的放行开关,连事故那一型也一起放行)。存量与未判定任何档位都不拦。
   const resurrectBlock = argv.includes('--resurrect-block')
+  // --show-all-bad:全列落地闸障碍。缺省只印前 15 条**并报名余下几条 + 给出这条路**(见 formatBadReport);
+  // 只裁不报的形状会让读账的人以为"就这么些",而真数常是几十上百条。
+  const showAllBad = argv.includes('--show-all-bad')
   // --base <sha>(2026-10-14):显式指定三方归并的基底。仅在远端被强制重写过、merge-base 返回
   //   "被重写前的旧分叉点"(相对新两侧是空基底,炸出大片假人工裁决)时才需要喂 —— 此时真实共同
   //   祖先是被重写前的远端 tip。缺省行为完全不变(仍走 merge-base)。
@@ -4246,7 +4278,7 @@ async function main() {
   if (resurrectBlock) applyResurrectBlock(p)
   if (p.bad.length) {
     console.log(`❌ 落地闸不过 ${p.bad.length} 处:`)
-    for (const b of p.bad.slice(0, 15)) console.log(`   ${b}`)
+    for (const line of formatBadReport(p.bad, { showAll: showAllBad })) console.log(line)
     // F9 判红时必须给出**可执行的出路**,只喊"需人工"的结局本仓写死了(§12e/§12f):每台每次跳钩子。
     // 只打印出路,不碰判据本体;出路里插的是**当次那枚远端 sha**,不是占位文案。
     if (p.bad.some((b) => String(b).includes('F9 归并新增撞号组')))
@@ -4430,6 +4462,7 @@ export const __test__ = {
   foldDedupe,
   attestFoldPair,
   supersedeProof,
+  formatBadReport,
   formatFoldReport,
   ensureTrailingNewline,
   moveAwareForDoc,

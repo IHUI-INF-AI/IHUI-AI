@@ -1706,12 +1706,49 @@ class SessionStore:
         bump_branch_generation(thread_id, "fork")
         # 复制前缀 items(<=at_response_id)到新 thread
         with self._tx() as conn:
+            import uuid
+
+            # G-26:复制出来的 items 必须挂在**分支自己的** turn 上。
+            # 旧实现沿用来源 turn_id ⇒ fork 线程 list_turns 恒空,且来源线程之后
+            # revert_thread 删 turns 时会被 fork 的 items 以 FOREIGN KEY 挡住
+            # (schema:items.turn_id → turns.turn_id)。fork 是独立分支,分支内回滚
+            # 只应影响自己的副本 ⇒ turn 换新 id,turn_seq/状态/时间/元数据原样保留。
+            turn_rows = conn.execute(
+                "SELECT turn_id, turn_seq, status, started_at, ended_at, error, metadata"
+                " FROM turns WHERE thread_id = ? AND turn_seq <= ("
+                "  SELECT COALESCE(MAX(t.turn_seq), 0) FROM turns t"
+                "  JOIN items i ON i.turn_id = t.turn_id"
+                "  WHERE i.thread_id = ? AND i.seq <= ?)"
+                " ORDER BY turn_seq ASC",
+                (thread_id, thread_id, at_response_id),
+            ).fetchall()
+            turn_id_map: dict[str, str] = {}
+            for turn_row in turn_rows:
+                old_turn_id = _row_str(turn_row, "turn_id")
+                new_turn_id = uuid.uuid4().hex
+                turn_id_map[old_turn_id] = new_turn_id
+                conn.execute(
+                    "INSERT INTO turns (turn_id, thread_id, turn_seq, status,"
+                    " started_at, ended_at, error, metadata)"
+                    " VALUES (?,?,?,?,?,?,?,?)",
+                    (
+                        new_turn_id,
+                        new_thread.thread_id,
+                        _row_int(turn_row, "turn_seq"),
+                        _row_str(turn_row, "status"),
+                        _row_float(turn_row, "started_at"),
+                        _row_opt_float(turn_row, "ended_at"),
+                        _row_opt_str(turn_row, "error"),
+                        _row_str(turn_row, "metadata"),
+                    ),
+                )
             rows = conn.execute(
                 "SELECT * FROM items WHERE thread_id = ? AND seq <= ? ORDER BY seq ASC",
                 (thread_id, at_response_id),
             ).fetchall()
             for row in rows:
                 new_seq = self._next_seq(conn)
+                source_turn_id = _row_opt_str(row, "turn_id")
                 conn.execute(
                     "INSERT INTO items (seq, thread_id, turn_id, parent_seq, item_type,"
                     " created_at, payload, search_text, client_item_id, content_hash)"
@@ -1719,7 +1756,9 @@ class SessionStore:
                     (
                         new_seq,
                         new_thread.thread_id,
-                        _row_opt_str(row, "turn_id"),
+                        turn_id_map[source_turn_id]
+                        if source_turn_id is not None
+                        else None,
                         _row_opt_int(row, "parent_seq"),
                         _row_str(row, "item_type"),
                         _row_float(row, "created_at"),
