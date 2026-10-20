@@ -133,7 +133,8 @@ const GIT_OPTS = {
 }
 
 function git(args) {
-  return execFileSync('git', args, GIT_OPTS)
+  // windowsHide 必须写在调用点上:守门 52 的静态判据不解析 GIT_OPTS 常量。
+  return execFileSync('git', args, { ...GIT_OPTS, windowsHide: true })
 }
 
 function canResolve(ref) {
