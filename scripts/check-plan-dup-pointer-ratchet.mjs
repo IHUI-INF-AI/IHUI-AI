@@ -42,6 +42,16 @@
  * 取证:镜像测试 P9(单份⇒0 为阳性对照、三份⇒2、非登记行不计数、变多判红、折并归零判绿,
  * 外加一条形状锁断言 `DUP_POINTER_RE` 未被扩大)。
  *
+ * 维④(2026-10-20 立)「严格前缀型副本对」差值棘轮:
+ * 两条未勾登记行,短行**逐字**是长行的前缀 ⇒ 短行不承载独有内容,它只是同一件事被抄了一份
+ * (长行随后被加注记、短行停在旧态)。这一型三把现有尺子全放过:门 203 的复合主键要编号
+ * (这类行常写「未取号:同上」)、`--fold-identical-open-rows` 只认整行逐字相同、维①②管注记与整行折并。
+ * 现读存量 34 对 ⇒ 默认档**只报数**,`--strict` 才问责(按存量当场判红就是 §12e 禁的恒红门);
+ * `--staged` 面 vs HEAD 面只拦变多。
+ * 为什么做成尺子而不是手工扫一遍:活文档走 `git-sync-converge` 的行级 union,而 **union 不传播删除**
+ * —— 同日实测到本会话折掉的行被对侧旧底稿原样换回。手工清是消耗品,判据不是。
+ * 取证:镜像 P10(两行成对⇒1 为阳性对照、无副本⇒0、已勾行不计、链式 A⊂BC⇒3、差值 grew 判定)。
+ *
  * 用法:
  *   node scripts/check-plan-dup-pointer-ratchet.mjs --staged  (pre-commit, 阻塞)
  *   node scripts/check-plan-dup-pointer-ratchet.mjs           (全量审计,exit 0/1)
@@ -145,6 +155,47 @@ export function redundantNoteCount(text) {
 export function noteRedundancyVerdict(headText, newText) {
   const before = redundantNoteCount(headText)
   const after = redundantNoteCount(newText)
+  return { before, after, grew: after > before }
+}
+
+/**
+ * 维④(2026-10-20 立)「严格前缀型副本对」读数。
+ *
+ * 型态:两条**未勾登记行**,短行逐字是长行的前缀 ⇒ 短行不承载任何独有内容,它只是同一件事
+ * 被抄了一份(长行随后被加了注记,短行停在旧态)。这一型三把现有尺子全放过:
+ * 门 203 的复合主键要编号(这类行常写「未取号:同上」)、`--fold-identical-open-rows`
+ * 只认**整行逐字相同**、维①②管的是注记与整行折并。
+ *
+ * 为什么做成尺子而不是手工扫一遍:本仓的活文档走 `git-sync-converge` 的行级 union,
+ * 而 union **不传播删除** —— 实测今天折掉的行有被对侧旧底稿原样换回的(见 92b5d876aa 之后
+ * 的三轮 merge 复测)。手工清是消耗品,判据不是。
+ *
+ * 算法:按字典序排序后,"以 A 为前缀的串"必成连续区间 ⇒ 对每个 A 从其后扫到不再 startsWith 为止。
+ * 刻意只数**对数**(不递归去重):链式(A⊂BC)报 3 对,让人一眼看见有几处要判。
+ */
+export function prefixTwinPairs(text) {
+  const open = []
+  for (const l of String(text || '').split(/\r?\n/)) {
+    const t = l.replace(/\r$/, '')
+    if (/^- \[ \]/.test(t)) open.push(t)
+  }
+  const sorted = open.slice().sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+  let pairs = 0
+  for (let i = 0; i < sorted.length; i++) {
+    const a = sorted[i]
+    for (let j = i + 1; j < sorted.length && sorted[j].startsWith(a); j++) {
+      // 只数**严格**前缀:整行逐字相同那一型有它自己的合法摘除通道
+      // (`plan-tasks-merge --fold-identical-open-rows`),两处都计会让两个出口互相顶账。
+      if (sorted[j].length > a.length) pairs++
+    }
+  }
+  return pairs
+}
+
+/** 维④差值判定(纯函数):本次提交让前缀型副本对变多 ⇒ 红。 */
+export function prefixTwinVerdict(headText, newText) {
+  const before = prefixTwinPairs(headText)
+  const after = prefixTwinPairs(newText)
   return { before, after, grew: after > before }
 }
 
@@ -255,6 +306,32 @@ function main(argv) {
     }
     console.log(
       `${C.cyan}📊 叠注重数:${nr.after} 份(同一行内逐字相同的注记多出来的份数;全量档默认只报数,--strict 才问责)${C.reset}`,
+    )
+  }
+
+  // 维④:严格前缀型副本对(2026-10-20 立)。存量现读 34 对 ⇒ 默认档**只报数**,
+  // 当场按存量判红就是 §12e 禁的恒红门;差值档只拦"本次提交让副本对变多"。
+  const pt = staged
+    ? prefixTwinVerdict(oldContent, newContent)
+    : { before: 0, after: prefixTwinPairs(newContent), grew: false }
+  if (staged && pt.grew) {
+    console.error(
+      `${C.red}❌ 前缀型副本棘轮:${C.reset}本次提交让"短行逐字是长行前缀"的未勾登记行从 ${pt.before} 对增至 ${pt.after} 对(+${pt.after - pt.before})`,
+    )
+    console.error(
+      `${C.yellow}出路:${C.reset} 同一件事只留一行 —— 旧行按 §1 翻勾后摘除(完成即删两步:先翻勾入库,再删已勾行;未勾行受守门 71 保护,不可一步删净)。整行逐字相同的那种走 \`node scripts/plan-tasks-merge.mjs --fold-identical-open-rows\`。`,
+    )
+    return 1
+  }
+  if (!staged) {
+    if (pt.after > 0 && strict) {
+      console.error(
+        `${C.red}❌ 前缀型副本存量:${C.reset}当前面未勾登记行上有 ${pt.after} 对"短行逐字是长行前缀"的重复登记(--strict 问责)`,
+      )
+      return 1
+    }
+    console.log(
+      `${C.cyan}📊 前缀型副本对:${pt.after} 对(短行逐字是长行前缀的未勾登记行;全量档默认只报数,--strict 才问责)${C.reset}`,
     )
   }
 
