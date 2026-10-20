@@ -16,7 +16,7 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from app.middleware.audit import _USER_LLM_PATH, AuditMiddleware
-from app.middleware.llm_metrics import llm_requests_total, record_user_request
+from app.middleware.llm_metrics import record_user_request
 
 
 def _count(endpoint: str, status: str) -> float:
