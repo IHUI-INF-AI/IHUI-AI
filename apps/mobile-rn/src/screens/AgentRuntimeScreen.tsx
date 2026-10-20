@@ -36,6 +36,7 @@ import NavBar from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
+import { tokens } from '../theme/active-tokens'
 
 const SESSION_PAGE_SIZE = 50
 const DANGER_LEVELS = ['read', 'write', 'dangerous'] as const
@@ -236,7 +237,7 @@ export function AgentRuntimeScreen() {
             value={probeTool}
             onChangeText={setProbeTool}
             placeholder={t('agentRuntime.probeToolPlaceholder')}
-            placeholderTextColor={isDark ? '#737373' : '#a3a3a3'}
+            placeholderTextColor={tokens.text.tertiary}
             className="rounded-control border border-neutral-200 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
           />
 
