@@ -18,7 +18,12 @@ import {
   getDesktopRefreshToken,
   setDesktopRefreshToken,
 } from '@/lib/desktop-token-vault'
-import { clearSessionLoggedOutMarker, markSessionLoggedOut } from '@/lib/session-marker'
+import {
+  clearSessionEstablished,
+  clearSessionLoggedOutMarker,
+  markSessionEstablished,
+  markSessionLoggedOut,
+} from '@/lib/session-marker'
 import { createPersistConfig, ssrStorage } from './persist-helpers'
 import { createAuthPersistStorage } from '@/lib/chat-persist-crypto'
 import type { PersistStorage } from 'zustand/middleware'
@@ -77,6 +82,9 @@ export const useAuthStore = create<AuthState>()(
         // —— 它只清凭据、不落标记(2026-10-20,见接口注释)。
         if (token) clearSessionLoggedOutMarker()
         else markSessionLoggedOut()
+        // 记下"这台浏览器有过会话":cookie 是 httpOnly,冷启动判定不能靠"JS 看得见"
+        // (见 lib/session-marker.ts 的 SESSION_ESTABLISHED_STORAGE_KEY 头注)。
+        if (token) markSessionEstablished()
         // P2-18 修复(2026-08-06):setAuthCookie/setRefreshTokenCookie 已改为空操作,
         // cookie 由后端 httpOnly Set-Cookie 管理,此处不再实际写 cookie。
         setAuthCookie(token)
@@ -112,6 +120,7 @@ export const useAuthStore = create<AuthState>()(
       setTokenWithPrefs: (token, refreshOrPair, autoLogin) => {
         // 登录成功写入凭据 ⇒ 登出标记作废(否则用户下次正常登录又被判成"刚登出")
         clearSessionLoggedOutMarker()
+        markSessionEstablished()
         const refreshToken =
           typeof refreshOrPair === 'string' ? refreshOrPair : refreshOrPair.refreshToken
         const expiresIn =
@@ -170,6 +179,8 @@ export const useAuthStore = create<AuthState>()(
         // 被动失效:不写标记、不调 /auth/logout(凭据已被服务端否定,再吊销一次没有意义),
         // 也不清此前的标记 —— 若用户此前显式登出过,那份抑制必须继续有效。
         const knownRefresh = get().refreshToken
+        // 服务端明确否定凭据 ⇒ 也别再让下次冷启动为一份死 cookie 空转一次 refresh。
+        clearSessionEstablished()
         clearRefreshTokenCookie()
         // 清 vault 必须是 CAS,不能盲清:桌面多窗口共用 auth.json,另一窗口可能已轮转并把
         // 新 token 写回;盲清会把它抹掉,下次冷启动无凭据可刷(与 lib/api.ts 的 rejected
