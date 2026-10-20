@@ -22,6 +22,7 @@ import { NavGroupSection } from './NavGroupSection'
 import { CustomNavSection } from './CustomNavSection'
 import { SidebarHeader } from './SidebarHeader'
 import { SidebarQuickActions } from './SidebarQuickActions'
+import { useNavVisibilityFilter } from './use-nav-visibility'
 // 宽度常量保留在 barrel (../sidebar.tsx) 中,供 scripts/check-sidebar-width-consistency.mjs 守门脚本校验;
 // 此处从 barrel 读取(与 Sidebar 形成安全的单向常量引用,常量仅在组件渲染期被读取,无模块求值期 TDZ 风险)。
 import {
