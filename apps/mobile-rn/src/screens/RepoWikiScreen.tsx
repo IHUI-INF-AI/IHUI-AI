@@ -16,14 +16,8 @@
  * - 样式与 McpStoreScreen 一致:Tailwind className + resolvedTheme 暗色适配 + NavBar。
  */
 import { useCallback, useEffect, useState } from 'react'
-import {
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { TextField } from '@ihui/rn-app'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { appAlert } from '../components/BottomPops'
 import {
@@ -202,7 +196,8 @@ export function RepoWikiScreen() {
               {t('repoWiki.description')}
             </Text>
             <View className="mt-2 flex-row items-center">
-              <TextInput
+              <TextField
+                colorScheme={resolvedTheme}
                 value={repoName}
                 onChangeText={setRepoName}
                 placeholder={t('repoWiki.repoNamePlaceholder')}

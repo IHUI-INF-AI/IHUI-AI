@@ -15,7 +15,8 @@
  * - 样式与 McpStoreScreen 一致:Tailwind className + resolvedTheme 暗色适配 + NavBar。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { TextField } from '@ihui/rn-app'
 import { appAlert } from '../components/BottomPops'
 import {
   getResearchReport,
@@ -172,7 +173,8 @@ export function DeepResearchScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View className="mx-4 mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
-          <TextInput
+          <TextField
+            colorScheme={resolvedTheme}
             value={query}
             onChangeText={setQuery}
             multiline
@@ -363,9 +365,7 @@ export function DeepResearchScreen() {
                         {t('deepResearch.confidence')}: {Math.round((src.confidence ?? 0) * 100)}%
                       </Text>
                       <Text className="text-xs text-neutral-500">
-                        {src.verified
-                          ? t('deepResearch.verified')
-                          : t('deepResearch.unverified')}
+                        {src.verified ? t('deepResearch.verified') : t('deepResearch.unverified')}
                       </Text>
                     </View>
                     {src.snippet ? (

@@ -15,14 +15,8 @@
  * - 样式与 McpStoreScreen 一致:Tailwind className + resolvedTheme 暗色适配 + NavBar。
  */
 import { useCallback, useEffect, useState } from 'react'
-import {
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { TextField } from '@ihui/rn-app'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { appAlert } from '../components/BottomPops'
 import {
@@ -204,7 +198,10 @@ export function TeamMemoryScreen() {
                 await deleteTeamMemory(row.id)
                 await load(scopeId, kind, keyword)
               } catch (e) {
-                appAlert(t('common.failed'), e instanceof Error ? e.message : t('teamMemory.saveFailed'))
+                appAlert(
+                  t('common.failed'),
+                  e instanceof Error ? e.message : t('teamMemory.saveFailed'),
+                )
               } finally {
                 setBusyId('')
               }
@@ -230,7 +227,8 @@ export function TeamMemoryScreen() {
           <Text className="text-xs text-neutral-600 dark:text-neutral-400">
             {t('teamMemory.description')}
           </Text>
-          <TextInput
+          <TextField
+            colorScheme={resolvedTheme}
             value={scopeId}
             onChangeText={setScopeId}
             placeholder={t('teamMemory.scopePlaceholder')}
@@ -240,7 +238,8 @@ export function TeamMemoryScreen() {
             className="mt-2 h-9 rounded-control border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
           />
           <View className="mt-2 flex-row items-center">
-            <TextInput
+            <TextField
+              colorScheme={resolvedTheme}
               value={keyword}
               onChangeText={setKeyword}
               placeholder={t('teamMemory.searchPlaceholder')}
@@ -265,7 +264,9 @@ export function TeamMemoryScreen() {
                   key={k || 'all'}
                   onPress={() => onPickKind(k)}
                   className={`mb-2 mr-2 rounded-control px-3 py-1.5 ${
-                    active ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-200 dark:bg-neutral-800'
+                    active
+                      ? 'bg-neutral-900 dark:bg-neutral-100'
+                      : 'bg-neutral-200 dark:bg-neutral-800'
                   }`}
                 >
                   <Text
@@ -298,14 +299,16 @@ export function TeamMemoryScreen() {
 
         {editing ? (
           <View className="mx-4 mt-2 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
-            <TextInput
+            <TextField
+              colorScheme={resolvedTheme}
               value={editing.title}
               onChangeText={(v) => setEditing((prev) => (prev ? { ...prev, title: v } : prev))}
               placeholder={t('teamMemory.titlePlaceholder')}
               placeholderTextColor={isDark ? '#a3a3a3' : '#737373'}
               className="h-9 rounded-control border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
             />
-            <TextInput
+            <TextField
+              colorScheme={resolvedTheme}
               value={editing.content}
               onChangeText={(v) => setEditing((prev) => (prev ? { ...prev, content: v } : prev))}
               placeholder={t('teamMemory.contentPlaceholder')}
@@ -313,7 +316,8 @@ export function TeamMemoryScreen() {
               multiline
               className="mt-2 min-h-[72px] rounded-control border border-neutral-300 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
             />
-            <TextInput
+            <TextField
+              colorScheme={resolvedTheme}
               value={editing.tags}
               onChangeText={(v) => setEditing((prev) => (prev ? { ...prev, tags: v } : prev))}
               placeholder={t('teamMemory.tagsPlaceholder')}
@@ -328,7 +332,9 @@ export function TeamMemoryScreen() {
                     key={k}
                     onPress={() => setEditing((prev) => (prev ? { ...prev, kind: k } : prev))}
                     className={`mb-2 mr-2 rounded-control px-3 py-1.5 ${
-                      active ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-200 dark:bg-neutral-800'
+                      active
+                        ? 'bg-neutral-900 dark:bg-neutral-100'
+                        : 'bg-neutral-200 dark:bg-neutral-800'
                     }`}
                   >
                     <Text
@@ -387,7 +393,10 @@ export function TeamMemoryScreen() {
                     </Text>
                   </View>
                 </View>
-                <Text className="mt-1 text-xs text-neutral-600 dark:text-neutral-400" numberOfLines={3}>
+                <Text
+                  className="mt-1 text-xs text-neutral-600 dark:text-neutral-400"
+                  numberOfLines={3}
+                >
                   {row.content}
                 </Text>
                 {row.tags.length > 0 ? (
