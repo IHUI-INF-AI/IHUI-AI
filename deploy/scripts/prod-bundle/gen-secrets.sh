@@ -113,7 +113,7 @@ for placeholder in "${!REPLACEMENTS[@]}"; do
         "<AUTOGEN-SERVICE-MESH-JWT>")    field="SERVICE_MESH_JWT_SECRET" ;;
         "<AUTOGEN-AUDIT-HMAC>")          field="AUDIT_LOG_HMAC_SECRET" ;;
         "<AUTOGEN-SWAGGER-KEY>")         field="SWAGGER_API_KEY" ;;
-        "<AUTOGEN-GRAFANA-PASSWORD>")    field="GRAFANA_ADMIN_PASSWORD" ;;
+        "<AUTOGEN-GRAFANA-PASSWORD>")    field="BOARD_ADMIN_PASSWORD" ;;
     esac
     echo "  $field = ${REPLACEMENTS[$placeholder]}"
 done
