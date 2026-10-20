@@ -20,7 +20,7 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(HERE, '..', 'check-no-nested-git.mjs')
-const { evaluateResult, splitByExemption, loadNamedExemptions, normRel, scanForNestedGit } =
+const { evaluateResult, splitByExemption, loadNamedExemptions, loadNamedSites, normRel, scanForNestedGit } =
   (await import(pathToFileURL(SCRIPT_PATH).href)).__test__
 
 const E = (rel, over = {}) => ({
@@ -184,6 +184,51 @@ test('⑦ 本仓 linked worktree 按双向核验分流;四种不实形态照旧�
     )
   } finally {
     rmScratch(scratch)
+  }
+})
+
+test('⑨ 行式意图登记作第二把载体:命中才免、失去命中只提醒不清红(旧 JSON 的腐烂红一字未动)', () => {
+  const hit = HIT('.ihui-agent/desktop-feed-clone/.git')
+  const site = E('.ihui-agent/desktop-feed-clone')
+  const v = evaluateResult({ hits: [hit], truncated: false, unreadable: [], skippedReparse: 0 }, { sites: [site], today: '2026-10-20' })
+  assert.equal(v.ok, true, '行式登记免不掉真实命中 = 第二把载体形同虚设')
+  assert.equal(v.exempted.length, 1)
+  assert.deepEqual(v.stale, [], '旧 JSON 台账未被触碰,不该凭空产腐烂')
+  assert.deepEqual(v.staleSites, [])
+
+  // 现场撤离后:该行进 staleSites(提醒),但**不判红** —— 这是六轮翻转的燃料所在
+  const gone = evaluateResult({ hits: [], truncated: false, unreadable: [], skippedReparse: 0 }, { sites: [site], today: '2026-10-21' })
+  assert.equal(gone.ok, true, '行式载体失去命中却清红 = 又把门做成恒红(§12e),正解是提醒+随批摘行')
+  assert.equal(gone.staleSites.length, 1, '失去命中必须点名,不许静默')
+
+  // 同一场景走旧 JSON:腐烂判红必须**照样红**(保留原语义,不借第二把之名削它)
+  const old = evaluateResult({ hits: [], truncated: false, unreadable: [], skippedReparse: 0 }, { entries: [site], checkStale: true, today: '2026-10-21' })
+  assert.equal(old.ok, false, '旧台账的腐烂红被我顺手放宽了 = 判据被削')
+  assert.match(old.reasons[0], /清单腐烂判红/)
+})
+
+test('⑩ 行式载体的三条锁:到期不免、坏行零免且点名、生产档形态自证', () => {
+  const hit = HIT('outputs/ihui-bench-release/.git')
+  const expired = evaluateResult({ hits: [hit], truncated: false, unreadable: [], skippedReparse: 0 }, {
+    sites: [E('outputs/ihui-bench-release', { expires: '2026-10-19' })],
+    today: '2026-10-20',
+  })
+  assert.equal(expired.ok, false, '到期还放行 = 豁免永不失效')
+  assert.match(expired.reasons[0], /已到期/)
+
+  const badLine = evaluateResult({ hits: [hit], truncated: false, unreadable: [], skippedReparse: 0 }, {
+    sites: [{ rel: 'outputs/ihui-bench-release', owner: '', why: '没归属', expires: '2099-01-01' }],
+    today: '2026-10-20',
+  })
+  assert.equal(badLine.exempted.length, 0, '缺 owner 的行仍生效 = 空理由就能豁免,§0.7 失效')
+
+  const live = loadNamedSites(join(HERE, '..', 'data', 'no-nested-git-sites.jsonl'))
+  assert.equal(live.error, '', `随仓现场登记件不可用:${live.error}`)
+  assert.deepEqual(live.bad, [])
+  for (const e of live.entries) {
+    assert.equal(e.rel, normRel(e.rel), 'rel 必须已是归一形态')
+    assert.doesNotMatch(e.rel, /\.git$/, '登记的是容器目录,不是 .git 本身')
+    assert.ok(e.expires > '2026-10-19', `条目 ${e.rel} 登记时就已过期`)
   }
 })
 
