@@ -1030,7 +1030,7 @@ iframe::-webkit-scrollbar {
 /* ============================================================
  * AI 输入卡描边四态(2026-09-30)
  * ============================================================
- * 为什么必须是原生 CSS 而不是 Tailwind 的 `border-input` / `border-amber-500/50` /
+ * 为什么必须是原生 CSS 而不是 Tailwind 的 `border-input` / `border-border-medium` /
  * `border-brand-accent-deep`:本文件上方那条 `* { border-color: var(--color-border) }` 是
  * **未分层**规则,而 Tailwind v4 的工具类在 `@layer utilities` 内 —— 按 CSS 级联规范,
  * 未分层声明恒胜过任何分层声明(与 specificity 无关)。实测编译产物里
@@ -1042,6 +1042,10 @@ iframe::-webkit-scrollbar {
  * 聚焦态取墨档 = AGENTS §4「描边不得取墨档」的**唯一例外位**(2026-09-30 用户定档):
  * 「当前正在输入哪个框」要一眼可见,而守门 83 的 R8 按"选择器带 :focus* 伪类"认这一位合法。
  * 分支互斥仍由 JSX 决定(dragging > high-risk > idle),所以各态取用不同修饰类,不做状态叠加假设。
+ *
+ * 高风险态不得用暖色描边表达(2026-10-20 用户定档,取代此前的 amber-500 50%/70%):
+ * 橙/琥珀描边在全项目禁止出现。该态的风险信号改由 `animate-pulse-soft` 独占承担,
+ * 描边只取中性档(未聚焦)与墨档(聚焦),与其余两态同规。
  */
 .ai-input-shell {
   border-color: var(--color-input);
@@ -1050,10 +1054,10 @@ iframe::-webkit-scrollbar {
   border-color: var(--color-primary);
 }
 .ai-input-shell--high-risk {
-  border-color: color-mix(in srgb, var(--color-amber-500) 50%, transparent);
+  border-color: var(--color-border-medium);
 }
 .ai-input-shell--high-risk:focus-within {
-  border-color: color-mix(in srgb, var(--color-amber-500) 70%, transparent);
+  border-color: var(--color-primary);
 }
 .ai-input-shell--dragging {
   border-color: var(--color-brand-accent-deep);

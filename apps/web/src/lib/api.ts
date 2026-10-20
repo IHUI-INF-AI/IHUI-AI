@@ -114,8 +114,14 @@ setTokenProvider({
       // 据此跳过 notifyUnauthorized),不外溢给调用方;同时**不能**清桌面 vault:凭据没被
       // 服务端否定,清了下次冷启动就真的无 token 可刷 —— 正是"自动登录总被清掉"的一条腿。
       if (lastRefreshFailure === 'transient') throw new TransientRefreshError()
-      // rejected(401/403) = refreshToken 已失效:清空桌面 vault,避免每次启动重复失败空转
-      if (storedRefresh) await setDesktopRefreshToken(null)
+      // rejected(401/403) = 本次拿到的 refreshToken 已失效:清空桌面 vault,避免每次启动重复失败空转。
+      // 只清**本窗口实际用过的那一份**(CAS):桌面端多窗口共用 auth.json,另一窗口/页签可能
+      // 已轮转并把新 token 写回同一份 vault —— 盲清会抹掉别人刚写的新凭据,表现为"自动登录
+      // 时好时坏"。与 api-client 写回的 compare-and-set 同形:值变了就不是我的,不动。
+      if (storedRefresh) {
+        const current = await getDesktopRefreshToken()
+        if (current === storedRefresh) await setDesktopRefreshToken(null)
+      }
       return null
     }),
 })

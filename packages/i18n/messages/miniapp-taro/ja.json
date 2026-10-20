@@ -87,6 +87,7 @@
     "loadFailed": "タスクの読み込みに失敗しました"
   },
   "common": {
+    "backToTop": "一番上へ",
     "hint": "ヒント",
     "goSettings": "設定へ",
     "all": "すべて",
