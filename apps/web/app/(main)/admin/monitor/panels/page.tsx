@@ -78,7 +78,7 @@ export default function MonitorPanelsPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-64px)] flex-col gap-1">
+    <div className="flex h-[calc(100vh-64px)] flex-col gap-1 px-4">
       <div className="flex shrink-0 items-center justify-end">
         <div className="inline-flex items-center rounded-md border border-border bg-muted/40 p-0.5">
           <button
