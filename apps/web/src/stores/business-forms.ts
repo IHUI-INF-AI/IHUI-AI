@@ -24,6 +24,8 @@ export interface BusinessFormEntry {
   /** 上行回传通道;缺省即无通道(不发 form_response,只留痕) */
   sessionId?: string
   kind: BusinessFormKind
+  /** 表单形态(create/update/save),原样取自线帧 mode 槽;缺省由卡片按 create 档处理 */
+  mode?: string
   /** 挂载到哪条 assistant 消息 */
   messageId: string
   /** 成对动作(协议保证恒为 approve + reject) */
