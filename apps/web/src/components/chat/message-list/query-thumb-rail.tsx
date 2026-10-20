@@ -8,6 +8,7 @@ import * as React from 'react'
 import type { RefObject } from 'react'
 import { useTranslations } from 'next-intl'
 import type { ChatMessage } from '@/stores/chat'
+import { useOptionalPaneId } from '@/stores/chat-pane-context'
 import { floatIndicatorRailCls, FloatIndicatorDot } from '@/components/ui/float-indicator'
 
 /** W18 对话流缩略导航 / 消息地图(2026-09-14 升级,原 #18 Query 导航):
@@ -60,6 +61,8 @@ const KIND_CLS: Record<MapNodeKind, { shape: string; color: string }> = {
 
 export function QueryThumbRail({ messages, containerRef }: QueryThumbRailProps) {
   const t = useTranslations('chat')
+  // 票60:跳转事件带发起方窗格身份,消费侧按 matchesPaneEvent 门控(缺省 null = 根,零回归)
+  const paneId = useOptionalPaneId()
   // W18:三类节点 —— 用户消息 / 工具卡(assistant 含 toolCalls 且无正文) / 错误消息
   const nodes = React.useMemo<MapNode[]>(() => {
     const out: MapNode[] = []
@@ -155,7 +158,9 @@ export function QueryThumbRail({ messages, containerRef }: QueryThumbRailProps) 
     armFallbackRef.current = window.setTimeout(() => {
       if (linkPhaseRef.current === 'locked') linkPhaseRef.current = 'armed'
     }, 1000)
-    window.dispatchEvent(new CustomEvent('ihui:scroll-to-message', { detail: { messageId } }))
+    window.dispatchEvent(
+      new CustomEvent('ihui:scroll-to-message', { detail: { messageId, paneId } }),
+    )
   }
 
   const kindLabel = (kind: MapNodeKind): string =>
