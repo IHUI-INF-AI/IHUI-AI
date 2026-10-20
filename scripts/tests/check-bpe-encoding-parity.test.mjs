@@ -64,17 +64,17 @@ const pkgDir = join(ROOT, 'packages', 'context-compaction', 'node_modules', 'gpt
 const req = createRequire(join(ROOT, 'packages', 'context-compaction', 'package.json'))
 const hasPkg = existsSync(pkgDir)
 
-test('T1 接线方向锁:未装车 ⇒ 头注自称未装,且 guardian-runner 里零命中(读 HEAD 面真值源)', () => {
+test('T1 接线方向锁:已装车 ⇒ 头注自称已装,且 guardian-runner 真有注册条目(读 HEAD 面真值源)', () => {
   const head = gitShowHead(RUNNER)
   assert.equal(head.status, 0, `读 HEAD:${RUNNER} 失败`)
   assert.ok(
-    !head.stdout.includes('check-bpe-encoding-parity.mjs'),
-    '本门在真值源里出现注册条目 —— 头注的"未装车"自称就成了谎报(这正是本仓 40+ 例的成因)',
+    head.stdout.includes('check-bpe-encoding-parity.mjs'),
+    '真值源里必须有本门的注册条目 —— 头注自称已装而 runner 零命中就是谎报(本仓 40+ 例的成因)',
   )
-  // 头注必须**如实**写未装车。若哪天有人真去注册了,这条会红,提醒同步改头注。
+  // 头注必须**如实**写已装车;若哪天注册被撤,这条会红,提醒同步改头注。
   const self = readFileSync(SCRIPT, 'utf8')
-  assert.match(self, /接线状态:未接 pre-commit/, '头注必须自称未接 pre-commit(与真值源一致)')
-  assert.match(self, /未登记 guardian-runner/, '头注必须自称未登记 guardian-runner')
+  assert.match(self, /接线状态:已接 pre-commit/, '头注必须自称已接 pre-commit(与真值源一致)')
+  assert.match(self, /已登记 guardian-runner/, '头注必须自称已登记 guardian-runner')
 })
 
 test('T2 取材面纪律:C1/C2 同面,且正文取材走 face-reader 而非散写 git show', () => {
