@@ -116,6 +116,8 @@ import { loadMcpTools, loadMcpConnections } from '../tools/mcp-runtime.js';
 import { registerMcpToolsToHub } from '../tools/hub/mcp-adapter.js';
 import { InMemoryRegistry } from '../tools/hub/registry.js';
 import { loadSkills, formatSkillsForPrompt, type Skill } from '../skills/index.js';
+import { setSkillCatalog, resetLoadedSkills } from '../skills/session.js';
+import { SKILL_TOOLS } from '../tools/skill-tool.js';
 import { frameSystemReminder, neutralizeBoundaries } from '../utils/prompt-boundary.js';
 import { injectHostSection, injectReminderSection } from '../utils/prompt-injection-registry.js';
 import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
@@ -380,6 +382,9 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   // DAP 调试会话族(用户已批准注册给模型,2026-09-27;守门 131 点名的最后一格零注册族)
   registerTools(DEBUG_TOOLS);
   registerTools(CODEGRAPH_TOOLS);
+  // L5669①:Skill 工具(渐进披露按名拉正文 + 前置门 428)。须在 listTools() 取工具表
+  // 之前注册,否则 G-427 广告门按"Skill 不在表内"整块隐藏技能段。
+  registerTools(SKILL_TOOLS);
   // 浏览器自动化工具:注册后由模型按需调用(执行时经 MCP 连 playwright,不可用自动降级)
   registerBrowserTools();
   // P2-3 剪贴板工具:feature flag 启用时注册(默认关闭,零回归)
@@ -487,6 +492,8 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   const tools = listTools();
   const agentsMd = readAgentsMd(opts.workspacePath);
   const skills = loadSkills({ cwd: opts.workspacePath });
+  // L5669①:目录快照交给 Skill 工具按名解析;装配即重置已加载集合(新会话不带上次的"已加载")。
+  setSkillCatalog(skills);
   if (skills.length > 0 && !opts.silent) {
     console.info(chalk.dim(`  📚 已加载 ${skills.length} 个 skill(/skills 查看,/skill <name> 调用)`));
   }
@@ -1804,6 +1811,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         process.stderr.write(chalk.yellow(`[context-guard] ${guarded.userDiagnostic}\n`));
         opts.onContextDiagnostic?.(guarded.userDiagnostic);
       }
+      // L5669①:compaction 把已返回的技能正文摘要抹掉后,清"已加载"标记 —— 模型必须重新
+      // 调 Skill 工具过前置门、重新拿到正文;目录(名字/描述)仍在 system prompt,不重置。
+      if (guarded.compressed) resetLoadedSkills();
       // 本轮真正下发的消息:压缩后的结果 + (压缩过则)重建的"最近已读文件"提醒段
       let requestMessages = guarded.messages;
       const readStateReminder = contextReminderActive || guarded.compressed ? readState.buildReminder() : null;

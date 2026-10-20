@@ -46,13 +46,33 @@ export function CourseChapterScreen() {
     }
   }, [courseId, t])
 
+  // 本页的唯一用途是进播放:把「章节 → 小节」拍平成可播放行(章节行本身没有视频地址)。
+  // 旧实现拿章节 id 当课程 id 跳 CourseDetail ⇒ 必 404「找不到对应的资源」,且全仓没有任何
+  // 一处能到达 VideoPlayer 路由 —— 这一格就是那条断链的接线点。
+  const playable: CourseChapterItem[] = chapters.flatMap((chapter) =>
+    (chapter.children ?? []).map((section) => ({
+      id: section.id,
+      title: section.title,
+      duration: section.duration,
+      lessonCount: 1,
+      videoUrl: section.videoUrl,
+    })),
+  )
+
   return (
     <SharedCourseChapterScreen
       t={t}
-      items={chapters}
+      items={playable}
       loading={loading}
       error={error}
-      onPressItem={(item) => navigation.navigate('CourseDetail', { id: item.id })}
+      onPressItem={(item) =>
+        navigation.navigate('VideoPlayer', {
+          courseId,
+          lessonId: item.id,
+          title: item.title,
+          videoUrl: item.videoUrl,
+        })
+      }
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
     />

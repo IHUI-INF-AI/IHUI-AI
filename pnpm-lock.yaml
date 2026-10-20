@@ -80,10 +80,6 @@ overrides:
 importers:
 
   .:
-    dependencies:
-      '@parcel/watcher-win32-x64':
-        specifier: ^2.6.0
-        version: 2.6.0
     devDependencies:
       '@ihui/eslint-config':
         specifier: workspace:^
@@ -1571,6 +1567,9 @@ importers:
       '@ihui/types':
         specifier: workspace:*
         version: link:../types
+      lucide-react:
+        specifier: 1.37.0
+        version: 1.37.0(react@19.2.8)
       react:
         specifier: '>=18.0.0'
         version: 19.2.8

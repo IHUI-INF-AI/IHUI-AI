@@ -18,8 +18,12 @@ desktop（Tauri 2）**不独立构建前端**，也**不再内嵌 web 静态导�
 
 ```bash
 # 本机一键发版（仅 Windows 通道）：bump 版本 → tauri build（薄壳 + 签名）→ Gitee release 直传
-#   exe+sig → desktop-feed 更新 → 版本 bump 提交推送 → 本机静默自装
-node scripts/release-desktop-local.mjs            # 可选参数 --no-install / --no-push / --minor / --major
+#   exe+sig → 版本 bump 提交推送 → 本机静默自装
+node scripts/release-desktop-local.mjs            # 可选参数 --no-install / --no-push / --no-upload / --allow-unsigned-upload / --minor / --major
+
+# 注意：本机脚本只做 Tauri 更新签名，不做 Windows Authenticode；默认拒绝上传未签名包。
+# 公开 Windows 发布请走下方 CI（SignPath 凭据齐备时自动签名）。确需审批前应急，
+# 显式加 --allow-unsigned-upload，且该包不得烘焙进公开更新源。
 
 # 只构建安装包，不发布
 pnpm --filter @ihui/desktop build                 # = node ../../scripts/desktop-build.mjs（注入 MSVC 后 tauri build + 单一产物收敛钩子）；beforeBuildCommand 仍为空，不构建也不内嵌前端产物

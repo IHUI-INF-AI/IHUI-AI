@@ -148,6 +148,26 @@ export function evaluate({ rows, matrixErrors, stringFormSlices, m13Present, six
   }
 }
 
+/**
+ * 只数形态,不判等值(等值是 M13 的事)。
+ *
+ * 射程与 matrix 的 namedReadOf **同一定义**:readFiles 非空且全字符串。
+ * 空数组不是"读集已逐名登记" —— `[].every(全字符串)` 恒真,不设 length>0 闸就会把
+ * 空清单算进具名档(G-631 ①号分歧:该片 read>0 即假红);对象形态({p,lines})归 M12
+ * 兑现判据管(G-631 立票时两器对"什么算全量具名声明"曾不同形、同一份台账两处结论
+ * 相反,故抽出本函数让那一维可被测试直接锁)。
+ */
+export function countStringFormSlices(slices) {
+  let n = 0
+  if (Array.isArray(slices)) {
+    for (const s of slices) {
+      const rf = s?.readFiles
+      if (Array.isArray(rf) && rf.length > 0 && rf.every((i) => typeof i === 'string')) n += 1
+    }
+  }
+  return n
+}
+
 /** 取材层:跑 matrix 拿结论(判据不在这里),并读台账只为了算"清单形态计数"。 */
 function gather() {
   let matrixOut = null
@@ -187,15 +207,7 @@ function gather() {
   }
 
   // 只数形态,不判等值(等值是 M13 的事)
-  let stringFormSlices = 0
-  if (ledger && Array.isArray(ledger.slices)) {
-    for (const s of ledger.slices) {
-      const rf = s?.readFiles
-      if (Array.isArray(rf) && rf.length > 0 && rf.every((i) => typeof i === 'string')) {
-        stringFormSlices += 1
-      }
-    }
-  }
+  let stringFormSlices = ledger ? countStringFormSlices(ledger.slices) : 0
 
   let m13Present = false
   let m13Face = '未取到'
@@ -457,6 +469,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   }
 }
 
-export const __test__ = { evaluate, SIX_REGIONS }
+export const __test__ = { evaluate, SIX_REGIONS, countStringFormSlices }
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -3681,10 +3681,7 @@ class AgentLoopV2:
             sig = inspect.signature(fn)
         except (TypeError, ValueError):
             return False
-        for p in sig.parameters.values():
-            if p.kind is inspect.Parameter.VAR_KEYWORD:
-                return True
-        return False
+        return any(p.kind is inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
 
     def _make_on_chunk(self, iteration: int) -> Callable[[str], Awaitable[None]]:
         """构造本轮 LLM 流式 chunk 回调(逐 chunk 发 thinking.delta 增量)。

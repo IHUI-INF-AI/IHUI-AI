@@ -1799,6 +1799,7 @@ export default function ChatPage() {
                     >
                       <BusinessFormCard
                         kind={entry.kind}
+                        mode={entry.mode}
                         requestId={entry.requestId}
                         sending={formSendingRequestId === entry.requestId}
                         onAction={(payload) => void handleBusinessFormAction(entry, payload)}
@@ -1831,6 +1832,7 @@ export default function ChatPage() {
             >
               <BusinessFormCard
                 kind={entry.kind}
+                mode={entry.mode}
                 requestId={entry.requestId}
                 sending={formSendingRequestId === entry.requestId}
                 onAction={(payload) => void handleBusinessFormAction(entry, payload)}

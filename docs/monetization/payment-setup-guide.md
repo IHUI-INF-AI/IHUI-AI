@@ -197,15 +197,15 @@ https://paypal.me/ihuiai
 
 ### 4.8 Binance 环境变量
 
-Binance 主要用于加密货币提现，不需要项目环境变量。在项目 `/sponsor` 页面显示充值地址:
+Binance 主要用于加密货币提现，不需要项目环境变量。地址分两类来源，勿混：
 
-| 币种 | 字段 | 用途 |
+| 币种 | 来源 | 用途 |
 |------|------|------|
-| BTC | `BTC_ADDRESS` | 比特币充值地址 |
-| ETH | `ETH_ADDRESS` | 以太坊充值地址 |
-| USDT-TRC20 | `USDT_TRC20_ADDRESS` | USDT（波场链）充值地址 |
+| BTC / ETH | `/sponsor` 页前端硬编码公开常量（`apps/web/app/(main)/sponsor/CryptoDonation.tsx`），无 env 键 | 仅页面展示捐赠地址 |
+| USDT-TRC20 | 服务端 env `USDT_TRC20_ADDRESS`（`getUsdtPaymentConfig` 读取） | 创建 TRC20 充值订单 |
+| USDT-ERC20 | 服务端 env `USDT_ERC20_ADDRESS`（同上） | 创建 ERC20 充值订单 |
 
-> 这些地址从用户的 `wallet-secrets.json` 中读取。
+> 公开收款地址不从 `wallet-secrets.json` 读取——该文件只存私钥（gitignored）。USDT 地址由服务端 env 注入，**禁止加 `NEXT_PUBLIC_` 前缀**（会被内联进前端 bundle）。
 
 ### 4.9 支付宝个人环境变量
 

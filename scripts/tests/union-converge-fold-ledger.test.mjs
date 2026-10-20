@@ -343,13 +343,25 @@ test('E 漂移锁:foldDedupe(未折叠产物) 必须逐字等于 unionLines({ded
 
 test('F 源码级锁:折叠只有一个调用点,验证侧不得长出第二份折叠策略', () => {
   const src = srcMasked()
-  const calls = (src.match(/dedupeByFingerprint\(/g) || []).length
+  // 折叠入口从 dedupeByFingerprint 换成 dedupeGroups(去向台账/声明择优选都得从同一次折叠里取),
+  // 形状锁跟着换成新入口 —— 锁的对象是"生产侧只有一个调用点",不是某个函数名。
+  const foldBody = topLevelBody(src, 'export function foldDedupe(')
+  const inFold = (foldBody.match(/dedupeGroups\(/g) || []).length
+  assert.equal(
+    inFold,
+    1,
+    `foldDedupe 体内必须恰好一次 dedupeGroups(…)(产物面与去向台账同轮产出的唯一入口),实测 ${inFold} 处`,
+  )
+  const selfBody = src.slice(src.indexOf('function selfTest('), src.indexOf('async function main('))
+  assert.ok(selfBody.length > 0, '自证体必须定位得到(它末尾是 async function main)')
+  const outside = src.replace(foldBody, '').replace(selfBody, '')
+  const calls = (outside.match(/dedupeGroups\(/g) || []).length
   assert.equal(
     calls,
-    1,
-    `dedupeByFingerprint 在本器必须只有一个调用点(foldDedupe),实测 ${calls} 处 —— 两处各跑一遍必漂移`,
+    0,
+    `dedupeGroups 在 foldDedupe 之外不得再有生产调用点,实测 ${calls} 处 —— 两处各跑一遍必漂移`,
   )
-  assert.match(src, /import \{ dedupeByFingerprint/, '折叠实现必须来自 lib/dedupe-ledger(唯一真相源)')
+  assert.match(src, /import \{[^}]*dedupeGroups/, '折叠实现必须来自 lib/dedupe-ledger(唯一真相源)')
   assert.match(
     src,
     /from '\.\/check-plan-task-duplicates\.mjs'/,
@@ -357,7 +369,7 @@ test('F 源码级锁:折叠只有一个调用点,验证侧不得长出第二份�
   )
   const verify = topLevelBody(src, 'export function verifyUnion(')
   // 验证侧只许**问**折叠做了什么,不许重做折叠:择优选保留行 / 注记并入 这两件事只许住在 lib
-  for (const forbidden of ['pickBest(', 'noteSegments(', 'uniqueNotes(', 'dedupeByFingerprint('])
+  for (const forbidden of ['pickBest(', 'noteSegments(', 'uniqueNotes(', 'dedupeGroups('])
     assert.ok(
       !verify.includes(forbidden),
       `verifyUnion 体内不得出现 ${forbidden} —— 那是第二份折叠策略(§22c)`,

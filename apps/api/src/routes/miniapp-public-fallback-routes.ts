@@ -52,7 +52,7 @@ const courseColumns = {
  * ⇒ 列表页此前拿到的是 undefined(封面恒空)。映射只在这一处实现,列表与详情共用。
  * `subtitle` 库里没有对应列 ⇒ 不发这个键(端上是 optional,缺键即不渲染,胜过造一个假的一行)。
  */
-export function toCourseRow(r: Record<string, unknown>) {
+function toCourseRow(r: Record<string, unknown>) {
   return {
     id: r.id,
     title: r.title,

@@ -92,7 +92,7 @@ DESKTOP_ALLOW_UNSIGNED=1 pnpm --filter @ihui/desktop build   # 仅本地自测�
 该开关两段同时生效（判据单源 `scripts/lib/desktop-unsigned-config.mjs`）：① 给 tauri 传一份只关 `bundle.createUpdaterArtifacts` 的临时 config（在 `.ihui-agent/tmp/` 下、用完即删，只覆盖这一个字段，pubkey/bundle 目标/版本号一律不动）；② 同一个 env 继续传给尾部收敛钩子 `scripts/desktop-artifact-single.mjs`，让它放行"缺 `.sig`"那一项。
 
 未设该 env 时行为不变、仍然判红——它是**显式开关**，不是自动降级。
-⚠️ 未签名产物：**不得**进更新源、不得发版、不得上传任何下载/更新 CDN。发版一律走持有私钥的 `scripts/release-desktop-local.mjs`。
+⚠️ **两套签名别混**:`DESKTOP_ALLOW_UNSIGNED=1` 只关 Tauri 更新签名(minisign),不关 Windows Authenticode。未带 Tauri 签名的产物**不得**进更新源、不得发版、不得上传任何下载/更新 CDN;而 Authenticode 由 CI 的 SignPath 负责,本机 `release-desktop-local.mjs` 默认拒绝上传未签名包(应急加 `--allow-unsigned-upload`,且该包不得烘焙进公开更新源)。公开 Windows 发布一律走 `desktop-v*` tag 的 CI。
 
 ## 重要提示
 

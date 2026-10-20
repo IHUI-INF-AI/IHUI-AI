@@ -79,6 +79,20 @@ test('M13 射程:无清单的 legacy 自报不在射程,不虚构等值判定', 
   assert.deepEqual(r.m13, { scope: 0, red: 0, pass: 0 })
 })
 
+test('M13 空清单不是全量具名声明:`[].every()` 真空不得把 read>0 判成假红(G-631 格①)', () => {
+  const r = mk([], 2)
+  assert.equal(r.ok, true, '空清单不构成"清单与 read 等值"的判定对象,不得红')
+  assert.equal(r.rows[0].namedRead, null)
+  assert.deepEqual(r.m13, { scope: 0, red: 0, pass: 0 })
+  assert.ok(!r.errors.some((e) => e.startsWith('M13')), '空清单不得冒 M13 红')
+})
+
+test('M13 混形态清单(含非字符串)同样不算全量具名声明,归 M12 不冒 M13 红', () => {
+  const r = mk(['packages/a/src/x.ts', { p: 'packages/a/src/y.ts', lines: 20 }], 1)
+  assert.equal(r.rows[0].namedRead, null)
+  assert.ok(!r.errors.some((e) => e.startsWith('M13')))
+})
+
 test('M13 三态读数必须量得出:命中/放过/未判定三档在结果里可问', () => {
   const hit = mk(['packages/a/src/x.ts', 'packages/a/src/y.ts'], 5)
   assert.equal(hit.m13.red, 1, '命中 1')

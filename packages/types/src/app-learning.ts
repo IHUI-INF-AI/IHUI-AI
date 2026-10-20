@@ -13,7 +13,6 @@
 
 import type { AppIcon, TFunction } from './app-shared.js'
 
-
 /** 学习计划状态 */
 export type PlanStatus = 'active' | 'paused' | 'completed' | 'overdue' | string
 
@@ -98,11 +97,23 @@ export interface CourseQAListScreenProps {
 }
 
 /** 课程章节项(平台注入,字段对齐 mobile-rn CourseChapterScreen Chapter) */
+/** 章节下的小节(课程播放的最小单元;videoUrl 为空表示未上传视频) */
+export interface CourseChapterSection {
+  id: string
+  title: string
+  duration: number
+  videoUrl?: string
+}
+
 export interface CourseChapterItem {
   id: string
   title: string
   duration: number
   lessonCount: number
+  /** 小节列表(API /courses/:id/chapters 的 children;旧数据可能缺省) */
+  children?: CourseChapterSection[]
+  /** 直接作为「可播放项」展示时携带的视频地址(章节行本身为空) */
+  videoUrl?: string
 }
 
 /** CourseChapterScreen props */

@@ -58,14 +58,12 @@
 //  · **未判定** = 通道/码缺席、非字符串、或**不在封闭集内** ⇒ 逐条报名,
 //    既不计入 hold(那是"确信不用"的肯定结论),也绝不解门、不动水位。
 //
-// 接线现状(**如实登记,不得读成已收口**):本出口目前是**零生产消费方**。
-// 把它接进解码/路由路径需要两处改动,都不在本票允许的文件清单内:
-//  ① `packages/shared/src/sse/index.ts` 加一行 re-export —— `packages/shared/package.json`
-//     的 exports 表没有 `./sse/*` 子路径,包外只能经该 barrel 拿到本层(同形先例:
-//     `frame-ownership-barrier.ts` / G-816030 同样未进 barrel,api-client 因零依赖
-//     包边界自带同形移植件,由两侧 parity 测试对账);
-//  ② 消费端在 fail-closed 分支上调用 `applyAuthority()` 并按 `ledger()` 报名。
-// 本票不改别人的解析面语义,故上述两格归该面持有人接线;在那之前不得把本文件读成"门已生效"。
+// 接线现状(2026-10-20):判据源已接进生产帧路由 ——
+//  ① 本层经 `packages/shared/src/sse/index.ts` re-export(包外经 barrel 可达);
+//  ② api-client 的 `stream-authority.ts` 是零依赖包边界下的同形移植 + 生产消费点:
+//     逐帧调用 `applyAuthority()` / `decideSubscription()` / `acceptChunk()`,
+//     并按 `ledger()` 报名(StreamChatOptions.onRecoveryGateLedger)。
+// 本文件仍只放判据,不放流策略;策略与 fail-closed 时序在 api-client 侧。
 
 // ----------------------------------------------------------------------------
 // 封闭集一:交付通道(deliveryKind)

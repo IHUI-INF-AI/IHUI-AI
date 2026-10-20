@@ -6585,3 +6585,15 @@ A: 118 models via LiteLLM adapter(国际 30+ / 国产 15+ / 云厂商 10+),统�
                  │  • 三支柱可观测性 + 26 大屏 仪表盘             │
 9. **三支柱可观测性 + 26 大屏 仪表盘**:Prometheus + 大屏 + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager — 开源 AI 平台中较为少见的完整 SRE 级可观测性栈(其他项目最多基础日志)
 9. **三支柱可观测性 + 26 大屏 仪表盘 + Alertmanager**(在开源 AI 平台中较为少见)
+| CLI 工具文件 | 72 | `cliToolFiles` |
+| 测试文件 | 2960 | `testFiles` |
+| 跟踪文件 | 15163 | `trackedFiles` |
+- 🚀 新功能/改进:L5669① skills 两级渐进披露 + 技能前置门 428 (130af8c18c)
+- ♻️ 重构:侧边栏收敛 P3 —— 教育/交易/社区收为域入口二级屏 (7bc83e2b59)
+- **代码签名**:Windows 上用户会下载到的两份二进制(CLI 的 `ihui.exe` 与桌面端 NSIS 安装包)均由 SignPath Foundation 提供免费代码签名(SignPath.io 平台、Sectigo CA 签发),
+  签名范围、构建来源与审批流程见 [`apps/cli/README.md`](./apps/cli/README.md#code-signing-policy);接入点与"凭据未齐时不签名、桌面端签名后重算 updater 签名"两条约束见 [.github/SECRETS.md](./.github/SECRETS.md)。
+- 这条路径原先的状态:RN 屏打的是裸路径 `/point-rule`,由 transport 的 `normalizeUrl` 补成 `/api/point-rule`,而后端两引擎都没注册过它 ⇒ 界面恒空且不报错。客户端字面量已同时改成显式 `/api/point-rule` 形态,让门 8(`check-api-routes.mjs`)能看见这条调用——它此前只认引号紧邻 `/api/` 的字面量,裸路径调用整体在射程外。
+| API 路由       | 4447  | `apiRoutes`        |
+| 路由文件       | 604   | `apiRouteFiles`    |
+| 测试文件       | 2949  | `testFiles`        |
+| 跟踪文件       | 15117 | `trackedFiles`     |
