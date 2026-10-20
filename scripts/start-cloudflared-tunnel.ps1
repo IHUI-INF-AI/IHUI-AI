@@ -18,9 +18,13 @@
 #   aizhs.top / bsm.aizhs.top        → http://127.0.0.1:8801
 #   api.aizhs.top / file.aizhs.top   → http://127.0.0.1:8802
 #   ai.aizhs.top                     → http://127.0.0.1:8803
-#   sso.aizhs.top                    → http://127.0.0.1:8543
+#   sso.aizhs.top                    → http://127.0.0.1:8850
 #   rdp.aizhs.top                    → tcp://127.0.0.1:3389
 #   ssh.aizhs.top                    → ssh://127.0.0.1:22
+# 2026-10-19 端口铁律整改:sso 源站原为 8543(本机 Keycloak,java.exe,实测 LISTENING pid 3012)
+#   → 8850(8850-8899 预留段空槽,已双向登记 scripts/dev-port-registry.json + docs/port-management.md §2.7)。
+#   切换须三处同步,缺一不可:① 本机 Keycloak 改绑 8850;② CF 控制台 tunnel「ihui-local」ingress
+#   改指向 127.0.0.1:8850;③ 本注释。只改注释不改控制台 ⇒ sso.aizhs.top 直接 530。
 #   源站一律写 127.0.0.1 不写 localhost:cloudflared 把 localhost 解析成 ::1 优先去连,
 #   而各服务只听 IPv4 回环 ⇒ 该请求直接 530(2026-10-18 实测 764 条这类拒连)。
 #   (添加/修改入口:Cloudflare 控制台 → 帐户 → Tunnels → ihui-local → 路由 → 操作/编辑路由;

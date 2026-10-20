@@ -23,7 +23,8 @@ export function CourseQAAskScreen() {
   const [success, setSuccess] = useState(false)
 
   const submit = async () => {
-    if (!question.trim()) {
+    const text = question.trim()
+    if (!text) {
       setError(t('courseQAAsk.placeholder'))
       return
     }
@@ -31,9 +32,10 @@ export function CourseQAAskScreen() {
     setError('')
     setSuccess(false)
     try {
-      const res = await fetchApi('/course-qa', {
+      // 后端 createQASchema:title 必填且 ≤200、content 可选 ⇒ 前 200 字作标题、全文进 content,输入不丢
+      const res = await fetchApi('/api/edu/qa', {
         method: 'POST',
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ title: text.slice(0, 200), content: text }),
       })
       if (!res.success) throw new Error()
       setSuccess(true)

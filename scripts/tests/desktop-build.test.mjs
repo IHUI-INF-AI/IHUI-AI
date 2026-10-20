@@ -1,3 +1,7 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // 桌面构建 MSVC 注入链的镜像测试(判据全部 import 自 scripts/lib/msvc-env.mjs,本文件一份都不抄 —— §22c)。
 //
 // 形状照 scripts/tests/desktop-artifact-invariant.test.mjs;临时夹具走 mkScratch/rmScratch(§15b)。
@@ -10,7 +14,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
+import { maskCommentsAndStrings, maskComments } from '../lib/code-mask.mjs'
 // 直接跑生产判据(唯一实现住 check-direct-run-guard),本文件不重写一遍顶层语句切分
 import { judgeSource } from '../check-direct-run-guard.mjs'
 
@@ -304,6 +308,85 @@ test('正例:收敛钩子判的产物目录随档位走 —— debug 不许去�
   for (const d of [rel, dbg]) assert.ok(path.isAbsolute(d))
 })
 
+test('正例:只有 win32 需要 MSVC 注入(macOS 用 clang / Linux 用 cc,压根没有 MSVC)', () => {
+  // 这条判据漏掉过一次,代价是 desktop-build.yml 的 ubuntu/macos 两条腿在 tauri 启动前就 exit 2
+  assert.equal(P.needsMsvcInjection('win32'), true)
+  for (const other of ['darwin', 'linux', 'freebsd', 'aix', 'sunos', '']) {
+    assert.equal(P.needsMsvcInjection(other), false, `${other} 不该要求 MSVC 注入`)
+  }
+})
+
+test('形状锁:三个调用点共用同一份 needsMsvcInjection(判据单源,§0.6)', () => {
+  // ① 实现只许有一份,且住在纯判据层 lib 里
+  const libSrc = readSrc('../lib/msvc-env.mjs')
+  assert.match(libSrc, /export function needsMsvcInjection\(platform = process\.platform\)/)
+  assert.ok(!/needsMsvcInjection/.test(readSrc('../lib/desktop-unsigned-config.mjs')), '豁免层与平台闸无关')
+
+  // ② 每个注入调用点都必须**问**这个判据(而不是自己判平台)
+  //    注意:不能反向断言"文件里不许出现 platform === 'win32'"——
+  //    desktop-dev-saas.mjs 本来就有几处与工具链无关的 win32 判断
+  //    (netstat / Get-CimInstance 停残留进程 / Start-Process 隐藏窗口),
+  //    把它们一起禁掉会逼出第二份判据,方向正好相反(§0.6)。
+  for (const rel of ['../desktop-build.mjs', '../desktop-dev-saas.mjs', '../desktop-build-saas.mjs']) {
+    const raw = readSrc(rel)
+    const masked = maskCommentsAndStrings(raw)
+    assert.match(
+      masked,
+      /needsMsvcInjection\(\)/,
+      `${rel} 必须在代码里实调 needsMsvcInjection(),不得只 import 不用(那等于没设闸)`,
+    )
+    // import 的模块说明符本身是字符串,遮罩会把它抹掉 ⇒ 这一条读**未遮罩**原文
+    // (只挡注释,别用 maskCommentsAndStrings,否则 import 源路径被抹成空格)
+    assert.match(
+      maskComments(raw),
+      /import\s*\{[^}]*\bneedsMsvcInjection\b[^}]*\}\s*from\s*'\.\/lib\/msvc-env\.mjs'/,
+      `${rel} 必须从唯一真相源 scripts/lib/msvc-env.mjs import needsMsvcInjection`,
+    )
+  }
+
+  // ③ 反向锁:三处的注入块都必须在平台闸的分支里,不许无条件跑
+  for (const rel of ['../desktop-build.mjs', '../desktop-dev-saas.mjs', '../desktop-build-saas.mjs']) {
+    const masked = maskCommentsAndStrings(readSrc(rel))
+    const gate = masked.indexOf('needsMsvcInjection()')
+    const call = masked.indexOf('planBuildEnv(')
+    assert.ok(call !== -1, `${rel} 应当有 planBuildEnv 调用点(形状锁自身失效?)`)
+    assert.ok(gate < call, `${rel}:平台闸必须排在 planBuildEnv 之前(无条件注入 = 那次漏判的原样)`)
+  }
+})
+
+test('正例:VCVARS 捕获命令必须先切 UTF-8 码页(cmd 默认 OEM 码页,按 utf8 解会把中文路径读成 U+FFFD)', () => {
+  // 判据住在源码里,这里只钉住"chcp 65001 必须在 set 之前、且 call 用裸文件名"
+  const src = readSrc('../desktop-build.mjs')
+  const masked = maskCommentsAndStrings(src)
+  assert.ok(!masked.includes('chcp 65001'), '本断言读的是字面量面,须在遮罩前验;若结构变了请同步改这里')
+  const at = src.indexOf("'chcp 65001 >nul && call vcvars64.bat >nul 2>&1 && set'")
+  assert.ok(at !== -1, 'captureVsEnv 的命令串必须含 chcp 65001 前缀')
+  assert.ok(src.indexOf('chcp 65001', at) < src.indexOf('&& set', at), 'chcp 必须排在 set 之前')
+  assert.ok(src.includes("['/d', '/s', '/c'"), '必须带 /d /s /c(关 AutoRun + 正确取参)')
+})
+
+test('正例:开发会话被 Ctrl+C 中断 = 正常结束,不是失败', () => {
+  for (const r of [{ code: 130 }, { code: 3221225786 }, { code: null, signal: 'SIGINT' }]) {
+    const j = P.judgeInterrupt(r)
+    assert.equal(j.interrupted, true, `${JSON.stringify(r)} 应当判为被用户中断`)
+    assert.ok(j.observed && j.observed.length > 0, '必须报出实际观测到的那一个码,不许含糊成"可能是"')
+  }
+})
+
+test('反例对照:普通失败码 / 成功码 / 其它信号一律**不得**被读成"被用户中断"', () => {
+  for (const r of [{ code: 0 }, { code: 1 }, { code: 2 }, { code: 101 }, { code: null, signal: 'SIGKILL' }, { code: null, signal: null }]) {
+    const j = P.judgeInterrupt(r)
+    assert.equal(j.interrupted, false, `${JSON.stringify(r)} 不该被读成中断`)
+    assert.equal(j.observed, null)
+  }
+})
+
+test('反例对照:build 档不因本判据放行(build 被 Ctrl+C 打断仍然是"这次没建成")', () => {
+  // 锁住"只对 --dev 生效"这件事:judgeInterrupt 本身无档位概念,档位判在 main()。
+  // 这里钉的是 INTERRUPT_CODES 的成员集合 —— 加码进来必须是有据的,不能顺手把 SIGTERM 之类塞进去。
+  assert.deepEqual([...P.INTERRUPT_CODES.keys()].sort((a, b) => a - b), [130, 3221225786])
+})
+
 // ── 未签名豁免(§0.8:写了就必须真跑得通 —— 判据是"开关落得到地",不是"开关存在")──
 
 test('正例:开关只认字面量 1,其余一律不认(不得把 "true"/"0"/空串当放行)', () => {
@@ -435,3 +518,4 @@ test('形状锁:desktop-build.mjs 与 msvc-env.mjs 顶层都没有裸 main()/裸
     assert.ok(n > 0, `没找到 ${call} 调用点 —— 形状锁自身失效`)
   }
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

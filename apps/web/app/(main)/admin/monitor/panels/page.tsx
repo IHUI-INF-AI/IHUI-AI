@@ -8,12 +8,12 @@
  * 监控面板(/admin/monitor/panels)—— 21 张监控大屏的原生项目内渲染页。
  *
  * 2026-10-18 按李总指示「彻底融合进项目,不可以单独搞出一个程序」重写:
- * 不再 iframe 内嵌 Grafana,改为
+ * 不再内嵌外部看板程序,改为
  *   页面(本文件,项目自己的 EChart 组件) → /api/admin/monitor-panels/query
  *   → Prometheus(8815) / Loki(3100) 直查出图。
- * Grafana 降级为 headless 配置源:表达式由 scripts/generate-monitor-panels.mjs
- * 从 monitoring/grafana/dashboards/*.json 转译进 dashboard-config.generated.ts,
- * 运行时用户完全不接触 Grafana。零假数据:所有曲线/数字都来自真实指标。
+ * 面板定义(`monitoring/grafana/dashboards/*.json`)降级为离线配置源:表达式由
+ * scripts/generate-monitor-panels.mjs 从上述 JSON 转译进 dashboard-config.generated.ts,
+ * 运行时用户完全不接触外部看板程序。零假数据:所有曲线/数字都来自真实指标。
  */
 import * as React from 'react'
 import { RefreshCw, Search } from 'lucide-react'
@@ -218,23 +218,23 @@ export default function MonitorPanelsPage() {
   }, [dashboard, filter])
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden rounded-lg border border-[#1b2a45] bg-[#070d1a] px-4">
+    <div className="flex h-[calc(100vh-64px)] overflow-hidden rounded-lg border border-border bg-background px-4">
       {/* 左侧导航:21 张盘,按分组 */}
       <aside
         className={cn(
-          'shrink-0 overflow-y-auto border-r border-[#16213a] bg-[#0a101f] transition-all',
+          'shrink-0 overflow-y-auto border-r border-border bg-card transition-all',
           navOpen ? 'w-56' : 'w-12',
         )}
       >
         <button
           type="button"
           onClick={() => setNavOpen((v) => !v)}
-          className="w-full px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 hover:text-cyan-300"
+          className="w-full px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hover:text-cyan-300"
         >
           {navOpen ? `监控大屏 (${boards.length})` : '»'}
         </button>
         {!config ? (
-          <div className="px-3 py-2 text-[11px] text-slate-600">配置加载中…</div>
+          <div className="px-3 py-2 text-[11px] text-muted-foreground">配置加载中…</div>
         ) : (
           groups.map((group) => {
             const groupBoards = boards.filter((d) => d.group === group)
@@ -242,7 +242,7 @@ export default function MonitorPanelsPage() {
             return (
               <div key={group} className="mb-2">
                 {navOpen && (
-                  <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                  <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     {group}
                   </div>
                 )}
@@ -254,8 +254,8 @@ export default function MonitorPanelsPage() {
                       className={cn(
                         'block w-full truncate px-3 py-1.5 text-left text-xs transition-colors',
                         d.uid === activeUid
-                          ? 'border-l-2 border-cyan-400 bg-[#0f1a30] text-cyan-300'
-                          : 'border-l-2 border-transparent text-slate-400 hover:bg-[#0d1626] hover:text-slate-200',
+                          ? 'border-l-2 border-cyan-400 bg-muted text-cyan-300'
+                          : 'border-l-2 border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
                       )}
                     >
                       {navOpen ? d.title : d.title.slice(0, 2)}
@@ -271,10 +271,12 @@ export default function MonitorPanelsPage() {
       {/* 主区域 */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* 顶栏 */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-[#16213a] bg-[#0a101f] px-4 py-2.5">
-          <h2 className="text-sm font-semibold text-slate-100">{dashboard?.title ?? '监控面板'}</h2>
+        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-4 py-2.5">
+          <h2 className="text-sm font-semibold text-foreground">
+            {dashboard?.title ?? '监控面板'}
+          </h2>
           {dashboard && (
-            <span className="rounded bg-[#0f1a30] px-1.5 py-0.5 text-[10px] text-slate-500">
+            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {filter.trim()
                 ? `${panels.length}/${dashboard.panels.length}`
                 : dashboard.panels.length}{' '}
@@ -283,15 +285,15 @@ export default function MonitorPanelsPage() {
           )}
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-600" />
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="筛选面板…"
-                className="w-32 rounded-sm border border-[#1b2a45] bg-[#0b1220] py-1 pl-7 pr-2 text-[11px] text-slate-200 placeholder:text-slate-600 focus:border-cyan-500/40 focus:outline-none"
+                className="w-32 rounded-sm border border-border bg-muted py-1 pl-7 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground focus:border-cyan-500/40 focus:outline-none"
               />
             </div>
-            <div className="flex overflow-hidden rounded-sm border border-[#1b2a45]">
+            <div className="flex overflow-hidden rounded-sm border border-border">
               {RANGES.map((r) => (
                 <button
                   key={r.seconds}
@@ -301,7 +303,7 @@ export default function MonitorPanelsPage() {
                     'px-2.5 py-1 text-[11px] transition-colors',
                     rangeSec === r.seconds
                       ? 'bg-cyan-500/15 text-cyan-300'
-                      : 'text-slate-400 hover:text-slate-200',
+                      : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
                   {r.label}
@@ -315,7 +317,7 @@ export default function MonitorPanelsPage() {
                 'flex items-center gap-1 rounded-sm border px-2 py-1 text-[11px]',
                 autoRefresh
                   ? 'border-cyan-500/40 text-cyan-300'
-                  : 'border-[#1b2a45] text-slate-500 hover:text-slate-300',
+                  : 'border-border text-muted-foreground hover:text-foreground',
               )}
             >
               <RefreshCw
@@ -328,12 +330,12 @@ export default function MonitorPanelsPage() {
               type="button"
               onClick={() => dashboard && void load(dashboard, rangeSec)}
               disabled={loading || !dashboard}
-              className="rounded-sm border border-[#1b2a45] px-2 py-1 text-[11px] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-50"
+              className="rounded-sm border border-border px-2 py-1 text-[11px] text-foreground hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-50"
             >
               刷新
             </button>
             {updatedAt && (
-              <span className="text-[10px] text-slate-600">
+              <span className="text-[10px] text-muted-foreground">
                 更新于 {updatedAt.toLocaleTimeString('zh-CN', { hour12: false })}
               </span>
             )}
@@ -349,11 +351,11 @@ export default function MonitorPanelsPage() {
         {/* 面板网格 */}
         <div className="flex-1 overflow-y-auto p-4">
           {!dashboard ? (
-            <div className="flex h-full items-center justify-center text-xs text-slate-500">
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
               配置加载中…
             </div>
           ) : panels.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-xs text-slate-500">
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
               无匹配「{filter}」的面板
             </div>
           ) : (

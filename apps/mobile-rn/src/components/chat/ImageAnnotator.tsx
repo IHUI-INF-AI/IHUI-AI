@@ -16,7 +16,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type GestureResponderEvent,
   type LayoutChangeEvent,
@@ -24,7 +23,8 @@ import {
 import Svg, { Path } from 'react-native-svg'
 import { captureRef } from 'react-native-view-shot'
 import { Check, PenLine, Trash2, Type, Undo2, X } from 'lucide-react-native'
-import { tokens } from '../../theme/active-tokens'
+import { TextField } from '@ihui/rn-app'
+import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { rnRadius } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 
@@ -362,10 +362,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
     const points = draftRef.current
     updateDraft(null)
     if (!points || points.length < MIN_STROKE_POINTS) return
-    setStrokes((prev) => [
-      ...prev,
-      { points, color: colorRef.current, width: widthRef.current },
-    ])
+    setStrokes((prev) => [...prev, { points, color: colorRef.current, width: widthRef.current }])
     setOpLog((prev) => [...prev, 'stroke'])
   }, [updateDraft])
 
@@ -561,8 +558,13 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               accessibilityRole="button"
               accessibilityLabel="画笔工具"
             >
-              <PenLine size={16} color={mode === 'pen' ? tokens.brand.ctaForeground : tokens.text.primary} />
-              <Text style={[styles.toolBtnText, mode === 'pen' && styles.toolBtnActiveText]}>画笔</Text>
+              <PenLine
+                size={16}
+                color={mode === 'pen' ? tokens.brand.ctaForeground : tokens.text.primary}
+              />
+              <Text style={[styles.toolBtnText, mode === 'pen' && styles.toolBtnActiveText]}>
+                画笔
+              </Text>
             </Pressable>
             <Pressable
               onPress={() => setMode('text')}
@@ -570,8 +572,13 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               accessibilityRole="button"
               accessibilityLabel="文字工具"
             >
-              <Type size={16} color={mode === 'text' ? tokens.brand.ctaForeground : tokens.text.primary} />
-              <Text style={[styles.toolBtnText, mode === 'text' && styles.toolBtnActiveText]}>文字</Text>
+              <Type
+                size={16}
+                color={mode === 'text' ? tokens.brand.ctaForeground : tokens.text.primary}
+              />
+              <Text style={[styles.toolBtnText, mode === 'text' && styles.toolBtnActiveText]}>
+                文字
+              </Text>
             </Pressable>
             <Pressable
               onPress={undo}
@@ -644,7 +651,8 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
 
           {pendingText ? (
             <View style={styles.textInputRow}>
-              <TextInput
+              <TextField
+                colorScheme={currentRnTheme()}
                 style={styles.textInput}
                 value={textValue}
                 onChangeText={setTextValue}

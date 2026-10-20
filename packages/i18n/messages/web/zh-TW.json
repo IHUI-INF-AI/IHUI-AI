@@ -682,6 +682,18 @@
   },
   "admin": {
     "wallboard": {
+      "edgeControlLeg": "未走加速的對照",
+      "edgeHeadlineHit": "國內加速命中率",
+      "edgeHeadlineMs": "首頁現在開啟耗時",
+      "edgeNoSeries": "暫無訪客開啟探測樣本",
+      "edgeSparkName": "首頁耗時",
+      "edgeSparkTitle": "近期訪客首頁耗時（綠點=快取命中，黃點=未命中）",
+      "edgeStatP50": "P50 耗時",
+      "edgeStatP95": "P95 耗時",
+      "edgeStatSamples": "探測樣本",
+      "edgeStatWorst": "最差耗時",
+      "edgeUpdatedAgo": "探測於 {ago}",
+      "panelEdge": "訪客訪問 · 國內加速",
       "activeAlerts": "活躍告警(Alertmanager)",
       "agoDays": "{n}天前",
       "agoHours": "{n}小時前",

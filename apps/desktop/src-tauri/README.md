@@ -22,7 +22,7 @@ desktop（Tauri 2）**不独立构建前端**，也**不再内嵌 web 静态导�
 node scripts/release-desktop-local.mjs            # 可选参数 --no-install / --no-push / --minor / --major
 
 # 只构建安装包，不发布
-pnpm --filter @ihui/desktop build                 # = tauri build；beforeBuildCommand 为空，不再校验或构建 web/out
+pnpm --filter @ihui/desktop build                 # = node ../../scripts/desktop-build.mjs（注入 MSVC 后 tauri build + 单一产物收敛钩子）；beforeBuildCommand 仍为空，不构建也不内嵌前端产物
 pnpm build:desktop:saas                           # 同上，先注入 NEXT_PUBLIC_* 线上后端地址（scripts/desktop-build-saas.mjs）
 
 # 全平台（macOS universal + Linux）走 CI：tag 触发（on.push.tags: desktop-v*），亦支持 workflow_dispatch 手填 tag

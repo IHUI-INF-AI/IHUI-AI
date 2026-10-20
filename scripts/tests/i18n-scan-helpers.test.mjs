@@ -23,7 +23,7 @@ import { test, describe, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
-import { mkScratch, rmScratch, scratchRoot } from '../lib/scratch-dir.mjs'
+import { mkScratch, scratchRoot } from '../lib/scratch-dir.mjs'
 
 import {
   STATIC_T_RE,
@@ -46,6 +46,7 @@ import {
   isInUsedNamespace,
   groupByNamespace,
 } from '../_i18n-scan-helpers.mjs'
+import { flowKeysOf } from '../lib/i18n-key-flow.mjs'
 
 // 辅助:对带 g flag 的 regex 执行首次匹配,返回捕获组或 null
 // 注意:g flag 的 regex 有 lastIndex 状态,node --test 并发执行时共享实例会 race condition,
@@ -512,6 +513,77 @@ describe('scanTexts — 动态拼接前缀必须收进 usedNamespaces(假死键�
     assert.equal(dynamicPrefixOf('a.b.${x}.suffix'), 'a.b')
     assert.equal(dynamicPrefixOf('${x}'), null, '纯插值没有静态前缀,不得当成命名空间')
     assert.equal(dynamicPrefixOf('nodots'), null, '无点分单段不构成前缀')
+  })
+})
+
+// G-167 ②(2026-10-19):死键族的取键实现与门 2 共用 lib/i18n-key-flow.mjs。
+// 这一族钉两件事:①流键必须被救回(否则"键存 state、t(state) 渲染"这一形态会被判死);
+// ②没被翻译变量整实参消费的 state 值不得入库(否则 'success' 这类非 i18n 值会静默掩盖真死键)。
+describe('flowKeysOf — G-167 流键提取(与门 2 同一份派生)', () => {
+  const rootNsSrc = [
+    "import { useState } from 'react'",
+    "import { useTranslations } from 'next-intl'",
+    'export function Toolbar() {',
+    "  const [notice, setNotice] = useState('')",
+    '  const t = useTranslations()',
+    '  const flash = (k: string) => setNotice(k)',
+    "  flash('title')",
+    '  return <span>{t(notice)}</span>',
+    '}',
+  ].join('\n')
+
+  test('根 namespace:单段键经 setter 存进 state、再由 t(notice) 取用 ⇒ 收进流键', () => {
+    assert.deepEqual(flowKeysOf(rootNsSrc), ['title'])
+  })
+
+  test('反例:state 读数没被翻译变量当整实参 ⇒ 不收(与门 2 的归属判据同形)', () => {
+    const src = rootNsSrc.replace('{t(notice)}', '{notice}')
+    assert.deepEqual(flowKeysOf(src), [])
+  })
+
+  test('反例:t(`chat.${notice}`) 是拼接型,不是整实参 ⇒ 不凭空归键', () => {
+    const src = rootNsSrc.replace('{t(notice)}', '{t(`chat.${notice}`)}')
+    assert.deepEqual(flowKeysOf(src), [])
+  })
+
+  test('带 namespace 的形态同样命中(键名作为值穿过 helper)', () => {
+    const src = [
+      "import { useState } from 'react'",
+      "import { useTranslations } from 'next-intl'",
+      'export function Toolbar() {',
+      "  const [notice, setNotice] = useState('')",
+      "  const t = useTranslations('chat')",
+      '  const flash = (k: string) => setNotice(k)',
+      "  flash('markdownTable.empty')",
+      '  return <span>{t(notice)}</span>',
+      '}',
+    ].join('\n')
+    assert.deepEqual(flowKeysOf(src), ['markdownTable.empty'])
+  })
+})
+
+describe('scanTexts — G-167 流键必须并入 staticRefs(接线锁 + 反向对照)', () => {
+  const src = [
+    "import { useState } from 'react'",
+    "import { useTranslations } from 'next-intl'",
+    'export function Toolbar() {',
+    "  const [notice, setNotice] = useState('')",
+    '  const t = useTranslations()',
+    '  const flash = (k: string) => setNotice(k)',
+    "  flash('title')",
+    '  return <span>{t(notice)}</span>',
+    '}',
+  ].join('\n')
+
+  test("单段流键 'title' 必须进 staticRefs(既有正则表对无点值的流形态全盲)", () => {
+    const { staticRefs } = scanTexts([{ rel: 'apps/x/Toolbar.tsx', text: src }])
+    assert.ok(staticRefs.has('title'), '流键没入库 ⇒ 该键会在包里被误判为死键')
+  })
+
+  test("反向对照:reader 未被消费时 'title' 不得入库(否则等于把 state 值全倒灌)", () => {
+    const noConsume = src.replace('{t(notice)}', '{notice}')
+    const { staticRefs } = scanTexts([{ rel: 'apps/x/Toolbar.tsx', text: noConsume }])
+    assert.equal(staticRefs.has('title'), false)
   })
 })
 

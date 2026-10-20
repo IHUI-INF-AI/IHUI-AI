@@ -450,11 +450,19 @@ def _make_loop_v2_llm(model: str | None) -> Any:
         的 **kwargs 直达 litellm;未配置时为空,签名与现状逐零差异。"""
         from ..core.llm_gateway import llm_gateway
 
+        # G-200:AgentLoopV2 经 **kwargs 传入的 finish_reason 回写槽。必须在转发前
+        # pop 掉——它属于本包装的私有协议,透给 llm_gateway.complete(**kwargs) 会
+        # 被当成 litellm 参数(未知键报错/上游 400)。取不到槽 = 调用方不支持续写判据,
+        # 行为与旧闭包逐零差异。
+        _finish_sink = model_kwargs.pop("_finish_reason_sink", None)
+
         if on_chunk is None:
             result = await llm_gateway.complete(
                 messages, model=model, **model_kwargs
             )
             _raise_if_gateway_error(result, stream=False)
+            if _finish_sink is not None:
+                _finish_sink["finish_reason"] = result.get("finish_reason")
             return {
                 "content": result.get("content", ""),
                 "tool_calls": _convert_openai_tool_calls(result.get("tool_calls")),
@@ -482,6 +490,8 @@ def _make_loop_v2_llm(model: str | None) -> Any:
             elif evt_type == "done":
                 usage = evt.get("usage")
                 model_used = evt.get("model", "")
+                if _finish_sink is not None:
+                    _finish_sink["finish_reason"] = evt.get("finishReason")
             elif evt_type == "error":
                 # 网关流式失败事件(过去被静默忽略 → 空响应假成功),
                 # 抛错交给 _llm_call_with_retry 计 retries、耗尽计 errors。

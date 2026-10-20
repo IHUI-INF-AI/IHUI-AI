@@ -32,6 +32,36 @@
  *   —— 本仓 src 下常年有**未入库**的编译残留 `X.js`,拿磁盘并集判会把别人机器上的产物
  *   记成本仓债务(那正是"滞后的旧草稿被记成债务"那一型)。
  *
+ * D5「同一 barrel 文件内同名显式导出重复」(2026-10-19 立,本席现读):
+ *   成因是 `packages/api-client/src/index.ts` 的 `export type { FormRequestEvent } from './client.js'`
+ *   在同一文件出现两份 ⇒ TS2300 Duplicate identifier,把 `@ihui/api-client` 的 build 打死、
+ *   连带阻塞 web/RN 的 typecheck 与生产构建。该重复**四次复发**(caaf2e5fc23 / b0be79975e1 /
+ *   a6702a66d89 / b8f1d47e1be 四枚都只在做同一件事"去重"),最近一次是 `2225fccfdb8` 那枚
+ *   "文件面零丢失 union"合并把两侧各自补的条目**都**收了 ⇒ 单纯再删一行必然第五次复发;
+ *   本维把防回灌接到提交口与 `--rev` 落地审面。
+ *   判据:同一文件内统计**显式命名导出的对外名**出现次数,分两档计数 ——
+ *     · value 档:`export const/let/var/function/class/enum A`、`export {A, B}`(含 `X as Y` 的
+ *       别名 Y;内联 `type` 修饰符的条目落 type 档)、解构导出 `export const { A } = factory`;
+ *     · type 档:`export type {A}`(含 from 转导出)、`export type A = …`。
+ *   同档同名 ≥2 ⇒ 判红。刻意不判的档(宁漏不误报,与 D1..D4 同取向):
+ *     · `interface A` 不参与计数 —— 同名 interface 互相合并、interface+class 合并都是合法 TS,
+ *       把合并判红就是逼 `--no-verify`(§12e);
+ *     · 跨档同名(`type A` 别名 + `const A`)在 TS 是两个声明空间,合法,不判;
+ *     · **`export *` 与 `export *` / 具名导出之间的重叠静态判不出来 —— 这一档不在射程,
+ *       头注如实写明,绝不把"没判"写成"判过"(§0.9)**。
+ *   射程封闭集合(按本席现读仓库形态定,正则唯一源在代码出口 `D5_BARREL_RE`,本行刻意不
+ *     抄字面 —— 块注释里写出 glob 的星斜杠相邻两字符会当场把本头注关掉,`node --check` 即炸,
+ *     与 stripJsonc 那段记的是同一枚自画像):`packages`/`apps` 一段名下的 `src/` 起、任意深度
+ *     目录止、文件名为 `index` 且扩展 `ts`/`tsx` —— HEAD 面现读 195 枚 barrel
+ *     (包/端入口 16 枚 + src 下嵌套组件 barrel 179 枚);SKIP_DIR / FIXTURE_ROOT 在文件
+ *     枚举处已排除,与 D1..D4 同一条取材通道(全量档 HEAD blob、`--staged` 索引 blob、
+ *     `--files` 仅人工;复用 face-reader 批量读,不散写 git 取内容)。
+ *   存量与定级(2026-10-19 现读):HEAD 面封闭集内重复 **0 处**(195/195 枚全部读到内容且干净)
+ *     ⇒ 存量已零,故 D5 与 D1..D4 同走**全量档零容忍**(合并/旁路落地再吞一份 ⇒ check:all/CI
+ *     直接红 —— 这正是本维立项的唯一理由),`--staged` 走差值棘轮(锚点 = 该文件 HEAD 自身
+ *     计数,照旧只拦"本次把第二份加回来");被审面上 barrel 内容取不到 ⇒ **D5 未判定 ⇒ exit 2**,
+ *     不记绿也不冒红(§0.3)。
+ *
  * 判据口径(与 77/83/90 同取向):
  *   - 缺省(全量审计)判 **HEAD blob**,不判工作区 —— 滞后的旧草稿不得记成本仓债务;
  *   - `--staged` 判索引 blob,棘轮锚点是**该文件 HEAD 版本自身的违规数**,只拦"这次把悬空
@@ -41,7 +71,8 @@
  * 用法:
  *   node scripts/check-dangling-local-imports.mjs                 # 全量(判 HEAD)
  *   node scripts/check-dangling-local-imports.mjs --staged        # pre-commit(判索引,锚 HEAD)
- *   node scripts/check-dangling-local-imports.mjs --files a b     # 按文件自验(判工作区)
+ *   node scripts/check-dangling-local-imports.mjs --files a b     # 按文件自验(判工作区;与 --staged 同给 ⇒ exit 2)
+ *   node scripts/check-dangling-local-imports.mjs --staged --files … # 面只能有一个:两面同给当场 exit 2(§0.4)
  *   node scripts/check-dangling-local-imports.mjs --all          # 额外逐条列出 D4 的"只报数"同名对
  *   node scripts/check-dangling-local-imports.mjs --rev <提交/树> [--anchor <提交>]
  *     # 审任意面(对象空间落地的涉事判据出口,G-815985):锚点缺省=被审提交的首个父提交;
@@ -210,10 +241,11 @@ export function auditOneFace(rev) {
   const hasPath = (p) => tracked.has(p)
   const alias = buildAliasIndex((p) => read(p) ?? null, tsPaths)
   const jsSites = []
-  const byFile = auditTree(read, files, hasPath, alias.index, jsSites)
+  const d5Unjudged = []
+  const byFile = auditTree(read, files, hasPath, alias.index, jsSites, d5Unjudged)
   const shadow = auditShadowJs(read, jsSites, new Set(files))
   mergeShadow(byFile, shadow)
-  return { files, byFile, aliasUnparsed: alias.unparsed, aliasSeen: alias.seen, shadow }
+  return { files, byFile, aliasUnparsed: alias.unparsed, aliasSeen: alias.seen, shadow, d5Unjudged }
 }
 
 const NON_CODE_EXT =
@@ -815,6 +847,81 @@ export function mergeSites(baseSites, pendingSites, pendingSet) {
   return baseSites.filter((s) => !pendingSet.has(s.by)).concat(pendingSites || [])
 }
 
+// ── D5:同一 barrel 文件内同名显式导出重复 ──────────────────────────────────────────
+/** 射程封闭集合(头注 D5 段有立项现读;改集合 = 改判据,必须连头注与镜像测试同笔动)。 */
+export const D5_BARREL_RE = /^(?:packages|apps)\/[^/]+\/src\/(?:[^/]+\/)*index\.(?:ts|tsx)$/
+
+/**
+ * 一个 barrel 文件的同名导出重复清单。返回:
+ *   · `[]`   —— 不在射程(非 barrel)或判过且干净;
+ *   · `null` —— **在射程但内容取不到 ⇒ 未判定**(调用方必须点名,不得当通过 —— §0.3);
+ *   · 违规数组(rule 'D5')。
+ * 计数走**遮噪后的代码面**(`maskCommentsStringsAndRegex`:注释与字符串与正则体都遮)——
+ * D5 判的是代码结构而非字面量,而被注释掉的 export、夹具模板里拼的 export 文本都不是导出。
+ * 等长遮罩 ⇒ 报出的行号与原文一致。
+ */
+export function auditDuplicateBarrelExports(relPath, text) {
+  if (!D5_BARREL_RE.test(relPath)) return []
+  if (typeof text !== 'string') return null
+  const face = maskCommentsStringsAndRegex(text)
+  const lineAt = (idx) => {
+    let n = 1
+    for (let i = 0; i < idx; i++) if (face.charCodeAt(i) === 10) n++
+    return n
+  }
+  const occ = new Map() // "<name>#<space>" → 行号[]
+  const add = (name, space, line) => {
+    const k = `${name}#${space}`
+    if (!occ.has(k)) occ.set(k, [])
+    occ.get(k).push(line)
+  }
+  // 名单条目 ⇒ 对外名:`X as Y` 取 Y;内联 `type X` 修饰符落 type 档。
+  const listEntries = (body, baseSpace, line) => {
+    for (const raw of body.split(',')) {
+      let s = raw.trim()
+      if (!s) continue
+      let space = baseSpace
+      if (/^type\s+[A-Za-z_$]/.test(s)) {
+        space = 'type'
+        s = s.replace(/^type\s+/, '')
+      }
+      const parts = s.split(/\s+as\s+/)
+      const nm = (parts[parts.length - 1] || '').trim()
+      if (/^[A-Za-z_$][\w$]*$/.test(nm)) add(nm, space, line)
+      // 认不出的条目形态(默认导出重排等)一律**不计** —— 漏报方向,头注已写明。
+    }
+  }
+  // `export {…}` / `export type {…}`(带不带 from 都算;`[^}]` 语义交给非贪婪 [\s\S]*?,多行名单照吃)
+  for (const m of face.matchAll(/export\s+(type\s+)?\{([\s\S]*?)\}/g))
+    listEntries(m[2], m[1] ? 'type' : 'value', lineAt(m.index))
+  // 声明式导出。interface **刻意不 add** —— 同名 interface 合并是合法 TS(头注不判档)。
+  for (const m of face.matchAll(
+    /export\s+(?:declare\s+)?(?:async\s+)?(?:abstract\s+)?(function\*?|class|const|let|var|enum)\s+([A-Za-z_$][\w$]*)/g,
+  ))
+    add(m[2], 'value', lineAt(m.index))
+  // `export type A = …`(别名;与 type 档同桶 ⇒ 两条 type 别名或 别名+转导出 都算重复)
+  for (const m of face.matchAll(/export\s+type\s+([A-Za-z_$][\w$]*)(?:\s*<[^<>]*>)?\s*=(?!=)/g))
+    add(m[1], 'type', lineAt(m.index))
+  // 解构导出 `export const { A, B } = factory`(与 parseExports 的同一条形状,不新创判据)
+  for (const m of face.matchAll(/export\s+(?:const|let|var)\s*[\{\[]([^}\]]*)[\}\]]\s*=/g))
+    listEntries(m[1], 'value', lineAt(m.index))
+  const bad = []
+  for (const [k, lines] of occ) {
+    if (lines.length < 2) continue
+    const [name, space] = k.split('#')
+    bad.push({
+      line: Math.min(...lines),
+      rule: 'D5',
+      raw: `${name}(${space} 档,第 ${lines.join(' / ')} 行共 ${lines.length} 次)`,
+      hint:
+        `同一 barrel 文件内 "${name}" 的显式导出出现 ${lines.length} 份 —— TS2300 Duplicate identifier ` +
+        `会打死该包的 build;根因常是 union 合并把两侧各自补的条目都收(本仓 FormRequestEvent 即四度复发),` +
+        '只留一份(两份都指向同一来源时删任一即可)',
+    })
+  }
+  return bad.sort((a, b) => a.line - b.line)
+}
+
 /**
  * D3 的**待偿台账**(与守门 13c 的 LOST_ANCHOR_LEDGER 同一条设计:登记必须会过期)。
  * 全量口径对 D1/D2 仍是零容忍(2026-09-24 已清零);D3 是新射程,立项当天 HEAD 上就有
@@ -856,11 +963,16 @@ export function buildAliasIndex(readFile, paths) {
   return { index, unparsed, seen: paths.filter((p) => TSCONFIG_RE.test(p)).length }
 }
 
-/** 按文件聚合(`jsSink` 见 auditFile:同一遍解析顺手收 D4 的落点) */
-export function auditTree(readFile, files, hasPath, aliasIndex, jsSink) {
+/** 按文件聚合(`jsSink` 见 auditFile:同一遍解析顺手收 D4 的落点;`d5Sink` 收 D5 的"在射程但
+ *  内容取不到"文件名 —— 未判定必须点名,不得被"没进违规表"洗成通过)。 */
+export function auditTree(readFile, files, hasPath, aliasIndex, jsSink, d5Sink) {
   const byFile = new Map()
   for (const f of files) {
     const v = auditFile(f, readFile, hasPath, aliasIndex, jsSink)
+    const d5 = auditDuplicateBarrelExports(f, readFile(f))
+    if (d5 === null) {
+      if (d5Sink) d5Sink.push(f)
+    } else if (d5.length) v.push(...d5)
     if (v.length) byFile.set(f, v)
   }
   return byFile
@@ -929,8 +1041,18 @@ async function revMain(rev, anchorOpt, conflicts) {
     console.log(`❌ 无法判定:${rev} 面上枚举到 0 个源文件 —— 尺子失效不记绿`)
     process.exit(2)
   }
+  // D5 的取材诚实性:被审面上有 barrel 枚举在列却读不出内容 ⇒ 这一维没看过它,整轮判「未判定」。
+  if (face.d5Unjudged.length) {
+    console.log(
+      `❌ 无法判定:D5 在 ${rev} 面枚举到 ${face.d5Unjudged.length} 枚 barrel 却取不到内容 —— 不记绿也不冒红(§0.3):`,
+    )
+    for (const p of face.d5Unjudged) console.log(`   ${p}`)
+    process.exit(2)
+  }
   const { fresh, tolerated } = splitFresh(face.byFile, (f) => anchorCounts.get(f) ?? 0)
   const total = [...face.byFile.values()].reduce((s, v) => s + v.length, 0)
+  const d5n = [...face.byFile.values()].flat().filter((v) => v.rule === 'D5').length
+  const d5Scope = face.files.filter((p) => D5_BARREL_RE.test(p)).length
   // D3 台账与主流程共用同一份 KNOWN_ALIAS_LEDGER(不另立第二份,两处实现必漂移)。
   const isLedgered = (file, v) => v.rule === 'D3' && KNOWN_ALIAS_LEDGER.includes(`${file}|${v.raw}`)
   const freshNonLedger = fresh
@@ -943,6 +1065,7 @@ async function revMain(rev, anchorOpt, conflicts) {
   console.log(
     `[dangling-imports] 扫描 ${face.files.length} 文件 | 悬空 ${total} 处(锚点容忍 ${tolerated} / 新增 ${freshNonLedger.length} 文件)`,
   )
+  console.log(`[dangling-imports] D5 barrel 同名导出重复:在射程 ${d5Scope} 枚 | 判红候选 ${d5n} 处`)
   for (const { file, list, tol } of fresh) {
     console.log(`   ${file}(锚点 ${tol} 处 → 本次 ${list.length} 处)`)
     for (const v of list) console.log(`      :${v.line} [${v.rule}] ${v.raw}  → ${v.hint}`)
@@ -971,6 +1094,11 @@ export function parseCliArgs(argv) {
   if (anchor.error) errors.push(anchor.error)
   if (fi >= 0 && (!files.valid || list.length === 0))
     errors.push(`--files 需要至少一个路径 —— 其后紧邻的 token 实得:${describeFlagToken(files)}`)
+  // 面只能有一个(§0.4 同面同轮):`--staged`(索引面)与 `--files`(工作区逃生舱)同给时,
+  // 首版 isStaged 分支赢下判定却仍用 FILES_MODE 收窄 scanSet —— 两个面搅在一起,读出来的
+  // 计数谁都不代表。与 --rev 的冲突拒绝同形,收进 errors 由调用方 exit 2,不猜默认面。
+  if (argv.includes('--staged') && fi >= 0)
+    errors.push('--staged(索引面)与 --files(工作区自验面)不得同给 —— 面只能有一个(§0.4)')
   return {
     REV: rev.value,
     ANCHOR_OPT: anchor.value,
@@ -1042,13 +1170,15 @@ async function main() {
    *  `.js` 落点时,"把某个 .js 加回来而消费方一行没动"这一型(正是本次生产事故的形状)
    *  会在自验模式下静默 —— 漏的那一格恰好是本判据立项的唯一理由。 */
   const jsSitesHead = []
-  const byHead = auditTree(readHead, headFiles, hasPath, aliasHead.index, jsSitesHead)
+  const d5Unhead = []
+  const byHead = auditTree(readHead, headFiles, hasPath, aliasHead.index, jsSitesHead, d5Unhead)
   const shadowHead = auditShadowJs(readHead, jsSitesHead, new Set(headFiles))
   mergeShadow(byHead, shadowHead)
   const headCountOf = (p) => (byHead.get(p) || []).length
 
   let byPending
   let shadowPending = shadowHead
+  let d5Unpending = d5Unhead
   let stagedCount = 0
   let contentMode = 'HEAD 内容'
   if (isStaged) {
@@ -1068,7 +1198,9 @@ async function main() {
     const aliasStaged = buildAliasIndex(anyTs, tsIdx.length ? tsIdx : TS_PATHS)
     const readPending = (p) => (staged.includes(p) ? readIdx(p) : readHead(p))
     const jsSitesStaged = []
-    byPending = auditTree(readPending, staged, hasPath, aliasStaged.index, jsSitesStaged)
+    const d5Unstaged = []
+    byPending = auditTree(readPending, staged, hasPath, aliasStaged.index, jsSitesStaged, d5Unstaged)
+    d5Unpending = [...d5Unhead, ...d5Unstaged]
     // D4 在暂存档上要跑**整面**(索引内容 ⊕ 其余 HEAD 内容)而不是只跑暂存清单:新加的
     // 影子 `.js` 常常不在这枚提交里被 import,而"它被 import"这一事实本身就来自未改动的那些消费方。
     shadowPending = auditShadowJs(
@@ -1087,7 +1219,16 @@ async function main() {
       }
     }
     const jsSitesFiles = []
-    byPending = auditTree(wread, FILES_MODE, (p) => wread(p) !== null, aliasHead.index, jsSitesFiles)
+    const d5Unfiles = []
+    byPending = auditTree(
+      wread,
+      FILES_MODE,
+      (p) => wread(p) !== null,
+      aliasHead.index,
+      jsSitesFiles,
+      d5Unfiles,
+    )
+    d5Unpending = [...d5Unhead, ...d5Unfiles]
     shadowPending = auditShadowJs(
       wread,
       mergeSites(jsSitesHead, jsSitesFiles, new Set(FILES_MODE)),
@@ -1143,6 +1284,21 @@ async function main() {
     process.exit(2)
   }
   for (const u of shadowPending.undetermined) console.log(`   ⚠️ D4 未判定 ${u.file}:${u.why}`)
+  /**
+   * D5 的计数与"未判定"点名与 D4 同屏(同一型教训:**"扫过且干净"与"根本没看到"必须分得开**)。
+   * 在射程 barrel 枚举在列却取不到内容 ⇒ 这一维没看过它,整轮判「未判定」exit 2,
+   * 既不顺着"候选 0 处"记绿,也不冒红(§0.3);`--rev` 档在 revMain 里有同一条,两处同语义。
+   */
+  const d5Hits = [...byPending.values()].flat().filter((v) => v.rule === 'D5')
+  console.log(
+    `[dangling-imports] D5 barrel 同名导出重复:HEAD 面在射程 ${headFiles.filter((p) => D5_BARREL_RE.test(p)).length} 枚` +
+      ` | 判定面候选 ${d5Hits.length} 处 | 未判定 ${d5Unpending.length} 枚`,
+  )
+  for (const p of d5Unpending) console.log(`   ⚠️ D5 未判定 ${p}:barrel 枚举在列但被审面取不到内容`)
+  if (d5Unpending.length) {
+    console.log('❌ 无法判定:D5 有 barrel 在本面取不到内容 —— 不记绿也不冒红(§0.3),先修取材通道')
+    process.exit(2)
+  }
   if (SHOW_ALL && shadowPending.targets.length)
     console.log(
       `   D4 被字面命中的入库 .js 全集(${shadowPending.targets.length} 个,含合规的那些 —— 名单决定这一维到底看了谁):\n` +
@@ -1171,7 +1327,7 @@ async function main() {
         d3Ledgered.map((v) => `\n   ${v.file}:${v.line} ${v.raw}`).join(''),
     )
   if (!isStaged && !FILES_MODE && total - d3Ledgered.length > 0) {
-    console.log(`❌ 全量口径为零容忍:HEAD 上仍有 ${total} 处悬空具名导入 / 影子 .js(存量已于 2026-09-24 清零,D4 立门当天现读为 0)`)
+    console.log(`❌ 全量口径为零容忍:HEAD 上仍有 ${total} 处悬空具名导入 / 影子 .js / barrel 同名导出重复(存量已于 2026-09-24 清零,D4 立门当天与 D5 立门当天(2026-10-19)现读均为 0)`)
     for (const [f, list] of byPending)
       for (const v of list) console.log(`   ${f}:${v.line} [${v.rule}] ${v.raw}  → ${v.hint}`)
     console.log('   单独复现:node scripts/check-dangling-local-imports.mjs')
@@ -1638,26 +1794,88 @@ function selfTest() {
   }
   {
     // G-322 族:CLI 三支坏值各自成对(正例四值逐字不变;反例各 1 错并点名实得 token)。
-    const good = parseCliArgs(['--rev', 'abc123', '--anchor', 'def456', '--staged', '--files', 'a.ts', 'b.ts'])
+    // D5 立项日(2026-10-19)正例拆成两支:--staged 与 --files 是两个面,同给必须报错(§0.4),
+    // 所以"正例齐值"不再带 --files;`--files` 的正例单独一支。
+    const good = parseCliArgs(['--rev', 'abc123', '--anchor', 'def456', '--staged'])
+    const goodFiles = parseCliArgs(['--files', 'a.ts', 'b.ts'])
     const hijacked = parseCliArgs(['--rev', '--staged'])
     const missing = parseCliArgs(['--rev'])
-    const empty = parseCliArgs(['--files', '', '--staged'])
+    const empty = parseCliArgs(['--files', ''])
+    const twoFaces = parseCliArgs(['--staged', '--files', 'a.ts'])
     const ok =
       good.errors.length === 0 &&
       good.REV === 'abc123' &&
       good.ANCHOR_OPT === 'def456' &&
       good.isStaged === true &&
-      JSON.stringify(good.FILES_MODE) === JSON.stringify(['a.ts', 'b.ts']) &&
+      good.FILES_MODE === null &&
+      goodFiles.errors.length === 0 &&
+      JSON.stringify(goodFiles.FILES_MODE) === JSON.stringify(['a.ts', 'b.ts']) &&
       hijacked.errors.length === 1 &&
       hijacked.REV === null &&
       hijacked.isStaged === true &&
       hijacked.errors[0].includes('"--staged"') &&
       missing.errors.length === 1 &&
-      empty.errors.length === 1
+      empty.errors.length === 1 &&
+      twoFaces.errors.length === 1 &&
+      twoFaces.errors[0].includes('面只能有一个')
     if (!ok) fail++
     console.log(
-      `${ok ? '✅' : '❌'} G-322 CLI 取值:正例四值齐 / 顶值·漏值·空串各 1 错并点名实得 token(顶值那支 --staged 不再被吞)`,
+      `${ok ? '✅' : '❌'} G-322 CLI 取值:正例两支齐值(--staged / --files 各一支)/ 顶值·漏值·空串·两面同给各 1 错并点名实得 token`,
     )
+  }
+  {
+    // ── D5:同一 barrel 内同名显式导出重复(2026-10-19 立;成对钉死"有牙 / 不咬合法形态 /
+    //    export * 判不出不冒红 / 取不到判未判定"四格,票面要求①..④逐条对应)──
+    const P = 'packages/api-client/src/index.ts'
+    const cases5 = []
+    const push5 = (name, text, expect) => cases5.push([name, auditDuplicateBarrelExports(P, text), expect])
+    // ① 阳性对照:事故原形 —— `export type { X } from '…'` 同文件两份(第 140 行区 + 文件末尾)
+    push5(
+      'D5① 同名 type 转导出两份必拦',
+      "export type { A } from './c'\nconst k = 1\nexport type { A } from './c'\n",
+      1,
+    )
+    // ② 反向对照:同样内容只出现一次必绿(与本席现读的 HEAD 面 packages/api-client 同形)
+    push5('D5② 只出现一份必绿', "export type { A } from './c'\nconst k = 1\n", 0)
+    // ③ export * 重叠:判据**看不见** —— 必须判 0(不冒红),这一档头注已如实写明不在射程
+    push5('D5③ export * 重叠判不出、不得装看得见', "export * from './b'\nexport * from './c'\n", 0)
+    // ④ 取不到被审面 ⇒ null(未判定,既不记绿也不冒红;CLI 档由 main/revMain 折成 exit 2)
+    cases5.push(['D5④ 内容取不到 ⇒ 未判定(null)', auditDuplicateBarrelExports(P, null), 'null'])
+    // 合法 TS 形态不得被咬(恒红门防线,§12e):
+    // ⑤ 同名 interface 互相合并、interface+class 合并都合法
+    push5('D5⑤ interface 重复合法必绿', 'export interface A { a: number }\nexport interface A { b: number }\nexport class A {}', 0)
+    // ⑥ 跨声明空间同名(type 别名 + const)合法
+    push5('D5⑥ type 别名 + 同名 const 跨档合法', 'export type A = 1\nexport const A = 2', 0)
+    // ⑦ value 档重复(两条同名 const)必拦
+    push5('D5⑦ 同名 const 两份必拦', 'export const A = 1\nexport const A = 2', 1)
+    // ⑧ 多行 export { A, B } 名单(事故条目在真实 barrel 里就是嵌在多行块内)
+    push5(
+      'D5⑧ 多行名单里的同名第二份必拦',
+      "export {\n  A,\n  B,\n} from './c'\nexport { A } from './d'\n",
+      1,
+    )
+    // ⑨ 被注释掉的 export 不算导出(门不得读解释文字 —— 遮噪档)
+    push5('D5⑨ 注释/夹具字符串里的 export 不计', "// export type { A } from './c'\nexport type { A } from './c'\n", 0)
+    // ⑩ 射程边界:非 barrel 路径同名重复一律 []（不判,封闭集合外）
+    cases5.push([
+      'D5⑩ 射程外文件不判',
+      auditDuplicateBarrelExports('packages/api-client/src/client.ts', 'export const A = 1\nexport const A = 2'),
+      0,
+    ])
+    for (const [name, got, expect] of cases5) {
+      const ok =
+        expect === 'null' ? got === null : Array.isArray(got) && got.length === expect && got.every((v) => v.rule === 'D5')
+      if (!ok) fail++
+      console.log(`${ok ? '✅' : '❌'} ${name}(实得 ${got === null ? 'null(未判定)' : JSON.stringify((got || []).map((v) => v.raw))})`)
+    }
+    // auditTree 接线形状:未判定必须进 sink、违规必须并进同一张表(锚点/打印/退出码只一套)
+    const sink = []
+    const byFile = auditTree((p) => (p === P ? 'export type { A } from "./c"\nexport type { A } from "./c"' : null), [P], () => true, new Map(), null, sink)
+    const wired = (byFile.get(P) || []).some((v) => v.rule === 'D5') && sink.length === 0
+    const sinkHits = []
+    auditTree(() => null, [P], () => false, new Map(), null, sinkHits)
+    if (!wired || sinkHits.length !== 1) fail++
+    console.log(`${wired && sinkHits.length === 1 ? '✅' : '❌'} D5 接线:auditTree 违规进表 / 取不到进 sink(${sinkHits.join(',')})`)
   }
   {
     // G-815985 `--rev` 面的 kind 判定三态(commit/tree/解析不到)。
@@ -1807,12 +2025,14 @@ function selfTest() {
   )
   const aliasReal = buildAliasIndex((p) => tsBlobs.get(`HEAD:${p}`) ?? null, tsPaths)
   const jsSitesReal = []
+  const d5UnjudgedReal = []
   const found = auditTree(
     read,
     real,
     (p) => trackedAll.has(p) || existsSync(join(ROOT, p)),
     aliasReal.index,
     jsSitesReal,
+    d5UnjudgedReal,
   )
   // D4 走的是**同一遍解析**递出来的落点,取同伴/读 .js 内容也都在这一个面上 —— 清单与内容分两面
   //  正是守门 77/101/118 记过的那类"自洽却错位"的尺子。
@@ -1821,8 +2041,13 @@ function selfTest() {
   const total = [...found.values()].reduce((s, v) => s + v.length, 0)
   const d3n = [...found.values()].flat().filter((v) => v.rule === 'D3').length
   const d4n = [...found.values()].flat().filter((v) => v.rule === 'D4').length
+  const d5n = [...found.values()].flat().filter((v) => v.rule === 'D5').length
+  const d5ScopeReal = real.filter((p) => D5_BARREL_RE.test(p)).length
   console.log(
-    `\n📎 真仓 HEAD 实测:${real.length} 个跟踪源文件,悬空+影子 ${total} 处(其中 D3 ${d3n} 处、D4 ${d4n} 处;别名表 ${aliasReal.index.size} 个包目录、${aliasReal.unparsed} 份解析失败)`,
+    `\n📎 真仓 HEAD 实测:${real.length} 个跟踪源文件,悬空+影子+重复 ${total} 处(其中 D3 ${d3n} 处、D4 ${d4n} 处、D5 ${d5n} 处;别名表 ${aliasReal.index.size} 个包目录、${aliasReal.unparsed} 份解析失败)`,
+  )
+  console.log(
+    `📎 D5 现读:在射程 barrel ${d5ScopeReal} 枚 | 判红候选 ${d5n} 处 | 未判定 ${d5UnjudgedReal.length} 枚${d5UnjudgedReal.length ? `(${d5UnjudgedReal.join(', ')})` : ''}`,
   )
   console.log(
     `📎 D4 现读:扫到的 '.js' 说明符落点 ${shadowReal.scanned} 个 | 其中指向入库 .js ${shadowReal.targeted} 个 | 判红候选 ${shadowReal.byShadow.size} 个 | 只报数(同名对无人指向)${shadowReal.deadPairs.length} 个 | 未判定 ${shadowReal.undetermined.length} 个`,
@@ -1855,7 +2080,7 @@ function selfTest() {
     console.log(`❌ ${fail} 例失败`)
     process.exit(1)
   }
-  console.log(`\n全部 ${cases.length + 2} 例通过(含真仓 HEAD 实测与探针成对例)`)
+  console.log(`\n全部 ${cases.length} 例夹具 + 成对块逐行自报通过(含真仓 HEAD 实测、探针成对例与 D5 成对块;失败 ${fail} 例)`)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

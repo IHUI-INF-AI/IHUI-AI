@@ -23,6 +23,9 @@ export const USER_PREFERENCE_GROUPS = {
   preferences: 'preferences',
   devices: 'devices',
   sidebar: 'sidebar',
+  // 'security' 早在 auth.ts 的 login-preferences(autoLogin/autoRenew)里写库,只是这份具名
+  // 出口一直没登记它。移动端安全设置屏读的同一条腿(biometric/loginAlert),不得再抄裸字面量。
+  security: 'security',
 } as const
 
 export type UserPreferenceGroup =

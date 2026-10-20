@@ -6,7 +6,7 @@
 // + header + 关闭),纯受控渲染:候选由 props 传入,选中只回调,零副作用。
 
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { CircleHelp, Cpu, Eraser, MessageSquarePlus, X } from 'lucide-react-native'
+import { BookOpen, CircleHelp, Code, Cpu, Eraser, FileText, Info, Languages, MessageSquarePlus, Mic, Minimize2, Newspaper, PenLine, X } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
 import { rnRadius } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
@@ -18,6 +18,15 @@ const SLASH_ICONS: Record<string, typeof Cpu> = {
   Eraser,
   Cpu,
   CircleHelp,
+  Minimize2,
+  Info,
+  FileText,
+  Languages,
+  BookOpen,
+  Code,
+  PenLine,
+  Newspaper,
+  Mic,
 }
 
 const styles = StyleSheet.create({
@@ -119,8 +128,10 @@ interface SlashCommandPaletteProps {
   visible: boolean
   /** 当前过滤词(输入框文本,面板副标题展示用) */
   query: string
-  /** 候选命令(调用方按 matchSlashCommands / 全量注册表给出) */
+  /** 候选命令(调用方按 matchSlashCommands / resolveSlashCommands 结果给出) */
   commands: readonly SlashCommand[]
+  /** i18n 取词(标题与空态走词包,端内零硬编码中文) */
+  t: (key: string, params?: Record<string, string | number>) => string
   /** 选中命令回调(对齐 AgentSelector onSelect) */
   onSelect: (cmd: SlashCommand) => void
   /** 关闭弹窗(对齐 AgentSelector onClose) */
@@ -134,6 +145,7 @@ export function SlashCommandPalette({
   visible,
   query,
   commands,
+  t,
   onSelect,
   onClose,
 }: SlashCommandPaletteProps) {
@@ -143,7 +155,7 @@ export function SlashCommandPalette({
       <Pressable style={styles.modalMask} onPress={onClose}>
         <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
-            <Text style={styles.listDialogTitle}>斜杠命令</Text>
+            <Text style={styles.listDialogTitle}>{t('slashCmd.paletteTitle')}</Text>
             <Pressable hitSlop={8} onPress={onClose} style={styles.listDialogClose}>
               <X size={20} color={tokens.text.primary} />
             </Pressable>
@@ -158,7 +170,7 @@ export function SlashCommandPalette({
           <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
             {commands.length === 0 ? (
               <View style={styles.emptyWrap}>
-                <Text style={styles.emptyText}>无匹配命令</Text>
+                <Text style={styles.emptyText}>{t('slashCmd.paletteEmpty')}</Text>
               </View>
             ) : (
               commands.map((cmd, index) => {

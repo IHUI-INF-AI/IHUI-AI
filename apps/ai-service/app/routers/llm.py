@@ -2362,10 +2362,17 @@ def _resolve_owner_uuid(request: Request) -> str | None:
     读取他人私有记忆的漏洞被消除。
 
     仅保留系统内部凭证(system-worker)例外:该凭证由 8802 网关鉴权后注入。
+    2026-10-19:该例外从"原样透传字符串"改为"映射到 settings.system_owner_uuid"——
+    此前 "system-worker" 被直接当 UUID 传给 memory_graph 的 $2::uuid[]
+    (invalid UUID ⇒ 系统记忆子图全废,降级为空)。映射后 exec 规则绑定、
+    审批、网络授权、审计身份随之一并落到同一个系统主体(全零 UUID),
+    不再是一个谁都不认识的假身份。用户 JWT 路径一字未动。
     """
     uid = getattr(request.state, "user_id", None)
     if not uid:
         return None
+    if str(uid) == "system-worker":
+        return settings.system_owner_uuid
     return str(uid)
 
 

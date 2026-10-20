@@ -66,6 +66,28 @@
  *   **同族未完(点名,不是遗漏)**:`scripts/object-space-land.mjs` 也调 `resurrectAnalysis` 但未传
  *   `facePaths` ⇒ 落地器那一侧仍会撞上"重生成产物多一行输入"这一型(方向是**拒落**,不是放过);
  *   它比的是候选 blob 而非索引,面口径要与落地票一并定档,不在本票射程内。
+ * R1w(blocking 侧的**窄放行**,2026-10-19 G-926 立):R1 的整 blob 支与门 47(水印覆盖,blocking)
+ *   之间原本**没有任何合法落地通道**。现读夹具(`.ihui-agent/tmp/rn-miniapp-zero/g926-probe.mjs`
+ *   留档,两枚文件各跑一轮):一枚被 regeneration 洗掉横幅的文件,HEAD 面只剩正文 ⇒ 门 47 判缺署名;
+ *   而 §5c 规定的修法(`clean → inject`,正文一字不动)产出的形态**逐字等于**洗掉之前那枚祖先提交
+ *   ⇒ R1 前提成立,同时 R1r 数到 **2 行复活**、样本就是那两条可见横幅行(2026-10-15 那格只折得了
+ *   带 `[IHUI-AI-PROVENANCE]:` 的槽行与纯零宽行,可见横幅在它射程之外)。照 47 修撞 84、照 84 修
+ *   撞 47,唯一出路是 `--no-verify` —— 正是 §12e/§12f 记过的那类"逼人来绕的尺子"。
+ *   判据(本体住 `scripts/lib/stale-content-analysis.mjs` 的 `watermarkReinjection`,落地器与锚点
+ *   侧共用这一份):**`removed === 0` ∧ `addedOther === 0` ∧ `addedWatermark ≥ 1`**,行级认定复用
+ *   `watermark-lines.mjs` 的 `isWatermarkStructureLine`(唯一出口,门体与 lib 都不许自拼横幅文案,
+ *   反向锁在镜像 M-3)。三条就是它的牙:真回退必然让基准里的行消失,`removed === 0` 把"借水印之名
+ *   搬旧内容"整型挡在外面;一字未动不算放行(否则"没改"被读成"补过了")。
+ *   取证(全部现跑,不是推理):`--self-test` 例 14–18 +
+ *   `node --test scripts/tests/check-stale-revert.test.mjs --test-name-pattern="G-926"`(M-2 一条命令
+ *   同时量两腿:门 84 索引面 RC=0 且输出点名 `[R1 水印补回型放行]`,落地器 `detectStaleLanding` 把同
+ *   一枚记成 `resurrect-only`「只报不拦」而**不是** offender;阳性对照是同一批里带上"补横幅 + 搬回一行
+ *   旧内容"的那枚 ⇒ 落地器照拒、门 84 照红)。
+ *   射程如实收窄到**索引面**:工作树档(`--worktree`,人工逃生舱)不走这一维,因为按磁盘读正文判
+ *   放行正是本门镜像形状锁钉住的那一型(守门 118 同一条禁令);方向是不放宽 = 严的那一侧。
+ *   同一次接线顺手补回一处**已存在的取证失明**:`buckets.red/stock` 的 entry 此前不带
+ *   `boilerplate(Count)`,渲染层那句 `v.boilerplateCount > 0` 于是恒为假 ⇒ G-587 那条「少认了多少
+ *   必须可见」在真正判红的行上从来没打印过(现读由自检例 16/17 钉住,两档一起带上)。
  * R2(warn,不计失败):暂存删除了 HEAD 里存在的路径。宿主层会静默删工作区文件(实测一次
  *   137 个),这类删除被顺手提交同样是回滚;但删除也可能是真意图(`git rm` 合法),
  *   按「宁漏不误报」只告警。
@@ -111,7 +133,14 @@ import { Undetermined, catBatch, catBatchOids, catBatchSizes, gitRaw } from './l
 // R1r 的行级复活判据与尺寸/证据行护栏:与落地器 `object-space-land.mjs` 共用**这一份**实现。
 // 两处各写一遍必然漂开(本仓记过最多次的失败型),而漂开的后果不是"数字不一致",是同一枚提交
 // 在两道尺子下一红一绿。本层是纯函数层 —— 取材一律走下面的 face-reader,不得在 lib 里读 git。
-import { resurrectAnalysis, resurrectInputPath } from './lib/stale-content-analysis.mjs'
+import {
+  resurrectAnalysis,
+  resurrectInputPath,
+  watermarkReinjection,
+} from './lib/stale-content-analysis.mjs'
+// G-926:自检夹具的横幅文案必须取自**同一份规范文案**(住 watermark-lines.mjs),
+// 在自检里另抄一遍字符串 = 文案一改,自检与真仓判的就不是同一个东西(§22c 同一条禁令)。
+import { CANONICAL_BANNER_LINES } from './lib/watermark-lines.mjs'
 // §26:临时夹具唯一落点(旧写法把演练仓造在仓内 `.ihui-agent/tmp/` —— 既不受 scratch 根的
 // 嵌套闸保护,也会被 post-commit 的 `--auto-clean` 按名字波及;os.tmpdir() 同样禁用,
 // 活进程的 TEMP 可能仍钉在 C 盘)。
@@ -344,7 +373,11 @@ export function classifyWorktree(repoRoot, p) {
  * 没有它,"窗口外的陈旧回写"与"真新编辑"在输出里长得一模一样(都安静地通过)。
  * 不传 ⇒ 返回值与改动前逐字一致(内部只是多带一枚 window+1 探针)。
  */
-export function analyze(repoRoot, paths, { source = 'index', windowLoss = null } = {}) {
+export function analyze(
+  repoRoot,
+  paths,
+  { source = 'index', windowLoss = null, watermarkPass = null } = {},
+) {
   const present = source === 'worktree' ? paths.filter((p) => existsSync(join(repoRoot, p))) : paths
   if (!present.length) return []
 
@@ -389,12 +422,62 @@ export function analyze(repoRoot, paths, { source = 'index', windowLoss = null }
   for (const { p, cur } of suspects) {
     const aw = ancestry.get(p)
     const hit = aw.shas.find((c) => blobs.get(`${c}:${p}`) === cur)
-    if (hit) violations.push({ path: p, commit: hit.slice(0, 9) })
-    else if (aw.truncated && windowLoss)
+    if (hit) {
+      // 命中祖先 ⇒ 先问一次"这一步是不是只把水印补回来"(G-926)。放行只在
+      // `watermarkReinjection` **量到** watermarkOnly 时生效;undetermined(读不到正文/超护栏)
+      // 照旧判红 —— 放宽必须是有据的,"没量到"永远倒向严的那一侧(与 facePaths 同一条纪律)。
+      const wi = r1WatermarkInfo(repoRoot, p, source)
+      if (wi.watermarkOnly) {
+        if (watermarkPass)
+          watermarkPass.push({
+            path: p,
+            commit: hit.slice(0, 9),
+            addedWatermark: wi.addedWatermark,
+          })
+      } else violations.push({ path: p, commit: hit.slice(0, 9) })
+    } else if (aw.truncated && windowLoss)
       // 窗口用尽仍未命中 ⇒ "没抓到" ≠ "没有回写"。点名，不得静默（G-806 ②）。
       windowLoss.push({ path: p, window: aw.window, seen: aw.shas.length })
   }
   return violations
+}
+
+/**
+ * R1 的水印补回型放行档(G-926,2026-10-19 立)。判据本体不住这里 —— 住在
+ * `scripts/lib/stale-content-analysis.mjs` 的 `watermarkReinjection`(纯函数,落地器同一份);
+ * 这里只负责**按自己的面取正文**:索引档取 `HEAD:p` 与 `:p`,工作树档(仅人工逃生舱)取
+ * `HEAD:p` 与盘上副本。
+ *
+ * 只在"已经命中祖先"之后才付这次读取:普通路径(绝大多数提交的全部路径)一次也不多读,
+ * 不会因为这一档把门的成本抬高。取不到/抛错 ⇒ 返回 `undetermined` 形态,调用方**不放宽**。
+ *
+ * @returns {{watermarkOnly:boolean, status:string, reason:string|null, addedWatermark:number,
+ *            removed:number, addedOther:number, sample:string[]}}
+ */
+export function r1WatermarkInfo(repoRoot, p, source = 'index') {
+  const fail = (reason) => ({
+    status: 'undetermined',
+    reason,
+    watermarkOnly: false,
+    addedWatermark: 0,
+    removed: 0,
+    addedOther: 0,
+    sample: [],
+  })
+  // 工作树档(`--worktree`,仅人工逃生舱)**不走这一档**:按磁盘读正文来判放行,正是本门镜像
+  // 形状锁钉住的那一型(「不得按磁盘读被审内容,共享工作树滞后即换结论」/守门 118)。
+  // 方向是**不放宽**= 严的那一侧 —— 人工档多要一次说明,绝不是多放一次跳门(§0.10)。
+  if (source !== 'index') return fail('水印补回档只按索引面取证;工作树档是人工逃生舱,照旧严格尺')
+  let baseText = null
+  let newText = null
+  try {
+    const m = catBatch(repoRoot, [`HEAD:${p}`, `:${p}`])
+    baseText = m.get(`HEAD:${p}`) ?? null
+    newText = m.get(`:${p}`) ?? null
+  } catch (e) {
+    return fail(`正文读取失败:${firstLine(e)}`)
+  }
+  return watermarkReinjection({ baseText, newText })
 }
 
 export function gitDirOf(repoRoot) {
@@ -440,7 +523,7 @@ export function analyzeMerge(
   repoRoot,
   paths,
   mergeHead,
-  { source = 'index', windowLoss = null } = {},
+  { source = 'index', windowLoss = null, watermarkPass = null } = {},
 ) {
   if (!mergeHead || !paths.length) return []
   const present = source === 'worktree' ? paths.filter((p) => existsSync(join(repoRoot, p))) : paths
@@ -469,8 +552,19 @@ export function analyzeMerge(
     if (cur === ours) continue // 与两父一致 → 无外来内容
     const aw = ancestry.get(p)
     const hit = aw.shas.find((c) => blobs.get(`${c}:${p}`) === cur)
-    if (hit) violations.push({ path: p, commit: hit.slice(0, 9) })
-    else if (aw.truncated && windowLoss)
+    if (hit) {
+      // 与 `analyze` 同一条水印补回档(G-926):两父一致而索引只是把署名补回来,不是把谁的
+      // 改动写回旧态。尺子还是同一份(lib 的 `watermarkReinjection`),分支不同不许各判一次。
+      const wi = r1WatermarkInfo(repoRoot, p, source)
+      if (wi.watermarkOnly) {
+        if (watermarkPass)
+          watermarkPass.push({
+            path: p,
+            commit: hit.slice(0, 9),
+            addedWatermark: wi.addedWatermark,
+          })
+      } else violations.push({ path: p, commit: hit.slice(0, 9) })
+    } else if (aw.truncated && windowLoss)
       // 与 analyze 同一条 ② 底线:合并上下文里"窗口用尽没命中"同样不得静默成通过。
       windowLoss.push({ path: p, window: aw.window, seen: aw.shas.length })
   }
@@ -560,7 +654,14 @@ export function analyzeResurrect(
     runBudgetBytes = RESURRECT_RUN_BUDGET_BYTES,
   } = {},
 ) {
-  const buckets = { red: [], stock: [], uncovered: [], undetermined: [], genInputFolds: [] }
+  const buckets = {
+    red: [],
+    stock: [],
+    uncovered: [],
+    undetermined: [],
+    genInputFolds: [],
+    watermarkFolds: [],
+  }
   const pushU = (p, reason) => buckets.undetermined.push({ path: p, reason })
   if (!paths.length) return buckets
 
@@ -708,6 +809,7 @@ export function analyzeResurrect(
       newText,
       maxBlobBytes,
       facePaths,
+      path: p,
       ancestors: used.map((c) => ({
         commit: c.slice(0, 9),
         sha: c,
@@ -720,6 +822,14 @@ export function analyzeResurrect(
         onFace: r.generatedInputOnFace,
         offFace: r.generatedInputOffFace,
         lines: r.generatedInputOnFaceLines ?? [],
+      })
+    // 水印结构档(G-926):折掉了几行、折的是哪几行,必须进账 —— 只报数不判红,但绝不静默。
+    // 这一档与 genInputFolds 同族:判据"量到 0 行复活"里有一部分正是靠它才成 0 的。
+    if (r.watermarkStructureCount > 0)
+      buckets.watermarkFolds.push({
+        path: p,
+        count: r.watermarkStructureCount,
+        lines: r.watermarkStructure ?? [],
       })
     if (r.status === 'undetermined') pushU(p, r.reason)
     else if (r.status === 'out-of-scope') buckets.uncovered.push({ path: p, reason: r.reason })
@@ -782,6 +892,7 @@ export function analyzeResurrect(
         baseText: anchorTexts.get(`HEAD^:${f.path}`) ?? null,
         newText: texts.get(`HEAD:${f.path}`) ?? null,
         maxBlobBytes,
+        path: f.path,
         // 锚点侧的面 = HEAD:两侧必须各按自己那面问"输入在不在面上"(§0.5 棘轮锚点的同尺前提),
         // 拿索引面去量 HEAD 侧就是把两把尺子叠成一把。
         facePaths: facePathsForGeneratedInputs(
@@ -802,6 +913,13 @@ export function analyzeResurrect(
       anchor: anchor.count,
       sample: f.sample,
       commits: f.commits,
+      // 两档"折不计"的行必须随条目带上:红/存量两条通道渲染的都是这个 entry,而它此前不带
+      // boilerplate —— `v.boilerplateCount > 0` 于是恒为假(undefined 比较),G-587 那条
+      // 「少认了多少必须可见」在真正判红的那几行上**从来没打印过**。G-926 一并接回,并加水印结构档。
+      boilerplateCount: f.boilerplateCount,
+      boilerplate: f.boilerplate ?? [],
+      watermarkStructureCount: f.watermarkStructureCount,
+      watermarkStructure: f.watermarkStructure ?? [],
       truncated,
       windowUsed: f.usedShas.length,
       windowTotal: f.total,
@@ -840,6 +958,15 @@ function renderResurrect(rr) {
             v.boilerplate ?? []
           )
             .slice(0, 5)
+            .map((s) => s.slice(0, 40))
+            .join(' | ')}`,
+        )
+      if (v.watermarkStructureCount > 0)
+        lines.push(
+          `       ↺ 另有 ${v.watermarkStructureCount} 行水印结构行不计证据(G-926 档,识别口径 = watermark-lines.mjs):${(
+            v.watermarkStructure ?? []
+          )
+            .slice(0, 3)
             .map((s) => s.slice(0, 40))
             .join(' | ')}`,
         )
@@ -887,6 +1014,17 @@ function renderResurrect(rr) {
         `   - ${v.path}: 折 ${v.onFace} 行 / 面上无此输入 ${v.offFace} 行${v.lines.length ? `(如 ${v.lines[0].trim().slice(0, 90)}…)` : ''}`,
       )
   }
+  if (rr.watermarkFolds.length) {
+    const n = rr.watermarkFolds.reduce((a, v) => a + v.count, 0)
+    lines.push(
+      `ℹ️  [R1r 水印结构档] ${rr.watermarkFolds.length} 个路径共 ${n} 行逐字命中水印结构形态(横幅/载荷/纯零宽行)⇒ 不计复活证据(G-926:补回被 regeneration 洗掉的署名是 §5c 规定的修法,不是把谁写回旧态;识别口径唯一住在 watermark-lines.mjs,内容行一条不放宽)。`,
+    )
+    for (const v of rr.watermarkFolds.slice(0, 8))
+      lines.push(
+        `   - ${v.path}: 折 ${v.count} 行${v.lines.length ? `(如 ${v.lines[0].trim().slice(0, 90)}…)` : ''}`,
+      )
+    if (rr.watermarkFolds.length > 8) lines.push(`   ... 另有 ${rr.watermarkFolds.length - 8} 个`)
+  }
   if (rr.undetermined.length) {
     lines.push(
       `❓ [R1r 未判定] ${rr.undetermined.length} 个路径**没读到结论**(不是"检查过且干净",不得被读成通过):`,
@@ -898,10 +1036,13 @@ function renderResurrect(rr) {
 }
 
 /** 结论行:有未判定/未覆盖/窗口不足时**必须带着它**,否则账面读起来像"全部判过且干净"。
- *  `r1WindowLoss` 是 G-806 ② 的那一维:R1 侧"窗口用尽而没命中"的路径数 —— 它既不是红也不许被读成绿。 */
-function verdictLine(modifiedCount, rr, r1WindowLoss = 0) {
+ *  `r1WindowLoss` 是 G-806 ② 的那一维:R1 侧"窗口用尽而没命中"的路径数 —— 它既不是红也不许被读成绿。
+ *  `r1WatermarkPass` 是 G-926 的那一维:整 blob 命中祖先、但按水印补回档放行的路径数 —— 它是**判过**的,
+ *  只是结论是"放行";不写进结论行的话,一次带横幅补回的提交在账面上与"什么都没发生"同形。 */
+function verdictLine(modifiedCount, rr, r1WindowLoss = 0, r1WatermarkPass = 0) {
   const tail = []
   if (r1WindowLoss) tail.push(`${r1WindowLoss} 处窗口不足未判定(R1)`)
+  if (r1WatermarkPass) tail.push(`${r1WatermarkPass} 处水印补回型放行(R1,见上)`)
   if (rr?.undetermined.length) tail.push(`${rr.undetermined.length} 处未判定`)
   if (rr?.uncovered.length) tail.push(`${rr.uncovered.length} 处未覆盖`)
   if (rr?.stock.length) tail.push(`${rr.stock.length} 处复活只报数(存量)`)
@@ -1094,9 +1235,20 @@ function auditInner(repoRoot, { staged }) {
    * 最高频的失效型(§12e/守门 94/103/118 一脉)。
    */
   const windowLoss = []
-  if (!exempt) violations = analyze(repoRoot, judged, { source: src, windowLoss })
+  /**
+   * G-926 的放行收集口:R1/R1m 里"命中祖先,但相对 HEAD 一行没少、多的行逐字全是水印结构行"的路径。
+   * 它**不判红**(照 §5c 补署名的合法修法),但必须逐条点名 —— 放行量看不见,就等于把这条档
+   * 变成一处无人看守的豁免(§0.7「豁免必须验过才免且会到期」同一条禁令的反面:这里是有据的窄档,
+   * 不是开关,所以账上要留痕)。
+   */
+  const watermarkPass = []
+  if (!exempt) violations = analyze(repoRoot, judged, { source: src, windowLoss, watermarkPass })
   else if (mergeHead) {
-    violations = analyzeMerge(repoRoot, judged, mergeHead, { source: src, windowLoss })
+    violations = analyzeMerge(repoRoot, judged, mergeHead, {
+      source: src,
+      windowLoss,
+      watermarkPass,
+    })
     lines.push(
       `⚠️  合并上下文中:R1 未整轮豁免,改判"两父一致而暂存内容等于历史版本"(theirs=${mergeHead.slice(0, 9)}) —— 待判 ${judged.length} 个路径,命中 ${violations.length} 枚`,
     )
@@ -1172,6 +1324,14 @@ function auditInner(repoRoot, { staged }) {
     )
     lines.push('   热档(三本活文档)已走深窗口 ANCESTOR_WINDOW_HOT,仍报这一型说明回写点深于该窗口。')
   }
+  if (watermarkPass.length) {
+    lines.push(
+      `ℹ️  [R1 水印补回型放行] ${watermarkPass.length} 个路径整 blob 等于某祖先版本,但相对 HEAD **一行没少**、多的行逐字全是水印结构行 ⇒ 这是 §5c 规定的「clean → inject」修法,不是回退(判据 = watermarkReinjection,阳性对照:少一行正文即照红):`,
+    )
+    for (const v of watermarkPass.slice(0, 15))
+      lines.push(`   - ${v.path}: 补回 ${v.addedWatermark} 行水印(等于祖先 ${v.commit})`)
+    if (watermarkPass.length > 15) lines.push(`   ... 另有 ${watermarkPass.length - 15} 个`)
+  }
   /**
    * G-806 ③ 截断报名:凡本轮有路径的祖先清单被窗口上限截断(确证窗外还有更老的
    * "动过该路径"的提交),就在这里逐条点名路径与窗口值 —— 不论它最终判红、判绿还是
@@ -1186,7 +1346,7 @@ function auditInner(repoRoot, { staged }) {
     for (const [p, w] of costMeter.truncated) lines.push(`   - ${p}: 窗口 ${w} 枚用尽`)
   }
   if (deleted.length) lines.push(...deleteWarn(deleted))
-  if (!failed) lines.push(verdictLine(modified.length, rr, windowLoss.length))
+  if (!failed) lines.push(verdictLine(modified.length, rr, windowLoss.length, watermarkPass.length))
   return { code: failed ? 1 : 0, lines }
 }
 
@@ -1577,7 +1737,122 @@ function selfTestRun() {
         pureNoFace.generatedInputOnFace === 0,
     )
 
-    const { pass, fail, cases } = report()
+    // ── 14–18:水印补回型放行档(G-926,门 84 R1/R1r ↔ 门 47 互锁的最后一格)──────────────
+    // 立项现场(夹具实测,`.ihui-agent/tmp/rn-miniapp-zero/g926-probe.mjs` 留档):一枚被
+    // regeneration 洗掉横幅的文件,HEAD 面只剩正文 ⇒ 门 47 判缺署名;而 §5c 规定的修法
+    // (clean → inject,正文一字不动)产出的形态**逐字等于**洗掉之前那枚祖先提交 ⇒
+    // R1 整 blob 支成立 + R1r 数到 2 行(样本就是两条可见横幅行)。照 47 修撞 84、照 84 修撞 47,
+    // 两把尺子之间没有任何合法落地通道,唯一出路是 --no-verify —— §12e/§12f 记过的那类尺子。
+    // 窄判据 = 「相对基准一行没少 ∧ 多的行逐字全是水印结构行」;真回退必然让基准里的行消失,
+    // removed===0 这一条就把"借水印之名搬旧内容"整型挡在外面(15/16/18 三条阳性对照)。
+    g(['reset', '-q'])
+    const BNR = `${CANONICAL_BANNER_LINES.map((l) => `// ${l}`).join('\n')}\n`
+    // wm.ts:祖先 = 横幅 + 正文;HEAD = 同一正文(只有横幅被洗掉)⇒ 补回是纯增量。
+    const wmAnc = `${BNR}export const keep = 1\n`
+    const wmHeadOnly = 'export const keep = 1\n'
+    // md.ts:祖先 = 横幅 + 正文 + 一行内容;HEAD 既洗了横幅**又删了那行内容**
+    //        ⇒ 整 blob 补回等于祖先,但相对 HEAD 少了一行 ⇒ 必须照红。
+    const mdAnc = `${BNR}export const keep = 1\nexport const gone = 0\n`
+    const mdHead = 'export const keep = 1\n'
+    // mx.ts:混合体(R1 看不见的那一型)—— 补横幅 + 搬回一行旧内容 + 一行真新内容,
+    //        外加一行样板形态(`severity: warning`)用来钉"折不计的行必须随条目带进渲染"。
+    const mxAnc = `${BNR}export const keep = 1\nseverity: warning\nexport const legacy = 9\n`
+    const mxHead = 'export const keep = 1\nseverity: info\n'
+    const mxStaged = `${BNR}export const keep = 1\nseverity: warning\nexport const legacy = 9\nexport const fresh = 7\n`
+    for (const [rel, txt] of [
+      ['wm.ts', wmAnc],
+      ['md.ts', mdAnc],
+      ['mx.ts', mxAnc],
+    ]) {
+      writeFileSync(join(repo, rel), txt)
+      commitOnly(rel, `W1 ${rel}: 带横幅的祖先形态`)
+    }
+    const ancOf = (rel) => g(['rev-list', '-1', 'HEAD', '--', rel]).trim()
+    const mxA = ancOf('mx.ts')
+    writeFileSync(join(repo, 'wm.ts'), wmHeadOnly)
+    commitOnly('wm.ts', 'W2 wm.ts: regeneration 把横幅洗掉了(HEAD 现状)')
+    writeFileSync(join(repo, 'md.ts'), mdHead)
+    commitOnly('md.ts', 'W2 md.ts: 洗横幅**并且**删了一行内容')
+    writeFileSync(join(repo, 'mx.ts'), mxHead)
+    commitOnly('mx.ts', 'W2 mx.ts: 洗横幅并改掉一行,HEAD 现状')
+
+    // 14 只补横幅:整 blob 支放行 + 行级支 0 复活,两腿同时必须成立才算互锁已解
+    writeFileSync(join(repo, 'wm.ts'), wmAnc)
+    g(['add', '--', 'wm.ts'])
+    const pass14 = []
+    const v14 = analyze(repo, ['wm.ts'], { watermarkPass: pass14 })
+    const rr14 = analyzeResurrect(repo, ['wm.ts'])
+    const a14 = audit(repo, { staged: true })
+    check(
+      `14 只补横幅(整 blob 等于祖先)⇒ 不判回退且留痕:违规 ${v14.length}/放行 ${pass14.length}/复活 ${rr14.red.length}/水印折 ${rr14.watermarkFolds.reduce((s, f) => s + f.count, 0)} 行`,
+      v14.length === 0 &&
+        pass14.length === 1 &&
+        pass14[0].path === 'wm.ts' &&
+        pass14[0].addedWatermark === 2 &&
+        rr14.red.length === 0 &&
+        rr14.watermarkFolds.length === 1 &&
+        rr14.watermarkFolds[0].count === 2 &&
+        a14.code === 0 &&
+        a14.lines.join('\n').includes('[R1 水印补回型放行]'),
+    )
+
+    // 15 阳性对照:同一枚"整 blob 等于祖先"的补回,只要 HEAD 侧少过一行内容,就照判回退
+    writeFileSync(join(repo, 'md.ts'), mdAnc)
+    g(['add', '--', 'md.ts'])
+    const pass15 = []
+    const v15 = analyze(repo, ['md.ts'], { watermarkPass: pass15 })
+    check(
+      '15 阳性对照:补横幅的同时把 HEAD 里的一行内容弄没了 ⇒ removed≠0,窄判据不生效,照判红',
+      v15.length === 1 && v15[0].path === 'md.ts' && pass15.length === 0,
+    )
+    g(['reset', '-q', '--', 'md.ts'])
+    writeFileSync(join(repo, 'md.ts'), mdHead)
+
+    // 16 混合体那一型(R1 看不见):旧内容回潮照判红,而水印行折进独立档、不静默
+    writeFileSync(join(repo, 'mx.ts'), mxStaged)
+    g(['add', '--', 'mx.ts'])
+    const rr16 = analyzeResurrect(repo, ['mx.ts'])
+    const entry16 = rr16.red[0]
+    check(
+      `16 补横幅 + 搬回一行旧内容 + 一行真新内容(不等于任何祖先)⇒ R1r 照红,且条目带上两档折不计的行(复活 ${entry16?.count ?? '-'}/水印 ${entry16?.watermarkStructureCount ?? '-'}/样板 ${entry16?.boilerplateCount ?? '-'})`,
+      rr16.red.length === 1 &&
+        entry16.count === 1 &&
+        entry16.watermarkStructureCount === 2 &&
+        entry16.boilerplateCount === 1,
+    )
+    const a16 = audit(repo, { staged: true })
+    const out16 = a16.lines.join('\n')
+    check(
+      '17 红行渲染必须把两档"折不计"的行打出来(旧实现里 entry 不带 boilerplate ⇒ 这一行从未印出过)',
+      a16.code === 1 &&
+        out16.includes('水印结构行不计证据') &&
+        out16.includes('样板/骨架行不计证据'),
+    )
+    // 18 判据有牙的反向锁:摘掉水印结构档 ⇒ 同一枚夹具的复活数就不是 1 而是 3。
+    //    用纯函数直接问 lib(不靠门的开关),证明放宽只发生在"逐字命中水印形态"的那些行上。
+    const pure18 = resurrectAnalysis({
+      baseText: mxHead,
+      newText: mxStaged,
+      ancestors: [{ commit: mxA.slice(0, 9), text: mxAnc }],
+    })
+    const pure18flat = resurrectAnalysis({
+      baseText: mxHead,
+      newText: mxStaged.replace(/^(\/\/ [^\n]*\n){2}/, ''),
+      ancestors: [{ commit: mxA.slice(0, 9), text: mxAnc.replace(BNR, '') }],
+    })
+    check(
+      `18 反向锁:带横幅 count=${pure18.count}/折 ${pure18.watermarkStructureCount} 行,把横幅从两面一起摘掉后同一夹具 count=${pure18flat.count}(证明折的只有水印行,内容行一条没少判)`,
+      pure18.count === 1 &&
+        pure18.watermarkStructureCount === 2 &&
+        pure18flat.count === 1 &&
+        pure18flat.watermarkStructureCount === 0,
+    )
+    // 夹具复位,别给后续读数留脏索引
+    writeFileSync(join(repo, 'mx.ts'), mxHead)
+    writeFileSync(join(repo, 'wm.ts'), wmHeadOnly)
+    g(['add', '-A'])
+
+    const { fail, cases } = report()
     for (const r of cases) console.log(`${r.pass ? '✅' : '❌'} ${r.name}`)
     console.log(
       fail
@@ -1627,6 +1902,7 @@ export const __test__ = {
   analyze,
   analyzeMerge,
   analyzeResurrect,
+  r1WatermarkInfo,
   renderResurrect,
   verdictLine,
   classifyWorktree,

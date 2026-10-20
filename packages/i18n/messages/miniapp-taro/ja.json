@@ -3527,6 +3527,9 @@
   "chat": {
     "modelSwitchStopped": "{model} に切り替えたため、この回答を終了しました",
     "partialDoneTitle": "回答が中断されました。以下の内容は不完全な可能性があります",
+    "truncation": {
+      "maxLengthNotice": "この回答は最大出力長に達したため切り詰められており、内容が完全ではありません。「続けて」と送信すると生成を再開できます。"
+    },
     "send": "送信",
     "meta": {
       "pullOnly": "ミニアプリでは、次回開いたときにこの変更が同期されます"
@@ -4438,7 +4441,7 @@
     "codeSent": "認証コードを送信しました",
     "codeIncomplete": "認証コードをすべて入力してください",
     "verifySuccess": "認証に成功しました",
-    "getCode": "認証コードを取得"
+    "getCode": "認証コードを入力してください"
   },
   "VerifyCodeModal": {
     "p2": "再送信",

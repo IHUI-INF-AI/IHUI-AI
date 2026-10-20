@@ -174,6 +174,12 @@ class Settings(BaseSettings):
     # 最前(次序:本地 tier 升序 → 默认链 → free → cheap → premium)。
     # 云部署开它只会把请求往没配的本地端点上撞;自托管/边缘实例显式开启。
     edge_first_local: bool = False
+    # 本地 provider 禁用清单(2026-10-19 立,逗号分隔):列在此的本地 provider 跳过
+    # 健康探测(不再产生 ConnectTimeout 日志与无效等待)。默认禁四个——本机从未
+    # 部署过它们(IHUI-OLLAMA 等服务的既成事实),探测纯属噪音(实测 1205 次/天)。
+    # 要启用某个本地 provider:从这里删掉它,或在 .env 设
+    # LOCAL_PROVIDERS_DISABLED="" 全启用。禁用是显式配置,启用也是显式配置。
+    local_providers_disabled: str = "ollama,lmstudio,llamacpp,vllm,xinference"
     azure_api_key: str = ""
     azure_api_base: str = ""
     aws_access_key_id: str = ""
@@ -181,6 +187,16 @@ class Settings(BaseSettings):
     # MCP / Publish 工具配置(2026-07-27 统一 secret 管理)
     # MCP_WORKSPACE_ROOTS:工作区根目录白名单(分隔符 os.pathsep),空=用当前工作目录
     mcp_workspace_roots: str = ""
+    # provider 并发槽上限(2026-10-19 立,JSON):{"stepfun":4,"agnes":4} 形态,
+    # 未列的 provider 用默认 8。背景:stepfun 免费档上游并发上限 5,本系统并发
+    # 打到 6 自伤(全天 53 次 concurrency reached ⇒ combo 全灭 ⇒ 用户 502)。
+    # 见 core/provider_slots.py。空=只用内置默认。
+    provider_slot_limits: str = ""
+    # 系统内部身份(8802 网关鉴权后注入的 "system-worker")对应的 owner UUID
+    # (2026-10-19 立):此前该字符串被直接当 UUID 传给 memory_graph 的
+    # $2::uuid[] ⇒ invalid UUID ⇒ 系统记忆子图全废(降级为空)。
+    # 默认全零 UUID;要迁数据就改这个值 + 迁移既有 system-worker 记忆行。
+    system_owner_uuid: str = "00000000-0000-0000-0000-000000000000"
     # MCP Client 配置(2026-08-11 立,连接外部 MCP Server)
     # JSON 格式的多 MCP Server 配置数组:
     # [{"name":"...", "transport":"stdio|sse", "command":"...", "args":[...], "url":"...",

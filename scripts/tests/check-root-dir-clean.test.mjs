@@ -18,7 +18,7 @@
  * 那一型:靠 cwd 定位夹具而脚本按定义忽略 cwd 时,测试其实全在审真仓(13/14 恒红)。
  */
 
-import { writeFileSync, readFileSync } from 'node:fs'
+import { writeFileSync, readFileSync, mkdirSync } from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -151,6 +151,43 @@ test('P6 --root 缺参数必须判死,不得静默退回真仓', () => {
   assert.match(text, /--root|目录/, `报错要点名是参数问题,实得:${text.slice(0, 200)}`)
 })
 
+test('P7 存量不判红(2026-10-19 恒红根因):已在 HEAD 里的白名单外目录,--staged 必须 exit 0 且照点名', () => {
+  const { dir, git } = makeRepo('g44-preexisting-dir')
+  try {
+    // 造一枚"早就入库"的运行态目录:提交它,之后不再动它(= 本次提交内容与它无关)
+    mkdirSync(join(dir, '.stray-state'), { recursive: true })
+    writeFileSync(join(dir, '.stray-state', 'last-sha'), 'abc\n')
+    git(['add', '.stray-state/last-sha'])
+    git(['commit', '-q', '-m', 'automation state lands'])
+    const r = gate(dir, ['--staged'])
+    assert.equal(
+      r.code,
+      0,
+      `白名单外但早在 HEAD 的目录不该让每次提交必红(§12e 恒红门),实得 ${r.code}\n${r.text}`,
+    )
+    assert.match(r.text, /存量/, '必须如实报数并写明是存量,不得静默当干净')
+    assert.ok(r.text.includes('.stray-state'), '存量也要点名(找得到物主才有出路)')
+    assert.ok(!/根目录整洁守门失败/.test(r.text), '存量那一档不得下"本次失败"的结论')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('P8 阳性对照:同一目录改成"本次才入库",--staged 必须翻回 exit 1(棘轮不是逃逸通道)', () => {
+  const { dir, git } = makeRepo('g44-newly-tracked-dir')
+  try {
+    mkdirSync(join(dir, '.stray-state'), { recursive: true })
+    writeFileSync(join(dir, '.stray-state', 'last-sha'), 'abc\n')
+    git(['add', '.stray-state/last-sha'])
+    const r = gate(dir, ['--staged'])
+    assert.equal(r.code, 1, `本次新入库的根级目录必须 exit 1,实得 ${r.code}\n${r.text}`)
+    assert.match(r.text, /根目录整洁守门失败/)
+    assert.ok(!/存量/.test(r.text), '它不在 HEAD 里 ⇒ 归成本枚提交的红,不得读成存量')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 test('装车证明:本门在 runner 里仍是 blocking,且测试通道不进生产调用', () => {
   const at = runnerSource.indexOf("script: 'check-root-dir-clean.mjs'")
   assert.ok(at > 0, '未注册 ⇒ 这一门无人调度')
@@ -167,9 +204,22 @@ test('反向锁:白名单之外的既有豁免层不得被"归属分流"顺手�
   assert.match(src, /return null/, '索引"问不到"必须与"真没有"可分,否则 git 一坏就把我的垃圾归给别人')
 })
 
-test('变异自证:把归属分流改回"一律 exit 1",P2 必须翻红(证明本票的牙长在该长的位置)', () => {
+test('变异自证:归属分流的三档退出码不得被改回"一律 exit 1",也不得丢掉 HEAD 锚点', () => {
   const src = readFileSync(GATE, 'utf8')
-  const m = src.match(/process\.exit\(owned\.length > 0 \? 1 : 2\)/)
-  assert.ok(m, '归属分流的退出码判据本身不许被改掉/改名 —— 找不到就说明本次修复已经不在源码里')
+  assert.match(
+    src,
+    /if \(owned\.length > 0\) process\.exit\(1\)/,
+    '本次新入库那一档必须仍然 exit 1 —— 找不到就说明 P1/P8 的牙已被磨掉',
+  )
+  assert.match(
+    src,
+    /process\.exit\(untracked\.length > 0 \? 2 : 0\)/,
+    '未跟踪 ⇒ 2、只剩存量 ⇒ 0 这一档不得被抹平',
+  )
+  assert.match(
+    src,
+    /indexed\.has\(v\.name\) && !headNames\.has\(v\.name\)/,
+    'owned 的判据必须是"索引有 ∧ HEAD 无"(差值棘轮);改回单面 ls-files 就是那枚恒红根因复发',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

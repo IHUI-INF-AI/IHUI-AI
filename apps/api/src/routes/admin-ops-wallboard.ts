@@ -25,6 +25,8 @@ import { dbRead } from '../db/index.js'
 import { apiLogs, llmCallLogs, monitorAlerts, orders, systemEvents, users } from '@ihui/database'
 import { success, error } from '../utils/response.js'
 import { requireAdmin } from '../plugins/require-permission.js'
+import type { EdgeLegKey, EdgeLegSample, EdgeStats } from '../services/edge-access.js'
+import { edgeSeries, latestEdgeSnapshot } from '../services/edge-access.js'
 
 // ===== 可观测数据源端点(环境变量可覆盖;默认值 = Windows 原生部署实况)=====
 const PROMETHEUS_URL = (process.env.PROMETHEUS_URL ?? 'http://127.0.0.1:8815').replace(/\/$/, '')
@@ -733,6 +735,32 @@ async function buildTrend(minutes: number, step: number): Promise<TrendSnapshot>
   }
 }
 
+/**
+ * 访客链路(国内加速)实测块 — 数据来自 api 进程内的 `edge-access` 定时探方,不经 Prometheus:
+ * 这四个数是"本机视角访问公网入口"的量,没有任何 exporter 采集它。取不到 ⇒ null,
+ * 大屏显示"未判定",而不是显示 0ms(0ms 在大屏上长得像"飞快")。
+ * `ageSec` 用来回答"这轮量的是多久以前的"——服务刚重启、或探方被禁用时它是唯一线索。
+ */
+interface EdgeBlock {
+  at: string
+  ageSec: number
+  stats: EdgeStats
+  legs: Record<EdgeLegKey, EdgeLegSample>
+  series: Array<[number, number, boolean]>
+}
+
+function buildEdge(): EdgeBlock | null {
+  const snap = latestEdgeSnapshot()
+  if (!snap) return null
+  return {
+    at: snap.at,
+    ageSec: Math.max(0, Math.round((Date.now() - Date.parse(snap.at)) / 1000)),
+    stats: snap.stats,
+    legs: snap.legs,
+    series: edgeSeries(),
+  }
+}
+
 // ===== 路由 =====
 export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
@@ -752,6 +780,7 @@ export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
       buildAlerts(),
       buildEvents(),
     ])
+    const edge = buildEdge()
     return reply.send(
       success({
         generatedAt: new Date().toISOString(),
@@ -760,6 +789,7 @@ export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
           prometheus: http !== null || host !== null ? 'up' : 'down',
           alertmanager: alerts !== null && alerts.promActive !== null ? 'up' : 'down',
           database: business !== null ? 'up' : 'down',
+          edge: edge !== null ? 'up' : 'down',
         },
         host,
         services,
@@ -770,6 +800,7 @@ export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
         business,
         alerts,
         events,
+        edge,
       }),
     )
   })

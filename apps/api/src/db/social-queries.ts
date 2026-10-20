@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { randomBytes } from 'node:crypto'
-import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm'
+import { eq, and, ne, desc, asc, sql, inArray } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   comments,
@@ -145,6 +145,72 @@ export async function countFollowers(userId: string): Promise<number> {
     .from(userFollows)
     .where(eq(userFollows.followingId, userId))
   return Number(rows[0]?.count ?? 0)
+}
+
+/** 推荐用户候选(圈子广场「推荐关注」副榜)。 */
+export interface RecommendedUserItem {
+  id: string
+  nickname: string | null
+  avatar: string | null
+  bio: string | null
+  followerCount: number
+}
+
+/**
+ * 相关性最高的用户候选(粉丝数口径),分页。
+ *
+ * 状态过滤用的是 users.status 现列(0=禁用 1=正常 3=注销,见 schema/users.ts),
+ * 只推 status=1 ⇒ 禁用与注销账号不进推荐位。
+ *
+ * 排序必须确定性:ORDER BY RANDOM() 会让同一页每次刷新换一批、翻页出现重复/漏项。
+ * 口径 = 粉丝数倒序 + (同人多号无歧义的)users.id 升序兜底 tie-break。
+ */
+export async function findRecommendedUsers(
+  opts: PageOpts & { excludeUserId?: string },
+): Promise<{ list: RecommendedUserItem[]; total: number }> {
+  const conds = [eq(users.status, 1)]
+  if (opts.excludeUserId) conds.push(ne(users.id, opts.excludeUserId))
+  const where = and(...conds)
+  const followerCount =
+    sql<number>`(SELECT COUNT(*)::int FROM ${userFollows} uf WHERE uf.following_id = ${users.id})`
+  const [list, totalRows] = await Promise.all([
+    db
+      .select({
+        id: users.id,
+        nickname: users.nickname,
+        avatar: users.avatar,
+        bio: users.bio,
+        followerCount,
+      })
+      .from(users)
+      .where(where)
+      .orderBy(desc(followerCount), asc(users.id))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db.select({ count: sql<number>`COUNT(*)` }).from(users).where(where),
+  ])
+  return {
+    list: list.map((row) => ({ ...row, followerCount: Number(row.followerCount) })),
+    total: Number(totalRows[0]?.count ?? 0),
+  }
+}
+
+/**
+ * 在一批候选用户里,取「follower 已关注」的那些 id。
+ * 一次 inArray 查询,不逐行 isFollowing(N 候选 = N 次查询)。
+ */
+export async function findFollowingIds(
+  followerId: string,
+  targetIds: readonly string[],
+): Promise<string[]> {
+  if (targetIds.length === 0) return []
+  const rows = await db
+    .select({ id: userFollows.followingId })
+    .from(userFollows)
+    .where(
+      and(eq(userFollows.followerId, followerId), inArray(userFollows.followingId, [...targetIds])),
+    )
+  return rows.map((row) => row.id)
 }
 
 // =============================================================================
