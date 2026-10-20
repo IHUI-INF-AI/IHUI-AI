@@ -25,6 +25,15 @@ const mocks = vi.hoisted(() => ({
   // 2026-10-09:捕获 api.ts setTokenProvider 注册的 provider —— refreshAccessToken
   // 是模块私有回调,只有这一条口能拿到它的引用去直调(分型用例的入口)。
   capturedProvider: null as unknown,
+  // 2026-10-20:桌面 vault 收到 rejected 后的清理是 CAS(另一窗口可能已轮转写回新 token),
+  // 需要可控的读/写两侧才能真验"值变了就不动",故把 vault 整体替身。
+  vaultGet: vi.fn(async (): Promise<string | null> => null),
+  vaultSet: vi.fn(async (_token: string | null): Promise<void> => {}),
+}))
+
+vi.mock('@/lib/desktop-token-vault', () => ({
+  getDesktopRefreshToken: mocks.vaultGet,
+  setDesktopRefreshToken: mocks.vaultSet,
 }))
 
 vi.mock('@ihui/api-client', async () => {
@@ -195,6 +204,12 @@ describe('refreshAccessToken 失败分型(2026-10-09 根治「自动登录总被
 
   beforeEach(() => {
     vi.clearAllMocks()
+    // 实现也要复位:clearAllMocks 只清调用记录,不清 mockResolvedValue ——
+    // 上一条用例的 vault 取值会漏进下一条,让 CAS 用例互相串味。
+    mocks.vaultGet.mockReset()
+    mocks.vaultGet.mockResolvedValue(null)
+    mocks.vaultSet.mockReset()
+    mocks.vaultSet.mockResolvedValue(undefined)
   })
 
   it('500 → 抛 TransientRefreshError,落账 transient', async () => {
@@ -219,6 +234,41 @@ describe('refreshAccessToken 失败分型(2026-10-09 根治「自动登录总被
 
     await expect(refresh()).resolves.toBeNull()
     expect(getLastRefreshFailure()).toBe('rejected')
+  })
+
+  /**
+   * CAS(2026-10-20):桌面端多窗口共用 auth.json。rejected 时"清掉本窗口用过的那一份"
+   * 才是正确语义 —— 盲清会抹掉另一窗口刚轮转写回的新 token,表现为自动登录时好时坏。
+   * 这三例用真 refreshAccessToken(provider 直调)+ 可编程 vault 验行为,不看源码形状。
+   */
+  it('rejected 且 vault 仍是本窗口那份 → 清掉(单窗口不留死 token)', async () => {
+    mocks.fetchApiShared.mockResolvedValue({ success: false, status: 401 })
+    // 第一次读=发请求用(本窗口用的 'rt-old');清理前的第二次读仍是它 ⇒ 我的一份,可清。
+    mocks.vaultGet.mockResolvedValue('rt-old')
+    const { refresh } = await loadRefresh()
+
+    await expect(refresh()).resolves.toBeNull()
+    expect(mocks.vaultSet).toHaveBeenCalledTimes(1)
+    expect(mocks.vaultSet).toHaveBeenCalledWith(null)
+  })
+
+  it('rejected 且 vault 已被另一窗口轮转成新 token → 一动不动', async () => {
+    mocks.fetchApiShared.mockResolvedValue({ success: false, status: 401 })
+    // 本窗口用的是 'rt-old'(首次读),清理前再读拿到 'rt-new'(别的窗口刚写回)⇒ 不是我的,不动。
+    mocks.vaultGet.mockResolvedValueOnce('rt-old').mockResolvedValue('rt-new')
+    const { refresh } = await loadRefresh()
+
+    await expect(refresh()).resolves.toBeNull()
+    expect(mocks.vaultSet).not.toHaveBeenCalled()
+  })
+
+  it('transient → 不碰 vault(凭据没被否定,清了就真的没得刷了)', async () => {
+    mocks.fetchApiShared.mockResolvedValue({ success: false, status: 500 })
+    mocks.vaultGet.mockResolvedValue('rt-old')
+    const { refresh, TransientRefreshError } = await loadRefresh()
+
+    await expect(refresh()).rejects.toBeInstanceOf(TransientRefreshError)
+    expect(mocks.vaultSet).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
