@@ -19,15 +19,8 @@
  *   在 RN 上假接会造成"能点但存不进去"的假成功,故本屏只做浏览/搜索/详情/下载。
  */
 import { useCallback, useEffect, useState } from 'react'
-import {
-  Linking,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { Linking, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { TextField } from '@ihui/rn-app'
 import { appAlert } from '../components/BottomPops'
 import {
   downloadResource,
@@ -155,10 +148,7 @@ export function ResourcesScreen() {
       setItems((prev) => [...prev, ...page.list])
       setTotal(page.total)
     } catch (e) {
-      appAlert(
-        t('common.loadFailed'),
-        e instanceof Error ? e.message : t('resources.loadFailed'),
-      )
+      appAlert(t('common.loadFailed'), e instanceof Error ? e.message : t('resources.loadFailed'))
     } finally {
       setLoadingMore(false)
     }
@@ -310,7 +300,9 @@ export function ResourcesScreen() {
     return (
       <ScrollView
         className="flex-1"
-        refreshControl={<RefreshControl refreshing={detailLoading} onRefresh={() => void openDetail(resource)} />}
+        refreshControl={
+          <RefreshControl refreshing={detailLoading} onRefresh={() => void openDetail(resource)} />
+        }
       >
         <View className="mx-4 mb-3 rounded-panel border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
           <Text className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
@@ -387,7 +379,8 @@ export function ResourcesScreen() {
         <>
           <View className="px-4 pb-2">
             <Text className="mb-1 text-xs text-neutral-500">{t('resources.subtitle')}</Text>
-            <TextInput
+            <TextField
+              colorScheme={resolvedTheme}
               value={search}
               onChangeText={setSearch}
               placeholder={t('resources.searchPlaceholder')}

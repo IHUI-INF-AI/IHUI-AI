@@ -19,7 +19,8 @@
  * - 样式与 McpStoreScreen 一致:Tailwind className + resolvedTheme 暗色适配 + NavBar。
  */
 import { useCallback, useEffect, useState } from 'react'
-import { RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { TextField } from '@ihui/rn-app'
 import { appAlert } from '../components/BottomPops'
 import {
   createWorkspace,
@@ -185,7 +186,8 @@ export function WorkspaceScreen() {
   const onSwitchMode = useCallback(
     (perm: WorkspacePermission, mode: WorkspacePermissionMode) => {
       const words = permissionTierWordKeys(mode)
-      const title = mode === RISK_MODE ? t('workspace.permSwitchRisk') : t('workspace.permSwitchConfirm')
+      const title =
+        mode === RISK_MODE ? t('workspace.permSwitchRisk') : t('workspace.permSwitchConfirm')
       appAlert(title, `${t(words.title)} · ${t(words.desc)}`, [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -351,14 +353,16 @@ export function WorkspaceScreen() {
 
               {formOpen ? (
                 <View className="mt-3">
-                  <TextInput
+                  <TextField
+                    colorScheme={resolvedTheme}
                     value={name}
                     onChangeText={setName}
                     placeholder={t('workspace.namePlaceholder')}
                     placeholderTextColor={isDark ? '#737373' : '#a3a3a3'}
                     className="rounded-control border border-neutral-200 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
                   />
-                  <TextInput
+                  <TextField
+                    colorScheme={resolvedTheme}
                     value={description}
                     onChangeText={setDescription}
                     multiline
@@ -371,7 +375,9 @@ export function WorkspaceScreen() {
                     disabled={creating}
                     onPress={onSubmitProject}
                     className={`mt-2 self-start rounded-control px-4 py-2 ${
-                      creating ? 'bg-neutral-300 dark:bg-neutral-800' : 'bg-neutral-900 dark:bg-neutral-100'
+                      creating
+                        ? 'bg-neutral-300 dark:bg-neutral-800'
+                        : 'bg-neutral-900 dark:bg-neutral-100'
                     }`}
                   >
                     <Text
@@ -426,7 +432,8 @@ export function WorkspaceScreen() {
                     </Text>
                   ) : null}
                   <Text className="mt-1 text-xs text-neutral-500">
-                    {t('workspace.files', { count: item.fileCount })} · {t('workspace.members', {
+                    {t('workspace.files', { count: item.fileCount })} ·{' '}
+                    {t('workspace.members', {
                       count: item.memberCount,
                     })}
                   </Text>
