@@ -25,6 +25,12 @@ import {
 export const TAB_BAR_HEIGHT = INPUT_AREA_SHELL_HEIGHT_PX
 export const TAB_BAR_ICON_SIZE = 24
 export const TAB_BAR_FONT_SIZE = 11
+/**
+ * 选中态字号(2026-10-20 用户定稿「选中时文字稍微放大加粗」):比未选中大 1px。
+ * 与小程序 tab-bar-metrics.ts 的同名量成对,改一端必须同批改另一端。
+ * 截断余量实测:最宽标签「AI应用商店」11px 占 54px / 单格 81px,12px 约 60px ⇒ 不截断。
+ */
+export const TAB_BAR_FONT_SIZE_ACTIVE = 12
 /** 胶囊左右留边(与停靠区内 AI 输入框同一条垂直边线) */
 export const TAB_BAR_FLOAT_MARGIN_H = INPUT_AREA_CONTAINER_PADDING_X_PX
 /** 胶囊顶部与内容的间距 */
@@ -160,6 +166,8 @@ export const tabBarStyles = {
   labelActive: {
     color: tk.brandAccent.deep,
     fontWeight: '600',
+    fontSize: TAB_BAR_FONT_SIZE_ACTIVE,
+    lineHeight: TAB_BAR_FONT_SIZE_ACTIVE + 2,
   } satisfies TextStyle,
 
   /** 未选中态文字:中性灰(text.secondary,亮 #666666 / 暗 #A3A3A3)—— 比原 tertiary 深一档 */
