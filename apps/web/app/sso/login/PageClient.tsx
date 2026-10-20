@@ -138,12 +138,13 @@ export default function SsoLoginPage() {
       // 反斜杠等值当斜杠),于是"过了服务端校验的 code"会被送到外站。落点判据统一走
       // @/lib/sso-redirect-guard 这一把尺子,不在此另写一份 origin 判断(AGENTS §3)。
       const target = resolveSafeRedirectTarget(resolveLoginTarget(), { allowDeepLink: true })
-      // 2026-09-22:先确认回跳目标能被守卫放行(必要时静默续种 cookie)——
-      // 否则生成的 sso_code 还没被消费就被 307 打回本页,用户感知即"按钮没反应"。
-      if (!(await ensureSsoRedirectAllowed(target))) {
-        toast.error(tSso('sessionExpired'))
-        return
-      }
+      // 2026-10-22 修复"已登录却误报登录失效":
+      // ensureSsoRedirectAllowed 完全依赖 auth_token cookie(页面守卫只认 cookie、不认内存 Bearer)。
+      // 当 COOKIE_DOMAIN 与访问域不匹配(局域网 IP / localhost / 非子域 host)时,浏览器根本
+      // 不存储/携带该 cookie,守卫探测恒判"被拦"——但内存 token 仍在位(也是"已登录"卡片能
+      // 显示的原因),会话并未失效。故:守卫探测只决定"导航会不会被 307",不再直接等价于
+      // "会话失效";会话是否真的失效改由后端 Bearer 鉴权(/api/auth/sso/code)裁定。
+      const guardAllowed = await ensureSsoRedirectAllowed(target)
       // 2026-10-12:/api/auth/sso/code 与 auth refresh 同链路(都走在"授权并跳转"的
       // 关键路径上),显式 10s 超时 —— 不吃 fetchApi 默认 30s,生产后端退化时
       // 授权按钮至多 10s 给出明确失败,而不是让用户对着"点了没反应"干等。
@@ -155,6 +156,12 @@ export default function SsoLoginPage() {
         timeoutMs: 10_000,
       })
       if (r.success && r.data?.code) {
+        // 后端 Bearer 鉴权通过 ⇒ 会话有效。守卫放行则正常跳转;守卫拦截则多半是
+        // cookie 域/配置问题,不盲目导航以免陷入 307 重入死循环,给出明确提示。
+        if (!guardAllowed) {
+          toast.error(tSso('redirectBlockedByGuard'))
+          return
+        }
         // 幂等构造:先剥离 redirect 里可能残留的 sso_code 再附加(2026-09-22 去重),
         // 防守卫打回重入导致 ?sso_code=A&sso_code=B 递归膨胀。
         const finalUrl = buildSsoRedirectUrl(target, r.data.code)
@@ -172,7 +179,9 @@ export default function SsoLoginPage() {
           router.push(finalUrl)
         }
       } else {
-        toast.error(!r.success ? r.error : tSso('generateCodeFailed'))
+        // 后端拒绝(401 等)或异常 ⇒ 会话确实失效/异常:优先透传后端错误文案,
+        // 无文案时归为登录失效(不再把"cookie 守卫拦截"误判成登录失效)。
+        toast.error(!r.success && r.error ? r.error : tSso('sessionExpired'))
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : tSso('generateCodeFailed'))
