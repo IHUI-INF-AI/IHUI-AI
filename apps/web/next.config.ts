@@ -847,6 +847,30 @@ const nextConfig: NextConfig = {
         headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
       },
       {
+        // 2026-10-21 同上批：英文首页与公开内容页（关于/定价/文档）同属无服务端用户态的
+        //   公开页，一并允许边缘缓存 5 分钟。
+        //   已核：这 4 个 page.tsx 与所属路由组 layout（(main)/layout.tsx 89 行）均无
+        //   cookies()/headers()/session 调用 —— 页面上的用户信息是客户端渲染的，
+        //   CDN 缓存的只是 HTML 外壳，客户端再自行填充，故不存在串号。
+        //   写法刻意用 4 条精确字面量而不用 `/:path(en|about|…)` 这类正则：本仓 2026-10-17
+        //   曾因 headers source 是非法 path-to-regexp 模式导致 next build 连续失败、
+        //   生产被冻结一个多小时（见下方静态资产规则注释）。精确匹配零解析风险。
+        source: '/en',
+        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
+      },
+      {
+        source: '/about',
+        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
+      },
+      {
+        source: '/pricing',
+        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
+      },
+      {
+        source: '/docs',
+        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
+      },
+      {
         source: '/(.*)',
         headers: securityHeaders,
       },

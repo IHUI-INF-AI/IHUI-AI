@@ -328,7 +328,7 @@ function Panel({
     >
       <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <span className="h-3 w-[3px] rounded-full bg-info shadow-[0_0_8px_color-mix(in_srgb,var(--color-info)_80%,transparent)]" />
-        {icon ? <span className="text-info/70">{icon}</span> : null}
+        {icon ? <span className="text-info-text/70">{icon}</span> : null}
         <h2 className="wb-display text-[13px] font-semibold tracking-[0.18em] text-foreground uppercase">
           {title}
         </h2>
@@ -392,9 +392,9 @@ function StatCell({
           tone === 'bad'
             ? 'text-destructive'
             : tone === 'warn'
-              ? 'text-warning'
+              ? 'text-warning-text'
               : tone === 'accent'
-                ? 'text-info'
+                ? 'text-info-text'
                 : tone === 'unknown'
                   ? 'text-muted-foreground'
                   : 'text-foreground',
@@ -923,7 +923,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     trend &&
     trend.qps.length > 0 &&
     (trend.errRate.length === 0 || trend.errRate.every(([, v]) => v === 0)) ? (
-      <span className="flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-1.5 py-0.5 text-[10px] text-success">
+      <span className="flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-1.5 py-0.5 text-[10px] text-success-text">
         <Dot tone="ok" />
         {t('no5xxWindow', { minutes: trend.minutes })}
       </span>
@@ -964,7 +964,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <div className="wb-hdr-title flex min-w-0 items-center gap-3">
             <BackButton />
             <div className="flex h-9 w-9 items-center justify-center rounded-sm border border-info/40 bg-info/10 shadow-[0_0_18px_color-mix(in_srgb,var(--color-info)_35%,transparent)]">
-              <Gauge className="h-5 w-5 text-info" />
+              <Gauge className="h-5 w-5 text-info-text" />
             </div>
             <div className="min-w-0">
               <h1 className="wb-display truncate text-[17px] leading-tight font-bold tracking-[0.22em] text-foreground">
@@ -999,9 +999,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               className={cn(
                 'flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-[11px]',
                 overallTone === 'ok'
-                  ? 'border-success/40 bg-success/10 text-success'
+                  ? 'border-success/40 bg-success/10 text-success-text'
                   : overallTone === 'warn'
-                    ? 'border-warning/40 bg-warning/10 text-warning'
+                    ? 'border-warning/40 bg-warning/10 text-warning-text'
                     : 'border-border bg-muted/60 text-muted-foreground',
               )}
             >
@@ -1032,7 +1032,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               <div
                 className={cn(
                   'text-[9px] tracking-[0.2em]',
-                  dataStale ? 'text-warning/90' : 'text-muted-foreground',
+                  dataStale ? 'text-warning-text/90' : 'text-muted-foreground',
                 )}
               >
                 {dataStale ? `${t('staleData')} · ` : ''}
@@ -1104,7 +1104,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               className="wb-panel wb-rise relative overflow-hidden rounded-sm border border-border bg-card/80 px-3 py-2.5"
             >
               <div className="flex items-center gap-2 text-[10px] tracking-[0.16em] text-muted-foreground">
-                <span className="text-info/70">{k.icon}</span>
+                <span className="text-info-text/70">{k.icon}</span>
                 {k.label}
               </div>
               <div
@@ -1113,10 +1113,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   k.tone === 'bad'
                     ? 'text-destructive'
                     : k.tone === 'accent'
-                      ? 'text-info'
+                      ? 'text-info-text'
                       : k.tone === 'unknown'
                         ? 'text-muted-foreground'
-                        : 'text-success',
+                        : 'text-success-text',
                 )}
               >
                 {k.value}
@@ -1195,8 +1195,8 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                         d.usedPct >= 90
                           ? 'text-destructive'
                           : d.usedPct >= 75
-                            ? 'text-warning'
-                            : 'text-info',
+                            ? 'text-warning-text'
+                            : 'text-info-text',
                       )}
                     >
                       {fmtPct(d.usedPct, 1)}
@@ -1220,7 +1220,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {no5xxBadge}
                 <span className="text-[10px] text-muted-foreground">{t('trendWindow')}</span>
                 {trendStale ? (
-                  <span className="flex items-center gap-1 text-[10px] text-warning/90">
+                  <span className="flex items-center gap-1 text-[10px] text-warning-text/90">
                     <Dot tone="warn" />
                     {t('staleData')}
                   </span>
@@ -1316,10 +1316,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                         s.retired
                           ? 'text-muted-foreground'
                           : s.state === 'running'
-                            ? 'text-success/90'
+                            ? 'text-success-text/90'
                             : s.state === 'stopped'
                               ? 'text-destructive'
-                              : 'text-warning',
+                              : 'text-warning-text',
                       )}
                     >
                       {s.retired
@@ -1348,7 +1348,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       className={cn(
                         'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px]',
                         target.up === 1
-                          ? 'border-success/25 bg-success/10 text-success/90'
+                          ? 'border-success/25 bg-success/10 text-success-text/90'
                           : 'border-destructive/30 bg-destructive/10 text-destructive',
                       )}
                     >
@@ -1434,7 +1434,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                           'shrink-0 rounded-sm border px-1 text-[9px]',
                           a.state === 'active'
                             ? 'border-destructive/30 bg-destructive/10 text-destructive'
-                            : 'border-warning/30 bg-warning/10 text-warning',
+                            : 'border-warning/30 bg-warning/10 text-warning-text',
                         )}
                       >
                         {a.state === 'suppressed'
@@ -1455,12 +1455,12 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </div>
                 ))}
                 {alerts?.promActiveCount === 0 ? (
-                  <div className="rounded-sm border border-success/20 bg-success/[0.06] px-2 py-3 text-center text-[11px] text-success/90">
+                  <div className="rounded-sm border border-success/20 bg-success/[0.06] px-2 py-3 text-center text-[11px] text-success-text/90">
                     {t('noActiveAlerts')}
                   </div>
                 ) : null}
                 {alerts?.promActive === null || alerts?.promActive === undefined ? (
-                  <div className="rounded-sm border border-warning/20 bg-warning/[0.06] px-2 py-3 text-center text-[11px] text-warning/90">
+                  <div className="rounded-sm border border-warning/20 bg-warning/[0.06] px-2 py-3 text-center text-[11px] text-warning-text/90">
                     {t('alertmanagerDown')}
                   </div>
                 ) : null}
@@ -1482,8 +1482,8 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                           a.severity === 'critical'
                             ? 'border-destructive/30 bg-destructive/10 text-destructive'
                             : a.severity === 'info'
-                              ? 'border-info/40 bg-info/10 text-info'
-                              : 'border-warning/30 bg-warning/10 text-warning',
+                              ? 'border-info/40 bg-info/10 text-info-text'
+                              : 'border-warning/30 bg-warning/10 text-warning-text',
                         )}
                       >
                         {a.severity === 'critical'
@@ -1498,9 +1498,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       </span>
                     </div>
                     <div className="mt-0.5 flex items-center gap-1.5 text-[9px] text-muted-foreground">
-                      <span className="shrink-0 text-info/70">{a.source}</span>
+                      <span className="shrink-0 text-info-text/70">{a.source}</span>
                       {a.resolvedAt ? (
-                        <span className="truncate text-success/80">
+                        <span className="truncate text-success-text/80">
                           {t('resolvedAgo', { ago: fmtAgo(a.resolvedAt) })}
                         </span>
                       ) : a.message ? (
@@ -1540,7 +1540,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                               : 'ok'
                         }
                       />
-                      <span className="shrink-0 text-[9px] tracking-[0.12em] text-info/80 uppercase">
+                      <span className="shrink-0 text-[9px] tracking-[0.12em] text-info-text/80 uppercase">
                         {e.type}
                       </span>
                       <span className="ml-auto shrink-0 text-[9px] text-muted-foreground">
@@ -1676,13 +1676,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     className="flex items-center gap-2 rounded-sm bg-muted/50 px-2 py-1"
                   >
                     <span className="wb-num w-4 text-[10px] text-muted-foreground">{i + 1}</span>
-                    <span className="shrink-0 rounded-sm border border-info/25 px-1 text-[9px] text-info/90">
+                    <span className="shrink-0 rounded-sm border border-info/25 px-1 text-[9px] text-info-text/90">
                       {e.method}
                     </span>
                     <Tooltip content={e.path}>
                       <span className="truncate text-[10px] text-foreground">{e.path}</span>
                     </Tooltip>
-                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info">
+                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
                       {fmtCompact(e.calls)}
                     </span>
                   </div>
@@ -1782,10 +1782,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                         edgeLastTone === 'bad'
                           ? 'text-destructive'
                           : edgeLastTone === 'warn'
-                            ? 'text-warning'
+                            ? 'text-warning-text'
                             : edgeLastTone === 'unknown'
                               ? 'text-muted-foreground'
-                              : 'text-info',
+                              : 'text-info-text',
                       )}
                     >
                       {isNum(edge.stats.lastMs) ? fmtInt(edge.stats.lastMs) : '—'}
@@ -1806,10 +1806,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                         edgeHitTone === 'bad'
                           ? 'text-destructive'
                           : edgeHitTone === 'warn'
-                            ? 'text-warning'
+                            ? 'text-warning-text'
                             : edgeHitTone === 'unknown'
                               ? 'text-muted-foreground'
-                              : 'text-success',
+                              : 'text-success-text',
                       )}
                     >
                       {isNum(edge.stats.hitRatio) ? fmtPct(edge.stats.hitRatio * 100, 1) : '—'}

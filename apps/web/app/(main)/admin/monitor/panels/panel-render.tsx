@@ -234,7 +234,7 @@ function PanelCard({
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <h3 className="truncate text-[13px] font-medium text-foreground">{panel.title}</h3>
         {errs.length > 0 && (
-          <span className="shrink-0 text-[10px] text-warning" title={errs.join('; ')}>
+          <span className="shrink-0 text-[10px] text-warning-text" title={errs.join('; ')}>
             <AlertTriangle className="mr-0.5 inline h-3 w-3" />
             查询异常
           </span>
@@ -359,7 +359,7 @@ function StatBody({
           title={stats.length > 6 ? `共 ${stats.length} 项` : undefined}
         >
           <div className="truncate text-[11px] text-muted-foreground">{s.name}</div>
-          <div className="mt-0.5 font-mono text-2xl font-semibold text-info">
+          <div className="mt-0.5 font-mono text-2xl font-semibold text-info-text">
             {fmtValue(s.value, unit)}
           </div>
         </div>
@@ -570,7 +570,7 @@ function TableBody({
           {rows.slice(0, 40).map((r, i) => (
             <tr key={i} className="border-t border-border text-foreground">
               <td className="max-w-[280px] truncate px-2 py-1">{r.name}</td>
-              <td className="px-2 py-1 text-right text-info">{r.value}</td>
+              <td className="px-2 py-1 text-right text-info-text">{r.value}</td>
             </tr>
           ))}
         </tbody>
