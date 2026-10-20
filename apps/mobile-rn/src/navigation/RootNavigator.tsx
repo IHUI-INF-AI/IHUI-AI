@@ -234,11 +234,19 @@ import { PdfToolsScreen } from '../screens/PdfToolsScreen'
 import { WebPortalScreen } from '../screens/WebPortalScreen'
 import { KnowledgeRagScreen } from '../screens/KnowledgeRagScreen'
 import { SubagentsScreen } from '../screens/SubagentsScreen'
+import { McpStoreScreen } from '../screens/McpStoreScreen'
+import { ConnectorsScreen } from '../screens/ConnectorsScreen'
+import { RepoWikiScreen } from '../screens/RepoWikiScreen'
+import { TeamKnowledgeScreen } from '../screens/TeamKnowledgeScreen'
+import { TeamMemoryScreen } from '../screens/TeamMemoryScreen'
+import { AgentRuntimeScreen } from '../screens/AgentRuntimeScreen'
+import { DeepResearchScreen } from '../screens/DeepResearchScreen'
+import { PatrolScreen } from '../screens/PatrolScreen'
+import { ResourcesScreen } from '../screens/ResourcesScreen'
+import { SelfHealingScreen } from '../screens/SelfHealingScreen'
+import { WorkspaceScreen } from '../screens/WorkspaceScreen'
 // D28 多端同步(2026-09-21):外部会话导入(对应 web 端 /settings/import 会话导入 Tab)
 import { ConversationImportScreen } from '../screens/ConversationImportScreen'
-// P3 侧边栏收敛:教育/交易/社区域入口二级屏
-import DomainHubScreen from '../screens/DomainHubScreen'
-import type { DomainKey } from './domain-hub'
 
 /**
  * Vip 弹窗分支类型(对齐 Uniapp vip_info/index.vue onLoad options.type 行 59-75):
@@ -255,8 +263,6 @@ export type RootStackParamList = {
   Login: undefined
   Main: NavigatorScreenParams<MainStackParamList>
   Home: undefined
-  // P3 侧边栏收敛:教育/交易/社区域入口二级屏,params.domain 指定域单源(navigation/domain-hub)
-  DomainHub: { domain: DomainKey }
   // 对齐 Uniapp 跳 chat 传参(conversationId/title/modelName/modelId/remark),其余 12 参数中关键项已覆盖;
   // modelName/modelId/remark 可选,ChatScreen 仅消费 conversationId,其余字段预留给后续接入。
   Chat: {
@@ -495,6 +501,17 @@ export type RootStackParamList = {
   WebPortal: undefined
   KnowledgeRag: undefined
   Subagents: undefined
+  McpStore: undefined
+  Connectors: undefined
+  RepoWiki: undefined
+  TeamKnowledge: undefined
+  TeamMemory: undefined
+  AgentRuntime: undefined
+  DeepResearch: undefined
+  Patrol: undefined
+  Resources: undefined
+  SelfHealing: undefined
+  Workspace: undefined
   // P0(2026-09-04):讲师列表/详情(镜像 miniapp pages/teacher/*,课程交易链路)
   TeacherList: undefined
   TeacherDetail: { id: string }
@@ -698,7 +715,6 @@ function RootNavigatorInner() {
                 出路不能建在"异步一定成功"上。两边都挂着,跳转就是同步可达的。 */}
             <RootStack.Screen name="Login" component={LoginScreen} />
             <RootStack.Screen name="Home" component={HomeScreen} />
-            <RootStack.Screen name="DomainHub" component={DomainHubScreen} />
             <RootStack.Screen name="Chat" component={ChatScreen} />
             <RootStack.Screen name="OrderRefund" component={OrderRefundScreen} />
             <RootStack.Screen name="Payment" component={PaymentScreen} />
@@ -898,6 +914,17 @@ function RootNavigatorInner() {
             <RootStack.Screen name="WebPortal" component={WebPortalScreen} />
             <RootStack.Screen name="KnowledgeRag" component={KnowledgeRagScreen} />
             <RootStack.Screen name="Subagents" component={SubagentsScreen} />
+            <RootStack.Screen name="McpStore" component={McpStoreScreen} />
+            <RootStack.Screen name="Connectors" component={ConnectorsScreen} />
+            <RootStack.Screen name="RepoWiki" component={RepoWikiScreen} />
+            <RootStack.Screen name="TeamKnowledge" component={TeamKnowledgeScreen} />
+            <RootStack.Screen name="TeamMemory" component={TeamMemoryScreen} />
+            <RootStack.Screen name="AgentRuntime" component={AgentRuntimeScreen} />
+            <RootStack.Screen name="DeepResearch" component={DeepResearchScreen} />
+            <RootStack.Screen name="Patrol" component={PatrolScreen} />
+            <RootStack.Screen name="Resources" component={ResourcesScreen} />
+            <RootStack.Screen name="SelfHealing" component={SelfHealingScreen} />
+            <RootStack.Screen name="Workspace" component={WorkspaceScreen} />
             {/* D28 多端同步(2026-09-21):外部会话导入(设置页入口) */}
             <RootStack.Screen name="ConversationImport" component={ConversationImportScreen} />
             {/* H20 补齐:类型已声明但未注册的路由(此前 navigate 即崩) */}
