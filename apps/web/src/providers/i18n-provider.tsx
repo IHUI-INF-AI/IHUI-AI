@@ -27,37 +27,45 @@
 
 import { NextIntlClientProvider } from 'next-intl'
 import type { AbstractIntlMessages } from 'next-intl'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { mergeMessages } from '@ihui/i18n/loader'
 import type { Messages } from '@ihui/i18n/types'
 import { useLanguageStore } from '@/stores/language'
 import { writeLocaleCookie } from '@/lib/locale-cookie'
 import { isTauri, setWindowTitle } from '@/lib/tauri-bridge'
 
-// 静态 import 所有 locale 的 messages(shared + web),构建时打包,运行时 O(1) 查找
+// 默认语言(服务端恒按 zh-CN 渲染)静态保留;其余四种改为**按需动态加载**。
+// 现读:改前 10 份 JSON 全静态 import,构建出单个 4,972KB 的客户端 chunk —— 每个访客都要
+// 下五种语言,而其中四种永远不会被用到。改为动态 import 后首屏只带当前语言那一份。
 import sharedZhCN from '@ihui/i18n/messages/shared/zh-CN.json'
-import sharedEn from '@ihui/i18n/messages/shared/en.json'
-import sharedJa from '@ihui/i18n/messages/shared/ja.json'
-import sharedKo from '@ihui/i18n/messages/shared/ko.json'
-import sharedZhTW from '@ihui/i18n/messages/shared/zh-TW.json'
 import webZhCN from '@ihui/i18n/messages/web/zh-CN.json'
-import webEn from '@ihui/i18n/messages/web/en.json'
-import webJa from '@ihui/i18n/messages/web/ja.json'
-import webKo from '@ihui/i18n/messages/web/ko.json'
-import webZhTW from '@ihui/i18n/messages/web/zh-TW.json'
 
-const MESSAGES_MAP: Record<string, AbstractIntlMessages> = {
-  'zh-CN': mergeMessages(
-    sharedZhCN as Messages,
-    webZhCN as Messages,
-  ) as unknown as AbstractIntlMessages,
-  en: mergeMessages(sharedEn as Messages, webEn as Messages) as unknown as AbstractIntlMessages,
-  ja: mergeMessages(sharedJa as Messages, webJa as Messages) as unknown as AbstractIntlMessages,
-  ko: mergeMessages(sharedKo as Messages, webKo as Messages) as unknown as AbstractIntlMessages,
-  'zh-TW': mergeMessages(
-    sharedZhTW as Messages,
-    webZhTW as Messages,
-  ) as unknown as AbstractIntlMessages,
+const ZH_CN = mergeMessages(
+  sharedZhCN as Messages,
+  webZhCN as Messages,
+) as unknown as AbstractIntlMessages
+
+const LOADERS: Record<string, () => Promise<AbstractIntlMessages>> = {
+  en: async () =>
+    mergeMessages(
+      (await import('@ihui/i18n/messages/shared/en.json')).default as Messages,
+      (await import('@ihui/i18n/messages/web/en.json')).default as Messages,
+    ) as unknown as AbstractIntlMessages,
+  ja: async () =>
+    mergeMessages(
+      (await import('@ihui/i18n/messages/shared/ja.json')).default as Messages,
+      (await import('@ihui/i18n/messages/web/ja.json')).default as Messages,
+    ) as unknown as AbstractIntlMessages,
+  ko: async () =>
+    mergeMessages(
+      (await import('@ihui/i18n/messages/shared/ko.json')).default as Messages,
+      (await import('@ihui/i18n/messages/web/ko.json')).default as Messages,
+    ) as unknown as AbstractIntlMessages,
+  'zh-TW': async () =>
+    mergeMessages(
+      (await import('@ihui/i18n/messages/shared/zh-TW.json')).default as Messages,
+      (await import('@ihui/i18n/messages/web/zh-TW.json')).default as Messages,
+    ) as unknown as AbstractIntlMessages,
 }
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
@@ -91,7 +99,31 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     setWindowTitle(brand).catch(() => {})
   }, [locale])
 
-  const messages = MESSAGES_MAP[locale] ?? MESSAGES_MAP['zh-CN']
+  // 非默认语言:按需取那一份(取回前先用 zh-CN,与服务端首屏一致,不产生 hydration 分歧;
+  // 取失败就停在 zh-CN,不白屏 —— 词典缺失不该把页面打死)
+  const [messages, setMessages] = useState<AbstractIntlMessages>(ZH_CN)
+  useEffect(() => {
+    if (locale === 'zh-CN') {
+      setMessages(ZH_CN)
+      return
+    }
+    const load = LOADERS[locale]
+    if (!load) {
+      setMessages(ZH_CN)
+      return
+    }
+    let cancelled = false
+    load()
+      .then((m) => {
+        if (!cancelled) setMessages(m)
+      })
+      .catch(() => {
+        // 保持 zh-CN
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [locale])
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages} timeZone="Asia/Shanghai">
