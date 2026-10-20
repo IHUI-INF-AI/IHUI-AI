@@ -736,6 +736,7 @@ function parseLineEvent(line: string): SSEEvent | null {
         kind,
         fields,
         actions,
+        ...(typeof json.mode === 'string' && json.mode !== '' ? { mode: json.mode } : {}),
         ...(typeof json.sessionId === 'string' ? { sessionId: json.sessionId } : {}),
         ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
       }

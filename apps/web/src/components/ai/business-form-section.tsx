@@ -81,6 +81,7 @@ export function BusinessFormSection({ messageId, className }: BusinessFormSectio
         <div key={entry.requestId} className="flex flex-col gap-1 py-1" data-form-request={entry.requestId}>
           <BusinessFormCard
             kind={entry.kind}
+            mode={entry.mode}
             requestId={entry.requestId}
             onAction={(payload) => {
               const action = payload.action === 'approve' ? 'approve' : 'reject'

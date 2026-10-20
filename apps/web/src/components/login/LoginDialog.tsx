@@ -87,7 +87,7 @@ export function LoginDialog() {
     // 常见根因是壳内页面加载失败(见 auto_refresh 的 chrome-error 自愈),
     // 提示里给出可自救动作。
     toast.error(t('desktopSsoOpenFailed'))
-  }, [])
+  }, [t])
 
   const handleLoginSuccess = React.useCallback(() => {
     const redirectUrl = useLoginDialogStore.getState().redirectUrl

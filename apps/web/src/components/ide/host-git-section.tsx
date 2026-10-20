@@ -176,19 +176,24 @@ export function HostGitSection() {
             {facts.entries.map((entry) => (
               <li
                 key={`${entry.kind}:${entry.path}`}
-                className="flex cursor-pointer items-center gap-1.5 rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-                data-testid="host-git-entry"
-                data-kind={entry.kind}
-                title={t('hostGit.diffTitle', { path: entry.path })}
-                onClick={() => void getDiff(entry.path)}
+                className="rounded-sm hover:bg-accent"
               >
-                <span className="w-16 shrink-0 font-mono text-[10px]">{entry.kind}</span>
-                <span className="flex-1 truncate">{entry.path}</span>
-                {entry.old_path && (
-                  <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
-                    {entry.old_path}
-                  </span>
-                )}
+                <button
+                  type="button"
+                  data-testid="host-git-entry"
+                  data-kind={entry.kind}
+                  className="flex w-full cursor-pointer items-center gap-1.5 text-left text-muted-foreground hover:text-foreground"
+                  title={t('hostGit.diffTitle', { path: entry.path })}
+                  onClick={() => void getDiff(entry.path)}
+                >
+                  <span className="w-16 shrink-0 font-mono text-[10px]">{entry.kind}</span>
+                  <span className="flex-1 truncate">{entry.path}</span>
+                  {entry.old_path && (
+                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
+                      {entry.old_path}
+                    </span>
+                  )}
+                </button>
               </li>
             ))}
           </ul>

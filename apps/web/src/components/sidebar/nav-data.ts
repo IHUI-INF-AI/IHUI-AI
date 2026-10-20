@@ -157,7 +157,7 @@ const ADMIN_THEME_CHILDREN: NavItem[] = [
  * 只留 overview(模型总览)+ usage(自己的用量)两项给普通用户,父项 /models 本身保留。
  * 父项也因此**不能**标 relayOps —— 标了会把 overview/usage 一起带走。
  */
-export const MODELS_CHILDREN: NavItem[] = [
+const MODELS_CHILDREN: NavItem[] = [
   { href: '/models/overview', labelKey: 'modelsOverview', icon: LayoutDashboard },
   { href: '/models/channels', labelKey: 'modelsChannels', icon: Cable, advancedOnly: 'relayOps' },
   {
@@ -168,7 +168,12 @@ export const MODELS_CHILDREN: NavItem[] = [
   },
   { href: '/models/keys', labelKey: 'modelsKeys', icon: Key, advancedOnly: 'relayOps' },
   { href: '/models/logs', labelKey: 'modelsLogs', icon: FileText, advancedOnly: 'relayOps' },
-  { href: '/models/chats', labelKey: 'modelsChats', icon: MessagesSquare, advancedOnly: 'relayOps' },
+  {
+    href: '/models/chats',
+    labelKey: 'modelsChats',
+    icon: MessagesSquare,
+    advancedOnly: 'relayOps',
+  },
   { href: '/models/users', labelKey: 'modelsUsers', icon: Users, advancedOnly: 'relayOps' },
   { href: '/models/groups', labelKey: 'modelsGroups', icon: UsersRound, advancedOnly: 'relayOps' },
   { href: '/models/usage', labelKey: 'modelsUsage', icon: BarChart3 },
@@ -225,7 +230,7 @@ const USER_CHILDREN: NavItem[] = [
 /** /edu 8 项整合到 AI教育 组下 */
 // 2026-10-19 P2 导出:域入口页(apps/web/app/(main)/domains/edu)复用本清单,
 // 不另抄一份 —— 同一件事两个来源必然漂移(§0.6 单一真相源)。
-export const EDU_ITEMS: NavItem[] = [
+const EDU_ITEMS: NavItem[] = [
   // 学习模块
   { href: '/edu/dashboard', labelKey: 'eduDashboard', icon: LayoutDashboard },
   // /learn 课程入口不再单列:eduGroup 主体已有 /learn(React key=href,重复项触发 duplicate key 警告且菜单双条目)
@@ -397,7 +402,7 @@ export const CONTENT_HUB_ITEMS: NavItem[] = [
  */
 
 /** /member 12 项整合到交易组下 */
-export const MEMBER_ITEMS: NavItem[] = [
+const MEMBER_ITEMS: NavItem[] = [
   { href: '/member/dashboard', labelKey: 'memberDashboard', icon: LayoutDashboard },
   { href: '/member/benefits', labelKey: 'memberBenefits', icon: Award },
   { href: '/member/coupons', labelKey: 'memberCoupons', icon: Ticket },
@@ -516,7 +521,7 @@ const DEVELOPER_ITEMS: NavItem[] = [
 ]
 
 /** 知识库三合一(2026-08-30):知识库/RAG/图谱 三个入口概念重叠,收进"知识库"可展开子菜单 */
-export const KNOWLEDGE_CHILDREN: NavItem[] = [
+const KNOWLEDGE_CHILDREN: NavItem[] = [
   { href: '/knowledge-base', labelKey: 'knowledgeBase', icon: BookOpen },
   { href: '/knowledge-rag', labelKey: 'knowledgeRag', icon: Database },
   { href: '/knowledge-graph', labelKey: 'knowledgeGraph', icon: Network },
@@ -546,7 +551,7 @@ export const KNOWLEDGE_CHILDREN: NavItem[] = [
  * (记忆/子智能体/上下文/规格/计划/注册中心/A2A/Personas/编排)对普通用户不可理解,
  * 收进单个可折叠子菜单降噪;入口保留,高级用户仍可展开使用。
  */
-export const ADVANCED_AI_TOOLS_CHILDREN: NavItem[] = [
+const ADVANCED_AI_TOOLS_CHILDREN: NavItem[] = [
   { href: '/memory', labelKey: 'memory', icon: Brain },
   { href: '/subagents', labelKey: 'subagents', icon: Bot },
   { href: '/context', labelKey: 'context', icon: Layers },
@@ -629,7 +634,12 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/web-tools', labelKey: 'webTools', icon: Globe, advancedOnly: 'experimental' },
       // D31 设计稿转码(2026-09-26 立):Figma Frame/组件 → 可运行前端代码(lucide 无 Figma 图标,用 Palette)
       // 2026-10-20 简洁模式:`experimental` —— 前端/设计师专用
-      { href: '/figma-import', labelKey: 'figmaImport', icon: Palette, advancedOnly: 'experimental' },
+      {
+        href: '/figma-import',
+        labelKey: 'figmaImport',
+        icon: Palette,
+        advancedOnly: 'experimental',
+      },
       // 声纹库管理(2026-09-09 F4):token6688 克隆音色列表/详情/删除/上传
       // 2026-10-20 简洁模式:`experimental` —— 服务端音色账号管理界面,普通用户点开是空列表或他人音色
       { href: '/voices', labelKey: 'voices', icon: Mic, advancedOnly: 'experimental' },
@@ -743,19 +753,6 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
 
 export function flattenNavItems(items: NavItem[]): NavItem[] {
   return items.flatMap((item) => [item, ...(item.children ? flattenNavItems(item.children) : [])])
-}
-
-/**
- * 按分组 label 取该组全部条目(2026-10-19 P2 立)
- *
- * 域入口页(/domains/edu、/domains/content、/domains/trade)用它在**侧边栏条目之上**
- * 直接搭壳,不另抄一份清单 —— 侧边栏加减项时域入口页自动同步(§0.6 单一真相源)。
- *
- * @param label NAV_GROUPS 的分组 label(如 'eduGroup' / 'contentGroup' / 'tradeGroup')
- * @returns 该组条目;组不存在时返回空数组(不抛,让调用方自行决定降级形态)
- */
-export function navItemsByGroup(label: string): NavItem[] {
-  return NAV_GROUPS.find((g) => g.label === label)?.items ?? []
 }
 
 export const ALL_NAV_HREFS = flattenNavItems(NAV_GROUPS.flatMap((g) => g.items)).map((i) => i.href)

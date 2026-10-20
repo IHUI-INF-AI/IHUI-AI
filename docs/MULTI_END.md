@@ -429,8 +429,10 @@ cd apps/mobile-rn
 eas build --platform ios    # 构建 iOS
 eas build --platform android # 构建 Android
 eas submit --platform ios    # 提交 App Store
-eas submit --platform android # 提交 Play Store
+eas submit --platform android # 提交 Play Store（落哪条轨道看 eas.json 的 submit.production.android.track）
 ```
+
+> 个人号正式版门槛（12 名测试员连续 14 天）**只认封闭测试**，其 androidpublisher 轨道名是 `alpha`（不是 `closed`）；`track: "internal"` 的提交不计入门槛。详见 `docs/RELEASE.md` 的「Android 提交轨道」。
 
 ### 9.4 小程序发布
 

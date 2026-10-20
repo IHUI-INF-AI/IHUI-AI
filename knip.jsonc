@@ -9,7 +9,10 @@
   // 运维/守门脚本(scripts/**、deploy/scripts/**):由 nssm 服务、CI 或人工直接执行调用,
   // 不在产品运行时依赖图中,knip 会把它们误判为「未引用文件」→ 统一忽略以消除此类误报,
   // 并避免后续新增运维脚本再次打破棘轮。(这些脚本的 next 等运行时解析依赖随之免检。)
-  "ignore": ["scripts/**", "deploy/scripts/**"],
+  // 2026-10-20 增 .github/scripts/**:同族第三处 —— CI 工作流 run 步骤直接 node 调用
+  // (npm-bootstrap.yml:79 `node npm-bootstrap-runner.mjs`),knip 静态面看不见工作流调用,
+  // 与 2026-09-25 的 ignoreBinaries 同型盲区;该文件由工作流承载体调用,非产品依赖图成员。
+  "ignore": ["scripts/**", "deploy/scripts/**", ".github/scripts/**"],
   // 2026-09-25(B6 定性票):CI 工作流 run 步骤里以 root 上下文调用的真二进制 = 框架装载型,非未声明依赖。
   // 立因:knip 把 .github/workflows/e2e-browser-hub.yml 的 `pnpm exec playwright`(L157)与
   // `pnpm exec drizzle-kit`(L202)记进 root workspace 的 binaries,而这两个包声明在 apps/web /
@@ -28,7 +31,12 @@
       "project": ["**/*.{ts,tsx}"]
     },
     "apps/cli": {
-      "project": ["src/**/*.ts"]
+      "project": ["src/**/*.ts"],
+      // 2026-10-20:esbuild/postject 是 SEA 单文件构建链(build-sea.mjs / build-npm.mjs)的
+      // 真依赖,但这两个构建脚本位于 apps/cli/scripts/,在本 workspace 的 project 模式
+      // (src/**/*.ts)扫描面之外 ⇒ knip 看不见 import,误报未用。与 root ignore scripts/**
+      // 同族:构建期工具由脚本承载体调用,非产品运行时依赖图成员。
+      "ignoreDependencies": ["esbuild", "postject"]
     },
     "apps/desktop": {
       "project": ["src/**/*.{ts,tsx}"]
@@ -39,6 +47,15 @@
     },
     "apps/mobile-rn": {
       "project": ["src/**/*.{ts,tsx}"],
+      // 2026-10-20:功能切片半成品(先落组件、屏幕未接)的静态不可达豁免:
+      // automation/AutomationCard.tsx(automations 屏幕卡片)与
+      // dashboard/MetricCard.tsx(看板分区指标卡)均为只读展示组件,
+      // 消费屏幕(automations / dashboard)尚在途,knip import 图不可达 ⇒ 误报未引用文件。
+      // 到期复核:对应屏幕接入后删本白名单;若屏幕确认不做,组件应删除而非续挂。
+      "ignore": [
+        "src/components/automation/AutomationCard.tsx",
+        "src/components/dashboard/MetricCard.tsx"
+      ],
       // @lobehub/icons 由 brand-icon.web.tsx 以深路径 default 导入(react-native-web 平台扩展 .web.tsx),
       // knip 静态面不解析 .web.tsx 平台变体,会把这条真实依赖误报为未用;2026-10-17 厂商矢量图标接入(f72e53becd)。
       // 到期复核:启用 @knip/react-native 插件(platformExtensions)后应删本白名单。
@@ -46,7 +63,18 @@
     },
     "apps/miniapp-taro": {
       "entry": ["src/app.tsx"],
-      "project": ["**/*.{ts,tsx}"]
+      "project": ["**/*.{ts,tsx}"],
+      // 2026-10-20:Taro 页面发现机制 = app.config.ts 的 pages 数组按**字符串路径**引用
+      // ('about/web-portal/index',见 app.config.ts:165),knip 静态 import 面看不见该形态,
+      // 把 WebView 功能门户(1acc27db55,89 条/13 组)整簇误报为未引用文件:
+      // index.tsx/index.config.ts 两个页面入口 + 被页面 import 的 constants/web-portal.ts
+      // (唯一 import 方就是页面自身,整簇因页面不可达而连带不可达)。
+      // 到期复核:启用 @knip/taro 插件(能解析 pages 字符串)后应删本白名单。
+      "ignore": [
+        "src/pkg-about/about/web-portal/index.tsx",
+        "src/pkg-about/about/web-portal/index.config.ts",
+        "src/constants/web-portal.ts"
+      ]
     },
     "packages/database": {
       "project": ["src/**/*.ts"]

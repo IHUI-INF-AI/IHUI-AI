@@ -40,7 +40,7 @@ import {
   type MarketPlugin,
   type PluginCategory,
   getPluginIntegration,
-} from './plugins-data'
+} from '@ihui/shared/plugins-data'
 
 type Filter = 'all' | 'builtin' | 'market' | 'installed' | 'pinned' | PluginCategory
 type Sort = 'default' | 'name' | 'installed'

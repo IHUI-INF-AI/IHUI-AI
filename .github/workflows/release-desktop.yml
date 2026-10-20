@@ -31,6 +31,9 @@ concurrency:
 
 permissions:
   contents: write
+  # SignPath 签名请求要回读本次 run 的 workflow artifact(upload-artifact 产物);
+  # 显式声明 permissions 块后未列出的 scope 一律为 none,缺这条签名步读不到 artifact。
+  actions: read
 
 env:
   NODE_VERSION: '22'
@@ -45,6 +48,10 @@ jobs:
     # 创建 0-job 空 run 并标 failure(GitHub 行为);此守卫使其变为 skipped。
     if: startsWith(github.ref, 'refs/tags/desktop-v') || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.runner }}
+    env:
+      # 与 release-cli 同一把开关:四项凭据齐备才置 true(step-level if 不支持 secrets
+      # 上下文,故先在 job env 折算)。未配置时下面那组签名步整体跳过,发布链与今日逐字同形。
+      SIGNPATH_CONFIGURED: ${{ secrets.SIGNPATH_API_TOKEN != '' && secrets.SIGNPATH_ORGANIZATION_ID != '' && secrets.SIGNPATH_PROJECT_SLUG != '' && secrets.SIGNPATH_SIGNING_POLICY_SLUG != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -195,6 +202,86 @@ jobs:
             exit 1
           fi
 
+      # ---------- SignPath Authenticode 签名(仅 Windows;凭据齐备才启用) ----------
+      # 时序:必须在 tauri 打包之后、"Fallback upload … --clobber" 把资产推上 Release 之前。
+      # 桌面端特有的一条硬约束:Tauri 自动更新用 minisign `.sig` 校验安装包**字节**
+      # (scripts/generate-latest-json.mjs 从 Release 资产里把 exe 与同名 .sig 配对),
+      # 而 Authenticode 签名会改文件字节 ⇒ 换完安装包必须就地重算 `.sig`,
+      # 重算失败即硬失败。让 `.sig` 停在旧字节上 = 把所有已装客户端的自动更新弄坏,
+      # 那比不签名严重得多,所以这里不给任何"跳过"余地。
+      - name: Upload unsigned installer for signing (Windows)
+        if: runner.os == 'Windows' && env.SIGNPATH_CONFIGURED == 'true'
+        id: upload-unsigned-desktop
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-desktop-${{ matrix.label }}
+          path: apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Submit SignPath signing request (Windows)
+        if: runner.os == 'Windows' && env.SIGNPATH_CONFIGURED == 'true'
+        id: signpath-desktop
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ secrets.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.upload-unsigned-desktop.outputs.artifact-id }}
+          wait-for-completion: true
+          # SignPath Foundation 人工审批可能排队,600s 默认值不够
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed-desktop
+
+      - name: Install signed installer and refresh updater signature (Windows)
+        if: runner.os == 'Windows' && env.SIGNPATH_CONFIGURED == 'true'
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
+        run: |
+          $bundle = 'apps/desktop/src-tauri/target/release/bundle/nsis'
+          # 回传物形态取决于 SignPath 的 artifact configuration:根为 PE 时是裸 exe,
+          # 根为 zip 时是压缩包 ⇒ 两种都收,先找 exe,找不到就解压再找。
+          $signed = Get-ChildItem -Path signed-desktop -Filter *.exe -Recurse -File |
+            Select-Object -First 1
+          if (-not $signed) {
+            Get-ChildItem -Path signed-desktop -Filter *.zip -Recurse -File | ForEach-Object {
+              Expand-Archive -Path $_.FullName -DestinationPath signed-desktop -Force
+            }
+            $signed = Get-ChildItem -Path signed-desktop -Filter *.exe -Recurse -File |
+              Select-Object -First 1
+          }
+          if (-not $signed) { throw '签名回传物里没找到安装包(检查 SignPath artifact configuration)' }
+          $target = Get-ChildItem -Path $bundle -Filter *.exe -File | Select-Object -First 1
+          if (-not $target) { throw "bundle 目录里没有可替换的安装包:$bundle" }
+          Copy-Item $signed.FullName $target.FullName -Force
+          Write-Host "已替换为签名安装包: $($target.Name) ($($target.Length) 字节)"
+          # 字节的凭据跟着重算:tauri-action 生成的那份 .sig 已随覆盖失效
+          tauri signer sign $target.FullName -k $env:TAURI_SIGNING_PRIVATE_KEY -p $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+          if ($LASTEXITCODE -ne 0) {
+            throw 'tauri signer sign 失败 —— 旧 .sig 与新字节不一致会让全部已装客户端自动更新失败,拒绝发布'
+          }
+          if (-not (Test-Path "$($target.FullName).sig")) {
+            throw "重算后没找到 $($target.Name).sig —— 宁可不发,也不发一个更新链断裂的 Release"
+          }
+          $sig = Get-AuthenticodeSignature $target.FullName
+          Write-Host "Authenticode: $($sig.Status) / $($sig.SignerCertificate.Subject)"
+          if ($sig.Status -ne 'Valid') {
+            throw "Authenticode 校验失败: $($sig.Status) / $($sig.StatusMessage)"
+          }
+          "### 桌面端签名`n- 安装包: $($target.Name) ($($target.Length) 字节)`n- Authenticode: $($sig.Status)`n- 更新签名 `.sig` 已按新字节重算" >> $env:GITHUB_STEP_SUMMARY
+
+      # 同上一条纪律:凭据不齐时三步跳过 ⇒ Release 里躺的是未签名安装包,而 job 是绿的。
+      # 不签不是错,但必须让"绿"不被读成"已签名"。
+      - name: Report unsigned fallback (Windows)
+        if: runner.os == 'Windows' && env.SIGNPATH_CONFIGURED != 'true'
+        shell: pwsh
+        run: |
+          '::warning::SignPath 未启用(SIGNPATH_CONFIGURED=false):桌面安装包本次未签名,Windows 用户下载仍会撞 SmartScreen。'
+          "### 签名状态`n- ⚠️ 未签名:四项 SignPath secret 未齐,签名步已整体跳过" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
       - name: Fallback upload bundle files to Release
         if: always()
         shell: bash
@@ -218,10 +305,23 @@ jobs:
           gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
             gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "IHUI AI Desktop $TAG" \
               --notes "Desktop bundles (Tauri 2)"
+          # ⚠️ 逐文件上传**不许吞失败**:签名步替换了 exe 字节并重算同名 .sig,这两枚必须
+          # **成对**落到 Release 上。旧写法 `|| echo "WARN: upload failed"` 会让"exe 传成功、
+          # .sig 传失败"照绿收工 ⇒ 自动更新拿新包配旧签名,验签必挂而 CI 全绿(静默断更)。
+          # 注意判据写法:`echo "$FILES" | while` 是**子 shell**,里面的变量赋值在本步后续读不到,
+          # `$GITHUB_ENV` 也不会中途生效 ⇒ 失败必须落到文件里,循环后再数一次。
+          : > "$RUNNER_TEMP/desktop-upload-failures.txt"
           echo "$FILES" | while IFS= read -r f; do
             echo "Uploading: $f"
-            gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber "$f" || echo "WARN: upload failed: $f"
+            if ! gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber "$f"; then
+              printf '%s\n' "$f" >> "$RUNNER_TEMP/desktop-upload-failures.txt"
+            fi
           done
+          NFAIL=$(wc -l < "$RUNNER_TEMP/desktop-upload-failures.txt" | tr -d ' ')
+          if [ "$NFAIL" != "0" ]; then
+            echo "::error::${NFAIL} 枚资产上传失败(exe 与其 .sig 可能不成对),拒绝以全绿结束: $(tr '\n' ' ' < "$RUNNER_TEMP/desktop-upload-failures.txt")"
+            exit 1
+          fi
 
       - name: Upload bundle artifacts
         uses: actions/upload-artifact@v4
@@ -243,6 +343,22 @@ jobs:
           echo "平台: ${{ matrix.label }}" >> $GITHUB_STEP_SUMMARY
           echo "tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "产物: .exe(Windows)、.dmg(macOS)、.deb/.AppImage(Linux)+ updater 签名包" >> $GITHUB_STEP_SUMMARY
+
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步只注入参数。
+      # 守门 215 的 W2:作业里**每个**带 id 的步骤都要进 TRIAGE_IDS 并有对应 O_ 键 ——
+      # 本作业原有 `tauri` 一枚,签名步又带进两枚,三条同批装,否则"红了却报不出是哪一条"
+      # 这一型正是被自己造出来的。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/release-desktop.yml
+          TRIAGE_IDS: tauri upload-unsigned-desktop signpath-desktop failure-triage
+          O_TAURI: ${{ steps.tauri.outcome }}
+          O_UPLOAD_UNSIGNED_DESKTOP: ${{ steps.upload-unsigned-desktop.outcome }}
+          O_SIGNPATH_DESKTOP: ${{ steps.signpath-desktop.outcome }}
+          O_FAILURE_TRIAGE: ${{ steps.failure-triage.outcome }}
+        run: bash scripts/ci-failure-triage.sh
 
   # 聚合多平台 .sig 文件,生成包含全部平台的统一 latest.json
   # 解决:tauri-action 矩阵构建时每个 job 只生成当前平台的 latest.json,后上传覆盖先上传

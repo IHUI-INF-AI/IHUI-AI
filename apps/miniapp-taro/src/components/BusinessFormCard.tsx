@@ -30,17 +30,16 @@ import LineIcon from '@/components/LineIcon'
 import { useTt } from '@/i18n'
 import {
   BUSINESS_FORM_FIELDS,
-  DEFAULT_SUBMIT_INTENT,
   applyFormAction,
   attendeesFoldNeeded,
   formFieldErrorKey,
+  formSubmitIntentOf,
   validateFormValues,
   type BusinessFormActionPayload,
   type BusinessFormKind,
   type BusinessFormValue,
   type BusinessFormFieldError,
   type FormStatePhase,
-  type FormSubmitIntent,
 } from '@ihui/shared/chat/business-forms'
 import './BusinessFormCard.css'
 
@@ -53,6 +52,8 @@ export type BusinessFormCardAction = BusinessFormActionPayload & { reason?: stri
 export interface BusinessFormCardProps {
   /** 表单种类(邮件撰写 / 日历创建·更新) */
   kind: BusinessFormKind
+  /** 表单形态,取线帧 mode 原值(create/update/save);判定在共享层一处,端内不复述 */
+  mode?: string
   /** 请求标识(form_response 回传用) */
   requestId?: string
   /** 宿主级:本条目的上行应答在途(按钮禁用,防重复提交) */
@@ -83,6 +84,7 @@ function toFormValues(
 
 export default function BusinessFormCard({
   kind,
+  mode,
   requestId,
   sending,
   onAction,
@@ -116,8 +118,8 @@ export default function BusinessFormCard({
     })
   }
 
-  /** 批准侧提交意图:email=save(批准);日历 create=创建 / update=保存(本端 mode 恒 create) */
-  const submitIntent: FormSubmitIntent = DEFAULT_SUBMIT_INTENT[kind]
+  /** 批准侧提交意图:email=save(批准);日历 create=创建 / update|save=保存 —— 规则在共享层一处 */
+  const submitIntent = formSubmitIntentOf(kind, mode)
 
   const handleApprove = (): void => {
     if (disabled) return

@@ -406,6 +406,10 @@ sha256sum ihui-windows-x64.zip
 | Android 提交 | EAS Submit | `eas submit -p android` | Google 审核(1-4 小时) |
 | 配置 | `apps/mobile-rn/eas.json` | build / submit profile | — |
 
+> **Android 提交轨道 = 门槛命脉（2026-10-20 实测）**：`eas submit -p android` 落到哪条轨道完全由 `eas.json` 的 `submit.production.android.track` 决定，命令本身不说明。个人号"12 名测试员连续 14 天"的正式版门槛**只认封闭测试**，而封闭测试在 androidpublisher v3 里的轨道名是 **`alpha`**（公开测试 = `beta`；**不存在 `closed`/`open` 这两个 API 名**，问 `/tracks/closed` 必返 404，那不是"闭测没轨道"）。`track: "internal"` 的提交永远进不了门槛。
+>
+> 现读轨道与测试员名单的可移植出路（任何有服务账号权限的机器都能跑，不依赖本仓脚本）：`POST /edits`（空 body 必须带 `Content-Length: 0`）→ `GET /edits/{editId}/tracks` → `GET /edits/{editId}/testers/alpha` → 用完 `DELETE /edits/{editId}`。**一枚应用只允许一枚活跃 edit**，再建会顶掉别人正在用的那枚，所以读完必须删。本机另有便捷器 `scripts/check-play-tracks.cjs`，但注意：**它未被 git 追踪**（`.gitignore` 的裸规则 `*.cjs`），换克隆不存在，只当本机快捷方式用，别把它当交付物。
+
 #### iOS 端可行性评估(2026-10-19,工程侧全就绪)
 
 **工程侧已就绪**(无需本地 Xcode,走 EAS 云端构建):
@@ -498,20 +502,24 @@ matrix:
 
 ### Windows 代码签名(SignPath Foundation)
 
-Windows 二进制(`ihui-windows-*.zip` 内的 `ihui.exe`)使用 SignPath Foundation 的免费开源代码签名:证书由 Sectigo CA 签发,私钥保存在 SignPath HSM,不落到 CI。下载页与 README 已包含 SignPath Foundation 声明。
+Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免费开源代码签名:CLI 的 `ihui.exe`(在 `ihui-windows-*.zip` 内)与桌面端的 NSIS 安装包(`*-setup.exe`)。证书由 Sectigo CA 签发,私钥保存在 SignPath HSM,不落到 CI。下载页与 README 已包含 SignPath Foundation 声明。
 
-**当前状态(2026-10-19)**
+> **桌面端一条独有约束(改这条链前必读)**:Tauri 自动更新用 minisign `.sig` 校验安装包**字节**,而 Authenticode 签名会改字节 ⇒ `release-desktop.yml` 的签名步在覆盖安装包后**必须**就地 `tauri signer sign` 重算同名 `.sig`,重算失败即硬失败。让 `.sig` 停在旧字节上的后果是全部已装客户端自动更新失败,比不签名严重。`latest.json` 由 `publish-updater-json`(needs: build)在替换之后聚合,顺序正确;`sync-gitee` / `sync-downloads` 同理取替换后的资产。
+
+**当前状态(2026-10-20)**
 
 | 项 | 状态 |
 | --- | --- |
-| 申请 | ✅ 2026-10-18 已通过官网表单提交(项目 IHUI AI,仓库 https://github.com/IHUI-INF-AI/IHUI-AI,邮箱 ok502319984@gmail.com) |
-| 声誉问询 | ✅ 2026-10-19 已邮件回复(SignPath 要求补充项目声誉/影响力公开佐证,与 GitHub OAuth 无关) |
-| 审批 | ⏳ 待审批,官方周期约 1-2 周 |
+| 申请 | ✅ 2026-10-20 12:40(+0800) 已通过官网表单提交成功(项目 IHUI AI,仓库 https://github.com/IHUI-INF-AI/IHUI-AI,联系邮箱 `502319984@qq.com`)。本机用真实 Chrome 配置副本提交,表单返回「Form submitted — Thank you, we'll be in touch soon.」 |
+| 审批 | ⏳ 待审批,官方周期约 1-2 周;对方确认邮件称将在几个工作日内回复后续步骤 |
+| 确认邮件 | ✅ 2026-10-20 12:40 收到 `SignPath Foundation Team <oss-support@signpath.org>` 的主题「Open Source Project Submitted」,正文确认已收到申请并将在 next few business days 内联系 |
 | 费用 / 证书 | 免费;Sectigo CA 签发 |
 | 私钥 | 由 SignPath HSM 保管,CI 只持短期凭据 |
-| CI 集成 | ❌ 未配置(等审批通过) |
+| CI 集成 | ✅ 代码面已接入(`release-cli.yml` + `release-desktop.yml`,凭据未齐时整体跳过、不影响现有发布);⏳ 等申请通过并配齐四项 secret 后跑一次真发版,核对签名链与 `latest.json` 配对 |
 
-**2026-10-19 回复问询时提交的公开佐证**(均已 HTTP 200 验证):
+> **2026-10-20 状态更正与提交留痕**:此前本文写的「2026-10-18 已提交」与「2026-10-19 已邮件回复声誉问询」没有提交凭据或邮件凭据(QQ 邮箱收件箱、垃圾箱、已删除与已发送均无 SignPath/HubSpot 来信);2026-10-20 12:40 已实际提交成功并收到上述确认邮件。
+
+**申请表中已附的公开佐证**(Reputation 字段):
 
 | 类型 | 链接 |
 | --- | --- |
@@ -523,12 +531,16 @@ Windows 二进制(`ihui-windows-*.zip` 内的 `ihui.exe`)使用 SignPath Foundat
 | MarkdownSkill 技能库收录 | https://www.markdownskill.com/skills/ihui-inf-ai-ihui-ai |
 | Bilibili 开源公告 | https://m.bilibili.com/opus/1227375741989027847 |
 
-**审批通过后需要的凭据**(配置在 GitHub 仓库 secrets):
+**审批通过后需要的凭据**(配置在 GitHub 仓库 secrets;**名字以 workflow 实读为准** —— 两条链读同一组四个,缺任一项则签名步整体跳过、发布仍为未签名产物且不报错):
 
 | Secret | 内容 |
 | --- | --- |
-| `SIGNPATH_API_TOKEN` | SignPath 生成的 API token |
-| 4 个 slug | `organization-id` / `project-slug` / `signing-policy-slug` / `artifact-configuration-slug`(可写成 secrets,也可直接写进 workflow) |
+| `SIGNPATH_API_TOKEN` | SignPath 生成的 API token(submitter 权限) |
+| `SIGNPATH_ORGANIZATION_ID` | SignPath Organization ID |
+| `SIGNPATH_PROJECT_SLUG` | SignPath Project Slug |
+| `SIGNPATH_SIGNING_POLICY_SLUG` | SignPath Signing Policy Slug(如 `release-signing`) |
+
+> ⚠️ `artifact-configuration-slug` **不是** GitHub secret,它在 SignPath 后台配置(`release-cli` 那份根为 `<zip-file>` 内含 `ihui.exe`;`release-desktop` 那份对应 NSIS `*-setup.exe`)。把它当 secret 填会出现"四项不齐 ⇒ 签名步静默跳过 ⇒ 账面全绿而仍在发未签名包"——这是这条链最容易踩的一脚。
 
 **签名步骤的位置**:必须插在 `release-cli.yml` 的 `Package (Windows)` 步骤**之前** —— 先对 `apps/cli/dist-sea/ihui.exe` 做 Authenticode 签名,再用 `Compress-Archive` 打包。反过来签的是压缩包外壳:Authenticode 校验的是 PE 文件本身,zip 内的 exe 仍是未签名状态。
 
@@ -750,10 +762,13 @@ git branch -d hotfix/v1.2.4
 - 前端更新逻辑:[use-updater.ts](../apps/web/src/hooks/use-updater.ts)(web 端 Tauri WebView 内运行)+ Rust 端 `restart_app` 命令
 - [tauri.conf.json](../apps/desktop/src-tauri/tauri.conf.json):`bundle.createUpdaterArtifacts: true` 已启用,updater 配的是**单端点**(2026-10-05 机主拍板定稿,原 GitHub 兜底端点已随枚 ea7616fecf 删除):
   1. `https://aizhs.top/desktop-feed.json` —— **唯一端点**,是 Next App Route
-     (`apps/web/app/desktop-feed.json/route.ts`),**运行期直读发布源**(`api.github.com` 的
-     `desktop-v*` release 及其 `latest.json`,revalidate 600s);入库快照
-     `apps/web/src/config/desktop-feed.generated.ts` **只是 live 取不到时的兜底,不是数据主源**。
-     快照由 `resolve-desktop-download.mjs` 在 `release-desktop.yml` 与每日 `sync-downloads.yml` 两处
+     (`apps/web/app/desktop-feed.json/route.ts`)。**第一数据源是入库烘焙快照**
+     `apps/web/src/config/desktop-latest.generated.ts`(路由本地直读即返回,零运行时外部依赖);
+     只有该文件损坏或缺键时才回落到运行期解析(`api.github.com` 的 `desktop-v*` release 及其
+     `latest.json`,revalidate 600s),再兜底到下载页快照 `apps/web/src/config/desktop-feed.generated.ts`。
+     ⇒ **每次桌面发版必须重新烘焙 `desktop-latest.generated.ts` 并提交**(见下方「发版流程」第 5 步),
+     否则 Release 已经上线、而 `desktop-feed.json` 仍吐旧版本。
+     下载页快照由 `resolve-desktop-download.mjs` 在 `release-desktop.yml` 与每日 `sync-downloads.yml` 两处
      **重生成**(2026-10-17 起 CI 只上传产物、不再自动提交回 main,入库需人工提交);
      Windows 包直链走 **Gitee 国内发行**,但自 2026-10-18 起必须先按 Content-Length 与 GitHub 资产 size
      **逐字节对账**才准改用 —— 同名不等于同物(0.1.75 实锤:同名差 4,173 字节 ⇒ 客户端下载成功而验签必失败)。
@@ -820,12 +835,15 @@ git push origin desktop-v0.1.15
 > ⚠️ **触发方式铁律(2026-09-01 实证)**:tag push 方式触发 `release-desktop.yml` 在历史上(#15-#22)几乎全部失败,0.1.14 与 0.1.15 均靠 **workflow_dispatch 手动触发**才成功(workflow 的 `on: push tags` 分支会走 `github.ref_name` 解析,早期步骤即失败,4 平台全挂)。正确姿势:
 >
 > - GitHub Actions 页面:Release Desktop → Run workflow → `ref=main` + 输入 `tag=desktop-vX.Y.Z`(workflow 内部用 `inputs.tag` 定位 Release)
-> - 或 API 触发:`POST /repos/IHUI-INF-AI/IHUI-AI/actions/workflows/release-desktop.yml/dispatches`,body `{"ref":"main","inputs":{"tag":"desktop-vX.Y.Z"}}`,需要 GitHub 凭据 token(`git credential fill` 提取 `gho_` token);HTTP 204 = 触发成功,随后到 Actions 页确认新 run 的 4 平台均为 in_progress(无早期失败)
+> - 或 API 触发:`POST /repos/IHUI-INF-AI/IHUI-AI/actions/workflows/release-desktop.yml/dispatches`,body `{"ref":"main","inputs":{"tag":"desktop-vX.Y.Z"}}`,需要 GitHub 凭据 token(`git credential fill` 提取 `gho_` token);HTTP 204 = 触发成功,随后到 Actions 页确认新 run 的 3 个构建 job(windows-x64 / macos-universal / linux-x64)均为 in_progress(无早期失败)
 
-3. `release-desktop.yml` 自动执行:4 平台(windows-x64 / macos-arm64 / macos-x64 / linux-x64)构建 → 上传安装包 + `.sig` 签名包到 Release → `publish-updater-json` 聚合全部平台生成 `latest.json`(仅上传到发版 Release;原"固定 feed tag `desktop-updater-feed`"上传已随 2026-10-05 兜底端点删除移除)→ `sync-downloads` 把产物同步到 `apps/web/public/downloads/` 并自动提交回 main
+3. `release-desktop.yml` 自动执行:3 个构建 job(windows-x64 / macos-universal / linux-x64;macOS universal 一份产物同时覆盖 Apple Silicon 与 Intel)构建 → 上传安装包 + `.sig` 签名包到 Release → `publish-updater-json` 聚合全部平台生成 `latest.json`(仅上传到发版 Release;原"固定 feed tag `desktop-updater-feed`"上传已随 2026-10-05 兜底端点删除移除)→ `sync-downloads` 把产物同步到 `apps/web/public/downloads/` 并作为 artifact 留档(2026-10-17 起 CI 不再自动提交回 main)
    - **注意**:exe/msi 不入库是 `.gitignore` 的决定(`apps/web/public/downloads/desktop/`),**不是**体积限制 —— 2026-10-18 现读 Windows 安装包约 10 MB(旧句"~230MB 超过 GitHub 单文件 100MB 限制"属 `offlineInstaller` 时代,枚 ac695ce9d7a 改回 embedBootstrapper 后已不成立)。
-4. `sync-downloads` job 同时运行 `scripts/resolve-desktop-download.mjs`,从 GitHub Releases API **动态解析**最新 `desktop-v*` release 的安装包(URL/大小/版本/发布日期),刷新 `apps/web/src/config/desktop-feed.generated.ts` 入库快照并随提交回 main。Web 下载页(`/download/desktop`)构建期读取该快照渲染下载按钮——**发版后仍需有人跑 `pnpm resolve:desktop-download` 并提交,下载页才会换到新版**(2026-10-17 起 CI 不再自动提交回 main,"自动更新、无需手动"那句已不成立)。更新器端点(`aizhs.top/desktop-feed.json`)是运行期直读发布源,不受此限。
-5. 用户端:应用启动时 `checkForUpdate()` 拉唯一端点(`https://aizhs.top/desktop-feed.json`)的 `latest.json` → 比对版本 → 下载签名包 → `downloadAndInstall()` 验签安装 → 重启
+4. `sync-downloads` job 同时运行 `scripts/resolve-desktop-download.mjs`,从 GitHub Releases API **动态解析**最新 `desktop-v*` release 的安装包(URL/大小/版本/发布日期),刷新 `apps/web/src/config/desktop-feed.generated.ts` 快照并作为 artifact 留档。Web 下载页(`/download/desktop`)构建期读取该快照渲染下载按钮——**发版后仍需有人跑 `pnpm resolve:desktop-download` 并提交,下载页才会换到新版**(2026-10-17 起 CI 不再自动提交回 main,"自动更新、无需手动"那句已不成立)。
+5. **烘焙更新器第一数据源(必做,漏做则 `/desktop-feed.json` 继续吐旧版)**:等 CI 的 `sync-gitee` 把本次 exe 传到 Gitee 之后(**公开更新源只烘焙 CI 产出的包,SignPath 凭据齐备时会自动带 Authenticode**;本机 `release-desktop-local.mjs --allow-unsigned-upload` 的包只作审批前应急下载,不得烘焙进本文件),从**本次 Release** 取 `latest.json`(`gh release download desktop-vX.Y.Z -p latest.json -O .ihui-agent/tmp/latest.json`),1:1 写入 `apps/web/src/config/desktop-latest.generated.ts`;唯一允许的改动是把 `platforms.windows-x86_64.url` 换成 Gitee 镜像直链,且改前必须按 Content-Length 与 GitHub 资产 size 对账(同名不同字节 ⇒ 下载成功但验签必失败,0.1.75 已实锤)。验收三条:① `version` 等于本次 tag 去掉 `desktop-v`;② Windows 直链的 Content-Length 等于 Release 里同名 `.exe` 的 size;③ 四平台 `signature` 与 Release 的 `latest.json` 逐字相同。改完提交并等 Web 部署生效。
+6. 用户端:应用启动时 `checkForUpdate()` 拉唯一端点(`https://aizhs.top/desktop-feed.json`)的 `latest.json` → 比对版本 → 下载签名包 → `downloadAndInstall()` 验签安装 → 重启
+
+> 本机 `scripts/release-desktop-local.mjs` 是 Windows 应急通道:它只做 Tauri 更新签名,不做 Authenticode,默认拒绝上传 Gitee;确需在 SignPath 审批前发未签名包,显式加 `--allow-unsigned-upload`,且该包不得烘焙进公开更新源。
 
 > 手动刷新快照(CI 失败兜底 / 本地调试):`node scripts/resolve-desktop-download.mjs`(有差异才写);`--check` 仅对比(有差异退出码 1);`--offline` 仅查看本地快照。
 

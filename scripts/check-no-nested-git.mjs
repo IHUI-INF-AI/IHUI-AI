@@ -67,7 +67,7 @@ const PRUNED_DIRS = new Set(['node_modules', '.pnpm', '.venv', 'venv', '__pycach
  * 不是幻影仓。放宽只到这一格、只在顶层:同名目录出现在更深位置照旧命中。
  * 不这么做的后果是 §12e 禁止的恒红门:有人照规矩开一个 worktree,此后所有无关提交都被拦。
  */
-const SANCTIONED_LANDINGS = new Set(['.worktrees'])
+const SANCTIONED_LANDINGS = new Set(['.worktrees', '.DevEnv'])
 
 /** 目录串归一(斜杠方向 / 前导 ./ / 尾斜杠),豁免按**逐字等值**比对,不做前缀、不做同名。 */
 function normRel(p) {

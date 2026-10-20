@@ -105,6 +105,7 @@ export function parseFormRequestLine(line: string): FormRequestFramePayload | nu
     kind,
     fields,
     actions,
+    ...(typeof json.mode === 'string' && json.mode !== '' ? { mode: json.mode } : {}),
     ...(typeof json.sessionId === 'string' ? { sessionId: json.sessionId } : {}),
     ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
   }
@@ -126,6 +127,8 @@ export interface BusinessFormFrameEntry {
   /** 上行回传通道;缺省即无通道(不发 form_response,只留痕,由宿主如实置 failed) */
   sessionId?: string
   kind: BusinessFormKind
+  /** 表单形态:缺省 'create';'update'/'save' 由下行帧的 mode 槽带入(D77 残余①) */
+  mode?: string
   /** 挂载到哪条 assistant 消息(帧未带时由调用方给本轮流消息锚点) */
   messageId: string
   /** 成对动作(协议保证恒为 approve + reject) */
@@ -171,6 +174,7 @@ export function projectFormRequestFrame(
     requestId: frame.requestId,
     ...(frame.sessionId ? { sessionId: frame.sessionId } : {}),
     kind: frame.kind,
+    ...(frame.mode ? { mode: frame.mode } : {}),
     messageId,
     actions: frame.actions,
     status: 'pending',

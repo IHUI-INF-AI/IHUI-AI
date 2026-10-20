@@ -108,10 +108,56 @@ export function pickBest(members) {
  * 幂等:无同题组时返回与输入逐字等价的文本(仅 split/join 归一,不含 CRLF 时等价)。
  *
  * @param {string} text 台账全文
+ * @param {string|Set<string>} [baseLines] 共同基底的全文或行集(用于「改写者优先」,见 dedupeGroups)
  * @returns {string} 折叠后的全文
  */
-export function dedupeByFingerprint(text) {
+export function dedupeByFingerprint(text, baseLines = null, oursLines = null) {
+  return dedupeGroups(text, baseLines, oursLines).text
+}
+
+/**
+ * 折叠的**唯一判据实现**(`dedupeByFingerprint` 只是取 `.text` 的薄壳,§0.6 不许有第二份)。
+ *
+ * 2026-10-20 加「改写者优先」这一维(票 G-310 同族,立项凭据全是现读):旧择优选只有
+ * ①已翻勾 ②行内注记最新日期 ③字节最长 —— 而"本侧把该行就地改写给短了"是 §1 的正当操作
+ * (同一件事只有一个当前状态、验证流水移出活文档、完成即删都不留日期)。落到 ③ 就会把
+ * **较新的精简版当副本折掉、把旧长版留下**:实测 G-69(base 1023 / 本侧 830)、
+ * G-158(1539 / 1524)、G-222(629 / 613)三条,合并稿里三条本侧版**一条都不在**。
+ * 所以判据换成先问"谁是改写者":组里"不等于基底原文"的那一条 = 改写版,由它当选 keeper。
+ * 两侧各写了一版时(两条都不等于基底且彼此不同)机器**无从裁定** ⇒ 本组一条不折,
+ * 把整组交 `ambiguous` 点名人工 —— 失效方向必须是"多要一次定向说明",绝不能是"多放一次静默"。
+ *
+ * @param {string} text 台账全文
+ * @param {string|Set<string>} [baseLines] 共同基底全文/行集;不给 ⇒ 没有改写信号,逐字走旧判据
+ * @param {string|Set<string>} [oursLines] 本侧现行版行集(选择 keeper 时优先)
+ * @param {Map<string,string>|null} [picks] 声明式保留行:指纹 → 该组保留行逐字字面(票 G-310 同族)。
+ *   只给"机器判不出的那几组"(两侧各改写一版 / 同号两份改写),声明必须由人给原因(CLI 侧校验)。
+ *   声明的指纹本轮没有分组、或声明的那一行不在组里 ⇒ 记 `stalePicks`(陈旧声明不记通过)。
+ * @returns {{text:string, ambiguous:Array<{fp:string,lines:string[]}>,
+ *   keptOf:Map<string,string>, stalePicks:Array<{fp:string,keep:string,reason:string}>}}
+ *   `keptOf` 是**折叠自己写的去向账**(被折行 → 产物面里真接住它的那一行,含注记并入后的
+ *   最终字面)。旧实现由 `foldLedgerOf` 按指纹事后回查去向,一旦并入注记改变了保留行的指纹,
+ *   回查就落空 ⇒ 记「未判定」(实测 `68. 流式中切换模型` 两格);由折叠自己记则不会不同轮。
+ */
+export function dedupeGroups(text, baseLines = null, oursLines = null, picks = null) {
   const lines = String(text ?? '').split('\n')
+  const baseSet =
+    baseLines === null || baseLines === undefined
+      ? null
+      : baseLines instanceof Set
+        ? baseLines
+        : new Set(String(baseLines).split('\n'))
+  // 本侧(ours)现行版行集:选择 keeper 时优先从这里挑 —— 对侧原样带回的 base 旧版不得当选。
+  const oursSet =
+    oursLines === null || oursLines === undefined
+      ? null
+      : oursLines instanceof Set
+        ? oursLines
+        : new Set(String(oursLines).split('\n'))
+  const ambiguous = []
+  const stalePicks = []
+  const keptOf = new Map() // 被折行 -> 产物面里接住它的那一行(折叠自己记的去向账)
+  const usedPicks = new Set()
   const groups = new Map() // fingerprint -> [line indices]
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -126,10 +172,51 @@ export function dedupeByFingerprint(text) {
   }
   const remove = new Set()
   const appendTo = new Map() // keptIndex -> 追加文本
-  for (const idxs of groups.values()) {
-    if (idxs.length < 2) continue // 指纹唯一出现 ⇒ 不是重复,跳过(含同一行被摘指针后单存的形态)
+  for (const [fp, idxs] of groups.entries()) {
+    const declared = picks?.get?.(fp) ?? null
+    if (idxs.length < 2) {
+      // 声明指向一个"没得折"的组 ⇒ 陈旧声明,不记通过(§0.3:配了清单不等于这一轮真放过东西)
+      if (declared !== null)
+        stalePicks.push({ fp, keep: String(declared), reason: '该指纹本轮没有成组的同题行(声明无处置)' })
+      continue // 指纹唯一出现 ⇒ 不是重复,跳过(含同一行被摘指针后单存的形态)
+    }
     const members = idxs.map((i) => ({ line: lines[i], i }))
-    const best = pickBest(members)
+    // 声明式保留行(人裁定):只接管"机器判不出"的那几组。声明的那一行必须真在本组里,
+    // 否则整组不折并记 `stalePicks` —— 陈旧/串档的声明绝不能静默变成"折过了"。
+    let picked = null
+    if (declared !== null) {
+      picked = members.find((m) => m.line === declared) ?? null
+      if (!picked) {
+        stalePicks.push({ fp, keep: String(declared), reason: '声明保留的那一行不在本组(串档或已漂开)' })
+        continue
+      }
+      usedPicks.add(fp)
+    }    // 「改写者优先」:组里"不等于基底原文"的那一条 = 某侧后来就地改写过的那一版,由它当 keeper。
+    const rewritten = baseSet ? members.filter((m) => !baseSet.has(m.line)) : []
+    // 只在**同一自持票号**下才问"是不是两侧各改写了一遍":同指纹而票号不同的两条是
+    // "同一件事登记到了两个号下",那是 F4/F10 既有的折并语义(号由〔同题原号〕接住),不是分叉。
+    const bySelfId = new Map()
+    for (const m of rewritten) {
+      const id = selfIdOf(m.line) ?? '(无号)'
+      if (!bySelfId.has(id)) bySelfId.set(id, [])
+      bySelfId.get(id).push(m)
+    }
+    const clash = [...bySelfId.values()].find((v) => v.length >= 2)
+    if (clash && !picked) {
+      // 同一票号下有两个改写版 ⇒ 机器无从裁定哪一版是当下状态,而折掉任何一版都是有损
+      // ⇒ 本组一条不折,整组点名交人工(§0.10:多要一次定向说明,绝不静默放)。
+      ambiguous.push({ fp, lines: members.map((m) => m.line) })
+      continue
+    }
+    // 回落 pickBest 时收窄候选池:① 有改写者(≠base)就只在改写者里挑,base 旧版不进池;
+    // ② 无改写信号时,优先从本侧(ours)现行版里挑。base 旧版(对侧原样带回)永不当选 keeper。
+    let pool = members
+    if (rewritten.length) pool = rewritten
+    else if (oursSet) {
+      const oursMembers = members.filter((m) => oursSet.has(m.line))
+      if (oursMembers.length) pool = oursMembers
+    }
+    const best = picked ?? (rewritten.length === 1 ? rewritten[0] : pickBest(pool))
     const keptId = selfIdOf(best.line)
     const extraIds = []
     const notes = [] // 本轮已并过的注记段,同段只并一次(旧写法逐成员各拼一次 ⇒ 一组 N 人产 N 条累计注记)
@@ -149,8 +236,19 @@ export function dedupeByFingerprint(text) {
     let add = notes.join('')
     if (extraIds.length) add += `〔同题原号 ${extraIds.join(' ')}〕`
     if (add) appendTo.set(best.i, (appendTo.get(best.i) || '') + add)
+    // 去向账必须在**这一组**里当场记:产物行 = 保留行 + 本轮并入的注记(再折同注)。
+    // 事后按指纹回查会落空 —— 并入注记会改变保留行的指纹,于是"合法的折"被读成"去向未判定"。
+    const appended = appendTo.get(best.i) || ''
+    const keptProduct = appended ? collapseDuplicateNotes(lines[best.i] + appended) : lines[best.i]
+    for (const m of members) keptOf.set(m.line, keptProduct)
   }
-  if (remove.size === 0) return text // 无折叠:原样返回,避免任何不必要的重写
+  // 声明了却连分组都没命中 ⇒ 同样是陈旧声明(§0.3)
+  for (const fp of picks?.keys?.() || []) {
+    if (usedPicks.has(fp)) continue
+    if (stalePicks.some((s) => s.fp === fp)) continue
+    stalePicks.push({ fp, keep: String(picks.get(fp)), reason: '本轮产物面没有这一指纹的分组(声明陈旧)' })
+  }
+  if (remove.size === 0) return { text, ambiguous, keptOf, stalePicks } // 无折叠:原样返回,避免任何不必要的重写
   const out = []
   for (let i = 0; i < lines.length; i++) {
     if (remove.has(i)) continue
@@ -158,6 +256,6 @@ export function dedupeByFingerprint(text) {
     // 只折"本轮真动过的那一行"里的同注 ⇒ 射程收在折叠集内,不顺手改与本次无关的行
     out.push(add ? collapseDuplicateNotes(lines[i] + add) : lines[i])
   }
-  return out.join('\n')
+  return { text: out.join('\n'), ambiguous, keptOf, stalePicks }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
