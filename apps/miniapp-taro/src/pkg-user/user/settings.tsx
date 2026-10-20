@@ -9,7 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, logout, type UserInfo } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
-import { markSessionLoggedOut } from '@/utils/auth'
+import { clearAuth } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 
@@ -96,15 +96,10 @@ export default function Settings() {
           } catch (e) {
             logger.error('user/settings', '退出登录', e)
           }
-          try {
-            Taro.clearStorageSync()
-          } catch {
-            // ignore
-          }
-          // 顺序要紧:上面把 storage 整片擦了,标记必须写在**擦之后**,否则写下去也被抹掉。
-          // 没有这一道 ⇒ 冷启动没有 token + 是小程序环境 ⇒ wx.login 换一份新凭据静默登回
-          // (判据在 @ihui/shared/auth/auto-login-policy,与 RN / web 同一份实现)。
-          markSessionLoggedOut()
+          // 清凭据 + 落登出标记是 `clearAuth()` 一件成对动作(顺序在它内部定死)。
+          // 原来那句"整片擦 storage"会连用户偏好一起抹掉,且内存里的 token 仍在
+          // (下一页/下一个请求还带着它)—— 两处都不该由一次登出造成。
+          clearAuth()
           Taro.showToast({ title: tt('user.loggedOut', '已退出登录'), icon: 'success' })
           setTimeout(() => Taro.reLaunch({ url: '/pages/login/login' }), 800)
         }

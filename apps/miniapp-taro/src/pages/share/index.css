@@ -260,42 +260,7 @@
 }
 
 /* ===== 回到顶部按钮(对齐 RN SquareScreen backToTop:brand-accent 底 / 68rpx / 圆角8) ===== */
-.share-toodown-wrapper {
-  position: fixed;
-  left: 50%;
-  bottom: 88rpx;
-  z-index: 2;
-  transform: translateX(-50%);
-}
-
-.share-toodown {
-  width: 68rpx;
-  height: 68rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto;
-  background: var(--color-brand-accent);
-  border-radius: var(--radius-sm);
-  /* 对齐 RN elevation 2 / shadowOpacity 0.15 */
-  box-shadow: 0 2rpx 4rpx var(--color-black-15);
-  transition: all 0.2s ease;
-}
-
-.share-toodown:active {
-  transform: scale(0.9);
-}
-
-/* 箭头对齐 RN backToTopIcon:'↑' 直向,fontSize 20 → 40rpx,无旋转 */
-.share-toodown-arrow {
-  font-size: 40rpx;
-  font-weight: 600;
-  /* accent 底配 foreground 文字(暗色下前景为白字,浅灰蓝底上对比不足) */
-  color: var(--color-brand-accent-foreground);
-  transition: transform 0.2s ease;
-}
-
-.share-toodown:active .share-toodown-arrow {
-  transform: scale(0.9);
-}
+/* toodown 返回顶部按钮的 CSS 已整块摘除(2026-10-20 用户定「不许单独设定,统一使用一段代码样式」):
+   外观收进 @ihui/shared/ui/scroll-jump-spec + components/ScrollJumpButton,此处不得再留第二份盒档。
+   此前这里是 .share-toodown-wrapper / .share-toodown / .share-toodown-arrow:灰蓝方盒 + `↑` 字形箭头。 */
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

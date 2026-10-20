@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { Tooltip } from '@/components/feedback'
 import { PageContainer } from '@/components/common/PageContainer'
-import { Tabs, TabsList, TabsTrigger } from '@ihui/ui-react'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import type { NativeDashboard } from './dashboard-config.generated'
 import { rkey, materializeExpr, stepFor, DashboardGrid } from './panel-render'
 import type { QueryResult } from './panel-render'
@@ -65,35 +65,37 @@ type ConfigModule = Awaited<ReturnType<typeof loadConfig>>
 type MonitorView = 'panels' | 'wallboard'
 
 /**
- * 选中态刻意从共享 Tabs 默认的 `bg-selection` 换成"提亮 + 阴影":暗色档下 selection = 纯黑,
- * 压在 bg-muted(rgb 38,38,38)的槽上比底还暗,肉眼会把亮的那格读成选中(2026-10-20 机主
- * 反馈"要明显一些"后的实测结论,取证 = 计算样式对照)。
+ * 选中态三档实测后的定档(2026-10-20,暗色档计算样式现读):
+ *   bg-selection = rgb(0,0,0) 纯黑,压在 bg-muted rgb(38,38,38) 的槽上 ⇒ 比底还暗,读成"未选中";
+ *   bg-background = rgb(36,36,36) ⇒ 与槽只差 2,等于看不见;
+ *   唯一在两档都成立的高对比对是品牌实底对 `bg-cta`/`text-cta-foreground`(暗=纯白底黑字、
+ *   亮=纯黑底白字,tokens.css .dark 现读 hsl(0 0% 100%)/hsl(0 0% 0%))。共享 Tabs 的默认档
+ *   (packages/ui-react/src/components/tabs.tsx 的 bg-selection)在暗色下是同型坑,源头修归设计系统,
+ *   这里先按调用点覆写并留证据。
  */
 const TRIGGER_CLS =
-  'px-4 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm'
+  'px-4 font-medium data-[state=active]:bg-cta data-[state=active]:text-cta-foreground'
 
 /**
  * 两种呈现的切换器。刻意不自己占一行:由各视图的顶栏承载,复用共享 Tabs 档位
  * (机主 2026-10-20 定档:切换件要显眼,但不许把内容往下挤一行)。
+ *
+ * 只有 `TabsList` + `TabsTrigger`,没有自己的 `Tabs` 根:根由页面持有,这里从 Radix
+ * context 取当前值。本组件经 `headerExtra` 槽渲染在 `TabsContent` 内部,仍在根的子孙树里
+ * ⇒ context 取得到。若这里再套一个根,整页会有两根,而两根都没有 `TabsContent` ⇒ 每个
+ * trigger 的 `aria-controls` 都指向不存在的 id、整页没有 `role=tabpanel`(仓里其它页如
+ * `app/(main)/agent-runtime/page.tsx` 都是"根包 List + Content"的写法)。
  */
-function MonitorViewSwitch({
-  view,
-  onChange,
-}: {
-  view: MonitorView
-  onChange: (v: MonitorView) => void
-}) {
+function MonitorViewSwitch() {
   return (
-    <Tabs value={view} onValueChange={(v) => onChange(v as MonitorView)}>
-      <TabsList className="h-10">
-        <TabsTrigger value="panels" className={TRIGGER_CLS}>
-          监控面板
-        </TabsTrigger>
-        <TabsTrigger value="wallboard" className={TRIGGER_CLS}>
-          数据大屏
-        </TabsTrigger>
-      </TabsList>
-    </Tabs>
+    <TabsList className="h-10">
+      <TabsTrigger value="panels" className={TRIGGER_CLS}>
+        监控面板
+      </TabsTrigger>
+      <TabsTrigger value="wallboard" className={TRIGGER_CLS}>
+        数据大屏
+      </TabsTrigger>
+    </TabsList>
   )
 }
 
@@ -114,17 +116,28 @@ export default function MonitorPanelsPage() {
     window.history.replaceState(null, '', url.toString())
   }
 
-  const headerExtra = <MonitorViewSwitch view={view} onChange={switchView} />
+  const headerExtra = <MonitorViewSwitch />
 
   return (
     <PageContainer padded={false} className="flex h-full flex-col">
-      <div className="wb-scroll-host min-h-0 flex-1 overflow-y-auto">
-        {view === 'wallboard' ? (
-          <WallboardView headerExtra={headerExtra} />
-        ) : (
+      <Tabs
+        value={view}
+        onValueChange={(v) => switchView(v as MonitorView)}
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        <TabsContent
+          value="panels"
+          className="wb-scroll-host mt-0 min-h-0 flex-1 overflow-y-auto"
+        >
           <MonitorPanelsContent headerExtra={headerExtra} />
-        )}
-      </div>
+        </TabsContent>
+        <TabsContent
+          value="wallboard"
+          className="wb-scroll-host mt-0 min-h-0 flex-1 overflow-y-auto"
+        >
+          <WallboardView headerExtra={headerExtra} />
+        </TabsContent>
+      </Tabs>
     </PageContainer>
   )
 }
@@ -348,7 +361,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
       <div className="flex min-w-0 flex-1 flex-col">
         {/* 顶栏 */}
         <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-4 py-2.5">
-          <h2 className="text-sm font-semibold text-foreground">
+          <h2 className="min-w-0 truncate text-sm font-semibold text-foreground">
             {dashboard ? stripBrandPrefix(dashboard.title) : '监控面板'}
           </h2>
           {dashboard && (

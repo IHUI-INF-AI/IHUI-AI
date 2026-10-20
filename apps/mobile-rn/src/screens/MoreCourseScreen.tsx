@@ -23,14 +23,15 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getCourses, type Course } from '@ihui/api-client'
 import { apiFailureToError, toUserFriendlyMessage } from '@ihui/shared/utils'
-import { tokens } from '../theme/active-tokens'
+import { currentRnTheme, tokens } from '../theme/active-tokens'
+import { ScrollJumpButton } from '@ihui/rn-app'
+import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
 import { useI18n } from '../i18n'
 import Carousel, { type CarouselSlide } from '../components/Carousel'
 import Toolbar from '../components/Toolbar'
@@ -42,7 +43,6 @@ import Loading from '../components/common/Loading'
 import { NavBar } from '../components/NavBar'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
-import { rnRadius } from '@ihui/design-tokens'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -262,17 +262,15 @@ export function MoreCourseScreen() {
       </ScrollView>
       {/* 加载中遮罩 */}
       {loading ? <Loading text={t('common.loading')} fullscreen /> : null}
-      {/* 返回顶部按钮(纯图标,滚动超过 200dp 时显示在顶部居中) */}
+      {/* 返回顶部按钮:外观与几何不在此设定(2026-10-20 统一收进共享单一源) */}
       {showBackToTop ? (
-        <TouchableOpacity
-          style={styles.backToTopBtn}
-          activeOpacity={0.7}
+        <ScrollJumpButton
+          direction="top"
           onPress={handleBackToTop}
-          accessibilityRole="button"
-          accessibilityLabel="返回顶部"
-        >
-          <Text style={styles.backToTopIcon}>↑</Text>
-        </TouchableOpacity>
+          label={t('common.backToTop')}
+          colorScheme={currentRnTheme()}
+          style={{ position: 'absolute', right: scrollJumpInsetPx(), bottom: scrollJumpInsetPx() }}
+        />
       ) : null}
     </View>
   )
@@ -302,28 +300,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: rpx(16),
   },
-  // 返回顶部按钮(纯图标,定位在屏幕顶部居中)
-  backToTopBtn: {
-    position: 'absolute',
-    top: 12,
-    left: '50%',
-    marginLeft: rpx(-34),
-    width: 34,
-    height: 34,
-    borderRadius: rnRadius.sm, // 角色档 control(按钮)→ sm
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-  },
-  backToTopIcon: {
-    fontSize: 18,
-    color: tokens.text.medium,
-    includeFontPadding: false,
-  },
+  // 返回顶部按钮样式已收进 @ihui/shared/ui/scroll-jump-spec(2026-10-20 用户定「不许单独设定」;
+  //  此处原写 rgba(255,255,255,0.85) 半透明白底 + 顶部居中 + 无字重)。
+  //  端内不得再留第二份盒档 —— 见 @ihui/rn-app ScrollJumpButton 头注。
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -7,7 +7,11 @@
  *
  * 本文件一律**转发** @ihui/shared/ui/tab-bar-spec —— 两端底部胶囊是同一个界面元素,尺子只许
  * 有一份。此前两端各写一份同名量、靠两份头注互指维持,而跨端门 128 按「同名成对文件」配对
- * 看不见这一族(两边文件名不同)⇒ 已在门 128 台账登记 TabBar 别名配对,这一族从此有判据。
+ * 看不见这一族(两边文件名不同)。这一族**不在**门 128 的判据面内:门 128 台账
+ * (scripts/cross-end-ui-parity-baseline.json)的 aliases 只登记能真配上的对,而 spec 头注
+ * 明确「不要把这两枚文件登记进 aliases 去补这一格」(两边都会读到空,一条恒绿的配对比
+ * 没有配对更坏)。这一族的判据是 packages/shared/src/ui/__tests__/tab-bar-spec-shape.test.ts:
+ * 钉住"两端必须转发 spec",任一端被改回字面量即红。
  *
  * 高/留边自 2026-10-20 起取 62 / 10(与 RN 同值):用户定稿「底部菜单栏的高宽要跟 AI 输入框
  * 一致」。留边这一维两端同时成立 —— 本端首页 ai-home 输入栏写的是 `padding: '10rpx 20rpx 20rpx'`,
@@ -28,6 +32,7 @@ import {
   TAB_BAR_HEIGHT_PX,
   TAB_BAR_ICON_SIZE_PX,
   TAB_BAR_INDICATOR_H_PX,
+  TAB_BAR_INDICATOR_INSET_PX,
   TAB_BAR_MARGIN_H_PX,
 } from '@ihui/shared/ui/tab-bar-spec'
 
@@ -45,6 +50,11 @@ export const TAB_BAR_MARGIN_H = TAB_BAR_MARGIN_H_PX
 export const TAB_BAR_GAP_BOTTOM = TAB_BAR_GAP_BOTTOM_MINIAPP_PX
 /** 选中态顶部指示条高度 */
 export const TAB_BAR_INDICATOR_H = TAB_BAR_INDICATOR_H_PX
+/**
+ * 选中态顶部指示条在格内的左右缩进 —— 与胶囊外留边(那一枚 TAB_BAR_MARGIN_H)是两回事。
+ * RN 端取 TAB_BAR_INDICATOR_INSET_PX 同一枚档,此前本端误用胶囊外留边 ⇒ 两端差 2px。
+ */
+export const TAB_BAR_INDICATOR_INSET = TAB_BAR_INDICATOR_INSET_PX
 
 /**
  * 选中态光晕半径(px)。颜色一律走 CSS 变量(--color-brand-accent-deep),端内不得出现裸 hex。

@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { aizhsUrl } from '@/constants/icon-urls'
-import { TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
+import { TAB_BAR_OCCUPIED_PX, TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
+import ScrollJumpButton, { pxToTaroRpx, scrollJumpInsetRpx } from '@/components/ScrollJumpButton'
 import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, {
@@ -866,13 +867,18 @@ export default function Community() {
             </View>
           </View>
 
-          {/* toodown 返回顶部按钮(对齐原项目, 用 back.svg) */}
+          {/* 返回顶部按钮:外观与几何不在此设定,由 ScrollJumpButton 单一源给出;
+           *  这里只给定位(贴右下 + 给悬浮 TabBar 让位) */}
           {showBackTop ? (
-            <View className="community-toodown-wrapper">
-              <View className="community-toodown" onClick={backToTop} hoverClass="opacity-60">
-                <LineIcon name="chevron-up" size={32} color="var(--color-muted-foreground)" />
-              </View>
-            </View>
+            <ScrollJumpButton
+              direction="top"
+              onTap={backToTop}
+              style={{
+                position: 'fixed',
+                right: rpx(scrollJumpInsetRpx()),
+                bottom: rpx(pxToTaroRpx(TAB_BAR_OCCUPIED_PX) + scrollJumpInsetRpx()),
+              }}
+            />
           ) : null}
         </View>
 

@@ -26,10 +26,12 @@ import InterestTrackModal from './components/InterestTrackModal'
 import './index.css'
 import SearchBar from '@/components/SearchBar'
 import { aizhsUrl } from '@/constants/icon-urls'
-import { TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
+import { TAB_BAR_OCCUPIED_PX, TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
+import ScrollJumpButton, { pxToTaroRpx, scrollJumpInsetRpx } from '@/components/ScrollJumpButton'
 import ThemeRoot from '@/components/ThemeRoot'
 import CategoryBar from '@/components/CategoryBar'
 import { getTopBarMetrics } from '@/utils/system-info'
+import { rpx } from '@/utils/rpx'
 
 type Tab = 'latest' | 'hot' | 'following'
 
@@ -837,13 +839,18 @@ export default function ShareIndexPage() {
           />
         ) : null}
 
-        {/* BackToTop 回到顶部按钮 — 对齐原项目 toodown-wrapper */}
+        {/* BackToTop 回到顶部按钮:外观与几何不在此设定,由 ScrollJumpButton 单一源给出;
+         *  这里只给定位(贴右下 + 给悬浮 TabBar 让位) */}
         {showToodown ? (
-          <View className="share-toodown-wrapper" onClick={backToTop} hoverClass="opacity-60">
-            <View className="share-toodown">
-              <Text className="share-toodown-arrow">↑</Text>
-            </View>
-          </View>
+          <ScrollJumpButton
+            direction="top"
+            onTap={backToTop}
+            style={{
+              position: 'fixed',
+              right: rpx(scrollJumpInsetRpx()),
+              bottom: rpx(pxToTaroRpx(TAB_BAR_OCCUPIED_PX) + scrollJumpInsetRpx()),
+            }}
+          />
         ) : null}
 
         {/* 分类弹层 — 对齐原项目：TitleSwitchScrollTitle 作为分类选择器 */}
