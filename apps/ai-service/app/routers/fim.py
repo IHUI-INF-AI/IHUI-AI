@@ -529,7 +529,8 @@ async def fim_predict_edit(req: PredictiveEditRequest) -> dict[str, Any]:
     return finish(
         outcome.disposition,
         outcome.reason,
-        actions=[action.model_dump() for action in outcome.actions],
+        # anchor 是服务端比对用的输入,模型没给时不要把 null 塞进响应契约。
+        actions=[action.model_dump(exclude_none=True) for action in outcome.actions],
         dropped=[dropped.model_dump() for dropped in outcome.dropped],
         model=used_model,
         stub=stub,

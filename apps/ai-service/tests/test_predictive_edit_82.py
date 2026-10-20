@@ -145,8 +145,16 @@ def test_mixed_valid_and_invalid_keeps_valid_and_records_invalid() -> None:
 
 
 def test_action_count_above_cap_is_trimmed_deterministically() -> None:
-    """超过单次上限的动作按出现顺序保留、超出部分记名,不静默截断。"""
-    many = [{"kind": "insert", "start": 1, "end": 1, "text": str(i)} for i in range(edit_intent.MAX_ACTIONS + 2)]
+    """超过单次上限的动作按出现顺序保留、超出部分记名,不静默截断。
+
+    区间必须彼此不相交:契约第 7 条要求 disjoint,重叠动作会被另一维判据
+    先丢掉(见 test_overlapping_ranges_drop_the_later_one),那会把本条
+    "预算裁剪"的维度污染成"冲突裁剪",测不到本意。
+    """
+    many = [
+        {"kind": "insert", "start": i * 2, "end": i * 2, "text": str(i)}
+        for i in range(edit_intent.MAX_ACTIONS + 2)
+    ]
     outcome = edit_intent.interpret_model_output(_payload(many), document_length=len(DOC))
     assert len(outcome.actions) == edit_intent.MAX_ACTIONS
     assert [d.index for d in outcome.dropped] == [edit_intent.MAX_ACTIONS, edit_intent.MAX_ACTIONS + 1]

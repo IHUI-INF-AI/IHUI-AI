@@ -192,6 +192,12 @@ def pytest_collection_modifyitems(session, config, items):
 #      省掉每次构造 Store 的一次独占锁 pragma。
 os.environ.setdefault("IHUI_SQLITE_SYNCHRONOUS", "OFF")
 
+# CORS 源在 create_app() 建中间件时读取,必须早于 app.main 的惰性导入设置。
+# CI 没有 .env;不给默认值会让 test_cors_short_circuit 的 401/预检断言
+# 变成"源不在 allow_origins"的失败(测试隐性依赖本机 .env)。
+# 环境变量优先级高于 pydantic 的 .env,故开发者显式配置不会被覆盖。
+os.environ.setdefault("CORS_ORIGIN", "http://localhost:8801")
+
 # 2026-09-20 性能立:app.main 导入税 ~6.2s(LangChain/LiteLLM/Playwright 全链)。
 # 不再模块级 import,改为首次使用时惰性加载:
 #   - 纯单元测试文件所在的 xdist worker 完全免付 6.2s;
