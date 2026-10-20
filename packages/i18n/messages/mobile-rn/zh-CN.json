@@ -541,7 +541,18 @@
     "groupPromote": "推广",
     "groupPersonal": "个人",
     "groupCommunity": "社区",
-    "claimFree": "领取免费资料"
+    "groupContent": "内容",
+    "claimFree": "领取免费资料",
+    "groupAdvanced": "高级工具",
+    "groupDeveloper": "开发者",
+    "automation": "自动化任务",
+    "myLearning": "我的学习",
+    "userCenter": "用户中心",
+    "securitySettings": "安全设置",
+    "chatHistory": "对话历史",
+    "plaza": "广场",
+    "devEnter": "开发者入驻",
+    "modelIncome": "模型收益"
   },
   "error": {
     "network": "网络错误,请稍后重试"
@@ -1665,6 +1676,51 @@
       "post": "帖子",
       "note": "笔记",
       "agent": "智能体"
+    }
+  },
+  "securityCenter": {
+    "title": "安全中心",
+    "loadFailed": "加载失败",
+    "actionFailed": "操作失败,请稍后重试",
+    "openSwitches": "打开安全开关设置",
+    "score": {
+      "title": "安全评分",
+      "level_high": "安全等级高",
+      "level_medium": "安全等级中等",
+      "level_low": "安全等级偏低"
+    },
+    "twoFactor": {
+      "title": "两步验证",
+      "enabled": "已启用",
+      "disabled": "未启用",
+      "enabledAt": "启用时间",
+      "disableHint": "关闭两步验证需要输入当前密码",
+      "passwordPlaceholder": "当前密码",
+      "disable": "关闭两步验证",
+      "scanHint": "用身份验证器扫描下方二维码,或手动输入密钥",
+      "manualKey": "密钥",
+      "codePlaceholder": "6 位验证码",
+      "codeInvalid": "请输入 6 位数字验证码",
+      "verify": "确认启用",
+      "verifyFailed": "验证码校验失败",
+      "disableFailed": "关闭两步验证失败",
+      "enable": "启用两步验证",
+      "backupTitle": "备份码",
+      "backupHint": "请立即妥善保存,离开本页后不再显示",
+      "footerHint": "未启用两步验证,账号仅受密码保护"
+    },
+    "sessions": {
+      "title": "登录设备",
+      "empty": "暂无活跃会话",
+      "createdAt": "登录时间",
+      "expiresAt": "过期时间",
+      "revoke": "撤销",
+      "revokeTitle": "撤销会话",
+      "revokeConfirm": "撤销后该设备需要重新登录,确定继续?"
+    },
+    "logs": {
+      "title": "安全事件",
+      "empty": "暂无安全事件"
     }
   },
   "securitySettings": {

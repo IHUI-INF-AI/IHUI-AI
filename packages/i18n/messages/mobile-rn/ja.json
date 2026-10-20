@@ -541,7 +541,18 @@
     "groupPromote": "プロモーション",
     "groupPersonal": "個人",
     "groupCommunity": "コミュニティ",
-    "claimFree": "無料資料を受け取る"
+    "groupContent": "コンテンツ",
+    "claimFree": "無料資料を受け取る",
+    "groupAdvanced": "高度なツール",
+    "groupDeveloper": "開発者",
+    "automation": "自動化タスク",
+    "myLearning": "マイ学習",
+    "userCenter": "アカウント",
+    "securitySettings": "セキュリティ",
+    "chatHistory": "チャット履歴",
+    "plaza": "広場",
+    "devEnter": "開発者ポータル",
+    "modelIncome": "モデル収益"
   },
   "error": {
     "network": "ネットワークエラー"
@@ -1665,6 +1676,51 @@
       "post": "投稿",
       "note": "ノート",
       "agent": "エージェント"
+    }
+  },
+  "securityCenter": {
+    "title": "セキュリティセンター",
+    "loadFailed": "読み込みに失敗しました",
+    "actionFailed": "操作に失敗しました。しばらくしてからもう一度お試しください",
+    "openSwitches": "セキュリティスイッチ設定を開く",
+    "score": {
+      "title": "セキュリティスコア",
+      "level_high": "高い",
+      "level_medium": "普通",
+      "level_low": "低い"
+    },
+    "twoFactor": {
+      "title": "二段階認証",
+      "enabled": "有効",
+      "disabled": "未設定",
+      "enabledAt": "有効化日時",
+      "disableHint": "二段階認証を解除するには現在のパスワードを入力してください",
+      "passwordPlaceholder": "現在のパスワード",
+      "disable": "二段階認証を解除",
+      "scanHint": "認証アプリで下の QR コードを読み取るか、キーを手動で入力してください",
+      "manualKey": "キー",
+      "codePlaceholder": "6 桁のコード",
+      "codeInvalid": "6 桁の数字コードを入力してください",
+      "verify": "確認して有効化",
+      "verifyFailed": "コードの検証に失敗しました",
+      "disableFailed": "二段階認証の解除に失敗しました",
+      "enable": "二段階認証を有効化",
+      "backupTitle": "バックアップコード",
+      "backupHint": "このページを離れると再表示されません。すぐに保存してください",
+      "footerHint": "二段階認証は無効です。アカウントはパスワードのみで保護されています"
+    },
+    "sessions": {
+      "title": "ログイン中の端末",
+      "empty": "有効なセッションはありません",
+      "createdAt": "ログイン日時",
+      "expiresAt": "有効期限",
+      "revoke": "取り消す",
+      "revokeTitle": "セッションを取り消す",
+      "revokeConfirm": "その端末は再度ログインが必要になります。続行しますか?"
+    },
+    "logs": {
+      "title": "セキュリティイベント",
+      "empty": "セキュリティイベントはありません"
     }
   },
   "securitySettings": {

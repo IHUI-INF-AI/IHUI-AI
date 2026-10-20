@@ -10,11 +10,15 @@ import {
   Crown,
   FileText,
   GraduationCap,
+  Hash,
+  LayoutGrid,
   ListChecks,
   MessageCircle,
   NotebookPen,
+  PenLine,
   PlayCircle,
   ScrollText,
+  Send,
   ShoppingBag,
   Star,
   Ticket,
@@ -37,7 +41,7 @@ import type { MainTabKey } from './tab-utils'
 /** lucide 图标组件类型(与抽屉 LucideGlyph 同源 lucide-react-native) */
 export type HubGlyph = LucideIcon
 
-export type DomainKey = 'edu' | 'trade' | 'community'
+export type DomainKey = 'edu' | 'content' | 'trade' | 'community'
 
 export type HubTarget = { type: 'route'; name: string } | { type: 'main'; screen: MainTabKey }
 
@@ -104,6 +108,56 @@ export const DOMAIN_HUBS: Record<DomainKey, HubDomain> = {
         Icon: Award,
         route: 'Certificate',
         target: { type: 'route', name: 'Certificate' },
+      },
+    ],
+  },
+  /**
+   * 内容域(2026-10-20 立):对齐 web 侧边栏 contentGroup(/domains/content)。
+   *
+   * web 把广场/企业/分销/团队/消息/文档/标签/OAuth/自媒体/发布/博客 21 项收敛进一个域入口,
+   * RN 侧此前**完全没有这一域**(教育/交易/社群三域之外内容类入口全散落在抽屉里),
+   * 这是"两端侧边栏差距"最直观的一处。本域取 RN 有原生路由的 6 项,
+   * 圈子/问答留在 community 域(避免 href/route 重复登记导致双条目)。
+   */
+  content: {
+    titleKey: 'drawer.groupContent',
+    Icon: LayoutGrid,
+    items: [
+      {
+        labelKey: 'drawer.plaza',
+        Icon: LayoutGrid,
+        route: 'Plaza',
+        target: { type: 'route', name: 'Plaza' },
+      },
+      {
+        labelKey: 'menu.articleList',
+        Icon: FileText,
+        route: 'ArticleList',
+        target: { type: 'route', name: 'ArticleList' },
+      },
+      {
+        labelKey: 'menu.topicList',
+        Icon: Hash,
+        route: 'TopicList',
+        target: { type: 'route', name: 'TopicList' },
+      },
+      {
+        labelKey: 'menu.noteList',
+        Icon: NotebookPen,
+        route: 'NoteList',
+        target: { type: 'route', name: 'NoteList' },
+      },
+      {
+        labelKey: 'menu.publish',
+        Icon: Send,
+        route: 'Publish',
+        target: { type: 'route', name: 'Publish' },
+      },
+      {
+        labelKey: 'menu.selfMedia',
+        Icon: PenLine,
+        route: 'SelfMedia',
+        target: { type: 'route', name: 'SelfMedia' },
       },
     ],
   },
