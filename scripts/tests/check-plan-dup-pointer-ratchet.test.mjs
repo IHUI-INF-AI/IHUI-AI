@@ -266,17 +266,36 @@ test('P9 维③叠注重数:同一行同一注记多出来的份数只拦变多;
 })
 
 test('P10 维④前缀型副本对:只数严格前缀,逐字相同归 fold-identical 通道,已勾行不计', () => {
-  const A = '- [ ] G-7 做点啥\n'
-  const B = '- [ ] G-7 做点啥 追加了一段\n'
-  const C = '- [ ] G-7 做点啥 追加了一段 又追加\n'
+  const A = '- [ ] G-7 做点啥这件事项的正文要长过承载下限才算副本短侧\n'
+  const B = '- [ ] G-7 做点啥这件事项的正文要长过承载下限才算副本短侧 追加了一段\n'
+  const C = '- [ ] G-7 做点啥这件事项的正文要长过承载下限才算副本短侧 追加了一段 又追加\n'
   if (prefixTwinPairs(A + B) !== 1) throw new Error('两行成对应计 1 对(阳性对照失败)')
   if (prefixTwinPairs(A + A) !== 0)
     throw new Error('逐字相同的两行不由本维计(那是 --fold-identical-open-rows 的地盘)')
-  if (prefixTwinPairs('- [ ] 不相关甲\n- [ ] 不相关乙\n') !== 0)
+  if (
+    prefixTwinPairs(
+      '- [ ] 不相关甲事项正文足够长可以独立派单\n- [ ] 不相关乙事项正文足够长可以独立派单\n',
+    ) !== 0
+  )
     throw new Error('无前缀关系必须读成 0')
   if (prefixTwinPairs(A + B + C) !== 3) throw new Error('链式 A⊂BC 应计 3 对')
-  if (prefixTwinPairs('- [x] ✅(2026-01-01) G-7 做点啥\n' + B) !== 0)
+  if (
+    prefixTwinPairs(
+      '- [x] ✅(2026-01-01) G-7 做点啥这件事项的正文要长过承载下限才算副本短侧\n' + B,
+    ) !== 0
+  )
     throw new Error('已勾行不参与本维')
+  // 反证(今天实测到的误咬型):裸认领标记行剥完括注后正文为空,却是所有同前缀行的公共前缀;
+  // 不设承载下限时,实测一条长度 10 的行在本维配到 26 条 ⇒ 读数全是假的。
+  const bare = '- [ ]（进行中）\n'
+  const filledA = '- [ ]（进行中）甲事项正文足够长可以独立派单干活现在补长一些以便越过承载下限\n'
+  const filledB =
+    '- [ ]（进行中）甲事项正文足够长可以独立派单干活现在补长一些以便越过承载下限 又补了一句\n'
+  const filledC = '- [ ]（进行中）乙事项正文足够长可以独立派单干活现在补长一些以便越过承载下限\n'
+  if (prefixTwinPairs(bare + filledA + filledC) !== 0)
+    throw new Error('裸认领标记行不得作为副本短侧(误咬)')
+  if (prefixTwinPairs(filledA + filledB + filledC) !== 1)
+    throw new Error('阳性对照:剥掉认领括注后正文够长的短侧,仍必须读得出 1 对')
   const grew = prefixTwinVerdict(A, A + B)
   if (!grew.grew || grew.before !== 0 || grew.after !== 1) throw new Error('新增副本对必须判红')
   if (prefixTwinVerdict(A + B, A).grew) throw new Error('折并后不得判红')
