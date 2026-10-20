@@ -21,8 +21,8 @@
  *     ⇒ 端上唯一能救回"这是鉴权失败"的档只剩 HTTP status。
  *  ③ 带着有效凭据打首屏那条 query → **200** ⇒ "参数形状错"这一假设被否证。
  *  ④ 阳性对照:同一条路由把 pageSize 顶到 999 → **400** ⇒ 证明 ③ 的 200 是判据放过的,
- *     不是"路由压根没跑判据";并把该 400 的原文喂给端上映射,证明**真 400 与 401 在
- *     只取 message 时产出同一句话** —— 这就是实拍那条文案的成因。
+ *     不是"路由压根没跑判据";并把该 400 的原文喂给端上映射 —— 2026-10-20 订正:自 1a8927dccb
+ *     起 400 走中文实义文案且不再被兜底,**真 400 与 401 在文案上就能分**(旧结论"同一句话"已失效)。
  *  另加一条身份链:② 的响应体走共享出口 `apiFailureToError`(带 status)必得
  *     「登录已过期,请重新登录」,只取 message 则落到「提交的信息有误」—— 同一份输入两臂,
  *     把"该改哪一侧"钉死成机器判据而不是散文结论。
@@ -177,11 +177,16 @@ describe('GET /api/plaza/list 首屏真实结论面', () => {
     expect(res.statusCode).toBe(400)
     expect(dbCalls.select).toBe(0)
     const fourHundredMessage = (res.json() as { message?: string }).message ?? ''
-    // 反向对照的第二半:真 400 的原文喂给端上映射,与 ② 只取 message 的那一臂**同一句话**。
-    // ⇒ 实拍那条「提交的信息有误」本身分不出 400/401,只有 status 能分 —— 这正是本票要保住的档。
-    expect(toUserFriendlyMessage(new Error(fourHundredMessage))).toBe(
-      toUserFriendlyMessage(apiFailureToError({ error: 'Invalid or expired token' })),
+    // 反向对照的第二半(2026-10-20 订正):1a8927dccb 把 400 的 zod 英文原文换成中文实义文案
+    // (routes/plaza.ts:38「pageSize 最多为 100」),而 error-messages.ts:210 第 4 步「已是中文 →
+    // 原样返回」不再兜底成「提交的信息有误」⇒ 旧那句"真 400 与 401 只取 message 时同一句话"的前提已死。
+    // 现在要钉的是反过来那条新契约:**两条在文案上就能分**,端上不再只剩 status 一档。
+    expect(fourHundredMessage).toBe('pageSize 最多为 100')
+    const messageOnlyFrom401 = toUserFriendlyMessage(
+      apiFailureToError({ error: 'Invalid or expired token' }),
     )
+    expect(toUserFriendlyMessage(new Error(fourHundredMessage))).toBe('pageSize 最多为 100')
+    expect(toUserFriendlyMessage(new Error(fourHundredMessage))).not.toBe(messageOnlyFrom401)
   })
 
   it('⑤ 身份链同一份输入两臂:带 status 得「登录已过期」,只取 message 得「提交的信息有误」', () => {
