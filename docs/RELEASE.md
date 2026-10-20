@@ -507,12 +507,13 @@ Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免
 | 项 | 状态 |
 | --- | --- |
 | 申请 | ✅ 2026-10-20 12:40(+0800) 已通过官网表单提交成功(项目 IHUI AI,仓库 https://github.com/IHUI-INF-AI/IHUI-AI,联系邮箱 `502319984@qq.com`)。本机用真实 Chrome 配置副本提交,表单返回「Form submitted — Thank you, we'll be in touch soon.」 |
-| 审批 | ⏳ 待审批,官方周期约 1-2 周(截至 2026-10-20 12:42,QQ 邮箱尚未收到确认邮件) |
+| 审批 | ⏳ 待审批,官方周期约 1-2 周;对方确认邮件称将在几个工作日内回复后续步骤 |
+| 确认邮件 | ✅ 2026-10-20 12:40 收到 `SignPath Foundation Team <oss-support@signpath.org>` 的主题「Open Source Project Submitted」,正文确认已收到申请并将在 next few business days 内联系 |
 | 费用 / 证书 | 免费;Sectigo CA 签发 |
 | 私钥 | 由 SignPath HSM 保管,CI 只持短期凭据 |
 | CI 集成 | ✅ 代码面已接入(`release-cli.yml` + `release-desktop.yml`,凭据未齐时整体跳过、不影响现有发布);⏳ 等申请通过并配齐四项 secret 后跑一次真发版,核对签名链与 `latest.json` 配对 |
 
-> **2026-10-20 状态更正与提交留痕**:此前本文写的「2026-10-18 已提交」与「2026-10-19 已邮件回复声誉问询」没有提交凭据或邮件凭据(QQ 邮箱收件箱、垃圾箱、已删除与已发送均无 SignPath/HubSpot 来信);2026-10-20 12:40 已实际提交成功。
+> **2026-10-20 状态更正与提交留痕**:此前本文写的「2026-10-18 已提交」与「2026-10-19 已邮件回复声誉问询」没有提交凭据或邮件凭据(QQ 邮箱收件箱、垃圾箱、已删除与已发送均无 SignPath/HubSpot 来信);2026-10-20 12:40 已实际提交成功并收到上述确认邮件。
 
 **申请表中已附的公开佐证**(Reputation 字段):
 
