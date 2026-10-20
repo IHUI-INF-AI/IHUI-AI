@@ -49,7 +49,7 @@ test.describe('监控面板 两种呈现切换器(真实浏览器)', () => {
     const other = adminPage.getByRole('tab', { name: '数据大屏' })
     const otherControls = (await other.getAttribute('aria-controls'))!
     await other.click()
-    await expect(other).toBeSelected()
+    await expect(other).toHaveAttribute('aria-selected', 'true')
     await expect(adminPage.getByRole('tabpanel')).toHaveCount(1)
     await expect(adminPage.getByRole('tabpanel')).toHaveId(otherControls)
   })
