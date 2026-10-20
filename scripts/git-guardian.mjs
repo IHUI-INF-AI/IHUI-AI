@@ -3730,19 +3730,26 @@ export function bumpProbeStreak(prev, results, opt = {}) {
       // 门槛被绕过去、又多寄了一封。连击的计量单位必须是**时间**,不是"进过几次这段代码"。
       const dup = prior > 0 && Number.isFinite(prevLast) && now - prevLast < minGapMs
       if (dup) {
-        state[key] = { streak: prior, firstAt: before?.firstAt || iso(prevLast), lastSeenAt: before?.lastSeenAt || iso(now) }
-        info[key] = { streak: prior, required, due: false, merged: true, gapMs: now - prevLast, minGapMs }
+        const firstAt = before?.firstAt || iso(prevLast)
+        state[key] = { streak: prior, firstAt, lastSeenAt: before?.lastSeenAt || iso(now) }
+        // firstAt 必须**同时进 info**:派发侧读的是 info 那一份(它还要读 `required`,而 required
+        // 只住在 info 里)⇒ 只写 state 的话 `Date.parse(st.firstAt)` 恒为 NaN,"已持续档"这一维
+        // 结构上永不跨档,同因持续恶化会被 24h 窗口压成同一身份不再重报。
+        // 契约与反证:scripts/tests/git-guardian-probe-firstat.test.mjs
+        info[key] = { streak: prior, required, due: false, merged: true, gapMs: now - prevLast, minGapMs, firstAt }
         continue
       }
       const streak = prior + 1
-      state[key] = { streak, firstAt: before?.firstAt || iso(now), lastSeenAt: iso(now) }
-      info[key] = { streak, required, due: streak >= required }
+      const firstAt = before?.firstAt || iso(now)
+      state[key] = { streak, firstAt, lastSeenAt: iso(now) }
+      info[key] = { streak, required, due: streak >= required, firstAt }
     } else if (verdict === 'ok') {
       if (prior > 0) cleared.push({ key, from: prior })
       info[key] = { streak: 0, required, due: false }
     } else if (verdict === 'unjudged') {
-      if (prior > 0) state[key] = { streak: prior, firstAt: before?.firstAt || iso(now), lastSeenAt: before?.lastSeenAt || null }
-      info[key] = { streak: prior, required, due: false, unjudged: true }
+      const firstAt = before?.firstAt || iso(now)
+      if (prior > 0) state[key] = { streak: prior, firstAt, lastSeenAt: before?.lastSeenAt || null }
+      info[key] = { streak: prior, required, due: false, unjudged: true, firstAt }
     }
   }
   const pruned = []
