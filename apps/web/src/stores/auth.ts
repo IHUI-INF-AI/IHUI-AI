@@ -169,8 +169,19 @@ export const useAuthStore = create<AuthState>()(
       expireSession: () => {
         // 被动失效:不写标记、不调 /auth/logout(凭据已被服务端否定,再吊销一次没有意义),
         // 也不清此前的标记 —— 若用户此前显式登出过,那份抑制必须继续有效。
+        const knownRefresh = get().refreshToken
         clearRefreshTokenCookie()
-        syncDesktopRefreshToken(null)
+        // 清 vault 必须是 CAS,不能盲清:桌面多窗口共用 auth.json,另一窗口可能已轮转并把
+        // 新 token 写回;盲清会把它抹掉,下次冷启动无凭据可刷(与 lib/api.ts 的 rejected
+        // 分支同一条判据)。不知道本窗口用过哪一份(冷启动时 state 里没有)时一律不碰 ——
+        // 那份真死了的话,下一次刷新由 api.ts 的 CAS 自己收掉。
+        if (isDesktopEnv()) {
+          void (async () => {
+            if (!knownRefresh) return
+            const current = await getDesktopRefreshToken()
+            if (current === knownRefresh) await setDesktopRefreshToken(null)
+          })()
+        }
         set({
           token: null,
           refreshToken: null,
