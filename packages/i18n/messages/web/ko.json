@@ -22935,6 +22935,7 @@
     "registerTitle": "통합 가입",
     "sendCodeFailed": "인증 코드 전송 실패",
     "sessionExpired": "세션이 만료되었습니다. 다시 로그인해 주세요.",
+    "redirectBlockedByGuard": "대상 페이지가 로그인 가드에 의해 차단되었으며 로그인 Cookie가 적용되지 않았습니다. 대개 접속 주소와 로그인 Cookie 도메인(COOKIE_DOMAIN)이 일치하지 않기 때문입니다(예: LAN IP나 localhost로 열었을 때). 해당 도메인으로 접속해 다시 시도하세요.",
     "subtitle": "로그인 후 {clientId}에 대한 인증 및 리디렉션",
     "title": "통합 로그인",
     "mobileAuth": {
