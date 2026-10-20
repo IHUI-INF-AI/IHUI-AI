@@ -236,28 +236,32 @@ describe('401 静默续期同闸(与 RN / web 同一条判据)', () => {
   })
 })
 
-describe('不经 clearAuth 的两条登出入口必须显式落标记(装车证明)', () => {
-  // 这两页只调后端登出接口 + reLaunch / clearStorageSync,不经过 utils/auth 的 clearAuth()。
-  // 不点名它们,"登出必落标记"就只对 store 那一条出口成立 —— 判据失效的表现永远是安静。
+describe('两条登出入口必须"清凭据 + 落标记"成对(clearAuth 唯一实现)', () => {
+  // 历史:这两页只调后端登出接口,再由页面自己 `markSessionLoggedOut()` 补标记 ——
+  // 标记落了、**本地凭据没清**(内存 token 还在,后续请求照样带着走),等于只做了半套。
+  // 现在两页统一走 utils/auth 的 clearAuth()(它内部先落标记再清凭据,顺序定死)。
   // 取材用 node:path 拼绝对路径,不用 `new URL(rel, import.meta.url)`:该端 tsconfig 的 lib 里
   // DOM 的 URL 与 node:url 的 URL 是两个类型,后者传给 fileURLToPath 会在 HEAD 上直接判 TS2345
   // (端 typecheck 恒红 = 每台每次被逼跳门,§12e 同型),而两种写法解出的文件是同一个。
   const read = (rel: string): string =>
     readFileSync(join(dirname(fileURLToPath(import.meta.url)), rel), 'utf-8')
 
-  it('pages/setting 的退出登录调用 markSessionLoggedOut', () => {
+  it('pages/setting 的退出登录走 clearAuth(只落标记不清凭据 = 半套)', () => {
     const src = read('../../pages/setting/index.tsx')
-    expect(src).toMatch(/markSessionLoggedOut\(\)/)
+    expect(src).toMatch(/clearAuth\(\)/)
     expect(src).toMatch(/from '@\/utils\/auth'/)
+    expect(src, '不得只落标记:那样 token 还在,后续请求照样带着走').not.toMatch(
+      /markSessionLoggedOut\(\)/,
+    )
   })
 
-  it('pkg-user/user/settings 的标记必须写在 clearStorageSync 之后(写在之前会被一起抹掉)', () => {
+  it('pkg-user/user/settings 同样走 clearAuth,且不再整片 clearStorageSync', () => {
     const src = read('../../pkg-user/user/settings.tsx')
-    const wipe = src.indexOf('Taro.clearStorageSync()')
-    const mark = src.indexOf('markSessionLoggedOut()')
-    expect(mark).toBeGreaterThan(-1)
-    expect(wipe).toBeGreaterThan(-1)
-    expect(mark, '标记必须落在整片擦除之后,否则等于没写').toBeGreaterThan(wipe)
+    expect(src).toMatch(/clearAuth\(\)/)
+    expect(src).not.toMatch(/markSessionLoggedOut\(\)/)
+    expect(src, 'clearStorageSync 会连用户偏好一起抹掉,不是登出该做的事').not.toMatch(
+      /clearStorageSync\(\)/,
+    )
   })
 })
 
