@@ -69,7 +69,7 @@ export default function AdminMonitorAlertsPage() {
             <CardTitle className="text-xs font-medium text-muted-foreground">活跃告警</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{activeCount}</div>
+            <div className="text-2xl font-bold text-danger">{activeCount}</div>
           </CardContent>
         </Card>
         <Card>
@@ -77,7 +77,7 @@ export default function AdminMonitorAlertsPage() {
             <CardTitle className="text-xs font-medium text-muted-foreground">严重告警</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{criticalCount}</div>
+            <div className="text-2xl font-bold text-danger">{criticalCount}</div>
           </CardContent>
         </Card>
         <Card>
