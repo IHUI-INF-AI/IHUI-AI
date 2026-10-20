@@ -14,7 +14,9 @@ import CategoryBar from './CategoryBar'
 
 export type SkillCategory = 'all' | 'text' | 'image' | 'video' | 'audio'
 
-export type AgentItem = Pick<Agent, 'id' | 'name'> & {
+/** 本地视图模型:契约主键是 Agent.agentId,本端沿用 id 承载(对齐 mobile-rn AgentShopItem.id) */
+export type AgentItem = Pick<Agent, 'name'> & {
+  id: string
   description?: string
   avatar?: string
   useCount?: number
