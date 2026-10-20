@@ -56,7 +56,12 @@ const GLASS_BLUR_PX = 24
 
 /** 选中态光晕:半径取单一源 TAB_BAR_GLOW_RADIUS_PX,颜色走 CSS 变量 --color-brand-accent-deep
  *  (亮 #4a7a96 / 暗 #a3c4d6),与 RN TabBar.styles.ts 的 iconGlow 同档 —— 端内不出现裸 hex。
- *  刻意不用 --color-brand-accent(#8fb8cc):同日玻璃底回调至 0.6 后浅蓝晕压在胶囊上看不见。 */
+ *  刻意不用 --color-brand-accent(#8fb8cc):同日玻璃底回调至 0.6 后浅蓝晕压在胶囊上看不见。
+ *
+ *  取证状态(2026-10-20 如实登记):本端**内联 style 用 var() 有 40 处先例**(pages/index/index.tsx),
+ *  取色这一维机制成立;但 CSS `filter` 在本端仓内**无任何先例**(只有 backdrop-filter 的),
+ *  尚未在微信开发者工具/真机上验过。若不生效,退化形态是「选中无光晕、颜色档照常」——
+ *  不影响 ink/muted 两处取色。要消这一格,得跑一次 weapp 实测再回来改本注。 */
 const GLOW_STYLE = {
   filter: `drop-shadow(0 0 ${TAB_BAR_GLOW_RADIUS_PX}px var(--color-brand-accent-deep))`,
 }
