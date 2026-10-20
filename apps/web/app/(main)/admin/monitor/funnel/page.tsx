@@ -30,7 +30,7 @@ interface FunnelData {
 }
 
 const selectClass =
-  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-8 w-auto rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export default function AdminMonitorFunnelPage() {
   const [funnel, setFunnel] = React.useState('signup')
@@ -135,7 +135,7 @@ export default function AdminMonitorFunnelPage() {
                         className={cn(
                           'flex h-full items-center rounded-md px-2 text-xs font-medium transition-all',
                           i === 0
-                            ? 'bg-primary text-primary-foreground'
+                            ? 'bg-primary text-primary-foreground' /* r5-cta-exempt: 漏斗首段进度条填充,非主按钮;品牌墨底+配对前景是该图表的既有形态 until 2026-12-20 */
                             : i === stages.length - 1
                               ? 'bg-success-tint-strong text-success-deep-text' /* 原 bg-emerald-600 + 白字:亮档实测 3.61 < AA 4.5,且是调色板字面量;此对实测 5.80/6.30 */
                               : 'bg-primary/70 text-primary-foreground',
