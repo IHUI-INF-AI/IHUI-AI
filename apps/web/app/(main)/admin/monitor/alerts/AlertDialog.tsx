@@ -40,14 +40,14 @@ export function AlertRules({ rules }: Props) {
                 className={cn(
                   'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
                   r.enabled
-                    ? 'bg-emerald-500/10 text-emerald-600'
+                    ? 'bg-success/10 text-success-deep-text'
                     : 'bg-muted text-muted-foreground',
                 )}
               >
                 <span
                   className={cn(
                     'h-1.5 w-1.5 rounded-full',
-                    r.enabled ? 'bg-emerald-500' : 'bg-muted-foreground',
+                    r.enabled ? 'bg-success' : 'bg-muted-foreground',
                   )}
                 />
                 {r.enabled ? '启用' : '禁用'}
