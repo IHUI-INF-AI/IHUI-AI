@@ -81,7 +81,7 @@ interface ParityFixtureWithReasoning {
     existingMessagesCarryReasoningKeys: boolean
     baselineMessageCount: number
     baseline: { messageCount: number; tokensTs: number; tokensPyAsShipped: number }
-    /** 整列跨端差值 = tokensTs - tokensPyAsShipped(两端不等是正确现状,按差值判不按同值判) */
+    /** 整列跨端差值 = tokensTs - tokensPyAsShipped(2026-10-20 已统一 cl100k、两端同值;仍按差值判,现为 0) */
     crossEndGapFullColumn: number
   }
   cjkCases: {
@@ -407,18 +407,18 @@ describe('G-1058650 反向锁:既有 parity 夹具不含 reasoning,数值不动'
     expect(fixture.input.messages.length).toBeGreaterThan(24)
   })
 
-  it('整列(26 条,含 CJK)的估算值两端**不再相等**,各自真值逐值钉死', () => {
+  it('整列(26 条,含 CJK)的估算值两端**已同值**,各自真值逐值钉死', () => {
     const tsFull = estimateMessagesTokens(fixture.input.messages)
     // TS 侧整列真值:`tokensTs` 就是 TS 侧的值(字段各归各端,谁也不许存对方的读数)
     expect(tsFull).toBe(fixture.reverseLock.tokensTs)
-    expect(tsFull).toBe(29500)
+    expect(tsFull).toBe(29558)
     // Python 侧整列真值(由常驻 Python 件现场重算复核)
     expect(fixture.reverseLock.tokensPyAsShipped).toBe(29558)
-    // 差值方向与 ASCII 那格相反:汉字上 Python 多算
+    // 两端已统一 cl100k_base ⇒ 差值为 0(仍按差值钉死,不改成"硬编码同值")
     expect(fixture.reverseLock.crossEndGapFullColumn).toBe(
       fixture.reverseLock.tokensTs - fixture.reverseLock.tokensPyAsShipped,
     )
-    expect(fixture.reverseLock.crossEndGapFullColumn).toBe(-58)
+    expect(fixture.reverseLock.crossEndGapFullColumn).toBe(0)
   })
 
   it('字段语义:`tokensTs` 存 **TS** 侧读数、`tokensPyAsShipped` 存 **Python** 侧读数(不许过载)', () => {
@@ -426,15 +426,16 @@ describe('G-1058650 反向锁:既有 parity 夹具不含 reasoning,数值不动'
     // 那是**字段过载**:字段名叫 tokensTs、值却是 Python 端的读数。一条把真相判红的尺子
     // (Python 件当时断言「两端必须同值」,而该前提已因追加 CJK 而失效)教出来的就是谎报:
     // 上一位 agent 为了保那条断言绿,把 TS 真值挪了个字段名,而不是改判据。
-    // 现已改正:`tokensTs` 回归 TS 真值 29500,Python 值归 `tokensPyAsShipped`,
+    // 现已改正:`tokensTs` 回归 TS 真值 29558,Python 值归 `tokensPyAsShipped`,
     // `tokensTsFullColumn` 这个过载的产物**已删除**(不留重名影子字段)。
-    // 这条断言的作用:防止有人再把两个字段写成同一个值(那正是过载的复发形态)。
-    expect(fixture.reverseLock.tokensTs).not.toBe(fixture.reverseLock.tokensPyAsShipped)
-    expect(fixture.reverseLock.tokensTs).toBe(29500)
+    // 两端已统一 cl100k_base ⇒ 两字段可以同值;防过载改为:TS 字段必须等于 **TS 现场估算**
+    // (Python 字段由常驻 Python 件现场重算复核,两端读数各由各自的生产实现出具)。
+    expect(fixture.reverseLock.tokensTs).toBe(estimateMessagesTokens(fixture.input.messages))
+    expect(fixture.reverseLock.tokensTs).toBe(29558)
     expect(fixture.reverseLock.tokensPyAsShipped).toBe(29558)
     expect(fixture.reverseLock).not.toHaveProperty('tokensTsFullColumn')
-    // 整列两端不等是**正确现状**(两端不是同一套 BPE 词表),故这一格按差值判而不是按同值判
-    expect(fixture.reverseLock.crossEndGapFullColumn).not.toBe(0)
+    // 两端已统一 cl100k_base ⇒ 同值;这一格仍按差值判(现为 0)
+    expect(fixture.reverseLock.crossEndGapFullColumn).toBe(0)
   })
 })
 
@@ -513,16 +514,15 @@ describe('G-1058650:带 reasoning 的消息在双端夹具里逐值钉死(判定
 
 // ==================== 残余⑤:CJK 用例 —— 两端分词器对汉字的分歧逐值钉死 ====================
 //
-// 读数口径(必须随读数一起看):TS 侧走 `gpt-tokenizer` 默认 `o200k_base`,
-// Python 侧走 `tiktoken` `cl100k_base` —— **词表分歧未修(残余②另票负责归因),两端不等是预期**。
-// 本段只负责把差值**逐值钉死**,不许折成「待人工核」,更不许为了两端相等去改基线数值。
+// 读数口径(必须随读数一起看):两端均已显式 cl100k_base(2026-10-17 拍板),同值是预期。
+// 本段仍把同值**逐值钉死**,不许折成「待人工核」,也不许为凑绿改基线数值。
 //
-// 实测方向与 ASCII 相反:既有 24 条纯 ASCII 两端**零漂移**,而汉字上 **Python 反而比 TS 多**
-// (短 -3 / 长 -55,合并 -58)。即 CJK 不是"精度误差",是系统性方向相反的词表差异。
+// 2026-10-20 统一后实测:既有 24 条纯 ASCII 两端零漂移;CJK short 11/11、long 180/180、
+// 合并 191/191,跨端差值全 0。
 
 const CJK_RE = /[㐀-䶿一-鿿豈-﫿぀-ヿ]/
 
-describe('G-1058650 残余⑤:CJK 消息在双端夹具里逐值钉死分词分歧', () => {
+describe('G-1058650 残余⑤:CJK 消息在双端夹具里逐值钉死同值', () => {
   const cases = fixture.cjkCases.cases
 
   it('夹具里这一格至少两条 CJK 用例,且一条短中文、一条长中文', () => {
@@ -566,22 +566,23 @@ describe('G-1058650 残余⑤:CJK 消息在双端夹具里逐值钉死分词分�
       })
 
       it('跨端差值逐值钉死(不许写成"待人工核",也不许折成绝对值掩盖方向)', () => {
-        // 算式方向固定为 tokensTs - tokensPyAsShipped;CJK 上它为**负**(Python 多算)
+        // 算式方向固定为 tokensTs - tokensPyAsShipped;统一后它为 0
         expect(c.expect.crossEndGap).toBe(c.expect.tokensTs - c.expect.tokensPyAsShipped)
         expect(typeof c.expect.crossEndGap).toBe('number')
-        expect(c.expect.crossEndGap).not.toBe(0)
+        expect(c.expect.crossEndGap).toBe(0)
       })
 
-      it('两端不等是**已知现状**(词表分歧未修),故必须显式登记为不等而不是被抹平', () => {
-        expect(c.expect.tokensTs).not.toBe(c.expect.tokensPyAsShipped)
+      it('两端同值(已统一 cl100k_base),仍逐值登记而不是被抹平', () => {
+        expect(c.expect.tokensTs).toBe(c.expect.tokensPyAsShipped)
       })
     })
   }
 
-  it('分词分歧随文本变长而**累积放大**(长中文差值绝对值 > 短中文)', () => {
+  it('两端统一 cl100k_base 后,两条 CJK 的跨端差值都归零(仍逐值登记)', () => {
     const short = cases.find((c) => c.id === 'cjk-short-text-cross-end-split-gap')!
     const long = cases.find((c) => c.id === 'cjk-long-text-accumulated-split-gap')!
-    expect(Math.abs(long.expect.crossEndGap)).toBeGreaterThan(Math.abs(short.expect.crossEndGap))
+    expect(short.expect.crossEndGap).toBe(0)
+    expect(long.expect.crossEndGap).toBe(0)
   })
 
   it('两条 CJK 合并的现场值 == 逐值之和的登记值(证明逐值锁不是各自独立凑出来的)', () => {
