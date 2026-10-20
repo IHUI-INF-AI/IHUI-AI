@@ -356,6 +356,76 @@ def test_fork_nonexistent_seq_raises(store: SessionStore) -> None:
         store.fork(t.thread_id, 99999)
 
 
+def test_fork_owns_its_turns_and_source_revert_succeeds(store: SessionStore) -> None:
+    """G-26:fork 的 items 不得继续引用来源 turn —— 否则来源 revert 必被 FK 挡住。"""
+    t = store.create_thread(title="original")
+    turn = store.start_turn(t.thread_id)
+    store.append_item(turn.turn_id, UserMessageItem(content="u1"))
+    last = store.append_item(turn.turn_id, AgentMessageItem(content="a1"))
+    store.end_turn(turn.turn_id)
+
+    forked = store.fork(t.thread_id, last.seq)
+
+    fork_turns = store.list_turns(forked.thread_id)
+    assert len(fork_turns) == 1
+    assert fork_turns[0].turn_id != turn.turn_id
+    assert fork_turns[0].turn_seq == turn.turn_seq
+    assert fork_turns[0].status == "completed"
+    fork_items = store.list_items(forked.thread_id)
+    assert len(fork_items) == 2
+    assert {item.turn_id for item in fork_items} == {fork_turns[0].turn_id}
+
+    # 来源线程回滚自己的 turn:fork 已不再引用它 ⇒ 不触发 FOREIGN KEY 失败
+    deleted = store.revert_thread(t.thread_id, turn.turn_id)
+    assert deleted == 1
+    assert store.list_items(t.thread_id) == []
+    assert len(store.list_items(forked.thread_id)) == 2
+
+
+def test_fork_revert_only_affects_fork(store: SessionStore) -> None:
+    """回滚 fork 自己的 turn 只删 fork 的副本,来源线程一字不动。"""
+    t = store.create_thread()
+    turn = store.start_turn(t.thread_id)
+    store.append_item(turn.turn_id, UserMessageItem(content="u1"))
+    last = store.append_item(turn.turn_id, AgentMessageItem(content="a1"))
+    store.end_turn(turn.turn_id)
+    forked = store.fork(t.thread_id, last.seq)
+
+    fork_turn = store.list_turns(forked.thread_id)[0]
+    deleted = store.revert_thread(forked.thread_id, fork_turn.turn_id)
+    assert deleted == 1
+    assert store.list_items(forked.thread_id) == []
+    assert len(store.list_items(t.thread_id)) == 2
+    assert store.list_turns(t.thread_id)[0].turn_id == turn.turn_id
+
+
+def test_fork_copies_multiple_turns_with_remapped_ids(store: SessionStore) -> None:
+    """跨多个 turn 的 fork 前缀:turn_seq 保持,id 全部换新,items 逐 turn 重挂。"""
+    t = store.create_thread()
+    turn1 = store.start_turn(t.thread_id)
+    store.append_item(turn1.turn_id, UserMessageItem(content="u1"))
+    store.append_item(turn1.turn_id, AgentMessageItem(content="a1"))
+    store.end_turn(turn1.turn_id)
+    turn2 = store.start_turn(t.thread_id)
+    store.append_item(turn2.turn_id, UserMessageItem(content="u2"))
+    last = store.append_item(turn2.turn_id, AgentMessageItem(content="a2"))
+    store.end_turn(turn2.turn_id)
+
+    forked = store.fork(t.thread_id, last.seq)
+
+    fork_turns = store.list_turns(forked.thread_id)
+    assert [ft.turn_seq for ft in fork_turns] == [turn1.turn_seq, turn2.turn_seq]
+    assert {ft.turn_id for ft in fork_turns}.isdisjoint({turn1.turn_id, turn2.turn_id})
+    by_seq = {ft.turn_seq: ft.turn_id for ft in fork_turns}
+    fork_items = store.list_items(forked.thread_id)
+    assert [item.turn_id for item in fork_items] == [
+        by_seq[turn1.turn_seq],
+        by_seq[turn1.turn_seq],
+        by_seq[turn2.turn_seq],
+        by_seq[turn2.turn_seq],
+    ]
+
+
 # ==================== 27-29: Rollback ====================
 
 
