@@ -5186,6 +5186,21 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 暖色描边禁令(1 项,blocking)---
+  {
+    id: '231',
+    label:
+      '🚫 暖色描边禁令(W1 聚焦态描边取暖色 / W2 原生 EditText 背景引用 textfield_* 9-patch / W3 AppTheme 未钉强调色 / W4 plugins 被 .gitignore 吞掉)',
+    script: 'check-no-warm-border.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_WARM_BORDER',
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
