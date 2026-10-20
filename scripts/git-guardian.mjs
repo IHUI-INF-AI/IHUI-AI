@@ -4400,7 +4400,7 @@ export function auditDeployStall(opts = {}) {
     const held = alertHeldTier(streak.firstMs, now)
     const outcome = notify(
       '部署停摆(线上构建 vs origin/main)',
-      `${String(p.why || '')}\n线上 ${String(p.liveSha || '(无标记)').slice(0, 12)} / tip ${String(p.tipSha || '?').slice(0, 12)}(来源 ${p.tipSource || '未标注'})\n最近一次成功部署 ${p.lastSuccessIso || '(取不到)'}${p.lastSuccessFrom ? `(取自 ${p.lastSuccessFrom};活动件里没有完成行 ⇒ 已跨过一轮日志轮转)` : ''};阈值 ${p.thresholdMin} 分钟;本轮已落后 ${p.behindHours ?? '?'} 小时;本段停摆已持续 ${held.hours ?? '?'} 小时(档 ${held.tier});本轮类别 ${classNow}${classNow !== stallClass ? `(身份沿用本段起点类别 ${stallClass} ⇒ 标记被 rebuild 洗掉不再被算成第二场停摆)` : ''}\n取证:node scripts/check-credential-health.mjs --stall-only --json(只读、零写盘、零发信)`,
+      `${String(p.why || '')}\n线上 ${String(p.liveSha || '(无标记)').slice(0, 12)} / tip ${String(p.tipSha || '?').slice(0, 12)}(来源 ${p.tipSource || '未标注'})\n最近一次成功部署 ${p.lastSuccessIso || '(取不到)'}${p.lastSuccessFromClause ? `(${p.lastSuccessFromClause})` : ''};阈值 ${p.thresholdMin} 分钟;本轮已落后 ${p.behindHours ?? '?'} 小时;本段停摆已持续 ${held.hours ?? '?'} 小时(档 ${held.tier});本轮类别 ${classNow}${classNow !== stallClass ? `(身份沿用本段起点类别 ${stallClass} ⇒ 标记被 rebuild 洗掉不再被算成第二场停摆)` : ''}\n取证:node scripts/check-credential-health.mjs --stall-only --json(只读、零写盘、零发信)`,
       { severity: 'critical', dedupKey: `stall;class=${stallClass};held=${held.tier}` },
     )
     // 日志必须分得出"真寄了"与"窗口内压住" —— 原先两支都写"已派发到邮件通道",
@@ -5515,7 +5515,10 @@ export function auditTempLanding(opts = {}) {
   const c = parsed.counts || {}
   const drift = Number(c.drift ?? 0)
   const undetermined = Number(c.undetermined ?? 0)
-  const recentWrites = Number(c.recentWrites ?? c.probeHits ?? 0)
+  // 生产者那份 counts 里这一维叫 `writing`(check-temp-landing.mjs 的 probeCounts 四态)。
+  // 原先读的是 `recentWrites`/`probeHits` —— 两个**从未被发射过**的键名 ⇒ 恒 0,
+  // 于是"注册表看着对、进程照旧在写"这条证据支结构上永不触发(与今天修掉的 firstAt/stat 同一型)。
+  const recentWrites = Number(c.writing ?? 0)
   if (drift > 0) {
     const names = (parsed.tiers || [])
       .filter((t) => t.judged && t.state === 'drift')
