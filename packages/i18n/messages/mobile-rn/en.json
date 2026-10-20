@@ -17,7 +17,8 @@
     "prompt": "Prompt",
     "noResult": "No run result yet",
     "rrule": "Schedule (RRULE)",
-    "timezone": "Timezone"
+    "timezone": "Timezone",
+    "schedule": "Schedule"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -857,7 +858,7 @@
     "title": "n8n Models"
   },
   "modelPlaza": {
-    "officialBadge": "智",
+    "officialBadge": "IH",
     "compare": {
       "title": "Compare Models",
       "message": "Please select 2-3 models to compare"
@@ -1317,7 +1318,6 @@
     "uploadSelfie": "Upload a selfie with your ID",
     "submit": "Submit",
     "submitting": "Submitting...",
-    "failed": "Verification failed",
     "loadFailed": "Failed to load",
     "status_unverified": "Not verified",
     "status_pending": "Under review",
@@ -3043,5 +3043,67 @@
         }
       }
     }
+  },
+  "selectionAnnotations": {
+    "hoverHint": "View annotations",
+    "removeAll": "Clear all annotations",
+    "originalText": "Original text",
+    "noComment": "(no comment)",
+    "commentPlaceholder": "Add a comment…",
+    "commentAriaLabel": "Comment input",
+    "addComment": "Add",
+    "removeOne": "Remove this annotation",
+    "addAnnotation": "Add annotation"
+  },
+  "slashCmd": {
+    "paletteTitle": "Slash commands",
+    "paletteEmpty": "No matching commands",
+    "new": "New chat",
+    "newDesc": "Start a new conversation",
+    "clear": "Clear",
+    "clearDesc": "Clear the current input and context",
+    "model": "Switch model",
+    "modelDesc": "Open the model list to switch model",
+    "compact": "Compact context",
+    "compactDesc": "Compact this conversation history to save context",
+    "status": "Session status",
+    "statusDesc": "Show current model, message count and generation state",
+    "help": "Help",
+    "helpDesc": "See the available slash commands and their usage",
+    "summary": "Summarize",
+    "summaryDesc": "Summarize the given content",
+    "translate": "Translate",
+    "translateDesc": "Translate the content into English",
+    "explain": "Explain",
+    "explainDesc": "Explain the given content",
+    "code": "Code",
+    "codeDesc": "Write code that implements the requirement",
+    "polish": "Polish",
+    "polishDesc": "Polish and refine the given text",
+    "wechatArticle": "WeChat article",
+    "wechatArticleDesc": "Write a WeChat official account article from it",
+    "kouboScript": "Voice-over script",
+    "kouboScriptDesc": "Write a voice-over script from it",
+    "helpPrefix": "Available commands: {list}",
+    "statusToast": "Model {model} · {count} messages · {state}",
+    "stateIdle": "Idle",
+    "stateStreaming": "Generating"
+  },
+  "slashTemplate": {
+    "summary": "Please summarize the above conversation and extract key information",
+    "translate": "Please translate the following content to English:",
+    "explain": "Please explain the following concept in detail:",
+    "code": "Please implement the following feature with code and comments:",
+    "polish": "Please polish the following text to make it more professional and fluent:",
+    "wechatArticle": "Please help me generate a WeChat official account article. Requirements:\n1. Topic:\n2. Summary:\n3. Highlight markers (quote card / tip block / citation / code block / subheading)\n4. Image suggestions:\nRun the content-engine pipeline (Moyu Green theme + 22-check self-validation + draft box push).",
+    "kouboScript": "Please help me generate 8 daily Douyin voice-over scripts. Requirements:\n1. Date: MMDD\n2. Topic direction:\n3. Dual-gate validation (ambiguity compression / cross-script vocabulary / full validation / grammar / hot-topic coverage)\nRun the koubo-workflow pipeline (constraint-first writing method)."
+  },
+  "verify": {
+    "getCode": "Enter verification code",
+    "desc": "Verification code sent to",
+    "resend": "Resend",
+    "confirm": "Confirm",
+    "closeA11y": "Close verification dialog",
+    "inputA11y": "Verification code input"
   }
 }

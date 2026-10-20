@@ -6,7 +6,7 @@
 // D117:斜杠命令入口 —— 在 BottomActionBar **之外**挂「/」触发按钮 + SlashCommandPalette
 // (两个新 prop 全可选;不传时渲染与抽取前逐字一致)。
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Pressable, StyleSheet, type ViewStyle } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Slash } from 'lucide-react-native'
@@ -14,9 +14,10 @@ import { BottomActionBar, type BottomActionBarProps } from '../../components/Bot
 import { tokens } from '../../theme/active-tokens'
 import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
+import { useI18n } from '../../i18n'
 import {
-  SLASH_COMMANDS,
   matchSlashCommands,
+  resolveSlashCommands,
   type SlashCommand,
 } from '../../lib/slash-commands'
 import { SlashCommandPalette } from './SlashCommandPalette'
@@ -59,14 +60,19 @@ export interface ChatInputBarProps extends BottomActionBarProps {
 export function ChatInputBar(props: ChatInputBarProps) {
   const { prompt, onOpenSlashCommands, onSlashCommand } = props
   const insets = useSafeAreaInsets()
+  const { t } = useI18n()
   const [paletteVisible, setPaletteVisible] = useState(false)
   // palette 查询词:初始 '',打开瞬间用输入框当前文本播种(输入框文本即过滤词)。
   const [query, setQuery] = useState('')
 
+  // 命令表:注册表只登记 i18n 键,本地化在装配点做一次(文案要打在本地化面上,
+  // 否则中文用户按「总结」筛不出 /summary)。
+  const commands = useMemo(() => resolveSlashCommands(t), [t])
+
   // 候选命令:以 '/' 开头按输入过滤,否则整表(按钮打开且输入框无 '/' 时看全量)。
   const candidates: readonly SlashCommand[] = query.startsWith('/')
-    ? matchSlashCommands(query)
-    : SLASH_COMMANDS
+    ? matchSlashCommands(query, commands)
+    : commands
 
   const openPalette = () => {
     setQuery(prompt ?? '')
@@ -83,7 +89,7 @@ export function ChatInputBar(props: ChatInputBarProps) {
           onPress={openPalette}
           hitSlop={4}
           accessibilityRole="button"
-          accessibilityLabel="斜杠命令"
+          accessibilityLabel={t('slashCmd.paletteTitle')}
         >
           <Slash size={rnGeometry.controlGlyph} color={tokens.text.secondary} />
         </Pressable>
@@ -92,6 +98,7 @@ export function ChatInputBar(props: ChatInputBarProps) {
         visible={paletteVisible}
         query={query}
         commands={candidates}
+        t={t}
         onSelect={(cmd) => {
           setPaletteVisible(false)
           onSlashCommand?.(cmd)

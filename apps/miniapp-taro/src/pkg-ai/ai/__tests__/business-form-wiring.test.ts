@@ -91,18 +91,23 @@ describe('D77 ② 镜像锁:与 @ihui/api-client 的 tryParseFormRequest 逐字�
       expect(fn).toContain(`json.${key}`)
       expect(SHARED_FRAME_SRC).toContain(`json.${key}`)
     }
-    // 反向:共享解析面至今没认领这一族帧(本端旁路认领存在的理由,防"改了共享面还留着旁路")
-    expect(SHARED_PARSE).not.toContain("'form_request'")
+    // 2026-10-19 收编:共享解析面**已经**认领这一族帧(sse-parse 在 meta 泛化兜底之前 return),
+    // 本端旁路的存在理由随之消失。这一行因此从"共享面不得认领"改判成两条同时成立:
+    //   ① 共享面必须认领(不认领就滑进 meta 兜底,kind/fields/actions 全丢);
+    //   ② 端内不得再二次认领(双认领的失效方向是共享面改了字段口径时,端内这份静默比它旧)。
+    expect(SHARED_PARSE).toContain("'form_request'")
+    expect(API_SRC).not.toContain('parseFormRequestLine(')
   })
 })
 
-describe('D77 ③ 接线自证:旁路 → 回调表 → 卡片 → 上行出口', () => {
-  it('api/index.ts 把整行旁路接进 streamSSE 并注册 onFormRequest', () => {
-    expect(API_SRC).toContain('onRawLine:')
-    expect(API_SRC).toContain('parseFormRequestLine(line)')
-    expect(API_SRC).toContain('callbacks.onFormRequest(form)')
+describe('D77 ③ 接线自证:共享认领 → 回调表 → 卡片 → 上行出口', () => {
+  it('api/index.ts 由 dispatch 承接共享认领的 form_request 事件,端内不再走旁路二次认领', () => {
+    expect(API_SRC).toContain("case 'form_request':")
+    expect(API_SRC).toContain('callbacks?.onFormRequest?.(evt.formRequest)')
+    expect(API_SRC).not.toContain('parseFormRequestLine(line)')
     expect(API_SRC).toContain('onFormRequest?: (evt: FormRequestFramePayload) => void')
-    // 与 D136 共存:tool-approval 命中即 return,form_request 只在其后补问
+    // tool-approval 仍走旁路(共享 sse-parse 至今不认领该帧族)—— 两族先例不同,不得一起收编
+    expect(API_SRC).toContain('onRawLine:')
     expect(API_SRC).toContain('parseToolApprovalLine(line)')
     expect(API_SRC).toContain('callbacks.onToolApproval(evt)')
   })

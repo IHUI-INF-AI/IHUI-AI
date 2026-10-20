@@ -10,6 +10,7 @@ import {
   BOTTOM_ACTION_BAR_CHIP_FONT_PX,
   BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
   BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX,
+  BOTTOM_ACTION_BAR_TEXT_FONT_PX,
   // 票⑤(2026-09-26):图标卡与模型提示条图章的墨迹档(位图退役后取数一律经这两枚)
   BOTTOM_ACTION_BAR_ICON_GLYPH_PX,
   BOTTOM_ACTION_BAR_MODEL_BADGE_PX,
@@ -333,7 +334,11 @@ export default function BottomActionBar(props: BottomActionBarProps) {
         </View>
       )}
       <FocusInput
-        className="flex-1 px-3 py-2 text-sm bg-muted rounded-sm"
+        className="flex-1 px-3 py-2 leading-5 bg-muted rounded-sm"
+        // 正文字号走跨端单一源(与 RN 端同读 BOTTOM_ACTION_BAR_TEXT_FONT_PX = 14);
+        // 字号档 `text-sm` 编译出来是 `--text-sm: 28rpx`(rem2rpx),与本档同值,故换出处后零视觉差。
+        // 行高仍留 Tailwind:`text-sm` 的 1.42857 × 28rpx = 40rpx,`leading-5`(= --spacing 8rpx × 5)同值。
+        style={{ fontSize: toUnit(BOTTOM_ACTION_BAR_TEXT_FONT_PX) }}
         placeholder={placeholder}
         value={value}
         disabled={disabled}

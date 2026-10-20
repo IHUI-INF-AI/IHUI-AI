@@ -15,6 +15,8 @@
 //
 // 纪律(与 §12e/§5e-2 同一条):
 //   · 只处理**登记过**的路径(封闭清单 scripts/data/deploy-generated-paths.json),不猜、不放宽到全树;
+//     唯一例外是"内容与 tip 同一枚 blob"的未跟踪影子(2026-10-19 立):零信息损失才免登记,
+//     内容不同的影子照旧要逐条授权 —— 免的是"谁来登记"这一格,不是判据本身;
 //   · 每一种都先逐字节备份到批准目录,再动盘;备份失败 ⇒ 该项不动并点名;
 //   · 只在这两项同时成立时复原被跟踪文件:索引==HEAD(不是别人暂存的活) ∧ 盘上≠HEAD;
 //   · 未跟踪副本只在"上游 tip 已跟踪同名路径"时才让位(否则那是别人在飞的源码,一律 HANDS-OFF);
@@ -84,6 +86,25 @@ export function planGeneratedYield(repoRoot, registryText, { nowMs = Date.now(),
       const src = join(repoRoot, rel)
       if (!existsSync(src)) {
         actions.push({ rel: norm, tier: 'untracked-collides-tip', action: '盘上已无此文件(无需让位)' })
+        continue
+      }
+      // 内容同一性优先于逐条授权(2026-10-19 立):**盘上影子与 tip 是同一枚 blob** 时,让位
+      // 不丢任何一个字节 —— 装的本来就是即将合进来的那份。这一格必须与清单无关,否则每新增一枚
+      // 上游文件都要先有人想到去登记才能解停摆(现读实测:生产签出被两枚 `packages/shared/src/sse/*`
+      // 的未跟踪影子挡死 ff,内容与 tip 逐字节相同,而清单里没有它们 ⇒ 停摆 3 小时、每 4h 一封)。
+      // 内容**不同**的影子仍然走逐条授权 —— 那才是"可能是人在写的",判据不许猜。
+      // 比字节不比标签:`hash-object`(盘上)↔ `rev-parse tip:path`(库里),两个 oid 相等才算同内容。
+      const diskOid = git(['hash-object', '--', src], repoRoot, true).trim()
+      const tipOid = git(['rev-parse', `${ref}:${norm}`], repoRoot, true).trim()
+      if (!diskOid.startsWith('__FAIL__') && !tipOid.startsWith('__FAIL__') && diskOid === tipOid) {
+        const dst = join(backupDir, 'untracked__' + norm.replace(/[\\/]/g, '__'))
+        actions.push({
+          rel: norm,
+          tier: 'untracked-collides-tip',
+          action: '备份后让位(内容与 tip 同一枚 blob)',
+          backup: dst,
+          reason: `未跟踪影子与 ${ref} 的该路径逐字节相同(hash-object↔rev-parse 两 oid 相等)⇒ 让位零信息损失`,
+        })
         continue
       }
       // 授权是**逐条**的:只有清单里显式写了 untrackedCollide 的路径(或目录前缀)才允许让位

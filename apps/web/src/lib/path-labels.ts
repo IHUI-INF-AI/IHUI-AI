@@ -229,13 +229,6 @@ const EXTRA_PATH_LABELS: PathLabelEntry[] = [
   { href: '/publish/new', spec: { ns: 'publish', key: 'new.title' } },
   { href: '/search/history', spec: { ns: 'search', key: 'history' } },
   { href: '/settings/authorizations', spec: { ns: 'settings', key: 'authorizationsTitle' } },
-  // 2026-10-19 P1:以下三条原先靠 NAV_ENTRIES(=FLAT_NAV_ITEMS 从主侧边栏自动派生)解析。
-  // /settings、/settings/data-rights、/settings/import 于 P1 归位设置页后不再登记于侧边栏,
-  // 而 resolvePathLabelSpec 用 .find() 取首条命中 —— 侧边栏那份消失后会落到 EXTRA_PATH_LABELS,
-  // 这里不补则 TagsView 标题退化为 deriveTitle 的英文 Title Case(中日韩界面下是可见退化)。
-  { href: '/settings', spec: { ns: 'nav', key: 'settings' } },
-  { href: '/settings/data-rights', spec: { ns: 'settings', key: 'dataRightsTitle' } },
-  { href: '/settings/import', spec: { ns: 'settings', key: 'cliImportTitle' } },
   { href: '/settings/icp-record', spec: { ns: 'settings', key: 'icpRecordTitle' } },
   { href: '/settings/login-security', spec: { ns: 'settings', key: 'loginSecurity.title' } },
   { href: '/settings/model-record', spec: { ns: 'settings', key: 'modelRecordTitle' } },

@@ -307,6 +307,8 @@ import { frontendAdminRoutes } from './admin-extended/index.js'
 import { aiFrontendRoutes } from './ai-frontend-routes.js'
 import { eduFrontendRoutes } from './edu-frontend-routes.js'
 import { courseMobileRoutes } from './course-mobile-routes.js'
+import { circleMobileRoutes } from './circle-mobile-routes.js'
+import { userSecurityRoutes } from './user-security-routes.js'
 import { otherRoutes } from './other/index.js'
 
 // 收款落地页(API 自包含 HTML,平台独占)
@@ -1074,6 +1076,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(eduFrontendRoutes, { prefix: '/api' })
   // 移动端课程目录/章节/评价(/api/courses/:id/*)
   server.register(courseMobileRoutes, { prefix: '/api' })
+  // 移动端圈子推荐关注(/api/circles/users/recommend)与账号安全读数(/api/user/security)
+  server.register(circleMobileRoutes, { prefix: '/api' })
+  server.register(userSecurityRoutes, { prefix: '/api' })
   server.register(otherRoutes, { prefix: '/api' })
 
   // ===== P1-2 补建：报表生成器（接线 excel/pdf 孤儿服务）=====

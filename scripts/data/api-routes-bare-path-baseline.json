@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "anchor": "该文件在基线里的\"裸路径传输口死调用\"存量数(只减不增;新增即判红,存量只报数)",
+  "leg": "BP 腿:传输口 URL 实参位上引号紧邻、不以 /api/ 开头的裸路径字面量,按 normalizeUrl 现读档归一成 /api/…（判据见 scripts/check-api-routes.mjs::extractBareTransportCalls）",
+  "reason": "存量于 2026-10-19 现读得到:此前这一族调用点结构上进不了守门 8 的调用集(pathRe 要求引号紧邻 /api/),所以\"存量\"不是谁写坏了,是没人对过账。本轮已把能在本层收口的全部收掉(裸路径死调用 28 → 15,逐文件见 perFileCount),余下 15 条逐条分类(全量档 HEAD 面读数):① `apps/web/src/hooks/use-terminal-session.ts` 11 条 = 终端会话能力,两个后端都没有对应 REST(会话源在 Redis,`apps/api/src/routes/terminal.ts:13-14`;ws 通道 `/ws/terminal/:sessionId` 是独立分档,不覆盖任何一条 REST)⇒ 属**新增能力,须人定档**;② `apps/mobile-rn/src/screens/CircleIndexScreen.tsx` 1 条 `/circles/topics/hot` = 无源(已注册的邻居 `GET /api/circles/topic/list` 返的是 circle_dynamic 行,无 name/count 字段,而本屏渲染的正是 topic.name + topic.count;`GET /api/topics` 是课程专题域,另一套资源);③ `apps/mobile-rn/src/screens/TopicDetailScreen.tsx` 1 条 `/circles/topic/:id/follow` = 无表无源(TARGET_TYPES 不含 topic;schema 里零 topic follower 列);④ `packages/api-client/src/endpoints/community.ts` 2 条(`/asks/my/count`、`/asks/my/answers/count`)= 端点不在册、表存在 ⇒ 同属需人定档。本基线只把\"本轮不判红\"这一件事钉住,不等于裁决其为合法调用(§12e:首次纳入的存量当场 blocking 就是恒红门)。",
+  "face": "head",
+  "perFileCount": {
+    "apps/mobile-rn/src/screens/CircleIndexScreen.tsx": 1,
+    "apps/mobile-rn/src/screens/TopicDetailScreen.tsx": 1,
+    "apps/web/src/hooks/use-terminal-session.ts": 11,
+    "packages/api-client/src/endpoints/community.ts": 2
+  }
+}

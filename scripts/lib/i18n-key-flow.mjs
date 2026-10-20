@@ -55,6 +55,28 @@ export function deriveStatePairs(src) {
   return out
 }
 
+/**
+ * 翻译函数绑定枚举 —— 门 2 与死键扫描**共用这一份**(G-167 ②,2026-10-19)。
+ * 正则逐字取自门 2 原 `extractNamespaces`(含 2026-07-30 的无参形态:`useTranslations()` 的 ns=''),
+ * 唯一改动是出口形状统一成 `{ varName, ns }`。参数是**调用方选定的判定面**(门 2 传剥注释面,
+ * 死键扫描传原文可让内部自行遮噪),本函数只做枚举,不改任何状态。
+ */
+export function translationVarsOf(src) {
+  const pairs = []
+  const re =
+    /(?:const|let|var)\s+(\w+)\s*=\s*(?:await\s+)?(?:useTranslations|getTranslations)\(\s*(?:['"]([^'"]+)['"])?\s*\)/g
+  let m
+  while ((m = re.exec(src)) !== null) pairs.push({ varName: m[1], ns: m[2] ?? '' })
+  return pairs
+}
+
+/** reader 是否被某个翻译变量当**整实参**消费(与门 2 原判据逐字同形,含 rich/raw/format/has 成员形态)。 */
+export function translationConsumesReader(src, varName, reader) {
+  return new RegExp(
+    `\\b${escapeRe(varName)}(?:\\.(?:rich|raw|format|has))?\\(\\s*${escapeRe(reader)}\\s*[,)]`,
+  ).test(src)
+}
+
 /** 行号(1 起)。遮噪两遍都不动换行 ⇒ 在 masked 上数换行就是原文件行号。 */
 function lineOf(text, index) {
   let line = 1
@@ -671,6 +693,37 @@ export function traceKeyFlow(src, varNames = []) {
   return { keys, undetermined }
 }
 
+/**
+ * 流键提取的**旁路出口**(G-167 ②,2026-10-19):本文件里"先存进 state、再由 `t(reader)` 取用"的键集合。
+ *
+ * 与门 2 共用同一份派生(`deriveStatePairs` + `traceKeyFlow` + `translationConsumesReader`),
+ * 归属判据也与门 2 同形:reader 必须被本文件的翻译变量当**整实参**消费,否则不认 —— 不按名字
+ * 全局并桶。`success` / `copied` 这类与翻译无关的 state 值同样经 setter 流入,按名字并桶会把它们
+ * 倒灌成"已用键"(死键扫描侧 = 静默掩盖真死键)。
+ *
+ * 与门 2 的唯一差异在归属粒度:门 2 要按 namespace 分账,owner 不唯一时落 undetermined;
+ * 本出口只产出**扁平**键集,不涉及 namespace,所以 reader 被任意一个翻译变量消费即收(仍要求 ≥1)。
+ * 判不出的形态一律不收也不猜;调用方(死键扫描)把结果并入 `staticRefs` 只会让判定更保守。
+ *
+ * 输入是**原文**(内部自行遮噪);返回去重后的字符串数组。
+ */
+export function flowKeysOf(src) {
+  if (typeof src !== 'string' || !src) return []
+  // 廉价预筛:没有 state 解构 / 翻译 hook 的文件连遮噪都不必做(scanTexts 要对数千文件调用)
+  if (!src.includes('State') || !/(?:useTranslations|getTranslations)\s*\(/.test(src)) return []
+  const masked = maskComments(src)
+  const pairs = deriveStatePairs(masked)
+  if (pairs.length === 0) return []
+  const vars = translationVarsOf(masked)
+  if (vars.length === 0) return []
+  const keys = new Set()
+  for (const { reader, sink } of pairs) {
+    if (!vars.some(({ varName }) => translationConsumesReader(masked, varName, reader))) continue
+    for (const item of traceKeyFlow(src, [sink]).keys) keys.add(item.key)
+  }
+  return [...keys]
+}
+
 // 表达式范围:from 起扫到深度 0 的 `,` / `;` 或把外层调用闭掉的 `)`
 function exprExtent(sk, from) {
   let depth = 0
@@ -686,5 +739,11 @@ function exprExtent(sk, from) {
 }
 
 /** 镜像测试用出口(§22c:判据只能有一份,测试必须 import 它而不是再抄一份) */
-export const __test__ = { traceKeyFlow, deriveStatePairs }
+export const __test__ = {
+  traceKeyFlow,
+  deriveStatePairs,
+  translationVarsOf,
+  translationConsumesReader,
+  flowKeysOf,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

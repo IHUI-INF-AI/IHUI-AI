@@ -18,6 +18,8 @@ import { useState, useCallback, useRef, useEffect, useMemo, Fragment } from 'rea
 import { rnRadius } from '@ihui/design-tokens'
 import {
   chatStream,
+  // G-425:done 帧 finishReason 判"输出被 max_tokens 截断"(判据唯一实现住 api/index)
+  isMaxTokensTruncatedFinishReason,
   postToolApprovalResponse,
   type ChatMessage,
   fetchModels,
@@ -1153,6 +1155,19 @@ export default function ChatPage() {
               if (roundTraceIdRef.current !== undefined) return
               roundTraceIdRef.current = traceId
               logger.info('pkg-ai/ai/chat', 'stream traceId', traceId)
+            },
+            // G-425(2026-10-07 立,web 腿先行):done 帧携带上游 finish/stop reason
+            // (api/index onFinishReason,缺席不触发)。判"输出被 max_tokens 截断"用
+            // api/index 的唯一助手(口径见其注释),提示用与 onCompaction/onPartialDone
+            // 同款 Taro.showToast;其余 reason 不提示,不自动续写。
+            onFinishReason: (evt) => {
+              if (isMaxTokensTruncatedFinishReason(evt.finishReason)) {
+                Taro.showToast({
+                  title: t('chat.truncation.maxLengthNotice'),
+                  icon: 'none',
+                  duration: 2500,
+                })
+              }
             },
           },
           // G-815976:partial_done(流异常中断且已发过 chunk 的标记帧)→ 截断告知。

@@ -1,36 +1,21 @@
 {
   "$comment": "SSE 帧端内 dispatch 覆盖台账(守门 scripts/check-sse-dispatch-parity.mjs 读取,D107)。帧清单**不写在这里** —— 由守门每次从 packages/api-client/src/client.ts 的 onXxx 成员自动提取并减去 toolCallbacks,故本文件不可能与代码脱节。baseline[端] = 该端命中数下限(ratchet,只挡倒退不挡增长;新增接入后请同步上调);missing[端] = 该端**未命中**的帧,键集合必须**精确等于**实测未命中集合,值直接写理由或指向 groups 里的复用分组。口径:帧回调名在该端源码出现即算已处理(不按写法区分,精度靠'精确等于'兜)。",
-  "toolCallbacks": [
-    "onAbort",
-    "onAttemptStart",
-    "onLine"
-  ],
+  "toolCallbacks": ["onAbort", "onAttemptStart", "onLine"],
   "$commentFieldLevel": "字段级台账(b76-05 票1,守门 scripts/check-agent-event-parity.mjs [5/5] 读取)。fieldBaseline[事件名][键] = 该键'生产点写出、前端解析面不读'的豁免理由;键清单本身不写在这里 —— 由守门每次从生产侧(sse_contract.py 声明 / agents.py 与 apps/api/src/services 写出点)与解析侧(agent-events.ts parse*Event 读取点)现读,故本文件不可能与代码脱节。未登记的缺口 = 错误阻断。",
   "fieldBaseline": {},
   "baseline": {
     "web": 38,
     "extension": 23,
-    "miniapp-taro": 29,
+    "miniapp-taro": 30,
     "mobile-rn": 34,
     "cli": 17
   },
   "endpoints": {
-    "web": [
-      "apps/web/src",
-      "apps/web/app"
-    ],
-    "extension": [
-      "apps/extension"
-    ],
-    "miniapp-taro": [
-      "apps/miniapp-taro/src"
-    ],
-    "mobile-rn": [
-      "apps/mobile-rn"
-    ],
-    "cli": [
-      "apps/cli"
-    ]
+    "web": ["apps/web/src", "apps/web/app"],
+    "extension": ["apps/extension"],
+    "miniapp-taro": ["apps/miniapp-taro/src"],
+    "mobile-rn": ["apps/mobile-rn"],
+    "cli": ["apps/cli"]
   },
   "groups": {
     "no-subagent-ui": "该端未实现子代理活动流水(SubAgentActivityFeed 族),故 spawn/progress/end 三帧无渲染位;补齐见 PROJECT_PLAN D40 / D103。",
@@ -46,12 +31,12 @@
     "no-fallback-ui": "该端无模型降级提示位。",
     "no-stream-alert-ui": "D155 下行告警三档(config-warning / deprecation-notice / guardian-warning)在**服务端零生产点** —— 2026-09-30 现读:`git grep -lE \"config-warning|deprecation-notice|guardian-warning\" HEAD -- apps/ai-service apps/api` 命中文件数 = 0,与 D155 登记原文(枚 `576ef4e279`)\"生产判定点全在 ai-service 留账(现场释放时收编)\"一致 ⇒ 本端当下不接**没有用户可后果**。而本端也**没有流级**告警呈现位(口径以本台账命中图为凭、不凭印象:`onBudget` 就在本端 missing 里 —— cli 与 mobile-rn 两端各自注册了流级提醒出口,本端连这一族通道都没有,故缺的是通道本身而非某一条线)。本端存在的只是应用壳层的通用瞬时提示(如 miniapp `src/app.tsx:128` 的全局网络错误 toast),那是与本轮流无关的原语,把三档告警塞进去等于自造第四种未登记的呈现面;该族在仓内的唯一实现是 web 的 `apps/web/src/hooks/use-chat/stream-alerts.ts`(模块级 store,帧 → 落点)+ `components/chat/stream-alert-bar.tsx`(输入框上方条),本端无同形件。刻意不退化成\"收到就 console 一下\":那会给一条**永不触发**的帧留一个只有开发者能发现的痕迹,而 D155 的验收原文写的是\"三档各有生产者与消费方,不得只加枚举不接线\"。**解阻判据**:ai-service 释放该三档生产点的那枚提交,**必须同批**为本端补呈现位(接 onConfigWarning / onDeprecationNotice / onGuardianWarning 三回调 + 自有文案 ×5 语言)、从本端 missing 删除这三项并把该端 baseline 上调 —— 生产者与消费方分两枚提交落地就是本分组要防的\"从此静默丢弃\"。",
     "no-stream-alert-producer": "与 `no-stream-alert-ui`(extension / miniapp-taro:两端连流级告警呈现位都没有)不同,**本端有**该族出口 —— `apps/cli/src/commands/repl.ts:2789` 的 `onBudget: (event) => state.statusLine.noteLine(budgetNoteText(event))` 现读在位,同一 statusLine 就是流级提醒的落点。所以本端缺的是**生产者而不是控件**:三档 config-warning / deprecation-notice / guardian-warning 在服务端零生产点(2026-09-30 现读:`git grep -lE \"config-warning|deprecation-notice|guardian-warning\" HEAD -- apps/ai-service apps/api` 命中文件数 = 0,D155 登记原文自述\"三档生产判定点全在 ai-service 留账\"),现在接三条 noteLine 就是三条永不触发的分支 + 一组没人走的文案。**解阻判据**:ai-service 释放该三档生产点的那枚提交,**同批**把三帧接进本端既有 `statusLine.noteLine` 出口(与 onBudget 同族,不新建第二套提醒通道)、从本端 missing 删除这三项并把 baseline 由 16 上调;生产者与消费方分两枚提交落地就是本分组要防的\"从此静默丢弃\"。",
-    "no-trace-id-consumer": "D174 帧级 trace 关联键(api-client `onTraceId`,枚 `8bc369da68` 加出口):这一档与上面三档告警**不是同一类缺席** —— 它服务端**真在生产**(`git grep -l trace_id HEAD -- apps/ai-service/app` 现读 17 文件命中,注入点 `_with_frame_trace_id` 单点),`llm_call_logs` 也**已有** `trace_id` 列与 partial index(`packages/database/src/schema/llm-call-logs.ts:112/:134` 现读,故 D147 当年\"无 trace 列需迁移\"那半已结)。缺的只在**端上消费点**:G-916415(进行中@2026-09-29/主会话)的落地判据原文 = \"至少一个消费者(错误上报或调试面板二选一)+ 一条'挑字段名单漏掉新键即红'的镜像锁\",而该拍板不属本票(按 §1 认领协议不得替进行中项代裁)。本端今天既没有既有错误上报载荷可挂(web 侧唯一发射点是 ErrorBoundary 的 /api/crash-reports,在 React 树内拿不到流上下文),也没有调试面板 ⇒ 接进一个没人读的内存键 = 台账明令禁止的\"生产了但没人看\",且 D147 已定\"编号不上界面\"(README.md 现读)。**解阻判据**:G-916415 那半拍板并落地时,同一枚提交内为本端接上消费者(二选一,不得只是内存键)、从本端 missing 删除该项并把该端 baseline 上调;在它落地前本项**不得被读成\"该端已接\"**,也不得被读成\"与告警三档同类的结构缺席\"。**miniapp-taro 已落地(2026-10-17,G-248 R2 小程序腿,枚见台账该行)**:传输层透传落在 `apps/miniapp-taro/src/api/index.ts` 的 dispatch 回调表(挂在认领链最外层,重连复位),消费点 = `pkg-ai/ai/chat.tsx` 把本轮 traceId 注进 `@/utils/logger` 的 info 与失败轮 error(\"没见过\"不写键、不折空串/unknown);该端 missing 项已删、baseline 27→28。**仍未接**:web / extension / mobile-rn / cli(判据原文对这四个端继续有效)。",
-    "no-finish-reason-consumer": "G-425(枚 41829391bf「远端 SSE 链携带 finish/stop reason,默认档只提示,不做自动续写」)协议面先行:onFinishReason 读的是既有 done 帧上新增的可选字段 finishReason(OpenAI 系 length/stop;Gemini 原生 STOP/MAX_TOKENS),与 onMemoryUpdates 同型 —— **未注册回调不解析**,端不接时解析层直接跳过该字段,不存在\"帧被静默丢弃\"的运行时损失,这是本项与真正静默丢帧的缺席的本质区别。缺的是端上消费位:该票产品语义是\"端上截断提示\"(按 event.finishReason 小写 ∈ {length, max_tokens} 判)。**web 已落地(枚 3411474d63,G-425 截断可见提示 web 腿)**:`apps/web/src/hooks/use-chat/stream-handlers.ts` 的 `isMaxTokensTruncatedFinishReason` 判定 + `send-message.ts`/`send-answer.ts` 两处 toast,五语言 `truncation.maxLengthNotice` 齐备;该端 missing 项已删、baseline 37→38。**cli 走的是另一条腿**(有界续写 `agent-output-continuation.ts` + `[auto-continue]`/`[truncated]` 徽章 + `outputContinuationsUsed`,五语言 `cli.truncationContinuationBadge`),但它**不注册 `onFinishReason` 回调** —— 续写判据取自本轮结果而非流回调 ⇒ 本项对 cli 继续有效,只是缺的不是截断提示而是回调本身。**extension / mobile-rn 亦已落地(2026-10-19,同批)**:两端注册 `onFinishReason`,判定走共享层唯一助手 `@ihui/shared/utils#isMaxTokensTruncatedFinishReason`(web 侧同源,端内不留判据副本),提示出口分别复用本页既有 notice 条 / 本屏既有 FloatBox,五语言 `chat.truncation.maxLengthNotice` 齐备;两端 missing 项已删、baseline 22→23 / 33→34。**仍未接**:miniapp-taro(其 `apps/miniapp-taro/src/api/index.ts` 的 dispatch 表眼下被他席在飞改动持有,按 §12 不碰;该端要补的是让 done 帧把 `finishReason` 透到回调表)与 cli。**解阻判据**:补截断提示(消费 finishReason ∈ {length, max_tokens} 的呈现位 + ×5 语言词表,不退化成 console 痕迹)、从本端 missing 删除本项并把该端 baseline 上调;在它落地前本项不得被读成\"该端已接\"。"
+    "no-trace-id-consumer": "D174 帧级 trace 关联键(api-client `onTraceId`,枚 `8bc369da68` 加出口):这一档与上面三档告警**不是同一类缺席** —— 它服务端**真在生产**(`git grep -l trace_id HEAD -- apps/ai-service/app` 现读 17 文件命中,注入点 `_with_frame_trace_id` 单点),`llm_call_logs` 也**已有** `trace_id` 列与 partial index(`packages/database/src/schema/llm-call-logs.ts:112/:134` 现读,故 D147 当年\"无 trace 列需迁移\"那半已结)。缺的只在**端上消费点**:G-916415(进行中@2026-09-29/主会话)的落地判据原文 = \"至少一个消费者(错误上报或调试面板二选一)+ 一条'挑字段名单漏掉新键即红'的镜像锁\",而该拍板不属本票(按 §1 认领协议不得替进行中项代裁)。extension / cli 两端今天仍没有既有错误上报载荷可挂(web 侧唯一发射点是 ErrorBoundary 的 /api/crash-reports,在 React 树内拿不到流上下文),也没有调试面板(web / mobile-rn 两腿 2026-10-17/18 已落地,原\"本端既没有\"对这两端已过期,见本节末两条注) ⇒ 接进一个没人读的内存键 = 台账明令禁止的\"生产了但没人看\",且 D147 已定\"编号不上界面\"(README.md 现读)。**解阻判据**:G-916415 那半拍板并落地时,同一枚提交内为本端接上消费者(二选一,不得只是内存键)、从本端 missing 删除该项并把该端 baseline 上调;在它落地前本项**不得被读成\"该端已接\"**,也不得被读成\"与告警三档同类的结构缺席\"。**miniapp-taro 已落地(2026-10-17,G-248 R2 小程序腿,枚见台账该行)**:传输层透传落在 `apps/miniapp-taro/src/api/index.ts` 的 dispatch 回调表(挂在认领链最外层,重连复位),消费点 = `pkg-ai/ai/chat.tsx` 把本轮 traceId 注进 `@/utils/logger` 的 info 与失败轮 error(\"没见过\"不写键、不折空串/unknown);该端 missing 项已删、baseline 27→28。**web 已落地(2026-10-17,G-248 R1,枚 8de16cb6343)**:错误上报档 —— 消费方 `stream-error-report.ts` 的 `frameTraceId`(取自 onError 的 `SSEErrorInfo.traceId`,api-client 投影出口),接线 `send-message.ts:1252` / `send-answer.ts:490`,镜像锁 `stream-error-report-trace-id.test.ts` 运行面+合同面双锁;该端 missing 项保留(measuredMissing 含它)、baseline 不动。**mobile-rn 已落地(2026-10-18,G-248 R2 RN 腿)**:客户端日志档 —— 注册 `onTraceId`、每轮复位、失败轮\"见过才写键\"交 `@/utils/logger`;该端 missing 项已删、baseline 32→33。**仍未接**:extension / cli(判据原文对这两个端继续有效)。",
+    "no-finish-reason-consumer": "G-425(枚 41829391bf「远端 SSE 链携带 finish/stop reason,默认档只提示,不做自动续写」)协议面先行:onFinishReason 读的是既有 done 帧上新增的可选字段 finishReason(OpenAI 系 length/stop;Gemini 原生 STOP/MAX_TOKENS),与 onMemoryUpdates 同型 —— **未注册回调不解析**,端不接时解析层直接跳过该字段,不存在\"帧被静默丢弃\"的运行时损失,这是本项与真正静默丢帧的缺席的本质区别。缺的是端上消费位:该票产品语义是\"端上截断提示\"(按 event.finishReason 小写 ∈ {length, max_tokens} 判)。**web 已落地(枚 3411474d63,G-425 截断可见提示 web 腿)**:`apps/web/src/hooks/use-chat/stream-handlers.ts` 的 `isMaxTokensTruncatedFinishReason` 判定 + `send-message.ts`/`send-answer.ts` 两处 toast,五语言 `truncation.maxLengthNotice` 齐备;该端 missing 项已删、baseline 37→38。**cli 走的是另一条腿**(有界续写 `agent-output-continuation.ts` + `[auto-continue]`/`[truncated]` 徽章 + `outputContinuationsUsed`,五语言 `cli.truncationContinuationBadge`),但它**不注册 `onFinishReason` 回调** —— 续写判据取自本轮结果而非流回调 ⇒ 本项对 cli 继续有效,只是缺的不是截断提示而是回调本身。**extension / mobile-rn 亦已落地(2026-10-19,同批)**:两端注册 `onFinishReason`,判定走共享层唯一助手 `@ihui/shared/utils#isMaxTokensTruncatedFinishReason`(web 侧同源,端内不留判据副本),提示出口分别复用本页既有 notice 条 / 本屏既有 FloatBox,五语言 `chat.truncation.maxLengthNotice` 齐备;两端 missing 项已删、baseline 22→23 / 33→34。**miniapp-taro 亦已落地(2026-10-19)**:dispatch 回调表(`apps/miniapp-taro/src/api/index.ts`)把 done 帧 `finishReason` 透到 `pkg-ai/ai/chat.tsx` 的 `onFinishReason`,判定走共享层唯一助手 `@ihui/shared/utils/finish-reason`(与 web/extension/mobile-rn 同源),提示出口复用本端既有 toast,五语言 `chat.truncation.maxLengthNotice` 齐备;该端 missing 项已删、baseline 29→30。**仍未接**:cli(走有界续写档,`[auto-continue]`/`[truncated]` 徽章与 `outputContinuationsUsed` 已可见化,本项对 cli 继续有效 —— 缺的是 `onFinishReason` 回调本身)。**解阻判据**:补截断提示(消费 finishReason ∈ {length, max_tokens} 的呈现位 + ×5 语言词表,不退化成 console 痕迹)、从本端 missing 删除本项并把该端 baseline 上调;在它落地前本项不得被读成\"该端已接\"。"
   },
   "missing": {
     "web": {
-      "onTraceId": "见 groups.no-trace-id-consumer(服务端真在生产、llm_call_logs 已有 trace_id 列,缺的只在端上消费点)。web 这一端另有一格比其余四端更实:G-916415 的落地判据点名的就是\"web 侧至少一个消费者\",而本端今天两条候选通道都缺一半 —— ① 错误上报:唯一发射点 `apps/web/src/components/common/ErrorBoundary.tsx` → POST /api/crash-reports 在 React 组件树内,拿不到本轮流的 traceId,要递过去需新增一条\"流上下文 → 上报载荷\"的桥;② 调试面板:本端无该面(输入区上方只有 StreamAlertBar / ConnectionStatusBar / ContextBudgetBar 三条,均不承载排查编号)。D147 已拍\"编号不上界面\"(README.md 现读),所以正解是①而不是给界面加一行编号。**解阻判据**:G-916415 那半拍板并落地时同枚提交接上消费者(把本轮 traceId 随流错误进 crash-report 载荷或调试出口)+ 删本项 + baseline 由 36 上调;在桥落地前本项不得被读成\"web 已接\"。"
+      "onTraceId": "见 groups.no-trace-id-consumer。**web 腿已落地(2026-10-17,G-248 R1,枚 8de16cb6343)**:错误上报档 —— 消费方 = `apps/web/src/hooks/use-chat/stream-error-report.ts` 的 `frameTraceId`(值取自 onError 回调的 `SSEErrorInfo.traceId`,即 api-client 投影出口,端内零解帧),接线 `send-message.ts:1252` / `send-answer.ts:490`,镜像锁 = `packages/api-client/tests/stream-error-report-trace-id.test.ts`(运行面 Object.keys 锁 + 合同面字段集正则对账,多一键即红)。本端**刻意不注册** `onTraceId` 回调 —— 上报路径即常驻消费方,再挂一个无人读的旁路 = 台账禁止的\"生产了但没人看\";D147\"编号不上界面\"继续有效,调试面板仍未建。本项保留仅因帧清单按回调名出现判定(measuredMissing 含它),删键即判\"未声明理由\";旧文本(2026-10-17 前)的\"两条候选通道都缺一半 / 桥落地前不得读成已接\"已作废。"
     },
     "extension": {
       "onConfigWarning": "no-stream-alert-ui",
@@ -72,7 +57,6 @@
       "onFormRequest": "该端**没有对话流通道**:apps/extension/src 对 streamChat / /llm/complete/stream 的 git grep 实测 0 命中(面板只做上下文回传),没有可挂帧的回调表 ⇒ 无可挂点,非\"未接线\"。"
     },
     "miniapp-taro": {
-      "onFinishReason": "no-finish-reason-consumer",
       "onConfigWarning": "no-stream-alert-ui",
       "onDeprecationNotice": "no-stream-alert-ui",
       "onGuardianWarning": "no-stream-alert-ui",
@@ -120,6 +104,7 @@
     "sseRunnerHooksNotFrames": "2026-10-01(onAttemptStart/onLine 判红收口):两名字不是协议帧,是 packages/api-client/src/client.ts 可复用 SSE 续传 runner 的**传输层选项**(`ResumableSSEStreamOptions`,L2589-L2620:onAttemptStart=每次尝试开始复位 per-attempt 状态,onLine=逐原始行递出给行解析 —— 帧解析发生在 onLine 递出的行**之后**),服务端零生产点(sse_contract.py / apps/api 现读无 attempt_start / line 帧名),故按「非帧成员」(onAbort 同类)登记进 toolCallbacks 从帧清单剔除,而非按帧逐端声明 missing(那等于谎称服务端生产了不存在的帧)。消费方只有传输层两处:client.ts streamChat 自接线(L4424/L4432)与小程序薄壳 apps/miniapp-taro/src/lib/sse.ts(L148/L151,D138 起共用该 runner);端内 dispatch 回调表结构上接不到它们。另:onLine 作子串与 negotiationLine(web cost-estimate-bar.tsx:38)/ textDecorationLine(mobile-rn 多屏)/ skillDescriptionLine、optionLine(cli)撞车 —— web/mobile-rn/cli 三端各多出的 1 次「增长」全是这种假命中,剔除后一并消失,三端 baseline 维持 36/31/16 不动。同笔:miniapp-taro 的 missing.onToolApproval 删除(HEAD 实况已注册:src/api/index.ts:609-610 的 D136 帧认领 + pkg-ai/ai/chat.tsx:933 handler,③「精确等于」判据),baseline.miniapp-taro 25→26(+1 = onToolApproval 真实注册;onLine/onAttemptStart 已从清单剔除不计入)。",
     "cliTerminalInteractionReason": "2026-09-29(onTerminalInteraction 四端收口票):cli 的该行原指向分组 no-terminal-stream-ui,而分组首句「该端无终端流展示位」与 repl.ts:2673(D19 起 terminal_delta 打进 noteLine)实测冲突 —— 按守门 90 口径理由必须能被复核,故改为就地精确理由(含 file:line 证据与解阻判据);分组本体不动,仍只被同端 onTerminalStart/onTerminalEnd 引用(那两帧的「无任务生命周期展示位」对本端为真)。missing 键集合与 baseline 一字未动,③「精确等于」判据不受影响。",
     "extensionToolDelegate": "2026-09-28 票㉑:扩展侧栏接上 workspaceContext 上行 + onToolDelegate 执行回传 + onToolApproval 审批横幅,baseline.extension 18→20;两条 missing 同日删除。组 no-tool-delegate-ui 仍被 mobile-rn 引用,不删。",
+    "g248TraceIdTextRefresh": "2026-10-19(G-248 R1 文本纠偏):missing.web.onTraceId 与 groups.no-trace-id-consumer 两条理由随 web 腿(2026-10-17,枚 8de16cb6343,错误上报档)和 RN 腿(2026-10-18,客户端日志档)落地而过期 —— 门只校验键集合与理由非空、不校验理由真伪,账面全绿但文字与事实相反。本次只改理由文字:missing 键集合与 baseline 五端数值(38/23/30/34/17)一字未动,\"精确等于\"判据不受影响;旧\"仍未接\"四端清单收窄为 extension / cli,已接两端形态按 groups 惯例带枚与文件证据登记。",
     "d152GoalUpdateWired": "2026-09-29 D152 端消费面重落:web 接 send-message.ts 的 onGoalUpdate + stores/goal.ts 主副本化(六态取自 @ihui/types)+ slash-commands.ts 乐观更新+上行 postSessionGoal + goal-card.tsx 两档徽章;miniapp-taro 接 api/index.ts 的 goal_updated dispatch + chat.tsx 胶囊(只呈现不可操作,无输入口)。两端 missing 同笔删除、baseline 31→32 / 24→25(现读命令:node scripts/check-sse-dispatch-parity.mjs --report --worktree)。extension / mobile-rn / cli 三端的 onGoalUpdate 仍留在 missing,理由逐条在那三行里(不是\"没接\",是\"接了会造假 affordance / 属另一域\")。"
   }
 }

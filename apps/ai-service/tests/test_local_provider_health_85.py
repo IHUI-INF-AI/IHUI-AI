@@ -54,6 +54,19 @@ def _clean_cache():
     local_provider_health._cache.clear()
 
 
+@pytest.fixture(autouse=True)
+def _clear_disabled_list(monkeypatch):
+    """2026-10-19:本文件测的是**探测逻辑本身**(URL 形状/三态分类/TTL),
+    样本用 ollama/lmstudio 等本地 provider。生产默认禁用清单
+    (local_providers_disabled)是部署决策,不该把逻辑单测绑票——
+    在此显式清空,让每个用例都回到"未禁用"语义。禁用行为本身的测试在
+    test_system_owner_and_local_disabled.py。
+    """
+    from app.core.config import settings as _settings
+
+    monkeypatch.setattr(_settings, "local_providers_disabled", "")
+
+
 # ---------------------------------------------------------------- 探针三态
 
 

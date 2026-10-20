@@ -40,47 +40,6 @@ export interface SettingsNavGroup {
   items: SettingsNavItem[]
 }
 
-/**
- * 导航 labelKey 全键表(2026-10-19 立)
- *
- * 为什么需要这张表:navGroups 由 layout.tsx 用 `t(group.labelKey)` / `t(item.labelKey)`
- * 取词(labelKey 是变量,不是字面量),而守门 121(`check-declared-policy-has-consumer.mjs`
- * C6 档)判 i18n 键"是否接线"时**只认静态发射点**:`t('字面量')`,或全键字面量表 + `t(表[表达式])`。
- * 纯 `t(变量)` 两型都判不出 ⇒ 新增导航键会被记成"未接线"并顶破棘轮
- * (实测:`en.json` 未接线 5596 > 锚点 5595,正是新增 `dataRightsTitle` 那一刻)。
- *
- * 本表把全键写成字面量,与 NAV_GROUPS 的 labelKey 一一对应;键增删时两处同批改。
- */
-export const SETTINGS_NAV_LABEL_KEY: Record<string, string> = {
-  navOverview: 'settings.navOverview',
-  navAccount: 'settings.navAccount',
-  navSecurity: 'settings.navSecurity',
-  navPreferences: 'settings.navPreferences',
-  navDeveloper: 'settings.navDeveloper',
-  navBilling: 'settings.navBilling',
-  title: 'settings.title',
-  connectedAccountsTitle: 'settings.connectedAccountsTitle',
-  loginSecurityTitle: 'settings.loginSecurityTitle',
-  accountDeletionTitle: 'settings.accountDeletionTitle',
-  authorizationsTitle: 'settings.authorizationsTitle',
-  securityLogTitle: 'settings.securityLogTitle',
-  privacyTitle: 'settings.privacyTitle',
-  agentSecurityTitle: 'settings.agentSecurityTitle',
-  notificationsTitle: 'settings.notificationsTitle',
-  activityTitle: 'settings.activityTitle',
-  preferencesTitle: 'settings.preferencesTitle',
-  apiKeysNavTitle: 'settings.apiKeysNavTitle',
-  llmConfigsTitle: 'settings.llmConfigsTitle',
-  'gateway.navLabel': 'settings.gateway.navLabel',
-  modelRecordTitle: 'settings.modelRecordTitle',
-  cliImportTitle: 'settings.cliImportTitle',
-  icpRecordTitle: 'settings.icpRecordTitle',
-  billingTitle: 'settings.billingTitle',
-  dataExportTitle: 'settings.dataExportTitle',
-  dataRightsTitle: 'settings.dataRightsTitle',
-  dashboardTitle: 'settings.dashboardTitle',
-}
-
 export const NAV_GROUPS: readonly SettingsNavGroup[] = [
   {
     labelKey: 'navOverview',
@@ -127,10 +86,6 @@ export const NAV_GROUPS: readonly SettingsNavGroup[] = [
     items: [
       { href: '/settings/billing', labelKey: 'billingTitle', icon: Receipt },
       { href: '/settings/data-export', labelKey: 'dataExportTitle', icon: Download },
-      // 2026-10-19 P1 侧边栏归位:该页原先唯一入口是主侧边栏 nav-data 的 /settings/data-rights,
-      // 收侧边栏时同步在此补位,否则删完即成零入口孤儿页(只能手敲 URL,与 nav-data.ts:511
-      // 记录的"错题本/今日复习全站无入口"同型)。与 data-export 同组(GDPR 数据权利族)。
-      { href: '/settings/data-rights', labelKey: 'dataRightsTitle', icon: Download },
       { href: '/settings/dashboard', labelKey: 'dashboardTitle', icon: LayoutDashboard },
     ],
   },

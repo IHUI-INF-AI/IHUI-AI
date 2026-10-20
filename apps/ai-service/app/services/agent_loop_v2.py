@@ -1805,6 +1805,49 @@ def _resolve_compaction_decision_for(session_id: str | None) -> "CompactionDecis
     return resolve_compaction_decision(session_id)
 
 
+# ---------------------------------------------------------------------------
+# G-200(2026-10-07 拍板:抄上游)—— 输出被 max_tokens 截断时的有界续写(服务端)。
+#
+# 参照实现:apps/cli/src/commands/agent-output-continuation.ts(判据、上界、续写
+# prompt 逐语义对齐);上游参考 turn-output-token-continuation.ts(未 vendored,
+# config/zcode-absorption.json:2208,2244 留证)。三条铁律与 CLI 同文:
+# ① 判据:finish_reason === 'length' 或 raw 家族值;undefined/None 一律不算截断
+#    (不缺判据时宁可不续写,不得误报);
+# ② 有界:每个恢复段最多 3 次,防"服务端持续返回截断标记"时无限烧钱;模型给出
+#    工具调用 ⇒ turn 正常推进,恢复段自然结束,续写预算归零;
+# ③ 续写补丁是恢复机制的内部脚手架,不是用户发言,**不得写进持久历史** —— 落点在
+#    _run_loop 的 _req_messages 请求视图(每次续写临时拼为 messages + assistant(已
+#    累计) + 补丁,绝不 append 进 messages;partial assistant 文本照常落历史,与
+#    CLI「partial 照存」同语义)。
+# ---------------------------------------------------------------------------
+
+#: 续写补丁正文(与 CLI OUTPUT_TOKEN_CONTINUE_PROMPT / 上游 OUTPUT_TOKEN_CONTINUE_PROMPT 逐字同文)
+OUTPUT_TOKEN_CONTINUE_PROMPT = (
+    "Output token limit hit. Resume directly — no apology, no recap of what you "
+    "were doing. Pick up mid-thought if that is where the cut happened. Break "
+    "remaining work into smaller pieces."
+)
+
+#: 有界续写恢复段预算:每个恢复段最多 3 次(与上游 MAX_OUTPUT_TOKEN_CONTINUATIONS 同值)
+MAX_OUTPUT_TOKEN_CONTINUATIONS = 3
+
+#: raw 停止原因家族:OpenAI 兼容代理把各上游原生值透传进 finish_reason 时可能出现
+#: ('length' 之外同判,与上游 OUTPUT_LIMIT_RAW_REASONS / CLI 同集)
+_OUTPUT_LIMIT_RAW_REASONS: frozenset[str] = frozenset(
+    {"max_tokens", "max_output_tokens", "model_context_window_exceeded"}
+)
+
+
+def is_output_token_limit_finish_reason(finish_reason: str | None) -> bool:
+    """该结束原因是否属于"输出被长度上限截断"(G-200,与 CLI 判据逐语义同源)。
+
+    None/undefined(provider 没发 / 通道取不到)一律 False —— 宁可不续写,不误报。
+    """
+    return finish_reason is not None and (
+        finish_reason == "length" or finish_reason in _OUTPUT_LIMIT_RAW_REASONS
+    )
+
+
 @dataclass
 class AgentLoopResult:
     """Agent 循环结果。"""
@@ -1828,6 +1871,10 @@ class AgentLoopResult:
     # 的注入元信息(参与了哪些子 agent、轮次、摘要是否截断、是否注入成功);
     # 未启用 / 无接力上下文时保持 None(默认路径与现状逐零差异)。
     team_relay: dict[str, Any] | None = None
+    # G-200(2026-10-07 拍板:抄上游):本次运行累计有界续写次数(每恢复段 ≤3,工具
+    # 调用归还预算)。0 = 未发生续写,消费方按"未发生"处理;同时随 completed
+    # checkpoint 落 metadata(output_continuations_used)供会话元数据面读取。
+    output_continuations_used: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -2052,6 +2099,17 @@ class AgentLoopV2:
         self._llm_supports_on_chunk: bool = self._detect_on_chunk_support(
             llm_complete_fn
         )
+        # G-200(2026-10-07 拍板:抄上游):检测 llm_complete_fn 是否接受 **kwargs
+        # —— 接受时每轮调用传 _finish_reason_sink(可变 dict,网关把上游
+        # finish_reason 写进去;不经返回值,与既有 **kwargs 透传面同一条路)。
+        # 只认 VAR_KEYWORD(比 on_chunk 探测更严:显式 on_chunk 参数不代表能收
+        # 未知键);签名不可内省按不支持处理(保守,续写判据取不到 ⇒ 宁可不续写)。
+        self._llm_accepts_var_kwargs: bool = self._detect_var_keyword_support(
+            llm_complete_fn
+        )
+        # G-200:最近一次 LLM 响应的 finish_reason(经 _finish_reason_sink 取得;
+        # 取不到 = None = 不判截断)。每次发起 LLM 调用重置。
+        self._last_finish_reason: str | None = None
         # G-815969(2026-10-31):本轮 LLM 已到达本进程的流式文本快照(_make_on_chunk
         # 逐 chunk 追加,每次发起 LLM 调用时重置)。此前 chunk 只往外发、自己不留底,
         # 取消/暂停时半截回答随 _LoopInterrupted 的返回一起丢失(重开会话时回复比用户
@@ -3610,6 +3668,24 @@ class AgentLoopV2:
                 return True
         return False
 
+    @staticmethod
+    def _detect_var_keyword_support(fn: Any) -> bool:
+        """检测 llm_complete_fn 签名是否接受任意关键字参数(**kwargs)。
+
+        G-200:_finish_reason_sink 的准入探测(与 _detect_on_chunk_support 同形,
+        但只认 VAR_KEYWORD —— 显式 on_chunk 参数不代表能收未知键)。签名不可
+        内省(如 Mock 未设签名)按不支持处理(保守:sink 不传,续写判据取不到
+        ⇒ 宁可不续写,绝不给固定签名闭包/夹具塞未知键造成 TypeError)。
+        """
+        try:
+            sig = inspect.signature(fn)
+        except (TypeError, ValueError):
+            return False
+        for p in sig.parameters.values():
+            if p.kind is inspect.Parameter.VAR_KEYWORD:
+                return True
+        return False
+
     def _make_on_chunk(self, iteration: int) -> Callable[[str], Awaitable[None]]:
         """构造本轮 LLM 流式 chunk 回调(逐 chunk 发 thinking.delta 增量)。
 
@@ -3662,7 +3738,7 @@ class AgentLoopV2:
 
     async def _llm_call_with_retry(
         self, messages: list[dict[str, Any]], tools_schema: list[dict[str, Any]],
-        *, iteration: int = 0,
+        *, iteration: int = 0, allow_stream: bool = True,
     ) -> dict[str, Any]:
         """LLM 调用带指数退避重试(错误恢复,2026-08-12 立)。
 
@@ -3673,6 +3749,13 @@ class AgentLoopV2:
         P0-B(2026-09-18):首试(且 llm_complete_fn 支持 on_chunk)时传入流式
         回调,逐 chunk 发 thinking.delta 增量,返回 dict 带内部标记 "_streamed":
         True;重试轮次退化为非流式(避免部分产出后重试导致前端增量重复拼接)。
+
+        G-200(2026-10-07 拍板:抄上游):
+        - allow_stream=False 时首试也退化非流式(主调用未流式 ⇒ 续写轮同样不流式,
+          增量/整段两语义不混拼;仅续写轮使用,默认 True 与现状逐零差异);
+        - llm_complete_fn 接受 **kwargs 时传 _finish_reason_sink,网关把上游
+          finish_reason 写入,成功后落到 self._last_finish_reason(每次调用前重置;
+          取不到 = None = 续写判据不成立,宁可不续写)。
         """
         last_exc: BaseException | None = None
         # 批 57:每轮 LLM 调用重置重试决策状态机(行为兼容;状态仅在本轮重试内累积)。
@@ -3706,23 +3789,39 @@ class AgentLoopV2:
             except Exception as e:  # noqa: BLE001 - 回灌失败降级跳过
                 logger.debug("executed_tool_calls 回灌失败(降级跳过): %s", e)
         for attempt in range(self.llm_retry_max + 1):
+            # G-200:每次尝试重置 finish_reason(重试轮新开请求,旧值不能留);
+            # sink 按引用共享,网关在请求面写、此处成功后读。
+            self._last_finish_reason = None
+            _call_params: dict[str, Any] = dict(extra_params)
+            if self._llm_accepts_var_kwargs:
+                _call_params["_finish_reason_sink"] = {}
             try:
                 on_chunk: Callable[[str], Awaitable[None]] | None = None
-                if attempt == 0 and self._llm_supports_on_chunk:
+                if attempt == 0 and self._llm_supports_on_chunk and allow_stream:
                     on_chunk = self._make_on_chunk(iteration)
                 if on_chunk is not None:
                     result = cast(
                         dict[str, Any],
                         await self._llm_complete(
-                            messages, tools_schema, on_chunk=on_chunk, **extra_params
+                            messages, tools_schema, on_chunk=on_chunk, **_call_params
                         ),
                     )
                     result["_streamed"] = True  # 内部标记:本轮已流式发射增量
+                    # 槽可能不存在(固定签名但显式 on_chunk 的闭包 ⇒ 只支持流式、
+                    # 不支持 **kwargs):取不到 = None = 不判截断,绝不让 KeyError
+                    # 打死整轮。
+                    self._last_finish_reason = _call_params.get(
+                        "_finish_reason_sink", {}
+                    ).get("finish_reason")
                     return result
-                return cast(
+                result = cast(
                     dict[str, Any],
-                    await self._llm_complete(messages, tools_schema, **extra_params),
+                    await self._llm_complete(messages, tools_schema, **_call_params),
                 )
+                self._last_finish_reason = _call_params.get("_finish_reason_sink", {}).get(
+                    "finish_reason"
+                )
+                return result
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -3996,6 +4095,9 @@ class AgentLoopV2:
         """
         iterations: list[LoopIteration] = list(prior_iterations)
         total_tokens = prior_tokens
+        # G-200:本次运行累计有界续写次数(与"每恢复段 ≤3"的上界分开:本值只作
+        # 观测/结果面统计,恢复段预算在每轮 LLM 调用处独立起算)。
+        output_continuations_used = 0
         tools_schema = self._build_tools_schema()
         # 最近一次 checkpoint id(供 tool.after 的 rollback 证据引用;初始 None)
         checkpoint_id: str | None = None
@@ -4177,95 +4279,152 @@ class AgentLoopV2:
                 # iteration=i 透传使流式 thinking 增量帧携带轮次号。
                 # P0-①(2026-09-18):llm_t0/llm_duration_ms 计量单次 LLM 调用耗时,
                 # 供 type=llm 步骤录制(区别于整轮 iteration 耗时)。
-                llm_t0 = time.monotonic()
-                llm_response = await self._wait_interruptible(
-                    self._llm_call_with_retry(messages, tools_schema, iteration=i)
-                )
-                llm_duration_ms = (time.monotonic() - llm_t0) * 1000
+                # G-200(2026-10-07):有界续写恢复段 —— 一轮 assistant 产出可能连续
+                # 多次被 max_tokens 截断。每次续写把"已累计文本 + 续写补丁"拼进
+                # **当轮请求视图** _req_messages,绝不 append 进 messages(内部脚手架
+                # 不是用户发言);模型给出工具调用 ⇒ 恢复段结束、预算归零(下轮重计);
+                # 判据取不到 finish_reason ⇒ 不续写(宁可不续,不误报)。
+                _seg_content_parts: list[str] = []
+                _any_streamed = False
+                _recovery_continuations = 0
+                _req_messages = messages
+                while True:
+                    llm_t0 = time.monotonic()
+                    try:
+                        llm_response = await self._wait_interruptible(
+                            self._llm_call_with_retry(
+                                _req_messages, tools_schema, iteration=i,
+                                allow_stream=(
+                                    True if _recovery_continuations == 0
+                                    else _any_streamed
+                                ),
+                            )
+                        )
+                    except _LoopInterrupted:
+                        # 续写轮被取消/暂停时,已完成分段的文本要并进快照,
+                        # 否则上层拿到的"半截回答"只剩当前段。
+                        if _seg_content_parts:
+                            self._stream_text_snapshot = (
+                                "".join(_seg_content_parts) + self._stream_text_snapshot
+                            )
+                        raise
+                    llm_duration_ms = (time.monotonic() - llm_t0) * 1000
 
-                content = llm_response.get("content", "")
-                tool_calls_raw = llm_response.get("tool_calls")
-                # 批58(接线):流事件回合项映射(对标 codex event_mapping.rs parse_turn_item)。
-                # 开关关闭时零产出(与现状逐零差异);开启时把本轮 LLM 响应归一化为回合项,
-                # 仅作内部观测,不回灌模型、不改动 messages/事件流。
-                self._record_stream_turn_item(llm_response)
-                # 内部标记取出后即消费,不随响应 dict 外泄(检查点/事件零差异)
-                streamed = bool(llm_response.pop("_streamed", False))
+                    _seg_content = llm_response.get("content", "")
+                    tool_calls_raw = llm_response.get("tool_calls")
+                    # 批58(接线):流事件回合项映射(对标 codex event_mapping.rs parse_turn_item)。
+                    # 开关关闭时零产出(与现状逐零差异);开启时把本轮 LLM 响应归一化为回合项,
+                    # 仅作内部观测,不回灌模型、不改动 messages/事件流。
+                    self._record_stream_turn_item(llm_response)
+                    # 内部标记取出后即消费,不随响应 dict 外泄(检查点/事件零差异)
+                    streamed = bool(llm_response.pop("_streamed", False))
+                    _any_streamed = _any_streamed or streamed
+                    _seg_content_parts.append(_seg_content)
 
+                    # 估算 token(粗略;每段一次 LLM 调用各记一次)
+                    total_tokens += len(_seg_content) // 4 + 50
+
+                    # 1-6 token 治理:记录本轮 LLM 用量(失败降级不阻塞)
+                    if self._budget_enabled:
+                        await self._record_budget_usage_safe(
+                            content=_seg_content,
+                            usage=llm_response.get("usage"),
+                            model=llm_response.get("model", ""),
+                        )
+                    # 批 40 接线:rollout_budget 记账 + 阈值提醒投递(对标 codex
+                    # maybe_record_current_time_reminder 的兄弟链路 record_rollout_budget)。
+                    # 用 usage 归一化记账;剩余量跌破阈值时把 <rollout_budget> developer
+                    # 片段追加进历史(同窗口同级别只投一次,由 pending_reminder 状态机管)。
+                    if self._rollout_budget is not None:
+                        try:
+                            from ..core.rollout_budget import (
+                                build_rollout_budget_fragment,
+                                normalize_rollout_usage,
+                            )
+
+                            _usage = normalize_rollout_usage(
+                                llm_response.get("usage") or {}
+                            )
+                            if _usage:
+                                self._rollout_budget.record_usage(_usage)
+                            _budget_reminder = self._rollout_budget.pending_reminder(
+                                thread_id=self._session_id or "",
+                                window_id=self._session_id or "",
+                            )
+                            if _budget_reminder is not None:
+                                messages.append(
+                                    build_rollout_budget_fragment(
+                                        _budget_reminder.remaining_tokens
+                                    )
+                                )
+                                self._rollout_budget.mark_reminder_delivered(
+                                    thread_id=self._session_id or "",
+                                    window_id=self._session_id or "",
+                                    reminder=_budget_reminder,
+                                )
+                        except Exception as e:  # noqa: BLE001 - 预算提醒失败隔离
+                            logger.warning(
+                                "rollout_budget 记账/提醒失败(降级跳过): %s", e
+                            )
+                    # 批58(接线):auto_compact_window prefill 观测(对标 codex
+                    # ensure_server_observed_prefill_from_usage)。即便 rollout_budget 未启用,
+                    # 只要本开关开启就从本轮 usage 取 input_tokens 喂账本(首次样本恒优先)。
+                    # 失败隔离,不阻塞回合。
+                    self._observe_auto_compact_prefill(llm_response.get("usage") or {})
+
+                    # P0-①(2026-09-18):主循环 LLM 调用录为 type=llm 步骤——
+                    # 主链路 token/成本此前只入 budget governor(内存口径),recorder/
+                    # cost_ledger 只见工具步,LLM 维度永远空账;录制含归一化 usage
+                    # (prompt/completion/cached/cache_creation),使 sync_from_recorder
+                    # 后账本能按缓存三段计价。无 recorder 时零差异。
+                    # G-200:续写的每一段都是独立 LLM 调用,各记一步。
+                    self._maybe_record_llm_step(
+                        iteration=i,
+                        llm_response=llm_response,
+                        duration_ms=llm_duration_ms,
+                        messages_count=len(messages),
+                        tools_count=len(tools_schema) if tools_schema else 0,
+                    )
+
+                    # G-200 续写判定:无工具调用 ∧ 结束原因是长度截断 ∧ 恢复段预算未耗尽。
+                    # 请求视图 = 当前历史 + 已累计 assistant 文本 + 续写补丁;持久 messages
+                    # 一字不动(补丁绝不落历史)。工具调用落地的段直接 break 走正常工具链。
+                    if (
+                        not tool_calls_raw
+                        and is_output_token_limit_finish_reason(
+                            self._last_finish_reason
+                        )
+                        and _recovery_continuations < MAX_OUTPUT_TOKEN_CONTINUATIONS
+                    ):
+                        _recovery_continuations += 1
+                        output_continuations_used += 1
+                        _req_messages = [
+                            *messages,
+                            {
+                                "role": "assistant",
+                                "content": "".join(_seg_content_parts),
+                            },
+                            {"role": "user", "content": OUTPUT_TOKEN_CONTINUE_PROMPT},
+                        ]
+                        continue
+                    break
+
+                content = "".join(_seg_content_parts)
                 iteration.reasoning = content
 
                 # P0-B(2026-09-18):流式路径逐 chunk 已发 is_final=False 增量
                 # (_make_on_chunk),此处补发 is_final=True 结束帧(content 置空,
                 # 前端按增量拼接语义不会重复);非流式/重试降级路径维持整段
-                # 一次性发射(与既有行为一致)。
-                if content and not streamed:
+                # 一次性发射(与既有行为一致)。G-200:续写各段共用一个结束帧,
+                # 段间不发射(否则前端会按下标切断 thinking 块)。
+                if content and not _any_streamed:
                     await self._events.emit_thinking_delta(
                         self._session_id or "", content, iteration=i
                     )
-                elif streamed:
+                elif _any_streamed:
                     await self._events.emit_thinking_delta(
                         self._session_id or "", "", iteration=i
                     )
-
-                # 估算 token(粗略)
-                total_tokens += len(content) // 4 + 50
-
-                # 1-6 token 治理:记录本轮 LLM 用量(失败降级不阻塞)
-                if self._budget_enabled:
-                    await self._record_budget_usage_safe(
-                        content=content,
-                        usage=llm_response.get("usage"),
-                        model=llm_response.get("model", ""),
-                    )
-                # 批 40 接线:rollout_budget 记账 + 阈值提醒投递(对标 codex
-                # maybe_record_current_time_reminder 的兄弟链路 record_rollout_budget)。
-                # 用 usage 归一化记账;剩余量跌破阈值时把 <rollout_budget> developer
-                # 片段追加进历史(同窗口同级别只投一次,由 pending_reminder 状态机管)。
-                if self._rollout_budget is not None:
-                    try:
-                        from ..core.rollout_budget import (
-                            build_rollout_budget_fragment,
-                            normalize_rollout_usage,
-                        )
-
-                        _usage = normalize_rollout_usage(llm_response.get("usage") or {})
-                        if _usage:
-                            self._rollout_budget.record_usage(_usage)
-                        _budget_reminder = self._rollout_budget.pending_reminder(
-                            thread_id=self._session_id or "",
-                            window_id=self._session_id or "",
-                        )
-                        if _budget_reminder is not None:
-                            messages.append(
-                                build_rollout_budget_fragment(
-                                    _budget_reminder.remaining_tokens
-                                )
-                            )
-                            self._rollout_budget.mark_reminder_delivered(
-                                thread_id=self._session_id or "",
-                                window_id=self._session_id or "",
-                                reminder=_budget_reminder,
-                            )
-                    except Exception as e:  # noqa: BLE001 - 预算提醒失败隔离
-                        logger.warning("rollout_budget 记账/提醒失败(降级跳过): %s", e)
-                # 批58(接线):auto_compact_window prefill 观测(对标 codex
-                # ensure_server_observed_prefill_from_usage)。即便 rollout_budget 未启用,
-                # 只要本开关开启就从本轮 usage 取 input_tokens 喂账本(首次样本恒优先)。
-                # 失败隔离,不阻塞回合。
-                self._observe_auto_compact_prefill(llm_response.get("usage") or {})
-
-                # P0-①(2026-09-18):主循环 LLM 调用录为 type=llm 步骤——
-                # 主链路 token/成本此前只入 budget governor(内存口径),recorder/
-                # cost_ledger 只见工具步,LLM 维度永远空账;录制含归一化 usage
-                # (prompt/completion/cached/cache_creation),使 sync_from_recorder
-                # 后账本能按缓存三段计价。无 recorder 时零差异。
-                self._maybe_record_llm_step(
-                    iteration=i,
-                    llm_response=llm_response,
-                    duration_ms=llm_duration_ms,
-                    messages_count=len(messages),
-                    tools_count=len(tools_schema) if tools_schema else 0,
-                )
 
                 # 2. 无 tool_calls → 循环完成
                 if not tool_calls_raw:
@@ -4288,6 +4447,15 @@ class AgentLoopV2:
                     try:
                         await self._save_checkpoint_safe(
                             iteration=i, messages=messages, status="completed",
+                            metadata=(
+                                {
+                                    "output_continuations_used": (
+                                        output_continuations_used
+                                    )
+                                }
+                                if output_continuations_used
+                                else None
+                            ),
                         )
                     except Exception:
                         logger.warning("简单任务 checkpoint 保存失败(降级,不阻塞)")
@@ -4302,6 +4470,7 @@ class AgentLoopV2:
                         ),
                         total_tokens_used=total_tokens,
                         stop_reason=TurnStopReason.COMPLETED,
+                        output_continuations_used=output_continuations_used,
                     )
 
                 # 3. 解析 tool_calls

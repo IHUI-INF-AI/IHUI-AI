@@ -55,6 +55,22 @@ llm_calls_total = Counter(
     ['provider', 'model', 'status'],  # ok | error | timeout | connection | interrupted
 )
 
+# LLM 用户级请求数(2026-10-19 立,修 AiLlmHighFailureRate 判据失配)。
+# 与 llm_calls_total 的分工(两者量纲不同,不许混用):
+# - 本指标一个"用户发出的请求"只计一次:非流式在 AuditMiddleware 按 HTTP 状态码
+#   收口(2xx=ok/非 2xx=failed),流式在 llm_gateway.astream 的 done/error 事件收口
+#   (入口 200 但流中途炸 = failed,不双计);
+# - llm_calls_total 是上游尝试次数(换 key/换腿/重试各计一次),只用于上游健康与
+#   重试放大分析。
+# 2026-10-19 实测:同一时段 attempt 级失败率 23.8% vs 用户级 0.9% —— combo 四腿链
+# +LiteLLM 重试把 1 个失败请求放大成 5-10 条 error,拿 attempt 率当"用户失败率"
+# 告警就是天天误报 critical。告警判"用户感知"必须用本指标。
+llm_requests_total = Counter(
+    'ihui_llm_requests_total',
+    'User-level LLM requests by endpoint and outcome (one count per inbound request)',
+    ['endpoint', 'status'],  # endpoint: complete | stream; status: ok | failed
+)
+
 # 首 token 耗时(TTFT,流式专用)—— 仅在有内容 token 产出时记录
 llm_ttft_seconds = Histogram(
     'ihui_llm_ttft_seconds',
@@ -185,6 +201,22 @@ def record_llm_outcome(
             ).inc()
     except Exception as e:
         logger.warning("LLM 结果指标记录失败(忽略,不阻塞业务): %s", e)
+
+
+def record_user_request(endpoint: str, status: str) -> None:
+    """记录一次**用户级** LLM 请求结果(2026-10-19 立,供中间件/astream 收口调用)。
+
+    与 record_llm_outcome 互不替代:本函数一个用户请求只调一次,
+    record_llm_outcome 是 attempt 级(可能同请求多次)。写入失败只 warn 不上抛。
+
+    Args:
+        endpoint: 'complete'(非流式) | 'stream'(流式)。
+        status: 'ok' | 'failed'。
+    """
+    try:
+        llm_requests_total.labels(endpoint=endpoint, status=status).inc()
+    except Exception as e:
+        logger.warning("LLM 用户级指标记录失败(忽略,不阻塞业务): %s", e)
 
 
 def _as_non_negative_int(raw: object) -> int:

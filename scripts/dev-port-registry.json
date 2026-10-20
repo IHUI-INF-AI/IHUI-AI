@@ -44,7 +44,7 @@
       "timeout_sec": 90
     },
     "desktop": {
-      "_note": "tauri dev 不自占端口:beforeDevCommand 自起 web(8801),devUrl 指向 localhost:8801。port=8801 仅用于冲突检测+探活,禁止与 web 同组启动(next dev 会端口冲突)。首次 cargo 编译约 10 分钟,timeout 给 900s。工具链前置是两件事,缺一不可:①cargo 在 PATH(见 start-dev.ps1 自动注入);②MSVC 工具链已加载 —— build 与 pnpm dev:desktop:saas 入口由仓内脚本注入(scripts/desktop-build.mjs / scripts/desktop-dev-saas.mjs,判据唯一真相源 scripts/lib/msvc-env.mjs);但本条目这一条是裸 pnpm --filter @ihui/desktop dev(即 tauri dev),不经注入,缺工具链时 start-dev.ps1 只告警,须改走 dev:desktop:saas 或自行在开发 shell 里加载 vcvars/vsdevcmd。②不能省的原因:src-tauri/.cargo/config.toml 的 linker = \"link.exe\" 是裸名,原样按 PATH 解析;本机系统 PATH 上有 Git 自带的 C:\\Program Files\\Git\\usr\\bin\\link.exe(GNU coreutils 同名程序)会顶掉 MSVC 链接器,未加载工具链时链接阶段报 link: missing operand after '\\377\\376',而该报错只字不提工具链 ⇒ 照它排查只会误查 cargo/PATH(cargo 其实一直在 PATH 里)。",
+      "_note": "tauri dev 不自占端口:beforeDevCommand 自起 web(8801),devUrl 指向 localhost:8801。port=8801 仅用于冲突检测+探活,禁止与 web 同组启动(next dev 会端口冲突)。首次 cargo 编译约 10 分钟,timeout 给 900s。工具链前置是两件事,缺一不可:①cargo 在 PATH(见 start-dev.ps1 自动注入);②MSVC 工具链已加载 —— build 与 pnpm dev:desktop:saas 入口由仓内脚本注入(scripts/desktop-build.mjs / scripts/desktop-dev-saas.mjs,判据唯一真相源 scripts/lib/msvc-env.mjs);本条目这条 pnpm --filter @ihui/desktop dev 同样已接注入(package.json 的 dev = node ../../scripts/desktop-build.mjs --dev),start-dev.ps1 的 link.exe 遮蔽诊断在经 wrapper 拉起时只记 info 不告警;只有绕过 wrapper 裸跑 tauri dev / tauri build / cargo build 时才会真撞上遮蔽,须自行在开发 shell 里加载 vcvars/vsdevcmd。②不能省的原因:src-tauri/.cargo/config.toml 的 linker = \"link.exe\" 是裸名,原样按 PATH 解析;本机系统 PATH 上有 Git 自带的 C:\\Program Files\\Git\\usr\\bin\\link.exe(GNU coreutils 同名程序)会顶掉 MSVC 链接器,未加载工具链时链接阶段报 link: missing operand after '\\377\\376',而该报错只字不提工具链 ⇒ 照它排查只会误查 cargo/PATH(cargo 其实一直在 PATH 里)。",
       "cmd": "pnpm",
       "args": ["--filter", "@ihui/desktop", "dev"],
       "cwd": "apps/desktop",
@@ -104,7 +104,8 @@
     { "range": [8820, 8829], "why": "§2.3 辅助工具段(8822-8829 为预留槽)" },
     { "range": [8830, 8839], "why": "§2.4 SaaS 部署段(8831-8839 为预留槽)" },
     { "range": [8840, 8849], "why": "§2.5 CLI Agent(8841)+ 蓝绿部署预留(8840/8842-8849);段位起点 8840 见 §3.3" },
-    { "port": 8861, "why": "§2.6 桌面端「加载本地 web 构建」的 devUrl 覆盖口 —— 只在 `tauri dev --config .ihui-agent/tmp/desktop-dev-override.json` 这一条命令内生效,零文件改动" },
-    { "port": 8877, "why": "§2.6 桌面遮罩 e2e 的私有 dev server —— 8850-8899 段内按 §3.1「认领」而非「豁免」的两枚之一" }
+    { "port": 8861, "why": "§2.6 桌面端「加载本地 web 构建」的 devUrl 覆盖口 —— 旧配方 .ihui-agent/tmp/desktop-dev-override.json 已失效(该文件仓内不存在,也无任何脚本生成它);现存覆盖流程 = pnpm dev:desktop:saas,scripts/desktop-dev-saas.mjs 运行时把 config 生成进 scratch 临时目录(用完即删)后经 tauri dev --config 注入(带 MSVC 工具链),其覆盖目标是 8801 而非本槽;本槽保留为「认领」,便于日后把覆盖口改指 8861 时落在已注册集合内。命令形态见该脚本头注。" },
+    { "port": 8877, "why": "§2.6 桌面遮罩 e2e 的私有 dev server —— 8850-8899 段内按 §3.1「认领」而非「豁免」的两枚之一" },
+    { "port": 8850, "why": "§2.7 本地 Keycloak SSO 源站 —— 分域 SSO 架构里 sso.aizhs.top 的隧道 ingress 指向它(原 Keycloak 默认口 8543,按端口铁律改认领);切换须 CF 控制台 ingress 与本机 Keycloak 同步,见 scripts/start-cloudflared-tunnel.ps1 头注" }
   ]
 }

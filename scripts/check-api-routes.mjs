@@ -10,6 +10,22 @@
  *
  * 用法: node scripts/check-api-routes.mjs
  *   无参数: 全量比对，发现问题 exit 1，无问题 exit 0
+ *
+ * ## 两条取材腿(2026-10-19 起)
+ * - **主腿** `extractFrontendCalls`:`pathRe` 认「引号紧邻 `/api/`」的字面量(字符类刻意保留
+ *   `$ { }`,改动那一行会被 `scripts/tests/check-api-routes-template-interp.test.mjs` T5 拦)。
+ *   机制⑤(字符串谓词不算调用点)、`:param` 假影归「未判定(有传输口却抽不出路径)」桶、
+ *   `shapeUnknown` 文件级判据(`calls.length === 0`)—— 本笔改动**一字未动**。
+ * - **BP 腿** `extractBareTransportCalls`(2026-10-19 立):认「传输口 URL 实参位上引号紧邻、
+ *   但不以 `/api/` 开头」的裸路径字面量(`fetchApi('/course-qa')` 这一族),按 transport
+ *   `normalizeUrl` 现读的裸路径补前缀档归一成 `/api/…` 再对账。立因与判据纪律见该函数上方注释。
+ *   - 基线件:`scripts/data/api-routes-bare-path-baseline.json`(`--update-bare-baseline` 生成);
+ *     定级口径 = **差值棘轮、只拦新增**(HEAD 面现读存量 28 处 / 11 个文件,逐条分类写在基线
+ *     `reason` 里);基线不在面里 ⇒ 该腿未判定、逐条列出、不判红(§12e 恒红门禁令)。
+ *   - 三态:整仓面一个候选都没抽到 ⇒ 未判定 exit 2(取材失效);桶加总对不上候选 ⇒ 未判定 exit 2
+ *     (坏的是尺子);transport 的归一档读不出 ⇒ 该腿一条不判并点名(不硬补前缀)。
+ *   - BP 腿**不进** `allCalls`,不改 `前端 API 调用: N 处` 汇总行,也不进主基线 —— 它有自己那份
+ *     锚点,这样"新腿看见的存量"不会被读成主腿的新增。
  */
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs'
@@ -77,6 +93,15 @@ const IGNORE_FILE_REL = '.check-api-routes-ignore.json'
 const NEXT_CONFIG_REL = 'apps/web/next.config.ts'
 /** 三端首次纳入的死调用棘轮基线(锚点 = 该文件在基线里的存量数,新增才判红) */
 const BASELINE_FILE_REL = 'scripts/api-routes-baseline.json'
+/**
+ * ===== 裸路径传输口腿(BP 腿)的棘轮基线(2026-10-19 立) =====
+ * 本腿看得见的是「`fetchApi('/course-qa')` 这类**引号紧邻但不以 `/api/` 开头**的裸路径字面量」——
+ * 它们在运行期由 transport 的 `normalizeUrl` 补成 `/api/…`,而原有的 `pathRe` 要求引号紧邻
+ * `/api/`,所以这一族**一条都不进调用集**(立因见 `extractBareTransportCalls` 上方注释)。
+ * 存量必须先量出来再定级(§12e):基线件在位 ⇒ 只拦新增、存量只报数;
+ * 基线件不在面里 ⇒ 该腿本轮**未判定**(逐条列出、不判红也不记绿,与 `BASELINE_FILE_REL` 同一手法)。
+ */
+const BARE_LEG_BASELINE_REL = 'scripts/data/api-routes-bare-path-baseline.json'
 
 /**
  * 四端前端调用面(2026-09-26 由单一 apps/web 扩出)。
@@ -488,7 +513,18 @@ function sliceNormalizeUrlBody(src) {
  * 3. `rules` 为空而函数体在位 = 真的没有改写档(档被撤了),这不是判据失效 ⇒ `parsed:true`。
  */
 function readUrlAliasRules(clientSrc) {
-  const out = { parsed: false, reason: '', rules: [], passthrough: [], ambiguous: 0 }
+  const out = {
+    parsed: false,
+    reason: '',
+    rules: [],
+    passthrough: [],
+    ambiguous: 0,
+    // 裸路径补前缀档(2026-10-19 为 BP 腿新增):normalizeUrl 里
+    // `if (url.startsWith('/')) return \`/api${url}\`` 那一条。读得出 ⇒ 字符串前缀;
+    // 读不出/多解 ⇒ null ⇒ **BP 腿整条未判定**(腿不得自己发明归一)。
+    barePrefix: null,
+    barePrefixCandidates: 0,
+  }
   if (clientSrc === null || clientSrc === undefined) {
     out.reason = `${CLIENT_TRANSPORT_FILE} 在判定面上取不到内容`
     return out
@@ -522,6 +558,28 @@ function readUrlAliasRules(clientSrc) {
     for (const extra of (m[2] || '').matchAll(/['"`]([^'"`]+)['"`]/g)) out.passthrough.push(extra[1])
   }
   out.passthrough = [...new Set(out.passthrough)]
+  // ===== 裸路径补前缀档(BP 腿的归一事实源,2026-10-19) =====
+  // 两种写法都读(模板串形态 `/api${url}` 与拼接形态 `'/api' + url`),取到的前缀必须**唯一**
+  // 才采用;0 条 ⇒ barePrefix=null(BP 腿整条未判定);>1 个不同值 ⇒ 同样不采用(计入
+  // barePrefixCandidates 如实报名)。判序与上面改写档同一条纪律:守卫与替换式不同形就不猜。
+  {
+    const bare = new Set()
+    // `if (url.startsWith('/')) return \`/api${url}\`` —— `startsWith('/'))` 之后那个 `)` 属于 `if (`
+    // 自己,所以守卫的右括号要允许连吃若干枚(实测少写这一档 ⇒ 裸路径档读成 0 条、整条腿未判定)。
+    const tplRe =
+      /url\.startsWith\(\s*['"`]\/['"`]\s*(?:\)\s*)+return\s*(['"`])([^'"`$]*)\$\{\s*url\s*\}/g
+    const catRe =
+      /url\.startsWith\(\s*['"`]\/['"`]\s*(?:\)\s*)+return\s*(['"`])([^'"`]*)['"`]\s*\+\s*url\s*(?=\))/g
+    for (const re of [tplRe, catRe]) {
+      let bm
+      while ((bm = re.exec(body)) !== null) {
+        const p = bm[2]
+        if (p.startsWith('/')) bare.add(p)
+      }
+    }
+    out.barePrefixCandidates = bare.size
+    if (bare.size === 1) out.barePrefix = [...bare][0]
+  }
   out.parsed = true
   if (out.rules.length === 0 && out.ambiguous > 0) {
     out.reason = `读到 ${out.ambiguous} 对守卫与替换式不同形的改写形态,一条都不采用`
@@ -1555,7 +1613,12 @@ function inferMethodAtLine(lines, idx) {
           //       调用处 run('generate', '/api/self-media/koubo/generate', ...) 在另一行
           // 限制 1:必须匹配 => 或 function 关键字,避免误匹配 const xxx = useMutation({ 等非函数
           // 限制 2:只对"间接调用"(非 fetchApi 直接调用)适用,避免 React 组件内多 method 误判
-          const directFetchRe = /fetchApi\s*(<[^>]*>)?\s*\(\s*['"`]\/api\//i
+          // 2026-10-19 补(裸路径也算直接调用):`fetchApi('/course-qa')` 这类**不带 /api/ 前缀**
+          //   的裸路径,运行期由 transport 的 normalizeUrl 补成 /api/… ⇒ 它同样是 fetchApi 直接调用。
+          //   旧式只认 `['"`]\/api\/` ⇒ 裸路径被读成"间接调用" ⇒ 门向**前**借邻居函数的
+          //   `method:'POST'` ⇒ 明明是 GET 的在册端点被报成"POST 死调用"(假阳性:把正确实现钉红)。
+          //   `//` 起头是协议相对 URL(另一台主机),不属于本仓 transport ⇒ 仍排除。
+          const directFetchRe = /fetchApi\s*(<[^>]*>)?\s*\(\s*['"`]\/(?!\/)/i
           const isDirectFetch = directFetchRe.test(lines[idx] || '')
           if (!isDirectFetch) {
             // 2026-09-17 加固:两处加 `(?:<[^<>()]*>\s*)?` 泛型参数支持。
@@ -2153,6 +2216,190 @@ function extractFrontendCalls(src, file, opts) {
   return calls
 }
 
+/* ============================================================================
+ * ===== BP 腿:裸路径传输口调用点(2026-10-19 立)=====
+ *
+ * ## 立因(现读,不是推测)
+ * 主腿的 `pathRe` 硬性要求**引号紧邻 `/api/`**。而 transport 的 `normalizeUrl`
+ * (`packages/api-client/src/client.ts`,本门按面读它)会把**不带前缀的裸路径**补成 `/api/…`:
+ *   `if (url.startsWith('/')) return \`/api${url}\``
+ * 于是 `fetchApi('/course-qa')`、`fetchApi('/checkin', {method:'POST'})` 这一族真调用点
+ * **一条都不进调用集**:既不判死、也不落任何既有未判定桶(2026-10-19 实测:全量档报
+ * `✅ 通过(新增 0 处死调用)`,而同面 mobile-rn 有 74 条、api-client 有 125 条这种字面量)。
+ *
+ * ## 判据纪律(为什么不是"把 pathRe 放宽")
+ * 1. **只认传输口调用的 URL 实参位**:引号必须紧跟在传输口的 `(` 之后(泛型 `<…>` 与换行算在内),
+ *    或对象形态里 `url:` 之后。`WITHDRAWAL_BASE + '/create'` 这种**拼接尾巴**上的字面量
+ *    实测就在 `fetchApi(` 后面隔着一个变量 ⇒ 不认(认了就是凭空 `GET /api/create`)。
+ *    传输口集合不另发明,取本门既有唯一实现 `LINE_TRANSPORT_RE` 的 `.source`(§0.6:两处算
+ *    同一件事必漂移;与 `TRANSPORT_RE_G` 同一手法)。
+ * 2. **归一不抄第二份**:路径解析复用 `cliPathFromLiteralContent`(它逐段读、`${}` 按共享谓词
+ *    退化、读不出返回 null 不猜),`/xxx → /api/xxx` 复用 `aliasPathCandidates`,
+ *    并**按面读 transport 现读的 `normalizeUrl` 裸路径档**(`alias.barePrefix`)做同形核验:
+ *    两边对不上 ⇒ 该条落「未判定(归一口与事实源不同形)」,一条都不硬判。
+ * 3. **改写档那一族不归本腿**:`/cozeZhsApi/…` 命中 normalizeUrl 的**前缀替换**档,归一后是
+ *    `/api/…` 而不是 `/api/cozeZhsApi/…`,把它按裸路径腿抽进来就是 2026-09-29 实测否证的
+ *    100% 误报(见 `collectAliasLiteralBlindSites` 上方)。本腿把它单列一桶报名,判权仍在 CE/③'。
+ * 4. 透传档(`/api/`、`/uploads/`、`/ws/…`)与 `:param` 假影同样单列成桶,**不静默丢**。
+ * 5. 转发豁免(`isNextRewriteForwardedPath`)、不透明挂载(`OPAQUE_MOUNT_PREFIXES`)、
+ *    ignore 豁免,全部走主腿既有出口,不另写一份。
+ *
+ * ## 三态纪律(本腿自己的那一格)
+ * `classifyBareLegVerdict` 是本腿的**唯一**三态判序(自检直接打它,不在测试里复制判据):
+ *  - 整仓面一个候选都没抽到 ⇒ `blind`(取材失效,判死不记绿);
+ *  - 事实源读不出归一档而候选非 0 ⇒ `unadjudged`(未判定);
+ *  - 桶加总对不上候选总数 ⇒ `inconsistent`(坏的是尺子,不许把 0 当结论);
+ *  - 其余 ⇒ `ok`(这一格真判过)。
+ */
+
+/** 传输口定位式的 `g` 档:由既有唯一实现 `LINE_TRANSPORT_RE` 派生,不手抄第二份正则 */
+const BARE_TRANSPORT_RE_G = new RegExp(LINE_TRANSPORT_RE.source, `${LINE_TRANSPORT_RE.flags}g`)
+/** 对象形态的 url 属性式(`Taro.request({ url: '/x' })`):HEAD 面现读 0 条,装上只为"以后有人这么写"那天已有判据 */
+const BARE_URL_PROP_RE = /\burl\s*:\s*(['"`])/
+/** 从传输口记号走到它的 `(`:允许 `axios.get(` 这类"点后接方法名"的形态,但不许跨过任何别的内容 */
+const BARE_PAREN_BRIDGE_RE = /^[.\sA-Za-z0-9_$]{0,24}\(/
+
+function isQuoteChar(ch) {
+  return ch === "'" || ch === '"' || ch === '`'
+}
+
+/**
+ * 裸路径字面量 → `{ bucket, path, raw }`。
+ * `bucket==='api'` 才是可判的调用点(`path` 已是归一后的 `/api/…`);其余桶一律**不进对账**,
+ * 由调用方按桶报名。判序写死在这里,消费方只有一条(免得"抽进来又忘了挡"再产一次假影)。
+ */
+function classifyBareLiteral(content, alias, rewriteExemption) {
+  const raw = content
+  if (!content.startsWith('/') || content.startsWith('//')) {
+    return { bucket: 'notBarePath', raw }
+  }
+  if (alias === null || alias === undefined || !alias.parsed) {
+    return { bucket: 'factSourceUnread', raw }
+  }
+  // ① 已经是 `/api/` 起头 ⇒ 主腿的射程,本腿不重复收(防一条调用两个桶各判一次)
+  if (alias.passthrough.some((p) => p.startsWith('/api/') && content.startsWith(p))) {
+    return { bucket: 'alreadyApi', raw }
+  }
+  // ② 其余透传档:normalizeUrl 原样返回,补前缀就是造一条谁都没发过的路径
+  if (alias.passthrough.some((p) => !p.startsWith('/api/') && content.startsWith(p))) {
+    return { bucket: 'passthrough', raw }
+  }
+  // ③ 前缀替换改写档(`/cozeZhsApi` 那一族):归一结果不是"补前缀",本腿判它必假阳
+  if (alias.rules.some((r) => content.startsWith(r.from))) {
+    return { bucket: 'aliasRewriteFamily', raw }
+  }
+  // ④ `:param` 假影(与主腿同一个判据实现)
+  if (isTemplateInterpolationPhantom(content)) return { bucket: 'interpPhantom', raw }
+  const parsed = cliPathFromLiteralContent(content)
+  if (parsed === null) return { bucket: 'literalUnparsed', raw }
+  if (!parsed.relative) return { bucket: 'alreadyApi', raw }
+  const path = parsed.path
+  if (alias.barePrefix === null || alias.barePrefix === undefined) {
+    return { bucket: 'barePrefixUnread', raw, path }
+  }
+  const expected = `${alias.barePrefix}${path}`
+  // 同形核验:既有归一口必须给出同一个值;给不出就说明两边对"裸路径怎么补"的理解已经漂开
+  if (!aliasPathCandidates(path).includes(expected)) {
+    return { bucket: 'normalizationMismatch', raw, path, expected }
+  }
+  // ⑤ web 端 next rewrites 把该前缀转给 ai-service 进程 ⇒ 本门静态面看不见它,与主腿同口径
+  if (isNextRewriteForwardedPath(expected, rewriteExemption)) {
+    return { bucket: 'rewriteForwarded', raw, path: expected }
+  }
+  return { bucket: 'api', raw, path: expected }
+}
+
+/**
+ * 本腿抽取:返回 `{ calls, census }`。
+ * `census` 是**桶计数**(每桶一个数,加总必须等于 candidates),`calls` 是 `api` 桶的调用点。
+ * 一律判在 `maskComments` 面(注释里的 `// fetchApi('/x')` 不算站点);行注释整段删除而**换行保留**
+ * ⇒ 按遮噪面的换行数算行号与原文同形(该行为见 `scripts/lib/code-mask.mjs`)。
+ */
+function extractBareTransportCalls(src, file, alias, rewriteExemption) {
+  const masked = maskComments(src)
+  const rawLines = src.split('\n')
+  const calls = []
+  const census = new Map()
+  const bump = (b) => census.set(b, (census.get(b) || 0) + 1)
+  const push = (verdict, lineIdx) => {
+    bump(verdict.bucket)
+    if (verdict.bucket === 'api') {
+      calls.push({
+        // method 推断走文件级唯一出口(与主腿、CLI 形态面同一份实现)
+        method: inferMethodAtLine(rawLines, lineIdx),
+        path: verdict.path,
+        raw: verdict.raw,
+        file,
+        line: lineIdx + 1,
+      })
+    }
+  }
+  let m
+  BARE_TRANSPORT_RE_G.lastIndex = 0
+  while ((m = BARE_TRANSPORT_RE_G.exec(masked)) !== null) {
+    const token = m[0]
+    let i = m.index + token.length
+    if (!token.trimEnd().endsWith('(')) {
+      const bridge = BARE_PAREN_BRIDGE_RE.exec(masked.slice(i))
+      if (bridge === null) continue
+      i += bridge[0].length
+    }
+    while (i < masked.length && /\s/.test(masked[i])) i++
+    const lineIdx = masked.slice(0, m.index).split('\n').length - 1
+    let quoteIdx = -1
+    if (isQuoteChar(masked[i])) {
+      quoteIdx = i
+    } else if (masked[i] === '{') {
+      // 对象形态:在**这一个** `{}` 体内找 `url:`(配平不到就整条放弃,不做无界扫描)
+      const close = findMatchingBracket(masked, i, '{', '}')
+      if (close === -1) continue
+      const inner = masked.slice(i + 1, close)
+      const pm = BARE_URL_PROP_RE.exec(inner)
+      if (pm === null) continue
+      quoteIdx = i + pm.index + pm[0].length - 1
+      if (!isQuoteChar(masked[quoteIdx])) continue
+    } else continue
+    const end = findLiteralEnd(masked, quoteIdx)
+    if (end === -1) {
+      bump('literalUnclosed')
+      continue
+    }
+    const content = masked.slice(quoteIdx + 1, end)
+    push(classifyBareLiteral(content, alias, rewriteExemption), lineIdx)
+  }
+  return { calls, census }
+}
+
+/**
+ * 三态判序(本腿唯一实现;`--self-test` 与主流程共用同一条判据,不在测试里复制)。
+ * @param {object} p
+ * @param {number} p.scannedFiles 本腿扫过的受管前端文件数
+ * @param {number} p.candidates   抽到的候选总数(= 所有桶加总)
+ * @param {Map<string,number>} p.census 桶计数
+ * @param {boolean} p.repoWide    是否整仓面(head,或 staged 且暂存区确有前端文件)
+ */
+function classifyBareLegVerdict({ scannedFiles, candidates, census, repoWide }) {
+  const sum = [...census.values()].reduce((a, b) => a + b, 0)
+  if (sum !== candidates) {
+    return { state: 'inconsistent', detail: `桶加总 ${sum} ≠ 候选 ${candidates}` }
+  }
+  const adjudicated = census.get('api') || 0
+  const unread =
+    (census.get('factSourceUnread') || 0) +
+    (census.get('barePrefixUnread') || 0) +
+    (census.get('normalizationMismatch') || 0)
+  if (repoWide && scannedFiles > 0 && candidates === 0) {
+    return { state: 'blind', detail: `整仓面扫了 ${scannedFiles} 个受管文件,一条裸路径都没抽到` }
+  }
+  if (candidates > 0 && adjudicated === 0 && unread > 0) {
+    return {
+      state: 'unadjudged',
+      detail: `${unread} 条读不出归一档(事实源读不到裸路径补前缀档,或与既有归一口不同形)`,
+    }
+  }
+  return { state: 'ok', detail: '', adjudicated, unread }
+}
+
 /** 提取所有 prefix 注册（server.ts 顶层 + 子路由文件内 scoped） */
 function extractRegisterPrefixes() {
   const calls = []
@@ -2405,6 +2652,20 @@ function resolveGateKeys(text, loop, at) {
  *  4. 块内若还有第二层 `register(`,本函数**不递归** —— 只展开一层,解析不出即不产出。
  *  产出的是**额外**条目(原有 methodRe 那条 `/cancel` 仍原样进面),所以这是纯增益、零删除。
  */
+/**
+ * 泛型实参组(单一真相源,2026-10-19 立):路由注册与 wrapper 定义都可能带泛型,
+ * 而泛型里**还能再套泛型** —— `server.post<{ Params: z.infer<typeof X> }>(…)`。
+ * 旧式 `(?:<[^<>()]*>)?` 的字符类把 `<` `>` 一律挡掉 ⇒ 套一层就整型失配 ⇒
+ * 那条路由**在册却看不见** ⇒ 它的前端真调用被报成死调用(方向:把正确实现钉红)。
+ * 本仓现读:全仓只有 2 处这种嵌套泛型注册(`apps/api/src/routes/points-mall-user.ts:77`
+ * 与 `apps/api/src/routes/points-tasks.ts:333`),而它们各自让 1~2 个 RN/小程序调用
+ * 被误判成死调用 ⇒ 实测不是理论风险,已由真机侧 RN 代理给出同一条路径的复现。
+ * 现式允许外层里再嵌一层(`z.infer<typeof X>` 这类),够吃仓内形态;
+ * 再深的嵌套(≥4 层)不在覆盖内 —— 真出现时本门会把那条路由读成"看不见",
+ * 即退化成旧行为(判假死调用),而不是静悄悄放过。
+ */
+const GENERIC_ARGS_SRC = '(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?'
+
 function expandNestedRegisterRoutes(src, rel) {
   const out = []
   const openRe = /\.register\(\s*(?:async\s*)?\(\s*([A-Za-z0-9_$]+)\s*\)\s*=>/g
@@ -2430,7 +2691,7 @@ function expandNestedRegisterRoutes(src, rel) {
     // 第二层 register ⇒ 本函数不递归,整块跳过
     if (/\.\s*register\s*\(/.test(body)) continue
     const innerRe = new RegExp(
-      `\\b${varName}\\s*\\.\\s*(get|post|put|patch|delete|options|head)(?:<[^<>()]*>)?\\(\\s*['"\`]([^'"\`]*)['"\`]`,
+      `\\b${varName}\\s*\\.\\s*(get|post|put|patch|delete|options|head)${GENERIC_ARGS_SRC}\\(\\s*['"\`]([^'"\`]*)['"\`]`,
       'g',
     )
     let im
@@ -2540,8 +2801,14 @@ function extractBackendRoutes() {
   // 2026-09-28 再补 `(?:<[^<>()]*>)?`:**带泛型参数的注册** `server.post<{ Params: { source: X } }>(
   //   '/registry/webhook/:source', …)` 原本整型看不见(registry-sync.ts:374)—— 泛型夹在动词与
   //   `(` 之间,旧式要求两者紧邻。漏识别 = 前端真调用被报死调用(cli 的 registry-webhook 即此例)。
-  const methodRe =
-    /\b(?:server|s|sub|child|scope|authed|instance|app|fastify)\.(get|post|put|patch|delete)(?:<[^<>()]*>)?\(\s*['"`]([^'"`]*)['"`]/g
+  // 2026-10-19 再补(嵌套泛型):`server.post<{ Params: z.infer<typeof X> }>(…)` 的泛型里
+  //   还套了一层 `<…>`,旧式 `(?:<[^<>()]*>)?` 的字符类一见到内层 `<` 就失配 ⇒ 那条路由
+  //   **在册却看不见** ⇒ RN/小程序对它的真调用被报成死调用(仓里 2 处,points-mall-user /
+  //   points-tasks)。泛型组改为单一真相源 GENERIC_ARGS_SRC(见其头注的覆盖边界)。
+  const methodRe = new RegExp(
+    `\\b(?:server|s|sub|child|scope|authed|instance|app|fastify)\\.(get|post|put|patch|delete)${GENERIC_ARGS_SRC}\\(\\s*['"\`]([^'"\`]*)['"\`]`,
+    'g',
+  )
   // registerCrud(VAR, 'basePath', ...) 工厂: 展开为 GET list/GET :id/POST/PUT :id/DELETE :id/DELETE(batch) 共 6 条
   // (2026-09-28 根修:上一版漏了 GET `${basePath}/:id` —— 工厂在 admin/_shared.ts:276 真注册了
   //  getById,漏展开让三枚 GET :id 前端调用被假判死调用(台账豁免文件里 admin/courses 那条
@@ -3515,6 +3782,222 @@ function runSelfTest() {
   } finally {
     rmScratch(ceNoTransportRoot)
   }
+  // ===== BP 腿(裸路径传输口调用,2026-10-19 立;正反成对 + 计数自洽 + 判序在过程内直打)=====
+  /**
+   * 夹具共用 transport = 上面 CE_TRANSPORT(它逐字照 client.ts 的 normalizeUrl 写,
+   * 含 `if (url.startsWith('/')) return \`/api${url}\`` 这一档 —— 归一事实源读的就是它,
+   * 门里没有第二张前缀表)。
+   */
+  const BP_EMPTY_BASELINE = JSON.stringify({ version: 1, perFileCount: {} })
+  const bpRoot = (files) =>
+    makeSelfTestRoot({
+      [BASELINE_FILE_REL]: BP_EMPTY_BASELINE,
+      [BARE_LEG_BASELINE_REL]: BP_EMPTY_BASELINE,
+      [CLIENT_TRANSPORT_FILE]: CE_TRANSPORT,
+      'apps/api/src/routes/bp.ts':
+        "server.get('/api/bp-alive', async () => ({}))\nserver.post('/api/bp-alive', async () => ({}))\n",
+      ...files,
+    })
+  // 33. 阳性对照(本腿立项那一型):**已知在册**的裸路径调用必须被抽出,且判为在册(不判死)
+  const bpAliveRoot = bpRoot({
+    'apps/mobile-rn/src/screens/BpAlive.tsx': "export const load = () => fetchApi('/bp-alive')\n",
+  })
+  try {
+    const r = runGateIn(bpAliveRoot)
+    eq(
+      'BP 腿:裸路径 /bp-alive 归一成 /api/bp-alive 后被抽出且判在册 ⇒ exit 0',
+      [0, true, true],
+      [
+        r.status,
+        /BP\/mobile-rn:文件 \d+ \/ 候选 1 \/ 可判 1/.test(r.out),
+        /BP 桶明细:可判 1 \/ 已在册 1 \/ 死调用 0/.test(r.out),
+      ],
+    )
+  } finally {
+    rmScratch(bpAliveRoot)
+  }
+  // 34. 反向对照:**已知不在册**的裸路径(本轮实测现场那一型,RN 的 /course-qa)必须被抓进死调用集并判红
+  const bpDeadRoot = bpRoot({
+    'apps/mobile-rn/src/screens/BpDead.tsx':
+      "export const send = () => fetchApi('/course-qa', { method: 'POST' })\n",
+  })
+  try {
+    const r = runGateIn(bpDeadRoot)
+    eq(
+      'BP 腿:未注册的裸路径归一后 POST /api/course-qa ⇒ 进死调用集、棘轮空锚点下 exit 1 并点名',
+      [1, true, true],
+      [
+        r.status,
+        /BP 腿\(裸路径传输口调用\)\*\*新增\*\*死调用 1 处/.test(r.out),
+        /POST \/api\/course-qa @ apps\/mobile-rn\/src\/screens\/BpDead\.tsx:1\(字面量原文 \/course-qa/.test(
+          r.out,
+        ),
+      ],
+    )
+    // 抽出条数与门汇总行必须同数(对不上就是尺子坏了,不许把 0 当结论)
+    const header = /候选 (\d+) 条/.exec(r.out)
+    const rows = [...r.out.matchAll(/BP\/[\w-]+:文件 \d+ \/ 候选 (\d+) \/ 可判 (\d+)/g)]
+    const sumCandidates = rows.reduce((a, m) => a + Number(m[1]), 0)
+    const sumAdjudicated = rows.reduce((a, m) => a + Number(m[2]), 0)
+    eq('BP 腿:逐端候选之和 == 汇总行候选数', [Number(header?.[1]), 1], [sumCandidates, 1])
+    eq('BP 腿:逐端可判之和 == 桶明细可判数', [sumAdjudicated, 1], [sumAdjudicated, 1])
+  } finally {
+    rmScratch(bpDeadRoot)
+  }
+  // 35. 拼接尾巴不是调用点:`fetchApi(BASE + '/create')` 的 `'/create'` 不在 URL 实参位
+  //     (实测现场 packages/api-client/src/endpoints/agent.ts:201)—— 认了就是凭空 /api/create
+  const bpConcatRoot = bpRoot({
+    'apps/mobile-rn/src/screens/BpConcat.tsx':
+      "const BASE = '/withdrawals'\nexport const send = () => fetchApi(BASE + '/create', { method: 'POST' })\n",
+  })
+  try {
+    const r = runGateIn(bpConcatRoot)
+    eq(
+      'BP 腿:变量拼接尾巴上的裸字面量不进本腿(候选 0,不产出 /api/create)',
+      [0, true, false],
+      [r.status, /BP\/mobile-rn:文件 \d+ \/ 候选 0 \/ 可判 0/.test(r.out), /\/api\/create/.test(r.out)],
+    )
+  } finally {
+    rmScratch(bpConcatRoot)
+  }
+  // 36. 改写档那一族不归本腿:`/admin/secret` 命中 transport 的 `/admin`→`/console` 替换档,
+  //     按"补前缀"归一就会造一条谁都没发过的 `/api/admin/secret`(2026-09-29 实测否证那一型)
+  const bpAliasRoot = bpRoot({
+    'apps/mobile-rn/src/screens/BpAlias.tsx': "export const load = () => fetchApi('/admin/secret')\n",
+  })
+  try {
+    const r = runGateIn(bpAliasRoot)
+    eq(
+      'BP 腿:改写档前缀的字面量落 aliasRewriteFamily 桶,不判死也不静默',
+      [0, true, true],
+      [
+        r.status,
+        /改写档那一族\(判权在 CE 与③'\)1/.test(r.out),
+        /BP 桶明细:可判 0 \/ 已在册 0 \/ 死调用 0/.test(r.out),
+      ],
+    )
+  } finally {
+    rmScratch(bpAliasRoot)
+  }
+  // 37. 判序在过程内直打(不在测试里复制判据:打的就是生产同一份 classifyBareLiteral)
+  const bpAlias = readUrlAliasRules(CE_TRANSPORT)
+  eq(
+    'BP 腿:归一事实源从 transport 现读到裸路径补前缀档 = /api',
+    { parsed: true, barePrefix: '/api' },
+    { parsed: bpAlias.parsed, barePrefix: bpAlias.barePrefix },
+  )
+  // 37. 判序在过程内直打(不在测试里复制判据:打的就是生产同一份 classifyBareLiteral)。
+  // 转发面豁免在这里给一个**空豁免面**(corroborated:[])而不是真面 —— 自测夹具里没有
+  // next.config.ts 的 ai 面可依赖,而本用例要判的是"归一与分桶",不是豁免。
+  const BP_NO_FORWARD = { corroborated: [] }
+  const bpClassify = (content) => classifyBareLiteral(content, bpAlias, BP_NO_FORWARD)
+  eq('BP:裸路径 ⇒ 归一并可判', { bucket: 'api', path: '/api/course-qa' }, (() => {
+    const v = bpClassify('/course-qa')
+    return { bucket: v.bucket, path: v.path }
+  })())
+  eq(
+    'BP:主腿射程(/api/ 起头)不重复收',
+    'alreadyApi',
+    bpClassify('/api/bp-alive').bucket,
+  )
+  eq('BP:透传档原样返回,补前缀就是造假影', 'passthrough', bpClassify('/uploads/a.png').bucket)
+  eq('BP:改写档前缀单列成桶', 'aliasRewriteFamily', bpClassify('/admin/secret').bucket)
+  eq('BP:`:param` 假影单列成桶', 'interpPhantom', bpClassify('/x/all${suffix}').bucket)
+  eq('BP:整段插值仍是真调用形状(:param)', { bucket: 'api', path: '/api/x/:param' }, (() => {
+    const v = bpClassify('/x/${id}')
+    return { bucket: v.bucket, path: v.path }
+  })())
+  eq('BP:不以 / 开头不是裸路径', 'notBarePath', bpClassify('user/me').bucket)
+  eq('BP:协议相对 // 不是裸路径', 'notBarePath', bpClassify('//cdn/x.js').bucket)
+  eq(
+    'BP:事实源取不到 ⇒ 一条都不硬判(factSourceUnread)',
+    'factSourceUnread',
+    classifyBareLiteral('/course-qa', { parsed: false, rules: [], passthrough: [] }, null).bucket,
+  )
+  // 38. 三态判序:四种读数各归一格(blind / inconsistent / unadjudged / ok)
+  const bpMap = (entries) => new Map(Object.entries(entries))
+  eq(
+    'BP 判序:整仓面候选 0 ⇒ blind(取材失效,判死不记绿)',
+    'blind',
+    classifyBareLegVerdict({ scannedFiles: 5269, candidates: 0, census: bpMap({}), repoWide: true })
+      .state,
+  )
+  eq(
+    'BP 判序:夹具面候选 0 不判 blind(小树没有裸路径是常态)',
+    'ok',
+    classifyBareLegVerdict({ scannedFiles: 3, candidates: 0, census: bpMap({}), repoWide: false })
+      .state,
+  )
+  eq(
+    'BP 判序:桶加总对不上候选 ⇒ inconsistent(坏的是尺子)',
+    'inconsistent',
+    classifyBareLegVerdict({
+      scannedFiles: 10,
+      candidates: 7,
+      census: bpMap({ api: 3, alreadyApi: 3 }),
+      repoWide: true,
+    }).state,
+  )
+  eq(
+    'BP 判序:候选全落在读不出归一档 ⇒ unadjudged',
+    'unadjudged',
+    classifyBareLegVerdict({
+      scannedFiles: 10,
+      candidates: 4,
+      census: bpMap({ barePrefixUnread: 4 }),
+      repoWide: true,
+    }).state,
+  )
+  eq(
+    'BP 判序:有可判也有不判的桶 ⇒ ok(不判的那几桶已在读数里报名)',
+    'ok',
+    classifyBareLegVerdict({
+      scannedFiles: 10,
+      candidates: 9,
+      census: bpMap({ api: 4, alreadyApi: 3, interpPhantom: 1, aliasRewriteFamily: 1 }),
+      repoWide: true,
+    }).state,
+  )
+  // 39. 事实源被改窄(裸路径档换成门读不出的写法)⇒ 腿必须显式"归一未读到",而不是把这一族当 0 条放过。
+  //     (顺带证一条反向性质:transport 若改成"裸路径原样返回",`/x` 会落 `passthrough` 桶而不是
+  //      被硬补成 `/api/x` 判死 —— 腿跟着事实源改口,不自带第二张表。)
+  const bpNoBareTransport = [
+    'export async function fetchApi<T>(url: string): Promise<T> {',
+    '  return request(normalizeUrl(url))',
+    '}',
+    'function normalizeUrl(url: string): string {',
+    "  if (url.startsWith('/api/')) return url",
+    "  if (url.startsWith('/')) return ['api', url.slice(1)].join('/')",
+    '  return url',
+    '}',
+    '',
+  ].join('\n')
+  eq(
+    'BP:transport 的裸路径档换成读不出的写法 ⇒ barePrefix=null(而不是猜一个)',
+    null,
+    readUrlAliasRules(bpNoBareTransport).barePrefix,
+  )
+  const bpNoBareRoot = makeSelfTestRoot({
+    [BASELINE_FILE_REL]: BP_EMPTY_BASELINE,
+    [BARE_LEG_BASELINE_REL]: BP_EMPTY_BASELINE,
+    [CLIENT_TRANSPORT_FILE]: bpNoBareTransport,
+    'apps/api/src/routes/bp.ts': "server.get('/api/bp-alive', async () => ({}))\n",
+    'apps/mobile-rn/src/screens/BpNoBare.tsx': "export const load = () => fetchApi('/bp-alive')\n",
+  })
+  try {
+    const r = runGateIn(bpNoBareRoot)
+    eq(
+      'BP 腿:归一未读到 ⇒ 可判 0 且点名"归一未读到 1"与"未读到裸路径补前缀档",不得读成"没有裸路径"',
+      [true, true, true],
+      [
+        /可判 0/.test(r.out),
+        /归一未读到 1/.test(r.out),
+        /未读到裸路径补前缀档\(裸路径一条不判\)/.test(r.out),
+      ],
+    )
+  } finally {
+    rmScratch(bpNoBareRoot)
+  }
   return { failures, assertions }
 }
 
@@ -3633,6 +4116,8 @@ const baseInputs = new Set([
   AI_SERVICE_MAIN_FILE,
   IGNORE_FILE_REL,
   BASELINE_FILE_REL,
+  // BP 腿的棘轮锚点必须与其余内容同面同轮读满(缺档 ⇒ 该腿未判定,不判红也不记绿)
+  BARE_LEG_BASELINE_REL,
   // next rewrites 转发面的判据输入:必须与其余内容**同面同轮**读满(理由同 CLIENT_TRANSPORT_FILE)。
   // 不进 listFace ⇒ 不受 isIgnoredSourceFile 那条"next.config.* 是 rewrite 规则不是调用点"影响
   // (那条只该挡它在**前端调用面**里被当调用点,与此处作为**判据输入**是两件事)。
@@ -3663,6 +4148,14 @@ prefetch([...frontendRels, ...baseInputs])
  * 这样默认档**逐字节不变**(两条规则现读都在 ai 面内),而任一条被删时 skip 自动失效。
  */
 const rewriteExemption = nextRewriteExemption()
+
+/**
+ * transport 的 URL 归一事实源(2026-10-19:提到 BP 腿之前算一次)。
+ * 原先它只在下面「通道等价(CE)」块里算,而 BP 腿也要问同一件事(裸路径怎么补前缀、
+ * 哪些前缀原样透传、哪些走改写档)—— 同一份输入算两遍就是两个时刻两张嘴,
+ * 所以下面 CE 块改为复用这一份(判据本体仍是 `readUrlAliasRules` 唯一实现)。
+ */
+const urlAliasRules = readUrlAliasRules(readSource(CLIENT_TRANSPORT_FILE))
 
 /**
  * ===== CLI 变量路径 import 一跳的目标扩展预读(2026-09-27 判据扩面票) =====
@@ -3963,6 +4456,15 @@ const cliUnresolved = []
 /** 变量站点总数 / 一跳解析出的路径条数(报告行要区分"全解析出来"与"一条都没有")。 */
 let cliVarSites = 0
 let cliVarPaths = 0
+/** ===== BP 腿(裸路径传输口调用)的累计器,2026-10-19 立;判据见 extractBareTransportCalls ===== */
+const bareCalls = []
+/** 全仓桶计数(逐端各桶之和必须等于它 —— 桶加总对不上就是尺子坏了,见 classifyBareLegVerdict) */
+const bareCensus = new Map()
+/** 逐端桶计数:`end -> {files, candidates, byBucket:Map}` —— 交付报告要的"逐端分布" */
+const bareEndCensus = new Map()
+for (const e of ACTIVE_ENDS) bareEndCensus.set(e.name, { files: 0, candidates: 0, byBucket: new Map() })
+/** 本腿扫过的受管前端文件数(取不到内容的不算,那一格已由 unreadCode 点名) */
+let bareScannedFiles = 0
 for (const rel of frontendRels) {
   const end = endByFile.get(rel)
   const isCli = end === CLI_END_NAME
@@ -3992,6 +4494,21 @@ for (const rel of frontendRels) {
     shapeUnknownSites.push(collectShapeUnknownSites(rel, end, src))
   }
   allCalls.push(...calls)
+  // ===== BP 腿:同一份 src、同一个判定面,抽"传输口 URL 实参位上的裸路径字面量" =====
+  // 不进 allCalls(那会撞主腿的既有基线口径与 `前端 API 调用: N 处` 汇总行),
+  // 由下面「裸路径腿(BP)」段单独对账、单独棘轮、单独三态点名。
+  bareScannedFiles++
+  {
+    const be = bareEndCensus.get(end)
+    be.files++
+    const bare = extractBareTransportCalls(src, rel, urlAliasRules, rewriteExemption)
+    bareCalls.push(...bare.calls)
+    for (const [k, v] of bare.census) {
+      bareCensus.set(k, (bareCensus.get(k) || 0) + v)
+      be.byBucket.set(k, (be.byBucket.get(k) || 0) + v)
+      be.candidates += v
+    }
+  }
 }
 
 console.log(`${C.dim}[API 路由比对] 前端 API 调用: ${allCalls.length} 处${C.reset}`)
@@ -4305,13 +4822,159 @@ function matchesIgnore(call) {
 const ignored = missing.filter(matchesIgnore)
 const realMissing = missing.filter((c) => !matchesIgnore(c))
 
+/* ============================================================================
+ * ===== 裸路径传输口腿(BP)的对账段(2026-10-19 立)=====
+ * 抽取与归一判据见 `extractBareTransportCalls` / `classifyBareLiteral`(唯一实现,本段只消费)。
+ * 在册与否问的是**主对账同一份索引与判据**(`backendHasRoute`),不另写匹配器;
+ * 不透明挂载、ignore 豁免、转发面豁免也全部复用主腿既有出口(§0.6)。
+ * 本腿**不进 allCalls / 不进主基线 / 不改 `前端 API 调用: N 处` 汇总行** —— 它有自己那份
+ * 棘轮锚点 `BARE_LEG_BASELINE_REL`,这样"新腿看见的存量"不会把主腿的既有基线读成新增(§12e)。
+ * ========================================================================== */
+const bareCandidatesTotal = [...bareCensus.values()].reduce((a, b) => a + b, 0)
+/** 逐端候选/可判数(交付报告要的分布) */
+const bareEndRows = []
+for (const e of ACTIVE_ENDS) {
+  const be = bareEndCensus.get(e.name)
+  if (!be) continue
+  bareEndRows.push({
+    end: e.name,
+    files: be.files,
+    candidates: be.candidates,
+    adjudicated: be.byBucket.get('api') || 0,
+    byBucket: be.byBucket,
+  })
+}
+/**
+ * 三态判序走唯一实现。`repoWide` 只在**整仓面(head)**为真:staged 档扫的是暂存子集,
+ * "子集里恰好没有裸路径"是常态,据此判死就是一台与改动无关的门(§12e);
+ * `--worktree` 是夹具/人工档,同理不参与"整仓一条也没抽到"这一判。
+ */
+const bareLegVerdict = classifyBareLegVerdict({
+  scannedFiles: bareScannedFiles,
+  candidates: bareCandidatesTotal,
+  census: bareCensus,
+  repoWide: FACE === 'head',
+})
+
+/** 逐文件去重(主腿按 method+path 全局去重;本腿要按文件棘轮,键必须带 file) */
+const bareSeen = new Set()
+const bareUnique = []
+for (const c of bareCalls) {
+  const k = `${c.method} ${c.path} @ ${c.file}`
+  if (bareSeen.has(k)) continue
+  bareSeen.add(k)
+  bareUnique.push(c)
+}
+const bareRegistered = []
+const bareMissing = []
+const bareIgnored = []
+const bareOpaque = []
+for (const c of bareUnique) {
+  if (backendHasRoute(c.method, c.path)) {
+    bareRegistered.push(c)
+    continue
+  }
+  const f = c.path.replace(/\/$/, '')
+  const op = OPAQUE_MOUNT_PREFIXES.find((o) => f.startsWith(o.prefix))
+  if (op) {
+    bareOpaque.push({ ...c, evidence: op.evidence })
+    continue
+  }
+  if (matchesIgnore(c)) {
+    bareIgnored.push(c)
+    continue
+  }
+  bareMissing.push(c)
+}
+
+const UPDATE_BARE_BASELINE = process.argv.includes('--update-bare-baseline')
+const bareCountsByFile = new Map()
+for (const c of bareMissing) {
+  bareCountsByFile.set(c.file, (bareCountsByFile.get(c.file) || 0) + 1)
+}
+
+if (UPDATE_BARE_BASELINE) {
+  const payload = {
+    version: 1,
+    anchor: '该文件在基线里的"裸路径传输口死调用"存量数(只减不增;新增即判红,存量只报数)',
+    leg: 'BP 腿:传输口 URL 实参位上引号紧邻、不以 /api/ 开头的裸路径字面量,按 normalizeUrl 现读档归一成 /api/…（判据见 scripts/check-api-routes.mjs::extractBareTransportCalls）',
+    reason:
+      '存量于 2026-10-19 现读得到:此前这一族调用点结构上进不了守门 8 的调用集(pathRe 要求引号紧邻 /api/),所以"存量"不是谁写坏了,是没人对过账。' +
+      '本轮已把能在本层收口的全部收掉(裸路径死调用 28 → 15,逐文件见 perFileCount),余下 15 条逐条分类(全量档 HEAD 面读数):' +
+      '① `apps/web/src/hooks/use-terminal-session.ts` 11 条 = 终端会话能力,两个后端都没有对应 REST(' +
+      '会话源在 Redis,`apps/api/src/routes/terminal.ts:13-14`;ws 通道 `/ws/terminal/:sessionId` 是独立分档,不覆盖任何一条 REST)⇒ 属**新增能力,须人定档**;' +
+      '② `apps/mobile-rn/src/screens/CircleIndexScreen.tsx` 1 条 `/circles/topics/hot` = 无源(已注册的邻居 `GET /api/circles/topic/list` ' +
+      '返的是 circle_dynamic 行,无 name/count 字段,而本屏渲染的正是 topic.name + topic.count;`GET /api/topics` 是课程专题域,另一套资源);' +
+      '③ `apps/mobile-rn/src/screens/TopicDetailScreen.tsx` 1 条 `/circles/topic/:id/follow` = 无表无源(TARGET_TYPES 不含 topic;' +
+      'schema 里零 topic follower 列);' +
+      '④ `packages/api-client/src/endpoints/community.ts` 2 条(`/asks/my/count`、`/asks/my/answers/count`)= 端点不在册、表存在 ⇒ 同属需人定档。' +
+      '本基线只把"本轮不判红"这一件事钉住,不等于裁决其为合法调用(§12e:首次纳入的存量当场 blocking 就是恒红门)。',
+    face: FACE,
+    perFileCount: Object.fromEntries(
+      [...bareCountsByFile.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)),
+    ),
+  }
+  const outAbs = join(ROOT, ...BARE_LEG_BASELINE_REL.split('/'))
+  writeFileSync(outAbs, JSON.stringify(payload, null, 2) + '\n', 'utf8')
+  console.log(
+    `${C.green}[API 路由比对] BP 腿基线已按当前 ${FACE} 面重写:${Object.keys(payload.perFileCount).length} 个文件 / ${[...bareCountsByFile.values()].reduce((a, b) => a + b, 0)} 处存量 → ${BARE_LEG_BASELINE_REL}${C.reset}`,
+  )
+  process.exit(0)
+}
+
+const bareBaselineSrc = readSource(BARE_LEG_BASELINE_REL)
+let bareBaselineCounts = {}
+let bareBaselineAvailable = false
+let bareBaselineNote = ''
+if (bareBaselineSrc === null || bareBaselineSrc === undefined) {
+  bareBaselineNote = `${FACE} 面里没有 ${BARE_LEG_BASELINE_REL}`
+  console.log(
+    `${C.yellow}[API 路由比对] ⚠️ 未判定:${bareBaselineNote} ⇒ BP 腿本轮没有棘轮锚点(裸路径死调用逐条列出,只报数不判红)。出路:把基线文件与门的改动同笔提交${C.reset}`,
+  )
+} else {
+  try {
+    const parsedBare = JSON.parse(bareBaselineSrc)
+    bareBaselineCounts =
+      parsedBare && parsedBare.perFileCount && typeof parsedBare.perFileCount === 'object'
+        ? parsedBare.perFileCount
+        : {}
+    if (!parsedBare || !parsedBare.perFileCount) {
+      bareBaselineNote = `${BARE_LEG_BASELINE_REL} 缺 perFileCount 字段`
+      console.log(
+        `${C.yellow}[API 路由比对] ⚠️ 未判定:${bareBaselineNote},本轮按空锚点处理(不静默当没有存量)${C.reset}`,
+      )
+    } else bareBaselineAvailable = true
+  } catch (e) {
+    bareBaselineNote = `${BARE_LEG_BASELINE_REL} 不是合法 JSON(${e.message})`
+    console.log(
+      `${C.yellow}[API 路由比对] ⚠️ 未判定:${bareBaselineNote} —— 坏基线不冒充空清单,本轮按无锚点处理${C.reset}`,
+    )
+  }
+}
+
+const bareStock = []
+const bareNew = []
+const bareNoAnchor = []
+for (const [file, n] of bareCountsByFile) {
+  const calls = bareMissing.filter((c) => c.file === file)
+  if (!bareBaselineAvailable) {
+    bareNoAnchor.push({ file, count: n, calls })
+    continue
+  }
+  const allowed = Number(bareBaselineCounts[file]) || 0
+  if (n > allowed) bareNew.push({ file, count: n, allowed, calls })
+  else if (n > 0) bareStock.push({ file, count: n, allowed, calls })
+}
+const bareStaleLedger = Object.keys(bareBaselineCounts).filter((f) => !bareCountsByFile.has(f))
+
 /**
  * ===== 通道等价对账的执行段(三条件同时成立才判红;缺一落未判定并点名)=====
  * 三条件各自的事实源都在**同一个判定面**上、同一次 prefetch 里读满(不得一面读盘一面读 git)。
  */
 let channelVerdict = null
 {
-  const alias = readUrlAliasRules(readSource(CLIENT_TRANSPORT_FILE))
+  // 归一事实源复用上面算好的那一份(BP 腿与 CE 判的是同一个事实,不许各读一次)
+  const alias = urlAliasRules
   const guardEntries = []
   for (const dir of CHANNEL_GUARD_GLOBS) {
     for (const rel of listFace(dir, ['.ts'])) guardEntries.push({ file: rel, src: readSource(rel) })
@@ -4759,6 +5422,84 @@ if (staleLedger.length > 0) {
   )
 }
 
+/* ===== BP 腿读数(每轮必打;三态不并桶;存量登记在结论之前)===== */
+console.log(
+  `${C.cyan}[API 路由比对] 裸路径传输口腿(BP):扫 ${bareScannedFiles} 个受管前端文件,候选 ${bareCandidatesTotal} 条 —— 归一事实源(读自 ${FACE} 面 ${CLIENT_TRANSPORT_FILE}::normalizeUrl)${urlAliasRules.parsed ? (urlAliasRules.barePrefix ? `裸路径补前缀档 = \`${urlAliasRules.barePrefix}\`` : `未读到裸路径补前缀档(裸路径一条不判)`) : `读不出(${urlAliasRules.reason})`}${C.reset}`,
+)
+for (const r of bareEndRows) {
+  const buckets = [...r.byBucket.entries()]
+    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
+    .map(([k, v]) => `${k}×${v}`)
+    .join(' / ')
+  console.log(
+    `${C.dim}  · BP/${r.end}:文件 ${r.files} / 候选 ${r.candidates} / 可判 ${r.adjudicated}${buckets ? ` | 桶 ${buckets}` : ''}${C.reset}`,
+  )
+}
+/**
+ * 三态里最响的那一档:`blind` / `inconsistent` / `unadjudged` 说的都是"这一格本轮没有判据",
+ * 按 §0.3 显式未判定(不记绿),并点名是哪一型。
+ * 退出码分两档,与判定面绑定(不放宽判据,只把**测试通道**隔出去):
+ *  - `inconsistent`(桶加总对不上)⇒ **任何面都 exit 2**:这是腿自己的算术坏了;
+ *  - 其余两档 ⇒ 在 `head`/`staged` 这两个真判定面 exit 2;`--worktree` 是夹具/人工档,
+ *    小树里"没有裸路径"或"没放 transport"都是常态,据此 exit 2 会把夹具读成事故
+ *    (实测:装第一版时 5 条既有自测用例被这一档改写成 exit 2)。那一档照样**大声打印**,
+ *    只是不把测试通道的读数冒充成对整个仓的裁决。
+ */
+if (bareLegVerdict.state !== 'ok') {
+  console.log(
+    `${C.red}[API 路由比对] ⚠️ 未判定(BP 腿取材判序=${bareLegVerdict.state}):${bareLegVerdict.detail} ⇒ 这一格本轮没有判据,不得读成"裸路径已对账"(判据失效的表现永远是安静)${C.reset}`,
+  )
+  if (bareLegVerdict.state === 'inconsistent' || FACE !== 'worktree') process.exit(2)
+}
+console.log(
+  `${C.dim}  · BP 桶明细:可判 ${bareCensus.get('api') || 0} / 已在册 ${bareRegistered.length} / 死调用 ${bareMissing.length}(无锚点 ${bareNoAnchor.reduce((a, s) => a + s.count, 0)} + 存量 ${bareStock.reduce((a, s) => a + s.count, 0)} + 新增 ${bareNew.reduce((a, s) => a + (s.count - s.allowed), 0)}) / 已豁免 ${bareIgnored.length} / 不透明挂载 ${bareOpaque.length}${C.reset}`,
+)
+console.log(
+  `${C.dim}  · BP 不判的桶(逐桶报名,不静默丢):已是 /api/(主腿射程)${bareCensus.get('alreadyApi') || 0} / 透传档原样返回 ${bareCensus.get('passthrough') || 0} / 改写档那一族(判权在 CE 与③')${bareCensus.get('aliasRewriteFamily') || 0} / \`:param\` 假影 ${bareCensus.get('interpPhantom') || 0} / 字面量读不出 ${bareCensus.get('literalUnparsed') || 0} / 字面量未闭合 ${bareCensus.get('literalUnclosed') || 0} / 转发面豁免 ${bareCensus.get('rewriteForwarded') || 0} / 事实源读不出 ${bareCensus.get('factSourceUnread') || 0} / 归一未读到 ${bareCensus.get('barePrefixUnread') || 0} / 两口径不同形 ${bareCensus.get('normalizationMismatch') || 0}${C.reset}`,
+)
+if (bareNoAnchor.length > 0) {
+  console.log(
+    `${C.yellow}  (未判定)BP 腿裸路径死调用 ${bareNoAnchor.reduce((a, s) => a + s.count, 0)} 处逐条列出 —— 无锚点可比,本轮不计红也不计绿:${C.reset}`,
+  )
+  for (const s of bareNoAnchor.slice(0, 40)) {
+    for (const c of s.calls) {
+      console.log(
+        `${C.dim}    ${c.method} ${c.path} @ ${c.file}:${c.line}(字面量原文 ${c.raw})${C.reset}`,
+      )
+    }
+  }
+  if (bareNoAnchor.length > 40)
+    console.log(`${C.dim}    ... 还有 ${bareNoAnchor.length - 40} 个文件(逐条见 --dump-missing)${C.reset}`)
+}
+if (bareStock.length > 0) {
+  console.log(
+    `${C.yellow}  (登记)BP 腿棘轮内存量裸路径死调用 ${bareStock.reduce((a, s) => a + s.count, 0)} 处 / ${bareStock.length} 个文件,本轮不判红;清理后跑 --update-bare-baseline 下调额度${C.reset}`,
+  )
+  for (const s of bareStock.slice(0, 20)) {
+    console.log(`${C.dim}    ${s.file}:存量 ${s.count} 处(基线允许 ${s.allowed})${C.reset}`)
+  }
+}
+if (bareStaleLedger.length > 0) {
+  console.log(
+    `${C.yellow}  (登记)BP 基线里有 ${bareStaleLedger.length} 个文件已不再命中(清单该收紧了):${C.reset} ${bareStaleLedger.slice(0, 5).join(', ')}`,
+  )
+}
+if (bareOpaque.length > 0) {
+  console.log(
+    `${C.yellow}  (未判定)BP 腿 ${bareOpaque.length} 处落在不透明挂载前缀下,不判红也不计通过:${C.reset}`,
+  )
+  for (const c of bareOpaque.slice(0, 10)) {
+    console.log(
+      `${C.dim}    ${c.method} ${c.path} @ ${c.file}:${c.line} —— 依据:${c.evidence}${C.reset}`,
+    )
+  }
+}
+if (bareIgnored.length > 0) {
+  console.log(
+    `${C.yellow}  (登记)BP 腿 ${bareIgnored.length} 处被 ${IGNORE_FILE_REL} 豁免(与主腿共用同一份豁免表)${C.reset}`,
+  )
+}
+
 if (DUMP_MISSING) {
   const dump = []
   for (const v of webViolations)
@@ -4767,6 +5508,13 @@ if (DUMP_MISSING) {
     for (const c of s.calls || [])
       dump.push(
         `${c.method} ${c.path} @ ${c.file}:${c.line} [棘轮${s.allowed !== undefined ? `存量/允许 ${s.count}/${s.allowed}` : '无锚点'}]`,
+      )
+  // BP 腿(裸路径)逐条:只进这份 stdout 清单,不进 `--dump-missing <file>` 落盘数组
+  // (那个 JSON 的形状是既有调用者的契约,只装主腿死调用 —— 改动前它就长这样)。
+  for (const s of [...bareStock, ...bareNew, ...bareNoAnchor])
+    for (const c of s.calls || [])
+      dump.push(
+        `${c.method} ${c.path} @ ${c.file}:${c.line} [BP 裸路径腿${s.allowed !== undefined ? ` 字面量 ${c.raw} / 存量-允许 ${s.count}/${s.allowed}` : ` 字面量 ${c.raw} / 无锚点`}]`,
       )
   // 盲区逐条也走这一份清单(上面 per-end 打印只给前 SHAPE_SITE_PRINT_PER_END 个文件)。
   // 落盘的 JSON(`--dump-missing <file>`)仍是纯死调用数组 —— 那是既有调用者的契约,不加字段。
@@ -4891,9 +5639,14 @@ if (DUMP_MISSING) {
   }
 }
 
-if (webViolations.length === 0 && ratchetNew.length === 0 && channelVerdict.sites.length === 0) {
+if (
+  webViolations.length === 0 &&
+  ratchetNew.length === 0 &&
+  bareNew.length === 0 &&
+  channelVerdict.sites.length === 0
+) {
   console.log(
-    `${C.green}[API 路由比对] ✅ 通过(新增 0 处死调用;三端存量 ${ratchetStock.reduce((a, s) => a + s.count, 0)} 处按棘轮只报数)${C.reset}`,
+    `${C.green}[API 路由比对] ✅ 通过(新增 0 处死调用;三端存量 ${ratchetStock.reduce((a, s) => a + s.count, 0)} 处按棘轮只报数;BP 腿裸路径存量 ${bareStock.reduce((a, s) => a + s.count, 0)} 处同样只报数)${C.reset}`,
   )
   process.exit(0)
 }
@@ -4925,6 +5678,22 @@ if (ratchetNew.length > 0) {
   }
 }
 
+if (bareNew.length > 0) {
+  console.log(
+    `${C.red}[API 路由比对] ❌ BP 腿(裸路径传输口调用)**新增**死调用 ${bareNew.reduce((a, s) => a + (s.count - s.allowed), 0)} 处,涉及 ${bareNew.length} 个文件:${C.reset}`,
+  )
+  for (const v of bareNew) {
+    console.log(
+      `${C.red}  ${v.file}:本次 ${v.count} 处 / BP 基线允许 ${v.allowed} 处 ⇒ 新增 ${v.count - v.allowed} 处${C.reset}`,
+    )
+    for (const c of v.calls.slice(0, 10)) {
+      console.log(
+        `${C.dim}    ${c.method} ${c.path} @ ${c.file}:${c.line}(字面量原文 ${c.raw} →归一 ${c.path})${C.reset}`,
+      )
+    }
+  }
+}
+
 console.log('')
 console.log(`${C.yellow}修复方法:${C.reset}`)
 console.log(`  1. 确认前端调用路径是否正确（检查 prefix 层级）`)
@@ -4933,5 +5702,8 @@ console.log(`  3. 如后端缺失，在 apps/api/src/routes/ 对应文件补建�
 console.log(`  4. 如前端错误，修正前端调用路径或方法`)
 console.log(`  5. 确属"后端从未注册且该调用就是死的"(如 RN 侧 /api/study/videos):`)
 console.log(`     要么补后端路由,要么删掉死调用 —— **禁止**用 --update-baseline 把新增写进基线消红`)
+console.log(`  6. 标了「BP 腿(裸路径传输口调用)」的行:前端写的是 \`fetchApi('/x')\` 这类裸路径,`)
+console.log(`     运行期由 normalizeUrl 补成 /api/x —— 改法同样是"补后端 or 删调用",`)
+console.log(`     **禁止**用 --update-bare-baseline 把新增写进 BP 基线消红(它只用于清理后下调存量)`)
 process.exit(WARN_ONLY ? 0 : 1)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

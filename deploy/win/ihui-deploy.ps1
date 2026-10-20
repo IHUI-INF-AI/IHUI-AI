@@ -178,7 +178,11 @@ $ApiHealth  = "$PublicWeb/api/health"
 # 不带 Host 探到的是另一条代码路径,那第二条腿就是假的。
 $OriginWeb  = 'http://127.0.0.1:8801'
 $OriginApi  = 'http://127.0.0.1:8802/api/health'
-# ai-service 健康端点(2026-09-14 ai-service 重启步骤引入;直连本机端口,无 JWT)
+# ai-service 健康端点(2026-09-14 ai-service 重启步骤引入;直连本机端口,无 JWT)。
+# 2026-10-19 起它同时充当健康门禁 **llm 维的源站直探腿**(见 Test-HealthGate):公网 llm 那路
+# ($PublicWeb/api/llm/providers/health,带深度预检)经 Cloudflare 常被挡成 perpetual-unknown,
+# 而部署门禁要判的是"ai-service 活着没",这个免鉴权、瞬时的 liveness 端点正合适;llm 路由层的
+# **明确故障仍由公网 providers/health 探针的 fail 分支捕获(不折算)**,深度连通性归监控腿,不进部署回滚判据。
 $AiServiceHealth = "http://127.0.0.1:8803/health"
 
 # ── 工具链 PATH(2026-09-13 加,实测):服务/SYSTEM 上下文的 PATH 不含 node/pnpm,
@@ -709,19 +713,28 @@ function Test-HealthGate {
         $w = Invoke-Probe -Url $PublicWeb -Contains '<!DOCTYPE html'
         $a = Invoke-Probe -Url $ApiHealth -Contains '"status":"ok"'
         $l = Test-LlmGateway
-        # 第二条腿:源站直探(带真 Host)。它不参与"绿不绿"的判定(绿仍然只认公网三项全绿),
-        # 只用来在公网报 fail 时回答一个问题:**是构建坏了,还是入口坏了**。
+        # 第二条腿:源站直探(带真 Host)。2026-10-19 起它**参与"绿不绿"的折算**:某一维公网
+        # 读不到(unknown)而源站直探 pass 时,该维折算为绿 —— 治 llm 维 perpetual-unknown(公网那路
+        # 经 Cloudflare,被限流/慢端点挡成永远 unknown,源站本地可判)。公网**明确 fail** 不享受折算,
+        # 仍进 $fails 走回滚判序(折的是"拿不到",不是"不健康")。源站直探仍同时回答"是构建坏了
+        # 还是入口坏了"(health-gate-verdict.ps1 的 entry-broken 分支照旧读 webOrigin/apiOrigin)。
         $wo = Invoke-Probe -Url $OriginWeb -Contains '<!DOCTYPE html' -HostHeader 'aizhs.top'
         $ao = Invoke-Probe -Url $OriginApi -Contains '"status":"ok"'
+        $lo = Invoke-Probe -Url $AiServiceHealth   # 源站 llm 腿走 liveness(8803 /health,免鉴权瞬时):见上方 $AiServiceHealth 注释
         $fails = @(); $unknown = @()
-        if ($w.Verdict -eq 'fail') { $fails += "web(HTTP $($w.Status) $($w.Reason))" } elseif ($w.Verdict -ne 'pass') { $unknown += 'web' }
-        if ($a.Verdict -eq 'fail') { $fails += "api(HTTP $($a.Status) $($a.Reason))" } elseif ($a.Verdict -ne 'pass') { $unknown += 'api' }
-        if ($l -eq 'fail') { $fails += 'llm(网关接口未就绪)' } elseif ($l -ne 'pass') { $unknown += 'llm' }
-        $rounds += @{ web = $w.Verdict; api = $a.Verdict; llm = $l; webOrigin = $wo.Verdict; apiOrigin = $ao.Verdict; fails = $fails; unknown = $unknown }
+        if ($w.Verdict -eq 'fail') { $fails += "web(HTTP $($w.Status) $($w.Reason))" } elseif ($w.Verdict -ne 'pass' -and $wo.Verdict -ne 'pass') { $unknown += 'web' }
+        if ($a.Verdict -eq 'fail') { $fails += "api(HTTP $($a.Status) $($a.Reason))" } elseif ($a.Verdict -ne 'pass' -and $ao.Verdict -ne 'pass') { $unknown += 'api' }
+        if ($l -eq 'fail') { $fails += 'llm(网关接口未就绪)' } elseif ($l -ne 'pass' -and $lo.Verdict -ne 'pass') { $unknown += 'llm' }
+        $rounds += @{ web = $w.Verdict; api = $a.Verdict; llm = $l; webOrigin = $wo.Verdict; apiOrigin = $ao.Verdict; llmOrigin = $lo.Verdict; fails = $fails; unknown = $unknown }
         $tail = ''
         if ($fails.Count)   { $tail += " 失败=[$($fails -join ' ')]" }
         if ($unknown.Count) { $tail += " 未知=[$($unknown -join ' ')]" }
-        Log "健康门禁 第 $i/$Tries 轮: web=$($w.Verdict) api=$($a.Verdict) llm=$l 源站直探=web:$($wo.Verdict)/api:$($ao.Verdict)$tail"
+        $rescued = @()
+        if ($w.Verdict -ne 'pass' -and $wo.Verdict -eq 'pass') { $rescued += 'web' }
+        if ($a.Verdict -ne 'pass' -and $ao.Verdict -eq 'pass') { $rescued += 'api' }
+        if ($l -ne 'pass' -and $lo.Verdict -eq 'pass') { $rescued += 'llm' }
+        Log "健康门禁 第 $i/$Tries 轮: web=$($w.Verdict) api=$($a.Verdict) llm=$l 源站直探=web:$($wo.Verdict)/api:$($ao.Verdict)/llm:$($lo.Verdict)$tail"
+        if ($rescued.Count) { Log "GATE-GREEN-VIA-ORIGIN dims=[$($rescued -join ' ')](公网 unknown 但源站直探 pass ⇒ 折算为绿;只进日志,不进告警身份)" }
         # ASCII 标记:每完成一轮都打一行(含通过那一轮),便于事后按秒数复原分布、定位卡在哪一轮
         $iterSec = [int]((Get-Date) - $iterStart).TotalSeconds
         Log ("GATE-ITER {0}/{1} elapsed={2}s budget={3}s" -f $i, $Tries, $iterSec, $IterBudgetSec)
@@ -1222,10 +1235,13 @@ function Build-Web {
                     }
                     Log "[CLEAN-BUILD] env 内联核对:$($probe[0]) —— $($probe[1])"
                     # next build 会把**被跟踪的** next-env.d.ts 改写成引用 `.next-staging/...`
-                    # (主流程 1635 行那条老修复说的就是这件事)。在净面上留着他,下一轮
-                    # Get-CleanBuildWebDir 的"导出面必须零改动"判据就会红 ⇒ 从此永久回退到共享
-                    # 工作树,隔离静默失效。所以回搬之前先把导出面还原成已提交版本。
-                    try { git @gitFace -C $CleanBuildWt checkout -- apps/web/next-env.d.ts 2>$null } catch {}
+                    # (主流程 1635 行那条老修复说的就是这件事)。同型的还有 apps/web/public/sw.js:
+                    # web 的 prebuild 跑 scripts/stamp-sw-version.mjs,把这份**被跟踪的** sw.js 就地
+                    # 改写成本次构建唯一 SW_BUILD_ID(2026-10-16「每次部署字节必变」根因修复引入)。
+                    # 两者留在净面上,下一轮 Get-CleanBuildWebDir 的"导出面必须零改动"判据就会红
+                    # ⇒ 从此永久回退到共享工作树,隔离静默失效。所以回搬之前先把导出面还原成已提交
+                    # 版本(还原只动净面这份一次性副本:public/ 不进 .next,盖章产物不参与交换,对线上零影响)。
+                    try { git @gitFace -C $CleanBuildWt checkout -- apps/web/next-env.d.ts apps/web/public/sw.js 2>$null } catch {}
                     $dirtyAfter = @((git @gitFace -C $CleanBuildWt status --porcelain 2>$null | Out-String) -split "`n" | Where-Object { $_.Trim() -ne '' }).Count
                     if ($dirtyAfter -gt 0) { Log "[CLEAN-BUILD] 警告:构建后导出面仍残留 $dirtyAfter 项改动(下一轮会拒绝用净面)⇒ 需人工看是什么写脏了它" }
                     $dstStaging = "$WebDir\.next-$DistDir"

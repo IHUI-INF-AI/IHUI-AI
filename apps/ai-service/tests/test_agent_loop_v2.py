@@ -28,12 +28,15 @@ import time
 import pytest
 
 from app.services.agent_loop_v2 import (
+    MAX_OUTPUT_TOKEN_CONTINUATIONS,
+    OUTPUT_TOKEN_CONTINUE_PROMPT,
     AgentLoopResult,
     AgentLoopV2,
     LoopIteration,
     ToolCall,
     ToolDefinition,
     ToolResult,
+    is_output_token_limit_finish_reason,
 )
 
 # =============================================================================
@@ -1070,4 +1073,191 @@ async def test_post_success_closures_skipped_without_user_id(monkeypatch):
     await asyncio.sleep(0)
     extract_mock.assert_not_called()
     evaluate_mock.assert_not_called()
+
+
+# =============================================================================
+# G-200:输出被 max_tokens 截断时的有界续写(服务端)
+# =============================================================================
+
+
+def test_output_token_limit_judge():
+    """判据:length 与 raw 家族判截断;stop/tool_calls/None/空串一律不判。"""
+    assert is_output_token_limit_finish_reason("length") is True
+    assert is_output_token_limit_finish_reason("max_tokens") is True
+    assert is_output_token_limit_finish_reason("max_output_tokens") is True
+    assert is_output_token_limit_finish_reason("model_context_window_exceeded") is True
+    assert is_output_token_limit_finish_reason("stop") is False
+    assert is_output_token_limit_finish_reason("tool_calls") is False
+    assert is_output_token_limit_finish_reason("") is False
+    assert is_output_token_limit_finish_reason(None) is False
+
+
+async def test_continuation_on_length_truncation():
+    """首段 finish_reason=length ⇒ 续写一次并拼接;补丁只进请求视图不进历史。"""
+    calls: list[list[dict]] = []
+
+    async def mock_llm(messages, tools, **kwargs):
+        calls.append([dict(m) for m in messages])
+        sink = kwargs.get("_finish_reason_sink")
+        assert sink is not None, "AgentLoopV2 应把 finish_reason 回写槽传下来"
+        if len(calls) == 1:
+            sink["finish_reason"] = "length"
+            return {"content": "第一段", "tool_calls": None}
+        # 续写请求视图:历史 + assistant(已累计) + 续写补丁
+        assert messages[-1]["role"] == "user"
+        assert messages[-1]["content"] == OUTPUT_TOKEN_CONTINUE_PROMPT
+        assert messages[-2]["role"] == "assistant"
+        assert messages[-2]["content"] == "第一段"
+        sink["finish_reason"] = "stop"
+        return {"content": "第二段", "tool_calls": None}
+
+    msgs = _default_messages()
+    loop = AgentLoopV2(mock_llm, [_weather_tool()], max_iterations=5)
+    result = await loop.run(msgs)
+
+    assert result.success is True
+    assert result.final_response == "第一段第二段"
+    assert result.output_continuations_used == 1
+    assert len(calls) == 2
+    # 续写补丁是内部脚手架,绝不落持久历史
+    assert all(
+        OUTPUT_TOKEN_CONTINUE_PROMPT not in (m.get("content") or "") for m in msgs
+    )
+
+
+async def test_continuation_bounded_at_three():
+    """每恢复段最多续写 3 次:持续 length 时 LLM 共被调 4 次后停止。"""
+    calls = 0
+
+    async def mock_llm(messages, tools, **kwargs):
+        nonlocal calls
+        calls += 1
+        kwargs["_finish_reason_sink"]["finish_reason"] = "length"
+        return {"content": f"段{calls}", "tool_calls": None}
+
+    loop = AgentLoopV2(mock_llm, [_weather_tool()], max_iterations=5)
+    result = await loop.run(_default_messages())
+
+    assert calls == 1 + MAX_OUTPUT_TOKEN_CONTINUATIONS
+    assert result.output_continuations_used == MAX_OUTPUT_TOKEN_CONTINUATIONS
+    assert result.final_response == "段1段2段3段4"
+
+
+async def test_continuation_ends_on_tool_call():
+    """续写段给出工具调用 ⇒ 恢复段结束;assistant 历史带累计文本 + tool_calls。"""
+    calls = 0
+
+    async def mock_llm(messages, tools, **kwargs):
+        nonlocal calls
+        calls += 1
+        sink = kwargs["_finish_reason_sink"]
+        if calls == 1:
+            sink["finish_reason"] = "length"
+            return {"content": "我先查", "tool_calls": None}
+        if calls == 2:
+            sink["finish_reason"] = "tool_calls"
+            return {
+                "content": "一下天气",
+                "tool_calls": [
+                    {"id": "t1", "name": "get_weather", "args": {"city": "北京"}}
+                ],
+            }
+        sink["finish_reason"] = "stop"
+        return {"content": "完成", "tool_calls": None}
+
+    msgs = _default_messages()
+    loop = AgentLoopV2(mock_llm, [_weather_tool()], max_iterations=5)
+    result = await loop.run(msgs)
+
+    assert result.success is True
+    assert result.final_response == "完成"
+    assert result.output_continuations_used == 1
+    assert calls == 3
+    assistant = [m for m in msgs if m["role"] == "assistant"][0]
+    assert assistant["content"] == "我先查一下天气"
+    assert assistant["tool_calls"][0]["name"] == "get_weather"
+
+
+async def test_no_continuation_when_finish_reason_absent():
+    """通道取不到 finish_reason ⇒ 不续写(宁可不续,不误报)。"""
+    calls = 0
+
+    async def mock_llm(messages, tools, **kwargs):
+        nonlocal calls
+        calls += 1
+        return {"content": "只有一段", "tool_calls": None}
+
+    loop = AgentLoopV2(mock_llm, [_weather_tool()], max_iterations=5)
+    result = await loop.run(_default_messages())
+
+    assert calls == 1
+    assert result.final_response == "只有一段"
+    assert result.output_continuations_used == 0
+
+
+async def test_no_continuation_without_sink_support():
+    """调用方签名不接受 **kwargs ⇒ 不传回写槽 ⇒ 不续写(夹具/固定闭包安全)。"""
+    calls = 0
+
+    async def mock_llm(messages, tools):
+        nonlocal calls
+        calls += 1
+        return {"content": "固定签名", "tool_calls": None}
+
+    loop = AgentLoopV2(mock_llm, [_weather_tool()], max_iterations=5)
+    result = await loop.run(_default_messages())
+
+    assert calls == 1
+    assert result.output_continuations_used == 0
+
+
+async def test_continuation_streaming_accumulates_chunks():
+    """流式续写:两段 chunk 拼接后一次性返回,续写轮仍走流式通道。"""
+    calls = 0
+    streamed_calls = 0
+
+    async def mock_llm(messages, tools, *, on_chunk=None, **kwargs):
+        nonlocal calls, streamed_calls
+        calls += 1
+        if on_chunk is not None:
+            streamed_calls += 1
+        sink = kwargs["_finish_reason_sink"]
+        if calls == 1:
+            sink["finish_reason"] = "length"
+            if on_chunk is not None:
+                await on_chunk("甲")
+            return {"content": "甲", "tool_calls": None}
+        sink["finish_reason"] = "stop"
+        if on_chunk is not None:
+            await on_chunk("乙")
+        return {"content": "乙", "tool_calls": None}
+
+    loop = AgentLoopV2(mock_llm, [_weather_tool()], max_iterations=5)
+    result = await loop.run(_default_messages())
+
+    assert result.final_response == "甲乙"
+    assert result.output_continuations_used == 1
+    assert calls == 2
+    # 续写轮仍走流式(首段已流式 ⇒ 后续段同通道,增量语义不混拼)
+    assert streamed_calls == 2
+
+
+async def test_on_chunk_without_kwargs_does_not_crash():
+    """固定签名但显式 on_chunk(无 **kwargs)⇒ 无回写槽,不得 KeyError 打死整轮。"""
+    calls = 0
+
+    async def mock_llm(messages, tools, *, on_chunk=None):
+        nonlocal calls
+        calls += 1
+        if on_chunk is not None:
+            await on_chunk("流式")
+        return {"content": "流式", "tool_calls": None}
+
+    loop = AgentLoopV2(mock_llm, [_weather_tool()], max_iterations=5)
+    result = await loop.run(_default_messages())
+
+    assert result.success is True
+    assert result.final_response == "流式"
+    assert result.output_continuations_used == 0
+    assert calls == 1
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

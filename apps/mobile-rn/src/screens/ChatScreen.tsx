@@ -214,6 +214,11 @@ import {
   shouldTerminateForModelSwitch,
   terminateActiveStream,
 } from '../lib/model-switch'
+import {
+  addAnnotation,
+  rehydrateSelectionAnnotations,
+} from '../lib/selection-annotations-store'
+import { formatSlashHelp } from '../lib/slash-commands'
 import { rpx } from '../utils/rpx'
 
 import { rnGeometry, rnRadius } from '@ihui/design-tokens'
@@ -738,6 +743,10 @@ export function ChatScreen() {
         const title = conversationMetaLedger.titleFor(item.id, item.title)
         return title === item.title ? item : { ...item, title }
       }),
+    // broadcastMetaVersion 是广播账本的失效令牌(非被引用值):ledger 为模块级单例,
+    // titleFor 读其当前值,React 追踪不到单例内部变化 ⇒ 有意以版本号入 deps 触发重算
+    // (账本被广播改过 ⇒ 版本递增 ⇒ 本列表重算覆盖值,机制见上方 useSyncExternalStore 注释)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [drawerConversations, broadcastMetaVersion],
   )
 
@@ -2002,10 +2011,17 @@ export function ChatScreen() {
             void Share.share(shareText).catch(() => undefined)
           },
         },
+        {
+          text: t('selectionAnnotations.addAnnotation'),
+          onPress: () => {
+            addAnnotation(conversationId, msg.id, msg.content)
+            showToast('info', t('selectionAnnotations.addAnnotation'))
+          },
+        },
         { text: t('common.cancel'), style: 'cancel' },
       ])
     },
-    [t],
+    [t, showToast, conversationId],
   )
 
   // D111:工作区权限档(null = 尚未取到/取数失败 → 整行隐藏,不假装知道档位;与 N8n 屏同一取数)。
@@ -2022,6 +2038,12 @@ export function ChatScreen() {
     return () => {
       cancelled = true
     }
+  }, [])
+
+  // D180 批注冷启动回填:从 AsyncStorage 取回上一轮会话留存的批注(对齐 web 的 persist rehydrate)。
+  // 取不到/解析失败由 store 自己吞掉并保持空态,这里只负责在挂载时触发一次。
+  useEffect(() => {
+    void rehydrateSelectionAnnotations()
   }, [])
 
   // D111 消息反馈:点赞/点踩走 @ihui/api-client 唯一出口(rateChatMessage),不裸 fetch。
@@ -2082,6 +2104,7 @@ export function ChatScreen() {
         retryLastTurn={retryLastTurn}
         toggleMessageFlag={toggleMessageFlag}
         t={t}
+        conversationId={conversationId}
         messageRefs={messageRefs}
         setPreviewImageUrl={setPreviewImageUrl}
         workspaceTier={workspaceTier}
@@ -2108,7 +2131,9 @@ export function ChatScreen() {
       retryLastTurn,
       toggleMessageFlag,
       t,
+      workspaceTier,
       setPrompt,
+      conversationId,
     ],
   )
 
@@ -2878,7 +2903,8 @@ export function ChatScreen() {
           onIconClick={handleIconClick}
           onShowMyCreation={showMyCreation}
           onSlashCommand={(cmd) => {
-            // D117 斜杠命令宿主分发:/new 清空对话(复用二次确认流)、/clear 清空输入、/model 开模型列表、/help 提示
+            // D117 斜杠命令宿主分发:/new 清空对话(复用二次确认流)、/clear 清空输入、/model 开模型列表、
+            // /compact 压缩上下文、/status 会话状态、/help 提示;模板类填充引导语后交用户确认。
             if (cmd.id === 'slashNew') {
               confirmClearMessages()
               return
@@ -2891,7 +2917,28 @@ export function ChatScreen() {
               showModelList()
               return
             }
-            showToast('info', '可用命令:/new 新会话 · /clear 清空输入 · /model 切换模型')
+            if (cmd.id === 'slashCompact') {
+              void handleCompactContext()
+              return
+            }
+            if (cmd.id === 'slashStatus') {
+              const modelName = models.find((m) => m.id === model)?.name ?? model
+              showToast(
+                'info',
+                t('slashCmd.statusToast', {
+                  model: modelName,
+                  count: messages.length,
+                  state: t(isStreaming ? 'slashCmd.stateStreaming' : 'slashCmd.stateIdle'),
+                }),
+              )
+              return
+            }
+            if (cmd.promptTemplate !== undefined) {
+              const trailing = prompt.trim()
+              setPrompt(cmd.promptTemplate + (trailing !== '' ? '\n' + trailing : ''))
+              return
+            }
+            showToast('info', formatSlashHelp(t))
           }}
           onFangda={handleFangda}
           onCompactContext={() => void handleCompactContext()}

@@ -591,6 +591,26 @@ test('判定面:全量入口按 HEAD blob 自报口径,且在 HEAD 上判绿(反
   }
 })
 
+test('W3 命名空间相对出口:真仓被走到且不是死码,摘掉出口则 web 相对取词立刻回红', () => {
+  const r = gate.run({ quiet: true })
+  try {
+    assert.ok(
+      r.namespaceRelativeAbsorbed >= 1,
+      '相对出口一处都没吸收到 ⇒ 出口是死码或取词形态搬家了,登记与判据已脱节',
+    )
+    assert.ok(
+      !r.failures.some((f) => f.rule === 'W3' && f.table.includes('use-slash-commands')),
+      'web 的 useTranslations("chat") 相对取词又变成逐键假红(§12e 恒红型)',
+    )
+    // 出口自己的形状:后缀命中要"以 .键 结尾";值等于叶子名(静默回显)不算命中
+    assert.equal(gate.namespaceSuffixHit(new Map([['chat.a.b', 'V']]), 'a.b')?.hit, 'chat.a.b')
+    assert.equal(gate.namespaceSuffixHit(new Map([['chat.a.bb', 'V']]), 'a.b'), null)
+    assert.equal(gate.namespaceSuffixHit(new Map([['chat.a.b', 'chat.a.b']]), 'a.b'), null)
+  } finally {
+    gate.setActive(gate.makeFaceReader('head'))
+  }
+})
+
 test('判定面:--staged 判索引 blob 而非滞后的共享工作树', () => {
   const r = gate.run({ staged: true, quiet: true })
   gate.setActive(gate.makeFaceReader('head'))

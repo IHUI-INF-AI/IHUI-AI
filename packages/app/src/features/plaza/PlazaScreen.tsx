@@ -21,21 +21,9 @@ import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { CategoryItem } from '../../components/category/types'
 import { Globe, User } from 'lucide-react-native'
 import type { TFunction } from '../../types'
-import type { StatusChip } from '@ihui/types'
+import type { PlazaItem, StatusChip } from '@ihui/types'
 
 import { rnRadius } from '@ihui/design-tokens'
-
-/** 广场任务项(共享层简化类型,保留 UI 渲染所需字段) */
-export interface PlazaItem {
-  id: string
-  title: string
-  description?: string
-  creator?: string
-  createdAt?: string
-  status?: string
-  taskStatus?: string
-  [key: string]: unknown
-}
 
 export interface PlazaScreenProps {
   t: TFunction
@@ -317,10 +305,7 @@ export function PlazaScreen({
           data={items.length > 0 ? COLUMN_ROW_DATA : []}
           keyExtractor={() => 'plaza-two-columns'}
           renderItem={renderColumns}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: contentBottomPadding },
-          ]}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentBottomPadding }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

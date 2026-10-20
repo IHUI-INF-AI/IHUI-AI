@@ -12,12 +12,17 @@
 //   判据行为一字不改(旧测试路径不动,全绿即证)。
 //
 // 认领层(parseFormRequestLine)为什么也在共享包、而不在端内:
-//   ① @ihui/shared/utils/sse-parse 没有认领 form_request(现读 grep 0 命中)——带一个
-//     字符串 sessionId,不认领就滑到 `⇒ {type:'meta', sessionId}` 的泛化兜底被折成一条
-//     meta 帧,kind/fields/actions 全丢(与 D151 terminal_interaction 同型);该文件在
-//     本票禁改面内,不替跨端裁决改共享解析面。
+//   ① 立项时(2026-10-17)@ihui/shared/utils/sse-parse **确实没有**认领 form_request,不认领就会
+//     滑到 `⇒ {type:'meta', sessionId}` 的泛化兜底,kind/fields/actions 全丢(与 D151 同型)。
+//     〔更正@2026-10-19,原句逐字保留只作改判留痕:该前提今天不成立 —— sse-parse 已认领该帧族
+//     (现读 `if (json?.type === 'form_request')` 在 meta 兜底之前 return)。因此端内的旁路已随
+//     枚 db3f98d10c6 撤掉,改为 dispatch 承接已认领的事件。这一层仍然存在的理由只剩下面 ②:
+//     api-client 那条腿还是它自己的实现。照旧文把旁路加回来 = 同一帧三处认领。〕
 //   ② @ihui/api-client 的同一条解析腿(streamChat 闭包里的 tryParseFormRequest)
 //     **不导出**,而小程序传输层是自己的 src/lib/sse.ts,不走 streamChat。
+//     该腿与本件仍是两份读法,收口 = 让 api-client 复用 parseFormRequestLine;
+//     为什么本枚不做:api-client 正被另一路会话做单源迁移(手抄出口→两出口),
+//     给一个要被迁移的形态再写一份接线 = 造注定作废的第二份真相。
 //   ⇒ 字段收窄口径在这里落一份,但只落"读哪些线字段"这一层,镜像锁由常驻测试对着
 //   api-client 源码钉住(键清单漂移即红),不是"写了就算"。
 
