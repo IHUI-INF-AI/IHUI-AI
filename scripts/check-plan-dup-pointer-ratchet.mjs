@@ -32,6 +32,16 @@
  * 路径绕过本门带回(比如直接写工作树后绕钩子提交),本门**全量模式**(非差值)会点名
  * 并要求跑 `node scripts/plan-pointer-purge.mjs --apply` 重新清偿。
  *
+ * 维③(2026-10-20 立)「同一行叠同一注记」重数棘轮:
+ * 立因是现读到的单行 `〔同题原号 G-191〕` 被并发回灌叠 62 份、全仓 34 行 227 份 —— 维①是布尔
+ * (这行有没有注记)、维②算整行副本折并,两维都看不见"同一行同一注记叠了几份"。
+ * 读数 = Σ(登记行内每种注记的出现次数 − 1);`--staged` 面 vs HEAD 面**只拦变多**,
+ * 全量档默认只报数、`--strict` 才问责存量(存量正被并发写带回时当场判红 = §12e 恒红门)。
+ * 识别集是本维自带的 `〔…〕`(长度 8–24),**刻意不并入 `DUP_POINTER_RE`**:那个字面一旦扩到
+ * 通用括注族,维①与 T3 会把台账里合法的改号留痕(`〔改号(…):原…〕` 一族)整体算成存量并判红。
+ * 取证:镜像测试 P9(单份⇒0 为阳性对照、三份⇒2、非登记行不计数、变多判红、折并归零判绿,
+ * 外加一条形状锁断言 `DUP_POINTER_RE` 未被扩大)。
+ *
  * 用法:
  *   node scripts/check-plan-dup-pointer-ratchet.mjs --staged  (pre-commit, 阻塞)
  *   node scripts/check-plan-dup-pointer-ratchet.mjs           (全量审计,exit 0/1)
@@ -94,9 +104,48 @@ export const twinFoldCount = (text) => {
 export function twinRatchetVerdict(headText, newText) {
   const before = twinFoldCount(headText)
   const after = twinFoldCount(newText)
-  if (before === null || after === null)
-    return { before, after, grew: false, undetermined: true }
+  if (before === null || after === null) return { before, after, grew: false, undetermined: true }
   return { before, after, grew: after > before, undetermined: false }
+}
+
+/**
+ * 维③(2026-10-20 立)「同一行叠同一注记」重数棘轮。
+ *
+ * 立因是现读到的:一行里 `〔同题原号 G-191〕` 被并发回灌叠了 62 份,全仓 34 行共 227 份重复。
+ * 前两维都看不见它 —— 维①是**布尔**(这行有没有注记),维②算的是**整行副本**。
+ *
+ * 识别集刻意**不并入** `idx.DUP_POINTER_RE`:那个字面一旦扩到通用括注族,维①与 T3 元判据
+ * 会把台账里大量合法的改号留痕(`〔改号(2026-10-14):原G-815424〕` 等)一起算成存量,
+ * 全量档当场判红 —— 而那红与任何人的本次动作无关,正是 §12e 禁的恒红门。
+ * 所以本维自带识别集,只管"同一行内逐字相同的注记多出来的份数"。
+ */
+const NOTE_TOKEN_SRC = '〔[^〔〕]{8,24}〕'
+
+/** 一行内每种注记多出来的份数之和(0 = 该行无重复叠注)。 */
+export function redundantNoteCountInLine(line) {
+  const seen = new Map()
+  for (const m of String(line || '').matchAll(new RegExp(NOTE_TOKEN_SRC, 'g')))
+    seen.set(m[0], (seen.get(m[0]) ?? 0) + 1)
+  let total = 0
+  for (const n of seen.values()) if (n > 1) total += n - 1
+  return total
+}
+
+/** 维③读数(纯函数):一面上所有登记行的重复叠注份数合计。 */
+export function redundantNoteCount(text) {
+  let total = 0
+  for (const l of String(text || '').split(/\r?\n/)) {
+    if (!isRow(l)) continue
+    total += redundantNoteCountInLine(l)
+  }
+  return total
+}
+
+/** 维③差值判定(纯函数):本次提交让叠注份数变多 ⇒ 红。 */
+export function noteRedundancyVerdict(headText, newText) {
+  const before = redundantNoteCount(headText)
+  const after = redundantNoteCount(newText)
+  return { before, after, grew: after > before }
 }
 
 /**
@@ -180,6 +229,33 @@ function main(argv) {
         `       ② 若是工具自动生成(归并器 F4),跑 \`node scripts/plan-pointer-purge.mjs --apply\` 一次性清偿并留台账。`,
     )
     return 1
+  }
+
+  // 维③:同一行叠同一注记(2026-10-20 立)。差值档只拦新增;全量档默认只报数,--strict 才问责存量
+  // —— 存量此刻可能正被并发写带回,当场判红就是与本次内容无关的恒红门(§12e)。
+  const strict = argv.includes('--strict')
+  const nr = staged
+    ? noteRedundancyVerdict(oldContent, newContent)
+    : { before: 0, after: redundantNoteCount(newContent), grew: false }
+  if (staged && nr.grew) {
+    console.error(
+      `${C.red}❌ 叠注重数棘轮:${C.reset}本次提交让"同一登记行内逐字相同的注记"从 ${nr.before} 份增至 ${nr.after} 份(+${nr.after - nr.before})`,
+    )
+    console.error(
+      `${C.yellow}出路:${C.reset} 同一行里同一种留痕只留一份:手工折即删重复副本、保留首次出现;整批被带回时走 \`node scripts/plan-pointer-purge.mjs --apply\`。`,
+    )
+    return 1
+  }
+  if (!staged) {
+    if (nr.after > 0 && strict) {
+      console.error(
+        `${C.red}❌ 叠注存量:${C.reset}当前面登记行上有 ${nr.after} 份逐字相同的重复注记(--strict 问责)`,
+      )
+      return 1
+    }
+    console.log(
+      `${C.cyan}📊 叠注重数:${nr.after} 份(同一行内逐字相同的注记多出来的份数;全量档默认只报数,--strict 才问责)${C.reset}`,
+    )
   }
 
   if (staged) {
