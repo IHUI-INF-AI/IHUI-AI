@@ -33,6 +33,19 @@ const REQUEST_ID = 'frm-e2e-001'
 const SESSION_ID = 'sess-e2e-001'
 const JSON_HEADERS = { 'Content-Type': 'application/json' }
 
+// 上行应答直连 ai-service 端口(aiServiceBaseUrl 回落 http://localhost:8803)⇒ 跨域,
+// POST 带 Content-Type/凭据会被 preflight;mock 必须同时答 OPTIONS 并回 CORS 头,否则
+// 真 POST 永不落地(形态同 queue-interactions.spec.ts:90 的同名 helper,该 helper 未导出,就地各写)。
+function corsHeadersFor(req: { headers: () => Record<string, string> }): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': req.headers().origin || 'http://localhost:8801',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers':
+      'Content-Type, Authorization, Accept, Last-Event-ID, X-Requested-With, x-device-fingerprint',
+  }
+}
+
 /** 一帧 form_request 的 wire 形状(字段与 contract.ts 的 FormRequestFramePayload 同名) */
 function formRequestFrame(kind: 'email'): string {
   return `data: ${JSON.stringify({
@@ -121,9 +134,14 @@ async function mockStreamAndCaptureResponse(page: Page): Promise<void> {
     ;(window as unknown as Record<string, unknown>).__e2eFormResponses = []
   })
   await page.route(/\/api\/ai\/chat\/stream/, async (route: Route) => {
+    const req = route.request()
+    if (req.method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: corsHeadersFor(req) })
+      return
+    }
     await route.fulfill({
       status: 200,
-      headers: { 'Content-Type': 'text/event-stream' },
+      headers: { 'Content-Type': 'text/event-stream', ...corsHeadersFor(req) },
       body: [
         `data: ${JSON.stringify({ type: 'chunk', content: '需要我帮你把这封邮件发出去吗?' })}\n\n`,
         formRequestFrame('email'),
@@ -132,14 +150,19 @@ async function mockStreamAndCaptureResponse(page: Page): Promise<void> {
     })
   })
   await page.route(/\/llm\/complete\/stream\/[^/]+\/form-response/, async (route: Route) => {
-    const body = JSON.parse(route.request().postData() ?? '{}') as Record<string, unknown>
+    const req = route.request()
+    if (req.method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: corsHeadersFor(req) })
+      return
+    }
+    const body = JSON.parse(req.postData() ?? '{}') as Record<string, unknown>
     await page.evaluate((payload: unknown) => {
       const sink = (window as unknown as Record<string, unknown[]>).__e2eFormResponses
       sink?.push(payload as Record<string, unknown>)
     }, body)
     await route.fulfill({
       status: 200,
-      headers: JSON_HEADERS,
+      headers: { ...JSON_HEADERS, ...corsHeadersFor(req) },
       body: JSON.stringify({ code: 0, message: 'ok', data: { ok: true } }),
     })
   })
@@ -149,16 +172,33 @@ async function mockStreamAndCaptureResponse(page: Page): Promise<void> {
 async function capturedResponses(page: Page): Promise<Array<Record<string, unknown>>> {
   return page.evaluate(
     () =>
-      ((window as unknown as Record<string, unknown[]>).__e2eFormResponses ??
-        []) as Array<Record<string, unknown>>,
+      ((window as unknown as Record<string, unknown[]>).__e2eFormResponses ?? []) as Array<
+        Record<string, unknown>
+      >,
   )
 }
 
+/**
+ * 进入会话:web 端当前会话完全由 useChatStore.conversationId 驱动,URL ?conversationId=
+ * 已无人读取(ai-side-panel.tsx:204),故按 chat-manual-compact.spec.ts:173-181 的打法
+ * 用 addInitScript 预置 persist 键 'ihui-chat'(version 5)让 rehydrate 直接带回会话 ——
+ * 历史不加载就没有那条 assistant 消息,表单卡(挂在消息之下)自然无处渲染。
+ */
 async function openConversation(page: Page): Promise<void> {
-  await page.goto(`/?conversationId=${CONV_ID}`)
+  await page.addInitScript(
+    ({ key, cid }) => {
+      localStorage.setItem(key, JSON.stringify({ state: { conversationId: cid }, version: 5 }))
+    },
+    { key: 'ihui-chat', cid: CONV_ID },
+  )
+  await page.goto('/')
   await page.waitForLoadState('domcontentloaded').catch(() => {})
   // 面板就绪标志:输入框可见(与既有 e2e 同口径,不等具体文案)
   await expect(page.locator('textarea').first()).toBeVisible({ timeout: 30_000 })
+  // 历史里那条 assistant 消息(表单卡的宿主)必须已在 DOM,再去发本轮流
+  await expect(page.locator(`[data-message-id="${ASSISTANT_MSG_ID}"]`)).toBeVisible({
+    timeout: 20_000,
+  })
 }
 
 async function sendTurn(page: Page, text: string): Promise<void> {
@@ -169,7 +209,9 @@ async function sendTurn(page: Page, text: string): Promise<void> {
 }
 
 function sectionInStream(page: Page) {
-  return page.locator(`[data-testid="business-form-section"][data-message-id="${ASSISTANT_MSG_ID}"]`)
+  return page.locator(
+    `[data-testid="business-form-section"][data-message-id="${ASSISTANT_MSG_ID}"]`,
+  )
 }
 
 test.describe('V3 #63 对话流业务表单帧 form_request', () => {

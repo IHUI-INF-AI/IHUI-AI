@@ -4072,6 +4072,76 @@ export function auditTunnelMetrics(opts = {}) {
   }
 }
 
+/**
+ * 「完成即删」兜底清扫轮(守门 229 的姊妹层,2026-10-20 立,机主令"要彻底根治 固定完成立即删掉记录")。
+ *
+ * 为什么提交口那道闸不够:门 229 只在**有人提交且暂存了 PROJECT_PLAN.md** 时判滞留;把旧已勾行
+ * 带回 HEAD 的那枚提交(并发旧基线 / 合并 union)可以不碰台账 ⇒ 提交口结构上看不见它。判据本身
+ * 不在此重写:清扫器 import 门 229 的 `staleClosedVerdict`(§0.6 单一实现)。
+ *
+ * 纪律:
+ *  - **节流 30 分钟**(清扫是一次对象空间落地 + 一次推送,每 2 分钟一轮会把共享仓刷爆);
+ *  - 先落"已尝试"再派发(与收尾对齐自愈同一取舍:台账写不下去时宁可多跑一轮也不裸奔,
+ *    但节流与熔断不能双双失效);
+ *  - 旁路落地不跑 post-commit ⇒ 推送腿由清扫器自带(不推就等于没删,AGENTS §5b 回潮通道①);
+ *  - **不改本守护退出码**:清台账失败不等于 .git 失败(与 auditPublicPathProbe 同型);
+ *  - 派生子进程一律显式 stdio + windowsHide + timeout(§12g / 守门 52 / 80)。
+ */
+export function sweepStaleClosedRows(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = 30 * 60 * 1000,
+    tickFile = join(WORKTREE, '.workbuddy', 'plan-closed-sweep-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'strip-stale-closed-rows.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 完成即删清扫:器物不在位(scripts/strip-stale-closed-rows.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '清扫器不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 完成即删清扫:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 10 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? '') }
+          } catch (e) {
+            // exit 1 = 只读预演语义"有滞留但未落地"或落地被拒;都按"记一笔、下轮再试"处理
+            return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+          }
+        }
+  const r = run()
+  const rows = String(r.out ?? '').split(/\r?\n/)
+  const keep = rows.filter((l) => /滞留|清扫完成|未判定|拒绝|守恒|❌/.test(l))
+  const line = keep.slice(-2).join(' / ')
+  logger(
+    `${r.ok ? '✅' : '⚠️'} 完成即删清扫轮:${r.ok ? (line || '无需清扫(无跨枚滞留)') : `${line || r.err || '未判定'}`}`,
+  )
+  return { ran: true, ok: r.ok, summary: line }
+}
+
 export function auditTunnelLegHealth(opts = {}) {
   const {
     now = Date.now(),
@@ -5068,6 +5138,10 @@ function main() {
     // 判"未判定"只写日志不喊人;它不改本守护退出码 —— 探测失败不等于 .git 失败。
     if (!CHECK_ONLY) auditPublicPathProbe()
     if (!CHECK_ONLY) auditTunnelLegHealth()
+    // 「完成即删」兜底清扫(守门 229 的姊妹层,2026-10-20 机主令"彻底根治"):提交口只拦
+    // "碰台账的提交",而把旧已勾行带回 HEAD 的那枚提交可以不碰台账 ⇒ 这一层按同一判据清扫。
+    // 节流 30 分钟、判据 import 门 229、不改本守护退出码(清台账失败 ≠ .git 失败)。
+    if (!CHECK_ONLY) sweepStaleClosedRows()
     if (!CHECK_ONLY) auditTunnelMetrics()
     // 部署停摆:判据写 45 分钟阈值,而凭据巡检那支班每 6 小时才量一趟(现读 09:37/15:37)⇒ 阈值与
     // 节律差两个数量级等于没有判据。本格按 15 分钟量,身份 = tip + 最近一次成功部署时刻。
@@ -5448,6 +5522,7 @@ export const __test__ = {
   auditDispatchSites,
   auditPublicPathProbe,
   auditTunnelLegHealth,
+  sweepStaleClosedRows,
   auditTunnelMetrics,
   bumpProbeStreak,
   parseNotifyState,

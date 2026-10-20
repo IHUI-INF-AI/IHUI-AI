@@ -286,10 +286,10 @@ const styles = StyleSheet.create({
   },
   boxFocused: {
     // G-978007:聚焦档取墨档(tokens.brand.DEFAULT = 亮纯黑/暗纯白,与共享 TextField
-    // 的 focusedStyle 通道同一出处 @ihui/design-tokens brand.DEFAULT),并对齐验收判据
-    // borderWidth 1→2;此前取 brandAccent.deep 是灰蓝强调档,不是聚焦墨档。
+    // 的 focusedStyle 通道同一出处 @ihui/design-tokens brand.DEFAULT);
+    // 此前取 brandAccent.deep 是灰蓝强调档,不是聚焦墨档。
+    // 只换色不改宽:描边变粗会压缩固定尺寸格子的内容区(同型位移 2026-10-20 在登录框真机实测)
     borderColor: tokens.brand.DEFAULT,
-    borderWidth: 2,
   },
   boxFilled: {
     borderColor: tokens.border.medium,

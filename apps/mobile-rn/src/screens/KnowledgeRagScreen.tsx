@@ -194,11 +194,10 @@ export function KnowledgeRagScreen() {
 
   const renderSearchBar = () => (
     <View className="flex-row items-center px-4 pb-3">
-      {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);focusedStyle
-          对齐 LoginScreen 参照:聚焦 borderWidth 1→2 */}
+      {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);聚焦只换色不改描边
+          宽度——固定高度框内 1→2 会压缩内容区把文字顶起(同型位移 2026-10-20 在登录框真机实测) */}
       <TextField
         colorScheme={resolvedTheme}
-        focusedStyle={{ borderWidth: 2 }}
         value={query}
         onChangeText={setQuery}
         placeholder={t('common.searchPlaceholder')}

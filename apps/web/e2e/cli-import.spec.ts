@@ -96,14 +96,17 @@ test.describe('CLI 配置导入', () => {
 
     test('访问 /settings/import 显示标题与来源选择', async ({ authenticatedPage }) => {
       await authenticatedPage.goto('/settings/import')
-      // 2026-08-26 修复:页面存在 2 个 level-1 heading(header"设置" + 页面主体"CLI 配置导入"),
-      // 取 first 会命中 header"设置" → 用 filter 定位含 CLI/配置导入 的标题
+      // 2026-10-20 修复:h1 不再是「CLI 配置导入」。该页 2026-09-20 D28 起是双 Tab 页
+      // (settings/import/page.tsx:74 h1 = conversationImport.pageTitle =「外部会话导入」,
+      //  :81 TabsTrigger value="cli" = cliImport.title「CLI 配置导入」,defaultValue="cli" 即选中态)。
+      // 旧断言用 /CLI|配置导入/ 过滤 level-1 heading ⇒ CI 实测 element(s) not found(取不到输入)。
       await expect(
-        authenticatedPage
-          .getByRole('heading', { level: 1 })
-          .filter({ hasText: /CLI|配置导入/ })
-          .first(),
+        authenticatedPage.getByRole('heading', { level: 1, name: '外部会话导入' }).first(),
       ).toBeVisible({ timeout: 10000 })
+      // CLI 那一档的覆盖点跟着走:标题文案仍在,只是换了角色
+      const cliTab = authenticatedPage.getByRole('tab', { name: 'CLI 配置导入' })
+      await expect(cliTab).toBeVisible({ timeout: 10000 })
+      await expect(cliTab).toHaveAttribute('aria-selected', 'true')
       // 来源按钮(2026-08-26 修复:真实后端可能多返回来源/按钮文本含多个关键词,
       // 精确 =6 脆弱 → 改为 ≥6;count() 是即时查询不等待 → 先等首个按钮可见
       // 再 count(sources API 异步加载,dev 首屏编译慢时立即 count 得 0))
