@@ -271,6 +271,12 @@ const PY_MAPPING_RE = "(?:^|\\n)\\s*[A-Za-z_][\\w.]*\\s*:\\s*['\\\"]([a-z_.-]+)[
 
 // —— 1e. Python 字面量 f-string 事件(agent_runtime.py execute/stream)——
 const PY_FSTRING_RE = /f"event:\s*([a-z_-]+)\\n/g;
+// 2026-10-20 增:_sse_frame 位置参数字面量形态(agent_runtime.py 的 SSE 帧构造器,
+// 签名 _sse_frame(evt: str, payload: dict),第一参即事件名)。此前只认 f-string 与
+// {"type": "x"} 两种形态,_sse_frame("delta", ...) 被漏扫,后端真实生产的 delta
+// 被判"无生产点",连带 web 档案"声明已接"与六端 knownGaps 登记被误报腐烂(8 条阻断)。
+// engine.py/mcp_official.py 的同名函数第一参是 dict 变量,字面量正则天然不误匹配。
+const PY_SSE_FRAME_RE = /_sse_frame\(\s*"([a-z_-]+)"/g;
 {
   const files = [
     'apps/ai-service/app/routers/agents.py',
@@ -281,7 +287,9 @@ const PY_FSTRING_RE = /f"event:\s*([a-z_-]+)\\n/g;
   for (const f of files) {
     const p = path.join(ROOT, f);
     if (!existsSync(p)) continue;
-    hits += forMatch(backendEvents, PY_FSTRING_RE, readFileSync(p, 'utf-8'), f);
+    const pyText = readFileSync(p, 'utf-8');
+    hits += forMatch(backendEvents, PY_FSTRING_RE, pyText, f);
+    hits += forMatch(backendEvents, PY_SSE_FRAME_RE, pyText, f);
   }
   scanStats.pyLiteral = hits;
 }

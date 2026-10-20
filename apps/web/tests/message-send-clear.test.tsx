@@ -204,7 +204,7 @@ vi.mock('@/lib/nav-styles', async () => {
   }
 })
 
-vi.mock('@plugins-data', () => ({
+vi.mock('@ihui/shared/plugins-data', () => ({
   __esModule: true,
   MARKET_PLUGINS: [],
   PROJECT_PLUGINS: [],
