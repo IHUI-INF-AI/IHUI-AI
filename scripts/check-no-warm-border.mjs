@@ -45,7 +45,11 @@
  *      文件结构上不会出现在 --staged 清单里,挂在子集档等于永不命中(§0.9)。
  *
  * 取材面(守门 118 / §0.4):全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工逃生舱;
- * 两面旗同给 exit 2;取不到 ⇒ Undetermined ⇒ exit 2「未判定」,不记绿也不冒红;枚举到 0 判死不记绿。
+ * 两面旗同给 exit 2;取不到 ⇒ Undetermined ⇒ exit 2「未判定」,不记绿也不冒红。
+ * 射程内 0 件分两档(`judgeEmptyScope`):**staged 档 = 本枚提交不涉及 ⇒ 通过**;全量/工作树档
+ * = 判据没跑到东西 ⇒ 判死。立因(2026-10-21 实测):staged 档把"无关提交"也判 exit 2 ⇒ 一枚只动
+ * 小程序/脚本的提交被拦,只能跳门;这正是 §12e 的恒红门型,结局是连带废掉全部守门。
+ * 本档只改"这一枚提交没有射程内文件"的结论,**不动任何在射程文件的判据强度**。
  * **判据输入与被审对象分面同批**:W3 要读 styles.xml 引用的 colors.xml。colors.xml 是输入不是被审件
  * —— 若输入固定取 HEAD 面,则"同一枚提交同时改 styles.xml + colors.xml"(本次修复正是这一型)会被
  * 判成"引用不存在的颜色"假红。故输入与被审件走**同一个面**,同批预取。
@@ -535,6 +539,18 @@ export function isInScope(rel) {
   return STYLE_EXT.test(rel) && !STYLE_EXCLUDE.test(rel) && STYLE_SCOPES.some((s) => rel.startsWith(`${s}/`))
 }
 
+/**
+ * 射程内枚举到 0 件时的判定。
+ * - staged:本枚提交不涉及本门射程 ⇒ `not-applicable`(通过,不是"判据没跑到东西")。
+ *   缺这一档时,任何只动射程外文件的提交都被 exit 2 拦住 ⇒ §12e 恒红门。
+ * - head / worktree:这两个面必然含射程内文件,枚举为 0 只可能是取材本身坏了 ⇒ `undetermined`。
+ * @param {'head'|'staged'|'worktree'} face
+ * @returns {'not-applicable'|'undetermined'}
+ */
+export function judgeEmptyScope(face) {
+  return face === 'staged' ? 'not-applicable' : 'undetermined'
+}
+
 /** 盘上 android res 的 xml(生成物,不在任何 git 面;只供 --worktree 人工档验当前形态)。 */
 function listGeneratedAndroidRes() {
   const out = []
@@ -872,6 +888,12 @@ function runSelfTest() {
     const { face: bad, error } = selectFace({ staged: true, worktree: true })
     ok(bad === null && typeof error === 'string', '--staged 与 --worktree 同给必须报错')
     ok(selectFace({}).face === 'head', '缺省面必须是 head(不许默认磁盘)')
+    ok(
+      judgeEmptyScope('staged') === 'not-applicable',
+      'staged 档射程内 0 件 = 本枚提交不涉及(不许对无关提交 exit 2,§12e)',
+    )
+    ok(judgeEmptyScope('head') === 'undetermined', '全量档射程内 0 件 = 判据没跑到东西')
+    ok(judgeEmptyScope('worktree') === 'undetermined', '工作树档射程内 0 件 = 判据没跑到东西')
   }
 
   if (fails.length > 0) {
@@ -932,6 +954,10 @@ check-no-warm-border.mjs — 暖色描边禁令守门(2026-10-20)
   try {
     const { texts, primary } = prefetch(face)
     if (primary.length === 0) {
+      if (judgeEmptyScope(face) === 'not-applicable') {
+        if (!asJson) console.log('\n✅ 本次提交无射程内文件 ⇒ 本门不适用(通过)')
+        return 0
+      }
       console.error('❌ 无法判定(exit 2):射程内枚举到 0 个候选 ⇒ 判据没跑到东西,不记绿')
       return 2
     }
@@ -1085,6 +1111,7 @@ export const __test__ = {
   applyExemptions,
   ratchetDiff,
   isInScope,
+  judgeEmptyScope,
   scanOne,
   ACCENT_ATTRS,
   STYLE_SCOPES,
