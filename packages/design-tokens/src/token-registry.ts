@@ -252,6 +252,30 @@ const RN_FINE_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
     description: '强调红(RN danger.bright,购买/薪资 CTA)',
   },
   {
+    name: '--color-info-text',
+    type: 'color',
+    defaultValue: 'hsl(199 89% 33%)',
+    description: '状态色「文字」角色档 · info(暗档恒现值,亮档加深到 AA;填充仍用 --color-info)',
+  },
+  {
+    name: '--color-success-text',
+    type: 'color',
+    defaultValue: 'hsl(142 71% 28%)',
+    description: '状态色「文字」角色档 · success(暗档恒现值,亮档加深到 AA;填充仍用 --color-success)',
+  },
+  {
+    name: '--color-warning-text',
+    type: 'color',
+    defaultValue: 'hsl(38 92% 30%)',
+    description: '状态色「文字」角色档 · warning(暗档恒现值,亮档加深到 AA;填充仍用 --color-warning)',
+  },
+  {
+    name: '--color-danger-text',
+    type: 'color',
+    defaultValue: '#b91c1c',
+    description: '状态色「文字」角色档 · danger(暗档恒现值,亮档加深到 AA;填充仍用 --color-danger)',
+  },
+  {
     name: '--color-agent-name',
     type: 'color',
     defaultValue: '#517bff',
