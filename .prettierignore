@@ -64,3 +64,7 @@ scripts/data/no-nested-git-exemptions.json
 # 每次 lint-staged 提交都整文件重排成巨型假 diff。与上方 miniapp 生成物同策略:
 # 退出格式门禁,prettier 永不再碰这些文件。加键只产生极小的 +2 行 diff)
 packages/i18n/messages/
+# AGENTS.md:每轮逐字注入的活文档(约 95KB,含零宽水印载荷与大量证据叙述),prettier 会重排
+# 表格/列表并与多会话并发追加持续冲突;与 PROJECT_PLAN.md 同策略,不纳入格式门。
+# 改动仍受守门 89 R4 点名、守门 207 体积、watermark verify 约束。
+AGENTS.md
