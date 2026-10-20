@@ -336,7 +336,7 @@ describe('G-717 · 装车锁(余量行必须真接在渲染链上)', () => {
     expect(stripComments(inCode)).toMatch(/byModel\s*\.\s*slice\(\s*0\s*,\s*10\s*\)/)
 
     // 字符串内容必须保留:取词调用就住在模板字面量里。
-    expect(stripComments('const s = `${tChat(\'modelCategoryOther\')} (+1)`')).toMatch(
+    expect(stripComments("const s = `${tChat('modelCategoryOther')} (+1)`")).toMatch(
       /tChat\(\s*'modelCategoryOther'\s*\)/,
     )
   })
@@ -411,11 +411,7 @@ vi.mock('next-intl', () => {
 function renderPage(): ReturnType<typeof render> {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    React.createElement(
-      QueryClientProvider,
-      { client },
-      React.createElement(AiCostPage),
-    ),
+    React.createElement(QueryClientProvider, { client }, React.createElement(AiCostPage)),
   )
 }
 
