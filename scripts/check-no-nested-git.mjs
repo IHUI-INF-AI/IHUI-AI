@@ -52,6 +52,8 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GATE_LABEL = '[check-no-nested-git]'
 /** 具名豁免台账(§0.7「验过才免、会到期」的落地形态)。缺文件/坏 JSON ⇒ 不放行任何豁免。 */
 const EXEMPTION_FILE = join(REPO_ROOT, 'scripts', 'data', 'no-nested-git-exemptions.json')
+/** 第二把载体:每处现场一行的**意图**登记(不记存续,存续由本门现算)。 */
+const SITES_FILE = join(REPO_ROOT, 'scripts', 'data', 'no-nested-git-sites.jsonl')
 
 /** 仓库根 .git 本体(本仓挂载,gitfile)按精确路径豁免 —— 其余任何 .git 命中即红。 */
 export function isRepoRootGit(absPath, repoRoot = REPO_ROOT) {
@@ -140,6 +142,23 @@ function isoToday() {
 }
 
 /**
+ * 条目形态是否可用 —— 两把载体与 `splitByExemption` 共用的**唯一**一处判据(§0.6 单一真相源)。
+ * 缺 owner / 缺 why / 到期日不是 YYYY-MM-DD ⇒ 整条作废(§0.7「无原因不放行」)。
+ */
+export function entryUsable(e) {
+  return (
+    !!e &&
+    typeof e.rel === 'string' &&
+    normRel(e.rel) !== '' &&
+    typeof e.owner === 'string' &&
+    e.owner.trim() !== '' &&
+    typeof e.why === 'string' &&
+    e.why.trim() !== '' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(String(e.expires ?? ''))
+  )
+}
+
+/**
  * 读具名豁免台账。返回 `{entries, error}`:
  *  文件缺/坏 JSON ⇒ `error` 非空且 `entries=[]` —— **不放行任何豁免**(取不到输入绝不冒绿,§0.3),
  *  形态不合格的条目(缺 owner / 缺 why / 到期日不是 YYYY-MM-DD)整条作废并单独点名。
@@ -157,12 +176,46 @@ export function loadNamedExemptions(file = EXEMPTION_FILE) {
   const bad = []
   const entries = []
   for (const e of list) {
-    const okShape =
-      e && typeof e.rel === 'string' && normRel(e.rel) !== '' && typeof e.owner === 'string' &&
-      e.owner.trim() !== '' && typeof e.why === 'string' && e.why.trim() !== '' &&
-      /^\d{4}-\d{2}-\d{2}$/.test(String(e.expires ?? ''))
+    const okShape = entryUsable(e)
     if (okShape) entries.push({ ...e, rel: normRel(e.rel) })
     else bad.push(String(e?.rel ?? '(无 rel)'))
+  }
+  return { entries, error: '', bad }
+}
+
+/**
+ * 第二把载体 `scripts/data/no-nested-git-sites.jsonl` —— **每处现场一行**的意图登记。
+ *
+ * 为什么要有第二把(O508 定案前置①,2026-10-20 落地):JSON 台账是**整文件覆盖**的数据面,
+ * 六天内同一组路径已六轮「登记 → 现场消失 → 清单腐烂判红 → 摘册」,而按台账第一条出路重登记
+ * 又被门 84 的**行级复活**判据拒(entries 从 0 变 2 ⇒「复活 3 行 ← 祖先 9f40b2aad」,复活的
+ * 是 `  "entries": [` / `    {` 这类结构行,措辞写得再新也躲不开)。两扇门因此互相咬死,
+ * 唯一结局是逼人 `--no-verify`(§12e 明令禁止)。
+ *
+ * 这把只记**意图与归属**(这条路径是有意的长期现场、归谁、何时到期),**不记存续** —— 存续由本门
+ * 在判的那一刻现算(命中才谈得上放行)。于是它不需要任何会话去"随现场销账",翻转的燃料就没了。
+ * 行式还是 git 可增量合并的形态:两会话登记两处不同现场,改的是两行,不互相整本覆盖。
+ *
+ * 判定力不减的三条锁:① 未命中的行**一条也放不了行**(放行只对当刻真实命中生效);② 到期即不免并
+ * 点名;③ 坏行/缺字段整条作废并逐条点名。与旧 JSON 台账的唯一差别是:本把的"失去命中"打 ⚠ 不清
+ * 红 —— 那是卫生提醒,不是判据,而把它当判据正是恒红门的成因。
+ */
+export function loadNamedSites(file = SITES_FILE) {
+  if (!existsSync(file)) return { entries: [], error: `现场登记件不存在:${file}`, bad: [] }
+  const lines = readFileSync(file, 'utf8').split(/\r?\n/).filter((l) => l.trim() !== '')
+  const entries = []
+  const bad = []
+  for (const [i, line] of lines.entries()) {
+    let e
+    try {
+      e = JSON.parse(line)
+    } catch (err) {
+      bad.push(`第 ${i + 1} 行 JSON 坏(${err.message})`)
+      continue
+    }
+    const okShape = entryUsable(e)
+    if (okShape) entries.push({ ...e, rel: normRel(e.rel) })
+    else bad.push(`第 ${i + 1} 行缺 owner/why 或到期日不是 YYYY-MM-DD(rel=${String(e?.rel ?? '(无)')})`)
   }
   return { entries, error: '', bad }
 }
@@ -181,7 +234,9 @@ export function splitByExemption(hits, entries, today = isoToday()) {
   for (const h of hits) {
     const segs = String(h.rel).split(/[\\/]/).filter(Boolean)
     const container = segs.slice(0, -1).join('/')
-    const e = entries.find((x) => x.rel === container)
+    // 形态校验下沉到这里,两把载体共用同一个点:纯函数自己不设防的话,"谁调用谁校验"就成了
+    // 口头约定 —— 调用方漏一步,空 owner/空 why 就能换到一次放行。
+    const e = entries.find((x) => x && x.rel === container && entryUsable(x))
     if (!e) {
       reported.push(h)
       continue
@@ -297,15 +352,22 @@ export function scanForNestedGit(root, opts = {}) {
  */
 export function evaluateResult(scan, opts = {}) {
   const entries = opts.entries ?? []
+  const sites = opts.sites ?? []
   const checkStale = opts.checkStale === true
-  const split = splitByExemption(scan.hits, entries, opts.today ?? isoToday())
-  const reasons = split.reported.map(
+  const today = opts.today ?? isoToday()
+  // 两把载体各跑一遍:先旧 JSON(保留它原有的「腐烂判红」语义,一字不改),剩下没被免掉的
+  // 命中再交给行式意图登记。放行永远只作用在**当刻真实命中的那一条**上。
+  const jsonPass = splitByExemption(scan.hits, entries, today)
+  const sitePass = sites.length
+    ? splitByExemption(jsonPass.reported, sites, today)
+    : { reported: jsonPass.reported, exempted: [], stale: [] }
+  const reasons = sitePass.reported.map(
     (h) =>
       `${h.isDir ? '嵌套 .git 目录' : '嵌套 .git(gitfile)'}: ${h.path}` +
       (h.exemptWhy ? ` —— ${h.exemptWhy}` : '')
   )
   if (checkStale) {
-    for (const s of split.stale) {
+    for (const s of jsonPass.stale) {
       reasons.push(
         `具名豁免腐烂:台账里的「${s.rel}」本次审面已无命中 ⇒ 清单腐烂判红(§0.7:豁免必须随现场一起销,不许留在册上等人猜它还在不在)`
       )
@@ -319,8 +381,12 @@ export function evaluateResult(scan, opts = {}) {
   return {
     ok: reasons.length === 0,
     reasons,
-    exempted: split.exempted,
-    stale: split.stale,
+    exempted: [
+      ...jsonPass.exempted.map((x) => ({ ...x, via: 'JSON 台账' })),
+      ...sitePass.exempted.map((x) => ({ ...x, via: '行式现场登记' })),
+    ],
+    stale: jsonPass.stale,
+    staleSites: sitePass.stale,
     linked: scan.linkedWorktrees ?? [],
   }
 }
@@ -346,8 +412,10 @@ export async function main(argv = process.argv.slice(2)) {
 
   const scan = scanForNestedGit(root)
   const ledger = loadNamedExemptions()
+  const sites = loadNamedSites()
   const verdict = evaluateResult(scan, {
     entries: ledger.entries,
+    sites: sites.entries,
     checkStale: resolve(root) === REPO_ROOT,
   })
   if (ledger.error && scan.hits.length > 0) {
@@ -356,11 +424,27 @@ export async function main(argv = process.argv.slice(2)) {
     )
     verdict.ok = false
   }
+  if (sites.error && scan.hits.length > 0) {
+    verdict.reasons.push(`现场登记件不可用(${sites.error})⇒ 该载体本轮零放行(命中一条也不免,严档)`)
+    verdict.ok = false
+  }
   if (ledger.bad && ledger.bad.length > 0) {
     verdict.reasons.push(
       `具名豁免条目形态不合格 ${ledger.bad.length} 条(缺 owner/why 或到期日不是 YYYY-MM-DD)⇒ 整条作废:${ledger.bad.join(', ')}`
     )
     verdict.ok = false
+  }
+  if (sites.bad && sites.bad.length > 0) {
+    verdict.reasons.push(
+      `现场登记件形态不合格 ${sites.bad.length} 行 ⇒ 整行作废(缺 owner/why/到期日或 JSON 坏):${sites.bad.join('; ')}`
+    )
+    verdict.ok = false
+  }
+  // 行式载体"失去命中"只提醒不清红:它记的是意图,存续由本门现算;把它当红判据正是六轮翻转的燃料。
+  for (const s of verdict.staleSites) {
+    console.warn(
+      `${GATE_LABEL} ⚠ 现场登记件里的「${s.rel}」本次审面已无命中 ⇒ 该行的豁免本轮自然不生效(未命中=免不了任何东西),不判红;归属 ${s.owner} 若已撤离,请随批摘掉该行。`
+    )
   }
 
   const linkedLine = verdict.linked.length
@@ -374,12 +458,12 @@ export async function main(argv = process.argv.slice(2)) {
       )
     } else {
       console.info(
-        `${GATE_LABEL} ✅ 命中 ${scan.hits.length} 处已全部被具名台账放行(审面逐条现读,非缓存${linkedLine ? `;${linkedLine}` : ''})`
+        `${GATE_LABEL} ✅ 命中 ${scan.hits.length} 处已全部被具名登记放行(载体逐条标注;审面逐条现读,非缓存${linkedLine ? `;${linkedLine}` : ''})`
       )
     }
     for (const x of verdict.exempted) {
       console.info(
-        `   🪪 具名豁免:${x.entry.rel} —— 归属 ${x.entry.owner};因由 ${x.entry.why};到期 ${x.entry.expires}(过期即判红)`
+        `   🪪 具名豁免(载体:${x.via}):${x.entry.rel} —— 归属 ${x.entry.owner};因由 ${x.entry.why};到期 ${x.entry.expires}(过期即判红)`
       )
     }
     for (const w of verdict.linked) {
@@ -397,7 +481,7 @@ export async function main(argv = process.argv.slice(2)) {
     console.error(`  ℹ 另有 ${verdict.exempted.length} 处已被具名豁免放行(仍逐条列出,不静默):`)
     for (const x of verdict.exempted) {
       console.error(
-        `     - ${x.entry.rel} —— 归属 ${x.entry.owner};因由 ${x.entry.why};到期 ${x.entry.expires}`
+        `     - ${x.entry.rel}(载体:${x.via}) —— 归属 ${x.entry.owner};因由 ${x.entry.why};到期 ${x.entry.expires}`
       )
     }
   }
@@ -421,7 +505,9 @@ export const __test__ = {
   scanForNestedGit,
   evaluateResult,
   isRepoRootGit,
+  sameRepoLinkedWorktree,
   loadNamedExemptions,
+  loadNamedSites,
   splitByExemption,
   normRel,
 }
