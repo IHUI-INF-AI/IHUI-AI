@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { test, expect, type Page } from '../../e2e/fixtures'
+import { RADIUS_ROLES, RADIUS_STEPS } from '../../../../packages/design-tokens/src/radius.js'
 
 /**
  * AI 对话框提示词模板视觉回归 + 5 状态自验
@@ -12,14 +13,18 @@ import { test, expect, type Page } from '../../e2e/fixtures'
  *     入口是"添加"按钮(aria-label=chat.addMenuLabel)→ 弹出添加菜单(role=menu,
  *     aria-label=chat.addMenuDesc)→ 内含「提示词模板」菜单项(chat.promptTemplate)
  *   - 点「提示词模板」→ Popover 展示 5 个核心模板(总结/翻译/解释/代码/润色)
- *   - 空状态(variant=chips)在 MessageList 空态渲染 5 个水平胶囊按钮
+ *   - 空状态(variant=chips)在 MessageList 空态渲染 5 个水平排列的 chips 按钮
  *   - /chat 未登录只显示"请登录"引导,AI 面板不渲染 → 全部用 authenticatedPage
  *
  * 守护目标(基于当前 add-menu-popover.tsx + message-input.tsx + prompt-templates.tsx):
- *   1. "添加"按钮位于 textarea 上方附加栏
+ *   1. "添加"按钮在**同一张输入卡内、textarea 之下**的底栏(651be7654e 输入卡单行化重构
+ *      — 底栏单行两簇:顶部栏控件全部降位,message-input.tsx 的 .ai-input-toolbar 排在
+ *      WebInputCore 之后;旧口径"textarea 上方附加栏"自该提交起即为假,现已更正)
  *   2. 添加菜单含「提示词模板 + 添加为上下文引用」并列项
  *   3. Popover 展示 5 个核心模板(总结/翻译/解释/代码/润色)
- *   4. 空状态(chips)展示 5 个水平胶囊按钮(rounded-md,非 rounded-full)
+ *   4. 空状态(chips)展示 5 个水平按钮,圆角量出来等于 design-tokens 控件档
+ *      (1532608ed6 O81 票⑳ 批 3 起 prompt-templates.tsx 写 rounded-sm = RADIUS_ROLES.control;
+ *      本仓规则是"几何是规则、标记不是出路"(96ac122056),故判实测半径而不是判 class 字符串)
  *   5. 点击模板 → textarea 自动填充
  *   6. 5 状态可视化:default / hover / popover-open / dark mode / empty-chips
  *
@@ -38,7 +43,14 @@ const PROMPT_ITEM = `${MENU} button:has-text("提示词模板")`
 // 旧选择器 role=dialog + "总结任务" 双双失配 → 恒红)
 const POPOVER = '[role="menu"]:has(button:has-text("总结"))'
 const TEXTAREA = `${AI_PANEL} textarea[aria-label]:not([disabled])`
+// 输入卡容器(message-input.tsx 的 'ai-input-shell flex flex-col rounded-xl border bg-card'):
+// textarea 与 .ai-input-toolbar(内含「添加」)同属这一张卡
+const INPUT_SHELL = `${AI_PANEL} .ai-input-shell`
 const CHIPS_WRAPPER = `${AI_PANEL} .flex.flex-wrap.items-center.justify-center.gap-2`
+
+// 控件档圆角 px:radius.js 的 RADIUS_ROLES.control → RADIUS_STEPS.sm
+// (本仓圆角单一源头;判据引用档位而不是抄 class 字符串或写死数字)
+const CONTROL_RADIUS_PX = RADIUS_STEPS[RADIUS_ROLES.control]
 
 // 打开 AI 侧边面板:登录后 /chat 直接渲染 docked AISidePanel
 async function openAiPanel(page: Page) {
@@ -66,7 +78,7 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
     })
   })
 
-  test('state 1: 默认态 (light mode) — "添加"按钮在附加栏,提示词模板入口在添加菜单内', async ({
+  test('state 1: 默认态 (light mode) — "添加"按钮在输入卡底栏,提示词模板入口在添加菜单内', async ({
     authenticatedPage,
   }) => {
     const page = authenticatedPage
@@ -81,7 +93,18 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
     const addBtn = page.locator(ADD_BTN).first()
     await expect(addBtn, '「添加」按钮应可见').toBeVisible()
 
-    // 2. 位置:必须在 textarea **上方**
+    // 2. 位置:必须在同一张输入卡内、textarea **之下**(2026-09-30 输入卡单行化后
+    //    message-input.tsx 的结构是 .ai-input-shell = textarea 主区 + 唯一底栏 .ai-input-toolbar)
+    const shell = page.locator(INPUT_SHELL).first()
+    await expect(shell, 'AI 面板应渲染输入卡 .ai-input-shell').toBeVisible()
+    await expect(
+      shell.locator('button[aria-label="添加"]').first(),
+      '「添加」按钮必须与 textarea 同属一张输入卡',
+    ).toBeVisible()
+    await expect(
+      shell.locator('textarea[aria-label]:not([disabled])').first(),
+      'textarea 必须在这张输入卡内',
+    ).toBeVisible()
     const btnBox = await addBtn.boundingBox()
     const taBox = await page.locator(TEXTAREA).first().boundingBox()
     expect(btnBox, '添加按钮 boundingBox 应存在').not.toBeNull()
@@ -89,8 +112,8 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
     if (btnBox && taBox) {
       expect(
         btnBox.y,
-        `添加按钮应在 textarea 上方(btn.y=${btnBox.y} < ta.y=${taBox.y})`,
-      ).toBeLessThan(taBox.y)
+        `添加按钮应在 textarea 下方(同卡底栏,btn.y=${btnBox.y} > ta.y=${taBox.y})`,
+      ).toBeGreaterThan(taBox.y)
     }
 
     // 3. 打开添加菜单 → 提示词模板 + 添加为上下文引用 并列可见
@@ -255,7 +278,7 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
     })
   })
 
-  test('state 5: 空状态 — 5 个水平 chips 胶囊按钮(与附加栏 Popover 视觉协调)', async ({
+  test('state 5: 空状态 — 5 个水平 chips 按钮(圆角取控件档,非胶囊)', async ({
     authenticatedPage,
   }) => {
     const page = authenticatedPage
@@ -279,10 +302,25 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
     const count = await chipBtns.count()
     expect(count, `空状态 chips 应有 5 个按钮,实际 ${count}`).toBe(5)
 
-    // 验证 chips 风格:圆角 (项目规则:禁止 rounded-full 胶囊,改用 rounded-md)
-    const firstChipClass = await chipBtns.first().getAttribute('class')
-    expect(firstChipClass, 'chips 应使用 rounded-md 圆角').toContain('rounded-md')
-    expect(firstChipClass, 'chips 不得使用 rounded-full 胶囊').not.toContain('rounded-full')
+    // 验证 chips 圆角:判量出来的半径,不判 class 标记(96ac122056「几何是规则、标记不是出路」)
+    const chipShape = await chipBtns.first().evaluate((el) => {
+      const cs = getComputedStyle(el)
+      const r = el.getBoundingClientRect()
+      return { br: cs.borderTopLeftRadius, w: r.width, h: r.height }
+    })
+    const chipBrNum = parseFloat(chipShape.br)
+    expect(Number.isFinite(chipBrNum), `chips 圆角应能解析成 px 数值,实际="${chipShape.br}"`).toBe(
+      true,
+    )
+    // ① 等于档位表里的控件档(prompt-templates.tsx 自 1532608ed6 起写 rounded-sm)
+    expect(chipBrNum, `chips 圆角应等于控件档 ${CONTROL_RADIUS_PX}px,实际 ${chipBrNum}px`).toBe(
+      CONTROL_RADIUS_PX,
+    )
+    // ② 不是胶囊/纯圆:半径必须严格小于短边一半(旧断言 not.toContain('rounded-full') 的几何版)
+    expect(
+      chipBrNum,
+      `chips 不得是胶囊型(短边 ${Math.min(chipShape.w, chipShape.h)}px,半径应小于一半)`,
+    ).toBeLessThan(Math.min(chipShape.w, chipShape.h) / 2)
 
     // 截图存档
     await page.screenshot({

@@ -155,13 +155,23 @@ test.describe('SiteFooter v10/v11 防回归', () => {
       }
     })
     await adminPage.goto('/')
-    await adminPage.locator('footer').waitFor({ state: 'visible', timeout: 15000 })
+    // 2026-10-20 修复:同一次会话里第二次 goto('/') 之后,文档里会同时存在两枚 SiteFooter
+    // (Next 保留的上一页实例是 hidden 的)⇒ 旧写法 `locator('footer')` 当场 strict mode
+    // violation(CI 实测:"locator('footer') resolved to 2 elements",用例 flaky 过一次)。
+    // 改为只认**可见**的那一枚,并把它当作后续所有查询的锚点。
+    const siteFooter = adminPage.locator('footer:visible').first()
+    await siteFooter.waitFor({ state: 'visible', timeout: 15000 })
 
     // 英文版 footer 应包含 "International Models" / "Chinese Models"
-    const intlEn = adminPage.locator('footer h5:has-text("International Models")')
-    const cnEn = adminPage.locator('footer h5:has-text("Chinese Models")')
-    await expect(intlEn).toBeVisible()
-    await expect(cnEn).toBeVisible()
+    await expect(siteFooter.locator('h5').filter({ hasText: 'International Models' })).toBeVisible()
+    await expect(siteFooter.locator('h5').filter({ hasText: 'Chinese Models' })).toBeVisible()
+
+    // 模型名那一半:PlatformIcon(SiteFooter.tsx:88-127)把 t(modelItems.x) 同时喂给
+    // Tooltip content 和 <Image alt>,而 Tooltip 内容只在 hover 时才进 DOM、本仓又禁原生
+    // title 属性(check-no-native-dialog.mjs),所以可观测面是 alt —— 同一串取源,判的是
+    // 同一件事:footer 的模型名必须跟着语种走(通义千问 → Qwen)。
+    await expect(siteFooter.getByRole('img', { name: 'Qwen' })).toBeVisible()
+    await expect(siteFooter.getByRole('img', { name: '通义千问' })).toHaveCount(0)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
