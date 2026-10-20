@@ -1359,6 +1359,7 @@ export function decideWithSelfRunBatch({
   hookText,
   foreignStaged,
   runGateBaseline,
+  readGateSource = null,
 }) {
   const blocker = blockedBeforeBatch(hookText)
   const sourceNote = blocker
@@ -1398,6 +1399,7 @@ export function decideWithSelfRunBatch({
     runGate,
     runGateBaseline,
     foreignStaged,
+    readGateSource,
   })
   const summary = parseGateSummary(selfRun.output)
 
