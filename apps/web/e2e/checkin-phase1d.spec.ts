@@ -101,6 +101,17 @@ test.describe.serial('签到助手 · 登录态全流程', () => {
         }),
       }),
     )
+    // 2026-10-21 补第二桩:空状态那句 `t('emptyAccounts')` 只在账号列表**真取到空数组**时渲染
+    // (page.tsx:2100);CI 无 8803 ⇒ getCheckinAccounts 走 catch,列表停在未加载态 ⇒ 徽章能过、
+    // 空状态永远不出现(上一轮 CI 现读正是断在这一行)。后端 GET /accounts 返回
+    // { accounts, count }(routers/checkin.py:263-274),这里桩成空表。
+    await authenticatedPage.route(/\/api\/checkin\/accounts(\?.*)?$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ accounts: [], count: 0 }),
+      }),
+    )
     await authenticatedPage.goto('/checkin')
     await expect(authenticatedPage.getByRole('heading', { name: '签到助手' })).toBeVisible()
     await expect(authenticatedPage.getByRole('button', { name: '一键全部签到' })).toBeVisible()
