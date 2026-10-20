@@ -8,13 +8,14 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: a3689de714a00dffc6b7ff018f27c6bc454cd6cf
-// inputsSha256: 6c015845f42b1688c8ae3bb161f644208cbff1671c437de2e47abeec25977bbd
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 83cd7ae096ecbf6928e764e426676398fb1b8fcdafb0d7317717bab2529f35a4
+// sourceCommit: c9a758785329a472cfd006ea6dc7fd05cd9fbb0a
+// inputsSha256: 00b86ec75b6c124c451741486be4d35f72af9873a9aa27f1daf026d450df659a
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx b442722347e546c26bceb593d1c0ce99ab7b5bb39110c983e9d0d0d3d0daf17e
 // input: apps/mobile-rn/src/navigation/linking.ts a837df56feae352828f449fb73b6635acf01e7a0601272c04c70ab9d8dc8c108
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-20T13:38:18.055Z
+// generatedAt: 2026-10-20T18:14:25.541Z
 // IHUI-GEN-PIN-END
+
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
 export interface RnUiRouteEntry {
@@ -28,7 +29,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 215 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 216 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -60,6 +61,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'RealNameAuth', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'IdentityVerify', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'SecuritySettings', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'SecurityCenter', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Privacy', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Agreement', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'About', tab: false, requiresParams: false, requiredParams: [] },
