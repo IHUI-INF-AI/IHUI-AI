@@ -302,7 +302,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
         <button
           type="button"
           onClick={() => setNavOpen((v) => !v)}
-          className="w-full px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hover:text-cyan-300"
+          className="w-full px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hover:text-info"
         >
           {navOpen ? `监控面板 (${boards.length})` : '»'}
         </button>
@@ -329,7 +329,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
                         className={cn(
                           'block w-full truncate px-3 py-1.5 text-left text-xs transition-colors',
                           d.uid === activeUid
-                            ? 'border-l-2 border-cyan-400 bg-muted text-cyan-300'
+                            ? 'border-l-2 border-info bg-muted text-info'
                             : 'border-l-2 border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
                         )}
                       >
@@ -367,7 +367,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="筛选面板…"
-                className="w-32 rounded-sm border border-border bg-muted py-1 pl-7 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground focus:border-cyan-500/40 focus:outline-none"
+                className="w-32 rounded-sm border border-border bg-muted py-1 pl-7 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground focus:border-info/40 focus:outline-none"
               />
             </div>
             <div className="flex overflow-hidden rounded-sm border border-border">
@@ -379,7 +379,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
                   className={cn(
                     'px-2.5 py-1 text-[11px] transition-colors',
                     rangeSec === r.seconds
-                      ? 'bg-cyan-500/15 text-cyan-300'
+                      ? 'bg-info/15 text-info'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -393,7 +393,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
               className={cn(
                 'flex items-center gap-1 rounded-sm border px-2 py-1 text-[11px]',
                 autoRefresh
-                  ? 'border-cyan-500/40 text-cyan-300'
+                  ? 'border-info/40 text-info'
                   : 'border-border text-muted-foreground hover:text-foreground',
               )}
             >
@@ -407,7 +407,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
               type="button"
               onClick={() => dashboard && void load(dashboard, rangeSec)}
               disabled={loading || !dashboard}
-              className="rounded-sm border border-border px-2 py-1 text-[11px] text-foreground hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-50"
+              className="rounded-sm border border-border px-2 py-1 text-[11px] text-foreground hover:border-info/40 hover:text-info disabled:opacity-50"
             >
               刷新
             </button>
@@ -420,7 +420,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
         </div>
 
         {pageError && (
-          <div className="border-b border-amber-500/20 bg-amber-500/5 px-4 py-1.5 text-[11px] text-amber-400">
+          <div className="border-b border-warning/20 bg-warning/5 px-4 py-1.5 text-[11px] text-warning">
             {pageError}
           </div>
         )}
