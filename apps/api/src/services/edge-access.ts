@@ -160,7 +160,7 @@ function percentile(sorted: number[], p: number): number | null {
 }
 
 /** 只对 `ok:true` 的首页样本计分位;窗口空 ⇒ 全 null(不冒充"一切正常")。 */
-export function statsFrom(samples: EdgeSnapshot[]): EdgeStats {
+function statsFrom(samples: EdgeSnapshot[]): EdgeStats {
   const home = samples.map((s) => s.legs.edgeHomepage).filter((l) => l.ok)
   const ms = home
     .map((l) => l.totalMs)
@@ -181,7 +181,7 @@ export function statsFrom(samples: EdgeSnapshot[]): EdgeStats {
   }
 }
 
-export async function runEdgeRound(): Promise<EdgeSnapshot> {
+async function runEdgeRound(): Promise<EdgeSnapshot> {
   const legs = {} as Record<EdgeLegKey, EdgeLegSample>
   for (const t of TARGETS) {
     legs[t.key] = await probe(t.url)
@@ -194,10 +194,6 @@ export async function runEdgeRound(): Promise<EdgeSnapshot> {
 
 export function latestEdgeSnapshot(): EdgeSnapshot | null {
   return ring[ring.length - 1] ?? null
-}
-
-export function edgeRing(): EdgeSnapshot[] {
-  return ring
 }
 
 /** 大屏 sparkline 用的窄序列:只要首页耗时 + 命中标志。 */
@@ -228,10 +224,4 @@ export function startEdgeAccessProbe(
   timer.unref?.()
 }
 
-export function stopEdgeAccessProbe(): void {
-  if (timer) clearInterval(timer)
-  timer = null
-}
-
-export const __test__ = { statsFrom, percentile, TARGETS, edgeSeries, emptyLeg }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

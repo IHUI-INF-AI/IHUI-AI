@@ -19,7 +19,7 @@ import {
   type WebPortalSection,
 } from '@ihui/shared/constants'
 
-export { WEB_PORTAL_SECTIONS, buildWebPortalUrl, toWebSsoRedirectUri }
+export { WEB_PORTAL_SECTIONS }
 export type { WebPortalEntry, WebPortalSection }
 
 const ENV_WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_BASE_URL

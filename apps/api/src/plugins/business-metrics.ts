@@ -879,8 +879,8 @@ export function recordLiveStreamDisconnected(): void {
 
 // ============================== oss 6 ==============================
 
-/** 上传字节数(单位 = 字节)。 */
-export function recordOssUploadBytes(bytes: number): void {
+/** 上传字节数(单位 = 字节)。经 server.decorate('recordOssUploadBytes') 暴露为实例方法。 */
+function recordOssUploadBytes(bytes: number): void {
   safeRecord('recordOssUploadBytes', () => {
     if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes <= 0) return
     ihuiState.ossUploadBytesTotal += bytes
