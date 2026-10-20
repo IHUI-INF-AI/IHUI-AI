@@ -14,6 +14,7 @@ import { isNum, isUnset, thresholdTone, type StatusTone } from './unknown-state'
  * 随站点明暗主题切换(ECharts 走 canvas 读不到 CSS var,按 resolvedTheme 显式切换,见下方图表主题)。
  */
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -462,7 +463,16 @@ function seriesGlow(color: string) {
 
 // ===================== 页面 =====================
 
+/** 监控大屏路由:统一落到监控面板页的大屏模式,由该页顶部按钮切换两种呈现。 */
 export default function OpsWallboardPage() {
+  const router = useRouter()
+  React.useEffect(() => {
+    router.replace('/admin/monitor/panels?view=wallboard')
+  }, [router])
+  return null
+}
+
+export function WallboardView() {
   const t = useTranslations('admin.wallboard')
   const locale = useLocale()
   const { resolvedTheme } = useTheme()
