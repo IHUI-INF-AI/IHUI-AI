@@ -28857,3 +28857,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] **G-922 守门 39 门体自身的四处判据缺陷** —— 净检出复量时量到:① ROOT 用 process.cwd() 定根(违 §15,共享工作树 cwd 不可靠);② readFileSync 直取磁盘,无 HEAD/索引面纪律(违 §0.4/守门 118);③ 白名单 15 枚里 DebugScreen 与 SquareScreen 两枚文件已不存在,且整族无到期机制(违 §0.7/守门 108);④ 判据只认"有一条 @ihui/rn-app 的 import 就算已迁移",不查 packages/app 有无同名共享屏 ⇒ "已迁移 203"这个绿数不代表屏级共享;头注仍写 5 项/151,已失真。修判据时四条一起,别只补其中一条。
 
 - [ ] **G-924 apps/cli 记忆模块两处直连后端改走 api-client(守门 73 的真存量)** —— 净检出复量:全仓命中 43 处,基线内 41,真新增 2 枚全在 apps/cli/src/memory/index.ts(按文件现读直连调用点);其余 25 处红来自 .gitignore 忽略的 dist-sea 打包残留,且该门体此刻正被持有席改排除表,属另一格,勿一并"修"。
+
+- [ ] **G-925 守门 77 的一百一十五处 dead-class 圆角修复(净检出分桶判定的真存量)** —— 现状:rounded-panel / rounded-control / rounded-tiny 的尾段是角色名不是档位名,Tailwind 不产出规则 ⇒ 这些元素实际圆角为 0,是真实视觉缺陷而非账面噪声;两侧读数逐字相同、基线 sites 为空 ⇒ 报在"新增"是口径设计,不存在恒红门豁免空间。修法:按 packages/design-tokens 的角色映射(tiny 对 xs、control 对 sm、card 对 lg、panel 对 xl)逐枚换成真档位;**注意这是改观感**(从无圆角到有圆角),须真机/模拟器验证后交付,禁改判据、禁往基线塞条目凑绿。
