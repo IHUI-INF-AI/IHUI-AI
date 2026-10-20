@@ -486,6 +486,24 @@ export function classifyAlertIdentity(targetKey, stat, opt = {}) {
   return { causeKey, sevTier, heldTier, identity, why: parts.join(';') }
 }
 
+/**
+ * 把一条内部 verdict 投影成**派发契约**的那份形状(消费方 = `git-guardian.mjs` 的
+ * `auditPublicPathProbe`,它按 `verdict/reasons/numbers/leg/stat` 五键算身份与出路)。
+ *
+ * 为什么必须是导出的单独函数:这一行曾经直接内联在 `main()` 里,于是"少带一个键"这种
+ * 缺陷既没有单元测试能打到、也没被任何镜像夹具钉住 —— A 序列自己已经带了 `stat`,
+ * 却在这道投影里被丢掉,整条严重度升级通道因此静默失效(§12f:判据失效的表现永远是安静)。
+ * 契约住在函数里,镜像测试才能拿真 `summarizeSequence` 的输出喂它。
+ */
+export function projectVerdictForDispatch(v) {
+  const out = { verdict: v.verdict, reasons: v.reasons, numbers: v.numbers }
+  if (v.leg) out.leg = v.leg
+  // `stat` 不是诊断装饰:派发层 classifyAlertIdentity 的**严重度档**只从它取
+  // (unavailable/longestRunMs/runs/slowRatio)。丢了它 ⇒ sevTier 恒 0 ⇒ 断流级恶化也不会变成新身份。
+  if (v.stat && typeof v.stat === 'object') out.stat = v.stat
+  return out
+}
+
 // ───────────────────────── 换流事件 oracle(纯函数) ─────────────────────────
 
 /**
@@ -1278,10 +1296,13 @@ async function main(argv) {
       if (!split.splitApplied) j.reasons = [...j.reasons, `(附)B/${label}:换流窗口**未剔除**(${split.reason})⇒ 若本轮发生过部署,常态比率含换流洞,不得据此给公网出"常态健康"合格证`]
       else if (split.untimeable > 0) j.reasons = [...j.reasons, `(附)B/${label}:${split.untimeable} 条样本无可用时刻,保守留在常态集(不猜归属)`]
       if (leg) j.reasons = [...j.reasons, `[定位]${leg.note}`]
-      emit(key, url, { ...j, leg: leg ? leg.leg : null })
+      // `stat` 必须随结论一起出口:派发层(git-guardian)按它算**严重度档**,
+      // 拿不到就把档冻在 0 ⇒ "恶化到断流级立刻重报"那条升级通道结构上打不到
+      // (2026-10-20 实测:线上身份恒 `entry;sev=0;held=1`,而同一轮 numbers 里慢样本率 40%、3 条不可归因)。
+      emit(key, url, { ...j, leg: leg ? leg.leg : null, stat })
       if (win) {
         // 窗口段按序列 A 的"洞长"口径判:它是换流的既定代价,不是公网常态病 —— 混进比率就是两条互相掩盖。
-        emit(`B/${label}·窗口段(归A语义)`, url, judgeSequence(`B/${label}·窗口段`, win, { rule: 'outage', slowMs: opt.slowMs, outageMs: opt.outageMs }))
+        emit(`B/${label}·窗口段(归A语义)`, url, { ...judgeSequence(`B/${label}·窗口段`, win, { rule: 'outage', slowMs: opt.slowMs, outageMs: opt.outageMs }), stat: win })
       } else {
         lines.push(`B/${label}·窗口段:${split.splitApplied ? '窗口内样本 0(**已判定**的真 0,与常态比率互不顶账)' : `**未判定** —— ${split.reason}`}`)
       }
@@ -1306,7 +1327,7 @@ async function main(argv) {
   let rc = verdicts.length === 0 ? 3 : anyBreach ? 1 : allUnjudged ? 3 : 0
   if (controlBlind) rc = 3
   const results = {}
-  for (const v of verdicts) results[v.key] = { verdict: v.verdict, reasons: v.reasons, numbers: v.numbers, ...(v.leg ? { leg: v.leg } : {}) }
+  for (const v of verdicts) results[v.key] = projectVerdictForDispatch(v)
   if (opt.ledger) {
     writeLedgerTrailer(opt.ledger, { at: new Date().toISOString(), rc, results, control, split: splitReport, swapEvents: (ev.events || []).map((e) => e.at).slice(-50), opt: { slowMs: opt.slowMs, ceilingMs: opt.ceilingMs, samples: opt.samples, publicUrl: opt.publicUrl, localUrl: opt.localUrl } })
     sealLedger(opt.ledger, rc)
@@ -1361,6 +1382,7 @@ export const __test__ = {
   longestUnavailableRun,
   judgeSequence,
   classifyAlertIdentity,
+  projectVerdictForDispatch,
   findLatestSwapEvent,
   findSwapEvents,
   lineMatchesMarker,
