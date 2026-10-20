@@ -502,18 +502,19 @@ Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免
 
 > **桌面端一条独有约束(改这条链前必读)**:Tauri 自动更新用 minisign `.sig` 校验安装包**字节**,而 Authenticode 签名会改字节 ⇒ `release-desktop.yml` 的签名步在覆盖安装包后**必须**就地 `tauri signer sign` 重算同名 `.sig`,重算失败即硬失败。让 `.sig` 停在旧字节上的后果是全部已装客户端自动更新失败,比不签名严重。`latest.json` 由 `publish-updater-json`(needs: build)在替换之后聚合,顺序正确;`sync-gitee` / `sync-downloads` 同理取替换后的资产。
 
-**当前状态(2026-10-19)**
+**当前状态(2026-10-20)**
 
 | 项 | 状态 |
 | --- | --- |
-| 申请 | ✅ 2026-10-18 已通过官网表单提交(项目 IHUI AI,仓库 https://github.com/IHUI-INF-AI/IHUI-AI,邮箱 ok502319984@gmail.com) |
-| 声誉问询 | ✅ 2026-10-19 已邮件回复(SignPath 要求补充项目声誉/影响力公开佐证,与 GitHub OAuth 无关) |
-| 审批 | ⏳ 待审批,官方周期约 1-2 周 |
+| 申请 | ⏳ **尚未提交**。官网 `https://signpath.org/apply` 的 HubSpot 表单被 reCAPTCHA Enterprise 阻塞,本机与 CI 均未通过验证;官方页面未提供申请邮箱,只能由人工在本机浏览器完成验证后提交。申请表联系邮箱:`502319984@qq.com` |
+| 审批 | — 未开始(申请尚未送达) |
 | 费用 / 证书 | 免费;Sectigo CA 签发 |
 | 私钥 | 由 SignPath HSM 保管,CI 只持短期凭据 |
-| CI 集成 | ✅ 代码面已接入(`release-cli.yml` + `release-desktop.yml`,凭据未齐时整体跳过、不影响现有发布);⏳ 等四项 secret 到位后跑一次真发版,核对签名链与 `latest.json` 配对 |
+| CI 集成 | ✅ 代码面已接入(`release-cli.yml` + `release-desktop.yml`,凭据未齐时整体跳过、不影响现有发布);⏳ 等申请通过并配齐四项 secret 后跑一次真发版,核对签名链与 `latest.json` 配对 |
 
-**2026-10-19 回复问询时提交的公开佐证**(均已 HTTP 200 验证):
+> **2026-10-20 更正**:此前本文写的「2026-10-18 已提交」与「2026-10-19 已邮件回复声誉问询」没有提交凭据或邮件凭据。实测 QQ 邮箱的收件箱、垃圾箱、已删除与已发送都没有 SignPath/HubSpot 来信,发件箱也没有回复记录;申请实际尚未提交。
+
+**提交申请表时可附的公开佐证**(已备好,尚未发送):
 
 | 类型 | 链接 |
 | --- | --- |
