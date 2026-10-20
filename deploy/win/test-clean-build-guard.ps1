@@ -32,8 +32,16 @@ $fn = $ast.FindAll(
     { param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Test-CleanBuildEnvInlined' },
     $true
 ) | Select-Object -First 1
-if (-not $fn) {
-    'FAIL  ihui-deploy.ps1 里找不到 Test-CleanBuildEnvInlined(判据被摘线?)'
+$stampFn = $ast.FindAll(
+    { param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-CleanBuildDepStamp' },
+    $true
+) | Select-Object -First 1
+$installFn = $ast.FindAll(
+    { param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Test-CleanBuildInstallNeeded' },
+    $true
+) | Select-Object -First 1
+if (-not $fn -or -not $stampFn -or -not $installFn) {
+    'FAIL  ihui-deploy.ps1 里找不到净面判据(Test-CleanBuildEnvInlined / Get-CleanBuildDepStamp / Test-CleanBuildInstallNeeded;判据被摘线?)'
     exit 1
 }
 
@@ -42,7 +50,7 @@ New-Item -ItemType Directory -Path $scratchRoot -Force | Out-Null
 # 用 `&` 调 scriptblock 会在**新作用域**里定义函数 ⇒ 用例处报"不是 cmdlet"(第一版就栽在
 # 这里,而报错误导成像函数名写错)。点源一个临时文件才是"定义在当前作用域"的可靠写法。
 $fnFile = Join-Path $scratchRoot 'extracted-fn.ps1'
-Set-Content -LiteralPath $fnFile -Value $fn.Extent.Text -Encoding ASCII
+Set-Content -LiteralPath $fnFile -Value ($fn.Extent.Text + "`n" + $stampFn.Extent.Text + "`n" + $installFn.Extent.Text) -Encoding ASCII
 . $fnFile
 if (-not (Get-Command Test-CleanBuildEnvInlined -ErrorAction SilentlyContinue)) {
     'FAIL  函数提取后没定义成功(判据形态变了?提取式需随之改)'
@@ -124,6 +132,27 @@ try {
     Set-Content -LiteralPath $env7 -Value 'NEXT_PUBLIC_WECHAT_APP_ID=wx0123456789abcdef' -Encoding ASCII
     $r7 = Test-CleanBuildEnvInlined -ArtifactDir $a7 -EnvFile $env7
     Check '扫不到 js ⇒ undetermined' $r7[0] 'undetermined' $r7[1]
+
+    # 8) 依赖面指纹:同输入稳定、lockfile 变化即变、缺文件用占位符而不是空
+    $d1 = Fresh 'd1'
+    Set-Content -LiteralPath (Join-Path $d1 'pnpm-lock.yaml') -Value 'lockfileVersion: 9' -Encoding ASCII
+    Set-Content -LiteralPath (Join-Path $d1 'pnpm-workspace.yaml') -Value 'packages: []' -Encoding ASCII
+    Set-Content -LiteralPath (Join-Path $d1 '.npmrc') -Value 'shamefully-hoist=false' -Encoding ASCII
+    $s1 = Get-CleanBuildDepStamp $d1
+    $s2 = Get-CleanBuildDepStamp $d1
+    Check '依赖指纹同输入稳定' $s2 $s1 '同目录两次计算必须同值'
+    Set-Content -LiteralPath (Join-Path $d1 'pnpm-lock.yaml') -Value 'lockfileVersion: 10' -Encoding ASCII
+    $s3 = Get-CleanBuildDepStamp $d1
+    Check 'lockfile 变化 ⇒ 指纹变化' ($(if ($s1 -ne $s3) { 'changed' } else { 'same' })) 'changed' '装依赖的唯一触发面'
+    $d2 = Fresh 'd2'
+    $s4 = Get-CleanBuildDepStamp $d2
+    Check '缺文件 ⇒ 占位指纹非空' ($(if ($s4) { 'nonempty' } else { 'empty' })) 'nonempty' '取不到时不得静默为空'
+
+    # 9) 安装决策:2026-10-20 事故型 = next.cmd 在而依赖面已变,必须重装
+    Check 'next.cmd 缺失 ⇒ 必装' ([string](Test-CleanBuildInstallNeeded -WebBinExists $false -DepStamp 'a' -StampInstalled 'a')) 'True' '首轮净面'
+    Check '指纹一致 ⇒ 跳过安装' ([string](Test-CleanBuildInstallNeeded -WebBinExists $true -DepStamp 'a' -StampInstalled 'a')) 'False' '无变化不重装'
+    Check '指纹不一致 ⇒ 必装' ([string](Test-CleanBuildInstallNeeded -WebBinExists $true -DepStamp 'b' -StampInstalled 'a')) 'True' 'next.cmd 在但依赖面已变'
+    Check '无指纹 ⇒ 必装' ([string](Test-CleanBuildInstallNeeded -WebBinExists $true -DepStamp '' -StampInstalled '')) 'True' '未判定不得当已装好'
 } finally {
     try {
         if (Test-Path -LiteralPath $scratchRoot) { Remove-Item -LiteralPath $scratchRoot -Recurse -Force -ErrorAction Stop }
