@@ -85,6 +85,7 @@ import { SubAgentTaskTree } from './progress-sections/sub-agent-task-tree'
 import { NextStepsCard } from './progress-sections/next-steps-card'
 // D27(2026-09-20 立):交付审查视图 — 实时交付卡复用核心面板(agents 域组件,无循环依赖)
 import { DeliveryReviewPanel } from '@/components/agents/DeliveryReviewPanel'
+import { useOptionalPaneId } from '@/stores/chat-pane-context'
 
 /**
  * AgentTaskProgressPane — AI 面板右上角的小 popover(2026-07-29 v18)
@@ -279,6 +280,8 @@ const PlanStepItem = React.memo(function PlanStepItem({
   isHighlighted: boolean
 }) {
   const t = useTranslations('ai.pane')
+  // 票60:跳转事件带发起方窗格身份,消费侧按 matchesPaneEvent 门控(缺省 null = 根,零回归)
+  const paneId = useOptionalPaneId()
   const anchorRef = React.useRef<HTMLDivElement>(null)
   const Icon = PLAN_ICON[step.status]
 
@@ -367,9 +370,11 @@ const PlanStepItem = React.memo(function PlanStepItem({
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     // 派发自定义事件,MessageList 未来监听可响应
     window.dispatchEvent(
-      new CustomEvent('ihui:scroll-to-message', { detail: { messageId: linkedMessageId } }),
+      new CustomEvent('ihui:scroll-to-message', {
+        detail: { messageId: linkedMessageId, paneId },
+      }),
     )
-  }, [linkedMessageId, requestJumpToMessage, flashHighlight])
+  }, [linkedMessageId, requestJumpToMessage, flashHighlight, paneId])
 
   // 鼠标 hover 接入点:同步 store(setHoveredPlanStep + setHoveredMessage)
   const onMouseEnter = React.useCallback(
@@ -942,7 +947,8 @@ export function AgentTaskProgressPane() {
   const capacity = getModelContextCapacity(
     resolveContextDenominatorModel({ usageModel: usageFrameModel, sessionModel: currentModel }),
   )
-  const contextUsage = totalTokens > 0 && capacity > 0 ? Math.min(100, (totalTokens / capacity) * 100) : 0
+  const contextUsage =
+    totalTokens > 0 && capacity > 0 ? Math.min(100, (totalTokens / capacity) * 100) : 0
 
   // v10: completedCount + progressPct 用 useMemo 缓存
   const { completedCount, progressPct } = React.useMemo(() => {

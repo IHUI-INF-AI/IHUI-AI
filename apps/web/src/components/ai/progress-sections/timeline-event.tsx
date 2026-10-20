@@ -19,7 +19,13 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { stepDecisionLabel, isAgentAction, isAgentActionPhase, type StepDecisionState } from '@ihui/shared/chat'
+import { useOptionalPaneId } from '@/stores/chat-pane-context'
+import {
+  stepDecisionLabel,
+  isAgentAction,
+  isAgentActionPhase,
+  type StepDecisionState,
+} from '@ihui/shared/chat'
 import { rollbackCheckpoint } from '@ihui/api-client'
 import { MultiAgentActionCard, type MultiAgentActionEntry } from './multi-agent-action-card'
 import {
@@ -398,11 +404,10 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
     [event.meta],
   )
   // D97(G-133):meta.cloudChatActivity 载荷存在 ⇒ 行可展开,展开区渲染云端聊天活动卡
-  const cloudChatEntries = React.useMemo(
-    () => extractCloudChatEntries(event.meta),
-    [event.meta],
-  )
+  const cloudChatEntries = React.useMemo(() => extractCloudChatEntries(event.meta), [event.meta])
   const workspacePath = useIDEWorkspace((s) => s.workspacePath)
+  // 票60:跳转事件带发起方窗格身份,消费侧按 matchesPaneEvent 门控(缺省 null = 根,零回归)
+  const paneId = useOptionalPaneId()
   const [rollbackState, setRollbackState] = React.useState<'idle' | 'rolling' | 'done' | 'failed'>(
     'idle',
   )
@@ -428,27 +433,39 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
     // 优先级:messageId > planStepId > toolCallId(都通过 custom event 派发,MessageList 监听处理)
     if (event.messageId) {
       window.dispatchEvent(
-        new CustomEvent('ihui:scroll-to-message', { detail: { messageId: event.messageId } }),
+        new CustomEvent('ihui:scroll-to-message', {
+          detail: { messageId: event.messageId, paneId },
+        }),
       )
       return
     }
     if (event.planStepId) {
       window.dispatchEvent(
-        new CustomEvent('ihui:scroll-to-plan-step', { detail: { planStepId: event.planStepId } }),
+        new CustomEvent('ihui:scroll-to-plan-step', {
+          detail: { planStepId: event.planStepId, paneId },
+        }),
       )
       return
     }
     if (event.toolCallId) {
       window.dispatchEvent(
-        new CustomEvent('ihui:scroll-to-tool-call', { detail: { toolCallId: event.toolCallId } }),
+        new CustomEvent('ihui:scroll-to-tool-call', {
+          detail: { toolCallId: event.toolCallId, paneId },
+        }),
       )
     }
   }
 
   // 至少有一种交互目标(children / evidence / messageId / planStepId / toolCallId)才可点
   const hasJumpTarget = !!(event.messageId || event.planStepId || event.toolCallId)
-  const isClickable = hasChildren || evidenceAvailable || hasJumpTarget || actionEntries.length > 0 || cloudChatEntries.length > 0
-  const isExpandable = hasChildren || evidenceAvailable || actionEntries.length > 0 || cloudChatEntries.length > 0
+  const isClickable =
+    hasChildren ||
+    evidenceAvailable ||
+    hasJumpTarget ||
+    actionEntries.length > 0 ||
+    cloudChatEntries.length > 0
+  const isExpandable =
+    hasChildren || evidenceAvailable || actionEntries.length > 0 || cloudChatEntries.length > 0
 
   return (
     <div
