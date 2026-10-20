@@ -17,6 +17,9 @@ import {
   type AgentSettlement,
   type AgentExamine,
 } from '@ihui/database'
+// 拉取详情只允许刷新这一组缓存列(为什么不包含 avatar / agent_model / agent_temperature,
+// 逐条写在映射源的头注里)—— 参数类型收窄到它,写回过期地址那条路就从编译期断了。
+import type { CozeDetailPatch } from '../lib/coze-online-info.js'
 
 // =============================================================================
 // Agents 智能体
@@ -673,11 +676,7 @@ export async function findAgentSuggestions(botId: string): Promise<string[] | nu
 
 export async function updateAgentDetails(
   agentId: string,
-  details: {
-    agentVariables?: string
-    avatar?: string
-    agentModel?: string
-  },
+  details: CozeDetailPatch,
 ): Promise<Agent | undefined> {
   const rows = await db
     .update(agents)
