@@ -27,6 +27,7 @@
 | 向量扩展 | pgvector(`0123_pgvector_embedding.sql` + `0129_codebase_embedding.sql`) |
 
 > **表数差异说明**:[architecture.md §2](./architecture.md#2-数据库架构)记录"96 表 / 34 文件"是 2026-07-19 早期快照,后续 P0~P3 深度层开发新增大量模块,目前实际为 339 表 / 160+ schema 文件(本表数据基于 `packages/database/src/schema/` 目录实际盘点)。
+> 〔现读@2026-10-20 登记一条分叉,不擅自统一口径:同一目录下**非 index 的 .ts 共 230 枚**、其中 `pgTable(` 声明共 **598 处**,与本节标称的"339 表 / 160+ 文件"明显不是同一个口径(可能含关联表/重复声明,或 339 本身也是早期快照)。总数待本档归属会话重盘后统一改;在此之前**不得**拿 339 当现值引用,也不得按 598 直接替换 —— 两个数各自是怎么来的,本行没量到。〕
 
 ---
 
@@ -157,6 +158,7 @@ export type Database = ReturnType<typeof createDb>
 | 文件 | 代表表 |
 |------|--------|
 | `chat.ts` | `chat_conversations` / `chat_messages` / `chat_favorites` |
+| `chat-form-responses.ts` | `chat_form_responses`(D77 对话流业务表单的用户应答;`request_id` 主键即幂等锚点,**无 user_id 列** —— 归属判定住在 ai-service 结算闸门之前,不在表上二次推断身份;`reject` 行 `values` 恒为 NULL) |
 | `coze-chat-history.ts` | `coze_chat_history` |
 | `message.ts` | `messages`(站内信) |
 | `message-templates.ts` | `message_templates` |

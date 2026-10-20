@@ -32,7 +32,6 @@ import {
   Bot,
   Camera,
   Folder,
-  SlidersHorizontal,
   Search,
   History,
   Bookmark,
@@ -69,7 +68,6 @@ import {
   deleteFavorite,
   getActiveCarousels,
   getAllStudyProgress,
-  getAgentCategories,
   getAgentDetail,
   getAgentUseHistory,
   getAgents,
@@ -83,7 +81,6 @@ import {
   resolveFileUrl,
   uploadFileMultipart,
   type Agent,
-  type AgentCategoryItem,
   type Course,
   type Live,
   type MyCreationItem,
@@ -133,9 +130,8 @@ import ModelConfigDialog, {
 } from '../components/ModelConfigDialog'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
-// 对齐 Uniapp tools/index(AI应用商店):ai-list 智能体列表 + tagWrapShow 赛道分类弹层
+// 对齐 Uniapp tools/index(AI应用商店):ai-list 智能体列表
 import type { AgentShopItem } from '../components/AgentShopList'
-import { FenLeiOverlay } from '../components/FenLeiOverlay'
 // 对齐 Uniapp tools/index:MyAgents(我的AI APP)+ IntelligentAssistant(智汇值卡)
 import MyAgents, { type MyAgentItem } from '../components/MyAgents'
 import IntelligentAssistant from '../components/IntelligentAssistant'
@@ -575,24 +571,6 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
 
 // ── 对齐 Uniapp tools/index.vue(AI 应用商店)智能体列表相关 ──
 
-/** 赛道分类 fallback(复用 AgentScreen 同款数据源口径:getAgentCategories 失败时兜底,避免弹层为空)
- *  第一层:agentCategory(赛道,首项"全公司" id='')—— 对应接口参数 agentCategory */
-const AGENT_CATEGORY_FALLBACK: ReadonlyArray<AgentCategoryItem> = [
-  { id: '', name: '全公司' },
-  { id: 'tech', name: '技术' },
-  { id: 'design', name: '设计' },
-  { id: 'market', name: '市场' },
-  { id: 'operation', name: '运营' },
-]
-/** 第二层:agentMainCategory(主分类,首项"全部" id='')—— 对应接口参数 agentMainCategory */
-const AGENT_MAIN_CATEGORY_FALLBACK: ReadonlyArray<AgentCategoryItem> = [
-  { id: '', name: '全部' },
-  { id: 'writing', name: '写作' },
-  { id: 'coding', name: '编程' },
-  { id: 'office', name: '办公' },
-  { id: 'learning', name: '学习' },
-]
-
 /** Agent → AgentShopItem 映射(点赞数后端 Agent 无字段,省略由卡片显示 0 占位) */
 function toAgentShopItem(a: Agent): AgentShopItem {
   return {
@@ -769,18 +747,8 @@ export function HomeScreen() {
   /** IntelligentAssistant 智汇值卡(对齐 Uniapp Intelligent-assistant.vue;数据源 getTokenBalance) */
   const [tokenQuantity, setTokenQuantity] = useState(0)
 
-  // ── 对齐 Uniapp tools/index.vue:ai-list 智能体列表 + tagWrapShow 赛道分类弹层 ──
+  // ── 对齐 Uniapp tools/index.vue:ai-list 智能体列表 ──
   const [agentItems, setAgentItems] = useState<AgentShopItem[]>([])
-  const [trackCategories, setTrackCategories] =
-    useState<ReadonlyArray<AgentCategoryItem>>(AGENT_CATEGORY_FALLBACK)
-  const [mainCategories, setMainCategories] = useState<ReadonlyArray<AgentCategoryItem>>(
-    AGENT_MAIN_CATEGORY_FALLBACK,
-  )
-  const [fenleiVisible, setFenleiVisible] = useState(false)
-  /** 选中的赛道(agentCategory,''=全公司,对齐 uniapp agentCategory_active) */
-  const [selectedTrackId, setSelectedTrackId] = useState('')
-  /** 选中的主分类(agentMainCategory,''=全部,对齐 uniapp fenlei_active_id) */
-  const [selectedMainId, setSelectedMainId] = useState('')
   // ── toodown 返回顶部(对齐 Uniapp onPageScroll > 阈值显示,RN 端 >600 显示) ──
   const [showBackTop, setShowBackTop] = useState(false)
   const scrollRef = useRef<ScrollView>(null)
@@ -1591,15 +1559,12 @@ export function HomeScreen() {
     setRecentAgents(fallback.slice(0, 5).map((a) => ({ id: a.id, name: a.name, avatar: a.avatar })))
   }, [])
 
-  // ── 智能体列表加载(对齐 Uniapp tools/index getAgentList:带赛道/主分类筛选) ──
+  // ── 智能体列表加载(对齐 Uniapp tools/index getAgentList;2026-10-20 用户定:首页不做分类筛选) ──
   const loadAgentList = useCallback(
-    async (trackId: string, mainId: string): Promise<void> => {
+    async (): Promise<void> => {
       const res = await getAgents({
         status: 'published',
         pageSize: 20,
-        // buildQs 自动忽略空串,''=全公司/全部
-        agentCategory: trackId,
-        agentMainCategory: mainId,
       })
       if (res.success) {
         const list = (res.data.list ?? []).map(toAgentShopItem)
@@ -1613,33 +1578,10 @@ export function HomeScreen() {
     [loadRecentAgents],
   )
 
-  // ── 分类字典加载(对齐 Uniapp onShow categories(),失败 fallback 静态占位) ──
-  const loadAgentCategories = useCallback(async (): Promise<void> => {
-    const res = await getAgentCategories()
-    if (res.success && res.data) {
-      const track = Array.isArray(res.data.agentCategory) ? res.data.agentCategory : []
-      const main = Array.isArray(res.data.agentMainCategory) ? res.data.agentMainCategory : []
-      // 对齐 uniapp:赛道首项补"全公司"(id=''),主分类首项补"全部"
-      setTrackCategories([{ id: '', name: '全公司' }, ...track])
-      setMainCategories([{ id: '', name: '全部' }, ...main])
-    }
-  }, [])
-
   useEffect(() => {
-    void loadAgentList(selectedTrackId, selectedMainId)
-    void loadAgentCategories()
+    void loadAgentList()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // ── 分类弹层确定(对齐 Uniapp handleItemClicks/fenlei_active_btn:清列表 + page=1 + 重新加载) ──
-  const handleFenLeiConfirm = useCallback(
-    (trackId: string, mainId: string): void => {
-      setSelectedTrackId(trackId)
-      setSelectedMainId(mainId)
-      void loadAgentList(trackId, mainId)
-    },
-    [loadAgentList],
-  )
 
   // ── 技能弹窗智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList;与 ai-list 同源 agentItems) ──
   const skillAgentItems: AgentListItem[] = useMemo(
@@ -1668,24 +1610,13 @@ export function HomeScreen() {
     <View style={shellStyles.root}>
       {/* NavBar 顶部导航栏(对齐 Uniapp navigation-bars:标题"智汇AI社区"+菜单按钮+加入社区群)
        *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/🎁 对齐 join-click/share-image
-       *  右侧追加分类按钮(对齐 Uniapp tools 页 showFenLei → tagWrapShow 赛道分类弹层)
+       *  (2026-10-20 用户定:原右侧「分类」按钮移除,首页不做赛道分类筛选)
        *  NavBar 置于 ScrollView 外,等价于 Uniapp viscosity=true 粘性效果(始终固定顶部) */}
       <NavChrome>
         <NavBar
           title="智汇AI社区"
           leftActions={navLeftActions}
           rightActions={navRightActions}
-          rightAction={
-            <TouchableOpacity
-              onPress={() => setFenleiVisible(true)}
-              hitSlop={8}
-              activeOpacity={0.6}
-              accessibilityRole="button"
-              accessibilityLabel="分类"
-            >
-              <SlidersHorizontal size={20} color={tokens.text.medium} />
-            </TouchableOpacity>
-          }
         />
       </NavChrome>
       <ScrollView
@@ -1957,17 +1888,6 @@ export function HomeScreen() {
       />
       {/* FloatBox toast(对齐 Uniapp uni.showToast 顶部悬浮提示) */}
       <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
-      {/* FenLeiOverlay 赛道分类弹层(对齐 Uniapp tools/index tagWrapShow:NavBar 分类按钮触发)
-       *  赛道(agentCategory)+ 主分类(agentMainCategory)两层单选,确定后过滤智能体列表 */}
-      <FenLeiOverlay
-        visible={fenleiVisible}
-        onClose={() => setFenleiVisible(false)}
-        trackCategories={trackCategories}
-        mainCategories={mainCategories}
-        selectedTrackId={selectedTrackId}
-        selectedMainId={selectedMainId}
-        onConfirm={handleFenLeiConfirm}
-      />
       {/* ModelList Modal(对齐 web ModelSelector:底部 sheet + 弹窗内 8 分类 tab 切换模型列表)
        *  入口:输入区模型钮/九宫格技能入口 → openModelModal(tab);选模型后填充输入区小标签 */}
       <Modal
