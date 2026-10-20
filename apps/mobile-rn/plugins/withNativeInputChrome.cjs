@@ -26,6 +26,7 @@ const {
   withDangerousMod,
   withAndroidStyles,
   withAndroidColors,
+  withAndroidColorsNight,
   AndroidConfig,
 } = require('expo/config-plugins')
 
@@ -68,7 +69,7 @@ const ACCENT_STYLE_ITEMS = [
   ['android:editTextBackground', `@drawable/${EDIT_TEXT_DRAWABLE}`],
 ]
 
-/** ① 生成透明背景件 + ③ 写 values-night 的暗档反转。 */
+/** ① 生成透明背景件。 */
 const withNativeInputFiles = (config) =>
   withDangerousMod(config, [
     'android',
@@ -80,18 +81,6 @@ const withNativeInputFiles = (config) =>
       await fs.promises.writeFile(
         path.join(drawableDir, `${EDIT_TEXT_DRAWABLE}.xml`),
         EDIT_TEXT_MATERIAL,
-        'utf8',
-      )
-
-      // values-night 不在 AndroidConfig.Colors 的射程内(它只认默认 colors.xml),直接落文件。
-      const nightDir = path.join(resDir, 'values-night')
-      await fs.promises.mkdir(nightDir, { recursive: true })
-      const nightRows = Object.entries(ACCENT_COLORS['values-night'])
-        .map(([name, value]) => `  <color name="${name}">${value}</color>`)
-        .join('\n')
-      await fs.promises.writeFile(
-        path.join(nightDir, 'colors.xml'),
-        `<resources>\n${nightRows}\n</resources>\n`,
         'utf8',
       )
       return cfg
@@ -107,19 +96,44 @@ const withNativeInputColors = (config) =>
     return cfg
   })
 
-/** ② AppTheme 钉死强调色与输入框背景(先摘同名旧项,避免 prebuild 重跑叠出重复 item)。 */
+/**
+ * ③ 暗档强调色写进 values-night/colors.xml。
+ * 走官方 `withAndroidColorsNight`(它读既有文件 → 同名覆盖/异名保留 → 回写),
+ * 不整份覆写 —— 整份覆写会把模板/别的插件放进该文件的条目吃掉。
+ */
+const withNativeInputNightColors = (config) =>
+  withAndroidColorsNight(config, (cfg) => {
+    for (const [name, value] of Object.entries(ACCENT_COLORS['values-night'])) {
+      cfg.modResults = AndroidConfig.Colors.assignColorValue(cfg.modResults, { name, value })
+    }
+    return cfg
+  })
+
+/**
+ * ② AppTheme 钉死强调色与输入框背景。
+ *
+ * 定位只按 `name`,不看 `parent`:Expo 官方 `getAppThemeLightNoActionBarGroup` 的注释
+ * 明写"按 name+parent 双匹配会在 prebuild 出问题(AppTheme 的 parent 可能被改,
+ * 例如 edge-to-edge 开启时)" —— 双匹配在父档一变时会**另建一个 AppTheme**,
+ * 同名两个 style ⇒ 构建期资源冲突。故这里先摘同名旧项(assignStylesValue 只覆盖
+ * 第一处命中,残留副本会叠成重复 item),再按名落位;模板若没有 AppTheme 就按本项目
+ * 的 DayNight 父档自己建一个。
+ */
 const withNativeInputTheme = (config) =>
   withAndroidStyles(config, (cfg) => {
     const names = new Set(ACCENT_STYLE_ITEMS.map(([name]) => name))
     const styles = cfg.modResults.resources.style || []
-    for (const style of styles) {
-      if (style.$?.name !== APP_THEME) continue
-      style.item = (style.item || []).filter((item) => !names.has(item.$?.name))
+    const appTheme = styles.find((style) => style.$?.name === APP_THEME)
+    if (appTheme) {
+      appTheme.item = (appTheme.item || []).filter((item) => !names.has(item.$?.name))
+    } else {
+      styles.push({ $: { name: APP_THEME, parent: APP_THEME_PARENT }, item: [] })
+      cfg.modResults.resources.style = styles
     }
     for (const [name, value] of ACCENT_STYLE_ITEMS) {
       cfg.modResults = AndroidConfig.Styles.assignStylesValue(cfg.modResults, {
         add: true,
-        parent: { name: APP_THEME, parent: APP_THEME_PARENT },
+        parent: { name: APP_THEME },
         name,
         value,
       })
@@ -128,13 +142,16 @@ const withNativeInputTheme = (config) =>
   })
 
 module.exports = (config) =>
-  withNativeInputColors(withNativeInputTheme(withNativeInputFiles(config)))
+  withNativeInputColors(
+    withNativeInputNightColors(withNativeInputTheme(withNativeInputFiles(config))),
+  )
 
 module.exports.__test__ = {
   EDIT_TEXT_MATERIAL,
   ACCENT_COLORS,
   ACCENT_STYLE_ITEMS,
   APP_THEME,
+  APP_THEME_PARENT,
   EDIT_TEXT_DRAWABLE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

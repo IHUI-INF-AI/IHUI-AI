@@ -42,6 +42,8 @@ export const COLORS = {
   borderMedium: { light: '#d4d4d4', dark: '#525252' },
   /* 以下 1 字段为 COLORS_MAPPING 中声明而本块尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
   tertiary: { light: '#a3a3a3', dark: '#737373' },
+  /* 以下 1 字段为 COLORS_MAPPING 中声明而本块尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  brandAccentDeep: { light: '#4a7a96', dark: '#a3c4d6' },
 } as const
 
 /** 间距(px) */
