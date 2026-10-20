@@ -1930,6 +1930,11 @@ const WALLBOARD_CSS = `
  * 嵌进 ~900px 面板时视口 lg: 仍算"宽"⇒ 中文被逐字断行。996 取 N-1 防临界抖动;
  * 再窄(≤ 标题326+状态331+间距32=689)不另设档,由标题/副标题的 truncate 兜底成单行省略号。 */
 .wb-header { container-type: inline-size; }
+/* 均匀列网格:列数由容器宽决定,不再用视口断点(实测容器宽与视口不同步)。
+ * 104 = 实测最大标签需求 99px + 余量;135 = 反算自原设计(容器 914 时 6 栏、gap 10 ⇒ 6×135+5×10=860≤882)。
+ * 缺这两条定义 ⇒ display:grid 无列模板会退化成单列竖排(本仓 2026-10-21 实测回归)。 */
+.wb-cells { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); }
+.wb-cells-lg { grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
 .wb-hdr-title h1, .wb-hdr-title p, .wb-hdr-status, .wb-hdr-sources { white-space: nowrap; }
 @container (max-width: 996px) {
   .wb-hdr-sources { display: none; }
