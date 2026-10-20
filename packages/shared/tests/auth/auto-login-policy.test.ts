@@ -16,7 +16,7 @@ import { describe, it, expect } from 'vitest'
 import {
   canSilentlyReLogin,
   shouldAttemptAutoLogin,
-  shouldMarkSessionLoggedOut,
+  shouldExpireSession,
   classifyRefreshFailureStatus,
   SESSION_LOGGED_OUT_STORAGE_KEY,
 } from '../../src/auth/auto-login-policy'
@@ -117,23 +117,23 @@ describe('classifyRefreshFailureStatus(刷新失败分型)', () => {
   })
 })
 
-describe('shouldMarkSessionLoggedOut(要不要落持久登出标记)', () => {
-  it('rejected ⇒ 落标记(会话真死,与主动登出同处置)', () => {
-    expect(shouldMarkSessionLoggedOut('rejected')).toBe(true)
+describe('shouldExpireSession(要不要结束本地会话)', () => {
+  it('rejected ⇒ 结束本地会话(只清凭据,不落登出标记)', () => {
+    expect(shouldExpireSession('rejected')).toBe(true)
   })
 
-  it('transient ⇒ 绝不落标记(2026-10-09 根治「自动登录总被清掉」:api 重启/网络抖动一次就把 30 天 cookie 永久废掉的旧病根)', () => {
-    expect(shouldMarkSessionLoggedOut('transient')).toBe(false)
+  it('transient ⇒ 绝不结束会话(2026-10-09 根治「自动登录总被清掉」:api 重启/网络抖动一次就把 30 天 cookie 永久废掉的旧病根)', () => {
+    expect(shouldExpireSession('transient')).toBe(false)
   })
 
-  it('null(性质未知:刷新结果被 CAS 丢弃/未注入续期实现)一律不落标记 —— 与 session-marker 同失效方向,未知不得触发用户可见行为改变', () => {
-    expect(shouldMarkSessionLoggedOut(null)).toBe(false)
+  it('null(性质未知:刷新结果被 CAS 丢弃/未注入续期实现)一律不结束会话 —— 与 session-marker 同失效方向,未知不得触发用户可见行为改变', () => {
+    expect(shouldExpireSession(null)).toBe(false)
   })
 
-  it('端到端投影:分型 → 落标决策,仅 401/403 这一条链路能写出标记', () => {
+  it('端到端投影:分型 → 结束会话决策,仅 401/403 这一条链路能清凭据', () => {
     for (const status of [401, 403, 500, 502, 503, 400, 404, 429, 0, undefined]) {
       const expected = status === 401 || status === 403
-      expect(shouldMarkSessionLoggedOut(classifyRefreshFailureStatus(status))).toBe(expected)
+      expect(shouldExpireSession(classifyRefreshFailureStatus(status))).toBe(expected)
     }
   })
 })
