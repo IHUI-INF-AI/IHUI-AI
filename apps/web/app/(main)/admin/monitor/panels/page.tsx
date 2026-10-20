@@ -315,7 +315,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
         <button
           type="button"
           onClick={() => setNavOpen((v) => !v)}
-          className="w-full px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hover:text-info"
+          className="w-full px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hover:text-info-text"
         >
           {navOpen ? `监控面板 (${boards.length})` : '»'}
         </button>
@@ -342,7 +342,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
                         className={cn(
                           'block w-full truncate px-3 py-1.5 text-left text-xs transition-colors',
                           d.uid === activeUid
-                            ? 'border-l-2 border-info bg-muted text-info'
+                            ? 'border-l-2 border-info bg-muted text-info-text'
                             : 'border-l-2 border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
                         )}
                       >
@@ -392,7 +392,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
                   className={cn(
                     'px-2.5 py-1 text-[11px] transition-colors',
                     rangeSec === r.seconds
-                      ? 'bg-info/15 text-info'
+                      ? 'bg-info/15 text-info-text'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -406,7 +406,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
               className={cn(
                 'flex items-center gap-1 rounded-sm border px-2 py-1 text-[11px]',
                 autoRefresh
-                  ? 'border-info/40 text-info'
+                  ? 'border-info/40 text-info-text'
                   : 'border-border text-muted-foreground hover:text-foreground',
               )}
             >
@@ -420,7 +420,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
               type="button"
               onClick={() => dashboard && void load(dashboard, rangeSec)}
               disabled={loading || !dashboard}
-              className="rounded-sm border border-border px-2 py-1 text-[11px] text-foreground hover:border-info/40 hover:text-info disabled:opacity-50"
+              className="rounded-sm border border-border px-2 py-1 text-[11px] text-foreground hover:border-info/40 hover:text-info-text disabled:opacity-50"
             >
               刷新
             </button>
@@ -433,7 +433,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
         </div>
 
         {pageError && (
-          <div className="border-b border-warning/20 bg-warning/5 px-4 py-1.5 text-[11px] text-warning">
+          <div className="border-b border-warning/20 bg-warning/5 px-4 py-1.5 text-[11px] text-warning-text">
             {pageError}
           </div>
         )}

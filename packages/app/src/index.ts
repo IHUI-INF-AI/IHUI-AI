@@ -193,6 +193,7 @@ export { LiveChatScreen } from './features/live-chat/LiveChatScreen'
 export { MessageChatScreen } from './features/message-chat/MessageChatScreen'
 export { OrderRefundScreen } from './features/order-refund/OrderRefundScreen'
 export { PaymentScreen } from './features/payment/PaymentScreen'
+export { DomainHubScreen } from './features/domain-hub/DomainHubScreen'
 export { VipTraderScreen } from './features/vip-trader/VipTraderScreen'
 /** 2026-09-14:IM 聊天室(迁移自 mobile-rn AssistantScreen,历史 Uniapp pagesA/assistant) */
 export { ChatRoomScreen, detectChatRoomMediaType } from './features/chat-room/ChatRoomScreen'
@@ -703,6 +704,10 @@ export type {
   PaymentOrderItem,
   PaymentScreenProps,
 } from './features/payment/PaymentScreen'
+export type {
+  DomainHubItem,
+  DomainHubScreenProps,
+} from './features/domain-hub/DomainHubScreen'
 export type {
   VipTraderStat,
   VipTraderFeature,

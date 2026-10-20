@@ -115,16 +115,16 @@ export default function AdminMonitorDashboardPage() {
                       className="flex items-center justify-between rounded-md border p-2.5"
                     >
                       <div className="flex items-center gap-2">
-                        <Icon className={cn('h-4 w-4', ok ? 'text-success-deep-text' : 'text-danger')} />
+                        <Icon className={cn('h-4 w-4', ok ? 'text-success-deep-text' : 'text-danger-text')} />
                         <span className="text-sm font-medium">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         {ok ? (
                           <CheckCircle2 className="h-3.5 w-3.5 text-success-deep-text" />
                         ) : (
-                          <XCircle className="h-3.5 w-3.5 text-danger" />
+                          <XCircle className="h-3.5 w-3.5 text-danger-text" />
                         )}
-                        <span className={cn('text-xs', ok ? 'text-success-deep-text' : 'text-danger')}>
+                        <span className={cn('text-xs', ok ? 'text-success-deep-text' : 'text-danger-text')}>
                           {s.latency}ms
                         </span>
                       </div>
