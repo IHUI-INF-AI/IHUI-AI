@@ -122,7 +122,7 @@ export default function MonitorPanelsPage() {
 
   return (
     <PageContainer padded={false} className="flex h-full flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="wb-scroll-host min-h-0 flex-1 overflow-y-auto">
         {view === 'wallboard' ? (
           <WallboardView headerExtra={headerExtra} />
         ) : (
