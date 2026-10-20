@@ -86,6 +86,28 @@ describe('GET /api/courses/:id/catalog', () => {
     expect(q.findLessonSections).toHaveBeenCalledWith('c2')
   })
 
+  it('小节带视频地址时 children 透出 videoUrl;未上传的不打该字段', async () => {
+    q.findLessonSections.mockImplementation(async (chapterId: string) =>
+      chapterId === 'c1'
+        ? [
+            { id: 's1', title: '1.1', duration: 60, videoUrl: 'https://cdn.example/a.mp4' },
+            { id: 's2', title: '1.2', duration: 120 },
+          ]
+        : [],
+    )
+    const res = await app.inject({ method: 'GET', url: `/api/courses/${LESSON_ID}/catalog` })
+    expect(res.statusCode).toBe(200)
+    const kids = res.json().data[0].children
+    expect(kids[0]).toEqual({
+      id: 's1',
+      title: '1.1',
+      type: 'section',
+      duration: 1,
+      videoUrl: 'https://cdn.example/a.mp4',
+    })
+    expect('videoUrl' in kids[1]).toBe(false)
+  })
+
   it('未发布课程返回 404 且不读章节', async () => {
     q.findLessonById.mockResolvedValue({ id: LESSON_ID, isPublished: false })
     const res = await app.inject({ method: 'GET', url: `/api/courses/${LESSON_ID}/catalog` })
@@ -191,10 +213,7 @@ describe('注册即装车(造好没接线是本仓最高频失效型)', () => {
       [...routeSrc.matchAll(/server\.get\(\s*'([^']*)'/gu)].map((m) => `/api${m[1]}`),
     )
     for (const name of clientFiles) {
-      const src = readFileSync(
-        join(apiRoot, '../mobile-rn/src/screens', `${name}.tsx`),
-        'utf8',
-      )
+      const src = readFileSync(join(apiRoot, '../mobile-rn/src/screens', `${name}.tsx`), 'utf8')
       const called = [...src.matchAll(/[`'"](\/api\/courses\/[^`'"\n]*)[`'"]/gu)]
         .map((m) => m[1].replace(/\$\{[^}]*\}/gu, ':id'))
         .filter((p) => /\/(catalog|chapters|comments)$/u.test(p))
@@ -208,7 +227,10 @@ describe('注册即装车(造好没接线是本仓最高频失效型)', () => {
 describe('鉴权先于取数', () => {
   it('checkAuth 拒绝时三条端点都不落库', async () => {
     q.checkAuth.mockImplementation(
-      async (_request: unknown, reply: { status: (n: number) => { send: (b: unknown) => unknown } }) => {
+      async (
+        _request: unknown,
+        reply: { status: (n: number) => { send: (b: unknown) => unknown } },
+      ) => {
         reply.status(401).send({ code: 401, message: '请先登录', data: null })
         return false
       },
