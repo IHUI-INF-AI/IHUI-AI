@@ -30,6 +30,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import { projectToolInputSchema } from '@ihui/types'
+import { SKILL_INVOCATION_TOOL_NAME } from '../src/skills/index.js'
 import { createFileEditTools } from '../src/tools/file-edit.js'
 import { createSpawnParallelTool, createSubagentTool } from '../src/tools/subagent.js'
 import { legacyBuildParameters, type LegacyProjectableTool } from './fixtures/toJsonProperty.legacy.js'
@@ -52,6 +53,17 @@ type ProjectableTool = LegacyProjectableTool
 
 /** 门按"名字取自字符串字面量"抽工具;`name:` 接变量时它记为 (non-literal),运行时枚举天然没有这个名字 */
 const NON_LITERAL_NAME = '(non-literal)'
+
+/**
+ * 变量名站点的显式配对登记 —— 与 materializeFactoryTools 里的工厂清单同型:名字来自变量/工厂的站点,
+ * 门在 HEAD 面上抽不到真名,而运行时枚举天然抽得到,不配对就是「两侧数到不同批」的假分叉。
+ * 这里登记的**不是豁免**:配对后仍由 `runtimeNames == gateNames` 反向验真(那枚名字哪天不再被
+ * 运行时枚举 ⇒ onlyInGate 当场红),并由 `pairedCount == 清单长度` 验登记表是否还描述现状
+ * (登记了却不再命中 ⇒ 红)。
+ * 一枚登记位要求该文件在 HEAD 面恰好只有 1 处 (non-literal);同文件多处会配出 paired ≠ 清单长度,不静默取第一枚。
+ * 真名一律 import 常量本身,不在本文件内联字面量(§0.6:名字只在声明它的那个模块里有一份)。
+ */
+const VARIABLE_NAME_TOOLS = [{ file: 'apps/cli/src/tools/skill-tool.ts', toolName: SKILL_INVOCATION_TOOL_NAME }]
 
 function listTsFiles(dir: string): string[] {
   const out: string[] = []
@@ -131,10 +143,12 @@ interface GateEnumeration {
   reportedCount: number
   /** 测试侧按同一 SCAN_DIRS + 同一 HEAD 面重导出的字面量出现次数 */
   derivedOccurrences: number
-  /** 门点到的具名工具(去掉 (non-literal)) */
+  /** 门点到的具名工具(去掉仍配不上的 (non-literal);变量名站点按 VARIABLE_NAME_TOOLS 配成真名) */
   named: string[]
   /** 门点到但 name 取自变量的字面量条数(运行时枚举按定义拿不到名字) */
   anonymousOccurrences: number
+  /** 上面这些站点里,已在 VARIABLE_NAME_TOOLS 配对成运行时真名的条数 */
+  pairedCount: number
 }
 
 function readHeadBlob(gitPath: string): string {
@@ -150,6 +164,7 @@ function readHeadBlob(gitPath: string): string {
 
 async function enumerateGateSide(gate: GateModule, scanDirs: string[]): Promise<GateEnumeration> {
   const names: string[] = []
+  let paired = 0
   for (const relDir of scanDirs) {
     for (const abs of listTsFiles(path.join(REPO_ROOT, relDir))) {
       const rel = path.relative(REPO_ROOT, abs).replace(/\\/g, '/')
@@ -160,7 +175,21 @@ async function enumerateGateSide(gate: GateModule, scanDirs: string[]): Promise<
         // HEAD 里没有这个文件(别人未提交的在飞文件)⇒ 门同样不判它,跳过而非算失配
         continue
       }
-      for (const literal of gate.__test__.extractToolLiterals(text)) names.push(literal.toolName)
+      for (const literal of gate.__test__.extractToolLiterals(text)) {
+        if (literal.toolName !== NON_LITERAL_NAME) {
+          names.push(literal.toolName)
+          continue
+        }
+        // name 取自变量的站点:按所在文件去登记表配对,配到就用运行时那枚真名(交给
+        // runtimeNames == gateNames 反向验真);没登记就保持 (non-literal),不猜、不静默丢弃
+        const registered = VARIABLE_NAME_TOOLS.find((t) => t.file === rel)
+        if (!registered) {
+          names.push(NON_LITERAL_NAME)
+          continue
+        }
+        names.push(registered.toolName)
+        paired += 1
+      }
     }
   }
   const out = execFileSync(process.execPath, [GATE_SCRIPT], {
@@ -180,6 +209,7 @@ async function enumerateGateSide(gate: GateModule, scanDirs: string[]): Promise<
     derivedOccurrences: names.length,
     named: [...new Set(names.filter((n) => n !== NON_LITERAL_NAME))],
     anonymousOccurrences,
+    pairedCount: paired,
   }
 }
 
@@ -338,6 +368,14 @@ describe('A13 投影等价性(AGENTS.md:235 的可重跑载体)', () => {
         gateSide.reportedCount,
         `末行 ${gateSide.reportedCount} 应等于 具名 ${gateNames.length} + 匿名 (non-literal) ${gateSide.anonymousOccurrences}`,
       ).toBe(gateNames.length + gateSide.anonymousOccurrences)
+
+      // 登记表本身也要被验:登记了却在 HEAD 面配不上(站点改成字面量 / 文件挪走 / 同文件有多处站点),
+      // 说明这张清单已经不再描述现状 ⇒ 当场红,不留下没人再核对的登记
+      expect(
+        gateSide.pairedCount,
+        `VARIABLE_NAME_TOOLS 登记 ${VARIABLE_NAME_TOOLS.length} 枚,实际配到 ${gateSide.pairedCount} 枚 —— ` +
+          '登记的变量名站点在 HEAD 面不再逐枚命中,清单必须随之更新',
+      ).toBe(VARIABLE_NAME_TOOLS.length)
     },
     180_000,
   )
