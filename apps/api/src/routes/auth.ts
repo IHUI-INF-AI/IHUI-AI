@@ -1167,6 +1167,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         },
       },
       config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+      // G-192:回显判据不成立时,序列化层再剥一次 `data.code`(回归锁钉在响应体这一层)
+      preSerialization: sendCodePreSerialization,
     },
     async (request, reply) => {
       const parsed = emailLoginQuerySchema.safeParse(request.query)
@@ -1174,6 +1176,15 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { email } = parsed.data
+
+      // G-192:按「邮箱 + IP」频控(与 /send-code 同口径)
+      const quota = consumeSendQuota(email, request.ip)
+      if (!quota.allowed) {
+        return reply
+          .header('Retry-After', String(quota.retryAfterSec))
+          .status(429)
+          .send(error(429, '验证码请求过于频繁,请稍后再试'))
+      }
 
       const user = await findUserByEmail(email)
       if (!user) {
@@ -1191,14 +1202,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       codeStore.set(email, { code, expiresAt: now + CODE_TTL_MS, sentAt: now })
       request.log.info({ email }, '邮箱验证码已生成')
 
-      const isDev = process.env.NODE_ENV !== 'production'
-      return reply.send(
-        success(
-          isDev
-            ? { sent: true, code, expiresIn: CODE_TTL_MS / 1000 }
-            : { sent: true, expiresIn: CODE_TTL_MS / 1000 },
-        ),
-      )
+      // G-192:默认不回显验证码;仅显式调试开关 + development 档 + loopback/内网三条件同时成立才回显
+      return reply.send(success(buildSendCodePayload(request, code, CODE_TTL_MS / 1000)))
     },
   )
 
@@ -1408,13 +1413,27 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
   // POST /api/auth/sms/send — 小程序别名（同 /send-code）
   server.post(
     '/sms/send',
-    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    {
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+      // G-192:回显判据不成立时,序列化层再剥一次 `data.code`(回归锁钉在响应体这一层)
+      preSerialization: sendCodePreSerialization,
+    },
     async (request, reply) => {
       const parsed = sendCodeSchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { phone } = parsed.data
+
+      // G-192:按「手机号 + IP」频控(与 /send-code 同口径)
+      const quota = consumeSendQuota(phone, request.ip)
+      if (!quota.allowed) {
+        return reply
+          .header('Retry-After', String(quota.retryAfterSec))
+          .status(429)
+          .send(error(429, '验证码请求过于频繁,请稍后再试'))
+      }
+
       cleanupExpiredCodes()
       const existing = codeStore.get(phone)
       const now = Date.now()
@@ -1424,14 +1443,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const code = generateCode()
       codeStore.set(phone, { code, expiresAt: now + CODE_TTL_MS, sentAt: now })
       request.log.info({ phone, scene: parsed.data.scene }, '验证码已生成')
-      const isDev = process.env.NODE_ENV !== 'production'
-      return reply.send(
-        success(
-          isDev
-            ? { sent: true, code, expiresIn: CODE_TTL_MS / 1000 }
-            : { sent: true, expiresIn: CODE_TTL_MS / 1000 },
-        ),
-      )
+      // G-192:默认不回显验证码;仅显式调试开关 + development 档 + loopback/内网三条件同时成立才回显
+      return reply.send(success(buildSendCodePayload(request, code, CODE_TTL_MS / 1000)))
     },
   )
 

@@ -140,7 +140,7 @@ curl http://localhost:8802/api/health/ready  # 验证
 ### 5.3 健康检查 — 实时
 
 ```bash
-# API 启动后,Prometheus / Grafana / Uptime Kuma 监控:
+# API 启动后,Prometheus / 大屏 / Uptime Kuma 监控:
 curl -fsS http://localhost:8802/api/health/ready | jq '.checks.wechatPay'
 # 期望: { "status": "ok" }
 ```

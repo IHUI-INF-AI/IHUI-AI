@@ -58,13 +58,12 @@ const {
 } = gate
 
 /** 真机现读的逐字形态(2026-09-29 于本机量取,§22c:镜像至少一条用例的输入取自真实文件/真机)。
- *  下面 9 行就是"配置里从不声明端口、但进程树确实在听"的那一批 —— 本票改的就是这一格。 */
+ *  下面 8 个服务的监听行就是"配置里从不声明端口、但进程树确实在听"的那一批 —— 本票改的就是这一格。 */
 export const REAL_NETSTAT_ROWS = [
   '  TCP    192.168.1.37:7800      0.0.0.0:0              LISTENING       10532',
   '  TCP    127.0.0.1:8801         0.0.0.0:0              LISTENING       12152',
   '  TCP    127.0.0.1:8803         0.0.0.0:0              LISTENING       16064',
   '  TCP    0.0.0.0:8802           0.0.0.0:0              LISTENING       8616',
-  '  TCP    127.0.0.1:8816         0.0.0.0:0              LISTENING       7480',
   '  TCP    127.0.0.1:3100         0.0.0.0:0              LISTENING       8096',
   '  TCP    127.0.0.1:9097         0.0.0.0:0              LISTENING       8096',
   '  TCP    127.0.0.1:8810         0.0.0.0:0              LISTENING       6916',
@@ -78,14 +77,13 @@ export const REAL_NETSTAT_ROWS = [
   '  TCP    [::]:57800             [::]:0                 LISTENING       10532',
   '  TCP    0.0.0.0:57800          0.0.0.0:0              LISTENING       10532',
 ].join('\r\n')
-/** 本机逐字父子链:每个"监听者 pid"都在服务 pid 之下 1~3 层 —— 只查服务 pid 会把 9 个全判成没监听。
+/** 本机逐字父子链:每个"监听者 pid"都在服务 pid 之下 1~3 层 —— 只查服务 pid 会把 8 个全判成没监听。
  *  ⚠ 只有 pid/ppid 是真机现读(Win32_Service.ProcessId 与 Win32_Process);路径、参数、注册表成员关系
  *    都是构造的 —— 存在性判据真的读文件系统,夹具不能长在仓库树内,更不能依赖本机装了啥。 */
 export const REAL_PROC_CHAIN = {
   'IHUI-WEB': { servicePid: 22696, chain: [{ pid: 12152, ppid: 15060 }, { pid: 15060, ppid: 22696 }, { pid: 22696, ppid: 1188 }] },
   'IHUI-API': { servicePid: 20148, chain: [{ pid: 8616, ppid: 15196 }, { pid: 15196, ppid: 20148 }, { pid: 20148, ppid: 1188 }] },
   'IHUI-AI-SERVICE': { servicePid: 16608, chain: [{ pid: 16064, ppid: 10224 }, { pid: 10224, ppid: 4196 }, { pid: 4196, ppid: 16608 }, { pid: 16608, ppid: 1188 }] },
-  'ihui-grafana': { servicePid: 4492, chain: [{ pid: 7480, ppid: 6500 }, { pid: 6500, ppid: 4492 }, { pid: 4492, ppid: 1188 }] },
   'ihui-loki': { servicePid: 5476, chain: [{ pid: 8096, ppid: 5476 }, { pid: 5476, ppid: 1188 }] },
   'IHUI-PG': { servicePid: 4528, chain: [{ pid: 6916, ppid: 4528 }, { pid: 4528, ppid: 1188 }] },
   'IHUI-REDIS': { servicePid: 4584, chain: [{ pid: 6544, ppid: 4584 }, { pid: 4584, ppid: 1188 }] },
@@ -109,7 +107,6 @@ export const REAL_ANSWERS = [
   '127.0.0.1:8810',
   '::1:8810',
   '127.0.0.1:8811',
-  '127.0.0.1:8816',
   '127.0.0.1:3100',
   '127.0.0.1:9097',
   '127.0.0.1:9080',
@@ -127,7 +124,7 @@ const machineProbe = async (port, host = LOOPBACK_PROBE_HOST) => (REAL_ANSWERS.i
 const utf8 = (s) => ({ code: 0, stdoutBuf: Buffer.from(s, 'utf8'), stderrBuf: Buffer.alloc(0) })
 const okNssm = (text) => ({ code: 0, stdoutBuf: u16(text), stderrBuf: Buffer.alloc(0) })
 const failNssm = (code = 1) => ({ code, stdoutBuf: Buffer.alloc(0), stderrBuf: u16('svc config read failed') })
-/** 真机版式的监听行:上面那条合成行只为默认夹具(IHUI-TEST,pid 4242)为真;其余 17 行逐字取自本机。 */
+/** 真机版式的监听行:上面那条合成行只为默认夹具(IHUI-TEST,pid 4242)为真;其余 16 行逐字取自本机。 */
 const TEST_LISTEN_ROW = '  TCP    127.0.0.1:8802         0.0.0.0:0              LISTENING        4242'
 
 /** 真机父子链 → PROC 通道的输出文本(首尾哨兵 + PSUM/SSUM 计数行,与生产档同一版式)。
@@ -159,7 +156,7 @@ const DEFAULT_DIR = 'C:\\app'
 const DEFAULT_SERVICE = { 'IHUI-TEST': { servicePid: 4242, chain: [{ pid: 4242, ppid: 1188 }] } }
 
 /** 构造一台"通道都跑到"的假机;每个出口都能单独拆走,正反对由此成对。
- *  默认形态刻意对齐本机 9 个服务:**配置里不写端口**、进程树实测在听、探针按实际绑定地址应答。
+ *  默认形态刻意对齐本机 8 个服务:**配置里不写端口**、进程树实测在听、探针按实际绑定地址应答。
  *  默认就把 netstat 真机行 + 真机父子链喂进去 —— 否则 e2e 永远走不到本票新增的取材层。 */
 function healthyDeps(over = {}) {
   const services = over.services ?? DEFAULT_SERVICE
@@ -394,7 +391,7 @@ test('T8 端到端(假 deps):坏路径 exit 1 并点名;健康 exit 0;--json 里
   assert.deepEqual(rec.observed.value.endpoints, [{ address: '127.0.0.1', port: 8802, pid: 4242 }])
   assert.equal(rec.probe.value.listening, true)
   assert.deepEqual(rec.probe.value.labels, ['127.0.0.1:8802'])
-  assert.equal(rec.ports.value.length, 0, '默认夹具=配置里不写端口(本机 9 个服务即此型),级别仍由观察层给出')
+  assert.equal(rec.ports.value.length, 0, '默认夹具=配置里不写端口(本机 8 个服务即此型),级别仍由观察层给出')
   assert.equal(parsed.totals.dimUnmeasured.observed, 0)
   assert.equal(parsed.totals.dimUnmeasured.probe, 0)
   assert.equal(parsed.listen.netstatEndpoints, REAL_NETSTAT_ROWS.split('\r\n').length + 1, '监听观察必须把真机行的条数原样带出(计数不符就是通道被截断)')
@@ -466,25 +463,25 @@ test('T10 退出码聚合与三个通道脚本的形态(纯函数;形状锁只�
 // 输入里带"真机现读"字样的段落逐字取自本机,不得换成自造夹具(§22c)。
 // ---------------------------------------------------------------------------
 
-const LISTENING_9 = ['IHUI-WEB', 'IHUI-API', 'IHUI-AI-SERVICE', 'ihui-grafana', 'ihui-loki', 'IHUI-PG', 'IHUI-REDIS', 'ihui-promtail', 'Keycloak']
+const LISTENING_8 = ['IHUI-WEB', 'IHUI-API', 'IHUI-AI-SERVICE', 'ihui-loki', 'IHUI-PG', 'IHUI-REDIS', 'ihui-promtail', 'Keycloak']
 const TASK_4 = ['IHUI-DEPLOYLOOP', 'IHUI-GIT-GUARD', 'IHUI-MONITOR', 'IHUI-PG-BACKUP']
 const machineServices = (names) => Object.fromEntries(names.map((n) => [n, REAL_PROC_CHAIN[n]]))
 
-test('P1 阳性对照(本票主判据):真机 netstat 行 + 真机父子链 ⇒ 9 个移到"实测在监听并应答",4 个任务型仍"未判定"但换了原因', async () => {
-  const deps = healthyDeps({ services: machineServices([...LISTENING_9, ...TASK_4]) })
+test('P1 阳性对照(本票主判据):真机 netstat 行 + 真机父子链 ⇒ 8 个移到"实测在监听并应答",4 个任务型仍"未判定"但换了原因', async () => {
+  const deps = healthyDeps({ services: machineServices([...LISTENING_8, ...TASK_4]) })
   const res = await main({ argv: ['--json', '--filter', '*'], deps })
   const parsed = JSON.parse(res.json)
   const by = Object.fromEntries(parsed.services.map((s) => [s.name, s]))
-  assert.equal(parsed.totals.services, 13)
-  assert.equal(parsed.totals.ok, 9, '这 9 个改前全是 unattested(端口维读的是配置,配置里根本没有端口)')
+  assert.equal(parsed.totals.services, 12)
+  assert.equal(parsed.totals.ok, 8, '这 8 个改前全是 unattested(端口维读的是配置,配置里根本没有端口)')
   assert.equal(parsed.totals.issue, 0)
   assert.equal(parsed.totals.unattested, 4)
   assert.equal(parsed.totals.skipped, 0)
   assert.equal(res.exitCode, 0)
-  assert.equal(parsed.totals.dimUnmeasured.observed, 0, '13 个的观察维全部量到了(含"量到的空")')
+  assert.equal(parsed.totals.dimUnmeasured.observed, 0, '12 个的观察维全部量到了(含"量到的空")')
   assert.equal(parsed.totals.dimUnmeasured.ports, 0, '声明维量到的是"确实是空",不是"没量到"')
 
-  for (const n of LISTENING_9) {
+  for (const n of LISTENING_8) {
     assert.equal(by[n].level, 'ok', `${n} 必须从"未判定"移到"实测在监听"`)
     assert.equal(by[n].rec.observed.kind, 'measured')
     assert.ok(by[n].rec.observed.value.endpoints.length > 0, `${n} 的树里必须归并得出监听端点`)
@@ -581,13 +578,13 @@ test('P3 缺陷②的对子:端口只绑网卡地址 ⇒ 按绑定地址探=通,
   assert.deepEqual(buildProbeTargets({ declaredPorts: [7800], observedEndpoints: [] }).targets, [{ port: 7800, host: LOOPBACK_PROBE_HOST, label: '127.0.0.1:7800', from: 'declared' }])
 })
 
-test('P4 进程树归并:监听者永远在服务 pid 之下 1~3 层;只查服务 pid 会把 9 个健康的判成没监听', () => {
+test('P4 进程树归并:监听者永远在服务 pid 之下 1~3 层;只查服务 pid 会把 8 个健康的判成没监听', () => {
   const netstat = interpretNetstatListening(REAL_NETSTAT_ROWS)
-  const procs = interpretProcessList(processListText(machineServices([...LISTENING_9, ...TASK_4])))
+  const procs = interpretProcessList(processListText(machineServices([...LISTENING_8, ...TASK_4])))
   assert.equal(netstat.kind, 'measured')
   assert.equal(procs.kind, 'measured', '真机父子链必须能被生产解析器收下(收不下就是解析器对不上实况,不是数据的问题)')
 
-  for (const n of LISTENING_9) {
+  for (const n of LISTENING_8) {
     const servicePid = REAL_PROC_CHAIN[n].servicePid
     const onlyServicePid = attributeListening(netstat.value.rows, new Set([servicePid]))
     const merged = computeObservedListening({ servicePid, netstat, procs })

@@ -10,7 +10,6 @@
 """
 
 import httpx
-import pytest
 
 from app.core.config import settings
 from app.routers import llm as llm_router

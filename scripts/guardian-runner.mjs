@@ -2951,7 +2951,7 @@ const checks = [
 
   {
     id: '112',
-    label: '📐 压缩分母对账(blocking,阈值分母必须经 effectiveContextWindow;存量 15 文件/17 处进棘轮)',
+    label: '📐 压缩分母对账(blocking,阈值分母必须经 effectiveContextWindow;存量 8 文件/12 处进棘轮)',
     script: 'check-compaction-denominator.mjs',
     args: [],
     mode: 'blocking',
@@ -2970,12 +2970,10 @@ const checks = [
       '     的子入口,深导入会被守门 103 判 D3 红(本仓踩过)。',
       '     行为后果如实登记:分母只会变小 ⇒ **压缩更早触发**,用户可感知;回退有两条路(构造参数',
       '     `outputReserveEnabled:false` 或环境变量 `IHUI_COMPACTION_OUTPUT_RESERVE=0`)。',
-      '     存量 15 文件/17 处已冻进 `scripts/compaction-denominator-baseline.json`(只减不增棘轮),',
-      '     2026-10-19 扩面:扫描面补 `packages/`、分母名补 maxTokens 一族(名字表与预筛关键字同源),',
-      '     当日 HEAD 面新暴露的 8 文件/9 处(maxTokens 族)按实测逐文件入账 —— 它们是既有债,不是本次造出来的。',
+      '     存量 8 文件/12 处已冻进 `scripts/compaction-denominator-baseline.json`(只减不增棘轮),',
       '     其中 **api 端 `/chat/stream` 的溢出面尚未收口** —— 那是本票如实留下的账,不是"已修完"。',
       '     单独复验:node scripts/check-compaction-denominator.mjs',
-      '     自检:node scripts/check-compaction-denominator.mjs --self-test(24 条,含成对正反例与',
+      '     自检:node scripts/check-compaction-denominator.mjs --self-test(15 条,含成对正反例与',
       '     "枚举到 0 个文件必须判无法判定、不得记绿"的反向对照)',
       '     镜像测试:node --test scripts/tests/check-compaction-denominator.test.mjs',
       '',
@@ -5002,15 +5000,15 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- Grafana 大屏指标名对账(1 项,blocking)---
+  // --- 监控大屏指标名对账(1 项,blocking)---
   {
     id: '220',
     label:
-      'Grafana 大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记)',
-    script: 'check-grafana-metric-exists.mjs',
+      '监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记)',
+    script: 'check-panel-metric-exists.mjs',
     args: [],
     mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_GRAFANA_METRIC_EXISTS',
+    skipEnv: 'HUSKY_SKIP_PANEL_METRIC_EXISTS',
     stagedTriggers: ['monitoring', 'deploy', 'apps/ai-service/app', 'apps/api/src', 'packages', 'scripts/'],
     onFailHint: [
       '',
@@ -5018,20 +5016,20 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- Grafana 大屏 ↔ 数据源 接线对账(1 项,blocking)---
+  // --- 监控大屏 ↔ 数据源 接线对账(1 项,blocking)---
   {
     id: '222',
     label:
-      'Grafana 大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态)',
-    script: 'check-grafana-datasource-wiring.mjs',
+      '监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态)',
+    script: 'check-panel-datasource-wiring.mjs',
     args: [],
     mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_GRAFANA_DATASOURCE_WIRING',
-    stagedTriggers: ['monitoring', 'scripts/sync-grafana-live-provisioning.mjs'],
+    skipEnv: 'HUSKY_SKIP_PANEL_DATASOURCE_WIRING',
+    stagedTriggers: ['monitoring', 'scripts/sync-panel-live-provisioning.mjs'],
     onFailHint: [
-      '面板引用的数据源 uid 不在 monitoring/grafana/provisioning/datasources/datasources.yml 里 ——',
-      '这样的面板在 Grafana 里只会静静显示 "Datasource not found",和"这业务本来没流量"长得一模一样。',
-      '要么把 uid 改成已声明的源,要么先在 provisioning 里声明这个源(并跑 sync-grafana-live-provisioning.mjs 派生到线上副本)。',
+      '面板引用的数据源 uid 不在 monitoring/panel-defs/provisioning/datasources/datasources.yml 里 ——',
+      '这样的面板只会静静显示 "Datasource not found",和"这业务本来没流量"长得一模一样。',
+      '要么把 uid 改成已声明的源,要么先在 provisioning 里声明这个源(并跑 sync-panel-live-provisioning.mjs 派生到线上副本)。',
     ].join('\n'),
   },
 
@@ -5074,10 +5072,10 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 生成器资源释放(1 项,warn)---
+  // --- 生成器资源释放(1 项,warn;升 blocking 前置见门体头注)---
   {
     id: '225',
-    label: '生成器资源释放对账(warn 起步;持有事务/句柄/订阅的 async 生成器,消费方提前 break/抛错时不得只靠退出作用域与 GC)',
+    label: '生成器资源释放对账(warn;持有事务/句柄/订阅的 async 生成器,消费方提前 break/抛错时不得只靠退出作用域与 GC)',
     script: 'check-generator-resource-release.mjs',
     args: [],
     mode: 'warn',

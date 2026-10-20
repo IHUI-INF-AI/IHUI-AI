@@ -10,7 +10,7 @@
 # ============================================================================
 # 当前线上生产环境采用【Windows 原生进程部署】:
 #   监控二进制位于 D:\DevEnv\monitor,由 Windows 服务(NSSM)/裸进程托管
-#   (Prometheus 127.0.0.1:8815、Grafana 8816、Loki 3100、Promtail 9080、
+#   (Prometheus 127.0.0.1:8815、Loki 3100、Promtail 9080、
 #    Alertmanager 9093)。
 #   业务服务 api(8802)/web(8801 next)/ai-service(8803) 亦为原生 node/python 进程,
 #   启动脚本见 deploy/prod-bundle/svc/run-{api,web,ai}.ps1。
@@ -29,9 +29,9 @@
 # 可观测性服务 Profile(2026-07-25 立)
 # ============================================================================
 # 默认 `docker compose up -d` 仅启动业务服务(api/worker/web/ai-service/db/redis/migrate)
-# 监控服务(jaeger/otel-collector/prometheus/grafana/node-exporter/loki/promtail)
+# 监控服务(jaeger/otel-collector/prometheus/node-exporter/loki/promtail)
 # 需显式启用:`docker compose --profile observability up -d`
-# 单独启动监控:`docker compose --profile observability up -d jaeger prometheus grafana`
+# 单独启动监控:`docker compose --profile observability up -d jaeger prometheus`
 # 关闭监控:`docker compose --profile observability down`
 services:
   # 新后端 API(Fastify 5 + Drizzle ORM)
@@ -420,37 +420,6 @@ services:
       timeout: 5s
       retries: 3
 
-  # Grafana 仪表盘(可视化监控数据)
-  grafana:
-    profiles: [observability]
-    image: grafana/grafana:11.3.0
-    container_name: ihui-grafana
-    restart: unless-stopped
-    depends_on:
-      - prometheus
-    volumes:
-      - ./monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
-      - grafanadata:/var/lib/grafana
-    environment:
-      # 2026-07-21 安全审计第十轮加固:严禁 `:-change-me-...` 弱密码 fallback
-      # 必须从 .env 显式注入,若未配置则服务启动失败(Grafana 会用默认值,
-      # 但任何知晓源码的人都能登录,等于公开后门)
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER 未配置,请在 .env 设置}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD 未配置,请在 .env 设置强密码(≥16 字符)}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_HTTP_PORT=8816
-    ports:
-      - '${GRAFANA_PORT:-8816}:8816'
-    networks:
-      - ihui-net
-    healthcheck:
-      test: ['CMD-SHELL', 'wget --spider -q http://localhost:8816/api/health || exit 1']
-      interval: 30s
-      timeout: 5s
-      retries: 3
-
   # Node Exporter(主机指标:CPU/内存/磁盘/网络)
   node-exporter:
     profiles: [observability]
@@ -584,7 +553,6 @@ volumes:
   pgdata:
   redisdata:
   prometheusdata:
-  grafanadata:
   loki-data: # Loki 数据持久化(chunks + index + compactor)
   promtail-positions: # Promtail 读取位置持久化(positions.yaml)
   alertmanager-data: # Alertmanager 告警通知状态持久化(nflog/silences)

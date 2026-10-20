@@ -394,7 +394,7 @@ pre-commit 共 23 项守门(完整清单见 [AGENTS.md §守门脚本速查](../
 | **症状** | `docker compose up -d` 报 `Bind for 0.0.0.0:5432 failed: port already allocated` 或容器 `unhealthy` |
 | **根因** | 端口冲突(本机已有 PG/Redis)/ 容器依赖未就绪 / 环境变量缺失 |
 | **排查命令** | `docker compose ps`(查状态);`docker compose logs <服务名> --tail 50`;`docker compose config`(查渲染后的配置) |
-| **修复方案** | 1. 端口冲突:`netstat -ano | findstr :5432` 找占用进程,停掉或改端口<br>2. unhealthy:查 healthcheck 日志,确认依赖服务(db / redis / migrate)已 healthy<br>3. 环境变量:确认 `.env` 的 `DB_PASSWORD` / `JWT_SECRET` / `CREDENTIALS_ENCRYPTION_KEY` 非空<br>4. Grafana 启动失败:必须配 `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`(compose 强制 `:?`) |
+| **修复方案** | 1. 端口冲突:`netstat -ano | findstr :5432` 找占用进程,停掉或改端口<br>2. unhealthy:查 healthcheck 日志,确认依赖服务(db / redis / migrate)已 healthy<br>3. 环境变量:确认 `.env` 的 `DB_PASSWORD` / `JWT_SECRET` / `CREDENTIALS_ENCRYPTION_KEY` 非空<br>4. 大屏 启动失败:必须配 `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`(compose 强制 `:?`) |
 | **预防** | 用 `scripts/dev-up.ps1`(自动等依赖就绪);生产环境用 [DEPLOYMENT_RUNBOOK.md](./DEPLOYMENT_RUNBOOK.md) 流程 |
 
 ### 8.2 Nginx 502 Bad Gateway

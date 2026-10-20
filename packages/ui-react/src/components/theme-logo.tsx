@@ -67,7 +67,7 @@ export function ThemeLogo({
   // cache-busting: SVG 静态资源走 HTTP 强缓存,改文件后必须更新版本号让浏览器重新拉
   // 2026-07-20 v2:渐变 stop 也改了(图标小字 IHUI INF.AI 用 master_svg0_1937_38746 渐变,
   // 原 #000/#373737/#000 在深色 sidebar 上几乎不可见 → 改成 #fff/#e5e5e5/#fff)
-  const cacheBust = '?v=20260720-logo-dark-v2-gradient-white'
+  const cacheBust = '?v=20261020-logo-compact-v4'
 
   // 两枚都标 lazy:未被当前主题显示的那一枚是 display:none,不进视口 ⇒ 浏览器根本不下载它。
   // 此前两枚都是默认 eager,浅色/深色访客都要多下一整枚 1.18MB 的 SVG(实测首屏 3.5MB 全花在这张

@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
 import type { FallbackEvent } from '@ihui/api-client'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { useApplyDiff } from '@/hooks/use-apply-diff'
 import { fetchApi } from '@/lib/api'
 import { createSendMessage } from './use-chat/send-message'
@@ -23,10 +23,13 @@ import type { UseChatReturn, ChatActionContext } from './use-chat/types'
 export type { UseChatReturn } from './use-chat/types'
 
 export function useChat(): UseChatReturn {
-  const messages = useChatStore((s) => s.messages)
-  const currentModel = useChatStore((s) => s.currentModel)
-  const isStreaming = useChatStore((s) => s.isStreaming)
-  const error = useChatStore((s) => s.error)
+  // 票60 步序四:窗格寻址入口。无 ChatPaneProvider 时恒返回单例 useChatStore,
+  // 行为与改造前逐字节等价;Provider 内返回该窗格的独立实例。
+  const chatStore = usePaneChatStore()
+  const messages = chatStore((s) => s.messages)
+  const currentModel = chatStore((s) => s.currentModel)
+  const isStreaming = chatStore((s) => s.isStreaming)
+  const error = chatStore((s) => s.error)
   // P4-2: fallback 通知状态(主模型失败切换到备用模型时设置,UI 展示横幅)
   const [fallbackNotice, setFallbackNotice] = React.useState<FallbackEvent | null>(null)
 
@@ -35,10 +38,9 @@ export function useChat(): UseChatReturn {
   // ChatMode 斜杠命令 toast i18n(2026-07-28 立,模块级函数无法调 hook,由此处传入 t)
   const t = useTranslations('chat')
   // 票60 步序三(2026-10-18):abort 域收进按 store 实例隔离的运行时记录(stream-runtime.ts)。
-  // 单例场景 getStreamRuntime(useChatStore) 恒同一份 ⇒ 与原 React.useRef 行为逐字节等价;
-  // 窗格实例(票60 后续切片)各挂各的记录,中断互不串扰。send-message/send-answer 经
-  // ctx.abortRef 的读写点零改动,自动落到本记录。
-  const abortRef = getStreamRuntime(useChatStore).abortRef
+  // 步序四起 chatStore 来自 usePaneChatStore():无 Provider 时仍是单例 useChatStore,
+  // 恒同一份记录 ⇒ 与原 React.useRef 行为逐字节等价;窗格实例各挂各的记录,互不串扰。
+  const abortRef = getStreamRuntime(chatStore).abortRef
   // P1 错误重试(2026-07-23):保存最后发送内容,toast 加 retry 按钮
   const lastSentContentRef = React.useRef('')
   // #10 sendAnswer 错误重试(2026-07-25 立):保存最后回答内容,toast 加 retry 按钮
@@ -49,7 +51,7 @@ export function useChat(): UseChatReturn {
   // Enter/双击发送可重复建会话/发消息。此 ref 在函数入口即置位,覆盖所有 await 间隙。
   const sendInFlightRef = React.useRef(false)
 
-  const conversationId = useChatStore((s) => s.conversationId)
+  const conversationId = chatStore((s) => s.conversationId)
   // 2026-08-21 修复(C3):流代际计数。每次新流开始 ++;旧流 finally 据此判断
   // 自己是否仍是最新流,避免被 abort 的旧流把新流/新会话的 isStreaming 错误置 false。
   const streamGenerationRef = React.useRef(0)
@@ -94,8 +96,13 @@ export function useChat(): UseChatReturn {
     streamConversationRef,
   }
 
-  const sendMessage = React.useCallback(createSendMessage(ctx), [router, queryClient, t])
-  const sendAnswer = React.useCallback(createSendAnswer(ctx), [t])
+  const sendMessage = React.useCallback(createSendMessage(ctx, chatStore), [
+    router,
+    queryClient,
+    t,
+    chatStore,
+  ])
+  const sendAnswer = React.useCallback(createSendAnswer(ctx, chatStore), [t, chatStore])
 
   // V3 #68(2026-09-27 立):终止在途流的**唯一**出口,由「停止」按钮与「流式中切换模型」共用。
   // 动作与原 stop() 逐条等值(标记中断 → 通知网关 → abort → 回收压缩预告),
@@ -104,15 +111,15 @@ export function useChat(): UseChatReturn {
     (notice?: string): boolean =>
       terminateActiveStream({
         abortRef,
-        conversationId: useChatStore.getState().conversationId,
+        conversationId: chatStore.getState().conversationId,
         findInterruptedAssistantId: () => {
-          const st = useChatStore.getState()
+          const st = chatStore.getState()
           return (
             st.messages.find((m) => m.role === 'assistant' && m.streamCompleted === false)?.id ??
             null
           )
         },
-        setInterruptedMessage: (id) => useChatStore.getState().setInterruptedMessage(id),
+        setInterruptedMessage: (id) => chatStore.getState().setInterruptedMessage(id),
         // 2026-09-18 立:停止动作的服务端闭环 —— 本地 abort 只断开 SSE 连接,网关侧上游
         // fetch 原要等 15s 宽限期超时才中止,期间 ai-service 的工具子进程/浏览器操作仍
         // 继续执行(浪费额度 + 留下脏状态)。这里同步通知网关中止该会话的上游流。
@@ -128,7 +135,7 @@ export function useChat(): UseChatReturn {
         notice,
         showNotice: (message) => toast.info(message),
       }),
-    [],
+    [chatStore],
   )
 
   const stop = React.useCallback(() => {
@@ -159,8 +166,8 @@ export function useChat(): UseChatReturn {
 
   // 跳过当前挂起的提问:不续流 LLM,允许用户继续发新消息
   const skipQuestion = React.useCallback(() => {
-    useChatStore.getState().clearPendingQuestion()
-  }, [])
+    chatStore.getState().clearPendingQuestion()
+  }, [chatStore])
 
   // 组件卸载时中止进行中的流式请求,避免后台僵尸请求
   React.useEffect(() => {
@@ -169,9 +176,9 @@ export function useChat(): UseChatReturn {
     }
   }, [])
 
-  const clearMessages = useChatStore((s) => s.clearMessages)
-  const setModel = useChatStore((s) => s.setModel)
-  const pendingQuestion = useChatStore((s) => s.pendingQuestion)
+  const clearMessages = chatStore((s) => s.clearMessages)
+  const setModel = chatStore((s) => s.setModel)
+  const pendingQuestion = chatStore((s) => s.pendingQuestion)
   // P4-2: 清除 fallback 通知(用户关闭横幅时调用)
   const clearFallbackNotice = React.useCallback(() => setFallbackNotice(null), [])
 

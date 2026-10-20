@@ -650,7 +650,7 @@ A: Yes. 8 platforms from one monorepo(Web / API / AI-service / Desktop / Extensi
 A: Yes. MCP + LangGraph + A2A triple stack(三栈协同),工具协议 + 工作流编排 + Agent 互通一体化。
 
 **Q: Is it production-ready? / 生产环境可用吗?**
-A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4393 API 路由 / 542 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4393 API 路由 / 542 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 
 ---
 
