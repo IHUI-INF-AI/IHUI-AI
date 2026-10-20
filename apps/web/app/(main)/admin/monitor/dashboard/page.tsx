@@ -62,13 +62,13 @@ export default function AdminMonitorDashboardPage() {
     { label: 'CPU', value: perf?.cpu ?? 0, unit: '%', max: 100, cls: 'text-primary' },
     { label: '内存', value: perf?.memory ?? 0, unit: '%', max: 100, cls: 'text-primary' },
     { label: '磁盘', value: perf?.diskUsage ?? 0, unit: '%', max: 100, cls: 'text-purple-600' },
-    { label: 'QPS', value: perf?.qps ?? 0, unit: '', max: 0, cls: 'text-emerald-600', raw: true },
+    { label: 'QPS', value: perf?.qps ?? 0, unit: '', max: 0, cls: 'text-success-deep-text', raw: true },
     {
       label: '平均响应',
       value: perf?.avgResponse ?? 0,
       unit: 'ms',
       max: 0,
-      cls: 'text-amber-600',
+      cls: 'text-warning-amber-text',
       raw: true,
     },
   ]
@@ -115,16 +115,16 @@ export default function AdminMonitorDashboardPage() {
                       className="flex items-center justify-between rounded-md border p-2.5"
                     >
                       <div className="flex items-center gap-2">
-                        <Icon className={cn('h-4 w-4', ok ? 'text-emerald-600' : 'text-red-600')} />
+                        <Icon className={cn('h-4 w-4', ok ? 'text-success-deep-text' : 'text-red-600')} />
                         <span className="text-sm font-medium">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         {ok ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-success-deep-text" />
                         ) : (
                           <XCircle className="h-3.5 w-3.5 text-red-600" />
                         )}
-                        <span className={cn('text-xs', ok ? 'text-emerald-600' : 'text-red-600')}>
+                        <span className={cn('text-xs', ok ? 'text-success-deep-text' : 'text-red-600')}>
                           {s.latency}ms
                         </span>
                       </div>
@@ -160,8 +160,8 @@ export default function AdminMonitorDashboardPage() {
                           c.value > 90
                             ? 'bg-red-500'
                             : c.value > 70
-                              ? 'bg-amber-500'
-                              : 'bg-emerald-500',
+                              ? 'bg-warning'
+                              : 'bg-success',
                         )}
                         style={{ width: `${Math.min(c.value, 100)}%` }}
                       />

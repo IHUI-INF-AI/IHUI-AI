@@ -85,7 +85,7 @@ export default function AdminMonitorAlertsPage() {
             <CardTitle className="text-xs font-medium text-muted-foreground">警告</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-600">{warningCount}</div>
+            <div className="text-2xl font-bold text-warning-amber-text">{warningCount}</div>
           </CardContent>
         </Card>
       </div>
