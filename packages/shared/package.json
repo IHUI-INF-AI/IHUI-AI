@@ -227,6 +227,14 @@
     "./share/*": {
       "types": "./src/share/*.ts",
       "import": "./src/share/*.ts"
+    },
+    "./plugins-data": {
+      "types": "./src/plugins-data.ts",
+      "import": "./src/plugins-data.ts"
+    },
+    "./plugins-data/*": {
+      "types": "./src/plugins-data/*.ts",
+      "import": "./src/plugins-data/*.ts"
     }
   },
   "scripts": {
@@ -240,6 +248,7 @@
     "@ihui/api-client": "workspace:*",
     "@ihui/design-tokens": "workspace:*",
     "@ihui/types": "workspace:*",
+    "lucide-react": "1.37.0",
     "xstate": "^5.32.5",
     "zod": "catalog:",
     "zustand": "catalog:"

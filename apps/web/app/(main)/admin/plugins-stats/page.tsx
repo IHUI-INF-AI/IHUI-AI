@@ -22,7 +22,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import type { PluginStatsRow, PluginStatsSummary, PluginTrendRow } from '@ihui/types'
-import { MARKET_PLUGINS, PROJECT_PLUGINS } from '../../plugins/plugins-data'
+import { MARKET_PLUGINS, PROJECT_PLUGINS } from '@ihui/shared/plugins-data'
 import { BackButton } from '@/components/common'
 
 // =============================================================================
