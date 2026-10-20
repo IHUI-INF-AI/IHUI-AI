@@ -55,9 +55,14 @@ test.describe('真机验证 8 项清单', () => {
     await page.goto('/feedback')
     await page.waitForLoadState('domcontentloaded')
 
-    // 2026-08-26 修复:移除"提交反馈 tab"点击 —— first() 匹配到的按钮点击后页面切换,
-    // file input 从 1 → 0(实测复现),而 file input 在默认视图已存在(ImageUpload 渲染)。
-    // 直接在默认视图断言上传组件。
+    // 2026-10-20 修复:先切到「最新」tab(feedback.tab_new)。上一版(2026-08-26)把切 tab 的
+    // 点击删掉了,理由是"file input 在默认视图已存在" —— 该前提不成立:页面默认 tab='list'
+    // (apps/web/app/(main)/feedback/page.tsx:30),ImageUpload 只在 FeedbackForm 内渲染
+    // (FeedbackForm.tsx:133,经 page.tsx:167 的 tab==='new' 分支挂载),list 视图没有
+    // input[type=file] ⇒ CI 实测 expect(uploadVisible || fileInputExists) Received: false
+    // (取不到输入,不是判出问题)。
+    // 注:该 tab 是普通 <button>(非 Radix Tabs),可访问名取 i18n「列表」/「最新」,无 role=tab。
+    await page.getByRole('button', { name: '最新', exact: true }).click()
 
     // 验证表单存在
     const form = page.locator('form').first()
@@ -66,23 +71,14 @@ test.describe('真机验证 8 项清单', () => {
       .catch(() => {})
 
     // 验证图片上传区域存在(上传按钮含 UploadCloud 图标或 placeholder 文本)
+    // 2026-10-20:placeholder 由 FeedbackForm 传入 =「粘贴或拖拽图片到此处」(feedback.imagesPlaceholder)
     const uploadArea = page
       .locator('button[type="button"]')
       .filter({ hasText: /upload|图片|圖片|画像|이미지/i })
-    const uploadVisible = await uploadArea.isVisible({ timeout: 3000 }).catch(() => false)
+    await expect(uploadArea.first()).toBeVisible({ timeout: 5000 })
 
-    // 验证 file input 存在(ImageUpload 组件内部有 hidden file input)
-    // 2026-08-26 修复:file input 渲染有时序(count 立即检查可能 0,手动等 3s 后存在)
-    // → 轮询等待最多 5s
-    let fileInputExists = false
-    for (let i = 0; i < 10; i++) {
-      fileInputExists = (await page.locator('input[type="file"]').count()) > 0
-      if (fileInputExists) break
-      await page.waitForTimeout(500)
-    }
-
-    // 至少验证组件已渲染(上传按钮或 file input 之一存在)
-    expect(uploadVisible || fileInputExists).toBeTruthy()
+    // 验证 file input 存在(ImageUpload 内部是 hidden 的 input[type=file],故只验"在不在")
+    await expect(page.locator('input[type="file"]').first()).toBeAttached({ timeout: 5000 })
 
     // 无 500 错误
     expect(filterNoise(serverErrors)).toHaveLength(0)
@@ -401,12 +397,11 @@ test.describe('真机验证 - 已登录状态', () => {
       if (page.url().includes('/feedback')) {
         loggedIn = true
 
-        // 切换到提交反馈 tab
-        const newTab = page.getByRole('button', { name: /submit|提交反馈|new|新建/i }).first()
-        if (await newTab.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await newTab.click()
-          await page.waitForTimeout(500)
-        }
+        // 2026-10-20 修复:切 tab 的可访问名是 i18n feedback.tab_new =「最新」,
+        // 旧正则 /submit|提交反馈|new|新建/ 命中不到任何按钮 ⇒ 停在 list 视图,
+        // 而 ImageUpload 只在 FeedbackForm(tab==='new')里渲染 ⇒ 断言取不到输入。
+        await page.getByRole('button', { name: '最新', exact: true }).click()
+        await page.waitForTimeout(500)
 
         // 验证图片上传组件存在
         const fileInput = page.locator('input[type="file"]').first()
@@ -417,8 +412,11 @@ test.describe('真机验证 - 已登录状态', () => {
         const uploadButton = page
           .locator('button[type="button"]')
           .filter({ hasText: /upload|图片|圖片|画像|이미지/i })
-        const uploadVisible = await uploadButton.isVisible({ timeout: 3000 }).catch(() => false)
-        expect(uploadVisible || fileInputExists).toBeTruthy()
+        const uploadVisible = await uploadButton
+          .first()
+          .isVisible({ timeout: 3000 })
+          .catch(() => false)
+        expect(uploadVisible).toBeTruthy()
       }
 
       await context.close()
