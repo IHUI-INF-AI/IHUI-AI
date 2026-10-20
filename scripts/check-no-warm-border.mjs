@@ -87,6 +87,10 @@ const STYLE_SCOPES = [
   'apps/desktop',
   'apps/miniapp-taro',
   'apps/mobile-rn',
+  // 浏览器扩展侧栏也是一端(它自带 globals.css/style.css 与一整套输入控件),
+  // 此前不在射程内 ⇒ 它的聚焦态暖色描边没人管(覆盖漏洞)。补进来的存量实测为 0
+  // (extension 的暖色只在文字/图标与非聚焦的警示 callout 上,按 W1 的"刻意不判"条款放行)。
+  'apps/extension',
   'packages/ui-react',
   'packages/ui-native',
   'packages/app',
