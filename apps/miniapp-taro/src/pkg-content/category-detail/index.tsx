@@ -11,7 +11,9 @@ import { getAgentList } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 
-type AgentItem = Pick<Agent, 'id' | 'name'> & {
+/** 本地视图模型:id 由 @/api 的 getAgentList 把后端主键 agentId 映射而来(对齐 mobile-rn AgentShopItem.id) */
+type AgentItem = Pick<Agent, 'name'> & {
+  id: string
   description?: string
   avatar?: string
   useCount?: number

@@ -12,19 +12,39 @@
 import { Platform, StyleSheet } from 'react-native'
 import type { ViewStyle, TextStyle, ImageStyle } from 'react-native'
 import { tokens as tk } from '../theme/active-tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, withAlpha } from '@ihui/design-tokens'
+import {
+  INPUT_AREA_CONTAINER_PADDING_X_PX,
+  INPUT_AREA_SHELL_HEIGHT_PX,
+} from '@ihui/shared/ui/input-area-spec'
 
-export const TAB_BAR_HEIGHT = 56
+/**
+ * 胶囊高 = AI 输入框外壳静态高(2026-10-20 用户定稿「底部菜单栏的高宽应该跟 AI 输入框
+ * 一致」);左右留边 = 输入区容器的同一枚横向 padding ⇒ 停靠区里两张卡同形同位。
+ */
+export const TAB_BAR_HEIGHT = INPUT_AREA_SHELL_HEIGHT_PX
 export const TAB_BAR_ICON_SIZE = 24
 export const TAB_BAR_FONT_SIZE = 11
-/** 胶囊左右留边(对齐 Telegram/钉钉悬浮栏与屏幕边缘的间距) */
-export const TAB_BAR_FLOAT_MARGIN_H = 12
+/**
+ * 选中态字号(2026-10-20 用户定稿「选中时文字稍微放大加粗」):比未选中大 1px。
+ * 与小程序 tab-bar-metrics.ts 的同名量成对,改一端必须同批改另一端。
+ * 截断余量实测:最宽标签「AI应用商店」11px 占 54px / 单格 81px,12px 约 60px ⇒ 不截断。
+ */
+export const TAB_BAR_FONT_SIZE_ACTIVE = 12
+/** 胶囊左右留边(与停靠区内 AI 输入框同一条垂直边线) */
+export const TAB_BAR_FLOAT_MARGIN_H = INPUT_AREA_CONTAINER_PADDING_X_PX
 /** 胶囊顶部与内容的间距 */
 export const TAB_BAR_FLOAT_GAP_TOP = 6
 /** 胶囊底部最小悬浮间距(无 safe-area 时兜底) */
 export const TAB_BAR_FLOAT_GAP_BOTTOM_MIN = 8
 /** 胶囊圆角(小圆角悬浮卡,对齐钉钉风格;2026-09-22 用户定稿"小圆角";原 14,R1 吸附至 xl(12)) */
 export const TAB_BAR_RADIUS = rnRadius.xl
+
+/**
+ * 选中态光晕半径(px)。与 apps/miniapp-taro/src/constants/tab-bar-metrics.ts 的同名量逐值对齐
+ * (两端胶囊是同一个界面元素);颜色一律走 token,端内不得出现裸 hex(守门 218)。
+ */
+export const TAB_BAR_GLOW_RADIUS_PX = 6
 
 /**
  * 内容区底部预留(给悬浮胶囊让出滚动空间,内容可滚到胶囊底下若隐若现):
@@ -111,20 +131,48 @@ export const tabBarStyles = {
     resizeMode: 'contain',
   } satisfies ImageStyle,
 
+  /**
+   * 选中态发光(2026-10-20 用户定稿):浅蓝 brandAccent.DEFAULT 的 drop-shadow 挂在图标的
+   * 包裹层上 —— RN 把 filter 收在 ViewStyle,ImageStyle 没有这一维。web 预览经
+   * react-native-web 透传成 CSS filter(与本文件玻璃层 backdropFilter 同一条通道)。
+   * 暗色档 brandAccent.DEFAULT=#a3c4d6 在 #242424 深底上同样成立。
+   */
+  iconGlow: {
+    filter: `drop-shadow(0 0 ${TAB_BAR_GLOW_RADIUS_PX}px ${withAlpha(tk.brandAccent.DEFAULT, 0.85)})`,
+  } satisfies ViewStyle,
+
+  /** 选中态顶部指示条:3px 高,与选中文字同档,左右各留 12dp,小圆角 */
+  activeIndicator: {
+    position: 'absolute',
+    top: 0,
+    left: 12,
+    right: 12,
+    height: 3,
+    borderRadius: rnRadius.xs,
+    backgroundColor: tk.brandAccent.deep,
+  } satisfies ViewStyle,
+
   label: {
     fontSize: TAB_BAR_FONT_SIZE,
     marginTop: 2,
     lineHeight: TAB_BAR_FONT_SIZE + 2,
   } satisfies TextStyle,
 
-  /** 选中态文字:深色中性(text.primary,亮 #0A0A0A / 暗 #FAFAFA) */
+  /**
+   * 选中态文字:浅蓝强调档(brandAccent.deep,亮 #4a7a96 / 暗 #a3c4d6)+ 粗体。
+   * 2026-10-20 用户定稿:选中图标改用素材自带的浅紫 + 浅蓝发光,文字与指示条随强调档,
+   * 「色 + 重」双重区分(此前整栏走深色中性,把彩色素材压成了近黑)。
+   */
   labelActive: {
-    color: tk.text.primary,
+    color: tk.brandAccent.deep,
+    fontWeight: '600',
+    fontSize: TAB_BAR_FONT_SIZE_ACTIVE,
+    lineHeight: TAB_BAR_FONT_SIZE_ACTIVE + 2,
   } satisfies TextStyle,
 
-  /** 未选中态文字:中性灰(text.tertiary,亮 #A3A3A3 / 暗 #737373) */
+  /** 未选中态文字:中性灰(text.secondary,亮 #666666 / 暗 #A3A3A3)—— 比原 tertiary 深一档 */
   labelInactive: {
-    color: tk.text.tertiary,
+    color: tk.text.secondary,
   } satisfies TextStyle,
 } as const
 

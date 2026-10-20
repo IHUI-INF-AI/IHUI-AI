@@ -26,9 +26,11 @@ import {
   TAB_BAR_HEIGHT,
   TAB_BAR_ICON_SIZE,
   TAB_BAR_FONT_SIZE,
+  TAB_BAR_FONT_SIZE_ACTIVE,
   TAB_BAR_MARGIN_H,
   TAB_BAR_GAP_BOTTOM,
   TAB_BAR_INDICATOR_H,
+  TAB_BAR_GLOW_RADIUS_PX,
 } from '@/constants/tab-bar-metrics'
 import { t as tGlobal } from '@/i18n'
 
@@ -52,6 +54,12 @@ const TABS: TabItem[] = [
  *  本端取名 *_PX 而非 *_RADIUS,避免圆角单源门 B2 把"喂给 blur() 的模糊半径"误当本地圆角常量。 */
 const GLASS_BLUR_PX = 24
 
+/** 选中态光晕:半径取两端同名档 TAB_BAR_GLOW_RADIUS_PX,颜色走 CSS 变量 --color-brand-accent
+ *  (亮 #8fb8cc / 暗 #a3c4d6),与 RN TabBar.styles.ts 的 iconGlow 同档 —— 端内不出现裸 hex。 */
+const GLOW_STYLE = {
+  filter: `drop-shadow(0 0 ${TAB_BAR_GLOW_RADIUS_PX}px var(--color-brand-accent))`,
+}
+
 export default function CustomTabBar() {
   const { resolved } = useAppTheme()
   const [current, setCurrent] = useState<string>(() => {
@@ -70,8 +78,11 @@ export default function CustomTabBar() {
     Taro.switchTab({ url: item.pagePath })
   }
 
-  const ink = COLORS.textPrimary[resolved]
-  const muted = COLORS.tertiary[resolved]
+  // 2026-10-20 用户定稿:选中走浅蓝强调档(与 RN TabBar 的 brandAccent.deep 同值 —— 亮 #4a7a96 /
+  // 暗 #a3c4d6;取 CSS 变量是因为该档尚未进派生表 COLORS),未选中从中性灰 tertiary 加深一档到
+  // textSecondary —— 实拍「太浅」的正是 tertiary 那一档。
+  const ink = 'var(--color-brand-accent-deep)'
+  const muted = COLORS.textSecondary[resolved]
 
   return (
     <View
@@ -126,12 +137,16 @@ export default function CustomTabBar() {
                 }}
               />
             ) : null}
-            <LineIcon name={item.icon} size={TAB_BAR_ICON_SIZE} color={active ? ink : muted} />
+            {/* 选中态浅蓝发光(半径与 RN 的 iconGlow 同名同档);光晕挂包裹层 —— LineIcon 本体是
+                CSS mask 块,filter 作用于它的渲染结果 */}
+            <View style={active ? GLOW_STYLE : undefined}>
+              <LineIcon name={item.icon} size={TAB_BAR_ICON_SIZE} color={active ? ink : muted} />
+            </View>
             <Text
               style={{
                 marginTop: 2,
-                fontSize: `${TAB_BAR_FONT_SIZE}px`,
-                lineHeight: `${TAB_BAR_FONT_SIZE + 2}px`,
+                fontSize: `${active ? TAB_BAR_FONT_SIZE_ACTIVE : TAB_BAR_FONT_SIZE}px`,
+                lineHeight: `${(active ? TAB_BAR_FONT_SIZE_ACTIVE : TAB_BAR_FONT_SIZE) + 2}px`,
                 fontWeight: active ? '600' : '400',
                 color: active ? ink : muted,
               }}

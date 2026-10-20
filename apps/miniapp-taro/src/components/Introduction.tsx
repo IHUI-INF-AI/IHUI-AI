@@ -6,7 +6,8 @@ import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import type { Agent } from '@ihui/api-client'
 
-export type AgentRef = Pick<Agent, 'id' | 'name'>
+/** 本地视图模型:契约主键是 Agent.agentId,本端沿用 id 承载(对齐 mobile-rn AgentShopItem.id) */
+export type AgentRef = Pick<Agent, 'name'> & { id: string }
 
 export interface IntroductionProps {
   content?: string

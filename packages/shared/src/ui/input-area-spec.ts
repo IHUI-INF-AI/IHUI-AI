@@ -188,6 +188,23 @@ export const INPUT_AREA_VOICE_BTN_WIDTH_PX = 32
 export const INPUT_AREA_INPUT_MIN_HEIGHT_PX = 48
 
 /**
+ * 【B 单端档·RN】大输入框外壳(fieldShell)的上下内边距 6 与描边 1 —— 写成常数是为了让
+ * 外壳高度能被推导,而不是让端内再抄一遍 48+12+2。
+ */
+export const INPUT_AREA_SHELL_PADDING_V_PX = 6
+export const INPUT_AREA_SHELL_BORDER_PX = 1
+
+/**
+ * 【B 单端档·RN】大输入框外壳单行静态高 = 输入行最小高 + 上下内边距×2 + 上下描边×2。
+ * 底部 TabBar 胶囊按这一档取高:停靠区里两张卡同形(2026-10-20 用户定稿「菜单栏的高宽
+ * 应该跟 AI 输入框一致」)。输入框多行撑高时外壳会变高,胶囊不跟随 —— 对齐的是静态单行档。
+ */
+export const INPUT_AREA_SHELL_HEIGHT_PX =
+  INPUT_AREA_INPUT_MIN_HEIGHT_PX +
+  INPUT_AREA_SHELL_PADDING_V_PX * 2 +
+  INPUT_AREA_SHELL_BORDER_PX * 2
+
+/**
  * 【B 单端档·RN】语音波形条:整条容器高 32、单条基线高 8(端内按 `8 + (i % 6) * 4` 排齿)。
  * 机制差异,非取值分叉:小程序端语音条是 `.voice-bar-animation` + line1~line30 的 CSS 关键帧,
  * 每根线的高度写死在类里(30 条各一档),没有可与 dp 对齐的单一数字。

@@ -221,12 +221,11 @@ export function QueueInteractionBar({
             {editing ? (
               <>
                 {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);
-                    focusedStyle 对齐 LoginScreen/ImageGenCreateScreen 参照:聚焦 borderWidth 1→2。
+                    聚焦只换色不改描边宽度(描边变粗会压缩内容区令文字挪位;同型位移 2026-10-20 在登录框真机实测)。
                     端内不再手写第二份聚焦状态(票面点名反模式),唯一实现在 packages/app。 */}
                 <TextField
                   colorScheme={currentRnTheme()}
                   style={styles.editInput}
-                  focusedStyle={{ borderWidth: 2 }}
                   value={editDraft}
                   onChangeText={setEditDraft}
                   onSubmitEditing={confirmEdit}

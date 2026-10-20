@@ -37,11 +37,8 @@ vi.mock('../src/config/index.js', () => ({
   },
 }))
 
-const {
-  isTronAddress,
-  assertUsdtAddressFormat,
-  createUsdtPayment,
-} = await import('../src/services/payment-usdt-service.js')
+const { isTronAddress, assertUsdtAddressFormat, createUsdtPayment } =
+  await import('../src/services/payment-usdt-service.js')
 
 /** 已上线的真实 TRC20 收款地址(前端 sponsor 页在用)—— 必须通过校验 */
 const REAL_TRON = 'TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG'
@@ -117,10 +114,16 @@ describe('assertUsdtAddressFormat — 400 语义与ERC20 放行', () => {
     expect(err.message).not.toContain('T0aaaaaaaa')
   })
 
-  it('ERC20 地址走这条路不得被 TRC20 正则误拒', () => {
+  it('ERC20 走自己的正则:真地址放行,非法值按 400 拒(不再"不归它管")', () => {
+    // 2026-10-20 G-317-②(1d733b0fc4)给 ERC20 补了 0x+40hex 校验,本用例原前提
+    // 「非 TRC20 不归它管」随之失效;姊妹用例 src/services/__tests__/usdt-address-format.test.ts:52
+    // 同笔已改判,这一枚是漏改的那一份。原意仍保住:真 ERC20 地址不得被 TRC20 正则误拒。
     expect(() => assertUsdtAddressFormat('ERC20', ERC20_SAMPLE)).not.toThrow()
-    // 即便 ERC20 传入一个 TRC20 正则必然拒绝的值,也不该由本函数抛错(不归它管)
-    expect(() => assertUsdtAddressFormat('ERC20', 'not-an-address')).not.toThrow()
+    const err = catchErr(() => assertUsdtAddressFormat('ERC20', 'not-an-address'))
+    expect(err.statusCode).toBe(400)
+    // 拒因必须点 ERC20 自己的规则,不是拿 TRC20 的正则去拒它
+    expect(err.message).toContain('ERC20')
+    expect(err.message).not.toContain('波场')
   })
 })
 
@@ -131,9 +134,12 @@ describe('createUsdtPayment — 「未配置」500与「格式非法」400 是�
 
   it('TRC20 未配置 env ⇒ 500,且不写库', async () => {
     delete process.env.USDT_TRC20_ADDRESS
-    const err = await createUsdtPayment('u1', 1000, 'TRC20').catch((e) => e as Error & {
-      statusCode?: number
-    })
+    const err = await createUsdtPayment('u1', 1000, 'TRC20').catch(
+      (e) =>
+        e as Error & {
+          statusCode?: number
+        },
+    )
     expect(err).toBeInstanceOf(Error)
     expect((err as { statusCode?: number }).statusCode).toBe(500)
     expect(err.message).toContain('未配置')
@@ -142,9 +148,12 @@ describe('createUsdtPayment — 「未配置」500与「格式非法」400 是�
 
   it('TRC20 配了但形态非法 ⇒ 400(区别于 500),不写库', async () => {
     process.env.USDT_TRC20_ADDRESS = 'T0' + 'a'.repeat(32)
-    const err = await createUsdtPayment('u1', 1000, 'TRC20').catch((e) => e as Error & {
-      statusCode?: number
-    })
+    const err = await createUsdtPayment('u1', 1000, 'TRC20').catch(
+      (e) =>
+        e as Error & {
+          statusCode?: number
+        },
+    )
     expect(err).toBeInstanceOf(Error)
     expect((err as { statusCode?: number }).statusCode).toBe(400)
     expect(err.message).not.toContain('T0aaaaaaaa')

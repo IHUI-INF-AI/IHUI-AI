@@ -172,9 +172,18 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
       const box = await checkbox.boundingBox()
       expect(box, 'checkbox boundingBox 应存在').toBeTruthy()
       await page.mouse.click(box!.x + 8, box!.y + 8)
-      await expect(checkbox).toHaveAttribute('aria-checked', 'true', { timeout: 2000 })
+      // 2026-10-20 状态断言改锚:33000fbfdb(2026-09-22 非法交互嵌套根治)把
+      // role=checkbox / aria-checked / tabIndex 下放到内层方框(agreement-checkbox.tsx:60-65,
+      // data-testid="agreement-checkbox-box"),外层 <label> 只留点击代理、不带任何 aria 状态,
+      // 按旧写法读 label 恒得 ""。admin-post-login-landing.spec.ts:41 早已用同一枚 -box 约定。
+      // 点击坐标不动:仍打 label 左上角 16x16 方框区域(这才是被守护的用户路径)。
+      await expect(page.getByTestId('agreement-checkbox-box')).toHaveAttribute(
+        'aria-checked',
+        'true',
+        { timeout: 2000 },
+      )
 
-      // 焦点在 label 上(label tabIndex=0),按 Enter
+      // 焦点在方框 span(tabIndex=0,agreement-checkbox.tsx:64)上,按 Enter → onKeyDown form.requestSubmit()
       await page.keyboard.press('Enter')
       await page.waitForTimeout(500)
 
