@@ -104,6 +104,7 @@ import {
   createAuditLog,
 } from '../db/oauth-queries.js'
 import { sendSmsCode, isSmsConfigured } from '../services/sms.js'
+import { assessRefreshReplay } from '../services/refresh-replay-policy.js'
 import { sendVerificationEmail, type EmailCodeScene } from '../services/email-service.js'
 import {
   codeStore,
@@ -374,11 +375,28 @@ export async function rotateRefreshTokenFlow(rawRefreshToken: string): Promise<R
   const stored = await findRefreshToken(rawRefreshToken)
   if (!stored) return { ok: false, status: 400, message: 'refresh_token 无效' }
   if (isRefreshTokenReused(stored)) {
-    if (payload.familyId) await revokeRefreshTokenFamily(payload.familyId)
-    return {
-      ok: false,
-      status: 400,
-      message: 'refresh_token 已被重用,该 token family 已全部撤销',
+    // 三档裁决的唯一出口在 services/refresh-replay-policy.ts(与 routes/auth.ts 的
+    // /refresh 同一把尺子):race 放行轮转 / stale-sibling 只拒绝本次 / reuse 吊销整族。
+    // 此前这里一律吊销整族,与 /refresh 的 30s 宽限期口径不同 —— 同一次竞态在两条
+    // 端点上一个放行一个全族打死,用户侧表现就是"关掉再打开要重新登录"(2026-10-20)。
+    const revokedAt = stored.revokedAt ? new Date(stored.revokedAt) : null
+    if (revokedAt) {
+      const replay = await assessRefreshReplay(revokedAt, payload.familyId)
+      if (replay.verdict === 'reuse') {
+        if (payload.familyId) await revokeRefreshTokenFamily(payload.familyId)
+        return {
+          ok: false,
+          status: 400,
+          message: 'refresh_token 已被重用,该 token family 已全部撤销',
+        }
+      }
+      if (replay.verdict === 'stale-sibling') {
+        return {
+          ok: false,
+          status: 400,
+          message: 'refresh_token 已被轮转(存在更新的会话),请用最新凭据重试',
+        }
+      }
     }
   }
   if (isRefreshTokenExpired(stored))
