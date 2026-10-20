@@ -194,6 +194,12 @@ export { MessageChatScreen } from './features/message-chat/MessageChatScreen'
 export { OrderRefundScreen } from './features/order-refund/OrderRefundScreen'
 export { PaymentScreen } from './features/payment/PaymentScreen'
 export { DomainHubScreen } from './features/domain-hub/DomainHubScreen'
+/** G-921(2026-10-21)屏级共享第二批:连接器管理屏(RN 端 ConnectorsScreen 的 UI 下沉)。
+ *  `canSyncConnector` 是"未配置不允许同步"的共享判据,随屏一起导出 —— 两端共用一枚,不各写一份。 */
+export {
+  ConnectorsScreen,
+  canSyncConnector,
+} from './features/connectors/ConnectorsScreen'
 export { VipTraderScreen } from './features/vip-trader/VipTraderScreen'
 /** 2026-09-14:IM 聊天室(迁移自 mobile-rn AssistantScreen,历史 Uniapp pagesA/assistant) */
 export { ChatRoomScreen, detectChatRoomMediaType } from './features/chat-room/ChatRoomScreen'
@@ -708,6 +714,10 @@ export type {
   DomainHubItem,
   DomainHubScreenProps,
 } from './features/domain-hub/DomainHubScreen'
+export type {
+  ConnectorItem,
+  ConnectorsScreenProps,
+} from './features/connectors/ConnectorsScreen'
 export type {
   VipTraderStat,
   VipTraderFeature,

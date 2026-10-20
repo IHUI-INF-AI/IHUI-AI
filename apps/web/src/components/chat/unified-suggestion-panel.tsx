@@ -429,7 +429,7 @@ export function UnifiedPasteReferencePreview({
               data-testid={`unified-paste-ref-${p.recognized ? 'valid' : 'unknown'}`}
               className={cn(
                 'inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] leading-none',
-                p.recognized ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground',
+                p.recognized ? 'bg-success/10 text-success-text' : 'bg-muted text-muted-foreground',
               )}
             >
               <span className="truncate">{p.raw}</span>
@@ -521,7 +521,7 @@ export function UnifiedPasteReferencePreview({
           data-testid={`unified-paste-ref-${p.recognized ? 'valid' : 'unknown'}`}
           className={cn(
             'inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] leading-none',
-            p.recognized ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground',
+            p.recognized ? 'bg-success/10 text-success-text' : 'bg-muted text-muted-foreground',
           )}
         >
           <span className="truncate">{p.raw}</span>
