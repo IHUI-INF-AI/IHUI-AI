@@ -25,14 +25,20 @@
  * 本门主犯住在 Android XML 里,R8 那张属性表结构上装不下(§0.6 禁的是同面第二份实现)。
  *
  * 判据:
- *   W1 暖色**聚焦态**描边:描边轴(CSS 描边属性 / Tailwind 描边工具类 / RN 描边 style 键)取
+ *   W1 暖色描边,两条通道:
+ *      ① 聚焦态:描边轴(CSS 描边属性 / Tailwind 描边工具类 / RN 描边 style 键)取
  *      amber|orange|yellow|warning 词族、`--color-(amber|orange|yellow|warning)*`、或暖色
  *      hex/rgb,且**处在聚焦态**(CSS 选择器带 :focus* / 工具类 variant 带 focus 族 / RN 行带
  *      focus 信号)⇒ 命中。
- *      刻意不判:① 底色/文字/图标/图表取暖色(合法语义档);② **非聚焦的暖色边框** —— 那是
+ *      ② 输入框紧邻容器(`W1-input`):文本输入控件(`input`/`textarea`/`TextInput`,排除复选框、
+ *      单选框、滑块等非文本型)向上 ≤2 行的容器开标签上带暖色描边 ⇒ 命中。**这一维与聚焦无关** ——
+ *      立因是 2026-10-21 实测:`local-folder-picker` 的编辑态容器常驻 `ring-1 ring-amber-500/30`,
+ *      只判聚焦态会漏掉整族"框上永远有一圈橙"。两个收窄都是为了不造假阳:只认容器开标签(不认
+ *      兄弟元素),且距离 ≤2 行(checkin 页距离 6/12 行那两处暖色徽章实测无关)。
+ *      刻意不判:① 底色/文字/图标/图表取暖色(合法语义档);② **非输入控件的暖色边框** —— 那是
  *      警告横幅 callout 的成套设计档(`border-amber-500/30` + `bg-amber-500/10` + `text-amber-700`),
- *      HEAD 面实测 100+ 处,把它们算成本门缺陷就是 §12e 禁的恒红门,而"改光它们"是重新设计
- *      不是修 bug。本门管的是用户报的那一型:**输入控件激活时凭空多出来的一圈橙**。
+ *      HEAD 面实测 90 处,把它们算成本门缺陷就是 §12e 禁的恒红门,而"改光它们"是重新设计
+ *      不是修 bug。本门管的是用户报的那一型:**输入控件上凭空多出来的一圈橙**。
  *      暖色尺只认 R>G>B 且两级差都够宽的一族(橙/琥珀/黄);红(G≈B)、粉(B>G)、紫、深棕
  *      都不在射程 —— 本门管"橙色描边",不做色彩警察。
  *   W2 原生输入框描边件:res 目录下各 xml 引用 `textfield_(activated|default|focused|highlight)`
@@ -179,6 +185,44 @@ export function warmFocusClassOf(token) {
 const RN_BORDER_KEY_RE =
   /\b(?:border(?:Top|Bottom|Left|Right)?Color|outlineColor|shadowColor)\s*:\s*([^,\n}]+)/g
 
+/** 文本输入控件开标签;复选框/单选框/滑块等非文本型不算"输入框"。 */
+const TEXT_INPUT_TAG_RE = /<(?:input|textarea|TextInput)\b/
+const NON_TEXT_INPUT_TYPE_RE =
+  /type=["'](?:checkbox|radio|range|color|file|submit|button|reset|hidden)["']/
+/** 能承载"输入框外框"的容器开标签。 */
+const CONTAINER_OPEN_RE =
+  /^\s*<(?:div|label|View|section|form|fieldset|Pressable|TouchableOpacity|KeyboardAvoidingView)\b/
+/** 不带 variant 的暖色描边档本体。 */
+const BARE_WARM_BORDER_CLASS =
+  /^(?:border|ring|outline|divide|shadow)-(?:amber|orange|yellow)-\d{2,3}(?:\/\d{1,3})?$/
+
+/**
+ * 输入控件所在的**紧邻容器**是否带暖色描边 —— 与聚焦态并列的第二条暖环通道。
+ *
+ * 立因(2026-10-21 实测):`local-folder-picker` 的编辑态容器是常驻
+ * `ring-1 ring-amber-500/30`,与聚焦完全无关;只判聚焦态会漏掉整族"框上永远有一圈橙"。
+ *
+ * 两条收窄都是为了不造假阳:只认容器开标签,且向上最多 2 行 —— 再远就是兄弟元素
+ * (checkin 页距离 6/12 行那两处暖色徽章实测无关,放宽射程当场误咬)。
+ */
+export function scanWarmInputChrome(cleanText) {
+  const lines = String(cleanText).split('\n')
+  const hits = []
+  for (let i = 0; i < lines.length; i++) {
+    if (!TEXT_INPUT_TAG_RE.test(lines[i])) continue
+    // `type=` 常被 prettier 折到下一行(<input 独占一行),只看本行会把复选框误认成输入框
+    if (NON_TEXT_INPUT_TYPE_RE.test(`${lines[i]}\n${lines[i + 1] ?? ''}`)) continue
+    for (let k = i; k >= Math.max(0, i - 2); k--) {
+      if (k !== i && !CONTAINER_OPEN_RE.test(lines[k])) continue
+      for (const token of lines[k].split(/[\s"'`,;)(\]]+/)) {
+        if (BARE_WARM_BORDER_CLASS.test(token))
+          hits.push({ line: k + 1, rule: 'W1-input', text: token.slice(0, 120) })
+      }
+    }
+  }
+  return hits
+}
+
 /** 聚焦态的 CSS 伪类(选择器含它 ⇒ 该块内描边属"激活态描边"这一例外位)。 */
 const CSS_FOCUS_PSEUDO_RE = /:focus(?:-within|-visible)?\b/
 
@@ -249,6 +293,7 @@ export function scanWarmBorderText(text, { css = false } = {}) {
         hits.push({ line: i + 1, rule: 'W1-rn', text: m[0].trim().slice(0, 120) })
     }
   })
+  hits.push(...scanWarmInputChrome(clean))
   return hits
 }
 
@@ -727,6 +772,26 @@ function runSelfTest() {
   ok(scanWarmBorderText('c="bg-amber-500 text-amber-600"').length === 0, 'bg-/text- 暖色档不得命中')
   ok(scanWarmBorderText('c="focus-visible:border-primary"').length === 0, '墨档聚焦描边是本门要保护的合法形态,不得命中')
   ok(scanWarmBorderText('c="hover:border-amber-500"').length === 0, 'hover 态暖色边框不在聚焦射程内,不得命中')
+  ok(
+    scanWarmBorderText('<div className="rounded-lg border ring-1 ring-amber-500/30">\n  <input className="outline-none" />\n</div>').some(
+      (x) => x.rule === 'W1-input',
+    ),
+    '输入框紧邻容器上的常驻暖色环必命中(与聚焦无关的第二条通道)',
+  )
+  ok(
+    scanWarmBorderText('<div className="rounded-md border border-amber-500/30">\n  <input type="checkbox" className="h-4 w-4" />\n</div>').length === 0,
+    '复选框所在警示框不得命中(复选框不是输入框外框)',
+  )
+  ok(
+    scanWarmBorderText('<div className="rounded-md border border-amber-500/30">\n  <input\n    type="checkbox"\n    className="h-4 w-4"\n  />\n</div>').length === 0,
+    'type= 被 prettier 折到下一行的复选框同样不得命中',
+  )
+  ok(
+    scanWarmBorderText(
+      '<span className="border border-amber-500/40">冷却中</span>\n<span>a</span>\n<span>b</span>\n<span>c</span>\n<span>d</span>\n<span>e</span>\n<input className="h-8" />',
+    ).length === 0,
+    '距离 >2 行的兄弟元素暖色徽章不得算成输入框描边',
+  )
   ok(scanWarmBorderText('const s = focused ? { borderColor: tk.warning.DEFAULT } : null').some((x) => x.rule === 'W1-rn'), 'RN 聚焦三元里 borderColor 取 warning 家族必命中')
   ok(scanWarmBorderText('const s = { borderColor: tk.warning.DEFAULT }').length === 0, '无聚焦信号的暖色 borderColor 不在射程(卡片边框档)')
   ok(scanWarmBorderText('const s = { borderColor: tk.border.light }').length === 0, 'RN 中性描边不得命中')

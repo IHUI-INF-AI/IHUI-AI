@@ -200,6 +200,12 @@ export {
   ConnectorsScreen,
   canSyncConnector,
 } from './features/connectors/ConnectorsScreen'
+/** G-921(2026-10-21)屏级共享第三批:MCP 商店屏(RN 端 McpStoreScreen 的 UI 下沉)。
+ *  `mcpInstallBlockedKey` 是"审核被拒不许安装"的共享判据(返回文案键,两端说同一句话)。 */
+export {
+  McpStoreScreen,
+  mcpInstallBlockedKey,
+} from './features/mcp-store/McpStoreScreen'
 export { VipTraderScreen } from './features/vip-trader/VipTraderScreen'
 /** 2026-09-14:IM 聊天室(迁移自 mobile-rn AssistantScreen,历史 Uniapp pagesA/assistant) */
 export { ChatRoomScreen, detectChatRoomMediaType } from './features/chat-room/ChatRoomScreen'
@@ -718,6 +724,11 @@ export type {
   ConnectorItem,
   ConnectorsScreenProps,
 } from './features/connectors/ConnectorsScreen'
+export type {
+  McpStoreFilterKey,
+  McpStoreItem,
+  McpStoreScreenProps,
+} from './features/mcp-store/McpStoreScreen'
 export type {
   VipTraderStat,
   VipTraderFeature,
