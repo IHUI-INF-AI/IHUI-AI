@@ -175,7 +175,7 @@ class LocalProviderHealth:
         if provider_code.lower() in _disabled_codes():
             return LocalProbeResult(
                 verdict=LocalProbeVerdict.UNDETERMINED,
-                detail=f"disabled by config (local_providers_disabled)",
+                detail="disabled by config (local_providers_disabled)",
             )
         if not force:
             fresh = self._fresh(provider_code)

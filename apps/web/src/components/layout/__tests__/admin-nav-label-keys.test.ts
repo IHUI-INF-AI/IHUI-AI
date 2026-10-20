@@ -47,7 +47,10 @@ const load = (dir: string, locale: string) =>
   JSON.parse(readFileSync(join(REPO, 'packages/i18n/messages', dir, `${locale}.json`), 'utf8'))
 
 const merged = Object.fromEntries(
-  LOCALES.map((loc) => [loc, mergeMessages(load('shared', loc) as never, load('web', loc) as never)]),
+  LOCALES.map((loc) => [
+    loc,
+    mergeMessages(load('shared', loc) as never, load('web', loc) as never),
+  ]),
 ) as Record<Locale, { nav?: NavDict }>
 
 const navOf = (loc: Locale): NavDict => merged[loc].nav ?? {}
@@ -57,7 +60,8 @@ const lookup = (loc: Locale, dottedKey: string): unknown => {
   const parts = dottedKey.split('.')
   let cur: unknown = merged[loc]
   for (const part of parts) {
-    if (cur == null || typeof cur !== 'object' || !(part in cur)) return undefined
+    if (cur === null || cur === undefined || typeof cur !== 'object' || !(part in cur))
+      return undefined
     cur = (cur as NavDict)[part]
   }
   return cur
@@ -68,7 +72,9 @@ const tableBlock = adminNavSrc.slice(
   adminNavSrc.indexOf('const NAV_LABEL_KEY'),
   adminNavSrc.indexOf('\n}', adminNavSrc.indexOf('const NAV_LABEL_KEY')),
 )
-const TABLE: { key: string; i18nKey: string }[] = [...tableBlock.matchAll(/(\w+):\s*'([\w.]+)'/g)].map(
+const TABLE: { key: string; i18nKey: string }[] = [
+  ...tableBlock.matchAll(/(\w+):\s*'([\w.]+)'/g),
+].map(
   // matchAll 的组在类型上是 `string | undefined`(noUncheckedIndexedAccess),此处模式已保证捕获
   (m) => ({ key: m[1] ?? '', i18nKey: m[2] ?? '' }),
 )
@@ -87,7 +93,8 @@ describe('ADMIN_NAV 标签键完整性(2026-10-19 根治)', () => {
     for (const { key, i18nKey } of TABLE) {
       for (const loc of LOCALES) {
         const v = lookup(loc, i18nKey)
-        if (typeof v !== 'string' || !v.trim()) bad.push(`${key} -> ${i18nKey} [${loc}] = ${JSON.stringify(v)}`)
+        if (typeof v !== 'string' || !v.trim())
+          bad.push(`${key} -> ${i18nKey} [${loc}] = ${JSON.stringify(v)}`)
       }
     }
     expect(bad).toEqual([])
@@ -104,9 +111,9 @@ describe('ADMIN_NAV 标签键完整性(2026-10-19 根治)', () => {
     // (否则将来真恢复时会立刻坏掉,而那天没人记得补词条)。
     const OBSERVATION_HIDDEN = ['backendHealth', 'monitoringDashboard', 'monitorDashboard']
 
-    const orphans = TABLE.filter((t) => !USED.has(t.key) && !OBSERVATION_HIDDEN.includes(t.key)).map(
-      (t) => `${t.key} -> ${t.i18nKey}`,
-    )
+    const orphans = TABLE.filter(
+      (t) => !USED.has(t.key) && !OBSERVATION_HIDDEN.includes(t.key),
+    ).map((t) => `${t.key} -> ${t.i18nKey}`)
     expect(orphans).toEqual([])
 
     // 例外项自身的词条必须齐 —— 登记是"暂缓"不是"豁免"
@@ -115,10 +122,9 @@ describe('ADMIN_NAV 标签键完整性(2026-10-19 根治)', () => {
       expect(row, `${key} 不在映射表里`).toBeDefined()
       if (!row) continue
       for (const loc of LOCALES) {
-        expect(
-          typeof lookup(loc, row.i18nKey),
-          `${key} [${loc}] 词条缺失,恢复时会显示键名`,
-        ).toBe('string')
+        expect(typeof lookup(loc, row.i18nKey), `${key} [${loc}] 词条缺失,恢复时会显示键名`).toBe(
+          'string',
+        )
       }
     }
   })

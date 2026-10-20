@@ -19,7 +19,8 @@
  * - 样式与 McpStoreScreen 一致:Tailwind className + resolvedTheme 暗色适配 + NavBar。
  */
 import { useCallback, useEffect, useState } from 'react'
-import { RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { TextField } from '@ihui/rn-app'
 import { appAlert } from '../components/BottomPops'
 import {
   cancelAgentRuntime,
@@ -74,7 +75,9 @@ export function AgentRuntimeScreen() {
 
   // 展开行:按需单取一次实时状态(列表里的 status 可能是上一次落库的快照)
   const [expandedId, setExpandedId] = useState('')
-  const [liveStatus, setLiveStatus] = useState<Record<string, { status: string; count: number }>>({})
+  const [liveStatus, setLiveStatus] = useState<Record<string, { status: string; count: number }>>(
+    {},
+  )
 
   // 权限判定探针
   const [probeTool, setProbeTool] = useState('')
@@ -228,7 +231,8 @@ export function AgentRuntimeScreen() {
           <Text className="mb-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
             {t('agentRuntime.probeTitle')}
           </Text>
-          <TextInput
+          <TextField
+            colorScheme={resolvedTheme}
             value={probeTool}
             onChangeText={setProbeTool}
             placeholder={t('agentRuntime.probeToolPlaceholder')}
@@ -248,7 +252,9 @@ export function AgentRuntimeScreen() {
                   key={mode}
                   onPress={() => setProbeMode(mode)}
                   className={`mb-2 mr-2 rounded-control px-3 py-1.5 ${
-                    active ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-200 dark:bg-neutral-800'
+                    active
+                      ? 'bg-neutral-900 dark:bg-neutral-100'
+                      : 'bg-neutral-200 dark:bg-neutral-800'
                   }`}
                 >
                   <Text
@@ -276,7 +282,9 @@ export function AgentRuntimeScreen() {
                   key={level}
                   onPress={() => setProbeLevel(level)}
                   className={`mb-2 mr-2 rounded-control px-3 py-1.5 ${
-                    active ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-200 dark:bg-neutral-800'
+                    active
+                      ? 'bg-neutral-900 dark:bg-neutral-100'
+                      : 'bg-neutral-200 dark:bg-neutral-800'
                   }`}
                 >
                   <Text
