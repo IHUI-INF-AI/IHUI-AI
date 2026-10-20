@@ -165,6 +165,11 @@ deploy/prod-bundle/cloudflared/*.local.txt
 # .ihui-agent/archive/PROJECT_PLAN_*.md 为"这行是被正当归档、不是被删"的依据。锚点只存在于
 # 某一台机器,等于让另一台机器的对账依据凭空消失(G-173 同条规矩:可审计锚点必须受版本控制)。
 .ihui-agent/*
+# §1 归档两步走需要新归档件能被正常提交(门 166 的唯一合法丢行通道);只放行
+# PROJECT_PLAN_*.md 这一族,archive 其余内容仍整目录忽略(存档机制退役的口径不变)。
+!/.ihui-agent/archive/
+/.ihui-agent/archive/*
+!/.ihui-agent/archive/PROJECT_PLAN_*.md
 .qoder/
 # 2026-10-19 补(门 44 同上):第三方 AI 工具 CodeArts Doer 在本仓的工作目录,
 # 与上面 .qoder/ .trae/ .superpowers/ 同一口径 —— 工具自有配置/技能/记忆,不是本仓产物。
