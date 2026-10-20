@@ -52,7 +52,7 @@
  */
 import { createAuthStore, selectIsAuthenticated } from '@ihui/shared/stores'
 import type { AuthUser } from '@ihui/api-client'
-import { tokenStore } from '../lib/token'
+import { tokenStore, expireSession } from '../lib/token'
 import { createAsyncStorageTransport } from './storage-adapter'
 
 /**
@@ -109,6 +109,17 @@ export function hydrateAuth(): void {
  */
 export async function logoutAuth(): Promise<void> {
   await rnAuthStore.getState().logout()
+}
+
+/**
+ * 会话被动失效出口:清凭据 + store 镜像,但**不落**登出标记。
+ *
+ * 与 `logoutAuth()` 的区别只有标记这一位 —— 服务端把会话判死(401/403)不等于用户
+ * 主动退出,记住的账密必须还能在下一次冷启动自动登录(2026-10-20)。
+ */
+export async function expireAuth(): Promise<void> {
+  await expireSession()
+  rnAuthStore.setState({ token: null, refreshToken: null, expiresIn: null, user: null })
 }
 
 /** 透传 AuthUser 类型,方便业务方 import 时不绕道 @ihui/api-client */

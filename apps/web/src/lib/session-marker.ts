@@ -40,7 +40,13 @@ function hasStorage(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
 }
 
-/** 会话被显式结束(用户点「退出登录」/ 账号注销 / 会话失效)。 */
+/**
+ * 会话被**用户显式结束**(点「退出登录」/ 账号注销)。
+ *
+ * 会话被动失效(refresh 被服务端拒绝)一律**不得**调用本函数 —— 那条路走
+ * `stores/auth.ts` 的 `expireSession()`:只清凭据、保留"记住密码 + 自动登录",
+ * 让下一次冷启动能用账密把会话重新建立起来(2026-10-20)。
+ */
 export function markSessionLoggedOut(): void {
   loggedOutMirror = true
   if (!hasStorage()) return
@@ -70,7 +76,7 @@ export function clearSessionLoggedOutMarker(): void {
   }
 }
 
-/** 本机是否处于"已显式登出 / 会话失效"状态。判据只看存在性,不解析值。 */
+/** 本机是否处于"已显式登出"状态(只由用户主动登出写入)。判据只看存在性,不解析值。 */
 export function isSessionLoggedOut(): boolean {
   if (loggedOutMirror !== null) return loggedOutMirror
   if (!hasStorage()) return false

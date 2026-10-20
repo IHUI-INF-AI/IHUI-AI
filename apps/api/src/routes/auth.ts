@@ -11,6 +11,7 @@ import { hashPassword, verifyPassword, upgradeHashIfNeeded } from '../utils/pass
 import { verifyRefreshToken, createFamilyId, type JWTPayload } from '@ihui/auth'
 import { authenticate } from '../plugins/auth.js'
 import { issueTokenPair } from '../services/token-service.js'
+import { assessRefreshReplay } from '../services/refresh-replay-policy.js'
 import {
   findUserByPhone,
   findUserByAccount,
@@ -1273,16 +1274,21 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         // 修复:吊销后 REFRESH_REUSE_LEEWAY_MS 内的重放视为并发竞态(非攻击),放行为
         // 正常轮转;超出宽限期的重放维持家族吊销。业界先例:AWS Cognito 默认 115s、
         // Auth0 refresh rotation leeway。
-        // 固定窗口:放行分支跳过重复 revoke(L1236),revokedAt 保持首次吊销时间,
-        // 避免"多次重放不断续窗"。
-        const REFRESH_REUSE_LEEWAY_MS = 30_000
-        const revokedAgeMs = Date.now() - new Date(record.revokedAt).getTime()
-        if (revokedAgeMs >= REFRESH_REUSE_LEEWAY_MS) {
+        // 固定窗口:放行分支跳过重复 revoke(L1310),revokedAt 保持首次吊销时间,
+        // 避免"多次重放不断续窗"。三档裁决的唯一出口在
+        // services/refresh-replay-policy.ts(race / stale-sibling / reuse)。
+        const replay = await assessRefreshReplay(new Date(record.revokedAt), payload.familyId)
+        if (replay.verdict === 'reuse') {
           if (payload.familyId) {
             try {
               const revokedCount = await revokeRefreshTokenFamily(payload.familyId)
               request.log.warn(
-                { familyId: payload.familyId, userId: payload.userId, revokedCount, revokedAgeMs },
+                {
+                  familyId: payload.familyId,
+                  userId: payload.userId,
+                  revokedCount,
+                  revokedAgeMs: replay.revokedAgeMs,
+                },
                 '[security] refresh token reuse detected, family revoked',
               )
             } catch (e) {
@@ -1291,9 +1297,23 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           }
           return reply.status(401).send(error(401, 'Invalid refresh token'))
         }
-        // 宽限期内竞态放行:记 info 便于观测,不吊销家族,继续下方正常轮转流程
+        if (replay.verdict === 'stale-sibling') {
+          // 迟到的是陈旧副本(桌面 vault 旧值 / 停在旧页签的上下文 / 另一台设备),
+          // 这一族还有活 token ⇒ 只拒绝本次:不签发、不吊销,正常会话不受影响。
+          // 吊销整族正是"三端同时被踢、关掉再打开就要重新登录"的放大器(2026-10-20)。
+          request.log.warn(
+            {
+              familyId: payload.familyId,
+              userId: payload.userId,
+              revokedAgeMs: replay.revokedAgeMs,
+            },
+            '[security] stale refresh token replay while family still alive, rejected without revoking',
+          )
+          return reply.status(401).send(error(401, 'Invalid refresh token'))
+        }
+        // race:宽限期内竞态放行,记 info 便于观测,不吊销家族,继续下方正常轮转流程
         request.log.info(
-          { familyId: payload.familyId, userId: payload.userId, revokedAgeMs },
+          { familyId: payload.familyId, userId: payload.userId, revokedAgeMs: replay.revokedAgeMs },
           '[auth] refresh token replay within leeway, treated as multi-context race',
         )
       }
