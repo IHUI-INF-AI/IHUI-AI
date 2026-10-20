@@ -173,13 +173,13 @@ export default function DevEnterScreen() {
     if (!offlineTarget) return
     setOfflining(true)
     try {
-      const res = await fetchApi<Agent>(`/agents/${offlineTarget.id}`, {
+      const res = await fetchApi<Agent>(`/agents/${offlineTarget.agentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'offline' }),
       })
       if (res.success) {
-        setList((prev) => prev.filter((a) => a.id !== offlineTarget.id))
+        setList((prev) => prev.filter((a) => a.agentId !== offlineTarget.agentId))
         setTotal((n) => Math.max(0, n - 1))
         setOfflineTarget(null)
       } else {
@@ -243,7 +243,7 @@ export default function DevEnterScreen() {
           </View>
           {isPublished ? (
             <View style={styles.publishedMeta}>
-              <Text style={styles.metaLine}>所属类别：{item.category || '未分类'}</Text>
+              <Text style={styles.metaLine}>所属类别：{item.categoryId || '未分类'}</Text>
               <Text style={styles.metaLine}>上架时间：{formatTime(item.createdAt) || '—'}</Text>
             </View>
           ) : null}
@@ -320,7 +320,7 @@ export default function DevEnterScreen() {
 
       <FlatList
         data={items}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.agentId}
         renderItem={renderCard}
         contentContainerStyle={styles.listContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}

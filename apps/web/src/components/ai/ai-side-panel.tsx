@@ -87,6 +87,8 @@ import { CostEstimateBar } from '@/components/ai/cost-estimate-bar'
 
 // D73 多任务窗格(G-100,2026-09-24):布局壳 + 窗格 store + 判定层类型/纯函数
 import { PaneSplitContainer } from '@/components/ai/pane-split-container'
+import { ChatPaneBody } from '@/components/ai/chat-pane-body'
+import { ChatPaneProvider } from '@/stores/chat-pane-context'
 import { usePaneSplitStore } from '@/stores/pane-split'
 import {
   ROOT_PANE_ID,
@@ -1333,10 +1335,9 @@ export function AISidePanel() {
   const d73Expanded = collectPaneLeaves(d73PaneTree).length > 1
 
   /**
-   * 边界 1(诚实降级):useChatStore.conversationId 是**全局单例** ⇒ 主体只有唯一一份,
-   * 固定渲染在**根窗格**(data-pane-conversation 登记为当前会话或 'global-current' 占位,
-   * 仅承载登记,不作为文案展示);其余窗格只如实显示"承载标记"(窗格 id + 会话 id),
-   * 用户切换全局当前会话即在该窗格查看 —— 不伪造第二消息流(禁止新建第二套会话承载)。
+   * 票60 步序四:根窗格继续承载全局单例主体(AISidePanel 的 useChat / 侧栏状态都在
+   * 这一份上);非根窗格若已承载会话,挂 ChatPaneProvider + ChatPaneBody,读写落在
+   * 该窗格独立 chat store;空窗格仍只显示承载标记(等侧栏拖入)。
    * 边界 2:仓内无会话级 fork/复制路由(落点 apps/api/src/routes/chat.ts 被占用,属 §24),
    * 故本票 Fork = "该窗格承载既有会话"的标记,非服务端复制。
    */
@@ -1828,15 +1829,16 @@ export function AISidePanel() {
                   renderPaneContent={(paneConversationId, paneId) =>
                     paneId === ROOT_PANE_ID ? (
                       d73ConversationBody(storeConversationId, true)
+                    ) : paneConversationId ? (
+                      <ChatPaneProvider paneId={paneId}>
+                        <ChatPaneBody paneId={paneId} conversationId={paneConversationId} />
+                      </ChatPaneProvider>
                     ) : (
                       <div
                         className="flex h-full flex-col items-center justify-center gap-1 px-3"
                         data-pane-marker={paneId}
                       >
                         <span className="text-xs text-muted-foreground">{paneId}</span>
-                        <span className="text-[10px] text-muted-foreground tabular-nums">
-                          {paneConversationId}
-                        </span>
                       </div>
                     )
                   }

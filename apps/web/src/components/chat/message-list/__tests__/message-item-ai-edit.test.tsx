@@ -80,7 +80,7 @@ describe('MessageItem · AI 消息编辑入口(票64)', () => {
       target: { value: '改后的回答' },
     })
     screen.getByTestId('message-ai-edit-save-a3').click()
-    expect(seen).toEqual([{ messageId: 'a3', content: '改后的回答' }])
+    expect(seen).toEqual([{ messageId: 'a3', content: '改后的回答', paneId: null }])
   })
 
   it('只改空白 → 不派发(trim 后为空不落新版本)', () => {

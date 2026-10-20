@@ -214,10 +214,7 @@ import {
   shouldTerminateForModelSwitch,
   terminateActiveStream,
 } from '../lib/model-switch'
-import {
-  addAnnotation,
-  rehydrateSelectionAnnotations,
-} from '../lib/selection-annotations-store'
+import { addAnnotation, rehydrateSelectionAnnotations } from '../lib/selection-annotations-store'
 import { formatSlashHelp } from '../lib/slash-commands'
 import { rpx } from '../utils/rpx'
 
@@ -2728,11 +2725,11 @@ export function ChatScreen() {
 
   // ── AgentList items(由 agents 派生,对齐 Uniapp getCozeApiList → AgentList) ──
   const agentListItems: AgentListItem[] = agents.map((a) => ({
-    id: a.id,
+    id: a.agentId,
     name: a.name,
     avatar: a.avatar ?? undefined,
     description: a.description,
-    category: a.category,
+    category: a.categoryId ?? undefined,
   }))
 
   // ── AgentList 选中回调 ──

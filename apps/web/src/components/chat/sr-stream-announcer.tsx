@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import {
   buildStreamAnnouncement,
   shouldAnnounceProgress,
@@ -27,9 +27,11 @@ import {
  */
 export function SrStreamAnnouncer() {
   const t = useTranslations('a11y')
+  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
+  const chatStore = usePaneChatStore()
   // 只订阅两个叶子值(引用稳定),避免流式高频 set 触发无谓渲染
-  const isStreaming = useChatStore((s) => s.isStreaming)
-  const contentLength = useChatStore((s) => {
+  const isStreaming = chatStore((s) => s.isStreaming)
+  const contentLength = chatStore((s) => {
     const msgs = s.messages
     for (let i = msgs.length - 1; i >= 0; i--) {
       const msg = msgs[i]

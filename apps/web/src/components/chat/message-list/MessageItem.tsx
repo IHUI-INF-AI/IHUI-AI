@@ -87,7 +87,7 @@ import { FeedbackSurveyCard } from '@/components/chat/feedback-survey-card'
 import type { FeedbackSurveyPayload } from '@ihui/shared/chat/element-pack'
 // P3 #39(2026-09-16 立):执行轨迹回放(toolCalls 时序重演)
 import { TraceReplay } from '@/components/ai/trace-replay'
-import { useChatStore } from '@/stores/chat'
+import { useOptionalPaneId, usePaneChatStore } from '@/stores/chat-pane-context'
 import { useTts } from '@/hooks/use-tts'
 // D60(2026-09-23 渲染位):失败轮草稿保留提示与 toast 同源取词,不另立文案/状态
 import { resolvePersistTexts } from '@/hooks/use-chat/persistence'
@@ -186,6 +186,9 @@ const MessageItem = React.memo(function MessageItem({
   codeCollapseLines,
 }: MessageItemProps) {
   const t = useTranslations('chat')
+  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
+  const chatStore = usePaneChatStore()
+  const paneId = useOptionalPaneId()
   // 2026-09-12 立:Checkpoint/Rewind 相关文案走 aiChat 命名空间(与 CheckpointRewindPanel 保持一致)
   const tAiChat = useTranslations('aiChat')
   // 消息流活动区统一文面(与 stream-ui 基元同一命名空间)
@@ -213,11 +216,11 @@ const MessageItem = React.memo(function MessageItem({
   const streamingThis = !isUser && isStreaming && isLast
   // 2026-09-12 立:Checkpoint 面板按会话维度的 session_id 查询,
   // 前端当前可用的会话标识即 chat store 的 conversationId(详见交付说明)。
-  const conversationId = useChatStore((s) => s.conversationId)
+  const conversationId = chatStore((s) => s.conversationId)
   // P1 #27 记忆更新可视化(2026-09-16 立):按 messageId 取本轮「已记住」条目。
   // 用叶子布尔/数组选择器订阅(memoryUpdateNotices 引用仅在 appendMemoryNotice 时变更),
   // 避免整棵树因无关 store 变更重渲染。
-  const memoryNoticeItems = useChatStore(
+  const memoryNoticeItems = chatStore(
     React.useCallback(
       (s) => s.memoryUpdateNotices.find((n) => n.messageId === m.id)?.items ?? null,
       [m.id],
@@ -226,7 +229,7 @@ const MessageItem = React.memo(function MessageItem({
   // Steer(中途引导,2026-09-19 立):按 messageId 取本轮已注入的引导记录。
   // 叶子数组选择器订阅(steerNoticesByMessageId 引用仅在 appendSteerNotice 时变更),
   // 与 memoryNoticeItems 同款模式,避免无关 store 变更触发重渲染。
-  const steerNotices = useChatStore(
+  const steerNotices = chatStore(
     React.useCallback((s) => s.steerNoticesByMessageId[m.id] ?? null, [m.id]),
   )
   // D64 ⑤(2026-09-26 接线):右键点踩(use-message-list-context-menu)派发的展开事件。
@@ -243,8 +246,8 @@ const MessageItem = React.memo(function MessageItem({
   // D60(2026-09-23 渲染位):persist 失败保存的草稿(store 层早已落,此前无组件消费)。
   // 叶子选择器订阅 string|null,值比较天然防无关变更重渲染;仅失败卡消费,
   // 文案经 resolvePersistTexts 与 toast 同源(TRANSITIONAL 英文口径,零新键)。
-  const failedDraft = useChatStore((s) => s.failedDraft)
-  const failedDraftStatus = useChatStore((s) => s.failedDraftStatus)
+  const failedDraft = chatStore((s) => s.failedDraft)
+  const failedDraftStatus = chatStore((s) => s.failedDraftStatus)
   // 2026-09-12 立:Checkpoint 回退弹窗开关
   const [rewindDialogOpen, setRewindDialogOpen] = React.useState(false)
   // #17:折叠中间步骤(工具卡 + plan 步骤)。D21(2026-09-19 立):初始态改由折叠策略驱动 —
@@ -495,10 +498,10 @@ const MessageItem = React.memo(function MessageItem({
   // 重新生成(对应原项目 regenerateMessage)
   const handleRegenerate = React.useCallback(() => {
     window.dispatchEvent(
-      new CustomEvent('ihui:regenerate-message', { detail: { messageId: m.id } }),
+      new CustomEvent('ihui:regenerate-message', { detail: { messageId: m.id, paneId } }),
     )
     toast.info(t('regenerating') === 'regenerating' ? 'Regenerating...' : t('regenerating'))
-  }, [m.id, t])
+  }, [m.id, t, paneId])
 
   // 票64(2026-10-18 立):消息级钉选/收藏。成功态一律取服务端回写的那一行 ——
   // 乐观翻转会把"库没写进去"渲染成"已经钉上了",只有刷新才自证其伪(与 G-165 徽章
@@ -518,7 +521,7 @@ const MessageItem = React.memo(function MessageItem({
           return
         }
         const written = res.data?.message
-        useChatStore.getState().patchMessageFlags(m.id, {
+        chatStore.getState().patchMessageFlags(m.id, {
           pinnedAt: written?.pinnedAt ?? null,
           bookmarkedAt: written?.bookmarkedAt ?? null,
         })
@@ -526,25 +529,25 @@ const MessageItem = React.memo(function MessageItem({
         setFlagPending(false)
       }
     },
-    [flagPending, m.bookmarkedAt, m.id, m.pinnedAt, t],
+    [flagPending, m.bookmarkedAt, m.id, m.pinnedAt, t, chatStore],
   )
 
   // 删除消息(对应原项目 deleteMessage,逻辑从右键菜单提取)
   const handleDelete = React.useCallback(() => {
-    const store = useChatStore.getState()
+    const store = chatStore.getState()
     const next = store.messages.filter((msg) => msg.id !== m.id)
     if (next.length !== store.messages.length) {
-      useChatStore.setState({ messages: next })
+      chatStore.setState({ messages: next })
       toast.success(t('messageDeleted') === 'messageDeleted' ? 'Deleted' : t('messageDeleted'))
     }
-  }, [m.id, t])
+  }, [m.id, t, chatStore])
 
   // 分享 — 获取分享链接并复制到剪贴板
   const handleShare = React.useCallback(
     async (e: React.MouseEvent | React.KeyboardEvent) => {
       e.stopPropagation()
       e.preventDefault()
-      const convId = useChatStore.getState().conversationId
+      const convId = chatStore.getState().conversationId
       if (!convId) return
 
       let shareToken: string | null = null
@@ -585,13 +588,15 @@ const MessageItem = React.memo(function MessageItem({
         toast.error(t('copyFailed'))
       }
     },
-    [m.content, t],
+    [m.content, t, chatStore],
   )
 
   // 回复(对应原项目 replyToMessage)— 预留事件
   const handleReply = React.useCallback(() => {
-    window.dispatchEvent(new CustomEvent('ihui:reply-message', { detail: { messageId: m.id } }))
-  }, [m.id])
+    window.dispatchEvent(
+      new CustomEvent('ihui:reply-message', { detail: { messageId: m.id, paneId } }),
+    )
+  }, [m.id, paneId])
 
   // 编辑(2026-09-12 立,四竞品对标 P0-1,替换原 editComingSoon 占位):
   // 打开编辑 Dialog,保存时派发 ihui:edit-message,由 MessageList → editMessageAndRerun 闭环。
@@ -602,7 +607,7 @@ const MessageItem = React.memo(function MessageItem({
   // 该消息之后是否存在已成功的文件修改工具调用(决定是否展示回滚勾选项)。
   // 每次渲染直接计算(开销极小):编辑 Dialog 打开 / 消息列表变化时自然取到最新值
   const hasFileChangesAfter = ((): boolean => {
-    const all = useChatStore.getState().messages
+    const all = chatStore.getState().messages
     const idx = all.findIndex((mm) => mm.id === m.id)
     if (idx === -1) return false
     return all
@@ -625,6 +630,7 @@ const MessageItem = React.memo(function MessageItem({
       new CustomEvent('ihui:edit-message', {
         detail: {
           messageId: m.id,
+          paneId,
           content: text,
           // W16:勾选时编辑重跑前先回滚该消息之后产生的文件改动
           rollbackFiles: hasFileChangesAfter && editRollbackFiles,
@@ -633,7 +639,7 @@ const MessageItem = React.memo(function MessageItem({
     )
     setEditDialogOpen(false)
     setEditDraft('')
-  }, [editDraft, m.content, m.id, isStreaming, hasFileChangesAfter, editRollbackFiles])
+  }, [editDraft, m.content, m.id, isStreaming, hasFileChangesAfter, editRollbackFiles, paneId])
 
   // 票64(2026-10-18 立):AI 消息编辑 —— 语义是「保存为新版本」,不是用户消息的「保存并重跑」。
   // 保存时派发 ihui:edit-ai-message,由 MessageList → editAiMessageAsVersion 闭环:
@@ -650,12 +656,12 @@ const MessageItem = React.memo(function MessageItem({
     if (!text || text === m.content || isStreaming) return
     window.dispatchEvent(
       new CustomEvent('ihui:edit-ai-message', {
-        detail: { messageId: m.id, content: text },
+        detail: { messageId: m.id, content: text, paneId },
       }),
     )
     setAiEditDialogOpen(false)
     setAiEditDraft('')
-  }, [aiEditDraft, m.content, m.id, isStreaming])
+  }, [aiEditDraft, m.content, m.id, isStreaming, paneId])
 
   // 2026-08-02:补建原项目 AIChat.vue 4 个缺失 AI 消息按钮
   // 1. 内容可见性切换(Eye/EyeOff)— 原项目 toggleAssistantContentVisibility
@@ -738,14 +744,16 @@ const MessageItem = React.memo(function MessageItem({
     (e?: React.MouseEvent) => {
       e?.stopPropagation()
       e?.preventDefault()
-      window.dispatchEvent(new CustomEvent('ihui:retry-message', { detail: { messageId: m.id } }))
+      window.dispatchEvent(
+        new CustomEvent('ihui:retry-message', { detail: { messageId: m.id, paneId } }),
+      )
       const retryLabel = t('retry') === 'retry' ? 'Retrying…' : t('retry')
       if (retryLabel === 'retry') {
         console.warn('[i18n] Missing translation for key: chat.retry')
       }
       toast.info(retryLabel)
     },
-    [m.id, t],
+    [m.id, t, paneId],
   )
 
   // D64 ⑤(2026-09-26 接线):问卷提交 → 扩展载荷落库(fetchApi 直连:
@@ -809,12 +817,12 @@ const MessageItem = React.memo(function MessageItem({
   const handleQuoteSelection = React.useCallback(() => {
     if (!selectionText) return
     window.dispatchEvent(
-      new CustomEvent('ihui:add-text-reference', { detail: { text: selectionText } }),
+      new CustomEvent('ihui:add-text-reference', { detail: { text: selectionText, paneId } }),
     )
     window.getSelection()?.removeAllRanges()
     setSelectionText(null)
     toast.success(t('quoteSelectionAdded'))
-  }, [selectionText, t])
+  }, [selectionText, t, paneId])
 
   // D184(2026-09-29 立,对标竞品 chatSession.selectionActions):选中文本作为附件 ——
   // 经 ihui:add-selection-attachment 事件投递到 MessageInput(监听方包装 .txt 附件走
@@ -822,20 +830,20 @@ const MessageItem = React.memo(function MessageItem({
   const handleAddSelectionAttachment = React.useCallback(() => {
     if (!selectionText) return
     window.dispatchEvent(
-      new CustomEvent('ihui:add-selection-attachment', { detail: { text: selectionText } }),
+      new CustomEvent('ihui:add-selection-attachment', {
+        detail: { text: selectionText, paneId },
+      }),
     )
     window.getSelection()?.removeAllRanges()
     setSelectionText(null)
-  }, [selectionText])
+  }, [selectionText, paneId])
 
   // D180(2026-09-30 立,对标竞品 chatSession.selectionAnnotations.*):选段生成划词批注 ——
   // 第三出口,直写 d180 store(conversationId+messageId 归属进数据结构,持久化后可刷新重放);
   // 与 D22 引用 chips / D184 附件通道并存互补,投递后清除原生选区(同 D184 收口方式)。
   const handleAnnotateSelection = React.useCallback(() => {
     if (!selectionText) return
-    useSelectionAnnotationsStore
-      .getState()
-      .addAnnotation(conversationId ?? '', m.id, selectionText)
+    useSelectionAnnotationsStore.getState().addAnnotation(conversationId ?? '', m.id, selectionText)
     window.getSelection()?.removeAllRanges()
     setSelectionText(null)
   }, [selectionText, conversationId, m.id])
@@ -870,7 +878,7 @@ const MessageItem = React.memo(function MessageItem({
   // 跨轮/跨等待期会轮换。缺省语义由 parts 组件兜底(不传即回退固定串),故这里只在要显示时算。
   const typingTurn = showTyping
     ? (() => {
-        const all = useChatStore.getState().messages
+        const all = chatStore.getState().messages
         const mine = all.findIndex((x) => x.id === m.id)
         const before = mine < 0 ? all : all.slice(0, mine)
         const priorUser = before.filter((x) => x.role === 'user')
@@ -1333,7 +1341,7 @@ const MessageItem = React.memo(function MessageItem({
               <BestOfCompare
                 runId={m.meta.bestOfRunId}
                 onAdopt={(content) => {
-                  useChatStore.getState().addMessage({
+                  chatStore.getState().addMessage({
                     role: 'assistant',
                     content,
                     model: m.model,

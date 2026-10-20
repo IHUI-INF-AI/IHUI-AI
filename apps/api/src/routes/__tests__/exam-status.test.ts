@@ -8,10 +8,10 @@ import Fastify, { type FastifyInstance } from 'fastify'
 // 考试埋点由 business-metrics 插件在生产 app 上装饰;本测试只挂 examRoutes,
 // 用 no-op 保持与生产同形(状态流转路由会同步调它们,缺装饰器即 TypeError 500)。
 function decorateExamMetrics(app: FastifyInstance): void {
-  app.decorate('recordExamStarted', vi.fn())
-  app.decorate('recordExamQuestionUsed', vi.fn())
-  app.decorate('recordExamSubmitted', vi.fn())
-  app.decorate('recordExamScore', vi.fn())
+  app.decorate('recordExamStarted', vi.fn() as never)
+  app.decorate('recordExamQuestionUsed', vi.fn() as never)
+  app.decorate('recordExamSubmitted', vi.fn() as never)
+  app.decorate('recordExamScore', vi.fn() as never)
 }
 
 vi.hoisted(() => {
