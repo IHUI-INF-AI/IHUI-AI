@@ -148,6 +148,19 @@ logger = logging.getLogger(__name__)
 # 导致 llm_gateway 等 stdlib logger 的 [auto-route] / [fallback_router] 等 info 日志被过滤。
 # structlog 走自己的配置(PrintLoggerFactory → stderr,见 app/core/logging.py),不受影响。
 # basicConfig 在 root logger 无 handler 时生效(uvicorn 不配 root handler),加 stdout StreamHandler。
+# 2026-10-20 修复:Windows nssm 服务 stdout/stderr 为 cp936/GBK;日志若含非 GBK 字符
+# (厂商异常文本里的 emoji/智能引号等)会触发 UnicodeEncodeError,消息被静默丢弃、
+# 回溯写进 stderr(不入日志文件)——表现为"新加的 warning 在日志里一行都搜不到"。
+# 修复:把 std 流的 encoder 设为 errors='backslashreplace'(非 GBK 字符转义而非丢)。
+# 这同时覆盖 structlog(uvicorn/业务 stderr)与任何直接 print,不止本 handler。
+try:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="backslashreplace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(errors="backslashreplace")
+except Exception:
+    # 非 TextIOWrapper(已被重定向为自定义对象)时跳过,不影响主流程
+    pass
 logging.basicConfig(
     level=logging.INFO,
     stream=sys.stdout,
