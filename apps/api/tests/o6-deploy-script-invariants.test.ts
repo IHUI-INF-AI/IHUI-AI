@@ -161,7 +161,13 @@ describe('O6 部署脚本静态判据(deploy/win/ihui-deploy.ps1)', () => {
     assert.match(probe, /-eq\s+429/, '未把 HTTP 429 单独归类为未知')
     assert.match(probe, /Verdict\s*=\s*'unknown'/, '缺少 unknown 三态')
     const gate = fnBody(src, 'Test-HealthGate')
-    assert.match(gate, /lastFails\.Count\s*-gt\s*0/, '门禁耗尽时未按"有无明确失败项"区分结论')
+    assert.match(gate, /Get-HealthGateVerdict\s+-Rounds\s+\$rounds/, '门禁未走共享三态裁决出口')
+    const verdictSrc = readFileSync(resolve(REPO_ROOT, 'deploy/win/health-gate-verdict.ps1'), 'utf8')
+    assert.match(
+      verdictSrc,
+      /\$lastFails\.Count\s*-gt\s*0/,
+      '共享裁决出口没有按"有无明确失败项"区分结论',
+    )
     assert.match(gate, /return\s+\$true/, '未知项未按放行处理(把限流当失败会造成无谓回滚)')
     // 但成功条件不得放宽:必须三项全部 pass 才算通过
     assert.match(
