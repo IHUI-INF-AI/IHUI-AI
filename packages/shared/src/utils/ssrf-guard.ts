@@ -93,6 +93,15 @@ export const IPV6_EMBEDDED_V4_PREFIXES = [
 /** 拒发主机名(精确匹配,大小写不敏感) */
 export const DENIED_HOST_NAMES = ['localhost', 'ip6-localhost', 'ip6-loopback', 'metadata'] as const
 
+/** 回环主机名(仅供 D-1 自家端点信任判据;仍不等于「默认放行」) */
+export const LOOPBACK_HOST_NAMES = ['localhost', 'ip6-localhost', 'ip6-loopback'] as const
+
+/** D-1 可信任的回环网段:只有真正的 loopback(127/8、::1)才配得上「自家端点」 */
+export const SELF_HOSTABLE_LOOPBACK_CIDRS = ['127.0.0.0/8', '::1/128'] as const
+
+/** 信任来源档位。远端下发/SSE 回调不得声明;字符串顺序是测试锁定的对外契约。 */
+export const SELF_HOSTED_TRUST_SOURCES = ['user-settings', 'user-env', 'code-default'] as const
+
 /** 拒发主机名后缀(内网/服务发现常用域) */
 export const DENIED_HOST_SUFFIXES = [
   '.localhost',
@@ -125,6 +134,12 @@ export interface SsrfDecision {
   readonly deniedTarget?: string
   /** 人读一句说明;只描述"为什么拒",绝不含响应体 / 凭据 */
   readonly reason?: string
+  /** D-1:本次放行来自调用方声明的自家端点信任(默认放行不带此字段) */
+  readonly trustedSelfHosted?: boolean
+  /** D-1:信任来源档位(仅 trustedSelfHosted=true 时出现) */
+  readonly trustSource?: (typeof SELF_HOSTED_TRUST_SOURCES)[number]
+  /** D-1:声明了信任但没配上时,为什么不认(与 trustedSelfHosted 互斥) */
+  readonly selfHostedDenied?: string
 }
 
 function parseIpv4ToNumber(text: string): number | null {
@@ -304,6 +319,14 @@ export function isDeniedHostname(hostname: string): boolean {
   return DENIED_HOST_SUFFIXES.some((suffix) => lower.endsWith(suffix))
 }
 
+/** 是否真正的回环地址(127.0.0.0/8 与 ::1;IPv4-mapped 由 parseIpAddress 折回 v4)。 */
+export function isLoopbackAddress(ip: string): boolean {
+  const parsed = parseIpAddress(ip)
+  if (!parsed) return false
+  if (parsed.family === 4) return parsed.value >> 24n === 127n
+  return parsed.value === 1n
+}
+
 function decision(block: Omit<SsrfDecision, 'safe'>): SsrfDecision {
   return { safe: false, ...block }
 }
@@ -329,11 +352,11 @@ function decision(block: Omit<SsrfDecision, 'safe'>): SsrfDecision {
  * 那正是 SSRF 的入口。基准把信任钉在"用户亲手配置的那一条端点"上,逐字匹配才生效。
  */
 export interface SelfHostedTrust {
-  /** 信任的来源种类;当前只有用户配置文件一档(远端下发一律不得声明) */
-  readonly source: 'user-settings'
+  /** 信任的来源种类;远端下发一律不得声明。 */
+  readonly source: (typeof SELF_HOSTED_TRUST_SOURCES)[number]
   /** 人读定位:配置文件里的哪一条(如 `mcpServers[].url`) */
   readonly settingsKey: string
-  /** 基准端点:只有与它同协议/主机/端口/路径的请求 URL 才享受信任 */
+  /** 基准端点:同协议/主机/端口才享受信任;基准带具体路径时请求路径还须逐字相等 */
   readonly configuredEndpoint: string
 }
 
@@ -373,25 +396,83 @@ function isNeverTrustedHostname(host: string): boolean {
   return (NEVER_TRUSTED_HOST_NAMES as readonly string[]).includes(host)
 }
 
-/** 请求 URL 是否与用户自配的基准端点同一条(协议/主机/端口/路径逐项等值,忽略 query 与 hash) */
+/** URL 的 origin(协议 + 主机 + 端口);D-1 只信任同一条自家端点,不按路径放宽。 */
+function originOf(u: URL): string {
+  const host = u.hostname.toLowerCase().replace(/^\[(.*)\]$/, '$1')
+  const port = u.port || (u.protocol === 'https:' ? '443' : '80')
+  return `${u.protocol}//${host}:${port}`
+}
+
+/**
+ * 请求 URL 是否与用户自配的基准端点同一条。
+ *
+ * 基准是 origin 根(无路径或 `/`)⇒ 视为该 origin 的基址,同 origin 的任意路径都算;
+ * 基准带具体路径 ⇒ 请求路径必须逐字相等(旧 `/mcp` 配 `/admin` 仍拒)。
+ */
 function endpointMatches(requestUrl: string, configuredEndpoint: string): boolean {
-  let a: URL
-  let b: URL
   try {
-    a = new URL(requestUrl)
-    b = new URL(configuredEndpoint)
+    const request = new URL(requestUrl)
+    const base = new URL(configuredEndpoint)
+    if (originOf(request) !== originOf(base)) return false
+    const basePath = base.pathname === '' ? '/' : base.pathname
+    if (basePath === '/') return true
+    return (request.pathname === '' ? '/' : request.pathname) === basePath
   } catch {
     return false
   }
-  const normHost = (u: URL) => u.hostname.toLowerCase().replace(/^\[(.*)\]$/, '$1')
-  const portOf = (u: URL) => u.port || (u.protocol === 'https:' ? '443' : '80')
-  const pathOf = (u: URL) => (u.pathname === '' ? '/' : u.pathname)
-  return (
-    a.protocol === b.protocol &&
-    normHost(a) === normHost(b) &&
-    portOf(a) === portOf(b) &&
-    pathOf(a) === pathOf(b)
-  )
+}
+
+export interface SelfHostedLoopbackMatch {
+  readonly matched: boolean
+  readonly reason?: string
+}
+
+/**
+ * D-1 的唯一信任判据:只有「声明基准是回环地址」且「请求与基准同 origin」才认。
+ *
+ * 为什么单列一个出口:调用方(CLI 工具层)与守卫层必须用同一把尺子;信任档位、
+ * 配置键出处、基准端点三项缺一即不认,远端下发/SSE 回调永远不会走到这里。
+ */
+export function selfHostedLoopbackMatch(
+  endpoint: string,
+  trust?: SelfHostedTrust,
+): SelfHostedLoopbackMatch {
+  if (!trust) return { matched: false, reason: '没有信任声明' }
+  if (!(SELF_HOSTED_TRUST_SOURCES as readonly string[]).includes(trust.source)) {
+    return { matched: false, reason: '信任档位不在枚举内' }
+  }
+  if (typeof trust.settingsKey !== 'string' || !trust.settingsKey.trim()) {
+    return { matched: false, reason: '缺少配置键出处(settingsKey)' }
+  }
+  if (typeof trust.configuredEndpoint !== 'string' || !trust.configuredEndpoint.trim()) {
+    return { matched: false, reason: '缺少基准端点(configuredEndpoint)' }
+  }
+  let requestUrl: URL
+  let baseUrl: URL
+  try {
+    requestUrl = new URL(endpoint)
+    baseUrl = new URL(trust.configuredEndpoint)
+  } catch {
+    return { matched: false, reason: '端点 URL 解析失败' }
+  }
+  const hostOf = (u: URL) => u.hostname.toLowerCase().replace(/^\[(.*)\]$/, '$1')
+  const isLoop = (h: string) =>
+    isLoopbackAddress(h) || (LOOPBACK_HOST_NAMES as readonly string[]).includes(h)
+  if (!isLoop(hostOf(requestUrl)) || !isLoop(hostOf(baseUrl))) {
+    return { matched: false, reason: `声明的端点 ${hostOf(baseUrl)} 不是回环地址` }
+  }
+  if (originOf(requestUrl) !== originOf(baseUrl)) {
+    return {
+      matched: false,
+      reason: `请求 origin ${originOf(requestUrl)} ≠ 声明 origin ${originOf(baseUrl)}`,
+    }
+  }
+  const basePath = baseUrl.pathname === '' ? '/' : baseUrl.pathname
+  const requestPath = requestUrl.pathname === '' ? '/' : requestUrl.pathname
+  if (!endpointMatches(endpoint, trust.configuredEndpoint)) {
+    return { matched: false, reason: `请求路径 ${requestPath} ≠ 声明路径 ${basePath}` }
+  }
+  return { matched: true }
 }
 
 export async function assertSafeFetchUrl(
@@ -416,17 +497,21 @@ export async function assertSafeFetchUrl(
    * ① 调用方显式声明了 user-settings 来源;② 请求 URL 与自配基准端点逐字同条;
    * ③ 目标不在"永不放行"集(元数据主机名 / 链路本地与唯一本地地址)。
    */
+  const trust = options?.selfHosted
+  const trustMatch = trust ? selfHostedLoopbackMatch(rawUrl, trust) : null
   const trustedFor = (targetHost: string, address?: string): boolean => {
-    const trust = options?.selfHosted
-    if (!trust || trust.source !== 'user-settings') return false
-    if (typeof trust.configuredEndpoint !== 'string' || !trust.configuredEndpoint.trim())
-      return false
-    if (!endpointMatches(rawUrl, trust.configuredEndpoint)) return false
+    if (!trust || !trustMatch?.matched) return false
     if (isNeverTrustedHostname(targetHost)) return false
     if (isNeverTrustedAddress(targetHost)) return false
     if (address && address !== targetHost && isNeverTrustedAddress(address)) return false
     return true
   }
+  const allowTrusted = (block: Omit<SsrfDecision, 'safe'>): SsrfDecision => ({
+    safe: true,
+    ...block,
+    trustedSelfHosted: true,
+    trustSource: trust?.source,
+  })
   if (!(ALLOWED_FETCH_PROTOCOLS as readonly string[]).includes(parsed.protocol)) {
     return decision({
       code: 'protocol-denied',
@@ -438,20 +523,27 @@ export async function assertSafeFetchUrl(
     return decision({ code: 'host-missing', reason: 'URL 无主机名' })
   }
   if (isDeniedHostname(host)) {
-    if (trustedFor(host)) return { safe: true, host }
-    return decision({ code: 'host-denied', host, deniedTarget: host, reason: '主机名在拒绝名单内' })
+    if (trustedFor(host)) return allowTrusted({ host })
+    return decision({
+      code: 'host-denied',
+      host,
+      deniedTarget: host,
+      reason: '主机名在拒绝名单内',
+      selfHostedDenied: trustMatch?.reason,
+    })
   }
 
   const directIp = parseIpAddress(host)
   if (directIp) {
     if (isPrivateOrReservedIp(host)) {
-      if (trustedFor(host, host)) return { safe: true, host, resolvedIps: [host] }
+      if (trustedFor(host, host)) return allowTrusted({ host, resolvedIps: [host] })
       return decision({
         code: 'direct-ip-denied',
         host,
         resolvedIps: [host],
         deniedTarget: host,
         reason: `直连地址 ${host} 属于内网/保留网段`,
+        selfHostedDenied: trustMatch?.reason,
       })
     }
     return { safe: true, host, resolvedIps: [host] }
@@ -470,13 +562,14 @@ export async function assertSafeFetchUrl(
   }
   const hit = ips.find((ip) => isPrivateOrReservedIp(ip))
   if (hit) {
-    if (trustedFor(host, hit)) return { safe: true, host, resolvedIps: ips }
+    if (trustedFor(host, hit)) return allowTrusted({ host, resolvedIps: ips })
     return decision({
       code: 'resolved-denied',
       host,
       resolvedIps: ips,
       deniedTarget: hit,
       reason: `域名 ${host} 解析到内网/保留地址 ${hit}`,
+      selfHostedDenied: trustMatch?.reason,
     })
   }
 
