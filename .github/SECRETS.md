@@ -71,14 +71,16 @@
 
 ### 代码签名（SignPath Foundation）
 
-`release-cli.yml` 的 Windows 二进制走 SignPath 做 Authenticode 签名。四项**全部配置**才会启用签名步骤（`SIGNPATH_CONFIGURED` 由 job env 折算）；缺任意一项则签名步骤整体跳过，发布仍是未签名 exe，流水线不会因缺凭据而红。
+`release-cli.yml`(CLI 的 `ihui.exe`)与 `release-desktop.yml`(桌面端 NSIS 安装包)共用同一组 SignPath 凭据做 Authenticode 签名。四项**全部配置**才会启用签名步骤（`SIGNPATH_CONFIGURED` 由 job env 折算）；缺任意一项则签名步骤整体跳过，发布仍是未签名产物，流水线不会因缺凭据而红。
 
 - `SIGNPATH_API_TOKEN` — SignPath API Token（submitter 权限）
 - `SIGNPATH_ORGANIZATION_ID` — SignPath Organization ID
 - `SIGNPATH_PROJECT_SLUG` — SignPath Project Slug
 - `SIGNPATH_SIGNING_POLICY_SLUG` — SignPath Signing Policy Slug（如 `release-signing`）
 
-> SignPath 侧还需配置 Artifact Configuration：`upload-artifact` 默认打成 ZIP，故根元素须为 `<zip-file>`，其下为 `ihui.exe` 的 PE 签名项；否则签名请求会因找不到可签名对象失败。
+> SignPath 侧还需配置 Artifact Configuration：`upload-artifact` 默认打成 ZIP，故根元素须为 `<zip-file>`，其下为 PE 签名项（CLI 是 `ihui.exe`；桌面端是 `bundle/nsis/*-setup.exe`，产品名含中文时按后缀 `-setup.exe` 匹配）；否则签名请求会因找不到可签名对象失败。
+>
+> **桌面端多一条硬依赖**：Tauri 自动更新用 minisign `.sig` 校验安装包**字节**，Authenticode 签名改了字节 ⇒ 签名步会用 `DESKTOP_TAURI_PRIVATE_KEY` / `DESKTOP_TAURI_KEY_PASSWORD`（该 workflow 原本就在用，无需新增）就地 `tauri signer sign` 重算 `.sig`；重算失败即硬失败——宁可不发也不发一个"更新链断裂"的 Release。首次带凭据的桌面发版必须核对：Release 资产里 `.exe` 与同名 `.sig` 都是**替换后**的那一份，且 `latest.json` 的 signature 与之匹配。
 
 ### AWS（S3 生命周期漂移检测）
 
@@ -146,6 +148,7 @@
 | ws-loadtest.yml           | （无，依赖运行中的服务）                                                                                                                                                                                                                                                                                                                                                                         |
 | smoke-new-modules.yml     | （无）                                                                                                                                                                                                                                                                                                                                                                                           |
 | release-cli.yml           | `NPM_PUBLISH_TOKEN`（**已配置**，granular token + Bypass 2FA）；`SIGNPATH_API_TOKEN`/`SIGNPATH_ORGANIZATION_ID`/`SIGNPATH_PROJECT_SLUG`/`SIGNPATH_SIGNING_POLICY_SLUG`（**未配置**，SignPath 批准后填入；缺任一项则 Windows 签名步骤跳过，发布仍为未签名 exe）；`GITHUB_TOKEN` 自动提供。**不读** `NPM_TOKEN`，也**不依赖** Trusted Publishing/OIDC（OIDC 仅作前向兼容尝试，失败自动回退 token） |
+| release-desktop.yml       | `SIGNPATH_API_TOKEN`/`SIGNPATH_ORGANIZATION_ID`/`SIGNPATH_PROJECT_SLUG`/`SIGNPATH_SIGNING_POLICY_SLUG`（**未配置**，与 release-cli 同一组；缺任一项则 Windows 签名步跳过，发布仍为未签名安装包）；`DESKTOP_TAURI_PRIVATE_KEY`/`DESKTOP_TAURI_KEY_PASSWORD`（已配置，构建与 `.sig` 重算共用）；`GITEE_TOKEN`/`GITEE_OWNER`（国内镜像）；`GITHUB_TOKEN` 自动提供                                                                                                            |
 | release-sdk.yml           | `NPM_TOKEN`（**尚未配置**，见上方说明；未配置时 real 模式 npm gate 判红）、`PYPI_TOKEN`（未配置）、`MAVEN_USERNAME`/`MAVEN_TOKEN`（未配置）、`NUGET_API_KEY`（未配置）；`GITHUB_TOKEN` 自动提供                                                                                                                                                                                                  |
 | npm-bootstrap.yml         | `NPM_BOOT_PUBKEY`, `NPM_BOOT_EMAIL`, `NPM_BOOT_USERNAME`, `NPM_BOOT_PASSWORD`（已配置，账号已建成）；`NPM_PUBLISH_TOKEN`（**已配置**，publish job 使用）；`SIGNPATH_EMAIL`（已配置）；`NPM_VERIFY_URL`（未配置，仅在重新走 email 验证时需要）。`trusted_publisher` 分支已于 2026-10-19 删除                                                                                                      |
 | weekly-security-audit.yml | `GITHUB_TOKEN`（GitHub 自动提供，无需手动配置）                                                                                                                                                                                                                                                                                                                                                  |
