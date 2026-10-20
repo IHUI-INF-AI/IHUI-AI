@@ -1183,6 +1183,22 @@ function Build-Web {
     #    点名,不允许静默漂移。
     Push-Location $Root
     try {
+        # 主仓 node_modules 与净面是两份:依赖面变更后不重装,主仓 dist 重建会像
+        # 2026-10-20 的 lucide-react 那样每轮失败,而 api 静默滞留旧 dist。
+        $rootStampFile = Join-Path $Root 'node_modules\.ihui-install-stamp'
+        $rootDepStamp = Get-CleanBuildDepStamp $Root
+        $rootInstalled = if (Test-Path -LiteralPath $rootStampFile) { (Get-Content -LiteralPath $rootStampFile -Raw).Trim() } else { '' }
+        if (Test-CleanBuildInstallNeeded -WebBinExists (Test-Path -LiteralPath (Join-Path $Root 'node_modules')) -DepStamp $rootDepStamp -StampInstalled $rootInstalled) {
+            Log '主仓依赖面缺失或已变 ⇒ pnpm install --frozen-lockfile'
+            & "D:\DevEnv\tools\npm-global\pnpm.cmd" install --frozen-lockfile 2>&1 |
+                Select-Object -Last 6 | ForEach-Object { Log "[root-install] $_" }
+            if ($LASTEXITCODE -ne 0) {
+                Log "WARN  主仓 pnpm install 失败(exit $LASTEXITCODE),api 可能滞留旧 dist"
+            } else {
+                try { Set-Content -LiteralPath $rootStampFile -Value $rootDepStamp -NoNewline -ErrorAction Stop }
+                catch { Log "WARN 主仓依赖指纹未落盘(下一轮会再装一次):$_" }
+            }
+        }
         foreach ($pkg in @('@ihui/types','@ihui/i18n','@ihui/dom-actions','@ihui/context-compaction','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react')) {
             Log "主仓重建 $pkg dist ..."
             & "D:\DevEnv\tools\npm-global\pnpm.cmd" --filter $pkg run build
