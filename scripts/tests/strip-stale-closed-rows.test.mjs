@@ -1,0 +1,257 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 「完成即删」兜底清扫器 H4 档(摘除前先问守门 71 同一把尺子)的镜像测试(2026-10-20 立)。
+// §22c:判据一律 import `../strip-stale-closed-rows.mjs` 的 `__test__` 出口与守门 71 的既有出口,
+// 本文件不重写任何"什么算同一件事/什么算勾销"的判定;夹具一律落 mkScratch(§15b/§15c,仓内禁 git init)。
+// 立因是现读的缺陷:清扫器按门 229 摘掉一条已勾行后,门 71 的 --heal 层会把同一条票按**未勾形态**
+// 还原(G-815944:未勾数 252→253)⇒ 清扫白做一轮、台账每 30 分钟可能再抖一次。
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { __test__ as S } from '../strip-stale-closed-rows.mjs'
+import { staleClosedVerdict } from '../check-plan-closed-stock.mjs'
+import { closedRegistrationOf } from '../check-plan-line-loss.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+
+const P_OPEN_A = '- [ ] G-7001 探针甲:这条登记行用来验证清扫器与守门七十一问的是同一把尺子'
+const P_OPEN_B = '- [ ] G-7002 探针乙:这一行始终未勾,用来让保护集在夹具面上不为空以便判定'
+const P_OPEN_C = '- [ ] G-7003 探针丙:第三枚提交只改这一行,好让翻勾那枚不是 HEAD 自身'
+const CLOSED_A_PAIRED = '- [x] ✅(2026-10-20/甲) G-7001 探针甲:这条登记行用来验证清扫器与守门七十一问的是同一把尺子'
+const CLOSED_A_DRIFT = '- [x] ✅(2026-10-20/甲) G-7001 探针甲【翻勾时正文被改写过】于是历史里的开放形态没了凭据'
+
+function g(dir, args) {
+  return execFileSync('git', ['-C', dir, ...args], {
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim()
+}
+
+/** 造一枚只动 PROJECT_PLAN.md 的演练仓(落仓库树外,§15c);commit2 翻勾、commit3 只改别的行。 */
+function fixtureRepo(closedA) {
+  const dir = mkScratch('strip-closed-mirror-')
+  g(dir, ['init', '-q', '-b', 'main'])
+  g(dir, ['config', 'user.email', 'mirror@example.invalid'])
+  g(dir, ['config', 'user.name', 'mirror'])
+  const plan = (rows) => ['# 计划', ...rows, ''].join('\n')
+  const write = (rows) => {
+    writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), plan(rows), 'utf8')
+    g(dir, ['add', 'PROJECT_PLAN.md'])
+    g(dir, ['commit', '-q', '-m', 'mirror fixture'])
+  }
+  write([P_OPEN_A, P_OPEN_B])
+  write([closedA, P_OPEN_B])
+  write([closedA, P_OPEN_B, P_OPEN_C])
+  return dir
+}
+
+/** 门 229 的滞留集(与清扫器主流程同一判据)—— 夹具必须先真是"跨枚滞留",否则测的不是这一档。 */
+function staleRowsOf(dir) {
+  const head = g(dir, ['show', 'HEAD:PROJECT_PLAN.md'])
+  const parent = g(dir, ['show', 'HEAD^:PROJECT_PLAN.md'])
+  const v = staleClosedVerdict(head, parent)
+  assert.equal(v.undetermined, false, '夹具面必须解析得动')
+  return { head, v, stale: v.stale }
+}
+
+test('夹具成立性:配平翻勾与漂开翻勾两型都确属门 229 的跨枚滞留集', () => {
+  for (const closedA of [CLOSED_A_PAIRED, CLOSED_A_DRIFT]) {
+    const dir = fixtureRepo(closedA)
+    try {
+      const { stale } = staleRowsOf(dir)
+      assert.equal(stale.length, 1, `夹具应恰有 1 条滞留,实得 ${stale.length}`)
+      assert.equal(stale[0].raw, closedA)
+    } finally {
+      rmScratch(dir, { bestEffort: true })
+    }
+  }
+})
+
+test('M1 正例:翻勾与摘行配平(门 71 判「已勾销」)⇒ 滞留行照摘,未勾行逐字节不动', () => {
+  const dir = fixtureRepo(CLOSED_A_PAIRED)
+  try {
+    const { head, stale } = staleRowsOf(dir)
+    const ruler = S.buildLineLossRuler({ root: dir, archived: () => null })
+    assert.equal(ruler.ok, true, `尺子必须可用,实得 why=${ruler.why}`)
+    const part = S.partitionStaleByProtection(head, stale, ruler.lossesOf)
+    assert.equal(part.ok, true, `应判可摘,实得 why=${part.why}`)
+    assert.equal(part.undetermined, undefined)
+    assert.equal(part.held.length, 0, `配平翻勾不该被扣住,实得 ${JSON.stringify(part.held)}`)
+    assert.equal(part.strippable.length, 1)
+    assert.equal(part.removed, 1)
+    assert.equal(S.sweepOutcome(part, { apply: true }).state, 'stripped')
+    assert.equal(S.sweepOutcome(part, { apply: true }).exit, 0)
+    // H1 侧证:未勾的两行在摘后文本里逐字节仍在、顺序未变;H2:只少一行
+    assert.ok(part.text.includes(P_OPEN_B) && part.text.includes(P_OPEN_C), '未勾行必须原样保留')
+    assert.equal(part.text.split('\n').length, head.split('\n').length - 1, '行数必须精确少 1')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('M2 正例(G-815944 型):门 71 判「仍保护」⇒ 同一条滞留行必须跳过并点名,不得显示成已清', () => {
+  const dir = fixtureRepo(CLOSED_A_DRIFT)
+  try {
+    const { head, stale } = staleRowsOf(dir)
+    const ruler = S.buildLineLossRuler({ root: dir, archived: () => null })
+    assert.equal(ruler.ok, true, `尺子必须可用,实得 why=${ruler.why}`)
+    const part = S.partitionStaleByProtection(head, stale, ruler.lossesOf)
+    assert.equal(part.ok, true, `跳过而非整批不落,实得 why=${part.why}`)
+    assert.equal(part.held.length, 1, `应扣住 1 条,实得 ${part.held.length}`)
+    assert.equal(part.held[0].row.raw, CLOSED_A_DRIFT)
+    assert.ok(part.held[0].reasons.length > 0, '必须给出"为什么没摘"的门 71 点名(marker)')
+    assert.equal(part.strippable.length, 0, '唯一那条被扣住 ⇒ 本轮无可摘')
+    assert.equal(part.removed, 0)
+    const out = S.sweepOutcome(part, { apply: true })
+    assert.equal(out.state, 'all-held', `第三态必须独立成档,实得 ${out.state}`)
+    assert.equal(out.exit, 3, '一条未摘不得按"清扫完成(0)"退出,实得 exit ' + out.exit)
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('M3 反证:摘除动作本身不引点名时才会摘 —— 尺子换成恒空即全放行(证明分档真依赖门 71)', () => {
+  const dir = fixtureRepo(CLOSED_A_DRIFT)
+  try {
+    const { head, stale } = staleRowsOf(dir)
+    const hollow = S.partitionStaleByProtection(head, stale, () => [])
+    assert.equal(hollow.ok && hollow.strippable.length, 1, '尺子恒空 ⇒ 全判可摘(所以尺子必须真接上)')
+    const wired = S.partitionStaleByProtection(
+      head,
+      stale,
+      S.buildLineLossRuler({ root: dir, archived: () => null }).lossesOf,
+    )
+    assert.equal(wired.held.length, 1, '接上门 71 真尺子 ⇒ 同一行被扣住(上面那句反证才有意义)')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('M4 未判定档:尺子取不到 ⇒ ok:false / undetermined,且整批不落并 exit 2(不得静默当成可删或不可删)', () => {
+  const dir = mkScratch('strip-closed-nogit-')
+  try {
+    g(dir, ['init', '-q', '-b', 'main']) // 零提交:历史面根本取不到
+    const ruler = S.buildLineLossRuler({ root: dir, archived: () => null })
+    assert.equal(ruler.ok, false, '无历史面可取材 ⇒ 尺子必须拒绝')
+    assert.ok(ruler.why, '必须点名原因,实得:' + JSON.stringify(ruler))
+    const part = S.partitionStaleByProtection(
+      ['# 计划', CLOSED_A_PAIRED].join('\n'),
+      [{ line: 2, raw: CLOSED_A_PAIRED }],
+      () => null,
+    )
+    assert.equal(part.undetermined, true)
+    assert.equal(part.ok, false)
+    assert.equal(part.strippable.length, 0, '未判定时不得摘任何一行')
+    const out = S.sweepOutcome(part, { apply: true })
+    assert.equal(out.exit, 2, `未判定必须落 exit 2,实得 ${out.exit}`)
+    assert.equal(out.state, 'undetermined')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('M5 保护集枚举为 0 ⇒ 判死不记绿(§0.3),不得据"空保护集"放行删除', () => {
+  const dir = mkScratch('strip-closed-retired-')
+  try {
+    g(dir, ['init', '-q', '-b', 'main'])
+    g(dir, ['config', 'user.email', 'mirror@example.invalid'])
+    g(dir, ['config', 'user.name', 'mirror'])
+    // 两枚提交:唯一那条登记行先开放、再被**配平翻勾** ⇒ 门 71 判它「已勾销」⇒ 保护集为空
+    writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), ['# 计划', P_OPEN_A, ''].join('\n'), 'utf8')
+    g(dir, ['add', 'PROJECT_PLAN.md'])
+    g(dir, ['commit', '-q', '-m', '登记'])
+    writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), ['# 计划', CLOSED_A_PAIRED, ''].join('\n'), 'utf8')
+    g(dir, ['add', 'PROJECT_PLAN.md'])
+    g(dir, ['commit', '-q', '-m', '配平翻勾'])
+    const ruler = S.buildLineLossRuler({ root: dir, archived: () => null })
+    assert.equal(ruler.ok, false, `保护集应为 0 而尺子必须拒绝,实得:ok=${ruler.ok} seen=${ruler.seen?.size}`)
+    assert.match(ruler.why, /枚举为 0/, `原因必须点名是"空保护集"这一型,实得:${ruler.why}`)
+    // 反证:尺子拒绝时,主流程拿不到 lossesOf ⇒ 摘除档结构上不可能"默默放行"
+    assert.equal(typeof ruler.lossesOf, 'undefined', '尺子不可用就不该带出 lossesOf')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('M6 单源纪律:清扫器 import 门 71 的出口,自己不复算配平状态机(§0.6/§22c)', async () => {
+  const { readFileSync } = await import('node:fs')
+  const src = readFileSync(new URL('../strip-stale-closed-rows.mjs', import.meta.url), 'utf8')
+  const clause = src.match(/import\s*\{([^}]*)\}\s*from\s*'\.\/check-plan-line-loss\.mjs'/)
+  assert.ok(clause, "必须存在从 './check-plan-line-loss.mjs' 的 import(尺子借门 71)")
+  const names = clause[1].split(',').map((s) => s.trim()).filter(Boolean)
+  for (const n of ['historyMarkers', 'missingFrom', 'closedRegistrationOf', 'lastHistoryWindow'])
+    assert.ok(names.includes(n), `import 里必须含门 71 出口 ${n},实得:${names.join('/')}`)
+  for (const stolen of ['countsPerCommit', 'unexplained', 'flips +=', 'retired.add'])
+    assert.ok(!src.includes(stolen), `出现 "${stolen}" = 在本器里抄了第二份历史状态机`)
+  // 出口确实还在门 71 上(被抽走 ⇒ 上面那条 import 当场炸,而这条先点名是哪一格)
+  const g71 = await import('../check-plan-line-loss.mjs')
+  for (const n of ['historyMarkers', 'missingFrom', 'closedRegistrationOf', 'lastHistoryWindow', 'historyDepth'])
+    assert.equal(typeof g71[n], 'function', `守门 71 缺少可复用出口 ${n} ⇒ 本档停手并上报,不得私抄判据`)
+})
+
+test('M7 归因不全 ⇒ 整批不落(解释不了的红必须多要一次定向说明,§0.10)', () => {
+  const head = ['# 计划', P_OPEN_B, CLOSED_A_PAIRED].join('\n')
+  const part = S.partitionStaleByProtection(
+    head,
+    [{ line: 3, raw: CLOSED_A_PAIRED }],
+    (text) => (text === head ? [] : [{ marker: 'G-7999 没人摘过的编号', id: 'G-7999' }]),
+  )
+  assert.equal(part.ok, false)
+  assert.equal(part.unattributed.length, 1)
+  assert.match(part.why, /归不到/)
+  assert.equal(S.sweepOutcome(part, { apply: true }).exit, 1)
+})
+
+test('M8 机读结论行:state 与三个计数恒在场(守护日志按它分三态)', () => {
+  const line = S.emitResult('stripped', { stale: 3, held: 1, stripped: 2 })
+  assert.match(line, /^SWEEP-RESULT state=stripped stale=3 held=1 stripped=2$/)
+  for (const st of ['clean', 'preflight', 'stripped', 'all-held', 'refused', 'undetermined'])
+    assert.ok(S.emitResult(st, { stale: 0, held: 0, stripped: 0 }).startsWith(`SWEEP-RESULT state=${st} `))
+})
+
+test('M10 形状锁:主流程必须在任何落地动作之前先问尺子(顺序即纪律)', async () => {
+  const { readFileSync } = await import('node:fs')
+  const src = readFileSync(new URL('../strip-stale-closed-rows.mjs', import.meta.url), 'utf8')
+  const main = src.slice(src.indexOf('function main()'))
+  const asked = main.indexOf('buildLineLossRuler()')
+  const landed = main.indexOf("spawnSync(process.execPath, [path.join(ROOT, 'scripts/object-space-land.mjs')]")
+  assert.ok(asked >= 0, '主流程必须真的调用尺子(只在纯函数里备着 = 没接线)')
+  assert.ok(landed >= 0, '落地通道仍必须是 object-space-land(不得自己写工作树)')
+  assert.ok(asked < landed, `问尺子(${asked})必须排在落地(${landed})之前`)
+  assert.ok(main.indexOf('process.exit(2)') < main.indexOf('buildLineLossRuler()') + 900, '尺子不可用那一档必须就近落 exit 2,不得跑到后面')
+  // 每一档出口都带机读结论行:clean/stripped/all-held/refused/undetermined/preflight
+  for (const st of ['clean', 'stripped', 'all-held', 'refused', 'undetermined', 'preflight'])
+    assert.ok(main.includes(`emitResult('${st}'`), `主流程缺 state=${st} 的结论行 ⇒ 守护日志会读成未判定`)
+})
+
+test('M9 身份出口同形:被跳过的已勾行,门 71 自己认得它的 marker/id(否则归因臂是空的)', () => {
+  for (const row of [CLOSED_A_PAIRED, CLOSED_A_DRIFT]) {
+    const reg = closedRegistrationOf(row)
+    assert.ok(reg && reg.marker && reg.id === 'G-7001', `closedRegistrationOf 必须给出身份,实得:${JSON.stringify(reg)}`)
+  }
+  assert.equal(closedRegistrationOf(P_OPEN_A), null, '未勾行不属于"已勾形态"这一档')
+})
+
+test('M11 H3 基线口径:摘完后"刚翻勾的宽现行"不得被读成滞留(否则 H3 是假红,批次永远落不了)', () => {
+  const dir = fixtureRepo(CLOSED_A_PAIRED)
+  try {
+    const head = g(dir, ['show', 'HEAD:PROJECT_PLAN.md'])
+    const parent = g(dir, ['show', 'HEAD^:PROJECT_PLAN.md'])
+    // 被审面上另有一条"本枚刚翻勾"的已勾行(HEAD^ 里它还是未勾)⇒ 属门 229 的宽限档,不是滞留
+    const flippedC = P_OPEN_C.replace('- [ ] ', '- [x] ✅(2026-10-20/丙) ')
+    const face = head.replace(P_OPEN_C, flippedC)
+    const stripped = face.split('\n').filter((l) => l !== CLOSED_A_PAIRED).join('\n')
+    const vsParent = staleClosedVerdict(stripped, parent)
+    assert.equal(vsParent.stale.length, 0, `基线取 HEAD^ 时刚翻勾的宽现行不该被点名,实得 ${JSON.stringify(vsParent.stale)}`)
+    // 反证:若把基线换成摘除前的那份(= 被审面自己),宽现行会被咬成滞留 ⇒ 正是这条口径要防的假红
+    const vsSelf = staleClosedVerdict(stripped, face)
+    assert.ok(vsSelf.stale.length > 0, '取错基线(拿被审面自己当基线)必然把每一行已勾都读成滞留')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
