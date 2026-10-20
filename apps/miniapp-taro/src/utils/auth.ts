@@ -176,7 +176,7 @@ function eraseLogoutMarker(): void {
 }
 
 /**
- * 本机是否处于"已显式登出 / 会话失效"状态。
+ * 本机是否处于"已显式登出"状态(只由用户主动登出写入)。
  * 读失败时判"未登出"并喊出来:抑制静默登录是改变用户可见行为的动作,
  * 不得由一次存储抖动触发(与 RN / web 同一条失效方向)。
  */
@@ -192,9 +192,20 @@ export function isSessionLoggedOut(): boolean {
   }
 }
 
-/** 清除登录态 */
+/** 清除登录态(用户显式登出:清凭据 + 落持久登出标记,冷启动不再自动登录) */
 export function clearAuth(): void {
   markSessionLoggedOut()
+  void tokenStoreCore.clearAll()
+}
+
+/**
+ * 会话被动失效出口:清凭据,但**不落**登出标记。
+ *
+ * 与 `clearAuth()` 的区别只有标记这一位 —— 401 的含义是"服务端把这个会话判死了",
+ * 不是"用户主动退出"。若也落标记,小程序下一次冷启动的 `trySilentMiniAppLogin()`
+ * 会被永久压住,用户每次都要手点登录(2026-10-20 收口)。
+ */
+export function expireAuth(): void {
   void tokenStoreCore.clearAll()
 }
 

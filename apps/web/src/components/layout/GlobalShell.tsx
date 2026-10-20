@@ -291,7 +291,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
    * 1. 页面刷新后 isAuthenticated=true 但 token=null(常态)
    * 2. useAuthBootstrap 统一静默刷新获取新 token
    * 3. token 恢复后,本 effect 因依赖变化重新执行,启动 startAutoRefresh
-   * 4. 若 refresh cookie 也过期 → useAuthBootstrap 内 logout(),isAuthenticated 降级为 false,
+   * 4. 若 refresh cookie 也过期 → useAuthBootstrap 内 expireSession(),isAuthenticated 降级为 false,
    *    本 effect 不再启动 startAutoRefresh,用户下次主动操作时触发登录弹窗
    */
   React.useEffect(() => {

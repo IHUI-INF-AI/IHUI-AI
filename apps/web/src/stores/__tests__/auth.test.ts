@@ -4,10 +4,17 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useAuthStore } from '../auth'
+import {
+  clearSessionLoggedOutMarker,
+  isSessionLoggedOut,
+  __resetSessionLoggedOutMirrorForTest,
+} from '@/lib/session-marker'
 
 describe('useAuthStore', () => {
   beforeEach(() => {
     useAuthStore.setState({ token: null, isAuthenticated: false, user: null })
+    clearSessionLoggedOutMarker()
+    __resetSessionLoggedOutMirrorForTest()
   })
 
   it('初始状态未认证', () => {
@@ -44,6 +51,29 @@ describe('useAuthStore', () => {
     expect(s.token).toBeNull()
     expect(s.isAuthenticated).toBe(false)
     expect(s.user).toBeNull()
+  })
+
+  it('expireSession 清凭据但**不落**登出标记(401 ≠ 用户主动退出)', () => {
+    useAuthStore.getState().setToken('abc')
+    useAuthStore.getState().setUser({ id: '1', nickname: 'test' })
+
+    useAuthStore.getState().expireSession()
+
+    const s = useAuthStore.getState()
+    expect(s.token).toBeNull()
+    expect(s.isAuthenticated).toBe(false)
+    expect(s.user).toBeNull()
+    expect(isSessionLoggedOut(), '被动失效不得写标记,否则自动登录被永久压住').toBe(false)
+  })
+
+  it('两条出口必须不同:显式 logout 落标记,被动 expireSession 不落', () => {
+    useAuthStore.getState().setToken('abc')
+    useAuthStore.getState().expireSession()
+    expect(isSessionLoggedOut()).toBe(false)
+
+    useAuthStore.getState().setToken('abc')
+    useAuthStore.getState().logout()
+    expect(isSessionLoggedOut()).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
