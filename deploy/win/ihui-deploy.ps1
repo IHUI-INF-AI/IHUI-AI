@@ -2177,12 +2177,18 @@ try {
 Start-Web
 Start-Sleep -Seconds 8
 
-# ── SSH 入口存续(2026-10-21 立)───────────────────────────────────────────────
-# 现场:隧道 `ihui-local` 的 ingress `ssh.aizhs.top → ssh://127.0.0.1:22` 一直在、连接器 healthy、
-# 同隧道 rdp 腿正常,而带有效服务令牌打 Access 回 502(不带 token 是 302)⇒ Access 放行、后端没人接,
-# 即**本机 sshd 没在应答**。运维入口(ssh/rdp)与部署循环同属这台机的对外面,部署时顺带把 sshd
-# 拉回 Running 并置自动启动,是幂等修复而不是新增能力(该入口自 2026-09-14 起就在用)。
-# 失败只 WARN 不阻塞部署:sshd 起不来的原因(权限/端口占用)不该让一次代码发布整体回滚。
+# ── SSH 入口存续(2026-10-21 立;同日更正归因)─────────────────────────────────
+# 现象:带有效服务令牌打 `ssh.aizhs.top` 的 Access 回 502(不带 token 是 302=边缘登录跳转,与后端无关),
+# `cloudflared access ssh` 报 `websocket: bad handshake`。
+# **更正归因(2026-10-21 实测)**:这不是"生产 sshd 挂了"——本机 22 端口**根本没有监听**
+# (`Get-NetTCPConnection -LocalPort 22` 空,本机也未安装 sshd 服务),而本机 `Cloudflared` 服务
+# 与生产机是**同一条隧道的两个副本**,边缘按连接随机分流 ⇒ 一部分 ssh 请求被本机副本接走、
+# 它够不到 127.0.0.1:22 就回 502。停掉本机副本(`start= demand`)后 8/8 直达生产、SSH 真登成功。
+# 保留本块的理由(与上面那次误诊无关的独立事实):生产机 `OpenSSH SSH Server` 在 2026-10-20 13:55
+# 确实发生过**崩溃循环**(System 日志 7000/7031 连续 4 次"服务没有及时响应启动或控制请求"),
+# 15:02 才恢复 —— sshd 不是"确保一次就永远在",部署时幂等确认 Running + Automatic 是低成本的兜底。
+# 失败只 WARN 不阻塞部署(sshd 起不来的原因不该让一次代码发布整体回滚)。
+# 该入口自 2026-09-14 起就在用,属既有运维面的修复,不是新增能力。
 try {
     $sshdSvc = Get-Service -Name sshd -ErrorAction Stop
     if ($sshdSvc.StartType -ne 'Automatic') {
