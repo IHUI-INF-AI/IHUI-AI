@@ -37,9 +37,12 @@ import {
   Label,
 } from '@ihui/ui-react'
 
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { buildAnalysisPrompt, type ImportSource } from '@ihui/shared/import-analysis'
-import type { ImportAnalysisCategory, ImportAnalysisScenario } from '@ihui/shared/import-analysis/scenarios'
+import type {
+  ImportAnalysisCategory,
+  ImportAnalysisScenario,
+} from '@ihui/shared/import-analysis/scenarios'
 
 export interface ImportAnalysisDialogProps {
   readonly open: boolean
@@ -53,7 +56,12 @@ export interface ImportAnalysisDialogProps {
 /** 目录加载态(动态 import 的真实阶段,不是"假装在加载") */
 type CatalogState =
   | { phase: 'loading' }
-  | { phase: 'ready'; categories: readonly ImportAnalysisCategory[]; recommended: ImportAnalysisScenario[]; all: readonly ImportAnalysisScenario[] }
+  | {
+      phase: 'ready'
+      categories: readonly ImportAnalysisCategory[]
+      recommended: ImportAnalysisScenario[]
+      all: readonly ImportAnalysisScenario[]
+    }
   | { phase: 'error'; message: string }
 
 export function ImportAnalysisDialog({
@@ -63,6 +71,10 @@ export function ImportAnalysisDialog({
   initialVariables,
 }: ImportAnalysisDialogProps) {
   const t = useTranslations('conversationImport')
+  // 票60 片3(2026-10-21):草稿写入面 = 当前窗格的 chat store(MessageInput 读的就是它)。
+  // 此前恒写 useChatStore 单例 ⇒ 非根窗格点「发起分析」把草稿落进根窗格输入框。
+  // 出口与消费侧同一份(usePaneChatStore),Provider 外仍是单例本尊 ⇒ 零回归。
+  const chatStore = usePaneChatStore()
   const [catalog, setCatalog] = React.useState<CatalogState>({ phase: 'loading' })
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
   const [categoryId, setCategoryId] = React.useState<string | null>(null)
@@ -70,10 +82,7 @@ export function ImportAnalysisDialog({
   const [submitting, setSubmitting] = React.useState(false)
 
   // 未填变量的占位提示(i18n 一处,buildAnalysisPrompt 与预览共用同一个函数)
-  const pendingLabel = React.useCallback(
-    (name: string) => t('analysisPendingVar', { name }),
-    [t],
-  )
+  const pendingLabel = React.useCallback((name: string) => t('analysisPendingVar', { name }), [t])
 
   // 目录动态加载:仅在弹窗打开时拉一次,关闭后保留已加载结果(重开不再等)
   React.useEffect(() => {
@@ -108,10 +117,13 @@ export function ImportAnalysisDialog({
       : null
 
   // 选中新场景时重置变量表单:上一个场景的 {var} 与新场景无关,留着等于预填错值
-  const handleSelect = React.useCallback((s: ImportAnalysisScenario) => {
-    setSelectedId(s.id)
-    setVariables({ ...(initialVariables ?? {}) })
-  }, [initialVariables])
+  const handleSelect = React.useCallback(
+    (s: ImportAnalysisScenario) => {
+      setSelectedId(s.id)
+      setVariables({ ...(initialVariables ?? {}) })
+    },
+    [initialVariables],
+  )
 
   const preview = React.useMemo(
     () => (selected ? buildAnalysisPrompt(selected, variables, pendingLabel) : null),
@@ -119,8 +131,8 @@ export function ImportAnalysisDialog({
   )
 
   /**
-   * 发起分析:写 chat store 的待发草稿队列,MessageInput 消费后作为**本会话的下一条
-   * 用户消息**自动发出。
+   * 发起分析:写**当前窗格** chat store 的待发草稿队列,MessageInput 消费后作为**本会话的
+   * 下一条用户消息**自动发出。
    *
    * 通道选择的理由(与 goal-card / next-steps-card / d176-task-recap 同款,见 d176 文件头):
    * 程序化 sendMessage 出口(send-message.ts 的 sendMessageInstance 模块单例)不导出,
@@ -130,9 +142,9 @@ export function ImportAnalysisDialog({
   const handleSubmit = React.useCallback(() => {
     if (!selected || !preview) return
     setSubmitting(true)
-    useChatStore.setState({ draftInput: preview, draftAutoSend: true })
+    chatStore.setState({ draftInput: preview, draftAutoSend: true })
     onOpenChange(false)
-  }, [selected, preview, onOpenChange])
+  }, [selected, preview, onOpenChange, chatStore])
 
   const inCategory =
     catalog.phase === 'ready' && categoryId !== null
@@ -143,9 +155,7 @@ export function ImportAnalysisDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle data-testid="import-analysis-dialog-title">
-            {t('analysisTitle')}
-          </DialogTitle>
+          <DialogTitle data-testid="import-analysis-dialog-title">{t('analysisTitle')}</DialogTitle>
         </DialogHeader>
         <DialogDescription>{t('analysisDesc')}</DialogDescription>
 
@@ -173,14 +183,10 @@ export function ImportAnalysisDialog({
           <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto pt-1">
             {/* ① 选场景:推荐区(按来源给默认)+ 全库浏览 */}
             <section className="space-y-1.5">
-              <p className="text-xs font-medium text-foreground/80">
-                {t('analysisScenarioLabel')}
-              </p>
+              <p className="text-xs font-medium text-foreground/80">{t('analysisScenarioLabel')}</p>
               {catalog.recommended.length > 0 && (
                 <>
-                  <p className="text-[11px] text-muted-foreground">
-                    {t('analysisRecommended')}
-                  </p>
+                  <p className="text-[11px] text-muted-foreground">{t('analysisRecommended')}</p>
                   <div className="grid grid-cols-1 gap-1.5 min-[480px]:grid-cols-2">
                     {catalog.recommended.map((s) => (
                       <button
@@ -254,9 +260,7 @@ export function ImportAnalysisDialog({
                   {t('analysisVariablesLabel', { title: selected.title })}
                 </p>
                 {selected.variables.length === 0 ? (
-                  <p className="text-[11px] text-muted-foreground">
-                    {t('analysisNoVariables')}
-                  </p>
+                  <p className="text-[11px] text-muted-foreground">{t('analysisNoVariables')}</p>
                 ) : (
                   selected.variables.map((name) => (
                     <div key={name} className="space-y-0.5">
@@ -287,7 +291,10 @@ export function ImportAnalysisDialog({
             <div className="flex items-center justify-between gap-2 border-t border-border pt-2">
               <p className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
                 {selected
-                  ? t('analysisEstimate', { tokens: selected.estimatedTokens, difficulty: selected.difficulty })
+                  ? t('analysisEstimate', {
+                      tokens: selected.estimatedTokens,
+                      difficulty: selected.difficulty,
+                    })
                   : t('analysisPickFirst')}
               </p>
               <Button

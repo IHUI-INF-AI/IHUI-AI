@@ -56,6 +56,9 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
   // ChatTools)的顶色是各自定稿,翻默认会把它们推给白档。
   Home: (t) => t.surface.chrome,
   HomeMain: (t) => t.surface.chrome,
+  // SecurityCenter(2026-10-21 补录):他人落库该屏时注册了路由却漏登记本表,
+  // 屏内确实渲染 <NavBar> ⇒ 按上表判据取 chrome 档(与 Home/Settings 同档)。
+  SecurityCenter: (t) => t.surface.chrome,
   Plaza: (t) => t.surface.chrome,
   News: (t) => t.surface.chrome,
   ProfileMain: (t) => t.surface.chrome,

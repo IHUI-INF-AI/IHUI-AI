@@ -274,17 +274,19 @@ export function MessageList({
   // 监听自定义事件 'ihui:scroll-to-message' (agent-task-progress-pane 兼容路径)
   React.useEffect(() => {
     const onScrollTo = (e: Event) => {
-      const detail = (e as CustomEvent<{ messageId: string }>).detail
+      const detail = (e as CustomEvent<{ messageId: string; paneId?: string | null }>).detail
       if (!detail?.messageId) return
+      if (!matchesPaneEvent(detail.paneId, paneId)) return
       const el = containerRef.current?.querySelector(
         `[data-message-id="${detail.messageId}"]`,
       ) as HTMLElement | null
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      if (!el) return
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
       flashHighlight(detail.messageId)
     }
     window.addEventListener('ihui:scroll-to-message', onScrollTo as EventListener)
     return () => window.removeEventListener('ihui:scroll-to-message', onScrollTo as EventListener)
-  }, [flashHighlight, containerRef])
+  }, [flashHighlight, containerRef, paneId])
 
   // D76 反向联动(2026-09-24 立):产物面板/画布导航 → ihui:focus-artifact →
   // 滚动定位消息流里的产物卡并描边高亮。挂本容器(长期存活节点),
@@ -372,17 +374,19 @@ export function MessageList({
   // 监听 planStepId / toolCallId 自定义事件 → 翻译为 messageId → 派发 ihui:scroll-to-message
   React.useEffect(() => {
     const scrollToMessage = (messageId: string): void => {
-      window.dispatchEvent(new CustomEvent('ihui:scroll-to-message', { detail: { messageId } }))
+      window.dispatchEvent(
+        new CustomEvent('ihui:scroll-to-message', { detail: { messageId, paneId } }),
+      )
     }
     const onPlanStep = (e: Event) => {
-      const detail = (e as CustomEvent<{ planStepId: string }>).detail
-      if (!detail?.planStepId) return
+      const detail = (e as CustomEvent<{ planStepId: string; paneId?: string | null }>).detail
+      if (!detail?.planStepId || !matchesPaneEvent(detail.paneId, paneId)) return
       const messageId = useProgressJumpStore.getState().planStepToMessageId[detail.planStepId]
       if (messageId) scrollToMessage(messageId)
     }
     const onToolCall = (e: Event) => {
-      const detail = (e as CustomEvent<{ toolCallId: string }>).detail
-      if (!detail?.toolCallId) return
+      const detail = (e as CustomEvent<{ toolCallId: string; paneId?: string | null }>).detail
+      if (!detail?.toolCallId || !matchesPaneEvent(detail.paneId, paneId)) return
       const messages = chatStore.getState().messages
       const found = messages.find((m) => m.toolCalls?.some((tc) => tc.id === detail.toolCallId))
       if (found) scrollToMessage(found.id)
@@ -393,7 +397,7 @@ export function MessageList({
       window.removeEventListener('ihui:scroll-to-plan-step', onPlanStep as EventListener)
       window.removeEventListener('ihui:scroll-to-tool-call', onToolCall as EventListener)
     }
-  }, [chatStore])
+  }, [chatStore, paneId])
 
   if (messages.length === 0) {
     return (

@@ -67,6 +67,18 @@ t('M3 判据掏空反证:摘掉"聚焦态"这一维,警告横幅立刻被误咬'
   if (!G.scanWarmBorderText(withFocusVariant).some((h) => h.rule === 'W1-tw')) throw new Error('focus:border-amber 未命中')
 })
 
+t('M3b 输入框外框的常驻暖色环(与聚焦无关的第二条通道)既要有牙、也不得误咬', () => {
+  // 正控:2026-10-21 实测事故形态 —— 编辑态容器常驻 ring-amber
+  const live = '<div className="ui-card rounded-lg border ring-1 ring-amber-500/30">\n  <input className="outline-none" />\n</div>'
+  if (!G.scanWarmBorderText(live).some((h) => h.rule === 'W1-input')) throw new Error('输入容器常驻暖环未命中 W1-input')
+  // 反控 1:复选框(且 type= 被折到下一行)不算输入框外框
+  const cb = '<div className="border border-amber-500/30">\n  <input\n    type="checkbox"\n  />\n</div>'
+  if (G.scanWarmBorderText(cb).length !== 0) throw new Error('复选框警示框被误咬')
+  // 反控 2:距离 >2 行的兄弟徽章不算(实测 checkin 页那两处即此型)
+  const far = '<span className="border border-amber-500/40">冷却</span>\n<span>a</span>\n<span>b</span>\n<span>c</span>\n<input className="h-8" />'
+  if (G.scanWarmBorderText(far).length !== 0) throw new Error('远距离兄弟徽章被误咬')
+})
+
 t('M4 遮罩有牙:注释里的被禁 drawable 名不算实现,摘掉注释仍要抓到', () => {
   const commented = `<!-- 不得再引用 @drawable/abc_textfield_activated_mtrl_alpha -->\n${'<item android:drawable="@android:color/transparent"/>'}`
   if (G.scanNativeTextfieldText(commented).length !== 0) throw new Error('注释里的 drawable 名被算成实现')
