@@ -1187,6 +1187,14 @@ iframe::-webkit-scrollbar {
 .account-card {
   container-type: inline-size;
 }
+/* 监控大屏滚动宿主的容器档(2026-10-20 从 wallboard 的 WALLBOARD_CSS 迁入):
+ * 原位置只在 wallboard 视图挂载,面板视图没有容器,@container 会退回按视口判定。
+ * 与 .ai-input-toolbar/.account-card 同族:Tailwind v4 的 @sm:/@md: container variant
+ * 不生成规则,容器档一律写原生 CSS。 */
+.wb-scroll-host {
+  container-type: inline-size;
+}
+
 .account-card .account-card-actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
