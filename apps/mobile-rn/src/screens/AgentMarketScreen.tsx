@@ -28,7 +28,12 @@ export function AgentMarketScreen() {
     setError('')
     // 后端 GET /agents 回 success({list,total,page,pageSize})，而这里曾把整个信封当数组用
     // ⇒ 市场页永远空列表（与 HistoryScreen / ExamHistoryScreen 同一型，没有任何一层会红）。
-    const url = kw ? `/api/agents?keyword=${encodeURIComponent(kw)}` : '/api/agents'
+    // 目录一次取全:本屏是市场全量页且用 FlatList(有虚拟化),不带 pageSize 会吃服务端默认 20
+    // ⇒ 124 枚只见 20(2026-10-21 审计)。
+    const PAGE = 'pageSize=200'
+    const url = kw
+      ? `/api/agents?keyword=${encodeURIComponent(kw)}&${PAGE}`
+      : `/api/agents?${PAGE}`
     const res = await fetchApi<{ list: AgentMarketItem[] }>(url)
     if (res.success) setAgents(res.data?.list ?? [])
     else setError(apiFailureToText(res, t('agentMarket.loadFailed')))
