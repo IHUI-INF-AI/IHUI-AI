@@ -48,7 +48,7 @@ export interface DomainHubProps {
  * 域入口页的 nav 命名空间全键表(2026-10-19 立)
  *
  * 与 P1 在 settings 域做的是同一件事:门 121(`check-declared-policy-has-consumer.mjs`
- * C6 档)判 i18n 键接线**只认静态发射点** —— `t('字面量')`,或全键字面量表 + `t(表[表达式])`。
+ * C6 档)判 i18n 键接线**只认静态发射点** —— 「t 后接字符串字面量」的静态键,或全键字面量表 + `t(表[表达式])`。
  * 本组件原先用 `t(item.labelKey)`(变量取键),三键判不出 ⇒ en.json 未接线
  * 5599 > 锚点 5596,顶破棘轮。
  *
