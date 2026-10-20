@@ -334,7 +334,7 @@ async function mirrorLivenessCheck() {
   const [g, gh] = await Promise.all([
     mirrorTipDate({
       host: 'gitee.com',
-      path: `/api/v5/repos/${GITEE_REPO}/commits?per_page=1&access_token=` + encodeURIComponent(giteeTok),
+      path: `/api/v5/repos/${GITEE_REPO}/commits?sha=main&per_page=1&access_token=` + encodeURIComponent(giteeTok),
       label: 'Gitee',
     }),
     ghApi('GET', `/repos/${GH_REPO}/actions/workflows/${MIRROR_WF}/runs?per_page=1`),
