@@ -5132,6 +5132,44 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- miniapp-design-token-parity(1 项,blocking)---
+  {
+    id: '227',
+    label:
+      '🎨 小程序 design-token 副本逐位同值(blocking,判 app.css 首块已有键 × 7 类 token,含提交链唯一覆盖的 --chart-* 档)',
+    script: 'check-miniapp-taro-design-tokens.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MINIAPP_TARO_DESIGN_TOKENS',
+    stagedTriggers: ['apps/miniapp-taro/src/app.css', 'packages/design-tokens/src/styles/tokens.css'],
+    onFailHint: [
+      '',
+      '  💡 app.css 首块的 design-token 档与 packages/design-tokens/src/styles/tokens.css 不同值。',
+      '     正解只有一条:改源头 tokens.css,再跑派生写回(node scripts/sync-miniapp-tokens.mjs 或 TOKEN_SYNC_TARGETS 那条入口),',
+      '     禁止手改 app.css 受管块(那是派生态,下一次 sync 就把它洗掉)。',
+      '     缺档(源头有、副本没有)不归本门,那是守门 36 的判据。',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 跨端 BPE 词表对账(1 项,blocking) ---
+  {
+    id: '228',
+    label: '跨端 BPE 词表对账(blocking;C1 声明 + C2 行为 + C3 反向锁)',
+    script: 'check-bpe-encoding-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BPE_ENCODING_PARITY',
+    stagedTriggers: ['packages/context-compaction/', 'apps/ai-service/app/core/context_compaction.py'],
+    onFailHint: [
+      '',
+      '  💡 两端 BPE 表必须同是已批准的 cl100k_base;改 token-estimate.ts 或 context_compaction.py 后',
+      '     先跑 node scripts/check-bpe-encoding-parity.mjs --worktree 取读数,再提交。',
+      '     紧急跳过:HUSKY_SKIP_BPE_ENCODING_PARITY=1(仅限红确属他人文件时)。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
