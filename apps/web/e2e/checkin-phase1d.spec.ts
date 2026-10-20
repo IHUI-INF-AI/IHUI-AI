@@ -76,12 +76,36 @@ test.describe.serial('签到助手 · 登录态全流程', () => {
     }
   })
 
-  test('页面渲染:标题/调度徽章/头部按钮/空状态全为翻译文案(无裸键)', async ({ authenticatedPage }) => {
+  test('页面渲染:标题/调度徽章/头部按钮/空状态全为翻译文案(无裸键)', async ({
+    authenticatedPage,
+  }) => {
+    // 2026-10-20 根因:CI 的 e2e 作业没有 ai-service(8803)(.github/workflows/e2e.yml 自述),
+    // 而 next.config 把 /api/checkin/:path* 反代到 http://localhost:8803 ⇒ 调度状态接口必 500;
+    // page.tsx 的 getCheckinSchedulerStatus().catch() 静默把 scheduler 留在 null,徽章那一段
+    // ({scheduler && …},page.tsx:1888)根本不渲染 —— 断言在 CI 永远"取不到输入"而非"判出问题"。
+    // 出路:把状态接口桩成 enabled+started。信封不是 house 标准 { code, message, data } 也不是
+    // { success, data } —— fetchAiServiceJson 把 HTTP body 整体塞进 {success:true, data:json}
+    // (packages/api-client/src/client.ts:1210-1213),api-client 的 unwrap() 再把它取出来,
+    // 而 ai-service 那侧 routers/checkin.py:408 直接 return scheduler.status() 裸字典;
+    // 字段名取 @ihui/types 的 CheckinSchedulerStatusResponse(enabled/started/next_run/next_run_qoder)。
+    // 徽章仍有牙:断的仍是 t('schedulerEnabled') 这句翻译文案本身。
+    await authenticatedPage.route('**/api/checkin/scheduler/status', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          enabled: true,
+          started: true,
+          next_run: null,
+          next_run_qoder: null,
+        }),
+      }),
+    )
     await authenticatedPage.goto('/checkin')
     await expect(authenticatedPage.getByRole('heading', { name: '签到助手' })).toBeVisible()
     await expect(authenticatedPage.getByRole('button', { name: '一键全部签到' })).toBeVisible()
     await expect(authenticatedPage.getByRole('button', { name: '添加账号' })).toBeVisible()
-    // 调度徽章(dev .env CHECKIN_CRON_ENABLED=true + 调度已启动)
+    // 调度徽章(状态接口已在上面桩成 enabled+started;CI 无 8803,真接口必然 500)
     await expect(authenticatedPage.getByText('自动签到已开启')).toBeVisible()
     // 空状态 + 无裸 i18n 键
     await expect(authenticatedPage.getByText('暂无签到账号，点击右上角添加')).toBeVisible()
@@ -116,9 +140,13 @@ test.describe.serial('签到助手 · 登录态全流程', () => {
     const groupFilter = authenticatedPage.getByTestId('group-filter')
     await expect(groupFilter).toBeVisible()
     await groupFilter.selectOption({ label: '未分组' })
-    await expect(authenticatedPage.getByRole('row').filter({ hasText: ACCOUNT_NAME })).toHaveCount(0)
+    await expect(authenticatedPage.getByRole('row').filter({ hasText: ACCOUNT_NAME })).toHaveCount(
+      0,
+    )
     await groupFilter.selectOption({ label: '全部分组' })
-    await expect(authenticatedPage.getByRole('row').filter({ hasText: ACCOUNT_NAME })).toHaveCount(1)
+    await expect(authenticatedPage.getByRole('row').filter({ hasText: ACCOUNT_NAME })).toHaveCount(
+      1,
+    )
   })
 
   test('分组编辑对话框:换组后徽章跟随更新', async ({ authenticatedPage }) => {
@@ -137,7 +165,9 @@ test.describe.serial('签到助手 · 登录态全流程', () => {
     ).toBeVisible()
   })
 
-  test('三个 tab:签到记录/积分历史空态 + 积分看板空态(无 i18n 裸键)', async ({ authenticatedPage }) => {
+  test('三个 tab:签到记录/积分历史空态 + 积分看板空态(无 i18n 裸键)', async ({
+    authenticatedPage,
+  }) => {
     await authenticatedPage.goto('/checkin')
     await expect(authenticatedPage.getByText('暂无签到记录')).toBeVisible()
     await authenticatedPage.getByRole('tab', { name: '积分历史' }).click()
