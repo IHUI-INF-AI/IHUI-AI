@@ -88,7 +88,7 @@ import { Tooltip } from '@/components/feedback'
 import { toast } from '@/components/common'
 // 票60 步序二(2026-10-18):消费面按窗格寻址 —— 无 ChatPaneProvider 时恒回落单例
 // useChatStore,行为零变化;窗格挂载(发送链路窗格化后)即读独立实例
-import { usePaneChatStore } from '@/stores/chat-pane-context'
+import { matchesPaneEvent, useOptionalPaneId, usePaneChatStore } from '@/stores/chat-pane-context'
 import { answerSideQuestion } from '@/hooks/use-chat/slash-commands'
 // D38 队列语义完整交互(G-42):交互条只做展示与回调上抛,许可判定一律走 D69 的
 // queueInteractionPerms(与本文件下方 queueCtx 同一对象),动作落 store 的四个新 action。
@@ -252,6 +252,7 @@ export function MessageInput({
   // 读/写全部经 chatStore(getState/setState/selector 同一实例,内部自洽);
   // 无 Provider 时它是单例 useChatStore 本尊 —— 本轮行为零变化。
   const chatStore = usePaneChatStore()
+  const paneId = useOptionalPaneId()
   // 2026-08-02 修复: Bug 3 — useRouter 替代 window.location.href,避免整页刷新丢失状态
   const router = useRouter()
   // 权限模式循环切换 hook(2026-07-29 提取自本文件,深度对标 Codex CLI Shift+Tab 循环):
@@ -543,20 +544,24 @@ export function MessageInput({
   // 派发 ihui:add-text-reference,输入框统一消费转成文本引用 chip
   React.useEffect(() => {
     const onAddTextRef = (e: Event) => {
-      const text = (e as CustomEvent<{ text?: string }>).detail?.text
+      const detail = (e as CustomEvent<{ text?: string; paneId?: string | null }>).detail
+      if (!matchesPaneEvent(detail?.paneId, paneId)) return
+      const text = detail?.text
       if (text) addTextReference(text)
     }
     window.addEventListener('ihui:add-text-reference', onAddTextRef as EventListener)
     return () =>
       window.removeEventListener('ihui:add-text-reference', onAddTextRef as EventListener)
-  }, [addTextReference])
+  }, [addTextReference, paneId])
   // D184(2026-09-29 立,对标竞品 chatSession.selectionActions):选中文本作为附件 ——
   // MessageItem「作为附件添加」按钮派发 ihui:add-selection-attachment,此处包装为
   // "选中的文本.txt" 附件文件走 addFileReferences 三档校验(G-833)通道;容量满(max_files)
   // 时以 attachmentLimitReached 文案回报(竞品串"附件已达 {limit} 个,请先移除一个再添加选中文本。")。
   React.useEffect(() => {
     const onAddSelectionAttachment = (e: Event) => {
-      const text = (e as CustomEvent<{ text?: string }>).detail?.text
+      const detail = (e as CustomEvent<{ text?: string; paneId?: string | null }>).detail
+      if (!matchesPaneEvent(detail?.paneId, paneId)) return
+      const text = detail?.text
       const trimmed = typeof text === 'string' ? text.trim() : ''
       if (!trimmed) return
       const file = new File([trimmed], `${t('selectionActions.attachmentName')}.txt`, {
@@ -578,7 +583,7 @@ export function MessageInput({
         'ihui:add-selection-attachment',
         onAddSelectionAttachment as EventListener,
       )
-  }, [addFileReferences, t])
+  }, [addFileReferences, t, paneId])
   // D22 会话拖入输入框引用(2026-09-19 立,对标 Qoder 0.2.x):侧栏会话行 draggable,
   // dataTransfer 携带 application/x-ihui-conversation JSON;drop 后拉取会话消息
   // 拼成对话快照文本引用(失败回退用标题),与文件拖拽通道互不影响。

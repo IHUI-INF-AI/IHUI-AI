@@ -56,7 +56,7 @@ import type { TextInput } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
-import { tokens , currentRnTheme} from '../theme/active-tokens'
+import { tokens, currentRnTheme } from '../theme/active-tokens'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { PlusButton } from './AddPanel'
 import {
@@ -238,8 +238,10 @@ export interface InputAreaProps {
   /** 打开模型参数配置(按钮旁滑杆钮) */
   onOpenModelConfig?: () => void
   /**
-   * 透明底模式(2026-10-16 HomeScreen 液态玻璃底部停靠区用):去掉容器自身的
-   * surface.card 底色与顶描边,由外层玻璃停靠区统一提供背景与分隔线。
+   * 透明底模式(2026-10-16 HomeScreen 液态玻璃底部停靠区用):仅让**容器层**让位
+   * (去 surface.card 底色与顶描边,玻璃透底)。2026-10-20 用户反转定稿:AI 输入框
+   * 外壳(fieldShell)**恒实底**(surface.card + 描边),不该有任何透的感觉 —— 透的
+   * 只有它后面的停靠区玻璃背景;此前「外壳也去实底只留描边」废止。
    * 默认 false = 原实心卡底行为(其余调用方不受影响)。
    */
   transparentBackground?: boolean
@@ -403,7 +405,9 @@ export function InputArea({
   // ⇒ 文字贴顶)、横向留白、字号、墨色一并丢掉,占位与同排控件(麦克风/模型钮/加号/发送)
   // 中轴实测差 14px(2026-10-16 修);多行态换回 inputBare 的 24 底距,留给右下角字数统计,
   // 否则计数压住末行文字
-  const inputBareStyle = isMultiLineState ? styles.inputBare : [styles.inputBare, styles.inputBareSingle]
+  const inputBareStyle = isMultiLineState
+    ? styles.inputBare
+    : [styles.inputBare, styles.inputBareSingle]
 
   // collapsible 折叠态:非受控(defaultCollapsed 默认 true → 首屏折叠)
   const [internalCollapsed, setInternalCollapsed] = useState(defaultCollapsed)
@@ -720,18 +724,12 @@ export function InputArea({
                   accessibilityState={{ selected: !!selectedModelName }}
                 >
                   <Text
-                    style={[
-                      styles.catChipText,
-                      selectedModelName ? null : styles.catChipTextAuto,
-                    ]}
+                    style={[styles.catChipText, selectedModelName ? null : styles.catChipTextAuto]}
                     numberOfLines={1}
                   >
                     {selectedModelName ?? t('chat.modelAuto')}
                   </Text>
-                  <ChevronDown
-                    size={INPUT_AREA_CONTROL_GLYPH_PX}
-                    color={tokens.text.secondary}
-                  />
+                  <ChevronDown size={INPUT_AREA_CONTROL_GLYPH_PX} color={tokens.text.secondary} />
                 </TouchableOpacity>
                 {selectedModelName && onClearModel ? (
                   <Pressable

@@ -22,7 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@ihui/ui-r
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useToast } from '@/hooks/use-toast'
 import { buildPartialContent, computeHunkDiff } from '@/lib/hunk-diff'
@@ -147,6 +147,8 @@ export function InlineDiffCard({
   toolCallId,
   onApplyPartial,
 }: InlineDiffCardProps) {
+  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
+  const chatStore = usePaneChatStore()
   const t = useTranslations('ai.pane')
   // D98①⑤:审阅态 + 导出命令走 ide.diffReview(与 IDE 文件列表同一套键,同一中文)
   const tIde = useTranslations('ide')
@@ -198,7 +200,7 @@ export function InlineDiffCard({
     })
   }, [filePatch, clipboard, toastSuccess, toastError, tIde])
   // 本文件已暂存的待发送意见数(订阅整体数组引用 + useMemo 过滤,避免 selector 返回新数组)
-  const allComments = useChatStore((s) => s.pendingDiffComments)
+  const allComments = chatStore((s) => s.pendingDiffComments)
   const fileCommentCount = React.useMemo(
     () => allComments.filter((c) => c.filePath === diffInfo.file_path).length,
     [allComments, diffInfo.file_path],
@@ -451,7 +453,10 @@ export function InlineDiffCard({
               onRowComment={handleRowComment}
               commentLabel={t('diffComment.rowAction')}
               activeLine={commentTarget?.line}
-              columnLabels={{ left: tIde('diffViewer.oldVersion'), right: tIde('diffViewer.newVersion') }}
+              columnLabels={{
+                left: tIde('diffViewer.oldVersion'),
+                right: tIde('diffViewer.newVersion'),
+              }}
             />
           ) : (
             <UnifiedDiffBody
