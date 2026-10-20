@@ -162,7 +162,10 @@ describe('O6 部署脚本静态判据(deploy/win/ihui-deploy.ps1)', () => {
     assert.match(probe, /Verdict\s*=\s*'unknown'/, '缺少 unknown 三态')
     const gate = fnBody(src, 'Test-HealthGate')
     assert.match(gate, /Get-HealthGateVerdict\s+-Rounds\s+\$rounds/, '门禁未走共享三态裁决出口')
-    const verdictSrc = readFileSync(resolve(REPO_ROOT, 'deploy/win/health-gate-verdict.ps1'), 'utf8')
+    const verdictSrc = readFileSync(
+      resolve(REPO_ROOT, 'deploy/win/health-gate-verdict.ps1'),
+      'utf8',
+    )
     assert.match(
       verdictSrc,
       /\$lastFails\.Count\s*-gt\s*0/,
