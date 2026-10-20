@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "原盘查的 bullmq_* 六个指标全仓无发射点、本机无采集器(台账 scripts/data/grafana-external-metrics.json 已如实记\"队列采集线上未接线\")⇒ 14 条表达式恒 No data。2026-10-17 改指 api 真在发的 business_job_executions_total{job_name,status} 与 business_job_duration_seconds_bucket{job_name,le},这两族本机有 27 个作业名、success/failed/unknown 三态齐备。",
+  "description": "原盘查的 bullmq_* 六个指标全仓无发射点、本机无采集器(台账 scripts/data/panel-external-metrics.json 已如实记\"队列采集线上未接线\")⇒ 14 条表达式恒 No data。2026-10-17 改指 api 真在发的 business_job_executions_total{job_name,status} 与 business_job_duration_seconds_bucket{job_name,le},这两族本机有 27 个作业名、success/failed/unknown 三态齐备。",
   "editable": true,
   "graphTooltip": 1,
   "id": null,

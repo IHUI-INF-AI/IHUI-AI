@@ -48,9 +48,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 1,
@@ -84,9 +82,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 2,
@@ -132,9 +128,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 3,
@@ -218,9 +212,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 5,
@@ -526,9 +518,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 12,
@@ -643,9 +633,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 15,
@@ -729,9 +717,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 17,
@@ -767,9 +753,7 @@
       "description": "prometheus_rule_evaluation_duration_seconds 是 Prometheus 评估告警规则的耗时 summary,带 quantile 标签(实测 q=0.5/0.9 为 0、q=0.99 约 1ms —— 近窗规则极轻,属合法零基线)。读法:分位线持续抬升说明某条规则表达式太重,会拖慢整个评估周期甚至导致告警延迟。"
     }
   ],
-  "tags": [
-    "ihui-ai"
-  ],
+  "tags": ["ihui-ai"],
   "templating": {
     "list": []
   },

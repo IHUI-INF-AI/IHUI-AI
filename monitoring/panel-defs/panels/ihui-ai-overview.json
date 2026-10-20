@@ -80,9 +80,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -132,9 +130,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -184,9 +180,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -240,9 +234,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -352,9 +344,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         },
         "showThresholdLabels": false,
         "showThresholdStats": true
@@ -396,9 +386,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -618,9 +606,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -670,9 +656,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         },
         "showThresholdLabels": false,
         "showThresholdStats": true
@@ -919,9 +903,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         },
         "showThresholdLabels": false,
         "showThresholdStats": true
@@ -963,9 +945,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -1064,9 +1044,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -1116,9 +1094,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         },
         "orientation": "auto",
         "textMode": "auto"
@@ -1128,11 +1104,7 @@
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": [
-    "ihui-ai",
-    "ai",
-    "llm"
-  ],
+  "tags": ["ihui-ai", "ai", "llm"],
   "templating": {
     "list": [
       {
@@ -1230,14 +1202,7 @@
     "to": "now"
   },
   "timepicker": {
-    "refresh_intervals": [
-      "10s",
-      "30s",
-      "1m",
-      "5m",
-      "15m",
-      "1h"
-    ]
+    "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "1h"]
   },
   "timezone": "",
   "title": "IHUI-AI · AI 运行全景",
