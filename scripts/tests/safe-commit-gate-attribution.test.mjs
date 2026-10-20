@@ -614,6 +614,38 @@ test('三支之二 · 自跑一个都没点名 ⇒ 可跳,但措辞只能说量�
   )
 })
 
+test('自跑分支必须透传门源自声明:external-fs 不得被差分成本枚引入', () => {
+  const { decideWithSelfRunBatch, EXTERNAL_FS_MARK, MY_FILES, SUMMARY, FAIL_29, EXTERNALS_STABLE } = __test__
+  const baseArgs = {
+    verdict: stalledVerdict(),
+    stagedFiles: MY_FILES,
+    hookText: '❌ 🎨 运行 lint-staged...失败，提交已阻止',
+    runBatch: () => ({ ran: true, status: 1, output: SUMMARY + FAIL_29, why: null }),
+    runGate: () => ({
+      status: 1,
+      output: '[项目外] ../tmp-probe/x.mjs\n    原因: 内容同时包含项目路径引用 + agent 自动化操作痕迹',
+      externals: EXTERNALS_STABLE,
+    }),
+    runGateBaseline: () => ({
+      ran: true,
+      status: 0,
+      output: 'HEAD 面绿',
+      why: null,
+      externals: EXTERNALS_STABLE,
+    }),
+  }
+  const withReader = decideWithSelfRunBatch({
+    ...baseArgs,
+    readGateSource: () => `/** 注入夹具:带 ${EXTERNAL_FS_MARK} 标记的门源 */`,
+  })
+  assert.equal(withReader.kind, 'undetermined-red', `实得 ${withReader.kind}:${withReader.reason}`)
+  assert.equal(withReader.delta?.externalFs, 1, '自跑支也必须把仓外态门计进 delta.externalFs')
+  assert.equal(withReader.delta?.introduced, 0, '仓外态门不得被自跑支差分成本枚引入')
+  assert.match(withReader.detail.join('\n'), /未差分/, '明细必须落「未差分」标签')
+  const withoutReader = decideWithSelfRunBatch(baseArgs)
+  assert.equal(withoutReader.kind, 'mine', '未注入 reader 时旧差分行为必须保持不变')
+})
+
 test('三支之三 · 自跑本身也没成功 ⇒ 仍按应急路径落地,但 unattributed 必带具体原因', () => {
   const { decideWithSelfRunBatch, verdictLine, MY_FILES } = __test__
   // A) 派生失败(runner 不可用 / 超时)

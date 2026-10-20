@@ -37,7 +37,7 @@ IHUI-AI 是 TS Monorepo(pnpm workspace + Turborepo)全栈 AI 平台,8 端清单:
 | Redis | — | 7+ | 6379 | 8811 |
 | OTel Collector | — | gRPC 4317 / HTTP 4318 | 4317/4318 | 8812/8813 |
 | Prometheus | — | 2.x | 9090 | 8815 |
-| Grafana | — | 10.x | 8816 | 8816 |
+| 大屏 | — | 10.x | 8816 | 8816 |
 
 **最小生产资源清单(单节点)**:
 
@@ -46,7 +46,7 @@ IHUI-AI 是 TS Monorepo(pnpm workspace + Turborepo)全栈 AI 平台,8 端清单:
 | 应用节点(Web+API+AI) | 8C | 16G | 100G SSD | 三服务同机部署最低门槛 |
 | 数据库节点(PostgreSQL) | 4C | 8G | 200G SSD | 含 pgvector 扩展 |
 | 缓存节点(Redis) | 2C | 4G | 20G SSD | 持久化开启 |
-| 监控节点(可选) | 2C | 4G | 50G SSD | Prometheus + Grafana |
+| 监控节点(可选) | 2C | 4G | 50G SSD | Prometheus + 大屏 |
 
 **推荐生产资源清单(高可用,3 副本)**:
 
@@ -731,7 +731,7 @@ docker compose start redis
 - **指标**:Prometheus(8815)+ Grafana(8816),采集 Web/API/AI/PG/Redis 指标
 - **链路**:OpenTelemetry Collector(8812/8813)+ Jaeger(8814)
 - **日志**:Loki(8818)+ Promtail,聚合容器 stdout
-- **告警**:Grafana Alerting / Alertmanager,通知到 飞书 / 钉钉 / 邮件
+- **告警**:大屏 Alerting / Alertmanager,通知到 飞书 / 钉钉 / 邮件
 
 ### 核心告警规则
 
@@ -809,7 +809,7 @@ SLA 与故障响应时效详见 [sla-terms.md](./sla-terms.md)。
 - [ ] 数据库初始化 + 数据迁移完成
 - [ ] LLM 厂商 API Key 配置(支持多家备份)
 - [ ] 备份策略配置完成
-- [ ] 监控告警配置完成(Grafana Dashboard + AlertManager)
+- [ ] 监控告警配置完成(大屏 Dashboard + AlertManager)
 - [ ] 日志聚合配置完成(Loki / SLS)
 - [ ] SSO 集成完成(企业版 / 旗舰版 / 行业版)
 - [ ] RBAC 角色配置完成

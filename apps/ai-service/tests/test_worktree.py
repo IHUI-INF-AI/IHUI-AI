@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -192,11 +193,19 @@ class TestWorktreeDirLanding:
         monkeypatch.setenv(WORKTREE_DIR_ENV, "/repo/.worktrees/wt-1")
         assert get_default_worktree_root("/repo") == "/repo/.worktrees/wt-1"
 
+    @pytest.mark.skipif(
+        sys.platform != "win32",
+        reason="盘符/反斜杠是 Windows 语义:POSIX 上 D:\\... 是相对路径名,实现按设计拒绝",
+    )
     def test_legal_devenv(self, monkeypatch):
         """合法②:<盘>/DevEnv 之下(部署环净面根同族)。"""
         monkeypatch.setenv(WORKTREE_DIR_ENV, "D:\\DevEnv\\ihui-wt")
         assert get_default_worktree_root("D:\\IHUI-AI") == "D:\\DevEnv\\ihui-wt"
 
+    @pytest.mark.skipif(
+        sys.platform != "win32",
+        reason="盘符大小写不敏感是 Windows 语义:POSIX 上 d:\\ 不是盘符",
+    )
     def test_legal_devenv_forward_slash_and_case_insensitive_drive(self, monkeypatch):
         """合法②:正斜杠形态 + 盘符大小写不敏感(Windows 语义)。"""
         monkeypatch.setenv(WORKTREE_DIR_ENV, "d:/devenv/wt")

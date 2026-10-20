@@ -233,7 +233,7 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 | **代码规模** | 8 端代码 / 205 schema 文件 / **542 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4393 API 路由 + 12 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
 | **工程守门** | **88 守门/验证脚本**(60 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段(push 门 staged-scope 降级) + 40 CI workflows          |
 | **测试覆盖** | **719 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
-| **可观测性** | Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager + OTel Collector(见 [deploy/observability/](./deploy/observability/))                                                                                      |
+| **可观测性** | Prometheus + 大屏 + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager + OTel Collector(见 [deploy/observability/](./deploy/observability/))                                                                                      |
 | **AI 编排**  | LangGraph 真接入(21 文件使用:`langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`),不是"接入级编排"                                                                               |
 | **GEO/SEO**  | 14 AI 引擎专用检索文件(gpt/claude/perplexity/gemini/copilot/doubao/kimi/deepseek/qwen/wenxin/zhipu/hunyuan/spark/mistral/llama)+ llms.txt + 24 行业页 + 24 角色页 + JSON-LD schema                                                        |
 | **License**  | Apache 2.0(完全自托管,商用友好,无传染性)                                                                                                                                                                                                  |
@@ -351,7 +351,7 @@ Demo: https://aizhs.top
 - **架构师**:LangGraph + MCP + A2A 三栈 · 微服务 · 事件驱动 · DDD
 - **数据科学家**:RAG 知识库 · 向量检索 · pgvector · 机器学习
 - **设计师**:Design 模式 MVP · 元素选择器 · CSS 编辑 · 实时预览
-- **运维**:Prometheus + Grafana · 40 CI workflows · 88 守门脚本 · 蓝绿部署
+- **运维**:Prometheus + 大屏 · 40 CI workflows · 88 守门脚本 · 蓝绿部署
 - **市场**:38 平台自动发布 · 反风控五层防线 · risk_scoring 风险评分 · AI 写作助手 · 发布日历 · SEO/GEO 优化 · JSON-LD schema · 内容站
 - **法务**:GDPR 合规 · AES-256-GCM 加密 · 审计日志 · 数据主权
 
@@ -468,7 +468,7 @@ IHUI-AI 的定位由"用户价值 → 产品形态 → 技术护城河"三层金
    技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4393 API 路由    │
    (How)        │  • LangGraph + MCP + A2A 三栈协同                 │
                  │  • 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n   │
-                 │  • 三支柱可观测性 + 21 Grafana 仪表盘             │
+                 │  • 三支柱可观测性 + 21 大屏 仪表盘             │
                  │  • 企业级安全栈(RBAC + RLS + SSO + AES-256-GCM)  │
                  │  • Apache 2.0 License,商用零限制                │
                  │  • P3 深度层:Context Engineering(1851 行)/ 四层记忆系统  │
@@ -531,7 +531,7 @@ IHUI-AI 的定位由"用户价值 → 产品形态 → 技术护城河"三层金
 6. **AI 教育全栈**:课程 / 题库 / 考试 / 直播流媒体(SRS) / 学习报告 / 证书 / 讲师 / 学生端 12 子页 / 45 表 edu-full schema — 开源 AI 平台中较为少见的 AI 教育全栈(Khan Academy/Coursera 是闭源 SaaS)
 7. **企业级安全栈**:RBAC + 多租户 + RLS(Row-Level Security)+ SSO(OAuth2 + Apple + Google + PKCE)+ AES-256-GCM + JWT token-family + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时 + GDPR + 2FA + IDOR 防护 — 开源 AI 平台中较为少见的完整企业级安全栈
 8. **88 守门脚本 + 56+10 pre-commit 项 + drizzle-kit push 模式 + post-commit 自动 push**:从机制上减少协作事故 — 开源 AI 项目中较为少见的把工程守门做到机制级(Dify/FastGPT 仅有基础 lint)
-9. **三支柱可观测性 + 3 Grafana 仪表盘**:Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager — 开源 AI 平台中较为少见的完整 SRE 级可观测性栈(其他项目最多基础日志)
+9. **三支柱可观测性 + 3 大屏 仪表盘**:Prometheus + 大屏 + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager — 开源 AI 平台中较为少见的完整 SRE 级可观测性栈(其他项目最多基础日志)
 10. **5 语言 i18n parity + 8 守门脚本(4 web + 4 extension)**:zh-CN / zh-TW / en / ko / ja 键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验),opencc 字形检测 + 字符范围检测 + 破碎机翻检测 + key parity 校验 × 2 端(web + extension 各 4 守门)— 开源 AI 项目中较为少见的把 i18n 做到 parity + 守门级(其他项目最多中英文)+ i18n 治理 4 阶段(动态拼接 307→0 + 无引用 key 453→0,递归 key 9910→9679,无引用率 4.6%→0%)
 
 ### 记忆点标语(可传播)

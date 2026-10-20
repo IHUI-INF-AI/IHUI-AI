@@ -24,8 +24,12 @@ import { Tooltip } from '@/components/feedback'
 import type { NativeDashboard } from './dashboard-config.generated'
 import { rkey, materializeExpr, stepFor, DashboardGrid } from './panel-render'
 import type { QueryResult } from './panel-render'
+import { WallboardView } from '../wallboard/page'
 
 // ---------- 时间窗与步长 ----------
+
+// Grafana 盘标题统一带品牌前缀;本页已在 IHUI AI 内,再显一遍只是噪声。
+const stripBrandPrefix = (title: string) => title.replace(/^IHUI-AI(?:\s*·\s*|\s+)/, '')
 
 const RANGES = [
   { label: '1小时', seconds: 3600 },
@@ -57,6 +61,68 @@ type ConfigModule = Awaited<ReturnType<typeof loadConfig>>
 // ---------- 页面主体 ----------
 
 export default function MonitorPanelsPage() {
+  const [view, setView] = React.useState<'panels' | 'wallboard'>('panels')
+
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('view') === 'wallboard') {
+      setView('wallboard')
+    }
+  }, [])
+
+  const switchView = (next: 'panels' | 'wallboard') => {
+    setView(next)
+    const url = new URL(window.location.href)
+    if (next === 'wallboard') url.searchParams.set('view', 'wallboard')
+    else url.searchParams.delete('view')
+    window.history.replaceState(null, '', url.toString())
+  }
+
+  return (
+    <div className="flex h-[calc(100vh-64px)] flex-col gap-1">
+      <div className="flex shrink-0 items-center justify-end">
+        <div className="inline-flex items-center rounded-md border border-border bg-muted/40 p-0.5">
+          <button
+            type="button"
+            onClick={() => switchView('panels')}
+            className={cn(
+              'rounded-sm px-2 py-0.5 text-[11px] transition-colors',
+              view === 'panels'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            监控面板
+          </button>
+          <button
+            type="button"
+            onClick={() => switchView('wallboard')}
+            className={cn(
+              'rounded-sm px-2 py-0.5 text-[11px] transition-colors',
+              view === 'wallboard'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            数据大屏
+          </button>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1">
+        {view === 'wallboard' ? (
+          <div className="h-full overflow-hidden rounded-lg border border-border bg-background">
+            <div className="h-full overflow-y-auto">
+              <WallboardView />
+            </div>
+          </div>
+        ) : (
+          <MonitorPanelsContent />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function MonitorPanelsContent() {
   const [config, setConfig] = React.useState<ConfigModule | null>(null)
   const [activeUid, setActiveUid] = React.useState<string>('')
   const [rangeSec, setRangeSec] = React.useState<number>(RANGES[1].seconds)
@@ -218,7 +284,7 @@ export default function MonitorPanelsPage() {
   }, [dashboard, filter])
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden rounded-lg border border-border bg-background px-4">
+    <div className="flex h-full overflow-hidden rounded-lg border border-border bg-background px-4">
       {/* 左侧导航:21 张盘,按分组 */}
       <aside
         className={cn(
@@ -231,7 +297,7 @@ export default function MonitorPanelsPage() {
           onClick={() => setNavOpen((v) => !v)}
           className="w-full px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hover:text-cyan-300"
         >
-          {navOpen ? `监控大屏 (${boards.length})` : '»'}
+          {navOpen ? `监控面板 (${boards.length})` : '»'}
         </button>
         {!config ? (
           <div className="px-3 py-2 text-[11px] text-muted-foreground">配置加载中…</div>
@@ -246,22 +312,25 @@ export default function MonitorPanelsPage() {
                     {group}
                   </div>
                 )}
-                {groupBoards.map((d) => (
-                  <Tooltip key={d.uid} content={d.title}>
-                    <button
-                      type="button"
-                      onClick={() => switchDashboard(d.uid)}
-                      className={cn(
-                        'block w-full truncate px-3 py-1.5 text-left text-xs transition-colors',
-                        d.uid === activeUid
-                          ? 'border-l-2 border-cyan-400 bg-muted text-cyan-300'
-                          : 'border-l-2 border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
-                      )}
-                    >
-                      {navOpen ? d.title : d.title.slice(0, 2)}
-                    </button>
-                  </Tooltip>
-                ))}
+                {groupBoards.map((d) => {
+                  const label = stripBrandPrefix(d.title)
+                  return (
+                    <Tooltip key={d.uid} content={label}>
+                      <button
+                        type="button"
+                        onClick={() => switchDashboard(d.uid)}
+                        className={cn(
+                          'block w-full truncate px-3 py-1.5 text-left text-xs transition-colors',
+                          d.uid === activeUid
+                            ? 'border-l-2 border-cyan-400 bg-muted text-cyan-300'
+                            : 'border-l-2 border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
+                        )}
+                      >
+                        {navOpen ? label : label.slice(0, 2)}
+                      </button>
+                    </Tooltip>
+                  )
+                })}
               </div>
             )
           })
@@ -273,7 +342,7 @@ export default function MonitorPanelsPage() {
         {/* 顶栏 */}
         <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-4 py-2.5">
           <h2 className="text-sm font-semibold text-foreground">
-            {dashboard?.title ?? '监控面板'}
+            {dashboard ? stripBrandPrefix(dashboard.title) : '监控面板'}
           </h2>
           {dashboard && (
             <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">

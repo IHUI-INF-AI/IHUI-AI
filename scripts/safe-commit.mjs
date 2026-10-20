@@ -1201,6 +1201,13 @@ if (hookFailed && commitResult.status !== 0) {
       'info',
       `索引/工作树里另有 ${foreignStaged.length} 个非本票项(其中索引 ${stagedNow.filter((p) => !expectedFiles.includes(p)).length}、未跟踪 ${untrackedNow.filter((p) => !expectedFiles.includes(p)).length}、已跟踪未暂存 ${worktreeNow.filter((p) => !expectedFiles.includes(p)).length};例:${foreignStaged.slice(0, 6).join(', ')}${foreignStaged.length > 6 ? ' …' : ''}) —— 不随本枚提交走:普通提交只交索引内容,Step 2/3 已保证索引恰是声明的清单,故不中止(第一版在此中止反而自锁:并发会话随时可能 staged 东西,而它本来也进不来)`,
     )
+  const readGateSource = (script) => {
+    try {
+      return readFileSync(join(repoRoot, 'scripts', script), 'utf8')
+    } catch {
+      return ''
+    }
+  }
   const verdict0 = classifyHookFailure({
     text: hookOutput,
     fallbackText: hookLogTail,
@@ -1211,13 +1218,7 @@ if (hookFailed && commitResult.status !== 0) {
     // G-815912:判「远端态」的门(check-push-sync 等)在门源里自声明 [judges-remote-state],
     // 归因层读这份源码把它们的失败判「未差分」—— 红是同步态读数,不归责提交内容。
     // 读的是本仓 scripts/ 面(标记跟着门源走);读不到 = 无标记 = 旧口径,不造第二份清单。
-    readGateSource: (script) => {
-      try {
-        return readFileSync(join(repoRoot, 'scripts', script), 'utf8')
-      } catch {
-        return ''
-      }
-    },
+    readGateSource,
   })
   /**
    * 批没跑完 ⇒ 由本脚本自己把守门批跑一遍取证(2026-09-26 立)。
@@ -1274,6 +1275,7 @@ if (hookFailed && commitResult.status !== 0) {
     runGateBaseline,
     hookText: hookOutput,
     foreignStaged,
+    readGateSource,
   })
   // 差分取证已经结束 ⇒ 立刻回收隔离工作树(它挂在 `.git/worktrees` 下,这台机的 .git 存续
   // 治理等不起一个长期挂着的 worktree 登记);mine 分支随后 process.exit 也有 process.on('exit') 兜底。

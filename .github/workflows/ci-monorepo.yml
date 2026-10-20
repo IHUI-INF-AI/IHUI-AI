@@ -23,9 +23,17 @@ on:
 permissions:
   contents: read
 
+# 2026-10-20 实测改判(与镜像通道 0921d74f3b 同病灶、同药;勿轻率改回 true):
+#   最近 40 轮 CI (Monorepo) 现读 = 22 cancelled / 17 failure / **0 success**;相邻两轮创建间隔
+#   中位数 9.8min,而被砍掉的轮次平均只活了 6.4min —— 最近一次**没被取消**的运行全程 7.3min
+#   (最长 job typecheck 5.0min)。即在 true 下 main 结构性拿不到终态结论:红点修没修都只显示
+#   "被取消",既证不了修复、也警不了回归(§0.9 判据必须在真跑它的那一刻才成立)。
+#   false 的 GitHub 语义(镜像头注已实测记载):在跑的 run 不被挤掉 ⇒ 跑完出结论;
+#   排队中未开跑的旧 run 仍只保留最新一个 ⇒ 不烧历史 sha、不堆并发。
 concurrency:
   group: ci-monorepo-${{ github.ref }}
-  cancel-in-progress: true
+  # ⚠️ 勿改回 true:多会话每 3-5min 推一次 main,改回即整条 main 验证链再次"永远没结论"。
+  cancel-in-progress: false
 
 env:
   NODE_VERSION: '22'
@@ -52,8 +60,12 @@ jobs:
     needs: setup
     runs-on: ubuntu-latest
     steps:
+      # Format check 只判本次改动(scripts/check-format-changed.mjs 差值棘轮):
+      # 需要上一枚提交作为 diff 基线,故取 2 层历史;取不到 FORMAT_BASE_REF 时脚本内回落 HEAD^。
       - uses: actions/checkout@v4
         id: checkout
+        with:
+          fetch-depth: 2
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
@@ -67,6 +79,9 @@ jobs:
         run: pnpm run lint:strict
       - name: Format check
         id: format-check
+        env:
+          # push 事件 = 上一枚提交;PR / 新分支等取不到时脚本内回落 HEAD^(见 check-format-changed.mjs)。
+          FORMAT_BASE_REF: ${{ github.event.before || 'HEAD^' }}
         run: pnpm run format:check
       # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
       - name: Failure triage (public annotations)

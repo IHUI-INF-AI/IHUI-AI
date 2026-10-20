@@ -992,6 +992,22 @@ function Clear-BuildCooldown {
     if (Test-Path $BuildCooldownFile) { Remove-Item $BuildCooldownFile -Force -ErrorAction SilentlyContinue }
 }
 
+function Get-CleanBuildDepStamp {
+    param([string]$Wt)
+    $hashes = foreach ($rel in @('pnpm-lock.yaml', 'pnpm-workspace.yaml', '.npmrc')) {
+        $p = Join-Path $Wt $rel
+        if (Test-Path -LiteralPath $p) { (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash } else { '-' }
+    }
+    return ($hashes -join ':')
+}
+
+function Test-CleanBuildInstallNeeded {
+    param([bool]$WebBinExists, [string]$DepStamp, [string]$StampInstalled)
+    if (-not $WebBinExists) { return $true }
+    if ([string]::IsNullOrWhiteSpace($DepStamp)) { return $true }
+    return ($StampInstalled -ne $DepStamp)
+}
+
 function Get-CleanBuildWebDir {
     <#
       返回一个"内容恰等于目标 SHA"的 apps\web 目录路径;返回 '' 表示不可用(调用方大声回退)。
@@ -1028,8 +1044,13 @@ function Get-CleanBuildWebDir {
         $dirtyLines = @((git @gitFace -C $CleanBuildWt status --porcelain 2>$null | Out-String) -split "`n" | Where-Object { $_.Trim() -ne '' }).Count
         if ($dirtyLines -gt 0) { throw "导出面有 $dirtyLines 项改动 ⇒ 它不是净面,拒绝用来构建" }
         $webBin = Join-Path $CleanBuildWt 'apps\web\node_modules\.bin\next.cmd'
-        if (-not (Test-Path $webBin)) {
-            Log '[CLEAN-BUILD] 导出面依赖缺失 ⇒ pnpm install --frozen-lockfile(首次数分钟,期间持续续心跳)'
+        # 只看 next.cmd 在位是不够的:它会跨依赖变更一直存在,新增依赖在净面里永远装不上
+        # (2026-10-20:plugins-data 下沉给 @ihui/shared 加 lucide-react,连续多轮 tsc 失败)。
+        $stampFile = Join-Path $CleanBuildWt 'node_modules\.ihui-install-stamp'
+        $depStamp = Get-CleanBuildDepStamp $CleanBuildWt
+        $installedStamp = if (Test-Path -LiteralPath $stampFile) { (Get-Content -LiteralPath $stampFile -Raw).Trim() } else { '' }
+        if (Test-CleanBuildInstallNeeded -WebBinExists (Test-Path -LiteralPath $webBin) -DepStamp $depStamp -StampInstalled $installedStamp) {
+            Log '[CLEAN-BUILD] 导出面依赖缺失或依赖面已变 ⇒ pnpm install --frozen-lockfile(首次数分钟,期间持续续心跳)'
             Push-Location $CleanBuildWt
             try {
                 & 'D:\DevEnv\tools\npm-global\pnpm.cmd' install --frozen-lockfile 2>&1 |
@@ -1038,7 +1059,9 @@ function Get-CleanBuildWebDir {
             } finally { Pop-Location }
             Update-DeployLockHeartbeat
             if ($irc -ne 0) { throw "导出面 pnpm install 失败 exit=$irc" }
-            if (-not (Test-Path $webBin)) { throw 'install 后 next.cmd 仍不在位 ⇒ 判定失败,不当作就绪' }
+            if (-not (Test-Path -LiteralPath $webBin)) { throw 'install 后 next.cmd 仍不在位 ⇒ 判定失败,不当作就绪' }
+            try { Set-Content -LiteralPath $stampFile -Value $depStamp -NoNewline -ErrorAction Stop }
+            catch { Log "[CLEAN-BUILD] WARN 依赖指纹未落盘(下一轮会再装一次):$_" }
         }
         # ── 被 .gitignore 忽略、但**是构建输入**的文件必须覆盖给净面 ──────────────
         # `git worktree` 只带已跟踪内容,而 apps/web/.env.production 是被忽略的(gitignore
@@ -1160,6 +1183,22 @@ function Build-Web {
     #    点名,不允许静默漂移。
     Push-Location $Root
     try {
+        # 主仓 node_modules 与净面是两份:依赖面变更后不重装,主仓 dist 重建会像
+        # 2026-10-20 的 lucide-react 那样每轮失败,而 api 静默滞留旧 dist。
+        $rootStampFile = Join-Path $Root 'node_modules\.ihui-install-stamp'
+        $rootDepStamp = Get-CleanBuildDepStamp $Root
+        $rootInstalled = if (Test-Path -LiteralPath $rootStampFile) { (Get-Content -LiteralPath $rootStampFile -Raw).Trim() } else { '' }
+        if (Test-CleanBuildInstallNeeded -WebBinExists (Test-Path -LiteralPath (Join-Path $Root 'node_modules')) -DepStamp $rootDepStamp -StampInstalled $rootInstalled) {
+            Log '主仓依赖面缺失或已变 ⇒ pnpm install --frozen-lockfile'
+            & "D:\DevEnv\tools\npm-global\pnpm.cmd" install --frozen-lockfile 2>&1 |
+                Select-Object -Last 6 | ForEach-Object { Log "[root-install] $_" }
+            if ($LASTEXITCODE -ne 0) {
+                Log "WARN  主仓 pnpm install 失败(exit $LASTEXITCODE),api 可能滞留旧 dist"
+            } else {
+                try { Set-Content -LiteralPath $rootStampFile -Value $rootDepStamp -NoNewline -ErrorAction Stop }
+                catch { Log "WARN 主仓依赖指纹未落盘(下一轮会再装一次):$_" }
+            }
+        }
         foreach ($pkg in @('@ihui/types','@ihui/i18n','@ihui/dom-actions','@ihui/context-compaction','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react')) {
             Log "主仓重建 $pkg dist ..."
             & "D:\DevEnv\tools\npm-global\pnpm.cmd" --filter $pkg run build

@@ -91,7 +91,6 @@
 
 ### 可观测性
 
-- `GRAFANA_API_KEY` — Grafana API Key（可选，用于告警推送）
 - `SLACK_WEBHOOK_URL` — Slack 告警 Webhook（可选）
 - `DINGTALK_WEBHOOK_URL` — 钉钉告警 Webhook（可选）
 

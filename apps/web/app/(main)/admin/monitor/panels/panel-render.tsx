@@ -160,6 +160,13 @@ function monitorChartColors(isDark: boolean) {
   return { axis, text, bg, subText, gridLine, tooltipBg, tooltipBorder, tooltipText }
 }
 
+/** 强调值/图例翻页/仪表指针色 = --color-info 的 JS 镜像(canvas 读不到 CSS var,
+ * 按 resolvedTheme 取档,值与 tokens.css @theme 亮 hsl(199 89% 48%) / .dark hsl(199 80% 55%) 同步)。
+ * 原硬编码亮青色在亮档白底上对比度不足,两主题统一收敛到 info 语义档。 */
+function infoColor(isDark: boolean): string {
+  return isDark ? 'hsl(199, 80%, 55%)' : 'hsl(199, 89%, 48%)'
+}
+
 function baseTimeOption(
   unit: string | undefined,
   colors: ReturnType<typeof monitorChartColors>,
@@ -227,7 +234,7 @@ function PanelCard({
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <h3 className="truncate text-[13px] font-medium text-foreground">{panel.title}</h3>
         {errs.length > 0 && (
-          <span className="shrink-0 text-[10px] text-amber-400" title={errs.join('; ')}>
+          <span className="shrink-0 text-[10px] text-warning" title={errs.join('; ')}>
             <AlertTriangle className="mr-0.5 inline h-3 w-3" />
             查询异常
           </span>
@@ -304,7 +311,7 @@ function PanelBody({
       textStyle: { color: colors.text, fontSize: 10 },
       itemWidth: 12,
       itemHeight: 8,
-      pageIconColor: '#22d3ee',
+      pageIconColor: infoColor(isDark),
       pageTextStyle: { color: colors.text },
     },
     color: PALETTE,
@@ -352,7 +359,7 @@ function StatBody({
           title={stats.length > 6 ? `共 ${stats.length} 项` : undefined}
         >
           <div className="truncate text-[11px] text-muted-foreground">{s.name}</div>
-          <div className="mt-0.5 font-mono text-2xl font-semibold text-cyan-300">
+          <div className="mt-0.5 font-mono text-2xl font-semibold text-info">
             {fmtValue(s.value, unit)}
           </div>
         </div>
@@ -436,7 +443,7 @@ function GaugeBody({
                   max: g.max,
                   radius: '95%',
                   axisLine: { lineStyle: { width: 10, color: gaugeBands(panel, g, isDark) } },
-                  pointer: { length: '55%', width: 4, itemStyle: { color: '#22d3ee' } },
+                  pointer: { length: '55%', width: 4, itemStyle: { color: infoColor(isDark) } },
                   axisTick: { show: false },
                   splitLine: { show: false },
                   axisLabel: { show: false },
@@ -450,7 +457,7 @@ function GaugeBody({
                     valueAnimation: false,
                     offsetCenter: [0, '35%'],
                     formatter: () => fmtValue(g.value, unit),
-                    color: '#67e8f9',
+                    color: infoColor(isDark),
                     fontSize: 18,
                     fontWeight: 600,
                   },
@@ -509,7 +516,7 @@ function PieBody({
             textStyle: { color: colors.text, fontSize: 10 },
             itemWidth: 10,
             itemHeight: 7,
-            pageIconColor: '#22d3ee',
+            pageIconColor: infoColor(isDark),
             pageTextStyle: { color: colors.text },
           },
           series: [
@@ -563,7 +570,7 @@ function TableBody({
           {rows.slice(0, 40).map((r, i) => (
             <tr key={i} className="border-t border-border text-foreground">
               <td className="max-w-[280px] truncate px-2 py-1">{r.name}</td>
-              <td className="px-2 py-1 text-right text-cyan-300">{r.value}</td>
+              <td className="px-2 py-1 text-right text-info">{r.value}</td>
             </tr>
           ))}
         </tbody>
@@ -587,10 +594,10 @@ function logLevelOf(line: string): 'error' | 'warn' | 'info' | 'other' {
 }
 
 const LEVEL_BAR: Record<string, string> = {
-  error: 'bg-red-400',
-  warn: 'bg-amber-400',
-  info: 'bg-slate-600',
-  other: 'bg-slate-700',
+  error: 'bg-destructive',
+  warn: 'bg-warning',
+  info: 'bg-muted-foreground',
+  other: 'bg-muted-foreground/50',
 }
 
 function LogsBody({
