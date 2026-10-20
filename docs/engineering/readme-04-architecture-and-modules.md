@@ -83,7 +83,7 @@
                                   │                │                │
                             ┌─────▼─────┐    ┌─────▼─────┐    ┌─────▼─────┐
                             │  Redis 7  │    │  Worker   │    │ OTel +    │  Jaeger :8814
-                            │ Pub/Sub   │    │  BullMQ   │    │ Prometheus│  Grafana :8816
+                            │ Pub/Sub   │    │  BullMQ   │    │ Prometheus│  大屏 :8816
                             │ :8811     │    │  :8830    │    │ :8815     │  Loki :8818
                             └───────────┘    └───────────┘    └───────────┘
 ```
@@ -412,7 +412,7 @@ SettingsScreen                    (只注入 navigation / t / API)     (mock 数
 ┌──────────────────────────────────────────▼─────────────────────────────────────────────┐
 │ L6 基础设施层(Infra) — 部署 + 可观测 + 守门                                            │
 │   部署:Docker Compose 14 服务 / Nginx 反向代理 + 蓝绿 / Let's Encrypt / S3             │
-│   可观测:Prometheus :8815 + Grafana :8816(3 仪表盘)+ Loki :8818 + Jaeger :8814       │
+│   可观测:Prometheus :8815 + 大屏 :8816(3 仪表盘)+ Loki :8818 + Jaeger :8814       │
 │   工程守门:56+10 pre-commit + post-commit 自动 push + drizzle-kit push 模式 + 9 PowerShell 启动脚本  │
 │   CI/CD:GitHub Actions(build / ci / e2e / knip 4 workflow)+ GitHub Act 本地预演       │
 └────────────────────────────────────────────────────────────────────────────────────────┘

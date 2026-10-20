@@ -16,7 +16,7 @@
 
 全栈可观测性,三支柱(指标 / 日志 / 追踪)+ 告警完整就绪:
 
-### 指标(Prometheus + Grafana 3 仪表盘)
+### 指标(Prometheus + 大屏 3 仪表盘)
 
 - **Prometheus**(:9091):抓取 api `/metrics` + ai-service `/metrics` + node-exporter 主机指标 + alerts.yml 告警规则
 - **Grafana**(:8816):**20 个仪表盘 JSON 自动 provision**,包含:
