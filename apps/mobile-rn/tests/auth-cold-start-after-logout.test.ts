@@ -46,8 +46,8 @@ vi.mock('@ihui/api-client', () => apiClient)
 
 import storageMock, { resetAsyncStorageMock } from './__mocks__/async-storage'
 import { _resetSecureStoreBackendForTest } from '../src/lib/auth/secure-store'
-import { initApi, getToken, isSessionLoggedOut, clearToken } from '../src/lib/token'
-import { rnAuthStore, logoutAuth, hydrateAuth } from '../src/stores/auth-store'
+import { initApi, getToken, isSessionLoggedOut, clearToken, expireSession } from '../src/lib/token'
+import { rnAuthStore, logoutAuth, hydrateAuth, expireAuth } from '../src/stores/auth-store'
 
 const USER = { id: 'u1', nickname: 'tester', avatar: '' } as const
 /** 与 `lib/token.ts` 的 SESSION_LOGGED_OUT_KEY 同值:断言的是"落在盘上的那份事实"。 */
@@ -160,6 +160,47 @@ describe('显式登出后的冷启动', () => {
     expect(isSessionLoggedOut()).toBe(false)
     await rnAuthStore.getState().setAuth({ token: 'T2', refreshToken: 'R2', user: USER })
     expect(isSessionLoggedOut()).toBe(false)
+  })
+
+  it('⑧ 会话被动失效(expireSession):清凭据但**不落**标记,冷启动仍允许自动登录', async () => {
+    await initApi()
+    await rnAuthStore.getState().setAuth({ token: 'T', refreshToken: 'R', user: USER })
+    // 勾了"自动登录" + 记住了账密(用假值,不写任何真凭据)
+    await storageMock.setItem('ihui-auto-login', '1')
+    await storageMock.setItem('ihui-remember-credentials', JSON.stringify(USER))
+
+    await expireSession()
+
+    expect(getToken()).toBeNull()
+    expect(isSessionLoggedOut()).toBe(false)
+    expect(storageMock.__store.has(MARKER_KEY)).toBe(false)
+    // 401 不等于用户主动退出:记住的账密必须还能在下一次冷启动把会话建回来
+    expect(wouldAutoLogin()).toBe(true)
+  })
+
+  it('⑨ 401 出口(expireAuth)只清会话、不留标记:store 归零且自动登录仍允许', async () => {
+    await initApi()
+    await rnAuthStore.getState().setAuth({ token: 'T', refreshToken: 'R', user: USER })
+
+    await expireAuth()
+
+    expect(getToken()).toBeNull()
+    expect(rnAuthStore.getState().token).toBeNull()
+    expect(rnAuthStore.getState().isAuthenticated).toBe(false)
+    expect(isSessionLoggedOut()).toBe(false)
+    expect(storageMock.__store.has(MARKER_KEY)).toBe(false)
+  })
+
+  it('⑩ expireSession 不抹掉已存在的显式登出标记(否则 401 会把"用户退出过"洗成"可自动登回")', async () => {
+    await initApi()
+    await clearToken()
+    expect(isSessionLoggedOut()).toBe(true)
+    expect(storageMock.__store.has(MARKER_KEY)).toBe(true)
+
+    await expireSession()
+
+    expect(isSessionLoggedOut()).toBe(true)
+    expect(storageMock.__store.has(MARKER_KEY)).toBe(true)
   })
 
   it('⑥ 消费点已闭环:LoginScreen 必须问 shouldAttemptAutoLogin,而不是自己再写一遍条件', async () => {

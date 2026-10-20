@@ -65,6 +65,14 @@ type ConfigModule = Awaited<ReturnType<typeof loadConfig>>
 type MonitorView = 'panels' | 'wallboard'
 
 /**
+ * 选中态刻意从共享 Tabs 默认的 `bg-selection` 换成"提亮 + 阴影":暗色档下 selection = 纯黑,
+ * 压在 bg-muted(rgb 38,38,38)的槽上比底还暗,肉眼会把亮的那格读成选中(2026-10-20 机主
+ * 反馈"要明显一些"后的实测结论,取证 = 计算样式对照)。
+ */
+const TRIGGER_CLS =
+  'px-4 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm'
+
+/**
  * 两种呈现的切换器。刻意不自己占一行:由各视图的顶栏承载,复用共享 Tabs 档位
  * (机主 2026-10-20 定档:切换件要显眼,但不许把内容往下挤一行)。
  */
@@ -78,10 +86,10 @@ function MonitorViewSwitch({
   return (
     <Tabs value={view} onValueChange={(v) => onChange(v as MonitorView)}>
       <TabsList className="h-10">
-        <TabsTrigger value="panels" className="px-4">
+        <TabsTrigger value="panels" className={TRIGGER_CLS}>
           监控面板
         </TabsTrigger>
-        <TabsTrigger value="wallboard" className="px-4">
+        <TabsTrigger value="wallboard" className={TRIGGER_CLS}>
           数据大屏
         </TabsTrigger>
       </TabsList>
@@ -294,7 +302,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
         <button
           type="button"
           onClick={() => setNavOpen((v) => !v)}
-          className="w-full px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hover:text-cyan-300"
+          className="w-full px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hover:text-info"
         >
           {navOpen ? `监控面板 (${boards.length})` : '»'}
         </button>
@@ -321,7 +329,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
                         className={cn(
                           'block w-full truncate px-3 py-1.5 text-left text-xs transition-colors',
                           d.uid === activeUid
-                            ? 'border-l-2 border-cyan-400 bg-muted text-cyan-300'
+                            ? 'border-l-2 border-info bg-muted text-info'
                             : 'border-l-2 border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
                         )}
                       >
@@ -359,7 +367,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="筛选面板…"
-                className="w-32 rounded-sm border border-border bg-muted py-1 pl-7 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground focus:border-cyan-500/40 focus:outline-none"
+                className="w-32 rounded-sm border border-border bg-muted py-1 pl-7 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground focus:border-info/40 focus:outline-none"
               />
             </div>
             <div className="flex overflow-hidden rounded-sm border border-border">
@@ -371,7 +379,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
                   className={cn(
                     'px-2.5 py-1 text-[11px] transition-colors',
                     rangeSec === r.seconds
-                      ? 'bg-cyan-500/15 text-cyan-300'
+                      ? 'bg-info/15 text-info'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -385,7 +393,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
               className={cn(
                 'flex items-center gap-1 rounded-sm border px-2 py-1 text-[11px]',
                 autoRefresh
-                  ? 'border-cyan-500/40 text-cyan-300'
+                  ? 'border-info/40 text-info'
                   : 'border-border text-muted-foreground hover:text-foreground',
               )}
             >
@@ -399,7 +407,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
               type="button"
               onClick={() => dashboard && void load(dashboard, rangeSec)}
               disabled={loading || !dashboard}
-              className="rounded-sm border border-border px-2 py-1 text-[11px] text-foreground hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-50"
+              className="rounded-sm border border-border px-2 py-1 text-[11px] text-foreground hover:border-info/40 hover:text-info disabled:opacity-50"
             >
               刷新
             </button>
@@ -412,7 +420,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
         </div>
 
         {pageError && (
-          <div className="border-b border-amber-500/20 bg-amber-500/5 px-4 py-1.5 text-[11px] text-amber-400">
+          <div className="border-b border-warning/20 bg-warning/5 px-4 py-1.5 text-[11px] text-warning">
             {pageError}
           </div>
         )}

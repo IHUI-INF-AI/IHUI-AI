@@ -1927,7 +1927,8 @@ const WALLBOARD_CSS = `
   100% { transform: translateX(-30%); opacity: 0.5; }
 }
 /* 页头按容器判定,不按视口:三簇 nowrap 实测宽 326(标题)+251(数据源)+331(状态)=997,
- * 嵌进 ~900px 面板时视口 lg: 仍算"宽"⇒ 中文被逐字断行。996/688 取 N-1 防临界抖动。 */
+ * 嵌进 ~900px 面板时视口 lg: 仍算"宽"⇒ 中文被逐字断行。996 取 N-1 防临界抖动;
+ * 再窄(≤ 标题326+状态331+间距32=689)不另设档,由标题/副标题的 truncate 兜底成单行省略号。 */
 .wb-header { container-type: inline-size; }
 .wb-hdr-title h1, .wb-hdr-title p, .wb-hdr-status, .wb-hdr-sources { white-space: nowrap; }
 @container (max-width: 996px) {

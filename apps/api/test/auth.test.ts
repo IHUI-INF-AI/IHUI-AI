@@ -25,6 +25,7 @@ const {
   mockCreateUser,
   mockUpdateUser,
   mockFindRefreshToken,
+  mockFindLiveFamilyToken,
   mockRevokeRefreshToken,
   mockRevokeRefreshTokenFamily,
   mockRevokeAllUserRefreshTokens,
@@ -44,6 +45,7 @@ const {
   mockCreateUser: vi.fn(),
   mockUpdateUser: vi.fn(),
   mockFindRefreshToken: vi.fn(),
+  mockFindLiveFamilyToken: vi.fn(),
   mockRevokeRefreshToken: vi.fn(),
   mockRevokeRefreshTokenFamily: vi.fn(),
   mockRevokeAllUserRefreshTokens: vi.fn(),
@@ -78,6 +80,7 @@ vi.mock('../src/db/queries.js', () => ({
   updateUser: mockUpdateUser,
   cancelUserAccount: vi.fn(),
   findRefreshToken: mockFindRefreshToken,
+  findLiveFamilyToken: mockFindLiveFamilyToken,
   revokeRefreshToken: mockRevokeRefreshToken,
   revokeRefreshTokenFamily: mockRevokeRefreshTokenFamily,
   revokeAllUserRefreshTokens: mockRevokeAllUserRefreshTokens,
@@ -588,6 +591,27 @@ describe('auth routes', () => {
       expect(mockRevokeRefreshTokenFamily).toHaveBeenCalledWith('fam-1')
     })
 
+    it('超出宽限期但族里仍有活 token:只拒绝本次,不吊销整族(2026-10-20)', async () => {
+      // 真实症状:桌面 vault 里的旧值 / 停在旧页签的上下文迟到重放。
+      // 吊销整族会把另一个正常上下文刚拿到的活 token 一起打死 → 三端同时被迫重登。
+      mockVerifyRefreshToken.mockResolvedValueOnce({
+        userId: 'user-001',
+        familyId: 'fam-1',
+      })
+      mockFindRefreshToken.mockResolvedValueOnce({
+        revokedAt: new Date(Date.now() - 120_000),
+      })
+      mockFindLiveFamilyToken.mockResolvedValueOnce({ id: 'live-sibling' })
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/refresh',
+        payload: { refreshToken: 'stale-sibling-token' },
+      })
+      expect(res.statusCode).toBe(401)
+      expect(mockFindLiveFamilyToken).toHaveBeenCalledWith('fam-1')
+      expect(mockRevokeRefreshTokenFamily).not.toHaveBeenCalled()
+      expect(mockRevokeRefreshToken).not.toHaveBeenCalled()
+    })
     it('用户不存在或被禁用返回 401', async () => {
       mockVerifyRefreshToken.mockResolvedValueOnce({
         userId: 'user-001',
