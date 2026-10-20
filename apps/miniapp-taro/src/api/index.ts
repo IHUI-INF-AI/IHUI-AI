@@ -1212,7 +1212,7 @@ interface AgentRawRow {
  * 后端返回 { list: Agent[], total, page, pageSize },此处映射为前端 AgentInfo 兼容结构。
  */
 export const getAgentList = () =>
-  get<{ list: AgentRawRow[]; total: number; page: number; pageSize: number }>('/agents/list').then(
+  get<{ list: AgentRawRow[]; total: number; page: number; pageSize: number }>('/agents/list', { pageSize: 200 }).then(
     (res) => ({
       list: (res.list || []).map((a) => ({
         id: String(a.agentId),
