@@ -30,6 +30,7 @@ import {
   TAB_BAR_MARGIN_H,
   TAB_BAR_GAP_BOTTOM,
   TAB_BAR_INDICATOR_H,
+  TAB_BAR_INDICATOR_INSET,
   TAB_BAR_GLOW_RADIUS_PX,
 } from '@/constants/tab-bar-metrics'
 import { t as tGlobal } from '@/i18n'
@@ -135,8 +136,8 @@ export default function CustomTabBar() {
                 style={{
                   position: 'absolute',
                   top: 0,
-                  left: `${TAB_BAR_MARGIN_H}px`,
-                  right: `${TAB_BAR_MARGIN_H}px`,
+                  left: `${TAB_BAR_INDICATOR_INSET}px`,
+                  right: `${TAB_BAR_INDICATOR_INSET}px`,
                   height: `${TAB_BAR_INDICATOR_H}px`,
                   borderRadius: rnRadius.xs,
                   backgroundColor: ink,
