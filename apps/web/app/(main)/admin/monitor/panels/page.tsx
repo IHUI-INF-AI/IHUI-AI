@@ -21,6 +21,7 @@ import { RefreshCw, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { Tooltip } from '@/components/feedback'
+import { PageContainer } from '@/components/common/PageContainer'
 import type { NativeDashboard } from './dashboard-config.generated'
 import { rkey, materializeExpr, stepFor, DashboardGrid } from './panel-render'
 import type { QueryResult } from './panel-render'
@@ -78,7 +79,7 @@ export default function MonitorPanelsPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-64px)] flex-col gap-1">
+    <PageContainer padded={false} className="flex h-full flex-col gap-1">
       <div className="flex shrink-0 items-center justify-end">
         <div className="inline-flex items-center rounded-md border border-border bg-muted/40 p-0.5">
           <button
@@ -107,18 +108,10 @@ export default function MonitorPanelsPage() {
           </button>
         </div>
       </div>
-      <div className="min-h-0 flex-1">
-        {view === 'wallboard' ? (
-          <div className="h-full overflow-hidden rounded-lg border border-border bg-background">
-            <div className="h-full overflow-y-auto">
-              <WallboardView />
-            </div>
-          </div>
-        ) : (
-          <MonitorPanelsContent />
-        )}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {view === 'wallboard' ? <WallboardView /> : <MonitorPanelsContent />}
       </div>
-    </div>
+    </PageContainer>
   )
 }
 
@@ -284,7 +277,7 @@ function MonitorPanelsContent() {
   }, [dashboard, filter])
 
   return (
-    <div className="flex h-full overflow-hidden rounded-lg border border-border bg-background px-4">
+    <div className="flex h-full overflow-hidden">
       {/* 左侧导航:21 张盘,按分组 */}
       <aside
         className={cn(
