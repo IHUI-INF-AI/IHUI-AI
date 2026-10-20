@@ -125,10 +125,7 @@ export default function MonitorPanelsPage() {
         onValueChange={(v) => switchView(v as MonitorView)}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <TabsContent
-          value="panels"
-          className="wb-scroll-host mt-0 min-h-0 flex-1 overflow-y-auto"
-        >
+        <TabsContent value="panels" className="wb-scroll-host mt-0 min-h-0 flex-1 overflow-y-auto">
           <MonitorPanelsContent headerExtra={headerExtra} />
         </TabsContent>
         <TabsContent
@@ -201,6 +198,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
       })
     })
     const next = new Map<number, QueryResult>()
+    let failed = false
     try {
       // 同键(expr+backend+窗口)去重:同盘常见多面板共享同一表达式,只查一次上游
       const byKey = new Map<string, number[]>() // key -> queries 原始下标列表(含首个)
@@ -232,10 +230,12 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
         } catch (e) {
           // 网络异常/请求中止:不静默,给出行内提示(数据保留旧值)
           setPageError(`网络异常:${String((e as Error).message).slice(0, 120)}`)
+          failed = true
           break
         }
         if (!res.success || !res.data) {
           setPageError(res.error || '查询失败')
+          failed = true
           break
         }
         res.data.results.forEach((r, bi) => {
@@ -254,9 +254,18 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
           }
         })
       }
-      setResults(next)
-      setUpdatedAt(new Date())
-      setCountdown(AUTO_REFRESH_MS / 1000)
+      if (failed) {
+        // 失败保留上一轮结果并与行内提示同现;旧值不清成空盘,updatedAt 也不推进
+        setResults((prev) => {
+          const merged = new Map(prev)
+          for (const [k, v] of next) merged.set(k, v)
+          return merged
+        })
+      } else {
+        setResults(next)
+        setUpdatedAt(new Date())
+        setCountdown(AUTO_REFRESH_MS / 1000)
+      }
     } finally {
       inFlight.current = false
       setLoading(false)
