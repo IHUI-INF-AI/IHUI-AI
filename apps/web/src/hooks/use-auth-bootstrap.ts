@@ -18,7 +18,7 @@ import {
   classifyRefreshFailureStatus,
   shouldExpireSession,
 } from '@ihui/shared/auth/auto-login-policy'
-import { isSessionLoggedOut } from '@/lib/session-marker'
+import { hasSessionEstablished, isSessionLoggedOut } from '@/lib/session-marker'
 
 export interface UseAuthBootstrapReturn {
   ready: boolean
@@ -65,6 +65,11 @@ async function hasUsableRefreshCredential(): Promise<boolean> {
   if (useAuthStore.getState().isAuthenticated) return true
   if (getAuthCookie()) return true
   if (isDesktopAuthVaultEnabled()) return (await getDesktopRefreshToken()) !== null
+  // 浏览器:两个 cookie 都是 httpOnly,JS 看不见 —— "看不见"不等于"没有"。
+  // `ihui-auth` 只持久化 isAuthenticated,一次被动失效(expireSession)就会落成 false,
+  // 所以这里必须问一颗独立的、跨冷启动存活的"曾有过会话"标记(2026-10-20);
+  // 否则老用户冷启动被判成匿名、连 /auth/refresh 都不发,表现就是"每次都要手点登录"。
+  if (hasSessionEstablished()) return true
   return false
 }
 
@@ -278,4 +283,11 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
 
   return { ready, isAuthenticated, error }
 }
+
+/**
+ * 测试入口:冷启动"要不要试一次 /auth/refresh"的准入判据。
+ * 浏览器侧凭据全 httpOnly,这条判据曾把有 cookie 的老用户判成匿名(2026-10-20 修),
+ * 必须有独立用例钉住 —— 只测 hook 的失败分型测不到它。
+ */
+export const __test__ = { hasUsableRefreshCredential }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

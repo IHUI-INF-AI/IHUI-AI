@@ -146,6 +146,12 @@ function buildModelGroups(models: AiModel[]): ModelListGroup[] {
   return groups
 }
 
+// 目录一次取全(服务端 findAgentsList 的 limit(pageSize) 无上限钳制),首屏只渲染一页,
+// 余下由「加载更多」按 AGENT_PAGE_STEP 递增 —— 该屏 nestedInScrollView 分支是 items.map()(无虚拟化),
+// 一次把 124 张卡全挂上去会卡;分开「取数上限」与「渲染步长」两个量才是这两者的正解。
+const AGENT_FETCH_LIMIT = 200
+const AGENT_PAGE_STEP = 24
+
 export function AgentScreen() {
   const { t } = useI18n()
   const { token, user } = useAuth()
@@ -155,6 +161,8 @@ export function AgentScreen() {
   const rootNav = navigation.getParent<RootNav>()
   const [viewMode, setViewMode] = useState<ViewMode>('shared')
   const [items, setItems] = useState<AgentScreenItem[]>([])
+  // 首屏只渲染前 visibleCount 条,余量由「加载更多」递增(见 AGENT_FETCH_LIMIT 头注)
+  const [visibleCount, setVisibleCount] = useState(AGENT_PAGE_STEP)
   // 完整智能体列表(与 items 同源,保留 model 等映射时丢失的字段,供点击跳转带模型参数)
   const [agents, setAgents] = useState<Agent[]>([])
   const [aiModels, setAiModels] = useState<AiModel[]>([])
@@ -235,13 +243,14 @@ export function AgentScreen() {
     async (opts?: { agentCategory?: string; agentMainCategory?: string }): Promise<void> => {
       const res = await getAgents({
         status: 'published',
-        pageSize: 50,
+        pageSize: AGENT_FETCH_LIMIT,
         agentCategory: opts?.agentCategory,
         agentMainCategory: opts?.agentMainCategory,
       })
       if (res.success) {
         setAgents(res.data.list ?? [])
         setItems((res.data.list ?? []).map(mapToItem))
+        setVisibleCount(AGENT_PAGE_STEP)
         // MyAgents 我的AI APP:与智能体列表同源取前 6 条(对齐 uniapp myAgents 独立接口降级)
         setMyAgents(
           (res.data.list ?? [])
@@ -713,7 +722,7 @@ export function AgentScreen() {
             <SharedAgentScreen
               t={t}
               colorScheme={resolvedTheme}
-              items={items}
+              items={items.slice(0, visibleCount)}
               loading={loading}
               refreshing={refreshing}
               error={error}
@@ -753,6 +762,17 @@ export function AgentScreen() {
             </>
           )}
         </View>
+        {viewMode === 'shared' && items.length > visibleCount ? (
+          <TouchableOpacity
+            style={styles.loadMoreBtn}
+            activeOpacity={0.8}
+            onPress={() => setVisibleCount((n) => n + AGENT_PAGE_STEP)}
+            accessibilityRole="button"
+            accessibilityLabel={t('resources.loadMore')}
+          >
+            <Text style={styles.loadMoreText}>{t('resources.loadMore')}</Text>
+          </TouchableOpacity>
+        ) : null}
       </ScrollView>
       {showBackToTop ? (
         <ScrollJumpButton
@@ -901,6 +921,16 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
   },
   modelStartBtnText: { fontSize: 13, color: tokens.brand.ctaForeground, fontWeight: '600' },
+  loadMoreBtn: {
+    marginTop: rpx(12),
+    marginBottom: rpx(24),
+    marginHorizontal: rpx(16),
+    paddingVertical: rpx(10),
+    alignItems: 'center',
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.surface.card,
+  },
+  loadMoreText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
   // 返回顶部按钮样式已收进 @ihui/shared/ui/scroll-jump-spec(2026-10-20 用户定「不许单独设定」),
   // 端内不得再留第二份盒档 —— 见 @ihui/rn-app ScrollJumpButton 头注。
   trackOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
