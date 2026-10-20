@@ -4,7 +4,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 把 Grafana 大屏里**每一张盘、每一个面板、每一条查询表达式**(PromQL + LogQL)拿去本机
+ * 把监控大屏里**每一张盘、每一个面板、每一条查询表达式**(PromQL + LogQL)拿去本机
  * 数据源真跑一遍,按五档报:有数 / 全零 / 空板 / 查询失败 / 未判定。
  *
  * 立因(2026-10-17):幽灵指标门(220)只证明"大屏查的名字代码里有",数据源接线门(222)只
@@ -24,26 +24,26 @@
  * 真在跑),接进 pre-commit 就是 §12e 恒红门。用法是人工巡检 / 大屏改造前后的收口自证。
  *
  * 用法:
- *   node scripts/verify-grafana-panel-data.mjs                       # 近 6h,monitoring 树全量
- *   node scripts/verify-grafana-panel-data.mjs --window 24h
- *   node scripts/verify-grafana-panel-data.mjs --dashboard ai-cost    # 只看某一张(子串匹配)
- *   node scripts/verify-grafana-panel-data.mjs --dir deploy/observability/grafana/dashboards
- *   node scripts/verify-grafana-panel-data.mjs --json                # 机读(供其它器物消费)
- *   node scripts/verify-grafana-panel-data.mjs --self-test
+ *   node scripts/verify-panel-data.mjs                       # 近 6h,monitoring 树全量
+ *   node scripts/verify-panel-data.mjs --window 24h
+ *   node scripts/verify-panel-data.mjs --dashboard ai-cost    # 只看某一张(子串匹配)
+ *   node scripts/verify-panel-data.mjs --dir deploy/observability/panel-defs/panels
+ *   node scripts/verify-panel-data.mjs --json                # 机读(供其它器物消费)
+ *   node scripts/verify-panel-data.mjs --self-test
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // 指标名取形只认一份实现(§22c 单一真相源):门 220 的形状表改了就自动跟,不留第二份会漂移的副本。
-import { __test__ as metricGate } from './check-grafana-metric-exists.mjs'
+import { __test__ as metricGate } from './check-panel-metric-exists.mjs'
 // 版面坐标判据同源:门 222 是它的唯一实现,本器物只是消费方。
-import { __test__ as wiringGate } from './check-grafana-datasource-wiring.mjs'
+import { __test__ as wiringGate } from './check-panel-datasource-wiring.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const metricNames = metricGate.extractMetricNames
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const DEFAULT_DIR = join(ROOT, 'monitoring', 'grafana', 'dashboards')
+const DEFAULT_DIR = join(ROOT, 'monitoring', 'panel-defs', 'panels')
 const PROM_PORTS = [8815, 9090]
 const LOKI_PORTS = [3100, 9080]
 
@@ -89,7 +89,7 @@ function parseWindow(w) {
   return Number(m[1]) * mult[m[2]]
 }
 
-/** Grafana 变量在面板里是字面量;先把内置量换成能落地的区间,再把 $name / [[name]] 换成解析出的值。 */
+/** 装载方的变量在面板里是字面量;先把内置量换成能落地的区间,再把 $name / [[name]] 换成解析出的值。 */
 function substitute(expr, varValues, window) {
   let out = String(expr)
   out = out.replace(/\$__range/g, window).replace(/\${__range}/g, window)
@@ -108,7 +108,7 @@ function substitute(expr, varValues, window) {
 
 /**
  * 下拉里的真值并进正则匹配串:逐个再用 | 连。
- * **不做转义** —— Grafana 替换变量时也不转义(`.` 在正则里匹配任意字符,照样命中真实值)。
+ * **不做转义** —— 装载方替换变量时也不转义(`.` 在正则里匹配任意字符,照样命中真实值)。
  * 在这里转义会得到 `127\.0\.0\.1`,而 PromQL 字符串字面量不吃 `\.` 这个转义形 ⇒ 整条查询 400。
  */
 function toMatcherValue(values) {
@@ -493,7 +493,7 @@ function selfTest() {
   ok('内置量替换', substitute('rate(x[$__rate_interval])', {}, '6h') === 'rate(x[5m])')
   ok('$__range 换成窗口', substitute('increase(x[$__range])', {}, '24h') === 'increase(x[24h])')
   ok('变量值管道拼接不破坏正则', substitute('{instance=~"$instance"}', { instance: 'a:1|b:2' }, '6h') === '{instance=~"a:1|b:2"}')
-  ok('toMatcherValue 与 Grafana 同形:不转义,只用 | 连(转义会让 PromQL 字符串 400)', toMatcherValue(['127.0.0.1:8802', 'localhost:9121']) === '127.0.0.1:8802|localhost:9121')
+  ok('toMatcherValue 与装载方同形:不转义,只用 | 连(转义会让 PromQL 字符串 400)', toMatcherValue(['127.0.0.1:8802', 'localhost:9121']) === '127.0.0.1:8802|localhost:9121')
   ok('变量名后跟字符不误替换', substitute('{job=~"$jobx"}', { job: 'V' }, '6h') === '{job=~"$jobx"}')
   ok('[[name]] 形态也替换', substitute('{instance=~"[[instance]]"}', { instance: 'A' }, '6h') === '{instance=~"A"}')
   ok('usesVar 认 $name', usesVar('up{instance=~"$instance"}', 'instance') === true)
@@ -549,7 +549,7 @@ async function main() {
   if (opts.selfTest) return selfTest()
   if (opts.help) {
     console.info(
-      '用法: node scripts/verify-grafana-panel-data.mjs [--window 6h] [--dashboard ai-cost] [--dir <相对路径>] [--prometheus URL] [--loki URL] [--json]'
+      '用法: node scripts/verify-panel-data.mjs [--window 6h] [--dashboard ai-cost] [--dir <相对路径>] [--prometheus URL] [--loki URL] [--json]'
     )
     return
   }

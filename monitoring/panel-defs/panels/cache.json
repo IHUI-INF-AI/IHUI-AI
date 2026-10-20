@@ -101,7 +101,7 @@
           "calcs": ["lastNotNull"]
         }
       },
-      "description": "原来手算 /1024/1024 又把 unit 写成 \"MB\"(Grafana 无此档位,只会原样显示数字);改成给原始字节 + bytes 档位由 Grafana 缩放。",
+      "description": "原来手算 /1024/1024 又把 unit 写成 \"MB\"(监控大屏无此档位,只会原样显示数字);改成给原始字节 + bytes 档位由大屏缩放。",
       "id": 2
     },
     {

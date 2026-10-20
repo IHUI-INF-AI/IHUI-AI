@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "监控链路自健康。原 prometheus_scrape_success / grafana_response_time 两个名字全仓无发射点、本机无序列(靠 grafana_/prometheus_ 前缀台账混过静态幽灵门),2026-10-17 改指 up 与 grafana_http_request_duration_seconds_*。",
+  "description": "监控链路自健康。2026-10-17 清掉两个全仓无发射点、本机无序列的名字(原靠第三方前缀台账混过静态幽灵门);现读四条表达式只查 up 与 alertmanager_alerts。2026-10-19 外部看板程序(已退役)自监控那一族指标在本机 Prometheus 停在 2026-10-18T14:17:53Z、采集目标里已无该 job ⇒ 恒空板,表达式整体删除、台账同名前缀条目同步清偿。",
   "editable": true,
   "graphTooltip": 1,
   "id": null,
@@ -15,9 +15,7 @@
       "includeVars": true,
       "keepTime": true,
       "icon": "external link",
-      "tags": [
-        "ihui-ai"
-      ]
+      "tags": ["ihui-ai"]
     }
   ],
   "panels": [
@@ -67,9 +65,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 1,
@@ -119,9 +115,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 3
@@ -187,12 +181,7 @@
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": [
-    "ihui-ai",
-    "domain:monitor_health",
-    "monitoring",
-    "health"
-  ],
+  "tags": ["ihui-ai", "domain:monitor_health", "monitoring", "health"],
   "templating": {
     "list": [
       {

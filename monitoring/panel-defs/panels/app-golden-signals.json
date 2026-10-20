@@ -2,9 +2,7 @@
   "uid": "ihui-ai-app-golden-signals",
   "title": "IHUI-AI 应用层黄金指标",
   "description": "应用进程自身的黄金信号:吞吐量 / 错误 / 时延 / 饱和度。立因(2026-10-19 覆盖率审计):http_requests_by_status(9285)、db_pool_*、business_cache_hit_ratio、process_*、sql_query_duration_seconds 等 66 族均有真实样本却从未上屏。本盘表达式逐条实测。低流量直方图(ai-service 侧)一律用 $__range 窗口做 increase,避免短窗 rate 出 NaN。",
-  "tags": [
-    "ihui-ai"
-  ],
+  "tags": ["ihui-ai"],
   "timezone": "browser",
   "schemaVersion": 39,
   "refresh": "30s",
@@ -48,9 +46,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 1,
@@ -101,9 +97,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 2,
@@ -137,9 +131,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 3,
@@ -335,9 +327,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 8,
@@ -488,9 +478,7 @@
       },
       "options": {
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 11,
