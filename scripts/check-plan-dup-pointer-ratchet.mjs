@@ -46,11 +46,17 @@
  * 两条未勾登记行,短行**逐字**是长行的前缀 ⇒ 短行不承载独有内容,它只是同一件事被抄了一份
  * (长行随后被加注记、短行停在旧态)。这一型三把现有尺子全放过:门 203 的复合主键要编号
  * (这类行常写「未取号:同上」)、`--fold-identical-open-rows` 只认整行逐字相同、维①②管注记与整行折并。
- * 现读存量 34 对 ⇒ 默认档**只报数**,`--strict` 才问责(按存量当场判红就是 §12e 禁的恒红门);
+ * 现读:加下限前 26 对、加下限后 **0 对** ⇒ 台账里其实没有真副本(今早折掉的那 2 对才是)。
+ * 默认档**只报数**,`--strict` 才问责(按存量当场判红就是 §12e 禁的恒红门);
  * `--staged` 面 vs HEAD 面只拦变多。
- * 为什么做成尺子而不是手工扫一遍:活文档走 `git-sync-converge` 的行级 union,而 **union 不传播删除**
+ * 为什么做成尺子而不是手工扫一遍:活文档走 git-sync-converge 的行级 union,而 **union 不传播删除**
  * —— 同日实测到本会话折掉的行被对侧旧底稿原样换回。手工清是消耗品,判据不是。
- * 取证:镜像 P10(两行成对⇒1 为阳性对照、无副本⇒0、已勾行不计、链式 A⊂BC⇒3、差值 grew 判定)。
+ * 落地当场抓到的误咬(所以有 MIN_TWIN_SUBJECT):裸认领标记行 `- [ ]（进行中）`(长度 10)是所有
+ * `- [ ]（进行中）xxx` 的公共前缀 ⇒ 不设"短侧剥掉行首标记与前导括注后须有实质正文"这一手,
+ * 一条这样的行就凭空造出 26 个假副本对,把本维读数全污染成"有 26 处要清"。
+ * 取证:镜像 P10(两行成对⇒1 阳性对照、逐字相同⇒0、无前缀关系⇒0、链式 A⊂BC⇒3、已勾行不计、
+ * 裸认领标记配多条同前缀行⇒0 的**误咬反证** + 剥括注后正文够长仍读得出 1 的**阳性对照**、
+ * 变多判红、折并判绿)。
  *
  * 用法:
  *   node scripts/check-plan-dup-pointer-ratchet.mjs --staged  (pre-commit, 阻塞)
@@ -173,6 +179,13 @@ export function noteRedundancyVerdict(headText, newText) {
  * 算法:按字典序排序后,"以 A 为前缀的串"必成连续区间 ⇒ 对每个 A 从其后扫到不再 startsWith 为止。
  * 刻意只数**对数**(不递归去重):链式(A⊂BC)报 3 对,让人一眼看见有几处要判。
  */
+/**
+ * 短侧"承载事项"的下限(字符)。取 24 的理由:低于这个长度的一行不可能是可派单事项,
+ * 而台账里合法的裸形态(`- [ ]（进行中）`、`- [ ]（未取号:同上）`)剥完括注后长度是 0——
+ * 它们是所有同前缀行的公共前缀,不设下限就会被读成几十个假副本对。
+ */
+const MIN_TWIN_SUBJECT = 24
+
 export function prefixTwinPairs(text) {
   const open = []
   for (const l of String(text || '').split(/\r?\n/)) {
@@ -183,6 +196,10 @@ export function prefixTwinPairs(text) {
   let pairs = 0
   for (let i = 0; i < sorted.length; i++) {
     const a = sorted[i]
+    // 短侧必须自己承载事项:裸认领标记行(如 `- [ ]（进行中）`)剥完括注后正文为空,
+    // 而它是所有 `- [ ]（进行中）xxx` 行的公共前缀 —— 不拦这一手,一条这样的行就能
+    // 凭空造出几十个"副本对"(实测 HEAD 面一条长度 10 的行配到 26 条,把本维读数全部污染)。
+    if (twinSubjectLen(a) < MIN_TWIN_SUBJECT) continue
     for (let j = i + 1; j < sorted.length && sorted[j].startsWith(a); j++) {
       // 只数**严格**前缀:整行逐字相同那一型有它自己的合法摘除通道
       // (`plan-tasks-merge --fold-identical-open-rows`),两处都计会让两个出口互相顶账。
@@ -190,6 +207,22 @@ export function prefixTwinPairs(text) {
     }
   }
   return pairs
+}
+
+/** 剥掉行首勾选标记与**前导**括注族(认领/未取号/不挂进行中等),剩下才是这一行承载的事项正文。 */
+export function twinSubjectLen(line) {
+  let s = String(line || '').replace(/^- \[ \]\s*/, '')
+  let m = true
+  while (m) {
+    m = false
+    for (const re of [/^（[^（）]*）/, /^\([^()]*\)/, /^〔[^〔〕]*〕/]) {
+      if (re.test(s)) {
+        s = s.replace(re, '')
+        m = true
+      }
+    }
+  }
+  return s.trim().length
 }
 
 /** 维④差值判定(纯函数):本次提交让前缀型副本对变多 ⇒ 红。 */
