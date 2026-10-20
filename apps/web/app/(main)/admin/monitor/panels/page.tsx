@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { Tooltip } from '@/components/feedback'
 import { PageContainer } from '@/components/common/PageContainer'
-import { Tabs, TabsList, TabsTrigger } from '@ihui/ui-react'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import type { NativeDashboard } from './dashboard-config.generated'
 import { rkey, materializeExpr, stepFor, DashboardGrid } from './panel-render'
 import type { QueryResult } from './panel-render'
@@ -79,25 +79,23 @@ const TRIGGER_CLS =
 /**
  * 两种呈现的切换器。刻意不自己占一行:由各视图的顶栏承载,复用共享 Tabs 档位
  * (机主 2026-10-20 定档:切换件要显眼,但不许把内容往下挤一行)。
+ *
+ * 只有 `TabsList` + `TabsTrigger`,没有自己的 `Tabs` 根:根由页面持有,这里从 Radix
+ * context 取当前值。本组件经 `headerExtra` 槽渲染在 `TabsContent` 内部,仍在根的子孙树里
+ * ⇒ context 取得到。若这里再套一个根,整页会有两根,而两根都没有 `TabsContent` ⇒ 每个
+ * trigger 的 `aria-controls` 都指向不存在的 id、整页没有 `role=tabpanel`(仓里其它页如
+ * `app/(main)/agent-runtime/page.tsx` 都是"根包 List + Content"的写法)。
  */
-function MonitorViewSwitch({
-  view,
-  onChange,
-}: {
-  view: MonitorView
-  onChange: (v: MonitorView) => void
-}) {
+function MonitorViewSwitch() {
   return (
-    <Tabs value={view} onValueChange={(v) => onChange(v as MonitorView)}>
-      <TabsList className="h-10">
-        <TabsTrigger value="panels" className={TRIGGER_CLS}>
-          监控面板
-        </TabsTrigger>
-        <TabsTrigger value="wallboard" className={TRIGGER_CLS}>
-          数据大屏
-        </TabsTrigger>
-      </TabsList>
-    </Tabs>
+    <TabsList className="h-10">
+      <TabsTrigger value="panels" className={TRIGGER_CLS}>
+        监控面板
+      </TabsTrigger>
+      <TabsTrigger value="wallboard" className={TRIGGER_CLS}>
+        数据大屏
+      </TabsTrigger>
+    </TabsList>
   )
 }
 
@@ -118,17 +116,28 @@ export default function MonitorPanelsPage() {
     window.history.replaceState(null, '', url.toString())
   }
 
-  const headerExtra = <MonitorViewSwitch view={view} onChange={switchView} />
+  const headerExtra = <MonitorViewSwitch />
 
   return (
     <PageContainer padded={false} className="flex h-full flex-col">
-      <div className="wb-scroll-host min-h-0 flex-1 overflow-y-auto">
-        {view === 'wallboard' ? (
-          <WallboardView headerExtra={headerExtra} />
-        ) : (
+      <Tabs
+        value={view}
+        onValueChange={(v) => switchView(v as MonitorView)}
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        <TabsContent
+          value="panels"
+          className="wb-scroll-host mt-0 min-h-0 flex-1 overflow-y-auto"
+        >
           <MonitorPanelsContent headerExtra={headerExtra} />
-        )}
-      </div>
+        </TabsContent>
+        <TabsContent
+          value="wallboard"
+          className="wb-scroll-host mt-0 min-h-0 flex-1 overflow-y-auto"
+        >
+          <WallboardView headerExtra={headerExtra} />
+        </TabsContent>
+      </Tabs>
     </PageContainer>
   )
 }
