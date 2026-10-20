@@ -210,7 +210,12 @@ jobs:
         # 2026-10-20 提到 migrate/seed **之前**(本条红自 10-16 在位):seed:test-users 走 tsx 直接
         # 装载 apps/api/src/utils/scoped-guard.ts,而它 import @ihui/types —— types 的入口指 dist
         # 且不入库 ⇒ 原顺序在 build 之前就 ERR_MODULE_NOT_FOUND,整条作业连数据库那一段都跑不到。
-        run: pnpm --filter "@ihui/api^..." --filter "@ihui/web^..." run build
+        # 2026-10-20 第二次补漏(同一条抄不全):本仓 exports 指 dist 的包还有一个 @ihui/dom-actions,
+        # 它是 **extension** 的依赖而不是 api/web 的 —— 而 web 的 prebuild 会先 `pnpm --filter
+        # @ihui/extension build`(wxt build),漏建它的拓扑闭包就在 vite 解析阶段报
+        # "Failed to resolve entry for package @ihui/dom-actions"。兄弟档 e2e.yml:117 同一步
+        # 一直带第三个选择器,本文件创建时只抄了两个 ⇒ 补齐,仍然不手工点名"要建哪几个包"。
+        run: pnpm --filter "@ihui/api^..." --filter "@ihui/web^..." --filter "@ihui/extension^..." run build
 
       - name: Run database migrations
         working-directory: packages/database
