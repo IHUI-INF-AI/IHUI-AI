@@ -70,6 +70,12 @@ import LearnReviewScreen from '../screens/LearnReviewScreen'
 import KnowledgeBaseEditScreen from '../screens/KnowledgeBaseEditScreen'
 import MemoryNewScreen from '../screens/MemoryNewScreen'
 import VoiceSttScreen from '../screens/VoiceSttScreen'
+import ArticleEditScreen from '../screens/ArticleEditScreen'
+import ArticleHotScreen from '../screens/ArticleHotScreen'
+import AskEditScreen from '../screens/AskEditScreen'
+import PlazaNewScreen from '../screens/PlazaNewScreen'
+import BusinessCardEditScreen from '../screens/BusinessCardEditScreen'
+import AiWorldCreateScreen from '../screens/AiWorldCreateScreen'
 import { PrivacyScreen } from '../screens/PrivacyScreen'
 import { AgreementScreen } from '../screens/AgreementScreen'
 import { AboutScreen } from '../screens/AboutScreen'
@@ -395,6 +401,12 @@ export type RootStackParamList = {
   KnowledgeBaseEdit: { id?: string } | undefined
   MemoryNew: undefined
   VoiceStt: undefined
+  ArticleEdit: { id?: string } | undefined
+  ArticleHot: undefined
+  AskEdit: { id?: string } | undefined
+  PlazaNew: undefined
+  BusinessCardEdit: { id?: string } | undefined
+  AiWorldCreate: undefined
   Privacy: undefined
   Agreement: undefined
   About: undefined
@@ -829,6 +841,12 @@ function RootNavigatorInner() {
             <RootStack.Screen name="KnowledgeBaseEdit" component={KnowledgeBaseEditScreen} />
             <RootStack.Screen name="MemoryNew" component={MemoryNewScreen} />
             <RootStack.Screen name="VoiceStt" component={VoiceSttScreen} />
+            <RootStack.Screen name="ArticleEdit" component={ArticleEditScreen} />
+            <RootStack.Screen name="ArticleHot" component={ArticleHotScreen} />
+            <RootStack.Screen name="AskEdit" component={AskEditScreen} />
+            <RootStack.Screen name="PlazaNew" component={PlazaNewScreen} />
+            <RootStack.Screen name="BusinessCardEdit" component={BusinessCardEditScreen} />
+            <RootStack.Screen name="AiWorldCreate" component={AiWorldCreateScreen} />
             <RootStack.Screen name="Privacy" component={PrivacyScreen} />
             <RootStack.Screen name="Agreement" component={AgreementScreen} />
             <RootStack.Screen name="About" component={AboutScreen} />
