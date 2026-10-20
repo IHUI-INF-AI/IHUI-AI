@@ -152,6 +152,74 @@ export function findMissingLinks(rootDir, pkgDirs) {
 }
 
 /**
+ * 第六维判据(2026-10-21 构建阻断取证后补):**外部依赖(非 workspace: 协议)的声明↔链接**。
+ *
+ * 成因(当日实测,非推演):commit 55803300de9 把 plugins-data 下沉 packages/shared 时声明了
+ * `lucide-react: 1.37.0`,package.json 与 pnpm-lock.yaml 都干净,唯独
+ * `packages/shared/node_modules/lucide-react` 没建链 ⇒ `pnpm --filter @ihui/shared build`
+ * 13 条 TS2307 exit 2 ⇒ turbo.json `build.dependsOn: ["^build"]` 把 8 端全部顶死。
+ * 而本门当时报「✅ 破损 0 条」exit 0 —— 因为判据一只收 `workspace:` 协议声明,
+ * 外部 npm 依赖**整族不在取样面内**,断链没有任何器物能看见(实测移走链接后本门仍全绿)。
+ *
+ * 取样面纪律(避免假阳,逐条有据):
+ *  · 只收 dependencies + devDependencies —— 这两族 pnpm 必装;
+ *  · **不收 peerDependencies** —— 是否落地取决于 auto-install-peers,拿它判红是拿配置当事实;
+ *  · **不收 optionalDependencies** —— 装不上是设计内的,不是破损;
+ *  · 跳过 `workspace:`(判据一已覆盖)与 `link:` `file:`(本地协议,不进 .pnpm)。
+ *  · `catalog:` 属外部依赖(lockfile 里解成真版本号),必须收 —— 本仓确有使用。
+ *
+ * 落点纪律(与 missingBins 同一条理由,不重复论证):并发 `pnpm install` 期间链接会半复制态
+ * 闪缺,而本门在提交链上是 blocking ⇒ **默认档只报数,`--strict`(check:all / CI)才判红**。
+ * 今天真仓基线 = 420 条声明 / 0 条断链。
+ */
+export function externalDepsOf(pkgJson) {
+  const merged = {
+    ...(pkgJson.dependencies || {}),
+    ...(pkgJson.devDependencies || {}),
+  }
+  return Object.entries(merged)
+    .filter(([, spec]) => {
+      if (typeof spec !== 'string') return false
+      const s = spec.trim()
+      if (s.startsWith('workspace:') || s.startsWith('link:') || s.startsWith('file:')) return false
+      return true
+    })
+    .map(([name]) => name)
+}
+
+/**
+ * 第六维核心判据。与 findMissingLinks 同构:包内 node_modules 命中或根 node_modules 命中
+ * (publicHoist 兼容)即算链接成立;existsSync 跟随符号链接,**悬空链接同样判红**。
+ * rootDir 下没有 node_modules 时返回 null(未安装 ≠ 装歪),由调用方显式提示。
+ */
+export function findMissingExternalLinks(rootDir, pkgDirs) {
+  if (!existsSync(join(rootDir, 'node_modules'))) return null
+  const missing = []
+  let scanned = 0
+  for (const dir of pkgDirs) {
+    let pkgJson
+    try {
+      pkgJson = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
+    } catch {
+      continue
+    }
+    for (const dep of externalDepsOf(pkgJson)) {
+      scanned++
+      const parts = dep.split('/')
+      const local = join(dir, 'node_modules', ...parts)
+      const hoisted = join(rootDir, 'node_modules', ...parts)
+      if (existsSync(local) || existsSync(hoisted)) continue
+      missing.push({
+        pkg: pkgJson.name || toPosix(relative(rootDir, dir)),
+        dep,
+        expect: toPosix(relative(rootDir, local)),
+      })
+    }
+  }
+  return { missing, scanned }
+}
+
+/**
  * 第二维判据(2026-09-24 全机门禁停摆后补):**"链接在、内容被掏空"**。
  *
  * 为什么既有判据看不见:pnpm 的 `node_modules/<dep>` 是指向 `.pnpm/<pkg>/node_modules/<dep>`
@@ -504,6 +572,13 @@ export function audit({ staged = false, root = REPO, strict = false } = {}) {
     console.log('⚠️  根目录没有 node_modules(依赖未安装)—— 本门无法判定,请先 pnpm install')
     return { missing: [], scanned: targets.length, skipped: true }
   }
+  // 第六维:外部依赖(非 workspace:)声明↔链接。取样面与落点纪律见 externalDepsOf 头注。
+  const ext = findMissingExternalLinks(root, targets)
+  if (ext === null) {
+    console.log('⚠️  根目录没有 node_modules(依赖未安装)—— 本门无法判定,请先 pnpm install')
+    return { missing: [], scanned: targets.length, skipped: true }
+  }
+  const { missing: missingExternal, scanned: externalScanned } = ext
   const t0 = Date.now()
   // 深扫(.pnpm 传递闭包)只随 --strict 走 —— 落点纪律见 findGuttedLinks 头注:
   // 并发 install 半复制态会闪出成百上千条红,而本门在提交链上是 blocking,
@@ -537,6 +612,8 @@ export function audit({ staged = false, root = REPO, strict = false } = {}) {
         ? ` | 链接完整性:浅扫 ${linksScanned} 条 / 深扫 ${deepScanned} 条(合计 ${linksScanned + deepScanned} 条;.pnpm 安装中临时键跳过 ${tmpKeysSkipped} 个),破损 ${gutted.length} 条,`
         : ` | 链接完整性:扫 ${linksScanned} 条,破损 ${gutted.length} 条,`) +
       `钩子命令 ${hookCmds.length} 条(解析不到 ${hookBad.length} 条、入口缺失 ${shimBad.length} 条、判不出 ${shimUnresolved} 条)` +
+      ` | 外部依赖声明 ${externalScanned} 条,断链 ${missingExternal.length} 条` +
+      (strict ? '(严格档判红)' : '(提交链只报数;断链会阻断 turbo build,要判红加 --strict)') +
       `(${Date.now() - t0}ms)`,
   )
   if (missingBins.length) {
@@ -581,6 +658,8 @@ export function audit({ staged = false, root = REPO, strict = false } = {}) {
     linksScanned,
     deepScanned,
     tmpKeysSkipped,
+    missingExternal,
+    externalScanned,
     skipped: false,
   }
 }
@@ -639,6 +718,8 @@ function run(argv) {
     linksScanned = 0,
     deepScanned = 0,
     tmpKeysSkipped = 0,
+    missingExternal = [],
+    externalScanned = 0,
     skipped,
   } = audit({
     staged: argv.includes('--staged'),
@@ -646,6 +727,8 @@ function run(argv) {
     strict,
   })
   const redBins = strict ? missingBins.length : 0
+  // 第六维同 missingBins 一条理由:并发 install 半复制态会闪缺,提交链上拦人 = 全队 --no-verify。
+  const redExternal = strict ? missingExternal.length : 0
   // exit 0 → **exit 2**(2026-09-27,G-268 同批):这一支上面刚打印了"本门无法判定",
   // 却回 exit 0 —— 文档与代码分歧的方向恰好造出**假归因**:safe-commit 的差分拿基线面(隔离
   // 检出里没有 node_modules)与本面对照,一面恒绿、一面按磁盘红 ⇒ 判成"这枚提交引入了红"。
@@ -662,6 +745,7 @@ function run(argv) {
     missing.length === 0 &&
     gutted.length === 0 &&
     redBins === 0 &&
+    redExternal === 0 &&
     hookBad.length === 0 &&
     shimBad.length === 0
   ) {
@@ -720,6 +804,21 @@ function run(argv) {
     console.error(
       '   ⇒ lint-staged 能 spawn 到命令,随即 `Cannot find module` —— 症状与"没有 shim"不同,修复动作也不同。',
     )
+  }
+  if (missingExternal.length) {
+    const w = strict ? console.error : console.log
+    w(
+      strict
+        ? `❌ ${missingExternal.length} 处声明了外部(非 workspace:)依赖,但 node_modules 里解析不到:`
+        : `⚠️  ${missingExternal.length} 处声明了外部(非 workspace:)依赖,但 node_modules 里解析不到(提交链只报数;要判红加 --strict):`,
+    )
+    for (const m of missingExternal.slice(0, 25)) w(`   ${m.pkg}  缺 ${m.dep}\n      期望 ${m.expect}`)
+    if (missingExternal.length > 25) w(`   … 另有 ${missingExternal.length - 25} 条`)
+    w(
+      `   ⇒ 这一型不报在 typecheck 里(TS2307 只在真 build 时才炸):它让 \`pnpm -r build\` 直接失败,` +
+        `并经 turbo \`dependsOn: ["^build"]\` 级联打挂全部下游端 —— 2026-10-21 的 lucide-react 断链即此型,当时 8 端全挂而本门全绿。`,
+    )
+    w('   修复:跑**全量** `pnpm install`(不带 --filter)。')
   }
   hint()
   return 1
@@ -1369,6 +1468,38 @@ function selfTest() {
         `普通依赖不该进本门: ${JSON.stringify(findMissingLinks(root, dirs))}`,
       )
     })
+    t('第六维:外部依赖取样面 —— 收 deps/devDeps,跳过 workspace:/link:/file:/peer/optional', () => {
+      const got = externalDepsOf({
+        dependencies: { react: '^19.0.0', '@ihui/aa': 'workspace:*', 'cat-dep': 'catalog:' },
+        devDependencies: { vitest: 'catalog:', 'local-x': 'link:../x', 'tgz-y': 'file:../y' },
+        peerDependencies: { 'peer-only': '^1.0.0' },
+        optionalDependencies: { 'opt-only': '^1.0.0' },
+      })
+      const set = new Set(got)
+      assert(
+        set.has('react') && set.has('cat-dep') && set.has('vitest'),
+        `应收 dependencies/devDependencies(含 catalog:): ${got}`,
+      )
+      assert(
+        !set.has('@ihui/aa') && !set.has('local-x') && !set.has('tgz-y'),
+        `不该收 workspace:/link:/file:(前者判据一已覆盖,后两者不进 .pnpm): ${got}`,
+      )
+      assert(
+        !set.has('peer-only') && !set.has('opt-only'),
+        `不该收 peer/optional —— 是否落地取决于 auto-install-peers 与平台,拿它判红是拿配置当事实: ${got}`,
+      )
+    })
+    t('第六维:外部依赖断链可检出(2026-10-21 lucide-react 构建阻断同型)', () => {
+      writeFileSync(
+        join(root, 'apps', 'bb', 'package.json'),
+        JSON.stringify({ name: '@ihui/bb', dependencies: { 'no-such-pkg-xyz': '1.2.3' } }),
+      )
+      const r = findMissingExternalLinks(root, dirs)
+      assert(r !== null, '根有 node_modules 时应返回对象而非 null')
+      const hit = r.missing.filter((m) => m.dep === 'no-such-pkg-xyz')
+      assert(hit.length === 1, `断链应恰好命中 1 条, got ${JSON.stringify(r.missing)}`)
+      assert(r.scanned >= 1, `应扫到声明并计数, got scanned=${r.scanned}`)
+    })
     t('patterns 为空/错 → 判据失效必须红', () => {
       const emptyRoot = mkScratch('ihui-dep-link-empty-')
       try {
@@ -1417,6 +1548,8 @@ export const __test__ = {
   parseWorkspacePatterns,
   expandPatterns,
   workspaceDepsOf,
+  externalDepsOf,
+  findMissingExternalLinks,
   findMissingLinks,
   findGuttedLinks,
   lintStagedCommands,
