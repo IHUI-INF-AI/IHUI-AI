@@ -138,7 +138,7 @@ export const rnTokens = {
   /* 通用玻璃底(TabBar 悬浮胶囊液态玻璃背景,半透明 + backdrop blur;明暗两档)——
      值由 scripts/sync-rn-tokens.mjs 从 tokens.css 派生(--color-glass-bg),勿手改 */
   glass: {
-    bg: 'rgba(255,255,255,0.3)',
+    bg: 'rgba(255,255,255,0.6)',
   } satisfies RnGlassTokens,
   warning: {
     light: '#fffbeb',
@@ -311,7 +311,7 @@ export const rnLightTokens: RnThemeTokens = {
   },
   /* 值由 scripts/sync-rn-tokens.mjs 从 tokens.css 派生(--color-glass-bg),勿手改 */
   glass: {
-    bg: 'rgba(255,255,255,0.3)',
+    bg: 'rgba(255,255,255,0.6)',
   },
   warning: {
     light: '#fffbeb',
@@ -406,7 +406,7 @@ export const rnDarkTokens: RnThemeTokens = {
   },
   /* 暗档值同样由 scripts/sync-rn-tokens.mjs 派生(tokens.css .dark 里成对声明) */
   glass: {
-    bg: 'rgba(26,26,26,0.3)',
+    bg: 'rgba(26,26,26,0.6)',
   },
   warning: {
     light: '#451a03',
