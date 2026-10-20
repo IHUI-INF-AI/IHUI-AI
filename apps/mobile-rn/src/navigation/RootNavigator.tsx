@@ -44,6 +44,18 @@ import { RealNameAuthScreen } from '../screens/RealNameAuthScreen'
 import { IdentityVerifyScreen } from '../screens/IdentityVerifyScreen'
 import { SecuritySettingsScreen } from '../screens/SecuritySettingsScreen'
 import SecurityCenterScreen from '../screens/SecurityCenterScreen'
+import ApiKeysScreen from '../screens/ApiKeysScreen'
+import DataRightsScreen from '../screens/DataRightsScreen'
+import ConnectedAccountsScreen from '../screens/ConnectedAccountsScreen'
+import UsageScreen from '../screens/UsageScreen'
+import ChatTemplatesScreen from '../screens/ChatTemplatesScreen'
+import ImageGenGalleryScreen from '../screens/ImageGenGalleryScreen'
+import ImageGenTemplatesScreen from '../screens/ImageGenTemplatesScreen'
+import KnowledgeRagManageScreen from '../screens/KnowledgeRagManageScreen'
+import AddressesScreen from '../screens/AddressesScreen'
+import WrongQuestionsScreen from '../screens/WrongQuestionsScreen'
+import PointsScreen from '../screens/PointsScreen'
+import GroupsScreen from '../screens/GroupsScreen'
 import { PrivacyScreen } from '../screens/PrivacyScreen'
 import { AgreementScreen } from '../screens/AgreementScreen'
 import { AboutScreen } from '../screens/AboutScreen'
@@ -343,6 +355,18 @@ export type RootStackParamList = {
   IdentityVerify: undefined
   SecuritySettings: undefined
   SecurityCenter: undefined
+  ApiKeys: undefined
+  DataRights: undefined
+  ConnectedAccounts: undefined
+  Usage: undefined
+  ChatTemplates: undefined
+  ImageGenGallery: undefined
+  ImageGenTemplates: undefined
+  KnowledgeRagManage: undefined
+  Addresses: undefined
+  WrongQuestions: undefined
+  Points: undefined
+  Groups: undefined
   Privacy: undefined
   Agreement: undefined
   About: undefined
@@ -751,6 +775,18 @@ function RootNavigatorInner() {
             <RootStack.Screen name="IdentityVerify" component={IdentityVerifyScreen} />
             <RootStack.Screen name="SecuritySettings" component={SecuritySettingsScreen} />
             <RootStack.Screen name="SecurityCenter" component={SecurityCenterScreen} />
+            <RootStack.Screen name="ApiKeys" component={ApiKeysScreen} />
+            <RootStack.Screen name="DataRights" component={DataRightsScreen} />
+            <RootStack.Screen name="ConnectedAccounts" component={ConnectedAccountsScreen} />
+            <RootStack.Screen name="Usage" component={UsageScreen} />
+            <RootStack.Screen name="ChatTemplates" component={ChatTemplatesScreen} />
+            <RootStack.Screen name="ImageGenGallery" component={ImageGenGalleryScreen} />
+            <RootStack.Screen name="ImageGenTemplates" component={ImageGenTemplatesScreen} />
+            <RootStack.Screen name="KnowledgeRagManage" component={KnowledgeRagManageScreen} />
+            <RootStack.Screen name="Addresses" component={AddressesScreen} />
+            <RootStack.Screen name="WrongQuestions" component={WrongQuestionsScreen} />
+            <RootStack.Screen name="Points" component={PointsScreen} />
+            <RootStack.Screen name="Groups" component={GroupsScreen} />
             <RootStack.Screen name="Privacy" component={PrivacyScreen} />
             <RootStack.Screen name="Agreement" component={AgreementScreen} />
             <RootStack.Screen name="About" component={AboutScreen} />

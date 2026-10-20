@@ -101,6 +101,7 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'OrderLog', labelKey: 'menu.orderLog', icon: ClipboardList, viaParent: true },
       { key: 'OrderTrack', labelKey: 'menu.orderTrack', icon: Package, viaParent: true },
       { key: 'RefundHistory', labelKey: 'menu.refundHistory', icon: RefreshCw, viaParent: true },
+      { key: 'Addresses', labelKey: 'addresses.title', icon: Store, viaParent: true },
     ],
   },
   {
@@ -125,6 +126,7 @@ export const MENU_SECTIONS: MenuSection[] = [
   {
     titleKey: 'menu.sectionPoints',
     items: [
+      { key: 'Points', labelKey: 'points.title', icon: Trophy, viaParent: true },
       { key: 'PointsMall', labelKey: 'menu.pointsMall', icon: ShoppingBag, viaParent: true },
       { key: 'PointsRecord', labelKey: 'menu.pointsRecord', icon: TrendingUp, viaParent: true },
       { key: 'PointRule', labelKey: 'menu.pointRule', icon: BookOpen, viaParent: true },
@@ -157,6 +159,11 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'KnowledgeBase', labelKey: 'menu.knowledgeBase', icon: BookOpen, viaParent: true },
       // M4.1(2026-08-26):RAG 知识库增强(搜索/切片)
       { key: 'KnowledgeRag', labelKey: 'menu.knowledgeRag', icon: Search, viaParent: true },
+      { key: 'KnowledgeRagManage', labelKey: 'knowledgeRagManage.title', icon: Files, viaParent: true },
+      { key: 'ChatTemplates', labelKey: 'chatTemplates.title', icon: MessagesSquare, viaParent: true },
+      { key: 'WrongQuestions', labelKey: 'wrongQuestions.title', icon: BookOpen, viaParent: true },
+      { key: 'ImageGenGallery', labelKey: 'imageGenGallery.title', icon: Image, viaParent: true },
+      { key: 'ImageGenTemplates', labelKey: 'imageGenTemplates.title', icon: Palette, viaParent: true },
       { key: 'AiSkill', labelKey: 'menu.aiSkill', icon: Wrench, viaParent: true },
       { key: 'Memory', labelKey: 'menu.memory', icon: Brain, viaParent: true },
       { key: 'AiWorld', labelKey: 'menu.aiWorld', icon: Globe, viaParent: true },
@@ -247,6 +254,7 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'AskCreate', labelKey: 'menu.askCreate', icon: Plus, viaParent: true },
       { key: 'NoteList', labelKey: 'menu.noteList', icon: FileText, viaParent: true },
       { key: 'NoteCreate', labelKey: 'menu.noteCreate', icon: Pencil, viaParent: true },
+      { key: 'Groups', labelKey: 'groups.title', icon: MessagesSquare, viaParent: true },
     ],
   },
   {
