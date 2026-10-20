@@ -745,19 +745,6 @@ export function flattenNavItems(items: NavItem[]): NavItem[] {
   return items.flatMap((item) => [item, ...(item.children ? flattenNavItems(item.children) : [])])
 }
 
-/**
- * 按分组 label 取该组全部条目(2026-10-19 P2 立)
- *
- * 域入口页(/domains/edu、/domains/content、/domains/trade)用它在**侧边栏条目之上**
- * 直接搭壳,不另抄一份清单 —— 侧边栏加减项时域入口页自动同步(§0.6 单一真相源)。
- *
- * @param label NAV_GROUPS 的分组 label(如 'eduGroup' / 'contentGroup' / 'tradeGroup')
- * @returns 该组条目;组不存在时返回空数组(不抛,让调用方自行决定降级形态)
- */
-export function navItemsByGroup(label: string): NavItem[] {
-  return NAV_GROUPS.find((g) => g.label === label)?.items ?? []
-}
-
 export const ALL_NAV_HREFS = flattenNavItems(NAV_GROUPS.flatMap((g) => g.items)).map((i) => i.href)
 
 /** 扁平化主侧边栏导航项,供 TagsView 等复用 path -> labelKey 映射 */
