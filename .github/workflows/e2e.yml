@@ -160,8 +160,13 @@ jobs:
         # 中读取 process.env.JWT_SECRET;构建期缺失 → 验签恒败 → 所有 /admin/* 被
         # 307 进 SSO 授权链(im-channels ×4 卡死「授权并跳转」,2026-09-14 实锤;
         # 本地 .next-e2e 构建带了该 secret 所以从未暴露)
+        # NEXT_PUBLIC_E2E_EXPOSE_STORE(2026-10-21 立):e2e/work-panel.spec P4-5 直调
+        # window.__workPanelStore,production 构建默认不暴露(见 apps/web/src/stores/
+        # work-panel.ts 暴露条件注释);必须构建期注入 —— NEXT_PUBLIC_ 值在 build 时
+        # 内联进客户端 bundle,next start 再设也来不及。
         env:
           JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
+          NEXT_PUBLIC_E2E_EXPOSE_STORE: '1'
         run: pnpm --filter @ihui/web run build
 
       - name: Start API server (background)

@@ -27,7 +27,8 @@ declare global {
 test.beforeEach(async ({ page }) => {
   // 清理 localStorage 避免前一个测试残留状态
   // 2026-08-26 修复:goto 用 domcontentloaded —— dev 模式下首屏 load 需等全部 chunk
-  // 编译完成,可能 >30s 超时(work-panel 依赖 dev-only 的 __workPanelStore,必须 dev 跑)
+  // 编译完成,可能 >30s 超时(work-panel 依赖 __workPanelStore:dev 默认暴露;production
+  // 构建需 NEXT_PUBLIC_E2E_EXPOSE_STORE=1 构建期注入,CI e2e.yml 已带 —— 2026-10-21)
   await page.goto('/', { waitUntil: 'domcontentloaded' })
   await page.evaluate(() => {
     localStorage.removeItem('ihui-work-panel')
@@ -341,6 +342,8 @@ test('P4-5: reorderTabs position=before 把 a 移到 c 之前', async ({ page })
 })
 
 test('P4-5: drop indicator DOM 渲染(before/after position)', async ({ page }) => {
+  // 2026-10-21:本用例刻意不加"句柄缺⇒skip"降级 —— 句柄没暴露时下面 toHaveCount(3)
+  // 当场判红(0≠3)而不是静默通过;CI 靠 NEXT_PUBLIC_E2E_EXPOSE_STORE=1 保证真断言。
   // 1. 准备 3 个 tab
   await page.evaluate(() => {
     const store = (window as any).__workPanelStore
