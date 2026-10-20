@@ -933,7 +933,7 @@ test('T28 ① 的复裁判据:VideoPlayer 的 web 残档必须由带理由豁免
   )
 })
 
-test('T29 ② 的裸档探针:必须看得见"看不见多少",且不得顺手把裸档并进提取式(三本账未同批重锚)', () => {
+test('T29 ② 的裸档探针:裸档字形取用点两腿分记、值取档位表 DEFAULT、取不到落未判定(具名/full/任意值/注释不成对)', () => {
   const table = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, DEFAULT: 8 }
   const pairs = [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }]
   const text = {
@@ -944,7 +944,7 @@ test('T29 ② 的裸档探针:必须看得见"看不见多少",且不得顺手�
   assert.equal(
     web.total,
     1,
-    'web 腿那份裸档必须被点名(它今天不进档集合,于是差值被读成"那一端没写档")',
+    'web 腿那份裸档必须被点名(裸档已并进取用集合,本探针报的是"有几处 8 靠裸档字形认来")',
   )
   assert.equal(web.sites[0].side, 'web', 'web 腿的 rn 槽位必须报成 web,报成 rn 就是替另一条腿记账')
   assert.equal(web.sites[0].px, 8, '裸档的值必须从档位表 DEFAULT 取,取不到要落 null 而不是猜')
