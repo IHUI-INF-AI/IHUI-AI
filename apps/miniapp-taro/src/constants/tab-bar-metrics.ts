@@ -19,6 +19,12 @@
 export const TAB_BAR_HEIGHT = 56
 export const TAB_BAR_ICON_SIZE = 24
 export const TAB_BAR_FONT_SIZE = 11
+/**
+ * 选中态字号(比未选中大 1px)—— 与 apps/mobile-rn/src/components/TabBar.styles.ts 的
+ * 同名量成对(2026-10-20 用户定稿「选中时文字稍微放大加粗」;本端字重 600 早已在位,
+ * 这一档补的是字号那一半)。改一端必须同批改另一端。
+ */
+export const TAB_BAR_FONT_SIZE_ACTIVE = 12
 /** 胶囊与屏幕左右边缘的悬浮间距 */
 export const TAB_BAR_MARGIN_H = 12
 /** 胶囊与页面底部的最小悬浮间距(不含安全区) */

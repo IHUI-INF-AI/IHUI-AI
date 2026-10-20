@@ -26,6 +26,7 @@ import {
   TAB_BAR_HEIGHT,
   TAB_BAR_ICON_SIZE,
   TAB_BAR_FONT_SIZE,
+  TAB_BAR_FONT_SIZE_ACTIVE,
   TAB_BAR_MARGIN_H,
   TAB_BAR_GAP_BOTTOM,
   TAB_BAR_INDICATOR_H,
@@ -144,8 +145,8 @@ export default function CustomTabBar() {
             <Text
               style={{
                 marginTop: 2,
-                fontSize: `${TAB_BAR_FONT_SIZE}px`,
-                lineHeight: `${TAB_BAR_FONT_SIZE + 2}px`,
+                fontSize: `${active ? TAB_BAR_FONT_SIZE_ACTIVE : TAB_BAR_FONT_SIZE}px`,
+                lineHeight: `${(active ? TAB_BAR_FONT_SIZE_ACTIVE : TAB_BAR_FONT_SIZE) + 2}px`,
                 fontWeight: active ? '600' : '400',
                 color: active ? ink : muted,
               }}
