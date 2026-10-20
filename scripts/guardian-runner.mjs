@@ -5201,6 +5201,21 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 嵌套仓豁免台账耐久性(1 项,blocking)---
+  {
+    id: '232',
+    label:
+      '🧾 嵌套仓豁免台账耐久性(HEAD 面已登记未到期行被洗掉即红;载体=行式 no-nested-git-sites.jsonl + 旧 JSON 台账;现场存续仍由门 208 现算,本门只守行存续)',
+    script: 'check-no-nested-git-sites-durability.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_NESTED_GIT_SITES_DURABILITY',
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
