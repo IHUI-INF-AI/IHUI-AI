@@ -29,6 +29,11 @@
 
 import { randomUUID } from 'node:crypto';
 import { loadConfig } from '../config/index.js';
+import {
+  assertSafeFetchUrl,
+  formatSsrfRejection,
+  type SelfHostedTrust,
+} from '@ihui/shared/utils/ssrf-guard';
 import { buildApiAuthHeaders, decodeJwtClaims, resolveOutboundCredential, type ResolvedCredential } from '../config/credentials.js';
 import { registerTools, type Tool, type ToolResult } from './index.js';
 
@@ -72,9 +77,26 @@ interface MemoryApiResponse<T> {
 }
 
 /** 获取 ai-service base URL(从 cli config apiUrl,默认 http://localhost:8803) */
+const DEFAULT_AI_SERVICE_BASE = 'http://localhost:8803';
+
 function getBaseUrl(): string {
   const config = loadConfig();
-  return config.apiUrl || 'http://localhost:8803';
+  return config.apiUrl || DEFAULT_AI_SERVICE_BASE;
+}
+
+/**
+ * D-1 信任基准:只有用户配置的 apiUrl(或内置默认端点)这一条自己写的地址可被信任。
+ * ssrf-trust-source: settings.apiUrl / DEFAULT_AI_SERVICE_BASE(默认端点)
+ */
+function memoryTrust(): SelfHostedTrust {
+  const configured = loadConfig().apiUrl?.trim();
+  return configured
+    ? { source: 'user-settings', settingsKey: 'settings.apiUrl', configuredEndpoint: configured }
+    : {
+        source: 'code-default',
+        settingsKey: 'DEFAULT_AI_SERVICE_BASE',
+        configuredEndpoint: DEFAULT_AI_SERVICE_BASE,
+      };
 }
 
 /** 出站到 ai-service 的鉴权头(复用 `buildApiAuthHeaders`,不得另拼一份 Authorization) */
@@ -95,6 +117,8 @@ async function memoryGet<T>(
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, v);
   }
+  const verdict = await assertSafeFetchUrl(url.toString(), { selfHosted: memoryTrust() });
+  if (!verdict.safe) throw new Error(formatSsrfRejection(verdict));
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), MEMORY_TIMEOUT_MS);
   try {
@@ -127,6 +151,8 @@ async function memorySend<T>(
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, v);
   }
+  const verdict = await assertSafeFetchUrl(url.toString(), { selfHosted: memoryTrust() });
+  if (!verdict.safe) throw new Error(formatSsrfRejection(verdict));
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), MEMORY_TIMEOUT_MS);
   try {

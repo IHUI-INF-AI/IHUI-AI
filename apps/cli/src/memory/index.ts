@@ -34,6 +34,10 @@ import * as crypto from 'node:crypto';
 // 注意:本地 MemoryEntry(文件系统层,raw/text/source/category)与统一 MemoryEntry
 // (跨端层,id/scope/type/...)结构不同,故 alias 为 UnifiedMemoryEntry 避免冲突。
 import type { MemoryEntry as UnifiedMemoryEntry, MemoryScope } from '@ihui/types';
+import {
+  assertSafeFetchUrl,
+  type SelfHostedTrust,
+} from '@ihui/shared/utils/ssrf-guard';
 
 const MEMORY_DIR = '.ihui';
 const MEMORY_FILE = 'MEMORY.md';
@@ -289,7 +293,10 @@ function extractMemoryEntry(data: unknown): UnifiedMemoryEntry | null {
  *   const entry = await client.addEntry(userId, { scope, type, category, text, source });
  */
 export class UnifiedMemoryClient {
-  constructor(private apiBaseUrl: string = 'http://127.0.0.1:8801') {}
+  constructor(
+    private apiBaseUrl: string = 'http://127.0.0.1:8801',
+    private trust?: SelfHostedTrust,
+  ) {}
 
   /**
    * 拉取指定用户/作用域的记忆条目。
@@ -303,7 +310,11 @@ export class UnifiedMemoryClient {
     const params = new URLSearchParams({ userId, scope });
     if (sessionId) params.set('sessionId', sessionId);
     try {
-      const res = await fetch(`${this.apiBaseUrl}/api/memory?${params.toString()}`, {
+      const url = `${this.apiBaseUrl}/api/memory?${params.toString()}`;
+      // ssrf-trust-source: settings.apiUrl(调用方传入的 SelfHostedTrust;本类不自行声明)
+      const verdict = await assertSafeFetchUrl(url, { selfHosted: this.trust });
+      if (!verdict.safe) return [];
+      const res = await fetch(url, {
         method: 'GET',
         headers: { Accept: 'application/json' },
       });
@@ -324,7 +335,10 @@ export class UnifiedMemoryClient {
     entry: Omit<UnifiedMemoryEntry, 'id' | 'createdAt' | 'updatedAt'>,
   ): Promise<UnifiedMemoryEntry | null> {
     try {
-      const res = await fetch(`${this.apiBaseUrl}/api/memory`, {
+      const url = `${this.apiBaseUrl}/api/memory`;
+      const verdict = await assertSafeFetchUrl(url, { selfHosted: this.trust });
+      if (!verdict.safe) return null;
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ userId, entry }),

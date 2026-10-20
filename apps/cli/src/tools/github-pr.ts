@@ -15,6 +15,7 @@
 
 import { spawnSync } from 'node:child_process';
 import type { Tool, ToolResult } from './index.js';
+import { assertSafeFetchUrl, formatSsrfRejection } from '@ihui/shared/utils/ssrf-guard';
 
 // ---------------------------------------------------------------------------
 // 辅助:gh CLI 调用
@@ -104,6 +105,10 @@ async function githubApi(
     ? `https://api.github.com${path.replace('{owner}', ownerRepo.owner).replace('{repo}', ownerRepo.repo)}`
     : `https://api.github.com/repos/${ownerRepo.owner}/${ownerRepo.repo}${path}`;
   try {
+    const verdict = await assertSafeFetchUrl(url);
+    if (!verdict.safe) {
+      return { success: false, output: '', error: formatSsrfRejection(verdict) };
+    }
     const resp = await fetch(url, {
       method,
       headers: {
