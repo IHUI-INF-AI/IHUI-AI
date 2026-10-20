@@ -22935,6 +22935,7 @@
     "registerTitle": "統合登録",
     "sendCodeFailed": "認証コードの送信に失敗しました",
     "sessionExpired": "セッションの有効期限が切れました。再度ログインしてください。",
+    "redirectBlockedByGuard": "対象ページはログインガードにブロックされ、ログイン Cookie が効いていません。多くの場合、アクセス先とログイン Cookie のドメイン（COOKIE_DOMAIN）が一致していないためです（LAN IP や localhost で開いた場合など）。該当ドメインからアクセスし直してください。",
     "subtitle": "ログインに {clientId} へのとリダイレクトをいます",
     "title": "ログイン",
     "mobileAuth": {
