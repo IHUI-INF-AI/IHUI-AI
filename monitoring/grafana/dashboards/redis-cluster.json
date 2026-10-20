@@ -1,0 +1,385 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "本机 Redis 为单实例(redis_cluster_enabled=0),原\"集群拓扑\"盘的 cluster_nodes/master/slave/state/slots/failover 六个指标名由 redis_exporter 在集群模式下才导出,单机上一序列都没有 ⇒ 整盘恒 No data。2026-10-17 逐格改指本机真在采的实例指标,保留同一 uid 与盘位。",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "title": "返回 AI 总览",
+      "type": "link",
+      "url": "/d/ihui-ai-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "tags": ["ihui-ai"]
+    }
+  ],
+  "panels": [
+    {
+      "title": "实例在线",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"redis\", instance=~\"$instance\"}",
+          "refId": "A",
+          "legendFormat": "在线(1=是)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red"
+              },
+              {
+                "color": "yellow",
+                "value": 3
+              },
+              {
+                "color": "green",
+                "value": 6
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "id": 1
+    },
+    {
+      "title": "副本节点数",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "redis_connected_slaves{instance=~\"$instance\"}",
+          "refId": "A",
+          "legendFormat": "副本"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "id": 2
+    },
+    {
+      "title": "内存峰值占用",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "redis_memory_used_peak_bytes{instance=~\"$instance\"}",
+          "refId": "A",
+          "legendFormat": "峰值"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "id": 3
+    },
+    {
+      "title": "键空间命中率",
+      "type": "gauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "sum(redis_keyspace_hits_total{instance=~\"$instance\"}) / (sum(redis_keyspace_hits_total{instance=~\"$instance\"}) + sum(redis_keyspace_misses_total{instance=~\"$instance\"}))",
+          "refId": "A",
+          "legendFormat": "命中率"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red"
+              },
+              {
+                "color": "yellow",
+                "value": 0.7
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "description": "分母不加 clamp_min:命中与未命中都是 0 时这条比值取不出来 ⇒ No data,那才是\"还没跑过缓存\"的诚实读数;clamp 会把\"没数据\"报成\"0% 命中\"。",
+      "id": 4
+    },
+    {
+      "title": "过期与逐出速率",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(redis_expired_keys_total{instance=~\"$instance\"}[5m]))",
+          "refId": "A",
+          "legendFormat": "过期键"
+        },
+        {
+          "expr": "sum(rate(redis_evicted_keys_total{instance=~\"$instance\"}[5m]))",
+          "refId": "B",
+          "legendFormat": "逐出键"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "id": 5
+    },
+    {
+      "title": "慢命令 Top (按命令)",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "targets": [
+        {
+          "expr": "topk(10, sum by (cmd) (rate(redis_commands_slowlog_total{instance=~\"$instance\"}[5m])))",
+          "refId": "A",
+          "legendFormat": "{{cmd}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "id": 6
+    },
+    {
+      "title": "内存构成",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "targets": [
+        {
+          "expr": "redis_memory_used_bytes{instance=~\"$instance\"}",
+          "refId": "A",
+          "legendFormat": "数据集"
+        },
+        {
+          "expr": "redis_memory_used_rss_bytes{instance=~\"$instance\"}",
+          "refId": "B",
+          "legendFormat": "RSS"
+        },
+        {
+          "expr": "redis_memory_used_overhead_bytes{instance=~\"$instance\"}",
+          "refId": "C",
+          "legendFormat": "开销"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "id": 7
+    },
+    {
+      "title": "键平均 TTL",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "targets": [
+        {
+          "expr": "redis_db_avg_ttl_seconds{instance=~\"$instance\"}",
+          "refId": "A",
+          "legendFormat": "平均 TTL"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "id": 8
+    },
+    {
+      "title": "连接数与命令速率",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "targets": [
+        {
+          "expr": "redis_connected_clients{instance=~\"$instance\"}",
+          "refId": "A",
+          "legendFormat": "连接数"
+        },
+        {
+          "expr": "sum(rate(redis_commands_processed_total{instance=~\"$instance\"}[5m]))",
+          "refId": "B",
+          "legendFormat": "命令速率"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "id": 9
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["ihui-ai", "domain:cache", "redis", "cluster"],
+  "templating": {
+    "list": [
+      {
+        "name": "instance",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        },
+        "query": "label_values(redis_db_keys, instance)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "IHUI-AI Redis 实例监控",
+  "uid": "ihui-ai-redis-cluster",
+  "version": 1,
+  "weekStart": ""
+}

@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import pytest
 from fastapi import FastAPI, Request
@@ -30,6 +31,7 @@ from fastapi.testclient import TestClient
 
 from app.core.sse_contract import SSE_EVENT_CONTRACTS, SSE_EVENTS
 from app.routers import llm as llm_mod
+from app.services import form_responses
 from app.services.mcp_server import (
     BUSINESS_FORM_KINDS,
     build_form_request_frame,
@@ -86,6 +88,23 @@ def client() -> TestClient:
 
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(autouse=True)
+def _isolate_persist_channel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """把落库通道钉成"不可用",本文件才不碰真实 PostgreSQL(AGENTS §5 测试隔离)。
+
+    本文件判的是**结算面**(帧形状、归属、唤醒等待方),不是落库面;而 D77(2026-10-20)
+    之后端点在结算时会写 `chat_form_responses` 一行 —— 不钉这一层,配了 DATABASE_URL 的
+    机器上跑本文件就会往共享库写真实行。钉死后落库必然显影为 `failed`,回包里的
+    `persisted/persistState/persistError` 三键正是"写失败不得静默吞"的证据。
+    真落库的正反成对判据在 `tests/test_chat_form_response_persist.py`。
+    """
+
+    async def _unavailable() -> Any:
+        raise RuntimeError("测试隔离:本文件禁止连接真实 PostgreSQL,落库通道已钉死")
+
+    monkeypatch.setattr(form_responses, "get_shared_pool", _unavailable)
 
 
 def _post(client: TestClient, session_id: str, body: dict, *, uid: str | None = None):
@@ -194,7 +213,17 @@ def test_owner_match_approve_really_wakes_the_waiter(client: TestClient) -> None
         r = _post(
             client, sid, {"request_id": rid, "action": "approve", "values": {"title": "T"}}, uid=_OWNER_A
         )
-        assert r.json() == {"ok": True, "accepted": True, "requestId": rid, "action": "approve"}
+        body = r.json()
+        assert {k: body[k] for k in ("ok", "accepted", "requestId", "action")} == {
+            "ok": True,
+            "accepted": True,
+            "requestId": rid,
+            "action": "approve",
+        }
+        # 结算成功而落库被隔离钉死 ⇒ 失败必须显影在这三键上,而不是被静默吞掉
+        assert body["persisted"] is False
+        assert body["persistState"] == "failed"
+        assert "落库通道已钉死" in str(body["persistError"])
         assert ev.is_set(), "合法应答没唤醒等待方 ⇒ 工具循环会一直等到超时"
         assert llm_mod._form_sessions.get(sid, {}).get(rid, {}).get("values") == {"title": "T"}
     finally:
