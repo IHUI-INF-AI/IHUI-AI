@@ -27,7 +27,12 @@ const querySchema = z.object({
   expr: z.string().min(1).max(4000),
   backend: z.enum(['prometheus', 'loki']).default('prometheus'),
   /** 有值 = 区间查询(query_range);缺省 = 即时查询(instant)。 */
-  rangeSeconds: z.number().int().positive().max(31 * 86400).optional(),
+  rangeSeconds: z
+    .number()
+    .int()
+    .positive()
+    .max(31 * 86400)
+    .optional(),
   stepSeconds: z.number().int().positive().max(3600).optional(),
 })
 
@@ -60,7 +65,11 @@ const num = (raw: string): number | null => {
   return Number.isFinite(v) ? v : null
 }
 
-async function queryPrometheus(expr: string, rangeSeconds?: number, stepSeconds?: number): Promise<Omit<QueryResult, 'ref'>> {
+async function queryPrometheus(
+  expr: string,
+  rangeSeconds?: number,
+  stepSeconds?: number,
+): Promise<Omit<QueryResult, 'ref'>> {
   try {
     let url: string
     if (rangeSeconds) {
@@ -78,10 +87,18 @@ async function queryPrometheus(expr: string, rangeSeconds?: number, stepSeconds?
     const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
     const body = (await res.json()) as {
       status: string
-      data?: { resultType: string; result: Array<{ metric: Record<string, string>; values?: Array<[number, string]>; value?: [number, string] }> }
+      data?: {
+        resultType: string
+        result: Array<{
+          metric: Record<string, string>
+          values?: Array<[number, string]>
+          value?: [number, string]
+        }>
+      }
       error?: string
     }
-    if (body.status !== 'success' || !body.data) return { series: [], error: body.error ?? 'query failed' }
+    if (body.status !== 'success' || !body.data)
+      return { series: [], error: body.error ?? 'query failed' }
     const series = (body.data.result ?? []).map((r) => ({
       labels: r.metric ?? {},
       points:
@@ -94,7 +111,11 @@ async function queryPrometheus(expr: string, rangeSeconds?: number, stepSeconds?
   }
 }
 
-async function queryLoki(expr: string, rangeSeconds?: number, stepSeconds?: number): Promise<Omit<QueryResult, 'ref'>> {
+async function queryLoki(
+  expr: string,
+  rangeSeconds?: number,
+  stepSeconds?: number,
+): Promise<Omit<QueryResult, 'ref'>> {
   try {
     const endNs = BigInt(Date.now()) * 1_000_000n
     const startNs = endNs - BigInt(rangeSeconds ?? 3600) * 1_000_000_000n
@@ -124,7 +145,8 @@ async function queryLoki(expr: string, rangeSeconds?: number, stepSeconds?: numb
       }
       error?: string
     }
-    if (body.status !== 'success' || !body.data) return { series: [], logs: [], error: body.error ?? 'query failed' }
+    if (body.status !== 'success' || !body.data)
+      return { series: [], logs: [], error: body.error ?? 'query failed' }
     const series: PromSeries[] = []
     const logs: LokiLogLine[] = []
     for (const r of body.data.result ?? []) {
@@ -147,35 +169,50 @@ async function queryLoki(expr: string, rangeSeconds?: number, stepSeconds?: numb
   }
 }
 
+// 公网可达例外(2026-10-20 定):大屏页面本身由公网域名提供,而 server.ts 的 onRoute 钩子
+// 对 /api/admin/* 强制注入 network.allowExternal:false ⇒ 大屏取数在公网一律 403。
+// 本端点只读、无写副作用,鉴权仍由 preHandler 的 requireAdmin + httpOnly Cookie 裁定,
+// 故显式声明 allowExternal:true 打开公网可达(其余 /api/admin/* 维持强制内网限制)。
+const MONITOR_PANELS_NETWORK = { network: { allowExternal: true } }
+
 export const adminMonitorPanelsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
   // POST /monitor-panels/query — 批量执行面板表达式(PromQL / LogQL)
-  server.post('/monitor-panels/query', async (request, reply) => {
-    const parsed = bodySchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.code(400).send({ code: 400, message: parsed.error.issues[0]?.message ?? '参数错误' })
-    }
-    // 有界并发(12):单盘可达 ~30 个 target,串行逐条 fetch 会把整盘加载时间
-    // 放大成 30×单条延迟;全量 Promise.all 又会对上游形成尖刺。12 路并发在
-    // 本机 Prometheus/Loki 下整盘通常亚秒级完成,且上游压力可控。
-    const CONCURRENCY = 12
-    const results: QueryResult[] = new Array(parsed.data.queries.length)
-    let cursor = 0
-    const workers = Array.from({ length: Math.min(CONCURRENCY, parsed.data.queries.length) }, async () => {
-      for (;;) {
-        const i = cursor++
-        if (i >= parsed.data.queries.length) return
-        const q = parsed.data.queries[i]!
-        const r =
-          q.backend === 'loki'
-            ? await queryLoki(q.expr, q.rangeSeconds, q.stepSeconds)
-            : await queryPrometheus(q.expr, q.rangeSeconds, q.stepSeconds)
-        results[i] = { ref: q.ref, ...r }
+  server.post(
+    '/monitor-panels/query',
+    { config: MONITOR_PANELS_NETWORK },
+    async (request, reply) => {
+      const parsed = bodySchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply
+          .code(400)
+          .send({ code: 400, message: parsed.error.issues[0]?.message ?? '参数错误' })
       }
-    })
-    await Promise.all(workers)
-    return reply.send(success({ results }))
-  })
+      // 有界并发(12):单盘可达 ~30 个 target,串行逐条 fetch 会把整盘加载时间
+      // 放大成 30×单条延迟;全量 Promise.all 又会对上游形成尖刺。12 路并发在
+      // 本机 Prometheus/Loki 下整盘通常亚秒级完成,且上游压力可控。
+      const CONCURRENCY = 12
+      const results: QueryResult[] = new Array(parsed.data.queries.length)
+      let cursor = 0
+      const workers = Array.from(
+        { length: Math.min(CONCURRENCY, parsed.data.queries.length) },
+        async () => {
+          for (;;) {
+            const i = cursor++
+            if (i >= parsed.data.queries.length) return
+            const q = parsed.data.queries[i]!
+            const r =
+              q.backend === 'loki'
+                ? await queryLoki(q.expr, q.rangeSeconds, q.stepSeconds)
+                : await queryPrometheus(q.expr, q.rangeSeconds, q.stepSeconds)
+            results[i] = { ref: q.ref, ...r }
+          }
+        },
+      )
+      await Promise.all(workers)
+      return reply.send(success({ results }))
+    },
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
