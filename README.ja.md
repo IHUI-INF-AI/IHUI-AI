@@ -2175,6 +2175,14 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-20**
+- ⚡ パフォーマンス:页头字标换成真矢量,1.18MB -> 42KB(两版各减 96%) (c079c6d705b)
+- 📚 ドキュメント:文档层洗掉已退役看板程序名(README×3 + docs 29 份,128 处) (8c1e72e10b1)
+- ♻️ リファクタ:自有 env 键 GRAFANA_* → BOARD_*(含 saas 编排/gen-secrets/示例) (b17056a4ed9)
+- 📚 ドキュメント:门名索引跟着 panel 系改名(修 R4:新门名在文档里看不见) (bb5c9acbef9)
+- ♻️ リファクタ:看板器物改名落库(panel 系;门 220/222 的悬空引用一并解掉) (a7ced7411ca)
+- ⚡ パフォーマンス:语言包改为按需加载,首屏不再带 5 种语言 (5dba888279d)
+
+**2026-10-20**
 - 🐞 修正:Sidebar 补回 useNavVisibilityFilter 的 import,解部署环 TS2304 冻结 (9451f3378d0)
 - 🐞 修正:根治原生适配器绕过并发闸 + GBK 丢日志 + 流式错误无溯源 (72dc9299846)
 

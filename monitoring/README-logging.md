@@ -4,11 +4,11 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
 
-# IHUI-AI 日志栈（Loki + Promtail + Grafana）
+# IHUI-AI 日志栈（Loki + Promtail）
 
-本项目使用 Grafana Loki + Promtail 实现生产环境日志聚合，与 Prometheus 指标监控、告警链路（Alertmanager）一起构成完整可观测性栈。
+本项目使用 Loki + Promtail 实现生产环境日志聚合，与 Prometheus 指标监控、告警链路（Alertmanager）一起构成完整可观测性栈。
 
-> **部署模型声明（2026-09-06 修订）**：线上生产环境为 **Windows 原生进程部署**——Loki/Promtail/Grafana/Prometheus/Alertmanager 均为**原生二进制**在 `D:\DevEnv\monitor` 下运行，由 Windows 服务（NSSM）或裸进程托管，**并非 docker 容器**。日志采集对象是**本机应用日志文件**，不是 docker 容器日志。`docker-compose.yml` 中的监控服务仅作为**可选容器化方案保留**，不是当前线上的真实形态。请勿再用 `docker compose up loki promtail` 的思路去理解或操作生产监控栈。
+> **部署模型声明（2026-09-06 修订）**：线上生产环境为 **Windows 原生进程部署**——Loki/Promtail/Prometheus/Alertmanager 均为**原生二进制**在 `D:\DevEnv\monitor` 下运行，由 Windows 服务（NSSM）或裸进程托管，**并非 docker 容器**。日志采集对象是**本机应用日志文件**，不是 docker 容器日志。`docker-compose.yml` 中的监控服务仅作为**可选容器化方案保留**，不是当前线上的真实形态。请勿再用 `docker compose up loki promtail` 的思路去理解或操作生产监控栈。
 
 ## 一、架构说明
 
@@ -27,13 +27,14 @@ Loki（原生进程，监听 127.0.0.1:3100，日志聚合 + 索引 + 保留）
        │  - boltdb-shipper（历史） + tsdb（2024+）
        │  - 30 天自动清理
        ▼
-Grafana Explore（LogQL 查询 + 可视化，127.0.0.1:8816）
-       │  - 与 Prometheus 指标联动
+查询入口（LogQL 查询 + 可视化）
+       │  - 监控面板页 /admin/monitor/panels（读 monitoring/panel-defs）
+       │  - Loki HTTP API：http://127.0.0.1:3100
        ▼
 告警 / 排障 / 分析
 ```
 
-数据流总结：**应用 → 本机日志文件 → Promtail → Loki（127.0.0.1:3100） → Grafana 查询**
+数据流总结：**应用 → 本机日志文件 → Promtail → Loki（127.0.0.1:3100） → 面板页 / Loki API 查询**
 
 > 没有 systemd journal；Promtail 的 `journal` job 仅适用于 Linux 宿主机，Windows 原生部署不使用。
 
@@ -47,7 +48,6 @@ Grafana Explore（LogQL 查询 + 可视化，127.0.0.1:8816）
 | api（Fastify）       | 8802              | 业务后端，暴露 /metrics                               | —                    |
 | ai-service           | 8803              | FastAPI AI 服务（uvicorn 127.0.0.1:8803）             | —                    |
 | Prometheus           | **8815**          | 抓取 /metrics，PromQL/告警规则、/targets              | 9090（容器内）       |
-| Grafana              | **8816**          | 仪表盘 + Explore 入口                                 | 8816                 |
 | Loki                 | **3100**          | 日志推送 / 查询 / /ready / /metrics                   | 3100                 |
 | Promtail             | **9080**          | 自身指标 /health / /targets（抓取目标）               | 9080                 |
 | Alertmanager         | **9093**          | 告警分组/抑制/路由                                    | 9093                 |
@@ -64,7 +64,6 @@ Grafana Explore（LogQL 查询 + 可视化，127.0.0.1:8816）
 ```powershell
 # 查看监控各服务安装/运行状态
 nssm status ihui-prometheus
-nssm status ihui-grafana
 nssm status ihui-loki
 nssm status ihui-promtail
 nssm status ihui-alertmanager
@@ -75,7 +74,7 @@ nssm restart ihui-loki
 nssm restart ihui-promtail
 
 # 查看各监控服务日志（NSSM 捕获，路径以 D:\DevEnv\logs 及各类子目录为准）
-# 如 D:\DevEnv\logs\svc-promtail-nssm*.log（Promtail）、grafana/nssm/*.log（Grafana）
+# 如 D:\DevEnv\logs\svc-promtail-nssm*.log（Promtail）
 ```
 
 启动后服务地址（生产真实）：
@@ -86,9 +85,9 @@ nssm restart ihui-promtail
 - Promtail 健康检查：http://127.0.0.1:9080/ready
 - Promtail 指标 / 抓取目标：http://127.0.0.1:9080/metrics 、 http://127.0.0.1:9080/targets
 - Prometheus：http://127.0.0.1:8815（/targets、/alerts）
-- Grafana：http://127.0.0.1:8816
+- 监控面板页：http://127.0.0.1:8801/admin/monitor/panels
 
-> 若服务丢失/需重建，可参考 `monitoring/alertbridge/README.md` 中"重建命令"一节的 NSSM 写法（Alertmanager、Bridge），Prometheus/Grafana/Loki/Promtail 同理用 `D:\DevEnv\monitor` 下的原生二进制 + `--config.file=...` 注册为 NSSM 服务。
+> 若服务丢失/需重建，可参考 `monitoring/alertbridge/README.md` 中"重建命令"一节的 NSSM 写法（Alertmanager、Bridge），Prometheus/Loki/Promtail 同理用 `D:\DevEnv\monitor` 下的原生二进制 + `--config.file=...` 注册为 NSSM 服务。
 
 ## 四、日志采集对象（本机应用日志文件）
 
@@ -104,12 +103,11 @@ nssm restart ihui-promtail
 
 > 无需给"容器"打 `logging=promtail` 标签；这里不是 docker 采集模型。
 
-## 五、Grafana 查询指南
+## 五、LogQL 查询指南
 
-1. 打开 Grafana（http://127.0.0.1:8816，默认 admin / 配置的 GRAFANA_ADMIN_PASSWORD）
-2. 左侧菜单 → **Explore**（放大镜图标）
-3. 数据源下拉选择 **Loki**
-4. 在查询输入框中写 LogQL
+1. 面板入口：项目原生页 `/admin/monitor/panels`（读 `monitoring/panel-defs`，经 `/api/admin/monitor-panels/query` 直查 Prometheus 8815 / Loki 3100）
+2. 即席查询：直接打 Loki HTTP API，`query=` 参数填下面这些 LogQL
+   `curl "http://127.0.0.1:3100/loki/api/v1/query_range?query=%7Bjob%3D%22api%22%7D&limit=100"`
 
 ### LogQL 示例
 
@@ -273,24 +271,20 @@ Get-NetTCPConnection -LocalPort 9080 -State Listen -ErrorAction SilentlyContinue
 
 ### 3. Loki 启动失败
 
-- 看 Loki 运行日志(NSSM 捕获,如 `D:\DevEnv\logs` 下 loki 相关日志或 grafana/nssm 目录)。
+- 看 Loki 运行日志(NSSM 捕获,如 `D:\DevEnv\logs` 下 loki 相关日志)。
 - 常见错误:
   - 数据目录无写权限 → 检查 `D:\DevEnv\monitor\loki-data` ACL
   - `invalid config` → 检查 YAML 语法
   - 端口被占用 → `Get-NetTCPConnection -LocalPort 3100 -State Listen`(Loki 需独占 3100;gRPC 9097 同理勿冲突)
 
-### 4. Grafana 查询 Loki 报错
+### 4. 查询 Loki 报错
 
 ```powershell
-# 1) Grafana 是否能连通 Loki
-#    Grafana → Connections → Data Sources → Loki → URL 填 http://127.0.0.1:3100 → Save & Test
-#    应显示 "Data source connected and labels found."
-
-# 2) 检查 Loki 服务是否健康
+# 1) 检查 Loki 服务是否健康
 curl http://127.0.0.1:3100/ready
 #    应返回 "ready"
 
-# 3) 查询超时 → 调小查询时间范围或优化 LogQL
+# 2) 查询超时 → 调小查询时间范围或优化 LogQL
 ```
 
 ### 5. 磁盘占用过高
@@ -309,7 +303,7 @@ Get-ChildItem D:\DevEnv\monitor\loki-data -Recurse | Measure-Object -Property Le
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  Grafana（统一可视化，127.0.0.1:8816）                         │
+│  监控面板页 /admin/monitor/panels(web 127.0.0.1:8801)          │
 │  ├─ Prometheus 数据源 → 指标（CPU/内存/QPS/延迟） 127.0.0.1:8815 │
 │  ├─ Loki 数据源      → 日志（本机应用日志）      127.0.0.1:3100  │
 │  └─ Alertmanager    → 告警（bridge → 运维邮件）   127.0.0.1:9093  │
@@ -352,6 +346,5 @@ Get-ChildItem D:\DevEnv\monitor\loki-data -Recurse | Measure-Object -Property Le
 - Loki 官方文档: https://grafana.com/docs/loki/latest/
 - LogQL 语法: https://grafana.com/docs/loki/latest/logql/
 - Promtail 配置: https://grafana.com/docs/loki/latest/send-data/promtail/configuration/
-- Grafana Loki 数据源: https://grafana.com/docs/grafana/latest/datasources/loki/
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

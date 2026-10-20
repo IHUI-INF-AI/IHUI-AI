@@ -123,13 +123,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 2967 | `testFiles` |
+| 测试文件 | 2968 | `testFiles` |
 | CI 工作流 | 49 | `ciWorkflows` |
-| Compose 服务 | 15 | `composeServices` |
+| Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 260 | `guardianGates` |
 | — blocking | 236 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15174 | `trackedFiles` |
+| 跟踪文件 | 15179 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-20。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -6121,6 +6121,14 @@ A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4449 API 路由 / 598 �
 > ⚠️ 未判定 1 项:`apiSrc`(apps/api/src 有 2 个 .ts 在面上取不到内容)
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-20**
+- ⚡ 性能:页头字标换成真矢量,1.18MB -> 42KB(两版各减 96%) (c079c6d705b)
+- 📚 文档:文档层洗掉已退役看板程序名(README×3 + docs 29 份,128 处) (8c1e72e10b1)
+- ♻️ 重构:自有 env 键 GRAFANA_* → BOARD_*(含 saas 编排/gen-secrets/示例) (b17056a4ed9)
+- 📚 文档:门名索引跟着 panel 系改名(修 R4:新门名在文档里看不见) (bb5c9acbef9)
+- ♻️ 重构:看板器物改名落库(panel 系;门 220/222 的悬空引用一并解掉) (a7ced7411ca)
+- ⚡ 性能:语言包改为按需加载,首屏不再带 5 种语言 (5dba888279d)
+
 **2026-10-20**
 - 🐞 修复:Sidebar 补回 useNavVisibilityFilter 的 import,解部署环 TS2304 冻结 (9451f3378d0)
 - 🐞 修复:根治原生适配器绕过并发闸 + GBK 丢日志 + 流式错误无溯源 (72dc9299846)
