@@ -18,15 +18,14 @@
  * 汇率:存 system_configs(key='usdt_payment.rate'),默认 1.0(1 USDT = 1 USD = 100 cents)。
  * 区块链 API key:从 env TRONGRID_API_KEY / ETHERSCAN_API_KEY 读取。
  *
- * 充值地址格式校验(TRC20 形态,见 assertUsdtAddressFormat):
- * - 只卡 TRC20,ERC20 不动。ERC20 是 `0x` + 40 位 hex,形态规则与 Base58 完全不同;
- *   把 TRC20 正则套到 ERC20 上会把所有 ERC20 充值误拒,故 ERC20 显式放行。
+ * 充值地址格式校验(见 assertUsdtAddressFormat):
+ * - TRC20 卡 `^T[1-9A-HJ-NP-Za-km-z]{33}$`(T + 33 位 Base58,总长 34,字母表排除 0/O/I/l);
+ *   ERC20 卡 `^0x[0-9a-fA-F]{40}$`(0x + 40 位 hex,总长 42)。两条形态规则完全不同,
+ *   各自分流,不把一条正则套到另一条上;未知网络显式放行。
  * - 形态非法报 400 而非 500:「未配置」是缺配置(补环境变量即可,500);
  *   「配错了」是人的错,报 500 会让一次可修的配置笔误在监控上表现成服务故障。
- * - 正则 `^T[1-9A-HJ-NP-Za-km-z]{33}$` 来自波场地址形态:大写 T 开头
- *   + 33 个 Base58 字符(总长 34),字母表排除易混淆的 0/O/I/l。
- * - 调用点两处:createUsdtPayment(落库前拦新订单)与 verifyTrc20OnChain
- *   (兜住校验上线前已落库的存量脏行,该处 address 来自订单行而非 env)。
+ * - 调用点两处:createUsdtPayment(落库前按 network 拦新订单)与 verifyTrc20OnChain
+ *   (兜住校验上线前已落库的存量脏行,该处 address 来自订单行而非 env,固定 TRC20)。
  * - 错误信息不回显地址原文:坏值常带复制噪声,回显会让它流进日志/告警并长期留存。
  *
  * 金额转换:
@@ -90,13 +89,19 @@ const AMOUNT_EPS = 1e-4
 const TRON_ADDRESS_REGEX = /^T[1-9A-HJ-NP-Za-km-z]{33}$/
 
 /**
+ * EVM(ERC20)地址形态:`0x` 前缀 + 40 位十六进制(大小写混排),总长 42。
+ * 同样只做形态校验(前缀 + 长度 + hex 字母表),不做 EIP-55 大小写校验和 ——
+ * 收款 env 配置是粘贴的完整地址,形态合法即可拦住「截断/混入非 hex/贴错 TRC20」;
+ * 校验和对「配错别人地址」无帮助(那是配置问题,不是格式问题)。
+ */
+const ERC20_ADDRESS_REGEX = /^0x[0-9a-fA-F]{40}$/
+
+/**
  * 判断字符串是否为形态合法的波场(TRC20)地址。
  *
- * 为什么只卡 TRC20、ERC20 放行:
- * ERC20 地址是 `0x` + 40 位十六进制,形态规则与 Base58 完全不同
- * (长度 42、含 0/x、大小写十六进制混排)。若把TRC20 正则套到 ERC20 上,
- * 所有 ERC20 充值都会被误拒。因此本函数只服务 TRC20 路径,
- * 调用方必须用 network === 'TRC20' 显式分流,ERC20 不走这里。
+ * 本函数只服务 TRC20 路径:ERC20 地址是 `0x` + 40 位十六进制,形态规则与
+ * Base58 完全不同(长度 42、含 0/x、大小写 hex 混排),由 isErc20Address 单独判定,
+ * 调用方按 network 显式分流,不把一条正则套到另一条上。
  *
  * 为什么不回显地址原文:
  * 地址是收款敏感配置,坏值常带复制噪声(空白/换行/半截串)。把原文拼进
@@ -105,6 +110,11 @@ const TRON_ADDRESS_REGEX = /^T[1-9A-HJ-NP-Za-km-z]{33}$/
  */
 export function isTronAddress(value: string): boolean {
   return TRON_ADDRESS_REGEX.test(value)
+}
+
+/** 判断字符串是否为形态合法的 EVM(ERC20)地址(0x + 40 位 hex)。 */
+export function isErc20Address(value: string): boolean {
+  return ERC20_ADDRESS_REGEX.test(value)
 }
 
 /**
@@ -121,16 +131,28 @@ export function isTronAddress(value: string): boolean {
  */
 export function assertUsdtAddressFormat(network: string, address: string): void {
   const net = (network || '').toUpperCase()
-  // ERC20 形态规则不同(0x + 40 hex),不在本函数职责内,显式放行而非漏判
-  if (net !== 'TRC20') return
-  if (isTronAddress(address)) return
-  throw Object.assign(
-    new Error(
-      'TRC20 充值地址格式非法(应为 T 开头的 34 位波场 Base58 地址:大写 T + 33 位 Base58 字符,' +
-        '字母表不含 0/O/I/l);请核对环境变量 USDT_TRC20_ADDRESS 的取值,为避免脏数据入账已拒绝',
-    ),
-    { statusCode: 400 },
-  )
+  if (net === 'TRC20') {
+    if (isTronAddress(address)) return
+    throw Object.assign(
+      new Error(
+        'TRC20 充值地址格式非法(应为 T 开头的 34 位波场 Base58 地址:大写 T + 33 位 Base58 字符,' +
+          '字母表不含 0/O/I/l);请核对环境变量 USDT_TRC20_ADDRESS 的取值,为避免脏数据入账已拒绝',
+      ),
+      { statusCode: 400 },
+    )
+  }
+  if (net === 'ERC20') {
+    if (isErc20Address(address)) return
+    throw Object.assign(
+      new Error(
+        'ERC20 充值地址格式非法(应为 0x 开头 + 40 位十六进制字符,共 42 位);' +
+          '请核对环境变量 USDT_ERC20_ADDRESS 的取值,为避免脏数据入账已拒绝',
+      ),
+      { statusCode: 400 },
+    )
+  }
+  // 未知网络(非 TRC20/ERC20)不在本函数职责内,显式放行而非漏判
+  return
 }
 
 // =============================================================================
