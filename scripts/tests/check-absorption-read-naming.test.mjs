@@ -13,7 +13,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-absorption-read-naming.mjs')
 const MATRIX_PATH = join(__dirname, '..', 'zcode-absorption-matrix.mjs')
-const { evaluate } = (await import(pathToFileURL(SCRIPT_PATH).href)).__test__
+const { evaluate, countStringFormSlices } = (await import(pathToFileURL(SCRIPT_PATH).href)).__test__
+const { decide } = await import(pathToFileURL(MATRIX_PATH).href)
 
 const ROWS = [
   { path: 'a', read: 10, verifiedRead: 6 },
@@ -54,6 +55,40 @@ test('透传有牙:matrix 的 M13 错必须进本器 violations,不得静默丢�
   const r = evaluate({ rows: ROWS, matrixErrors: [m13err], stringFormSlices: 1, m13Present: true, sixRegions: SIX })
   assert.deepEqual(r.delegatedRed, [m13err])
   assert.ok(r.violations.some((v) => v.startsWith('透传') && v.includes('M13')))
+})
+
+// ═══════════════════════════════════════════════════════════
+// 同一定义 —— 本器 stringFormSlices 与 matrix namedReadOf 射程必须同形
+// (G-631 ②号分歧锁:两处对"什么算全量具名声明"曾不同形,同一份台账两处结论相反)
+// ═══════════════════════════════════════════════════════════
+
+test('空数组清单不算"已逐名登记"(length>0 闸在位,every() 真空判红锁)', () => {
+  const slices = [
+    { path: 'empty', read: 2, readFiles: [] },
+    { path: 'str', read: 1, readFiles: ['a.ts'] },
+    { path: 'obj', read: 1, readFiles: [{ p: 'a.ts', lines: 3 }] },
+    { path: 'none', read: 1 },
+  ]
+  assert.equal(countStringFormSlices(slices), 1, '只有真具名那一片算;空数组不得被 every() 真空判成具名')
+})
+
+test('同一定义:同一份切片过两器,具名射程读数必须相等(空数组/对象形态/无键都不算)', () => {
+  const FACE = {
+    files: ['packages/a/src/x.ts', 'packages/a/src/y.ts'],
+    lineCounts: { 'packages/a/src/x.ts': 10, 'packages/a/src/y.ts': 20 },
+  }
+  const cases = [
+    { readFiles: [], read: 2, status: 'deep', want: 0 },
+    { readFiles: ['packages/a/src/x.ts', 'packages/a/src/y.ts'], read: 2, status: 'deep', want: 1 },
+    { readFiles: [{ p: 'packages/a/src/x.ts', lines: 10 }], read: 1, status: 'windowed', want: 0 },
+    { readFiles: undefined, read: 2, status: 'deep', want: 0 },
+  ]
+  for (const c of cases) {
+    const slice = { path: 'packages/a/src', status: c.status, read: c.read, evidence: ['packages/a/src/x.ts:1-3'], verified: 'self', readFiles: c.readFiles }
+    assert.equal(countStringFormSlices([slice]), c.want, `本器计数 readFiles=${JSON.stringify(c.readFiles)}`)
+    const m = decide({ ...FACE, registry: { slices: [slice] } })
+    assert.equal(m.m13.scope, c.want, `matrix 射程 readFiles=${JSON.stringify(c.readFiles)} —— 两处必须同形`)
+  }
 })
 
 // ═══════════════════════════════════════════════════════════
