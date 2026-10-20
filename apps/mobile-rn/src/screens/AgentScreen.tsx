@@ -55,7 +55,8 @@ import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
 import MyAgents, { type MyAgentItem } from '../components/MyAgents'
 import IntelligentAssistant from '../components/IntelligentAssistant'
 import { SearchOverlay } from '../components/SearchOverlay'
-import { CategoryInlineBar, type CategoryItem } from '@ihui/rn-app'
+import { CategoryInlineBar, ScrollJumpButton, type CategoryItem } from '@ihui/rn-app'
+import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
 import type { CarouselItem } from '@ihui/ui-native'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -754,9 +755,13 @@ export function AgentScreen() {
         </View>
       </ScrollView>
       {showBackToTop ? (
-        <TouchableOpacity style={styles.backToTopBtn} activeOpacity={0.7} onPress={handleBackToTop}>
-          <Text style={styles.backToTopIcon}>↑</Text>
-        </TouchableOpacity>
+        <ScrollJumpButton
+          direction="top"
+          onPress={handleBackToTop}
+          label={t('common.backToTop')}
+          colorScheme={resolvedTheme}
+          style={{ position: 'absolute', right: scrollJumpInsetPx(), bottom: scrollJumpInsetPx() }}
+        />
       ) : null}
       <FloatBox
         visible={toast.visible}
@@ -896,28 +901,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
   },
   modelStartBtnText: { fontSize: 13, color: tokens.brand.ctaForeground, fontWeight: '600' },
-  backToTopBtn: {
-    position: 'absolute',
-    bottom: 20,
-    right: 16,
-    width: 34,
-    height: 34,
-    borderRadius: rnRadius.sm,
-    backgroundColor: tokens.surface.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 3,
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  backToTopIcon: {
-    fontSize: 18,
-    color: tokens.text.secondary,
-    lineHeight: 20,
-    includeFontPadding: false,
-  },
+  // 返回顶部按钮样式已收进 @ihui/shared/ui/scroll-jump-spec(2026-10-20 用户定「不许单独设定」),
+  // 端内不得再留第二份盒档 —— 见 @ihui/rn-app ScrollJumpButton 头注。
   trackOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
   trackContent: {
     backgroundColor: tokens.surface.card,

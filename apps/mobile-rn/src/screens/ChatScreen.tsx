@@ -162,6 +162,9 @@ import {
 } from '../components/chat/ChatMessageList'
 import { ShareRewardDialog } from '../components/ShareRewardDialog'
 import { NavChrome } from '../components/NavChrome'
+// 会话失效出口唯一实现:401 流与 SSE auth 错误都必须走它(不落登出标记),见 stores/auth-store.ts
+import { expireAuth } from '../stores/auth-store'
+import { navigateTo } from '../navigation/navigation-ref'
 // G-166:交代区(RN 端共享组件)—— 引用来源 + 本轮上下文注入,与 N8n 屏同一实现
 // D135(承 V4 #93):任务进度状态条 —— 执行帧折叠结果的可读出口,与 N8n 屏同一组件
 import { TaskStatusBar } from '../components/ai/TaskStatusBar'
@@ -455,7 +458,7 @@ export function ChatScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>()
   const rootNav = navigation.getParent<RootNav>()
-  const { user: authUser, token: authToken, logout } = useAuth()
+  const { user: authUser, token: authToken } = useAuth()
   // 录音不可用 → toast(showToast 定义在本函数后段,经 ref 桥接避免顺序依赖;
   // reason→文案与 HomeScreen handleVoiceUnavailable 逐字一致,2026-10-15 web 静默失效修复)
   const voiceUnavailableBridge = useRef<
@@ -837,13 +840,17 @@ export function ChatScreen() {
   const send = async (overrideText?: string, baseHistory?: ChatMessage[]): Promise<void> => {
     // 发送即收起滑出面板(对齐 Uniapp handleSendMessageabc:isShowIcon = false)
     setInputPanelVisible(false)
-    // 登录校验:未登录提示并跳转 Login(logout 触发 RootNavigator 切换到 Login 流)
+    // 登录校验:未登录提示并跳转 Login。
+    // 这里**不得**走 `logout()`:那是"用户主动退出"的出口,会落登出标记
+    // (packages/shared/src/auth/auto-login-policy.ts),把记住的账密压到下一次冷启动
+    // 不再自动登录 —— 而此刻根本没有会话可退,只是在提示一个未登录的人去登录。
+    // 未登录分支本来就挂着 Login(`RootNavigator` 两端都注册),直达即可。
     if (!authUser) {
       appAlert('提示', '请先登录后再发送消息', [
         {
           text: t('chatAlert.loginBtn'),
           onPress: () => {
-            void logout()
+            navigateTo('Login')
           },
         },
         { text: '取消', style: 'cancel' },
@@ -1143,7 +1150,16 @@ export function ChatScreen() {
         abortRef.current = null
         if (formatted.severity === 'auth') {
           appAlert(formatted.title, formatted.message, [
-            { text: '重新登录', onPress: () => logout() },
+            {
+              text: '重新登录',
+              onPress: () => {
+                // 服务端把这次会话判死了 ⇒ 走**被动失效**出口:先跳(同步可达),再清本地
+                // 凭据。`expireAuth()` 不落登出标记(那是用户主动退出的语义),否则一次
+                // 过期就把"记住密码/自动登录"永久压住 —— 与 RootNavigator 的 401 出口同形。
+                navigateTo('Login')
+                void expireAuth()
+              },
+            },
             { text: '取消', style: 'cancel' },
           ])
         } else {

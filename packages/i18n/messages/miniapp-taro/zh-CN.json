@@ -87,6 +87,7 @@
     "loadFailed": "加载任务失败"
   },
   "common": {
+    "backToTop": "回到顶部",
     "hint": "提示",
     "goSettings": "去设置",
     "all": "全部",

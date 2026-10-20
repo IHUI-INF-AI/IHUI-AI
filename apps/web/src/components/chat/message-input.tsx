@@ -1124,12 +1124,13 @@ export function MessageInput({
               // ring/shadow 属 box-shadow 轴,不受 `*{border-color}` 影响,故保留工具类写法。
               'ai-input-shell flex flex-col rounded-xl border bg-card transition-[border-color,box-shadow]',
               // 互斥的边框逻辑:拖拽(文件或会话) > 高风险 > 默认。
-              // ring/shadow 聚焦反馈只加在默认分支 —— 高风险分支的琥珀 glow 与拖拽分支的
-              // ring-2 各有专属视觉,focus-within 不去覆盖它们。
+              // ring/shadow 聚焦反馈只加在默认分支 —— 拖拽分支的 ring-2 有专属视觉,
+              // focus-within 不去覆盖它;高风险分支只留脉冲,不再叠琥珀 glow(2026-10-20 用户定档:
+              // 全项目禁止橙色描边,风险信号由 animate-pulse-soft 独占承担)。
               isDragOver || isConvDragOver
                 ? 'ai-input-shell--dragging ring-2 ring-ring/20'
                 : isHighRisk
-                  ? 'ai-input-shell--high-risk shadow-[0_0_0_1px_rgba(245,158,11,0.08)] animate-pulse-soft'
+                  ? 'ai-input-shell--high-risk animate-pulse-soft'
                   : 'ai-input-shell--idle focus-within:ring-1 focus-within:ring-ring/30 focus-within:shadow-sm',
             )}
           >
