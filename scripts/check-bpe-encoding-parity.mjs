@@ -7,13 +7,13 @@
 /**
  * check-bpe-encoding-parity.mjs —— 跨端 BPE 词表对账(台账 G-1058650 残余②「跨端 BPE 分歧未归因」)
  *
- * 【接线状态:未接 pre-commit、未登记 guardian-runner;接线归主会话裁决,理由见下方「为什么暂不装车」】
+ * 【接线状态:已接 pre-commit、已登记 guardian-runner(id 228,blocking;stagedTriggers=packages/context-compaction/ + apps/ai-service/app/core/context_compaction.py;2026-10-20 G-104 D)】
  *   实测依据(2026-10-07 现读):`grep -n "bpe-encoding-parity" scripts/guardian-runner.mjs` = **0 命中**。
  *   本门**刻意不写** "已接 pre-commit" —— 那种自称已在本仓因"锚字面量而不核真值源"倒过 40+ 例。
  *   问责入口:`node scripts/check-bpe-encoding-parity.mjs --strict`(默认档与 --strict 同语义,理由见下)。
  *   取证:`node scripts/check-bpe-encoding-parity.mjs --self-test`(含两次变异对照)
  *   §22c 镜像:`node --test scripts/tests/check-bpe-encoding-parity.test.mjs`
- *   **没有紧急跳过变量** —— 它不在钩子链上,不存在「被跳过」这件事。
+ *   紧急跳过变量 `HUSKY_SKIP_BPE_ENCODING_PARITY=1`(已随注册条目成套)。
  *
  * 它钉的是什么病(主会话已用可重跑命令**独立坐实**,不是假想、不是本文的推测):
  *   两端根本不是同一套 BPE 词表,而两侧注释都声称「一致」,还互指对方为等价实现:
@@ -68,7 +68,7 @@
  *   同值 / 漂移 / **未判定**。未判定(面取不到、包解析不出、Python 派生失败、探针枚举到 0 条)
  *   一律 exit 2,**既不记绿也不冒红**。一例都没判到 ⇒ 判死(宁可大声,不可发合格证)。
  *
- * 为什么暂不装车(不许照抄别门的「已接 pre-commit」就以为能装车):
+ * 为什么当初暂不装车(历史;2026-10-20 统一 cl100k 后已解除):
  *   ① 本门需要 ai-service 的 .venv 解释器,而**解释器在不在是机器状态**:缺它的提交者结构上
  *      满足不了,挂 blocking 就是每台每次被逼 `--no-verify`,而一次绕过等于该枚提交上**全部**
  *      守门作废(AGENTS §12e 同型;先例 scripts/check-line-split-parity.mjs 头注逐字同因,本门照它办理)。
