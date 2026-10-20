@@ -15,6 +15,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { __test__ as G } from '../git-guardian.mjs'
+import { __test__ as probe } from '../check-public-path-probe.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 function mkRunner(results) {
@@ -327,5 +328,74 @@ test('dedupKey 不吃小数点抖动:同一故障的 13s / 13.5s 必须同身份
     G.alertFingerprint('x', '最长连续不可用 13.5s'),
     'alertFingerprint 吃不掉小数点 ⇒ 实时读数进正文就会绕过去重窗口(本条是"为什么"的证据)',
   )
+})
+
+// ───────── 严重度档必须真能穿过派发契约(2026-10-20 立,实测 sev 恒 0 两周) ─────────
+// 现场:尺子的 `.workbuddy/public-path-probe-last.json` 里 results 每条只有
+// verdict/reasons/numbers/leg —— **没有 stat**。而派发侧按 `r?.stat || {}` 取,
+// 取不到不报错,只把 classifyAlertIdentity 的严重度档冻在 0。后果不是"少一封信",
+// 而是"坏到断流级也不会变成新身份"⇒ 24h 窗口把恶化压成同一件事(§12f:失效的表现永远是安静)。
+
+const mkStat = (n, slow) =>
+  probe.summarizeSequence(
+    Array.from({ length: n }, (_, i) => {
+      const r = { status: 200, ms: i < slow ? 9000 : 20 }
+      return { at: new Date(1_700_000_000_000 + i * 60_000).toISOString(), ...r, ...probe.classifySample(r) }
+    }),
+    { slowMs: 8000 },
+  )
+const mkOutage = (n) =>
+  probe.summarizeSequence(
+    Array.from({ length: n }, (_, i) => {
+      const r = { status: null, ms: 3, causeCode: 'ECONNREFUSED' }
+      return { at: new Date(1_700_000_000_000 + i * 60_000).toISOString(), ...r, ...probe.classifySample(r) }
+    }),
+    { slowMs: 8000 },
+  )
+
+test('恶化必须换身份:纯慢(档 2)→ 断流(档 4)⇒ dedupKey 变了,不受 24h 窗口压住', () => {
+  // 夹具经**生产投影器**造(不是手抄一份形状):投影哪天又把 stat 吞掉,这两格当场红。
+  const mkBreach = (stat) => {
+    const j = probe.judgeSequence('B/公网·常态·入口段', stat, { rule: 'ratio', slowMs: 8000 })
+    assert.equal(j.verdict, 'breach', `夹具本身要先越阈,实得 ${j.verdict}:${j.numbers}`)
+    return { 'B/公网·常态·入口段': probe.projectVerdictForDispatch({ ...j, leg: 'entry', stat }) }
+  }
+  const slow = mkBreach(mkStat(20, 12))
+  const out = mkBreach(mkOutage(20))
+  const h = harness(slow)
+  try {
+    h.round()
+    h.round(slow, { now: 1_700_000_000_000 + 30 * 60 * 1000 })
+    assert.equal(h.sent.length, 1, '连满两轮要到人(前置:门槛这条链本身是通的)')
+    const slowKey = h.sent[0].opts.dedupKey
+    assert.match(slowKey, /sev=2/, `纯慢 60% 的身份必须带档 2,实得:${slowKey}`)
+    // 同一序列、同一段、同一结论,只有**严重度**变了 ⇒ 必须是新身份
+    h.round(out, { now: 1_700_000_000_000 + 40 * 60 * 1000 })
+    assert.equal(h.sent.length, 2, `恶化到断流级必须立刻重报(不受 24h 窗口约束),实寄 ${h.sent.length} 封`)
+    assert.match(h.sent[1].opts.dedupKey, /sev=4/, `断流级身份必须带档 4,实得:${h.sent[1].opts.dedupKey}`)
+    assert.notEqual(h.sent[1].opts.dedupKey, slowKey, '跨档不换身份 = 升级通道是假的')
+    // 成对反证:带 stat 的这一路**不许**报"失明" —— 否则上一格只是恰好也绿。
+    assert.ok(
+      !h.logs.some((l) => l.includes('缺少 stat')),
+      `读数齐全却报了失明(这条日志必须只在真拿不到时响):${h.logs.join(' ⎯ ')}`,
+    )
+  } finally {
+    rmScratch(h.dir)
+  }
+})
+
+test('尺子哪天不带 stat:当场报名"升级通道失明",不得静默按档 0 继续(§0.3)', () => {
+  const h = harness(B_PUBLIC_BREACH)
+  try {
+    h.round()
+    h.round()
+    assert.equal(h.sent.length, 1, '缺 stat 不改变"该喊人还是喊人"的终态(失效方向只能是多喊,绝不能少喊)')
+    assert.ok(
+      h.logs.some((l) => l.includes('缺少 stat') && l.includes('失明')),
+      `缺 stat 必须留下一条点名"严重度档本轮量不到"的日志,实得日志:${h.logs.join(' ⎯ ')}`,
+    )
+  } finally {
+    rmScratch(h.dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
