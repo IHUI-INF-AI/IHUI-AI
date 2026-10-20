@@ -21,7 +21,7 @@ import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { IconButton } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { createPortal } from 'react-dom'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { compressConversation, type BudgetEvent } from '@ihui/api-client'
 // G-404(2026-09-29):/compress 成功是结构化重置信号 ⇒ 向 budget 写点登记一次性例外阶段。
 // B 节(2026-09-30):ring 订阅同一枚 budget 帧,承接今日额度档位色(见 mergeBudgetLevel)。
@@ -363,10 +363,12 @@ interface ContextUsageRingProps {
 }
 
 export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRingProps) {
+  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
+  const chatStore = usePaneChatStore()
   const t = useTranslations('chat.contextUsage')
-  const messages = useChatStore((s) => s.messages)
-  const conversationId = useChatStore((s) => s.conversationId)
-  const usageByMessageId = useChatStore((s) => s.usageByMessageId)
+  const messages = chatStore((s) => s.messages)
+  const conversationId = chatStore((s) => s.conversationId)
+  const usageByMessageId = chatStore((s) => s.usageByMessageId)
   const translateDetail = useDetailLabelTranslator()
 
   const maxTokens = React.useMemo(() => getModelContextCapacity(model), [model])

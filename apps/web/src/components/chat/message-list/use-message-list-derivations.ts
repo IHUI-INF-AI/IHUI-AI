@@ -7,7 +7,7 @@ import type { ChatMessage } from '@/stores/chat'
 import type { SubAgentActivity } from '@/components/ai/types'
 import type { PlanStep } from '@/hooks/use-agent-progress'
 import { stabilizeListItems } from '@ihui/shared/ui/list-stabilization'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { useTimelineStore, type TimelineEvent } from '@/stores/timeline-store'
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
 
@@ -28,6 +28,8 @@ export function useMessageListDerivations({
   subAgentActivitiesProp,
   t,
 }: MessageListDerivationsOptions): void {
+  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
+  const chatStore = usePaneChatStore()
   // TimelineStore:事件列表(2026-07-28 立;2026-07-31 立,移除 tab 切换,单一对话流视图)
   // - tab 切换已移除(对标 主流 IDE 单一对话流),保留 events 供其他组件共享
   const timelineEvents = useTimelineStore((s) => s.events)
@@ -36,7 +38,7 @@ export function useMessageListDerivations({
   // ChatStore:subAgentActivities(2026-07-28 立)用于派生 TimelineEvent + SubAgentTaskTree
   // 优先用 prop 传入的 subAgentActivities(由 ai-side-panel 派生),
   // 兜底从 useChatStore 内部读取(独立使用 MessageList 的场景)
-  const subAgentActivitiesFromStore = useChatStore((s) => s.subAgentActivities)
+  const subAgentActivitiesFromStore = chatStore((s) => s.subAgentActivities)
   const subAgentActivities = subAgentActivitiesProp ?? subAgentActivitiesFromStore
 
   // 最后一条 assistant 消息 ID(用于 planSteps 状态判定 + subagent 关联)
