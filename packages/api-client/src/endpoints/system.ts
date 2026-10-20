@@ -126,24 +126,20 @@ export interface LoginDevice {
   [key: string]: unknown
 }
 
-/** 安全日志 */
+/**
+ * 安全日志(GET /api/settings/security-logs)。
+ * 字段 = `security_logs` 表实列(见 packages/database/src/schema/security-logs.ts):
+ * action/ip/userAgent/metadata/createdAt。旧声明里的 type/description/device/createTime
+ * 后端从未返回 —— 按旧声明渲染会得到一排 undefined,故按实列重写。
+ */
 export interface SecurityLog {
   id: string
-  type:
-    | 'login'
-    | 'logout'
-    | 'password_change'
-    | 'email_change'
-    | 'phone_change'
-    | 'two_factor_enable'
-    | 'two_factor_disable'
-  description: string
-  ip: string
-  location: string
-  device: string
-  createTime: string
-  status: 'success' | 'failed'
-  [key: string]: unknown
+  userId: string
+  action: string
+  ip: string | null
+  userAgent: string | null
+  metadata: unknown
+  createdAt: string
 }
 
 /** 统计数据 */
@@ -390,6 +386,83 @@ export async function getSecurityLogs(
   query: PageQuery & { type?: string; startDate?: string; endDate?: string } = {},
 ): Promise<ApiResult<PageData<SecurityLog>>> {
   return fetchApi<PageData<SecurityLog>>(`/api/settings/security-logs${buildQs(query)}`)
+}
+
+/** 安全评分(GET /api/user/security-score;后端按密码/邮箱/第三方绑定启发式计算,无分项明细)。 */
+export interface SecurityScore {
+  score: number
+  level: 'high' | 'medium' | 'low'
+}
+
+export async function getSecurityScore(): Promise<ApiResult<SecurityScore>> {
+  return fetchApi<SecurityScore>('/api/user/security-score')
+}
+
+/**
+ * 活跃会话(GET /api/settings/authorizations)。
+ * 字段以后端 refresh_tokens 的实列投影为准 —— 不含 ip/device/browser,不要按 web 旧组件的声明补。
+ */
+export interface AuthorizationSession {
+  id: string
+  createdAt: string
+  expiresAt: string
+  familyId: string | null
+}
+
+export async function getAuthorizations(
+  query: PageQuery = {},
+): Promise<ApiResult<PageData<AuthorizationSession>>> {
+  return fetchApi<PageData<AuthorizationSession>>(`/api/settings/authorizations${buildQs(query)}`)
+}
+
+/** 撤销一条登录会话(DELETE /api/settings/authorizations/:id;只能撤自己的,非 uuid 服务端回 400)。
+ * 名称带 Session 后缀:**不得**与 developer.ts 的 revokeAuthorization(撤 OAuth 应用授权)同名,
+ * index.ts 两条 export * 会撞名。 */
+export async function revokeUserSession(id: string): Promise<ApiResult<{ revoked: boolean }>> {
+  return fetchApi<{ revoked: boolean }>(`/api/settings/authorizations/${id}`, { method: 'DELETE' })
+}
+
+/** 两步验证状态(GET /api/auth/2fa/status)。 */
+export interface TwoFactorStatus {
+  enabled: boolean
+  hasBackupCodes: boolean
+  enabledAt: string | null
+}
+
+export async function getTwoFactorStatus(): Promise<ApiResult<TwoFactorStatus>> {
+  return fetchApi<TwoFactorStatus>('/api/auth/2fa/status')
+}
+
+/** 生成 TOTP 密钥与二维码(POST /api/auth/2fa/setup;确认前 enabled 仍为 false)。 */
+export interface TwoFactorSetup {
+  secret: string
+  uri: string
+  qrCode: string
+}
+
+export async function setupTwoFactor(accountName?: string): Promise<ApiResult<TwoFactorSetup>> {
+  return fetchApi<TwoFactorSetup>('/api/auth/2fa/setup', {
+    method: 'POST',
+    body: JSON.stringify(accountName ? { accountName } : {}),
+  })
+}
+
+/** 校验 6 位 TOTP 并启用(POST /api/auth/2fa/verify;备份码明文只返回这一次)。 */
+export async function verifyTwoFactor(
+  code: string,
+): Promise<ApiResult<{ verified: boolean; backupCodes: string[] }>> {
+  return fetchApi<{ verified: boolean; backupCodes: string[] }>('/api/auth/2fa/verify', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  })
+}
+
+/** 禁用两步验证(POST /api/auth/2fa/disable;需当前密码二次确认)。 */
+export async function disableTwoFactor(password: string): Promise<ApiResult<{ disabled: boolean }>> {
+  return fetchApi<{ disabled: boolean }>('/api/auth/2fa/disable', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  })
 }
 
 /** 导出用户数据 */

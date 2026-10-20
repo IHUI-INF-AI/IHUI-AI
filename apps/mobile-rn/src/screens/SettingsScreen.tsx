@@ -28,6 +28,7 @@ import {
   Smartphone,
   Key,
   Shield,
+  ShieldCheck,
   IdCard,
   AlertTriangle,
   RefreshCw,
@@ -95,6 +96,7 @@ export default function SettingsScreen() {
     { key: 'ChangePhone', label: t('menu.changePhone') },
     { key: 'ChangePwd', label: t('menu.changePwd') },
     // 安全设置 / 身份认证(孤儿路由修复:原注册无入口,补挂设置菜单)
+    { key: 'SecurityCenter', label: t('securityCenter.title') },
     { key: 'SecuritySettings', label: '安全设置' },
     { key: 'IdentityVerify', label: '身份认证' },
     { key: 'AccountCancel', label: t('menu.accountCancel') },
@@ -124,6 +126,7 @@ export default function SettingsScreen() {
     { key: 'SettingsAccount', label: t('menu.accountManage'), icon: User },
     { key: 'ChangePhone', label: t('menu.changePhone'), icon: Smartphone },
     { key: 'ChangePwd', label: t('menu.changePwd'), icon: Key },
+    { key: 'SecurityCenter', label: t('securityCenter.title'), icon: ShieldCheck },
     { key: 'SecuritySettings', label: '安全设置', icon: Shield },
     { key: 'IdentityVerify', label: '身份认证', icon: IdCard },
     { key: 'AccountCancel', label: t('menu.accountCancel'), icon: AlertTriangle },
