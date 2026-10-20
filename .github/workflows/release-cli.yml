@@ -251,6 +251,16 @@ jobs:
           Write-Host "SHA256: $((Get-FileHash -Algorithm SHA256 apps\cli\dist-sea\ihui.exe).Hash.ToLower())"
           "### 签名状态`n- Status: $($sig.Status)`n- Subject: $($sig.SignerCertificate.Subject)" >> $env:GITHUB_STEP_SUMMARY
 
+      # 凭据不齐时上面三步整体跳过 ⇒ 流水线照绿、产物照发,但发出去的是**未签名 exe**,
+      # 用户端 SmartScreen 警告一分不减。这类"静默降级"本仓的口径是不许无声:
+      # 这里显式打一条 warning 注解 + 写进 job 摘要,让 green 不被读成 signed。
+      - name: Report unsigned fallback (Windows)
+        if: matrix.os == 'windows' && env.SIGNPATH_CONFIGURED != 'true'
+        shell: pwsh
+        run: |
+          '::warning::SignPath 未启用(SIGNPATH_CONFIGURED=false):四项 secret 缺任一项即整体跳过签名,本次发布的 Windows 二进制未签名,用户仍会撞 SmartScreen。'
+          "### 签名状态`n- ⚠️ 未签名:`$env:SIGNPATH_CONFIGURED != true`(缺凭据即静默跳过,不代表已签名)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
       - name: Package (Linux/macOS)
         if: matrix.os != 'windows'
         shell: bash
