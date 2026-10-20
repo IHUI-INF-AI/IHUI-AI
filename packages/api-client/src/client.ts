@@ -41,6 +41,12 @@ import { isFrameGap, readFrameWatermark, type FrameWatermarkCursor } from './fra
 // 溢出错误(FrameBarrierOverflowError)由屏障 activate 命中溢出记录时构造抛出,
 // reason/droppedCount 以屏障内记录为准,本侧不重复构造。
 import { createFrameOwnershipBarrier, type BarrierFrame } from './frame-ownership-barrier.js'
+// G-816031:权威信封路由 —— 恢复闸门在 SSE 帧流上的生产消费点(判据源在 shared,本包同形移植)
+import {
+  createStreamAuthorityRouter,
+  StreamAuthorityResubscribeError,
+} from './stream-authority.js'
+import type { RecoveryGateLedger } from './recovery-gate.js'
 import type { DeviceFingerprintCollector } from '@ihui/types'
 // D152(2026-09-29):goal 状态的合法值集是**运行时判据**(解析帧时要验 status),
 // 故按值导入而非 type-only —— 单一来源仍是 @ihui/types 的 GOAL_WIRE_STATUSES。
@@ -1599,6 +1605,10 @@ export interface StreamChatOptions {
    *  G-916415 R1(2026-10-07):内部记录与本回调解耦、逐行求值不以此为前提 ——
    *  帧级 traceId 无论是否注册本回调都会进错误上报体(SSEErrorInfo.traceId);本回调只是可选旁路。 */
   onTraceId?: (traceId: string) => void
+  /** G-816031(2026-10-20):权威信封三轴账目。生产端下发 deliveryKind/reasonCode 时,
+   *  streamChat 逐帧解门 / 判重订阅 / 处置迟到片;本回调在流结束时交出账目
+   *  (含未判定逐条报名)。旧生产端从未下发权威信封 ⇒ 账目恒空、零行为变化。 */
+  onRecoveryGateLedger?: (ledger: RecoveryGateLedger) => void
   /** 2026-09-13 立,#11 Citations 全链路:knowledge_lookup 工具执行后,
    *  后端在 done 前下发 `event: citations` SSE 事件,前端据此写入 message.citations,
    *  MessageItem 渲染 CitationBar(来源标签 + 可点击 URL)。 */
@@ -3134,6 +3144,15 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // b76-13 票2:字段级结构不变量的 typed fault 计数(读环侧;shared 侧同表
   // 判据见 SSE_FRAME_SCHEMAS —— 丢帧必须留痕,不冒充解析成功)
   let _sseFrameSchemaFaults = 0
+  // G-816031:权威信封路由。跨重试共享(重试不是新的权威授予);仅当生产端下发
+  // deliveryKind/reasonCode 时进入 fail-closed,旧生产端逐帧放行、零行为变化。
+  const streamAuthority = createStreamAuthorityRouter()
+  let recoveryLedgerReported = false
+  const reportRecoveryGateLedger = (): void => {
+    if (recoveryLedgerReported) return
+    recoveryLedgerReported = true
+    opts.onRecoveryGateLedger?.(streamAuthority.ledger())
+  }
   // G-816030:帧归属屏障 —— ACK(本 attempt 首个 ok 水位帧)之前,undetermined 帧
   // 有界暂存不投递(上游 ackActivationBarrier:通知先于 RPC 响应抵达时,半截批次
   // 不得被当完整快照投影);ACK 时按原序冲刷;越界整批清空并显式失败。
@@ -3166,6 +3185,17 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       parsed = JSON.parse(raw)
     } catch {
       return false
+    }
+    // G-816031:先过权威信封三轴(解门 / 重订阅 / 片处置),再走帧水位闸。
+    // 旧生产端不带 authority 字段 ⇒ observeFrame 恒放行;一旦带过字段,门关着时
+    // 普通帧不投递,只有 deliveryKind === 'recovery' 能重新开门。
+    const authority = streamAuthority.observeFrame(parsed)
+    if (authority.resubscribe) {
+      throw new StreamAuthorityResubscribeError(authority.reason ?? 'unspecified')
+    }
+    if (authority.drop) {
+      _frameGapDropped++
+      return true
     }
     const read = readFrameWatermark(parsed)
     if (read.verdict === 'undetermined') {
@@ -3211,6 +3241,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       // G-816030:所有权未确立(本 attempt 未 ACK)时,gap 说明暂存帧可能属于
       // 旧代际 —— 与被丢的 gap 帧同批清空,不得投递("整批清空"防半截批次投影)。
       if (!frameBarrierAckedThisAttempt) frameBarrier.reset()
+      // G-816031:gap 即权威断档 ⇒ 关闸,直到 recovery 信封重新授予权威。
+      streamAuthority.observeGap(gap)
       _frameGapDropped++
       return true
     }
@@ -4849,14 +4881,18 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         frameBarrierAckedThisAttempt = false
         _frameBarrierFlush = []
         frameBarrier.reset()
+        // G-816031:新 attempt = 新订阅代际 ⇒ 权威须重新授予(仅权威感知流;legacy 无操作)
+        if (runnerAttempt > 0) streamAuthority.observeReconnect()
       },
       onLine: (line) => processLine(line),
       onReconnect: (retryAttempt, delayMs) => opts.onReconnect?.(retryAttempt, delayMs),
     })
+    reportRecoveryGateLedger()
     opts.onDone?.()
     return
   } catch (err) {
     if (isAbortError(err)) {
+      reportRecoveryGateLedger()
       opts.onDone?.()
       return
     }
@@ -4869,6 +4905,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const isBusinessError =
       code === 401 || code === 403 || (code === 429 && info?.retryAfter === undefined)
     const message = err instanceof Error ? err.message : '网络异常'
+    // G-816031:无论终态是业务错误还是重试耗尽,账目都要交出去(未判定逐条报名)。
+    reportRecoveryGateLedger()
     // 2026-09-04 吞错修复(Fix B):流内 SSE error 事件(如 provider 402 配额耗尽, errorCode: LLM_ERROR)
     // 耗尽内部重试后,若调用方传了 onError 则保持原行为(回调后 return);
     // 若未传 onError 则必须 throw err(reject),否则 Promise 会正常 resolve,
