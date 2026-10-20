@@ -60,6 +60,7 @@ from ..services.agent_run_control import (
     register_run,
     resume_session,
 )
+from ..services.async_gen_close import aclose_async_gen
 
 # V3 #84 生产者侧(2026-10-07):视野硬上限唯一真源,Field(le=) 直接引它,不抄第二份数字。
 from ..services.durable_resume import DURABLE_HORIZON_MAX_SECONDS
@@ -86,6 +87,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+async def _closing_event_stream(
+    gen: AsyncIterator[str], *, label: str
+) -> AsyncIterator[str]:
+    """把 SSE 生成器交给框架前显式关停:客户端断开时先 aclose 内层。"""
+    try:
+        async for item in gen:
+            yield item
+    finally:
+        await aclose_async_gen(gen, label=label)
 
 
 # ---------------------------------------------------------------------------
@@ -753,7 +765,7 @@ async def stream_agent_tasks(
                 hook_engine.unsubscribe(evt, q)
 
     return StreamingResponse(
-        event_generator(),
+        _closing_event_stream(event_generator(), label="agents.event_generator"),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
     )
@@ -821,7 +833,7 @@ async def stream_agent_logs(
                 hook_engine.unsubscribe(evt, q)
 
     return StreamingResponse(
-        event_generator(),
+        _closing_event_stream(event_generator(), label="agents.event_generator"),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
     )
@@ -1719,7 +1731,7 @@ async def execute_agent_stream(
                 release_ownership(sid)
 
     return StreamingResponse(
-        event_generator(),
+        _closing_event_stream(event_generator(), label="agents.event_generator"),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
