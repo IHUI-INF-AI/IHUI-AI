@@ -13,11 +13,14 @@
  * 历史加载只覆盖首屏 + 向上翻页(与根窗格同一 getMessages keyset 通道);
  * 切换会话的 LRU 与翻页态走同一出口 `useConversationPaneCache`(键含窗格身份),
  * 导入来源横幅走同一组件 `ImportProvenanceSlot` —— 都是"接现成出口",本组件不另写一份。
- * 断点续传仍只在根主体(P1-6 的 pendingResume 取数面是单例 store,窗格化属后续票)。
+ * 断点续传(片3,2026-10-21 起):本窗格的历史结算后同样走 `useResumeBranch`(其内部即
+ * `autoResumeAfterHistory`),捕获/续接/收尾全部落在该窗格的 store 实例 —— 与根窗格同一份
+ * 编排出口,不另写一套。
  */
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import dynamic from 'next/dynamic'
 
 import { getConversation, getMessages } from '@ihui/api-client'
 import { ImportProvenanceSlot } from '@/components/ai/import-source-banner'
@@ -27,6 +30,7 @@ import { QuestionDialog } from '@/components/chat/question-dialog'
 import { useChat } from '@/hooks/use-chat'
 import { useConversationPaneCache } from '@/hooks/use-conversation-pane-cache'
 import { hydrateHistoryMessages } from '@/hooks/use-chat/history-message'
+import { useResumeBranch } from '@/hooks/use-chat/resume-stream'
 import { noteRuntimeCapabilities } from '@/hooks/use-chat/runtime-capabilities'
 import { useApplyDiff } from '@/hooks/use-apply-diff'
 import { judgePageAdvance } from '@/lib/pagination-stall'
@@ -35,6 +39,17 @@ import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { useModeStore } from '@/stores/mode'
 import type { ImportProvenance } from '@ihui/shared/import-analysis'
 import { readImportProvenance } from '@ihui/shared/import-analysis'
+
+/** 「用场景分析」弹窗:与根窗格同一组件、同一懒加载边界(210 条模板正文 ≈493KB 不进窗格 chunk) */
+const ImportAnalysisDialog = dynamic(
+  () => import('@/components/ai/import-analysis-dialog').then((m) => m.ImportAnalysisDialog),
+  { ssr: false },
+)
+/** 工具面板(tab 托盘):与根窗格同一组件、同一懒加载边界;展开态与数据面都按窗格走(片3) */
+const AiSidePanelTools = dynamic(
+  () => import('@/components/ai/ai-side-panel-tools').then((m) => m.AiSidePanelTools),
+  { ssr: false },
+)
 
 export interface ChatPaneBodyProps {
   /** 布局树叶 id(= chat-panes 注册表键) */
@@ -76,7 +91,12 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
 
   const [loadingHistory, setLoadingHistory] = React.useState(false)
   const [importProvenance, setImportProvenance] = React.useState<ImportProvenance | null>(null)
+  // 「用场景分析」开合(与根窗格同判据:只有导入会话才有入口,自建会话不挂空壳弹窗)
+  const [analysisOpen, setAnalysisOpen] = React.useState(false)
   const requestSeqRef = React.useRef(0)
+  // P1-6 续接(片3,2026-10-21):与根主体共用同一份编排出口 useResumeBranch ——
+  // 捕获/结算后续接/中止三条时序只在一处实现(§0.6),本窗格只负责在历史 effect 里挂三个点。
+  const resume = useResumeBranch(chatStore, paneId, t)
 
   React.useEffect(() => {
     const seq = ++requestSeqRef.current
@@ -101,6 +121,8 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
     resetPager(cached ? cached.oldestCursor : null, cached ? cached.hasMore : false)
     setLoadingHistory(cached === null)
     const localBefore = chatStore.getState().messages
+    // 续接候选在远端快照覆盖 messages 之前捕获(未落库的本地助手消息不在快照里)
+    resume.capture(conversationId)
 
     void (async () => {
       try {
@@ -132,14 +154,19 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
       } catch {
         // 拉取失败保留当前消息,不阻塞输入
       } finally {
-        if (!cancelled && seq === requestSeqRef.current) setLoadingHistory(false)
+        if (!cancelled && seq === requestSeqRef.current) {
+          setLoadingHistory(false)
+          // 历史结算之后才续接(覆盖前会把未落库的本地消息整条抹掉)
+          resume.runAfterHistory(conversationId)
+        }
       }
     })()
 
     return () => {
       cancelled = true
+      resume.abort()
     }
-  }, [conversationId, chatStore, readCache, writeCache, resetPager])
+  }, [conversationId, chatStore, readCache, writeCache, resetPager, resume])
 
   const handleLoadMoreHistory = React.useCallback(async () => {
     const cursor = oldestCursorRef.current
@@ -187,8 +214,14 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
       data-chat-pane-body={paneId}
     >
       <div className="relative min-h-0 flex-1">
-        {/* D28 补齐层:导入会话的来源交代(与根窗格同一组件、同一显示条件;自建会话整块不渲染) */}
-        {importProvenance && <ImportProvenanceSlot provenance={importProvenance} />}
+        {/* D28 补齐层:导入会话的来源交代 + 分析入口(与根窗格同一组件、同一显示条件;
+            自建会话整块不渲染)。入口在片3 才接通 —— 弹窗草稿此前恒写根单例,点了不落本窗格。 */}
+        {importProvenance && (
+          <ImportProvenanceSlot
+            provenance={importProvenance}
+            onOpenAnalysis={() => setAnalysisOpen(true)}
+          />
+        )}
         <MessageList
           messages={messages}
           isStreaming={isStreaming}
@@ -218,6 +251,9 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
         />
       </div>
 
+      {/* W10 工具面板(片3 接进非根窗格):与根窗格同一组件,tab 数据源/展开态都读本窗格 */}
+      <AiSidePanelTools />
+
       <MessageInput
         onSend={sendMessage}
         onStop={stop}
@@ -231,6 +267,15 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
       />
 
       <QuestionDialog question={pendingQuestion} onSubmit={sendAnswer} onSkip={skipQuestion} />
+
+      {/* D28 补齐层:「用场景分析」弹窗(片3 闭合)—— 草稿经 usePaneChatStore 落**本窗格**输入框 */}
+      {importProvenance && (
+        <ImportAnalysisDialog
+          open={analysisOpen}
+          onOpenChange={setAnalysisOpen}
+          source={importProvenance.source}
+        />
+      )}
     </div>
   )
 }

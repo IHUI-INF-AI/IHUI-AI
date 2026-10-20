@@ -70,11 +70,8 @@ import { parsePendingQuestion } from '@/lib/pending-question'
 import { noteRuntimeCapabilities } from '@/hooks/use-chat/runtime-capabilities'
 import { fetchApi } from '@/lib/api'
 import { judgePageAdvance } from '@/lib/pagination-stall'
-import {
-  findPendingResume,
-  autoResumeAfterHistory,
-  type PendingResume,
-} from '@/hooks/use-chat/resume-stream'
+// P1-6 断点续传(片3,2026-10-21):编排与 ChatPaneBody 共用 useResumeBranch 一份出口
+import { useResumeBranch } from '@/hooks/use-chat/resume-stream'
 import { hydrateHistoryMessages } from '@/hooks/use-chat/history-message'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useDesktop } from '@/hooks/use-desktop'
@@ -494,18 +491,10 @@ export function AISidePanel() {
     loadingMoreHistory,
     setLoadingMoreHistory,
   } = useConversationPaneCache()
-  // P1-6 断点续传(2026-09-13 立):待续接的"被中断助手消息"候选。
-  // 在会话 effect 里、loadHistory 覆盖 messages 之前捕获;历史加载完成后由 useAutoResume 消费。
-  const pendingResumeRef = React.useRef<PendingResume | null>(null)
-  // 续接失败降级文案(useMemo 保证引用稳定,不触发 useAutoResume 重跑)
-  const resumeLabels = React.useMemo(
-    () => ({
-      title: t('resumeFailed'),
-      action: t('regenerate'),
-      noProgress: t('resumeNoProgress'),
-    }),
-    [t],
-  )
+  // P1-6 断点续传(2026-09-13 立;片3 2026-10-21 起):候选捕获 / 历史结算后续接 / 中止
+  // 三条时序与 ChatPaneBody 同一份编排出口;根主体 = 根单例 useChatStore + paneId null,
+  // 显式传进去(不靠函数内隐式回落)—— 谁承载会话,续接就落在谁身上。
+  const resume = useResumeBranch(useChatStore, null, t)
   // prevConversationIdRef:跟踪上一次会话 ID,切换时把旧会话状态写入缓存
   const prevConversationIdRef = React.useRef<string | null>(null)
   // 性能修复(2026-07-25):原 const pathname = usePathname() 订阅在 AISidePanel 根,
@@ -646,8 +635,6 @@ export function AISidePanel() {
     prevConversationIdRef.current = storeConversationId
 
     let cancelled = false
-    // P1-6 断点续传:本轮会话的续接中止控制器(切会话 / 卸载时 abort)
-    const resumeAbort = new AbortController()
 
     // 2026-09-12 W1 修复(本地在途消息被历史快照覆盖 → 正文 / plan / terminal 卡片整条消失):
     // 历史拉取是异步的,期间本地可能已写入新消息(新建会话后 addMessage + 流式增量)。
@@ -828,20 +815,15 @@ export function AISidePanel() {
 
       // P1-6 断点续传(2026-09-13 立):必须在 loadHistory 之前捕获 ——
       // 未落库的本地助手消息不在服务端快照里,loadHistory 会用快照整体覆盖 messages,
-      // 覆盖后就再也找不到了。捕获后由 autoResumeAfterHistory 在 loadHistory 结算后接管续接。
-      pendingResumeRef.current = findPendingResume(storeConversationId)
+      // 覆盖后就再也找不到了。片3(2026-10-21):编排走 useResumeBranch(根主体 = 根单例 + paneId null)。
+      resume.capture(storeConversationId)
 
       void loadHistory(storeConversationId).finally(() => {
-        // P1-6:历史结算之后才续接 —— 此前服务端快照会覆盖掉未落库的本地助手消息
-        void autoResumeAfterHistory(
-          pendingResumeRef,
-          storeConversationId,
-          resumeAbort.signal,
-          resumeLabels,
-        )
+        // 历史结算之后才续接;本轮已被切走/卸载(cancelled)就不再点火
+        if (!cancelled) resume.runAfterHistory(storeConversationId)
       })
     } else {
-      pendingResumeRef.current = null
+      resume.capture(null)
       useChatStore.setState({ messages: [], error: null })
       setConversationTitle(null)
       setImportProvenance(null)
@@ -851,13 +833,14 @@ export function AISidePanel() {
     return () => {
       cancelled = true
       // P1-6:切会话/卸载时中止在途续接,避免把旧会话的 token 写进新会话
-      resumeAbort.abort()
+      resume.abort()
     }
     // hasMoreHistory 用于切换会话前保存旧会话到缓存,但不放入依赖:
     // 避免 hasMoreHistory 变化触发 loadHistory 重载(分页加载由 handleLoadMoreHistory +
     // messages 同步 effect 处理缓存更新)
     // read/write/patch/resetPager 引用只随窗格身份变(useCallback),放进依赖不会多跑一轮
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- hasMoreHistory/oldestCursorRef/resumeLabels 故意不进依赖,避免其变化触发 loadHistory 重载
+    // resume 出口的三个回调引用恒定(取词走 ref),进依赖不多跑一轮
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hasMoreHistory/oldestCursorRef 故意不进依赖,避免其变化触发 loadHistory 重载
   }, [
     storeConversationId,
     setConversationId,
@@ -866,6 +849,7 @@ export function AISidePanel() {
     readConversationCache,
     writeConversationCache,
     resetPager,
+    resume,
   ])
 
   // 工作区按对话隔离(2026-09-04 立,响应"工作区设置完以后全部对话都是这个工作区"反馈):
