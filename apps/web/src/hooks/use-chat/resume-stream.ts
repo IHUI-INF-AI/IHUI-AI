@@ -2,9 +2,12 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { MutableRefObject } from 'react'
+import * as React from 'react'
 import { parseStreamLine } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
+// 票60 片3(2026-10-21):store 化注入的类型口径与 stream-handlers 同一份出口
+// (chat-pane-context 的 ChatStore),不造第三套 store 类型。
+import type { ChatStore } from '@/stores/chat-pane-context'
 import { useAuthStore } from '@/stores/auth'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useModeStore } from '@/stores/mode'
@@ -63,10 +66,15 @@ interface ResumeStatus {
  * 找出"流被中断、可续接"的助手消息。
  * 判定依据:末条助手消息 streamCompleted === false 且已有非空内容
  * (send-message 流开始时置 false,正常/异常收尾在 finally 置 true —— 只有中途页面销毁才残留 false)。
+ *
+ * chatStore(片3,2026-10-21):扫描面 = 被注入的那份 store;缺省不传恒为根单例(零回归)。
  */
-export function findPendingResume(conversationId: string | null): PendingResume | null {
+export function findPendingResume(
+  conversationId: string | null,
+  chatStore: ChatStore = useChatStore,
+): PendingResume | null {
   if (!conversationId) return null
-  const s = useChatStore.getState()
+  const s = chatStore.getState()
   if (s.conversationId !== conversationId) return null
   for (let i = s.messages.length - 1; i >= 0; i--) {
     const m = s.messages[i]
@@ -85,10 +93,10 @@ export function findPendingResume(conversationId: string | null): PendingResume 
  * 原因:loadHistory 会用服务端快照整体覆盖 messages,而未落库的本地助手消息不在快照里,
  * 覆盖后消息消失 —— 这里按原 id 补回,保证 appendToMessage 能命中。
  */
-function ensureMessagePresent(p: PendingResume): void {
-  const s = useChatStore.getState()
+function ensureMessagePresent(p: PendingResume, chatStore: ChatStore = useChatStore): void {
+  const s = chatStore.getState()
   if (s.messages.some((m) => m.id === p.messageId)) return
-  useChatStore.setState((prev) => ({
+  chatStore.setState((prev) => ({
     messages: prev.messages.concat({
       id: p.messageId,
       role: 'assistant' as const,
@@ -103,8 +111,9 @@ function ensureMessagePresent(p: PendingResume): void {
 /** 组装续接上下文:最近 N 条历史(排除待续接消息本身)+ 末条 assistant 前缀 */
 function buildResumeMessages(
   p: PendingResume,
+  chatStore: ChatStore = useChatStore,
 ): Array<{ role: 'user' | 'assistant' | 'system'; content: string }> {
-  const s = useChatStore.getState()
+  const s = chatStore.getState()
   const history = s.messages
     .filter(
       (m) =>
@@ -119,14 +128,16 @@ function buildResumeMessages(
 /** 降级:提示用户并给出「重新生成」入口(复用 MessageList 既有 CustomEvent 闭环)
  *  paneId(片1,2026-10-20 立):窗格身份必须随 detail 走 —— matchesPaneEvent 语义是
  *  "detail.paneId 为 undefined 时只有根窗格接走",不带它 ⇒ 非根窗格的续传失败重生成
- *  永远落到根窗格。缺省 undefined 与今天逐字节同形(零回归)。 */
+ *  永远落到根窗格。缺省 undefined 与今天逐字节同形(零回归)。
+ *  chatStore(片3,2026-10-21):streamCompleted 收尾写的是被注入的那份 store,缺省根单例。 */
 function notifyResumeFailed(
   p: PendingResume,
   reason: string,
   labels: ResumeLabels,
   paneId?: string | null,
+  chatStore: ChatStore = useChatStore,
 ): void {
-  useChatStore.getState().setMessageStreamCompleted(p.messageId, true)
+  chatStore.getState().setMessageStreamCompleted(p.messageId, true)
   toast.error(labels.title, {
     description: reason,
     duration: 8000,
@@ -146,13 +157,21 @@ function notifyResumeFailed(
 /**
  * 执行续接。调用方负责在「历史加载完成后」调用,并传入 AbortSignal(切换会话/卸载时中止)。
  * opts.paneId(片1):发起窗格的叶 id(根窗格 = null/不传);仅用于降级 toast 的
- * 「重新生成」派发携带窗格身份,本函数其余逻辑仍走根单例(store 化是下一片,勿在此扩需求)。
+ * 「重新生成」派发携带窗格身份。
+ * opts.chatStore(片3,2026-10-21):读写目标 store —— 非根窗格传该窗格实例,续接的补回/
+ * 追加/收尾全部落在它身上;缺省不传恒为根单例 useChatStore(与今天逐字节同形,零回归)。
  */
 export async function resumePendingMessage(
   p: PendingResume,
-  opts: { signal: AbortSignal; labels: ResumeLabels; paneId?: string | null },
+  opts: {
+    signal: AbortSignal
+    labels: ResumeLabels
+    paneId?: string | null
+    chatStore?: ChatStore
+  },
 ): Promise<void> {
-  const store = useChatStore.getState()
+  const chatStore = opts.chatStore ?? useChatStore
+  const store = chatStore.getState()
 
   // ① 先问后端:该消息是否已经落库(落库 = 推理其实已完成,只是前端没收到尾事件)
   try {
@@ -163,11 +182,11 @@ export async function resumePendingMessage(
     if (opts.signal.aborted) return
     if (statusRes.success && statusRes.data?.completed) {
       // 后端已有权威内容 → 直接补全,不重复消耗一次 LLM 调用
-      ensureMessagePresent(p)
+      ensureMessagePresent(p, chatStore)
       if (statusRes.data.content) {
-        useChatStore.getState().editMessageContent(p.messageId, statusRes.data.content)
+        chatStore.getState().editMessageContent(p.messageId, statusRes.data.content)
       }
-      useChatStore.getState().setMessageStreamCompleted(p.messageId, true)
+      chatStore.getState().setMessageStreamCompleted(p.messageId, true)
       return
     }
   } catch (e) {
@@ -176,12 +195,12 @@ export async function resumePendingMessage(
   }
 
   // ② 未落库 → 用已生成前缀作为上下文发起续生成
-  ensureMessagePresent(p)
-  useChatStore.getState().setStreaming(true)
-  useChatStore.getState().setError(null)
+  ensureMessagePresent(p, chatStore)
+  chatStore.getState().setStreaming(true)
+  chatStore.getState().setError(null)
 
   const batcher = createDeltaBatcher((delta) => {
-    useChatStore.getState().appendToMessage(p.messageId, delta)
+    chatStore.getState().appendToMessage(p.messageId, delta)
   })
 
   const controller = new AbortController()
@@ -208,7 +227,7 @@ export async function resumePendingMessage(
       body: JSON.stringify({
         conversationId: p.conversationId,
         messageId: p.messageId,
-        messages: buildResumeMessages(p),
+        messages: buildResumeMessages(p, chatStore),
         model: store.currentModel,
         mode: useModeStore.getState().currentMode,
         // P1-7(2026-09-13):续接保持会话级高级参数,与 send-message/send-answer 一致
@@ -231,7 +250,7 @@ export async function resumePendingMessage(
 
     if (!resp.ok || !resp.body) {
       const text = await resp.text().catch(() => '')
-      notifyResumeFailed(p, text || `HTTP ${resp.status}`, opts.labels, opts.paneId)
+      notifyResumeFailed(p, text || `HTTP ${resp.status}`, opts.labels, opts.paneId, chatStore)
       return
     }
 
@@ -263,6 +282,7 @@ export async function resumePendingMessage(
             err instanceof Error ? err.message : String(err),
             opts.labels,
             opts.paneId,
+            chatStore,
           )
           return
         }
@@ -281,26 +301,32 @@ export async function resumePendingMessage(
     }
 
     batcher.flush()
-    useChatStore.getState().setMessageStreamCompleted(p.messageId, true)
+    chatStore.getState().setMessageStreamCompleted(p.messageId, true)
     if (!sawAnyDelta) {
       // 连接正常结束但一个 token 都没续出来 —— 提示用户,避免"看起来好了其实没续上"
-      notifyResumeFailed(p, opts.labels.noProgress, opts.labels, opts.paneId)
+      notifyResumeFailed(p, opts.labels.noProgress, opts.labels, opts.paneId, chatStore)
     }
   } catch (e) {
     batcher.flush()
     if (isAbortError(e) || opts.signal.aborted) return
-    notifyResumeFailed(p, e instanceof Error ? e.message : String(e), opts.labels, opts.paneId)
+    notifyResumeFailed(
+      p,
+      e instanceof Error ? e.message : String(e),
+      opts.labels,
+      opts.paneId,
+      chatStore,
+    )
   } finally {
     batcher.cancel()
     clearTimeout(timeout)
     opts.signal.removeEventListener('abort', onAbort)
     // 仅当仍在同一会话时收尾,避免污染用户已切换到的新会话
-    if (useChatStore.getState().conversationId === p.conversationId) {
+    if (chatStore.getState().conversationId === p.conversationId) {
       // G-703(2026-09-29 立):续接也是"本轮在跑"的一条流,终态必须走 store 的单一出口把
       // isStreaming / streamingAssistantId / aiStreamSessionId 一次性回收。
       // 原先这里只写 setStreaming(false) —— 续接期间由同源帧观察到的 sessionId 会活到下一轮,
       // 下一轮的终端输入行于是把字送进一条早已结束的流(而界面看不出来)。
-      useChatStore.getState().clearRunScopedState()
+      chatStore.getState().clearRunScopedState()
     }
   }
 }
@@ -311,16 +337,18 @@ export async function resumePendingMessage(
  * 必须在「历史加载结算之后」调用:loadHistory 会用服务端快照整体覆盖 messages,
  * 而未被落库的本地助手消息不在快照里 —— 若在覆盖前就开始续接,写入的内容会被整条抹掉。
  *
- * @param pending findPendingResume() 捕获到的候选(本函数消费后置 null)
- * @param signal  切换会话 / 卸载时中止续接的控制器
- * @param paneId  片1(2026-10-20):发起续接的窗格叶 id(根窗格传 null/不传,与今天同形)
+ * @param pending   findPendingResume() 捕获到的候选(本函数消费后置 null)
+ * @param signal    切换会话 / 卸载时中止续接的控制器
+ * @param paneId    片1(2026-10-20):发起续接的窗格叶 id(根窗格传 null/不传,与今天同形)
+ * @param chatStore 片3(2026-10-21):守卫与收尾读写的目标 store;缺省根单例(与今天同形)
  */
 export async function autoResumeAfterHistory(
-  pendingRef: MutableRefObject<PendingResume | null>,
+  pendingRef: React.MutableRefObject<PendingResume | null>,
   conversationId: string | null,
   signal: AbortSignal,
   labels: ResumeLabels,
   paneId?: string | null,
+  chatStore: ChatStore = useChatStore,
 ): Promise<void> {
   const pending = pendingRef.current
   pendingRef.current = null
@@ -328,13 +356,81 @@ export async function autoResumeAfterHistory(
   if (pending.conversationId !== conversationId) return
   if (signal.aborted) return
   // 用户已经切走 / 已经发了新消息(末条助手消息不再是待续接那条)→ 放弃续接
-  const s = useChatStore.getState()
+  const s = chatStore.getState()
   if (s.conversationId !== conversationId) return
   const last = s.messages[s.messages.length - 1]
   if (last && last.id !== pending.messageId && last.role === 'assistant') {
-    useChatStore.getState().setMessageStreamCompleted(pending.messageId, true)
+    chatStore.getState().setMessageStreamCompleted(pending.messageId, true)
     return
   }
-  await resumePendingMessage(pending, { signal, labels, paneId })
+  await resumePendingMessage(pending, { signal, labels, paneId, chatStore })
+}
+
+/**
+ * 续接段的组件侧编排(片3,2026-10-21 立)—— 根窗格与非根窗格共用这一份 plumbing。
+ *
+ * 为什么提上来:候选捕获必须在远端快照覆盖 messages **之前**、续接必须在历史结算**之后**、
+ * 切会话/卸载必须中止在途续接 —— 这三条时序在两处主体各写一遍必然漂移(§0.6),
+ * 而 ChatPaneBody 此前正是"有独立历史加载、零续接分支"的那一格。
+ *
+ * @param chatStore 本主体的目标 store(根窗格传 useChatStore,非根窗格传 usePaneChatStore())
+ * @param paneId    本主体的窗格叶 id(根窗格传 null)
+ * @param translate `chat` 命名空间的取词函数(降级文案按语言现取,不在 hook 里依赖 next-intl)
+ */
+export function useResumeBranch(
+  chatStore: ChatStore,
+  paneId: string | null,
+  translate: (key: string) => string,
+): {
+  /** 历史加载开始前:建本轮中止控制器 + 捕获待续接候选(覆盖后就找不到了) */
+  capture: (conversationId: string | null) => void
+  /** 历史结算后:守卫齐全则发起续接(取词在这里做,回调引用才与 locale 无关) */
+  runAfterHistory: (conversationId: string | null) => void
+  /** 切会话 / 卸载 */
+  abort: () => void
+} {
+  const pendingRef = React.useRef<PendingResume | null>(null)
+  const abortRef = React.useRef<AbortController | null>(null)
+  // 取词函数随 locale 变,但它不该让历史重载跟着跑一轮 ⇒ 经 ref 读现值,回调保持引用稳定
+  const translateRef = React.useRef(translate)
+  React.useEffect(() => {
+    translateRef.current = translate
+  }, [translate])
+
+  const capture = React.useCallback(
+    (conversationId: string | null): void => {
+      abortRef.current?.abort()
+      abortRef.current = new AbortController()
+      pendingRef.current = findPendingResume(conversationId, chatStore)
+    },
+    [chatStore],
+  )
+
+  const runAfterHistory = React.useCallback(
+    (conversationId: string | null): void => {
+      const controller = abortRef.current
+      if (!controller) return
+      const t = translateRef.current
+      void autoResumeAfterHistory(
+        pendingRef,
+        conversationId,
+        controller.signal,
+        { title: t('resumeFailed'), action: t('regenerate'), noProgress: t('resumeNoProgress') },
+        paneId,
+        chatStore,
+      )
+    },
+    [chatStore, paneId],
+  )
+
+  const abort = React.useCallback((): void => {
+    abortRef.current?.abort()
+    abortRef.current = null
+  }, [])
+
+  return React.useMemo(
+    () => ({ capture, runAfterHistory, abort }),
+    [capture, runAfterHistory, abort],
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
