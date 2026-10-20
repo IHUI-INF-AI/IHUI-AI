@@ -22936,6 +22936,7 @@
     "registerTitle": "統一注冊",
     "sendCodeFailed": "驗證碼發送失敗",
     "sessionExpired": "登入狀態已失效，請重新登入",
+    "redirectBlockedByGuard": "目標頁面被登入守衛攔截，登入 Cookie 未生效。多半是存取位址與登入 Cookie 域（COOKIE_DOMAIN）不一致（如用區域網路 IP 或 localhost 開啟），請改用該網域存取後重試。",
     "subtitle": "登錄後將為 {clientId} 授權並跳轉",
     "title": "統一登錄",
     "mobileAuth": {

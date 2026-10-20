@@ -22936,6 +22936,7 @@
     "registerTitle": "统一注册",
     "sendCodeFailed": "验证码发送失败",
     "sessionExpired": "登录状态已失效，请重新登录",
+    "redirectBlockedByGuard": "目标页面被登录守卫拦截，登录 Cookie 未生效。多半是访问地址与登录 Cookie 域（COOKIE_DOMAIN）不一致（如用局域网 IP 或 localhost 打开），请改用该域名访问后重试。",
     "subtitle": "登录后将为 {clientId} 授权并跳转",
     "title": "统一登录",
     "mobileAuth": {
