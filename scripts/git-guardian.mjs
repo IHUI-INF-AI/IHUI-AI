@@ -3731,18 +3731,34 @@ export function bumpProbeStreak(prev, results, opt = {}) {
       const dup = prior > 0 && Number.isFinite(prevLast) && now - prevLast < minGapMs
       if (dup) {
         state[key] = { streak: prior, firstAt: before?.firstAt || iso(prevLast), lastSeenAt: before?.lastSeenAt || iso(now) }
-        info[key] = { streak: prior, required, due: false, merged: true, gapMs: now - prevLast, minGapMs }
+        // firstAt 必须随 info 一起出口:派发侧 `st = bump.info[key]` 且拿它算"已持续档",
+        // 缺这个字段 ⇒ Date.parse('')=NaN ⇒ 档永远停在最短档 ⇒ 首封之后同身份被 24h 窗无限压住。
+        info[key] = {
+          streak: prior,
+          required,
+          due: false,
+          merged: true,
+          gapMs: now - prevLast,
+          minGapMs,
+          firstAt: state[key].firstAt,
+        }
         continue
       }
       const streak = prior + 1
       state[key] = { streak, firstAt: before?.firstAt || iso(now), lastSeenAt: iso(now) }
-      info[key] = { streak, required, due: streak >= required }
+      info[key] = { streak, required, due: streak >= required, firstAt: state[key].firstAt }
     } else if (verdict === 'ok') {
       if (prior > 0) cleared.push({ key, from: prior })
       info[key] = { streak: 0, required, due: false }
     } else if (verdict === 'unjudged') {
       if (prior > 0) state[key] = { streak: prior, firstAt: before?.firstAt || iso(now), lastSeenAt: before?.lastSeenAt || null }
-      info[key] = { streak: prior, required, due: false, unjudged: true }
+      info[key] = {
+        streak: prior,
+        required,
+        due: false,
+        unjudged: true,
+        firstAt: state[key]?.firstAt ?? before?.firstAt ?? null,
+      }
     }
   }
   const pruned = []
@@ -3926,7 +3942,7 @@ export function auditPublicPathProbe(opts = {}) {
           nowMs: now,
           leg,
         })
-        notify(
+        const delivered = notify(
           `公网路径探测越阈值:${key}`,
           `成因与档位:${alertId.why}\n同一身份连续第 ${st.streak}/${st.required} 轮越阈(门槛 ${st.required} 轮,单轮尖峰不寄信)。\n${String(r?.numbers || '(无读数控)')}\n${reasons.join('\n')}\n` +
             `尺子:scripts/check-public-path-probe.mjs 序列 ${key}。取证回读:node scripts/check-public-path-probe.mjs --report .ihui-agent/tmp/probers/public-path-burst.jsonl\n` +
@@ -3942,6 +3958,12 @@ export function auditPublicPathProbe(opts = {}) {
             windowMs: Math.max(notifyWindowMs(), 24 * 60 * 60 * 1000),
           },
         )
+        // 压住必须留一行日志:否则"抓到了却没响"与"根本没抓到"在留痕上长得一模一样(§0.3)。
+        if (delivered && delivered.sent !== true) {
+          logger(
+            `ℹ️ 公网探测越阈已判定到人但本轮未寄出:${key} —— ${delivered.why || '(未给原因)'}(身份 ${alertId.identity})`,
+          )
+        }
       } else if (verdict === 'unjudged') {
         unjudged += 1
         logger(`ℹ️ 公网路径探测 ${key}:未判定 —— ${reasons.join(' | ') || '(无原因)'}`)
