@@ -11,7 +11,7 @@ export default [
   },
   {
     // CLI 的输出通道即 stdout/stderr,console 是本包的设计用法(基准脚本/命令输出)。
-    files: ['**/*.{ts,tsx}'],
+    files: ['**/*.{ts,tsx,mjs}'],
     rules: { 'no-console': 'off' },
   },
 ]

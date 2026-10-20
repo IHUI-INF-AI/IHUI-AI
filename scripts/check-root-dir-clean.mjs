@@ -304,6 +304,11 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   // 这里登记只是把**合法运行态**从存量告警里摘出来,不再每次刷屏。
   '.doc-autoupdate',
   '.deploy.lock',
+  // 2026-10-19 登记:README 提交钩子 scripts/auto-update-readme-recent.mjs 的增量基线目录
+  // (.doc-autoupdate/last-sha = 上次处理到的 commit,被 git 跟踪、随提交刷新)。与 .env/.DevEnv
+  // 同类:合法工具态,只登记"根级存在"形态、不放松任何检测;漏收会使本门 --staged 恒红 ⇒
+  // 各会话被迫 --no-verify 连带跳过全部守门(§12e 恒红门同型)。
+  '.doc-autoupdate',
   // 2026-08-19 立:React Native C++ native 模块编译 staging 产物
   // (expo-modules-core / react-native-reanimated / react-native-screens 构建自动生成,
   //  已被 .gitignore 忽略,不参与 git 跟踪。不加入会在每次 C++ 构建后阻塞 commit)

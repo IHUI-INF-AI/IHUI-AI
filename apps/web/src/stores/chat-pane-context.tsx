@@ -44,11 +44,6 @@ export function ChatPaneProvider(props: {
   )
 }
 
-/** 当前渲染所在窗格 id;null = 非窗格场景(单例域) */
-export function usePaneChatId(): string | null {
-  return React.useContext(ChatPaneIdContext)
-}
-
 /**
  * 窗格寻址的 chat store 解析 hook(消费面切换点)。
  * - Provider 内:返回该窗格的独立实例(懒建 + 复用,见 chat-panes.ts);

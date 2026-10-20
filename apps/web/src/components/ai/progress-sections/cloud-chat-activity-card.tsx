@@ -183,4 +183,3 @@ export function CloudChatActivityCard({
   )
 }
 
-export default CloudChatActivityCard

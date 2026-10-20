@@ -1071,9 +1071,9 @@ class OrchestrationHub:
                     )
                     if not resp:
                         continue
-                        for _stream, messages in resp:
-                            for entry_id, fields in messages:
-                                event = PillarEvent.from_dict(json.loads(fields["event"]))
+                    for _stream, messages in resp:
+                        for entry_id, fields in messages:
+                            event = PillarEvent.from_dict(json.loads(fields["event"]))
                             await self._process_event(event)
                             # 确认已处理
                             try:

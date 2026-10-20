@@ -353,6 +353,30 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   // {writable:false}) → 红屏 "TypeError: property is not writable"。
   // 修复:所有 react-native 裸包名/子路径请求统一解析到 apps/mobile-rn 本地实体
   // (c6deaeca,与原生侧对齐)。模式与上面 react 去重一致。
+  // web 平台不能强制解析到真实 react-native:web 包会打进 RN 原生源码
+  // (Libraries/Core/setUpReactDevTools.js require
+  //  '../../src/private/devsupport/rndevtools/ReactDevToolsSettingsManager',该文件
+  //  只有 .android.js/.ios.js 变体)→ web bundling 恒 500,浏览器预览打不开。
+  // 这里补齐 Expo 自己的 web 别名表(withMetroMultiPlatform.js aliases.web:
+  //  'react-native'/'react-native/index' → react-native-web;
+  //  'react-native/Libraries/Image/resolveAssetSource' → expo-asset/build/resolveAssetSource),
+  // 因为本文件自建的 resolveRequest 位于该别名链之外,必须先自行重定向。
+  if (platform === 'web') {
+    const webAlias =
+      moduleName === 'react-native' || moduleName === 'react-native/index'
+        ? 'react-native-web'
+        : moduleName === 'react-native/Libraries/Image/resolveAssetSource'
+          ? 'expo-asset/build/resolveAssetSource'
+          : null
+    if (webAlias) {
+      try {
+        const aliased = require.resolve(webAlias, { paths: [__dirname] })
+        return { type: 'sourceFile', filePath: realpathOrNull(aliased) }
+      } catch (_e) {
+        // 别名目标不可解析 → 落回下方原生解析链(不静默吞错)
+      }
+    }
+  }
   if (moduleName === 'react-native' || moduleName.startsWith('react-native/')) {
     const localRNPath = require.resolve(moduleName, {
       paths: [__dirname],

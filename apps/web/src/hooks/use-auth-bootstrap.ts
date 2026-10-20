@@ -146,7 +146,7 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
             if (shouldMarkSessionLoggedOut(getLastRefreshFailure())) {
               logout()
             } else {
-              console.debug(
+              console.info(
                 '[web-auth] silent refresh hit transient failure (network/5xx), ' +
                   'keeping session state; auto-login marker NOT written',
               )
@@ -237,7 +237,7 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
               if (shouldMarkSessionLoggedOut(classifyRefreshFailureStatus(retry.status))) {
                 logout()
               } else {
-                console.debug(
+                console.info(
                   '[web-auth] /auth/me retry failed transiently after refresh, ' +
                     'keeping session state; auto-login marker NOT written',
                 )
@@ -249,7 +249,7 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
             if (shouldMarkSessionLoggedOut(getLastRefreshFailure())) {
               logout()
             } else {
-              console.debug(
+              console.info(
                 '[web-auth] silent refresh hit transient failure (network/5xx), ' +
                   'keeping session state; auto-login marker NOT written',
               )

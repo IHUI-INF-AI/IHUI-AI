@@ -230,6 +230,19 @@ export const DEFAULT_SUBMIT_INTENT: Record<BusinessFormKind, FormSubmitIntent> =
   calendarEvent: 'create',
 }
 
+/**
+ * 线帧 `mode` 槽 → 批准侧提交意图(D77 残余① 的判定单源)。
+ *
+ * 为什么必须有这一格:此前"calendarEvent + update ⇒ save"只写在 web 卡片的一行三元表达式里,
+ * RN 与小程序各接各的 ⇒ 三端把同一个 `mode` 渲染成两种按钮文案是本功能最坏的失效型(静默分叉,
+ * 用户看不出哪端错)。`mode` 取帧内原值,**未知值一律按缺省档**(与契约"缺省即 create"同一条纪律),
+ * 不做名字相似度猜测。
+ */
+export function formSubmitIntentOf(kind: BusinessFormKind, mode?: string): FormSubmitIntent {
+  if (kind === 'calendarEvent' && (mode === 'update' || mode === 'save')) return 'save'
+  return DEFAULT_SUBMIT_INTENT[kind]
+}
+
 export interface FormSideEffectContext {
   /** 用户按下的动作 */
   readonly action: FormAction

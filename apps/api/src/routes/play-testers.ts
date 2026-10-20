@@ -45,7 +45,7 @@ function csvCell(value: string): string {
   return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
 }
 
-export const playTestersRoutes: FastifyPluginAsync = async (server) => {
+const playTestersRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /register — 公开,提交测试报名
   // -------------------------------------------------------------------------

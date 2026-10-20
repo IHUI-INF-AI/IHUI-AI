@@ -4,11 +4,11 @@
 
 // Token 估算内核(从 index.ts 抽出为叶子模块,供回收/有效性守卫子模块单向依赖)。
 //
-// 【跨端 BPE 词表:两端目前 NOT 一致 —— 别再把本文件当"等价实现"的样板】
+// 【跨端 BPE 词表:2026-10-17 已拍板统一 cl100k_base —— 本侧显式指定,Python 侧原样】
 //   本行原文曾写「语义与取值不得偏离:Python 等价实现见 apps/ai-service/app/core/context_compaction.py」,
 //   而那个 Python 文件的模块头注同时写着「与 TS 共享包等价」—— **两侧互指对方为等价,
 //   却建立在两张不同的词表上**(实测,2026-10-07):
-//     · 本文件第 8 行 `import { encode } from 'gpt-tokenizer'` **未指定编码**。该包
+//     · 本文件第 8 行原为 `import { encode } from 'gpt-tokenizer'`(**未指定编码**;2026-10-20 已改显式 cl100k)。该包
 //       (gpt-tokenizer ^3.4.0)主入口**实际再导出 `./encoding/o200k_base.js`**
 //       (证据:node_modules/gpt-tokenizer/esm/main.js 第 2 行)⇒ 本侧用的是 **o200k_base**。
 //     · Python 侧 context_compaction.py:92 是 `tiktoken.get_encoding("cl100k_base")` ⇒ **cl100k_base**。
@@ -22,20 +22,16 @@
 //
 //   机器判据:scripts/check-bpe-encoding-parity.mjs(C1 读两端真实声明解析编码 + C2 实跑两端
 //   生产估算器逐值比对 + C3 反向锁防空转),该门当前**判红**。
-//   **统一到哪张表是替真实业务选模型,须人拍板** —— 本文件不擅自改成任何一边;
+//   **2026-10-17 机主授权代行拍板:两端统一 cl100k_base** —— 本侧已改为显式指定,不再随上游默认漂移;
 //   改哪边都会同时改动真实估算值(压缩在占比0.88 触发,两端读数不同 ⇒ 同一段上下文
 //   可能一边触发压缩、另一边不触发),所以这不是纯注释债,是行为变更,须走评审。
 //
-// 【两条静默降级路径 —— 一旦触发,两端分歧会进一步扩大(事实陈述,不是 TODO)】
-//   以上分歧是"声明层"的。Python 侧还有两条**运行时**降级路径会让实际用的表与声明**脱钩**:
-//     · context_compaction.py:94-95 —— tiktoken 加载失败时 fallback 到 **p50k_base**
-//       (**第三张表**,既不是 o200k 也不是 cl100k);
-//     · context_compaction.py:112 与 :119 —— encode 失败时 fallback 到 `len(text)//4`
-//       (完全不是 BPE,是字符数除四的粗估)。
-//   这两条都是**静默**的(只 logger.warning/debug,不改返回值、不抛错),所以一旦触发,
-//   本侧与 Python 侧的差距会**比上面那条声明层分歧更大**,而且从源码上看不出来。
+// 【Python 侧两条降级路径 —— 2026-10-20 已改为可见(warning + runtime_encoding_name)】
+//   · 加载失败 fallback 到 p50k_base:保留兜底,但 warning,且 runtime_encoding_name() 返回 p50k_base(fallback);
+//   · encode 失败 fallback 到 len(text)//4:同样 warning 可见(不再是 debug)。
+//   正常路径 runtime_encoding_name() = cl100k_base(两端同表)。
 
-import { encode } from 'gpt-tokenizer'
+import { encode } from 'gpt-tokenizer/encoding/cl100k_base'
 
 import type { ChatMessage, ChatMessageToolCall } from './types.js'
 
