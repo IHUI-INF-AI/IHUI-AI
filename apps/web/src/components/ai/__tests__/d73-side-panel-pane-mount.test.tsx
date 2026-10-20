@@ -61,7 +61,9 @@ function hostReturnedReasons(src: string): string[] {
 
 describe('M1 D73 消费点:容器在宿主里被真的渲染(拦「件在库零引用」这一本仓最高频死码形态)', () => {
   it('宿主从 @/components/ai/pane-split-container import 了 PaneSplitContainer', () => {
-    expect(host).toContain("import { PaneSplitContainer } from '@/components/ai/pane-split-container'")
+    expect(host).toContain(
+      "import { PaneSplitContainer } from '@/components/ai/pane-split-container'",
+    )
   })
 
   it('PaneSplitContainer 在宿主里出现 ≥2 次(import + JSX 渲染位),只 import 不渲染同样判红', () => {
@@ -134,18 +136,20 @@ describe('M3 D73 词包对账:挂载用到的每个键在五语言 ai.pane.multi
   })
 
   it.each(SHARED_LOCALES)('%s 的 ai.pane.multiPane 是嵌套对象且含宿主全部键', (locale) => {
-    const parsed = JSON.parse(readRepo(`../../packages/i18n/messages/shared/${locale}.json`)) as Record<
-      string,
-      unknown
-    >
+    const parsed = JSON.parse(
+      readRepo(`../../packages/i18n/messages/shared/${locale}.json`),
+    ) as Record<string, unknown>
     const ns = PANE_MULTI_NAMESPACE.split('.').reduce<unknown>(
-      (acc, seg) => (acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[seg] : undefined),
+      (acc, seg) =>
+        acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[seg] : undefined,
       parsed,
     )
     expect(ns, `${locale} 缺 ${PANE_MULTI_NAMESPACE} 命名空间`).toBeTypeOf('object')
     for (const key of keys) {
       const value = (ns as Record<string, unknown>)[key]
-      expect(typeof value, `${locale} 的 ${PANE_MULTI_NAMESPACE}.${key} 缺失/非字符串`).toBe('string')
+      expect(typeof value, `${locale} 的 ${PANE_MULTI_NAMESPACE}.${key} 缺失/非字符串`).toBe(
+        'string',
+      )
       expect((value as string).trim().length, `${locale} 的 ${key} 是空串`).toBeGreaterThan(0)
     }
   })
@@ -155,11 +159,13 @@ describe('M3 D73 词包对账:挂载用到的每个键在五语言 ai.pane.multi
   })
 
   it('拆分入口的 aria-label 与 Tooltip 内容同键(无障碍名与可见文案同源)', () => {
-    expect(host).toMatch(/Tooltip content=\{tp\('([A-Za-z]+)'\)\}[\s\S]{0,160}aria-label=\{tp\('\1'\)\}/)
+    expect(host).toMatch(
+      /Tooltip content=\{tp\('([A-Za-z]+)'\)\}[\s\S]{0,160}aria-label=\{tp\('\1'\)\}/,
+    )
   })
 })
 
-describe('M4 D73 边界 1:主体唯一 —— 禁止新建第二套会话承载', () => {
+describe('M4 D73 边界 1:根窗格单例主体 + 非根窗格独立主体(票60 步序四)', () => {
   // 1 / 2 是宿主挂载前(HEAD 基线)自身的实测值:<MessageInput> 有两处是既有形态 ——
   // 一处在**浮窗态**面板(ai-side-panel.tsx 的 float 分支,自带输入框但无 MessageList),
   // 一处在主体会话区。本票的纪律是"挂载不得再加一套",所以断言锚回基线计数而非硬写 1。
@@ -171,13 +177,20 @@ describe('M4 D73 边界 1:主体唯一 —— 禁止新建第二套会话承载'
     expect(host.match(/<MessageInput\b/g) ?? []).toHaveLength(2)
   })
 
-  it('非根窗格只给承载标记,不渲染主体(data-pane-marker 是这一诚实降级的唯一出口)', () => {
+  it('非根窗格已承载会话时挂 ChatPaneProvider + ChatPaneBody;空窗格只给承载标记', () => {
     expect(host).toContain('data-pane-marker=')
     expect(host).toMatch(/paneId === ROOT_PANE_ID\s*\?\s*\(\s*[\s\S]{0,120}?d73ConversationBody\(/)
-    // 承载标记分支里不得混进主体件(只显窗格 id / 会话 id 两行文本)
+    // 非根窗格的有会话分支:Provider + ChatPaneBody(读写落在该窗格独立 store)
+    expect(host).toMatch(/paneConversationId \? \(\s*<ChatPaneProvider paneId=\{paneId\}>/)
+    expect(host).toMatch(
+      /<ChatPaneBody\s+paneId=\{paneId\}\s+conversationId=\{paneConversationId\}\s*\/>/,
+    )
+    // 空窗格分支仍只显承载标记,不得混进主体件
     const markerBranch = host.match(/data-pane-marker=\{paneId\}[\s\S]{0,400}?\)/)
     expect(markerBranch, '找不到承载标记分支').not.toBeNull()
-    expect(markerBranch?.[0] ?? '').not.toMatch(/<MessageList\b|<MessageInput\b|d73ConversationBody\(/)
+    expect(markerBranch?.[0] ?? '').not.toMatch(
+      /<MessageList\b|<MessageInput\b|d73ConversationBody\(/,
+    )
   })
 })
 
