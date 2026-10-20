@@ -17,29 +17,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { tokens } from '../theme/active-tokens'
 import { TAB_BAR_FLOAT_GAP_BOTTOM_MIN, tabBarStyleSheet } from './TabBar.styles'
+// 2026-10-21:图标改走内联 data URI。真机 release 包上 `<Image source={require(本地 PNG)}>`
+// 恒渲染为空白(8a7926ead7 同格对照实验,见 packages/types/src/app-account.ts);这族是位图
+// 插画、无等价 SVG 源,内联后图一字未改。生成器:scripts/gen-mobile-tabbar-icon-data.mjs
+import { TABBAR_ICON_DATA } from './tabbarIconData'
 
-// ── tabbar 图片资源(对齐 history static/tabbar/ 11 图标,语义与 customTabBar/index.vue 一致) ──
+// ── tabbar 图标(对齐 history static/tabbar/ 11 图标,语义与 customTabBar/index.vue 一致) ──
 // 原 5 Tab:AI应用商店(tabbar_1)/广场(tabbar_2)/智汇AI(tabbar_3)/动态(tabbar_4)/我的(tabbar_5)
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const AI_SHOP_INACTIVE = require('../../assets/images/tabbar/tabbar_1.png')
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const AI_SHOP_ACTIVE = require('../../assets/images/tabbar/tabbar_1_act.png')
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const PLAZA_INACTIVE = require('../../assets/images/tabbar/tabbar_2.png')
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const PLAZA_ACTIVE = require('../../assets/images/tabbar/tabbar_2_act.png')
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const HOME_INACTIVE = require('../../assets/images/tabbar/tabbar_3.png')
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const HOME_ACTIVE = require('../../assets/images/tabbar/tabbar_3_act.png')
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const NEWS_INACTIVE = require('../../assets/images/tabbar/tabbar_4.png')
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const NEWS_ACTIVE = require('../../assets/images/tabbar/tabbar_4_act.png')
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const MINE_INACTIVE = require('../../assets/images/tabbar/tabbar_5.png')
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const MINE_ACTIVE = require('../../assets/images/tabbar/tabbar_5_act.png')
 
 /** Tab 标识符(对齐原 customTabBar 5 主 Tab:AI应用商店/广场/智汇AI/动态/我的) */
 export type TabBarKey = 'aiShop' | 'plaza' | 'home' | 'news' | 'mine'
@@ -48,8 +32,9 @@ export type TabBarKey = 'aiShop' | 'plaza' | 'home' | 'news' | 'mine'
 export interface TabBarItemConfig {
   key: TabBarKey
   label: string
-  iconInactive: number
-  iconActive: number
+  /** 内联 data URI(见 tabbarIconData.ts 头注:本地 PNG 的 Image 取源链在 release 上恒空白) */
+  iconInactive: string
+  iconActive: string
 }
 
 export interface TabBarProps {
@@ -65,13 +50,33 @@ const TABS: readonly TabBarItemConfig[] = [
   {
     key: 'aiShop',
     label: 'AI应用商店',
-    iconInactive: AI_SHOP_INACTIVE,
-    iconActive: AI_SHOP_ACTIVE,
+    iconInactive: TABBAR_ICON_DATA.AI_SHOP_INACTIVE,
+    iconActive: TABBAR_ICON_DATA.AI_SHOP_ACTIVE,
   },
-  { key: 'plaza', label: '广场', iconInactive: PLAZA_INACTIVE, iconActive: PLAZA_ACTIVE },
-  { key: 'home', label: '智汇AI', iconInactive: HOME_INACTIVE, iconActive: HOME_ACTIVE },
-  { key: 'news', label: '动态', iconInactive: NEWS_INACTIVE, iconActive: NEWS_ACTIVE },
-  { key: 'mine', label: '我的', iconInactive: MINE_INACTIVE, iconActive: MINE_ACTIVE },
+  {
+    key: 'plaza',
+    label: '广场',
+    iconInactive: TABBAR_ICON_DATA.PLAZA_INACTIVE,
+    iconActive: TABBAR_ICON_DATA.PLAZA_ACTIVE,
+  },
+  {
+    key: 'home',
+    label: '智汇AI',
+    iconInactive: TABBAR_ICON_DATA.HOME_INACTIVE,
+    iconActive: TABBAR_ICON_DATA.HOME_ACTIVE,
+  },
+  {
+    key: 'news',
+    label: '动态',
+    iconInactive: TABBAR_ICON_DATA.NEWS_INACTIVE,
+    iconActive: TABBAR_ICON_DATA.NEWS_ACTIVE,
+  },
+  {
+    key: 'mine',
+    label: '我的',
+    iconInactive: TABBAR_ICON_DATA.MINE_INACTIVE,
+    iconActive: TABBAR_ICON_DATA.MINE_ACTIVE,
+  },
 ] as const
 
 export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
@@ -135,7 +140,7 @@ function TabBarIcon({ tab, isActive }: TabBarIconProps) {
   return (
     <View style={isActive ? tabBarStyleSheet.iconGlow : undefined}>
       <Image
-        source={isActive ? tab.iconActive : tab.iconInactive}
+        source={{ uri: isActive ? tab.iconActive : tab.iconInactive }}
         style={tabBarStyleSheet.icon}
         tintColor={isActive ? undefined : tokens.text.secondary}
       />
