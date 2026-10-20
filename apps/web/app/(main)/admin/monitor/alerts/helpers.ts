@@ -21,7 +21,7 @@ export const LEVEL_STYLE: Record<
   { bg: string; text: string; icon: ComponentType<{ className?: string }> }
 > = {
   critical: { bg: 'bg-red-500/10', text: 'text-red-600', icon: AlertTriangle },
-  warning: { bg: 'bg-amber-500/10', text: 'text-amber-600', icon: AlertTriangle },
+  warning: { bg: 'bg-warning/10', text: 'text-warning-amber-text', icon: AlertTriangle },
   info: { bg: 'bg-primary/10', text: 'text-primary', icon: Bell },
 }
 
@@ -33,7 +33,7 @@ export const STATUS_LABEL: Record<Alert['status'], string> = {
 
 export const STATUS_STYLE: Record<Alert['status'], string> = {
   active: 'bg-red-500/10 text-red-600',
-  acknowledged: 'bg-amber-500/10 text-amber-600',
-  resolved: 'bg-emerald-500/10 text-emerald-600',
+  acknowledged: 'bg-warning/10 text-warning-amber-text',
+  resolved: 'bg-success/10 text-success-deep-text',
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

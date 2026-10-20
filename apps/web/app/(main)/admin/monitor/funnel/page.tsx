@@ -82,7 +82,7 @@ export default function AdminMonitorFunnelPage() {
               <CardTitle className="text-xs font-medium text-muted-foreground">转化用户</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-emerald-600">
+              <div className="text-2xl font-bold text-success-deep-text">
                 {formatNumber(data.convertedUsers)}
               </div>
             </CardContent>
@@ -92,7 +92,7 @@ export default function AdminMonitorFunnelPage() {
               <CardTitle className="text-xs font-medium text-muted-foreground">转化率</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-amber-600">
+              <div className="text-2xl font-bold text-warning-amber-text">
                 {data.conversionRate.toFixed(2)}%
               </div>
             </CardContent>
