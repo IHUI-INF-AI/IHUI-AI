@@ -35,12 +35,22 @@ export function useAgent(): UseAgentReturn {
   const fetchAgents = React.useCallback(async () => {
     setLoading(true)
     try {
-      // 后端 GET /api/agents/list 返回 { list, total, page, pageSize }
-      const res = await fetchApi<{ list: Agent[]; total: number; page: number; pageSize: number }>(
-        '/api/agents/list',
-      )
+      // GET /agents/my 按当前登录用户过滤(后端 request.userId);此前误用 /agents/list(=市场列表,
+      // 无 userId)⇒"我的 Agent"页签显示的是市场前 20 枚、与登录者无关。100 条足以覆盖个人目录。
+      const res = await fetchApi<{
+        list: Array<{ agentId: string; name: string; avatar?: string | null; description?: string | null; agentModel?: string | null }>
+        total: number
+      }>('/api/agents/my?pageSize=100')
       if (res.success) {
-        setAgents(res.data.list)
+        setAgents(
+          (res.data.list ?? []).map((a) => ({
+            id: a.agentId,
+            name: a.name,
+            avatar: a.avatar ?? undefined,
+            description: a.description ?? undefined,
+            model: a.agentModel ?? undefined,
+          })),
+        )
       }
     } finally {
       setLoading(false)
