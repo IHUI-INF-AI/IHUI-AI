@@ -31,7 +31,7 @@ export const SESSION_LOGGED_OUT_STORAGE_KEY = 'ihui-session-logged-out'
 
 /** 静默重登的全部输入,一律以 thunk 注入(判据不主动读盘,读盘失败由端自己决定失效方向)。 */
 export interface SilentReloginDeps {
-  /** 本机是否处于"已显式登出 / 会话失效"状态(持久标记,活得比凭据久) */
+  /** 本机是否处于"已显式登出"状态(持久标记,活得比凭据久;只由用户主动登出写入) */
   sessionLoggedOut: () => boolean
   /**
    * 该端在"登出标记之外"还要求成立的条件,全部成立才登回。
@@ -57,7 +57,7 @@ export function canSilentlyReLogin(deps: SilentReloginDeps): boolean {
 
 /** 账密静默重登的勾选位(登录页那两个 checkbox)。 */
 export interface AutoLoginDeps {
-  /** 本机是否处于"已显式登出 / 会话失效"状态(持久标记,活得比凭据久) */
+  /** 本机是否处于"已显式登出"状态(持久标记,活得比凭据久;只由用户主动登出写入) */
   sessionLoggedOut: () => boolean
   /** 用户是否勾选过"自动登录" */
   hasAutoLoginFlag: () => boolean
@@ -79,10 +79,10 @@ export function shouldAttemptAutoLogin(deps: AutoLoginDeps): boolean {
 }
 
 /**
- * 静默刷新失败的性质 —— 决定「这次失败要不要升级成持久登出标记」的唯一输入。
+ * 静默刷新失败的性质 —— 决定「这次失败要不要结束本地会话」的唯一输入。
  *
  * - `rejected`:服务端**明确拒绝了凭据**(refresh 端点返回 401/403)。token 真死了,
- *   落标记与现状语义一致(「会话失效」本就属于标记覆盖范围)。
+ *   会话应当结束 —— 但**不落持久登出标记**(见 `shouldExpireSession` 头注)。
  * - `transient`:瞬时不可用 —— 网络错误、超时、api 服务重启中、5xx。凭据没有被否定,
  *   只是此刻问不出答案;下一次冷启动带着同一份 httpOnly cookie 重试即可恢复。
  * - `null`:性质未知(刷新结果被 CAS 丢弃 / 未注入续期实现 / 记录不可得)。
@@ -98,17 +98,23 @@ export function classifyRefreshFailureStatus(status: number | undefined): Refres
 }
 
 /**
- * 冷启动静默刷新失败后,**要不要写持久登出标记**(即要不要从此永久压制自动登录)。
+ * 冷启动静默刷新失败后,**要不要判定本地会话已结束**(端内出口是 `expireSession`)。
  *
  * 2026-10-09 根治「自动登录总被清掉」:此前 bootstrap 把**任何**刷新失败(含 api 重启/
  * 网络抖动导致的瞬时失败)都当凭据失效走 `logout()` → 落标记 → 即使 30 天 refresh
  * cookie 仍有效,冷启动也再不去用它,用户被迫反复手动登录。现在只有 `rejected`
- * (服务端明确说"这个 token 不行")才允许写标记。
+ * (服务端明确说"这个 token 不行")才结束本地会话。
  *
- * 失效方向与 session-marker 同形:`null`(未知)一律**不写** —— 抑制自动登录是改变
+ * 2026-10-20 再收口:结束会话 ≠ 用户主动登出。`rejected` 只清凭据、**不写**持久登出标记 ——
+ * 用户勾过的「记住密码 + 自动登录」必须还能在下一次冷启动把会话重新建立起来;
+ * 只有用户显式登出(`logout()`)才写标记。两个动作混用曾经导致:服务端一次轮转冲突
+ * 吊销 family → 本机 refresh 被 401 → 落标记 → 从此连账密自动提交都被永久压制,
+ * 每次冷启动都要手点登录(三端同型,用户反馈「各端都要重新登录」的机器成因)。
+ *
+ * 失效方向与 session-marker 同形:`null`(未知)一律**不结束** —— 抑制自动登录是改变
  * 用户可见行为的动作,不能由一次未知失败触发;瞬时失败后保持现状,下一次冷启动自然重试。
  */
-export function shouldMarkSessionLoggedOut(failure: RefreshFailureKind | null): boolean {
+export function shouldExpireSession(failure: RefreshFailureKind | null): boolean {
   return failure === 'rejected'
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

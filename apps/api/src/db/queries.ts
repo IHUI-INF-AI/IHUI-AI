@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, or, isNull, and } from 'drizzle-orm'
+import { eq, or, isNull, and, gt } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 import { db } from './index.js'
 import { users, refreshTokens, type User, type RefreshToken } from '@ihui/database'
@@ -211,6 +211,30 @@ export async function saveRefreshToken(
  */
 export async function findRefreshToken(token: string): Promise<RefreshToken | undefined> {
   const rows = await db.select().from(refreshTokens).where(eq(refreshTokens.token, token)).limit(1)
+  return rows[0]
+}
+
+/**
+ * 同一 family 里是否还有活着的 refresh token(未吊销、未过期)。
+ *
+ * 用于区分两类"迟到重放"(2026-10-20 立):
+ * - 族里还有活 token ⇒ 这是**陈旧副本**的迟到重放(桌面 vault 里的旧值 / 停在旧页签的
+ *   另一份上下文 / 另一台设备)。此时吊销整族会把正常会话一起打死 —— 实测每小时一次族
+ *   吊销,三端同时被迫重登;
+ * - 族里一个活的都没有 ⇒ 整族已死,保留 RFC 6749 §10.4 的吊销动作与审计留痕。
+ */
+export async function findLiveFamilyToken(familyId: string): Promise<{ id: string } | undefined> {
+  const rows = await db
+    .select({ id: refreshTokens.id })
+    .from(refreshTokens)
+    .where(
+      and(
+        eq(refreshTokens.familyId, familyId),
+        isNull(refreshTokens.revokedAt),
+        gt(refreshTokens.expiresAt, new Date()),
+      ),
+    )
+    .limit(1)
   return rows[0]
 }
 

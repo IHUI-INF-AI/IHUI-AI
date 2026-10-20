@@ -11,7 +11,7 @@ import { type NavigatorScreenParams } from '@react-navigation/native'
 import { tokens } from '../theme/active-tokens'
 import { useAuth } from '../context/AuthContext'
 import { setUnauthorizedHandler } from '@ihui/api-client'
-import { logoutAuth } from '../stores/auth-store'
+import { expireAuth } from '../stores/auth-store'
 import { navigateTo, navigationRef } from './navigation-ref'
 import { authArrivalAction } from './auth-arrival'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
@@ -604,8 +604,9 @@ function RootNavigatorInner() {
    *
    * 两步动作,顺序**不能反**:
    * 1. **先跳** —— `Login` 现在两个分支都注册着,跳转同步可达,不依赖任何异步成功。
-   * 2. **再尽力结束会话** —— `logoutAuth()` 清 store + 持久化;它失败或被卡住都不该让用户
-   *    回不到登录页,所以它的结果只影响日志,不影响第 1 步。给它一个有界等待:
+   * 2. **再尽力结束会话** —— `expireAuth()` 清 store + 持久化凭据,但**不落**登出标记
+   *    (服务端判死 ≠ 用户主动退出;记住的账密要能在下一次冷启动自动登录)。它失败或被
+   *    卡住都不该让用户回不到登录页,所以它的结果只影响日志,不影响第 1 步。给它一个有界等待:
    *    超时不报错也不重试,只喊出来(静默的"应该已经清了吧"正是本仓记过最多次的失效形态)。
    *
    * `!token` 时静默返回是幂等而非吞失败:未登录分支本来就挂着 Login。
@@ -616,7 +617,7 @@ function RootNavigatorInner() {
       console.warn(`[rn-auth] 会话失效 → 打开登录页(来源 ${ctx.method} ${ctx.url})`)
       navigateTo('Login')
       void Promise.race([
-        logoutAuth().then(() => 'done'),
+        expireAuth().then(() => 'done'),
         new Promise((r) => setTimeout(() => r('timeout'), 8000)),
       ]).then((outcome) => {
         if (outcome !== 'done') {

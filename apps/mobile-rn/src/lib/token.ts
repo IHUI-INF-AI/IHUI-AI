@@ -95,7 +95,7 @@ function serializeCredentialWrite<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /**
- * 显式登出 / 会话失效的**持久**标记(2026-09-27 立,冷启动静默重登那一格的前置条件)。
+ * 显式登出的**持久**标记(2026-09-27 立;2026-10-20 起只由用户主动登出写入 —— 会话被动失效走 `expireSession()`,不落标记)。
  *
  * 实测到的链(不是假想):
  * - 登出清的是「凭据」:`logoutAuth()` / `AuthContext.logout()` → 共享工厂 `logout()` →
@@ -179,7 +179,7 @@ async function readLogoutMarker(): Promise<boolean> {
 }
 
 /**
- * 会话是否被显式结束(登出 / 会话失效)且此后没有新的凭据写入。
+ * 会话是否被用户显式结束(登出)且此后没有新的凭据写入。
  *
  * 唯一判据出口。消费点:`LoginScreen` 挂载时的自动登录 effect ——
  * 加在 `credentialStorage.loadAutoLogin() && credentialStorage.loadRemembered()` 之前即可,
@@ -311,6 +311,25 @@ export async function clearToken(): Promise<void> {
   await serializeCredentialWrite(async () => {
     // 标记先于凭据删除落盘(失效方向见 SESSION_LOGGED_OUT_KEY 上方注释)
     await writeLogoutMarker(sessionEpoch)
+    await memoryStore.clearAll()
+  })
+}
+
+/**
+ * 会话被动失效(refresh 被服务端明确拒绝)的统一出口:清凭据,但**不落**登出标记。
+ *
+ * 与 `clearToken()` 的唯一区别就是那一行标记:
+ * - `clearToken()` / `logoutAuth()` / `AuthContext.logout()` = 用户显式登出 ⇒ 落标记,
+ *   冷启动不得自动登回去;
+ * - 本函数 = 服务端把会话判死(401/403)⇒ 只清凭据,用户勾过的「记住密码 + 自动登录」
+ *   必须还能在下一次冷启动把会话重新建立起来。若也落标记,表现就是"每次冷启动都要
+ *   手点登录"(2026-10-20 收口)。
+ *
+ * 不触碰本地 `sessionLoggedOut`:若此前显式登出留下的标记仍在,那份抑制继续有效。
+ */
+export async function expireSession(): Promise<void> {
+  sessionEpoch += 1
+  await serializeCredentialWrite(async () => {
     await memoryStore.clearAll()
   })
 }
