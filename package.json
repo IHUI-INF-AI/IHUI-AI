@@ -213,9 +213,6 @@
     "nodemailer": "9.1.0",
     "js-yaml@^3.0.0": "3.15.2"
   },
-  "dependencies": {
-    "@parcel/watcher-win32-x64": "^2.6.0"
-  },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:^",
     "@next/eslint-plugin-next": "^16.0.0",

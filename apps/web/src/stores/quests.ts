@@ -340,7 +340,7 @@ export function groupQuestsByWorkspace(entries: Record<string, QuestEntry>): Arr
  * attach 时先补登记当前 goal(防"登记器晚于首个 goal"漏记首拍)。
  */
 let recorderAttached = false
-export function attachGoalQuestRecorder(): void {
+function attachGoalQuestRecorder(): void {
   if (recorderAttached) return
   recorderAttached = true
   const { upsertFromGoal, removeQuest } = useQuestsStore.getState()
