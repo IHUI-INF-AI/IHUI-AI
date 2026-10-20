@@ -961,6 +961,11 @@ function main() {
     console.info(
       `[sync-rn-tokens] ✅ 已原位写回 ${RN_TOKENS_REL}(值 ${plan.changes.length} 处 + 标记 ${plan.markerInserts.length} 处)`,
     )
+    // 本脚本只改 src;RN 经包入口(main/exports)消费的是 dist,不重建则 Metro 永远吃旧值
+    // (2026-10-20 实测:glass.bg 从 0.66 调到 0.3,设备上四轮毫无变化,dist 仍停在 0.66)。
+    console.info(
+      '[sync-rn-tokens] ⚠️ 仅写回 src;RN 端读的是 dist —— 请接着运行: pnpm --filter @ihui/design-tokens build',
+    )
   } else if (!needsWrite && plan.refusals.length === 0) {
     console.info('[sync-rn-tokens] ✅ rn-tokens.ts 的派生面与 tokens.css 一致(端内档未受影响)')
     return

@@ -37,7 +37,14 @@ export default function CategoryDetailScreen() {
         getAgents({ page, pageSize: 20 }),
         getCategories(),
       ])
-      const list = agentsRes.success ? (agentsRes.data?.list ?? []) : []
+      const list = agentsRes.success
+        ? (agentsRes.data?.list ?? []).map((a) => ({
+            id: a.agentId,
+            name: a.name,
+            description: a.description,
+            cover: a.cover ?? undefined,
+          }))
+        : []
       setItems((prev) => (page === 1 ? list : [...prev, ...list]))
       setHasMore(list.length >= 20)
       if (categoriesRes.success && categoriesRes.data) {
