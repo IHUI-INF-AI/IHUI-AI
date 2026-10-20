@@ -18,6 +18,26 @@ import { __test__ as gate } from '../check-radius-single-source.mjs'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GUARD = join(ROOT, 'scripts/check-radius-single-source.mjs')
 
+// §22c:B6 的「门体名单」与「文档行定位」两份提取全仓只此一份,主断言与下方两条形态锁共用 ——
+// 测试内不得再抄一份名单(抄了就是第二份会腐烂的真相)。
+function extractGateB6Names(gateSrc) {
+  const arrM = gateSrc.match(/for \(const name of \[('rnRadius', 'rnRadiusFor', 'RADIUS_CSS_PX')\]\)/)
+  assert.ok(arrM, '门体 B6 清单数组形状变了,请同步更新本钉的提取式')
+  return [...arrM[1].matchAll(/'(\w+)'/g)].map((m) => m[1])
+}
+
+// 定位 AGENTS 里的 B6 行。提取前先剥 markdown 强调标记:文档排版把「B6 引用」与名单
+// 各自加粗时(写作 `**B6 引用** **`rnRadius``),字面子串会被 `**` 打断 ⇒ 行定位失联 ⇒
+// 断言报「B6 行丢失」,而文档与门体其实同源(2026-10-21 实测:并发会话的 AGENTS 改写
+// 只动了排版,镜像测试却转红)。只剥排版层,名单提取与集合比对一字未改 ——
+// 「放宽排版 ≠ 放宽真漂移」由下方形态锁②钉住。
+function extractB6Line(text) {
+  return text
+    .split('\n')
+    .map((l) => l.replace(/\*\*/g, ''))
+    .find((l) => l.includes('B6 引用 `rnRadius'))
+}
+
 test('守门 77 自检全通过(含真实档位表端到端对账 + TS 内嵌 CSS 与同行多声明)', () => {
   const out = execFileSync(process.execPath, [GUARD, '--self-test'], {
     cwd: ROOT,
@@ -40,18 +60,50 @@ test('B6 标识符清单:门体数组与 AGENTS §4 B6 行同源一份', () => {
   const gateSrc = readFileSync(GUARD, 'utf8')
   const agents = readFileSync(join(ROOT, 'AGENTS.md'), 'utf8')
   // 门体侧:B6 循环的 for-of 数组字面量(唯一一处)
-  const arrM = gateSrc.match(/for \(const name of \[('rnRadius', 'rnRadiusFor', 'RADIUS_CSS_PX')\]\)/)
-  assert.ok(arrM, '门体 B6 清单数组形状变了,请同步更新本钉的提取式')
-  const gateNames = [...arrM[1].matchAll(/'(\w+)'/g)].map((m) => m[1])
+  const gateNames = extractGateB6Names(gateSrc)
   // 文档侧:AGENTS B6 行(标题含「B6 引用」)反引号名单 —— 只留门体名单里的词,
   // 若文档漏写名单中任一词,集合不等即红
-  const b6Line = agents.split('\n').find((l) => l.includes('B6 引用 `rnRadius'))
+  const b6Line = extractB6Line(agents)
   assert.ok(b6Line, 'AGENTS §4 的 B6 行丢失')
   const docNames = [...b6Line.matchAll(/`(\w+)`/g)].map((m) => m[1]).filter((n) => gateNames.includes(n))
   assert.deepEqual(
     [...new Set(docNames)].sort(),
     [...gateNames].sort(),
     `B6 名单漂移:门体=${gateNames.join(',')} 文档=${[...new Set(docNames)].join(',')}`,
+  )
+})
+
+/**
+ * 形态锁①:文档把「B6 引用」与名单各自加粗时(写作 `**B6 引用** **`rnRadius``),
+ * 行定位不得失联 —— 失联会让人误判成文档漂移(假红),也容易反过来去改判据逃红。
+ */
+test('B6 行定位:markdown 强调插字不得让 B6 行失联', () => {
+  const marked = '- **B6 引用** **`rnRadius`、`rnRadiusFor`、`RADIUS_CSS_PX` 却未 import ⇒ 判红**'
+  const plain = '- B6 引用 `rnRadius`、`rnRadiusFor`、`RADIUS_CSS_PX` 却未 import ⇒ 判红'
+  const m = extractB6Line(marked)
+  assert.ok(m, '加粗写法必须仍能被定位到 B6 行')
+  const p = extractB6Line(plain)
+  assert.ok(p, '不加重粗的写法必须仍能被定位到 B6 行')
+  const names = (l) => [...new Set([...l.matchAll(/`(\w+)`/g)].map((x) => x[1]))].sort()
+  assert.deepEqual(names(m), names(p), '加粗写法与不加重粗必须提取出同一份名单')
+})
+
+/**
+ * 形态锁②:提取式对排版鲁棒 ≠ 对真漂移宽容 —— 文档真漏写名单中任一词时,
+ * 集合比对仍必须红(否则上面那条鲁棒性改动就是削判据,§12e)。
+ */
+test('B6 名单真漂移:提取式放宽排版后仍必须判红', () => {
+  const gateNames = extractGateB6Names(readFileSync(GUARD, 'utf8'))
+  const drifted = '- **B6 引用** **`rnRadius`、`RADIUS_CSS_PX` 却未 import ⇒ 判红**'
+  const line = extractB6Line(drifted)
+  assert.ok(line, '漂移样本必须仍能被定位(否则下面的集合比对是空集假绿)')
+  const docNames = [
+    ...new Set([...line.matchAll(/`(\w+)`/g)].map((m) => m[1]).filter((n) => gateNames.includes(n))),
+  ]
+  assert.notDeepEqual(
+    [...docNames].sort(),
+    [...gateNames].sort(),
+    '文档漏写门体名单成员时必须红',
   )
 })
 
