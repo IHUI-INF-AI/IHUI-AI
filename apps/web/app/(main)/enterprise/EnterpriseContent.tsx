@@ -257,7 +257,7 @@ export function EnterpriseContent() {
               <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
                 {benefits.map((b) => (
                   <div key={b} className="flex items-center gap-2 text-sm">
-                    <Check className="h-4 w-4 shrink-0 text-success" />
+                    <Check className="h-4 w-4 shrink-0 text-success-text" />
                     <span>{b}</span>
                   </div>
                 ))}
