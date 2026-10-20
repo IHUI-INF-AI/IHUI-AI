@@ -77,11 +77,11 @@
 
   监控栈:
     Prometheus (8815) ← node-exporter (9100) / api / postgres / redis
-    Grafana (8816) ← Prometheus + Loki
+    大屏 (8816) ← Prometheus + Loki
     Alertmanager (9093) → 飞书 / 邮件
 
   日志栈:
-    Promtail (9080) → Loki (3100) → Grafana
+    Promtail (9080) → Loki (3100) → 大屏
 
   追踪栈:
     otel-collector (4317) → Jaeger (16686)
@@ -119,7 +119,7 @@
 | `postgres-data` | /var/lib/postgresql/data | PostgreSQL 主数据 | 每日 02:00 pg_dump | 7 天 |
 | `redis-data` | /data | Redis RDB 快照 | 每日 02:30 RDB | 3 天 |
 | `loki-data` | /loki | Loki 日志存储 | 不备份(可重建) | 30 天 |
-| `grafana-data` | /var/lib/grafana | Grafana 仪表板与配置 | git 版本控制(IaC) | 永久 |
+| `grafana-data` | /var/lib/grafana | 大屏 仪表板与配置 | git 版本控制(IaC) | 永久 |
 | `promtail-positions` | /positions | Promtail 读取位置 | 不备份 | - |
 | `prometheus-data` | /prometheus | Prometheus 指标(15s 粒度) | 不备份 | 15 天 |
 | `/var/log/nginx/` | 主机路径 | Nginx 访问/错误日志 | Promtail 采集到 Loki | 30 天 |
@@ -196,7 +196,7 @@ add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" alway
 | PostgreSQL | `pg_dump` 全量 | 每日 02:00 | 7 天 | 本地 /backup/ + OSS (后续) |
 | Redis | RDB 快照 (`BGSAVE`) | 每日 02:30 | 3 天 | 本地 /backup/ |
 | 配置文件 | git 版本控制 | 实时 | 永久 | 代码仓库 |
-| Grafana 仪表板 | 导出 JSON + git | 每次变更 | 永久 | 代码仓库 |
+| 大屏 仪表板 | 导出 JSON + git | 每次变更 | 永久 | 代码仓库 |
 | Nginx 配置 | git 版本控制 | 实时 | 永久 | 代码仓库 |
 | 用户上传文件 | 异步同步到 OSS | 实时(后续实现) | 永久 | 阿里云 OSS |
 
@@ -253,7 +253,7 @@ add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" alway
 ### 9.4 日志与追踪
 
 - **日志聚合**: Loki + Promtail (30 天保留)
-- **可视化**: Grafana LogQL 查询
+- **可视化**: 大屏 LogQL 查询
 - **分布式追踪**: Jaeger + OpenTelemetry (OTLP)
 - **追踪采样率**: 生产环境 10% (高流量时动态调整)
 

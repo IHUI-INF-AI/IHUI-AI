@@ -6,7 +6,7 @@
 
 # 可观测性文档(MONITORING)
 
-> IHUI-AI 全栈监控体系 —— Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager,26 仪表盘。本文档聚焦监控栈内部实现与运维命令,系统级可观测性概述见 [architecture.md](./architecture.md) §8,告警响应流程见 [INCIDENTS.md](./INCIDENTS.md)(若存在)。
+> IHUI-AI 全栈监控体系 —— Prometheus + 大屏 + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager,26 仪表盘。本文档聚焦监控栈内部实现与运维命令,系统级可观测性概述见 [architecture.md](./architecture.md) §8,告警响应流程见 [INCIDENTS.md](./INCIDENTS.md)(若存在)。
 
 ---
 
@@ -15,7 +15,7 @@
 | 组件 | 版本 | 用途 | 端口 |
 |------|------|------|------|
 | Prometheus | - | 指标采集与存储 | 8815 |
-| Grafana | - | 仪表盘可视化(21 仪表盘) | 8816 |
+| 大屏 | - | 仪表盘可视化(21 仪表盘) | 8816 |
 | Loki | 2.9+ | 日志聚合(tsdb schema) | 3100 |
 | Promtail | - | 日志采集(Docker/journal/nginx/app) | 9080 |
 | Jaeger | all-in-one | 分布式追踪(OTLP/gRPC) | 16686 |
@@ -53,7 +53,7 @@
             └──────────┬────────┘                   │
                        ▼                            ▼
                 ┌──────────────┐           ┌──────────────┐
-                │  Grafana     │◄──────────┤ Alertmanager │
+                │  大屏     │◄──────────┤ Alertmanager │
                 │  端口 8816   │  查询     │ 端口 9093   │
                 │  (21 仪表盘) │           │ (告警路由)  │
                 └──────────────┘           └──────┬───────┘
@@ -79,9 +79,9 @@
 
 | 数据类型 | 来源 | 采集 | 存储 | 可视化 |
 |----------|------|------|------|--------|
-| 指标(Metrics) | apps/api `/metrics` + ai-service `/metrics` + otel-collector `/metrics` | Prometheus 抓取(scrape_interval 15s) | Prometheus TSDB | Grafana 仪表盘 |
-| 日志(Logs) | apps/api Pino JSON + ai-service Python logging + Docker stdout | Promtail 采集 | Loki(tsdb schema) | Grafana LogQL |
-| 追踪(Traces) | apps/api otel.ts + ai-service telemetry.py(OTLP/HTTP 推送) | OTel Collector | Jaeger(all-in-one) | Grafana + Jaeger UI |
+| 指标(Metrics) | apps/api `/metrics` + ai-service `/metrics` + otel-collector `/metrics` | Prometheus 抓取(scrape_interval 15s) | Prometheus TSDB | 大屏 仪表盘 |
+| 日志(Logs) | apps/api Pino JSON + ai-service Python logging + Docker stdout | Promtail 采集 | Loki(tsdb schema) | 大屏 LogQL |
+| 追踪(Traces) | apps/api otel.ts + ai-service telemetry.py(OTLP/HTTP 推送) | OTel Collector | Jaeger(all-in-one) | 大屏 + Jaeger UI |
 | 告警(Alerts) | Prometheus 规则评估(evaluation_interval 15s) | Alertmanager 路由(唯一 receiver → bridge) | - | 品牌邮件到运维邮箱(webhook → 9096 bridge → notify-deploy-failure.ts) |
 
 ---
@@ -151,7 +151,7 @@ scrape_configs:
 
 ---
 
-## 4. Grafana
+## 4. 大屏
 
 > 配置文件:`monitoring/grafana/grafana.ini`
 
@@ -177,7 +177,7 @@ auto_assign_org = true
 default_home_dashboard_path = /var/lib/grafana/dashboards/ihui-ai-overview.json
 
 [metrics]
-enabled = true                 # Grafana 自身指标暴露
+enabled = true                 # 大屏 自身指标暴露
 ```
 
 ### 数据源(Provisioning)
@@ -210,7 +210,7 @@ enabled = true                 # Grafana 自身指标暴露
 | Exam Usage | `exam-usage.json` | 考试使用统计(并发/提交/阅卷) |
 | HLS | `hls.json` | HLS 转码延迟(埋点入口在仓,2026-10-17 清掉 7 个无上报的流媒体面板) |
 | Live Room | `live-room.json` | 直播间监控(在线人数/消息 QPS/礼物;2026-10-17 清掉推拉流码率/延迟面板) |
-| Monitor Health | `monitor_health.json` | 监控栈自身健康(Prometheus 抓取/Grafana 响应/告警数;2026-10-17 清掉 OTel 采样率面板) |
+| Monitor Health | `monitor_health.json` | 监控栈自身健康(Prometheus 抓取/大屏 响应/告警数;2026-10-17 清掉 OTel 采样率面板) |
 | OSS Storage | `oss-storage.json` | 对象存储用量(桶大小/请求/费用;2026-10-17 清掉生命周期/跨区流量面板) |
 | Payment Flow | `payment-flow.json` | 支付流程(下单/回调/退款) |
 | PG Deploy | `pg_deploy.json` | PostgreSQL 部署状态(复制/连接/锁) |
@@ -224,7 +224,7 @@ enabled = true                 # Grafana 自身指标暴露
 
 > 配置文件:`monitoring/grafana/provisioning/dashboards/dashboards.yml`
 
-Grafana 启动时自动从 `/var/lib/grafana/dashboards/` 加载所有 JSON 仪表盘,无需手动导入。
+大屏 启动时自动从 `/var/lib/grafana/dashboards/` 加载所有 JSON 仪表盘,无需手动导入。
 
 ---
 
@@ -672,7 +672,7 @@ alert-bridge(9096,身份去重)→ 品牌邮件(智汇通报版式)
 Oncall 接收告警
     │
     ▼
-排查(Grafana 仪表盘 + Loki 日志 + Jaeger 追踪)
+排查(大屏 仪表盘 + Loki 日志 + Jaeger 追踪)
     │
     ▼
 修复(代码修复 / 配置调整 / 资源扩容)
@@ -727,12 +727,12 @@ docker compose up -d
 # 验证各组件健康
 docker compose ps
 curl http://localhost:8815/-/healthy    # Prometheus
-curl http://localhost:8816/api/health   # Grafana
+curl http://localhost:8816/api/health   # 大屏
 curl http://localhost:8818/ready        # Loki
 curl http://localhost:8814/             # Jaeger UI
 ```
 
-### Grafana 访问
+### 大屏 访问
 
 | 项 | 值 |
 |----|-----|

@@ -47,7 +47,7 @@ IHUI-AI 生产环境的部署、运维、监控、回滚与故障排查。适用
 | — | Cloudflare Tunnel(`Cloudflared` 服务) | ✅(aizhs.top / api.aizhs.top,无 80/443 监听) |
 | 8801 / 8802 / 8803 | web / api / ai-service | ❌(经 Tunnel;本机 127.0.0.1+) |
 | 5432 / 6379 | IHUI-PG / IHUI-REDIS | ❌(仅本机) |
-| 8815 / 3001 / 9100 | Prometheus / Grafana / Node Exporter | ❌(或 VPN) |
+| 8815 / 3001 / 9100 | Prometheus / 大屏 / Node Exporter | ❌(或 VPN) |
 | 16686 / 4318 | Jaeger UI / OTLP Collector | ❌ |
 
 ---
@@ -185,7 +185,7 @@ Get-Content D:\IHUI-AI\deploy\win\deploy-loop.log -Tail 50 # 部署循环日志
 |---|---|
 | ai-service(FastAPI 8803) | `GET /health`、`GET /metrics` |
 | Crew(在 API 内,前缀 `/api/crew`) | `GET /api/crew/health`、`/agents`、`/models` |
-| Prometheus / Grafana / Node Exporter / Jaeger | `:8815/-/healthy`、`:3001/api/health`、`:9100/metrics`、`:16686/` |
+| Prometheus / 大屏 / Node Exporter / Jaeger | `:8815/-/healthy`、`:3001/api/health`、`:9100/metrics`、`:16686/` |
 
 ```bash
 curl -s http://localhost:8802/api/health/ready | jq . && curl -s http://localhost:8803/health && curl -s http://localhost:8815/-/healthy

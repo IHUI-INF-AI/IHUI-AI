@@ -78,7 +78,7 @@ docker compose up -d
 | API          | http://localhost:8802/api/health | Fastify 后端健康检查                              |
 | Worker       | http://localhost:8830            | BullMQ 异步任务进程                               |
 | AI 服务      | http://localhost:8803/health     | FastAPI AI 服务健康检查                           |
-| Grafana      | http://localhost:8816            | 默认账号 admin / 修改密码(3 仪表盘自动 provision) |
+| 大屏      | http://localhost:8816            | 默认账号 admin / 修改密码(3 仪表盘自动 provision) |
 | Prometheus   | http://localhost:9091            | 指标采集                                          |
 | Jaeger UI    | http://localhost:8814            | 分布式追踪                                        |
 | Loki         | http://localhost:8818            | 日志聚合                                          |
