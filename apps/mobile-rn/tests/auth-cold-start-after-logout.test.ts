@@ -224,6 +224,26 @@ describe('显式登出后的冷启动', () => {
     expect(bare, '屏里不得再留一份裸条件(判据必须只住在 auto-login-policy)').toBeFalsy()
   })
 
+  it('⑥b AI 屏的两条"登录"入口不得走 logout():那是主动退出,会落标记压死自动登录', () => {
+    const src = readFileSync(
+      path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        '..',
+        'src',
+        'screens',
+        'ChatScreen.tsx',
+      ),
+      'utf-8',
+    )
+    // 未登录点"登录"只是在导航(本来就没有会话可退);SSE 报 auth 级错误是服务端把会话判死
+    // ⇒ expireAuth()(清凭据、不落标记),与 RootNavigator 的 401 出口同一处置。
+    // 走 logout() 会让一次过期把"记住账密/自动登录"永久压住 —— 本票要修的正是这一型。
+    expect(src, '未登录分支不得调 logout()(会写登出标记)').not.toMatch(/void logout\(\)/)
+    expect(src, 'auth 错误分支不得调 logout()').not.toMatch(/onPress:\s*\(\)\s*=>\s*logout\(\)/)
+    expect(src, 'auth 错误分支必须走被动失效出口').toMatch(/expireAuth\(\)/)
+    expect(src, '两条入口都要能回登录页').toMatch(/navigateTo\('Login'\)/)
+  })
+
   it('⑦ 策略正反两臂:登出标记压过历史勾选;两个勾选位缺一不可', async () => {
     const { shouldAttemptAutoLogin } = await import('../src/lib/auto-login-policy')
     const d = (sessionLoggedOut: boolean, flag: boolean, remembered: boolean) =>
