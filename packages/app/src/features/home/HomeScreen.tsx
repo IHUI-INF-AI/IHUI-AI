@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { Bell, BookOpen, ChevronRight, Video } from 'lucide-react-native'
+import { Bell, BookOpen, Video } from 'lucide-react-native'
 import type {
   HomeRecommendItem,
   HomeLiveItem,
@@ -78,6 +78,9 @@ export function HomeScreen({
   }
 
   const firstProgress = progress[0]
+  const moreLabel = t('common.more')
+  // 三块内容全空时不再各摆一张同形空卡(整屏就成三个空盒),合并成一枚引导卡
+  const nothingToShow = !firstProgress && lives.length === 0 && recommends.length === 0
 
   return (
     <ScrollView
@@ -128,34 +131,8 @@ export function HomeScreen({
         </View>
       ) : null}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('home.learningProgress')}</Text>
-        {firstProgress ? (
-          <TouchableOpacity
-            onPress={() => onPressProgress(firstProgress.courseId)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.card}>
-              <Text style={styles.cardTitle} numberOfLines={1}>
-                {firstProgress.courseTitle || firstProgress.courseId}
-              </Text>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${Math.round((firstProgress.progress ?? 0) * 100)}%` },
-                  ]}
-                />
-              </View>
-              <Text style={styles.metaText}>
-                {t('home.progressLessons', {
-                  completed: firstProgress.completedLessons,
-                  total: firstProgress.totalLessons,
-                })}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        ) : (
+      {nothingToShow ? (
+        <View style={styles.section}>
           <View style={[styles.card, styles.emptyCard]}>
             <Text style={[styles.mutedText, styles.emptyText]}>{t('home.progressEmpty')}</Text>
             <TouchableOpacity
@@ -166,115 +143,158 @@ export function HomeScreen({
               <Text style={styles.primaryBtnText}>{t('nav.courses')}</Text>
             </TouchableOpacity>
           </View>
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, styles.sectionHeaderTitle]}>
-            {t('home.livePreview')}
-          </Text>
-          <MoreLink label={t('common.more')} onPress={onNavigateLives} colorScheme={colorScheme} />
         </View>
-        {lives.length === 0 ? (
-          <View style={[styles.card, styles.emptyCenter]}>
-            <Video size={18} color={tk.text.tertiary} />
-            <Text style={styles.emptyHint}>{t('live.empty')}</Text>
-          </View>
-        ) : (
-          lives.map((l) => (
-            <TouchableOpacity
-              key={l.id}
-              onPress={() => onPressLive(l.id)}
-              style={styles.cardSpacing}
-              activeOpacity={0.7}
-            >
-              <View style={styles.card}>
-                <View style={styles.cardHeaderRow}>
+      ) : (
+        <>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('home.learningProgress')}</Text>
+            {firstProgress ? (
+              <TouchableOpacity
+                onPress={() => onPressProgress(firstProgress.courseId)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.card}>
                   <Text style={styles.cardTitle} numberOfLines={1}>
-                    {l.title}
+                    {firstProgress.courseTitle || firstProgress.courseId}
                   </Text>
-                  <View style={[styles.tag, l.isLive ? styles.tagLive : styles.tagUpcoming]}>
-                    <Text style={[styles.tagText, l.isLive ? null : styles.tagUpcomingText]}>
-                      {l.isLive ? t('live.ongoing') : t('live.upcoming')}
+                  <View style={styles.progressBar}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        { width: `${Math.round((firstProgress.progress ?? 0) * 100)}%` },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.metaText}>
+                    {t('home.progressLessons', {
+                      completed: firstProgress.completedLessons,
+                      total: firstProgress.totalLessons,
+                    })}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.card, styles.emptyCard]}>
+                <Text style={[styles.mutedText, styles.emptyText]}>{t('home.progressEmpty')}</Text>
+                <TouchableOpacity
+                  style={styles.primaryBtn}
+                  onPress={onNavigateCourses}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.primaryBtnText}>{t('nav.courses')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, styles.sectionHeaderTitle]}>
+                {t('home.livePreview')}
+              </Text>
+              <MoreLink label={moreLabel} onPress={onNavigateLives} colorScheme={colorScheme} />
+            </View>
+            {lives.length === 0 ? (
+              <View style={[styles.card, styles.emptyCenter]}>
+                <Video size={18} color={tk.text.tertiary} />
+                <Text style={styles.emptyHint}>{t('live.empty')}</Text>
+              </View>
+            ) : (
+              lives.map((l) => (
+                <TouchableOpacity
+                  key={l.id}
+                  onPress={() => onPressLive(l.id)}
+                  style={styles.cardSpacing}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.card}>
+                    <View style={styles.cardHeaderRow}>
+                      <Text style={styles.cardTitle} numberOfLines={1}>
+                        {l.title}
+                      </Text>
+                      <View style={[styles.tag, l.isLive ? styles.tagLive : styles.tagUpcoming]}>
+                        <Text style={[styles.tagText, l.isLive ? null : styles.tagUpcomingText]}>
+                          {l.isLive ? t('live.ongoing') : t('live.upcoming')}
+                        </Text>
+                      </View>
+                    </View>
+                    {l.lecturerName ? (
+                      <Text style={styles.metaText}>
+                        {t('live.lecturer')}:{l.lecturerName}
+                      </Text>
+                    ) : null}
+                    <Text style={styles.metaTertiary}>
+                      {t('live.startAt')}:{l.startTimeText}
                     </Text>
                   </View>
-                </View>
-                {l.lecturerName ? (
-                  <Text style={styles.metaText}>
-                    {t('live.lecturer')}:{l.lecturerName}
-                  </Text>
-                ) : null}
-                <Text style={styles.metaTertiary}>
-                  {t('live.startAt')}:{l.startTimeText}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, styles.sectionHeaderTitle]}>
-            {t('home.recommend')}
-          </Text>
-          <MoreLink
-            label={t('common.more')}
-            onPress={onNavigateCourses}
-            colorScheme={colorScheme}
-          />
-        </View>
-        {recommends.length === 0 ? (
-          <View style={[styles.card, styles.emptyCenter]}>
-            <BookOpen size={18} color={tk.text.tertiary} />
-            <Text style={styles.emptyHint}>{t('course.empty')}</Text>
+                </TouchableOpacity>
+              ))
+            )}
           </View>
-        ) : (
-          recommends.map((c) => (
-            <TouchableOpacity
-              key={c.id}
-              onPress={() => onPressCourse(c.id)}
-              style={styles.cardSpacing}
-              activeOpacity={0.7}
-            >
-              <View style={styles.card}>
-                <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>
-                    {c.title}
-                  </Text>
-                  <Text style={styles.priceText}>
-                    {c.isFree ? t('course.free') : `¥${c.price.toFixed(2)}`}
-                  </Text>
-                </View>
-                <Text style={styles.metaText}>
-                  {c.instructor} · {c.level} · {t('course.studentCount', { count: c.studentCount })}
-                </Text>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, styles.sectionHeaderTitle]}>
+                {t('home.recommend')}
+              </Text>
+              <MoreLink label={moreLabel} onPress={onNavigateCourses} colorScheme={colorScheme} />
+            </View>
+            {recommends.length === 0 ? (
+              <View style={[styles.card, styles.emptyCenter]}>
+                <BookOpen size={18} color={tk.text.tertiary} />
+                <Text style={styles.emptyHint}>{t('course.empty')}</Text>
               </View>
-            </TouchableOpacity>
-          ))
-        )}
-      </View>
+            ) : (
+              recommends.map((c) => (
+                <TouchableOpacity
+                  key={c.id}
+                  onPress={() => onPressCourse(c.id)}
+                  style={styles.cardSpacing}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.card}>
+                    <View style={styles.cardHeaderRow}>
+                      <Text style={styles.cardTitle} numberOfLines={1}>
+                        {c.title}
+                      </Text>
+                      <Text style={styles.priceText}>
+                        {c.isFree ? t('course.free') : `¥${c.price.toFixed(2)}`}
+                      </Text>
+                    </View>
+                    <Text style={styles.metaText}>
+                      {c.instructor} · {c.level} ·{' '}
+                      {t('course.studentCount', { count: c.studentCount })}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        </>
+      )}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('menu.sectionDiscover')}</Text>
-        <View style={styles.menuWrap}>
+        <View style={styles.menuGrid}>
           {menuItems.map((m) => (
             <TouchableOpacity
               key={m.key}
               onPress={() => onPressMenu(m.key)}
               activeOpacity={0.7}
-              style={styles.menuItem}
+              style={styles.menuCell}
             >
-              <View style={styles.menuRow}>
-                {typeof m.icon === 'string' ? (
-                  <Text style={styles.menuIcon}>{m.icon}</Text>
-                ) : m.icon ? (
-                  <m.icon size={18} color={tk.text.primary} />
-                ) : null}
-                <Text style={styles.menuLabel}>{t(m.labelKey)}</Text>
-                <ChevronRight size={Math.round(16 * fontMultiplier)} color={tk.text.tertiary} />
-              </View>
+              {typeof m.icon === 'string' ? (
+                <Text style={styles.menuIcon}>{m.icon}</Text>
+              ) : m.icon ? (
+                <m.icon size={22} color={tk.text.medium} />
+              ) : null}
+              <Text
+                style={styles.menuLabel}
+                numberOfLines={1}
+                maxFontSizeMultiplier={fontMultiplier}
+              >
+                {t(m.labelKey)}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -356,10 +376,9 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       padding: 16,
       borderRadius: rnRadius.lg,
-      borderWidth: 1,
-      borderColor: tk.border.light,
       // 暗色下 surface.light 是 #262626、页面底 #242424,只差 2 阶卡片融进背景;
-      // surface.card 亮色同为白、暗色降到 #1A1A1A(与 web 暗色 --color-card 同值),层次才成立
+      // surface.card 亮色同为白、暗色降到 #1A1A1A(与 web 暗色 --color-card 同值),层次才成立。
+      // 不再叠 1px 硬边框:底色已分区,描边会把卡片读成"凹下去的洞"
       backgroundColor: tk.surface.card,
     },
     emptyCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -397,21 +416,17 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     primaryBtnText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
-    menuWrap: {
-      borderRadius: rnRadius.xl,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      backgroundColor: tk.surface.card,
-      padding: 6,
-    },
-    menuItem: {
-      minHeight: 52,
+    menuGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+    menuCell: {
+      width: '33.333%',
+      alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 12,
+      paddingVertical: 14,
+      paddingHorizontal: 6,
+      gap: 8,
     },
-    menuRow: { flexDirection: 'row', alignItems: 'center' },
-    menuIcon: { fontSize: 18 },
-    menuLabel: { marginLeft: 12, flex: 1, fontSize: 15, color: tk.text.primary },
+    menuIcon: { fontSize: 22, lineHeight: 26 },
+    menuLabel: { fontSize: 13, color: tk.text.secondary, textAlign: 'center' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
