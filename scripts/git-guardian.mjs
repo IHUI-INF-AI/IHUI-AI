@@ -3731,34 +3731,18 @@ export function bumpProbeStreak(prev, results, opt = {}) {
       const dup = prior > 0 && Number.isFinite(prevLast) && now - prevLast < minGapMs
       if (dup) {
         state[key] = { streak: prior, firstAt: before?.firstAt || iso(prevLast), lastSeenAt: before?.lastSeenAt || iso(now) }
-        // firstAt 必须随 info 一起出口:派发侧 `st = bump.info[key]` 且拿它算"已持续档",
-        // 缺这个字段 ⇒ Date.parse('')=NaN ⇒ 档永远停在最短档 ⇒ 首封之后同身份被 24h 窗无限压住。
-        info[key] = {
-          streak: prior,
-          required,
-          due: false,
-          merged: true,
-          gapMs: now - prevLast,
-          minGapMs,
-          firstAt: state[key].firstAt,
-        }
+        info[key] = { streak: prior, required, due: false, merged: true, gapMs: now - prevLast, minGapMs }
         continue
       }
       const streak = prior + 1
       state[key] = { streak, firstAt: before?.firstAt || iso(now), lastSeenAt: iso(now) }
-      info[key] = { streak, required, due: streak >= required, firstAt: state[key].firstAt }
+      info[key] = { streak, required, due: streak >= required }
     } else if (verdict === 'ok') {
       if (prior > 0) cleared.push({ key, from: prior })
       info[key] = { streak: 0, required, due: false }
     } else if (verdict === 'unjudged') {
       if (prior > 0) state[key] = { streak: prior, firstAt: before?.firstAt || iso(now), lastSeenAt: before?.lastSeenAt || null }
-      info[key] = {
-        streak: prior,
-        required,
-        due: false,
-        unjudged: true,
-        firstAt: state[key]?.firstAt ?? before?.firstAt ?? null,
-      }
+      info[key] = { streak: prior, required, due: false, unjudged: true }
     }
   }
   const pruned = []
@@ -3942,7 +3926,7 @@ export function auditPublicPathProbe(opts = {}) {
           nowMs: now,
           leg,
         })
-        const delivered = notify(
+        notify(
           `公网路径探测越阈值:${key}`,
           `成因与档位:${alertId.why}\n同一身份连续第 ${st.streak}/${st.required} 轮越阈(门槛 ${st.required} 轮,单轮尖峰不寄信)。\n${String(r?.numbers || '(无读数控)')}\n${reasons.join('\n')}\n` +
             `尺子:scripts/check-public-path-probe.mjs 序列 ${key}。取证回读:node scripts/check-public-path-probe.mjs --report .ihui-agent/tmp/probers/public-path-burst.jsonl\n` +
@@ -3958,12 +3942,6 @@ export function auditPublicPathProbe(opts = {}) {
             windowMs: Math.max(notifyWindowMs(), 24 * 60 * 60 * 1000),
           },
         )
-        // 压住必须留一行日志:否则"抓到了却没响"与"根本没抓到"在留痕上长得一模一样(§0.3)。
-        if (delivered && delivered.sent !== true) {
-          logger(
-            `ℹ️ 公网探测越阈已判定到人但本轮未寄出:${key} —— ${delivered.why || '(未给原因)'}(身份 ${alertId.identity})`,
-          )
-        }
       } else if (verdict === 'unjudged') {
         unjudged += 1
         logger(`ℹ️ 公网路径探测 ${key}:未判定 —— ${reasons.join(' | ') || '(无原因)'}`)
@@ -4107,6 +4085,9 @@ export function auditTunnelMetrics(opts = {}) {
  *    但节流与熔断不能双双失效);
  *  - 旁路落地不跑 post-commit ⇒ 推送腿由清扫器自带(不推就等于没删,AGENTS §5b 回潮通道①);
  *  - **不改本守护退出码**:清台账失败不等于 .git 失败(与 auditPublicPathProbe 同型);
+ *  - 日志三态(2026-10-20 加固):摘了 N 条 / 无滞留 / **有滞留但全部被判「仍保护」而一条未摘**,
+ *    按清扫器的机读结论行 `SWEEP-RESULT state=…` 分档;取不到结论行 ⇒ 报"读数未判定",
+ *    不得显示成"无需清扫"(把"没做"写成"做过"是 §0.3/§0.10 明令禁止的那一型);
  *  - 派生子进程一律显式 stdio + windowsHide + timeout(§12g / 守门 52 / 80)。
  */
 export function sweepStaleClosedRows(opts = {}) {
@@ -4156,12 +4137,39 @@ export function sweepStaleClosedRows(opts = {}) {
         }
   const r = run()
   const rows = String(r.out ?? '').split(/\r?\n/)
-  const keep = rows.filter((l) => /滞留|清扫完成|未判定|拒绝|守恒|❌/.test(l))
-  const line = keep.slice(-2).join(' / ')
+  // 三态读数**只认清扫器自己打的机读结论行**(SWEEP-RESULT state=…),不靠中文文案猜:
+  //  "摘了 N 条" / "无滞留" / "有滞留但全部被判『仍保护』而一条未摘" 必须长得不一样 ——
+  //  把第三种显示成"无需清扫"就是把"没做"写成"做过"(§0.3/§0.10 同一条禁令)。
+  const resultLine = rows
+    .map((l) => (l.match(/SWEEP-RESULT\s+state=([A-Za-z-]+)(.*)$/) ?? null))
+    .find(Boolean)
+  const kv = (key) => {
+    const m = resultLine ? String(resultLine[2]).match(new RegExp(`\\b${key}=(\\S+)`)) : null
+    return m ? m[1] : null
+  }
+  const keep = rows.filter((l) => /滞留|清扫完成|未判定|拒绝|守恒|跳过|仍保护|SWEEP-RESULT|❌/.test(l))
+  const line = keep
+    .filter((l) => !/SWEEP-RESULT/.test(l))
+    .slice(-2)
+    .join(' / ')
+  const state = resultLine ? resultLine[1] : null
+  let reading = null
+  if (state === 'clean') reading = `无跨枚滞留(账面已勾 0 条,读数来自清扫器)`
+  else if (state === 'stripped')
+    reading = `摘除 ${kv('stripped') ?? '?'} 条(滞留 ${kv('stale') ?? '?'},另跳过 ${kv('held') ?? '?'} 条仍保护者交人工)`
+  else if (state === 'all-held')
+    reading =
+      `有滞留 ${kv('stale') ?? '?'} 条,但**全部**被守门 71 判为「仍保护」⇒ 本轮一条未摘,交人工处置` +
+      `(摘了会被按未勾形态还原;这一档不等于"账面干净")`
+  else if (state === 'undetermined') reading = `未判定(${kv('why') ?? '尺子取不到'})⇒ 本轮没判,不等于"账面干净"`
+  else if (state === 'refused') reading = `整批不落(refused:${kv('why') ?? '守恒/归因不过'})—— 滞留仍在,交人工`
+  else if (state === 'preflight') reading = `预演档(不应出现在 --apply 派发里):滞留 ${kv('stale') ?? '?'}`
   logger(
-    `${r.ok ? '✅' : '⚠️'} 完成即删清扫轮:${r.ok ? (line || '无需清扫(无跨枚滞留)') : `${line || r.err || '未判定'}`}`,
+    reading !== null
+      ? `${state === 'clean' || state === 'stripped' ? '✅' : '⚠️'} 完成即删清扫轮:${reading}${line ? ` ｜ ${line.slice(0, 160)}` : ''}`
+      : `${r.ok ? '✅' : '⚠️'} 完成即删清扫轮:${line || r.err || '未取到清扫器结论行(SWEEP-RESULT)⇒ 本轮读数未判定,不等于"账面干净"'}`,
   )
-  return { ran: true, ok: r.ok, summary: line }
+  return { ran: true, ok: r.ok, state: state ?? 'no-result-line', summary: line, reading }
 }
 
 export function auditTunnelLegHealth(opts = {}) {
