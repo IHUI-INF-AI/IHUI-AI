@@ -254,14 +254,8 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
           }
         })
       }
-      if (failed) {
-        // 失败保留上一轮结果并与行内提示同现;旧值不清成空盘,updatedAt 也不推进
-        setResults((prev) => {
-          const merged = new Map(prev)
-          for (const [k, v] of next) merged.set(k, v)
-          return merged
-        })
-      } else {
+      // 失败时保留上一轮结果(与行内提示同现);不落半批结果,避免新旧窗口混在同一盘,updatedAt 也不推进
+      if (!failed) {
         setResults(next)
         setUpdatedAt(new Date())
         setCountdown(AUTO_REFRESH_MS / 1000)
