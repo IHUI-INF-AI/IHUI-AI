@@ -11,11 +11,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
-import {
-  findLessonById,
-  findLessonChapters,
-  findLessonSections,
-} from '../db/learn-queries.js'
+import { findLessonById, findLessonChapters, findLessonSections } from '../db/learn-queries.js'
 import { findRateList } from '../db/learn-extended-queries.js'
 
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
@@ -66,6 +62,8 @@ export const courseMobileRoutes: FastifyPluginAsync = async (server) => {
             title: section.title,
             type: 'section',
             duration: toMinutes(section.duration),
+            // 空值不打字段:老数据/未上传视频时保持既有响应形状(形状锁与端上兼容都按它)
+            ...(section.videoUrl ? { videoUrl: section.videoUrl } : {}),
           })),
         })),
       ),

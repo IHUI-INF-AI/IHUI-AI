@@ -295,7 +295,7 @@ export type RootStackParamList = {
   Automations: { id?: string }
   Dashboard: undefined
   CourseDetail: { id: string }
-  VideoPlayer: { courseId: string; lessonId: string; title?: string }
+  VideoPlayer: { courseId: string; lessonId: string; title?: string; videoUrl?: string }
   LiveDetail: { id: string }
   Order: undefined
   Wallet: undefined
