@@ -54,10 +54,11 @@ const TABS: TabItem[] = [
  *  本端取名 *_PX 而非 *_RADIUS,避免圆角单源门 B2 把"喂给 blur() 的模糊半径"误当本地圆角常量。 */
 const GLASS_BLUR_PX = 24
 
-/** 选中态光晕:半径取两端同名档 TAB_BAR_GLOW_RADIUS_PX,颜色走 CSS 变量 --color-brand-accent
- *  (亮 #8fb8cc / 暗 #a3c4d6),与 RN TabBar.styles.ts 的 iconGlow 同档 —— 端内不出现裸 hex。 */
+/** 选中态光晕:半径取单一源 TAB_BAR_GLOW_RADIUS_PX,颜色走 CSS 变量 --color-brand-accent-deep
+ *  (亮 #4a7a96 / 暗 #a3c4d6),与 RN TabBar.styles.ts 的 iconGlow 同档 —— 端内不出现裸 hex。
+ *  刻意不用 --color-brand-accent(#8fb8cc):同日玻璃底回调至 0.6 后浅蓝晕压在胶囊上看不见。 */
 const GLOW_STYLE = {
-  filter: `drop-shadow(0 0 ${TAB_BAR_GLOW_RADIUS_PX}px var(--color-brand-accent))`,
+  filter: `drop-shadow(0 0 ${TAB_BAR_GLOW_RADIUS_PX}px var(--color-brand-accent-deep))`,
 }
 
 export default function CustomTabBar() {

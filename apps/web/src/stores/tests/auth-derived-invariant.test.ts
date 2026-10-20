@@ -79,7 +79,9 @@ describe('③ isAuthenticated 恒为 token 的派生投影(任何动作之后都
   it('setTokenWithPrefs(登录页勾了自动登录那条链) ⇒ true,且带 pair 形态也一致', () => {
     useAuthStore.getState().setTokenWithPrefs('t1', 'r1', true)
     expectNoDivergence('setTokenWithPrefs(string rt)')
-    useAuthStore.getState().setTokenWithPrefs('t2', { accessToken: 't2', refreshToken: 'r2', expiresIn: 3600 }, false)
+    useAuthStore
+      .getState()
+      .setTokenWithPrefs('t2', { accessToken: 't2', refreshToken: 'r2', expiresIn: 3600 }, false)
     expectNoDivergence('setTokenWithPrefs(TokenPair)')
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
   })
@@ -158,7 +160,7 @@ describe('配对形状锁:那份乐观提示必须一直被登出标记 + bootst
     const branch = src.slice(gate, gate + 400)
     expect(
       branch,
-      '标记在场那一支必须 logout(清 isAuthenticated),否则存储里的 true 继续替用户做决定',
+      '标记在场那一支必须 logout(清 isAuthenticated + 重写标记,拿得到 rt 时吊销服务端),否则存储里的 true 继续替用户做决定',
     ).toMatch(/logout\(\)/)
   })
 })

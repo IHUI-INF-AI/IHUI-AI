@@ -76,6 +76,7 @@ import {
   setToken,
   setRefreshToken,
   clearAuth,
+  expireAuth,
   isSessionLoggedOut,
   markSessionLoggedOut,
   refreshAccessToken,
@@ -127,9 +128,30 @@ describe('① 主动登出 ⇒ 冷启动静默登录被拦', () => {
     expect(wechatLoginMock).not.toHaveBeenCalled()
   })
 
-  it('清凭据的另一条路(api-bridge / 会话失效)同样落标记:只认 clearAuth 一个出口', () => {
-    clearAuth()
+  it('会话被动失效走 expireAuth():清凭据但**不落**标记(401 ≠ 用户主动退出)', () => {
+    setToken('tk-1')
+    expect(isSessionLoggedOut()).toBe(false)
+
+    expireAuth()
+
+    expect(getToken()).toBe('')
+    expect(isSessionLoggedOut()).toBe(false)
+    expect(taroStorage[SESSION_LOGGED_OUT_STORAGE_KEY]).toBeUndefined()
+  })
+
+  it('expireAuth 不抹掉已存在的显式登出标记(否则 401 会把"用户退出过"洗成"可自动登回")', () => {
+    markSessionLoggedOut()
+    expireAuth()
     expect(isSessionLoggedOut()).toBe(true)
+  })
+
+  it('api-bridge 的 401 出口取的是 expireAuth(装车证明:判据改了,接线没跟就是没修)', () => {
+    const src = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '..', 'api-bridge.ts'),
+      'utf-8',
+    )
+    expect(src).toMatch(/import \{[^}]*expireAuth[^}]*\} from '\.\/auth'/)
+    expect(src).not.toMatch(/\bclearAuth\(/)
   })
 })
 

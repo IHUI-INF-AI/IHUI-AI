@@ -39,9 +39,11 @@ type AuthCookiesModule = {
 
 const PAYLOAD = { accessToken: 'access.jwt.value', refreshToken: 'refresh.jwt.value' }
 
-/** 起一枚只挂 cookie 插件的最小 app,把 setAuthCookies/clearAuthCookies 接到真 reply 上。 */
+/** 起一枚只挂 cookie 插件的最小 app,把 setAuthCookies/clearAuthCookies 接到真 reply 上。
+ *  trustProxy 必须与生产同形(config/index.ts TRUSTED_PROXIES 缺省 '127.0.0.1,::1'):
+ *  request.hostname 是否采信 X-Forwarded-Host 由它决定,不设的话「公网臂」那条回归测不出来。 */
 async function buildApp(mod: AuthCookiesModule): Promise<FastifyInstance> {
-  const app = Fastify()
+  const app = Fastify({ trustProxy: '127.0.0.1,::1' })
   await app.register(cookie)
   app.get('/set', (request, reply) => {
     mod.setAuthCookies(reply, PAYLOAD)
@@ -120,6 +122,34 @@ describe('setAuthCookies / clearAuthCookies —— 接线', () => {
     expect(prod.every((c) => c.includes('Domain=.aizhs.top') && /Max-Age=0/.test(c))).toBe(true)
     expect(local.every((c) => /Max-Age=0/.test(c))).toBe(true)
     expect(local.some((c) => /Domain=/i.test(c))).toBe(false)
+  })
+
+  it('可信代理透传的 X-Forwarded-Host 决定域(公网访客经反代的真实形态)', async () => {
+    const instance = await buildApp(mod)
+    // 反代把访客原始 host 放进 X-Forwarded-Host,自己只留 127.0.0.1:8802 当 Host;
+    // remoteAddress 127.0.0.1 命中 trustProxy ⇒ 采信转发的 host。
+    const res = await instance.inject({
+      method: 'GET',
+      url: '/set',
+      remoteAddress: '127.0.0.1',
+      headers: { host: '127.0.0.1:8802', 'x-forwarded-host': 'bsm.aizhs.top' },
+    })
+    const setCookies = res.headers['set-cookie'] as string[]
+    expect(setCookies.every((c) => c.includes('Domain=.aizhs.top'))).toBe(true)
+  })
+
+  it('不可信来源伪造 X-Forwarded-Host 不得换来共享域 Cookie', async () => {
+    const instance = await buildApp(mod)
+    // remoteAddress 换成公网地址 ⇒ 不在 trustProxy 名单 ⇒ 转发头必须被无视
+    const res = await instance.inject({
+      method: 'GET',
+      url: '/set',
+      remoteAddress: '203.0.113.5',
+      headers: { host: 'evil.example.com', 'x-forwarded-host': 'bsm.aizhs.top' },
+    })
+    const setCookies = res.headers['set-cookie'] as string[]
+    expect(setCookies).toHaveLength(2)
+    expect(setCookies.some((c) => /Domain=/i.test(c))).toBe(false)
   })
 })
 

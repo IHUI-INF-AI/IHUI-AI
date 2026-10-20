@@ -21,14 +21,15 @@ import {
 /**
  * `useAuthBootstrap` 冷启动刷新失败**分型**回归测试(2026-10-09 修复)。
  *
- * 修复面:web 端冷启动静默刷新失败时,区分「凭据被明确拒绝(401/403 → 允许落持久登出
- * 标记)」与「瞬时失败(网络/5xx → 绝不落标记)」——瞬时失败也 logout() 会把 30 天
- * httpOnly refresh cookie 永久废掉(「自动登录总被清掉」的根因);另堵住
- * `!cancelled && retry.success` 的 else 把「组件已卸载」也当失败走 logout() 落标记的漏洞。
+ * 修复面:web 端冷启动静默刷新失败时,区分「凭据被明确拒绝(401/403 → 结束本地会话,
+ * **不落**持久登出标记)」与「瞬时失败(网络/5xx → 保持现状)」——瞬时失败也清凭据会把
+ * 30 天 httpOnly refresh cookie 永久废掉(「自动登录总被清掉」的根因);另堵住
+ * `!cancelled && retry.success` 的 else 把「组件已卸载」也当失败清会话的漏洞。
  *
- * 判据纯函数(`shouldMarkSessionLoggedOut` / `classifyRefreshFailureStatus`)住在
+ * 判据纯函数(`shouldExpireSession` / `classifyRefreshFailureStatus`)住在
  * `@ihui/shared/auth/auto-login-policy`,已有独立单测;本文件只锁 **web 这一侧的接线**:
- * hook 的三处失败分支是否真的只在 rejected 才调 `logout()`(= 落标记的唯一出口)。
+ * hook 的三处失败分支是否真的只在 rejected 才结束本地会话(`expireSession()`),
+ * 且**不落**持久登出标记(落了就永久压制账密自动登录)。
  *
  * 测试装置(为什么 mock 这几个):
  * - `@/lib/api` 整体换掉:hook 从它同时 import `fetchApi` 与 `getLastRefreshFailure`,
@@ -39,8 +40,8 @@ import {
  *   (stores/auth 用到的 setAuthCookie/clearRefreshTokenCookie 是 P2-18 后的空操作)。
  * - `@/stores/user` 只给 selector 形态的 `useUserStore`;本文件走不到 /auth/me 成功路径,
  *   fetchProfile 永远不会被真调。
- * - `@/stores/auth` 用**真 store**:断言的核心正是它的 `logout() → markSessionLoggedOut()`
- *   接线,把 store mock 掉等于把要测的那根线拆了。
+ * - `@/stores/auth` 用**真 store**:断言的核心正是它的 `expireSession()` 只清凭据、
+ *   不写标记(对照 `logout()` 会写标记)的接线,把 store mock 掉等于把要测的那根线拆了。
  *
  * 每个用例前:清 localStorage + `__resetSessionLoggedOutMirrorForTest()` + 复位 store ——
  * session-marker 有进程内镜像,不清会把上一个用例的判定带进本用例。
@@ -108,9 +109,9 @@ afterEach(() => {
 
 describe('A. 冷启动静默刷新瞬时失败:绝不落持久登出标记(2026-10-09 主病根)', () => {
   it('getLastRefreshFailure()=transient + refresh 失败 ⇒ 不写标记、不 logout、ready', async () => {
-    // 2026-10-14 控制台清零整改:瞬时失败提示从 console.warn 降级为 console.debug
-    // (默认视图不显示 debug,不再刷屏;语义不变,故断言对象同步换成 debug)。
-    const debug = vi.spyOn(console, 'debug').mockImplementation(() => {})
+    // 2026-10-14 控制台清零整改:瞬时失败提示从 console.warn 降级为 console.info
+    // (no-console 白名单只放 warn/error/info;语义不变,故断言对象同步换成 info)。
+    const logged = vi.spyOn(console, 'info').mockImplementation(() => {})
     // persist 冷启动带进来的幽灵 isAuthenticated 标志位(token 为空但标志位残留)
     useAuthStore.setState({ isAuthenticated: true })
     mocks.getLastRefreshFailure.mockReturnValue('transient')
@@ -123,18 +124,18 @@ describe('A. 冷启动静默刷新瞬时失败:绝不落持久登出标记(2026-
     // 核心:瞬时失败不升级成持久标记(否则 30 天 refresh cookie 被永久废掉)
     expect(markerInStorage()).toBeNull()
     expect(isSessionLoggedOut()).toBe(false)
-    // logout() 没被调:幽灵标志位保持原状(修复前这里会被清成 false 并落标记)
+    // expireSession() 没被调:幽灵标志位保持原状(修复前这里会被清成 false)
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
     expect(result.current.isAuthenticated).toBe(true)
-    // 收束方式是 console.debug(保持现状、下一次冷启动重试),不是静默
-    expect(debug).toHaveBeenCalled()
+    // 收束方式是 console.info(保持现状、下一次冷启动重试),不是静默
+    expect(logged).toHaveBeenCalled()
     // 刷新失败即止步,不再打 /auth/me
     expect(mocks.fetchApi).not.toHaveBeenCalled()
   })
 })
 
-describe('B. 刷新被服务端明确拒绝(401/403):与主动登出同处置', () => {
-  it('getLastRefreshFailure()=rejected ⇒ logout() 落持久登出标记', async () => {
+describe('B. 刷新被服务端明确拒绝(401/403):结束本地会话但不落登出标记', () => {
+  it('getLastRefreshFailure()=rejected ⇒ expireSession() 清凭据、标记保持为空', async () => {
     useAuthStore.setState({ isAuthenticated: true })
     mocks.getLastRefreshFailure.mockReturnValue('rejected')
     mocks.refreshAccessTokenOnce.mockResolvedValue(null)
@@ -143,9 +144,10 @@ describe('B. 刷新被服务端明确拒绝(401/403):与主动登出同处置', 
 
     await waitFor(() => expect(result.current.ready).toBe(true))
 
-    expect(markerInStorage()).not.toBeNull()
-    expect(isSessionLoggedOut()).toBe(true)
-    // logout() 真被调:幽灵标志位被清掉
+    // 核心(2026-10-20):会话被动失效**不得**落标记 —— 否则记住的账密从此不再自动提交
+    expect(markerInStorage()).toBeNull()
+    expect(isSessionLoggedOut()).toBe(false)
+    // 幽灵标志位仍被清掉(UI 不能继续假装已登录)
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
   })
 })
@@ -161,7 +163,7 @@ describe('C. 登出标记已在场:冷启动不得再碰刷新', () => {
 
     expect(mocks.refreshAccessTokenOnce).not.toHaveBeenCalled()
     expect(mocks.fetchApi).not.toHaveBeenCalled()
-    // gate 那一支必须 logout 清掉幽灵标志位,而不是只停在未 ready
+    // gate 那一支必须清掉幽灵标志位,而不是只停在未 ready
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
     expect(markerInStorage()).not.toBeNull()
   })
@@ -185,26 +187,26 @@ describe('D. /auth/me retry 失败按 retry 状态码分型(cancelled 漏洞回�
   }
 
   it('retry status=500(瞬时)⇒ 不写标记,登录态保持', async () => {
-    // 2026-10-14 控制台清零整改:瞬时失败提示从 console.warn 降级为 console.debug,断言对象同步换
-    const debug = vi.spyOn(console, 'debug').mockImplementation(() => {})
+    // 2026-10-14 控制台清零整改:瞬时失败提示从 console.warn 降级为 console.info,断言对象同步换
+    const logged = vi.spyOn(console, 'info').mockImplementation(() => {})
 
     await runBootstrapWithFailedMe(500)
 
     expect(markerInStorage()).toBeNull()
     expect(isSessionLoggedOut()).toBe(false)
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
-    expect(debug).toHaveBeenCalled()
+    expect(logged).toHaveBeenCalled()
     // 分型看的是 retry.status,不是刷新失败记录:refresh 成功过,记录必须没被读
     expect(mocks.getLastRefreshFailure).not.toHaveBeenCalled()
   })
 
-  it('retry status=401(新凭据也被拒)⇒ 写标记', async () => {
+  it('retry status=401(新凭据也被拒)⇒ 结束会话但不写标记', async () => {
     await runBootstrapWithFailedMe(401)
 
-    expect(markerInStorage()).not.toBeNull()
-    expect(isSessionLoggedOut()).toBe(true)
+    expect(markerInStorage()).toBeNull()
+    expect(isSessionLoggedOut()).toBe(false)
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
-    // 标记来自 retry.status 的分型,而不是 getLastRefreshFailure 记录(refresh 是成功的)
+    // 分型来自 retry.status,而不是 getLastRefreshFailure 记录(refresh 是成功的)
     expect(mocks.getLastRefreshFailure).not.toHaveBeenCalled()
   })
 
@@ -231,7 +233,7 @@ describe('D. /auth/me retry 失败按 retry 状态码分型(cancelled 漏洞回�
     resolveRetry({ success: false, error: 'me dead', status: 401 })
     await new Promise<void>((resolve) => setTimeout(resolve, 0))
 
-    // 已卸载 = cancelled:既不当失败 logout,也不发 warn/落标记
+    // 已卸载 = cancelled:既不当失败清会话,也不发 warn/落标记
     expect(markerInStorage()).toBeNull()
     expect(isSessionLoggedOut()).toBe(false)
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
