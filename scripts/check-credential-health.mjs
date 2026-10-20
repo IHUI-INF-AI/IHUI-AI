@@ -402,8 +402,12 @@ const APP_ENV_REQUIRED_KEYS = [
   },
   {
     key: 'OIDC_CLIENT_SECRET',
+    // optional: 企业 SSO 是可选 provider,未配置只让「企业 SSO」按钮显式返回 400,
+    // 不是"缺失即静默 fail-closed 的真实交易流量",故空值判 unknown(不发失效邮件、不冒充 ok),
+    // 不进强制 fail 清单(与 USDT_WEBHOOK_SECRET 的静默拒收 401 不同型)。
+    optional: true,
     gates: 'isOidcConfigured()(packages/auth/src/providers/oidc.ts:85)',
-    consequence: '前端「企业 SSO」按钮点了恒返回「OIDC 未配置」400(按钮本身照常渲染)',
+    consequence: '前端「企业 SSO」按钮点了恒返回「OIDC 未配置」400(可选功能未启用,不阻断账号密码/其他登录)',
   },
 ]
 
@@ -429,6 +433,14 @@ export function judgeAppEnvCredentials({
     const fromService = String(resolveServiceValue?.(r.key) ?? '').trim()
     if (fromService)
       return { name: `.env ${r.key}`, level: 'ok', detail: '.env 留空但 IHUI-API 服务环境块有值 ⇒ 认已配置(来源:服务块)' }
+    // 可选 provider 未配置:不判 fail(不发失效邮件)、不冒充 ok,落 unknown 未判定
+    if (r.optional) {
+      return {
+        name: `.env ${r.key}`,
+        level: 'unknown',
+        detail: `可选功能未配置(${r.gates}):不阻断账号密码/其他登录,不判失效;若要启用企业 SSO 再补 OIDC_ISSUER/CLIENT_ID/CLIENT_SECRET`,
+      }
+    }
     return {
       name: `.env ${r.key}`,
       level: 'fail',
@@ -983,6 +995,7 @@ function selfTest() {
   )
   eq('detail 必须报名键名与后果(只喊"有一项红"不可处置)', judgeAppEnvCredentials({ envText: 'K_CANARY=\n', required: REQ })[0].detail.includes('K_CANARY') && judgeAppEnvCredentials({ envText: 'K_CANARY=\n', required: REQ })[0].detail.includes('某闸口'), true)
   eq('.env 空但 IHUI-API 服务环境块有值 ⇒ ok(假红护栏)', lvl(judgeAppEnvCredentials({ envText: 'K_CANARY=\n', required: REQ, resolveServiceValue: () => 'x' })), 'ok')
+  eq('可选 provider 未配置 ⇒ unknown(不 fail 不 ok,不发失效邮件)', lvl(judgeAppEnvCredentials({ envText: 'OPT=\n', required: [{ key: 'OPT', optional: true, gates: '某可选闸口', consequence: '某可选后果' }] })), 'unknown')
   eq(
     '阳性对照:上一条判据不是恒假 —— 值真被带出时它必须翻红',
     JSON.stringify([{ name: '.env K_CANARY', level: 'ok', detail: `已配置 ${CANARY}` }]).includes(CANARY),
