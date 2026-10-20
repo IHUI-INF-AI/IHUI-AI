@@ -12,7 +12,17 @@
         <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
+        <!-- 2026-10-20 立:原生强调色必须显式钉中性墨档。不钉 ⇒ colorControlActivated
+             回落系统强调色(HyperOS 实测橙 #E59700),它经 WebView 光标 / 文字选中底纹 /
+             ripple 渗进界面;本项目 UI 规范不允许暖色。取值见 values/colors.xml
+             (暗档见 values-night/colors.xml,与 apps/mobile-rn 同源同值)。 -->
+        <item name="colorAccent">@color/accent_ink</item>
+        <item name="android:colorAccent">@color/accent_ink</item>
+        <item name="colorControlActivated">@color/accent_ink</item>
+        <item name="android:colorControlActivated">@color/accent_ink</item>
+        <item name="colorControlHighlight">@color/ripple_ink</item>
+        <item name="android:colorControlHighlight">@color/ripple_ink</item>
+        <item name="android:textColorHighlight">@color/selection_ink</item>
     </style>
 
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
@@ -27,11 +37,29 @@
         <item name="android:navigationBarColor">@color/windowBackgroundDark</item>
         <item name="android:windowLightNavigationBar">false</item>
         <item name="android:windowBackground">@color/windowBackgroundDark</item>
+        <!-- 2026-10-20 立:本组是 Capacitor BridgeActivity 运行期真正换上来的活主题
+             (AppTheme.NoActionBar),不钉强调色 ⇒ WebView 光标/选中底纹回落系统橙。
+             与 AppTheme 同源同值,不另立档。 -->
+        <item name="colorAccent">@color/accent_ink</item>
+        <item name="android:colorAccent">@color/accent_ink</item>
+        <item name="colorControlActivated">@color/accent_ink</item>
+        <item name="android:colorControlActivated">@color/accent_ink</item>
+        <item name="colorControlHighlight">@color/ripple_ink</item>
+        <item name="android:colorControlHighlight">@color/ripple_ink</item>
+        <item name="android:textColorHighlight">@color/selection_ink</item>
     </style>
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <!-- 2026-10-20 立:开屏档同样钉死,免得开屏瞬间的原生控件露出系统色。 -->
+        <item name="colorAccent">@color/accent_ink</item>
+        <item name="android:colorAccent">@color/accent_ink</item>
+        <item name="colorControlActivated">@color/accent_ink</item>
+        <item name="android:colorControlActivated">@color/accent_ink</item>
+        <item name="colorControlHighlight">@color/ripple_ink</item>
+        <item name="android:colorControlHighlight">@color/ripple_ink</item>
+        <item name="android:textColorHighlight">@color/selection_ink</item>
     </style>
 </resources>
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
