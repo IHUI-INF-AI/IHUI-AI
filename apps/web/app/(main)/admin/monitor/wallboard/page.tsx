@@ -1130,7 +1130,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         </section>
 
         {/* ===== 主体网格 ===== */}
-        <section className="grid grid-cols-1 gap-2.5 p-4 xl:grid-cols-12">
+        <section className="wb-grid grid grid-cols-1 gap-2.5 p-4 xl:grid-cols-12">
           {/* 主机资源 */}
           <Panel
             title={t('panelHost')}
@@ -1933,6 +1933,14 @@ const WALLBOARD_CSS = `
 .wb-hdr-title h1, .wb-hdr-title p, .wb-hdr-status, .wb-hdr-sources { white-space: nowrap; }
 @container (max-width: 996px) {
   .wb-hdr-sources { display: none; }
+}
+/* 主体 12 栏网格同理:它按视口 xl: 生效,而容器宽与视口并不同步(实测 视口1600→容器914、
+ * 1280→594、1100→900、900→800)。容器 914 时最窄面板 287px 可读,800 时只剩 249、594 时 181。
+ * 故阈值取实测落点 900(899 = N-1 防抖):窄容器整栏堆叠,宽容器维持原 12 栏设计。 */
+.wb-scroll-host { container-type: inline-size; }
+@container (max-width: 899px) {
+  .wb-grid { grid-template-columns: minmax(0, 1fr); }
+  .wb-grid > * { grid-column: auto; }
 }
 .wb-rise { animation: wb-rise 0.55s ease-out both; }
 @keyframes wb-rise {
