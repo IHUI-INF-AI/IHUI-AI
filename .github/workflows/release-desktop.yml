@@ -273,6 +273,15 @@ jobs:
           }
           "### 桌面端签名`n- 安装包: $($target.Name) ($($target.Length) 字节)`n- Authenticode: $($sig.Status)`n- 更新签名 `.sig` 已按新字节重算" >> $env:GITHUB_STEP_SUMMARY
 
+      # 同上一条纪律:凭据不齐时三步跳过 ⇒ Release 里躺的是未签名安装包,而 job 是绿的。
+      # 不签不是错,但必须让"绿"不被读成"已签名"。
+      - name: Report unsigned fallback (Windows)
+        if: runner.os == 'Windows' && env.SIGNPATH_CONFIGURED != 'true'
+        shell: pwsh
+        run: |
+          '::warning::SignPath 未启用(SIGNPATH_CONFIGURED=false):桌面安装包本次未签名,Windows 用户下载仍会撞 SmartScreen。'
+          "### 签名状态`n- ⚠️ 未签名:四项 SignPath secret 未齐,签名步已整体跳过" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
       - name: Fallback upload bundle files to Release
         if: always()
         shell: bash
