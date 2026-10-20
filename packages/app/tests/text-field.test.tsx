@@ -136,11 +136,12 @@ describe('TextField 聚焦描边', () => {
     expect(styleOf(input)).toMatchObject({ borderWidth: 2, borderColor: '#123456', height: 40 })
   })
 
-  it('focusedStyle 排在共享墨档之后,供登录页这类"聚焦加粗"的差异需求覆盖', () => {
-    const { input } = renderField({ focusedStyle: { borderWidth: 2 } })
+  it('focusedStyle 只准覆盖颜色(不得带几何键 —— 聚焦加粗会顶起文字),逐字生效且不动 1px 占位', () => {
+    const { input } = renderField({ focusedStyle: { borderColor: '#FF0000' } })
     fireEvent.focus(input)
-    expect(styleOf(input).borderWidth).toBe(2)
-    expect(styleOf(input).borderColor).toBe('#000000')
+    expect(styleOf(input).borderColor).toBe('#FF0000')
+    // 宽度必须仍是常态占位的 1:聚焦档改宽度 = 布局跳动(守门 212 F2 同口径)
+    expect(styleOf(input).borderWidth).toBe(1)
   })
 
   it('onFocus/onBlur 透传给调用方(内部记账不得吃掉宿主回调)', () => {
