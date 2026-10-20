@@ -12,6 +12,12 @@ import { AgentManager, type AgentItem } from '@/components/ai/agent-manager'
 import { AgentPill } from '@/components/ai/agent-pill'
 import { useAgent } from '@/hooks/use-agent'
 
+/**
+ * 「我的 Agent」页签:取数走 `useAgent()` → GET /agents/my(后端按当前登录用户过滤)。
+ * 此前该 hook 请求的是 /agents/list(市场列表、无 userId)且只取默认 20 条,
+ * 于是"我的"页签显示的是市场前 20 枚、与登录者无关 —— 空态按"没有自己的智能体"如实呈现。
+ * 游客点击本页签时由 `fetchApi` 的既有 401 语义弹登录弹窗(lib/api.ts:208),不伪造内容。
+ */
 export function MyAgentsTab() {
   const router = useRouter()
   const t = useTranslations('agent')
@@ -25,7 +31,7 @@ export function MyAgentsTab() {
   const items: AgentItem[] = agents.map((a) => ({
     id: a.id,
     name: a.name,
-    role: a.description || a.systemPrompt || '—',
+    role: a.description || '—',
     status: 'idle',
     model: a.model,
   }))
@@ -39,24 +45,26 @@ export function MyAgentsTab() {
     )
   }
 
+  if (items.length === 0) {
+    return <div className="py-12 text-center text-sm text-muted-foreground">{t('empty')}</div>
+  }
+
   return (
     <div className="mx-auto max-w-md space-y-4">
-      {items.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {items.slice(0, 8).map((a) => (
-            <AgentPill
-              key={a.id}
-              name={a.name}
-              status={a.status}
-              active={a.id === selectedId}
-              onClick={() => {
-                setSelectedId(a.id)
-                router.push(`/agents/${a.id}`)
-              }}
-            />
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap gap-2">
+        {items.slice(0, 8).map((a) => (
+          <AgentPill
+            key={a.id}
+            name={a.name}
+            status={a.status}
+            active={a.id === selectedId}
+            onClick={() => {
+              setSelectedId(a.id)
+              router.push(`/agents/${a.id}`)
+            }}
+          />
+        ))}
+      </div>
       <AgentManager
         agents={items}
         selectedId={selectedId}
