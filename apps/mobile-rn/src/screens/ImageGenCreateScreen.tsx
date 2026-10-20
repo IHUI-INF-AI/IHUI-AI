@@ -120,11 +120,10 @@ export function ImageGenCreateScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
-        {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);focusedStyle
-            对齐 LoginScreen 参照:聚焦 borderWidth 1→2 */}
+        {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);聚焦只换色
+            不改描边宽度(变粗会压缩内容区令文字与换行位置跳动;同型位移 2026-10-20 在登录框真机实测) */}
         <TextField
           colorScheme={resolvedTheme}
-          focusedStyle={{ borderWidth: 2 }}
           value={prompt}
           onChangeText={setPrompt}
           placeholder={t('imageGen.promptPlaceholder')}

@@ -266,7 +266,7 @@
   },
   "agent": {
     "useCount": "Usage count",
-    "rating": "Rating",
+    "collectCount": "Favorites",
     "permission": "Permission",
     "statusIdle": "Idle",
     "statusRunning": "Running",

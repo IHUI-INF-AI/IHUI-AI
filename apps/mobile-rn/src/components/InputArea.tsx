@@ -104,6 +104,8 @@ import {
   INPUT_AREA_CONTROL_GLYPH_PX,
   INPUT_AREA_VOICE_BTN_WIDTH_PX,
   INPUT_AREA_INPUT_MIN_HEIGHT_PX,
+  INPUT_AREA_SHELL_PADDING_V_PX,
+  INPUT_AREA_SHELL_BORDER_PX,
   INPUT_AREA_INPUT_MAX_HEIGHT_PX,
   INPUT_AREA_VOICE_BARS_HEIGHT_PX,
   INPUT_AREA_VOICE_BAR_BASE_PX,
@@ -238,10 +240,10 @@ export interface InputAreaProps {
   /** 打开模型参数配置(按钮旁滑杆钮) */
   onOpenModelConfig?: () => void
   /**
-   * 透明底模式(2026-10-16 HomeScreen 液态玻璃底部停靠区用):仅让**容器层**让位
-   * (去 surface.card 底色与顶描边,玻璃透底)。2026-10-20 用户反转定稿:AI 输入框
-   * 外壳(fieldShell)**恒实底**(surface.card + 描边),不该有任何透的感觉 —— 透的
-   * 只有它后面的停靠区玻璃背景;此前「外壳也去实底只留描边」废止。
+   * 透明底模式(2026-10-16 HomeScreen 底部停靠区用):仅让**容器层**让位
+   * (去 surface.card 底色与顶描边)。2026-10-20 用户反转定稿:AI 输入框
+   * 外壳(fieldShell)**恒实底**(surface.card + 描边);停靠区容器本身也不设背景,
+   * 透出的是它身后的页面内容;此前「外壳也去实底只留描边」废止。
    * 默认 false = 原实心卡底行为(其余调用方不受影响)。
    */
   transparentBackground?: boolean
@@ -1073,12 +1075,13 @@ const styles = StyleSheet.create({
     // 2026-10-15 用户定档:原 control(4) 实拍「圆角生硬」→ 收 panel(xl=12),
     // 与 web 输入壳 rounded-xl(message-input.tsx 'ai-input-shell')同档
     borderRadius: rnRadiusFor.panel,
-    borderWidth: 1,
+    borderWidth: INPUT_AREA_SHELL_BORDER_PX,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
-    // 8/6 = web 壳内 px-2(8)档;原 4/2 实拍「太拥挤」,控件统一 32 高后同步放宽
+    // 8/6 = web 壳内 px-2(8)档;原 4/2 实拍「太拥挤」,控件统一 32 高后同步放宽。
+    // 纵向 6 与描边 1 已入 spec:TabBar 胶囊按外壳静态高取档,写死字面量会让那张卡悬空
     paddingHorizontal: INPUT_AREA_STACK_GAP_PX,
-    paddingVertical: 6,
+    paddingVertical: INPUT_AREA_SHELL_PADDING_V_PX,
   },
   micInShell: {
     // 36 = rnGeometry.tapBox 同档,且小程序端 `w-9` 也是 36:两端共享这一档,收进表反而会把

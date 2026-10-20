@@ -38,7 +38,7 @@ export const COLORS = {
   border: { light: 'hsl(0 0% 89.8%)', dark: 'hsl(0 0% 22%)' },
   divider: { light: 'hsl(0 0% 89.8%)', dark: 'hsl(0 0% 22%)' },
   /* 以下 2 字段为 COLORS_MAPPING 中声明而本块尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
-  glassBg: { light: 'rgba(255, 255, 255, 0.66)', dark: 'rgba(26, 26, 26, 0.66)' },
+  glassBg: { light: 'rgba(255, 255, 255, 0.6)', dark: 'rgba(26, 26, 26, 0.6)' },
   borderMedium: { light: '#d4d4d4', dark: '#525252' },
   /* 以下 1 字段为 COLORS_MAPPING 中声明而本块尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
   tertiary: { light: '#a3a3a3', dark: '#737373' },

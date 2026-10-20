@@ -17,9 +17,11 @@
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import re
 from pathlib import Path
+from typing import NamedTuple
 
 from app.core.approval_replay import _REPLAY_FIELDS, chat_pending_approval_replays
 
@@ -134,4 +136,194 @@ def test_t6_现读生产面无人调用取数侧_接线格尚未落地() -> None
         if p.name != 'approval_replay.py' and import_re.search(p.read_text(encoding='utf-8', errors='ignore'))
     ]
     assert importers == [], f'取数侧已被 {importers} import,本登记的"零行为"结论需就地改写'
+
+
+# ── T7-T9:重放取数侧的**可达性**(量"接了线能不能有对象",不是量"有没有接线") ────
+#
+# 立项理由:D1047 diff② 的票面口径 A 写的是"服务端在重连时重放仍待决的条目",而
+# 取数侧 chat_pending_approval_replays 的输入是 `_approval_sessions[session_id]`。
+# 这一格此前无人量过"重连那一刻那张表里还有没有条目" —— 只量过"条目形状对不对"(T1)。
+# 形状全对而输入集恒空,接线就是一条永不触发的分支(AGENTS §0.9/§0.3:不得把没判写成判过,
+# 也不得用"代码在+用例绿"冒充"生产读面收得到")。
+# 判据必须是**源码形状**而非印象:两条腿的差别恰好藏在"等待住在哪儿"。
+
+AGENT_LOOP_PY = Path(__file__).resolve().parents[1] / 'app' / 'services' / 'agent_loop_v2.py'
+AGENTS_PY = Path(__file__).resolve().parents[1] / 'app' / 'routers' / 'agents.py'
+
+_CHAT_WRITE_ANCHOR = '_approval_sessions.setdefault(session_id, {})[_approval_id] = {'
+_CHAT_TABLE = '_approval_sessions'
+_TASK_WRITE_ANCHOR = '_approval_registry[approval_id] = _ApprovalEntry('
+_TASK_TABLE = '_approval_registry'
+
+
+class _EntryReachability(NamedTuple):
+    """一条待决审批条目"断线之后还在不在表里"的四格读数。"""
+
+    holder: str
+    holder_is_stream_gen: bool
+    pop_gated_on_frame_yield: bool
+    survives_disconnect: bool
+
+
+def _own_yield_count(node: ast.AST) -> int:
+    """本函数体内**直接**出现的 yield/yield from 处数(遇嵌套 def/lambda 不下钻)。
+
+    不下钻是判据的牙:"生成器里顺手定义一个普通工具方法"若也算进去,任何流函数都会被
+    读成"等待由连接驱动",这把尺就恒真了。
+    """
+    count = 0
+    stack: list[ast.AST] = list(ast.iter_child_nodes(node))
+    while stack:
+        cur = stack.pop()
+        if isinstance(cur, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            continue
+        if isinstance(cur, (ast.Yield, ast.YieldFrom)):
+            count += 1
+        stack.extend(ast.iter_child_nodes(cur))
+    return count
+
+
+def _enclosing_func(tree: ast.AST, line: int) -> ast.FunctionDef | ast.AsyncFunctionDef:
+    """取包住第 line 行的**最内层**函数(跨度最小者)。"""
+    cands = [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and n.lineno <= line <= (n.end_lineno or n.lineno)
+    ]
+    if not cands:
+        raise AssertionError(f'第 {line} 行不在任何函数体内 ⇒ 本尺失明,不得当"判过"')
+    best: ast.FunctionDef | ast.AsyncFunctionDef = min(
+        cands, key=lambda n: (n.end_lineno or n.lineno) - n.lineno
+    )
+    return best
+
+
+def approval_entry_reachability(src: str, *, write_anchor: str, table: str) -> _EntryReachability:
+    """按源码形状量:这条待决条目在客户端断线后是否仍留在待决表里。
+
+    两格合成一个结论:
+    ① holder_is_stream_gen —— 写入点所在最内层函数,自己就是"靠被迭代才往下走"的
+       异步生成器(本体直接含 yield);
+    ② pop_gated_on_frame_yield —— 摘条目的 `finally` 与"等人工应答"住在同一段 try,
+       且该 try 的 body 里就有 yield。
+    两格同时成立 ⇒ 连接一断,GeneratorExit 必从 body 里那个 yield 抛入、当场走完
+    finally 摘掉条目 ⇒ 重连时刻表里没有它(survives_disconnect=False)。
+    反之等待住在普通协程里(由后台 task 承载),断线不经过它的 yield ⇒ 条目存续。
+    """
+    lines = src.splitlines()
+    hit = next((i + 1 for i, ln in enumerate(lines) if write_anchor in ln), None)
+    if hit is None:
+        raise AssertionError(f'写入锚点 {write_anchor!r} 取不到 ⇒ 本尺失明,不得当"没有"处理')
+    tree = ast.parse(src)
+    holder = _enclosing_func(tree, hit)
+
+    is_stream_gen = isinstance(holder, ast.AsyncFunctionDef) and _own_yield_count(holder) > 0
+
+    gated = False
+    for node in ast.walk(holder):
+        if not isinstance(node, ast.Try):
+            continue
+        fin = ' '.join(ast.unparse(s) for s in node.finalbody)
+        if table not in fin or 'pop(' not in fin:
+            continue
+        body = ast.Module(body=node.body, type_ignores=[])
+        has_wait = '.wait()' in ' '.join(ast.unparse(s) for s in node.body)
+        has_yield = any(isinstance(n, (ast.Yield, ast.YieldFrom)) for n in ast.walk(body))
+        if has_wait and has_yield:
+            gated = True
+            break
+
+    return _EntryReachability(
+        holder=holder.name,
+        holder_is_stream_gen=is_stream_gen,
+        pop_gated_on_frame_yield=gated,
+        survives_disconnect=not (is_stream_gen and gated),
+    )
+
+
+def test_t7_主对话腿的待决条目在断线时刻即被摘除_取数侧对重连恒空() -> None:
+    """diff② 的承重结论:主对话腿**接了线也不会有对象**,除非先改条目生命周期。"""
+    got = approval_entry_reachability(
+        LLM_PY.read_text(encoding='utf-8'), write_anchor=_CHAT_WRITE_ANCHOR, table=_CHAT_TABLE
+    )
+    assert got.holder_is_stream_gen, f'主对话腿的等待已搬出流生成器({got.holder})⇒ 本结论须就地改写'
+    assert got.pop_gated_on_frame_yield, f'摘条目不再与吐帧同 try({got.holder})⇒ 本结论须就地改写'
+    assert got.survives_disconnect is False, (
+        '条目不再随断线消失 ⇒ A 档"重连时重放"第一次有了取数对象,'
+        '须连同 T6 与 test_d131 的否证锁一起重裁,不得只把本断言改了凑绿'
+    )
+
+
+def test_t8_对照_task_流腿的条目跨断线存续_差别只在等待住在哪儿() -> None:
+    """成对对照:同一条尺子必须**放过**agents 腿,否则 T7 只是"什么都没判出来"。
+
+    任务流腿的等待住在引擎协程 `_request_approval`(本体 0 处 yield),run 由后台
+    `asyncio.create_task` 承载 ⇒ 断线不经过它的挂起点 ⇒ 条目仍在表里,那半边已交付
+    的重放是真出口,不是夹具造出来的绿。
+    """
+    got = approval_entry_reachability(
+        AGENT_LOOP_PY.read_text(encoding='utf-8'),
+        write_anchor=_TASK_WRITE_ANCHOR,
+        table=_TASK_TABLE,
+    )
+    assert got.holder == '_request_approval', f'承载函数换了名字,先确认生命周期再谈通过: {got}'
+    assert got.holder_is_stream_gen is False, f'任务流等待被改写进流生成器 ⇒ 那半边重放也要重新取证: {got}'
+    assert got.survives_disconnect is True, f'对照臂必须判"存续",实得 {got}'
+
+    agents_src = AGENTS_PY.read_text(encoding='utf-8')
+    assert 'asyncio.create_task(' in agents_src, (
+        'agents.py 不再用后台 task 承载 run ⇒ 任务流条目也会随连接一起消失,'
+        '已交付的重放半边须重新取证(与本例同一条尺子)'
+    )
+
+
+def test_t9_反证夹具_同一把尺子在两型上判得出两种结论() -> None:
+    """尺子有牙的证明:恒真的尺子等于没有尺子(§22c:判据必须能命中它要防的形态)。"""
+    in_stream = '''
+async def gen():
+    reg["a"] = Entry()
+    try:
+        yield frame()
+        await ev.wait()
+    finally:
+        reg.pop("a", None)
+'''
+    out_of_band = '''
+async def _request_approval():
+    reg["a"] = Entry()
+    try:
+        await ev.wait()
+    finally:
+        reg.pop("a", None)
+'''
+    nested_yield_does_not_count = '''
+async def gen():
+    reg["a"] = Entry()
+
+    def helper():
+        yield 1
+
+    try:
+        await ev.wait()
+    finally:
+        reg.pop("a", None)
+'''
+    a = approval_entry_reachability(in_stream, write_anchor='reg["a"] = Entry(', table='reg')
+    b = approval_entry_reachability(out_of_band, write_anchor='reg["a"] = Entry(', table='reg')
+    c = approval_entry_reachability(nested_yield_does_not_count, write_anchor='reg["a"] = Entry(', table='reg')
+
+    assert (a.holder_is_stream_gen, a.pop_gated_on_frame_yield, a.survives_disconnect) == (
+        True,
+        True,
+        False,
+    ), f'夹具"等待住在吐帧生成器里"必须判不存续,实得 {a}'
+    assert (b.holder_is_stream_gen, b.pop_gated_on_frame_yield, b.survives_disconnect) == (
+        False,
+        False,
+        True,
+    ), f'夹具"等待住在普通协程里"必须判存续,实得 {b}'
+    assert c.holder_is_stream_gen is False, (
+        f'嵌套函数里的 yield 不得算成"本函数靠迭代才往下走",实得 {c} ⇒ 尺子会恒真'
+    )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

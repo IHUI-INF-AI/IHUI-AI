@@ -266,7 +266,7 @@
   },
   "agent": {
     "useCount": "使用次数",
-    "rating": "评分",
+    "collectCount": "收藏",
     "permission": "权限",
     "statusIdle": "空闲",
     "statusRunning": "运行中",
