@@ -5134,6 +5134,26 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- miniapp-design-token-parity(1 项,blocking)---
+  {
+    id: '227',
+    label:
+      '🎨 小程序 design-token 副本逐位同值(blocking,判 app.css 首块已有键 × 7 类 token,含提交链唯一覆盖的 --chart-* 档)',
+    script: 'check-miniapp-taro-design-tokens.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MINIAPP_TARO_DESIGN_TOKENS',
+    stagedTriggers: ['apps/miniapp-taro/src/app.css', 'packages/design-tokens/src/styles/tokens.css'],
+    onFailHint: [
+      '',
+      '  💡 app.css 首块的 design-token 档与 packages/design-tokens/src/styles/tokens.css 不同值。',
+      '     正解只有一条:改源头 tokens.css,再跑派生写回(node scripts/sync-miniapp-tokens.mjs 或 TOKEN_SYNC_TARGETS 那条入口),',
+      '     禁止手改 app.css 受管块(那是派生态,下一次 sync 就把它洗掉)。',
+      '     缺档(源头有、副本没有)不归本门,那是守门 36 的判据。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
