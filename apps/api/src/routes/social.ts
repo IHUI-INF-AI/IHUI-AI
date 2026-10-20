@@ -53,6 +53,13 @@ const FAVORITE_RESOURCE_TYPES = [
 const TAG_RESOURCE_TYPES = ['project', 'file', 'doc', 'post', 'comment'] as const
 const TARGET_TYPES = ['user', 'project', 'tag', 'category'] as const
 
+// 2026-10-20 根治:下方 Fastify JSON schema 的 enum 一律从此常量展开。
+// 此前 POST /favorites 与 GET /favorites 的 JSON schema 手写 enum 漏 'agent',
+// ajv 在进 handler 前就 400(被全局兜底中文化成"操作失败,请稍后重试"),
+// Zod 层(FAVORITE_RESOURCE_TYPES)虽已加 agent 也无从校验——两套枚举第二次漂移
+// (第一次是 zod 漏同步 aiworld)。单一事实源后不会再复发。
+const FAVORITE_RESOURCE_TYPE_ENUM: readonly string[] = [...FAVORITE_RESOURCE_TYPES]
+
 // =============================================================================
 // Zod schemas
 // =============================================================================
@@ -352,7 +359,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
           properties: {
             resourceType: {
               type: 'string',
-              enum: ['project', 'file', 'doc', 'post', 'comment', 'aiworld'],
+              enum: [...FAVORITE_RESOURCE_TYPE_ENUM],
               description: '资源类型',
             },
             resourceId: { type: 'string', maxLength: 128, description: '资源 ID' },
@@ -422,7 +429,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
             ...paginationQuerySchema,
             resourceType: {
               type: 'string',
-              enum: ['project', 'file', 'doc', 'post', 'comment', 'aiworld'],
+              enum: [...FAVORITE_RESOURCE_TYPE_ENUM],
               description: '资源类型筛选(可选)',
             },
           },
