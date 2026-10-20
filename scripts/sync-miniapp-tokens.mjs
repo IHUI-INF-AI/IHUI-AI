@@ -84,6 +84,10 @@ const COLORS_MAPPING = {
   // 既有的 textTertiary 指的是 muted-foreground(#666/#a3a3a3),与 RN 端 text.tertiary
   // (#a3a3a3/#737373)不是同一档;底部栏未选中态要与 RN 同值,只能按 token 名再派生一格。
   tertiary: '--color-text-tertiary',
+  // 2026-10-20:选中态强调色(与 RN 端 brandAccent.deep 同值)。必须进 JS 派生态:
+  // 实测(微信开发者工具渲染级截图)自定义 tabBar 内联 style 里的 var(--color-*) 全部不解析
+  // ⇒ 选中图标回落成默认黑、指示条透明、光晕 filter 因含 var() 而整体失效。
+  brandAccentDeep: '--color-brand-accent-deep',
 }
 
 const args = process.argv.slice(2)
