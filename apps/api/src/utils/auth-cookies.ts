@@ -36,15 +36,74 @@ function isSecure(request: FastifyReply['request']): boolean {
  * Cookie 域(可选):生产配置 COOKIE_DOMAIN=.aizhs.top 后 auth cookie 在所有子域共享,
  * 使 OIDC 回跳(api.aizhs.top 域设置的 httpOnly cookie)能被前端同源反代
  * (bsm.aizhs.top/api)的请求自动携带 → bootstrap 静默刷新恢复登录态。
- * 未配置(本地 dev localhost)时维持 host-only cookie,行为不变。
+ *
+ * ⚠️ 这一档不是「本地 dev 就不配」:本机同一个 api 进程同时服务公网与 127.0.0.1:8801,
+ * 清掉它会把公网的跨子域共享登录一起打断。所以「当前请求该不该带 Domain」由
+ * 下面的 {@link resolveCookieDomain} 逐请求判 host,而不是由部署侧二选一。
  */
 const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN?.trim() || undefined
+
+/**
+ * 剥掉 Host 头的端口段,得到可比对的 hostname。
+ *
+ * IPv6 必须单独绕:字面量 `[::1]:8801` 里冒号不是端口分隔符,按最后一个冒号切会把地址劈碎;
+ * 裸 `::1`(无方括号、多于一个冒号)同理原样返回——切端口切出来的是空串,空串会被
+ * 下游 resolveCookieDomain 当成「判不出」而维持配置域,那等于让这条链形同未修。
+ */
+function hostnameOf(rawHost: string | undefined): string {
+  const raw = rawHost?.trim().toLowerCase()
+  if (!raw) return ''
+  if (raw.startsWith('[')) {
+    const end = raw.indexOf(']')
+    return end === -1 ? raw : raw.slice(0, end + 1)
+  }
+  const first = raw.indexOf(':')
+  if (first === -1) return raw
+  return raw.indexOf(':', first + 1) === -1 ? raw.slice(0, first) : raw
+}
+
+/**
+ * 只有当请求 host 确实落在 COOKIE_DOMAIN 之内,才发共享域 Cookie;否则退回 host-only。
+ *
+ * 立因(2026-10-20 本机实锤):此前 `Domain=` 是无条件挂上的,而浏览器按 RFC 6265 §5.2.3
+ * 拒收「Domain 不是请求 host 所属域」的 Cookie。于是用 `127.0.0.1:8801`(或任何局域网 IP)
+ * 打开本机站点时,auth_token / refresh_token 两条 httpOnly Cookie **从未落地过** ——
+ * 内存里的 Bearer 一切正常(界面显示已登录),但只认 Cookie 的 /admin/* 守卫恒 307,
+ * SSO「授权并跳转」的守卫探测恒判被拦,刷新页面即掉线。取证:
+ *   POST http://127.0.0.1:8801/api/auth/logout
+ *   set-cookie: auth_token=; Max-Age=0; Domain=.aizhs.top; Path=/; HttpOnly; SameSite=Lax
+ *
+ * 方向纪律:降级只在**正向认出 host 不属于该域**时发生。host 取不到 ⇒ 维持配置值,
+ * 与改动前逐字相同 —— 不能拿一个畸形输入把生产悄悄降级成 host-only,那会打断
+ * api.aizhs.top ↔ bsm.aizhs.top 的共享登录(正是本配置存在的唯一理由)。
+ */
+export function resolveCookieDomain(rawHost: string | undefined): string | undefined {
+  if (!COOKIE_DOMAIN) return undefined
+  const host = hostnameOf(rawHost)
+  if (!host) return COOKIE_DOMAIN
+  const domain = COOKIE_DOMAIN.trim().replace(/^\./, '').toLowerCase()
+  if (!domain) return COOKIE_DOMAIN
+  return host === domain || host.endsWith(`.${domain}`) ? COOKIE_DOMAIN : undefined
+}
+
+/**
+ * 取「访客实际面对的 host」。必须走 Fastify 的 request.hostname(代理感知出口)而不是裸读
+ * headers.host:X-Forwarded-Host 只在远端地址命中 TRUSTED_PROXIES 时才被采信,与 IP 限流
+ * 同一份信任判据(server.ts trustProxy)。裸读 headers.host 会把公网请求判成反代的
+ * 127.0.0.1:8802 ⇒ 域内访客被降级成 host-only,api.aizhs.top 设置的共享登录 Cookie
+ * 在 bsm.aizhs.top 上就读不到(2026-10-20 公网臂实测踩到);裸读 x-forwarded-host
+ * 则等于无条件信任可伪造头。两头都不能图省事。
+ */
+function requestRawHost(request: FastifyReply['request']): string | undefined {
+  return request.hostname || request.headers.host
+}
 
 function buildCookie(
   name: string,
   value: string,
   maxAge: number | undefined,
   secure: boolean,
+  domain: string | undefined,
 ): { name: string; value: string; options: Record<string, unknown> } {
   const options: Record<string, unknown> = {
     path: '/',
@@ -52,7 +111,7 @@ function buildCookie(
     httpOnly: true,
   }
   if (secure) options.secure = true
-  if (COOKIE_DOMAIN) options.domain = COOKIE_DOMAIN
+  if (domain) options.domain = domain
   if (maxAge !== undefined && maxAge >= 0) options.maxAge = maxAge
   return { name, value, options }
 }
@@ -67,12 +126,13 @@ export function setAuthCookies(
   remember = true,
 ): void {
   const secure = isSecure(reply.request)
+  const domain = resolveCookieDomain(requestRawHost(reply.request))
   const maxAge = remember ? REMEMBER_MAX_AGE : undefined
   // auth_token 跟随 refresh 周期（30d / session）：access JWT 本身 15min 过期，
   // cookie 只是会话标识，真正有效性由 JWT + 刷新链路保证（与前端原 30d 策略一致）。
   const cookies = [
-    buildCookie(AUTH_TOKEN_COOKIE, payload.accessToken, maxAge, secure),
-    buildCookie(REFRESH_TOKEN_COOKIE, payload.refreshToken, REMEMBER_MAX_AGE, secure),
+    buildCookie(AUTH_TOKEN_COOKIE, payload.accessToken, maxAge, secure, domain),
+    buildCookie(REFRESH_TOKEN_COOKIE, payload.refreshToken, REMEMBER_MAX_AGE, secure, domain),
   ]
   // 使用 reply.setCookie() 设置多个 cookie，避免 reply.header('Set-Cookie', ...)
   // 覆盖同名 header（Fastify 的 reply.header 对同名 header 会覆盖而非追加）。
@@ -84,13 +144,15 @@ export function setAuthCookies(
 /** 登出：清除 httpOnly auth cookie（前端 JS 无法清除，必须服务端下发）。 */
 export function clearAuthCookies(reply: FastifyReply): void {
   const secure = isSecure(reply.request)
+  // 摘除必须与下发共用同一个域判据:host-only Cookie 摘不掉带 Domain 的,反之亦然。
+  const domain = resolveCookieDomain(requestRawHost(reply.request))
   // 使用 reply.setCookie() 清除 cookie，避免 reply.header('Set-Cookie', ...) 覆盖
   reply.setCookie(AUTH_TOKEN_COOKIE, '', {
     path: '/',
     sameSite: 'lax',
     httpOnly: true,
     secure,
-    ...(COOKIE_DOMAIN ? { domain: COOKIE_DOMAIN } : {}),
+    ...(domain ? { domain } : {}),
     maxAge: 0,
   })
   reply.setCookie(REFRESH_TOKEN_COOKIE, '', {
@@ -98,7 +160,7 @@ export function clearAuthCookies(reply: FastifyReply): void {
     sameSite: 'lax',
     httpOnly: true,
     secure,
-    ...(COOKIE_DOMAIN ? { domain: COOKIE_DOMAIN } : {}),
+    ...(domain ? { domain } : {}),
     maxAge: 0,
   })
 }
