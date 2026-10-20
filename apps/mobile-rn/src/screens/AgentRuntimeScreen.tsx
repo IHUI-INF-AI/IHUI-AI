@@ -228,7 +228,7 @@ export function AgentRuntimeScreen() {
         className="flex-1"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <View className="mx-4 mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+        <View className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
           <Text className="mb-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
             {t('agentRuntime.probeTitle')}
           </Text>
@@ -238,7 +238,7 @@ export function AgentRuntimeScreen() {
             onChangeText={setProbeTool}
             placeholder={t('agentRuntime.probeToolPlaceholder')}
             placeholderTextColor={tokens.text.tertiary}
-            className="rounded-control border border-neutral-200 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
+            className="rounded-sm border border-neutral-200 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
           />
 
           <Text className="mt-3 mb-1 text-xs text-neutral-600 dark:text-neutral-400">
@@ -252,7 +252,7 @@ export function AgentRuntimeScreen() {
                 <TouchableOpacity
                   key={mode}
                   onPress={() => setProbeMode(mode)}
-                  className={`mb-2 mr-2 rounded-control px-3 py-1.5 ${
+                  className={`mb-2 mr-2 rounded-sm px-3 py-1.5 ${
                     active
                       ? 'bg-neutral-900 dark:bg-neutral-100'
                       : 'bg-neutral-200 dark:bg-neutral-800'
@@ -282,7 +282,7 @@ export function AgentRuntimeScreen() {
                 <TouchableOpacity
                   key={level}
                   onPress={() => setProbeLevel(level)}
-                  className={`mb-2 mr-2 rounded-control px-3 py-1.5 ${
+                  className={`mb-2 mr-2 rounded-sm px-3 py-1.5 ${
                     active
                       ? 'bg-neutral-900 dark:bg-neutral-100'
                       : 'bg-neutral-200 dark:bg-neutral-800'
@@ -305,7 +305,7 @@ export function AgentRuntimeScreen() {
           <TouchableOpacity
             disabled={probing || probeTool.trim().length === 0}
             onPress={onProbe}
-            className={`mt-1 self-start rounded-control px-4 py-2 ${
+            className={`mt-1 self-start rounded-sm px-4 py-2 ${
               probing || probeTool.trim().length === 0
                 ? 'bg-neutral-300 dark:bg-neutral-800'
                 : 'bg-neutral-900 dark:bg-neutral-100'
@@ -323,7 +323,7 @@ export function AgentRuntimeScreen() {
           </TouchableOpacity>
 
           {probeResult ? (
-            <View className="mt-3 rounded-control bg-neutral-100 p-3 dark:bg-neutral-800">
+            <View className="mt-3 rounded-sm bg-neutral-100 p-3 dark:bg-neutral-800">
               <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                 {t('agentRuntime.probeTool')}: {probeResult.toolName}
               </Text>
@@ -348,11 +348,11 @@ export function AgentRuntimeScreen() {
             <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
           </View>
         ) : error ? (
-          <View className="mx-4 mb-3 rounded-panel border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
+          <View className="mx-4 mb-3 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
             <Text className="mb-3 text-xs text-red-700 dark:text-red-300">{error}</Text>
             <TouchableOpacity
               onPress={() => void load()}
-              className="self-start rounded-control bg-neutral-900 px-4 py-2 dark:bg-neutral-100"
+              className="self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100"
             >
               <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                 {t('common.retry')}
@@ -372,13 +372,13 @@ export function AgentRuntimeScreen() {
                 key={session.id || session.sessionId}
                 onPress={() => onToggleExpand(session)}
                 activeOpacity={0.9}
-                className="mx-4 mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
+                className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
               >
                 <View className="flex-row items-center justify-between">
                   <Text className="flex-1 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                     #{shortId(session.sessionId)}
                   </Text>
-                  <View className="rounded-tiny bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">
+                  <View className="rounded-xs bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">
                     <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                       {t(sessionStatusKey(session.status))}
                     </Text>
@@ -405,7 +405,7 @@ export function AgentRuntimeScreen() {
                   <TouchableOpacity
                     disabled={busyKey === session.sessionId}
                     onPress={() => onResume(session)}
-                    className="mr-2 rounded-control bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
+                    className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
                   >
                     <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                       {t('agentRuntime.resume')}
@@ -414,7 +414,7 @@ export function AgentRuntimeScreen() {
                   <TouchableOpacity
                     disabled={busyKey === session.sessionId}
                     onPress={() => onCancel(session)}
-                    className="rounded-control border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+                    className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
                   >
                     <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                       {t('agentRuntime.cancel')}
