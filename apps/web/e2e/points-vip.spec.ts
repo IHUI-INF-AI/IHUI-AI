@@ -93,11 +93,25 @@ test.describe('积分和会员', () => {
     if (await subscribeBtn.isVisible()) {
       const href = await subscribeBtn.getAttribute('href')
       // 2026-08-26 修复:页面实际链接到 /member/subscription(原期望 /payment/checkout 过时)
-      // 接受 /payment/checkout 或 /member/subscription
-      expect(
-        href?.includes('/payment/checkout') || href?.includes('/member/subscription'),
-        `订阅链接应指向结账/订阅页,实际 ${href}`,
-      ).toBeTruthy()
+      // 2026-10-20 修复:再补 /vip/details —— 这是订阅 CTA 今天的真实落点
+      // (apps/web/app/(main)/vip/page.tsx:230 与 pricing/PricingContent.tsx:192 同口径),
+      // 而 /vip/details 本身就是结账页(details/PageClient.tsx:319 下单、:72-73 微信/支付宝)。
+      // CI 实测 href=/vip/details?levelId=… ⇒ 旧白名单在结账页上"取不到输入"(不是产品坏了)。
+      const allowed =
+        href?.includes('/payment/checkout') ||
+        href?.includes('/member/subscription') ||
+        href?.includes('/vip/details')
+      expect(allowed, `订阅链接应指向结账/订阅页,实际 ${href}`).toBeTruthy()
+      // 覆盖点不丢:落到 /vip/details 必须真提供下单动作(订阅按钮 + 两种支付方式)。
+      // 只验渲染,绝不点击下单(会真建订单)。
+      if (href?.includes('/vip/details')) {
+        await page.goto(href)
+        await expect(page.getByRole('button', { name: '立即订阅' })).toBeVisible({
+          timeout: 10000,
+        })
+        await expect(page.getByRole('radio', { name: '微信支付' })).toBeVisible()
+        await expect(page.getByRole('radio', { name: '支付宝' })).toBeVisible()
+      }
     }
   })
 
