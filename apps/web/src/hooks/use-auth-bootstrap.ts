@@ -16,7 +16,7 @@ import { refreshAccessTokenOnce } from '@ihui/api-client'
 import {
   canSilentlyReLogin,
   classifyRefreshFailureStatus,
-  shouldMarkSessionLoggedOut,
+  shouldExpireSession,
 } from '@ihui/shared/auth/auto-login-policy'
 import { isSessionLoggedOut } from '@/lib/session-marker'
 
@@ -84,6 +84,7 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const setUser = useAuthStore((s) => s.setUser)
   const setToken = useAuthStore((s) => s.setToken)
+  const expireSession = useAuthStore((s) => s.expireSession)
   const logout = useAuthStore((s) => s.logout)
   const fetchProfile = useUserStore((s) => s.fetchProfile)
 
@@ -93,13 +94,16 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
   React.useEffect(() => {
     let cancelled = false
     async function bootstrap() {
-      // 用户主动登出 / 会话失效后,冷启动**不得**再用 httpOnly refresh cookie 静默登回。
+      // 用户主动登出后,冷启动**不得**再用 httpOnly refresh cookie 静默登回。
       // 判据住在 @ihui/shared/auth/auto-login-policy(登出标记优先),这里只注入 web 的落盘实现;
-      // 标记由 stores/auth.ts 的 logout()/setToken(null) 写入,由下一次真正的登录写入凭据清除。
+      // 标记由 stores/auth.ts 的 logout() 写入,由下一次真正的登录写入凭据清除。
+      // 会话被动失效(refresh 被拒)不写标记,所以它不会走到这一支 —— 账密自动登录仍可接管。
       // 没有这一道:刷新页面后内存 refreshToken 为空 ⇒ logout 拿不到 rt ⇒ 不调 /auth/logout ⇒
       // 服务端 cookie 仍有效 ⇒ 下面的 tryRefresh() 成功,用户"退出去了又自己回来"。
       if (!canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut })) {
-        // 与"刷新失败"同处置:清掉持久化的幽灵 isAuthenticated 标志位后停在未登录态
+        // 与"会话已结束"同处置:清掉持久化的幽灵 isAuthenticated 标志位后停在未登录态。
+        // 这一支是**用户已显式登出**的收尾(不是被动失效),所以仍走显式登出那条出口:
+        // 它会重写标记(幂等),并在拿得到 refreshToken 时顺手吊销服务端会话。
         logout()
         setReady(true)
         return
@@ -137,14 +141,15 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
             // 刷新失败(2026-10-09 分型修复:不再把一切失败都当凭据失效):
             // - rejected(401/403,服务端明确否定凭据):清理幽灵登录态(2026-08-07 修复)——
             //   persist 仅存 isAuthenticated 标志位,httpOnly cookie 失效后标志位残留 →
-            //   前端误判已登录渲染任务列表 → 请求无凭据 401 → "加载失败",必须 logout() 清掉;
-            //   同时落持久登出标记,防止冷启动反复撞死 token(与主动登出同处置)。
-            // - transient(网络错误/超时/5xx,api 重启窗口):凭据没有被否定,绝不能 logout()
-            //   —— 那会写持久标记把 30 天 refresh cookie 永久废掉,用户被迫反复手动登录
+            //   前端误判已登录渲染任务列表 → 请求无凭据 401 → "加载失败",必须 expireSession() 清掉;
+            //   **不落持久登出标记**(2026-10-20):会话被动失效若也落标记,用户的 30 天
+            //   自动登录会被永久压制 —— 表现为"每次冷启动都要手点登录"。
+            // - transient(网络错误/超时/5xx,api 重启窗口):凭据没有被否定,绝不能 expireSession()
+            //   —— 那会清掉仍可用的凭据,用户被迫反复手动登录
             //   (2026-10-09 根治「自动登录总被清掉」)。保持现状收束,下一次冷启动自然重试;
             //   即便此处留着 isAuthenticated 残留位,api 恢复后首个 401 会走拦截器静默续期接回。
-            if (shouldMarkSessionLoggedOut(getLastRefreshFailure())) {
-              logout()
+            if (shouldExpireSession(getLastRefreshFailure())) {
+              expireSession()
             } else {
               console.info(
                 '[web-auth] silent refresh hit transient failure (network/5xx), ' +
@@ -231,11 +236,11 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
               await fetchProfile()
             } else if (!cancelled) {
               // retry(/auth/me)失败 ≠ refresh 失败:分型看 **retry** 的状态码 ——
-              // 401 = 新凭据也被拒(会话真死,落标记);网络/5xx = 瞬时,不落标记。
+              // 401 = 新凭据也被拒(会话真死,结束本地会话、不落登出标记);网络/5xx = 瞬时。
               // 顺带堵住原漏洞:`!cancelled && success` 的 else 会把「已卸载」也当失败
-              // 走 logout() 落持久标记(StrictMode/布局切换卸载时误杀自动登录)。
-              if (shouldMarkSessionLoggedOut(classifyRefreshFailureStatus(retry.status))) {
-                logout()
+              // 走 expireSession()(StrictMode/布局切换卸载时误杀自动登录)。
+              if (shouldExpireSession(classifyRefreshFailureStatus(retry.status))) {
+                expireSession()
               } else {
                 console.info(
                   '[web-auth] /auth/me retry failed transiently after refresh, ' +
@@ -244,10 +249,10 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
               }
             }
           } else if (!cancelled) {
-            // refresh 失败:仅当服务端明确拒绝凭据(401/403)才 logout() 落标记;
+            // refresh 失败:仅当服务端明确拒绝凭据(401/403)才 expireSession() 结束本地会话;
             // 瞬时失败(api 重启/网络抖动)保持现状,下一次冷启动自然重试(2026-10-09 根治)。
-            if (shouldMarkSessionLoggedOut(getLastRefreshFailure())) {
-              logout()
+            if (shouldExpireSession(getLastRefreshFailure())) {
+              expireSession()
             } else {
               console.info(
                 '[web-auth] silent refresh hit transient failure (network/5xx), ' +
