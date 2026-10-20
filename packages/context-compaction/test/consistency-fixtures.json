@@ -94,7 +94,7 @@
           "content": "读取 a.md 内容"
         }
       ],
-      "expect_tokens_ts": 96,
+      "expect_tokens_ts": 105,
       "expect_tokens_python": 105,
       "expect_struct_summary_lines_ts": [
         "[system] You can call tools",
@@ -125,7 +125,7 @@
           "content": "这张图里有什么?\ndata:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCBGAAEAAAAASUVORK5CYII=\n请详细描述"
         }
       ],
-      "expect_tokens_ts": 1222,
+      "expect_tokens_ts": 1227,
       "expect_tokens_python": 1227,
       "expect_struct_summary_lines_ts": [
         "[system] Vision-enabled assistant",
@@ -160,7 +160,7 @@
           "content": "当然,以下是改写后的代码示例 + 单元测试。"
         }
       ],
-      "expect_tokens_ts": 95,
+      "expect_tokens_ts": 122,
       "expect_tokens_python": 122,
       "expect_struct_summary_lines_ts": [
         "[system] 你是一名资深工程师",
@@ -197,7 +197,7 @@
           "content": "下一步是部署到 staging。"
         }
       ],
-      "expect_tokens_ts": 55,
+      "expect_tokens_ts": 82,
       "expect_tokens_python": 82,
       "expect_struct_summary_lines_ts": [
         "[system] 助手",

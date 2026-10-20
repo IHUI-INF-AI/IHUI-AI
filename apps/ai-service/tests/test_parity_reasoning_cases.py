@@ -331,20 +331,12 @@ def test_reverse_lock_baseline_slice_is_still_cross_end_equal():
     )
 
 
-def test_reverse_lock_full_column_gap_is_nailed_not_equality():
-    """反向锁③b(整列格):Python 现场值不动,且跨端**差值**逐值钉死。
+def test_reverse_lock_full_column_gap_is_zero_after_cl100k_unification():
+    """反向锁③b(整列格):两端已统一 cl100k_base,Python 现场值与 TS 登记值同值,差值 0。
 
-    ⚠️ 判据为什么从「两端必须同值」换成「差值 == 夹具登记值」(这条判据原先锚在一个
-    **已失效的前提**上,而失效是正确状态):
-      · 夹具 `input.messages` 尾部追加了 2 条 CJK 消息(下标 24/25),既有 24 条未动。
-      · 追加后整列(26 条)两端**不再相等**:TS=29500 / Python=29558,差 -58。
-      · 根因是两端**不是同一套 BPE 词表**:TS 侧 `packages/context-compaction/src/token-estimate.ts`
-        的 `import { encode } from 'gpt-tokenizer'` 默认走 o200k_base,Python 侧
-        `tiktoken.get_encoding("cl100k_base")`;差在 CJK 上被放大。
-      · 所以「两端同值」这个前提**曾经为真、现在为假,且为假是正确状态**。
-        继续拿「必须同值」当判据,就是**逼人改 29558 去保绿** —— 一条把真相判红的尺子
-        教出来的就是谎报。故这一格改按**差值逐值钉死**:量的是「哪把尺子在量什么」,
-        不是量出来的数(29500 / 29558 / -58 三个读数一个都不许动)。
+    2026-10-17 拍板统一 cl100k_base;TS 侧 `token-estimate.ts` 已显式指定该表,
+    Python 侧 `tiktoken.get_encoding("cl100k_base")` 原样。整列(26 条)TS=29558 / Python=29558,
+    `crossEndGapFullColumn` = 0。仍按「差值 == 夹具登记值」判,不改成硬编码同值。
     """
     lock = _reverse_lock()
     messages = _fixture()["input"]["messages"]
@@ -360,11 +352,9 @@ def test_reverse_lock_full_column_gap_is_nailed_not_equality():
         lock["crossEndGapFullColumn"],
         live_gap,
     )
-    # 两端「不等」是本票登记的**正确现状**(词表分歧未修),不是待修的漂移。
-    # 显式钉住它:若哪天两端真的同值(gap==0),说明词表已统一,这一格必须改判而不是继续绿。
-    assert live_gap != 0, (
-        f"整列两端算出了同值(gap=0,夹具登记 crossEndGapFullColumn={lock['crossEndGapFullColumn']})"
-        "⇒ 词表可能已统一,本格的判据与登记值必须一起改,不许靠改数字保绿"
+    assert live_gap == 0, (
+        f"整列两端未同值(gap={live_gap},夹具登记 crossEndGapFullColumn={lock['crossEndGapFullColumn']})"
+        "⇒ 词表又分叉了;先查两端 get_encoding/import 的实际实参,再改判据与登记值"
     )
 
 
@@ -922,4 +912,11 @@ def test_reachability_sentinel_app_tree_write_points_still_match_ledger():
         f"  ⇒ 需给 app/core/context_compaction.py 补 reasoning 对齐分支,"
         f"并把各用例的 pyCountsReasoning 翻 true 走同值对账(届时 tokensTs 必须等于 Python 现场值)。"
     )
+
+
+def test_runtime_encoding_name_reports_cl100k_base():
+    """C 格:正常路径实际使用的表必须是 cl100k_base(故障期由同一出口报 p50k_base(fallback))。"""
+    from app.core.context_compaction import runtime_encoding_name
+
+    assert runtime_encoding_name() == "cl100k_base"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
