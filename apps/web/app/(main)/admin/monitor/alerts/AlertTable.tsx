@@ -59,7 +59,7 @@ export function AlertTable({
           ) : list.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-emerald-500" />
+                <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-success-deep-text" />
                 暂无告警
               </TableCell>
             </TableRow>
