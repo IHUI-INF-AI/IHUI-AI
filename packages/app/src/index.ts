@@ -274,6 +274,10 @@ export type { MoreLinkProps } from './components'
 export { BackChevron } from './components'
 export type { BackChevronProps } from './components'
 
+/** 滚动方向浮动按钮(返回顶部 / 跳到最新):RN 端唯一实现,几何与外观取自 @ihui/shared/ui 单一源 */
+export { ScrollJumpButton } from './components'
+export type { ScrollJumpButtonProps } from './components'
+
 /** 统一分类栏(横滑条 + 点击下拉窗),两端共用;文案与图标一律由调用方 items 传入 */
 export { CategoryInlineBar, CategoryDropdown } from './components'
 export type { CategoryInlineBarProps, CategoryDropdownProps, CategoryItem } from './components'

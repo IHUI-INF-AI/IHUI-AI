@@ -9,7 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, logout, type UserInfo } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
-import { markSessionLoggedOut } from '@/utils/auth'
+import { clearAuth } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 
@@ -54,10 +54,10 @@ export default function SettingIndexPage() {
             logger.error('setting/index', '退出登录', e)
             Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
           }
-          // 本出口只调后端登出接口、不清本地凭据 ⇒ 必须显式落登出标记(判据在
-          // @ihui/shared/auth/auto-login-policy),否则一次 401 触发的静默续期就会把
-          // 刚点过退出的用户登回去。清凭据那一步属另一条既有缺陷,不在本票顺手改。
-          markSessionLoggedOut()
+          // 本页 `logout` 是 `@/api` 的后端登出接口(只吊销服务端会话),不清本地凭据。
+          // 清凭据 + 落登出标记是 `clearAuth()` 一件成对动作:只落标记不清凭据 ⇒ 内存/存储里
+          // 的 token 还在,后续请求照样带着走;只清凭据不落标记 ⇒ 冷启动又被静默登回。
+          clearAuth()
           Taro.reLaunch({ url: '/pages/login/login' })
         }
       },

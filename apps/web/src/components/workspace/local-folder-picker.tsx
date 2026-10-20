@@ -819,7 +819,7 @@ export function LocalFolderPicker({
                 role="listbox"
                 aria-label={t('title')}
                 onKeyDown={handleListKeyDown}
-                className="max-h-72 space-y-0.5 overflow-y-auto p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-500/40 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30"
+                className="max-h-72 space-y-0.5 overflow-y-auto p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring/40 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30"
               >
                 {browsing ? (
                   <li>
