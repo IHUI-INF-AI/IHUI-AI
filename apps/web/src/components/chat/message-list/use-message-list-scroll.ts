@@ -4,7 +4,7 @@
 
 import * as React from 'react'
 import type { ChatMessage } from '@/stores/chat'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import {
   BOTTOM_REATTACH_PX,
@@ -102,6 +102,8 @@ export function useMessageListScroll({
   loadingMoreHistory,
   onLoadMoreHistory,
 }: MessageListScrollOptions): MessageListScrollResult {
+  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
+  const chatStore = usePaneChatStore()
   const bottomRef = React.useRef<HTMLDivElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const lastContent = messages[messages.length - 1]?.content
@@ -134,8 +136,8 @@ export function useMessageListScroll({
   // - ref 用于在 scroll callback 高频更新时避免整个组件重渲染
   // - state 镜像驱动浮动按钮条件渲染(ref 变化不会触发重渲染)
   // - 用 rAF 节流合并多次 ref 更新 → state 一次,避免抖动
-  const userScrolledUp = useChatStore((s) => s.userScrolledUp)
-  const setUserScrolledUp = useChatStore((s) => s.setUserScrolledUp)
+  const userScrolledUp = chatStore((s) => s.userScrolledUp)
+  const setUserScrolledUp = chatStore((s) => s.setUserScrolledUp)
   // 防御性 null check(测试环境 mock 可能未完整注入 setter)
   // 2026-08-25 useMemo 稳定化:原条件表达式在 setter 缺失时每次渲染新建 () => {},
   // 导致依赖它的 useCallback deps 每帧变化(exhaustive-deps 警告 + 无谓重渲染)。
@@ -272,147 +274,150 @@ export function useMessageListScroll({
    *   事件不传,由 `resolveScrollEventSource` 现场按"事件层用户意图 + 程序化窗口 + 位移方向"
    *   归类。滚动权(`following`)只能由用户输入改 —— 判据在 scroll-authority.ts,这里不散写。
    */
-  const handleScroll = React.useCallback((source?: ScrollEventSource) => {
-    const el = containerRef.current
-    if (!el) return
+  const handleScroll = React.useCallback(
+    (source?: ScrollEventSource) => {
+      const el = containerRef.current
+      if (!el) return
 
-    const metrics = readScrollMetrics(el)
-    const distanceFromBottom = distanceToBottom(metrics)
-    const userIntent = takeUserIntent()
-    const resolvedSource: ScrollEventSource =
-      source ??
-      resolveScrollEventSource({
-        userIntent,
-        programmaticWindowActive: Date.now() <= programmaticUntilRef.current,
-        metrics,
-        lastObservedScrollTop: observedScrollTopRef.current,
+      const metrics = readScrollMetrics(el)
+      const distanceFromBottom = distanceToBottom(metrics)
+      const userIntent = takeUserIntent()
+      const resolvedSource: ScrollEventSource =
+        source ??
+        resolveScrollEventSource({
+          userIntent,
+          programmaticWindowActive: Date.now() <= programmaticUntilRef.current,
+          metrics,
+          lastObservedScrollTop: observedScrollTopRef.current,
+        })
+      // 滞回两档(120 / 70)是 P0 修复(2026-08-02)定下的防抖契约,数值一字未改,
+      // 只是从本文件的 UPPER/LOWER 两个局部量搬进判据层的具名常量。
+      const reconciliation = reconcileAuthority({
+        current: authorityRef.current,
+        event: {
+          source: resolvedSource,
+          metrics,
+          intent: userIntent ?? 'unknown',
+          lastObservedScrollTop: observedScrollTopRef.current,
+        },
       })
-    // 滞回两档(120 / 70)是 P0 修复(2026-08-02)定下的防抖契约,数值一字未改,
-    // 只是从本文件的 UPPER/LOWER 两个局部量搬进判据层的具名常量。
-    const reconciliation = reconcileAuthority({
-      current: authorityRef.current,
-      event: {
-        source: resolvedSource,
-        metrics,
-        intent: userIntent ?? 'unknown',
-        lastObservedScrollTop: observedScrollTopRef.current,
-      },
-    })
-    applyAuthority(reconciliation.authority)
-    // 几何账目:**任何**来源都更新(含不改 following 的 programmatic / layout)
-    observedScrollTopRef.current = reconciliation.observedScrollTop
-    // M3-B(G-252 运行时验收抓到的第二格):前插还在途、用户又自己滚了一段 ⇒ 锚点必须
-    // **按用户的落点重定基**。旧写法把 savedOffset 钉死在触发瞬间,于是补偿会把用户刚滚到
-    // 的位置当"待修正的偏差"弹回去(真实浏览器实测逐帧最大位移 1340px)。锚点的语义是
-    // "别在读者眼下挪内容",读者自己动了基准就该是他动完的那一处。
-    // 只在 `'user'` 来源重定基 —— programmatic/layout 的位移是补偿自己产生的,拿它重定基
-    // 等于让补偿追自己的尾巴。
-    if (resolvedSource === 'user' && pendingAnchorRef.current) {
-      const anchorEl = el.querySelector(
-        `[data-message-id="${pendingAnchorRef.current.anchorKey}"]`,
-      ) as HTMLElement | null
-      if (anchorEl) {
-        pendingAnchorRef.current.savedOffset =
-          anchorEl.getBoundingClientRect().top - el.getBoundingClientRect().top
-      }
-    }
-    if (resolvedSource === 'programmatic' && distanceFromBottom <= BOTTOM_REATTACH_PX) {
-      // 自己发起的贴底已经落地 ⇒ 窗口提前收,后续位移不再被自我豁免
-      programmaticUntilRef.current = 0
-    }
-
-    // D3(2026-09-18 立):跳顶/跳底按钮显隐阈值(距顶/距底 > 800px)。
-    // 用 ref 镜像比对,仅在跨阈值时 setState(避免每次 scroll 都重渲染)
-    const farTop = metrics.scrollTop > FAR_THRESHOLD
-    const farBottom = distanceFromBottom > FAR_THRESHOLD
-    if (farTop !== isFarFromTopRef.current) {
-      isFarFromTopRef.current = farTop
-      setIsFarFromTop(farTop)
-    }
-    if (farBottom !== isFarFromBottomRef.current) {
-      isFarFromBottomRef.current = farBottom
-      setIsFarFromBottom(farBottom)
-    }
-
-    // #8 滚到窗口顶部时补页。2026-09-27 改两件事:
-    // ① 触发阈值不再写死 60px,改按视口高推两屏(网络与渲染应在用户抵达窗口边界前完成;
-    //    60px 那一档用户必然先撞到边界,看到的就是"滚到顶卡一下再跳")。
-    // ② 位置恢复改为**确定性锚点**:这里只在触发瞬间存下"首行 key + 它相对视口顶部的偏移",
-    //    真正的平移由下面的 useLayoutEffect 在 commit 时刻算(见 prependScrollAdjustment)。
-    //    删掉的是原先那套 rAF 轮询 scrollHeight 的写法,它有三处结构性缺陷:
-    //    要求高度差 >50px 才补偿(前插不足 50px 永不补偿)、拿触发瞬间的 prevScrollTop 加差值
-    //    (触发到提交之间 scrollTop 被改写就把中间位移重复计入)、还带 5s 超时的定时器要管泄漏。
-    if (
-      !pendingAnchorRef.current &&
-      shouldTriggerHistoryLoad({
-        scrollTop: metrics.scrollTop,
-        triggerPx: historyPrefetchTriggerPx(el.clientHeight),
-        canLoad: Boolean(onLoadMoreHistory && hasMoreHistory),
-        loading: Boolean(loadingMoreHistory),
-      })
-    ) {
-      const anchorKey = messagesRef.current[0]?.id
-      const anchorEl = anchorKey
-        ? (el.querySelector(`[data-message-id="${anchorKey}"]`) as HTMLElement | null)
-        : null
-      if (anchorKey && anchorEl) {
-        pendingAnchorRef.current = {
-          anchorKey,
-          savedOffset: anchorEl.getBoundingClientRect().top - el.getBoundingClientRect().top,
-          commitsLeft: PENDING_ANCHOR_MAX_COMMITS,
+      applyAuthority(reconciliation.authority)
+      // 几何账目:**任何**来源都更新(含不改 following 的 programmatic / layout)
+      observedScrollTopRef.current = reconciliation.observedScrollTop
+      // M3-B(G-252 运行时验收抓到的第二格):前插还在途、用户又自己滚了一段 ⇒ 锚点必须
+      // **按用户的落点重定基**。旧写法把 savedOffset 钉死在触发瞬间,于是补偿会把用户刚滚到
+      // 的位置当"待修正的偏差"弹回去(真实浏览器实测逐帧最大位移 1340px)。锚点的语义是
+      // "别在读者眼下挪内容",读者自己动了基准就该是他动完的那一处。
+      // 只在 `'user'` 来源重定基 —— programmatic/layout 的位移是补偿自己产生的,拿它重定基
+      // 等于让补偿追自己的尾巴。
+      if (resolvedSource === 'user' && pendingAnchorRef.current) {
+        const anchorEl = el.querySelector(
+          `[data-message-id="${pendingAnchorRef.current.anchorKey}"]`,
+        ) as HTMLElement | null
+        if (anchorEl) {
+          pendingAnchorRef.current.savedOffset =
+            anchorEl.getBoundingClientRect().top - el.getBoundingClientRect().top
         }
       }
-      onLoadMoreHistory?.()
-    }
-
-    // #7 虚拟滚动:计算可见范围
-    if (!enableVirtual) return
-    const { offsets, total } = computeCumulative()
-    if (total === 0) return
-
-    // 二分查找找到 startIndex(第一个 offset > scrollTop - buffer*ESTIMATED)
-    const scrollPos = metrics.scrollTop
-    const viewportBottom = scrollPos + el.clientHeight
-    let start = 0
-    let lo = 0,
-      hi = messages.length - 1
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1
-      if (offsets[mid + 1] < scrollPos - BUFFER * ESTIMATED_ITEM_HEIGHT) lo = mid + 1
-      else if (offsets[mid] > scrollPos) hi = mid - 1
-      else {
-        start = mid
-        if (offsets[mid + 1] < scrollPos) lo = mid + 1
-        else hi = mid - 1
+      if (resolvedSource === 'programmatic' && distanceFromBottom <= BOTTOM_REATTACH_PX) {
+        // 自己发起的贴底已经落地 ⇒ 窗口提前收,后续位移不再被自我豁免
+        programmaticUntilRef.current = 0
       }
-    }
-    start = Math.max(0, start - BUFFER)
 
-    // 找到 endIndex(第一个 offset > viewportBottom + buffer*ESTIMATED)
-    let end = start
-    while (
-      end < messages.length - 1 &&
-      offsets[end + 1] < viewportBottom + BUFFER * ESTIMATED_ITEM_HEIGHT
-    ) {
-      end++
-    }
-    end = Math.min(messages.length - 1, end + BUFFER)
+      // D3(2026-09-18 立):跳顶/跳底按钮显隐阈值(距顶/距底 > 800px)。
+      // 用 ref 镜像比对,仅在跨阈值时 setState(避免每次 scroll 都重渲染)
+      const farTop = metrics.scrollTop > FAR_THRESHOLD
+      const farBottom = distanceFromBottom > FAR_THRESHOLD
+      if (farTop !== isFarFromTopRef.current) {
+        isFarFromTopRef.current = farTop
+        setIsFarFromTop(farTop)
+      }
+      if (farBottom !== isFarFromBottomRef.current) {
+        isFarFromBottomRef.current = farBottom
+        setIsFarFromBottom(farBottom)
+      }
 
-    setVisibleRange((prev) => {
-      if (prev.start === start && prev.end === end) return prev
-      return { start, end }
-    })
-  }, [
-    enableVirtual,
-    computeCumulative,
-    messages.length,
-    onLoadMoreHistory,
-    hasMoreHistory,
-    loadingMoreHistory,
-    applyAuthority,
-    readScrollMetrics,
-    takeUserIntent,
-  ])
+      // #8 滚到窗口顶部时补页。2026-09-27 改两件事:
+      // ① 触发阈值不再写死 60px,改按视口高推两屏(网络与渲染应在用户抵达窗口边界前完成;
+      //    60px 那一档用户必然先撞到边界,看到的就是"滚到顶卡一下再跳")。
+      // ② 位置恢复改为**确定性锚点**:这里只在触发瞬间存下"首行 key + 它相对视口顶部的偏移",
+      //    真正的平移由下面的 useLayoutEffect 在 commit 时刻算(见 prependScrollAdjustment)。
+      //    删掉的是原先那套 rAF 轮询 scrollHeight 的写法,它有三处结构性缺陷:
+      //    要求高度差 >50px 才补偿(前插不足 50px 永不补偿)、拿触发瞬间的 prevScrollTop 加差值
+      //    (触发到提交之间 scrollTop 被改写就把中间位移重复计入)、还带 5s 超时的定时器要管泄漏。
+      if (
+        !pendingAnchorRef.current &&
+        shouldTriggerHistoryLoad({
+          scrollTop: metrics.scrollTop,
+          triggerPx: historyPrefetchTriggerPx(el.clientHeight),
+          canLoad: Boolean(onLoadMoreHistory && hasMoreHistory),
+          loading: Boolean(loadingMoreHistory),
+        })
+      ) {
+        const anchorKey = messagesRef.current[0]?.id
+        const anchorEl = anchorKey
+          ? (el.querySelector(`[data-message-id="${anchorKey}"]`) as HTMLElement | null)
+          : null
+        if (anchorKey && anchorEl) {
+          pendingAnchorRef.current = {
+            anchorKey,
+            savedOffset: anchorEl.getBoundingClientRect().top - el.getBoundingClientRect().top,
+            commitsLeft: PENDING_ANCHOR_MAX_COMMITS,
+          }
+        }
+        onLoadMoreHistory?.()
+      }
+
+      // #7 虚拟滚动:计算可见范围
+      if (!enableVirtual) return
+      const { offsets, total } = computeCumulative()
+      if (total === 0) return
+
+      // 二分查找找到 startIndex(第一个 offset > scrollTop - buffer*ESTIMATED)
+      const scrollPos = metrics.scrollTop
+      const viewportBottom = scrollPos + el.clientHeight
+      let start = 0
+      let lo = 0,
+        hi = messages.length - 1
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1
+        if (offsets[mid + 1] < scrollPos - BUFFER * ESTIMATED_ITEM_HEIGHT) lo = mid + 1
+        else if (offsets[mid] > scrollPos) hi = mid - 1
+        else {
+          start = mid
+          if (offsets[mid + 1] < scrollPos) lo = mid + 1
+          else hi = mid - 1
+        }
+      }
+      start = Math.max(0, start - BUFFER)
+
+      // 找到 endIndex(第一个 offset > viewportBottom + buffer*ESTIMATED)
+      let end = start
+      while (
+        end < messages.length - 1 &&
+        offsets[end + 1] < viewportBottom + BUFFER * ESTIMATED_ITEM_HEIGHT
+      ) {
+        end++
+      }
+      end = Math.min(messages.length - 1, end + BUFFER)
+
+      setVisibleRange((prev) => {
+        if (prev.start === start && prev.end === end) return prev
+        return { start, end }
+      })
+    },
+    [
+      enableVirtual,
+      computeCumulative,
+      messages.length,
+      onLoadMoreHistory,
+      hasMoreHistory,
+      loadingMoreHistory,
+      applyAuthority,
+      readScrollMetrics,
+      takeUserIntent,
+    ],
+  )
 
   // 自动滚动到底部(流式 token 到达 + 新消息)。
   // 2026-09-27 改版:这里不再读"上一次 scroll 事件留下的布尔",而是先做一次

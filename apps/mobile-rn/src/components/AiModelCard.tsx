@@ -32,7 +32,14 @@ import {
   type LucideIcon,
 } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type GestureResponderEvent,
+} from 'react-native'
 import type { AiModelData, AiModelUserType } from '@ihui/types'
 import { useI18n } from '../i18n'
 
@@ -135,6 +142,17 @@ export default function AiModelCard({
     share: onSharePress,
   }
 
+  // 2026-10-20 根治:RN Web 下内层按钮点击会冒泡触发外层卡片 onPress
+  // (表现为点收藏/分享却跳转卡片详情,toast 一闪而过;真机原生手势系统不会双触发)。
+  // 内外层嵌套按钮回调统一走这里阻断冒泡;RN 原生 GestureResponderEvent.stopPropagation
+  // 是安全 no-op,不影响真机。
+  const stopBubble =
+    (fn: () => void) =>
+    (e: GestureResponderEvent): void => {
+      e.stopPropagation()
+      fn()
+    }
+
   const userTypeIcon = userTypeIcons?.[userType]
 
   return (
@@ -194,7 +212,7 @@ export default function AiModelCard({
               <Text style={styles.groupLogoText}>{t('modelPlaza.officialBadge')}</Text>
             </View>
             <Text style={styles.groupFooterText} numberOfLines={1}>
-              智汇社区-官方
+              {(data.authorName as string | undefined) ?? '智汇社区-官方'}
             </Text>
           </View>
           <View style={styles.groupFooterRight}>
@@ -203,7 +221,7 @@ export default function AiModelCard({
                 key={action.key}
                 activeOpacity={0.7}
                 style={styles.actionBtn}
-                onPress={() => actionCallbacks[action.key]?.(data)}
+                onPress={stopBubble(() => actionCallbacks[action.key]?.(data))}
                 accessibilityRole="button"
                 accessibilityLabel={action.label}
               >
@@ -222,14 +240,14 @@ export default function AiModelCard({
               <TouchableOpacity
                 style={styles.buyBtn}
                 activeOpacity={0.7}
-                onPress={() => onBuyPress?.(data)}
+                onPress={stopBubble(() => onBuyPress?.(data))}
               >
                 <Text style={styles.buyBtnText}>购买</Text>
               </TouchableOpacity>
             ) : hasDetail ? (
               <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={toggleDetail}
+                onPress={stopBubble(toggleDetail)}
                 style={styles.payDetailRow}
               >
                 <Text style={styles.payDetailText}>购买详情</Text>
@@ -250,7 +268,7 @@ export default function AiModelCard({
           <TouchableOpacity
             style={styles.settingBtn}
             activeOpacity={0.7}
-            onPress={() => onSettingPress?.(data)}
+            onPress={stopBubble(() => onSettingPress?.(data))}
           >
             <Text style={styles.settingBtnText}>设置</Text>
           </TouchableOpacity>

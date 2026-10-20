@@ -9,29 +9,33 @@ import { buildQs, type PageData } from '../utils.js'
 
 export type AgentStatus = 'draft' | 'pending' | 'published' | 'rejected' | 'offline'
 
+/**
+ * Agent —— 字段名一律取后端 `GET /api/agents` / `GET /api/agents/:id` 真实回传键(主键 agentId)。
+ * 2026-10-20 契约根治:此前按想象写的 id/systemPrompt/model/author/isFavorited 等字段后端从未回传,
+ * 移动端读 `a.id` 恒得 undefined ⇒ 商店卡收藏/点击回调全部静默失效(无请求/无 toast/无报错)。
+ * 收藏态不在本接口内,用 `getFavorites({ resourceType 含 agent })` 回读(见 HomeScreen loadAgentList)。
+ */
 export interface Agent {
-  id: string
+  agentId: string
   name: string
-  avatar: string | null
   description: string
-  systemPrompt: string
-  model: string
-  temperature: number
-  maxTokens: number
-  category: string
-  tags: string[]
+  avatar: string | null
+  cover: string | null
+  categoryId: string | null
   status: AgentStatus
-  author: { id: string; nickname: string; avatar: string | null }
-  useCount: number
-  favoriteCount: number
-  rating: number
-  isFavorited: boolean
-  isPublic: boolean
+  price: number
+  isFree: boolean
   isVipExclusive: boolean
-  version: string
-  capabilities: string[]
+  sort: number
+  publishedAt: string | null
   createdAt: string
   updatedAt: string
+  usageCount: number
+  likeCount: number
+  shareCount: number
+  collectCount: number
+  publishStatus: string
+  userName: string | null
 }
 
 export type AgentListQuery = {

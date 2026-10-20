@@ -60,8 +60,12 @@ jobs:
     needs: setup
     runs-on: ubuntu-latest
     steps:
+      # Format check 只判本次改动(scripts/check-format-changed.mjs 差值棘轮):
+      # 需要上一枚提交作为 diff 基线,故取 2 层历史;取不到 FORMAT_BASE_REF 时脚本内回落 HEAD^。
       - uses: actions/checkout@v4
         id: checkout
+        with:
+          fetch-depth: 2
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
@@ -75,6 +79,9 @@ jobs:
         run: pnpm run lint:strict
       - name: Format check
         id: format-check
+        env:
+          # push 事件 = 上一枚提交;PR / 新分支等取不到时脚本内回落 HEAD^(见 check-format-changed.mjs)。
+          FORMAT_BASE_REF: ${{ github.event.before || 'HEAD^' }}
         run: pnpm run format:check
       # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
       - name: Failure triage (public annotations)

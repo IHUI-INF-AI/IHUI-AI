@@ -95,16 +95,17 @@ export default function AiAssistantScreen() {
   const items: AiAssistantItem[] = useMemo(() => {
     return agents
       .filter((a) => {
-        if (category !== 'all' && a.category !== category) return false
+        // 后端主键字段是 categoryId(此前误读 a.category 恒 undefined,非"全部"时全被过滤)
+        if (category !== 'all' && a.categoryId !== category) return false
         return keyword ? a.name.includes(keyword) || a.description.includes(keyword) : true
       })
       .map((a) => ({
-        id: a.id,
+        id: a.agentId,
         name: a.name,
         description: a.description,
-        tags: a.tags,
-        useCount: a.useCount,
-        favoriteCount: a.favoriteCount,
+        tags: [],
+        useCount: a.usageCount,
+        favoriteCount: a.collectCount,
       }))
   }, [agents, category, keyword])
 

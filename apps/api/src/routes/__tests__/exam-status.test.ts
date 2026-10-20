@@ -5,6 +5,15 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 
+// 考试埋点由 business-metrics 插件在生产 app 上装饰;本测试只挂 examRoutes,
+// 用 no-op 保持与生产同形(状态流转路由会同步调它们,缺装饰器即 TypeError 500)。
+function decorateExamMetrics(app: FastifyInstance): void {
+  app.decorate('recordExamStarted', vi.fn() as never)
+  app.decorate('recordExamQuestionUsed', vi.fn() as never)
+  app.decorate('recordExamSubmitted', vi.fn() as never)
+  app.decorate('recordExamScore', vi.fn() as never)
+}
+
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
@@ -153,6 +162,7 @@ describe('POST /api/exam/:id/enroll — 报名(draft→enrolled,幂等)', () => 
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
+    decorateExamMetrics(app)
     await app.register(examRoutes, { prefix: '/api' })
     await app.ready()
   })
@@ -222,6 +232,7 @@ describe('POST /api/exam/records/:recordId/start — 开始答题(enrolled→ans
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
+    decorateExamMetrics(app)
     await app.register(examRoutes, { prefix: '/api' })
     await app.ready()
   })
@@ -284,6 +295,7 @@ describe('POST /api/exam/records/:recordId/submit-exam — 提交试卷(answerin
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
+    decorateExamMetrics(app)
     await app.register(examRoutes, { prefix: '/api' })
     await app.ready()
   })
@@ -336,6 +348,7 @@ describe('POST /api/exam/records/:recordId/grade — 评分(submitted→graded,a
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
+    decorateExamMetrics(app)
     await app.register(examRoutes, { prefix: '/api' })
     await app.ready()
   })
@@ -402,6 +415,7 @@ describe('POST /api/exam/records/:recordId/complete — 完成(graded→complete
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
+    decorateExamMetrics(app)
     await app.register(examRoutes, { prefix: '/api' })
     await app.ready()
   })
@@ -450,6 +464,7 @@ describe('GET /api/exam/records/:recordId/status — 查状态', () => {
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
+    decorateExamMetrics(app)
     await app.register(examRoutes, { prefix: '/api' })
     await app.ready()
   })

@@ -11,7 +11,7 @@ import {
 } from '@/components/ai/progress-sections/message-context-menu'
 import { useContextMenu, type ContextMenuAction } from '@/hooks/use-context-menu'
 import { rateChatMessage } from '@ihui/api-client'
-import { useChatStore } from '@/stores/chat'
+import { useOptionalPaneId, usePaneChatStore } from '@/stores/chat-pane-context'
 import { toast } from '@/components/common'
 
 export interface MessageListContextMenuOptions {
@@ -29,6 +29,9 @@ export function useMessageListContextMenu({
   t,
   onRequestSearch,
 }: MessageListContextMenuOptions): MessageListContextMenuResult {
+  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
+  const chatStore = usePaneChatStore()
+  const paneId = useOptionalPaneId()
   const contextMenu = useContextMenu<ChatMessage>({
     buildItems: (msg) => {
       const isAssistant = msg.role === 'assistant'
@@ -114,18 +117,20 @@ export function useMessageListContextMenu({
           // 重新生成:转发到全局事件,由 MessageList 监听后触发完整闭环
           // (调后端 /regenerate 截断历史 + 复用 sendMessage 重新发送前一条用户问题)
           window.dispatchEvent(
-            new CustomEvent('ihui:regenerate-message', { detail: { messageId: msg.id } }),
+            new CustomEvent('ihui:regenerate-message', {
+              detail: { messageId: msg.id, paneId },
+            }),
           )
           toast.info(t('toast.regenerating'))
         } else if (action === 'branch') {
           // 从此处分支:转发到全局事件,由 MessageList 监听后创建新会话并跳转
           window.dispatchEvent(
-            new CustomEvent('ihui:branch-message', { detail: { messageId: msg.id } }),
+            new CustomEvent('ihui:branch-message', { detail: { messageId: msg.id, paneId } }),
           )
           toast.info(t('toast.branching'))
         } else if (action === 'likeMessage' || action === 'dislikeMessage') {
           // D49①(2026-09-23):点赞/点踩落库 —— 一人一消息一票,改票覆盖
-          const conversationId = useChatStore.getState().conversationId
+          const conversationId = chatStore.getState().conversationId
           if (!conversationId) {
             toast.error(t('toast.feedbackFailed'))
             return
@@ -150,10 +155,10 @@ export function useMessageListContextMenu({
           onRequestSearch()
         } else if (action === 'delete') {
           // 删除:本地过滤 store(单端,服务端持久化由 message-input 流式回收)
-          const store = useChatStore.getState()
+          const store = chatStore.getState()
           const next = store.messages.filter((m) => m.id !== msg.id)
           if (next.length !== store.messages.length) {
-            useChatStore.setState({ messages: next })
+            chatStore.setState({ messages: next })
             toast.success(t('toast.messageDeleted'))
           }
         }
@@ -163,7 +168,7 @@ export function useMessageListContextMenu({
         })
       }
     },
-    [contextMenu, t, onRequestSearch],
+    [contextMenu, t, onRequestSearch, chatStore, paneId],
   )
 
   return { contextMenu, handleContextMenuAction }

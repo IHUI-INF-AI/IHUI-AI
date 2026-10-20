@@ -336,7 +336,7 @@ describe('G-717 · 装车锁(余量行必须真接在渲染链上)', () => {
     expect(stripComments(inCode)).toMatch(/byModel\s*\.\s*slice\(\s*0\s*,\s*10\s*\)/)
 
     // 字符串内容必须保留:取词调用就住在模板字面量里。
-    expect(stripComments('const s = `${tChat(\'modelCategoryOther\')} (+1)`')).toMatch(
+    expect(stripComments("const s = `${tChat('modelCategoryOther')} (+1)`")).toMatch(
       /tChat\(\s*'modelCategoryOther'\s*\)/,
     )
   })
@@ -350,7 +350,16 @@ describe('G-717 · 装车锁(余量行必须真接在渲染链上)', () => {
 
 const { mockFetchApi } = vi.hoisted(() => ({ mockFetchApi: vi.fn() }))
 
-vi.mock('@/lib/api', () => ({ fetchApi: mockFetchApi }))
+vi.mock('@/lib/api', () => ({
+  fetchApi: mockFetchApi,
+  // 页面已改取 apiOrThrow(page.tsx):它先调 fetchApi 再解包 data/抛失败。
+  // 夹具补同一层适配器,让 mock 仍只维护一份响应体。
+  apiOrThrow: async (url: string, options?: RequestInit) => {
+    const r = await mockFetchApi(url, options)
+    if (!r.success) throw new Error(r.error || 'api failed')
+    return r.data
+  },
+}))
 
 // 词表 mock:按 key 取中文名(两个命名空间共用一张表即可,判据只关心渲染出来的字)。
 vi.mock('next-intl', () => {
@@ -402,11 +411,7 @@ vi.mock('next-intl', () => {
 function renderPage(): ReturnType<typeof render> {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    React.createElement(
-      QueryClientProvider,
-      { client },
-      React.createElement(AiCostPage),
-    ),
+    React.createElement(QueryClientProvider, { client }, React.createElement(AiCostPage)),
   )
 }
 

@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useChatStore, type ChatMessage, type ChatRole } from '@/stores/chat'
+import type { ChatStore } from '@/stores/chat-pane-context'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -124,10 +125,9 @@ import type { ChatActionContext } from './types'
 // =============================================================================
 // 原形态:sendMessageInstance / sendActionCtx 是本文件模块级 let 单例 —— 多窗格下
 // 会被最后一次渲染的实例覆盖,regenerate/branch 触发面错窗格。
-// 现形态:收进按 store 实例隔离的运行时记录(stream-runtime.ts)。本文件当前仍服务
-// 单例 useChatStore(70 处读写,窗格化是票60 步序四),故按 useChatStore 取记录;
-// 行为与原模块级单例逐字节等价。窗格寻址消费面接入后,createSendMessage 按 pane
-// 实例取记录,每窗格的触发面与中断域独立。
+// 现形态:收进按 store 实例隔离的运行时记录(stream-runtime.ts)。票60 步序四把
+// chat store 提为显式参数(默认单例 useChatStore):单例场景逐字节等价,窗格场景
+// 由消费面传入 pane 实例,每窗格的触发面与中断域独立。
 export interface SendMessageOptions {
   /** 重新生成模式(2026-08-30 立):
    *  true 时不重复 addMessage/persist 用户消息 —— 历史已被截断到该用户消息之前,
@@ -159,6 +159,7 @@ async function autoTitleAfterFirstTurn(
 
 export function createSendMessage(
   ctx: ChatActionContext,
+  chatStore: ChatStore = useChatStore,
 ): (content: string, opts?: SendMessageOptions) => Promise<boolean> {
   const {
     t,
@@ -172,7 +173,7 @@ export function createSendMessage(
     streamConversationRef,
   } = ctx
   // 票60 步序三:actionCtx 注册挪到与 sendInstance 同一处(文件尾),按 store 实例落账
-  const sendRuntime = getStreamRuntime(useChatStore)
+  const sendRuntime = getStreamRuntime(chatStore)
   const sendMessage = async (content: string, opts?: SendMessageOptions): Promise<boolean> => {
     const text = content.trim()
     if (!text) return false
@@ -191,12 +192,12 @@ export function createSendMessage(
     // `<diff_review>` 块追加到发给 LLM 的文本尾部(同样只影响发给 LLM 的内容)。
     // 重新生成模式跳过:该路径发送的是历史上下文,llmText 不参与请求,
     // 若此处一并注入并在发起前清空,意见会白白丢失 → regenerate 时保留队列不动。
-    const pendingDiffComments = useChatStore.getState().pendingDiffComments
+    const pendingDiffComments = chatStore.getState().pendingDiffComments
     const llmText =
       isRegenerate || pendingDiffComments.length === 0
         ? baseLlmText
         : appendDiffComments(baseLlmText, pendingDiffComments)
-    const store = useChatStore.getState()
+    const store = chatStore.getState()
     if (store.isStreaming) return false
 
     sendInFlightRef.current = true
@@ -344,7 +345,7 @@ export function createSendMessage(
       }
       // 持久化 user + assistant(后台 fire-and-forget,失败沿用 persistMessageSafe 现有 toast 行为)
       void persistMessageSafe(slashCid, text, 'user')
-      const lastAssistant = useChatStore
+      const lastAssistant = chatStore
         .getState()
         .messages.findLast((mm) => mm.role === 'assistant' && mm.content)
       if (lastAssistant) {
@@ -486,7 +487,7 @@ export function createSendMessage(
     // 期间用户改了模型档位 —— 若沿用旧值,就是票面禁止的"用旧模型发新一轮"。
     // 这里取最新档位而不是终止本轮:用户已经按了发送,让他重发一次等于没做这张票;
     // 且这一轮尚未触达 provider,终止只会留下一条空气泡。
-    const roundModel = resolveRoundModel(model, useChatStore.getState().currentModel)
+    const roundModel = resolveRoundModel(model, chatStore.getState().currentModel)
 
     // 重新生成模式跳过用户消息重复添加(历史已截断到该用户消息之前,store 已包含它)
     if (!isRegenerate) {
@@ -565,7 +566,7 @@ export function createSendMessage(
     let finalUsageReceived = false
     let lastLiveUsageAt = 0
     const contentBatcher = createSmoothDeltaBatcher(
-      (d) => useChatStore.getState().appendToMessage(assistantId, d),
+      (d) => chatStore.getState().appendToMessage(assistantId, d),
       {
         // #21 流内实时 token 估算:节流 800ms 调 estimateLiveUsage 并写入 meta.usage(estimated)。
         // 取 store 中真实已生成文本做 CJK 计数(比 charCount 更准确);权威 usage 到达后由 finalUsageReceived 停更。
@@ -574,15 +575,15 @@ export function createSendMessage(
           const now = Date.now()
           if (now - lastLiveUsageAt < 800) return
           lastLiveUsageAt = now
-          const msg = useChatStore.getState().messages.find((m) => m.id === assistantId)
+          const msg = chatStore.getState().messages.find((m) => m.id === assistantId)
           const text = msg?.content ?? ''
           if (text.length === 0) return
-          useChatStore.getState().updateMessageMeta(assistantId, { usage: estimateLiveUsage(text) })
+          chatStore.getState().updateMessageMeta(assistantId, { usage: estimateLiveUsage(text) })
         },
       },
     )
     const reasoningBatcher = createDeltaBatcher((d) =>
-      useChatStore.getState().appendReasoningToMessage(assistantId, d),
+      chatStore.getState().appendReasoningToMessage(assistantId, d),
     )
     const agentBatcher = createAgentDeltaBatcher()
 
@@ -602,7 +603,7 @@ export function createSendMessage(
     // 从 :442 到这里仍可能被一次模型切换插进来。判据"绝不能把旧模型送到 provider"要求在
     // 离 provider 最近的那一处定档;消息徽章取 :442 的值(那之后到这里的窗口是毫秒级读盘,
     // 不是用户交互),这一格已知不闭合,登记在交付报告。
-    const effectiveModel = resolveRoundModel(roundModel, useChatStore.getState().currentModel)
+    const effectiveModel = resolveRoundModel(roundModel, chatStore.getState().currentModel)
 
     // 2026-08-07 修复:web 端无活跃工作区 / 无 workspace handle 时,fs 类工具静默失败,
     // 给用户一个一次性 toast 提示(整个 sendMessage 周期内只弹一次,避免刷屏)。
@@ -622,7 +623,7 @@ export function createSendMessage(
       // 点亮 compacting(与是否压缩无关),且仅靠 onResponse 清除 —— 请求在响应头之前
       // 失败/被 abort 时永久常驻。现在:① 占用率未达 88% 阈值不显示;② finally 兜底回收。
       if (isContextAtCompactionThreshold(store.messages, resolvedContextLimit)) {
-        useChatStore.getState().setCompactionStatus({ phase: 'compacting' })
+        chatStore.getState().setCompactionStatus({ phase: 'compacting' })
       }
       logger.debug(
         '[Compaction] sendMessage contextLimit=',
@@ -642,7 +643,7 @@ export function createSendMessage(
       // 置于此处而非 llmText 构造处:中间有斜杠命令等提前 return 分支,过早清空会误丢意见。
       // 请求失败时 streamChat 内部重试复用同一 messages,意见不会丢失。
       if (!isRegenerate && pendingDiffComments.length > 0) {
-        useChatStore.getState().clearDiffComments()
+        chatStore.getState().clearDiffComments()
       }
 
       // V3 #69:每轮发起前回收上一轮的额度快照 —— 进度条反映的是"本轮"的窗口占用,
@@ -653,7 +654,7 @@ export function createSendMessage(
       // 不清的表现:上一轮被钉档,这一轮用户换了模型/没选档,轴上还挂着"推理强度已调整为 …",
       // 读起来像本轮发生了什么(本仓最高频失效型之一是"上一轮的瞬时态挂到下一轮的卡上",
       //  terminalInteractions / steer 提示条都按同一条清过)。
-      useChatStore.getState().setReasoningEffortNotice(null)
+      chatStore.getState().setReasoningEffortNotice(null)
 
       await streamChat({
         model: effectiveModel,
@@ -703,13 +704,13 @@ export function createSendMessage(
           // 2026-08-21 修复(C2):压缩结果只允许写回发起流的会话。
           // 原缺陷:流式期间用户切换会话后,setMessages 会用旧会话的压缩消息
           // 整体覆盖新会话的消息列表(消息串会话)。
-          if (useChatStore.getState().conversationId !== conversationId) return
+          if (chatStore.getState().conversationId !== conversationId) return
           // G-404(2026-09-29):压缩帧是**结构化**重置信号 —— 紧随其后的那一枚 used=0
           // budget 采样是真话(上下文确实被压掉了),不得被"瞬时 0"判据 held 成旧值。
           // 阶段名取自事件本身(onCompaction),不是文案 —— 身份不得从文案重建(§30/守门 135 同族)。
           noteBudgetTrustedZeroPhase('auto-compaction')
           // 显示底部压缩状态栏(2026-08-16 立)
-          useChatStore.getState().setCompactionStatus({
+          chatStore.getState().setCompactionStatus({
             phase: 'done',
             tokensBefore: info.tokensBefore,
             tokensAfter: info.tokensAfter,
@@ -720,7 +721,7 @@ export function createSendMessage(
           // (MessageItem 渲染 CompressionDivider"上方历史已压缩"分隔线;压缩重写消息列表时
           //  active assistant 消息(lastLocal)被保留,setMessageCompaction 按 id 定位不受影响)
           if (assistantId) {
-            useChatStore.getState().setMessageCompaction(assistantId, {
+            chatStore.getState().setMessageCompaction(assistantId, {
               originalTokens: info.tokensBefore,
               compressedTokens: info.tokensAfter,
               removedCount: info.removedCount,
@@ -732,7 +733,7 @@ export function createSendMessage(
           const compressedMessages = info.compressedMessages as
             Array<{ role: ChatRole; content: string }> | undefined
           if (compressedMessages && compressedMessages.length > 0) {
-            const localMessages = useChatStore.getState().messages
+            const localMessages = chatStore.getState().messages
             const lastLocal = localMessages[localMessages.length - 1]
             const hasLocalAssistant =
               lastLocal && lastLocal.role === 'assistant' && lastLocal.id === assistantId
@@ -744,12 +745,12 @@ export function createSendMessage(
               model: '',
             }))
             const finalMessages = hasLocalAssistant ? [...converted, lastLocal] : converted
-            useChatStore.getState().setMessages(finalMessages)
+            chatStore.getState().setMessages(finalMessages)
             return
           }
 
           // 兜底:旧版本后端未携带 compressedMessages 时,仍从后端重新加载
-          const currentConversationId = useChatStore.getState().conversationId
+          const currentConversationId = chatStore.getState().conversationId
           if (!currentConversationId) return
 
           try {
@@ -761,7 +762,7 @@ export function createSendMessage(
             const remoteMessages = result.data.messages
 
             // 保留前端本地当前 assistant 消息(流式输出中,后端可能尚未持久化)
-            const localMessages = useChatStore.getState().messages
+            const localMessages = chatStore.getState().messages
             const lastLocal = localMessages[localMessages.length - 1]
             const hasLocalAssistant =
               lastLocal && lastLocal.role === 'assistant' && lastLocal.id === assistantId
@@ -779,14 +780,14 @@ export function createSendMessage(
 
             const finalMessages = keepLocalAssistant ? [...converted, lastLocal] : converted
 
-            useChatStore.getState().setMessages(finalMessages)
+            chatStore.getState().setMessages(finalMessages)
           } catch (e) {
             console.error('压缩后同步消息失败:', e)
           }
         },
         onQuestion: (q) => {
           // AI 主动提问:挂起对话,弹窗阻塞输入,等用户回答后 sendAnswer 续流
-          useChatStore.getState().setPendingQuestion({
+          chatStore.getState().setPendingQuestion({
             questionId: q.questionId,
             prompt: q.prompt,
             options: q.options,
@@ -796,7 +797,7 @@ export function createSendMessage(
           })
           // P2 多端同步:持久化挂起状态到 conversation.metadata + WS 广播 ai_question 给其他端
           // fire-and-forget,失败仅日志(当前端弹窗仍正常,只是其他端不会同步)
-          const convId = useChatStore.getState().conversationId
+          const convId = chatStore.getState().conversationId
           if (convId) {
             void persistQuestionSafe(convId, {
               questionId: q.questionId,
@@ -837,7 +838,7 @@ export function createSendMessage(
           // 前端收到后更新 assistant 消息 meta.usage,UI 展示 token 计数。
           // #21 权威值到达:置 finalUsageReceived 停止实时估算覆盖,确保最终展示权威数字。
           finalUsageReceived = true
-          useChatStore.getState().updateMessageMeta(assistantId, { usage })
+          chatStore.getState().updateMessageMeta(assistantId, { usage })
           // D1 消息级计量(2026-09-19 立):写入 store.usageByMessageId,驱动消息底部徽章行。
           // 载荷即 api-client UsageEvent(扁平契约):messageId/timing/costUsd 缺失(null)时
           // createUsageHandler 兜底(回退 assistantId / 0 / null)。
@@ -891,16 +892,16 @@ export function createSendMessage(
         // 前端通过回调写入 chat store.subAgentActivities,UI 自动展示生命周期。
         // 2026-07-29 Phase 21:同步写入 timeline-store,让 Timeline tab 实时响应。
         onSubagentSpawn: (evt) => {
-          useChatStore.getState().addSubagentSpawn(evt)
+          chatStore.getState().addSubagentSpawn(evt)
           useTimelineStore.getState().addEvent(mapSpawnToTimelineEvent(evt))
         },
         onSubagentProgress: (evt) => {
-          useChatStore.getState().updateSubagentProgress(evt)
+          chatStore.getState().updateSubagentProgress(evt)
           const update = mapProgressToTimelineUpdate(evt)
           if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
         },
         onSubagentEnd: (evt) => {
-          useChatStore.getState().markSubagentEnd(evt)
+          chatStore.getState().markSubagentEnd(evt)
           const update = mapEndToTimelineUpdate(evt)
           if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
         },
@@ -926,7 +927,7 @@ export function createSendMessage(
             ...(item.error === true ? { error: true } : {}),
             messageId: evt.messageId,
           }))
-          useChatStore.getState().setMessagePlanSteps(evt.messageId, steps)
+          chatStore.getState().setMessagePlanSteps(evt.messageId, steps)
         },
         onTerminalStart: (evt) => {
           if (!evt.messageId) return
@@ -937,7 +938,7 @@ export function createSendMessage(
             startedAt: evt.startedAt ?? new Date().toISOString(),
             messageId: evt.messageId,
           }
-          useChatStore.getState().appendMessageTerminalTask(evt.messageId, task)
+          chatStore.getState().appendMessageTerminalTask(evt.messageId, task)
         },
         // D113:流中 diff 预览(覆盖式写入 running 态 toolCall)。
         // 2026-10-06 归一(G-816034 ③):此前此处另写一份内联实现,与 stream-handlers 里
@@ -950,7 +951,7 @@ export function createSendMessage(
         // 缺失时按 terminalId 关联即可;缓冲上限由 store 侧裁剪(20000 字符/键)。
         onTerminalDelta: (evt) => {
           if (!evt.terminalId || !evt.text) return
-          useChatStore.getState().appendTerminalOutput(evt.terminalId, evt.text)
+          chatStore.getState().appendTerminalOutput(evt.terminalId, evt.text)
         },
         // D151(2026-09-29 立):命令停在"等键盘输入"的一帧 —— 此处**只写 store**,
         // 由 terminal-section 在同一张终端卡里长出输入行。刻意不弹 toast、不打 logger:
@@ -961,8 +962,8 @@ export function createSendMessage(
         // 帧本身不带会话 ID,拿不到就不写地址,提交时如实报失败,不猜一个发出去。
         onTerminalInteraction: (evt) => {
           if (!evt.terminalId) return
-          const observedSessionId = useChatStore.getState().aiStreamSessionId
-          useChatStore.getState().setTerminalInteraction(evt.terminalId, {
+          const observedSessionId = chatStore.getState().aiStreamSessionId
+          chatStore.getState().setTerminalInteraction(evt.terminalId, {
             promptTail: evt.promptTail,
             waitingSinceMs: evt.waitingSinceMs,
             maxInputChars: evt.maxInputChars,
@@ -985,16 +986,16 @@ export function createSendMessage(
         // 第二条常连就是第二个"谁更新"的裁判,而本票要消灭的正是各端各持一份状态。
         // 切会话时不得把上一会话的目标写进这一会话的缓存(与上面 compaction 同一判序)。
         onGoalUpdate: (evt) => {
-          if (useChatStore.getState().conversationId !== conversationId) return
+          if (chatStore.getState().conversationId !== conversationId) return
           useGoalStore.getState().applyServerGoal(evt)
         },
         onTerminalEnd: (evt) => {
           // D151:命令已经跑完(或失败)⇒ 那条"等待输入"从此无人接收,先清掉等待态再走原逻辑。
           // 刻意放在 `!evt.messageId` 早退**之前**:该帧只保证 terminalId,
           // 按 messageId 收口会在缺 messageId 的流里漏掉等待态。
-          if (evt.terminalId) useChatStore.getState().clearTerminalInteraction(evt.terminalId)
+          if (evt.terminalId) chatStore.getState().clearTerminalInteraction(evt.terminalId)
           if (!evt.messageId) return
-          useChatStore.getState().updateMessageTerminalTask(evt.messageId, evt.terminalId, {
+          chatStore.getState().updateMessageTerminalTask(evt.messageId, evt.terminalId, {
             status: evt.status,
             output: evt.output,
             // 截断交代必须一起落 store:回放/刷新时没有 live 缓冲,长度相等看不出内容不完整
@@ -1014,7 +1015,7 @@ export function createSendMessage(
         onCitations: (evt) => {
           const targetId = evt.messageId ?? assistantId
           if (!targetId || !evt.citations?.length) return
-          const store = useChatStore.getState()
+          const store = chatStore.getState()
           const existing =
             store.messages
               .find((m) => m.id === targetId)
@@ -1032,7 +1033,7 @@ export function createSendMessage(
           noteRuntimeCapabilities(evt)
           const targetId = evt.messageId ?? assistantId
           if (!targetId) return
-          useChatStore.getState().appendMessageInjection(targetId, {
+          chatStore.getState().appendMessageInjection(targetId, {
             kind: evt.kind,
             collapsed: evt.collapsed,
             ...(evt.fullText ? { fullText: evt.fullText } : {}),
@@ -1044,7 +1045,7 @@ export function createSendMessage(
         onRetryScheduled: (evt) => {
           const targetId = evt.messageId ?? assistantId
           if (!targetId) return
-          useChatStore.getState().setMessageRetryNotice(targetId, {
+          chatStore.getState().setMessageRetryNotice(targetId, {
             attempt: evt.attempt,
             maxRetries: evt.maxRetries,
             retryInMs: evt.retryInMs,
@@ -1057,14 +1058,14 @@ export function createSendMessage(
         onMemoryUpdates: (evt) => {
           const targetId = evt.messageId ?? assistantId
           if (!targetId || !evt.items?.length) return
-          useChatStore.getState().appendMemoryNotice(targetId, evt.items)
+          chatStore.getState().appendMemoryNotice(targetId, evt.items)
         },
         // D130(2026-09-30 立):后端把选定档位钉回时的回落通知 → 写进 store,输入区第三轴读它。
         // 这一格是本票的**验收核心**:上游静默降档时,前端显示"深思"而实际发出去的是默认档,
         // 而 typecheck/其余门全绿 —— 不注册回调就是"知道有这件事但什么都不说"。
         // api-client 只在真有回落时才发(fallback=false 不回调),所以这里不二次判等,直接落。
         onReasoningEffortNotice: (info) => {
-          useChatStore.getState().setReasoningEffortNotice(info)
+          chatStore.getState().setReasoningEffortNotice(info)
         },
         // Steer(中途引导,2026-09-19 立):ai-service 在 tool loop 边界注入用户引导后
         // 下发 steer 事件(phase='injected')确认,写入消息级引导徽章数据,
@@ -1073,7 +1074,7 @@ export function createSendMessage(
         onSteer: (evt) => {
           const targetId = evt.messageId ?? assistantId
           if (!targetId || !evt.text) return
-          useChatStore.getState().appendSteerNotice(targetId, {
+          chatStore.getState().appendSteerNotice(targetId, {
             text: evt.text,
             timestamp: evt.timestamp,
           })
@@ -1143,7 +1144,7 @@ export function createSendMessage(
         onToolDelegate: async (event: ToolDelegateEvent) => {
           // D151 前置:该帧的 session_id 与 llm.py 注入 terminal ctx 的是**同一个变量**,
           // 故在此登记 ⇒ 后续 terminal_interaction 帧(它自己不带 sessionId)才有地址可用。
-          useChatStore.getState().noteStreamSessionId(event.session_id)
+          chatStore.getState().noteStreamSessionId(event.session_id)
           const ws = useAiPanelStore.getState().activeWorkspace
           if (!ws?.name) {
             notifyNoWorkspace('当前没有活跃工作区')
@@ -1177,7 +1178,7 @@ export function createSendMessage(
         // 而非 agent 任务流的 /agents/approval-response —— 两套审批注册表互不相通。
         onToolApproval: (event: ToolApprovalEvent) => {
           // D151 前置:同 onToolDelegate —— 审批帧的 sessionId 就是本轮流会话 ID。
-          if (event.sessionId) useChatStore.getState().noteStreamSessionId(event.sessionId)
+          if (event.sessionId) chatStore.getState().noteStreamSessionId(event.sessionId)
           dispatchToolApprovalRequest({
             approvalId: event.approvalId,
             toolName: event.toolName,
@@ -1219,7 +1220,7 @@ export function createSendMessage(
         //    的双向可赋值断言钉住。
         onFormRequest: (event) => {
           // D151 前置:同 onToolDelegate —— 表单帧的 sessionId 也是本轮流会话 ID。
-          if (event.sessionId) useChatStore.getState().noteStreamSessionId(event.sessionId)
+          if (event.sessionId) chatStore.getState().noteStreamSessionId(event.sessionId)
           const entry = projectFormRequestFrame(event, assistantId)
           if (!entry) return
           useBusinessFormStore.getState().appendFormRequest(entry)
@@ -1272,8 +1273,8 @@ export function createSendMessage(
           // V3 #69:errorCode 一并落进消息 —— 失败卡的 D67 归属分型(fromErrorCode)只认消息上的
           // 码;不带码则 429 只落通用失败标题,"额度已用尽"分型卡永远进不了屏幕
           // (与 send-answer.ts 的 D92 同一姿势:`setMessageError(id, error, errorCode)`)。
-          useChatStore.getState().setMessageError(assistantId, displayMessage, ec)
-          useChatStore.getState().setError(displayMessage)
+          chatStore.getState().setMessageError(assistantId, displayMessage, ec)
+          chatStore.getState().setError(displayMessage)
           if (formatted.severity === 'auth') {
             useLoginDialogStore.getState().open('login')
           }
@@ -1326,17 +1327,17 @@ export function createSendMessage(
         // 用户主动 stop 触发的 abort(abortedByTimeout* 均为 false)静默不报错
         if (abortedByTimeout15s) {
           const formatted = formatSSEError(err, t('errorTimeout15s'))
-          useChatStore.getState().setMessageError(assistantId, formatted.message)
-          useChatStore.getState().setError(formatted.message)
+          chatStore.getState().setMessageError(assistantId, formatted.message)
+          chatStore.getState().setError(formatted.message)
         } else if (abortedByTimeout60s) {
           const formatted = formatSSEError(err, t('errorTimeout60s'))
-          useChatStore.getState().setMessageError(assistantId, formatted.message)
-          useChatStore.getState().setError(formatted.message)
+          chatStore.getState().setMessageError(assistantId, formatted.message)
+          chatStore.getState().setError(formatted.message)
         }
       } else {
         const formatted = formatSSEError(err)
-        useChatStore.getState().setMessageError(assistantId, formatted.message)
-        useChatStore.getState().setError(formatted.message)
+        chatStore.getState().setMessageError(assistantId, formatted.message)
+        chatStore.getState().setError(formatted.message)
         if (formatted.severity === 'auth') {
           useLoginDialogStore.getState().open('login')
         }
@@ -1383,36 +1384,35 @@ export function createSendMessage(
         // 2026-09-21 修复:兜底回收"压缩中"预告态。onResponse 之前失败(HTTP 4xx/5xx throw)、
         // 超时 abort、主动 stop 都不会触发 onResponse,不清则灰条全站常驻(状态在全局 store)。
         clearCompactionPreview()
-        useChatStore.getState().setStreaming(false)
+        chatStore.getState().setStreaming(false)
         // Steer(中途引导,2026-09-19 立):流收尾同步清除流式消息 ID。
         // 代际守卫内清理,防止被「切换会话」abort 的旧流清掉新流的指向。
         // G-703(2026-09-29 立):上面两行已由 store 的单一出口 clearRunScopedState() 取代 ——
         // 终态必须把 isStreaming / streamingAssistantId / aiStreamSessionId 一次性回收,
         // 不靠调用点自觉补行(这一处此前就没有补到 aiStreamSessionId)。
-        useChatStore.getState().clearRunScopedState()
-        useChatStore.getState().markAllAgentStreamsDone()
+        chatStore.getState().clearRunScopedState()
+        chatStore.getState().markAllAgentStreamsDone()
         // #23 撤回未执行工具卡(2026-09-13 立):流收尾时把仍处 running 的工具卡置为
         // cancelled(报错/中断/超时路径下后端不会再返回 tool-result)。
         // 正常 done 路径所有工具卡已有终态,此调用为空操作。
-        useChatStore.getState().revokePendingToolCalls(assistantId)
+        chatStore.getState().revokePendingToolCalls(assistantId)
       }
       // P1-6:流已收尾(正常完成 / 报错 / 超时 / 主动 stop)→ 标记完成,刷新后不再续接。
       // 注意:必须在 generation 守卫之外 —— 被「切换会话」abort 的旧流同样已终止,
       // 不置 true 会导致用户切回该会话时误触发续接。
-      useChatStore.getState().setMessageStreamCompleted(assistantId, true)
+      chatStore.getState().setMessageStreamCompleted(assistantId, true)
       // 2026-09-13 批次 2 #16:写入消息级运行时长(耗时 = 流结束 - 流开始)
       const streamEndedAt = Date.now()
-      useChatStore.getState().updateMessageMeta(assistantId, {
+      chatStore.getState().updateMessageMeta(assistantId, {
         durationMs: streamEndedAt - streamStartedAt,
         startedAt: streamStartedAt,
         toolCallCount:
-          useChatStore.getState().messages.find((m) => m.id === assistantId)?.toolCalls?.length ??
-          0,
+          chatStore.getState().messages.find((m) => m.id === assistantId)?.toolCalls?.length ?? 0,
       })
       // 2026-08-06 修复:发送完成(成功/异常)释放 in-flight 锁,允许下一次发送
       sendInFlightRef.current = false
       // W28 Hooks 事件:message.receive(助手回复收尾,异常路径下跳过)+ session.end(本轮流结束)
-      const finalMsg = useChatStore.getState().messages.find((m) => m.id === assistantId)
+      const finalMsg = chatStore.getState().messages.find((m) => m.id === assistantId)
       if (!finalMsg?.error) {
         emitAgentHook('message.receive', {
           summary: finalMsg?.content.slice(0, 80) ?? '',
@@ -1447,12 +1447,15 @@ export function createSendMessage(
  * 3. 复用 sendMessage(regenerate 模式)重新发送前一条用户问题 —— 不重复添加/持久化用户消息,
  *    走既有流式链路(超时/节流/工具调用/错误重试全部复用,不重写)。
  */
-export async function regenerateMessage(messageId: string): Promise<boolean> {
-  const runtime = getStreamRuntime(useChatStore)
+export async function regenerateMessage(
+  messageId: string,
+  chatStore: ChatStore = useChatStore,
+): Promise<boolean> {
+  const runtime = getStreamRuntime(chatStore)
   const sendMessage = runtime.sendInstance
   if (!sendMessage || !runtime.actionCtx) return false
 
-  const store = useChatStore.getState()
+  const store = chatStore.getState()
   const conversationId = store.conversationId
   if (!conversationId || store.isStreaming) return false
 
@@ -1482,7 +1485,7 @@ export async function regenerateMessage(messageId: string): Promise<boolean> {
   }
 
   // 后端已删除该消息及之后内容,同步截断前端消息列表(保留该消息之前的历史)
-  useChatStore.getState().truncateMessagesFrom(messageId)
+  chatStore.getState().truncateMessagesFrom(messageId)
   // 复用 sendMessage(regenerate 模式):不重复添加用户消息,直接流式生成新回复
   return sendMessage(userMsg.content, { regenerate: true })
 }
@@ -1511,15 +1514,16 @@ export async function editMessageAndRerun(
   messageId: string,
   newContent: string,
   rollbackFiles = false,
+  chatStore: ChatStore = useChatStore,
 ): Promise<boolean> {
-  const sendRuntime = getStreamRuntime(useChatStore)
+  const sendRuntime = getStreamRuntime(chatStore)
   const sendMessage = sendRuntime.sendInstance
   if (!sendMessage || !sendRuntime.actionCtx) return false
 
   const text = newContent.trim()
   if (!text) return false
 
-  const store = useChatStore.getState()
+  const store = chatStore.getState()
   const conversationId = store.conversationId
   if (!conversationId || store.isStreaming) return false
 
@@ -1546,7 +1550,7 @@ export async function editMessageAndRerun(
         // 服务端历史已回滚到 checkpoint 时点(可能早于目标消息前一条),以服务端为准刷新前端
         const snap = await getMessages(conversationId, { direction: 'initial', pageSize: 100 })
         if (snap.success && snap.data) {
-          useChatStore.setState({
+          chatStore.setState({
             messages: snap.data.messages.map((m) => ({
               id: m.id,
               role: m.role,
@@ -1559,7 +1563,7 @@ export async function editMessageAndRerun(
           })
         } else {
           // 快照拉取失败时至少截断本地目标消息及其后,避免与已回滚的服务端历史错位
-          useChatStore.getState().truncateMessagesFrom(messageId)
+          chatStore.getState().truncateMessagesFrom(messageId)
         }
         // 已回滚到 checkpoint,编辑后的内容作为全新用户消息追加并发送
         return sendMessage(text)
@@ -1591,9 +1595,9 @@ export async function editMessageAndRerun(
   }
 
   // 后端已更新内容并删除其后消息,同步前端:先更新内容,再截断该消息之后的所有消息
-  useChatStore.getState().editMessageContent(messageId, text)
+  chatStore.getState().editMessageContent(messageId, text)
   // 截断该用户消息之后的所有消息(该用户消息保留,regenerate 模式不重复添加用户消息)
-  useChatStore.getState().truncateMessagesFromAfter(messageId)
+  chatStore.getState().truncateMessagesFromAfter(messageId)
   // 复用 sendMessage(regenerate 模式):以新内容重新流式生成回复,不重复添加用户消息
   return sendMessage(text, { regenerate: true })
 }
@@ -1610,11 +1614,12 @@ export async function editMessageAndRerun(
 export async function editAiMessageAsVersion(
   messageId: string,
   newContent: string,
+  chatStore: ChatStore = useChatStore,
 ): Promise<boolean> {
   const text = newContent.trim()
   if (!text) return false
 
-  const store = useChatStore.getState()
+  const store = chatStore.getState()
   if (store.isStreaming) return false
   const target = store.messages.find((m) => m.id === messageId)
   if (!target || target.role !== 'assistant') return false
@@ -1630,11 +1635,7 @@ export async function editAiMessageAsVersion(
       return false
     }
     const { message, rootId, siblingIndex } = res.data
-    useChatStore.getState().mergeVersionMessage(
-      hydrateHistoryMessage(message),
-      rootId,
-      siblingIndex,
-    )
+    chatStore.getState().mergeVersionMessage(hydrateHistoryMessage(message), rootId, siblingIndex)
     return true
   } catch (err) {
     toast.error('编辑失败', {
@@ -1651,11 +1652,14 @@ export async function editAiMessageAsVersion(
  * 2. store 切换到新会话(ai-side-panel 的 loadHistory effect 自动加载新会话消息)
  * 3. 打开 AI 面板 + 刷新会话列表 + 更新 URL(?conversationId=)便于分享/书签
  */
-export async function branchMessage(messageId: string): Promise<boolean> {
-  const ctx = getStreamRuntime(useChatStore).actionCtx
+export async function branchMessage(
+  messageId: string,
+  chatStore: ChatStore = useChatStore,
+): Promise<boolean> {
+  const ctx = getStreamRuntime(chatStore).actionCtx
   if (!ctx) return false
 
-  const store = useChatStore.getState()
+  const store = chatStore.getState()
   const conversationId = store.conversationId
   if (!conversationId || store.isStreaming) return false
 
