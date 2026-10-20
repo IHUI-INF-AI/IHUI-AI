@@ -17,7 +17,8 @@ import { setupTest as test, expect } from './fixtures'
  *
  * 此测试测量三个关键元素的 left 值,验证完全对齐(容差 0.5px subpixel):
  *  1. work-area-portal-root(#work-area-portal-root)— GlobalShell 右列 flex-1 容器
- *  2. 顶部搜索按钮容器(GlobalTopBar 内层 flex h-9,搜索按钮是其第一个 button 子元素)
+ *  2. 顶部搜索按钮容器(GlobalTopBar 内层 flex h-9;搜索按钮由稳定钩子
+ *     [data-topbar-search-btn] 定位,容器由该按钮自己的父链推出 —— 不按"像搜索的图标"猜)
  *  3. MainShell 工作区卡片([data-workspace-card])
  *
  * 同时验证关键样式不变量:
@@ -48,22 +49,35 @@ test.describe('顶部搜索按钮容器 与 MainShell 工作区卡片 左对齐�
       const workArea = document.getElementById('work-area-portal-root')
       if (!workArea) throw new Error('work-area-portal-root not found')
 
-      // 找搜索按钮:GlobalTopBar 内层 flex h-9 的第一个含 Search 图标的 button
-      const allButtons = Array.from(document.querySelectorAll('button'))
-      const searchBtn = allButtons.find((b) => {
-        const svg = b.querySelector('svg')
-        if (!svg) return false
-        // lucide-search 图标 class 含 "lucide-search" 或图标名 search
-        return (
-          svg.classList.contains('lucide-search') ||
-          Array.from(svg.classList).some((c) => c.toLowerCase().includes('search'))
-        )
-      })
-      if (!searchBtn) throw new Error('search button not found')
+      // 找搜索按钮:2026-10-20 锚点更正。旧写法取"页面上第一个 svg class 含 search 的 button",
+      // 自 2bbde1e7b9 起先命中的是侧栏会话历史搜索开关(sidebar-chat-history.tsx:1192),
+      // 其外层 span 带 ml-1(:1174)⇒ 本用例量错了元素,报出"顶栏内层有 margin-left 4px"的假错位。
+      // 现改用应用自己的稳定钩子 data-topbar-search-btn(TagsView.tsx:257 发出,
+      // GlobalTopBar.tsx:340 同一枚 querySelector 消费),顶栏内层容器由该按钮自身的父链推出。
+      const searchBtn = document.querySelector('[data-topbar-search-btn]')
+      if (!(searchBtn instanceof HTMLElement)) {
+        throw new Error('[data-topbar-search-btn] not found(顶栏搜索按钮未渲染)')
+      }
 
-      // 搜索按钮容器(GlobalTopBar 内层 flex h-9 items-center gap-1)
-      const topBarInner = searchBtn.parentElement
-      if (!topBarInner) throw new Error('topBar inner flex container not found')
+      // 搜索按钮容器(GlobalTopBar 内层 flex h-9 items-center gap-1,GlobalTopBar.tsx:596):
+      // 自按钮向上找第一个"同时是拖拽区且 display:flex"的祖先(外层包裹 div 同为拖拽区但非 flex,
+      // 因此只会命中内层),不再假设"父元素即容器"。
+      let topBarInner: HTMLElement | null = searchBtn.parentElement
+      while (topBarInner) {
+        if (
+          topBarInner.hasAttribute('data-tauri-drag-region') &&
+          getComputedStyle(topBarInner).display === 'flex'
+        ) {
+          break
+        }
+        topBarInner = topBarInner.parentElement
+      }
+      if (!topBarInner) {
+        throw new Error('GlobalTopBar 内层 flex 容器未找到(祖先链上没有 flex 拖拽区)')
+      }
+      if (!topBarInner.contains(searchBtn)) {
+        throw new Error('GlobalTopBar 内层 flex 容器不包含顶栏搜索按钮')
+      }
 
       // 工作区卡片
       const workspaceCard = document.querySelector('[data-workspace-card]')

@@ -31,13 +31,7 @@ import {
 
 type RemoteSourceKind = Exclude<SuggestionSourceKind, 'file'>
 
-const REMOTE_SOURCES: readonly RemoteSourceKind[] = [
-  'task',
-  'skill',
-  'plugin',
-  'connector',
-  'agent',
-]
+const REMOTE_SOURCES: readonly RemoteSourceKind[] = ['task', 'skill', 'plugin', 'connector', 'agent']
 
 interface SourceSlot {
   status: SuggestionSourceRunStatus
@@ -69,20 +63,13 @@ async function fetchSourceItems(source: RemoteSourceKind): Promise<UnifiedSugges
       const res = await listAutomations({ limit: 20 })
       // prompt 理论上必填;防御式取值避免个别脏行把整源炸成 failed
       return res.items.map((a) =>
-        makeItem(
-          'task',
-          a.id,
-          a.name,
-          typeof a.prompt === 'string' ? a.prompt.slice(0, 80) : undefined,
-        ),
+        makeItem('task', a.id, a.name, typeof a.prompt === 'string' ? a.prompt.slice(0, 80) : undefined),
       )
     }
     case 'skill': {
       const res = await listAiSkills({ category: 'all' })
       if (!res.success || !Array.isArray(res.data)) {
-        throw new Error(
-          res.success ? 'skills payload missing' : (res.error ?? 'skills request failed'),
-        )
+        throw new Error(res.success ? 'skills payload missing' : (res.error ?? 'skills request failed'))
       }
       return res.data.map((s) =>
         makeItem(
@@ -103,23 +90,20 @@ async function fetchSourceItems(source: RemoteSourceKind): Promise<UnifiedSugges
     case 'connector': {
       const res = await getConnectors()
       if (!res.success || !res.data) {
-        throw new Error(
-          res.success ? 'connectors payload missing' : (res.error ?? 'connectors request failed'),
-        )
+        throw new Error(res.success ? 'connectors payload missing' : (res.error ?? 'connectors request failed'))
       }
       return res.data.connectors.map((c) => makeItem('connector', c.key, c.name, c.type))
     }
     case 'agent': {
       const res = await getAgents({ page: 1, pageSize: 20 })
       if (!res.success || !res.data) {
-        throw new Error(
-          res.success ? 'agents payload missing' : (res.error ?? 'agents request failed'),
-        )
+        throw new Error(res.success ? 'agents payload missing' : (res.error ?? 'agents request failed'))
       }
-      // 2026-09-30 实锤:/api/agents 行主键是 agentId(运行时 a.id 全为 undefined,10 行全部撞成
-      // `agent:undefined` 重复 key),取真实字段。2026-10-20 契约根治后 Agent 接口已直接声明
-      // agentId(df3d00b6f4 把 id 从类型里删了),故不再需要 cast,也不再回落 a.id。
-      return res.data.list.map((a) => makeItem('agent', a.agentId, a.name, a.description))
+      // 2026-09-30 实锤:/api/agents 行主键是 agentId(Agent 接口的 id 声明与真实载荷不符,
+      // 运行时 a.id 全为 undefined,10 行全部撞成 `agent:undefined` 重复 key),取真实字段。
+      return res.data.list.map((a) =>
+        makeItem('agent', (a as { agentId?: string }).agentId ?? a.id, a.name, a.description),
+      )
     }
   }
 }
@@ -173,18 +157,21 @@ export function useUnifiedSuggestions(
     }
   }, [open])
 
-  const retry = React.useCallback((source: SuggestionSourceKind) => {
-    if (!REMOTE_SOURCES.includes(source as RemoteSourceKind)) return
-    const epoch = epochRef.current
-    const write = (patch: SourceSlot): void => {
-      if (epoch !== epochRef.current) return
-      setSlots((prev) => ({ ...prev, [source]: patch }))
-    }
-    write({ status: 'loading', items: [] })
-    void fetchSourceItems(source as RemoteSourceKind)
-      .then((items) => write({ status: 'ready', items }))
-      .catch(() => write({ status: 'failed', items: [] }))
-  }, [])
+  const retry = React.useCallback(
+    (source: SuggestionSourceKind) => {
+      if (!REMOTE_SOURCES.includes(source as RemoteSourceKind)) return
+      const epoch = epochRef.current
+      const write = (patch: SourceSlot): void => {
+        if (epoch !== epochRef.current) return
+        setSlots((prev) => ({ ...prev, [source]: patch }))
+      }
+      write({ status: 'loading', items: [] })
+      void fetchSourceItems(source as RemoteSourceKind)
+        .then((items) => write({ status: 'ready', items }))
+        .catch(() => write({ status: 'failed', items: [] }))
+    },
+    [],
+  )
 
   const states = React.useMemo<SuggestionSourceState[]>(
     () =>
