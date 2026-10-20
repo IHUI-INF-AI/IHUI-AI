@@ -33,6 +33,7 @@ import NavBar from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
+import { tokens } from '../theme/active-tokens'
 
 const PAGE_SIZE = 20
 
@@ -384,7 +385,7 @@ export function ResourcesScreen() {
               value={search}
               onChangeText={setSearch}
               placeholder={t('resources.searchPlaceholder')}
-              placeholderTextColor={isDark ? '#737373' : '#a3a3a3'}
+              placeholderTextColor={tokens.text.tertiary}
               className="h-9 rounded-control border border-neutral-200 bg-white px-3 text-sm text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
             />
           </View>
