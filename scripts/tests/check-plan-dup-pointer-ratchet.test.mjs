@@ -9,7 +9,14 @@
  *      + 认领转移;④ 守恒断言(A1 勾选态 / A3 注记归零 / A4 族级认领守恒)。
  */
 import { test } from 'node:test'
-import { ratchetVerdict, countPointerRows, pointerRows, twinRatchetVerdict } from '../check-plan-dup-pointer-ratchet.mjs'
+import {
+  ratchetVerdict,
+  countPointerRows,
+  pointerRows,
+  twinRatchetVerdict,
+  stackCount,
+  stackRatchetVerdict,
+} from '../check-plan-dup-pointer-ratchet.mjs'
 import { stripMergeNotes, buildPlan, renderPurge, verifyPurge } from '../plan-pointer-purge.mjs'
 
 const NOTE =
@@ -231,5 +238,68 @@ test('P8 A5 仍有牙:未勾选行数不变而重复度上升 ⇒ 必红(不许�
   const errs = verifyPurge(lines, corrupted, plan)
   if (!errs.some((e) => e.startsWith('A5'))) throw new Error(`A5 未报警:${errs.join('; ')}`)
   if (errs.some((e) => e.startsWith('A2'))) throw new Error('A2 被误触发(行数未变) ⇒ 夹具失真')
+})
+
+// ── 维③「同一行叠同一注记」(2026-10-20 立,承票「门 13d 对这一型零射程」)──
+// 成对反证:叠两份必红 / 只有一份必不红。判据一律 import 生产出口,禁止在此复写(§22c)。
+
+const GAIHAO = '〔改号(2026-10-14):原G-1018221〕'
+const TONGH1 = '〔同题原号 G-1105294〕'
+const FUBEN = '〔副本正文并入·承载整段:够长的正文内容〕'
+
+test('S1 叠层读数:同一行叠同一条〔改号…〕⇒ 超额 1;只有一份 ⇒ 0', () => {
+  if (stackCount(`- [ ] 正文${GAIHAO}${GAIHAO}`) !== 1) throw new Error('叠两份应计超额 1')
+  if (stackCount(`- [ ] 正文${GAIHAO}`) !== 0) throw new Error('只有一份不得计分')
+  if (stackCount(`- [ ] 正文${GAIHAO}${GAIHAO}${GAIHAO}`) !== 2) throw new Error('叠三份应计超额 2')
+})
+
+test('S2 叠层只认逐字相同:同族不同字面(两个不同的原号)不算叠', () => {
+  if (stackCount(`- [ ] 正文${GAIHAO}〔改号(2026-10-14):原G-1〕`) !== 0)
+    throw new Error('字面不同的两枚同族注记不得计成叠层')
+})
+
+test('S3 三族各自有牙:同题原号 / 副本正文并入 / 归并族 叠两份即红', () => {
+  for (const note of [TONGH1, FUBEN, '〔【归并】重复登记副本:x〕', '〔让号记录(2026-10-02):x〕', '**[归并]**']) {
+    if (stackCount(`- [ ] 正文${note}${note}`) !== 1) throw new Error(`该族无牙:${note.slice(0, 24)}`)
+  }
+})
+
+test('S4 只数登记行:散文行叠注记不计(与维①同一条行界)', () => {
+  if (stackCount(`普通段落${GAIHAO}${GAIHAO}`) !== 0) throw new Error('散文行被误数')
+  if (stackCount(`<!-- 注释${GAIHAO}${GAIHAO} -->`) !== 0) throw new Error('占位注释被误数')
+  if (stackCount(`- [x] ✅(2026-10-20) 已勾行${GAIHAO}${GAIHAO}`) !== 1) throw new Error('已勾登记行也应数(回灌不分勾选态)')
+})
+
+test('S5 差值棘轮:叠层变多 ⇒ 红;不变/折掉 ⇒ 绿;取不到 ⇒ 未判定不冒充', () => {
+  const up = stackRatchetVerdict(`- [ ] 正文${GAIHAO}\n`, `- [ ] 正文${GAIHAO}${GAIHAO}\n`)
+  if (!up.grew || up.undetermined) throw new Error('变多必须红')
+  if (stackRatchetVerdict(`- [ ] 正文${GAIHAO}${GAIHAO}\n`, `- [ ] 正文${GAIHAO}${GAIHAO}\n`).grew)
+    throw new Error('存量不担责:同面比对应绿')
+  if (stackRatchetVerdict(`- [ ] 正文${GAIHAO}${GAIHAO}\n`, `- [ ] 正文${GAIHAO}\n`).grew)
+    throw new Error('折掉叠层是好转,不得红')
+  // 未判定档:判据内部异常 ⇒ null ⇒ undetermined(§0.3 不记绿也不冒红)。
+  // 面取不到(rc≠0)那一层由 main 前置拦截(exit 2),不在纯函数职责内。
+  const orig = String.prototype.split
+  try {
+    String.prototype.split = function () {
+      throw new Error('fixture boom')
+    }
+    const u = stackRatchetVerdict(`- [ ] 正文${GAIHAO}\n`, `- [ ] 正文${GAIHAO}${GAIHAO}\n`)
+    if (!u.undetermined || u.grew) throw new Error('判据异常 ⇒ 未判定,既不记绿也不冒红')
+  } finally {
+    String.prototype.split = orig
+  }
+})
+
+test('S6 判据异常 ⇒ null(未判定),不得用 0 冒充"没有叠层"', () => {
+  const orig = String.prototype.split
+  try {
+    String.prototype.split = function () {
+      throw new Error('fixture boom')
+    }
+    if (stackCount('- [ ] 正文') !== null) throw new Error('判据炸了必须 null')
+  } finally {
+    String.prototype.split = orig
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

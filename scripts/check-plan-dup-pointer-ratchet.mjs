@@ -28,6 +28,16 @@
  * 应急出口(须带原因,裸标记不放行):`DUP_RATCHET_ALLOW_TWIN_GROWTH=<原因>` —— 并发并集
  * 已声明的量纲放大走这里,出口打印原因留痕,不静默。
  *
+ * 维③(2026-10-20 立,承台账票「门 13d 对"同一行叠同一注记"这一型零射程」):
+ * 病:维①只判"行上有没有注记",同一行把**同一条注记字面叠 2..N 份**(并发回灌旧底稿把已折掉
+ * 的注记原样长回来,实测单行最多叠过 62 份)在维①眼里仍是一行 ⇒ 零射程。
+ * 判据:登记行内**逐字相同的同一注记出现 >1 次**计重数,超额数(Σ n-1)按差值棘轮
+ * 锚该文件 HEAD 自身(只拦"本次提交让叠层变多",§12e:HEAD 面存量现读非 0 ⇒ 全量档只报数)。
+ * 识别集(票面①"补字族"):至少 `〔同题原号 …〕` `〔改号(…):原…〕` 两族 + purge 自家产的
+ * `〔副本正文并入…〕` 族(实测叠层大头)。**刻意不并进 DUP_POINTER_RE** —— 该正则 30+ 消费点,
+ * plan-task-index :774 头注已写明并族的后果(改号链行为变更),此处只在本门新增独立识别集。
+ * 应急出口(须带原因):`DUP_RATCHET_ALLOW_STACK_GROWTH=<原因>`,与维②同一条"裸标记不放行"规矩。
+ *
  * 判据失明防护(T3 同型元判据):清偿后当前面登记行注记数必须为 0;若清偿成果被别的
  * 路径绕过本门带回(比如直接写工作树后绕钩子提交),本门**全量模式**(非差值)会点名
  * 并要求跑 `node scripts/plan-pointer-purge.mjs --apply` 重新清偿。
@@ -100,6 +110,53 @@ export function twinRatchetVerdict(headText, newText) {
 }
 
 /**
+ * 维③识别集(票面①"补字族"):三族注记各自非贪婪捕到首个 `〕`。
+ * 与 DUP_POINTER_RE 刻意分离 —— 后者 30+ 消费点,并族会改派单口径/改号链行为
+ * (plan-task-index :774 头注的取舍),这里只在本门新增独立判据。
+ */
+export const STACK_NOTE_FAMILIES = [
+  /〔同题原号[^〕]{0,400}〕/g,
+  /〔改号\([^〕]{0,400}〕/g,
+  /〔副本正文并入[^〕]{0,20000}〕/g,
+  /〔让号[^〕]{0,400}〕/g,
+  /〔【归并】[^〕]{0,2000}〕/g,
+  /\*\*\[归并\]\*\*/g,
+]
+
+/**
+ * 维③读数(纯函数):登记行内**逐字相同的同一注记**叠出的超额数 Σ(n-1)。
+ * 判据炸了返回 null(未判定,§0.3 不冒充 0 也不冒红)。
+ */
+export function stackCount(text) {
+  try {
+    let total = 0
+    for (const l of String(text || '').split(/\r?\n/)) {
+      if (!isRow(l)) continue
+      for (const re of STACK_NOTE_FAMILIES) {
+        const groups = new Map()
+        for (const m of l.matchAll(re)) groups.set(m[0], (groups.get(m[0]) ?? 0) + 1)
+        for (const n of groups.values()) if (n > 1) total += n - 1
+      }
+    }
+    return total
+  } catch {
+    return null
+  }
+}
+
+/** 自检夹具:命中维①识别集(DUP_POINTER_RE)的指针注记。 */
+const NOTE_FIXTURE = '〔【归并】重复登记副本(2026-10-20):镜像夹具〕'
+
+/** 维③差值判定(纯函数):本次提交让同行叠层变多 ⇒ 红。 */
+export function stackRatchetVerdict(headText, newText) {
+  const before = stackCount(headText)
+  const after = stackCount(newText)
+  if (before === null || after === null)
+    return { before, after, grew: false, undetermined: true }
+  return { before, after, grew: after > before, undetermined: false }
+}
+
+/**
  * 为什么这道门在"清偿后"全量面上判红是安全的(不是恒红门):
  * 存量已由 purge 脚本清零 ⇒ 正常流程下当前面注记数恒为 0,任何把注记写回来的提交
  * 都是"本次引入",在差值面被抓;全量面只在有人绕过钩子(直接写工作树 + `--no-verify`
@@ -109,6 +166,32 @@ function main(argv) {
   const jsonOut = argv.includes('--json')
   const auditOnly = argv.includes('--audit-pointers')
   const staged = argv.includes('--staged')
+
+  // --self-test:判据成对反证(叠两份即红 / 只有一份不红),全部走导出的纯函数,
+  // 零 git/文件 IO —— 票面要求的"取证 = --self-test 成对反证"。
+  if (argv.includes('--self-test')) {
+    const cases = []
+    const rep = (name, ok) => cases.push([name, ok])
+    const one = '正文' + '〔改号(2026-10-14):原G-1018221〕'
+    const stack2 = '正文' + '〔改号(2026-10-14):原G-1018221〕' + '〔改号(2026-10-14):原G-1018221〕'
+    const stack2diff = '正文' + '〔改号(2026-10-14):原G-1〕〔改号(2026-10-14):原G-2〕'
+    rep('S-a 同注记叠两份 ⇒ 超额 1', stackCount(`- [ ] ${stack2}`) === 1)
+    rep('S-b 同注记只有一份 ⇒ 0', stackCount(`- [ ] ${one}`) === 0)
+    rep('S-c 字面不同的同族注记不算叠', stackCount(`- [ ] ${stack2diff}`) === 0)
+    rep('S-d 三族各自成对', ['〔同题原号 G-9〕', '〔副本正文并入·承载整段:x〕', '〔让号记录(2026-10-02):x〕'].every((n) => stackCount(`- [ ] 正文${n}${n}`) === 1))
+    rep('S-e 散文行不数(非登记行)', stackCount(`普通段落 ${stack2}`) === 0)
+    rep('S-f 差值:叠层变多 ⇒ 红', stackRatchetVerdict(`- [ ] ${one}\n`, `- [ ] ${stack2}\n`).grew === true)
+    rep('S-g 差值:叠层不变 ⇒ 绿', stackRatchetVerdict(`- [ ] ${stack2}\n`, `- [ ] ${stack2}\n`).grew === false)
+    rep('S-h 差值:折掉叠层 ⇒ 绿', stackRatchetVerdict(`- [ ] ${stack2}\n`, `- [ ] ${one}\n`).grew === false)
+    rep('S-i 维①棘轮新增注记 ⇒ 红', ratchetVerdict('- [ ] x\n', `- [ ] x ${NOTE_FIXTURE}\n`).compliant === false)
+    let fails = 0
+    for (const [name, ok] of cases) {
+      if (!ok) fails++
+      console.log(`${ok ? C.green + '✅' : C.red + '❌'} ${name}${C.reset}`)
+    }
+    console.log(`${C.cyan}自检 ${cases.length - fails}/${cases.length}${C.reset}`)
+    return fails ? 1 : 0
+  }
 
   const specNew = staged ? `:${FILE}` : null
   let newContent = null
@@ -138,16 +221,19 @@ function main(argv) {
 
   if (auditOnly) {
     const rows = pointerRows(newContent)
+    const stack = stackCount(newContent)
     if (jsonOut) {
       console.log(
         JSON.stringify({
           face: staged ? 'staged' : 'HEAD',
           pointerRows: rows.length,
+          stackedNotes: stack,
           samples: rows.slice(0, 20).map((r) => ({ line: r.line, sample: r.raw.slice(0, 120) })),
         }),
       )
     } else {
       console.log(`${C.cyan}📊 登记行指针注记存量:${rows.length} 行${C.reset}`)
+      console.log(`${C.cyan}📊 同行叠同一注记超额数:${stack === null ? '未判定' : stack}${C.reset}`)
       for (const r of rows.slice(0, 30)) console.log(`  L${r.line} ${r.raw.slice(0, 120)}`)
     }
     return 0 // 只读报数,永不判红
@@ -214,6 +300,34 @@ function main(argv) {
         `${C.green}✅ F10 差值:${C.reset}同题不同编号可折重复登记 ${tv.before} → ${tv.after}(不增;F4/F4b 维归守门 130,不在此重复设门)`,
       )
     }
+    // ── 维③ 「同一行叠同一注记」差值棘轮(2026-10-20)──
+    const sv = stackRatchetVerdict(oldContent, newContent)
+    if (sv.undetermined) {
+      console.log(
+        `${C.yellow}⏭ 叠层差值未判定(stackCount 判据异常)${C.reset} —— 不冒充通过也不冒红,点名即走`,
+      )
+    } else if (sv.grew) {
+      const allow = process.env.DUP_RATCHET_ALLOW_STACK_GROWTH
+      if (allow && allow.trim()) {
+        console.log(
+          `${C.yellow}⚠️ 叠层差值棘轮经应急出口放行(带原因留痕,不静默):${C.reset}${allow.trim()}(${sv.before} → ${sv.after})`,
+        )
+      } else {
+        console.error(
+          `${C.red}❌ 同行叠注记差值棘轮:${C.reset}本次提交让"同一登记行内逐字相同的同一注记"叠层超额数从 ${sv.before} 增至 ${sv.after}(+${sv.after - sv.before})`,
+        )
+        console.error(
+          `${C.yellow}出路:${C.reset} ① 同行同注记只留一份(并发回灌把已折掉的注记原样长回来即此型);\n` +
+            `       ② 存量收口参照枚 92b5d876 的无损折法(断言:行数不变/每种注记仍≥1次/行首主键不动);\n` +
+            `       ③ 确属并发并集已声明的叠层 ⇒ 带原因重试:DUP_RATCHET_ALLOW_STACK_GROWTH=<原因>(裸标记不放行)`,
+        )
+        return 1
+      }
+    } else {
+      console.log(
+        `${C.green}✅ 叠层差值:${C.reset}同行叠同一注记超额数 ${sv.before} → ${sv.after}(不增;识别集 = 同题原号/改号/副本正文并入三族)`,
+      )
+    }
   } else {
     // 全量模式:存量必须为 0(清偿成果守住);不为 0 红 —— 它必然是绕过钩子或写盘路径带回的
     if (residue > 0) {
@@ -234,6 +348,13 @@ function main(argv) {
     if (twinFull !== null)
       console.log(
         `${C.cyan}📊 F10 同题不同编号可折重复登记存量:${twinFull} 行(只报数;收口跑 plan-pointer-purge --apply)${C.reset}`,
+      )
+    // 维③ 全量档只报数:HEAD 面叠层存量现读非 0(并发回灌带回,归 purge 折法收口),
+    // 当场判红即与任何提交无关的恒红门(§12e)——升 blocking 的前置 = 存量归零。
+    const stackFull = stackCount(newContent)
+    if (stackFull !== null)
+      console.log(
+        `${C.cyan}📊 同行叠同一注记超额存量:${stackFull}(只报数;差值档在 --staged,收口参照枚 92b5d876 无损折法)${C.reset}`,
       )
   }
   return 0
