@@ -95,13 +95,12 @@ const AGENT_MAIN_CATEGORY_FALLBACK: ReadonlyArray<AgentCategoryItem> = [
 
 function mapToItem(a: Agent): AgentScreenItem {
   return {
-    id: a.id,
+    id: a.agentId,
     name: a.name,
     avatar: a.avatar ?? undefined,
     description: a.description,
     isVipExclusive: a.isVipExclusive,
-    useCount: a.useCount,
-    rating: a.rating,
+    useCount: a.usageCount,
   }
 }
 
@@ -215,7 +214,7 @@ export function AgentScreen() {
         )
         const items: RecentAgentItem[] = details
           .filter((d): d is Agent => d !== null)
-          .map((d) => ({ id: d.id, name: d.name, avatar: d.avatar ?? undefined }))
+          .map((d) => ({ id: d.agentId, name: d.name, avatar: d.avatar ?? undefined }))
         if (items.length > 0) {
           setRecentAgents(items)
           return
@@ -225,7 +224,9 @@ export function AgentScreen() {
       // 接口失败走降级
     }
     setRecentAgents(
-      fallback.slice(0, 5).map((a) => ({ id: a.id, name: a.name, avatar: a.avatar ?? undefined })),
+      fallback
+        .slice(0, 5)
+        .map((a) => ({ id: a.agentId, name: a.name, avatar: a.avatar ?? undefined })),
     )
   }, [])
 
@@ -244,7 +245,7 @@ export function AgentScreen() {
         setMyAgents(
           (res.data.list ?? [])
             .slice(0, 6)
-            .map((a) => ({ agentId: a.id, agentName: a.name, avatar: a.avatar ?? undefined })),
+            .map((a) => ({ agentId: a.agentId, agentName: a.name, avatar: a.avatar ?? undefined })),
         )
         // RecentAgents 最近使用:走 getAgentUseHistory 独立加载(见 loadRecentAgents),
         // 失败时降级取列表前 5 条(对齐 HomeScreen 模式)
@@ -314,7 +315,7 @@ export function AgentScreen() {
             (res.data.list ?? [])
               .filter((a) => Boolean(a.avatar))
               .slice(0, 5)
-              .map((a) => ({ img: a.avatar ?? '', title: a.name, link: a.id })),
+              .map((a) => ({ img: a.avatar ?? '', title: a.name, link: a.agentId })),
           )
         }
       } catch {
@@ -389,7 +390,7 @@ export function AgentScreen() {
       }
       const agent = items.find((a) => a.id === id)
       // 完整智能体详情(取绑定模型,补全跳转参数;对齐 Uniapp handleAgentPitch 带 modelNamea/type)
-      const full = agents.find((a) => a.id === id)
+      const full = agents.find((a) => a.agentId === id)
       // as never:RootStackParamList 未声明 modelId/modelName(路由运行时可接收,见 AiAssistantN8n LocalParamList)
       navigation.navigate('AiAssistantN8n', {
         agentId: id,
