@@ -34,7 +34,13 @@ import * as FileSystem from 'expo-file-system'
 import * as ImagePicker from 'expo-image-picker'
 import * as MediaLibrary from 'expo-media-library'
 import { tokens } from '../theme/active-tokens'
-import { CategoryInlineBar, ProfileScreen as SharedProfileScreen, TextField } from '@ihui/rn-app'
+import {
+  CategoryInlineBar,
+  ProfileScreen as SharedProfileScreen,
+  ScrollJumpButton,
+  TextField,
+} from '@ihui/rn-app'
+import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
 import type { CategoryItem, SharedMenuSection } from '@ihui/rn-app'
 import type { UserInfo } from '@ihui/types'
 import {
@@ -692,11 +698,19 @@ export function ProfileScreen() {
         onGoHome={handleDrawerGoHome}
         onNavigateExtra={handleNavigateExtra}
       />
-      {/* 返回顶部按钮(对齐 Uniapp user/index.vue toodown) */}
+      {/* 返回顶部按钮:外观与几何不在此设定;bottom 给悬浮 TabBar 让位(载体高度,非外观档) */}
       {showBackToTop ? (
-        <TouchableOpacity style={styles.backToTopBtn} activeOpacity={0.7} onPress={handleBackToTop}>
-          <Text style={styles.backToTopIcon}>↑</Text>
-        </TouchableOpacity>
+        <ScrollJumpButton
+          direction="top"
+          onPress={handleBackToTop}
+          label={t('common.backToTop')}
+          colorScheme={resolvedTheme}
+          style={{
+            position: 'absolute',
+            right: scrollJumpInsetPx(),
+            bottom: tabBarScrollReserve(insets.bottom) + scrollJumpInsetPx(),
+          }}
+        />
       ) : null}
       {/* 编辑资料弹窗(对齐 Uniapp user/index.vue 编辑资料弹层,替代 ProfileEdit 跳转) */}
       {user ? (
@@ -1878,28 +1892,8 @@ const styles = StyleSheet.create({
   screenScrollContent: {
     flexGrow: 1,
   },
-  // 返回顶部按钮(对齐 Uniapp toodown,样式对齐 AgentScreen backToTopBtn)
-  backToTopBtn: {
-    position: 'absolute',
-    right: 16,
-    bottom: 76, // TabBar 上方
-    width: 34,
-    height: 34,
-    borderRadius: rnRadius.sm,
-    backgroundColor: tokens.surface.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 3,
-    shadowColor: tokens.gray[900],
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-  },
-  backToTopIcon: {
-    fontSize: 18,
-    color: tokens.text.secondary,
-    fontWeight: '600',
-  },
+  // 返回顶部按钮样式已收进 @ihui/shared/ui/scroll-jump-spec(2026-10-20 用户定「不许单独设定」),
+  // 端内不得再留第二份盒档 —— 见 @ihui/rn-app ScrollJumpButton 头注。
   loaderWrap: {
     alignItems: 'center',
     justifyContent: 'center',

@@ -87,6 +87,7 @@
     "loadFailed": "미션 로딩 실패"
   },
   "common": {
+    "backToTop": "맨 위로",
     "hint": "알림",
     "goSettings": "설정으로",
     "all": "전체",

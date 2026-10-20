@@ -12,15 +12,24 @@
  *   node scripts/gen-taro-lucide-icons.mjs play pause heart        # 生成指定图标
  *   node scripts/gen-taro-lucide-icons.mjs --color '#FFFFFF' play  # 指定描边颜色
  */
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const LUCIDE_DIR = join(
-  root,
-  'node_modules/.pnpm/lucide-react@1.31.0_react@19.2.8/node_modules/lucide-react/dist/esm/icons',
-)
+// lucide-react 版本随依赖升级漂移,写死版本号会整器报废(实测 1.31.0 出依赖树后 -- 即断):
+// 现扫 .pnpm 里实际安装的版本,取版本号最高的那份。
+const LUCIDE_DIR = (() => {
+  const pnpmRoot = join(root, 'node_modules/.pnpm')
+  const versions = readdirSync(pnpmRoot)
+    .filter((d) => d.startsWith('lucide-react@'))
+    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+  for (const v of versions) {
+    const dir = join(pnpmRoot, v, 'node_modules/lucide-react/dist/esm/icons')
+    if (existsSync(dir)) return dir
+  }
+  throw new Error('lucide-react icons dir not found under node_modules/.pnpm')
+})()
 const OUT_DIR = join(root, 'apps/miniapp-taro/src/static/images/icons')
 
 function parseNode(node) {
@@ -45,7 +54,7 @@ function generate(name, strokeColor) {
   }
   const match = src.match(/const __iconNode = (\[[\s\S]*?\]);/m)
   if (!match) throw new Error(`cannot parse __iconNode: ${name}`)
-  // eslint-disable-next-line no-eval -- 受控的本地 lucide 数据结构解析
+   
   const iconNode = eval(match[1])
   const body = iconNode.map(parseNode).join('\n  ')
   const svg = `<!-- @license lucide-static v1.31.0 - ISC -->
