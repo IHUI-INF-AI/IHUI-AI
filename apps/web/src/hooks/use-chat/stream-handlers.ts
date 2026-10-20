@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useChatStore, type ToolCall } from '@/stores/chat'
+import type { ChatStore } from '@/stores/chat-pane-context'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { emitAgentHook } from '@/stores/agent-hooks'
 import type { ToolDeltaEvent, ToolSummaryEvent, UsageEvent } from '@ihui/api-client'
@@ -32,8 +33,8 @@ export function localizeQuotaExhausted(
  *  2026-09-21 立:预告态在请求发起前点亮,原先只靠 onResponse 清除 —— 而响应头之前失败
  *  (HTTP 4xx/5xx 在 api-client 内 throw)、超时 abort、主动 stop、切换会话四条路径都不会
  *  走到 onResponse,残留状态挂在全局 AISidePanel 的状态栏上,用户走到哪个页面都看得到。 */
-export function clearCompactionPreview(): void {
-  const store = useChatStore.getState()
+export function clearCompactionPreview(chatStore: ChatStore = useChatStore): void {
+  const store = chatStore.getState()
   if (store.compactionStatus?.phase === 'compacting') store.setCompactionStatus(null)
 }
 
@@ -66,7 +67,10 @@ export function resolveToolDurationMs(input: {
   return null
 }
 
-export function createToolCallHandler(assistantMessageId: string) {
+export function createToolCallHandler(
+  assistantMessageId: string,
+  chatStore: ChatStore = useChatStore,
+) {
   // 2026-09-01 立,工具调用过程流式可视化:SSE tool-result 事件不携带耗时字段,
   // 需在 tool-call-start 时记录本地起点,result 到达时计算 durationMs 补写,
   // 驱动 ToolCallCard 显示真实耗时(toolCallId 后端全局唯一,跨消息不冲突)。
@@ -102,7 +106,7 @@ export function createToolCallHandler(assistantMessageId: string) {
       // W28 Hooks 事件:tool.before(工具开始调用)
       emitAgentHook('tool.before', { toolName: event.toolName })
       startTimes.set(event.toolCallId, Date.now())
-      useChatStore.getState().addToolCall(assistantMessageId, {
+      chatStore.getState().addToolCall(assistantMessageId, {
         id: event.toolCallId,
         toolName: event.toolName,
         args: event.args ?? {},
@@ -158,7 +162,7 @@ export function createToolCallHandler(assistantMessageId: string) {
       // D113:tool-result 到达即清流中预览(最终 diff 以 result 的 diffInfo 为准)
       updates.partialDiff = undefined
       updates.partialSeq = undefined
-      useChatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, updates)
+      chatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, updates)
 
       // tool-result 含 URL:延迟打开(仅当之前 args 没 url 时,result 含 url 的场景)
       if (!BROWSER_TOOL_NAMES.has(event.toolName)) return
@@ -174,14 +178,17 @@ export function createToolCallHandler(assistantMessageId: string) {
  * D113 onToolDelta 工厂(2026-09-27 立,G-227):文件写类工具流中 diff 预览。
  * 载荷 partialText 为**增量**正文,按 toolCallId 以 seq 收敛**追加**(evt.seq<=已存 partialSeq
  * 即丢弃,重传/乱序幂等;缺口照追加);仅 running 态渲染,tool-result 处理器负责清除。 */
-export function createToolDeltaHandler(assistantMessageId: string) {
+export function createToolDeltaHandler(
+  assistantMessageId: string,
+  chatStore: ChatStore = useChatStore,
+) {
   return (event: ToolDeltaEvent) => {
     if (!event.toolCallId) return
-    const message = useChatStore.getState().messages.find((m) => m.id === assistantMessageId)
+    const message = chatStore.getState().messages.find((m) => m.id === assistantMessageId)
     const tc = message?.toolCalls?.find((t) => t.id === event.toolCallId)
     if (!tc) return
     if (event.seq <= (tc.partialSeq ?? 0)) return
-    useChatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, {
+    chatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, {
       partialDiff: (tc.partialDiff ?? '') + event.partialText,
       partialSeq: event.seq,
     })
@@ -193,9 +200,12 @@ export function createToolDeltaHandler(assistantMessageId: string) {
  * 绑定 assistantMessageId,把 SSE tool-summary 事件聚合结果写入 message.toolCallSummary,
  * 让 ToolCallSummary 组件在 AI 回复末尾展示"搜索文件 N 个/网页 N 个/改了 N 个文件/N 行代码"。
  */
-export function createToolSummaryHandler(assistantMessageId: string) {
+export function createToolSummaryHandler(
+  assistantMessageId: string,
+  chatStore: ChatStore = useChatStore,
+) {
   return (summary: ToolSummaryEvent) => {
-    useChatStore.getState().setMessageToolSummary(assistantMessageId, summary)
+    chatStore.getState().setMessageToolSummary(assistantMessageId, summary)
   }
 }
 
@@ -212,10 +222,13 @@ export type MessageUsagePayload = UsageEvent
  * - messageId 为空(旧 OpenAI 协议 usage chunk 不带 messageId)→ 回退到当前流式消息 id
  * - timing / costUsd 缺失(null)→ 存 0 / null,徽章对应分段条件性不渲染
  * 旧 meta.usage 写入(updateMessageMeta)由 send-message.ts 保留,本工厂只负责新索引。 */
-export function createUsageHandler(assistantMessageId: string) {
+export function createUsageHandler(
+  assistantMessageId: string,
+  chatStore: ChatStore = useChatStore,
+) {
   return (payload: MessageUsagePayload) => {
     const messageId = payload.messageId || assistantMessageId
-    useChatStore.getState().setMessageUsage(messageId, {
+    chatStore.getState().setMessageUsage(messageId, {
       totalTokens: Number(payload.totalTokens) || 0,
       promptTokens: Number(payload.promptTokens) || 0,
       completionTokens: Number(payload.completionTokens) || 0,
@@ -282,12 +295,12 @@ export function createDeltaBatcher(appendFn: (delta: string) => void) {
  * #9 多 agent stream 节流(2026-07-25 立):
  * 单一 manager 管理多个 agentId 各自的 batcher,flushAll/cancelAll 统一清理。
  */
-export function createAgentDeltaBatcher() {
+export function createAgentDeltaBatcher(chatStore: ChatStore = useChatStore) {
   const map = new Map<string, ReturnType<typeof createDeltaBatcher>>()
   const batch = (agentId: string, delta: string) => {
     let b = map.get(agentId)
     if (!b) {
-      b = createDeltaBatcher((d) => useChatStore.getState().appendToAgentStream(agentId, d))
+      b = createDeltaBatcher((d) => chatStore.getState().appendToAgentStream(agentId, d))
       map.set(agentId, b)
     }
     b.batch(delta)

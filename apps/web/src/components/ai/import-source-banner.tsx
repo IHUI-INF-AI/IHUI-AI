@@ -23,8 +23,9 @@
  */
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Download, MessagesSquare, Users } from 'lucide-react'
+import { Download, MessagesSquare, Sparkles, Users } from 'lucide-react'
 
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatSpeakerList, type ImportProvenance } from '@ihui/shared/import-analysis'
 
@@ -38,7 +39,11 @@ const SOURCE_LABEL_KEY: Record<ImportProvenance['source'], string> = {
 }
 
 /** 时间跨度的展示格式(短日期;跨年时由 toLocaleDateString 自动带年) */
-const DATE_FORMAT: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit' }
+const DATE_FORMAT: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}
 
 export interface ImportSourceBannerProps {
   readonly provenance: ImportProvenance
@@ -77,9 +82,7 @@ export function ImportSourceBanner({
       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
         <Download className="h-3 w-3 shrink-0" aria-hidden />
         {/* 这一句是本组件的全部要点:不是你自己跟 AI 聊的,是导入的外部记录 */}
-        <span className="font-medium">
-          {t('bannerPrefix', { source: sourceLabel })}
-        </span>
+        <span className="font-medium">{t('bannerPrefix', { source: sourceLabel })}</span>
         {provenance.fileName && (
           <>
             <span aria-hidden>·</span>
@@ -127,6 +130,54 @@ export function ImportSourceBanner({
       <span className="sr-only" title={t('bannerVia', { via: provenance.via })}>
         {t('bannerVia', { via: provenance.via })}
       </span>
+    </div>
+  )
+}
+
+export interface ImportProvenanceSlotProps {
+  readonly provenance: ImportProvenance
+  /**
+   * 传入才渲染「用场景分析」入口。对话框(ImportAnalysisDialog)由调用方持有 ——
+   * 它现在把草稿写进 `useChatStore` 单例,非根窗格接上会写到别的窗格的输入框,
+   * 故窗格侧暂时只给横幅(不给一个点了不落在本窗格的按钮)。
+   */
+  readonly onOpenAnalysis?: () => void
+  readonly compact?: boolean
+}
+
+/**
+ * 消息区顶部的「导入来源」槽位(横幅 + 可选分析入口)。
+ *
+ * 抽出来只有一个原因:根窗格与非根窗格必须显示同一条交代。两处各写一份 JSX 的话,
+ * 改一处忘另一处 ⇒ 同一份会话在两个窗格里说得不是同一句话(§0.6 / §3)。
+ * 刻意贴在消息列表**上方**而不是 header —— header 只有 56px 高且塞满按钮,
+ * 「这不是你自己跟 AI 聊的会话」这句话需要一整行的宽度才说得清。
+ */
+export function ImportProvenanceSlot({
+  provenance,
+  onOpenAnalysis,
+  compact = false,
+}: ImportProvenanceSlotProps): React.ReactElement {
+  const t = useTranslations('chat')
+
+  return (
+    <div className="px-3 pt-2" data-testid="import-provenance-slot">
+      <ImportSourceBanner provenance={provenance} compact={compact} />
+      {onOpenAnalysis && (
+        <div className="mt-1.5 flex justify-end">
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            className="text-[11px]"
+            data-testid="import-analysis-open"
+            onClick={onOpenAnalysis}
+          >
+            <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+            <span>{t('analysisOpen')}</span>
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

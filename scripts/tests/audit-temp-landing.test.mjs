@@ -24,6 +24,7 @@ import { join, resolve } from 'node:path'
 import test from 'node:test'
 
 import { auditTempLanding } from '../git-guardian.mjs'
+import { __test__ as T } from '../check-temp-landing.mjs'
 import { mkScratch } from '../lib/scratch-dir.mjs'
 
 const GUARDIAN = resolve(import.meta.dirname, '..', 'git-guardian.mjs')
@@ -48,7 +49,7 @@ test('T1 drift ⇒ 喊出来,点名层级并写明清理归属', () => {
     ...f,
     logger: (m) => logs.push(m),
     runner: jsonRunner({
-      counts: { drift: 1, undetermined: 0, recentWrites: 0 },
+      counts: { ...T.buildReport({ tiers: [] }, { exists: () => false, readdir: () => [], lstat: () => null, now: 0 }).counts, drift: 1, undetermined: 0 },
       tiers: [{ judged: true, state: 'drift', label: 'INTERACTIVE-ACCOUNT' }],
     }),
   })
@@ -59,6 +60,42 @@ test('T1 drift ⇒ 喊出来,点名层级并写明清理归属', () => {
   assert.ok(line, 'drift 必须写日志 —— 安静是这一型最贵的失效形态')
   assert.match(line, /INTERACTIVE-ACCOUNT/, '要点名是哪一层不一致')
   assert.match(line, /scrubTempFixtures/, '要写明清理归既有清扫器,本格只判不动手')
+})
+
+test('T1b 契约锁:消费方读的 counts 键必须真存在于生产方的出口里(2026-10-20 实测错配)', () => {
+  // 现场:本文件 T1 那份夹具手抄了一个 `recentWrites: 0` 的 counts 形状,而生产方 `buildReport()`
+  // 出口里从来只有 `writing`(probeCounts 四态)—— 消费方读 `c.recentWrites ?? c.probeHits ?? 0`
+  // ⇒ 恒 0,`else if (recentWrites > 0)` 那条"注册表看着对、进程照旧在写"的证据支**结构上永不触发**。
+  // 夹具与消费方互相圆谎,两侧各自都"绿" —— 所以这把尺子必须去问生产者自己(§22c)。
+  const report = T.buildReport({ tiers: [] }, { exists: () => false, readdir: () => [], lstat: () => null, now: 0 })
+  const keys = Object.keys(report.counts)
+  assert.ok(keys.length >= 6, `生产方 counts 出口键至少 6 个(实测 ${keys.length} ⇒ 夹具没走到真出口):${keys.join(',')}`)
+  const body = SRC.slice(SRC.indexOf('export function auditTempLanding'))
+  const scoped = body.slice(0, body.indexOf('\nexport ', 20) > 0 ? body.indexOf('\nexport ', 20) : body.length)
+  const read = [...new Set([...scoped.matchAll(/\bc\.([A-Za-z][A-Za-z0-9]*)/g)].map((m) => m[1]))]
+  assert.ok(read.length >= 2, `从 auditTempLanding 里至少应解析出 2 个 c.* 读键(实测 ${read.length} ⇒ 锁自己瞎了):${read.join(',')}`)
+  for (const k of read) assert.ok(keys.includes(k), `消费方读 c.${k},而生产方 buildReport().counts 没有这个键(实测出口键:${keys.join(',')})`)
+  assert.equal(/c\.recentWrites|c\.probeHits/.test(scoped), false, '不得再读回那两个从未被发射过的旧键名(读回即这条锁失效)')
+})
+
+test('T1c writing>0 且 drift=0 ⇒ 走"进程照旧在写"那一支并判不通过(成对:为消红补数字不算)', () => {
+  const f = fixture()
+  const logs = []
+  // counts 用**生产方那份真出口**造(§22c:不在测试里复制形状),只把要测的那一维改成 2。
+  const base = T.buildReport({ tiers: [] }, { exists: () => false, readdir: () => [], lstat: () => null, now: 0 }).counts
+  const r = auditTempLanding({
+    ...f,
+    logger: (m) => logs.push(m),
+    runner: jsonRunner({
+      counts: { ...base, drift: 0, undetermined: 0, writing: 2 },
+      tiers: [{ judged: true, state: 'derived', label: 'TEMP' }],
+    }),
+  })
+  assert.equal(r.recentWrites, 2, `读数必须真从 c.writing 取到,实得 ${r.recentWrites}`)
+  assert.equal(r.ok, false, '注册表看着对而进程照旧在写 ⇒ 不得判通过')
+  const line = logs.find((l) => /照旧在写/.test(l))
+  assert.ok(line, `必须走"证据支"那条日志,实得:${logs.join(' ⎯ ') || '(一行都没有)'}`)
+  assert.match(line, /2 个条目/)
 })
 
 test('T2 节流窗口内 ⇒ 不重复读注册表', () => {

@@ -8,7 +8,6 @@ import {
   Activity,
   AlertTriangle,
   Clock,
-  Cpu,
   Server,
   ShieldAlert,
   type LucideIcon,
@@ -16,6 +15,9 @@ import {
 import { Card, CardContent } from '@ihui/ui-react'
 import { getTranslations } from 'next-intl/server'
 import { cn } from '@/lib/utils'
+// 2026-10-21 公网提速：模型列表改客户端组件（见该文件头注释），服务端只下发紧凑数组，
+// 76 张卡片的 JSX 与 lucide iconNode 不再逐条序列化进 RSC payload（原 1.97 MB → ~150 KB）。
+import { ModelsSection } from '@/components/status/models-section'
 
 export const revalidate = 60
 
@@ -217,13 +219,8 @@ function formatDateTime(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : dtf.format(d)
 }
 
-function formatPercent(rate: number): string {
-  return `${(rate * 100).toFixed(2)}%`
-}
-
-function formatLatency(ms: number): string {
-  return ms > 0 ? `${ms}ms` : '—'
-}
+// 2026-10-21:formatPercent / formatLatency 随模型列表一并迁入
+// @/components/status/models-section.tsx（客户端组件），本文件不再使用，故移除。
 
 // ===== 组件 =====
 function StatusBadge({ status }: { status: ServiceStatus }) {
@@ -391,33 +388,7 @@ export default async function StatusPage() {
         </div>
       </Section>
 
-      <Section icon={Cpu} title={`模型可用性 (${models.length})`}>
-        {models.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">暂无公开模型</p>
-        ) : (
-          <div className="space-y-2">
-            {models.map((m) => (
-              <div
-                key={`${m.providerCode}-${m.modelId}`}
-                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
-              >
-                <div className="min-w-0 flex-1">
-                  <span className="text-sm font-medium">{m.displayName ?? m.modelId}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {m.providerCode}/{m.modelId}
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  <span>P95 {formatLatency(m.p95LatencyMs)}</span>
-                  <span>错误率 {formatPercent(m.errorRate)}</span>
-                  <span>最近事件 {m.lastIncidentAt ? formatDateTime(m.lastIncidentAt) : '—'}</span>
-                  <StatusBadge status={m.status} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Section>
+      <ModelsSection models={models} />
 
       <Section icon={ShieldAlert} title="最近事件(30 天)">
         {incidentsDegraded ? (

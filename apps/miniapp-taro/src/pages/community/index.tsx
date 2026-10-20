@@ -177,14 +177,20 @@ export default function Community() {
           type: 1,
         }))
         if (reset) {
-          setAgentList(mappedList)
+          const firstPage = mappedList.slice(0, PAGE_SIZE)
+          setAgentList(firstPage)
           setFullAgentList(mappedList)
+          setHasMore(firstPage.length < mappedList.length)
+          setPage(2)
         } else {
-          setAgentList((prev) => [...prev, ...mappedList])
-          setFullAgentList((prev) => [...prev, ...mappedList])
+          // 源接口 `getAgentList` 一次返回全量(它的 pageSize=200),分页在本端按窗口切:
+          // 此前这里把同一批全量反复 append ⇒ 滚到底会把同一批智能体成倍重复挂上去。
+          const nextCount = Math.min(curPage * PAGE_SIZE, mappedList.length)
+          setAgentList(mappedList.slice(0, nextCount))
+          setFullAgentList(mappedList)
+          setHasMore(nextCount < mappedList.length)
+          setPage(curPage + 1)
         }
-        setHasMore(curPage * PAGE_SIZE < (res?.total ?? mappedList.length))
-        setPage(curPage + 1)
       } catch {
         // API 失败时降级到空列表(不再用 mock)
         if (reset) {
