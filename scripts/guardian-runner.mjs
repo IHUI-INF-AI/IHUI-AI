@@ -611,11 +611,16 @@ const checks = [
     ].join('\n'),
   },
   // --- 39 (2026-07-29 新增,mobile-rn screen 迁移完整性守门,防独立实现回升) ---
-  // blocking:P3-3.3 "独立 screen 实现清零" 目标完成,153 个 .tsx 中 151 个迁移到
-  //   @ihui/rn-app 共享层,仅 2 个豁免(DebugScreen/DevEnterScreen)。若不接 pre-commit
-  //   守门,后续新增 screen 漏迁移会导致独立实现回升、维护成本系数恶化。
-  // 检测逻辑:扫描 apps/mobile-rn/src/screens/*.tsx,检查是否 import from '@ihui/rn-app',
-  //   未导入且不在白名单(Debug/DevEnter/SharedDemo/profileMenuData)→ blocking 阻塞 commit。
+  // blocking:P3-3.3 "独立 screen 实现清零" 目标完成后,screen 若漏迁移到 @ihui/rn-app
+  //   共享层,独立实现会回升、维护成本系数恶化。**计数一律现读**(`node scripts/
+  //   check-rn-app-migration.mjs` 会打当刻数字)—— 头注写死的"151/153"在 2026-10-21 已
+  //   失真到 219 枚,写死数字必然腐烂成"文档说一套、门跑另一套"(§0.1)。
+  // 检测逻辑(2026-10-21 G-922 四修后的形态,判据只有一份,住在门体里):
+  //   V1 screen 未 import @ihui/rn-app 且无**有效**(未到期)豁免 ⇒ 红;
+  //   V2 「屏级共享」:有 import 还得 packages/app 有同名共享屏,存量只报数,只拦新增与退化;
+  //   V3 豁免登记名在被审面 screens 清单里不存在 = 清单腐烂 ⇒ 红;
+  //   V4 豁免到期 ⇒ 不再生效,须按当刻现读重新登记(带 why + expires);
+  //   面纪律:全量档=HEAD blob / --staged=索引 blob / --worktree=人工逃生舱,取不到即 exit 2。
   // --staged 由本 runner 在 staged 模式下统一追加(见 passStaged 分支),**不得**写进 args:
   //   写死会让"不带 --staged 的全量审计"永远命中"无 staged screen 文件,跳过"→ 恒绿(2026-09-24 实测
   //   全量 204 个 screen 全绿,故摘掉硬编码不新增红点,只是把全量面从假绿变成真判)。
@@ -5212,6 +5217,16 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_NESTED_GIT_SITES_DURABILITY',
     onFailHint: [
       '',
+      '  💡 门 208 的两把豁免台账(行式 scripts/data/no-nested-git-sites.jsonl + 旧 JSON',
+      '     scripts/data/no-nested-git-exemptions.json)里,HEAD 面上**未到期**的登记行在被审面上不见了。',
+      '     两把台账是数据文件 —— 整文件覆盖就是整文件覆盖,一次拿滞后副本提交就会把别人的登记行整批洗掉',
+      '     (本门正是为此而设:洗掉那一刻没有任何东西报警)。',
+      '     修复(二选一,都走一次提交,不靠跳门):',
+      '       A. 无意洗掉 ⇒ 把 HEAD 面的登记行原样带回再提交(行式按 rel 逐字;JSON 按条目);',
+      '       B. 有意摘除(现场真消失 / 已到期 / 换载体)⇒ 在本枚提交里写明摘的是哪一条、为什么,',
+      '          行式台账改删那一行、JSON 台账改删那一条目,让"少了一行"这件事本身出现在 diff 里。',
+      '     现读命令: node scripts/check-no-nested-git-sites-durability.mjs [--staged]',
+      '     (现场在不在由门 208 判红那一刻现算,本门只守"已登记未到期的行不许静默消失")',
       '',
     ].join('\n'),
   },

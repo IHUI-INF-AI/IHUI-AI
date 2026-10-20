@@ -26,14 +26,14 @@ import {
   Columns2,
   Loader2,
   GitPullRequest,
-  Sparkles,
 } from 'lucide-react'
-import { Button, CloseButton, IconButton } from '@ihui/ui-react'
+import { IconButton, CloseButton } from '@ihui/ui-react'
 import { rnRadius } from '@ihui/design-tokens'
 import { toast, AuthGatePrompt } from '@/components/common'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
+import { useConversationPaneCache } from '@/hooks/use-conversation-pane-cache'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   useWebSocket,
@@ -47,9 +47,9 @@ import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
 import { SessionUsageBadge } from '@/components/chat/session-usage-badge'
 // D28 补齐层(2026-10-03):导入会话的来源标识 + 「用场景分析」入口。
-// 两者都只在 importProvenance 非 null(导入会话)时渲染;目录大的分析弹窗走 dynamic,
-// 避免 210 条模板正文(≈493KB)进 AI 面板主 chunk。
-import { ImportSourceBanner } from '@/components/ai/import-source-banner'
+// 槽位(横幅 + 入口按钮)与 ChatPaneBody 共用 ImportProvenanceSlot,不各写一份;
+// 目录大的分析弹窗走 dynamic,避免 210 条模板正文(≈493KB)进 AI 面板主 chunk。
+import { ImportProvenanceSlot } from '@/components/ai/import-source-banner'
 import { readImportProvenance, type ImportProvenance } from '@ihui/shared/import-analysis'
 const ImportAnalysisDialog = dynamic(
   () => import('@/components/ai/import-analysis-dialog').then((m) => m.ImportAnalysisDialog),
@@ -479,13 +479,21 @@ export function AISidePanel() {
   // 「用场景分析」弹窗开合(仅导入会话可见入口;弹窗本体按需 dynamic 加载)
   const [analysisOpen, setAnalysisOpen] = React.useState(false)
   const [workspaceName, setWorkspaceName] = React.useState<string | null>(null)
-  // 分页状态(2026-07-25 立,#8 滚动到顶部加载更多历史)
-  // - hasMoreHistory:当前会话是否还有更早的消息可加载
-  // - oldestCursor:下一页 keyset 复合游标(P1 #24,base64url {createdAt,id},服务端下发客户端透明回传)
-  // - loadingMoreHistory:防止滚动到顶部重复触发
-  const [hasMoreHistory, setHasMoreHistory] = React.useState(false)
-  const oldestCursorRef = React.useRef<string | null>(null)
-  const [loadingMoreHistory, setLoadingMoreHistory] = React.useState(false)
+  // #11 切换会话 LRU + #8 向上翻页态(2026-10-21 窗格化):缓存键 = 窗格 + 会话二元身份,
+  // 与 ChatPaneBody 共用 useConversationPaneCache 这一份出口(根窗格不挂 Provider ⇒ 桶归档到
+  // ROOT_PANE_ID)。此前键只有 conversationId,根与非根承载同一条会话时互相顶掉快照,
+  // 且非根窗格零缓存、每次切换全量重取。翻页态(游标/hasMore/loadingMore)随同一身份走。
+  const {
+    read: readConversationCache,
+    write: writeConversationCache,
+    patch: patchConversationCache,
+    resetPager,
+    oldestCursorRef,
+    hasMoreHistory,
+    setHasMoreHistory,
+    loadingMoreHistory,
+    setLoadingMoreHistory,
+  } = useConversationPaneCache()
   // P1-6 断点续传(2026-09-13 立):待续接的"被中断助手消息"候选。
   // 在会话 effect 里、loadHistory 覆盖 messages 之前捕获;历史加载完成后由 useAutoResume 消费。
   const pendingResumeRef = React.useRef<PendingResume | null>(null)
@@ -498,24 +506,8 @@ export function AISidePanel() {
     }),
     [t],
   )
-  // #11 切换会话 LRU 缓存(2026-07-25 立):
-  // 缓存最近 5 个会话的 messages + 分页状态,切回会话时同步从缓存恢复(无闪烁),
-  // 后台异步拉取最新消息对比更新。用 Map 维护插入顺序,delete + set 重新插入实现 LRU。
-  // - conversationCacheRef:Map<conversationId, { messages, hasMore, oldestCursor }>
-  // - prevConversationIdRef:跟踪上一次会话 ID,切换时把旧会话状态写入缓存
-  const conversationCacheRef = React.useRef<
-    Map<string, { messages: ChatMessage[]; hasMore: boolean; oldestCursor: string | null }>
-  >(new Map())
+  // prevConversationIdRef:跟踪上一次会话 ID,切换时把旧会话状态写入缓存
   const prevConversationIdRef = React.useRef<string | null>(null)
-  // P3 修复:组件卸载时清空会话 LRU 缓存,释放消息数据引用
-  // (LRU 上限 5 个会话,每个会话含完整 messages 数组,长期运行累积大量消息数据)
-  React.useEffect(() => {
-    // eslint 要求:cleanup 运行时 ref.current 可能已指向新引用,需在 effect 内捕获局部变量
-    const cache = conversationCacheRef.current
-    return () => {
-      cache.clear()
-    }
-  }, [])
   // 性能修复(2026-07-25):原 const pathname = usePathname() 订阅在 AISidePanel 根,
   // 导致每次路由切换 AISidePanel 整树重渲染(连带 MessageList/MessageInput/ModelSelector 等)。
   // 改为下推到 <WorkspaceNameSync> 子组件,pathname 订阅只触发子组件(渲染 null,无开销)。
@@ -631,31 +623,24 @@ export function AISidePanel() {
   // 监听 store.conversationId 变化加载历史会话
   // (AI 面板是全局 docked 组件,与 Sidebar 同性质;不再依赖 URL ?conversationId=,
   // 会话 ID 完全由 useChatStore 维护,切换会话由历史项点击 / 新建对话 等动作触发)
-  // #11 LRU 缓存(2026-07-25 立):
-  // - 切换会话前:把旧会话的 messages + 分页状态存入 conversationCacheRef(LRU delete+set)
+  // #11 LRU 缓存(2026-07-25 立,2026-10-21 窗格化:桶键 = 窗格 + 会话):
+  // - 切换会话前:把旧会话的 messages + 分页状态写入缓存出口
   // - 缓存命中:同步从缓存恢复 store.messages(无闪烁),后台异步拉取最新消息对比更新
-  // - 缓存未命中:正常拉取,拉取后写入缓存
-  // - LRU 淘汰:cache.size > 5 时删除最早(Map.keys().next().value)
+  // - 缓存未命中:正常拉取,拉取后写入缓存(淘汰上限与 LRU 提升都在 useConversationPaneCache 里)
   React.useEffect(() => {
     if (!allow) return
     if (!open) return
 
-    // 切换会话前保存旧会话到缓存(LRU:delete + set 重新插入)
+    // 切换会话前保存旧会话到缓存(LRU 由出口内部维护)
     const prevId = prevConversationIdRef.current
     if (prevId && prevId !== storeConversationId) {
       const currentStore = useChatStore.getState()
       if (currentStore.messages.length > 0) {
-        conversationCacheRef.current.delete(prevId)
-        conversationCacheRef.current.set(prevId, {
+        writeConversationCache(prevId, {
           messages: currentStore.messages,
           hasMore: hasMoreHistory,
           oldestCursor: oldestCursorRef.current,
         })
-        // LRU 淘汰:超过 5 个会话时删除最早使用的
-        while (conversationCacheRef.current.size > 5) {
-          const oldestKey = conversationCacheRef.current.keys().next().value
-          if (oldestKey) conversationCacheRef.current.delete(oldestKey)
-        }
       }
     }
     prevConversationIdRef.current = storeConversationId
@@ -676,15 +661,12 @@ export function AISidePanel() {
 
     async function loadHistory(id: string) {
       // 缓存命中:同步从缓存恢复(无闪烁),后台异步拉取最新消息对比更新
-      const cached = conversationCacheRef.current.get(id)
+      // (read 读到即提为最近使用,LRU 提升在出口内部完成)
+      const cached = readConversationCache(id)
       if (cached) {
-        // LRU 更新:delete + set 重新插入到末尾(最近使用)
-        conversationCacheRef.current.delete(id)
-        conversationCacheRef.current.set(id, cached)
         // 同步填充 store(无 loading 状态,无闪烁)
         useChatStore.setState({ messages: cached.messages, error: null })
-        setHasMoreHistory(cached.hasMore)
-        oldestCursorRef.current = cached.oldestCursor
+        resetPager(cached.oldestCursor, cached.hasMore)
         setLoadingHistory(false)
 
         // 后台异步拉取最新消息对比更新(不阻塞 UI,完成后覆盖缓存数据)
@@ -712,13 +694,11 @@ export function AISidePanel() {
                 // 是从 hydrated 上的消息现算的,用 msgRes 原始行算会和 store 实际内容脱节
                 const prov = readImportProvenance(convRes.data.conversation.metadata, hydrated)
                 setImportProvenance(prov.kind === 'imported' ? prov.provenance : null)
-                oldestCursorRef.current = msgRes.data.nextCursor
-                setHasMoreHistory(msgRes.data.hasMore)
+                resetPager(msgRes.data.nextCursor, msgRes.data.hasMore)
               }
               if (cancelled) return
               // 更新缓存为最新数据
-              conversationCacheRef.current.delete(id)
-              conversationCacheRef.current.set(id, {
+              writeConversationCache(id, {
                 messages: hydrated,
                 hasMore: msgRes.data.hasMore,
                 oldestCursor: msgRes.data.nextCursor,
@@ -768,20 +748,14 @@ export function AISidePanel() {
           const prov = readImportProvenance(convRes.data.conversation.metadata, hydrated)
           setImportProvenance(prov.kind === 'imported' ? prov.provenance : null)
           // 记录分页游标:oldestCursor = 当前最旧一条 id,hasMoreHistory = 是否还有更早历史
-          oldestCursorRef.current = msgRes.data.nextCursor
-          setHasMoreHistory(msgRes.data.hasMore)
+          resetPager(msgRes.data.nextCursor, msgRes.data.hasMore)
 
-          // 写入缓存(LRU:delete + set,淘汰超 5 个的最早会话)
-          conversationCacheRef.current.delete(id)
-          conversationCacheRef.current.set(id, {
+          // 写入缓存(LRU 淘汰由出口内部完成)
+          writeConversationCache(id, {
             messages: hydrated,
             hasMore: msgRes.data.hasMore,
             oldestCursor: msgRes.data.nextCursor,
           })
-          while (conversationCacheRef.current.size > 5) {
-            const oldestKey = conversationCacheRef.current.keys().next().value
-            if (oldestKey) conversationCacheRef.current.delete(oldestKey)
-          }
 
           // P2 多端同步:从 conversation.metadata.pendingQuestion 恢复挂起状态
           // 场景:用户 A 在 web 提问后刷新页面 / 切换会话再切回 / 在其他端打开同一会话
@@ -829,8 +803,7 @@ export function AISidePanel() {
 
     if (storeConversationId) {
       // 重置分页状态(防止上一会话的游标残留)
-      oldestCursorRef.current = null
-      setHasMoreHistory(false)
+      resetPager(null, false)
 
       // 2026-07-27 修复 React Hydration 失败导致 AI 回复未渲染:
       // 原 chat.ts onRehydrateStorage 在 persist 初始化时同步把 recentMessages.messages
@@ -872,8 +845,7 @@ export function AISidePanel() {
       useChatStore.setState({ messages: [], error: null })
       setConversationTitle(null)
       setImportProvenance(null)
-      oldestCursorRef.current = null
-      setHasMoreHistory(false)
+      resetPager(null, false)
     }
 
     return () => {
@@ -884,7 +856,17 @@ export function AISidePanel() {
     // hasMoreHistory 用于切换会话前保存旧会话到缓存,但不放入依赖:
     // 避免 hasMoreHistory 变化触发 loadHistory 重载(分页加载由 handleLoadMoreHistory +
     // messages 同步 effect 处理缓存更新)
-  }, [storeConversationId, setConversationId, open, allow]) // eslint-disable-line react-hooks/exhaustive-deps -- hasMoreHistory 故意不放入依赖,避免其变化触发 loadHistory 重载
+    // read/write/patch/resetPager 引用只随窗格身份变(useCallback),放进依赖不会多跑一轮
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hasMoreHistory/oldestCursorRef/resumeLabels 故意不进依赖,避免其变化触发 loadHistory 重载
+  }, [
+    storeConversationId,
+    setConversationId,
+    open,
+    allow,
+    readConversationCache,
+    writeConversationCache,
+    resetPager,
+  ])
 
   // 工作区按对话隔离(2026-09-04 立,响应"工作区设置完以后全部对话都是这个工作区"反馈):
   // 切换会话时把 activeWorkspace 换装为该会话绑定的工作区:
@@ -915,15 +897,8 @@ export function AISidePanel() {
   // 仍需包含 messages 以触发 effect(组件重渲染时 messages 引用变化触发依赖)。
   React.useEffect(() => {
     if (!storeConversationId) return
-    const cached = conversationCacheRef.current.get(storeConversationId)
-    if (!cached) return
-    const currentMsgs = useChatStore.getState().messages
-    // 引用相同则跳过(避免无变化时重复写入)
-    if (cached.messages === currentMsgs) return
-    cached.messages = currentMsgs
-    cached.hasMore = hasMoreHistory
-    cached.oldestCursor = oldestCursorRef.current
-  }, [storeConversationId, messages, hasMoreHistory])
+    patchConversationCache(storeConversationId, useChatStore.getState().messages)
+  }, [storeConversationId, messages, hasMoreHistory, patchConversationCache])
 
   // #8 滚动到顶部加载更多历史消息(keyset 复合游标分页,P1 #24)
   // - 由 MessageList 在 scrollTop 接近 0 时触发
@@ -961,35 +936,36 @@ export function AISidePanel() {
         return
       }
       if (older.length === 0) {
-        setHasMoreHistory(false)
-        oldestCursorRef.current = null
+        resetPager(null, false)
         return
       }
       // prepend 到 messages 头部(时间正序,older 也是正序且早于当前所有消息)
       useChatStore.setState((s) => ({ messages: [...older, ...s.messages] }))
-      oldestCursorRef.current = res.data.nextCursor
-      setHasMoreHistory(res.data.hasMore)
+      resetPager(res.data.nextCursor, res.data.hasMore)
       // #11 LRU 缓存同步(2026-07-25 立):分页加载更多后,更新缓存的 messages + oldestCursor + hasMore
-      const cached = conversationCacheRef.current.get(convId)
-      if (cached) {
-        cached.messages = useChatStore.getState().messages
-        cached.oldestCursor = res.data.nextCursor
-        cached.hasMore = res.data.hasMore
-      }
+      patchConversationCache(convId, useChatStore.getState().messages)
     } finally {
       setLoadingMoreHistory(false)
     }
     // tcommon 是 next-intl 取词函数,按本文件既有口径不进依赖(与上方 loadHistory effect 同形)。
-  }, [loadingMoreHistory, hasMoreHistory]) // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tcommon 取词函数按本文件口径不进依赖
+  }, [
+    loadingMoreHistory,
+    hasMoreHistory,
+    oldestCursorRef,
+    patchConversationCache,
+    resetPager,
+    setHasMoreHistory,
+    setLoadingMoreHistory,
+  ])
 
   const handleNewChat = React.useCallback(() => {
     clearMessages()
     setConversationId(null)
     setConversationTitle(null)
     setImportProvenance(null)
-    oldestCursorRef.current = null
-    setHasMoreHistory(false)
-  }, [clearMessages, setConversationId])
+    resetPager(null, false)
+  }, [clearMessages, setConversationId, resetPager])
 
   // 标题显示优先级(用户规则):
   //   1. 用户在 AI 面板手动添加的本地工作区 → 显示 workspace.name(参考 主流 IDE 顶部 project selector)
@@ -1347,27 +1323,14 @@ export function AISidePanel() {
     >
       {/* 消息区(v6.3:加 relative 让 popover 可定位到本容器右上角) */}
       <div className="relative min-h-0 flex-1">
-        {/* D28 补齐层:导入会话的来源交代 + 分析入口。
-            刻意贴在消息列表**上方**而不是 header —— header 只有 56px 高且塞满按钮,
-            「这不是你自己跟 AI 聊的会话」这句话需要一整行的宽度才说得清。
+        {/* D28 补齐层:导入会话的来源交代 + 分析入口(槽位实现与非根窗格共用
+            ImportProvenanceSlot,两处不会说不同的话)。
             自建会话(importProvenance === null)整块不渲染,不留占位。 */}
         {importProvenance && (
-          <div className="px-3 pt-2" data-testid="import-provenance-slot">
-            <ImportSourceBanner provenance={importProvenance} />
-            <div className="mt-1.5 flex justify-end">
-              <Button
-                type="button"
-                size="xs"
-                variant="outline"
-                className="text-[11px]"
-                data-testid="import-analysis-open"
-                onClick={() => setAnalysisOpen(true)}
-              >
-                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                <span>{t('analysisOpen')}</span>
-              </Button>
-            </div>
-          </div>
+          <ImportProvenanceSlot
+            provenance={importProvenance}
+            onOpenAnalysis={() => setAnalysisOpen(true)}
+          />
         )}
         <MessageList
           messages={messages}

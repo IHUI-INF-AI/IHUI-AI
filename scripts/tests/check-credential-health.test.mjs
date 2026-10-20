@@ -475,9 +475,16 @@ test('T15 真子进程自证:`--stall-only --json` 的 stdout 恒为单行可解
   } catch (e) {
     assert.fail(`stdout 解不出 JSON(派发层拿到的就是噪声):${String(e.message).slice(0, 80)} —— ${lines[0]?.slice(0, 120)}`)
   }
-  for (const k of ['at', 'liveSha', 'tipSha', 'lastSuccessIso', 'thresholdMin', 'level', 'why', 'behindHours', 'inFlight']) {
-    assert.ok(k in j, `契约字段缺失:${k}`)
-  }
+  // 契约键**从消费方正文里现读**,不许在本测试里手抄一份名单(2026-10-20 实测:原写法手抄了
+  // 9 个键,恰好漏掉派发层真在读的 `lastSuccessFrom` ⇒ 生产者那份 JSON 从来没这个键,
+  // 而这一例一直绿;邮件正文里"最近一次成功部署取自哪一份日志"那一句因此恒不出现)。
+  const guardianSrc = readFileSync(resolve(ROOT, 'scripts', 'git-guardian.mjs'), 'utf8')
+  const at = guardianSrc.indexOf("'部署停摆(线上构建 vs origin/main)'")
+  assert.ok(at >= 0, '派发层那段停摆正文必须还在(本锁的射程依据它;被改名就要同步改这条,不许默默失效)')
+  const body = guardianSrc.slice(at, guardianSrc.indexOf("severity: 'critical'", at))
+  const readKeys = [...new Set([...body.matchAll(/\bp\.([A-Za-z][A-Za-z0-9]*)/g)].map((m) => m[1]))]
+  assert.ok(readKeys.length >= 8, `从派发层正文里至少应解析出 8 个 p.* 读键(实测 ${readKeys.length} ⇒ 这把锁自己瞎了):${readKeys.join(',')}`)
+  for (const k of readKeys) assert.ok(k in j, `契约字段缺失:${k} —— 消费方按 \`p.${k}\` 取,取不到不报错,只会让正文里那句话静默消失`)
   assert.ok(['ok', 'fail', 'unjudged'].includes(j.level), `level 只能是三态之一,实测 ${j.level}`)
   assert.equal(Number(j.thresholdMin) > 0, true, '阈值必须随读数带出(派发层据此判断"量的是哪一把尺")')
   assert.equal(r.status, stallExitCode(j.level), `退出码必须与档位同源(实测 level=${j.level} exit=${r.status}):未判定不得被读成通过`)

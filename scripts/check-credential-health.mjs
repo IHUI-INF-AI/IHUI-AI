@@ -776,6 +776,10 @@ export function collectStallInputs({
     // "这台机的活动日志已经轮转过,N 小时前的那次成功只存在于旧段"(不写就等于让人以为
     // 活动件里真的有这一行)。
     lastSuccessFrom: lastOkFrom,
+    // 出处那一整句由**取材层**说,不由派发层猜:派发层若要自己判断"是不是轮转回来的",
+    // 就得重复 `'deploy-loop.log'` 这个常量(§0.6 第二份必然漂移),而判错的代价是在
+    // 到人邮件正文里写一句假话 —— 那句话恰好是用来证明"活动件里到底有没有这一行"的。
+    lastSuccessFromClause: !lastOkIso ? '' : lastOkFrom === basename(logPath) ? `取自 ${lastOkFrom}` : `取自 ${lastOkFrom};活动件里没有完成行 ⇒ 已跨过一轮日志轮转`,
     inFlight,
     thresholdMin: stallThresholdMin,
     nowMs,
@@ -874,6 +878,10 @@ function stallOnlyMode() {
     tipSha: i.tipSha,
     tipSource: i.tipSource,
     lastSuccessIso: i.lastSuccessIso,
+    // 这两键派发层要读(2026-10-20 实测:原先整份 JSON 里没有它们 ⇒ 正文里"取自哪一份日志"
+    // 那一句恒不出现,收信人只能看到"最近一次成功部署 <时刻>"而无从知道这是活动件还是滚出来的旧段)
+    lastSuccessFrom: i.lastSuccessFrom,
+    lastSuccessFromClause: i.lastSuccessFromClause,
     thresholdMin: i.thresholdMin,
     level: v.level,
     why: v.why,

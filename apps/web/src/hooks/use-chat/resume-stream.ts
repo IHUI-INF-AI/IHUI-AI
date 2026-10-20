@@ -116,8 +116,16 @@ function buildResumeMessages(
   return [...history, { role: 'assistant' as const, content: p.content }]
 }
 
-/** 降级:提示用户并给出「重新生成」入口(复用 MessageList 既有 CustomEvent 闭环) */
-function notifyResumeFailed(p: PendingResume, reason: string, labels: ResumeLabels): void {
+/** 降级:提示用户并给出「重新生成」入口(复用 MessageList 既有 CustomEvent 闭环)
+ *  paneId(片1,2026-10-20 立):窗格身份必须随 detail 走 —— matchesPaneEvent 语义是
+ *  "detail.paneId 为 undefined 时只有根窗格接走",不带它 ⇒ 非根窗格的续传失败重生成
+ *  永远落到根窗格。缺省 undefined 与今天逐字节同形(零回归)。 */
+function notifyResumeFailed(
+  p: PendingResume,
+  reason: string,
+  labels: ResumeLabels,
+  paneId?: string | null,
+): void {
   useChatStore.getState().setMessageStreamCompleted(p.messageId, true)
   toast.error(labels.title, {
     description: reason,
@@ -126,7 +134,9 @@ function notifyResumeFailed(p: PendingResume, reason: string, labels: ResumeLabe
       label: labels.action,
       onClick: () => {
         window.dispatchEvent(
-          new CustomEvent('ihui:regenerate-message', { detail: { messageId: p.messageId } }),
+          new CustomEvent('ihui:regenerate-message', {
+            detail: { messageId: p.messageId, paneId },
+          }),
         )
       },
     },
@@ -135,10 +145,12 @@ function notifyResumeFailed(p: PendingResume, reason: string, labels: ResumeLabe
 
 /**
  * 执行续接。调用方负责在「历史加载完成后」调用,并传入 AbortSignal(切换会话/卸载时中止)。
+ * opts.paneId(片1):发起窗格的叶 id(根窗格 = null/不传);仅用于降级 toast 的
+ * 「重新生成」派发携带窗格身份,本函数其余逻辑仍走根单例(store 化是下一片,勿在此扩需求)。
  */
 export async function resumePendingMessage(
   p: PendingResume,
-  opts: { signal: AbortSignal; labels: ResumeLabels },
+  opts: { signal: AbortSignal; labels: ResumeLabels; paneId?: string | null },
 ): Promise<void> {
   const store = useChatStore.getState()
 
@@ -219,7 +231,7 @@ export async function resumePendingMessage(
 
     if (!resp.ok || !resp.body) {
       const text = await resp.text().catch(() => '')
-      notifyResumeFailed(p, text || `HTTP ${resp.status}`, opts.labels)
+      notifyResumeFailed(p, text || `HTTP ${resp.status}`, opts.labels, opts.paneId)
       return
     }
 
@@ -246,7 +258,12 @@ export async function resumePendingMessage(
           }
         } catch (err) {
           // parseStreamLine 遇到 error 事件会抛错 —— 立即降级,不静默
-          notifyResumeFailed(p, err instanceof Error ? err.message : String(err), opts.labels)
+          notifyResumeFailed(
+            p,
+            err instanceof Error ? err.message : String(err),
+            opts.labels,
+            opts.paneId,
+          )
           return
         }
       }
@@ -267,12 +284,12 @@ export async function resumePendingMessage(
     useChatStore.getState().setMessageStreamCompleted(p.messageId, true)
     if (!sawAnyDelta) {
       // 连接正常结束但一个 token 都没续出来 —— 提示用户,避免"看起来好了其实没续上"
-      notifyResumeFailed(p, opts.labels.noProgress, opts.labels)
+      notifyResumeFailed(p, opts.labels.noProgress, opts.labels, opts.paneId)
     }
   } catch (e) {
     batcher.flush()
     if (isAbortError(e) || opts.signal.aborted) return
-    notifyResumeFailed(p, e instanceof Error ? e.message : String(e), opts.labels)
+    notifyResumeFailed(p, e instanceof Error ? e.message : String(e), opts.labels, opts.paneId)
   } finally {
     batcher.cancel()
     clearTimeout(timeout)
@@ -296,12 +313,14 @@ export async function resumePendingMessage(
  *
  * @param pending findPendingResume() 捕获到的候选(本函数消费后置 null)
  * @param signal  切换会话 / 卸载时中止续接的控制器
+ * @param paneId  片1(2026-10-20):发起续接的窗格叶 id(根窗格传 null/不传,与今天同形)
  */
 export async function autoResumeAfterHistory(
   pendingRef: MutableRefObject<PendingResume | null>,
   conversationId: string | null,
   signal: AbortSignal,
   labels: ResumeLabels,
+  paneId?: string | null,
 ): Promise<void> {
   const pending = pendingRef.current
   pendingRef.current = null
@@ -316,6 +335,6 @@ export async function autoResumeAfterHistory(
     useChatStore.getState().setMessageStreamCompleted(pending.messageId, true)
     return
   }
-  await resumePendingMessage(pending, { signal, labels })
+  await resumePendingMessage(pending, { signal, labels, paneId })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
