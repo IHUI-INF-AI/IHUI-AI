@@ -152,7 +152,7 @@ export default function CheckinPage() {
   // 有效 token 也 401(机器故障误诊为代码缺陷);且 `ready && isAuthenticated && !token`
   // 正是 bootstrap「transient 刷新失败刻意保留登录态」的收束态,其恢复机制 = 首个 401
   // 走拦截器静默续期 —— 那要求页面真的发请求。按 token 卡门会永转 spinner 饿死该路径
-  // (真机 dev 壳实测)。凭据被明确否定时拦截器 logout() → allow 翻假 → 登录引导,
+  // (真机 dev 壳实测)。凭据被明确否定时会话结束(expireSession)→ allow 翻假 → 登录引导,
   // 红块同样不会出现。
   // 2026-10-15 修复:把「登录态确认中」与「确未登录」分开。
   // ready=false 仅是 bootstrap 还在跑(静默刷新/拉资料),此时绝不能显示「请先登录」——

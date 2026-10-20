@@ -6,7 +6,7 @@
  * API 桥接层 — 将 @ihui/api-client 的 ApiResult<T> 解包为 miniapp-taro 期望的 Promise<T>。
  *
  * 保留与原 utils/request.ts 相同的错误处理行为:
- * - 401: 清理登录态 + toast + 跳转登录页
+ * - 401: 结束本地会话(不落登出标记) + toast + 跳转登录页
  * - 其他错误: toast 提示 + throw
  */
 import { t } from '@/i18n'
@@ -14,14 +14,14 @@ import Taro from '@tarojs/taro'
 import type { ApiResult } from '@ihui/types'
 import { fetchApi, type FetchApiOptions } from '@ihui/api-client'
 import { isTokenExpired } from '@ihui/shared/constants'
-import { clearAuth } from './auth'
+import { expireAuth } from './auth'
 
 /** 解包 ApiResult,失败时 toast + throw(行为与原 request.ts 一致) */
 export async function unwrapApi<T>(p: Promise<ApiResult<T>>): Promise<T> {
   const r = await p
   if (!r.success) {
     if (isTokenExpired(r.status ?? 0)) {
-      clearAuth()
+      expireAuth()
       Taro.showToast({ title: t('auth.expired'), icon: 'none' })
       setTimeout(() => Taro.reLaunch({ url: '/pages/login/login' }), 800)
     } else {

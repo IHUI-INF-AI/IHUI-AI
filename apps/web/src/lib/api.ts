@@ -17,6 +17,7 @@ import { useAuthStore } from '@/stores/auth'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
 import { getAuthCookie } from '@/lib/cookie-utils'
 import { getDesktopRefreshToken, setDesktopRefreshToken } from '@/lib/desktop-token-vault'
+import { withRefreshLock } from '@/lib/refresh-lock'
 import {
   resolveApiBaseUrl,
   resolveStreamApiBaseUrl,
@@ -53,7 +54,7 @@ const AUTH_REFRESH_TIMEOUT_MS = 10_000
  *
  * `refreshAccessTokenOnce`(api-client)只回传 `string | null`,丢失了「为什么失败」——
  * 而 bootstrap 恰恰需要它来决定这次失败**要不要升级成持久登出标记**:
- * - `rejected`(401/403):凭据被服务端明确否定 → 允许 logout() 落标记;
+ * - `rejected`(401/403):凭据被服务端明确否定 → 结束本地会话(expireSession,不落标记);
  * - `transient`(网络错误/超时/5xx,api 重启窗口最常见):凭据没死,只是问不出答案 →
  *   绝不能落标记,否则 api 重启一次就把 30 天 refresh cookie 永久废掉,用户被迫重登。
  *
@@ -76,43 +77,47 @@ setTokenProvider({
   // 2026-09-02 桌面端 SaaS 化:跨站(tauri.localhost → aizhs.top)请求不带 SameSite=Lax
   // cookie,改从 Tauri store(auth.json)读 refreshToken 走 body 模式(后端 /auth/refresh
   // bodyToken 优先于 cookieToken);轮转写入由 stores/auth.ts setToken 统一落 vault。
-  refreshAccessToken: async () => {
-    // 会话已被用户结束 ⇒ 不再静默续期(与 RN lib/token.ts 的"本地会话已结束则返回 null"同形)。
-    // 不拦这一道:登出后任何一次 401 都可能借服务端那份仍有效的 httpOnly cookie 把用户登回去。
-    // 判据住在 @ihui/shared/auth/auto-login-policy;清除点在登录写入凭据时(stores/auth.ts setToken)。
-    if (!canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut })) return null
-    const storedRefresh = await getDesktopRefreshToken() // 浏览器返回 null → cookie 模式不变
-    // 2026-10-09:失败分型在此落账。fetchApi 网络错误/超时返回无 status 的
-    // { success:false }(见 api-client client.ts fetchOnce→normalizeErrorToResult),
-    // 5xx 带 status —— 二者都是瞬时不可用,只有 401/403 才是凭据被明确拒绝。
-    // 分型供 bootstrap(use-auth-bootstrap)决定要不要 logout() 落持久登出标记。
-    const res = await fetchApiShared<{
-      accessToken: string
-      refreshToken?: string | null
-    }>('/auth/refresh', {
-      method: 'POST',
-      body: JSON.stringify(storedRefresh ? { refreshToken: storedRefresh } : {}),
-      // 2026-10-12:显式 10s 超时(见文件顶部 AUTH_REFRESH_TIMEOUT_MS 注释)——
-      // 不再吃 fetchApi 默认 30s:PG 退化时整条 401 续期链路会陪等满 30s。
-      timeoutMs: AUTH_REFRESH_TIMEOUT_MS,
-    })
-    if (res.success && res.data?.accessToken) {
-      // 更新内存 token;新 refreshToken 由 setToken 写回 vault(桌面)或仅内存(浏览器 cookie 轮转)
-      lastRefreshFailure = null
-      useAuthStore.getState().setToken(res.data.accessToken, res.data.refreshToken ?? null)
-      return res.data.accessToken
-    }
-    // 刷新失败:先按唯一判据出口落账(bootstrap 的 getLastRefreshFailure 依赖"先记录"这个顺序)。
-    lastRefreshFailure = classifyRefreshFailureStatus(res.status)
-    // 2026-10-09 分型:瞬时失败(网络/超时/5xx/无 status)抛 TransientRefreshError ——
-    // refreshAccessTokenOnce 会 catch 住(进冷却 + 置 wasLastRefreshTransient,401 出口
-    // 据此跳过 notifyUnauthorized),不外溢给调用方;同时**不能**清桌面 vault:凭据没被
-    // 服务端否定,清了下次冷启动就真的无 token 可刷 —— 正是"自动登录总被清掉"的一条腿。
-    if (lastRefreshFailure === 'transient') throw new TransientRefreshError()
-    // rejected(401/403) = refreshToken 已失效:清空桌面 vault,避免每次启动重复失败空转
-    if (storedRefresh) await setDesktopRefreshToken(null)
-    return null
-  },
+  refreshAccessToken: () =>
+    // 跨上下文单飞:同一浏览器的多个页签 / 桌面端多个窗口共用一份刷新凭据,
+    // 各自 page 内的 in-flight 去重管不到对方。锁内串行化后,后到者读到的是先到者
+    // 刚写回的新凭据 ⇒ 正常轮转,不再重放旧 token(见 lib/refresh-lock.ts)。
+    withRefreshLock(async () => {
+      // 会话已被用户结束 ⇒ 不再静默续期(与 RN lib/token.ts 的"本地会话已结束则返回 null"同形)。
+      // 不拦这一道:登出后任何一次 401 都可能借服务端那份仍有效的 httpOnly cookie 把用户登回去。
+      // 判据住在 @ihui/shared/auth/auto-login-policy;清除点在登录写入凭据时(stores/auth.ts setToken)。
+      if (!canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut })) return null
+      const storedRefresh = await getDesktopRefreshToken() // 浏览器返回 null → cookie 模式不变
+      // 2026-10-09:失败分型在此落账。fetchApi 网络错误/超时返回无 status 的
+      // { success:false }(见 api-client client.ts fetchOnce→normalizeErrorToResult),
+      // 5xx 带 status —— 二者都是瞬时不可用,只有 401/403 才是凭据被明确拒绝。
+      // 分型供 bootstrap(use-auth-bootstrap)决定要不要 expireSession() 结束本地会话。
+      const res = await fetchApiShared<{
+        accessToken: string
+        refreshToken?: string | null
+      }>('/auth/refresh', {
+        method: 'POST',
+        body: JSON.stringify(storedRefresh ? { refreshToken: storedRefresh } : {}),
+        // 2026-10-12:显式 10s 超时(见文件顶部 AUTH_REFRESH_TIMEOUT_MS 注释)——
+        // 不再吃 fetchApi 默认 30s:PG 退化时整条 401 续期链路会陪等满 30s。
+        timeoutMs: AUTH_REFRESH_TIMEOUT_MS,
+      })
+      if (res.success && res.data?.accessToken) {
+        // 更新内存 token;新 refreshToken 由 setToken 写回 vault(桌面)或仅内存(浏览器 cookie 轮转)
+        lastRefreshFailure = null
+        useAuthStore.getState().setToken(res.data.accessToken, res.data.refreshToken ?? null)
+        return res.data.accessToken
+      }
+      // 刷新失败:先按唯一判据出口落账(bootstrap 的 getLastRefreshFailure 依赖"先记录"这个顺序)。
+      lastRefreshFailure = classifyRefreshFailureStatus(res.status)
+      // 2026-10-09 分型:瞬时失败(网络/超时/5xx/无 status)抛 TransientRefreshError ——
+      // refreshAccessTokenOnce 会 catch 住(进冷却 + 置 wasLastRefreshTransient,401 出口
+      // 据此跳过 notifyUnauthorized),不外溢给调用方;同时**不能**清桌面 vault:凭据没被
+      // 服务端否定,清了下次冷启动就真的无 token 可刷 —— 正是"自动登录总被清掉"的一条腿。
+      if (lastRefreshFailure === 'transient') throw new TransientRefreshError()
+      // rejected(401/403) = refreshToken 已失效:清空桌面 vault,避免每次启动重复失败空转
+      if (storedRefresh) await setDesktopRefreshToken(null)
+      return null
+    }),
 })
 
 // A 套壳:rewrites 失效后(output: 'export'),前端直连 apps/api。
@@ -166,7 +171,7 @@ function requestLoginDialogForUnauthorized(method: string): void {
   if (method === 'GET') return
   // 2026-08-14 修复:页面刷新后 isAuthenticated=true 但 token=null(刷新中)时,
   // 不触发弹窗。避免 bootstrap 静默刷新期间被其他并发请求的 401 打断。
-  // refresh 成功 → token 恢复 → 后续请求正常;refresh 失败 → logout() 降级 isAuthenticated=false,
+  // refresh 成功 → token 恢复 → 后续请求正常;refresh 失败 → 结束会话,isAuthenticated=false,
   // 再遇到 401 才弹窗(用户确实需要登录)。
   const { isAuthenticated, token } = useAuthStore.getState()
   if (isAuthenticated && !token) return

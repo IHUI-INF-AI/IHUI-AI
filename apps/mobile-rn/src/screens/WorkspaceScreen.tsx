@@ -41,6 +41,7 @@ import NavBar from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
+import { tokens } from '../theme/active-tokens'
 
 const PAGE_SIZE = 50
 /** 切到这一档会跳过审批门,必须在确认弹窗里把后果说清楚 */
@@ -358,7 +359,7 @@ export function WorkspaceScreen() {
                     value={name}
                     onChangeText={setName}
                     placeholder={t('workspace.namePlaceholder')}
-                    placeholderTextColor={isDark ? '#737373' : '#a3a3a3'}
+                    placeholderTextColor={tokens.text.tertiary}
                     className="rounded-control border border-neutral-200 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
                   />
                   <TextField
@@ -368,7 +369,7 @@ export function WorkspaceScreen() {
                     multiline
                     numberOfLines={3}
                     placeholder={t('workspace.descriptionPlaceholder')}
-                    placeholderTextColor={isDark ? '#737373' : '#a3a3a3'}
+                    placeholderTextColor={tokens.text.tertiary}
                     className="mt-2 rounded-control border border-neutral-200 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
                   />
                   <TouchableOpacity

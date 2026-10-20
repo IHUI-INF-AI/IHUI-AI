@@ -14,37 +14,39 @@ import type { ViewStyle, TextStyle, ImageStyle } from 'react-native'
 import { tokens as tk } from '../theme/active-tokens'
 import { rnRadius, withAlpha } from '@ihui/design-tokens'
 import {
-  INPUT_AREA_CONTAINER_PADDING_X_PX,
-  INPUT_AREA_SHELL_HEIGHT_PX,
-} from '@ihui/shared/ui/input-area-spec'
+  TAB_BAR_FONT_SIZE_ACTIVE_PX,
+  TAB_BAR_FONT_SIZE_PX,
+  TAB_BAR_GAP_BOTTOM_MIN_PX,
+  TAB_BAR_GAP_TOP_PX,
+  TAB_BAR_HEIGHT_PX,
+  TAB_BAR_ICON_SIZE_PX,
+  TAB_BAR_INDICATOR_H_PX,
+  TAB_BAR_INDICATOR_INSET_PX,
+  TAB_BAR_MARGIN_H_PX,
+  TAB_BAR_GLOW_RADIUS_PX as TAB_BAR_GLOW_RADIUS_SRC_PX,
+} from '@ihui/shared/ui/tab-bar-spec'
 
-/**
- * 胶囊高 = AI 输入框外壳静态高(2026-10-20 用户定稿「底部菜单栏的高宽应该跟 AI 输入框
- * 一致」);左右留边 = 输入区容器的同一枚横向 padding ⇒ 停靠区里两张卡同形同位。
+/*
+ * 下面这批同名量一律**转发** @ihui/shared/ui/tab-bar-spec —— 两端底部胶囊是同一个界面元素,
+ * 尺子只许有一份(此前 RN 与小程序各写一份,靠两份头注互指维持,门 128 因文件名不同看不见这一族)。
+ * 要改档,改 spec 那一处,不要在这里就地改数字。
  */
-export const TAB_BAR_HEIGHT = INPUT_AREA_SHELL_HEIGHT_PX
-export const TAB_BAR_ICON_SIZE = 24
-export const TAB_BAR_FONT_SIZE = 11
-/**
- * 选中态字号(2026-10-20 用户定稿「选中时文字稍微放大加粗」):比未选中大 1px。
- * 与小程序 tab-bar-metrics.ts 的同名量成对,改一端必须同批改另一端。
- * 截断余量实测:最宽标签「AI应用商店」11px 占 54px / 单格 81px,12px 约 60px ⇒ 不截断。
- */
-export const TAB_BAR_FONT_SIZE_ACTIVE = 12
-/** 胶囊左右留边(与停靠区内 AI 输入框同一条垂直边线) */
-export const TAB_BAR_FLOAT_MARGIN_H = INPUT_AREA_CONTAINER_PADDING_X_PX
+/** 胶囊高 = AI 输入框外壳静态档(2026-10-20 用户定稿「菜单栏的高宽应该跟 AI 输入框一致」) */
+export const TAB_BAR_HEIGHT = TAB_BAR_HEIGHT_PX
+export const TAB_BAR_ICON_SIZE = TAB_BAR_ICON_SIZE_PX
+export const TAB_BAR_FONT_SIZE = TAB_BAR_FONT_SIZE_PX
+/** 选中态字号:比未选中大 1px(2026-10-20 用户定稿「选中时文字稍微放大加粗」) */
+export const TAB_BAR_FONT_SIZE_ACTIVE = TAB_BAR_FONT_SIZE_ACTIVE_PX
+/** 胶囊左右留边(与两端输入栏同一条垂直边线) */
+export const TAB_BAR_FLOAT_MARGIN_H = TAB_BAR_MARGIN_H_PX
 /** 胶囊顶部与内容的间距 */
-export const TAB_BAR_FLOAT_GAP_TOP = 6
+export const TAB_BAR_FLOAT_GAP_TOP = TAB_BAR_GAP_TOP_PX
 /** 胶囊底部最小悬浮间距(无 safe-area 时兜底) */
-export const TAB_BAR_FLOAT_GAP_BOTTOM_MIN = 8
+export const TAB_BAR_FLOAT_GAP_BOTTOM_MIN = TAB_BAR_GAP_BOTTOM_MIN_PX
 /** 胶囊圆角(小圆角悬浮卡,对齐钉钉风格;2026-09-22 用户定稿"小圆角";原 14,R1 吸附至 xl(12)) */
 export const TAB_BAR_RADIUS = rnRadius.xl
-
-/**
- * 选中态光晕半径(px)。与 apps/miniapp-taro/src/constants/tab-bar-metrics.ts 的同名量逐值对齐
- * (两端胶囊是同一个界面元素);颜色一律走 token,端内不得出现裸 hex(守门 218)。
- */
-export const TAB_BAR_GLOW_RADIUS_PX = 6
+/** 选中态光晕半径(px);颜色一律走 token,端内不得出现裸 hex(守门 218) */
+export const TAB_BAR_GLOW_RADIUS_PX = TAB_BAR_GLOW_RADIUS_SRC_PX
 
 /**
  * 内容区底部预留(给悬浮胶囊让出滚动空间,内容可滚到胶囊底下若隐若现):
@@ -132,22 +134,23 @@ export const tabBarStyles = {
   } satisfies ImageStyle,
 
   /**
-   * 选中态发光(2026-10-20 用户定稿):浅蓝 brandAccent.DEFAULT 的 drop-shadow 挂在图标的
-   * 包裹层上 —— RN 把 filter 收在 ViewStyle,ImageStyle 没有这一维。web 预览经
-   * react-native-web 透传成 CSS filter(与本文件玻璃层 backdropFilter 同一条通道)。
-   * 暗色档 brandAccent.DEFAULT=#a3c4d6 在 #242424 深底上同样成立。
+   * 选中态发光(2026-10-20 用户定稿):drop-shadow 挂在图标的包裹层上 —— RN 把 filter 收在
+   * ViewStyle,ImageStyle 没有这一维。web 预览经 react-native-web 透传成 CSS filter(与本文件
+   * 玻璃层 backdropFilter 同一条通道)。
+   * 光晕取 brandAccent.deep(亮 #4a7a96 / 暗 #a3c4d6)而不是 DEFAULT:同日玻璃底回调至 0.6 后,
+   * 浅蓝 #8fb8cc 的光晕压在近乎实底的胶囊上看不见 —— 发光要可见,必须比底重一档。
    */
   iconGlow: {
-    filter: `drop-shadow(0 0 ${TAB_BAR_GLOW_RADIUS_PX}px ${withAlpha(tk.brandAccent.DEFAULT, 0.85)})`,
+    filter: `drop-shadow(0 0 ${TAB_BAR_GLOW_RADIUS_PX}px ${withAlpha(tk.brandAccent.deep, 0.85)})`,
   } satisfies ViewStyle,
 
-  /** 选中态顶部指示条:3px 高,与选中文字同档,左右各留 12dp,小圆角 */
+  /** 选中态顶部指示条:高与左右缩进取 spec 档,颜色与选中文字同档,小圆角 */
   activeIndicator: {
     position: 'absolute',
     top: 0,
-    left: 12,
-    right: 12,
-    height: 3,
+    left: TAB_BAR_INDICATOR_INSET_PX,
+    right: TAB_BAR_INDICATOR_INSET_PX,
+    height: TAB_BAR_INDICATOR_H_PX,
     borderRadius: rnRadius.xs,
     backgroundColor: tk.brandAccent.deep,
   } satisfies ViewStyle,

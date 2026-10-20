@@ -49,7 +49,17 @@ interface AuthState {
   setUser: (user: AuthUser | null) => void
   /** 从 cookie 恢复 refreshToken(页面刷新后调用,实现"记住 30 天") */
   hydrateRefreshToken: () => void
+  /**
+   * 用户显式登出(按钮 / 账号注销):清凭据 + **落持久登出标记** ——
+   * 标记会压住"记住密码 + 自动登录",直到下一次真正登录写入凭据。
+   */
   logout: () => void
+  /**
+   * 会话被动失效(服务端明确拒绝 refresh):只清本地凭据,**不落**登出标记。
+   * 与 `logout()` 的区别只有标记这一位 —— 用户的 30 天自动登录必须还能在下次冷启动
+   * 用记住的账密把会话重新建立起来,否则服务端一次轮转冲突就永久变成"每次手点登录"。
+   */
+  expireSession: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -62,9 +72,9 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       setToken: (token, refreshOrPair) => {
         // 登出标记与凭据同源同步(判据住在 @ihui/shared/auth/auto-login-policy,这里只落盘):
-        // 写入非空 token = 新一轮会话开始 ⇒ 标记作废;写入 null = 凭据被清(登出 / 会话失效)
-        // ⇒ 标记先落盘。与 RN `lib/token.ts` 的 `sessionLoggedOut = token === null` 同形,
-        // 否则"用户刚退出"这件事只活在这次内存里,冷启动照样会静默登回去。
+        // 写入非空 token = 新一轮会话开始 ⇒ 标记作废;写入 null = **用户显式登出**
+        // ⇒ 标记先落盘。会话被动失效(refresh 被拒)不走这里,走 `expireSession()`
+        // —— 它只清凭据、不落标记(2026-10-20,见接口注释)。
         if (token) clearSessionLoggedOutMarker()
         else markSessionLoggedOut()
         // P2-18 修复(2026-08-06):setAuthCookie/setRefreshTokenCookie 已改为空操作,
@@ -148,6 +158,19 @@ export const useAuthStore = create<AuthState>()(
         })()
         setAuthCookie(null)
         clearRefreshTokenCookie()
+        set({
+          token: null,
+          refreshToken: null,
+          expiresIn: null,
+          isAuthenticated: false,
+          user: null,
+        })
+      },
+      expireSession: () => {
+        // 被动失效:不写标记、不调 /auth/logout(凭据已被服务端否定,再吊销一次没有意义),
+        // 也不清此前的标记 —— 若用户此前显式登出过,那份抑制必须继续有效。
+        clearRefreshTokenCookie()
+        syncDesktopRefreshToken(null)
         set({
           token: null,
           refreshToken: null,
