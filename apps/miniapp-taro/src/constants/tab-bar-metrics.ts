@@ -57,7 +57,9 @@ export const TAB_BAR_INDICATOR_H = TAB_BAR_INDICATOR_H_PX
 export const TAB_BAR_INDICATOR_INSET = TAB_BAR_INDICATOR_INSET_PX
 
 /**
- * 选中态光晕半径(px)。颜色一律走 CSS 变量(--color-brand-accent-deep),端内不得出现裸 hex。
+ * 选中态光晕半径(px)。颜色**不得**走 CSS 变量:自定义 tabBar 在页面树之外,内联 style 里的
+ * `var(--color-*)` 实测不解析(2026-10-20 渲染级截图:回落成默认黑、filter 整条失效);
+ * 由 custom-tab-bar/index.tsx 用 COLORS.brandAccentDeep + withAlpha 派生 rgba,端内不出现裸 hex。
  */
 export const TAB_BAR_GLOW_RADIUS_PX = TAB_BAR_GLOW_RADIUS_SRC_PX
 

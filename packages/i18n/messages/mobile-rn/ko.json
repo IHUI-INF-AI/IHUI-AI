@@ -541,7 +541,18 @@
     "groupPromote": "프로모션",
     "groupPersonal": "개인",
     "groupCommunity": "커뮤니티",
-    "claimFree": "무료 자료 받기"
+    "groupContent": "콘텐츠",
+    "claimFree": "무료 자료 받기",
+    "groupAdvanced": "고급 도구",
+    "groupDeveloper": "개발자",
+    "automation": "자동화 작업",
+    "myLearning": "내 학습",
+    "userCenter": "내 계정",
+    "securitySettings": "보안 설정",
+    "chatHistory": "대화 기록",
+    "plaza": "광장",
+    "devEnter": "개발자 포털",
+    "modelIncome": "모델 수익"
   },
   "error": {
     "network": "네트워크 오류"
@@ -1665,6 +1676,51 @@
       "post": "게시물",
       "note": "노트",
       "agent": "에이전트"
+    }
+  },
+  "securityCenter": {
+    "title": "보안 센터",
+    "loadFailed": "불러오지 못했습니다",
+    "actionFailed": "작업에 실패했습니다. 잠시 후 다시 시도해 주세요",
+    "openSwitches": "보안 스위치 설정 열기",
+    "score": {
+      "title": "보안 점수",
+      "level_high": "높음",
+      "level_medium": "보통",
+      "level_low": "낮음"
+    },
+    "twoFactor": {
+      "title": "2단계 인증",
+      "enabled": "사용 중",
+      "disabled": "사용 안 함",
+      "enabledAt": "사용 시작",
+      "disableHint": "2단계 인증을 해제하려면 현재 비밀번호를 입력해 주세요",
+      "passwordPlaceholder": "현재 비밀번호",
+      "disable": "2단계 인증 해제",
+      "scanHint": "인증 앱으로 아래 QR 코드를 스캔하거나 키를 직접 입력해 주세요",
+      "manualKey": "키",
+      "codePlaceholder": "6자리 코드",
+      "codeInvalid": "6자리 숫자 코드를 입력해 주세요",
+      "verify": "확인 후 사용",
+      "verifyFailed": "코드 확인에 실패했습니다",
+      "disableFailed": "2단계 인증 해제에 실패했습니다",
+      "enable": "2단계 인증 사용",
+      "backupTitle": "백업 코드",
+      "backupHint": "이 페이지를 떠나면 다시 표시되지 않습니다. 지금 안전하게 보관해 주세요",
+      "footerHint": "2단계 인증이 꺼져 있어 계정은 비밀번호로만 보호됩니다"
+    },
+    "sessions": {
+      "title": "로그인된 기기",
+      "empty": "활성 세션이 없습니다",
+      "createdAt": "로그인 시각",
+      "expiresAt": "만료 시각",
+      "revoke": "해지",
+      "revokeTitle": "세션 해지",
+      "revokeConfirm": "해당 기기에서는 다시 로그인해야 합니다. 계속할까요?"
+    },
+    "logs": {
+      "title": "보안 이벤트",
+      "empty": "보안 이벤트가 없습니다"
     }
   },
   "securitySettings": {

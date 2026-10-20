@@ -541,7 +541,18 @@
     "groupPromote": "Promotion",
     "groupPersonal": "Personal",
     "groupCommunity": "Community",
-    "claimFree": "Claim Free Materials"
+    "groupContent": "Content",
+    "claimFree": "Claim Free Materials",
+    "groupAdvanced": "Advanced Tools",
+    "groupDeveloper": "Developer",
+    "automation": "Automations",
+    "myLearning": "My Learning",
+    "userCenter": "My Account",
+    "securitySettings": "Security",
+    "chatHistory": "Chat History",
+    "plaza": "Plaza",
+    "devEnter": "Developer Portal",
+    "modelIncome": "Model Earnings"
   },
   "error": {
     "network": "Network error, please retry"
@@ -1665,6 +1676,51 @@
       "post": "Post",
       "note": "Note",
       "agent": "Agent"
+    }
+  },
+  "securityCenter": {
+    "title": "Security Center",
+    "loadFailed": "Failed to load",
+    "actionFailed": "Action failed. Please try again later",
+    "openSwitches": "Open security switches",
+    "score": {
+      "title": "Security Score",
+      "level_high": "High",
+      "level_medium": "Medium",
+      "level_low": "Low"
+    },
+    "twoFactor": {
+      "title": "Two-Factor Authentication",
+      "enabled": "Enabled",
+      "disabled": "Not enabled",
+      "enabledAt": "Enabled at",
+      "disableHint": "Enter your current password to turn off two-factor authentication",
+      "passwordPlaceholder": "Current password",
+      "disable": "Turn off two-factor authentication",
+      "scanHint": "Scan the QR code below with your authenticator app, or enter the key manually",
+      "manualKey": "Key",
+      "codePlaceholder": "6-digit code",
+      "codeInvalid": "Enter the 6-digit code",
+      "verify": "Confirm and enable",
+      "verifyFailed": "Code verification failed",
+      "disableFailed": "Failed to turn off two-factor authentication",
+      "enable": "Enable two-factor authentication",
+      "backupTitle": "Backup codes",
+      "backupHint": "Save these now — they will not be shown again after you leave this page",
+      "footerHint": "Two-factor authentication is off; your account is protected by password only"
+    },
+    "sessions": {
+      "title": "Signed-in devices",
+      "empty": "No active sessions",
+      "createdAt": "Signed in",
+      "expiresAt": "Expires",
+      "revoke": "Revoke",
+      "revokeTitle": "Revoke session",
+      "revokeConfirm": "That device will need to sign in again. Continue?"
+    },
+    "logs": {
+      "title": "Security events",
+      "empty": "No security events"
     }
   },
   "securitySettings": {
