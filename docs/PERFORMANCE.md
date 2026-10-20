@@ -45,7 +45,7 @@
 | `apps/api/src/plugins/compression.ts` | gzip / brotli 响应压缩 |
 | `apps/api/src/plugins/queue.ts` | Redis 限流(多租户配额) |
 | `monitoring/prometheus/alerts.yml` | 3 组告警规则(api / ai-service / infrastructure) |
-| `monitoring/grafana/dashboards/` | 19 个 Grafana 仪表盘 |
+| `monitoring/grafana/dashboards/` | 19 个 大屏 仪表盘 |
 | `.github/workflows/lighthouse-ci.yml` | Lighthouse CI 门禁(每次 PR) |
 | `.github/workflows/ws-loadtest.yml` | 每周 WebSocket 压测回归 |
 
@@ -463,7 +463,7 @@ A2A 协议(`apps/ai-service/app/services/a2a_service.py`)优先 Redis 持久化,
 
 ### 8.6 AI 服务性能监控
 
-| 指标 | Grafana Dashboard | 告警阈值 |
+| 指标 | 大屏 Dashboard | 告警阈值 |
 |------|-------------------|---------|
 | 首 Token 延迟 P95 | `ai-latency.json` | >2s warning |
 | LLM 调用错误率 | `ai-latency.json` | >5% warning |
@@ -482,7 +482,7 @@ A2A 协议(`apps/ai-service/app/services/a2a_service.py`)优先 Redis 持久化,
 
 ### 9.2 连接数监控
 
-| 指标 | Grafana Dashboard | 告警阈值 |
+| 指标 | 大屏 Dashboard | 告警阈值 |
 |------|-------------------|---------|
 | 活跃 WS 连接数 | `ws.json` | 单实例 >5000 warning |
 | 握手失败率 | `ws.json` | >1% warning |
@@ -556,7 +556,7 @@ Node(node_exporter) ──┘         ├─→ Alertmanager ──→ 邮件 / 
 
 **鲁棒性**:`metrics.ts` 第 17-31 行实现 Map 大小限制(每 Map 最多 2000 key,超出 LRU 清理 10%),防止 dynamic route 参数组合爆炸导致内存泄漏。
 
-### 10.3 Grafana 仪表盘
+### 10.3 大屏 仪表盘
 
 `monitoring/grafana/dashboards/` 共 19 个仪表盘,关键性能相关:
 
@@ -569,7 +569,7 @@ Node(node_exporter) ──┘         ├─→ Alertmanager ──→ 邮件 / 
 | `cache.json` | Redis 命中率 / 内存 / 慢命令 |
 | `ws.json` | WebSocket 连接数 / 心跳 / 推送延迟 |
 | `pg_deploy.json` | PostgreSQL 部署健康 |
-| `monitor_health.json` | 监控自检(Prometheus / Grafana / Alertmanager) |
+| `monitor_health.json` | 监控自检(Prometheus / 大屏 / Alertmanager) |
 
 ### 10.4 告警规则
 
@@ -620,11 +620,11 @@ PR 提交 → lighthouse-ci.yml 触发
 `.github/workflows/ws-loadtest.yml` 每周一定时执行:
 - 100 并发 baseline 压测
 - 对比上周 P95,回归 >10% 触发 issue
-- 结果归档到 `.lighthouse-ci/` 与 Grafana
+- 结果归档到 `.lighthouse-ci/` 与 大屏
 
 ### 11.4 Prometheus 长期趋势
 
-Grafana dashboard `ihui-ai-overview.json` 展示 30 天 P50/P95/P99 趋势,人工每周 review:
+大屏 dashboard `ihui-ai-overview.json` 展示 30 天 P50/P95/P99 趋势,人工每周 review:
 - P95 持续上升趋势 → 提前优化
 - 错误率突增 → 排查最近的发布
 
@@ -636,11 +636,11 @@ Grafana dashboard `ihui-ai-overview.json` 展示 30 天 P50/P95/P99 趋势,人�
 
 | 步骤 | 操作 | 工具 |
 |------|------|------|
-| 1 | 确认是否单端点慢还是全局限时 | Grafana `ihui-ai-overview` |
+| 1 | 确认是否单端点慢还是全局限时 | 大屏 `ihui-ai-overview` |
 | 2 | 查 Prometheus 直方图,定位 P50 还是长尾 | `histogram_quantile(0.95, ...)` |
 | 3 | 查慢 SQL 日志(`api_logs` 表 `duration > 1000`) | `psql` / Drizzle Studio |
 | 4 | 查 N+1 检测器日志(开发环境) | API 控制台 warning |
-| 5 | 查 Redis 命中率(<90% 触发回源) | Grafana `cache` |
+| 5 | 查 Redis 命中率(<90% 触发回源) | 大屏 `cache` |
 | 6 | 查第三方 API 超时(LLM / OSS) | `ai-latency` dashboard |
 
 ### 12.2 慢 SQL(>1s)

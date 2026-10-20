@@ -348,7 +348,7 @@ pnpm turbo typecheck lint test  # 5346/5346 tests passed, 0 errors + 0 warnings
 | **资源开销** | 控制平面 ≥ 2 vCPU / 4GB 内存,小项目浪费 | 仅业务容器,无控制平面开销 |
 | **部署速度** | 镜像推送 → ArgoCD 同步 → 滚动更新(30s-2min) | `docker compose pull && up -d`(10-30s) |
 | **回滚能力** | ArgoCD 一键回滚到任意历史版本 | `docker compose rollback`(需自实现镜像 tag 切换) |
-| **可观测性** | 内置 Prometheus + Grafana + Loki 全栈 | 已用 Prometheus + Grafana + Alertmanager(本架构已就绪) |
+| **可观测性** | 内置 Prometheus + 大屏 + Loki 全栈 | 已用 Prometheus + 大屏 + Alertmanager(本架构已就绪) |
 | **横向扩展** | 原生支持 HPA/VPA 自动伸缩 | 需 Nginx upstream + 多实例手动配置 |
 | **故障转移** | Pod 自动重调度 + readiness/liveness probe | Docker `restart: unless-stopped` + healthcheck |
 | **适用规模** | > 10 微服务 / 多团队协作 / 跨集群 | ≤ 5 服务 / 单团队 / 单集群(本架构:api + web + ai-service + db + redis) |
@@ -361,7 +361,7 @@ pnpm turbo typecheck lint test  # 5346/5346 tests passed, 0 errors + 0 warnings
 4. **本地 CI 演练**:`.actrc` + `.env.act` + `.secrets.act.example` 用 nektos/act 在本地完整跑 GitHub Actions
 5. **健康检查**:`/api/health` 端点 + Docker healthcheck + Alertmanager 告警规则
 6. **零停机部署**:DEPLOYMENT_RUNBOOK.md 文档化蓝绿部署流程(镜像 tag 切换 + Nginx upstream 切换)
-7. **可观测性**:Prometheus 抓取 + Grafana 7 dashboard(已在 `monitoring/grafana/dashboards/`)+ Alertmanager 噪声规则
+7. **可观测性**:Prometheus 抓取 + 大屏 7 dashboard(已在 `monitoring/grafana/dashboards/`)+ Alertmanager 噪声规则
 8. **密钥管理**:`CREDENTIALS_ENCRYPTION_KEY` + AES-256-GCM 加密 + cert/ 目录 .gitignore 忽略
 9. **数据库迁移**:`deploy/docker/Dockerfile.migrate` + `docker-compose migrate` 服务,独立容器跑 drizzle migrate 后退出
 10. **回滚**:PostgreSQL pg_dump 备份 + Docker 镜像 tag 历史保留 + drizzle 迁移可回滚
@@ -566,7 +566,7 @@ locust -f scripts/locustfile.py --headless \
 ### 性能回归监控
 
 - Prometheus 采集 API 延迟直方图(`apps/api/src/plugins/metrics.ts`)。
-- Grafana dashboard `api-performance.json` 展示 P50/P95/P99 趋势。
+- 大屏 dashboard `api-performance.json` 展示 P50/P95/P99 趋势。
 - 告警规则见 `monitoring/prometheus/alerts.yml`,超基线阈值触发告警。
 - 每周回归压测由 `.github/workflows/ws-loadtest.yml` 自动执行。
 
