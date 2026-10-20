@@ -638,12 +638,11 @@ function ChatInputBar(props: BottomActionBarProps) {
           </Pressable>
         ) : null}
 
-        {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);focusedStyle
-            对齐 LoginScreen 参照:聚焦 borderWidth 1→2;onFocus/onBlur 事件透传保持不变 */}
+        {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);聚焦只换色
+            不改描边宽度(变粗会压缩内容区令文字与换行挪位;同型位移 2026-10-20 在登录框真机实测);onFocus/onBlur 透传不变 */}
         <TextField
           colorScheme={currentRnTheme()}
           style={styles.input}
-          focusedStyle={{ borderWidth: 2 }}
           value={prompt}
           onChangeText={onPromptChange}
           onFocus={onInputFocus}
