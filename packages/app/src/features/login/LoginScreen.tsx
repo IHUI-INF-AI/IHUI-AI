@@ -1672,7 +1672,8 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     // 对齐 web ui-react:Input h-10(40px) rounded-md(6px) text-sm(14px) px-3(12px),
     // Label text-sm font-medium。web 输入框 bg-transparent(透出页面底色),故 RN 输入框
-    // 背景改用 surface(透出页面底色),聚焦描边对齐 auth-shell.css(亮=黑/暗=白 2px)。
+    // 背景改用 surface(透出页面底色),聚焦只换描边颜色(1px;web 的 2px 在 RN 固定高度下会
+    // 压缩内容区、把框内文字/提示顶起约 3px,2026-10-20 实测)。
     label: {
       fontSize: 14,
       fontWeight: '500',
@@ -1690,7 +1691,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     inputFocused: {
       borderColor: tk.brand.DEFAULT, // 聚焦态墨档(亮纯黑/暗纯白,§4 唯一例外位);旧写法 dark 取 surface.light=#262626,深色页上等于看不见
-      borderWidth: 2,
+      // 只换颜色、不改宽度:固定高度下 1px→2px 会压缩内容区,框内文字/提示被顶起约 3px(2026-10-20 实测)
     },
     codeRow: {
       flexDirection: 'row',
@@ -1715,7 +1716,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     phoneRowFocused: {
       borderColor: tk.brand.DEFAULT, // 聚焦态墨档(亮纯黑/暗纯白,§4 唯一例外位);旧写法 dark 取 surface.light=#262626,深色页上等于看不见
-      borderWidth: 2,
+      // 与 inputFocused 同一条:只换色不改宽,避免区号行文字在聚焦时上移
     },
     areaBox: {
       flexDirection: 'row',

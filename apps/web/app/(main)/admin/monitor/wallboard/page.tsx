@@ -144,10 +144,7 @@ interface EdgeSnapshot {
     worstMs: number | null
     landedViaEdgeOne: boolean | null
   }
-  legs: Record<
-    'edgeHomepage' | 'apexRedirect' | 'edgeStatic' | 'originViaCf',
-    EdgeLegSnapshot
-  >
+  legs: Record<'edgeHomepage' | 'apexRedirect' | 'edgeStatic' | 'originViaCf', EdgeLegSnapshot>
   series: Array<[number, number, boolean]>
 }
 
@@ -424,7 +421,12 @@ function ChartEmpty({ text }: { text: string }) {
 /** 未知态唯一展示原语:暗色「—」+ Unplug 字形 + 不可达注记。 */
 function SourceGap({ text, className }: { text: string; className?: string }) {
   return (
-    <span className={cn('inline-flex items-center gap-1.5 text-[10px] text-muted-foreground', className)}>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 text-[10px] text-muted-foreground',
+        className,
+      )}
+    >
       <span className="wb-num leading-none">—</span>
       <Unplug className="h-3 w-3 shrink-0 opacity-70" />
       <span className="leading-none">{text}</span>
@@ -577,7 +579,12 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
       },
       xAxis: { type: 'category', data: labels, ...AXIS(isDark), boundaryGap: false },
       yAxis: [
-        { type: 'value', name: t('axisReqPerSec'), nameTextStyle: { color: chartText(isDark) }, ...AXIS(isDark) },
+        {
+          type: 'value',
+          name: t('axisReqPerSec'),
+          nameTextStyle: { color: chartText(isDark) },
+          ...AXIS(isDark),
+        },
         {
           type: 'value',
           name: t('axisPctMs'),
@@ -830,7 +837,12 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         borderColor: chartAxis(isDark),
         textStyle: { color: fg(isDark), fontSize: 11 },
       },
-      xAxis: { type: 'value', ...AXIS(isDark), splitLine: { show: false }, axisLabel: { show: false } },
+      xAxis: {
+        type: 'value',
+        ...AXIS(isDark),
+        splitLine: { show: false },
+        axisLabel: { show: false },
+      },
       yAxis: {
         type: 'category',
         data: models.map((m) => m.model),
@@ -949,22 +961,22 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
 
         {/* ===== 顶部横梁 ===== */}
         <header className="wb-header sticky top-0 z-20 flex items-center gap-4 border-b border-border bg-shell-panel/90 px-5 py-2.5 backdrop-blur">
-          <div className="flex items-center gap-3">
+          <div className="wb-hdr-title flex min-w-0 items-center gap-3">
             <BackButton />
             <div className="flex h-9 w-9 items-center justify-center rounded-sm border border-info/40 bg-info/10 shadow-[0_0_18px_color-mix(in_srgb,var(--color-info)_35%,transparent)]">
               <Gauge className="h-5 w-5 text-info" />
             </div>
-            <div>
-              <h1 className="wb-display text-[17px] leading-tight font-bold tracking-[0.22em] text-foreground">
+            <div className="min-w-0">
+              <h1 className="wb-display truncate text-[17px] leading-tight font-bold tracking-[0.22em] text-foreground">
                 {t('title')}
               </h1>
-              <p className="text-[10px] tracking-[0.3em] text-muted-foreground uppercase">
+              <p className="truncate text-[10px] tracking-[0.3em] text-muted-foreground uppercase">
                 {t('subtitle')}
               </p>
             </div>
           </div>
 
-          <div className="mx-2 hidden items-center gap-2 lg:flex">
+          <div className="wb-hdr-sources mx-2 flex items-center gap-2">
             {(
               [
                 [t('srcPrometheus'), ov?.sources.prometheus],
@@ -982,7 +994,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             ))}
           </div>
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="wb-hdr-status ml-auto flex shrink-0 items-center gap-3">
             <span
               className={cn(
                 'flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-[11px]',
@@ -1108,7 +1120,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 )}
               >
                 {k.value}
-                {k.unit ? <span className="ml-1 text-[12px] text-muted-foreground">{k.unit}</span> : null}
+                {k.unit ? (
+                  <span className="ml-1 text-[12px] text-muted-foreground">{k.unit}</span>
+                ) : null}
               </div>
               <div className="mt-1 text-[10px] text-muted-foreground">{k.sub}</div>
             </div>
@@ -1434,7 +1448,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       </span>
                     </div>
                     {a.summary ? (
-                      <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{a.summary}</div>
+                      <div className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                        {a.summary}
+                      </div>
                     ) : null}
                   </div>
                 ))}
@@ -1477,7 +1493,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                             : t('sevWarning')}
                       </span>
                       <span className="truncate text-foreground">{a.name}</span>
-                      <span className="ml-auto shrink-0 text-muted-foreground">{fmtAgo(a.firedAt)}</span>
+                      <span className="ml-auto shrink-0 text-muted-foreground">
+                        {fmtAgo(a.firedAt)}
+                      </span>
                     </div>
                     <div className="mt-0.5 flex items-center gap-1.5 text-[9px] text-muted-foreground">
                       <span className="shrink-0 text-info/70">{a.source}</span>
@@ -1772,7 +1790,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     >
                       {isNum(edge.stats.lastMs) ? fmtInt(edge.stats.lastMs) : '—'}
                       {isNum(edge.stats.lastMs) ? (
-                        <span className="ml-1 text-[12px] text-muted-foreground">{t('unitMs')}</span>
+                        <span className="ml-1 text-[12px] text-muted-foreground">
+                          {t('unitMs')}
+                        </span>
                       ) : null}
                     </div>
                   </div>
@@ -1792,9 +1812,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                               : 'text-success',
                       )}
                     >
-                      {isNum(edge.stats.hitRatio)
-                        ? fmtPct(edge.stats.hitRatio * 100, 1)
-                        : '—'}
+                      {isNum(edge.stats.hitRatio) ? fmtPct(edge.stats.hitRatio * 100, 1) : '—'}
                     </div>
                   </div>
                 </div>
@@ -1825,7 +1843,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   <span
                     className={cn(
                       'wb-num ml-auto text-[14px] font-semibold',
-                      isNum(edge.legs.originViaCf.totalMs) ? 'text-foreground' : 'text-muted-foreground',
+                      isNum(edge.legs.originViaCf.totalMs)
+                        ? 'text-foreground'
+                        : 'text-muted-foreground',
                     )}
                   >
                     {isNum(edge.legs.originViaCf.totalMs)
@@ -1905,6 +1925,13 @@ const WALLBOARD_CSS = `
   0% { transform: translateX(-30%); opacity: 0.5; }
   50% { transform: translateX(30%); opacity: 1; }
   100% { transform: translateX(-30%); opacity: 0.5; }
+}
+/* 页头按容器判定,不按视口:三簇 nowrap 实测宽 326(标题)+251(数据源)+331(状态)=997,
+ * 嵌进 ~900px 面板时视口 lg: 仍算"宽"⇒ 中文被逐字断行。996/688 取 N-1 防临界抖动。 */
+.wb-header { container-type: inline-size; }
+.wb-hdr-title h1, .wb-hdr-title p, .wb-hdr-status, .wb-hdr-sources { white-space: nowrap; }
+@container (max-width: 996px) {
+  .wb-hdr-sources { display: none; }
 }
 .wb-rise { animation: wb-rise 0.55s ease-out both; }
 @keyframes wb-rise {

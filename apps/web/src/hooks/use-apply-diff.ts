@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { toast } from '@/components/common'
 
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { fetchApi } from '@/lib/api'
 import { isUnchangedPartial } from '@/lib/hunk-diff'
@@ -72,9 +72,11 @@ export interface UseApplyDiffReturn {
 }
 
 export function useApplyDiff(): UseApplyDiffReturn {
+  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
+  const chatStore = usePaneChatStore()
   const applyDiff = React.useCallback(
     async (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => {
-      const store = useChatStore.getState()
+      const store = chatStore.getState()
       // 防止重复点击(已应用/已拒绝/应用中 不再触发)
       const tc = store.messages
         .find((m) => m.id === messageId)
@@ -115,19 +117,22 @@ export function useApplyDiff(): UseApplyDiffReturn {
         toast.error('应用失败', { description: msg })
       }
     },
-    [],
+    [chatStore],
   )
 
-  const rejectDiff = React.useCallback((messageId: string, toolCallId: string) => {
-    useChatStore.getState().setToolCallApplyStatus(messageId, toolCallId, 'rejected')
-  }, [])
+  const rejectDiff = React.useCallback(
+    (messageId: string, toolCallId: string) => {
+      chatStore.getState().setToolCallApplyStatus(messageId, toolCallId, 'rejected')
+    },
+    [chatStore],
+  )
 
   // W5 hunk 级部分应用(2026-09-18 立):与整卡 applyDiff 走同一条 /api/v1/ai/apply-diff 通道,
   // 区别只在 newContent 已由 buildPartialContent 按「已接受 hunk」重组。全拒绝短路为纯前端标记,
   // 绝不把空内容写盘(那会清空用户文件)。
   const applyDiffSelection = React.useCallback(
     async (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo, newContent: string) => {
-      const store = useChatStore.getState()
+      const store = chatStore.getState()
       const tc = store.messages
         .find((m) => m.id === messageId)
         ?.toolCalls?.find((t) => t.id === toolCallId)
@@ -170,69 +175,75 @@ export function useApplyDiff(): UseApplyDiffReturn {
         toast.error('应用失败', { description: msg })
       }
     },
-    [],
+    [chatStore],
   )
 
   // #14 全部接受(2026-09-13 立):收集消息内所有待决 diff 卡,逐个调 API(best-effort),
   // 后端 /api/v1/ai/apply-diff 为单文件原子写,批量语义=逐文件顺序应用,失败不回滚已成功项。
-  const applyAllDiffs = React.useCallback(async (messageId: string) => {
-    const store = useChatStore.getState()
-    const target = store.messages.find((m) => m.id === messageId)
-    if (!target?.toolCalls) return
-    const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
-    if (!workspacePath) {
-      toast.error('未绑定工作区', {
-        description: '请先在 AI 面板选择本地工作区,Apply 才能写入文件',
-      })
-      return
-    }
-    const pending = target.toolCalls.filter(
-      (tc) =>
-        (!!tc.diffInfo || (tc.applyStatus !== undefined && tc.applyStatus !== null)) &&
-        tc.applyStatus !== 'applied' &&
-        tc.applyStatus !== 'rejected' &&
-        tc.applyStatus !== 'applying',
-    )
-    if (pending.length === 0) return
-    let okCount = 0
-    let failCount = 0
-    for (const tc of pending) {
-      const diffInfo = tc.diffInfo
-      if (!diffInfo) continue
-      store.setToolCallApplyStatus(messageId, tc.id, 'applying')
-      try {
-        const result = await callApplyDiffApi({
-          path: diffInfo.file_path,
-          oldContent: diffInfo.old_content,
-          newContent: diffInfo.new_content,
-          workspacePath,
+  const applyAllDiffs = React.useCallback(
+    async (messageId: string) => {
+      const store = chatStore.getState()
+      const target = store.messages.find((m) => m.id === messageId)
+      if (!target?.toolCalls) return
+      const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
+      if (!workspacePath) {
+        toast.error('未绑定工作区', {
+          description: '请先在 AI 面板选择本地工作区,Apply 才能写入文件',
         })
-        if (result.ok) {
-          useChatStore.getState().setToolCallApplyStatus(messageId, tc.id, 'applied')
-          okCount++
-        } else {
-          useChatStore.getState().setToolCallApplyStatus(messageId, tc.id, 'error', result.error)
+        return
+      }
+      const pending = target.toolCalls.filter(
+        (tc) =>
+          (!!tc.diffInfo || (tc.applyStatus !== undefined && tc.applyStatus !== null)) &&
+          tc.applyStatus !== 'applied' &&
+          tc.applyStatus !== 'rejected' &&
+          tc.applyStatus !== 'applying',
+      )
+      if (pending.length === 0) return
+      let okCount = 0
+      let failCount = 0
+      for (const tc of pending) {
+        const diffInfo = tc.diffInfo
+        if (!diffInfo) continue
+        store.setToolCallApplyStatus(messageId, tc.id, 'applying')
+        try {
+          const result = await callApplyDiffApi({
+            path: diffInfo.file_path,
+            oldContent: diffInfo.old_content,
+            newContent: diffInfo.new_content,
+            workspacePath,
+          })
+          if (result.ok) {
+            chatStore.getState().setToolCallApplyStatus(messageId, tc.id, 'applied')
+            okCount++
+          } else {
+            chatStore.getState().setToolCallApplyStatus(messageId, tc.id, 'error', result.error)
+            failCount++
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          chatStore.getState().setToolCallApplyStatus(messageId, tc.id, 'error', msg)
           failCount++
         }
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        useChatStore.getState().setToolCallApplyStatus(messageId, tc.id, 'error', msg)
-        failCount++
       }
-    }
-    if (failCount === 0) {
-      toast.success(`已应用全部 ${okCount} 个文件改动`)
-    } else if (okCount === 0) {
-      toast.error('全部改动应用失败')
-    } else {
-      toast.warning(`部分成功:${okCount} 个成功,${failCount} 个失败`)
-    }
-  }, [])
+      if (failCount === 0) {
+        toast.success(`已应用全部 ${okCount} 个文件改动`)
+      } else if (okCount === 0) {
+        toast.error('全部改动应用失败')
+      } else {
+        toast.warning(`部分成功:${okCount} 个成功,${failCount} 个失败`)
+      }
+    },
+    [chatStore],
+  )
 
   // #14 全部拒绝(2026-09-13 立):与单卡 Reject 一致,纯前端标记,无 API 调用。
-  const rejectAllDiffs = React.useCallback((messageId: string) => {
-    useChatStore.getState().setAllDiffApplyStatus(messageId, 'rejected')
-  }, [])
+  const rejectAllDiffs = React.useCallback(
+    (messageId: string) => {
+      chatStore.getState().setAllDiffApplyStatus(messageId, 'rejected')
+    },
+    [chatStore],
+  )
 
   return { applyDiff, rejectDiff, applyAllDiffs, rejectAllDiffs, applyDiffSelection }
 }

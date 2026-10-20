@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { CornerDownLeft, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 
 interface DiffCommentPanelProps {
   /** 被评论文件路径(与 diffInfo.file_path 一致) */
@@ -42,12 +42,14 @@ export function DiffCommentPanel({
   toolCallId,
   onSubmitted,
 }: DiffCommentPanelProps) {
+  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
+  const chatStore = usePaneChatStore()
   const t = useTranslations('ai.pane')
   const [text, setText] = React.useState('')
-  const addDiffComment = useChatStore((s) => s.addDiffComment)
-  const removeDiffComment = useChatStore((s) => s.removeDiffComment)
+  const addDiffComment = chatStore((s) => s.addDiffComment)
+  const removeDiffComment = chatStore((s) => s.removeDiffComment)
   // 订阅整体数组(引用稳定),过滤在 useMemo 内完成
-  const allComments = useChatStore((s) => s.pendingDiffComments)
+  const allComments = chatStore((s) => s.pendingDiffComments)
   const fileComments = React.useMemo(
     () => allComments.filter((c) => c.filePath === filePath),
     [allComments, filePath],
