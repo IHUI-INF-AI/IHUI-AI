@@ -5134,6 +5134,21 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 🚫 已退役看板程序名对账(禁名门:被审面出现该名即拦;差值棘轮只拦本次带进来的,存量只报数;豁免须带 kind/reason/ticket/until 且会到期)(1 项,blocking)---
+  {
+    id: '227',
+    label:
+      '🚫 已退役看板程序名对账(禁名门:被审面出现该名即拦;差值棘轮只拦本次带进来的,存量只报数;豁免须带 kind/reason/ticket/until 且会到期)',
+    script: 'check-board-name-legacy.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BOARD_NAME_LEGACY',
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
