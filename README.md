@@ -6122,6 +6122,9 @@ A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4449 API 路由 / 598 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-20**
+- ♻️ 重构:摘除已退役看板程序的编排与登记(根 compose/observability 栈/服务清单) (2c19eaf7147)
+
+**2026-10-20**
 - ⚡ 性能:页头字标换成真矢量,1.18MB -> 42KB(两版各减 96%) (c079c6d705b)
 - 📚 文档:文档层洗掉已退役看板程序名(README×3 + docs 29 份,128 处) (8c1e72e10b1)
 - ♻️ 重构:自有 env 键 GRAFANA_* → BOARD_*(含 saas 编排/gen-secrets/示例) (b17056a4ed9)

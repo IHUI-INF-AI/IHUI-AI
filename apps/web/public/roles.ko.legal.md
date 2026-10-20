@@ -175,7 +175,7 @@ console.log(similarCases.summary)
 - **법무 미세 조정 모델**: GLM-4 / Qwen-Max 법무 영역 미세 조정 기반
 - **OCR**: PaddleOCR 3.0 / Alibaba Cloud OCR
 - **벡터 검색**: pgvector + HNSW 인덱스
-- **모니터링**: Prometheus + Grafana + Sentry + Loki
+- **모니터링**: Prometheus + 관측 대시보드 + Sentry + Loki
 - **CI/CD**: GitHub Actions + Turborepo 원격 캐시 + 35개 pre-commit 가드
 - **로컬 포트**: web 8801 / api 8802 / ai-service 8803 (docs/port-management.md 참조)
 

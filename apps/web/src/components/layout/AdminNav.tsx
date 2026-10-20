@@ -297,7 +297,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   // P3-9 模型定价看板(labelKey 复用 web nav.pricing 存量键,清孤儿键)
   { href: '/admin/model-pricing', labelKey: 'pricing', icon: BadgeDollarSign },
   { href: '/admin/agent-governance', labelKey: 'agentGovernance', icon: Gauge },
-  // [2026-10-17 收敛] monitoring-dashboard / backend-health 与 Grafana monitor_health
+  // [2026-10-17 收敛] monitoring-dashboard / backend-health 与可观测看板 monitor_health
   // 重复约 85%(三胞胎:monitor/dashboard、monitoring-dashboard、backend-health),
   // 观察期隐藏;恢复 = 取消注释。裁决依据:.ihui-agent/tmp/ai-monitor/web-wallboard-brief.md
   // { href: '/admin/monitoring-dashboard', labelKey: 'monitoringDashboard', icon: MonitorCog },
@@ -369,7 +369,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/oauth/audit', labelKey: 'oauthAudit', icon: Shield },
   { href: '/admin/oauth/tokens', labelKey: 'oauthTokens', icon: KeyRound },
   // 监控总仪表盘
-  // [2026-10-17 收敛] monitor/dashboard 与 Grafana monitor_health/ihui-ai-overview 重复
+  // [2026-10-17 收敛] monitor/dashboard 与可观测看板 monitor_health/ihui-ai-overview 重复
   // 约 85%(三胞胎之一),观察期隐藏;恢复 = 取消注释。
   // { href: '/admin/monitor/dashboard', labelKey: 'monitorDashboard', icon: MonitorCog },
   { href: '/admin/monitor/wallboard', labelKey: 'monitorWallboard', icon: MonitorCog },
@@ -839,7 +839,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       // 2026-10-18 新增监控面板页:21 张盘的项目内原生入口(EChart 直读仓内
       // monitoring/grafana/dashboards/*.json 转译出的面板配置,经
       // /api/admin/monitor-panels/query 代理 Prometheus/Loki,运行时不接触
-      // Grafana;2026-10-18 晚 Grafana 服务整体退役后本页即唯一监控入口)。
+      // 外部看板程序;2026-10-18 晚该服务整体退役后本页即唯一监控入口)。
       // 与 wallboard(自研 HUD 总览)互补 —— 本页是全量明细下钻。
       {
         href: '/admin/monitor/panels',

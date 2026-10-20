@@ -67,7 +67,7 @@
 - **UI 测试**:Playwright 1.49 + Cypress 14 + 自研视觉模型
 - **移动端**:Appium 2.11 + Detox 20 + XCUITest
 - **小程序**:Taro 4 自带测试框架 + 自研 E2E
-- **性能压测**:k6 0.50 + Locust 2.32 + Grafana k6 插件
+- **性能压测**:k6 0.50 + Locust 2.32 + 可观测看板 k6 插件
 - **缺陷管理**:JIRA / Linear / 禅道
 - **测试管理**:TestRail / 自研测试用例平台
 - **AI 助手**:基于 LiteLLM 统一调度 GPT-4o / Claude / Qwen
@@ -153,7 +153,7 @@ const result = await regression.execute(mustRun)
 - **8 端覆盖**:Web / API / AI-Service / Tauri 2 / Taro 4 / WXT 扩展 / React Native / CLI
 - **测试框架**:Vitest 2.1 + Playwright 1.49 + k6 0.50
 - **AI 调度**:LiteLLM 30+ 模型统一调度
-- **可视化**:Grafana + 自研质量看板
+- **可视化**:可观测看板 + 自研质量看板
 - **监控**:Prometheus + Sentry + Loki
 - **CI/CD**:GitHub Actions + Turborepo 远程缓存 + 35 项 pre-commit 守门
 - **本地端口**:web 8801 / api 8802 / ai-service 8803(详见 docs/port-management.md)

@@ -4,7 +4,7 @@
 
 import type { Metadata } from 'next'
 
-// 监控面板(Grafana 内嵌)是后台管理实时页,不需要 (main) 布局的 SEO 资产;
+// 监控面板(项目原生渲染)是后台管理实时页,不需要 (main) 布局的 SEO 资产;
 // 用 absolute 直接替换浏览器标签标题(避免根 layout template "%s | IHUI AI" 双重拼接)。
 export const metadata: Metadata = {
   title: { absolute: '监控面板 — IHUI AI' },

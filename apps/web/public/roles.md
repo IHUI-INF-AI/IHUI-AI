@@ -132,7 +132,7 @@ server.publish()  // 一键上架到 MCP 市场
 后端: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 AI: LangGraph + LiteLLM + MCP 协议
 部署: Docker Compose / Kubernetes / Helm Chart
-监控: Prometheus + Grafana + Sentry + Loki
+监控: Prometheus + 可观测看板 + Sentry + Loki
 CI/CD: GitHub Actions + Turborepo 远程缓存
 ```
 
@@ -148,7 +148,7 @@ CI/CD: GitHub Actions + Turborepo 远程缓存
 - 信创栈:麒麟 + 统信 + 鲲鹏 + 海光 + 国密
 
 #### 4. 完整可观测性
-- 应用层:Sentry(错误)+ Grafana(指标)+ Loki(日志)
+- 应用层:Sentry(错误)+ 可观测看板(指标)+ Loki(日志)
 - 业务层:PostgreSQL 慢查询 + Redis 大 key 监控
 - AI 层:模型调用延迟 / Token 消耗 / RAG 准确率
 - 用户层:PostHog 行为分析 + Mixpanel 漏斗
@@ -636,7 +636,7 @@ print(results.compare())  # 输出对比表
 - 支持 AWS EKS / 阿里 ACK / 华为 CCE
 
 #### 2. 完整可观测性
-- 应用层:Prometheus + Grafana(指标)
+- 应用层:Prometheus + 可观测看板(指标)
 - 日志层:Loki + Promtail(日志聚合)
 - 错误层:Sentry(异常追踪)
 - AI 层:Token 消耗 + 模型延迟 + RAG 准确率
@@ -672,7 +672,7 @@ print(results.compare())  # 输出对比表
 ### 推荐路径(运维负责人)
 1. 跑通 Docker Compose 本地部署
 2. 评估 Helm Chart + K8s 部署
-3. 接入监控(Prometheus + Grafana)
+3. 接入监控(Prometheus + 可观测看板)
 4. 配置 Token 成本告警
 5. 自动化 CI/CD + 灰度发布
 

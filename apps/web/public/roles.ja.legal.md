@@ -175,7 +175,7 @@ console.log(similarCases.summary)
 - **法務微調整モデル**:GLM-4 / Qwen-Max 法務領域微調整ベース
 - **OCR**:PaddleOCR 3.0 / Alibaba Cloud OCR
 - **ベクトル検索**:pgvector + HNSW インデックス
-- **監視**:Prometheus + Grafana + Sentry + Loki
+- **監視**:Prometheus + 可観測ダッシュボード + Sentry + Loki
 - **CI/CD**:GitHub Actions + Turborepo リモートキャッシュ + 35 項目 pre-commit ガード
 - **ローカルポート**:web 8801 / api 8802 / ai-service 8803(docs/port-management.md 参照)
 

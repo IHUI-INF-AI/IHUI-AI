@@ -67,7 +67,7 @@
 - **UI テスト**:Playwright 1.49 + Cypress 14 + 自社開発視覚モデル
 - **モバイル**:Appium 2.11 + Detox 20 + XCUITest
 - **ミニプログラム**:Taro 4 内蔵テストフレームワーク + 自社開発 E2E
-- **性能圧測**:k6 0.50 + Locust 2.32 + Grafana k6 プラグイン
+- **性能圧測**:k6 0.50 + Locust 2.32 + 可観測ダッシュボード k6 プラグイン
 - **欠陥管理**:JIRA / Linear / 禅道
 - **テスト管理**:TestRail / 自社開発テストケースプラットフォーム
 - **AI アシスタント**:LiteLLM 統合调度 GPT-4o / Claude / Qwen
@@ -153,7 +153,7 @@ const result = await regression.execute(mustRun)
 - **8 プラットフォーム対応**:Web / API / AI-Service / Tauri 2 / Taro 4 / WXT 拡張 / React Native / CLI
 - **テストフレームワーク**:Vitest 2.1 + Playwright 1.49 + k6 0.50
 - **AI ディスパッチ**:LiteLLM 30+ モデル統合调度
-- **可視化**:Grafana + 自社開発品質ダッシュボード
+- **可視化**:可観測ダッシュボード + 自社開発品質ダッシュボード
 - **監視**:Prometheus + Sentry + Loki
 - **CI/CD**:GitHub Actions + Turborepo リモートキャッシュ + 35 項目 pre-commit ガード
 - **ローカルポート**:web 8801 / api 8802 / ai-service 8803(docs/port-management.md 参照)

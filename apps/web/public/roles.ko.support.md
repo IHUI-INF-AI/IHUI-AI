@@ -70,7 +70,7 @@
 - **품질 검사**: Whisper 전사 + LLM 주요 필드 추출
 - **지식 베이스**: PostgreSQL + pgvector + 자체 개발 문서 관리
 - **CRM**: Salesforce / HubSpot / 자체 개발
-- **데이터 대시보드**: Grafana + 자체 개발 지원 대시보드
+- **데이터 대시보드**: 관측 대시보드 + 자체 개발 지원 대시보드
 - **모니터링**: Sentry + Prometheus + Loki
 
 ### 온보딩
@@ -166,7 +166,7 @@ assist.on('suggestion', (suggestion) => {
 - **ASR / TTS**: Whisper / Alibaba Cloud 음성 / Volcengine 음성
 - **감정 모델**: bge-large-zh 미세 조정
 - **벡터 검색**: pgvector + HNSW 인덱스
-- **모니터링**: Prometheus + Grafana + Sentry + Loki
+- **모니터링**: Prometheus + 관측 대시보드 + Sentry + Loki
 - **CI/CD**: GitHub Actions + Turborepo 원격 캐시 + 35개 pre-commit 가드
 - **로컬 포트**: web 8801 / api 8802 / ai-service 8803 (docs/port-management.md 참조)
 

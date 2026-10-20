@@ -67,7 +67,7 @@
 - **UI 테스트**: Playwright 1.49 + Cypress 14 + 자체 개발 비전 모델
 - **모바일**: Appium 2.11 + Detox 20 + XCUITest
 - **미니프로그램**: Taro 4 내장 테스트 프레임워크 + 자체 개발 E2E
-- **성능 부하 테스트**: k6 0.50 + Locust 2.32 + Grafana k6 플러그인
+- **성능 부하 테스트**: k6 0.50 + Locust 2.32 + 관측 대시보드 k6 플러그인
 - **결함 관리**: JIRA / Linear / Zentao
 - **테스트 관리**: TestRail / 자체 개발 테스트 케이스 플랫폼
 - **AI 어시스턴트**: LiteLLM 통합 스케줄링 GPT-4o / Claude / Qwen
@@ -153,7 +153,7 @@ const result = await regression.execute(mustRun)
 - **8 플랫폼 대응**: Web / API / AI-Service / Tauri 2 / Taro 4 / WXT 확장 / React Native / CLI
 - **테스트 프레임워크**: Vitest 2.1 + Playwright 1.49 + k6 0.50
 - **AI 디스패치**: LiteLLM 30+ 모델 통합 스케줄링
-- **시각화**: Grafana + 자체 개발 품질 대시보드
+- **시각화**: 관측 대시보드 + 자체 개발 품질 대시보드
 - **모니터링**: Prometheus + Sentry + Loki
 - **CI/CD**: GitHub Actions + Turborepo 원격 캐시 + 35개 pre-commit 가드
 - **로컬 포트**: web 8801 / api 8802 / ai-service 8803 (docs/port-management.md 참조)

@@ -134,7 +134,7 @@ Frontend: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 Backend:  Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 AI:       LangGraph + LiteLLM + MCP protocol
 Deploy:   Docker Compose / Kubernetes / Helm Chart
-Monitor:  Prometheus + Grafana + Sentry + Loki
+Monitor:  Prometheus + observability dashboards + Sentry + Loki
 CI/CD:    GitHub Actions + Turborepo remote cache
 ```
 
@@ -150,7 +150,7 @@ CI/CD:    GitHub Actions + Turborepo remote cache
 - Xinchuang stack: Kylin + Tongxin + Kunpeng + Hygon + National Crypto (Guomi)
 
 #### 4. Full observability
-- App layer: Sentry (errors) + Grafana (metrics) + Loki (logs)
+- App layer: Sentry (errors) + observability dashboards (metrics) + Loki (logs)
 - Business layer: PostgreSQL slow queries + Redis big-key monitoring
 - AI layer: Model call latency / Token consumption / RAG accuracy
 - User layer: PostHog behavioral analytics + Mixpanel funnels

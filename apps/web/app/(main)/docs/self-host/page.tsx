@@ -256,7 +256,7 @@ kubectl get ingress -n ihui`}</code>
             </h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li>内置 Prometheus metrics(<code className="rounded bg-muted px-1">/metrics</code>)</li>
-              <li>Grafana Dashboard 模板(<code className="rounded bg-muted px-1">/deploy/grafana</code>)</li>
+              <li>监控面板与采集链路配置模板(<code className="rounded bg-muted px-1">/deploy/observability</code>)</li>
               <li>健康检查:<code className="rounded bg-muted px-1">/api/health</code></li>
               <li>日志:JSON 格式,对接 ELK / Loki</li>
             </ul>

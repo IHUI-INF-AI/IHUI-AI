@@ -68,7 +68,7 @@ Typical weekly workflow:
 - **UI Test**: Playwright 1.49 + Cypress 14 + self-developed vision model
 - **Mobile**: Appium 2.11 + Detox 20 + XCUITest
 - **Mini Program**: Taro 4 built-in test framework + self-developed E2E
-- **Performance**: k6 0.50 + Locust 2.32 + Grafana k6 plugin
+- **Performance**: k6 0.50 + Locust 2.32 + observability-dashboard k6 plugin
 - **Defect Management**: JIRA / Linear / ZenTao
 - **Test Management**: TestRail / self-developed test case platform
 - **AI Assistant**: LiteLLM unified dispatch of GPT-4o / Claude / Qwen
@@ -154,7 +154,7 @@ const result = await regression.execute(mustRun)
 - **8-platform coverage**: Web / API / AI-Service / Tauri 2 / Taro 4 / WXT extension / React Native / CLI
 - **Test Frameworks**: Vitest 2.1 + Playwright 1.49 + k6 0.50
 - **AI Dispatch**: LiteLLM 30+ models unified dispatch
-- **Visualization**: Grafana + self-developed quality dashboard
+- **Visualization**: Observability dashboards + self-developed quality dashboard
 - **Monitoring**: Prometheus + Sentry + Loki
 - **CI/CD**: GitHub Actions + Turborepo remote cache + 35 pre-commit guards
 - **Local ports**: web 8801 / api 8802 / ai-service 8803 (see docs/port-management.md)

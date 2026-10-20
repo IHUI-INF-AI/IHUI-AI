@@ -19,12 +19,12 @@ import {
   type WebPortalSection,
 } from '@ihui/shared/constants'
 
-export { WEB_PORTAL_SECTIONS, buildWebPortalUrl, buildWebSsoMobileAuthUrl, toWebSsoRedirectUri }
+export { WEB_PORTAL_SECTIONS }
 export type { WebPortalEntry, WebPortalSection }
 
 const ENV_WEB_BASE_URL = process.env.TARO_APP_WEB_URL
 
-export const WEB_BASE_URL = ENV_WEB_BASE_URL || WEB_BASE
+const WEB_BASE_URL = ENV_WEB_BASE_URL || WEB_BASE
 
 /** 绑定小程序底座:同域 URL 压成 SSO redirectUri 合规形态(站内相对路径) */
 export function toSsoRedirectUri(url: string): string {

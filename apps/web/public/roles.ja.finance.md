@@ -177,7 +177,7 @@ console.log(report.insights)
 - **銀行 API**:50+ 銀行集約
 - **ブロックチェーン**:AntChain / ZhixinChain / BSN(任意)
 - **ベクトル検索**:pgvector + HNSW インデックス
-- **監視**:Prometheus + Grafana + Sentry + Loki
+- **監視**:Prometheus + 可観測ダッシュボード + Sentry + Loki
 - **CI/CD**:GitHub Actions + Turborepo リモートキャッシュ + 35 項目 pre-commit ガード
 - **ローカルポート**:web 8801 / api 8802 / ai-service 8803(docs/port-management.md 参照)
 

@@ -71,7 +71,7 @@
 - **品質検査**:Whisper 文字起こし + LLM 主要フィールド抽出
 - **ナレッジベース**:PostgreSQL + pgvector + 自社開発文書管理
 - **CRM**:Salesforce / HubSpot / 自社開発
-- **データダッシュボード**:Grafana + 自社開発サポートダッシュボード
+- **データダッシュボード**:可観測ダッシュボード + 自社開発サポートダッシュボード
 - **監視**:Sentry + Prometheus + Loki
 
 ### 導入
@@ -167,7 +167,7 @@ assist.on('suggestion', (suggestion) => {
 - **ASR / TTS**:Whisper / Alibaba Cloud 音声 / Volcengine 音声
 - **感情モデル**:bge-large-zh 微調整
 - **ベクトル検索**:pgvector + HNSW インデックス
-- **監視**:Prometheus + Grafana + Sentry + Loki
+- **監視**:Prometheus + 可観測ダッシュボード + Sentry + Loki
 - **CI/CD**:GitHub Actions + Turborepo リモートキャッシュ + 35 項目 pre-commit ガード
 - **ローカルポート**:web 8801 / api 8802 / ai-service 8803(docs/port-management.md 参照)
 

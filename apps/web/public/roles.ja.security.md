@@ -140,7 +140,7 @@ app.use('/v1/agents/:id/chat', firewall.middleware(), chatHandler)
 - **コード監査**:Semgrep 1.84 + Snyk + CodeQL + 自社開発 LLM 研判
 - **鍵管理**:HashiCorp Vault 1.16 + AWS Secrets Manager
 - **ベクトル検索**:pgvector + HNSW インデックス(PII 類似度スキャン用)
-- **監視**:Prometheus + Grafana + Sentry + Loki
+- **監視**:Prometheus + 可観測ダッシュボード + Sentry + Loki
 - **CI/CD**:GitHub Actions + Turborepo リモートキャッシュ + 35 項目 pre-commit ガード
 - **ローカルポート**:web 8801 / api 8802 / ai-service 8803(docs/port-management.md 参照)
 

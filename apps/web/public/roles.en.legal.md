@@ -175,7 +175,7 @@ console.log(similarCases.summary)
 - **Legal Fine-tuned Model**: Based on GLM-4 / Qwen-Max legal-domain fine-tuning
 - **OCR**: PaddleOCR 3.0 / Alibaba Cloud OCR
 - **Vector Retrieval**: pgvector + HNSW index
-- **Monitoring**: Prometheus + Grafana + Sentry + Loki
+- **Monitoring**: Prometheus + observability dashboards + Sentry + Loki
 - **CI/CD**: GitHub Actions + Turborepo remote cache + 35 pre-commit guards
 - **Local ports**: web 8801 / api 8802 / ai-service 8803 (see docs/port-management.md)
 

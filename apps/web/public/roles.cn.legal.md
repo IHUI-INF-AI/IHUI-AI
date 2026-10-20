@@ -175,7 +175,7 @@ console.log(similarCases.summary)
 - **法律微调模型**:基于 GLM-4 / Qwen-Max 法律领域微调
 - **OCR**:PaddleOCR 3.0 / 阿里云 OCR
 - **向量检索**:pgvector + HNSW 索引
-- **监控**:Prometheus + Grafana + Sentry + Loki
+- **监控**:Prometheus + 可观测看板 + Sentry + Loki
 - **CI/CD**:GitHub Actions + Turborepo 远程缓存 + 35 项 pre-commit 守门
 - **本地端口**:web 8801 / api 8802 / ai-service 8803(详见 docs/port-management.md)
 

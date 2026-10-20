@@ -142,7 +142,7 @@ server.publish()  // 원클릭으로 MCP 마켓에 게시
 백엔드:    Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 AI:       LangGraph + LiteLLM + MCP 프로토콜
 배포:      Docker Compose / Kubernetes / Helm Chart
-모니터링:  Prometheus + Grafana + Sentry + Loki
+모니터링:  Prometheus + 관측 대시보드 + Sentry + Loki
 CI/CD:    GitHub Actions + Turborepo 원격 캐시
 ```
 
@@ -158,7 +158,7 @@ CI/CD:    GitHub Actions + Turborepo 원격 캐시
 - 신창 스택: Kylin + UnionTech + Kunpeng + Hygon + 국산 암호
 
 #### 4. 완전한 옵저버빌리티
-- 앱 계층: Sentry (오류) + Grafana (메트릭) + Loki (로그)
+- 앱 계층: Sentry (오류) + 관측 대시보드 (메트릭) + Loki (로그)
 - 비즈니스 계층: PostgreSQL 슬로우 쿼리 + Redis 빅키 모니터링
 - AI 계층: 모델 호출 지연 / Token 소비 / RAG 정확도
 - 사용자 계층: PostHog 행동 분석 + Mixpanel 퍼널
@@ -651,7 +651,7 @@ CI/CD:    GitHub Actions + Turborepo 원격 캐시
 - 장애 대응 플레이북 자동 생성
 
 #### 3. 통합 옵저버빌리티
-- Prometheus + Grafana + Sentry + Loki 표준 통합
+- Prometheus + 관측 대시보드 + Sentry + Loki 표준 통합
 - AI 모델 호출 지연 / Token 소비 / RAG 정확도 전용 메트릭
 - 비즈니스 KPI (PostHog + Mixpanel) 연동
 - 알림 자동 라우팅 + 에스컬레이션
@@ -894,7 +894,7 @@ CEO (연간 리뷰)
 - **Q: 기존 K8s 환경에 배포 가능?**
   A: Helm Chart 제공, 기존 K8s 클러스터에 배포 가능.
 - **Q: 모니터링 시스템과 통합은?**
-  A: Prometheus / Grafana / Sentry / Loki와 표준 통합.
+  A: Prometheus / 관측 대시보드 / Sentry / Loki와 표준 통합.
 
 ### PM FAQ
 - **Q: 노코드로 어디까지 가능?**

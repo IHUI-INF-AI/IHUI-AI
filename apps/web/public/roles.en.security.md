@@ -140,7 +140,7 @@ app.use('/v1/agents/:id/chat', firewall.middleware(), chatHandler)
 - **Code Audit**: Semgrep 1.84 + Snyk + CodeQL + self-developed LLM review
 - **Key Management**: HashiCorp Vault 1.16 + AWS Secrets Manager
 - **Vector Retrieval**: pgvector + HNSW index (for PII similarity scan)
-- **Monitoring**: Prometheus + Grafana + Sentry + Loki
+- **Monitoring**: Prometheus + observability dashboards + Sentry + Loki
 - **CI/CD**: GitHub Actions + Turborepo remote cache + 35 pre-commit guards
 - **Local ports**: web 8801 / api 8802 / ai-service 8803 (see docs/port-management.md)
 

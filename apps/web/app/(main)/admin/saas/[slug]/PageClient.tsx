@@ -4,7 +4,7 @@
 
 /**
  * P1-2.2b: 租户详情页 - 基本信息 + 容器状态 + 资源限制
- * P1-2.3:  新增 Grafana 实时图表 + Prometheus 指标卡片
+ * P1-2.3:  新增原生实时面板图表 + Prometheus 指标卡片
  * 路径: /admin/saas/[slug]
  */
 'use client'
@@ -31,7 +31,7 @@ import { ContainerStatusCell } from '../_components/ContainerStatusCell'
 import { ConfirmActionDialog } from '../_components/ConfirmActionDialog'
 import { QuotaCard } from '../_components/QuotaCard'
 import { MetricsCard } from '../_components/MetricsCard'
-import { GrafanaFrame } from '../_components/GrafanaFrame'
+import { NativePanelFrame } from '../_components/NativePanelFrame'
 import { useTenantDetail } from '@/hooks/use-saas-tenants'
 import {
   useBackupTenant,
@@ -271,8 +271,8 @@ export default function TenantDetailPage() {
           </div>
         </div>
 
-        {/* P1-2.3: Grafana 实时图表 iframe(近 1h CPU/内存/磁盘/网络) */}
-        <GrafanaFrame tenant={tenant.slug} timeRange="now-1h" refresh="15s" />
+        {/* P1-2.3: 原生实时面板(近 1h CPU/内存/磁盘/网络) */}
+        <NativePanelFrame tenant={tenant.slug} timeRange="now-1h" refresh="15s" />
 
         {/* 快捷导航 */}
         <Card>

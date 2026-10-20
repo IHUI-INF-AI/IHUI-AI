@@ -70,7 +70,7 @@
 - **质检**:Whisper 转写 + LLM 关键字段抽取
 - **知识库**:PostgreSQL + pgvector + 自研文档管理
 - **CRM**:Salesforce / HubSpot / 自研
-- **数据看板**:Grafana + 自研客服看板
+- **数据看板**:可观测看板 + 自研客服看板
 - **监控**:Sentry + Prometheus + Loki
 
 ### 上手
@@ -166,7 +166,7 @@ assist.on('suggestion', (suggestion) => {
 - **ASR / TTS**:Whisper / 阿里云语音 / 火山引擎语音
 - **情绪模型**:基于 bge-large-zh 微调
 - **向量检索**:pgvector + HNSW 索引
-- **监控**:Prometheus + Grafana + Sentry + Loki
+- **监控**:Prometheus + 可观测看板 + Sentry + Loki
 - **CI/CD**:GitHub Actions + Turborepo 远程缓存 + 35 项 pre-commit 守门
 - **本地端口**:web 8801 / api 8802 / ai-service 8803(详见 docs/port-management.md)
 

@@ -9,7 +9,10 @@
   // 运维/守门脚本(scripts/**、deploy/scripts/**):由 nssm 服务、CI 或人工直接执行调用,
   // 不在产品运行时依赖图中,knip 会把它们误判为「未引用文件」→ 统一忽略以消除此类误报,
   // 并避免后续新增运维脚本再次打破棘轮。(这些脚本的 next 等运行时解析依赖随之免检。)
-  "ignore": ["scripts/**", "deploy/scripts/**"],
+  // .github/scripts/** 同族:npm-bootstrap runner 由 .github/workflows/npm-bootstrap.yml 以
+  // `node .github/scripts/npm-bootstrap-runner.mjs` 直拉(28563b79d73 立),CI 执行面,
+  // 同样不进产品运行时依赖图 —— knip 不解析 workflow YAML 里的 node 调用,故整体忽略。
+  "ignore": ["scripts/**", "deploy/scripts/**", ".github/scripts/**"],
   // 2026-09-25(B6 定性票):CI 工作流 run 步骤里以 root 上下文调用的真二进制 = 框架装载型,非未声明依赖。
   // 立因:knip 把 .github/workflows/e2e-browser-hub.yml 的 `pnpm exec playwright`(L157)与
   // `pnpm exec drizzle-kit`(L202)记进 root workspace 的 binaries,而这两个包声明在 apps/web /
@@ -18,6 +21,13 @@
   // 只在本 root workspace 免检这两个名字;任一"端"真删了 playwright/drizzle-kit 声明,
   // dependencies/unlisted 判据仍会红,本行不会掩盖。
   "ignoreBinaries": ["playwright", "drizzle-kit"],
+  // 2026-10-19 立:@parcel/watcher 的平台 native binding(@parcel/watcher 由 taro/next 的
+  // 文件监听传递依赖引入,pnpm-workspace.yaml allowBuilds 已列 '@parcel/watcher')。
+  // win32-x64 变体在 root dependencies 显式钉住(与 js-yaml@^3.0.0 同段的强制解析形态,
+  // 72ac5fd1370 随 CLI 发包链路落入),确保 pnpm 隔离 node_modules 下 Windows 原生监听二进制
+  // 真的被链接 —— 它是 optional native binding,无静态 import 面,knip 判不出这层使用。
+  // 到期复核:传递依赖里不再出现 @parcel/watcher 时删本行。
+  "ignoreDependencies": ["@parcel/watcher-win32-x64"],
   "workspaces": {
     "apps/api": {
       "entry": ["src/server.ts"],
@@ -28,7 +38,13 @@
       "project": ["**/*.{ts,tsx}"]
     },
     "apps/cli": {
-      "project": ["src/**/*.ts"]
+      "project": ["src/**/*.ts"],
+      // esbuild/postject(dc33b05e980 SEA 发布链落入 devDependencies)是**运行时二进制**:
+      // apps/cli/scripts/build-sea.mjs 与 build-npm.mjs 经 resolveTool() 定位
+      // node_modules/<pkg>/bin 后 spawnSync 直拉(亦可经 IHUI_ESBUILD_DIR 覆盖),
+      // 零静态 import 面 —— knip 只看得见 import,把这两个真依赖误报为未用。
+      // 到期复核:两个 build 脚本改用静态 import 或换打包链时删本行。
+      "ignoreDependencies": ["esbuild", "postject"]
     },
     "apps/desktop": {
       "project": ["src/**/*.{ts,tsx}"]
@@ -45,7 +61,27 @@
       "ignoreDependencies": ["@lobehub/icons"]
     },
     "apps/miniapp-taro": {
-      "entry": ["src/app.tsx"],
+      // Taro 页面即路由入口,而本 workspace 此前 entry 只有 src/app.tsx —— Taro 页面由
+      // app.config.ts 的 pages/subPackages 字符串登记表装载、app.tsx 不 import 任何页面
+      // ⇒ knip 把 150+ 个活页面全判成「未引用文件」(基线 589 里约 60 个是这类),
+      // 页面 import 的常量/组件也连带被判死(如 constants/web-portal.ts 只被
+      // about/web-portal 页 import —— 删它会搞坏小程序,2026-10-19 实测)。
+      // 本批(2026-10-19 棘轮修复)只补**当前被棘轮点名相关的 4 项**:
+      //   · src/app.config.ts(编译器读取的登记表,无 import 方)
+      //   · src/pages/webview/index.tsx(登记表里的路由页;被 web-portal 页 import)
+      //   · src/pkg-about/about/web-portal/index.tsx(登记表里的路由页)
+      // 为什么不做全量 156 页 entry:页面进图后其 import 闭包里 ~126 个**既有**未用导出
+      // (含 constants/style.ts 7 个死 token、tab-bar-metrics 3 个被不可达页面真用的常量、
+      // components/index.ts 桶 75 个类型)会一并进入可见面 —— 那是历史债不是新死代码,
+      // 全量化须连带清理或基线记账,超出本票范围,留作后续(见报告 TODO)。
+      // 维护纪律:app.config.ts 新增页面 ⇒ 该页会以「未引用文件」形态打破棘轮,
+      // 届时按本格式把页面加进 entry(页面 import 的常量/组件随之计入使用面)。
+      "entry": [
+        "src/app.tsx",
+        "src/app.config.ts",
+        "src/pages/webview/index.tsx",
+        "src/pkg-about/about/web-portal/index.tsx"
+      ],
       "project": ["**/*.{ts,tsx}"]
     },
     "packages/database": {

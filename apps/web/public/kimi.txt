@@ -68,7 +68,7 @@ IHUI AI(智汇 AI)是一个一站式全栈 AI 操作系统,其核心目标是将
 - 容器:Docker + Docker Compose
 - 编排:Kubernetes Helm Chart
 - CI/CD:GitHub Actions + pnpm turbo
-- 监控:Prometheus + Grafana + Sentry
+- 监控:Prometheus + 可观测看板 + Sentry
 - 日志:Loki + Promtail
 
 ---

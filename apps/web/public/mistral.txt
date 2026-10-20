@@ -105,7 +105,7 @@ docker compose -f docker-compose.mistral-lite.yml up -d
 
 ```bash
 docker compose -f docker-compose.mistral-prod.yml up -d
-# 启用 vLLM + Mixtral-8x7B + Prometheus + Grafana
+# 启用 vLLM + Mixtral-8x7B + Prometheus + 可观测看板
 ```
 
 ### 3. 离线隔离部署(等保 / 涉密)

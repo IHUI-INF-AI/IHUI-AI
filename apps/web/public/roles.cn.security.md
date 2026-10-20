@@ -139,7 +139,7 @@ app.use('/v1/agents/:id/chat', firewall.middleware(), chatHandler)
 - **代码审计**:Semgrep 1.84 + Snyk + CodeQL + 自研 LLM 研判
 - **密钥管理**:HashiCorp Vault 1.16 + AWS Secrets Manager
 - **向量检索**:pgvector + HNSW 索引(用于 PII 相似度扫描)
-- **监控**:Prometheus + Grafana + Sentry + Loki
+- **监控**:Prometheus + 可观测看板 + Sentry + Loki
 - **CI/CD**:GitHub Actions + Turborepo 远程缓存 + 35 项 pre-commit 守门
 - **本地端口**:web 8801 / api 8802 / ai-service 8803(详见 docs/port-management.md)
 

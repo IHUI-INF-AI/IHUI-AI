@@ -147,11 +147,17 @@ async function queryLoki(expr: string, rangeSeconds?: number, stepSeconds?: numb
   }
 }
 
+// 公网可达例外(2026-10-20 定):大屏页面本身由公网域名提供,而 server.ts 的 onRoute 钩子
+// 对 /api/admin/* 强制注入 network.allowExternal:false ⇒ 大屏取数在公网一律 403。
+// 本端点只读、无写副作用,鉴权仍由 preHandler 的 requireAdmin + httpOnly Cookie 裁定,
+// 故显式声明 allowExternal:true 打开公网可达(其余 /api/admin/* 维持强制内网限制)。
+const MONITOR_PANELS_NETWORK = { network: { allowExternal: true } }
+
 export const adminMonitorPanelsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
   // POST /monitor-panels/query — 批量执行面板表达式(PromQL / LogQL)
-  server.post('/monitor-panels/query', async (request, reply) => {
+  server.post('/monitor-panels/query', { config: MONITOR_PANELS_NETWORK }, async (request, reply) => {
     const parsed = bodySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.code(400).send({ code: 400, message: parsed.error.issues[0]?.message ?? '参数错误' })

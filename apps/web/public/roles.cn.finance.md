@@ -177,7 +177,7 @@ console.log(report.insights)
 - **银行 API**:50+ 银行聚合
 - **区块链**:蚂蚁链 / 至信链 / BSN(可选)
 - **向量检索**:pgvector + HNSW 索引
-- **监控**:Prometheus + Grafana + Sentry + Loki
+- **监控**:Prometheus + 可观测看板 + Sentry + Loki
 - **CI/CD**:GitHub Actions + Turborepo 远程缓存 + 35 项 pre-commit 守门
 - **本地端口**:web 8801 / api 8802 / ai-service 8803(详见 docs/port-management.md)
 

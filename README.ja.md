@@ -2175,6 +2175,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-20**
+- ♻️ リファクタ:摘除已退役看板程序的编排与登记(根 compose/observability 栈/服务清单) (2c19eaf7147)
+
+**2026-10-20**
 - ⚡ パフォーマンス:页头字标换成真矢量,1.18MB -> 42KB(两版各减 96%) (c079c6d705b)
 - 📚 ドキュメント:文档层洗掉已退役看板程序名(README×3 + docs 29 份,128 处) (8c1e72e10b1)
 - ♻️ リファクタ:自有 env 键 GRAFANA_* → BOARD_*(含 saas 编排/gen-secrets/示例) (b17056a4ed9)

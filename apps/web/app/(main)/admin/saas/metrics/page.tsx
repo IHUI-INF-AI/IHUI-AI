@@ -7,8 +7,8 @@
  * 路径: /admin/saas/metrics
  *
  * 内容:
- *  - 顶部:多租户对比原生面板(Grafana 退役后由 GrafanaFrame 原生替身渲染
- *    ihui-ai-tenant-usage 盘,各租户 CPU/内存曲线叠加;运行时不接触 Grafana)
+ *  - 顶部:多租户对比原生面板(外部看板程序退役后由 NativePanelFrame 原生渲染
+ *    ihui-ai-tenant-usage 盘,各租户 CPU/内存曲线叠加;运行时不接触外部看板程序)
  *  - 中部:横向排序的租户指标表(按 CPU 降序)
  *  - 底部:健康度提示(Prometheus 不可达时降级)
  */
@@ -33,7 +33,7 @@ import { CenteredText, Skeleton } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 
 import { useMetricsSummaryQuery } from '@/hooks/use-saas-tenants'
-import { GrafanaFrame, GrafanaUnavailableHint } from '../_components/GrafanaFrame'
+import { NativePanelFrame, PanelUnavailableHint } from '../_components/NativePanelFrame'
 import type { TenantMetricsSummary } from '@ihui/api-client'
 import { formatDate } from '@/lib/date-utils'
 
@@ -74,7 +74,7 @@ export default function MetricsComparisonPage() {
             </CardTitle>
             <Tooltip content={t('openNewWindow')}>
               <Button size="xs" variant="ghost" asChild className="px-2 text-xs">
-                {/* Grafana 退役:外链改指项目原生监控面板(多租户业务监控盘) */}
+                {/* 外部看板程序退役:外链改指项目原生监控面板(多租户业务监控盘) */}
                 <a href="/admin/monitor/panels" target="_blank" rel="noreferrer">
                   <ExternalLink className="h-3 w-3" />
                 </a>
@@ -83,7 +83,7 @@ export default function MetricsComparisonPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <GrafanaFrame
+          <NativePanelFrame
             tenant="__all__"
             uid="ihui-ai-tenant-usage"
             bare
@@ -113,7 +113,7 @@ export default function MetricsComparisonPage() {
           ) : !data ? (
             <Skeleton variant="list" count={3} />
           ) : !data.available ? (
-            <GrafanaUnavailableHint reason={t('degradedHint')} />
+            <PanelUnavailableHint reason={t('degradedHint')} />
           ) : data.tenants.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">
               <CenteredText>{t('empty')}</CenteredText>

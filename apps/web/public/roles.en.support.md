@@ -71,7 +71,7 @@ Typical daily workflow:
 - **Quality Inspection**: Whisper transcription + LLM key field extraction
 - **Knowledge Base**: PostgreSQL + pgvector + self-developed document management
 - **CRM**: Salesforce / HubSpot / self-developed
-- **Data Dashboard**: Grafana + self-developed support dashboard
+- **Data Dashboard**: Observability dashboards + self-developed support dashboard
 - **Monitoring**: Sentry + Prometheus + Loki
 
 ### Onboarding
@@ -167,7 +167,7 @@ assist.on('suggestion', (suggestion) => {
 - **ASR / TTS**: Whisper / Alibaba Cloud Voice / Volcengine Voice
 - **Sentiment Model**: bge-large-zh fine-tuned
 - **Vector Retrieval**: pgvector + HNSW index
-- **Monitoring**: Prometheus + Grafana + Sentry + Loki
+- **Monitoring**: Prometheus + observability dashboards + Sentry + Loki
 - **CI/CD**: GitHub Actions + Turborepo remote cache + 35 pre-commit guards
 - **Local ports**: web 8801 / api 8802 / ai-service 8803 (see docs/port-management.md)
 

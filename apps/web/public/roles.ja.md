@@ -142,7 +142,7 @@ server.publish()  // ワンクリックで MCP マーケットに公開
 バックエンド:   Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 AI:            LangGraph + LiteLLM + MCP プロトコル
 デプロイ:       Docker Compose / Kubernetes / Helm Chart
-監視:          Prometheus + Grafana + Sentry + Loki
+監視:          Prometheus + 可観測ダッシュボード + Sentry + Loki
 CI/CD:         GitHub Actions + Turborepo リモートキャッシュ
 ```
 
@@ -158,7 +158,7 @@ CI/CD:         GitHub Actions + Turborepo リモートキャッシュ
 - 信創スタック: Kylin + UnionTech + Kunpeng + Hygon + 国産暗号
 
 #### 4. 完全なオブザーバビリティ
-- アプリ層: Sentry(エラー) + Grafana(メトリクス) + Loki(ログ)
+- アプリ層: Sentry(エラー) + 可観測ダッシュボード(メトリクス) + Loki(ログ)
 - ビジネス層: PostgreSQL スロークエリ + Redis ビッグキー監視
 - AI 層: モデル呼出遅延 / Token 消費 / RAG 精度
 - ユーザー層: PostHog 行動分析 + Mixpanel ファネル
@@ -652,7 +652,7 @@ CI/CD:         GitHub Actions + Turborepo リモートキャッシュ
 - 障害対応プレイブック自動生成
 
 #### 3. 統合オブザーバビリティ
-- Prometheus + Grafana + Sentry + Loki 標準統合
+- Prometheus + 可観測ダッシュボード + Sentry + Loki 標準統合
 - AI モデル呼出遅延 / Token 消費 / RAG 精度の専用メトリクス
 - ビジネス KPI(PostHog + Mixpanel)との接続
 - アラートの自動ルーティング + エスカレーション
@@ -935,7 +935,7 @@ CEO(年次レビュー)
 - **Q: 既存の K8s 環境にデプロイ可能?**
   A: Helm Chart 提供、既存 K8s クラスタにデプロイ可能。
 - **Q: 監視システムとの統合は?**
-  A: Prometheus / Grafana / Sentry / Loki と標準統合。
+  A: Prometheus / 可観測ダッシュボード / Sentry / Loki と標準統合。
 
 ### PM FAQ
 - **Q: ノーコードでどこまでできる?**
@@ -989,7 +989,7 @@ CEO(年次レビュー)
 - **Q: 既存 K8s 環境へのデプロイは?**
   A: Helm Chart 提供、既存クラスタに 30 分で導入可能。
 - **Q: 監視の統合は?**
-  A: Prometheus / Grafana / Sentry / Loki と標準統合、AI 層メトリクスも対応。
+  A: Prometheus / 可観測ダッシュボード / Sentry / Loki と標準統合、AI 層メトリクスも対応。
 - **Q: モデル API 費用の最適化は?**
   A: コストベース自動ルーティングで平均 35% 削減。
 
