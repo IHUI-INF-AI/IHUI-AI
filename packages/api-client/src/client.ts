@@ -2168,6 +2168,8 @@ export interface FormRequestEvent {
   sessionId?: string
   /** 'email' | 'calendarEvent'(判定层 BUSINESS_FORM_KINDS) */
   kind: string
+  /** 表单形态:'create'(缺省)/'update'/'save';D77 残余①,端内默认按创建处理 */
+  mode?: string
   /** 字段集(key/type/required;type 取值见 FORM_FIELD_TYPES) */
   fields: Array<{ key: string; type: string; required: boolean; placeholderKey?: string }>
   /** 成对动作,恒为 ['approve','reject'] */
@@ -4530,6 +4532,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           kind,
           fields,
           actions,
+          ...(typeof json.mode === 'string' && json.mode !== '' ? { mode: json.mode } : {}),
           ...(typeof json.sessionId === 'string' ? { sessionId: json.sessionId } : {}),
           ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
         })
