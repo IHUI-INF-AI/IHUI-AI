@@ -13,10 +13,14 @@ import { getAgentDetail, getAgentPermission, getAgentList, type AgentPermission 
 import AgentRuntimePanel from '@/components/AgentRuntimePanel'
 import ThemeRoot from '@/components/ThemeRoot'
 
-type AgentDetail = Pick<
-  Agent,
-  'id' | 'name' | 'description' | 'systemPrompt' | 'isVipExclusive'
-> & {
+/**
+ * 本地视图模型(非 api-client Agent 直投):
+ * - id 由 @/api 的 getAgentDetail 把后端主键 agentId 映射而来(对齐 mobile-rn AgentShopItem.id)
+ * - systemPrompt 取后端 agentPrompt(@/api 映射为 prompt);契约 Agent 从未含此字段
+ */
+type AgentDetail = Pick<Agent, 'name' | 'description' | 'isVipExclusive'> & {
+  id: string
+  systemPrompt: string
   avatar?: string
   prologue?: string
   config?: Record<string, unknown>
@@ -172,7 +176,10 @@ function extractExampleDialogs(prologue: string | undefined): Array<{ q: string;
     .filter((d) => d.q || d.a)
 }
 
-type RelatedAgent = Pick<Agent, 'id' | 'name' | 'category'> & {
+/** 本地视图模型:category 是 detectCategory 的本地判定结果,契约侧对应字段是 categoryId */
+type RelatedAgent = Pick<Agent, 'name'> & {
+  id: string
+  category: string
   avatar?: string
   description?: string
 }

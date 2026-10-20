@@ -86,7 +86,7 @@ describe('runOpsWatchTick — 去重/冷却(机主明令:重复告警是缺陷)'
   const undel = (extra: Record<string, unknown>) =>
     JSON.stringify({ producer: 'p', title: 'T', reason: 'R', at: '2026-10-13', ...extra })
 
-  it('同一标记冷却内只发一次;内容变 = 新故障立即重报;消失清键后再现立即重报', async () => {
+  it('同一标记冷却内只发一次;仅正文变不重报;消失清键后再现立即重报', async () => {
     writeFileSync(join(dir, '.workbuddy', 'a-alert-UNDELIVERED.json'), undel({}))
     const pushed: WatchFinding[] = []
     let t = 1_000_000
@@ -108,16 +108,20 @@ describe('runOpsWatchTick — 去重/冷却(机主明令:重复告警是缺陷)'
     expect(pushed).toHaveLength(1)
 
     t += 60_000
-    writeFileSync(join(dir, '.workbuddy', 'a-alert-UNDELIVERED.json'), undel({ reason: '第二起' })) // 指纹变
+    // 2026-10-20 改判:b623501816 把未送达标记的**身份**收成 `undelivered:<文件名>`
+    // (ops-watch-reader.ts:222),生产者每轮重写的 reason/at 只进正文 ⇒ 指纹不变。
+    // 这是守门 224 V1b 点名要的形态(把实时读数并进去重身份 = 每轮一个新身份 = 冷却永不命中 = 发信风暴),
+    // 所以旧那格"内容变 = 新故障立即重报"的前提已失效,**不得**靠把 reason 塞回身份去买绿。
+    writeFileSync(join(dir, '.workbuddy', 'a-alert-UNDELIVERED.json'), undel({ reason: '第二起' })) // 仅正文变
     await runOpsWatchTick(deps)
-    expect(pushed).toHaveLength(2)
+    expect(pushed, '仅正文变 ⇒ 同一身份,冷却内不得重报').toHaveLength(1)
 
     rmSync(join(dir, '.workbuddy', 'a-alert-UNDELIVERED.json')) // 消失 ⇒ 清键
     await runOpsWatchTick(deps)
-    writeFileSync(join(dir, '.workbuddy', 'a-alert-UNDELIVERED.json'), undel({})) // 再现
+    writeFileSync(join(dir, '.workbuddy', 'a-alert-UNDELIVERED.json'), undel({})) // 再现 = 真新故障
     t += 60_000
     await runOpsWatchTick(deps)
-    expect(pushed).toHaveLength(3)
+    expect(pushed).toHaveLength(2)
   })
 
   it('冷却窗口边界:恰好 ALERT_COOLDOWN_MS 后同指纹重发', async () => {
