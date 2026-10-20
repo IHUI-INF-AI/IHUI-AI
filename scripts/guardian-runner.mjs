@@ -5170,6 +5170,22 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 会话 Cookie 域作用域对账(blocking):Domain= 只许经 auth-cookies 的 resolveCookieDomain 单源按请求 host 下发,Host 取样必须走代理感知出口 request.hostname —— 2026-10-20 本机臂(127.0.0.1 无条件挂域,浏览器安静拒收,Cookie 从未落地)与公网臂(裸 headers.host 把反代后面的域内访客降级成 host-only,跨子域共享登录被打断)两连安静失效后立(1 项,blocking)---
+  {
+    id: '230',
+    label:
+      '会话 Cookie 域作用域对账(blocking):Domain= 只许经 auth-cookies 的 resolveCookieDomain 单源按请求 host 下发,Host 取样必须走代理感知出口 request.hostname —— 2026-10-20 本机臂(127.0.0.1 无条件挂域,浏览器安静拒收,Cookie 从未落地)与公网臂(裸 headers.host 把反代后面的域内访客降级成 host-only,跨子域共享登录被打断)两连安静失效后立',
+    script: 'check-auth-cookie-domain-scope.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_AUTH_COOKIE_DOMAIN_SCOPE',
+    stagedTriggers: ['apps/api/'],
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
