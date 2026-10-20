@@ -95,6 +95,7 @@ from ..services.agent_events import (
 from ..services.async_gen_close import aclose_async_gen
 from ..services.context_recall import context_recall
 from ..services.decision_chain import apply_decision_chain
+from ..services.form_responses import persist_form_response
 from ..services.mcp_server import (
     _FORM_REQUEST_TOOL_NAME,
     _TOOL_ALIASES,
@@ -5721,7 +5722,8 @@ async def post_form_response(
     会话通道上的 tool-result(`tool_call_id`)同族 —— 注意**下行**的 form_request 帧是
     camelCase(解析层只认那三个 camel 键),两条通道形状不同不是疏漏。
 
-    越权与不存在**同形回包**(见 `_form_settle_rejected`),且两种情形都**不结算**待决项。
+    越权与不存在**同形回包**(见 `_form_settle_rejected`),且两种情形都**不结算**待决项
+    —— 也**不落库**:持久化通道排在归属判定之后,越权路径一行都写不出去。
     """
     request_id = str(body.get("request_id") or body.get("requestId") or "")
     if not request_id:
@@ -5772,8 +5774,33 @@ async def post_form_response(
         entry["reject_reason"] = str(reject_reason)[:500] if reject_reason else None
     entry["action"] = action
     ev = entry["event"]
+    # D77/G-106(2026-10-20 机主拍板授权落库):落库挂在结算**旁边**,不替换 pop。
+    # 待决项马上会被工具循环 pop 掉 —— 一 pop 就没证据了,这一行是"用户答了什么"的
+    # 唯一留存证据,所以它排在 set() 之前:流续跑时证据必然已经在库里。
+    # 写失败**只显影不改写结算结果**:把回包判成 ok:False 会让前端把一条已经生效的
+    # 应答标成失败并重发,那是一条新的事故型;失败走 persistState/error + error 日志。
+    # 归属判定排在这条之前(上面的令牌主体比对),故越权路径结构上到不了这里;
+    # kind 取待决项里发帧时记录的值,body 里的 kind 一个字都不读。
+    persist = await persist_form_response(
+        request_id=request_id,
+        session_id=session_id,
+        kind=str(entry.get("kind") or ""),
+        action=action,
+        values=entry["values"],
+        reject_reason=entry["reject_reason"],
+    )
     ev.set()
-    return {"ok": True, "accepted": True, "requestId": request_id, "action": action}
+    result: dict[str, Any] = {
+        "ok": True,
+        "accepted": True,
+        "requestId": request_id,
+        "action": action,
+        "persisted": persist.persisted,
+        "persistState": persist.state,
+    }
+    if persist.error:
+        result["persistError"] = persist.error
+    return result
 
 
 @router.post("/llm/complete/stream/{session_id}/terminal-input", response_model=None)
