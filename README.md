@@ -351,8 +351,8 @@ GITHUB_TOKEN 推送不触发 workflow ⇒ required check 永不出现,只会制�
   只用于第三方内容归属对账(见 `config/third-party-provenance/`)。
 - **商标与品牌**:「智汇AI / IHUI-AI」及图示为本项目所有;Apache-2.0 不授予商标使用权。
 - **第三方依赖**:各自许可证以所装版本为准,vendored 内容登记在第三方来源台账。
-- **代码签名**:Windows 版 `ihui.exe` 的免费代码签名由 SignPath Foundation 提供(SignPath.io 平台、Sectigo CA 签发);
-  签名范围、构建来源与审批流程见 [`apps/cli/README.md`](./apps/cli/README.md#code-signing-policy)。
+- **代码签名**:Windows 上用户会下载到的两份二进制(CLI 的 `ihui.exe` 与桌面端 NSIS 安装包)均由 SignPath Foundation 提供免费代码签名(SignPath.io 平台、Sectigo CA 签发),
+  签名范围、构建来源与审批流程见 [`apps/cli/README.md`](./apps/cli/README.md#code-signing-policy);接入点与"凭据未齐时不签名、桌面端签名后重算 updater 签名"两条约束见 [.github/SECRETS.md](./.github/SECRETS.md)。
 - **隐私**:CLI 的全部外连面(仅用户配置端点、可用 `IHUI_NO_UPDATE_CHECK=1` 关闭的版本检查、默认关闭的遥测)见
   [Privacy statement](./apps/cli/README.md#privacy-statement)。
 
