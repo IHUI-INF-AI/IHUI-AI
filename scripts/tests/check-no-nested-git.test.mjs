@@ -13,16 +13,15 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(HERE, '..', 'check-no-nested-git.mjs')
-const { evaluateResult, splitByExemption, loadNamedExemptions, normRel } = (await import(
-  pathToFileURL(SCRIPT_PATH).href
-)).__test__
+const { evaluateResult, splitByExemption, loadNamedExemptions, normRel, scanForNestedGit } =
+  (await import(pathToFileURL(SCRIPT_PATH).href)).__test__
 
 const E = (rel, over = {}) => ({
   rel,
@@ -129,5 +128,76 @@ test('⑥ 生产档台账形态自证 + 红字必须点名出路文件(§0.8 不
   }
   const src = readFileSync(SCRIPT_PATH, 'utf8')
   assert.match(src, /no-nested-git-exemptions\.json/, '红字处置必须点名出路文件,否则人不知道有第三条路')
+})
+// ⑦⑧ 是 2026-10-20 给「本仓 linked worktree」分流加的臂。立因:两枚并行隔离检出
+// (`.ihui-agent/tmp/desktop-latest`、`wt-parent`)被 208 计成嵌套仓,而 AGENTS §15 又规定
+// 临时件就该落 `.ihui-agent/tmp/<任务名>/` —— 两条本仓规则互相打脸,同一组路径 10-15→10-20
+// 已六轮"登记→现场消失→腐烂判红→摘册",每一轮都把红转嫁给所有碰 scripts/ 的提交(§12e)。
+// 分流**只按双向核验认**,且这四条臂钉的是"能认不等于能白":伪造、悬空、指向他仓、worktree 里
+// 再长出的 `git init` 夹具 —— 全都照旧红。
+test('⑦ 本仓 linked worktree 按双向核验分流;四种不实形态照旧命中(分流不是白名单)', () => {
+  const scratch = mkScratch('g208-lw-')
+  try {
+    const root = join(scratch, 'repo')
+    const admin = join(root, '.git', 'worktrees', 'wt-a')
+    mkdirSync(admin, { recursive: true })
+    mkdirSync(join(root, 'wt-a'), { recursive: true })
+    // 正向:容器 .git 指向 admin;反向:admin 的 gitdir 回指同一容器(git 在此处写裸路径)
+    writeFileSync(join(root, 'wt-a', '.git'), `gitdir: ${admin.replace(/\\/g, '/')}\n`)
+    writeFileSync(join(admin, 'gitdir'), `${join(root, 'wt-a', '.git').replace(/\\/g, '/')}\n`)
+
+    const real = scanForNestedGit(root)
+    assert.deepEqual(real.hits, [], `已注册 linked worktree 被计成嵌套仓:${JSON.stringify(real.hits.map((h) => h.rel))}`)
+    assert.equal(real.linkedWorktrees.length, 1, 'recognized worktree 必须被逐条记录,不许静默')
+    assert.equal(real.linkedWorktrees[0].name, 'wt-a')
+
+    // 臂 A:gitfile 指向不存在的 admin 面(悬空残留)⇒ 照旧命中
+    mkdirSync(join(root, 'wt-b'), { recursive: true })
+    writeFileSync(join(root, 'wt-b', '.git'), `gitdir: ${join(root, '.git', 'worktrees', 'gone').replace(/\\/g, '/')}\n`)
+    let scan = scanForNestedGit(root)
+    assert.equal(scan.hits.length, 1, '悬空 gitfile 必须照旧命中(它正是无人清理的残留形态)')
+    assert.match(scan.hits[0].rel, /wt-b/)
+
+    // 臂 B:回指被伪造成别的路径 ⇒ 照旧命中
+    const adminC = join(root, '.git', 'worktrees', 'wt-c')
+    mkdirSync(adminC, { recursive: true })
+    mkdirSync(join(root, 'wt-c'), { recursive: true })
+    writeFileSync(join(root, 'wt-c', '.git'), `gitdir: ${adminC.replace(/\\/g, '/')}\n`)
+    writeFileSync(join(adminC, 'gitdir'), 'X:/somewhere/else/.git\n')
+    scan = scanForNestedGit(root)
+    assert.ok(scan.hits.some((h) => /wt-c/.test(h.rel)), 'admin 回指不匹配却仍分流 = 核验形同虚设')
+
+    // 臂 C:gitdir 指向**另一个仓**的 worktrees 面 ⇒ 照旧命中(分流只认扫描根自己的 admin 面)
+    const other = join(scratch, 'other', '.git', 'worktrees', 'x')
+    mkdirSync(other, { recursive: true })
+    mkdirSync(join(root, 'wt-d'), { recursive: true })
+    writeFileSync(join(root, 'wt-d', '.git'), `gitdir: ${other.replace(/\\/g, '/')}\n`)
+    scan = scanForNestedGit(root)
+    assert.ok(scan.hits.some((h) => /wt-d/.test(h.rel)), '指向他仓 admin 面被免掉 = 判据被削')
+
+    // 臂 D:已认可的 worktree **里面**再长出 git init 夹具(.git 目录)⇒ 必须仍命中
+    mkdirSync(join(root, 'wt-a', 'fixture', '.git'), { recursive: true })
+    scan = scanForNestedGit(root)
+    assert.ok(
+      scan.hits.some((h) => h.rel.replace(/\\/g, '/').includes('wt-a/fixture/.git')),
+      '分流后不再遍历 worktree 子树 = 2026-10-14 事故形重新漏网'
+    )
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('⑧ 只有 linked worktree 时判绿且逐条回传;旧调用方(无该字段)不受影响', () => {
+  const v = evaluateResult({
+    hits: [],
+    linkedWorktrees: [{ path: 'R\\wt-a\\.git', rel: 'wt-a/.git', name: 'wt-a' }],
+    truncated: false,
+    unreadable: [],
+    skippedReparse: 0,
+  })
+  assert.equal(v.ok, true)
+  assert.equal(v.linked.length, 1, '识别结果不回传就成了静默豁免(§0.7 禁)')
+  const legacy = evaluateResult({ hits: [], truncated: false, unreadable: [], skippedReparse: 0 })
+  assert.deepEqual(legacy.linked, [], '缺 linkedWorktrees 字段(旧 scan 形态)必须当空,不许崩')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
