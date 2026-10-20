@@ -14,11 +14,13 @@
  * app.wxss 的类与 `.dark{--color-*}` 覆盖块都进不去它 —— 开发者工具截图里 5 个标签竖排
  * = flex 工具类全失效,图标不可见 = var(--color-*) 未解析把 mask 底色读成透明。
  * ⇒ 布局只能内联写,色值只能走 JS 派生态(constants/style.ts 的 COLORS,源头仍是 tokens.css)。
+ * 〔补测 2026-10-20〕内联 style 里的 var(--color-*) 实测**同样不解析**(选中图标回落成默认黑、
+ * 指示条透明、光晕因 filter 值含 var() 而整条失效)⇒ 本文件内一律不出现 var(--color-*)。
  */
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, withAlpha } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 import LineIcon, { type IconName } from '@/components/LineIcon'
 import { COLORS } from '@/constants/style'
@@ -55,16 +57,21 @@ const TABS: TabItem[] = [
  *  本端取名 *_PX 而非 *_RADIUS,避免圆角单源门 B2 把"喂给 blur() 的模糊半径"误当本地圆角常量。 */
 const GLASS_BLUR_PX = 24
 
-/** 选中态光晕:半径取单一源 TAB_BAR_GLOW_RADIUS_PX,颜色走 CSS 变量 --color-brand-accent-deep
- *  (亮 #4a7a96 / 暗 #a3c4d6),与 RN TabBar.styles.ts 的 iconGlow 同档 —— 端内不出现裸 hex。
+/** 选中态光晕:半径取单一源 TAB_BAR_GLOW_RADIUS_PX,颜色取 ink 同源的 rgba(0.85) ——
+ *  与 RN TabBar.styles.ts 的 iconGlow 同档(同半径、同透明度、同色源),端内不出现裸 hex。
  *  刻意不用 --color-brand-accent(#8fb8cc):同日玻璃底回调至 0.6 后浅蓝晕压在胶囊上看不见。
  *
- *  取证状态(2026-10-20 如实登记):本端**内联 style 用 var() 有 40 处先例**(pages/index/index.tsx),
- *  取色这一维机制成立;但 CSS `filter` 在本端仓内**无任何先例**(只有 backdrop-filter 的),
- *  尚未在微信开发者工具/真机上验过。若不生效,退化形态是「选中无光晕、颜色档照常」——
- *  不影响 ink/muted 两处取色。要消这一格,得跑一次 weapp 实测再回来改本注。 */
-const GLOW_STYLE = {
-  filter: `drop-shadow(0 0 ${TAB_BAR_GLOW_RADIUS_PX}px var(--color-brand-accent-deep))`,
+ *  取证状态(2026-10-20 渲染级实测,微信开发者工具自动化 + 像素判读):
+ *  本端自定义 tabBar 内联 style 里的 var(--color-*) **全部不解析** —— 实测截图里选中图标
+ *  回落成默认黑、指示条透明不可见、光晕因 filter 值里含 var() 而整条失效。
+ *  ⇒ 取色必须走 JS 派生态 COLORS(源头仍是 tokens.css),与本文件既有的 glassBg/borderMedium 同理。
+ *  〔亮/暗两档渲染级判读〕CSS `filter: drop-shadow()` 在 weapp **真渲染**:亮档选中图标外圈蓝度
+ *  3.31、暗档 1.89,同图四个未选中图标外圈恒 0.00(阳性对照)⇒ 晕环是选中态独有,不是抗锯齿;
+ *  指示条与选中文案取到纯强调色(亮 rgb(73,122,150) / 暗 rgb(161,193,211))。 */
+function buildGlowStyle(ink: string) {
+  return {
+    filter: `drop-shadow(0 0 ${TAB_BAR_GLOW_RADIUS_PX}px ${withAlpha(ink, 0.85)})`,
+  }
 }
 
 export default function CustomTabBar() {
@@ -86,10 +93,11 @@ export default function CustomTabBar() {
   }
 
   // 2026-10-20 用户定稿:选中走浅蓝强调档(与 RN TabBar 的 brandAccent.deep 同值 —— 亮 #4a7a96 /
-  // 暗 #a3c4d6;取 CSS 变量是因为该档尚未进派生表 COLORS),未选中从中性灰 tertiary 加深一档到
-  // textSecondary —— 实拍「太浅」的正是 tertiary 那一档。
-  const ink = 'var(--color-brand-accent-deep)'
+  // 暗 #a3c4d6),未选中从中性灰 tertiary 加深一档到 textSecondary —— 实拍「太浅」的正是 tertiary 那一档。
+  // 取色走 JS 派生态:自定义 tabBar 在页面树之外,var(--color-*) 实测不解析(会回落成默认黑)。
+  const ink = COLORS.brandAccentDeep[resolved]
   const muted = COLORS.textSecondary[resolved]
+  const glowStyle = buildGlowStyle(ink)
 
   return (
     <View
@@ -146,7 +154,7 @@ export default function CustomTabBar() {
             ) : null}
             {/* 选中态浅蓝发光(半径与 RN 的 iconGlow 同名同档);光晕挂包裹层 —— LineIcon 本体是
                 CSS mask 块,filter 作用于它的渲染结果 */}
-            <View style={active ? GLOW_STYLE : undefined}>
+            <View style={active ? glowStyle : undefined}>
               <LineIcon name={item.icon} size={TAB_BAR_ICON_SIZE} color={active ? ink : muted} />
             </View>
             <Text
