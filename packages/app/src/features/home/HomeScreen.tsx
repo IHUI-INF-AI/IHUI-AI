@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { Bell, ChevronRight } from 'lucide-react-native'
+import { Bell, BookOpen, ChevronRight, Video } from 'lucide-react-native'
 import type {
   HomeRecommendItem,
   HomeLiveItem,
@@ -117,6 +117,14 @@ export function HomeScreen({
       {error ? (
         <View style={styles.errorWrap}>
           <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity
+            onPress={onRefresh}
+            style={styles.errorRetry}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.retry')}
+          >
+            <Text style={styles.errorRetryText}>{t('common.retry')}</Text>
+          </TouchableOpacity>
         </View>
       ) : null}
 
@@ -148,10 +156,14 @@ export function HomeScreen({
             </View>
           </TouchableOpacity>
         ) : (
-          <View style={styles.card}>
-            <Text style={styles.mutedText}>{t('home.progressEmpty')}</Text>
-            <TouchableOpacity style={styles.outlineBtn} onPress={onNavigateCourses}>
-              <Text style={styles.outlineBtnText}>{t('nav.courses')}</Text>
+          <View style={[styles.card, styles.emptyCard]}>
+            <Text style={[styles.mutedText, styles.emptyText]}>{t('home.progressEmpty')}</Text>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={onNavigateCourses}
+              accessibilityRole="button"
+            >
+              <Text style={styles.primaryBtnText}>{t('nav.courses')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -159,12 +171,15 @@ export function HomeScreen({
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t('home.livePreview')}</Text>
+          <Text style={[styles.sectionTitle, styles.sectionHeaderTitle]}>
+            {t('home.livePreview')}
+          </Text>
           <MoreLink label={t('common.more')} onPress={onNavigateLives} colorScheme={colorScheme} />
         </View>
         {lives.length === 0 ? (
-          <View style={styles.card}>
-            <Text style={styles.mutedText}>{t('live.empty')}</Text>
+          <View style={[styles.card, styles.emptyCenter]}>
+            <Video size={18} color={tk.text.tertiary} />
+            <Text style={styles.emptyHint}>{t('live.empty')}</Text>
           </View>
         ) : (
           lives.map((l) => (
@@ -180,7 +195,7 @@ export function HomeScreen({
                     {l.title}
                   </Text>
                   <View style={[styles.tag, l.isLive ? styles.tagLive : styles.tagUpcoming]}>
-                    <Text style={styles.tagText}>
+                    <Text style={[styles.tagText, l.isLive ? null : styles.tagUpcomingText]}>
                       {l.isLive ? t('live.ongoing') : t('live.upcoming')}
                     </Text>
                   </View>
@@ -201,7 +216,9 @@ export function HomeScreen({
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t('home.recommend')}</Text>
+          <Text style={[styles.sectionTitle, styles.sectionHeaderTitle]}>
+            {t('home.recommend')}
+          </Text>
           <MoreLink
             label={t('common.more')}
             onPress={onNavigateCourses}
@@ -209,8 +226,9 @@ export function HomeScreen({
           />
         </View>
         {recommends.length === 0 ? (
-          <View style={styles.card}>
-            <Text style={styles.mutedText}>{t('course.empty')}</Text>
+          <View style={[styles.card, styles.emptyCenter]}>
+            <BookOpen size={18} color={tk.text.tertiary} />
+            <Text style={styles.emptyHint}>{t('course.empty')}</Text>
           </View>
         ) : (
           recommends.map((c) => (
@@ -279,12 +297,12 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 10,
+      paddingHorizontal: 16,
     },
     headerLeft: { flex: 1 },
     headerRight: { flexDirection: 'row', alignItems: 'center' },
     greeting: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    welcome: { marginTop: 4, fontSize: 14, color: tk.text.secondary },
+    welcome: { marginTop: 6, fontSize: 13, color: tk.text.secondary },
     dot: { marginRight: 8, width: 8, height: 8, borderRadius: rnRadius.xs },
     dotOn: { backgroundColor: tk.success.DEFAULT },
     dotOff: { backgroundColor: tk.text.tertiary },
@@ -301,76 +319,99 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    badgeText: { fontSize: 10, fontWeight: '700', color: tk.surface.light },
-    errorWrap: { paddingHorizontal: 10, paddingVertical: 8 },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    section: { paddingHorizontal: 10, marginTop: 12 },
+    badgeText: { fontSize: 10, fontWeight: '700', color: '#FFFFFF' },
+    errorWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 12,
+      marginHorizontal: 16,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.error.bg,
+    },
+    errorText: { flex: 1, fontSize: 13, color: tk.danger.DEFAULT },
+    errorRetry: {
+      marginLeft: 12,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.danger.DEFAULT,
+    },
+    errorRetryText: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
+    section: { paddingHorizontal: 16, marginTop: 24 },
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+      marginBottom: 10,
     },
     sectionTitle: {
-      marginBottom: 8,
-      fontSize: 18,
+      marginBottom: 10,
+      fontSize: 17,
       fontWeight: '600',
       color: tk.text.primary,
     },
+    sectionHeaderTitle: { marginBottom: 0 },
     card: {
-      padding: 14,
+      padding: 16,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
-      backgroundColor: tk.surface.light,
+      // 暗色下 surface.light 是 #262626、页面底 #242424,只差 2 阶卡片融进背景;
+      // surface.card 亮色同为白、暗色降到 #1A1A1A(与 web 暗色 --color-card 同值),层次才成立
+      backgroundColor: tk.surface.card,
     },
-    cardSpacing: { marginTop: 12 },
+    emptyCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    emptyText: { flex: 1, marginRight: 12 },
+    emptyCenter: { alignItems: 'center', justifyContent: 'center', paddingVertical: 20, gap: 6 },
+    emptyHint: { fontSize: 13, color: tk.text.secondary },
+    cardSpacing: { marginTop: 10 },
     cardHeaderRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    cardTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: tk.text.primary },
     tag: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.md },
     tagLive: { backgroundColor: tk.danger.DEFAULT },
     tagUpcoming: { backgroundColor: tk.warning.DEFAULT },
-    tagText: { fontSize: 12, color: tk.surface.light },
-    metaText: { marginTop: 4, fontSize: 14, color: tk.text.secondary },
+    tagText: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
+    tagUpcomingText: { color: '#1A1A1A' },
+    metaText: { marginTop: 4, fontSize: 13, color: tk.text.secondary },
     metaTertiary: { marginTop: 4, fontSize: 12, color: tk.text.tertiary },
-    priceText: { marginLeft: 8, fontSize: 16, fontWeight: '600', color: tk.success.DEFAULT },
-    mutedText: { fontSize: 14, color: tk.text.secondary },
+    priceText: { marginLeft: 8, fontSize: 15, fontWeight: '600', color: tk.success.DEFAULT },
+    mutedText: { fontSize: 13, lineHeight: 19, color: tk.text.secondary },
     progressBar: {
-      marginTop: 8,
-      height: 8,
-      borderRadius: rnRadius.sm,
+      marginTop: 10,
+      height: 6,
+      borderRadius: rnRadius.xs,
       backgroundColor: tk.border.light,
       overflow: 'hidden',
     },
-    progressFill: { height: 8, backgroundColor: tk.success.DEFAULT },
-    outlineBtn: {
-      marginTop: 12,
-      paddingVertical: 8,
-      paddingHorizontal: 12,
+    progressFill: { height: 6, backgroundColor: tk.success.DEFAULT },
+    primaryBtn: {
+      paddingVertical: 7,
+      paddingHorizontal: 14,
       borderRadius: rnRadius.sm,
-      borderWidth: 1,
-      borderColor: tk.success.DEFAULT,
-      alignSelf: 'flex-start',
+      backgroundColor: tk.brand.cta,
     },
-    outlineBtnText: { fontSize: 14, color: tk.success.DEFAULT },
+    primaryBtnText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
     menuWrap: {
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
-      borderColor: tk.brandAccent.light,
-      backgroundColor: tk.surface.light,
-      padding: 4,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.card,
+      padding: 6,
     },
     menuItem: {
-      minHeight: 60,
+      minHeight: 52,
       justifyContent: 'center',
       paddingHorizontal: 12,
     },
     menuRow: { flexDirection: 'row', alignItems: 'center' },
     menuIcon: { fontSize: 18 },
-    menuLabel: { marginLeft: 12, flex: 1, fontSize: 16, color: tk.text.primary },
+    menuLabel: { marginLeft: 12, flex: 1, fontSize: 15, color: tk.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
