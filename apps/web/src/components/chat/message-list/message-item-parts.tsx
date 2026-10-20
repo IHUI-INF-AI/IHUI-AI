@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
 import type { ChatMessage } from '@/stores/chat'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { describeToolCall } from '@ihui/shared/chat'
 import {
   resolveWaitingText,
@@ -301,8 +301,10 @@ export function MessageUsageMetrics({
 }) {
   const t = useTranslations('ai.message.metrics')
   const tc = useTranslations('chat')
+  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
+  const chatStore = usePaneChatStore()
   // zustand selector 返回既有对象引用(undefined 或 usage 对象),不构造新数组/对象,符合项目规则。
-  const usage = useChatStore((s) => s.usageByMessageId[messageId])
+  const usage = chatStore((s) => s.usageByMessageId[messageId])
   if (!usage || usage.totalTokens <= 0) return null
 
   const model = usage.model || fallbackModel || ''

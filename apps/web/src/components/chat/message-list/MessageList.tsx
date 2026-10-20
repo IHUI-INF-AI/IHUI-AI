@@ -15,7 +15,7 @@ import {
   MessageSearchBar,
 } from '@/components/ai/progress-sections/message-context-menu'
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
-import { useChatStore } from '@/stores/chat'
+import { matchesPaneEvent, useOptionalPaneId, usePaneChatStore } from '@/stores/chat-pane-context'
 import { useAuthStore } from '@/stores/auth'
 
 import { MessageItem } from './MessageItem'
@@ -126,6 +126,10 @@ export function MessageList({
 }: MessageListProps) {
   const t = useTranslations('chat')
 
+  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
+  const chatStore = usePaneChatStore()
+  const paneId = useOptionalPaneId()
+
   // D39 免费额度心智边界:非 VIP 即免费档可用 → 不向该用户渲染付费诱导
   const user = useAuthStore((s) => s.user)
   const freeTierAvailable = !user?.isVip
@@ -216,7 +220,7 @@ export function MessageList({
   // 内存滞留(上一个会话里没填完的批准/拒绝,在新会话里既无处显示也无从应答)。
   // 挂在这里而不是各跳转点:MessageList 是所有会话视图的唯一宿主,URL 参数换会话
   // 那条路径(不在本票写面内)同样被这一格覆盖。
-  const conversationId = useChatStore((s) => s.conversationId)
+  const conversationId = chatStore((s) => s.conversationId)
   const lastConversationIdRef = React.useRef(conversationId)
   React.useEffect(() => {
     if (lastConversationIdRef.current === conversationId) return
@@ -296,42 +300,51 @@ export function MessageList({
   // dispatch 成功但无副作用,只弹 toast 却不真的重跑(与桌面托盘菜单同型的"派发到空气"缺陷)。
   // 语义上"重试一条失败的 AI 回复" == "重新生成该消息",故复用 onRegenerate 的 regenerateMessage 闭环。
   React.useEffect(() => {
+    type PaneEventDetail = { paneId?: string | null }
     const onRegenerate = (e: Event) => {
-      const detail = (e as CustomEvent<{ messageId: string }>).detail
-      if (!detail?.messageId) return
-      void regenerateMessage(detail.messageId)
+      const detail = (e as CustomEvent<{ messageId: string } & PaneEventDetail>).detail
+      if (!detail?.messageId || !matchesPaneEvent(detail.paneId, paneId)) return
+      void regenerateMessage(detail.messageId, chatStore)
     }
     const onBranch = (e: Event) => {
-      const detail = (e as CustomEvent<{ messageId: string }>).detail
-      if (!detail?.messageId) return
-      void branchMessage(detail.messageId)
+      const detail = (e as CustomEvent<{ messageId: string } & PaneEventDetail>).detail
+      if (!detail?.messageId || !matchesPaneEvent(detail.paneId, paneId)) return
+      void branchMessage(detail.messageId, chatStore)
     }
     const onEdit = (e: Event) => {
       // W16(2026-09-14):detail 新增 rollbackFiles(编辑 Dialog 勾选「同时回滚文件改动」时为 true)
       const detail = (
-        e as CustomEvent<{
-          messageId: string
-          content: string
-          rollbackFiles?: boolean
-        }>
+        e as CustomEvent<
+          {
+            messageId: string
+            content: string
+            rollbackFiles?: boolean
+          } & PaneEventDetail
+        >
       ).detail
-      if (!detail?.messageId || !detail.content) return
-      void editMessageAndRerun(detail.messageId, detail.content, detail.rollbackFiles === true)
+      if (!detail?.messageId || !detail.content || !matchesPaneEvent(detail.paneId, paneId)) return
+      void editMessageAndRerun(
+        detail.messageId,
+        detail.content,
+        detail.rollbackFiles === true,
+        chatStore,
+      )
     }
     // 票64(2026-10-18 立):AI 消息编辑(MessageItem 的「保存为新版本」Dialog 派发)。
     // 与用户消息的编辑重跑是两条链 —— 这条只落新 sibling,不重跑、不截断后续消息。
     const onEditAi = (e: Event) => {
-      const detail = (e as CustomEvent<{ messageId: string; content: string }>).detail
-      if (!detail?.messageId || !detail.content) return
-      void editAiMessageAsVersion(detail.messageId, detail.content)
+      const detail = (e as CustomEvent<{ messageId: string; content: string } & PaneEventDetail>)
+        .detail
+      if (!detail?.messageId || !detail.content || !matchesPaneEvent(detail.paneId, paneId)) return
+      void editAiMessageAsVersion(detail.messageId, detail.content, chatStore)
     }
     const onReply = (e: Event) => {
-      const detail = (e as CustomEvent<{ messageId: string }>).detail
-      if (!detail?.messageId) return
-      const target = useChatStore.getState().messages.find((mm) => mm.id === detail.messageId)
+      const detail = (e as CustomEvent<{ messageId: string } & PaneEventDetail>).detail
+      if (!detail?.messageId || !matchesPaneEvent(detail.paneId, paneId)) return
+      const target = chatStore.getState().messages.find((mm) => mm.id === detail.messageId)
       if (!target) return
       // 引用快照截断到 500 字符:超长 AI 回复只取开头摘要,完整正文 AI 上下文里本就有
-      useChatStore.getState().setQuotedMessage({
+      chatStore.getState().setQuotedMessage({
         id: target.id,
         role: target.role,
         content: target.content.length > 500 ? `${target.content.slice(0, 500)}…` : target.content,
@@ -353,7 +366,7 @@ export function MessageList({
       window.removeEventListener('ihui:reply-message', onReply as EventListener)
       window.removeEventListener('ihui:retry-message', onRegenerate as EventListener)
     }
-  }, [])
+  }, [paneId, chatStore])
 
   // AI 工作台 对齐(2026-07-28):timeline 事件可点击跳转到对话流
   // 监听 planStepId / toolCallId 自定义事件 → 翻译为 messageId → 派发 ihui:scroll-to-message
@@ -370,7 +383,7 @@ export function MessageList({
     const onToolCall = (e: Event) => {
       const detail = (e as CustomEvent<{ toolCallId: string }>).detail
       if (!detail?.toolCallId) return
-      const messages = useChatStore.getState().messages
+      const messages = chatStore.getState().messages
       const found = messages.find((m) => m.toolCalls?.some((tc) => tc.id === detail.toolCallId))
       if (found) scrollToMessage(found.id)
     }
@@ -380,7 +393,7 @@ export function MessageList({
       window.removeEventListener('ihui:scroll-to-plan-step', onPlanStep as EventListener)
       window.removeEventListener('ihui:scroll-to-tool-call', onToolCall as EventListener)
     }
-  }, [])
+  }, [chatStore])
 
   if (messages.length === 0) {
     return (
