@@ -429,20 +429,20 @@ services:
     depends_on:
       - prometheus
     volumes:
-      - ./monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./monitoring/panel-defs/board.ini:/etc/grafana/grafana.ini
+      - ./monitoring/panel-defs/provisioning:/etc/grafana/provisioning
+      - ./monitoring/panel-defs/panels:/var/lib/grafana/dashboards
       - grafanadata:/var/lib/grafana
     environment:
       # 2026-07-21 安全审计第十轮加固:严禁 `:-change-me-...` 弱密码 fallback
       # 必须从 .env 显式注入,若未配置则服务启动失败(Grafana 会用默认值,
       # 但任何知晓源码的人都能登录,等于公开后门)
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER 未配置,请在 .env 设置}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD 未配置,请在 .env 设置强密码(≥16 字符)}
+      - GF_SECURITY_ADMIN_USER=${BOARD_ADMIN_USER:?BOARD_ADMIN_USER 未配置,请在 .env 设置}
+      - GF_SECURITY_ADMIN_PASSWORD=${BOARD_ADMIN_PASSWORD:?BOARD_ADMIN_PASSWORD 未配置,请在 .env 设置强密码(≥16 字符)}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_HTTP_PORT=8816
     ports:
-      - '${GRAFANA_PORT:-8816}:8816'
+      - '${BOARD_PORT:-8816}:8816'
     networks:
       - ihui-net
     healthcheck:
