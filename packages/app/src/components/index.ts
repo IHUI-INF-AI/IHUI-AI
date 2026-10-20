@@ -15,9 +15,6 @@ export type { ScrollJumpButtonProps } from './ScrollJumpButton'
 // apps/miniapp-taro/src/components/adapters/Selecter.taro.tsx(与 RN 端 mobile-rn 自己的
 // ModelSelecterDialog 是两份现役实现),本包那份是从 miniapp-taro 提取后的死载体。
 
-export { TabBar } from './TabBar'
-export type { TabBarProps, TabBarItemConfig, TabBarKey } from './TabBar'
-
 export { Toolbar } from './Toolbar'
 export type { ToolbarProps, ToolbarItem } from './Toolbar'
 
