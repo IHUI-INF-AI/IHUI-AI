@@ -511,6 +511,11 @@ modules:
       - './stores/*'
       - './subagents'
       - './subagents/*'
+      # 2026-10-20 补登(门 103 D3):web 插件元数据消费面(PluginMarketplace /
+      # plugins-stats / message-input)统一 import `@ihui/shared/plugins-data`;
+      # 该入口在 packages/shared 的 package.json#exports 里真实存在,本表未登记 ⇒ D3 判红。
+      - './plugins-data'
+      - './plugins-data/*'
       - './utils'
       - './utils/*'
       - './hooks'

@@ -23,7 +23,7 @@ import type { StoreApi, UseBoundStore } from 'zustand'
 import { useChatStore, type ChatState } from '@/stores/chat'
 import { getChatStoreForPane } from '@/stores/chat-panes'
 
-type ChatStore = UseBoundStore<StoreApi<ChatState>>
+export type ChatStore = UseBoundStore<StoreApi<ChatState>>
 
 const ChatPaneIdContext = React.createContext<string | null>(null)
 
