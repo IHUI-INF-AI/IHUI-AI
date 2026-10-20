@@ -29,6 +29,7 @@ import NavBar from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
+import { tokens } from '../theme/active-tokens'
 
 /** 轮询间隔(与 Web 端 POLL_INTERVAL_MS 同值,便于两端观感一致) */
 const POLL_INTERVAL_MS = 2500
@@ -180,7 +181,7 @@ export function DeepResearchScreen() {
             multiline
             numberOfLines={3}
             placeholder={t('deepResearch.queryPlaceholder')}
-            placeholderTextColor={isDark ? '#737373' : '#a3a3a3'}
+            placeholderTextColor={tokens.text.tertiary}
             className="rounded-control border border-neutral-200 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
           />
           <View className="mt-3 flex-row items-center">
