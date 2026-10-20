@@ -76,3 +76,11 @@
 - 接线/守门自身: `check-generator-resource-release.mjs`(id 225,warn):持有事务/句柄/订阅的 async 生成器,其消费点必须显式 `aclose()`/`.return()`,不得只靠退出作用域与 GC;2026-10-20 已认同步 `with open`、`_closing_event_stream` 包装、`super()` 委托由外层 finally 关停三种形态,HEAD 面 passed=20/violation=0/undetermined=0,自检 54/54 RC=0;已接 runner(warn,stagedTriggers=apps/ai-service/);升 blocking 的前置缺一格:`--staged` 面只枚举相对 HEAD 的改动路径、零候选 exit 2 ⇒ 先改索引全树枚举,否则升档即恒红门(§12e);跳过 `HUSKY_SKIP_GENERATOR_RESOURCE_RELEASE=1`
 - 运维派生器(非守门): `sync-grafana-live-provisioning.mjs`(仓库 provisioning 是唯一真相 ⇒ 派生到部署机运行副本,docker 服务名改写为**当次探活得到的回环端口**;连不上的源不写进副本并点名原因;幂等 + `pre-sync-backups/` 留退路;`--check` 零副作用)、`verify-grafana-logql-panels.mjs`(把所有 Loki 面板的 LogQL 拿去本机 Loki 真跑,报"有数/空板";**聚合型也走 query_range 数非零数据点**——用 instant query 会把"突发型事件恰好最近一个窗口为 0"误判成空板;依赖运行时,故**不许**接成提交门)
 - 大屏核验器(非守门): `verify-grafana-panel-data.mjs`(每条表达式拿去本机数据源真跑,五档:有数/全零/空板/失败/未判定;全零≠空板;不许接提交门;已覆盖上一件的 Loki 档)
+
+## 2026-10-20 追加:check-monitor-runtime-parity 重复登记副本摘除留痕
+
+第二份逐字重复行(转义损坏 `*_URL`→`_\_URL`)摘除,保留转义正确那份。原文:
+
+```
+- `check-monitor-runtime-parity.mjs`(2026-10-18 立,票 G-584 同族;镜像测试 `scripts/tests/check-monitor-runtime-parity.test.mjs`):monitoring 运行副本(`D:\DevEnv\monitor`,nssm 原生)↔ 仓内 `monitoring/` 真相逐对同形对账(alertmanager/promtail/board.ini/loki 四对 + ai-service `.env` 结构键 COMBO_CHAINS/_\_URL/__PORT,值绝不落输出);三态分桶 同形/差异/未判定,配对清单 <4 枚即 exit 2 空转点名。**不挂提交链也不挂巡检轮**:它判"这台机盘上当下是什么",非生产机上运行副本根本不存在,挂链即 §12e 恒红门;且**差异 ≠ 错**(原生端口/路径改写合法),结论只是差异清单,判红权归人,器物零写入零同步。
+```
