@@ -43,6 +43,7 @@ import { BankCardScreen } from '../screens/BankCardScreen'
 import { RealNameAuthScreen } from '../screens/RealNameAuthScreen'
 import { IdentityVerifyScreen } from '../screens/IdentityVerifyScreen'
 import { SecuritySettingsScreen } from '../screens/SecuritySettingsScreen'
+import SecurityCenterScreen from '../screens/SecurityCenterScreen'
 import { PrivacyScreen } from '../screens/PrivacyScreen'
 import { AgreementScreen } from '../screens/AgreementScreen'
 import { AboutScreen } from '../screens/AboutScreen'
@@ -341,6 +342,7 @@ export type RootStackParamList = {
   RealNameAuth: undefined
   IdentityVerify: undefined
   SecuritySettings: undefined
+  SecurityCenter: undefined
   Privacy: undefined
   Agreement: undefined
   About: undefined
@@ -748,6 +750,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="RealNameAuth" component={RealNameAuthScreen} />
             <RootStack.Screen name="IdentityVerify" component={IdentityVerifyScreen} />
             <RootStack.Screen name="SecuritySettings" component={SecuritySettingsScreen} />
+            <RootStack.Screen name="SecurityCenter" component={SecurityCenterScreen} />
             <RootStack.Screen name="Privacy" component={PrivacyScreen} />
             <RootStack.Screen name="Agreement" component={AgreementScreen} />
             <RootStack.Screen name="About" component={AboutScreen} />
