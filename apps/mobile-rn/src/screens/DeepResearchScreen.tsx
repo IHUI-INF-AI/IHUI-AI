@@ -173,7 +173,7 @@ export function DeepResearchScreen() {
         className="flex-1"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <View className="mx-4 mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+        <View className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
           <TextField
             colorScheme={resolvedTheme}
             value={query}
@@ -182,7 +182,7 @@ export function DeepResearchScreen() {
             numberOfLines={3}
             placeholder={t('deepResearch.queryPlaceholder')}
             placeholderTextColor={tokens.text.tertiary}
-            className="rounded-control border border-neutral-200 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
+            className="rounded-sm border border-neutral-200 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
           />
           <View className="mt-3 flex-row items-center">
             <Text className="mr-2 text-xs text-neutral-600 dark:text-neutral-400">
@@ -190,7 +190,7 @@ export function DeepResearchScreen() {
             </Text>
             <TouchableOpacity
               onPress={() => clampIterations(iterations - 1)}
-              className="rounded-control bg-neutral-200 px-2.5 py-1 dark:bg-neutral-800"
+              className="rounded-sm bg-neutral-200 px-2.5 py-1 dark:bg-neutral-800"
             >
               <Text className="text-xs text-neutral-700 dark:text-neutral-300">-</Text>
             </TouchableOpacity>
@@ -199,7 +199,7 @@ export function DeepResearchScreen() {
             </Text>
             <TouchableOpacity
               onPress={() => clampIterations(iterations + 1)}
-              className="rounded-control bg-neutral-200 px-2.5 py-1 dark:bg-neutral-800"
+              className="rounded-sm bg-neutral-200 px-2.5 py-1 dark:bg-neutral-800"
             >
               <Text className="text-xs text-neutral-700 dark:text-neutral-300">+</Text>
             </TouchableOpacity>
@@ -207,7 +207,7 @@ export function DeepResearchScreen() {
             <TouchableOpacity
               disabled={starting || query.trim().length === 0}
               onPress={onStart}
-              className={`rounded-control px-4 py-2 ${
+              className={`rounded-sm px-4 py-2 ${
                 starting || query.trim().length === 0
                   ? 'bg-neutral-300 dark:bg-neutral-800'
                   : 'bg-neutral-900 dark:bg-neutral-100'
@@ -227,7 +227,7 @@ export function DeepResearchScreen() {
         </View>
 
         {error ? (
-          <View className="mx-4 mb-3 rounded-panel border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
+          <View className="mx-4 mb-3 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
             <Text className="text-xs text-red-700 dark:text-red-300">{error}</Text>
           </View>
         ) : null}
@@ -238,7 +238,7 @@ export function DeepResearchScreen() {
           </View>
         ) : (
           <>
-            <View className="mx-4 mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+            <View className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
               <View className="flex-row items-center justify-between">
                 <Text className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                   {t('deepResearch.status')}
@@ -261,7 +261,7 @@ export function DeepResearchScreen() {
             </View>
 
             {stages.length > 0 ? (
-              <View className="mx-4 mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+              <View className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
                 <Text className="mb-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                   {t('deepResearch.stages')}
                 </Text>
@@ -283,7 +283,7 @@ export function DeepResearchScreen() {
             ) : null}
 
             {subquestions.length > 0 ? (
-              <View className="mx-4 mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+              <View className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
                 <Text className="mb-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                   {t('deepResearch.subquestions')}
                 </Text>
@@ -299,7 +299,7 @@ export function DeepResearchScreen() {
             ) : null}
 
             {evidence.length > 0 ? (
-              <View className="mx-4 mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+              <View className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
                 <Text className="mb-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                   {t('deepResearch.evidence', { count: evidence.length })}
                 </Text>
@@ -318,7 +318,7 @@ export function DeepResearchScreen() {
             ) : null}
 
             {report.markdown ? (
-              <View className="mx-4 mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+              <View className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
                 <View className="mb-2 flex-row items-center justify-between">
                   <Text className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                     {t('deepResearch.report')}
@@ -341,7 +341,7 @@ export function DeepResearchScreen() {
             ) : null}
 
             {sources.length > 0 ? (
-              <View className="mx-4 mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+              <View className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
                 <Text className="mb-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                   {t('deepResearch.sources')}
                 </Text>
@@ -357,7 +357,7 @@ export function DeepResearchScreen() {
                       {src.url}
                     </Text>
                     <View className="mt-1 flex-row flex-wrap items-center">
-                      <View className="mr-2 rounded-tiny bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">
+                      <View className="mr-2 rounded-xs bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">
                         <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                           {t(sourceTierKey(src.tier))}
                         </Text>

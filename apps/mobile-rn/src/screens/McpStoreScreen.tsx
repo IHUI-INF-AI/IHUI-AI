@@ -94,7 +94,10 @@ export function McpStoreScreen() {
           if (!res.success) throw new Error(res.error || t('mcpStore.actionFailed'))
           await load()
         } catch (e) {
-          appAlert(t('common.loadFailed'), e instanceof Error ? e.message : t('mcpStore.actionFailed'))
+          appAlert(
+            t('common.loadFailed'),
+            e instanceof Error ? e.message : t('mcpStore.actionFailed'),
+          )
         } finally {
           setBusyKey('')
         }
@@ -114,7 +117,10 @@ export function McpStoreScreen() {
           if (!res.success) throw new Error(res.error || t('mcpStore.actionFailed'))
           await load()
         } catch (e) {
-          appAlert(t('common.loadFailed'), e instanceof Error ? e.message : t('mcpStore.actionFailed'))
+          appAlert(
+            t('common.loadFailed'),
+            e instanceof Error ? e.message : t('mcpStore.actionFailed'),
+          )
         } finally {
           setBusyKey('')
         }
@@ -185,7 +191,7 @@ export function McpStoreScreen() {
             <TouchableOpacity
               key={k}
               onPress={() => setFilter(k)}
-              className={`mr-2 rounded-control px-3 py-1.5 ${
+              className={`mr-2 rounded-sm px-3 py-1.5 ${
                 active ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-200 dark:bg-neutral-800'
               }`}
             >
@@ -206,7 +212,10 @@ export function McpStoreScreen() {
       ) : error ? (
         <View className="flex-1 items-center justify-center px-6">
           <Text className="mb-3 text-sm text-neutral-600 dark:text-neutral-300">{error}</Text>
-          <TouchableOpacity onPress={() => void load()} className="rounded-control bg-neutral-900 px-4 py-2">
+          <TouchableOpacity
+            onPress={() => void load()}
+            className="rounded-sm bg-neutral-900 px-4 py-2"
+          >
             <Text className="text-sm text-neutral-50">{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
@@ -226,14 +235,14 @@ export function McpStoreScreen() {
               return (
                 <View
                   key={entry.key}
-                  className="mx-4 mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
+                  className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
                 >
                   <View className="flex-row items-center justify-between">
                     <Text className="flex-1 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                       {entry.name}
                     </Text>
                     {grade ? (
-                      <View className="rounded-tiny bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">
+                      <View className="rounded-xs bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">
                         <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                           {t('mcpStore.grade')}: {grade}
                         </Text>
@@ -245,8 +254,8 @@ export function McpStoreScreen() {
                   </Text>
                   <View className="mt-2 flex-row flex-wrap items-center">
                     <Text className="mr-3 text-xs text-neutral-500">
-                      {t(entry.source === 'official' ? 'mcpStore.official' : 'mcpStore.community')} ·{' '}
-                      {entry.transport}
+                      {t(entry.source === 'official' ? 'mcpStore.official' : 'mcpStore.community')}{' '}
+                      · {entry.transport}
                     </Text>
                     <Text className="mr-3 text-xs text-neutral-500">
                       {t('mcpStore.tools')}: {entry.tool_count}
@@ -264,7 +273,9 @@ export function McpStoreScreen() {
                     ) : null}
                   </View>
                   {entry.last_error ? (
-                    <Text className="mt-2 text-xs text-red-600 dark:text-red-400">{entry.last_error}</Text>
+                    <Text className="mt-2 text-xs text-red-600 dark:text-red-400">
+                      {entry.last_error}
+                    </Text>
                   ) : null}
                   <View className="mt-3 flex-row items-center">
                     {entry.installed ? (
@@ -272,7 +283,7 @@ export function McpStoreScreen() {
                         <TouchableOpacity
                           disabled={busyKey === entry.key}
                           onPress={() => onToggleEnabled(entry)}
-                          className="mr-2 rounded-control bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
+                          className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
                         >
                           <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                             {entry.enabled ? t('mcpStore.disable') : t('mcpStore.enable')}
@@ -281,7 +292,7 @@ export function McpStoreScreen() {
                         <TouchableOpacity
                           disabled={busyKey === entry.key}
                           onPress={() => onUninstall(entry)}
-                          className="rounded-control border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+                          className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
                         >
                           <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                             {t('mcpStore.uninstall')}
@@ -292,8 +303,10 @@ export function McpStoreScreen() {
                       <TouchableOpacity
                         disabled={busyKey === entry.key || Boolean(blocked)}
                         onPress={() => onInstall(entry)}
-                        className={`rounded-control px-3 py-1.5 ${
-                          blocked ? 'bg-neutral-300 dark:bg-neutral-800' : 'bg-neutral-900 dark:bg-neutral-100'
+                        className={`rounded-sm px-3 py-1.5 ${
+                          blocked
+                            ? 'bg-neutral-300 dark:bg-neutral-800'
+                            : 'bg-neutral-900 dark:bg-neutral-100'
                         }`}
                       >
                         <Text
