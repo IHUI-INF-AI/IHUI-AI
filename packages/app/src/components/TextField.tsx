@@ -26,15 +26,20 @@ import { getTokens, type AppThemeMode } from '../theme/tokens'
  *    这是 AGENTS §4"描边不得取墨档"的**唯一例外位**(聚焦态),守门 83 的 R8 按
  *    `focused ? …` 条件形态放行 —— 所以这里必须写成三元,不得改成 `&&` 短路
  *    (判据只认条件取值,写成 `focused && {…}` 会被算成绕门)。
- *  - `focusedStyle`:调用方确有差异需求时最后覆盖(如登录页把聚焦加粗到 2px)。
+ *  - `focusedStyle`:调用方确有差异需求时最后覆盖,但**只准覆盖颜色、不得带几何键**
+ *    (高度/描边宽度/内边距):固定高度下把描边 1px→2px 会压缩内容区,RN 把框内文字顶起
+ *    约 3px —— 2026-10-20 登录框真机实测,聚焦档 `borderWidth` 由 1 改 2 时文字上移 3 设备像素。
  *
  * `colorScheme` 是**必填** prop 而非 `= 'light'` 默认值 —— 与 `BackChevron` 同一条规矩:
  * 守门 91 只把"带默认值的形参"认作静默脱主题开关,必填改由 `tsc` 在调用点强制,比门更严。
  */
-export type TextFieldProps = Omit<ComponentPropsWithRef<typeof TextInput>, 'style' | 'onFocus' | 'onBlur'> & {
+export type TextFieldProps = Omit<
+  ComponentPropsWithRef<typeof TextInput>,
+  'style' | 'onFocus' | 'onBlur'
+> & {
   colorScheme: AppThemeMode
   style?: StyleProp<TextStyle>
-  /** 聚焦时追加的差异化样式,排在共享墨档之后(用于覆盖粗细/颜色) */
+  /** 聚焦时追加的差异化样式,排在共享墨档之后(只准覆盖颜色,不得改几何 —— 见文件头) */
   focusedStyle?: StyleProp<TextStyle>
   onFocus?: ComponentPropsWithRef<typeof TextInput>['onFocus']
   onBlur?: ComponentPropsWithRef<typeof TextInput>['onBlur']
@@ -43,13 +48,25 @@ export type TextFieldProps = Omit<ComponentPropsWithRef<typeof TextInput>, 'styl
 /** 常态描边占位:宽度恒定、颜色透明,聚焦只换颜色 ⇒ 零布局跳动 */
 const RESTING_BORDER: TextStyle = { borderWidth: 1, borderColor: 'transparent' }
 
-export function TextField({ colorScheme, style, focusedStyle, onFocus, onBlur, ...rest }: TextFieldProps) {
+export function TextField({
+  colorScheme,
+  style,
+  focusedStyle,
+  onFocus,
+  onBlur,
+  ...rest
+}: TextFieldProps) {
   const [focused, setFocused] = useState(false)
   const tk = getTokens(colorScheme)
   return (
     <TextInput
       {...rest}
-      style={[RESTING_BORDER, style, focused ? { borderColor: tk.brand.DEFAULT } : null, focused ? focusedStyle : null]}
+      style={[
+        RESTING_BORDER,
+        style,
+        focused ? { borderColor: tk.brand.DEFAULT } : null,
+        focused ? focusedStyle : null,
+      ]}
       onFocus={(e) => {
         setFocused(true)
         onFocus?.(e)
