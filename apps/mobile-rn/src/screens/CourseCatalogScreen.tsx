@@ -47,9 +47,10 @@ export function CourseCatalogScreen() {
     void load()
   }, [load])
 
-  const onPressItem = (item: CourseCatalogItem) => {
-    // 路由参数契约为 { courseId }(RootStackParamList 'CourseChapter'),传章节 id
-    navigation.navigate('CourseChapter', { courseId: item.id })
+  const onPressItem = () => {
+    // CourseChapter 的取数是 /api/courses/:courseId/chapters ⇒ 必须传**课程 id**(本页路由参数),
+    // 传章节 id 会把章节当课程查,接口 404、页面回「找不到对应的资源」(同一缺陷在 CourseChapter 内已修)。
+    navigation.navigate('CourseChapter', { courseId })
   }
 
   return (
