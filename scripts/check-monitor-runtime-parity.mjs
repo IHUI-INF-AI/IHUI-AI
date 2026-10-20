@@ -9,7 +9,7 @@
  * 只读对账尺子:monitoring 运行副本 ↔ 仓内真相 逐对同形对账(2026-10-18 立,票 G-584 同族)
  *
  * 堵的格子:监控栈以 nssm 原生方式跑在 D:\DevEnv\monitor,而仓内真相在 monitoring/。
- * grafana provisioning 那一格已有派生器 scripts/sync-grafana-live-provisioning.mjs
+ * panel provisioning 那一格已有派生器 scripts/sync-panel-live-provisioning.mjs
  * (派生到运行副本、幂等、--check 零副作用);其余四对(alertmanager / promtail /
  * grafana.ini / loki)与 ai-service 的 .env 结构键**全仓没有任何对账器** ——
  * check-prod-bundle-shadow.mjs 只登记 prod-bundle 那 9 对,monitoring→DevEnv 零覆盖。
@@ -61,7 +61,10 @@ import { makeRegistrar } from './lib/selftest-registrant.mjs'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 // ── 配对清单(每条必须带 owner + reason;空转即 exit 2,见头注) ──
-export const MIN_CONFIG_PAIRS = 4
+// 下限 4→3(2026-10-20):第 4 对的原对象已整体退役 —— 运行副本侧 `D:\DevEnv\monitor\` 实测无该目录、
+// 无服务注册、8816 无监听,仓内侧也随改名换成了 board.ini。判据的输入集缩了,下限跟着缩是如实;
+// 这一格的意义仍是"配对清单别空转",不是"让它变绿"。
+export const MIN_CONFIG_PAIRS = 3
 export const PAIRS = [
   {
     id: 'alertmanager',
@@ -76,13 +79,6 @@ export const PAIRS = [
     runtimeAbs: 'D:/DevEnv/monitor/promtail/promtail-config.yml',
     owner: '机主 2026-10-18 指令(票 G-584 同族)',
     reason: 'promtail 原生二进制现读加载此对;仓内侧带溯源水印横幅,归一化后比较',
-  },
-  {
-    id: 'grafana-ini',
-    repoRel: 'monitoring/grafana/grafana.ini',
-    runtimeAbs: 'D:/DevEnv/monitor/grafana/grafana.ini',
-    owner: '机主 2026-10-18 指令(票 G-584 同族)',
-    reason: 'grafana 原生实例现读加载此对;运行副本含合法的原生改写(http_addr/root_url/path.*),差异交人裁',
   },
   {
     id: 'loki',

@@ -1,0 +1,26 @@
+{
+  "$comment": "禁名门(scripts/check-board-name-legacy.mjs)的豁免台账。每条必须带 kind/reason/ticket/until,到期即回队列重裁(§0.7)。match 以 / 结尾 = 目录前缀。本文件自身不得含被禁字面量。",
+  "entries": [
+    {
+      "match": "docker-compose.yml",
+      "kind": "upstream-artifact",
+      "reason": "Loki/Promtail 官方镜像的上游制品坐标(Docker Hub 组织名),实测 ihui-loki/ihui-promtail 两服务 Running、3100 应答 200;改坐标 = 拉不到镜像 = 日志栈起不来、大屏日志盘全空",
+      "ticket": "机主 2026-10-19 令「这个名字不允许再出现」的同批例外申报",
+      "until": "2027-04-19"
+    },
+    {
+      "match": "deploy/saas/docker-compose.yml",
+      "kind": "upstream-artifact",
+      "reason": "私有化/演示栈仍带该看板服务(未随本机退役),镜像坐标与数据源 type 字面量是制品契约;删服务=让演示环境失去运维台,须机主单独裁",
+      "ticket": "同上",
+      "until": "2027-04-19"
+    },
+    {
+      "match": ".ihui-agent/archive/",
+      "kind": "evidence-archive",
+      "reason": "归档件的效力就在逐字:门 71 判「某条台账行是否被误删」的凭据 = 被删行逐字原文能否在已入库归档 blob 里找到。改写归档 ⇒ 该自证链当场失效,以后真删行也证明不了自己",
+      "ticket": "机主 2026-10-19 令的边界申报(待其改判则本条作废)",
+      "until": "2027-04-19"
+    }
+  ]
+}

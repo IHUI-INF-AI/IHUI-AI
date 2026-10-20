@@ -120,7 +120,7 @@ foreach ($placeholder in $replacements.Keys) {
         "<AUTOGEN-SERVICE-MESH-JWT>"    { "SERVICE_MESH_JWT_SECRET" }
         "<AUTOGEN-AUDIT-HMAC>"          { "AUDIT_LOG_HMAC_SECRET" }
         "<AUTOGEN-SWAGGER-KEY>"         { "SWAGGER_API_KEY" }
-        "<AUTOGEN-GRAFANA-PASSWORD>"    { "GRAFANA_ADMIN_PASSWORD" }
+        "<AUTOGEN-GRAFANA-PASSWORD>"    { "BOARD_ADMIN_PASSWORD" }
     }
     Write-Host "  $field = $($replacements[$placeholder])"
 }

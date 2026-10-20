@@ -214,10 +214,10 @@ describe('装车证明:判据必须真接在主链路上', () => {
     const src = read('../send-message.ts')
     expect(src).toContain("import { resolveRoundModel } from './model-switch'")
     expect(src).toContain(
-      'const roundModel = resolveRoundModel(model, useChatStore.getState().currentModel)',
+      'const roundModel = resolveRoundModel(model, chatStore.getState().currentModel)',
     )
     expect(src).toContain(
-      'const effectiveModel = resolveRoundModel(roundModel, useChatStore.getState().currentModel)',
+      'const effectiveModel = resolveRoundModel(roundModel, chatStore.getState().currentModel)',
     )
     // 空气泡防线:流必须取复核后的档位,而不是入口那个旧 model
     expect(src).toContain('model: effectiveModel')

@@ -45,7 +45,7 @@ IHUI-AI 不是单一 AI 工具,而是**开源 AI 商业级一体化基座**,把�
 6. **AI 教育全栈 + 学生端 12 子页 + 45 表 edu-full schema**(在开源 AI 平台中较为少见)
 7. **企业级安全栈(RBAC + 多租户 + RLS + SSO + AES-256-GCM + JWT token-family + GDPR + 2FA + IDOR)**(在开源 AI 平台中较为少见)
 8. **88 守门脚本 + drizzle-kit push 模式 + 9 PowerShell + post-commit 自动 push**(在开源 AI 项目中较为少见)
-9. **三支柱可观测性 + 21 Grafana 仪表盘 + Alertmanager**(在开源 AI 平台中较为少见)
+9. **三支柱可观测性 + 21 大屏 仪表盘 + Alertmanager**(在开源 AI 平台中较为少见)
 10. **5 语言 i18n parity + 4 守门脚本 + pgvector + 知识图谱 + 用户长期记忆**(在开源 AI 项目中较为少见)
 
 详见上方 [项目定位](#项目定位必读)、[成本对比](#成本对比ihui-ai-自托管-vs-等价-saas-组合) 与 [与同类项目对比](#与同类项目对比) 章节。
@@ -76,7 +76,7 @@ IHUI-AI 不是单一 AI 工具,而是**开源 AI 商业级一体化基座**,把�
 <details>
 <summary><strong>Q5:项目规模这么大,部署需要什么配置?</strong></summary>
 
-最小生产配置:4 核 CPU / 8GB 内存 / 50GB 磁盘 / 单 VM 即可。开发环境 2 核 4GB 够用。监控栈可选(关掉 Grafana / Loki / Jaeger 节省 1GB 内存)。详见 [DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)。
+最小生产配置:4 核 CPU / 8GB 内存 / 50GB 磁盘 / 单 VM 即可。开发环境 2 核 4GB 够用。监控栈可选(关掉 大屏 / Loki / Jaeger 节省 1GB 内存)。详见 [DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)。
 </details>
 
 <details>
@@ -127,9 +127,9 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 </details>
 
 <details>
-<summary><strong>Q10:20 个 Grafana 仪表盘会不会太重?</strong></summary>
+<summary><strong>Q10:20 个 大屏 仪表盘会不会太重?</strong></summary>
 
-不会。3 仪表盘覆盖业务漏斗 / 支付流 / AI 成本延迟 / 考试使用率 / PostgreSQL / Redis / BullMQ / Nginx / HLS / 直播间 / 租户使用 / WebSocket / 认证安全等,每个仪表盘独立 provision,可按需启用。开发环境关掉 Grafana / Loki / Jaeger / Alertmanager 4 个监控容器,可节省 1GB 内存。
+不会。3 仪表盘覆盖业务漏斗 / 支付流 / AI 成本延迟 / 考试使用率 / PostgreSQL / Redis / BullMQ / Nginx / HLS / 直播间 / 租户使用 / WebSocket / 认证安全等,每个仪表盘独立 provision,可按需启用。开发环境关掉 大屏 / Loki / Jaeger / Alertmanager 4 个监控容器,可节省 1GB 内存。
 </details>
 
 ---
@@ -261,7 +261,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)                     | **部署运维手册**(蓝绿部署 / 回滚 / 证书续期)                  |
 | [docs/RELEASE.md](docs/RELEASE.md)                                           | 发布流程(38 平台 + SemVer + Git tag + Docker 镜像 + hotfix)   |
-| [docs/MONITORING.md](docs/MONITORING.md)                                     | 可观测性(Prometheus + Grafana + Loki + Jaeger + Alertmanager) |
+| [docs/MONITORING.md](docs/MONITORING.md)                                     | 可观测性(Prometheus + 大屏 + Loki + Jaeger + Alertmanager) |
 | [docs/INCIDENTS.md](docs/INCIDENTS.md)                                       | 历史事故复盘                                                  |
 | [docs/SECURITY.md](docs/SECURITY.md)                                         | 安全策略(漏洞披露 / 加密设计 / 权限模型)                      |
 | [docs/CREDENTIAL_ROTATION_RUNBOOK.md](docs/CREDENTIAL_ROTATION_RUNBOOK.md)   | 凭证轮换运维手册                                              |
@@ -330,7 +330,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - 客服支持(工单 / 在线客服 / 反馈 / 帮助中心)
 - BI 仪表盘 + 错误仪表盘 + 灰度发布 + i18n 仪表盘
 - 5 语言 i18n parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n 工具链 + 4 守门
-- 全栈可观测性(Prometheus + Grafana 3 仪表盘 + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager)
+- 全栈可观测性(Prometheus + 大屏 3 仪表盘 + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager)
 - 88 守门脚本 + 56+10 pre-commit 项 + post-commit 自动 push + drizzle-kit push 模式 + 9 PowerShell 启动
 - 企业级安全(RBAC + 多租户 + RLS + SSO + AES-256-GCM + JWT token-family + CSRF + XSS + GDPR + 2FA)
 - 542 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测

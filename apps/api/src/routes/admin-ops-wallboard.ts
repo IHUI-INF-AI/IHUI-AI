@@ -761,11 +761,18 @@ function buildEdge(): EdgeBlock | null {
   }
 }
 
+// 公网可达例外(2026-10-20 定):大屏页面本身由公网域名提供,而 server.ts 的 onRoute 钩子
+// 对 /api/admin/* 强制注入 network.allowExternal:false ⇒ 大屏取数在公网一律 403
+// "External network access not allowed for this route",页面只剩「加载失败 / —」。
+// 两条端点只读、无写副作用,鉴权仍由下方 preHandler 的 requireAdmin + httpOnly Cookie 裁定,
+// 故显式声明 allowExternal:true 打开公网可达(其余 /api/admin/* 维持强制内网限制)。
+const WALLBOARD_NETWORK = { network: { allowExternal: true } }
+
 // ===== 路由 =====
 export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
-  server.get('/ops-wallboard/overview', async (request, reply) => {
+  server.get('/ops-wallboard/overview', { config: WALLBOARD_NETWORK }, async (request, reply) => {
     // 字段名含 "token"(llmTokensToday 等)会被 response-sanitizer 遮蔽为 "***"(同 ai-cost);
     // 大屏为 requireAdmin 管理端点,可信上下文直接跳过整端点脱敏
     request.skipResponseSanitization = true
@@ -805,7 +812,7 @@ export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  server.get('/ops-wallboard/trend', async (request, reply) => {
+  server.get('/ops-wallboard/trend', { config: WALLBOARD_NETWORK }, async (request, reply) => {
     request.skipResponseSanitization = true
     const parsed = trendQuerySchema.safeParse(request.query)
     if (!parsed.success) {

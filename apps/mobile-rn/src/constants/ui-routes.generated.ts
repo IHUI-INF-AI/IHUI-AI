@@ -8,13 +8,14 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 471d53ab18d4d84d5b3b18ee9a3ea00c0c5df755
-// inputsSha256: 0ec023bfbfa96f3160e671d3b195ec0f42dc42dc14776817dbb6f5c9ef2c3880
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 6ff1c49e7ede940dcbe14cd7089f19271647d2b81ef71cdadd8a15e5c186a3e4
+// sourceCommit: 31087baf3fa4e8d1dbae6e13ab15979eecc99d08
+// inputsSha256: ced7f5beede6c6cc7a123a6229a4ac78febb6d5f65948a1bc4f8b72abf3e94a0
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 3bbfd264d3a1eb769ad7ef53e81dca03fde3a6f88ed92b1c33919ea996635721
 // input: apps/mobile-rn/src/navigation/linking.ts a837df56feae352828f449fb73b6635acf01e7a0601272c04c70ab9d8dc8c108
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-19T08:59:29.712Z
+// generatedAt: 2026-10-20T07:16:24.865Z
 // IHUI-GEN-PIN-END
+
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
 export interface RnUiRouteEntry {
@@ -28,7 +29,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 204 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 215 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -214,6 +215,17 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'WebPortal', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'KnowledgeRag', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Subagents', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'McpStore', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Connectors', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'RepoWiki', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'TeamKnowledge', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'TeamMemory', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'AgentRuntime', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'DeepResearch', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Patrol', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Resources', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'SelfHealing', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Workspace', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ConversationImport', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'CourseDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
   {

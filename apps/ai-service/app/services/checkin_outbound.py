@@ -148,7 +148,10 @@ def _fire_alert(kind: str, text: str) -> None:
     if not url:
         return
     now = time.monotonic()
-    if now - _alert_last_sent.get(kind, 0.0) < _ALERT_MIN_INTERVAL:
+    # 不能用 0.0 当"从未发过"的哨兵:monotonic 的起点是系统启动,
+    # 新开机/CI 新 runner 上前 600 秒内的第一条告警会被误判成"刚发过"而静默吞掉。
+    last = _alert_last_sent.get(kind)
+    if last is not None and now - last < _ALERT_MIN_INTERVAL:
         return
     _alert_last_sent[kind] = now
     try:

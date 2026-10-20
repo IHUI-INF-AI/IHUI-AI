@@ -49,7 +49,7 @@
 | 8813 | OTel Collector HTTP | 8813 | `docker-compose.yml` `${OTEL_COLLECTOR_PORT:-8813}:8813` |
 | 8814 | Jaeger UI | 8814 | `docker-compose.yml` `${JAEGER_UI_PORT:-8814}:8814` |
 | 8815 | Prometheus | 8815 | `docker-compose.yml` `${PROMETHEUS_PORT:-8815}:8815` |
-| 8816 | Grafana | 8816 | `docker-compose.yml` `${GRAFANA_PORT:-8816}:8816` |
+| 8816 | 大屏 | 8816 | `docker-compose.yml` `${GRAFANA_PORT:-8816}:8816` |
 | 8817 | Node Exporter | 8817 | `docker-compose.yml` `${NODE_EXPORTER_PORT:-8817}:8817` |
 | 8818 | Loki | 8818 | `docker-compose.yml` `${LOKI_PORT:-8818}:8818` |
 | 8819 | (预留扩展) | — | — |

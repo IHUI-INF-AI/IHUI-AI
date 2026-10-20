@@ -140,3 +140,81 @@ export function gitCommitPaths({ sha, ...opts } = {}) {
     opts,
   )
 }
+
+/**
+ * 暂存区**改名对**清单(HEAD ↔ 索引,`diff --cached -M --name-status -z`,2026-10-19 立)。
+ *
+ * 为什么单独一路,不复用上面的 `gitStagedStatusEntries`:那一路刻意带 `--no-renames`,
+ * 因为对"有没有外来件"而言改名就该算「旧路径消失 + 新路径出现」。而**棘轮锚点**要的恰好
+ * 相反:同一枚文件换了地址,内容一个字没动,锚点必须跟着走。2026-10-19 panel 系改名契约
+ * 就是这一格:整棵面板树改名后,HEAD 面按新地址枚举到 0 个文件、锚点查不到 ⇒ 现读 30 处
+ * 存量幽灵被读成"本次新加" ⇒ 改名那一枚提交被自己的门拦死(§12e 恒红门形态)。
+ *
+ * 帧形(实测 `-z` + rename 的 R 条目):`R<score>NUL<旧路径>NUL<新路径>NUL` —— 一条状态带
+ * **两条**路径,与 `gitStagedStatusEntries` 的一状态一路径不同形,混用会把新路径读成状态码。
+ * 拆帧只此一份(§0.6),调用方不得再各自 split。
+ *
+ * 取不到 ⇒ 返回 `[]`(与其余四路同规:调用方按"没有改名"处理,不得据此断言"没有存量")。
+ */
+export function gitStagedRenamePairs(opts = {}) {
+  const parts = gitRawOutput(['diff', '--cached', '-M', '--name-status', '-z'], opts)
+    .split('\0')
+    .filter((s) => s !== '')
+  const out = []
+  for (let i = 0; i < parts.length; i++) {
+    const status = parts[i]
+    if (!/^R\d+$/.test(status)) {
+      i += 1 // A/M/D 形态:状态后跟一条路径,跳过它继续找下一条状态
+      continue
+    }
+    const from = parts[i + 1]
+    const to = parts[i + 2]
+    if (from === undefined || to === undefined) break
+    out.push({ from, to })
+    i += 2
+  }
+  return out
+}
+
+/**
+ * 由改名对折出「文件身份」索引(纯函数,零 IO —— 判据可被构造夹具双向证明)。
+ *
+ * 三条出口各自钉一件事:
+ *  - `identityOf(p)`:把任一地址折到**改名后**的地址(改名链成环也必须终止,不得死循环);
+ *  - `legacyDirsFor(dir)`:哪些旧目录被改名进了 `dir`(供在旧地址还挂在被审面上的那一枚提交里
+ *    枚举到文件 —— 枚举不到的后果不是放行,是整棵树"未判定");
+ *  - `legacyPathsFor(target)`:某个目标文件的旧地址(台账/配置类单文件同理)。
+ * 落地之后没有待提交的改名 ⇒ 三个出口分别回到"原样/空/空",行为与改名前逐字相同。
+ */
+export function buildRenameIndex(pairs) {
+  const toIdentity = new Map((pairs || []).map(({ from, to }) => [from, to]))
+  const identityOf = (p) => {
+    let cur = String(p)
+    const seen = new Set()
+    while (toIdentity.has(cur) && !seen.has(cur)) {
+      seen.add(cur)
+      cur = toIdentity.get(cur)
+    }
+    return cur
+  }
+  return {
+    identityOf,
+    legacyDirsFor(dir) {
+      const prefix = `${String(dir).replace(/\/+$/, '')}/`
+      const out = []
+      for (const [from, to] of toIdentity) {
+        if (!to.startsWith(prefix)) continue
+        const oldDir = from.slice(0, from.lastIndexOf('/') + 1)
+        if (!oldDir || oldDir === `${prefix}`) continue
+        const asDir = oldDir.replace(/\/+$/, '')
+        if (!out.includes(asDir)) out.push(asDir)
+      }
+      return out
+    },
+    legacyPathsFor(target) {
+      const out = []
+      for (const [from, to] of toIdentity) if (to === target && !out.includes(from)) out.push(from)
+      return out
+    },
+  }
+}

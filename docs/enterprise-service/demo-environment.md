@@ -106,7 +106,7 @@ docker compose -f docker-compose.demo.yml exec api \
 | **Web 前端** | <http://localhost:8801> | 主入口(用户/管理员共用) |
 | **API 服务** | <http://localhost:8802/docs> | Swagger API 文档(OpenAPI 3.0) |
 | **AI Service** | <http://localhost:8803/docs> | FastAPI 自动文档 |
-| **Grafana 监控** | <http://localhost:8816> | 监控仪表盘(admin / admin) |
+| **大屏 监控** | <http://localhost:8816> | 监控仪表盘(admin / admin) |
 | **PostgreSQL** | `localhost:5432` | 仅本机访问 |
 | **Redis** | `localhost:6379` | 仅本机访问 |
 
@@ -167,7 +167,7 @@ docker compose -f docker-compose.demo.yml exec api \
 4. **审计 + 监控**(5 分钟)
    - 切换到 `david@demo.ihui-ai.com`(审计员)
    - 查看 90 天审计日志(操作 / 登录 / 数据变更)
-   - 切换到 Grafana 查看 QPS / 延迟 / 错误率
+   - 切换到 大屏 查看 QPS / 延迟 / 错误率
 
 5. **私有部署 / 国产化**(7 分钟)
    - 演示一键部署脚本 `./scripts/setup-enterprise-demo.sh --deploy k8s`

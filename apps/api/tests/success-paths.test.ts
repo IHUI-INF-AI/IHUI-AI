@@ -296,6 +296,9 @@ describe('success paths', () => {
     server.decorate('riskEngine', {
       evaluateRisk: () => ({ action: 'ALLOW' as const, hits: [], score: 0 }),
     })
+    // 注册埋点由 business-metrics 插件在生产 app 上装饰;本测试只挂 authRoutes,
+    // 用 no-op 保持与生产同形(注册路由会同步调它,缺装饰器即 TypeError 500)。
+    server.decorate('recordFunnel', () => {})
     // auth 路由依赖 reply.setCookie（setAuthCookies），测试 app 须注册 @fastify/cookie
     await server.register(cookie)
     server.register(authRoutes, { prefix: '/api/auth' })

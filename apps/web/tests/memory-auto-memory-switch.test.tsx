@@ -40,6 +40,11 @@ const { fetchApiMock, fetchMemoryMock, deleteMemoryMock } = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
+// 记忆页 effect 由 useAuthGate 的 allow 把门(G-933:未登录不发注定 401 的请求);
+// 本文件测的是已登录记忆页,给恒定放行,避免效果永不执行而把开关测成默认值。
+vi.mock('@/hooks/use-auth-gate', () => ({
+  useAuthGate: () => ({ ready: true, allow: true }),
+}))
 vi.mock('@/lib/memory-api', () => ({
   fetchMemory: fetchMemoryMock,
   deleteMemory: deleteMemoryMock,
@@ -76,7 +81,9 @@ vi.mock('lucide-react', () => {
 vi.mock('@ihui/ui-react', () => {
   const Box = ({ children }: { children?: React.ReactNode }) => <>{children}</>
   return {
-    Button: ({ children }: { children?: React.ReactNode }) => <button type="button">{children}</button>,
+    Button: ({ children }: { children?: React.ReactNode }) => (
+      <button type="button">{children}</button>
+    ),
     Card: Box,
     CardHeader: Box,
     CardTitle: Box,
@@ -112,9 +119,8 @@ vi.mock('@/components/common', () => ({
   BackButton: () => null,
 }))
 
-const { default: MemoryListPage, resolveAutoMemoryEnabled } = await import(
-  '../app/(main)/memory/page'
-)
+const { default: MemoryListPage, resolveAutoMemoryEnabled } =
+  await import('../app/(main)/memory/page')
 
 /** 让 /settings/privacy 的 GET 返回给定 settings(成功形态) */
 function privacyOk(settings: Record<string, string>) {
@@ -217,7 +223,9 @@ describe('记忆页开关写入', () => {
   /** 取写入 /settings/privacy 的那一次 PUT 调用 */
   function putCall() {
     const calls = fetchApiMock.mock.calls.filter(
-      (c) => String(c[0]).includes('/settings/privacy') && (c[1] as RequestInit | undefined)?.method === 'PUT',
+      (c) =>
+        String(c[0]).includes('/settings/privacy') &&
+        (c[1] as RequestInit | undefined)?.method === 'PUT',
     )
     expect(calls).toHaveLength(1)
     return calls[0]
@@ -274,10 +282,7 @@ describe('记忆页开关写入', () => {
 })
 
 describe('源码层面的反极性防回归', () => {
-  const SRC = readFileSync(
-    resolve(__dirname, '../app/(main)/memory/page.tsx'),
-    'utf8',
-  )
+  const SRC = readFileSync(resolve(__dirname, '../app/(main)/memory/page.tsx'), 'utf8')
 
   it('写入体只用 autoMemoryOptOut,不再出现旧的 autoMemory 键', () => {
     // 找到 PUT /settings/privacy 那个 JSON.stringify 的实参
