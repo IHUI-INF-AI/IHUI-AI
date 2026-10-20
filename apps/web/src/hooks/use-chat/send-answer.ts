@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useChatStore, type ChatMessage, type ChatRole } from '@/stores/chat'
+import type { ChatStore } from '@/stores/chat-pane-context'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -57,6 +58,7 @@ import type { ChatActionContext } from './types'
 
 export function createSendAnswer(
   ctx: ChatActionContext,
+  chatStore: ChatStore = useChatStore,
 ): (answer: string, opts?: { fromRetry?: boolean }) => Promise<void> {
   const {
     t,
@@ -69,7 +71,7 @@ export function createSendAnswer(
   const sendAnswer = async (answer: string, opts?: { fromRetry?: boolean }) => {
     const trimmed = answer.trim()
     if (!trimmed) return
-    const store = useChatStore.getState()
+    const store = chatStore.getState()
     const pending = store.pendingQuestion
     if ((!pending && !opts?.fromRetry) || store.isStreaming) return
     // fromRetry 时 pending 已被清除,questionId 从 lastSentAnswerRef 恢复
@@ -115,7 +117,7 @@ export function createSendAnswer(
     // 读起来像本轮发生了什么 —— 本仓记过多次的"上一轮瞬时态挂到下一轮的卡上"同一型
     // (terminalInteractions / steer 提示条 / fallback 通知都按这条清过)。
     // 清的是**同一个 store 键**,不在续答支里另起第二份通知态(那样两端各有一条轴读得懂的账)。
-    useChatStore.getState().setReasoningEffortNotice(null)
+    chatStore.getState().setReasoningEffortNotice(null)
     // Steer(中途引导,2026-09-19 立,与 sendMessage 对称):记录当前流式 assistant 消息 ID
     store.setStreamingAssistantId(assistantId)
 
@@ -147,10 +149,10 @@ export function createSendAnswer(
 
     // #9 流式 token 节流(2026-07-25 立,与 sendMessage 对称)
     const contentBatcher = createDeltaBatcher((d) =>
-      useChatStore.getState().appendToMessage(assistantId, d),
+      chatStore.getState().appendToMessage(assistantId, d),
     )
     const reasoningBatcher = createDeltaBatcher((d) =>
-      useChatStore.getState().appendReasoningToMessage(assistantId, d),
+      chatStore.getState().appendReasoningToMessage(assistantId, d),
     )
     const agentBatcher = createAgentDeltaBatcher()
 
@@ -174,13 +176,13 @@ export function createSendAnswer(
     }
     // P1-6 断点续传(2026-09-13 立):与 sendMessage 对称——续答流开始先标记该助手消息
     // 「未完成」;中途刷新页面时 finally 不执行,标记保持 false,页面重挂载后据此续接。
-    useChatStore.getState().setMessageStreamCompleted(assistantId, false)
+    chatStore.getState().setMessageStreamCompleted(assistantId, false)
     try {
       const answerContextLimit = getModelContextCapacity(effectiveModel)
       // 2026-09-21 修复(与 sendMessage 对称):仅当上下文占用已达后端 88% 压缩阈值,
       // 才显示"正在压缩上下文"预告;原实现无条件点亮且无兜底回收,会全站常驻。
       if (isContextAtCompactionThreshold(store.messages, answerContextLimit)) {
-        useChatStore.getState().setCompactionStatus({ phase: 'compacting' })
+        chatStore.getState().setCompactionStatus({ phase: 'compacting' })
       }
       logger.debug(
         '[Compaction] sendAnswer contextLimit=',
@@ -236,9 +238,9 @@ export function createSendAnswer(
         contextLimit: answerContextLimit,
         onCompaction: async (info) => {
           // 2026-08-21 修复(C2):压缩结果只允许写回发起流的会话(与 sendMessage 对称)
-          if (useChatStore.getState().conversationId !== convAtStart) return
+          if (chatStore.getState().conversationId !== convAtStart) return
           // 显示底部压缩状态栏(2026-08-16 立)
-          useChatStore.getState().setCompactionStatus({
+          chatStore.getState().setCompactionStatus({
             phase: 'done',
             tokensBefore: info.tokensBefore,
             tokensAfter: info.tokensAfter,
@@ -252,7 +254,7 @@ export function createSendAnswer(
           const compressedMessages = info.compressedMessages as
             Array<{ role: ChatRole; content: string }> | undefined
           if (compressedMessages && compressedMessages.length > 0) {
-            const localMessages = useChatStore.getState().messages
+            const localMessages = chatStore.getState().messages
             const lastLocal = localMessages[localMessages.length - 1]
             const hasLocalAssistant =
               lastLocal && lastLocal.role === 'assistant' && lastLocal.id === assistantId
@@ -264,12 +266,12 @@ export function createSendAnswer(
               model: '',
             }))
             const finalMessages = hasLocalAssistant ? [...converted, lastLocal] : converted
-            useChatStore.getState().setMessages(finalMessages)
+            chatStore.getState().setMessages(finalMessages)
             return
           }
 
           // 兜底:旧版本后端未携带 compressedMessages 时,仍从后端重新加载
-          const currentConversationId = useChatStore.getState().conversationId
+          const currentConversationId = chatStore.getState().conversationId
           if (!currentConversationId) return
 
           try {
@@ -281,7 +283,7 @@ export function createSendAnswer(
             const remoteMessages = result.data.messages
 
             // 保留前端本地当前 assistant 消息(流式输出中,后端可能尚未持久化)
-            const localMessages = useChatStore.getState().messages
+            const localMessages = chatStore.getState().messages
             const lastLocal = localMessages[localMessages.length - 1]
             const hasLocalAssistant =
               lastLocal && lastLocal.role === 'assistant' && lastLocal.id === assistantId
@@ -299,7 +301,7 @@ export function createSendAnswer(
 
             const finalMessages = keepLocalAssistant ? [...converted, lastLocal] : converted
 
-            useChatStore.getState().setMessages(finalMessages)
+            chatStore.getState().setMessages(finalMessages)
           } catch (e) {
             console.error('压缩后同步消息失败:', e)
           }
@@ -314,14 +316,14 @@ export function createSendAnswer(
         // 用户看到的是"我选的 high,回复像默认档",而账面全绿(守门 64/70/81/115 那一族)。
         // api-client 只在真有回落时才回调(fallback=false 不回调),所以这里不二次判等,直接落。
         onReasoningEffortNotice: (info) => {
-          useChatStore.getState().setReasoningEffortNotice(info)
+          chatStore.getState().setReasoningEffortNotice(info)
         },
         // Steer(中途引导,2026-09-19 立,与 sendMessage 对称):tool loop 边界注入确认
         // 写入消息级引导徽章数据,messageId 缺省回退本条 assistant 消息 ID。
         onSteer: (evt) => {
           const targetId = evt.messageId ?? assistantId
           if (!targetId || !evt.text) return
-          useChatStore.getState().appendSteerNotice(targetId, {
+          chatStore.getState().appendSteerNotice(targetId, {
             text: evt.text,
             timestamp: evt.timestamp,
           })
@@ -349,7 +351,7 @@ export function createSendAnswer(
           noteRuntimeCapabilities(usage)
           // P1 token 用量写入消息 meta(2026-08-15 立,与 sendMessage 对称):sendAnswer 续流同样收到 usage chunk,
           // 前端收到后更新 assistant 消息 meta.usage,UI 展示 token 计数。
-          useChatStore.getState().updateMessageMeta(assistantId, { usage })
+          chatStore.getState().updateMessageMeta(assistantId, { usage })
           // D1 消息级计量(2026-09-19 立):写入 store.usageByMessageId,驱动消息底部徽章行。
           createUsageHandler(assistantId)(usage)
         },
@@ -382,16 +384,16 @@ export function createSendAnswer(
         // sendAnswer 续流同样可能触发 dispatch_subagent 工具,需写入 store。
         // 2026-07-29 Phase 21:补齐 onSubagentProgress + 同步写入 timeline-store。
         onSubagentSpawn: (evt) => {
-          useChatStore.getState().addSubagentSpawn(evt)
+          chatStore.getState().addSubagentSpawn(evt)
           useTimelineStore.getState().addEvent(mapSpawnToTimelineEvent(evt))
         },
         onSubagentProgress: (evt) => {
-          useChatStore.getState().updateSubagentProgress(evt)
+          chatStore.getState().updateSubagentProgress(evt)
           const update = mapProgressToTimelineUpdate(evt)
           if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
         },
         onSubagentEnd: (evt) => {
-          useChatStore.getState().markSubagentEnd(evt)
+          chatStore.getState().markSubagentEnd(evt)
           const update = mapEndToTimelineUpdate(evt)
           if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
         },
@@ -411,7 +413,7 @@ export function createSendAnswer(
             tokenUsage: item.tokenUsage,
             messageId: evt.messageId,
           }))
-          useChatStore.getState().setMessagePlanSteps(evt.messageId, steps)
+          chatStore.getState().setMessagePlanSteps(evt.messageId, steps)
         },
         onTerminalStart: (evt) => {
           if (!evt.messageId) return
@@ -422,11 +424,11 @@ export function createSendAnswer(
             startedAt: evt.startedAt ?? new Date().toISOString(),
             messageId: evt.messageId,
           }
-          useChatStore.getState().appendMessageTerminalTask(evt.messageId, task)
+          chatStore.getState().appendMessageTerminalTask(evt.messageId, task)
         },
         onTerminalEnd: (evt) => {
           if (!evt.messageId) return
-          useChatStore.getState().updateMessageTerminalTask(evt.messageId, evt.terminalId, {
+          chatStore.getState().updateMessageTerminalTask(evt.messageId, evt.terminalId, {
             status: evt.status,
             output: evt.output,
             exitCode: evt.exitCode,
@@ -498,8 +500,8 @@ export function createSendAnswer(
           const ec = info?.errorCode
           const quotaNotice = localizeQuotaExhausted(ec, t)
           const displayMessage = quotaNotice?.message ?? formatted.message
-          useChatStore.getState().setMessageError(assistantId, displayMessage, formatted.errorCode) // D92:带 errorCode 供分类表取词
-          useChatStore.getState().setError(displayMessage)
+          chatStore.getState().setMessageError(assistantId, displayMessage, formatted.errorCode) // D92:带 errorCode 供分类表取词
+          chatStore.getState().setError(displayMessage)
           if (formatted.severity === 'auth') {
             useLoginDialogStore.getState().open('login')
           }
@@ -541,21 +543,17 @@ export function createSendAnswer(
         // #13 区分两种超时,用户主动 stop 静默不报错
         if (abortedByTimeout15s) {
           const formatted = formatSSEError(err, t('errorTimeout15s'))
-          useChatStore
-            .getState()
-            .setMessageError(assistantId, formatted.message, formatted.errorCode) // D92:带 errorCode 供分类表取词
-          useChatStore.getState().setError(formatted.message)
+          chatStore.getState().setMessageError(assistantId, formatted.message, formatted.errorCode) // D92:带 errorCode 供分类表取词
+          chatStore.getState().setError(formatted.message)
         } else if (abortedByTimeout60s) {
           const formatted = formatSSEError(err, t('errorTimeout60s'))
-          useChatStore
-            .getState()
-            .setMessageError(assistantId, formatted.message, formatted.errorCode) // D92:带 errorCode 供分类表取词
-          useChatStore.getState().setError(formatted.message)
+          chatStore.getState().setMessageError(assistantId, formatted.message, formatted.errorCode) // D92:带 errorCode 供分类表取词
+          chatStore.getState().setError(formatted.message)
         }
       } else {
         const formatted = formatSSEError(err)
-        useChatStore.getState().setMessageError(assistantId, formatted.message, formatted.errorCode) // D92:带 errorCode 供分类表取词
-        useChatStore.getState().setError(formatted.message)
+        chatStore.getState().setMessageError(assistantId, formatted.message, formatted.errorCode) // D92:带 errorCode 供分类表取词
+        chatStore.getState().setError(formatted.message)
         if (formatted.severity === 'auth') {
           useLoginDialogStore.getState().open('login')
         }
@@ -611,12 +609,12 @@ export function createSendAnswer(
         // G-703(2026-09-29 立,与 sendMessage 对称):终态走 store 的单一出口,一次回收
         // isStreaming / streamingAssistantId / aiStreamSessionId 三键 —— 原先这里只清了前两个
         // (各一行),上行寻址凭据没人管,于是上一轮的 sessionId 会活到下一轮。
-        useChatStore.getState().clearRunScopedState()
-        useChatStore.getState().markAllAgentStreamsDone()
+        chatStore.getState().clearRunScopedState()
+        chatStore.getState().markAllAgentStreamsDone()
       }
       // P1-6:流已收尾(正常/报错/超时/主动 stop)→ 标记完成,刷新后不再续接。
       // 与 sendMessage 同理,必须放在代际守卫之外:被切会话 abort 的旧流同样已终止。
-      useChatStore.getState().setMessageStreamCompleted(assistantId, true)
+      chatStore.getState().setMessageStreamCompleted(assistantId, true)
     }
     return
   }
