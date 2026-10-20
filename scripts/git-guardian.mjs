@@ -3921,7 +3921,14 @@ export function auditPublicPathProbe(opts = {}) {
         // 原写法 `seq;verdict` 仍会每 4 小时重寄同一句话:这件事的成因(跨境段 + 全落 lax 边缘 PoP)
         // 机主短期不会动 ⇒ 同因同档持续 = 同一身份 ⇒ 由下面的日级窗口压住;一旦跨档(恶化到断流级、
         // 或成因从入口段换成服务段)身份即变 ⇒ 立刻重报。绝不靠静音,只靠"没有新事实就别刷屏"。
-        const alertId = classifyAlertIdentity(key, r?.stat || {}, {
+        // 派发契约里的 `stat` 是**严重度档的唯一输入**(classifyAlertIdentity 只从它取
+        // unavailable/longestRunMs/runs/slowRatio)。尺子哪天不带它 ⇒ 档恒 0、断流级恶化不再变成
+        // 新身份 ⇒ 24h 窗口把"更坏了"压成"同一件事"。这必须当场喊出来:静默降级成 `{}` 就是
+        // 把"没量到"写成"量到了且没问题"(§0.3),而它上一版正是这么无声失效了两周。
+        const hasStat = !!r?.stat && typeof r.stat === 'object'
+        if (!hasStat)
+          logger(`⚠️ 公网探测越阈但身份缺少 stat(尺子未出口序列读数)⇒ 严重度档只能按档 0,本轮「恶化即重报」失明:${key}`)
+        const alertId = classifyAlertIdentity(key, hasStat ? r.stat : {}, {
           firstBreachAtMs: Date.parse(String(st.firstAt || '')),
           nowMs: now,
           leg,

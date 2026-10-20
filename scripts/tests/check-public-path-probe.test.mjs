@@ -251,7 +251,7 @@ test('⑧ 定位到"哪一段"必须**随对照组与握手分界翻**(变异取
 })
 
 test('⑨ 形状锁:新判据符号必须从 __test__ 出口可达(实现了但调不到 = 没实现,§0.9)', () => {
-  for (const k of ['classifySample', 'sampleStage', 'summarizeSequence', 'classifyPublicLeg', 'judgeSequence', 'classifyAlertIdentity']) {
+  for (const k of ['classifySample', 'sampleStage', 'summarizeSequence', 'classifyPublicLeg', 'judgeSequence', 'classifyAlertIdentity', 'projectVerdictForDispatch']) {
     assert.equal(typeof probe[k], 'function', `__test__ 出口缺 ${k} —— 镜像测试就只能靠复制判据(§22c 禁止)`)
   }
   // numbers 必须真带出分账读数(否则邮件里仍然只有"慢 6"这一句话,收信人无从下手)
@@ -342,5 +342,33 @@ test('⑫ 成因段只映射既有输出:段标签/A/窗口段/对照组 ⇒ 档
   const mod = await import('../check-public-path-probe.mjs')
   assert.equal(typeof mod.classifyAlertIdentity, 'function')
   assert.equal(mod.classifyAlertIdentity, probe.classifyAlertIdentity, '具名导出与 __test__ 出口必须是同一枚实现')
+})
+
+// ───────────── 2026-10-20 新增:派发契约(投影层不得吞掉严重度档的唯一输入) ─────────────
+
+test('⑬ 投影到派发契约后,严重度档必须仍然算得出来(实测曾被无声吞掉两周)', () => {
+  const j = probe.judgeSequence('B/公网·常态·入口段', rate(20, 12), { rule: 'ratio', slowMs: 8000 })
+  const verdict = { key: 'B/公网·常态·入口段', ...j, leg: 'entry', stat: rate(20, 12) }
+  const projected = probe.projectVerdictForDispatch(verdict)
+
+  // ① 契约键齐全:派发层 git-guardian 按这五个键算身份与出路,少任何一个都是"读成没问题"。
+  for (const k of ['verdict', 'reasons', 'numbers', 'leg', 'stat']) {
+    assert.ok(projected[k] !== undefined, `派发契约缺 ${k} —— 消费方按 \`r?.${k}\` 取,取不到不报错,只会静默降级`)
+  }
+  // ② 拿投影后的 stat 再走一遍身份,必须与原始 stat 逐字节同结果(投影是有损还是无损,只认这条)。
+  const raw = probe.classifyAlertIdentity('B/公网·常态·入口段', verdict.stat, { nowMs: T0, leg: 'entry' })
+  const viaProject = probe.classifyAlertIdentity('B/公网·常态·入口段', projected.stat, { nowMs: T0, leg: 'entry' })
+  assert.equal(viaProject.identity, raw.identity, `投影改变了身份:${raw.identity} → ${viaProject.identity}`)
+  assert.equal(viaProject.sevTier, 2, `纯慢 60% 应是档 2,实得档 ${viaProject.sevTier}`)
+  // ③ 变异自证:**这正是线上那一型** —— 契约里没 stat 时 sev 恒 0,断流级恶化不再变成新身份。
+  const starved = probe.classifyAlertIdentity('B/公网·常态·入口段', {}, { nowMs: T0, leg: 'entry' })
+  assert.equal(starved.sevTier, 0, '反证失效:摘掉 stat 后仍然不是档 0,说明这一维本来就没靠 stat')
+  assert.notEqual(starved.identity, raw.identity, '摘掉 stat 必须让身份变形(否则"恒 0"根本看不出来)')
+  // ④ 断流级也必须能穿过契约:全拒连(0 慢样本、sev=4)投影后仍是 4。
+  const broke = probe.summarizeSequence(Array.from({ length: 6 }, (_, i) => mkSample({ status: null, ms: 3, causeCode: 'ECONNREFUSED' }, i)), { slowMs: 8_000 })
+  const brokeP = probe.projectVerdictForDispatch({ key: 'B/公网·常态·入口段', ...probe.judgeSequence('B/公网·常态·入口段', broke, { rule: 'ratio', slowMs: 8000 }), leg: 'entry', stat: broke })
+  assert.equal(probe.classifyAlertIdentity('B/公网·常态·入口段', brokeP.stat, { nowMs: T0, leg: 'entry' }).sevTier, 4, 'sev=4 是升级即重报那一档,过不了契约就等于没有')
+  // ⑤ A 序列本来就带 stat(:1258)—— 旧投影把它丢掉过,所以这里连 A 一起钉。
+  assert.ok(probe.projectVerdictForDispatch({ key: 'A/公网', verdict: 'breach', reasons: [], numbers: 'x', stat: broke }).stat !== undefined, 'A 序列的 stat 也不许在投影里丢')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
