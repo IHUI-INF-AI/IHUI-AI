@@ -195,6 +195,17 @@ def record_llm_outcome(
             llm_cost_usd_total.labels(provider=provider, model=model).inc(cost_usd)
         if error_status:
             llm_provider_errors_total.labels(provider=provider, status=error_status).inc()
+            # 2026-10-20 修复:错误计数此前只增计数不记日志;且原生流式错误事件路径
+            # 直接 fallback 兜底、根本不调本函数,导致"4xx 计数在涨但日志搜不到"。
+            # 这里集中记一条,使任何走 record_llm_outcome error 分支的失败都有文本溯源;
+            # 原生流式分支另在 llm_gateway.py 错误事件处补了 logger.warning 双重保险。
+            logger.warning(
+                "LLM 上游调用错误(provider=%s, status=%s, model=%s, duration=%.3fs)",
+                provider,
+                error_status,
+                model,
+                duration_seconds if duration_seconds is not None else -1.0,
+            )
         if interrupt_reason:
             llm_stream_interrupt_total.labels(
                 provider=provider, model=model, reason=interrupt_reason

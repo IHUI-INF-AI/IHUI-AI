@@ -2456,14 +2456,19 @@ class LLMGateway:
                 # TEMP-FIX(ai-feed): lazy import 绕过循环导入,跑完回退
                 from ..providers.base_provider import ProviderError
                 _native_metrics_t0 = time.perf_counter()
+                _native_provider_code = _model_to_provider_code(used_model)
                 try:
                     # P1 修复(2026-08-06): 用浅拷贝再 pop,避免破坏原 kwargs,
                     # 防止 ProviderError fallback 到 LiteLLM 时 tools 丢失导致 function calling 失效。
+                    # 2026-10-20 修复:原生适配器调用此前未过 provider_slot 并发闸,
+                    # stepfun 带 tools 的非流式主路径直接冲过免费档并发帽 5 → 429 自伤。
+                    # 与 LiteLLM 分支(L2545)对齐:用闸包住整次上游调用。
                     provider_kwargs = dict(kwargs)
                     tools = provider_kwargs.pop("tools", None)
-                    native_result = await provider.complete(
-                        trimmed_messages, used_model, tools=tools, **provider_kwargs
-                    )
+                    async with provider_slot(_native_provider_code):
+                        native_result = await provider.complete(
+                            trimmed_messages, used_model, tools=tools, **provider_kwargs
+                        )
                     # 观测收口(2026-10-18):原生适配器路径此前直接 return、零埋点——
                     # 调用次数/token/延迟/成本全不入 ihui_llm_*,与 LiteLLM 路径双标。
                     # 成本用 _estimate_cost_usd 第二档估算(与 LiteLLM 路径同口径),
@@ -3162,32 +3167,48 @@ class LLMGateway:
                 from app.services.async_gen_close import aclose_async_gen
 
                 try:
-                    async for evt in astream_iter:
-                        if (
-                            isinstance(evt, dict)
-                            and evt.get("type") == "error"
-                            and not native_sent_content
-                        ):
-                            async for fb_evt in self._astream_fallback_events(
-                                trimmed_messages,
-                                used_model,
-                                str(evt.get("message", "")) or "native provider stream failed",
+                    # 2026-10-20 修复:原生流式主路径此前未过 provider_slot 并发闸,
+                    # stepfun 流式主流量直接冲过免费档并发帽 5 → 429 自伤。
+                    # 与 LiteLLM 分支(L3304)对齐:闸包住整段流式消费(连接建立→流结束),
+                    # 这才是真实的"在途请求"计数;只包 provider.astream(...) 调用会因
+                    # 异步生成器惰性而不占闸(连接实际在首次 anext 才建立)。
+                    async with provider_slot(provider_code):
+                        async for evt in astream_iter:
+                            # 2026-10-20 修复:原生流式错误事件此前无文本日志,
+                            # 直接 fallback 兜底,导致 stepfun/agnes 4xx 在计数器涨但日志搜不到。
+                            if isinstance(evt, dict) and evt.get("type") == "error":
+                                logger.warning(
+                                    "LLM 原生流式错误事件(model=%s, provider=%s, sent_before=%s): %s",
+                                    used_model,
+                                    _metrics_provider(used_model),
+                                    native_sent_content,
+                                    str(evt.get("message", ""))[:300],
+                                )
+                            if (
+                                isinstance(evt, dict)
+                                and evt.get("type") == "error"
+                                and not native_sent_content
                             ):
-                                yield fb_evt
-                            return
-                        if isinstance(evt, dict) and evt.get("type") == "tool_call":
-                            # 2026-08-29 修复:tool_call 分片按 index 累积,不透传
-                            self._accumulate_tool_calls(
-                                native_tool_acc, evt.get("tool_calls") or []
-                            )
-                            continue
-                        if isinstance(evt, dict) and evt.get("type") in ("chunk", "reasoning"):
-                            native_sent_content = True
-                            if _native_ttft is None:
-                                _native_ttft = time.perf_counter() - _native_metrics_t0
-                        if isinstance(evt, dict) and evt.get("usage"):
-                            _native_final_usage = evt["usage"]
-                        yield evt
+                                async for fb_evt in self._astream_fallback_events(
+                                    trimmed_messages,
+                                    used_model,
+                                    str(evt.get("message", "")) or "native provider stream failed",
+                                ):
+                                    yield fb_evt
+                                return
+                            if isinstance(evt, dict) and evt.get("type") == "tool_call":
+                                # 2026-08-29 修复:tool_call 分片按 index 累积,不透传
+                                self._accumulate_tool_calls(
+                                    native_tool_acc, evt.get("tool_calls") or []
+                                )
+                                continue
+                            if isinstance(evt, dict) and evt.get("type") in ("chunk", "reasoning"):
+                                native_sent_content = True
+                                if _native_ttft is None:
+                                    _native_ttft = time.perf_counter() - _native_metrics_t0
+                            if isinstance(evt, dict) and evt.get("usage"):
+                                _native_final_usage = evt["usage"]
+                            yield evt
                 finally:
                     # return / 正常耗尽 / 消费者提前收流(GeneratorExit)三条出口都走这里;
                     # 已耗尽时 aclose 是合法 no-op,不会对正常完成路径做"二次回滚"。
