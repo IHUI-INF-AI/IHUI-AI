@@ -146,7 +146,7 @@ export default function AdminMonitorFunnelPage() {
                       </div>
                     </div>
                     {i > 0 && dropRate > 0 && (
-                      <div className="text-xs text-danger">↓ 流失 {dropRate.toFixed(1)}%</div>
+                      <div className="text-xs text-danger-text">↓ 流失 {dropRate.toFixed(1)}%</div>
                     )}
                   </div>
                 )
