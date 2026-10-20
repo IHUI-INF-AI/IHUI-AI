@@ -30,6 +30,7 @@ import NavBar from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
+import { tokens } from '../theme/active-tokens'
 
 const REPO_NAME_KEY = 'ihui:repo-wiki:repoName'
 
@@ -167,7 +168,7 @@ export function RepoWikiScreen() {
                 setViewingId('')
                 setDetail('')
               }}
-              className="ml-2 rounded-control border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+              className="ml-2 rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
             >
               <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                 {t('repoWiki.backToList')}
@@ -201,15 +202,15 @@ export function RepoWikiScreen() {
                 value={repoName}
                 onChangeText={setRepoName}
                 placeholder={t('repoWiki.repoNamePlaceholder')}
-                placeholderTextColor={isDark ? '#a3a3a3' : '#737373'}
+                placeholderTextColor={tokens.text.tertiary}
                 autoCapitalize="none"
                 autoCorrect={false}
-                className="mr-2 h-9 flex-1 rounded-control border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
+                className="mr-2 h-9 flex-1 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
               />
               <TouchableOpacity
                 disabled={loading}
                 onPress={onSearch}
-                className="rounded-control bg-neutral-900 px-3 py-2 dark:bg-neutral-100"
+                className="rounded-sm bg-neutral-900 px-3 py-2 dark:bg-neutral-100"
               >
                 <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                   {t('repoWiki.searchBtn')}
@@ -241,13 +242,13 @@ export function RepoWikiScreen() {
               {docs.map((doc) => (
                 <View
                   key={doc.id}
-                  className="mb-3 rounded-panel border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
+                  className="mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
                 >
                   <View className="flex-row items-center">
                     <Text className="flex-1 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                       {doc.title}
                     </Text>
-                    <View className="rounded-tiny bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">
+                    <View className="rounded-xs bg-neutral-100 px-2 py-0.5 dark:bg-neutral-800">
                       <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                         {t(doc.kind === 'module' ? 'repoWiki.kindModule' : 'repoWiki.kindOverview')}
                       </Text>
@@ -265,7 +266,7 @@ export function RepoWikiScreen() {
                     <TouchableOpacity
                       disabled={loadingDetail}
                       onPress={() => void onView(doc)}
-                      className="mr-2 rounded-control bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
+                      className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
                     >
                       <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                         {t('repoWiki.view')}
@@ -274,7 +275,7 @@ export function RepoWikiScreen() {
                     <TouchableOpacity
                       disabled={busyId === doc.id}
                       onPress={() => onDelete(doc)}
-                      className="rounded-control border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+                      className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
                     >
                       <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                         {t('repoWiki.delete')}
