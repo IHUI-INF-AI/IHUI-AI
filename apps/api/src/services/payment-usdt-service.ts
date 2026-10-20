@@ -126,7 +126,7 @@ export function isErc20Address(value: string): boolean {
  *   归类为「请求无法被正确处理」的 4xx。若报 500,整条充值链路在监控上会表现成
  *   「服务故障」,把一次可修的配置笔误升级成需要排查的线上事故。
  *
- * @param network 网络标识(大小写不敏感);非 TRC20 直接放行
+ * @param network 网络标识(大小写不敏感);TRC20 与 ERC20 各按自己的正则校验,其余网络直接放行
  * @param address 待校验的充值地址
  */
 export function assertUsdtAddressFormat(network: string, address: string): void {

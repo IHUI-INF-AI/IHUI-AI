@@ -17,6 +17,10 @@ describe('Live Extended API', () => {
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
+    // stream-end 回调会调 server.recordLiveStreamDisconnected()(live.ts:296),该装饰器由
+    // plugins/business-metrics.ts:1434 在生产 app 上装配;本测试只挂 liveRoutes,
+    // 缺件即 TypeError ⇒ 500(与 exam-status/auth-permission/success-paths 同一惯例:补 no-op 保形)。
+    app.decorate('recordLiveStreamDisconnected', vi.fn() as never)
     await app.register(liveRoutes, { prefix: '/api' })
     await app.register(adminLiveRoutes, { prefix: '/api/admin' })
     await app.ready()
