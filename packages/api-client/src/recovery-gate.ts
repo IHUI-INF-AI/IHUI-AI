@@ -101,7 +101,7 @@ export type RecoveryDeliveryKind =
   (typeof RECOVERY_DELIVERY_KINDS)[keyof typeof RECOVERY_DELIVERY_KINDS]
 
 /** 通道清单(封闭集的唯一派生,供测试逐条遍历与接线方校验)。 */
-export const RECOVERY_DELIVERY_KIND_LIST: readonly RecoveryDeliveryKind[] =
+const RECOVERY_DELIVERY_KIND_LIST: readonly RecoveryDeliveryKind[] =
   Object.values(RECOVERY_DELIVERY_KINDS)
 
 // ----------------------------------------------------------------------------
@@ -137,7 +137,7 @@ export type RecoveryReasonCode = keyof typeof RECOVERY_REASON_CODE_DECISIONS
  * 封闭集的成员清单。守门 120「名单类判据必须有正向证明」要求每条成员都被测试拿当
  * 输入 —— 导出它就是为了那份遍历断言,不是给消费方当类型兜底。
  */
-export const RECOVERY_REASON_CODES: readonly RecoveryReasonCode[] = Object.keys(
+const RECOVERY_REASON_CODES: readonly RecoveryReasonCode[] = Object.keys(
   RECOVERY_REASON_CODE_DECISIONS,
 ) as readonly RecoveryReasonCode[]
 
@@ -333,7 +333,7 @@ export type DeliveryKindRead =
  * 缺席 / 非字符串 / 空串 / **不在封闭集** ⇒ 一律 undetermined(不猜、不折成 hold)。
  * 纯函数,导出是为了接线方能在不动状态的前提下先问一句"这帧够格吗"。
  */
-export function readDeliveryKind(envelope: unknown): DeliveryKindRead {
+function readDeliveryKind(envelope: unknown): DeliveryKindRead {
   if (!isRecord(envelope)) {
     return { verdict: 'undetermined', reason: 'envelope-unreadable', raw: describeRaw(envelope) }
   }
@@ -355,7 +355,7 @@ export function readDeliveryKind(envelope: unknown): DeliveryKindRead {
  * 重订阅判定的纯函数出口(同 `readDeliveryKind`:不持状态,接线方可先行问询)。
  * 只读 reasonCode,**不读** deliveryKind —— 用通道定码是票面②的反例。
  */
-export function decideSubscriptionFromEnvelope(envelope: unknown): SubscriptionDecisionOutcome {
+function decideSubscriptionFromEnvelope(envelope: unknown): SubscriptionDecisionOutcome {
   if (!isRecord(envelope)) {
     return {
       verdict: 'undetermined',
@@ -404,7 +404,7 @@ export type ChunkOrdinalRead =
  * 读装配器自己的序号字段 `ordinal`(单一键名,不做同义键并桶)。
  * **不读 `seq`** —— 理由见文件头第 3 条;把 seq 收编成判据属那六个消费端同批改的一票。
  */
-export function readChunkOrdinal(input: unknown): ChunkOrdinalRead {
+function readChunkOrdinal(input: unknown): ChunkOrdinalRead {
   if (!isRecord(input)) {
     return { verdict: 'undetermined', reason: 'input-unreadable', raw: describeRaw(input) }
   }
