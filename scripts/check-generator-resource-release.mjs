@@ -20,14 +20,15 @@
  * 人读面与 --json 面都逐条点名。`yield` 转发 ⇒ 决定权在再往外一层,递归看到底,看不到底落
  * 未判定、不许猜"会耗尽";docstring / `__all__` / 同名定义 / 同名重绑定都不是消费点。
  *
- * 定级依据(现读,不照文档):本门落地当天 HEAD 面命中 > 0(见 --json 的 violations),
- * 所以**默认档只报数、--strict 才问责**。恒红门的唯一结局是各会话跳门、连带链上全部
- * 对账对该提交作废(AGENTS §12e)。升 blocking 的前置 = violations 归零。
+ * 定级依据(现读,不照文档):2026-10-20 把三种合法关停形态认进来之后(同步 with open、
+ * `_closing_event_stream` 包装、super() 委托由外层 finally 关停),HEAD 面
+ * passed=20 / violation=0 / undetermined=0,自检 54/54。**仍是 warn** —— 升 blocking 的
+ * 前置还差一格:`--staged` 面目前只枚举"相对 HEAD 改动的路径",零候选即 exit 2;
+ * 若升 blocking,任何不含生成器定义的 ai-service 提交都会被判死(恒红门,§12e)。
+ * 先改 staged 面为索引全树枚举,再谈升档。手动复现:node scripts/check-generator-resource-release.mjs --strict
  *
- * ⚠️ 当前**尚未接进提交链**:不在 scripts/guardian-runner.mjs、不在 .husky/**、不在
- * scripts/lib/pre-commit-hook.js。本门由 G-815959 交付,注册由主会话做。这条声称由
- * 镜像测试的方向锁钉住:未注册时头注必须自称未接,自称已接即红。
- * 问责入口(手动):node scripts/check-generator-resource-release.mjs --strict
+ * ✅ 已接进提交链:id 225(scripts/guardian-runner.mjs,warn;stagedTriggers=apps/ai-service/)。
+ * 方向锁由镜像测试 T1 钉住。
  *
  * 三态绝不并桶:passed / violation(有消费点而确证无关停)/ undetermined(找不到消费点、
  * 函数体边界算不出、框架 sink、转发链看不到底)。
@@ -77,6 +78,9 @@ const CLOSE_RES = [
   // 报成 10 枚 violation)。遮噪仍在(`maskForJudgement` 把行内字符串压白,见 :128),
   // 所以"只在字符串/docstring 里出现的 aclose"依旧不算关停。
   /\baclose\w*\s*\(/,
+  // 本仓 SSE 生成器的统一关停包装(agents.py):StreamingResponse(_closing_event_stream(gen))
+  // 在 finally 里 await aclose_async_gen(gen) —— 认出这一处,框架 sink 就不再是"看不到底"。
+  /_closing_event_stream\s*\(/,
 ]
 /** 框架 sink:框架承诺关停,但那条保证不在本面 ⇒ 落未判定而非判红 */
 const FRAMEWORK_SINK_RES = [/StreamingResponse\(/, /EventSourceResponse\(/, /StreamingHTTPResponse\(/]
@@ -262,6 +266,7 @@ export function scanPythonFile(relPath, src) {
       line: i + 1,
       name: m[3],
       generator: ownLevelHasYield,
+      isAsync: Boolean(m[2]),
       holdsResource: ownLevelHasResource,
       contextManagerWrapped: decoratedCM,
       bodyParsed: parsedOk || !ownLevelHasYield,
@@ -478,12 +483,35 @@ function resolveForward(name, files, depth) {
   }
   if (holders.length === 0) return { state: 'none', why: '往外一层找不到该名字的函数 ⇒ 看不到底' }
   const outs = []
-  for (const fn of holders) for (const c of findConsumers(fn, files)) outs.push((c.outcome ?? consumerOutcome(c, name)).state)
+  for (const fn of holders) {
+    // 外层生成器自己显式关停(aclose/_closing_event_stream)⇒ 这条转发链已到底,
+    // 不再按同名去别的定义里追(同名多定义会把已闭合的链重新打开,实测 11 provider)。
+    const body = maskForJudgement(fn.file, fn.bodyText ?? '')
+    if (CLOSE_RES.some((re) => re.test(body))) {
+      outs.push('closed')
+      continue
+    }
+    for (const c of findConsumers(fn, files)) outs.push((c.outcome ?? consumerOutcome(c, name)).state)
+  }
   if (outs.some((s) => s === 'open')) return { state: 'open', why: '往外一层存在提前退出/交接' }
   if (outs.some((s) => s === 'forward')) return { state: 'none', why: '还在往外传,未见底' }
   if (outs.some((s) => s === 'sink')) return { state: 'sink', why: '往外一层交给框架运行时' }
   if (outs.length > 0 && outs.every((s) => s === 'closed' || s === 'exhausted')) return { state: 'closed', why: '往外一层可证耗尽/已关停' }
   return { state: 'none', why: '往外一层无消费点 ⇒ 看不到底' }
+}
+/** 同步生成器:with open(...) 的作用域内确实 yield ⇒ 句柄随生成器终态关闭(CPython 引用计数) */
+function withOpenWrapsYield(bodyText) {
+  const lines = bodyText.split('\n')
+  for (let i = 0; i < lines.length; i += 1) {
+    if (!/\bwith\s+open\s*\(/.test(lines[i])) continue
+    const base = indentOf(lines[i])
+    for (let j = i + 1; j < lines.length; j += 1) {
+      if (lines[j].trim() === '') continue
+      if (indentOf(lines[j]) <= base) break
+      if (/\byield\b/.test(lines[j])) return true
+    }
+  }
+  return false
 }
 /**
  * 消费点定性 + 汇总。返回 {verdict, evidence[]} —— verdict ∈ passed|violation|undetermined。
@@ -497,6 +525,13 @@ export function judgeFunction(fn, consumers, ctx = {}) {
   }
   if (!fn.bodyParsed) return { verdict: 'undetermined', evidence: [`${fn.file}:${fn.line} 体边界算不出`] }
   if (consumers.length === 0) {
+    // 同步文件读取器:with open 的作用域包住了 yield,生成器终态即关闭句柄(不是 async 框架的 GC 依赖)。
+    if (fn.file.endsWith('.py') && fn.isAsync === false) {
+      const body = maskForJudgement(fn.file, fn.bodyText ?? '')
+      if (withOpenWrapsYield(body)) {
+        return { verdict: 'passed', evidence: [`${fn.file}:${fn.line} 同步生成器的文件句柄由自身 with open 作用域关停`] }
+      }
+    }
     return { verdict: 'undetermined', evidence: [`${fn.file}:${fn.line} 生产面找不到引用 ${fn.name} 的消费点`] }
   }
   const ev = []
@@ -548,6 +583,25 @@ export function judgeFunction(fn, consumers, ctx = {}) {
  * 方法名的真消费(`provider.astream(`)仍按名匹配 —— 无类型面时这是保守近似,
  * 同文件内多定义才需要再收窄,现读被审面无此形态。
  */
+/** 消费点所在的外层 Python 函数(取判据面;用于 super() 委托的 enclosing 归因) */
+function enclosingPyFunction(lines, idx) {
+  const ind = indentOf(lines[idx])
+  for (let k = idx - 1; k >= 0; k -= 1) {
+    if (lines[k].trim() === '') continue
+    const m = PY_DEF_RE.exec(lines[k])
+    if (!m) continue
+    const defIndent = indentOf(lines[k])
+    if (defIndent >= ind) continue
+    let end = k + 1
+    for (let j = k + 1; j < lines.length; j += 1) {
+      if (lines[j].trim() === '') continue
+      if (indentOf(lines[j]) <= defIndent) break
+      end = j + 1
+    }
+    return { line: k + 1, isAsync: Boolean(m[2]), bodyText: lines.slice(k, end).join('\n') }
+  }
+  return null
+}
 export function findConsumers(fn, allFiles) {
   const nm = fn.name.replace(/[^\w]/g, '_')
   const re = new RegExp(`\\b${nm}\\b`)
@@ -570,7 +624,15 @@ export function findConsumers(fn, allFiles) {
       if (taken++ >= 12) break // 窗口可达 400 行 ⇒ 每文件核候选数必须封顶
       const win = blockWindow(rawLines, i)
       const c = { file: p, line: i + 1, start: win.start, text: win.text, truncated: win.truncated }
-      c.outcome = consumerOutcome(c, fn.name)
+      // super().<name>( 是继承委托,不是终点消费:若外层生成器自己在 finally 里显式关停,
+      // 这条委托链已经闭合(token6688 → OpenAIProvider.astream 的实测形态)。
+      const superDelegation = new RegExp(`\\bsuper\\s*\\(\\s*\\)\\s*\\.\\s*${nm}\\s*\\(`).test(judgeLines[i])
+      const enclosing = superDelegation ? enclosingPyFunction(judgeLines, i) : null
+      if (enclosing && CLOSE_RES.some((re) => re.test(enclosing.bodyText))) {
+        c.outcome = { state: 'closed', why: 'super() 委托由外层生成器 finally 显式关停', sites: [] }
+      } else {
+        c.outcome = consumerOutcome(c, fn.name)
+      }
       if (c.outcome.sites.length > 0 || c.outcome.state === 'closed') real.push(c)
       else noise.push(c)
       if (real.length >= 8) break
@@ -796,11 +858,28 @@ function selfTest() {
   const countAt = (f, verdict, re) => HR.filter((r) => r.file.endsWith(f) && r.verdict === verdict && evHit(r, re)).length
   t('真仓①: command_streamer.py 存在穷尽式 async for 的 passed 判定', anyAt('command_streamer.py', 'passed'))
   t('真仓①b: message_history.py 存在"唯一生产消费是 list(...)"的 passed 判定', anyAt('message_history.py', 'passed'))
-  t('真仓②: openai_provider.astream 不再被误判 violation(唯一找到的消费点显式关停)', anyAt('openai_provider.py', 'undetermined', /显式关停/))
+  t('真仓②: openai_provider.astream 的消费链已闭合(不再被误判)', anyAt('openai_provider.py', 'passed'))
   t('真仓②b: 面上确实存在"closed(显式关停)"的证据(模块级 aclose_async_gen 被认出,非夹具自证)', HR.some((r) => evHit(r, /closed\(显式关停/)) === true)
   t('真仓②c: 该修正不产出任何 violation ⇒ 也不得把敞口洗成 passed(敞口只允许来自确证站点)', HR.filter((r) => r.verdict === 'passed').every((r) => !evHit(r, /open\(/)) === true)
-  t('真仓④: routers/agents.py 框架 sink ⇒ 未判定且逐条点名(现读 ≥3 处)', countAt('routers/agents.py', 'undetermined', /sink/) >= 3)
-  t('真仓⑤: rollout_archive.py 存在未判定而非 violation 的站点(仅 docstring/__all__ 命中)', anyAt('rollout_archive.py', 'undetermined'))
+  t('真仓④: routers/agents.py 的框架 sink 已由 _closing_event_stream 认作 closed(≥3 处)', countAt('routers/agents.py', 'passed', /closed\(显式关停/) >= 3)
+  t('真仓⑤: rollout_archive.py 同步 with open 已认作 passed', anyAt('rollout_archive.py', 'passed', /with open/))
+  // 2026-10-20 新增三型的成对/反向锁(防止"把没判写成判过")
+  t('_closing_event_stream 包装 ⇒ passed', judgeFunction(b, [{ file: 'z.py', line: 5, text: 'return StreamingResponse(_closing_event_stream(g(), label="x"))' }]).verdict === 'passed')
+  const SYNC_OPEN = 'def rows(p):\n    with open(p) as f:\n        for line in f:\n            yield line\n'
+  const sy = scanPythonFile('s.py', SYNC_OPEN).find((f) => f.name === 'rows')
+  t('同步生成器 with open 包住 yield ⇒ passed', sy && judgeFunction(sy, []).verdict === 'passed')
+  const SYNC_OPEN_LEAK = 'def rows(p):\n    f = open(p)\n    yield f\n'
+  const sy2 = scanPythonFile('s2.py', SYNC_OPEN_LEAK).find((f) => f.name === 'rows')
+  t('同步生成器 open 不包 yield ⇒ 未判定(不得洗白)', sy2 && judgeFunction(sy2, []).verdict === 'undetermined')
+  const CHILD = 'class C:\n    async def astream(self):\n        inner = super().astream()\n        try:\n            async for x in inner:\n                yield x\n        finally:\n            await aclose_async_gen(inner)\n'
+  const PARENT = 'class P:\n    async def astream(self):\n        async with client.stream("POST") as r:\n            yield r\n'
+  const GW = 'async def use(p):\n    async for x in p.astream():\n        await x.aclose()\n'
+  const files = new Map([['p.py', PARENT], ['c.py', CHILD], ['g.py', GW]])
+  const pfn = scanPythonFile('p.py', PARENT).find((f) => f.name === 'astream')
+  t('super() 委托由外层 finally 关停 ⇒ passed', pfn && judgeFunction(pfn, findConsumers(pfn, files), { files, depth: 0 }).verdict === 'passed')
+  const CHILD_NO = CHILD.replace('        finally:\n            await aclose_async_gen(inner)\n', '')
+  const filesNo = new Map([['p.py', PARENT], ['c.py', CHILD_NO], ['g.py', GW]])
+  t('super() 委托外层无关停 ⇒ 仍未判定(反向锁)', pfn && judgeFunction(pfn, findConsumers(pfn, filesNo), { files: filesNo, depth: 0 }).verdict !== 'passed')
   // 定级与判读
   t('默认档不因存量判红', decide({ counts: { passed: 1, violation: 5, undetermined: 2 }, strict: false, enumerated: true }) === 0)
   t('--strict 下 violation 判红', decide({ counts: { passed: 1, violation: 5, undetermined: 2 }, strict: true, enumerated: true }) === 1)
