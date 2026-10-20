@@ -4968,7 +4968,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 <!-- 已归档(2026-09-28:✅(2026-09-26 02:2x) **G-205 桌面端事件链路接线守门因一次正当重构而恒红 —— 修尺子,不动别,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 ### 第五十波·续末③ —— 三路并行审计推翻了我上一轮的两句结论;把"散文式后续"换成机器可见的欠账清单(2026-09-26)
 <!-- 已归档(2026-09-28:✅(2026-09-26) **先销自己的错**(上一格"续末②"里我写的两个数都是错的,现按实测更正):,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
-- [ ] **机器可见的欠账清单(三路并行审计的产出;每条都带 file:line 与"为什么现在没人看守")**: 〔拍板@2026-10-09 机主授权代行:欠账逐条按 file:line 归属,已在守门射程的靠门盯,未入射程的下一批补判据。〕
+- [ ] **机器可见的欠账清单(三路并行审计的产出;每条都带 file:line 与"为什么现在没人看守")**: 〔拍板@2026-10-09 机主授权代行:欠账逐条按 file:line 归属,已在守门射程的靠门盯,未入射程的下一批补判据。〕〔现读更新@2026-10-20/主会话:B 已根治 —— 门 46 现读 SCAN_DIRS = [apps/web/src, apps/web/app],并已按「该文件 HEAD 自身违规数」棘轮(门体头注 2026-10-05);C 抽样已消 —— calendar 的 tt(key,'‹') 与 manual-nav 字形现读 0 命中(fullscreenBack 现为 i18n 键文本,非字形);D 为空豁免通道,自述非缺陷;仅剩 A 的规模化迁移:6 个干净文件(NavBar.tsx:134 / ChatRoomScreen.tsx:322 / lecturer-detail / lecturer-list / publish / self-media,现场仍手搓 ChevronLeft)与 2 个在飞文件,属 UI 一致性迁移,按 §17 需真机验证,留待专门窗口。〕
   - **A. 第二/三份自绘返回键(6 + 3 处,跨两端)** —— 形态合法(矢量 ChevronLeft + 方块),但每文件一套几何与色档,
     而 S0 只登记 `packages/app/components/BackChevron.tsx` 与小程序同名件,**对未登记件零覆盖**:
     `packages/app/components/NavBar.tsx:134`(`color={tk.brand.DEFAULT}` —— 与 BackChevron 的 `text.medium` 不同档)、
