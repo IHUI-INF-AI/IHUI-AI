@@ -1,0 +1,4 @@
+{
+  "_note": "暖色描边禁令守门(check-no-warm-border.mjs)的具名到期台账。这是该门唯一的豁免通道——没有行内豁免标记。每条目必须写 file + rule(W1|W2|W3|*) + reason + ticket + until(YYYY-MM-DD)。到期即回队列;被审面不再命中的条目算清单腐烂。",
+  "exemptions": []
+}
