@@ -585,7 +585,7 @@ export function createSendMessage(
     const reasoningBatcher = createDeltaBatcher((d) =>
       chatStore.getState().appendReasoningToMessage(assistantId, d),
     )
-    const agentBatcher = createAgentDeltaBatcher()
+    const agentBatcher = createAgentDeltaBatcher(chatStore)
 
     // 从 auth store 获取 userId(用于回调链路关联)
     const userId = useAuthStore.getState().user?.id ?? ''
@@ -828,7 +828,7 @@ export function createSendMessage(
         // 2026-08-16 立:收到响应后立即清除压缩中状态(无论是否触发压缩)
         onResponse: () => {
           clearTimeout(timeout15sId)
-          clearCompactionPreview()
+          clearCompactionPreview(chatStore)
         },
         onUsage: (usage) => {
           // 流尾帧(done 帧族的载荷):能力声明挂在这一帧上时同上落库;读不到不写。
@@ -842,7 +842,7 @@ export function createSendMessage(
           // D1 消息级计量(2026-09-19 立):写入 store.usageByMessageId,驱动消息底部徽章行。
           // 载荷即 api-client UsageEvent(扁平契约):messageId/timing/costUsd 缺失(null)时
           // createUsageHandler 兜底(回退 assistantId / 0 / null)。
-          createUsageHandler(assistantId)(usage)
+          createUsageHandler(assistantId, chatStore)(usage)
           // P3 #43:实际 tokens 到达,供「实际 vs 预估」对比条展示
           if (usage.totalTokens > 0) {
             useCostGuardStore.getState().setActualTokens(usage.totalTokens)
@@ -885,7 +885,7 @@ export function createSendMessage(
             clearTimeout(timeout15sId)
             clearTimeout(timeout60sId)
           }
-          createToolCallHandler(assistantId)(event)
+          createToolCallHandler(assistantId, chatStore)(event)
         },
         // Subagent 自动派发(2026-07-28 立,对标 AI 工作台):
         // 后端 dispatch_subagent 工具执行前后发 subagent_spawn/end SSE 事件,
@@ -906,7 +906,7 @@ export function createSendMessage(
           if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
         },
         // 2026-07-31 立,AI 对话可视化深度接入:SSE 流末尾 tool-summary 事件落地
-        onToolSummary: createToolSummaryHandler(assistantId),
+        onToolSummary: createToolSummaryHandler(assistantId, chatStore),
         // 2026-08-01 Phase 4a:消息级 plan/terminal 事件落地(inline 到消息气泡)
         // subagent 事件无需新增回调:store 的 addSubagentSpawn/markSubagentEnd/updateSubagentProgress
         // 已内部判断 event.messageId 同步写入 message.subagentActivities。
@@ -944,7 +944,7 @@ export function createSendMessage(
         // 2026-10-06 归一(G-816034 ③):此前此处另写一份内联实现,与 stream-handlers 里
         // 带着用例的那份工厂语义重复而**永不执行**那份 —— 表现是测试一路绿而屏幕走的是另一条腿。
         // 内联那份还漏了 toolCallId 为空的守卫:空 id 会把 partialDiff 写进一个查不到的 toolCall。
-        onToolDelta: createToolDeltaHandler(assistantId),
+        onToolDelta: createToolDeltaHandler(assistantId, chatStore),
         // 2026-09-18 立(对标 Codex/Trae 的 bash 实时回显):终端命令执行期间后端逐块下发
         // terminal_delta(4 行/批),此处累加到 store.terminalOutputs(terminalId 为键),
         // 由终端实时面板边执行边滚动渲染。刻意不要求 messageId(事件只保证 terminalId),
@@ -1383,7 +1383,7 @@ export function createSendMessage(
         abortRef.current = null
         // 2026-09-21 修复:兜底回收"压缩中"预告态。onResponse 之前失败(HTTP 4xx/5xx throw)、
         // 超时 abort、主动 stop 都不会触发 onResponse,不清则灰条全站常驻(状态在全局 store)。
-        clearCompactionPreview()
+        clearCompactionPreview(chatStore)
         chatStore.getState().setStreaming(false)
         // Steer(中途引导,2026-09-19 立):流收尾同步清除流式消息 ID。
         // 代际守卫内清理,防止被「切换会话」abort 的旧流清掉新流的指向。
