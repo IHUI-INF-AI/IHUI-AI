@@ -2177,6 +2177,28 @@ try {
 Start-Web
 Start-Sleep -Seconds 8
 
+# ── SSH 入口存续(2026-10-21 立)───────────────────────────────────────────────
+# 现场:隧道 `ihui-local` 的 ingress `ssh.aizhs.top → ssh://127.0.0.1:22` 一直在、连接器 healthy、
+# 同隧道 rdp 腿正常,而带有效服务令牌打 Access 回 502(不带 token 是 302)⇒ Access 放行、后端没人接,
+# 即**本机 sshd 没在应答**。运维入口(ssh/rdp)与部署循环同属这台机的对外面,部署时顺带把 sshd
+# 拉回 Running 并置自动启动,是幂等修复而不是新增能力(该入口自 2026-09-14 起就在用)。
+# 失败只 WARN 不阻塞部署:sshd 起不来的原因(权限/端口占用)不该让一次代码发布整体回滚。
+try {
+    $sshdSvc = Get-Service -Name sshd -ErrorAction Stop
+    if ($sshdSvc.StartType -ne 'Automatic') {
+        Set-Service -Name sshd -StartupType Automatic -ErrorAction Stop
+        Log "OK    sshd 启动类型已置为 Automatic"
+    }
+    if ($sshdSvc.Status -ne 'Running') {
+        Start-Service -Name sshd -ErrorAction Stop
+        Log "OK    sshd 原先未运行,已拉起"
+    } else {
+        Log "OK    sshd 运行中"
+    }
+} catch {
+    Log "WARN  sshd 检查/拉起失败(不影响本次部署): $_"
+}
+
 # ── 成功标记写到"它成立的那一刻"(2026-09-27 从收尾移到此处)────────────────────
 # 此刻 .next 逐字节就是 HEAD 的构建(交换已完成),标记说的就是事实。
 # 旧位置在门禁 + api/ai-service 重启**之后**(实测中位 +73 秒,门禁挂死时 +45 分钟),所以一次
