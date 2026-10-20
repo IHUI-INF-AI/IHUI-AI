@@ -23,11 +23,7 @@ import { WORK_PANEL_STORAGE_KEY } from '@ihui/shared/constants'
  * 原先这个联合类型在 openPanel 与 navigate 各抄了一遍,加一档要改两处,两处算同一件事必漂移。
  */
 export type WorkPanelOpenSource =
-  | 'user'
-  | 'ai-tool'
-  | 'markdown-link'
-  | 'markdown-image'
-  | 'user-attachment-image'
+  'user' | 'ai-tool' | 'markdown-link' | 'markdown-image' | 'user-attachment-image'
 import type { WebViewMode, WebViewStatus, WorkPanelTab } from '@ihui/types'
 import type { PersistStorage } from 'zustand/middleware'
 
@@ -1152,7 +1148,14 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
 }
 
 // 开发调试暴露(非 production):供 browser 验证 / DevTools 触发 openPanel
-if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+// 2026-10-21 加显式 opt-in:CI e2e 跑 production 构建(next build && next start),只判
+// NODE_ENV 则句柄恒缺,work-panel.spec P4-5 的 DOM 断言会静默失守;构建时注入
+// NEXT_PUBLIC_E2E_EXPOSE_STORE=1 才暴露。NEXT_PUBLIC_ 前缀是必须的 —— 该值在客户端
+// bundle 里读,无此前缀的变量 next 构建期直接剥离、运行时永远取不到。
+if (
+  typeof window !== 'undefined' &&
+  (process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_E2E_EXPOSE_STORE === '1')
+) {
   ;(window as unknown as { __workPanelStore?: typeof useWorkPanelStore }).__workPanelStore =
     useWorkPanelStore
 }

@@ -30,7 +30,21 @@ test.describe('VIP 会员页 /vip', () => {
       const href = await subscribeBtn.getAttribute('href')
       // 2026-08-26 修复:未登录 /vip 显示登录墙,first() 匹配到侧边栏"会员订阅"
       // (/member/subscription,合法订阅入口),原断言仅认 /payment/checkout(支付页)过时。
-      expect(href).toMatch(/\/(payment\/checkout|member\/subscription)/)
+      // 2026-10-20 修复:补 /vip/details —— 套餐卡 CTA 今天就是链到它
+      // (apps/web/app/(main)/vip/page.tsx:230),而 /vip/details 即结账页
+      // (details/PageClient.tsx:319 下单、:72-73 渲染微信/支付宝两档)。
+      // CI 实测 href=/vip/details?levelId=… ⇒ 旧白名单在结账页上取不到输入(非产品回归)。
+      expect(href).toMatch(/\/(payment\/checkout|member\/subscription|vip\/details)/)
+      // 覆盖点不丢:落到 /vip/details 必须真提供下单动作(订阅按钮 + 两种支付方式);
+      // 只验渲染,绝不点击下单(会真建订单)。
+      if (href?.includes('/vip/details')) {
+        await page.goto(href)
+        await expect(page.getByRole('button', { name: '立即订阅' })).toBeVisible({
+          timeout: 10000,
+        })
+        await expect(page.getByRole('radio', { name: '微信支付' })).toBeVisible()
+        await expect(page.getByRole('radio', { name: '支付宝' })).toBeVisible()
+      }
     }
   })
 

@@ -266,7 +266,7 @@
   },
   "agent": {
     "useCount": "使用回数",
-    "rating": "評価",
+    "collectCount": "お気に入り",
     "permission": "権限",
     "statusIdle": "アイドル",
     "statusRunning": "実行中",

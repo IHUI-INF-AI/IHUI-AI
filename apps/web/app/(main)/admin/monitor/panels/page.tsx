@@ -21,6 +21,8 @@ import { RefreshCw, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { Tooltip } from '@/components/feedback'
+import { PageContainer } from '@/components/common/PageContainer'
+import { Tabs, TabsList, TabsTrigger } from '@ihui/ui-react'
 import type { NativeDashboard } from './dashboard-config.generated'
 import { rkey, materializeExpr, stepFor, DashboardGrid } from './panel-render'
 import type { QueryResult } from './panel-render'
@@ -60,8 +62,35 @@ type ConfigModule = Awaited<ReturnType<typeof loadConfig>>
 
 // ---------- 页面主体 ----------
 
+type MonitorView = 'panels' | 'wallboard'
+
+/**
+ * 两种呈现的切换器。刻意不自己占一行:由各视图的顶栏承载,复用共享 Tabs 档位
+ * (机主 2026-10-20 定档:切换件要显眼,但不许把内容往下挤一行)。
+ */
+function MonitorViewSwitch({
+  view,
+  onChange,
+}: {
+  view: MonitorView
+  onChange: (v: MonitorView) => void
+}) {
+  return (
+    <Tabs value={view} onValueChange={(v) => onChange(v as MonitorView)}>
+      <TabsList className="h-10">
+        <TabsTrigger value="panels" className="px-4">
+          监控面板
+        </TabsTrigger>
+        <TabsTrigger value="wallboard" className="px-4">
+          数据大屏
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
+  )
+}
+
 export default function MonitorPanelsPage() {
-  const [view, setView] = React.useState<'panels' | 'wallboard'>('panels')
+  const [view, setView] = React.useState<MonitorView>('panels')
 
   React.useEffect(() => {
     if (new URLSearchParams(window.location.search).get('view') === 'wallboard') {
@@ -69,7 +98,7 @@ export default function MonitorPanelsPage() {
     }
   }, [])
 
-  const switchView = (next: 'panels' | 'wallboard') => {
+  const switchView = (next: MonitorView) => {
     setView(next)
     const url = new URL(window.location.href)
     if (next === 'wallboard') url.searchParams.set('view', 'wallboard')
@@ -77,52 +106,22 @@ export default function MonitorPanelsPage() {
     window.history.replaceState(null, '', url.toString())
   }
 
+  const headerExtra = <MonitorViewSwitch view={view} onChange={switchView} />
+
   return (
-    <div className="flex h-[calc(100vh-64px)] flex-col gap-1 px-4">
-      <div className="flex shrink-0 items-center justify-end">
-        <div className="inline-flex items-center rounded-md border border-border bg-muted/40 p-0.5">
-          <button
-            type="button"
-            onClick={() => switchView('panels')}
-            className={cn(
-              'rounded-sm px-2 py-0.5 text-[11px] transition-colors',
-              view === 'panels'
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            监控面板
-          </button>
-          <button
-            type="button"
-            onClick={() => switchView('wallboard')}
-            className={cn(
-              'rounded-sm px-2 py-0.5 text-[11px] transition-colors',
-              view === 'wallboard'
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            数据大屏
-          </button>
-        </div>
-      </div>
-      <div className="min-h-0 flex-1">
+    <PageContainer padded={false} className="flex h-full flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {view === 'wallboard' ? (
-          <div className="h-full overflow-hidden rounded-lg border border-border bg-background">
-            <div className="h-full overflow-y-auto">
-              <WallboardView />
-            </div>
-          </div>
+          <WallboardView headerExtra={headerExtra} />
         ) : (
-          <MonitorPanelsContent />
+          <MonitorPanelsContent headerExtra={headerExtra} />
         )}
       </div>
-    </div>
+    </PageContainer>
   )
 }
 
-function MonitorPanelsContent() {
+function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode }) {
   const [config, setConfig] = React.useState<ConfigModule | null>(null)
   const [activeUid, setActiveUid] = React.useState<string>('')
   const [rangeSec, setRangeSec] = React.useState<number>(RANGES[1].seconds)
@@ -284,7 +283,7 @@ function MonitorPanelsContent() {
   }, [dashboard, filter])
 
   return (
-    <div className="flex h-full overflow-hidden rounded-lg border border-border bg-background px-4">
+    <div className="flex h-full overflow-hidden">
       {/* 左侧导航:21 张盘,按分组 */}
       <aside
         className={cn(
@@ -353,6 +352,7 @@ function MonitorPanelsContent() {
             </span>
           )}
           <div className="ml-auto flex flex-wrap items-center gap-2">
+            {headerExtra}
             <div className="relative">
               <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
               <input

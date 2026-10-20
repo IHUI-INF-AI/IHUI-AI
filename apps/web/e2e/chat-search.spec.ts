@@ -91,8 +91,22 @@ async function mockConversationBackend(page: Page): Promise<void> {
   })
 }
 
+/**
+ * 进入会话的唯一通道是 chat store 的 conversationId,不是 URL —— web 端已不再读
+ * `?conversationId=`(ai-side-panel.tsx:204「当前会话完全由 useChatStore.conversationId
+ * 驱动」,全仓 grep 该参数零读取方),所以像旧版那样 page.goto('/?conversationId=X')
+ * 历史根本不会加载。正解与 chat-manual-compact.spec.ts:173-181 同款:
+ * addInitScript 预置 persist 键 'ihui-chat'(version 5,partialize 含 conversationId),
+ * rehydrate 后 loadHistory 自会来取上面 mock 的消息。
+ */
 async function openConversation(page: Page): Promise<void> {
-  await page.goto(`/?conversationId=${CONV_ID}`)
+  await page.addInitScript(
+    ({ key, cid }) => {
+      localStorage.setItem(key, JSON.stringify({ state: { conversationId: cid }, version: 5 }))
+    },
+    { key: 'ihui-chat', cid: CONV_ID },
+  )
+  await page.goto('/')
   await page.waitForLoadState('domcontentloaded').catch(() => {})
   await expect(page.locator('textarea').first()).toBeVisible({ timeout: 30_000 })
 }
@@ -124,12 +138,10 @@ test.describe('V3 #62 会话内搜索的结果预览列表', () => {
     // 命中 2 条(m1/m3),那条无关的不得出现在列表里
     await expect(list.locator('li')).toHaveCount(2)
     // 列表整块有可读名称(没有可见标题,读屏只能靠 aria-label 认出这块是什么)
-    await expect(list.locator('ul')).toHaveAttribute('aria-label', /./ )
+    await expect(list.locator('ul')).toHaveAttribute('aria-label', /./)
   })
 
-  test('点列表里第二条 ⇒ 该条按钮进入选中态(aria-current),即"跳过去了"', async ({
-    adminPage,
-  }) => {
+  test('点列表里第二条 ⇒ 该条按钮进入选中态(aria-current),即"跳过去了"', async ({ adminPage }) => {
     const page = adminPage
     await mockConversationBackend(page)
     await openConversation(page)

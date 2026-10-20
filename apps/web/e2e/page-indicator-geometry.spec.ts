@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { test, expect } from '@playwright/test'
+import { RADIUS_ROLES, RADIUS_STEPS } from '../../../packages/design-tokens/src/radius.js'
 
 /**
  * 分页指示器(PageIndicator)几何守门测试 (2026-07-21 立, M-64 类问题配套)
@@ -35,6 +36,13 @@ import { test, expect } from '@playwright/test'
  *     容器宽 = 8+8+2 = 18px;topPadding = border 1 + py 4 = 5px;
  *     总高(7 button) = 4+4+16+6×8+6×8+2 = 122px。
  *
+ * 2026-10-20 改判据(96ac122056「容器圆角守门改为几何是规则、标记不是出路」配套):
+ *   原「所有态 borderRadius ≥ 9999px」判的是 class 里的 rounded-full 标记,该标记已被
+ *   守门 11 check-rounded-full / 守门 77 check-radius-role-conformance 全族禁掉,且不允许
+ *   任何豁免通道;1336969753/c603c52ddd(O81 票⑳ 控件→sm)把激活竖条改走 rounded-sm 后,
+ *   这条标记断言必然红。改判量出来的形状:非激活 8×8 方盒 + 半径 ≥ 短边一半 = 真圆,
+ *   激活 16×8 竖条 = design-tokens 控件档圆角(值取自 radius.js,不写死数字)。
+ *
  * 守门:任何未来改动(包括 className 模板拼接 bug)导致渲染尺寸偏移 → 测试失败 → 阻止部署。
  *
  * 容差:±0.5px(Tailwind px 精度 + DPR 缩放误差)。
@@ -43,6 +51,10 @@ import { test, expect } from '@playwright/test'
 // 2026-09-23:group/indicator 类已随样式迁入 floatIndicatorRailCls 移除,
 // 改用设计 token 类 + fixed 定位(PageIndicator 独有组合)定位容器
 const INDICATOR_SELECTOR = 'div.fixed[class*="bg-float-indicator-bg"]'
+
+// 控件档圆角 px:radius.js 的 RADIUS_ROLES.control → RADIUS_STEPS.sm
+// (本仓唯一真相源;此处引用而不是抄数字,档位一旦调整本判据自动跟着动)
+const CONTROL_RADIUS_PX = RADIUS_STEPS[RADIUS_ROLES.control]
 
 async function getDotMetrics(page: import('@playwright/test').Page) {
   return await page.evaluate((selector) => {
@@ -147,13 +159,32 @@ test.describe('PageIndicator 几何守门', () => {
     expect(scaleVal).toBeLessThanOrEqual(1.26)
   })
 
-  test('所有态 纯圆形(borderRadius ≥ 9999px)', async ({ page }) => {
+  test('几何口径(2026-10-20):非激活方盒量成真圆,激活竖条取控件档圆角', async ({ page }) => {
     const { dots, error } = await getDotMetrics(page)
     if (error) throw new Error(error)
+    expect(dots.length).toBeGreaterThan(0)
     for (const d of dots) {
-      // borderRadius 返回 33554400px ≈ 9999px(50%)
       const brNum = parseFloat(d.borderRadius)
-      expect(brNum).toBeGreaterThan(9000)
+      expect(
+        Number.isFinite(brNum),
+        `borderRadius 必须能解析成 px 数值,实际="${d.borderRadius}"`,
+      ).toBe(true)
+      const shortSide = Math.min(d.w, d.h)
+      if (d.active) {
+        // 激活竖条(16×8):圆角必须严格等于 design-tokens 控件档
+        // RADIUS_ROLES.control → sm,值取自 radius.js(AGENTS §4 圆角单一源头,不写死数字)。
+        expect(
+          brNum,
+          `激活竖条圆角应等于控件档 ${CONTROL_RADIUS_PX}px,实际 ${brNum}px(class=${d.className})`,
+        ).toBe(CONTROL_RADIUS_PX)
+      } else {
+        // 非激活装饰点(8×8):方形盒 + 半径 ≥ 短边一半 = 真圆 —— 判形状不判标记
+        expect(Math.abs(d.w - d.h), '非激活点应为方形盒').toBeLessThanOrEqual(0.5)
+        expect(
+          brNum,
+          `圆点半径应 ≥ 半边长 ${shortSide / 2}px(量出来才是圆),实际 ${brNum}px`,
+        ).toBeGreaterThanOrEqual(shortSide / 2 - 0.01)
+      }
     }
   })
 

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useEffect, useState } from 'react'
-import { ChevronLeft, Star } from 'lucide-react'
+import { Bookmark, ChevronLeft } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   getAgents,
@@ -89,15 +89,15 @@ function AgentList() {
         <div className="flex flex-col gap-2.5 md:grid md:grid-cols-2 md:gap-2.5">
           {agents.map((a) => (
             <Card
-              key={a.id}
+              key={a.agentId}
               role="button"
               tabIndex={0}
               className="cursor-pointer"
-              onClick={() => navigate(`/agents/${a.id}`)}
+              onClick={() => navigate(`/agents/${a.agentId}`)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
-                  navigate(`/agents/${a.id}`)
+                  navigate(`/agents/${a.agentId}`)
                 }
               }}
             >
@@ -112,11 +112,14 @@ function AgentList() {
                 <p className={DESC_CLASS}>{a.description || '—'}</p>
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>
-                    {t('agent.useCount')} {a.useCount}
+                    {t('agent.useCount')} {a.usageCount}
                   </span>
                   <span className="text-primary font-semibold">
-                    <Star className="h-3.5 w-3.5 inline-block -mt-0.5 text-amber-500" aria-hidden />{' '}
-                    {a.rating.toFixed(1)}
+                    <Bookmark
+                      className="h-3.5 w-3.5 inline-block -mt-0.5 text-amber-500"
+                      aria-hidden
+                    />{' '}
+                    {a.collectCount}
                   </span>
                 </div>
               </CardContent>
@@ -238,14 +241,14 @@ function AgentDetail({ id }: { id: string }) {
             <dl className="flex flex-col gap-2 m-0">
               <div className="flex justify-between text-xs">
                 <dt className="text-muted-foreground m-0">{t('agent.useCount')}</dt>
-                <dd className="m-0">{agent.useCount}</dd>
+                <dd className="m-0">{agent.usageCount}</dd>
               </div>
+              {/* 2026-10-20 Agent 契约对齐真实载荷(df3d00b6f4)本端漏迁的一格:后端
+                  GET /api/agents 从不回传 rating/useCount,旧写法 a.rating.toFixed(1)
+                  运行即 TypeError(整页白屏)。改显后端真给的 collectCount。 */}
               <div className="flex justify-between text-xs">
-                <dt className="text-muted-foreground m-0">{t('agent.rating')}</dt>
-                <dd className="m-0">
-                  <Star className="h-3.5 w-3.5 inline-block -mt-0.5 text-amber-500" aria-hidden />{' '}
-                  {agent.rating.toFixed(1)}
-                </dd>
+                <dt className="text-muted-foreground m-0">{t('agent.collectCount')}</dt>
+                <dd className="m-0">{agent.collectCount}</dd>
               </div>
               <div className="flex justify-between text-xs">
                 <dt className="text-muted-foreground m-0">{t('agent.permission')}</dt>

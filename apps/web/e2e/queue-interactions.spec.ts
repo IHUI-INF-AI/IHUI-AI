@@ -287,7 +287,9 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
     // —— 流式中被拒:denied.reorder 取到译文,↑ 不产生任何顺序变化
     const deniedHint = bar(page).locator('[data-queue-denied="reorder"]')
     await expect(deniedHint).toBeVisible()
-    await expect(deniedHint).toHaveText(DENIED.reorder)
+    // 2026-10-21:denied 节点是三段拼接(标签/条件/六格拒因,见 queue-interaction-bar),
+    // 标签逐字断言改打 [data-queue-denied-label];保持 toHaveText 严格等值,不降级 toContainText。
+    await expect(deniedHint.locator('[data-queue-denied-label]')).toHaveText(DENIED.reorder)
     const idsStreaming = await queueSnapshot(page)
     expect(idsStreaming.map((i) => i.text)).toEqual(['侧问甲', '侧问乙', '侧问丙'])
     await page
@@ -410,7 +412,8 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
     await expect(interruptBtn).toHaveAttribute('aria-disabled', 'true')
     // 被拒动作显式渲染 denied.* 且取到译文(不静默禁用)
     const deniedHint = bar(page).locator('[data-queue-denied="interruptAndRun"]')
-    await expect(deniedHint).toHaveText(DENIED.interject)
+    // 同上:标签段按 [data-queue-denied-label] 精确断言(三段拼接的 textContent 不再是纯标签)
+    await expect(deniedHint.locator('[data-queue-denied-label]')).toHaveText(DENIED.interject)
 
     // force:组件被拒形态是 aria-disabled="true"(非原生 disabled),Playwright
     // actionability 会拦普通点击;真实用户仍会点它 ⇒ 断言的正是"物理点击无副作用"
