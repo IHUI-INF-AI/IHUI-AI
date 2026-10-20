@@ -102,6 +102,10 @@ test('P3-3: addFavorite 收藏 + Star 按钮 amber-500 class', async ({ page }) 
     const store = (window as any).__workPanelStore
     if (!store) return { skipped: true }
     store.getState().openPanel({ url: 'https://github.com' })
+    // 2026-10-21:openPanel({url}) 走 navigate 分支、**不置 open**(stores/work-panel.ts:387-392),
+    // 面板本体不渲染 ⇒ 工具栏里的收藏按钮根本不在 DOM(CI 现读 starBtnExists=false)。
+    // 补一次无参 openPanel() 把 open 置 true——这是 store 自己的两条分支,不改产品。
+    store.getState().openPanel()
     store.getState().addFavorite('https://github.com', 'GitHub')
     const s = store.getState()
     return {
