@@ -65,6 +65,14 @@ type ConfigModule = Awaited<ReturnType<typeof loadConfig>>
 type MonitorView = 'panels' | 'wallboard'
 
 /**
+ * 选中态刻意从共享 Tabs 默认的 `bg-selection` 换成"提亮 + 阴影":暗色档下 selection = 纯黑,
+ * 压在 bg-muted(rgb 38,38,38)的槽上比底还暗,肉眼会把亮的那格读成选中(2026-10-20 机主
+ * 反馈"要明显一些"后的实测结论,取证 = 计算样式对照)。
+ */
+const TRIGGER_CLS =
+  'px-4 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm'
+
+/**
  * 两种呈现的切换器。刻意不自己占一行:由各视图的顶栏承载,复用共享 Tabs 档位
  * (机主 2026-10-20 定档:切换件要显眼,但不许把内容往下挤一行)。
  */
@@ -78,10 +86,10 @@ function MonitorViewSwitch({
   return (
     <Tabs value={view} onValueChange={(v) => onChange(v as MonitorView)}>
       <TabsList className="h-10">
-        <TabsTrigger value="panels" className="px-4">
+        <TabsTrigger value="panels" className={TRIGGER_CLS}>
           监控面板
         </TabsTrigger>
-        <TabsTrigger value="wallboard" className="px-4">
+        <TabsTrigger value="wallboard" className={TRIGGER_CLS}>
           数据大屏
         </TabsTrigger>
       </TabsList>

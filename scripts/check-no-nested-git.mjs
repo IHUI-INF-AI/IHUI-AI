@@ -44,7 +44,7 @@
  * provenance: 7ab6f29e01c4b3d58a2f1e9c04d76b35a8e2c9f1d4b7a6e3c8f5d2b1a9e4c7f0
  */
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { dirname, join, relative, resolve } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { requireFlagValue } from './lib/flag-value.mjs'
 
@@ -56,6 +56,67 @@ const EXEMPTION_FILE = join(REPO_ROOT, 'scripts', 'data', 'no-nested-git-exempti
 /** 仓库根 .git 本体(本仓挂载,gitfile)按精确路径豁免 —— 其余任何 .git 命中即红。 */
 export function isRepoRootGit(absPath, repoRoot = REPO_ROOT) {
   return resolve(absPath) === resolve(join(repoRoot, '.git'))
+}
+
+/** 路径串归一(反斜杠→正斜杠、去掉尾斜杠),供 gitdir 双向比对用。 */
+function normPath(p) {
+  return resolve(p).replace(/\\/g, '/').replace(/\/+$/, '')
+}
+
+/**
+ * 这个 `.git` 是不是**扫描根所在仓的已注册 linked worktree**?(`git worktree add` 的正常产物)
+ *
+ * 四条全中才认,认不了就回落成命中(§0.3:核验不成立不放行,不猜):
+ *  ① `.git` 是**文件**(gitfile)—— 目录形态是独立仓/`git init` 夹具,正是 2026-10-14 事故的形;
+ *  ② 其 `gitdir:` 目标落在 `<扫描根>/.git/worktrees/<单段名>` 里(扫描根自己的 `.git` 必须是目录,
+ *     否则无从判定主仓 admin 面,直接不认);
+ *  ③ 该 admin 目录**当前存在**(worktree 已被 `remove`/`prune` 而 gitfile 留在盘上 = 悬空残留,照旧红);
+ *  ④ admin 侧 `gitdir` 文件回指**同一个容器 `.git` 路径**(双向登记才算真挂载,防手工伪造 gitfile)。
+ *
+ * 认下来 ≠ 不再往里扫:worktree 容器目录的其余子树照常遍历,所以在隔离检出里再长出一棵夹具仓
+ * 仍然被本门抓到 —— 这一条由镜像测试 L4 钉住,不是措辞。
+ */
+export function sameRepoLinkedWorktree(gitfilePath, root = REPO_ROOT) {
+  let self
+  try {
+    self = lstatSync(gitfilePath)
+  } catch {
+    return null
+  }
+  if (!self.isFile()) return null
+
+  const rootGit = join(root, '.git')
+  let rootGitIsDir = false
+  try {
+    rootGitIsDir = statSync(rootGit).isDirectory()
+  } catch {
+    rootGitIsDir = false
+  }
+  if (!rootGitIsDir) return null
+
+  // git 在两处写的形态不同:容器侧 `.git` 文件是 `gitdir: <路径>`,而 admin 侧
+  // `.git/worktrees/<name>/gitdir` 是**裸路径无前缀**。两种都吃,不吃就不认(回落成命中)。
+  const readGitdir = (p) => {
+    try {
+      const raw = readFileSync(p, 'utf8').trim()
+      const m = /^(?:gitdir:\s*)?(.+?)\s*$/im.exec(raw)
+      if (!m) return null
+      return normPath(isAbsolute(m[1]) ? m[1] : resolve(dirname(p), m[1]))
+    } catch {
+      return null
+    }
+  }
+
+  const target = readGitdir(gitfilePath)
+  if (!target) return null
+  const adminRoot = normPath(join(rootGit, 'worktrees'))
+  if (!target.startsWith(`${adminRoot}/`)) return null
+  const name = target.slice(adminRoot.length + 1)
+  if (!name || name.includes('/')) return null
+
+  const back = readGitdir(join(target, 'gitdir'))
+  if (!back || back !== normPath(gitfilePath)) return null
+  return { name, target }
 }
 
 /** 剪枝目录名:第三方依赖子树与构建产物,非本仓产物,不扫。 */
@@ -143,15 +204,20 @@ export function splitByExemption(hits, entries, today = isoToday()) {
  * @param {string} root       扫描根(生产=REPO_ROOT;测试=夹具目录)
  * @param {object} [opts]
  * @param {number} [opts.maxDepth=10]       目录深度上限
- * @param {number} [opts.entryBudget=200000] readdir 条目总预算(防超大树拖垮 pre-commit;
- *                                           2026-10-14 实测现树 ~64k 条目,3 倍余量)
+ * @param {number} [opts.entryBudget=1000000] readdir 条目总预算(防超大树拖垮 pre-commit;
+ *                                           定档出处:2026-10-14 实测 ~64k 条目→钉 200k;
+ *                                           2026-10-20 现读同一口径 **207,268 条目 / 全树 walk 1,274ms**
+ *                                           ⇒ 200k 已被真实树顶穿,本机每次判都恒 `truncated`=恒红(§12e)。
+ *                                           抬到 1M 是**只增不减覆盖面**的加强档:扫得完才谈得上出合格证。
+ *                                           深度/预算两档都不影响命中口径本身。)
  * @returns {{hits: {path:string, rel:string, isDir:boolean}[], scanned:number,
  *            truncated:boolean, unreadable:string[], skippedReparse:number}}
  */
 export function scanForNestedGit(root, opts = {}) {
   const maxDepth = opts.maxDepth ?? 10
-  const entryBudget = opts.entryBudget ?? 200000
+  const entryBudget = opts.entryBudget ?? 1_000_000
   const hits = []
+  const linkedWorktrees = []
   const unreadable = []
   let scanned = 0
   let truncated = false
@@ -182,7 +248,16 @@ export function scanForNestedGit(root, opts = {}) {
         } catch {
           isDir = false
         }
-        hits.push({ path: abs, rel: relative(root, abs), isDir })
+        // 本仓**已注册的 linked worktree**(§12d 规定的并行隔离面)与"工作树里长出一棵别人的仓"
+        // 不是同一种东西:前者是同一仓的另一个检出,后者才是 2026-10-14 幻影计数事故的成因。
+        // 只按正向核验分流(gitfile + 指回本仓 admin 目录 + admin 侧 gitdir 回指同一容器),
+        // 目录形态(.git 是目录 = 独立仓/`git init` 夹具)与悬空 gitfile 一律照旧命中。
+        const lw = isDir ? null : sameRepoLinkedWorktree(abs, root)
+        if (lw) {
+          linkedWorktrees.push({ path: abs, rel: relative(root, abs), name: lw.name })
+        } else {
+          hits.push({ path: abs, rel: relative(root, abs), isDir })
+        }
         continue // .git 内部不扫(无论命中哪型)
       }
       if (e.isDirectory() || e.isSymbolicLink()) {
@@ -208,7 +283,7 @@ export function scanForNestedGit(root, opts = {}) {
   }
 
   walk(root, 1)
-  return { hits, scanned, truncated, unreadable, skippedReparse }
+  return { hits, linkedWorktrees, scanned, truncated, unreadable, skippedReparse }
 }
 
 /**
@@ -246,6 +321,7 @@ export function evaluateResult(scan, opts = {}) {
     reasons,
     exempted: split.exempted,
     stale: split.stale,
+    linked: scan.linkedWorktrees ?? [],
   }
 }
 
@@ -287,16 +363,27 @@ export async function main(argv = process.argv.slice(2)) {
     verdict.ok = false
   }
 
+  const linkedLine = verdict.linked.length
+    ? `本仓 linked worktree ${verdict.linked.length} 处不计为嵌套(逐条见下)`
+    : ''
   if (verdict.ok) {
-    console.info(
-      `${GATE_LABEL} ✅ 工作树内嵌套 git 仓 = 0(扫描 ${scan.scanned} 条目,` +
-        `symlink 跳过 ${scan.skippedReparse},unreadable ${scan.unreadable.length}` +
-        `${verdict.exempted.length ? `,具名放行 ${verdict.exempted.length} 处(逐条见下)` : ''})`
-    )
+    if (scan.hits.length === 0) {
+      console.info(
+        `${GATE_LABEL} ✅ 工作树内无嵌套 git 仓(扫描 ${scan.scanned} 条目,` +
+          `symlink 跳过 ${scan.skippedReparse},unreadable ${scan.unreadable.length}${linkedLine ? `, ${linkedLine}` : ''})`
+      )
+    } else {
+      console.info(
+        `${GATE_LABEL} ✅ 命中 ${scan.hits.length} 处已全部被具名台账放行(审面逐条现读,非缓存${linkedLine ? `;${linkedLine}` : ''})`
+      )
+    }
     for (const x of verdict.exempted) {
       console.info(
         `   🪪 具名豁免:${x.entry.rel} —— 归属 ${x.entry.owner};因由 ${x.entry.why};到期 ${x.entry.expires}(过期即判红)`
       )
+    }
+    for (const w of verdict.linked) {
+      console.info(`   🔗 本仓 linked worktree:${w.rel} —— gitfile 与 admin 面双向核验通过,不计嵌套仓`)
     }
     if (ledger.error) {
       console.warn(`${GATE_LABEL} ⚠ 具名豁免台账不可用(${ledger.error});本轮无命中故不影响结论,但下次有命中时将零放行`)
@@ -313,6 +400,10 @@ export async function main(argv = process.argv.slice(2)) {
         `     - ${x.entry.rel} —— 归属 ${x.entry.owner};因由 ${x.entry.why};到期 ${x.entry.expires}`
       )
     }
+  }
+  if (verdict.linked.length) {
+    console.error(`  ℹ 另有 ${verdict.linked.length} 处是本仓 linked worktree(已按双向核验分流,不计为嵌套;仍逐条列出):`)
+    for (const w of verdict.linked) console.error(`     - ${w.rel}`)
   }
   if (scan.unreadable.length) {
     console.error(`  (unreadable ${scan.unreadable.length} 处,未穿透复核: ${scan.unreadable.slice(0, 5).join(', ')}${scan.unreadable.length > 5 ? ' …' : ''})`)

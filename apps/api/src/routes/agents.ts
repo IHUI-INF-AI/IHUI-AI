@@ -75,6 +75,7 @@ import {
   type CreateSettlementInput,
   type UpdateExamineInput,
 } from '../db/agents-queries.js'
+import { mapCozeOnlineInfo, type CozeOnlineInfoData } from '../lib/coze-online-info.js'
 import { listOAuthApps, findAuditLogList, findAuditLogStats } from '../db/oauth-queries.js'
 import {
   findOAuthAppByClientId,
@@ -1655,11 +1656,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         `https://api.coze.cn/v1/bot/get_online_info?bot_id=${encodeURIComponent(agent.botId)}`,
         { headers: { Authorization: `Bearer ${cozeToken}` } },
       )
-      const body = (await res.json()) as {
-        code: number
-        msg?: string
-        data?: { icon_url?: string; model_info?: string; prompt_info?: string }
-      }
+      const body = (await res.json()) as { code: number; msg?: string; data?: CozeOnlineInfoData }
       if (body.code !== 0) {
         return reply.send(
           success({
@@ -1669,21 +1666,24 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
           }),
         )
       }
-      const d = body.data ?? {}
-      await updateAgentDetails(agentId, {
-        agentVariables: d.prompt_info ?? agent.agentVariables ?? undefined,
-        avatar: d.icon_url ?? agent.avatar ?? undefined,
-        agentModel: d.model_info ?? agent.agentModel ?? undefined,
-      })
+      // 映射面收窄:avatar / agent_model / agent_temperature 三列刻意不写(逐条理由见映射源头注)
+      const patch = mapCozeOnlineInfo(body.data)
+      const updated = Object.keys(patch)
+      if (updated.length === 0) {
+        return reply.send(
+          success({
+            agentId,
+            message: 'Coze 未返回可刷新的详情字段，本地记录未改动',
+            details: { updated: [] as string[] },
+          }),
+        )
+      }
+      await updateAgentDetails(agentId, patch)
       return reply.send(
         success({
           agentId,
           message: '智能体详情获取并更新成功',
-          details: {
-            iconUrl: d.icon_url ?? null,
-            hasModelInfo: !!d.model_info,
-            hasPromptInfo: !!d.prompt_info,
-          },
+          details: { updated },
         }),
       )
     } catch (e) {
