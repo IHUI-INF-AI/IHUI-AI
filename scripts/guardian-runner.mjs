@@ -5425,6 +5425,16 @@ const checks = [
     mode: 'blocking',
     // 2026-10-13 立(用户指令"彻底根治"):存量指针注记已由 scripts/plan-pointer-purge.mjs --apply 一次性清偿并对象空间落地(715d495a9b5)。差值棘轮(同门 130 F7/F8):只拦"本次提交让登记行注记变多",存量不担责 —— 与提交内容无关的恒红门只会逼人 --no-verify 连带废掉全部守门(§12e)。
   },
+  {
+    id: '229',
+    label: '🧹 PROJECT_PLAN.md 完成即删守门(拦跨枚滞留的已勾登记行;全量档只报数)',
+    script: 'check-plan-closed-stock.mjs',
+    args: [],
+    mode: 'blocking',
+    // 2026-10-20 立(机主令"要彻底根治 固定完成立即删掉记录"):S1 只拦"被审面已勾 ∧ 父提交同复合主键也已勾"的**跨枚滞留**行;刚翻勾的那一枚给宽限 —— 否则守门 71 头注 (c)「翻勾后整行删除」的配平凭据永远造不出来,每条结清都会变成"无凭据减少"被无限回捞(本机当日实测)。全量档只报数(§12e:与提交内容无关的红只会逼人跳门),存量清扫归 scripts/strip-stale-closed-rows.mjs。
+    stagedTriggers: ['PROJECT_PLAN.md'],
+    skipEnv: 'HUSKY_SKIP_PLAN_CLOSED_STOCK',
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
