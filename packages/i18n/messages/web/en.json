@@ -22932,6 +22932,7 @@
     "registerTitle": "Unified Register",
     "sendCodeFailed": "Failed to send verification code",
     "sessionExpired": "Your session has expired. Please sign in again.",
+    "redirectBlockedByGuard": "The target page is blocked by the login guard and your login cookie is not in effect. This is usually because the accessed host does not match the cookie domain (COOKIE_DOMAIN) — e.g. opening via a LAN IP or localhost. Please visit via the site's official domain and retry.",
     "subtitle": "Authorize and redirect to {clientId} after login",
     "title": "Unified Login",
     "mobileAuth": {
