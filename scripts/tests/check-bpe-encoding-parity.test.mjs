@@ -17,8 +17,8 @@
  *   T4 C1b 防空转:两端**相等**但都是未批准表 ⇒ 仍判红;两端同为已批准的另一张 ⇒ 不判红
  *      (这一对是"不能替人拍板选模型"的可执行证据)。
  *   T5 decide 优先级:未判定(exit 2)压过漂移(exit 1);一例都没判到 ⇒ 判死。
- *   T6 端到端阳性对照(真仓):两端现状必须判红,且必须点名 o200k vs cl100k。
- *   T7 端到端变异对照(真跑):TS→cl100k ⇒ 转绿;两端同改 p50k ⇒ 仍判红。
+ *   T6 端到端阳性对照(真仓):两端现状必须判绿(已统一 cl100k_base)。
+ *   T7 端到端变异对照(真跑):TS→o200k ⇒ 判红;两端同改 p50k ⇒ 仍判红。
  *      注入**确实命中**由"变异文本必须与原文件不同"证明;两臂都报红等于没测。
  *   T8 反向锁不得空转:REVERSE_PROBES 在两张表下逐条同值(S5/S6 的镜像),且真仓跑出来同值。
  *   T9 CLI 面旗矛盾 ⇒ exit 2,不冒红也不记绿。
@@ -157,17 +157,15 @@ test('T5 decide 优先级:未判定压过漂移;一例都没判到 ⇒ 判死', 
   assert.equal(empty.rc, 2, '一例都没判到必须判死,不得记绿')
 })
 
-test('T6 端到端(真仓 worktree):两端现状必须判红,并点名 o200k vs cl100k', () => {
+test('T6 端到端(真仓 worktree):两端现状必须判绿,并点名 cl100k_base', () => {
   const r = runCli(['--worktree'])
-  assert.equal(r.status, 1, `现状必须判红(缺陷已坐实),实得 rc=${r.status}\n${r.stdout}\n${r.stderr}`)
-  assert.match(r.stdout, /TS\s+: o200k_base/, '必须点名 TS 侧实际编码')
+  assert.equal(r.status, 0, `现状必须判绿(两端已统一 cl100k_base),实得 rc=${r.status}\n${r.stdout}\n${r.stderr}`)
+  assert.match(r.stdout, /TS\s+: cl100k_base/, '必须点名 TS 侧实际编码')
   assert.match(r.stdout, /Python : cl100k_base/, '必须点名 Python 侧实际编码')
-  assert.match(r.stdout, /两端声明的编码不同/, '必须给出声明层分歧结论')
-  // 行为层至少一条真分歧,逐条带两端读数
-  assert.match(r.stdout, /ascii-addition\s+TS=8 \/ Python=9/, '必须报出坐实样本的逐值读数')
+  assert.match(r.stdout, /两端在判到的所有探针上同值/, '必须给出行为层同值结论')
 })
 
-test('T7 端到端变异(真跑):TS→cl100k ⇒ 转绿;两端同改 p50k ⇒ 仍判红', async () => {
+test('T7 端到端变异(真跑):TS→o200k ⇒ 判红;两端同改 p50k ⇒ 仍判红', async () => {
   if (!hasPkg) return
   const scratch = mkScratch('ihui-bpe-mirror-')
   try {
@@ -180,7 +178,7 @@ test('T7 端到端变异(真跑):TS→cl100k ⇒ 转绿;两端同改 p50k ⇒ �
       root: ROOT,
       face: 'worktree',
       readPkgDir: () => pkgDir,
-      resolveBareEntry: () => req.resolve('gpt-tokenizer'),
+      resolveBareEntry: (spec = 'gpt-tokenizer') => req.resolve(spec),
       tunablesText: tunReal,
       pythonPath: gate.findPython(ROOT),
     }
@@ -192,18 +190,22 @@ test('T7 端到端变异(真跑):TS→cl100k ⇒ 转绿;两端同改 p50k ⇒ �
         [gate.FIXTURE_REL, fxReal],
       ])
 
-    // 变异锚**最后一处**裸说明符:两侧头注里都有一模一样的散文,
-    // replace() 默认只换第一处 ⇒ 会改到散文而真 import/调用原封不动,"注入生效"是假的。
+    // 变异锚**真实 import 的最后一条 gpt-tokenizer 说明符**(裸主入口或编码子路径):
+    // 头注散文里也有裸串,按裸串锚会把变异注入到散文、真 import 原封不动(2026-10-20 实测)。
     const replaceLast = (text, from, to) => {
       const i = text.lastIndexOf(from)
       return i === -1 ? null : text.slice(0, i) + to + text.slice(i + from.length)
     }
     const toFileUrl = (p) => new URL(`file:///${p.replace(/\\/g, '/')}`).href
+    const specRe = /from\s+(['"])(gpt-tokenizer(?:\/encoding\/[A-Za-z0-9_]+)?)\1/g
+    const lastSpec = [...tsReal.matchAll(specRe)].pop()
+    assert.ok(lastSpec, '找不到真实 gpt-tokenizer import 说明符')
+    const fromSpec = lastSpec[0]
 
-    // 变异①:TS → cl100k(与 Python 一致)⇒ 转绿
-    const absCl = toFileUrl(req.resolve('gpt-tokenizer/encoding/cl100k_base'))
-    const tsExec1 = replaceLast(tsReal, "from 'gpt-tokenizer'", `from '${absCl}'`).replace(/^import type .*$/gm, '')
-    const tsDecl1 = replaceLast(tsReal, "from 'gpt-tokenizer'", "from 'gpt-tokenizer/encoding/cl100k_base'")
+    // 变异①:TS → o200k(与 Python 的 cl100k 分叉)⇒ 判红
+    const absO = toFileUrl(req.resolve('gpt-tokenizer/encoding/o200k_base'))
+    const tsExec1 = replaceLast(tsReal, fromSpec, `from '${absO}'`).replace(/^import type .*$/gm, '')
+    const tsDecl1 = replaceLast(tsReal, fromSpec, "from 'gpt-tokenizer/encoding/o200k_base'")
     assert.notEqual(tsExec1, tsReal, '变异①注入未生效(TS 执行文本没变) —— 变异无效,后面结论不算数')
     assert.notEqual(tsDecl1, tsReal, '变异①注入未生效(TS 声明文本没变)')
 
@@ -219,13 +221,15 @@ test('T7 端到端变异(真跑):TS→cl100k ⇒ 转绿;两端同改 p50k ⇒ �
     } finally {
       rmScratch(run1)
     }
-    assert.equal(r1.tsEnc.encoding, 'cl100k_base', '变异①的声明层必须解析成 cl100k_base')
-    assert.equal(r1.d.rc, 0, `变异①必须转绿,实得 rc=${r1.d.rc} drifts=${r1.d.drifts.length} und=${r1.d.undetermined.join(';')}`)
+    assert.equal(r1.tsEnc.encoding, 'o200k_base', '变异①的声明层必须解析成 o200k_base')
+    assert.equal(r1.d.rc, 1, `变异①必须判红,实得 rc=${r1.d.rc} drifts=${r1.d.drifts.length} und=${r1.d.undetermined.join(';')}`)
+    assert.ok(r1.d.encodingDrift, '变异①的判红理由必须含声明层分歧')
+    assert.ok(r1.d.drifts.length > 0, '变异①的行为层必须至少一条真分歧')
 
     // 变异②:两端同改 p50k ⇒ 仍判红(靠 C1b;两端彼此相等,行为层一致)
     const absP50 = toFileUrl(req.resolve('gpt-tokenizer/encoding/p50k_base'))
-    const tsExec2 = replaceLast(tsReal, "from 'gpt-tokenizer'", `from '${absP50}'`).replace(/^import type .*$/gm, '')
-    const tsDecl2 = replaceLast(tsReal, "from 'gpt-tokenizer'", "from 'gpt-tokenizer/encoding/p50k_base'")
+    const tsExec2 = replaceLast(tsReal, fromSpec, `from '${absP50}'`).replace(/^import type .*$/gm, '')
+    const tsDecl2 = replaceLast(tsReal, fromSpec, "from 'gpt-tokenizer/encoding/p50k_base'")
     const pyMut2 = replaceLast(pyReal, 'tiktoken.get_encoding("cl100k_base")', 'tiktoken.get_encoding("p50k_base")')
     assert.notEqual(tsExec2, tsReal, '变异②注入未生效(TS 执行文本没变)')
     assert.notEqual(pyMut2, pyReal, '变异②注入未生效(Python 文本没变)')
