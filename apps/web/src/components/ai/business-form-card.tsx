@@ -35,13 +35,12 @@ import {
   formFieldErrorKey,
   formFieldLabelKey,
   validateFormValues,
-  DEFAULT_SUBMIT_INTENT,
+  formSubmitIntentOf,
   type BusinessFormActionPayload,
   type BusinessFormKind,
   type BusinessFormFieldError,
   type BusinessFormValue,
   type FormStatePhase,
-  type FormSubmitIntent,
 } from '@ihui/shared/chat/business-forms'
 
 /** 出席人输入串 → 数组(与判定层多地址分隔一致:逗号/分号/空白) */
@@ -64,8 +63,8 @@ function toFormValues(kind: BusinessFormKind, raw: Readonly<Record<string, strin
 export interface BusinessFormCardProps {
   /** 表单种类(邮件撰写 / 日历创建·更新) */
   kind: BusinessFormKind
-  /** 日历形态:create=创建,update=保存(批准侧按钮文案);email 忽略此值 */
-  mode?: 'create' | 'update'
+  /** 表单形态,直接取线帧 `mode` 原值(create/update/save);判定在 `formSubmitIntentOf` 一处,端内不复述 */
+  mode?: string
   /** 请求标识(form_response 回传用;本票由调用方注入,契约事件化属 D34) */
   requestId?: string
   /** 动作回调。**数据面在调用方**;reject 时收到的应答 `values` 恒为 null(reject-only) */
@@ -105,8 +104,8 @@ export function BusinessFormCard({
     })
   }
 
-  /** 批准侧提交意图:email=save(批准);日历 create=创建 / update=保存 */
-  const submitIntent: FormSubmitIntent = kind === 'calendarEvent' && mode === 'update' ? 'save' : DEFAULT_SUBMIT_INTENT[kind]
+  /** 批准侧提交意图:email=save(批准);日历 create=创建 / update|save=保存 —— 规则在共享层一处 */
+  const submitIntent = formSubmitIntentOf(kind, mode)
 
   const handleApprove = () => {
     if (!filling) return

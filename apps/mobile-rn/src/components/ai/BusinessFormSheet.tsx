@@ -24,11 +24,11 @@ import { rnRadius } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import {
   BUSINESS_FORM_FIELDS,
-  DEFAULT_SUBMIT_INTENT,
   applyFormAction,
   attendeesFoldNeeded,
   formFieldErrorKey,
   formFieldLabelKey,
+  formSubmitIntentOf,
   validateFormValues,
   type BusinessFormKind,
   type BusinessFormFieldError,
@@ -238,7 +238,7 @@ function FormPanel({
   const s = useMemo(() => createStyles(), [])
   const kind: BusinessFormKind = entry.frame.kind
   const fields = BUSINESS_FORM_FIELDS[kind]
-  const intent = DEFAULT_SUBMIT_INTENT[kind]
+  const intent = formSubmitIntentOf(kind, entry.frame.mode)
   const busy = entry.phase === 'submitting'
   const decided = entry.phase === 'approved' || entry.phase === 'rejected'
   const attendees = (entry.values.attendees ?? '')

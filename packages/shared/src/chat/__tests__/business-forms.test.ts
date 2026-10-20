@@ -16,6 +16,7 @@ import {
   formActionLabelKey,
   formFieldErrorKey,
   formFieldLabelKey,
+formSubmitIntentOf,
   rejectNoSideEffect,
   validateFormValues,
 } from '../business-forms'
@@ -267,3 +268,23 @@ describe('D77 business-forms / attendeesFoldNeeded 折叠判定', () => {
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+describe('formSubmitIntentOf(D77 残余① 的判定单源)', () => {
+  it('日历 update / save 都落 save;create 与缺省落 create', () => {
+    expect(formSubmitIntentOf('calendarEvent', 'update')).toBe('save')
+    expect(formSubmitIntentOf('calendarEvent', 'save')).toBe('save')
+    expect(formSubmitIntentOf('calendarEvent', 'create')).toBe('create')
+    expect(formSubmitIntentOf('calendarEvent')).toBe('create')
+  })
+
+  it('未知 mode 不猜名字,一律按缺省档(与契约「缺省即 create」同一条纪律)', () => {
+    expect(formSubmitIntentOf('calendarEvent', 'archive')).toBe('create')
+    expect(formSubmitIntentOf('calendarEvent', '')).toBe('create')
+  })
+
+  it('email 忽略 mode:批准侧恒 save', () => {
+    for (const m of [undefined, 'create', 'update', 'save', 'archive']) {
+      expect(formSubmitIntentOf('email', m)).toBe('save')
+    }
+  })
+})
