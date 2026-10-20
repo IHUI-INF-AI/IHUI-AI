@@ -170,11 +170,11 @@
         },
         "expect": {
           "tokensTs": 173,
-          "tokensTsReasoningBlind": 47,
+          "tokensTsReasoningBlind": 48,
           "tokensPyAsShipped": 48,
-          "reasoningContributionTs": 126,
+          "reasoningContributionTs": 125,
           "crossEndGap": 125,
-          "blindSkew": -1
+          "blindSkew": 0
         },
         "pyCountsReasoning": false
       },
@@ -197,11 +197,11 @@
           ]
         },
         "expect": {
-          "tokensTs": 27,
+          "tokensTs": 26,
           "tokensTsReasoningBlind": 17,
           "tokensPyAsShipped": 17,
-          "reasoningContributionTs": 10,
-          "crossEndGap": 10,
+          "reasoningContributionTs": 9,
+          "crossEndGap": 9,
           "blindSkew": 0
         },
         "pyCountsReasoning": false
@@ -220,8 +220,8 @@
     }
   },
   "reverseLock": {
-    "_comment": "反向锁(票 G-1058650 残余⑤)。两层结构,各有各的守什么,各有各的**正确状态**:①`baseline` —— **既有 24 条**(下标 0..23,全 ASCII、无 CJK、无 reasoning)的切片锁:两端同值 29367。这条『同值』**仍然为真**,由切片锁守着;CJK 用例只追加在它们**之后**(下标 24/25),故这一锁不受影响 —— 这是「只追加、不动基线」的机械证明。⚠️ 但它证明的只是『这批 ASCII 文本没踩到两套词表的分歧词』,**不是跨端一致性证据**(见 scripts/check-bpe-encoding-parity.mjs 头注:24/24 同值是巧合)。②整列(现 26 条)两端**不再相等,且为不等是正确状态**:TS=29500 / Python=29558,差 -58,因为整列含 CJK 而两端不是同一套 BPE 词表(TS=o200k_base / Python=cl100k_base)。故这一格**不按『两端同值』判**,按**差值逐值钉死**判:`crossEndGapFullColumn` 必须等于 `tokensTs - tokensPyAsShipped`。字段语义:`tokensTs` = **TS 侧**整列真值,`tokensPyAsShipped` = **Python 侧**整列真值 —— 各归各端,谁也不许存对方的读数(字段名叫 tokensTs 却存 Python 的值 = 过载,那是尺子教人谎报的产物,已撤销)。",
-    "tokensTs": 29500,
+    "_comment": "反向锁(票 G-1058650 残余⑤)。两层结构,各有各的守什么,各有各的**正确状态**:①`baseline` —— **既有 24 条**(下标 0..23,全 ASCII、无 CJK、无 reasoning)的切片锁:两端同值 29367。这条『同值』**仍然为真**,由切片锁守着;CJK 用例只追加在它们**之后**(下标 24/25),故这一锁不受影响 —— 这是「只追加、不动基线」的机械证明。⚠️ 但它证明的只是『这批 ASCII 文本没踩到两套词表的分歧词』,**不是跨端一致性证据**(见 scripts/check-bpe-encoding-parity.mjs 头注:24/24 同值是巧合)。②整列(现 26 条)两端**已统一 cl100k_base、同值**:TS=29558 / Python=29558,差 0(两端均显式 cl100k_base)。仍按**差值逐值钉死**判:`crossEndGapFullColumn` 必须等于 `tokensTs - tokensPyAsShipped`。字段语义:`tokensTs` = **TS 侧**整列真值,`tokensPyAsShipped` = **Python 侧**整列真值 —— 各归各端,谁也不许存对方的读数(字段名叫 tokensTs 却存 Python 的值 = 过载,那是尺子教人谎报的产物,已撤销)。",
+    "tokensTs": 29558,
     "tokensPyAsShipped": 29558,
     "existingMessagesCarryReasoningKeys": false,
     "baselineMessageCount": 24,
@@ -231,10 +231,10 @@
       "tokensTs": 29367,
       "tokensPyAsShipped": 29367
     },
-    "crossEndGapFullColumn": -58
+    "crossEndGapFullColumn": 0
   },
   "cjkCases": {
-    "_comment": "CJK 用例(票 G-1058650 残余⑤):覆盖「两端分词器对汉字的分歧」。读数口径:TS 侧 `gpt-tokenizer` 默认 `o200k_base`,Python 侧 `tiktoken` `cl100k_base` —— **词表分歧未修(残余②另票归因),两端不等是预期**;本键只把差值逐值钉死,不许抹平。实测方向与 ASCII 相反:既有 24 条纯 ASCII 两端零漂移,汉字上 **Python 反而比 TS 多**(短 -3 / 长 -55),且随文本变长而累积放大。另注意 `crossEndGap` 一律定义为 `tokensTs - tokensPyAsShipped`,故汉字上为**负**。",
+    "_comment": "CJK 用例(票 G-1058650 残余⑤):覆盖「两端分词器对汉字的分歧」。读数口径:2026-10-17 拍板后两端均显式 cl100k_base ⇒ 同值是预期;本键仍把差值逐值钉死(现全 0),不许抹平。既有 24 条纯 ASCII 两端零漂移;CJK 统一后 short 11/11、long 180/180、aggregate 191/191。crossEndGap 仍定义为 tokensTs - tokensPyAsShipped。",
     "cases": [
       {
         "id": "cjk-short-text-cross-end-split-gap",
@@ -249,9 +249,9 @@
           ]
         },
         "expect": {
-          "tokensTs": 8,
+          "tokensTs": 11,
           "tokensPyAsShipped": 11,
-          "crossEndGap": -3
+          "crossEndGap": 0
         }
       },
       {
@@ -267,17 +267,17 @@
           ]
         },
         "expect": {
-          "tokensTs": 125,
+          "tokensTs": 180,
           "tokensPyAsShipped": 180,
-          "crossEndGap": -55
+          "crossEndGap": 0
         }
       }
     ],
     "aggregate": {
-      "_comment": "两条 CJK 合并成一个列表的现场值(证明逐值锁不是各自独立凑出来的);它也等于 input.messages 整列相对既有 24 条的增量(29500-29367=133 / 29558-29367=191)。",
-      "tokensTs": 133,
+      "_comment": "两条 CJK 合并成一个列表的现场值(证明逐值锁不是各自独立凑出来的);它也等于 input.messages 整列相对既有 24 条的增量(29558-29367=191 / 29558-29367=191)。",
+      "tokensTs": 191,
       "tokensPyAsShipped": 191,
-      "crossEndGap": -58
+      "crossEndGap": 0
     }
   }
 }

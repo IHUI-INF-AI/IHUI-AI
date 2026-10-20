@@ -559,12 +559,19 @@ export function materializeTsFace(faceText, scratch, resolveBare) {
   mkdirSync(dir, { recursive: true })
   // 同目录放一个 type:module,免掉 MODULE_TYPELESS_PACKAGE_JSON 警告(噪音会淹掉结论)
   writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ type: 'module' }), 'utf8')
-  const abs = pathToFileURL(resolveBare()).href
-  // 锚**最后一处**裸说明符(真import):头注散文里也有一模一样的一句,
-  // 换第一处会改到散文而真 import 仍解析不到 scratch 里的包名 ⇒ import 直接失败。
-  const from = "from 'gpt-tokenizer'"
-  const i = faceText.lastIndexOf(from)
-  const text = i === -1 ? faceText : faceText.slice(0, i) + `from ${JSON.stringify(abs)}` + faceText.slice(i + from.length)
+  // 说明符既可能是裸主入口,也可能是显式编码子路径(`gpt-tokenizer/encoding/<x>`)——
+  // 后者是 2026-10-20 统一 cl100k 后的生产写法;两种都要落成绝对 file URL(scratch 无 node_modules)。
+  // 锚**最后一处**(真 import):头注散文里也有一模一样的裸串,换第一处会改到散文。
+  const specRe = /from\s+(['"])(gpt-tokenizer(?:\/encoding\/[A-Za-z0-9_]+)?)\1/g
+  let last = null
+  for (const m of faceText.matchAll(specRe)) last = m
+  let text = faceText
+  if (last) {
+    const abs = pathToFileURL(resolveBare(last[2])).href
+    const start = last.index
+    const end = start + last[0].length
+    text = faceText.slice(0, start) + `from ${JSON.stringify(abs)}` + faceText.slice(end)
+  }
   const file = path.join(dir, 'token-estimate.mts')
   writeFileSync(file, text, 'utf8')
   return file
@@ -957,9 +964,9 @@ async function main() {
   const pkgDir = path.join(root, 'packages', 'context-compaction', 'node_modules', 'gpt-tokenizer')
   const readPkgDir = () => (existsSync(pkgDir) ? pkgDir : null)
   // scratch 里没有 node_modules,裸说明符解析不到 ⇒ 换成同一模块的绝对 file URL(语义不变)
-  const resolveBareEntry = () => {
+  const resolveBareEntry = (spec = 'gpt-tokenizer') => {
     const req = createRequire(path.join(root, 'packages', 'context-compaction', 'package.json'))
-    return req.resolve('gpt-tokenizer')
+    return req.resolve(spec)
   }
 
   let scratch = null
@@ -1311,12 +1318,19 @@ async function selfTest(root) {
           const i = text.lastIndexOf(from)
           return i === -1 ? null : text.slice(0, i) + to + text.slice(i + from.length)
         }
-        const execText = replaceLast(tsReal, "from 'gpt-tokenizer'", `from ${JSON.stringify(abs)}`).replace(
+        // 锚**真实 import 的最后一条 gpt-tokenizer 说明符**(裸主入口或显式编码子路径):
+        // 头注散文里也有裸串,按裸串锚会把变异注入到散文、真 import 原封不动(2026-10-20 实测)。
+        const specRe = /from\s+(['"])(gpt-tokenizer(?:\/encoding\/[A-Za-z0-9_]+)?)\1/g
+        const matches = [...tsReal.matchAll(specRe)]
+        const last = matches[matches.length - 1]
+        if (!last) return null
+        const fromSpec = last[0]
+        const execText = replaceLast(tsReal, fromSpec, `from ${JSON.stringify(abs)}`).replace(
           /^import type .*$/gm,
           '',
         )
         if (execText === tsReal || !execText.includes(abs)) return null
-        const declText = replaceLast(tsReal, "from 'gpt-tokenizer'", `from 'gpt-tokenizer/encoding/${encName}'`)
+        const declText = replaceLast(tsReal, fromSpec, `from 'gpt-tokenizer/encoding/${encName}'`)
         if (!declText || declText === tsReal) return null
         return { execText, declText }
       }
@@ -1335,7 +1349,7 @@ async function selfTest(root) {
         root,
         face: 'worktree',
         readPkgDir: () => (existsSync(pkgDir) ? pkgDir : null),
-        resolveBareEntry: () => req.resolve('gpt-tokenizer'),
+        resolveBareEntry: (spec = 'gpt-tokenizer') => req.resolve(spec),
         tunablesText: tunReal,
         pythonPath: findPython(root),
       }
@@ -1361,14 +1375,14 @@ async function selfTest(root) {
         }
       }
 
-      // ── 变异①:TS 侧改成与 Python 一致(cl100k)⇒ 必须转绿 ──
-      const m1 = makeTsMut('cl100k_base')
-      t('S7a 变异①注入生效(TS 变异文本含 cl100k 绝对 URL 且不同于原文)', m1 !== null, m1 === null ? '注入失败' : 'ok')
+      // ── 变异①:TS 侧改成与 Python 分叉的 o200k ⇒ 必须判红 ──
+      const m1 = makeTsMut('o200k_base')
+      t('S7a 变异①注入生效(TS 变异文本含 o200k 绝对 URL 且不同于原文)', m1 !== null, m1 === null ? '注入失败' : 'ok')
       if (m1) {
         const r = await runOne(m1.declText, pyReal, m1.execText)
         t(
-          `S7b 变异①真跑:TS→cl100k(与 Python 一致)⇒ 转绿(rc=${r.d.rc},C1=${r.tsEnc.encoding},drifts=${r.d.drifts.length},und=${r.d.undetermined.length})`,
-          r.d.rc === 0 && r.d.verdict === 'aligned' && r.d.drifts.length === 0 && r.tsEnc.encoding === 'cl100k_base',
+          `S7b 变异①真跑:TS→o200k(与 Python 分叉)⇒ 判红(rc=${r.d.rc},C1=${r.tsEnc.encoding},drifts=${r.d.drifts.length},und=${r.d.undetermined.length})`,
+          r.d.rc === 1 && r.d.encodingDrift !== null && r.d.drifts.length > 0,
           `rc=${r.d.rc} C1=${r.tsEnc.encoding} drifts=${r.d.drifts.length} und=${r.d.undetermined.join(';')}`,
         )
       }
@@ -1396,11 +1410,11 @@ async function selfTest(root) {
         )
       }
 
-      // ── S7e:真实现状(不变异)必须判红 —— 证明这台尺子在今天的仓上不是恒绿 ──
+      // ── S7e:真实现状(不变异;两端已统一 cl100k_base)必须转绿 —— 证明这台尺子能给出合格证 ──
       const r = await runOne(tsReal, pyReal, null)
       t(
-        `S7e 真实现状:两端 o200k vs cl100k ⇒ 判红(rc=${r.d.rc},drifts=${r.d.drifts.length},und=${r.d.undetermined.length})`,
-        r.d.rc === 1 && r.d.encodingDrift !== null && r.d.drifts.length > 0,
+        `S7e 真实现状:两端同用 cl100k_base ⇒ 转绿(rc=${r.d.rc},drifts=${r.d.drifts.length},und=${r.d.undetermined.length})`,
+        r.d.rc === 0 && r.d.verdict === 'aligned' && r.d.drifts.length === 0 && r.tsEnc.encoding === 'cl100k_base',
         `rc=${r.d.rc} encDrift=${r.d.encodingDrift} drifts=${r.d.drifts.length} und=${r.d.undetermined.join(';')}`,
       )
     }

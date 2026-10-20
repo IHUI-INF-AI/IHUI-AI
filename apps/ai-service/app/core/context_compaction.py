@@ -38,15 +38,14 @@
   **逐条同值**,那是**巧合**(整批落在等值子集上、踩不到分歧词),**不是**"两端一致"的证据。
 - 机器判据:scripts/check-bpe-encoding-parity.mjs(C1 读两端真实声明 + C2 实跑两端生产估算器
   逐值比对 + C3 反向锁防空转),该门当前**判红**。
-- **统一到哪张表是替真实业务选模型,须人拍板** —— 本模块不擅自改成任何一边。
-  改编码会同时改动真实估算值与压缩触发点,属行为变更,不是纯注释债,须走评审。
+- **2026-10-17 机主授权代行拍板:两端统一 cl100k_base** —— TS 侧已显式指定该表,本模块原样;
+  机器判据 scripts/check-bpe-encoding-parity.mjs 在统一后应判绿(2026-10-20 现读)。
 
-【本模块两条静默降级路径 —— 一旦触发,两端分歧会进一步扩大(事实陈述,不是 TODO)】
-- 上面那条是"声明层"的分歧。本模块还有两条**运行时**降级路径,会让实际用的表/算法
-  与声明**脱钩**,且都是**静默**的(只 logger.warning/debug,不改返回值、不抛错):
-    · :94-95 —— tiktoken 加载失败时 fallback 到 **p50k_base**(**第三张表**);
-    · :112 与 :119 —— encode 失败时 fallback 到 `len(text)//4`(完全不是 BPE,是字符数除四)。
-- 一旦任一触发,与 TS 侧的差距会**比上面那条声明层分歧更大**,而且从返回值上只看不出来。
+【本模块两条降级路径 —— 2026-10-20 已改为可见(warning + runtime_encoding_name)】
+- 加载失败 fallback 到 **p50k_base**(第三张表):仍保留兜底,但会 warning,
+  且 `runtime_encoding_name()` 会返回 `p50k_base(fallback)` ⇒ 故障期不再静默分叉;
+- encode 失败 fallback 到 `len(text)//4`:同样改为 warning 可见(不再是 debug)。
+- 读数里带实际所用表:正常路径 `runtime_encoding_name()` = `cl100k_base`。
 """
 
 from __future__ import annotations
@@ -108,6 +107,8 @@ _DATA_IMAGE_RE = re.compile(r"data:image/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=]+"
 
 # 模块级 encoder 缓存(CI 502 修复:lazy 加载避免 import 时报错)
 _encoder: tiktoken.Encoding | None = None
+# 实际使用的表名(正常 cl100k_base;降级 p50k_base(fallback))—— 让故障期可见
+_encoder_name: str | None = None
 
 
 def _get_encoder() -> tiktoken.Encoding:
@@ -123,21 +124,31 @@ def _get_encoder() -> tiktoken.Encoding:
     该docstring 原写"一致"时的代价:压缩按估算占比触发(0.88),两端读数不同 ⇒ 同一段上下文
     可能一边已触发压缩、另一边尚未触发,而 typecheck / lint / 全部既有守门都不红。
 
-    **统一到哪张表须人拍板**(这是替真实业务选模型:o200k 是 GPT-4o 系的表,cl100k 是 GPT-4
-    系较早的表,选哪张取决于本项目实际打给哪家模型)。本模块不擅自改。
-    机器判据 scripts/check-bpe-encoding-parity.mjs 当前判红。
+    **2026-10-17 拍板:统一 cl100k_base** —— TS 侧已显式指定该表,本模块原样。
+    机器判据 scripts/check-bpe-encoding-parity.mjs 在统一后应绿。
 
-    另注:下面的 except 分支会静默切到 **p50k_base**(第三张表) —— 一旦触发,
-    本侧实际用的表与上面声明的、与 TS 侧的对比都会脱钩,分歧进一步扩大。
+    另注:下面的 except 分支会 warning 并切到 **p50k_base**(第三张表);
+    `runtime_encoding_name()` 会如实返回 `p50k_base(fallback)`,不再静默。
     """
-    global _encoder
+    global _encoder, _encoder_name
     if _encoder is None:
         try:
             _encoder = tiktoken.get_encoding("cl100k_base")
+            _encoder_name = "cl100k_base"
         except Exception as e:
             logger.warning("Failed to load tiktoken cl100k_base: %s, fallback to p50k", e)
             _encoder = tiktoken.get_encoding("p50k_base")
+            _encoder_name = "p50k_base(fallback)"
     return _encoder
+
+
+def runtime_encoding_name() -> str:
+    """返回当前实际使用的 BPE 表名(正常 cl100k_base;降级 p50k_base(fallback))。
+
+    故障期读数必须带实际所用表 —— 只记一句 warning 而不给可读出口,等于"看不见"。
+    """
+    _get_encoder()
+    return _encoder_name or "unknown"
 
 
 def _estimate_text_with_image_placeholders(text: str) -> int:
@@ -153,14 +164,18 @@ def _estimate_text_with_image_placeholders(text: str) -> int:
         try:
             return len(_get_encoder().encode(text))
         except Exception as e:
-            logger.debug("tiktoken encode failed: %s, fallback to len/4", e)
+            logger.warning(
+                "[context_compaction] tiktoken encode 失败,fallback len//4(table=%s): %s",
+                _encoder_name or "unknown",
+                e,
+            )
             return max(1, len(text) // 4)
     total = 0
     cursor = 0
     try:
         enc = _get_encoder()
     except Exception as e:
-        logger.debug("tiktoken encoder unavailable: %s, fallback to len/4", e)
+        logger.warning("[context_compaction] tiktoken encoder 不可用,fallback len//4: %s", e)
         enc = None
     for m in matches:
         if m.start() > cursor:
