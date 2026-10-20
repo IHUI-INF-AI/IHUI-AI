@@ -98,6 +98,11 @@ async function mockConversationBackend(page: Page): Promise<void> {
  * 历史根本不会加载。正解与 chat-manual-compact.spec.ts:173-181 同款:
  * addInitScript 预置 persist 键 'ihui-chat'(version 5,partialize 含 conversationId),
  * rehydrate 后 loadHistory 自会来取上面 mock 的消息。
+ *
+ * 搜索框定位(2026-10-21):共享 SearchInput 的 props 是 `Omit<…, 'type'>`,渲染出来既无
+ * `type="search"` 也无 `role="searchbox"`(顶层 data-testid 会落到 <input> 上,组件注释明写),
+ * 旧选择器 `input[role=searchbox], input[type=search]` 结构上永远取不到 ⇒ 改按
+ * `message-search-input`(message-context-menu.tsx 的 MessageSearchBar 唯一出口)。
  */
 async function openConversation(page: Page): Promise<void> {
   await page.addInitScript(
@@ -129,7 +134,7 @@ test.describe('V3 #62 会话内搜索的结果预览列表', () => {
     // 唯一入口:沿用 Phase 23 的 Ctrl+F(本票刻意不加第二个输入框/快捷键)
     await page.locator('#message-list-panel-inline').click({ position: { x: 5, y: 5 } })
     await page.keyboard.press('Control+f')
-    const searchInput = page.locator('input[role="searchbox"], input[type="search"]').first()
+    const searchInput = page.getByTestId('message-search-input')
     await expect(searchInput).toBeVisible({ timeout: 5_000 })
     await searchInput.fill(NEEDLE)
 
@@ -149,7 +154,7 @@ test.describe('V3 #62 会话内搜索的结果预览列表', () => {
 
     await page.locator('#message-list-panel-inline').click({ position: { x: 5, y: 5 } })
     await page.keyboard.press('Control+f')
-    const searchInput = page.locator('input[role="searchbox"], input[type="search"]').first()
+    const searchInput = page.getByTestId('message-search-input')
     await expect(searchInput).toBeVisible({ timeout: 5_000 })
     await searchInput.fill(NEEDLE)
 
@@ -168,7 +173,7 @@ test.describe('V3 #62 会话内搜索的结果预览列表', () => {
 
     await page.locator('#message-list-panel-inline').click({ position: { x: 5, y: 5 } })
     await page.keyboard.press('Control+f')
-    const searchInput = page.locator('input[role="searchbox"], input[type="search"]').first()
+    const searchInput = page.getByTestId('message-search-input')
     await expect(searchInput).toBeVisible({ timeout: 5_000 })
     await searchInput.fill(NEEDLE)
     await expect(page.getByTestId('chat-search-result-list')).toBeVisible({ timeout: 5_000 })
