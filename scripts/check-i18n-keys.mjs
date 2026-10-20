@@ -760,8 +760,12 @@ function extractKeysByVar(src, varName) {
   // 2026-07-30: 同时匹配 t('xxx') / t.rich('xxx') / t.raw('xxx') / t.format('xxx') / t.has('xxx')
   // 原 regex 只匹配 t('xxx'),导致 t.rich('note5') / t.raw('items') 等 key 漏检
   const re = new RegExp(`\\b${escaped}(?:\\.(?:rich|raw|format|has))?\\(\\s*['"]([^'"]+)['"]`, 'g')
+  // 2026-10-20:静态引用提取前剥注释(复用下方 stripComments,与 extractDynamicPrefixes 同口径)——
+  // 注释里的 t('示例') 不是发射点,否则 src 注释里的示例会被误判成"缺键"(DomainHub.tsx 解释
+  // 门 121 的注释 `t('字面量')` 即此型:门把注释示例当引用,报 nav 缺 '字面量',CI i18n Check 红)。
+  const clean = stripComments(src)
   let m
-  while ((m = re.exec(src)) !== null) {
+  while ((m = re.exec(clean)) !== null) {
     keys.add(m[1])
   }
   return [...keys]
@@ -1106,12 +1110,14 @@ function extractHookKeys(src) {
     /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:useT|use[A-Za-z0-9_]*Tt)\s*\(/g
   while ((m = directAssignRe.exec(code)) !== null) varNames.add(m[1])
   const keys = []
+  // 2026-10-20:同 extractKeysByVar,静态引用提取前剥注释(端文件注释示例同型)
+  const clean = stripComments(code)
   for (const v of varNames) {
     const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     // key 必须是引号字面量;模板字符串/动态拼接跳过(无法静态判定)
     const re = new RegExp(`\\b${escaped}\\(\\s*['"]([^'"]+)['"]`, 'g')
     let k
-    while ((k = re.exec(code)) !== null) keys.push(k[1])
+    while ((k = re.exec(clean)) !== null) keys.push(k[1])
   }
   return [...new Set(keys)]
 }
