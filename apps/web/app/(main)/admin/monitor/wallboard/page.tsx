@@ -1050,7 +1050,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         </header>
 
         {/* ===== KPI 带 ===== */}
-        <section className="grid grid-cols-2 gap-2.5 px-4 pt-3 md:grid-cols-3 xl:grid-cols-6">
+        <section className="wb-cells-lg grid gap-2.5 px-4 pt-3">
           {[
             {
               icon: <Activity className="h-4 w-4" />,
@@ -1155,7 +1155,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <ChartEmpty text={t('sourceUnreachable')} />
               ) : null}
             </div>
-            <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="mt-2 wb-cells grid gap-2">
               <StatCell
                 label={t('memPhysical')}
                 value={`${fmtBytes(typeof host?.memTotalBytes === 'number' && typeof host?.memFreeBytes === 'number' ? host.memTotalBytes - host.memFreeBytes : null)} / ${fmtBytes(host?.memTotalBytes)}`}
@@ -1235,7 +1235,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <ChartEmpty text={trendError ? t('trendLoadFailed') : t('noTrendData')} />
               ) : null}
             </div>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="wb-cells grid gap-2">
               <StatCell
                 label={t('wsConnections')}
                 value={fmtInt(http?.wsConnections)}
@@ -1583,7 +1583,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="wb-cells grid gap-1.5">
                 <StatCell label={t('dbSize')} value={fmtBytes(pg?.sizeBytes)} tone="accent" />
                 <StatCell
                   label={t('bufferHit')}
@@ -1608,7 +1608,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="wb-cells grid gap-1.5">
                 <StatCell label={t('redisClients')} value={fmtInt(redis?.clients)} tone="accent" />
                 <StatCell label={t('redisKeys')} value={fmtInt(redis?.keys)} />
                 <StatCell
@@ -1627,7 +1627,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               <div className="mb-1 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('llmBridge')}
               </div>
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="wb-cells grid gap-1.5">
                 <StatCell
                   label={t('llmCallsToday')}
                   value={fmtCompact(biz?.llmCallsToday)}
@@ -1697,7 +1697,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </div>
                 ) : null}
               </div>
-              <div className="mt-2 grid grid-cols-3 gap-1.5">
+              <div className="mt-2 wb-cells grid gap-1.5">
                 <StatCell
                   label={t('usersRegistered')}
                   value={fmtInt(biz?.usersTotal)}
@@ -1719,7 +1719,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   />
                 ) : null}
               </div>
-              <div className="mt-2 grid grid-cols-3 gap-1.5">
+              <div className="mt-2 wb-cells grid gap-1.5">
                 <StatCell
                   label={t('ordersToday')}
                   value={fmtInt(biz?.ordersTodayPaid)}
@@ -1771,7 +1771,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               ) : null
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="wb-cells grid gap-2">
                   <div className="rounded-sm border border-border bg-muted/60 px-2.5 py-2">
                     <div className="text-[10px] tracking-[0.12em] text-muted-foreground">
                       {t('edgeHeadlineMs')}
@@ -1816,7 +1816,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+                <div className="wb-cells grid gap-2">
                   <StatCell
                     label={t('edgeStatP50')}
                     value={isNum(edge.stats.p50Ms) ? fmtInt(edge.stats.p50Ms) : '—'}
@@ -1934,7 +1934,9 @@ const WALLBOARD_CSS = `
 @container (max-width: 996px) {
   .wb-hdr-sources { display: none; }
 }
-/* 主体 12 栏网格同理:它按视口 xl: 生效,而容器宽与视口并不同步(实测 视口1600→容器914、
+/* .wb-scroll-host 的 container-type 已迁 app/globals.css(与 .ai-input-toolbar/.account-card 同族);
+ * 它原本住在这里 ⇒ 只在 wallboard 视图挂载,面板视图没有容器,@container 会退回按视口判定。
+ * 主体 12 栏网格同理:它按视口 xl: 生效,而容器宽与视口并不同步(实测 视口1600→容器914、
  * 1280→594、1100→900、900→800)。容器 914 时最窄面板 287px 可读,800 时只剩 249、594 时 181。
  * 故阈值取实测落点 900(899 = N-1 防抖):窄容器整栏堆叠,宽容器维持原 12 栏设计。 */
 .wb-scroll-host { container-type: inline-size; }
