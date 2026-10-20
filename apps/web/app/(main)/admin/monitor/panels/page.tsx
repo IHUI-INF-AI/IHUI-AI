@@ -65,12 +65,16 @@ type ConfigModule = Awaited<ReturnType<typeof loadConfig>>
 type MonitorView = 'panels' | 'wallboard'
 
 /**
- * 选中态刻意从共享 Tabs 默认的 `bg-selection` 换成"提亮 + 阴影":暗色档下 selection = 纯黑,
- * 压在 bg-muted(rgb 38,38,38)的槽上比底还暗,肉眼会把亮的那格读成选中(2026-10-20 机主
- * 反馈"要明显一些"后的实测结论,取证 = 计算样式对照)。
+ * 选中态三档实测后的定档(2026-10-20,暗色档计算样式现读):
+ *   bg-selection = rgb(0,0,0) 纯黑,压在 bg-muted rgb(38,38,38) 的槽上 ⇒ 比底还暗,读成"未选中";
+ *   bg-background = rgb(36,36,36) ⇒ 与槽只差 2,等于看不见;
+ *   唯一在两档都成立的高对比对是品牌实底对 `bg-cta`/`text-cta-foreground`(暗=纯白底黑字、
+ *   亮=纯黑底白字,tokens.css .dark 现读 hsl(0 0% 100%)/hsl(0 0% 0%))。共享 Tabs 的默认档
+ *   (packages/ui-react/src/components/tabs.tsx 的 bg-selection)在暗色下是同型坑,源头修归设计系统,
+ *   这里先按调用点覆写并留证据。
  */
 const TRIGGER_CLS =
-  'px-4 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm'
+  'px-4 font-medium data-[state=active]:bg-cta data-[state=active]:text-cta-foreground'
 
 /**
  * 两种呈现的切换器。刻意不自己占一行:由各视图的顶栏承载,复用共享 Tabs 档位
@@ -348,7 +352,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
       <div className="flex min-w-0 flex-1 flex-col">
         {/* 顶栏 */}
         <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-4 py-2.5">
-          <h2 className="text-sm font-semibold text-foreground">
+          <h2 className="min-w-0 truncate text-sm font-semibold text-foreground">
             {dashboard ? stripBrandPrefix(dashboard.title) : '监控面板'}
           </h2>
           {dashboard && (
