@@ -27,6 +27,8 @@ import { useAuthStore } from '@/stores/auth'
  * 已登录用户访问 /admin/* 被错误重定向到 /sso/login。改为等 hasHydrated()=true 后再判断。
  */
 const ADMIN_ROLE_THRESHOLD = 1
+/** 等资料落定的宽限:/auth/me 走隧道实测 1–2s,取 10s 留足余量;到点仍无 roleId 才按无权限处理。 */
+const ROLE_SETTLE_GRACE_MS = 10_000
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -59,6 +61,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return () => cancelAnimationFrame(raf)
     }
     // 已登录但非管理员:跳转到 /forbidden
+    //
+    // **「角色还不知道」不得当成「角色不够」判(2026-10-21 实测)**:bootstrap 的顺序是
+    // 先 `setToken(...)`(⇒ isAuthenticated=true)再拉 `/auth/me` 才 `setUser(...)`(roleId 随资料一起到),
+    // 中间这一格 `user?.roleId` 是 undefined。原先 `(userRoleId ?? 0) < 1` 把它折成 0 ⇒ 真管理员
+    // 被弹到 /forbidden,而且 replaceState 之后不会自己回来。现读复现:同一份登录态下
+    // 6 次冷加载有 3 次落在 /forbidden(时间差,与明暗主题无关 —— 主题只是让某一侧稳定地更快)。
+    if (userRoleId === undefined || userRoleId === null) {
+      // 有终态的等待:宽限期内资料到了就照常放行(依赖变化会重跑本 effect 并 clearTimeout);
+      // 到点仍取不到才按「无权限」处理 —— 失效方向是"多等一次",绝不是"多弹一次"。
+      const timer = setTimeout(() => {
+        const settled = useAuthStore.getState().user?.roleId
+        if (settled === undefined || settled === null) {
+          requestAnimationFrame(() => router.replace('/forbidden'))
+        }
+      }, ROLE_SETTLE_GRACE_MS)
+      return () => clearTimeout(timer)
+    }
     if ((userRoleId ?? 0) < ADMIN_ROLE_THRESHOLD) {
       const raf = requestAnimationFrame(() => {
         router.replace('/forbidden')
