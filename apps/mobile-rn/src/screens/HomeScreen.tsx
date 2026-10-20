@@ -1529,8 +1529,7 @@ export function HomeScreen() {
       if (liveRes.success) setLives(toLiveItem(liveRes.data.list))
       if (progressRes.success) setProgress(toProgressItem(progressRes.data.list))
       if (!courseRes.success && !liveRes.success && !progressRes.success) {
-        const firstFailed =
-          [courseRes, liveRes, progressRes].find((r) => !r.success) ?? courseRes
+        const firstFailed = [courseRes, liveRes, progressRes].find((r) => !r.success) ?? courseRes
         setError(apiFailureToText(firstFailed, t('common.networkError')))
       }
     } catch (error) {
@@ -2386,22 +2385,18 @@ export function HomeScreen() {
 }
 
 const shellStyles = {
-  root: { flex: 1, backgroundColor: tokens.surface.bg } as const,
-  // 底部玻璃停靠区(2026-10-16):输入区 + TabBar 胶囊整块悬浮,液态玻璃底 + web 预览模糊,
-  // 2026-10-20 用户定稿:顶部 hairline 描边与顶部两角 xl 圆角一并去掉 —— 玻璃停靠区
-  // 直角直边、不画任何边界(此前圆角+顶线是 2026-10-16「液态玻璃」定稿的一部分,实拍
-  // 多出一条凭空的线与角)。内容区由 ScrollView 预留 paddingBottom 让位,可滚到玻璃底下若隐若现
-  // 2026-10-20 再定稿:底层背景改用页面同款 surface.bg(此前 glass.bg 明暗两档都是
-  // rgba(255,255,255,.66) 白玻璃,暗色下发白、与页面深底割裂);实底下 blur 不可见,
-  // glassBlurLayer 一并移除(token 自动跟随明暗主题)。
+  // 页面根容器不设底色(2026-10-20 用户定稿):底色由外层导航容器提供,本页不再叠一层
+  root: { flex: 1 } as const,
+  // 底部停靠区(2026-10-16):输入区 + TabBar 胶囊整块悬浮在内容之上,容器只做定位与高度回灌,
+  // 自身不设任何背景色(2026-10-20 用户定稿:该区域内只有输入框外壳与 TabBar 胶囊各有背景,
+  // 其余是空透明容器,滚动内容从其下方穿过);内容区由 ScrollView 预留 paddingBottom 让位。
   bottomDock: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: tokens.surface.bg,
   } as const,
-  // 顶栏行取白档,与 App.tsx 给 Home 的状态栏带同色;主体仍走 root 的 surface.bg
+  // 顶栏行取白档,与 App.tsx 给 Home 的状态栏带同色;主体底色由外层导航容器提供
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(120) } as const,
   // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop: rpx(18) + 圆角 30rpx≈15)
