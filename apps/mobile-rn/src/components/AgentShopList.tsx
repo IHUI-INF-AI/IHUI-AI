@@ -47,6 +47,8 @@ export interface AgentShopItem {
   isNew?: boolean
   userNickname?: string
   userAvatar?: string
+  /** 会员专享(对齐 Agent.isVipExclusive,AiModelCard userType 映射用) */
+  isVipExclusive?: boolean
 }
 
 interface AgentShopListProps {
