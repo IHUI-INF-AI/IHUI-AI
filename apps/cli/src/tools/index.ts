@@ -1074,6 +1074,73 @@ function applyToolArgValidation(tool: Tool, call: ParsedToolCall): ToolResult | 
  * 返回 null = 放行(或本来就不需要问);否则返回拒绝 ToolResult(fail-closed:
  * 无 confirmDangerous 回调 = 'no-confirmation-channel',回调答假 = 'user-declined')。
  */
+/**
+ * 危险工具的唯一放行/拒绝出口(票 A 单源面)。
+ *
+ * 本地闸与 remote hub 闸共用:审批面只读一次、拒绝头语只拼一次、审计只发一次。
+ * `hookApproved` = 钩子已替人应答确认窗(远程闸在调用前就返回,本地闸仍要披露记账)。
+ */
+async function denyOrApproveDangerous(
+  tool: Tool,
+  call: ParsedToolCall,
+  ctx: ToolContext,
+  opts: {
+    leaseContentDrifted?: boolean;
+    hookApproved?: boolean;
+    recordLease?: boolean;
+    noteOnHookApproved?: boolean;
+  } = {},
+): Promise<ToolResult | null> {
+  const dangerLevel = tool.dangerLevel ?? 'write';
+  if (opts.hookApproved) {
+    if (opts.noteOnHookApproved) {
+      noteDangerousApproval(ctx.allowDangerous === true, tool.name);
+      if (opts.recordLease) {
+        recordApprovedInvocation({
+          toolName: tool.name,
+          invocationContent: JSON.stringify(call.arguments ?? null),
+          dangerLevel,
+          workspaceId: leaseWorkspaceIdOf(ctx.workspacePath),
+        });
+      }
+    }
+    return null;
+  }
+
+  const confirm = ctx.confirmDangerous;
+  const allowed = confirm ? await confirm(tool, call.arguments) : false;
+  if (allowed) {
+    noteDangerousApproval(ctx.allowDangerous === true, tool.name);
+    if (opts.recordLease) {
+      recordApprovedInvocation({
+        toolName: tool.name,
+        invocationContent: JSON.stringify(call.arguments ?? null),
+        dangerLevel,
+        workspaceId: leaseWorkspaceIdOf(ctx.workspacePath),
+      });
+    }
+    return null;
+  }
+
+  const denial = buildToolDenial({
+    gate: opts.leaseContentDrifted ? 'lease-digest-drift' : 'dangerous-gate',
+    decider: confirm ? 'user-declined' : 'no-confirmation-channel',
+    tool: call.name,
+    args: call.arguments,
+  });
+  auditToolDenial(denial);
+  return {
+    success: false,
+    output: '',
+    error:
+      (opts.leaseContentDrifted
+        ? `工具 ${call.name} 的本次参数与租约批准过的内容不符(摘要漂移)，旧批准失效，需重新确认`
+        : `危险操作被拒绝(需用户确认): ${call.name}`) + `\n${denialErrorSuffix(denial)}`,
+    errorType: 'permission_denied',
+    denial,
+  };
+}
+
 async function gateRemoteHubTool(
   handle: ToolHandle,
   call: ParsedToolCall,
@@ -1109,31 +1176,8 @@ async function gateRemoteHubTool(
       errorType: 'permission_denied',
     };
   }
-  const hookApproved = hookRes.permission === 'allow';
-  if (!hookApproved) {
-    const allowed = ctx.confirmDangerous ? await ctx.confirmDangerous(toolView, call.arguments) : false;
-    if (allowed) {
-      // 与本地闸同一披露口:危险放行路径可追溯(只记账,不改判定)。
-      noteDangerousApproval(ctx.allowDangerous === true, call.name);
-    } else {
-      const denial = buildToolDenial({
-        gate: 'dangerous-gate',
-        // 层面边界与本地闸同形:工具层只看"有没有回调";回调内部的成因归因属调用方另计。
-        decider: ctx.confirmDangerous ? 'user-declined' : 'no-confirmation-channel',
-        tool: call.name,
-        args: call.arguments,
-      });
-      auditToolDenial(denial);
-      return {
-        success: false,
-        output: '',
-        error: `危险操作被拒绝(需用户确认): ${call.name}\n${denialErrorSuffix(denial)}`,
-        errorType: 'permission_denied',
-        denial,
-      };
-    }
-  }
-  return null;
+  if (hookRes.permission === 'allow') return null;
+  return denyOrApproveDangerous(toolView, call, ctx);
 }
 
 export async function executeToolCall(
@@ -1353,46 +1397,13 @@ export async function executeToolCall(
     // 'ask' / 无应答 ⇒ 落回原人工窗(下方,逐字不变)。
   }
   if (requiresUserConfirmation(tool, leaseContentDrifted)) {
-    const allowed = hookApproved || (ctx.confirmDangerous ? await ctx.confirmDangerous(tool, call.arguments) : false);
-    // 披露面(L7905 收口):只记账不改判定 —— 放行路径(会话级 flag / 回调自批)可追溯
-    if (allowed) {
-      noteDangerousApproval(ctx.allowDangerous === true, tool.name);
-      // 批准这一刻的内容就是"人被问过并同意的那件事" —— 把它登记进租约的槽位指纹,
-      // 之后同工具换内容旧批准自动失效(`content-drifted`)。档位未开 / 无生效租约 ⇒
-      // 该出口内部自行拒收并给原因,**不抛、不改判定**,所以既有 `--permission-lease`
-      // 使用者行为零变化(绑定要在授予时显式开 `digestTrackOnApproval`)。
-      recordApprovedInvocation({
-        toolName: tool.name,
-        invocationContent: JSON.stringify(call.arguments ?? null),
-        dangerLevel: tool.dangerLevel ?? 'write',
-        workspaceId: leaseWorkspaceIdOf(ctx.workspacePath),
-      });
-    }
-    if (!allowed) {
-      const denial = buildToolDenial({
-        // 两道闸同时命中时报更特异的一态:漂移是"批准过、内容变了"的单列待再审态,
-        // 不得被读成"从未批准"(文案与 `gate` 字段同形,回归各钉一条)。
-        gate: leaseContentDrifted ? 'lease-digest-drift' : 'dangerous-gate',
-        // 层面边界(如实登记):工具层只看"有没有回调";danger-gate 内部"回调在但无
-        // prompt"(no-prompt 成因)在这一层呈现为 user-declined,归因属调用方另计。
-        decider: ctx.confirmDangerous ? 'user-declined' : 'no-confirmation-channel',
-        tool: call.name,
-        args: call.arguments,
-      });
-      auditToolDenial(denial);
-      // 原中文错误串逐字保留(`lease-drift-executor-wiring` 以 toContain('摘要漂移') 断言),
-      // 其后追加 ASCII 出路行;无确认出口时**仍然必须拒** —— 本票只改怎么说,不改是否放。
-      return {
-        success: false,
-        output: '',
-        error:
-          (leaseContentDrifted
-            ? `工具 ${call.name} 的本次参数与租约批准过的内容不符(摘要漂移)，旧批准失效，需重新确认`
-            : `危险操作被拒绝(需用户确认): ${call.name}`) + `\n${denialErrorSuffix(denial)}`,
-        errorType: 'permission_denied',
-        denial,
-      };
-    }
+    const denied = await denyOrApproveDangerous(tool, call, ctx, {
+      leaseContentDrifted,
+      hookApproved,
+      recordLease: true,
+      noteOnHookApproved: true,
+    });
+    if (denied) return denied;
   }
   // G-427 第①步(机主 2026-10-10 拍板「先影子记账一周再开真门控」):allowed-tools 的影子记账点。
   // 位置刻意在**所有既有闸门放行之后、真正执行之前** —— 记的是"这一趟真会跑"。已被权限规则 /

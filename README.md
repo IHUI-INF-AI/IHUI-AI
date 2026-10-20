@@ -6597,3 +6597,69 @@ A: 118 models via LiteLLM adapter(国际 30+ / 国产 15+ / 云厂商 10+),统�
 | 路由文件       | 604   | `apiRouteFiles`    |
 | 测试文件       | 2949  | `testFiles`        |
 | 跟踪文件       | 15117 | `trackedFiles`     |
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-19。
+| **可观测性** | Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager + OTel Collector(见 [deploy/observability/](./deploy/observability/))                                                                                      |
+- **运维**:Prometheus + Grafana · 49 CI workflows · 260 守门脚本 · 蓝绿部署
+- **运维**:Prometheus + Grafana · 49 CI workflows · 260 守门脚本 · 蓝绿部署
+                 │  • 三支柱可观测性 + 21 Grafana 仪表盘             │
+9. **三支柱可观测性 + 3 Grafana 仪表盘**:Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager — 开源 AI 平台中较为少见的完整 SRE 级可观测性栈(其他项目最多基础日志)
+- **可观测**:Prometheus + Grafana + Loki + Jaeger + OpenTelemetry + Alertmanager
+                            │ Pub/Sub   │    │  BullMQ   │    │ Prometheus│  Grafana :8816
+│   可观测:Prometheus :8815 + Grafana :8816(3 仪表盘)+ Loki :8818 + Jaeger :8814       │
+| Grafana      | http://localhost:8816            | 默认账号 admin / 修改密码(3 仪表盘自动 provision) |
+### 指标(Prometheus + Grafana 3 仪表盘)
+9. **三支柱可观测性 + 21 Grafana 仪表盘 + Alertmanager**(在开源 AI 平台中较为少见)
+最小生产配置:4 核 CPU / 8GB 内存 / 50GB 磁盘 / 单 VM 即可。开发环境 2 核 4GB 够用。监控栈可选(关掉 Grafana / Loki / Jaeger 节省 1GB 内存)。详见 [DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)。
+<summary><strong>Q10:20 个 Grafana 仪表盘会不会太重?</strong></summary>
+不会。3 仪表盘覆盖业务漏斗 / 支付流 / AI 成本延迟 / 考试使用率 / PostgreSQL / Redis / BullMQ / Nginx / HLS / 直播间 / 租户使用 / WebSocket / 认证安全等,每个仪表盘独立 provision,可按需启用。开发环境关掉 Grafana / Loki / Jaeger / Alertmanager 4 个监控容器,可节省 1GB 内存。
+| [docs/MONITORING.md](docs/MONITORING.md)                                     | 可观测性(Prometheus + Grafana + Loki + Jaeger + Alertmanager) |
+- 全栈可观测性(Prometheus + Grafana 3 仪表盘 + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager)
+A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4443 API 路由 / 598 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+- **运维**:Prometheus + Grafana · 49 CI workflows · 260 守门脚本 · 蓝绿部署
+A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4443 API 路由 / 598 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+| 数据库表       | 598   | `dbTables`         |
+| schema 文件    | 231   | `dbSchemaFiles`    |
+| AI 服务路由    | 576   | `aiServiceRoutes`  |
+| CLI 命令文件   | 66    | `cliCommandFiles`  |
+| CI 工作流      | 49    | `ciWorkflows`      |
+| 工程守门       | 260   | `guardianGates`    |
+| — blocking     | 236   | `guardianBlocking` |
+| — warn         | 27    | `guardianWarn`     |
+- **运维**:Prometheus + Grafana · 49 CI workflows · 260 守门脚本 · 蓝绿部署
+- **运维**:Prometheus + Grafana · 49 CI workflows · 260 守门脚本 · 蓝绿部署
+A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4443 API 路由 / 598 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+- **运维**:Prometheus + Grafana · 49 CI workflows · 260 守门脚本 · 蓝绿部署
+> A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4443 API 路由 / 598 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4443 API 路由 / 598 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+> A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4443 API 路由 / 598 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+| 指标           | 现值  | 取数键             |
+| -------------- | ----- | ------------------ |
+| API 路由       | 4449  | `apiRoutes`        |
+| 路由文件       | 606   | `apiRouteFiles`    |
+| WebSocket 端点 | 25    | `wsEndpoints`      |
+| 入库模型清单   | 118   | `llmModels`        |
+| 发布平台       | 38    | `publishPlatforms` |
+| 端应用包       | 9     | `appPackages`      |
+| 共享包         | 16    | `sharedPackages`   |
+| CLI 工具文件   | 71    | `cliToolFiles`     |
+| 语言           | 5     | `i18nLanguages`    |
+| i18n 作用域    | 7     | `i18nScopes`       |
+| 语言包 JSON    | 35    | `i18nMessageFiles` |
+| 测试文件       | 2955  | `testFiles`        |
+| Compose 服务   | 15    | `composeServices`  |
+| 跟踪文件       | 15144 | `trackedFiles`     |
+- **运维**:Prometheus + Grafana · 49 CI workflows · 88 守门脚本 · 蓝绿部署
+- **运维**:Prometheus + Grafana · 49 CI workflows · 88 守门脚本 · 蓝绿部署
+A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4449 API 路由 / 598 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+- **运维**:Prometheus + Grafana · 49 CI workflows · 88 守门脚本 · 蓝绿部署
+> A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4449 API 路由 / 598 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+- **运维**:Prometheus + Grafana · 49 CI workflows · 88 守门脚本 · 蓝绿部署
+- **运维**:Prometheus + Grafana · 49 CI workflows · 88 守门脚本 · 蓝绿部署
+A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4449 API 路由 / 598 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+- **运维**:Prometheus + Grafana · 49 CI workflows · 88 守门脚本 · 蓝绿部署
+A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4449 API 路由 / 598 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4449 API 路由 / 598 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+> A: Yes. ~14839+ tests / 2955 test files / 67 e2e spec / 4449 API 路由 / 598 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+                 │  • 三支柱可观测性 + 26 Grafana 仪表盘             │
+9. **三支柱可观测性 + 26 Grafana 仪表盘**:Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager — 开源 AI 平台中较为少见的完整 SRE 级可观测性栈(其他项目最多基础日志)
+9. **三支柱可观测性 + 26 Grafana 仪表盘 + Alertmanager**(在开源 AI 平台中较为少见)

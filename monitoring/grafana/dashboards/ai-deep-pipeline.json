@@ -1,0 +1,183 @@
+{
+  "uid": "ihui-ai-deep-pipeline",
+  "title": "IHUI-AI · AI 深度链路(压缩 / MCP / TTFT)",
+  "description": "AI 链路里最深、最低频但最有价值的一批观测:上下文压缩、MCP 工具质量、首 token 时延、token 压缩。立因(2026-10-19):这批指标此前既无面板,又被误判为'埋点坏了'。实测结论(72h 窗口):TTFT 与 token_compaction 埋点工作正常(72h 分别有过 3 次 / 2 次事件),只是低频;ihui_compaction_* 与 ihui_mcp_* 系列 72h 零样本的原因是这两条功能路径近 72 小时从未被真实流量触发(埋点完好)。⇒ 本盘的 0 多数是诚实的'业务未发生',不是采集故障;一旦有流量,这里会立刻有数。所有直方图一律用 $__range + increase,避免短窗 rate 出 NaN。",
+  "tags": ["ai", "compaction", "mcp", "ttft"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "title": "活跃 LLM 会话",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "ihui_llm_active_sessions", "legendFormat": "会话", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "LLM 请求平均耗时(秒)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 0 },
+      "targets": [
+        { "expr": "sum(increase(ihui_llm_request_duration_seconds_sum[$__range])) / clamp_min(sum(increase(ihui_llm_request_duration_seconds_count[$__range])), 0.000001)", "legendFormat": "平均耗时", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "decimals": 2 }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "首 token 时延 TTFT(秒)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 0 },
+      "targets": [
+        { "expr": "sum(increase(ihui_llm_ttft_seconds_sum[$__range])) / clamp_min(sum(increase(ihui_llm_ttft_seconds_count[$__range])), 0.000001)", "legendFormat": "TTFT", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "decimals": 3, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 2 }, { "color": "red", "value": 5 } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "TTFT 事件计数(窗口内)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 5 },
+      "targets": [
+        { "expr": "sum(increase(ihui_llm_ttft_seconds_count[$__range]))", "legendFormat": "TTFT 事件", "refId": "A" },
+        { "expr": "sum(increase(ihui_llm_stream_interrupt_total[$__range]))", "legendFormat": "流式中断", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "Token 压缩:触发 / 成功 / 失败",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 5 },
+      "targets": [
+        { "expr": "sum(increase(llm_token_compaction_triggered_total[$__range]))", "legendFormat": "触发", "refId": "A" },
+        { "expr": "sum(increase(llm_token_compaction_success_total[$__range]))", "legendFormat": "成功", "refId": "B" },
+        { "expr": "sum(increase(llm_token_compaction_failure_total[$__range]))", "legendFormat": "失败", "refId": "C" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "Token 压缩比(压缩后/压缩前,越小越好)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 13 },
+      "targets": [
+        { "expr": "sum(increase(llm_token_compaction_ratio_sum[$__range])) / clamp_min(sum(increase(llm_token_compaction_ratio_count[$__range])), 0.000001)", "legendFormat": "压缩比", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "上下文压缩事件数",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 13 },
+      "targets": [
+        { "expr": "sum(increase(ihui_compaction_events_total[$__range]))", "legendFormat": "压缩事件", "refId": "A" },
+        { "expr": "sum(increase(ihui_context_recall_queries_total[$__range]))", "legendFormat": "上下文召回查询", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "上下文压缩:run 结局分布",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 21 },
+      "targets": [
+        { "expr": "sum by (outcome) (increase(ihui_compaction_run_outcomes_total[$__range]))", "legendFormat": "{{outcome}}", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "上下文压缩平均耗时(秒)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 21 },
+      "targets": [
+        { "expr": "sum(increase(ihui_compaction_duration_seconds_sum[$__range])) / clamp_min(sum(increase(ihui_compaction_duration_seconds_count[$__range])), 0.000001)", "legendFormat": "压缩耗时", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "上下文压缩比(越小越好)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 29 },
+      "targets": [
+        { "expr": "sum(increase(ihui_compaction_ratio_sum[$__range])) / clamp_min(sum(increase(ihui_compaction_ratio_count[$__range])), 0.000001)", "legendFormat": "压缩比", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "推理内容保留率(越高越好)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 29 },
+      "targets": [
+        { "expr": "sum(increase(ihui_compaction_reasoning_retention_sum[$__range])) / clamp_min(sum(increase(ihui_compaction_reasoning_retention_count[$__range])), 0.000001)", "legendFormat": "保留率", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "MCP 工具调用次数",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 37 },
+      "targets": [
+        { "expr": "sum(increase(ihui_mcp_tool_calls_total[$__range]))", "legendFormat": "工具调用", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "MCP 工具平均耗时(秒)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 37 },
+      "targets": [
+        { "expr": "sum(increase(ihui_mcp_tool_latency_seconds_sum[$__range])) / clamp_min(sum(increase(ihui_mcp_tool_latency_seconds_count[$__range])), 0.000001)", "legendFormat": "工具耗时", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "MCP schema 不匹配次数",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 45 },
+      "targets": [
+        { "expr": "sum(increase(ihui_mcp_schema_mismatch_total[$__range]))", "legendFormat": "schema 不匹配", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "压缩决策链长度",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 53 },
+      "targets": [
+        { "expr": "sum(increase(ihui_compaction_decision_chain_entries_sum[$__range])) / clamp_min(sum(increase(ihui_compaction_decision_chain_entries_count[$__range])), 0.000001)", "legendFormat": "决策链条目", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    }
+  ]
+}

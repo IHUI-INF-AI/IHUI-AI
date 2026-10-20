@@ -23,7 +23,7 @@ import * as React from 'react'
 
 import { TurnStatusBadge } from '@/components/ai/turn-status-badge'
 import { useToolApprovalPending } from '@/components/ai/tool-approval-dialog'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import type { TurnState } from '@ihui/shared/chat/turn-status'
 
 /** 投影输入:全部是 store 里已经存在的事实,本模块不引入任何新状态。 */
@@ -58,8 +58,10 @@ export function deriveTurnState(f: TurnFacts): TurnState | null {
 
 /** 从 store 读出 TurnFacts(每个选择器都返回基元 ⇒ 不产生新的对象引用,不触发多余重渲染)。 */
 function useTurnFacts(): TurnFacts {
-  const streaming = useChatStore((s) => s.isStreaming)
-  const runningTool = useChatStore((s) => {
+  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
+  const chatStore = usePaneChatStore()
+  const streaming = chatStore((s) => s.isStreaming)
+  const runningTool = chatStore((s) => {
     for (let i = s.messages.length - 1; i >= 0; i--) {
       const m = s.messages[i]
       if (!m || m.role !== 'assistant') continue
@@ -67,7 +69,7 @@ function useTurnFacts(): TurnFacts {
     }
     return false
   })
-  const lastAssistantErrored = useChatStore((s) => {
+  const lastAssistantErrored = chatStore((s) => {
     for (let i = s.messages.length - 1; i >= 0; i--) {
       const m = s.messages[i]
       if (!m || m.role !== 'assistant') continue
@@ -75,7 +77,7 @@ function useTurnFacts(): TurnFacts {
     }
     return false
   })
-  const queuedSideQuestions = useChatStore((s) => {
+  const queuedSideQuestions = chatStore((s) => {
     const cid = s.conversationId
     if (!cid) return 0
     return s.sideQueueByConversation[cid]?.length ?? 0

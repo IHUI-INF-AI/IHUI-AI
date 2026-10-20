@@ -18,7 +18,7 @@ import {
   type TaskStatusStepView,
 } from '@ihui/shared/chat'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { HookSummaryCard } from './hook-summary-card'
 import type { PlanStepStatus } from '@ihui/types/ai'
 
@@ -85,10 +85,12 @@ function StepRow({
  * 空闲(无步骤、无变更、非流式)时返回 null,不占任何高度。
  */
 export function TaskStatusBar() {
+  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
+  const chatStore = usePaneChatStore()
   const t = useTranslations('taskStatus')
-  const conversationId = useChatStore((s) => s.conversationId)
-  const chatStreaming = useChatStore((s) => s.isStreaming)
-  const messages = useChatStore((s) => s.messages)
+  const conversationId = chatStore((s) => s.conversationId)
+  const chatStreaming = chatStore((s) => s.isStreaming)
+  const messages = chatStore((s) => s.messages)
   const agentProgress = useAgentProgress(conversationId)
 
   // 两条互斥的数据来源:

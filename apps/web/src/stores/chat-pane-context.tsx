@@ -11,11 +11,9 @@
  * 独立 store 实例(getChatStoreForPane);context 之外(既有单窗格场景)恒
  * 返回单例 useChatStore —— 消费面可以逐个安全切换,非窗格场景零行为变化。
  *
- * **挂载门禁(改本文件前先读)**:
- * ChatPaneProvider 在票60 步序四(发送链路窗格化:send-message/send-answer 按
- * pane 实例读写)落地之前**禁止**在业务树里挂载。在那之前挂载会造成读写不对称
- * —— 消费面读窗格实例,发送链路仍写单例,窗格里的流式回复会"落在单例、UI 读不到"。
- * 本切片已切换的消费面(message-input)在无 Provider 时恒走单例,与现状逐字节等价。
+ * **挂载点**:根窗格保持单例(不挂 Provider);非根窗格由 ChatPaneBody 外包
+ * ChatPaneProvider(paneId=叶 id)。发送链路与 useChat 均已按传入 store 实例化,
+ * 读写落在同一实例上。
  */
 
 import * as React from 'react'
@@ -23,7 +21,7 @@ import type { StoreApi, UseBoundStore } from 'zustand'
 import { useChatStore, type ChatState } from '@/stores/chat'
 import { getChatStoreForPane } from '@/stores/chat-panes'
 
-type ChatStore = UseBoundStore<StoreApi<ChatState>>
+export type ChatStore = UseBoundStore<StoreApi<ChatState>>
 
 const ChatPaneIdContext = React.createContext<string | null>(null)
 
@@ -56,6 +54,23 @@ export function usePaneChatStore(): ChatStore {
     () => (paneId === null ? useChatStore : getChatStoreForPane(paneId)),
     [paneId],
   )
+}
+
+/** 读当前窗格 id(Provider 外返回 null = 根窗格/单例) */
+export function useOptionalPaneId(): string | null {
+  const currentPaneId: string | null = React.useContext(ChatPaneIdContext)
+  return currentPaneId
+}
+
+/**
+ * 窗格事件门控:派发方把 paneId 放进 detail,监听方只处理属于自己窗格的事件。
+ * 无 paneId 的历史事件按根窗格处理(向后兼容);根窗格监听方的 paneId 为 null。
+ */
+export function matchesPaneEvent(
+  detailPaneId: string | null | undefined,
+  currentPaneId: string | null,
+): boolean {
+  return (detailPaneId ?? null) === currentPaneId
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

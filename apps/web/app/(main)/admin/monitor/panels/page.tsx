@@ -24,6 +24,7 @@ import { Tooltip } from '@/components/feedback'
 import type { NativeDashboard } from './dashboard-config.generated'
 import { rkey, materializeExpr, stepFor, DashboardGrid } from './panel-render'
 import type { QueryResult } from './panel-render'
+import { WallboardView } from '../wallboard/page'
 
 // ---------- 时间窗与步长 ----------
 
@@ -60,6 +61,68 @@ type ConfigModule = Awaited<ReturnType<typeof loadConfig>>
 // ---------- 页面主体 ----------
 
 export default function MonitorPanelsPage() {
+  const [view, setView] = React.useState<'panels' | 'wallboard'>('panels')
+
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('view') === 'wallboard') {
+      setView('wallboard')
+    }
+  }, [])
+
+  const switchView = (next: 'panels' | 'wallboard') => {
+    setView(next)
+    const url = new URL(window.location.href)
+    if (next === 'wallboard') url.searchParams.set('view', 'wallboard')
+    else url.searchParams.delete('view')
+    window.history.replaceState(null, '', url.toString())
+  }
+
+  return (
+    <div className="flex h-[calc(100vh-64px)] flex-col gap-1 px-4">
+      <div className="flex shrink-0 items-center justify-end">
+        <div className="inline-flex items-center rounded-md border border-border bg-muted/40 p-0.5">
+          <button
+            type="button"
+            onClick={() => switchView('panels')}
+            className={cn(
+              'rounded-sm px-2 py-0.5 text-[11px] transition-colors',
+              view === 'panels'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            监控面板
+          </button>
+          <button
+            type="button"
+            onClick={() => switchView('wallboard')}
+            className={cn(
+              'rounded-sm px-2 py-0.5 text-[11px] transition-colors',
+              view === 'wallboard'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            数据大屏
+          </button>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1">
+        {view === 'wallboard' ? (
+          <div className="h-full overflow-hidden rounded-lg border border-border bg-background">
+            <div className="h-full overflow-y-auto">
+              <WallboardView />
+            </div>
+          </div>
+        ) : (
+          <MonitorPanelsContent />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function MonitorPanelsContent() {
   const [config, setConfig] = React.useState<ConfigModule | null>(null)
   const [activeUid, setActiveUid] = React.useState<string>('')
   const [rangeSec, setRangeSec] = React.useState<number>(RANGES[1].seconds)
@@ -221,7 +284,7 @@ export default function MonitorPanelsPage() {
   }, [dashboard, filter])
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden rounded-lg border border-border bg-background px-4">
+    <div className="flex h-full overflow-hidden rounded-lg border border-border bg-background px-4">
       {/* 左侧导航:21 张盘,按分组 */}
       <aside
         className={cn(
@@ -234,7 +297,7 @@ export default function MonitorPanelsPage() {
           onClick={() => setNavOpen((v) => !v)}
           className="w-full px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hover:text-cyan-300"
         >
-          {navOpen ? `监控大屏 (${boards.length})` : '»'}
+          {navOpen ? `监控面板 (${boards.length})` : '»'}
         </button>
         {!config ? (
           <div className="px-3 py-2 text-[11px] text-muted-foreground">配置加载中…</div>
