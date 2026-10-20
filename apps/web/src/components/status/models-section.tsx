@@ -4,8 +4,9 @@
 
 'use client'
 
+import { useState } from 'react'
 import { Cpu } from 'lucide-react'
-import { Card, CardContent } from '@ihui/ui-react'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -24,6 +25,18 @@ import { cn } from '@/lib/utils'
  *
  * 约束：本组件只做渲染，不取数。数据仍由服务端 page.tsx 取好后以 props 传入，
  *   `revalidate = 60` 的 ISR 语义不变。
+ *
+ * 2026-10-21 第二轮（首轮只压掉 payload，HTML 没压掉，不够）：
+ *   首轮把 76 张卡片改客户端组件后实测 1.97 MB → 1.05 MB，**只降了一半**，因为
+ *   漏算了一半：客户端组件在 **SSR 阶段照样输出 DOM**。此时 RSC payload 只剩 311 KB，
+ *   而 HTML 仍有约 740 KB —— 真凶是**模型数量本身**：API 实测返回 **1162 个**模型
+ *   （213 KB JSON），远非首轮注释里写的 76 个；1162 张卡片全部进了 HTML。
+ *   而回源通道实测仅 ~600 B/s，1.05 MB 要传约 30 分钟 ⇒ 公网 /status 事实上打不开。
+ *
+ *   本轮根因级改法：**服务端只 SSR 前 N 条**（异常优先排序，保证首屏与 SEO 见到的是
+ *   最有信息量的那批），其余在用户点「展开全部」时才由客户端拉全量。
+ *   注意 page.tsx 的 `overallStatus()` 仍用**全量** models 计算整体状态 —— 整体徽章
+ *   的正确性不依赖本组件的渲染条数，故截断渲染不影响判定。
  */
 
 type ServiceStatus = 'operational' | 'degraded' | 'outage'
@@ -78,38 +91,114 @@ function StatusBadge({ status }: { status: ServiceStatus }) {
   )
 }
 
-export function ModelsSection({ models }: { models: StatusModelItem[] }) {
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null
+}
+
+/** 全量拉取的响应形如 { code, message, data: { models: [...] } };逐条校验后再落到 state。 */
+function pickModels(raw: unknown): StatusModelItem[] | null {
+  if (!isRecord(raw)) return null
+  const data = raw.data
+  if (!isRecord(data)) return null
+  const arr = data.models
+  if (!Array.isArray(arr)) return null
+  const out: StatusModelItem[] = []
+  for (const it of arr) {
+    if (!isRecord(it) || typeof it.modelId !== 'string') continue
+    out.push({
+      modelId: it.modelId,
+      displayName: typeof it.displayName === 'string' ? it.displayName : null,
+      providerCode: typeof it.providerCode === 'string' ? it.providerCode : '',
+      status: (it.status as ServiceStatus) ?? 'operational',
+      p95LatencyMs: typeof it.p95LatencyMs === 'number' ? it.p95LatencyMs : 0,
+      errorRate: typeof it.errorRate === 'number' ? it.errorRate : 0,
+      lastIncidentAt: typeof it.lastIncidentAt === 'string' ? it.lastIncidentAt : null,
+    })
+  }
+  return out
+}
+
+export function ModelsSection({
+  models,
+  total,
+}: {
+  /** 服务端 SSR 下来的子集（异常优先的前 N 条）。 */
+  models: StatusModelItem[]
+  /** 服务端取到的全量条数 —— 标题与「还有 N 个」用它，不受渲染截断影响。 */
+  total: number
+}) {
+  const [allModels, setAllModels] = useState<StatusModelItem[] | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  const list = allModels ?? models
+  const hidden = Math.max(0, total - list.length)
+
+  async function expandAll() {
+    if (loading) return
+    setLoading(true)
+    setFailed(false)
+    try {
+      // 同源反代(生产构建 NEXT_PUBLIC_API_BASE_URL 置空 ⇒ 浏览器走 /api/* 到 8802),
+      // 不跨域,也不受页面 60s ISR 缓存影响。
+      const res = await fetch('/api/public/status/models')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const parsed = pickModels((await res.json()) as unknown)
+      if (!parsed) throw new Error('unexpected payload')
+      setAllModels(parsed)
+    } catch {
+      // 展开失败不得让已渲染部分消失:保持当前 list,只提示可重试。
+      setFailed(true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <Card>
       <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center gap-2">
           <Cpu className="h-4 w-4 text-primary" />
-          <p className="text-sm font-semibold">模型可用性 ({models.length})</p>
+          <p className="text-sm font-semibold">模型可用性 ({total})</p>
         </div>
-        {models.length === 0 ? (
+        {list.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">暂无公开模型</p>
         ) : (
-          <div className="space-y-2">
-            {models.map((m) => (
-              <div
-                key={`${m.providerCode}-${m.modelId}`}
-                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
-              >
-                <div className="min-w-0 flex-1">
-                  <span className="text-sm font-medium">{m.displayName ?? m.modelId}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {m.providerCode}/{m.modelId}
+          <>
+            <div className="space-y-2">
+              {list.map((m) => (
+                <div
+                  key={`${m.providerCode}-${m.modelId}`}
+                  className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
+                >
+                  <div className="min-w-0 flex-1">
+                    <span className="text-sm font-medium">{m.displayName ?? m.modelId}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {m.providerCode}/{m.modelId}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                    <span>P95 {formatLatency(m.p95LatencyMs)}</span>
+                    <span>错误率 {formatPercent(m.errorRate)}</span>
+                    <span>最近事件 {m.lastIncidentAt ? formatDateTime(m.lastIncidentAt) : '—'}</span>
+                    <StatusBadge status={m.status} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            {hidden > 0 || failed ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="ghost" size="xs" onClick={expandAll} disabled={loading}>
+                  {loading ? '加载中…' : `展开全部（还有 ${hidden} 个）`}
+                </Button>
+                {failed ? (
+                  <span className="text-xs text-rose-600 dark:text-rose-400">
+                    加载失败,可重试
                   </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  <span>P95 {formatLatency(m.p95LatencyMs)}</span>
-                  <span>错误率 {formatPercent(m.errorRate)}</span>
-                  <span>最近事件 {m.lastIncidentAt ? formatDateTime(m.lastIncidentAt) : '—'}</span>
-                  <StatusBadge status={m.status} />
-                </div>
+                ) : null}
               </div>
-            ))}
-          </div>
+            ) : null}
+          </>
         )}
       </CardContent>
     </Card>
