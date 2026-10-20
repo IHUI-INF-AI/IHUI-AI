@@ -37,8 +37,12 @@ export default function FeaturedAgentsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['agents', 'featured'],
+    // 原请求带 `featured=1`,但后端列表 schema 从未接收该参数(agents.ts 的 handleListAgents 只认
+    // page/pageSize/status/categoryId/userId/keyword)⇒ 它一直是空转,页面实际展示的是运营排序
+    // (asc(sort), desc(updatedAt))的前 20 条、124 枚里静默丢掉 104 枚。目录一次取全(服务端
+    // limit(pageSize) 无上限钳制),排序语义不变 —— 不在这里发明"精选"的数据口径。
     queryFn: () =>
-      apiOrThrow<AgentsData>('/api/agents/list?featured=1&status=published&page=1&pageSize=20'),
+      apiOrThrow<AgentsData>('/api/agents/list?status=published&page=1&pageSize=200'),
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
