@@ -158,7 +158,9 @@ CREATE TABLE chat_messages (
   reasoning text,
   turn_ordinal integer,
   parent_message_id uuid,
-  sibling_index integer
+  sibling_index integer,
+  bookmarked_at timestamp with time zone,
+  pinned_at timestamp with time zone
 );
 CREATE INDEX ix_chat_messages_conversation ON chat_messages (conversation_id);
 CREATE INDEX idx_chat_messages_by_turn ON chat_messages (conversation_id, turn_ordinal);

@@ -786,7 +786,9 @@ describe('投递台账:每一次发信结论落一行,没有投递动作就不�
   it('写不进必须把原因交回来(静默丢账就是又一格安静)', () => {
     // 落点选在"已存在文件之下再开一层目录":mkdirSync 必失败(ENOTDIR/ENOENT),
     // 而这条路不会在任何地方真的创建文件 —— 测试不留夹具,也不污染真台账。
-    const bad = `${t.defaultEnvFilePath()}/nope/mail-send-ledger.jsonl`
+    // 用 node 可执行文件当"文件父路径"再挂子路径:mkdir 必 ENOTDIR/ENOENT,
+    // 且在 CI 干净检出与任何平台都成立(不能依赖未入库的 .env 是否在盘上)。
+    const bad = `${process.execPath}/nope/mail-send-ledger.jsonl`
     const o = { help: false, dryRun: false, warnings: [], sent: true, channel: 'smtp', subject: 'A', toMasked: [] } as never
     const why = t.recordMailAttempt(o, ['--source', 'unit-test'], NOW, bad)
     expect(typeof why).toBe('string')
