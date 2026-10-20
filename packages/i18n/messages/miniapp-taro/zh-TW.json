@@ -87,6 +87,7 @@
     "loadFailed": "載入任務失敗"
   },
   "common": {
+    "backToTop": "回到頂部",
     "hint": "提示",
     "goSettings": "去設定",
     "all": "全部",

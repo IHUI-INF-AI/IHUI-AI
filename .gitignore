@@ -236,6 +236,12 @@ monitoring/alertmanager/alertmanager.rendered.yml
 # 临时分析脚本和报告
 # ============================================================================
 *.cjs
+# 例外:Expo config plugin 的原生定制源**必须入仓**。
+# apps/mobile-rn/android/ 整目录在本端 .gitignore 内(它是 prebuild 产物),plugins/*.cjs 就是
+# 那份原生形态的唯一真相源 —— 被 `*.cjs` 静默吞掉 = 原生层修复根本进不了仓,而且 `git status`
+# 一个字节都不显示(2026-10-20 实测:写完 withNativeInputChrome.cjs 后 status 全程干净)。
+# 同形态先例见下方 `!apps/miniapp-taro/src/index.html`。
+!apps/mobile-rn/plugins/*.cjs
 *.html
 # 例外: miniapp-taro H5 模板文件(构建时 webpack 处理,源文件需 git 追踪)
 !apps/miniapp-taro/src/index.html

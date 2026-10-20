@@ -21,7 +21,9 @@ import type { TFunction } from '../../types'
 import type { ArticleItem, CategoryItem } from '@ihui/types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
 import { BackChevron } from '../../components/BackChevron'
+import { ScrollJumpButton } from '../../components/ScrollJumpButton'
 
 export interface SquareScreenProps {
   t: TFunction
@@ -195,16 +197,15 @@ export function SquareScreen({
           ref={(ref) => onListRef?.(ref)}
         />
       )}
-      {/* 返回顶部按钮 */}
+      {/* 返回顶部按钮:外观与几何一律不在此设定,由 ScrollJumpButton 单一源给出 */}
       {showBackTop && showTopBtn ? (
-        <Pressable
-          style={styles.backToTop}
+        <ScrollJumpButton
+          direction="top"
           onPress={onBackToTop}
-          accessibilityRole="button"
-          accessibilityLabel="返回顶部"
-        >
-          <Text style={styles.backToTopIcon}>{'↑'}</Text>
-        </Pressable>
+          label={t('common.backToTop') === 'common.backToTop' ? '返回顶部' : t('common.backToTop')}
+          colorScheme={colorScheme}
+          style={{ position: 'absolute', right: scrollJumpInsetPx(), bottom: scrollJumpInsetPx() }}
+        />
       ) : null}
     </View>
   )
@@ -341,30 +342,8 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     } as TextStyle,
 
-    // 返回顶部按钮
-    backToTop: {
-      position: 'absolute',
-      left: '50%',
-      marginLeft: -17,
-      bottom: 44,
-      width: 34,
-      height: 34,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brandAccent.DEFAULT,
-      alignItems: 'center',
-      justifyContent: 'center',
-      elevation: 2,
-      shadowColor: tk.gray[900],
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.15,
-      shadowRadius: 2,
-    } as ViewStyle,
-    backToTopIcon: {
-      fontSize: 20,
-      color: tk.brandAccent.foreground,
-      fontWeight: '600',
-      includeFontPadding: false,
-    } as TextStyle,
+    // 返回顶部按钮样式已收进 @ihui/shared/ui/scroll-jump-spec(2026-10-20 用户定「不许单独设定」),
+    // 端内不得再留第二份盒档 —— 见 components/ScrollJumpButton.tsx 头注。
   })
 }
 

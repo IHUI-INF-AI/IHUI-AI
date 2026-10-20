@@ -547,6 +547,7 @@
     "network": "Network error, please retry"
   },
   "common": {
+    "backToTop": "Jump to top",
     "ok": "OK",
     "gotIt": "Got it",
     "back": "Back",

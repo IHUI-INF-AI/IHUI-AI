@@ -108,6 +108,10 @@ module.exports = ({ config }) => {
       // Android 开屏图 + 样式:未装 expo-splash-screen 时 prebuild 的 legacy 分支
       // 不会写 drawable 资源,原生目录里留的是模板灰白占位图(详见插件头注释)
       './plugins/withSplash.cjs',
+      // 原生输入框 chrome:把 RN 模板那份恒画 9-patch 描边的 EditText 背景换成透明件,并钉死
+      // AppTheme 的中性强调色(不钉 ⇒ colorControlActivated 回落系统强调色,HyperOS 实测橙)。
+      // 必须走 plugin —— android/ 整目录在 .gitignore 内,直改 xml 不进仓、下次 prebuild 即被洗掉
+      './plugins/withNativeInputChrome.cjs',
       // media3 钉版:react-native-video 6.19.2 期望 1.8.0,依赖图会解到 1.9.0 ⇒ 进播放器
       // NoSuchMethodError 闪退(2026-10-20 真机实测;当时全仓无入口到播放器,崩溃从未暴露)
       './plugins/withMedia3Pin.cjs',

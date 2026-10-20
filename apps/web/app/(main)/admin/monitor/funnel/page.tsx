@@ -133,7 +133,7 @@ export default function AdminMonitorFunnelPage() {
                     <div className="relative h-8 overflow-hidden rounded-md bg-muted">
                       <div
                         className={cn(
-                          'flex h-full items-center rounded-md px-2 text-xs font-medium text-white transition-all',
+                          'flex h-full items-center rounded-md px-2 text-xs font-medium text-primary-foreground transition-all',
                           i === 0
                             ? 'bg-primary'
                             : i === stages.length - 1
@@ -146,7 +146,7 @@ export default function AdminMonitorFunnelPage() {
                       </div>
                     </div>
                     {i > 0 && dropRate > 0 && (
-                      <div className="text-xs text-red-500">↓ 流失 {dropRate.toFixed(1)}%</div>
+                      <div className="text-xs text-danger">↓ 流失 {dropRate.toFixed(1)}%</div>
                     )}
                   </div>
                 )

@@ -115,16 +115,16 @@ export default function AdminMonitorDashboardPage() {
                       className="flex items-center justify-between rounded-md border p-2.5"
                     >
                       <div className="flex items-center gap-2">
-                        <Icon className={cn('h-4 w-4', ok ? 'text-success-deep-text' : 'text-red-600')} />
+                        <Icon className={cn('h-4 w-4', ok ? 'text-success-deep-text' : 'text-danger')} />
                         <span className="text-sm font-medium">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         {ok ? (
                           <CheckCircle2 className="h-3.5 w-3.5 text-success-deep-text" />
                         ) : (
-                          <XCircle className="h-3.5 w-3.5 text-red-600" />
+                          <XCircle className="h-3.5 w-3.5 text-danger" />
                         )}
-                        <span className={cn('text-xs', ok ? 'text-success-deep-text' : 'text-red-600')}>
+                        <span className={cn('text-xs', ok ? 'text-success-deep-text' : 'text-danger')}>
                           {s.latency}ms
                         </span>
                       </div>
@@ -158,7 +158,7 @@ export default function AdminMonitorDashboardPage() {
                         className={cn(
                           'h-full rounded-md',
                           c.value > 90
-                            ? 'bg-red-500'
+                            ? 'bg-danger'
                             : c.value > 70
                               ? 'bg-warning'
                               : 'bg-success',
