@@ -266,7 +266,7 @@
   },
   "agent": {
     "useCount": "사용 횟수",
-    "rating": "평점",
+    "collectCount": "즐겨찾기",
     "permission": "권한",
     "statusIdle": "대기",
     "statusRunning": "실행 중",
