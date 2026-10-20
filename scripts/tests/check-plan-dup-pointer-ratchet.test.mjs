@@ -17,6 +17,8 @@ import {
   redundantNoteCount,
   redundantNoteCountInLine,
   noteRedundancyVerdict,
+  prefixTwinPairs,
+  prefixTwinVerdict,
 } from '../check-plan-dup-pointer-ratchet.mjs'
 import { DUP_POINTER_RE } from '../lib/plan-task-index.mjs'
 import { stripMergeNotes, buildPlan, renderPurge, verifyPurge } from '../plan-pointer-purge.mjs'
@@ -261,4 +263,21 @@ test('P9 维③叠注重数:同一行同一注记多出来的份数只拦变多;
   // 维①与 T3 元判据会把台账里合法的改号留痕一起判红(§12e 恒红门)。
   if (DUP_POINTER_RE.source.includes('同题原号'))
     throw new Error('DUP_POINTER_RE 被扩大 ⇒ 会造恒红门')
+})
+
+test('P10 维④前缀型副本对:只数严格前缀,逐字相同归 fold-identical 通道,已勾行不计', () => {
+  const A = '- [ ] G-7 做点啥\n'
+  const B = '- [ ] G-7 做点啥 追加了一段\n'
+  const C = '- [ ] G-7 做点啥 追加了一段 又追加\n'
+  if (prefixTwinPairs(A + B) !== 1) throw new Error('两行成对应计 1 对(阳性对照失败)')
+  if (prefixTwinPairs(A + A) !== 0)
+    throw new Error('逐字相同的两行不由本维计(那是 --fold-identical-open-rows 的地盘)')
+  if (prefixTwinPairs('- [ ] 不相关甲\n- [ ] 不相关乙\n') !== 0)
+    throw new Error('无前缀关系必须读成 0')
+  if (prefixTwinPairs(A + B + C) !== 3) throw new Error('链式 A⊂BC 应计 3 对')
+  if (prefixTwinPairs('- [x] ✅(2026-01-01) G-7 做点啥\n' + B) !== 0)
+    throw new Error('已勾行不参与本维')
+  const grew = prefixTwinVerdict(A, A + B)
+  if (!grew.grew || grew.before !== 0 || grew.after !== 1) throw new Error('新增副本对必须判红')
+  if (prefixTwinVerdict(A + B, A).grew) throw new Error('折并后不得判红')
 })
