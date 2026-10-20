@@ -8,17 +8,25 @@ import { success } from '../../utils/response.js'
 import { findMenuList, findMenuIdsByRole } from '../../db/admin-sys-queries.js'
 
 // /getRouters 路由(独立于 adminSysRoutes,使用 requireAuth 而非 requireAdmin)
+// server.ts 的 onRoute 对 /api/admin/* 注入 network.allowExternal:false ⇒ 管理台每次加载都 403。
+// 本端点只读、由 requireAuth 裁定身份、按 roleId 过滤菜单,故单独开公网可达(其余 admin 路由不变)。
+const MENU_ROUTERS_NETWORK = { network: { allowExternal: true } }
+
 export const menuRoutersRoutes: FastifyPluginAsync = async (server) => {
-  server.get('/getRouters', { preHandler: requireAuth }, async (request, reply) => {
-    const roleId = request.jwtPayload?.roleId ?? 0
-    const list = await findMenuList()
-    // O13b:特权分支走集中谓词;roleId 仍要留给 findMenuIdsByRole(非闸门用途)
-    if (isSystemAdmin(request, { includeInternalChannel: false })) {
-      return reply.send(success({ list }))
-    }
-    const menuIds = await findMenuIdsByRole(roleId)
-    const idSet = new Set(menuIds)
-    return reply.send(success({ list: list.filter((m) => idSet.has(m.id)) }))
-  })
+  server.get(
+    '/getRouters',
+    { preHandler: requireAuth, config: MENU_ROUTERS_NETWORK },
+    async (request, reply) => {
+      const roleId = request.jwtPayload?.roleId ?? 0
+      const list = await findMenuList()
+      // O13b:特权分支走集中谓词;roleId 仍要留给 findMenuIdsByRole(非闸门用途)
+      if (isSystemAdmin(request, { includeInternalChannel: false })) {
+        return reply.send(success({ list }))
+      }
+      const menuIds = await findMenuIdsByRole(roleId)
+      const idSet = new Set(menuIds)
+      return reply.send(success({ list: list.filter((m) => idSet.has(m.id)) }))
+    },
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
