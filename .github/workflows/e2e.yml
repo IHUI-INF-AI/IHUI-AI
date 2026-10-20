@@ -215,7 +215,12 @@ jobs:
           # web 服务器已由上方 "Start web server" step 启动并健康检查;
           # 不设此项 playwright webServer 会再起一个 → 8801 端口冲突(2026-09-10 CI 实测)
           PLAYWRIGHT_REUSE_SERVER: '1'
-        run: pnpm exec playwright test
+        # 2026-10-20 实测:red 的成因不是功能坏,是本 workflow 的 services 段只有 postgres + redis
+        #   —— 没有 ai-service(8803)、没有 python Chromium ⇒ 任何"真画面"档用例在这里必然 500
+        #   (apps/web/e2e/browser-hub-smoke.spec.ts 头注自述同一分工:该档归 e2e-browser-hub.yml)。
+        #   覆盖率不丢:专用 workflow 以 `--grep '@browser-hub'` 跑这一档(现读 :358-362)。
+        #   本地现读 `--list`:不加过滤含 browser-hub-smoke 2 条;加本旗后 0 条(余 721 项/107 文件)。
+        run: pnpm exec playwright test --grep-invert "@browser-hub"
 
       - name: Upload test report
         if: always()
