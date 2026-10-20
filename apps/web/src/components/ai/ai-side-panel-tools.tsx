@@ -20,8 +20,8 @@ import {
   type CheckpointScope,
   type CheckpointMeta,
 } from '@/api/checkpoint-api'
-import { useChatStore } from '@/stores/chat'
-import { useAiToolsPanelStore } from '@/stores/ai-tools-panel'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
+import { usePaneAiToolsPanelStore } from '@/stores/ai-tools-panel'
 // D52(2026-09-24 立):任务监控分区面板——在既有 tab 体系之上做分组层,不新建第二套 Tab
 import { TaskMonitorZonesView } from '@/components/ai/task-monitor-sections'
 import { useTaskMonitorStore } from '@/stores/task-monitor'
@@ -167,6 +167,7 @@ function findFolderNode(nodes: FileNode[], id: string): FileNode | null {
  *  展示 IDE 工作区文件树,选中文件夹后以 #Folder 引用写入输入框草稿 */
 function WorkspacePanelTab() {
   const t = useTranslations('workspacePanel')
+  const chatStore = usePaneChatStore()
   const fileTree = useIDEWorkspace((s) => s.fileTree)
   const fetchFileTree = useIDEWorkspace((s) => s.fetchFileTree)
   const [selected, setSelected] = React.useState<string | null>(null)
@@ -180,7 +181,8 @@ function WorkspacePanelTab() {
 
   const handleApply = () => {
     if (!selectedNode) return
-    useChatStore.setState({ draftInput: `#Folder ${selectedNode.path}` })
+    // 票60 片3:#Folder 引用写进**本窗格**的输入框草稿(此前恒写根单例)
+    chatStore.setState({ draftInput: `#Folder ${selectedNode.path}` })
     toast.success(t('applied'))
   }
 
@@ -285,18 +287,22 @@ export function AiSidePanelTools() {
   const t = useTranslations('aiToolsPanel')
   // D52:任务监控分区文案(「展示方式」/ 四区名)
   const tm = useTranslations('taskMonitor')
-  const open = useAiToolsPanelStore((s) => s.open)
+  // 票60 片3(2026-10-21):展开态按窗格分家(键含 paneId),数据面走本窗格的 chat store ——
+  // 此前一个窗格展开会点亮所有窗格,且 tab 里读到的一律是根窗格的会话。
+  const toolsPanelStore = usePaneAiToolsPanelStore()
+  const open = toolsPanelStore((s) => s.open)
   const [activeTab, setActiveTab] = React.useState<ToolTabKey>('plan')
   // D52:展示方式(sections 分区视图默认 / tabs 平铺旧行为),persist 持久化
   const displayMode = useTaskMonitorStore((s) => s.displayMode)
   const setDisplayMode = useTaskMonitorStore((s) => s.setDisplayMode)
 
-  // chat store 数据源
-  const messages = useChatStore((s) => s.messages)
-  const subAgentActivities = useChatStore((s) => s.subAgentActivities)
-  const conversationId = useChatStore((s) => s.conversationId)
-  const isStreaming = useChatStore((s) => s.isStreaming)
-  const currentModel = useChatStore((s) => s.currentModel)
+  // chat store 数据源(本窗格实例;Provider 外 = 根单例本尊,行为与今天同形)
+  const chatStore = usePaneChatStore()
+  const messages = chatStore((s) => s.messages)
+  const subAgentActivities = chatStore((s) => s.subAgentActivities)
+  const conversationId = chatStore((s) => s.conversationId)
+  const isStreaming = chatStore((s) => s.isStreaming)
+  const currentModel = chatStore((s) => s.currentModel)
 
   // ---- plan / tasks:最近一条携带 planSteps 的消息 ----
   const latestPlan = React.useMemo(() => {
@@ -675,8 +681,8 @@ export function AiSidePanelTools() {
         return (
           <BestOfCompare
             onAdopt={(content) => {
-              // W23 落盘:把选中候选写入会话消息流(本地 assistant 消息)
-              useChatStore.getState().addMessage({
+              // W23 落盘:把选中候选写入会话消息流(本地 assistant 消息)—— 写本窗格实例
+              chatStore.getState().addMessage({
                 role: 'assistant',
                 content,
                 model: currentModel ?? undefined,
@@ -697,8 +703,8 @@ export function AiSidePanelTools() {
           <WorldsCompare
             currentModel={currentModel ?? undefined}
             onAdopt={(content, model) => {
-              // 复用 #36 落盘模式:采纳内容写入会话消息流
-              useChatStore.getState().addMessage({
+              // 复用 #36 落盘模式:采纳内容写入会话消息流 —— 写本窗格实例
+              chatStore.getState().addMessage({
                 role: 'assistant',
                 content,
                 model,
