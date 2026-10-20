@@ -508,52 +508,8 @@
   color: var(--color-muted-foreground, var(--color-white-40));
 }
 
-/* ===== toodown 返回顶部按钮(对齐 RN backToTopBtn: bottom 20dp→40rpx / right 16dp→32rpx /
-   34dp→68rpx 圆形 / bg surface.card / 阴影 black 0.2 offsetY 2dp radius 4dp) ===== */
-
-.community-toodown-wrapper {
-  z-index: 2;
-  transition: all 0.2s ease-in-out;
-  position: fixed;
-  right: 32rpx;
-  bottom: 40rpx;
-  display: flex;
-  justify-content: flex-end;
-  pointer-events: none;
-}
-
-.community-toodown {
-  width: 68rpx;
-  height: 68rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  border-radius: var(--radius-2xl);
-  margin: 0 auto;
-  pointer-events: auto;
-  background: var(--color-card);
-  box-shadow: 0 4rpx 8rpx var(--color-black-20);
-}
-
-.community-toodown:active {
-  background-color: var(--color-muted);
-}
-
-.community-toodown-icon {
-  font-size: 32rpx;
-  color: var(--color-primary);
-  font-weight: 700;
-  transform: rotate(90deg);
-  display: block;
-}
-
-/* toodown 图标(对齐原项目 toodownimg, 用 back.svg) */
-.community-toodown-img {
-  width: 32rpx;
-  height: 32rpx;
-  transform: rotate(90deg);
-}
+/* toodown 返回顶部按钮的 CSS 已整块摘除(2026-10-20 用户定「不许单独设定,统一使用一段代码样式」):
+   外观收进 @ihui/shared/ui/scroll-jump-spec + components/ScrollJumpButton,此处不得再留第二份盒档。 */
 
 /* ===== FloatBox 浮动组件 ===== */
 /* 对齐原项目 components/FloatBox.vue 样式 */

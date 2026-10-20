@@ -87,6 +87,7 @@
     "loadFailed": "Failed to load tasks"
   },
   "common": {
+    "backToTop": "Jump to top",
     "hint": "Notice",
     "goSettings": "Go to Settings",
     "all": "All",

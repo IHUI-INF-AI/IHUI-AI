@@ -91,11 +91,13 @@ import {
 import {
   useWrapFocus,
   HomeScreen as SharedHomeScreen,
+  ScrollJumpButton,
   type HomeLiveItem,
   type HomeMenuItem,
   type HomeProgressItem,
   type HomeRecommendItem,
 } from '@ihui/rn-app'
+import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
 import type { CarouselItem } from '@ihui/ui-native'
 import type { AiModelData, AppIcon, ChatModelType } from '@ihui/types'
 import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
@@ -1902,18 +1904,20 @@ export function HomeScreen() {
           <FunctionBlockColumn blocks={FUNCTION_BLOCKS} onBlockPress={onFunctionBlockPress} />
         </View>
       </ScrollView>
-      {/* toodown 返回顶部悬浮按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 NewsScreen)
-       *  滚动 offsetY > 600 显示,点击 scrollTo 回顶 */}
+      {/* toodown 返回顶部悬浮按钮:外观与几何一律不在此设定,由 ScrollJumpButton 单一源给出;
+       *  bottom 按底部玻璃停靠区实测高度上浮(载体高度是实测值,不是外观档) */}
       {showBackTop ? (
-        <TouchableOpacity
-          style={[shellStyles.backToTop, { bottom: dockHeight + 12 }]}
+        <ScrollJumpButton
+          direction="top"
           onPress={backToTop}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="返回顶部"
-        >
-          <Text style={shellStyles.backToTopIcon}>{'↑'}</Text>
-        </TouchableOpacity>
+          label={t('common.backToTop')}
+          colorScheme={resolvedTheme}
+          style={{
+            position: 'absolute',
+            right: scrollJumpInsetPx(),
+            bottom: dockHeight + scrollJumpInsetPx(),
+          }}
+        />
       ) : null}
       {/* ModelTypeBar 模型类型选择栏(原对齐 Uniapp BottomActionBar 8 种 model-type-btn 行 44-97)
        *  2026-10-15 用户重构:外挂选择栏整块移除,8 种分类改经 categories props 收进 InputArea
@@ -2413,30 +2417,10 @@ const shellStyles = {
     // 横向留白已内聚于 BottomFigure(SIDE_INSET),此处仅保留底部间距(2026-10-15)
     marginBottom: rpx(20),
   } as const,
-  // ── toodown 返回顶部按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 NewsScreen) ──
-  // bottom 运行时按底部玻璃停靠区实测高度上浮(样式内只留几何与外观)
-  backToTop: {
-    position: 'absolute',
-    left: '50%',
-    marginLeft: rpx(-34),
-    width: 34,
-    height: 34,
-    borderRadius: rnRadius.sm,
-    backgroundColor: 'rgba(147, 210, 243, 0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 2,
-    shadowColor: tokens.gray[900],
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-  } as const,
-  backToTopIcon: {
-    fontSize: 20,
-    color: tokens.text.primary,
-    fontWeight: '600',
-    includeFontPadding: false,
-  } as const,
+  // ── toodown 返回顶部按钮样式已收进 @ihui/shared/ui/scroll-jump-spec(2026-10-20 用户定
+  //  「上滑下滑的箭头不许有单独设定,统一使用一段代码样式」)。此处此前写死
+  //  `rgba(147,210,243,0.9)` 浅蓝底 + 居中定位 + fontSize 20,与 web 的 outline 图标钮
+  //  不同脸;端内不得再留第二份盒档 —— 见 @ihui/rn-app ScrollJumpButton 头注。 ──
   // ── ModelTypeBar 模型类型选择栏样式已随外挂选择栏移除(2026-10-15 用户重构:
   //  分类收进 InputArea 大输入框,样式随迁至 InputArea.tsx catChip 族) ──
   // ── creationEntry 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮) ──
