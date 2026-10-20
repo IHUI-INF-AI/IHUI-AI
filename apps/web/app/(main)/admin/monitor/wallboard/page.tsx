@@ -10,7 +10,8 @@ import { isNum, isUnset, thresholdTone, type StatusTone } from './unknown-state'
  *
  * 数据面:GET /api/admin/ops-wallboard/overview(5s 轮询)+ /ops-wallboard/trend(20s 轮询)。
  * 视觉定位:控制中心/工业 HUD —— 切角面板 + 等宽数字 + 辉光描边,
- * 配色全部走语义 token(bg-background/bg-card/border-border/success/warning/destructive/info),
+ * 配色全部走语义 token(bg-shell-panel/bg-card/border-border/success/warning/destructive/info),
+ * 页面底不自带色块与网格线 —— 大屏直接坐在工作区自己的背景上,
  * 随站点明暗主题切换(ECharts 走 canvas 读不到 CSS var,按 resolvedTheme 显式切换,见下方图表主题)。
  */
 import * as React from 'react'
@@ -463,7 +464,7 @@ function seriesGlow(color: string) {
 
 // ===================== 页面 =====================
 
-/** 监控大屏路由:统一落到监控面板页的大屏模式,由该页顶部按钮切换两种呈现。 */
+/** 监控大屏路由:统一落到监控面板页的大屏模式,由该页顶栏的切换器在两种呈现间切换。 */
 export default function OpsWallboardPage() {
   const router = useRouter()
   React.useEffect(() => {
@@ -472,7 +473,11 @@ export default function OpsWallboardPage() {
   return null
 }
 
-export function WallboardView() {
+/**
+ * 大屏呈现本体。顶栏右侧的 `headerExtra` 由承载页(监控面板页)注入两种呈现的切换器 ——
+ * 本文件不 import 那个组件,以免与承载页形成循环引用。
+ */
+export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode }) {
   const t = useTranslations('admin.wallboard')
   const locale = useLocale()
   const { resolvedTheme } = useTheme()
@@ -921,7 +926,7 @@ export function WallboardView() {
   // ---------- 渲染 ----------
   return (
     <TooltipProvider>
-      <div className="wb-root min-h-full bg-background px-0 text-foreground">
+      <div className="wb-root min-h-full px-0 text-foreground">
         <style>{WALLBOARD_CSS}</style>
 
         {/* overview/trend 整体失败(网络/500):顶部横幅 + 一键重试,避免整屏「—」或旧快照无解释 */}
@@ -943,7 +948,7 @@ export function WallboardView() {
         ) : null}
 
         {/* ===== 顶部横梁 ===== */}
-        <header className="wb-header sticky top-0 z-20 flex items-center gap-4 border-b border-border bg-background/90 px-5 py-2.5 backdrop-blur">
+        <header className="wb-header sticky top-0 z-20 flex items-center gap-4 border-b border-border bg-shell-panel/90 px-5 py-2.5 backdrop-blur">
           <div className="flex items-center gap-3">
             <BackButton />
             <div className="flex h-9 w-9 items-center justify-center rounded-sm border border-info/40 bg-info/10 shadow-[0_0_18px_color-mix(in_srgb,var(--color-info)_35%,transparent)]">
@@ -1028,6 +1033,7 @@ export function WallboardView() {
                 })}
               </div>
             </div>
+            {headerExtra}
           </div>
         </header>
 
@@ -1864,25 +1870,7 @@ const WALLBOARD_CSS = `
 .wb-root {
   --wb-font-display: 'Bahnschrift', 'DIN Alternate', 'Oswald', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --wb-font-num: 'JetBrains Mono', 'Cascadia Mono', 'Consolas', 'Bahnschrift', monospace;
-  /* 辉光/网格线一律引用语义 token(color-mix 取 alpha):明暗随站点主题,不再写死深空蓝 */
-  background-image:
-    radial-gradient(
-      1100px 520px at 82% -12%,
-      color-mix(in srgb, var(--color-info) 12%, transparent),
-      transparent 60%
-    ),
-    radial-gradient(
-      880px 460px at 8% 108%,
-      color-mix(in srgb, var(--chart-5) 10%, transparent),
-      transparent 62%
-    ),
-    linear-gradient(color-mix(in srgb, var(--color-border) 55%, transparent) 1px, transparent 1px),
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--color-border) 55%, transparent) 1px,
-      transparent 1px
-    );
-  background-size: auto, auto, 32px 32px, 32px 32px;
+  /* 刻意不给底:大屏直接坐在工作区自己的背景上(机主 2026-10-20 定档:灰底 + 网格线是多余的一层壳)。 */
 }
 .wb-display { font-family: var(--wb-font-display); }
 .wb-num {
