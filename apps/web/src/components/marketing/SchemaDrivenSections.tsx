@@ -119,7 +119,7 @@ function HeroSection({ pageIndex }: SectionProps) {
               className="group relative flex items-center gap-2 overflow-hidden rounded-lg border bg-card px-3 py-2 text-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md min-[768px]:text-sm"
             >
               <Check
-                className="h-3.5 w-3.5 shrink-0 text-success transition-transform duration-200 group-hover:scale-110"
+                className="h-3.5 w-3.5 shrink-0 text-success-text transition-transform duration-200 group-hover:scale-110"
                 aria-hidden="true"
               />
               <span className="truncate">{b}</span>
