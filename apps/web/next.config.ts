@@ -827,6 +827,26 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // 2026-10-21 公网提速实测立（依据 outputs/PUBLIC-ACCESS-PERF-AUDIT-2026-10-21.md）：
+        //   回源通道实测仅 ~600 B/s —— 同一张 7,770 B 图，EO 命中 104 ms / 回源 12.9 s；
+        //   首页 291,808 B HTML 本地 16 ms / 公网回源 9.9~45 s。本机渲染不是瓶颈，回源才是。
+        //   据此把 2026-10-17 搁置的「部署即时性换回源」拍板翻成开启：首页在边缘缓存
+        //   5 分钟，过期后 stale-while-revalidate 后台刷新，用户侧零等待。
+        //
+        // 安全性：app/(marketing)/page.tsx 是 'use client'，不读任何服务端用户态
+        //   （已核 marketing 组内无 cookies()/headers()/session 调用），缓存不会串号。
+        //   唯一的服务端真值依赖是 app/layout.tsx 的 locale cookie（决定 <html lang>）：
+        //   缓存后首帧 lang 可能沿用首个访问者的语种，挂载后由 I18nProvider 纠正
+        //   （该 layout 已带 suppressHydrationWarning，即为此设计）。
+        //
+        // 已知限制：腾讯云 EdgeOne 当前已在忽略源站 no-store 自行缓存 HTML
+        //   （实测 EO-Cache-Status: HIT 且 Age: 1385），故本条对 EO 现状无增量收益，
+        //   价值在语义显式化 + 将来回源切到国内通道（中转机 / nginx）后由该层直接生效。
+        //   若要让 EO 按语种分别缓存，需在 EO 控制台配「缓存键 → 包含 Cookie: locale」。
+        source: '/',
+        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
+      },
+      {
         source: '/(.*)',
         headers: securityHeaders,
       },
