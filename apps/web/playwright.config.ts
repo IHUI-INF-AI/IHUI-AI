@@ -56,7 +56,14 @@ export default defineConfig({
       // 挂 dependencies 后 chromium 前先串行完成双账号 API 预登录,
       // fixtures.ts ensureStorageState 仍保留作本地/兜底路径。
       dependencies: ['setup'],
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        // 2026-10-20 加:GitHub runner 的 /dev/shm 只有 64MB,CI 下两个 chromium 并发时
+        // 渲染进程共享内存被挤爆 → "browser has been closed"(publish-scan-login.spec.ts 实测
+        // 同型;e2e/fixtures.ts:318 也记过同一形状的 "Target page closed" 假崩溃)。
+        // --disable-dev-shm-usage 让 chromium 把共享内存落到普通临时目录,不再撞 64MB 上限。
+        launchOptions: { args: ['--disable-dev-shm-usage'] },
+      },
     },
     // 登录态 setup：仅匹配 *.setup.ts，预先登录并写入 e2e/.auth/*.json
     // 不挂 dependencies 到 chromium，避免后端不可用时拖垮现有 34 个 spec

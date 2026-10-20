@@ -2,20 +2,23 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page, type Locator } from '@playwright/test'
 import { ensureLoginDialogOpen } from './open-login-dialog'
 
 /**
  * 记住账号回填 + 账号历史 e2e 测试
  *
- * 2026-10-17 调整:登录框的「记住密码」「自动登录」两个勾已移除(口令永不落盘、自动登录
- * 走设置页开关 + 后端 refresh token 续期),相关勾选测试一并删除。本文件现只覆盖:
- *  - 账号回填(有已保存账号时自动预填,不预填口令,旧明文就地抹除)
+ * 2026-10-17 调整:登录框的「记住密码」「自动登录」两勾曾被移除(4cd1d058e1),同日 G-322
+ * (e65bca6aa8)又以"显式勾选才落盘口令"的形态恢复 —— 独立 key ihui-remember-password,
+ * 账号那一半仍走只含 {account} 的 ihui-remember-credentials。本文件覆盖的是后者那一条线:
+ *  - 账号回填(有已保存账号时自动预填,不预填口令,旧明文/base64 形态就地抹除)
  *  - 账号历史下拉(双击展开 / 点击填入 / 删除单条 / 清空全部 / 键盘导航)
+ * 勾选项本身(勾选后口令落盘)不在本文件射程内,不由这些用例判绿。
  *
  * 关联组件:
  *  - packages/ui-react/src/components/login-form/password-login-form.tsx
- *  - apps/web/src/lib/remember-credentials.ts
+ *  - packages/ui-react/src/components/login-form/account-history-input.tsx
+ *  - packages/ui-react/src/lib/remember-credentials.ts(2026-10-17 起凭据层住这里)
  */
 
 const BASE_URL =
@@ -64,17 +67,84 @@ async function openLoginDialog(page: Page) {
 
 async function switchToPasswordTab(page: Page) {
   const tab = page.getByTestId('login-tab-password')
+  const account = page.locator('#login-form-account')
   await tab.waitFor({ state: 'visible', timeout: 10000 })
+  // 2026-10-20:原写法用 page.mouse + tab.boundingBox() 的屏幕坐标点击,在 CI 会打空
+  // (实测 6 条用例全红:3 条停在「#login-form-account element(s) not found」,3 条停在
+  // 「历史面板 not found」—— 弹窗入场动画/协议通知浮层让先量到的坐标失效)。
+  // 改为每一下都作用在元素自身:真点击 → 强制点击 → dispatchEvent,以"账号输入框出现"
+  // 为切换成功的证据;三种派发都不成才判红(不静默放过)。
+  for (const go of [
+    () => tab.click({ timeout: 3_000 }),
+    () => tab.click({ timeout: 3_000, force: true }),
+    () => tab.dispatchEvent('click'),
+  ]) {
+    await go().catch(() => null)
+    if (
+      await account
+        .waitFor({ state: 'visible', timeout: 2_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
+      return
+    }
+  }
+  await expect(
+    account,
+    '切到密码登录 tab 后 #login-form-account 仍未出现(三种派发:click / force click / dispatchEvent 都试过)' +
+      ' —— 登录表单的 tab 结构或 enableCredentialPersistence 分支改了?',
+  ).toBeVisible({ timeout: 5_000 })
+}
 
-  // 用 page.mouse API 发送真实的 trusted 事件,绕过 Playwright actionability 检查
-  // (Radix Dialog Content 会触发 "intercepts pointer events" 误报)
-  const box = await tab.boundingBox()
-  if (!box) throw new Error('login-tab-password not found')
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  await page.mouse.down()
-  await page.mouse.up()
+/** 元素自身的点法三连(坐标点击在 CI 打空的根治);三种都失败时把最后一次错误抛出去,不静默 */
+async function tap(el: Locator): Promise<void> {
+  for (const go of [
+    () => el.click({ timeout: 3_000 }),
+    () => el.click({ timeout: 3_000, force: true }),
+    () => el.dispatchEvent('click'),
+  ]) {
+    try {
+      await go()
+      return
+    } catch {
+      /* 换下一种派发 */
+    }
+  }
+  await el.click({ timeout: 3_000 })
+}
 
-  await expect(page.locator('#login-form-account')).toBeVisible({ timeout: 10000 })
+/**
+ * 双击账号输入框展开账号历史下拉,返回面板句柄(用例随后必须对它做真断言)。
+ * 2026-10-20:面板锚点从 `.absolute.top-full` 样式类改挂到组件自带的
+ * data-testid="account-history-input"(packages/ui-react/.../account-history-input.tsx:134)
+ * 之下 —— 样式类一次改名就全体取不到输入,testid 才是契约。
+ */
+async function openAccountHistory(page: Page): Promise<Locator> {
+  const account = page.locator('#login-form-account')
+  const panel = page.locator('[data-testid="account-history-input"] .absolute.top-full')
+  await account.waitFor({ state: 'visible', timeout: 10000 })
+  for (const go of [
+    () => account.dblclick({ timeout: 3_000 }),
+    () => account.dblclick({ timeout: 3_000, force: true }),
+    () => account.dispatchEvent('dblclick'),
+  ]) {
+    await go().catch(() => null)
+    if (
+      await panel
+        .first()
+        .waitFor({ state: 'visible', timeout: 2_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
+      return panel
+    }
+  }
+  await expect(
+    panel.first(),
+    '双击账号输入框没能展开账号历史下拉(dblclick / force dblclick / dispatchEvent 三种派发都试过)' +
+      ' —— AccountHistoryInput 的 onDoubleClick 或容器结构改了?',
+  ).toBeVisible({ timeout: 5_000 })
+  return panel
 }
 
 test.describe('记住账号回填 + 账号历史', () => {
@@ -118,17 +188,8 @@ test.describe('记住账号回填 + 账号历史', () => {
     await openLoginDialog(page)
     await switchToPasswordTab(page)
 
-    // 用 page.mouse.click(clickCount:2) 触发 dblclick
-    const accountBox = await page.locator('#login-form-account').boundingBox()
-    if (accountBox) {
-      await page.mouse.click(
-        accountBox.x + accountBox.width / 2,
-        accountBox.y + accountBox.height / 2,
-        { clickCount: 2 },
-      )
-    }
-
-    const historyPanel = page.locator('[data-account-history-container] > .absolute.top-full')
+    // 2026-10-20:双击 + 面板锚点收进 openAccountHistory(坐标 dblclick 在 CI 打空)
+    const historyPanel = await openAccountHistory(page)
     await expect(historyPanel).toBeVisible({ timeout: 5000 })
 
     await expect(historyPanel.getByText('user1@example.com')).toBeVisible()
@@ -145,28 +206,13 @@ test.describe('记住账号回填 + 账号历史', () => {
     await openLoginDialog(page)
     await switchToPasswordTab(page)
 
-    // 用 page.mouse.click(clickCount:2) 触发 dblclick 打开历史下拉
-    const acctBox = await page.locator('#login-form-account').boundingBox()
-    if (acctBox) {
-      await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
-        clickCount: 2,
-      })
-    }
-    await page.waitForSelector(
-      '[data-account-history-container] > .absolute.top-full [data-history-index]',
-      { timeout: 5000 },
-    )
-
-    // 用 page.mouse 点击历史条目(偏移到左侧 30% 处避免点到右侧删除按钮)
-    const historyItem = page
-      .locator('[data-account-history-container] > .absolute.top-full [data-history-index]')
-      .first()
-    const hbox = await historyItem.boundingBox()
-    if (hbox) {
-      await page.mouse.move(hbox.x + hbox.width * 0.3, hbox.y + hbox.height / 2)
-      await page.mouse.down()
-      await page.mouse.up()
-    }
+    // 2026-10-20:双击展开 + 面板锚点走 openAccountHistory;选中改点条目内的"账号按钮"
+    // (2026-09-22 起行容器是纯 div,内嵌两枚真 button:选中账号钮 + 删除钮),
+    // 不再用"坐标偏左 30%"的 mouse 序列 —— 那种写法一旦弹窗布局抖动就打空。
+    const historyPanel = await openAccountHistory(page)
+    const firstRow = historyPanel.locator('[data-history-index]').first()
+    await expect(firstRow).toBeVisible({ timeout: 5000 })
+    await tap(firstRow.getByRole('button', { name: 'historyuser' }))
 
     await expect(page.locator('#login-form-account')).toHaveValue('historyuser', { timeout: 5000 })
   })
@@ -182,39 +228,19 @@ test.describe('记住账号回填 + 账号历史', () => {
     await openLoginDialog(page)
     await switchToPasswordTab(page)
 
-    // 双击打开历史下拉
-    const acctBox = await page.locator('#login-form-account').boundingBox()
-    if (acctBox) {
-      await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
-        clickCount: 2,
-      })
-    }
-    await page.waitForSelector(
-      '[data-account-history-container] > .absolute.top-full [data-history-index]',
-      { timeout: 5000 },
-    )
+    // 2026-10-20:双击/面板锚点走 openAccountHistory,删除按钮改点元素本身(坐标点法在 CI 打空)
+    const historyPanel = await openAccountHistory(page)
+    await expect(historyPanel.locator('[data-history-index]').first()).toBeVisible({
+      timeout: 5000,
+    })
 
-    // 点击第一个条目的删除按钮
-    const deleteBtn = page
-      .locator('[data-account-history-container] > .absolute.top-full [aria-label="移除账号"]')
-      .first()
-    const dbox = await deleteBtn.boundingBox()
-    if (dbox) {
-      await page.mouse.move(dbox.x + dbox.width / 2, dbox.y + dbox.height / 2)
-      await page.mouse.down()
-      await page.mouse.up()
-    }
+    // 点击第一个条目的删除按钮(aria-label = auth.removeAccount「移除账号」)
+    await tap(historyPanel.getByRole('button', { name: '移除账号' }).first())
 
     // deluser1 应该消失,deluser2 和 deluser3 仍在
-    await expect(
-      page.locator('[data-account-history-container] > .absolute.top-full'),
-    ).not.toContainText('deluser1', { timeout: 3000 })
-    await expect(
-      page.locator('[data-account-history-container] > .absolute.top-full'),
-    ).toContainText('deluser2')
-    await expect(
-      page.locator('[data-account-history-container] > .absolute.top-full'),
-    ).toContainText('deluser3')
+    await expect(historyPanel).not.toContainText('deluser1', { timeout: 3000 })
+    await expect(historyPanel).toContainText('deluser2')
+    await expect(historyPanel).toContainText('deluser3')
   })
 
   test('账号历史:清空全部历史', async ({ page }) => {
@@ -226,43 +252,21 @@ test.describe('记住账号回填 + 账号历史', () => {
     await openLoginDialog(page)
     await switchToPasswordTab(page)
 
-    // 双击打开历史下拉
-    const acctBox = await page.locator('#login-form-account').boundingBox()
-    if (acctBox) {
-      await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
-        clickCount: 2,
-      })
-    }
-    await page.waitForSelector(
-      '[data-account-history-container] > .absolute.top-full [data-history-index]',
-      { timeout: 5000 },
-    )
+    // 2026-10-20:双击/面板锚点走 openAccountHistory,按钮改点元素本身(坐标点法在 CI 打空)
+    const historyPanel = await openAccountHistory(page)
+    await expect(historyPanel.locator('[data-history-index]').first()).toBeVisible({
+      timeout: 5000,
+    })
 
-    // 点击"清除历史记录"按钮(文本匹配)
-    const clearBtn = page
-      .locator('[data-account-history-container] > .absolute.top-full')
-      .getByText('清除历史记录')
-    const cbox = await clearBtn.boundingBox()
-    if (cbox) {
-      await page.mouse.move(cbox.x + cbox.width / 2, cbox.y + cbox.height / 2)
-      await page.mouse.down()
-      await page.mouse.up()
-    }
+    // 点击"清除历史记录"按钮(auth.clearHistory)
+    await tap(historyPanel.getByRole('button', { name: '清除历史记录' }))
 
     // 下拉应关闭
-    await expect(
-      page.locator('[data-account-history-container] > .absolute.top-full'),
-    ).not.toBeVisible({ timeout: 3000 })
+    await expect(historyPanel).not.toBeVisible({ timeout: 3000 })
 
-    // 重新打开下拉,应显示"暂无历史记录"
-    if (acctBox) {
-      await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
-        clickCount: 2,
-      })
-    }
-    await expect(
-      page.locator('[data-account-history-container] > .absolute.top-full'),
-    ).toContainText('暂无历史记录', { timeout: 3000 })
+    // 重新打开下拉,应显示"暂无历史记录"(auth.noHistory)
+    const reopened = await openAccountHistory(page)
+    await expect(reopened).toContainText('暂无历史记录', { timeout: 3000 })
   })
 
   test('账号历史:键盘导航(ArrowDown + Enter 选中)', async ({ page }) => {
@@ -274,25 +278,17 @@ test.describe('记住账号回填 + 账号历史', () => {
     await openLoginDialog(page)
     await switchToPasswordTab(page)
 
-    // 双击打开历史下拉
-    const acctBox = await page.locator('#login-form-account').boundingBox()
-    if (acctBox) {
-      await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
-        clickCount: 2,
-      })
-    }
-    await page.waitForSelector(
-      '[data-account-history-container] > .absolute.top-full [data-history-index]',
-      { timeout: 5000 },
-    )
+    // 2026-10-20:双击/面板锚点走 openAccountHistory(坐标点法在 CI 打空)
+    const historyPanel = await openAccountHistory(page)
+    await expect(historyPanel.locator('[data-history-index]').first()).toBeVisible({
+      timeout: 5000,
+    })
 
     // 按 ArrowDown 高亮第一项
     await page.locator('#login-form-account').press('ArrowDown')
 
     // 第一项应有 bg-accent 类(选中态)
-    const firstItem = page.locator(
-      '[data-account-history-container] > .absolute.top-full [data-history-index="0"]',
-    )
+    const firstItem = historyPanel.locator('[data-history-index="0"]')
     await expect(firstItem).toHaveClass(/bg-accent/)
 
     // 按 Enter 选中
