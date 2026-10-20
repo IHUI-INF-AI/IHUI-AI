@@ -86,10 +86,16 @@ export function resolveCookieDomain(rawHost: string | undefined): string | undef
   return host === domain || host.endsWith(`.${domain}`) ? COOKIE_DOMAIN : undefined
 }
 
-/** 取请求的原始 Host(含端口;数组形态取第一个)。 */
+/**
+ * 取「访客实际面对的 host」。必须走 Fastify 的 request.hostname(代理感知出口)而不是裸读
+ * headers.host:X-Forwarded-Host 只在远端地址命中 TRUSTED_PROXIES 时才被采信,与 IP 限流
+ * 同一份信任判据(server.ts trustProxy)。裸读 headers.host 会把公网请求判成反代的
+ * 127.0.0.1:8802 ⇒ 域内访客被降级成 host-only,api.aizhs.top 设置的共享登录 Cookie
+ * 在 bsm.aizhs.top 上就读不到(2026-10-20 公网臂实测踩到);裸读 x-forwarded-host
+ * 则等于无条件信任可伪造头。两头都不能图省事。
+ */
 function requestRawHost(request: FastifyReply['request']): string | undefined {
-  const host = request.headers.host
-  return Array.isArray(host) ? host[0] : host
+  return request.hostname || request.headers.host
 }
 
 function buildCookie(
