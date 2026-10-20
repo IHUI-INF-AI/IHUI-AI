@@ -5,10 +5,11 @@
 
 /**
  * 桌面端本机一键发版(2026-09-17 极致化):
- *   node scripts/release-desktop-local.mjs [--no-install] [--no-push] [--no-upload] [--minor|--major]
+ *   node scripts/release-desktop-local.mjs [--no-install] [--no-push] [--no-upload] [--allow-unsigned-upload] [--minor|--major]
  * 流程:bump 版本 → tauri build(薄壳+签名,~2.5 分钟)→ Gitee release 直传 →
- *       desktop-feed 更新(windows)→ 提交推送 → 本机静默自装。
+ *       提交推送 → 本机静默自装。
  *   --no-upload:跳过 Gitee 直传(本地验证构建必带;--no-push 不挡上传,见下方旗标注)。
+ *   --allow-unsigned-upload:显式放行"本机未签名包"上传 Gitee(仅应急;公开 Windows 发布走 CI/SignPath)。
  * 仅发 Windows(本机通道);全平台走 CI(tag → release-desktop.yml)。
  * 前置:~/.tauri/ 更新签名密钥;git credential 含 gitee.com token。
  */
@@ -45,8 +46,28 @@ const SLOW_COMMIT = process.argv.includes('--slow-commit');
 //     /releases/{id}/attach_files 返回 id 与 size,DELETE by id 返回 204 即真删,孤儿资产**可以**
 //     逐件清,别再按"清不掉"行事。)
 const NO_UPLOAD = process.argv.includes('--no-upload');
+// 本机通道只做 Tauri 更新签名(minisign),不做 Authenticode;而 Gitee 附件自 2026-10-18 起
+// 同时是 Windows 更新器直链(见 desktop-latest.generated.ts),所以未签名的本机包一旦上传
+// 就会直接进入用户下载/更新面。公开 Windows 发布一律走 CI 的 SignPath 签名腿;本机上传
+// 必须显式认领"未签名",失效方向是多要一次定向说明,不是静默放行。
+const ALLOW_UNSIGNED_UPLOAD = process.argv.includes('--allow-unsigned-upload');
 const KEEP_VERSION = process.argv.includes('--keep-version');
 const BUMP = process.argv.includes('--minor') ? 'minor' : process.argv.includes('--major') ? 'major' : 'patch';
+
+if (!NO_UPLOAD && !ALLOW_UNSIGNED_UPLOAD) {
+  console.error(
+    '❌ 本机发版脚本只做 Tauri 更新签名(minisign),不做 Authenticode。\n' +
+      '   公开 Windows 发布请走 CI:git tag desktop-vX.Y.Z && git push origin desktop-vX.Y.Z\n' +
+      '   (release-desktop.yml 在 SignPath 四项凭据齐备时自动签名)。\n' +
+      '   确需发布未签名包(例如 SignPath 审批前应急),显式加 --allow-unsigned-upload。',
+  )
+  process.exit(1)
+}
+if (ALLOW_UNSIGNED_UPLOAD && !NO_UPLOAD) {
+  console.warn(
+    '⚠️ --allow-unsigned-upload:本次 Gitee 直传的安装包没有 Authenticode 签名,会进入 Windows 用户下载/更新面。',
+  )
+}
 
 // python 解析:Windows 上裸 `python` 会命中 Microsoft Store 的占位 stub
 // (执行即打印 "Python was not found" 并非零退出 → Gitee 发行阶段必挂),
@@ -255,12 +276,14 @@ const gr = spawnSync(pythonBin, [giteeScript, '--tag', `desktop-v${version}`, '-
 });
 if (gr.status !== 0) { console.error('ERROR: Gitee 发行阶段失败'); process.exit(1); }
 // feed 三条链路的**真实归属**(2026-09-22 逐行核对后更正,原注释把 CI 的活记到了本机头上;
-// 2026-10-05 再更正:机主拍板更新源定稿为**单端点**,GitHub feed 路径整条删除):
+// 2026-10-05 再更正:机主拍板更新源定稿为**单端点**,GitHub feed 路径整条删除;
+// 2026-10-20 再更正:更新器第一数据源是入库烘焙快照,不是运行期解析):
 //   ① 客户端唯一更新器端点 https://aizhs.top/desktop-feed.json
-//      —— 由 resolve-desktop-download.mjs 刷新站点快照 `apps/web/src/config/desktop-feed.generated.ts`
-//         后随 Web 部署生效(CI: sync-downloads.yml / release-desktop.yml)。本机发版脚本**不刷它**。
-//   ② Gitee release 附件(安装包直链,供人下载,不在 updater endpoints 里)—— 本机这条真实生效。
-//      Gitee 侧 desktop-updater-feed release 同步维护,但它**不是**端点,只是附件存档。
+//      —— 第一数据源是 apps/web/src/config/desktop-latest.generated.ts(发版后人工烘焙并提交);
+//         本机发版脚本**不刷它**。运行期解析与 desktop-feed.generated.ts 只是损坏/缺键时的兜底。
+//   ② Gitee release 附件(安装包直链):自 2026-10-18 起烘焙快照把 Windows 主包直指这里 ⇒
+//      它**同时是更新面**,不再只是"人工下载存档"。本机上传的包没有 Authenticode,默认拒绝
+//      (见顶部 --allow-unsigned-upload 守卫);公开发布走 CI 的 SignPath 签名腿。
 //   ③ (已删除,2026-10-05)原 GitHub `desktop-updater-feed/latest.json` 兜底端点:它只由 CI 的
 //      generate-latest-json.mjs 维护,而本机通道无 GH_TOKEN ⇒ 本机发版后它原地不动,
 //      是一个"看似有兜底、实际随发布路径分叉"的假能力。CI 侧维护逻辑(generate-latest-json.mjs
