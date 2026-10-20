@@ -49,7 +49,9 @@ function AgentList() {
     void (async () => {
       setLoading(true)
       setError('')
-      const res = await getAgents({ page: 1, pageSize: 30, status: 'published' })
+      // 目录一次取全(服务端 limit(pageSize) 无上限钳制):原先 30 条,124 枚导入后只能看到前 30。
+      // 侧栏列表是本端唯一的目录面且无分页 UI ⇒ 取数上限必须覆盖目录量,而不是留一个看不见的截断。
+      const res = await getAgents({ page: 1, pageSize: 200, status: 'published' })
       if (cancelled) return
       if (res.success) {
         setAgents(res.data.list)
