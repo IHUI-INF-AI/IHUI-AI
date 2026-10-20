@@ -27,6 +27,9 @@ import type { QueryResult } from './panel-render'
 
 // ---------- 时间窗与步长 ----------
 
+// Grafana 盘标题统一带品牌前缀;本页已在 IHUI AI 内,再显一遍只是噪声。
+const stripBrandPrefix = (title: string) => title.replace(/^IHUI-AI(?:\s*·\s*|\s+)/, '')
+
 const RANGES = [
   { label: '1小时', seconds: 3600 },
   { label: '3小时', seconds: 3 * 3600 },
@@ -246,22 +249,25 @@ export default function MonitorPanelsPage() {
                     {group}
                   </div>
                 )}
-                {groupBoards.map((d) => (
-                  <Tooltip key={d.uid} content={d.title}>
-                    <button
-                      type="button"
-                      onClick={() => switchDashboard(d.uid)}
-                      className={cn(
-                        'block w-full truncate px-3 py-1.5 text-left text-xs transition-colors',
-                        d.uid === activeUid
-                          ? 'border-l-2 border-cyan-400 bg-muted text-cyan-300'
-                          : 'border-l-2 border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
-                      )}
-                    >
-                      {navOpen ? d.title : d.title.slice(0, 2)}
-                    </button>
-                  </Tooltip>
-                ))}
+                {groupBoards.map((d) => {
+                  const label = stripBrandPrefix(d.title)
+                  return (
+                    <Tooltip key={d.uid} content={label}>
+                      <button
+                        type="button"
+                        onClick={() => switchDashboard(d.uid)}
+                        className={cn(
+                          'block w-full truncate px-3 py-1.5 text-left text-xs transition-colors',
+                          d.uid === activeUid
+                            ? 'border-l-2 border-cyan-400 bg-muted text-cyan-300'
+                            : 'border-l-2 border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
+                        )}
+                      >
+                        {navOpen ? label : label.slice(0, 2)}
+                      </button>
+                    </Tooltip>
+                  )
+                })}
               </div>
             )
           })
@@ -273,7 +279,7 @@ export default function MonitorPanelsPage() {
         {/* 顶栏 */}
         <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-4 py-2.5">
           <h2 className="text-sm font-semibold text-foreground">
-            {dashboard?.title ?? '监控面板'}
+            {dashboard ? stripBrandPrefix(dashboard.title) : '监控面板'}
           </h2>
           {dashboard && (
             <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
