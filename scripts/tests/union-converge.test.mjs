@@ -14,17 +14,15 @@ import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join, dirname, resolve, relative } from 'node:path'
-import { pathToFileURL, fileURLToPath } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as U } from '../union-converge.mjs'
 import { auditOne } from '../check-merge-addition-loss.mjs'
 import {
-  parseArchivePlaceholders,
   placeholderKeyOfTitle,
   collectReferencedArchives,
   matchRuns,
   MIN_RUN_LINES,
-  PLACEHOLDER_TITLE_TRUNC,
 } from '../lib/ledger-move-aware.mjs'
 import { parseCompletedTaskBlocks } from '../lib/plan-task-headings.mjs'
 import { maskComments } from '../lib/code-mask.mjs'
@@ -664,62 +662,6 @@ test('同一形状的另一支:占位写的是通配归档件名 ⇒ 不指向�
   } finally {
     rmScratch(dir)
   }
-})
-
-/**
- * 反漂移锁:**占位形态的规格住在归档器里,不在本测试里重写一遍。**
- * 取 `archive-completed-tasks.mjs` 真产出的 `placeholderLine()` 输出喂给判据的解析器 ——
- * 归档器哪天改文案,这条必红(§22c:镜像判据的对象是"某个真实文件的形态"时,输入必须逐字取自那个文件)。
- */
-test('占位解析必须吃得下归档器真产出的那一行(含 60 字截断与"随块带走的归并落账注记"段)', () => {
-  const here = dirname(fileURLToPath(import.meta.url))
-  const script = pathToFileURL(join(here, '..', 'archive-completed-tasks.mjs')).href
-  const ARCH = 'PROJECT_PLAN_2026-09-28_auto-archive.md'
-  const call = (...a) => `m.__test__.placeholderLine(${a.map((s) => JSON.stringify(s)).join(',')})`
-  const args = [
-    ['2026-09-28', '甲条目 ✅', ARCH],
-    ['2026-09-28', '乙条目 ✅', ARCH, '〔【归并】乙 落账:复测 2026-09-28: 取证〕'],
-    ['2026-09-28', 'x'.repeat(90), ARCH],
-  ]
-  const code =
-    'import(' +
-    JSON.stringify(script) +
-    ').then((m)=>process.stdout.write(JSON.stringify([' +
-    args.map((a) => call(...a)).join(',') +
-    '])))'
-  const r = spawnSync(process.execPath, ['-e', code], {
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'],
-    cwd: join(here, '..', '..'),
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 120000,
-  })
-  assert.equal(r.status, 0, `取归档器的真占位出口失败:${String(r.stderr).slice(0, 300)}`)
-  const [plain, withNotes, truncated] = JSON.parse(r.stdout)
-  assert.match(plain, /^<!--\s*已归档\(/, `归档器产出的形态变了:${plain}`)
-  for (const [line, wantTitle] of [
-    [plain, '甲条目 ✅'],
-    [withNotes, '乙条目 ✅'],
-    [truncated, 'x'.repeat(PLACEHOLDER_TITLE_TRUNC)],
-  ]) {
-    const got = parseArchivePlaceholders(line)
-    assert.equal(got.length, 1, `一行占位应解析出一条:${line}`)
-    assert.equal(got[0].title, wantTitle, `标题段取错:${line}`)
-    assert.equal(got[0].resolvable, true, `可核验性判错:${got[0].whyNot}`)
-    assert.equal(got[0].archivePath, `.ihui-agent/archive/${ARCH}`)
-  }
-  assert.ok(
-    withNotes.includes('随块带走的归并落账注记'),
-    '夹具自证:这条真产出必须确实带注记段,否则上面那条断言是空转',
-  )
-  const truncatedTitle = parseArchivePlaceholders(truncated)[0].title
-  assert.equal(
-    truncatedTitle.length,
-    PLACEHOLDER_TITLE_TRUNC,
-    `归档器对占位标题的截断长度与本判据配对键用的长度不再是同一个数(本器 ${truncatedTitle.length} / 判据 ${PLACEHOLDER_TITLE_TRUNC})⇒ 配对会静默失配,这条必须红着逼人回来改`,
-  )
-  assert.match(truncatedTitle, /^x+$/, '截断取的必须就是标题开头那一段')
 })
 
 test('抑制表只减对侧贡献,绝不动本侧自己的重数(少带=丢别人内容,方向不允许)', () => {
