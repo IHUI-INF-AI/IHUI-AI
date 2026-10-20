@@ -678,7 +678,7 @@ describe('TimelineEventRow — hasJumpTarget 跳转优先级', () => {
     fireEvent.click(btn)
     expect(messageHandler).toHaveBeenCalled()
     const evt = messageHandler.mock.calls[0]?.[0] as CustomEvent
-    expect(evt.detail).toEqual({ messageId: 'm-42' })
+    expect(evt.detail).toEqual({ messageId: 'm-42', paneId: null })
     window.removeEventListener('ihui:scroll-to-message', messageHandler)
   })
 
@@ -691,7 +691,7 @@ describe('TimelineEventRow — hasJumpTarget 跳转优先级', () => {
     fireEvent.click(btn)
     expect(planHandler).toHaveBeenCalled()
     const evt = planHandler.mock.calls[0]?.[0] as CustomEvent
-    expect(evt.detail).toEqual({ planStepId: 'ps-7' })
+    expect(evt.detail).toEqual({ planStepId: 'ps-7', paneId: null })
     window.removeEventListener('ihui:scroll-to-plan-step', planHandler)
   })
 
@@ -704,7 +704,7 @@ describe('TimelineEventRow — hasJumpTarget 跳转优先级', () => {
     fireEvent.click(btn)
     expect(toolHandler).toHaveBeenCalled()
     const evt = toolHandler.mock.calls[0]?.[0] as CustomEvent
-    expect(evt.detail).toEqual({ toolCallId: 'tc-99' })
+    expect(evt.detail).toEqual({ toolCallId: 'tc-99', paneId: null })
     window.removeEventListener('ihui:scroll-to-tool-call', toolHandler)
   })
 
