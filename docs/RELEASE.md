@@ -406,7 +406,9 @@ sha256sum ihui-windows-x64.zip
 | Android 提交 | EAS Submit | `eas submit -p android` | Google 审核(1-4 小时) |
 | 配置 | `apps/mobile-rn/eas.json` | build / submit profile | — |
 
-> **Android 提交轨道 = 门槛命脉（2026-10-20 实测）**：`eas submit -p android` 落到哪条轨道完全由 `eas.json` 的 `submit.production.android.track` 决定，命令本身不说明。个人号"12 名测试员连续 14 天"的正式版门槛**只认封闭测试**，而封闭测试在 androidpublisher v3 里的轨道名是 **`alpha`**（公开测试 = `beta`；**不存在 `closed`/`open` 这两个 API 名**，问 `/tracks/closed` 必返 404，那不是"闭测没轨道"）。`track: "internal"` 的提交永远进不了门槛。现读轨道与测试员名单：`node scripts/check-play-tracks.cjs`。
+> **Android 提交轨道 = 门槛命脉（2026-10-20 实测）**：`eas submit -p android` 落到哪条轨道完全由 `eas.json` 的 `submit.production.android.track` 决定，命令本身不说明。个人号"12 名测试员连续 14 天"的正式版门槛**只认封闭测试**，而封闭测试在 androidpublisher v3 里的轨道名是 **`alpha`**（公开测试 = `beta`；**不存在 `closed`/`open` 这两个 API 名**，问 `/tracks/closed` 必返 404，那不是"闭测没轨道"）。`track: "internal"` 的提交永远进不了门槛。
+>
+> 现读轨道与测试员名单的可移植出路（任何有服务账号权限的机器都能跑，不依赖本仓脚本）：`POST /edits`（空 body 必须带 `Content-Length: 0`）→ `GET /edits/{editId}/tracks` → `GET /edits/{editId}/testers/alpha` → 用完 `DELETE /edits/{editId}`。**一枚应用只允许一枚活跃 edit**，再建会顶掉别人正在用的那枚，所以读完必须删。本机另有便捷器 `scripts/check-play-tracks.cjs`，但注意：**它未被 git 追踪**（`.gitignore` 的裸规则 `*.cjs`），换克隆不存在，只当本机快捷方式用，别把它当交付物。
 
 #### iOS 端可行性评估(2026-10-19,工程侧全就绪)
 
