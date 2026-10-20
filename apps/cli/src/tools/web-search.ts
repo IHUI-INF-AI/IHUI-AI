@@ -20,6 +20,7 @@
 
 import type { Tool, ToolResult } from './index.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
+import { assertSafeFetchUrl, formatSsrfRejection } from '@ihui/shared/utils/ssrf-guard';
 
 const SEARCH_ENDPOINT = 'https://html.duckduckgo.com/html/';
 const SEARCH_TIMEOUT_MS = 15_000;
@@ -124,6 +125,12 @@ export const web_search: Tool = {
     }
 
     const searchUrl = `${SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}`;
+    const verdict = await assertSafeFetchUrl(searchUrl);
+    if (!verdict.safe) {
+      const error = formatSsrfRejection(verdict);
+      await runPostToolCall('web_search', { error });
+      return { success: false, output: '', error, errorType: 'network' };
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
 

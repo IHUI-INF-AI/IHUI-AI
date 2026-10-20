@@ -609,6 +609,7 @@ async function postTokenEndpoint(
   try {
     // 出站前过一次共享 SSRF 守卫。此前这条 POST 完全没有守卫:tokenEndpoint 可能出自
     // 服务端元数据下发(远端可控),带着 client_secret 打内网或元数据地址即 SSRF。
+    // ssrf-trust-source: mcpServers[].auth.oauth.tokenEndpoint(用户配置文件里的 OAuth 令牌端点)
     const verdict = await assertSafeFetchUrl(tokenEndpoint, { selfHosted: trust });
     if (!verdict.safe) throw new Error(formatSsrfRejection(verdict));
     const resp = await fetch(tokenEndpoint, {
