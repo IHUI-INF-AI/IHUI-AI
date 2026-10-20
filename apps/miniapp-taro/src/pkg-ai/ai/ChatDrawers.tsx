@@ -15,7 +15,14 @@ interface MaterialItem {
   coverUrl?: string
   content?: string
 }
-type AgentInfo = Pick<Agent, 'id' | 'name' | 'description' | 'systemPrompt'> & {
+/**
+ * 本地视图模型(非 api-client Agent 直投):
+ * - id 由 @/api 的 getAgentDetail 把后端主键 agentId 映射而来(对齐 mobile-rn AgentShopItem.id)
+ * - systemPrompt 取后端 agentPrompt(@/api 映射为 prompt);契约 Agent 从未含此字段
+ */
+type AgentInfo = Pick<Agent, 'name' | 'description'> & {
+  id: string
+  systemPrompt: string
   avatar?: string
 }
 
