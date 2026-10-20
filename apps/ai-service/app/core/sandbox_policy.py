@@ -28,6 +28,7 @@ is_git_pointer_file / resolve_gitdir_from_file / PROTECTED_METADATA_PATH_NAMES�
 """
 from __future__ import annotations
 
+import ntpath
 import os
 from dataclasses import dataclass, field
 
@@ -132,8 +133,29 @@ class WritableRoot:
         return first_component in self.protected_metadata_names
 
 
+def _looks_windows_absolute(path: str) -> bool:
+    """盘符起首的 Windows 绝对路径(与宿主平台无关,只看字符串形态)。"""
+    return len(path) >= 3 and path[0].isalpha() and path[1] == ":" and path[2] in "\\/"
+
+
 def _is_subpath(path: str, base: str) -> bool:
-    """Codex Path::starts_with 语义(组件级前缀,不认字符串巧合)。"""
+    """Codex Path::starts_with 语义(组件级前缀,不认字符串巧合)。
+
+    Windows 形态的路径即使在 POSIX 宿主上也要按 Windows 语义判:调用方
+    (patch_safety)会把 normcase 的平台语义注入成 Windows 档来做跨平台校验,
+    若这里回落到 posixpath.relpath,'c:\\proj\\a.py' 会被当成一个普通文件名,
+    组件前缀判据恒假 —— 收口见 tests/test_patch_safety_56.py 的 normcase 用例。
+    """
+    if _looks_windows_absolute(path) or _looks_windows_absolute(base):
+        win_path = ntpath.normcase(ntpath.normpath(path))
+        win_base = ntpath.normcase(ntpath.normpath(base))
+        try:
+            relative = ntpath.relpath(win_path, win_base)
+        except ValueError:
+            return False
+        return relative == "." or (
+            not relative.startswith("..") and not ntpath.isabs(relative)
+        )
     try:
         relative = os.path.relpath(path, base)
     except ValueError:
