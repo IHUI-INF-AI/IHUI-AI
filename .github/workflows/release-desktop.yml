@@ -305,10 +305,23 @@ jobs:
           gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
             gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "IHUI AI Desktop $TAG" \
               --notes "Desktop bundles (Tauri 2)"
+          # ⚠️ 逐文件上传**不许吞失败**:签名步替换了 exe 字节并重算同名 .sig,这两枚必须
+          # **成对**落到 Release 上。旧写法 `|| echo "WARN: upload failed"` 会让"exe 传成功、
+          # .sig 传失败"照绿收工 ⇒ 自动更新拿新包配旧签名,验签必挂而 CI 全绿(静默断更)。
+          # 注意判据写法:`echo "$FILES" | while` 是**子 shell**,里面的变量赋值在本步后续读不到,
+          # `$GITHUB_ENV` 也不会中途生效 ⇒ 失败必须落到文件里,循环后再数一次。
+          : > "$RUNNER_TEMP/desktop-upload-failures.txt"
           echo "$FILES" | while IFS= read -r f; do
             echo "Uploading: $f"
-            gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber "$f" || echo "WARN: upload failed: $f"
+            if ! gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber "$f"; then
+              printf '%s\n' "$f" >> "$RUNNER_TEMP/desktop-upload-failures.txt"
+            fi
           done
+          NFAIL=$(wc -l < "$RUNNER_TEMP/desktop-upload-failures.txt" | tr -d ' ')
+          if [ "$NFAIL" != "0" ]; then
+            echo "::error::${NFAIL} 枚资产上传失败(exe 与其 .sig 可能不成对),拒绝以全绿结束: $(tr '\n' ' ' < "$RUNNER_TEMP/desktop-upload-failures.txt")"
+            exit 1
+          fi
 
       - name: Upload bundle artifacts
         uses: actions/upload-artifact@v4
