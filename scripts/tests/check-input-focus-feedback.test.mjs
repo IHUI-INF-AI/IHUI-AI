@@ -290,4 +290,71 @@ test('T13 AgentRuntimePanel 的 Input 不再算命中,而 web 小写标签站点
     '小写宿主标签(input/textarea/select)不该被这一跳救掉;一个都没有 ⇒ 这一跳把整门读瞎了',
   )
 })
+
+// ─── T14 F2(2026-10-20 加维):RN focusedStyle 只准覆盖颜色、不得带几何键 ───
+// 判据一律经 gate.__test__ 的生产入口,本文件不复制任何键表/正则(§22c)。
+test('T14 F2 内联字面量:几何键判红、纯色不判、注释遮罩生效、嵌套值不咬', () => {
+  const mk = (prop) => `export function P() {\n  return <TextField colorScheme="light" ${prop} />\n}`
+  const red = gate.judgeText(RN_FILE, mk('focusedStyle={{ borderWidth: 2 }}'))
+  assert.equal(red.f2.length, 1, `borderWidth 必须判红:${JSON.stringify(red.f2)}`)
+  assert.equal(red.f2[0].dim, 'F2')
+  assert.ok(red.f2[0].keys.includes('borderWidth'), '命中必须点名几何键')
+  assert.equal(red.hits.length, 0, 'F1 不该咬:TextField 是唯一实现,两维不得互相污染')
+  const green = gate.judgeText(RN_FILE, mk('focusedStyle={{ borderColor: "#FF0000" }}'))
+  assert.equal(green.f2.length, 0, '只覆盖颜色是 TextField.tsx 文档明令的合法用法')
+  const commented = gate.judgeText(RN_FILE, mk('focusedStyle={{ /* borderWidth: 2 */ borderColor: "#000000" }}'))
+  assert.equal(commented.f2.length, 0, '注释里的 borderWidth 不得算(遮罩生效)')
+  const nested = gate.judgeText(RN_FILE, mk('focusedStyle={{ shadowOffset: { width: 0, height: 2 } }}'))
+  assert.equal(nested.f2.length, 0, '嵌套值里的 width/height 不是聚焦几何,深度 1 判据不得误咬')
+})
+
+// ─── T15 F2 引用形态:styles.inputFocused 声明体可静态取证;复杂表达式落射程外并出声 ───
+test('T15 F2 引用形态:声明体取证正反各一;三元/裸变量不判红但必须 unresolved 出声', () => {
+  const mk = (body) =>
+    `const styles = StyleSheet.create({\n  inputFocused: ${body},\n})\nexport function P() {\n  return <TextField colorScheme="light" focusedStyle={styles.inputFocused} />\n}`
+  const red = gate.judgeText(RN_FILE, mk('{ borderWidth: 2, borderColor: "#000000" }'))
+  assert.equal(red.f2.length, 1, `引用键声明体带 borderWidth 必须判红:${JSON.stringify(red.f2)}`)
+  assert.equal(red.f2[0].via, 'styles.inputFocused')
+  const green = gate.judgeText(RN_FILE, mk('{ borderColor: "#000000" }'))
+  assert.equal(green.f2.length, 0)
+  // 任务口径:条件三元的样式对象是另一型,误报风险高,不扩 —— 但"没判"绝不写成"判过"。
+  const ternary = gate.judgeText(RN_FILE, 'export function P() {\n  return <TextField colorScheme="light" focusedStyle={focused ? a : b} />\n}')
+  assert.equal(ternary.f2.length, 0, '键静态不可见 ⇒ 不判红')
+  assert.ok(ternary.f2Unresolved.length >= 1, '但必须计 f2Unresolved 出声,不得静默当"没有"')
+  const bare = gate.judgeText(RN_FILE, 'export function P() {\n  return <TextField colorScheme="light" focusedStyle={someVar} />\n}')
+  assert.equal(bare.f2.length, 0)
+  assert.ok(bare.f2Unresolved.length >= 1)
+})
+
+// ─── T16 F2 射程:tests 路径豁免;web/miniapp 同名写法不咬 ───
+test('T16 F2 射程边界:tests/__tests__/.test. 豁免;web/miniapp 不在射程', () => {
+  const mk = () => 'export function P() {\n  return <TextField colorScheme="light" focusedStyle={{ borderWidth: 2 }} />\n}'
+  assert.equal(gate.judgeText('packages/app/src/features/probe/__tests__/Probe.test.tsx', mk()).f2.length, 0, 'tests/__tests__ 路径豁免')
+  assert.equal(gate.judgeText('packages/app/src/features/probe/Probe.test.tsx', mk()).f2.length, 0, '.test. 文件名豁免')
+  assert.equal(gate.judgeText(WB_FILE, mk()).f2.length, 0, 'web 不在 F2 射程(HEAD 现读:web/miniapp 无 focusedStyle 用法)')
+  assert.equal(gate.judgeText(MP_FILE, mk()).f2.length, 0, 'miniapp 不在 F2 射程')
+})
+
+// ─── T17 F2 棘轮:与 F1 共用同一把 ratchetRed(§0.6),锚点 = 该文件 HEAD 自身存量 ───
+test('T17 ratchetRed 只拦超出 HEAD 存量的部分:新文件无锚点即红、等于/低于存量只报数', () => {
+  const sitesOf = (f) => [{ file: f }]
+  assert.equal(gate.ratchetRed(new Map([['a.tsx', 3]]), new Map([['a.tsx', 2]]), sitesOf).length, 1, '超存量 ⇒ 红')
+  assert.equal(gate.ratchetRed(new Map([['a.tsx', 2]]), new Map([['a.tsx', 2]]), sitesOf).length, 0, '等于存量 ⇒ 只报数')
+  assert.equal(gate.ratchetRed(new Map([['a.tsx', 1]]), new Map([['a.tsx', 3]]), sitesOf).length, 0, '低于存量 ⇒ 只报数')
+  assert.equal(gate.ratchetRed(new Map([['new.tsx', 1]]), new Map(), sitesOf).length, 1, '新文件无锚点(cap=0)⇒ 新增即红')
+})
+
+// ─── T18 F2 锚点同尺:F2 必须同时接在本次面与 HEAD 锚点面(只判一面 = 尺子变准读成新增)───
+test('T18 F2 接线锁:judgeFocusedStyleGeometry 接 judgeJsx,HEAD 锚点面同样收集 f2,判红走 ratchetRed', () => {
+  const src = readFileSync(GATE, 'utf8')
+  assert.match(src, /focusedStyle/, '头注必须写明 F2 判据(判据写在脸上)')
+  assert.ok(
+    (src.match(/judgeFocusedStyleGeometry\(/g) || []).length >= 2,
+    'F2 判据必须有定义且有真实调用(只造不用 = 假接线)',
+  )
+  assert.match(src, /headF2/, 'HEAD 锚点面必须同样收集 f2')
+  assert.match(src, /f2HeadCounts\.set\(/, 'F2 锚点必须逐文件计数落 f2HeadCounts')
+  assert.match(src, /ratchetRed\(f2Counts/, 'F2 判红必须走与 F1 同一把 ratchetRed')
+  assert.match(src, /f2Unresolved/, '射程外的键静态不可见形态必须出声(§0.3)')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

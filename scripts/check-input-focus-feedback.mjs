@@ -74,6 +74,25 @@
  * 聚焦反馈缺口**(改它 = 加 onFocus + 聚焦档描边,或迁 packages/app 的 TextField)。
  * 方向取"喊"不取"静默":认错一枚第三方组件的代价是多一次定向说明,把它写成放过才是造假。
  *
+ * F2(2026-10-20 补,第二维)= **RN focusedStyle 只准覆盖颜色、不得带几何键**。
+ * TextField.tsx 的文档明令:`focusedStyle` 是调用方差异需求的最后覆盖口;聚焦把描边从
+ * 1px 加粗到 2px 会压缩固定高度的内容区,框内文字被顶起数设备像素(真机实测,2026-10-20
+ * 已把 LoginScreen 与五处 `focusedStyle={{ borderWidth: 2 }}` 残留清零)。本维防回潮:
+ *   射程 = packages/app/src 与 apps/mobile-rn/src 的生产码 .ts/.tsx(tests / __tests__ /
+ *   .test. / .spec. 路径豁免 —— 测试夹具本来就要写坏形状);命中 = `focusedStyle={…}` 的值
+ *   可静态看到几何键:① 内联对象字面量(`focusedStyle={{ borderWidth: 2 }}`);② 单一样式键
+ *   引用(`focusedStyle={styles.inputFocused}` ⇒ 全文件找 `inputFocused: {` 声明体、取对象
+ *   深度 1 的键)。几何键表:border*Width / width|height 及其 min|max 档 / padding* / margin* /
+ *   top|bottom|left|right;只取**对象深度 1** 的键(`shadowOffset: { width, height }` 是取值
+ *   不是聚焦几何)。取材在 **code 面**(注释与字符串都遮):引号键在 code 面被抹平,而 RN
+ *   样式键本就不加引号 —— 这一格按射程外写明,不装作判过。条件三元(`focused ? a : b`)、
+ *   数组、裸变量引用、声明体切不出 ⇒ 键静态不可见 ⇒ 计 `f2Unresolved` 随报告出声,不判红
+ *   也不记绿(与 F1 的 unresolvedStyleRefs 同档,不进 --strict 的未判定账)。
+ *   棘轮与 F1 共用同一把 ratchetRed:锚点 = 该文件 HEAD 自身 F2 数,只拦新增。
+ *   引用形态不 styleKeyBody:那台只认 STYLE_BLOCK_ANCHOR 锚定块内深度 1 的键,而 LoginScreen
+ *   的 createStyles 函数体跨 669 行,objectScope 的 400 行配平上限让它进不了 styleBlocks
+ *   (F1 的射程外④)—— F2 的立因站点恰是它,这一格必须看得见(见 styleKeyDeclBodies 头注)。
+ *
  * 取材面同 70/77/83/98/101/103/118/131:全量判 **HEAD blob**、`--staged` 判**索引 blob**、
  * `--worktree` 仅人工逃生舱、两面旗同给 exit 2、清单与内容**同面同轮**、内容取不到**不回退磁盘**
  * ⇒ exit 2 无法判定(不冒红也不记绿)。全部经 lib/face-reader 的 `catBatch`,不散写 `git show`。
@@ -231,6 +250,157 @@ export function borderDecls(text) {
 /** 样式键名本身是不是聚焦档(`inputFocused:` / `xxxFocus:`)—— 是则它自己就是反馈,不是常态描边。 */
 export function isFocusTierKey(key) {
   return /focus/i.test(String(key || ''))
+}
+
+// ─── F2:RN focusedStyle 只准覆盖颜色(几何键禁令,TextField.tsx 文档明令)──────────
+
+/** F2 的测试路径豁免(tests / __tests__ 段与 .test. / .spec. 文件名 —— 夹具本来就要写坏形状)。 */
+export const TEST_PATH_RE = /(?:^|\/)(?:tests?|__tests__)(?:\/|$)|\.test\.|\.spec\./i
+
+/** F2 的几何键表:聚焦差异化样式只准换色,动了这些键就是布局跳动(1px→2px 顶起文字)。 */
+export function isGeometryStyleKey(key) {
+  return /^(border(?:Top|Bottom|Left|Right)?Width|minWidth|maxWidth|width|minHeight|maxHeight|height|padding(?:Top|Bottom|Left|Right|Horizontal|Vertical)?|margin(?:Top|Bottom|Left|Right|Horizontal|Vertical)?|top|bottom|left|right)$/.test(
+    String(key || ''),
+  )
+}
+
+/**
+ * 字符级花括号配平:从 `openIdx`(必须指向 `{`)取**该对象自己的**体内文本与闭括号下标。
+ * 为什么不用 lib/box-geometry.objectScope:那一台按"行"开窗(回看 60 行找含 `{` 的行、
+ * 向后 400 行配平),F2 的锚点(`focusedStyle={{`、与兄弟键同行的 `inputFocused: {`)常落在
+ * 行中间,行级窗口会把同行的其他键并进体内。配不平(到 EOF 仍开著)⇒ null,交调用方落
+ * "判不出",不猜 —— 与 objectScope 对截断的处理同一条规矩。
+ */
+export function braceBody(code, openIdx) {
+  if (code[openIdx] !== '{') return null
+  let depth = 0
+  for (let i = openIdx; i < code.length; i++) {
+    const c = code[i]
+    if (c === '{') depth++
+    else if (c === '}') {
+      depth--
+      if (depth === 0) return { body: code.slice(openIdx + 1, i), close: i }
+    }
+  }
+  return null
+}
+
+/** 对象体**深度 1** 的键名清单。值里的嵌套对象/数组自己成层,其中的键不参与(shadowOffset 同款)。 */
+export function topLevelKeys(body) {
+  const out = []
+  let depth = 0
+  let from = -1
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i]
+    if (c === '{' || c === '[' || c === '(') {
+      depth++
+      from = -1
+      continue
+    }
+    if (c === '}' || c === ']' || c === ')') {
+      depth--
+      continue
+    }
+    if (depth !== 0) continue
+    if (/[\w$]/.test(c)) {
+      if (from < 0) from = i
+      continue
+    }
+    if (from >= 0) {
+      let j = i
+      while (j < body.length && /[ \t\r\n]/.test(body[j])) j++
+      if (body[j] === ':') out.push(body.slice(from, i))
+      from = -1
+    }
+  }
+  return out
+}
+
+/**
+ * F2 引用形态取键体:`focusedStyle={styles.inputFocused}` ⇒ 全文件找 `inputFocused: {` 声明,
+ * 逐份字符级配平取体。为什么不用 styleKeyBody:见头注 F2 段(createStyles 函数体超
+ * objectScope 的 400 行配平上限 ⇒ styleBlocks 收不到 ⇒ depth 1 判据对它整片失明)。声明在
+ * 任意深度都认;同名键声明多份时逐份取证、任一份带几何键即命中(方向取"喊",不取"静默")。
+ */
+export function styleKeyDeclBodies(code, key) {
+  const esc = String(key).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`(?:^|[\\n,{])\\s*${esc}\\s*:\\s*\\{`, 'g')
+  const bodies = []
+  let m
+  while ((m = re.exec(code))) {
+    const b = braceBody(code, m.index + m[0].length - 1)
+    if (b) bodies.push(b.body)
+  }
+  return bodies
+}
+
+/**
+ * F2 主判据:返回 `{sites, unresolved}`。sites 每枚 = 一处带几何键的 focusedStyle;
+ * unresolved = 键静态不可见的形态(条件三元/数组/裸变量/声明体切不出/配不平),随报告出声,
+ * 不判红也不记绿 —— §0.3:"没判"绝不写成"判过"。取材面 = **code**(注释与字符串都遮),
+ * 与 F1 的"聚焦代码证据看 code 面"同档;遮罩由 maskFaces 的等长词法保证,行号两面对齐。
+ */
+export function judgeFocusedStyleGeometry(rel, code) {
+  const sites = []
+  const unresolved = []
+  if (TEST_PATH_RE.test(String(rel || ''))) return { sites, unresolved }
+  const src = String(code || '')
+  const re = /focusedStyle\s*=\s*\{/g
+  let m
+  while ((m = re.exec(src))) {
+    const line = src.slice(0, m.index).split('\n').length
+    const open = m.index + m[0].length - 1
+    const container = braceBody(src, open)
+    if (!container) {
+      unresolved.push({ file: rel, line, reason: 'focusedStyle 的表达式容器花括号配不平 ⇒ 是否带几何键判不出,不判红也不记绿' })
+      continue
+    }
+    // 容器内第一个非空白字符是 `{` ⇒ 内联对象字面量(键当场可见)
+    let k = open + 1
+    while (k < src.length && /[ \t\r\n]/.test(src[k])) k++
+    if (src[k] === '{') {
+      const obj = braceBody(src, k)
+      if (!obj) {
+        unresolved.push({ file: rel, line, reason: 'focusedStyle 内联对象字面量配不平 ⇒ 是否带几何键判不出,不判红也不记绿' })
+        continue
+      }
+      const keys = [...new Set(topLevelKeys(obj.body).filter(isGeometryStyleKey))]
+      if (keys.length) sites.push({ file: rel, end: 'rn', line, dim: 'F2', via: 'inline', keys })
+      continue
+    }
+    // 引用形态:只认 `标识符.标识符`(styles.inputFocused)。任务口径:条件三元的样式对象
+    // 是另一型、误报风险高,不扩 —— 它连键都静态不可见,落 unresolved 出声即可。
+    const ref = /^([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)$/.exec(container.body.trim())
+    if (!ref) {
+      unresolved.push({
+        file: rel,
+        line,
+        reason: `focusedStyle 引用的是复杂表达式(数组/三元/裸变量)⇒ 键静态不可见,是否带几何键判不出,不判红也不记绿`,
+      })
+      continue
+    }
+    const bodies = styleKeyDeclBodies(src, ref[2])
+    if (!bodies.length) {
+      unresolved.push({ file: rel, line, reason: `引用键 ${ref[2]} 在本文件找不到声明体 ⇒ 是否带几何键判不出,不判红也不记绿` })
+      continue
+    }
+    const keys = [...new Set(bodies.flatMap((b) => topLevelKeys(b).filter(isGeometryStyleKey)))]
+    if (keys.length) sites.push({ file: rel, end: 'rn', line, dim: 'F2', via: `styles.${ref[2]}`, keys })
+  }
+  return { sites, unresolved }
+}
+
+/**
+ * 差值棘轮共用的比较器(F1/F2 同一把尺,§0.6):锚点 = 该文件 HEAD 自身违规数,
+ * 只拦"本次改动把违规加回来",存量只报数。新文件无锚点(cap=0)⇒ 新增即红。
+ */
+export function ratchetRed(counts, headCounts, sitesOf) {
+  const red = []
+  for (const [f, n] of [...counts].sort()) {
+    const cap = headCounts.get(f) ?? 0
+    if (n > cap) red.push({ file: f, n, cap, sites: sitesOf(f) })
+  }
+  return red
 }
 
 // ─── RN:StyleSheet / createStyles 块内的样式键 ──────────────────────────
@@ -422,6 +592,11 @@ export function judgeJsx(rel, text, end) {
   }
   const elements = rebuilt.length ? [...scope.elements, ...rebuilt].sort((a, b) => a.line - b.line) : scope.elements
 
+  // F2(第二维):RN focusedStyle 只准覆盖颜色、不得带几何键 —— 与逐元素判定正交,按文件整扫。
+  // 只在 rn 端跑;web/miniapp 没有这个 prop(现读全仓 focusedStyle 用法全部落在 RN 两目录)。
+  // 需要真 JSX 面(focusedStyle= 本就是 JSX 属性形态),故放在 hasJsxShape 早退之后。
+  const f2 = end === 'rn' ? judgeFocusedStyleGeometry(rel, codeLines.join('\n')) : { sites: [], unresolved: [] }
+
   for (const el of elements) {
     if (!tags.has(el.base)) continue
     const from = el.line - 1
@@ -497,7 +672,7 @@ export function judgeJsx(rel, text, end) {
     }
     hits.push({ file: rel, end, line: el.line, tag: el.base, why, rebuilt: !!el.rebuilt })
   }
-  return { hits, passed, undet, unresolved, scanned: true, rebuilt: rebuilt.length }
+  return { hits, passed, undet, unresolved, scanned: true, rebuilt: rebuilt.length, f2: f2.sites, f2Unresolved: f2.unresolved }
 }
 
 // ─── 跨文件一跳:命中若是「导入件」,先去那件内部取聚焦证据 ────────────────
@@ -948,8 +1123,12 @@ export function analyze(face) {
   const undetermined = []
   const counts = new Map()
   const headCounts = new Map()
+  const f2Counts = new Map()
+  const f2HeadCounts = new Map()
+  const f2Sites = []
   const unreadable = []
   let unresolvedStyleRefs = 0
+  let f2Unresolved = 0
   let rebuiltWindows = 0
   const perEnd = {}
   for (const f of files) {
@@ -962,6 +1141,8 @@ export function analyze(face) {
     perEnd[r.end] = (perEnd[r.end] || 0) + 1
     unresolvedStyleRefs += r.unresolved
     rebuiltWindows += r.rebuilt || 0
+    f2Unresolved += (r.f2Unresolved || []).length
+    for (const s of r.f2 || []) f2Sites.push(s)
     for (const x of r.undet) undetermined.push(x)
     passed.push(...r.passed)
     if (r.hits.length) {
@@ -976,28 +1157,32 @@ export function analyze(face) {
   undetermined.push(...rc.undet)
   counts.clear()
   for (const h of hits) counts.set(h.file, (counts.get(h.file) || 0) + 1)
+  for (const s of f2Sites) f2Counts.set(s.file, (f2Counts.get(s.file) || 0) + 1)
   // 棘轮锚点:同一批文件在 **HEAD** 自身的命中数。判 head 面时两者同一次读数 ⇒ 存量恒等于本轮,
   // 这正是"全量档只报数"的语义;判 staged/worktree 面时才真读到上一枚提交。
   if (face === 'head') {
     for (const [f, n] of counts) headCounts.set(f, n)
+    for (const [f, n] of f2Counts) f2HeadCounts.set(f, n)
   } else {
     const headMap = readFace(files, 'head')
     const headPaths = new Set(listFacePaths('head'))
     const headHits = []
+    const headF2 = []
     for (const f of files) {
       const t = headMap.get(f)
       if (typeof t !== 'string') continue
-      headHits.push(...judgeText(f, t).hits)
+      const hr = judgeText(f, t)
+      headHits.push(...hr.hits)
+      for (const s of hr.f2 || []) headF2.push(s)
     }
     // 锚点必须与本轮**同一把尺子**(含跨文件一跳),否则"尺子变准"会被读成"仓库新增命中"。
     const rcHead = reclassifyHits(headHits, 'head', headPaths, headMap)
     for (const h of rcHead.hits) headCounts.set(h.file, (headCounts.get(h.file) || 0) + 1)
+    // F2 的锚点同样取 HEAD 面(f2 不走跨文件一跳:几何键就在调用点/同文件声明体里,与导入件无关)。
+    for (const s of headF2) f2HeadCounts.set(s.file, (f2HeadCounts.get(s.file) || 0) + 1)
   }
-  const red = []
-  for (const [f, n] of [...counts].sort()) {
-    const cap = headCounts.get(f) ?? 0
-    if (n > cap) red.push({ file: f, n, cap, sites: hits.filter((h) => h.file === f) })
-  }
+  const red = ratchetRed(counts, headCounts, (f) => hits.filter((h) => h.file === f))
+  const f2Red = ratchetRed(f2Counts, f2HeadCounts, (f) => f2Sites.filter((s) => s.file === f))
   const emptyScan = face === 'head' && files.length === 0
   return {
     face,
@@ -1008,6 +1193,11 @@ export function analyze(face) {
     total: hits.length,
     sites: hits,
     filesWithHits: counts.size,
+    f2Total: f2Sites.length,
+    f2Sites,
+    f2FilesWithHits: f2Counts.size,
+    f2Unresolved,
+    f2Red,
     passedCount: passed.length,
     unresolvedStyleRefs,
     rebuiltWindows,
@@ -1016,7 +1206,7 @@ export function analyze(face) {
     exit:
       unreadable.length || emptyScan || (argvStrict && undetermined.length)
         ? 2
-        : red.length
+        : red.length || f2Red.length
           ? 1
           : 0,
   }
@@ -1266,6 +1456,52 @@ textarea {
     })(),
   )
 
+  // ── S18 F2:RN focusedStyle 只准覆盖颜色、不得带几何键(TextField.tsx 文档明令)──
+  const F2RN = (prop) => `export function P() {\n  return <TextField colorScheme="light" ${prop} />\n}`
+  ok('S18a focusedStyle 内联 borderWidth ⇒ F2 命中,且 F1 不咬(TextField 是唯一实现,两维不互相污染)', (() => {
+    const r = J(RN, F2RN('focusedStyle={{ borderWidth: 2 }}'))
+    return r.f2.length === 1 && r.f2[0].keys.includes('borderWidth') && r.f2[0].dim === 'F2' && r.hits.length === 0
+  })())
+  ok('S18b focusedStyle 只换色(borderColor)⇒ 不判(文档明令的合法用法)', (() => {
+    const r = J(RN, F2RN(`focusedStyle={{ borderColor: '#FF0000' }}`))
+    return r.f2.length === 0 && r.f2Unresolved.length === 0
+  })())
+  ok('S18c 注释里的 borderWidth 不得算(遮罩生效:判代码结构的面注释与字符串都遮)', (() => {
+    const r = J(RN, F2RN(`focusedStyle={{ /* borderWidth: 2 */ borderColor: '#000000' }}`))
+    return r.f2.length === 0
+  })())
+  ok('S18d 嵌套值里的 width/height 不是聚焦几何(shadowOffset: { width, height } 是取值)', (() => {
+    const r = J(RN, F2RN(`focusedStyle={{ shadowOffset: { width: 0, height: 2 } }}`))
+    return r.f2.length === 0
+  })())
+  ok('S18e 引用形态:styles.inputFocused 声明体带 borderWidth ⇒ 命中;纯色声明 ⇒ 放过', (() => {
+    const mk = (body) =>
+      `const styles = StyleSheet.create({\n  inputFocused: ${body},\n})\nexport function P() {\n  return <TextField colorScheme="light" focusedStyle={styles.inputFocused} />\n}`
+    const red = J(RN, mk(`{ borderWidth: 2, borderColor: '#000000' }`))
+    const green = J(RN, mk(`{ borderColor: '#000000' }`))
+    return red.f2.length === 1 && red.f2[0].via === 'styles.inputFocused' && green.f2.length === 0
+  })())
+  ok('S18f tests/__tests__ 路径豁免(夹具本来就要写坏形状)', (() => {
+    const a = J('packages/app/src/features/probe/__tests__/Probe.test.tsx', F2RN('focusedStyle={{ borderWidth: 2 }}'))
+    const b = J('packages/app/src/features/probe/Probe.test.tsx', F2RN('focusedStyle={{ borderWidth: 2 }}'))
+    return a.f2.length === 0 && b.f2.length === 0
+  })())
+  ok('S18g web/miniapp 不在 F2 射程(同名 prop 写法不咬)', (() => {
+    const w = J(WB, `<input className="border" focusedStyle={{ borderWidth: 2 }} />`)
+    const m = J(MP, `<Input className="border" focusedStyle={{ borderWidth: 2 }} />`)
+    return w.f2.length === 0 && m.f2.length === 0
+  })())
+  ok('S18h 条件三元/裸变量 ⇒ f2Unresolved 出声,不判红也不记绿(§0.3:没判绝不写成判过)', (() => {
+    const ternary = J(RN, F2RN('focusedStyle={focused ? a : b}'))
+    const bare = J(RN, F2RN('focusedStyle={someVar}'))
+    return (
+      ternary.f2.length === 0 &&
+      ternary.f2Unresolved.length === 1 &&
+      bare.f2.length === 0 &&
+      bare.f2Unresolved.length === 1
+    )
+  })())
+
   console.log(`--self-test: ${fail === 0 ? '全部通过' : `${fail} 条失败`}`)
   return fail
 }
@@ -1328,6 +1564,26 @@ function main() {
   } else {
     console.log(`✅ F1 命中 0 处(本面没有任何"有描边却无聚焦反馈"的控件)`)
   }
+  if (r.f2Red.length) {
+    console.log(`❌ F2 RN focusedStyle 带几何键(超出该文件 HEAD 自身存量)${r.f2Red.length} 个文件:`)
+    for (const x of r.f2Red.slice(0, 40))
+      for (const s of x.sites.slice(0, 5))
+        console.log(`   ${s.file}:${s.line}  ${s.via}  几何键:${s.keys.join(',')}(HEAD ${x.cap} → 现 ${x.n})`)
+    if (r.f2Red.length > 40) console.log(`   …其余 ${r.f2Red.length - 40} 个文件见 --json`)
+    console.log(
+      '   出路:focusedStyle 只准覆盖颜色(TextField.tsx 文档明令);宽度/内边距的占位写在常态 style 里,聚焦只换 borderColor —— 聚焦加粗会压缩固定高度的内容区、顶起文字。',
+    )
+  } else if (r.f2Total) {
+    console.log(
+      `✅ F2 无新增。存量 ${r.f2Total} 处 / ${r.f2FilesWithHits} 文件按"HEAD 自身存量"棘轮只报数`,
+    )
+  } else {
+    console.log(`✅ F2 命中 0 处(RN focusedStyle 没有任何带几何键的站点)`)
+  }
+  if (r.f2Unresolved)
+    console.log(
+      `⚠️ F2 射程外:${r.f2Unresolved} 处 focusedStyle 引用键静态不可见(条件三元/数组/裸变量/声明体切不出)⇒ 是否带几何键判不出,本门不猜`,
+    )
   console.log(
     `三态点名:命中 ${r.total} · 放过 ${r.passedCount} · 未判定 ${r.undetermined.length}${argvStrict ? '(--strict:未判定>0 即 exit 2)' : ''}`,
   )
@@ -1340,8 +1596,8 @@ function main() {
     r.exit === 2
       ? `❌ 结论:无法判定(exit 2)—— 未判定 ${r.undetermined.length} 处 / 取不到内容 ${r.unreadable.length} 个 / 空扫 ${r.emptyScan ? 1 : 0}`
       : r.exit === 1
-        ? `❌ 结论:F1 新增 ${r.red.length} 个文件(超出各自 HEAD 存量)⇒ 判红`
-        : `✅ 结论:F1 无新增(存量 ${r.total} 处 / ${r.filesWithHits} 文件只报数)`,
+        ? `❌ 结论:F1 新增 ${r.red.length} 个文件 / F2 新增 ${r.f2Red.length} 个文件(超出各自 HEAD 存量)⇒ 判红`
+        : `✅ 结论:F1 无新增(存量 ${r.total} 处 / ${r.filesWithHits} 文件只报数);F2 无新增(存量 ${r.f2Total} 处 / ${r.f2FilesWithHits} 文件只报数)`,
   )
   process.exitCode = r.exit
 }
@@ -1386,5 +1642,13 @@ export const __test__ = {
   isExternalPkgSpec,
   MAX_TAG_LINES,
   STRUCT_MAX_TAG_LINES,
+  // F2(RN focusedStyle 几何键禁令)的出口(镜像只调这些,不复制判据)
+  judgeFocusedStyleGeometry,
+  isGeometryStyleKey,
+  braceBody,
+  topLevelKeys,
+  styleKeyDeclBodies,
+  ratchetRed,
+  TEST_PATH_RE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

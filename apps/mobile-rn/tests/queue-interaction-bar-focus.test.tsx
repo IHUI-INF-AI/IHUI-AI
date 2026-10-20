@@ -14,7 +14,8 @@
  * (React DOM 会把 '#000000' 归一成 'rgb(0, 0, 0)',所以判据两侧都用归一后的串),
  * 而不是截图、也不是自证的字符串比对。四格:
  *  1. 常态 1px 描边且取色**不是**墨档(AGENTS §4:墨档只允许出现在聚焦态);
- *  2. 聚焦 borderWidth 1→2(focusedStyle 通道)且取色逐字落墨档(亮 rgb(0,0,0) / 暗 rgb(255,255,255));
+ *  2. 聚焦只换色不改宽(2026-10-20 登录框真机实测:加粗会压缩内容区令文字挪位)——borderWidth 恒 1px,
+ *     取色逐字落墨档(亮 rgb(0,0,0) / 暗 rgb(255,255,255));
  *  3. 失焦不得粘住(回到常态粗细与非墨档取色);
  *  4. onChangeText / onSubmitEditing 经共享件透传仍然有效(迁件最容易吃掉的就是宿主回调)。
  * 另加一条接线锁(形态同 packages/app/tests/text-field.test.tsx 的 colorScheme 必填锁):
@@ -61,14 +62,14 @@ afterEach(() => {
 })
 
 describe('QueueInteractionBar 编辑输入框聚焦反馈(G-978007 RN 端最后一枚存量)', () => {
-  it('浅色:常态 1px 非墨档 ⇒ 聚焦 1→2 且取色逐字纯黑 ⇒ 失焦不粘住', () => {
+  it('浅色:常态 1px 非墨档 ⇒ 聚焦只换色(纯黑)不改宽 ⇒ 失焦不粘住', () => {
     const { input } = renderEditing()
     expect(input.style.borderWidth).toBe('1px')
     expect(input.style.borderColor).not.toBe('')
     expect(input.style.borderColor).not.toBe('rgb(0, 0, 0)')
 
     fireEvent.focus(input)
-    expect(input.style.borderWidth).toBe('2px')
+    expect(input.style.borderWidth).toBe('1px')
     expect(input.style.borderColor).toBe('rgb(0, 0, 0)')
 
     fireEvent.blur(input)
@@ -83,7 +84,7 @@ describe('QueueInteractionBar 编辑输入框聚焦反馈(G-978007 RN 端最后�
     expect(input.style.borderColor).not.toBe('rgb(255, 255, 255)')
 
     fireEvent.focus(input)
-    expect(input.style.borderWidth).toBe('2px')
+    expect(input.style.borderWidth).toBe('1px')
     expect(input.style.borderColor).toBe('rgb(255, 255, 255)')
   })
 
@@ -105,9 +106,10 @@ describe('QueueInteractionBar 编辑输入框聚焦反馈(G-978007 RN 端最后�
     expect(src).not.toMatch(/\bonFocus\b/)
     expect(src).not.toMatch(/\bfocused\b/)
     expect(src).not.toMatch(/setFocused/)
-    // 主题必须显式传(守门 91 在类型层强制 colorScheme 必填),粗细只走 focusedStyle 通道
+    // 主题必须显式传(守门 91 在类型层强制 colorScheme 必填);聚焦反馈走共享墨档,
+    // 端内不得再写 focusedStyle 几何键(2026-10-20 门 212 加维:聚焦只换色不改描边宽度)
     expect(src).toMatch(/colorScheme=\{currentRnTheme\(\)\}/)
-    expect(src).toMatch(/focusedStyle=\{\{ borderWidth: 2 \}\}/)
+    expect(src).not.toMatch(/focusedStyle=\{\{[^}]*borderWidth/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
