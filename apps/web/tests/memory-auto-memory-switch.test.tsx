@@ -40,6 +40,11 @@ const { fetchApiMock, fetchMemoryMock, deleteMemoryMock } = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
+// 记忆页 effect 由 useAuthGate 的 allow 把门(G-933:未登录不发注定 401 的请求);
+// 本文件测的是已登录记忆页,给恒定放行,避免效果永不执行而把开关测成默认值。
+vi.mock('@/hooks/use-auth-gate', () => ({
+  useAuthGate: () => ({ ready: true, allow: true }),
+}))
 vi.mock('@/lib/memory-api', () => ({
   fetchMemory: fetchMemoryMock,
   deleteMemory: deleteMemoryMock,

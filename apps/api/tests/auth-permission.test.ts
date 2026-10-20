@@ -198,6 +198,9 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
     app.decorate('riskEngine', {
       evaluateRisk: vi.fn().mockReturnValue({ action: 'ALLOW', hits: 0 }),
     } as never)
+    // 注册埋点由 business-metrics 插件在生产 app 上装饰;本测试只挂 authRoutes,
+    // 用 no-op 保持与生产同形(注册路由会同步调它,缺装饰器即 TypeError 500)。
+    app.decorate('recordFunnel', () => {})
     await app.register(authRoutes, { prefix: '/api/auth' })
     await app.ready()
   })
