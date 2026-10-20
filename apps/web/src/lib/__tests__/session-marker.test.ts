@@ -19,9 +19,14 @@ import {
   SESSION_LOGGED_OUT_STORAGE_KEY,
 } from '@ihui/shared/auth/auto-login-policy'
 import {
+  hasSessionEstablished,
+  markSessionEstablished,
+  clearSessionEstablished,
   markSessionLoggedOut,
   clearSessionLoggedOutMarker,
   isSessionLoggedOut,
+  SESSION_ESTABLISHED_STORAGE_KEY,
+  __resetSessionEstablishedMirrorForTest,
   __resetSessionLoggedOutMirrorForTest,
 } from '../session-marker'
 import { useAuthStore } from '@/stores/auth'
@@ -31,6 +36,7 @@ const USER = { id: 'u1', nickname: 'tester', avatar: '' } as const
 beforeEach(() => {
   localStorage.clear()
   __resetSessionLoggedOutMirrorForTest()
+  __resetSessionEstablishedMirrorForTest()
   useAuthStore.setState({ token: null, refreshToken: null, isAuthenticated: false, user: null })
 })
 
@@ -108,6 +114,48 @@ describe('② 正当登录路径不被误伤', () => {
     markSessionLoggedOut()
     useAuthStore.getState().setTokenWithPrefs('T3', 'R3', true)
 
+    expect(isSessionLoggedOut()).toBe(false)
+  })
+})
+
+describe('④ 会话曾建立标记(冷启动准入用,2026-10-20)', () => {
+  it('落在独立 key 上,并与登出标记互不影响', () => {
+    markSessionEstablished()
+    expect(localStorage.getItem(SESSION_ESTABLISHED_STORAGE_KEY)).not.toBeNull()
+    expect(localStorage.getItem(SESSION_LOGGED_OUT_STORAGE_KEY)).toBeNull()
+
+    markSessionLoggedOut()
+    expect(hasSessionEstablished()).toBe(true)
+    expect(isSessionLoggedOut()).toBe(true)
+  })
+
+  it('读的是盘:抹掉 + 重置镜像 ⇒ false', () => {
+    markSessionEstablished()
+    expect(hasSessionEstablished()).toBe(true)
+
+    localStorage.removeItem(SESSION_ESTABLISHED_STORAGE_KEY)
+    __resetSessionEstablishedMirrorForTest()
+
+    expect(hasSessionEstablished()).toBe(false)
+  })
+
+  it('clearSessionEstablished 同步镜像与盘', () => {
+    markSessionEstablished()
+    clearSessionEstablished()
+    expect(hasSessionEstablished()).toBe(false)
+    expect(localStorage.getItem(SESSION_ESTABLISHED_STORAGE_KEY)).toBeNull()
+  })
+
+  it('setToken(非空)自动落标记(真实登录的接线)', () => {
+    useAuthStore.getState().setToken('T', 'R')
+    expect(hasSessionEstablished()).toBe(true)
+  })
+
+  it('expireSession(被动失效)清标记但绝不写登出标记', () => {
+    markSessionEstablished()
+    useAuthStore.getState().expireSession()
+
+    expect(hasSessionEstablished()).toBe(false)
     expect(isSessionLoggedOut()).toBe(false)
   })
 })

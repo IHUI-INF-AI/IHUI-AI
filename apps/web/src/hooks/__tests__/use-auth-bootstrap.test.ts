@@ -10,11 +10,14 @@ import { SESSION_LOGGED_OUT_STORAGE_KEY } from '@ihui/shared/auth/auto-login-pol
 // import 后以 `typeof _ns` 引用(类型等值,vi.mock 工厂内仅编译期解析,无运行时影响)。
 import type * as _apiClientNs from '@ihui/api-client'
 import type * as _cookieUtilsNs from '@/lib/cookie-utils'
-import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
+import { useAuthBootstrap, __test__ as bootstrapTest } from '@/hooks/use-auth-bootstrap'
 import { useAuthStore } from '@/stores/auth'
 import {
+  hasSessionEstablished,
   isSessionLoggedOut,
+  markSessionEstablished,
   markSessionLoggedOut,
+  __resetSessionEstablishedMirrorForTest,
   __resetSessionLoggedOutMirrorForTest,
 } from '@/lib/session-marker'
 
@@ -82,6 +85,7 @@ beforeEach(() => {
   vi.restoreAllMocks()
   localStorage.clear()
   __resetSessionLoggedOutMirrorForTest()
+  __resetSessionEstablishedMirrorForTest()
   useAuthStore.setState({
     token: null,
     refreshToken: null,
@@ -270,6 +274,59 @@ describe('E. 无任何 refresh 凭据:不发 /auth/refresh(2026-10-14 控制台�
     // cookie 恢复路径:不发 refresh,直接以 cookie token 打 /auth/me
     expect(mocks.refreshAccessTokenOnce).not.toHaveBeenCalled()
     expect(mocks.fetchApi).toHaveBeenCalledWith('/auth/me')
+  })
+})
+
+describe('B. 冷启动准入:httpOnly cookie 看不见 ≠ 没有(2026-10-20)', () => {
+  /**
+   * 病灶:两个 token cookie 都是 httpOnly,`document.cookie` 里看不到;`ihui-auth` 只持久化
+   * `isAuthenticated`,一次被动失效(`expireSession`)就把它落成 false。原来的准入只看
+   * "JS 看得见的凭据"(isAuthenticated / 非 httpOnly cookie / 桌面 vault),于是**有 cookie
+   * 的老用户**在冷启动被判成匿名、连 `/auth/refresh` 都不发 ⇒ 每次都要手点登录。
+   * 修法:加一颗跨冷启动存活的 `ihui-session-established`(只在拿到过 token 时写)。
+   */
+  it('全新浏览器(无任何痕迹)⇒ 不发 refresh,保持"匿名首访零噪声"', async () => {
+    expect(await bootstrapTest.hasUsableRefreshCredential()).toBe(false)
+
+    const { result } = renderHook(() => useAuthBootstrap())
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    expect(mocks.refreshAccessTokenOnce).not.toHaveBeenCalled()
+  })
+
+  it('曾登录过(isAuthenticated 已被被动失效落 false)⇒ 仍然发 refresh', async () => {
+    markSessionEstablished()
+    mocks.getLastRefreshFailure.mockReturnValue('transient')
+    mocks.refreshAccessTokenOnce.mockResolvedValue(null)
+
+    expect(await bootstrapTest.hasUsableRefreshCredential()).toBe(true)
+
+    const { result } = renderHook(() => useAuthBootstrap())
+    await waitFor(() => expect(result.current.ready).toBe(true))
+
+    expect(mocks.refreshAccessTokenOnce).toHaveBeenCalledTimes(1)
+  })
+
+  it('写入有效 token 会自动落这颗标记(setToken 接线)', () => {
+    expect(hasSessionEstablished()).toBe(false)
+    useAuthStore.getState().setToken('tk-live')
+    expect(hasSessionEstablished()).toBe(true)
+  })
+
+  it('被动失效(expireSession)清掉标记,死 cookie 不再每次冷启动空转', () => {
+    markSessionEstablished()
+    useAuthStore.setState({ token: 'tk', refreshToken: 'rt', isAuthenticated: true })
+    useAuthStore.getState().expireSession()
+    expect(hasSessionEstablished()).toBe(false)
+    // 但绝不写登出标记 —— 被动失效不是用户主动退出
+    expect(markerInStorage()).toBeNull()
+  })
+
+  it('显式登出不清标记(拦住自动登录的是登出标记,不是这颗)', () => {
+    markSessionEstablished()
+    useAuthStore.setState({ token: 'tk', refreshToken: 'rt', isAuthenticated: true })
+    useAuthStore.getState().logout()
+    expect(hasSessionEstablished()).toBe(true)
+    expect(markerInStorage()).not.toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

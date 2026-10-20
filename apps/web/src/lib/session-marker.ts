@@ -99,4 +99,76 @@ export function isSessionLoggedOut(): boolean {
 export function __resetSessionLoggedOutMirrorForTest(): void {
   loggedOutMirror = null
 }
+
+/**
+ * 「这台浏览器曾建立过会话」的持久事实(2026-10-20)。
+ *
+ * 为什么必须有它:web 的 `auth_token` / `refresh_token` 都是 **httpOnly**,
+ * `document.cookie` 里根本看不见;而 `ihui-auth` 只持久化 `isAuthenticated`,
+ * 一次被动失效(`expireSession`)就会把它落成 false。于是冷启动时
+ * 「带着 cookie 但 JS 看不到」与「什么都没带」在客户端**同形** —— 原先
+ * `use-auth-bootstrap` 的闸门把有 cookie 的老用户也判成匿名,连 `/auth/refresh`
+ * 都不发,用户每次冷启动都得手点登录(这正是"记住账号/自动登录"失效的最后一环)。
+ *
+ * 语义刻意与登出标记分开:
+ * - 只在**拿到过有效 token** 时写(登录成功 / 刷新成功);
+ * - 显式登出**不清**(登出由 `canSilentlyReLogin` 的标记先拦,不清才能让
+ *   "登出后又正常登录"这条线不受影响);
+ * - 被动失效确认是 401/403 后由 `expireSession()` 清掉,避免死 cookie
+ *   在每次冷启动空转一次 `/auth/refresh`。
+ */
+export const SESSION_ESTABLISHED_STORAGE_KEY = 'ihui-session-established'
+
+let establishedMirror: boolean | null = null
+
+/** 拿到有效 token ⇒ 这台浏览器确实有过会话。写失败不改变本标签页判定(内存镜像)。 */
+export function markSessionEstablished(): void {
+  establishedMirror = true
+  if (!hasStorage()) return
+  try {
+    window.localStorage.setItem(SESSION_ESTABLISHED_STORAGE_KEY, '1')
+  } catch (e) {
+    console.warn(
+      `[web-auth] failed to persist session-established marker (kept in memory for this tab): ` +
+        `${e instanceof Error ? e.message : 'unknown error'}`,
+    )
+  }
+}
+
+/** 被动失效且服务端明确否定凭据 ⇒ 不再假装这台浏览器还有会话可续。 */
+export function clearSessionEstablished(): void {
+  establishedMirror = false
+  if (!hasStorage()) return
+  try {
+    window.localStorage.removeItem(SESSION_ESTABLISHED_STORAGE_KEY)
+  } catch (e) {
+    console.warn(
+      `[web-auth] failed to clear session-established marker: ` +
+        `${e instanceof Error ? e.message : 'unknown error'}`,
+    )
+  }
+}
+
+/** 这台浏览器是否曾经建立过会话(冷启动要不要试 `/auth/refresh` 的判据之一)。 */
+export function hasSessionEstablished(): boolean {
+  if (establishedMirror !== null) return establishedMirror
+  if (!hasStorage()) return false
+  try {
+    establishedMirror = window.localStorage.getItem(SESSION_ESTABLISHED_STORAGE_KEY) !== null
+  } catch (e) {
+    // 读不到时按"没有"处理是本函数唯一的保守方向:多发一次 refresh 只是噪声,
+    // 而谎报"有"会让匿名首访也发请求 —— 两种情况都不改变用户可见行为,故不喊红。
+    console.warn(
+      `[web-auth] failed to read session-established marker, treating as no prior session: ` +
+        `${e instanceof Error ? e.message : 'unknown error'}`,
+    )
+    establishedMirror = false
+  }
+  return establishedMirror
+}
+
+/** 测试专用:同 `__resetSessionLoggedOutMirrorForTest`。 */
+export function __resetSessionEstablishedMirrorForTest(): void {
+  establishedMirror = null
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
