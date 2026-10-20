@@ -373,7 +373,7 @@ function PaneLeafView(props: ViewProps & { node: PaneLeaf }) {
 /** Fork 失败三态语义色(Record 键 = 判定层 ForkFailureTone ⇒ 新增 tone 未补即编译红) */
 const FORK_TONE_CLASS: Record<ForkFailureTone, string> = {
   neutral: 'bg-muted text-muted-foreground',
-  warning: 'bg-warning/15 text-warning',
+  warning: 'bg-warning/15 text-warning-text',
   danger: 'bg-destructive/15 text-destructive',
 }
 
