@@ -130,7 +130,10 @@ describe('IpWhitelistPanel', () => {
     render(createElement(IpWhitelistPanel))
     await waitFor(() => expect(screen.getByText('203.0.113.9')).toBeTruthy())
     api.fetchApi.mockResolvedValueOnce(ok(['198.51.100.7']))
-    fireEvent.click(screen.getAllByText(zhKey('common.delete'))[0])
+    const removeButtons = screen.getAllByText(zhKey('common.delete'))
+    const firstRemove = removeButtons[0]
+    if (!firstRemove) throw new Error('两条条目却没渲染出删除按钮 ⇒ 尺子失效')
+    fireEvent.click(firstRemove)
     await waitFor(() => expect(screen.queryByText('203.0.113.9')).toBeNull())
     const del = api.fetchApi.mock.calls.find(
       (c) => (c[1] as { method?: string })?.method === 'DELETE',
