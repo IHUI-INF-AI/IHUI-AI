@@ -75,11 +75,7 @@ function PanelLeftRounded({
       <path d="M7.5 8.5v7" strokeWidth="2.5" />
       {/* 方向箭头:两态同几何、仅镜像,转向时不位移 */}
       <g className={nudge}>
-        {open ? (
-          <path d="m13.75 8.5 3.5 3.5-3.5 3.5" />
-        ) : (
-          <path d="m17.25 8.5-3.5 3.5 3.5 3.5" />
-        )}
+        {open ? <path d="m13.75 8.5 3.5 3.5-3.5 3.5" /> : <path d="m17.25 8.5-3.5 3.5 3.5 3.5" />}
       </g>
     </svg>
   )
@@ -219,7 +215,7 @@ export function SidebarHeader({
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- 与 EmptyState/ThemeLogo 同源,img 保证 SSR 一致 */}
           <img
-            src="/images/logo.png?v=20260719-unify"
+            src="/images/logo.png?v=20261021"
             alt=""
             width={36}
             height={36}
@@ -242,11 +238,7 @@ export function SidebarHeader({
               className={cn(SIDEBAR_TOGGLE_BTN_CLASS, 'group/toggle')}
               aria-label={t('expand')}
             >
-              <PanelLeftRounded
-                open
-                className="h-5 w-5"
-                nudge={SIDEBAR_ARROW_NUDGE_RIGHT}
-              />
+              <PanelLeftRounded open className="h-5 w-5" nudge={SIDEBAR_ARROW_NUDGE_RIGHT} />
             </Button>
           </Tooltip>
         </div>

@@ -34,12 +34,28 @@ const DEFAULT_BASE = 'https://www.aizhs.top'
 //   - 静态：首屏 logo + footer 大图（回源 600 B/s 管道下，图片是最大的受害者）
 // 不放 /chat /admin：需登录，预热无意义且会缓存到重定向。
 const DEFAULT_URLS = [
+  // 页面：部署后必须强制回源的入口（warmOne 带 no-cache，EO 会回源校验并刷新对象）。
   '/',
   '/en',
-  '/login',
+  '/about',
+  '/pricing',
+  '/docs',
   '/status',
+  '/login',
   '/api/health',
-  '/images/logo.png',
+  // 图片：新键给新 HTML；旧键给仍被边缘缓存的旧 HTML —— 两套都刷，避免任何访客拿到旧字节。
+  '/images/logo.png?v=20261021',
+  '/images/logo.png?v=20260719-unify',
+  '/footer/erweima/wechat-vx.png?v=20261021',
+  '/footer/erweima/wechat-vx.png',
+  '/images/kouzi-icon.png?v=20261021',
+  '/images/kouzi-icon.png',
+  '/brands/ali.png?v=20261021',
+  '/brands/ali.png',
+  '/brands/dbsfdx.png?v=20261021',
+  '/brands/dbsfdx.png',
+  '/brands/yushu.png?v=20261021',
+  '/brands/yushu.png',
   '/footer/tuiguangpingtai/douyin.png',
 ]
 
@@ -72,6 +88,10 @@ async function warmOne(base, path, timeoutMs) {
       headers: {
         'user-agent': 'IHUI-CacheWarmer/1.0 (+internal warm-up)',
         'accept-encoding': 'gzip, br',
+        // 2026-10-21: 部署后边缘仍可能持有旧 HTML/旧图；no-cache 让 EO 回源校验并刷新对象，
+        // 否则预热只会命中旧缓存，新 HTML 里的新 URL 永远到不了访客。
+        'cache-control': 'no-cache',
+        pragma: 'no-cache',
       },
     })
     const buf = await res.arrayBuffer()

@@ -59,7 +59,7 @@ export async function GET() {
     <docs>https://www.rssboard.org/rss-specification</docs>
     <ttl>60</ttl>
     <image>
-      <url>${SITE_URL}/images/logo.png</url>
+      <url>${SITE_URL}/images/logo.png?v=20261021</url>
       <title>${escapeXml(SITE_TITLE)}</title>
       <link>${SITE_URL}</link>
       <width>512</width>
