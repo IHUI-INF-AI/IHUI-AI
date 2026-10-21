@@ -331,10 +331,22 @@ const nextConfig: NextConfig = {
           source: '/remote-images/:path*',
           destination: 'http://127.0.0.1:80/remote-images/:path*',
         },
-        // 2026-08-27 立,2026-09-04 更新: uploads/cdn 静态资源由独立 cdn-server
-        // (deploy/cdn-server.js) 与 API 8802(@fastify/static)直出托管,
-        // web 端不再有本地磁盘路由(原 app/cdn 与 app/uploads 的 route.ts 已删除),
-        // 故此处不再保留 /uploads、/cdn 的 rewrite,也不经 web。
+        // 2026-10-21 补回 /uploads 代理(实测立项,不是推测):
+        // @fastify/static 把 uploads/public 白名单挂在 api 进程 cwd 下(server.ts 的
+        // fastifyStatic 注册段),同一枚探针文件在 127.0.0.1:8802 与 api.aizhs.top 两臂都
+        // 200 image/png,而走 www.aizhs.top(EdgeOne 快臂,用户实际进来的那条)拿到的是
+        // Next 的 133KB 404 HTML 页 ⇒ 公开文件在快臂上结构性不可达,后端无论把出链基址填成
+        // 哪个域名都救不了这一条。只放这一条精确前缀,**不加正则兜底**(AGENTS §5:
+        // 禁止兜底放行参数路由),私有目录本来就没挂(白名单 root=uploads/public)。
+        {
+          source: '/uploads/:path*',
+          destination: `${IHUI_API_PROXY_TARGET}/uploads/:path*`,
+        },
+        // 2026-08-27 立,2026-09-04 更新,2026-10-21 改判:/cdn 仍不经 web;
+        // 但 /uploads **必须**经 web 代理到 8802 —— 原结论"故此处不再保留 /uploads 的
+        // rewrite"在实测面前不成立(证据见下面那条规则的注释)。web 端不再有本地磁盘路由
+        // (原 app/cdn 与 app/uploads 的 route.ts 已删除)这一点没变,变的是出链形态:
+        // 后端 FILE_CDN_BASE 要给客户端一个绝对 URL,而快臂上只有经 web 代理才拿得到。
         // 2026-07-29 新增:ai-skills 路由直接转发到 ai-service 8803
         // 原因:api server 8802 没有注册 /api/ai-skills 路由(404),
         // 而 ai-service 8803 有完整的 19 个 skill 元数据(GET /api/ai-skills) +
