@@ -5,6 +5,7 @@
 import { z } from 'zod'
 import { logger } from '../utils/logger.js'
 import { booleanFromString } from '../utils/parse-boolean.js'
+import { DEFAULT_AI_SERVICE_URL } from '../constants.js'
 
 // ── 运行档位唯一出口(G-998138,b76-09b 票3,2026-09-30)────────────────────────
 //
@@ -147,7 +148,7 @@ const envSchema = z.object({
       { message: 'CREDENTIALS_ENCRYPTION_KEY 不能使用弱默认值/全相同字符/已知占位符' },
     ),
 
-  AI_SERVICE_URL: z.url().default('http://localhost:8803'),
+  AI_SERVICE_URL: z.url().default(DEFAULT_AI_SERVICE_URL),
 
   // AI 回调共享密钥(可选,为空则不校验;配置后 ai-service 回调需带 X-Internal-Secret 头)
   AI_CALLBACK_SECRET: z.string().default(''),
