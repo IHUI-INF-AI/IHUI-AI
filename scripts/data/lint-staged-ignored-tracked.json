@@ -1,0 +1,150 @@
+{
+  "schema": 1,
+  "ticket": "G-926",
+  "decidedAt": "2026-10-21",
+  "scopeNote": "除 .ihui-agent/archive/(已收口一族)以外,'已跟踪却被 .gitignore 覆盖'的目录性质清单。枚数/是否真会被根 lint-staged 命中/出口件是否生效,一律由 scripts/tests/lint-staged-ignored-tracked-ledger.test.mjs 现算,本文件只记机器推不出的判断事实(档位、归属、消费方证据、到期、出路)。判据出处:lint-staged lib/searchConfigs.js 只枚举 git 可见的 .lintstagedrc.json,lib/groupFilesByConfig.js 按目录前缀整体划走子树,收尾 git add 不带 -f ⇒ 声明集里含被忽略的已跟踪文件即整批废掉全部守门。",
+  "tierLegend": {
+    "A": "长期合法且该保留跟踪 —— 会被根 glob 命中者配就近空转出口件;不被命中者无需出口件(该事实由测试现算并锁住)",
+    "B": "该取消跟踪(属删除类动作,须机主/主控席拍板)—— 本票只出证据,不执行",
+    "C": "性质不明,或中和手段结构性不可用 —— 不动,交主控席"
+  },
+  "entries": [
+    {
+      "dir": ".ihui-agent/archive",
+      "tier": "A",
+      "owner": "主控席",
+      "until": "2027-04-21",
+      "why": "守门 71(check-plan-line-loss.mjs)与 §1 归档协议以 archive 下 md 为'这行是被正当归档、不是被删'的依据;.gitignore 171-173 只放行 PROJECT_PLAN_*.md,同目录其余已跟踪件(AGENTS_trim-*、plan-pointer-purge-*、出口件本身)落 /.ihui-agent/archive/* 忽略面。",
+      "consumers": [
+        "scripts/check-plan-line-loss.mjs",
+        "scripts/check-plan-dup-pointer-ratchet.mjs",
+        "scripts/check-live-doc-archive-reinflation.mjs",
+        "scripts/check-agents-doc-size.mjs",
+        "scripts/check-exemption-expiry.mjs"
+      ]
+    },
+    {
+      "dir": "apps/ai-service/app/data",
+      "tier": "A",
+      "owner": "ai-service 侧",
+      "until": "2027-04-21",
+      "why": "两份 JSON 是运行时/生成链的权威输入,被 apps/ai-service/.gitignore:14 的 data/ 整目录规则顺带吞掉(该规则本意是忽略本地数据目录,不是这两枚入库源)。",
+      "consumers": [
+        "scripts/generate-command-policy-ts.mjs",
+        "scripts/gen-doc-numbers.mjs",
+        "docs/AI_SERVICE.md",
+        "apps/web/tests/visual/model-selector.spec.ts",
+        ".env.example"
+      ]
+    },
+    {
+      "dir": "apps/ai-service/app/skills/content_engine/articles",
+      "tier": "A",
+      "owner": "content_engine 侧",
+      "until": "2027-04-21",
+      "why": "该目录是 content_engine 的写作源(README:'articles/ # 源 md'),AGENTS.md 规定 publish_pipeline 自动检测同名 _csdn.md;其 archive/ 子目录三枚 0713/0714/0716.md 是 RAG 验收测试逐字回验的真实语料夹具。出口件放在父目录一枚即覆盖 archive/ 子树(groupFilesByConfig 按目录前缀划走,深者在前)。",
+      "consumers": [
+        "apps/ai-service/tests/test_rag_rrf_fusion.py",
+        "apps/ai-service/app/skills/content_engine/AGENTS.md",
+        "apps/ai-service/app/skills/content_engine/README.md"
+      ]
+    },
+    {
+      "dir": "apps/web/app/(main)/admin/saas/[slug]/backups",
+      "tier": "A",
+      "owner": "web/saas 侧",
+      "until": "2027-04-21",
+      "why": "Next.js 真实路由页面(page.tsx + PageClient.tsx),被 .gitignore:193 的 backups/ 目录规则顺带吞掉(该规则本意是忽略备份产物,不是这个页面目录)。取消跟踪 = 该路由在干净检出上直接 404。",
+      "consumers": [
+        "apps/web/app/(main)/admin/saas/_components/TenantTable.tsx",
+        "apps/web/app/(main)/admin/saas/[slug]/PageClient.tsx",
+        "apps/web/src/lib/ui-routes.generated.ts",
+        "deploy/saas/README.md"
+      ]
+    },
+    {
+      "dir": "deploy/scripts/prod-bundle",
+      "tier": "A",
+      "owner": "运维/部署侧",
+      "until": "2027-04-21",
+      "why": "守门 104(check-prod-bundle-shadow.mjs)PAIRS 表登记的 tracked↔runner 逐字节对账项:nssm 服务 ihui-alert-bridge 的运行副本 deploy/prod-bundle/alert-webhook-bridge.cjs(按设计只存在于部署机)以本目录这份为唯一入库真相源;被 .gitignore:241 的 *.cjs 全局规则吞掉。",
+      "consumers": ["scripts/check-prod-bundle-shadow.mjs", "scripts/all-checks-runner.mjs"]
+    },
+    {
+      "dir": "monitoring/alertbridge",
+      "tier": "A",
+      "owner": "监控/告警侧",
+      "until": "2027-04-21",
+      "why": "alert-webhook-bridge.cjs 是常驻生产服务(§5e 邮件单通道的 webhook 接收腿)的真相源,被 .gitignore:241 的 *.cjs 吞掉;两道守门把它当判据输入。",
+      "consumers": [
+        "scripts/check-brand-email-channel.mjs",
+        "scripts/check-grafana-metric-exists.mjs",
+        "scripts/check-prod-bundle-shadow.mjs"
+      ]
+    },
+    {
+      "dir": "docs",
+      "tier": "A",
+      "owner": "文档侧",
+      "until": "2027-04-21",
+      "why": "入库文档目录;agent-enhancement-report.html 被 .gitignore:248 的 *.html 全局规则吞掉。*.html 不在根 lint-staged 两条 glob 内 ⇒ 本目录当前零爆炸风险(该前提由测试锁住,根 glob 若纳入 html 即翻红)。",
+      "consumers": ["README.md", "docs/architecture.md"]
+    },
+    {
+      "dir": "apps/extension/entrypoints",
+      "tier": "A",
+      "owner": "extension 侧",
+      "until": "2027-04-21",
+      "why": "WXT 规定的 popup/sidepanel index.html 入口,缺失即构建失败;被 .gitignore:248 的 *.html 吞掉(同规则已有 !apps/miniapp-taro/src/index.html 例外先例)。*.html 不在根 glob 内 ⇒ 零爆炸风险。",
+      "consumers": ["apps/extension/package.json", "apps/extension/wxt.config.ts"]
+    },
+    {
+      "dir": "apps/mobile-rn/tests/__fixtures__",
+      "tier": "A",
+      "owner": "mobile-rn 侧",
+      "until": "2027-04-21",
+      "why": "session-expiry-navigation.test.ts 第 290 行按路径读 rootnavigator-parent-e0efe41cfd.txt 作父组件源夹具;被 .gitignore:285 的 __* 吞掉(该规则的 !/**/__tests__/ 例外救不到 __fixtures__)。.txt 不在根 glob 内 ⇒ 零爆炸风险。",
+      "consumers": ["apps/mobile-rn/tests/session-expiry-navigation.test.ts"]
+    },
+    {
+      "dir": ".ihui-agent/tmp",
+      "tier": "B",
+      "owner": "主控席(取消跟踪属删除类)",
+      "until": "2026-11-15",
+      "why": "AGENTS §15/§15b 规定 .ihui-agent/tmp/ 是 gitignored 临时区、任务收尾必须清理;这 54 枚 plan-pointer-purge-*.md 是 2026-10-20 一枚提交把旁路落地的清偿台账连同工作树一起带进索引的。全仓 git grep 零消费方(只命中文件自身标题行)。",
+      "route": "先确认门 71/166 的删行凭据只读 .ihui-agent/archive/PROJECT_PLAN_*.md(现读成立),再 git rm --cached 整目录;同时把 plan-pointer-purge 的台账落点改到 scripts/lib/scratch-dir.mjs 的 mkScratch()(工作区外)或批准目录,否则下一轮清偿又造 54 枚。",
+      "consumers": []
+    },
+    {
+      "dir": "outputs",
+      "tier": "B",
+      "owner": "主控席(取消跟踪属删除类)",
+      "until": "2026-11-15",
+      "why": ".gitignore:493 的 outputs/* 是带理由的整目录忽略(该目录现存 GITHUB-SECRETS-填写指南.md、DESKTOP_TAURI_KEY_PASSWORD.txt 等凭据类文件);G-1113921 已裁定'要长期引用的报告不得再落 gitignored 的 outputs/'。这 4 枚 TRAE-*/g937953-* 报告属一次性取证件。",
+      "route": "把需要长期引用的报告移到 docs/(或 reports/)并正常入库,再对 outputs/ 下的跟踪态做 git rm --cached;取证流水按 §1 只进 commit message。",
+      "consumers": []
+    },
+    {
+      "dir": "apps/api",
+      "tier": "C",
+      "owner": "主控席",
+      "until": "2026-11-15",
+      "why": "ecosystem.config.cjs(pm2 配置)现读全仓零消费方 —— git grep 'pm2' 只命中该文件自己的用法注释与 apps/api/src/index.ts 一句'let tsx watch / pm2 restart'文案;AGENTS §5e 说服务承载体按 nssm AppParameters 现读。且就近出口件在这一档结构性不可用:在 apps/api/ 放 .lintstagedrc.json 会把整端 1892 枚 root-hit 源文件划出 eslint/prettier 覆盖面(测试现算),等于为保一枚遗留件废掉后端全部格式/静态检查。",
+      "route": "需要人裁三选一:①确认 pm2 已不再是任何一台机的承载体 ⇒ 删除或取消跟踪;②仍在用 ⇒ 给 .gitignore 加 !apps/api/ecosystem.config.cjs 例外(照 !apps/mobile-rn/plugins/*.cjs 先例);③留着但不入库 ⇒ 移到部署侧配置。本票不动。",
+      "consumers": []
+    },
+    {
+      "dir": "apps/mobile-rn",
+      "tier": "C",
+      "owner": "主控席",
+      "until": "2026-11-15",
+      "why": "metro.config.cjs 性质确属长期合法(NativeWind × Tailwind v4 共存的 monkey-patch,apps/mobile-rn/CONTEXT.md 明写'构建侧不可轻动',另有 5 处源码注释以其为 alias/transformer 依据),但中和手段不可用:在 apps/mobile-rn/ 放出口件会划走整端 571 枚 root-hit = RN 端 lint/format 覆盖归零。",
+      "route": "唯一不伤覆盖面的出路 = 给 .gitignore 加 !apps/mobile-rn/metro.config.cjs 例外(与 !apps/mobile-rn/plugins/*.cjs 同形、同条规则的先例已在仓里),属本票禁区,交主控席。",
+      "consumers": [
+        "apps/mobile-rn/CONTEXT.md",
+        "apps/mobile-rn/stubs/expo-media-library.web.js",
+        "apps/mobile-rn/src/lib/web-stubs/react-native-webview.tsx"
+      ]
+    }
+  ]
+}

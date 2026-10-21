@@ -85,6 +85,7 @@ export function AgentSettingScreen({
           <Switch
             value={setting.enabled}
             onValueChange={(v) => onChange({ enabled: v })}
+            trackColor={{ false: tk.border.light, true: tk.brand.DEFAULT }}
             thumbColor={tk.brand.DEFAULT}
           />
         </View>

@@ -15,9 +15,9 @@ import { useAuthGate } from '@/hooks/use-auth-gate'
 import { buildQs, type PageData } from '@/lib/edu'
 
 /**
- * GET /settings/security-logs 的行 = `security_logs` 表实列
- * (packages/database/src/schema/security-logs.ts:18-27,查询见 db/security-logs-queries.ts)。
- * 旧声明的 time/device/event/status 后端从未返回 ⇒ 卡片把时间渲染成空、把设备渲染成空。
+ * GET /user/login-history 的行 = `audit_logs` 投影(apps/api/src/routes/user.ts:117-127)。
+ * 数据源换过一次:原读 /settings/security-logs(security_logs 表),但 `createSecurityLog` 全仓
+ * 零调用方 ⇒ 那张表恒空,卡片永远只能说"暂无"。旧声明里的 time/event/device/status 后端从未返回。
  */
 interface SecurityLogItem {
   id: string
@@ -51,7 +51,7 @@ export function LoginHistory() {
       return
     }
     fetchApi<PageData<SecurityLogItem>>(
-      '/settings/security-logs' + buildQs({ page: 1, pageSize: 1 }),
+      '/user/login-history' + buildQs({ page: 1, pageSize: 1 }),
     )
       .then((res) => {
         if (res.success && res.data.list?.length > 0) {
@@ -82,10 +82,16 @@ export function LoginHistory() {
           >
             <div className="min-w-0 flex-1">
               <p className="text-sm text-muted-foreground">{fmtTime(recent.createdAt)}</p>
+              {/* 本卡只取 login-history(audit_logs 恒 auth.login),把 action 原值摊给中文用户没有信息量,
+                  故显示 IP 与 UA;UA 为空时不留一个孤立的分隔点 */}
               <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                <span>{recent.action}</span>
-                <span className="text-border">·</span>
                 <span className="font-mono">{recent.ip ?? '-'}</span>
+                {recent.userAgent ? (
+                  <>
+                    <span className="text-border">·</span>
+                    <span className="min-w-0 flex-1 truncate">{recent.userAgent}</span>
+                  </>
+                ) : null}
               </p>
             </div>
             <span className="flex items-center gap-1 text-sm font-medium text-primary">
