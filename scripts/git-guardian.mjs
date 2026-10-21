@@ -299,6 +299,11 @@ export const AUTO_HEAL_LEDGER = {
     mode: 'manual',
     why: '命中的是「疑似误删他人文件」,字节归属需人判(§12d 零触碰他人未提交文件);自动回滚会覆盖当前持有者的现场',
   },
+  'egress-ip-drift': {
+    // 2026-10-21 立档时即登记(台账唯一会漂的方向是漏登记)。
+    mode: 'manual',
+    why: '可整改动作在腾讯云 EdgeOne 控制台改源站那一格,而本机无 EO API 凭据(实测 D:/DevEnv/secrets/ 无 tencent/edgeone 条目)⇒ 器物只能量到漂了并到人;自动"修"在这里不存在合法形态',
+  },
 }
 
 const CHECK_ONLY = process.argv.includes('--check')
@@ -2957,14 +2962,14 @@ export function checkConvergeAlignStall(opts = {}) {
 const ENV_UNDET_FILE = join(WORKTREE, '.workbuddy', 'env-drift-undetermined-first.json')
 const ENV_UNDET_HORIZON_MS = Number(process.env.IHUI_ENV_UNDET_HORIZON_MS || 30 * 60 * 1000)
 
-function notifyEnvUndetermined(name, detail, notify, logger, file = ENV_UNDET_FILE, horizonMs = ENV_UNDET_HORIZON_MS) {
+function notifyEnvUndetermined(name, detail, notify, logger, file = ENV_UNDET_FILE, horizonMs = ENV_UNDET_HORIZON_MS, keyPrefix = 'env-undet') {
   const { firstMs, heldMs } = noteUndeterminedStreak(file)
   const held = alertHeldTier(firstMs)
   if (heldMs >= horizonMs) {
     notify(
       name,
-      `${detail}\n这已连到 ${Math.round(heldMs / 60000)} 分钟(门槛 ${Math.round(horizonMs / 60000)} 分钟 ≈ 守护 15 趟)⇒ 这一格现在是**瞎的**,不再只是"这一轮抢不到"。\n持续档=${held.tier}(跨档即刻重报;起点件 .workbuddy/env-drift-undetermined-first.json,取到任一确定结论即清零)`,
-      { dedupKey: `env-undet;name=${name};tier=${held.tier}` },
+      `${detail}\n这已连到 ${Math.round(heldMs / 60000)} 分钟(门槛 ${Math.round(horizonMs / 60000)} 分钟 ≈ 守护 15 趟)⇒ 这一格现在是**瞎的**,不再只是"这一轮抢不到"。\n持续档=${held.tier}(跨档即刻重报;起点件 ${file},取到任一确定结论即清零)`,
+      { dedupKey: `${keyPrefix};name=${name};tier=${held.tier}` },
     )
     logger(`⚠️ ${name}:连续 ${Math.round(heldMs / 60000)} 分钟取不到结论 ⇒ 已派发到邮件通道`)
     return { mailed: true, heldMs, tier: held.tier }
@@ -3116,6 +3121,131 @@ function envDriftDetail(parsed, kindLabel) {
     '手动复核:node scripts/check-env-drift.mjs(或 --verbose 追加每个键在备份里的值长度)。'
   )
 }
+
+/**
+ * 家宽公网出口 IPv4 ↔ EdgeOne 源站期望 的巡检 + 到人(2026-10-21 立)。
+ *
+ * 立因(现读):2026-10 起公网链路改为 EdgeOne **源站直填家宽公网 IPv4**(取代 Cloudflare Tunnel
+ * 跨境回源,实测回源 ttfb 10~45s → 0.28~0.34s)。该地址是动态的 —— 一变即全公网 5xx,而此前
+ * 全仓无任何尺子看守。本机无 EO API 凭据 ⇒ 只能"量到 + 到人",信里给人工出口(EO 控制台改
+ * 源站那一格);期望值住台账 scripts/data/eo-origin-expectation.json,判据住
+ * scripts/check-egress-ip-drift.mjs(与 auditEnvDrift 同构:判机器状态 ⇒ 绝不进提交链 §12e,
+ * 唯一调度器 = 本守护)。
+ *
+ * 三态分流(与尺子退出码同形,互不顶掉):
+ *   drift     ⇒ log ❌ + notifyGuardRed(critical)。身份 = `egress-drift;faces=<漂的面>;tier=<持续档>`
+ *              —— §5e-1:类别+主体,不含 sha/时刻/原始计数(门 224 射程);起点件钉住起始形状
+ *              (§5e-1 型②,同 deploy-stall 教训),4h 窗口 + 跨 6h/24h/72h 档即新身份 ⇒ 同一漂移
+ *              不会每轮(2 分钟)重寄,只会越拖越响。
+ *   unjudged  ⇒ 走 notifyEnvUndetermined 持续门槛(探测公网有瞬时抖动,单轮不可达不是故障;
+ *              连满 30 分钟 ≈ 15 趟才按"这一格瞎了"到人 —— 与 env-drift 同一把量过的尺子,不自拍新数)。
+ *   ok        ⇒ 安静,并清掉两本起点账(不得拿上一场抖动的账续命)。
+ * run/notify/logger 全可注入(§22c:镜像测试用假派发器断言"哪种结论发哪种身份",绝不真发信)。
+ */
+const EGRESS_UNDET_FILE = join(WORKTREE, '.workbuddy', 'egress-ip-drift-undetermined-first.json')
+const EGRESS_DRIFT_FILE = join(WORKTREE, '.workbuddy', 'egress-ip-drift-first.json')
+const EGRESS_UNDET_HORIZON_MS = Number(process.env.IHUI_EGRESS_UNDET_HORIZON_MS || 30 * 60 * 1000)
+
+/** 派生那把尺子的唯一出口:只读、带超时、不带控制台窗(§5b / 守门 52·80)。 */
+function runEgressProbe() {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-egress-ip-drift.mjs')
+  if (!existsSync(script)) return { missing: true, code: 2, stdout: '' }
+  try {
+    const stdout = String(
+      execFileSync(process.execPath, [script, '--check', '--json'], {
+        cwd: WORKTREE,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 60000, // 探测三路公网 endpoint 各 8s 上限 + 富余;挂死不拖垮整轮巡检
+        maxBuffer: 1 << 22,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }) || '',
+    )
+    return { code: 0, stdout }
+  } catch (e) {
+    return { code: typeof e.status === 'number' ? e.status : 2, stdout: String(e.stdout || '') }
+  }
+}
+
+/** 告警正文唯一拼装处:面/逐源读数/逐行裁决 + 人工出路(EO 控制台改哪一格、端口多少)。 */
+export function egressAlertDetail(parsed, kindLabel) {
+  const lines = [`判定面:${parsed.face || '本机实时公网探测 vs 台账期望'}`, `台账:${parsed.ledgerPath || '(未知)'}`]
+  lines.push(`探测源:${(parsed.sources || []).map((s) => `${s.url} => ${s.ok ? s.ip : `FAIL(${s.why})`}`).join(' | ')}`)
+  lines.push(`现测出口 IPv4:${parsed.currentIp || '(未取得)'}`)
+  for (const v of parsed.verdicts || []) {
+    if (v.state === 'drift')
+      lines.push(`[漂移] ${v.face}:期望 ${v.expectedIPv4}:${v.port ?? '?'} ⇒ 现测 ${parsed.currentIp}。人工出路:腾讯云 EdgeOne 控制台 → 站点 ${v.face} → 源站配置,把源站 IP 改为 ${parsed.currentIp}(端口 ${v.port ?? 8801});归属:${v.owner || '(未登记)'}`)
+    else if (v.state === 'unjudged') lines.push(`[未判定] ${v.face} —— ${v.reason}`)
+    else if (v.state === 'registered') lines.push(`[登记不判] ${v.face} —— ${v.reason}`)
+  }
+  return (
+    `${kindLabel}:EdgeOne 源站直填的是**家宽动态公网 IPv4**,漂了不自动修(本机无 EO API 凭据,实测),这封信就是那格眼睛。\n` +
+    `${lines.join('\n')}\n` +
+    '手动复核:node scripts/check-egress-ip-drift.mjs(结论行 PROBE-RESULT 恒纯 ASCII;curl 复现须 --noproxy \'*\' 强制 IPv4)。'
+  )
+}
+
+export function auditEgressIpDrift(opts = {}) {
+  const {
+    notify = notifyGuardRed,
+    run = runEgressProbe,
+    logger = log,
+    now = Date.now(),
+    undetFile = EGRESS_UNDET_FILE,
+    driftFile = EGRESS_DRIFT_FILE,
+    horizonMs = EGRESS_UNDET_HORIZON_MS,
+  } = opts
+  const probe = run()
+  if (probe.missing) {
+    logger('⚠️ 出口 IP 漂移巡检没装车:scripts/check-egress-ip-drift.mjs 不在这台机上 ⇒ 这一格当前无人看守')
+    notify(
+      '出口 IP 漂移巡检没装车(尺子文件不在这台机上)',
+      'check-egress-ip-drift.mjs 不存在或被删 ⇒ EdgeOne 源站直填的家宽动态 IP 无人看守,而账面看起来"什么都没发生"。',
+      { dedupKey: 'egress-undet;not-installed' },
+    )
+    return { state: 'not-installed' }
+  }
+  let parsed = null
+  try {
+    parsed = JSON.parse(probe.stdout)
+  } catch {
+    parsed = null
+  }
+  if (!parsed || !['ok', 'drift', 'unjudged'].includes(parsed.state)) {
+    notifyEnvUndetermined(
+      '出口 IP 巡检不可判定(尺子输出不是可解析 JSON 或状态越界)',
+      `派生 exit ${probe.code};stdout 前 300 字符:${String(probe.stdout || '').slice(0, 300)}\n手动:node scripts/check-egress-ip-drift.mjs`,
+      notify,
+      logger,
+      undetFile,
+      horizonMs,
+      'egress-undet',
+    )
+    return { state: 'unreadable', code: probe.code }
+  }
+  if (parsed.state === 'drift') {
+    const faces = (parsed.verdicts || []).filter((v) => v.state === 'drift').map((v) => v.face).sort().join('+') || 'na'
+    // 起始形状钉 face 集合(同 deploy-stall 型②):事件中途又漂一枚面会进正文,但不另开身份刷屏
+    const { firstMs, heldMs } = noteUndeterminedStreak(driftFile, now, { faces })
+    const held = alertHeldTier(firstMs, now)
+    logger(`❌ 公网出口 IP 与 EdgeOne 源站期望不一致(drift):${faces}(已持续 ${Math.round(heldMs / 60000)} 分钟,持续档=${held.tier})`)
+    notify('公网出口 IP 与 EdgeOne 源站期望不一致(全公网链路正在或即将 5xx)', `${egressAlertDetail(parsed, '漂移')}\n已持续 ${Math.round(heldMs / 60000)} 分钟;持续档=${held.tier}(跨 6h/24h/72h 档即新身份重报)。`, {
+      severity: 'critical',
+      dedupKey: `egress-drift;faces=${faces};tier=${held.tier}`,
+    })
+    clearUndeterminedStreak(undetFile)
+    return { state: 'drift', faces, tier: held.tier }
+  }
+  if (parsed.state === 'unjudged') {
+    logger('❓ 出口 IP 巡检未判定(探测源交叉不足或台账不可读/过期),不记为通过')
+    notifyEnvUndetermined('出口 IP 巡检未判定(公网探测交叉不足或台账不可读)', egressAlertDetail(parsed, '未判定'), notify, logger, undetFile, horizonMs, 'egress-undet')
+    return { state: 'undetermined' }
+  }
+  clearUndeterminedStreak(driftFile)
+  clearUndeterminedStreak(undetFile)
+  return { state: 'clean' }
+}
+
 /**
  * 追加型运行日志的保留期回收(机制对标 ZCode desktop 的 logRetention:双上限 + 稳定窗 + 留痕)。
  *
@@ -3405,16 +3535,22 @@ const SERVICE_HEAL_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_HEAL_TIMEOUT_MS 
  * "判某件事没发生"的尺子按设计不能进提交链(判机器状态 ⇒ 每台每次被逼 --no-verify,连带全部守门作废),
  * 所以唯一调度器就是这个守护。
  *
- * 三条不可漂的执行细节(与 auditOpsPatrol 同规矩):
+ * 四条不可漂的执行细节(与 auditOpsPatrol 同规矩):
  *  - 节流戳与 `--apply` 一起交给动作器;它内部还另有每台冷却与全局窗口上限(防重启风暴);
  *  - **未判定只写日志不喊人**,但必须报名(取不到报告 ⇒ exit 2,不是"都没事");
  *  - 真重启过或重启失败才发信,沿用"身份 + 内容指纹 4h 去重、无总量封顶"。
+ *  - **自愈注定不会动手的那两种终态也必须到人**(2026-10-21 补,详见函数体内那段):重启预算用完
+ *    (`window-capped`)与名单外真坏了(`not-in-list`)都不在"重启过/重启失败"两集里 —— 而按这条判据,
+ *    越是不重启能解决的故障越安静。台账对后者的原话是"只喊人",而"只喊人"从来没有生产者。
+ *    两个入口共用 `alertTerminalHeld` 一件器物:身份 = 服务名集合 × 持续档,解除即摘起点。
  */
 export function healUnresponsiveServices(opts = {}) {
   const {
     now = Date.now(),
     intervalMs = SERVICE_HEAL_INTERVAL_MS,
     tickFile = join(WORKTREE, '.workbuddy', 'service-heal-tick.iso'),
+    cappedFile = join(WORKTREE, '.workbuddy', 'service-heal-capped-first.json'),
+    offlistFile = join(WORKTREE, '.workbuddy', 'service-offlist-down-first.json'),
     logger = log,
     notify = notifyGuardRed,
     runner = null,
@@ -3481,11 +3617,76 @@ export function healUnresponsiveServices(opts = {}) {
         { dedupKey: `service-heal;svcs=${[...acted, ...failed].map((x) => x.name).sort().join('+') || 'fail'};acted=${alertCountTier(acted.length)};failed=${alertCountTier(failed.length)}` },
       )
     }
+    // ── "自愈只能交人"这一型终态必须到人(2026-10-21 实测)────────────────────────────
+    // 现场:IHUI-API 因 Fastify 重复路由声明在 boot 期抛错,崩溃循环 126 次、8802 从未监听、
+    // 登录全量 500 持续 45 分钟,而**一封信都没有**。原因是上面的发信条件只认
+    // `restarted` / `restart-failed`,而自愈按 60 分钟窗口最多拉两次(`maxRestartsPerWindow: 2`),
+    // 两次都无效之后就进入 `window-capped` —— 既不在 acted 也不在 failed,从此只往日志写一行
+    // "请人看"。于是**越是不重启能解决的故障越安静**,恰好把最该喊人的那一型留成静默。
+    // 同型的第二个入口是**名单外故障**(`not-in-list` 且真坏了):排除台账的 reason 通篇写着
+    // "只喊人",而"只喊人"从来没有生产者 —— 门 153 只是提交链上的 warn,几天没人提交就几天不响。
+    // 2026-10-21 现读:IHUI-OLLAMA `STATE=STOPPED`、Application 路径已不存在、11434 无应答,
+    // 全仓无一行发信代码看得到它。
+    // 两个入口共用一件器物(§0.6 单一真相源):身份 = 服务名集合 × 持续档(跨档即新身份 ⇒
+    // 越拖越响,不会被窗口压成静音),解除即摘起点状态件,正文必须带可执行出路(§5e-1)。
+    const alertTerminalHeld = ({ list, kind, file, titleFor, intro, steps }) => {
+      if (list.length === 0) {
+        // 终态必须会清:恢复应答或不再封顶时把起点摘掉,否则下一次真崩会被算成"已经拖了很久"。
+        clearUndeterminedStreak(file)
+        return 0
+      }
+      const names = [...new Set(list.map((x) => x.name))].sort().join(' / ')
+      const streak = noteUndeterminedStreak(file, now, { firstServices: names })
+      const held = alertHeldTier(streak.firstMs, now)
+      const detail = list.map((x) => `· ${x.name} — ${x.why || '(动作器未给原因)'}`).join('\n')
+      notify(
+        // 标题与身份里都只放"哪几台 + 档",台数/时刻/原始读数一律进正文(型③、§5e-3、门 224)。
+        titleFor(names),
+        `${intro}\n` +
+          `本轮明细:\n${detail}\n` +
+          `起点 ${new Date(streak.firstMs).toISOString()}(已钉为这一段的最初时刻,后续轮次不覆盖);已持续 ${held.hours ?? '?'} 小时(档 ${held.tier}:6h/24h/72h 跨档即新身份 ⇒ 越拖越响,不会被压成静音)\n` +
+          `按序判:\n${steps}\n` +
+          `在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'} / 名单外故障 ${c.offlist ?? '?'}(未登记 ${c.offlistUnregistered ?? 0} / 豁免到期 ${c.offlistAckExpired ?? 0})`,
+        { severity: 'critical', dedupKey: `${kind};svcs=${names};held=${held.tier}` },
+      )
+      return list.length
+    }
+    // 取的是 **`parsed.actions` 不是 `parsed.results`**:动作器把逐台决策写在 actions,
+    // results 里只有"真动过手"的三档(restart-failed / restarted-recovered / restarted-unverified)。
+    // 照上面那两个过滤器抄 `results` 会**恒为空**——一把永远不响的铃,比原来更坏。
+    const healActions = parsed.actions || []
+    const capped = alertTerminalHeld({
+      list: healActions.filter((x) => x.kind === 'window-capped'),
+      kind: 'service-heal-capped',
+      file: cappedFile,
+      titleFor: (names) => `服务自愈重启预算用完:${names} 仍无应答(这是启动即崩,不是没起)`,
+      intro: '自愈已按窗口上限拉起过仍无应答 ⇒ **"重启"这一维已被排除**,问题在进程自己起不来。',
+      steps:
+        `  ① 读该机启动日志找抛错(nssm 的 stdout 是 UTF-16):D:\\DevEnv\\logs\\svc-<机名小写>-nssm*.log\n` +
+        `  ② 若属启动期抛错(Fastify 路由重复声明 / 缺 env / 插件注册失败)—— **部署环不会自愈**:它的回滚只恢复 web 构建产物,既不回退 api 源码也不重启 api,所以会一直"构建→门禁 api=fail→回滚"活锁(2026-10-21 实测 45 分钟)。\n` +
+        `  ③ 出路只有向前修 main:等生产签出前移到含修复的 commit(git -C <生产签出> merge-base --is-ancestor <修复枚> HEAD),再 nssm restart <服务名>。\n` +
+        `  ④ 只读复现本判定:node scripts/heal-unresponsive-services.mjs --json`,
+    })
+    // 名单外故障三档各有各的出路(动作器把 `ackState` 逐台给出来,派发侧不重算台账形态):
+    // 未登记 ⇒ 补登记;豁免到期 ⇒ 重新裁定;已登记 ⇒ 按登记的处置。方向恒为**多喊一次**(§0.10)。
+    const offDown = alertTerminalHeld({
+      list: healActions.filter((x) => x.kind === 'not-in-list'),
+      kind: 'service-offlist-down',
+      file: offlistFile,
+      titleFor: (names) => `服务已停但按台账不得自动重启:${names}(这型自愈不会动,只能交人)`,
+      intro: '这台落在自愈白名单**之外** ⇒ "重启它"不是本层的授权动作,而台账对它的原话是"只喊人"。',
+      steps:
+        `  ① 先分清楚是哪一档:正文每台都带了 ackState —— 已登记排除 / 复核日已过 / 压根没登记。\n` +
+        `  ② 只读复现并看全表:node scripts/heal-unresponsive-services.mjs --json(判据一律取门 153,本层不再量一遍)。\n` +
+        `  ③ 要它进自动重启名单 ⇒ 在 scripts/data/service-auto-restart.json 的 services 里登记四件(name/reason/owner/reviewBy);\n` +
+        `     要它继续"只喊人" ⇒ 在 excluded 里补一行**单台**的排除(一行只许一台、必须带 reason 与可解析 reviewBy,否则不构成豁免)。\n` +
+        `  ④ 若这台已经不再需要(实测 IHUI-OLLAMA 的 Application 指向一个不存在的 exe)⇒ 把服务本身摘掉,而不是让它留在表里天天喊。`,
+    })
     if (c.undetermined > 0 || c.planned > 0) {
       logger(`ℹ️ 服务自愈:未判定 ${c.undetermined ?? 0} 台 / 计划未执行 ${c.planned ?? 0} 台(只读档才会留在"计划";只写日志不喊人)`)
     }
-    logger(`✅ 服务自愈:在册 ${c.checked ?? 0} 台,应答 ${c.answering ?? 0},拉起 ${acted.length},失败 ${failed.length}`)
-    return { ran: true, ok: failed.length === 0, checked: c.checked, acted: acted.length, failed: failed.length, undetermined: c.undetermined ?? 0 }
+    logger(`✅ 服务自愈:在册 ${c.checked ?? 0} 台,应答 ${c.answering ?? 0},拉起 ${acted.length},失败 ${failed.length},封顶 ${capped},名单外故障 ${offDown}`)
+    return { ran: true, ok: failed.length === 0, checked: c.checked, acted: acted.length, failed: failed.length, capped, offDown, undetermined: c.undetermined ?? 0 }
   } catch (e) {
     logger(`⚠️ 服务自愈异常:${String(e?.message || e).slice(0, 200)}`)
     return { ran: true, ok: false, why: String(e?.message || e) }
@@ -5165,6 +5366,9 @@ function main() {
     // 受管 .env 的"键值被悄悄清空"巡检 + 到人(G-223 第三格):判机器状态,所以绝不进提交链;
     // 挂点与 heal*/refreshRecoverySource 同一分支 —— 挂进 CHECK_ONLY 早退路径等于永不执行。
     if (!CHECK_ONLY) auditEnvDrift()
+    // 家宽公网出口 IPv4 ↔ EdgeOne 源站期望巡检(2026-10-21 立):同一挂点语义 —— 判机器状态、
+    // 绝不进提交链(§12e);EdgeOne 直填的源站地址一变即全公网 5xx,这一格是本仓唯一的眼睛。
+    if (!CHECK_ONLY) auditEgressIpDrift()
     // 收敛器收尾对齐停摆喊人(票 O74):收敛器一次性进程只写状态,派发点在此(与
     // heal*/watchWatchdog 同一真正会执行的分支;挂进 CHECK_ONLY 早退分支等于永不执行)。
     if (!CHECK_ONLY) checkConvergeAlignStall()
@@ -5274,6 +5478,9 @@ function startDaemon() {
         // 以及受管 .env 的"键值被悄悄清空"巡检(G-223 第三格;与 main() 单轮路径同一挂点语义,
         // notifyGuardRed 内部还有一层 CHECK_ONLY/去重保护,双执行体并存不会翻倍发信)
         auditEnvDrift()
+        // 以及 EdgeOne 源站直填地址(家宽动态出口)漂移巡检(2026-10-21 立;与 main() 单轮路径
+        // 同一挂点语义,notify 内部的 CHECK_ONLY/去重保护保证双执行体并存不翻倍发信)
+        auditEgressIpDrift()
         // 收敛器收尾对齐停摆喊人(票 O74;与 main() 单轮路径同一挂点语义,notify 内部
         // 还有一层 CHECK_ONLY/去重保护,双执行体并存也不会翻倍发信)
         checkConvergeAlignStall()
@@ -5610,6 +5817,8 @@ export const __test__ = {
   AUTO_HEAL_LEDGER,
   auditEnvDrift,
   envDriftDetail,
+  auditEgressIpDrift,
+  egressAlertDetail,
   homeHealDue,
   readProbeVerdict,
   orphanAuditDue,
