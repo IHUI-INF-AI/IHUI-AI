@@ -36,8 +36,18 @@ const isDev = process.env.NODE_ENV === 'development'
 // 用途:本地 e2e 隔离——生产 api(8802)/ai-service(8803) 被占用时,可在隔离端口起
 // api/web 实例,IHUI_API_PROXY_TARGET/IHUI_AI_PROXY_TARGET 指向隔离端口,
 // 避免测试写入生产库(ihui_dev)。CI 与生产不设这两个变量,行为与硬编码完全一致。
-const IHUI_API_PROXY_TARGET = process.env.IHUI_API_PROXY_TARGET ?? 'http://localhost:8802'
-const IHUI_AI_PROXY_TARGET = process.env.IHUI_AI_PROXY_TARGET ?? 'http://localhost:8803'
+// 2026-10-21 修:默认值由 localhost 改 127.0.0.1(端口不变)。
+// 根因(Node 18+ DNS 语义):dns.lookup(localhost) 默认走 verbatim 排序,本机实测
+// 返回 [{::1,family:6},{127.0.0.1,family:4}] —— **IPv6 优先**。而本机四个后端
+// 无一监听 IPv6(netstat 实测:8802=0.0.0.0、8803=127.0.0.1、8801=127.0.0.1、
+// cdn-server :80=127.0.0.1),故解析到 ::1 的连接一律 ECONNREFUSED。
+// 现场证据:svc-web-nssm-err.log 里 ::1 出现 34,701 次,Failed to proxy 5,966 次,
+// **全部集中在 /ws/notifications 与 /ws/broadcast 两个 WebSocket 端点** ——
+// 即实时通知通道自上线起从未通过反代成功过(HTTP 反代因连接池复用首次成功的连接
+// 而被掩盖,WS 每次独立建连,所以只有它把病灶暴露出来)。
+// 改 127.0.0.1 是字面量 IP,不触发 DNS 解析,与该风险结构性无关。
+const IHUI_API_PROXY_TARGET = process.env.IHUI_API_PROXY_TARGET ?? 'http://127.0.0.1:8802'
+const IHUI_AI_PROXY_TARGET = process.env.IHUI_AI_PROXY_TARGET ?? 'http://127.0.0.1:8803'
 
 // 2026-09-05 修复桌面 SaaS 出包挂死:静态导出 next build 与常驻 next dev/next start
 // (本地 8801)共享同一 apps/web/.next 目录,构建在加载 config 后获取 .next 锁时与
@@ -315,9 +325,11 @@ const nextConfig: NextConfig = {
         // :80 cdn-server.js 实时读盘直出(而非 web 静态 public 的构建快照,后者不含
         // 该目录导致公网 404)。须放最前,优先于一切 /api 等规则,避免被后续吞掉。
         // cdn-server.js server-root 内置防路径穿越 + 7 天缓存,换图免重启。
+        // 2026-10-21:localhost → 127.0.0.1(同 IHUI_API_PROXY_TARGET 理由:本机
+        // cdn-server 只听 127.0.0.1,而 Node 解析 localhost 默认优先 IPv6 ::1)。
         {
           source: '/remote-images/:path*',
-          destination: 'http://localhost:80/remote-images/:path*',
+          destination: 'http://127.0.0.1:80/remote-images/:path*',
         },
         // 2026-08-27 立,2026-09-04 更新: uploads/cdn 静态资源由独立 cdn-server
         // (deploy/cdn-server.js) 与 API 8802(@fastify/static)直出托管,
@@ -784,6 +796,68 @@ const nextConfig: NextConfig = {
         ].join('; '),
       },
     ]
+
+    // 2026-10-21 公网提速：公开内容页的边缘缓存白名单。
+    // 判据：页面没有服务端用户态（不读 cookies/headers/session/鉴权），用户相关数据都在
+    // 客户端 hydrate 后填充，因此共享 HTML 外壳不串号；TTL 按内容变化频率分档。
+    // 明确排除（不得加进来）：/login、/sso/*、OAuth 回调、/admin/*、/edu/edu-management/*、
+    // /user/*、/member/*、/messages/*、/chat/*、/wallet/*、/orders/*、/settings/*、
+    // /developer/*、/publish/*、/distribution/*、/h5/share/*、一次性 code / 授权流。
+    // 与既有 5 条规则同一已知限制：根 layout 用 cookies() 读 locale，共享缓存只影响
+    // <html lang> 首帧；正文由客户端 i18n 渲染。要按语种分缓存需在 EO 配 Cookie: locale。
+    const publicHtmlCache = [
+      // 状态页：Next 数据缓存 60s；边缘只留 60s，故障态最多多活 1 分钟。
+      { source: '/status', value: 'public, s-maxage=60, stale-while-revalidate=60' },
+      // 新闻/博客：正文变化快，边缘 5 分钟 + 回退 1 小时。
+      { source: '/ai-news', value: 'public, s-maxage=300, stale-while-revalidate=3600' },
+      { source: '/blog/:path*', value: 'public, s-maxage=300, stale-while-revalidate=3600' },
+      { source: '/news/:path*', value: 'public, s-maxage=300, stale-while-revalidate=3600' },
+      {
+        source: '/announcements/:path*',
+        value: 'public, s-maxage=300, stale-while-revalidate=3600',
+      },
+      { source: '/articles/:path*', value: 'public, s-maxage=300, stale-while-revalidate=3600' },
+      // 静态营销/文档/协议/对比页：内容低频变化，5 分钟 + 回退 1 天（与 /about 等既有档一致）。
+      { source: '/agreement/:path*', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/legal/:path*', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/faq', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/help/:path*', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/contact', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/use-cases/:path*', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      {
+        source: '/ja/use-cases/:path*',
+        value: 'public, s-maxage=300, stale-while-revalidate=86400',
+      },
+      {
+        source: '/ko/use-cases/:path*',
+        value: 'public, s-maxage=300, stale-while-revalidate=86400',
+      },
+      {
+        source: '/zh-TW/use-cases/:path*',
+        value: 'public, s-maxage=300, stale-while-revalidate=86400',
+      },
+      { source: '/compare/:path*', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/docs/:path+', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/en/:path+', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/models-pricing', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/developers', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/enterprise', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      {
+        source: '/enterprise/inquiry',
+        value: 'public, s-maxage=300, stale-while-revalidate=86400',
+      },
+      { source: '/free-ai', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      // 下载页：版本号由 generateStaticParams 决定，10 分钟 + 回退 1 小时。
+      { source: '/download/:platform', value: 'public, s-maxage=600, stale-while-revalidate=3600' },
+      // 市场列表壳：内容更新较频繁，2 分钟 + 回退 1 小时。
+      { source: '/agents', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
+      { source: '/models', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
+      { source: '/plaza', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
+      { source: '/ai-world', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
+      { source: '/skills-market', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
+      { source: '/mcp-store', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
+      { source: '/capability-market', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
+    ]
     return [
       {
         // Service Worker 脚本必须禁 HTTP 缓存(2026-10-16 立,配 stamp-sw-version.mjs)。
@@ -844,7 +918,9 @@ const nextConfig: NextConfig = {
         //   价值在语义显式化 + 将来回源切到国内通道（中转机 / nginx）后由该层直接生效。
         //   若要让 EO 按语种分别缓存，需在 EO 控制台配「缓存键 → 包含 Cookie: locale」。
         source: '/',
-        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+        ],
       },
       {
         // 2026-10-21 同上批：英文首页与公开内容页（关于/定价/文档）同属无服务端用户态的
@@ -856,20 +932,32 @@ const nextConfig: NextConfig = {
         //   曾因 headers source 是非法 path-to-regexp 模式导致 next build 连续失败、
         //   生产被冻结一个多小时（见下方静态资产规则注释）。精确匹配零解析风险。
         source: '/en',
-        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+        ],
       },
       {
         source: '/about',
-        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+        ],
       },
       {
         source: '/pricing',
-        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+        ],
       },
       {
         source: '/docs',
-        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+        ],
       },
+      ...publicHtmlCache.map(({ source, value }) => ({
+        source,
+        headers: [{ key: 'Cache-Control', value }],
+      })),
       {
         source: '/(.*)',
         headers: securityHeaders,
