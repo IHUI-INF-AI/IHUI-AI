@@ -63,7 +63,7 @@ the Chinese README, and blocks any stale value.
 
 Headline claims (same source as the table below, all live-computed): **599 tables · 4,451 API routes ·
 25 WebSocket endpoints · 118 catalogued LLMs · 38 platforms auto-publishing · 3,019 test files ·
-267 engineering gates · 49 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
+268 engineering gates · 49 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
@@ -87,10 +87,10 @@ Headline claims (same source as the table below, all live-computed): **599 table
 | 测试文件 | 3019 | `testFiles` |
 | CI 工作流 | 49 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 267 | `guardianGates` |
-| — blocking | 243 | `guardianBlocking` |
+| 工程守门 | 268 | `guardianGates` |
+| — blocking | 244 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15615 | `trackedFiles` |
+| 跟踪文件 | 15618 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -101,6 +101,26 @@ Headline claims (same source as the table below, all live-computed): **599 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-22**
+- 🐞 Fix:自动收编器两处派生补 windowsHide —— 门五十二 HEAD 面存量红,它会挡住任何会话的提交。取证:改动后 --staged 面复跑该门 RC=0(扫描一枚文件,生产代码零违规);该门判 HEAD blob,故修完必入库才算数。 (51131b0e93)
+- 🐞 Fix:storeDir 误指新建空 store —— 令部署链每轮整轮卡死;改回真身 + 非交互兜底 (a3f2e82e14)
+- ⚡ Perf:重放 22f9a151 —— 守门去掉 17 次无效全屏障(69s→40s)+ 元门档排除两道全仓存量门(103 架构策略 / 127 出站路由)+ 并发诊断 (94be8486b1)
+- 🐞 Fix:storeDir 第二次改错 —— 误指向新建空 store,令部署链每轮整轮卡死 (0558687dfe)
+- ⚡ Perf:全部业务专项段加档位判据 + 修 TOOL_ONLY TDZ 错误 (32cf86dc9e)
+- ⚡ Perf:全部业务专项段加档位判据 —— 只改工具代码时跳过 10 项业务专项(footer/portal/button/credential/agent/capability 等) (a3a1d471b9)
+- ⚡ Perf:专项段加档位判据 —— 只改工具代码时跳过 miniapp parity / auth refresh / staged typecheck(实测省 34s) (057fb56f07)
+- ⚡ Perf:i18n 死 key 扫描移入守门并行池(门 70b)—— 省 6.6s 串行独占 (119085b0ff)
+- ⚡ Perf:守护 git 派生加 GIT_OPTIONAL_LOCKS=0 —— 不再每 12 秒抢索引锁(撞锁重试会重跑整条 pre-commit) (4a2a013cd0)
+
+**2026-10-22**
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (bfc8d9c34e)
+
+**2026-10-22**
+- 🐞 Fix:活文档归并补认无需归并短路径(真丢失=0),修 PROJECT_PLAN 被 fail-closed 误悬挂 (c85a82e4d1)
+
+**2026-10-22**
+- 🐞 Fix:更正 O88 行的失效出路 —— 票面写的 plan-tasks-merge --dedupe-done-twins 不在归并器旗标白名单内,照抄必 rc=2,换成实测 RC=0 的 check-plan-task-duplicates --json 并带上现读读数;裁与不裁的判定权仍归人,其余一字未动(§0.8 文档不许写跑不通的出路) (3c36f0efc7)
+
 **2026-10-22**
 - 🐞 Fix:摘牌器补落地后复验与新枚 sha 取源 —— 实测本器上一轮用 git rev-parse HEAD 取 landedSha,并发下取到的是别席刚顶上那枚(信息是「清偿重复登记存量」),于是报了「留痕 57 条」而 HEAD 面上一枚牌都没少:留痕指向不存在的改写、成功是自述的。现改为①从落地器自己输出解 40 位 sha,解不到就不写留痕不报成功;②落地后回读 HEAD 面复验(被摘原行残留数必须为 0 且挂牌数等于本轮跳过数),不过则判未生效。测试先行:两臂先跑 ReferenceError 再实现,器物自检廿三例全过。那 57 条假凭据已逐条校验提交信息后作废并留读数。 (52ba2968b3)
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ef64532a32)
@@ -144,28 +164,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c647b44ade)
 - 🐞 Fix:自动收编器的 git helper 显式接管 stdio —— 门一零三在 HEAD 面点名该处裸奔(本机不写 stdio 稳定 EBUSY,§十二g)。上一笔只补了 windowsHide 就交,等于修一处漏一处,这次同批补全并复跑门一零三/五二/一九九 索引面各 RC=零。 (7606579655)
 - 📚 Docs:§1 登记超龄认领牌兜底器物与授权口径 —— 门在提交链上仍不代摘,超龄牌由 strip-stale-claim-marks 周期代摘并把旧形态写进 removed 抗 union 回潮 (ae9bc35767)
-
-**2026-10-22**
-- 🐞 Fix:自动收编器两处派生补 windowsHide —— 门五十二 HEAD 面存量红,它会挡住任何会话的提交。取证:改动后 --staged 面复跑该门 RC=0(扫描一枚文件,生产代码零违规);该门判 HEAD blob,故修完必入库才算数。 (51131b0e93)
-
-**2026-10-22**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (0c65211263)
-
-**2026-10-22**
-- 🔧 Chore/Other:守门一零九补挂牌位置四型的自检,并用变异测试证明两条有牙。取证:第一版对照臂在测试里复制了一份旧正则(违第二二三c),把结构位空白容忍砍掉仍全绿=无牙;改成直接问 claimMarkOf 的归档后,同一变异立刻翻红,再逐字节还原核对通过。 (ee476d06a0)
-- 🐞 Fix:净面 worktree 跑完不回收 —— 每轮出口统一回收(含空分支),失败/早退轮不再漏 (cfff341b7a)
-- 🐞 Fix:净面 worktree 跑完不回收 —— 每轮出口统一回收(含空分支),失败/早退轮不再漏 (928e5fb09b)
-
-**2026-10-21**
-- 🐞 Fix:删除 PROJECT_PLAN 错误入库的冲突标记 3 行 + 收尾报告补溯源水印 (32dde7723b)
-- 🔧 Chore/Other:复删被合并复活的 6 枚死图标 —— 机主裁决枚 504f86371720 已删 20 枚,triangle-alert.svg 不在删除名单故保留; §22 门 168 不许删除被合并静默复活 (64a306b786)
-- 📚 Docs:补 2026-10-21 收口报告缺失的溯源载荷(远端带入时未注入,水印全量预检「未覆盖」;§5c 注入幂等) (804b5348bd)
-- 🐞 Fix:归并 merge 冲突标记 —— 取 theirs 侧 55 行漂移副本注释(ours 侧仅空行,零内容损失); 冲突标记门 79 已 rc=0 (f75d0b3491)
-- 📚 Docs:恢复被撤销裁决删除的 agent.md/spec 与 lint-staged 空壳,归档 Discord 频道文案 (737bd5f90f)
-- 🚀 Feature/Improvement:RN 旋转自适应与 EAS 打包链路修正,补商店素材及桌面依赖 (837c920b25)
-- 🚀 Feature/Improvement:课程章节播放与进度真实数据源,修复自定义导航同步并清除 NUL 污染 (8ae6fe73a1)
-- 🚀 Feature/Improvement:接入重放水位守卫与小程序 CI 上传工具,补 pnpm 锁 (91d998fb86)
-- 🐞 Fix:移除未使用的系统 Chrome 查找死代码并重锁依赖 (37dc144105)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
