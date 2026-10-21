@@ -47,7 +47,10 @@ export default function PlazaNewScreen() {
     }
     const low = lowestPrice.trim() === '' ? undefined : Number(lowestPrice)
     const peak = peakPrice.trim() === '' ? undefined : Number(peakPrice)
-    if ((low !== undefined && !Number.isFinite(low)) || (peak !== undefined && !Number.isFinite(peak))) {
+    if (
+      (low !== undefined && !Number.isFinite(low)) ||
+      (peak !== undefined && !Number.isFinite(peak))
+    ) {
       appAlert(t('common.error'), t('plazaNew.priceInvalid'))
       return
     }
@@ -191,7 +194,7 @@ function makeStyles() {
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
       fontSize: 15,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
     },
     descInput: { height: 176, paddingTop: 12, paddingBottom: 12, textAlignVertical: 'top' },
     row: { flexDirection: 'row', gap: 12 },
