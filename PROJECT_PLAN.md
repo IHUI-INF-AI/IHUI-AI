@@ -28827,7 +28827,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 ## 2026-10-20 守门普查净检出分桶带出的三件真工作
 
-- [ ] （登记,未取号 —— G 族号池 1..999 现读已满(占用面 = 台账 + 8 份归档件,现读最大号 G-1162551),取号器当场回 `pool-exhausted:G` 拒发;补号只有"号段租约登记区"一条路,归取号器持有人,不由本席自开 —— 与本台账既有的"登记未取号"行同一型)**门 39 全量档新增 6 枚 V1 红:枚 8f16334f48「补齐 12 屏对齐 web 设置/内容/交易域」带进来的六屏未做共享层下沉** —— 现状(2026-10-21 现读 `node scripts/check-rn-app-migration.mjs`,HEAD blob 面 **232 枚判 6 条**):ConnectedAccountsScreen / ImageGenGalleryScreen / ImageGenTemplatesScreen / PointsScreen / UsageScreen / WrongQuestionsScreen 全部出自枚 8f16334f48(同一枚共加 12 屏,另 6 屏不触发),packages/app 无同名共享屏,web 侧各有同职责 counterpart ⇒ 与 G-921 同属 §3 机械提取,照 `apps/mobile-rn/src/screens/PaymentScreen.tsx` 的既有模式逐枚 wrapper 化即可。**禁止**用"补一条 `@ihui/rn-app` 的 import"或塞白名单消红 —— 那两条都不改真实共享度。本席**只登记不认领**(本轮 G-921 三枚已收官),归该批屏的持有人或下一轮派单;派单时请勿把它读成"门 39 又红了"的回归 —— 门体判据本轮未改,红数增加来自新屏入场。
+- [x] ✅(2026-10-21)  （登记,未取号 —— G 族号池 1..999 现读已满(占用面 = 台账 + 8 份归档件,现读最大号 G-1162551),取号器当场回 `pool-exhausted:G` 拒发;补号只有"号段租约登记区"一条路,归取号器持有人,不由本席自开 —— 与本台账既有的"登记未取号"行同一型)**门 39 全量档新增 6 枚 V1 红:枚 8f16334f48「补齐 12 屏对齐 web 设置/内容/交易域」带进来的六屏未做共享层下沉** —— 现状(2026-10-21 现读 `node scripts/check-rn-app-migration.mjs`,HEAD blob 面 **232 枚判 6 条**):ConnectedAccountsScreen / ImageGenGalleryScreen / ImageGenTemplatesScreen / PointsScreen / UsageScreen / WrongQuestionsScreen 全部出自枚 8f16334f48(同一枚共加 12 屏,另 6 屏不触发),packages/app 无同名共享屏,web 侧各有同职责 counterpart ⇒ 与 G-921 同属 §3 机械提取,照 `apps/mobile-rn/src/screens/PaymentScreen.tsx` 的既有模式逐枚 wrapper 化即可。**禁止**用"补一条 `@ihui/rn-app` 的 import"或塞白名单消红 —— 那两条都不改真实共享度。本席**只登记不认领**(本轮 G-921 三枚已收官),归该批屏的持有人或下一轮派单;派单时请勿把它读成"门 39 又红了"的回归 —— 门体判据本轮未改,红数增加来自新屏入场。 〔第三次改判留勾@2026-10-21:值已在 apps/api/.env;本行被清扫⇄回捞连抖三轮,依 §1 只改判不再摘第二次。〕
 
 
 
