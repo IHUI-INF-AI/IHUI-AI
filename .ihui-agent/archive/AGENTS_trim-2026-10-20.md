@@ -84,3 +84,10 @@
 ```
 - `check-monitor-runtime-parity.mjs`(2026-10-18 立,票 G-584 同族;镜像测试 `scripts/tests/check-monitor-runtime-parity.test.mjs`):monitoring 运行副本(`D:\DevEnv\monitor`,nssm 原生)↔ 仓内 `monitoring/` 真相逐对同形对账(alertmanager/promtail/board.ini/loki 四对 + ai-service `.env` 结构键 COMBO_CHAINS/_\_URL/__PORT,值绝不落输出);三态分桶 同形/差异/未判定,配对清单 <4 枚即 exit 2 空转点名。**不挂提交链也不挂巡检轮**:它判"这台机盘上当下是什么",非生产机上运行副本根本不存在,挂链即 §12e 恒红门;且**差异 ≠ 错**(原生端口/路径改写合法),结论只是差异清单,判红权归人,器物零写入零同步。
 ```
+
+## 2026-10-21 再搬出两行(门 207 预算内收口,逐字留痕)
+
+来源:`AGENTS.md` HEAD 面 96,618 字节 > 预算 96,000。被移出行逐字如下(第一行是已被"定档更正"整段取代的 207 旧档,第二行是与文件开头逐字同义的重复压缩版页脚):
+
+- **文档体积对账(207 `check-agents-doc-size.mjs`,warn 起步)**:AGENTS.md 逐字注入每一轮对话,预算 50KB(出处 = `check-project-plan-size.mjs` 头注的 2026-07-19 档,不得另拍新数);超预算的唯一出路 = 按 §1 两步归档把守门历史/取证叙述/重复登记副本整区移入 `.ihui-agent/archive/`,原位置留指针注记。**升 blocking 的前置 = HEAD 面存量归零(§12e),现在还没到 —— 定级以 runner 注册条目现值为准,门体头注与注册条目必须同值**。
+> **本文件为 2026-10-14 压缩版**:规则条款全部保留;历史叙述、失效原文残留、重复登记副本与超长守门登记整区逐字归档于 `.ihui-agent/archive/AGENTS_full-pre-compact-2026-10-14.md`(出处 HEAD `c7834a8f0388aa006ca746cb1cc4a3006336c23d`,1,261,607 字节)。本文与归档原文冲突时以本文为准;本文未写的历史案例按归档件查。
