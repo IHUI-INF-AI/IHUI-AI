@@ -2176,6 +2176,12 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-21**
+- 🔧 その他:重钉四端 ui-routes 自述钉(remote-icons 引用清理后) (0904dc3e66)
+
+**2026-10-21**
+- 🔧 その他:再生成 README 数字与更新日志、四端 ui-routes 自述钉,推进文档自动更新指针 (e4e7aedae7)
+
+**2026-10-21**
 - 📚 ドキュメント:恢复被撤销裁决删除的 agent.md/spec 与 lint-staged 空壳,归档 Discord 频道文案 (737bd5f90f)
 - 🚀 機能/改善:RN 旋转自适应与 EAS 打包链路修正,补商店素材及桌面依赖 (837c920b25)
 - 🚀 機能/改善:课程章节播放与进度真实数据源,修复自定义导航同步并清除 NUL 污染 (8ae6fe73a1)
@@ -3128,46 +3134,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-10-21**
 - 🚀 機能/改善:补齐 IP 白名单与 agent 护栏配置的读写面(整条要登录、只存不拦) (bb494eba53c)
-
-**2026-10-21**
-- 🚀 機能/改善:侧边栏第四批对齐 web 终态对账(10 入口,web 端零改动) (08e1da5b63d)
-
-**2026-10-21**
-- 🐞 修正:安全日志页按 security_logs 实列渲染，删掉后端从不给的"状态"列 (761a7a22cab)
-- 🚀 機能/改善:PDF 三链真处理落地 + security_logs 接上写入出口 (e1cc3e36ec0)
-- 🔧 その他:钉住危险操作确认的唯一旁路出口(L7224) (251ee617671)
-- 🔧 その他:翻勾 G-107 / G-929 (7ea5a84ed10)
-- 🔧 その他:修 G-929 过期用例并补 G-107 接线四例 (1a12afbdbf2)
-- 🔧 その他:裁决 5 张待拍板票 + 销账 3 张失效票 + 修 1 张回捞副本标记 (a525b912d17)
-- 🐞 修正:扫码弹窗平台清单拉取失败必须响 —— 不再静默留白 (79451dab125)
-- 🔧 その他:publish-scan 归入 @browser-hub 档 + 平台选择兼容 pill(机主选 A) (c364b64a0de)
-- 🐞 修正:补齐 ROUTE_ROOT_BG 剩余 27 屏 chrome 档 —— 顶栏结构锁全量测试唯一红清零 (63cd174c852)
-- 🐞 修正:补齐 ROUTE_ROOT_BG 剩余 27 屏 chrome 档 —— 顶栏结构锁全量测试唯一红清零 (b6568357c97)
-- 🔧 その他:work-panel 切 tab 改按 store 现读 id 选「非激活那颗」—— 收 P4-6 (ddfa3590e0e)
-- 🚀 機能/改善:暖色描边禁令装上旁路落地腿 —— 门 231 增 --rev 审树档,落地器 fail-closed 调用 (e1f18b5a320)
-- 🐞 修正:登录历史改接真数据源 audit_logs，并清偿本会话写进的 zh-TW 简体用字 (05940a38cef)
-- 🔧 その他:重钉 ui-routes 派生自述钉(承接 6ddca76ce8 的 11 处源改动) (b39af6dae53)
-- 🐞 修正:原生组件着色属性位的 CSS var 全部改成 JS 派生值 —— 11 处此前静默回落宿主默认色 (6ddca76ce83)
-- 🔧 その他:重钉 web/RN ui-routes 自述钉并补回 MyPapers/DistributionCompany 两枚白名单(1fc61a86437 旁路落地未跑写回钩子) (5bede5f6858)
-- 🚀 機能/改善:把"没设≠没色"这条因果律推到 web 腿 —— 门 231 增 W5 与 CSS 输入类维,并钉掉 3 枚裸 Switch (be681a0bcee)
-- 🔧 その他:fix(tokens)+feat(scripts): danger 暗档文字改取 #f87171(原 #ef4444 压在自己 /10 淡底上实测 4.21 不达 AA)+ 状态色文字射程对账尺子入库(自检 8/8、镜像 9/9,含同面口径修正) (721e61b929b)
-- 🐞 修正:资产注册表强制单实例 —— 根治「本地 PNG 的 Image 在 release 上恒空白」这一类 (4a876685d26)
-- ⚡ パフォーマンス:图片引用升 ?v=20261021 + 预热脚本 no-cache 强制回源 (720d3f582f7)
-- 📚 ドキュメント:补 §21 欠账——登记移动 App 与 web 逐页对齐口径与本批 35 屏 (2834f08be35)
-- 🐞 修正:登录历史卡按 security_logs 实列渲染，不再读后端从不返回的字段 (dcf3735fc2a)
-- 🐞 修正:补录侧边栏新挂 7 入口的 ROUTE_ROOT_BG chrome 档(ApiKeys/Usage/Groups/Invoices/Points/VoiceStt/AgentCategories) (76452bb2069)
-- 🚀 機能/改善:补齐我的试卷与分销中心，并收口 i18n 动态拼键反模式 (1fc61a86437)
-- 🐞 修正:反代目标 localhost → 127.0.0.1(修正 d4bfb37b7e6:标题即此修复但内容未落地) (0d36f406d20)
-- 🚀 機能/改善:侧边栏对齐 web 第二批 —— AI 组补 /models 与 /agents 父子入口,三域补 web 漏挂项,清 4 处重复登记,回归锁扩到域 hub(web 端零改动) (330056b5352)
-- 🔧 その他:按 HEAD 干净面重生成 web/RN 两份 ui-routes 产物钉 —— 收门 105 的 G5 (acc4ab047d5)
-- 🔧 その他:摘回门 233 注册条目 —— 点名面被他人 605 行在飞改动占住,先不给别人埋雷;门体降为常设只读尺子 (ec025c8fd6d)
-- 🔧 その他:work-panel 收藏按钮按 aria-label 定位 + 切 tab 改为轮询等待 (d07b67bfdbb)
-- 🔧 その他:清掉 check-ops-patrol 三枚存量红 —— 两枚是测量缺陷,一枚是半截落地的欠账 (04b56a1011f)
-- 🐞 修正:反代目标 localhost → 127.0.0.1,根治 WS 通知 ECONNREFUSED(34,701 次 ::1) (d4bfb37b7e6)
-- 🔧 その他:G-924 apps/cli 记忆模块两处直连后端改走 api-client(守门 73 真存量):新增 packages/api-client/src/endpoints/memory.ts 端点(listMemories/createMemory),endpoints barrel 增加导出;UnifiedMemoryClient.getEntries/addEntry 由裸 fetch 改调 api-client 端点,保留 SSRF 守卫与降级语义 (7f586945251)
-- 🚀 機能/改善:门 233 门体入库 —— 状态色文字角色档的对比度射程对账(自检 8/8 含两支阳性对照与两支反证) (33bee2381e2)
-- 🚀 機能/改善:新守门 check-state-text-contrast.mjs 接进提交链 (c7d7f57aaf8)
-- ⚡ パフォーマンス:/status 只 SSR 前 30 条模型,其余按需展开(1.05MB → ~30KB) (b9ec5f4dfaf)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
