@@ -17,9 +17,10 @@
  *   ④ 已并入 + 有未提交改动 + 空闲 ≥ dirtyTTL(默认 24h)⇒ **先备份**(`git diff --binary HEAD`
  *      + 未跟踪文件原样拷贝 + 状态清单)到 `.ihui-agent/tmp/worktree-reap-backup/<时间戳>/<名>/`,
  *      备份成功才 remove;备份超上限/失败 ⇒ 本轮不删,点名待人工;
- *   ⑤ **有独有提交(未并入 main)一律不删**:打带注释标签 `lost-commit/worktree-<名>-<sha7>`
- *      保活并点名。自动 merge 会绕过提交链守门,且「合并哪些、要不要合」是人的裁决 ——
- *      这一档只负责让残留**不可能静默消失**。
+ *   ⑤ **有独有提交(未并入 main)绝不静默删**:先打带注释标签 `lost-commit/worktree-<名>-<sha7>`
+ *      保活并点名;空闲 ≥ unmergedTTL(默认 72h)时,干净的直接回收检出(分支与标签都留着,
+ *      随时可合),有改动的先按 ④ 备份再回收。**自动 merge 永远不做** —— 会绕过提交链守门,
+ *      而且"合不合、怎么合"是人的裁决;本档的职责是让残留既不会静默消失,也不会无限占着登记面。
  *
  * 空闲判据取 max(admin 目录 birthtime / index mtime / HEAD reflog mtime / 最后一条 reflog 时间戳 /
  * 检出根目录 mtime):它们覆盖 checkout、commit、reset、add 这些"有人在动"的动作;
@@ -143,11 +144,13 @@ function backupDirty(wtPath, destDir, meta) {
   const statusText = statusOf(wtPath) || ''
   mkdirSync(destDir, { recursive: true })
   const diff = git(wtPath, ['diff', '--binary', 'HEAD', '--'], { allowFail: true })
-  writeFileSync(join(destDir, 'tracked.patch'), diff.ok ? diff.out : '', 'utf8')
+  if (!diff.ok) return { ok: false, reason: 'git diff 取不到,放弃回收(宁留检出不丢改动)' }
+  writeFileSync(join(destDir, 'tracked.patch'), diff.out, 'utf8')
   writeFileSync(join(destDir, 'status.txt'), statusText, 'utf8')
 
   const ls = git(wtPath, ['ls-files', '--others', '--exclude-standard', '-z'], { allowFail: true })
-  const untracked = ls.ok ? ls.out.split('\0').filter((rel) => rel.length > 0) : []
+  if (!ls.ok) return { ok: false, reason: '未跟踪清单取不到,放弃回收(宁留检出不丢改动)' }
+  const untracked = ls.out.split('\0').filter((rel) => rel.length > 0)
   let bytes = 0
   const copied = []
   for (const rel of untracked) {
@@ -227,6 +230,7 @@ function parseArgs(argv) {
     strict: false,
     ttlHours: Number(process.env.IHUI_WORKTREE_TTL_H || 6),
     dirtyTtlHours: Number(process.env.IHUI_WORKTREE_DIRTY_TTL_H || 24),
+    unmergedTtlHours: Number(process.env.IHUI_WORKTREE_UNMERGED_TTL_H || 72),
     backupDir: join(DEFAULT_REPO, '.ihui-agent', 'tmp', 'worktree-reap-backup'),
     logPath: '',
     help: false,
@@ -240,11 +244,13 @@ function parseArgs(argv) {
     else if (a === '--repo') opts.repo = resolve(argv[++i] || '')
     else if (a === '--ttl-hours') opts.ttlHours = Number(argv[++i])
     else if (a === '--dirty-ttl-hours') opts.dirtyTtlHours = Number(argv[++i])
+    else if (a === '--unmerged-ttl-hours') opts.unmergedTtlHours = Number(argv[++i])
     else if (a === '--backup-dir') opts.backupDir = resolve(argv[++i] || '')
     else if (a === '--log') opts.logPath = resolve(argv[++i] || '')
     else if (a.startsWith('--repo=')) opts.repo = resolve(a.slice(7))
     else if (a.startsWith('--ttl-hours=')) opts.ttlHours = Number(a.slice(12))
     else if (a.startsWith('--dirty-ttl-hours=')) opts.dirtyTtlHours = Number(a.slice(18))
+    else if (a.startsWith('--unmerged-ttl-hours=')) opts.unmergedTtlHours = Number(a.slice(21))
     else if (a.startsWith('--backup-dir=')) opts.backupDir = resolve(a.slice(13))
     else if (a.startsWith('--log=')) opts.logPath = resolve(a.slice(6))
     else throw new Error(`未知参数: ${a}`)
@@ -252,17 +258,20 @@ function parseArgs(argv) {
   if (!Number.isFinite(opts.ttlHours) || opts.ttlHours < 0) throw new Error('--ttl-hours 必须 ≥0')
   if (!Number.isFinite(opts.dirtyTtlHours) || opts.dirtyTtlHours < 0)
     throw new Error('--dirty-ttl-hours 必须 ≥0')
+  if (!Number.isFinite(opts.unmergedTtlHours) || opts.unmergedTtlHours < 0)
+    throw new Error('--unmerged-ttl-hours 必须 ≥0')
   return opts
 }
 
 const HELP = `用法: node scripts/reap-worktrees.mjs [--auto] [--json] [--strict]
-       [--repo <path>] [--ttl-hours <n>] [--dirty-ttl-hours <n>] [--backup-dir <path>] [--log <path>]
+       [--repo <path>] [--ttl-hours <n>] [--dirty-ttl-hours <n>] [--unmerged-ttl-hours <n>] [--backup-dir <path>] [--log <path>]
 
   --auto             执行回收(默认只读预览)
   --json             只输出 JSON(守护消费面)
   --strict           有未合并/失败项时 exit 1
   --ttl-hours        已并入 main 且干净的空闲阈值(默认 6,env IHUI_WORKTREE_TTL_H)
   --dirty-ttl-hours  已并入 main 但有未提交改动的空闲阈值(默认 24,先备份再回收)
+  --unmerged-ttl-hours 未并入 main 的检出:先打 lost-commit 标签,空闲到阈值(默认 72)才回收
   --log              JSONL 运行台账(计划任务无控制台时靠它留痕;>2MB 自动轮转一次)
 `
 
@@ -325,6 +334,7 @@ function main() {
     scanned: Math.max(0, entries.length - 1),
     reaped: [],
     backedUp: [],
+    preserved: [],
     unmerged: [],
     skipped: [],
     failed: [],
@@ -363,18 +373,56 @@ function main() {
       const ahead = e.head
         ? Number(git(repo, ['rev-list', '--count', `refs/heads/main..${e.head}`], { allowFail: true }).out || 0)
         : 0
+      const shortBranch = String(e.branch || '').replace(/^refs\/heads\//, '')
+      const unmergedTtlMs = opts.unmergedTtlHours * 3600000
+      const due = idleMs >= unmergedTtlMs
       let tag = null
-      if (opts.auto) {
-        const shortBranch = String(e.branch || '').replace(/^refs\/heads\//, '')
-        tag = tagUnmerged(repo, shortBranch || basename(wtPath), e.head, wtPath, ahead)
+      if (opts.auto) tag = tagUnmerged(repo, shortBranch || basename(wtPath), e.head, wtPath, ahead)
+      if (!opts.auto || !due || !tag) {
+        result.unmerged.push({
+          path: wtPath,
+          branch: e.branch || null,
+          head: e.head,
+          ahead,
+          tag,
+          due,
+          note: !opts.auto
+            ? `有独有提交,预览不删;空闲 ${fmtHours(idleMs)}${due ? ',已达回收阈值' : ''}`
+            : !tag
+              ? '未合并且打标失败,本轮不回收(宁留检出不丢提交)'
+              : `有独有提交,已打 ${tag} 保活;空闲 ${fmtHours(idleMs)} < ${opts.unmergedTtlHours}h,保留待合并`,
+        })
+        continue
       }
-      result.unmerged.push({
+      // 未合并但已打标 + 空闲到期:提交已由标签封缄,分支原样保留,检出可以撤了。
+      let backupInfo = null
+      if (dirty) {
+        const name = basename(wtPath)
+        const dest = join(opts.backupDir, stamp, name)
+        const bk = backupDirty(wtPath, dest, { path: wtPath, branch: e.branch || null, head: e.head })
+        if (!bk.ok) {
+          result.failed.push({ path: wtPath, reason: bk.reason })
+          continue
+        }
+        backupInfo = { backupDir: dest, untrackedCount: bk.untrackedCount, bytes: bk.bytes }
+      }
+      const rm = removeWorktree(repo, wtPath)
+      if (!rm.ok) {
+        result.failed.push({
+          path: wtPath,
+          reason: `${rm.err}${backupInfo ? `(备份已在 ${backupInfo.backupDir})` : ''}`,
+        })
+        continue
+      }
+      result.preserved.push({
         path: wtPath,
         branch: e.branch || null,
         head: e.head,
         ahead,
         tag,
-        note: '有独有提交,自动回收器不删;已打 lost-commit 标签保活,须合并或人工裁决',
+        idleMs,
+        backupDir: backupInfo?.backupDir || null,
+        note: '有独有提交:已打 lost-commit 标签保活,检出已回收;分支与标签保留,可随时合并',
       })
       continue
     }
@@ -454,11 +502,17 @@ function main() {
   } else {
     console.log(`🧹 worktree 生命周期回收 @ ${repo}`)
     console.log(
-      `读数:扫描 ${result.scanned} / 回收 ${result.reaped.length} / 备份后回收 ${result.backedUp.length} / 未合并 ${result.unmerged.length} / 保留 ${result.skipped.length} / 失败 ${result.failed.length}` +
+      `读数:扫描 ${result.scanned} / 回收 ${result.reaped.length} / 备份后回收 ${result.backedUp.length} / 保活回收 ${result.preserved.length} / 未合并保留 ${result.unmerged.length} / 保留 ${result.skipped.length} / 失败 ${result.failed.length}` +
         (opts.auto ? '' : ' · 预览模式(未执行任何删除)'),
     )
     for (const r of result.reaped)
       console.log(`  ✅ 回收 ${r.path}${r.branch ? ` [${r.branch}]` : ''} — 空闲 ${fmtHours(r.idleMs)}${r.how ? `,${r.how}` : ''}`)
+    for (const r of result.preserved)
+      console.log(
+        `  🛟 打标保活后回收 ${r.path}${r.branch ? ` [${r.branch}]` : ''} — ahead ${r.ahead},空闲 ${fmtHours(r.idleMs)},标签 ${r.tag}` +
+          (r.backupDir ? `,改动备份 ${r.backupDir}` : '') +
+          ';分支与标签保留,可随时合并',
+      )
     for (const r of result.backedUp)
       console.log(
         `  🗄 备份后回收 ${r.path} — 空闲 ${fmtHours(r.idleMs)}` +

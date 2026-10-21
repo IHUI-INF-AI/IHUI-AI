@@ -108,6 +108,28 @@ test('unmerged:绝不自动删除,打 lost-commit 标签保活', () => {
   assert.match(git(repo, ['tag', '--list', 'lost-commit/worktree-*']), /lost-commit\/worktree-wt-unmerged-/)
 })
 
+test('unmerged 且空闲到期:先打标保活再回收检出,分支与标签都保留', () => {
+  const repo = makeRepo()
+  const wt = join(repo, 'wts', 'unmerged-reap')
+  git(repo, ['worktree', 'add', '-q', '-b', 'wt-unmerged-reap', wt, 'main'])
+  writeFileSync(join(wt, 'feature2.txt'), 'unique work\n', 'utf8')
+  git(wt, ['add', 'feature2.txt'])
+  git(wt, ['commit', '-q', '-m', 'unique work for reap'])
+
+  const r = runReaper(repo, [
+    '--ttl-hours', '0',
+    '--dirty-ttl-hours', '0',
+    '--unmerged-ttl-hours', '0',
+    '--backup-dir', join(repo, 'bk'),
+  ])
+
+  assert.equal(r.preserved.length, 1, JSON.stringify(r))
+  assert.equal(existsSync(wt), false, '已打标的检出可以回收')
+  const tagList = git(repo, ['tag', '--list', 'lost-commit/worktree-wt-unmerged-reap-*'])
+  assert.ok(tagList.length > 0, '提交必须由 lost-commit 标签封缄')
+  assert.equal(git(repo, ['branch', '--list', 'wt-unmerged-reap']).length > 0, true, '分支必须保留待合并')
+})
+
 test('预览模式(不带 --auto)只报计划,不删任何东西', () => {
   const repo = makeRepo()
   const wt = join(repo, 'wts', 'preview')
