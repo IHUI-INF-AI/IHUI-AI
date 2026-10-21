@@ -475,12 +475,10 @@ function scanTasks(content) {
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trimStart()
     // 每条规则各推一类:顺序即优先级(进行中必须先于"无人认领"判,否则会被后一条通吃)。
-    // 进行中规则用 CLAIM_MARKER_RE(含标记体,兼容旧裸 `（进行中）` 与新租约 `（进行中@日期/持有者）`),
-    // 它同时把整段标记从 text 里剥掉 —— 若按 `（进行中）?` 那种写法,租约行会残留 `@日期/持有者）`。
-    // 只有**条目行**才谈得上挂牌:第二档的正则无锚(`（进行中…）` 在行内任意位置都命中),
-    // 不加这道前置会把 186 行纯叙述正文算成"进行中"(2026-10-21 本席改判据时实测踩中,
-    // 三态合计从 251 涨到 437 才暴露)。
-    const claim = /^- \[ \]/.test(trimmed) ? claimMarkOf(trimmed) : null
+    // 挂牌与否只问单源 `claimMarkOf`(结构位 ∪ 行内完整租约形,反引号码段内的叙述不算)。
+    // "只有条目行才谈得上挂牌"这一道**住在判据本体里**,不在这里重抄(§0.6:同一纪律散在多处,
+    // 迟早有一处漏 —— 2026-10-22 本席在新器物里就漏了一次,把 216 行叙述当成挂牌)。
+    const claim = claimMarkOf(trimmed)
     const kinds = [
       [/^- \[[xX]\]\s*/, completed],
       // 挂牌与否只问单源 `claimMarkOf`(结构位 ∪ 行尾完整租约形,反引号码段内的叙述不算)。
@@ -1149,12 +1147,10 @@ function selfTest(realNow = Date.now()) {
     eq(s.unclaimed.length + s.inProgress.length + s.completed.length, 2, '三态没穷尽条目行(有行掉在两不管)')
     // 对照甲:同一枚标记搬回结构位必须立刻算挂牌 ⇒ 证明上面那个 0 是判据在挡,不是它碰不到
     eq(scanTasks('- [ ]（进行中） 乙 同一枚标记落在结构位\n').inProgress.length, 1, '搬回结构位仍不计 ⇒ 判据已被调瞎')
-    // 对照乙:判据本身认得行内租约形 ⇒ 证明那个 0 靠的是"条目行前置",不是靠漏认
-    eq(
-      claimMarkOf('这段叙述里写着（进行中@2026-10-18/丁）,它不是任何登记行') !== null,
-      true,
-      'claimMarkOf 认不出行内租约形 ⇒ S20 的 0 是"碰不到"冒充"挡得住",前置那条断言其实无牙',
-    )
+    // 对照乙:条目行前置已上收进判据本体(2026-10-22)⇒ 非条目行必须直接判 null;
+    // 而行内(非结构位)的完整租约形仍要认得 ⇒ 两臂各自有牙,不靠"碰不到"蒙过去。
+    eq(claimMarkOf('这段叙述里写着（进行中@2026-10-18/丁）,它不是任何登记行'), null, '判据本体没自带条目行前置 ⇒ 每个调用方都得再记一遍,漏一处就把叙述当挂牌')
+    eq(claimMarkOf('- [ ] 丁 行内注记〕（进行中@2026-10-18/丁一）')?.structural, false, '条目行行内的完整租约形认不出 ⇒ S20 那个 0 是靠漏认冒充挡得住')
   })
   for (const r of results) console.log(r)
   console.log(`--self-test: ${results.length - failures}/${results.length} 通过`)
