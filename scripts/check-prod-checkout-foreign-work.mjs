@@ -5,7 +5,7 @@
 
 /**
  * 生产签出外来工作只读尺子(2026-10-21 立;判机器状态 ⇒ 不进提交链、不进 CI,§12e;
- * 唯一调度器 = scripts/git-guardian.mjs 的 auditProdForeignWork())。
+ * 唯一调度器 = scripts/git-guardian.mjs 经 git-guardian-prod-foreign.mjs 的 auditProdForeignWork())。
  *
  * 立因(当天 15:0x~16:1x 实测):生产服务与部署环跑**独立生产签出**(nssm `IHUI-DEPLOYLOOP`
  * AppDirectory/AppParameters 实测指向 `D:\DevEnv\ihui-prod` 形态,路径按当次现读,绝不硬编码)。
@@ -42,9 +42,9 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
-// §0.6 单一真相源:nssm 输出解码/判读与候选路径复用 check-service-binary-paths 的出口,禁抄第二份
-import { NSSM_CANDIDATES, decodeNssm, interpretNssmGet } from './check-service-binary-paths.mjs'
+import { pathToFileURL } from 'node:url'
+// §0.6 单一真相源:nssm 判读与候选路径复用 check-service-binary-paths 的出口,禁抄第二份
+import { NSSM_CANDIDATES, interpretNssmGet } from './check-service-binary-paths.mjs'
 import { resolveGitBin } from './lib/gitdir.mjs'
 
 const PROD_SERVICE = 'IHUI-DEPLOYLOOP'
