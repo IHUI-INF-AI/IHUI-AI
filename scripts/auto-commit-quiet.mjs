@@ -37,7 +37,15 @@ const EXCLUDE = [
   /(^|\/)\.workbuddy\/hook-logs\//,
   /\.log$/,
   /\.(png|jpe?g|gif|webp|ico|pdf|zip|gz|apk|aab|jar|so|dll|exe|mp4|woff2?)$/i,
+  // 人工台账(2026-10-22 立):`PROJECT_PLAN.md`/`AGENTS.md` 是多席位**并发改写**的活文档,
+  // 收编只看工作树现状、不做跨席合并 ⇒ 陈旧副本会造重复登记/丢行,门 203 棘轮判红后
+  // safe-commit 还可能落进 --no-verify 兜底,把污染写进历史。这两份交其所有者显式提交。
+  /(^|\/)(PROJECT_PLAN|AGENTS)\.md$/,
 ]
+/** 需要单独记日志的"刻意不收编"类,便于从日志一眼看出哪些改动在等人工。 */
+const HUMAN_LEDGER_RE = /(^|\/)(PROJECT_PLAN|AGENTS)\.md$/
+/** README 生成数字块(由 sync-readme-numbers.mjs 独占写入)。 */
+const README_FILES = ['README.md', 'README.en.md', 'README.ko.md', 'README.ja.md']
 
 function git(args, opts = {}) {
   // 三件事同批:显式 stdio(§12g,本机不写稳定 EBUSY)、windowsHide 置后(强制生效,调用方覆盖不掉)、
@@ -88,11 +96,63 @@ function listChanges() {
   return out
 }
 
+/**
+ * 把 README 的 GENERATED NUMBERS 块刷到现算值,并把**真写盘**的 README 纳入本次提交。
+ *
+ * 病灶(2026-10-22 实测):该块由 post-commit 回写 ⇒ 工作树最新、索引面落后一枚;而门 173 判的
+ * 是索引面,于是**下一枚不带 README 的提交必红**(实测 tracked 15613 / 索引 15612 / HEAD 15611)。
+ * 收编前先同步,数字随本次提交落地;sync 幂等(数字没变不写盘),不会造自激提交。
+ */
+function syncReadmeNumbers(stale) {
+  const before = new Map()
+  for (const f of README_FILES) {
+    try {
+      before.set(f, statSync(join(ROOT, f)).mtimeMs)
+    } catch {
+      /* 缺文件跳过 */
+    }
+  }
+  try {
+    execFileSync(process.execPath, [join(ROOT, 'scripts', 'sync-readme-numbers.mjs')], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 << 20,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'], // §12g:本机不给显式 stdio 会 EBUSY
+    })
+  } catch (e) {
+    return log(
+      `⚠️ sync-readme-numbers 失败(不阻断):${String(e?.stdout || e?.message || '').trim().split('\n').slice(-3).join('\n')}`,
+    )
+  }
+  const added = []
+  for (const f of README_FILES) {
+    const b = before.get(f)
+    if (b === undefined) continue
+    let a
+    try {
+      a = statSync(join(ROOT, f)).mtimeMs
+    } catch {
+      continue
+    }
+    if (a !== b && !stale.includes(f)) {
+      stale.push(f)
+      added.push(f)
+    }
+  }
+  if (added.length) log(`README 生成数字已刷新,纳入本次收编:${added.join(', ')}`)
+}
+
 function main() {
   const busy = guardBusy()
   if (busy) return log(`跳过:${busy}`)
 
-  const changes = listChanges().filter((c) => !EXCLUDE.some((re) => re.test(c.path)))
+  const all = listChanges()
+  const ledger = all.filter((c) => HUMAN_LEDGER_RE.test(c.path))
+  if (ledger.length) {
+    log(`跳过人工台账(多席位并发改写,交所有者显式提交):${ledger.map((c) => c.path).join(', ')}`)
+  }
+  const changes = all.filter((c) => !EXCLUDE.some((re) => re.test(c.path)))
   if (changes.length === 0) return
 
   const conflicted = changes.filter((c) => /^(UU|AA|DD|AU|UA|DU|UD)$/.test(c.xy))
@@ -127,6 +187,8 @@ function main() {
   const verb = youngest === Infinity ? '全部已删除' : `最年轻 ${youngest.toFixed(1)} 分钟`
   log(`候选 ${stale.length}/${changes.length} 个文件(${verb},阈值 ${QUIET_MIN} 分钟):${stale.slice(0, 8).join(', ')}${stale.length > 8 ? ' …' : ''}`)
   if (DRY) return log('dry-run:不提交')
+
+  syncReadmeNumbers(stale)
 
   try {
     const out = execFileSync(
