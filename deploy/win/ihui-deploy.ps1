@@ -1245,9 +1245,19 @@ function Get-CleanBuildWebDir {
             Log '[CLEAN-BUILD] 导出面依赖缺失或依赖面已变 ⇒ pnpm install --frozen-lockfile(首次数分钟,期间持续续心跳)'
             Push-Location $CleanBuildWt
             try {
-                & 'D:\DevEnv\tools\npm-global\pnpm.cmd' install --frozen-lockfile 2>&1 |
-                    Select-Object -Last 6 | ForEach-Object { Log "[clean-install] $_" }
+                # 采样口径(2026-10-22 修):旧写法 `Select-Object -Last 6` 只留**堆栈末 6 行**,
+                # 而 pnpm 的错误消息本体在第一行 —— 2026-10-21 那轮排障时日志里只剩
+                # "at async installDeps ..." 一串,真因(`mkdir '\\?'`)从未落盘,只能重建净面复现。
+                # 现改为「首 3 行 + 末 8 行」,并在中间标出省略行数:首行必留,尾部仍能看到退出上下文。
+                $instLines = @(& 'D:\DevEnv\tools\npm-global\pnpm.cmd' install --frozen-lockfile 2>&1 | ForEach-Object { "$_" })
                 $irc = $LASTEXITCODE
+                if ($instLines.Count -le 12) {
+                    $instLines | ForEach-Object { Log "[clean-install] $_" }
+                } else {
+                    $instLines[0..2] | ForEach-Object { Log "[clean-install] $_" }
+                    Log ("[clean-install] …(省略 {0} 行)…" -f ($instLines.Count - 11))
+                    $instLines[($instLines.Count - 8)..($instLines.Count - 1)] | ForEach-Object { Log "[clean-install] $_" }
+                }
             } finally { Pop-Location }
             Update-DeployLockHeartbeat
             if ($irc -ne 0) { throw "导出面 pnpm install 失败 exit=$irc" }
