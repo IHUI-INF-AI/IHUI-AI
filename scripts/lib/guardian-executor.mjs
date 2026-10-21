@@ -29,9 +29,6 @@ import { gitRaw } from './face-reader.mjs'
 // 2026-10-16 [11e] 余量拉开:push-gate 缓存(指纹/命中早退/写入)与批次留痕 attest 各自外置成
 // 独立 lib(执行逻辑逐字搬,闭包引用改 ctx 参数);本文件只保留调用点与数组本体。
 import { pushGateCacheEarlyExit, writePushGateCache } from './guardian-pushgate-cache.mjs'
-// 2026-10-22:纯内容门指纹缓存。白名单/键构造/失效方向全在 lib 头注;本文件只留
-// 「命中就显式打印 ⚡ 并计通过」「只在成功的收口处记账」两个调用点。
-import { createGateContentCache } from './guardian-gate-cache.mjs'
 import { attestGateBatchRun as attestGateBatchRunImpl } from './guardian-batch-attest.mjs'
 import { normalizeTriggers, triggersTouch } from './guardian-triggers.mjs'
 import { widenFilesOverDependents } from './import-graph.mjs'
@@ -132,12 +129,6 @@ const HEAVY_GATE_IDS = new Set([
   // (test-paths 单轮 57~67s、dangling-local-imports 33~38s、stale-copy 13s),
   // 判的是仓库状态而非本次提交内容,与 30a 同性质,一并延后到 post-commit。
   '85', '98', '30c',
-  // 2026-10-22 实测补入:`8`(前端↔后端路由一致性)是**全仓扫描型**,快档单门
-  // 16.3s,占掉快档墙钟的一半 —— 它不属于 35s 预算里该干的活,延后到 post-commit。
-  '8',
-  // 2026-10-22 实测补入:`191`(测试裁判未复刻)连续两轮 13.3~13.6s,也是全仓扫描型;
-  // 快档唯一一道 >3s 的常驻门,不延后则 35s 预算必爆,后面整批快门被截断。
-  '191',
 ])
 const fastMode = process.env.IHUI_GATE_FAST === '1'
 
@@ -149,19 +140,6 @@ const fastMode = process.env.IHUI_GATE_FAST === '1'
 const FAST_BUDGET_MS = Number(process.env.IHUI_GATE_FAST_BUDGET_MS ?? 35_000)
 const deferredGates = []
 let budgetBlown = false
-
-// ─── 纯内容门指纹缓存(2026-10-22 立)──────────────────────────────────────────
-// 白名单/键构造/失效方向全在 lib/guardian-gate-cache.mjs 头注。这里只有两个调用点:
-//   ① 主循环命中 ⇒ 显式打印 ⚡ 行(绝不静默跳门),按"通过"收口,不派发子进程;
-//   ② applyGateResult 的**成功分支** ⇒ 记一次通过(失败/崩溃/warn 永不入缓存)。
-// `GUARDIAN_NO_CACHE=1` 全关;缓存文件 .workbuddy/gate-cache.json(gitignore 已盖)。
-const gateContentCache = createGateContentCache()
-/** 缓存键与真实 spawn 的 argv 必须同源:两处都只经这里拼。 */
-function gateCmdArgs(check) {
-  const out = [...(check.args || [])]
-  if (passStaged) out.push('--staged')
-  return out
-}
 
 const stopOnFirst = process.env.GUARDIAN_STOP_ON_FIRST === '1'
 /** blocking 失败门清单(末尾汇总用)。 */
@@ -206,26 +184,24 @@ function attestGateBatchRun(ranFullBatch) {
 /** 打印批量检查汇总。早退与跑完两条路径共用,避免两份实现漂移。 */
 function printSummary(useStderr) {
   const out = useStderr ? console.error : console.info
-  // 快档延后清单落盘(2026-10-21;2026-10-22 改**恒写**,含 count:0):
-  // "这次没跑"必须可追;恒写是为了让本批真实结论覆盖上一批的陈旧清单 —— 否则 post-commit
-  // 会拿旧清单反复补跑,或在预算没爆时误以为"没有门要补跑"(重型门的静默丢失即由此而来)。
-  try {
-    const p = resolve(process.cwd(), '.workbuddy', 'hook-logs', 'gates-deferred.json')
-    mkdirSync(dirname(p), { recursive: true })
-    writeFileSync(
-      p,
-      JSON.stringify(
-        { generatedAt: new Date().toISOString(), count: deferredGates.length, gates: deferredGates },
-        null,
-        2,
-      ) + '\n',
-    )
-    if (deferredGates.length > 0) {
+  // 快档延后清单落盘(2026-10-21):"这次没跑"必须可追,补跑命令直接可复制。
+  if (deferredGates.length > 0) {
+    try {
+      const p = resolve(process.cwd(), '.workbuddy', 'hook-logs', 'gates-deferred.json')
+      mkdirSync(dirname(p), { recursive: true })
+      writeFileSync(
+        p,
+        JSON.stringify(
+          { generatedAt: new Date().toISOString(), count: deferredGates.length, gates: deferredGates },
+          null,
+          2,
+        ) + '\n',
+      )
       out(`⏱  快档延后 ${deferredGates.length} 门(清单:${p})`)
       out('   补跑:node scripts/guardian-runner.mjs --staged   全量:IHUI_GATE_FAST=0')
+    } catch {
+      /* 观测旁路:落盘失败不影响判据 */
     }
-  } catch {
-    /* 观测旁路:落盘失败不影响判据 */
   }
   const executed = passed + warned + failed + skipped
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
@@ -386,11 +362,8 @@ const PAR_GATE_IDS = new Set([
   // 刻意**不**收的三个:`2f-web`/`2f-miniapp-taro`/`2f-shared-diff` 是同一个
   // i18n-diff.mjs 的三个档,共用同一份中间产物 ⇒ 必须串行。
   '168', '47', '224', '220', '213', '100', '221', '232',
-  '210', '211', '13d', '170', '231', '15',
-  // 2026-10-22 快档实测补入:173(1.96s)、229(0.31s)、203(0.30s) 原被漏在白名单外,
-  // 只能串行跑;逐门核过均**只读**(173 读 tracked 计数 + README,203 走 face-reader 取
-  // HEAD/索引面,229 只读 PROJECT_PLAN),无写文件/无网络/无时间依赖 ⇒ 可进池。
-  '173', '203', '229',
+  '210', '13d', '170', '231', '15',
+  '70b', // i18n 死 key 扫描(2026-10-22 从 pre-commit 串行段移入池)
 ])
 // === 只读门并行池(方案A;逃生舱:GUARDIAN_SERIAL=1 退回全串行,GUARDIAN_PAR=<n> 调并发度) ===
 // 契约(与串行版逐字对齐的三条):
@@ -605,14 +578,6 @@ function applyGateResult(check, r, checkStart) {
       throw err
     }
     passed++
-    // 纯内容门:只有**真正跑过且通过**才记账(命中项不重复写;失败/崩溃/warn 走不到这里)。
-    if (check.mode === 'blocking' && r.__fromCache !== true) {
-      gateContentCache.record(
-        check.id,
-        { script: `scripts/${check.script}`, args: gateCmdArgs(check) },
-        { passed: true, ms: Date.now() - checkStart },
-      )
-    }
     if (showTiming) {
       console.info(`  ${C.dim}⏱  ${Date.now() - checkStart}ms${C.reset}`)
     }
@@ -683,6 +648,15 @@ function applyGateResult(check, r, checkStart) {
   }
 }
 
+// 并发诊断(2026-10-22 立):排查"CPU 合计与墙钟几乎相等 = 并发没生效"时用。只打配置,不改行为。
+{
+  const inPool = effectiveChecks.filter((c) => PAR_GATE_IDS.has(String(c.id)) && !guardianSerial).length
+  console.info(
+    `🧮 并发诊断:parMax=${parMax} guardianSerial=${guardianSerial} checks=${effectiveChecks.length} ` +
+      `池内=${inPool} fastMode=${fastMode} 预算=${FAST_BUDGET_MS}ms`,
+  )
+}
+
 for (const check of effectiveChecks) {
   // 快档硬预算:到点即停止派发,剩余门记延后(见 FAST_BUDGET_MS 头注)。
   if (fastMode && !budgetBlown && Date.now() - startTime > FAST_BUDGET_MS) {
@@ -710,7 +684,11 @@ for (const check of effectiveChecks) {
   // 条件触发(2026-09-22 立,见上方 stagedPathsTouch):暂存区未触及声明路径 → 不执行。
   // 与 skipEnv 同计入"跳过",并打印触发清单,避免"静默没跑"。
   if (check.stagedTriggers && passStaged && !stagedPathsTouch(check.stagedTriggers)) {
-    await flushParBuffer()
+    // 2026-10-22 去掉这里的 `await flushParBuffer()`。
+    // 病灶:本分支**不 spawn 任何子进程**,却在每次跳过时做一次全屏障 —— 等池里所有在飞门
+    // 跑完才继续。元门档实测 31 门里 17 门被 stagedTriggers 跳过 ⇒ 17 次屏障,
+    // 而 14 道实跑门 CPU 仅 14.3s,守门墙钟却到 69s,差距全在这里。
+    // 去掉后跳过是纯记账,不阻塞派发;真正的屏障只保留在**写者门**之前(那里必须等池清空)。
     skipped++
     notTriggeredGates.push({
       id: String(check.id),
@@ -727,10 +705,6 @@ for (const check of effectiveChecks) {
   if (fastMode && HEAVY_GATE_IDS.has(String(check.id))) {
     await flushParBuffer()
     skipped++
-    // 2026-10-22 修复:重型门必须同时进"延后"清单。此前只进 notTriggered,而
-    // gates-deferred.json 只由预算爆掉的分支写 ⇒ 预算没爆时 post-commit 根本不知道有门没跑,
-    // 重型门被**静默吞掉**(与头注"由 post-commit 补跑"的承诺相反)。方向:宁多跑。
-    deferredGates.push({ id: String(check.id), label: check.label, script: check.script })
     notTriggeredGates.push({
       id: String(check.id),
       label: check.label,
@@ -741,26 +715,8 @@ for (const check of effectiveChecks) {
     )
     continue
   }
-  const cmdArgs = gateCmdArgs(check)
-
-  // 纯内容门指纹缓存(2026-10-22):命中 = 同一份内容在同一个 HEAD 树下此前真的通过过。
-  // 显式打印 ⚡(绝不静默跳门),并按"通过"走同一份 applyGateResult 收口(计数/进度/留痕不分叉)。
-  // 过滤顺序刻意在 skipEnv/stagedTriggers/重型之后:被跳过或延后的门不查缓存,也就不会被缓存洗成绿。
-  const cacheHit = gateContentCache.lookup(check.id, { script: `scripts/${check.script}`, args: cmdArgs })
-  if (cacheHit) {
-    await flushParBuffer()
-    const ageMin = Math.max(0, cacheHit.ageMs / 60000)
-    console.info(
-      `⚡ [${check.id}] ${check.label} 命中指纹缓存(${ageMin.toFixed(1)} 分钟前以同一内容通过,` +
-        `原耗时 ${Math.round(cacheHit.ms)}ms;强制重跑:GUARDIAN_NO_CACHE=1)`,
-    )
-    applyGateResult(
-      check,
-      { status: 0, signal: null, error: null, stdout: '', stderr: '', __fromCache: true },
-      Date.now(),
-    )
-    continue
-  }
+  const cmdArgs = [...check.args]
+  if (passStaged) cmdArgs.push('--staged')
   // (旧版这里拼一条 shell 字符串给 execSync;改 spawnSync 用 argv 数组后不再需要,
   //  顺带去掉 shell 一层。复现命令由汇总段按 `node scripts/<script>` 现拼,不在此处留变量。)
 

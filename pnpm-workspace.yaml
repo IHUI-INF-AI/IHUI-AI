@@ -43,16 +43,14 @@ nodeLinker: isolated
 # (mobile-rn 长路径由 publicHoistPattern 兜底,与 2026-09-10 回退口径一致。)
 # 2026-10-19: 本地用绝对路径 G:/.pnpm-store(同盘硬链接);
 # 云端 EAS 构建通过 npm_config_store_dir 环境变量覆盖为相对路径 .pnpm-store-cloud。
-# 2026-10-22 实测更正:上面那条 G 盘口径在本机已不成立 —— G 盘**不存在**,而 pnpm 在
-# install 的 createNewStoreController 阶段要把 store 路径规范成 `\\?\` 长路径,盘符无效时
-# 退化成 `\\?`,于是 `mkdir '\\?'` 必报
-#   `[ENOENT] ENOENT: no such file or directory, mkdir '\\?'`(exit=-4058)。
-# 后果是整条依赖链静默失效:净面永远装不上依赖(clean build 长期 FALLBACK 到共享工作树)、
-# 主仓 install 同样失败(api 滞留旧 dist)。改到 D:/DevEnv/cache/pnpm-store:
-#   · 与仓库同为 D 盘 ⇒ 硬链接优势保留;
-#   · 与 HKCU 的 npm_config_store_dir 同值 ⇒ 交互身份与服务身份不再各用一份配置;
-#   · 云端 EAS 仍由 npm_config_store_dir 覆盖,不受影响。
-storeDir: 'D:/DevEnv/cache/pnpm-store'
+# 2026-10-22 二次更正(06:04 实测卡死 43 分钟后):上一版改成的 D:/DevEnv/cache/pnpm-store
+# 是**错的更隐蔽**的一档 —— 本机真 store 在 D:/DevEnv/tools/pnpm/store(8.5G,主仓
+# node_modules/.modules.yaml 记录的正是它,与 PNPM_HOME 同源)。指向别处时 pnpm 每次
+# install 都判定"store 已变更 ⇒ 需要 purge 重建",在非交互管道里等确认输入 ⇒
+# **部署链整轮卡死**(实测 06:04-06:47 零输出、pnpm 进程 CPU 恒 0)。
+# 现改为真身 D:/DevEnv/tools/pnpm/store:主仓 node_modules 与 store 匹配 ⇒ 不 purge、
+# 净面 install 直接命中已有 8.5G 内容(实测 57.5s 完成),交互/服务身份共用同一份。
+storeDir: 'D:/DevEnv/tools/pnpm/store'
 
 # ============== mobile-rn (Expo + RN) Metro hoist 配置 ==============
 # 解决 pnpm isolated linker 与 Metro bundler 不兼容问题(2026-07-25)
