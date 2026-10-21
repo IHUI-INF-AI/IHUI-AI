@@ -109,7 +109,13 @@ function bindingOffsets(body, varName) {
     new RegExp(`\\b(?:const|let|var)\\s+${n}\\b`, 'g'),
     new RegExp(`\\b(?:const|let|var)\\s*[\\[{][^\\]}\\n]*\\b${n}\\b`, 'g'),
     new RegExp(`\\b${n}\\s*(?:of|in)\\b`, 'g'),
-    new RegExp(`\\(\\s*[^()\\n]*\\b${n}\\b[^()\\n]*\\)\\s*(?:=>|\\{)`, 'g'),
+    // 2026-10-21:第 4 式原会把**控制语句的条件括号**当成形参表 —— `if (r.status…) {` 命中后
+    // 绑定区被截到 `r.stdout` 之前,于是"真的丢了 stdout"被读成"没丢"(实测同一夹具带 `{`
+    // 命中 0、换行命中 1)。加前置排除控制关键字:只认函数/箭头/方法的形参表。
+    new RegExp(
+      `(?<!\\b(?:if|for|while|switch|catch)\\s*)\\(\\s*[^()\\n]*\\b${n}\\b[^()\\n]*\\)\\s*(?:=>|\\{)`,
+      'g',
+    ),
     new RegExp(`\\b${n}\\s*=[^=>]`, 'g'),
   ]
   const at = []

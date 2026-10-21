@@ -399,6 +399,17 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     const target = require.resolve(moduleName, { paths: [rnDir] })
     return { type: 'sourceFile', filePath: realpathOrNull(target) }
   }
+  // lucide-react-native 单实例去重(2026-10-21):与上面同一类 monorepo + pnpm isolated 缺陷。
+  // 上方 pnpm-isolated 分支只在"引用方自己位于 .pnpm 隔离目录"时收口,而 workspace 源码
+  // (apps/mobile-rn/src 与 packages/app/src)不满足该前提 ⇒ 各自解析到自己那一份:
+  // 实测真机应用包的 packager map 里同时有
+  //   .pnpm/lucide-react-native@1.37.0__e906d168.../node_modules/lucide-react-native/...
+  //   .pnpm/lucide-react-native@1.37.0__aeed032a.../node_modules/lucide-react-native/...
+  // 两棵子树(3594 个图标模块 = 整套图标被打了两遍)。同版本、无状态差异,统一取 app 那一份。
+  if (moduleName === 'lucide-react-native' || moduleName.startsWith('lucide-react-native/')) {
+    const local = require.resolve(moduleName, { paths: [__dirname] })
+    return { type: 'sourceFile', filePath: realpathOrNull(local) }
+  }
   // pnpm 隔离目录内包的裸包名依赖(详见上方 react-devtools-core 红屏修复注释):
   // 两级解析——
   // ① app 本地 node_modules 优先:react-native-svg 等共享包存在多个 peer 组合的

@@ -324,7 +324,18 @@ test('F3 接线诚实性:未注册时头注不得自称已接线;注册后必须
     return
   }
   assert.equal(hits.length, 1, `同一 script 必须恰好注册一次,实得 ${hits.length} 次`)
-  const block = lines.slice(Math.max(0, hits[0].i - 16), hits[0].i + 24).join('\n')
+  // 2026-10-21:原先用 `hits[0].i ± 16/24` 行的固定窗口取注册块 —— 相邻门(226 hook-form)
+  // 的 id 与 skipEnv 正好落进这个窗口,于是本门读到的是**别人那条**登记,判成撞号/串名。
+  // 改成按对象边界取:向上找到条目起始的 `  {`,向下找到配平的 `  },`。
+  const objStart = (() => {
+    for (let j = hits[0].i; j >= 0; j--) if (/^\s{2}\{\s*$/.test(lines[j])) return j
+    return Math.max(0, hits[0].i - 16)
+  })()
+  const objEnd = (() => {
+    for (let j = hits[0].i; j < lines.length; j++) if (/^\s{2}\},?\s*$/.test(lines[j])) return j
+    return Math.min(lines.length - 1, hits[0].i + 24)
+  })()
+  const block = lines.slice(objStart, objEnd + 1).join('\n')
   const idMatch = block.match(/id:\s*'(\d+)'/)
   assert.ok(idMatch, '注册块里找不到 id —— 条目形状被改坏')
   const ids = [...runner.matchAll(/id:\s*'(\d+)'/g)].map((m) => m[1])
