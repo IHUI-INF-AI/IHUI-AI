@@ -422,18 +422,23 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62-2.md",
-      "reason": "对侧主线已有意重入库(11f54b8d07e 台账清偿批按远端逐字节原值恢复,ea325b1eeac 同型先例点名解推送车道);本侧 G-926 取消跟踪(988a243cd12)早于合并基线,合并带回=与远端现状对齐,非抹任何在飞行",
-      "reviewBy": "2027-06-30"
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62.md",
+      "reason": "活跃临时流水文件:plan-pointer-purge 会话持续写入同族文件(本日仍在更新),删除会破坏在飞清账工作;合并 ede80b6337d 的复活属该工作流正常产物,故可接受。",
+      "reviewBy": "2026-12-31"
     },
     {
-      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62.md",
-      "reason": "同 96818d62-2 枚:对侧 11f54b8d07e/ea325b1eeac 有意重入库,本侧删除早于合并基线,带回=对齐远端现状",
-      "reviewBy": "2027-06-30"
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62-2.md",
+      "reason": "活跃临时流水文件:plan-pointer-purge 会话持续写入同族文件(本日仍在更新),删除会破坏在飞清账工作;合并 ede80b6337d 的复活属该工作流正常产物,故可接受。",
+      "reviewBy": "2026-12-31"
     },
     {
       "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62-3.md",
       "reason": "对侧远端 tip 仍持有该路径;本侧删除为 G-926 取消跟踪(988a243cd12,60 枚 tracked-but-ignored 临时件)早于本次合并基线,合并带回=与远端现状对齐,非抹任何在飞行",
+      "reviewBy": "2026-11-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/static/images/icons/image.svg",
+      "reason": "对侧 5828ca478c0(G-924 六条线上取不到的图标 URL 改走本仓 lucide SVG)有意重入库;本侧删除为 CDN 外置轮 399aaef9035,早于对侧重入库;合并带回=与对侧有意重入库对齐,非抹任何在飞行",
       "reviewBy": "2026-11-30"
     }
   ]
