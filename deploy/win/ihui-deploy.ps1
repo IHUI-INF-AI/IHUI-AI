@@ -504,6 +504,10 @@ function Fail {
     # Fail == 本轮以未切流收场 ⇒ 全部走"切流受阻"类(宽限窗 + 成功切流即清偿)。
     # $Detail 只落到邮件正文(见 Invoke-FailNotify 里那条"明细绝不进签名"的理由)。
     try { Invoke-FailNotify -m $m -Detail $Detail -Stall } catch {}
+    # 失败轮同样回收净面(2026-10-21):构建失败 / merge 失败是"半截净面"最高发的一型,
+    # 旧写法只 Log + exit 1 ⇒ 净面留在盘上,下一轮 add 撞 already registered。
+    # **必须在释放锁之前**:放锁后再回收,下一轮可能已经起来并重建了净面,这条会把它删掉。
+    try { Invoke-CleanBuildWorktreeSweep } catch {}
     try { Release-DeployLock } catch {}
     exit 1
 }
@@ -1109,30 +1113,90 @@ function Reset-CleanBuildWorktree {
     return (@(Get-ChildItem -LiteralPath $Path -Force -ErrorAction SilentlyContinue | Measure-Object).Count -eq 0)
 }
 
+function Remove-CleanBuildStaleBranch {
+    <#
+      清"空分支"(2026-10-21 立):`worktree remove` 只注销工作树,**不删它 checkout 过的分支**。
+      净面若是以分支形态(而非 --detach)建出来的,回收后那条分支就原地留下,且 tip 与 main
+      完全相同(没有独有提交)—— 用户看到的"clean build 跑完了,空分支还挂着"就是这一半。
+      只删同时满足三条的分支,缺一条就不动并如实报数(名字像残留不构成删除依据,§7):
+        ① 名字属净面族:等于本轮净面 checkout 的分支名,或等于净面目录名;
+        ② tip 已是 main(退化 origin/main)的祖先 ⇒ **无独有提交**,删它零内容损失;
+        ③ 当前没有任何 worktree 占用它(被占用时 git 自己也会拒,这里先判避免噪音)。
+    #>
+    param([string]$BranchName)
+    if (-not $BranchName) { return }
+    try {
+        $names = @($BranchName)
+        $leaf = Split-Path -Leaf $CleanBuildWt
+        if ($leaf -and $leaf -ne $BranchName) { $names += $leaf }
+        # 切行后必须逐项 Trim:git 在 Windows 上给的是 CRLF,只按 `n 切会留下 `r,
+        # 于是 `-contains 'xxx'` 恒不命中 —— 空分支会被静默漏删(2026-10-21 合成用例 T1 实测)。
+        $allBranches = @((git @gitFace -C $Root for-each-ref --format='%(refname:short)' refs/heads 2>$null | Out-String) -split "`n" |
+            ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        $inUse = @((git @gitFace -C $Root worktree list --porcelain 2>$null | Out-String) -split "`n" |
+            Where-Object { $_ -match '^branch\s+refs/heads/' } |
+            ForEach-Object { ($_ -replace '^branch\s+refs/heads/', '').Trim() })
+        $base = if (((git @gitFace -C $Root rev-parse --verify --quiet refs/heads/main 2>$null | Out-String).Trim())) { 'refs/heads/main' } else { 'refs/remotes/origin/main' }
+        foreach ($n in ($names | Select-Object -Unique)) {
+            if (-not ($allBranches -contains $n)) { continue }
+            if ($inUse -contains $n) { Log "[clean-recycle] 分支 $n 仍被某个 worktree 占用 ⇒ 不删"; continue }
+            git @gitFace -C $Root merge-base --is-ancestor "refs/heads/$n" $base 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                Log "[clean-recycle] 分支 $n 有独有提交(不是空分支)⇒ 不删,交人工"
+                continue
+            }
+            Log "[clean-recycle] 分支 $n 无独有提交(空分支)⇒ 删除"
+            git @gitFace -C $Root branch -D $n 2>&1 | ForEach-Object { if ("$_".Trim()) { Log "[clean-recycle] branch: $_" } }
+        }
+    } catch { Log "WARN  空分支清理异常(不影响本轮发布):$_" }
+}
+
 function Invoke-CleanBuildWorktreeSweep {
     <#
-      收尾自检:清"登记在、目录已不存在"的孤儿登记,并报告净面状态。
-      刻意**不删在役净面** —— 它是跨轮复用的构建缓存(每轮只 checkout,不重装依赖;删了每轮
-      多花数分钟 pnpm install,且 pnpm 会在卷根造 .pnpm-store,见 .ihui-agent/archive 里那份
-      2026-10-06 值守溯源)。只回收无人使用的残骸,不动正在服役的那一份。
+      收尾回收(2026-10-21 立,同日二次修正):**本轮跑完即回收**,不再跨轮保留净面。
+      旧口径"保留在役净面当缓存"实测不成立(2026-10-21 23:19 那轮):净面依赖装不上时
+      (`pnpm install` exit=-4058)它既不能用于构建、又整份(829 MB)留在盘上,还占着
+      worktree 登记表 —— 用户看到的现象正是"clean build 跑完了,那个空分支 worktree 还在"。
+      "跑完"= 本轮任何出口(成功 / 构建失败 / 门禁回滚),调用点见 Fail 与两处收尾。
+      四步,缺一步就留残骸:
+        ① 记下净面当前 checkout 的分支(若是 --detach 则为空);
+        ② Reset-CleanBuildWorktree:prune → worktree remove --force → 目录兜底 → 再 prune;
+        ③ Remove-CleanBuildStaleBranch:清"空分支"(只删无独有提交、无人占用、属净面族);
+        ④ 清 worktrees 管理目录里的死登记 —— prune 有时清不掉(文件锁/目录损坏),
+           判据 = 该登记自己的 `gitdir` 指向的工作树路径已不存在。
+      逃生舱:IHUI_DEPLOY_CLEAN_WT_KEEP=1 ⇒ 保留净面(省下一轮 pnpm install,代价是每轮
+      结束都留一份 detached 检出)。仅调试/排障用,默认不设 = 回收。
     #>
+    if (-not $CleanBuildWt) { return }
     try {
-        $roots = @((git @gitFace -C $Root worktree list --porcelain 2>$null | Out-String) -split "`n" |
-            Where-Object { $_ -match '^worktree\s+' } |
-            ForEach-Object { ($_ -replace '^worktree\s+', '').Trim() })
-        $mainNorm = ($Root -replace '\\', '/').TrimEnd('/')
-        $orphans = @($roots | Where-Object {
-                $_ -and ((($_ -replace '\\', '/').TrimEnd('/')) -ne $mainNorm) -and (-not (Test-Path -LiteralPath $_))
-            })
-        if ($orphans.Count -gt 0) {
-            Log ("[CLEAN-BUILD] 收尾:发现 {0} 个「登记在、目录已不存在」的 worktree ⇒ prune 回收:{1}" -f $orphans.Count, ($orphans -join ' | '))
-            git @gitFace -C $Root worktree prune 2>&1 | ForEach-Object { if ("$_".Trim()) { Log "[clean-recycle] $_" } }
+        if ($env:IHUI_DEPLOY_CLEAN_WT_KEEP -eq '1') {
+            Log "[CLEAN-BUILD] 收尾:IHUI_DEPLOY_CLEAN_WT_KEEP=1 ⇒ 保留净面(调试档,不回收):$CleanBuildWt"
+            return
         }
-        $state = if (Test-Path -LiteralPath (Join-Path $CleanBuildWt '.git')) { '在役(跨轮复用,保留)' }
-        elseif (Test-Path -LiteralPath $CleanBuildWt) { '半截残留(下一轮开建时回收)' }
-        else { '不存在(下一轮按需重建)' }
+        $branch = ''
+        if (Test-Path -LiteralPath (Join-Path $CleanBuildWt '.git')) {
+            $branch = ((git @gitFace -C $CleanBuildWt symbolic-ref --quiet --short HEAD 2>$null | Out-String).Trim())
+            Log "[CLEAN-BUILD] 收尾:回收净面 $CleanBuildWt(本轮 checkout 分支=$(if ($branch) { $branch } else { 'detached' }))"
+        }
+        [void](Reset-CleanBuildWorktree -Path $CleanBuildWt)
+        Remove-CleanBuildStaleBranch -BranchName $branch
+        $common = ((git @gitFace -C $Root rev-parse --path-format=absolute --git-common-dir 2>$null | Out-String).Trim())
+        if ($common) {
+            $adminRoot = Join-Path $common 'worktrees'
+            if (Test-Path -LiteralPath $adminRoot) {
+                foreach ($d in @(Get-ChildItem -LiteralPath $adminRoot -Directory -Force -ErrorAction SilentlyContinue)) {
+                    $gd = Join-Path $d.FullName 'gitdir'
+                    $target = if (Test-Path -LiteralPath $gd) { (Get-Content -LiteralPath $gd -Raw -ErrorAction SilentlyContinue).Trim() } else { '' }
+                    if (-not $target -or -not (Test-Path -LiteralPath $target)) {
+                        Log ("[clean-recycle] worktrees 管理目录残留(登记目标不存在)⇒ 删除:{0}" -f $d.FullName)
+                        Remove-Item -LiteralPath $d.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+        }
+        $state = if (Test-Path -LiteralPath $CleanBuildWt) { '仍有残留(看上方 [clean-recycle] 行)' } else { '已回收(目录与登记均已清)' }
         Log "[CLEAN-BUILD] 收尾:净面=$state 路径=$CleanBuildWt"
-    } catch { Log "WARN  净面收尾自检异常(不影响本轮发布):$_" }
+    } catch { Log "WARN  净面收尾回收异常(不影响本轮发布):$_" }
 }
 
 function Get-CleanBuildWebDir {
@@ -2135,6 +2199,8 @@ $behind = [int]$behindRaw
 
 if ($behind -eq 0 -and -not $deployLatest -and -not (Get-BuildStale)) {
     Ok "本地已是最新 main,无需部署(behind=$behind)"
+    # 不构建的轮也要收尾:上一轮(旧口径)可能留下净面,不清就永远挂在那儿。
+    Invoke-CleanBuildWorktreeSweep
     Release-DeployLock
     exit 0
 }
@@ -2144,6 +2210,7 @@ if ($behind -eq 0 -and -not $deployLatest) {
     # behind>0(有新提交)不拦,push→部署及时性优先。
     if (Test-BuildCooldown) {
         Log "SKIP  前轮构建/门禁失败后冷却中(30 分钟内),本轮不重建;冷却结束自动重试,根因已修复则无需干预"
+        Invoke-CleanBuildWorktreeSweep
         Release-DeployLock
         exit 0
     }
@@ -2418,9 +2485,10 @@ if (-not (Test-HealthGate)) {
         # 收口路径与退出码逐字不动 —— 只加响,不改流。
         # 签名稳定性同 :1380 那条:文案不含 sha/时间戳/轮次,按身份去重(4h)才会真命中。
         try { Invoke-FailNotify -Stall -m "健康门禁未过,新构建已回滚:旧版本仍在线(30 分钟后自动重试;构建本身成功,是 web/api/llm 门禁判不过)" } catch { Log "ALERT 门禁失败告警发信异常(不影响回滚已成立):$_" }
-        Release-DeployLock
         # 回滚轮同样收尾:失败路径最容易留下半截净面,不清就等下一轮 add 撞 already registered。
+        # 顺序与正常收尾一致 —— 先回收再放锁,避免放锁后新起的一轮重建的净面被这条删掉。
         Invoke-CleanBuildWorktreeSweep
+        Release-DeployLock
         exit 0
     }
 } else {
@@ -2530,10 +2598,12 @@ try {
         Log "WARN  告警身份未清偿(去重档案判不出:$($cleared.Error))—— 不等于已清,下一轮仍可能重发"
     }
 } catch { Log "WARN  告警清偿调用异常(不影响本轮发布):$_" }
-Release-DeployLock
-# ── 净面 worktree 收尾(2026-10-21 立):做完动作必须回收残骸 ─────────────────────
-# 只清"登记在、目录已不存在"的孤儿,不动在役净面(跨轮复用的构建缓存,删了每轮重装依赖)。
+# ── 净面 worktree 收尾(2026-10-21 立,同日二次修正):跑完即回收 ──────────────────
+# 旧口径只清"登记在、目录已不存在"的孤儿、保留在役净面;实测净面依赖装不上时那份检出
+# 既不能构建又整份占盘,还挂在 worktree 登记表里 ⇒ 现改为每轮无条件回收(含空分支)。
+# **必须在 Release-DeployLock 之前**:放锁后再回收,下一轮可能已重建净面,这条会把它删掉。
 Invoke-CleanBuildWorktreeSweep
+Release-DeployLock
 if ($script:DbMigrateDegraded) {
     Log "WARN  本轮收尾:DB 迁移未落地(发布按设计继续),状态见 deploy\win\.migrate-alert-state.json;-diagnose 的 [7b] 会复述落后条数"
 }

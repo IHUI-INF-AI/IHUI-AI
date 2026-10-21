@@ -921,7 +921,10 @@ if (process.env.HUSKY_SKIP_I18N_DEAD_KEY !== '1') {
 //      不得再进这一档的结论,升级 blocking 时才不会复刻今天这次批外恒红)。
 // 跳过方法:HUSKY_SKIP_I18N_DEAD_KEY_OTHER=1 git commit ...
 // 注:3 端扫描器内置 5 语言 JSON 加载,key 不一致会直接报错(隐式 parity 校验)。
-if (process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER !== '1') {
+// ⚠️ 2026-10-22:本档**默认延后到 post-commit**(判据一字未动,只是换了执行时机)。
+// 理由是它自己就是 warn-only(用 || true 吞掉 exit 1,从不阻断提交),而 3 端实测合计 8.3s
+// 全额计入用户的提交等待。要在此刻跑(排障/升级 blocking 前评估):HUSKY_SKIP_I18N_DEAD_KEY_OTHER=0。
+if ((process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER ?? '1') !== '1') {
   console.log(
     '🌐 4 端 i18n 死 key 扫描(miniapp-taro/mobile-rn/extension,warn-only,判定面=索引 blob)',
   )
@@ -938,7 +941,7 @@ if (process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER !== '1') {
     }
   }
 } else {
-  console.log('⏭  4 端 i18n 死 key 扫描(HUSKY_SKIP_I18N_DEAD_KEY_OTHER=1, 跳过)')
+  console.log('⏭  4 端 i18n 死 key 扫描(warn-only,已延后到 post-commit;要在此跑:HUSKY_SKIP_I18N_DEAD_KEY_OTHER=0)')
 }
 
 // 🎨 miniapp-taro 跨端样式一致性守门(2026-09-03 立)
