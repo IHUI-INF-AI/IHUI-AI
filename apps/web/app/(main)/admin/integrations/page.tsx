@@ -11,7 +11,8 @@ import { useTranslations } from 'next-intl'
 import { IntegrationFilter } from './IntegrationFilter'
 import { IntegrationTable } from './IntegrationTable'
 import { IntegrationDialog } from './IntegrationDialog'
-import { EMPTY_FORM, api, normList, integrationToForm } from './helpers'
+import { EMPTY_FORM, normList, integrationToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { Integration, IntegrationForm, TestResult } from './types'
 import { BackButton } from '@/components/common'
 
@@ -27,7 +28,7 @@ export default function AdminIntegrationsPage() {
 
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['admin', 'integrations'],
-    queryFn: async () => normList(await api('/api/admin/integrations')),
+    queryFn: async () => normList(await apiOrThrow('/api/admin/integrations')),
   })
   const saveMut = useMutation({
     mutationFn: () => {
@@ -44,11 +45,11 @@ export default function AdminIntegrationsPage() {
         isEnabled: form.isEnabled,
       }
       return editing
-        ? api(`/api/admin/integrations/${editing.id}`, {
+        ? apiOrThrow(`/api/admin/integrations/${editing.id}`, {
             method: 'PATCH',
             body: JSON.stringify(body),
           })
-        : api('/api/admin/integrations', { method: 'POST', body: JSON.stringify(body) })
+        : apiOrThrow('/api/admin/integrations', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'integrations'] })
@@ -58,14 +59,14 @@ export default function AdminIntegrationsPage() {
   })
   const testMut = useMutation({
     mutationFn: (id: string) =>
-      api<TestResult>(`/api/admin/integrations/${id}/test`, { method: 'POST' }),
+      apiOrThrow<TestResult>(`/api/admin/integrations/${id}/test`, { method: 'POST' }),
     onMutate: (id) => setTestResults((p) => ({ ...p, [id]: 'loading' })),
     onSuccess: (res, id) => setTestResults((p) => ({ ...p, [id]: res })),
     onError: (e: Error, id) =>
       setTestResults((p) => ({ ...p, [id]: { success: false, message: e.message } })),
   })
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/integrations/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/integrations/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'integrations'] })
       setDelTarget(null)

@@ -36,11 +36,11 @@ import {
   PAGE_SIZE,
   STATS_DAYS_OPTS,
   CLEANUP_DAYS_OPTS,
-  api,
   statusClass,
   Badge,
   MetricCard,
 } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { ApiLog, LogsData, LogStats } from './types'
 import { formatNumber } from '@/lib/date-utils'
 import { BackButton } from '@/components/common'
@@ -71,18 +71,18 @@ export default function AdminLogsPage() {
       if (method !== 'all') qs.set('method', method)
       if (statusCode.trim()) qs.set('statusCode', statusCode.trim())
       if (path.trim()) qs.set('path', path.trim())
-      return api<LogsData>(`/api/admin/logs?${qs.toString()}`)
+      return apiOrThrow<LogsData>(`/api/admin/logs?${qs.toString()}`)
     },
   })
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['admin', 'logs', 'stats', statsDays],
-    queryFn: () => api<LogStats>(`/api/admin/logs/stats?days=${statsDays}`),
+    queryFn: () => apiOrThrow<LogStats>(`/api/admin/logs/stats?days=${statsDays}`),
   })
 
   const cleanupMut = useMutation({
     mutationFn: () =>
-      api<{ deletedCount: number; days: number }>(`/api/admin/logs/cleanup`, {
+      apiOrThrow<{ deletedCount: number; days: number }>(`/api/admin/logs/cleanup`, {
         method: 'POST',
         body: JSON.stringify({ days: cleanupDays }),
       }),

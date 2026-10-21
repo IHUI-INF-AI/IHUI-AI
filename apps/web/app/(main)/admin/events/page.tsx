@@ -23,7 +23,6 @@ import { EventFilter } from './EventFilter'
 import { EventTable } from './EventTable'
 import { EventDialog } from './EventDialog'
 import {
-  api,
   normList,
   EMPTY_FORM,
   eventToForm,
@@ -32,6 +31,7 @@ import {
   TYPE_KEY,
   LEVEL_KEY,
 } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { SystemEvent, EventForm, EventType, Level } from './types'
 import { BackButton } from '@/components/common'
 
@@ -54,7 +54,7 @@ export default function AdminEventsPage() {
       if (type !== 'all') qs.set('type', type)
       if (level !== 'all') qs.set('level', level)
       const q = qs.toString()
-      return normList(await api(`/api/admin/events${q ? `?${q}` : ''}`))
+      return normList(await apiOrThrow(`/api/admin/events${q ? `?${q}` : ''}`))
     },
   })
 
@@ -77,8 +77,11 @@ export default function AdminEventsPage() {
         data,
       }
       return editing
-        ? api(`/api/admin/events/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) })
-        : api('/api/admin/events', { method: 'POST', body: JSON.stringify(body) })
+        ? apiOrThrow(`/api/admin/events/${editing.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+          })
+        : apiOrThrow('/api/admin/events', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'events'] })
@@ -88,7 +91,7 @@ export default function AdminEventsPage() {
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/events/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/events/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'events'] })
       setDelTarget(null)

@@ -14,7 +14,8 @@ import { Button } from '@ihui/ui-react'
 import { EduSettingsFilter } from './EduSettingsFilter'
 import { EduSettingsTable } from './EduSettingsTable'
 import { EduSettingsDialog } from './EduSettingsDialog'
-import { api, normList, parseJson, EMPTY_FORM, eduSettingToForm } from './helpers'
+import { normList, parseJson, EMPTY_FORM, eduSettingToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { EduSetting, EduSettingForm } from './types'
 import { BackButton } from '@/components/common'
 import { useConfirm } from '@/hooks/use-confirm'
@@ -32,7 +33,7 @@ export default function AdminEduSettingsPage() {
 
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['admin', 'edu-settings'],
-    queryFn: async () => normList(await api('/api/admin/edu-settings?pageSize=100')),
+    queryFn: async () => normList(await apiOrThrow('/api/admin/edu-settings?pageSize=100')),
   })
   const saveMut = useMutation({
     mutationFn: () => {
@@ -48,11 +49,11 @@ export default function AdminEduSettingsPage() {
         description: form.description || undefined,
       }
       return editing
-        ? api(`/api/admin/edu-settings/${editing.id}`, {
+        ? apiOrThrow(`/api/admin/edu-settings/${editing.id}`, {
             method: 'PATCH',
             body: JSON.stringify(body),
           })
-        : api('/api/admin/edu-settings', { method: 'POST', body: JSON.stringify(body) })
+        : apiOrThrow('/api/admin/edu-settings', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'edu-settings'] })
@@ -61,7 +62,7 @@ export default function AdminEduSettingsPage() {
     onError: (e: Error) => setErr(e.message),
   })
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/edu-settings/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/edu-settings/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'edu-settings'] }),
   })
 

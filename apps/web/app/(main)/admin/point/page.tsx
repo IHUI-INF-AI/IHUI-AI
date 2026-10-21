@@ -17,7 +17,8 @@ import { Button } from '@ihui/ui-react'
 import { ChannelFilter } from './ChannelFilter'
 import { ChannelTable } from './ChannelTable'
 import { ChannelDialog } from './ChannelDialog'
-import { PAGE_SIZE, api, fetchChannels, EMPTY_FORM, channelToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { PAGE_SIZE, fetchChannels, EMPTY_FORM, channelToForm } from './helpers'
 import type { Channel, ChannelForm } from './types'
 import { BackButton } from '@/components/common'
 
@@ -57,12 +58,12 @@ export default function AdminPointPage() {
         status: form.status ? 1 : 0,
       }
       if (editing) {
-        return api<{ channel: Channel }>(`/api/admin/edu-points/channels/${editing.id}`, {
+        return apiOrThrow<{ channel: Channel }>(`/api/admin/edu-points/channels/${editing.id}`, {
           method: 'PUT',
           body: JSON.stringify(body),
         })
       }
-      return api<{ channel: Channel }>(`/api/admin/edu-points/channels`, {
+      return apiOrThrow<{ channel: Channel }>(`/api/admin/edu-points/channels`, {
         method: 'POST',
         body: JSON.stringify(body),
       })
@@ -76,7 +77,8 @@ export default function AdminPointPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/edu-points/channels/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/admin/edu-points/channels/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'point', 'channels'] })

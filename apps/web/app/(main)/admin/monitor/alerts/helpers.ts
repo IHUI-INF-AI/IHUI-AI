@@ -4,17 +4,10 @@
 
 import type { ComponentType } from 'react'
 import { AlertTriangle, Bell } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
 import type { Alert } from './types'
 
 export const selectClass =
   'h-8 w-auto rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-
-export async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
 
 export const LEVEL_STYLE: Record<
   Alert['level'],

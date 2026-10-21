@@ -13,7 +13,8 @@ import { Button } from '@ihui/ui-react'
 
 import { SensitiveWordsTable } from './SensitiveWordsTable'
 import { SensitiveWordDialog } from './SensitiveWordDialog'
-import { api, EMPTY } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { EMPTY } from './helpers'
 import type { SensitiveWord, SensitiveWordForm } from './types'
 import { BackButton } from '@/components/common'
 import { useConfirm } from '@/hooks/use-confirm'
@@ -30,7 +31,7 @@ export default function SensitiveWordsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'sensitive-words', currentPage],
-    queryFn: () => api<{ list: SensitiveWord[] }>('/api/admin/sensitive-words'),
+    queryFn: () => apiOrThrow<{ list: SensitiveWord[] }>('/api/admin/sensitive-words'),
   })
 
   const saveMut = useMutation({
@@ -43,11 +44,11 @@ export default function SensitiveWordsPage() {
         status: form.status,
       }
       return editing
-        ? api<SensitiveWord>(`/api/admin/sensitive-words/${editing.id}`, {
+        ? apiOrThrow<SensitiveWord>(`/api/admin/sensitive-words/${editing.id}`, {
             method: 'PUT',
             body: JSON.stringify(body),
           })
-        : api<SensitiveWord>('/api/admin/sensitive-words', {
+        : apiOrThrow<SensitiveWord>('/api/admin/sensitive-words', {
             method: 'POST',
             body: JSON.stringify(body),
           })
@@ -61,7 +62,8 @@ export default function SensitiveWordsPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api<void>(`/api/admin/sensitive-words/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow<void>(`/api/admin/sensitive-words/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'sensitive-words'] })
       toast.success('删除成功')

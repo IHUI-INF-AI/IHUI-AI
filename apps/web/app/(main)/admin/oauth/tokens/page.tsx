@@ -15,6 +15,7 @@ import { Button } from '@ihui/ui-react'
 import { OauthTokenFilter } from './OauthTokenFilter'
 import { OauthTokenTable } from './OauthTokenTable'
 import { OauthTokenDialog } from './OauthTokenDialog'
+import { apiOrThrow } from '@/lib/api'
 import {
   RESOURCE,
   PERM,
@@ -24,7 +25,6 @@ import {
   SEARCH_FIELDS,
   FIELDS,
   DATE_FIELDS,
-  api,
   itemToForm,
   emptySearch,
 } from './helpers'
@@ -52,7 +52,7 @@ export default function AuthTokensPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin', PERM, params],
     queryFn: () =>
-      api<{ list: Item[]; total: number }>(`${RESOURCE}?${new URLSearchParams(params)}`),
+      apiOrThrow<{ list: Item[]; total: number }>(`${RESOURCE}?${new URLSearchParams(params)}`),
   })
   const list = data?.list ?? []
   const total = data?.total ?? 0
@@ -61,8 +61,8 @@ export default function AuthTokensPage() {
   const saveMut = useMutation({
     mutationFn: () =>
       editing
-        ? api(`${RESOURCE}/${editing.id}`, { method: 'PUT', body: JSON.stringify(form) })
-        : api(RESOURCE, { method: 'POST', body: JSON.stringify(form) }),
+        ? apiOrThrow(`${RESOURCE}/${editing.id}`, { method: 'PUT', body: JSON.stringify(form) })
+        : apiOrThrow(RESOURCE, { method: 'POST', body: JSON.stringify(form) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', PERM] })
       toast.success(editing ? '更新成功' : '创建成功')
@@ -71,7 +71,7 @@ export default function AuthTokensPage() {
     onError: (e: Error) => toast.error(e.message),
   })
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`${RESOURCE}/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`${RESOURCE}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', PERM] })
       toast.success('删除成功')

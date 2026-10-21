@@ -11,7 +11,8 @@ import { LayoutDashboard, Loader2 } from 'lucide-react'
 import { MonitorStatCards } from './MonitorStatCards'
 import { MonitorAlerts } from './MonitorAlerts'
 import { MonitorLogs } from './MonitorLogs'
-import { api, buildPerfCards } from './helpers'
+import { buildPerfCards } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { ServiceItem, PerfItem, AlertItem, LogSummary } from './types'
 import { BackButton } from '@/components/common'
 
@@ -21,19 +22,19 @@ export default function MonitoringDashboardPage() {
 
   const { data: services, isLoading } = useQuery({
     queryKey: ['admin', 'monitoring', 'services'],
-    queryFn: () => api<ServiceItem[]>('/api/admin/monitoring/services'),
+    queryFn: () => apiOrThrow<ServiceItem[]>('/api/admin/monitoring/services'),
   })
   const { data: perf } = useQuery({
     queryKey: ['admin', 'monitoring', 'perf'],
-    queryFn: () => api<PerfItem>('/api/admin/monitoring/perf'),
+    queryFn: () => apiOrThrow<PerfItem>('/api/admin/monitoring/perf'),
   })
   const { data: alerts } = useQuery({
     queryKey: ['admin', 'monitoring', 'alerts'],
-    queryFn: () => api<AlertItem[]>('/api/admin/monitoring/alerts'),
+    queryFn: () => apiOrThrow<AlertItem[]>('/api/admin/monitoring/alerts'),
   })
   const { data: logs } = useQuery({
     queryKey: ['admin', 'monitoring', 'logs'],
-    queryFn: () => api<LogSummary>('/api/admin/monitoring/logs'),
+    queryFn: () => apiOrThrow<LogSummary>('/api/admin/monitoring/logs'),
   })
 
   const servicesList = services ?? []
