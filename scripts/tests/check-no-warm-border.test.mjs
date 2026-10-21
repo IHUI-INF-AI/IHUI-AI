@@ -21,8 +21,10 @@
 import { execFileSync } from 'node:child_process'
 import { dirname, resolve, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { __test__ as G } from '../check-no-warm-border.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { resolveGitBin } from '../lib/gitdir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
@@ -238,6 +240,59 @@ t('M15 审树档三态:红/绿/未判定各自成立(纯函数面 + 真 git 树)
   const mixed = run(['--rev', 'deadbeef1', '--staged'])
   if (mixed.rc === 0 || !/互斥/.test(mixed.out))
     throw new Error(`--rev 与 --staged 同给必须报错并 exit 2,实得 rc=${mixed.rc}`)
+})
+
+t('M16 --root 换仓三态(G-929):显式指定被审仓 ⇒ 真判;目录不存在 ⇒ 未判定;缺省仍自推导', () => {
+  // 立因(票 G-929 原话):旁路落地器镜像测试把 LAND_ROOT 指到 mkScratch 临时仓,门体缺省按
+  // 自身位置推导 ⇒ 在主仓里问一枚只存在于临时仓的树 ⇒ "not a tree object" ⇒ 未判定
+  // ⇒ 落地器 fail-closed 拒绝 ⇒ object-space-land 镜像套件 26 例整批红。
+  // 本档钉死"换仓不失明"与"缺省行为不变"两件事各有一枚对照。
+  const GIT = resolveGitBin() || 'git'
+  const run = (args) => {
+    try {
+      execFileSync(process.execPath, [join(ROOT, 'scripts', 'check-no-warm-border.mjs'), ...args], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 120000,
+      })
+      return { rc: 0, out: '' }
+    } catch (e) {
+      return { rc: e.status ?? 9, out: String((e.stdout ?? '') + (e.stderr ?? '')) }
+    }
+  }
+  const git = (dir, args) =>
+    execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 120000,
+    })
+  const dir = mkScratch('wb-root-')
+  try {
+    git(dir, ['init', '-q'])
+    mkdirSync(join(dir, 'apps', 'web', 'src'), { recursive: true })
+    // 射程内(apps/web 前缀 + .css)的暖色聚焦描边 —— 判据与仓根无关,换仓必须照样判红
+    writeFileSync(join(dir, 'apps', 'web', 'src', 'scratch-input.css'), '.x:focus-within {\n  border-color: var(--color-amber-500);\n}\n')
+    git(dir, ['add', '-A'])
+    git(dir, ['commit', '-q', '-m', 'base'])
+    const tree = git(dir, ['rev-parse', 'HEAD^{tree}']).trim()
+    // ① 正控:--root 指到临时仓 ⇒ 照常判红且点名 W1-css(判据不因换仓失明)
+    const withRoot = run(['--rev', tree, '--only', 'apps/web/src/scratch-input.css', '--root', dir])
+    if (withRoot.rc !== 1) throw new Error(`换仓后必须照常判红(rc=1),实得 rc=${withRoot.rc}:${withRoot.out.slice(0, 200)}`)
+    if (!/W1-css/.test(withRoot.out)) throw new Error('判红必须点名 W1-css(判据没跑起来)')
+    // ② 反证:--root 指向不存在的目录 ⇒ 未判定(不静默回落到自推导 —— 那是 fail-open)
+    //    断言必须钉到**拒绝理由本身**(点名 --root 目录不存在),只钉 rc=2 分不出
+    //    "校验拒绝"与"静默回落后树问不到"—— 两者都是 exit 2,后者正是要禁的形态。
+    const badRoot = run(['--rev', tree, '--only', 'apps/web/src/scratch-input.css', '--root', join(dir, 'no-such-dir')])
+    if (badRoot.rc !== 2) throw new Error(`--root 不存在必须 exit 2(未判定),实得 rc=${badRoot.rc} —— 静默回落=把指错仓读成审过了`)
+    if (!/目录不存在/.test(badRoot.out))
+      throw new Error(`拒绝理由必须点名"目录不存在"(靠下游树噪声蒙混 = 校验被绕开):${badRoot.out.slice(0, 200)}`)
+    // ③ 方向锁:同一棵树不给 --root(缺省按脚本位置在主仓里问)⇒ 仍 exit 2
+    //    —— 证明生产路径"缺省自推导"的行为没被改掉;26 例红的根因正是这一格
+    const noRoot = run(['--rev', tree, '--only', 'apps/web/src/scratch-input.css'])
+    if (noRoot.rc !== 2) throw new Error(`不给 --root 必须仍按自推导(临时仓的树在主仓问不到 ⇒ exit 2),实得 rc=${noRoot.rc} —— 缺省行为被改坏了`)
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
 })
 
 for (const c of cases) {
