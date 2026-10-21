@@ -57,6 +57,16 @@ jobs:
     #   不变),环境类失败(装不上 / 被跳过 / 一行没跑)由哨兵步当场判红。
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 必须取全历史。这批镜像测试里有一族判据的设计目的就是「夹具不算证明 —— 必须拿真仓
+          # 历史 blob 证」(如 `check-dangling-local-imports.test.mjs` 的 D4/D5、各门的「真仓历史
+          # 阳性对照」)。缺省 checkout 是 depth=1 浅克隆 ⇒ 它们在 CI 上**结构上不可能通过**,
+          #  nightly 因此常年带着一堆"假存量红"。实测对照(同一枚测试):
+          #   全历史 worktree ⇒ pass 22 / fail 0;浅克隆(=CI 条件)⇒ pass 17 / fail 5,
+          #   红的正是 D4/D5 那两枚历史锚点用例。
+          # 有界深度不可行:现读测试里按名点名且确为本仓提交的锚点共 **148 枚**,最深一枚距仓库根
+          # **35347** 个提交(2b2bd94fae…)⇒ 只有 fetch-depth: 0 能覆盖全部。
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
