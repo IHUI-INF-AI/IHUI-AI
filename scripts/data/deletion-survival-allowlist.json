@@ -440,6 +440,11 @@
       "path": "apps/miniapp-taro/src/static/images/icons/image.svg",
       "reason": "对侧 5828ca478c0(G-924 六条线上取不到的图标 URL 改走本仓 lucide SVG)有意重入库;本侧删除为 CDN 外置轮 399aaef9035,早于对侧重入库;合并带回=与对侧有意重入库对齐,非抹任何在飞行",
       "reviewBy": "2026-11-30"
+    },
+    {
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62-5.md",
+      "reason": "对侧 87f9eebffb1(plan-pointer-purge 归并批重落地,票面自证「被删行原文进 .ihui-agent/tmp/ 下的 plan-pointer-purge-* 台账」)有意重入库;本侧删除为 G-926 取消跟踪(988a243cd12,60 枚 tracked-but-ignored 临时件),早于对侧重入库;合并带回=与对侧有意重入库对齐,非抹任何在飞行",
+      "reviewBy": "2026-11-30"
     }
   ]
 }
