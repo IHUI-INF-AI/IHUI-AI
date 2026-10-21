@@ -6,6 +6,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { withPublicEdgeCache } from '../utils/public-edge-cache.js'
 import {
   findAgreements,
   findAgreementById,
@@ -62,7 +63,7 @@ export const agreementPublicRoutes: FastifyPluginAsync = async (server) => {
     }
     const item = await findCurrentAgreement(parsed.data.type)
     if (!item) return reply.status(404).send(error(404, '暂无生效的协议'))
-    return reply.send(success(item))
+    return withPublicEdgeCache(reply).send(success(item))
   })
 }
 

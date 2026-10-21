@@ -41,8 +41,15 @@ interface BusinessFormState {
   byMessage: Record<string, BusinessFormEntry[]>
   appendFormRequest: (entry: BusinessFormEntry) => void
   markFormResponse: (requestId: string, status: 'sent' | 'failed', error?: string) => void
-  /** 切换会话/清空对话时回收,避免旧请求卡在新流里 */
-  clearForms: () => void
+  /**
+   * 回收"本窗格本会话刚离开的那批消息"上的表单。
+   *
+   * 为什么按消息集清、而不是整表清(票60 普查@2026-10-21):`byMessage` 是全局面板,
+   * 而多窗格并存时每个窗格各自在切会话 —— 整表 `clearForms()` 等于**任一窗格一切换就
+   * 把别的窗格填到一半的表单一起抹掉**(用户可见的数据丢失)。键本来就是 messageId,
+   * 所以清理动作按调用方自己见过的消息集收窄即可,不需要第二份"按窗格分表"的结构。
+   */
+  clearFormsForMessages: (messageIds: readonly string[]) => void
 }
 
 function isKnownKind(value: string): value is BusinessFormKind {
@@ -76,7 +83,14 @@ export const useBusinessFormStore = create<BusinessFormState>((set) => ({
       return { byMessage }
     }),
 
-  clearForms: () => set({ byMessage: {} }),
+  clearFormsForMessages: (messageIds) =>
+    set((state) => {
+      const hit = messageIds.filter((id) => id in state.byMessage)
+      if (hit.length === 0) return state
+      const byMessage = { ...state.byMessage }
+      for (const id of hit) delete byMessage[id]
+      return { byMessage }
+    }),
 }))
 
 /** 取某条消息上的表单请求(渲染宿主按消息 id 拉取) */

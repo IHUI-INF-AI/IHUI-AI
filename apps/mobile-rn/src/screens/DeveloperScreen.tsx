@@ -49,12 +49,17 @@ import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-/** 原 dev_list 三入口图标(CDN,与 Uniapp 一致) */
-const ICON_MY_MODEL = 'https://file.aizhs.top/sys-mini/xtk/my_model.png'
-const ICON_INCOME = 'https://file.aizhs.top/sys-mini/xtk/my_input.png'
-const ICON_N8N = 'https://file.aizhs.top/sys-mini/default/n8n.png'
-const ICON_BUSINESS_CARD = 'https://file.aizhs.top/sys-mini/geren-icon.png'
-const DEFAULT_LOGO = 'https://file.aizhs.top/sys-mini/xtk/devlogo.png'
+/**
+ * 原 dev_list 三入口图标(CDN,与 Uniapp 一致)。
+ * 2026-10-21:原 file.aizhs.top 域名恒 502(Cloudflare 记录指向他应用死源站),
+ * 改指活 CDN `https://aizhs.top`(web 端 rewrite 回源本机 cdn-server,路径映射与
+ * 小程序端 apps/miniapp-taro/src/constants/remote-icons.ts 的 aizhsUrl(...) 同形,逐条实测 200)。
+ */
+const ICON_MY_MODEL = 'https://aizhs.top/sys-mini/xtk/my_model.png'
+const ICON_INCOME = 'https://aizhs.top/sys-mini/xtk/my_input.png'
+const ICON_N8N = 'https://aizhs.top/remote-images/n8n.png'
+const ICON_BUSINESS_CARD = 'https://aizhs.top/remote-images/geren-icon.png'
+const DEFAULT_LOGO = 'https://aizhs.top/sys-mini/xtk/devlogo.png'
 
 /** 非开发者问题解答卡(对齐 Uniapp problems 数据) */
 const PROBLEMS: readonly { title: string; context: string; btn: string; url: string }[] = [

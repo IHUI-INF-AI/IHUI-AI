@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { Monitor, Coins } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
@@ -329,18 +330,18 @@ judge: "gpt-4o"   # 用 GPT-4o 评分选最佳答案`}</code>
       <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3">
         <h2 className="text-lg font-semibold">下一步</h2>
         <div className="mt-3 grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
-          <a href="/docs/agent" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          <Link href="/docs/agent" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
             🤖 Agent 开发 →<br />
             <span className="text-xs text-muted-foreground">为 Agent 选模型</span>
-          </a>
-          <a href="/docs/rag" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          </Link>
+          <Link href="/docs/rag" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
             📚 知识库 RAG →<br />
             <span className="text-xs text-muted-foreground">Embedding 模型选择</span>
-          </a>
-          <a href="/docs/api" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          </Link>
+          <Link href="/docs/api" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
             🛠️ API 参考 →<br />
             <span className="text-xs text-muted-foreground">通过 API 调用模型</span>
-          </a>
+          </Link>
         </div>
       </section>
     </main>

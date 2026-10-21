@@ -55,7 +55,6 @@ const FORWARDED_NAMES = [
   'LOCALE_STORAGE_KEY',
   'TOKEN_STORAGE_KEY',
   'REFRESH_TOKEN_STORAGE_KEY',
-  'DEFAULT_AVATAR_URL',
 ] as const
 
 /** 只剥注释,保留字符串与行号(别名说明符住在字符串里,而替身的说明文字逐字提到旧写法)。 */

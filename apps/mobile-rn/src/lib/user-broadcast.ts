@@ -58,7 +58,7 @@ export function resetBroadcastNotices(): void {
 }
 
 export interface UserBroadcastAdapterDeps {
-  /** REST 基址(真机取 `src/lib/config` 的 API_BASE_URL) */
+  /** WS 换票/广播基址(真机取 `src/lib/config` 的 WS_BASE_URL,与 REST 分域) */
   baseUrl: string
   /** 当前 access token;为空 ⇒ 一条连接都不建 */
   token: string | null

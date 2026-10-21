@@ -46,8 +46,11 @@ export type Qr = {
   readonly subtitle?: string
 }
 
-// 统一图片加载策略(footer 强制 eager,首屏外也要立即显示)
-export const IMG_EAGER = { loading: 'eager', decoding: 'sync' } as const
+// 统一图片加载策略(2026-10-21 改 eager→lazy):React 19.2 SSR 会对所有非 lazy 的
+// <img> 自动发 <link rel=preload as=image> 并写进响应 Link 头(审计
+// PUBLIC-ACCESS-PERF-AUDIT-2026-10-21 P2.4)——页尾/marquee 小图抢首屏连接,
+// 必须显式 loading='lazy' 才能退出 SSR 自动 preload。
+export const IMG_LAZY = { loading: 'lazy', decoding: 'async' } as const
 
 // 生态:支持的接入平台
 // n8n 图标纯白 + 透明 → 标 mono 让 SiteFooter/BrandMarquee 应用 invert filter

@@ -47,6 +47,30 @@ export const API_BASE_URL =
   Platform.OS === 'web' && ENV_API_BASE_URL.includes('10.0.2.2')
     ? ENV_API_BASE_URL.replace('10.0.2.2', 'localhost')
     : ENV_API_BASE_URL
+
+/**
+ * WebSocket 基址(实时通道专用,与 REST **刻意分域**;键名与解析优先级照搬 web 侧
+ * `apps/web/src/lib/ws-url.ts` + `deploy/prod-bundle/svc/run-web.ps1`,不新造第二套口径)。
+ *
+ * 为什么 REST 与 WS 不能是同一个域名(2026-10-21 现测,非推测):
+ *   - `wss://api.aizhs.top/ws/notifications` 带 Upgrade 头 3/3 拿到 **101**;
+ *   - `wss://www.aizhs.top/ws/notifications` 同构造 3/3 拿到 **404**;
+ *   - 决定性对照:www 那枚 404 的响应头带 `x-api-version: 1` / `x-trace-id` / `x-ratelimit-*`
+ *     —— 与 `api.aizhs.top/ws/notifications` **不带 Upgrade 头**时的 404 同一副签名 ⇒
+ *     请求确实抵达了 api(8802),是**升级语义没跟着走完整条腿**(EdgeOne → web 那一跳)。
+ *     哪个具体层剥掉的不判、也不许照猜去改:判据只认"www 臂今天承载不了 WS 握手"这一条实测。
+ *   - `/ws/ticket`(REST 换票)与 `/ws/broadcast`、`/ws/live-chat` 同源同域,一起跟着走。
+ *
+ * 因此:REST 走 www 臂(EdgeOne → 家宽源站,ttfb 现测 0.23~0.29s),WS 钉回 api 臂
+ * (Cloudflare Tunnel,跨境慢但能握手)。**两个域名都必须一直活着** ——
+ * `EXPO_PUBLIC_*` 是 metro 转换期内联进 JS 的,已经装在用户机上的旧包仍然指向
+ * `api.aizhs.top`,撤掉那条臂等于把没升级的用户整体断网。
+ *
+ * 回退到 `API_BASE_URL`(而不是某个写死的域):开发构建里两者同为本机回环,行为零变化;
+ * 生产由 `eas.json` / 两条 release 工作流显式钉住,漏钉即由镜像回归点名。
+ */
+export const WS_BASE_URL = process.env.EXPO_PUBLIC_WS_BASE_URL || API_BASE_URL
+
 export { TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from '@ihui/shared/constants'
 
 /**

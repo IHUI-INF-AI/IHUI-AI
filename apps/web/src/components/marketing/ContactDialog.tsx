@@ -70,8 +70,8 @@ export function ContactDialog({
               width={64}
               height={64}
               className="h-16 w-16 rounded-sm border bg-background object-contain"
-              loading="eager"
-              decoding="sync"
+              loading="lazy"
+              decoding="async"
             />
             <div className="text-xs text-muted-foreground">{t('contactWechatHint')}</div>
           </div>

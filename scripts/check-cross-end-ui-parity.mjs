@@ -685,6 +685,163 @@ export function styleLanguage(src) {
   return 'none'
 }
 
+/**
+ * ── CS 取用形态维(`*.module.css` / CSS-in-JS)─────────────────────────
+ *
+ * **立项凭据(台账 L28828 空白②,2026-10-20 现读)**:本门把"组件自己 import 的本地样式表"
+ * 并进读数面(见 `collect` 的伴生样式表段),而识别式只认**副作用式** import
+ * (`import './x.css'`)。CSS Module 的写法恰恰不是那一种 —— 它必须把类名对象绑到标识符上
+ * (`import styles from './Card.module.css'`),于是这一形态在识别式里**结构性地不存在**:
+ * 门照样打印 "读数口径 = 组件源文本 + 本地样式表",而那张表里永远不会有 module.css。
+ * 后果与票⑫ 修掉的那一条同型,只是方向相反:票⑫ 是"漏跟 `.css` ⇒ 凭空造出'仅 RN 档'假分叉",
+ * 这一格是"漏跟 `.module.css` ⇒ 那一侧的盒档整面隐身,而账面读起来像'该侧没写档'"。
+ * CSS-in-JS(`styled.div\`…\`` / `css\`…\``)另有一处:盒档住在**模板字符串**里,而模板串
+ * 既不是 import 也不是 StyleSheet 键,`styleLanguage()` 会把这种组件判成 `none`。
+ *
+ * 现读(2026-10-21,`git ls-files` 面):`*.module.{css,scss,less}` **0 枚**、
+ * `styled-components`/`@emotion/styled` 取用 **0 枚** —— 所以本维今天展开的是**覆盖面**,
+ * 不是存量;`styleFormCensus` 枚举到 0 时打印"候选 0(覆盖面已展开)",
+ * **绝不打印成"已确认两端同形态"**(§0.3:取不到输入不得记绿;枚举为 0 得分清是"没有"还是"没看")。
+ */
+const STYLE_SPEC_TAIL = String.raw`\.(?:module\.)?(?:css|scss|less)`
+
+/**
+ * 一个组件源文本 → 它**自己** import 的本地样式表说明符(相对路径,未 join)。
+ * 判据只此一份:`collect` 与 `styleForms` 都调它,不再各写一条正则(§0.6)。
+ *
+ * 认三种书写形态,一律要求**相对路径**(以 `.` 开头)且后缀是样式表扩展名:
+ *  - 副作用式 `import './x.css'`(本门原有覆盖面,逐字保留其匹配集 ⇒ **只增不减**);
+ *  - 绑定式 `import s from './x.module.css'` / `import * as s from …` / `import { a } from …`
+ *    —— CSS Module 与 CSS-in-JS 样式表的唯一常见写法,原识别式漏的就是这一支;
+ *  - `require('./x.css')` / 动态 `import('./x.css')`(构建期真会解析的两条出口)。
+ * 刻意**不**做全局 CSS 扫描、不解析包名说明符:把别处的档算到这个组件头上比漏读更贵
+ * (见 `unresolvedClassNames` 头注里记过的"归因过宽"事故)。
+ */
+export function companionStyleSpecs(src) {
+  const code = stripComments(src)
+  const out = new Set()
+  const RE = new RegExp(
+    String.raw`(?:^|\n)[\t ]*import\s+(?:[^'"\n]*?\bfrom\s+)?['"](\.[^'"\n]*?${STYLE_SPEC_TAIL})['"]` +
+      String.raw`|(?:^|\n)[\t ]*import\s+['"](\.[^'"\n]*?${STYLE_SPEC_TAIL})['"]` +
+      String.raw`|\brequire\(\s*['"](\.[^'"\n]*?${STYLE_SPEC_TAIL})['"]\s*\)` +
+      String.raw`|\bimport\(\s*['"](\.[^'"\n]*?${STYLE_SPEC_TAIL})['"]\s*\)`,
+    'g',
+  )
+  for (const m of code.matchAll(RE)) {
+    const spec = m[1] ?? m[2] ?? m[3] ?? m[4]
+    if (spec) out.add(spec)
+  }
+  return [...out].sort()
+}
+
+/**
+ * CSS-in-JS 的**模板串本体**。识别的四支都是"标记模板 + 样式表达式"的形状:
+ * `styled.div\`…\`` / `styled(Button)\`…\`` / `css\`…\`` / `.attrs(…)\`…\``。
+ * 只取模板体,不取插值:插值里的数到运行时才知道,把它当档读就是拿猜测冒充测量。
+ * 返回拼接后的 CSS 文本(交 `readGeometry` / `radiusItemsInLine` 走**既有那把尺子**,
+ * 本门不另写第二份长度解析,§0.6);无命中 ⇒ 空串。
+ */
+export function cssInJsText(src) {
+  const code = stripComments(src)
+  const RE =
+    /(?:\bstyled(?:\.[A-Za-z_$][\w$]*|\s*\([^)]*\))|\bcss(?:\.global)?|\bkeyframes)\s*(?:<[^>]*>\s*)?(?:\([^)]*\)\s*)?`([\s\S]*?)`/g
+  const parts = []
+  for (const m of code.matchAll(RE)) if (m[1] && m[1].trim()) parts.push(m[1])
+  return parts.join('\n')
+}
+
+/** CSS Module 说明符的判别式:带 `.module.` 中缀才算(普通 `.css` 是全局表,归 `blindClasses` 那一维点名)。 */
+export const isModuleStyleSpec = (spec) => /\.module\.(?:css|scss|less)$/i.test(String(spec ?? ''))
+
+/**
+ * 一条腿的**取用形态集合**(不是 `styleLanguage()` 的替代品 —— 那个仍只回一个标签,
+ * 它是 S1 的证据标签、被 `audit` 与台账打印钉着;本函数是覆盖面 census 的输入,两者判的不是
+ * 同一件事,谁也不替代谁)。`none` 不进集合:它表达的是"这条腿没有可归类的取用",
+ * 与"这条腿用了本维不认识的新形态"在账面上必须分开 —— 后者由 `unknownForm` 那一支兜。
+ */
+export function styleForms(src) {
+  const set = new Set()
+  const lang = styleLanguage(src)
+  if (lang !== 'none') set.add(lang)
+  const specs = companionStyleSpecs(src)
+  if (specs.some(isModuleStyleSpec)) set.add('module-css')
+  if (specs.some((s) => !isModuleStyleSpec(s))) set.add('plain-css')
+  if (cssInJsText(src)) set.add('css-in-js')
+  return [...set].sort()
+}
+
+/**
+ * CS census:把**每一条配对腿**(主腿两条 + web 腿两条)按形态归堆,并做两条对账:
+ *
+ *  - **CS1 拆台对账(判红)**:本函数在审计时刻按 `companionStyleSpecs` 现算"这条腿该并进来的
+ *    样式表",与 `collect` 实际解析并记录的那一份逐个比。两边不等 ⇒ 覆盖面被拆(有人把识别式
+ *    或解析式改窄、或另起一条只认副作用式的解析)—— 这正是"面扩了判据没扩 = 白扩"那一型,
+ *    运行时能自己发现,不靠 grep 源码。反向(记录里有而现算没有)同样判红:两把尺子。
+ *  - **CS2 取不到 ⇒ 未判定(不判红也不记绿)**:腿引用了 `.module.css` 而该文件在被审面取不到
+ *    ⇒ 这一侧的盒档**没量**,由 `collect` 并入 `undeterminedEdges` 点名,这里只汇总计数。
+ *    缺的文件也可能是真的没了,所以这一支不冒红;但它绝不进"已测量"那一堆。
+ *
+ * 只报数的:各形态的腿数与逐条名单。"两端各用什么形态写盒档"今天不是违规(className 对
+ * stylesheet 本来就允许),但它是**下一票的输入名单**,所以必须点名而不是只给一个数。
+ */
+export function styleFormCensus(legs, text, resolved = {}) {
+  const byForm = {}
+  const sites = {}
+  const cs1 = []
+  let moduleLegs = 0
+  let cssInJsLegs = 0
+  let unresolvedModule = 0
+  for (const leg of legs) {
+    const src = text[leg.file]
+    if (typeof src !== 'string') continue
+    const forms = styleForms(src)
+    for (const f of forms) {
+      byForm[f] = (byForm[f] ?? 0) + 1
+      ;(sites[f] ??= []).push(`${leg.name}[${leg.side}]`)
+    }
+    if (forms.includes('module-css')) moduleLegs++
+    if (forms.includes('css-in-js')) cssInJsLegs++
+    /**
+     * 现算清单与 collect 记录的清单对账。
+     * `recAll` 含"记了但取不到"的那些行 ⇒ 一条说明符只要 collect 有登记(并进读数面、或点名
+     * 未判定)就不算被拆;两处都不在 = 这一格的盒档**没人负责**,那才是 CS1 要拦的。
+     */
+    const rows = resolved[leg.file]?.specs ?? []
+    const recAll = [...new Set(rows.map((r) => r.rel))]
+    const nowAll = [...new Set(companionStyleSpecs(src).map((s) => resolveRel(leg.file, s)))]
+    const notMerged = nowAll.filter((r) => !recAll.includes(r)).sort()
+    const ghost = recAll.filter((r) => !nowAll.includes(r)).sort()
+    /**
+     * CSS-in-JS 的取材面**没有第二份文件可跟**(盒档就在源文本里),所以它不会被"漏 fetch"拆台,
+     * 但会被"整支提取式被摘掉"拆台:登记说这条腿有 CSS-in-JS 而现算解不出模板体(或反过来),
+     * 两处读的就不是同一件事 ⇒ 同罪并进 CS1,不另立一档(另立一档 = 第二把尺子)。
+     */
+    const nowInJs = cssInJsText(src) ? true : false
+    const recInJs = resolved[leg.file]?.cssInJs === true
+    const modMiss = rows.filter((r) => r.module && r.missing)
+    unresolvedModule += modMiss.length
+    if (notMerged.length || ghost.length || nowInJs !== recInJs)
+      cs1.push({
+        name: leg.name,
+        side: leg.side,
+        file: leg.file,
+        notMerged,
+        ghostRecord: ghost,
+        cssInJsRecord: nowInJs === recInJs ? null : `现算 ${nowInJs} / 登记 ${recInJs}`,
+      })
+  }
+  return {
+    legs: legs.length,
+    scanned: legs.filter((l) => typeof text[l.file] === 'string').length,
+    byForm,
+    sites,
+    moduleLegs,
+    cssInJsLegs,
+    unresolvedModule,
+    cs1,
+  }
+}
+
 /** 图标载体:素材源不同则同一枚箭头的墨迹不可能逐位相同(端内 SVG 由 gen-taro-lucide-icons 从 lucide 提取)。 */
 export function iconCarriers(src) {
   const out = new Set()
@@ -1808,14 +1965,31 @@ export function collect(
    * "RN 有 11 档、小程序 0 档"的**测量假象**(与 §4 记过的"CSS 声明形态整面隐身"同一条洞)。
    * 只跟相对路径 import 的 `.css/.scss/.less`,不做全局 CSS 扫描 —— 把别处的档算到这个组件
    * 头上比漏读更糟。取不到的 ⇒ 并进未判定点名,不得静默当"这一侧没有档"。
+   *
+   * **L28828 空白②(2026-10-21 收)**:说明符的识别式从"只认副作用式 import"换成
+   * `companionStyleSpecs()` 那**一份**(同时认 `import s from './x.module.css'` 的绑定式与
+   * `require()/import()` 两条出口)。原写法认不到 CSS Module 那一型(它必须把类名对象绑到
+   * 标识符上),于是那一侧的盒档整面隐身,而"读数口径"那一行照样打印"已并入本地样式表"——
+   * 与票⑫ 修掉的是同一型失效,方向相反。
+   *
+   * CSS-in-JS(`styled.div\`…\``)走的是另一条:它的盒档**本来就住在组件源文本里**,
+   * `readGeometry` / `radiusItemsInLine` 的 CSS 声明式提取式读得到它,所以**绝不把它再并进
+   * `styles[f]`** —— 同一段文本喂两遍会把同一处档计两次,RD/RE 的计数会凭空翻倍(那是"为消红
+   * 补数字"的反面:为扩面补数字)。本维对它只做两件事:① 在 `styleSources` 里如实登记"这一腿
+   * 用 CSS-in-JS 写盒档,材料来自源文本本身",② 由 CS1 现算复核(见 `styleFormCensus`)。
    */
   const styles = {}
+  const styleSources = {}
   const cssRefs = new Map()
   for (const f of need) {
-    const refs = [
-      ...text[f].matchAll(/(?:^|\n)\s*import\s+['"](\.[^'"]+\.(?:css|scss|less))['"]/g),
-    ].map((m) => resolveRel(f, m[1]))
-    if (refs.length) cssRefs.set(f, [...new Set(refs)])
+    const specs = [...new Set(companionStyleSpecs(text[f]).map((s) => resolveRel(f, s)))].sort()
+    const cssInJs = cssInJsText(text[f])
+    if (specs.length || cssInJs)
+      styleSources[f] = {
+        specs: specs.map((rel) => ({ rel, module: isModuleStyleSpec(rel), missing: false })),
+        cssInJs: cssInJs ? true : false,
+      }
+    if (specs.length) cssRefs.set(f, specs)
   }
   if (cssRefs.size) {
     const all = [...new Set([...cssRefs.values()].flat())]
@@ -1835,6 +2009,8 @@ export function collect(
             spec: rel,
             reason: `${FACE_TXT[face]}取不到伴生样式表`,
           })
+          const row = (styleSources[f]?.specs ?? []).find((r) => r.rel === rel)
+          if (row) row.missing = true
           continue
         }
         parts.push(t)
@@ -1961,6 +2137,9 @@ export function collect(
     text,
     styles,
     blindClasses,
+    // CS 维的登记面(自检 ㉗ 钉 `styles,` 与 `blindClasses,` 必须相邻 —— 新增键放它们后面,
+    // 不是为了让锁让步,而是这两键同属"取材面",顺序本身在表达这件事)。
+    styleSources,
     tiers,
     radius: radiusTable,
     bareRounded,
@@ -3149,6 +3328,40 @@ export function main(argv, repoRoot = ROOT) {
     const baseRs = rootSlotAudit(base.pairs, base.text, base.radius, base.styles ?? {})
     rsRed = rootSlotDelta(rs.findings, baseRs.findings)
   }
+  /**
+   * ── CS 取用形态覆盖面(`*.module.css` / CSS-in-JS;台账 L28828 空白②)──────
+   * 这一维管的不是"两端长得不一样",而是**尺子看得见哪些形态**:盒档写在 `.module.css` 里、
+   * 或写在 `styled.div\`…\`` 的模板串里时,它到底有没有被并进 G/RD/RE/RS 的取材面。
+   * 立因是"读数口径 = 组件源文本 + 本地样式表"那句自述**曾经不成立**:识别式只认副作用式
+   * import,而 CSS Module 必须写成绑定式(`import styles from './Card.module.css'`),于是那一侧
+   * 盒档整面隐身,账面却读起来像"该侧没写档"(= 凭空多出一条对面独有的分叉)。
+   *
+   * 三条读数分开,**不得折成一个数**:
+   *  - `byForm` 覆盖面 census:各形态在配对射程内的取用腿数。候选 0 只说明"该形态在配对腿里
+   *    没取用",**不说明全仓没有、更不说明两端同形态**(§0.3:没判的不得写成判过)。
+   *  - `unresolvedModule`(未判定):腿引用了 `.module.css` 而被审面取不到该文件 ⇒ 那一侧盒档
+   *    没量,已随 `undeterminedEdges` 逐条点名;这里只汇总,不冒红(文件真不存在也是合法态)。
+   *  - `cs1`(判红):**现算的样式表 / CSS-in-JS 清单 ↔ collect 实际登记并进的清单**两处不等。
+   *    两处共用同一份识别式 ⇒ 健康树恒 0,不违反 §12e(它拦的是下一次有人把识别式改窄:
+   *    覆盖面被拆台时不必 grep 源码就能当场红)。
+   * 算在 json 分支之前:人读面与机器面必须读同一次 census,各算一遍就是两把尺子。
+   */
+  const cs = styleFormCensus(
+    [
+      ...(collected.pairs?.pairs ?? []).flatMap((p) => [
+        { name: p.name, side: 'miniapp', file: p.miniapp },
+        { name: p.name, side: 'rn', file: p.rn },
+      ]),
+      ...(collected.webPairs ?? []).flatMap((p) => [
+        { name: p.name, side: 'miniapp', file: p.miniapp },
+        // web 腿的第二条腿装在 `rn` 字段里(配对判据复用 `scan`,字段名不动的理由见 SIDES 头注)。
+        { name: p.name, side: 'web', file: p.rn },
+      ]),
+    ],
+    collected.text,
+    collected.styleSources ?? {},
+  )
+  const csRed = cs.cs1
   if (argv.includes('--emit-baseline')) {
     const next = emitBaseline(res.findings, baseline, web.findings)
     /**
@@ -3222,6 +3435,12 @@ export function main(argv, repoRoot = ROOT) {
           undetermined: rs.undetermined,
           red: rsRed.map((x) => x.name),
         },
+        /**
+         * CS 取用形态覆盖面(台账 L28828 空白②)。机器面必须一起给出 `legs/scanned` 两列:
+         * 只给 `byForm` 的话,"这一形态候选 0"与"这条腿的源文本根本没读到"在 JSON 里分不开,
+         * 而后者是本门最不该被读成"没有取用"的那种。
+         */
+        styleForm: cs,
         // 裸档取用也要能被机器读(G-978049② 立项 / G-277② 落地):"同批重锚三本账"的前提已按
         // import 面复裁推翻(守门 77 不 import radius-tokens、150 走 radius-roles 自带提取式且
         // 早已认裸档、128 锚点零位移),这两份名单是复裁结论与后续审计的机器可读输入 ——
@@ -3607,6 +3826,52 @@ export function main(argv, repoRoot = ROOT) {
       )
     }
   }
+  /* CS 维的判据与 census 在 json 分支之前算好(见 `const cs = styleFormCensus(...)` 处);
+   * 这里只负责打印。三条读数分开打印,零候选也照样打印 —— 不然"这一格没人看"与
+   * "这一格干净"在账面上又长得一样了(§0.3)。 */
+  if (!argv.includes('--json')) {
+    const FORM_LABEL = {
+      className: 'className(Tailwind/utility)',
+      stylesheet: 'stylesheet(RN StyleSheet.create)',
+      mixed: 'mixed',
+      'module-css': 'module-css(CSS Module)',
+      'css-in-js': 'css-in-js(styled/css 模板串)',
+      'plain-css': 'plain-css(副作用式 import 的本地表)',
+    }
+    const seenForms = new Set([...Object.keys(cs.byForm), ...Object.keys(FORM_LABEL)])
+    const bits = [...seenForms]
+      .sort()
+      .map((k) => `${FORM_LABEL[k] ?? k}=${cs.byForm[k] ?? 0}`)
+    console.log(
+      `  ${csRed.length ? '×' : '·'} CS 取用形态覆盖面(${cs.scanned}/${cs.legs} 条配对腿有源文本可读):` +
+        bits.join(' / '),
+    )
+    console.log(
+      `     · 候选 0 的形态读作"配对射程内无取用",**不得**读成"两端同形态"或"全仓无此形态";` +
+        `并入读数面的伴生样式表 ${Object.keys(collected.styles ?? {}).length} 份` +
+        `(其中 CSS Module ${cs.moduleLegs} 条腿)、CSS-in-JS 腿 ${cs.cssInJsLegs} 条 —— ` +
+        `盒档取用与样式表取用是同一份材料,不另起第二把尺子`,
+    )
+    for (const k of ['module-css', 'css-in-js'])
+      for (const s of cs.sites[k] ?? [])
+        console.log(`     · CS ${k} 取用逐条点名:${s}`)
+    if (cs.unresolvedModule)
+      console.log(
+        `  ? CS 未判定:${cs.unresolvedModule} 处 CSS Module 引用在被审面取不到 ⇒ 该侧盒档没量,` +
+          `不当"该侧无档"(逐条见未判定边名单)`,
+      )
+    for (const x of csRed)
+      console.log(
+        `  × CS1 ${x.name}[${x.side}] 覆盖面被拆:${(x.notMerged ?? []).join(' ')}` +
+          `${x.notMerged?.length && x.ghostRecord?.length ? ' | ' : ''}` +
+          `${x.ghostRecord?.length ? `登记里有而现算认不到 ${x.ghostRecord.join(' ')}` : ''}` +
+          `${x.cssInJsRecord ? ` | CSS-in-JS 取材面两处不等(现算 vs 登记:${x.cssInJsRecord})` : ''}`,
+      )
+    console.log(
+      `形态覆盖面维 → 判红 ${csRed.length}(现算清单 ↔ collect 登记清单对账)` +
+        ` / 未判定 ${cs.unresolvedModule} / 覆盖面候选 module-css ${cs.moduleLegs}、css-in-js ${cs.cssInJsLegs}`,
+    )
+  }
   /*
    * ── RS 根槽位对账(层进入判据)────────────────────────────────────
    * 红条件与 IC / SL 同形 = 该族的根槽位分叉是**新增**的(HEAD 面没有),存量只报数。
@@ -3749,6 +4014,13 @@ export function main(argv, repoRoot = ROOT) {
   // web 腿走**同一条先判支**:求和行的前后都被那三条锁按相邻子串钉死
   // (`return rotRed + res.red.length …` 与 `+ (geoRed ? 1 : 0) ? 1 : 0`),插进去必然同时打红三条,
   // 而"只打印不拦提交"正是这些锁存在的理由。WD3 显式要求这一支在,挪掉即红。
+  // CS 维(CS1 覆盖面拆台红)同理走独立先判支,并另立装车锁 CS-L1(见自检)把"折进退出码"钉住 ——
+  // 沿用 aliasRed 的既定形态,不去动那三条锁钉住的文本(动一次 = 三门同时翻红,而红的是尺子不是端)。
+  if (csRed.length) {
+    if (!argv.includes('--json'))
+      console.log(`  × CS 折进退出码:覆盖面拆台 ${csRed.length} 处(现算清单 ↔ collect 登记清单)`)
+    return 1
+  }
   if (webVerdict.red.length || webGhostRed) {
     if (!argv.includes('--json'))
       console.log(
@@ -3812,6 +4084,11 @@ export const __test__ = {
   pickCandidate,
   exitPreferMaps,
   styleLanguage,
+  companionStyleSpecs,
+  cssInJsText,
+  isModuleStyleSpec,
+  styleForms,
+  styleFormCensus,
   iconCarriers,
   clauseDemand,
   parseModuleEdges,

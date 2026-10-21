@@ -228,4 +228,62 @@ test('M9 取材失败判"未判定":eas.json 被删 ⇒ 该面取不到就 exit 
   }
 })
 
+/* ------------------- WS 分域钉回(2026-10-21 REST 基址改判的同型防线) ------------------- */
+
+// 判据(全仓唯一一份实现,住在本文件;门脚本管 REST 的"可见+等值",这里补 WS 的"伴生"):
+//   凡声明了 EXPO_PUBLIC_API_BASE_URL 的 env 块,必须同块声明 EXPO_PUBLIC_WS_BASE_URL。
+// 立因:REST 已搬到 www 快臂,而 /ws/notifications 只在 api 慢臂握手成功(101/404 实测见
+//   apps/mobile-rn/src/lib/config.ts 的 WS_BASE_URL 注释)。WS 变量一旦掉出打包步可见范围,
+//   config.ts 的 `process.env.EXPO_PUBLIC_WS_BASE_URL || API_BASE_URL` 会把 WS **静默带回快臂**
+//   ⇒ 通知/广播/UI 桥/直播聊天四条实时腿在 release 包上集体安静死掉,而 REST 全好 ⇒ 没人报障。
+//   这与 2026-10-13 那起「变量只挂在 prebuild 步」是同一型失效,只是这一型不产生断网噪声。
+// 解析一律 import 门脚本的 scanWorkflow(§22c:不许抄第二份解析/判据)。
+const WS_VAR = 'EXPO_PUBLIC_WS_BASE_URL'
+
+// 解析复用门脚本自己的 scanWorkflow(§22c:不许抄第二份解析/判据);门有 isDirectRun 守卫,import 无副作用。
+const { scanWorkflow, VAR: REST_VAR } = (
+  await import(new URL(`../${GATE_REL}`, import.meta.url).href)
+).__test__
+
+function wsPinGaps(text) {
+  const scanned = scanWorkflow(text)
+  const blocks = []
+  if (scanned.wfEnv[REST_VAR] !== undefined) blocks.push({ where: '工作流顶层 env', b: scanned.wfEnv })
+  for (const job of scanned.jobs) {
+    if (job.env[REST_VAR] !== undefined) blocks.push({ where: `job ${job.id} env`, b: job.env })
+    for (const st of job.steps) {
+      if (st.env[REST_VAR] !== undefined) blocks.push({ where: `step「${st.name}」env`, b: st.env })
+    }
+  }
+  return blocks.filter((x) => x.b[WS_VAR] === undefined).map((x) => x.where)
+}
+
+test('M10 真仓:两条 release 工作流的每个 REST 基址声明块都伴生 WS 基址,且三处取值逐字相同', () => {
+  const eas = JSON.parse(readText(join(REPO, 'apps', 'mobile-rn', 'eas.json')))
+  const prod = eas.build.production.env
+  REST_VAR in prod || assert.fail(`eas.json 缺 ${REST_VAR}`)
+  WS_VAR in prod || assert.fail(`eas.json 缺 ${WS_VAR} ⇒ 分域没钉,实时腿会跟着 REST 一起搬去快臂`)
+  assert.equal(prod[WS_VAR], EXP, `WS 必须钉在能握手的臂(${EXP})`)
+  assert.notEqual(prod[REST_VAR], prod[WS_VAR], 'REST 与 WS 同值 ⇒ 分域形同没做')
+  for (const wf of ['mobile-apk-build.yml', 'mobile-ios-ipa-build.yml']) {
+    const p = join(REPO, '.github', 'workflows', wf)
+    const gaps = wsPinGaps(readText(p))
+    assert.deepEqual(gaps, [], `${wf} 里这些块声明了 REST 却没伴生 WS:${gaps.join('、')}`)
+    for (const m of readText(p).matchAll(new RegExp(`${WS_VAR}:\\s*(\\S+)`, 'g'))) {
+      assert.equal(m[1], EXP, `${wf} 出现非 ${EXP} 的 ${WS_VAR}:${m[1]}`)
+    }
+  }
+})
+
+test('M10b 反向锁:把 WS 行抽掉,wsPinGaps 必须点名那个块(证明 M10 有牙)', () => {
+  assert.ok(WF_GOOD.includes(REST_VAR), '夹具前提:WF_GOOD 真的声明了 REST')
+  assert.ok(!WF_GOOD.includes(WS_VAR), '夹具前提:WF_GOOD 不含 WS ⇒ 它必须是"缺伴生"形态')
+  assert.deepEqual(wsPinGaps(WF_GOOD), ['job apk env'], '抽掉 WS 后必须恰好点名 job 级 env')
+  assert.deepEqual(
+    wsPinGaps(WF_GOOD.replace(`      ${REST_VAR}:`, `      ${WS_VAR}: ${EXP}\n      ${REST_VAR}:`)),
+    [],
+    '补上伴生行后必须归零(否则 M10 是恒红判据,§12e)',
+  )
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

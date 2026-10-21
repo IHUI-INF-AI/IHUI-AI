@@ -51,7 +51,7 @@ import {
   PERSONALITY_PRESETS,
   type PersonalityPresetId,
 } from '@/components/chat/personality-presets'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import {
   SAMPLING_LIMITS,
   resolveSamplingParams,
@@ -158,7 +158,8 @@ export function SamplingParamsPanel({
 }) {
   const t = useTranslations('chat.sampling')
   const tPresets = useTranslations('chat.personalityPresets')
-  const conversationId = useChatStore((s) => s.conversationId)
+  const chatStore = usePaneChatStore()
+  const conversationId = chatStore((s) => s.conversationId)
   const defaults = useSamplingParamsStore((s) => s.defaults)
   const byConversation = useSamplingParamsStore((s) => s.byConversation)
   const setParam = useSamplingParamsStore((s) => s.setParam)
@@ -349,7 +350,8 @@ export function SamplingParamsPanel({
 export function SamplingParamsButton({ disabled = false }: { disabled?: boolean }) {
   const t = useTranslations('chat.sampling')
   const [open, setOpen] = React.useState(false)
-  const conversationId = useChatStore((s) => s.conversationId)
+  const chatStore = usePaneChatStore()
+  const conversationId = chatStore((s) => s.conversationId)
   const defaults = useSamplingParamsStore((s) => s.defaults)
   const byConversation = useSamplingParamsStore((s) => s.byConversation)
 
