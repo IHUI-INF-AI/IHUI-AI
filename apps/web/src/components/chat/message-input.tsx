@@ -23,7 +23,7 @@ import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import type { SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { ContextChipsRow } from '@/components/chat/context-chips-row'
-import { useContextMentionStore } from '@/stores/context-mention'
+import { usePaneMentionStore } from '@/stores/context-mention'
 import { useMentionWiring } from '@/hooks/use-mention-wiring'
 // D68 统一多源建议面板(2026-09-26):六源聚合 + 逐源来源标注 + 部分失败三句降级 +
 // 粘贴引用有效性预览;"旧三浮层入口不回归"为硬验收,FileMentionPopover /
@@ -356,7 +356,9 @@ export function MessageInput({
   // 判定的那一份实现在 @ihui/shared/chat/mention-engine,这里只是接线(可被 renderHook 直接验)。
   const mentionWiring = useMentionWiring({ setValue, inputRef: inputCoreRef })
   // 统一上下文容器「全空不渲染」判定用(渲染仍由容器内 MentionChips 订阅 store 自理)
-  const hasMentions = useContextMentionStore((s) => s.mentions.length > 0)
+  // 票60 普查(2026-10-21):按本窗格的提及草稿判定(无 Provider 的根窗格回落单例,行为零变化)
+  const mentionStore = usePaneMentionStore()
+  const hasMentions = mentionStore((s) => s.mentions.length > 0)
   // D36 会话内输入历史栈接线(纯逻辑在 @ihui/shared/chat,本组件只做 DOM 接线):
   // - getHistoryKey 按 conversationId 分桶(chat:prompt-history:{id}),未持久化会话共用 chat:prompt-history
   // - applyHistoryText 仅回填文本并把光标移到行尾,绝不触碰 references(附件保持不动)

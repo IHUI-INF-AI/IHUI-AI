@@ -254,10 +254,40 @@ export function resolveHeadRef({ root }) {
 /**
  * CAS update-ref:new 落盘且 old 仍是当前值 ⇒ true;old 已被别人推进 ⇒ false(调用方重读 HEAD 重试);
  * 其余失败(锁住 gitdir / ref 非法)照抛 —— 那是"跑不动",不是"抢输了"。
+ *
+ * **丢失集守卫(G-939,2026-10-21 补)**:CAS 只保证"当前值 == oldSha"这一格**原子性**,
+ * 不保证**祖先性**。现读事故:枚 `12898ccd9bcb2b8e094e0057d94e0fab0380293a`(11 枚文件的功能提交)
+ * 被并发 relay 重落 —— main 从 `72b3a20c50` CAS 到一枚"父=更早的 `573e171c72`"的同内容新提交,
+ * CAS 恰好命中(ref 确实还停在 72b3a20c50),但 `rev-list new..old` = {72b3a20c50, 12898ccd9b},
+ * 前者被重落等价顶掉、后者**整枚静默蒸发**,内容退回未提交态(台账 G-939;两道守门 100/168 是
+ * 合并形态判据,对这种单亲重写结构上看不见)。
+ * 本守卫的判据:`oldSha` 必须是 `newSha` 的祖先(`isAncestor` 三态,null ⇒ 判不出,fail-closed 照抛),
+ * 否则枚举丢失集并拒绝 —— 仓内全部旁路落地器都以"现读 HEAD 为父"构造提交,丢失集恒空、守卫零感知;
+ * 它拦的正是"重落到旧基底/把 ref 往回搬"这一型。**有意回退**(如 plan-tasks-merge 复验不过回退
+ * 自家刚落的那枚)必须显式传 `allowNonFastForward: '<非空理由>'`,理由随 ⚠️ 行打印留痕;
+ * 空串/纯空白不构成理由。方向与收敛器一致:判不出不当"判过了",拦下喊话不当静默放行。
  */
-export function casUpdateRef(newSha, oldSha, { root, ref }) {
+export function casUpdateRef(newSha, oldSha, { root, ref, allowNonFastForward = '' } = {}) {
   const target = ref ?? resolveHeadRef({ root })
   if (!target) throw new Error('HEAD 处于 detached 状态 ⇒ 无法 CAS,拒绝盲写')
+  if (oldSha && newSha && newSha !== oldSha) {
+    const anc = isAncestor(oldSha, newSha, { root })
+    if (anc === null)
+      throw new Error(
+        `casUpdateRef:${oldSha.slice(0, 11)}→${newSha.slice(0, 11)} 的祖先关系问不到(半恢复仓/对象缺失)⇒ fail-closed,拒绝写`,
+      )
+    if (anc === false) {
+      const dropped = git(['log', '--format=%h %s', '--max-count=50', `${newSha}..${oldSha}`], { root, allowFail: true })
+      const lines = (dropped ?? '').split(/\r?\n/).filter(Boolean)
+      const shown = lines.length ? `\n  丢失集(${lines.length}${lines.length >= 50 ? '+' : ''} 枚,可达 old 不可达 new):\n${lines.map((l) => `    ${l}`).join('\n')}` : '\n  (丢失集枚举取不到 ⇒ 按非空对待)'
+      const reason = String(allowNonFastForward ?? '').trim()
+      if (!reason)
+        throw new Error(
+          `casUpdateRef:非快进重写 ⇒ 拒(G-939 丢失集守卫;CAS 只保原子性不保祖先性,这一型曾整枚吞掉 12898ccd9b)${shown}\n  有意回退请显式带 allowNonFastForward 理由;重落请先让被丢的提交回到 new 的祖先链(merge/rebase 现读 HEAD),不要把别人已入库的现场抹掉。`,
+        )
+      console.log(`⚠️ casUpdateRef 非快进重写被显式放行(allowNonFastForward="${reason}")${shown}`)
+    }
+  }
   try {
     git(['update-ref', target, newSha, oldSha], { root })
     return true
