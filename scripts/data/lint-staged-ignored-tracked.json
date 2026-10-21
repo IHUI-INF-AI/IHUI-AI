@@ -24,6 +24,17 @@
       ]
     },
     {
+      "dir": ".ihui-agent/tmp",
+      "tier": "A",
+      "owner": "工程执行席(承 G-926)",
+      "until": "2027-04-21",
+      "why": "本账 scopeNote 于 2026-10-21 摘过这一条(当时 60 枚全部取消跟踪、不再命中);现读又命中 2 枚 —— `union-converge` 的 G-32 复清与 plan-pointer-purge 落点各写回一枚 `plan-pointer-purge-2026-10-14-694a78bf*.md`。定 A 而不定 B 的依据只有一条:门 71 的 `archivedCopy` 按**被审面 blob** 取逐字原文、不退磁盘 readdir,取消跟踪会当场削掉 `plan-pointer-purge-*.md` 这条归档豁免的依据 ⇒ 该保留跟踪。目录本身被 .gitignore 覆盖 ⇒ 对 lint-staged 的 git 枚举等于不存在,故按 .ihui-agent/archive 同族先例配就近空转出口件 `.ihui-agent/tmp/.lintstagedrc.json`(内容 `{\"*.tmp-noop\": \"node -e 0\"}`),入库须 `git add -f`(普通 add 会被忽略面挡)。",
+      "consumers": [
+        "scripts/check-plan-line-loss.mjs",
+        "scripts/plan-pointer-purge.mjs"
+      ]
+    },
+    {
       "dir": "apps/ai-service/app/data",
       "tier": "A",
       "owner": "ai-service 侧",
