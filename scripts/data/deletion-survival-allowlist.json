@@ -1,4 +1,425 @@
 {
   "$schemaNote": "check-merge-deletion-resurrection 的唯一豁免台账(第二条例出口;第一条是删除提交信息里的 `intentional-delete:` 短语,那个不住在这里)。每条必须有 path + reason + reviewBy 三字段,缺任一即判『字段不齐』,不得当空表用。path 是**仓库相对路径逐字**(不做归一化:归一化会把两个不同元素并成一对,那比漏配更糟)。reason 必须成句并写明『为什么这一枚合并把它带回来是可接受的』——加条目的前提是逐条读过那枚合并两侧的内容,不得为消红而填。reviewBy 是 ISO 日期,过期一律判红(到期处置只有两条:续期并补证据,或删除条目并同时修好实现)。字段与判据的唯一定义在 scripts/lib/deletion-intent.mjs(ALLOWLIST_FIELDS / entryDefect / rotEntries),本文件不另立规则。另:『路径已不在复活面』这一型(清单腐烂)只在 --strict 档判红,默认档只报名字与条数 —— 理由写在 deletion-intent.mjs 的 rotEntries 注释里(豁免条目对应的合并被推走之后会永久退出提交链窗口,当场判红就是一台与任何提交都无关的恒红门,AGENTS §12e 同型)。",
-  "entries": []
+  "entries": [
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-07-22_archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v3.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v4.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-08-03_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-08-05_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-08-15_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-09-12_archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-09-23_bulk-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-09-25_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-09-29_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-10-07_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-10-08_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_RENUMBER_2026-10-14.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_adjudicated-2026-10-15.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_copy-purge-2026-10-08.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_cross-machine-id-race-2026-09-29.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_dedup-2026-09-26.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_dup-declaration-2026-10-14.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_folded-twins-2026-09-28.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_renumber-2026-09-30.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_superseded-numbering-2026-09-29.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_worktree-residue-2026-09-29.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-10-07.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-10-07_1079151.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-694a78bf-2.md",
+      "reason": "本侧已由提交 988a243cd12 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/permissions/autogenerated/close_in_chrome.toml",
+      "reason": "本侧已由提交 2087031d3c4 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/permissions/autogenerated/open_in_chrome.toml",
+      "reason": "本侧已由提交 2087031d3c4 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-694a78bf.md",
+      "reason": "本侧已由提交 988a243cd12 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 4617fc0d301 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/mobile-rn/tests/fenlei-overlay-statusbar.test.tsx",
+      "reason": "本侧已由提交 2ddd180933b 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0719fccaad2 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data.ts",
+      "reason": "本侧已由提交 7a7751be446 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0719fccaad2 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins.ts",
+      "reason": "本侧已由提交 7a7751be446 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0719fccaad2 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/types.ts",
+      "reason": "本侧已由提交 7a7751be446 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0719fccaad2 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/observability/grafana/dashboards/agent-runtime.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/observability/grafana/provisioning/dashboards/dashboards.yml",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/observability/grafana/provisioning/datasources/datasources.yml",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/saas/grafana/dashboards/tenant-comparison.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/saas/grafana/dashboards/tenant-overview.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/saas/grafana/provisioning/dashboards/dashboards.yml",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/saas/grafana/provisioning/datasources/prometheus.yml",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/ai-agent.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/ai-cost.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/ai-deep-pipeline.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/ai-latency.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/ai-logs.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/alert_history.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/app-golden-signals.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/auth-security.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/bullmq.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/business-funnel.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/cache.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/cloudflared-tunnel.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/exam-usage.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/hls.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/ihui-ai-overview.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/live-room.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/log-stack-health.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/monitor_health.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/oss-storage.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/payment-flow.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/pg_deploy.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/postgresql.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/redis-cluster.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/tenant-usage.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/windows-host.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/ws.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/grafana.ini",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/provisioning/dashboards/dashboards.yml",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/provisioning/datasources/datasources.yml",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-grafana-datasource-wiring.mjs",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-grafana-metric-exists.mjs",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/data/grafana-external-metrics.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/sync-grafana-live-provisioning.mjs",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/check-grafana-datasource-wiring.test.mjs",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/check-grafana-metric-exists.test.mjs",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/verify-grafana-logql-panels.mjs",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/verify-grafana-panel-data.mjs",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    }
+  ]
 }
