@@ -1763,6 +1763,16 @@ function main() {
           C.yellow,
           `⚠️ 吞并复量按应急出口放行(留痕):原因=${String(process.env.IHUI_SKIP_CONVERGE_ADDITION_LOSS_REASON ?? '').trim().slice(0, 160)} —— 被吞新增不会因此回来,请照人工出口补落`,
         )
+      } else {
+        // 过了也得把"判过"这件事量出来:静默通过和"根本没跑到这一步"在日志里同形,
+        // 而这一格正是 G-939 立项的原因(吞并已推送提交被咽下)。判据取不到输入时
+        // atRefUndetermined 非空 ⇒ 单独喊,不并进"零丢失"那句(§0.3)。
+        log(
+          C.dim,
+          `  吞并复量(守门 100 A1,import 复量):某父独有新增丢失 ${loss.lost.length} 处 / 后手补回 ${loss.repaired.length} 处`,
+        )
+        if (loss.atRefUndetermined)
+          log(C.yellow, `  ⚠️ 吞并复量有一维未判定:${loss.atRefUndetermined} ⇒ 本轮结论只按"合并结果是否缺路径"判`)
       }
       // CAS 更新引用:only-if-HEAD 未动。被并发推进则本轮作废转下一轮,
       // 绝不覆盖他人刚落地的本地提交(覆盖=丢 commit,见 AGENTS.md §22)。

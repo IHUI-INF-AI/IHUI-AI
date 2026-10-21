@@ -135,6 +135,62 @@ export function resolveRestoreConsume(input: {
   return { kind: 'consume' }
 }
 
+const SESSION_KEY_SEPARATOR = '::'
+
+/**
+ * 落账键 = **窗格 + 会话**二元身份(G-934,2026-10-21 接回生产时补)。
+ *
+ * 只按 conversationId 建键 ⇒ 两窗格承载同一会话时后写的落点把先写的顶掉 —— 刚在
+ * `use-conversation-pane-cache.ts` 收掉的那一格会在滚动位上重演。窗格半边唯一来源是
+ * `useOptionalPaneId()`(根窗格 = null),不另立第三套身份。
+ *
+ * 与 `conversationCacheKey` 的差别只在一处:根窗格这里保持**裸会话 id** —— 账目存储的
+ * 既存消费面(单窗格形态)就是按 `lookup(conversationId)` 读的,给它加前缀等于凭空换一套键。
+ * 分隔符 `::`:会话 id 是库内 id、窗格 id 形如 `pane-*`,两者都不含该串,不会互撞。
+ */
+export function buildScrollSessionKey(paneId: string | null, conversationId: string): string {
+  return paneId === null ? conversationId : `${paneId}${SESSION_KEY_SEPARATOR}${conversationId}`
+}
+
+/**
+ * 该窗格在这个会话上还没有账目时的回落档:会话起始 = 跟随 + offset 0。
+ * offset 0 是刻意的 —— `phase1TargetOffset` 的"恢复滚动权分支不钉位"说的就是这一档。
+ */
+export function sessionStartFallbackState(savedAt: number): ScrollSessionState {
+  return { offset: 0, following: true, savedAt }
+}
+
+/** 宽限期内一次测量该修正成什么。`'none'` 含"已到期 / 已被用户夺权 / 根本没有宽限期"。 */
+export type RestoreGraceCorrection =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'stick' }
+  | { readonly kind: 'pin'; readonly offset: number }
+
+/**
+ * 消费成功后进入的宽限期档(到期点由本函数唯一决定,不在调用侧另算一次)。
+ * 返回 `null` = 这一格不进入宽限期:钉位档的保存位是脏值时,修正目标既不是"贴底"也不是"某位",
+ * 把它折成 null(跟随档)会把读者拽回底部 —— 宁可一次都不修正。
+ */
+export function createRestoreGrace(state: ScrollSessionState, now: number): RestoreGrace | null {
+  if (state.following) return { until: now + RESTORE_GRACE_MS, target: null }
+  if (!Number.isFinite(state.offset) || state.offset < 0) return null
+  return { until: now + RESTORE_GRACE_MS, target: state.offset }
+}
+
+/**
+ * 宽限期该不该动位置。失效方向恒为"少修正一次":判不出、到期、用户已夺权一律 `'none'` ——
+ * 多钉一次会拽走读者的位置,少钉一次只是位置差一点,前者不可接受。
+ */
+export function resolveRestoreGrace(input: {
+  readonly grace: RestoreGrace | null
+  readonly now: number
+  readonly cancelled: boolean
+}): RestoreGraceCorrection {
+  const { grace, now, cancelled } = input
+  if (!grace || cancelled || now >= grace.until) return { kind: 'none' }
+  return grace.target === null ? { kind: 'stick' } : { kind: 'pin', offset: grace.target }
+}
+
 /** 会话滚动账目的生产单例:活得比 MessageList 卸载更久(SPA 生命周期),刷新即弃。 */
 export const sessionScrollStore = createScrollSessionStore()
 
