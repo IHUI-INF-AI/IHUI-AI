@@ -17,6 +17,7 @@ import {
 } from './models.js'
 import { generateCompactId } from '../../utils/crypto-random.js'
 import { startStopwatch } from '../../utils/elapsed-ms.js'
+import { DEFAULT_AI_SERVICE_URL } from '../../constants.js'
 
 export interface GatewayConfig {
   wsUrl?: string
@@ -80,7 +81,7 @@ export class ClawdbotGateway extends EventEmitter {
     if (this.config.wsUrl) return this.config.wsUrl
     const envWs = process.env.AI_SERVICE_WS_URL
     if (envWs) return envWs
-    const baseUrl = (process.env.AI_SERVICE_URL ?? 'http://localhost:8803').replace(/\/$/, '')
+    const baseUrl = (process.env.AI_SERVICE_URL ?? DEFAULT_AI_SERVICE_URL).replace(/\/$/, '')
     const wsBase = baseUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
     return `${wsBase}/gateway`
   }
