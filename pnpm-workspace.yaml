@@ -32,7 +32,18 @@ nodeLinker: isolated
 # workspace root(按锁文件定位=D:\IHUI-AI),根外虚拟仓实体文件被拒绝解析 → next build
 # 必挂 "Could not find the Next.js package" / "@ihui/shared/*" 全线 Module not found(实测)。
 # 回退后仓库根与 store 同为 D 盘,硬链接优势保留;长路径由 publicHoistPattern 兜底。
-# virtualStoreDir: 'D:/pstore'
+# 2026-10-17 重新启用:迁到 C:/pn(短盘符)。mobile-rn Android 本地构建(ninja/CMake)
+# 依赖短路径;Next.js hermetic 问题仅影响 next build,后续可再评估。
+# 2026-10-17 二次回退默认(项目内 node_modules/.pnpm):"仅影响 next build" 判断有误 ——
+# next dev(Turbopack)同样强制 hermetic root=G:\IHUI-AI,而 apps/web/node_modules/next
+# 等软链的 realpath 在 C:\pn(根外)→ "Could not find the Next.js package" →
+# 8801 全站 500、桌面端窗口无法加载(实测)。IHUI_TURBOPACK_ROOT=C:\ 也不能救:
+# workspace 包(@ihui/api-client)与 tailwindcss 又被判"outside of root"。
+# 虚拟仓必须留在仓库内;store 迁到 G:/.pnpm-store 与仓库同盘以保留硬链接优势。
+# (mobile-rn 长路径由 publicHoistPattern 兜底,与 2026-09-10 回退口径一致。)
+# 2026-10-19: 本地用绝对路径 G:/.pnpm-store(同盘硬链接);
+# 云端 EAS 构建通过 npm_config_store_dir 环境变量覆盖为相对路径 .pnpm-store-cloud。
+storeDir: 'G:/.pnpm-store'
 
 # ============== mobile-rn (Expo + RN) Metro hoist 配置 ==============
 # 解决 pnpm isolated linker 与 Metro bundler 不兼容问题(2026-07-25)
@@ -242,6 +253,7 @@ allowBuilds:
   unrs-resolver: true # oxlint resolver native binding
   '@alicloud/openapi-core': true # 阿里云 SDK build script
   dtrace-provider: true # native dtrace probe(缓存/instrumentation 依赖)
+  less: false
 
 verifyDepsBeforeRun: false
 
