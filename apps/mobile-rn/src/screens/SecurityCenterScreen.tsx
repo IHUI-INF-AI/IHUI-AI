@@ -24,15 +24,14 @@ import {
 import QRCode from 'react-native-qrcode-svg'
 import {
   disableTwoFactor,
+  fetchApi,
   getAuthorizations,
-  getSecurityLogs,
   getSecurityScore,
   getTwoFactorStatus,
   revokeUserSession,
   setupTwoFactor,
   verifyTwoFactor,
   type AuthorizationSession,
-  type SecurityLog,
   type SecurityScore,
   type TwoFactorSetup,
   type TwoFactorStatus,
@@ -50,6 +49,24 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 const PAGE_SIZE = 20
+
+/**
+ * GET /api/user/login-history 的行 = audit_logs 投影(user.ts:117-127)。
+ * 刻意不取 /settings/security-logs:`createSecurityLog` 全仓零调用方 ⇒ security_logs 是恒空表,
+ * 读它的面板永远只能说"暂无",那不是数据,是没接上。
+ */
+interface LoginRow {
+  id: string
+  action: string
+  ip: string | null
+  userAgent: string | null
+  createdAt: string
+}
+
+/** 已知的 audit_logs.action → 词条;表外取值一律显原文,不替它编一个中文名 */
+const ACTION_LABEL_KEY: Record<string, string> = {
+  'auth.login': 'securityCenter.logs.login',
+}
 
 /**
  * 安全中心 —— 对齐 web `/settings` 的「安全中心」页签。
@@ -93,7 +110,7 @@ export default function SecurityCenterScreen() {
   const [sessions, setSessions] = useState<AuthorizationSession[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(true)
 
-  const [logs, setLogs] = useState<SecurityLog[]>([])
+  const [logs, setLogs] = useState<LoginRow[]>([])
   const [logsLoading, setLogsLoading] = useState(true)
 
   const loadScore = useCallback(async () => {
@@ -136,7 +153,9 @@ export default function SecurityCenterScreen() {
   const loadLogs = useCallback(async () => {
     setLogsLoading(true)
     try {
-      const res = await getSecurityLogs({ page: 1, pageSize: PAGE_SIZE })
+      const res = await fetchApi<{ list: LoginRow[] }>(
+        `/api/user/login-history?page=1&pageSize=${PAGE_SIZE}`,
+      )
       setLogs(res.success && res.data ? res.data.list : [])
     } catch {
       setLogs([])
@@ -428,7 +447,9 @@ const LEVEL_LABEL_KEY: Record<SecurityScore['level'], string> = {
             logs.map((l, i) => (
               <View key={l.id} style={[styles.row, i === logs.length - 1 && styles.rowLast]}>
                 <View style={styles.rowMain}>
-                  <Text style={styles.rowPrimary}>{l.action}</Text>
+                  <Text style={styles.rowPrimary}>
+                    {t(ACTION_LABEL_KEY[l.action] ?? l.action)}
+                  </Text>
                   <Text style={styles.rowSecondary}>
                     {fmt(l.createdAt, locale)}
                     {l.ip ? ` · ${l.ip}` : ''}

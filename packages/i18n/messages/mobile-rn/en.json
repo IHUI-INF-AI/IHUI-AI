@@ -2600,8 +2600,9 @@
       "revokeConfirm": "That device will need to sign in again. Continue?"
     },
     "logs": {
-      "title": "Security events",
-      "empty": "No security events"
+      "login": "Login",
+      "title": "Login history",
+      "empty": "No login records"
     }
   },
   "securitySettings": {
