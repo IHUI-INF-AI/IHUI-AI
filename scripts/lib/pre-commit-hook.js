@@ -962,6 +962,39 @@ if ((process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER ?? '1') !== '1') {
 // 🎨 miniapp-taro 跨端样式一致性守门(2026-09-03 立)
 // 背景:web 与 miniapp-taro 必须视觉一致。本次重构建立守门,防止深色科技风回潮、
 //       路由页漏挂 <ThemeRoot>、已删除装饰类重新引用、app.css token 块被手改。
+// ── 专项段档位判据(2026-10-22 立,与 scripts/lib/gate-scope.mjs 同口径)───────────
+// 下面这些"专项守门"跑在 guardian-runner 之外,原先**不看改动性质**,一律全跑。
+// 而 miniapp 跨端样式 / auth refresh / staged typecheck 判的都是**业务代码** ——
+// 实测 auth refresh 扫 9477 个候选、typecheck 走全量 tsconfig include;
+// 在"只改 scripts/lib 工具"的提交里纯属浪费(本轮守门只花 16.5s,这 34s 主要在这里)。
+// 判据与 gate-scope.mjs 逐字同口径:暂存集含 apps/ 或 packages/ ⇒ 全跑;取不到 ⇒ 全跑。
+function stagedIsToolOnly() {
+  try {
+    const out = execSync('git diff --cached --name-only', {
+      encoding: 'utf8',
+      cwd: process.cwd(),
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 30_000,
+    })
+    const paths = String(out)
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (paths.length === 0) return false // 取不到 ⇒ 全跑(失效方向永远是"多跑")
+    return !paths.some((p) => /^(apps|packages)\//.test(p))
+  } catch {
+    return false
+  }
+}
+const TOOL_ONLY = process.env.IHUI_SPECIAL_SCOPE === 'full' ? false : stagedIsToolOnly()
+if (TOOL_ONLY) {
+  console.log(
+    '⚡ 专项档:本次改动只含工具/文档路径 ⇒ 跳过判业务代码的专项守门' +
+      '(强制全跑:IHUI_SPECIAL_SCOPE=full)',
+  )
+}
+
 // 阻塞规则:RULE-1a(禁用色板)/RULE-2(app.css 回归)/RULE-3(路由页 ThemeRoot)/RULE-5(删除类复用)。
 // WARN 规则:RULE-1b(其他 hex)/RULE-4(tsx 内联 hex)不阻塞提交。
 // 跳过方法(紧急):HUSKY_SKIP_MINIAPP_PARITY=1 git commit ...
@@ -969,7 +1002,8 @@ if ((process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER ?? '1') !== '1') {
 //   按**磁盘**读 ⇒ 别人一次未暂存的 miniapp 页面就把无关提交钉红,唯一出路 --no-verify
 //   (约等于链上全部守门对该提交作废,§12e/§12f)。`--staged` ⇒ 判索引 blob,红点从此只可能
 //   来自本次提交;面上取不到 ⇒ 脚本 exit 2「未判定」(不冒红也不记绿),不回退磁盘。
-if (process.env.HUSKY_SKIP_MINIAPP_PARITY !== '1') {
+// 2026-10-22:判业务代码的专项段,专项档(TOOL_ONLY)下跳过 —— 判据见上方 TOOL_ONLY 头注。
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_MINIAPP_PARITY !== '1') {
   if (
     !run(
       '🎨 miniapp-taro 跨端样式一致性守门(2026-09-03 立,判定面=索引 blob)',
@@ -993,7 +1027,8 @@ if (process.env.HUSKY_SKIP_MINIAPP_PARITY !== '1') {
 //       无冷却,形成 6+ 次串行重复 → 后端 refresh token 单次轮转 + RFC 6749 §10.4 family
 //       重用检测 → 整个 family 吊销 → 登录态静默丢失。
 // 跳过方法(紧急):HUSKY_SKIP_AUTH_REFRESH=1 git commit ...
-if (process.env.HUSKY_SKIP_AUTH_REFRESH !== '1') {
+// 2026-10-22:判业务代码的专项段,专项档(TOOL_ONLY)下跳过。
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_AUTH_REFRESH !== '1') {
   if (
     !run(
       '🛡️ auth refresh 单例守门(禁绕过单例直发 /auth/refresh,2026-09-04 立)...',
@@ -1017,7 +1052,9 @@ if (process.env.HUSKY_SKIP_AUTH_REFRESH !== '1') {
 // 假阳性) + tsc 输出按行过滤,只保留错误文件 ∈ staged 的错误。
 // 其他 agent 引入的非 staged 错误自动过滤不阻塞,跨端(web/api/mobile-rn/miniapp-taro/packages/*)统一。
 // 紧急跳过:HUSKY_SKIP_STAGED_TYPECHECK=1 git commit ...
-if (process.env.HUSKY_SKIP_STAGED_TYPECHECK !== '1') {
+// 2026-10-22:staged typecheck 走全量 tsconfig include(实测 30s+),而它判的是 TS 业务代码;
+// 只改 scripts/lib 工具(JS)时结论恒为"无关",专项档下跳过。要全跑:IHUI_SPECIAL_SCOPE=full。
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_STAGED_TYPECHECK !== '1') {
   if (
     !run(
       '🔍 staged typecheck 闸门(全量 include + 过滤非 staged 错误, 2026-08-18 根治)...',
