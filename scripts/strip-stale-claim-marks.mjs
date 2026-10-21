@@ -67,25 +67,61 @@ function releaseNote({ seq }, seat, asOf) {
   return `（认领已释放@${asOf}/${seat}#${seq}）`
 }
 
+/** 留痕条目的唯一键清单:器物自产与补写都必须走它,否则一本账里会出现两种形状。 */
+export const LEDGER_KEYS = [
+  'seq',
+  'at',
+  'seat',
+  'file',
+  'line',
+  'planSha',
+  'form',
+  'mark',
+  'claimDate',
+  'holder',
+  'ageHours',
+  'ttlHours',
+  'ruling',
+  'rowBefore',
+  'rowAfter',
+  'source',
+  'landedSha',
+]
+
+function shapeEntry(e) {
+  const missing = LEDGER_KEYS.filter((k) => !(k in e))
+  if (missing.length > 0) throw new Error(`留痕条目缺字段:${missing.join(',')} ⇒ 拒绝(不许半形状落盘)`)
+  return Object.fromEntries(LEDGER_KEYS.map((k) => [k, e[k]]))
+}
+
 /** 留痕条目:每条等于判据在摘那一刻的读数,逐字段可复算,不是另写一份叙事。 */
 export function buildEntries(plan, { stamp, at, seat, planSha }) {
-  return plan.leases.map((r, i) => ({
-    seq: `${stamp}-${i}`,
-    at,
-    seat,
-    file: FILE,
-    line: r.line,
-    planSha,
-    form: r.mark.form,
-    mark: r.mark.mark,
-    claimDate: r.mark.date ?? null,
-    holder: r.mark.holder ?? null,
-    ageHours: r.ageH === null ? null : r.ageH,
-    ttlHours: plan.ttlHours ?? null,
-    ruling: r.ownerRuling ?? null,
-    rowBefore: r.raw,
-    rowAfter: null,
-  }))
+  return plan.leases.map((r, i) =>
+    shapeEntry({
+      seq: `${stamp}-${i}`,
+      at,
+      seat,
+      file: FILE,
+      line: r.line,
+      planSha,
+      form: r.mark.form,
+      mark: r.mark.mark,
+      claimDate: r.mark.date ?? null,
+      holder: r.mark.holder ?? null,
+      ageHours: r.ageH === null ? null : r.ageH,
+      ttlHours: plan.ttlHours ?? null,
+      ruling: r.ownerRuling ?? null,
+      rowBefore: r.raw,
+      rowAfter: plan.linesAfter.get(r.line) ?? null,
+      source: 'strip',
+      landedSha: null,
+    }),
+  )
+}
+
+/** 收敛器补写历史注记时用的同一构造口(字段清单只有 `LEDGER_KEYS` 一份)。 */
+export function backfillEntry(f) {
+  return shapeEntry({ ...f, file: FILE, source: 'backfill' })
 }
 
 /** 落地后回填 rowAfter 与 landedSha(留痕必须能指回那枚提交,否则只是自述)。 */
@@ -232,6 +268,17 @@ export function planSweep(
   }
 }
 
+/**
+ * 注记里的日期用**本地日**,不用 UTC 日:2026-10-22 实测器物把当天上午摘的牌写成 `@2026-10-21`
+ * (UTC 差 8 小时),结果按日期收敛时整批 58 枚被漏掉 —— 日期对不上账,比写错更难查。
+ * 留痕的 `at` 字段仍是 ISO 时刻(可排序、可比年龄),两者各有各的用途。
+ */
+export function localDay(ms) {
+  const d = new Date(ms)
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
 const LEDGER_FILE = () => path.join(ROOT, '.workbuddy', 'stale-claim-strip.jsonl')
 
 /**
@@ -288,7 +335,7 @@ export function run({
   ownerRuling = process.env.IHUI_CLAIM_STRIP_LEGACY_RULING ?? DEFAULT_LEGACY_RULING,
 } = {}) {
   const ttl = ttlHours ?? claims.resolveTtlHours(null, process.env[claims.TTL_ENV]).ttlHours
-  const asOf = new Date(nowMs).toISOString().slice(0, 10)
+  const asOf = localDay(nowMs)
   let text
   try {
     text = git(['show', `HEAD:${FILE}`])
@@ -503,6 +550,31 @@ function selfTest() {
   const pruned = pruneLedger(aged, { nowMs: now, keepDays: 90 })
   t('老化只按窗口裁且**报出被裁条数**(工作队列必须有死亡机制,静默删等于没记录)', pruned.kept === 1 && pruned.pruned === 1)
   t('老化不静默吞畸形行', pruneLedger('乱码\n', { nowMs: now, keepDays: 90 }).malformed === 1)
+  // 补写条目(收敛器用)必须与器物自产条目同键集 —— 否则留痕里会有两种形状,读数是错的
+  const bf = backfillEntry({
+    seq: 'bf-0',
+    at: '2026-10-22T12:00:00Z',
+    seat: 'x',
+    line: 1,
+    form: 'lease',
+    mark: '（进行中@2026-09-01/甲）',
+    claimDate: '2026-09-01',
+    holder: '甲',
+    ageHours: 1200,
+    ttlHours: 72,
+    ruling: null,
+    rowBefore: '- [ ]（进行中@2026-09-01/甲） X',
+    rowAfter: '- [ ]（认领已释放@2026-10-21/x#bf-0） X',
+    planSha: 'a'.repeat(40),
+    landedSha: 'b'.repeat(40),
+  })
+  const own = sealEntries(ents, { landedSha: 'c'.repeat(40), plan: p })[0]
+  t(
+    '补写条目与器物自产条目键集完全相同(留痕不得有两种形状)',
+    Object.keys(bf).sort().join(',') === Object.keys(own).sort().join(','),
+    `${Object.keys(bf).sort().join(',')} vs ${Object.keys(own).sort().join(',')}`,
+  )
+  t('补写条目必须自证 source,不得冒充器物本轮摘的', bf.source === 'backfill' && own.source === 'strip')
   console.log(`--self-test: ${pass}/${pass + fail} 通过`)
   return fail
 }
@@ -540,7 +612,11 @@ export const __test__ = {
   releaseNote,
   FILE,
   buildEntries,
+  backfillEntry,
+  shapeEntry,
   sealEntries,
+  localDay,
+  LEDGER_KEYS,
   reportLedger,
   pruneLedger,
   appendLedger,
