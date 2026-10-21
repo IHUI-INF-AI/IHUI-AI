@@ -384,10 +384,14 @@ check('routes/index.ts 含 3 个路径别名 redirect (agent-withdrawal-detail/a
 // 7. 前端 P0 5 项接口连通性修复
 console.log(`\n${C.cyan}[7/7] 前端 P0 5 项 API 路径与方法一致性${C.reset}`);
 
-check('use-agent.ts:34 已修复为 /api/agents/list + PageData<Agent> 类型', () => {
+check('use-agent.ts:34 已修复为 /api/agents/{list|my} + PageData<Agent> 类型', () => {
   const p = path.join(ROOT, 'apps/web/src/hooks/use-agent.ts');
   const text = readFileSync(p, 'utf-8');
-  if (!text.includes("'/api/agents/list'")) throw new Error('use-agent.ts 未调用 /api/agents/list');
+  // 2026-10-21:产品把"列全部 agent"改成"列我的 agent"(use-agent.ts:35-40 走 /api/agents/my,
+  // 后端 agents.ts:400-402 在位)⇒ 本项接受这一对现役路径。判的仍是同一件事:
+  // **必须是具名端点 + 不能被降级成 Agent[]**,不是那个字符串长什么样。
+  if (!text.includes("'/api/agents/list'") && !text.includes("'/api/agents/my'"))
+    throw new Error('use-agent.ts 未调用 /api/agents/list 或 /api/agents/my');
   if (text.includes("fetchApi<Agent[]>('/api/agents')")) {
     throw new Error('use-agent.ts:34 仍有错误类型 Agent[]');
   }
