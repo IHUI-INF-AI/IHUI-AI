@@ -2176,6 +2176,16 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-21**
+- 🐞 수정:清零 39/52/73/89/103/135/166/207 存量(白名单/补 windowsHide/迁 api-client 保留错误身份/文档点名/拆 git-guardian/AGENTS 减重 29KB 配逐字归档档); 166 已判 lost 0,归档件 8f5afeb38f6 (0d9f7cbeb97)
+- 🔧 기타:收口弃管暂存批与再生件——README 四语 changelog 再生、轮次收口报告归档、tmp 指针件删除 (2cd07c15647)
+- 📚 문서:2026-10-21b 归档件改为逐字原文(去行号前缀,守门 166 归档豁免要求逐行相等) (8f5afeb38f6)
+- 🐞 수정:chat-element-coverage 私有索引派生 stdin 由 ignore 改 pipe —— [193] 第3b条 input↔stdin 存量红,strict 档 push 门问责,input 才能送达 git (63f1690f45c)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (87f9eebffb1)
+- 🐞 수정:commit-loss-guard 镜像测试 git rev-parse 派生显式接管 stdio —— 触 [193] push 门(判定面 HEAD blob),补 ['ignore','pipe','pipe'] 后判红 0 处 (e94d61259e6)
+- 📚 문서:压缩 AGENTS.md 至 80KB 并补 worktree 生命周期规则;ensure-silent-tasks 审计回收链路健康 (6efeeadc20c)
+- 📚 문서:AGENTS.md 2026-10-21b 重复副本归档件(55 行,零信息损失) (9ceac550c0a)
+
+**2026-10-21**
 - ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1edf32225cd)
 - 🐞 수정:未合并检出 72h 打标保活后回收 + 备份链路 fail-closed (24f0d51a23d)
 - 📚 문서:归档本会话正式规格 spec.md(与 tasks.md 同批,避免再被工作区清理抹掉) (e7483f27609)
@@ -3182,18 +3192,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🐞 수정:补录 SecurityCenter 的 ROUTE_ROOT_BG chrome 档(屏内渲染 NavBar,顶栏 chrome 结构锁判据要求) (c849c50fa11)
 - 🐞 수정:守门 78 补第六维——外部依赖声明↔链接对账,根治 lucide-react 断链致 8 端构建阻断 (c1e0350c61b)
 - 🐞 수정:监控域之外 5 处状态色文字同接角色档 —— 全 web 残留读数 0(同族后缀档 4/4 未动) (1227a9742cb)
-
-**2026-10-21**
-- 📚 문서:G-921 登记第一枚(DomainHubScreen)下沉共享层的进展与凭据(枚 7f9eb8eb00;门 39 全量红 3→2;剩两枚 Connectors/McpStore 归下一批) (0e948350380)
-- 🚀 기능/개선:G-921 第一枚 —— DomainHubScreen 的 UI 下沉到共享层(新建 packages/app/src/features/domain-hub/DomainHubScreen.tsx + index.ts 导出组件与类型),RN 侧改 wrapper(只留路由参数 domain、导航分派 target、i18n 与主题注入),照 PaymentScreen 同一型 wrapper 模式;条目图标以 ReactNode 由平台注入,共享层不绑定图标注册表。门 39 全量档红 3→2(DomainHubScreen 摘掉);共享层与 RN 两侧 typecheck 对本票文件零错误(存量 35 条红全在他人工作树删掉的 drawer-nav / SelectionAnnotationBar 面),eslint 0 finding,水印 verify 通过 (7f9eb8eb00b)
-- 🔧 기타:重钉 web/miniapp ui-routes 自述钉(承接监控域角色档接入) (4a02eacc6f3)
-- 🐞 수정:状态色新增「文字」角色档并接上监控域 48 处 —— 亮档真机实测 1.96~2.62 提到 AA 4.5 以上,暗档取值逐字不动 (c2b0c254a12)
-- 🚀 기능/개선:安全中心对齐 web 设置页(评分/2FA/会话/安全事件) (45088b42447)
-- 🐞 수정:/agents/featured 去掉从未实现的 featured=1 参数并取全量 —— 原来静默只显示 20/124 (37805cd2e1a)
-- 📚 문서:现读订正「锁的初始化写全再原子可见」—— lib/lock-atomic-init 已在 HEAD 且两把锁均已接线;解阻判据①③成立,② 的 deploy-lock 套件本机并发下 flaky(三连跑 50/2、51/1、52/0),未归因不冒领,留一格 (c4f81394c79)
-- ⚡ 성능:英文首页与公开内容页加边缘缓存头 (940303d21db)
-- ⚡ 성능:public 图片按显示尺寸收敛，53MB → 49MB（首屏 logo 867KB→53KB） (52257166e09)
-- 📚 문서:修 tab-bar-metrics 的陈旧注 —— 「颜色一律走 CSS 变量」与实测相反 (cd10e14a8dc)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
