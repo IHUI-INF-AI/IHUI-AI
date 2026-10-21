@@ -52,6 +52,8 @@
  *
  * 取材面(守门 118 / §0.4):全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工逃生舱;
  * 两面旗同给 exit 2;取不到 ⇒ Undetermined ⇒ exit 2「未判定」,不记绿也不冒红。
+ * **被审仓根**:缺省按本脚本位置自推导(生产路径);`--root <dir>` 显式覆盖(G-929:镜像测试
+ * 换仓场景)。给了解答不出的目录 ⇒ exit 2,不静默回落。
  * 射程内 0 件分两档(`judgeEmptyScope`):**staged 档 = 本枚提交不涉及 ⇒ 通过**;全量/工作树档
  * = 判据没跑到东西 ⇒ 判死。立因(2026-10-21 实测):staged 档把"无关提交"也判 exit 2 ⇒ 一枚只动
  * 小程序/脚本的提交被拦,只能跳门;这正是 §12e 的恒红门型,结局是连带废掉全部守门。
@@ -70,7 +72,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   Undetermined,
@@ -84,7 +86,15 @@ import {
 import { maskComments } from './lib/code-mask.mjs'
 
 const SKIP_ENV = 'HUSKY_SKIP_WARM_BORDER'
-const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+// 2026-10-21 G-929:`--root <dir>` 显式指定**被审仓根**,缺省仍按脚本位置自推导 ⇒ 生产行为一字不变。
+// 立因(现读复现):旁路落地器 object-space-land.mjs 在镜像测试里把 LAND_ROOT 指到 mkScratch
+// 临时仓,门体若只认自身位置,`--rev <tree>` 就在主仓里问一枚只存在于临时仓的树 ⇒
+// "fatal: not a tree object" ⇒ 未判定 ⇒ 落地器 fail-closed 拒绝 ⇒ object-space-land 镜像
+// 套件 26 例整批红。判据本身与仓根无关(暖色描边是内容事实),换仓不该让它失明,失明更不该
+// 被当成"拒绝"。镜像用例 M16 钉这一档的三态。
+const rootArgAt = process.argv.indexOf('--root')
+const rootArg = rootArgAt >= 0 ? String(process.argv[rootArgAt + 1] ?? '').trim() : ''
+const root = rootArg !== '' ? resolve(rootArg) : join(dirname(fileURLToPath(import.meta.url)), '..')
 const EXEMPTIONS_REL = 'scripts/data/warm-border-exemptions.json'
 
 /** W1 射程:各端样式与组件源 */
@@ -1121,6 +1131,10 @@ HEAD 面实测 90 处)—— 那是语义档,判它等于 §12e 禁的恒红门�
   node scripts/check-no-warm-border.mjs --rev <tree> --only <a;b;c>
       # 审**将要落盘的那棵树**(命中即红,不给存量豁免)—— 供 object-space-land 当涉事判据:
       # 旁路通道不跑 pre-commit,只活在提交链的门对它等于没装。
+  node scripts/check-no-warm-border.mjs --rev <tree> --only <a;b;c> --root <dir>
+      # 同上,但显式指定**被审仓根**(G-929:镜像测试把仓指到 mkScratch 临时仓时,
+      # 缺省按脚本位置推导会在主仓里问一枚临时仓的树 ⇒ 未判定 ⇒ 落地器误拒)。
+      # 不给 --root 时行为与之前逐字相同(生产路径不受影响)。
   node scripts/check-no-warm-border.mjs --self-test  # 判据自检
   node scripts/check-no-warm-border.mjs --json       # 机器可读输出
 
@@ -1134,6 +1148,13 @@ HEAD 面实测 90 处)—— 那是语义档,判它等于 §12e 禁的恒红门�
     return 0
   }
   if (argv.includes('--self-test')) return runSelfTest()
+
+  // --root 显式给出但目录不存在 ⇒ 未判定(exit 2)。**不静默回落到自推导** ——
+  // 那会把"指错了仓"读成"在主仓审过了",是 fail-open 的一种形态。
+  if (rootArg !== '' && !existsSync(root)) {
+    console.error(`❌ --root 指定的被审仓目录不存在 ⇒ 未判定(不猜要审哪个仓):${rootArg}`)
+    return 2
+  }
 
   // ── 审树档 `--rev <oid> [--only a;b]`:给旁路落地器当涉事判据用 ──
   // 为什么必须有这一档:旁路通道(commit-tree + CAS)**结构上不跑 pre-commit**,
