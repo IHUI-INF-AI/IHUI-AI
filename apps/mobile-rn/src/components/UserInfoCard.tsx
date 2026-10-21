@@ -24,7 +24,6 @@ import { useState } from 'react'
 import { tokens } from '../theme/active-tokens'
 import { Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { appAlert } from './BottomPops'
-import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { formatTokenValue } from '@ihui/shared/utils'
 import { getRoleLabel } from '@ihui/shared/utils'
 import type { UserInfo } from '@ihui/types'
@@ -143,7 +142,8 @@ function UserInfoCardNew({
   const isVip = userInfo.isVip === 1
   const tokenStr = formatTokenValue(userInfo.tokenQuantity)
   const hasAvatarUrl = Boolean(userInfo.avatarUrl)
-  const avatar = userInfo.avatarUrl || DEFAULT_AVATAR_URL
+  // 无头像 URL 时走下方 initials 兜底(原 DEFAULT_AVATAR_URL 指向已失效的 file.aizhs.top,2026-10-21 摘除)
+  const avatar = userInfo.avatarUrl ?? ''
 
   // 成长值进度条(对齐 Uniapp growthValue/growthMax)
   const growthValue = typeof userInfo.growthValue === 'number' ? userInfo.growthValue : undefined

@@ -59,7 +59,6 @@ import {
   type UserStatistics,
 } from '@ihui/api-client'
 import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
-import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { formatDate } from '@ihui/shared/utils/date-utils'
 import { useAuth } from '../context/AuthContext'
 import { rnAuthStore } from '../stores/auth-store'
@@ -872,10 +871,17 @@ function EditProfileModal({
               style={styles.editProfileAvatarBtn}
               accessibilityLabel="更换头像"
             >
-              <Image
-                source={{ uri: user.avatar || DEFAULT_AVATAR_URL }}
-                style={styles.editProfileAvatar}
-              />
+              {user.avatar ? (
+                <Image source={{ uri: user.avatar }} style={styles.editProfileAvatar} />
+              ) : (
+                // 无头像时 initials 兜底(与 UserInfoCard/PersonalInformationCard 同型;
+                // 原 DEFAULT_AVATAR_URL 指向已失效的 file.aizhs.top,2026-10-21 摘除)
+                <View style={styles.editProfileAvatarFallback}>
+                  <Text style={styles.editProfileAvatarFallbackText}>
+                    {(user.nickname ?? user.username ?? '').trim().charAt(0).toUpperCase() || 'U'}
+                  </Text>
+                </View>
+              )}
               <View style={styles.editProfileAvatarBadge}>
                 <Text style={styles.editProfileAvatarBadgeText}>+</Text>
               </View>
@@ -2333,6 +2339,18 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     resizeMode: 'cover',
+  },
+  editProfileAvatarFallback: {
+    width: 72,
+    height: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.brandAccent.DEFAULT,
+  },
+  editProfileAvatarFallbackText: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: tokens.brandAccent.foreground,
   },
   editProfileAvatarBadge: {
     position: 'absolute',
