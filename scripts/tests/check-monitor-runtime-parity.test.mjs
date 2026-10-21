@@ -114,7 +114,10 @@ test('退出码纪律:差异不产生 exit 1;未判定与清单空转 ⇒ exit 2
   const allJudged = gate.runParity(mk(4), [], read, absOverride)
   assert.equal(allJudged.exitCode, 0)
   assert.ok(allJudged.buckets.config.differ === 1 && allJudged.buckets.config.same === 3)
-  const empty = gate.runParity(mk(3), [], read)
+  // 2026-10-20 把 MIN_CONFIG_PAIRS 从 4 调到 3 ⇒ 写死的 `mk(3)` 不再低于阈值,"空转"那一支
+  // 结构上不触发(本门这 1 红就是它)。阈值本身是从真清单派生的,所以这里跟着**导出的常量**走,
+  // 不另拍一个数。
+  const empty = gate.runParity(mk(gate.MIN_CONFIG_PAIRS - 1), [], read)
   assert.equal(empty.exitCode, 2)
   assert.ok(empty.warnings.some((w) => w.includes('空转')))
   const undet = gate.runParity([{ id: 'g', repoRel: 'g', runtimeAbs: '/s/missing' }, ...mk(3)], [], read, { g: '/r/missing', ...absOverride })

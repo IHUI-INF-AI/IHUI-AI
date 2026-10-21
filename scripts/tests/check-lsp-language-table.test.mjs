@@ -237,6 +237,16 @@ test('T6 棘轮双向锁(临时迷你仓):存量 --staged 不判红、新增必�
     copyFileSync(GATE_PATH, join(dir, 'scripts', 'check-lsp-language-table.mjs'))
     copyFileSync(join(ROOT, 'scripts', 'lib', 'face-reader.mjs'), join(dir, 'scripts', 'lib', 'face-reader.mjs'))
     copyFileSync(join(ROOT, 'scripts', 'lib', 'gitdir.mjs'), join(dir, 'scripts', 'lib', 'gitdir.mjs'))
+    // 2026-10-21:依赖闭包变长了 —— `lib/gitdir.mjs` 现在 import `scratch-dir.mjs`,后者又经
+    // `scripts/seal-c-root-stray.mjs` 拉 `lib/flag-value.mjs` 与 `lib/mirror-verify.mjs`。
+    // 夹具原先只拷前两枚 ⇒ 临时仓里 ERR_MODULE_NOT_FOUND(本门这 1 红就是它)。把闭包补全,
+    // 判据与断言方向一个字不动。
+    for (const rel of ['lib/scratch-dir.mjs', 'lib/flag-value.mjs', 'lib/mirror-verify.mjs'])
+      copyFileSync(join(ROOT, 'scripts', rel), join(dir, 'scripts', rel))
+    copyFileSync(
+      join(ROOT, 'scripts', 'seal-c-root-stray.mjs'),
+      join(dir, 'scripts', 'seal-c-root-stray.mjs'),
+    )
     // 2) 夹具:一张自洽语言表 + 完整投影的客户端 + **一条已入库的 T4 存量**
     const write = (rel, body) => {
       const abs = join(dir, rel)
